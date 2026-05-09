@@ -405,19 +405,137 @@ export default function DashboardPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pricedInvs, priceMap, usdKrw])
 
-  // ── Alerts ─────────────────────────────────────────────────────
+  // ── Alerts — 피터린치·버핏 철학 기반 맥락있는 알림 ──────────────
   const alerts = useMemo(() => {
-    const list: { type:'success'|'warning'|'info'; msg: string }[] = []
-    list.push({ type:'info', msg:'시장 개요: 미국 증시는 AI·반도체 중심으로 강세 유지 중입니다.' })
-    pricedInvs.forEach(inv => {
+    type Alert = { type:'success'|'warning'|'info'; label:string; msg:string }
+    const list: Alert[] = []
+
+    // 종목명 단축 헬퍼
+    const shorten = (name: string, max = 14) =>
+      name.length > max ? name.slice(0, max - 1) + '…' : name
+
+    // 빈 포트폴리오 안내
+    if (investments.length === 0) {
+      list.push({ type:'info', label:'GUIDE',
+        msg:'자산관리 메뉴에서 보유 종목을 추가하면 포트폴리오 분석이 시작됩니다.' })
+      return list
+    }
+
+    // ── 수익률 계산 (주식/ETF vs 암호화폐 분리) ──────────────────
+    const withRet = pricedInvs.map(inv => {
       const lv  = live(inv)
       const ret = lv ? ((lv.currentPrice - inv.purchase_price) / inv.purchase_price) * 100 : 0
-      if (ret >= 15)  list.push({ type:'success', msg:`${inv.name} ${fmtPct(ret)} — 수익 실현을 고려해 보세요` })
-      if (ret <= -10) list.push({ type:'warning', msg:`${inv.name} ${fmtPct(ret)} — 손실 중인 종목입니다` })
+      const dayChange = lv?.changePct ?? 0   // 당일 등락률
+      return { inv, ret, dayChange }
+    }).filter(d => isFinite(d.ret))
+
+    const stocksETF  = withRet.filter(d => d.inv.market !== 'CRYPTO')
+    const cryptos    = withRet.filter(d => d.inv.market === 'CRYPTO')
+    const sorted     = [...withRet].sort((a, b) => b.ret - a.ret)
+    const sortedDay  = [...withRet].sort((a, b) => Math.abs(b.dayChange) - Math.abs(a.dayChange))
+
+    // ── 1. 포트폴리오 스냅샷 (STATUS 대체 — 전문적 문구) ─────────
+    const topDayMover = sortedDay[0]
+    const dayMoverStr = topDayMover
+      ? ` | 오늘 최다 등락: ${shorten(topDayMover.inv.name)} ${topDayMover.dayChange >= 0 ? '+' : ''}${topDayMover.dayChange.toFixed(1)}%`
+      : ''
+    list.push({ type:'info', label:'MARKET SCAN',
+      msg: `📡 ${pricedInvs.length}개 종목 실시간 모니터링 중 (주식/ETF ${stocksETF.length} · 코인 ${cryptos.length})${dayMoverStr}` })
+
+    if (pricedInvs.length === 0) return list
+
+    // ── 2. 포트폴리오 전체 수익률 ────────────────────────────────
+    const winners = withRet.filter(d => d.ret > 0).length
+    const losers  = withRet.filter(d => d.ret < 0).length
+    list.push({
+      type: totalRet != null && totalRet >= 0 ? 'success' : 'warning',
+      label: 'PORTFOLIO',
+      msg: totalRet != null
+        ? `전체 수익률 ${fmtPct(totalRet)} | 수익 ${winners}종목 · 손실 ${losers}종목 · 보합 ${withRet.length - winners - losers}종목`
+        : `총 ${investments.length}개 종목 보유 중`
     })
-    return list.slice(0, 6)
+
+    // ── 3. 주식/ETF — 린치 분류 기반 맥락있는 수익 메시지 ─────────
+    // 피터린치 원칙: 좋은 종목은 팔지 마라. 스토리가 유효하면 보유.
+    const lynchHoldMsg: Record<string, string> = {
+      fast_grower: '피터린치: 성장 스토리 유효하면 계속 보유 — 10-bagger를 찾아라',
+      stalwart:    '우량주 수익 구간 — 일부 차익 후 장기 보유 병행 전략 고려',
+      cyclical:    '경기 순환주 고점 접근 가능 — 사이클 전환 징후 모니터링 권장',
+      turnaround:  '회생주 목표 구간 — 펀더멘탈 개선 지속 여부 재확인 필요',
+      asset_play:  '자산 가치 실현 중 — 자산 대비 현재 가격 수준 재점검',
+      slow_grower: '완만한 성장주 수익 구간 — 배당 재투자 전략 병행 권장',
+      na:          '인덱스 펀드 — 피터린치·버핏 공통 추천: 장기 적립 유지',
+    }
+
+    const bestStock = stocksETF.sort((a, b) => b.ret - a.ret)[0]
+    if (bestStock && bestStock.ret > 0) {
+      const cat  = bestStock.inv.lynch_category ?? 'na'
+      const name = shorten(bestStock.inv.name)
+      const holdMsg = lynchHoldMsg[cat] ?? '수익 중 — 기업 스토리 변화 없으면 보유 유지'
+      list.push({ type:'success', label:'TOP GAINER',
+        msg: `🏆 ${name} ${fmtPct(bestStock.ret)} — ${holdMsg}` })
+    }
+
+    // ── 4. 주식/ETF — 손실 종목 경고 (주식 기준: -10%/-20%) ──────
+    const worstStock = stocksETF.sort((a, b) => a.ret - b.ret)[0]
+    if (worstStock && worstStock.ret < -10) {
+      const name = shorten(worstStock.inv.name)
+      const cat  = worstStock.inv.lynch_category ?? ''
+      const cycNote = cat === 'cyclical' ? ' (경기 순환주 — 사이클 하락 구간 확인 필요)' : ''
+      if (worstStock.ret <= -20) {
+        list.push({ type:'warning', label:'RISK ALERT',
+          msg:`🔴 ${name} ${fmtPct(worstStock.ret)}${cycNote} — 급락 구간 진입, 분산 전략 재검토 권장` })
+      } else {
+        list.push({ type:'warning', label:'WATCH',
+          msg:`⚠️ ${name} ${fmtPct(worstStock.ret)}${cycNote} — 하락 지속 중, 투자 전략 점검 권장` })
+      }
+    }
+
+    // ── 5. 암호화폐 — 완전히 다른 기준과 철학 적용 ──────────────
+    // 코인은 변동성이 주식의 3~5배 → 기준치를 넓게 적용
+    cryptos.forEach(({ inv, ret }) => {
+      const name = shorten(inv.name)
+      const isBtcEth = ['BTC','ETH'].includes(inv.ticker.toUpperCase())
+
+      if (ret <= -30) {
+        // -30% 이상 하락: 코인에서도 급락 경고
+        list.push({ type:'warning', label:'CRYPTO RISK',
+          msg:`🔴 ${name} ${fmtPct(ret)} — 급락 구간. 포지션 비중·손절 기준 재검토 권장` })
+      } else if (ret < -15) {
+        // -15~-30%: 코인 변동성 내 정상 조정
+        list.push({ type:'info', label:'CRYPTO DIP',
+          msg:`📉 ${name} ${fmtPct(ret)} — 변동성 정상 범위 내 조정. 장기 관점 유지 또는 분할 매수 고려` })
+      } else if (ret >= 40) {
+        // 코인 +40% 이상: 급등 후 일부 차익 고려
+        list.push({ type:'success', label:'CRYPTO SURGE',
+          msg: isBtcEth
+            ? `🚀 ${name} ${fmtPct(ret)} — HODL 전략 유효. 일부 차익 후 현금 비율 관리 고려`
+            : `🚀 ${name} ${fmtPct(ret)} — 급등 구간. 알트코인 고변동성 감안, 분할 차익 실현 고려` })
+      } else if (ret > 0) {
+        // 코인 소폭 수익: HODL 격려
+        const hodlMsg = isBtcEth
+          ? '디지털 금 특성 — HODL 전략, 단기 변동에 흔들리지 마세요'
+          : '코인 보유 중 — 포트폴리오 비중 5~10% 유지, 리스크 관리 필수'
+        list.push({ type:'success', label:'CRYPTO HOLD',
+          msg:`₿ ${name} ${fmtPct(ret)} — ${hodlMsg}` })
+      }
+    })
+
+    // ── 6. 추가 고수익 주식 종목 (best 제외, 25% 이상) ───────────
+    const extraGainers = sorted.filter(d =>
+      d.inv.market !== 'CRYPTO' && d.ret >= 25 && d.inv.id !== bestStock?.inv.id
+    ).slice(0, 2)
+    extraGainers.forEach(({ inv, ret }) => {
+      const cat  = inv.lynch_category ?? 'na'
+      const name = shorten(inv.name)
+      const holdMsg = lynchHoldMsg[cat] ?? '성장 지속 여부 확인 후 보유 전략 결정'
+      list.push({ type:'success', label:'HOLDING',
+        msg: `📈 ${name} ${fmtPct(ret)} — ${holdMsg}` })
+    })
+
+    return list.slice(0, 8)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pricedInvs, priceMap])
+  }, [investments, pricedInvs, priceMap, totalRet])
 
   const alertBorder: Record<string, string> = { success:'#16a34a', warning:'#dc2626', info:'#2563eb' }
   const alertBg:     Record<string, string> = { success:'rgba(22,163,74,0.08)', warning:'rgba(220,38,38,0.08)', info:'rgba(37,99,235,0.08)' }
@@ -754,8 +872,8 @@ export default function DashboardPage() {
               }}>
                 <span style={{ flexShrink:0, fontSize:14 }}>{alertIcon[a.type]}</span>
                 <div>
-                  <span style={{ fontSize:9, fontWeight:700, color: alertBorder[a.type], letterSpacing:'0.08em', textTransform:'uppercase', display:'block', marginBottom:3 }}>
-                    {a.type === 'success' ? 'PROFIT' : a.type === 'warning' ? 'WARNING' : 'SYSTEM'}
+                  <span style={{ fontSize:9, fontWeight:700, color: alertBorder[a.type], letterSpacing:'0.08em', textTransform:'uppercase' as const, display:'block', marginBottom:3 }}>
+                    {(a as { label?: string }).label ?? (a.type === 'success' ? 'PROFIT' : a.type === 'warning' ? 'WARNING' : 'SYSTEM')}
                   </span>
                   {a.msg}
                 </div>
