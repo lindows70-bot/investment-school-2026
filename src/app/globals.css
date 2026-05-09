@@ -78,3 +78,40 @@
   .tabular   { font-variant-numeric: tabular-nums; }
   .text-balance { text-wrap: balance; }
 }
+
+/* ================================================================
+   모바일 전용 스타일 (max-width: 767px)
+   PC 레이아웃(≥768px)은 절대 영향받지 않음
+   ================================================================ */
+@media (max-width: 767px) {
+
+  /* ── 헤더: 브랜드 로고 표시 / 페이지 타이틀 숨김 ── */
+  .mobile-brand-header {
+    display: flex !important;
+  }
+  .desktop-page-title {
+    display: none !important;
+  }
+
+  /* ── 투자분석 탭: 2열 → 1열 적층 ── */
+  .analysis-tab-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── 모달 / 폼 요소 터치 최적화 ── */
+  button, input, select, textarea, a[href] {
+    min-height: 44px;
+  }
+
+  /* ── 모달 전체화면화 ── */
+  .modal-scroll {
+    max-height: 100vh !important;
+    border-radius: 16px 16px 0 0 !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    max-width: 100% !important;
+  }
+}

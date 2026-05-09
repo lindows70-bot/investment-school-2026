@@ -58,8 +58,8 @@ const MARKET_COLOR: Record<Market, string> = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt   = (n: number) => Math.round(n).toLocaleString('ko-KR')
 const fmtKrw = (n: number) =>
-  n >= 100_000_000 ? `₩${(n / 100_000_000).toFixed(1)}억` :
-  n >= 10_000_000  ? `₩${(n / 10_000).toFixed(0)}만` :
+  n >= 100_000_000 ? `₩${(n/100_000_000).toLocaleString('ko-KR', { minimumFractionDigits:1, maximumFractionDigits:1 })}억` :
+  n >= 10_000      ? `₩${Math.round(n/10_000).toLocaleString('ko-KR')}만` :
   `₩${fmt(n)}`
 
 function toKrw(inv: Investment) {

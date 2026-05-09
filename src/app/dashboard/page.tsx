@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   LineChart, Line, XAxis, YAxis, CartesianGrid, Area, AreaChart,
-  Treemap,
+  Treemap, BarChart, Bar, Cell as BarCell, ReferenceLine, LabelList,
 } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
 
@@ -46,8 +46,8 @@ const toKrw = (inv: Investment, price?: number) => {
 }
 const fmtKrw = (n: number) => {
   const v = isFinite(n) ? n : 0
-  return v >= 1e8 ? `₩${(v/1e8).toFixed(1)}억`
-    : v >= 1e7 ? `₩${(v/1e4).toFixed(0)}만`
+  return v >= 1e8 ? `₩${(v/1e8).toLocaleString('ko-KR', { minimumFractionDigits:1, maximumFractionDigits:1 })}억`
+    : v >= 1e4 ? `₩${Math.round(v/1e4).toLocaleString('ko-KR')}만`
     : `₩${Math.round(v).toLocaleString('ko-KR')}`
 }
 /** undefined/null/NaN 안전한 % 포맷 */
@@ -368,6 +368,43 @@ export default function DashboardPage() {
     }))
   }, [investments])
 
+  // ── 월별 평가손익 (매수월 기준 그룹핑) ────────────────────────
+  const monthlyPnL = useMemo(() => {
+    // 매수월별로 종목 그룹핑
+    const map: Record<string, { cost: number; curr: number; count: number }> = {}
+
+    pricedInvs.forEach(inv => {
+      const lv   = live(inv)
+      if (!lv) return
+      const month = inv.purchase_date.slice(0, 7)   // "YYYY-MM"
+      const exRate = inv.currency === 'USD' ? usdKrw : 1
+      const cost   = inv.purchase_price * inv.quantity * exRate
+      const curr   = lv.currentPrice    * inv.quantity * exRate
+
+      if (!map[month]) map[month] = { cost: 0, curr: 0, count: 0 }
+      map[month].cost  += cost
+      map[month].curr  += curr
+      map[month].count += 1
+    })
+
+    return Object.entries(map)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, { cost, curr, count }]) => {
+        const pnl    = curr - cost
+        const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0
+        const [y, m] = month.split('-')
+        return {
+          month,
+          label:  `${y.slice(2)}년 ${parseInt(m)}월`,
+          pnl:    Math.round(pnl),
+          pnlPct: parseFloat(pnlPct.toFixed(1)),
+          count,
+          isUp:   pnl >= 0,
+        }
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pricedInvs, priceMap, usdKrw])
+
   // ── Alerts ─────────────────────────────────────────────────────
   const alerts = useMemo(() => {
     const list: { type:'success'|'warning'|'info'; msg: string }[] = []
@@ -549,7 +586,83 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── 4. 보유 자산 테이블 + 알림 패널 ── */}
+      {/* ── 4. 월별 평가손익 차트 ── */}
+      <Card>
+        <div style={{ padding:'14px 20px 0', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <div>
+            <div style={{ fontSize:12, fontWeight:700, color:'#9ca3af', letterSpacing:'0.04em', textTransform:'uppercase' as const }}>
+              📊 월별 평가손익 (매수월 기준)
+            </div>
+            <div style={{ fontSize:11, color:'#374151', marginTop:3 }}>
+              각 월에 매수한 종목들의 현재 평가손익 합계
+            </div>
+          </div>
+          {/* 범례 */}
+          <div style={{ display:'flex', gap:14, flexShrink:0 }}>
+            {[['#ef4444','수익'],['#3b82f6','손실']].map(([c,l])=>(
+              <span key={l} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:'#6b7280' }}>
+                <span style={{ width:10, height:10, borderRadius:3, background:c, display:'inline-block' }}/>
+                {l}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ padding:'8px 12px 16px' }}>
+          {monthlyPnL.length === 0 ? (
+            <Empty msg="현재가가 로드되면 차트가 표시됩니다"/>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={monthlyPnL} margin={{ top:20, right:16, bottom:0, left:10 }} barCategoryGap="30%">
+                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false}/>
+                <XAxis
+                  dataKey="label"
+                  tick={{ fill:'#6b7280', fontSize:11 }}
+                  axisLine={false} tickLine={false}
+                />
+                <YAxis
+                  tick={{ fill:'#6b7280', fontSize:10 }}
+                  axisLine={false} tickLine={false} width={56}
+                  tickFormatter={v => v >= 1e8 ? `${(v/1e8).toFixed(1)}억` : v >= 1e4 ? `${(v/1e4).toFixed(0)}만` : v === 0 ? '0' : `${v}`}
+                />
+                <ReferenceLine y={0} stroke="#374151" strokeWidth={1.5}/>
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                <Tooltip content={({ active, payload }: any) => {
+                  if (!active || !payload?.length) return null
+                  const d = payload[0].payload
+                  return (
+                    <div style={{ background:'#1f2937', border:'1px solid #374151', borderRadius:10, padding:'10px 14px', fontSize:12, color:'#f1f5f9' }}>
+                      <div style={{ fontWeight:700, marginBottom:6 }}>{d.label}</div>
+                      <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+                        <span>매수 종목: <strong>{d.count}개</strong></span>
+                        <span style={{ color: d.isUp ? '#ef4444' : '#3b82f6', fontWeight:800, fontSize:14 }}>
+                          {d.pnl >= 0 ? '+' : ''}
+                          {d.pnl >= 1e8 ? `₩${(d.pnl/1e8).toFixed(1)}억` : d.pnl >= 1e4 ? `₩${(d.pnl/1e4).toFixed(0)}만` : `₩${d.pnl.toLocaleString('ko-KR')}`}
+                        </span>
+                        <span style={{ color:'#9ca3af', fontSize:11 }}>수익률 {d.pnlPct >= 0 ? '+' : ''}{d.pnlPct}%</span>
+                      </div>
+                    </div>
+                  )
+                }}/>
+                <Bar dataKey="pnl" radius={[5,5,0,0]} maxBarSize={52}>
+                  {monthlyPnL.map((entry, i) => (
+                    <BarCell key={i} fill={entry.isUp ? '#ef4444' : '#3b82f6'} fillOpacity={0.85}/>
+                  ))}
+                  <LabelList
+                    dataKey="pnlPct"
+                    position="top"
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={(v: any) => `${v >= 0 ? '+' : ''}${v}%`}
+                    style={{ fontSize:10, fontWeight:700, fill:'#9ca3af' }}
+                  />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </Card>
+
+      {/* ── 5. 보유 자산 테이블 + 알림 패널 ── */}
       <div style={{ display:'grid', gridTemplateColumns:'6fr 4fr', gap:16 }}>
 
         {/* 좌: 보유 자산 테이블 */}

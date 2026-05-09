@@ -164,11 +164,35 @@ function InvestmentCard({ inv, live, priceStatus, onEdit, isClassifyDone }: {
         {FRAMES.map(f => <Sparkline key={f} data={charts[f]} frame={f} currency={inv.currency} uid={inv.ticker.toLowerCase()}/>)}
       </div>
 
-      {/* Stats */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:4 }}>
-        <div><div style={{ fontSize:9, color:'#4b5563', marginBottom:2 }}>현재가</div><div style={{ fontSize:12, fontWeight:700, color:'#f1f5f9', fontVariantNumeric:'tabular-nums' }}>{priceStatus==='loading'?'…':fmtPrice(currPrice,inv.currency)}</div></div>
-        <div><div style={{ fontSize:9, color:'#4b5563', marginBottom:2 }}>매수가</div><div style={{ fontSize:12, fontWeight:500, color:'#4b5563', fontVariantNumeric:'tabular-nums' }}>{fmtPrice(costPer,inv.currency)}</div></div>
-        <div style={{ textAlign:'right' }}><div style={{ fontSize:9, color:'#4b5563', marginBottom:2 }}>수익률</div><div style={{ fontSize:13, fontWeight:800, color:live?retColor:'#374151', fontVariantNumeric:'tabular-nums' }}>{live?fmtPct(ret):'—'}</div></div>
+      {/* Stats — 현재가 / 매수가 / 평가손익 / 수익률 */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:4 }}>
+        <div>
+          <div style={{ fontSize:9, color:'#4b5563', marginBottom:2 }}>현재가</div>
+          <div style={{ fontSize:11, fontWeight:700, color:'#f1f5f9', fontVariantNumeric:'tabular-nums' }}>
+            {priceStatus==='loading'?'…':fmtPrice(currPrice,inv.currency)}
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize:9, color:'#4b5563', marginBottom:2 }}>매수가</div>
+          <div style={{ fontSize:11, fontWeight:500, color:'#4b5563', fontVariantNumeric:'tabular-nums' }}>
+            {fmtPrice(costPer,inv.currency)}
+          </div>
+        </div>
+        {/* 평가손익 = (현재가 - 매수가) × 수량 */}
+        <div>
+          <div style={{ fontSize:9, color:'#4b5563', marginBottom:2 }}>평가손익</div>
+          <div style={{ fontSize:11, fontWeight:700, color: live ? retColor : '#374151', fontVariantNumeric:'tabular-nums' }}>
+            {live
+              ? `${(currPrice - costPer) * inv.quantity >= 0 ? '+' : ''}${fmtPrice((currPrice - costPer) * inv.quantity, inv.currency)}`
+              : '—'}
+          </div>
+        </div>
+        <div style={{ textAlign:'right' }}>
+          <div style={{ fontSize:9, color:'#4b5563', marginBottom:2 }}>수익률</div>
+          <div style={{ fontSize:12, fontWeight:800, color:live?retColor:'#374151', fontVariantNumeric:'tabular-nums' }}>
+            {live?fmtPct(ret):'—'}
+          </div>
+        </div>
       </div>
 
       {/* Return bar */}
@@ -300,7 +324,10 @@ export default function AssetsPage() {
   const toKrwTotal = (inv: Investment) => inv.purchase_price*inv.quantity*(inv.currency==='USD'?USD_KRW:1)
   const totalCostKrw = investments.reduce((s,i)=>s+toKrwTotal(i),0)
   const hasUsd = investments.some(i=>i.currency==='USD')
-  const fmtKrw = (n:number) => n>=1e8?`₩${(n/1e8).toFixed(1)}억`:n>=1e7?`₩${(n/1e4).toFixed(0)}만`:`₩${Math.round(n).toLocaleString('ko-KR')}`
+  const fmtKrw = (n:number) =>
+    n>=1e8 ? `₩${(n/1e8).toLocaleString('ko-KR', { minimumFractionDigits:1, maximumFractionDigits:1 })}억`
+    : n>=1e4 ? `₩${Math.round(n/1e4).toLocaleString('ko-KR')}만`
+    : `₩${Math.round(n).toLocaleString('ko-KR')}`
 
   const filtered = investments
     .filter(inv => { const q=search.toLowerCase(); return (filterMarket==='all'||inv.market===filterMarket)&&(!q||inv.name.toLowerCase().includes(q)||inv.ticker.toLowerCase().includes(q)) })

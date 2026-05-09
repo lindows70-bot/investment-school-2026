@@ -67,8 +67,21 @@ export default function TopHeader() {
       flexShrink: 0,
       fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
     }}>
-      {/* 페이지 타이틀 */}
-      <h1 style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9', margin: 0, letterSpacing: '-0.3px' }}>
+      {/* 모바일 전용 브랜드 로고 (PC에서는 사이드바가 담당하므로 숨김) */}
+      <div className="mobile-brand-header" style={{ display: 'none', alignItems: 'center', gap: 8 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-icon.svg" alt="IS" style={{ width: 26, height: 26 }}/>
+        <span style={{
+          fontSize: 15, fontWeight: 900, letterSpacing: '-0.4px',
+          background: 'linear-gradient(135deg, #ffffff 0%, #f5e6c8 40%, #d4af37 70%, #f0f0f0 100%)',
+          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+        }}>
+          2026 투자학교
+        </span>
+      </div>
+
+      {/* 페이지 타이틀 (모바일에서는 브랜드 옆에 숨김, PC에서만 표시) */}
+      <h1 className="desktop-page-title" style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9', margin: 0, letterSpacing: '-0.3px' }}>
         {title}
       </h1>
 

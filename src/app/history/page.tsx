@@ -15,7 +15,6 @@ interface Investment {
 }
 interface LivePrice { currentPrice: number }
 
-const USD_KRW = 1_350
 const MARKET_COLOR: Record<Market, string> = { US:'#34d399', KR:'#60a5fa', CRYPTO:'#fb923c' }
 
 function fmt(n: number) { return Math.round(n).toLocaleString('ko-KR') }
@@ -28,6 +27,33 @@ export default function HistoryPage() {
   const [investments, setInvestments] = useState<Investment[]>([])
   const [priceMap,    setPriceMap]    = useState<Record<string,LivePrice>>({})
   const [loading,     setLoading]     = useState(true)
+  const [usdKrw,      setUsdKrw]      = useState(1_350)
+
+  // 실시간 USD/KRW 환율 — localStorage 공유 캐시
+  useEffect(() => {
+    const CACHE_KEY = 'usd_krw_rate'
+    const load = async () => {
+      try {
+        const cached = localStorage.getItem(CACHE_KEY)
+        if (cached) {
+          const { rate, savedAt } = JSON.parse(cached) as { rate:number; savedAt:string }
+          if (Date.now() - new Date(savedAt).getTime() < 3_600_000) {
+            setUsdKrw(Math.round(rate)); return
+          }
+        }
+        const res = await fetch('/api/exchange-rate')
+        if (res.ok) {
+          const { rate } = await res.json() as { rate:number }
+          if (rate > 0) {
+            const rounded = Math.round(rate)
+            setUsdKrw(rounded)
+            localStorage.setItem(CACHE_KEY, JSON.stringify({ rate:rounded, savedAt:new Date().toISOString() }))
+          }
+        }
+      } catch { /* 기본값 유지 */ }
+    }
+    load()
+  }, [])
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -58,10 +84,10 @@ export default function HistoryPage() {
     return ((lv.currentPrice - inv.purchase_price) / inv.purchase_price) * 100
   }
 
-  const totalCostKrw = investments.reduce((s,i)=>s+i.purchase_price*i.quantity*(i.currency==='USD'?USD_KRW:1),0)
+  const totalCostKrw = investments.reduce((s,i)=>s+i.purchase_price*i.quantity*(i.currency==='USD'?usdKrw:1),0)
   const totalCurrKrw = investments.reduce((s,i)=>{
     const lv=priceMap[i.ticker.toUpperCase()]
-    return s+(lv?lv.currentPrice*i.quantity*(i.currency==='USD'?USD_KRW:1):i.purchase_price*i.quantity*(i.currency==='USD'?USD_KRW:1))
+    return s+(lv?lv.currentPrice*i.quantity*(i.currency==='USD'?usdKrw:1):i.purchase_price*i.quantity*(i.currency==='USD'?usdKrw:1))
   },0)
   const totalPnL = totalCurrKrw - totalCostKrw
   const totalRet = totalCostKrw>0?((totalCurrKrw-totalCostKrw)/totalCostKrw)*100:0
@@ -163,7 +189,9 @@ export default function HistoryPage() {
         </div>
       </div>
 
-      <p style={{ fontSize:11, color:'#374151', textAlign:'center' }}>투자금액 합계는 USD×{USD_KRW.toLocaleString()} 원화 환산 기준입니다</p>
+      <p style={{ fontSize:11, color:'#374151', textAlign:'center' }}>
+        투자금액 합계는 USD×<strong style={{ color:'#4b5563' }}>₩{usdKrw.toLocaleString('ko-KR')}</strong> 실시간 환율 기준 원화 환산입니다
+      </p>
     </div>
   )
 }
