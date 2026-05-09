@@ -2,26 +2,79 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    color-scheme: dark;
+  }
+
+  html {
+    @apply bg-surface-0 text-ink-primary antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { @apply bg-surface-1; }
+  ::-webkit-scrollbar-thumb { @apply bg-surface-5 rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-ink-muted; }
+
+  /* Autofill override */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px #1F2733 inset !important;
+    -webkit-text-fill-color: #F1F5F9 !important;
+    caret-color: #F1F5F9;
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* Input base */
+  .input {
+    @apply w-full px-3.5 py-2.5 bg-surface-3 border border-surface-4 rounded-lg
+           text-ink-primary text-sm placeholder:text-ink-faint
+           focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/40
+           transition-colors duration-150;
+  }
+
+  /* Card base */
+  .card {
+    @apply bg-surface-1 border border-surface-4/60 rounded-card shadow-card;
+  }
+
+  .card-hover {
+    @apply card hover:border-surface-5 hover:bg-surface-2 transition-all duration-200;
+  }
+
+  /* Stat number */
+  .stat-value {
+    @apply text-2xl font-bold tracking-tight tabular-nums;
+  }
+
+  /* Badge */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  /* Table row */
+  .tr {
+    @apply border-b border-surface-4/50 hover:bg-surface-3/40 transition-colors duration-100;
+  }
+
+  /* Section heading */
+  .section-title {
+    @apply text-xs font-semibold uppercase tracking-widest text-ink-muted;
+  }
+
+  /* Glow dot indicator */
+  .dot-up   { @apply w-2 h-2 rounded-full bg-up shrink-0; }
+  .dot-down { @apply w-2 h-2 rounded-full bg-down shrink-0; }
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+  .text-up   { @apply text-up-DEFAULT; }
+  .text-down { @apply text-down-DEFAULT; }
+  .text-warn { @apply text-warn-DEFAULT; }
+  .tabular   { font-variant-numeric: tabular-nums; }
+  .text-balance { text-wrap: balance; }
 }
