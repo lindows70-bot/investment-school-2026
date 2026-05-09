@@ -167,7 +167,6 @@ function AnalysisContent() {
       .filter(inv => inv.market !== 'CRYPTO')  // 크립토 제외
       .map(inv => {
         const fund = fundMap[inv.ticker.toUpperCase()]
-        const ret  = getRet(inv)
         const cat  = inv.lynch_category ?? 'na'
         const weight = ((toKrw(inv) / totalKrw) * 100)
 

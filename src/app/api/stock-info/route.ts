@@ -199,7 +199,8 @@ async function usInfo(ticker: string): Promise<StockInfo> {
     const l52Str = getItem('lowPriceOf52Weeks')
 
     const per = perStr ? parseNum(perStr) : null
-    const eps = epsStr ? parseNum(epsStr) : null
+    // eps는 향후 활용 예정 (현재 미사용)
+    void (epsStr ? parseNum(epsStr) : null)
 
     // 시총: USD 백만 단위로 환산 (거친 추정)
     let marketCap: number | null = null
