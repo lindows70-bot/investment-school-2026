@@ -132,6 +132,8 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
   const [deleting,   setDeleting]   = useState(false)
   const [error,      setError]      = useState<string | null>(null)
   const [confirmDel, setConfirmDel] = useState(false)
+  // DCA 힌트: 같은 티커 이미 보유 중인지 미리 감지
+  const [dcaHint, setDcaHint] = useState<{ id:string; name:string; qty:number; price:number } | null>(null)
 
   const { name: lookedUpName, status: nameStatus, lookup, reset: resetLookup } = useNameLookup()
 
@@ -142,6 +144,26 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
     else resetLookup()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticker, market])
+
+  // DCA 감지: 티커 변경 시 이미 보유 중인 종목인지 확인
+  useEffect(() => {
+    if (isEdit || !ticker.trim()) { setDcaHint(null); return }
+    const sb = createClient()
+    const t = setTimeout(async () => {
+      const { data: { user } } = await sb.auth.getUser()
+      if (!user) { setDcaHint(null); return }
+      const { data } = await sb.from('investments')
+        .select('id,name,quantity,purchase_price')
+        .eq('user_id', user.id)
+        .eq('ticker', ticker.trim().toUpperCase())
+        .maybeSingle()
+      setDcaHint(data
+        ? { id: data.id, name: data.name, qty: data.quantity, price: data.purchase_price }
+        : null)
+    }, 900)
+    return () => clearTimeout(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticker, isEdit])
 
   // 조회 완료 → 종목명 자동 입력 (사용자가 직접 수정하지 않은 경우)
   useEffect(() => {
@@ -175,21 +197,53 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
 
     const normalizedTicker = ticker.trim().toUpperCase()
 
-    // ── 추가 모드: 중복 티커 체크 (maybeSingle: 없어도 에러 없음) ──
+    // ── 추가 모드: 중복 티커 → DCA 추가매수 처리 ──────────────────
     if (!isEdit) {
-      const { data: existing, error: chkErr } = await supabase
+      const { data: existing } = await supabase
         .from('investments')
-        .select('id, name')
+        .select('id,name,quantity,purchase_price')
         .eq('user_id', user.id)
         .eq('ticker', normalizedTicker)
         .maybeSingle()
 
-      if (chkErr) console.warn('[Modal] 중복 체크 오류:', chkErr.message)
-
       if (existing) {
-        setError(`이미 보유 중인 종목입니다 (${existing.name ?? normalizedTicker}). 해당 카드를 클릭하면 수정할 수 있습니다.`)
-        setSaving(false)
-        return
+        // DCA: 평단 재계산 + 수량 합산
+        const existingQty   = existing.quantity
+        const existingPrice = existing.purchase_price
+        const newQty        = parseFloat(quantity)
+        const newPrice      = parseFloat(purchasePrice)
+        const newAvgPrice   = (existingQty * existingPrice + newQty * newPrice) / (existingQty + newQty)
+
+        const { error: upErr } = await supabase
+          .from('investments')
+          .update({
+            quantity:       existingQty + newQty,
+            purchase_price: Math.round(newAvgPrice * 100) / 100,
+          })
+          .eq('id', existing.id)
+
+        if (upErr) { setError(`업데이트 실패: ${upErr.message}`); setSaving(false); return }
+
+        // 거래 내역 자동 기록 (실패해도 종목 업데이트는 성공 처리)
+        try {
+          await supabase.from('transactions').insert({
+            user_id:          user.id,
+            investment_id:    existing.id,
+            ticker:           normalizedTicker,
+            name:             finalName,
+            market,
+            currency,
+            type:             'buy',
+            price:            newPrice,
+            quantity:         newQty,
+            total_amount:     newPrice * newQty,
+            fee:              0,
+            memo:             `DCA 추가매수`,
+            transaction_date: purchaseDate,
+          })
+        } catch { /* ignore */ }
+
+        await onRefresh(); setSaving(false); onClose(); return
       }
     }
 
@@ -217,15 +271,34 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
         .single()
 
       if (error) {
-        // 23505 = unique_violation (DB UNIQUE 제약 위반)
+        // 23505 = unique_violation (혹시라도 중복 시 DCA로 재시도 안내)
         if (error.code === '23505') {
-          setError(`이미 보유 중인 종목입니다 (${normalizedTicker}). 해당 카드를 클릭하면 수정할 수 있습니다.`)
+          setError(`중복 감지 오류 — 페이지를 새로고침 후 다시 시도해주세요.`)
           setSaving(false)
           return
         }
         console.error('[Modal] insert 실패:', error.message)
         await onRefresh()
       } else if (created) {
+        // 신규 종목 최초 매수 → 거래 내역 자동 기록
+        // 신규 종목 최초 매수 거래 기록 (실패해도 종목 추가는 성공 처리)
+        try {
+          await supabase.from('transactions').insert({
+            user_id:          user.id,
+            investment_id:    created.id,
+            ticker:           normalizedTicker,
+            name:             finalName,
+            market,
+            currency,
+            type:             'buy',
+            price:            parseFloat(purchasePrice),
+            quantity:         parseFloat(quantity),
+            total_amount:     parseFloat(purchasePrice) * parseFloat(quantity),
+            fee:              0,
+            memo:             `최초 매수`,
+            transaction_date: purchaseDate,
+          })
+        } catch { /* ignore */ }
         onAdded?.(created as Investment)
         onRefresh().catch(() => {})
       } else {
@@ -263,12 +336,14 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 0' }}>
             <div>
               <h2 style={{ fontSize: 17, fontWeight: 700, color: '#f1f5f9', letterSpacing: '-0.3px', margin: 0 }}>
-                {isEdit ? '종목 수정' : '종목 추가'}
+                {isEdit ? '종목 수정' : dcaHint ? '📊 DCA 추가매수' : '종목 추가'}
               </h2>
               <p style={{ fontSize: 12, color: '#475569', marginTop: 3 }}>
                 {isEdit
                   ? `${initial!.ticker} · ${initial!.name}`
-                  : '피터 린치 분류는 저장 후 AI가 자동 분석합니다'}
+                  : dcaHint
+                    ? `${dcaHint.name} — 평단 재계산 후 거래 내역 자동 기록`
+                    : '피터 린치 분류는 저장 후 AI가 자동 분석합니다'}
               </p>
             </div>
             <button onClick={onClose}
@@ -406,8 +481,8 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
 
               {/* 총 매수금액 미리보기 */}
               {purchasePrice && quantity && parseFloat(purchasePrice) > 0 && parseFloat(quantity) > 0 && (
-                <div style={{ background: '#1a1a1a', border: '1px solid #222', borderRadius: 8, padding: '9px 14px', display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-                  <span style={{ fontSize: 12, color: '#475569' }}>총 매수금액</span>
+                <div style={{ background: '#1a1a1a', border: '1px solid #222', borderRadius: 8, padding: '9px 14px', display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ fontSize: 12, color: '#475569' }}>이번 거래금액</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8', fontVariantNumeric: 'tabular-nums' }}>
                     {currency === 'KRW' ? '₩' : '$'}
                     {(parseFloat(purchasePrice) * parseFloat(quantity)).toLocaleString(
@@ -415,6 +490,41 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
                       { minimumFractionDigits: currency === 'KRW' ? 0 : 2, maximumFractionDigits: currency === 'KRW' ? 0 : 2 }
                     )}
                   </span>
+                </div>
+              )}
+
+              {/* DCA 추가매수 미리보기 배너 */}
+              {dcaHint && !isEdit && (
+                <div style={{ background:'rgba(99,102,241,0.1)', border:'1px solid rgba(99,102,241,0.35)', borderRadius:9, padding:'11px 14px', marginBottom:8 }}>
+                  <div style={{ fontSize:11, fontWeight:800, color:'#818cf8', marginBottom:6, letterSpacing:'0.05em' }}>
+                    📊 DCA 추가매수 감지
+                  </div>
+                  <div style={{ fontSize:12, color:'#64748b', lineHeight:1.7 }}>
+                    현재 보유:{' '}
+                    <strong style={{ color:'#94a3b8' }}>{dcaHint.qty}주</strong>
+                    {' × '}
+                    <strong style={{ color:'#94a3b8', fontVariantNumeric:'tabular-nums' }}>
+                      {currency==='KRW' ? '₩' : '$'}{dcaHint.price.toLocaleString(currency==='KRW'?'ko-KR':'en-US')}
+                    </strong>
+                    {' '}(현재 평단)
+                    {purchasePrice && quantity && parseFloat(purchasePrice) > 0 && parseFloat(quantity) > 0 && (() => {
+                      const addQty  = parseFloat(quantity)
+                      const addPrc  = parseFloat(purchasePrice)
+                      const newQty  = dcaHint.qty + addQty
+                      const newAvg  = (dcaHint.qty * dcaHint.price + addQty * addPrc) / newQty
+                      const sym     = currency === 'KRW' ? '₩' : '$'
+                      const fmt     = (n: number) => n.toLocaleString(currency==='KRW'?'ko-KR':'en-US', { maximumFractionDigits: currency==='KRW'?0:2 })
+                      return (
+                        <>
+                          <br/>
+                          추가 후 →{' '}
+                          <strong style={{ color:'#a5b4fc' }}>{newQty}주</strong>
+                          , 새 평단{' '}
+                          <strong style={{ color:'#a5b4fc', fontVariantNumeric:'tabular-nums' }}>{sym}{fmt(newAvg)}</strong>
+                        </>
+                      )
+                    })()}
+                  </div>
                 </div>
               )}
 
@@ -450,7 +560,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
                 </button>
                 <button type="submit" disabled={saving}
                   style={{ flex: 1, padding: '11px', borderRadius: 9, border: 'none', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: '#fff', fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                  {saving ? <><Spin color="#fff"/> 저장 중…</> : isEdit ? '수정 완료' : '종목 추가'}
+                  {saving ? <><Spin color="#fff"/> 저장 중…</> : isEdit ? '수정 완료' : dcaHint ? '📊 DCA 추가매수' : '종목 추가'}
                 </button>
               </div>
 

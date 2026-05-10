@@ -94,10 +94,10 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
       style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div style={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 18, width: '100%', maxWidth: 700, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.8)', animation: 'slideUp 0.2s ease-out' }}>
+      <div style={{ background: '#1b1e2e', boxShadow: '0 24px 64px rgba(0,0,0,0.8), 10px 10px 28px #0b0d1a, -6px -6px 18px #2b2f46', border: 'none', borderRadius: 18, width: '100%', maxWidth: 700, maxHeight: '90vh', overflowY: 'auto', animation: 'slideUp 0.2s ease-out' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid #1e1e1e' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid #252840' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg,#2563eb,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
               {(student.full_name ?? student.email)[0].toUpperCase()}
@@ -107,7 +107,7 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
               <div style={{ fontSize: 12, color: '#475569', marginTop: 2 }}>{student.email}</div>
             </div>
           </div>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, background: '#1e1e1e', border: '1px solid #2a2a2a', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, background: '#1b1e2e', boxShadow: '3px 3px 8px #0e1020, -2px -2px 6px #282c44', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
         </div>
@@ -120,7 +120,7 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
               { label: '총 투자금액', value: fmtKrw(totalInvested), note: 'USD×1,350 환산' },
               { label: '분류 완료',  value: `${invs.filter(i => i.lynch_category && i.lynch_category !== 'na').length}/${invs.length}` },
             ].map(({ label, value, note }) => (
-              <div key={label} style={{ background: '#1a1a1a', border: '1px solid #222', borderRadius: 10, padding: '12px 14px' }}>
+              <div key={label} style={{ background: '#1b1e2e', boxShadow: '5px 5px 14px #0e1020, -3px -3px 10px #282c44', border: 'none', borderRadius: 10, padding: '12px 14px' }}>
                 <div style={{ fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{label}</div>
                 <div style={{ fontSize: 19, fontWeight: 800, color: '#f1f5f9', fontVariantNumeric: 'tabular-nums' }}>{value}</div>
                 {note && <div style={{ fontSize: 10, color: '#334155', marginTop: 2 }}>{note}</div>}
@@ -131,7 +131,7 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
           {/* 차트 + 마켓 구성 */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
             {/* 린치 분류 도넛 차트 */}
-            <div style={{ background: '#1a1a1a', border: '1px solid #222', borderRadius: 10, padding: '14px 16px' }}>
+            <div style={{ background: '#1b1e2e', boxShadow: '5px 5px 14px #0e1020, -3px -3px 10px #282c44', border: 'none', borderRadius: 10, padding: '14px 16px' }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>피터 린치 분류</div>
               {pieData.length > 0 ? (
                 <>
@@ -160,7 +160,7 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
             </div>
 
             {/* 마켓 구성 */}
-            <div style={{ background: '#1a1a1a', border: '1px solid #222', borderRadius: 10, padding: '14px 16px' }}>
+            <div style={{ background: '#1b1e2e', boxShadow: '5px 5px 14px #0e1020, -3px -3px 10px #282c44', border: 'none', borderRadius: 10, padding: '14px 16px' }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>시장 구성</div>
               {Object.entries(mkDist).map(([m, cnt]) => {
                 const pct = invs.length > 0 ? (cnt / invs.length) * 100 : 0
@@ -170,7 +170,7 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
                       <span style={{ color: MARKET_COLOR[m as Market] ?? '#64748b', fontWeight: 600 }}>{m}</span>
                       <span style={{ color: '#475569', fontVariantNumeric: 'tabular-nums' }}>{cnt}개 ({pct.toFixed(0)}%)</span>
                     </div>
-                    <div style={{ height: 4, background: '#1e1e1e', borderRadius: 99, overflow: 'hidden' }}>
+                    <div style={{ height: 4, background: '#13162a', boxShadow: 'inset 3px 3px 7px #0e1020, inset -2px -2px 5px #282c44', borderRadius: 99, overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${pct}%`, background: MARKET_COLOR[m as Market] ?? '#475569', borderRadius: 99 }}/>
                     </div>
                   </div>
@@ -182,14 +182,14 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
 
           {/* 종목 목록 */}
           {invs.length > 0 && (
-            <div style={{ background: '#1a1a1a', border: '1px solid #222', borderRadius: 10, overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid #1e1e1e', fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>
+            <div style={{ background: '#1b1e2e', boxShadow: '5px 5px 14px #0e1020, -3px -3px 10px #282c44', border: 'none', borderRadius: 10, overflow: 'hidden' }}>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid #252840', fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>
                 보유 종목 ({invs.length})
               </div>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                   <thead>
-                    <tr style={{ background: '#111' }}>
+                    <tr style={{ background: '#141728' }}>
                       {['종목명','티커','시장','매수가','수량','투자금액','분류'].map(h => (
                         <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
@@ -244,13 +244,16 @@ export default function AdminPage() {
   const [sortAsc,   setSortAsc]   = useState(false)
   const [copied,    setCopied]    = useState(false)
 
-  // 배포 URL 자동 감지 (환경변수 → window.location.origin 순서)
+  // 배포 URL 감지: env 우선 → 배포 환경(non-localhost) → localhost 경고
+  const rawOrigin = typeof window !== 'undefined' ? window.location.origin : ''
+  const isLocalhost = rawOrigin.includes('localhost') || rawOrigin.includes('127.0.0.1')
   const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ??
-    (typeof window !== 'undefined' ? window.location.origin : '')
-  const loginUrl = `${appUrl}/login`
+    process.env.NEXT_PUBLIC_APP_URL ||   // .env.local 에 직접 지정한 경우
+    (isLocalhost ? '' : rawOrigin)        // 배포 환경이면 자동 감지
+  const loginUrl = appUrl ? `${appUrl}/login` : ''
 
   const copyLoginUrl = () => {
+    if (!loginUrl) return
     navigator.clipboard.writeText(loginUrl).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
@@ -391,7 +394,7 @@ export default function AdminPage() {
         tr.hoverable:hover td { background: rgba(30,30,30,0.8) !important }
       `}</style>
 
-      <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#f1f5f9', fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+      <div style={{ minHeight: '100vh', background: '#13151f', color: '#f1f5f9', fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
 
         {/* 사이드바 레이아웃이 헤더를 제공합니다 */}
 
@@ -428,7 +431,7 @@ export default function AdminPage() {
                 <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.5px', margin: 0 }}>관리자 대시보드</h1>
                 <p style={{ fontSize: 13, color: '#475569', marginTop: 4 }}>전체 학생 포트폴리오 현황</p>
               </div>
-              <button onClick={fetchData} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, background: '#1e1e1e', border: '1px solid #2a2a2a', color: '#64748b', fontSize: 13, cursor: 'pointer' }}>
+              <button onClick={fetchData} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, background: '#1b1e2e', boxShadow: '4px 4px 10px #0e1020, -2px -2px 7px #282c44', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer' }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/></svg>
                 새로고침
               </button>
@@ -442,7 +445,7 @@ export default function AdminPage() {
                 { label: '총 투자금액',      value: fmtKrw(totalInvested),         accent: '#34d399', note: 'USD×1,350 환산 포함' },
                 { label: '린치 분류 완료',   value: `${lynchDone}개`,              accent: '#fb923c' },
               ].map(({ label, value, accent, note }) => (
-                <div key={label} style={{ background: '#141414', border: '1px solid #222', borderRadius: 12, padding: '16px 18px' }}>
+                <div key={label} style={{ background: '#1b1e2e', boxShadow: '7px 7px 18px #0e1020, -4px -4px 12px #282c44', border: 'none', borderRadius: 12, padding: '16px 18px' }}>
                   <div style={{ fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>{label}</div>
                   <div style={{ fontSize: 22, fontWeight: 800, color: accent, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.4px' }}>{value}</div>
                   {note && <div style={{ fontSize: 10, color: '#334155', marginTop: 4 }}>{note}</div>}
@@ -459,20 +462,20 @@ export default function AdminPage() {
                 <input
                   value={search} onChange={e => setSearch(e.target.value)}
                   placeholder="이름 / 이메일 검색"
-                  style={{ width: '100%', padding: '8px 12px 8px 28px', background: '#141414', border: '1px solid #222', borderRadius: 8, color: '#f1f5f9', fontSize: 13, outline: 'none' }}
-                  onFocus={e  => { e.currentTarget.style.borderColor = '#2563eb' }}
-                  onBlur={e   => { e.currentTarget.style.borderColor = '#222' }}
+                  style={{ width: '100%', padding: '8px 12px 8px 28px', background: '#1b1e2e', boxShadow: 'inset 4px 4px 10px #0e1020, inset -3px -3px 8px #282c44', border: 'none', borderRadius: 8, color: '#dde4f0', fontSize: 13, outline: 'none' }}
+                  onFocus={e  => { e.currentTarget.style.boxShadow = 'inset 4px 4px 10px #0e1020, inset -3px -3px 8px #282c44, 0 0 0 1px #6366f155' }}
+                  onBlur={e   => { e.currentTarget.style.boxShadow = 'inset 4px 4px 10px #0e1020, inset -3px -3px 8px #282c44' }}
                 />
               </div>
               <span style={{ fontSize: 12, color: '#334155', marginLeft: 'auto' }}>{displayed.length}명 표시</span>
             </div>
 
             {/* ── 학생 테이블 ── */}
-            <div style={{ background: '#141414', border: '1px solid #222', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ background: '#1b1e2e', boxShadow: '7px 7px 18px #0e1020, -4px -4px 12px #282c44', border: 'none', borderRadius: 14, overflow: 'hidden' }}>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr style={{ background: '#1a1a1a', borderBottom: '1px solid #222' }}>
+                    <tr style={{ background: '#141728', borderBottom: '1px solid #252840' }}>
                       <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>학생</th>
                       <th style={thStyle('joined')} onClick={() => toggleSort('joined')}>가입일{sortArrow('joined')}</th>
                       <th style={thStyle('count')}  onClick={() => toggleSort('count')}>종목 수{sortArrow('count')}</th>
@@ -493,23 +496,37 @@ export default function AdminPage() {
                             <span style={{ color: '#475569', fontSize: 15, fontWeight: 600 }}>아직 가입한 학생이 없습니다</span>
                             <span style={{ color: '#334155', fontSize: 13 }}>학생들에게 아래 가입 링크를 공유해 주세요</span>
                             {/* 가입 링크 + 복사 버튼 */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 8, padding: '8px 12px' }}>
-                              <code style={{ fontSize: 12, color: '#60a5fa', userSelect: 'all' as const }}>
-                                {loginUrl}
-                              </code>
-                              <button
-                                onClick={copyLoginUrl}
-                                style={{
-                                  padding: '4px 10px', borderRadius: 6, border: 'none',
-                                  background: copied ? '#065f46' : '#1e3a5f',
-                                  color: copied ? '#34d399' : '#60a5fa',
-                                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                                  whiteSpace: 'nowrap', transition: 'all 0.2s',
-                                }}
-                              >
-                                {copied ? '✓ 복사됨' : '🔗 복사'}
-                              </button>
-                            </div>
+                            {loginUrl ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, background: '#1b1e2e', boxShadow: '5px 5px 14px #0e1020, -3px -3px 10px #282c44', borderRadius: 10, padding: '10px 14px' }}>
+                                <code style={{ fontSize: 12, color: '#60a5fa', userSelect: 'all' as const, wordBreak: 'break-all' as const }}>
+                                  {loginUrl}
+                                </code>
+                                <button
+                                  onClick={copyLoginUrl}
+                                  style={{
+                                    padding: '5px 12px', borderRadius: 7, border: 'none',
+                                    background: copied ? '#065f46' : '#1e3a5f',
+                                    color: copied ? '#34d399' : '#60a5fa',
+                                    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                                    whiteSpace: 'nowrap' as const, transition: 'all 0.2s', flexShrink: 0,
+                                  }}
+                                >
+                                  {copied ? '✓ 복사됨' : '🔗 복사'}
+                                </button>
+                              </div>
+                            ) : (
+                              /* localhost 개발 환경 — 배포 URL 미설정 안내 */
+                              <div style={{ marginTop: 8, background: '#1b1e2e', boxShadow: 'inset 4px 4px 10px #0e1020, inset -3px -3px 8px #282c44', borderRadius: 10, padding: '12px 16px', maxWidth: 480, textAlign: 'left' as const }}>
+                                <div style={{ fontSize: 11, color: '#f59e0b', fontWeight: 700, marginBottom: 6 }}>⚠️ 로컬 개발 환경</div>
+                                <div style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.6 }}>
+                                  배포 후 Vercel URL이 자동으로 표시됩니다.<br/>
+                                  지금 바로 설정하려면 <code style={{ color: '#60a5fa', background: '#13162a', padding: '1px 5px', borderRadius: 4 }}>.env.local</code> 에 추가하세요:
+                                </div>
+                                <div style={{ marginTop: 8, background: '#13162a', borderRadius: 7, padding: '8px 12px', fontFamily: 'monospace', fontSize: 11, color: '#34d399' }}>
+                                  NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </td></tr>
@@ -521,7 +538,7 @@ export default function AdminPage() {
                       const pctColor = lynchPct >= 80 ? '#34d399' : lynchPct >= 50 ? '#fb923c' : '#f87171'
 
                       return (
-                        <tr key={s.id} className="hoverable" style={{ borderTop: '1px solid #1e1e1e', background: idx % 2 === 0 ? 'transparent' : '#0f0f0f' }}>
+                        <tr key={s.id} className="hoverable" style={{ borderTop: '1px solid #1e2140', background: idx % 2 === 0 ? 'transparent' : 'rgba(20,23,40,0.5)' }}>
                           {/* 학생 */}
                           <td style={{ padding: '12px 14px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

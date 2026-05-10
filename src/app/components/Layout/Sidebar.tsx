@@ -16,6 +16,11 @@ const ANALYSIS_NAV = [
   { href: '/analysis?tab=buffett', icon: '🛡️', label: '워렌버핏 분석' },
 ]
 
+const RESEARCH_NAV = [
+  { href: '/research',   icon: '🔭', label: '종목 리서치' },
+  { href: '/watchlist',  icon: '⭐', label: '관심종목' },
+]
+
 function SidebarInner() {
   const pathname = usePathname()
   const router   = useRouter()
@@ -191,6 +196,32 @@ function SidebarInner() {
               transition: 'all 0.12s', marginBottom: 3,
             }}
               onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(167,139,250,0.08)'; (e.currentTarget as HTMLAnchorElement).style.color = '#c4b5fd' } }}
+              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; (e.currentTarget as HTMLAnchorElement).style.color = '#6b7280' } }}
+            >
+              <span style={{ fontSize: 17, lineHeight: 1, minWidth: 20, textAlign: 'center' as const }}>{icon}</span>
+              {label}
+            </a>
+          )
+        })}
+
+        {/* ── 리서치 도구 ── */}
+        <div style={{ height: 1, background: '#1f2937', margin: '12px 4px 12px' }}/>
+        <div style={{ fontSize: 10, fontWeight: 700, color: '#374151', letterSpacing: '0.12em', padding: '0 10px 10px', textTransform: 'uppercase' as const }}>
+          RESEARCH
+        </div>
+        {RESEARCH_NAV.map(({ href, icon, label }) => {
+          const active = pathname.startsWith(href)
+          return (
+            <a key={href} href={href} style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '10px 12px', borderRadius: 10, textDecoration: 'none',
+              color:      active ? '#f1f5f9' : '#6b7280',
+              background: active ? 'rgba(251,191,36,0.12)' : 'transparent',
+              borderLeft: `3px solid ${active ? '#fbbf24' : 'transparent'}`,
+              fontSize: 14, fontWeight: active ? 700 : 400,
+              transition: 'all 0.12s', marginBottom: 3,
+            }}
+              onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(251,191,36,0.07)'; (e.currentTarget as HTMLAnchorElement).style.color = '#fde68a' } }}
               onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; (e.currentTarget as HTMLAnchorElement).style.color = '#6b7280' } }}
             >
               <span style={{ fontSize: 17, lineHeight: 1, minWidth: 20, textAlign: 'center' as const }}>{icon}</span>

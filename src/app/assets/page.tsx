@@ -2,18 +2,20 @@
 
 /**
  * /assets — 자산관리
- * 기존 /dashboard 의 종목 카드 그리드를 이 페이지로 이동
+ * 수평 행 레이아웃: 종목정보 | 포트폴리오+재무 | 캔들차트
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ResponsiveContainer, AreaChart, Area, Tooltip, YAxis } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
 import AddInvestmentModal from '@/app/components/AddInvestmentModal'
+import TransactionModal from '@/app/components/TransactionModal'
+import FullCandleChart from '@/app/components/FullCandleChart'
+import { type Candle } from '@/app/components/CandleChart'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Market    = 'US' | 'KR' | 'CRYPTO'
-type TimeFrame = '1D' | '1W' | '1M'
+type TimeFrame = '1D' | '1W' | '1M' | '1Y'
 type LynchKey  = 'slow_grower' | 'stalwart' | 'fast_grower' | 'cyclical' | 'turnaround' | 'asset_play' | 'na'
 type SortKey   = 'return' | 'name' | 'invested'
 type PriceStatus = 'idle' | 'loading' | 'done' | 'error'
@@ -24,19 +26,31 @@ interface Investment {
   market: Market; currency: 'USD'|'KRW'
   purchase_price: number; quantity: number
   purchase_date: string; lynch_category: LynchKey|null
-  created_at?: string  // AddInvestmentModal 타입과 호환 (optional)
+  created_at?: string
 }
 interface LivePrice {
   currentPrice: number; change: number; changePct: number
   charts: Record<TimeFrame, PricePoint[]>; source: 'live'|'cache'; error?: string
+  ohlcCharts?: Record<TimeFrame, Candle[]>
+  dividendYield?:  number | null
+  payoutRatio?:    number | null
+  annualDividend?: number | null
+  per?:        number | null
+  peg?:        number | null
+  eps?:        number | null
+  epsGrowth?:  number | null
+  forwardEps?: number | null
+  pbr?:        number | null
 }
+
+// ─── Design tokens ─────────────────────────────────────────────────────────────
+const N   = '#1b1e2e'
+const SHO = '7px 7px 18px #0e1020, -4px -4px 12px #282c44'
+const SHI = 'inset 4px 4px 10px #0e1020, inset -3px -3px 8px #282c44'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const USD_KRW = 1_350
-const CHART_UP   = '#ef4444'
-const CHART_DOWN = '#3b82f6'
-const CHART_FLAT = '#6b7280'
-const FRAMES: TimeFrame[] = ['1D','1W','1M']
+const FRAMES: TimeFrame[] = ['1D','1W','1M','1Y']
 
 const LYNCH_META: Record<string, { label: string; color: string }> = {
   slow_grower: { label: '완만한 성장주', color: '#9ca3af' },
@@ -51,158 +65,10 @@ const MARKET_COLOR: Record<Market, string> = { US:'#34d399', KR:'#60a5fa', CRYPT
 const ETF_BRANDS = ['TIGER','KODEX','ACE','PLUS','KBSTAR','ARIRANG','HANARO','SOL']
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function chartDir(s: PricePoint[]) {
-  if (s.length < 2) return 'flat'
-  const d = s[s.length-1].v - s[0].v
-  return d > 0 ? 'up' : d < 0 ? 'down' : 'flat'
-}
-function fmtPrice(n: number, cur: 'USD'|'KRW') {
-  return cur === 'KRW'
-    ? n >= 10_000 ? `₩${(n/10_000).toFixed(1)}만` : `₩${Math.round(n).toLocaleString()}`
-    : `$${n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`
-}
-function fmtPct(n: number) { return `${n>0?'+':''}${n.toFixed(2)}%` }
-// toKrwTotal은 페이지 내 stats 계산에 사용
-
-// ─── Sparkline ────────────────────────────────────────────────────────────────
-function Sparkline({ data, frame, currency, uid }: { data: PricePoint[]; frame: TimeFrame; currency: 'USD'|'KRW'; uid: string }) {
-  const dir   = chartDir(data)
-  const color = dir==='up' ? CHART_UP : dir==='down' ? CHART_DOWN : CHART_FLAT
-  const last  = data[data.length-1]?.v ?? 0
-  const gradId = `sg-${uid}-${frame}-${dir}`
-  const yDomain: [number|string, number|string] = (() => {
-    if (!data.length) return ['auto','auto']
-    const vals = data.map(d=>d.v), mn=Math.min(...vals), mx=Math.max(...vals), rng=mx-mn
-    const pad = rng < mx*0.001 ? mx*0.005 : rng*0.15
-    return [mn-pad, mx+pad]
-  })()
-  return (
-    <div style={{ flex:1, minWidth:0 }}>
-      <div style={{ fontSize:9, fontWeight:600, color:'#4b5563', textAlign:'center', marginBottom:3 }}>{frame}</div>
-      <div style={{ height:44 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top:2,right:1,bottom:2,left:1 }}>
-            <defs>
-              <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={color} stopOpacity={0.3}/>
-                <stop offset="100%" stopColor={color} stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <YAxis domain={yDomain} hide width={0}/>
-            <Area type="monotone" dataKey="v" stroke={color} strokeWidth={1.5} fill={`url(#${gradId})`} dot={false} isAnimationActive={false}/>
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <Tooltip content={({ active, payload }: any) => {
-              if (!active||!payload?.length) return null
-              return <div style={{ background:'#1f2937',border:'1px solid #374151',borderRadius:6,padding:'3px 7px',fontSize:11,color:'#f1f5f9',whiteSpace:'nowrap' }}>{fmtPrice(payload[0].value,currency)}</div>
-            }}/>
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-      <div style={{ fontSize:9, color, textAlign:'center', marginTop:2, fontVariantNumeric:'tabular-nums' }}>
-        {data.length ? fmtPrice(last,currency) : '—'}
-      </div>
-    </div>
-  )
-}
-
-// ─── Investment Card ──────────────────────────────────────────────────────────
-function InvestmentCard({ inv, live, priceStatus, onEdit, isClassifyDone }: {
-  inv: Investment; live: LivePrice|null; priceStatus: PriceStatus
-  onEdit: (i: Investment) => void; isClassifyDone: boolean
-}) {
-  const costPer   = inv.purchase_price
-  const currPrice = live?.currentPrice ?? costPer
-  const ret       = ((currPrice - costPer) / costPer) * 100
-  const retColor  = ret > 0.05 ? CHART_UP : ret < -0.05 ? CHART_DOWN : CHART_FLAT
-  const charts    = live?.charts ?? { '1D':[],'1W':[],'1M':[] }
-  const isETF     = ETF_BRANDS.some(k => inv.name.toUpperCase().includes(k))
-  const isNA      = inv.market === 'CRYPTO' || isETF
-
-  return (
-    <div
-      style={{ background:'#111827', border:'1px solid #1f2937', borderRadius:14, padding:'16px 16px 12px', display:'flex', flexDirection:'column', gap:12, cursor:'pointer', transition:'border-color 0.15s,transform 0.15s,box-shadow 0.15s' }}
-      onClick={() => onEdit(inv)}
-      onMouseEnter={e => { const el=e.currentTarget as HTMLDivElement; el.style.borderColor='#374151'; el.style.transform='translateY(-2px)'; el.style.boxShadow='0 8px 28px rgba(0,0,0,0.5)' }}
-      onMouseLeave={e => { const el=e.currentTarget as HTMLDivElement; el.style.borderColor='#1f2937'; el.style.transform='none'; el.style.boxShadow='none' }}
-    >
-      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8 }}>
-        <div style={{ minWidth:0 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
-            <span style={{ fontSize:14, fontWeight:700, color:'#f1f5f9', letterSpacing:'-0.3px' }}>{inv.name}</span>
-            <span style={{ fontSize:9, fontWeight:700, color:MARKET_COLOR[inv.market], border:`1px solid ${MARKET_COLOR[inv.market]}44`, borderRadius:4, padding:'1px 4px' }}>{inv.market}</span>
-          </div>
-          {/* 배지 자리 */}
-          <div style={{ height:22, display:'flex', alignItems:'center', marginTop:4 }}>
-            {(() => {
-              if (isNA) return <span style={{ background:'#1f2937', color:'#6b7280', fontSize:10, padding:'2px 7px', borderRadius:4, border:'1px solid #374151', fontWeight:500 }}>N/A</span>
-              const cat = inv.lynch_category
-              if (cat && cat !== 'na' && LYNCH_META[cat]) return (
-                <span style={{ display:'inline-flex', alignItems:'center', gap:3, padding:'2px 7px', borderRadius:99, fontSize:10, fontWeight:500, color:LYNCH_META[cat].color, background:`${LYNCH_META[cat].color}15`, border:`1px solid ${LYNCH_META[cat].color}35` }}>
-                  {LYNCH_META[cat].label}
-                </span>
-              )
-              if (!isClassifyDone) return (
-                <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:10, color:'#374151' }}>
-                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation:'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-                  분류 중...
-                </span>
-              )
-              return null
-            })()}
-          </div>
-        </div>
-        <span style={{ fontSize:10, fontWeight:600, color:'#4b5563', background:'#1f2937', border:'1px solid #374151', borderRadius:6, padding:'2px 6px', fontFamily:'monospace', flexShrink:0 }}>{inv.ticker}</span>
-      </div>
-
-      {/* Sparklines */}
-      <div style={{ display:'flex', gap:6, background:'#0d1117', borderRadius:9, padding:'8px 6px 6px', border:'1px solid #1f2937', position:'relative' }}>
-        {priceStatus === 'loading' && (
-          <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(13,17,23,0.7)', borderRadius:9 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" style={{ animation:'spin 0.8s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-          </div>
-        )}
-        {FRAMES.map(f => <Sparkline key={f} data={charts[f]} frame={f} currency={inv.currency} uid={inv.ticker.toLowerCase()}/>)}
-      </div>
-
-      {/* Stats — 현재가 / 매수가 / 평가손익 / 수익률 */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:4 }}>
-        <div>
-          <div style={{ fontSize:9, color:'#4b5563', marginBottom:2 }}>현재가</div>
-          <div style={{ fontSize:11, fontWeight:700, color:'#f1f5f9', fontVariantNumeric:'tabular-nums' }}>
-            {priceStatus==='loading'?'…':fmtPrice(currPrice,inv.currency)}
-          </div>
-        </div>
-        <div>
-          <div style={{ fontSize:9, color:'#4b5563', marginBottom:2 }}>매수가</div>
-          <div style={{ fontSize:11, fontWeight:500, color:'#4b5563', fontVariantNumeric:'tabular-nums' }}>
-            {fmtPrice(costPer,inv.currency)}
-          </div>
-        </div>
-        {/* 평가손익 = (현재가 - 매수가) × 수량 */}
-        <div>
-          <div style={{ fontSize:9, color:'#4b5563', marginBottom:2 }}>평가손익</div>
-          <div style={{ fontSize:11, fontWeight:700, color: live ? retColor : '#374151', fontVariantNumeric:'tabular-nums' }}>
-            {live
-              ? `${(currPrice - costPer) * inv.quantity >= 0 ? '+' : ''}${fmtPrice((currPrice - costPer) * inv.quantity, inv.currency)}`
-              : '—'}
-          </div>
-        </div>
-        <div style={{ textAlign:'right' }}>
-          <div style={{ fontSize:9, color:'#4b5563', marginBottom:2 }}>수익률</div>
-          <div style={{ fontSize:12, fontWeight:800, color:live?retColor:'#374151', fontVariantNumeric:'tabular-nums' }}>
-            {live?fmtPct(ret):'—'}
-          </div>
-        </div>
-      </div>
-
-      {/* Return bar */}
-      {live && (
-        <div style={{ width:'100%', height:3, background:'#1f2937', borderRadius:2, marginTop:-6 }}>
-          <div style={{ width:`${Math.min(Math.abs(ret),100)}%`, height:3, background:ret>0?'#ef4444':ret<0?'#3b82f6':'#6b7280', borderRadius:2, transition:'width 0.6s ease' }}/>
-        </div>
-      )}
-    </div>
-  )
+function fmtKrwVal(n:number) {
+  return n>=1e8 ? `₩${(n/1e8).toLocaleString('ko-KR', { minimumFractionDigits:1, maximumFractionDigits:1 })}억`
+    : n>=1e4 ? `₩${Math.round(n/1e4).toLocaleString('ko-KR')}만`
+    : `₩${Math.round(n).toLocaleString('ko-KR')}`
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -218,8 +84,15 @@ export default function AssetsPage() {
   const [modalOpen,     setModalOpen]     = useState(false)
   const [editTarget,    setEditTarget]    = useState<Investment|null>(null)
   const [classifyDone,  setClassifyDone]  = useState<Set<string>>(new Set())
+  const [txModalOpen,   setTxModalOpen]   = useState(false)
+  const [txTarget,      setTxTarget]      = useState<Investment|null>(null)
+  const [txMode,        setTxMode]        = useState<'buy'|'sell'>('buy')
+  const [tfMap,         setTfMap]         = useState<Record<string,TimeFrame>>({})
   const classifyAttempted = useRef<Set<string>>(new Set())
   const abortRef = useRef<AbortController|null>(null)
+
+  const getTf  = (ticker: string): TimeFrame => tfMap[ticker] ?? '1D'
+  const setTf  = (ticker: string, tf: TimeFrame) => setTfMap(prev => ({ ...prev, [ticker]: tf }))
 
   useEffect(() => {
     if (!dbLoading) return
@@ -240,29 +113,20 @@ export default function AssetsPage() {
         .eq('user_id', uid).order('created_at',{ascending:false})
       if (error) { console.error('[Assets]', error.message); setInvestments([]); return }
 
-      // 중복 제거: id 기준 → ticker 기준 순서로 2중 필터
-      // (DB UNIQUE 제약 적용 전 남은 중복 데이터도 UI에서 차단)
       const raw = data ?? []
-
-      // 1) id 중복 제거
       const seenId = new Set<string>()
       const dedupeById = raw.filter(inv => {
         if (seenId.has(inv.id)) return false
-        seenId.add(inv.id)
-        return true
+        seenId.add(inv.id); return true
       })
-
-      // 2) ticker 중복 제거 (같은 ticker → created_at 오래된 것 1개만 유지)
       const seenTicker = new Set<string>()
       const unique = dedupeById.filter(inv => {
         const key = inv.ticker.toUpperCase()
         if (seenTicker.has(key)) return false
-        seenTicker.add(key)
-        return true
+        seenTicker.add(key); return true
       })
-
       if (unique.length !== raw.length)
-        console.warn(`[Assets] 중복 ${raw.length - unique.length}건 필터링됨. supabase-unique-constraint.sql 실행 권장`)
+        console.warn(`[Assets] 중복 ${raw.length - unique.length}건 필터링됨`)
 
       setInvestments(unique)
       return unique
@@ -276,13 +140,80 @@ export default function AssetsPage() {
     const ctrl = new AbortController(); abortRef.current = ctrl
     setPriceStatus('loading')
     try {
-      const res = await fetch('/api/stock-price', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(invs.map(i=>({ticker:i.ticker,market:i.market}))), signal:ctrl.signal })
-      if (!res.ok) throw new Error(`${res.status}`)
-      const results: ({ticker:string}&LivePrice)[] = await res.json()
-      const map: Record<string,LivePrice> = {}; results.forEach(r=>{map[r.ticker.toUpperCase()]=r})
+      // ── 가격 + 재무정보 병렬 조회 ─────────────────────────────────────
+      // stock-price: 현재가·차트·OHLC (빠름)
+      // stock-info:  PER·PEG·EPS·배당 등 상세 재무 (KR annual 포함, 느릴 수 있음)
+      const [priceRes, infoResults] = await Promise.all([
+        fetch('/api/stock-price', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify(invs.map(i=>({ticker:i.ticker,market:i.market}))),
+          signal:ctrl.signal,
+        }),
+        // 전체 종목 조회 (슬라이스 제한 제거) — 배치로 나눠 서버 부하 방지
+        (async () => {
+          const BATCH = 6   // 한 번에 6개씩 순차 조회 (yahoo-finance2 과부하 방지)
+          const all: (unknown)[] = []
+          for (let i = 0; i < invs.length; i += BATCH) {
+            const batch = invs.slice(i, i + BATCH)
+            const results = await Promise.all(
+              batch.map(inv =>
+                fetch(`/api/stock-info?ticker=${encodeURIComponent(inv.ticker)}&market=${inv.market}`)
+                  .then(r => r.ok ? r.json() : null)
+                  .catch(() => null)
+              )
+            )
+            all.push(...results)
+          }
+          return all
+        })(),
+      ])
+
+      if (!priceRes.ok) throw new Error(`${priceRes.status}`)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const results: ({ticker:string}&LivePrice&{fundamentals?:any})[] = await priceRes.json()
+
+      // stock-info map 구성 (ticker → fundamentals)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const infoMap: Record<string, any> = {}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      infoResults.forEach((info: any, i: number) => {
+        if (info && !info.error && invs[i]) {
+          infoMap[invs[i].ticker.toUpperCase()] = info.fundamentals ?? {}
+        }
+      })
+
+      const map: Record<string,LivePrice> = {}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const toN = (v: unknown): number | null => {
+        if (typeof v === 'number' && isFinite(v) && v !== 0) return v
+        return null
+      }
+      results.forEach(r => {
+        // stock-info의 fundamentals 우선, 없으면 stock-price 것 사용
+        const f = infoMap[r.ticker.toUpperCase()] ?? r.fundamentals ?? {}
+
+        const eg = f.earningsGrowth
+        const epsGrowth = eg != null
+          ? (Math.abs(eg) < 20 ? +(eg * 100).toFixed(1) : +eg.toFixed(1))
+          : null
+
+        map[r.ticker.toUpperCase()] = {
+          ...r,
+          per:           toN(f.pe),
+          peg:           toN(f.peg),
+          eps:           toN(f.eps),
+          epsGrowth,
+          forwardEps:    toN(f.forwardEps),
+          pbr:           toN(f.pbr),
+          dividendYield: toN(f.dividendYield),
+          payoutRatio:   toN(f.payoutRatio),
+          annualDividend: toN(f.annualDividend),
+        }
+      })
       setPriceMap(map); setPriceStatus('done')
     } catch(e) { if ((e as Error).name !== 'AbortError') setPriceStatus('error') }
   }, [])
+
 
   const autoClassify = useCallback(async (invs: Investment[]) => {
     const targets = invs.filter(i => !i.lynch_category && i.market !== 'CRYPTO' && !classifyAttempted.current.has(i.id))
@@ -318,16 +249,16 @@ export default function AssetsPage() {
     setInvestments(prev => { if (prev.some(p=>p.id===inv.id)) return prev; fetchPrices([inv]); autoClassify([inv]); return [inv,...prev] })
   }, [fetchPrices, autoClassify])
 
-  const live = (inv: Investment) => priceMap[inv.ticker.toUpperCase()] ?? null
-  const getReturn = (inv: Investment) => { const lv=live(inv); if (!lv) return null; return ((lv.currentPrice-inv.purchase_price)/inv.purchase_price)*100 }
+  const openBuyModal  = (inv: Investment) => { setTxTarget(inv); setTxMode('buy');  setTxModalOpen(true) }
+  const openSellModal = (inv: Investment) => { setTxTarget(inv); setTxMode('sell'); setTxModalOpen(true) }
+  const openEditModal = (inv: Investment) => { setEditTarget(inv); setModalOpen(true) }
+
+  const getLive   = (inv: Investment) => priceMap[inv.ticker.toUpperCase()] ?? null
+  const getReturn = (inv: Investment) => { const lv=getLive(inv); if (!lv) return null; return ((lv.currentPrice-inv.purchase_price)/inv.purchase_price)*100 }
 
   const toKrwTotal = (inv: Investment) => inv.purchase_price*inv.quantity*(inv.currency==='USD'?USD_KRW:1)
   const totalCostKrw = investments.reduce((s,i)=>s+toKrwTotal(i),0)
   const hasUsd = investments.some(i=>i.currency==='USD')
-  const fmtKrw = (n:number) =>
-    n>=1e8 ? `₩${(n/1e8).toLocaleString('ko-KR', { minimumFractionDigits:1, maximumFractionDigits:1 })}억`
-    : n>=1e4 ? `₩${Math.round(n/1e4).toLocaleString('ko-KR')}만`
-    : `₩${Math.round(n).toLocaleString('ko-KR')}`
 
   const filtered = investments
     .filter(inv => { const q=search.toLowerCase(); return (filterMarket==='all'||inv.market===filterMarket)&&(!q||inv.name.toLowerCase().includes(q)||inv.ticker.toLowerCase().includes(q)) })
@@ -339,21 +270,21 @@ export default function AssetsPage() {
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}input::placeholder{color:#374151}select option{background:#1f2937}`}</style>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}input::placeholder{color:#374151}select option{background:#1f2937}`}</style>
 
       {/* 요약 스트립 */}
       {!dbLoading && (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))', gap:10 }}>
           {[
-            { label:'보유 종목', value:`${investments.length}개`, accent:'#f1f5f9' },
-            { label:'총 투자금액', value:fmtKrw(totalCostKrw), sub:hasUsd?'USD 환산 포함':undefined, accent:'#9ca3af' },
-            { label:'수익 종목', value:`${investments.filter(i=>live(i)&&live(i)!.currentPrice>i.purchase_price).length}개`, accent:'#ef4444' },
-            { label:'손실 종목', value:`${investments.filter(i=>live(i)&&live(i)!.currentPrice<i.purchase_price).length}개`, accent:'#3b82f6' },
+            { label:'보유 종목',   value:`${investments.length}개`,                                                                                               accent:'#f1f5f9' },
+            { label:'총 투자금액', value:fmtKrwVal(totalCostKrw), sub:hasUsd?'USD 환산 포함':undefined,                                                           accent:'#9ca3af' },
+            { label:'수익 종목',   value:`${investments.filter(i=>getLive(i)&&getLive(i)!.currentPrice>i.purchase_price).length}개`,                               accent:'#ef4444' },
+            { label:'손실 종목',   value:`${investments.filter(i=>getLive(i)&&getLive(i)!.currentPrice<i.purchase_price).length}개`,                               accent:'#3b82f6' },
           ].map(({label,value,sub,accent})=>(
-            <div key={label} style={{ background:'#111827',border:'1px solid #1f2937',borderRadius:10,padding:'12px 14px' }}>
-              <div style={{ fontSize:9,fontWeight:600,color:'#4b5563',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:6 }}>{label}</div>
-              <div style={{ fontSize:18,fontWeight:800,color:accent,fontVariantNumeric:'tabular-nums' }}>{value}</div>
-              {sub&&<div style={{ fontSize:9,color:'#374151',marginTop:2 }}>{sub}</div>}
+            <div key={label} style={{ background:N, boxShadow:SHO, borderRadius:10, padding:'12px 14px' }}>
+              <div style={{ fontSize:9, fontWeight:600, color:'#4b5563', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>{label}</div>
+              <div style={{ fontSize:18, fontWeight:800, color:accent, fontVariantNumeric:'tabular-nums' }}>{value}</div>
+              {sub&&<div style={{ fontSize:9, color:'#374151', marginTop:2 }}>{sub}</div>}
             </div>
           ))}
         </div>
@@ -363,19 +294,19 @@ export default function AssetsPage() {
       <div style={{ display:'flex', flexWrap:'wrap', gap:8, alignItems:'center' }}>
         <div style={{ position:'relative', flexGrow:1, minWidth:150, maxWidth:260 }}>
           <svg style={{ position:'absolute',left:9,top:'50%',transform:'translateY(-50%)',color:'#4b5563',pointerEvents:'none' }} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="종목명 / 티커" style={{ width:'100%',padding:'7px 10px 7px 26px',background:'#111827',border:'1px solid #1f2937',borderRadius:8,color:'#f1f5f9',fontSize:12,outline:'none',boxSizing:'border-box' }} onFocus={e=>{e.currentTarget.style.borderColor='#2563eb'}} onBlur={e=>{e.currentTarget.style.borderColor='#1f2937'}}/>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="종목명 / 티커" style={{ width:'100%',padding:'7px 10px 7px 26px',background:N,boxShadow:SHI,border:'none',borderRadius:8,color:'#f1f5f9',fontSize:12,outline:'none',boxSizing:'border-box' }} onFocus={e=>{e.currentTarget.style.boxShadow=`${SHI}, 0 0 0 1px #2563eb`}} onBlur={e=>{e.currentTarget.style.boxShadow=SHI}}/>
         </div>
         {(['all','US','KR','CRYPTO'] as const).map(m=>(
-          <button key={m} onClick={()=>setFilterMarket(m)} style={{ padding:'6px 11px',borderRadius:99,fontSize:11,fontWeight:600,cursor:'pointer',border:'1px solid',transition:'all 0.12s', background:filterMarket===m?(m==='all'?'rgba(255,255,255,0.06)':`${({US:'#34d399',KR:'#60a5fa',CRYPTO:'#fb923c'} as Record<string,string>)[m]}18`):'transparent', color:filterMarket===m?(m==='all'?'#f1f5f9':({US:'#34d399',KR:'#60a5fa',CRYPTO:'#fb923c'} as Record<string,string>)[m]):'#4b5563', borderColor:filterMarket===m?(m==='all'?'#374151':`${({US:'#34d399',KR:'#60a5fa',CRYPTO:'#fb923c'} as Record<string,string>)[m]}44`):'#1f2937' }}>
+          <button key={m} onClick={()=>setFilterMarket(m)} style={{ padding:'6px 11px',borderRadius:99,fontSize:11,fontWeight:600,cursor:'pointer',border:'none',transition:'all 0.12s', background:filterMarket===m?(m==='all'?'rgba(255,255,255,0.06)':`${({US:'#34d399',KR:'#60a5fa',CRYPTO:'#fb923c'} as Record<string,string>)[m]}18`):N, color:filterMarket===m?(m==='all'?'#f1f5f9':({US:'#34d399',KR:'#60a5fa',CRYPTO:'#fb923c'} as Record<string,string>)[m]):'#4b5563', boxShadow:filterMarket===m?SHI:SHO }}>
             {m==='all'?'전체':m}
           </button>
         ))}
-        <select value={sortBy} onChange={e=>setSortBy(e.target.value as SortKey)} style={{ padding:'7px 9px',background:'#111827',border:'1px solid #1f2937',borderRadius:8,color:'#4b5563',fontSize:11,outline:'none',cursor:'pointer' }}>
+        <select value={sortBy} onChange={e=>setSortBy(e.target.value as SortKey)} style={{ padding:'7px 9px',background:N,boxShadow:SHI,border:'none',borderRadius:8,color:'#4b5563',fontSize:11,outline:'none',cursor:'pointer' }}>
           <option value="return">수익률순</option>
           <option value="name">이름순</option>
           <option value="invested">투자금액순</option>
         </select>
-        <button onClick={()=>fetchPrices(investments)} disabled={priceStatus==='loading'||!investments.length} style={{ padding:'7px 10px',background:'#111827',border:'1px solid #1f2937',borderRadius:8,color:'#4b5563',cursor:'pointer',display:'flex',alignItems:'center',gap:4,fontSize:11,opacity:priceStatus==='loading'?0.5:1,transition:'color 0.15s' }} onMouseEnter={e=>{(e.currentTarget as HTMLButtonElement).style.color='#f1f5f9'}} onMouseLeave={e=>{(e.currentTarget as HTMLButtonElement).style.color='#4b5563'}}>
+        <button onClick={()=>fetchPrices(investments)} disabled={priceStatus==='loading'||!investments.length} style={{ padding:'7px 10px',background:N,boxShadow:SHO,border:'none',borderRadius:8,color:'#4b5563',cursor:'pointer',display:'flex',alignItems:'center',gap:4,fontSize:11,opacity:priceStatus==='loading'?0.5:1,transition:'color 0.15s,box-shadow 0.15s' }} onMouseEnter={e=>{(e.currentTarget as HTMLButtonElement).style.color='#f1f5f9';(e.currentTarget as HTMLButtonElement).style.boxShadow='9px 9px 22px #0e1020, -5px -5px 15px #282c44'}} onMouseLeave={e=>{(e.currentTarget as HTMLButtonElement).style.color='#4b5563';(e.currentTarget as HTMLButtonElement).style.boxShadow=SHO}}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation:priceStatus==='loading'?'spin 0.8s linear infinite':'none' }}><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/></svg>
           현재가
         </button>
@@ -385,10 +316,12 @@ export default function AssetsPage() {
         </button>
       </div>
 
-      {/* 카드 그리드 */}
+      {/* 종목 행 목록 */}
       {dbLoading ? (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(290px,1fr))', gap:12 }}>
-          {[0,1,2].map(i=><div key={i} style={{ height:200,background:'#111827',borderRadius:14,animation:'pulse 1.5s ease-in-out infinite' }}/>)}
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          {[0,1,2].map(i => (
+            <div key={i} style={{ height:220, background:N, boxShadow:SHO, borderRadius:14, animation:'pulse 1.5s infinite' }}/>
+          ))}
         </div>
       ) : investments.length === 0 ? (
         <div style={{ display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 0',gap:14 }}>
@@ -400,15 +333,208 @@ export default function AssetsPage() {
       ) : filtered.length === 0 ? (
         <div style={{ textAlign:'center',padding:'48px 0',color:'#374151',fontSize:13 }}>검색 결과가 없습니다</div>
       ) : (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(290px,1fr))', gap:12 }}>
-          {filtered.map(inv=>(
-            <InvestmentCard key={inv.id} inv={inv} live={live(inv)} priceStatus={priceStatus} onEdit={t=>{setEditTarget(t);setModalOpen(true)}} isClassifyDone={classifyDone.has(inv.id)||!!inv.lynch_category||inv.market==='CRYPTO'}/>
-          ))}
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          {filtered.map(inv => {
+            const livePrice = getLive(inv)
+            const isETF  = ETF_BRANDS.some(k => inv.name.toUpperCase().includes(k))
+            const isNA   = inv.market === 'CRYPTO' || isETF
+            const lynchMeta = inv.lynch_category && !isNA && inv.lynch_category !== 'na'
+              ? LYNCH_META[inv.lynch_category] ?? null : null
+            const isUp  = (livePrice?.changePct ?? 0) >= 0
+            const C     = isUp ? '#ef4444' : '#3b82f6'
+            const Cs    = isUp ? '#f87171' : '#60a5fa'
+            const ret   = livePrice ? ((livePrice.currentPrice - inv.purchase_price) / inv.purchase_price) * 100 : 0
+            const ohlc  = (priceMap[inv.ticker.toUpperCase()]?.ohlcCharts ?? {} as Record<TimeFrame, Candle[]>)[getTf(inv.ticker)] ?? []
+            const prevClose = livePrice ? livePrice.currentPrice - livePrice.change : undefined
+
+            return (
+              <div
+                key={inv.id}
+                onClick={() => openEditModal(inv)}
+                style={{
+                  background: N, boxShadow: SHO,
+                  borderRadius: 14, overflow: 'hidden',
+                  borderLeft: `3px solid ${C}`,
+                  display: 'flex', alignItems: 'stretch',
+                  marginBottom: 0, cursor: 'pointer',
+                }}
+                onMouseEnter={e => { const el=e.currentTarget as HTMLDivElement; el.style.boxShadow='9px 9px 22px #0e1020, -5px -5px 15px #282c44, 0 0 0 1px #6366f130' }}
+                onMouseLeave={e => { const el=e.currentTarget as HTMLDivElement; el.style.boxShadow=SHO }}
+              >
+                {/* ── Section 1: 종목 정보 (220px) ── */}
+                <div style={{ width:220, flexShrink:0, padding:'14px 16px', display:'flex', flexDirection:'column', gap:5 }}>
+                  {/* Name + market */}
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                    <div style={{ minWidth:0 }}>
+                      <div style={{ fontSize:13, fontWeight:800, color:'#dde4f0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{inv.name}</div>
+                      <div style={{ fontSize:9, color:'#454868', fontFamily:'monospace', marginTop:1 }}>{inv.ticker}</div>
+                    </div>
+                    <span style={{ fontSize:8, fontWeight:700, color:MARKET_COLOR[inv.market], border:`1px solid ${MARKET_COLOR[inv.market]}44`, borderRadius:4, padding:'1px 5px', flexShrink:0, marginLeft:4 }}>{inv.market}</span>
+                  </div>
+
+                  {/* Lynch badge */}
+                  {!isNA && lynchMeta && (
+                    <span style={{ display:'inline-flex', alignItems:'center', gap:3, padding:'2px 7px', borderRadius:99, fontSize:10, fontWeight:500, color:lynchMeta.color, background:`${lynchMeta.color}15`, border:`1px solid ${lynchMeta.color}35`, alignSelf:'flex-start' }}>
+                      {lynchMeta.label}
+                    </span>
+                  )}
+                  {!isNA && !inv.lynch_category && !classifyDone.has(inv.id) && (
+                    <span style={{ fontSize:9, color:'#374151', alignSelf:'flex-start' }}>분류 중…</span>
+                  )}
+                  {isNA && <span style={{ fontSize:9, color:'#4b5563', background:'#1f2937', padding:'2px 7px', borderRadius:4, border:'1px solid #374151', alignSelf:'flex-start' }}>N/A</span>}
+
+                  {/* Current price + change */}
+                  {livePrice && (
+                    <div style={{ marginTop:2 }}>
+                      <div style={{ fontSize:17, fontWeight:800, color:'#dde4f0', fontVariantNumeric:'tabular-nums', letterSpacing:'-0.3px' }}>
+                        {inv.currency==='KRW' ? `₩${Math.round(livePrice.currentPrice).toLocaleString('ko-KR')}` : `$${livePrice.currentPrice.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`}
+                      </div>
+                      <div style={{ fontSize:11, fontWeight:700, color:Cs }}>
+                        {isUp ? '▲' : '▼'} {Math.abs(livePrice.changePct).toFixed(2)}%
+                        <span style={{ color:'#454868', marginLeft:5, fontWeight:400 }}>
+                          {livePrice.change >= 0 ? '+' : ''}{inv.currency==='KRW' ? `₩${Math.round(livePrice.change).toLocaleString('ko-KR')}` : `$${livePrice.change.toFixed(2)}`}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Dividend row */}
+                  <div style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 8px', borderRadius:7, background:'#13162a', boxShadow:SHI }}>
+                    <span style={{ fontSize:11 }}>💰</span>
+                    {(livePrice?.dividendYield ?? 0) > 0 ? (
+                      <span style={{ fontSize:10, fontWeight:800, color:'#34d399' }}>
+                        {((livePrice!.dividendYield ?? 0) * 100).toFixed(2)}%
+                      </span>
+                    ) : (
+                      <span style={{ fontSize:9, color:'#363855' }}>배당 없음</span>
+                    )}
+                    {(livePrice?.payoutRatio ?? 0) > 0 && (
+                      <span style={{ fontSize:9, color: (livePrice!.payoutRatio ?? 0) > 1 ? '#f87171' : '#6b7280', marginLeft:2 }}>
+                        {(livePrice!.payoutRatio ?? 0) > 1 ? '⚠️ ' : ''}성향 {Math.round((livePrice!.payoutRatio ?? 0) * 100)}%
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Buy/Sell buttons */}
+                  <div style={{ display:'flex', gap:6, marginTop:2 }}>
+                    <button
+                      onClick={e => { e.stopPropagation(); openBuyModal(inv) }}
+                      style={{ flex:1, padding:'6px 0', borderRadius:7, border:'none', cursor:'pointer',
+                        background:'linear-gradient(135deg,#7f1d1d,#dc2626)', color:'#fff', fontSize:10, fontWeight:700 }}>
+                      + 매수
+                    </button>
+                    <button
+                      onClick={e => { e.stopPropagation(); openSellModal(inv) }}
+                      style={{ flex:1, padding:'6px 0', borderRadius:7, border:'none', cursor:'pointer',
+                        background:'linear-gradient(135deg,#1e3a8a,#3b82f6)', color:'#fff', fontSize:10, fontWeight:700 }}>
+                      - 매도
+                    </button>
+                  </div>
+                </div>
+
+                {/* ── Divider ── */}
+                <div style={{ width:1, background:'#1e2140', flexShrink:0, margin:'10px 0' }}/>
+
+                {/* ── Section 2: 포트폴리오 + 재무 (280px) ── */}
+                <div style={{ width:280, flexShrink:0, padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
+                  {/* Portfolio performance */}
+                  <div>
+                    <div style={{ fontSize:8, fontWeight:800, color:'#363855', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:7 }}>포트폴리오</div>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:5, marginBottom:8 }}>
+                      {[
+                        { label:'현재가', val: livePrice ? (inv.currency==='KRW' ? `₩${Math.round(livePrice.currentPrice).toLocaleString('ko-KR')}` : `$${livePrice.currentPrice.toFixed(2)}`) : '—', color:'#dde4f0' },
+                        { label:'매수가', val: inv.currency==='KRW' ? `₩${Math.round(inv.purchase_price).toLocaleString('ko-KR')}` : `$${inv.purchase_price.toFixed(2)}`, color:'#9ca3af' },
+                        { label:'평가손익', val: livePrice ? (inv.currency==='KRW' ? ((livePrice.currentPrice-inv.purchase_price)*inv.quantity>=0?'+':'')+`₩${Math.round((livePrice.currentPrice-inv.purchase_price)*inv.quantity).toLocaleString('ko-KR')}` : ((livePrice.currentPrice-inv.purchase_price)*inv.quantity>=0?'+':'')+'$'+(Math.abs((livePrice.currentPrice-inv.purchase_price)*inv.quantity)).toFixed(2)) : '—', color: livePrice && livePrice.currentPrice >= inv.purchase_price ? '#f87171' : '#60a5fa' },
+                        { label:'수익률', val: livePrice ? `${ret >= 0 ? '+' : ''}${ret.toFixed(2)}%` : '—', color: ret >= 0 ? '#f87171' : '#60a5fa' },
+                      ].map(({ label, val, color }) => (
+                        <div key={label} style={{ background:'#13162a', boxShadow:SHI, borderRadius:7, padding:'6px 9px' }}>
+                          <div style={{ fontSize:8, color:'#363855', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>{label}</div>
+                          <div style={{ fontSize:11, fontWeight:700, color, fontVariantNumeric:'tabular-nums' }}>{val}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Financial metrics */}
+                  <div>
+                    <div style={{ fontSize:8, fontWeight:800, color:'#363855', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:7 }}>핵심 지표</div>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:5 }}>
+                      {[
+                        { label:'PER',      val: livePrice?.per        != null ? livePrice.per.toFixed(1)                                                                        : '—' },
+                        { label:'PEG',      val: livePrice?.peg        != null ? livePrice.peg.toFixed(2)                                                                        : '—' },
+                        { label:'EPS',      val: livePrice?.eps        != null ? (inv.currency==='KRW' ? `₩${Math.round(livePrice.eps).toLocaleString('ko-KR')}` : `$${livePrice.eps.toFixed(2)}`) : '—' },
+                        { label:'EPS 성장', val: livePrice?.epsGrowth  != null ? `${livePrice.epsGrowth > 0 ? '+' : ''}${livePrice.epsGrowth.toFixed(1)}%`                        : '—' },
+                        { label:'Fwd EPS',  val: livePrice?.forwardEps != null ? (inv.currency==='KRW' ? `₩${Math.round(livePrice.forwardEps).toLocaleString('ko-KR')}` : `$${livePrice.forwardEps.toFixed(2)}`) : '—' },
+                        { label:'PBR',      val: livePrice?.pbr        != null ? livePrice.pbr.toFixed(2)                                                                        : '—' },
+                        { label:'배당수익률', val: (livePrice?.dividendYield ?? 0) > 0 ? `${((livePrice!.dividendYield ?? 0)*100).toFixed(2)}%` : '—' },
+                        { label:'배당성향',   val: (livePrice?.payoutRatio ?? 0) > 0   ? `${Math.round((livePrice!.payoutRatio ?? 0)*100)}%`    : '—' },
+                      ].map(({ label, val }) => (
+                        <div key={label} style={{ background:'#13162a', boxShadow:SHI, borderRadius:7, padding:'5px 8px' }}>
+                          <div style={{ fontSize:7, color:'#363855', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>{label}</div>
+                          <div style={{ fontSize:10, fontWeight:700, color:'#9ca3af', fontVariantNumeric:'tabular-nums', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{val}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Divider ── */}
+                <div style={{ width:1, background:'#1e2140', flexShrink:0, margin:'10px 0' }}/>
+
+                {/* ── Section 3: 캔들차트 (flex:1) ── */}
+                <div style={{ flex:1, minWidth:0, padding:'10px 12px 8px', display:'flex', flexDirection:'column' }}>
+                  {/* Timeframe tabs */}
+                  <div style={{ display:'flex', gap:5, marginBottom:6 }}>
+                    {(FRAMES).map(t => (
+                      <button key={t} onClick={e => { e.stopPropagation(); setTf(inv.ticker, t) }}
+                        style={{
+                          padding:'3px 10px', borderRadius:6, border:'none', cursor:'pointer',
+                          fontSize:11, fontWeight:700, transition:'all 0.15s',
+                          background: getTf(inv.ticker) === t ? '#fbbf24' : N,
+                          boxShadow:  getTf(inv.ticker) === t ? '0 2px 8px rgba(251,191,36,0.3)' : SHI,
+                          color:      getTf(inv.ticker) === t ? '#1b1e2e' : '#454868',
+                        }}>{t}</button>
+                    ))}
+                    <span style={{ marginLeft:'auto', fontSize:9, color:'#363855', alignSelf:'center' }}>
+                      {ohlc.length > 0 ? `${ohlc.length}캔들` : ''}
+                    </span>
+                  </div>
+
+                  {/* Chart */}
+                  <div style={{ flex:1 }}>
+                    {ohlc.length > 1 ? (
+                      <FullCandleChart
+                        data={ohlc}
+                        currency={inv.currency}
+                        timeframe={getTf(inv.ticker)}
+                        prevClose={prevClose}
+                        height={220}
+                      />
+                    ) : (
+                      <div style={{ height:220, display:'flex', alignItems:'center', justifyContent:'center', color:'#363855', fontSize:11 }}>
+                        {priceStatus === 'loading' ? '로딩 중…' : `${getTf(inv.ticker)} 차트 없음`}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 
       {modalOpen && (
         <AddInvestmentModal initial={editTarget??undefined} onClose={()=>{setModalOpen(false);setEditTarget(null)}} onRefresh={handleRefresh} onAdded={handleAdded} onChanged={handleRefresh}/>
+      )}
+
+      {txModalOpen && txTarget && (
+        <TransactionModal
+          investment={txTarget}
+          initialMode={txMode}
+          currentPrice={priceMap[txTarget.ticker.toUpperCase()]?.currentPrice}
+          onClose={() => setTxModalOpen(false)}
+          onSuccess={() => { setTxModalOpen(false); fetchInvestments() }}
+        />
       )}
     </div>
   )

@@ -10,6 +10,20 @@ import {
 import { createClient } from '@/lib/supabase/client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+interface IndexData {
+  id:        string
+  name:      string
+  value:     number
+  change:    number
+  changePct: number
+  isUp:      boolean
+  currency:  'USD' | 'KRW' | 'JPY'
+  open:      number
+  high:      number
+  low:       number
+  chartData: { t: number; v: number }[]
+  updatedAt: string
+}
 type Market   = 'US' | 'KR' | 'CRYPTO'
 type LynchKey = 'slow_grower'|'stalwart'|'fast_grower'|'cyclical'|'turnaround'|'asset_play'|'na'
 type TimeFrame = '1D'|'1W'|'1M'
@@ -23,6 +37,10 @@ interface Investment {
 interface LivePrice {
   currentPrice: number; change: number; changePct: number
   charts: Record<TimeFrame, PricePoint[]>; source: 'live'|'cache'
+  dividendYield?: number | null
+  annualDividend?: number | null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fundamentals?: any
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -64,16 +82,52 @@ const getHeatmapColor = (r: number) =>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomTreemapContent = (props: any) => {
   const { x, y, width, height, name, ticker, returnRate, weight } = props
-  if (!width || !height || width < 10 || height < 10) return null
+  if (!width || !height || width < 12 || height < 12) return null
 
-  const rate     = isFinite(returnRate ?? 0) ? (returnRate ?? 0) : 0
-  const bgColor  = getHeatmapColor(rate)
+  const rate    = isFinite(returnRate ?? 0) ? (returnRate ?? 0) : 0
+  const bgColor = getHeatmapColor(rate)
   const rateText = `${rate >= 0 ? '+' : ''}${rate.toFixed(1)}%`
-  const cx = x + width / 2
+  const cx = x + width  / 2
   const cy = y + height / 2
+
+  // ── 박스 크기 기반 폰트 스케일 계산 ─────────────────────
+  const minDim   = Math.min(width, height)
+  // 수익률 폰트: 박스의 짧은 변 기준, 최소 8 ~ 최대 16
+  const rateSize = Math.max(8, Math.min(16, minDim * 0.22))
+  // 종목명 폰트: 너비 기준, 최소 7 ~ 최대 12
+  const nameSize = Math.max(7, Math.min(12, width * 0.09))
+  // 보조 폰트 (티커·비중): 최소 6 ~ 최대 9
+  const subSize  = Math.max(6, Math.min(9,  minDim * 0.11))
+
+  // ── 표시 레벨 결정 ────────────────────────────────────────
+  const isLarge  = width > 110 && height > 60   // 종목명 + 티커 + 수익률 + 비중
+  const isMedium = width > 55  && height > 38   // 티커(단축) + 수익률
+  // 그 이하(tiny): 수익률만
+
+  // ── 종목명 최대 글자 수 (너비 비례) ───────────────────────
+  const maxChars = Math.max(4, Math.floor(width / (nameSize * 0.65)))
+  const shortName = (name ?? '').length > maxChars
+    ? (name as string).slice(0, maxChars - 1) + '…'
+    : (name ?? '')
+
+  // ── 한국 종목 감지: 순수 숫자(000660) 또는 숫자로 시작(0131V0 ETF) → 이름으로 표시
+  const isKrTicker = /^\d/.test(ticker ?? '')
+  // 중형 박스 라벨: 한국=단축이름, 미국/코인=티커
+  const midLabel = isKrTicker ? shortName : (ticker || shortName)
+
+  // clipPath ID (x,y 기반 고유값)
+  const clipId = `tc-${Math.round(x)}-${Math.round(y)}`
 
   return (
     <g>
+      {/* ── 클리핑 마스크: 텍스트가 절대 박스 밖으로 나가지 않음 ── */}
+      <defs>
+        <clipPath id={clipId}>
+          <rect x={x + 2} y={y + 2} width={width - 4} height={height - 4}/>
+        </clipPath>
+      </defs>
+
+      {/* 배경 박스 */}
       <rect
         x={x + 1} y={y + 1}
         width={width - 2} height={height - 2}
@@ -81,47 +135,63 @@ const CustomTreemapContent = (props: any) => {
         style={{ cursor: 'pointer' }}
       />
 
-      {/* 큰 블록: 종목명 + 티커 + 수익률 + 비중 */}
-      {width > 80 && height > 50 && (
-        <>
-          <text x={cx} y={cy - 20} textAnchor="middle"
-            fill="white" fontSize={Math.min(13, width / 8)} fontWeight="bold"
-            style={{ pointerEvents: 'none' }}>
-            {(name ?? '').length > 12 ? (name as string).slice(0, 12) + '…' : name}
-          </text>
-          <text x={cx} y={cy - 4} textAnchor="middle"
-            fill="rgba(255,255,255,0.7)" fontSize={Math.min(10, width / 10)}
-            style={{ pointerEvents: 'none' }}>
-            {ticker}
-          </text>
-          <text x={cx} y={cy + 14} textAnchor="middle"
-            fill="white" fontSize={Math.min(14, width / 7)} fontWeight="bold"
-            style={{ pointerEvents: 'none' }}>
+      {/* 텍스트 — 모두 clipPath 안에서 렌더 */}
+      <g clipPath={`url(#${clipId})`} style={{ pointerEvents: 'none' }}>
+        {isLarge ? (
+          /* ── 대형 박스: 종목명 + 티커 + 수익률 + 비중 ── */
+          <>
+            <text x={cx} y={cy - height * 0.22}
+              textAnchor="middle" fill="white"
+              fontSize={nameSize} fontWeight="bold">
+              {shortName}
+            </text>
+            <text x={cx} y={cy - height * 0.04}
+              textAnchor="middle" fill="rgba(255,255,255,0.65)"
+              fontSize={subSize}>
+              {ticker}
+            </text>
+            <text x={cx} y={cy + height * 0.18}
+              textAnchor="middle" fill="white"
+              fontSize={rateSize} fontWeight="bold">
+              {rateText}
+            </text>
+            <text x={cx} y={cy + height * 0.35}
+              textAnchor="middle" fill="rgba(255,255,255,0.55)"
+              fontSize={subSize}>
+              {weight}%
+            </text>
+          </>
+        ) : isMedium ? (
+          /* ── 중형 박스: 이름/티커 + 수익률 + 비중(공간 있으면) ── */
+          <>
+            <text x={cx} y={cy - (height > 55 ? minDim * 0.18 : minDim * 0.12)}
+              textAnchor="middle" fill="rgba(255,255,255,0.9)"
+              fontSize={Math.max(6, Math.min(subSize + 1, width * 0.12))} fontWeight="bold">
+              {midLabel}
+            </text>
+            <text x={cx} y={cy + (height > 55 ? minDim * 0.08 : minDim * 0.15)}
+              textAnchor="middle" fill="white"
+              fontSize={Math.max(7, rateSize * 0.85)} fontWeight="bold">
+              {rateText}
+            </text>
+            {/* 공간 충분하면 비중 표시 */}
+            {height > 55 && (
+              <text x={cx} y={cy + minDim * 0.3}
+                textAnchor="middle" fill="rgba(255,255,255,0.55)"
+                fontSize={Math.max(6, subSize * 0.9)}>
+                {weight}%
+              </text>
+            )}
+          </>
+        ) : (
+          /* ── 소형 박스: 수익률만 ── */
+          <text x={cx} y={cy + rateSize * 0.38}
+            textAnchor="middle" fill="white"
+            fontSize={Math.max(7, rateSize * 0.75)} fontWeight="bold">
             {rateText}
           </text>
-          <text x={cx} y={cy + 28} textAnchor="middle"
-            fill="rgba(255,255,255,0.6)" fontSize={9}
-            style={{ pointerEvents: 'none' }}>
-            {weight}%
-          </text>
-        </>
-      )}
-
-      {/* 작은 블록: 티커 + 수익률 */}
-      {(width <= 80 || height <= 50) && height > 30 && (
-        <>
-          <text x={cx} y={cy - 8} textAnchor="middle"
-            fill="white" fontSize={9} fontWeight="bold"
-            style={{ pointerEvents: 'none' }}>
-            {ticker || (name as string ?? '').slice(0, 6)}
-          </text>
-          <text x={cx} y={cy + 8} textAnchor="middle"
-            fill="white" fontSize={9}
-            style={{ pointerEvents: 'none' }}>
-            {rateText}
-          </text>
-        </>
-      )}
+        )}
+      </g>
     </g>
   )
 }
@@ -182,6 +252,8 @@ export default function DashboardPage() {
   const [loading,     setLoading]     = useState(true)
   const [usdKrw,      setUsdKrw]      = useState(USD_KRW)
   const [rateSource,  setRateSource]  = useState<string>('로딩 중')
+  const [indices,     setIndices]     = useState<IndexData[]>([])
+  const [indicesLoading, setIndicesLoading] = useState(true)
 
   // 5초 타임아웃
   useEffect(() => {
@@ -232,6 +304,25 @@ export default function DashboardPage() {
     return () => clearInterval(iv)
   }, [])
 
+  // 시장 지수 (S&P500 / NASDAQ / KOSPI / KOSDAQ) — 5분 캐시
+  useEffect(() => {
+    const load = async () => {
+      setIndicesLoading(true)
+      try {
+        const res = await fetch('/api/market-indices')
+        if (res.ok) {
+          const data: IndexData[] = await res.json()
+          setIndices(data)
+        }
+      } catch { /* silent */ }
+      finally { setIndicesLoading(false) }
+    }
+    load()
+    // 5분마다 자동 갱신
+    const iv = setInterval(load, 5 * 60 * 1000)
+    return () => clearInterval(iv)
+  }, [])
+
   const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
@@ -255,7 +346,13 @@ export default function DashboardPage() {
         if (res.ok) {
           const results: ({ticker:string}&LivePrice)[] = await res.json()
           const m: Record<string,LivePrice> = {}
-          results.forEach(r => { m[r.ticker.toUpperCase()] = r })
+          results.forEach(r => {
+            m[r.ticker.toUpperCase()] = {
+              ...r,
+              dividendYield:  r.fundamentals?.dividendYield  ?? null,
+              annualDividend: r.fundamentals?.annualDividend  ?? null,
+            }
+          })
           setPriceMap(m)
         }
       }
@@ -402,6 +499,23 @@ export default function DashboardPage() {
           isUp:   pnl >= 0,
         }
       })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pricedInvs, priceMap, usdKrw])
+
+  // ── 오늘 포트폴리오 등락 (changePct 기반) ──────────────────────
+  const todayPnL = useMemo(() => {
+    let amount = 0, prevTotal = 0
+    pricedInvs.forEach(inv => {
+      const lv = priceMap[inv.ticker.toUpperCase()]
+      if (!lv || !isFinite(lv.changePct)) return
+      const exRate     = inv.currency === 'USD' ? usdKrw : 1
+      const currentVal = lv.currentPrice * inv.quantity * exRate
+      const prevVal    = currentVal / (1 + lv.changePct / 100)
+      amount    += currentVal - prevVal
+      prevTotal += prevVal
+    })
+    const pct = prevTotal > 0 ? (amount / prevTotal) * 100 : 0
+    return { amount: Math.round(amount), pct: isFinite(pct) ? pct : 0 }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pricedInvs, priceMap, usdKrw])
 
@@ -558,21 +672,518 @@ export default function DashboardPage() {
         .hover-row:hover td{background:rgba(255,255,255,0.03)!important}
       `}</style>
 
-      {/* ── 1. 요약 카드 4개 ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(190px,1fr))', gap:12 }}>
-        {[
-          { label:'총 자산 가치',   value: pricedInvs.length ? fmtKrw(totalCurrKrw) : fmtKrw(totalCostKrw), sub: pricedInvs.length ? '현재가 기준' : '매수가 기준', accent:'#f1f5f9' },
-          { label:'총 손익 (KRW)',  value: totalRet != null ? fmtPct(totalRet) : '—', sub: totalPnL !== 0 ? fmtKrw(totalPnL) : undefined, accent: (totalRet??0) >= 0 ? '#ef4444' : '#3b82f6' },
-          { label:'보유 종목 수',   value: `${investments.length}개`, sub:`수익 ${pricedInvs.filter(i=>(live(i)?.currentPrice??0)>i.purchase_price).length} · 손실 ${pricedInvs.filter(i=>(live(i)?.currentPrice??0)<i.purchase_price).length}`, accent:'#60a5fa' },
-          { label:'USD/KRW 환율',  value: `₩${Math.round(usdKrw).toLocaleString('ko-KR')}`, sub: rateSource, accent:'#34d399' },
-        ].map(({ label, value, sub, accent }) => (
-          <Card key={label} style={{ padding:'16px 18px' }}>
-            <div style={{ fontSize:9, fontWeight:700, color:'#4b5563', textTransform:'uppercase', letterSpacing:'0.09em', marginBottom:8 }}>{label}</div>
-            <div style={{ fontSize:22, fontWeight:800, color: accent, fontVariantNumeric:'tabular-nums', letterSpacing:'-0.4px' }}>{value}</div>
-            {sub && <div style={{ fontSize:10, color:'#374151', marginTop:4 }}>{sub}</div>}
-          </Card>
-        ))}
-      </div>
+      {/* ── 1. 요약 카드 8개 (Full-Width) ── */}
+      {(() => {
+        // ── 추가 파생값 계산 ──────────────────────────────────────
+        // 코인 비중
+        const cryptoVal  = pricedInvs
+          .filter(i => i.market === 'CRYPTO')
+          .reduce((s,i) => s + toKrw(i, live(i)?.currentPrice ?? i.purchase_price), 0)
+        const cryptoPct  = totalCurrKrw > 0 ? (cryptoVal / totalCurrKrw) * 100 : 0
+
+        // 최고 / 최저 수익 종목
+        const withRet = pricedInvs
+          .map(i => {
+            const lv = live(i)
+            const ret = lv ? ((lv.currentPrice - i.purchase_price) / i.purchase_price) * 100 : 0
+            return { inv: i, ret: isFinite(ret) ? ret : 0 }
+          })
+          .filter(d => d.ret !== 0)
+          .sort((a,b) => b.ret - a.ret)
+
+        const best  = withRet[0]
+        const worst = withRet[withRet.length - 1]
+
+        // 짧은 이름 헬퍼
+        const shorten = (name: string, max = 8) =>
+          name.length > max ? name.slice(0, max - 1) + '…' : name
+
+        const winCount  = pricedInvs.filter(i => (live(i)?.currentPrice ?? 0) > i.purchase_price).length
+        const lossCount = pricedInvs.filter(i => (live(i)?.currentPrice ?? 0) < i.purchase_price).length
+
+        // 월간 예상 배당금 계산
+        const monthlyDividend = pricedInvs.reduce((sum, inv) => {
+          const lv = live(inv)
+          const dy = lv?.dividendYield ?? (priceMap[inv.ticker.toUpperCase()]?.fundamentals as { dividendYield?: number | null })?.dividendYield ?? null
+          if (!dy || dy <= 0) return sum
+          const priceKrw = (lv?.currentPrice ?? inv.purchase_price) * (inv.currency === 'USD' ? usdKrw : 1)
+          return sum + priceKrw * inv.quantity * dy / 12
+        }, 0)
+        const dividendStockCount = pricedInvs.filter(inv => {
+          const lv = live(inv)
+          const dy = lv?.dividendYield ?? null
+          return (dy ?? 0) > 0
+        }).length
+
+        // ── 9 카드 정의 ──────────────────────────────────────────
+        const N   = '#1b1e2e'
+        const SHO = '7px 7px 18px #0e1020, -4px -4px 12px #282c44'
+
+        const cards = [
+          {
+            label: '총 자산 가치', accent: '#e2e8f0',
+            main:  pricedInvs.length ? fmtKrw(totalCurrKrw) : fmtKrw(totalCostKrw),
+            sub:   pricedInvs.length ? '현재가 기준' : '매수가 기준',
+          },
+          {
+            label: '평가 손익', accent: (totalRet??0) >= 0 ? '#f87171' : '#60a5fa',
+            main:  totalPnL !== 0 ? fmtKrw(totalPnL) : '—',
+            sub:   totalRet != null ? `${(totalRet??0) >= 0 ? '+' : ''}${(totalRet??0).toFixed(2)}%` : undefined,
+          },
+          {
+            label: '수익률', accent: (totalRet??0) >= 0 ? '#f87171' : '#60a5fa',
+            main:  totalRet != null ? `${(totalRet??0) >= 0 ? '+' : ''}${(totalRet??0).toFixed(2)}%` : '—',
+            sub:   totalPnL !== 0 ? fmtKrw(totalPnL) : undefined,
+          },
+          {
+            label: '보유 종목', accent: '#60a5fa',
+            main:  `${investments.length}개`,
+            sub:   pricedInvs.length ? `수익 ${winCount} · 손실 ${lossCount}` : undefined,
+          },
+          {
+            label: 'USD/KRW', accent: '#34d399',
+            main:  `₩${Math.round(usdKrw).toLocaleString('ko-KR')}`,
+            sub:   rateSource,
+          },
+          {
+            label: '코인 비중', accent: '#fb923c',
+            main:  pricedInvs.length ? `${cryptoPct.toFixed(1)}%` : '—',
+            sub:   cryptoVal > 0 ? fmtKrw(cryptoVal) : '코인 없음',
+          },
+          {
+            label: '최고 수익', accent: '#f87171',
+            main:  best ? `+${best.ret.toFixed(1)}%` : '—',
+            sub:   best ? shorten(best.inv.name) : undefined,
+          },
+          {
+            label: '최저 수익', accent: '#60a5fa',
+            main:  worst ? `${worst.ret.toFixed(1)}%` : '—',
+            sub:   worst ? shorten(worst.inv.name) : undefined,
+          },
+          {
+            label:  '월간 예상 배당금',
+            main:   monthlyDividend > 0 ? fmtKrw(Math.round(monthlyDividend)) : '—',
+            sub:    monthlyDividend > 0 ? `배당 종목 ${dividendStockCount}개` : '배당 종목 없음',
+            accent: '#34d399',
+          },
+        ]
+
+        return (
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:10 }}>
+            {cards.map(({ label, accent, main, sub }) => (
+              <div key={label} style={{
+                background: N, boxShadow: SHO,
+                borderRadius: 12, padding: '12px 14px',
+                borderLeft: `3px solid ${accent}`,
+              }}>
+                <div style={{ fontSize:8, fontWeight:700, color:'#454868', textTransform:'uppercase' as const, letterSpacing:'0.1em', marginBottom:6 }}>
+                  {label}
+                </div>
+                <div style={{ fontSize:20, fontWeight:800, color:accent, fontVariantNumeric:'tabular-nums', letterSpacing:'-0.4px', lineHeight:1.1 }}>
+                  {main}
+                </div>
+                {sub && <div style={{ fontSize:10, color:'#454868', marginTop:4 }}>{sub}</div>}
+              </div>
+            ))}
+          </div>
+        )
+      })()}
+
+      {/* ── 1-b. 글로벌 시장 지수 + 센티멘트 (뉴모피즘 v2) ── */}
+      {(() => {
+        /* ── 시장 개장 현황 ── */
+        const _now  = new Date()
+        const _kst  = new Date(_now.getTime() + 9 * 3_600_000)
+        const _kDay = _kst.getUTCDay()
+        const _kMin = _kst.getUTCHours() * 60 + _kst.getUTCMinutes()
+        const isKrxOpen  = _kDay >= 1 && _kDay <= 5 && _kMin >= 540 && _kMin < 930
+        const isTseOpen  = _kDay >= 1 && _kDay <= 5 &&
+                           ((_kMin >= 540 && _kMin < 690) || (_kMin >= 750 && _kMin < 930))
+        const _et   = new Date(_now.getTime() - 4 * 3_600_000)
+        const _eDay = _et.getUTCDay()
+        const _eMin = _et.getUTCHours() * 60 + _et.getUTCMinutes()
+        const isNyseOpen = _eDay >= 1 && _eDay <= 5 && _eMin >= 570 && _eMin < 960
+
+        const upCount   = indices.filter(i => i.isUp).length
+        const downCount = indices.length - upCount
+        const allUp     = indices.length > 0 && upCount === indices.length
+        const majority  = upCount > downCount
+
+        const fmtIdx = (v: number, cur: string) =>
+          cur === 'KRW' ? v.toLocaleString('ko-KR',  { maximumFractionDigits: 2 })
+          : cur === 'JPY' ? v.toLocaleString('ja-JP', { maximumFractionDigits: 0 })
+          : v.toLocaleString('en-US', { maximumFractionDigits: 2 })
+
+        /* ── 뉴모피즘 v2 토큰 ─────────────────────────────────────
+           핵심: 섹션·카드 동일 배경색 → 그림자만으로 깊이 표현     */
+        const N   = '#1b1e2e'   // 공통 배경 (섹션 = 카드 = 패널)
+        const SHO = '7px 7px 18px #0e1020, -4px -4px 12px #282c44'   // 볼록(raised)
+        const SHI = 'inset 4px 4px 10px #0e1020, inset -3px -3px 8px #282c44'  // 오목(inset)
+
+        return (
+          <div style={{
+            background: N, borderRadius: 18,
+            boxShadow: '10px 10px 28px #0b0d1a, -6px -6px 18px #2b2f46',
+            padding: '16px',
+            display: 'flex', gap: 14, alignItems: 'stretch',
+          }}>
+
+            {/* ═══ 왼쪽: 6 카드 3×2 ═══ */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+              {/* 섹션 레이블 */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 3, height: 12, borderRadius: 2, background: 'linear-gradient(180deg,#6366f1,#3b82f6)' }}/>
+                <span style={{ fontSize: 9, fontWeight: 800, color: '#454868', letterSpacing: '0.14em', textTransform: 'uppercase' as const }}>
+                  Global Market Indices
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+                {indicesLoading && indices.length === 0
+                  ? [0,1,2,3,4,5].map(i => (
+                      <div key={i} style={{ height: 168, borderRadius: 14, background: N, boxShadow: SHO, animation: 'pulse 1.5s infinite' }}/>
+                    ))
+                  : indices.map(idx => {
+                      const up       = idx.isUp
+                      const C        = up ? '#ef4444' : '#3b82f6'
+                      const Cs       = up ? '#f87171' : '#60a5fa'
+                      // ← 방어 코드: chartData/open/high/low 없어도 크래시 없음
+                      const chart    = Array.isArray(idx.chartData) ? idx.chartData : []
+                      const hasChart = chart.length > 1
+                      const idxOpen  = idx.open  ?? idx.value
+                      const idxHigh  = idx.high  ?? idx.value
+                      const idxLow   = idx.low   ?? idx.value
+                      const rangeW   = idxHigh - idxLow
+                      const hasRange = isFinite(rangeW) && rangeW > 1
+                      const rPos     = hasRange
+                        ? Math.max(3, Math.min(97, ((idx.value - idxLow) / rangeW) * 100))
+                        : 50
+                      const prevClose = idx.value - idx.change
+
+                      return (
+                        <div key={idx.id} style={{
+                          borderRadius: 14, background: N,
+                          boxShadow: SHO,
+                          overflow: 'hidden',
+                          display: 'flex', flexDirection: 'column',
+                          /* 좌측 컬러 보더 — Bloomberg 스타일 */
+                          borderLeft: `3px solid ${C}`,
+                        }}>
+
+                          {/* ① 헤더 */}
+                          <div style={{ padding: '11px 13px 9px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                              <span style={{ fontSize: 9, fontWeight: 700, color: '#454868', letterSpacing: '0.07em', textTransform: 'uppercase' as const }}>
+                                {idx.name}
+                              </span>
+                              <span style={{
+                                fontSize: 9, fontWeight: 800, color: Cs,
+                                background: `${C}14`, border: `1px solid ${C}30`,
+                                borderRadius: 5, padding: '2px 6px',
+                                fontVariantNumeric: 'tabular-nums',
+                              }}>
+                                {up ? '▲' : '▼'} {Math.abs(idx.changePct).toFixed(2)}%
+                              </span>
+                            </div>
+
+                            {/* 지수값 */}
+                            <div style={{
+                              fontSize: 22, fontWeight: 800, color: '#dde4f0',
+                              fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.5px', lineHeight: 1.1,
+                              marginBottom: 4,
+                            }}>
+                              {fmtIdx(idx.value, idx.currency)}
+                            </div>
+
+                            {/* 변화량 | 시가 */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: Cs, fontVariantNumeric: 'tabular-nums' }}>
+                                {up ? '+' : ''}{fmtIdx(idx.change, idx.currency)}
+                                <span style={{ fontSize: 8, color: '#363855', marginLeft: 3, fontWeight: 400 }}>{idx.currency}</span>
+                              </span>
+                              <span style={{ width: 1, height: 9, background: '#2e3050', flexShrink: 0 }}/>
+                              <span style={{ fontSize: 9, color: '#363855' }}>
+                                시가 <span style={{ color: '#525678' }}>{fmtIdx(idxOpen, idx.currency)}</span>
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* ② 차트 or OHLC */}
+                          {hasChart ? (
+                            <div style={{ flex: 1 }}>
+                              <ResponsiveContainer width="100%" height={65}>
+                                <AreaChart data={chart} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
+                                  <defs>
+                                    <linearGradient id={`sg-${idx.id}`} x1="0" y1="0" x2="0" y2="1">
+                                      <stop offset="0%"   stopColor={C} stopOpacity={0.28}/>
+                                      <stop offset="100%" stopColor={C} stopOpacity={0.02}/>
+                                    </linearGradient>
+                                  </defs>
+                                  <YAxis domain={['auto','auto']} hide/>
+                                  <ReferenceLine y={prevClose} stroke={C} strokeDasharray="3 4" strokeWidth={0.8} strokeOpacity={0.4}/>
+                                  <Area type="monotone" dataKey="v"
+                                    stroke={C} strokeWidth={1.8}
+                                    fill={`url(#sg-${idx.id})`}
+                                    dot={false} isAnimationActive={false}
+                                  />
+                                </AreaChart>
+                              </ResponsiveContainer>
+                            </div>
+                          ) : (
+                            /* KR 지수 — 차트 없음: OHLC 3칸 */
+                            <div style={{
+                              flex: 1, display: 'flex', alignItems: 'center',
+                              padding: '0 13px', gap: 0, minHeight: 65,
+                            }}>
+                              {([['시가', idxOpen], ['고가', idxHigh], ['저가', idxLow]] as [string, number][]).map(([lbl, val], i) => (
+                                <div key={lbl} style={{
+                                  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                                  borderLeft: i > 0 ? '1px solid #252840' : 'none',
+                                }}>
+                                  <span style={{ fontSize: 8, color: '#363855', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>{lbl}</span>
+                                  <span style={{ fontSize: 12, fontWeight: 700, color: '#5a5f7a', fontVariantNumeric: 'tabular-nums' }}>
+                                    {fmtIdx(val, idx.currency)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* ③ Day Range 푸터 */}
+                          <div style={{ padding: '7px 13px 11px', borderTop: '1px solid #1e2140' }}>
+                            {hasRange ? (
+                              <>
+                                {/* 섹션 레이블 */}
+                                <div style={{ fontSize: 8, fontWeight: 700, color: '#363855', letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: 6 }}>
+                                  Day Range
+                                </div>
+
+                                {/* 저가 | 바 | 고가 — 한줄 레이아웃 */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  {/* 저가 */}
+                                  <div style={{ textAlign: 'right' as const, flexShrink: 0, minWidth: 0 }}>
+                                    <div style={{ fontSize: 7, color: '#3b82f6', fontWeight: 700, letterSpacing: '0.06em' }}>저가</div>
+                                    <div style={{ fontSize: 9, color: '#60a5fa', fontVariantNumeric: 'tabular-nums', fontWeight: 600, whiteSpace: 'nowrap' as const }}>
+                                      {fmtIdx(idxLow, idx.currency)}
+                                    </div>
+                                  </div>
+
+                                  {/* 바 트랙 */}
+                                  <div style={{ flex: 1, position: 'relative' }}>
+                                    {/* 트랙 배경 */}
+                                    <div style={{
+                                      height: 6, borderRadius: 3,
+                                      background: '#13162a',
+                                      boxShadow: SHI,
+                                      position: 'relative', overflow: 'visible',
+                                    }}>
+                                      {/* 저가→현재 구간 채움 */}
+                                      <div style={{
+                                        position: 'absolute', left: 0, top: 0, bottom: 0,
+                                        width: `${rPos}%`,
+                                        background: `linear-gradient(90deg, ${C}55, ${C}99)`,
+                                        borderRadius: 3,
+                                      }}/>
+                                      {/* 현재가 글로우 점 */}
+                                      <div style={{
+                                        position: 'absolute', top: '50%',
+                                        left: `${rPos}%`,
+                                        transform: 'translate(-50%, -50%)',
+                                        width: 11, height: 11, borderRadius: '50%',
+                                        background: C,
+                                        boxShadow: `0 0 8px ${C}cc, 0 0 3px ${C}`,
+                                        zIndex: 1,
+                                      }}/>
+                                    </div>
+                                    {/* 현재가 숫자 — 점 아래 중앙 표시 */}
+                                    <div style={{
+                                      position: 'absolute',
+                                      left: `${rPos}%`,
+                                      top: 10,
+                                      transform: 'translateX(-50%)',
+                                      fontSize: 8, fontWeight: 800, color: C,
+                                      fontVariantNumeric: 'tabular-nums',
+                                      whiteSpace: 'nowrap' as const,
+                                      background: N,
+                                      padding: '0 2px',
+                                    }}>
+                                      {fmtIdx(idx.value, idx.currency)}
+                                    </div>
+                                  </div>
+
+                                  {/* 고가 */}
+                                  <div style={{ textAlign: 'left' as const, flexShrink: 0, minWidth: 0 }}>
+                                    <div style={{ fontSize: 7, color: '#ef4444', fontWeight: 700, letterSpacing: '0.06em' }}>고가</div>
+                                    <div style={{ fontSize: 9, color: '#f87171', fontVariantNumeric: 'tabular-nums', fontWeight: 600, whiteSpace: 'nowrap' as const }}>
+                                      {fmtIdx(idxHigh, idx.currency)}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* 현재가 숫자 공간 확보 */}
+                                <div style={{ height: 14 }}/>
+                              </>
+                            ) : (
+                              /* 고저차 없을 때: 심플 텍스트 */
+                              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                                {([['시가', idxOpen], ['고가', idxHigh], ['저가', idxLow]] as [string,number][]).map(([lbl,val]) => (
+                                  <div key={lbl}>
+                                    <div style={{ fontSize: 7, color: '#363855', textTransform: 'uppercase' as const, letterSpacing: '0.07em' }}>{lbl}</div>
+                                    <div style={{ fontSize: 9, color: '#525678', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{fmtIdx(val, idx.currency)}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })
+                }
+              </div>
+            </div>
+
+            {/* ═══ 오른쪽: 오늘의 시장 패널 ═══ */}
+            <div style={{ width: 214, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+              {/* 섹션 레이블 */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 3, height: 12, borderRadius: 2, background: 'linear-gradient(180deg,#a855f7,#6366f1)' }}/>
+                <span style={{ fontSize: 9, fontWeight: 800, color: '#454868', letterSpacing: '0.14em', textTransform: 'uppercase' as const }}>
+                  Today&apos;s Market
+                </span>
+              </div>
+
+              <div style={{
+                flex: 1, borderRadius: 14, background: N,
+                boxShadow: SHO, padding: '15px 15px',
+                display: 'flex', flexDirection: 'column', gap: 13,
+              }}>
+
+                {/* A. 지수 방향 */}
+                <div>
+                  <div style={{ fontSize: 8, fontWeight: 800, color: '#363855', letterSpacing: '0.12em', textTransform: 'uppercase' as const, marginBottom: 9 }}>
+                    Market Direction
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 7 }}>
+                    <span style={{ fontSize: 22, fontWeight: 900, color: '#ef4444', letterSpacing: '-1px', lineHeight: 1 }}>{upCount}</span>
+                    <span style={{ fontSize: 11, color: '#363855', margin: '0 5px', fontWeight: 700 }}>/</span>
+                    <span style={{ fontSize: 22, fontWeight: 900, color: '#3b82f6', letterSpacing: '-1px', lineHeight: 1 }}>{downCount}</span>
+                    <span style={{ fontSize: 9, color: '#454868', marginLeft: 8, lineHeight: 1.3 }}>
+                      상승<br/>하락
+                    </span>
+                  </div>
+                  {/* inset 프로그레스 바 */}
+                  <div style={{
+                    height: 7, borderRadius: 4,
+                    boxShadow: SHI, background: '#13162a',
+                    overflow: 'hidden', position: 'relative',
+                  }}>
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,#3b82f628,#3b82f640)' }}/>
+                    <div style={{
+                      position: 'absolute', left: 0, top: 0, bottom: 0,
+                      width: indices.length > 0 ? `${(upCount / indices.length) * 100}%` : '0%',
+                      background: 'linear-gradient(90deg,#dc2626,#f87171)',
+                      transition: 'width 1.4s cubic-bezier(.4,0,.2,1)',
+                    }}/>
+                  </div>
+                  <div style={{
+                    fontSize: 10, fontWeight: 700, marginTop: 7, textAlign: 'center' as const,
+                    color: allUp ? '#f87171' : majority ? '#f87171' : downCount > upCount ? '#60a5fa' : '#525678',
+                  }}>
+                    {indices.length === 0 ? '—'
+                      : allUp ? '📈 전 지수 상승'
+                      : majority ? `📈 ${upCount}개 상승 우위`
+                      : downCount > upCount ? `📉 ${downCount}개 하락 우위`
+                      : '➡ 혼조세'}
+                  </div>
+                </div>
+
+                {/* 구분선 */}
+                <div style={{ height: 1, boxShadow: 'inset 0 1px 2px #0e1020', background: '#0e1020' }}/>
+
+                {/* B. 시장 현황 */}
+                <div>
+                  <div style={{ fontSize: 8, fontWeight: 800, color: '#363855', letterSpacing: '0.12em', textTransform: 'uppercase' as const, marginBottom: 9 }}>
+                    Market Hours
+                  </div>
+                  {([
+                    { flag: '🇺🇸', name: 'NYSE', isOpen: isNyseOpen },
+                    { flag: '🇰🇷', name: 'KRX',  isOpen: isKrxOpen  },
+                    { flag: '🇯🇵', name: 'TSE',  isOpen: isTseOpen  },
+                  ] as const).map(m => (
+                    <div key={m.name} style={{
+                      display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7,
+                      padding: '7px 10px', borderRadius: 10,
+                      background: N,
+                      boxShadow: m.isOpen
+                        ? '4px 4px 10px #0e1020, -2px -2px 7px #282c44, inset 0 0 0 1px #22c55e22'
+                        : SHI,
+                    }}>
+                      <span style={{ fontSize: 14, lineHeight: 1, flexShrink: 0 }}>{m.flag}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: m.isOpen ? '#86efac' : '#3d4060', width: 30, letterSpacing: '0.04em' }}>
+                        {m.name}
+                      </span>
+                      <div style={{
+                        width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                        background: m.isOpen ? '#22c55e' : '#252840',
+                        boxShadow: m.isOpen ? '0 0 8px #22c55e, 0 0 3px #4ade80' : 'none',
+                      }}/>
+                      <span style={{
+                        fontSize: 9, fontWeight: 800, marginLeft: 'auto' as const,
+                        color: m.isOpen ? '#4ade80' : '#2e3050',
+                        letterSpacing: '0.04em',
+                      }}>
+                        {m.isOpen ? 'OPEN' : 'CLOSED'}
+                      </span>
+                    </div>
+                  ))}
+                  <div style={{ fontSize: 8, color: '#2a2d42', textAlign: 'center' as const, letterSpacing: '0.04em' }}>
+                    평일 기준 · EDT / KST / JST
+                  </div>
+                </div>
+
+                {/* 구분선 */}
+                <div style={{ height: 1, boxShadow: 'inset 0 1px 2px #0e1020', background: '#0e1020' }}/>
+
+                {/* C. 오늘 내 포트폴리오 */}
+                <div>
+                  <div style={{ fontSize: 8, fontWeight: 800, color: '#363855', letterSpacing: '0.12em', textTransform: 'uppercase' as const, marginBottom: 9 }}>
+                    My Portfolio Today
+                  </div>
+                  <div style={{ borderRadius: 10, background: N, boxShadow: SHI, padding: '11px 12px' }}>
+                    {todayPnL.amount !== 0 ? (
+                      <>
+                        <div style={{
+                          fontSize: 20, fontWeight: 900,
+                          fontVariantNumeric: 'tabular-nums', lineHeight: 1.15,
+                          color: todayPnL.amount >= 0 ? '#f87171' : '#60a5fa',
+                          letterSpacing: '-0.4px',
+                        }}>
+                          {todayPnL.amount >= 0 ? '+' : ''}{fmtKrw(todayPnL.amount)}
+                        </div>
+                        <div style={{
+                          fontSize: 11, fontVariantNumeric: 'tabular-nums', marginTop: 4,
+                          color: todayPnL.pct >= 0 ? '#f87171' : '#60a5fa', fontWeight: 600,
+                        }}>
+                          {todayPnL.pct >= 0 ? '+' : ''}{todayPnL.pct.toFixed(2)}%
+                          <span style={{ color: '#363855', marginLeft: 5, fontWeight: 400 }}>금일 등락</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ fontSize: 11, color: '#363855' }}>
+                        {pricedInvs.length > 0 ? '보합' : '로딩 중…'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
 
       {/* ── 2. 자산 비중 히트맵 ── */}
       <Card>
@@ -615,7 +1226,7 @@ export default function DashboardPage() {
                   <div style={{ fontSize:16, fontWeight:800, color:(totalRet??0)>=0?'#ef4444':'#3b82f6', fontVariantNumeric:'tabular-nums' }}>{fmtPct(totalRet)}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize:9, color:'#4b5563', textTransform:'uppercase', letterSpacing:'0.06em' }}>실현 손익</div>
+                  <div style={{ fontSize:9, color:'#4b5563', textTransform:'uppercase', letterSpacing:'0.06em' }}>평가 손익</div>
                   <div style={{ fontSize:16, fontWeight:800, color:totalPnL>=0?'#ef4444':'#3b82f6', fontVariantNumeric:'tabular-nums' }}>{fmtKrw(totalPnL)}</div>
                 </div>
               </>

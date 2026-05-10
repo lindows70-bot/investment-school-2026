@@ -25,7 +25,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // ── 1. Unauthenticated → /login ──────────────────────────────
-  const protectedPaths = ['/portfolio', '/admin', '/dashboard', '/assets', '/history', '/analysis', '/watchlist']
+  const protectedPaths = ['/portfolio', '/admin', '/dashboard', '/assets', '/history', '/analysis', '/watchlist', '/research']
   const authPaths      = ['/login', '/signup']
 
   if (!user && protectedPaths.some(p => pathname.startsWith(p))) {

@@ -2,9 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type Market    = 'US' | 'KR' | 'CRYPTO'
-export type TimeFrame = '1D' | '1W' | '1M'
+export type TimeFrame = '1D' | '1W' | '1M' | '1Y'
 
 export interface PricePoint { t: number; v: number }
+
+export interface Candle {
+  date:   string
+  open:   number
+  high:   number
+  low:    number
+  close:  number
+  volume: number
+}
 
 export interface Fundamentals {
   pe:             number | 'N/A'
@@ -17,6 +26,12 @@ export interface Fundamentals {
   earningsGrowth: number | null
   dividendYield:  number | null
   isEtf:          boolean
+  // 추가 재무 지표
+  eps:            number | null
+  pbr:            number | null
+  forwardEps:     number | null
+  payoutRatio:    number | null   // 배당성향 (0.25 = 25%)
+  annualDividend: number | null   // 연간 배당금/주 (원화 or USD)
 }
 
 export interface StockData {
@@ -27,6 +42,7 @@ export interface StockData {
   change:       number
   changePct:    number
   charts:       Record<TimeFrame, PricePoint[]>
+  ohlcCharts:   Record<TimeFrame, Candle[]>
   fundamentals: Fundamentals
   updatedAt:    string
   source:       'live' | 'cache'
@@ -50,7 +66,11 @@ function setCache(key: string, data: StockData) {
 function nullFundamentals(): Fundamentals {
   return { pe: 'N/A', peg: 'N/A', marketCap: null, volume: null,
            high52w: null, low52w: null, sector: null,
-           earningsGrowth: null, dividendYield: null, isEtf: false }
+           earningsGrowth: null, dividendYield: null, isEtf: false,
+           eps: null, pbr: null, forwardEps: null, payoutRatio: null, annualDividend: null }
+}
+function nullOhlcCharts(): Record<TimeFrame, Candle[]> {
+  return { '1D': [], '1W': [], '1M': [], '1Y': [] }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -144,6 +164,7 @@ async function naverChart(code: string, tf: TimeFrame): Promise<PricePoint[]> {
     '1D': { timeframe: 'day',   count: 35 },   // 최근 35 거래일
     '1W': { timeframe: 'week',  count: 26 },   // 최근 26 주
     '1M': { timeframe: 'month', count: 24 },   // 최근 24 개월
+    '1Y': { timeframe: 'month', count: 60 },   // 최근 60 개월(5년) → 1Y 근사
   }
   const { timeframe, count } = tfMap[tf]
 
@@ -179,6 +200,50 @@ async function naverChart(code: string, tf: TimeFrame): Promise<PricePoint[]> {
   }
 
   return points
+}
+
+/** KR OHLC 캔들 데이터 (네이버 차트 XML → Candle[]) */
+async function naverOhlcChart(code: string, tf: TimeFrame): Promise<Candle[]> {
+  // 캔들 밀도 최적화: 차트가 "막대그래프"처럼 보이지 않도록 캔들 수 증가
+  // 1D: 일봉 60개(3개월), 1W: 일봉 40개(2개월), 1M: 일봉 90개(4개월), 1Y: 월봉 36개(3년)
+  const tfMap: Record<TimeFrame, { timeframe: string; count: number }> = {
+    '1D': { timeframe: 'day',   count: 60 },   // 최근 60 거래일 일봉
+    '1W': { timeframe: 'day',   count: 40 },   // 최근 40 거래일 일봉
+    '1M': { timeframe: 'day',   count: 90 },   // 최근 90 거래일 일봉
+    '1Y': { timeframe: 'month', count: 36 },   // 최근 36개월 월봉
+  }
+  const { timeframe, count } = tfMap[tf]
+  const url = `https://fchart.stock.naver.com/sise.nhn?symbol=${code}&timeframe=${timeframe}&count=${count}&requestType=0`
+
+  try {
+    const res = await naverFetch(url)
+    if (!res.ok) return []
+    const xml = await res.text()
+
+    const candles: Candle[] = []
+    const re = /data="([^"]+)"/g
+    let m: RegExpExecArray | null
+    while ((m = re.exec(xml)) !== null) {
+      const p = m[1].split('|')
+      if (p.length < 6) continue
+      const ds     = p[0]  // YYYYMMDD or YYYYMMDDHHII
+      const open   = parseFloat(p[1])
+      const high   = parseFloat(p[2])
+      const low    = parseFloat(p[3])
+      const close  = parseFloat(p[4])
+      const volume = parseFloat(p[5])
+      if (!isFinite(close) || close <= 0) continue
+      candles.push({
+        date:   `${ds.slice(0,4)}-${ds.slice(4,6)}-${ds.slice(6,8)}`,
+        open:   isFinite(open)   && open   > 0 ? open   : close,
+        high:   isFinite(high)   && high   > 0 ? high   : close,
+        low:    isFinite(low)    && low    > 0 ? low    : close,
+        close,
+        volume: isFinite(volume) ? volume : 0,
+      })
+    }
+    return candles
+  } catch { return [] }
 }
 
 /** 한국 산업 분류명 → 피터 린치 섹터 키워드 */
@@ -236,6 +301,11 @@ async function naverFundamentals(code: string): Promise<Fundamentals> {
     earningsGrowth,
     dividendYield:  dy,
     isEtf:          false,
+    eps:        null,
+    pbr:        null,
+    forwardEps: null,
+    payoutRatio:    null,   // Naver에서 배당성향 별도 미제공
+    annualDividend: null,
   }
 }
 
@@ -243,21 +313,37 @@ async function naverFundamentals(code: string): Promise<Fundamentals> {
 async function fetchKrStock(ticker: string): Promise<StockData> {
   const code = ticker.replace(/\.(KS|KQ)$/i, '')   // 혹시 .KS/.KQ가 붙어 오면 제거
 
-  const [quoteRes, chartResults, fund] = await Promise.all([
+  const [quoteRes, chartResults, ohlcResults, fund] = await Promise.all([
     naverQuote(code),
     Promise.allSettled([
       naverChart(code, '1D'),
       naverChart(code, '1W'),
       naverChart(code, '1M'),
+      naverChart(code, '1Y'),
+    ]),
+    Promise.allSettled([
+      naverOhlcChart(code, '1D'),
+      naverOhlcChart(code, '1W'),
+      naverOhlcChart(code, '1M'),
+      naverOhlcChart(code, '1Y'),   // ← 1Y 추가
     ]),
     naverFundamentals(code),
   ])
 
-  const [r1D, r1W, r1M] = chartResults
+  const [r1D, r1W, r1M, r1Y] = chartResults
   const charts: Record<TimeFrame, PricePoint[]> = {
     '1D': r1D.status === 'fulfilled' ? r1D.value : [],
     '1W': r1W.status === 'fulfilled' ? r1W.value : [],
     '1M': r1M.status === 'fulfilled' ? r1M.value : [],
+    '1Y': r1Y.status === 'fulfilled' ? r1Y.value : [],
+  }
+
+  const [o1D, o1W, o1M, o1Y] = ohlcResults
+  const ohlcCharts: Record<TimeFrame, Candle[]> = {
+    '1D': o1D.status === 'fulfilled' ? o1D.value : [],
+    '1W': o1W.status === 'fulfilled' ? o1W.value : [],
+    '1M': o1M.status === 'fulfilled' ? o1M.value : [],
+    '1Y': o1Y.status === 'fulfilled' ? o1Y.value : [],  // ← 1Y 실제 데이터
   }
 
   return {
@@ -268,6 +354,7 @@ async function fetchKrStock(ticker: string): Promise<StockData> {
     change:       quoteRes.change,
     changePct:    quoteRes.changePct,
     charts,
+    ohlcCharts,
     fundamentals: fund,
     updatedAt:    new Date().toISOString(),
     source:       'live',
@@ -287,9 +374,10 @@ const YF_HEADERS: HeadersInit = {
 }
 
 const YF_RANGE: Record<TimeFrame, { range: string; interval: string }> = {
-  '1D': { range: '1d',  interval: '5m'  },
-  '1W': { range: '5d',  interval: '30m' },
-  '1M': { range: '1mo', interval: '1d'  },
+  '1D': { range: '1d',  interval: '5m'  },   // 78 포인트 (장중 5분봉)
+  '1W': { range: '5d',  interval: '60m' },   // ~33 포인트 (시간봉 → 야간갭 최소화)
+  '1M': { range: '1mo', interval: '1d'  },   // ~22 포인트 (일봉)
+  '1Y': { range: '1y',  interval: '1wk' },   // ~52 포인트 (주봉)
 }
 
 // v8 chart: query1 → query2 순서로 fallback (v7/v10은 401 차단)
@@ -323,6 +411,50 @@ async function yfChart(ticker: string, tf: TimeFrame): Promise<PricePoint[]> {
     if (v != null && isFinite(v)) points.push({ t: timestamps[i] * 1000, v })
   }
   return points
+}
+
+/** US OHLC 캔들 데이터 (Yahoo Finance v8 → Candle[]) */
+async function yfOhlcChart(ticker: string, tf: TimeFrame): Promise<Candle[]> {
+  // 캔들 밀도 최적화 — 각 탭별 자연스러운 캔들 수 확보
+  // 1D: 5분봉 78개(장중 하루), 1W: 30분봉 65개(5일), 1M: 일봉 30개, 1Y: 주봉 52개
+  const tfCfg: Record<TimeFrame, { range: string; interval: string }> = {
+    '1D': { range: '1d',  interval: '5m'  },  // 78 candles
+    '1W': { range: '5d',  interval: '30m' },  // 65 candles
+    '1M': { range: '1mo', interval: '1d'  },  // 30 candles
+    '1Y': { range: '1y',  interval: '1wk' },  // 52 candles
+  }
+  const { range, interval } = tfCfg[tf]
+  try {
+    const res = await yfChartFetch(ticker, `range=${range}&interval=${interval}&includePrePost=false`)
+    if (!res || !res.ok) return []
+    const json   = await res.json()
+    const result = json?.chart?.result?.[0]
+    if (!result) return []
+
+    const ts:  number[]        = result.timestamp       ?? []
+    const q                    = result.indicators?.quote?.[0] ?? {}
+    const opens:   (number|null)[] = q.open   ?? []
+    const highs:   (number|null)[] = q.high   ?? []
+    const lows:    (number|null)[] = q.low    ?? []
+    const closes:  (number|null)[] = q.close  ?? []
+    const volumes: (number|null)[] = q.volume ?? []
+
+    return ts
+      .map((t, i) => {
+        const close = closes[i]
+        if (close == null || !isFinite(close) || close <= 0) return null
+        const d = new Date(t * 1000)
+        return {
+          date:   d.toISOString().slice(0, 10),
+          open:   isFinite(opens[i]   ?? NaN) && (opens[i]   ?? 0) > 0 ? opens[i]!   : close,
+          high:   isFinite(highs[i]   ?? NaN) && (highs[i]   ?? 0) > 0 ? highs[i]!   : close,
+          low:    isFinite(lows[i]    ?? NaN) && (lows[i]    ?? 0) > 0 ? lows[i]!    : close,
+          close,
+          volume: isFinite(volumes[i] ?? NaN) ? (volumes[i] ?? 0) : 0,
+        } as Candle
+      })
+      .filter((c): c is Candle => c !== null)
+  } catch { return [] }
 }
 
 async function yfQuote(ticker: string) {
@@ -365,6 +497,26 @@ async function yfFundamentals(ticker: string): Promise<Fundamentals> {
       const peg = raw(stats,  'pegRatio')
       const isEtf = (stats.quoteType ?? '').toUpperCase() === 'ETF' || !!(r.fundFamily)
 
+      // v10에서 배당 데이터 없으면 yahoo-finance2로 보충
+      let dyYield      = raw(detail, 'dividendYield')  ?? raw(detail, 'trailingAnnualDividendYield')
+      let dyPayout     = raw(detail, 'payoutRatio')
+      let dyAnnualDiv  = raw(detail, 'dividendRate')   ?? raw(detail, 'trailingAnnualDividendRate')
+
+      if ((dyYield == null || dyPayout == null) && !isEtf) {
+        try {
+          const { default: YahooFinance } = await import('yahoo-finance2')
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const yf = new (YahooFinance as any)({ suppressNotices: ['yahooSurvey'] })
+          const ySum = await yf.quoteSummary(ticker, { modules: ['summaryDetail'] })
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const sd: any = ySum?.summaryDetail ?? {}
+          const pick = (v: unknown) => typeof v === 'number' && isFinite(v) && v > 0 ? v : null
+          if (dyYield     == null) dyYield     = pick(sd.dividendYield)   ?? pick(sd.trailingAnnualDividendYield)
+          if (dyPayout    == null) dyPayout    = pick(sd.payoutRatio)
+          if (dyAnnualDiv == null) dyAnnualDiv = pick(sd.dividendRate)    ?? pick(sd.trailingAnnualDividendRate)
+        } catch { /* 무시 */ }
+      }
+
       return {
         pe:             pe  != null ? pe  : 'N/A',
         peg:            peg != null ? peg : 'N/A',
@@ -374,8 +526,13 @@ async function yfFundamentals(ticker: string): Promise<Fundamentals> {
         low52w:         raw(detail,  'fiftyTwoWeekLow'),
         sector:         (profile.sector as string | null) ?? null,
         earningsGrowth: raw(finance, 'earningsGrowth') ?? raw(finance, 'revenueGrowth'),
-        dividendYield:  raw(detail,  'dividendYield')  ?? raw(detail, 'trailingAnnualDividendYield'),
+        dividendYield:  dyYield,
+        payoutRatio:    dyPayout,
+        annualDividend: dyAnnualDiv,
         isEtf,
+        eps:        raw(stats, 'trailingEps'),
+        pbr:        raw(stats, 'priceToBook'),
+        forwardEps: raw(stats, 'forwardEps'),
       }
     } catch { /* 다음 host */ }
   }
@@ -386,20 +543,30 @@ async function yfFundamentals(ticker: string): Promise<Fundamentals> {
 async function fetchUsStock(ticker: string): Promise<StockData> {
   const t = ticker.toUpperCase()
 
-  const [chartResults, quote, fund] = await Promise.all([
-    Promise.allSettled([yfChart(t, '1D'), yfChart(t, '1W'), yfChart(t, '1M')]),
+  const [chartResults, ohlcResults, quote, fund] = await Promise.all([
+    Promise.allSettled([yfChart(t, '1D'), yfChart(t, '1W'), yfChart(t, '1M'), yfChart(t, '1Y')]),
+    Promise.allSettled([yfOhlcChart(t, '1D'), yfOhlcChart(t, '1W'), yfOhlcChart(t, '1M'), yfOhlcChart(t, '1Y')]),
     yfQuote(t),
     yfFundamentals(t),
   ])
 
-  const [r1D, r1W, r1M] = chartResults
+  const [r1D, r1W, r1M, r1Y] = chartResults
   const charts: Record<TimeFrame, PricePoint[]> = {
     '1D': r1D.status === 'fulfilled' ? r1D.value : [],
     '1W': r1W.status === 'fulfilled' ? r1W.value : [],
     '1M': r1M.status === 'fulfilled' ? r1M.value : [],
+    '1Y': r1Y.status === 'fulfilled' ? r1Y.value : [],
   }
   const change    = quote.currentPrice - quote.prevClose
   const changePct = quote.prevClose > 0 ? (change / quote.prevClose) * 100 : 0
+
+  const [uo1D, uo1W, uo1M, uo1Y] = ohlcResults
+  const ohlcCharts: Record<TimeFrame, Candle[]> = {
+    '1D': uo1D.status === 'fulfilled' ? uo1D.value : [],
+    '1W': uo1W.status === 'fulfilled' ? uo1W.value : [],
+    '1M': uo1M.status === 'fulfilled' ? uo1M.value : [],
+    '1Y': uo1Y.status === 'fulfilled' ? uo1Y.value : [],
+  }
 
   // yfQuote의 isEtf로 fundamentals.isEtf 덮어쓰기
   const fundamentals = { ...fund, isEtf: fund.isEtf || quote.isEtf }
@@ -407,7 +574,7 @@ async function fetchUsStock(ticker: string): Promise<StockData> {
   return {
     ticker: t, name: quote.name,
     currentPrice: quote.currentPrice, currency: 'USD',
-    change, changePct, charts, fundamentals,
+    change, changePct, charts, ohlcCharts, fundamentals,
     updatedAt: new Date().toISOString(), source: 'live',
   }
 }
@@ -479,12 +646,49 @@ async function upbitChart(ticker: string, tf: TimeFrame): Promise<PricePoint[]> 
     .filter(p => p.v > 0 && isFinite(p.t))
 }
 
+/** CRYPTO OHLC 캔들 데이터 (업비트 → Candle[]) */
+async function upbitOhlcChart(ticker: string, tf: TimeFrame): Promise<Candle[]> {
+  const market = upbitMarket(ticker)
+  // 캔들 밀도 최적화
+  const url =
+    tf === '1D' ? `https://api.upbit.com/v1/candles/minutes/10?market=${market}&count=72`  // 10분봉 72개 ≈ 12시간
+    : tf === '1W' ? `https://api.upbit.com/v1/candles/days?market=${market}&count=40`      // 일봉 40개
+    : tf === '1Y' ? `https://api.upbit.com/v1/candles/weeks?market=${market}&count=52`     // 주봉 52개
+    : `https://api.upbit.com/v1/candles/days?market=${market}&count=90`                    // 1M: 일봉 90개
+
+  try {
+    const res = await fetch(url, { headers: UPBIT_H, next: { revalidate: 0 } })
+    if (!res.ok) return []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: any[] = await res.json()
+    if (!Array.isArray(data)) return []
+
+    return data
+      .reverse()   // 업비트: 최신→과거 순, 과거→최신으로 뒤집기
+      .map(d => ({
+        date:   String(d.candle_date_time_kst ?? '').slice(0, 10),
+        open:   d.opening_price  as number,
+        high:   d.high_price     as number,
+        low:    d.low_price      as number,
+        close:  d.trade_price    as number,
+        volume: d.candle_acc_trade_volume as number ?? 0,
+      }))
+      .filter((c: Candle) => isFinite(c.close) && c.close > 0)
+  } catch { return [] }
+}
+
 async function fetchCrypto(ticker: string): Promise<StockData> {
-  const [chartResults, quote] = await Promise.all([
+  const [chartResults, ohlcResults, quote] = await Promise.all([
     Promise.allSettled([
       upbitChart(ticker, '1D'),
       upbitChart(ticker, '1W'),
       upbitChart(ticker, '1M'),
+    ]),
+    Promise.allSettled([
+      upbitOhlcChart(ticker, '1D'),
+      upbitOhlcChart(ticker, '1W'),
+      upbitOhlcChart(ticker, '1M'),
+      upbitOhlcChart(ticker, '1Y'),
     ]),
     upbitQuote(ticker),
   ])
@@ -497,6 +701,14 @@ async function fetchCrypto(ticker: string): Promise<StockData> {
   const to1M = r1M.status === 'fulfilled' && r1M.value.length > 0
     ? r1M.value : flatLine(quote.currentPrice, 30)
 
+  const [co1D, co1W, co1M, co1Y] = ohlcResults
+  const ohlcCharts: Record<TimeFrame, Candle[]> = {
+    '1D': co1D.status === 'fulfilled' ? co1D.value : [],
+    '1W': co1W.status === 'fulfilled' ? co1W.value : [],
+    '1M': co1M.status === 'fulfilled' ? co1M.value : [],
+    '1Y': co1Y.status === 'fulfilled' ? co1Y.value : [],
+  }
+
   return {
     ticker:       ticker.toUpperCase(),
     name:         ticker.toUpperCase(),
@@ -504,12 +716,14 @@ async function fetchCrypto(ticker: string): Promise<StockData> {
     currency:     'KRW',           // ← USD → KRW
     change:       quote.change,
     changePct:    quote.changePct,
-    charts:       { '1D': to1D, '1W': to1W, '1M': to1M },
+    charts:       { '1D': to1D, '1W': to1W, '1M': to1M, '1Y': [] },
+    ohlcCharts,
     fundamentals: {
       pe: 'N/A', peg: 'N/A',
       marketCap: null, volume: quote.volume,
       high52w: null, low52w: null,
       sector: null, earningsGrowth: null, dividendYield: null, isEtf: false,
+      eps: null, pbr: null, forwardEps: null, payoutRatio: null, annualDividend: null,
     },
     updatedAt: new Date().toISOString(),
     source:    'live',
@@ -584,7 +798,8 @@ export async function POST(req: NextRequest) {
           ticker, name: ticker, error: (err as Error).message,
           source: 'live' as const, currentPrice: 0, currency: 'USD' as const,
           change: 0, changePct: 0,
-          charts: { '1D': [], '1W': [], '1M': [] },
+          charts: { '1D': [], '1W': [], '1M': [], '1Y': [] },
+          ohlcCharts: nullOhlcCharts(),
           fundamentals: nullFundamentals(),
           updatedAt: new Date().toISOString(),
         } satisfies StockData

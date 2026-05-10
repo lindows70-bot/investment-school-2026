@@ -54,8 +54,9 @@ function Tab({ active, onClick, color, icon, label, sub }: {
 }) {
   return (
     <button onClick={onClick} style={{
-      flex:1, padding:'16px 20px', borderRadius:12, border:`1px solid ${active ? color+'66' : '#1f2937'}`,
-      background: active ? `${color}12` : 'transparent',
+      flex:1, padding:'16px 20px', borderRadius:12, border:'none',
+      background: active ? `${color}18` : 'transparent',
+      boxShadow: active ? '7px 7px 18px #0e1020, -4px -4px 12px #282c44' : 'inset 4px 4px 10px #0e1020, inset -3px -3px 8px #282c44',
       cursor:'pointer', transition:'all 0.2s', textAlign:'left' as const,
     }}>
       <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
@@ -358,7 +359,9 @@ function AnalysisContent() {
     </div>
   )
 
-  const C = { bg:'#111827', border:'#1f2937', card:'#1a1d27', text:'#f1f5f9', sub:'#6b7280', muted:'#374151' }
+  const C = { bg:'#1b1e2e', border:'#252840', card:'#1b1e2e', text:'#dde4f0', sub:'#6b7280', muted:'#363855' }
+  const SHO = '7px 7px 18px #0e1020, -4px -4px 12px #282c44'
+  const SHI = 'inset 4px 4px 10px #0e1020, inset -3px -3px 8px #282c44'
   const th = { padding:'9px 14px', textAlign:'left' as const, fontSize:10, fontWeight:600, color:C.sub, textTransform:'uppercase' as const, letterSpacing:'0.07em', whiteSpace:'nowrap' as const }
   const td = { padding:'10px 14px', borderTop:`1px solid ${C.border}` }
 
@@ -367,7 +370,7 @@ function AnalysisContent() {
       <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
       {/* ── 헤더 ── */}
-      <div style={{ background:'linear-gradient(135deg,#0f1117 0%,#1a1d27 100%)', borderRadius:16, padding:'24px 28px', border:`1px solid ${C.border}` }}>
+      <div style={{ background:'#1b1e2e', borderRadius:16, padding:'24px 28px', border:'none', boxShadow:'10px 10px 28px #0b0d1a, -6px -6px 18px #2b2f46' }}>
         <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:8 }}>
           <div style={{ width:44, height:44, borderRadius:12, background:'linear-gradient(135deg,#f59e0b22,#10b98122)', border:'1px solid #374151', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>📈</div>
           <div>
@@ -394,7 +397,7 @@ function AnalysisContent() {
           {/* 분류 현황 */}
           <div style={{ display:'grid', gridTemplateColumns:'5fr 3fr', gap:16 }}>
             {/* 테이블 */}
-            <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, overflow:'hidden' }}>
+            <div style={{ background:'#1b1e2e', boxShadow: SHO, border:'none', borderRadius:12, overflow:'hidden' }}>
               <div style={{ padding:'14px 18px', borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center', gap:8 }}>
                 <span style={{ fontSize:16 }}>⚡</span>
                 <div>
@@ -412,7 +415,7 @@ function AnalysisContent() {
                   <col style={{ width:'72px'  }}/>  {/* 바 */}
                   <col/>                            {/* 종목 — 나머지 전부 */}
                 </colgroup>
-                <thead><tr style={{ background:'#0d1117' }}>
+                <thead><tr style={{ background:'#141728' }}>
                   {['분류','특징','종목','투자금액','비중','비중 바','보유 종목'].map(h=>(
                     <th key={h} style={{ ...th, whiteSpace:'nowrap' }}>{h}</th>
                   ))}
@@ -433,7 +436,7 @@ function AnalysisContent() {
                       <td style={{ ...td, color:'#cbd5e1', fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap' }}>{fmtKrw(g.invested)}</td>
                       <td style={{ ...td, color:g.color, fontWeight:700, textAlign:'right', whiteSpace:'nowrap' }}>{g.pct}%</td>
                       <td style={{ ...td }}>
-                        <div style={{ height:5, background:C.border, borderRadius:99, overflow:'hidden', minWidth:48 }}>
+                        <div style={{ height:5, background:'#13162a', boxShadow: SHI, borderRadius:99, overflow:'hidden', minWidth:48 }}>
                           <div style={{ height:'100%', width:`${Math.min(parseFloat(g.pct),100)}%`, background:g.color, borderRadius:99 }}/>
                         </div>
                       </td>
@@ -458,7 +461,7 @@ function AnalysisContent() {
             </div>
 
             {/* 도넛 */}
-            <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:'16px 18px' }}>
+            <div style={{ background:'#1b1e2e', boxShadow: SHO, border:'none', borderRadius:12, padding:'16px 18px' }}>
               <div style={{ fontSize:12, fontWeight:700, color:'#f59e0b', marginBottom:4 }}>분류별 비중</div>
               <div style={{ fontSize:11, color:C.sub, marginBottom:12 }}>보유 종목 수 기준</div>
               {lynchPieData.length===0 ? (
@@ -489,14 +492,14 @@ function AnalysisContent() {
           </div>
 
           {/* 리밸런싱 */}
-          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, overflow:'hidden' }}>
+          <div style={{ background:'#1b1e2e', boxShadow: SHO, border:'none', borderRadius:12, overflow:'hidden' }}>
             <div style={{ padding:'14px 18px', borderBottom:`1px solid ${C.border}` }}>
               <div style={{ fontSize:13, fontWeight:700, color:'#f59e0b' }}>🔄 피터린치식 포트폴리오 리밸런싱 제안</div>
               <div style={{ fontSize:11, color:C.sub, marginTop:2 }}>현재 비중 vs 린치 권장 비중 비교</div>
             </div>
             <div style={{ overflowX:'auto' }}>
               <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
-                <thead><tr style={{ background:'#0d1117' }}>
+                <thead><tr style={{ background:'#141728' }}>
                   {['분류','현재 비중','권장 비중','차이','제안'].map(h=><th key={h} style={th}>{h}</th>)}
                 </tr></thead>
                 <tbody>
@@ -509,7 +512,7 @@ function AnalysisContent() {
                         <td style={td}><span style={{ display:'inline-flex',alignItems:'center',gap:5,padding:'2px 8px',borderRadius:99,fontSize:11,fontWeight:600,color:r.color,background:`${r.color}18`,border:`1px solid ${r.color}35` }}>{r.label}</span></td>
                         <td style={{ ...td }}>
                           <div style={{ display:'flex',alignItems:'center',gap:8 }}>
-                            <div style={{ width:48,height:4,background:C.border,borderRadius:99,overflow:'hidden' }}>
+                            <div style={{ width:48,height:4,background:'#13162a', boxShadow: SHI,borderRadius:99,overflow:'hidden' }}>
                               <div style={{ height:'100%',width:`${Math.min(r.current,100)}%`,background:r.color,borderRadius:99 }}/>
                             </div>
                             <span style={{ fontSize:12, color:C.text, fontVariantNumeric:'tabular-nums' }}>{r.current.toFixed(1)}%</span>
@@ -530,7 +533,7 @@ function AnalysisContent() {
           </div>
 
           {/* ── PEG 분석 섹션 ── */}
-          <div style={{ background:'linear-gradient(135deg,#1a0a00 0%,#1f1200 50%,#1a1500 100%)', border:'1px solid #f59e0b33', borderRadius:14, padding:'20px 24px' }}>
+          <div style={{ background:'linear-gradient(135deg,#1a0a00 0%,#1f1200 50%,#1a1500 100%)', border:'none', boxShadow:'7px 7px 18px #0e1020, -4px -4px 12px #282c44', borderRadius:14, padding:'20px 24px' }}>
             {/* 헤더 */}
             <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:20, flexWrap:'wrap', gap:12 }}>
               <div>
@@ -588,6 +591,31 @@ function AnalysisContent() {
                     ))}
                   </div>
                 </div>
+                {/* ── PEG 기준선 헤더 (한 번만 표시) ── */}
+                <div style={{ display:'flex', alignItems:'flex-end', gap:12, marginBottom:4 }}>
+                  <div style={{ width:120, flexShrink:0 }}/>
+                  <div style={{ flex:1, position:'relative', height:16 }}>
+                    {/* PEG=1 라벨 */}
+                    <div style={{ position:'absolute', left:`${(1/3)*100}%`, transform:'translateX(-50%)',
+                      display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                      <span style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,0.5)',
+                        background:'rgba(245,158,11,0.15)', border:'1px solid rgba(245,158,11,0.3)',
+                        padding:'1px 6px', borderRadius:4, whiteSpace:'nowrap' }}>PEG = 1</span>
+                      <div style={{ width:1, height:6, background:'rgba(255,255,255,0.3)' }}/>
+                    </div>
+                    {/* PEG=2 라벨 */}
+                    <div style={{ position:'absolute', left:`${(2/3)*100}%`, transform:'translateX(-50%)',
+                      display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                      <span style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,0.35)',
+                        background:'rgba(239,68,68,0.12)', border:'1px solid rgba(239,68,68,0.25)',
+                        padding:'1px 6px', borderRadius:4, whiteSpace:'nowrap' }}>PEG = 2</span>
+                      <div style={{ width:1, height:6, background:'rgba(255,255,255,0.2)' }}/>
+                    </div>
+                  </div>
+                  <div style={{ width:50, flexShrink:0 }}/>
+                  <div style={{ width:100, flexShrink:0 }}/>
+                </div>
+
                 {pegAnalysis.filter(p=>p.pegVal!==null).slice(0,8).map(p=>{
                   const peg = p.pegVal!
                   const barW = Math.min(100, (peg/3)*100)
@@ -601,10 +629,10 @@ function AnalysisContent() {
                       <div style={{ flex:1, position:'relative' }}>
                         <div style={{ height:16, background:'rgba(0,0,0,0.3)', borderRadius:99, overflow:'visible', position:'relative' }}>
                           <div style={{ height:'100%', width:`${barW}%`, background:barColor, borderRadius:99, transition:'width 0.8s ease' }}/>
-                          {/* 기준선 1.0 */}
-                          <div style={{ position:'absolute', left:`${(1/3)*100}%`, top:-3, bottom:-3, width:1.5, background:'rgba(255,255,255,0.3)', borderRadius:1 }}/>
-                          {/* 기준선 2.0 */}
-                          <div style={{ position:'absolute', left:`${(2/3)*100}%`, top:-3, bottom:-3, width:1.5, background:'rgba(255,255,255,0.2)', borderRadius:1 }}/>
+                          {/* 기준선 PEG=1 (라벨 없음 — 상단 헤더에 표시) */}
+                          <div style={{ position:'absolute', left:`${(1/3)*100}%`, top:-3, bottom:-3, width:1.5, background:'rgba(255,255,255,0.25)', borderRadius:1 }}/>
+                          {/* 기준선 PEG=2 (라벨 없음 — 상단 헤더에 표시) */}
+                          <div style={{ position:'absolute', left:`${(2/3)*100}%`, top:-3, bottom:-3, width:1.5, background:'rgba(255,255,255,0.15)', borderRadius:1 }}/>
                         </div>
                       </div>
                       <div style={{ width:50, textAlign:'right', flexShrink:0 }}>
@@ -707,7 +735,7 @@ function AnalysisContent() {
         <div style={{ display:'flex', flexDirection:'column', gap:16, animation:'fadeIn 0.25s ease-out' }}>
 
           {/* 상단 스코어 배너 */}
-          <div style={{ background:'linear-gradient(135deg,#052e16 0%,#064e3b 50%,#065f46 100%)', borderRadius:14, padding:'22px 28px', border:'1px solid #10b98133', display:'grid', gridTemplateColumns:'1fr auto', gap:16, alignItems:'center' }}>
+          <div style={{ background:'linear-gradient(135deg,#052e16 0%,#064e3b 50%,#065f46 100%)', borderRadius:14, padding:'22px 28px', border:'none', boxShadow:'7px 7px 18px #0e1020, -4px -4px 12px #282c44', display:'grid', gridTemplateColumns:'1fr auto', gap:16, alignItems:'center' }}>
             <div>
               <div style={{ fontSize:11, fontWeight:700, color:'#6ee7b7', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:8 }}>WARREN BUFFETT SCORE</div>
               <div style={{ fontSize:13, color:'#a7f3d0', marginBottom:12 }}>포트폴리오의 경제적 해자와 내재 가치를 종합 진단합니다.</div>
@@ -728,7 +756,7 @@ function AnalysisContent() {
           {/* 레이더 + 버핏 원칙 */}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
             {/* 레이더 차트 */}
-            <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:'16px 18px' }}>
+            <div style={{ background:'#1b1e2e', boxShadow: SHO, border:'none', borderRadius:12, padding:'16px 18px' }}>
               <div style={{ fontSize:13, fontWeight:700, color:'#10b981', marginBottom:4 }}>포트폴리오 펀더멘탈 스코어</div>
               <div style={{ fontSize:11, color:C.sub, marginBottom:12 }}>5가지 핵심 지표 종합 평가</div>
               {buffettRadar.length===0 ? (
@@ -747,7 +775,7 @@ function AnalysisContent() {
                 {buffettRadar.map(d=>(
                   <div key={d.subject} style={{ display:'flex', alignItems:'center', gap:8 }}>
                     <span style={{ fontSize:10, color:C.sub, width:90, flexShrink:0 }}>{d.subject}</span>
-                    <div style={{ flex:1, height:4, background:C.border, borderRadius:99, overflow:'hidden' }}>
+                    <div style={{ flex:1, height:4, background:'#13162a', boxShadow: SHI, borderRadius:99, overflow:'hidden' }}>
                       <div style={{ height:'100%', width:`${d.score}%`, background:d.score>=70?'#10b981':d.score>=50?'#f59e0b':'#f87171', borderRadius:99, transition:'width 1s ease' }}/>
                     </div>
                     <span style={{ fontSize:10, fontWeight:700, color:d.score>=70?'#10b981':d.score>=50?'#f59e0b':'#f87171', width:28, textAlign:'right', flexShrink:0 }}>{d.score}</span>
@@ -757,7 +785,7 @@ function AnalysisContent() {
             </div>
 
             {/* 버핏 원칙 카드 */}
-            <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:'16px 18px' }}>
+            <div style={{ background:'#1b1e2e', boxShadow: SHO, border:'none', borderRadius:12, padding:'16px 18px' }}>
               <div style={{ fontSize:13, fontWeight:700, color:'#10b981', marginBottom:4 }}>🛡️ 워렌버핏의 투자 원칙</div>
               <div style={{ fontSize:11, color:C.sub, marginBottom:14 }}>버핏이 강조하는 핵심 원칙과 포트폴리오 대조</div>
               {[
@@ -793,7 +821,7 @@ function AnalysisContent() {
           </div>
 
           {/* 종목별 버핏 점수 */}
-          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, overflow:'hidden' }}>
+          <div style={{ background:'#1b1e2e', boxShadow: SHO, border:'none', borderRadius:12, overflow:'hidden' }}>
             <div style={{ padding:'14px 18px', borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center', gap:8 }}>
               <span style={{ fontSize:15 }}>📋</span>
               <div>
@@ -808,7 +836,7 @@ function AnalysisContent() {
                 {stockBuffettScores.map(inv=>{
                   // ── 암호화폐: N/A 카드 ──
                   if (inv.assetType === 'crypto') return (
-                    <div key={inv.id} style={{ background:'#0d1117', border:'1px solid #1f2937', borderRadius:10, padding:'14px 16px', opacity:0.6 }}>
+                    <div key={inv.id} style={{ background:'#1b1e2e', boxShadow: SHO, border:'none', borderRadius:10, padding:'14px 16px', opacity:0.6 }}>
                       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
                         <div>
                           <div style={{ fontSize:13, fontWeight:700, color:'#f1f5f9' }}>{inv.name}</div>
@@ -827,7 +855,7 @@ function AnalysisContent() {
                   if (inv.assetType === 'etf') {
                     const eColor = inv.score>=75?'#10b981':inv.score>=60?'#60a5fa':'#fb923c'
                     return (
-                      <div key={inv.id} style={{ background:'#0d1117', border:`1px solid ${eColor}33`, borderRadius:10, padding:'14px 16px' }}>
+                      <div key={inv.id} style={{ background:'#1b1e2e', boxShadow: SHO, border:'none', borderRadius:10, padding:'14px 16px' }}>
                         <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:10 }}>
                           <div>
                             <div style={{ fontSize:13, fontWeight:700, color:'#f1f5f9' }}>{inv.name}</div>
@@ -840,7 +868,7 @@ function AnalysisContent() {
                             <div style={{ fontSize:9, color:'#4b5563' }}>/ 100</div>
                           </div>
                         </div>
-                        <div style={{ height:4, background:'#1f2937', borderRadius:99, overflow:'hidden', marginBottom:10 }}>
+                        <div style={{ height:4, background:'#13162a', boxShadow:SHI, borderRadius:99, overflow:'hidden', marginBottom:10 }}>
                           <div style={{ height:'100%', width:`${inv.score}%`, background:eColor, borderRadius:99 }}/>
                         </div>
                         <div style={{ fontSize:11, color:'#6b7280', marginBottom:6 }}>📊 {inv.moat}</div>
@@ -856,7 +884,7 @@ function AnalysisContent() {
                   const color = inv.score>=75?'#10b981':inv.score>=55?'#60a5fa':inv.score>=40?'#fb923c':'#f87171'
                   const recommend = inv.score>=75?'매수 적합':inv.score>=55?'보유 유지':inv.score>=40?'모니터링':'리밸런싱'
                   return (
-                    <div key={inv.id} style={{ background:'#0d1117', border:`1px solid ${C.border}`, borderRadius:10, padding:'14px 16px' }}>
+                    <div key={inv.id} style={{ background:'#1b1e2e', boxShadow: SHO, border:'none', borderRadius:10, padding:'14px 16px' }}>
                       <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:10 }}>
                         <div>
                           <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{inv.name}</div>
@@ -868,7 +896,7 @@ function AnalysisContent() {
                         </div>
                       </div>
                       {/* 점수 바 */}
-                      <div style={{ height:5, background:C.border, borderRadius:99, overflow:'hidden', marginBottom:10 }}>
+                      <div style={{ height:5, background:'#13162a', boxShadow: SHI, borderRadius:99, overflow:'hidden', marginBottom:10 }}>
                         <div style={{ height:'100%', width:`${inv.score}%`, background:color, borderRadius:99 }}/>
                       </div>
                       <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
@@ -899,7 +927,7 @@ function AnalysisContent() {
 
           {/* 안전마진 바 차트 */}
           {stockBuffettScores.filter(i=>live(i)).length > 0 && (
-            <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:'16px 18px' }}>
+            <div style={{ background:'#1b1e2e', boxShadow: SHO, border:'none', borderRadius:12, padding:'16px 18px' }}>
               <div style={{ fontSize:13, fontWeight:700, color:'#10b981', marginBottom:4 }}>📊 종목별 버핏 스코어 비교</div>
               <div style={{ fontSize:11, color:C.sub, marginBottom:12 }}>75점 이상 → 매수 적합 구간</div>
               <ResponsiveContainer width="100%" height={180}>
