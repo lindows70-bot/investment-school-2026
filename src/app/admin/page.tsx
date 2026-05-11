@@ -70,6 +70,58 @@ function toKrw(inv: Investment) {
 function StudentModal({ student, onClose }: { student: StudentRow; onClose: () => void }) {
   const invs = student.investments
 
+  // ── 실시간 환율 (localStorage 캐시 → 없으면 1,350 기본값) ──
+  const [usdKrw, setUsdKrw] = useState(1_350)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [priceMap, setPriceMap] = useState<Record<string, any>>({})
+  const [loadingPrices, setLoadingPrices] = useState(false)
+
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem('usd_krw_rate')
+      if (cached) {
+        const { rate } = JSON.parse(cached) as { rate: number }
+        if (rate > 0) setUsdKrw(Math.round(rate))
+      }
+    } catch { /* 기본값 유지 */ }
+  }, [])
+
+  // ── 현재가 실시간 조회 ──
+  useEffect(() => {
+    if (!invs.length) return
+    setLoadingPrices(true)
+    fetch('/api/stock-price', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(invs.map(i => ({ ticker: i.ticker, market: i.market }))),
+    })
+      .then(r => r.ok ? r.json() : [])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then((results: any[]) => {
+        const m: Record<string, number> = {}
+        results.forEach(r => { if (r?.currentPrice) m[r.ticker.toUpperCase()] = r.currentPrice })
+        setPriceMap(m)
+      })
+      .catch(() => {})
+      .finally(() => setLoadingPrices(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [student.id])
+
+  // ── 계산 헬퍼 ──
+  const getCurr = (inv: Investment): number | null =>
+    priceMap[inv.ticker.toUpperCase()] ?? null
+
+  const toKrwRate = (inv: Investment, price?: number) =>
+    (price ?? inv.purchase_price) * inv.quantity * (inv.currency === 'USD' ? usdKrw : 1)
+
+  // ── 집계 ──
+  const totalCost  = invs.reduce((s, i) => s + toKrwRate(i), 0)
+  const pricedInvs = invs.filter(i => getCurr(i) !== null)
+  const totalCurr  = pricedInvs.reduce((s, i) => s + toKrwRate(i, getCurr(i)!), 0)
+  const costPriced = pricedInvs.reduce((s, i) => s + toKrwRate(i), 0)
+  const totalPnL   = totalCurr - costPriced
+  const totalRet   = costPriced > 0 ? (totalPnL / costPriced) * 100 : null
+
   // Lynch 분류 파이 데이터
   const lynchCounts = invs.reduce<Record<string, number>>((acc, inv) => {
     const k = inv.lynch_category ?? 'na'
@@ -87,14 +139,14 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
     acc[i.market] = (acc[i.market] ?? 0) + 1; return acc
   }, {})
 
-  const totalInvested = invs.reduce((s, i) => s + toKrw(i), 0)
+  const totalInvested = totalCost
 
   return (
     <div
       style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div style={{ background: '#1b1e2e', boxShadow: '0 24px 64px rgba(0,0,0,0.8), 10px 10px 28px #0b0d1a, -6px -6px 18px #2b2f46', border: 'none', borderRadius: 18, width: '100%', maxWidth: 700, maxHeight: '90vh', overflowY: 'auto', animation: 'slideUp 0.2s ease-out' }}>
+      <div style={{ background: '#1b1e2e', boxShadow: '0 24px 64px rgba(0,0,0,0.8), 10px 10px 28px #0b0d1a, -6px -6px 18px #2b2f46', border: 'none', borderRadius: 18, width: '100%', maxWidth: 920, maxHeight: '90vh', overflowY: 'auto', animation: 'slideUp 0.2s ease-out' }}>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid #252840' }}>
@@ -113,19 +165,42 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
         </div>
 
         <div style={{ padding: '20px 24px' }}>
-          {/* 요약 */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 20 }}>
-            {[
-              { label: '보유 종목',  value: `${invs.length}개` },
-              { label: '총 투자금액', value: fmtKrw(totalInvested), note: 'USD×1,350 환산' },
-              { label: '분류 완료',  value: `${invs.filter(i => i.lynch_category && i.lynch_category !== 'na').length}/${invs.length}` },
-            ].map(({ label, value, note }) => (
-              <div key={label} style={{ background: '#1b1e2e', boxShadow: '5px 5px 14px #0e1020, -3px -3px 10px #282c44', border: 'none', borderRadius: 10, padding: '12px 14px' }}>
-                <div style={{ fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{label}</div>
-                <div style={{ fontSize: 19, fontWeight: 800, color: '#f1f5f9', fontVariantNumeric: 'tabular-nums' }}>{value}</div>
-                {note && <div style={{ fontSize: 10, color: '#334155', marginTop: 2 }}>{note}</div>}
+          {/* 요약 — 실시간 환율·수익률 반영 */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10, marginBottom: 20 }}>
+            {/* 보유 종목 */}
+            <div style={{ background: '#1b1e2e', boxShadow: '5px 5px 14px #0e1020, -3px -3px 10px #282c44', borderRadius: 10, padding: '12px 14px' }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>보유 종목</div>
+              <div style={{ fontSize: 19, fontWeight: 800, color: '#f1f5f9' }}>{invs.length}개</div>
+              <div style={{ fontSize: 10, color: '#334155', marginTop: 2 }}>
+                분류완료 {invs.filter(i => i.lynch_category && i.lynch_category !== 'na').length}/{invs.length}
               </div>
-            ))}
+            </div>
+            {/* 총 투자원가 */}
+            <div style={{ background: '#1b1e2e', boxShadow: '5px 5px 14px #0e1020, -3px -3d 10px #282c44', borderRadius: 10, padding: '12px 14px' }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>총 투자원가</div>
+              <div style={{ fontSize: 19, fontWeight: 800, color: '#f1f5f9', fontVariantNumeric: 'tabular-nums' }}>{fmtKrw(totalInvested)}</div>
+              <div style={{ fontSize: 10, color: '#334155', marginTop: 2 }}>USD×₩{usdKrw.toLocaleString('ko-KR')} 실시간</div>
+            </div>
+            {/* 총 평가손익 */}
+            <div style={{ background: '#1b1e2e', boxShadow: '5px 5px 14px #0e1020, -3px -3px 10px #282c44', borderRadius: 10, padding: '12px 14px', borderLeft: `3px solid ${totalPnL >= 0 ? '#ef4444' : '#3b82f6'}` }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+                {loadingPrices ? '평가손익 조회 중...' : '총 평가손익'}
+              </div>
+              <div style={{ fontSize: 19, fontWeight: 800, color: totalPnL >= 0 ? '#ef4444' : '#3b82f6', fontVariantNumeric: 'tabular-nums' }}>
+                {loadingPrices ? '—' : `${totalPnL >= 0 ? '+' : ''}${fmtKrw(Math.round(totalPnL))}`}
+              </div>
+              <div style={{ fontSize: 10, color: '#334155', marginTop: 2 }}>현재가 기준 평가</div>
+            </div>
+            {/* 총 수익률 */}
+            <div style={{ background: '#1b1e2e', boxShadow: '5px 5px 14px #0e1020, -3px -3px 10px #282c44', borderRadius: 10, padding: '12px 14px', borderLeft: `3px solid ${(totalRet ?? 0) >= 0 ? '#ef4444' : '#3b82f6'}` }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>총 수익률</div>
+              <div style={{ fontSize: 19, fontWeight: 800, color: (totalRet ?? 0) >= 0 ? '#ef4444' : '#3b82f6', fontVariantNumeric: 'tabular-nums' }}>
+                {loadingPrices ? '—' : totalRet != null ? `${totalRet >= 0 ? '+' : ''}${totalRet.toFixed(2)}%` : '—'}
+              </div>
+              <div style={{ fontSize: 10, color: '#334155', marginTop: 2 }}>
+                {pricedInvs.length < invs.length && !loadingPrices ? `${pricedInvs.length}/${invs.length}개 현재가 로드` : '현재가 기준'}
+              </div>
+            </div>
           </div>
 
           {/* 차트 + 마켓 구성 */}
@@ -190,30 +265,49 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                   <thead>
                     <tr style={{ background: '#141728' }}>
-                      {['종목명','티커','시장','매수가','수량','투자금액','분류'].map(h => (
+                      {['종목명','티커','시장','매수가','현재가','수익률','수량','투자금액','분류'].map(h => (
                         <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {invs.map((inv, i) => {
-                      const cost = toKrw(inv)
-                      const cat  = inv.lynch_category
+                      const cost     = toKrwRate(inv)
+                      const cat      = inv.lynch_category
+                      const curPrice = getCurr(inv)
+                      const ret      = curPrice != null
+                        ? ((curPrice - inv.purchase_price) / inv.purchase_price) * 100
+                        : null
+                      const retColor = ret == null ? '#475569' : ret >= 0 ? '#ef4444' : '#3b82f6'
                       return (
                         <tr key={inv.id} style={{ borderTop: '1px solid #1e1e1e', background: i % 2 === 0 ? 'transparent' : '#111' }}>
-                          <td style={{ padding: '9px 12px', color: '#f1f5f9', fontWeight: 500 }}>{inv.name}</td>
+                          <td style={{ padding: '9px 12px', color: '#f1f5f9', fontWeight: 500, whiteSpace: 'nowrap', minWidth: 120 }}>{inv.name}</td>
                           <td style={{ padding: '9px 12px', color: '#64748b', fontFamily: 'monospace' }}>{inv.ticker}</td>
                           <td style={{ padding: '9px 12px' }}>
                             <span style={{ fontSize: 10, fontWeight: 700, color: MARKET_COLOR[inv.market], border: `1px solid ${MARKET_COLOR[inv.market]}44`, borderRadius: 4, padding: '1px 5px' }}>{inv.market}</span>
                           </td>
+                          {/* 매수가 */}
                           <td style={{ padding: '9px 12px', color: '#94a3b8', fontVariantNumeric: 'tabular-nums' }}>
                             {inv.currency === 'KRW' ? `₩${fmt(inv.purchase_price)}` : `$${inv.purchase_price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                           </td>
+                          {/* 현재가 */}
+                          <td style={{ padding: '9px 12px', color: '#cbd5e1', fontVariantNumeric: 'tabular-nums' }}>
+                            {loadingPrices ? <span style={{ color: '#374151' }}>…</span>
+                              : curPrice != null
+                              ? (inv.currency === 'KRW' ? `₩${fmt(curPrice)}` : `$${curPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
+                              : <span style={{ color: '#374151' }}>—</span>}
+                          </td>
+                          {/* 수익률 */}
+                          <td style={{ padding: '9px 12px', fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>
+                            {ret != null
+                              ? <span style={{ color: retColor }}>{ret >= 0 ? '+' : ''}{ret.toFixed(2)}%</span>
+                              : <span style={{ color: '#374151' }}>—</span>}
+                          </td>
                           <td style={{ padding: '9px 12px', color: '#94a3b8', fontVariantNumeric: 'tabular-nums' }}>{inv.quantity.toLocaleString()}</td>
                           <td style={{ padding: '9px 12px', color: '#cbd5e1', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmtKrw(cost)}</td>
-                          <td style={{ padding: '9px 12px' }}>
+                          <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>
                             {cat && cat !== 'na' && LYNCH_META[cat]
-                              ? <span style={{ fontSize: 10, color: LYNCH_META[cat].color, background: `${LYNCH_META[cat].color}18`, border: `1px solid ${LYNCH_META[cat].color}40`, borderRadius: 99, padding: '1px 6px' }}>{LYNCH_META[cat].label}</span>
+                              ? <span style={{ fontSize: 10, color: LYNCH_META[cat].color, background: `${LYNCH_META[cat].color}18`, border: `1px solid ${LYNCH_META[cat].color}40`, borderRadius: 99, padding: '2px 8px', whiteSpace: 'nowrap', display: 'inline-block' }}>{LYNCH_META[cat].label}</span>
                               : cat === 'na' ? <span style={{ fontSize: 10, color: '#4b5563' }}>N/A</span>
                               : <span style={{ fontSize: 10, color: '#334155' }}>미분류</span>}
                           </td>
@@ -284,37 +378,66 @@ export default function AdminPage() {
         return
       }
 
-      // 학생 프로필만 조회 (role = 'student') + 종목 병렬 조회
-      // teacher 본인은 DB 쿼리 단계에서 제외
-      const [profilesRes, invRes] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('role', 'student')            // ← teacher 제외
-          .order('created_at', { ascending: true }),
-        supabase
-          .from('investments')
-          .select('*')
-          .order('created_at', { ascending: false }),
+      // ── 3단계 학생 조회 전략 ──────────────────────────────────────────
+      // 전략 1: role='student' 직접 필터 (role 컬럼이 올바르게 설정된 경우)
+      // 전략 2: 전체 profiles 조회 후 teacher 제외 (role=null 또는 미설정)
+      // 전략 3: investments 역추적 (RLS로 profiles 직접 접근 불가 시 대비)
+      const [profilesByRoleRes, allProfilesRes, invRes] = await Promise.all([
+        supabase.from('profiles').select('*').eq('role', 'student').order('created_at', { ascending: true }),
+        supabase.from('profiles').select('*').order('created_at', { ascending: true }),
+        supabase.from('investments').select('*').order('created_at', { ascending: false }),
       ])
 
-      // role 컬럼이 없거나 모두 null인 경우 fallback: 전체 조회 후 teacher 제외
-      let profiles = profilesRes.data
-      if (profilesRes.error || !profiles || profiles.length === 0) {
-        console.warn('[Admin] role 필터 결과 없음 — fallback으로 전체 조회:', profilesRes.error?.message)
-        const { data: allProfiles } = await supabase
-          .from('profiles')
-          .select('*')
-          .order('created_at', { ascending: true })
-        // teacher 본인 제외 (userId 기준)
-        profiles = (allProfiles ?? []).filter(p => p.id !== userId)
+      const allInv = invRes.data ?? []
+
+      // --- 전략 1: role='student' 결과 ---
+      let profiles: Profile[] = (profilesByRoleRes.data ?? [])
+      console.log('[Admin] 전략1 role=student 결과:', profiles.length, '에러:', profilesByRoleRes.error?.message)
+
+      // --- 전략 2: 전체 조회, teacher 제외 ---
+      if (profiles.length === 0) {
+        const allP = (allProfilesRes.data ?? []).filter(
+          (p: Profile) => p.id !== userId && p.role !== 'teacher'
+        )
+        console.log('[Admin] 전략2 전체조회(teacher제외) 결과:', allP.length, '에러:', allProfilesRes.error?.message)
+        if (allP.length > 0) profiles = allP
       }
 
-      const { data: allInv } = invRes
+      // --- 전략 3: investments 역추적 (RLS로 위 두 전략이 모두 0인 경우) ---
+      if (profiles.length === 0 && allInv.length > 0) {
+        // teacher는 investments 전체 조회 가능 → unique user_id 추출
+        const uniqueIds = Array.from(
+          new Set(allInv.map((i: { user_id: string }) => i.user_id).filter((id: string) => id !== userId))
+        )
+        console.log('[Admin] 전략3 investments 역추적 — 유니크 유저:', uniqueIds.length)
+        if (uniqueIds.length > 0) {
+          const { data: invProfiles, error: ipErr } = await supabase
+            .from('profiles')
+            .select('*')
+            .in('id', uniqueIds)
+          console.log('[Admin] 전략3 profiles in(ids) 결과:', invProfiles?.length, '에러:', ipErr?.message)
+          if (invProfiles && invProfiles.length > 0) {
+            profiles = invProfiles.filter((p: Profile) => p.role !== 'teacher')
+          } else {
+            // profiles 접근 불가 시 investments의 user_id만으로 임시 row 생성
+            console.warn('[Admin] profiles 접근 불가 — investments 기반 임시 표시')
+            const tempProfiles: Profile[] = uniqueIds.map((id: unknown) => ({
+              id:         String(id),
+              email:      `(user ${String(id).slice(0, 8)}...)`,
+              full_name:  null,
+              role:       'student',
+              created_at: '',
+            }))
+            profiles = tempProfiles
+          }
+        }
+      }
 
-      const invList = allInv ?? []
-      const rows: StudentRow[] = (profiles ?? []).map((p: Profile) => {
-        const invs = invList.filter(i => i.user_id === p.id)
+      console.log('[Admin] 최종 학생 수:', profiles.length)
+
+      const invList = allInv
+      const rows: StudentRow[] = profiles.map((p: Profile) => {
+        const invs = invList.filter((i: { user_id: string }) => i.user_id === p.id)
         const totalKrw = invs.reduce((s: number, i: Investment) => s + toKrw(i), 0)
         return { ...p, investments: invs, totalKrw, count: invs.length }
       })
@@ -487,14 +610,43 @@ export default function AdminPage() {
                   </thead>
                   <tbody>
                     {displayed.length === 0 ? (
-                      <tr><td colSpan={7} style={{ padding: '60px 20px', textAlign: 'center' }}>
+                      <tr><td colSpan={7} style={{ padding: '40px 20px', textAlign: 'center' }}>
                         {search ? (
                           <span style={{ color: '#334155', fontSize: 14 }}>검색 결과가 없습니다</span>
                         ) : (
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
                             <span style={{ fontSize: 32 }}>🎓</span>
-                            <span style={{ color: '#475569', fontSize: 15, fontWeight: 600 }}>아직 가입한 학생이 없습니다</span>
-                            <span style={{ color: '#334155', fontSize: 13 }}>학생들에게 아래 가입 링크를 공유해 주세요</span>
+                            <span style={{ color: '#475569', fontSize: 15, fontWeight: 600 }}>학생이 표시되지 않습니다</span>
+                            {/* RLS 차단 안내 — DB에 학생이 있는데 0명으로 보이는 경우 */}
+                            <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '14px 18px', maxWidth: 540, textAlign: 'left' as const, marginTop: 4 }}>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: '#f87171', marginBottom: 8 }}>
+                                🔒 Supabase RLS 정책으로 학생 데이터가 차단되고 있을 수 있습니다
+                              </div>
+                              <div style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.7, marginBottom: 10 }}>
+                                DB에 학생이 있는데도 0명으로 표시된다면, Supabase SQL Editor에서 아래를 실행하세요:
+                              </div>
+                              <pre style={{
+                                background: '#0d0f1a', borderRadius: 7, padding: '10px 12px',
+                                fontSize: 10, color: '#34d399', overflowX: 'auto',
+                                margin: 0, lineHeight: 1.6,
+                                userSelect: 'all' as const,
+                              }}>{`CREATE OR REPLACE FUNCTION public.current_user_is_teacher()
+RETURNS boolean LANGUAGE sql SECURITY DEFINER STABLE
+SET search_path = public AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role = 'teacher'
+  );
+$$;
+
+CREATE POLICY "teacher_reads_all_profiles"
+ON public.profiles FOR SELECT
+USING (
+  auth.uid() = id
+  OR public.current_user_is_teacher()
+);`}</pre>
+                            </div>
+                            <span style={{ color: '#334155', fontSize: 13 }}>또는 학생들에게 아래 가입 링크를 공유해 주세요</span>
                             {/* 가입 링크 + 복사 버튼 */}
                             {loginUrl ? (
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, background: '#1b1e2e', boxShadow: '5px 5px 14px #0e1020, -3px -3px 10px #282c44', borderRadius: 10, padding: '10px 14px' }}>
