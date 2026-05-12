@@ -254,6 +254,12 @@ export default function DashboardPage() {
   const [rateSource,  setRateSource]  = useState<string>('로딩 중')
   const [indices,     setIndices]     = useState<IndexData[]>([])
   const [indicesLoading, setIndicesLoading] = useState(true)
+  // 배당 데이터 (stock-info API — SEIBro/Yahoo 포함, 1시간 캐시)
+  const [dividendMap, setDividendMap] = useState<Record<string, {
+    annualDividend: number | null
+    dividendYield:  number | null
+  }>>({})
+  const [dividendLoading, setDividendLoading] = useState(false)
 
   // 5초 타임아웃
   useEffect(() => {
@@ -361,6 +367,48 @@ export default function DashboardPage() {
   }, [router])
 
   useEffect(() => { fetchAll() }, [fetchAll])
+
+  // ── 배당 데이터 (stock-info) — investments 로드 후 백그라운드 조회 ──
+  // stock-price는 배당 데이터가 부정확(KR ETF 특히) → stock-info로 별도 보완
+  useEffect(() => {
+    if (investments.length === 0) return
+    const BATCH = 4   // 동시 요청 수 (SEIBro 세션 부하 방지)
+    const DELAY = 400 // ms
+
+    let cancelled = false
+    const run = async () => {
+      setDividendLoading(true)
+      const result: typeof dividendMap = {}
+
+      for (let i = 0; i < investments.length; i += BATCH) {
+        if (cancelled) break
+        const slice = investments.slice(i, i + BATCH)
+        await Promise.all(slice.map(async inv => {
+          try {
+            const res = await fetch(
+              `/api/stock-info?ticker=${encodeURIComponent(inv.ticker)}&market=${inv.market}`,
+            )
+            if (!res.ok) return
+            const d = await res.json()
+            const f = d?.fundamentals
+            result[inv.ticker.toUpperCase()] = {
+              annualDividend: f?.annualDividend ?? null,
+              dividendYield:  f?.dividendYield  ?? null,
+            }
+          } catch { /* 무시 */ }
+        }))
+        if (i + BATCH < investments.length) {
+          await new Promise(r => setTimeout(r, DELAY))
+        }
+      }
+
+      if (!cancelled) setDividendMap(result)
+      setDividendLoading(false)
+    }
+    run()
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [investments])
 
   // ── Derived values ─────────────────────────────────────────────
   const live = (inv: Investment) => priceMap[inv.ticker.toUpperCase()] ?? null
@@ -701,17 +749,34 @@ export default function DashboardPage() {
         const winCount  = pricedInvs.filter(i => (live(i)?.currentPrice ?? 0) > i.purchase_price).length
         const lossCount = pricedInvs.filter(i => (live(i)?.currentPrice ?? 0) < i.purchase_price).length
 
-        // 월간 예상 배당금 계산
-        const monthlyDividend = pricedInvs.reduce((sum, inv) => {
-          const lv = live(inv)
-          const dy = lv?.dividendYield ?? (priceMap[inv.ticker.toUpperCase()]?.fundamentals as { dividendYield?: number | null })?.dividendYield ?? null
+        // 월간 예상 배당금 계산 — dividendMap(stock-info) 우선, fallback priceMap
+        // 우선순위: annualDividend(주/좌당 연간 배당금) → dividendYield × 현재가
+        const monthlyDividend = investments.reduce((sum, inv) => {
+          const key  = inv.ticker.toUpperCase()
+          const lv   = live(inv)
+          const dMap = dividendMap[key]
+
+          // annualDividend: 주당 연간 배당금(원화 기준, KR ETF는 SEIBro 합산)
+          const annDiv = dMap?.annualDividend ?? null
+          if (annDiv && annDiv > 0) {
+            // KR: 원화 그대로, US: USD→KRW 환산
+            const annDivKrw = inv.currency === 'USD' ? annDiv * usdKrw : annDiv
+            return sum + annDivKrw * inv.quantity / 12
+          }
+
+          // fallback: dividendYield × 현재가
+          const dy = dMap?.dividendYield
+            ?? lv?.dividendYield
+            ?? null
           if (!dy || dy <= 0) return sum
           const priceKrw = (lv?.currentPrice ?? inv.purchase_price) * (inv.currency === 'USD' ? usdKrw : 1)
           return sum + priceKrw * inv.quantity * dy / 12
         }, 0)
-        const dividendStockCount = pricedInvs.filter(inv => {
-          const lv = live(inv)
-          const dy = lv?.dividendYield ?? null
+
+        const dividendStockCount = investments.filter(inv => {
+          const key  = inv.ticker.toUpperCase()
+          const dMap = dividendMap[key]
+          const dy   = dMap?.annualDividend ?? dMap?.dividendYield ?? live(inv)?.dividendYield ?? null
           return (dy ?? 0) > 0
         }).length
 
@@ -762,8 +827,16 @@ export default function DashboardPage() {
           },
           {
             label:  '월간 예상 배당금',
-            main:   monthlyDividend > 0 ? fmtKrw(Math.round(monthlyDividend)) : '—',
-            sub:    monthlyDividend > 0 ? `배당 종목 ${dividendStockCount}개` : '배당 종목 없음',
+            main:   dividendLoading
+              ? '조회 중…'
+              : monthlyDividend > 0
+                ? fmtKrw(Math.round(monthlyDividend))
+                : '—',
+            sub:    dividendLoading
+              ? `${investments.length}개 종목 분석 중`
+              : monthlyDividend > 0
+                ? `배당 종목 ${dividendStockCount}개 · 연 ${fmtKrw(Math.round(monthlyDividend * 12))}`
+                : '배당 종목 없음',
             accent: '#34d399',
           },
         ]

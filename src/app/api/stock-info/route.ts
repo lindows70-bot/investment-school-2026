@@ -87,6 +87,34 @@ const parseNum = (v: unknown): number | null => {
   return null
 }
 
+/**
+ * 국내 종목코드 → ISIN 코드 (Luhn 체크섬)
+ * 국내 상장 ETF/주식 ISIN 형식: KR7{6자리코드}00{1자리 체크}
+ * 예) 069500 → KR7069500007, 102110 → KR7102110004
+ */
+function computeKrIsin(code: string): string {
+  const body = `KR7${code}00`  // 11글자
+  // 문자 → 숫자 변환 (A=10, B=11, ..., Z=35)
+  let digits = ''
+  for (const ch of body) {
+    if (ch >= 'A' && ch <= 'Z') {
+      digits += (ch.charCodeAt(0) - 55)  // A=65-55=10
+    } else {
+      digits += ch
+    }
+  }
+  // Luhn 체크 디지트 계산 (오른쪽부터, 짝수 위치 ×2)
+  let sum = 0
+  let isEven = true   // 오른쪽 첫번째(=체크 자리)가 홀수, 그 왼쪽이 짝수
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let n = parseInt(digits[i])
+    if (isEven) { n *= 2; if (n > 9) n -= 9 }
+    sum += n
+    isEven = !isEven
+  }
+  return `${body}${(10 - (sum % 10)) % 10}`
+}
+
 /** finance/annual rowList에서 지정 항목의 특정 연도 값 추출 (완전 일치) */
 function getAnnualVal(rowList: { title:string; columns: Record<string,{value:string}> }[], title: string, key: string): number | null {
   const row = rowList.find(r => r.title === title)
@@ -178,6 +206,164 @@ async function fetchEtfDividendFromPublicData(
     console.warn('[PublicData ETF]', (e as Error).message)
   }
   return empty
+}
+
+// ── SEIBro (한국예탁결제원) — 국내 ETF 분배금 조회 ────────────────────────────
+// 세이브로는 국내 ETF 공식 분배금 데이터를 제공하는 가장 신뢰도 높은 소스
+// WebSquare XHR API: POST callServletService.jsp with XML body
+//
+// 실제 브라우저 캡처로 확인한 정확한 요청 형식:
+//   <reqParam action="serviceId" task="taskClass">
+//     <isin value="KR7XXXXXX000"/>
+//     <fromRGT_STD_DT value="20240101"/>
+//     ...
+//   </reqParam>
+// 응답 필드: ESTM_STDPRC (1회 분배금), RGT_STD_DT (기준일)
+
+async function fetchSeibroEtfDividend(
+  code: string,
+  isin: string | null,
+): Promise<{ dividendYield: number|null; annualDividend: number|null; payoutRatio: number|null }> {
+  const empty = { dividendYield: null, annualDividend: null, payoutRatio: null }
+
+  if (!isin) {
+    console.warn('[SEIBro] ISIN 없음:', code)
+    return empty
+  }
+
+  try {
+
+    // Step 2: 세션 쿠키 획득 (JSESSIONID + WMONID)
+    const sessionRes = await fetch(
+      'https://seibro.or.kr/websquare/control.jsp?w2xPath=/IPORTAL/user/etf/BIP_CNTS06030V.xml&menuNo=179',
+      {
+        headers: {
+          'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'ko-KR,ko;q=0.9',
+        },
+        cache: 'no-store',
+      }
+    )
+    // Set-Cookie 헤더 파싱 — Node.js 18+: getSetCookie() returns string[]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rawCookieArr: string[] = typeof (sessionRes.headers as any).getSetCookie === 'function'
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? (sessionRes.headers as any).getSetCookie() as string[]
+      : [sessionRes.headers.get('set-cookie') ?? '']
+    const cookieStr = rawCookieArr
+      .flatMap(s => s.split(/,(?=[A-Z_a-z]+=)/))
+      .map(s => s.trim().split(';')[0])
+      .filter(s => s.includes('='))
+      .join('; ')
+
+    // Step 3: 최근 3년 분배금 조회 (WebSquare 실제 요청 형식 그대로)
+    const today   = new Date()
+    const endDt   = `${today.getFullYear()}1231`
+    const startDt = `${today.getFullYear() - 2}0101`
+
+    const xmlBody =
+      `<reqParam action="exerInfoDtramtPayStatPlist" task="ksd.safe.bip.cnts.etf.process.EtfExerInfoPTask">` +
+      `<MENU_NO value="179"/>` +
+      `<CMM_BTN_ABBR_NM value="total_search,openall,print,hwp,word,pdf,searchIcon,searchIcon,seach,searchIcon,seach,"/>` +
+      `<W2XPATH value="/IPORTAL/user/etf/BIP_CNTS06030V.xml"/>` +
+      `<etf_sort_level_cd value="0"/>` +
+      `<etf_big_sort_cd value=""/>` +
+      `<isin value="${isin}"/>` +
+      `<fromRGT_STD_DT value="${startDt}"/>` +
+      `<toRGT_STD_DT value="${endDt}"/>` +
+      `<START_PAGE value="1"/>` +
+      `<END_PAGE value="30"/>` +
+      `<etf_sort_cd value=""/>` +
+      `<mngco_custno value=""/>` +
+      `<RGT_RSN_DTAIL_SORT_CD value=""/>` +
+      `</reqParam>`
+
+    const dataRes = await fetch(
+      'https://seibro.or.kr/websquare/engine/proworks/callServletService.jsp',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type':     'application/xml; charset=UTF-8',
+          'User-Agent':       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept':           'application/xml, text/xml, */*; q=0.01',
+          'Accept-Language':  'ko-KR,ko;q=0.9',
+          'Referer':          'https://seibro.or.kr/websquare/control.jsp?w2xPath=/IPORTAL/user/etf/BIP_CNTS06030V.xml&menuNo=179',
+          'Origin':           'https://seibro.or.kr',
+          'Cookie':           cookieStr,
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: xmlBody,
+        cache: 'no-store',
+      }
+    )
+
+    if (!dataRes.ok) {
+      console.warn('[SEIBro] HTTP 오류:', dataRes.status, code)
+      return empty
+    }
+
+    const xmlText = await dataRes.text()
+
+    // <vector result="0"> 이면 데이터 없음
+    const resultMatch = xmlText.match(/<vector[^>]+result="(\d+)"/)
+    if (!resultMatch || resultMatch[1] === '0') {
+      console.info('[SEIBro] 분배금 없음:', code, isin)
+      return empty
+    }
+
+    // 각 <data> 행에서 ESTM_STDPRC(분배금) + RGT_STD_DT(기준일) 파싱
+    // 형식: <ESTM_STDPRC value="176"/> <RGT_STD_DT value="20250731"/>
+    const rows: { dt: string; amt: number }[] = []
+    const dataPattern = /<data[^>]*>([\s\S]*?)<\/data>/g
+    let m: RegExpExecArray | null
+    while ((m = dataPattern.exec(xmlText)) !== null) {
+      const inner  = m[1]
+      const amtM   = inner.match(/<ESTM_STDPRC[^>]+value="([^"]+)"/)
+      const dtM    = inner.match(/<RGT_STD_DT[^>]+value="([^"]+)"/)
+      if (!amtM || !dtM) continue
+      const amt = parseFloat(amtM[1].replace(/,/g, ''))
+      if (isFinite(amt) && amt > 0) rows.push({ dt: dtM[1].trim(), amt })
+    }
+
+    if (rows.length === 0) return empty
+
+    // 최근 1년치 분배금 합산
+    const thisYear = today.getFullYear()
+    const lastYear = thisYear - 1
+    const recentRows = rows.filter(r =>
+      r.dt.startsWith(String(thisYear)) || r.dt.startsWith(String(lastYear))
+    )
+    // 최근 1년이 없으면 전체에서 최신 4건 합산 (연간 추정)
+    const useRows = recentRows.length > 0 ? recentRows : rows.slice(0, 4)
+    const annualTotal = useRows.reduce((s, r) => s + r.amt, 0)
+
+    // 분배수익률 = 연간분배금 / 현재가
+    let dividendYield: number | null = null
+    try {
+      const priceRes = await fetch(
+        `https://m.stock.naver.com/api/stock/${code}/basic`,
+        { headers: NAVER_H, next: { revalidate: 300 } }
+      )
+      if (priceRes.ok) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pd: any = await priceRes.json()
+        const closeP = parseNum(pd.closePrice)
+        if (closeP && closeP > 0) dividendYield = annualTotal / closeP
+      }
+    } catch { /* 무시 */ }
+
+    console.info(`[SEIBro] ${code} (${isin}): 분배금 ${annualTotal}원/년, ${rows.length}건`)
+    return {
+      dividendYield,
+      annualDividend: annualTotal > 0 ? annualTotal : null,
+      payoutRatio: null,
+    }
+
+  } catch (e) {
+    console.warn('[SEIBro ETF]', (e as Error).message, code)
+    return empty
+  }
 }
 
 // ── KIS Developer API — 한국 ETF 분배율 조회 ──────────────────────────────
@@ -333,6 +519,12 @@ async function krInfo(ticker: string): Promise<StockInfo> {
   const stockNameUpper = (d.stockName as string ?? '').toUpperCase()
   const isEtf = KR_ETF_BRANDS.some(b => stockNameUpper.includes(b))
 
+  // ISIN 코드 (SEIBro 분배금 조회에 사용)
+  // 국내 ETF/주식 ISIN 형식: KR7{6자리코드}00{check}  ← Luhn 체크섬
+  // (Naver basic API에는 isin 필드 없음 → 직접 계산)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const krIsin: string | null = (d as any).isinCode ?? (d as any).isin ?? computeKrIsin(code)
+
   let per: number | 'N/A' = 'N/A'
   let peg: number | 'N/A' = 'N/A'
   let earningsGrowth: number | null = null
@@ -447,12 +639,21 @@ async function krInfo(ticker: string): Promise<StockInfo> {
   if (dividendYield == null || (isEtf && annualDividend == null)) {
     if (isEtf) {
       // 국내 ETF 분배금 조회 우선순위:
-      // 1) 공공데이터포털 (DATA_GO_KR_SERVICE_KEY)
-      // 2) KIS Developer API (KIS_APP_KEY)
-      const pubDiv = await fetchEtfDividendFromPublicData(code)
-      if (pubDiv.dividendYield  != null) dividendYield  = pubDiv.dividendYield
-      if (pubDiv.annualDividend != null) annualDividend = pubDiv.annualDividend
-      if (pubDiv.payoutRatio    != null) payoutRatio    = pubDiv.payoutRatio
+      // 1) SEIBro (한국예탁결제원) — 가장 정확한 공식 데이터
+      // 2) 공공데이터포털 (DATA_GO_KR_SERVICE_KEY)
+      // 3) KIS Developer API (KIS_APP_KEY)
+      const seibroDiv = await fetchSeibroEtfDividend(code, krIsin)
+      if (seibroDiv.dividendYield  != null) dividendYield  = seibroDiv.dividendYield
+      if (seibroDiv.annualDividend != null) annualDividend = seibroDiv.annualDividend
+      if (seibroDiv.payoutRatio    != null) payoutRatio    = seibroDiv.payoutRatio
+
+      // SEIBro 실패 시 공공데이터포털 폴백
+      if (dividendYield == null) {
+        const pubDiv = await fetchEtfDividendFromPublicData(code)
+        if (pubDiv.dividendYield  != null) dividendYield  = pubDiv.dividendYield
+        if (pubDiv.annualDividend != null) annualDividend = pubDiv.annualDividend
+        if (pubDiv.payoutRatio    != null) payoutRatio    = pubDiv.payoutRatio
+      }
 
       // 공공데이터포털 실패 시 KIS API 폴백
       if (dividendYield == null) {

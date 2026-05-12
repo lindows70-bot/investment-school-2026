@@ -404,8 +404,8 @@ export default function MasterStrategyPage() {
         </div>
         <blockquote style={{ margin: 0, borderLeft: '3px solid #6366f1', paddingLeft: 20 }}>
           <p style={{ fontSize: 17, fontWeight: 700, color: '#e0e7ff', lineHeight: 1.7, margin: '0 0 14px', fontStyle: 'italic' }}>
-            "좋은 투자는 항상 근거가 명확하다.<br />
-            숫자로 설명할 수 없는 투자는 하지 않는다."
+            &ldquo;좋은 투자는 항상 근거가 명확하다.<br />
+            숫자로 설명할 수 없는 투자는 하지 않는다.&rdquo;
           </p>
           <footer style={{ fontSize: 12, color: '#818cf8', fontWeight: 600 }}>
             — Peter Lynch

@@ -129,7 +129,7 @@ export default function InvestmentAcademyPage() {
             </h2>
           </div>
           <div style={{ fontSize: 13, color: '#6b7280', fontStyle: 'italic', maxWidth: 300 }}>
-            "주식시장에서 10루타를 치려면 평범한 기업을 특별하게 볼 줄 알아야 한다."
+            &ldquo;주식시장에서 10루타를 치려면 평범한 기업을 특별하게 볼 줄 알아야 한다.&rdquo;
           </div>
         </div>
 
@@ -216,7 +216,7 @@ export default function InvestmentAcademyPage() {
             </h2>
           </div>
           <div style={{ fontSize: 13, color: '#6b7280', fontStyle: 'italic', maxWidth: 300 }}>
-            "10년 보유할 자신이 없다면, 10분도 갖지 마라."
+            &ldquo;10년 보유할 자신이 없다면, 10분도 갖지 마라.&rdquo;
           </div>
         </div>
 
