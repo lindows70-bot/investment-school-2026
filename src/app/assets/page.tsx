@@ -129,6 +129,43 @@ export default function AssetsPage() {
         console.warn(`[Assets] 중복 ${raw.length - unique.length}건 필터링됨`)
 
       setInvestments(unique)
+
+      // ── 미분류 종목 자동 분류 (백그라운드) ─────────────────────────
+      const ETF_BRANDS_CHECK = ['TIGER','KODEX','ACE','PLUS','KBSTAR','HANARO','ARIRANG','SOL','RISE','1Q','ETF']
+      const unclassified = unique.filter(i =>
+        !i.lynch_category &&
+        i.market !== 'CRYPTO' &&
+        !ETF_BRANDS_CHECK.some(b => i.name.toUpperCase().includes(b))
+      )
+      if (unclassified.length > 0) {
+        ;(async () => {
+          const sbAuto = createClient()
+          const uidAuto = uid
+          let anyUpdated = false
+          for (const inv of unclassified) {
+            try {
+              const res = await fetch(
+                `/api/lynch-classify?ticker=${encodeURIComponent(inv.ticker)}&market=${inv.market}`,
+                { cache: 'no-store' }
+              )
+              if (!res.ok) continue
+              const { category, isEtf } = await res.json()
+              if (isEtf || !category || category === 'na') continue
+              const { error: upErr } = await sbAuto.from('investments')
+                .update({ lynch_category: category })
+                .eq('id', inv.id)
+                .eq('user_id', uidAuto)
+              if (!upErr) anyUpdated = true
+            } catch { /* 무시 */ }
+            await new Promise(r => setTimeout(r, 100))
+          }
+          if (anyUpdated) {
+            // 분류 완료 → 목록 새로고침 (silent)
+            fetchInvestments(true)
+          }
+        })()
+      }
+
       return unique
     } catch(e) { console.error('[Assets]', e); setInvestments([]) }
     finally { setDbLoading(false) }

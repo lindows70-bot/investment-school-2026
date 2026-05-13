@@ -86,24 +86,34 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
     } catch { /* 기본값 유지 */ }
   }, [])
 
-  // ── 현재가 실시간 조회 ──
+  // ── 현재가 실시간 조회 (배치: 8개씩 순차 처리 → Naver rate limit 방지) ──
   useEffect(() => {
     if (!invs.length) return
     setLoadingPrices(true)
-    fetch('/api/stock-price', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(invs.map(i => ({ ticker: i.ticker, market: i.market }))),
-    })
-      .then(r => r.ok ? r.json() : [])
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .then((results: any[]) => {
-        const m: Record<string, number> = {}
-        results.forEach(r => { if (r?.currentPrice) m[r.ticker.toUpperCase()] = r.currentPrice })
-        setPriceMap(m)
-      })
-      .catch(() => {})
-      .finally(() => setLoadingPrices(false))
+    ;(async () => {
+      const BATCH = 8
+      const accumulated: Record<string, number> = {}
+      for (let i = 0; i < invs.length; i += BATCH) {
+        const slice = invs.slice(i, i + BATCH)
+        try {
+          const res = await fetch('/api/stock-price', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(slice.map(s => ({ ticker: s.ticker, market: s.market }))),
+          })
+          if (res.ok) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const results: any[] = await res.json()
+            results.forEach(r => { if (r?.currentPrice) accumulated[r.ticker.toUpperCase()] = r.currentPrice })
+            // 배치마다 즉시 화면 반영
+            setPriceMap({ ...accumulated })
+          }
+        } catch { /* 배치 실패 시 다음 배치 진행 */ }
+        // 배치 간 300ms 대기 (Naver API 과부하 방지)
+        if (i + BATCH < invs.length) await new Promise(r => setTimeout(r, 300))
+      }
+      setLoadingPrices(false)
+    })()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [student.id])
 
@@ -329,14 +339,16 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
 export default function AdminPage() {
   const router = useRouter()
 
-  const [loading,   setLoading]   = useState(true)
-  const [authErr,   setAuthErr]   = useState<string | null>(null)
-  const [students,  setStudents]  = useState<StudentRow[]>([])
-  const [selected,  setSelected]  = useState<StudentRow | null>(null)
-  const [search,    setSearch]    = useState('')
-  const [sortCol,   setSortCol]   = useState<SortCol>('invested')
-  const [sortAsc,   setSortAsc]   = useState(false)
-  const [copied,    setCopied]    = useState(false)
+  const [loading,         setLoading]         = useState(true)
+  const [authErr,         setAuthErr]         = useState<string | null>(null)
+  const [students,        setStudents]        = useState<StudentRow[]>([])
+  const [selected,        setSelected]        = useState<StudentRow | null>(null)
+  const [search,          setSearch]          = useState('')
+  const [sortCol,         setSortCol]         = useState<SortCol>('invested')
+  const [sortAsc,         setSortAsc]         = useState(false)
+  const [copied,          setCopied]          = useState(false)
+  const [batchRunning,    setBatchRunning]    = useState(false)
+  const [batchResult,     setBatchResult]     = useState<{ updated: number; skipped: number; total: number } | null>(null)
 
   // 배포 URL 감지: env 우선 → 배포 환경(non-localhost) → localhost 경고
   const rawOrigin = typeof window !== 'undefined' ? window.location.origin : ''
@@ -554,10 +566,39 @@ export default function AdminPage() {
                 <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.5px', margin: 0 }}>관리자 대시보드</h1>
                 <p style={{ fontSize: 13, color: '#475569', marginTop: 4 }}>전체 학생 포트폴리오 현황</p>
               </div>
-              <button onClick={fetchData} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, background: '#1b1e2e', boxShadow: '4px 4px 10px #0e1020, -2px -2px 7px #282c44', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer' }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/></svg>
-                새로고침
-              </button>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {/* 피터린치 일괄분류 버튼 */}
+                <button
+                  disabled={batchRunning}
+                  onClick={async () => {
+                    if (!confirm('모든 학생의 미분류 종목을 피터린치 AI로 자동 분류합니다.\n시간이 걸릴 수 있습니다. 계속할까요?')) return
+                    setBatchRunning(true); setBatchResult(null)
+                    try {
+                      const res = await fetch('/api/lynch-batch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
+                      if (res.ok) {
+                        const r = await res.json()
+                        setBatchResult(r)
+                        await fetchData()
+                      } else {
+                        const e = await res.json()
+                        alert(`오류: ${e.error ?? '알 수 없는 오류'}`)
+                      }
+                    } catch { alert('네트워크 오류') }
+                    finally { setBatchRunning(false) }
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, background: batchRunning ? '#1b1e2e' : '#14532d22', boxShadow: '4px 4px 10px #0e1020, -2px -2px 7px #282c44', border: `1px solid ${batchRunning ? '#374151' : '#16a34a55'}`, color: batchRunning ? '#64748b' : '#4ade80', fontSize: 13, cursor: batchRunning ? 'not-allowed' : 'pointer' }}>
+                  {batchRunning ? '⏳ 분류 중…' : '🤖 피터린치 일괄분류'}
+                </button>
+                {batchResult && (
+                  <span style={{ fontSize: 12, color: '#4ade80', alignSelf: 'center', background: '#14532d33', padding: '4px 10px', borderRadius: 6 }}>
+                    ✅ {batchResult.updated}개 분류 완료 (건너뜀 {batchResult.skipped})
+                  </span>
+                )}
+                <button onClick={fetchData} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, background: '#1b1e2e', boxShadow: '4px 4px 10px #0e1020, -2px -2px 7px #282c44', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer' }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/></svg>
+                  새로고침
+                </button>
+              </div>
             </div>
 
             {/* ── 요약 카드 4개 ── */}

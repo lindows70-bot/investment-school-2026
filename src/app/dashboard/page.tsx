@@ -344,6 +344,43 @@ export default function DashboardPage() {
       const invs = data ?? []
       setInvestments(invs)
 
+      // ── 미분류 종목 자동 분류 (백그라운드) ────────────────────────
+      // ETF·CRYPTO 제외하고 lynch_category가 null인 종목만
+      const ETF_BRANDS_CHECK = ['TIGER','KODEX','ACE','PLUS','KBSTAR','HANARO','ARIRANG','SOL','RISE','1Q','ETF']
+      const unclassified = invs.filter(i =>
+        !i.lynch_category &&
+        i.market !== 'CRYPTO' &&
+        !ETF_BRANDS_CHECK.some(b => i.name.toUpperCase().includes(b))
+      )
+      if (unclassified.length > 0) {
+        // 비동기로 분류 (UI 블로킹 없이)
+        ;(async () => {
+          for (const inv of unclassified) {
+            try {
+              const res = await fetch(
+                `/api/lynch-classify?ticker=${encodeURIComponent(inv.ticker)}&market=${inv.market}`,
+                { cache: 'no-store' }
+              )
+              if (!res.ok) continue
+              const { category, isEtf } = await res.json()
+              if (isEtf || !category || category === 'na') continue
+              // 본인 투자 항목이므로 RLS 통과
+              await sb.from('investments')
+                .update({ lynch_category: category })
+                .eq('id', inv.id)
+                .eq('user_id', uid)
+            } catch { /* 무시 */ }
+            await new Promise(r => setTimeout(r, 100))
+          }
+          // 분류 완료 후 investments 상태 업데이트 (화면 반영)
+          const { data: refreshed } = await sb
+            .from('investments')
+            .select('id,ticker,name,market,currency,purchase_price,quantity,purchase_date,lynch_category')
+            .eq('user_id', uid)
+          if (refreshed) setInvestments(refreshed)
+        })()
+      }
+
       if (invs.length > 0) {
         const res = await fetch('/api/stock-price', {
           method: 'POST', headers:{ 'Content-Type':'application/json' },

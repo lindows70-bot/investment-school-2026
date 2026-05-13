@@ -256,7 +256,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
       purchase_price: parseFloat(purchasePrice),
       quantity:       parseFloat(quantity),
       purchase_date:  purchaseDate,
-      lynch_category: null,   // 대시보드에서 AI가 자동 분류
+      lynch_category: null,   // 저장 직후 아래에서 자동분류 API 호출로 업데이트
     }
 
     if (isEdit) {
@@ -299,6 +299,25 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
             transaction_date: purchaseDate,
           })
         } catch { /* ignore */ }
+
+        // ── 피터 린치 자동분류 (백그라운드, ETF·CRYPTO 제외) ──
+        if (market !== 'CRYPTO') {
+          ;(async () => {
+            try {
+              const res = await fetch(
+                `/api/lynch-classify?ticker=${encodeURIComponent(normalizedTicker)}&market=${market}`
+              )
+              if (res.ok) {
+                const { category, isEtf } = await res.json()
+                const lynchCat = (!isEtf && category && category !== 'na') ? category : null
+                if (lynchCat) {
+                  await supabase.from('investments').update({ lynch_category: lynchCat }).eq('id', created.id)
+                }
+              }
+            } catch { /* 분류 실패해도 종목 추가는 성공 */ }
+          })()
+        }
+
         onAdded?.(created as Investment)
         onRefresh().catch(() => {})
       } else {

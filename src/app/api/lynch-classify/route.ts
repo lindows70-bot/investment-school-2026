@@ -53,21 +53,39 @@ const US_KNOWN: Record<string, LynchKey> = {
 }
 
 const KR_KNOWN: Record<string, LynchKey> = {
+  // 대형 우량주
   '005930':'stalwart',    // 삼성전자
-  '000660':'cyclical',    // SK하이닉스
-  '035420':'fast_grower', // NAVER
-  '035720':'turnaround',  // 카카오
   '051910':'stalwart',    // LG화학
   '006400':'stalwart',    // 삼성SDI
-  '207940':'fast_grower', // 삼성바이오로직스
-  '068270':'fast_grower', // 셀트리온
   '005380':'stalwart',    // 현대차
-  '000270':'cyclical',    // 기아
   '055550':'stalwart',    // 신한지주
   '105560':'stalwart',    // KB금융
   '012330':'stalwart',    // 현대모비스
   '028260':'stalwart',    // 삼성물산
   '034730':'stalwart',    // SK
+  // 경기 순환주
+  '000660':'cyclical',    // SK하이닉스
+  '000270':'cyclical',    // 기아
+  '010140':'cyclical',    // 삼성중공업 (조선 = 경기순환)
+  '034020':'cyclical',    // 두산에너빌리티 (발전설비 = 경기순환)
+  '000150':'cyclical',    // 두산 (중공업 지주 = 경기순환)
+  '010120':'cyclical',    // LS ELECTRIC (전력기기 = 경기순환)
+  // 빠른 성장주
+  '035420':'fast_grower', // NAVER
+  '207940':'fast_grower', // 삼성바이오로직스
+  '068270':'fast_grower', // 셀트리온
+  '012450':'fast_grower', // 한화에어로스페이스 (방산 고성장)
+  '007660':'fast_grower', // 이수페타시스 (PCB 고성장)
+  '440110':'fast_grower', // 파두 (AI칩 팹리스)
+  '278470':'fast_grower', // 에이피알 (K뷰티 고성장)
+  // 회생 기업주
+  '035720':'turnaround',  // 카카오
+  // 자산 보유주
+  '017960':'asset_play',  // 한국카본 (특수소재)
+  // 완만한 성장주
+  '010170':'slow_grower', // 대한광통신 (통신인프라 안정성장)
+  '077360':'fast_grower', // 덕산하이메탈 (반도체소재 성장)
+  '189300':'fast_grower', // 인텔리안테크 (위성안테나 성장)
 }
 
 // 알려진 ETF 티커 (KRW 기준 + US)
@@ -230,20 +248,44 @@ async function classifyKR(ticker: string): Promise<ClassifyResult> {
     const d = await res.json()
     if (!d) throw new Error('naver empty')
 
-    // ── ETF 판별: industryCodeType 없거나 이름이 ETF 브랜드로 시작하면 ETF ──
+    // ── ETF 판별: stockEndType='etf' 또는 ETF 브랜드명 ──────────────────
+    // (industryCodeType은 일반 주식도 null이므로 ETF 판별에 사용 불가!)
     const stockName: string = d.stockName ?? ''
-    if (!d.industryCodeType || ETF_NAME_RE.test(stockName))
+    const stockEndType: string = d.stockEndType ?? ''
+    if (stockEndType === 'etf' || ETF_NAME_RE.test(stockName))
       return { category: 'na', isEtf: true, source: 'naver-etf' }
 
+    // ── 업종(sector) 추출: industryCodeType.name 또는 종목명 패턴 매칭 ──
     const industryName: string|null = d.industryCodeType?.name ?? null
-    const sector = industryName
+    let sector: string|null = industryName
       ? (KR_INDUSTRY.find(([re]) => re.test(industryName))?.[1] ?? null)
       : null
+
+    // industryCodeType 없는 경우: 종목명·업종으로 추가 추론
+    if (!sector) {
+      if (/조선|중공업/.test(stockName))   sector = 'Industrials'
+      else if (/항공|방위|에어로/.test(stockName)) sector = 'Industrials'
+      else if (/반도체|하이닉스|메모리/.test(stockName)) sector = 'Technology'
+      else if (/바이오|제약|의약/.test(stockName)) sector = 'Healthcare'
+      else if (/에너지|전력|원자력/.test(stockName)) sector = 'Utilities'
+      else if (/통신|광통신/.test(stockName)) sector = 'Communication Services'
+      else if (/카본|소재|화학/.test(stockName)) sector = 'Basic Materials'
+      else if (/금융|은행|보험/.test(stockName)) sector = 'Financial Services'
+      // KR_KNOWN 테이블에서 fallback
+      if (!sector && KR_KNOWN[code]) {
+        return { category: KR_KNOWN[code], isEtf: false, source: 'kr-known-table' }
+      }
+    }
 
     const per = typeof d.per === 'number' ? d.per : null
     const eps = typeof d.eps === 'number' ? d.eps : null
     const dy  = typeof d.dividendYield === 'number' ? d.dividendYield / 100 : null
-    const mc  = typeof d.marketValue   === 'number' ? d.marketValue         : null
+    // marketValue가 없을 경우 closePrice × 상장주식수로 추정 불가 → null 허용
+    const mc  = typeof d.marketValue   === 'number' ? d.marketValue
+              : typeof d.marketValueFullRaw === 'number' ? d.marketValueFullRaw
+              : null
+
+    // EPS 음수면 turnaround 후보
     const earningsGrowth = eps !== null && eps < 0 ? -0.5 : null
 
     const { category, confidence } = classify({ pe:per, peg:null, earningsGrowth, dividendYield:dy, marketCap:mc, sector })

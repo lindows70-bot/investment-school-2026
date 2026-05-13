@@ -158,7 +158,7 @@ function AnalysisContent() {
   ]
   const isEtf = (inv: Investment) =>
     ETF_BRANDS_LIST.some(b => inv.name.toUpperCase().includes(b)) ||
-    (inv.market === 'KR' && (inv.lynch_category === 'na' || !inv.lynch_category))
+    (fundMap[inv.ticker.toUpperCase()]?.isEtf === true)
 
   // ── PEG 분석 데이터 ─────────────────────────────────────────────
   const totalKrw = investments.reduce((s,i)=>toKrw(i)+s,0) || 1
@@ -193,8 +193,9 @@ function AnalysisContent() {
 
         // 피터린치식 판단
         const lynchJudge = (() => {
-          // isEtf: 컴포넌트 자체 판별 우선 (fund?.isEtf는 API 오류 가능성 있음)
-          if (isEtf(inv) || cat === 'na') return { label:'인덱스 펀드', color:'#6b7280', icon:'📊' }
+          // ETF는 인덱스 펀드로, 일반 주식 'na'는 분류 미지정으로 별도 처리
+          if (isEtf(inv)) return { label:'인덱스 펀드', color:'#6b7280', icon:'📊' }
+          if (cat === 'na') return { label:'분류 미지정', color:'#4b5563', icon:'❓' }
           if (cat === 'cyclical')   return { label:'경기 사이클 주의', color:'#fb923c', icon:'🔄' }
           if (cat === 'turnaround') return { label:'회생 여부 모니터링', color:'#f87171', icon:'⚠️' }
           if (pegVal === null) {
