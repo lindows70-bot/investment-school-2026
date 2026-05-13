@@ -968,22 +968,13 @@ export default function MasterStrategyPage() {
           {updatedAt && <span style={{ fontSize:10, color:D.textDim }}>업데이트 {updatedAt}</span>}
         </div>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-          {isAdmin ? (
+          {isAdmin && (
             <button onClick={()=>setModal(true)}
               style={{ display:'flex', alignItems:'center', gap:7, padding:'8px 15px', borderRadius:8,
                 background:D.neonGlow, border:`1px solid ${D.neon}40`, color:D.neon,
                 fontSize:12, fontWeight:700, cursor:'pointer' }}>
               <Settings size={13}/> 전략 업데이트
             </button>
-          ) : (
-            config.pdf_url && (
-              <a href={config.pdf_url} download target="_blank" rel="noopener noreferrer"
-                style={{ display:'flex', alignItems:'center', gap:7, padding:'8px 15px', borderRadius:8,
-                  background:D.blueDim, border:`1px solid ${D.blue}40`, color:D.blue,
-                  fontSize:12, fontWeight:700, textDecoration:'none' }}>
-                <Download size={13}/> 최신 리포트 다운로드
-              </a>
-            )
           )}
         </div>
       </div>
@@ -1049,6 +1040,142 @@ export default function MasterStrategyPage() {
 
         {/* 다음 */}
         <NavButton icon={<ChevronRight size={16}/>} label="다음" right onClick={()=>goTo(slide+1)} disabled={slide===TOTAL_SLIDES-1} />
+      </div>
+
+      {/* ── PDF 리포트 바 (항상 표시) ── */}
+      <div style={{
+        marginTop:10,
+        background: D.surface,
+        border:`1px solid ${config.pdf_url ? D.blue+'33' : D.border}`,
+        borderRadius:14,
+        padding:'14px 20px',
+        display:'flex',
+        alignItems:'center',
+        justifyContent:'space-between',
+        gap:14,
+        flexWrap:'wrap',
+      }}>
+        {/* 왼쪽: 상태 표시 */}
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <div style={{
+            width:8, height:8, borderRadius:'50%', flexShrink:0,
+            background: config.pdf_url ? D.green : D.textDim,
+            boxShadow: config.pdf_url ? `0 0 8px ${D.green}88` : 'none',
+          }}/>
+          <div>
+            <div style={{ fontSize:12, fontWeight:700, color: config.pdf_url ? D.text : D.textSub }}>
+              {config.pdf_url
+                ? `📄 ${decodeURIComponent(config.pdf_url.split('/').pop() ?? '전략 리포트')}`
+                : '📋 리포트 준비 중입니다'}
+            </div>
+            <div style={{ fontSize:10, color:D.textSub, marginTop:2 }}>
+              {config.pdf_url
+                ? `최종 업데이트${updatedAt ? ` · ${updatedAt}` : ''}`
+                : '교장 선생님이 전략 리포트를 업로드하면 자동으로 활성화됩니다'}
+            </div>
+          </div>
+        </div>
+
+        {/* 오른쪽: 버튼 그룹 */}
+        <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+          {/* 학생: 다운로드 버튼 */}
+          {!isAdmin && (
+            config.pdf_url ? (
+              <a
+                href={config.pdf_url}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display:'flex', alignItems:'center', gap:8,
+                  padding:'10px 20px', borderRadius:10,
+                  background:`${D.blue}20`,
+                  border:`1px solid ${D.blue}55`,
+                  color:D.blue,
+                  fontSize:13, fontWeight:700,
+                  textDecoration:'none',
+                  boxShadow:`0 0 16px ${D.blue}15`,
+                  transition:'all 0.2s',
+                }}>
+                <Download size={15}/>
+                최신 전략 리포트 다운로드
+              </a>
+            ) : (
+              <div style={{
+                display:'flex', alignItems:'center', gap:7,
+                padding:'10px 20px', borderRadius:10,
+                background:D.card,
+                border:`1px solid ${D.border}`,
+                color:D.textDim,
+                fontSize:13, fontWeight:600,
+                cursor:'not-allowed',
+              }}>
+                <Download size={15}/>
+                리포트 준비 중…
+              </div>
+            )
+          )}
+
+          {/* 어드민: 업로드 버튼 + 확인 버튼 */}
+          {isAdmin && (
+            <>
+              {config.pdf_url && (
+                <>
+                  {/* 미리보기 */}
+                  <a
+                    href={config.pdf_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display:'flex', alignItems:'center', gap:7,
+                      padding:'9px 16px', borderRadius:9,
+                      background:`${D.indigo}15`,
+                      border:`1px solid ${D.indigo}44`,
+                      color:D.indigo,
+                      fontSize:12, fontWeight:700,
+                      textDecoration:'none',
+                    }}>
+                    <FileText size={13}/>
+                    파일 확인
+                  </a>
+                  {/* 다운로드 테스트 */}
+                  <a
+                    href={config.pdf_url}
+                    download
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display:'flex', alignItems:'center', gap:7,
+                      padding:'9px 16px', borderRadius:9,
+                      background:`${D.blue}15`,
+                      border:`1px solid ${D.blue}44`,
+                      color:D.blue,
+                      fontSize:12, fontWeight:700,
+                      textDecoration:'none',
+                    }}>
+                    <Download size={13}/>
+                    다운로드 테스트
+                  </a>
+                </>
+              )}
+              {/* 업데이트 버튼 */}
+              <button
+                onClick={()=>setModal(true)}
+                style={{
+                  display:'flex', alignItems:'center', gap:7,
+                  padding:'9px 16px', borderRadius:9,
+                  background:D.neonGlow,
+                  border:`1px solid ${D.neon}44`,
+                  color:D.neon,
+                  fontSize:12, fontWeight:700,
+                  cursor:'pointer',
+                }}>
+                <Upload size={13}/>
+                {config.pdf_url ? '리포트 교체' : '리포트 업로드'}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* ── Admin Modal ── */}
