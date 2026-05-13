@@ -490,9 +490,10 @@ function AdminModal({
   const [satStocks,     setSatStocks]     = useState<string[]>(
     config.satellite_stocks?.length ? config.satellite_stocks : ['']
   )
-  const [pdfFile,  setPdfFile]  = useState<File | null>(null)
-  const [saving,   setSaving]   = useState(false)
-  const [err,      setErr]      = useState<string | null>(null)
+  const [pdfFile,   setPdfFile]   = useState<File | null>(null)
+  const [saving,    setSaving]    = useState(false)
+  const [err,       setErr]       = useState<string | null>(null)
+  const [pdfStatus, setPdfStatus] = useState<'idle'|'uploading'|'ok'|'error'>('idle')
   const fileRef = useRef<HTMLInputElement>(null)
 
   const totalPct = sectors.reduce((s, r) => s + (Number(r.value) || 0), 0)
@@ -503,42 +504,96 @@ function AdminModal({
   const updateRow = (i: number, field: keyof SectorRow, val: string) =>
     setSectors(prev => prev.map((r,idx) => idx===i ? { ...r, [field]: field==='value' ? (parseFloat(val)||0) : val } : r))
 
+  /* ── PDF 에러 → 한국어 메시지 변환 ── */
+  const translateStorageError = (msg: string): string => {
+    const m = msg.toLowerCase()
+    if (m.includes('bucket not found') || m.includes('bucketnotfound'))
+      return 'Storage 버킷이 없습니다. 아래 "버킷 생성 안내"를 참고해 주세요.'
+    if (m.includes('row-level security') || m.includes('42501') || m.includes('not authorized'))
+      return 'Storage 업로드 권한이 없습니다. Supabase Storage → Policies에서 INSERT 정책을 추가하세요.'
+    if (m.includes('payload too large') || m.includes('file size') || m.includes('maxfilesize'))
+      return '파일이 너무 큽니다. 50MB 이하의 PDF만 업로드 가능합니다.'
+    if (m.includes('invalid mime') || m.includes('content-type'))
+      return '올바른 PDF 파일이 아닙니다. .pdf 파일만 업로드 가능합니다.'
+    if (m.includes('duplicate') || m.includes('already exists'))
+      return '같은 이름의 파일이 이미 존재합니다. (upsert:true 옵션으로 자동 덮어씌워야 정상)'
+    return `업로드 실패: ${msg}`
+  }
+
+  /* ── 안전한 파일명 생성 (한글·공백 제거, 타임스탬프 prefix) ── */
+  const safeFileName = (original: string): string => {
+    const ts    = Date.now()
+    const clean = original
+      .replace(/[^\x00-\x7F]/g, '')          // 비ASCII(한글 등) 제거
+      .replace(/\s+/g, '_')                   // 공백 → 언더스코어
+      .replace(/[^a-zA-Z0-9._-]/g, '')        // 특수문자 제거
+      .slice(0, 40)                            // 최대 40자
+    const ext = clean.endsWith('.pdf') ? '' : '.pdf'
+    return `strategy_${ts}_${clean || 'report'}${ext}`
+  }
+
   /* ── 저장 ── */
   const handleSave = async () => {
-    setErr(null)
-    const validSectors    = sectors.filter(r => r.name.trim() && r.value > 0)
+    setErr(null); setPdfStatus('idle')
+    const validSectors = sectors.filter(r => r.name.trim() && r.value > 0)
     if (!validSectors.length) { setErr('최소 1개 이상의 유효한 섹터를 입력하세요'); return }
     setSaving(true)
 
     try {
       const sb = createClient()
 
-      // ── 선생님 세션 확인 ──────────────────────────────────────
+      // ── ① 선생님 세션 확인 ────────────────────────────────────
       const { data:{ user } } = await sb.auth.getUser()
       if (!user) {
         setErr('로그인 세션이 만료됐습니다. 페이지를 새로고침 후 다시 시도해주세요.')
         setSaving(false); return
       }
 
-      // ── PDF 업로드 ────────────────────────────────────────────
+      // ── ② PDF 업로드 ──────────────────────────────────────────
       let pdfUrl = config.pdf_url
       if (pdfFile) {
-        const fname = `strategy_${new Date().toISOString().slice(0,10)}.pdf`
-        const { error: upErr } = await sb.storage.from('strategy-pdf')
-          .upload(fname, pdfFile, { upsert: true })
-        if (upErr) {
-          console.error('[Strategy] PDF upload error:', upErr)
-          setErr(`PDF 업로드 실패: ${upErr.message}`)
+        if (pdfFile.size > 50 * 1024 * 1024) {
+          setErr('파일이 너무 큽니다. 50MB 이하의 PDF만 업로드 가능합니다.')
           setSaving(false); return
         }
-        pdfUrl = sb.storage.from('strategy-pdf').getPublicUrl(fname).data.publicUrl
+        if (!pdfFile.name.toLowerCase().endsWith('.pdf')) {
+          setErr('.pdf 파일만 업로드 가능합니다.')
+          setSaving(false); return
+        }
+
+        setPdfStatus('uploading')
+        const fname = safeFileName(pdfFile.name)
+        console.log('[Strategy] Uploading PDF as:', fname)
+
+        const { error: upErr } = await sb.storage
+          .from('strategy-pdf')
+          .upload(fname, pdfFile, {
+            upsert:      true,
+            contentType: 'application/pdf',
+            cacheControl:'3600',
+          })
+
+        if (upErr) {
+          setPdfStatus('error')
+          const friendly = translateStorageError(upErr.message)
+          console.error('[Strategy] PDF upload error:', upErr)
+          setErr(friendly)
+          setSaving(false); return
+        }
+
+        // public URL 생성
+        const { data: pubData } = sb.storage
+          .from('strategy-pdf')
+          .getPublicUrl(fname)
+        pdfUrl = pubData.publicUrl
+        setPdfStatus('ok')
+        console.log('[Strategy] PDF uploaded:', pdfUrl)
       }
 
       const validCoreStocks = coreStocks.map(s => s.trim()).filter(Boolean)
       const validSatStocks  = satStocks.map(s => s.trim()).filter(Boolean)
 
-      // ── DB upsert (컬럼 존재 여부에 따라 payload 조정) ────────
-      // 1차 시도: core_stocks / satellite_stocks 포함
+      // ── ③ DB upsert — core_stocks/satellite_stocks 포함 ──────
       const fullPayload = {
         id:               'singleton',
         core_pct:         parseInt(corePct)  || 48,
@@ -553,68 +608,43 @@ function AdminModal({
       let { error: dbErr } = await sb.from('strategy_configs')
         .upsert(fullPayload, { onConflict: 'id' })
 
-      // ── PGRST204: 컬럼 없음 → 컬럼 제외 fallback ─────────────
+      // PGRST204: 컬럼 없음 → 컬럼 제외 fallback 저장
       if (dbErr?.code === 'PGRST204') {
-        console.warn('[Strategy] core_stocks/satellite_stocks column missing — saving without them.')
-        console.warn('[Strategy] SQL 실행 필요: ALTER TABLE strategy_configs ADD COLUMN core_stocks jsonb DEFAULT \'[]\', ADD COLUMN satellite_stocks jsonb DEFAULT \'[]\'')
-        // 컬럼 없이 저장 (기존 컬럼만)
-        const fallbackPayload = {
+        console.warn('[Strategy] Missing columns — fallback save without stocks')
+        const res = await sb.from('strategy_configs').upsert({
           id:            'singleton',
           core_pct:      parseInt(corePct)  || 48,
           satellite_pct: parseInt(satPct)   || 52,
           sector_data:   validSectors,
           pdf_url:       pdfUrl,
           updated_at:    new Date().toISOString(),
-        }
-        const res = await sb.from('strategy_configs')
-          .upsert(fallbackPayload, { onConflict: 'id' })
+        }, { onConflict: 'id' })
         dbErr = res.error
         if (!dbErr) {
-          setErr(
-            '⚠️ 저장은 됐지만 추천 종목은 아직 저장되지 않았습니다.\n' +
-            'Supabase SQL Editor에서 아래 SQL을 실행 후 다시 저장해주세요:\n\n' +
-            'ALTER TABLE strategy_configs\n' +
-            '  ADD COLUMN IF NOT EXISTS core_stocks jsonb DEFAULT \'[]\',\n' +
-            '  ADD COLUMN IF NOT EXISTS satellite_stocks jsonb DEFAULT \'[]\';'
-          )
-          // 기본 필드는 저장됐으므로 화면 반영
-          onSaved({
-            core_pct:         parseInt(corePct)||48,
-            satellite_pct:    parseInt(satPct)||52,
-            sector_data:      validSectors,
-            core_stocks:      [],
-            satellite_stocks: [],
-            pdf_url:          pdfUrl,
-          })
+          setErr('⚠️ 기본 데이터는 저장됐습니다. 추천 종목 저장을 위해 Supabase SQL Editor에서 아래를 실행하세요:\n\nALTER TABLE strategy_configs ADD COLUMN IF NOT EXISTS core_stocks jsonb DEFAULT \'[]\', ADD COLUMN IF NOT EXISTS satellite_stocks jsonb DEFAULT \'[]\';')
+          onSaved({ core_pct:parseInt(corePct)||48, satellite_pct:parseInt(satPct)||52, sector_data:validSectors, core_stocks:[], satellite_stocks:[], pdf_url:pdfUrl })
           setSaving(false); return
         }
       }
 
-      // ── RLS 에러 (42501) ──────────────────────────────────────
+      // 42501: RLS 권한 없음
       if (dbErr?.code === '42501') {
         console.error('[Strategy] RLS error:', dbErr)
-        setErr('권한 오류: 선생님 계정으로 로그인됐는지 확인하세요. (RLS 42501)')
+        setErr('DB 권한 오류 (42501): 선생님 계정으로 로그인됐는지 확인하세요.')
         setSaving(false); return
       }
 
       if (dbErr) {
-        console.error('[Strategy] DB upsert error:', dbErr)
+        console.error('[Strategy] DB error:', dbErr)
         throw new Error(`DB 저장 실패 [${dbErr.code}]: ${dbErr.message}`)
       }
 
-      // ── 성공 ──────────────────────────────────────────────────
-      onSaved({
-        core_pct:         parseInt(corePct)||48,
-        satellite_pct:    parseInt(satPct)||52,
-        sector_data:      validSectors,
-        core_stocks:      validCoreStocks,
-        satellite_stocks: validSatStocks,
-        pdf_url:          pdfUrl,
-      })
+      // ── ④ 성공 ───────────────────────────────────────────────
+      onSaved({ core_pct:parseInt(corePct)||48, satellite_pct:parseInt(satPct)||52, sector_data:validSectors, core_stocks:validCoreStocks, satellite_stocks:validSatStocks, pdf_url:pdfUrl })
       onClose()
 
     } catch (e) {
-      console.error('[Strategy] handleSave error:', e)
+      console.error('[Strategy] handleSave fatal:', e)
       setErr((e as Error).message)
     } finally {
       setSaving(false)
@@ -790,20 +820,34 @@ function AdminModal({
 
           {/* ── PDF 업로드 ── */}
           <div>
-            <Label t="전략 리포트 PDF" />
+            <Label t="전략 리포트 PDF (선택)" />
             <input ref={fileRef} type="file" accept=".pdf" style={{ display:'none' }}
-              onChange={e=>setPdfFile(e.target.files?.[0]??null)} />
-            <button onClick={()=>fileRef.current?.click()}
+              onChange={e => { setPdfFile(e.target.files?.[0] ?? null); setPdfStatus('idle'); setErr(null) }} />
+            <button onClick={() => fileRef.current?.click()}
               style={{ display:'flex', alignItems:'center', gap:8, background:D.card,
-                border:`1px solid ${pdfFile ? D.neon+'55' : D.border}`, borderRadius:8,
-                padding:'10px 16px', color: pdfFile ? D.neon : D.textSub,
+                border:`1px solid ${
+                  pdfStatus==='ok'    ? D.neon+'66' :
+                  pdfStatus==='error' ? D.red+'66'  :
+                  pdfFile             ? D.neon+'44' : D.border
+                }`,
+                borderRadius:8, padding:'10px 16px',
+                color: pdfStatus==='error' ? D.red : pdfFile ? D.neon : D.textSub,
                 fontSize:12, cursor:'pointer', width:'100%', textAlign:'left' as const }}>
               <Upload size={14} />
-              {pdfFile ? pdfFile.name : 'PDF 파일 선택…'}
+              {pdfStatus==='uploading' ? '⏳ 업로드 중…' :
+               pdfStatus==='ok'        ? `✅ ${pdfFile?.name}` :
+               pdfFile                 ? pdfFile.name
+                                       : 'PDF 파일 선택… (최대 50MB)'}
             </button>
+            {/* 파일명 변환 안내 */}
+            {pdfFile && (
+              <p style={{ fontSize:10, color:D.textSub, marginTop:4 }}>
+                저장 시 파일명이 <span style={{ color:D.neon }}>strategy_{'{timestamp}'}_{pdfFile.name.slice(0,20)}.pdf</span> 로 자동 변환됩니다 (한글·공백 제거)
+              </p>
+            )}
             {config.pdf_url && !pdfFile && (
-              <p style={{ fontSize:10, color:D.textSub, marginTop:5 }}>
-                현재: {config.pdf_url.split('/').pop()}
+              <p style={{ fontSize:10, color:D.textSub, marginTop:4 }}>
+                현재 파일: {decodeURIComponent(config.pdf_url.split('/').pop() ?? '')}
               </p>
             )}
           </div>
@@ -811,7 +855,19 @@ function AdminModal({
           {/* ── 에러 ── */}
           {err && (
             <div style={{ background:'rgba(248,113,113,0.08)', border:'1px solid rgba(248,113,113,0.3)',
-              borderRadius:8, padding:'10px 14px', fontSize:12, color:D.red }}>{err}</div>
+              borderRadius:8, padding:'12px 14px', fontSize:12, color:D.red,
+              whiteSpace:'pre-wrap' as const, lineHeight:1.6 }}>
+              {err.includes('버킷') && (
+                <div style={{ marginBottom:10, paddingBottom:10, borderBottom:'1px solid rgba(248,113,113,0.2)' }}>
+                  <strong>📋 버킷 생성 방법:</strong><br/>
+                  1. Supabase Dashboard → Storage → New bucket<br/>
+                  2. Bucket name: <code style={{ background:'rgba(255,255,255,0.1)', padding:'1px 5px', borderRadius:3 }}>strategy-pdf</code><br/>
+                  3. Public bucket: ✅ 체크<br/>
+                  4. Save → Policies 탭에서 INSERT/SELECT 정책 추가
+                </div>
+              )}
+              {err}
+            </div>
           )}
 
           {/* ── 버튼 ── */}
