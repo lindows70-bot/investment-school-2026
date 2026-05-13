@@ -1116,6 +1116,34 @@ export default function MasterStrategyPage() {
     ? new Date(config.updated_at).toLocaleDateString('ko-KR',{ year:'2-digit', month:'2-digit', day:'2-digit' })
     : null
 
+  // ── 원본 파일명으로 강제 다운로드 ──────────────────────────────────────────
+  // cross-origin URL은 download 속성이 무시되므로 Blob fetch 방식 사용
+  const [downloading, setDownloading] = useState(false)
+  const handleDownload = async () => {
+    if (!config.pdf_url || downloading) return
+    const fname = config.pdf_display_name ?? '전략리포트.pdf'
+    setDownloading(true)
+    try {
+      const res = await fetch(config.pdf_url)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const blob = await res.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = fname
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(blobUrl)
+    } catch (e) {
+      console.error('[Strategy] download error:', e)
+      // fallback: 새 탭 열기
+      window.open(config.pdf_url, '_blank')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   return (
     <div style={{ minHeight:'100vh', background:D.bg, color:D.text,
       fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
@@ -1244,25 +1272,23 @@ export default function MasterStrategyPage() {
           {/* 학생: 다운로드 버튼 */}
           {!isAdmin && (
             config.pdf_url ? (
-              <a
-                href={config.pdf_url}
-                download
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={handleDownload}
+                disabled={downloading}
                 style={{
                   display:'flex', alignItems:'center', gap:8,
                   padding:'10px 20px', borderRadius:10,
-                  background:`${D.blue}20`,
+                  background: downloading ? D.card : `${D.blue}20`,
                   border:`1px solid ${D.blue}55`,
-                  color:D.blue,
+                  color: downloading ? D.textSub : D.blue,
                   fontSize:13, fontWeight:700,
-                  textDecoration:'none',
+                  cursor: downloading ? 'not-allowed' : 'pointer',
                   boxShadow:`0 0 16px ${D.blue}15`,
                   transition:'all 0.2s',
                 }}>
                 <Download size={15}/>
-                최신 전략 리포트 다운로드
-              </a>
+                {downloading ? '다운로드 중…' : '최신 전략 리포트 다운로드'}
+              </button>
             ) : (
               <div style={{
                 display:'flex', alignItems:'center', gap:7,
@@ -1284,7 +1310,7 @@ export default function MasterStrategyPage() {
             <>
               {config.pdf_url && (
                 <>
-                  {/* 미리보기 */}
+                  {/* 미리보기 (새 탭) */}
                   <a
                     href={config.pdf_url}
                     target="_blank"
@@ -1301,24 +1327,22 @@ export default function MasterStrategyPage() {
                     <FileText size={13}/>
                     파일 확인
                   </a>
-                  {/* 다운로드 테스트 */}
-                  <a
-                    href={config.pdf_url}
-                    download
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  {/* 다운로드 테스트 — Blob 방식으로 원본 파일명 */}
+                  <button
+                    onClick={handleDownload}
+                    disabled={downloading}
                     style={{
                       display:'flex', alignItems:'center', gap:7,
                       padding:'9px 16px', borderRadius:9,
                       background:`${D.blue}15`,
                       border:`1px solid ${D.blue}44`,
-                      color:D.blue,
+                      color: downloading ? D.textSub : D.blue,
                       fontSize:12, fontWeight:700,
-                      textDecoration:'none',
+                      cursor: downloading ? 'not-allowed' : 'pointer',
                     }}>
                     <Download size={13}/>
-                    다운로드 테스트
-                  </a>
+                    {downloading ? '다운로드 중…' : '다운로드 테스트'}
+                  </button>
                 </>
               )}
               {/* 업데이트 버튼 */}
