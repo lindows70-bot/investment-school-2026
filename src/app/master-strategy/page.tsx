@@ -506,22 +506,40 @@ function AdminModal({
   /* ── 저장 ── */
   const handleSave = async () => {
     setErr(null)
-    const validSectors = sectors.filter(r => r.name.trim() && r.value > 0)
+    const validSectors    = sectors.filter(r => r.name.trim() && r.value > 0)
     if (!validSectors.length) { setErr('최소 1개 이상의 유효한 섹터를 입력하세요'); return }
     setSaving(true)
+
     try {
       const sb = createClient()
+
+      // ── 선생님 세션 확인 ──────────────────────────────────────
+      const { data:{ user } } = await sb.auth.getUser()
+      if (!user) {
+        setErr('로그인 세션이 만료됐습니다. 페이지를 새로고침 후 다시 시도해주세요.')
+        setSaving(false); return
+      }
+
+      // ── PDF 업로드 ────────────────────────────────────────────
       let pdfUrl = config.pdf_url
       if (pdfFile) {
         const fname = `strategy_${new Date().toISOString().slice(0,10)}.pdf`
-        const { error: upErr } = await sb.storage.from('strategy-pdf').upload(fname, pdfFile, { upsert:true })
-        if (upErr) throw upErr
+        const { error: upErr } = await sb.storage.from('strategy-pdf')
+          .upload(fname, pdfFile, { upsert: true })
+        if (upErr) {
+          console.error('[Strategy] PDF upload error:', upErr)
+          setErr(`PDF 업로드 실패: ${upErr.message}`)
+          setSaving(false); return
+        }
         pdfUrl = sb.storage.from('strategy-pdf').getPublicUrl(fname).data.publicUrl
       }
+
       const validCoreStocks = coreStocks.map(s => s.trim()).filter(Boolean)
       const validSatStocks  = satStocks.map(s => s.trim()).filter(Boolean)
 
-      const { error: dbErr } = await sb.from('strategy_configs').upsert({
+      // ── DB upsert (컬럼 존재 여부에 따라 payload 조정) ────────
+      // 1차 시도: core_stocks / satellite_stocks 포함
+      const fullPayload = {
         id:               'singleton',
         core_pct:         parseInt(corePct)  || 48,
         satellite_pct:    parseInt(satPct)   || 52,
@@ -530,8 +548,61 @@ function AdminModal({
         satellite_stocks: validSatStocks,
         pdf_url:          pdfUrl,
         updated_at:       new Date().toISOString(),
-      }, { onConflict: 'id' })
-      if (dbErr) throw dbErr
+      }
+
+      let { error: dbErr } = await sb.from('strategy_configs')
+        .upsert(fullPayload, { onConflict: 'id' })
+
+      // ── PGRST204: 컬럼 없음 → 컬럼 제외 fallback ─────────────
+      if (dbErr?.code === 'PGRST204') {
+        console.warn('[Strategy] core_stocks/satellite_stocks column missing — saving without them.')
+        console.warn('[Strategy] SQL 실행 필요: ALTER TABLE strategy_configs ADD COLUMN core_stocks jsonb DEFAULT \'[]\', ADD COLUMN satellite_stocks jsonb DEFAULT \'[]\'')
+        // 컬럼 없이 저장 (기존 컬럼만)
+        const fallbackPayload = {
+          id:            'singleton',
+          core_pct:      parseInt(corePct)  || 48,
+          satellite_pct: parseInt(satPct)   || 52,
+          sector_data:   validSectors,
+          pdf_url:       pdfUrl,
+          updated_at:    new Date().toISOString(),
+        }
+        const res = await sb.from('strategy_configs')
+          .upsert(fallbackPayload, { onConflict: 'id' })
+        dbErr = res.error
+        if (!dbErr) {
+          setErr(
+            '⚠️ 저장은 됐지만 추천 종목은 아직 저장되지 않았습니다.\n' +
+            'Supabase SQL Editor에서 아래 SQL을 실행 후 다시 저장해주세요:\n\n' +
+            'ALTER TABLE strategy_configs\n' +
+            '  ADD COLUMN IF NOT EXISTS core_stocks jsonb DEFAULT \'[]\',\n' +
+            '  ADD COLUMN IF NOT EXISTS satellite_stocks jsonb DEFAULT \'[]\';'
+          )
+          // 기본 필드는 저장됐으므로 화면 반영
+          onSaved({
+            core_pct:         parseInt(corePct)||48,
+            satellite_pct:    parseInt(satPct)||52,
+            sector_data:      validSectors,
+            core_stocks:      [],
+            satellite_stocks: [],
+            pdf_url:          pdfUrl,
+          })
+          setSaving(false); return
+        }
+      }
+
+      // ── RLS 에러 (42501) ──────────────────────────────────────
+      if (dbErr?.code === '42501') {
+        console.error('[Strategy] RLS error:', dbErr)
+        setErr('권한 오류: 선생님 계정으로 로그인됐는지 확인하세요. (RLS 42501)')
+        setSaving(false); return
+      }
+
+      if (dbErr) {
+        console.error('[Strategy] DB upsert error:', dbErr)
+        throw new Error(`DB 저장 실패 [${dbErr.code}]: ${dbErr.message}`)
+      }
+
+      // ── 성공 ──────────────────────────────────────────────────
       onSaved({
         core_pct:         parseInt(corePct)||48,
         satellite_pct:    parseInt(satPct)||52,
@@ -541,8 +612,13 @@ function AdminModal({
         pdf_url:          pdfUrl,
       })
       onClose()
-    } catch (e) { setErr((e as Error).message) }
-    finally { setSaving(false) }
+
+    } catch (e) {
+      console.error('[Strategy] handleSave error:', e)
+      setErr((e as Error).message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   /* ── input 공용 스타일 ── */
