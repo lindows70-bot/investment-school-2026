@@ -51,19 +51,21 @@ const D = {
 // ═══════════════════════════════════════════════════════════════
 interface SectorRow  { name: string; value: number }
 interface StrategyConfig {
-  id?:             string
-  core_pct:        number
-  satellite_pct:   number
-  sector_data:     SectorRow[]
-  core_stocks:     string[]     // 추천 Core 종목 리스트
-  satellite_stocks:string[]     // 추천 Satellite 종목 리스트
-  pdf_url:         string | null
-  updated_at?:     string
+  id?:              string
+  core_pct:         number
+  satellite_pct:    number
+  sector_data:      SectorRow[]
+  core_stocks:      string[]     // 추천 Core 종목 리스트
+  satellite_stocks: string[]     // 추천 Satellite 종목 리스트
+  pdf_url:          string | null
+  pdf_display_name: string | null  // 원본 파일명 (한글 포함) — Storage key와 별도 관리
+  updated_at?:      string
 }
 
 const DEFAULT_CONFIG: StrategyConfig = {
-  core_pct:         48,
-  satellite_pct:    52,
+  core_pct:          48,
+  satellite_pct:     52,
+  pdf_display_name:  null,
   sector_data: [
     { name: '반도체',    value: 32 },
     { name: '전략·전력', value: 20 },
@@ -509,8 +511,12 @@ function AdminModal({
   const updateRow = (i: number, field: keyof SectorRow, val: string) =>
     setSectors(prev => prev.map((r,idx) => idx===i ? { ...r, [field]: field==='value' ? (parseFloat(val)||0) : val } : r))
 
-  /* ── Storage 파일명 추출 헬퍼 ── */
+  /* ── 표시용 파일명 추출 헬퍼
+   *  1순위: DB의 pdf_display_name (원본 한글명)
+   *  2순위: URL에서 추출 (타임스탬프 기반 storage key)
+   * ── */
   const extractFileName = (url: string): string => {
+    if (config.pdf_display_name) return config.pdf_display_name
     try {
       const raw = url.split('/').pop() ?? ''
       return decodeURIComponent(raw)
@@ -611,8 +617,9 @@ function AdminModal({
 
         // ── Storage 저장 키: 공백 → 언더스코어 (S3 규칙상 공백 불가)
         //    한글·특수문자는 그대로 유지 (Supabase가 내부 인코딩 처리)
-        // Storage key: 공백 → 언더스코어 (S3 규칙상 공백 불가, 한글은 허용)
-        const newFname = pdfFile.name.replace(/\s+/g, '_')
+        // ── Storage key: ASCII 타임스탬프 기반 (한글·공백 포함 파일명은 SDK가 거부)
+        //    원본 파일명은 pdf_display_name 컬럼에 별도 저장하여 UI에 표시
+        const newFname = `strategy_${Date.now()}.pdf`
         setPdfStatus('uploading')
         setSuccessMsg(null)
 
@@ -686,7 +693,11 @@ function AdminModal({
       const validCoreStocks = coreStocks.map(s => s.trim()).filter(Boolean)
       const validSatStocks  = satStocks.map(s => s.trim()).filter(Boolean)
 
-      // ── ③ DB upsert — core_stocks/satellite_stocks 포함 ──────
+      // ── ③ DB upsert — core_stocks/satellite_stocks + pdf_display_name 포함 ──
+      const pdfDisplayName = pdfFile ? pdfFile.name : currentPdfUrl
+        ? (config.pdf_display_name ?? extractFileName(currentPdfUrl))
+        : null
+
       const fullPayload = {
         id:               'singleton',
         core_pct:         parseInt(corePct)  || 48,
@@ -695,6 +706,7 @@ function AdminModal({
         core_stocks:      validCoreStocks,
         satellite_stocks: validSatStocks,
         pdf_url:          pdfUrl,
+        pdf_display_name: pdfDisplayName,    // 원본 파일명 (한글 포함 가능)
         updated_at:       new Date().toISOString(),
       }
 
@@ -715,7 +727,7 @@ function AdminModal({
         dbErr = res.error
         if (!dbErr) {
           setErr('⚠️ 기본 데이터는 저장됐습니다. 추천 종목 저장을 위해 Supabase SQL Editor에서 아래를 실행하세요:\n\nALTER TABLE strategy_configs ADD COLUMN IF NOT EXISTS core_stocks jsonb DEFAULT \'[]\', ADD COLUMN IF NOT EXISTS satellite_stocks jsonb DEFAULT \'[]\';')
-          onSaved({ core_pct:parseInt(corePct)||48, satellite_pct:parseInt(satPct)||52, sector_data:validSectors, core_stocks:[], satellite_stocks:[], pdf_url:pdfUrl })
+          onSaved({ core_pct:parseInt(corePct)||48, satellite_pct:parseInt(satPct)||52, sector_data:validSectors, core_stocks:[], satellite_stocks:[], pdf_url:pdfUrl, pdf_display_name:pdfDisplayName })
           setSaving(false); return
         }
       }
@@ -734,7 +746,7 @@ function AdminModal({
 
       // ── ④ 성공 ───────────────────────────────────────────────
       const savedFileName = pdfFile ? pdfFile.name : null  // 원본 파일명(공백 포함)
-      onSaved({ core_pct:parseInt(corePct)||48, satellite_pct:parseInt(satPct)||52, sector_data:validSectors, core_stocks:validCoreStocks, satellite_stocks:validSatStocks, pdf_url:pdfUrl })
+      onSaved({ core_pct:parseInt(corePct)||48, satellite_pct:parseInt(satPct)||52, sector_data:validSectors, core_stocks:validCoreStocks, satellite_stocks:validSatStocks, pdf_url:pdfUrl, pdf_display_name:pdfDisplayName })
       // 파일 업로드가 있었으면 성공 메시지를 페이지에 전달
       if (savedFileName) {
         onSavedWithMsg?.(`✅ "${savedFileName}" 파일이 성공적으로 배포되었습니다.`)
@@ -1216,7 +1228,7 @@ export default function MasterStrategyPage() {
           <div>
             <div style={{ fontSize:12, fontWeight:700, color: config.pdf_url ? D.text : D.textSub }}>
               {config.pdf_url
-                ? `📄 ${decodeURIComponent(config.pdf_url.split('/').pop() ?? '전략 리포트')}`
+                ? `📄 ${config.pdf_display_name ?? decodeURIComponent(config.pdf_url.split('/').pop() ?? '전략 리포트')}`
                 : '📋 리포트 준비 중입니다'}
             </div>
             <div style={{ fontSize:10, color:D.textSub, marginTop:2 }}>
