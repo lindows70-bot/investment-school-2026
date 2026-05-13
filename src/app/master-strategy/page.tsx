@@ -84,8 +84,12 @@ const DarkTip = ({ active, payload }: any) => {
 
 // ─── Slide Components ─────────────────────────────────────────────────────────
 
+// ── 전략 포트폴리오 고정 수치 (학교 전략 모델 기준) ──────────────────────────
+const STRATEGY_TOTAL_KRW = 100_000_000   // ₩1억 (2026 투자학교 전략 포트폴리오)
+const STRATEGY_STOCK_COUNT = 18          // PDF 기준 18종목
+
 /** Slide 1: 타이틀 */
-function SlideTitle({ totalKrw, returnPct }: { totalKrw: number; returnPct: number }) {
+function SlideTitle({ returnPct }: { returnPct: number }) {
   const fmtKrw = (n: number) =>
     n >= 1e8 ? `₩${(n / 1e8).toFixed(1)}억`
     : n >= 1e4 ? `₩${Math.round(n / 1e4).toLocaleString('ko-KR')}만`
@@ -117,7 +121,7 @@ function SlideTitle({ totalKrw, returnPct }: { totalKrw: number; returnPct: numb
       {/* KPI 카드 */}
       <div style={{ display: 'flex', gap: 20, justifyContent: 'center', flexWrap: 'wrap' }}>
         {[
-          { label: '전략 포트폴리오', value: fmtKrw(totalKrw || 0), color: NEON },
+          { label: '전략 포트폴리오', value: fmtKrw(STRATEGY_TOTAL_KRW), color: NEON },
           { label: '수익률', value: `${returnPct >= 0 ? '+' : ''}${returnPct.toFixed(1)}%`, color: returnPct >= 0 ? NEON : RED },
           { label: '슬라이드', value: '5 Decks', color: BLUE },
         ].map(k => (
@@ -281,7 +285,7 @@ function SlideFundStructure() {
           { label: 'ETF 비중', value: '59%', color: NEON },
           { label: '개별주', value: '35%', color: BLUE },
           { label: '대체자산', value: '6%', color: GOLD },
-          { label: '종목 수', value: '25+', color: '#818cf8' },
+          { label: '종목 수', value: `${STRATEGY_STOCK_COUNT}개`, color: '#818cf8' },
         ].map(s => (
           <div key={s.label} style={{ background: `${s.color}10`, border: `1px solid ${s.color}30`, borderRadius: 10, padding: '10px 14px', textAlign: 'center' }}>
             <div style={{ fontSize: 10, color: '#4a5568', fontWeight: 700, marginBottom: 4 }}>{s.label.toUpperCase()}</div>
@@ -426,7 +430,7 @@ export default function MasterStrategyPage() {
   const [pdfUrl,   setPdfUrl]   = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [toast,    setToast]    = useState<string | null>(null)
-  const [totalKrw, setTotalKrw] = useState(0)
+  // totalKrw: 개인 포트폴리오 수치 제거 — 전략 포트폴리오는 STRATEGY_TOTAL_KRW 고정값 사용
   const [returnPct] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -446,17 +450,6 @@ export default function MasterStrategyPage() {
       // 역할 확인
       const { data: profile } = await sb.from('profiles').select('role').eq('id', user.id).single()
       setIsAdmin(profile?.role === 'teacher')
-
-      // 내 포트폴리오 총액 + 수익률 계산
-      const { data: invs } = await sb
-        .from('investments')
-        .select('purchase_price, quantity, currency')
-        .eq('user_id', user.id)
-      if (invs?.length) {
-        const USD_KRW = 1_350
-        const total = invs.reduce((s, i) => s + i.purchase_price * i.quantity * (i.currency === 'USD' ? USD_KRW : 1), 0)
-        setTotalKrw(total)
-      }
 
       // PDF 최신본 확인 (Supabase Storage)
       const { data: files } = await sb.storage.from('strategy-pdf').list('', { limit: 1, sortBy: { column: 'created_at', order: 'desc' } })
@@ -524,7 +517,7 @@ export default function MasterStrategyPage() {
 
   const renderSlide = () => {
     switch (slide) {
-      case 0: return <SlideTitle totalKrw={totalKrw} returnPct={returnPct} />
+      case 0: return <SlideTitle returnPct={returnPct} />
       case 1: return <SlidePhilosophy />
       case 2: return <SlideFundStructure />
       case 3: return <SlideSectorWeight />
