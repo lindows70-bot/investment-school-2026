@@ -472,11 +472,12 @@ function Slide5_Roadmap() {
 //  ADMIN UPDATE MODAL
 // ═══════════════════════════════════════════════════════════════
 function AdminModal({
-  config, onClose, onSaved,
+  config, onClose, onSaved, onSavedWithMsg,
 }: {
   config: StrategyConfig
   onClose: () => void
   onSaved: (c: StrategyConfig) => void
+  onSavedWithMsg?: (msg: string) => void
 }) {
   const [corePct,       setCorePct]       = useState(String(config.core_pct))
   const [satPct,        setSatPct]        = useState(String(config.satellite_pct))
@@ -490,10 +491,14 @@ function AdminModal({
   const [satStocks,     setSatStocks]     = useState<string[]>(
     config.satellite_stocks?.length ? config.satellite_stocks : ['']
   )
-  const [pdfFile,   setPdfFile]   = useState<File | null>(null)
-  const [saving,    setSaving]    = useState(false)
-  const [err,       setErr]       = useState<string | null>(null)
-  const [pdfStatus, setPdfStatus] = useState<'idle'|'uploading'|'ok'|'error'>('idle')
+  const [pdfFile,    setPdfFile]    = useState<File | null>(null)
+  const [saving,     setSaving]     = useState(false)
+  const [deleting,   setDeleting]   = useState(false)
+  const [err,        setErr]        = useState<string | null>(null)
+  const [successMsg, setSuccessMsg] = useState<string | null>(null)
+  const [pdfStatus,  setPdfStatus]  = useState<'idle'|'uploading'|'ok'|'error'>('idle')
+  // 현재 DB에 저장된 pdf_url을 로컬 상태로 관리 (삭제 시 즉시 반영)
+  const [currentPdfUrl, setCurrentPdfUrl] = useState<string | null>(config.pdf_url)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const totalPct = sectors.reduce((s, r) => s + (Number(r.value) || 0), 0)
@@ -503,6 +508,58 @@ function AdminModal({
   const removeRow = (i: number) => setSectors(prev => prev.filter((_,idx) => idx !== i))
   const updateRow = (i: number, field: keyof SectorRow, val: string) =>
     setSectors(prev => prev.map((r,idx) => idx===i ? { ...r, [field]: field==='value' ? (parseFloat(val)||0) : val } : r))
+
+  /* ── Storage 파일명 추출 헬퍼 ── */
+  const extractFileName = (url: string): string => {
+    try {
+      const raw = url.split('/').pop() ?? ''
+      return decodeURIComponent(raw)
+    } catch { return url.split('/').pop() ?? '' }
+  }
+
+  /* ── 현재 PDF 삭제 ── */
+  const handleDeletePdf = async () => {
+    if (!currentPdfUrl) return
+    const fname = currentPdfUrl.split('/').pop() ?? ''
+    const displayName = (() => { try { return decodeURIComponent(fname) } catch { return fname } })()
+
+    if (!window.confirm(`"${displayName}" 파일을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return
+
+    setDeleting(true); setErr(null); setSuccessMsg(null)
+    try {
+      const sb = createClient()
+
+      // ① Storage에서 물리적 삭제
+      const { error: storageErr } = await sb.storage
+        .from('strategy-pdf')
+        .remove([fname])
+
+      // Storage 에러는 경고만 (파일이 이미 없어도 DB는 정리)
+      if (storageErr) {
+        console.warn('[Strategy] Storage delete warning:', storageErr.message)
+      }
+
+      // ② DB pdf_url → null
+      const { error: dbErr } = await sb.from('strategy_configs')
+        .update({ pdf_url: null, updated_at: new Date().toISOString() })
+        .eq('id', 'singleton')
+
+      if (dbErr) throw new Error(`DB 업데이트 실패: ${dbErr.message}`)
+
+      // ③ 로컬 상태 초기화
+      setCurrentPdfUrl(null)
+      setPdfFile(null)
+      setPdfStatus('idle')
+      onSaved({ ...config, pdf_url: null })
+      setSuccessMsg(`"${displayName}" 파일이 삭제되었습니다.`)
+
+    } catch (e) {
+      setErr(`삭제 실패: ${(e as Error).message}`)
+      console.error('[Strategy] delete error:', e)
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   /* ── PDF 에러 → 한국어 메시지 변환 ── */
   const translateStorageError = (msg: string): string => {
@@ -538,7 +595,7 @@ function AdminModal({
       }
 
       // ── ② PDF 업로드 ──────────────────────────────────────────
-      let pdfUrl = config.pdf_url
+      let pdfUrl = currentPdfUrl   // 현재 로컬 상태 기준
       if (pdfFile) {
         // 사전 유효성 검사
         if (pdfFile.size > 50 * 1024 * 1024) {
@@ -550,24 +607,30 @@ function AdminModal({
           setSaving(false); return
         }
 
-        // ── 원본 파일명 그대로 사용
-        //    한글·공백 포함 파일명도 Storage 경로에 그대로 저장.
-        //    getPublicUrl 시 Supabase가 자동 인코딩하므로 별도 처리 불필요.
-        //    다운로드 링크는 href 그대로 사용 (브라우저가 decode).
-        const fname = pdfFile.name
-        console.log('[Strategy] Uploading PDF as:', fname)
+        const newFname = pdfFile.name   // 원본 파일명 그대로 사용
+        setPdfStatus('uploading')
+        setSuccessMsg(null)
 
-        // ── 중복 파일 확인 (upsert:false로 먼저 시도 → 23505/409면 덮어쓰기 확인)
+        // ── 기존 파일이 있고 이름이 다를 경우 → 자동 삭제
+        if (currentPdfUrl) {
+          const oldFname = currentPdfUrl.split('/').pop() ?? ''
+          if (oldFname && oldFname !== encodeURIComponent(newFname) && oldFname !== newFname) {
+            console.log('[Strategy] Deleting old file:', oldFname)
+            await sb.storage.from('strategy-pdf').remove([oldFname])
+            // 삭제 실패는 무시 (신규 업로드 계속 진행)
+          }
+        }
+
+        // ── 1차 업로드 시도 (upsert:false → 중복 감지)
         const { error: checkErr } = await sb.storage
           .from('strategy-pdf')
-          .upload(fname, pdfFile, {
-            upsert:      false,           // 중복 시 에러 발생시켜 감지
+          .upload(newFname, pdfFile, {
+            upsert:      false,
             contentType: 'application/pdf',
             cacheControl:'3600',
           })
 
         if (checkErr) {
-          // 동일 파일명 존재 → 덮어쓰기 확인
           const isDuplicate =
             checkErr.message.toLowerCase().includes('already exists') ||
             checkErr.message.toLowerCase().includes('duplicate') ||
@@ -575,18 +638,18 @@ function AdminModal({
             checkErr.message.includes('409')
 
           if (isDuplicate) {
-            // confirm 창으로 덮어쓰기 확인
+            // 동일 파일명 → 덮어쓰기 확인
+            const oldDisplayName = (() => {
+              try { return decodeURIComponent(newFname) } catch { return newFname }
+            })()
             const ok = window.confirm(
-              `"${fname}" 파일이 이미 존재합니다.\n\n` +
-              `기존 파일을 덮어쓰시겠습니까?`
+              `"${oldDisplayName}" 파일이 이미 존재합니다.\n기존 파일을 덮어쓰시겠습니까?`
             )
-            if (!ok) { setSaving(false); return }
+            if (!ok) { setPdfStatus('idle'); setSaving(false); return }
 
-            // 덮어쓰기 (upsert:true)
-            setPdfStatus('uploading')
             const { error: overwriteErr } = await sb.storage
               .from('strategy-pdf')
-              .upload(fname, pdfFile, {
+              .upload(newFname, pdfFile, {
                 upsert:      true,
                 contentType: 'application/pdf',
                 cacheControl:'3600',
@@ -598,22 +661,19 @@ function AdminModal({
               setSaving(false); return
             }
           } else {
-            // 다른 에러 (버킷 없음, 권한 등)
             setPdfStatus('error')
             setErr(translateStorageError(checkErr.message))
             console.error('[Strategy] upload error:', checkErr)
             setSaving(false); return
           }
-        } else {
-          setPdfStatus('uploading')  // 신규 업로드 성공
         }
 
-        // ── Public URL 생성
-        //    파일명에 한글 포함 시 Supabase SDK가 내부적으로 인코딩 처리함
+        // ── Public URL 생성 (한글 포함 시 SDK가 인코딩 처리)
         const { data: pubData } = sb.storage
           .from('strategy-pdf')
-          .getPublicUrl(fname)
+          .getPublicUrl(newFname)
         pdfUrl = pubData.publicUrl
+        setCurrentPdfUrl(pdfUrl)
         setPdfStatus('ok')
         console.log('[Strategy] PDF uploaded OK:', pdfUrl)
       }
@@ -668,7 +728,14 @@ function AdminModal({
       }
 
       // ── ④ 성공 ───────────────────────────────────────────────
+      const savedFileName = pdfFile
+        ? (() => { try { return decodeURIComponent(pdfFile.name) } catch { return pdfFile.name } })()
+        : null
       onSaved({ core_pct:parseInt(corePct)||48, satellite_pct:parseInt(satPct)||52, sector_data:validSectors, core_stocks:validCoreStocks, satellite_stocks:validSatStocks, pdf_url:pdfUrl })
+      // 파일 업로드가 있었으면 성공 메시지를 페이지에 전달
+      if (savedFileName) {
+        onSavedWithMsg?.(`✅ "${savedFileName}" 파일이 성공적으로 배포되었습니다.`)
+      }
       onClose()
 
     } catch (e) {
@@ -846,11 +913,56 @@ function AdminModal({
             </div>
           ))}
 
-          {/* ── PDF 업로드 ── */}
-          <div>
-            <Label t="전략 리포트 PDF (선택)" />
+          {/* ── PDF 파일 관리 ── */}
+          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <Label t="전략 리포트 PDF" />
+              {currentPdfUrl && (
+                <span style={{ fontSize:10, color:D.green, fontWeight:600 }}>● 파일 등록됨</span>
+              )}
+            </div>
+
+            {/* 현재 등록된 파일 표시 + 삭제 버튼 */}
+            {currentPdfUrl && (
+              <div style={{
+                display:'flex', alignItems:'center', gap:10,
+                background:`${D.blue}0c`, border:`1px solid ${D.blue}28`,
+                borderRadius:10, padding:'10px 14px',
+              }}>
+                <FileText size={16} style={{ color:D.blue, flexShrink:0 }} />
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:D.text,
+                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' as const }}>
+                    {extractFileName(currentPdfUrl)}
+                  </div>
+                  <div style={{ fontSize:10, color:D.textSub, marginTop:2 }}>
+                    현재 학생들에게 배포 중인 파일
+                  </div>
+                </div>
+                <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+                  {/* 미리보기 */}
+                  <a href={currentPdfUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 10px',
+                      borderRadius:6, background:`${D.indigo}15`, border:`1px solid ${D.indigo}33`,
+                      color:D.indigo, fontSize:11, fontWeight:600, textDecoration:'none' }}>
+                    <Download size={11}/> 확인
+                  </a>
+                  {/* 삭제 */}
+                  <button onClick={handleDeletePdf} disabled={deleting}
+                    style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 10px',
+                      borderRadius:6, background:'rgba(248,113,113,0.08)',
+                      border:'1px solid rgba(248,113,113,0.3)',
+                      color:D.red, fontSize:11, fontWeight:600,
+                      cursor:deleting?'not-allowed':'pointer' }}>
+                    <X size={11}/> {deleting ? '삭제 중…' : '삭제'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 새 파일 선택 */}
             <input ref={fileRef} type="file" accept=".pdf" style={{ display:'none' }}
-              onChange={e => { setPdfFile(e.target.files?.[0] ?? null); setPdfStatus('idle'); setErr(null) }} />
+              onChange={e => { setPdfFile(e.target.files?.[0] ?? null); setPdfStatus('idle'); setErr(null); setSuccessMsg(null) }} />
             <button onClick={() => fileRef.current?.click()}
               style={{ display:'flex', alignItems:'center', gap:8, background:D.card,
                 border:`1px solid ${
@@ -862,23 +974,31 @@ function AdminModal({
                 color: pdfStatus==='error' ? D.red : pdfFile ? D.neon : D.textSub,
                 fontSize:12, cursor:'pointer', width:'100%', textAlign:'left' as const }}>
               <Upload size={14} />
-              {pdfStatus==='uploading' ? '⏳ 업로드 중…' :
-               pdfStatus==='ok'        ? `✅ ${pdfFile?.name}` :
-               pdfFile                 ? pdfFile.name
-                                       : 'PDF 파일 선택… (최대 50MB)'}
+              {pdfFile
+                ? `📄 ${pdfFile.name} (${(pdfFile.size/1024/1024).toFixed(1)}MB)`
+                : currentPdfUrl ? '🔄 다른 파일로 교체…' : '📂 PDF 파일 선택… (최대 50MB)'}
             </button>
-            {/* 파일명 변환 안내 */}
+
+            {/* 선택된 신규 파일 안내 */}
             {pdfFile && (
-              <p style={{ fontSize:10, color:D.textSub, marginTop:4 }}>
-                <span style={{ color:D.neon }}>{pdfFile.name}</span> 원본 파일명 그대로 저장됩니다. 동일 파일명이 있으면 덮어쓰기 여부를 확인합니다.
-              </p>
-            )}
-            {config.pdf_url && !pdfFile && (
-              <p style={{ fontSize:10, color:D.textSub, marginTop:4 }}>
-                현재 파일: {decodeURIComponent(config.pdf_url.split('/').pop() ?? '')}
-              </p>
+              <div style={{ fontSize:10, color:D.textSub, lineHeight:1.6,
+                background:`${D.neon}08`, border:`1px solid ${D.neon}18`,
+                borderRadius:6, padding:'7px 10px' }}>
+                <span style={{ color:D.neon, fontWeight:700 }}>&ldquo;{pdfFile.name}&rdquo;</span>을 원본 파일명 그대로 저장합니다.
+                {currentPdfUrl && extractFileName(currentPdfUrl) !== pdfFile.name && (
+                  <span style={{ color:D.gold }}> 기존 파일은 자동으로 삭제됩니다.</span>
+                )}
+              </div>
             )}
           </div>
+
+          {/* ── 성공 메시지 ── */}
+          {successMsg && (
+            <div style={{ background:'rgba(74,222,128,0.08)', border:'1px solid rgba(74,222,128,0.3)',
+              borderRadius:8, padding:'10px 14px', fontSize:12, color:D.green }}>
+              {successMsg}
+            </div>
+          )}
 
           {/* ── 에러 ── */}
           {err && (
@@ -890,8 +1010,8 @@ function AdminModal({
                   <strong>📋 버킷 생성 방법:</strong><br/>
                   1. Supabase Dashboard → Storage → New bucket<br/>
                   2. Bucket name: <code style={{ background:'rgba(255,255,255,0.1)', padding:'1px 5px', borderRadius:3 }}>strategy-pdf</code><br/>
-                  3. Public bucket: ✅ 체크<br/>
-                  4. Save → Policies 탭에서 INSERT/SELECT 정책 추가
+                  3. Public bucket: ✅ 체크 후 Save<br/>
+                  4. SQL Editor에서 Storage 정책 추가
                 </div>
               )}
               {err}
@@ -1210,7 +1330,8 @@ export default function MasterStrategyPage() {
       <AnimatePresence>
         {modal && (
           <AdminModal config={config} onClose={()=>setModal(false)}
-            onSaved={c=>{ setConfig(c); showToast('✅ 전략 데이터가 업데이트됐습니다!') }} />
+            onSaved={c=>{ setConfig(c); showToast('✅ 전략 데이터가 업데이트됐습니다!') }}
+            onSavedWithMsg={msg=>{ showToast(msg) }} />
         )}
       </AnimatePresence>
 
