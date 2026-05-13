@@ -51,17 +51,19 @@ const D = {
 // ═══════════════════════════════════════════════════════════════
 interface SectorRow  { name: string; value: number }
 interface StrategyConfig {
-  id?:           string
-  core_pct:      number
-  satellite_pct: number
-  sector_data:   SectorRow[]
-  pdf_url:       string | null
-  updated_at?:   string
+  id?:             string
+  core_pct:        number
+  satellite_pct:   number
+  sector_data:     SectorRow[]
+  core_stocks:     string[]     // 추천 Core 종목 리스트
+  satellite_stocks:string[]     // 추천 Satellite 종목 리스트
+  pdf_url:         string | null
+  updated_at?:     string
 }
 
 const DEFAULT_CONFIG: StrategyConfig = {
-  core_pct:      48,
-  satellite_pct: 52,
+  core_pct:         48,
+  satellite_pct:    52,
   sector_data: [
     { name: '반도체',    value: 32 },
     { name: '전략·전력', value: 20 },
@@ -70,7 +72,9 @@ const DEFAULT_CONFIG: StrategyConfig = {
     { name: '대체(BTC)', value:  6 },
     { name: '현금·CMA',  value:  5 },
   ],
-  pdf_url: null,
+  core_stocks:      [],
+  satellite_stocks: [],
+  pdf_url:          null,
 }
 
 const SECTOR_PALETTE = [
@@ -200,10 +204,23 @@ function Slide1_Title() {
 // ═══════════════════════════════════════════════════════════════
 //  SLIDE 2 — ASSET PHILOSOPHY
 // ═══════════════════════════════════════════════════════════════
-function Slide2_Philosophy({ corePct, satPct }: { corePct:number; satPct:number }) {
+function Slide2_Philosophy({
+  corePct, satPct, coreStocks, satelliteStocks,
+}: {
+  corePct: number; satPct: number
+  coreStocks: string[]; satelliteStocks: string[]
+}) {
+  const EMPTY_MSG = '전략 리포트를 참조하세요'
+
   const cols = [
-    { key:'Core',      pct:corePct, color:'#3b82f6', items:['S&P500 / 나스닥100 ETF','삼성전자 · SK하이닉스','반도체 섹터 ETF','채권·현금 헤지'] },
-    { key:'Satellite', pct:satPct,  color:D.neon,    items:['AI전력 · 방산 ETF','한화에어로 · 이수페타시스','GEV · PLTR 성장주','BTC 디지털 자산'] },
+    {
+      key: 'Core', pct: corePct, color: '#3b82f6',
+      items: coreStocks.filter(s => s.trim()),
+    },
+    {
+      key: 'Satellite', pct: satPct, color: D.neon,
+      items: satelliteStocks.filter(s => s.trim()),
+    },
   ]
   const principles = [
     { icon:'⚖️', title:'리스크 균형',   desc:'Core로 하방을 방어\nSatellite로 알파 추구' },
@@ -223,12 +240,21 @@ function Slide2_Philosophy({ corePct, satPct }: { corePct:number; satPct:number 
               <span style={{ fontSize:17, fontWeight:900, color:c.color }}>{c.key}</span>
               <span style={{ fontSize:22, fontWeight:900, color:c.color, marginLeft:'auto' }}>{c.pct}%</span>
             </div>
-            {c.items.map(i => (
-              <div key={i} style={{ display:'flex', gap:8, marginBottom:8, alignItems:'flex-start' }}>
-                <span style={{ color:c.color, fontSize:10, marginTop:3, flexShrink:0 }}>▸</span>
-                <span style={{ fontSize:12, color:D.text, lineHeight:1.5 }}>{i}</span>
+            {c.items.length > 0 ? (
+              c.items.map(i => (
+                <div key={i} style={{ display:'flex', gap:8, marginBottom:8, alignItems:'flex-start' }}>
+                  <span style={{ color:c.color, fontSize:10, marginTop:3, flexShrink:0 }}>▸</span>
+                  <span style={{ fontSize:12, color:D.text, lineHeight:1.5 }}>{i}</span>
+                </div>
+              ))
+            ) : (
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:8,
+                padding:'10px 12px', borderRadius:8, background:`${c.color}08`,
+                border:`1px dashed ${c.color}33` }}>
+                <FileText size={13} style={{ color:c.color, flexShrink:0 }} />
+                <span style={{ fontSize:12, color:D.textSub, fontStyle:'italic' }}>{EMPTY_MSG}</span>
               </div>
-            ))}
+            )}
           </div>
         ))}
       </motion.div>
@@ -452,10 +478,17 @@ function AdminModal({
   onClose: () => void
   onSaved: (c: StrategyConfig) => void
 }) {
-  const [corePct,  setCorePct]  = useState(String(config.core_pct))
-  const [satPct,   setSatPct]   = useState(String(config.satellite_pct))
-  const [sectors,  setSectors]  = useState<SectorRow[]>(
+  const [corePct,       setCorePct]       = useState(String(config.core_pct))
+  const [satPct,        setSatPct]        = useState(String(config.satellite_pct))
+  const [sectors,       setSectors]       = useState<SectorRow[]>(
     config.sector_data.length ? config.sector_data : [{ name:'', value:0 }]
+  )
+  // 추천 종목 — 빈 행 1개 보장
+  const [coreStocks,    setCoreStocks]    = useState<string[]>(
+    config.core_stocks?.length ? config.core_stocks : ['']
+  )
+  const [satStocks,     setSatStocks]     = useState<string[]>(
+    config.satellite_stocks?.length ? config.satellite_stocks : ['']
   )
   const [pdfFile,  setPdfFile]  = useState<File | null>(null)
   const [saving,   setSaving]   = useState(false)
@@ -485,16 +518,28 @@ function AdminModal({
         if (upErr) throw upErr
         pdfUrl = sb.storage.from('strategy-pdf').getPublicUrl(fname).data.publicUrl
       }
+      const validCoreStocks = coreStocks.map(s => s.trim()).filter(Boolean)
+      const validSatStocks  = satStocks.map(s => s.trim()).filter(Boolean)
+
       const { error: dbErr } = await sb.from('strategy_configs').upsert({
-        id:            'singleton',
-        core_pct:      parseInt(corePct)  || 48,
-        satellite_pct: parseInt(satPct)   || 52,
-        sector_data:   validSectors,
-        pdf_url:       pdfUrl,
-        updated_at:    new Date().toISOString(),
+        id:               'singleton',
+        core_pct:         parseInt(corePct)  || 48,
+        satellite_pct:    parseInt(satPct)   || 52,
+        sector_data:      validSectors,
+        core_stocks:      validCoreStocks,
+        satellite_stocks: validSatStocks,
+        pdf_url:          pdfUrl,
+        updated_at:       new Date().toISOString(),
       }, { onConflict: 'id' })
       if (dbErr) throw dbErr
-      onSaved({ core_pct:parseInt(corePct)||48, satellite_pct:parseInt(satPct)||52, sector_data:validSectors, pdf_url:pdfUrl })
+      onSaved({
+        core_pct:         parseInt(corePct)||48,
+        satellite_pct:    parseInt(satPct)||52,
+        sector_data:      validSectors,
+        core_stocks:      validCoreStocks,
+        satellite_stocks: validSatStocks,
+        pdf_url:          pdfUrl,
+      })
       onClose()
     } catch (e) { setErr((e as Error).message) }
     finally { setSaving(false) }
@@ -622,6 +667,51 @@ function AdminModal({
             </div>
           </div>
 
+          {/* ── 추천 종목 입력 ── */}
+          {[
+            { label:'추천 코어(Core) 종목',      stocks:coreStocks,  setStocks:setCoreStocks,  color:'#3b82f6' },
+            { label:'추천 새틀라이트(Sat.) 종목', stocks:satStocks,   setStocks:setSatStocks,   color:D.neon    },
+          ].map(({ label, stocks, setStocks, color }) => (
+            <div key={label}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                <Label t={label} />
+                <button
+                  onClick={() => setStocks(prev => [...prev, ''])}
+                  style={{ display:'flex', alignItems:'center', gap:4, background:`${color}15`,
+                    border:`1px solid ${color}44`, borderRadius:7, color, fontSize:11,
+                    fontWeight:700, cursor:'pointer', padding:'4px 9px' }}>
+                  <Plus size={11} /> 종목 추가
+                </button>
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', gap:7, maxHeight:180, overflowY:'auto' }}>
+                {stocks.map((stock, i) => (
+                  <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr 36px', gap:8, alignItems:'center' }}>
+                    <div style={{ position:'relative' }}>
+                      <div style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)',
+                        width:6, height:6, borderRadius:'50%', background:color }} />
+                      <input
+                        value={stock}
+                        onChange={e => setStocks(prev => prev.map((s,idx) => idx===i ? e.target.value : s))}
+                        placeholder={`예) 삼성전자, TIGER 200 ETF`}
+                        style={{ ...iStyle, paddingLeft:24 }} />
+                    </div>
+                    <button
+                      onClick={() => setStocks(prev => prev.length > 1 ? prev.filter((_,idx) => idx!==i) : [''])}
+                      style={{ width:34, height:34, borderRadius:8, border:`1px solid ${D.border}`,
+                        background:'none', color: stocks.length <= 1 ? D.textDim : D.red,
+                        cursor: stocks.length <= 1 ? 'not-allowed' : 'pointer',
+                        display:'flex', alignItems:'center', justifyContent:'center', padding:0 }}>
+                      <Minus size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <p style={{ fontSize:10, color:D.textSub, margin:'5px 0 0' }}>
+                미입력 시 슬라이드에 &ldquo;전략 리포트를 참조하세요&rdquo; 문구가 표시됩니다.
+              </p>
+            </div>
+          ))}
+
           {/* ── PDF 업로드 ── */}
           <div>
             <Label t="전략 리포트 PDF" />
@@ -717,7 +807,9 @@ export default function MasterStrategyPage() {
   const renderSlide = (s: number) => {
     switch (s) {
       case 0: return <Slide1_Title />
-      case 1: return <Slide2_Philosophy corePct={config.core_pct} satPct={config.satellite_pct} />
+      case 1: return <Slide2_Philosophy
+                  corePct={config.core_pct} satPct={config.satellite_pct}
+                  coreStocks={config.core_stocks ?? []} satelliteStocks={config.satellite_stocks ?? []} />
       case 2: return <Slide3_Capital    corePct={config.core_pct} satPct={config.satellite_pct} />
       case 3: return <Slide4_Sector     sectorData={config.sector_data} />
       case 4: return <Slide5_Roadmap />
