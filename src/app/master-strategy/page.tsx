@@ -520,18 +520,6 @@ function AdminModal({
     return `업로드 실패: ${msg}`
   }
 
-  /* ── 안전한 파일명 생성 (한글·공백 제거, 타임스탬프 prefix) ── */
-  const safeFileName = (original: string): string => {
-    const ts    = Date.now()
-    const clean = original
-      .replace(/[^\x00-\x7F]/g, '')          // 비ASCII(한글 등) 제거
-      .replace(/\s+/g, '_')                   // 공백 → 언더스코어
-      .replace(/[^a-zA-Z0-9._-]/g, '')        // 특수문자 제거
-      .slice(0, 40)                            // 최대 40자
-    const ext = clean.endsWith('.pdf') ? '' : '.pdf'
-    return `strategy_${ts}_${clean || 'report'}${ext}`
-  }
-
   /* ── 저장 ── */
   const handleSave = async () => {
     setErr(null); setPdfStatus('idle')
@@ -552,6 +540,7 @@ function AdminModal({
       // ── ② PDF 업로드 ──────────────────────────────────────────
       let pdfUrl = config.pdf_url
       if (pdfFile) {
+        // 사전 유효성 검사
         if (pdfFile.size > 50 * 1024 * 1024) {
           setErr('파일이 너무 큽니다. 50MB 이하의 PDF만 업로드 가능합니다.')
           setSaving(false); return
@@ -561,33 +550,72 @@ function AdminModal({
           setSaving(false); return
         }
 
-        setPdfStatus('uploading')
-        const fname = safeFileName(pdfFile.name)
+        // ── 원본 파일명 그대로 사용
+        //    한글·공백 포함 파일명도 Storage 경로에 그대로 저장.
+        //    getPublicUrl 시 Supabase가 자동 인코딩하므로 별도 처리 불필요.
+        //    다운로드 링크는 href 그대로 사용 (브라우저가 decode).
+        const fname = pdfFile.name
         console.log('[Strategy] Uploading PDF as:', fname)
 
-        const { error: upErr } = await sb.storage
+        // ── 중복 파일 확인 (upsert:false로 먼저 시도 → 23505/409면 덮어쓰기 확인)
+        const { error: checkErr } = await sb.storage
           .from('strategy-pdf')
           .upload(fname, pdfFile, {
-            upsert:      true,
+            upsert:      false,           // 중복 시 에러 발생시켜 감지
             contentType: 'application/pdf',
             cacheControl:'3600',
           })
 
-        if (upErr) {
-          setPdfStatus('error')
-          const friendly = translateStorageError(upErr.message)
-          console.error('[Strategy] PDF upload error:', upErr)
-          setErr(friendly)
-          setSaving(false); return
+        if (checkErr) {
+          // 동일 파일명 존재 → 덮어쓰기 확인
+          const isDuplicate =
+            checkErr.message.toLowerCase().includes('already exists') ||
+            checkErr.message.toLowerCase().includes('duplicate') ||
+            checkErr.message.includes('23505') ||
+            checkErr.message.includes('409')
+
+          if (isDuplicate) {
+            // confirm 창으로 덮어쓰기 확인
+            const ok = window.confirm(
+              `"${fname}" 파일이 이미 존재합니다.\n\n` +
+              `기존 파일을 덮어쓰시겠습니까?`
+            )
+            if (!ok) { setSaving(false); return }
+
+            // 덮어쓰기 (upsert:true)
+            setPdfStatus('uploading')
+            const { error: overwriteErr } = await sb.storage
+              .from('strategy-pdf')
+              .upload(fname, pdfFile, {
+                upsert:      true,
+                contentType: 'application/pdf',
+                cacheControl:'3600',
+              })
+            if (overwriteErr) {
+              setPdfStatus('error')
+              setErr(translateStorageError(overwriteErr.message))
+              console.error('[Strategy] overwrite error:', overwriteErr)
+              setSaving(false); return
+            }
+          } else {
+            // 다른 에러 (버킷 없음, 권한 등)
+            setPdfStatus('error')
+            setErr(translateStorageError(checkErr.message))
+            console.error('[Strategy] upload error:', checkErr)
+            setSaving(false); return
+          }
+        } else {
+          setPdfStatus('uploading')  // 신규 업로드 성공
         }
 
-        // public URL 생성
+        // ── Public URL 생성
+        //    파일명에 한글 포함 시 Supabase SDK가 내부적으로 인코딩 처리함
         const { data: pubData } = sb.storage
           .from('strategy-pdf')
           .getPublicUrl(fname)
         pdfUrl = pubData.publicUrl
         setPdfStatus('ok')
-        console.log('[Strategy] PDF uploaded:', pdfUrl)
+        console.log('[Strategy] PDF uploaded OK:', pdfUrl)
       }
 
       const validCoreStocks = coreStocks.map(s => s.trim()).filter(Boolean)
@@ -842,7 +870,7 @@ function AdminModal({
             {/* 파일명 변환 안내 */}
             {pdfFile && (
               <p style={{ fontSize:10, color:D.textSub, marginTop:4 }}>
-                저장 시 파일명이 <span style={{ color:D.neon }}>strategy_{'{timestamp}'}_{pdfFile.name.slice(0,20)}.pdf</span> 로 자동 변환됩니다 (한글·공백 제거)
+                <span style={{ color:D.neon }}>{pdfFile.name}</span> 원본 파일명 그대로 저장됩니다. 동일 파일명이 있으면 덮어쓰기 여부를 확인합니다.
               </p>
             )}
             {config.pdf_url && !pdfFile && (
