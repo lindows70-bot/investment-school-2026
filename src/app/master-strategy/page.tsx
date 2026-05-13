@@ -574,6 +574,8 @@ function AdminModal({
       return '올바른 PDF 파일이 아닙니다. .pdf 파일만 업로드 가능합니다.'
     if (m.includes('duplicate') || m.includes('already exists'))
       return '같은 이름의 파일이 이미 존재합니다. (upsert:true 옵션으로 자동 덮어씌워야 정상)'
+    if (m.includes('invalid key') || m.includes('invalid path'))
+      return '파일명에 허용되지 않는 문자가 포함되어 있습니다. 공백이나 특수문자를 제거 후 다시 시도해주세요.'
     return `업로드 실패: ${msg}`
   }
 
@@ -607,7 +609,10 @@ function AdminModal({
           setSaving(false); return
         }
 
-        const newFname = pdfFile.name   // 원본 파일명 그대로 사용
+        // ── Storage 저장 키: 공백 → 언더스코어 (S3 규칙상 공백 불가)
+        //    한글·특수문자는 그대로 유지 (Supabase가 내부 인코딩 처리)
+        // Storage key: 공백 → 언더스코어 (S3 규칙상 공백 불가, 한글은 허용)
+        const newFname = pdfFile.name.replace(/\s+/g, '_')
         setPdfStatus('uploading')
         setSuccessMsg(null)
 
@@ -728,9 +733,7 @@ function AdminModal({
       }
 
       // ── ④ 성공 ───────────────────────────────────────────────
-      const savedFileName = pdfFile
-        ? (() => { try { return decodeURIComponent(pdfFile.name) } catch { return pdfFile.name } })()
-        : null
+      const savedFileName = pdfFile ? pdfFile.name : null  // 원본 파일명(공백 포함)
       onSaved({ core_pct:parseInt(corePct)||48, satellite_pct:parseInt(satPct)||52, sector_data:validSectors, core_stocks:validCoreStocks, satellite_stocks:validSatStocks, pdf_url:pdfUrl })
       // 파일 업로드가 있었으면 성공 메시지를 페이지에 전달
       if (savedFileName) {
