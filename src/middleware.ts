@@ -21,38 +21,49 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  // ── 세션 확인 ────────────────────────────────────────────────────────────────
+  // getSession()은 로컬 쿠키만 읽어 빠름 (네트워크 요청 없음)
+  // /admin 경로에서만 getUser()로 DB 검증 (보안 강화)
+  const { data: { session } } = await supabase.auth.getSession()
+  const user = session?.user ?? null
   const { pathname } = request.nextUrl
 
-  // ── 1. Unauthenticated → /login ──────────────────────────────
-  const protectedPaths = ['/portfolio', '/admin', '/dashboard', '/assets', '/history', '/analysis', '/watchlist', '/research', '/master-strategy', '/investment-academy', '/school-lounge']
-  const authPaths      = ['/login', '/signup']
+  // ── 1. 미인증 → /login ──────────────────────────────────────────────────────
+  const protectedPaths = [
+    '/portfolio', '/admin', '/dashboard', '/assets', '/history',
+    '/analysis', '/watchlist', '/research', '/master-strategy',
+    '/investment-academy', '/school-lounge',
+  ]
+  const authPaths = ['/login', '/signup']
 
   if (!user && protectedPaths.some(p => pathname.startsWith(p))) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    const loginUrl = new URL('/login', request.url)
+    return NextResponse.redirect(loginUrl)
   }
 
+  // ── 2. 이미 로그인 → /login, /signup 접근 시 대시보드로 ─────────────────────
   if (user && authPaths.some(p => pathname === p || pathname.startsWith(p + '?'))) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
-  // ── 2. /admin → teacher 전용 ─────────────────────────────────
-  // Role은 JWT claim에 없으므로 DB를 직접 조회합니다.
-  // 쿼리 비용을 줄이기 위해 /admin 경로에서만 실행합니다.
+  // ── 3. /admin → teacher 전용 (DB 조회로 role 검증) ─────────────────────────
   if (user && pathname.startsWith('/admin')) {
+    // admin 경로에서만 getUser()로 서버 검증 (보안)
+    const { data: { user: verifiedUser } } = await supabase.auth.getUser()
+    if (!verifiedUser) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
-      .eq('id', user.id)
+      .eq('id', verifiedUser.id)
       .single()
 
     if (!profile || profile.role !== 'teacher') {
-      // 학생은 대시보드로, 미인증은 로그인으로
-      const dest = user ? '/dashboard' : '/login'
-      const res  = NextResponse.redirect(new URL(dest, request.url))
-      // 접근 거부 메시지를 쿼리 파라미터로 전달
-      res.headers.set('Location', `${new URL(dest, request.url).href}?denied=admin`)
-      return res
+      const dest = new URL('/dashboard', request.url)
+      dest.searchParams.set('denied', 'admin')
+      return NextResponse.redirect(dest)
     }
   }
 

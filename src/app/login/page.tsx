@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -259,6 +259,31 @@ function LoginContent() {
   const [status,   setStatus]   = useState<Status>('idle')
   const [message,  setMessage]  = useState('')
   const [focused,  setFocused]  = useState<string | null>(null)
+  const redirectingRef = useRef(false)  // 중복 리다이렉트 방지
+
+  // ── 안정적인 리다이렉트 함수 ────────────────────────────────────────────────
+  // router.push()는 Next.js RSC fetch로 동작 → 미들웨어 쿠키 race condition 발생
+  // window.location.href (hard redirect)를 사용해 브라우저가 fresh cookie를 전송하도록 함
+  const redirectToDashboard = () => {
+    if (redirectingRef.current) return
+    redirectingRef.current = true
+    // Next.js 서버 상태 새로고침 후 hard redirect
+    router.refresh()
+    window.location.href = '/dashboard'
+  }
+
+  // ── onAuthStateChange 리스너 — 세션 수립 즉시 감지 ──────────────────────────
+  // signInWithPassword 후 쿠키가 완전히 전파되는 시점에 SIGNED_IN 이벤트가 발생
+  useEffect(() => {
+    const sb = createClient()
+    const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        redirectToDashboard()
+      }
+    })
+    return () => subscription.unsubscribe()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Support ?tab=signup and ?reason=idle in URL
   useEffect(() => {
@@ -284,24 +309,29 @@ function LoginContent() {
   // ── Login ─────────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (status === 'loading') return  // 중복 제출 방지
     setStatus('loading'); setMessage('')
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
       setStatus('error')
       setMessage(
-        error.message.includes('Invalid login')
+        error.message.includes('Invalid login') || error.message.includes('invalid_credentials')
           ? '이메일 또는 비밀번호가 올바르지 않습니다.'
           : '로그인 중 오류가 발생했습니다. 다시 시도해주세요.'
       )
       return
     }
 
-    setStatus('success')
-    setMessage('로그인 성공! 대시보드로 이동합니다…')
-    setTimeout(() => router.push('/dashboard'), 600)
+    // 세션이 즉시 반환된 경우 바로 리다이렉트
+    // (onAuthStateChange 리스너가 SIGNED_IN 이벤트로도 동작하므로 어느 쪽이든 리다이렉트)
+    if (data.session) {
+      setStatus('success')
+      setMessage('로그인 성공! 대시보드로 이동합니다…')
+      redirectToDashboard()
+    }
   }
 
   // ── Sign up ───────────────────────────────────────────────
@@ -346,7 +376,7 @@ function LoginContent() {
     if (data.session) {
       setStatus('success')
       setMessage('가입 완료! 대시보드로 이동합니다…')
-      setTimeout(() => router.push('/dashboard'), 800)
+      redirectToDashboard()
     } else {
       setStatus('success')
       setMessage('가입 완료! 이메일로 발송된 인증 링크를 클릭한 후 로그인해주세요.')
