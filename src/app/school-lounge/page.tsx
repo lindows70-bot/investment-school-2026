@@ -111,19 +111,30 @@ export default function SchoolLoungePage() {
 
   // ══ 공지사항 ════════════════════════════════════════════════════════════════
 
+  // notices 테이블에 content/is_edited 컬럼이 있는지 런타임 체크
+  const [noticesHasContent, setNoticesHasContent] = useState<boolean | null>(null)
+  const checkNoticesColumns = async (): Promise<boolean> => {
+    if (noticesHasContent !== null) return noticesHasContent
+    const { error } = await sb.from('notices').select('content,is_edited').limit(1)
+    const has = !error
+    setNoticesHasContent(has)
+    return has
+  }
+
   const addNotice = async () => {
     if (!noticeTitle.trim() || !me) return
     setBusy(true)
-    const { data, error } = await sb.from('notices')
-      .insert({
-        title:   noticeTitle.trim(),
-        content: noticeContent.trim() || null,
-        tag:     noticeTag,
-        user_id: me.id,
-      })
-      .select().single()
+    const hasContent = await checkNoticesColumns()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const payload: any = { title: noticeTitle.trim(), tag: noticeTag, user_id: me.id }
+    if (hasContent) payload.content = noticeContent.trim() || null
+    const { data, error } = await sb.from('notices').insert(payload).select().single()
     setBusy(false)
-    if (error || !data) return
+    if (error) {
+      alert(`공지 등록 실패: ${error.message}\nSupabase SQL Editor에서 컬럼 추가 SQL을 실행해주세요.`)
+      return
+    }
+    if (!data) return
     setNotices([data, ...notices])
     setNoticeTitle(''); setNoticeContent(''); setShowAddNotice(false)
   }
@@ -131,19 +142,19 @@ export default function SchoolLoungePage() {
   const saveEditNotice = async () => {
     if (!editNotice || !editNotice.title.trim()) return
     setBusy(true)
-    const { error } = await sb.from('notices')
-      .update({
-        title:     editNotice.title.trim(),
-        content:   editNotice.content.trim() || null,
-        tag:       editNotice.tag,
-        is_edited: true,
-      })
-      .eq('id', editNotice.id)
+    const hasContent = await checkNoticesColumns()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const payload: any = { title: editNotice.title.trim(), tag: editNotice.tag }
+    if (hasContent) { payload.content = editNotice.content.trim() || null; payload.is_edited = true }
+    const { error } = await sb.from('notices').update(payload).eq('id', editNotice.id)
     setBusy(false)
-    if (error) return
+    if (error) {
+      alert(`공지 수정 실패: ${error.message}`)
+      return
+    }
     setNotices(notices.map(n =>
       n.id === editNotice.id
-        ? { ...n, title: editNotice.title.trim(), content: editNotice.content.trim() || null, tag: editNotice.tag, is_edited: true }
+        ? { ...n, ...payload }
         : n
     ))
     setEditNotice(null)
