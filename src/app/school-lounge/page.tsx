@@ -15,7 +15,8 @@ const TAG_COLOR: Record<string, string> = {
 // ── 타입 ─────────────────────────────────────────────────────────────────────
 interface Notice {
   id: string; user_id: string | null; title: string
-  tag: string; created_at: string
+  content: string | null; tag: string
+  is_edited: boolean; created_at: string
 }
 interface Post {
   id: string; user_id: string; author_name: string
@@ -54,9 +55,12 @@ export default function SchoolLoungePage() {
   const [error,    setError]    = useState<string | null>(null)
 
   // ── UI 상태 ──
-  const [showAddNotice, setShowAddNotice] = useState(false)
-  const [noticeTitle,   setNoticeTitle]   = useState('')
-  const [noticeTag,     setNoticeTag]     = useState('공지')
+  const [showAddNotice,  setShowAddNotice]  = useState(false)
+  const [noticeTitle,    setNoticeTitle]    = useState('')
+  const [noticeContent,  setNoticeContent]  = useState('')
+  const [noticeTag,      setNoticeTag]      = useState('공지')
+  const [expandNotice,   setExpandNotice]   = useState<string | null>(null)  // 본문 펼치기
+  const [editNotice,     setEditNotice]     = useState<{ id: string; title: string; content: string; tag: string } | null>(null)
   const [newPost,       setNewPost]       = useState('')
   const [openThread,    setOpenThread]    = useState<string | null>(null)
   const [replyInputs,   setReplyInputs]   = useState<Record<string, string>>({})
@@ -111,18 +115,44 @@ export default function SchoolLoungePage() {
     if (!noticeTitle.trim() || !me) return
     setBusy(true)
     const { data, error } = await sb.from('notices')
-      .insert({ title: noticeTitle.trim(), tag: noticeTag, user_id: me.id })
+      .insert({
+        title:   noticeTitle.trim(),
+        content: noticeContent.trim() || null,
+        tag:     noticeTag,
+        user_id: me.id,
+      })
       .select().single()
     setBusy(false)
     if (error || !data) return
     setNotices([data, ...notices])
-    setNoticeTitle(''); setShowAddNotice(false)
+    setNoticeTitle(''); setNoticeContent(''); setShowAddNotice(false)
+  }
+
+  const saveEditNotice = async () => {
+    if (!editNotice || !editNotice.title.trim()) return
+    setBusy(true)
+    const { error } = await sb.from('notices')
+      .update({
+        title:     editNotice.title.trim(),
+        content:   editNotice.content.trim() || null,
+        tag:       editNotice.tag,
+        is_edited: true,
+      })
+      .eq('id', editNotice.id)
+    setBusy(false)
+    if (error) return
+    setNotices(notices.map(n =>
+      n.id === editNotice.id
+        ? { ...n, title: editNotice.title.trim(), content: editNotice.content.trim() || null, tag: editNotice.tag, is_edited: true }
+        : n
+    ))
+    setEditNotice(null)
   }
 
   const deleteNotice = async (id: string) => {
     if (!confirm('공지를 삭제하시겠습니까?')) return
     const { error } = await sb.from('notices').delete().eq('id', id)
-    if (!error) setNotices(notices.filter(n => n.id !== id))
+    if (!error) { setNotices(notices.filter(n => n.id !== id)); if (expandNotice === id) setExpandNotice(null) }
   }
 
   // ══ 소통방 게시글 ════════════════════════════════════════════════════════════
@@ -233,16 +263,46 @@ export default function SchoolLoungePage() {
             )}
           </div>
 
+          {/* ── 공지 추가 폼 ── */}
           {me?.isAdmin && showAddNotice && (
-            <div style={{ background: N, boxShadow: SHO, borderRadius: 11, padding: 14, marginBottom: 12, animation: 'fadeIn .2s' }}>
-              <select value={noticeTag} onChange={e => setNoticeTag(e.target.value)} style={{ width: '100%', background: '#13162a', boxShadow: SHI, border: 'none', borderRadius: 7, color: '#dde4f0', padding: '7px 10px', fontSize: 12, marginBottom: 8, cursor: 'pointer' }}>
+            <div style={{ background: N, boxShadow: SHO, borderRadius: 12, padding: 16, marginBottom: 12, animation: 'fadeIn .2s' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#fbbf24', letterSpacing: '0.08em', marginBottom: 10 }}>📌 새 공지 작성</div>
+              <select value={noticeTag} onChange={e => setNoticeTag(e.target.value)}
+                style={{ width: '100%', background: '#13162a', boxShadow: SHI, border: 'none', borderRadius: 7, color: '#dde4f0', padding: '7px 10px', fontSize: 12, marginBottom: 8, cursor: 'pointer' }}>
                 <option>공지</option><option>필독</option><option>일정</option>
               </select>
-              <input placeholder="공지 제목" value={noticeTitle} onChange={e => setNoticeTitle(e.target.value)} onKeyDown={e => e.key === 'Enter' && addNotice()}
+              <input placeholder="공지 제목 *" value={noticeTitle} onChange={e => setNoticeTitle(e.target.value)}
                 style={{ width: '100%', background: '#13162a', boxShadow: SHI, border: 'none', borderRadius: 7, color: '#dde4f0', padding: '8px 10px', fontSize: 12, marginBottom: 8, boxSizing: 'border-box' as const }}/>
+              <textarea placeholder="본문 내용 (선택 — 상세 내용을 입력하세요)" value={noticeContent}
+                onChange={e => setNoticeContent(e.target.value)} rows={4}
+                style={{ width: '100%', background: '#13162a', boxShadow: SHI, border: 'none', borderRadius: 7, color: '#dde4f0', padding: '8px 10px', fontSize: 12, marginBottom: 10, boxSizing: 'border-box' as const, resize: 'vertical', lineHeight: 1.6 }}/>
               <div style={{ display: 'flex', gap: 7 }}>
-                <button onClick={addNotice} disabled={busy} style={{ flex: 1, padding: '7px', borderRadius: 7, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg,#1e3a8a,#3b82f6)', color: '#fff', fontSize: 12, fontWeight: 700 }}>등록</button>
-                <button onClick={() => setShowAddNotice(false)} style={{ padding: '7px 12px', borderRadius: 7, border: 'none', cursor: 'pointer', background: '#13162a', boxShadow: SHI, color: '#6b7280', fontSize: 12 }}>취소</button>
+                <button onClick={addNotice} disabled={busy || !noticeTitle.trim()}
+                  style={{ flex: 1, padding: '8px', borderRadius: 7, border: 'none', cursor: noticeTitle.trim() ? 'pointer' : 'not-allowed', background: 'linear-gradient(135deg,#1e3a8a,#3b82f6)', color: '#fff', fontSize: 12, fontWeight: 700, opacity: noticeTitle.trim() ? 1 : 0.5 }}>등록</button>
+                <button onClick={() => { setShowAddNotice(false); setNoticeTitle(''); setNoticeContent('') }}
+                  style={{ padding: '8px 14px', borderRadius: 7, border: 'none', cursor: 'pointer', background: '#13162a', boxShadow: SHI, color: '#6b7280', fontSize: 12 }}>취소</button>
+              </div>
+            </div>
+          )}
+
+          {/* ── 공지 수정 폼 ── */}
+          {me?.isAdmin && editNotice && (
+            <div style={{ background: N, boxShadow: SHO, borderRadius: 12, padding: 16, marginBottom: 12, border: '1px solid rgba(251,191,36,.3)', animation: 'fadeIn .2s' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#fbbf24', letterSpacing: '0.08em', marginBottom: 10 }}>✏️ 공지 수정</div>
+              <select value={editNotice.tag} onChange={e => setEditNotice({ ...editNotice, tag: e.target.value })}
+                style={{ width: '100%', background: '#13162a', boxShadow: SHI, border: 'none', borderRadius: 7, color: '#dde4f0', padding: '7px 10px', fontSize: 12, marginBottom: 8, cursor: 'pointer' }}>
+                <option>공지</option><option>필독</option><option>일정</option>
+              </select>
+              <input value={editNotice.title} onChange={e => setEditNotice({ ...editNotice, title: e.target.value })}
+                style={{ width: '100%', background: '#13162a', boxShadow: SHI, border: 'none', borderRadius: 7, color: '#dde4f0', padding: '8px 10px', fontSize: 12, marginBottom: 8, boxSizing: 'border-box' as const }}/>
+              <textarea value={editNotice.content} onChange={e => setEditNotice({ ...editNotice, content: e.target.value })} rows={4}
+                placeholder="본문 내용 (선택)"
+                style={{ width: '100%', background: '#13162a', boxShadow: SHI, border: 'none', borderRadius: 7, color: '#dde4f0', padding: '8px 10px', fontSize: 12, marginBottom: 10, boxSizing: 'border-box' as const, resize: 'vertical', lineHeight: 1.6 }}/>
+              <div style={{ display: 'flex', gap: 7 }}>
+                <button onClick={saveEditNotice} disabled={busy || !editNotice.title.trim()}
+                  style={{ flex: 1, padding: '8px', borderRadius: 7, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg,#78350f,#f59e0b)', color: '#fff', fontSize: 12, fontWeight: 700 }}>저장</button>
+                <button onClick={() => setEditNotice(null)}
+                  style={{ padding: '8px 14px', borderRadius: 7, border: 'none', cursor: 'pointer', background: '#13162a', boxShadow: SHI, color: '#6b7280', fontSize: 12 }}>취소</button>
               </div>
             </div>
           )}
@@ -252,16 +312,44 @@ export default function SchoolLoungePage() {
           ) : notices.length === 0 ? (
             <div style={{ textAlign: 'center', color: '#363855', fontSize: 12, padding: '24px 0' }}>공지사항이 없습니다</div>
           ) : notices.map(n => (
-            <div key={n.id} style={{ background: N, boxShadow: SHO, borderRadius: 11, padding: '11px 13px', display: 'flex', alignItems: 'flex-start', gap: 9, marginBottom: 9, animation: 'fadeIn .3s' }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: TAG_COLOR[n.tag] ?? '#60a5fa', background: `${TAG_COLOR[n.tag] ?? '#60a5fa'}18`, border: `1px solid ${TAG_COLOR[n.tag] ?? '#60a5fa'}44`, borderRadius: 5, padding: '2px 7px', flexShrink: 0, marginTop: 1 }}>{n.tag}</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: '#dde4f0', lineHeight: 1.4, marginBottom: 3 }}>{n.title}</div>
-                <div style={{ fontSize: 10, color: '#454868' }}>{fmtDate(n.created_at)}</div>
+            <div key={n.id} style={{ background: N, boxShadow: SHO, borderRadius: 11, marginBottom: 9, animation: 'fadeIn .3s', overflow: 'hidden' }}>
+              {/* 공지 헤더 행 */}
+              <div
+                onClick={() => n.content ? setExpandNotice(expandNotice === n.id ? null : n.id) : undefined}
+                style={{ padding: '11px 13px', display: 'flex', alignItems: 'flex-start', gap: 9, cursor: n.content ? 'pointer' : 'default' }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: TAG_COLOR[n.tag] ?? '#60a5fa', background: `${TAG_COLOR[n.tag] ?? '#60a5fa'}18`, border: `1px solid ${TAG_COLOR[n.tag] ?? '#60a5fa'}44`, borderRadius: 5, padding: '2px 7px', flexShrink: 0, marginTop: 1 }}>{n.tag}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#dde4f0', lineHeight: 1.4, marginBottom: 3 }}>
+                    {n.title}
+                    {n.is_edited && <span style={{ fontSize: 9, color: '#4b5563', marginLeft: 5 }}>(수정됨)</span>}
+                    {n.content && (
+                      <span style={{ fontSize: 9, color: '#60a5fa', marginLeft: 6 }}>{expandNotice === n.id ? '▲' : '▼'}</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 10, color: '#454868' }}>{fmtDate(n.created_at)}</div>
+                </div>
+                {me?.isAdmin && (
+                  <div style={{ display: 'flex', gap: 4, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                    {/* 수정 버튼 */}
+                    <button
+                      onClick={() => { setEditNotice({ id: n.id, title: n.title, content: n.content ?? '', tag: n.tag }); setShowAddNotice(false) }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4b5563', padding: 2 }}
+                      onMouseEnter={e => (e.currentTarget.style.color='#fbbf24')}
+                      onMouseLeave={e => (e.currentTarget.style.color='#4b5563')}>
+                      <IcoPen/>
+                    </button>
+                    {/* 삭제 버튼 */}
+                    <button onClick={() => deleteNotice(n.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4b5563', padding: 2 }} onMouseEnter={e => (e.currentTarget.style.color='#f87171')} onMouseLeave={e => (e.currentTarget.style.color='#4b5563')}>
+                      <IcoTrash/>
+                    </button>
+                  </div>
+                )}
               </div>
-              {me?.isAdmin && (
-                <button onClick={() => deleteNotice(n.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4b5563', padding: 2, flexShrink: 0 }} onMouseEnter={e => (e.currentTarget.style.color='#f87171')} onMouseLeave={e => (e.currentTarget.style.color='#4b5563')}>
-                  <IcoTrash/>
-                </button>
+              {/* 본문 펼침 영역 */}
+              {n.content && expandNotice === n.id && (
+                <div style={{ padding: '0 13px 13px 13px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 10, marginTop: 0 }}>
+                  <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.7, whiteSpace: 'pre-wrap' as const }}>{n.content}</div>
+                </div>
               )}
             </div>
           ))}
