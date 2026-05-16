@@ -352,22 +352,41 @@ function LoginContent() {
 
     if (signUpError) {
       setStatus('error')
-      setMessage(
-        signUpError.message.includes('already registered')
-          ? '이미 가입된 이메일입니다. 로그인해주세요.'
-          : '회원가입 중 오류가 발생했습니다.'
-      )
+      // 에러 코드/메시지별 한국어 안내
+      const msg = signUpError.message.toLowerCase()
+      if (msg.includes('already registered') || msg.includes('user already'))
+        setMessage('이미 가입된 이메일입니다. 로그인해주세요.')
+      else if (msg.includes('rate limit') || signUpError.status === 429)
+        setMessage('잠시 후 다시 시도해주세요. (이메일 발송 한도 초과)')
+      else if (msg.includes('email') && msg.includes('invalid'))
+        setMessage('올바른 이메일 주소를 입력해주세요.')
+      else if (msg.includes('password'))
+        setMessage('비밀번호 조건을 확인해주세요. (6자 이상)')
+      else if (msg.includes('database') || msg.includes('trigger') || msg.includes('violates'))
+        setMessage('DB 설정 오류입니다. 관리자에게 문의하세요. (' + signUpError.message + ')')
+      else
+        setMessage('회원가입 오류: ' + signUpError.message)
+      console.error('[Signup]', signUpError)
       return
     }
 
-    // profiles 테이블 upsert (트리거가 없는 경우 대비)
+    // ── 이미 가입된 이메일이지만 identities가 없는 경우 (이메일 확인 필요) ──
+    if (data.user && !data.user.identities?.length) {
+      setStatus('error')
+      setMessage('이미 가입된 이메일입니다. 로그인해주세요.')
+      return
+    }
+
+    // profiles 테이블 upsert (트리거가 없는 경우 대비 — 에러 무시)
     if (data.user) {
       await supabase.from('profiles').upsert({
         id:        data.user.id,
         email:     data.user.email ?? email,
         full_name: fullName,
         role:      'student',
-      }, { onConflict: 'id' })
+      }, { onConflict: 'id' }).then(({ error: pe }) => {
+        if (pe) console.warn('[Signup] profiles upsert failed (non-fatal):', pe.message)
+      })
     }
 
     // ── 이메일 인증 여부에 따라 분기 ──────────────────────────
