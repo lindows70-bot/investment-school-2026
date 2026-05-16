@@ -349,6 +349,7 @@ export default function AdminPage() {
   const [copied,          setCopied]          = useState(false)
   const [batchRunning,    setBatchRunning]    = useState(false)
   const [batchResult,     setBatchResult]     = useState<{ updated: number; skipped: number; total: number } | null>(null)
+  const [deletingId,      setDeletingId]      = useState<string | null>(null)   // 삭제 중인 학생 id
 
   // 배포 URL 감지: env 우선 → 배포 환경(non-localhost) → localhost 경고
   const rawOrigin = typeof window !== 'undefined' ? window.location.origin : ''
@@ -476,6 +477,42 @@ export default function AdminPage() {
   }, [loading])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // ── 학생 계정 삭제 ────────────────────────────────────────────────────────────
+  const handleDeleteStudent = async (s: StudentRow) => {
+    const confirmed = window.confirm(
+      `⚠️ 학생 계정을 삭제하시겠습니까?\n\n` +
+      `이름: ${s.full_name}\n` +
+      `이메일: ${s.email}\n` +
+      `보유 종목: ${s.count}개\n\n` +
+      `삭제하면 해당 학생의 모든 데이터(종목, 거래기록 등)가\n` +
+      `영구적으로 삭제됩니다. 되돌릴 수 없습니다.`
+    )
+    if (!confirmed) return
+
+    setDeletingId(s.id)
+    try {
+      const res = await fetch('/api/admin/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: s.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        alert(`삭제 실패: ${data.error}`)
+        return
+      }
+      // 목록에서 즉시 제거
+      setStudents(prev => prev.filter(st => st.id !== s.id))
+      if (data.warning) {
+        alert(`삭제 완료 (주의: ${data.warning})`)
+      }
+    } catch (e) {
+      alert(`삭제 중 오류: ${(e as Error).message}`)
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   // ── 정렬 + 검색 ────────────────────────────────────────────
   const displayed = students
@@ -779,16 +816,37 @@ USING (
                               </div>
                             ) : <span style={{ fontSize: 12, color: '#334155' }}>—</span>}
                           </td>
-                          {/* 상세 버튼 */}
+                          {/* 상세 / 삭제 버튼 */}
                           <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                            <button
-                              onClick={() => setSelected(s)}
-                              style={{ padding: '5px 12px', borderRadius: 7, background: '#1e1e1e', border: '1px solid #2a2a2a', color: '#94a3b8', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s' }}
-                              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#2a2a2a'; (e.currentTarget as HTMLButtonElement).style.color = '#f1f5f9' }}
-                              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#1e1e1e'; (e.currentTarget as HTMLButtonElement).style.color = '#94a3b8' }}
-                            >
-                              상세보기
-                            </button>
+                            <div style={{ display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center' }}>
+                              {/* 상세보기 */}
+                              <button
+                                onClick={() => setSelected(s)}
+                                style={{ padding: '5px 12px', borderRadius: 7, background: '#1e1e1e', border: '1px solid #2a2a2a', color: '#94a3b8', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s' }}
+                                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#2a2a2a'; (e.currentTarget as HTMLButtonElement).style.color = '#f1f5f9' }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#1e1e1e'; (e.currentTarget as HTMLButtonElement).style.color = '#94a3b8' }}
+                              >
+                                상세보기
+                              </button>
+                              {/* 삭제 */}
+                              <button
+                                onClick={() => handleDeleteStudent(s)}
+                                disabled={deletingId === s.id}
+                                title={`${s.full_name} 계정 삭제`}
+                                style={{
+                                  width: 28, height: 28, borderRadius: 7, border: '1px solid #3f1515',
+                                  background: deletingId === s.id ? '#1e1e1e' : '#2d0a0a',
+                                  color: deletingId === s.id ? '#4b5563' : '#f87171',
+                                  cursor: deletingId === s.id ? 'not-allowed' : 'pointer',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  flexShrink: 0, transition: 'all 0.15s', fontSize: 13,
+                                }}
+                                onMouseEnter={e => { if (deletingId !== s.id) (e.currentTarget as HTMLButtonElement).style.background = '#7f1d1d' }}
+                                onMouseLeave={e => { if (deletingId !== s.id) (e.currentTarget as HTMLButtonElement).style.background = '#2d0a0a' }}
+                              >
+                                {deletingId === s.id ? '⏳' : '🗑'}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       )
