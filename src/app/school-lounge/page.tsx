@@ -59,7 +59,7 @@ export default function SchoolLoungePage() {
   const [noticeTitle,    setNoticeTitle]    = useState('')
   const [noticeContent,  setNoticeContent]  = useState('')
   const [noticeTag,      setNoticeTag]      = useState('공지')
-  const [expandNotice,   setExpandNotice]   = useState<string | null>(null)  // 본문 펼치기
+  // expandNotice 제거 — 본문은 항상 표시
   const [editNotice,     setEditNotice]     = useState<{ id: string; title: string; content: string; tag: string } | null>(null)
   const [newPost,       setNewPost]       = useState('')
   const [openThread,    setOpenThread]    = useState<string | null>(null)
@@ -161,7 +161,7 @@ export default function SchoolLoungePage() {
   const deleteNotice = async (id: string) => {
     if (!confirm('공지를 삭제하시겠습니까?')) return
     const { error } = await sb.from('notices').delete().eq('id', id)
-    if (!error) { setNotices(notices.filter(n => n.id !== id)); if (expandNotice === id) setExpandNotice(null) }
+    if (!error) setNotices(notices.filter(n => n.id !== id))
   }
 
   // ══ 소통방 게시글 ════════════════════════════════════════════════════════════
@@ -323,23 +323,17 @@ export default function SchoolLoungePage() {
           ) : notices.map(n => (
             <div key={n.id} style={{ background: N, boxShadow: SHO, borderRadius: 11, marginBottom: 9, animation: 'fadeIn .3s', overflow: 'hidden' }}>
               {/* 공지 헤더 행 */}
-              <div
-                onClick={() => n.content ? setExpandNotice(expandNotice === n.id ? null : n.id) : undefined}
-                style={{ padding: '11px 13px', display: 'flex', alignItems: 'flex-start', gap: 9, cursor: n.content ? 'pointer' : 'default' }}>
+              <div style={{ padding: '11px 13px', display: 'flex', alignItems: 'flex-start', gap: 9 }}>
                 <span style={{ fontSize: 10, fontWeight: 700, color: TAG_COLOR[n.tag] ?? '#60a5fa', background: `${TAG_COLOR[n.tag] ?? '#60a5fa'}18`, border: `1px solid ${TAG_COLOR[n.tag] ?? '#60a5fa'}44`, borderRadius: 5, padding: '2px 7px', flexShrink: 0, marginTop: 1 }}>{n.tag}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: '#dde4f0', lineHeight: 1.4, marginBottom: 3 }}>
                     {n.title}
                     {n.is_edited && <span style={{ fontSize: 9, color: '#4b5563', marginLeft: 5 }}>(수정됨)</span>}
-                    {n.content && (
-                      <span style={{ fontSize: 9, color: '#60a5fa', marginLeft: 6 }}>{expandNotice === n.id ? '▲' : '▼'}</span>
-                    )}
                   </div>
                   <div style={{ fontSize: 10, color: '#454868' }}>{fmtDate(n.created_at)}</div>
                 </div>
                 {me?.isAdmin && (
-                  <div style={{ display: 'flex', gap: 4, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                    {/* 수정 버튼 */}
+                  <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                     <button
                       onClick={() => { setEditNotice({ id: n.id, title: n.title, content: n.content ?? '', tag: n.tag }); setShowAddNotice(false) }}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4b5563', padding: 2 }}
@@ -347,16 +341,15 @@ export default function SchoolLoungePage() {
                       onMouseLeave={e => (e.currentTarget.style.color='#4b5563')}>
                       <IcoPen/>
                     </button>
-                    {/* 삭제 버튼 */}
                     <button onClick={() => deleteNotice(n.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4b5563', padding: 2 }} onMouseEnter={e => (e.currentTarget.style.color='#f87171')} onMouseLeave={e => (e.currentTarget.style.color='#4b5563')}>
                       <IcoTrash/>
                     </button>
                   </div>
                 )}
               </div>
-              {/* 본문 펼침 영역 */}
-              {n.content && expandNotice === n.id && (
-                <div style={{ padding: '0 13px 13px 13px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 10, marginTop: 0 }}>
+              {/* 본문 — 있으면 항상 표시 (클릭 불필요) */}
+              {n.content && (
+                <div style={{ padding: '0 13px 13px 13px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 10 }}>
                   <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.7, whiteSpace: 'pre-wrap' as const }}>{n.content}</div>
                 </div>
               )}
