@@ -188,7 +188,7 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
   return (
     <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:18, overflow:'hidden' }}>
       {/* ─ 헤더 ─ */}
-      <div style={{ padding:'16px 20px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10 }}>
+      <div style={{ padding:'12px 16px 8px', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8 }}>
         <div>
           <div style={{ fontSize:11, fontWeight:700, color:C.neon, letterSpacing:'0.14em', textTransform:'uppercase' as const }}>
             🌍 Global Macro Heatmap
@@ -215,28 +215,31 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
         </div>
       </div>
 
-      {/* ─ 지도 — 자연스러운 2:1 비율 + 5대 권역 마커 ─ */}
-      <div style={{ position:'relative', padding:'0 0 6px', margin:'0' }}>
+      {/* ─ 지도 — 컴팩트 320px 고정 높이 ─ */}
+      <div style={{
+        position: 'relative',
+        padding:  '0',
+        margin:   '0',
+        maxHeight: 320,
+        height:    320,
+        overflow:  'hidden',   // 지도가 영역 밖으로 절대 넘치지 않음
+      }}>
         {loading
-          ? <div style={{ height:380 }}><Sk h={380} r={8}/></div>
+          ? <div style={{ height:320 }}><Sk h={320} r={0}/></div>
           : (
             <ComposableMap
               projection="geoMercator"
               projectionConfig={{
-                // scale 130: width=800에서 세계 전체가 자연스럽게 들어오는 표준값
-                // 왜곡 없는 2:1 비율의 Mercator 기준점
-                scale:  130,
-                // 경도 10° (그리니치 우측, 유럽·아프리카 중심)
-                // 위도 10° (적도 약간 위, 아시아·아메리카 균형)
-                center: [10, 10],
+                // scale 100: 줌아웃 — 320px 높이 안에서 세계 전체가 아담하게
+                scale:  100,
+                // 위도 0°(적도 중심) → 지도가 수직 중앙에 정렬
+                center: [10, 0],
               }}
-              // ─ 비율 핵심 설정 ───────────────────────────────────────────
-              // width=800, height=400 → 정확히 2:1 (세계지도 표준 Mercator 비율)
-              // SVG viewBox가 800×400으로 내부 렌더링되고
-              // style width:100%/height:auto 로 컨테이너에 맞게 반응형 확장
+              // SVG 내부 좌표계: 800×320 (2.5:1)
+              // height:100% 로 부모 320px에 꽉 채움 (overflow:hidden 이 잘라냄)
               width={800}
-              height={400}
-              style={{ background:'transparent', width:'100%', height:'auto', display:'block' }}
+              height={320}
+              style={{ background:'transparent', width:'100%', height:'100%', display:'block' }}
             >
               {/* ── 국가별 히트맵 채색 ── */}
               <Geographies geography={GEO_URL}>
@@ -377,7 +380,7 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
 
         {/* 범례 — 지도 우하단 오버레이 */}
         <div style={{
-          position:'absolute', bottom:14, right:12,
+          position:'absolute', bottom:6, right:8,
           display:'flex', gap:5, flexWrap:'wrap' as const, justifyContent:'flex-end',
           background:'rgba(2,6,23,0.78)', backdropFilter:'blur(6px)',
           border:`1px solid ${C.border}`, borderRadius:8,
@@ -392,7 +395,7 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
       </div>
 
       {/* ─ 수치 카드 ─ */}
-      <div style={{ padding:'6px 16px 14px', overflowX:'auto' }}>
+      <div style={{ padding:'4px 14px 12px', overflowX:'auto' }}>
         {loading
           ? <div style={{ display:'flex', gap:8 }}>{Array.from({length:10}).map((_,i)=><Sk key={i} h={50} w={80} r={8}/>)}</div>
           : <div style={{ display:'flex', gap:7, minWidth:'max-content' }}>
