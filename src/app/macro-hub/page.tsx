@@ -215,15 +215,26 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
         </div>
       </div>
 
-      {/* ─ 지도 ─ */}
-      <div style={{ position:'relative', padding:'0 12px 8px' }}>
+      {/* ─ 지도 — 파노라믹 와이드 스크린 ─ */}
+      {/* 패딩 제거 + overflow hidden으로 여백 없이 꽉 채움 */}
+      <div style={{ position:'relative', padding:'0', margin:'0 0 6px', overflow:'hidden' }}>
         {loading
-          ? <div style={{ height:290 }}><Sk h={290} r={12}/></div>
+          ? <div style={{ height:340 }}><Sk h={340} r={0}/></div>
           : (
             <ComposableMap
               projection="geoMercator"
-              projectionConfig={{ scale:130, center:[10,20] }}
-              style={{ background:'transparent', width:'100%', height:290 }}
+              projectionConfig={{
+                // scale: 130→185 (1.42배 줌인, 대륙이 화면 좌우 경계까지 꽉 참)
+                scale:  185,
+                // center: 경도 10°(유럽 중심), 위도 15°(아프리카 위쪽)
+                // 주요 투자국(미/유럽/동아시아)이 화면 안에 정렬됨
+                center: [10, 15],
+              }}
+              // width:height = 960:340 ≈ 2.82:1 와이드 비율
+              // viewBox 내부 픽셀로 렌더링, 실제 표시는 100% 너비로 늘어남
+              width={960}
+              height={340}
+              style={{ background:'transparent', width:'100%', display:'block' }}
             >
               <Geographies geography={GEO_URL}>
                 {({ geographies }) =>
@@ -290,18 +301,24 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
           </div>
         )}
 
-        {/* 범례 */}
-        <div style={{ display:'flex', justifyContent:'center', gap:6, flexWrap:'wrap', marginTop:2 }}>
+        {/* 범례 — 지도 하단 우측에 오버레이 */}
+        <div style={{
+          position:'absolute', bottom:10, right:12,
+          display:'flex', gap:5, flexWrap:'wrap' as const, justifyContent:'flex-end',
+          background:'rgba(2,6,23,0.72)', backdropFilter:'blur(6px)',
+          border:`1px solid ${C.border}`, borderRadius:8,
+          padding:'5px 10px',
+        }}>
           {[['#2d6a4f','매우 안정'],['#52b788','안정'],[C.neon,'적정'],[C.gold,'주의'],[C.orange,'경고'],[C.red,'위험']].map(([col,lbl])=>(
-            <div key={lbl} style={{ display:'flex', alignItems:'center', gap:4, fontSize:9, color:C.sub }}>
-              <div style={{ width:12, height:8, borderRadius:2, background:col }}/>{lbl}
+            <div key={lbl} style={{ display:'flex', alignItems:'center', gap:3, fontSize:9, color:C.sub }}>
+              <div style={{ width:10, height:7, borderRadius:2, background:col }}/>{lbl}
             </div>
           ))}
         </div>
       </div>
 
       {/* ─ 수치 카드 ─ */}
-      <div style={{ padding:'8px 16px 16px', overflowX:'auto' }}>
+      <div style={{ padding:'6px 16px 14px', overflowX:'auto' }}>
         {loading
           ? <div style={{ display:'flex', gap:8 }}>{Array.from({length:10}).map((_,i)=><Sk key={i} h={50} w={80} r={8}/>)}</div>
           : <div style={{ display:'flex', gap:7, minWidth:'max-content' }}>
