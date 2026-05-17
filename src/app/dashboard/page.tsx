@@ -212,7 +212,7 @@ const MiniChart = ({ data }: { data: PricePoint[] }) => {
 }
 
 // ─── Tooltip styles ───────────────────────────────────────────────────────────
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 const DarkTip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
@@ -534,8 +534,40 @@ export default function DashboardPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pricedInvs, priceMap])
 
-  const trendUp = trendData.length >= 2 && trendData[trendData.length-1].value >= trendData[0].value
-  const trendGradId = 'trendGrad'
+  // ── 트렌드 차트 토글 & 파생 데이터 ────────────────────────────────────────
+  const [trendMode, setTrendMode] = useState<'amount' | 'pct'>('amount')
+
+  // 수익률(%) 기준 데이터: 첫날 기준 누적 변화율
+  const trendDataPct = useMemo(() => {
+    if (trendData.length < 2) return []
+    const base = trendData[0].value
+    if (!base) return []
+    return trendData.map(d => ({
+      ...d,
+      pct: parseFloat(((d.value - base) / base * 100).toFixed(3)),
+    }))
+  }, [trendData])
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const activeData   = (trendMode === 'amount' ? trendData : trendDataPct) as any[]
+  const activeKey    = trendMode === 'amount' ? 'value' : 'pct'
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const trendUp      = activeData.length >= 2 &&
+    activeData[activeData.length-1][activeKey] >= activeData[0][activeKey]
+
+  // 최고/최저 인덱스
+  const trendMinMaxIdx = useMemo(() => {
+    if (activeData.length < 2) return { maxIdx: -1, minIdx: -1 }
+    let maxIdx = 0, minIdx = 0
+    activeData.forEach((d: Record<string,number>, i: number) => {
+      if (d[activeKey] > activeData[maxIdx][activeKey]) maxIdx = i
+      if (d[activeKey] < activeData[minIdx][activeKey]) minIdx = i
+    })
+    return { maxIdx, minIdx }
+  }, [activeData, activeKey])
+
+  const NEON   = '#deff9a'
+  const trendGradId = 'trendGradNeon'
 
   // ── Market donut data ──────────────────────────────────────────
   const mktData = (['US','KR','CRYPTO'] as Market[]).map(m => ({
@@ -1532,38 +1564,171 @@ export default function DashboardPage() {
       {/* ── 3. 자산 추이 + 비중 도넛 2단 ── */}
       <div style={{ display:'grid', gridTemplateColumns:'6fr 4fr', gap:16 }}>
 
-        {/* 좌: 30일 자산 추이 */}
+        {/* 좌: 30일 자산 추이 (업그레이드) */}
         <Card>
-          <SectionTitle>자산 총액 변화 (최근 30일)</SectionTitle>
-          <div style={{ padding:'8px 18px 4px', display:'flex', gap:24 }}>
+          {/* 헤더: 타이틀 + 토글 */}
+          <div style={{ padding:'14px 18px 0', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:'#6b7280', textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>
+              자산 총액 변화 (최근 30일)
+            </div>
+            {/* 세그먼트 토글 */}
+            <div style={{ display:'flex', background:'#13162a', borderRadius:8, padding:2, gap:2 }}>
+              {(['amount','pct'] as const).map(mode => (
+                <button key={mode} onClick={() => setTrendMode(mode)} style={{
+                  padding:'4px 12px', borderRadius:6, border:'none', cursor:'pointer',
+                  fontSize:10, fontWeight:700, letterSpacing:'0.04em',
+                  background: trendMode === mode ? NEON : 'transparent',
+                  color:       trendMode === mode ? '#0a0a0a' : '#4b5563',
+                  transition:'all 0.18s',
+                }}>
+                  {mode === 'amount' ? '₩ 금액' : '% 수익률'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* KPI 요약 */}
+          <div style={{ padding:'8px 18px 4px', display:'flex', gap:20, flexWrap:'wrap' }}>
             {totalRet != null && (
               <>
                 <div>
-                  <div style={{ fontSize:9, color:'#4b5563', textTransform:'uppercase', letterSpacing:'0.06em' }}>누적 수익률</div>
-                  <div style={{ fontSize:16, fontWeight:800, color:(totalRet??0)>=0?'#ef4444':'#3b82f6', fontVariantNumeric:'tabular-nums' }}>{fmtPct(totalRet)}</div>
+                  <div style={{ fontSize:9, color:'#4b5563', textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>30일 수익률</div>
+                  <div style={{ fontSize:15, fontWeight:800, color:(totalRet??0)>=0?'#ef4444':'#3b82f6', fontVariantNumeric:'tabular-nums' }}>{fmtPct(totalRet)}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize:9, color:'#4b5563', textTransform:'uppercase', letterSpacing:'0.06em' }}>평가 손익</div>
-                  <div style={{ fontSize:16, fontWeight:800, color:totalPnL>=0?'#ef4444':'#3b82f6', fontVariantNumeric:'tabular-nums' }}>{fmtKrw(totalPnL)}</div>
+                  <div style={{ fontSize:9, color:'#4b5563', textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>평가 손익</div>
+                  <div style={{ fontSize:15, fontWeight:800, color:totalPnL>=0?'#ef4444':'#3b82f6', fontVariantNumeric:'tabular-nums' }}>{fmtKrw(totalPnL)}</div>
                 </div>
+                {trendData.length >= 2 && (() => {
+                  const { maxIdx, minIdx } = trendMinMaxIdx
+                  const maxVal = maxIdx >= 0 ? activeData[maxIdx][activeKey] as number : null
+                  const minVal = minIdx >= 0 ? activeData[minIdx][activeKey] as number : null
+                  return (
+                    <>
+                      {maxVal != null && (
+                        <div>
+                          <div style={{ fontSize:9, color:'#4b5563', textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>30일 최고</div>
+                          <div style={{ fontSize:15, fontWeight:800, color:NEON, fontVariantNumeric:'tabular-nums' }}>
+                            {trendMode==='amount' ? fmtKrw(maxVal) : `+${maxVal.toFixed(2)}%`}
+                          </div>
+                        </div>
+                      )}
+                      {minVal != null && (
+                        <div>
+                          <div style={{ fontSize:9, color:'#4b5563', textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>30일 최저</div>
+                          <div style={{ fontSize:15, fontWeight:800, color:'#6b7280', fontVariantNumeric:'tabular-nums' }}>
+                            {trendMode==='amount' ? fmtKrw(minVal) : `${minVal.toFixed(2)}%`}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
               </>
             )}
           </div>
-          <div style={{ padding:'4px 12px 16px' }}>
-            {trendData.length < 2 ? <Empty msg="현재가 데이터 로딩 후 표시됩니다"/> : (
-              <ResponsiveContainer width="100%" height={210}>
-                <AreaChart data={trendData} margin={{ top:8, right:8, bottom:0, left:0 }}>
+
+          {/* 차트 */}
+          <div style={{ padding:'4px 8px 12px' }}>
+            {activeData.length < 2 ? <Empty msg="현재가 데이터 로딩 후 표시됩니다"/> : (
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={activeData} margin={{ top:20, right:12, bottom:0, left:0 }}>
                   <defs>
                     <linearGradient id={trendGradId} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%"   stopColor={trendUp?'#ef4444':'#3b82f6'} stopOpacity={0.25}/>
-                      <stop offset="100%" stopColor={trendUp?'#ef4444':'#3b82f6'} stopOpacity={0}/>
+                      <stop offset="0%"   stopColor={NEON} stopOpacity={0.28}/>
+                      <stop offset="60%"  stopColor={NEON} stopOpacity={0.06}/>
+                      <stop offset="100%" stopColor={NEON} stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false}/>
-                  <XAxis dataKey="date" tick={{ fill:'#4b5563', fontSize:10 }} axisLine={false} tickLine={false} interval="preserveStartEnd"/>
-                  <YAxis tick={{ fill:'#4b5563', fontSize:10 }} axisLine={false} tickLine={false} tickFormatter={v=>v>=1e8?`${(v/1e8).toFixed(0)}억`:v>=1e4?`${(v/1e4).toFixed(0)}만`:`${v}`} width={50}/>
-                  <Tooltip content={<DarkTip/>}/>
-                  <Area type="monotone" dataKey="value" name="포트폴리오" stroke={trendUp?'#ef4444':'#3b82f6'} strokeWidth={2} fill={`url(#${trendGradId})`} dot={false} isAnimationActive={false}/>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1a1e30" vertical={false}/>
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill:'#374151', fontSize:9 }}
+                    axisLine={false} tickLine={false}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis
+                    tick={{ fill:'#374151', fontSize:9 }}
+                    axisLine={false} tickLine={false}
+                    width={48}
+                    domain={[
+                      (dataMin: number) => dataMin * (trendMode==='amount' ? 0.9985 : 1) - (trendMode==='pct' ? 0.05 : 0),
+                      (dataMax: number) => dataMax * (trendMode==='amount' ? 1.0015 : 1) + (trendMode==='pct' ? 0.05 : 0),
+                    ]}
+                    tickFormatter={v =>
+                      trendMode === 'pct'
+                        ? `${v > 0 ? '+' : ''}${v.toFixed(1)}%`
+                        : v >= 1e8 ? `${(v/1e8).toFixed(1)}억`
+                        : v >= 1e4 ? `${(v/1e4).toFixed(0)}만`
+                        : `${v}`
+                    }
+                  />
+                  {/* 커스텀 툴팁 */}
+                  <Tooltip
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload?.length) return null
+                      const val = payload[0]?.value as number
+                      return (
+                        <div style={{
+                          background:'#0f1117', border:'1px solid #1e2a40',
+                          borderRadius:10, padding:'10px 14px',
+                          boxShadow:'0 8px 32px rgba(0,0,0,0.6)',
+                          minWidth:130,
+                        }}>
+                          <div style={{ fontSize:10, color:'#4b5563', marginBottom:6, fontWeight:600 }}>{label}</div>
+                          <div style={{ fontSize:14, fontWeight:800, color:NEON, fontVariantNumeric:'tabular-nums' }}>
+                            {trendMode === 'pct'
+                              ? `${val > 0 ? '+' : ''}${val.toFixed(2)}%`
+                              : val >= 1e8
+                                ? `₩${(val/1e8).toFixed(2)}억`
+                                : `₩${Math.round(val).toLocaleString('ko-KR')}`
+                            }
+                          </div>
+                          {trendMode === 'pct' && (
+                            <div style={{ fontSize:10, color:'#374151', marginTop:3 }}>
+                              {val >= 0 ? '▲' : '▼'} 기준일 대비
+                            </div>
+                          )}
+                        </div>
+                      )
+                    }}
+                  />
+                  {/* 메인 에어리어 */}
+                  <Area
+                    type="monotone"
+                    dataKey={activeKey}
+                    name="포트폴리오"
+                    stroke={NEON}
+                    strokeWidth={2}
+                    fill={`url(#${trendGradId})`}
+                    isAnimationActive={true}
+                    animationDuration={600}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    dot={(props: any) => {
+                      const cx: number = props.cx ?? 0
+                      const cy: number = props.cy ?? 0
+                      const index: number = props.index ?? 0
+                      const { maxIdx, minIdx } = trendMinMaxIdx
+                      if (index === maxIdx) {
+                        return (
+                          <g key={`max-${index}`}>
+                            <circle cx={cx} cy={cy} r={5} fill={NEON} stroke="#0f1117" strokeWidth={2}/>
+                            <text x={cx} y={cy - 12} textAnchor="middle" fontSize={9} fontWeight={700} fill={NEON}>최고</text>
+                          </g>
+                        )
+                      }
+                      if (index === minIdx) {
+                        return (
+                          <g key={`min-${index}`}>
+                            <circle cx={cx} cy={cy} r={5} fill="#6b7280" stroke="#0f1117" strokeWidth={2}/>
+                            <text x={cx} y={cy + 18} textAnchor="middle" fontSize={9} fontWeight={700} fill="#6b7280">최저</text>
+                          </g>
+                        )
+                      }
+                      return <g key={`dot-${index}`}/>
+                    }}
+                    activeDot={{ r:5, fill:NEON, stroke:'#0f1117', strokeWidth:2 }}
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             )}
