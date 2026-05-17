@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   LineChart, Line, XAxis, YAxis, CartesianGrid, Area, AreaChart,
-  Treemap, BarChart, Bar, Cell as BarCell, ReferenceLine, LabelList,
+  Treemap, Bar, Cell as BarCell, ReferenceLine, LabelList,
+  ComposedChart,
 } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
 
@@ -583,40 +584,47 @@ export default function DashboardPage() {
     }))
   }, [investments])
 
-  // ── 월별 평가손익 (매수월 기준 그룹핑) ────────────────────────
+  // ── 월별 평가손익 (매수월 기준 그룹핑 + Core/Satellite 분리) ─────
+  const ETF_BRANDS_CORE = ['TIGER','KODEX','ACE','PLUS','KBSTAR','HANARO','ARIRANG','SOL','RISE','ETF']
+  const isCoreInv = (inv: Investment) => {
+    const upper = inv.name.toUpperCase()
+    if (ETF_BRANDS_CORE.some(b => upper.includes(b))) return true
+    const cat = inv.lynch_category
+    return cat === 'stalwart' || cat === 'slow_grower'
+  }
+
   const monthlyPnL = useMemo(() => {
-    // 매수월별로 종목 그룹핑
-    const map: Record<string, { cost: number; curr: number; count: number }> = {}
+    type MonthBucket = { coreCost:number; coreCurr:number; satCost:number; satCurr:number; count:number }
+    const map: Record<string, MonthBucket> = {}
 
     pricedInvs.forEach(inv => {
-      const lv   = live(inv)
+      const lv = live(inv)
       if (!lv) return
-      const month = inv.purchase_date.slice(0, 7)   // "YYYY-MM"
+      const month  = inv.purchase_date.slice(0, 7)
       const exRate = inv.currency === 'USD' ? usdKrw : 1
       const cost   = inv.purchase_price * inv.quantity * exRate
       const curr   = lv.currentPrice    * inv.quantity * exRate
-
-      if (!map[month]) map[month] = { cost: 0, curr: 0, count: 0 }
-      map[month].cost  += cost
-      map[month].curr  += curr
+      if (!map[month]) map[month] = { coreCost:0, coreCurr:0, satCost:0, satCurr:0, count:0 }
+      if (isCoreInv(inv)) { map[month].coreCost += cost; map[month].coreCurr += curr }
+      else                { map[month].satCost  += cost; map[month].satCurr  += curr }
       map[month].count += 1
     })
 
-    return Object.entries(map)
+    const rows = Object.entries(map)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, { cost, curr, count }]) => {
-        const pnl    = curr - cost
-        const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0
-        const [y, m] = month.split('-')
-        return {
-          month,
-          label:  `${y.slice(2)}년 ${parseInt(m)}월`,
-          pnl:    Math.round(pnl),
-          pnlPct: parseFloat(pnlPct.toFixed(1)),
-          count,
-          isUp:   pnl >= 0,
-        }
+      .map(([month, { coreCost, coreCurr, satCost, satCurr, count }]) => {
+        const corePnl  = Math.round(coreCurr - coreCost)
+        const satPnl   = Math.round(satCurr  - satCost)
+        const totalPnl = corePnl + satPnl
+        const totalCost = coreCost + satCost
+        const pnlPct    = totalCost > 0 ? parseFloat(((totalPnl / totalCost) * 100).toFixed(1)) : 0
+        const [y, m]    = month.split('-')
+        return { month, label:`${y.slice(2)}년 ${parseInt(m)}월`, corePnl, satPnl, totalPnl, pnlPct, count, isUp: totalPnl >= 0 }
       })
+
+    // 누적 평가손익 추가
+    let cumulative = 0
+    return rows.map(r => { cumulative += r.totalPnl; return { ...r, cumulative } })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pricedInvs, priceMap, usdKrw])
 
@@ -1797,77 +1805,196 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── 4. 월별 평가손익 차트 ── */}
+      {/* ── 4. 월별 평가손익 콤보 차트 (업그레이드) ── */}
       <Card>
-        <div style={{ padding:'14px 20px 0', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        {/* 헤더 */}
+        <div style={{ padding:'14px 20px 6px', display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:8 }}>
           <div>
             <div style={{ fontSize:12, fontWeight:700, color:'#9ca3af', letterSpacing:'0.04em', textTransform:'uppercase' as const }}>
               📊 월별 평가손익 (매수월 기준)
             </div>
             <div style={{ fontSize:11, color:'#374151', marginTop:3 }}>
-              각 월에 매수한 종목들의 현재 평가손익 합계
+              Core · Satellite 분리 누적 손익 + 추이선
             </div>
           </div>
           {/* 범례 */}
-          <div style={{ display:'flex', gap:14, flexShrink:0 }}>
-            {[['#ef4444','수익'],['#3b82f6','손실']].map(([c,l])=>(
-              <span key={l} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:'#6b7280' }}>
-                <span style={{ width:10, height:10, borderRadius:3, background:c, display:'inline-block' }}/>
-                {l}
+          <div style={{ display:'flex', gap:12, flexShrink:0, alignItems:'center' }}>
+            {[
+              { color:'#deff9a', label:'Core (ETF·우량주)', dash:false },
+              { color:'#38bdf8', label:'Satellite (성장·테마)', dash:false },
+              { color:'#818cf8', label:'누적 추이', dash:true },
+            ].map(({ color, label, dash }) => (
+              <span key={label} style={{ display:'flex', alignItems:'center', gap:5, fontSize:10, color:'#6b7280' }}>
+                {dash
+                  ? <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke={color} strokeWidth="2" strokeDasharray="4 2"/></svg>
+                  : <span style={{ width:10, height:10, borderRadius:3, background:color, display:'inline-block', opacity:0.85 }}/>
+                }
+                {label}
               </span>
             ))}
           </div>
         </div>
 
-        <div style={{ padding:'8px 12px 16px' }}>
+        <div style={{ padding:'4px 8px 16px' }}>
           {monthlyPnL.length === 0 ? (
             <Empty msg="현재가가 로드되면 차트가 표시됩니다"/>
           ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={monthlyPnL} margin={{ top:20, right:16, bottom:0, left:10 }} barCategoryGap="30%">
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false}/>
+            <ResponsiveContainer width="100%" height={250}>
+              <ComposedChart data={monthlyPnL} margin={{ top:24, right:16, bottom:0, left:8 }} barCategoryGap="32%">
+                <defs>
+                  {/* Core 수익 그라데이션 */}
+                  <linearGradient id="coreProfit" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%"   stopColor="#deff9a" stopOpacity={0.95}/>
+                    <stop offset="100%" stopColor="#deff9a" stopOpacity={0.55}/>
+                  </linearGradient>
+                  {/* Core 손실 그라데이션 */}
+                  <linearGradient id="coreLoss" x1="0" y1="1" x2="0" y2="0">
+                    <stop offset="0%"   stopColor="#f87171" stopOpacity={0.90}/>
+                    <stop offset="100%" stopColor="#f87171" stopOpacity={0.50}/>
+                  </linearGradient>
+                  {/* Sat 수익 그라데이션 */}
+                  <linearGradient id="satProfit" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%"   stopColor="#38bdf8" stopOpacity={0.95}/>
+                    <stop offset="100%" stopColor="#38bdf8" stopOpacity={0.55}/>
+                  </linearGradient>
+                  {/* Sat 손실 그라데이션 */}
+                  <linearGradient id="satLoss" x1="0" y1="1" x2="0" y2="0">
+                    <stop offset="0%"   stopColor="#fb923c" stopOpacity={0.90}/>
+                    <stop offset="100%" stopColor="#fb923c" stopOpacity={0.50}/>
+                  </linearGradient>
+                </defs>
+
+                <CartesianGrid strokeDasharray="2 4" stroke="#1a2035" vertical={false}/>
+
                 <XAxis
                   dataKey="label"
-                  tick={{ fill:'#6b7280', fontSize:11 }}
-                  axisLine={false} tickLine={false}
+                  tick={{ fill:'#4b5563', fontSize:10, fontWeight:500 }}
+                  axisLine={{ stroke:'#1e2a3a' }} tickLine={false}
                 />
                 <YAxis
-                  tick={{ fill:'#6b7280', fontSize:10 }}
-                  axisLine={false} tickLine={false} width={56}
-                  tickFormatter={v => v >= 1e8 ? `${(v/1e8).toFixed(1)}억` : v >= 1e4 ? `${(v/1e4).toFixed(0)}만` : v === 0 ? '0' : `${v}`}
+                  yAxisId="bar"
+                  tick={{ fill:'#4b5563', fontSize:9 }}
+                  axisLine={false} tickLine={false} width={52}
+                  tickFormatter={v => v === 0 ? '0' : v >= 1e8 ? `${(v/1e8).toFixed(1)}억` : v >= 1e4 ? `${(v/1e4).toFixed(0)}만` : Math.abs(v) >= 1e4 ? `-${(Math.abs(v)/1e4).toFixed(0)}만` : `${(v/1e4).toFixed(0)}만`}
                 />
-                <ReferenceLine y={0} stroke="#374151" strokeWidth={1.5}/>
+                <YAxis
+                  yAxisId="line"
+                  orientation="right"
+                  tick={{ fill:'#374151', fontSize:9 }}
+                  axisLine={false} tickLine={false} width={52}
+                  tickFormatter={v => v === 0 ? '0' : v >= 1e8 ? `${(v/1e8).toFixed(1)}억` : v >= 1e4 ? `${(v/1e4).toFixed(0)}만` : `${v}`}
+                />
+
+                {/* 기준선 Y=0 */}
+                <ReferenceLine yAxisId="bar" y={0} stroke="#2d3a50" strokeWidth={1.5}/>
+
+                {/* 커스텀 툴팁 */}
                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 <Tooltip content={({ active, payload }: any) => {
                   if (!active || !payload?.length) return null
-                  const d = payload[0].payload
+                  const d = payload[0]?.payload
+                  if (!d) return null
+                  const fmtAmt = (v: number) => {
+                    const abs = Math.abs(v)
+                    const sign = v >= 0 ? '+' : '-'
+                    if (abs >= 1e8) return `${sign}₩${(abs/1e8).toFixed(2)}억`
+                    if (abs >= 1e4) return `${sign}₩${Math.round(abs/1e4).toLocaleString('ko-KR')}만`
+                    return `${sign}₩${abs.toLocaleString('ko-KR')}`
+                  }
                   return (
-                    <div style={{ background:'#1f2937', border:'1px solid #374151', borderRadius:10, padding:'10px 14px', fontSize:12, color:'#f1f5f9' }}>
-                      <div style={{ fontWeight:700, marginBottom:6 }}>{d.label}</div>
-                      <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
-                        <span>매수 종목: <strong>{d.count}개</strong></span>
-                        <span style={{ color: d.isUp ? '#ef4444' : '#3b82f6', fontWeight:800, fontSize:14 }}>
-                          {d.pnl >= 0 ? '+' : ''}
-                          {d.pnl >= 1e8 ? `₩${(d.pnl/1e8).toFixed(1)}억` : d.pnl >= 1e4 ? `₩${(d.pnl/1e4).toFixed(0)}만` : `₩${d.pnl.toLocaleString('ko-KR')}`}
+                    <div style={{
+                      background:'#0f1117', border:'1px solid #1e2a40',
+                      borderRadius:12, padding:'12px 16px',
+                      boxShadow:'0 8px 32px rgba(0,0,0,0.6)',
+                      minWidth:200, fontSize:12,
+                    }}>
+                      {/* 헤더 */}
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10, paddingBottom:8, borderBottom:'1px solid #1e2a40' }}>
+                        <span style={{ fontWeight:700, color:'#dde4f0', fontSize:13 }}>{d.label}</span>
+                        <span style={{ fontSize:10, color:'#4b5563' }}>{d.count}개 종목</span>
+                      </div>
+                      {/* Core / Satellite 분리 */}
+                      {[
+                        { label:'Core', value: d.corePnl, color: d.corePnl >= 0 ? '#deff9a' : '#f87171' },
+                        { label:'Satellite', value: d.satPnl, color: d.satPnl >= 0 ? '#38bdf8' : '#fb923c' },
+                      ].map(({ label, value, color }) => (
+                        <div key={label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:5 }}>
+                          <span style={{ fontSize:11, color:'#6b7280', display:'flex', alignItems:'center', gap:5 }}>
+                            <span style={{ width:7, height:7, borderRadius:2, background:color, display:'inline-block' }}/>
+                            {label}
+                          </span>
+                          <span style={{ fontWeight:700, color, fontVariantNumeric:'tabular-nums', fontSize:12 }}>
+                            {fmtAmt(value)}
+                          </span>
+                        </div>
+                      ))}
+                      {/* 합계 */}
+                      <div style={{ marginTop:8, paddingTop:8, borderTop:'1px solid #1e2a40', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                        <span style={{ fontSize:11, color:'#6b7280', fontWeight:600 }}>합계</span>
+                        <div style={{ textAlign:'right' as const }}>
+                          <div style={{ fontWeight:900, color: d.isUp ? '#deff9a' : '#f87171', fontSize:15, fontVariantNumeric:'tabular-nums' }}>
+                            {fmtAmt(d.totalPnl)}
+                          </div>
+                          <div style={{ fontSize:10, color:'#4b5563', marginTop:1 }}>
+                            {d.pnlPct >= 0 ? '+' : ''}{d.pnlPct}%
+                          </div>
+                        </div>
+                      </div>
+                      {/* 누적 */}
+                      <div style={{ marginTop:6, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                        <span style={{ fontSize:10, color:'#374151' }}>누적 손익</span>
+                        <span style={{ fontSize:11, fontWeight:700, color:'#818cf8', fontVariantNumeric:'tabular-nums' }}>
+                          {fmtAmt(d.cumulative)}
                         </span>
-                        <span style={{ color:'#9ca3af', fontSize:11 }}>수익률 {d.pnlPct >= 0 ? '+' : ''}{d.pnlPct}%</span>
                       </div>
                     </div>
                   )
                 }}/>
-                <Bar dataKey="pnl" radius={[5,5,0,0]} maxBarSize={52}>
+
+                {/* Core 막대 — 수익/손실 그라데이션 */}
+                <Bar yAxisId="bar" dataKey="corePnl" name="Core" stackId="pnl" maxBarSize={56} radius={[0,0,0,0]}>
                   {monthlyPnL.map((entry, i) => (
-                    <BarCell key={i} fill={entry.isUp ? '#ef4444' : '#3b82f6'} fillOpacity={0.85}/>
+                    <BarCell
+                      key={i}
+                      fill={entry.corePnl >= 0 ? 'url(#coreProfit)' : 'url(#coreLoss)'}
+                    />
+                  ))}
+                </Bar>
+
+                {/* Satellite 막대 */}
+                <Bar yAxisId="bar" dataKey="satPnl" name="Satellite" stackId="pnl" maxBarSize={56}
+                  radius={[4,4,0,0]}
+                >
+                  {monthlyPnL.map((entry, i) => (
+                    <BarCell
+                      key={i}
+                      fill={entry.satPnl >= 0 ? 'url(#satProfit)' : 'url(#satLoss)'}
+                    />
                   ))}
                   <LabelList
                     dataKey="pnlPct"
                     position="top"
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     formatter={(v: any) => `${v >= 0 ? '+' : ''}${v}%`}
-                    style={{ fontSize:10, fontWeight:700, fill:'#9ca3af' }}
+                    style={{ fontSize:10, fontWeight:700, fill:'#6b7280' }}
                   />
                 </Bar>
-              </BarChart>
+
+                {/* 누적 추이선 */}
+                <Line
+                  yAxisId="line"
+                  type="monotone"
+                  dataKey="cumulative"
+                  name="누적 손익"
+                  stroke="#818cf8"
+                  strokeWidth={2}
+                  strokeDasharray="5 3"
+                  dot={{ r:3, fill:'#818cf8', stroke:'#0f1117', strokeWidth:1.5 }}
+                  activeDot={{ r:5, fill:'#818cf8', stroke:'#0f1117', strokeWidth:2 }}
+                  isAnimationActive={true}
+                  animationDuration={800}
+                />
+              </ComposedChart>
             </ResponsiveContainer>
           )}
         </div>
