@@ -756,7 +756,174 @@ export default function DashboardPage() {
       <style>{`
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
         .hover-row:hover td{background:rgba(255,255,255,0.03)!important}
+        @keyframes divModalIn{from{opacity:0;transform:translate(-50%,-48%) scale(0.96)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
       `}</style>
+
+      {/* ── 배당 상세 모달 (fixed center) ── */}
+      {showDivDetail && (
+        <>
+          {/* 백드롭 */}
+          <div
+            onClick={() => setShowDivDetail(false)}
+            style={{
+              position:'fixed', inset:0, zIndex:1000,
+              background:'rgba(0,0,0,0.6)',
+              backdropFilter:'blur(4px)',
+              WebkitBackdropFilter:'blur(4px)',
+            }}
+          />
+          {/* 모달 본체 */}
+          <div style={{
+            position:'fixed',
+            top:'50%', left:'50%',
+            transform:'translate(-50%,-50%)',
+            zIndex:1001,
+            width: 'min(400px, 90vw)',
+            maxHeight:'80vh',
+            background:'#0f1117',
+            border:'1px solid #1e2a40',
+            borderRadius:16,
+            boxShadow:'0 24px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(52,211,153,0.1)',
+            display:'flex', flexDirection:'column',
+            animation:'divModalIn 0.2s ease-out',
+            overflow:'hidden',
+          }}>
+            {/* 헤더 */}
+            <div style={{
+              padding:'18px 20px 14px',
+              borderBottom:'1px solid #1a2235',
+              display:'flex', alignItems:'center', justifyContent:'space-between',
+              flexShrink:0,
+            }}>
+              <div>
+                <div style={{ fontSize:11, fontWeight:700, color:'#34d399', letterSpacing:'0.12em', textTransform:'uppercase' as const }}>
+                  💰 종목별 배당금 상세
+                </div>
+                <div style={{ fontSize:10, color:'#374168', marginTop:3 }}>
+                  월간 예상 기준 · {dividendMap && Object.keys(dividendMap).length > 0 ? `${investments.length}개 종목 분석` : ''}
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDivDetail(false)}
+                style={{
+                  width:28, height:28, borderRadius:8,
+                  background:'#1a2235', border:'1px solid #252f47',
+                  color:'#6b7280', cursor:'pointer', fontSize:14,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  flexShrink:0,
+                }}
+              >✕</button>
+            </div>
+
+            {/* 종목 리스트 (스크롤) */}
+            <div style={{ overflowY:'auto', flex:1, padding:'6px 0' }}>
+              {dividendMap && investments
+                .map(inv => {
+                  const key  = inv.ticker.toUpperCase()
+                  const lv   = priceMap[inv.ticker.toUpperCase()]
+                  const dMap = dividendMap[key]
+                  const annDiv = dMap?.annualDividend ?? null
+                  let monthlyAmt = 0
+                  if (annDiv && annDiv > 0) {
+                    const annDivKrw = inv.currency === 'USD' ? annDiv * usdKrw : annDiv
+                    monthlyAmt = annDivKrw * inv.quantity / 12
+                  } else {
+                    const dy = dMap?.dividendYield ?? lv?.dividendYield ?? null
+                    if (dy && dy > 0) {
+                      const p = (lv?.currentPrice ?? inv.purchase_price) * (inv.currency === 'USD' ? usdKrw : 1)
+                      monthlyAmt = p * inv.quantity * dy / 12
+                    }
+                  }
+                  return monthlyAmt > 0 ? { ...inv, monthlyAmt } : null
+                })
+                .filter((d): d is (Investment & {monthlyAmt:number}) => d !== null)
+                .sort((a,b) => b.monthlyAmt - a.monthlyAmt)
+                .map((d, i, arr) => (
+                  <div key={d.id} style={{
+                    display:'flex', alignItems:'center', justifyContent:'space-between',
+                    padding:'11px 20px',
+                    borderBottom: i < arr.length - 1 ? '1px solid #111827' : 'none',
+                    transition:'background 0.1s',
+                  }}
+                    onMouseEnter={e=>(e.currentTarget.style.background='rgba(255,255,255,0.03)')}
+                    onMouseLeave={e=>(e.currentTarget.style.background='transparent')}
+                  >
+                    <div style={{ display:'flex', alignItems:'center', gap:10, minWidth:0 }}>
+                      {/* 색상 dot */}
+                      <div style={{ width:7, height:7, borderRadius:'50%', background:'#34d399', flexShrink:0, boxShadow:'0 0 6px rgba(52,211,153,0.5)' }}/>
+                      <div style={{ minWidth:0 }}>
+                        <div style={{
+                          fontSize:13, fontWeight:600, color:'#dde4f0',
+                          overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' as const,
+                          maxWidth:200,
+                        }}>
+                          {d.name}
+                        </div>
+                        <div style={{ fontSize:10, color:'#374168', marginTop:2 }}>
+                          {d.ticker} · {d.quantity.toLocaleString()}주
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ textAlign:'right' as const, flexShrink:0, marginLeft:12 }}>
+                      <div style={{ fontSize:14, fontWeight:800, color:'#34d399', fontVariantNumeric:'tabular-nums' }}>
+                        {fmtKrw(Math.round(d.monthlyAmt))}
+                      </div>
+                      <div style={{ fontSize:10, color:'#374168', marginTop:2 }}>/ 월</div>
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
+
+            {/* 합계 푸터 */}
+            <div style={{
+              padding:'14px 20px',
+              borderTop:'1px solid #1a2235',
+              background:'#090c14',
+              display:'flex', justifyContent:'space-between', alignItems:'center',
+              flexShrink:0,
+            }}>
+              <div>
+                <div style={{ fontSize:9, color:'#454868', fontWeight:700, letterSpacing:'0.1em' }}>TOTAL / 월</div>
+                <div style={{ fontSize:10, color:'#374168', marginTop:2 }}>
+                  연 {fmtKrw(Math.round(
+                    investments.reduce((sum, inv) => {
+                      const key  = inv.ticker.toUpperCase()
+                      const lv   = priceMap[inv.ticker.toUpperCase()]
+                      const dMap = dividendMap[key]
+                      const annDiv = dMap?.annualDividend ?? null
+                      if (annDiv && annDiv > 0) return sum + annDiv * inv.quantity * (inv.currency === 'USD' ? usdKrw : 1)
+                      const dy = dMap?.dividendYield ?? lv?.dividendYield ?? null
+                      if (dy && dy > 0) {
+                        const p = (lv?.currentPrice ?? inv.purchase_price) * (inv.currency === 'USD' ? usdKrw : 1)
+                        return sum + p * inv.quantity * dy
+                      }
+                      return sum
+                    }, 0)
+                  ))} 예상
+                </div>
+              </div>
+              <div style={{ fontSize:22, fontWeight:900, color:'#34d399', fontVariantNumeric:'tabular-nums', letterSpacing:'-0.5px' }}>
+                {fmtKrw(Math.round(
+                  investments.reduce((sum, inv) => {
+                    const key  = inv.ticker.toUpperCase()
+                    const lv   = priceMap[inv.ticker.toUpperCase()]
+                    const dMap = dividendMap[key]
+                    const annDiv = dMap?.annualDividend ?? null
+                    if (annDiv && annDiv > 0) return sum + annDiv * inv.quantity * (inv.currency === 'USD' ? usdKrw : 1) / 12
+                    const dy = dMap?.dividendYield ?? lv?.dividendYield ?? null
+                    if (dy && dy > 0) {
+                      const p = (lv?.currentPrice ?? inv.purchase_price) * (inv.currency === 'USD' ? usdKrw : 1)
+                      return sum + p * inv.quantity * dy / 12
+                    }
+                    return sum
+                  }, 0)
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ── 1. 요약 카드 8개 (Full-Width) ── */}
       {(() => {
@@ -921,73 +1088,16 @@ export default function DashboardPage() {
                     <button
                       onClick={() => setShowDivDetail(v => !v)}
                       style={{
-                        marginTop:6, padding:'2px 8px',
+                        marginTop:7, padding:'3px 10px',
                         background:'transparent',
                         border:`1px solid ${showDivDetail ? '#34d399' : '#2a3050'}`,
-                        borderRadius:5, color: showDivDetail ? '#34d399' : '#454868',
+                        borderRadius:5, color: showDivDetail ? '#34d399' : '#4b5680',
                         fontSize:9, fontWeight:600, cursor:'pointer',
-                        transition:'all 0.15s',
+                        letterSpacing:'0.04em', transition:'all 0.15s',
                       }}
                     >
-                      {showDivDetail ? '▲ 닫기' : '▼ 상세보기'}
+                      {showDivDetail ? '✕ 닫기' : '상세 보기 →'}
                     </button>
-                  )}
-
-                  {/* 배당 상세 팝업 */}
-                  {isDivCard && showDivDetail && dividendDetails.length > 0 && (
-                    <div style={{
-                      position:'absolute' as const,
-                      bottom:'calc(100% + 8px)', right:0,
-                      width:220, zIndex:999,
-                      background:'#0f1117',
-                      border:'1px solid #1e2a40',
-                      borderRadius:12,
-                      boxShadow:'0 8px 32px rgba(0,0,0,0.7)',
-                      overflow:'hidden',
-                    }}>
-                      {/* 팝업 헤더 */}
-                      <div style={{ padding:'10px 14px 8px', borderBottom:'1px solid #1e2a40' }}>
-                        <div style={{ fontSize:9, fontWeight:700, color:'#34d399', letterSpacing:'0.1em', textTransform:'uppercase' as const }}>
-                          종목별 월간 배당금
-                        </div>
-                      </div>
-                      {/* 종목 리스트 */}
-                      <div style={{ maxHeight:200, overflowY:'auto' as const, padding:'6px 0' }}>
-                        {dividendDetails.map((d, i) => (
-                          <div key={i} style={{
-                            display:'flex', alignItems:'center',
-                            justifyContent:'space-between',
-                            padding:'5px 14px',
-                            borderBottom: i < dividendDetails.length - 1 ? '1px solid #0f1a2e' : 'none',
-                          }}>
-                            <div>
-                              <div style={{ fontSize:10, fontWeight:600, color:'#c4cde6', maxWidth:110, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' as const }}>
-                                {d.name.length > 10 ? d.name.slice(0,10)+'…' : d.name}
-                              </div>
-                              <div style={{ fontSize:8, color:'#374168', marginTop:1 }}>{d.ticker}</div>
-                            </div>
-                            <div style={{ textAlign:'right' as const }}>
-                              <div style={{ fontSize:11, fontWeight:800, color:'#34d399', fontVariantNumeric:'tabular-nums' }}>
-                                {fmtKrw(Math.round(d.monthlyAmt))}
-                              </div>
-                              <div style={{ fontSize:8, color:'#374168', marginTop:1 }}>/ 월</div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      {/* 합계 */}
-                      <div style={{
-                        padding:'8px 14px',
-                        borderTop:'1px solid #1e2a40',
-                        display:'flex', justifyContent:'space-between', alignItems:'center',
-                        background:'#0a0d16',
-                      }}>
-                        <span style={{ fontSize:9, color:'#454868', fontWeight:600 }}>TOTAL</span>
-                        <span style={{ fontSize:13, fontWeight:900, color:'#34d399', fontVariantNumeric:'tabular-nums' }}>
-                          {fmtKrw(Math.round(monthlyDividend))}
-                        </span>
-                      </div>
-                    </div>
                   )}
                 </div>
               )
