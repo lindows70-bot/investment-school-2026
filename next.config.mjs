@@ -1,8 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // yahoo-finance2, 네이버 fetch 등 서버 전용 패키지를 번들링하지 않고
-  // Node.js 런타임에서 직접 require 하도록 지정 (Vercel 배포 환경 포함)
-  serverExternalPackages: ['yahoo-finance2'],
+  // yahoo-finance2 를 번들링하지 않고 Node.js 런타임에서 직접 사용 (Vercel 포함)
+  // Next.js 14: experimental.serverComponentsExternalPackages
+  experimental: {
+    serverComponentsExternalPackages: ['yahoo-finance2'],
+  },
 
   // 외부 이미지 허용 도메인 (필요 시 추가)
   images: {
