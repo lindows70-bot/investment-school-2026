@@ -436,21 +436,59 @@ export default function AssetsPage() {
                   )}
 
                   {/* Dividend row */}
-                  <div style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 8px', borderRadius:7, background:'#13162a', boxShadow:SHI }}>
-                    <span style={{ fontSize:11 }}>💰</span>
-                    {(livePrice?.dividendYield ?? 0) > 0 ? (
-                      <span style={{ fontSize:10, fontWeight:800, color:'#34d399' }}>
-                        {((livePrice!.dividendYield ?? 0) * 100).toFixed(2)}%
-                      </span>
-                    ) : (
-                      <span style={{ fontSize:9, color:'#363855' }}>배당 없음</span>
-                    )}
-                    {(livePrice?.payoutRatio ?? 0) > 0 && (
-                      <span style={{ fontSize:9, color: (livePrice!.payoutRatio ?? 0) > 1 ? '#f87171' : '#6b7280', marginLeft:2 }}>
-                        {(livePrice!.payoutRatio ?? 0) > 1 ? '⚠️ ' : ''}성향 {Math.round((livePrice!.payoutRatio ?? 0) * 100)}%
-                      </span>
-                    )}
-                  </div>
+                  {(() => {
+                    const dy    = livePrice?.dividendYield ?? 0
+                    const annDiv = livePrice?.annualDividend ?? null
+                    const curPrice = livePrice?.currentPrice ?? inv.purchase_price
+                    const exRate   = inv.currency === 'USD' ? 1_350 : 1
+                    // 연간 총 배당금 (원화)
+                    const annualTotal = annDiv && annDiv > 0
+                      ? annDiv * inv.quantity * (inv.currency === 'USD' ? 1_350 : 1)
+                      : dy > 0
+                        ? curPrice * inv.quantity * exRate * dy
+                        : 0
+                    const monthlyTotal = annualTotal / 12
+                    const hasDividend  = dy > 0 || (annDiv ?? 0) > 0
+
+                    const fmtSmall = (n:number) =>
+                      n >= 1e8 ? `₩${(n/1e8).toFixed(1)}억`
+                      : n >= 1e4 ? `₩${Math.round(n/1e4).toLocaleString('ko-KR')}만`
+                      : `₩${Math.round(n).toLocaleString('ko-KR')}`
+
+                    return (
+                      <div style={{ background:'#13162a', boxShadow:SHI, borderRadius:7, padding:'6px 9px' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:4, marginBottom: hasDividend ? 4 : 0 }}>
+                          <span style={{ fontSize:10 }}>💰</span>
+                          {hasDividend ? (
+                            <span style={{ fontSize:11, fontWeight:800, color:'#34d399' }}>
+                              {(dy * 100).toFixed(2)}%
+                            </span>
+                          ) : (
+                            <span style={{ fontSize:9, color:'#363855' }}>배당 없음</span>
+                          )}
+                          {/* 주당 배당금 서브텍스트 */}
+                          {annDiv && annDiv > 0 && (
+                            <span style={{ fontSize:8, color:'#4b5568', marginLeft:2 }}>
+                              {inv.currency === 'USD' ? `$${annDiv.toFixed(2)}/주` : `₩${Math.round(annDiv).toLocaleString('ko-KR')}/주`}
+                            </span>
+                          )}
+                        </div>
+                        {/* 예상 총 배당금 (연/월) */}
+                        {hasDividend && annualTotal > 0 && (
+                          <div style={{ display:'flex', alignItems:'baseline', gap:5 }}>
+                            <span style={{ fontSize:11, fontWeight:800, color:'#dde4f0', fontVariantNumeric:'tabular-nums' }}>
+                              {fmtSmall(annualTotal)}
+                            </span>
+                            <span style={{ fontSize:8, color:'#454868' }}>연</span>
+                            <span style={{ fontSize:9, color:'#34d399', fontVariantNumeric:'tabular-nums' }}>
+                              {fmtSmall(monthlyTotal)}
+                            </span>
+                            <span style={{ fontSize:8, color:'#454868' }}>월</span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
 
                   {/* Buy/Sell buttons */}
                   <div style={{ display:'flex', gap:6, marginTop:2 }}>
@@ -504,7 +542,21 @@ export default function AssetsPage() {
                         { label:'Fwd EPS',  val: livePrice?.forwardEps != null ? (inv.currency==='KRW' ? `₩${Math.round(livePrice.forwardEps).toLocaleString('ko-KR')}` : `$${livePrice.forwardEps.toFixed(2)}`) : '—' },
                         { label:'PBR',      val: livePrice?.pbr        != null ? livePrice.pbr.toFixed(2)                                                                        : '—' },
                         { label:'배당수익률', val: (livePrice?.dividendYield ?? 0) > 0 ? `${((livePrice!.dividendYield ?? 0)*100).toFixed(2)}%` : '—' },
-                        { label:'배당성향',   val: (livePrice?.payoutRatio ?? 0) > 0   ? `${Math.round((livePrice!.payoutRatio ?? 0)*100)}%`    : '—' },
+                        {
+                          label:'월 배당(예상)',
+                          val: (() => {
+                            const annDiv = livePrice?.annualDividend ?? null
+                            const dy     = livePrice?.dividendYield ?? 0
+                            const price  = livePrice?.currentPrice ?? inv.purchase_price
+                            const exRate = inv.currency === 'USD' ? 1_350 : 1
+                            const monthly = annDiv && annDiv > 0
+                              ? annDiv * inv.quantity * exRate / 12
+                              : dy > 0 ? price * inv.quantity * exRate * dy / 12 : 0
+                            if (monthly <= 0) return '—'
+                            const v = Math.round(monthly)
+                            return v >= 10000 ? `₩${(v/10000).toFixed(1)}만` : `₩${v.toLocaleString('ko-KR')}`
+                          })(),
+                        },
                       ].map(({ label, val }) => (
                         <div key={label} style={{ background:'#13162a', boxShadow:SHI, borderRadius:7, padding:'5px 8px' }}>
                           <div style={{ fontSize:7, color:'#363855', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>{label}</div>

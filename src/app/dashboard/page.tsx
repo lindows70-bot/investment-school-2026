@@ -260,6 +260,7 @@ export default function DashboardPage() {
     dividendYield:  number | null
   }>>({})
   const [dividendLoading, setDividendLoading] = useState(false)
+  const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
 
   // 5초 타임아웃
   useEffect(() => {
@@ -810,12 +811,30 @@ export default function DashboardPage() {
           return sum + priceKrw * inv.quantity * dy / 12
         }, 0)
 
-        const dividendStockCount = investments.filter(inv => {
-          const key  = inv.ticker.toUpperCase()
-          const dMap = dividendMap[key]
-          const dy   = dMap?.annualDividend ?? dMap?.dividendYield ?? live(inv)?.dividendYield ?? null
-          return (dy ?? 0) > 0
-        }).length
+        // 종목별 배당 상세 목록 (팝업용)
+        const dividendDetails = investments
+          .map(inv => {
+            const key  = inv.ticker.toUpperCase()
+            const lv   = live(inv)
+            const dMap = dividendMap[key]
+            const annDiv = dMap?.annualDividend ?? null
+            let monthlyAmt = 0
+            if (annDiv && annDiv > 0) {
+              const annDivKrw = inv.currency === 'USD' ? annDiv * usdKrw : annDiv
+              monthlyAmt = annDivKrw * inv.quantity / 12
+            } else {
+              const dy = dMap?.dividendYield ?? lv?.dividendYield ?? null
+              if (dy && dy > 0) {
+                const priceKrw = (lv?.currentPrice ?? inv.purchase_price) * (inv.currency === 'USD' ? usdKrw : 1)
+                monthlyAmt = priceKrw * inv.quantity * dy / 12
+              }
+            }
+            return monthlyAmt > 0 ? { name: inv.name, ticker: inv.ticker, monthlyAmt } : null
+          })
+          .filter((d): d is { name:string; ticker:string; monthlyAmt:number } => d !== null)
+          .sort((a, b) => b.monthlyAmt - a.monthlyAmt)
+
+        const dividendStockCount = dividendDetails.length
 
         // ── 9 카드 정의 ──────────────────────────────────────────
         const N   = '#1b1e2e'
@@ -880,21 +899,99 @@ export default function DashboardPage() {
 
         return (
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:10 }}>
-            {cards.map(({ label, accent, main, sub }) => (
-              <div key={label} style={{
-                background: N, boxShadow: SHO,
-                borderRadius: 12, padding: '12px 14px',
-                borderLeft: `3px solid ${accent}`,
-              }}>
-                <div style={{ fontSize:8, fontWeight:700, color:'#454868', textTransform:'uppercase' as const, letterSpacing:'0.1em', marginBottom:6 }}>
-                  {label}
+            {cards.map(({ label, accent, main, sub }) => {
+              const isDivCard = label === '월간 예상 배당금'
+              return (
+                <div key={label} style={{
+                  background: N, boxShadow: SHO,
+                  borderRadius: 12, padding: '12px 14px',
+                  borderLeft: `3px solid ${accent}`,
+                  position: 'relative' as const,
+                }}>
+                  <div style={{ fontSize:8, fontWeight:700, color:'#454868', textTransform:'uppercase' as const, letterSpacing:'0.1em', marginBottom:6 }}>
+                    {label}
+                  </div>
+                  <div style={{ fontSize:20, fontWeight:800, color:accent, fontVariantNumeric:'tabular-nums', letterSpacing:'-0.4px', lineHeight:1.1 }}>
+                    {main}
+                  </div>
+                  {sub && <div style={{ fontSize:10, color:'#454868', marginTop:4 }}>{sub}</div>}
+
+                  {/* 배당 카드 전용: 상세보기 버튼 */}
+                  {isDivCard && !dividendLoading && monthlyDividend > 0 && (
+                    <button
+                      onClick={() => setShowDivDetail(v => !v)}
+                      style={{
+                        marginTop:6, padding:'2px 8px',
+                        background:'transparent',
+                        border:`1px solid ${showDivDetail ? '#34d399' : '#2a3050'}`,
+                        borderRadius:5, color: showDivDetail ? '#34d399' : '#454868',
+                        fontSize:9, fontWeight:600, cursor:'pointer',
+                        transition:'all 0.15s',
+                      }}
+                    >
+                      {showDivDetail ? '▲ 닫기' : '▼ 상세보기'}
+                    </button>
+                  )}
+
+                  {/* 배당 상세 팝업 */}
+                  {isDivCard && showDivDetail && dividendDetails.length > 0 && (
+                    <div style={{
+                      position:'absolute' as const,
+                      bottom:'calc(100% + 8px)', right:0,
+                      width:220, zIndex:999,
+                      background:'#0f1117',
+                      border:'1px solid #1e2a40',
+                      borderRadius:12,
+                      boxShadow:'0 8px 32px rgba(0,0,0,0.7)',
+                      overflow:'hidden',
+                    }}>
+                      {/* 팝업 헤더 */}
+                      <div style={{ padding:'10px 14px 8px', borderBottom:'1px solid #1e2a40' }}>
+                        <div style={{ fontSize:9, fontWeight:700, color:'#34d399', letterSpacing:'0.1em', textTransform:'uppercase' as const }}>
+                          종목별 월간 배당금
+                        </div>
+                      </div>
+                      {/* 종목 리스트 */}
+                      <div style={{ maxHeight:200, overflowY:'auto' as const, padding:'6px 0' }}>
+                        {dividendDetails.map((d, i) => (
+                          <div key={i} style={{
+                            display:'flex', alignItems:'center',
+                            justifyContent:'space-between',
+                            padding:'5px 14px',
+                            borderBottom: i < dividendDetails.length - 1 ? '1px solid #0f1a2e' : 'none',
+                          }}>
+                            <div>
+                              <div style={{ fontSize:10, fontWeight:600, color:'#c4cde6', maxWidth:110, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' as const }}>
+                                {d.name.length > 10 ? d.name.slice(0,10)+'…' : d.name}
+                              </div>
+                              <div style={{ fontSize:8, color:'#374168', marginTop:1 }}>{d.ticker}</div>
+                            </div>
+                            <div style={{ textAlign:'right' as const }}>
+                              <div style={{ fontSize:11, fontWeight:800, color:'#34d399', fontVariantNumeric:'tabular-nums' }}>
+                                {fmtKrw(Math.round(d.monthlyAmt))}
+                              </div>
+                              <div style={{ fontSize:8, color:'#374168', marginTop:1 }}>/ 월</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {/* 합계 */}
+                      <div style={{
+                        padding:'8px 14px',
+                        borderTop:'1px solid #1e2a40',
+                        display:'flex', justifyContent:'space-between', alignItems:'center',
+                        background:'#0a0d16',
+                      }}>
+                        <span style={{ fontSize:9, color:'#454868', fontWeight:600 }}>TOTAL</span>
+                        <span style={{ fontSize:13, fontWeight:900, color:'#34d399', fontVariantNumeric:'tabular-nums' }}>
+                          {fmtKrw(Math.round(monthlyDividend))}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div style={{ fontSize:20, fontWeight:800, color:accent, fontVariantNumeric:'tabular-nums', letterSpacing:'-0.4px', lineHeight:1.1 }}>
-                  {main}
-                </div>
-                {sub && <div style={{ fontSize:10, color:'#454868', marginTop:4 }}>{sub}</div>}
-              </div>
-            ))}
+              )
+            })}
           </div>
         )
       })()}
