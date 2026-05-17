@@ -20,7 +20,7 @@
 import {
   useState, useEffect, useRef, useMemo, useCallback,
 } from 'react'
-import { ComposableMap, Geographies, Geography } from 'react-simple-maps'
+import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps'
 import {
   createChart, ColorType, LineStyle,
   AreaSeries, LineSeries,
@@ -215,41 +215,51 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
         </div>
       </div>
 
-      {/* ─ 지도 — 파노라믹 와이드 스크린 ─ */}
-      {/* 패딩 제거 + overflow hidden으로 여백 없이 꽉 채움 */}
-      <div style={{ position:'relative', padding:'0', margin:'0 0 6px', overflow:'hidden' }}>
+      {/* ─ 지도 — 자연스러운 2:1 비율 + 5대 권역 마커 ─ */}
+      <div style={{ position:'relative', padding:'0 0 6px', margin:'0' }}>
         {loading
-          ? <div style={{ height:340 }}><Sk h={340} r={0}/></div>
+          ? <div style={{ height:380 }}><Sk h={380} r={8}/></div>
           : (
             <ComposableMap
               projection="geoMercator"
               projectionConfig={{
-                // scale: 130→185 (1.42배 줌인, 대륙이 화면 좌우 경계까지 꽉 참)
-                scale:  185,
-                // center: 경도 10°(유럽 중심), 위도 15°(아프리카 위쪽)
-                // 주요 투자국(미/유럽/동아시아)이 화면 안에 정렬됨
-                center: [10, 15],
+                // scale 130: width=800에서 세계 전체가 자연스럽게 들어오는 표준값
+                // 왜곡 없는 2:1 비율의 Mercator 기준점
+                scale:  130,
+                // 경도 10° (그리니치 우측, 유럽·아프리카 중심)
+                // 위도 10° (적도 약간 위, 아시아·아메리카 균형)
+                center: [10, 10],
               }}
-              // width:height = 960:340 ≈ 2.82:1 와이드 비율
-              // viewBox 내부 픽셀로 렌더링, 실제 표시는 100% 너비로 늘어남
-              width={960}
-              height={340}
-              style={{ background:'transparent', width:'100%', display:'block' }}
+              // ─ 비율 핵심 설정 ───────────────────────────────────────────
+              // width=800, height=400 → 정확히 2:1 (세계지도 표준 Mercator 비율)
+              // SVG viewBox가 800×400으로 내부 렌더링되고
+              // style width:100%/height:auto 로 컨테이너에 맞게 반응형 확장
+              width={800}
+              height={400}
+              style={{ background:'transparent', width:'100%', height:'auto', display:'block' }}
             >
+              {/* ── 국가별 히트맵 채색 ── */}
               <Geographies geography={GEO_URL}>
                 {({ geographies }) =>
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   geographies.map((geo: any) => {
                     const gid    = String(geo.id)
+                    // ── ISO 코드 매칭 검증 ──────────────────────────────
+                    // GEO2ISO: { '840':'USA', '410':'KOR', '392':'JPN', ... }
+                    // geo.id는 TopoJSON numeric ID (ISO 3166-1 numeric)
+                    // COUNTRY_META는 ISO 3166-1 alpha-3 ('USA','KOR'...)을 키로 사용
+                    // GEO2ISO를 통해 정확히 매핑됨
                     const active = !!GEO2ISO[gid]
                     const col    = active ? getGeoColor(gid) : '#0d1f35'
                     const isHov  = hovered === gid
                     return (
                       <Geography key={geo.rsmKey} geography={geo}
-                        fill={isHov ? '#ffffff' : col} stroke={C.border} strokeWidth={0.4}
+                        fill={isHov ? '#e2e8f0' : col}
+                        stroke="#0a1929"
+                        strokeWidth={0.35}
                         style={{
-                          default:{ outline:'none', transition:'fill 0.2s' },
-                          hover:  { outline:'none', fill: active?'#ffffff':'#0d1f35', cursor: active?'pointer':'default' },
+                          default:{ outline:'none', transition:'fill 0.22s ease' },
+                          hover:  { outline:'none', fill: active ? '#e2e8f0' : '#0d1f35', cursor: active ? 'pointer' : 'default' },
                           pressed:{ outline:'none' },
                         }}
                         onMouseEnter={(e:React.MouseEvent<SVGPathElement>) => {
@@ -265,6 +275,70 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
                   })
                 }
               </Geographies>
+
+              {/* ── 5대 권역 마커 (정확한 위경도 좌표) ── */}
+              {[
+                // [경도, 위도], 표시명, ISO3
+                { coords: [-95.7129,  37.0902] as [number,number], label:'미국',    iso:'USA' },
+                { coords: [ 10.4515,  51.1657] as [number,number], label:'유로존',  iso:'DEU' },
+                { coords: [127.7669,  35.9078] as [number,number], label:'한국',    iso:'KOR' },
+                { coords: [104.1954,  35.8617] as [number,number], label:'중국',    iso:'CHN' },
+                { coords: [138.2529,  36.2048] as [number,number], label:'일본',    iso:'JPN' },
+              ].map(m => {
+                const iso = m.iso as keyof typeof COUNTRY_META
+                const val = getVal(iso, ind)
+                const col = val != null
+                  ? heatColor(val, cfg.low, cfg.high)
+                  : C.muted
+                return (
+                  <Marker key={m.iso} coordinates={m.coords}>
+                    {/* 외곽 글로우 링 */}
+                    <circle r={6} fill="none" stroke={col} strokeWidth={1.5} opacity={0.6}/>
+                    {/* 중심 점 */}
+                    <circle r={3} fill={col} stroke="#020617" strokeWidth={1}/>
+                    {/* 국가명 라벨 */}
+                    <text
+                      y={-10}
+                      textAnchor="middle"
+                      style={{
+                        fontSize: 8,
+                        fontWeight: 700,
+                        fill: col,
+                        fontFamily: '-apple-system, sans-serif',
+                        letterSpacing: '0.03em',
+                        pointerEvents: 'none',
+                        // 텍스트 외곽선으로 가독성 확보
+                        textShadow: '0 0 3px #020617',
+                        paintOrder: 'stroke',
+                        stroke: '#020617',
+                        strokeWidth: 2.5,
+                        strokeLinejoin: 'round' as const,
+                      } as React.CSSProperties}
+                    >
+                      {m.label}
+                    </text>
+                    {/* 지표값 서브라벨 */}
+                    {val != null && (
+                      <text
+                        y={-2}
+                        textAnchor="middle"
+                        style={{
+                          fontSize: 7,
+                          fill: col,
+                          fontFamily: '-apple-system, sans-serif',
+                          fontVariantNumeric: 'tabular-nums',
+                          pointerEvents: 'none',
+                          paintOrder: 'stroke',
+                          stroke: '#020617',
+                          strokeWidth: 2,
+                        } as React.CSSProperties}
+                      >
+                        {val.toFixed(1)}{cfg.unit}
+                      </text>
+                    )}
+                  </Marker>
+                )
+              })}
             </ComposableMap>
           )
         }
@@ -301,11 +375,11 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
           </div>
         )}
 
-        {/* 범례 — 지도 하단 우측에 오버레이 */}
+        {/* 범례 — 지도 우하단 오버레이 */}
         <div style={{
-          position:'absolute', bottom:10, right:12,
+          position:'absolute', bottom:14, right:12,
           display:'flex', gap:5, flexWrap:'wrap' as const, justifyContent:'flex-end',
-          background:'rgba(2,6,23,0.72)', backdropFilter:'blur(6px)',
+          background:'rgba(2,6,23,0.78)', backdropFilter:'blur(6px)',
           border:`1px solid ${C.border}`, borderRadius:8,
           padding:'5px 10px',
         }}>
