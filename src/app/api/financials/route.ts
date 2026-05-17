@@ -71,17 +71,22 @@ function makeShell(ticker: string, market: 'US' | 'KR') {
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
-//  FMP 헬퍼 — Financial Modeling Prep Income Statement
-//  연간(FY) 기준, 최대 8개년 반환
+//  FMP 헬퍼 — Financial Modeling Prep Stable Income Statement API
+//
+//  ※ 2025년 8월 이후 FMP API 변경사항:
+//     구 endpoint: /api/v3/income-statement/{ticker} (Legacy, 유료 전환)
+//     신 endpoint: /stable/income-statement?symbol={ticker}&period=annual
+//     필드명 변경: epsdiluted → epsDiluted, calendarYear 제거 → fiscalYear 사용
+//     무료 플랜: limit 최대 5 (5개년 데이터)
 // ════════════════════════════════════════════════════════════════════════════════
 type FMPRow = {
-  calendarYear: string
-  period:       string
-  eps:          number
-  epsdiluted:   number
-  operatingIncome: number
-  revenue:      number
-  date:         string
+  fiscalYear:      string   // "2025", "2024", ...
+  period:          string   // "FY" (연간) | "Q1" 등
+  eps:             number   // 기본 EPS
+  epsDiluted:      number   // 희석 EPS (우선 사용)
+  operatingIncome: number   // 영업이익 (USD, raw)
+  revenue:         number   // 매출액 (USD, raw)
+  date:            string
 }
 
 async function fetchFMPIncomeStatement(ticker: string): Promise<Map<number, { eps: number; oi: number; rev: number }>> {
@@ -92,27 +97,40 @@ async function fetchFMPIncomeStatement(ticker: string): Promise<Map<number, { ep
   }
 
   try {
+    // 신규 stable 엔드포인트 (무료 플랜 limit=5)
     const url =
-      `https://financialmodelingprep.com/api/v3/income-statement/` +
-      `${encodeURIComponent(ticker)}?limit=8&apikey=${FMP_KEY}`
+      `https://financialmodelingprep.com/stable/income-statement` +
+      `?symbol=${encodeURIComponent(ticker)}&period=annual&limit=5&apikey=${FMP_KEY}`
+
     const res = await fetch(url, { cache: 'no-store' })
+
+    if (res.status === 402) {
+      console.warn('[FMP] 402 결제 필요 — 플랜 한도 초과 또는 엔드포인트 제한')
+      return result
+    }
     if (!res.ok) {
       console.warn('[FMP] HTTP', res.status)
       return result
     }
-    const data: FMPRow[] = await res.json()
-    if (!Array.isArray(data) || (data as unknown as { error?: string }).error) {
-      console.warn('[FMP] 응답 오류:', JSON.stringify(data).slice(0, 100))
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: FMPRow[] | { 'Error Message'?: string; error?: string } | any = await res.json()
+
+    if (!Array.isArray(data)) {
+      console.warn('[FMP] 비배열 응답:', JSON.stringify(data).slice(0, 150))
       return result
     }
 
-    for (const row of data) {
+    for (const row of data as FMPRow[]) {
       if (row.period !== 'FY') continue      // 연간 데이터만
-      const yr = parseInt(row.calendarYear, 10)
+
+      // fiscalYear: "2025" 형식
+      const yr = parseInt(String(row.fiscalYear ?? ''), 10)
       if (!yr || yr < 2000) continue
 
-      const eps = typeof row.epsdiluted === 'number' && row.epsdiluted !== 0
-        ? row.epsdiluted
+      // 희석 EPS 우선, 없으면 기본 EPS
+      const eps = typeof row.epsDiluted === 'number' && row.epsDiluted !== 0
+        ? row.epsDiluted
         : (typeof row.eps === 'number' ? row.eps : 0)
 
       const oi  = typeof row.operatingIncome === 'number' ? row.operatingIncome : 0
@@ -120,11 +138,13 @@ async function fetchFMPIncomeStatement(ticker: string): Promise<Map<number, { ep
 
       result.set(yr, {
         eps,
-        oi:  oi  > 0 ? +(oi  / 1e6).toFixed(2) : 0,   // USD → M USD
-        rev: rev > 0 ? +(rev / 1e6).toFixed(2) : 0,   // USD → M USD
+        oi:  oi  !== 0 ? +(oi  / 1e6).toFixed(2) : 0,   // USD → M USD
+        rev: rev > 0   ? +(rev / 1e6).toFixed(2) : 0,   // USD → M USD
       })
     }
-    console.log('[FMP] 수신 연도:', Array.from(result.keys()).sort().join(', '))
+
+    console.log('[FMP] 수신 연도:', Array.from(result.keys()).sort().join(', '),
+      '| EPS 샘플:', Array.from(result.entries()).slice(-1).map(([y,v]) => `${y}:${v.eps}`)[0])
   } catch (e) {
     console.warn('[FMP] 오류:', (e as Error).message)
   }
@@ -463,15 +483,26 @@ async function fetchUS(ticker: string) {
         revenue:         fmp?.rev ?? 0,
       }
     } else {
-      // 추정 연도: Yahoo earningsTrend
-      const delta  = yr - cy
-      const pMap: Record<number, string> = { 0: '0y', 1: '+1y', 2: '+2y' }
-      const td     = trendMap.get(pMap[delta] ?? '')
-      const fwdEps = toNum(stats?.forwardEps)
-      fin[key] = {
-        eps:             td?.eps && td.eps > 0 ? td.eps : (delta === 0 ? fwdEps : 0),
-        operatingProfit: 0,   // FMP/Yahoo 둘 다 미래 영업이익 미제공
-        revenue:         td?.rev ?? 0,
+      // 추정 연도지만 FMP에 실제 데이터가 있는 경우 → 확정 실적으로 우선 처리
+      // (비12월 결산 종목: NVDA=1월말, AAPL=9월말 등 FY가 다음해로 기록됨)
+      const fmpActual = fmpData.get(yr)
+      if (fmpActual && (fmpActual.eps !== 0 || fmpActual.rev > 0)) {
+        fin[key] = {
+          eps:             fmpActual.eps,
+          operatingProfit: fmpActual.oi,
+          revenue:         fmpActual.rev,
+        }
+      } else {
+        // 실제 FMP 데이터 없음 → Yahoo earningsTrend 추정치 사용
+        const delta  = yr - cy
+        const pMap: Record<number, string> = { 0: '0y', 1: '+1y', 2: '+2y' }
+        const td     = trendMap.get(pMap[delta] ?? '')
+        const fwdEps = toNum(stats?.forwardEps)
+        fin[key] = {
+          eps:             td?.eps && td.eps > 0 ? td.eps : (delta === 0 ? fwdEps : 0),
+          operatingProfit: 0,
+          revenue:         td?.rev ?? 0,
+        }
       }
     }
   }
