@@ -451,6 +451,10 @@ function CompareChart({ api, loading }: { api: MacroApi | null; loading: boolean
       chartApi.current = null
     }
 
+    // ── nvda_pltr 비교 모드: 두 시리즈가 같은 Y축을 공유해야 올바른 비교 가능
+    // 다른 프리셋: 좌(금리%) ↔ 우(주가$) 이중 축
+    const isComparison = preset === 'nvda_pltr'
+
     const chart = createChart(chartRef.current, {
       width:  chartRef.current.clientWidth,
       height: 320,
@@ -468,15 +472,18 @@ function CompareChart({ api, loading }: { api: MacroApi | null; loading: boolean
         vertLine: { color: C.neon + '66', labelBackgroundColor: C.card },
         horzLine: { color: C.neon + '44', labelBackgroundColor: C.card },
       },
+      // 비교 모드: 우측 Y축 숨김 (좌측 % 하나만 사용)
       rightPriceScale: {
+        visible:     !isComparison,
         borderColor: C.border,
         textColor:   p.right.color,
-        mode:        1,   // logarithmic for stocks
+        mode:        isComparison ? 0 : 1,   // 비교: Normal, 주가: Logarithmic
       },
       leftPriceScale: {
         visible:     true,
         borderColor: C.border,
-        textColor:   p.left.color,
+        textColor:   isComparison ? C.sub : p.left.color,
+        autoScale:   true,   // 두 시리즈 전체 범위를 포함하도록 자동 스케일
       },
       timeScale: {
         borderColor:     C.border,
@@ -494,12 +501,13 @@ function CompareChart({ api, loading }: { api: MacroApi | null; loading: boolean
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const addOpts = (obj: any) => obj  // v5 타입 우회
 
-    // 좌측 Y축 — Area 시리즈 (v5 API)
+    // ── 왼쪽 시리즈 (NVDA 또는 금리)
     const ls = chart.addSeries(AreaSeries, addOpts({
       priceScaleId: 'left',
       lineColor:    p.left.color,
-      topColor:     p.left.color + '40',
-      bottomColor:  p.left.color + '05',
+      // 비교 모드: 면적 투명도 낮춤 (겹쳐도 뒤 시리즈가 보이도록)
+      topColor:     isComparison ? p.left.color + '25' : p.left.color + '40',
+      bottomColor:  isComparison ? p.left.color + '05' : p.left.color + '05',
       lineWidth:    2,
       title:        `${p.left.label} (${p.left.unit})`,
       lastValueVisible: true,
@@ -507,15 +515,31 @@ function CompareChart({ api, loading }: { api: MacroApi | null; loading: boolean
     }))
     ls.setData(leftData)
 
-    // 우측 Y축 — Line 시리즈 (v5 API)
-    const rs = chart.addSeries(LineSeries, addOpts({
-      priceScaleId: 'right',
-      color:        p.right.color,
-      lineWidth:    2.5,
-      title:        `${p.right.label} (${p.right.unit})`,
-      lastValueVisible: true,
-      priceLineVisible: false,
-    }))
+    // ── 오른쪽 시리즈 (PLTR 또는 주가/CPI)
+    // 비교 모드: 같은 'left' 스케일에 독립 오버레이 → 절대 스택 안 됨
+    const rightScaleId = isComparison ? 'left' : 'right'
+
+    const rs = isComparison
+      // 비교 모드: Area로 연한 fill + 같은 Y축
+      ? chart.addSeries(AreaSeries, addOpts({
+          priceScaleId: rightScaleId,
+          lineColor:    p.right.color,
+          topColor:     p.right.color + '20',
+          bottomColor:  p.right.color + '04',
+          lineWidth:    2.5,
+          title:        `${p.right.label} (${p.right.unit})`,
+          lastValueVisible: true,
+          priceLineVisible: false,
+        }))
+      // 일반 모드: Line 시리즈, 별도 Y축
+      : chart.addSeries(LineSeries, addOpts({
+          priceScaleId: rightScaleId,
+          color:        p.right.color,
+          lineWidth:    2.5,
+          title:        `${p.right.label} (${p.right.unit})`,
+          lastValueVisible: true,
+          priceLineVisible: false,
+        }))
     rs.setData(rightData)
 
     chart.timeScale().fitContent()
