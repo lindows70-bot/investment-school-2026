@@ -1,18 +1,25 @@
 'use client'
 
 /**
- * /macro-hub — 발키리 글로벌 매크로 허브 v2
+ * /macro-hub — 발키리 글로벌 매크로 허브 v3 (실시간 데이터 연동)
  *
- * [상단] 글로벌 매크로 히트맵 (react-simple-maps)
- * [하단] Dual Y-Axis 비교 분석기 — Rolling 36개월 동적 시스템
+ * 데이터 아키텍처:
+ * ┌──────────────────────────────────────────────────────┐
+ * │  Browser (MacroHub.tsx)                              │
+ * │    ↓ fetch('/api/macro-data')                        │
+ * │  Next.js API Route                                   │
+ * │    ↓ World Bank API  → CPI, 실업률, 부채             │
+ * │    ↓ Yahoo Finance   → NVDA, PLTR 36개월 월봉        │
+ * │    ↓ FRED CSV        → 미국 기준금리 시계열            │
+ * │    ↓ 폴백 상수        → 중앙은행 기준금리 (분기 업데이트)│
+ * └──────────────────────────────────────────────────────┘
  *
- * ◆ Rolling Window 방식
- *   전체 데이터: 2022-01 ~ 2027-12 (72개월) 배열로 사전 내장
- *   차트 바인딩: 오늘 날짜 기준으로 최근 N개월(24/36)만 slice
- *   → 몇 달 뒤 앱을 열어도 코드 수정 없이 최신 36개월이 자동 표시
+ * Rolling Window:
+ *   오늘 날짜 기준 자동으로 최근 N개월(24/36) slice
+ *   → 코드 수정 없이 항상 최신 데이터 유지
  */
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps'
 import {
   ComposedChart, Line, Area, XAxis, YAxis,
@@ -42,205 +49,66 @@ const D = {
 const GEO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'
 
 // ═══════════════════════════════════════════════════════════════
-//  MACRO HEATMAP DATA (주요 15개국, 2026년 기준)
+//  API 응답 타입
 // ═══════════════════════════════════════════════════════════════
-interface CountryData {
-  name: string; nameKo: string
-  cpi: number; debt: number; unemployment: number; rate: number; iso3: string
-}
-const COUNTRIES: Record<string, CountryData> = {
-  '840': { name:'United States', nameKo:'미국',    cpi:2.8,  debt:122, unemployment:4.1, rate:3.63, iso3:'840' },
-  '410': { name:'South Korea',   nameKo:'한국',    cpi:2.2,  debt:55,  unemployment:3.0, rate:3.50, iso3:'410' },
-  '392': { name:'Japan',         nameKo:'일본',    cpi:2.9,  debt:263, unemployment:2.4, rate:0.50, iso3:'392' },
-  '156': { name:'China',         nameKo:'중국',    cpi:0.1,  debt:56,  unemployment:5.0, rate:3.10, iso3:'156' },
-  '276': { name:'Germany',       nameKo:'독일',    cpi:2.1,  debt:65,  unemployment:3.4, rate:2.65, iso3:'276' },
-  '826': { name:'United Kingdom',nameKo:'영국',    cpi:2.8,  debt:103, unemployment:4.4, rate:4.50, iso3:'826' },
-  '250': { name:'France',        nameKo:'프랑스',  cpi:1.8,  debt:114, unemployment:7.3, rate:2.65, iso3:'250' },
-  '356': { name:'India',         nameKo:'인도',    cpi:4.6,  debt:85,  unemployment:7.8, rate:6.25, iso3:'356' },
-  '76' : { name:'Brazil',        nameKo:'브라질',  cpi:4.8,  debt:92,  unemployment:7.5, rate:13.25,iso3:'76'  },
-  '36' : { name:'Australia',     nameKo:'호주',    cpi:2.9,  debt:47,  unemployment:4.0, rate:4.10, iso3:'36'  },
-  '124': { name:'Canada',        nameKo:'캐나다',  cpi:2.3,  debt:110, unemployment:6.5, rate:2.75, iso3:'124' },
-  '643': { name:'Russia',        nameKo:'러시아',  cpi:9.1,  debt:20,  unemployment:3.1, rate:21.0, iso3:'643' },
-  '792': { name:'Turkey',        nameKo:'터키',    cpi:38.0, debt:32,  unemployment:8.4, rate:42.5, iso3:'792' },
-  '682': { name:'Saudi Arabia',  nameKo:'사우디',  cpi:1.9,  debt:26,  unemployment:5.8, rate:5.00, iso3:'682' },
-  '710': { name:'South Africa',  nameKo:'남아공',  cpi:4.8,  debt:76,  unemployment:33.5,rate:7.75, iso3:'710' },
+interface MacroApiResponse {
+  countries: {
+    cpi:   Record<string, number | null>
+    unemp: Record<string, number | null>
+    debt:  Record<string, number | null>
+    rates: Record<string, number>
+  }
+  stocks: {
+    nvda: { date: string; close: number }[]
+    pltr: { date: string; close: number }[]
+  }
+  fedRates: { date: string; rate: number }[]
+  dataQuality: {
+    cpiSource:   'worldbank' | 'fallback'
+    stockSource: 'yahoo'     | 'fallback'
+    fedSource:   'fred'      | 'fallback'
+  }
+  lastUpdated: string
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  FULL TIME-SERIES DATA — 2022-01 ~ 2027-12 (72개월)
-//
-//  Rolling Window 시스템:
-//  ┌─────────────────────────────────────────────┐
-//  │ 전체 배열: 2022.01 ──────────────── 2027.12 │
-//  │                        ↑         ↑          │
-//  │              오늘 기준  start─────end        │
-//  │                        ←── 36개월 ──→        │
-//  └─────────────────────────────────────────────┘
-//  앱을 열 때마다 오늘 날짜를 기준으로 slice 자동 재계산
+//  히트맵 국가 기본 정보 (ISO3 키 기준)
 // ═══════════════════════════════════════════════════════════════
-
-/** 시작 월부터 n개월 배열 생성 (형식: "YYYY.MM") */
-const genMonths = (start: string, n: number): string[] => {
-  const [sy, sm] = start.split('-').map(Number)
-  return Array.from({ length: n }, (_, i) => {
-    const d = new Date(sy, sm - 1 + i)
-    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}`
-  })
+const COUNTRY_META: Record<string, { nameKo: string; geoId: string }> = {
+  USA: { nameKo: '미국',    geoId: '840' },
+  KOR: { nameKo: '한국',    geoId: '410' },
+  JPN: { nameKo: '일본',    geoId: '392' },
+  CHN: { nameKo: '중국',    geoId: '156' },
+  DEU: { nameKo: '독일',    geoId: '276' },
+  GBR: { nameKo: '영국',    geoId: '826' },
+  FRA: { nameKo: '프랑스',  geoId: '250' },
+  IND: { nameKo: '인도',    geoId: '356' },
+  BRA: { nameKo: '브라질',  geoId: '76'  },
+  AUS: { nameKo: '호주',    geoId: '36'  },
+  CAN: { nameKo: '캐나다',  geoId: '124' },
+  RUS: { nameKo: '러시아',  geoId: '643' },
+  TUR: { nameKo: '터키',    geoId: '792' },
+  SAU: { nameKo: '사우디',  geoId: '682' },
+  ZAF: { nameKo: '남아공',  geoId: '710' },
 }
-
-// 72개월 전체 타임라인 (2022-01 ~ 2027-12)
-const ALL_MONTHS = genMonths('2022-01', 72)
-
-// ── 미국 기준금리 (Fed Funds Rate %) ──────────────────────────
-// 2022: 제로금리→급격한 인상(0.08%→4.33%)
-// 2023: 고금리 유지(5.33%)
-// 2024: 고점 유지 후 9월부터 소폭 인하
-// ── 미국 기준금리 실제 인하 경로 (Fed Funds Rate 목표 범위 중간값)
-// ┌─ 실제 FOMC 결정 경로 ──────────────────────────────────────────────┐
-// │ 2022: 제로금리(0.08%) → 긴급 인상 → 4.33% 도달                     │
-// │ 2023: 5.08% → 5.33% 고점 도달 후 유지 (총 525bps 인상)              │
-// │ 2024.01~08: 5.33% 유지 (고금리 장기화 'Higher for Longer')           │
-// │ 2024.09: -50bps (빅컷) → 4.88% (4.75-5.00 범위)                    │
-// │ 2024.11: -25bps → 4.63% (4.50-4.75)                                │
-// │ 2024.12: -25bps → 4.38% (4.25-4.50)                                │
-// │ 2025.01~04: 유지 (관세 불확실성으로 인한 동결)                        │
-// │ 2025.05: -25bps → 4.13% (4.00-4.25)                                │
-// │ 2025.07~08: -25bps → 3.88% (3.75-4.00)                             │
-// │ 2025.11: -25bps → 3.63% (3.50-3.75)                                │
-// │ 2026.01~05: 유지 → 현재 3.63% ★ (3.50-3.75 목표 범위)               │
-// └────────────────────────────────────────────────────────────────────┘
-const US_RATE_ALL = [
-  // 2022 — 급격한 인상 사이클
-  0.08, 0.08, 0.20, 0.33, 0.77, 1.21, 1.68, 2.33, 3.08, 3.78, 4.10, 4.33,
-  // 2023 — 고점 도달 및 유지
-  4.58, 4.83, 4.83, 5.08, 5.08, 5.08, 5.33, 5.33, 5.33, 5.33, 5.33, 5.33,
-  // 2024 — 고금리 유지 후 9월 빅컷 시작
-  5.33, 5.33, 5.33, 5.33, 5.33, 5.33, 5.33, 5.33, 4.88, 4.88, 4.63, 4.38,
-  // 2025 — 관세 불확실성 동결 후 점진적 인하
-  4.38, 4.38, 4.38, 4.38, 4.13, 4.13, 3.88, 3.88, 3.88, 3.88, 3.63, 3.63,
-  // 2026 — 현재 3.63% 유지, 연말 추가 인하 예측
-  3.63, 3.63, 3.63, 3.63, 3.63, 3.38, 3.38, 3.13, 3.13, 3.00, 3.00, 3.00,
-  // 2027 — 중립금리(2.5~3.0%) 수렴 예측
-  2.88, 2.88, 2.75, 2.75, 2.75, 2.63, 2.63, 2.63, 2.50, 2.50, 2.50, 2.50,
-]
-
-// ── NVDA 주가 (USD, 2024.06 10:1 분할 소급 기준) ─────────────────
-// ┌─ 주요 이벤트 ─────────────────────────────────────────────────┐
-// │ 2022: 금리 충격으로 고점 $29 → 저점 $12.8 (−56%)              │
-// │ 2023: ChatGPT 공개, AI 반도체 수요 폭발 → +238%               │
-// │ 2024.06: 10:1 주식 분할, H100→H200 전환, ATH $135             │
-// │ 2025.01: DeepSeek 오픈소스 공개 → 단기 -20% 급락              │
-// │ 2025.04: 관세 우려 → 조정 ($86)                               │
-// │ 2025.05~: Blackwell 수요 폭발 + 금리 인하 → 강력 반등          │
-// │ 2026.04: 관세 정책 불확실성 → 조정 ($88)                       │
-// │ 2026.05: 90일 관세 유예 발표 → $114 반등 ★ 현재                │
-// └──────────────────────────────────────────────────────────────┘
-const NVDA_ALL = [
-  // 2022 — 금리 충격 하락장
-  24.0, 24.5, 21.0, 20.0, 17.5, 14.5, 16.5, 17.0, 12.8, 13.2, 14.0, 14.6,
-  // 2023 — AI 붐 역대급 반등
-  15.0, 21.0, 28.0, 32.0, 41.0, 43.0, 49.0, 50.0, 43.5, 43.5, 49.5, 49.5,
-  // 2024 — 분할 후 ATH, H200 사이클 (분할 소급 기준)
-  61.0, 67.0, 82.0, 76.0, 94.0, 135.0, 117.0, 109.0, 116.0, 140.0, 148.0, 134.0,
-  // 2025 — DeepSeek 쇼크 → 회복 → Blackwell 랠리
-  125.0, 108.0, 109.0, 86.0, 109.0, 136.0, 148.0, 124.0, 126.0, 142.0, 152.0, 138.0,
-  // 2026 — 관세 조정 → 90일 유예 반등, AI 수요 지속 ★
-  132.0, 122.0, 116.0, 88.0, 114.0, 130.0, 142.0, 150.0, 138.0, 132.0, 148.0, 162.0,
-  // 2027 — AI 인프라 2.0 사이클, Rubin GPU (예측)
-  172.0, 168.0, 186.0, 195.0, 182.0, 190.0, 200.0, 212.0, 205.0, 218.0, 235.0, 248.0,
-]
-
-// ── PLTR 주가 (USD) ───────────────────────────────────────────────
-// ┌─ 주요 이벤트 ─────────────────────────────────────────────────┐
-// │ 2022: 성장주 시장 붕괴 $13.5 → $8 (−41%)                     │
-// │ 2023: 미군 AI 계약 확장, 흑자 전환 → 서서히 회복              │
-// │ 2024.09: S&P500 편입 결정 발표 → 급등 시작                    │
-// │ 2024.11: 트럼프 당선 + 국방 AI 예산 급증 → $82 연말 급등      │
-// │ 2025: 분기 연속 흑자 + DOGE 정부 AI 계약 → 강력 우상향        │
-// │ 2026.04: 관세 혼란 조정 → 반등 ★ 현재                         │
-// └──────────────────────────────────────────────────────────────┘
-const PLTR_ALL = [
-  // 2022 — 성장주 하락장
-  13.5, 12.8, 11.2, 10.4,  9.1,  8.2,  9.4,  9.8,  8.1,  7.2,  7.8,  8.0,
-  // 2023 — 저점 회복 시작
-   9.0, 11.2, 13.0, 14.5, 15.2, 14.8, 14.2, 15.0, 16.5, 17.2, 18.0, 17.0,
-  // 2024 — S&P500 편입 + 트럼프 당선 수혜 급등
-  18.5, 19.8, 21.0, 22.5, 24.0, 26.5, 28.0, 25.0, 32.0, 45.0, 68.0, 82.0,
-  // 2025 — DOGE 정부 AI 계약 + 연속 흑자 → 강력 랠리
-  84.0, 96.0, 90.0, 93.0, 128.0, 140.0, 148.0, 132.0, 120.0, 138.0, 168.0, 178.0,
-  // 2026 — 관세 조정 → 반등, 정부 AI 지출 증가 ★
-  170.0, 145.0, 118.0, 89.0, 122.0, 138.0, 148.0, 158.0, 145.0, 138.0, 155.0, 170.0,
-  // 2027 — AI 플랫폼 성숙기, NATO 방산 수혜 (예측)
-  182.0, 178.0, 198.0, 210.0, 195.0, 205.0, 218.0, 230.0, 222.0, 238.0, 255.0, 270.0,
-]
-
-// ── 한국 CPI (YoY %) ──────────────────────────────────────────
-// 2022: 에너지·공급망 충격 고물가(최고 6.3%)
-// 2023: 금리 효과, 물가 둔화
-// 2024: 2% 목표 수렴
-// 2025: 안정(1.7~2.5%)
-// 2026: 글로벌 관세 영향 소폭 반등
-// 2027: 안정 기조 유지 (예측)
-const KR_CPI_ALL = [
-  // 2022
-  3.6, 3.7, 4.1, 4.8, 5.4, 6.0, 6.3, 5.7, 5.6, 5.7, 5.0, 5.0,
-  // 2023
-  5.2, 4.8, 4.2, 3.7, 3.3, 2.7, 2.3, 2.0, 1.9, 1.8, 3.4, 3.2,
-  // 2024
-  2.8, 2.9, 3.1, 3.0, 2.7, 2.6, 2.5, 2.4, 2.0, 1.3, 1.5, 1.6,
-  // 2025
-  1.7, 2.0, 2.2, 2.3, 2.5, 2.4, 2.3, 2.2, 2.1, 2.0, 1.9, 2.0,
-  // 2026
-  2.1, 2.2, 2.3, 2.4, 2.3, 2.2, 2.1, 2.0, 1.9, 1.9, 1.8, 1.8,
-  // 2027 (예측)
-  1.9, 2.0, 2.1, 2.2, 2.3, 2.2, 2.1, 2.0, 1.9, 1.9, 1.8, 1.8,
-]
-
-// ── 포트폴리오 배당수익률 (%, 점진적 상승) ─────────────────────
-const PORT_DIV_ALL = [
-  // 2022
-  1.2, 1.2, 1.3, 1.3, 1.4, 1.4, 1.4, 1.3, 1.3, 1.4, 1.4, 1.5,
-  // 2023
-  1.5, 1.6, 1.6, 1.7, 1.7, 1.8, 1.8, 1.8, 1.9, 1.9, 2.0, 2.0,
-  // 2024
-  2.1, 2.1, 2.2, 2.2, 2.3, 2.3, 2.4, 2.4, 2.5, 2.5, 2.6, 2.6,
-  // 2025
-  2.7, 2.7, 2.8, 2.8, 2.9, 2.9, 3.0, 3.0, 3.1, 3.1, 3.2, 3.2,
-  // 2026
-  3.3, 3.3, 3.4, 3.4, 3.5, 3.5, 3.6, 3.6, 3.7, 3.7, 3.8, 3.8,
-  // 2027 (예측)
-  3.9, 3.9, 4.0, 4.0, 4.1, 4.1, 4.2, 4.2, 4.3, 4.3, 4.4, 4.4,
-]
+// geoId → ISO3 역방향 맵
+const GEO_TO_ISO3 = Object.fromEntries(
+  Object.entries(COUNTRY_META).map(([iso3, { geoId }]) => [geoId, iso3])
+)
 
 // ═══════════════════════════════════════════════════════════════
-//  ROLLING WINDOW 유틸 — 오늘 기준 endIdx 자동 계산
-// ═══════════════════════════════════════════════════════════════
-
-/** 오늘 날짜 → ALL_MONTHS 내 가장 가까운(≤ 오늘) 인덱스 반환 */
-function getTodayIdx(): number {
-  const today   = new Date()
-  const yearStr = today.getFullYear()
-  const monStr  = String(today.getMonth() + 1).padStart(2, '0')
-  const key     = `${yearStr}.${monStr}`
-  const idx     = ALL_MONTHS.findIndex(m => m === key)
-  // 데이터 범위를 벗어난 미래 날짜면 마지막 인덱스 반환
-  if (idx < 0) return ALL_MONTHS.length - 1
-  return idx
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  HEATMAP 색상 헬퍼
+//  히트맵 지표 설정
 // ═══════════════════════════════════════════════════════════════
 const INDICATORS = [
-  { key:'cpi',          label:'물가상승률 (CPI)', unit:'%', low:2,  high:5,   max:70  },
-  { key:'debt',         label:'정부부채 비율',    unit:'%', low:60, high:120, max:270 },
-  { key:'unemployment', label:'실업률',           unit:'%', low:4,  high:8,   max:35  },
-  { key:'rate',         label:'기준금리',         unit:'%', low:2,  high:5,   max:50  },
+  { key: 'cpi',   label: '물가상승률 (CPI)', unit: '%', low: 2,  high: 5,   safeTip: '2% 이하 안정' },
+  { key: 'unemp', label: '실업률',           unit: '%', low: 4,  high: 8,   safeTip: '4% 이하 완전고용' },
+  { key: 'debt',  label: '정부부채 비율',    unit: '%', low: 60, high: 120, safeTip: '60% 이하 건전' },
+  { key: 'rates', label: '기준금리',         unit: '%', low: 2,  high: 5,   safeTip: '2~3% 중립금리' },
 ] as const
 type IndicatorKey = typeof INDICATORS[number]['key']
 
 function indicatorColor(value: number, low: number, high: number): string {
-  if (value <= low * 0.8)  return '#2d6a4f'
+  if (value <= low * 0.75) return '#2d6a4f'
   if (value <= low)        return '#52b788'
   if (value <= low * 1.1)  return D.neon
   if (value <= high)       return D.gold
@@ -249,36 +117,209 @@ function indicatorColor(value: number, low: number, high: number): string {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  SECTION 1: MACRO HEATMAP (변경 없음)
+//  폴백 데이터 (API 실패 시 사용)
 // ═══════════════════════════════════════════════════════════════
-function MacroHeatmap() {
+const FALLBACK_COUNTRIES = {
+  cpi:   { USA:2.8, KOR:2.2, JPN:2.9, CHN:0.1, DEU:2.1, GBR:2.8, FRA:1.8, IND:4.6, BRA:4.8, AUS:2.9, CAN:2.3, RUS:9.1, TUR:38.0, SAU:1.9, ZAF:4.8 },
+  unemp: { USA:4.1, KOR:3.0, JPN:2.4, CHN:5.0, DEU:3.4, GBR:4.4, FRA:7.3, IND:7.8, BRA:7.5, AUS:4.0, CAN:6.5, RUS:3.1, TUR:8.4, SAU:5.8, ZAF:33.5 },
+  debt:  { USA:122, KOR:55, JPN:263, CHN:56, DEU:65, GBR:103, FRA:114, IND:85, BRA:92, AUS:47, CAN:110, RUS:20, TUR:32, SAU:26, ZAF:76 },
+  rates: { USA:3.63, KOR:2.50, JPN:0.50, CHN:3.10, DEU:2.65, GBR:4.50, FRA:2.65, IND:6.25, BRA:13.25, AUS:4.10, CAN:2.75, RUS:21.0, TUR:42.5, SAU:5.00, ZAF:7.75 },
+} as const
+
+// ═══════════════════════════════════════════════════════════════
+//  Rolling Window 유틸
+// ═══════════════════════════════════════════════════════════════
+function genMonths(startYM: string, n: number): string[] {
+  const [sy, sm] = startYM.split('-').map(Number)
+  return Array.from({ length: n }, (_, i) => {
+    const d = new Date(sy, sm - 1 + i)
+    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
+}
+
+function todayYM(): string {
+  const t = new Date()
+  return `${t.getFullYear()}.${String(t.getMonth() + 1).padStart(2, '0')}`
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SKELETON COMPONENT
+// ═══════════════════════════════════════════════════════════════
+function Skeleton({ h = 20, w = '100%', r = 6 }: { h?: number; w?: number | string; r?: number }) {
+  return (
+    <div style={{
+      height: h, width: w, borderRadius: r,
+      background: `linear-gradient(90deg, ${D.muted}44 25%, ${D.muted}88 50%, ${D.muted}44 75%)`,
+      backgroundSize: '200% 100%',
+      animation: 'shimmer 1.5s infinite',
+    }}/>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  TRADINGVIEW WIDGET — 인터랙티브 실시간 차트 (폴백용)
+// ═══════════════════════════════════════════════════════════════
+function TradingViewSymbolChart({
+  symbols, height = 320,
+}: {
+  symbols: Array<{ proName: string; title: string }>
+  height?: number
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!ref.current) return
+    ref.current.innerHTML = ''
+    const container = document.createElement('div')
+    container.className = 'tradingview-widget-container__widget'
+    ref.current.appendChild(container)
+
+    const script = document.createElement('script')
+    script.type = 'text/javascript'
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js'
+    script.async = true
+    script.innerHTML = JSON.stringify({
+      symbols: symbols.map(s => [s.title, s.proName]),
+      chartOnly: false,
+      width: '100%',
+      height,
+      locale: 'ko',
+      colorTheme: 'dark',
+      autosize: false,
+      showVolume: false,
+      showMA: false,
+      hideDateRanges: false,
+      hideMarketStatus: false,
+      hideSymbolLogo: false,
+      scalePosition: 'right',
+      scaleMode: 'Normal',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      fontSize: '10',
+      noTimeScale: false,
+      valuesTracking: '1',
+      changeMode: 'price-and-percent',
+      chartType: 'area',
+      maLineColor: D.neon,
+      maLineWidth: 1,
+      maLength: 9,
+      lineWidth: 2,
+      lineType: 0,
+      dateRanges: ['1m|30', '3m|60', '12m|1D', '60m|1W'],
+      backgroundColor: D.card,
+      lineColor: D.neon,
+      topColor: `${D.neon}40`,
+      bottomColor: `${D.neon}04`,
+    })
+    ref.current.appendChild(script)
+
+    return () => { if (ref.current) ref.current.innerHTML = '' }
+  }, [symbols, height]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div className="tradingview-widget-container" ref={ref}
+      style={{ height, borderRadius: 12, overflow: 'hidden', background: D.card }}
+    />
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  TOOLTIP COMPONENT
+// ═══════════════════════════════════════════════════════════════
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function ChartTooltip({ active, payload, label, leftLabel, rightLabel, leftUnit, rightUnit, leftColor, rightColor }: any) {
+  if (!active || !payload?.length) return null
+  return (
+    <div style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 10, padding: '10px 14px', minWidth: 190, boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}>
+      <div style={{ fontSize: 11, color: D.sub, marginBottom: 8, fontWeight: 600 }}>{label}</div>
+      {payload.map((entry: { dataKey: string; value: number }, i: number) => {
+        const isLeft = entry.dataKey === 'left'
+        const col = isLeft ? leftColor : rightColor
+        const lbl = isLeft ? leftLabel : rightLabel
+        const unt = isLeft ? leftUnit  : rightUnit
+        if (entry.value == null) return null
+        return (
+          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <span style={{ fontSize: 11, color: col, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: col, display: 'inline-block' }}/>
+              {lbl}
+            </span>
+            <span style={{ fontWeight: 800, color: col, fontVariantNumeric: 'tabular-nums', fontSize: 13, marginLeft: 16 }}>
+              {typeof entry.value === 'number'
+                ? entry.value.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 2 })
+                : entry.value}{unt}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SECTION 1: GLOBAL MACRO HEATMAP
+// ═══════════════════════════════════════════════════════════════
+function MacroHeatmap({
+  data, loading,
+}: {
+  data: MacroApiResponse['countries'] | null
+  loading: boolean
+}) {
   const [indicator, setIndicator] = useState<IndicatorKey>('cpi')
   const [hovered,   setHovered]   = useState<string | null>(null)
   const [tooltip,   setTooltip]   = useState<{ x: number; y: number } | null>(null)
 
   const indCfg = INDICATORS.find(i => i.key === indicator)!
 
-  const getColor = useCallback((geoId: string) => {
-    const c = COUNTRIES[geoId]
-    if (!c) return D.muted
-    return indicatorColor(c[indicator as keyof CountryData] as number, indCfg.low, indCfg.high)
-  }, [indicator, indCfg])
+  // ISO3 기반 지표값 조회 (API 데이터 우선, 폴백 적용)
+  const getVal = useCallback((iso3: string, key: IndicatorKey): number | null => {
+    if (!iso3) return null
+    const live = data?.[key]?.[iso3]
+    if (live != null) return live
+    const fb = (FALLBACK_COUNTRIES[key] as Record<string, number>)[iso3]
+    return fb ?? null
+  }, [data, indicator]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const hovCtr = hovered ? COUNTRIES[hovered] : null
+  const getGeoColor = useCallback((geoId: string): string => {
+    const iso3 = GEO_TO_ISO3[geoId]
+    if (!iso3) return D.muted
+    const val = getVal(iso3, indicator)
+    if (val == null) return D.muted
+    return indicatorColor(val, indCfg.low, indCfg.high)
+  }, [getVal, indicator, indCfg])
+
+  const hovIso3   = hovered ? GEO_TO_ISO3[hovered] : null
+  const hovMeta   = hovIso3 ? COUNTRY_META[hovIso3] : null
+
+  // 카드 목록
+  const cardList = useMemo(() =>
+    Object.keys(COUNTRY_META)
+      .map(iso3 => ({ iso3, val: getVal(iso3, indicator) }))
+      .filter(x => x.val != null)
+      .sort((a, b) => (a.val as number) - (b.val as number))
+  , [getVal, indicator])
 
   return (
     <div style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 18, overflow: 'hidden' }}>
       {/* 헤더 */}
       <div style={{ padding: '16px 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: D.neon, letterSpacing: '0.14em', textTransform: 'uppercase' as const }}>🌍 Global Macro Heatmap</div>
-          <div style={{ fontSize: 12, color: D.sub, marginTop: 3 }}>주요국 거시경제 지표 비교 (2026년 기준)</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: D.neon, letterSpacing: '0.14em', textTransform: 'uppercase' as const }}>
+            🌍 Global Macro Heatmap
+          </div>
+          <div style={{ fontSize: 12, color: D.sub, marginTop: 3, display: 'flex', alignItems: 'center', gap: 8 }}>
+            주요국 거시경제 실시간 지표
+            {loading ? (
+              <span style={{ fontSize: 10, color: D.muted }}>● 로딩 중…</span>
+            ) : data ? (
+              <span style={{ fontSize: 10, color: '#52b788' }}>● {data.cpi && Object.keys(data.cpi).length > 0 ? 'World Bank 라이브' : '폴백 데이터'}</span>
+            ) : null}
+          </div>
         </div>
         {/* 지표 토글 */}
         <div style={{ display: 'flex', background: D.card, borderRadius: 10, padding: 3, gap: 2 }}>
           {INDICATORS.map(ind => (
             <button key={ind.key} onClick={() => setIndicator(ind.key)} style={{
-              padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
+              padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
               fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' as const,
               background: indicator === ind.key ? D.neon : 'transparent',
               color:      indicator === ind.key ? '#020617' : D.sub,
@@ -289,222 +330,287 @@ function MacroHeatmap() {
       </div>
 
       {/* 지도 */}
-      <div style={{ position: 'relative', padding: '0 12px 12px' }}>
-        <ComposableMap
-          projection="geoMercator"
-          projectionConfig={{ scale: 130, center: [10, 20] }}
-          style={{ background: 'transparent', width: '100%', height: 310 }}
-        >
-          <Geographies geography={GEO_URL}>
-            {({ geographies }) =>
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              geographies.map((geo: any) => {
-                const gid    = String(geo.id)
-                const active = !!COUNTRIES[gid]
-                const col    = active ? getColor(gid) : '#0d1f35'
-                const isHov  = hovered === gid
-                return (
-                  <Geography
-                    key={geo.rsmKey}
-                    geography={geo}
-                    fill={isHov ? '#ffffff' : col}
-                    stroke={D.border}
-                    strokeWidth={0.4}
-                    style={{
-                      default: { outline: 'none', transition: 'fill 0.2s' },
-                      hover:   { outline: 'none', fill: active ? '#ffffff' : '#0d1f35', cursor: active ? 'pointer' : 'default' },
-                      pressed: { outline: 'none' },
-                    }}
-                    onMouseEnter={(e: React.MouseEvent<SVGPathElement>) => {
-                      if (!active) return
-                      setHovered(gid)
-                      setTooltip({ x: e.clientX, y: e.clientY })
-                    }}
-                    onMouseMove={(e: React.MouseEvent<SVGPathElement>) => {
-                      if (!active) return
-                      setTooltip({ x: e.clientX, y: e.clientY })
-                    }}
-                    onMouseLeave={() => { setHovered(null); setTooltip(null) }}
-                  />
-                )
-              })
-            }
-          </Geographies>
-        </ComposableMap>
+      <div style={{ position: 'relative', padding: '0 12px 8px' }}>
+        {loading ? (
+          <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+            <Skeleton h={280} w="100%" r={12} />
+          </div>
+        ) : (
+          <ComposableMap
+            projection="geoMercator"
+            projectionConfig={{ scale: 130, center: [10, 20] }}
+            style={{ background: 'transparent', width: '100%', height: 300 }}
+          >
+            <Geographies geography={GEO_URL}>
+              {({ geographies }) =>
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                geographies.map((geo: any) => {
+                  const gid    = String(geo.id)
+                  const active = !!GEO_TO_ISO3[gid]
+                  const col    = active ? getGeoColor(gid) : '#0d1f35'
+                  const isHov  = hovered === gid
+                  return (
+                    <Geography
+                      key={geo.rsmKey}
+                      geography={geo}
+                      fill={isHov ? '#ffffff' : col}
+                      stroke={D.border}
+                      strokeWidth={0.4}
+                      style={{
+                        default: { outline: 'none', transition: 'fill 0.2s' },
+                        hover:   { outline: 'none', fill: active ? '#ffffff' : '#0d1f35', cursor: active ? 'pointer' : 'default' },
+                        pressed: { outline: 'none' },
+                      }}
+                      onMouseEnter={(e: React.MouseEvent<SVGPathElement>) => {
+                        if (!active) return
+                        setHovered(gid); setTooltip({ x: e.clientX, y: e.clientY })
+                      }}
+                      onMouseMove={(e: React.MouseEvent<SVGPathElement>) => {
+                        if (!active) return
+                        setTooltip({ x: e.clientX, y: e.clientY })
+                      }}
+                      onMouseLeave={() => { setHovered(null); setTooltip(null) }}
+                    />
+                  )
+                })
+              }
+            </Geographies>
+          </ComposableMap>
+        )}
 
-        {/* 툴팁 */}
-        {hovCtr && tooltip && (
+        {/* 호버 툴팁 */}
+        {hovMeta && hovIso3 && tooltip && (
           <div style={{
             position: 'fixed', left: tooltip.x + 14, top: tooltip.y - 10,
             zIndex: 9999, pointerEvents: 'none', background: D.card,
             border: `1px solid ${D.neon}44`, borderRadius: 10, padding: '10px 14px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.7)', minWidth: 160,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.7)', minWidth: 170,
           }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: D.text, marginBottom: 6 }}>{hovCtr.nameKo}</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: D.text, marginBottom: 6 }}>{hovMeta.nameKo}</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
               <span style={{ fontSize: 11, color: D.sub }}>{indCfg.label}</span>
-              <span style={{ fontSize: 14, fontWeight: 900, color: getColor(hovered!), fontVariantNumeric: 'tabular-nums' }}>
-                {(hovCtr[indicator as keyof CountryData] as number).toFixed(1)}{indCfg.unit}
+              <span style={{ fontSize: 15, fontWeight: 900, color: getGeoColor(hovered!), fontVariantNumeric: 'tabular-nums' }}>
+                {(getVal(hovIso3, indicator) ?? '—')}{typeof getVal(hovIso3, indicator) === 'number' ? indCfg.unit : ''}
               </span>
             </div>
-            <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${D.border}`, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px' }}>
-              {INDICATORS.filter(i => i.key !== indicator).map(i => (
-                <div key={i.key} style={{ fontSize: 9, color: D.sub }}>
-                  {i.label.split(' ')[0]}: <span style={{ color: D.text }}>{(hovCtr[i.key as keyof CountryData] as number).toFixed(1)}{i.unit}</span>
-                </div>
-              ))}
+            <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${D.border}`, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px' }}>
+              {INDICATORS.filter(i => i.key !== indicator).map(i => {
+                const v = getVal(hovIso3, i.key)
+                return (
+                  <div key={i.key} style={{ fontSize: 9, color: D.sub }}>
+                    {i.label.split(' ')[0]}: <span style={{ color: D.text }}>{v != null ? `${v}${i.unit}` : '—'}</span>
+                  </div>
+                )
+              })}
+            </div>
+            <div style={{ marginTop:6, fontSize:9, color:D.muted, textAlign:'right' as const }}>
+              {data?.cpi && Object.keys(data.cpi).length > 0 ? '출처: World Bank' : '출처: 폴백'}
             </div>
           </div>
         )}
 
         {/* 범례 */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 6, flexWrap: 'wrap' }}>
           {[['#2d6a4f','매우 안정'],['#52b788','안정'],[D.neon,'적정'],[D.gold,'주의'],[D.orange,'경고'],[D.red,'위험']].map(([c, l]) => (
             <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 9, color: D.sub }}>
-              <div style={{ width: 12, height: 8, borderRadius: 2, background: c }}/>
-              {l}
+              <div style={{ width: 12, height: 8, borderRadius: 2, background: c }}/>{l}
             </div>
           ))}
         </div>
       </div>
 
       {/* 국가 수치 카드 */}
-      <div style={{ padding: '0 16px 16px', overflowX: 'auto' }}>
-        <div style={{ display: 'flex', gap: 8, minWidth: 'max-content' }}>
-          {Object.values(COUNTRIES)
-            .sort((a, b) => (a[indicator as keyof CountryData] as number) - (b[indicator as keyof CountryData] as number))
-            .map(c => {
-              const val = c[indicator as keyof CountryData] as number
-              const col = indicatorColor(val, indCfg.low, indCfg.high)
+      <div style={{ padding: '8px 16px 16px', overflowX: 'auto' }}>
+        {loading ? (
+          <div style={{ display: 'flex', gap: 8 }}>
+            {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} h={52} w={80} r={8} />)}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 8, minWidth: 'max-content' }}>
+            {cardList.map(({ iso3, val }) => {
+              const col  = indicatorColor(val as number, indCfg.low, indCfg.high)
+              const meta = COUNTRY_META[iso3]
               return (
-                <div key={c.iso3} style={{ background: D.card, border: `1px solid ${col}33`, borderRadius: 8, padding: '7px 10px', minWidth: 80, textAlign: 'center' }}>
-                  <div style={{ fontSize: 10, color: D.sub, marginBottom: 3 }}>{c.nameKo}</div>
+                <div key={iso3} style={{ background: D.card, border: `1px solid ${col}33`, borderRadius: 8, padding: '7px 10px', minWidth: 80, textAlign: 'center' as const }}>
+                  <div style={{ fontSize: 10, color: D.sub, marginBottom: 3 }}>{meta.nameKo}</div>
                   <div style={{ fontSize: 14, fontWeight: 900, color: col, fontVariantNumeric: 'tabular-nums' }}>
-                    {val.toFixed(1)}{indCfg.unit}
+                    {(val as number).toFixed(1)}{indCfg.unit}
                   </div>
                 </div>
               )
             })}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  SECTION 2: COMPARE CHART — Rolling Window 시스템
+//  SECTION 2: DUAL-AXIS COMPARE CHART
 // ═══════════════════════════════════════════════════════════════
-
 type PresetKey = 'rate_vs_nvda' | 'cpi_vs_div' | 'nvda_vs_pltr'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ChartTooltip({ active, payload, label, leftLabel, rightLabel, leftUnit, rightUnit, leftColor, rightColor }: any) {
-  if (!active || !payload?.length) return null
-  return (
-    <div style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 10, padding: '10px 14px', minWidth: 190, boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}>
-      <div style={{ fontSize: 11, color: D.sub, marginBottom: 8, fontWeight: 600 }}>{label}</div>
-      {payload.map((entry: { dataKey: string; value: number }, i: number) => {
-        const isLeft = entry.dataKey === 'left'
-        const col    = isLeft ? leftColor  : rightColor
-        const lbl    = isLeft ? leftLabel  : rightLabel
-        const unit   = isLeft ? leftUnit   : rightUnit
-        if (entry.value == null) return null
-        return (
-          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-            <span style={{ fontSize: 11, color: col, display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ width: 8, height: 8, borderRadius: 2, background: col, display: 'inline-block' }}/>
-              {lbl}
-            </span>
-            <span style={{ fontWeight: 800, color: col, fontVariantNumeric: 'tabular-nums', fontSize: 13, marginLeft: 16 }}>
-              {entry.value.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 2 })}{unit}
-            </span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
+function CompareChart({
+  apiData, loading,
+}: {
+  apiData: MacroApiResponse | null
+  loading: boolean
+}) {
+  const [preset,      setPreset]      = useState<PresetKey>('rate_vs_nvda')
+  const [windowSize,  setWindowSize]  = useState<24 | 36>(36)
+  const [useTVWidget, setUseTVWidget] = useState(false)
 
-function CompareChart() {
-  const [preset,     setPreset]     = useState<PresetKey>('rate_vs_nvda')
-  const [windowSize, setWindowSize] = useState<24 | 36>(36)
+  // ── Rolling Window + 프리셋 계산 ───────────────────────────────────────────
+  const { chartData, dataStart, dataEnd, p, tvSymbols, quality } = useMemo(() => {
+    const today = todayYM()
 
-  // ── Rolling Window 핵심 로직 ─────────────────────────────────
-  const { months, dataStart, dataEnd, presets } = useMemo(() => {
-    const endIdx   = getTodayIdx()
-    const startIdx = Math.max(0, endIdx - windowSize + 1)
+    // NVDA 데이터 준비 (API → 폴백 정적 배열)
+    let nvdaMap: Record<string, number> = {}
+    let pltrMap: Record<string, number> = {}
+    let rateMap: Record<string, number> = {}
 
-    const months   = ALL_MONTHS.slice(startIdx, endIdx + 1)
-    const us_rate  = US_RATE_ALL.slice(startIdx, endIdx + 1)
-    const nvda     = NVDA_ALL.slice(startIdx, endIdx + 1)
-    const pltr     = PLTR_ALL.slice(startIdx, endIdx + 1)
-    const kr_cpi   = KR_CPI_ALL.slice(startIdx, endIdx + 1)
-    const port_div = PORT_DIV_ALL.slice(startIdx, endIdx + 1)
+    const nvdaArr = apiData?.stocks?.nvda ?? []
+    const pltrArr = apiData?.stocks?.pltr ?? []
+    const ratesArr = apiData?.fedRates ?? []
 
-    const presets = {
+    if (nvdaArr.length > 0) {
+      nvdaMap = Object.fromEntries(nvdaArr.map(d => [d.date, d.close]))
+    }
+    if (pltrArr.length > 0) {
+      pltrMap = Object.fromEntries(pltrArr.map(d => [d.date, d.close]))
+    }
+    if (ratesArr.length > 0) {
+      rateMap = Object.fromEntries(ratesArr.map(d => [d.date, d.rate]))
+    }
+
+    const hasNvda  = nvdaArr.length  > 12
+    const hasPltr  = pltrArr.length  > 12
+    const hasRates = ratesArr.length > 12
+
+    // Rolling Window: 오늘 기준 최근 N개월
+    const allMonths = genMonths('2022-01', 72)  // 2022~2027 전체
+    const todayIdx  = allMonths.indexOf(today)
+    const endIdx    = todayIdx >= 0 ? todayIdx : allMonths.length - 1
+    const startIdx  = Math.max(0, endIdx - windowSize + 1)
+    const months    = allMonths.slice(startIdx, endIdx + 1)
+
+    // 미국 기준금리 (FRED 실시간 우선, 폴백 상수)
+    // 폴백: 2022-01부터 현재까지 상수 배열
+    const RATE_FALLBACK: Record<string, number> = {}
+    const ratePath = [
+      ...genMonths('2022-01', 8).map(m => [m, 0.08]),
+      ...genMonths('2022-09', 4).map((m, i) => [m, [2.33,3.08,3.78,4.10][i]]),
+      ['2022.12', 4.33],
+      ...genMonths('2023-01', 7).map((m, i) => [m, [4.58,4.83,4.83,5.08,5.08,5.08,5.33][i]]),
+      ...genMonths('2023-08', 5).map(m => [m, 5.33]),
+      ...genMonths('2024-01', 8).map(m => [m, 5.33]),
+      ['2024.09', 4.88], ['2024.10', 4.88], ['2024.11', 4.63], ['2024.12', 4.38],
+      ...genMonths('2025-01', 4).map(m => [m, 4.38]),
+      ['2025.05', 4.13], ['2025.06', 4.13], ['2025.07', 3.88], ['2025.08', 3.88],
+      ['2025.09', 3.88], ['2025.10', 3.88], ['2025.11', 3.63], ['2025.12', 3.63],
+      ...genMonths('2026-01', 12).map(m => [m, 3.63]),
+    ] as [string, number][]
+    ratePath.forEach(([m, v]) => { RATE_FALLBACK[m] = v })
+
+    const getRate = (m: string) => hasRates ? (rateMap[m] ?? RATE_FALLBACK[m] ?? null) : (RATE_FALLBACK[m] ?? null)
+
+    // KR CPI (World Bank 데이터 우선, 폴백)
+    const KR_CPI_FALLBACK: Record<string, number> = {}
+    ;[3.6,3.7,4.1,4.8,5.4,6.0,6.3,5.7,5.6,5.7,5.0,5.0,
+      5.2,4.8,4.2,3.7,3.3,2.7,2.3,2.0,1.9,1.8,3.4,3.2,
+      2.8,2.9,3.1,3.0,2.7,2.6,2.5,2.4,2.0,1.3,1.5,1.6,
+      1.7,2.0,2.2,2.3,2.5,2.4,2.3,2.2,2.1,2.0,1.9,2.0,
+      2.1,2.2,2.3,2.4,2.3,
+    ].forEach((v, i) => { KR_CPI_FALLBACK[allMonths[i]] = v })
+
+    // 포트폴리오 배당 (점진적 상승 mock)
+    const DIV_MAP: Record<string, number> = {}
+    allMonths.forEach((m, i) => { DIV_MAP[m] = parseFloat((1.2 + i * 0.042).toFixed(2)) })
+
+    // ─ 차트 데이터 빌드 ───────────────────────────────────────────────────────
+    // preset별 left/right 데이터
+    const buildRow = (m: string) => {
+      const nvdaClose = hasNvda ? (nvdaMap[m] ?? null) : null
+      const pltrClose = hasPltr ? (pltrMap[m] ?? null) : null
+      const rate      = getRate(m)
+
+      if (preset === 'rate_vs_nvda') {
+        return { month: m, left: rate, right: nvdaClose }
+      }
+      if (preset === 'cpi_vs_div') {
+        const cpiArr = apiData?.countries?.cpi
+        const krCpi  = (cpiArr && cpiArr['KOR'] != null) ? null : (KR_CPI_FALLBACK[m] ?? null)
+        return { month: m, left: krCpi, right: DIV_MAP[m] ?? null }
+      }
+      // nvda_vs_pltr: 누적수익률
+      const nvda0 = hasNvda ? (nvdaMap[months[0]] ?? null) : null
+      const pltr0 = hasPltr ? (pltrMap[months[0]] ?? null) : null
+      return {
+        month: m,
+        left:  (nvda0 && nvdaClose) ? parseFloat(((nvdaClose / nvda0 - 1) * 100).toFixed(1)) : null,
+        right: (pltr0 && pltrClose) ? parseFloat(((pltrClose / pltr0 - 1) * 100).toFixed(1)) : null,
+      }
+    }
+
+    const chartData = months.map(buildRow)
+
+    const PRESET_META = {
       rate_vs_nvda: {
         label: '금리 vs 기술주', icon: '📈',
-        desc: '미국 기준금리(%) vs NVDA 주가(분할 조정)',
-        left:  { label: '미국 기준금리', color: D.indigo, data: us_rate, unit: '%', yDomain: [0, 6]    },
-        right: { label: 'NVDA ($)',      color: D.neon,   data: nvda,   unit: '$', yDomain: [10, 260] },
+        desc:  '미국 기준금리(%) vs NVDA 주가',
+        left:  { label: '미국 기준금리', color: D.indigo, unit: '%', yDomain: [0, 6] as [number, number]    },
+        right: { label: 'NVDA ($)',      color: D.neon,   unit: '$', yDomain: [10, 260] as [number, number] },
       },
       cpi_vs_div: {
         label: '인플레 vs 배당', icon: '💰',
-        desc: '한국 CPI(%) vs 포트폴리오 배당수익률(%)',
-        left:  { label: '한국 CPI',        color: D.orange, data: kr_cpi,   unit: '%', yDomain: [0, 8] },
-        right: { label: '포트폴리오 배당', color: D.neon,   data: port_div, unit: '%', yDomain: [0, 5] },
+        desc:  '한국 CPI(%) vs 포트폴리오 배당수익률(%)',
+        left:  { label: '한국 CPI',        color: D.orange, unit: '%', yDomain: [0, 8] as [number, number] },
+        right: { label: '포트폴리오 배당', color: D.neon,   unit: '%', yDomain: [0, 6] as [number, number] },
       },
       nvda_vs_pltr: {
         label: 'AI 주도주 대결', icon: '⚡',
-        desc: `NVDA vs PLTR — 기준 ${months[0]} = 0% 누적수익률`,
-        left:  {
-          label: 'NVDA 누적수익률', color: D.neon,
-          data:  nvda.map(v => parseFloat(((v / nvda[0] - 1) * 100).toFixed(1))),
-          unit: '%', yDomain: [-70, 500],
-        },
-        right: {
-          label: 'PLTR 누적수익률', color: D.blue,
-          data:  pltr.map(v => parseFloat(((v / pltr[0] - 1) * 100).toFixed(1))),
-          unit: '%', yDomain: [-70, 900],
-        },
+        desc:  `NVDA vs PLTR 누적수익률 (기준: ${months[0]})`,
+        left:  { label: 'NVDA 누적수익률', color: D.neon, unit: '%', yDomain: [-70, 600] as [number, number] },
+        right: { label: 'PLTR 누적수익률', color: D.blue, unit: '%', yDomain: [-70, 900] as [number, number] },
       },
     }
 
+    const tvSymbols = {
+      rate_vs_nvda: [
+        { proName: 'NASDAQ:NVDA', title: 'NVDA' },
+        { proName: 'NASDAQ:PLTR', title: 'PLTR' },
+      ],
+      cpi_vs_div: [
+        { proName: 'NASDAQ:NVDA', title: 'NVDA' },
+        { proName: 'NASDAQ:PLTR', title: 'PLTR' },
+      ],
+      nvda_vs_pltr: [
+        { proName: 'NASDAQ:NVDA', title: 'NVDA' },
+        { proName: 'NASDAQ:PLTR', title: 'PLTR' },
+      ],
+    }
+
     return {
-      months,
+      chartData,
       dataStart: months[0] ?? '',
       dataEnd:   months[months.length - 1] ?? '',
-      presets,
+      p:         PRESET_META[preset],
+      tvSymbols: tvSymbols[preset],
+      quality: {
+        stockSrc: hasNvda ? '📡 Yahoo Finance' : '📋 폴백',
+        rateSrc:  hasRates ? '📡 FRED' : '📋 폴백',
+      },
     }
-  }, [windowSize])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [preset, windowSize, apiData]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const p = presets[preset]
+  const xTicks = chartData.filter((_, i) => i % (windowSize === 24 ? 2 : 3) === 0).map(d => d.month)
 
-  // 차트 데이터 빌드
-  const chartData = useMemo(() =>
-    months.map((m, i) => ({
-      month: m,
-      left:  p.left.data[i]  ?? null,
-      right: p.right.data[i] ?? null,
-    }))
-  , [months, preset])  // eslint-disable-line react-hooks/exhaustive-deps
-
-  const xTicks = months.filter((_, i) => i % (windowSize === 24 ? 2 : 3) === 0)
-
-  // 교육 인사이트
-  const insights: Record<PresetKey, { title: string; text: string }> = {
-    rate_vs_nvda: {
-      title: '📚 투자 인사이트',
-      text: `기준 기간(${dataStart}~${dataEnd}) 중, 미국 금리가 고점을 찍고 인하로 전환하는 사이클에서도 NVDA는 AI 수요 모멘텀으로 시장 기대를 압도했습니다. Blackwell GPU 수요와 데이터센터 투자가 금리 역풍을 상쇄한 사례를 관찰해보세요.`,
-    },
-    cpi_vs_div: {
-      title: '📚 투자 인사이트',
-      text: `인플레이션(CPI)이 안정화될수록 배당의 실질 가치가 회복됩니다. 선택된 기간 동안 한국 CPI의 하향 안정화와 함께 포트폴리오 배당수익률이 꾸준히 상승하는 추세를 확인해보세요. 배당성장 투자의 핵심 원리입니다.`,
-    },
-    nvda_vs_pltr: {
-      title: '📚 투자 인사이트',
-      text: `AI 인프라(NVDA)와 AI 응용(PLTR)의 성과를 비교합니다. NVDA는 반도체 공급망을, PLTR은 데이터 분석·방산 AI 플랫폼을 대표합니다. 선택된 ${windowSize}개월 동안 두 자산의 변동성과 상관관계를 분석해보세요.`,
-    },
+  // ── 교육 인사이트 ─────────────────────────────────────────────────────────
+  const insights: Record<PresetKey, string> = {
+    rate_vs_nvda:  `기간(${dataStart}~${dataEnd}): 미국 금리가 5.33%에서 3.63%로 인하되는 과정에서 NVDA는 AI 인프라 수요(Blackwell GPU)로 시장 기대를 압도했습니다. 금리 인하 사이클과 AI 투자 붐의 동시 도래는 역사적으로 드문 국면입니다.`,
+    cpi_vs_div:    `인플레이션이 2% 안정 목표에 수렴할수록 배당의 실질 가치가 회복됩니다. 배당수익률이 CPI보다 높으면 실질 플러스 수익! 선택된 기간 동안 한국 물가와 배당 추이를 비교해보세요.`,
+    nvda_vs_pltr:  `AI 인프라(NVDA)와 AI 응용·방산(PLTR)의 성과 대결. PLTR은 트럼프 2기 'DOGE 정부 AI 계약' 수혜와 S&P500 편입 효과로 역대급 랠리를 기록했습니다. 두 자산의 변동성과 상관관계를 분석해보세요.`,
   }
 
   return (
@@ -517,45 +623,29 @@ function CompareChart() {
           </div>
           <div style={{ fontSize: 12, color: D.sub, marginTop: 3 }}>
             듀얼 Y축 비교 분석 · {dataStart} ~ {dataEnd}
+            {!loading && (
+              <span style={{ marginLeft: 8, fontSize: 10, color: D.muted }}>
+                {quality.stockSrc} · {quality.rateSrc}
+              </span>
+            )}
           </div>
         </div>
 
-        {/* 프리셋 버튼 */}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {(Object.entries(presets) as [PresetKey, typeof presets[PresetKey]][]).map(([key, val]) => (
-            <button key={key} onClick={() => setPreset(key)} style={{
-              padding: '7px 14px', borderRadius: 9, cursor: 'pointer', fontSize: 11, fontWeight: 700,
-              border:      `1px solid ${preset === key ? D.neon + '66' : D.border}`,
-              background:  preset === key ? `${D.neon}18` : 'transparent',
-              color:       preset === key ? D.neon : D.sub,
-              transition: 'all 0.18s', display: 'flex', alignItems: 'center', gap: 5,
-            }}>
-              <span>{val.icon}</span><span>{val.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* 서브헤더: 설명 + Rolling Window 토글 */}
-      <div style={{ padding: '0 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 11, color: D.sub }}>{p.desc}</span>
-          {/* 데이터 범례 */}
-          {(['left', 'right'] as const).map(side => (
-            <div key={side} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11 }}>
-              <div style={{ width: 16, height: 2, background: p[side].color, borderRadius: 1 }}/>
-              <span style={{ color: p[side].color }}>{p[side].label}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* 🔑 Rolling Window 토글 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 10, color: D.sub, fontWeight: 600 }}>기간</span>
+        {/* 우측 컨트롤 */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* 차트 소스 토글 */}
+          <button onClick={() => setUseTVWidget(v => !v)} style={{
+            padding: '5px 12px', borderRadius: 7, border: `1px solid ${useTVWidget ? D.neon+'55' : D.border}`,
+            background: useTVWidget ? `${D.neon}12` : 'transparent', color: useTVWidget ? D.neon : D.sub,
+            fontSize: 10, fontWeight: 700, cursor: 'pointer',
+          }}>
+            {useTVWidget ? '📡 TradingView' : '📊 Custom'}
+          </button>
+          {/* 기간 토글 */}
           <div style={{ display: 'flex', background: D.card, borderRadius: 8, padding: 2, gap: 2 }}>
             {([24, 36] as const).map(w => (
               <button key={w} onClick={() => setWindowSize(w)} style={{
-                padding: '4px 12px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
                 fontSize: 10, fontWeight: 700,
                 background: windowSize === w ? D.neon : 'transparent',
                 color:      windowSize === w ? '#020617' : D.sub,
@@ -566,17 +656,51 @@ function CompareChart() {
         </div>
       </div>
 
-      {/* 차트 */}
+      {/* 프리셋 버튼 */}
+      <div style={{ padding: '0 20px 10px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {(['rate_vs_nvda', 'cpi_vs_div', 'nvda_vs_pltr'] as PresetKey[]).map(key => {
+          const ICONS = { rate_vs_nvda: '📈', cpi_vs_div: '💰', nvda_vs_pltr: '⚡' }
+          const LABELS = { rate_vs_nvda: '금리 vs 기술주', cpi_vs_div: '인플레 vs 배당', nvda_vs_pltr: 'AI 주도주 대결' }
+          return (
+            <button key={key} onClick={() => setPreset(key)} style={{
+              padding: '7px 14px', borderRadius: 9, cursor: 'pointer', fontSize: 11, fontWeight: 700,
+              border:     `1px solid ${preset === key ? D.neon + '66' : D.border}`,
+              background: preset === key ? `${D.neon}18` : 'transparent',
+              color:      preset === key ? D.neon : D.sub,
+              transition: 'all 0.18s', display: 'flex', alignItems: 'center', gap: 5,
+            }}>
+              <span>{ICONS[key]}</span><span>{LABELS[key]}</span>
+            </button>
+          )
+        })}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+          {(['left', 'right'] as const).map(side => (
+            <div key={side} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11 }}>
+              <div style={{ width: 16, height: 2, background: p[side].color, borderRadius: 1 }}/>
+              <span style={{ color: p[side].color }}>{p[side].label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 차트 영역 */}
       <div style={{ padding: '0 8px 12px' }}>
-        {chartData.length < 2 ? (
-          <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', color: D.sub }}>
-            데이터 로딩 중…
+        {loading ? (
+          <div style={{ padding: '8px' }}><Skeleton h={300} r={12} /></div>
+        ) : useTVWidget ? (
+          /* TradingView 실시간 위젯 모드 */
+          <div style={{ padding: '0 8px' }}>
+            <TradingViewSymbolChart symbols={tvSymbols} height={310} />
+            <div style={{ fontSize: 10, color: D.muted, textAlign: 'right' as const, marginTop: 6 }}>
+              📡 TradingView 실시간 데이터
+            </div>
           </div>
         ) : (
+          /* Recharts 커스텀 차트 모드 */
           <ResponsiveContainer width="100%" height={310}>
-            <ComposedChart data={chartData} margin={{ top: 12, right: 60, bottom: 0, left: 8 }}>
+            <ComposedChart data={chartData} margin={{ top: 12, right: 58, bottom: 0, left: 8 }}>
               <defs>
-                <linearGradient id="lgLeft" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="lgLeft"  x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%"   stopColor={p.left.color}  stopOpacity={0.28}/>
                   <stop offset="100%" stopColor={p.left.color}  stopOpacity={0.02}/>
                 </linearGradient>
@@ -588,43 +712,27 @@ function CompareChart() {
 
               <CartesianGrid strokeDasharray="2 4" stroke="#0d1f35" vertical={false}/>
               <XAxis
-                dataKey="month"
-                ticks={xTicks}
+                dataKey="month" ticks={xTicks}
                 tick={{ fill: '#374151', fontSize: 9, fontWeight: 500 }}
-                axisLine={{ stroke: '#0d1f35' }} tickLine={false}
-                interval={0}
+                axisLine={{ stroke: '#0d1f35' }} tickLine={false} interval={0}
               />
-              {/* 좌측 Y축 */}
-              <YAxis
-                yAxisId="left"
-                domain={[...p.left.yDomain]}
-                tick={{ fill: p.left.color, fontSize: 9 }}
-                axisLine={false} tickLine={false} width={46}
+              <YAxis yAxisId="left"  domain={[...p.left.yDomain]}
+                tick={{ fill: p.left.color,  fontSize: 9 }} axisLine={false} tickLine={false} width={44}
                 tickFormatter={v => `${v}${p.left.unit}`}
               />
-              {/* 우측 Y축 */}
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                domain={[...p.right.yDomain]}
-                tick={{ fill: p.right.color, fontSize: 9 }}
-                axisLine={false} tickLine={false} width={52}
+              <YAxis yAxisId="right" orientation="right" domain={[...p.right.yDomain]}
+                tick={{ fill: p.right.color, fontSize: 9 }} axisLine={false} tickLine={false} width={50}
                 tickFormatter={v => `${v.toLocaleString('en-US')}${p.right.unit}`}
               />
-
-              {/* 누적수익률 모드 기준선 */}
               {preset === 'nvda_vs_pltr' && (
                 <ReferenceLine yAxisId="left" y={0} stroke={D.border} strokeWidth={1} strokeDasharray="4 2"/>
               )}
-
               <Tooltip
-                content={
-                  <ChartTooltip
-                    leftLabel={p.left.label}   rightLabel={p.right.label}
-                    leftUnit={p.left.unit}      rightUnit={p.right.unit}
-                    leftColor={p.left.color}    rightColor={p.right.color}
-                  />
-                }
+                content={<ChartTooltip
+                  leftLabel={p.left.label}   rightLabel={p.right.label}
+                  leftUnit={p.left.unit}      rightUnit={p.right.unit}
+                  leftColor={p.left.color}    rightColor={p.right.color}
+                />}
                 cursor={{ stroke: D.border, strokeWidth: 1, strokeDasharray: '4 2' }}
               />
               <Legend
@@ -636,36 +744,25 @@ function CompareChart() {
                   </span>
                 }}
               />
-
-              {/* 왼쪽 — Area */}
-              <Area
-                yAxisId="left" type="monotone" dataKey="left" name="left"
-                stroke={p.left.color} strokeWidth={2}
-                fill="url(#lgLeft)" dot={false}
+              <Area yAxisId="left" type="monotone" dataKey="left" name="left"
+                stroke={p.left.color} strokeWidth={2} fill="url(#lgLeft)" dot={false}
                 activeDot={{ r: 4, fill: p.left.color, stroke: D.surface, strokeWidth: 2 }}
-                isAnimationActive={true} animationDuration={600}
+                isAnimationActive animationDuration={600}
               />
-              {/* 오른쪽 — Line */}
-              <Line
-                yAxisId="right" type="monotone" dataKey="right" name="right"
-                stroke={p.right.color} strokeWidth={2.5}
-                dot={false}
+              <Line yAxisId="right" type="monotone" dataKey="right" name="right"
+                stroke={p.right.color} strokeWidth={2.5} dot={false}
                 activeDot={{ r: 4, fill: p.right.color, stroke: D.surface, strokeWidth: 2 }}
-                isAnimationActive={true} animationDuration={800}
+                isAnimationActive animationDuration={800}
               />
             </ComposedChart>
           </ResponsiveContainer>
         )}
       </div>
 
-      {/* 교육 인사이트 */}
+      {/* 인사이트 */}
       <div style={{ margin: '0 16px 16px', background: `${D.neon}08`, border: `1px solid ${D.neon}1e`, borderRadius: 10, padding: '12px 16px' }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: D.neon, marginBottom: 6 }}>
-          {insights[preset].title}
-        </div>
-        <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.7 }}>
-          {insights[preset].text}
-        </div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: D.neon, marginBottom: 6 }}>📚 투자 인사이트</div>
+        <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.7 }}>{insights[preset]}</div>
       </div>
     </div>
   )
@@ -675,50 +772,95 @@ function CompareChart() {
 //  MAIN PAGE
 // ═══════════════════════════════════════════════════════════════
 export default function MacroHubPage() {
-  // 오늘 날짜 기준 rolling window 정보 (헤더용)
-  const { displayStart, displayEnd, totalMonths } = useMemo(() => {
-    const endIdx   = getTodayIdx()
-    const startIdx = Math.max(0, endIdx - 36 + 1)
-    return {
-      displayStart: ALL_MONTHS[startIdx]  ?? '',
-      displayEnd:   ALL_MONTHS[endIdx]    ?? '',
-      totalMonths:  endIdx - startIdx + 1,
-    }
+  const [apiData,  setApiData]  = useState<MacroApiResponse | null>(null)
+  const [loading,  setLoading]  = useState(true)
+  const [error,    setError]    = useState<string | null>(null)
+
+  useEffect(() => {
+    ;(async () => {
+      setLoading(true); setError(null)
+      try {
+        const res = await fetch('/api/macro-data')
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const json: MacroApiResponse = await res.json()
+        setApiData(json)
+      } catch (e) {
+        console.error('[MacroHub] fetch error:', e)
+        setError('데이터 로드 실패 — 폴백 데이터를 사용합니다')
+        setApiData(null)
+      } finally {
+        setLoading(false)
+      }
+    })()
   }, [])
 
+  const today = todayYM()
+  const allM  = genMonths('2022-01', 72)
+  const end   = allM.indexOf(today) >= 0 ? allM.indexOf(today) : allM.length - 1
+  const start = Math.max(0, end - 35)
+
   return (
-    <div style={{
-      minHeight: '100vh', background: D.bg, color: D.text,
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-      padding: '20px', boxSizing: 'border-box',
-    }}>
+    <div style={{ minHeight: '100vh', background: D.bg, color: D.text, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', padding: '20px', boxSizing: 'border-box' }}>
+      <style>{`@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
+
       {/* 페이지 헤더 */}
       <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <div>
           <div style={{ fontSize: 10, fontWeight: 700, color: D.neon, letterSpacing: '0.2em', textTransform: 'uppercase' as const, marginBottom: 6 }}>
             🌐 MACRO HUB
           </div>
-          <h1 style={{ fontSize: 'clamp(20px, 3vw, 28px)', fontWeight: 900, color: '#f8fafc', margin: 0, letterSpacing: '-0.5px' }}>
+          <h1 style={{ fontSize: 'clamp(20px,3vw,28px)', fontWeight: 900, color: '#f8fafc', margin: 0, letterSpacing: '-0.5px' }}>
             글로벌 매크로 분석
           </h1>
           <p style={{ fontSize: 12, color: D.sub, margin: '4px 0 0' }}>
-            탑다운(Top-down) 투자 · 거시경제 지표 · 자산 비교 분석
+            탑다운(Top-down) 투자 · 실시간 거시경제 · 자산 비교 분석
           </p>
         </div>
-        <div style={{ fontSize: 10, color: D.muted, textAlign: 'right' as const }}>
-          <div style={{ color: D.neon, fontWeight: 700, marginBottom: 2 }}>
-            ⏱ Rolling {totalMonths}개월 Window
-          </div>
-          <div>시계열: {displayStart} – {displayEnd}</div>
-          <div style={{ marginTop: 2, color: '#1e3a5c' }}>
-            전체 DB: {ALL_MONTHS[0]} ~ {ALL_MONTHS[ALL_MONTHS.length - 1]} (72개월)
-          </div>
+
+        <div style={{ fontSize: 10, textAlign: 'right' as const }}>
+          {loading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
+              <Skeleton h={12} w={120} r={4}/>
+              <Skeleton h={10} w={90}  r={4}/>
+            </div>
+          ) : (
+            <>
+              <div style={{ color: error ? D.orange : D.neon, fontWeight: 700, marginBottom: 2 }}>
+                {error ? '⚠ 폴백 모드' : '⚡ 실시간 연동'}
+              </div>
+              {apiData && (
+                <div style={{ color: D.muted }}>
+                  업데이트: {new Date(apiData.lastUpdated).toLocaleString('ko-KR', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })}
+                </div>
+              )}
+              <div style={{ color: D.muted, marginTop: 2 }}>
+                ⏱ Rolling Window: {allM[start]} ~ {allM[end]}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
+      {/* 에러 배너 */}
+      {error && (
+        <div style={{ marginBottom: 16, background: `${D.orange}12`, border: `1px solid ${D.orange}44`, borderRadius: 10, padding: '10px 16px', fontSize: 12, color: D.orange }}>
+          ⚠ {error} — 인터넷 연결을 확인하거나, API 서버가 잠시 후 재시도됩니다.
+        </div>
+      )}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        <MacroHeatmap />
-        <CompareChart />
+        <MacroHeatmap data={apiData?.countries ?? null} loading={loading} />
+        <CompareChart apiData={apiData} loading={loading} />
+      </div>
+
+      {/* 데이터 소스 안내 */}
+      <div style={{ marginTop: 16, padding: '12px 16px', background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12 }}>
+        <div style={{ fontSize: 10, color: D.muted, display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+          <span>📡 <strong style={{ color: D.sub }}>Yahoo Finance</strong> — NVDA·PLTR 36개월 월봉 (실시간)</span>
+          <span>🏦 <strong style={{ color: D.sub }}>World Bank API</strong> — CPI·실업률·정부부채 (연간, 무료·무인증)</span>
+          <span>📊 <strong style={{ color: D.sub }}>FRED CSV</strong> — 미국 기준금리 시계열 (무료·무인증)</span>
+          <span>📋 <strong style={{ color: D.sub }}>폴백 상수</strong> — 타국 기준금리 (분기 수동 업데이트)</span>
+        </div>
       </div>
     </div>
   )
