@@ -315,14 +315,55 @@ async function fetchKR(code: string) {
 
   result.companyName  = String(b.stockName)
   result.currentPrice = parseFloat(String(b.closePrice ?? '0').replace(/,/g, '')) || 0
-  result.marketCap    = toNum(b.marketValueFullRaw)
-  result.currentPER   = toNum(b.per)
-  if (result.currentPrice > 0 && result.marketCap > 0) {
-    result.shares = Math.round(result.marketCap / result.currentPrice)
-  }
-  result.success = true
+  result.success      = true
 
-  console.log('[fetchKR] 기본 정보:', result.companyName, '현재가:', result.currentPrice)
+  // ── integration API: PER·시가총액·발행주식수 취득 ─────────────────────────
+  // basic API는 현재가만 제공. integration/totalInfos 배열에 PER, 시가총액 포함.
+  try {
+    const intRes = await fetch(
+      `https://m.stock.naver.com/api/stock/${code}/integration`,
+      naverOpt
+    )
+    if (intRes.ok) {
+      const intData = await intRes.json().catch(() => null)
+      const infos: Array<{ code: string; value?: string }> =
+        intData?.totalInfos ?? []
+
+      // PER: 'per' 코드 → '41.21배' → 41.21
+      const perItem = infos.find(i => i.code === 'per')
+      if (perItem?.value) {
+        result.currentPER = parseFloat(perItem.value.replace(/[^0-9.]/g, '')) || 0
+      }
+
+      // 시가총액: 'marketValue' → '1,581조 4,184억' → 원 단위로 변환
+      const mcItem = infos.find(i => i.code === 'marketValue')
+      if (mcItem?.value) {
+        const mcStr = mcItem.value.replace(/,/g, '')
+        let mc = 0
+        const jo  = mcStr.match(/([\d]+)조/)
+        const eok = mcStr.match(/([\d]+)억/)
+        if (jo)  mc += parseInt(jo[1],  10) * 1_000_000_000_000
+        if (eok) mc += parseInt(eok[1], 10) * 100_000_000
+        result.marketCap = mc
+      }
+
+      // 발행주식수 = 시가총액 ÷ 현재가
+      if (result.marketCap > 0 && result.currentPrice > 0) {
+        result.shares = Math.round(result.marketCap / result.currentPrice)
+      }
+
+      console.log('[fetchKR] integration:', {
+        per: result.currentPER,
+        marketCap: result.marketCap,
+        shares: result.shares,
+      })
+    }
+  } catch (e) {
+    // integration 실패해도 기본 가격 정보는 이미 세팅되어 있으므로 계속 진행
+    console.warn('[fetchKR] integration API 실패:', (e as Error).message)
+  }
+
+  console.log('[fetchKR] 기본 정보:', result.companyName, '현재가:', result.currentPrice, 'shares:', result.shares)
 
   // ── 연간 재무 (확정 + 컨센서스 추정) ─────────────────────────────────────
   // m.stock.naver.com/api/stock/{code}/finance/annual 한 개 엔드포인트에
