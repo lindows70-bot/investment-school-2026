@@ -14,6 +14,7 @@ const NAV = [
 const ANALYSIS_NAV = [
   { href: '/analysis?tab=lynch',   icon: '🔍', label: '피터린치 분석' },
   { href: '/analysis?tab=buffett', icon: '🛡️', label: '워렌버핏 분석' },
+  { href: '/valuation',            icon: '📊', label: '최일 가치분석' },
 ]
 
 const RESEARCH_NAV = [
