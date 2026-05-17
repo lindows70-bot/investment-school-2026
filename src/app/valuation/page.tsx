@@ -94,89 +94,189 @@ export default function ValuationPage() {
     })()
   }, [])
 
+  // ── 기본 8년 연도 배열 생성 ──
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const makeDefaultYears = useCallback((_mkt?: 'US' | 'KR') => {
+    const currentYear = new Date().getFullYear()
+    const baseYear    = currentYear - 4
+    return Array.from({ length: 8 }, (_, i) => {
+      const y = baseYear + i
+      return y >= currentYear ? `${String(y).slice(2)}(E)` : String(y)
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // ── 분석 시작 ──
   const startAnalysis = useCallback(async () => {
     if (!ticker.trim()) { setError('티커를 입력하세요'); return }
-    setLoading(true); setError(null); setFin(null)
-    try {
-      const res = await fetch(`/api/financials?ticker=${encodeURIComponent(ticker.trim())}&market=${market}`)
-      if (!res.ok) throw new Error((await res.json()).error)
-      const data: FinData = await res.json()
-      setFin(data)
-      setEditEps([...data.eps])
-      setEditOi([...data.oi])
-      setEditRev([...data.rev])
-      setCustomPER(data.currentPER ? String(data.currentPER.toFixed(1)) : '')
-    } catch (e) { setError((e as Error).message) }
-    finally { setLoading(false) }
-  }, [ticker, market])
+    setLoading(true); setError(null)
 
-  // ── CAGR 계산 ──
+    // API 실패해도 빈 테이블을 먼저 표시 (사용자 직접 입력 가능)
+    const emptyYears = makeDefaultYears(market)
+    const emptyData: FinData = {
+      ticker: ticker.trim().toUpperCase(),
+      name:   ticker.trim().toUpperCase(),
+      currency: market === 'KR' ? 'KRW' : 'USD',
+      currentPrice: 0, marketCap: 0, shares: 0,
+      currentPER: null, forwardEPS: null,
+      years: emptyYears,
+      eps:  Array(8).fill(null),
+      oi:   Array(8).fill(null),
+      rev:  Array(8).fill(null),
+      unit: market === 'KR' ? '억원' : 'M USD',
+    }
+
+    try {
+      const res = await fetch(
+        `/api/financials?ticker=${encodeURIComponent(ticker.trim())}&market=${market}`,
+        { signal: AbortSignal.timeout(20000) }   // 20초 타임아웃
+      )
+
+      // HTTP 에러도 JSON 파싱 시도 (API가 항상 JSON 반환)
+      const data = await res.json().catch(() => emptyData)
+
+      // API가 error 필드를 포함해도 데이터는 사용 (빈 구조라도 표시)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const apiError = (data as any).error as string | undefined | null
+      if (apiError) {
+        setError(`⚠️ ${apiError} — 아래 표에 수동으로 데이터를 입력하세요`)
+      }
+
+      // 안전한 배열 추출 (길이 보장)
+      const safeArr = (arr: unknown): (number | null)[] => {
+        if (!Array.isArray(arr)) return Array(8).fill(null)
+        const result = arr.slice(0, 8).map(v =>
+          (typeof v === 'number' && isFinite(v)) ? v : null
+        )
+        while (result.length < 8) result.push(null)
+        return result
+      }
+
+      const safeData: FinData = {
+        ticker:       String(data?.ticker       ?? emptyData.ticker),
+        name:         String(data?.name         ?? emptyData.name),
+        currency:     (data?.currency === 'KRW' ? 'KRW' : 'USD') as 'USD' | 'KRW',
+        currentPrice: Number(data?.currentPrice ?? 0) || 0,
+        marketCap:    Number(data?.marketCap    ?? 0) || 0,
+        shares:       Number(data?.shares       ?? 0) || 0,
+        currentPER:   typeof data?.currentPER === 'number' ? data.currentPER : null,
+        forwardEPS:   typeof data?.forwardEPS   === 'number' ? data.forwardEPS : null,
+        years:        Array.isArray(data?.years) && data.years.length === 8
+                        ? data.years : emptyYears,
+        eps:          safeArr(data?.eps),
+        oi:           safeArr(data?.oi),
+        rev:          safeArr(data?.rev),
+        unit:         String(data?.unit ?? emptyData.unit),
+      }
+
+      setFin(safeData)
+      setEditEps([...safeData.eps])
+      setEditOi([...safeData.oi])
+      setEditRev([...safeData.rev])
+      setCustomPER(safeData.currentPER != null ? safeData.currentPER.toFixed(1) : '')
+
+    } catch (e) {
+      // 네트워크 오류 등: 빈 테이블만 표시하고 수동 입력 유도
+      const msg = (e as Error).message?.includes('timeout')
+        ? '⏱ 조회 시간 초과 — 아래 표에 수동으로 입력하세요'
+        : `⚠️ 네트워크 오류 — 아래 표에 수동으로 입력하세요 (${(e as Error).message})`
+      setError(msg)
+      setFin(emptyData)
+      setEditEps(Array(8).fill(null))
+      setEditOi(Array(8).fill(null))
+      setEditRev(Array(8).fill(null))
+    } finally {
+      setLoading(false)
+    }
+  }, [ticker, market, makeDefaultYears])
+
+  // ── CAGR 계산 (적자/0/NaN 완전 방어) ──
   const cagr = useMemo(() => {
     if (!fin) return null
-    const yrs = fin.years
-    // 8년: idx0=baseYear, idx4=currentYear-1(최신실적), idx7=+3E
-    const findVal = (arr: (number | null)[], startIdx: number) => {
-      for (let i = startIdx; i < arr.length; i++) if (arr[i] != null && arr[i]! > 0) return arr[i]
+
+    // 배열 길이 보장 (혹시 8개 미만이면 null로 채움)
+    const safe = (arr: (number | null)[]): (number | null)[] => {
+      const r = [...arr]
+      while (r.length < 8) r.push(null)
+      return r
+    }
+    const eps = safe(editEps), oi = safe(editOi), rev = safe(editRev)
+
+    // 양수 값만 찾는 헬퍼
+    const firstPositive = (arr: (number | null)[], from: number) => {
+      for (let i = from; i < arr.length; i++) {
+        const v = arr[i]; if (v != null && v > 0) return v
+      }
       return null
     }
-    // 장기 7년: [0] → [7]
-    const e7  = calcCagrSafe(findVal(editEps, 0), editEps[7], 7)
-    const o7  = calcCagrSafe(findVal(editOi,  0), editOi[7],  7)
-    const r7  = calcCagrSafe(findVal(editRev, 0), editRev[7], 7)
-    // 단기 3년: [4] → [7]
-    const e3  = calcCagrSafe(editEps[4], editEps[7], 3)
-    const o3  = calcCagrSafe(editOi[4],  editOi[7],  3)
-    const r3  = calcCagrSafe(editRev[4], editRev[7], 3)
-    return { long: { eps: e7, oi: o7, rev: r7 }, short: { eps: e3, oi: o3, rev: r3 }, yrs }
+
+    // 장기 7년: 첫 번째 양수 → idx7
+    const e7 = calcCagrSafe(firstPositive(eps, 0), eps[7], 7)
+    const o7 = calcCagrSafe(firstPositive(oi,  0), oi[7],  7)
+    const r7 = calcCagrSafe(firstPositive(rev, 0), rev[7], 7)
+    // 단기 3년: idx4(최신실적) → idx7
+    const e3 = calcCagrSafe(eps[4] ?? firstPositive(eps, 3), eps[7], 3)
+    const o3 = calcCagrSafe(oi[4]  ?? firstPositive(oi,  3), oi[7],  3)
+    const r3 = calcCagrSafe(rev[4] ?? firstPositive(rev, 3), rev[7], 3)
+
+    return { long: { eps: e7, oi: o7, rev: r7 }, short: { eps: e3, oi: o3, rev: r3 } }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editEps, editOi, editRev, fin])
 
-  // ── PEG & 적정주가 ──
+  // ── PEG & 적정주가 (완전 방어) ──
   const analysis = useMemo(() => {
-    if (!fin || !cagr) return null
-    const cagrEps = cagr.long.eps
+    if (!fin) return null
+
+    const cagrEps   = cagr?.long?.eps ?? null
     const per15 = 15, per25 = 25, per50 = 50
-    const perMarket = parseFloat(customPER) || fin.currentPER || 25
+    const perMarketRaw = parseFloat(customPER)
+    const perMarket    = isFinite(perMarketRaw) && perMarketRaw > 0
+      ? perMarketRaw : (fin.currentPER ?? 25)
 
     const mkPeg = (per: number) => ({
-      per, peg: cagrEps != null && cagrEps > 0 ? per / cagrEps : null,
+      per,
+      peg: cagrEps != null && isFinite(cagrEps) && cagrEps > 0
+        ? parseFloat((per / cagrEps).toFixed(2)) : null,
     })
 
-    // Forward EPS (마지막 E 값 또는 forwardEPS)
-    const fwdEps = editEps.filter(v => v != null).at(-1) ?? fin.forwardEPS ?? 0
-    const latestOI  = editOi.filter(v => v != null).at(-1) ?? 0
-    const latestRev = editRev.filter(v => v != null).at(-1) ?? 0
-    const shares    = fin.shares > 0 ? fin.shares : 1
+    // Forward EPS: E컬럼 마지막 유효값, 없으면 API forwardEPS
+    const fwdEps = editEps?.filter(v => v != null && isFinite(v!)).at(-1)
+      ?? fin.forwardEPS
+      ?? 0
+    const latestOI  = editOi?.filter(v => v != null && isFinite(v!)).at(-1)  ?? 0
+    const latestRev = editRev?.filter(v => v != null && isFinite(v!)).at(-1) ?? 0
+    const shares    = fin.shares > 0 ? fin.shares : 1e7  // 기본 1000만주 fallback
 
-    const fv15 = fwdEps * per15
-    const fv25 = fwdEps * per25
-    const fvM  = fwdEps * perMarket
+    const fv = (eps: number, per: number) =>
+      isFinite(eps) && isFinite(per) && eps > 0 ? eps * per : 0
 
-    // OI 기반: (OI / shares) × PER
-    const perShareOI   = fin.currency === 'KRW'
-      ? (latestOI * 1e8) / shares          // 억원 → 원 → 주당
-      : (latestOI * 1e6) / shares           // M → 원단위 아님 → USD
+    const fv15 = fv(fwdEps, per15)
+    const fv25 = fv(fwdEps, per25)
+    const fvM  = fv(fwdEps, perMarket)
 
-    const fvOI = perShareOI * perMarket
+    // OI 기반 (억원→원/주 또는 M USD→$/주)
+    const perShareOI = fin.currency === 'KRW'
+      ? (latestOI * 1e8) / shares
+      : (latestOI * 1e6) / shares
+    const fvOI = isFinite(perShareOI) && perShareOI > 0 ? perShareOI * perMarket : 0
 
-    // Rev 기반 PSR (PSR=2 가정)
-    const psr = 2
-    const perShareRev  = fin.currency === 'KRW'
+    // Rev 기반 PSR × 2
+    const perShareRev = fin.currency === 'KRW'
       ? (latestRev * 1e8) / shares
       : (latestRev * 1e6) / shares
-    const fvPSR = perShareRev * psr
+    const fvPSR = isFinite(perShareRev) && perShareRev > 0 ? perShareRev * 2 : 0
 
-    // 평균 (EPS기준 + OI기준 + Rev기준)
-    const validFVs = [fvM, fvOI > 0 ? fvOI : null, fvPSR > 0 ? fvPSR : null].filter(v => v != null && v > 0) as number[]
-    const avgFV = validFVs.length ? validFVs.reduce((a, b) => a + b, 0) / validFVs.length : 0
-    const upside = fin.currentPrice > 0 ? (avgFV / fin.currentPrice - 1) * 100 : 0
+    const validFVs = [fvM, fvOI, fvPSR].filter(v => isFinite(v) && v > 0)
+    const avgFV    = validFVs.length
+      ? validFVs.reduce((a, b) => a + b, 0) / validFVs.length : 0
+    const upside   = fin.currentPrice > 0 && avgFV > 0
+      ? (avgFV / fin.currentPrice - 1) * 100 : 0
 
     return {
       scenarios: [
-        { label: '보수적 (PER 15)', ...mkPeg(per15), fv: fv15 },
-        { label: '적정 (PER 25)',   ...mkPeg(per25), fv: fv25 },
-        { label: '성장주 (PER 50)', ...mkPeg(per50), fv: fwdEps * per50 },
+        { label: '보수적 (PER 15)',               ...mkPeg(per15),     fv: fv15 },
+        { label: '적정 (PER 25)',                  ...mkPeg(per25),     fv: fv25 },
+        { label: '성장주 (PER 50)',                ...mkPeg(per50),     fv: fv(fwdEps, per50) },
         { label: `시장 PER (${perMarket.toFixed(1)})`, ...mkPeg(perMarket), fv: fvM },
       ],
       fvEPS: fvM, fvOI, fvPSR, avgFV, upside,
@@ -323,7 +423,12 @@ export default function ValuationPage() {
             {loading ? '⏳ 조회 중…' : '🔍 분석 시작'}
           </button>
         </div>
-        {error && <div style={{ marginTop: 12, padding: '8px 12px', background: '#2d0a0a', border: `1px solid ${UP}44`, borderRadius: 7, fontSize: 12, color: UP }}>{error}</div>}
+        {error && (
+          <div style={{ marginTop: 12, padding: '10px 14px', background: '#2d1500', border: `1px solid ${GLD}55`, borderRadius: 8, fontSize: 12, color: GLD, lineHeight: 1.6 }}>
+            {error}
+            {fin && <span style={{ marginLeft: 8, color: SUB }}>↓ 아래 표에 직접 입력하세요</span>}
+          </div>
+        )}
       </div>
 
       {/* 종목 기본 정보 */}
@@ -381,7 +486,7 @@ export default function ValuationPage() {
                           onChange={e => setCell(data, set, ci, e.target.value)}
                           style={{
                             width: '100%', background: 'transparent', border: 'none', outline: 'none',
-                            textAlign: 'right', color: fin.years[ci].includes('E') ? '#6b7280' : TXT,
+                            textAlign: 'right', color: fin.years?.[ci]?.includes('E') ? '#6b7280' : TXT,
                             fontSize: 12, padding: '4px 6px', fontFamily: 'monospace',
                           }}
                           placeholder="—"
