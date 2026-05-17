@@ -124,14 +124,39 @@ async function fetchUS(ticker: string) {
   result.companyName  = ticker
   result.currentPrice = toNum(finD?.currentPrice   ?? det?.previousClose)
   result.marketCap    = toNum(det?.marketCap)
-  result.shares       = toNum(stats?.sharesOutstanding)
+
+  // ── 발행주식수: 멀티클래스 주식(GOOGL 등) 대응 ────────────────────────────
+  // sharesOutstanding 은 GOOGL 같은 멀티클래스 주식의 경우 Class A만 반환해 절반으로 잡힘.
+  // impliedSharesOutstanding 이 있으면 우선 사용 (전체 주식 반영).
+  // 없으면 시가총액 ÷ 현재가로 역산 (가장 신뢰할 수 있는 근사값).
+  const rawPrice = toNum(finD?.currentPrice ?? det?.previousClose)
+  const rawMktCap = toNum(det?.marketCap)
+  const impliedShares = toNum(stats?.impliedSharesOutstanding)
+  const sharesFromMkt = rawPrice > 0 && rawMktCap > 0
+    ? Math.round(rawMktCap / rawPrice) : 0
+  result.shares = impliedShares > 0
+    ? impliedShares
+    : sharesFromMkt > 0
+      ? sharesFromMkt
+      : toNum(stats?.sharesOutstanding)
+
   result.currentPER   = toNum(det?.trailingPE ?? det?.forwardPE)
   result.success      = true
+
+  // ── financialData 에서 현재 영업이익 계산 (Yahoo Nov 2024 이후 ebit 폐기 대응) ────
+  // operatingMargins(%) × totalRevenue(USD) = 현재 TTM 영업이익(USD) → M USD 변환
+  const ttmOpMargin  = toNum(finD?.operatingMargins)   // e.g. 0.321 (32.1%)
+  const ttmRevenue   = toNum(finD?.totalRevenue)        // USD 단위
+  const ttmOpIncome  = ttmOpMargin > 0 && ttmRevenue > 0
+    ? +(ttmOpMargin * ttmRevenue / 1e6).toFixed(2)       // → M USD
+    : 0
+  console.log('[fetchUS] TTM 영업이익:', ttmOpIncome, 'M USD (마진:', (ttmOpMargin * 100).toFixed(1) + '%)')
 
   const cy       = new Date().getFullYear()
   const yearKeys = makeYearKeys(cy)
   result.yearKeys = yearKeys
 
+  // 위에서 계산한 result.shares 사용 (impliedShares 또는 역산값)
   const sharesOut = result.shares > 0 ? result.shares : 1
 
   // ── 연간 실적: incomeStatementHistory ────────────────────────────────────
@@ -237,9 +262,12 @@ async function fetchUS(ticker: string) {
       const trailingEps   = toNum(stats?.trailingEps)
       const finalEps      = (isMostRecent && trailingEps > 0) ? trailingEps : epsBase
 
+      // 영업이익: Yahoo ebit 폐기로 역사적 값 불가 → TTM 값을 가장 최근 연도에만 채움
+      const opProfit = isMostRecent && ttmOpIncome > 0 ? ttmOpIncome : 0
+
       fin[key] = {
         eps:             finalEps,
-        operatingProfit: 0,    // Yahoo Nov 2024 이후 ebit 데이터 미제공
+        operatingProfit: opProfit,
         revenue:         hist?.rev ?? 0,
       }
     } else {
@@ -433,6 +461,25 @@ async function fetchKR(code: string) {
   console.log('[fetchKR] fcByYear 연도:', Array.from(fcByYear.keys()))
 
   // ── 8개년 financials 조립 ─────────────────────────────────────────────────
+  // ※ 컨센서스 아웃라이어 필터:
+  //    직전 확정 연도 대비 YoY 변화율이 +500% 초과인 추정치는 0 처리.
+  //    (삼성·SK하이닉스 Naver 컨센서스에 물리적으로 불가능한 수치 유입 방지)
+  const MAX_YOY = 5.0   // 500% = 6배까지 허용
+
+  // 확정 마지막 연도의 값을 기준점으로 사용
+  const lastActEps = Array.from(actByYear.values()).map(v => v.eps).filter(v => v > 0).at(-1) ?? 0
+  const lastActOI  = Array.from(actByYear.values()).map(v => v.oi).filter(v => v > 0).at(-1)  ?? 0
+  const lastActRev = Array.from(actByYear.values()).map(v => v.rev).filter(v => v > 0).at(-1) ?? 0
+
+  const filterConsensus = (val: number, base: number): number => {
+    if (base <= 0 || val <= 0) return val
+    if (val / base > MAX_YOY + 1) {
+      console.warn(`[fetchKR] 컨센서스 아웃라이어 제거: ${val} (base=${base}, 배율=${(val/base).toFixed(1)}x)`)
+      return 0
+    }
+    return val
+  }
+
   const cy       = new Date().getFullYear()
   const yearKeys = makeYearKeys(cy)
   const fin: typeof result.financials = {}
@@ -445,16 +492,15 @@ async function fetchKR(code: string) {
       const d = actByYear.get(yr)
       fin[key] = {
         eps:             d?.eps ?? 0,
-        // 억원 단위 그대로 반환 → 프론트엔드에서 ×1e8 / shares = 원/주 계산
         operatingProfit: d?.oi  ?? 0,
         revenue:         d?.rev ?? 0,
       }
     } else {
-      const d = fcByYear.get(yr)
+      const raw = fcByYear.get(yr)
       fin[key] = {
-        eps:             d?.eps ?? 0,
-        operatingProfit: d?.oi  ?? 0,
-        revenue:         d?.rev ?? 0,
+        eps:             filterConsensus(raw?.eps ?? 0, lastActEps),
+        operatingProfit: filterConsensus(raw?.oi  ?? 0, lastActOI),
+        revenue:         filterConsensus(raw?.rev ?? 0, lastActRev),
       }
     }
   }
