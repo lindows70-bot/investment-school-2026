@@ -2,274 +2,299 @@
  * GET /api/financials?ticker=NVDA&market=US
  * GET /api/financials?ticker=005930&market=KR
  *
- * 최일 가치분석용 재무 데이터 조회
- * - 과거 실적 4~5년 + 향후 3년 추정 = 총 8개년
- * - EPS / 영업이익 / 매출액
- * - 전체 try-catch 방어 → API 실패 시 빈 구조 반환 (앱 크래시 방지)
+ * 서버단 직접 크롤링 (CORS 원천 차단, 모바일 UA 위장)
+ * 반환: 과거 5년 + 추정 3년 = 8개년 데이터
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 
-// ── 공통 헤더 (브라우저 위장) ─────────────────────────────────────────────────
-const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+// ── 모바일 UA (차단 회피 최적화) ─────────────────────────────────────────────
+const MOBILE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1'
 
-// (YF_HEADERS는 yahoo-finance2 라이브러리가 내부 처리하므로 Naver 전용만 사용)
-const NAVER_HEADERS: HeadersInit = {
-  'User-Agent': BROWSER_UA,
-  'Accept': 'application/json, text/plain, */*',
-  'Accept-Language': 'ko-KR,ko;q=0.9',
-  'Referer': 'https://m.stock.naver.com/',
+const fetchOpts = (extra: HeadersInit = {}): RequestInit => ({
+  headers: {
+    'User-Agent': MOBILE_UA,
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
+    'Cache-Control': 'no-cache',
+    ...extra,
+  },
+  next: { revalidate: 1800 },   // 30분 캐시
+})
+
+// ── 유틸 ─────────────────────────────────────────────────────────────────────
+const toNum = (v: unknown): number | null => {
+  if (v == null) return null
+  const n = typeof v === 'object' && v !== null && 'raw' in v
+    ? (v as { raw: unknown }).raw
+    : v
+  const f = typeof n === 'number' ? n : parseFloat(String(n).replace(/,/g, ''))
+  return isFinite(f) ? f : null
 }
 
-// ── 빈 결과 구조 (API 실패 시 반환) ─────────────────────────────────────────
-function emptyResult(ticker: string, market: string) {
-  const currentYear = new Date().getFullYear()
-  const baseYear = currentYear - 4
+const currentYear = () => new Date().getFullYear()
+
+/** 빈 8개년 구조 */
+function mkEmpty(ticker: string, market: 'US' | 'KR') {
+  const cy = currentYear()
   const years = Array.from({ length: 8 }, (_, i) => {
-    const y = baseYear + i
-    return y >= currentYear ? `${String(y).slice(2)}(E)` : String(y)
+    const y = cy - 4 + i
+    return y >= cy ? `${String(y).slice(2)}(E)` : String(y)
   })
   return {
-    ticker,
-    name: ticker,
+    ticker, name: ticker,
     currency: market === 'KR' ? 'KRW' : 'USD',
-    currentPrice: 0,
-    marketCap: 0,
-    shares: 0,
+    currentPrice: 0, marketCap: 0, shares: 0,
     currentPER: null as number | null,
     forwardEPS: null as number | null,
     years,
-    eps:  Array(8).fill(null),
-    oi:   Array(8).fill(null),
-    rev:  Array(8).fill(null),
-    unit: market === 'KR' ? '억원' : 'M USD',
+    eps:  Array<number | null>(8).fill(null),
+    oi:   Array<number | null>(8).fill(null),
+    rev:  Array<number | null>(8).fill(null),
+    unit: market === 'KR' ? '억원' : 'B USD',
     error: null as string | null,
   }
 }
 
-// ── 숫자 변환 헬퍼 ────────────────────────────────────────────────────────────
-const safeRaw = (obj: unknown, key: string): number | null => {
-  if (!obj || typeof obj !== 'object') return null
-  const v = (obj as Record<string, { raw?: number }>)[key]?.raw
-  return typeof v === 'number' && isFinite(v) ? v : null
-}
-const safeNum = (v: unknown): number | null => {
-  if (v == null) return null
-  const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/,/g, ''))
-  return isFinite(n) ? n : null
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  US — yahoo-finance2 (서버사이드 라이브러리, CORS 없음)
-// ═══════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+//  US — Yahoo Finance v10 직접 크롤링
+// ════════════════════════════════════════════════════════════
 async function fetchUS(ticker: string) {
-  const result = emptyResult(ticker, 'US')
+  const result = mkEmpty(ticker, 'US')
+  const t = ticker.toUpperCase()
 
   try {
-    // 방법 1: yahoo-finance2 라이브러리 사용 (가장 안정적)
-    const { default: yf } = await import('yahoo-finance2')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const yfinance = new (yf as any)({ suppressNotices: ['yahooSurvey'] })
+    // ── v10 quoteSummary ─────────────────────────────────────
+    const modules = [
+      'incomeStatementHistory',
+      'earningsTrend',
+      'financialData',
+      'defaultKeyStatistics',
+      'summaryDetail',
+      'earningsHistory',
+    ].join(',')
 
-    const [summary, historical] = await Promise.allSettled([
-      yfinance.quoteSummary(ticker, {
-        modules: [
-          'defaultKeyStatistics',
-          'financialData',
-          'summaryDetail',
-          'earningsTrend',
-          'incomeStatementHistory',
-          'earningsHistory',
-        ],
-      }),
-      yfinance.historical(ticker, {
-        period1: `${new Date().getFullYear() - 5}-01-01`,
-        period2: new Date().toISOString().slice(0, 10),
-        interval: '1mo',
-      }),
-    ])
+    const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(t)}?modules=${modules}&lang=en-US&region=US`
 
-    if (summary.status === 'rejected') {
-      result.error = `Yahoo Finance 조회 실패: ${summary.reason?.message ?? 'unknown'}`
-      return result
+    const res = await fetch(url, fetchOpts({
+      Referer: 'https://finance.yahoo.com/',
+      Origin:  'https://finance.yahoo.com',
+    })).catch(() => null)
+
+    if (!res?.ok) throw new Error(`Yahoo HTTP ${res?.status ?? 'unreachable'}`)
+
+    const json = await res.json().catch(() => null)
+    const data = json?.quoteSummary?.result?.[0]
+    if (!data) throw new Error('Yahoo: 빈 응답')
+
+    // ── 기본 정보 ────────────────────────────────────────────
+    const fin   = data.financialData         ?? {}
+    const det   = data.summaryDetail         ?? {}
+    const stats = data.defaultKeyStatistics  ?? {}
+
+    result.name         = t
+    result.currentPrice = toNum(fin.currentPrice ?? det.previousClose) ?? 0
+    result.marketCap    = toNum(det.marketCap) ?? 0
+    result.shares       = toNum(stats.sharesOutstanding) ?? 0
+    result.currentPER   = toNum(det.trailingPE ?? det.forwardPE)
+    result.forwardEPS   = toNum(stats.forwardEps)
+
+    // ── 과거 실적: incomeStatementHistory ────────────────────
+    // [0]=최근년도 … [3]=4년전 (내림차순)
+    const incArr: unknown[] = data.incomeStatementHistory?.incomeStatementHistory ?? []
+    const incMap = new Map<number, { oi: number | null; rev: number | null }>()
+
+    for (const row of incArr) {
+      const r = row as Record<string, unknown>
+      const yr = r.endDate
+        ? new Date((toNum(r.endDate) ?? 0) * 1000).getFullYear()
+        : null
+      if (!yr) continue
+      incMap.set(yr, {
+        oi:  toNum((r.ebit as Record<string,unknown>)?.raw ?? r.ebit),
+        rev: toNum((r.totalRevenue as Record<string,unknown>)?.raw ?? r.totalRevenue),
+      })
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const s: any = summary.value ?? {}
-    const stats  = s.defaultKeyStatistics ?? {}
-    const fin    = s.financialData         ?? {}
-    const det    = s.summaryDetail         ?? {}
+    // ── 과거 EPS: earningsHistory ────────────────────────────
+    const ehArr: unknown[] = data.earningsHistory?.earningsInfo ?? []
+    const epsMapQ = new Map<number, number>()  // 분기 합산 → 연간
 
-    result.name         = ticker
-    result.currentPrice = fin.currentPrice?.raw ?? det.previousClose?.raw ?? 0
-    result.marketCap    = det.marketCap?.raw ?? 0
-    result.shares       = stats.sharesOutstanding?.raw ?? 0
-    result.currentPER   = det.trailingPE?.raw ?? det.forwardPE?.raw ?? null
-    result.forwardEPS   = stats.forwardEps?.raw ?? null
-
-    const currentYear = new Date().getFullYear()
-    const baseYear    = currentYear - 4
-
-    // 과거 실적 — incomeStatementHistory
-    const incomeArr = s.incomeStatementHistory?.incomeStatementHistory ?? []
-    const incomeMap: Record<number, { oi: number | null; rev: number | null }> = {}
-    for (const row of incomeArr) {
-      const yr = row?.endDate?.raw ? new Date(row.endDate.raw * 1000).getFullYear() : null
-      if (yr && yr >= baseYear) {
-        incomeMap[yr] = {
-          oi:  safeRaw(row, 'ebit'),
-          rev: safeRaw(row, 'totalRevenue'),
-        }
-      }
-    }
-
-    // 과거 EPS — earningsHistory (연간 합산)
-    const epsMap: Record<number, number> = {}
-    const ehArr = s.earningsHistory?.earningsInfo ?? []
     for (const row of ehArr) {
-      const dateStr = row?.fiscalDateEnding?.fmt ?? ''
-      const yr = dateStr ? parseInt(dateStr.slice(0, 4)) : 0
-      if (yr >= baseYear && yr <= currentYear) {
-        const v = row?.epsActual?.raw
-        if (typeof v === 'number') epsMap[yr] = (epsMap[yr] ?? 0) + v
-      }
-    }
-    // trailing EPS fallback
-    const trailingEps = stats.trailingEps?.raw ?? null
-
-    // 미래 추정 — earningsTrend
-    const trendMap: Record<string, { eps: number | null; rev: number | null }> = {}
-    for (const row of (s.earningsTrend?.trend ?? [])) {
-      trendMap[row.period ?? ''] = {
-        eps: row.earningsEstimate?.avg?.raw ?? null,
-        rev: row.revenueEstimate?.avg?.raw ?? null,
-      }
+      const r    = row as Record<string, { fmt?: string; raw?: number }>
+      const date = r.fiscalDateEnding?.fmt ?? ''
+      const yr   = date ? parseInt(date.slice(0, 4)) : 0
+      if (!yr) continue
+      const eps = toNum(r.epsActual)
+      if (eps != null) epsMapQ.set(yr, (epsMapQ.get(yr) ?? 0) + eps)
     }
 
-    // 8년 배열 조합
+    // ── 미래 추정: earningsTrend ─────────────────────────────
+    const trendArr: unknown[] = data.earningsTrend?.trend ?? []
+    const trendMap = new Map<string, { eps: number | null; rev: number | null }>()
+
+    for (const row of trendArr) {
+      const r   = row as Record<string, unknown>
+      const per = r.period as string
+      if (!per) continue
+      trendMap.set(per, {
+        eps: toNum((r.earningsEstimate as Record<string,unknown>)?.avg ?? null),
+        rev: toNum((r.revenueEstimate  as Record<string,unknown>)?.avg ?? null),
+      })
+    }
+
+    // ── 8개년 배열 조립 ──────────────────────────────────────
+    const cy    = currentYear()
+    const base  = cy - 4  // 4년 전 ~ 현재-1=실적, 현재~+2=추정
+
     for (let i = 0; i < 8; i++) {
-      const y         = baseYear + i
-      const isEst     = y >= currentYear
-      result.years[i] = isEst ? `${String(y).slice(2)}(E)` : String(y)
+      const y     = base + i
+      const isEst = y >= cy
 
       if (!isEst) {
-        result.eps[i] = epsMap[y] != null ? Math.round(epsMap[y] * 100) / 100
-                      : (y === currentYear - 1 ? trailingEps : null)
-        const oi  = incomeMap[y]?.oi
-        const rev = incomeMap[y]?.rev
-        result.oi[i]  = oi  != null ? Math.round(oi  / 1e4) / 100 : null   // → M
-        result.rev[i] = rev != null ? Math.round(rev / 1e4) / 100 : null
-      } else {
-        const delta = y - currentYear
-        const periodMap: Record<number, string> = { 0: '0y', 1: '+1y', 2: '+2y' }
-        const pd = periodMap[delta] ?? ''
-        result.eps[i] = trendMap[pd]?.eps ?? (delta === 0 ? result.forwardEPS : null)
-        result.oi[i]  = null
-        result.rev[i] = trendMap[pd]?.rev != null
-          ? Math.round(trendMap[pd].rev! / 1e4) / 100 : null
-      }
-    }
+        // 과거 실적
+        const oi  = incMap.get(y)
+        const rev = incMap.get(y)
+        // YF 단위: USD (절대값). B USD로 변환
+        result.oi[i]  = oi?.oi  != null ? +(oi.oi  / 1e9).toFixed(2) : null
+        result.rev[i] = rev?.rev != null ? +(rev.rev / 1e9).toFixed(2) : null
 
-    // 히스토리컬로 현재가 보완
-    if (result.currentPrice === 0 && historical.status === 'fulfilled') {
-      const last = historical.value?.at(-1)
-      if (last?.close) result.currentPrice = last.close
+        // EPS: 연간 합산 or trailingEps(최근년도)
+        const eps = epsMapQ.get(y)
+        if (eps != null) {
+          result.eps[i] = +eps.toFixed(2)
+        } else if (y === cy - 1) {
+          result.eps[i] = toNum(stats.trailingEps) ?? null
+        }
+      } else {
+        // 미래 추정
+        const delta  = y - cy   // 0 = 현재년, 1 = 내년, 2 = 2년 후
+        const period = delta === 0 ? '0y' : delta === 1 ? '+1y' : null
+        const td     = period ? trendMap.get(period) : null
+
+        result.eps[i] = td?.eps ?? (delta === 0 ? result.forwardEPS : null)
+        result.oi[i]  = null   // YF 미래 OI 미제공
+        result.rev[i] = td?.rev != null ? +(td.rev / 1e9).toFixed(2) : null
+      }
     }
 
   } catch (e) {
-    result.error = `US 데이터 파싱 오류: ${(e as Error).message}`
+    result.error = `US 조회 실패: ${(e as Error).message}`
     console.error('[financials/US]', e)
   }
 
   return result
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  KR — Naver Finance (네이버 모바일 API)
-// ═══════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+//  KR — 네이버 증권 모바일 API
+// ════════════════════════════════════════════════════════════
 async function fetchKR(code: string) {
-  const result = emptyResult(code, 'KR')
+  const result = mkEmpty(code, 'KR')
 
   try {
-    // 기본 정보
+    // ── 기본 정보 ────────────────────────────────────────────
     const basicRes = await fetch(
       `https://m.stock.naver.com/api/stock/${code}/basic`,
-      { headers: NAVER_HEADERS, next: { revalidate: 3600 } }
+      fetchOpts()
     ).catch(() => null)
 
     if (basicRes?.ok) {
-      const basic = await basicRes.json().catch(() => ({}))
-      result.name         = basic.stockName ?? code
-      result.currentPrice = safeNum(basic.closePrice?.replace?.(/,/g, '') ?? basic.closePrice) ?? 0
-      result.marketCap    = safeNum(basic.marketValueFullRaw) ?? 0
+      const b = await basicRes.json().catch(() => ({}))
+      result.name         = b.stockName ?? code
+      // closePrice는 "284,000" 형태의 문자열일 수 있음
+      result.currentPrice = toNum(String(b.closePrice ?? '0').replace(/,/g, '')) ?? 0
+      result.marketCap    = toNum(b.marketValueFullRaw ?? b.marketValue?.replace?.(/,/g, '')) ?? 0
+      result.currentPER   = toNum(b.per) ?? null
+
       if (result.currentPrice > 0 && result.marketCap > 0) {
         result.shares = Math.round(result.marketCap / result.currentPrice)
       }
-      result.currentPER = safeNum(basic.per) ?? null
     }
 
-    // 연간 재무 (과거)
-    const annualRes = await fetch(
-      `https://api.stock.naver.com/stock/${code}/finance/annual`,
-      { headers: NAVER_HEADERS, next: { revalidate: 3600 } }
-    ).catch(() => null)
-
-    // 컨센서스 (미래)
-    const fcRes = await fetch(
-      `https://api.stock.naver.com/stock/${code}/finance/forecast`,
-      { headers: NAVER_HEADERS, next: { revalidate: 3600 } }
-    ).catch(() => null)
+    // ── 연간 확정 실적 ────────────────────────────────────────
+    const [annRes, fcRes] = await Promise.allSettled([
+      fetch(`https://api.stock.naver.com/stock/${code}/finance/annual`,  fetchOpts()),
+      fetch(`https://api.stock.naver.com/stock/${code}/finance/forecast`, fetchOpts()),
+    ])
 
     type NaverRow = { title: string; columns: Record<string, { value: string }> }
-    type TrTitle  = { key: string; isConsensus: string }
 
-    let actualKeys:  string[] = []
-    let fcKeys:      string[] = []
-    let rowList:     NaverRow[] = []
-    let fcRowList:   NaverRow[] = []
+    // 확정 데이터 파싱
+    const actMap = new Map<string, { eps: number | null; oi: number | null; rev: number | null }>()
+    let actualKeys: string[] = []
 
-    if (annualRes?.ok) {
-      const json = await annualRes.json().catch(() => null)
-      rowList    = json?.financeInfo?.rowList    ?? []
-      actualKeys = (json?.financeInfo?.trTitleList as TrTitle[] ?? [])
-        .filter(t => t.isConsensus === 'N').map(t => t.key).sort()
+    if (annRes.status === 'fulfilled' && annRes.value?.ok) {
+      const ann = await annRes.value.json().catch(() => null)
+      const rows: NaverRow[]  = ann?.financeInfo?.rowList    ?? []
+      const cols: { key: string; isConsensus: string }[] = ann?.financeInfo?.trTitleList ?? []
+
+      actualKeys = cols.filter(c => c.isConsensus === 'N').map(c => c.key)
+
+      for (const key of actualKeys) {
+        const get = (title: string) => {
+          const row = rows.find(r => r.title === title || r.title?.includes(title))
+          return row ? toNum(row.columns?.[key]?.value) : null
+        }
+        actMap.set(key, {
+          eps: get('EPS'),
+          oi:  get('영업이익'),
+          rev: get('매출액'),
+        })
+      }
     }
 
-    if (fcRes?.ok) {
-      const json  = await fcRes.json().catch(() => null)
-      fcRowList   = json?.financeInfo?.rowList   ?? []
-      fcKeys      = (json?.financeInfo?.trTitleList ?? []).map((t: TrTitle) => t.key).sort()
+    // 추정 데이터 파싱
+    const fcMap = new Map<string, { eps: number | null; oi: number | null; rev: number | null }>()
+    let fcKeys: string[] = []
+
+    if (fcRes.status === 'fulfilled' && fcRes.value?.ok) {
+      const fc   = await fcRes.value.json().catch(() => null)
+      const rows: NaverRow[] = fc?.financeInfo?.rowList    ?? []
+      const cols: { key: string }[] = fc?.financeInfo?.trTitleList ?? []
+
+      fcKeys = cols.map(c => c.key)
+
+      for (const key of fcKeys) {
+        const get = (title: string) => {
+          const row = rows.find(r => r.title === title || r.title?.includes(title))
+          return row ? toNum(row.columns?.[key]?.value) : null
+        }
+        fcMap.set(key, {
+          eps: get('EPS'),
+          oi:  get('영업이익'),
+          rev: get('매출액'),
+        })
+      }
     }
 
-    const getVal = (rows: NaverRow[], titleKw: string, key: string): number | null => {
-      const row = rows.find(r => r.title === titleKw || r.title?.includes(titleKw))
-      if (!row) return null
-      return safeNum(row.columns?.[key]?.value)
-    }
-
-    const currentYear = new Date().getFullYear()
-    const baseYear    = currentYear - 4
+    // ── 8개년 배열 조립 ──────────────────────────────────────
+    // 네이버 영업이익·매출 단위: 억원 (EPS: 원)
+    // oi/rev 는 억원 그대로 반환 (프론트에서 표시, 주당계산시 ×1e8)
+    const cy   = currentYear()
+    const base = cy - 4
 
     for (let i = 0; i < 8; i++) {
-      const y     = baseYear + i
-      const isEst = y >= currentYear
-      result.years[i] = isEst ? `${String(y).slice(2)}(E)` : String(y)
+      const y     = base + i
+      const isEst = y >= cy
 
       if (!isEst) {
-        const key = actualKeys.find(k => k.startsWith(String(y))) ?? null
-        result.eps[i] = key ? getVal(rowList, 'EPS', key) : null
-        result.oi[i]  = key ? getVal(rowList, '영업이익', key) : null
-        result.rev[i] = key ? getVal(rowList, '매출액', key) : null
+        const key = actualKeys.find(k => k.startsWith(String(y)))
+        const d   = key ? actMap.get(key) : null
+        result.eps[i] = d?.eps  ?? null
+        result.oi[i]  = d?.oi   ?? null
+        result.rev[i] = d?.rev  ?? null
       } else {
-        const fk = fcKeys.find(k => k.startsWith(String(y))) ?? null
-        result.eps[i] = fk ? getVal(fcRowList, 'EPS', fk) : null
-        result.oi[i]  = fk ? getVal(fcRowList, '영업이익', fk) : null
-        result.rev[i] = fk ? getVal(fcRowList, '매출액', fk) : null
+        const key = fcKeys.find(k => k.startsWith(String(y)))
+        const d   = key ? fcMap.get(key) : null
+        result.eps[i] = d?.eps  ?? null
+        result.oi[i]  = d?.oi   ?? null
+        result.rev[i] = d?.rev  ?? null
       }
     }
 
   } catch (e) {
-    result.error = `KR 데이터 파싱 오류: ${(e as Error).message}`
+    result.error = `KR 조회 실패: ${(e as Error).message}`
     console.error('[financials/KR]', e)
   }
 
@@ -278,14 +303,12 @@ async function fetchKR(code: string) {
 
 // ── Route Handler ─────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
-  const ticker = req.nextUrl.searchParams.get('ticker')?.trim()?.toUpperCase()
-  const market = (req.nextUrl.searchParams.get('market') ?? 'US').toUpperCase() as 'US' | 'KR'
+  const sp     = req.nextUrl.searchParams
+  const ticker = sp.get('ticker')?.trim().toUpperCase() ?? ''
+  const market = (sp.get('market')?.toUpperCase() ?? 'US') as 'US' | 'KR'
 
   if (!ticker) {
-    return NextResponse.json(
-      { ...emptyResult('', 'US'), error: '티커를 입력하세요' },
-      { status: 400 }
-    )
+    return NextResponse.json({ ...mkEmpty('', 'US'), error: '티커를 입력하세요' }, { status: 400 })
   }
 
   try {
@@ -295,8 +318,6 @@ export async function GET(req: NextRequest) {
     })
   } catch (e) {
     console.error('[financials] fatal:', e)
-    return NextResponse.json(
-      { ...emptyResult(ticker, market), error: `서버 오류: ${(e as Error).message}` }
-    )
+    return NextResponse.json({ ...mkEmpty(ticker, market), error: `서버 오류: ${(e as Error).message}` })
   }
 }
