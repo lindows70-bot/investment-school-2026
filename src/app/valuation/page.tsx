@@ -231,36 +231,70 @@ export default function ValuationPage() {
 
   // ── CAGR 자동 계산 ────────────────────────────────────────────────────────
   const cagrData = useMemo(() => {
-    // 방어: rawData 성공 상태 + eps 배열 존재 시에만 계산
     if (!rawData?.success || !rawData.financials) return null
     if (eps.length === 0) return null
 
-    const firstPos = (arr: number[], from = 0): number | null => {
-      for (let i = from; i < arr.length; i++) if (arr[i] > 0) return arr[i]
+    // 확정('E' 아님) / 추정('E') 인덱스 구분
+    const isActual = (idx: number) => !yearKeys[idx]?.endsWith('E')
+
+    // 확정 실적 중 양수인 첫/마지막 {val, idx}
+    const firstActualInfo = (arr: number[]): { val: number; idx: number } | null => {
+      for (let i = 0; i < arr.length; i++) if (isActual(i) && arr[i] > 0) return { val: arr[i], idx: i }
       return null
     }
-    const lastPos = (arr: number[]): number | null => {
-      for (let i = arr.length - 1; i >= 0; i--) if (arr[i] > 0) return arr[i]
+    const lastActualInfo = (arr: number[]): { val: number; idx: number } | null => {
+      for (let i = arr.length - 1; i >= 0; i--) if (isActual(i) && arr[i] > 0) return { val: arr[i], idx: i }
+      return null
+    }
+    // 추정 포함 마지막 양수
+    const lastAnyInfo = (arr: number[]): { val: number; idx: number } | null => {
+      for (let i = arr.length - 1; i >= 0; i--) if (arr[i] > 0) return { val: arr[i], idx: i }
       return null
     }
 
-    const esStart = eps[4] > 0 ? eps[4] : firstPos(eps, 3)
-    const osStart = oi[4]  > 0 ? oi[4]  : firstPos(oi,  3)
-    const rsStart = rev[4] > 0 ? rev[4]  : firstPos(rev, 3)
+    // ── 장기 CAGR: 확정 실적 첫해 → 확정 실적 마지막해 (추정치 제외) ──────────
+    // 이유: 극단적 컨센서스 추정치가 끝점이 되면 CAGR이 왜곡됨
+    const epsActFirst = firstActualInfo(eps)
+    const epsActLast  = lastActualInfo(eps)
+    const oiActFirst  = firstActualInfo(oi)
+    const oiActLast   = lastActualInfo(oi)
+    const revActFirst = firstActualInfo(rev)
+    const revActLast  = lastActualInfo(rev)
+
+    const longEpsYrs = epsActFirst && epsActLast ? Math.max(1, epsActLast.idx - epsActFirst.idx) : 1
+    const longOiYrs  = oiActFirst  && oiActLast  ? Math.max(1, oiActLast.idx  - oiActFirst.idx)  : 1
+    const longRevYrs = revActFirst && revActLast  ? Math.max(1, revActLast.idx - revActFirst.idx) : 1
+
+    // ── 단기 CAGR: 인덱스 4(5번째)의 확정값 → 추정 포함 마지막 양수 ─────────
+    // 이유: 단기 추정치(컨센서스)는 애널리스트 전망으로 의미 있음
+    const epsShortStart = eps[4] > 0 && isActual(4)
+      ? { val: eps[4], idx: 4 } : firstActualInfo(eps)
+    const oiShortStart  = oi[4]  > 0 && isActual(4) ? { val: oi[4],  idx: 4 } : firstActualInfo(oi)
+    const revShortStart = rev[4] > 0 && isActual(4) ? { val: rev[4], idx: 4 } : firstActualInfo(rev)
+
+    const epsShortEnd = lastAnyInfo(eps)
+    const oiShortEnd  = lastAnyInfo(oi)
+    const revShortEnd = lastAnyInfo(rev)
+
+    const shortEpsYrs = epsShortStart && epsShortEnd ? Math.max(1, epsShortEnd.idx - epsShortStart.idx) : 1
+    const shortOiYrs  = oiShortStart  && oiShortEnd  ? Math.max(1, oiShortEnd.idx  - oiShortStart.idx)  : 1
+    const shortRevYrs = revShortStart && revShortEnd  ? Math.max(1, revShortEnd.idx - revShortStart.idx) : 1
 
     return {
-      long:  {
-        eps: calcCagr(firstPos(eps), lastPos(eps), 7),
-        oi:  calcCagr(firstPos(oi),  lastPos(oi),  7),
-        rev: calcCagr(firstPos(rev), lastPos(rev), 7),
+      long: {
+        eps: calcCagr(epsActFirst?.val ?? null, epsActLast?.val ?? null, longEpsYrs),
+        oi:  calcCagr(oiActFirst?.val  ?? null, oiActLast?.val  ?? null, longOiYrs),
+        rev: calcCagr(revActFirst?.val ?? null, revActLast?.val ?? null, longRevYrs),
+        yrs: longEpsYrs,
       },
       short: {
-        eps: calcCagr(esStart, lastPos(eps), 3),
-        oi:  calcCagr(osStart, lastPos(oi),  3),
-        rev: calcCagr(rsStart, lastPos(rev), 3),
+        eps: calcCagr(epsShortStart?.val ?? null, epsShortEnd?.val ?? null, shortEpsYrs),
+        oi:  calcCagr(oiShortStart?.val  ?? null, oiShortEnd?.val  ?? null, shortOiYrs),
+        rev: calcCagr(revShortStart?.val ?? null, revShortEnd?.val ?? null, shortRevYrs),
+        yrs: shortEpsYrs,
       },
     }
-  }, [rawData, eps, oi, rev])
+  }, [rawData, yearKeys, eps, oi, rev])
 
   // ── PEG + 적정주가 자동 계산 ──────────────────────────────────────────────
   const analysis = useMemo(() => {
@@ -326,12 +360,20 @@ export default function ValuationPage() {
     if (!cagrData) return []
     if (eps.length === 0) return []
 
-    const base = [...eps].reverse().find(v => v > 0) ?? 0
+    // 시뮬레이션 기준: 마지막 '확정' 실적 연도의 EPS (추정치 제외)
+    const actualBase = yearKeys
+      .map((y, i) => (!y.endsWith('E') && eps[i] > 0 ? eps[i] : 0))
+      .filter(v => v > 0)
+      .at(-1) ?? 0
+    const base = actualBase > 0 ? actualBase : ([...eps].reverse().find(v => v > 0) ?? 0)
     if (base === 0) return []
 
-    const gL = cagrData.long.eps  ?? 10
-    const gS = cagrData.short.eps ?? 15
-    const gA = analysis?.cagrEps  ?? gL
+    // 시뮬레이션 성장률은 최대 60% 캡 (과거 단기 급등이 20년 복리로 이어지면 수조단위가 됨)
+    // 실제 계산된 CAGR은 [4단] CAGR 테이블에 표시하고, 차트는 의미 있는 범위로 제한
+    const SIM_MAX = 60
+    const gL = Math.min(cagrData.long.eps  ?? 10, SIM_MAX)
+    const gS = Math.min(cagrData.short.eps ?? 15, SIM_MAX)
+    const gA = Math.min(analysis?.cagrEps  ?? gL,  SIM_MAX)
 
     return Array.from({ length: 21 }, (_, y) => ({
       year:     y,
@@ -597,7 +639,10 @@ export default function ValuationPage() {
         <div style={cs({ padding: '20px 24px', marginBottom: 16 })}>
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 14 }}>📈 CAGR 성장률 자동 계산</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr', borderRadius: 10, overflow: 'hidden', border: `1px solid ${T.bd}` }}>
-            {['항목','장기 7년 CAGR','단기 3년 CAGR'].map(h => (
+            {['항목',
+              `장기 ${cagrData.long.yrs ?? ''}년 CAGR`,
+              `단기 ${cagrData.short.yrs ?? ''}년 CAGR`,
+            ].map(h => (
               <div key={h} style={{ background: '#252836', padding: '10px 16px', fontSize: 11, fontWeight: 700, color: T.sub }}>{h}</div>
             ))}
             {[
