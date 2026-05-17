@@ -24,7 +24,7 @@
     "react-simple-maps": "^3.0.0",
     "recharts": "^3.8.1",
     "tailwind-merge": "^3.5.0",
-    "yahoo-finance2": "^3.14.0"
+    "yahoo-finance2": "^3.14.1"
   },
   "devDependencies": {
     "@types/node": "^20",
