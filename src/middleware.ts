@@ -32,7 +32,7 @@ export async function middleware(request: NextRequest) {
   const protectedPaths = [
     '/portfolio', '/admin', '/dashboard', '/assets', '/history',
     '/analysis', '/watchlist', '/research', '/master-strategy',
-    '/investment-academy', '/school-lounge',
+    '/investment-academy', '/school-lounge', '/macro-hub',
   ]
   const authPaths = ['/login', '/signup']
 
