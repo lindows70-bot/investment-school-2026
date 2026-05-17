@@ -73,6 +73,46 @@ const MOATS = [
   },
 ]
 
+// ── 버핏 4대 매도 원칙 ────────────────────────────────────────────────────────
+const SELL_PRINCIPLES = [
+  {
+    no: '원칙 1',
+    title: '경제적 해자의 영구적 손상',
+    icon: '🏚️',
+    color: '#f87171',
+    trigger: '핵심 경쟁 우위가 구조적으로 무너졌을 때',
+    desc: '기업의 독점적 경쟁 우위나 비즈니스 모델이 구조적으로 깨져 더 이상 경쟁력을 유지하기 어려울 때. 일시적 실적 부진이 아니라 해자 자체가 사라지는 경우.',
+    examples: ['디지털화로 무너진 전통 미디어', '플랫폼 독과점에 잠식된 소매업'],
+  },
+  {
+    no: '원칙 2',
+    title: '최초의 투자 아이디어 오류 인정',
+    icon: '🔍',
+    color: '#fb923c',
+    trigger: '매수 당시의 가정이 틀렸음을 깨달았을 때',
+    desc: '매수 당시 판단했던 기업의 가치나 성장 가정이 시간이 지나 틀렸음을 깨달았을 때. 버핏은 이를 "실수를 빠르게 인정하고 더 큰 실수를 막는 것"이라고 표현한다.',
+    examples: ['과대평가된 성장성이 실현되지 않음', '산업 구조 변화를 잘못 예측'],
+  },
+  {
+    no: '원칙 3',
+    title: '더 압도적인 투자 기회 발견',
+    icon: '💡',
+    color: '#fbbf24',
+    trigger: '훨씬 나은 기회비용이 생겼을 때',
+    desc: '현재 보유한 주식보다 훨씬 더 안전하고 높은 수익률이 확실시되는 압도적인 자산이 나타났을 때. 버핏의 "가장 좋은 비즈니스를 소유하라"는 원칙의 연장선.',
+    examples: ['동일 자본으로 2배 이상 안전한 수익 확보 가능', '장기 채권 대비 주식 수익률 열위'],
+  },
+  {
+    no: '원칙 4',
+    title: '경영진의 신뢰성 및 자본 배분 능력 상실',
+    icon: '⚠️',
+    color: '#a78bfa',
+    trigger: '주주 이익을 침해하는 경영이 반복될 때',
+    desc: '경영진이 주주 이익을 침해하거나, 무분별한 기업 인수로 자본을 낭비하여 신뢰를 잃었을 때. 버핏에게 경영진의 도덕성은 재무제표만큼 중요하다.',
+    examples: ['과도한 M&A로 자본 파괴', '회계 부정 또는 내부자 거래 발각'],
+  },
+]
+
 // ── 비교 테이블 데이터 ─────────────────────────────────────────────────────────
 const COMPARE = [
   { label: '투자 철학',   lynch: '성장주 발굴',       buffett: '가치주 장기 보유' },
@@ -247,6 +287,7 @@ export default function InvestmentAcademyPage() {
           padding: '22px 28px',
           border: '1px solid rgba(251,191,36,0.2)',
           display: 'grid', gridTemplateColumns: '1fr auto', gap: 20, alignItems: 'center',
+          marginBottom: 32,
         }}>
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#fbbf24', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>
@@ -265,6 +306,121 @@ export default function InvestmentAcademyPage() {
             <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 6 }}>목표 할인율</div>
             <div style={{ fontSize: 28, fontWeight: 900, color: '#fbbf24' }}>30~40%</div>
             <div style={{ fontSize: 10, color: '#6b7280', marginTop: 4 }}>내재가치 대비</div>
+          </div>
+        </div>
+
+        {/* ── 4대 매도 원칙 ── */}
+        <div>
+          {/* 서브섹션 타이틀 */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#f87171', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
+              🚨 SELL PRINCIPLES
+            </div>
+            <h3 style={{ fontSize: 18, fontWeight: 900, color: '#f1f5f9', margin: '0 0 14px' }}>
+              가치투자자의 매도 원칙
+            </h3>
+            {/* 전제 메시지 배너 */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(248,113,113,0.08) 0%, rgba(251,191,36,0.06) 100%)',
+              border: '1px solid rgba(248,113,113,0.25)',
+              borderLeft: '3px solid #f87171',
+              borderRadius: 10,
+              padding: '12px 18px',
+              fontSize: 13,
+              color: '#94a3b8',
+              lineHeight: 1.7,
+            }}>
+              버핏은 <strong style={{ color: '#fbbf24' }}>&ldquo;훌륭한 기업을 영원히 보유하는 것&rdquo;</strong>이 원칙이지만,
+              아래의 <strong style={{ color: '#f87171' }}>구조적 변화</strong>가 생겼을 때는 과감히 매도한다.
+              단기 주가 하락이나 일시적 실적 부진은 매도 이유가 되지 않는다.
+            </div>
+          </div>
+
+          {/* 4대 원칙 카드 그리드 */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
+            {SELL_PRINCIPLES.map((p, idx) => (
+              <div key={p.no} style={{
+                background: N, boxShadow: SHO, borderRadius: 14,
+                padding: '20px 22px',
+                borderTop: `3px solid ${p.color}`,
+                animation: 'fadeIn 0.4s ease-out',
+                animationDelay: `${idx * 0.08}s`,
+                animationFillMode: 'backwards',
+              }}>
+                {/* 헤더 */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
+                  <div style={{
+                    width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+                    background: `${p.color}18`,
+                    border: `1px solid ${p.color}44`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 18,
+                  }}>
+                    {p.icon}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: p.color, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 3 }}>
+                      {p.no}
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: '#f1f5f9', lineHeight: 1.3 }}>
+                      {p.title}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 트리거 뱃지 */}
+                <div style={{
+                  background: '#13162a', boxShadow: SHI, borderRadius: 7,
+                  padding: '6px 10px', marginBottom: 12,
+                  fontSize: 11, color: p.color, fontWeight: 600,
+                  display: 'flex', alignItems: 'center', gap: 5,
+                }}>
+                  <span style={{ opacity: 0.7 }}>🔔</span>
+                  {p.trigger}
+                </div>
+
+                {/* 본문 설명 */}
+                <p style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.7, margin: '0 0 12px' }}>
+                  {p.desc}
+                </p>
+
+                {/* 실제 사례 예시 */}
+                <div style={{ borderTop: '1px solid #1e2140', paddingTop: 10 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#454868', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+                    실전 사례
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {p.examples.map((ex, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 11, color: '#6b7280' }}>
+                        <span style={{ color: p.color, marginTop: 1, flexShrink: 0 }}>▸</span>
+                        {ex}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 핵심 요약 박스 */}
+          <div style={{
+            marginTop: 18,
+            background: N, boxShadow: SHO, borderRadius: 14,
+            padding: '18px 24px',
+            border: '1px solid rgba(248,113,113,0.15)',
+            display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+          }}>
+            <div style={{ fontSize: 28 }}>📌</div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#f87171', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>
+                버핏의 매도 핵심 철학
+              </div>
+              <p style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.7, margin: 0 }}>
+                <strong style={{ color: '#f1f5f9' }}>&ldquo;주가 하락은 매도 이유가 아니다.&rdquo;</strong>
+                {' '}매도는 오직 <strong style={{ color: '#f87171' }}>비즈니스의 펀더멘털이 영구적으로 변했을 때</strong>만 정당화된다.
+                감정이 아닌 <strong style={{ color: '#fbbf24' }}>사실(Fact)에 기반한 분석</strong>이 매도 결정의 유일한 근거다.
+              </p>
+            </div>
           </div>
         </div>
       </section>
