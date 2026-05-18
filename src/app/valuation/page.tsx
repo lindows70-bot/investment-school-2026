@@ -24,7 +24,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip as RTooltip, ResponsiveContainer, Legend, ReferenceLine,
+  Tooltip as RTooltip, ResponsiveContainer, Legend, ReferenceLine, ReferenceDot,
 } from 'recharts'
 
 // ── 디자인 토큰 ──────────────────────────────────────────────────────────────
@@ -485,13 +485,40 @@ export default function ValuationPage() {
     }))
   }, [rawData, eps, cagrData, analysis])
 
-  // ── 텐배거 도달 연수 ──────────────────────────────────────────────────────
+  // ── 텐배거 도달 연수 (장기 CAGR 기준, 헤더 표시용) ─────────────────────
   const tenBaggerYrs = useMemo(() => {
     if (!rawData?.success || !cagrData) return null
     const g = cagrData.long.eps
     if (!g || g <= 0) return null
     return Math.ceil(Math.log(10) / Math.log(1 + g / 100))
   }, [rawData, cagrData])
+
+  // ── 시나리오별 10배 도달 좌표 (차트 마커용) ──────────────────────────────
+  // 목표 EPS = 시뮬레이션 시작(0년 차) EPS × 10
+  // (PER 유지 가정 시 주가 10배 = EPS 10배)
+  const tenBaggerPoints = useMemo(() => {
+    if (!simData.length) return null
+    const base = simData[0]?.보수적 ?? 0
+    if (base <= 0) return null
+    const target = base * 10   // 10배 목표 EPS
+
+    // 시나리오 배열 순회 → 처음으로 target 을 돌파하는 {year, value} 반환
+    const findCross = (key: '보수적' | '단기CAGR' | '장기CAGR' | '애널추정') => {
+      for (const d of simData) {
+        const val = d[key]
+        if (val >= target) return { year: d.year, value: val }
+      }
+      return null   // 20년 내 미도달
+    }
+
+    return {
+      target,
+      보수적:   findCross('보수적'),
+      단기CAGR: findCross('단기CAGR'),
+      장기CAGR: findCross('장기CAGR'),
+      애널추정: findCross('애널추정'),
+    }
+  }, [simData])
 
   // ── 종합 점수 ─────────────────────────────────────────────────────────────
   const scoreData = useMemo(() => {
@@ -918,13 +945,11 @@ export default function ValuationPage() {
             </div>
           )}
 
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={simData} margin={{ top:10, right:20, bottom:0, left:10 }}>
+          <ResponsiveContainer width="100%" height={320}>
+            <LineChart data={simData} margin={{ top:36, right:20, bottom:0, left:10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={T.bd} vertical={false}/>
               <XAxis dataKey="year" tick={{ fill:T.mut, fontSize:10 }} axisLine={false} tickLine={false} tickFormatter={v => `${v}년`}/>
               <YAxis
-                // 로그 스케일: 고성장 선에 가려지는 저성장 선을 분리해서 보여줌
-                // 선형 스케일: 절대값 비교에 유리
                 scale={logScale ? 'log' : 'auto'}
                 domain={logScale ? ['auto', 'auto'] : undefined}
                 tick={{ fill:T.mut, fontSize:10 }} axisLine={false} tickLine={false}
@@ -934,19 +959,111 @@ export default function ValuationPage() {
                     : String(Math.round(v))
                 }
               />
-              <RTooltip contentStyle={{ background:T.card, border:`1px solid ${T.bd}`, borderRadius:8, fontSize:12 }}
+              <RTooltip
+                contentStyle={{ background:T.card, border:`1px solid ${T.bd}`, borderRadius:8, fontSize:12 }}
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                formatter={(v: any) => [(v as number).toFixed(2), '']}/>
+                formatter={(v: any) => [(v as number).toFixed(2), '']}
+              />
               <Legend wrapperStyle={{ fontSize: 11 }}/>
-              {!logScale && simData[0] && (
-                <ReferenceLine y={simData[0].보수적*10} stroke={T.gld} strokeDasharray="4 2" label={{ value:'10배', fill:T.gld, fontSize:10 }}/>
+
+              {/* ── 10배 기준선 (선형 스케일에서만) ── */}
+              {!logScale && tenBaggerPoints && (
+                <ReferenceLine
+                  y={tenBaggerPoints.target}
+                  stroke={T.gld} strokeDasharray="5 3" strokeOpacity={0.6}
+                  label={{ value: '◀ 10배 기준선', position: 'insideRight', fill: T.gld, fontSize: 10 }}
+                />
               )}
+
+              {/* ── 시나리오 라인 ── */}
               <Line type="monotone" dataKey="보수적"   stroke="#6b7280" strokeWidth={1.5} dot={false}/>
               <Line type="monotone" dataKey="단기CAGR" stroke={T.dn}    strokeWidth={2}   dot={false}/>
               <Line type="monotone" dataKey="장기CAGR" stroke={T.grn}   strokeWidth={2.5} dot={false}/>
               <Line type="monotone" dataKey="애널추정"  stroke={T.up}    strokeWidth={2}   dot={false} strokeDasharray="5 3"/>
+
+              {/* ── 10배거 도달 마커 (말풍선 라벨) ── */}
+              {tenBaggerPoints?.단기CAGR && (() => {
+                const { year, value } = tenBaggerPoints.단기CAGR
+                return (
+                  <ReferenceDot x={year} y={value} r={7} fill={T.dn} stroke={T.txt} strokeWidth={2}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    label={{ content: (props: any) => {
+                      const cx = props.viewBox?.cx ?? 0
+                      const cy = props.viewBox?.cy ?? 0
+                      const txt = `⭐ 단기 10배 (${year}년)`
+                      const w = txt.length * 6.2 + 14
+                      return (
+                        <g>
+                          <rect x={cx - w/2} y={cy - 34} width={w} height={20} rx={4} fill={T.card} stroke={T.dn} strokeWidth={1.5}/>
+                          <text x={cx} y={cy - 20} textAnchor="middle" fill={T.dn} fontSize={10} fontWeight={700}>{txt}</text>
+                          <polygon points={`${cx-5},${cy-14} ${cx+5},${cy-14} ${cx},${cy-7}`} fill={T.dn}/>
+                        </g>
+                      )
+                    }}}
+                  />
+                )
+              })()}
+
+              {tenBaggerPoints?.장기CAGR && (() => {
+                const { year, value } = tenBaggerPoints.장기CAGR
+                return (
+                  <ReferenceDot x={year} y={value} r={7} fill={T.grn} stroke={T.txt} strokeWidth={2}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    label={{ content: (props: any) => {
+                      const cx = props.viewBox?.cx ?? 0
+                      const cy = props.viewBox?.cy ?? 0
+                      const txt = `⭐ 장기 10배 (${year}년)`
+                      const w = txt.length * 6.2 + 14
+                      return (
+                        <g>
+                          <rect x={cx - w/2} y={cy - 34} width={w} height={20} rx={4} fill={T.card} stroke={T.grn} strokeWidth={1.5}/>
+                          <text x={cx} y={cy - 20} textAnchor="middle" fill={T.grn} fontSize={10} fontWeight={700}>{txt}</text>
+                          <polygon points={`${cx-5},${cy-14} ${cx+5},${cy-14} ${cx},${cy-7}`} fill={T.grn}/>
+                        </g>
+                      )
+                    }}}
+                  />
+                )
+              })()}
+
+              {tenBaggerPoints?.보수적 && (() => {
+                const { year, value } = tenBaggerPoints.보수적
+                return (
+                  <ReferenceDot x={year} y={value} r={6} fill="#6b7280" stroke={T.txt} strokeWidth={2}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    label={{ content: (props: any) => {
+                      const cx = props.viewBox?.cx ?? 0
+                      const cy = props.viewBox?.cy ?? 0
+                      const txt = `⭐ 보수적 10배 (${year}년)`
+                      const w = txt.length * 6.2 + 14
+                      return (
+                        <g>
+                          <rect x={cx - w/2} y={cy - 34} width={w} height={20} rx={4} fill={T.card} stroke="#6b7280" strokeWidth={1.5}/>
+                          <text x={cx} y={cy - 20} textAnchor="middle" fill="#9ca3af" fontSize={10} fontWeight={700}>{txt}</text>
+                          <polygon points={`${cx-5},${cy-14} ${cx+5},${cy-14} ${cx},${cy-7}`} fill="#6b7280"/>
+                        </g>
+                      )
+                    }}}
+                  />
+                )
+              })()}
             </LineChart>
           </ResponsiveContainer>
+
+          {/* ── 20년 내 미도달 시나리오 안내 ── */}
+          {tenBaggerPoints && (() => {
+            const unmet: string[] = []
+            if (!tenBaggerPoints.보수적)   unmet.push('보수적 (+8%)')
+            if (!tenBaggerPoints.장기CAGR) unmet.push(`장기 CAGR (${cagrData?.long.eps?.toFixed(1) ?? '?'}%)`)
+            if (!tenBaggerPoints.단기CAGR) unmet.push(`단기 CAGR (${cagrData?.short.eps?.toFixed(1) ?? '?'}%)`)
+            if (unmet.length === 0) return null
+            return (
+              <div style={{ marginTop: 10, padding: '8px 14px', background: `${T.mut}15`, border: `1px solid ${T.bd}`, borderRadius: 8, fontSize: 11, color: T.mut }}>
+                📊 <strong style={{ color: T.sub }}>20년 내 10배 도달 불가 시나리오</strong>:{' '}
+                {unmet.join(' / ')} — 장기적 복리 성장이 더 필요합니다.
+              </div>
+            )
+          })()}
         </div>
       )}
 
