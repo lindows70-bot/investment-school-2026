@@ -434,7 +434,33 @@ export default function ValuationPage() {
 
     const fvEPS = fwdEps > 0 ? fwdEps * perMkt : 0
     const fvOI  = perShareOI  > 0 ? perShareOI  * perMkt : 0
-    const fvRev = perShareRev > 0 ? perShareRev * 2       : 0
+
+    // ── 동적 PSR 배수 계산 ────────────────────────────────────────────────────
+    // 기존 고정 PSR×2 문제: 피터 린치의 PSR×2는 저마진(~5%) 기업에 설계됨.
+    // 구글(OI마진 32%)·NVDA(62%)·애플(32%) 같은 고마진 빅테크에 적용하면
+    // 적정주가가 3~4배 과소평가되어 전체 평균을 왜곡함.
+    //
+    // 수정: 영업이익률(%) ÷ 4 로 배수를 결정하되 2~10배 범위로 클램프
+    //   OI마진  0% → PSR×2 (기존과 동일, 저마진·적자 기업)
+    //   OI마진 10% → PSR×2.5 (소매·물류 등)
+    //   OI마진 20% → PSR×5   (일반 IT)
+    //   OI마진 30% → PSR×7.5 (GOOGL, AAPL: 7.5~8x 시장 P/S와 근접)
+    //   OI마진 60% → PSR×10  (NVDA: 상한 캡, 실제 P/S 30x+ 는 반영 안 함)
+    //
+    // 모든 종목에 자동 적용: 삼성(13%→3.25x), AAPL(32%→8x), ETN(12%→3x)
+    const sameYrPairs = yearKeys
+      .map((y, i) => (!y.endsWith('E') && oi[i] > 0 && rev[i] > 0)
+        ? { oiVal: oi[i], revVal: rev[i] } : null)
+      .filter(Boolean) as Array<{ oiVal: number; revVal: number }>
+
+    const latPair     = sameYrPairs.at(-1)
+    const opMarginPct = latPair && latPair.revVal > 0
+      ? (latPair.oiVal / latPair.revVal) * 100
+      : 0
+
+    // psrMult: 영업이익률 기반 동적 배수 (2x ~ 10x)
+    const psrMult = Math.max(2, Math.min(opMarginPct / 4, 10))
+    const fvRev   = perShareRev > 0 ? perShareRev * psrMult : 0
 
     const validFVs = [fvEPS, fvOI, fvRev].filter(v => v > 0)
     const avgFV    = validFVs.length > 0
@@ -446,6 +472,8 @@ export default function ValuationPage() {
     return {
       cur, perMkt, cagrEps, fwdEps,
       fvEPS, fvOI, fvRev, avgFV, upside,
+      psrMult,        // 렌더에서 "PSR × N" 라벨 동적 표시용
+      opMarginPct,    // 렌더에서 마진 정보 표시용
       scenarios: [
         mkScenario(15,     '보수적 (PER 15)'),
         mkScenario(25,     '적정  (PER 25)'),
@@ -917,11 +945,32 @@ export default function ValuationPage() {
             <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 14 }}>💰 적정주가 산출 (시장 PER 기준)</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(155px, 1fr))', gap: 12, marginBottom: 16 }}>
               {([
-                { label: 'EPS 기반',           val: analysis.fvEPS > 0 ? analysis.fvEPS : null, note: `fwd EPS × PER ${analysis.perMkt.toFixed(1)}`, hl: false },
-                { label: '영업이익 기반',        val: analysis.fvOI  > 0 ? analysis.fvOI  : null, note: '(영업이익 ÷ 주식수) × PER',                   hl: false },
-                { label: '매출 기반 (PSR × 2)', val: analysis.fvRev > 0 ? analysis.fvRev : null, note: '(매출 ÷ 주식수) × 2',                          hl: false },
-                { label: '평균 적정주가',        val: analysis.avgFV > 0 ? analysis.avgFV : null, note: '3가지 평균',                                   hl: true  },
-              ] as const).map(({ label, val, note, hl }) => (
+                {
+                  label: 'EPS 기반',
+                  val:   analysis.fvEPS > 0 ? analysis.fvEPS : null,
+                  note:  `fwd EPS × PER ${analysis.perMkt.toFixed(1)}`,
+                  hl: false,
+                },
+                {
+                  label: '영업이익 기반',
+                  val:   analysis.fvOI  > 0 ? analysis.fvOI  : null,
+                  note:  '(영업이익 ÷ 주식수) × PER',
+                  hl: false,
+                },
+                {
+                  // PSR 배수를 영업이익률 기반으로 동적 표시 (OI마진 30% → PSR×7.5 등)
+                  label: `매출 기반 (PSR × ${analysis.psrMult.toFixed(1)})`,
+                  val:   analysis.fvRev > 0 ? analysis.fvRev : null,
+                  note:  `(매출 ÷ 주식수) × ${analysis.psrMult.toFixed(1)}  [OI마진 ${analysis.opMarginPct.toFixed(0)}%]`,
+                  hl: false,
+                },
+                {
+                  label: '평균 적정주가',
+                  val:   analysis.avgFV > 0 ? analysis.avgFV : null,
+                  note:  '3가지 평균',
+                  hl: true,
+                },
+              ]).map(({ label, val, note, hl }) => (
                 <div key={label} style={cs({ padding: '14px 16px', border: hl ? `1px solid ${T.gld}55` : `1px solid ${T.bd}` })}>
                   <div style={{ fontSize: 10, color: T.mut, marginBottom: 4 }}>{label}</div>
                   <div style={{ fontSize: hl ? 20 : 16, fontWeight: 900, color: hl ? T.gld : T.txt }}>{val != null ? fmtP(val, analysis.cur) : '—'}</div>
