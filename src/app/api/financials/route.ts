@@ -664,10 +664,14 @@ async function fetchKR(code: string) {
   const lastActOI  = Array.from(actByYear.values()).map(v => v.oi).filter(v => v > 0).at(-1)  ?? 0
   const lastActRev = Array.from(actByYear.values()).map(v => v.rev).filter(v => v > 0).at(-1) ?? 0
 
-  const filterOutlier = (val: number, base: number): number => {
+  // 아웃라이어 필터: 항목별로 임계값 분리
+  //   EPS  : 8배 허용 — 반도체 사이클은 4~7배 급등도 실제 발생 (삼성 2026E 6.43배 통과)
+  //   OI   : 6배 허용 — 영업이익률 50% 초과는 물리적 불가능 (삼성 2026E OI 7.9배 제거 유지)
+  //   Rev  : 8배 허용 — 매출 2배 정도는 가능
+  const filterOutlier = (val: number, base: number, maxMult = 6): number => {
     if (base <= 0 || val <= 0) return val
-    if (val / base > 6) {
-      console.warn(`[KR] 컨센서스 아웃라이어 제거: ${val} (base=${base}, ${(val/base).toFixed(1)}x)`)
+    if (val / base > maxMult) {
+      console.warn(`[KR] 컨센서스 아웃라이어 제거: ${val} (base=${base}, ${(val/base).toFixed(1)}x > ${maxMult}x)`)
       return 0
     }
     return val
@@ -702,9 +706,9 @@ async function fetchKR(code: string) {
       // 추정치: Naver 컨센서스 (아웃라이어 필터 적용)
       const fc = fcByYear.get(yr)
       fin[key] = {
-        eps:             filterOutlier(fc?.eps ?? 0, lastActEps),
-        operatingProfit: filterOutlier(fc?.oi  ?? 0, lastActOI),
-        revenue:         filterOutlier(fc?.rev ?? 0, lastActRev),
+        eps:             filterOutlier(fc?.eps ?? 0, lastActEps, 8),  // EPS: 8배 허용
+        operatingProfit: filterOutlier(fc?.oi  ?? 0, lastActOI,  6),  // OI:  6배 유지 (OI마진 50%+ 불가)
+        revenue:         filterOutlier(fc?.rev ?? 0, lastActRev, 8),  // Rev: 8배 허용
       }
     }
   }

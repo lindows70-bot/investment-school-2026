@@ -272,13 +272,62 @@ export default function ValuationPage() {
     const oiShortStart  = oi[4]  > 0 && isActual(4) ? { val: oi[4],  idx: 4 } : firstActualInfo(oi)
     const revShortStart = rev[4] > 0 && isActual(4) ? { val: rev[4], idx: 4 } : firstActualInfo(rev)
 
+    // 단기 종료점: 추정치(E) 포함 마지막 양수
     const epsShortEnd = lastAnyInfo(eps)
     const oiShortEnd  = lastAnyInfo(oi)
     const revShortEnd = lastAnyInfo(rev)
 
-    const shortEpsYrs = epsShortStart && epsShortEnd ? Math.max(1, epsShortEnd.idx - epsShortStart.idx) : 1
-    const shortOiYrs  = oiShortStart  && oiShortEnd  ? Math.max(1, oiShortEnd.idx  - oiShortStart.idx)  : 1
-    const shortRevYrs = revShortStart && revShortEnd  ? Math.max(1, revShortEnd.idx - revShortStart.idx) : 1
+    // ── 단기 CAGR 보정: 추정치가 없을 때 최근 2개 확정 연도로 폴백 ─────────────
+    // 삼성전자처럼 E 컬럼이 필터링되어 모두 0일 경우,
+    // lastAnyInfo == lastActualInfo → shortYrs = 0 → CAGR = 0% (잘못됨)
+    // → 이때는 전기(lastActual 바로 앞) 확정 연도 → 당기(lastActual) 성장률 사용
+    const hasFutureEps  = epsShortEnd  && epsActLast  && epsShortEnd.idx  > epsActLast.idx
+    const hasFutureOi   = oiShortEnd   && oiActLast   && oiShortEnd.idx   > oiActLast.idx
+    const hasFutureRev  = revShortEnd  && revActLast  && revShortEnd.idx  > revActLast.idx
+
+    // 추정치가 없을 때 → 전기 확정 연도 찾기
+    const prevActEps = !hasFutureEps && epsActLast
+      ? ((): { val: number; idx: number } | null => {
+          for (let i = epsActLast.idx - 1; i >= 0; i--)
+            if (isActual(i) && eps[i] > 0) return { val: eps[i], idx: i }
+          return null
+        })() : null
+    const prevActOi  = !hasFutureOi  && oiActLast
+      ? ((): { val: number; idx: number } | null => {
+          for (let i = oiActLast.idx - 1; i >= 0; i--)
+            if (isActual(i) && oi[i] > 0) return { val: oi[i], idx: i }
+          return null
+        })() : null
+    const prevActRev = !hasFutureRev && revActLast
+      ? ((): { val: number; idx: number } | null => {
+          for (let i = revActLast.idx - 1; i >= 0; i--)
+            if (isActual(i) && rev[i] > 0) return { val: rev[i], idx: i }
+          return null
+        })() : null
+
+    // 단기 CAGR 계산값 결정
+    const shortEpsVal = hasFutureEps
+      ? { s: epsShortStart, e: epsShortEnd }
+      : prevActEps
+        ? { s: prevActEps,   e: epsActLast }
+        : { s: epsShortStart, e: epsShortEnd }
+    const shortOiVal  = hasFutureOi
+      ? { s: oiShortStart,  e: oiShortEnd }
+      : prevActOi
+        ? { s: prevActOi,    e: oiActLast }
+        : { s: oiShortStart,  e: oiShortEnd }
+    const shortRevVal = hasFutureRev
+      ? { s: revShortStart, e: revShortEnd }
+      : prevActRev
+        ? { s: prevActRev,   e: revActLast }
+        : { s: revShortStart, e: revShortEnd }
+
+    const shortEpsYrs = shortEpsVal.s && shortEpsVal.e
+      ? Math.max(1, shortEpsVal.e.idx - shortEpsVal.s.idx) : 1
+    const shortOiYrs  = shortOiVal.s  && shortOiVal.e
+      ? Math.max(1, shortOiVal.e.idx  - shortOiVal.s.idx)  : 1
+    const shortRevYrs = shortRevVal.s && shortRevVal.e
+      ? Math.max(1, shortRevVal.e.idx - shortRevVal.s.idx) : 1
 
     return {
       long: {
@@ -288,9 +337,9 @@ export default function ValuationPage() {
         yrs: longEpsYrs,
       },
       short: {
-        eps: calcCagr(epsShortStart?.val ?? null, epsShortEnd?.val ?? null, shortEpsYrs),
-        oi:  calcCagr(oiShortStart?.val  ?? null, oiShortEnd?.val  ?? null, shortOiYrs),
-        rev: calcCagr(revShortStart?.val ?? null, revShortEnd?.val ?? null, shortRevYrs),
+        eps: calcCagr(shortEpsVal.s?.val ?? null, shortEpsVal.e?.val ?? null, shortEpsYrs),
+        oi:  calcCagr(shortOiVal.s?.val  ?? null, shortOiVal.e?.val  ?? null, shortOiYrs),
+        rev: calcCagr(shortRevVal.s?.val ?? null, shortRevVal.e?.val ?? null, shortRevYrs),
         yrs: shortEpsYrs,
       },
     }
@@ -323,7 +372,35 @@ export default function ValuationPage() {
     const perShareOI  = latOI  > 0 ? (latOI  * multiplier) / shares : 0
     const perShareRev = latRev > 0 ? (latRev * multiplier) / shares : 0
 
-    const cagrEps = cagrData.long.eps
+    // ── PEG 계산용 EPS 성장률 결정 ───────────────────────────────────────────
+    // 우선순위:
+    //   1) 장기 CAGR > 0  → 일반적인 성장주 (NVDA, AAPL 등)
+    //   2) 장기 CAGR ≤ 0  → 경기순환주(삼성 등) 사이클 저점 회복 중
+    //      → 실적 배열에서 최저점(trough) → 최근 확정 연도 CAGR(회복률) 사용
+    //      예) 삼성: EPS 2023 trough(2,131) → 2025(6,564) → 회복 CAGR 75.5%
+    //   3) 단기 CAGR > 0  → 장기·회복 모두 없을 때 마지막 대안
+    let cagrEps: number | null = cagrData.long.eps
+
+    if (!(cagrEps && cagrEps > 0)) {
+      // 회복 CAGR 계산: 확정 실적 중 최솟값 → 최근 확정값
+      const actualEpsArr = yearKeys
+        .map((y, i) => (!y.endsWith('E') && eps[i] > 0) ? { val: eps[i], idx: i } : null)
+        .filter(Boolean) as { val: number; idx: number }[]
+
+      if (actualEpsArr.length >= 2) {
+        const minAct  = actualEpsArr.reduce((a, b) => b.val < a.val ? b : a)
+        const lastAct = actualEpsArr[actualEpsArr.length - 1]
+        // 최저점이 최근 연도보다 앞에 있고 최근값이 더 클 때만 유효
+        if (minAct.idx < lastAct.idx && lastAct.val > minAct.val) {
+          const recoveryCagr = calcCagr(minAct.val, lastAct.val, lastAct.idx - minAct.idx)
+          if (recoveryCagr && recoveryCagr > 0) cagrEps = recoveryCagr
+        }
+      }
+      // 여전히 없으면 단기 CAGR 사용
+      if (!(cagrEps && cagrEps > 0) && cagrData.short.eps && cagrData.short.eps > 0) {
+        cagrEps = cagrData.short.eps
+      }
+    }
 
     const mkScenario = (per: number, scenLabel: string) => {
       const peg    = cagrEps && cagrEps > 0 ? +(per / cagrEps).toFixed(2) : null
