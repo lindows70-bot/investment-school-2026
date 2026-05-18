@@ -141,6 +141,9 @@ export default function ValuationPage() {
   // PER 사용자 조정
   const [perInput, setPerInput] = useState('')
 
+  // 20년 시뮬 로그 스케일 토글
+  const [logScale, setLogScale] = useState(false)
+
   // ── Supabase 보유 종목 로드 ───────────────────────────────────────────────
   useEffect(() => {
     ;(async () => {
@@ -536,6 +539,18 @@ export default function ValuationPage() {
 
   const hasData = Boolean(rawData?.success && yearKeys.length > 0)
 
+  // ── 사이클/턴어라운드 경고 조건 ───────────────────────────────────────────
+  // 단기 CAGR과 장기 CAGR 차이가 20%p 이상 벌어지거나,
+  // 장기 CAGR이 음수이면서 단기가 양수인 경우 (경기순환주 전형적 패턴)
+  const cyclicalWarning = useMemo(() => {
+    if (!cagrData) return false
+    const longEps  = cagrData.long.eps  ?? 0
+    const shortEps = cagrData.short.eps ?? 0
+    const diff     = Math.abs(shortEps - longEps)
+    // 단기-장기 차이 20%p 초과, 또는 장기 음수+단기 양수
+    return diff >= 20 || (longEps < 0 && shortEps > 0)
+  }, [cagrData])
+
   // ════════════════════════════════════════════════════════════════════════════
   //  렌더
   // ════════════════════════════════════════════════════════════════════════════
@@ -864,24 +879,68 @@ export default function ValuationPage() {
       {/* ═══ [6단] 20년 EPS 시뮬레이션 ═══════════════════════════════════ */}
       {hasData && simData.length > 0 && (
         <div style={cs({ padding: '20px 24px', marginBottom: 16 })}>
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>🔭 20년 미래 EPS 시뮬레이션</div>
-            {tenBaggerYrs != null && (
-              <div style={{ fontSize: 12, color: T.gld }}>
-                ⭐ 텐배거(10배) 도달 예상: 장기 CAGR 기준 약 <strong>{tenBaggerYrs}년</strong> 후
-              </div>
-            )}
+          {/* 헤더 + 로그 스케일 토글 */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>🔭 20년 미래 EPS 시뮬레이션</div>
+              {tenBaggerYrs != null && (
+                <div style={{ fontSize: 12, color: T.gld }}>
+                  ⭐ 텐배거(10배) 도달 예상: 장기 CAGR 기준 약 <strong>{tenBaggerYrs}년</strong> 후
+                </div>
+              )}
+            </div>
+            {/* 로그 스케일 토글 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <span style={{ fontSize: 11, color: T.mut }}>로그 스케일</span>
+              <button
+                onClick={() => setLogScale(prev => !prev)}
+                style={{
+                  position: 'relative', width: 40, height: 22, borderRadius: 11, border: 'none',
+                  background: logScale ? T.dn : T.bd,
+                  cursor: 'pointer', transition: 'background 0.2s',
+                  flexShrink: 0,
+                }}
+                title={logScale ? '선형 스케일로 전환' : '로그 스케일로 전환 (저성장 라인 가시성 개선)'}
+              >
+                <span style={{
+                  position: 'absolute', top: 3, width: 16, height: 16, borderRadius: '50%',
+                  background: T.txt, transition: 'left 0.2s',
+                  left: logScale ? 21 : 3,
+                }}/>
+              </button>
+            </div>
           </div>
+
+          {/* 로그 스케일 안내 */}
+          {logScale && (
+            <div style={{ marginBottom: 10, padding: '6px 12px', background: `${T.dn}15`, border: `1px solid ${T.dn}33`, borderRadius: 6, fontSize: 11, color: T.sub }}>
+              📐 로그 스케일 ON — Y축이 배수 단위로 표시됩니다. 저성장 라인도 명확하게 비교할 수 있습니다.
+            </div>
+          )}
+
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={simData} margin={{ top:10, right:20, bottom:0, left:10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={T.bd} vertical={false}/>
               <XAxis dataKey="year" tick={{ fill:T.mut, fontSize:10 }} axisLine={false} tickLine={false} tickFormatter={v => `${v}년`}/>
-              <YAxis tick={{ fill:T.mut, fontSize:10 }} axisLine={false} tickLine={false}/>
+              <YAxis
+                // 로그 스케일: 고성장 선에 가려지는 저성장 선을 분리해서 보여줌
+                // 선형 스케일: 절대값 비교에 유리
+                scale={logScale ? 'log' : 'auto'}
+                domain={logScale ? ['auto', 'auto'] : undefined}
+                tick={{ fill:T.mut, fontSize:10 }} axisLine={false} tickLine={false}
+                tickFormatter={(v: number) =>
+                  logScale
+                    ? (v >= 1e8 ? `${(v/1e8).toFixed(0)}억` : v >= 1e4 ? `${(v/1e4).toFixed(0)}만` : String(Math.round(v)))
+                    : String(Math.round(v))
+                }
+              />
               <RTooltip contentStyle={{ background:T.card, border:`1px solid ${T.bd}`, borderRadius:8, fontSize:12 }}
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 formatter={(v: any) => [(v as number).toFixed(2), '']}/>
               <Legend wrapperStyle={{ fontSize: 11 }}/>
-              {simData[0] && <ReferenceLine y={simData[0].보수적*10} stroke={T.gld} strokeDasharray="4 2" label={{ value:'10배', fill:T.gld, fontSize:10 }}/>}
+              {!logScale && simData[0] && (
+                <ReferenceLine y={simData[0].보수적*10} stroke={T.gld} strokeDasharray="4 2" label={{ value:'10배', fill:T.gld, fontSize:10 }}/>
+              )}
               <Line type="monotone" dataKey="보수적"   stroke="#6b7280" strokeWidth={1.5} dot={false}/>
               <Line type="monotone" dataKey="단기CAGR" stroke={T.dn}    strokeWidth={2}   dot={false}/>
               <Line type="monotone" dataKey="장기CAGR" stroke={T.grn}   strokeWidth={2.5} dot={false}/>
@@ -894,6 +953,32 @@ export default function ValuationPage() {
       {/* ═══ [7단] 종합 판단 ═══════════════════════════════════════════════ */}
       {hasData && scoreData && (
         <div style={cs({ padding: '24px 28px' })}>
+
+          {/* ── 사이클/턴어라운드 경고 배지 ─────────────────────────────────── */}
+          {cyclicalWarning && (
+            <div style={{
+              marginBottom: 20, padding: '14px 18px', borderRadius: 10,
+              background: 'rgba(251,191,36,0.08)',
+              border: '1px solid rgba(251,191,36,0.4)',
+            }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 18, flexShrink: 0 }}>⚠️</span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: T.gld, marginBottom: 6 }}>
+                    경기민감주 / 턴어라운드 주의
+                  </div>
+                  <div style={{ fontSize: 12, color: '#d1b56b', lineHeight: 1.8 }}>
+                    본 기업은 <strong style={{ color: T.gld }}>경기변동성이 큰 사이클 기업</strong>(또는 일시적 실적 턴어라운드 기업)일 가능성이 높습니다.<br />
+                    단기 CAGR과 장기 CAGR의 차이가 극단적으로 벌어져 있어,{' '}
+                    <strong style={{ color: T.gld }}>단기 CAGR 기반 20년 복리 추정은 과도한 착시를 유발</strong>할 수 있습니다.<br />
+                    <strong>장기 CAGR</strong>과 <strong>보수적 시나리오</strong>를 중심으로 판독하시고,{' '}
+                    로그 스케일 차트를 활용해 저성장 라인을 함께 확인하십시오.
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 16 }}>🏆 종합 판단</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 24, alignItems: 'start' }}>
             <div style={{ textAlign: 'center', minWidth: 110 }}>
