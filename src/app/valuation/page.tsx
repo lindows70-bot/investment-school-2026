@@ -25,6 +25,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as RTooltip, ResponsiveContainer, Legend, ReferenceLine, ReferenceDot,
+  BarChart, Bar, Cell as BarCell, LabelList,
 } from 'recharts'
 
 // ── 디자인 토큰 ──────────────────────────────────────────────────────────────
@@ -469,11 +470,34 @@ export default function ValuationPage() {
       rawData.currentPrice > 0 && avgFV > 0
         ? (avgFV / rawData.currentPrice - 1) * 100 : 0
 
+    // ── 시나리오별 BarChart 데이터 (현재가 vs 적정주가 비교용) ──────────────
+    // 각 시나리오 막대 = (EPS기반 + OI기반 + 매출기반) 평균 적정주가
+    //   - EPS기반 / OI기반: 해당 시나리오 PER 로 계산 → PER에 따라 높이 변화
+    //   - 매출기반: PSR 배수 사용 → 모든 시나리오에서 동일 (PER 무관)
+    const scenariosForBar = [
+      { label: '보수적\n(PER 15)',               per: 15,     barColor: '#6b7280' },
+      { label: '적정\n(PER 25)',                  per: 25,     barColor: T.gld     },
+      { label: '성장주\n(PER 50)',                per: 50,     barColor: '#fb923c' },
+      { label: `현재 시장\n(PER ${perMkt.toFixed(0)}배)`, per: perMkt, barColor: T.dn     },
+    ] as const
+
+    const barData = scenariosForBar.map(({ label, per, barColor }) => {
+      const fvEPS_s = fwdEps > 0 ? fwdEps * per : 0
+      const fvOI_s  = perShareOI > 0 ? perShareOI * per : 0
+      // 매출기반 (PSR) 은 PER 시나리오와 무관하게 고정
+      const vals    = [fvEPS_s, fvOI_s, fvRev].filter(v => v > 0)
+      const avgFV_s = vals.length > 0
+        ? +(vals.reduce((a, b) => a + b) / vals.length).toFixed(2)
+        : 0
+      return { label, per, barColor, fairValue: avgFV_s }
+    })
+
     return {
       cur, perMkt, cagrEps, fwdEps,
       fvEPS, fvOI, fvRev, avgFV, upside,
       psrMult,        // 렌더에서 "PSR × N" 라벨 동적 표시용
       opMarginPct,    // 렌더에서 마진 정보 표시용
+      barData,        // BarChart 데이터
       scenarios: [
         mkScenario(15,     '보수적 (PER 15)'),
         mkScenario(25,     '적정  (PER 25)'),
@@ -955,6 +979,105 @@ export default function ValuationPage() {
                 )}
               </div>
             ))}
+          </div>
+
+          {/* ─── 시나리오별 적정주가 vs 현재가 BarChart ─────────────────────── */}
+          <div style={cs({ padding: '20px 24px', marginBottom: 16 })}>
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
+              📊 시나리오별 평균 적정주가 vs 현재가
+            </div>
+            <div style={{ fontSize: 11, color: T.mut, marginBottom: 16 }}>
+              빨간 점선(현재가) 위 = 상승 여력, 아래 = 현재가 대비 고평가
+            </div>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart
+                data={analysis.barData}
+                margin={{ top: 40, right: 20, bottom: 8, left: 20 }}
+                barCategoryGap="30%"
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke={T.bd} vertical={false}/>
+
+                {/* X축: 시나리오 이름 (\n 으로 줄바꿈 처리) */}
+                <XAxis
+                  dataKey="label"
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  tick={(props: any) => {
+                    const { x, y, payload } = props
+                    const lines = String(payload?.value ?? '').split('\n')
+                    return (
+                      <g transform={`translate(${x},${y})`}>
+                        {lines.map((line: string, i: number) => (
+                          <text key={i} x={0} y={0} dy={14 + i * 14}
+                            textAnchor="middle" fill={T.sub} fontSize={11}>
+                            {line}
+                          </text>
+                        ))}
+                      </g>
+                    )
+                  }}
+                  height={44}
+                  axisLine={false} tickLine={false}
+                />
+
+                {/* Y축: 적정주가 금액 */}
+                <YAxis
+                  domain={[0, (dataMax: number) =>
+                    Math.ceil(Math.max(dataMax, rawData?.currentPrice ?? 0) * 1.15)
+                  ]}
+                  tick={{ fill: T.mut, fontSize: 10 }}
+                  axisLine={false} tickLine={false}
+                  tickFormatter={(v: number) => {
+                    if (analysis.cur === 'KRW') {
+                      return v >= 1e6 ? `₩${(v/1e4).toFixed(0)}만`
+                        : v >= 1e4 ? `₩${(v/1e4).toFixed(1)}만`
+                        : `₩${Math.round(v).toLocaleString()}`
+                    }
+                    return v >= 1000 ? `$${(v/1000).toFixed(1)}k` : `$${Math.round(v)}`
+                  }}
+                />
+
+                {/* 툴팁 */}
+                <RTooltip
+                  contentStyle={{ background: T.card, border: `1px solid ${T.bd}`, borderRadius: 8, fontSize: 12 }}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  formatter={(v: any) => [fmtP(v as number, analysis.cur), '평균 적정주가']}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  labelFormatter={(l: any) => String(l).replace(/\\n/g, ' ')}
+                />
+
+                {/* ★ 현재가 기준선 (빨간 점선) */}
+                {rawData?.currentPrice && rawData.currentPrice > 0 && (
+                  <ReferenceLine
+                    y={rawData.currentPrice}
+                    stroke={T.up} strokeDasharray="5 3" strokeWidth={2}
+                    label={{
+                      value: `현재가 ${fmtP(rawData.currentPrice, analysis.cur)}`,
+                      position: 'insideTopRight',
+                      fill: T.up, fontSize: 11, fontWeight: 700,
+                    }}
+                  />
+                )}
+
+                {/* 막대 */}
+                <Bar dataKey="fairValue" radius={[8, 8, 0, 0]} maxBarSize={90}>
+                  {analysis.barData.map((entry, idx) => (
+                    <BarCell
+                      key={idx}
+                      fill={entry.barColor}
+                      opacity={entry.fairValue > (rawData?.currentPrice ?? 0) ? 0.9 : 0.55}
+                    />
+                  ))}
+                  {/* 막대 상단 금액 라벨 */}
+                  <LabelList
+                    dataKey="fairValue"
+                    position="top"
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={(v: any) => fmtP(v as number, analysis.cur)}
+                    style={{ fill: T.txt, fontSize: 11, fontWeight: 700 }}
+                  />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
 
           <div style={cs({ padding: '20px 24px' })}>
