@@ -2,10 +2,28 @@
  * GET /api/financials?ticker=NVDA&market=US
  * GET /api/financials?ticker=005930&market=KR
  *
- * ─── 데이터 소스 ─────────────────────────────────────────────────────────────
- *  US:  1순위 Financial Modeling Prep (FMP) → 2순위 Yahoo Finance (yahoo-finance2)
- *  KR:  1순위 DART OpenAPI (역사적 실적)   → 2순위 Naver 증권 (현재가·추정치)
- *       현재가·PER·발행주식수는 Naver에서 항상 가져옴
+ * ─── 이중 방어선(Dual-Fallback) 데이터 수집 아키텍처 ────────────────────────
+ *
+ *  [US 종목]
+ *   1순위 Yahoo Finance (yahoo-finance2)
+ *     → incomeStatementHistory: revenue/netIncome (Nov 2024 이후 ebit 제공 중단)
+ *     → earningsHistory: 분기별 EPS → 연간 합산
+ *     → earningsTrend: 미래 추정 EPS·매출
+ *   2순위 FMP (Financial Modeling Prep) — 갭 자동 감지 후 즉시 호출
+ *     → 과거 실적 연도(E 아닌 연도) 중 eps=0 AND revenue=0 인 연도 발견 시 호출
+ *     → FMP의 dilutedEPS·operatingIncome·revenue 로 빈칸 정확 매핑
+ *
+ *  [KR 종목]
+ *   1순위 Naver 증권 모바일 API
+ *     → 현재가·PER·시가총액·컨센서스 추정치 (항상 Naver 사용)
+ *     → finance/annual: 확정 실적 3개년 + 컨센서스 1개년
+ *   2순위 DART OpenAPI — 갭 자동 감지 후 즉시 호출
+ *     → 과거 실적 중 빈칸 발견 시 fnlttSinglAcntAll 사업보고서로 보충
+ *     → DART 원(KRW) → ÷1e8 = 억원 변환
+ *
+ * ─── isConsensusMissing 플래그 ────────────────────────────────────────────────
+ *   미래 추정(E) 컬럼이 모두 0인 경우 → true
+ *   프론트엔드에서 "직접 입력 안내 배지" 표시에 사용
  *
  * ─── 단위 ─────────────────────────────────────────────────────────────────────
  *  US:  operatingIncome·revenue = M USD,  eps = $/주
@@ -55,19 +73,45 @@ function makeShell(ticker: string, market: 'US' | 'KR') {
   const financials: Record<string, { eps: number; operatingProfit: number; revenue: number }> = {}
   yearKeys.forEach(y => { financials[y] = { eps: 0, operatingProfit: 0, revenue: 0 } })
   return {
-    success:      false as boolean,
-    error:        null  as string | null,
+    success:            false as boolean,
+    error:              null  as string | null,
     ticker,
-    companyName:  ticker,
-    currency:     (market === 'KR' ? 'KRW' : 'USD') as 'KRW' | 'USD',
-    unit:         market === 'KR' ? '억원' : 'M USD',
-    currentPrice: 0,
-    marketCap:    0,
-    shares:       0,
-    currentPER:   0,
+    companyName:        ticker,
+    currency:           (market === 'KR' ? 'KRW' : 'USD') as 'KRW' | 'USD',
+    unit:               market === 'KR' ? '억원' : 'M USD',
+    currentPrice:       0,
+    marketCap:          0,
+    shares:             0,
+    currentPER:         0,
     yearKeys,
     financials,
+    // isConsensusMissing: 미래 추정(E) 컬럼이 모두 0일 때 true
+    // 프론트에서 "직접 입력 안내 배지" 표시 트리거로 사용
+    isConsensusMissing: false as boolean,
   }
+}
+
+// ── 갭 감지 유틸 ─────────────────────────────────────────────────────────────
+// 실적 연도(E 아닌) 중 eps=0 AND revenue=0 인 연도 목록 반환
+function detectGapYears(
+  fin: Record<string, { eps: number; operatingProfit: number; revenue: number }>,
+  yearKeys: string[]
+): string[] {
+  return yearKeys.filter(k =>
+    !k.endsWith('E') &&
+    fin[k].eps === 0 &&
+    fin[k].revenue === 0
+  )
+}
+
+// 미래 추정치 누락 여부 확인 (E 컬럼이 모두 비어있으면 true)
+function checkConsensusMissing(
+  fin: Record<string, { eps: number; operatingProfit: number; revenue: number }>,
+  yearKeys: string[]
+): boolean {
+  const estKeys = yearKeys.filter(k => k.endsWith('E'))
+  if (estKeys.length === 0) return false
+  return estKeys.every(k => fin[k].eps === 0 && fin[k].revenue === 0)
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -540,6 +584,40 @@ async function fetchUS(ticker: string) {
     }
   }
 
+  // ── 2차 방어선: Yahoo 데이터 갭 감지 → FMP 즉시 보충 호출 ─────────────────
+  // 1순위 Yahoo 파싱 후에도 과거 연도(E 아닌) 중 eps=0·revenue=0 가 남으면
+  // 2순위 FMP API 를 즉시 호출하여 해당 빈칸을 정확히 매핑해 덮어씀
+  const gapYears = detectGapYears(fin, yearKeys)
+  if (gapYears.length > 0 && !hasFMP && FMP_KEY) {
+    console.log('[fetchUS] ⚡ 갭 감지 → FMP 2차 호출 (빈 연도:', gapYears.join(','), ')')
+    try {
+      const fmpFill = await fetchFMPIncomeStatement(ticker)
+      if (fmpFill.size > 0) {
+        for (const key of gapYears) {
+          const yr  = parseInt(key, 10)
+          const row = fmpFill.get(yr)
+          if (row && (row.eps !== 0 || row.rev > 0)) {
+            fin[key] = {
+              eps:             row.eps !== 0 ? row.eps : fin[key].eps,
+              operatingProfit: row.oi  >  0  ? row.oi  : fin[key].operatingProfit,
+              revenue:         row.rev >  0  ? row.rev : fin[key].revenue,
+            }
+            console.log(`[fetchUS] FMP 갭 보충: ${key} → EPS:${fin[key].eps} OI:${fin[key].operatingProfit} Rev:${fin[key].revenue}`)
+          }
+        }
+      }
+    } catch (e) {
+      // FMP 호출 실패해도 기존 Yahoo 데이터로 계속 진행
+      console.warn('[fetchUS] FMP 2차 호출 실패 (Yahoo 데이터만 사용):', (e as Error).message)
+    }
+  }
+
+  // ── 미래 추정치 누락 여부 플래그 설정 ────────────────────────────────────
+  result.isConsensusMissing = checkConsensusMissing(fin, yearKeys)
+  if (result.isConsensusMissing) {
+    console.log('[fetchUS] 미래 추정치 없음 (isConsensusMissing=true) →', ticker)
+  }
+
   console.log('[fetchUS] FMP 사용:', hasFMP, '| EPS 결과:', yearKeys.map(k => `${k}:${fin[k].eps}`).join(','))
   result.financials = fin
   return result
@@ -711,6 +789,41 @@ async function fetchKR(code: string) {
         revenue:         filterOutlier(fc?.rev ?? 0, lastActRev, 8),  // Rev: 8배 허용
       }
     }
+  }
+
+  // ── 2차 방어선: Naver 데이터 갭 감지 → DART 즉시 보충 호출 ─────────────────
+  // 1순위 Naver 파싱 후에도 과거 연도 중 eps=0·revenue=0 가 남으면
+  // 2순위 DART API 를 즉시 호출하여 공인 사업보고서 데이터로 빈칸을 메움
+  const krGapYears = detectGapYears(fin, yearKeys)
+  if (krGapYears.length > 0 && !usedDART && DART_KEY) {
+    console.log('[fetchKR] ⚡ 갭 감지 → DART 2차 호출 (빈 연도:', krGapYears.join(','), ')')
+    try {
+      const corpCode = await getDARTCorpCode(code)
+      if (corpCode) {
+        const dartFill = await fetchDARTFinancials(corpCode)
+        for (const key of krGapYears) {
+          const yr  = parseInt(key, 10)
+          const row = dartFill.get(yr)
+          if (row && (row.eps !== 0 || row.rev > 0)) {
+            fin[key] = {
+              eps:             row.eps !== 0 ? row.eps : fin[key].eps,
+              operatingProfit: row.oi  !== 0 ? row.oi  : fin[key].operatingProfit,
+              revenue:         row.rev >  0  ? row.rev : fin[key].revenue,
+            }
+            console.log(`[fetchKR] DART 갭 보충: ${key} → EPS:${fin[key].eps} OI:${fin[key].operatingProfit} Rev:${fin[key].revenue}`)
+          }
+        }
+      }
+    } catch (e) {
+      // DART 호출 실패해도 기존 Naver 데이터로 계속 진행
+      console.warn('[fetchKR] DART 2차 호출 실패 (Naver 데이터만 사용):', (e as Error).message)
+    }
+  }
+
+  // ── 미래 추정치 누락 여부 플래그 설정 ────────────────────────────────────
+  result.isConsensusMissing = checkConsensusMissing(fin, yearKeys)
+  if (result.isConsensusMissing) {
+    console.log('[fetchKR] 미래 추정치 없음 (isConsensusMissing=true) →', code)
   }
 
   console.log('[fetchKR] DART 사용:', usedDART, '| EPS 결과:', yearKeys.map(k => `${k}:${fin[k].eps}`).join(','))

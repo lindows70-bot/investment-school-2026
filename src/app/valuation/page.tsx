@@ -43,18 +43,20 @@ function cs(extra: React.CSSProperties = {}): React.CSSProperties {
 // ── API 응답 타입 ─────────────────────────────────────────────────────────────
 interface FinYear { eps: number; operatingProfit: number; revenue: number }
 interface FinApiResponse {
-  success: boolean
-  error: string | null
-  ticker: string
-  companyName: string
-  currency: 'USD' | 'KRW'
-  unit: string
-  currentPrice: number
-  marketCap: number
-  shares: number
-  currentPER: number
-  yearKeys: string[]
-  financials: Record<string, FinYear>
+  success:            boolean
+  error:              string | null
+  ticker:             string
+  companyName:        string
+  currency:           'USD' | 'KRW'
+  unit:               string
+  currentPrice:       number
+  marketCap:          number
+  shares:             number
+  currentPER:         number
+  yearKeys:           string[]
+  financials:         Record<string, FinYear>
+  /** 미래 추정(E) 컬럼이 모두 0일 때 true → 프론트 안내 배지 표시 트리거 */
+  isConsensusMissing?: boolean
 }
 interface InvItem {
   id: string; ticker: string; name: string; market: 'US' | 'KR' | 'CRYPTO'
@@ -894,6 +896,32 @@ export default function ValuationPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* ═══ 컨센서스 미존재 안내 배지 ═══════════════════════════════════════ */}
+      {hasData && rawData?.isConsensusMissing && (
+        <div style={{
+          marginBottom: 16, padding: '14px 18px', borderRadius: 10,
+          background: 'rgba(96,165,250,0.08)',
+          border: '1px solid rgba(96,165,250,0.35)',
+        }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <span style={{ fontSize: 20, flexShrink: 0 }}>💡</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: T.dn, marginBottom: 5 }}>
+                안내: 애널리스트 추정치(컨센서스)가 없는 종목입니다
+              </div>
+              <div style={{ fontSize: 12, color: '#93c5fd', lineHeight: 1.8 }}>
+                본 종목은 기관 투자자의 시장 추정치(컨센서스)가 존재하지 않습니다.<br />
+                이로 인해 미래 연도(<strong style={{ color: T.gld }}>E 컬럼</strong>)의 EPS·영업이익·매출이 비어 있습니다.<br />
+                <strong style={{ color: T.dn }}>직접 예상 수치를 입력</strong>하면 CAGR 계산 및 시뮬레이션이 즉시 작동합니다.
+                <span style={{ display: 'inline-block', marginTop: 6, padding: '3px 10px', background: `${T.dn}20`, border: `1px solid ${T.dn}44`, borderRadius: 6, fontSize: 11, color: T.dn }}>
+                  📝 테이블의 E 컬럼 셀을 클릭 → 숫자 직접 입력
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
