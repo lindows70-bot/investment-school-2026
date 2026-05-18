@@ -164,25 +164,56 @@ async function getYF(): Promise<unknown> {
 //  DART 헬퍼 — OpenAPI 연결재무제표 (사업보고서)
 // ════════════════════════════════════════════════════════════════════════════════
 
-/** 종목코드(6자리) → DART 고유번호(corp_code) */
+/**
+ * 종목코드(6자리) → DART 고유번호(corp_code)
+ *
+ * DART company.json 은 corp_code → 회사정보 조회용이라 stock_code 검색 불가.
+ * 대신 list.json 에 stock_code 파라미터를 사용하면 공시 목록에서 corp_code 추출 가능.
+ * ※ list.json은 corp_code 없이 stock_code만 쓸 경우 3개월 이내 날짜 범위만 허용.
+ */
 async function getDARTCorpCode(stockCode: string): Promise<string | null> {
   if (!DART_KEY) {
     console.warn('[DART] API 키 없음 (DART_API_KEY). Naver fallback 사용.')
     return null
   }
   try {
+    // 오늘 기준 최근 3개월 범위로 공시 목록 조회 → corp_code 추출
+    const now    = new Date()
+    const end    = now.toISOString().slice(0, 10).replace(/-/g, '')
+    const bgn    = new Date(now.setMonth(now.getMonth() - 2))
+      .toISOString().slice(0, 10).replace(/-/g, '')
+
     const url =
-      `https://opendart.fss.or.kr/api/company.json` +
-      `?crtfc_key=${DART_KEY}&stock_code=${stockCode}`
+      `https://opendart.fss.or.kr/api/list.json` +
+      `?crtfc_key=${DART_KEY}&stock_code=${stockCode}` +
+      `&bgn_de=${bgn}&end_de=${end}`
+
     const res = await fetch(url, { cache: 'no-store' })
     if (!res.ok) return null
+
     const d = await res.json()
-    if (d.status !== '000') {
-      console.warn('[DART] corp_code 조회 실패:', d.message)
-      return null
+    if (d.status !== '000' || !Array.isArray(d.list) || d.list.length === 0) {
+      // 최근 공시가 없는 경우 날짜 범위를 1년으로 확장해서 재시도
+      const bgn2 = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
+        .toISOString().slice(0, 10).replace(/-/g, '')
+      const url2 =
+        `https://opendart.fss.or.kr/api/list.json` +
+        `?crtfc_key=${DART_KEY}&stock_code=${stockCode}&bgn_de=${bgn2}`
+      const res2 = await fetch(url2, { cache: 'no-store' })
+      if (!res2.ok) return null
+      const d2 = await res2.json()
+      if (d2.status !== '000' || !Array.isArray(d2.list) || d2.list.length === 0) {
+        console.warn('[DART] corp_code 조회 실패 (공시 없음):', stockCode)
+        return null
+      }
+      const corpCode2 = d2.list[0].corp_code
+      console.log('[DART] corp_code (확장 검색):', corpCode2, '→', d2.list[0].corp_name)
+      return corpCode2 ?? null
     }
-    console.log('[DART] corp_code:', d.corp_code, '→', d.corp_name)
-    return d.corp_code ?? null
+
+    const corpCode = d.list[0].corp_code
+    console.log('[DART] corp_code:', corpCode, '→', d.list[0].corp_name)
+    return corpCode ?? null
   } catch (e) {
     console.warn('[DART] corp_code 오류:', (e as Error).message)
     return null
@@ -193,9 +224,11 @@ async function getDARTCorpCode(stockCode: string): Promise<string | null> {
  * DART fnlttSinglAcntAll — 단일 사업연도 연결재무제표 파싱
  * bsns_year 기준으로 당기(thstrm)·전기(frmtrm)·전전기(bfefrmtrm) 3개년 반환
  *
- * ※ 단위 정책:
- *    - 매출액/영업이익: DART는 백만원 단위 제출 → ÷100 = 억원
- *    - 주당순이익(EPS): 원/주 단위 그대로 사용
+ * ※ 단위 정책 (실제 API 응답 기준으로 검증됨):
+ *    - 매출액/영업이익: DART는 원(KRW) 단위 그대로 제출 → ÷1e8 = 억원
+ *      예) 삼성 2024 영업이익 32,725,961,000,000원 ÷ 1e8 = 327,260억원 ✓
+ *    - 주당순이익(EPS): 원/주 단위 그대로 사용 (변환 없음)
+ *      예) 삼성 2024 EPS 4,950원/주 ✓
  */
 async function fetchDARTYear(
   corpCode: string,
@@ -262,15 +295,15 @@ async function fetchDARTYear(
         const cur = result.get(yr) ?? { rev: 0, oi: 0, eps: 0 }
 
         if (isRevenue && cur.rev === 0) {
-          // 매출액: 백만원 → 억원 (÷100)
-          cur.rev = val > 0 ? Math.round(val / 100) : 0
+          // 매출액: 원(KRW) → 억원 (÷1e8)
+          cur.rev = val > 0 ? Math.round(val / 1e8) : 0
         }
         if (isOI && cur.oi === 0) {
-          // 영업이익: 백만원 → 억원 (÷100), 손실 허용
-          cur.oi = Math.round(val / 100)
+          // 영업이익: 원(KRW) → 억원 (÷1e8), 손실은 음수로 허용
+          cur.oi = Math.round(val / 1e8)
         }
         if (isEPS && cur.eps === 0) {
-          // 기본주당순이익: 원/주 단위 (그대로 사용)
+          // 기본주당순이익: 원/주 단위 그대로 (변환 없음)
           cur.eps = val
         }
 
