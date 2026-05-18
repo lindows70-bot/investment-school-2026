@@ -361,7 +361,28 @@ export default function ValuationPage() {
       rawData.currentPER > 0               ? rawData.currentPER :
       25
 
-    const fwdEps = [...eps].reverse().find(v => v > 0) ?? 0
+    // fwdEps: 적정주가 계산용 EPS
+    //
+    // 원칙: "E(추정)" 컬럼 중 확정값 대비 3배 이내인 첫 번째 값 사용
+    //   → 합리적 추정치는 사용 (NVDA 2026E 4.9 = 1.67x ✓, AAPL 2026E 8.74 = 1.17x ✓)
+    //   → 극단 추정치는 제외 (삼성 2026E 42,216 = 6.43x → 확정값 6,564으로 대체)
+    //
+    // 각 종목 결과:
+    //   NVDA   : fwdEps = 4.90  (2026E FMP실적 1.67x → 사용)
+    //   AAPL   : fwdEps = 8.74  (2026E Yahoo 1.17x  → 사용)
+    //   GOOGL  : fwdEps = 14.22 (2026E Yahoo 1.32x  → 사용)
+    //   삼성전자: fwdEps = 6,564 (2026E 6.43x 초과 → 확정값)
+    const confirmedEps = yearKeys
+      .map((y, i) => (!y.endsWith('E') && eps[i] > 0 ? eps[i] : 0))
+      .filter(v => v > 0)
+      .at(-1) ?? 0
+
+    const FWD_MAX_MULT = 3   // 확정값 대비 3배 초과 추정치는 극단값으로 처리
+    const reasonableEstEps = yearKeys
+      .map((y, i) => (y.endsWith('E') && eps[i] > 0 ? eps[i] : 0))
+      .find(v => v > 0 && (confirmedEps <= 0 || v / confirmedEps <= FWD_MAX_MULT)) ?? 0
+
+    const fwdEps = reasonableEstEps > 0 ? reasonableEstEps : confirmedEps
     const latOI  = [...oi].reverse().find(v  => v > 0) ?? 0
     const latRev = [...rev].reverse().find(v => v > 0) ?? 0
 
