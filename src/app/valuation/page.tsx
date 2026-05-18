@@ -527,6 +527,7 @@ export default function ValuationPage() {
     let pts = 0
     const reasons: string[] = []
 
+    // ── PEG 항목 (40점) ────────────────────────────────────────────────────
     const peg = analysis.scenarios[3].peg
     if (peg != null) {
       if      (peg < 1.0) { pts += 40; reasons.push(`PEG ${peg}로 저평가 (+40점)`) }
@@ -535,12 +536,14 @@ export default function ValuationPage() {
       else                             reasons.push(`PEG ${peg}로 고평가 (0점)`)
     }
 
+    // ── 상승여력 항목 (30점) ───────────────────────────────────────────────
     const up = analysis.upside
     if      (up > 30) { pts += 30; reasons.push(`적정주가 대비 +${up.toFixed(0)}% 상승여력 (+30점)`) }
     else if (up > 10) { pts += 20; reasons.push(`적정주가 대비 +${up.toFixed(0)}% 상승여력 (+20점)`) }
     else if (up >  0) { pts += 10; reasons.push(`적정주가 대비 +${up.toFixed(0)}% 소폭 여력 (+10점)`) }
     else                           reasons.push(`적정주가 대비 ${up.toFixed(0)}% 하락 (0점)`)
 
+    // ── 성장 안정성 항목 (30점) ────────────────────────────────────────────
     const ls = cagrData.long.eps, ss = cagrData.short.eps
     if (ls != null && ss != null) {
       if      (ss >= ls && ss > 0) { pts += 30; reasons.push('단기 성장률 > 장기 (성장 가속) (+30점)') }
@@ -548,13 +551,41 @@ export default function ValuationPage() {
       else                                       reasons.push('단기 성장 둔화 (0점)')
     }
 
-    const verdict =
+    // ── 밸류에이션 오버 패널티 (가치투자 원칙) ────────────────────────────
+    // 현재가가 평균 적정주가보다 높을 경우: -10점 패널티
+    const isOvervalued        = analysis.avgFV > 0 && up < 0
+    const isSignificantlyOver = analysis.avgFV > 0 && up < -5   // 5% 이상 고평가
+
+    if (isOvervalued) {
+      pts = Math.max(0, pts - 10)
+      reasons.push(
+        `현재가가 평균 적정주가 대비 ${Math.abs(up).toFixed(1)}% 높음 → 밸류에이션 패널티 (-10점)`
+      )
+    }
+
+    // ── 기본 판정 ─────────────────────────────────────────────────────────
+    const rawVerdict =
       pts >= 80 ? { text: '강력 매수 (Buy)',   bg: '#052e16', color: T.grn } :
       pts >= 60 ? { text: '매수 (Accumulate)', bg: '#0c1a3a', color: T.dn  } :
       pts >= 40 ? { text: '보유 (Hold)',        bg: '#2d1c00', color: T.gld } :
                   { text: '매수 보류 (Watch)',  bg: '#2d0a0a', color: T.up  }
 
-    return { pts, reasons, verdict }
+    // ── 자동 하향 조정: 5% 이상 고평가면 '매수' 계열 → '보유' 상한 캡 ───
+    // 이유: 아무리 CAGR이 높아도 현재가가 적정가보다 5%+ 비싸면
+    //       가치투자 원칙상 적극 매수보다 보유·관망이 적합
+    // ※ '매수 보류(Watch)' 텍스트에도 '매수'가 포함되어 오탐 방지:
+    //    영문 판정 키워드 (Buy, Accumulate) 로만 비교
+    const isBuyVerdict =
+      rawVerdict.text.includes('(Buy)') || rawVerdict.text.includes('(Accumulate)')
+    const verdict = (isSignificantlyOver && isBuyVerdict)
+      ? { text: '보유 (Hold)', bg: '#2d1c00', color: T.gld }
+      : rawVerdict
+
+    // ── 안내 라벨 트리거 플래그 ───────────────────────────────────────────
+    // "주가 > 적정가인데도 매수 계열 점수" → 학생에게 설명 필요
+    const showOvervaluedNote = isOvervalued && isBuyVerdict
+
+    return { pts, reasons, verdict, isOvervalued, isSignificantlyOver, showOvervaluedNote, upside: up }
   }, [rawData, analysis, cagrData])
 
   // ── 셀 업데이트 헬퍼 ──────────────────────────────────────────────────────
@@ -1108,7 +1139,37 @@ export default function ValuationPage() {
               </div>
             </div>
             <div>
-              <div style={{ fontSize:22, fontWeight:900, color:scoreData.verdict.color, marginBottom:12 }}>{scoreData.verdict.text}</div>
+              {/* ── 판정 제목 + 자동 하향 배지 ─────────────────────────── */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+                <div style={{ fontSize:22, fontWeight:900, color:scoreData.verdict.color }}>{scoreData.verdict.text}</div>
+                {/* 5% 이상 고평가 → 자동 하향 배지 */}
+                {scoreData.isSignificantlyOver && (
+                  <div style={{
+                    padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                    background: `${T.gld}20`, border: `1px solid ${T.gld}66`, color: T.gld,
+                  }}>
+                    ⬇ 등급 하향 조정됨 (고평가 5%+)
+                  </div>
+                )}
+              </div>
+
+              {/* ── 투자 안내 라벨: 주가 > 적정가인데도 매수 성향 점수일 때 ── */}
+              {scoreData.showOvervaluedNote && (
+                <div style={{
+                  marginBottom: 14, padding: '12px 14px', borderRadius: 8,
+                  background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.3)',
+                }}>
+                  <div style={{ fontSize: 12, color: '#93c5fd', lineHeight: 1.8 }}>
+                    <strong style={{ color: T.dn }}>💡 알림: 성장주 관점의 고평가 종목</strong><br />
+                    현재 주가가 계산된 평균 적정주가를{' '}
+                    <strong style={{ color: T.up }}>{Math.abs(scoreData.upside).toFixed(1)}% 상회</strong>하여
+                    밸류에이션 매력은 낮습니다. 다만 높은 CAGR 및 낮은 PEG 지표가 종합 점수를 견인했습니다.{' '}
+                    <strong style={{ color: T.dn }}>성장주(Growth) 관점의 접근</strong>이 유효하며,
+                    가치투자(Value) 관점에서는 주가 조정 시 분할 매수를 권장합니다.
+                  </div>
+                </div>
+              )}
+
               {scoreData.reasons.map((r,i) => (
                 <div key={i} style={{ fontSize:13, color:T.sub, display:'flex', gap:8, marginBottom:6 }}>
                   <span style={{ color:T.gld, flexShrink:0 }}>·</span>{r}
