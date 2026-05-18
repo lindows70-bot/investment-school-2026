@@ -485,40 +485,64 @@ export default function ValuationPage() {
     }))
   }, [rawData, eps, cagrData, analysis])
 
-  // ── 텐배거 도달 연수 (장기 CAGR 기준, 헤더 표시용) ─────────────────────
-  const tenBaggerYrs = useMemo(() => {
-    if (!rawData?.success || !cagrData) return null
-    const g = cagrData.long.eps
-    if (!g || g <= 0) return null
-    return Math.ceil(Math.log(10) / Math.log(1 + g / 100))
-  }, [rawData, cagrData])
-
-  // ── 시나리오별 10배 도달 좌표 (차트 마커용) ──────────────────────────────
-  // 목표 EPS = 시뮬레이션 시작(0년 차) EPS × 10
-  // (PER 유지 가정 시 주가 10배 = EPS 10배)
+  // ── 텐배거 도달 좌표 — 단일 소스 (헤더 텍스트 + 차트 마커 동시 사용) ────
+  //
+  // ★ 핵심 설계 원칙:
+  //   헤더 텍스트의 "N년 후"와 차트 ReferenceDot의 "N년" 은
+  //   반드시 이 useMemo 의 같은 .year 필드에서 가져와야 한다.
+  //   절대로 tenBaggerYrs 같은 별도 계산식을 만들지 않는다.
+  //
+  // ★ 계산 방식:
+  //   simData 는 시각화 목적으로 최대 60% 캡이 걸려 있어서,
+  //   simData 를 순회하면 실제 CAGR 과 다른 연도가 나온다 (버그 원인).
+  //   → 실제(무제한) CAGR 성장률로 직접 복리 계산하여 10배 돌파 연도를 구한다.
+  //
+  // ★ 차트 마커 y 좌표:
+  //   마커는 '10배 기준선(target)' 위에 정확히 올린다.
+  //   (라인이 capped 되어 있어도 기준선 위 동일 y 에 놓으면 의미가 명확하다)
+  //
+  // ★ 검증 예시 (SK하이닉스, 장기 CAGR 116.9%):
+  //   base=58,955 / target=589,550 / 2.169^3=10.2 → year=3
+  //   헤더 "장기 CAGR 기준 약 3년 후" & 마커 "⭐ 장기 10배 (3년)" → 동일 ✓
   const tenBaggerPoints = useMemo(() => {
-    if (!simData.length) return null
+    if (!simData.length || !cagrData) return null
     const base = simData[0]?.보수적 ?? 0
     if (base <= 0) return null
-    const target = base * 10   // 10배 목표 EPS
+    const target = base * 10   // 10배 목표 EPS (PER 불변 가정 시 주가 10배)
 
-    // 시나리오 배열 순회 → 처음으로 target 을 돌파하는 {year, value} 반환
-    const findCross = (key: '보수적' | '단기CAGR' | '장기CAGR' | '애널추정') => {
-      for (const d of simData) {
-        const val = d[key]
-        if (val >= target) return { year: d.year, value: val }
+    // 실제(무제한) CAGR 을 직접 사용 — simData 캡(60%)과 무관하게 정확한 연도 산출
+    const gLong  = cagrData.long.eps  ?? 0   // 장기 CAGR (무제한)
+    const gShort = cagrData.short.eps ?? 0   // 단기 CAGR (무제한)
+
+    /**
+     * 복리 성장으로 처음 target 을 돌파하는 연도를 구한다.
+     * @param ratePercent  연간 성장률 (%) — 소수가 아닌 퍼센트 숫자 그대로
+     * @returns { year: number, value: number } | null
+     *   year  = 1부터 20 사이의 정수 (X축 "N년 차" 과 동일)
+     *   value = target (기준선에 마커를 정확히 올리기 위해 target 고정)
+     */
+    const findCrossYear = (ratePercent: number): { year: number; value: number } | null => {
+      if (ratePercent <= 0) return null   // 음수·0 성장률은 10배 도달 불가
+      for (let y = 1; y <= 20; y++) {
+        const val = base * Math.pow(1 + ratePercent / 100, y)
+        if (val >= target) return { year: y, value: target }
       }
       return null   // 20년 내 미도달
     }
 
+    // 보수적 (+8% 고정)
+    const conservCross = findCrossYear(8)
+
     return {
       target,
-      보수적:   findCross('보수적'),
-      단기CAGR: findCross('단기CAGR'),
-      장기CAGR: findCross('장기CAGR'),
-      애널추정: findCross('애널추정'),
+      보수적:   conservCross,
+      단기CAGR: findCrossYear(gShort),
+      장기CAGR: findCrossYear(gLong),
     }
-  }, [simData])
+  }, [simData, cagrData])
+
+  // tenBaggerYrs 는 더 이상 사용하지 않는다.
+  // 헤더 텍스트는 tenBaggerPoints.장기CAGR?.year 를 직접 참조한다.
 
   // ── 종합 점수 ─────────────────────────────────────────────────────────────
   const scoreData = useMemo(() => {
@@ -941,9 +965,17 @@ export default function ValuationPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>🔭 20년 미래 EPS 시뮬레이션</div>
-              {tenBaggerYrs != null && (
-                <div style={{ fontSize: 12, color: T.gld }}>
-                  ⭐ 텐배거(10배) 도달 예상: 장기 CAGR 기준 약 <strong>{tenBaggerYrs}년</strong> 후
+              {/* ★ 헤더 텍스트 — tenBaggerPoints 에서 직접 참조 (차트 마커와 동일 소스) */}
+              {(tenBaggerPoints?.장기CAGR || tenBaggerPoints?.단기CAGR) && (
+                <div style={{ fontSize: 12, color: T.gld, lineHeight: 1.7 }}>
+                  ⭐ 텐배거(10배) 도달 예상
+                  {tenBaggerPoints.장기CAGR && (
+                    <span> &nbsp;·&nbsp; 장기 CAGR 기준 약 <strong>{tenBaggerPoints.장기CAGR.year}년</strong> 후</span>
+                  )}
+                  {tenBaggerPoints.단기CAGR &&
+                   tenBaggerPoints.단기CAGR.year !== tenBaggerPoints.장기CAGR?.year && (
+                    <span> &nbsp;·&nbsp; 단기 CAGR 기준 약 <strong>{tenBaggerPoints.단기CAGR.year}년</strong> 후</span>
+                  )}
                 </div>
               )}
             </div>
