@@ -596,11 +596,27 @@ export default function ValuationPage() {
     else                           reasons.push(`적정주가 대비 ${up.toFixed(0)}% 하락 (0점)`)
 
     // ── 성장 안정성 항목 (30점) ────────────────────────────────────────────
+    // ★ 허용 오차(GROWTH_TOLERANCE = 3%p) 도입
+    //   단기가 장기보다 3%p 이내로 낮은 경우 → "안정 성장"으로 인정 (+30점)
+    //   이유: GOOGL(단기 15.5%, 장기 17.8%)처럼 2.3%p 차이는 의미 없는 노이즈.
+    //         측정 기간·추정치 오차 범위 안이므로 사실상 동일한 성장률이다.
+    //   3%p 초과 하락 시에만 진짜 "둔화"로 판정 → +15점
+    const GROWTH_TOLERANCE = 3   // %p
     const ls = cagrData.long.eps, ss = cagrData.short.eps
     if (ls != null && ss != null) {
-      if      (ss >= ls && ss > 0) { pts += 30; reasons.push('단기 성장률 > 장기 (성장 가속) (+30점)') }
-      else if (ss > 0)             { pts += 15; reasons.push('성장 중이나 속도 둔화 (+15점)') }
-      else                                       reasons.push('단기 성장 둔화 (0점)')
+      if (ss > 0 && ss >= ls) {
+        // 단기 ≥ 장기: 명확한 성장 가속
+        pts += 30; reasons.push('단기 성장률 > 장기 (성장 가속) (+30점)')
+      } else if (ss > 0 && ls - ss <= GROWTH_TOLERANCE) {
+        // 단기가 장기보다 3%p 이내로 낮음: 노이즈 범위 → 안정 성장으로 인정
+        pts += 30; reasons.push(`단기·장기 성장률 근사 (차이 ${(ls - ss).toFixed(1)}%p ≤ ${GROWTH_TOLERANCE}%p) → 안정 성장 (+30점)`)
+      } else if (ss > 0) {
+        // 단기가 장기보다 3%p 이상 낮음: 실질적인 성장 둔화
+        pts += 15; reasons.push(`성장 중이나 속도 둔화 (단기 ${ss.toFixed(1)}% vs 장기 ${ls.toFixed(1)}%) (+15점)`)
+      } else {
+        // 단기 CAGR이 0 이하: 성장 정체·역성장
+        reasons.push('단기 성장 정체 (0점)')
+      }
     }
 
     // ── 밸류에이션 오버 패널티 (가치투자 원칙) ────────────────────────────
