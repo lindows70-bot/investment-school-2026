@@ -496,13 +496,13 @@ export default function AssetsPage() {
                       onClick={e => { e.stopPropagation(); openBuyModal(inv) }}
                       style={{ flex:1, padding:'6px 0', borderRadius:7, border:'none', cursor:'pointer',
                         background:'linear-gradient(135deg,#7f1d1d,#dc2626)', color:'#fff', fontSize:10, fontWeight:700 }}>
-                      + 매수
+                      + 추가매수
                     </button>
                     <button
                       onClick={e => { e.stopPropagation(); openSellModal(inv) }}
                       style={{ flex:1, padding:'6px 0', borderRadius:7, border:'none', cursor:'pointer',
                         background:'linear-gradient(135deg,#1e3a8a,#3b82f6)', color:'#fff', fontSize:10, fontWeight:700 }}>
-                      - 매도
+                      - 추가매도
                     </button>
                   </div>
                 </div>

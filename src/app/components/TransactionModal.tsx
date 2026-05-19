@@ -341,9 +341,12 @@ export default function TransactionModal({
         >
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#dde4f0' }}>
-              {investment.name} 거래
-            </h2>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#dde4f0' }}>
+                {mode === 'buy' ? '추가매수 기록' : '추가매도 기록'}
+              </h2>
+              <div style={{ fontSize: 12, color: '#454868', marginTop: 3 }}>{investment.name}</div>
+            </div>
             <button
               onClick={onClose}
               style={{ background: 'none', border: 'none', color: '#454868', fontSize: 22, cursor: 'pointer', lineHeight: 1, padding: '0 4px' }}
@@ -387,7 +390,7 @@ export default function TransactionModal({
                     ),
                   }}
                 >
-                  {m === 'buy' ? '+ 매수' : '− 매도'}
+                  {m === 'buy' ? '+ 추가매수' : '− 추가매도'}
                 </button>
               )
             })}
@@ -646,8 +649,8 @@ export default function TransactionModal({
               {loading
                 ? '처리 중…'
                 : mode === 'buy'
-                  ? `매수 확인 (${qtyNum > 0 && buyCalc ? `체결가 ${currSym}${formatNum(buyCalc.execPrice, 0)}` : '단가 계산 중'})`
-                  : '매도 확인'}
+                  ? `추가매수 완료 (${qtyNum > 0 && buyCalc ? `체결가 ${currSym}${formatNum(buyCalc.execPrice, 0)}` : '단가 계산 중'})`
+                  : '추가매도 완료'}
             </button>
           </div>
         </div>
