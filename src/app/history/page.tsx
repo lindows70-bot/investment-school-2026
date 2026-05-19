@@ -124,83 +124,94 @@ export default function HistoryPage() {
 
       // ── 2. 자동 동기화: investments vs transactions 수량 불일치 감지 & 복구 ──
       //
-      // [올바른 가격 계산 방법]
-      //   investments.purchase_price = 가중평균 단가 (모든 매수의 평균)
-      //   transactions의 기록된 총 투자금 = Σ(price × qty)
-      //   누락된 주식의 실제 매수가 = (평단×총수량 - 기록된총투자금) / 누락수량
+      // ★ 올바른 역산 공식:
+      //   누락 주식 실제 매수가 = (평단 × 총수량 - 기록된총투자금) / 누락수량
       //
-      //   예) SK하이닉스 평단₩1,322,500 × 2주 = ₩2,645,000 총투자금
-      //       기록된 거래 = 1주 × ₩900,000 = ₩900,000
-      //       누락 1주 가격 = (₩2,645,000 - ₩900,000) / 1 = ₩1,745,000  ← 정확!
-      //       (₩1,322,500 사용 시 평단이 ₩1,111,250으로 틀어짐 ← 이전 버그)
+      //   SK하이닉스 예시:
+      //     평단 ₩1,322,500 × 2주 = ₩2,645,000
+      //     기록된 투자금 = 1주 × ₩900,000 = ₩900,000
+      //     → 누락 1주 실제가 = (₩2,645,000 - ₩900,000) / 1 = ₩1,745,000 ✓
       //
-      // [잘못된 이전 자동동기화 레코드 처리]
-      //   기존에 잘못된 가격(평단가 그대로)으로 삽입된 '자동 동기화' 메모 레코드를
-      //   먼저 삭제한 뒤 올바른 가격으로 재생성한다.
+      // ★ 처리 순서:
+      //   1) 순수 수동 기록(비-자동동기화)으로 수량·비용 집계
+      //   2) 각 투자 종목에 대해 기대 자동동기화 가격 계산
+      //   3) 이미 올바른 자동동기화가 있으면 스킵 (불필요한 삭제-재생성 방지)
+      //   4) 없거나 틀린 경우에만 삭제 후 올바른 가격으로 재삽입
 
-      // Step A: 기존 '자동 동기화' 레코드 삭제 (잘못된 가격으로 생성된 것 제거)
-      const autoSyncIds = txList
-        .filter(t => t.memo?.includes('자동 동기화'))
-        .map(t => t.id)
-      if (autoSyncIds.length > 0) {
-        await sb.from('transactions').delete().in('id', autoSyncIds)
-      }
-
-      // Step B: 삭제 후 순수 수동 기록만으로 수량·비용 집계
-      const cleanTxList = txList.filter(t => !t.memo?.includes('자동 동기화'))
+      // Step A: 순수 수동 기록만으로 집계 (자동동기화 레코드 제외)
+      const manualTxList = txList.filter(t => !t.memo?.includes('자동 동기화'))
 
       const txQtyByTicker:  Record<string, number> = {}
-      const txCostByTicker: Record<string, number> = {}  // 기록된 총 투자금
+      const txCostByTicker: Record<string, number> = {}
 
-      cleanTxList.forEach(t => {
+      manualTxList.forEach(t => {
         const key = t.ticker.toUpperCase()
         if (t.type === 'buy') {
           txQtyByTicker[key]  = (txQtyByTicker[key]  ?? 0) + t.quantity
-          txCostByTicker[key] = (txCostByTicker[key] ?? 0) + (t.price * t.quantity)
+          txCostByTicker[key] = (txCostByTicker[key] ?? 0) + t.price * t.quantity
         } else {
           txQtyByTicker[key]  = (txQtyByTicker[key]  ?? 0) - t.quantity
-          txCostByTicker[key] = (txCostByTicker[key] ?? 0) - (t.price * t.quantity)
+          txCostByTicker[key] = (txCostByTicker[key] ?? 0) - t.price * t.quantity
         }
       })
 
       const today = new Date().toISOString().split('T')[0]
-      let reconciled = autoSyncIds.length > 0  // 삭제가 있었으면 재조회 필요
+      let reconciled = false
 
       for (const inv of invs) {
-        const key      = inv.ticker.toUpperCase()
-        const txTotal  = txQtyByTicker[key]  ?? 0
-        const txCost   = txCostByTicker[key] ?? 0
-        const diff     = inv.quantity - txTotal   // 양수 = 누락된 매수 수량
+        const key     = inv.ticker.toUpperCase()
+        const txTotal = txQtyByTicker[key]  ?? 0
+        const txCost  = txCostByTicker[key] ?? 0
+        const diff    = inv.quantity - txTotal
 
-        if (diff > 0.0001) {
-          // ★ 핵심: 누락 주식의 실제 매수가 역산
-          //   총 투자금 = 평단 × 전체수량 → 기록된 투자금 제외 = 누락분 투자금
-          const totalCost   = inv.purchase_price * inv.quantity
-          const missingCost = totalCost - txCost           // 누락된 총 투자금
-          const missingPrice = Math.round(missingCost / diff)  // 누락 주당 실제 매수가
+        if (diff < 0.0001) continue   // 수량 일치 → 처리 불필요
 
-          console.log(`[History] 수량 불일치 자동 복구: ${inv.ticker} 누락 ${diff}주 @ ₩${missingPrice.toLocaleString()} (평단역산)`)
+        // ★ 역산 공식으로 누락 주식의 실제 매수가 계산
+        const totalInvCost  = inv.purchase_price * inv.quantity
+        const missingCost   = totalInvCost - txCost
+        const correctPrice  = Math.round(missingCost / diff)
 
-          try {
-            await sb.from('transactions').insert({
-              user_id:          uid,
-              investment_id:    inv.id,
-              ticker:           inv.ticker,
-              name:             inv.name,
-              market:           inv.market,
-              currency:         inv.currency,
-              type:             'buy',
-              price:            missingPrice,       // ★ 역산된 실제 매수가
-              quantity:         diff,
-              total_amount:     missingPrice * diff,
-              fee:              0,
-              memo:             '자동 동기화 (편집으로 누락된 거래 복구)',
-              transaction_date: today,
-            })
-            reconciled = true
-          } catch (e) {
-            console.warn('[History] 자동 복구 실패:', e)
-          }
+        // Step B: 현재 자동동기화 레코드가 이미 올바른지 확인
+        const existingAutoSync = txList.filter(
+          t => t.memo?.includes('자동 동기화') && t.ticker.toUpperCase() === key
+        )
+        const alreadyCorrect = existingAutoSync.some(
+          t => Math.abs(t.price - correctPrice) < 1 && Math.abs(t.quantity - diff) < 0.001
+        )
+
+        if (alreadyCorrect) {
+          console.log(`[History] ${inv.ticker}: 자동동기화 이미 정확 (₩${correctPrice.toLocaleString()} × ${diff}주) → 스킵`)
+          continue
+        }
+
+        // Step C: 틀린 자동동기화 레코드 삭제 후 올바른 가격으로 재삽입
+        const wrongIds = existingAutoSync.map(t => t.id)
+        if (wrongIds.length > 0) {
+          await sb.from('transactions').delete().in('id', wrongIds)
+          console.log(`[History] ${inv.ticker}: 잘못된 자동동기화 ${wrongIds.length}건 삭제`)
+        }
+
+        console.log(`[History] ${inv.ticker}: 자동 복구 → ${diff}주 @ ₩${correctPrice.toLocaleString()} (역산: ₩${totalInvCost.toLocaleString()} - ₩${txCost.toLocaleString()} = ₩${missingCost.toLocaleString()})`)
+
+        try {
+          await sb.from('transactions').insert({
+            user_id:          uid,
+            investment_id:    inv.id,
+            ticker:           inv.ticker,
+            name:             inv.name,
+            market:           inv.market,
+            currency:         inv.currency,
+            type:             'buy',
+            price:            correctPrice,
+            quantity:         diff,
+            total_amount:     correctPrice * diff,
+            fee:              0,
+            memo:             '자동 동기화 (편집으로 누락된 거래 복구)',
+            transaction_date: today,
+          })
+          reconciled = true
+        } catch (e) {
+          console.warn('[History] 자동 복구 실패:', e)
         }
       }
 
