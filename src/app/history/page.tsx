@@ -114,19 +114,71 @@ export default function HistoryPage() {
       const uid = session?.user?.id ?? (await sb.auth.getUser()).data.user?.id
       if (!uid) { router.push('/login'); return }
 
-      const { data: txData } = await sb.from('transactions')
-        .select('*')
-        .eq('user_id', uid)
-        .order('transaction_date', { ascending: false })
-      setTransactions(txData ?? [])
+      // ── 1. investments + transactions 동시 로드 ──────────────────────────────
+      const [{ data: txRaw }, { data: invData }] = await Promise.all([
+        sb.from('transactions').select('*').eq('user_id', uid).order('transaction_date', { ascending: false }),
+        sb.from('investments').select('*').eq('user_id', uid),
+      ])
+      const txList = txRaw ?? []
+      const invs   = invData ?? []
 
-      const { data: invData } = await sb.from('investments')
-        .select('*')
-        .eq('user_id', uid)
-      const invs = invData ?? []
+      // ── 2. 자동 동기화: investments vs transactions 수량 불일치 감지 & 복구 ──
+      // investments 수량이 transactions 합계보다 많으면 → 누락된 매수 기록 자동 생성
+      // (종목 편집으로 수량을 바꿨지만 거래 내역이 기록되지 않은 경우 복구)
+      const txQtyByTicker: Record<string, number> = {}
+      const invIdByTicker: Record<string, string>  = {}
+      txList.forEach(t => {
+        const key = t.ticker.toUpperCase()
+        txQtyByTicker[key] = (txQtyByTicker[key] ?? 0) + (t.type === 'buy' ? t.quantity : -t.quantity)
+      })
+      invs.forEach(i => { invIdByTicker[i.ticker.toUpperCase()] = i.id })
+
+      const today = new Date().toISOString().split('T')[0]
+      let reconciled = false
+
+      for (const inv of invs) {
+        const key     = inv.ticker.toUpperCase()
+        const txTotal = txQtyByTicker[key] ?? 0
+        const diff    = inv.quantity - txTotal   // 양수 = 누락된 매수 수량
+
+        if (diff > 0.0001) {
+          // 누락된 거래 내역 자동 복구 (silent insert)
+          console.log(`[History] 수량 불일치 감지 → 자동 복구: ${inv.ticker} 누락 ${diff}주`)
+          try {
+            await sb.from('transactions').insert({
+              user_id:          uid,
+              investment_id:    inv.id,
+              ticker:           inv.ticker,
+              name:             inv.name,
+              market:           inv.market,
+              currency:         inv.currency,
+              type:             'buy',
+              price:            inv.purchase_price,   // 현재 평단가 사용
+              quantity:         diff,
+              total_amount:     inv.purchase_price * diff,
+              fee:              0,
+              memo:             '자동 동기화 (편집으로 누락된 거래 복구)',
+              transaction_date: today,
+            })
+            reconciled = true
+          } catch (e) {
+            console.warn('[History] 자동 복구 실패:', e)
+          }
+        }
+      }
+
+      // 복구가 일어난 경우 transactions 재조회
+      if (reconciled) {
+        const { data: txRefreshed } = await sb
+          .from('transactions').select('*').eq('user_id', uid)
+          .order('transaction_date', { ascending: false })
+        setTransactions(txRefreshed ?? [])
+      } else {
+        setTransactions(txList)
+      }
       setInvestments(invs)
 
-      // 현재가 조회 → 미실현 손익 계산용
+      // ── 3. 현재가 조회 (미실현 손익 계산용) ──────────────────────────────────
       if (invs.length > 0) {
         try {
           const res = await fetch('/api/stock-price', {
