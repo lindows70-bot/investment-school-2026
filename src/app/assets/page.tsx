@@ -596,6 +596,7 @@ export default function AssetsPage() {
                   <div style={{ flex:1 }}>
                     {ohlc.length > 1 ? (
                       <FullCandleChart
+                        key={`${inv.ticker}-${getTf(inv.ticker)}`}
                         data={ohlc}
                         currency={inv.currency}
                         timeframe={getTf(inv.ticker)}

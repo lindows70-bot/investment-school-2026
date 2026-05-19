@@ -69,8 +69,13 @@ export default function FullCandleChart({ data, currency, timeframe, prevClose, 
   }
   const fmtDate = (date: string) => {
     const d = new Date(date + (date.length === 10 ? 'T09:00:00' : ''))
-    if (timeframe === '1D') return d.toLocaleTimeString('ko-KR',{ hour:'2-digit', minute:'2-digit', hour12:false })
-    if (timeframe === '1Y') return `${String(d.getFullYear()).slice(2)}/${String(d.getMonth()+1).padStart(2,'0')}`
+    // 1D : 일봉 30개 → MM/DD
+    // 1W : 주봉 26개 → MM/DD (주 시작일)
+    // 1M : 월봉 24개 → YY/MM
+    // 1Y : 월봉 60개 → YY/MM (더 간결하게)
+    if (timeframe === '1M' || timeframe === '1Y') {
+      return `${String(d.getFullYear()).slice(2)}/${String(d.getMonth()+1).padStart(2,'0')}`
+    }
     return `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`
   }
 

@@ -204,13 +204,17 @@ async function naverChart(code: string, tf: TimeFrame): Promise<PricePoint[]> {
 
 /** KR OHLC 캔들 데이터 (네이버 차트 XML → Candle[]) */
 async function naverOhlcChart(code: string, tf: TimeFrame): Promise<Candle[]> {
-  // 캔들 밀도 최적화: 차트가 "막대그래프"처럼 보이지 않도록 캔들 수 증가
-  // 1D: 일봉 60개(3개월), 1W: 일봉 40개(2개월), 1M: 일봉 90개(4개월), 1Y: 월봉 36개(3년)
+  // ★ 탭별 서로 다른 timeframe 사용 — 동일해 보이던 버그 수정
+  //   1D : day   × 30  → 최근 30 거래일 일봉 (약 1.5개월)
+  //   1W : week  × 26  → 최근 26 주봉  (약 6개월)
+  //   1M : month × 24  → 최근 24 월봉  (약 2년)
+  //   1Y : month × 60  → 최근 60 월봉  (약 5년)
+  // naverChart(라인차트)와 동일한 timeframe 구분 정책 사용
   const tfMap: Record<TimeFrame, { timeframe: string; count: number }> = {
-    '1D': { timeframe: 'day',   count: 60 },   // 최근 60 거래일 일봉
-    '1W': { timeframe: 'day',   count: 40 },   // 최근 40 거래일 일봉
-    '1M': { timeframe: 'day',   count: 90 },   // 최근 90 거래일 일봉
-    '1Y': { timeframe: 'month', count: 36 },   // 최근 36개월 월봉
+    '1D': { timeframe: 'day',   count: 30 },
+    '1W': { timeframe: 'week',  count: 26 },
+    '1M': { timeframe: 'month', count: 24 },
+    '1Y': { timeframe: 'month', count: 60 },
   }
   const { timeframe, count } = tfMap[tf]
   const url = `https://fchart.stock.naver.com/sise.nhn?symbol=${code}&timeframe=${timeframe}&count=${count}&requestType=0`
