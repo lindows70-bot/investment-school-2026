@@ -407,7 +407,7 @@ export default function DashboardPage() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
-  // ★ 자산관리 탭에서 매수/매도/종목추가 발생 시 즉시 리렌더링
+  // ★ 자산관리 탭에서 매수/매도/편집 발생 시 즉시 리렌더링
   useEffect(() => {
     const handler = () => {
       console.log('[Dashboard] portfolio-updated 이벤트 수신 → 데이터 갱신')
@@ -415,6 +415,18 @@ export default function DashboardPage() {
     }
     window.addEventListener('portfolio-updated', handler)
     return () => window.removeEventListener('portfolio-updated', handler)
+  }, [fetchAll])
+
+  // ★ 브라우저 탭/창 전환 후 돌아올 때 자동 갱신 (캐시 데이터 방지)
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[Dashboard] 탭 전환 복귀 → 데이터 자동 갱신')
+        fetchAll()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
   }, [fetchAll])
 
   // ── 배당 데이터 (stock-info) — investments 로드 후 백그라운드 조회 ──

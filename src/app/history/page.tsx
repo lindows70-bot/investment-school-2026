@@ -150,7 +150,7 @@ export default function HistoryPage() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
-  // ★ 자산관리 탭에서 매수/매도 발생 시 거래 내역 즉시 갱신
+  // ★ 자산관리 탭에서 매수/매도/편집 발생 시 거래 내역 즉시 갱신
   useEffect(() => {
     const handler = () => {
       console.log('[History] portfolio-updated 이벤트 수신 → 거래내역 갱신')
@@ -158,6 +158,18 @@ export default function HistoryPage() {
     }
     window.addEventListener('portfolio-updated', handler)
     return () => window.removeEventListener('portfolio-updated', handler)
+  }, [fetchAll])
+
+  // ★ 브라우저 탭/창 전환 후 돌아올 때 자동 갱신 (캐시 데이터 방지)
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[History] 탭 전환 복귀 → 데이터 자동 갱신')
+        fetchAll()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
   }, [fetchAll])
 
   const filtered = transactions.filter(t => filterType === 'all' || t.type === filterType)

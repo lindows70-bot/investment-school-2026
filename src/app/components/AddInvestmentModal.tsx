@@ -262,6 +262,49 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
     if (isEdit) {
       const { error } = await supabase.from('investments').update(payload).eq('id', initial!.id)
       if (error) { setError(`수정 실패: ${error.message}`); setSaving(false); return }
+
+      // ★★★ 핵심 수정: 편집 시 수량·단가 변경 → 거래 내역 자동 기록 ★★★
+      // 기존 코드는 투자 수정 시 transactions 테이블에 기록하지 않아
+      // 투자기록·대시보드에 변경 사항이 누락되는 버그가 있었음
+      const oldQty   = initial!.quantity
+      const oldPrice = initial!.purchase_price
+      const newQty   = parseFloat(quantity)
+      const newPrice = parseFloat(purchasePrice)
+
+      // 수량이 달라진 경우에만 거래 내역 생성
+      if (Math.abs(newQty - oldQty) > 0.0001) {
+        const qtyDiff  = newQty - oldQty
+        const txType   = qtyDiff > 0 ? 'buy' : 'sell'
+        const absQty   = Math.abs(qtyDiff)
+
+        try {
+          await supabase.from('transactions').insert({
+            user_id:          user.id,
+            investment_id:    initial!.id,
+            ticker:           normalizedTicker,
+            name:             finalName,
+            market,
+            currency,
+            type:             txType,
+            price:            newPrice,
+            quantity:         absQty,
+            total_amount:     newPrice * absQty,
+            fee:              0,
+            // 매도인 경우 실현 손익 계산 (기존 평단 기준)
+            realized_pnl:     txType === 'sell'
+              ? Math.round((newPrice - oldPrice) * absQty * 100) / 100
+              : null,
+            avg_cost_basis:   txType === 'sell' ? oldPrice : null,
+            memo:             txType === 'buy' ? '수정: 추가매수 반영' : '수정: 일부매도 반영',
+            transaction_date: purchaseDate,
+          })
+          console.log(`[Modal] 거래내역 자동 기록 완료: ${normalizedTicker} ${txType} ${absQty}주`)
+        } catch (txErr) {
+          // 거래내역 기록 실패해도 investments 수정은 성공 처리 (데이터 불일치 방지 로그만)
+          console.warn('[Modal] 거래내역 자동 기록 실패 (investments 수정은 성공):', txErr)
+        }
+      }
+
       await onRefresh(); onChanged?.()
     } else {
       const { data: created, error } = await supabase
