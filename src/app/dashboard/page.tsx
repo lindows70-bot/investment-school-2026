@@ -29,11 +29,13 @@ type Market   = 'US' | 'KR' | 'CRYPTO'
 type LynchKey = 'slow_grower'|'stalwart'|'fast_grower'|'cyclical'|'turnaround'|'asset_play'|'na'
 type TimeFrame = '1D'|'1W'|'1M'
 interface PricePoint { t: number; v: number }
+type AssetRole = 'CORE' | 'SATELLITE'
 interface Investment {
   id: string; ticker: string; name: string
   market: Market; currency: 'USD'|'KRW'
   purchase_price: number; quantity: number
   purchase_date: string; lynch_category: LynchKey|null
+  asset_role?: AssetRole  // 코어/새틀라이트 포지션 (없으면 폴백 로직 사용)
 }
 interface LivePrice {
   currentPrice: number; change: number; changePct: number
@@ -341,7 +343,7 @@ export default function DashboardPage() {
 
       const { data } = await sb
         .from('investments')
-        .select('id,ticker,name,market,currency,purchase_price,quantity,purchase_date,lynch_category')
+        .select('id,ticker,name,market,currency,purchase_price,quantity,purchase_date,lynch_category,asset_role')
         .eq('user_id', uid)
       const invs = data ?? []
       setInvestments(invs)
@@ -377,7 +379,7 @@ export default function DashboardPage() {
           // 분류 완료 후 investments 상태 업데이트 (화면 반영)
           const { data: refreshed } = await sb
             .from('investments')
-            .select('id,ticker,name,market,currency,purchase_price,quantity,purchase_date,lynch_category')
+            .select('id,ticker,name,market,currency,purchase_price,quantity,purchase_date,lynch_category,asset_role')
             .eq('user_id', uid)
           if (refreshed) setInvestments(refreshed)
         })()
@@ -607,8 +609,14 @@ export default function DashboardPage() {
   }, [investments])
 
   // ── 월별 평가손익 (매수월 기준 그룹핑 + Core/Satellite 분리) ─────
+  // ★ asset_role 필드 기반 Core 판별 (DB에 저장된 명시적 포지션 사용)
+  // 방어: asset_role 없는 기존 데이터는 ETF 브랜드·린치 카테고리로 폴백
   const ETF_BRANDS_CORE = ['TIGER','KODEX','ACE','PLUS','KBSTAR','HANARO','ARIRANG','SOL','RISE','ETF']
   const isCoreInv = (inv: Investment) => {
+    // 1순위: DB에 명시된 asset_role
+    if ((inv as Investment & { asset_role?: string }).asset_role === 'SATELLITE') return false
+    if ((inv as Investment & { asset_role?: string }).asset_role === 'CORE')      return true
+    // 폴백: ETF 브랜드 또는 안정적 린치 카테고리
     const upper = inv.name.toUpperCase()
     if (ETF_BRANDS_CORE.some(b => upper.includes(b))) return true
     const cat = inv.lynch_category

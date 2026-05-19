@@ -21,11 +21,15 @@ type SortKey   = 'return' | 'name' | 'invested'
 type PriceStatus = 'idle' | 'loading' | 'done' | 'error'
 
 interface PricePoint { t: number; v: number }
+type AssetRole = 'CORE' | 'SATELLITE'
+
 interface Investment {
   id: string; ticker: string; name: string
   market: Market; currency: 'USD'|'KRW'
   purchase_price: number; quantity: number
   purchase_date: string; lynch_category: LynchKey|null
+  /** 코어(기반) / 새틀라이트(위성) 포지션 — 기본값 CORE */
+  asset_role: AssetRole
   created_at?: string
 }
 interface LivePrice {
@@ -88,6 +92,9 @@ export default function AssetsPage() {
   const [txTarget,      setTxTarget]      = useState<Investment|null>(null)
   const [txMode,        setTxMode]        = useState<'buy'|'sell'>('buy')
   const [tfMap,         setTfMap]         = useState<Record<string,TimeFrame>>({})
+  // 분류 변경 모달 상태
+  const [roleModal,     setRoleModal]     = useState<Investment|null>(null)
+  const [roleChanging,  setRoleChanging]  = useState(false)
   // 섹션별 정렬 기준: 'eval'(평가금액) | 'return'(수익률) | 'name'(종목명)
   type SortOption = 'eval' | 'return' | 'name'
   const [sortUS,     setSortUS]     = useState<SortOption>('eval')
@@ -114,7 +121,7 @@ export default function AssetsPage() {
       if (!uid) { router.push('/login'); return }
       const { data, error } = await sb
         .from('investments')
-        .select('id,ticker,name,market,currency,purchase_price,quantity,purchase_date,lynch_category,created_at')
+        .select('id,ticker,name,market,currency,purchase_price,quantity,purchase_date,lynch_category,asset_role,created_at')
         .eq('user_id', uid).order('created_at',{ascending:false})
       if (error) { console.error('[Assets]', error.message); setInvestments([]); return }
 
@@ -133,7 +140,12 @@ export default function AssetsPage() {
       if (unique.length !== raw.length)
         console.warn(`[Assets] 중복 ${raw.length - unique.length}건 필터링됨`)
 
-      setInvestments(unique)
+      // ★ 방어 코드: asset_role 없는 기존 종목 → 'CORE' 기본값 자동 적용
+      const withRole = unique.map(inv => ({
+        ...inv,
+        asset_role: (inv.asset_role as AssetRole | null | undefined) ?? 'CORE' as AssetRole,
+      }))
+      setInvestments(withRole)
 
       // ── 미분류 종목 자동 분류 (백그라운드) ─────────────────────────
       const ETF_BRANDS_CHECK = ['TIGER','KODEX','ACE','PLUS','KBSTAR','HANARO','ARIRANG','SOL','RISE','1Q','ETF']
@@ -294,6 +306,29 @@ export default function AssetsPage() {
   const openBuyModal  = (inv: Investment) => { setTxTarget(inv); setTxMode('buy');  setTxModalOpen(true) }
   const openSellModal = (inv: Investment) => { setTxTarget(inv); setTxMode('sell'); setTxModalOpen(true) }
   const openEditModal = (inv: Investment) => { setEditTarget(inv); setModalOpen(true) }
+
+  /** asset_role 변경 핸들러 */
+  const handleRoleChange = useCallback(async (inv: Investment, newRole: AssetRole) => {
+    if (inv.asset_role === newRole) { setRoleModal(null); return }
+    setRoleChanging(true)
+    try {
+      const sb = createClient()
+      const { data: { session } } = await sb.auth.getSession()
+      const uid = session?.user?.id
+      if (!uid) return
+      const { error } = await sb.from('investments')
+        .update({ asset_role: newRole })
+        .eq('id', inv.id)
+        .eq('user_id', uid)
+      if (error) { console.error('[AssetRole]', error.message); return }
+      // 로컬 상태 즉시 반영 + 전역 동기화 이벤트
+      setInvestments(prev => prev.map(i => i.id === inv.id ? { ...i, asset_role: newRole } : i))
+      window.dispatchEvent(new CustomEvent('portfolio-updated', { detail: { source: 'asset_role' } }))
+      setRoleModal(null)
+    } finally {
+      setRoleChanging(false)
+    }
+  }, [])
 
   const getLive   = (inv: Investment) => priceMap[inv.ticker.toUpperCase()] ?? null
   const getReturn = (inv: Investment) => { const lv=getLive(inv); if (!lv) return null; return ((lv.currentPrice-inv.purchase_price)/inv.purchase_price)*100 }
@@ -506,7 +541,23 @@ export default function AssetsPage() {
                       <div style={{ fontSize:13, fontWeight:800, color:'#dde4f0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{inv.name}</div>
                       <div style={{ fontSize:9, color:'#454868', fontFamily:'monospace', marginTop:1 }}>{inv.ticker}</div>
                     </div>
-                    <span style={{ fontSize:8, fontWeight:700, color:MARKET_COLOR[inv.market], border:`1px solid ${MARKET_COLOR[inv.market]}44`, borderRadius:4, padding:'1px 5px', flexShrink:0, marginLeft:4 }}>{inv.market}</span>
+                    <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:3, flexShrink:0, marginLeft:4 }}>
+                      <span style={{ fontSize:8, fontWeight:700, color:MARKET_COLOR[inv.market], border:`1px solid ${MARKET_COLOR[inv.market]}44`, borderRadius:4, padding:'1px 5px' }}>{inv.market}</span>
+                      {/* ★ 자산 포지션 배지 + 변경 버튼 */}
+                      <button
+                        onClick={e => { e.stopPropagation(); setRoleModal(inv) }}
+                        title="자산 포지션 변경"
+                        style={{
+                          display:'flex', alignItems:'center', gap:3, padding:'1px 6px',
+                          borderRadius:4, border:'none', cursor:'pointer', fontSize:8, fontWeight:700,
+                          background: inv.asset_role === 'CORE' ? 'rgba(52,211,153,0.15)' : 'rgba(251,191,36,0.15)',
+                          color:      inv.asset_role === 'CORE' ? '#34d399' : '#fbbf24',
+                        }}
+                      >
+                        {inv.asset_role === 'CORE' ? '🏛 CORE' : '🛰 SATELLITE'}
+                        <span style={{ opacity:0.6 }}>✎</span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Lynch badge */}
@@ -728,7 +779,7 @@ export default function AssetsPage() {
           onAdded={(inv) => {
             // ★ 전역 동기화 이벤트 발송
             window.dispatchEvent(new CustomEvent('portfolio-updated', { detail: { source: 'add' } }))
-            handleAdded(inv)
+            handleAdded({ ...inv, asset_role: (inv.asset_role as AssetRole | undefined) ?? 'CORE' })
           }}
           onChanged={() => {
             window.dispatchEvent(new CustomEvent('portfolio-updated', { detail: { source: 'edit' } }))
@@ -751,6 +802,118 @@ export default function AssetsPage() {
           }}
         />
       )}
+
+      {/* ★ 자산 포지션 분류 변경 모달 */}
+      {roleModal && (
+        <AssetRoleModal
+          investment={roleModal}
+          onClose={() => setRoleModal(null)}
+          onConfirm={(newRole) => handleRoleChange(roleModal, newRole)}
+          loading={roleChanging}
+        />
+      )}
     </div>
+  )
+}
+
+// ── 자산 포지션 분류 변경 모달 컴포넌트 ─────────────────────────────────────
+function AssetRoleModal({
+  investment, onClose, onConfirm, loading,
+}: {
+  investment: { name: string; ticker: string; asset_role: AssetRole }
+  onClose: () => void
+  onConfirm: (role: AssetRole) => void
+  loading: boolean
+}) {
+  const [selected, setSelected] = useState<AssetRole>(investment.asset_role)
+  const N   = '#1b1e2e'
+  const SHO = '7px 7px 18px #0e1020, -4px -4px 12px #282c44'
+  const SHI = 'inset 4px 4px 10px #0e1020, inset -3px -3px 8px #282c44'
+
+  return (
+    <>
+      <style>{`@keyframes roleSlideUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}`}</style>
+      <div
+        onClick={onClose}
+        style={{ position:'fixed', inset:0, zIndex:1100, background:'rgba(0,0,0,0.72)', backdropFilter:'blur(4px)',
+          display:'flex', alignItems:'center', justifyContent:'center' }}
+      >
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{ background:N, boxShadow:'0 0 0 1px #282c44, 12px 12px 32px #0a0c18',
+            borderRadius:18, maxWidth:400, width:'calc(100% - 32px)', padding:'28px 24px 22px',
+            animation:'roleSlideUp 0.2s ease-out', color:'#dde4f0' }}
+        >
+          {/* 타이틀 */}
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
+            <h3 style={{ margin:0, fontSize:16, fontWeight:800 }}>🏷 자산 포지션 변경</h3>
+            <button onClick={onClose} style={{ background:'none', border:'none', color:'#454868', fontSize:20, cursor:'pointer' }}>×</button>
+          </div>
+
+          {/* 종목 정보 */}
+          <div style={{ background:'#13162a', boxShadow:SHI, borderRadius:10, padding:'9px 13px', marginBottom:20, fontSize:13, color:'#8b92b8' }}>
+            <strong style={{ color:'#dde4f0' }}>{investment.name}</strong>
+            <span style={{ marginLeft:8, fontFamily:'monospace', fontSize:11 }}>{investment.ticker}</span>
+          </div>
+
+          {/* 포지션 선택 */}
+          <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:22 }}>
+            {([
+              { role: 'CORE'      as AssetRole, icon:'🏛', label:'코어 자산 (Core)',      desc:'장기 보유 기반 자산 — ETF, 우량주, 인덱스' },
+              { role: 'SATELLITE' as AssetRole, icon:'🛰', label:'새틀라이트 자산 (Satellite)', desc:'초과 수익 추구 위성 자산 — 테마주, 성장주, 개별종목' },
+            ]).map(({ role, icon, label, desc }) => (
+              <button
+                key={role}
+                onClick={() => setSelected(role)}
+                style={{
+                  display:'flex', alignItems:'flex-start', gap:12, padding:'12px 14px',
+                  borderRadius:11, border:'none', cursor:'pointer', textAlign:'left',
+                  background: selected === role ? '#13162a' : 'transparent',
+                  boxShadow:  selected === role ? SHO : SHI,
+                  borderLeft: `3px solid ${selected === role
+                    ? (role === 'CORE' ? '#34d399' : '#fbbf24')
+                    : 'transparent'}`,
+                  transition: 'all 0.15s',
+                }}
+              >
+                <span style={{ fontSize:22, flexShrink:0 }}>{icon}</span>
+                <div>
+                  <div style={{ fontSize:13, fontWeight:700, color: selected === role ? '#dde4f0' : '#6b7280', marginBottom:3 }}>{label}</div>
+                  <div style={{ fontSize:11, color:'#454868', lineHeight:1.5 }}>{desc}</div>
+                </div>
+                <div style={{ marginLeft:'auto', flexShrink:0, paddingTop:2 }}>
+                  <div style={{
+                    width:16, height:16, borderRadius:'50%',
+                    border: `2px solid ${selected === role ? (role === 'CORE' ? '#34d399' : '#fbbf24') : '#374151'}`,
+                    background: selected === role ? (role === 'CORE' ? '#34d399' : '#fbbf24') : 'transparent',
+                    transition:'all 0.15s',
+                  }}/>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* 버튼 */}
+          <div style={{ display:'flex', gap:10 }}>
+            <button onClick={onClose} disabled={loading}
+              style={{ flex:1, padding:'11px 0', borderRadius:9, border:'none', cursor:'pointer',
+                background:'#13162a', boxShadow:SHI, color:'#454868', fontWeight:600, fontSize:14 }}>
+              취소
+            </button>
+            <button onClick={() => onConfirm(selected)} disabled={loading || selected === investment.asset_role}
+              style={{ flex:2, padding:'11px 0', borderRadius:9, border:'none',
+                cursor:(loading || selected === investment.asset_role) ? 'not-allowed' : 'pointer',
+                background: selected === 'CORE'
+                  ? 'linear-gradient(135deg,#065f46,#34d399)'
+                  : 'linear-gradient(135deg,#78350f,#fbbf24)',
+                color:'#fff', fontWeight:700, fontSize:14,
+                opacity:(loading || selected === investment.asset_role) ? 0.5 : 1,
+              }}>
+              {loading ? '저장 중…' : '변경 완료'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
   )
 }

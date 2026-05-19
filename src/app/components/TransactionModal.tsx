@@ -27,8 +27,9 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-type Market = 'US' | 'KR' | 'CRYPTO'
-type LynchKey = 'slow_grower' | 'stalwart' | 'fast_grower' | 'cyclical' | 'turnaround' | 'asset_play' | 'na'
+type Market    = 'US' | 'KR' | 'CRYPTO'
+type LynchKey  = 'slow_grower' | 'stalwart' | 'fast_grower' | 'cyclical' | 'turnaround' | 'asset_play' | 'na'
+type AssetRole = 'CORE' | 'SATELLITE'
 
 interface Investment {
   id: string
@@ -40,6 +41,7 @@ interface Investment {
   quantity: number        // 현재 보유 수량
   purchase_date: string
   lynch_category: LynchKey | null
+  asset_role?: AssetRole  // 코어/새틀라이트 포지션
 }
 
 interface TransactionModalProps {
@@ -95,6 +97,8 @@ export default function TransactionModal({
   onSuccess,
 }: TransactionModalProps) {
   const [mode,         setMode]         = useState<'buy' | 'sell'>(initialMode)
+  // 자산 포지션 — 매수 시 현재 종목 포지션을 기본값으로 표시하며 변경 가능
+  const [assetRole,    setAssetRole]    = useState<AssetRole>(investment.asset_role ?? 'CORE')
   // 매수 모드: 거래 후 최종 평단가 (역산 기준)
   // 매도 모드: 실제 매도 체결가
   const [priceInput,   setPriceInput]   = useState<string>('')
@@ -239,12 +243,13 @@ export default function TransactionModal({
           transaction_date: date,
         })
 
-        // 2) 보유 종목 업데이트 — 새 수량 + 새 평단가
+        // 2) 보유 종목 업데이트 — 새 수량 + 새 평단가 + 자산 포지션
         await sb
           .from('investments')
           .update({
             quantity:       newQty,
-            purchase_price: Math.round(newAvg * 100) / 100,  // 사용자 입력 평단가
+            purchase_price: Math.round(newAvg * 100) / 100,
+            asset_role:     assetRole,  // ★ 포지션 변경 반영
           })
           .eq('id', investment.id)
 
@@ -510,6 +515,41 @@ export default function TransactionModal({
               />
             </div>
           </div>
+
+          {/* ── 자산 포지션 전략 (매수 모드만) ── */}
+          {mode === 'buy' && (
+            <div style={{ marginTop: 16 }}>
+              <label style={labelStyle}>자산 포지션 전략</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {([
+                  { role: 'CORE'      as AssetRole, icon: '🏛', label: '코어 (기반)' },
+                  { role: 'SATELLITE' as AssetRole, icon: '🛰', label: '새틀라이트 (위성)' },
+                ]).map(({ role, icon, label }) => (
+                  <button key={role} onClick={() => setAssetRole(role)} type="button"
+                    style={{
+                      flex: 1, padding: '9px 4px', borderRadius: 9, border: 'none', cursor: 'pointer',
+                      fontSize: 12, fontWeight: 700, transition: 'all 0.15s',
+                      background: assetRole === role ? N : '#13162a',
+                      boxShadow:  assetRole === role ? SHO : SHI,
+                      color:      assetRole === role
+                        ? (role === 'CORE' ? '#34d399' : '#fbbf24')
+                        : '#454868',
+                      borderLeft: `3px solid ${assetRole === role
+                        ? (role === 'CORE' ? '#34d399' : '#fbbf24')
+                        : 'transparent'}`,
+                    }}
+                  >
+                    {icon} {label}
+                  </button>
+                ))}
+              </div>
+              <p style={hintStyle}>
+                {assetRole === 'CORE'
+                  ? '🏛 장기 보유 기반 자산 — ETF, 우량주, 인덱스'
+                  : '🛰 초과 수익 위성 자산 — 테마주, 성장주, 개별종목'}
+              </p>
+            </div>
+          )}
 
           {/* ── 거래 요약 박스 ── */}
           <div style={{ background: '#13162a', boxShadow: SHI, borderRadius: 10, padding: '14px 16px', marginTop: 20, fontSize: 13, display: 'flex', flexDirection: 'column', gap: 8 }}>

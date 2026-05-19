@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 type Market   = 'US' | 'KR' | 'CRYPTO'
 type LynchKey = 'slow_grower' | 'stalwart' | 'fast_grower' | 'cyclical' | 'turnaround' | 'asset_play' | 'na'
 
+type AssetRole = 'CORE' | 'SATELLITE'
 interface Investment {
   id:             string
   ticker:         string
@@ -17,7 +18,8 @@ interface Investment {
   quantity:       number
   purchase_date:  string
   lynch_category: LynchKey | null
-  created_at?:    string   // 페이지별 Investment 타입과 호환
+  asset_role?:    AssetRole  // 코어/새틀라이트 포지션
+  created_at?:    string
 }
 
 interface Props {
@@ -127,6 +129,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
   const [purchaseDate,  setPurchaseDate]  = useState(
     initial?.purchase_date ?? new Date().toISOString().split('T')[0]
   )
+  const [assetRole, setAssetRole] = useState<AssetRole>(initial?.asset_role ?? 'CORE')
   const [focused,    setFocused]    = useState<string | null>(null)
   const [saving,     setSaving]     = useState(false)
   const [deleting,   setDeleting]   = useState(false)
@@ -256,7 +259,8 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
       purchase_price: parseFloat(purchasePrice),
       quantity:       parseFloat(quantity),
       purchase_date:  purchaseDate,
-      lynch_category: null,   // 저장 직후 아래에서 자동분류 API 호출로 업데이트
+      lynch_category: null,  // 저장 직후 자동분류 API 호출로 업데이트
+      asset_role:     assetRole,  // ★ 코어/새틀라이트 포지션
     }
 
     if (isEdit) {
@@ -599,6 +603,29 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
                   onChange={e => setPurchaseDate(e.target.value)}
                   max={new Date().toISOString().split('T')[0]}
                 />
+              </div>
+
+              {/* ── 자산 포지션 ── */}
+              <div style={S.section}>
+                <label style={S.label}>자산 포지션 전략</label>
+                <div style={{ display:'flex', gap:8 }}>
+                  {([
+                    { role:'CORE'      as AssetRole, icon:'🏛', label:'코어 (기반)',      desc:'ETF · 우량주 · 인덱스' },
+                    { role:'SATELLITE' as AssetRole, icon:'🛰', label:'새틀라이트 (위성)', desc:'테마주 · 성장주 · 개별종목' },
+                  ]).map(({ role, icon, label, desc }) => (
+                    <button key={role} type="button" onClick={() => setAssetRole(role)}
+                      style={{
+                        flex:1, padding:'10px 8px', borderRadius:9, border:'none', cursor:'pointer',
+                        textAlign:'center' as const, transition:'all 0.15s',
+                        background: assetRole === role ? '#1e1e1e' : '#181818',
+                        boxShadow:  assetRole === role ? '0 0 0 2px ' + (role==='CORE'?'#34d399':'#fbbf24') : '0 0 0 1px #2a2a2a',
+                      }}>
+                      <div style={{ fontSize:18, marginBottom:3 }}>{icon}</div>
+                      <div style={{ fontSize:11, fontWeight:700, color: assetRole===role ? (role==='CORE'?'#34d399':'#fbbf24') : '#6b7280', marginBottom:2 }}>{label}</div>
+                      <div style={{ fontSize:9, color:'#4b5563', lineHeight:1.4 }}>{desc}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* ── 오류 ── */}
