@@ -123,27 +123,64 @@ export default function HistoryPage() {
       const invs   = invData ?? []
 
       // ── 2. 자동 동기화: investments vs transactions 수량 불일치 감지 & 복구 ──
-      // investments 수량이 transactions 합계보다 많으면 → 누락된 매수 기록 자동 생성
-      // (종목 편집으로 수량을 바꿨지만 거래 내역이 기록되지 않은 경우 복구)
-      const txQtyByTicker: Record<string, number> = {}
-      const invIdByTicker: Record<string, string>  = {}
-      txList.forEach(t => {
+      //
+      // [올바른 가격 계산 방법]
+      //   investments.purchase_price = 가중평균 단가 (모든 매수의 평균)
+      //   transactions의 기록된 총 투자금 = Σ(price × qty)
+      //   누락된 주식의 실제 매수가 = (평단×총수량 - 기록된총투자금) / 누락수량
+      //
+      //   예) SK하이닉스 평단₩1,322,500 × 2주 = ₩2,645,000 총투자금
+      //       기록된 거래 = 1주 × ₩900,000 = ₩900,000
+      //       누락 1주 가격 = (₩2,645,000 - ₩900,000) / 1 = ₩1,745,000  ← 정확!
+      //       (₩1,322,500 사용 시 평단이 ₩1,111,250으로 틀어짐 ← 이전 버그)
+      //
+      // [잘못된 이전 자동동기화 레코드 처리]
+      //   기존에 잘못된 가격(평단가 그대로)으로 삽입된 '자동 동기화' 메모 레코드를
+      //   먼저 삭제한 뒤 올바른 가격으로 재생성한다.
+
+      // Step A: 기존 '자동 동기화' 레코드 삭제 (잘못된 가격으로 생성된 것 제거)
+      const autoSyncIds = txList
+        .filter(t => t.memo?.includes('자동 동기화'))
+        .map(t => t.id)
+      if (autoSyncIds.length > 0) {
+        await sb.from('transactions').delete().in('id', autoSyncIds)
+      }
+
+      // Step B: 삭제 후 순수 수동 기록만으로 수량·비용 집계
+      const cleanTxList = txList.filter(t => !t.memo?.includes('자동 동기화'))
+
+      const txQtyByTicker:  Record<string, number> = {}
+      const txCostByTicker: Record<string, number> = {}  // 기록된 총 투자금
+
+      cleanTxList.forEach(t => {
         const key = t.ticker.toUpperCase()
-        txQtyByTicker[key] = (txQtyByTicker[key] ?? 0) + (t.type === 'buy' ? t.quantity : -t.quantity)
+        if (t.type === 'buy') {
+          txQtyByTicker[key]  = (txQtyByTicker[key]  ?? 0) + t.quantity
+          txCostByTicker[key] = (txCostByTicker[key] ?? 0) + (t.price * t.quantity)
+        } else {
+          txQtyByTicker[key]  = (txQtyByTicker[key]  ?? 0) - t.quantity
+          txCostByTicker[key] = (txCostByTicker[key] ?? 0) - (t.price * t.quantity)
+        }
       })
-      invs.forEach(i => { invIdByTicker[i.ticker.toUpperCase()] = i.id })
 
       const today = new Date().toISOString().split('T')[0]
-      let reconciled = false
+      let reconciled = autoSyncIds.length > 0  // 삭제가 있었으면 재조회 필요
 
       for (const inv of invs) {
-        const key     = inv.ticker.toUpperCase()
-        const txTotal = txQtyByTicker[key] ?? 0
-        const diff    = inv.quantity - txTotal   // 양수 = 누락된 매수 수량
+        const key      = inv.ticker.toUpperCase()
+        const txTotal  = txQtyByTicker[key]  ?? 0
+        const txCost   = txCostByTicker[key] ?? 0
+        const diff     = inv.quantity - txTotal   // 양수 = 누락된 매수 수량
 
         if (diff > 0.0001) {
-          // 누락된 거래 내역 자동 복구 (silent insert)
-          console.log(`[History] 수량 불일치 감지 → 자동 복구: ${inv.ticker} 누락 ${diff}주`)
+          // ★ 핵심: 누락 주식의 실제 매수가 역산
+          //   총 투자금 = 평단 × 전체수량 → 기록된 투자금 제외 = 누락분 투자금
+          const totalCost   = inv.purchase_price * inv.quantity
+          const missingCost = totalCost - txCost           // 누락된 총 투자금
+          const missingPrice = Math.round(missingCost / diff)  // 누락 주당 실제 매수가
+
+          console.log(`[History] 수량 불일치 자동 복구: ${inv.ticker} 누락 ${diff}주 @ ₩${missingPrice.toLocaleString()} (평단역산)`)
+
           try {
             await sb.from('transactions').insert({
               user_id:          uid,
@@ -153,9 +190,9 @@ export default function HistoryPage() {
               market:           inv.market,
               currency:         inv.currency,
               type:             'buy',
-              price:            inv.purchase_price,   // 현재 평단가 사용
+              price:            missingPrice,       // ★ 역산된 실제 매수가
               quantity:         diff,
-              total_amount:     inv.purchase_price * diff,
+              total_amount:     missingPrice * diff,
               fee:              0,
               memo:             '자동 동기화 (편집으로 누락된 거래 복구)',
               transaction_date: today,
