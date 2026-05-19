@@ -88,6 +88,11 @@ export default function AssetsPage() {
   const [txTarget,      setTxTarget]      = useState<Investment|null>(null)
   const [txMode,        setTxMode]        = useState<'buy'|'sell'>('buy')
   const [tfMap,         setTfMap]         = useState<Record<string,TimeFrame>>({})
+  // 섹션별 정렬 기준: 'eval'(평가금액) | 'return'(수익률) | 'name'(종목명)
+  type SortOption = 'eval' | 'return' | 'name'
+  const [sortUS,     setSortUS]     = useState<SortOption>('eval')
+  const [sortKR,     setSortKR]     = useState<SortOption>('eval')
+  const [sortCRYPTO, setSortCRYPTO] = useState<SortOption>('eval')
   const classifyAttempted = useRef<Set<string>>(new Set())
   const abortRef = useRef<AbortController|null>(null)
 
@@ -305,6 +310,49 @@ export default function AssetsPage() {
       return (getReturn(b)??-Infinity)-(getReturn(a)??-Infinity)
     })
 
+  // ── 섹션별 그룹화 + 정렬 ──────────────────────────────────────────────────
+
+  /** 평가금액(원화) */
+  const evalKrw = (inv: Investment) => {
+    const lv = getLive(inv)
+    const price = lv ? lv.currentPrice : inv.purchase_price
+    return price * inv.quantity * (inv.currency === 'USD' ? USD_KRW : 1)
+  }
+
+  /** 섹션 정렬 함수 */
+  const sortSection = (list: Investment[], opt: SortOption) => [...list].sort((a, b) => {
+    if (opt === 'name')   return a.name.localeCompare(b.name, 'ko')
+    if (opt === 'return') return (getReturn(b) ?? -Infinity) - (getReturn(a) ?? -Infinity)
+    return evalKrw(b) - evalKrw(a)   // 'eval' 기본
+  })
+
+  /** 섹션 요약: 총 평가금액(원) + 평균 수익률 */
+  const sectionSummary = (list: Investment[]) => {
+    const totalEval = list.reduce((s, i) => s + evalKrw(i), 0)
+    const rets = list.map(i => getReturn(i)).filter((r): r is number => r !== null)
+    const avgRet = rets.length ? rets.reduce((s, r) => s + r, 0) / rets.length : null
+    return { totalEval, avgRet }
+  }
+
+  const groupUS     = sortSection(filtered.filter(i => i.market === 'US'),     sortUS)
+  const groupKR     = sortSection(filtered.filter(i => i.market === 'KR'),     sortKR)
+  const groupCRYPTO = sortSection(filtered.filter(i => i.market === 'CRYPTO'), sortCRYPTO)
+
+  const summaryUS     = sectionSummary(groupUS)
+  const summaryKR     = sectionSummary(groupKR)
+  const summaryCRYPTO = sectionSummary(groupCRYPTO)
+
+  const fmtEval = (n: number) =>
+    n >= 1e8 ? `₩${(n/1e8).toFixed(1)}억`
+    : n >= 1e4 ? `₩${Math.round(n/1e4).toLocaleString('ko-KR')}만`
+    : `₩${Math.round(n).toLocaleString('ko-KR')}`
+
+  const sortLabel: Record<SortOption, string> = {
+    eval:   '평가금액 ↓',
+    return: '수익률 ↓',
+    name:   '종목명 순',
+  }
+
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}input::placeholder{color:#374151}select option{background:#1f2937}`}</style>
@@ -370,8 +418,60 @@ export default function AssetsPage() {
       ) : filtered.length === 0 ? (
         <div style={{ textAlign:'center',padding:'48px 0',color:'#374151',fontSize:13 }}>검색 결과가 없습니다</div>
       ) : (
-        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-          {filtered.map(inv => {
+        /* ── 섹션별 그룹 렌더 ── */
+        <div style={{ display:'flex', flexDirection:'column', gap:24 }}>
+
+          {/* ─── 섹션 헬퍼 컴포넌트 (인라인 렌더 함수) ─── */}
+          {(
+            [
+              { key:'US',     flag:'🇺🇸', label:'미국 주식',  group: groupUS,     summary: summaryUS,     sort: sortUS,     setSort: setSortUS     },
+              { key:'KR',     flag:'🇰🇷', label:'한국 주식',  group: groupKR,     summary: summaryKR,     sort: sortKR,     setSort: setSortKR     },
+              { key:'CRYPTO', flag:'🪙',  label:'암호화폐',   group: groupCRYPTO, summary: summaryCRYPTO, sort: sortCRYPTO, setSort: setSortCRYPTO },
+            ] as Array<{
+              key: string; flag: string; label: string;
+              group: Investment[];
+              summary: { totalEval: number; avgRet: number | null };
+              sort: SortOption; setSort: (s: SortOption) => void;
+            }>
+          ).map(({ key, flag, label, group, summary, sort, setSort }) =>
+            group.length === 0 ? null : (
+              <div key={key}>
+                {/* 섹션 헤더 */}
+                <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10, flexWrap:'wrap' }}>
+                  {/* 타이틀 */}
+                  <span style={{ fontSize:14, fontWeight:800, color:'#dde4f0' }}>{flag} {label}</span>
+                  <span style={{ fontSize:11, color:'#454868' }}>({group.length}종목)</span>
+
+                  {/* 요약 배지 */}
+                  <span style={{ padding:'2px 10px', borderRadius:99, background:'#13162a', boxShadow:SHI, fontSize:11, fontWeight:600, color:'#c084fc' }}>
+                    {fmtEval(summary.totalEval)}
+                  </span>
+                  {summary.avgRet !== null && (
+                    <span style={{
+                      padding:'2px 10px', borderRadius:99, background:'#13162a', boxShadow:SHI,
+                      fontSize:11, fontWeight:700,
+                      color: summary.avgRet >= 0 ? '#f87171' : '#60a5fa',
+                    }}>
+                      {summary.avgRet >= 0 ? '+' : ''}{summary.avgRet.toFixed(2)}%
+                    </span>
+                  )}
+
+                  {/* 정렬 드롭다운 */}
+                  <select
+                    value={sort}
+                    onChange={e => setSort(e.target.value as SortOption)}
+                    onClick={e => e.stopPropagation()}
+                    style={{ marginLeft:'auto', padding:'4px 9px', background:N, boxShadow:SHI, border:'none', borderRadius:8, color:'#9ca3af', fontSize:11, outline:'none', cursor:'pointer' }}
+                  >
+                    <option value="eval">평가금액 높은 순</option>
+                    <option value="return">수익률 높은 순</option>
+                    <option value="name">종목명 순</option>
+                  </select>
+                </div>
+
+                {/* 해당 섹션 종목 카드 목록 */}
+                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                  {group.map(inv => {
             const livePrice = getLive(inv)
             const isETF  = ETF_BRANDS.some(k => inv.name.toUpperCase().includes(k))
             const isNA   = inv.market === 'CRYPTO' || isETF
@@ -614,6 +714,10 @@ export default function AssetsPage() {
             )
           })}
         </div>
+      </div>
+    )
+  )}
+</div>
       )}
 
       {modalOpen && (
