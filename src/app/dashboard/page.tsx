@@ -407,6 +407,16 @@ export default function DashboardPage() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
+  // ★ 자산관리 탭에서 매수/매도/종목추가 발생 시 즉시 리렌더링
+  useEffect(() => {
+    const handler = () => {
+      console.log('[Dashboard] portfolio-updated 이벤트 수신 → 데이터 갱신')
+      fetchAll()
+    }
+    window.addEventListener('portfolio-updated', handler)
+    return () => window.removeEventListener('portfolio-updated', handler)
+  }, [fetchAll])
+
   // ── 배당 데이터 (stock-info) — investments 로드 후 백그라운드 조회 ──
   // stock-price는 배당 데이터가 부정확(KR ETF 특히) → stock-info로 별도 보완
   useEffect(() => {
@@ -2010,7 +2020,8 @@ export default function DashboardPage() {
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
               <thead>
                 <tr style={{ borderBottom:'1px solid #1f2937' }}>
-                  {['자산명','시장','매수단가','현재가','수익률','7일 추이'].map(h => (
+                  {/* ★ '매수수량' 컬럼 추가 */}
+                  {['자산명','시장','매수수량','매수단가','현재가','수익률','7일 추이'].map(h => (
                     <th key={h} style={{ padding:'6px 14px', textAlign:'left', fontSize:9, fontWeight:700, color:'#4b5563', textTransform:'uppercase', letterSpacing:'0.07em', whiteSpace:'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -2033,6 +2044,10 @@ export default function DashboardPage() {
                       </td>
                       <td style={{ padding:'9px 14px' }}>
                         <span style={{ fontSize:9,fontWeight:700,color:MKT_COLOR[inv.market],border:`1px solid ${MKT_COLOR[inv.market]}44`,borderRadius:4,padding:'1px 4px' }}>{inv.market}</span>
+                      </td>
+                      {/* ★ 매수수량 셀 */}
+                      <td style={{ padding:'9px 14px', color:'#60a5fa', fontVariantNumeric:'tabular-nums', fontWeight:600, whiteSpace:'nowrap' }}>
+                        {inv.quantity.toLocaleString('ko-KR')}주
                       </td>
                       <td style={{ padding:'9px 14px', color:'#6b7280', fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap' }}>
                         {inv.currency==='KRW' ? `₩${Math.round(inv.purchase_price).toLocaleString()}` : `$${inv.purchase_price.toFixed(2)}`}
@@ -2057,7 +2072,8 @@ export default function DashboardPage() {
                 {/* 합계 행 */}
                 {investments.length > 0 && (
                   <tr style={{ borderTop:'2px solid #374151', background:'#0d1117' }}>
-                    <td colSpan={3} style={{ padding:'9px 14px', fontWeight:700, color:'#f1f5f9', fontSize:12 }}>합계 ({investments.length}종목)</td>
+                    {/* ★ 매수수량 컬럼 추가로 colSpan 3→4 */}
+                    <td colSpan={4} style={{ padding:'9px 14px', fontWeight:700, color:'#f1f5f9', fontSize:12 }}>합계 ({investments.length}종목)</td>
                     <td style={{ padding:'9px 14px', fontWeight:700, color:'#f1f5f9', fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap' }}>
                       {pricedInvs.length ? fmtKrw(totalCurrKrw) : '—'}
                     </td>

@@ -517,10 +517,13 @@ export default function AssetsPage() {
                     <div style={{ fontSize:8, fontWeight:800, color:'#363855', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:7 }}>포트폴리오</div>
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:5, marginBottom:8 }}>
                       {[
-                        { label:'현재가', val: livePrice ? (inv.currency==='KRW' ? `₩${Math.round(livePrice.currentPrice).toLocaleString('ko-KR')}` : `$${livePrice.currentPrice.toFixed(2)}`) : '—', color:'#dde4f0' },
-                        { label:'매수가', val: inv.currency==='KRW' ? `₩${Math.round(inv.purchase_price).toLocaleString('ko-KR')}` : `$${inv.purchase_price.toFixed(2)}`, color:'#9ca3af' },
+                        { label:'현재가',  val: livePrice ? (inv.currency==='KRW' ? `₩${Math.round(livePrice.currentPrice).toLocaleString('ko-KR')}` : `$${livePrice.currentPrice.toFixed(2)}`) : '—', color:'#dde4f0' },
+                        { label:'매수가',  val: inv.currency==='KRW' ? `₩${Math.round(inv.purchase_price).toLocaleString('ko-KR')}` : `$${inv.purchase_price.toFixed(2)}`, color:'#9ca3af' },
+                        /* ★ 매수수량 — 자산관리 카드 중앙 영역에 추가 */
+                        { label:'매수수량', val: `${inv.quantity.toLocaleString('ko-KR')}주`, color:'#60a5fa' },
+                        { label:'보유금액', val: livePrice ? (inv.currency==='KRW' ? fmtKrwVal(livePrice.currentPrice*inv.quantity) : `$${(livePrice.currentPrice*inv.quantity).toFixed(0)}`) : fmtKrwVal(inv.purchase_price*inv.quantity*(inv.currency==='USD'?USD_KRW:1)), color:'#c084fc' },
                         { label:'평가손익', val: livePrice ? (inv.currency==='KRW' ? ((livePrice.currentPrice-inv.purchase_price)*inv.quantity>=0?'+':'')+`₩${Math.round((livePrice.currentPrice-inv.purchase_price)*inv.quantity).toLocaleString('ko-KR')}` : ((livePrice.currentPrice-inv.purchase_price)*inv.quantity>=0?'+':'')+'$'+(Math.abs((livePrice.currentPrice-inv.purchase_price)*inv.quantity)).toFixed(2)) : '—', color: livePrice && livePrice.currentPrice >= inv.purchase_price ? '#f87171' : '#60a5fa' },
-                        { label:'수익률', val: livePrice ? `${ret >= 0 ? '+' : ''}${ret.toFixed(2)}%` : '—', color: ret >= 0 ? '#f87171' : '#60a5fa' },
+                        { label:'수익률',  val: livePrice ? `${ret >= 0 ? '+' : ''}${ret.toFixed(2)}%` : '—', color: ret >= 0 ? '#f87171' : '#60a5fa' },
                       ].map(({ label, val, color }) => (
                         <div key={label} style={{ background:'#13162a', boxShadow:SHI, borderRadius:7, padding:'6px 9px' }}>
                           <div style={{ fontSize:8, color:'#363855', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>{label}</div>
@@ -613,7 +616,20 @@ export default function AssetsPage() {
       )}
 
       {modalOpen && (
-        <AddInvestmentModal initial={editTarget??undefined} onClose={()=>{setModalOpen(false);setEditTarget(null)}} onRefresh={handleRefresh} onAdded={handleAdded} onChanged={handleRefresh}/>
+        <AddInvestmentModal
+          initial={editTarget??undefined}
+          onClose={()=>{setModalOpen(false);setEditTarget(null)}}
+          onRefresh={handleRefresh}
+          onAdded={(inv) => {
+            // ★ 전역 동기화 이벤트 발송
+            window.dispatchEvent(new CustomEvent('portfolio-updated', { detail: { source: 'add' } }))
+            handleAdded(inv)
+          }}
+          onChanged={() => {
+            window.dispatchEvent(new CustomEvent('portfolio-updated', { detail: { source: 'edit' } }))
+            handleRefresh()
+          }}
+        />
       )}
 
       {txModalOpen && txTarget && (
@@ -622,7 +638,12 @@ export default function AssetsPage() {
           initialMode={txMode}
           currentPrice={priceMap[txTarget.ticker.toUpperCase()]?.currentPrice}
           onClose={() => setTxModalOpen(false)}
-          onSuccess={() => { setTxModalOpen(false); fetchInvestments() }}
+          onSuccess={() => {
+            setTxModalOpen(false)
+            // ★ 전역 동기화 이벤트 — 대시보드·투자기록 탭이 즉시 리렌더링되도록
+            window.dispatchEvent(new CustomEvent('portfolio-updated', { detail: { source: 'transaction' } }))
+            fetchInvestments()
+          }}
         />
       )}
     </div>

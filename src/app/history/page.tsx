@@ -150,6 +150,16 @@ export default function HistoryPage() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
+  // ★ 자산관리 탭에서 매수/매도 발생 시 거래 내역 즉시 갱신
+  useEffect(() => {
+    const handler = () => {
+      console.log('[History] portfolio-updated 이벤트 수신 → 거래내역 갱신')
+      fetchAll()
+    }
+    window.addEventListener('portfolio-updated', handler)
+    return () => window.removeEventListener('portfolio-updated', handler)
+  }, [fetchAll])
+
   const filtered = transactions.filter(t => filterType === 'all' || t.type === filterType)
 
   const cashFlowData = useMemo(() => {
