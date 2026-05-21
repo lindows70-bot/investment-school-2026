@@ -418,8 +418,8 @@ export default function BondSimulator() {
               금리(X축)↑ → 채권 가격(Y축)↓, 곡선이 직선이 아닌 &apos;볼록한 곡선&apos;인 것이 핵심
             </div>
 
-            <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={CONVEXITY_DATA} margin={{ top: 5, right: 15, bottom: 5, left: 0 }}>
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={CONVEXITY_DATA} margin={{ top: 20, right: 64, bottom: 5, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
                 <XAxis
                   dataKey="rate"
@@ -441,13 +441,43 @@ export default function BondSimulator() {
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   formatter={(value: any, name: any) => [`₩${(value as number).toFixed(1)}`, `${String(name)}만기`]}
                 />
-                {/* 현재 금리 기준선 */}
-                <ReferenceLine x={rate} stroke={C.gold} strokeDasharray="4 4" strokeWidth={1.5}
-                  label={{ value: `${rate}%`, position: 'top', fill: C.gold, fontSize: 10 }} />
-                {/* 표면금리(3%) 기준선 */}
-                <ReferenceLine x={3} stroke={C.blue} strokeDasharray="2 4" strokeWidth={1}
-                  label={{ value: '기준3%', position: 'insideTopLeft', fill: C.blue, fontSize: 9 }} />
 
+                {/* ① 쿠폰(표면금리 = 3%) 기준선 — 가는 파랑 점선 */}
+                <ReferenceLine
+                  x={3}
+                  stroke={C.blue}
+                  strokeDasharray="2 5"
+                  strokeWidth={1}
+                  label={{ value: '쿠폰 3%', position: 'insideTopLeft', fill: C.blue, fontSize: 9 }}
+                />
+
+                {/* ② 현재 유통금리 세로 기준선 — 굵은 시안 실선 + 금리 라벨 */}
+                <ReferenceLine
+                  x={rate}
+                  stroke={C.cyan}
+                  strokeDasharray="5 3"
+                  strokeWidth={2.5}
+                  label={{
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    content: (props: any) => {
+                      const cx: number = props.viewBox?.x ?? 0
+                      const top: number = props.viewBox?.y ?? 0
+                      return (
+                        <g>
+                          {/* 상단 라벨 박스 */}
+                          <rect x={cx - 22} y={top - 18} width={44} height={18} rx={5}
+                            fill={C.cyan} opacity={0.92} />
+                          <text x={cx} y={top - 5} textAnchor="middle"
+                            fill="#020617" fontSize={10} fontWeight={800}>
+                            📍{rate.toFixed(1)}%
+                          </text>
+                        </g>
+                      )
+                    },
+                  }}
+                />
+
+                {/* ③ 만기별 가격 곡선 */}
                 {MATURITIES.map(m => (
                   <Line
                     key={m.label}
@@ -456,15 +486,70 @@ export default function BondSimulator() {
                     stroke={m.color}
                     strokeWidth={m.n === 30 ? 3 : m.n === 10 ? 2 : 1.5}
                     dot={false}
-                    activeDot={{ r: 4 }}
+                    activeDot={{ r: 5, stroke: C.bg, strokeWidth: 2 }}
+                    isAnimationActive={false}
                   />
                 ))}
 
-                {/* 현재 금리 포인트 마커 */}
-                {currentRatePt && (
-                  <ReferenceDot x={currentRatePt.rate} y={currentRatePt['30년']} r={5}
-                    fill={C.orange} stroke={C.bg} strokeWidth={2} />
-                )}
+                {/* ④ 만기별 현재 금리 포인트 — 4개 ReferenceDot + 가격 말풍선 라벨
+                    말풍선을 오른쪽에 세로로 일정 간격으로 스택하여 겹침 방지 */}
+                {currentRatePt && MATURITIES.map((m, idx) => {
+                  const dataKey = m.label.split('년')[0] + '년'
+                  const yVal    = (currentRatePt as Record<string, number>)[dataKey]
+                  if (yVal == null) return null
+
+                  // 만기별 라벨 세로 오프셋 (겹침 방지 + 30년이 가장 위)
+                  // MATURITIES 순서: 1년(0) 3년(1) 10년(2) 30년(3)
+                  // 역순으로 쌓아 30년 라벨이 가장 극단적 위치에
+                  const yOffsets = [-4, -4, -4, -4] // dot 중심 기준
+
+                  return (
+                    <ReferenceDot
+                      key={m.label}
+                      x={currentRatePt.rate}
+                      y={yVal}
+                      r={idx === 3 ? 8 : 6}          // 30년은 강조
+                      fill={m.color}
+                      stroke={C.bg}
+                      strokeWidth={2}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      label={{ content: (props: any) => {
+                        const cx: number = props.viewBox?.cx ?? 0
+                        const cy: number = props.viewBox?.cy ?? 0
+                        const yo = yOffsets[idx]
+                        // 라벨 박스 너비·높이
+                        const bw = 54, bh = 18
+                        // 30년은 왼쪽, 나머지는 오른쪽에 배치
+                        const bx = idx === 3 ? cx - bw - 6 : cx + 10
+                        const by = cy + yo - bh / 2
+
+                        return (
+                          <g key={`lbl-${m.label}`}>
+                            {/* 연결선 */}
+                            <line
+                              x1={cx + (idx === 3 ? -8 : 8)} y1={cy}
+                              x2={idx === 3 ? cx - bw - 4 + bw : cx + 10} y2={cy + yo}
+                              stroke={m.color} strokeWidth={1} opacity={0.5}
+                            />
+                            {/* 배경 박스 */}
+                            <rect
+                              x={bx} y={by} width={bw} height={bh} rx={5}
+                              fill={C.card} stroke={m.color} strokeWidth={1.2} opacity={0.96}
+                            />
+                            {/* 가격 텍스트 */}
+                            <text
+                              x={bx + bw / 2} y={by + bh / 2 + 1}
+                              textAnchor="middle" dominantBaseline="middle"
+                              fill={m.color} fontSize={9} fontWeight={700}
+                            >
+                              ₩{yVal.toFixed(1)}
+                            </text>
+                          </g>
+                        )
+                      }}}
+                    />
+                  )
+                })}
               </LineChart>
             </ResponsiveContainer>
 
