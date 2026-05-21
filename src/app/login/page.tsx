@@ -259,6 +259,11 @@ function LoginContent() {
   const [status,   setStatus]   = useState<Status>('idle')
   const [message,  setMessage]  = useState('')
   const [focused,  setFocused]  = useState<string | null>(null)
+  // 비밀번호 재설정 모드
+  const [showForgot,    setShowForgot]    = useState(false)
+  const [forgotEmail,   setForgotEmail]   = useState('')
+  const [forgotStatus,  setForgotStatus]  = useState<Status>('idle')
+  const [forgotMsg,     setForgotMsg]     = useState('')
   const redirectingRef = useRef(false)  // 중복 리다이렉트 방지
 
   // ── 안정적인 리다이렉트 함수 ────────────────────────────────────────────────
@@ -307,6 +312,24 @@ function LoginContent() {
   })
 
   // ── Login ─────────────────────────────────────────────────
+  // ── 비밀번호 찾기 ──────────────────────────────────────────────────────
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!forgotEmail) { setForgotStatus('error'); setForgotMsg('이메일을 입력해주세요.'); return }
+    setForgotStatus('loading'); setForgotMsg('')
+    const supabase = createClient()
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+      redirectTo: `${window.location.origin}/login?type=recovery`,
+    })
+    if (error) {
+      setForgotStatus('error')
+      setForgotMsg('이메일 발송에 실패했습니다. 가입된 이메일인지 확인해주세요.')
+      return
+    }
+    setForgotStatus('success')
+    setForgotMsg('비밀번호 재설정 링크를 이메일로 발송했습니다. 받은편지함을 확인해주세요.')
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     if (status === 'loading') return  // 중복 제출 방지
@@ -441,7 +464,7 @@ function LoginContent() {
 
             {/* ── Login form ── */}
             {tab === 'login' && (
-              <form onSubmit={handleLogin}>
+              <><form onSubmit={handleLogin}>
                 <div style={S.fieldWrap}>
                   <label style={S.label}>이메일</label>
                   <div style={S.inputWrap}>
@@ -477,8 +500,61 @@ function LoginContent() {
                 <button type="submit" disabled={isLoading} style={S.btn(isLoading)}>
                   {isLoading ? <><SpinIcon /> 로그인 중…</> : <>로그인 <ArrowIcon /></>}
                 </button>
+
+                {/* 비밀번호 찾기 링크 */}
+                <div style={{ textAlign: 'center', marginTop: 14 }}>
+                  <button
+                    type="button"
+                    onClick={() => { setShowForgot(true); setForgotEmail(email); setForgotStatus('idle'); setForgotMsg('') }}
+                    style={{ background: 'none', border: 'none', color: '#475569', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}
+                  >
+                    비밀번호를 잊으셨나요?
+                  </button>
+                </div>
               </form>
-            )}
+
+              {/* ── 비밀번호 찾기 모달 ── */}
+              {showForgot && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+                  <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 14, padding: '28px 24px', width: '100%', maxWidth: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.7)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>🔑 비밀번호 재설정</h3>
+                      <button onClick={() => setShowForgot(false)} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 20, cursor: 'pointer' }}>×</button>
+                    </div>
+                    <p style={{ fontSize: 13, color: '#94a3b8', marginTop: 0, marginBottom: 18, lineHeight: 1.6 }}>
+                      가입한 이메일 주소를 입력하면 비밀번호 재설정 링크를 보내드립니다.
+                    </p>
+                    {forgotStatus === 'error'   && <div style={{ ...S.errorBox,   marginBottom: 14 }}>⚠ {forgotMsg}</div>}
+                    {forgotStatus === 'success' && <div style={{ ...S.successBox, marginBottom: 14 }}>✓ {forgotMsg}</div>}
+                    {forgotStatus !== 'success' && (
+                      <form onSubmit={handleForgotPassword}>
+                        <div style={S.fieldWrap}>
+                          <label style={S.label}>이메일</label>
+                          <div style={S.inputWrap}>
+                            <span style={S.inputIcon}><MailIcon /></span>
+                            <input
+                              type="email" required value={forgotEmail}
+                              onChange={e => setForgotEmail(e.target.value)}
+                              style={{ ...S.input, borderColor: '#2a2a2a' }}
+                              placeholder="가입한 이메일 입력"
+                              autoComplete="email"
+                            />
+                          </div>
+                        </div>
+                        <button type="submit" disabled={forgotStatus === 'loading'} style={S.btn(forgotStatus === 'loading')}>
+                          {forgotStatus === 'loading' ? <><SpinIcon /> 발송 중…</> : <>재설정 링크 보내기 <ArrowIcon /></>}
+                        </button>
+                      </form>
+                    )}
+                    {forgotStatus === 'success' && (
+                      <button onClick={() => setShowForgot(false)} style={{ ...S.btn(false), marginTop: 4, background: '#1e3a5f' }}>
+                        닫기
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>)}
 
             {/* ── Signup form ── */}
             {tab === 'signup' && (
