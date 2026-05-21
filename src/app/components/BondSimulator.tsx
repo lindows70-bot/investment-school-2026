@@ -169,8 +169,16 @@ export default function BondSimulator() {
     setShowAnswer(prev => { const n = [...prev]; n[qi] = !n[qi]; return n })
   }, [])
 
-  // ── 현재 금리 점 (볼록성 차트에 표시) ────────────────────────
-  const currentRatePt = CONVEXITY_DATA.find(d => Math.abs(d.rate - rate) < 0.15)
+  // ── 현재 금리 점 — find 대신 정확한 가격 직접 계산 (항상 존재) ──
+  const currentPrices = useMemo(() => {
+    const rDec = rate / 100
+    return {
+      '1년':  bondPV(rDec, 1),
+      '3년':  bondPV(rDec, 3),
+      '10년': bondPV(rDec, 10),
+      '30년': bondPV(rDec, 30),
+    }
+  }, [rate])
 
   // ── 공통 스타일 헬퍼 ─────────────────────────────────────────
   const card = (extra?: string) =>
@@ -423,6 +431,8 @@ export default function BondSimulator() {
                 <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
                 <XAxis
                   dataKey="rate"
+                  type="number"
+                  domain={[0.25, 10]}
                   tickFormatter={v => `${v}%`}
                   tick={{ fill: C.textLow, fontSize: 10 }}
                   axisLine={{ stroke: C.border }}
@@ -453,15 +463,15 @@ export default function BondSimulator() {
                 />
 
                 {/* ② 현재 유통금리 세로선 + 4개 가격 말풍선을 한 번에 렌더
+                    ★ key 제거 → remount 없이 content 클로저만 업데이트
+                    ★ XAxis type=number 덕분에 임의 소수점 x 위치도 정확히 렌더
                     viewBox = {x: linePixelX, y: plotTop, width:0, height: plotHeight}
-                    → pixelY(price) = plotTop + plotHeight × (1 − price / Y_MAX) */}
+                    → pixelY(p) = plotTop + plotH × (1 − p / Y_MAX) */}
                 <ReferenceLine
-                  key={`vline-${rate}`}
                   x={rate}
                   stroke={C.cyan}
                   strokeDasharray="5 3"
                   strokeWidth={2}
-                  ifOverflow="extendDomain"
                   label={{
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     content: (props: any) => {
@@ -470,45 +480,35 @@ export default function BondSimulator() {
                       const plotH: number   = props.viewBox?.height ?? 240
                       const Y_MAX           = 1900
 
-                      // ── 금리 라벨 (상단) ──────────────────────────────
                       const rateStr = `${rate.toFixed(1)}%`
                       const rateBW  = Math.max(44, rateStr.length * 8 + 12)
 
-                      if (!currentRatePt) {
-                        return (
-                          <g>
-                            <rect x={lx - rateBW / 2} y={plotTop - 22} width={rateBW} height={20} rx={5}
-                              fill={C.cyan} opacity={0.93} />
-                            <text x={lx} y={plotTop - 8} textAnchor="middle"
-                              fill="#020617" fontSize={10} fontWeight={800}>{rateStr}</text>
-                          </g>
-                        )
-                      }
-
-                      // ── 만기별 dot 픽셀 Y 계산 ───────────────────────
+                      // ── 만기별 dot 픽셀 Y (currentPrices 직접 계산값 사용) ─
                       const items = MATURITIES.map(m => {
                         const dk   = m.label.split('년')[0] + '년'
-                        const yVal = (currentRatePt as Record<string, number>)[dk] ?? 0
+                        const yVal = (currentPrices as Record<string, number>)[dk] ?? 0
                         const dotY = plotTop + plotH * (1 - yVal / Y_MAX)
                         return { m, yVal, dotY }
-                      }).filter(it => it.yVal > 0)
+                      })
 
-                      // dotY 오름차순 정렬 (위→아래 = 가격 높음→낮음)
+                      // dotY 오름차순 정렬 (위→아래)
                       items.sort((a, b) => a.dotY - b.dotY)
 
-                      // 22px 최소 간격 스택
-                      const MIN_GAP = 23
+                      // 24px 최소 간격 스택
+                      const MIN_GAP = 24
                       const stackY: number[] = []
                       for (let i = 0; i < items.length; i++) {
                         const nat = items[i].dotY
                         stackY.push(i === 0 ? nat : Math.max(nat, stackY[i - 1] + MIN_GAP))
                       }
 
-                      const BW = 70, BH = 20
+                      const BW = 72, BH = 20
+                      // lx > 680 → 차트 우측 끝에 가까우면 라벨을 왼쪽에 배치
+                      const onLeft = lx > 680
 
                       return (
                         <g>
-                          {/* 세로선 위 금리 뱃지 */}
+                          {/* 금리 뱃지 */}
                           <rect x={lx - rateBW / 2} y={plotTop - 22} width={rateBW} height={20} rx={5}
                             fill={C.cyan} opacity={0.93} />
                           <text x={lx} y={plotTop - 8} textAnchor="middle"
@@ -516,26 +516,23 @@ export default function BondSimulator() {
 
                           {/* 가격 말풍선 + dot + 연결선 */}
                           {items.map((it, i) => {
-                            const sy = stackY[i]
-                            // 오른쪽 여백 80px 확보 → 기본 오른쪽, 75% 이후엔 왼쪽
-                            const onLeft = lx > 680
-                            const bx = onLeft ? lx - BW - 10 : lx + 10
-                            const connX = onLeft ? lx - 10 : lx + 10
+                            const sy  = stackY[i]
+                            const bx  = onLeft ? lx - BW - 10 : lx + 10
+                            const cx1 = onLeft ? lx - 8 : lx + 8
+                            const cx2 = onLeft ? bx + BW : bx
 
                             return (
                               <g key={it.m.label}>
-                                {/* dot 원 */}
+                                {/* dot */}
                                 <circle cx={lx} cy={it.dotY} r={it.m.n === 30 ? 7 : 5}
                                   fill={it.m.color} stroke="#020617" strokeWidth={2} />
-                                {/* 연결선: dot → 말풍선 */}
-                                <line x1={connX} y1={it.dotY}
-                                  x2={onLeft ? bx + BW : bx} y2={sy}
+                                {/* 연결선 */}
+                                <line x1={cx1} y1={it.dotY} x2={cx2} y2={sy}
                                   stroke={it.m.color} strokeWidth={1}
-                                  strokeDasharray="2 3" opacity={0.6} />
-                                {/* 말풍선 박스 */}
+                                  strokeDasharray="2 3" opacity={0.55} />
+                                {/* 말풍선 */}
                                 <rect x={bx} y={sy - BH / 2} width={BW} height={BH} rx={5}
                                   fill={C.card} stroke={it.m.color} strokeWidth={1.5} opacity={0.97} />
-                                {/* 만기 약어 + 가격 */}
                                 <text x={bx + BW / 2} y={sy}
                                   textAnchor="middle" dominantBaseline="middle"
                                   fill={it.m.color} fontSize={9} fontWeight={700}>
