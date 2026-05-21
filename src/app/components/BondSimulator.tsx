@@ -514,27 +514,31 @@ export default function BondSimulator() {
                       strokeWidth={2}
                       // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       label={{ content: (props: any) => {
-                        const cx: number = props.viewBox?.cx ?? 0
-                        const cy: number = props.viewBox?.cy ?? 0
+                        // ★ 수정: Recharts ReferenceDot의 viewBox는 {x,y,width,height}
+                        //   cx/cy 가 아닌 x + width/2, y + height/2 로 중심 좌표 계산
+                        const vb  = props.viewBox ?? {}
+                        const cx: number = (vb.x ?? 0) + (vb.width  ?? 0) / 2
+                        const cy: number = (vb.y ?? 0) + (vb.height ?? 0) / 2
                         const yo = yOffsets[idx]
                         // 라벨 박스 너비·높이
-                        const bw = 54, bh = 18
-                        // 30년은 왼쪽, 나머지는 오른쪽에 배치
-                        const bx = idx === 3 ? cx - bw - 6 : cx + 10
+                        const bw = 56, bh = 18
+                        // 30년은 왼쪽(극단값), 나머지는 오른쪽에 배치
+                        const onLeft = idx === 3
+                        const bx = onLeft ? cx - bw - 8 : cx + 10
                         const by = cy + yo - bh / 2
 
                         return (
                           <g key={`lbl-${m.label}`}>
-                            {/* 연결선 */}
+                            {/* 점 → 박스 연결선 */}
                             <line
-                              x1={cx + (idx === 3 ? -8 : 8)} y1={cy}
-                              x2={idx === 3 ? cx - bw - 4 + bw : cx + 10} y2={cy + yo}
-                              stroke={m.color} strokeWidth={1} opacity={0.5}
+                              x1={onLeft ? cx - 8 : cx + 8} y1={cy}
+                              x2={onLeft ? cx - 8 : cx + 10} y2={cy + yo}
+                              stroke={m.color} strokeWidth={1} strokeDasharray="2 2" opacity={0.6}
                             />
-                            {/* 배경 박스 */}
+                            {/* 말풍선 배경 박스 */}
                             <rect
                               x={bx} y={by} width={bw} height={bh} rx={5}
-                              fill={C.card} stroke={m.color} strokeWidth={1.2} opacity={0.96}
+                              fill={C.card} stroke={m.color} strokeWidth={1.5} opacity={0.97}
                             />
                             {/* 가격 텍스트 */}
                             <text
