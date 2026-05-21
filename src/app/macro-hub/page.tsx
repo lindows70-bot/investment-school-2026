@@ -748,10 +748,14 @@ function CompareChart({ api, loading }: { api: MacroApi | null; loading: boolean
 // ═══════════════════════════════════════════════════════════════
 //  MAIN PAGE
 // ═══════════════════════════════════════════════════════════════
+import BondSimulator from '@/app/components/BondSimulator'
+
 export default function MacroHubPage() {
-  const [api,     setApi]     = useState<MacroApi | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState<string | null>(null)
+  const [api,         setApi]         = useState<MacroApi | null>(null)
+  const [loading,     setLoading]     = useState(true)
+  const [error,       setError]       = useState<string | null>(null)
+  // 탭: 'macro' | 'bond'
+  const [activeTab,   setActiveTab]   = useState<'macro' | 'bond'>('macro')
 
   useEffect(() => {
     ;(async () => {
@@ -820,10 +824,39 @@ export default function MacroHubPage() {
         </div>
       </div>
 
-      <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
-        <MacroHeatmap api={api} loading={loading}/>
-        <CompareChart  api={api} loading={loading}/>
+      {/* ─ 탭 네비게이션 ─ */}
+      <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+        {[
+          { key:'macro', label:'🌐 글로벌 매크로', desc:'실시간 금리·CPI·주가' },
+          { key:'bond',  label:'📊 채권 시뮬레이터', desc:'듀레이션·볼록성 학습' },
+        ].map(({ key, label, desc }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key as 'macro' | 'bond')}
+            style={{
+              padding:'10px 18px', borderRadius:10, border:'none', cursor:'pointer',
+              fontSize:13, fontWeight:700, transition:'all 0.18s',
+              background: activeTab === key ? C.surface : 'transparent',
+              color:       activeTab === key ? C.neon    : C.muted,
+              borderBottom: `3px solid ${activeTab === key ? C.neon : 'transparent'}`,
+              boxShadow:   activeTab === key ? `0 4px 16px ${C.neon}22` : 'none',
+            }}
+          >
+            <div>{label}</div>
+            <div style={{ fontSize:9, fontWeight:400, color: activeTab === key ? C.sub : C.muted, marginTop:1 }}>{desc}</div>
+          </button>
+        ))}
       </div>
+
+      {/* ─ 탭 콘텐츠 ─ */}
+      {activeTab === 'macro' ? (
+        <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+          <MacroHeatmap api={api} loading={loading}/>
+          <CompareChart  api={api} loading={loading}/>
+        </div>
+      ) : (
+        <BondSimulator />
+      )}
 
       {/* ─ 푸터 데이터 소스 ─ */}
       <div style={{ marginTop:16, padding:'10px 16px', background:C.surface, border:`1px solid ${C.border}`, borderRadius:12 }}>
