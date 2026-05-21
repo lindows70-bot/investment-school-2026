@@ -17,7 +17,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, ReferenceLine, ReferenceDot,
+  Tooltip, ResponsiveContainer, ReferenceLine, ReferenceDot, Customized,
 } from 'recharts'
 import {
   TrendingUp, TrendingDown, AlertCircle, CheckCircle2,
@@ -451,25 +451,28 @@ export default function BondSimulator() {
                   label={{ value: '쿠폰 3%', position: 'insideTopLeft', fill: C.blue, fontSize: 9 }}
                 />
 
-                {/* ② 현재 유통금리 세로 기준선 — 굵은 시안 실선 + 금리 라벨 */}
+                {/* ② 현재 유통금리 세로 기준선 — 굵은 시안 점선 (항상 표시) */}
                 <ReferenceLine
+                  key={`vline-${rate}`}
                   x={rate}
                   stroke={C.cyan}
                   strokeDasharray="5 3"
-                  strokeWidth={2.5}
+                  strokeWidth={2}
+                  ifOverflow="extendDomain"
                   label={{
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     content: (props: any) => {
-                      const cx: number = props.viewBox?.x ?? 0
+                      const lx: number = props.viewBox?.x ?? 0
                       const top: number = props.viewBox?.y ?? 0
+                      const rateStr = `${rate.toFixed(1)}%`
+                      const bw = Math.max(44, rateStr.length * 7 + 10)
                       return (
                         <g>
-                          {/* 상단 라벨 박스 */}
-                          <rect x={cx - 22} y={top - 18} width={44} height={18} rx={5}
-                            fill={C.cyan} opacity={0.92} />
-                          <text x={cx} y={top - 5} textAnchor="middle"
+                          <rect x={lx - bw / 2} y={top - 20} width={bw} height={18} rx={5}
+                            fill={C.cyan} opacity={0.93} />
+                          <text x={lx} y={top - 7} textAnchor="middle"
                             fill="#020617" fontSize={10} fontWeight={800}>
-                            📍{rate.toFixed(1)}%
+                            {rateStr}
                           </text>
                         </g>
                       )
@@ -491,69 +494,99 @@ export default function BondSimulator() {
                   />
                 ))}
 
-                {/* ④ 만기별 현재 금리 포인트 — 4개 ReferenceDot + 가격 말풍선 라벨
-                    말풍선을 오른쪽에 세로로 일정 간격으로 스택하여 겹침 방지 */}
-                {currentRatePt && MATURITIES.map((m, idx) => {
+                {/* ④ 만기별 현재 금리 포인트 — dots (라벨은 Customized에서 통합 렌더) */}
+                {currentRatePt && MATURITIES.map((m) => {
                   const dataKey = m.label.split('년')[0] + '년'
                   const yVal    = (currentRatePt as Record<string, number>)[dataKey]
                   if (yVal == null) return null
-
-                  // 만기별 라벨 세로 오프셋 (겹침 방지 + 30년이 가장 위)
-                  // MATURITIES 순서: 1년(0) 3년(1) 10년(2) 30년(3)
-                  // 역순으로 쌓아 30년 라벨이 가장 극단적 위치에
-                  const yOffsets = [-4, -4, -4, -4] // dot 중심 기준
-
                   return (
                     <ReferenceDot
                       key={m.label}
                       x={currentRatePt.rate}
                       y={yVal}
-                      r={idx === 3 ? 8 : 6}          // 30년은 강조
+                      r={m.n === 30 ? 8 : 6}
                       fill={m.color}
                       stroke={C.bg}
                       strokeWidth={2}
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      label={{ content: (props: any) => {
-                        // ★ 수정: Recharts ReferenceDot의 viewBox는 {x,y,width,height}
-                        //   cx/cy 가 아닌 x + width/2, y + height/2 로 중심 좌표 계산
-                        const vb  = props.viewBox ?? {}
-                        const cx: number = (vb.x ?? 0) + (vb.width  ?? 0) / 2
-                        const cy: number = (vb.y ?? 0) + (vb.height ?? 0) / 2
-                        const yo = yOffsets[idx]
-                        // 라벨 박스 너비·높이
-                        const bw = 56, bh = 18
-                        // 30년은 왼쪽(극단값), 나머지는 오른쪽에 배치
-                        const onLeft = idx === 3
-                        const bx = onLeft ? cx - bw - 8 : cx + 10
-                        const by = cy + yo - bh / 2
-
-                        return (
-                          <g key={`lbl-${m.label}`}>
-                            {/* 점 → 박스 연결선 */}
-                            <line
-                              x1={onLeft ? cx - 8 : cx + 8} y1={cy}
-                              x2={onLeft ? cx - 8 : cx + 10} y2={cy + yo}
-                              stroke={m.color} strokeWidth={1} strokeDasharray="2 2" opacity={0.6}
-                            />
-                            {/* 말풍선 배경 박스 */}
-                            <rect
-                              x={bx} y={by} width={bw} height={bh} rx={5}
-                              fill={C.card} stroke={m.color} strokeWidth={1.5} opacity={0.97}
-                            />
-                            {/* 가격 텍스트 */}
-                            <text
-                              x={bx + bw / 2} y={by + bh / 2 + 1}
-                              textAnchor="middle" dominantBaseline="middle"
-                              fill={m.color} fontSize={9} fontWeight={700}
-                            >
-                              ₩{yVal.toFixed(1)}
-                            </text>
-                          </g>
-                        )
-                      }}}
+                      ifOverflow="extendDomain"
                     />
                   )
                 })}
+
+                {/* ⑤ 가격 말풍선 — Customized로 좌표 직접 계산해 겹침 없이 스택 배치 */}
+                {currentRatePt && (
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  <Customized component={(props: any) => {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const xScale = (props.xAxisMap as any)?.[0]?.scale
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const yScale = (props.yAxisMap as any)?.[0]?.scale
+                    if (!xScale || !yScale || !currentRatePt) return null
+
+                    const xPos: number = xScale(currentRatePt.rate)
+
+                    // 각 만기별 dot 픽셀 좌표 계산
+                    const items = MATURITIES.map(m => {
+                      const dk = m.label.split('년')[0] + '년'
+                      const yVal = (currentRatePt as Record<string, number>)[dk]
+                      if (yVal == null) return null
+                      return { m, yVal, dotY: yScale(yVal) as number }
+                    }).filter(Boolean) as { m: typeof MATURITIES[0]; yVal: number; dotY: number }[]
+
+                    // dotY 오름차순(위→아래) 정렬
+                    items.sort((a, b) => a.dotY - b.dotY)
+
+                    // 최소 간격 보장 스택 배치 (위→아래, 22px 간격)
+                    const MIN_GAP = 22
+                    const stackY: number[] = []
+                    for (let i = 0; i < items.length; i++) {
+                      const nat = items[i].dotY
+                      if (i === 0) { stackY.push(nat); continue }
+                      stackY.push(Math.max(nat, stackY[i - 1] + MIN_GAP))
+                    }
+
+                    const BW = 62, BH = 19
+                    // 오른쪽 여백 확인 (64px 확보)
+                    const chartRight: number = (props.offset?.width ?? 0) + (props.offset?.left ?? 0)
+                    const onRight = xPos < chartRight - BW - 20
+
+                    return (
+                      <g>
+                        {items.map((it, i) => {
+                          const sy = stackY[i]
+                          const labelX = onRight ? xPos + 10 : xPos - BW - 10
+                          const lineX2 = onRight ? labelX : labelX + BW
+                          return (
+                            <g key={it.m.label}>
+                              {/* dot → 말풍선 연결선 */}
+                              <line
+                                x1={xPos} y1={it.dotY}
+                                x2={lineX2} y2={sy}
+                                stroke={it.m.color} strokeWidth={1}
+                                strokeDasharray="2 3" opacity={0.55}
+                              />
+                              {/* 말풍선 박스 */}
+                              <rect
+                                x={labelX} y={sy - BH / 2}
+                                width={BW} height={BH} rx={5}
+                                fill={C.card} stroke={it.m.color}
+                                strokeWidth={1.5} opacity={0.97}
+                              />
+                              {/* 만기 + 가격 텍스트 */}
+                              <text
+                                x={labelX + BW / 2} y={sy}
+                                textAnchor="middle" dominantBaseline="middle"
+                                fill={it.m.color} fontSize={9} fontWeight={700}
+                              >
+                                {it.m.n}yr ₩{it.yVal.toFixed(0)}
+                              </text>
+                            </g>
+                          )
+                        })}
+                      </g>
+                    )
+                  }} />
+                )}
               </LineChart>
             </ResponsiveContainer>
 
