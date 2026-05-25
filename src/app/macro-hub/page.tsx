@@ -749,13 +749,14 @@ function CompareChart({ api, loading }: { api: MacroApi | null; loading: boolean
 //  MAIN PAGE
 // ═══════════════════════════════════════════════════════════════
 import BondSimulator from '@/app/components/BondSimulator'
+import StressTest    from '@/app/components/StressTest'
 
 export default function MacroHubPage() {
   const [api,         setApi]         = useState<MacroApi | null>(null)
   const [loading,     setLoading]     = useState(true)
   const [error,       setError]       = useState<string | null>(null)
-  // 탭: 'macro' | 'bond'
-  const [activeTab,   setActiveTab]   = useState<'macro' | 'bond'>('macro')
+  // 탭: 'macro' | 'bond' | 'stress'
+  const [activeTab,   setActiveTab]   = useState<'macro' | 'bond' | 'stress'>('macro')
 
   useEffect(() => {
     ;(async () => {
@@ -825,14 +826,15 @@ export default function MacroHubPage() {
       </div>
 
       {/* ─ 탭 네비게이션 ─ */}
-      <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+      <div style={{ display:'flex', gap:8, marginBottom:20, flexWrap:'wrap' }}>
         {[
-          { key:'macro', label:'🌐 글로벌 매크로', desc:'실시간 금리·CPI·주가' },
-          { key:'bond',  label:'📊 채권 시뮬레이터', desc:'듀레이션·볼록성 학습' },
+          { key:'macro',  label:'🌐 글로벌 매크로',      desc:'실시간 금리·CPI·주가' },
+          { key:'bond',   label:'📊 채권 시뮬레이터',    desc:'듀레이션·볼록성 학습' },
+          { key:'stress', label:'🧪 스트레스 테스트',    desc:'역사적 위기 시뮬레이션' },
         ].map(({ key, label, desc }) => (
           <button
             key={key}
-            onClick={() => setActiveTab(key as 'macro' | 'bond')}
+            onClick={() => setActiveTab(key as 'macro' | 'bond' | 'stress')}
             style={{
               padding:'10px 18px', borderRadius:10, border:'none', cursor:'pointer',
               fontSize:13, fontWeight:700, transition:'all 0.18s',
@@ -854,8 +856,10 @@ export default function MacroHubPage() {
           <MacroHeatmap api={api} loading={loading}/>
           <CompareChart  api={api} loading={loading}/>
         </div>
-      ) : (
+      ) : activeTab === 'bond' ? (
         <BondSimulator />
+      ) : (
+        <StressTest />
       )}
 
       {/* ─ 푸터 데이터 소스 ─ */}
