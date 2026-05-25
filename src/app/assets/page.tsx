@@ -382,6 +382,7 @@ export default function AssetsPage() {
     : n >= 1e4 ? `₩${Math.round(n/1e4).toLocaleString('ko-KR')}만`
     : `₩${Math.round(n).toLocaleString('ko-KR')}`
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const sortLabel: Record<SortOption, string> = {
     eval:   '평가금액 ↓',
     return: '수익률 ↓',

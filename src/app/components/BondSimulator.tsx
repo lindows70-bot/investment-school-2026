@@ -17,7 +17,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, ReferenceLine, ReferenceDot,
+  Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
 import {
   TrendingUp, TrendingDown, AlertCircle, CheckCircle2,
