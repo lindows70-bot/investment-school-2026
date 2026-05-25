@@ -386,14 +386,28 @@ export default function DashboardPage() {
       }
 
       if (invs.length > 0) {
-        const res = await fetch('/api/stock-price', {
-          method: 'POST', headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify(invs.map(i => ({ ticker:i.ticker, market:i.market }))),
-        })
-        if (res.ok) {
-          const results: ({ticker:string}&LivePrice)[] = await res.json()
+        // 최대 30개씩 배치로 나눠서 요청 (25개 이상 보유 학생 대응)
+        const BATCH_SIZE = 30
+        const tickers = invs.map(i => ({ ticker: i.ticker, market: i.market }))
+        const batches: typeof tickers[] = []
+        for (let i = 0; i < tickers.length; i += BATCH_SIZE)
+          batches.push(tickers.slice(i, i + BATCH_SIZE))
+
+        const allResults: ({ticker:string}&LivePrice)[] = []
+        for (const batch of batches) {
+          const res = await fetch('/api/stock-price', {
+            method: 'POST', headers:{ 'Content-Type':'application/json' },
+            body: JSON.stringify(batch),
+          })
+          if (res.ok) {
+            const partial: ({ticker:string}&LivePrice)[] = await res.json()
+            allResults.push(...partial)
+          }
+        }
+
+        if (allResults.length > 0) {
           const m: Record<string,LivePrice> = {}
-          results.forEach(r => {
+          allResults.forEach(r => {
             m[r.ticker.toUpperCase()] = {
               ...r,
               dividendYield:  r.fundamentals?.dividendYield  ?? null,

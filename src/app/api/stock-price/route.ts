@@ -783,8 +783,8 @@ export async function POST(req: NextRequest) {
 
   if (!Array.isArray(body) || !body.length)
     return NextResponse.json({ error: '요청 본문은 비어있지 않은 배열이어야 합니다.' }, { status: 400 })
-  if (body.length > 20)
-    return NextResponse.json({ error: '한 번에 최대 20개 티커까지 조회 가능합니다.' }, { status: 400 })
+  if (body.length > 50)
+    return NextResponse.json({ error: '한 번에 최대 50개 티커까지 조회 가능합니다.' }, { status: 400 })
 
   const results = await Promise.all(
     body.map(async ({ ticker, market }) => {
