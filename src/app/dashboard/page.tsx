@@ -636,6 +636,8 @@ export default function DashboardPage() {
   const [dividendMap, setDividendMap] = useState<Record<string, {
     annualDividend: number | null
     dividendYield:  number | null
+    pe?:            number | null   // AI 멘토 차트용
+    peg?:           number | null   // AI 멘토 차트용
   }>>({})
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
@@ -977,9 +979,13 @@ export default function DashboardPage() {
             if (!res.ok) return
             const d = await res.json()
             const f = d?.fundamentals
+            const peNum  = typeof f?.pe  === 'number' && isFinite(f.pe)  && f.pe  > 0 ? f.pe  : null
+            const pegNum = typeof f?.peg === 'number' && isFinite(f.peg) && f.peg > 0 ? f.peg : null
             result[inv.ticker.toUpperCase()] = {
               annualDividend: f?.annualDividend ?? null,
               dividendYield:  f?.dividendYield  ?? null,
+              pe:  peNum,
+              peg: pegNum,
             }
           } catch { /* 무시 */ }
         }))
@@ -2818,34 +2824,37 @@ export default function DashboardPage() {
       <div id="tab-mentor" style={{ display: dashTab==='mentor' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         <AIPortfolioDashboard
           portfolioStocks={investments.map(inv => {
-            const lv = priceMap[inv.ticker.toUpperCase()]
-            const f  = lv?.fundamentals
+            const key = inv.ticker.toUpperCase()
+            // ★ stock-info API에서 로드한 정확한 pe/peg 우선 사용
+            const dMap = dividendMap[key]
+            const siPe  = dMap?.pe  ?? null   // stock-info PER (신뢰도 높음)
+            const siPeg = dMap?.peg ?? null   // stock-info PEG (신뢰도 높음)
 
-            // ── PER 추출 ─────────────────────────────────────────
-            const peRaw = f?.pe
-            const per   = typeof peRaw === 'number' && isFinite(peRaw) && peRaw > 0
-              ? parseFloat(peRaw.toFixed(1)) : 0
+            // priceMap 폴백 (stock-info 로드 전)
+            const lv   = priceMap[key]
+            const fPe  = lv?.fundamentals?.pe
+            const fPeg = lv?.fundamentals?.peg
+            const fEg  = lv?.fundamentals?.earningsGrowth
 
-            // ── 성장률 계산 (3단계 우선순위) ─────────────────────
-            // 1순위: earningsGrowth 직접 (소수형 0.35 → 35%)
-            const egRaw = f?.earningsGrowth
+            // PER: stock-info → priceMap 순서
+            const per = siPe ?? (typeof fPe === 'number' && isFinite(fPe) && fPe > 0 ? fPe : 0)
+
+            // 성장률: stock-info PEG역산 → priceMap earningsGrowth → priceMap PEG역산
             let growthRate = 0
-            if (typeof egRaw === 'number' && isFinite(egRaw) && egRaw !== 0) {
-              growthRate = parseFloat((Math.abs(egRaw) < 20 ? egRaw * 100 : egRaw).toFixed(1))
+            if (siPe != null && siPeg != null && siPeg > 0) {
+              // PEG = PER / 성장률 → 성장률 = PER / PEG
+              growthRate = parseFloat((siPe / siPeg).toFixed(1))
+            } else if (typeof fEg === 'number' && isFinite(fEg) && fEg !== 0) {
+              growthRate = parseFloat((Math.abs(fEg) < 20 ? fEg * 100 : fEg).toFixed(1))
+            } else if (per > 0 && typeof fPeg === 'number' && isFinite(fPeg) && fPeg > 0) {
+              growthRate = parseFloat((per / fPeg).toFixed(1))
             }
-            // 2순위: peg + per 역산 (PEG = PER / 성장률 → 성장률 = PER / PEG)
-            // KR 종목은 earningsGrowth=null인 경우 이 방법으로 계산
-            if (growthRate === 0 && per > 0) {
-              const pegRaw = f?.peg
-              if (typeof pegRaw === 'number' && isFinite(pegRaw) && pegRaw > 0) {
-                growthRate = parseFloat((per / pegRaw).toFixed(1))
-              }
-            }
+
             return {
-              name:       inv.name,
-              ticker:     inv.ticker,
-              lynchType:  inv.lynch_category ?? '',
-              per,
+              name:      inv.name,
+              ticker:    inv.ticker,
+              lynchType: inv.lynch_category ?? '',
+              per:       per > 0 ? parseFloat(per.toFixed(1)) : 0,
               growthRate,
             }
           })}
