@@ -1267,7 +1267,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── 실시간 대시보드 탭 ── */}
-      {dashTab === 'live' && (<>
+      <div id="tab-live" style={{ display: dashTab==='live' ? 'contents' : 'none' }}>
 
       {/* ── 배당 상세 모달 (fixed center) ── */}
       {showDivDetail && (
@@ -2611,10 +2611,10 @@ export default function DashboardPage() {
           </div>
         </Card>
       </div>  {/* 6fr/4fr grid 닫기 */}
-      </>)}  {/* 실시간 대시보드 탭 끝 */}
+      </div>  {/* 실시간 대시보드 탭 끝 */}
 
       {/* ── 투자 타임머신 탭 ── */}
-      {dashTab === 'backtest' && <>{/* ── 투자 타임머신: 백테스팅 시뮬레이터 ── */}
+      <div id="tab-backtest" style={{ display: dashTab==='backtest' ? 'contents' : 'none' }}>
       <Card>
         <div style={{ padding:'16px 20px 0', display:'flex', flexWrap:'wrap', gap:12, alignItems:'flex-start', justifyContent:'space-between' }}>
           <div>
@@ -2698,7 +2698,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </Card>
-      </>}  {/* 투자 타임머신 탭 끝 */}
+      </div>  {/* 투자 타임머신 탭 끝 */}
     </div>
   )
 }
