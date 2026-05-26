@@ -452,6 +452,13 @@ export default function SchoolLeague() {
     const isCase1 = cash === 0
     const isCase3 = !isCase1 && coreDiff <= cash   // 신규 자금만으로 코어 충당 가능
 
+    // ── CASE 2 전용: 추가 자금만 코어에 넣었을 때 도달 가능한 코어 비중 ──
+    // cashOnlyCorePercent = (curCore + cash) / (curTotal + cash) × 100
+    // (새틀라이트 매도 없이 현금만 코어에 투입했을 때의 단독 코어 비중)
+    const cashOnlyCorePercent = cash > 0
+      ? Math.round(((curCore + cash) / (curTotal + cash)) * 1000) / 10
+      : null
+
     return {
       cash,
       newTotal,
@@ -463,6 +470,7 @@ export default function SchoolLeague() {
       saddleDiff,
       isCase1,
       isCase3,
+      cashOnlyCorePercent,
     }
   }, [totalAssets, addCashMans, myCore, mySat, targetCore])
 
@@ -1177,6 +1185,7 @@ export default function SchoolLeague() {
               cash, newTotal, tgtCore, tgtSaddle,
               coreDiff, saddleDiff,
               isCase1, isCase3,
+              cashOnlyCorePercent,
             } = rebalancePlan
 
             // 금액 포맷 헬퍼
@@ -1333,22 +1342,45 @@ export default function SchoolLeague() {
             </div>
           )}
 
-          {/* ── ① 리밸런싱 후 예상 비중 피드백 ─────────────────── */}
-          {totalAssets > 0 && rebalancePlan && (
-            <div style={{
-              marginTop: 14, padding: '10px 14px', borderRadius: 8,
-              background: 'rgba(56,189,248,0.07)',
-              border: '1px solid rgba(56,189,248,0.20)',
-              fontSize: 12, lineHeight: 1.7, color: C.textMid,
-            }}>
-              <span style={{ fontSize: 14, marginRight: 6 }}>💡</span>
-              이 처방대로 매매를 완료하면, 내 코어 비중이{' '}
-              <span style={{ color: C.sat, fontWeight: 800 }}>{myCore.toFixed(1)}%</span>
-              {' '}➔{' '}
-              <span style={{ color: C.core, fontWeight: 800 }}>{targetCore.toFixed(1)}%</span>
-              로 정상화됩니다.
-            </div>
-          )}
+          {/* ── ① 리밸런싱 후 예상 비중 피드백 (케이스별 동적 문구) ── */}
+          {totalAssets > 0 && rebalancePlan && (() => {
+            const { isCase1, isCase3, cashOnlyCorePercent, cash } = rebalancePlan
+
+            // CASE 2: 추가 자금 + 새틀 매도 병행 필요한 하이브리드 케이스
+            const isCase2 = !isCase1 && !isCase3
+            const bgColor = isCase2 ? 'rgba(251,146,60,0.07)' : 'rgba(56,189,248,0.07)'
+            const bdColor = isCase2 ? 'rgba(251,146,60,0.22)' : 'rgba(56,189,248,0.20)'
+
+            return (
+              <div style={{
+                marginTop: 14, padding: '10px 14px', borderRadius: 8,
+                background: bgColor, border: `1px solid ${bdColor}`,
+                fontSize: 12, lineHeight: 1.75, color: C.textMid,
+              }}>
+                <span style={{ fontSize: 14, marginRight: 6 }}>💡</span>
+                {isCase2 && cashOnlyCorePercent !== null ? (
+                  <>
+                    신규 자금(
+                    <span style={{ color: C.amber, fontWeight: 800 }}>₩{cash.toLocaleString('ko-KR')}만</span>
+                    ) 투입만으로는 코어 비중이{' '}
+                    <span style={{ color: C.amber, fontWeight: 800 }}>{cashOnlyCorePercent.toFixed(1)}%</span>
+                    까지만 회복됩니다.
+                    아래 새틀라이트 매도 처방을 반드시 병행해야 최종 목표인{' '}
+                    <span style={{ color: C.core, fontWeight: 800 }}>{targetCore.toFixed(1)}%</span>
+                    를 달성할 수 있습니다.
+                  </>
+                ) : (
+                  <>
+                    이 처방대로 매매를 완료하면, 내 코어 비중이{' '}
+                    <span style={{ color: C.sat, fontWeight: 800 }}>{myCore.toFixed(1)}%</span>
+                    {' '}➔{' '}
+                    <span style={{ color: C.core, fontWeight: 800 }}>{targetCore.toFixed(1)}%</span>
+                    로 정상화됩니다.
+                  </>
+                )}
+              </div>
+            )
+          })()}
 
           {/* ── ② 실전 매매 주의사항 풋노트 ─────────────────────── */}
           <div style={{
