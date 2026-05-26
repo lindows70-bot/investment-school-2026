@@ -243,15 +243,8 @@ const Card = ({ children, style = {} }: { children: React.ReactNode; style?: Rea
   </div>
 )
 // ─── AI 멘토 탭: 종목 마스터 데이터 (PEG 기반 동적 분석용) ──────────────────
-const MENTOR_STOCKS = [
-  { name:'현대차',         ticker:'005380', lynchType:'경기순환주',   per:6.5,  peg:0.81, growthRate:8.0  },
-  { name:'팔란티어',       ticker:'PLTR',   lynchType:'고성장주',     per:45.0, peg:0.90, growthRate:50.0 },
-  { name:'제너럴 일렉트릭',ticker:'GE',     lynchType:'턴어라운드주', per:20.0, peg:0.91, growthRate:22.0 },
-  { name:'엔비디아',       ticker:'NVDA',   lynchType:'고성장주',     per:32.5, peg:0.93, growthRate:35.0 },
-  { name:'삼성전자',       ticker:'005930', lynchType:'대형우량주',   per:14.5, peg:1.21, growthRate:12.0 },
-  { name:'코카콜라',       ticker:'KO',     lynchType:'저성장주',     per:22.0, peg:4.40, growthRate:5.0  },
-]
-const LYNCH_TYPES = ['고성장주','대형우량주','저성장주','경기순환주','자산주','턴어라운드주'] as const
+// ★ 하드코딩 종목 완전 제거 — 사용자가 직접 등록한 데이터만 흘려보냄
+// const MENTOR_STOCKS = []  ← 빈 배열로 대체 (아래 AIPortfolioDashboard에 [] 직접 전달)
 
 // ─── 백테스팅 데이터 (2021.Q1~2026.Q1, 초기 투자금 1,000만 원) ───────────────
 const BACKTEST_DATA = [
@@ -649,22 +642,8 @@ export default function DashboardPage() {
   const [btActive,  setBtActive]  = useState({ rebalanceQ:true, rebalanceY:false, buyAndHold:true, benchmark:true })
   const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor'>('live')
 
-  // ── AI 멘토 탭: 동적 인사이트 계산 ────────────────────────────────
-  const mentorInsights = useMemo(() => {
-    const sorted = [...MENTOR_STOCKS].sort((a, b) => a.peg - b.peg)
-    const best   = sorted[0]                          // PEG 최저 → 매수 우위
-    const worst  = sorted[sorted.length - 1]          // PEG 최고 → 경계
-
-    // 레이더 차트: 6대 분류별 보유 종목 수 → 0~100 스케일
-    const maxCount = Math.max(1, Math.max(...LYNCH_TYPES.map(t => MENTOR_STOCKS.filter(s => s.lynchType === t).length)))
-    const radarData = LYNCH_TYPES.map(t => ({
-      subject: t.replace('주','').replace('성장','성장\n'),
-      A: Math.round((MENTOR_STOCKS.filter(s => s.lynchType === t).length / maxCount) * 100),
-      fullMark: 100,
-    }))
-
-    return { best, worst, radarData }
-  }, [])
+  // ── AI 멘토 탭: MENTOR_STOCKS 제거 후 컴포넌트에 빈 배열 전달 ──
+  // 실제 종목 데이터(PER/성장률)가 API에서 수집되면 여기에 연동 예정
 
   // ── 버튼 조합별 동적 인사이트 패널 ─────────────────────────────
   const renderBtInsight = () => {
@@ -2837,7 +2816,7 @@ export default function DashboardPage() {
 
       {/* ── AI 멘토 족집게 탭 ── */}
       <div id="tab-mentor" style={{ display: dashTab==='mentor' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
-        <AIPortfolioDashboard portfolioStocks={MENTOR_STOCKS} />
+        <AIPortfolioDashboard portfolioStocks={[]} />
       </div>  {/* AI 멘토 탭 끝 */}
 
     </div>
