@@ -1149,12 +1149,23 @@ export default function SchoolLeague() {
               <button
                 onClick={() => setAddCashMans(0)}
                 style={{
-                  padding: '7px 12px', borderRadius: 7, border: `1px solid ${C.border}`,
-                  background: C.surface, color: C.red,
-                  fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                  padding: '7px 12px', borderRadius: 7,
+                  border: `1px solid rgba(248,113,113,0.35)`,
+                  background: `rgba(248,113,113,0.07)`,
+                  color: C.red, fontSize: 11, fontWeight: 700,
+                  cursor: 'pointer', transition: 'all 0.15s',
+                  letterSpacing: '0.02em',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.background = `rgba(248,113,113,0.14)`
+                  ;(e.currentTarget as HTMLButtonElement).style.borderColor = `rgba(248,113,113,0.6)`
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.background = `rgba(248,113,113,0.07)`
+                  ;(e.currentTarget as HTMLButtonElement).style.borderColor = `rgba(248,113,113,0.35)`
                 }}
               >
-                초기화
+                🔄 초기화
               </button>
             </div>
           </div>
@@ -1321,6 +1332,31 @@ export default function SchoolLeague() {
                 : <>퀵 버튼을 클릭하거나 금액을 입력하면 맞춤 리밸런싱 처방전을 확인할 수 있습니다</>}
             </div>
           )}
+
+          {/* ── ① 리밸런싱 후 예상 비중 피드백 ─────────────────── */}
+          {totalAssets > 0 && rebalancePlan && (
+            <div style={{
+              marginTop: 14, padding: '10px 14px', borderRadius: 8,
+              background: 'rgba(56,189,248,0.07)',
+              border: '1px solid rgba(56,189,248,0.20)',
+              fontSize: 12, lineHeight: 1.7, color: C.textMid,
+            }}>
+              <span style={{ fontSize: 14, marginRight: 6 }}>💡</span>
+              이 처방대로 매매를 완료하면, 내 코어 비중이{' '}
+              <span style={{ color: C.sat, fontWeight: 800 }}>{myCore.toFixed(1)}%</span>
+              {' '}➔{' '}
+              <span style={{ color: C.core, fontWeight: 800 }}>{targetCore.toFixed(1)}%</span>
+              로 정상화됩니다.
+            </div>
+          )}
+
+          {/* ── ② 실전 매매 주의사항 풋노트 ─────────────────────── */}
+          <div style={{
+            marginTop: 10, fontSize: 10, color: C.textLow,
+            lineHeight: 1.6, paddingLeft: 2,
+          }}>
+            * 본 처방전은 만 원 단위 절사 계산된 값으로, 실제 종목별 주당 가격 및 거래 수수료에 따라 잔여 예수금이 일부 발생할 수 있습니다.
+          </div>
         </Card>
       )}
 
