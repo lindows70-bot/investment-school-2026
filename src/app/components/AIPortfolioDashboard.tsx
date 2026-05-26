@@ -121,17 +121,34 @@ export default function AIPortfolioDashboard(props: any) {
       const growthRate = Number(s.growthRate) || Number(s.growth) || 0
 
       // 띄어쓰기 제거 후 포함 문자열 매칭
-      const raw = (s.lynchType || s.category || s.type || '').toString().replace(/\s+/g, '')
+      // ★ DB 영어 키 → 한국어 매핑 (fast_grower, stalwart 등 직접 변환)
+      const ENGLISH_MAP: Record<string, string> = {
+        fast_grower:  '고성장주',
+        stalwart:     '대형우량주',
+        slow_grower:  '저성장주',
+        cyclical:     '경기순환주',
+        asset_play:   '자산주',
+        turnaround:   '턴어라운드주',
+      }
+      const rawKey = (s.lynchType || s.category || s.type || '').toString().trim()
+      const raw    = rawKey.replace(/\s+/g, '')
       let lynchType = '해당없음'
-      // 완전 일치 먼저 시도
-      if (['고성장주','대형우량주','저성장주','경기순환주','자산주','턴어라운드주'].includes(raw)) {
+
+      // 1순위: DB 영어 키 직접 변환
+      if (ENGLISH_MAP[rawKey]) {
+        lynchType = ENGLISH_MAP[rawKey]
+      }
+      // 2순위: 한국어 완전 일치
+      else if (['고성장주','대형우량주','저성장주','경기순환주','자산주','턴어라운드주'].includes(raw)) {
         lynchType = raw
-      } else if (raw.includes('고성장') || raw.includes('빠른성장'))       lynchType = '고성장주'
-      else if (raw.includes('대형우량') || raw.includes('우량'))           lynchType = '대형우량주'
-      else if (raw.includes('저성장'))                                      lynchType = '저성장주'
-      else if (raw.includes('경기순환'))                                    lynchType = '경기순환주'
-      else if (raw.includes('자산'))                                        lynchType = '자산주'
-      else if (raw.includes('턴어라운드'))                                  lynchType = '턴어라운드주'
+      }
+      // 3순위: 한국어 부분 포함 매칭 (띄어쓰기 편차 대응)
+      else if (raw.includes('고성장') || raw.includes('빠른성장'))       lynchType = '고성장주'
+      else if (raw.includes('대형우량') || raw.includes('우량'))         lynchType = '대형우량주'
+      else if (raw.includes('저성장'))                                    lynchType = '저성장주'
+      else if (raw.includes('경기순환'))                                  lynchType = '경기순환주'
+      else if (raw.includes('자산'))                                      lynchType = '자산주'
+      else if (raw.includes('턴어라운드'))                                lynchType = '턴어라운드주'
 
       const peg = s.peg !== undefined
         ? Number(s.peg)
