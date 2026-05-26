@@ -43,50 +43,11 @@ const T = {
 const SHO = '7px 7px 18px #0e1020, -4px -4px 12px #282c44'
 const SHI = 'inset 4px 4px 10px #0e1020, inset -3px -3px 8px #282c44'
 
-// ── 주요 종목 재무 데이터베이스 (Mock, 2025-2026 기준) ─────────
-// API에서 데이터를 가져오지 못했을 때 폴백으로 사용됩니다.
-// per: 주가수익비율  epsGrowth: 연간 예상 EPS 성장률(%)  hasCash: 순현금 보유 여부
-interface StockFinancialRecord {
-  name:      string
-  per:       number
-  epsGrowth: number
-  hasCash:   boolean
-  note?:     string  // 데이터 기준 메모
-}
-
-const STOCK_DB: Record<string, StockFinancialRecord> = {
-  // ── 미국 테크 ─────────────────────────────────────────────
-  'NVDA':  { name: 'NVIDIA',            per: 36,  epsGrowth: 40, hasCash: true,  note: 'AI 반도체 고성장 지속' },
-  'PLTR':  { name: 'Palantir',          per: 68,  epsGrowth: 32, hasCash: true,  note: '정부·기업 AI 플랫폼' },
-  'AAPL':  { name: 'Apple',             per: 28,  epsGrowth: 12, hasCash: true,  note: '대형 우량주. 자사주 매입 활발' },
-  'TSLA':  { name: 'Tesla',             per: 75,  epsGrowth: 22, hasCash: true,  note: 'EV·에너지·로봇 복합 성장' },
-  'GOOGL': { name: 'Alphabet (Google)', per: 22,  epsGrowth: 18, hasCash: true,  note: '클라우드·광고·AI 안정 성장' },
-  'MSFT':  { name: 'Microsoft',         per: 32,  epsGrowth: 16, hasCash: true,  note: 'Azure 클라우드 중심 성장' },
-  'META':  { name: 'Meta Platforms',    per: 24,  epsGrowth: 28, hasCash: true,  note: 'AI 광고 효율·Reels 성장' },
-  'AMZN':  { name: 'Amazon',            per: 42,  epsGrowth: 30, hasCash: false, note: 'AWS 이익 폭발, 고capex' },
-  'AMD':   { name: 'AMD',               per: 38,  epsGrowth: 28, hasCash: true,  note: 'AI GPU·데이터센터 성장' },
-  'GEV':   { name: 'GE Vernova',        per: 52,  epsGrowth: 38, hasCash: true,  note: '에너지 전환 수혜주' },
-  'TEM':   { name: 'Tempus AI',         per: 120, epsGrowth: 50, hasCash: false, note: '의료 AI. 초기 성장주, 적자 주의' },
-  'PSLV':  { name: 'Sprott Silver',     per: 0,   epsGrowth: 0,  hasCash: false, note: '실물 은 ETF (PEG 분석 무의미)' },
-  'IBB':   { name: 'iShares Biotech',   per: 18,  epsGrowth: 12, hasCash: false, note: '바이오 ETF (바스켓)' },
-  'XBI':   { name: 'SPDR Biotech ETF',  per: 16,  epsGrowth: 10, hasCash: false, note: '스몰캡 바이오 ETF' },
-  'ETN':   { name: 'Eaton Corporation', per: 28,  epsGrowth: 14, hasCash: false, note: '전력 인프라 우량주' },
-  // ── 한국 주요 종목 ─────────────────────────────────────────
-  '005930': { name: '삼성전자',           per: 13,  epsGrowth: 22, hasCash: true,  note: 'HBM·파운드리 사이클 회복' },
-  '000660': { name: 'SK하이닉스',         per: 10,  epsGrowth: 35, hasCash: false, note: 'HBM 초과 수요, 고capex' },
-  '012450': { name: '한화에어로스페이스',  per: 28,  epsGrowth: 25, hasCash: true,  note: 'K방산 수출 고성장' },
-  '329180': { name: 'HD현대중공업',        per: 18,  epsGrowth: 20, hasCash: false, note: 'LNG·해양 수주 사이클' },
-  '010120': { name: 'LS ELECTRIC',        per: 20,  epsGrowth: 18, hasCash: true,  note: '전력 인프라 수혜' },
-  '449450': { name: 'PLUS K방산',         per: 25,  epsGrowth: 20, hasCash: true,  note: 'K방산 ETF' },
-  '278470': { name: '에이피알',            per: 22,  epsGrowth: 18, hasCash: true,  note: '뷰티테크 글로벌 성장' },
-  '010140': { name: '삼성중공업',          per: 14,  epsGrowth: 25, hasCash: false, note: '해양플랜트 수주 회복' },
-  '034020': { name: '두산에너빌리티',      per: 20,  epsGrowth: 22, hasCash: false, note: 'SMR·원전 성장주' },
-  '032830': { name: '삼성생명',            per: 8,   epsGrowth: 8,  hasCash: true,  note: '금융주, 배당 중심' },
-}
-
 // ── 컴포넌트 Props ────────────────────────────────────────────
+// 종목 리서치에서 API로 받아온 임시 데이터를 그대로 전달받습니다.
+// 영구 저장 불필요 — 종목이 바뀌면 새 값으로 덮어씌워집니다.
 interface LynchWizardProps {
-  /** 현재 리서치 중인 티커 (연동 자동 채움 트리거) */
+  /** 현재 리서치 중인 티커 (자동 채움 트리거) */
   autoTicker?:    string | null
   /** API에서 받아온 종목명 */
   autoName?:      string | null
@@ -437,75 +398,46 @@ export default function LynchWizard({
   const [hasCash,   setHasCash]   = useState(false)
 
   // ── 자동 채움 상태 ────────────────────────────────────────
-  // autoFillSource: 'api' = API 데이터, 'db' = Mock DB, null = 미채움
-  const [autoFillSource, setAutoFillSource] = useState<'api' | 'db' | null>(null)
-  const [autoFillLabel,  setAutoFillLabel]  = useState<string>('')
-  // 마지막으로 자동 채움한 티커를 기억 — 같은 티커면 중복 실행 방지
+  const [autoFilled,      setAutoFilled]      = useState(false)
+  // 마지막으로 채움한 티커 — 같은 티커 중복 방지
   const lastAutoTickerRef = useRef<string | null>(null)
 
-  // ── 종목 변경 시 자동 채움 (API 데이터 우선, DB 폴백) ─────
+  // ── 종목 변경 시 API 데이터 자동 채움 ────────────────────
+  // 로직: autoTicker 바뀜 → 종목명·PER·EPS 성장률 즉시 세팅
+  // "임시 데이터"이므로 DB 저장 없음 — 새 종목 검색하면 그냥 덮어씌움
   useEffect(() => {
     const tk = autoTicker?.toUpperCase().trim()
-    if (!tk) return
-    // 이미 이 티커로 자동 채움한 경우 재실행 방지
-    if (tk === lastAutoTickerRef.current) return
+    if (!tk || tk === lastAutoTickerRef.current) return
     lastAutoTickerRef.current = tk
 
-    const dbEntry = STOCK_DB[tk]
+    // 종목명은 항상 채움
+    if (autoName) setStockName(autoName)
 
-    // ① API 데이터가 하나라도 있으면 API 우선
-    const hasApiPer  = autoPer       != null && isFinite(autoPer)       && autoPer       > 0
-    const hasApiGrow = autoEpsGrowth != null && isFinite(autoEpsGrowth) && autoEpsGrowth !== 0
+    const hasPer  = autoPer       != null && isFinite(autoPer!)       && autoPer!       > 0
+    const hasGrow = autoEpsGrowth != null && isFinite(autoEpsGrowth!) && autoEpsGrowth! !== 0
 
-    if (hasApiPer || hasApiGrow) {
-      // 종목명: API > DB > 티커 그대로
-      setStockName(autoName || dbEntry?.name || tk)
-      if (hasApiPer)  setPerInput(autoPer!.toFixed(1))
-      if (hasApiGrow) setEpsInput(autoEpsGrowth!.toFixed(1))
-      // 순현금: API가 제공하지 않으므로 DB에서 보완
-      if (dbEntry) setHasCash(dbEntry.hasCash)
-      setAutoFillSource('api')
-      setAutoFillLabel(`${autoName || tk} API 데이터 자동 로드`)
-      return
-    }
+    if (hasPer)  setPerInput(autoPer!.toFixed(1))
+    if (hasGrow) setEpsInput(autoEpsGrowth!.toFixed(1))
 
-    // ② API 데이터 없으면 Mock DB 폴백
-    if (dbEntry) {
-      setStockName(dbEntry.name)
-      setPerInput(dbEntry.per > 0 ? dbEntry.per.toFixed(1) : '')
-      setEpsInput(dbEntry.epsGrowth > 0 ? dbEntry.epsGrowth.toFixed(1) : '')
-      setHasCash(dbEntry.hasCash)
-      setAutoFillSource('db')
-      setAutoFillLabel(`${dbEntry.name} 참조 데이터 자동 로드`)
-      return
-    }
-
-    // ③ DB에도 없으면 종목명만 채움
-    if (autoName) {
-      setStockName(autoName)
-      setAutoFillSource(null)  // 숫자 데이터 없음
-    }
-  // autoTicker가 바뀔 때만 실행 — autoPer/autoEpsGrowth는 비동기로 나중에 올 수 있으므로
-  // 두 번째 useEffect로 API 데이터가 도착하면 보완 채움
+    // 숫자 데이터가 하나라도 채워졌으면 배지 표시
+    setAutoFilled(hasPer || hasGrow)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoTicker])
 
-  // ── API 데이터가 나중에 도착했을 때 보완 채움 ─────────────
-  // (네이버/Yahoo Finance API가 느릴 경우 대비)
+  // ── API 응답이 늦게 도착할 경우 보완 채움 ────────────────
+  // (stock-info API가 stock-price보다 느릴 수 있음)
   useEffect(() => {
     const tk = autoTicker?.toUpperCase().trim()
     if (!tk || tk !== lastAutoTickerRef.current) return
-    // 이미 API 소스로 채워졌으면 무시
-    if (autoFillSource === 'api') return
+    if (autoFilled) return   // 이미 채워졌으면 덮어쓰지 않음
 
-    const hasApiPer  = autoPer       != null && isFinite(autoPer)       && autoPer       > 0
-    const hasApiGrow = autoEpsGrowth != null && isFinite(autoEpsGrowth) && autoEpsGrowth !== 0
-    if (!hasApiPer && !hasApiGrow) return
+    const hasPer  = autoPer       != null && isFinite(autoPer!)       && autoPer!       > 0
+    const hasGrow = autoEpsGrowth != null && isFinite(autoEpsGrowth!) && autoEpsGrowth! !== 0
+    if (!hasPer && !hasGrow) return
 
-    if (hasApiPer)  setPerInput(autoPer!.toFixed(1))
-    if (hasApiGrow) setEpsInput(autoEpsGrowth!.toFixed(1))
-    setAutoFillSource('api')
-    setAutoFillLabel(`${autoName || tk} API 데이터 자동 로드`)
+    if (hasPer)  setPerInput(autoPer!.toFixed(1))
+    if (hasGrow) setEpsInput(autoEpsGrowth!.toFixed(1))
+    setAutoFilled(true)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoPer, autoEpsGrowth])
 
@@ -546,9 +478,9 @@ export default function LynchWizard({
   // ── 초기화 ────────────────────────────────────────────────
   const reset = () => {
     setStep(1)
-    // 자동 채움 기록도 초기화 — 같은 종목 재진단 허용
+    // 자동 채움 초기화 — 같은 종목 재진단 허용
     lastAutoTickerRef.current = null
-    setAutoFillSource(null)
+    setAutoFilled(false)
     setStockName(''); setPerInput(''); setEpsInput(''); setHasCash(false)
     setChecks(Object.fromEntries(CHECKLIST.map(c => [c.key, false])) as Record<CheckKey, boolean>)
   }
@@ -596,44 +528,37 @@ export default function LynchWizard({
             <div style={{ fontSize: 16, fontWeight: 800, color: T.text, marginBottom: 4 }}>
               📊 STEP 1 · 정량 지표 입력
             </div>
-            <div style={{ fontSize: 12, color: T.muted, marginBottom: autoFillSource ? 10 : 20 }}>
+            <div style={{ fontSize: 12, color: T.muted, marginBottom: autoFilled ? 10 : 20 }}>
               분석할 종목의 핵심 재무 지표를 입력해주세요. PEG 비율이 실시간으로 계산됩니다.
             </div>
 
-            {/* ── 자동 채움 배지 ────────────────────────────── */}
-            {autoFillSource && (
+            {/* ── 자동 채움 배지 (API 데이터가 로드된 경우에만 표시) ── */}
+            {autoFilled && (
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '9px 14px', borderRadius: 10, marginBottom: 16,
-                background: autoFillSource === 'api'
-                  ? 'rgba(163,230,53,0.12)' : 'rgba(96,165,250,0.12)',
-                border: `1px solid ${autoFillSource === 'api' ? T.fast : T.stalw}40`,
+                background: 'rgba(163,230,53,0.10)',
+                border: `1px solid ${T.fast}35`,
               }}>
-                <Sparkles size={14} color={autoFillSource === 'api' ? T.fast : T.stalw} />
-                <span style={{
-                  fontSize: 12, fontWeight: 700,
-                  color: autoFillSource === 'api' ? T.fast : T.stalw,
-                }}>
-                  ⚡ {autoFillLabel} 완료
+                <Sparkles size={14} color={T.fast} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: T.fast }}>
+                  ⚡ {autoName || autoTicker} 재무 데이터 자동 로드 완료
                 </span>
-                <span style={{ fontSize: 11, color: T.muted, marginLeft: 4 }}>
-                  {autoFillSource === 'api' ? '(실시간 API)' : '(참조 데이터 · 수정 가능)'}
+                <span style={{ fontSize: 11, color: T.muted }}>
+                  — 수정 가능
                 </span>
-                {/* 수동 초기화 버튼 */}
                 <button
                   onClick={() => {
                     setPerInput(''); setEpsInput(''); setHasCash(false)
-                    setAutoFillSource(null)
+                    setAutoFilled(false)
                     lastAutoTickerRef.current = null
                   }}
                   style={{
-                    marginLeft: 'auto', fontSize: 10, color: T.muted, background: 'transparent',
-                    border: 'none', cursor: 'pointer', padding: '2px 6px', borderRadius: 4,
+                    marginLeft: 'auto', fontSize: 10, color: T.muted,
+                    background: 'transparent', border: 'none',
+                    cursor: 'pointer', padding: '2px 6px', borderRadius: 4,
                   }}
-                  title="자동 채움 초기화"
-                >
-                  ✕ 초기화
-                </button>
+                >✕ 초기화</button>
               </div>
             )}
 
@@ -646,10 +571,10 @@ export default function LynchWizard({
                 <input
                   style={{
                     ...inputStyle,
-                    borderColor: autoFillSource ? `${autoFillSource === 'api' ? T.fast : T.stalw}60` : T.border,
+                    borderColor: autoFilled ? `${T.fast}60` : T.border,
                   }}
                   value={stockName}
-                  onChange={e => { setStockName(e.target.value); setAutoFillSource(null) }}
+                  onChange={e => { setStockName(e.target.value); setAutoFilled(false) }}
                   placeholder="예: NVIDIA, 삼성전자, 한화에어로스페이스"
                 />
               </div>
@@ -663,12 +588,11 @@ export default function LynchWizard({
                   <input
                     type="number" min="0" step="0.1"
                     value={perInput}
-                    onChange={e => { setPerInput(e.target.value); setAutoFillSource(null) }}
+                    onChange={e => { setPerInput(e.target.value); setAutoFilled(false) }}
                     placeholder="예: 25.4"
                     style={{
                       ...inputStyle,
-                      borderColor: autoFillSource && perInput
-                        ? `${autoFillSource === 'api' ? T.fast : T.stalw}60` : T.border,
+                      borderColor: autoFilled && perInput ? `${T.fast}60` : T.border,
                     }}
                   />
                   <div style={{ fontSize: 10, color: T.dim, marginTop: 4 }}>
@@ -684,12 +608,11 @@ export default function LynchWizard({
                   <input
                     type="number" step="0.1"
                     value={epsInput}
-                    onChange={e => { setEpsInput(e.target.value); setAutoFillSource(null) }}
+                    onChange={e => { setEpsInput(e.target.value); setAutoFilled(false) }}
                     placeholder="예: 18.5"
                     style={{
                       ...inputStyle,
-                      borderColor: autoFillSource && epsInput
-                        ? `${autoFillSource === 'api' ? T.fast : T.stalw}60` : T.border,
+                      borderColor: autoFilled && epsInput ? `${T.fast}60` : T.border,
                     }}
                   />
                   <div style={{ fontSize: 10, color: T.dim, marginTop: 4 }}>
