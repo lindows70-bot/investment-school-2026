@@ -2816,7 +2816,17 @@ export default function DashboardPage() {
 
       {/* ── AI 멘토 족집게 탭 ── */}
       <div id="tab-mentor" style={{ display: dashTab==='mentor' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
-        <AIPortfolioDashboard portfolioStocks={[]} />
+                <AIPortfolioDashboard
+          portfolioStocks={investments.map(inv => ({
+            name:       inv.name,
+            ticker:     inv.ticker,
+            // lynch_category -> lynchType 으로 매핑 (방어막 3이 축약형도 자동 표준화)
+            lynchType:  inv.lynch_category ?? '',
+            // PER/성장률은 stock-info API 연동 전까지 0 → 차트 비어있는 상태로 표시
+            per:        0,
+            growthRate: 0,
+          }))}
+        />
       </div>  {/* AI 멘토 탭 끝 */}
 
     </div>
