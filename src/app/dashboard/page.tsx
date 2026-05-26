@@ -1267,7 +1267,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── 실시간 대시보드 탭 ── */}
-      <div id="tab-live" style={{ display: dashTab==='live' ? 'contents' : 'none' }}>
+      <div id="tab-live" style={{ display: dashTab==='live' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
 
       {/* ── 배당 상세 모달 (fixed center) ── */}
       {showDivDetail && (
@@ -2614,7 +2614,7 @@ export default function DashboardPage() {
       </div>  {/* 실시간 대시보드 탭 끝 */}
 
       {/* ── 투자 타임머신 탭 ── */}
-      <div id="tab-backtest" style={{ display: dashTab==='backtest' ? 'contents' : 'none' }}>
+      <div id="tab-backtest" style={{ display: dashTab==='backtest' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
       <Card>
         <div style={{ padding:'16px 20px 0', display:'flex', flexWrap:'wrap', gap:12, alignItems:'flex-start', justifyContent:'space-between' }}>
           <div>
