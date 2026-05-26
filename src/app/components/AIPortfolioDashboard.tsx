@@ -290,11 +290,37 @@ export default function AIPortfolioDashboard(props: any) {
                   segment={[{x:0,y:0},{x:Math.min(chartMax.x,chartMax.y),y:Math.min(chartMax.x,chartMax.y)}]}
                   stroke={C.border} strokeDasharray="4 4"
                 />
-                <Scatter data={chartData} isAnimationActive={false}>
-                  {chartData.map((s,i) => (
-                    <Cell key={i} fill={(s.peg ?? 0) <= 1.0 ? C.green : C.red} opacity={0.85} style={{ cursor:'pointer' }} />
-                  ))}
-                </Scatter>
+                <Scatter
+                  data={chartData}
+                  isAnimationActive={false}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  shape={(props: any) => {
+                    const { cx, cy, payload } = props
+                    const isUnder = (payload.peg ?? 0) <= 1.0
+                    const col = isUnder ? C.green : C.red
+                    // 이름 축약 (9자 초과 시 ...로 자름)
+                    const label = payload.name.length > 9
+                      ? payload.name.slice(0, 8) + '…'
+                      : payload.name
+                    return (
+                      <g style={{ cursor:'pointer' }}>
+                        {/* 종목명 라벨 (dot 위 8px) */}
+                        <text
+                          x={cx} y={cy - 11}
+                          textAnchor="middle"
+                          fill={col}
+                          fontSize={9}
+                          fontWeight={700}
+                          style={{ pointerEvents:'none' }}
+                        >
+                          {label}
+                        </text>
+                        {/* 점 */}
+                        <circle cx={cx} cy={cy} r={6} fill={col} opacity={0.88} stroke={C.surface} strokeWidth={1.5} />
+                      </g>
+                    )
+                  }}
+                />
               </ScatterChart>
             </ResponsiveContainer>
           ) : (
