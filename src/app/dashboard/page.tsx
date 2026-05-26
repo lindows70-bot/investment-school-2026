@@ -637,6 +637,119 @@ export default function DashboardPage() {
   const [btActive,  setBtActive]  = useState({ rebalanceQ:true, rebalanceY:false, buyAndHold:true, benchmark:true })
   const [dashTab,   setDashTab]   = useState<'live' | 'backtest'>('live')
 
+  // ── 버튼 조합별 동적 인사이트 패널 ─────────────────────────────
+  const renderBtInsight = () => {
+    const { rebalanceQ, rebalanceY, buyAndHold } = btActive
+    const none = !rebalanceQ && !rebalanceY && !buyAndHold
+
+    // 아무것도 선택 안 했을 때
+    if (none) return (
+      <div style={{ marginTop:12, display:'flex', gap:8, padding:'11px 14px', borderRadius:9, background:'rgba(100,116,139,0.08)', border:'1px solid rgba(100,116,139,0.2)' }}>
+        <span style={{ fontSize:16 }}>💡</span>
+        <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.7 }}>
+          <b style={{ color:'#cbd5e1' }}>비교 분석 가이드:</b>{' '}
+          상단 전략 버튼을 2개 이상 켜서 대조해 보세요. 리밸런싱 유무와 주기에 따라 하락장 방어력과 최종 자산 규모가 어떻게 달라지는지 실시간으로 확인할 수 있습니다.
+        </div>
+      </div>
+    )
+
+    // Case 1: 3개 모두 (종합 비교)
+    if (rebalanceQ && rebalanceY && buyAndHold) return (
+      <div style={{ marginTop:12, display:'flex', gap:8, padding:'11px 14px', borderRadius:9, background:'rgba(99,102,241,0.09)', border:'1px solid rgba(99,102,241,0.25)' }}>
+        <span style={{ fontSize:16 }}>🔍</span>
+        <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.7 }}>
+          <b style={{ color:'#818cf8' }}>전체 전략 종합 비교 레포트:</b><br />
+          분기 리밸런싱(+108%) &gt; 단순 보유(+98%) &gt; 연간 리밸런싱(+94%) 순으로 성과가 갈립니다.
+          특히 2022년 하락장 당시 분기 리밸런싱의 MDD는{' '}
+          <b style={{ color:'#10b981' }}>-16.9%</b>로 방치형(<b style={{ color:'#f87171' }}>-34.6%</b>)의 절반 수준에 불과했습니다.
+          리스크를 절반으로 낮추면서도 최종 수익은 더 높이는 것이 가능함을 5년 데이터가 증명합니다.
+        </div>
+      </div>
+    )
+
+    // Case 2: 분기 + 단순 보유 (핵심 교육 뷰)
+    if (rebalanceQ && !rebalanceY && buyAndHold) return (
+      <div style={{ marginTop:12, display:'flex', gap:8, padding:'11px 14px', borderRadius:9, background:'rgba(251,191,36,0.07)', border:'1px solid rgba(251,191,36,0.25)' }}>
+        <span style={{ fontSize:16 }}>⚠️</span>
+        <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.7 }}>
+          <b style={{ color:'#fbbf24' }}>리밸런싱 vs 단순 방치 결정적 차이:</b><br />
+          2022년 하락장 저점(빨간 점)을 복기해 보세요. 방치한 계좌는 고점 대비{' '}
+          <b style={{ color:'#f87171' }}>-34.6%</b> 폭락하며 심리적 한계에 부딪힙니다.
+          반면 분기별 리밸런싱(초록선)은 하락폭을 <b style={{ color:'#10b981' }}>-16.9%</b>로 철저히 방어하고,
+          이때 싼 가격에 자동 매집된 주식들 덕분에 상승장이 오자마자 훨씬 빠르게 복리 성장했습니다.
+        </div>
+      </div>
+    )
+
+    // Case 3: 분기 + 연간 (주기 비교)
+    if (rebalanceQ && rebalanceY && !buyAndHold) return (
+      <div style={{ marginTop:12, display:'flex', gap:8, padding:'11px 14px', borderRadius:9, background:'rgba(16,185,129,0.08)', border:'1px solid rgba(16,185,129,0.25)' }}>
+        <span style={{ fontSize:16 }}>🔄</span>
+        <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.7 }}>
+          <b style={{ color:'#34d399' }}>리밸런싱 주기(빈도)의 비밀:</b><br />
+          연간 1회(보라선)보다 분기별 1회(초록선)로 더 자주 조정하면 2022년 같은 급변 장세에서 훨씬 유리합니다.
+          분기 조율은 시장이 일시적으로 과도하게 눌리는 구간을 기민하게 포착하여,
+          연간 리밸런싱 대비 최종 성과를 약{' '}
+          <b style={{ color:'#34d399' }}>14%p 이상</b> 앞서 나가게 만듭니다.
+        </div>
+      </div>
+    )
+
+    // Case 4: 연간 + 단순 보유
+    if (!rebalanceQ && rebalanceY && buyAndHold) return (
+      <div style={{ marginTop:12, display:'flex', gap:8, padding:'11px 14px', borderRadius:9, background:'rgba(168,85,247,0.08)', border:'1px solid rgba(168,85,247,0.25)' }}>
+        <span style={{ fontSize:16 }}>📊</span>
+        <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.7 }}>
+          <b style={{ color:'#c084fc' }}>연간 관리와 무관심의 차이:</b><br />
+          일 년에 딱 한 번만 리밸런싱해도(보라선) 방치(빨간선)보다 변동성(MDD: -20.5% vs -34.6%)을 크게 낮출 수 있습니다.
+          다만 1년이라는 긴 주기 때문에 하락장 한가운데서 발생하는 저가 매수 기회를 놓쳐 최종 수익률은 다소 아쉽게 마감됩니다.
+        </div>
+      </div>
+    )
+
+    // Case 5: 분기 리밸런싱 단독
+    if (rebalanceQ && !rebalanceY && !buyAndHold) return (
+      <div style={{ marginTop:12, display:'flex', gap:8, padding:'11px 14px', borderRadius:9, background:'rgba(16,185,129,0.07)', border:'1px solid rgba(16,185,129,0.25)' }}>
+        <span style={{ fontSize:16 }}>🟢</span>
+        <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.7 }}>
+          <b style={{ color:'#10b981' }}>분기별 리밸런싱 전략:</b><br />
+          3개월마다 자산 비중을 원래 목표대로 맞춰주는 전략입니다.
+          오를 때 일부 이익 실현, 떨어질 때 기계적으로 분할 매수하는 효과가 자동 발생하여
+          장기 우상향 포트폴리오의 복리 에너지를 극대화하는 최고의 처방전입니다.
+        </div>
+      </div>
+    )
+
+    // Case 6: 단순 보유 단독
+    if (!rebalanceQ && !rebalanceY && buyAndHold) return (
+      <div style={{ marginTop:12, display:'flex', gap:8, padding:'11px 14px', borderRadius:9, background:'rgba(248,113,113,0.08)', border:'1px solid rgba(248,113,113,0.25)' }}>
+        <span style={{ fontSize:16 }}>🔴</span>
+        <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.7 }}>
+          <b style={{ color:'#f87171' }}>단순 보유(Buy & Hold) 무방비 상태:</b><br />
+          좋은 종목이라도 관리를 전혀 하지 않으면 변동성 폭탄을 정면으로 맞습니다.
+          2022년 구간처럼 자산이 <b style={{ color:'#f87171' }}>-34.6%</b>까지 주저앉는 고통을 겪게 되어,
+          투자학교 학생들에게 자산 배분과 주기적 리밸런싱이 왜 생명줄인지 경고합니다.
+        </div>
+      </div>
+    )
+
+    // Case 7: 연간 리밸런싱 단독
+    if (!rebalanceQ && rebalanceY && !buyAndHold) return (
+      <div style={{ marginTop:12, display:'flex', gap:8, padding:'11px 14px', borderRadius:9, background:'rgba(168,85,247,0.07)', border:'1px solid rgba(168,85,247,0.25)' }}>
+        <span style={{ fontSize:16 }}>📅</span>
+        <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.7 }}>
+          <b style={{ color:'#c084fc' }}>연간 리밸런싱 전략:</b><br />
+          1년에 한 번 리밸런싱하는 전략은 관리 부담이 적어 바쁜 직장인에게 적합합니다.
+          단순 방치보다는 분명히 낫지만, 분기별 조정에 비해 급변 장세 대응이 늦어 기회 비용이 발생합니다.
+          입문 단계 전략으로는 충분하며, 익숙해지면 분기별로 업그레이드를 권장합니다.
+        </div>
+      </div>
+    )
+
+    // 기타 (benchmark만 등)
+    return null
+  }
+
   // 5초 타임아웃
   useEffect(() => {
     if (!loading) return
@@ -2685,17 +2798,9 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div style={{ margin:'12px 20px 16px', padding:'12px 14px', borderRadius:10,
-          background:'rgba(251,191,36,0.07)', border:'1px solid rgba(251,191,36,0.25)', display:'flex', gap:10, alignItems:'flex-start' }}>
-          <span style={{ fontSize:18, flexShrink:0, marginTop:1 }}>⚠️</span>
-          <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.75 }}>
-            <span style={{ fontWeight:800, color:'#fbbf24' }}>투자학교 백테스팅 인사이트 (2022년 하락장 복기)</span><br />
-            2022년 대하락장에서 방치한 계좌(빨간선)는 고점 대비{' '}
-            <span style={{ fontWeight:800, color:'#f87171' }}>-34.6% (MDD)</span>나 폭락했습니다.
-            반면 분기별 리밸런싱(초록선)은 하락을{' '}
-            <span style={{ fontWeight:800, color:'#10b981' }}>-16.9%</span>로 방어하며 싼 구간에서 주식을 자동으로 담았기에, 2024년 상승장이 오자 시장보다 빠르게 치고 나가{' '}
-            <span style={{ fontWeight:800, color:'#10b981' }}>자산을 2배 이상(+108%) 복리 성장</span>시켰습니다.
-          </div>
+        {/* ── 버튼 조합별 동적 인사이트 패널 ── */}
+        <div style={{ padding:'0 20px 16px' }}>
+          {renderBtInsight()}
         </div>
       </Card>
       </div>  {/* 투자 타임머신 탭 끝 */}
