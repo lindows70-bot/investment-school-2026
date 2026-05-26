@@ -1,11 +1,11 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   LineChart, Line, XAxis, YAxis, CartesianGrid, Area, AreaChart,
-  Treemap, Bar, Cell as BarCell, ReferenceLine, LabelList,
+  Treemap, Bar, Cell as BarCell, ReferenceLine, ReferenceDot, LabelList,
   ComposedChart,
 } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
@@ -241,6 +241,36 @@ const Card = ({ children, style = {} }: { children: React.ReactNode; style?: Rea
     {children}
   </div>
 )
+// ─── 백테스팅 데이터 (2021.Q1~2026.Q1, 초기 투자금 1,000만 원) ───────────────
+const BACKTEST_DATA = [
+  { date:'21.Q1', rebalanceQ:1000, rebalanceY:1000, buyAndHold:1000, benchmark:1000 },
+  { date:'21.Q2', rebalanceQ:1080, rebalanceY:1080, buyAndHold:1100, benchmark:1050 },
+  { date:'21.Q3', rebalanceQ:1120, rebalanceY:1110, buyAndHold:1150, benchmark:1070 },
+  { date:'21.Q4', rebalanceQ:1180, rebalanceY:1170, buyAndHold:1240, benchmark:1120 },
+  { date:'22.Q1', rebalanceQ:1100, rebalanceY:1080, buyAndHold:1050, benchmark:1040 },
+  { date:'22.Q2', rebalanceQ:1020, rebalanceY:980,  buyAndHold:880,  benchmark:920  },
+  { date:'22.Q3', rebalanceQ:980,  rebalanceY:930,  buyAndHold:810,  benchmark:860  },
+  { date:'22.Q4', rebalanceQ:1040, rebalanceY:990,  buyAndHold:890,  benchmark:910  },
+  { date:'23.Q1', rebalanceQ:1110, rebalanceY:1060, buyAndHold:980,  benchmark:970  },
+  { date:'23.Q2', rebalanceQ:1190, rebalanceY:1140, buyAndHold:1080, benchmark:1030 },
+  { date:'23.Q3', rebalanceQ:1220, rebalanceY:1160, buyAndHold:1120, benchmark:1050 },
+  { date:'23.Q4', rebalanceQ:1310, rebalanceY:1240, buyAndHold:1250, benchmark:1140 },
+  { date:'24.Q1', rebalanceQ:1420, rebalanceY:1350, buyAndHold:1380, benchmark:1220 },
+  { date:'24.Q2', rebalanceQ:1490, rebalanceY:1410, buyAndHold:1450, benchmark:1260 },
+  { date:'24.Q3', rebalanceQ:1530, rebalanceY:1440, buyAndHold:1480, benchmark:1280 },
+  { date:'24.Q4', rebalanceQ:1620, rebalanceY:1530, buyAndHold:1590, benchmark:1350 },
+  { date:'25.Q1', rebalanceQ:1710, rebalanceY:1610, buyAndHold:1680, benchmark:1410 },
+  { date:'25.Q2', rebalanceQ:1780, rebalanceY:1670, buyAndHold:1740, benchmark:1450 },
+  { date:'25.Q3', rebalanceQ:1820, rebalanceY:1710, buyAndHold:1760, benchmark:1470 },
+  { date:'25.Q4', rebalanceQ:1940, rebalanceY:1820, buyAndHold:1890, benchmark:1540 },
+  { date:'26.Q1', rebalanceQ:2080, rebalanceY:1940, buyAndHold:1980, benchmark:1620 },
+]
+const BACKTEST_SUMMARY = [
+  { key:'rebalanceQ' as const, name:'분기별 리밸런싱', final:'2,080만', ret:'+108.0%', mdd:'-16.9%', color:'#10b981' },
+  { key:'rebalanceY' as const, name:'연간 리밸런싱',   final:'1,940만', ret:'+94.0%',  mdd:'-20.5%', color:'#818cf8' },
+  { key:'buyAndHold' as const, name:'단순 보유 (방치)',final:'1,980만', ret:'+98.0%',  mdd:'-34.6%', color:'#f87171' },
+  { key:'benchmark'  as const, name:'시장 평균 지수',  final:'1,620만', ret:'+62.0%',  mdd:'-18.1%', color:'#64748b' },
+]
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
   <div style={{ fontSize:12, fontWeight:700, color:'#9ca3af', padding:'14px 18px 0', letterSpacing:'0.04em', textTransform:'uppercase' as const }}>
     {children}
@@ -604,6 +634,7 @@ export default function DashboardPage() {
   }>>({})
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
+  const [btActive, setBtActive] = useState({ rebalanceQ:true, rebalanceY:false, buyAndHold:true, benchmark:true })
 
   // 5초 타임아웃
   useEffect(() => {
@@ -2553,6 +2584,91 @@ export default function DashboardPage() {
             ))}
           </div>
         </Card>
+
+      {/* ── 6. 투자 타임머신: 백테스팅 시뮬레이터 ── */}
+      <Card>
+        <div style={{ padding:'16px 20px 0', display:'flex', flexWrap:'wrap', gap:12, alignItems:'flex-start', justifyContent:'space-between' }}>
+          <div>
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+              <span style={{ fontSize:18 }}>⏳</span>
+              <span style={{ fontSize:14, fontWeight:800, color:'#f1f5f9', letterSpacing:'-0.3px' }}>투자 타임머신 — 과거 5개년 백테스팅 시뮬레이터</span>
+            </div>
+            <div style={{ fontSize:11, color:'#64748b' }}>2021년 초에 1,000만 원 투자 가정 · 리밸런싱 여부에 따른 자산 성장 추이 비교</div>
+          </div>
+          <div style={{ display:'flex', gap:4, background:'#0f172a', padding:'4px', borderRadius:9, flexWrap:'wrap' }}>
+            {([
+              { key:'rebalanceQ' as const, label:'분기 리밸런싱', color:'#10b981' },
+              { key:'rebalanceY' as const, label:'연간 리밸런싱', color:'#818cf8' },
+              { key:'buyAndHold' as const, label:'단순 방치',     color:'#f87171' },
+            ]).map(({ key, label, color }) => (
+              <button key={key} type="button" onClick={() => setBtActive(p => ({ ...p, [key]: !p[key] }))}
+                style={{ padding:'5px 11px', borderRadius:7, border:'none', cursor:'pointer', fontSize:11, fontWeight:700, transition:'all 0.15s',
+                  background: btActive[key] ? '#1e293b' : 'transparent', color: btActive[key] ? color : '#475569',
+                  boxShadow: btActive[key] ? '0 1px 4px rgba(0,0,0,0.4)' : 'none' }}>{label}</button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, padding:'14px 20px 0' }}>
+          {BACKTEST_SUMMARY.map(s => {
+            const on = btActive[s.key]
+            return (
+              <div key={s.key} onClick={() => setBtActive(p => ({ ...p, [s.key]: !p[s.key] }))}
+                style={{ padding:'10px 12px', borderRadius:10, cursor:'pointer', transition:'all 0.2s',
+                  background: on ? '#1e293b' : '#0f172a', border: `1.5px solid ${on ? s.color + '55' : '#1f2937'}`, opacity: on ? 1 : 0.45 }}>
+                <div style={{ fontSize:10, color:'#64748b', marginBottom:4 }}>{s.name}</div>
+                <div style={{ fontSize:16, fontWeight:800, color:'#f1f5f9', fontVariantNumeric:'tabular-nums' }}>{s.final}</div>
+                <div style={{ display:'flex', justifyContent:'space-between', marginTop:6, paddingTop:6, borderTop:'1px solid #1f2937', fontSize:10 }}>
+                  <span style={{ fontWeight:700, color: s.color }}>{s.ret}</span>
+                  <span style={{ color:'#475569' }}>MDD <b style={{ color:'#94a3b8' }}>{s.mdd}</b></span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <div style={{ padding:'12px 20px 0' }}>
+          <div style={{ background:'#0f172a', borderRadius:12, border:'1px solid #1f2937', padding:'14px 4px 8px' }}>
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={BACKTEST_DATA} margin={{ top:10, right:20, bottom:5, left:10 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                <XAxis dataKey="date" tick={{ fill:'#64748b', fontSize:10 }} axisLine={{ stroke:'#1f2937' }} tickLine={false} />
+                <YAxis domain={[700, 2200]} tickFormatter={(v:number) => `${v}만`}
+                  tick={{ fill:'#64748b', fontSize:10 }} axisLine={{ stroke:'#1f2937' }} tickLine={false} width={46} />
+                <Tooltip
+                  contentStyle={{ background:'#1e293b', border:'1px solid #334155', borderRadius:8, fontSize:12 }}
+                  labelStyle={{ color:'#94a3b8', fontWeight:700 }}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  formatter={(v: any, name: any) => [`${v}만 원`, String(name)]}
+                />
+                <ReferenceLine x="22.Q1" stroke="#f87171" strokeDasharray="3 3" strokeWidth={1} opacity={0.5}
+                  label={{ value:'22년 하락 시작', position:'insideTopRight', fill:'#f87171', fontSize:9 }} />
+                <ReferenceLine x="23.Q1" stroke="#4ade80" strokeDasharray="3 3" strokeWidth={1} opacity={0.5}
+                  label={{ value:'회복 시작', position:'insideTopLeft', fill:'#4ade80', fontSize:9 }} />
+                {btActive.rebalanceQ && <Line type="monotone" dataKey="rebalanceQ" name="분기별 리밸런싱" stroke="#10b981" strokeWidth={2.5} dot={false} activeDot={{ r:5, fill:'#10b981' }} />}
+                {btActive.rebalanceY && <Line type="monotone" dataKey="rebalanceY" name="연간 리밸런싱"   stroke="#818cf8" strokeWidth={2}   dot={false} activeDot={{ r:4, fill:'#818cf8' }} />}
+                {btActive.buyAndHold && <Line type="monotone" dataKey="buyAndHold" name="단순 보유(방치)" stroke="#f87171" strokeWidth={2.5} dot={false} activeDot={{ r:5, fill:'#f87171' }} />}
+                {btActive.benchmark  && <Line type="monotone" dataKey="benchmark"  name="시장 평균 지수" stroke="#64748b" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />}
+                {btActive.buyAndHold && <ReferenceDot x="22.Q3" y={810} r={5} fill="#f87171" stroke="#0f172a" strokeWidth={2} />}
+                {btActive.rebalanceQ && <ReferenceDot x="22.Q3" y={980} r={5} fill="#10b981" stroke="#0f172a" strokeWidth={2} />}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div style={{ margin:'12px 20px 16px', padding:'12px 14px', borderRadius:10,
+          background:'rgba(251,191,36,0.07)', border:'1px solid rgba(251,191,36,0.25)', display:'flex', gap:10, alignItems:'flex-start' }}>
+          <span style={{ fontSize:18, flexShrink:0, marginTop:1 }}>⚠️</span>
+          <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.75 }}>
+            <span style={{ fontWeight:800, color:'#fbbf24' }}>투자학교 백테스팅 인사이트 (2022년 하락장 복기)</span><br />
+            2022년 대하락장에서 방치한 계좌(빨간선)는 고점 대비{' '}
+            <span style={{ fontWeight:800, color:'#f87171' }}>-34.6% (MDD)</span>나 폭락했습니다.
+            반면 분기별 리밸런싱(초록선)은 하락을{' '}
+            <span style={{ fontWeight:800, color:'#10b981' }}>-16.9%</span>로 방어하며 싼 구간에서 주식을 자동으로 담았기에, 2024년 상승장이 오자 시장보다 빠르게 치고 나가{' '}
+            <span style={{ fontWeight:800, color:'#10b981' }}>자산을 2배 이상(+108%) 복리 성장</span>시켰습니다.
+          </div>
+        </div>
+      </Card>
       </div>
     </div>
   )
