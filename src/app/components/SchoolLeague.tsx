@@ -1185,7 +1185,6 @@ export default function SchoolLeague() {
               cash, newTotal, tgtCore, tgtSaddle,
               coreDiff, saddleDiff,
               isCase1, isCase3,
-              cashOnlyCorePercent,
             } = rebalancePlan
 
             // 금액 포맷 헬퍼
