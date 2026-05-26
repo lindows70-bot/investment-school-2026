@@ -2,11 +2,15 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import FullCandleChart from '@/app/components/FullCandleChart'
+import LynchWizard    from '@/app/components/LynchWizard'
 import type { Candle } from '@/app/components/CandleChart'
 
 const N   = '#1b1e2e'
 const SHO = '7px 7px 18px #0e1020, -4px -4px 12px #282c44'
 const SHI = 'inset 4px 4px 10px #0e1020, inset -3px -3px 8px #282c44'
+
+// 탭: 'chart' = 차트 리서치 | 'wizard' = 피터린치 진단
+type ResearchTab = 'chart' | 'wizard'
 
 type Market = 'US' | 'KR' | 'CRYPTO'
 type TimeFrame = '1D' | '1W' | '1M' | '1Y'
@@ -40,6 +44,9 @@ interface WatchlistItem {
 }
 
 export default function ResearchPage() {
+  // ── 상단 탭 ────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<ResearchTab>('chart')
+
   const [query,      setQuery]      = useState('')
   const [loading,    setLoading]    = useState(false)
   const [priceData,  setPriceData]  = useState<StockPrice | null>(null)
@@ -182,6 +189,37 @@ export default function ResearchPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}`}</style>
+
+      {/* ── 탭 네비게이션 ───────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: 6, borderBottom: `1px solid #252840`, paddingBottom: 0 }}>
+        {([
+          { key: 'chart',  label: '📈 차트 리서치',     desc: '실시간 캔들 + 핵심 지표' },
+          { key: 'wizard', label: '🔬 피터린치 진단',   desc: '3단계 인터랙티브 분류 위저드' },
+        ] as { key: ResearchTab; label: string; desc: string }[]).map(({ key, label, desc }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            style={{
+              padding: '10px 18px 12px', border: 'none', cursor: 'pointer',
+              background: 'transparent', fontSize: 13, fontWeight: 700,
+              color:       activeTab === key ? '#fbbf24' : '#454868',
+              borderBottom: `3px solid ${activeTab === key ? '#fbbf24' : 'transparent'}`,
+              transition: 'all 0.18s',
+            }}
+          >
+            <div>{label}</div>
+            <div style={{ fontSize: 9, fontWeight: 400, color: activeTab === key ? '#92400e' : '#363855', marginTop: 1 }}>
+              {desc}
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* ── 피터린치 진단 위저드 탭 ───────────────────────────── */}
+      {activeTab === 'wizard' && <LynchWizard />}
+
+      {/* ── 차트 리서치 탭 (기존 UI 전체) ────────────────────── */}
+      {activeTab === 'chart' && (<>
 
       {/* Search bar */}
       <div style={{ background: N, boxShadow: SHO, borderRadius: 16, padding: '16px 20px' }}>
@@ -454,6 +492,8 @@ export default function ResearchPage() {
           </div>
         </div>
       )}
+
+      </>)} {/* activeTab === 'chart' 닫기 */}
     </div>
   )
 }
