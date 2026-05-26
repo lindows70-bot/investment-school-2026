@@ -6,8 +6,7 @@ import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   LineChart, Line, XAxis, YAxis, CartesianGrid, Area, AreaChart,
   Treemap, Bar, Cell as BarCell, ReferenceLine, ReferenceDot, LabelList,
-  ComposedChart,
-  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
+  ComposedChart
 } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
 import AIPortfolioDashboard from '@/app/components/AIPortfolioDashboard'
