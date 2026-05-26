@@ -51,6 +51,7 @@ export interface SchoolLeagueData {
   students:       StudentPortfolio[]
   trendingStocks: TrendingStock[]
   computedAt:     string
+  migratedCount:  number   // 이번 요청에서 소급 정정된 asset_role 개수
 }
 
 // ── 아바타 색상 팔레트 (결정론적 할당) ──────────────────────────
@@ -77,6 +78,37 @@ const TICKER_COLORS = [
   '#fb923c','#c084fc','#f87171','#818cf8','#34d399',
 ]
 
+// ── 인라인 마이그레이션 헬퍼 ─────────────────────────────────────
+// school-league 집계 전 asset_role 소급 정정 (불일치 항목만 업데이트)
+async function migrateAssetRoles(
+  sb: ReturnType<typeof adminClient>,
+  investments: { id: string; ticker: string | null; name: string | null; market: string | null; asset_role: string | null }[]
+): Promise<{ updated: number }> {
+  const toUpdate: { id: string; asset_role: 'CORE' | 'SATELLITE' }[] = []
+
+  for (const inv of investments) {
+    const market     = (inv.market ?? 'KR') as 'US' | 'KR' | 'CRYPTO'
+    const classified = classifyAsset(inv.ticker ?? '', inv.name ?? '', market)
+    if (inv.asset_role !== classified) {
+      toUpdate.push({ id: inv.id, asset_role: classified })
+    }
+  }
+
+  if (toUpdate.length === 0) return { updated: 0 }
+
+  // 배치 upsert (30개씩)
+  let updated = 0
+  const CHUNK = 30
+  for (let i = 0; i < toUpdate.length; i += CHUNK) {
+    const chunk = toUpdate.slice(i, i + CHUNK)
+    const { error } = await sb.from('investments').upsert(chunk, { onConflict: 'id' })
+    if (!error) updated += chunk.length
+  }
+
+  console.log(`[school-league] asset_role 소급 정정: ${updated}개 업데이트`)
+  return { updated }
+}
+
 // ── Route Handler ────────────────────────────────────────────────
 export async function GET() {
   try {
@@ -99,7 +131,19 @@ export async function GET() {
       .select('id, user_id, ticker, name, market, currency, purchase_price, quantity, asset_role')
 
     if (invErr) throw invErr
-    const investments = allInvestments ?? []
+    let investments = allInvestments ?? []
+
+    // ── 2-b. asset_role 소급 정정 (classifyAsset 기준 불일치 항목 업데이트) ──
+    // 집계 전 DB를 먼저 정정하고, 정정된 값으로 stats 계산
+    let migratedCount = 0
+    ;({ updated: migratedCount } = await migrateAssetRoles(sb, investments))
+    if (migratedCount > 0) {
+      // 업데이트가 발생했으면 최신 데이터 다시 조회
+      const { data: refreshed } = await sb
+        .from('investments')
+        .select('id, user_id, ticker, name, market, currency, purchase_price, quantity, asset_role')
+      if (refreshed) investments = refreshed
+    }
 
     // user_id별 투자 목록 그룹핑
     const invByUser: Record<string, typeof investments> = {}
@@ -256,7 +300,8 @@ export async function GET() {
     const result: SchoolLeagueData = {
       students,
       trendingStocks,
-      computedAt: new Date().toISOString(),
+      computedAt:    new Date().toISOString(),
+      migratedCount,
     }
 
     return NextResponse.json(result, {

@@ -193,20 +193,18 @@ function Tab({
 }
 
 // ── 로딩 스피너 ──────────────────────────────────────────────────
-function LoadingSpinner() {
+function LoadingSpinner({ msg }: { msg: string }) {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center',
       justifyContent: 'center', gap: 16, padding: '80px 0',
       color: C.textLow,
     }}>
-      <Loader2
-        size={32}
-        color={C.amber}
-        style={{ animation: 'spin 1s linear infinite' }}
-      />
-      <div style={{ fontSize: 14, color: C.textMid }}>스쿨 리그 데이터 집계 중…</div>
-      <div style={{ fontSize: 11, color: C.textLow }}>전체 학생 포트폴리오를 실시간 가격으로 계산합니다</div>
+      <Loader2 size={32} color={C.amber} style={{ animation: 'spin 1s linear infinite' }} />
+      <div style={{ fontSize: 14, color: C.textMid }}>{msg}</div>
+      <div style={{ fontSize: 11, color: C.textLow }}>
+        자산 분류 소급 검증 → 실시간 가격 집계 → 리더보드 산출
+      </div>
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </div>
   )
@@ -250,11 +248,13 @@ function CustomTooltip({ active, payload, label }: any) {
 // ══════════════════════════════════════════════════════════════════
 export default function SchoolLeague() {
   // ── 상태 ───────────────────────────────────────────────────────
-  const [data,    setData]    = useState<SchoolLeagueData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState<string | null>(null)
-  const [myName,  setMyName]  = useState<string | null>(null)
-  const [period]              = useState<Period>('cumulative')   // 현재 누적만 지원
+  const [data,          setData]         = useState<SchoolLeagueData | null>(null)
+  const [loading,       setLoading]      = useState(true)
+  const [loadingMsg,    setLoadingMsg]   = useState('스쿨 리그 데이터 집계 중…')
+  const [error,         setError]        = useState<string | null>(null)
+  const [myName,        setMyName]       = useState<string | null>(null)
+  const [migratedCount, setMigratedCount] = useState<number>(0)
+  const [period]                         = useState<Period>('cumulative')
 
   // ── 현재 로그인 유저 이름 ────────────────────────────────────
   useEffect(() => {
@@ -270,16 +270,23 @@ export default function SchoolLeague() {
     load()
   }, [])
 
-  // ── 스쿨 리그 API 호출 ────────────────────────────────────────
+  // ── 스쿨 리그 API 호출 (내부적으로 마이그레이션 실행 포함) ──────
   useEffect(() => {
     const fetch_ = async () => {
       setLoading(true)
+      setLoadingMsg('기존 자산 분류 데이터 검증 중…')
       setError(null)
       try {
+        // school-league API가 내부적으로 asset_role 소급 정정 실행
+        setLoadingMsg('전체 포트폴리오 실시간 집계 중…')
         const res = await fetch('/api/school-league', { cache: 'no-store' })
         if (!res.ok) throw new Error(`서버 오류 (${res.status})`)
         const json: SchoolLeagueData = await res.json()
         setData(json)
+        // 마이그레이션 결과 표시 (업데이트된 항목 수)
+        if (json.migratedCount && json.migratedCount > 0) {
+          setMigratedCount(json.migratedCount)
+        }
       } catch (e) {
         setError((e as Error).message)
       } finally {
@@ -355,7 +362,7 @@ export default function SchoolLeague() {
   // ── 렌더링 ─────────────────────────────────────────────────────
   if (loading) return (
     <div style={{ background: C.bg, minHeight: '60vh', fontFamily: '-apple-system,sans-serif' }}>
-      <LoadingSpinner />
+      <LoadingSpinner msg={loadingMsg} />
     </div>
   )
   if (error) return (
@@ -827,6 +834,11 @@ export default function SchoolLeague() {
           데이터 기준: 실시간 DB + 시세 · 금액(₩) 비공개 · 수익률(%)·비중(%)만 공개 ·
           미등록자는 통계 집계에서 제외 ·
           {data?.computedAt && ` 최종 집계: ${new Date(data.computedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`}
+          {migratedCount > 0 && (
+            <span style={{ color: C.green, marginLeft: 8, fontWeight: 700 }}>
+              · ✅ 자산분류 {migratedCount}건 소급 정정 완료
+            </span>
+          )}
         </span>
       </div>
     </div>
