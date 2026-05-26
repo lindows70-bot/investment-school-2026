@@ -73,21 +73,19 @@ export async function POST() {
     }
   }
 
-  // ── 3. Supabase 배치 업데이트 (30개씩 청크) ──────────────────
-  const CHUNK = 30
-  for (let i = 0; i < toUpdate.length; i += CHUNK) {
-    const chunk = toUpdate.slice(i, i + CHUNK)
+  // ── 3. 개별 UPDATE (upsert 대신 — NOT NULL 컬럼 보호) ─────────
+  // upsert는 제공되지 않은 컬럼을 DEFAULT로 덮어쓸 위험이 있으므로
+  // update().eq('id', id) 를 병렬 실행하는 방식으로 안전하게 처리
+  const updateResults = await Promise.allSettled(
+    toUpdate.map(({ id, asset_role }) =>
+      sb.from('investments').update({ asset_role }).eq('id', id)
+    )
+  )
 
-    // Supabase는 배열 upsert를 지원하므로 한 번의 호출로 처리
-    const { error: upErr } = await sb
-      .from('investments')
-      .upsert(chunk, { onConflict: 'id' })
-
-    if (upErr) {
-      console.error('[migrate-asset-roles] 배치 업데이트 오류:', upErr.message)
-      // 실패 청크는 건너뜀 (개별 롤백 불필요)
-    } else {
-      updated += chunk.length
+  for (const r of updateResults) {
+    if (r.status === 'fulfilled' && !r.value.error) updated++
+    else if (r.status === 'rejected') {
+      console.error('[migrate-asset-roles] 개별 업데이트 오류:', r.reason)
     }
   }
 

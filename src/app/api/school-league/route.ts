@@ -96,16 +96,15 @@ async function migrateAssetRoles(
 
   if (toUpdate.length === 0) return { updated: 0 }
 
-  // 배치 upsert (30개씩)
-  let updated = 0
-  const CHUNK = 30
-  for (let i = 0; i < toUpdate.length; i += CHUNK) {
-    const chunk = toUpdate.slice(i, i + CHUNK)
-    const { error } = await sb.from('investments').upsert(chunk, { onConflict: 'id' })
-    if (!error) updated += chunk.length
-  }
+  // ★ update().eq() 방식 — upsert는 NOT NULL 컬럼을 덮어써 데이터 손상 위험
+  const results = await Promise.allSettled(
+    toUpdate.map(({ id, asset_role }) =>
+      sb.from('investments').update({ asset_role }).eq('id', id)
+    )
+  )
+  const updated = results.filter(r => r.status === 'fulfilled' && !(r as PromiseFulfilledResult<{error:unknown}>).value.error).length
 
-  console.log(`[school-league] asset_role 소급 정정: ${updated}개 업데이트`)
+  console.log(`[school-league] asset_role 소급 정정: ${updated}/${toUpdate.length}개 업데이트`)
   return { updated }
 }
 
