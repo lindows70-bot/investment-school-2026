@@ -2430,8 +2430,8 @@ export default function DashboardPage() {
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
               <thead>
                 <tr style={{ borderBottom:'1px solid #1f2937' }}>
-                  {/* ★ '매수수량' 컬럼 추가 */}
-                  {['자산명','시장','매수수량','매수단가','현재가','수익률','7일 추이'].map(h => (
+                  {/* ★ '자산분류' 컬럼 추가 — RebalanceWidget 색상과 동기화 */}
+                  {['자산명','시장','자산분류','매수수량','매수단가','현재가','수익률','7일 추이'].map(h => (
                     <th key={h} style={{ padding:'6px 14px', textAlign:'left', fontSize:9, fontWeight:700, color:'#4b5563', textTransform:'uppercase', letterSpacing:'0.07em', whiteSpace:'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -2454,6 +2454,32 @@ export default function DashboardPage() {
                       </td>
                       <td style={{ padding:'9px 14px' }}>
                         <span style={{ fontSize:9,fontWeight:700,color:MKT_COLOR[inv.market],border:`1px solid ${MKT_COLOR[inv.market]}44`,borderRadius:4,padding:'1px 4px' }}>{inv.market}</span>
+                      </td>
+                      {/* ★ 자산분류 배지 — RebalanceWidget Core=#38bdf8 / Sat=#fb923c 동기화 */}
+                      <td style={{ padding:'9px 14px' }}>
+                        {(() => {
+                          const isCore = isCoreInv(inv)
+                          return (
+                            <span style={{
+                              display:       'inline-flex',
+                              alignItems:    'center',
+                              gap:           3,
+                              fontSize:      9,
+                              fontWeight:    800,
+                              letterSpacing: '0.06em',
+                              padding:       '2px 7px',
+                              borderRadius:  5,
+                              whiteSpace:    'nowrap',
+                              // Core: #38bdf8 계열 (리밸런싱 바와 동일)
+                              // Satellite: #fb923c 계열 (리밸런싱 바와 동일)
+                              color:      isCore ? '#38bdf8'                : '#fb923c',
+                              background: isCore ? 'rgba(56,189,248,0.10)' : 'rgba(251,146,60,0.10)',
+                              border:     isCore ? '1px solid rgba(56,189,248,0.22)' : '1px solid rgba(251,146,60,0.22)',
+                            }}>
+                              {isCore ? '🛡 CORE' : '🚀 SAT'}
+                            </span>
+                          )
+                        })()}
                       </td>
                       {/* ★ 매수수량 셀 */}
                       <td style={{ padding:'9px 14px', color:'#60a5fa', fontVariantNumeric:'tabular-nums', fontWeight:600, whiteSpace:'nowrap' }}>
@@ -2482,8 +2508,8 @@ export default function DashboardPage() {
                 {/* 합계 행 */}
                 {investments.length > 0 && (
                   <tr style={{ borderTop:'2px solid #374151', background:'#0d1117' }}>
-                    {/* ★ 매수수량 컬럼 추가로 colSpan 3→4 */}
-                    <td colSpan={4} style={{ padding:'9px 14px', fontWeight:700, color:'#f1f5f9', fontSize:12 }}>합계 ({investments.length}종목)</td>
+                    {/* ★ 자산분류 컬럼 추가로 colSpan 4→5 */}
+                    <td colSpan={5} style={{ padding:'9px 14px', fontWeight:700, color:'#f1f5f9', fontSize:12 }}>합계 ({investments.length}종목)</td>
                     <td style={{ padding:'9px 14px', fontWeight:700, color:'#f1f5f9', fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap' }}>
                       {pricedInvs.length ? fmtKrw(totalCurrKrw) : '—'}
                     </td>
