@@ -1,6 +1,6 @@
-# 2026 투자학교 포트폴리오 앱
+﻿# 2026 투자학교 포트폴리오 앱
 
-> **최종 업데이트**: 2026-05-26 (오늘 세션 작업 반영)
+> **최종 업데이트**: 2026-05-27 (오늘 세션 작업 반영)
 
 ## 프로젝트 개요
 
@@ -312,6 +312,45 @@ DATA_GO_KR_SERVICE_KEY=  # 공공데이터포털 (미사용/예약)
 
 ---
 
+
+---
+
+## 오늘 세션 작업 완료 목록 (2026-05-27)
+
+### ✅ 1. 대시보드 탭 구조 개선 — 백테스팅 분리 + AI 멘토 탭 추가
+- dashboard/page.tsx: 3탭 구조 (📊 실시간 대시보드 / ⏳ 투자 타임머신 (백테스트) / 🤖 AI 멘토 족집게)
+- display: 'flex' | 'none' 방식으로 탭 콘텐츠 완전 격리 (Fragment 방식의 JSX 구조 버그 해결)
+- 백테스팅 enderBtInsight(): 7가지 버튼 조합 매트릭스 → 동적 인사이트 패널
+
+### ✅ 2. 피터 린치 AI 분석 대시보드 (AIPortfolioDashboard.tsx) 최종 완성
+- **props 방어막 3중 구조**: portfolioStocks|stocks|portfolio|items|data|list 순서 탐색
+- **데이터 정규화**: 명칭 편차 (띄어쓰기·축약형·영어 DB키) 자동 정규화
+  - ast_grower → 고성장주, stalwart → 대형우량주 등 DB 영어키 직접 변환
+- **ETF/원자재 자동 제외**: per=0 && growthRate=0 인 자산 차트에서 자동 제외 (0,0 뭉침 원천 차단)
+- **"해당없음" 슬롯**: ETF·지수·가상자산 → 별도 요약 바로 표시
+- **원자재 패턴 감지**: PHYSICAL/SILVER/GOLD/TRUST/SPROTT 키워드 또는 PSLV/GLD/SLV 등 티커 → 강제 해당없음 (DB 값 무관하게 코드가 덮어씀)
+- **커스텀 툴팁**: 차트 라벨 겹침 해결 → hover 시 종목 상세 팝업
+- **차트 종목명 직접 표시**: custom shape으로 dot 위에 종목명 바로 표시 (hover 불필요)
+- **범례**: 🟢 저평가(PEG≤1.0) / 🔴 고평가(PEG>1.0)
+
+### ✅ 3. AI 분석 데이터 연결 — dividendMap 확장
+- **근본 원인 수정**: priceMap은 주가 API라 KR 종목의 pe='N/A'(문자열) → 차트 비어있음
+- **해결**: 이미 실행 중인 /api/stock-info 배치 호출(dividendMap)에서 pe, peg도 함께 저장
+- dividendMap[ticker].pe, dividendMap[ticker].peg → growthRate = pe / peg 역산
+- investments 배열을 3개 prop 이름으로 동시 전달: portfolioStocks, stocks, data
+
+### ✅ 4. lynch_category 영어키 매핑 수정
+- DB에 ast_grower, stalwart, cyclical 등 영어키로 저장 → 컴포넌트가 한국어로만 매칭해 전부 해당없음 버그
+- ENGLISH_MAP 추가: DB 영어키 → 한국어 1순위 직접 변환으로 수정
+
+### ✅ 5. PSLV(Sprott Physical Silver Trust) 오분류 수정
+- DB에 lynch_category = 'fast_grower'로 잘못 저장 → 고성장주 탭에 노출
+- DB 제약조건으로 직접 수정 불가 → 코드로 완전 해결
+- 종목명/티커 패턴 감지 로직 추가 (DB값보다 코드 우선)
+
+---
+
+## 미완성 / 예약 기능 (업데이트)
 ## 미완성 / 예약 기능
 
 | 항목 | 상태 | 비고 |
