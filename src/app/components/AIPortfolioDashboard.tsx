@@ -134,8 +134,12 @@ export default function AIPortfolioDashboard(props: any) {
       const raw    = rawKey.replace(/\s+/g, '')
       let lynchType = '해당없음'
 
+      // 'na', 'N/A', null, '' → 해당없음 (ETF·원자재·가상자산 등)
+      if (!rawKey || rawKey === 'na' || rawKey.toLowerCase() === 'n/a') {
+        lynchType = '해당없음'
+      }
       // 1순위: DB 영어 키 직접 변환
-      if (ENGLISH_MAP[rawKey]) {
+      else if (ENGLISH_MAP[rawKey]) {
         lynchType = ENGLISH_MAP[rawKey]
       }
       // 2순위: 한국어 완전 일치
