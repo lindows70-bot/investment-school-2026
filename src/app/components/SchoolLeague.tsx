@@ -1432,17 +1432,20 @@ export default function SchoolLeague() {
         const dominantPct = schoolAvg[dominant.key] ?? 0
 
         // ── PEG 산점도 데이터 (중복 방지: 종목당 단일 lynchType) ──
+        // 중복 방지: 각 종목에 단일 lynchType 지정 / 한국 6자리 티커 포함
         const PEG_DATA = [
-          { name:'NVIDIA',          ticker:'NVDA',   lynchType:'고성장주',    per:36,  growthRate:40, peg:0.90 },
-          { name:'Palantir',        ticker:'PLTR',   lynchType:'고성장주',    per:68,  growthRate:32, peg:2.13 },
-          { name:'한화에어로스페이스', ticker:'012450', lynchType:'고성장주',    per:28,  growthRate:25, peg:1.12 },
-          { name:'GE Vernova',      ticker:'GEV',    lynchType:'고성장주',    per:52,  growthRate:38, peg:1.37 },
-          { name:'SK하이닉스',       ticker:'000660', lynchType:'경기순환주',  per:10,  growthRate:35, peg:0.29 },
-          { name:'삼성전자',          ticker:'005930', lynchType:'경기순환주',  per:13,  growthRate:22, peg:0.59 },
-          { name:'HD현대중공업',      ticker:'329180', lynchType:'경기순환주',  per:18,  growthRate:20, peg:0.90 },
-          { name:'두산에너빌리티',    ticker:'034020', lynchType:'턴어라운드주', per:20,  growthRate:22, peg:0.91 },
-          { name:'에이피알',          ticker:'278470', lynchType:'고성장주',    per:22,  growthRate:18, peg:1.22 },
-          { name:'삼성생명',          ticker:'032830', lynchType:'저성장주',    per:8,   growthRate:8,  peg:1.00 },
+          { name:'엔비디아',          ticker:'NVDA',   lynchType:'고성장주',    per:32.5, growthRate:35, peg:0.93 },
+          { name:'팔란티어',          ticker:'PLTR',   lynchType:'고성장주',    per:45.0, growthRate:50, peg:0.90 },
+          { name:'한화에어로스페이스', ticker:'012450', lynchType:'고성장주',    per:28.0, growthRate:25, peg:1.12 },
+          { name:'GE Vernova',       ticker:'GEV',    lynchType:'고성장주',    per:52.0, growthRate:38, peg:1.37 },
+          { name:'삼성전자',           ticker:'005930', lynchType:'대형우량주',  per:14.5, growthRate:12, peg:1.21 },
+          { name:'마이크로소프트',     ticker:'MSFT',   lynchType:'대형우량주',  per:28.0, growthRate:14, peg:2.00 },
+          { name:'SK하이닉스',        ticker:'000660', lynchType:'경기순환주',  per:10.0, growthRate:35, peg:0.29 },
+          { name:'현대차',             ticker:'005380', lynchType:'경기순환주',  per:6.5,  growthRate:8,  peg:0.81 },
+          { name:'HD현대중공업',       ticker:'329180', lynchType:'경기순환주',  per:18.0, growthRate:20, peg:0.90 },
+          { name:'두산에너빌리티',     ticker:'034020', lynchType:'턴어라운드주', per:20.0, growthRate:22, peg:0.91 },
+          { name:'코카콜라',           ticker:'KO',     lynchType:'저성장주',    per:22.0, growthRate:5,  peg:4.40 },
+          { name:'삼성생명',           ticker:'032830', lynchType:'저성장주',    per:8.0,  growthRate:8,  peg:1.00 },
         ]
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1594,7 +1597,7 @@ export default function SchoolLeague() {
                         return (
                           <g>
                             <circle cx={cx} cy={cy} r={7} fill={col} opacity={0.85} stroke={C.bg} strokeWidth={1.5} />
-                            <text x={cx} y={cy - 11} textAnchor="middle" fill={C.textMid} fontSize={8} fontWeight={600}>{payload.ticker}</text>
+                            <text x={cx} y={cy - 11} textAnchor="middle" fill={C.textMid} fontSize={8} fontWeight={600}>{payload.name}</text>
                           </g>
                         )
                       }}
