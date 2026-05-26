@@ -257,6 +257,12 @@ export default function SchoolLeague() {
   const [targetCore,    setTargetCore]    = useState<number>(70)  // 내 목표 코어 비중 (strategy_configs)
   const [period]                          = useState<Period>('cumulative')
 
+  // ── 리밸런싱 시뮬레이터 상태 ─────────────────────────────────
+  const [totalAssets,   setTotalAssets]   = useState<number>(0)     // 현재 총 자산 (투자금 기준 자동 로드)
+  const [assetAutoLoaded, setAssetAutoLoaded] = useState(false)      // 자동 로드 여부
+  const [additionalCash, setAdditionalCash] = useState<string>('')   // 이번 달 추가 투자금 (입력)
+  const [cashUnit,       setCashUnit]     = useState<'원' | '만원'>('만원') // 입력 단위
+
   // ── 현재 로그인 유저 이름 ────────────────────────────────────
   useEffect(() => {
     const load = async () => {
@@ -284,6 +290,31 @@ export default function SchoolLeague() {
           .single()
         if (data?.core_pct != null && data.core_pct > 0) setTargetCore(data.core_pct)
       } catch { /* 기본값 70% 유지 */ }
+    }
+    load()
+  }, [])
+
+  // ── 내 총 자산 자동 로드 (투자금 기준 — 현재가 불필요) ──────────
+  // purchase_price × quantity × 환율 합산 → 총 투자 원금 계산
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const sb = createClient()
+        const { data: { user } } = await sb.auth.getUser()
+        if (!user) return
+        const { data: invs } = await sb
+          .from('investments')
+          .select('purchase_price, quantity, currency')
+          .eq('user_id', user.id)
+        if (!invs?.length) return
+        const USD_KRW = 1_350
+        const total = invs.reduce((s, i) => {
+          const rate = i.currency === 'USD' ? USD_KRW : 1
+          return s + (Number(i.purchase_price) || 0) * (Number(i.quantity) || 0) * rate
+        }, 0)
+        setTotalAssets(Math.round(total))
+        setAssetAutoLoaded(true)
+      } catch { /* 수동 입력으로 대체 */ }
     }
     load()
   }, [])
@@ -376,6 +407,42 @@ export default function SchoolLeague() {
     { label: 'Core',      avg: avgCore, me: myCore },
     { label: 'Satellite', avg: avgSat,  me: mySat  },
   ]
+
+  // ── 리밸런싱 시뮬레이터 계산 (useMemo) ───────────────────────
+  const rebalancePlan = useMemo(() => {
+    if (totalAssets <= 0) return null
+
+    // 추가 투자금 원화 환산
+    const addCashNum = parseFloat(additionalCash.replace(/,/g, '')) || 0
+    const addKrw     = cashUnit === '만원' ? addCashNum * 10_000 : addCashNum
+
+    const newTotal    = totalAssets + addKrw
+    const targetCoreRatio = targetCore / 100
+    const targetSatRatio  = (100 - targetCore) / 100
+
+    // 현재 금액
+    const currentCoreAmt = totalAssets * (myCore / 100)
+    const currentSatAmt  = totalAssets * (mySat  / 100)
+
+    // 목표 금액 (새로운 총자산 기준)
+    const targetCoreAmt  = newTotal * targetCoreRatio
+    const targetSatAmt   = newTotal * targetSatRatio
+
+    // 조정 필요액 (양수 = 매수, 음수 = 매도)
+    const coreAdjust = targetCoreAmt - currentCoreAmt
+    const satAdjust  = targetSatAmt  - currentSatAmt
+
+    return {
+      addKrw,
+      newTotal,
+      currentCoreAmt,
+      currentSatAmt,
+      targetCoreAmt,
+      targetSatAmt,
+      coreAdjust,
+      satAdjust,
+    }
+  }, [totalAssets, additionalCash, cashUnit, myCore, mySat, targetCore])
 
   // ── 렌더링 ─────────────────────────────────────────────────────
   if (loading) return (
@@ -904,6 +971,270 @@ export default function SchoolLeague() {
           })()}
         </Card>
       </div>
+
+      {/* ══════════════════════════════════════════════════════════
+          SECTION 4-b: 스마트 리밸런싱 처방전 시뮬레이터
+      ══════════════════════════════════════════════════════════ */}
+      {myStudent && (
+        <Card>
+          <SectionHeader
+            icon={<span style={{ fontSize: 16 }}>💊</span>}
+            title="스마트 리밸런싱 처방전"
+            subtitle={`목표 비율 (Core ${targetCore}% : Satellite ${100 - targetCore}%)을 맞추기 위한 최적 행동 지침`}
+          />
+
+          {/* ── 현재 자산 현황 요약 ────────────────────────────── */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 16,
+          }}>
+            {[
+              {
+                label: '현재 총 자산',
+                value: totalAssets > 0
+                  ? `₩${(totalAssets / 10_000).toFixed(0)}만`
+                  : '—',
+                sub:   assetAutoLoaded ? '투자 원금 기준 자동 로드' : '아래에서 직접 입력하세요',
+                color: C.amber,
+              },
+              {
+                label: `코어 현재 (${myCore}%)`,
+                value: totalAssets > 0
+                  ? `₩${Math.round(totalAssets * myCore / 100 / 10_000)}만`
+                  : `${myCore}%`,
+                sub:   `목표 ${targetCore}% · 부족 ${Math.max(0, targetCore - myCore).toFixed(1)}%p`,
+                color: C.core,
+              },
+              {
+                label: `새틀라이트 현재 (${mySat}%)`,
+                value: totalAssets > 0
+                  ? `₩${Math.round(totalAssets * mySat / 100 / 10_000)}만`
+                  : `${mySat}%`,
+                sub:   `목표 ${100 - targetCore}% · 초과 ${Math.max(0, mySat - (100 - targetCore)).toFixed(1)}%p`,
+                color: C.sat,
+              },
+            ].map(item => (
+              <div key={item.label} style={{
+                padding: '12px 14px', borderRadius: 10,
+                background: C.surface, border: `1px solid ${C.border}`,
+              }}>
+                <div style={{ fontSize: 9, color: C.textLow, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>
+                  {item.label}
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: item.color, fontVariantNumeric: 'tabular-nums', marginBottom: 3 }}>
+                  {item.value}
+                </div>
+                <div style={{ fontSize: 10, color: C.textLow }}>{item.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* ── 총 자산 수동 입력 (자동 로드 실패 시) ─────────── */}
+          {!assetAutoLoaded && (
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: C.textMid, display: 'block', marginBottom: 6 }}>
+                📊 현재 총 자산 (직접 입력)
+              </label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="number"
+                  placeholder="예: 1000"
+                  onChange={e => setTotalAssets(Number(e.target.value) * 10_000)}
+                  style={{
+                    flex: 1, padding: '10px 12px', borderRadius: 8,
+                    border: `1px solid ${C.border}`, background: C.surface,
+                    color: C.textHi, fontSize: 14, fontWeight: 600, outline: 'none',
+                  }}
+                />
+                <span style={{ display: 'flex', alignItems: 'center', fontSize: 13, color: C.textMid, paddingRight: 4 }}>
+                  만원
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* ── 추가 투자금 입력 ──────────────────────────────── */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: C.textMid, display: 'block', marginBottom: 6 }}>
+              💰 이번 달 추가 투자 금액
+              <span style={{ fontSize: 10, color: C.textLow, fontWeight: 400, marginLeft: 6 }}>
+                (0이면 현재 자산 내 리밸런싱만 계산)
+              </span>
+            </label>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                type="number"
+                value={additionalCash}
+                onChange={e => setAdditionalCash(e.target.value)}
+                placeholder={cashUnit === '만원' ? '예: 100' : '예: 1000000'}
+                style={{
+                  flex: 1, padding: '11px 14px', borderRadius: 8,
+                  border: `1px solid ${C.amber}50`,
+                  background: `${C.amber}08`,
+                  color: C.textHi, fontSize: 15, fontWeight: 700,
+                  outline: 'none', fontVariantNumeric: 'tabular-nums',
+                }}
+              />
+              {/* 단위 토글 */}
+              <div style={{ display: 'flex', gap: 4 }}>
+                {(['만원', '원'] as const).map(u => (
+                  <button
+                    key={u}
+                    onClick={() => setCashUnit(u)}
+                    style={{
+                      padding: '8px 12px', borderRadius: 7, border: 'none', cursor: 'pointer',
+                      fontSize: 11, fontWeight: 700,
+                      background: cashUnit === u ? C.amber : C.surface,
+                      color:      cashUnit === u ? '#020617' : C.textLow,
+                    }}
+                  >{u}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ── 행동 플랜 결과 카드 ──────────────────────────── */}
+          {totalAssets > 0 && rebalancePlan ? (() => {
+            const { addKrw, newTotal, coreAdjust, satAdjust,
+                    targetCoreAmt, targetSatAmt } = rebalancePlan
+            const fmtManw = (v: number) =>
+              Math.abs(v) >= 10_000
+                ? `₩${(Math.abs(v) / 10_000).toFixed(0)}만`
+                : `₩${Math.abs(v).toLocaleString('ko-KR')}`
+
+            // 추가 자금이 코어 부족분을 커버하는지
+            const coreShortfall = Math.max(0, coreAdjust)  // 양수 = 코어 더 사야 함
+            const satSellNeeded = Math.max(0, -satAdjust)  // 양수 = 새틀 팔아야 함
+
+            // CASE B: 추가 자금이 있을 때
+            if (addKrw > 0) {
+              // 추가 자금으로 코어 부족분 먼저 채우고 나머지를 새틀에
+              const coreFromCash = Math.min(addKrw, coreShortfall)
+              const satFromCash  = addKrw - coreFromCash
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {/* 요약 배너 */}
+                  <div style={{
+                    padding: '12px 14px', borderRadius: 10,
+                    background: `${C.green}0f`, border: `1px solid ${C.green}30`,
+                    fontSize: 12, color: C.textMid, lineHeight: 1.6,
+                  }}>
+                    <span style={{ fontWeight: 800, color: C.green }}>💡 신규 자금 우선 배분 플랜</span>
+                    {'  '}새로운 총 자산 {fmtManw(newTotal)} 기준으로
+                    코어 목표 <span style={{ color: C.core, fontWeight: 700 }}>{fmtManw(targetCoreAmt)}</span>,
+                    새틀 목표 <span style={{ color: C.sat, fontWeight: 700 }}>{fmtManw(targetSatAmt)}</span>
+                  </div>
+
+                  {/* 코어 행동 */}
+                  <div style={{
+                    padding: '14px 16px', borderRadius: 10,
+                    background: `${C.core}0f`, border: `1px solid ${C.core}30`,
+                  }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: C.core, marginBottom: 6 }}>
+                      🟢 코어 자산 매수
+                    </div>
+                    <div style={{ fontSize: 12, color: C.textMid, lineHeight: 1.7 }}>
+                      추가 투자금 중{' '}
+                      <span style={{ color: C.core, fontWeight: 800, fontSize: 14 }}>
+                        {fmtManw(coreFromCash)}
+                      </span>
+                      을 코어 자산(S&P500 ETF, 국채 등)에 투입하세요.
+                      {coreShortfall > addKrw && (
+                        <span style={{ color: C.sat, display: 'block', marginTop: 4 }}>
+                          ⚠️ 추가 자금만으로 부족 — 새틀라이트에서{' '}
+                          <span style={{ fontWeight: 800 }}>{fmtManw(satSellNeeded - satFromCash)}</span>
+                          {' '}추가 매도가 필요합니다.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 새틀 행동 */}
+                  {satFromCash > 0 && (
+                    <div style={{
+                      padding: '14px 16px', borderRadius: 10,
+                      background: `${C.sat}0f`, border: `1px solid ${C.sat}30`,
+                    }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: C.sat, marginBottom: 6 }}>
+                        🟡 새틀라이트 자산 추가 투입
+                      </div>
+                      <div style={{ fontSize: 12, color: C.textMid, lineHeight: 1.7 }}>
+                        나머지{' '}
+                        <span style={{ color: C.sat, fontWeight: 800, fontSize: 14 }}>
+                          {fmtManw(satFromCash)}
+                        </span>
+                        은 성장 전략(개별주, 테마 ETF 등) 새틀라이트 자산에 배분하세요.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            }
+
+            // CASE A: 추가 자금 없을 때 (보유 자산 내 리밸런싱)
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {/* 요약 배너 */}
+                <div style={{
+                  padding: '12px 14px', borderRadius: 10,
+                  background: `${C.amber}0f`, border: `1px solid ${C.amber}30`,
+                  fontSize: 12, color: C.textMid, lineHeight: 1.6,
+                }}>
+                  <span style={{ fontWeight: 800, color: C.amber }}>⚖️ 현재 자산 내 리밸런싱 플랜</span>
+                  {'  '}추가 자금 없이 현 포트폴리오 내에서 비중을 조정합니다.
+                </div>
+
+                {/* 새틀 매도 */}
+                <div style={{
+                  padding: '14px 16px', borderRadius: 10,
+                  background: `${C.red}0f`, border: `1px solid ${C.red}30`,
+                }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: C.red, marginBottom: 6 }}>
+                    🔴 새틀라이트 자산 일부 매도 (수익 확정)
+                  </div>
+                  <div style={{ fontSize: 12, color: C.textMid, lineHeight: 1.7 }}>
+                    비중이 높은 새틀라이트 종목(개별주, 테마 ETF 등)을{' '}
+                    <span style={{ color: C.red, fontWeight: 800, fontSize: 15 }}>
+                      {fmtManw(satSellNeeded)}
+                    </span>
+                    {' '}분할 매도하여 예수금을 확보하세요.
+                    <div style={{ fontSize: 10, color: C.textLow, marginTop: 4 }}>
+                      💡 한 번에 전량 매도보다 2~3회 분할 매도를 권장합니다
+                    </div>
+                  </div>
+                </div>
+
+                {/* 코어 매수 */}
+                <div style={{
+                  padding: '14px 16px', borderRadius: 10,
+                  background: `${C.green}0f`, border: `1px solid ${C.green}30`,
+                }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: C.green, marginBottom: 6 }}>
+                    🟢 코어 자산 집중 매수
+                  </div>
+                  <div style={{ fontSize: 12, color: C.textMid, lineHeight: 1.7 }}>
+                    확보된 예수금으로 코어 자산(S&P500, KODEX200, 국채 ETF 등)을{' '}
+                    <span style={{ color: C.green, fontWeight: 800, fontSize: 15 }}>
+                      {fmtManw(coreShortfall)}
+                    </span>
+                    {' '}매수하여 포트폴리오 중심을 잡으세요.
+                  </div>
+                </div>
+              </div>
+            )
+          })() : (
+            <div style={{
+              padding: '24px', textAlign: 'center',
+              color: C.textLow, fontSize: 13, borderRadius: 10,
+              background: C.surface, border: `1px solid ${C.border}`,
+            }}>
+              {totalAssets <= 0
+                ? '총 자산을 입력하면 맞춤형 리밸런싱 처방전을 확인할 수 있습니다 📋'
+                : '추가 투자금을 입력하거나 그대로 두면 현재 자산 내 리밸런싱 플랜을 계산합니다'}
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* ══════════════════════════════════════════════════════════
           SECTION 5: 피터 린치 6대 분류 자산 성향 분석
