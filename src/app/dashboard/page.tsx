@@ -2818,17 +2818,29 @@ export default function DashboardPage() {
       <div id="tab-mentor" style={{ display: dashTab==='mentor' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         <AIPortfolioDashboard
           portfolioStocks={investments.map(inv => {
-            // priceMap에서 해당 종목의 펀더멘털(PER·성장률) 추출
             const lv = priceMap[inv.ticker.toUpperCase()]
-            const peRaw = lv?.fundamentals?.pe
-            const egRaw = lv?.fundamentals?.earningsGrowth
-            // pe: number | 'N/A' → 숫자만 사용
-            const per = typeof peRaw === 'number' && isFinite(peRaw) && peRaw > 0
+            const f  = lv?.fundamentals
+
+            // ── PER 추출 ─────────────────────────────────────────
+            const peRaw = f?.pe
+            const per   = typeof peRaw === 'number' && isFinite(peRaw) && peRaw > 0
               ? parseFloat(peRaw.toFixed(1)) : 0
-            // earningsGrowth: 소수(0.18=18%) 또는 이미 % 형태 → % 단위로 통일
-            const rawG = typeof egRaw === 'number' && isFinite(egRaw) && egRaw !== 0 ? egRaw : 0
-            const growthRate = rawG === 0 ? 0
-              : parseFloat((Math.abs(rawG) < 20 ? rawG * 100 : rawG).toFixed(1))
+
+            // ── 성장률 계산 (3단계 우선순위) ─────────────────────
+            // 1순위: earningsGrowth 직접 (소수형 0.35 → 35%)
+            const egRaw = f?.earningsGrowth
+            let growthRate = 0
+            if (typeof egRaw === 'number' && isFinite(egRaw) && egRaw !== 0) {
+              growthRate = parseFloat((Math.abs(egRaw) < 20 ? egRaw * 100 : egRaw).toFixed(1))
+            }
+            // 2순위: peg + per 역산 (PEG = PER / 성장률 → 성장률 = PER / PEG)
+            // KR 종목은 earningsGrowth=null인 경우 이 방법으로 계산
+            if (growthRate === 0 && per > 0) {
+              const pegRaw = f?.peg
+              if (typeof pegRaw === 'number' && isFinite(pegRaw) && pegRaw > 0) {
+                growthRate = parseFloat((per / pegRaw).toFixed(1))
+              }
+            }
             return {
               name:       inv.name,
               ticker:     inv.ticker,
