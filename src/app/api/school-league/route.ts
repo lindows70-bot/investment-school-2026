@@ -24,18 +24,25 @@ function adminClient() {
   )
 }
 
+// ── 피터 린치 6대 유형 키 ────────────────────────────────────────
+export type LynchKey = 'fast_grower' | 'stalwart' | 'slow_grower' | 'cyclical' | 'asset_play' | 'turnaround'
+
+// 6대 유형별 Satellite 보유 비중 (종목 수 기준, 0~100%)
+export type LynchDistribution = Record<LynchKey, number>
+
 // ── 타입 정의 ────────────────────────────────────────────────────
 export interface StudentPortfolio {
-  userId:         string
-  name:           string           // 실명
-  avatarColor:    string           // 아바타 색상 (결정론적 생성)
-  userType:       string           // 투자 성향 (Core 비중 기반)
-  isRegistered:   boolean          // 종목 등록 여부
-  totalReturn:    number | null    // 전체 수익률 % (미등록 시 null)
-  coreRatio:      number           // 코어 비중 %
-  satelliteRatio: number           // 새틀라이트 비중 %
-  topStocks:      string[]         // 효자 종목 Top 3 (이름 기준)
-  holdingCount:   number           // 보유 종목 수
+  userId:           string
+  name:             string           // 실명
+  avatarColor:      string           // 아바타 색상 (결정론적 생성)
+  userType:         string           // 투자 성향 (Core 비중 기반)
+  isRegistered:     boolean          // 종목 등록 여부
+  totalReturn:      number | null    // 전체 수익률 % (미등록 시 null)
+  coreRatio:        number           // 코어 비중 %
+  satelliteRatio:   number           // 새틀라이트 비중 %
+  topStocks:        string[]         // 효자 종목 Top 3 (이름 기준)
+  holdingCount:     number           // 보유 종목 수
+  lynchDistribution: LynchDistribution  // Satellite 내 Lynch 6대 유형 비중
 }
 
 // ── 인기 종목 집계 타입 ──────────────────────────────────────────
@@ -48,10 +55,35 @@ export interface TrendingStock {
 }
 
 export interface SchoolLeagueData {
-  students:       StudentPortfolio[]
-  trendingStocks: TrendingStock[]
-  computedAt:     string
-  migratedCount:  number   // 이번 요청에서 소급 정정된 asset_role 개수
+  students:         StudentPortfolio[]
+  trendingStocks:   TrendingStock[]
+  schoolLynchAvg:   LynchDistribution  // 등록자 전체 Satellite Lynch 평균 비중
+  computedAt:       string
+  migratedCount:    number
+}
+
+// ── Lynch 분포 초기값 ────────────────────────────────────────────
+function emptyLynch(): LynchDistribution {
+  return { fast_grower: 0, stalwart: 0, slow_grower: 0, cyclical: 0, asset_play: 0, turnaround: 0 }
+}
+
+// ── Lynch 분포 계산 (Satellite 종목의 lynch_category 기준) ────────
+function calcLynchDist(
+  satInvs: { lynch_category: string | null }[]
+): LynchDistribution {
+  const dist = emptyLynch()
+  const VALID: LynchKey[] = ['fast_grower','stalwart','slow_grower','cyclical','asset_play','turnaround']
+  const counted = satInvs.filter(i => i.lynch_category && VALID.includes(i.lynch_category as LynchKey))
+  if (counted.length === 0) return dist
+  for (const inv of counted) {
+    const k = inv.lynch_category as LynchKey
+    dist[k]++
+  }
+  // 백분율 변환
+  for (const k of VALID) {
+    dist[k] = Math.round((dist[k] / counted.length) * 100)
+  }
+  return dist
 }
 
 // ── 아바타 색상 팔레트 (결정론적 할당) ──────────────────────────
@@ -127,7 +159,7 @@ export async function GET() {
     // ── 2. 전체 투자 데이터 조회 ─────────────────────────────────
     const { data: allInvestments, error: invErr } = await sb
       .from('investments')
-      .select('id, user_id, ticker, name, market, currency, purchase_price, quantity, asset_role')
+      .select('id, user_id, ticker, name, market, currency, purchase_price, quantity, asset_role, lynch_category')
 
     if (invErr) throw invErr
     let investments = allInvestments ?? []
@@ -140,7 +172,7 @@ export async function GET() {
       // 업데이트가 발생했으면 최신 데이터 다시 조회
       const { data: refreshed } = await sb
         .from('investments')
-        .select('id, user_id, ticker, name, market, currency, purchase_price, quantity, asset_role')
+        .select('id, user_id, ticker, name, market, currency, purchase_price, quantity, asset_role, lynch_category')
       if (refreshed) investments = refreshed
     }
 
@@ -201,16 +233,17 @@ export async function GET() {
 
       if (!isRegistered) {
         return {
-          userId:         profile.id,
-          name:           displayName,
-          avatarColor:    avatarColor(idx),
-          userType:       '미등록',
-          isRegistered:   false,
-          totalReturn:    null,
-          coreRatio:      0,
-          satelliteRatio: 0,
-          topStocks:      [],
-          holdingCount:   0,
+          userId:            profile.id,
+          name:              displayName,
+          avatarColor:       avatarColor(idx),
+          userType:          '미등록',
+          isRegistered:      false,
+          totalReturn:       null,
+          coreRatio:         0,
+          satelliteRatio:    0,
+          topStocks:         [],
+          holdingCount:      0,
+          lynchDistribution: emptyLynch(),
         }
       }
 
@@ -255,17 +288,26 @@ export async function GET() {
         .slice(0, 3)
         .map(h => h.name)
 
+      // Satellite 종목의 Lynch 6대 유형 분포 계산
+      const satInvs = userInvs.filter(inv => {
+        const market = (inv.market ?? 'KR') as 'US' | 'KR' | 'CRYPTO'
+        const role   = inv.asset_role ?? classifyAsset(inv.ticker ?? '', inv.name ?? '', market)
+        return role === 'SATELLITE'
+      })
+      const lynchDistribution = calcLynchDist(satInvs)
+
       return {
-        userId:         profile.id,
-        name:           displayName,
-        avatarColor:    avatarColor(idx),
-        userType:       userTypeFromCore(coreRatio),
-        isRegistered:   true,
+        userId:            profile.id,
+        name:              displayName,
+        avatarColor:       avatarColor(idx),
+        userType:          userTypeFromCore(coreRatio),
+        isRegistered:      true,
         totalReturn,
         coreRatio,
-        satelliteRatio: satRatio,
+        satelliteRatio:    satRatio,
         topStocks,
-        holdingCount:   userInvs.length,
+        holdingCount:      userInvs.length,
+        lynchDistribution,
       }
     })
 
@@ -296,9 +338,21 @@ export async function GET() {
         color:  TICKER_COLORS[i % TICKER_COLORS.length],
       }))
 
+    // ── 스쿨 전체 Lynch 평균 (등록자만 집계) ─────────────────────
+    const LYNCH_KEYS: LynchKey[] = ['fast_grower','stalwart','slow_grower','cyclical','asset_play','turnaround']
+    const registeredStudents = students.filter(s => s.isRegistered)
+    const schoolLynchAvg: LynchDistribution = emptyLynch()
+    if (registeredStudents.length > 0) {
+      for (const k of LYNCH_KEYS) {
+        const avg = registeredStudents.reduce((s, st) => s + st.lynchDistribution[k], 0) / registeredStudents.length
+        schoolLynchAvg[k] = Math.round(avg)
+      }
+    }
+
     const result: SchoolLeagueData = {
       students,
       trendingStocks,
+      schoolLynchAvg,
       computedAt:    new Date().toISOString(),
       migratedCount,
     }

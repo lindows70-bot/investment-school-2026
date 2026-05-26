@@ -905,6 +905,216 @@ export default function SchoolLeague() {
         </Card>
       </div>
 
+      {/* ══════════════════════════════════════════════════════════
+          SECTION 5: 피터 린치 6대 분류 자산 성향 분석
+      ══════════════════════════════════════════════════════════ */}
+      {data && (() => {
+        // ── 피터 린치 6대 유형 메타 ─────────────────────────────
+        const LYNCH_META: {
+          key:   'fast_grower'|'stalwart'|'slow_grower'|'cyclical'|'asset_play'|'turnaround'
+          label: string
+          eng:   string
+          color: string
+          tip:   string   // 배너용 밸런스 조언
+        }[] = [
+          { key:'fast_grower', label:'고성장주',    eng:'Fast Growers',  color:'#a3e635',
+            tip:'성장주 집중은 강한 수익을 가져오지만, 사이클 고점 판단이 핵심입니다. 대형우량주 혼합으로 변동성을 낮추세요.' },
+          { key:'stalwart',    label:'대형우량주',  eng:'Stalwarts',     color:'#38bdf8',
+            tip:'안정적인 선택입니다. 성장 모멘텀을 더하려면 고성장주 소량을 섞는 전략을 고려해 보세요.' },
+          { key:'slow_grower', label:'저성장주',    eng:'Slow Growers',  color:'#94a3b8',
+            tip:'저성장주 비중이 높은 것은 배당 수익에 집중 중이라는 의미입니다. 성장 기회를 위해 비중 조정을 검토하세요.' },
+          { key:'cyclical',    label:'경기순환주',  eng:'Cyclicals',     color:'#fb923c',
+            tip:'경기 사이클을 타는 종목이 많습니다. 경기 고점 신호(재고 증가·PER 하락)를 항상 주시하세요.' },
+          { key:'asset_play',  label:'자산주',      eng:'Asset Plays',   color:'#c084fc',
+            tip:'숨겨진 가치를 발굴하는 전략입니다. 촉매(부동산 매각·분사) 발생 시점을 모니터링하는 것이 포인트입니다.' },
+          { key:'turnaround',  label:'턴어라운드주',eng:'Turnarounds',   color:'#f87171',
+            tip:'회생주는 성공 시 폭발적 수익이지만 리스크도 큽니다. 구조조정 진행 상황과 흑자 전환 여부를 분기마다 체크하세요.' },
+        ]
+
+        const schoolAvg   = data.schoolLynchAvg
+        const myDist      = myStudent?.lynchDistribution
+        // 스쿨 평균에서 가장 높은 유형 찾기
+        const dominant    = [...LYNCH_META].sort((a, b) => (schoolAvg[b.key] ?? 0) - (schoolAvg[a.key] ?? 0))[0]
+        const dominantPct = schoolAvg[dominant.key] ?? 0
+
+        // Lynch 데이터가 없는 경우(분류 0%) 스킵
+        const hasData = LYNCH_META.some(m => (schoolAvg[m.key] ?? 0) > 0)
+
+        return (
+          <Card>
+            <SectionHeader
+              icon={<span style={{ fontSize: 16 }}>📊</span>}
+              title="스쿨 자산 성향 분석 (피터 린치 6대 분류)"
+              subtitle="우리 반 학생들이 보유한 새틀라이트 자산의 투자 성향 분포입니다"
+            />
+
+            {/* ── 교육 피드백 배너 ─────────────────────────────── */}
+            {hasData && dominantPct > 0 && (
+              <div style={{
+                display:      'flex',
+                alignItems:   'flex-start',
+                gap:          10,
+                padding:      '12px 14px',
+                borderRadius: 10,
+                marginBottom: 18,
+                background:   `${dominant.color}12`,
+                border:       `1px solid ${dominant.color}35`,
+              }}>
+                <span style={{ fontSize: 20, flexShrink: 0, marginTop: 1 }}>⚠️</span>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: dominant.color, marginBottom: 4 }}>
+                    스쿨 투자 성향 진단: 현재 우리 반은{' '}
+                    <span style={{ background: `${dominant.color}25`, padding: '1px 6px', borderRadius: 4 }}>
+                      [{dominant.label}] 편중 ({dominantPct}%)
+                    </span>{' '}
+                    상태입니다.
+                  </div>
+                  <div style={{ fontSize: 12, color: C.textMid, lineHeight: 1.65 }}>
+                    {dominant.tip}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── 6대 유형 비교 바 ─────────────────────────────── */}
+            {!hasData ? (
+              <div style={{ textAlign: 'center', padding: '32px 0', color: C.textLow, fontSize: 13 }}>
+                린치 분류 데이터가 없습니다 — 자산 관리에서 종목 분류를 설정해 주세요
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {/* 컬럼 헤더 */}
+                <div style={{
+                  display:             'grid',
+                  gridTemplateColumns: '120px 1fr 1fr',
+                  gap:                 12,
+                  paddingBottom:       6,
+                  borderBottom:        `1px solid ${C.border}`,
+                }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: C.textLow, textTransform: 'uppercase', letterSpacing: '0.07em' }}>유형</div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: C.textLow, textTransform: 'uppercase', letterSpacing: '0.07em' }}>스쿨 평균</div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: C.amber,   textTransform: 'uppercase', letterSpacing: '0.07em' }}>내 비중</div>
+                </div>
+
+                {LYNCH_META.map(m => {
+                  const school = schoolAvg[m.key]  ?? 0
+                  const me     = myDist?.[m.key]    ?? 0
+
+                  return (
+                    <div key={m.key} style={{
+                      display:             'grid',
+                      gridTemplateColumns: '120px 1fr 1fr',
+                      gap:                 12,
+                      alignItems:          'center',
+                    }}>
+                      {/* 유형 라벨 */}
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: m.color }}>{m.label}</div>
+                        <div style={{ fontSize: 9,  color: C.textLow }}>{m.eng}</div>
+                      </div>
+
+                      {/* 스쿨 평균 바 */}
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{
+                            flex:         1,
+                            height:       8,
+                            borderRadius: 4,
+                            background:   C.surface,
+                            overflow:     'hidden',
+                          }}>
+                            <div style={{
+                              width:        `${school}%`,
+                              height:       '100%',
+                              borderRadius: 4,
+                              background:   `${C.textLow}80`,
+                              transition:   'width 0.6s ease',
+                              minWidth:     school > 0 ? 4 : 0,
+                            }} />
+                          </div>
+                          <span style={{
+                            fontSize:        10,
+                            fontWeight:      700,
+                            color:           C.textLow,
+                            minWidth:        30,
+                            textAlign:       'right',
+                            fontVariantNumeric: 'tabular-nums',
+                          }}>
+                            {school > 0 ? `${school}%` : '—'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 내 비중 바 */}
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{
+                            flex:         1,
+                            height:       8,
+                            borderRadius: 4,
+                            background:   C.surface,
+                            overflow:     'hidden',
+                          }}>
+                            <div style={{
+                              width:        `${me}%`,
+                              height:       '100%',
+                              borderRadius: 4,
+                              background:   myStudent ? m.color : C.surface,
+                              opacity:      0.85,
+                              transition:   'width 0.6s ease',
+                              minWidth:     me > 0 ? 4 : 0,
+                            }} />
+                          </div>
+                          <span style={{
+                            fontSize:        10,
+                            fontWeight:      700,
+                            color:           myStudent ? m.color : C.textLow,
+                            minWidth:        30,
+                            textAlign:       'right',
+                            fontVariantNumeric: 'tabular-nums',
+                          }}>
+                            {!myStudent ? '—' : me > 0 ? `${me}%` : '—'}
+                          </span>
+                        </div>
+                        {/* 스쿨 평균 대비 차이 표시 */}
+                        {myStudent && me !== school && school > 0 && (
+                          <div style={{ fontSize: 9, color: C.textLow, marginTop: 2, textAlign: 'right' }}>
+                            {me > school
+                              ? <span style={{ color: m.color }}>+{me - school}%p</span>
+                              : <span style={{ color: C.textLow }}>-{school - me}%p</span>}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* 범례 */}
+                <div style={{
+                  display:       'flex',
+                  gap:           16,
+                  paddingTop:    10,
+                  borderTop:     `1px solid ${C.border}`,
+                  justifyContent:'flex-end',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <div style={{ width: 12, height: 8, borderRadius: 2, background: `${C.textLow}80` }} />
+                    <span style={{ fontSize: 10, color: C.textMid }}>스쿨 평균</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <div style={{ width: 12, height: 8, borderRadius: 2, background: C.amber }} />
+                    <span style={{ fontSize: 10, color: C.textMid }}>내 비중</span>
+                  </div>
+                  <div style={{ fontSize: 10, color: C.textLow }}>
+                    · Satellite 자산 내 {registeredStudents.length}명 평균 (lynch_category 분류 기준)
+                  </div>
+                </div>
+              </div>
+            )}
+          </Card>
+        )
+      })()}
+
       {/* ── 하단 메타 안내 ──────────────────────────────────── */}
       <div style={{
         padding: '10px 16px', borderRadius: 10,
