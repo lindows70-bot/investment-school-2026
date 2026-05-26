@@ -903,12 +903,14 @@ export default function LynchWizard({
                 <div style={{ fontSize: 10, color: T.dim, marginTop: 3 }}>연간 예상 성장률</div>
               </div>
               {/* 순현금 */}
-              <div style={{ background: T.deep, boxShadow: SHI, borderRadius: 10, padding: '12px 14px', borderTop: `3px solid ${hasCash ? T.asset : T.border}` }}>
-                <div style={{ fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>순현금</div>
-                <div style={{ fontSize: 22, fontWeight: 900, color: hasCash ? T.asset : T.muted }}>
-                  {hasCash ? '✅ 보유' : '✗ 없음'}
+              <div style={{ background: T.deep, boxShadow: SHI, borderRadius: 10, padding: '12px 14px', borderTop: `3px solid ${hasCash ? T.asset : T.turn}` }}>
+                <div style={{ fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>재무 상태</div>
+                <div style={{ fontSize: 16, fontWeight: 900, color: hasCash ? T.asset : T.turn }}>
+                  {hasCash ? '💰 순현금' : '📛 순부채'}
                 </div>
-                <div style={{ fontSize: 10, color: T.dim, marginTop: 3 }}>현금 {'>'} 부채 여부</div>
+                <div style={{ fontSize: 10, color: T.dim, marginTop: 3 }}>
+                  {hasCash ? '현금 > 부채 (재무 우량)' : '부채 > 현금 (레버리지)'}
+                </div>
               </div>
               {/* 정성 점수 */}
               <div style={{ background: T.deep, boxShadow: SHI, borderRadius: 10, padding: '12px 14px', borderTop: `3px solid ${T.fast}` }}>
