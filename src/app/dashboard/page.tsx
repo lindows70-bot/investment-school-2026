@@ -634,7 +634,8 @@ export default function DashboardPage() {
   }>>({})
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
-  const [btActive, setBtActive] = useState({ rebalanceQ:true, rebalanceY:false, buyAndHold:true, benchmark:true })
+  const [btActive,  setBtActive]  = useState({ rebalanceQ:true, rebalanceY:false, buyAndHold:true, benchmark:true })
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest'>('live')
 
   // 5초 타임아웃
   useEffect(() => {
@@ -1242,6 +1243,31 @@ export default function DashboardPage() {
         .hover-row:hover td{background:rgba(255,255,255,0.03)!important}
         @keyframes divModalIn{from{opacity:0;transform:translate(-50%,-48%) scale(0.96)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
       `}</style>
+
+      {/* ── 대시보드 탭 네비게이션 ── */}
+      <div style={{ display:'flex', gap:4, background:'#0f172a', padding:'4px', borderRadius:10, border:'1px solid #1f2937', alignSelf:'flex-start' }}>
+        {([
+          { key:'live'     as const, icon:'📊', label:'실시간 대시보드',         desc:'자산 현황 · 리밸런싱' },
+          { key:'backtest' as const, icon:'⏳', label:'투자 타임머신 (백테스트)', desc:'5개년 전략 시뮬레이터' },
+        ]).map(({ key, icon, label, desc }) => (
+          <button key={key} type="button" onClick={() => setDashTab(key)}
+            style={{
+              display:'flex', flexDirection:'column', alignItems:'flex-start',
+              padding:'8px 16px', borderRadius:8, border:'none', cursor:'pointer',
+              transition:'all 0.18s',
+              background:  dashTab === key ? '#1e293b' : 'transparent',
+              boxShadow:   dashTab === key ? '0 2px 8px rgba(0,0,0,0.4)' : 'none',
+            }}>
+            <span style={{ fontSize:13, fontWeight:700, color: dashTab === key ? '#f1f5f9' : '#475569' }}>
+              {icon} {label}
+            </span>
+            <span style={{ fontSize:9, color: dashTab === key ? '#64748b' : '#334155', marginTop:1 }}>{desc}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* ── 실시간 대시보드 탭 ── */}
+      {dashTab === 'live' && (<>
 
       {/* ── 배당 상세 모달 (fixed center) ── */}
       {showDivDetail && (
@@ -2584,8 +2610,11 @@ export default function DashboardPage() {
             ))}
           </div>
         </Card>
+      </div>  {/* 6fr/4fr grid 닫기 */}
+      </>)}  {/* 실시간 대시보드 탭 끝 */}
 
-      {/* ── 6. 투자 타임머신: 백테스팅 시뮬레이터 ── */}
+      {/* ── 투자 타임머신 탭 ── */}
+      {dashTab === 'backtest' && <>{/* ── 투자 타임머신: 백테스팅 시뮬레이터 ── */}
       <Card>
         <div style={{ padding:'16px 20px 0', display:'flex', flexWrap:'wrap', gap:12, alignItems:'flex-start', justifyContent:'space-between' }}>
           <div>
@@ -2669,7 +2698,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </Card>
-      </div>
+      </>}  {/* 투자 타임머신 탭 끝 */}
     </div>
   )
 }
