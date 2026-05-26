@@ -247,6 +247,345 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
   </div>
 )
 
+// ─── RebalanceWidget ─────────────────────────────────────────────────────────
+// 대시보드 중간에 삽입되는 아코디언형 리밸런싱 알림 + 시뮬레이터
+// props: corePct(현재 코어 비중%), totalValKrw(총 평가금액), targetCore(목표 코어 비중%)
+interface RebalanceWidgetProps {
+  corePct:      number          // 현재 코어 비중 (0~100)
+  totalValKrw:  number          // 총 평가금액 (원화)
+  targetCore:   number          // 목표 코어 비중 (기본값 70)
+}
+
+function RebalanceWidget({ corePct, totalValKrw, targetCore }: RebalanceWidgetProps) {
+  const [isOpen,       setIsOpen]       = useState(false)
+  const [simulated,    setSimulated]    = useState(false)  // 가상 리밸런싱 실행 여부
+  const [animating,    setAnimating]    = useState(false)
+
+  const satPct    = 100 - corePct
+  const targetSat = 100 - targetCore
+  const gap       = corePct - targetCore            // 양수 = Core 과잉, 음수 = Satellite 과잉
+  const absGap    = Math.abs(gap)
+  const THRESHOLD = 5                               // 편차 5% 이상 시 알림
+
+  // 리밸런싱 필요 없으면 숨김
+  if (absGap < THRESHOLD || totalValKrw === 0) return null
+
+  // 조정 필요 금액 계산
+  // 예) Core 과잉: Satellite 매수 or Core 일부 매도
+  const adjustKrw = Math.round((absGap / 100) * totalValKrw)
+  const coreIsOver = gap > 0  // true = Core 과잉(Sat 소외), false = Sat 과잉(Core 소외)
+
+  // 가상 리밸런싱 실행
+  const handleSimulate = () => {
+    if (animating) return
+    setAnimating(true)
+    setTimeout(() => {
+      setSimulated(true)
+      setAnimating(false)
+    }, 800)
+  }
+  const handleReset = () => { setSimulated(false); setAnimating(false) }
+
+  // 시뮬레이션 적용 시 표시할 비중
+  const displayCore = simulated ? targetCore : corePct
+  const displaySat  = simulated ? targetSat  : satPct
+
+  // 바 색상
+  const CORE_CLR = '#38bdf8'
+  const SAT_CLR  = '#fb923c'
+  const WARN_CLR = '#f97316'
+
+  return (
+    <div style={{ marginBottom: 0 }}>
+      {/* ── 알림 배너 ────────────────────────────────────────────── */}
+      <div style={{
+        display:        'flex',
+        alignItems:     'center',
+        gap:            12,
+        padding:        '12px 18px',
+        borderRadius:   isOpen ? '12px 12px 0 0' : 12,
+        background:     'linear-gradient(135deg, rgba(249,115,22,0.12), rgba(234,88,12,0.08))',
+        border:         `1px solid rgba(249,115,22,0.35)`,
+        borderBottom:   isOpen ? 'none' : `1px solid rgba(249,115,22,0.35)`,
+        cursor:         'default',
+        transition:     'border-radius 0.25s',
+      }}>
+        {/* 아이콘 + 텍스트 */}
+        <span style={{ fontSize: 18, flexShrink: 0 }}>⚠️</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: WARN_CLR, marginBottom: 2 }}>
+            리밸런싱 필요 — {coreIsOver ? 'Core 과잉' : 'Satellite 과잉'} ({absGap.toFixed(1)}%p 편차)
+          </div>
+          <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.4 }}>
+            목표 {targetCore}/{targetSat} vs 현재 {Math.round(corePct)}/{Math.round(satPct)} —&nbsp;
+            {coreIsOver
+              ? `Satellite 자산이 ${absGap.toFixed(1)}%p 소외됨`
+              : `Core 자산이 ${absGap.toFixed(1)}%p 소외됨`}
+            &nbsp;· 약 {fmtKrw(adjustKrw)} 이동 필요
+          </div>
+        </div>
+        {/* 확장 버튼 */}
+        <button
+          onClick={() => { setIsOpen(v => !v); if (!isOpen) setSimulated(false) }}
+          style={{
+            display:        'flex',
+            alignItems:     'center',
+            gap:            5,
+            padding:        '7px 14px',
+            borderRadius:   8,
+            border:         `1px solid rgba(249,115,22,0.4)`,
+            background:     isOpen ? 'rgba(249,115,22,0.2)' : 'rgba(249,115,22,0.1)',
+            color:          WARN_CLR,
+            fontSize:       12,
+            fontWeight:     700,
+            cursor:         'pointer',
+            whiteSpace:     'nowrap' as const,
+            transition:     'background 0.2s',
+            flexShrink:     0,
+          }}
+        >
+          시뮬레이션 {isOpen ? '닫기 🔼' : '열기 🔽'}
+        </button>
+      </div>
+
+      {/* ── 아코디언 확장 영역 ────────────────────────────────────── */}
+      <div style={{
+        overflow:   'hidden',
+        maxHeight:  isOpen ? 420 : 0,
+        opacity:    isOpen ? 1 : 0,
+        transition: 'max-height 0.35s ease, opacity 0.25s ease',
+      }}>
+        <div style={{
+          display:      'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap:          16,
+          padding:      '16px 18px 18px',
+          background:   '#121520',
+          border:       '1px solid rgba(249,115,22,0.25)',
+          borderTop:    'none',
+          borderRadius: '0 0 12px 12px',
+        }}>
+
+          {/* ── 좌측: 비중 비교 바 그래프 ────────────────────────── */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: 14 }}>
+              비중 비교
+            </div>
+
+            {/* 목표 비중 바 */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>목표 비중</span>
+                <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                  Core {targetCore}% / Sat {targetSat}%
+                </span>
+              </div>
+              <div style={{ display: 'flex', height: 22, borderRadius: 6, overflow: 'hidden', background: '#1e2330' }}>
+                <div style={{
+                  width:      `${targetCore}%`,
+                  background: `${CORE_CLR}90`,
+                  display:    'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize:   10, fontWeight: 800, color: CORE_CLR,
+                  transition: 'width 0.6s ease',
+                }}>
+                  {targetCore >= 20 ? `${targetCore}%` : ''}
+                </div>
+                <div style={{
+                  flex:       1,
+                  background: `${SAT_CLR}90`,
+                  display:    'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize:   10, fontWeight: 800, color: SAT_CLR,
+                }}>
+                  {targetSat >= 20 ? `${targetSat}%` : ''}
+                </div>
+              </div>
+            </div>
+
+            {/* 현재 비중 바 (시뮬레이션 시 애니메이션) */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>
+                  현재 비중 {simulated && <span style={{ color: '#4ade80', marginLeft: 4 }}>→ 조정 완료 ✓</span>}
+                </span>
+                <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                  Core {Math.round(displayCore)}% / Sat {Math.round(displaySat)}%
+                </span>
+              </div>
+              <div style={{ display: 'flex', height: 22, borderRadius: 6, overflow: 'hidden', background: '#1e2330' }}>
+                <div style={{
+                  width:      `${displayCore}%`,
+                  background: simulated ? `${CORE_CLR}90` : `${CORE_CLR}cc`,
+                  display:    'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize:   10, fontWeight: 800, color: CORE_CLR,
+                  transition: animating ? 'width 0.8s cubic-bezier(0.4,0,0.2,1)' : 'width 0.6s ease',
+                }}>
+                  {displayCore >= 20 ? `${Math.round(displayCore)}%` : ''}
+                </div>
+                <div style={{
+                  flex:       1,
+                  background: simulated ? `${SAT_CLR}90` : `${SAT_CLR}cc`,
+                  display:    'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize:   10, fontWeight: 800, color: SAT_CLR,
+                  transition: animating ? 'width 0.8s cubic-bezier(0.4,0,0.2,1)' : 'width 0.6s ease',
+                }}>
+                  {displaySat >= 20 ? `${Math.round(displaySat)}%` : ''}
+                </div>
+              </div>
+            </div>
+
+            {/* 편차 강조 */}
+            {!simulated && (
+              <div style={{
+                display:    'flex',
+                alignItems: 'center',
+                gap:        8,
+                padding:    '8px 12px',
+                borderRadius: 8,
+                background: 'rgba(239,68,68,0.08)',
+                border:     '1px solid rgba(239,68,68,0.2)',
+              }}>
+                <span style={{ fontSize: 18 }}>{coreIsOver ? '📊' : '📉'}</span>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: '#f87171' }}>
+                    {coreIsOver ? `Core +${absGap.toFixed(1)}%p 쏠림` : `Satellite +${absGap.toFixed(1)}%p 쏠림`}
+                  </div>
+                  <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>
+                    목표 대비 {absGap.toFixed(1)}%p 이탈
+                  </div>
+                </div>
+              </div>
+            )}
+            {simulated && (
+              <div style={{
+                display:    'flex',
+                alignItems: 'center',
+                gap:        8,
+                padding:    '8px 12px',
+                borderRadius: 8,
+                background: 'rgba(74,222,128,0.08)',
+                border:     '1px solid rgba(74,222,128,0.2)',
+              }}>
+                <span style={{ fontSize: 18 }}>✅</span>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#4ade80' }}>
+                  목표 비중 달성 시뮬레이션 완료
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── 우측: 매매 처방전 ─────────────────────────────────── */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: 14 }}>
+              매매 처방전
+            </div>
+
+            <div style={{
+              padding:      '14px 16px',
+              borderRadius: 10,
+              background:   'rgba(249,115,22,0.07)',
+              border:       '1px solid rgba(249,115,22,0.2)',
+              marginBottom: 12,
+            }}>
+              {/* 처방 제목 */}
+              <div style={{ fontSize: 12, fontWeight: 800, color: WARN_CLR, marginBottom: 8 }}>
+                {coreIsOver
+                  ? '📌 소외된 Satellite 자산 보강 권장'
+                  : '📌 과잉 Satellite 일부 수익 확정 권장'}
+              </div>
+              {/* 처방 내용 */}
+              <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.7 }}>
+                {coreIsOver ? (
+                  <>
+                    비대해진 <span style={{ color: CORE_CLR, fontWeight: 700 }}>Core(채권·ETF)</span> 자산을 일부 매도(수익 확정)하고,
+                    소외된 <span style={{ color: SAT_CLR, fontWeight: 700 }}>Satellite(성장주)</span> 자산을 추가 매수하세요.
+                  </>
+                ) : (
+                  <>
+                    비대해진 <span style={{ color: SAT_CLR, fontWeight: 700 }}>Satellite(성장주)</span> 자산을 일부 매도(수익 확정)하고,
+                    소외된 <span style={{ color: CORE_CLR, fontWeight: 700 }}>Core(채권·ETF)</span> 자산을 추가 매수하세요.
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* 조정 금액 */}
+            <div style={{
+              display:      'flex',
+              alignItems:   'center',
+              justifyContent: 'space-between',
+              padding:      '10px 14px',
+              borderRadius: 8,
+              background:   '#1e2330',
+              border:       '1px solid #2a2d3a',
+              marginBottom: 14,
+            }}>
+              <div>
+                <div style={{ fontSize: 10, color: '#4b5563', textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: 3 }}>
+                  가상 이동 필요 금액
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: '#f1f5f9', fontVariantNumeric: 'tabular-nums' }}>
+                  {fmtKrw(adjustKrw)}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right', fontSize: 10, color: '#374151', lineHeight: 1.6 }}>
+                <div>{coreIsOver ? 'Core → Satellite' : 'Satellite → Core'}</div>
+                <div>전체 자산의 {absGap.toFixed(1)}%</div>
+              </div>
+            </div>
+
+            {/* 리밸런싱 실행 / 초기화 버튼 */}
+            {!simulated ? (
+              <button
+                onClick={handleSimulate}
+                disabled={animating}
+                style={{
+                  width:        '100%',
+                  padding:      '11px',
+                  borderRadius: 8,
+                  border:       'none',
+                  cursor:       animating ? 'default' : 'pointer',
+                  background:   animating
+                    ? 'rgba(249,115,22,0.2)'
+                    : 'linear-gradient(135deg,#ea580c,#c2410c)',
+                  boxShadow:    animating ? 'none' : '0 4px 12px rgba(234,88,12,0.3)',
+                  color:        animating ? WARN_CLR : '#fff',
+                  fontSize:     13,
+                  fontWeight:   800,
+                  letterSpacing: '0.03em',
+                  transition:   'all 0.2s',
+                }}
+              >
+                {animating ? '리밸런싱 시뮬레이션 중…' : '⚖️ 가상 리밸런싱 실행'}
+              </button>
+            ) : (
+              <button
+                onClick={handleReset}
+                style={{
+                  width:        '100%',
+                  padding:      '11px',
+                  borderRadius: 8,
+                  border:       '1px solid rgba(74,222,128,0.3)',
+                  cursor:       'pointer',
+                  background:   'rgba(74,222,128,0.08)',
+                  color:        '#4ade80',
+                  fontSize:     13,
+                  fontWeight:   700,
+                  transition:   'all 0.2s',
+                }}
+              >
+                🔄 초기 상태로 되돌리기
+              </button>
+            )}
+            <div style={{ fontSize: 10, color: '#374151', textAlign: 'center', marginTop: 6 }}>
+              * 가상 시뮬레이션 — 실제 매매와 무관합니다
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const router = useRouter()
@@ -258,6 +597,7 @@ export default function DashboardPage() {
   const [indices,     setIndices]     = useState<IndexData[]>([])
   const [indicesLoading, setIndicesLoading] = useState(true)
   // 배당 데이터 (stock-info API — SEIBro/Yahoo 포함, 1시간 캐시)
+  const [targetCore, setTargetCore] = useState(70)   // 목표 코어 비중 (기본 70%)
   const [dividendMap, setDividendMap] = useState<Record<string, {
     annualDividend: number | null
     dividendYield:  number | null
@@ -444,6 +784,22 @@ export default function DashboardPage() {
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [fetchAll])
+
+  // ── strategy_configs에서 목표 Core 비중 로드 ─────────────────────
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const sb = createClient()
+        const { data } = await sb
+          .from('strategy_configs')
+          .select('core_pct')
+          .limit(1)
+          .single()
+        if (data?.core_pct != null && data.core_pct > 0) setTargetCore(data.core_pct)
+      } catch { /* 무시: 기본값 70% 유지 */ }
+    }
+    load()
+  }, [])
 
   // ── 배당 데이터 (stock-info) — investments 로드 후 백그라운드 조회 ──
   // stock-price는 배당 데이터가 부정확(KR ETF 특히) → stock-info로 별도 보완
@@ -636,6 +992,19 @@ export default function DashboardPage() {
     const cat = inv.lynch_category
     return cat === 'stalwart' || cat === 'slow_grower'
   }
+
+  // ── 현재 Core/Satellite 비중 계산 (평가금액 기준) ─────────────
+  const currentCorePct = useMemo(() => {
+    if (pricedInvs.length === 0 || totalCurrKrw === 0) return 0
+    const coreVal = pricedInvs.reduce((s, inv) => {
+      const lv  = live(inv)
+      if (!lv) return s
+      const val = toKrw(inv, lv.currentPrice)
+      return isCoreInv(inv) ? s + val : s
+    }, 0)
+    return (coreVal / totalCurrKrw) * 100
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pricedInvs, priceMap, usdKrw])
 
   const monthlyPnL = useMemo(() => {
     type MonthBucket = { coreCost:number; coreCurr:number; satCost:number; satCurr:number; count:number }
@@ -2043,6 +2412,13 @@ export default function DashboardPage() {
           )}
         </div>
       </Card>
+
+      {/* ── 리밸런싱 알림 & 시뮬레이터 (편차 5%p 이상 시 조건부 표시) ── */}
+      <RebalanceWidget
+        corePct={currentCorePct}
+        totalValKrw={totalCurrKrw}
+        targetCore={targetCore}
+      />
 
       {/* ── 5. 보유 자산 테이블 + 알림 패널 ── */}
       <div style={{ display:'grid', gridTemplateColumns:'6fr 4fr', gap:16 }}>
