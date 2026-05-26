@@ -216,7 +216,14 @@ export default function ResearchPage() {
       </div>
 
       {/* ── 피터린치 진단 위저드 탭 ───────────────────────────── */}
-      {activeTab === 'wizard' && <LynchWizard />}
+      {activeTab === 'wizard' && (
+        <LynchWizard
+          autoTicker={query    || null}
+          autoName={stockInfo?.name       ?? null}
+          autoPer={stockInfo?.per         ?? null}
+          autoEpsGrowth={stockInfo?.epsGrowth ?? null}
+        />
+      )}
 
       {/* ── 차트 리서치 탭 (기존 UI 전체) ────────────────────── */}
       {activeTab === 'chart' && (<>
