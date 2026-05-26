@@ -1344,9 +1344,9 @@ export default function SchoolLeague() {
           {/* ── ① 리밸런싱 후 예상 비중 피드백 (케이스별 동적 문구) ── */}
           {totalAssets > 0 && rebalancePlan && (() => {
             const { isCase1, isCase3, cashOnlyCorePercent, cash } = rebalancePlan
-
-            // CASE 2: 추가 자금 + 새틀 매도 병행 필요한 하이브리드 케이스
             const isCase2 = !isCase1 && !isCase3
+
+            // 배너 색상: CASE2 = 주황 틴트, 나머지 = 청색 틴트
             const bgColor = isCase2 ? 'rgba(251,146,60,0.07)' : 'rgba(56,189,248,0.07)'
             const bdColor = isCase2 ? 'rgba(251,146,60,0.22)' : 'rgba(56,189,248,0.20)'
 
@@ -1357,24 +1357,35 @@ export default function SchoolLeague() {
                 fontSize: 12, lineHeight: 1.75, color: C.textMid,
               }}>
                 <span style={{ fontSize: 14, marginRight: 6 }}>💡</span>
-                {isCase2 && cashOnlyCorePercent !== null ? (
+
+                {/* ── CASE 1: 추가 자금 없이 순수 기존 자산 조정 ───── */}
+                {isCase1 && (
+                  <>
+                    추가 자금 없이 기존 자산의 리밸런싱만으로 포트폴리오의 코어 비중을 목표 비율(
+                    <span style={{ color: C.core, fontWeight: 800 }}>{targetCore.toFixed(1)}%</span>
+                    )에 정확히 맞춥니다.
+                  </>
+                )}
+
+                {/* ── CASE 2: 신규 자금 + 새틀 매도 동반 하이브리드 ── */}
+                {isCase2 && cashOnlyCorePercent !== null && (
                   <>
                     신규 자금(
                     <span style={{ color: C.amber, fontWeight: 800 }}>₩{cash.toLocaleString('ko-KR')}만</span>
                     ) 투입만으로는 코어 비중이{' '}
                     <span style={{ color: C.amber, fontWeight: 800 }}>{cashOnlyCorePercent.toFixed(1)}%</span>
-                    까지만 회복됩니다.
-                    아래 새틀라이트 매도 처방을 반드시 병행해야 최종 목표인{' '}
+                    까지만 올라갑니다. 아래의 새틀라이트 매도 처방을 함께 완료해야 최종 목표(
                     <span style={{ color: C.core, fontWeight: 800 }}>{targetCore.toFixed(1)}%</span>
-                    를 달성할 수 있습니다.
+                    )가 달성됩니다.
                   </>
-                ) : (
+                )}
+
+                {/* ── CASE 3: 추가 자금만으로 코어 완전 충당 ────────── */}
+                {isCase3 && (
                   <>
-                    이 처방대로 매매를 완료하면, 내 코어 비중이{' '}
-                    <span style={{ color: C.sat, fontWeight: 800 }}>{myCore.toFixed(1)}%</span>
-                    {' '}➔{' '}
+                    추가 자금을 이 처방대로 배분하여 매수하면, 전체 포트폴리오의 코어 비중이 목표 비율(
                     <span style={{ color: C.core, fontWeight: 800 }}>{targetCore.toFixed(1)}%</span>
-                    로 정상화됩니다.
+                    )에 정확히 도달합니다.
                   </>
                 )}
               </div>
