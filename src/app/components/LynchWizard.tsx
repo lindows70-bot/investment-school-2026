@@ -55,6 +55,8 @@ interface LynchWizardProps {
   autoPer?:       number | null
   /** API에서 받아온 EPS 성장률 (%) */
   autoEpsGrowth?: number | null
+  /** FMP/Naver 배런스시트로 자동 계산한 순현금 여부 */
+  autoHasCash?:   boolean | null
 }
 
 // ── 6대 유형 메타 ─────────────────────────────────────────────
@@ -387,6 +389,7 @@ export default function LynchWizard({
   autoName,
   autoPer,
   autoEpsGrowth,
+  autoHasCash,
 }: LynchWizardProps = {}) {
   // ── 스텝 상태 ─────────────────────────────────────────────
   const [step, setStep] = useState<1 | 2 | 3>(1)
@@ -418,6 +421,7 @@ export default function LynchWizard({
 
     if (hasPer)  setPerInput(autoPer!.toFixed(1))
     if (hasGrow) setEpsInput(autoEpsGrowth!.toFixed(1))
+    if (autoHasCash !== null && autoHasCash !== undefined) setHasCash(autoHasCash)
 
     // 숫자 데이터가 하나라도 채워졌으면 배지 표시
     setAutoFilled(hasPer || hasGrow)
@@ -437,9 +441,10 @@ export default function LynchWizard({
 
     if (hasPer)  setPerInput(autoPer!.toFixed(1))
     if (hasGrow) setEpsInput(autoEpsGrowth!.toFixed(1))
+    if (autoHasCash !== null && autoHasCash !== undefined) setHasCash(autoHasCash)
     setAutoFilled(true)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoPer, autoEpsGrowth])
+  }, [autoPer, autoEpsGrowth, autoHasCash])
 
   const per       = parseFloat(perInput)
   const epsGrowth = parseFloat(epsInput)
@@ -495,7 +500,8 @@ export default function LynchWizard({
     if (hasGrow) setEpsInput(autoEpsGrowth!.toFixed(1))
     else         setEpsInput('')
 
-    setHasCash(false)   // 순현금은 매번 직접 확인 유도
+    // 순현금: API 자동 계산값 복원 (null이면 false 기본)
+    setHasCash(autoHasCash ?? false)
     setAutoFilled(hasPer || hasGrow)
     // 다음 번 종목 변경 시 useEffect가 재실행되도록 ref 유지
     lastAutoTickerRef.current = autoTicker?.toUpperCase().trim() ?? null
@@ -641,6 +647,12 @@ export default function LynchWizard({
               <div>
                 <label style={{ fontSize: 11, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, display: 'block' }}>
                   순현금 자산 보유 여부
+                  {autoHasCash !== null && autoHasCash !== undefined && (
+                    <span style={{
+                      marginLeft: 8, fontSize: 9, fontWeight: 700, padding: '1px 6px',
+                      borderRadius: 4, background: 'rgba(163,230,53,0.15)', color: T.fast,
+                    }}>⚡ API 자동 계산</span>
+                  )}
                 </label>
                 <button
                   onClick={() => setHasCash(v => !v)}

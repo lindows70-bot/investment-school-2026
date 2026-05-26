@@ -38,6 +38,7 @@ interface StockInfo {
   currency?: string
   lynchCategory?: string | null
   lynchLabel?: string | null
+  hasCash?: boolean | null   // API 자동 계산: true=순현금, false=순부채, null=미확인
 }
 interface WatchlistItem {
   id: string; ticker: string; name: string; market: Market
@@ -148,6 +149,8 @@ export default function ResearchPage() {
             marketCap:     toNum(f.marketCap),
             lynchCategory,
             lynchLabel,
+            // API가 자동 계산한 순현금 여부 (US: FMP, KR: Naver annual)
+            hasCash: typeof raw.hasCash === 'boolean' ? raw.hasCash : null,
           })
         }
       }
@@ -218,10 +221,11 @@ export default function ResearchPage() {
       {/* ── 피터린치 진단 위저드 탭 ───────────────────────────── */}
       {activeTab === 'wizard' && (
         <LynchWizard
-          autoTicker={query    || null}
-          autoName={stockInfo?.name       ?? null}
-          autoPer={stockInfo?.per         ?? null}
+          autoTicker={query                   || null}
+          autoName={stockInfo?.name           ?? null}
+          autoPer={stockInfo?.per             ?? null}
           autoEpsGrowth={stockInfo?.epsGrowth ?? null}
+          autoHasCash={stockInfo?.hasCash     ?? null}
         />
       )}
 

@@ -20,6 +20,8 @@ export interface StockInfo {
   market:       Market
   currency:     'USD' | 'KRW'
   fundamentals: Fundamentals
+  /** 순현금 여부: true=현금>부채, false=부채>현금, null=데이터없음 */
+  hasCash?:     boolean | null
   source:       'live' | 'cache'
   error?:       string
 }
@@ -41,6 +43,42 @@ const NAVER_H: HeadersInit = {
   Accept: 'application/json',
   Referer: 'https://finance.naver.com/',
   'Accept-Language': 'ko-KR,ko;q=0.9',
+}
+
+// ── FMP (Financial Modeling Prep) 배런스시트 → 순현금 계산 ──────────────────
+// cashAndShortTermInvestments - totalDebt > 0 이면 순현금
+// 3초 타임아웃 — 핵심 PEG 조회를 블로킹하지 않기 위해
+const FMP_KEY = process.env.FMP_API_KEY ?? ''
+
+async function fetchNetCashUS(ticker: string): Promise<boolean | null> {
+  if (!FMP_KEY) return null
+  try {
+    const ctrl  = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 3000)
+    const res = await fetch(
+      `https://financialmodelingprep.com/stable/balance-sheet-statement?symbol=${encodeURIComponent(ticker)}&period=annual&limit=1&apikey=${FMP_KEY}`,
+      { signal: ctrl.signal, next: { revalidate: 3600 } }
+    )
+    clearTimeout(timer)
+    if (!res.ok) return null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: any[] = await res.json()
+    const bs = Array.isArray(data) ? data[0] : null
+    if (!bs) return null
+    // FMP 응답 필드
+    const cash  = typeof bs.cashAndShortTermInvestments === 'number' ? bs.cashAndShortTermInvestments
+                : typeof bs.cashAndCashEquivalents       === 'number' ? bs.cashAndCashEquivalents
+                : null
+    const debt  = typeof bs.totalDebt === 'number' ? bs.totalDebt
+                : typeof bs.longTermDebt === 'number' ? bs.longTermDebt
+                : null
+    // FMP가 netCash를 직접 제공하기도 함
+    if (typeof bs.netCash === 'number') return bs.netCash > 0
+    if (cash !== null && debt !== null) return cash - debt > 0
+    return null
+  } catch {
+    return null  // 타임아웃 또는 API 오류 → 미확인
+  }
 }
 
 // ── Yahoo Finance2 배당 데이터 공통 헬퍼 ────────────────────────────────────
@@ -536,6 +574,7 @@ async function krInfo(ticker: string): Promise<StockInfo> {
   let forwardEps:     number | null = null
   let payoutRatio:    number | null = null
   let annualDividend: number | null = null
+  let krHasCash:      boolean | null = null   // 순현금 여부 (자동 계산)
 
   if (annualRes.ok) {
     try {
@@ -629,6 +668,20 @@ async function krInfo(ticker: string): Promise<StockInfo> {
         }
       }
 
+      // ── 순현금 계산 ─────────────────────────────────────────
+      // Naver annual finance에 '순현금' 또는 '순차입금' 행이 있으면 활용
+      // 순현금 > 0  → hasCash = true
+      // 순차입금 > 0 (= 차입금이 현금 초과) → hasCash = false
+      // 없으면 null (미확인)
+      if (!krHasCash) {
+        const netCashVal = getAnnualVal(rowList, '순현금', lastKey)
+                        ?? getAnnualValLike(rowList, '순현금', lastKey)
+        const netDebtVal = getAnnualVal(rowList, '순차입금', lastKey)
+                        ?? getAnnualValLike(rowList, '순차입금', lastKey)
+        if (netCashVal !== null)      krHasCash = netCashVal > 0
+        else if (netDebtVal !== null) krHasCash = netDebtVal < 0  // 순차입금 음수 = 순현금
+      }
+
     } catch { /* annual 파싱 실패 → basic 값 사용 */ }
   }
 
@@ -675,6 +728,7 @@ async function krInfo(ticker: string): Promise<StockInfo> {
   return {
     ticker: code, name: d.stockName as string,
     market: 'KR', currency: 'KRW',
+    hasCash: krHasCash,
     fundamentals: {
       pe: per, peg, marketCap: mc, volume: null,
       high52w, low52w, sector, earningsGrowth, dividendYield, isEtf,
@@ -821,6 +875,8 @@ async function usInfo(ticker: string): Promise<StockInfo> {
         payoutRatio:    usDivData.payoutRatio,
         annualDividend: usDivData.annualDividend,
       },
+      // ── FMP 배런스시트 → 순현금 자동 계산 ──────────────────
+      hasCash: isEtf ? null : await fetchNetCashUS(t),
       source: 'live',
     }
   }
@@ -886,6 +942,7 @@ async function usInfo(ticker: string): Promise<StockInfo> {
         payoutRatio:    typeof payoutRatioY === 'number'    && isFinite(payoutRatioY)    ? payoutRatioY    : null,
         annualDividend: typeof annualDividendY === 'number' && isFinite(annualDividendY) ? annualDividendY : null,
       },
+      hasCash: isEtfY ? null : await fetchNetCashUS(t),
       source: 'live',
     }
   } catch (yfErr) {
