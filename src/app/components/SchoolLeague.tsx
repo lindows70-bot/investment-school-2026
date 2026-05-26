@@ -25,7 +25,7 @@ import {
   Trophy, Users, Star, Flame, BarChart2,
   ChevronUp, ChevronDown, Minus, Loader2, AlertCircle,
 } from 'lucide-react'
-import type { StudentPortfolio, TrendingStock, SchoolLeagueData } from '@/app/api/school-league/route'
+import type { TrendingStock, SchoolLeagueData } from '@/app/api/school-league/route'
 
 // ── 디자인 토큰 ──────────────────────────────────────────────────
 const C = {
