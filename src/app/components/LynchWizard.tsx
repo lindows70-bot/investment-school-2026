@@ -565,7 +565,7 @@ export default function LynchWizard() {
                   </div>
                   <div style={{ textAlign: 'right', fontSize: 11, color: T.dim, maxWidth: 200, lineHeight: 1.6 }}>
                     <div style={{ fontWeight: 700, color: T.muted, marginBottom: 4 }}>PEG = PER ÷ EPS 성장률</div>
-                    PEG {'<'} 1.0 → 린치의 "강력 매수 신호"<br />
+                    PEG {'<'} 1.0 → 린치의 &ldquo;강력 매수 신호&rdquo;<br />
                     PEG = 1.0 → 성장이 가격에 적정 반영<br />
                     PEG {'>'} 1.5 → 성장 대비 고평가 경계
                   </div>
