@@ -1,14 +1,14 @@
 'use client'
 
 /**
- * AIPortfolioDashboard (PeterLynchCleanDashboard v3)
+ * AIPortfolioDashboard (PeterLynchCleanDashboard v4)
  *
  * ◆ 핵심 개선
- *  - 띄어쓰기·명칭 편차 정규화 ('빠른 성장주' → '고성장주' 등)
- *  - PER/성장률 = 0인 ETF·지수·가상자산 → chartData에서 자동 제외 (0,0 뭉침 원천 차단)
- *  - '해당없음' 슬롯: 미분류 자산 별도 요약 바로 표시
- *  - 커스텀 툴팁으로 차트 라벨 겹침 없음
- *  - 방어막 3중 구조 유지 (props 다변수명 · 데이터 정제 · 자동 표준화)
+ *  - props 완전 탐색 (portfolioStocks|stocks|portfolio|items|data|list)
+ *  - 모든 소스 빈 배열이면 DEFAULT_FALLBACK_STOCKS 강제 렌더링 (빈 화면 방지)
+ *  - 명칭 편차 정규화 (띄어쓰기·축약형 포함)
+ *  - per/growthRate = 0 자산 차트 자동 제외 (0,0 뭉침 차단)
+ *  - 커스텀 툴팁으로 라벨 겹침 해결
  */
 
 import { useMemo } from 'react'
@@ -35,12 +35,22 @@ const C = {
 
 // ── 피터린치 6대 분류 마스터 ─────────────────────────────────
 const LYNCH_CATS = [
-  { id:'고성장주',    icon:'🚀', accent:'#f87171', bg:'rgba(239,68,68,0.10)',  border:'rgba(239,68,68,0.22)',  desc:'연 20~25% 고성장 (빠른 성장주)' },
+  { id:'고성장주',    icon:'🚀', accent:'#f87171', bg:'rgba(239,68,68,0.10)',  border:'rgba(239,68,68,0.22)',  desc:'연 20~25% 고성장' },
   { id:'대형우량주',  icon:'🛡️', accent:'#60a5fa', bg:'rgba(59,130,246,0.10)', border:'rgba(59,130,246,0.22)', desc:'안정적 성장의 대기업' },
   { id:'저성장주',    icon:'🐢', accent:'#4ade80', bg:'rgba(34,197,94,0.10)',  border:'rgba(34,197,94,0.22)',  desc:'성장은 느리나 높은 배당' },
   { id:'경기순환주',  icon:'🔄', accent:'#c084fc', bg:'rgba(168,85,247,0.10)', border:'rgba(168,85,247,0.22)', desc:'경기 흐름을 타는 업종' },
   { id:'자산주',      icon:'💎', accent:'#fbbf24', bg:'rgba(245,158,11,0.10)', border:'rgba(245,158,11,0.22)', desc:'숨겨진 자산 가치 기업' },
   { id:'턴어라운드주',icon:'🔥', accent:'#fb923c', bg:'rgba(251,146,60,0.10)', border:'rgba(251,146,60,0.22)', desc:'회생 가능성이 높은 기업' },
+]
+
+// ── 비상용 폴백 데이터 (연동 끊겨도 빈 화면 방지) ────────────
+const FALLBACK_STOCKS = [
+  { name:'팔란티어',       ticker:'PLTR',   lynchType:'고성장주',    per:45,   growthRate:50,  peg:0.90 },
+  { name:'엔비디아',       ticker:'NVDA',   lynchType:'고성장주',    per:35,   growthRate:37.6,peg:0.93 },
+  { name:'현대차',         ticker:'005380', lynchType:'경기순환주',  per:5.7,  growthRate:7.0, peg:0.81 },
+  { name:'삼성전자',       ticker:'005930', lynchType:'대형우량주',  per:15.8, growthRate:13.0,peg:1.21 },
+  { name:'코카콜라',       ticker:'KO',     lynchType:'저성장주',    per:22,   growthRate:5.0, peg:4.40 },
+  { name:'제너럴 일렉트릭',ticker:'GE',     lynchType:'턴어라운드주',per:18,   growthRate:15,  peg:1.20 },
 ]
 
 // ── 커스텀 툴팁 ──────────────────────────────────────────────
@@ -83,28 +93,45 @@ function Card({ children, style = {} }: { children: React.ReactNode; style?: Rea
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function AIPortfolioDashboard(props: any) {
 
-  // 방어막 1: 여러 prop 후보군 순서 탐색
-  const rawStocks = props.portfolioStocks ?? props.stocks ?? props.portfolio ?? props.items ?? []
+  // Step 1: props 완전 탐색 (모든 경우의 수)
+  const rawInput =
+    props.portfolioStocks ??
+    props.stocks          ??
+    props.portfolio       ??
+    props.items           ??
+    props.data            ??
+    props.list            ??
+    []
 
-  // 방어막 2+3: 데이터 정제 + 명칭 편차 정규화
+  // Step 2: 빈 배열이면 폴백 데이터 강제 주입 (절대 빈 화면 없음)
+  const finalRaw = useMemo(() => {
+    if (!Array.isArray(rawInput) || rawInput.length === 0) {
+      return FALLBACK_STOCKS
+    }
+    return rawInput
+  }, [rawInput])
+
+  // Step 3: 데이터 표준화 (명칭 편차·띄어쓰기 정규화)
   const stocks = useMemo(() => {
-    if (!Array.isArray(rawStocks)) return []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return rawStocks.map((s: any) => {
+    return finalRaw.map((s: any) => {
       const name       = s.name       || s.stockName || s.title  || '미확인 종목'
       const ticker     = s.ticker     || s.code      || s.symbol || ''
       const per        = Number(s.per) || 0
       const growthRate = Number(s.growthRate) || Number(s.growth) || 0
 
-      // 띄어쓰기 제거 후 포함 문자열로 유연하게 매칭
+      // 띄어쓰기 제거 후 포함 문자열 매칭
       const raw = (s.lynchType || s.category || s.type || '').toString().replace(/\s+/g, '')
       let lynchType = '해당없음'
-      if      (raw.includes('고성장') || raw.includes('빠른성장')) lynchType = '고성장주'
-      else if (raw.includes('대형우량'))                           lynchType = '대형우량주'
-      else if (raw.includes('저성장'))                             lynchType = '저성장주'
-      else if (raw.includes('경기순환'))                           lynchType = '경기순환주'
-      else if (raw.includes('자산'))                               lynchType = '자산주'
-      else if (raw.includes('턴어라운드'))                         lynchType = '턴어라운드주'
+      // 완전 일치 먼저 시도
+      if (['고성장주','대형우량주','저성장주','경기순환주','자산주','턴어라운드주'].includes(raw)) {
+        lynchType = raw
+      } else if (raw.includes('고성장') || raw.includes('빠른성장'))       lynchType = '고성장주'
+      else if (raw.includes('대형우량') || raw.includes('우량'))           lynchType = '대형우량주'
+      else if (raw.includes('저성장'))                                      lynchType = '저성장주'
+      else if (raw.includes('경기순환'))                                    lynchType = '경기순환주'
+      else if (raw.includes('자산'))                                        lynchType = '자산주'
+      else if (raw.includes('턴어라운드'))                                  lynchType = '턴어라운드주'
 
       const peg = s.peg !== undefined
         ? Number(s.peg)
@@ -112,13 +139,10 @@ export default function AIPortfolioDashboard(props: any) {
 
       return { name, ticker, lynchType, per, growthRate, peg }
     })
-  }, [rawStocks])
+  }, [finalRaw])
 
-  // ★ PER/성장률 = 0 인 자산(ETF·지수·가상자산) 차트에서 자동 제외 → (0,0) 뭉침 원천 차단
-  const chartData = useMemo(
-    () => stocks.filter(s => s.per > 0 && s.growthRate > 0),
-    [stocks]
-  )
+  // Step 4: 차트 데이터 — per/growthRate = 0 자동 제외 (0,0 뭉침 차단)
+  const chartData = useMemo(() => stocks.filter(s => s.per > 0 && s.growthRate > 0), [stocks])
 
   // AI 인사이트
   const aiInsights = useMemo(() => {
@@ -129,20 +153,34 @@ export default function AIPortfolioDashboard(props: any) {
 
   // 차트 축 범위 동적 계산
   const chartMax = useMemo(() => {
-    if (!chartData.length) return { x:50, y:50 }
-    const mx = Math.max(...chartData.map(s => s.growthRate), 40)
-    const my = Math.max(...chartData.map(s => s.per), 40)
+    if (!chartData.length) return { x:60, y:60 }
+    const mx = Math.max(...chartData.map(s => s.growthRate), 50)
+    const my = Math.max(...chartData.map(s => s.per), 50)
     return {
       x: Math.ceil(mx / 10) * 10 + 10,
       y: Math.ceil(my / 10) * 10 + 10,
     }
   }, [chartData])
 
-  // 미분류(해당없음) 자산 목록
+  // 미분류 자산
   const unclassified = stocks.filter(s => s.lynchType === '해당없음')
+  // 폴백 사용 여부
+  const isUsingFallback = !Array.isArray(rawInput) || rawInput.length === 0
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:16, fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+
+      {/* 폴백 사용 시 안내 배너 */}
+      {isUsingFallback && (
+        <div style={{
+          padding:'8px 14px', borderRadius:9, fontSize:11,
+          background:'rgba(251,191,36,0.09)', border:'1px solid rgba(251,191,36,0.3)',
+          color:'#fbbf24', display:'flex', alignItems:'center', gap:7,
+        }}>
+          <span>ℹ️</span>
+          포트폴리오 데이터 연동 중 · 아래는 피터 린치 원칙 학습용 샘플 데이터입니다.
+        </div>
+      )}
 
       {/* ── SECTION 1: 6대 카테고리 3×2 그리드 ─────────────────── */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
@@ -154,7 +192,6 @@ export default function AIPortfolioDashboard(props: any) {
               background:cat.bg, border:`1px solid ${cat.border}`,
               display:'flex', flexDirection:'column', justifyContent:'space-between',
             }}>
-              {/* 헤더 행 */}
               <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between' }}>
                 <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                   <span style={{ fontSize:16 }}>{cat.icon}</span>
@@ -167,8 +204,6 @@ export default function AIPortfolioDashboard(props: any) {
                   {matches.length}개
                 </span>
               </div>
-
-              {/* 종목 태그 — 자연스러운 줄바꿈 */}
               <div style={{ display:'flex', flexWrap:'wrap', gap:4, marginTop:10 }}>
                 {matches.length > 0
                   ? matches.map(m => (
@@ -187,7 +222,7 @@ export default function AIPortfolioDashboard(props: any) {
         })}
       </div>
 
-      {/* ── 미분류 자산 요약 바 (ETF·지수·가상자산 등) ────────── */}
+      {/* 미분류 자산 요약 바 */}
       {unclassified.length > 0 && (
         <div style={{
           padding:'10px 14px', borderRadius:10,
@@ -215,7 +250,7 @@ export default function AIPortfolioDashboard(props: any) {
         <div style={{ padding:'13px 18px 8px', background:C.surface, borderBottom:`1px solid ${C.border}` }}>
           <div style={{ fontSize:12, fontWeight:800, color:C.textHi }}>📈 성장률 vs 주가 가치 계측</div>
           <div style={{ fontSize:10, color:C.textLow, marginTop:2 }}>
-            사선(PEG=1.0) 아래 영역이 저평가 우량 구간 · ETF/가상자산은 자동 제외 · 마우스 오버 시 상세
+            사선(PEG=1.0) 아래 = 저평가 우량 구간 · 마우스 오버 시 종목 상세
           </div>
         </div>
         <div style={{ height:300, padding:'8px 8px 4px 4px' }}>
@@ -236,11 +271,7 @@ export default function AIPortfolioDashboard(props: any) {
                 />
                 <Scatter data={chartData} isAnimationActive={false}>
                   {chartData.map((s,i) => (
-                    <Cell key={i}
-                      fill={(s.peg ?? 0) <= 1.0 ? C.green : C.red}
-                      opacity={0.85}
-                      style={{ cursor:'pointer' }}
-                    />
+                    <Cell key={i} fill={(s.peg ?? 0) <= 1.0 ? C.green : C.red} opacity={0.85} style={{ cursor:'pointer' }} />
                   ))}
                 </Scatter>
               </ScatterChart>
@@ -248,21 +279,17 @@ export default function AIPortfolioDashboard(props: any) {
           ) : (
             <div style={{ height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:8, color:C.textLow }}>
               <span style={{ fontSize:28 }}>📊</span>
-              <div style={{ fontSize:12, fontStyle:'italic' }}>가치 분석(PER·성장률)이 가능한 개별 종목 데이터가 없습니다.</div>
+              <div style={{ fontSize:12, fontStyle:'italic' }}>가치 분석이 가능한 개별 종목 데이터가 없습니다.</div>
             </div>
           )}
         </div>
-
-        {/* 범례 */}
         {chartData.length > 0 && (
           <div style={{ display:'flex', justifyContent:'center', gap:24, padding:'8px 0 14px', fontSize:11, color:C.textMid }}>
             <div style={{ display:'flex', alignItems:'center', gap:5 }}>
-              <div style={{ width:10, height:10, borderRadius:'50%', background:C.green }} />
-              저평가 매력 구간 (PEG ≤ 1.0)
+              <div style={{ width:10, height:10, borderRadius:'50%', background:C.green }} /> 저평가 (PEG ≤ 1.0)
             </div>
             <div style={{ display:'flex', alignItems:'center', gap:5 }}>
-              <div style={{ width:10, height:10, borderRadius:'50%', background:C.red }} />
-              고평가 유의 구간 (PEG &gt; 1.0)
+              <div style={{ width:10, height:10, borderRadius:'50%', background:C.red }} /> 고평가 유의 (PEG &gt; 1.0)
             </div>
           </div>
         )}
@@ -287,9 +314,9 @@ export default function AIPortfolioDashboard(props: any) {
                     <span style={{ fontSize:10, color:C.textLow, fontFamily:'monospace' }}>({aiInsights.best.ticker})</span>
                   </div>
                   <div style={{ fontSize:11, color:C.textMid, lineHeight:1.7 }}>
-                    분석 대상 중 가치 매력이 가장 높습니다.{' '}
+                    분석 대상 중 가장 저평가 상태입니다.{' '}
                     <span style={{ color:C.green, fontWeight:700 }}>PEG {aiInsights.best.peg}</span>{' '}
-                    — 피터 린치 모델 기준 철저한 저평가 상태입니다.
+                    — 피터 린치 모델 기준 비중 확대 1순위입니다.
                   </div>
                 </div>
               </div>
@@ -303,16 +330,16 @@ export default function AIPortfolioDashboard(props: any) {
                     <span style={{ fontSize:10, color:C.textLow, fontFamily:'monospace' }}>({aiInsights.worst.ticker})</span>
                   </div>
                   <div style={{ fontSize:11, color:C.textMid, lineHeight:1.7 }}>
-                    현재 데이터 중{' '}
+                    성장세 대비 주가가 무겁습니다.{' '}
                     <span style={{ color:C.amber, fontWeight:700 }}>PEG {aiInsights.worst.peg}</span>{' '}
-                    — 주가가 다소 무겁게 세팅되어 단기 추격 매수 조율이 필요합니다.
+                    — 단기 추격 매수 조율이 필요합니다.
                   </div>
                 </div>
               </div>
             </div>
           ) : (
             <div style={{ textAlign:'center', padding:'16px 0', fontSize:12, color:C.textLow, fontStyle:'italic', border:`1px dashed ${C.border}`, borderRadius:10 }}>
-              개별 종목 데이터가 매핑되면 실시간 가치 분석 리포트가 가동됩니다.
+              데이터가 주입되면 가치 분석 리포트가 가동됩니다.
             </div>
           )}
         </div>
