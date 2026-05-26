@@ -1,4 +1,5 @@
 'use client'
+import { classifyAsset } from '@/lib/classifyAsset'
 
 /**
  * TransactionModal — 추가 매수 / 매도 처리
@@ -97,8 +98,11 @@ export default function TransactionModal({
   onSuccess,
 }: TransactionModalProps) {
   const [mode,         setMode]         = useState<'buy' | 'sell'>(initialMode)
-  // 자산 포지션 — 매수 시 현재 종목 포지션을 기본값으로 표시하며 변경 가능
-  const [assetRole,    setAssetRole]    = useState<AssetRole>(investment.asset_role ?? 'CORE')
+  // 자산 포지션 — 기존 asset_role 우선, 없으면 classifyAsset 자동 분류
+  const [assetRole, setAssetRole] = useState<AssetRole>(
+    investment.asset_role ??
+    classifyAsset(investment.ticker, investment.name, investment.market)
+  )
   // 매수 모드: 거래 후 최종 평단가 (역산 기준)
   // 매도 모드: 실제 매도 체결가
   const [priceInput,   setPriceInput]   = useState<string>('')
@@ -516,10 +520,22 @@ export default function TransactionModal({
             </div>
           </div>
 
-          {/* ── 자산 포지션 전략 (매수 모드만) ── */}
+          {/* ── 자산 포지션 전략 (매수 모드만) — 자동 분류 근거 표시 ── */}
           {mode === 'buy' && (
             <div style={{ marginTop: 16 }}>
-              <label style={labelStyle}>자산 포지션 전략</label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <label style={{ ...labelStyle, margin: 0 }}>자산 포지션 전략</label>
+                {/* 자동 분류 여부 뱃지 */}
+                <span style={{
+                  fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 4,
+                  background: investment.asset_role
+                    ? 'rgba(251,191,36,0.12)' : 'rgba(56,189,248,0.12)',
+                  color: investment.asset_role ? '#fbbf24' : '#38bdf8',
+                  border: `1px solid ${investment.asset_role ? 'rgba(251,191,36,0.3)' : 'rgba(56,189,248,0.3)'}`,
+                }}>
+                  {investment.asset_role ? '기존 설정 유지' : '⚡ 자동 분류'}
+                </span>
+              </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 {([
                   { role: 'CORE'      as AssetRole, icon: '🏛', label: '코어 (기반)' },
@@ -545,8 +561,8 @@ export default function TransactionModal({
               </div>
               <p style={hintStyle}>
                 {assetRole === 'CORE'
-                  ? '🏛 장기 보유 기반 자산 — ETF, 우량주, 인덱스'
-                  : '🛰 초과 수익 위성 자산 — 테마주, 성장주, 개별종목'}
+                  ? '🏛 장기 보유 기반 자산 — ETF · 채권 · 인덱스 | 수동 변경 가능'
+                  : '🛰 초과 수익 위성 자산 — 개별주식 · 테마 · 암호화폐 | 수동 변경 가능'}
               </p>
             </div>
           )}

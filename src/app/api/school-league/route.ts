@@ -13,6 +13,7 @@ export const revalidate = 0
 
 import { NextResponse }                    from 'next/server'
 import { createClient as createAdmin }     from '@supabase/supabase-js'
+import { classifyAsset }                   from '@/lib/classifyAsset'
 
 // ── 서비스 롤 클라이언트 (전체 사용자 데이터 조회) ──────────────
 function adminClient() {
@@ -188,7 +189,10 @@ export async function GET() {
         totalCurrent += current
 
         // Core / Satellite 비중 계산
-        const role = inv.asset_role ?? 'CORE'
+        // 1순위: DB에 저장된 asset_role, 없으면 classifyAsset 자동 판별
+        const market = (inv.market ?? 'KR') as 'US' | 'KR' | 'CRYPTO'
+        const role = inv.asset_role ??
+          classifyAsset(inv.ticker ?? '', inv.name ?? '', market)
         if (role === 'CORE')      coreVal += current
         else                      satVal  += current
 

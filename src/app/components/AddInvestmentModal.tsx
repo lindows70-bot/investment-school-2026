@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { classifyAsset } from '@/lib/classifyAsset'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Market   = 'US' | 'KR' | 'CRYPTO'
@@ -129,8 +130,10 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
   const [purchaseDate,  setPurchaseDate]  = useState(
     initial?.purchase_date ?? new Date().toISOString().split('T')[0]
   )
-  const [assetRole, setAssetRole] = useState<AssetRole>(initial?.asset_role ?? 'CORE')
-  const [focused,    setFocused]    = useState<string | null>(null)
+  const [assetRole,        setAssetRole]        = useState<AssetRole>(initial?.asset_role ?? 'CORE')
+  const [autoClassified,   setAutoClassified]   = useState(false)   // 자동 분류 적용 여부
+  const [manualOverride,   setManualOverride]   = useState(!!initial) // 편집 모드는 수동 우선
+  const [focused,          setFocused]          = useState<string | null>(null)
   const [saving,     setSaving]     = useState(false)
   const [deleting,   setDeleting]   = useState(false)
   const [error,      setError]      = useState<string | null>(null)
@@ -168,10 +171,17 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticker, isEdit])
 
-  // 조회 완료 → 종목명 자동 입력 (사용자가 직접 수정하지 않은 경우)
+  // 조회 완료 → 종목명 자동 입력 + 자산 포지션 자동 분류
   useEffect(() => {
     if (isEdit || nameStatus !== 'found' || !lookedUpName) return
     setName(lookedUpName)
+    // 수동 오버라이드 중이 아닐 때만 자동 분류 실행
+    if (!manualOverride) {
+      const classified = classifyAsset(ticker, lookedUpName, market)
+      setAssetRole(classified)
+      setAutoClassified(true)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lookedUpName, nameStatus, isEdit])
 
   const currency = MARKETS.find(m => m.id === market)?.currency ?? 'USD'
@@ -605,20 +615,74 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
                 />
               </div>
 
-              {/* ── 자산 포지션 ── */}
+              {/* ── 자산 포지션 (자동 분류 + 수동 오버라이드) ── */}
               <div style={S.section}>
-                <label style={S.label}>자산 포지션 전략</label>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
+                  <label style={{ ...S.label, margin:0 }}>자산 포지션 전략</label>
+                  {/* 자동분류 배지 + 오버라이드 토글 */}
+                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    {autoClassified && !manualOverride && (
+                      <span style={{
+                        fontSize:9, fontWeight:700, padding:'2px 7px', borderRadius:4,
+                        background:'rgba(56,189,248,0.12)', color:'#38bdf8',
+                        border:'1px solid rgba(56,189,248,0.3)',
+                      }}>
+                        ⚡ 자동 분류
+                      </span>
+                    )}
+                    {manualOverride && (
+                      <span style={{
+                        fontSize:9, fontWeight:700, padding:'2px 7px', borderRadius:4,
+                        background:'rgba(251,191,36,0.12)', color:'#fbbf24',
+                        border:'1px solid rgba(251,191,36,0.3)',
+                      }}>
+                        ✏️ 수동 설정
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (manualOverride) {
+                          // 자동 분류로 되돌리기
+                          setManualOverride(false)
+                          if (ticker && name) {
+                            const classified = classifyAsset(ticker, name, market)
+                            setAssetRole(classified)
+                            setAutoClassified(true)
+                          }
+                        } else {
+                          setManualOverride(true)
+                        }
+                      }}
+                      style={{
+                        fontSize:9, padding:'2px 8px', borderRadius:4,
+                        border:'1px solid #2a2a2a', background:'#181818',
+                        color:'#6b7280', cursor:'pointer',
+                      }}>
+                      {manualOverride ? '🔄 자동으로' : '✏️ 수동 변경'}
+                    </button>
+                  </div>
+                </div>
                 <div style={{ display:'flex', gap:8 }}>
                   {([
-                    { role:'CORE'      as AssetRole, icon:'🏛', label:'코어 (기반)',      desc:'ETF · 우량주 · 인덱스' },
-                    { role:'SATELLITE' as AssetRole, icon:'🛰', label:'새틀라이트 (위성)', desc:'테마주 · 성장주 · 개별종목' },
+                    { role:'CORE'      as AssetRole, icon:'🏛', label:'코어 (기반)',      desc:'ETF · 채권 · 인덱스' },
+                    { role:'SATELLITE' as AssetRole, icon:'🛰', label:'새틀라이트 (위성)', desc:'개별주식 · 테마 · 암호화폐' },
                   ]).map(({ role, icon, label, desc }) => (
-                    <button key={role} type="button" onClick={() => setAssetRole(role)}
+                    <button key={role} type="button"
+                      onClick={() => {
+                        setAssetRole(role)
+                        setManualOverride(true)    // 클릭 시 수동 오버라이드로 전환
+                        setAutoClassified(false)
+                      }}
                       style={{
                         flex:1, padding:'10px 8px', borderRadius:9, border:'none', cursor:'pointer',
                         textAlign:'center' as const, transition:'all 0.15s',
                         background: assetRole === role ? '#1e1e1e' : '#181818',
-                        boxShadow:  assetRole === role ? '0 0 0 2px ' + (role==='CORE'?'#34d399':'#fbbf24') : '0 0 0 1px #2a2a2a',
+                        boxShadow:  assetRole === role
+                          ? '0 0 0 2px ' + (role==='CORE'?'#34d399':'#fbbf24')
+                          : '0 0 0 1px #2a2a2a',
+                        // 수동 오버라이드 아닐 때 선택 안 된 버튼 흐릿하게
+                        opacity: !manualOverride && assetRole !== role ? 0.5 : 1,
                       }}>
                       <div style={{ fontSize:18, marginBottom:3 }}>{icon}</div>
                       <div style={{ fontSize:11, fontWeight:700, color: assetRole===role ? (role==='CORE'?'#34d399':'#fbbf24') : '#6b7280', marginBottom:2 }}>{label}</div>
@@ -626,6 +690,14 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
                     </button>
                   ))}
                 </div>
+                {/* 자동 분류 근거 안내 */}
+                {autoClassified && !manualOverride && (
+                  <div style={{ fontSize:10, color:'#4b5563', marginTop:6, paddingLeft:2 }}>
+                    {assetRole === 'CORE'
+                      ? '✅ 지수형 ETF · 채권으로 코어 자동 분류됨'
+                      : '✅ 개별종목 · 테마 ETF · 암호화폐로 새틀라이트 자동 분류됨'}
+                  </div>
+                )}
               </div>
 
               {/* ── 오류 ── */}
