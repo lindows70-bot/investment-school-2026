@@ -134,8 +134,25 @@ export default function AIPortfolioDashboard(props: any) {
       const raw    = rawKey.replace(/\s+/g, '')
       let lynchType = '해당없음'
 
+      // ── 최우선: 종목명/티커로 ETF·원자재·실물자산 감지 → 무조건 해당없음 ──
+      // DB의 lynch_category가 잘못 설정되어 있어도 코드가 덮어씀
+      const nameUpper = name.toUpperCase()
+      const tickerUpper = ticker.toUpperCase()
+      const isPhysicalCommodity =
+        nameUpper.includes('PHYSICAL') ||
+        nameUpper.includes('SILVER') ||
+        nameUpper.includes('GOLD') ||
+        nameUpper.includes('TRUST') ||
+        nameUpper.includes('SPROTT') ||
+        nameUpper.includes('GOLD TRUST') ||
+        nameUpper.includes('SILVER TRUST') ||
+        ['PSLV','GLD','SLV','IAU','SIVR','PHYS','SGOL','PPLT'].includes(tickerUpper)
+
+      if (isPhysicalCommodity) {
+        lynchType = '해당없음'
+      }
       // 'na', 'N/A', null, '' → 해당없음 (ETF·원자재·가상자산 등)
-      if (!rawKey || rawKey === 'na' || rawKey.toLowerCase() === 'n/a') {
+      else if (!rawKey || rawKey === 'na' || rawKey.toLowerCase() === 'n/a') {
         lynchType = '해당없음'
       }
       // 1순위: DB 영어 키 직접 변환
