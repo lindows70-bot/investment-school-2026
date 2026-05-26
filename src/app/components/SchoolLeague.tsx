@@ -248,13 +248,14 @@ function CustomTooltip({ active, payload, label }: any) {
 // ══════════════════════════════════════════════════════════════════
 export default function SchoolLeague() {
   // ── 상태 ───────────────────────────────────────────────────────
-  const [data,          setData]         = useState<SchoolLeagueData | null>(null)
-  const [loading,       setLoading]      = useState(true)
-  const [loadingMsg,    setLoadingMsg]   = useState('스쿨 리그 데이터 집계 중…')
-  const [error,         setError]        = useState<string | null>(null)
-  const [myName,        setMyName]       = useState<string | null>(null)
+  const [data,          setData]          = useState<SchoolLeagueData | null>(null)
+  const [loading,       setLoading]       = useState(true)
+  const [loadingMsg,    setLoadingMsg]    = useState('스쿨 리그 데이터 집계 중…')
+  const [error,         setError]         = useState<string | null>(null)
+  const [myName,        setMyName]        = useState<string | null>(null)
   const [migratedCount, setMigratedCount] = useState<number>(0)
-  const [period]                         = useState<Period>('cumulative')
+  const [targetCore,    setTargetCore]    = useState<number>(70)  // 내 목표 코어 비중 (strategy_configs)
+  const [period]                          = useState<Period>('cumulative')
 
   // ── 현재 로그인 유저 이름 ────────────────────────────────────
   useEffect(() => {
@@ -266,6 +267,23 @@ export default function SchoolLeague() {
         const { data: p } = await sb.from('profiles').select('full_name, email').eq('id', user.id).single()
         setMyName(p?.full_name ?? p?.email?.split('@')[0] ?? null)
       } catch { /* 무시 */ }
+    }
+    load()
+  }, [])
+
+  // ── 내 목표 코어 비중 로드 (strategy_configs) ────────────────
+  // 최일 선생님이 설정한 권장 비중 → 진단 기준으로 사용
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const sb = createClient()
+        const { data } = await sb
+          .from('strategy_configs')
+          .select('core_pct')
+          .limit(1)
+          .single()
+        if (data?.core_pct != null && data.core_pct > 0) setTargetCore(data.core_pct)
+      } catch { /* 기본값 70% 유지 */ }
     }
     load()
   }, [])
@@ -804,21 +822,86 @@ export default function SchoolLeague() {
             </div>
           </div>
 
-          {/* 자동 진단 */}
-          <div style={{
-            marginTop: 12, padding: '10px 14px', borderRadius: 8,
-            background: C.surface, border: `1px solid ${C.border}`,
-            fontSize: 12, color: C.textMid, lineHeight: 1.6,
-          }}>
-            {myStudent
-              ? myCore > avgCore + 5
-                ? <><span style={{ color: C.core, fontWeight: 700 }}>코어 과잉</span> — 스쿨 평균보다 {myCore - avgCore}%p 방어적입니다. 성장 기회를 놓칠 수 있어요.</>
-                : myCore < avgCore - 5
-                ? <><span style={{ color: C.sat, fontWeight: 700 }}>새틀라이트 과잉</span> — 스쿨 평균보다 {avgCore - myCore}%p 공격적입니다. 변동성 관리를 점검하세요.</>
-                : <><span style={{ color: C.green, fontWeight: 700 }}>균형 포트폴리오</span> — 스쿨 평균과 비슷한 Core/Satellite 비중을 유지 중입니다. 👍</>
-              : <span style={{ color: C.textLow }}>로그인 후 내 포트폴리오와 비교해보세요.</span>
+          {/* 자동 진단 — 스쿨 평균이 아닌 '내 전략 목표' 대비 진단 */}
+          {(() => {
+            if (!myStudent) {
+              return (
+                <div style={{
+                  marginTop: 12, padding: '10px 14px', borderRadius: 8,
+                  background: C.surface, border: `1px solid ${C.border}`,
+                  fontSize: 12, color: C.textLow,
+                }}>
+                  로그인 후 내 포트폴리오와 비교해보세요.
+                </div>
+              )
             }
-          </div>
+
+            // 목표 대비 차이 (양수 = 목표 초과, 음수 = 목표 미달)
+            const diffFromTarget = myCore - targetCore
+            const absDiff        = Math.abs(diffFromTarget)
+
+            // Case 3: ±3%p 이내 → 전략 달성
+            if (absDiff <= 3) {
+              return (
+                <div style={{
+                  marginTop: 12, padding: '12px 14px', borderRadius: 8,
+                  background: `${C.green}0f`, border: `1px solid ${C.green}30`,
+                  fontSize: 12, color: C.textMid, lineHeight: 1.7,
+                }}>
+                  <div style={{ fontWeight: 800, color: C.green, marginBottom: 3 }}>
+                    🟢 전략적 균형 상태
+                  </div>
+                  설정하신 황금 비율 전략(Core {targetCore}% / Sat {100 - targetCore}%)에 맞춰
+                  아주 모범적으로 포트폴리오를 유지하고 있습니다. 👍
+                  <div style={{ fontSize: 10, color: C.textLow, marginTop: 4 }}>
+                    스쿨 평균 Core {avgCore}% 대비 {myCore >= avgCore ? `+${myCore - avgCore}` : `${myCore - avgCore}`}%p
+                  </div>
+                </div>
+              )
+            }
+
+            // Case 1: 목표보다 코어 부족 → Satellite 과잉
+            if (diffFromTarget < 0) {
+              const vsSchool = myCore - avgCore
+              return (
+                <div style={{
+                  marginTop: 12, padding: '12px 14px', borderRadius: 8,
+                  background: `${C.sat}0f`, border: `1px solid ${C.sat}30`,
+                  fontSize: 12, color: C.textMid, lineHeight: 1.7,
+                }}>
+                  <div style={{ fontWeight: 800, color: C.sat, marginBottom: 3 }}>
+                    🟡 새틀라이트 과잉 (전략 대비)
+                  </div>
+                  내 목표({targetCore}%)보다 코어 자산이{' '}
+                  <span style={{ color: C.sat, fontWeight: 700 }}>{absDiff.toFixed(1)}%p 부족</span>합니다.
+                  다만, 스쿨 평균({avgCore}%) 대비로는{' '}
+                  <span style={{ color: vsSchool >= 0 ? C.green : C.textMid, fontWeight: 700 }}>
+                    {vsSchool >= 0 ? `+${vsSchool.toFixed(1)}` : vsSchool.toFixed(1)}%p
+                  </span>{' '}
+                  {vsSchool >= 0 ? '더 안정적으로 중심을 잡고 있습니다.' : '더 공격적인 상태입니다.'}
+                </div>
+              )
+            }
+
+            // Case 2: 목표보다 코어 초과 → Core 과잉
+            return (
+              <div style={{
+                marginTop: 12, padding: '12px 14px', borderRadius: 8,
+                background: `${C.core}0f`, border: `1px solid ${C.core}30`,
+                fontSize: 12, color: C.textMid, lineHeight: 1.7,
+              }}>
+                <div style={{ fontWeight: 800, color: C.core, marginBottom: 3 }}>
+                  🔵 코어 과잉 (전략 대비)
+                </div>
+                내 목표({targetCore}%)보다 코어 자산이{' '}
+                <span style={{ color: C.core, fontWeight: 700 }}>{absDiff.toFixed(1)}%p 초과</span>되었습니다.
+                조금 더 공격적인 새틀라이트 자산 편입을 고려해 볼 수 있습니다.
+                <div style={{ fontSize: 10, color: C.textLow, marginTop: 4 }}>
+                  스쿨 평균 Core {avgCore}% 대비 +{(myCore - avgCore).toFixed(1)}%p
+                </div>
+              </div>
+            )
+          })()}
         </Card>
       </div>
 
