@@ -27,6 +27,7 @@ const SCHOOL_NAV = [
   { href: '/investment-academy', icon: '🎓', label: 'Investment Academy' },
   { href: '/school-lounge',      icon: '💬', label: 'School Lounge' },
   { href: '/macro-hub',          icon: '🌐', label: 'Macro Hub' },
+  { href: '/school-league',      icon: '🏆', label: 'School League' },
 ]
 
 function SidebarInner() {

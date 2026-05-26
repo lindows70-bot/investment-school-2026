@@ -33,6 +33,7 @@ export async function middleware(request: NextRequest) {
     '/portfolio', '/admin', '/dashboard', '/assets', '/history',
     '/analysis', '/watchlist', '/research', '/master-strategy',
     '/investment-academy', '/school-lounge', '/macro-hub', '/valuation',
+    '/school-league',
   ]
   const authPaths = ['/login', '/signup']
 
