@@ -409,67 +409,58 @@ export default function SchoolLeague() {
   ]
 
   // ── 리밸런싱 시뮬레이터 계산 (useMemo) ──────────────────────────
-  // ★ 반올림 정렬 규칙:
-  //   - 배너 목표 금액: Math.round  (1425만, 1672만 등)
-  //   - 매도·부족 금액: Math.floor  (보수적 — 약간 적게 표시)
-  //   - 추가자금 배분:  coreFromCash=floor, satFromCash=addCashMans-core (합계 보장)
+  // ★ 연산 원칙: 모든 계산을 万원 정수 산술로 수행 (부동소수점 오차 완전 차단)
+  //
+  //  Step 1. 현재 자산 万원 변환
+  //    curTotal  = Math.round(totalAssets / 10000)
+  //    curCore   = Math.round(totalAssets × myCore% / 10000)
+  //    curSaddle = curTotal - curCore  (나머지 = 새틀라이트)
+  //
+  //  Step 2. 신규 가치 재산출 (추가 자금 합산 기준)
+  //    newTotal    = curTotal + cash
+  //    tgtCore     = Math.round(newTotal × targetCore%)
+  //    tgtSaddle   = newTotal - tgtCore  ← 전체에서 코어를 뺀 나머지로 고정
+  //
+  //  Step 3. 차액 계산
+  //    coreDiff   = tgtCore   - curCore    (양수 = 코어 더 사야 함)
+  //    saddleDiff = tgtSaddle - curSaddle  (음수 = 새틀 팔아야 함)
+  //
+  //  Case 판별
+  //    CASE 1: cash === 0
+  //    CASE 2: coreDiff > cash  (신규 자금을 코어에 다 넣어도 부족 → 새틀 매도 동반)
+  //    CASE 3: coreDiff <= cash (신규 자금만으로 코어 충당 → 잔액을 새틀에 배분)
   const rebalancePlan = useMemo(() => {
     if (totalAssets <= 0) return null
 
-    const addKrw  = addCashMans * 10_000                    // 万원 → 원 변환
-    const newTotal = totalAssets + addKrw
+    const cash = addCashMans  // 사용자 입력 (万원 정수)
 
-    // ── 현재 금액 (원 단위) ─────────────────────────────────
-    const currentCoreWon = totalAssets * (myCore / 100)
-    const currentSatWon  = totalAssets * (mySat  / 100)
+    // ── Step 1: 현재 자산 万원 변환 ─────────────────────────────
+    const curTotal  = Math.round(totalAssets / 10_000)
+    const curCore   = Math.round(totalAssets * myCore / 100 / 10_000)
+    const curSaddle = curTotal - curCore   // 새틀라이트 = 나머지
 
-    // ── 목표 금액 (원 단위, 부동소수점 그대로 유지) ──────────
-    const targetCoreWon  = newTotal * (targetCore / 100)
-    const targetSatWon   = newTotal * ((100 - targetCore) / 100)
+    // ── Step 2: 신규 가치 재산출 ────────────────────────────────
+    const newTotal  = curTotal + cash
+    const tgtCore   = Math.round(newTotal * targetCore / 100)
+    const tgtSaddle = newTotal - tgtCore   // 단수 오차 방지용 나머지 고정
 
-    // ── 배너 표시용 万원 (Math.round — 정확한 목표액 인식) ────
-    const newTotalMans   = Math.round(newTotal   / 10_000)
-    const targetCoreMans = Math.round(targetCoreWon / 10_000)
-    const targetSatMans  = newTotalMans - targetCoreMans   // 합계 보장
+    // ── Step 3: 차액 계산 ─────────────────────────────────────────
+    const coreDiff   = tgtCore   - curCore    // 양수 = 코어 추가 필요
+    const saddleDiff = tgtSaddle - curSaddle  // 음수 = 새틀 매도 필요
 
-    // ── 코어 부족분 (양수 = 더 사야 함) ────────────────────────
-    const coreShortfallWon = Math.max(0, targetCoreWon - currentCoreWon)
-    // ── 새틀라이트 잉여분 (양수 = 팔아야 함) ───────────────────
-    const satExcessWon     = Math.max(0, currentSatWon - targetSatWon)
-
-    // ── Case 1: 추가 자금 없을 때 ───────────────────────────────
-    // 매도·매수 금액 = floor (보수적)
-    const case1SellMans = Math.floor(satExcessWon    / 10_000)
-    const case1BuyMans  = Math.floor(coreShortfallWon / 10_000)
-
-    // ── Case 2/3: 추가 자금 있을 때 ────────────────────────────
-    const coreFromCashWon  = Math.min(addKrw, coreShortfallWon)
-    // ★ core 배분: floor → sat 배분: 전체 - core (합계 보장)
-    const coreFromCashMans = Math.floor(coreFromCashWon / 10_000)
-    const satFromCashMans  = addCashMans - coreFromCashMans  // 합계 = addCashMans
-
-    // Case 2: 추가금이 코어 부족분을 못 채울 때 → 추가 매도 필요
-    const additionalSatSellMans = addKrw < coreShortfallWon
-      ? Math.floor((coreShortfallWon - addKrw) / 10_000)
-      : 0
-
-    // Case 판별
-    const isCase1  = addCashMans === 0
-    const isCase3  = addCashMans > 0 && addKrw >= coreShortfallWon
+    // ── Case 판별 ────────────────────────────────────────────────
+    const isCase1 = cash === 0
+    const isCase3 = !isCase1 && coreDiff <= cash   // 신규 자금만으로 코어 충당 가능
 
     return {
-      addCashMans,
-      addKrw,
-      newTotalMans,
-      targetCoreMans,
-      targetSatMans,
-      currentCoreMans:       Math.round(currentCoreWon / 10_000),
-      currentSatMans:        Math.round(currentSatWon  / 10_000),
-      case1SellMans,
-      case1BuyMans,
-      coreFromCashMans,
-      satFromCashMans,
-      additionalSatSellMans,
+      cash,
+      newTotal,
+      tgtCore,
+      tgtSaddle,
+      curCore,
+      curSaddle,
+      coreDiff,
+      saddleDiff,
       isCase1,
       isCase3,
     }
@@ -1170,18 +1161,17 @@ export default function SchoolLeague() {
 
           {/* ── 행동 플랜 결과 카드 (3 케이스) ─────────────────── */}
           {totalAssets > 0 && rebalancePlan ? (() => {
+            // ── 새 변수명으로 destructure ──────────────────────────
             const {
-              newTotalMans, targetCoreMans, targetSatMans,
-              case1SellMans, case1BuyMans,
-              coreFromCashMans, satFromCashMans,
-              additionalSatSellMans,
+              cash, newTotal, tgtCore, tgtSaddle,
+              coreDiff, saddleDiff,
               isCase1, isCase3,
             } = rebalancePlan
 
-            // 금액 포맷: N만원
-            const fmt = (mans: number) => `₩${mans.toLocaleString('ko-KR')}만`
+            // 금액 포맷 헬퍼
+            const fmt = (mans: number) => `₩${Math.abs(mans).toLocaleString('ko-KR')}만`
 
-            // ── 공통 배너 스타일 헬퍼 ──────────────────────────
+            // ── 공통 배너 카드 컴포넌트 ──────────────────────────
             const Banner = ({
               icon, iconBg, label, color, children,
             }: {
@@ -1206,10 +1196,34 @@ export default function SchoolLeague() {
               </div>
             )
 
-            // ── CASE 1: 추가 자금 없음 ─────────────────────────
+            // ── 공통: 신규자금 배너 (CASE 2/3 공유) ──────────────
+            const CashBanner = () => (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '10px 14px', borderRadius: 10, marginBottom: 12,
+                background: `${C.green}0d`, border: `1px solid ${C.green}35`,
+                fontSize: 12, color: C.textMid,
+              }}>
+                <div style={{ width: 28, height: 28, borderRadius: 7, background: `${C.green}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>💡</div>
+                <div>
+                  <span style={{ fontWeight: 800, color: C.green }}>신규 자금 우선 배분 플랜</span>
+                  <span style={{ marginLeft: 6 }}>
+                    새로운 총 자산{' '}
+                    <span style={{ color: C.textHi, fontWeight: 700 }}>{fmt(newTotal)}</span>{' '}
+                    기준으로 코어 목표{' '}
+                    <span style={{ color: C.core, fontWeight: 700 }}>{fmt(tgtCore)}</span>,
+                    새틀 목표{' '}
+                    <span style={{ color: C.sat, fontWeight: 700 }}>{fmt(tgtSaddle)}</span>
+                  </span>
+                </div>
+              </div>
+            )
+
+            // ══════════════════════════════════════════════════════
+            //  CASE 1: cash === 0  →  현재 자산 내 조정
+            // ══════════════════════════════════════════════════════
             if (isCase1) return (
               <div>
-                {/* 배너 */}
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: 8,
                   padding: '10px 14px', borderRadius: 10, marginBottom: 12,
@@ -1223,98 +1237,63 @@ export default function SchoolLeague() {
                   </div>
                 </div>
 
-                {/* 새틀 매도 */}
+                {/* saddleDiff < 0 이므로 Math.abs */}
                 <Banner icon="🔴" iconBg={`${C.red}20`} label="새틀라이트 자산 일부 매도 (수익 확정)" color={C.red}>
                   비중이 높은 새틀라이트 종목(개별주, 테마 ETF 등)을{' '}
-                  <span style={{ color: C.red, fontWeight: 900, fontSize: 15 }}>{fmt(case1SellMans)}</span>
+                  <span style={{ color: C.red, fontWeight: 900, fontSize: 15 }}>{fmt(saddleDiff)}</span>
                   {' '}분할 매도하여 예수금을 확보하세요.
                   <div style={{ fontSize: 10, color: C.textLow, marginTop: 4 }}>
                     💡 한 번에 전량 매도보다 2~3회 분할 매도를 권장합니다
                   </div>
                 </Banner>
 
-                {/* 코어 매수 */}
                 <Banner icon="🟢" iconBg={`${C.green}20`} label="코어 자산 집중 매수" color={C.green}>
                   확보된 예수금으로 코어 자산(S&P500, KODEX200, 국채 ETF 등)을{' '}
-                  <span style={{ color: C.green, fontWeight: 900, fontSize: 15 }}>{fmt(case1BuyMans)}</span>
+                  <span style={{ color: C.green, fontWeight: 900, fontSize: 15 }}>{fmt(coreDiff)}</span>
                   {' '}매수하여 포트폴리오 중심을 잡으세요.
                 </Banner>
               </div>
             )
 
-            // ── CASE 3: 추가 자금이 충분해 코어 부족분 해결 + Sat 투자 ──
+            // ══════════════════════════════════════════════════════
+            //  CASE 3: coreDiff <= cash  →  신규 자금만으로 충당
+            // ══════════════════════════════════════════════════════
             if (isCase3) return (
               <div>
-                {/* 배너 */}
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '10px 14px', borderRadius: 10, marginBottom: 12,
-                  background: `${C.green}0d`, border: `1px solid ${C.green}35`,
-                  fontSize: 12, color: C.textMid,
-                }}>
-                  <div style={{ width: 28, height: 28, borderRadius: 7, background: `${C.green}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>💡</div>
-                  <div>
-                    <span style={{ fontWeight: 800, color: C.green }}>신규 자금 우선 배분 플랜</span>
-                    <span style={{ marginLeft: 6 }}>
-                      새로운 총 자산{' '}
-                      <span style={{ color: C.textHi, fontWeight: 700 }}>{fmt(newTotalMans)}</span>{' '}
-                      기준으로 코어 목표{' '}
-                      <span style={{ color: C.core, fontWeight: 700 }}>{fmt(targetCoreMans)}</span>,
-                      새틀 목표{' '}
-                      <span style={{ color: C.sat, fontWeight: 700 }}>{fmt(targetSatMans)}</span>
-                    </span>
-                  </div>
-                </div>
+                <CashBanner />
 
-                {/* 코어 매수 */}
+                {/* 코어 매수 = coreDiff 만원 */}
                 <Banner icon="🟢" iconBg={`${C.green}20`} label="코어 자산 매수" color={C.green}>
                   추가 투자금 중{' '}
-                  <span style={{ color: C.green, fontWeight: 900, fontSize: 15 }}>{fmt(coreFromCashMans)}</span>
+                  <span style={{ color: C.green, fontWeight: 900, fontSize: 15 }}>{fmt(coreDiff)}</span>
                   을 코어 자산(S&P500 ETF, 국채 등)에 투입하세요.
                 </Banner>
 
-                {/* 새틀 투자 (나머지) */}
-                {satFromCashMans > 0 && (
+                {/* 새틀 투자 = cash - coreDiff */}
+                {cash - coreDiff > 0 && (
                   <Banner icon="🟡" iconBg={`${C.sat}20`} label="새틀라이트 자산 추가 투입" color={C.sat}>
                     나머지{' '}
-                    <span style={{ color: C.sat, fontWeight: 900, fontSize: 15 }}>{fmt(satFromCashMans)}</span>
+                    <span style={{ color: C.sat, fontWeight: 900, fontSize: 15 }}>{fmt(cash - coreDiff)}</span>
                     은 성장 전략(개별주, 테마 ETF 등) 새틀라이트 자산에 배분하세요.
                   </Banner>
                 )}
               </div>
             )
 
-            // ── CASE 2: 추가 자금이 있지만 코어 부족분을 못 채울 때 ──
+            // ══════════════════════════════════════════════════════
+            //  CASE 2: coreDiff > cash  →  신규 자금 전액 코어 + 새틀 매도 동반
+            // ══════════════════════════════════════════════════════
             return (
               <div>
-                {/* 배너 */}
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '10px 14px', borderRadius: 10, marginBottom: 12,
-                  background: `${C.green}0d`, border: `1px solid ${C.green}35`,
-                  fontSize: 12, color: C.textMid,
-                }}>
-                  <div style={{ width: 28, height: 28, borderRadius: 7, background: `${C.green}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>💡</div>
-                  <div>
-                    <span style={{ fontWeight: 800, color: C.green }}>신규 자금 우선 배분 플랜</span>
-                    <span style={{ marginLeft: 6 }}>
-                      새로운 총 자산{' '}
-                      <span style={{ color: C.textHi, fontWeight: 700 }}>{fmt(newTotalMans)}</span>{' '}
-                      기준으로 코어 목표{' '}
-                      <span style={{ color: C.core, fontWeight: 700 }}>{fmt(targetCoreMans)}</span>,
-                      새틀 목표{' '}
-                      <span style={{ color: C.sat, fontWeight: 700 }}>{fmt(targetSatMans)}</span>
-                    </span>
-                  </div>
-                </div>
+                <CashBanner />
 
-                {/* 코어 매수 + 경고 (합체 카드) */}
+                {/* 코어 매수 = cash 전액 투입 + 경고 내장 */}
                 <Banner icon="🟢" iconBg={`${C.green}20`} label="코어 자산 매수" color={C.green}>
                   추가 투자금 중{' '}
-                  <span style={{ color: C.green, fontWeight: 900, fontSize: 15 }}>{fmt(coreFromCashMans)}</span>
+                  <span style={{ color: C.green, fontWeight: 900, fontSize: 15 }}>{fmt(cash)}</span>
                   을 코어 자산(S&P500 ETF, 국채 등)에 투입하세요.
 
-                  {/* 내부 경고 서브텍스트 */}
+                  {/* 내부 경고: 새틀 추가 매도 필요 = |saddleDiff| */}
                   <div style={{
                     display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 10,
                     padding: '10px 12px', borderRadius: 8,
@@ -1323,7 +1302,7 @@ export default function SchoolLeague() {
                     <div style={{ width: 24, height: 24, borderRadius: 6, background: `${C.red}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>⚠️</div>
                     <div style={{ color: C.red, fontWeight: 700, fontSize: 11, lineHeight: 1.6 }}>
                       추가 자금만으로 부족 — 새틀라이트에서{' '}
-                      <span style={{ fontSize: 13, fontWeight: 900 }}>{fmt(additionalSatSellMans)}</span>
+                      <span style={{ fontSize: 13, fontWeight: 900 }}>{fmt(saddleDiff)}</span>
                       {' '}추가 매도가 필요합니다.
                     </div>
                   </div>
