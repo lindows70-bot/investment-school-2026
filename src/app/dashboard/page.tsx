@@ -635,7 +635,7 @@ export default function DashboardPage() {
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
   const [btActive,  setBtActive]  = useState({ rebalanceQ:true, rebalanceY:false, buyAndHold:true, benchmark:true })
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor'>('live')
 
   // ── 버튼 조합별 동적 인사이트 패널 ─────────────────────────────
   const renderBtInsight = () => {
@@ -1362,6 +1362,7 @@ export default function DashboardPage() {
         {([
           { key:'live'     as const, icon:'📊', label:'실시간 대시보드',         desc:'자산 현황 · 리밸런싱' },
           { key:'backtest' as const, icon:'⏳', label:'투자 타임머신 (백테스트)', desc:'5개년 전략 시뮬레이터' },
+          { key:'mentor'   as const, icon:'🤖', label:'AI 멘토 족집게',           desc:'마스터 진단 레포트' },
         ]).map(({ key, icon, label, desc }) => (
           <button key={key} type="button" onClick={() => setDashTab(key)}
             style={{
@@ -2804,6 +2805,116 @@ export default function DashboardPage() {
         </div>
       </Card>
       </div>  {/* 투자 타임머신 탭 끝 */}
+
+      {/* ── AI 멘토 족집게 탭 ── */}
+      <div id="tab-mentor" style={{ display: dashTab==='mentor' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+
+        {/* 웰컴 배너 */}
+        <div style={{
+          padding:'20px 22px', borderRadius:16, position:'relative', overflow:'hidden',
+          background:'linear-gradient(135deg, #1e1b4b 0%, #1e293b 60%, #0f172a 100%)',
+          border:'1px solid rgba(99,102,241,0.3)',
+        }}>
+          {/* 배경 아이콘 장식 */}
+          <div style={{ position:'absolute', top:-10, right:-10, fontSize:100, opacity:0.06, pointerEvents:'none', lineHeight:1 }}>✨</div>
+          {/* 뱃지 */}
+          <div style={{
+            display:'inline-flex', alignItems:'center', gap:5, marginBottom:10,
+            padding:'3px 10px', borderRadius:20, fontSize:10, fontWeight:700,
+            background:'rgba(99,102,241,0.25)', color:'#a5b4fc', border:'1px solid rgba(99,102,241,0.3)',
+          }}>
+            🏆 2026 투자학교 AI 마스터 리포트
+          </div>
+          <div style={{ fontSize:16, fontWeight:900, color:'#f1f5f9', marginBottom:8, letterSpacing:'-0.3px' }}>
+            &ldquo;복리의 마법은 꺾이지 않는 원칙에서 시작됩니다.&rdquo;
+          </div>
+          <div style={{ fontSize:12, color:'rgba(199,210,254,0.85)', lineHeight:1.75 }}>
+            현재 포트폴리오는 피터린치 탐색 모델에 기반하여 완벽히 구조화되어 있습니다.
+            시장의 일시적인 파도(변동성)에 흔들리지 않고{' '}
+            <span style={{ color:'#4ade80', fontWeight:700 }}>분기별 기계적 리밸런싱</span>을 유지한다면,
+            시간이 흐를수록 자산의 격차는 위대해질 것입니다.
+          </div>
+        </div>
+
+        {/* 2컬럼 진단 카드 */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+
+          {/* 카드 1: 자산 배분 건강 점수 */}
+          <Card>
+            <div style={{ padding:'14px 18px 0', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <span style={{ fontSize:13, fontWeight:800, color:'#f1f5f9' }}>📊 자산 배분 건강 점수</span>
+              <span style={{ fontSize:22, fontWeight:900, color:'#818cf8', fontVariantNumeric:'tabular-nums' }}>
+                92<span style={{ fontSize:11, fontWeight:400, color:'#64748b' }}> / 100</span>
+              </span>
+            </div>
+            <div style={{ padding:'12px 18px 16px', display:'flex', flexDirection:'column', gap:12 }}>
+              {/* 게이지 바 */}
+              <div style={{ height:8, borderRadius:4, background:'#1e293b', overflow:'hidden' }}>
+                <div style={{ width:'92%', height:'100%', borderRadius:4, background:'linear-gradient(90deg,#4f46e5,#818cf8)' }} />
+              </div>
+              {/* 총평 */}
+              <div style={{ padding:'12px 14px', borderRadius:10, background:'#0f172a', border:'1px solid #1e293b', fontSize:12, color:'#94a3b8', lineHeight:1.75 }}>
+                <span style={{ fontWeight:800, color:'#c7d2fe' }}>🟢 AI 멘토 총평</span><br />
+                고성장주와 대형우량주의 완벽한 균형이 돋보입니다.
+                하락장 방어력 보강을 위해 저성장주(코카콜라)의{' '}
+                <span style={{ color:'#4ade80', fontWeight:700 }}>배당 재투자 비중을 2% 가량 확대</span>하는 것을 추천합니다.
+                당신은 이미 시장 상위 5%의 현명한 자산배분가입니다.
+              </div>
+            </div>
+          </Card>
+
+          {/* 카드 2: 전략적 행동 강령 Top 2 */}
+          <Card>
+            <div style={{ padding:'14px 18px 8px' }}>
+              <span style={{ fontSize:13, fontWeight:800, color:'#f1f5f9' }}>✨ 전략적 행동 강령 (Top 2)</span>
+            </div>
+            <div style={{ padding:'0 18px 16px', display:'flex', flexDirection:'column', gap:8 }}>
+
+              {/* 액션 1: PLTR 매수 추천 */}
+              <div style={{
+                display:'flex', alignItems:'flex-start', gap:10, padding:'11px 13px', borderRadius:10,
+                background:'rgba(16,185,129,0.08)', border:'1px solid rgba(16,185,129,0.25)',
+              }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
+                    <span style={{ fontSize:12, fontWeight:800, color:'#f1f5f9' }}>팔란티어 (PLTR)</span>
+                    <span style={{
+                      fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:4,
+                      background:'rgba(16,185,129,0.18)', color:'#34d399',
+                    }}>PEG 저평가</span>
+                  </div>
+                  <div style={{ fontSize:11, color:'#94a3b8', lineHeight:1.6 }}>
+                    이익 성장률(50%) 대비 PEG 0.90으로 극도의 매력 구간. 리밸런싱 시 매수 우선순위.
+                  </div>
+                </div>
+                <span style={{ fontSize:16, flexShrink:0, marginTop:1 }}>↗️</span>
+              </div>
+
+              {/* 액션 2: MSFT 경계 */}
+              <div style={{
+                display:'flex', alignItems:'flex-start', gap:10, padding:'11px 13px', borderRadius:10,
+                background:'rgba(251,191,36,0.07)', border:'1px solid rgba(251,191,36,0.25)',
+              }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
+                    <span style={{ fontSize:12, fontWeight:800, color:'#f1f5f9' }}>마이크로소프트 (MSFT)</span>
+                    <span style={{
+                      fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:4,
+                      background:'rgba(251,191,36,0.18)', color:'#fbbf24',
+                    }}>PEG 과열 경계</span>
+                  </div>
+                  <div style={{ fontSize:11, color:'#94a3b8', lineHeight:1.6 }}>
+                    안정성은 뛰어나나 현재 PEG 2.0으로 단기 고평가 상태. 무리한 추격 매수 금지.
+                  </div>
+                </div>
+                <span style={{ fontSize:16, flexShrink:0, marginTop:1 }}>⚠️</span>
+              </div>
+
+            </div>
+          </Card>
+        </div>
+      </div>  {/* AI 멘토 탭 끝 */}
+
     </div>
   )
 }
