@@ -21,8 +21,8 @@ import {
 } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
 import {
-  Trophy, TrendingUp, TrendingDown, Users,
-  Star, Flame, BarChart2, Award, ChevronUp, ChevronDown, Minus,
+  Trophy, Users,
+  Star, Flame, BarChart2, ChevronUp, ChevronDown, Minus,
 } from 'lucide-react'
 
 // ── 디자인 토큰 ──────────────────────────────────────────────
