@@ -244,12 +244,12 @@ const Card = ({ children, style = {} }: { children: React.ReactNode; style?: Rea
 )
 // ─── AI 멘토 탭: 종목 마스터 데이터 (PEG 기반 동적 분석용) ──────────────────
 const MENTOR_STOCKS = [
-  { name: '현대차',        ticker:'005380', lynchType:'경기순환주',  peg:0.81, growthRate:8.0  },
-  { name: '팔란티어',      ticker:'PLTR',   lynchType:'고성장주',    peg:0.90, growthRate:50.0 },
-  { name: '제너럴 일렉트릭',ticker:'GE',    lynchType:'턴어라운드주', peg:0.91, growthRate:22.0 },
-  { name: '엔비디아',      ticker:'NVDA',   lynchType:'고성장주',    peg:0.93, growthRate:35.0 },
-  { name: '삼성전자',      ticker:'005930', lynchType:'대형우량주',  peg:1.21, growthRate:12.0 },
-  { name: '코카콜라',      ticker:'KO',     lynchType:'저성장주',    peg:4.40, growthRate:5.0  },
+  { name:'현대차',         ticker:'005380', lynchType:'경기순환주',   per:6.5,  peg:0.81, growthRate:8.0  },
+  { name:'팔란티어',       ticker:'PLTR',   lynchType:'고성장주',     per:45.0, peg:0.90, growthRate:50.0 },
+  { name:'제너럴 일렉트릭',ticker:'GE',     lynchType:'턴어라운드주', per:20.0, peg:0.91, growthRate:22.0 },
+  { name:'엔비디아',       ticker:'NVDA',   lynchType:'고성장주',     per:32.5, peg:0.93, growthRate:35.0 },
+  { name:'삼성전자',       ticker:'005930', lynchType:'대형우량주',   per:14.5, peg:1.21, growthRate:12.0 },
+  { name:'코카콜라',       ticker:'KO',     lynchType:'저성장주',     per:22.0, peg:4.40, growthRate:5.0  },
 ]
 const LYNCH_TYPES = ['고성장주','대형우량주','저성장주','경기순환주','자산주','턴어라운드주'] as const
 
@@ -2837,7 +2837,7 @@ export default function DashboardPage() {
 
       {/* ── AI 멘토 족집게 탭 ── */}
       <div id="tab-mentor" style={{ display: dashTab==='mentor' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
-        <AIPortfolioDashboard />
+        <AIPortfolioDashboard portfolioStocks={MENTOR_STOCKS} />
       </div>  {/* AI 멘토 탭 끝 */}
 
     </div>
