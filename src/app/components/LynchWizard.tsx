@@ -478,11 +478,27 @@ export default function LynchWizard({
   // ── 초기화 ────────────────────────────────────────────────
   const reset = () => {
     setStep(1)
-    // 자동 채움 초기화 — 같은 종목 재진단 허용
-    lastAutoTickerRef.current = null
-    setAutoFilled(false)
-    setStockName(''); setPerInput(''); setEpsInput(''); setHasCash(false)
     setChecks(Object.fromEntries(CHECKLIST.map(c => [c.key, false])) as Record<CheckKey, boolean>)
+
+    // ── 현재 로드된 종목 데이터가 있으면 즉시 재채움 ──────────
+    // (lastAutoTickerRef를 리셋하면 useEffect가 재실행되지 않으므로
+    //  reset 함수 안에서 직접 props 값으로 재세팅)
+    const hasPer  = autoPer       != null && isFinite(autoPer!)       && autoPer!       > 0
+    const hasGrow = autoEpsGrowth != null && isFinite(autoEpsGrowth!) && autoEpsGrowth! !== 0
+
+    if (autoName) setStockName(autoName)
+    else          setStockName('')
+
+    if (hasPer)  setPerInput(autoPer!.toFixed(1))
+    else         setPerInput('')
+
+    if (hasGrow) setEpsInput(autoEpsGrowth!.toFixed(1))
+    else         setEpsInput('')
+
+    setHasCash(false)   // 순현금은 매번 직접 확인 유도
+    setAutoFilled(hasPer || hasGrow)
+    // 다음 번 종목 변경 시 useEffect가 재실행되도록 ref 유지
+    lastAutoTickerRef.current = autoTicker?.toUpperCase().trim() ?? null
   }
 
   // ── 공통 입력 스타일 ──────────────────────────────────────
