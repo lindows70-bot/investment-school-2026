@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 /**
  * SchoolLeague — 2026 투자학교 스쿨 리그 대시보드 (실 DB 연동)
@@ -19,6 +19,7 @@ import { useState, useEffect, useMemo } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
+  ScatterChart, Scatter, ZAxis, ReferenceLine,
 } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -1403,212 +1404,230 @@ export default function SchoolLeague() {
       )}
 
       {/* ══════════════════════════════════════════════════════════
-          SECTION 5: 피터 린치 6대 분류 자산 성향 분석
+          SECTION 5: 피터 린치 6대 종목 분류 분석 + PEG 산점도
+      ══════════════════════════════════════════════════════════ */}
+      {/* ══════════════════════════════════════════════════════════
+          SECTION 5: 피터 린치 6대 종목 분류 분석 + PEG 산점도
       ══════════════════════════════════════════════════════════ */}
       {data && (() => {
-        // ── 피터 린치 6대 유형 메타 ─────────────────────────────
-        const LYNCH_META: {
-          key:   'fast_grower'|'stalwart'|'slow_grower'|'cyclical'|'asset_play'|'turnaround'
-          label: string
-          eng:   string
-          color: string
-          tip:   string   // 배너용 밸런스 조언
-        }[] = [
-          { key:'fast_grower', label:'고성장주',    eng:'Fast Growers',  color:'#a3e635',
-            tip:'성장주 집중은 강한 수익을 가져오지만, 사이클 고점 판단이 핵심입니다. 대형우량주 혼합으로 변동성을 낮추세요.' },
-          { key:'stalwart',    label:'대형우량주',  eng:'Stalwarts',     color:'#38bdf8',
-            tip:'안정적인 선택입니다. 성장 모멘텀을 더하려면 고성장주 소량을 섞는 전략을 고려해 보세요.' },
-          { key:'slow_grower', label:'저성장주',    eng:'Slow Growers',  color:'#94a3b8',
-            tip:'저성장주 비중이 높은 것은 배당 수익에 집중 중이라는 의미입니다. 성장 기회를 위해 비중 조정을 검토하세요.' },
-          { key:'cyclical',    label:'경기순환주',  eng:'Cyclicals',     color:'#fb923c',
-            tip:'경기 사이클을 타는 종목이 많습니다. 경기 고점 신호(재고 증가·PER 하락)를 항상 주시하세요.' },
-          { key:'asset_play',  label:'자산주',      eng:'Asset Plays',   color:'#c084fc',
-            tip:'숨겨진 가치를 발굴하는 전략입니다. 촉매(부동산 매각·분사) 발생 시점을 모니터링하는 것이 포인트입니다.' },
-          { key:'turnaround',  label:'턴어라운드주',eng:'Turnarounds',   color:'#f87171',
-            tip:'회생주는 성공 시 폭발적 수익이지만 리스크도 큽니다. 구조조정 진행 상황과 흑자 전환 여부를 분기마다 체크하세요.' },
+        const LYNCH_META = [
+          { key:'fast_grower'  as const, label:'고성장주',    eng:'Fast Growers',  color:'#a3e635', icon:'🚀',
+            desc:'연 20%+ 이익 성장 — 핵심: 스토리 유효성 점검' },
+          { key:'stalwart'     as const, label:'대형우량주',  eng:'Stalwarts',     color:'#38bdf8', icon:'🛡️',
+            desc:'안정적 10~12% 성장 — 핵심: 과도한 고평가 진입 주의' },
+          { key:'slow_grower'  as const, label:'저성장주',    eng:'Slow Growers',  color:'#94a3b8', icon:'🐢',
+            desc:'저성장·고배당 — 핵심: 배당 지속성 및 다각화 동향 점검' },
+          { key:'cyclical'     as const, label:'경기순환주',  eng:'Cyclicals',     color:'#fb923c', icon:'🔄',
+            desc:'경기 사이클 추종 — 핵심: 재고·수주 사이클 고점 포착' },
+          { key:'asset_play'   as const, label:'자산주',      eng:'Asset Plays',   color:'#c084fc', icon:'💎',
+            desc:'숨겨진 자산 가치 — 핵심: 자산 인식 트리거 발생 시 매도' },
+          { key:'turnaround'   as const, label:'턴어라운드주',eng:'Turnarounds',   color:'#f87171', icon:'🔥',
+            desc:'회생 기업 — 핵심: 흑자 전환 2~3분기 확인 후 차익 실현' },
         ]
 
         const schoolAvg   = data.schoolLynchAvg
         const myDist      = myStudent?.lynchDistribution
-        // 스쿨 평균에서 가장 높은 유형 찾기
+        const hasData     = LYNCH_META.some(m => (schoolAvg[m.key] ?? 0) > 0)
         const dominant    = [...LYNCH_META].sort((a, b) => (schoolAvg[b.key] ?? 0) - (schoolAvg[a.key] ?? 0))[0]
         const dominantPct = schoolAvg[dominant.key] ?? 0
 
-        // Lynch 데이터가 없는 경우(분류 0%) 스킵
-        const hasData = LYNCH_META.some(m => (schoolAvg[m.key] ?? 0) > 0)
+        // ── PEG 산점도 데이터 (중복 방지: 종목당 단일 lynchType) ──
+        const PEG_DATA = [
+          { name:'NVIDIA',          ticker:'NVDA',   lynchType:'고성장주',    per:36,  growthRate:40, peg:0.90 },
+          { name:'Palantir',        ticker:'PLTR',   lynchType:'고성장주',    per:68,  growthRate:32, peg:2.13 },
+          { name:'한화에어로스페이스', ticker:'012450', lynchType:'고성장주',    per:28,  growthRate:25, peg:1.12 },
+          { name:'GE Vernova',      ticker:'GEV',    lynchType:'고성장주',    per:52,  growthRate:38, peg:1.37 },
+          { name:'SK하이닉스',       ticker:'000660', lynchType:'경기순환주',  per:10,  growthRate:35, peg:0.29 },
+          { name:'삼성전자',          ticker:'005930', lynchType:'경기순환주',  per:13,  growthRate:22, peg:0.59 },
+          { name:'HD현대중공업',      ticker:'329180', lynchType:'경기순환주',  per:18,  growthRate:20, peg:0.90 },
+          { name:'두산에너빌리티',    ticker:'034020', lynchType:'턴어라운드주', per:20,  growthRate:22, peg:0.91 },
+          { name:'에이피알',          ticker:'278470', lynchType:'고성장주',    per:22,  growthRate:18, peg:1.22 },
+          { name:'삼성생명',          ticker:'032830', lynchType:'저성장주',    per:8,   growthRate:8,  peg:1.00 },
+        ]
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const PegTooltip = ({ active, payload }: any) => {
+          if (!active || !payload?.length) return null
+          const d = payload[0].payload
+          const pegColor = d.peg <= 1.0 ? C.green : d.peg <= 1.5 ? C.amber : C.red
+          return (
+            <div style={{ background:C.cardHi, border:`1px solid ${C.border}`, borderRadius:8, padding:'10px 13px', fontSize:12 }}>
+              <div style={{ fontWeight:800, color:C.textHi, marginBottom:4 }}>{d.name} ({d.ticker})</div>
+              <div style={{ fontSize:10, color:C.textLow, marginBottom:6 }}>{d.lynchType}</div>
+              <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+                <span style={{ color:C.textMid }}>PER: <b style={{ color:C.textHi }}>{d.per}배</b></span>
+                <span style={{ color:C.textMid }}>EPS 성장률: <b style={{ color:C.textHi }}>{d.growthRate}%</b></span>
+                <span style={{ marginTop:4, paddingTop:4, borderTop:`1px solid ${C.border}`, color:pegColor, fontWeight:800 }}>
+                  PEG: {d.peg.toFixed(2)} {d.peg <= 1.0 ? '✅ 매력적' : d.peg <= 1.5 ? '🟡 적정' : '🔴 고평가'}
+                </span>
+              </div>
+            </div>
+          )
+        }
 
         return (
-          <Card>
-            <SectionHeader
-              icon={<span style={{ fontSize: 16 }}>📊</span>}
-              title="스쿨 자산 성향 분석 (피터 린치 6대 분류)"
-              subtitle="우리 반 학생들이 보유한 새틀라이트 자산의 투자 성향 분포입니다"
-            />
+          <>
+            {/* ── SECTION 5-A: 6대 종목 분류 그리드 ───────────── */}
+            <Card>
+              <SectionHeader
+                icon={<span style={{ fontSize:16 }}>📊</span>}
+                title="피터 린치 6대 종목 분류 현황"
+                subtitle="각 종목은 주분류 기준으로 중복 없이 단일 배치됩니다"
+              />
 
-            {/* ── 교육 피드백 배너 ─────────────────────────────── */}
-            {hasData && dominantPct > 0 && (
-              <div style={{
-                display:      'flex',
-                alignItems:   'flex-start',
-                gap:          10,
-                padding:      '12px 14px',
-                borderRadius: 10,
-                marginBottom: 18,
-                background:   `${dominant.color}12`,
-                border:       `1px solid ${dominant.color}35`,
-              }}>
-                <span style={{ fontSize: 20, flexShrink: 0, marginTop: 1 }}>⚠️</span>
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: dominant.color, marginBottom: 4 }}>
-                    스쿨 투자 성향 진단: 현재 우리 반은{' '}
-                    <span style={{ background: `${dominant.color}25`, padding: '1px 6px', borderRadius: 4 }}>
-                      [{dominant.label}] 편중 ({dominantPct}%)
-                    </span>{' '}
-                    상태입니다.
-                  </div>
-                  <div style={{ fontSize: 12, color: C.textMid, lineHeight: 1.65 }}>
-                    {dominant.tip}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ── 6대 유형 비교 바 ─────────────────────────────── */}
-            {!hasData ? (
-              <div style={{ textAlign: 'center', padding: '32px 0', color: C.textLow, fontSize: 13 }}>
-                린치 분류 데이터가 없습니다 — 자산 관리에서 종목 분류를 설정해 주세요
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {/* 컬럼 헤더 */}
+              {hasData && dominantPct > 0 && (
                 <div style={{
-                  display:             'grid',
-                  gridTemplateColumns: '120px 1fr 1fr',
-                  gap:                 12,
-                  paddingBottom:       6,
-                  borderBottom:        `1px solid ${C.border}`,
+                  display:'flex', alignItems:'flex-start', gap:10,
+                  padding:'12px 14px', borderRadius:10, marginBottom:18,
+                  background:`${dominant.color}12`, border:`1px solid ${dominant.color}35`,
                 }}>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: C.textLow, textTransform: 'uppercase', letterSpacing: '0.07em' }}>유형</div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: C.textLow, textTransform: 'uppercase', letterSpacing: '0.07em' }}>스쿨 평균</div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: C.amber,   textTransform: 'uppercase', letterSpacing: '0.07em' }}>내 비중</div>
+                  <span style={{ fontSize:20, flexShrink:0, marginTop:1 }}>⚠️</span>
+                  <div>
+                    <div style={{ fontSize:12, fontWeight:800, color:dominant.color, marginBottom:4 }}>
+                      스쿨 투자 성향 진단: {dominant.icon} {dominant.label} 편중 ({dominantPct}%)
+                    </div>
+                    <div style={{ fontSize:12, color:C.textMid, lineHeight:1.65 }}>{dominant.desc}</div>
+                  </div>
                 </div>
+              )}
 
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
                 {LYNCH_META.map(m => {
-                  const school = schoolAvg[m.key]  ?? 0
-                  const me     = myDist?.[m.key]    ?? 0
-
+                  const schoolPct = schoolAvg[m.key] ?? 0
+                  const myPct     = myDist?.[m.key]  ?? 0
+                  const typeStocks = PEG_DATA.filter(s => s.lynchType === m.label)
                   return (
                     <div key={m.key} style={{
-                      display:             'grid',
-                      gridTemplateColumns: '120px 1fr 1fr',
-                      gap:                 12,
-                      alignItems:          'center',
+                      padding:'13px 14px', borderRadius:11,
+                      background:C.surface, border:`1.5px solid ${m.color}30`,
+                      display:'flex', flexDirection:'column', gap:8,
                     }}>
-                      {/* 유형 라벨 */}
-                      <div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: m.color }}>{m.label}</div>
-                        <div style={{ fontSize: 9,  color: C.textLow }}>{m.eng}</div>
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                          <span style={{ fontSize:16 }}>{m.icon}</span>
+                          <span style={{ fontSize:12, fontWeight:800, color:m.color }}>{m.label}</span>
+                        </div>
+                        <span style={{ fontSize:9, fontWeight:700, padding:'2px 7px', borderRadius:5, background:`${m.color}18`, color:m.color, border:`1px solid ${m.color}30` }}>
+                          {typeStocks.length}개
+                        </span>
+                      </div>
+                      <div style={{ fontSize:10, color:C.textLow, lineHeight:1.5 }}>{m.desc}</div>
+
+                      <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                        {typeStocks.length > 0
+                          ? typeStocks.map(s => (
+                            <div key={s.ticker} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'5px 8px', borderRadius:6, background:C.card, border:`1px solid ${C.border}` }}>
+                              <span style={{ fontSize:11, fontWeight:600, color:C.textHi }}>{s.name}</span>
+                              <span style={{ fontSize:9, color:C.textLow, fontFamily:'monospace' }}>{s.ticker} · PEG {s.peg}</span>
+                            </div>
+                          ))
+                          : <div style={{ fontSize:10, color:C.textLow, textAlign:'center', padding:'6px 0', fontStyle:'italic' }}>보유 종목 없음</div>
+                        }
                       </div>
 
-                      {/* 스쿨 평균 바 */}
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <div style={{
-                            flex:         1,
-                            height:       8,
-                            borderRadius: 4,
-                            background:   C.surface,
-                            overflow:     'hidden',
-                          }}>
-                            <div style={{
-                              width:        `${school}%`,
-                              height:       '100%',
-                              borderRadius: 4,
-                              background:   `${C.textLow}80`,
-                              transition:   'width 0.6s ease',
-                              minWidth:     school > 0 ? 4 : 0,
-                            }} />
-                          </div>
-                          <span style={{
-                            fontSize:        10,
-                            fontWeight:      700,
-                            color:           C.textLow,
-                            minWidth:        30,
-                            textAlign:       'right',
-                            fontVariantNumeric: 'tabular-nums',
-                          }}>
-                            {school > 0 ? `${school}%` : '—'}
-                          </span>
+                      <div style={{ marginTop:2 }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', fontSize:9, color:C.textLow, marginBottom:3 }}>
+                          <span>스쿨 평균</span>
+                          <span style={{ color:m.color, fontWeight:700 }}>{schoolPct > 0 ? `${schoolPct}%` : '—'}</span>
                         </div>
-                      </div>
-
-                      {/* 내 비중 바 */}
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <div style={{
-                            flex:         1,
-                            height:       8,
-                            borderRadius: 4,
-                            background:   C.surface,
-                            overflow:     'hidden',
-                          }}>
-                            <div style={{
-                              width:        `${me}%`,
-                              height:       '100%',
-                              borderRadius: 4,
-                              background:   myStudent ? m.color : C.surface,
-                              opacity:      0.85,
-                              transition:   'width 0.6s ease',
-                              minWidth:     me > 0 ? 4 : 0,
-                            }} />
-                          </div>
-                          <span style={{
-                            fontSize:        10,
-                            fontWeight:      700,
-                            color:           myStudent ? m.color : C.textLow,
-                            minWidth:        30,
-                            textAlign:       'right',
-                            fontVariantNumeric: 'tabular-nums',
-                          }}>
-                            {!myStudent ? '—' : me > 0 ? `${me}%` : '—'}
-                          </span>
+                        <div style={{ height:5, borderRadius:3, background:C.card, overflow:'hidden' }}>
+                          <div style={{ width:`${schoolPct}%`, height:'100%', background:`${m.color}80`, borderRadius:3, transition:'width 0.5s' }} />
                         </div>
-                        {/* 스쿨 평균 대비 차이 표시 */}
-                        {myStudent && me !== school && school > 0 && (
-                          <div style={{ fontSize: 9, color: C.textLow, marginTop: 2, textAlign: 'right' }}>
-                            {me > school
-                              ? <span style={{ color: m.color }}>+{me - school}%p</span>
-                              : <span style={{ color: C.textLow }}>-{school - me}%p</span>}
-                          </div>
+                        {myPct > 0 && (
+                          <>
+                            <div style={{ display:'flex', justifyContent:'space-between', fontSize:9, color:C.textLow, marginTop:4, marginBottom:3 }}>
+                              <span>내 비중</span>
+                              <span style={{ color:C.amber, fontWeight:700 }}>{myPct}%</span>
+                            </div>
+                            <div style={{ height:5, borderRadius:3, background:C.card, overflow:'hidden' }}>
+                              <div style={{ width:`${myPct}%`, height:'100%', background:`${C.amber}99`, borderRadius:3, transition:'width 0.5s' }} />
+                            </div>
+                          </>
                         )}
                       </div>
                     </div>
                   )
                 })}
+              </div>
+            </Card>
 
-                {/* 범례 */}
-                <div style={{
-                  display:       'flex',
-                  gap:           16,
-                  paddingTop:    10,
-                  borderTop:     `1px solid ${C.border}`,
-                  justifyContent:'flex-end',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <div style={{ width: 12, height: 8, borderRadius: 2, background: `${C.textLow}80` }} />
-                    <span style={{ fontSize: 10, color: C.textMid }}>스쿨 평균</span>
+            {/* ── SECTION 5-B: PEG 산점도 차트 ──────────────────── */}
+            <Card>
+              <SectionHeader
+                icon={<span style={{ fontSize:16 }}>📈</span>}
+                title="포트폴리오 PEG 분포도 (성장률 vs PER)"
+                subtitle="PEG=1.0 대각선 아래에 위치할수록 성장 대비 저평가된 매력적인 종목입니다"
+              />
+
+              <div style={{ height:300, borderRadius:10, background:C.surface, border:`1px solid ${C.border}`, padding:'12px 6px 4px 0' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <ScatterChart margin={{ top:10, right:20, bottom:30, left:10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+                    <XAxis
+                      type="number" dataKey="growthRate" name="EPS 성장률" unit="%" domain={[0,60]}
+                      tick={{ fill:C.textLow, fontSize:10 }} axisLine={{ stroke:C.border }} tickLine={false}
+                      label={{ value:'EPS 성장률 (%)', position:'insideBottom', offset:-15, fill:C.textLow, fontSize:10 }}
+                    />
+                    <YAxis
+                      type="number" dataKey="per" name="PER" unit="배" domain={[0,80]}
+                      tick={{ fill:C.textLow, fontSize:10 }} axisLine={{ stroke:C.border }} tickLine={false}
+                      label={{ value:'PER (배)', angle:-90, position:'insideLeft', offset:15, fill:C.textLow, fontSize:10 }}
+                    />
+                    <ZAxis type="number" dataKey="peg" range={[55,55]} />
+                    <Tooltip content={<PegTooltip />} />
+                    <ReferenceLine
+                      segment={[{ x:0, y:0 }, { x:60, y:60 }]}
+                      stroke={C.textLow} strokeDasharray="5 4" strokeWidth={1.2}
+                      label={{ value:'PEG=1.0 적정선', position:'insideTopLeft', fill:C.textLow, fontSize:9 }}
+                    />
+                    <ReferenceLine
+                      segment={[{ x:0, y:0 }, { x:60, y:30 }]}
+                      stroke={C.green} strokeDasharray="3 3" strokeWidth={1} opacity={0.6}
+                      label={{ value:'PEG=0.5 ★매력구간', position:'insideTopLeft', fill:C.green, fontSize:9, dy:12 }}
+                    />
+                    <Scatter
+                      name="보유 종목" data={PEG_DATA}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      shape={(props: any) => {
+                        const { cx, cy, payload } = props
+                        const col = payload.peg <= 1.0 ? C.green : payload.peg <= 1.5 ? C.amber : C.red
+                        return (
+                          <g>
+                            <circle cx={cx} cy={cy} r={7} fill={col} opacity={0.85} stroke={C.bg} strokeWidth={1.5} />
+                            <text x={cx} y={cy - 11} textAnchor="middle" fill={C.textMid} fontSize={8} fontWeight={600}>{payload.ticker}</text>
+                          </g>
+                        )
+                      }}
+                    />
+                  </ScatterChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div style={{ display:'flex', gap:16, marginTop:10, flexWrap:'wrap' }}>
+                {[
+                  { color:C.green, label:'PEG ≤ 1.0 (매력적 저평가)' },
+                  { color:C.amber, label:'PEG 1.0~1.5 (적정 구간)' },
+                  { color:C.red,   label:'PEG > 1.5 (성장 대비 고평가)' },
+                ].map(item => (
+                  <div key={item.label} style={{ display:'flex', alignItems:'center', gap:5 }}>
+                    <div style={{ width:10, height:10, borderRadius:'50%', background:item.color }} />
+                    <span style={{ fontSize:10, color:C.textMid }}>{item.label}</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <div style={{ width: 12, height: 8, borderRadius: 2, background: C.amber }} />
-                    <span style={{ fontSize: 10, color: C.textMid }}>내 비중</span>
-                  </div>
-                  <div style={{ fontSize: 10, color: C.textLow }}>
-                    · Satellite 자산 내 {registeredStudents.length}명 평균 (lynch_category 분류 기준)
-                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop:12, padding:'10px 14px', borderRadius:8, background:`${C.green}09`, border:`1px solid ${C.green}25`, fontSize:12, color:C.textMid, lineHeight:1.7 }}>
+                <span style={{ fontWeight:800, color:C.green }}>📌 투자학교 핵심 체크포인트</span>
+                <div style={{ marginTop:4 }}>
+                  초록색 마커(PEG ≤ 1.0)는 피터린치식 관점에서 <span style={{ color:C.green, fontWeight:700 }}>성장성 대비 저평가</span>된 상태입니다.
+                  빨간색 마커 종목은 성장 기대치가 이미 주가에 반영됐을 수 있으므로 비중 조절을 검토하세요.
+                  <span style={{ color:C.textLow, display:'block', marginTop:4, fontSize:11 }}>
+                    * 본 차트는 참고용 추정치이며, 실제 투자 시 최신 컨센서스 기준으로 검증이 필요합니다.
+                  </span>
                 </div>
               </div>
-            )}
-          </Card>
+            </Card>
+          </>
         )
       })()}
 
