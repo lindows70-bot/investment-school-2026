@@ -2817,9 +2817,26 @@ export default function DashboardPage() {
       {/* ── AI 멘토 족집게 탭 ── */}
       <div id="tab-mentor" style={{ display: dashTab==='mentor' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         <AIPortfolioDashboard
-          portfolioStocks={investments.map(inv => ({ name:inv.name, ticker:inv.ticker, lynchType:inv.lynch_category??'', per:0, growthRate:0 }))}
-          stocks={investments.map(inv => ({ name:inv.name, ticker:inv.ticker, lynchType:inv.lynch_category??'', per:0, growthRate:0 }))}
-          data={investments.map(inv => ({ name:inv.name, ticker:inv.ticker, lynchType:inv.lynch_category??'', per:0, growthRate:0 }))}
+          portfolioStocks={investments.map(inv => {
+            // priceMap에서 해당 종목의 펀더멘털(PER·성장률) 추출
+            const lv = priceMap[inv.ticker.toUpperCase()]
+            const peRaw = lv?.fundamentals?.pe
+            const egRaw = lv?.fundamentals?.earningsGrowth
+            // pe: number | 'N/A' → 숫자만 사용
+            const per = typeof peRaw === 'number' && isFinite(peRaw) && peRaw > 0
+              ? parseFloat(peRaw.toFixed(1)) : 0
+            // earningsGrowth: 소수(0.18=18%) 또는 이미 % 형태 → % 단위로 통일
+            const rawG = typeof egRaw === 'number' && isFinite(egRaw) && egRaw !== 0 ? egRaw : 0
+            const growthRate = rawG === 0 ? 0
+              : parseFloat((Math.abs(rawG) < 20 ? rawG * 100 : rawG).toFixed(1))
+            return {
+              name:       inv.name,
+              ticker:     inv.ticker,
+              lynchType:  inv.lynch_category ?? '',
+              per,
+              growthRate,
+            }
+          })}
         />
       </div>  {/* AI 멘토 탭 끝 */}
 
