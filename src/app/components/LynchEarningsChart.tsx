@@ -43,7 +43,7 @@ interface AnnualPoint {
   price:     number | null   // 연간 평균 실제 주가
   ttmEps:    number          // 해당 연도 EPS (연간)
   actualPer: number | null   // 실제 PER
-  fairValue: number          // EPS × 적정PER (useMemo에서 주입)
+  fairValue: number | null   // EPS × 적정PER (음수EPS → null)
   underLow:  number | null   // 저평가 음영 하단
   underHigh: number | null   // 저평가 음영 상단
   overLow:   number | null   // 고평가 음영 하단
@@ -417,18 +417,21 @@ export default function LynchEarningsChart(props: any) {
 
       const enc = encodeURIComponent(ticker)
 
-      // ① 병렬 fetch
-      const [priceRes, finRes, infoRes] = await Promise.all([
+      // ① 병렬 fetch — 4개 동시
+      // stock-price-history: 전용 5년 월봉 API (US=Yahoo 5y, KR=Naver 60개월)
+      const [priceRes, finRes, infoRes, histRes] = await Promise.all([
         fetch(`/api/stock-price?ticker=${enc}&market=${market}`),
         fetch(`/api/financials?ticker=${enc}&market=${market}`),
         fetch(`/api/stock-info?ticker=${enc}&market=${market}`),
+        fetch(`/api/stock-price-history?ticker=${enc}&market=${market}`),
       ])
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const [priceData, finData, infoData]: [any, any, any] = await Promise.all([
-        priceRes.ok  ? priceRes.json()  : Promise.resolve({}),
-        finRes.ok    ? finRes.json()    : Promise.resolve({}),
-        infoRes.ok   ? infoRes.json()   : Promise.resolve({}),
+      const [priceData, finData, infoData, histData]: [any, any, any, any] = await Promise.all([
+        priceRes.ok ? priceRes.json() : Promise.resolve({}),
+        finRes.ok   ? finRes.json()   : Promise.resolve({}),
+        infoRes.ok  ? infoRes.json()  : Promise.resolve({}),
+        histRes.ok  ? histRes.json()  : Promise.resolve({ yearPrices: {} }),
       ])
 
       // ── 현재 주가 ─────────────────────────────────────────
@@ -457,80 +460,39 @@ export default function LynchEarningsChart(props: any) {
         .sort()
 
       if (epsYears.length === 0) {
-        setNoEpsReason(
-          `본 종목(ETF·원자재 추정)은 주당순이익(EPS) 데이터가 존재하지 않아 피터 린치 이익선 분석을 제공하지 않습니다. (포트폴리오 비중 및 가격 추이만 모니터링 가능)`
-        )
+        setNoEpsReason('본 종목(ETF·원자재 추정)은 주당순이익(EPS) 데이터가 존재하지 않아 피터 린치 이익선 분석을 제공하지 않습니다. (포트폴리오 비중 및 가격 추이만 모니터링 가능)')
         return
       }
 
-      // ② EPS가 모두 0이면 → ETF·지수 등으로 판별
+      // EPS 모두 0이면 → ETF·지수 판별
       const hasValidEps = epsYears.some(yr => Math.abs(Number(fin[yr]?.eps ?? 0)) > 0.01)
       if (!hasValidEps) {
-        setNoEpsReason(
-          `본 종목(ETF·지수 추정)은 주당순이익(EPS) 데이터가 존재하지 않아 피터 린치 이익선 분석을 제공하지 않습니다. (포트폴리오 비중 및 가격 추이만 모니터링 가능)`
-        )
+        setNoEpsReason('본 종목(ETF·지수 추정)은 주당순이익(EPS) 데이터가 존재하지 않아 피터 린치 이익선 분석을 제공하지 않습니다. (포트폴리오 비중 및 가격 추이만 모니터링 가능)')
         return
       }
 
-      // ── 월봉 60개 → 연간 평균가 산출 ─────────────────────
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const monthly: any[] = (priceData?.ohlcCharts ?? priceData?.charts ?? {})?.['1Y'] ?? []
-      const annualPriceMap: Record<string, number[]> = {}
+      // ── 연도별 평균 주가 — 전용 5년 API 결과 사용 ────────
+      // US: Yahoo Finance range=5y interval=1mo (60개 월봉)
+      // KR: Naver fchart timeframe=month count=60 (60개 월봉)
+      const annualPriceByYear: Record<string, number> = { ...(histData?.yearPrices ?? {}) }
 
-      monthly.forEach((c) => {
-        // ── 날짜 정규화 ───────────────────────────────────────
-        // KR(Naver): c.date = "YYYYMMDD" (string)
-        // US(Yahoo v8): c.time or c.date = Unix timestamp (seconds, 10자리)
-        let yr = ''
-        if (typeof c.date === 'string' && c.date.length >= 4) {
-          yr = c.date.slice(0, 4)
-        } else if (typeof c.date === 'number' && c.date > 0) {
-          yr = new Date(c.date > 1e10 ? c.date : c.date * 1000).getFullYear().toString()
-        } else if (typeof c.time === 'number' && c.time > 0) {
-          yr = new Date(c.time > 1e10 ? c.time : c.time * 1000).getFullYear().toString()
-        } else if (typeof c.timestamp === 'number' && c.timestamp > 0) {
-          yr = new Date(c.timestamp > 1e10 ? c.timestamp : c.timestamp * 1000).getFullYear().toString()
-        }
-
-        // ── 종가 정규화 ───────────────────────────────────────
-        // KR(Naver): c.close
-        // US(Yahoo v8): c.adjClose / c.adjclose / c.close / c.c
-        const closePrice = Number(
-          c.close     ??   // KR Naver & US Yahoo 기본
-          c.adjClose  ??   // Yahoo v8 adjclose (camelCase)
-          c.adjclose  ??   // Yahoo v8 adjclose (lowercase)
-          c.c         ??   // Yahoo compact format
-          c.price     ??   // 일부 API 직접 price 키
-          0
-        )
-
-        if (!yr || yr.length !== 4 || closePrice <= 0) return
-        if (!annualPriceMap[yr]) annualPriceMap[yr] = []
-        annualPriceMap[yr].push(closePrice)
-      })
-
-      // 현재 연도는 현재가로 보완
+      // 현재 연도를 현재가로 보완 (당해 연도가 API에 없을 경우)
       const thisYear = new Date().getFullYear().toString()
-      if (cp > 0) {
-        if (!annualPriceMap[thisYear]) annualPriceMap[thisYear] = []
-        annualPriceMap[thisYear].push(cp)
+      if (cp > 0 && !annualPriceByYear[thisYear]) {
+        annualPriceByYear[thisYear] = cp
       }
-
-      // 배열 → 연간 평균 단가
-      const annualPriceByYear: Record<string, number> = {}
-      Object.entries(annualPriceMap).forEach(([yr, arr]) => {
-        annualPriceByYear[yr] = arr.reduce((a, b) => a + b, 0) / arr.length
-      })
 
       // ── 데이터 포인트 조립 ────────────────────────────────
       const pts = epsYears.map(yr => {
-        const eps          = Number(fin[yr]?.eps ?? 0)
-        const annualPrice  = annualPriceByYear[yr] ?? null
-        const actualPer    = (annualPrice && eps > 0) ? parseFloat((annualPrice / eps).toFixed(1)) : null
+        const eps         = Number(fin[yr]?.eps ?? 0)
+        const annualPrice = annualPriceByYear[yr] ?? null
+        const actualPer   = (annualPrice && eps > 0)
+          ? parseFloat((annualPrice / eps).toFixed(1))
+          : null
         return { year: yr, price: annualPrice, ttmEps: eps, actualPer }
       })
 
-      // 5년 평균 PER 계산
+      // 5년 평균 PER (양수 EPS 연도만)
       const validPers = pts
         .map(p => p.actualPer)
         .filter((p): p is number => p !== null && p > 0 && p < 500)
@@ -572,17 +534,18 @@ export default function LynchEarningsChart(props: any) {
     const years = period === '3Y' ? 3 : 5
     const sliced = rawPoints.slice(-years)
     return sliced.map(p => {
-      const fv  = p.ttmEps > 0 ? parseFloat((p.ttmEps * fairPer).toFixed(2)) : 0
+      // 양수 EPS만 이익선 계산 (음수/0 EPS → null, 차트에 미표시)
+      const fv  = p.ttmEps > 0 ? parseFloat((p.ttmEps * fairPer).toFixed(2)) : null
       const pr  = p.price
-      const isUnder = pr !== null && fv > 0 && pr < fv
-      const isOver  = pr !== null && fv > 0 && pr > fv
+      const isUnder = pr !== null && fv !== null && fv > 0 && pr < fv
+      const isOver  = pr !== null && fv !== null && fv > 0 && pr > fv
       return {
         ...p,
         fairValue:  fv,
-        underLow:   isUnder ? pr  : null,
-        underHigh:  isUnder ? fv  : null,
-        overLow:    isOver  ? fv  : null,
-        overHigh:   isOver  ? pr  : null,
+        underLow:   isUnder ? pr       : null,
+        underHigh:  isUnder ? fv       : null,
+        overLow:    isOver  ? fv       : null,
+        overHigh:   isOver  ? pr       : null,
       }
     })
   }, [rawPoints, fairPer, period])
@@ -594,8 +557,10 @@ export default function LynchEarningsChart(props: any) {
   }, [chartData])
 
   const latestPrice = latest?.price ?? currentPrice ?? 0
-  const latestFair  = latest?.ttmEps ? latest.ttmEps * fairPer : 0
-  const gap         = latestFair > 0 ? ((latestPrice - latestFair) / latestFair) * 100 : null
+  const latestFair  = (latest?.ttmEps ?? 0) > 0 ? (latest!.ttmEps * fairPer) : 0
+  const gap         = latestFair > 0 && latestPrice > 0
+    ? ((latestPrice - latestFair) / latestFair) * 100
+    : null
 
   // Y축: auto 도메인 (USD/KRW 스케일 차이를 Recharts가 자동 최적화)
   const isKrw = currency === 'KRW'
