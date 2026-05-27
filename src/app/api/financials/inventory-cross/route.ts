@@ -393,7 +393,7 @@ function buildResultFromFmp(
     consecutiveDanger: consec,
     trend,
     lynchAlert:        buildLynchAlert(signal, name, gap, consec),
-    dataSource:        fmpRes.source,
+    dataSource:        (fmpRes.source as 'fmp' | 'cache' | 'stub' | 'dart'),
   }
 }
 
