@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/client'
 import AIPortfolioDashboard from '@/app/components/AIPortfolioDashboard'
 import LynchEarningsChart    from '@/app/components/LynchEarningsChart'
 import LynchSellSignalPanel  from '@/app/components/LynchSellSignalPanel'
+import LynchGhostStockPanel  from '@/app/components/LynchGhostStockPanel'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface IndexData {
@@ -644,7 +645,7 @@ export default function DashboardPage() {
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
   const [btActive,  setBtActive]  = useState({ rebalanceQ:true, rebalanceY:false, buyAndHold:true, benchmark:true })
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost'>('live')
 
   // ── AI 멘토 탭: MENTOR_STOCKS 제거 후 컴포넌트에 빈 배열 전달 ──
   // 실제 종목 데이터(PER/성장률)가 API에서 수집되면 여기에 연동 예정
@@ -1381,6 +1382,7 @@ export default function DashboardPage() {
           { key:'mentor'   as const, icon:'🤖', label:'AI 멘토 족집게',           desc:'마스터 진단 레포트' },
           { key:'lynch'    as const, icon:'📈', label:'린치 이익선 차트',          desc:'적정가치 시계열 분석' },
           { key:'signal'   as const, icon:'🚨', label:'매도 시그널 패널',           desc:'유형별 매도 경고등' },
+          { key:'ghost'    as const, icon:'👻', label:'유령 종목 추적기',           desc:'기관 소외 × 내부자 매수' },
         ]).map(({ key, icon, label, desc }) => (
           <button key={key} type="button" onClick={() => setDashTab(key)}
             style={{
@@ -2913,6 +2915,11 @@ export default function DashboardPage() {
           })}
         />
       </div>  {/* 매도 시그널 탭 끝 */}
+
+      {/* ── 유령 종목 추적기 탭 ── */}
+      <div id="tab-ghost" style={{ display: dashTab==='ghost' ? 'flex' : 'none', flexDirection:'column', gap:0 }}>
+        <LynchGhostStockPanel portfolioStocks={investments} />
+      </div>  {/* 유령 종목 탭 끝 */}
 
     </div>
   )
