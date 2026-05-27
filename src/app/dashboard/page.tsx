@@ -14,7 +14,8 @@ import LynchEarningsChart    from '@/app/components/LynchEarningsChart'
 import LynchSellSignalPanel  from '@/app/components/LynchSellSignalPanel'
 import LynchGhostStockPanel  from '@/app/components/LynchGhostStockPanel'
 // SSOT: 자산 유형 분류는 assetClassifier에서만
-import { getAssetType }      from '@/lib/assetClassifier'
+import { getAssetType }          from '@/lib/assetClassifier'
+import LynchInventorySentinel    from '@/app/components/LynchInventorySentinel'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface IndexData {
@@ -2747,6 +2748,12 @@ export default function DashboardPage() {
           </div>
         </Card>
       </div>  {/* 6fr/4fr grid 닫기 */}
+      {/* ── 재고 vs 매출 데드크로스 센티넬 (실시간 탭 하단 고정) ── */}
+      {dashTab === 'live' && (
+        <div style={{ width:'100%' }}>
+          <LynchInventorySentinel />
+        </div>
+      )}
       </div>  {/* 실시간 대시보드 탭 끝 */}
 
       {/* ── 투자 타임머신 탭 ── */}
