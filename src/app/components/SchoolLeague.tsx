@@ -473,7 +473,8 @@ export default function SchoolLeague() {
       isCase3,
       cashOnlyCorePercent,
     }
-  }, [totalAssets, addCashMans, myCore, mySat, targetCore])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalAssets, addCashMans, myCore, targetCore])
 
   // ── 렌더링 ─────────────────────────────────────────────────────
   if (loading) return (

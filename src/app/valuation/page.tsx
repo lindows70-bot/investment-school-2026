@@ -507,7 +507,8 @@ export default function ValuationPage() {
         mkScenario(perMkt, `시장 PER (${perMkt.toFixed(1)})`),
       ],
     }
-  }, [rawData, cagrData, eps, oi, rev, perInput])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawData, cagrData, eps, oi, rev, perInput, yearKeys])
 
   // ── 20년 EPS 시뮬레이션 ───────────────────────────────────────────────────
   const simData = useMemo(() => {
@@ -537,7 +538,8 @@ export default function ValuationPage() {
       장기CAGR: +(base * Math.pow(1 + gL / 100, y)).toFixed(4),
       애널추정:  +(base * Math.pow(1 + gA / 100, y)).toFixed(4),
     }))
-  }, [rawData, eps, cagrData, analysis])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawData, eps, cagrData, analysis, yearKeys])
 
   // ── 텐배거 도달 좌표 — 단일 소스 (헤더 텍스트 + 차트 마커 동시 사용) ────
   //

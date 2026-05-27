@@ -14,7 +14,7 @@
 import { useMemo } from 'react'
 import {
   ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis,
-  ZAxis, Cell, ReferenceLine, Tooltip,
+  ZAxis, ReferenceLine, Tooltip,
 } from 'recharts'
 
 // ── 다크모드 컬러 시스템 ─────────────────────────────────────
@@ -93,23 +93,22 @@ function Card({ children, style = {} }: { children: React.ReactNode; style?: Rea
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function AIPortfolioDashboard(props: any) {
 
-  // Step 1: props 완전 탐색 (모든 경우의 수)
-  const rawInput =
-    props.portfolioStocks ??
-    props.stocks          ??
-    props.portfolio       ??
-    props.items           ??
-    props.data            ??
-    props.list            ??
-    []
-
-  // Step 2: 빈 배열이면 폴백 데이터 강제 주입 (절대 빈 화면 없음)
+  // Step 1 & 2: props 완전 탐색 + 빈 배열이면 폴백 데이터 강제 주입
   const finalRaw = useMemo(() => {
+    const rawInput =
+      props.portfolioStocks ??
+      props.stocks          ??
+      props.portfolio       ??
+      props.items           ??
+      props.data            ??
+      props.list            ??
+      []
     if (!Array.isArray(rawInput) || rawInput.length === 0) {
       return FALLBACK_STOCKS
     }
     return rawInput
-  }, [rawInput])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.portfolioStocks, props.stocks, props.portfolio, props.items, props.data, props.list])
 
   // Step 3: 데이터 표준화 (명칭 편차·띄어쓰기 정규화)
   const stocks = useMemo(() => {
@@ -203,7 +202,7 @@ export default function AIPortfolioDashboard(props: any) {
   // 미분류 자산
   const unclassified = stocks.filter(s => s.lynchType === '해당없음')
   // 폴백 사용 여부
-  const isUsingFallback = !Array.isArray(rawInput) || rawInput.length === 0
+  const isUsingFallback = finalRaw === FALLBACK_STOCKS
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:16, fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
