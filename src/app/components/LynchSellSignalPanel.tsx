@@ -20,7 +20,8 @@ import {
   ShieldAlert, Info, SlidersHorizontal, Inbox,
   ChevronRight, Zap,
 } from 'lucide-react'
-import { classifyAssetType } from '@/lib/classifyAssetType'
+// SSOT: 자산 분류는 assetClassifier에서만 (컴포넌트 내 인라인 감지 금지)
+import { getAssetClassification, type AssetType } from '@/lib/assetClassifier'
 
 // ────────────────────────────────────────────────────────────
 // 타입 정의
@@ -675,7 +676,8 @@ function NonEquitySignalCard({ raw }: { raw: AnyRecord }) {
   const ticker = raw.ticker || raw.code || ''
   const name   = raw.name   || raw.stockName || '미확인 종목'
   const market = raw.market || 'US'
-  const clf    = classifyAssetType(ticker, name, market)
+  // SSOT: 컴포넌트 내 직접 파싱 금지 — getAssetClassification 사용
+  const clf    = getAssetClassification(ticker, name, market)
 
   const typeColor  =
     clf.assetType === 'CRYPTO'    ? '#c084fc' :
@@ -787,27 +789,29 @@ export default function LynchSellSignalPanel(props: any) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.portfolioStocks, props.stocks, props.portfolio, props.items, props.data])
 
-  // 비주식 자산 분리 (ETF·CRYPTO·COMMODITY → 신호 계산 제외)
-  const nonEquityItems = useMemo(() =>
-    rawPortfolio.filter(raw => {
-      const ticker = (raw.ticker || raw.code || '').toString()
-      const name   = (raw.name   || raw.stockName || '').toString()
-      const market = (raw.market || 'US').toString()
-      return !classifyAssetType(ticker, name, market).isAnalyzable
-    }),
-  [rawPortfolio])
+  // ── 비주식 분리: 부모가 주입한 assetType 우선, 없으면 SSOT 폴백 ──
+  // 컴포넌트 내 인라인 파싱 금지 — SSOT getAssetClassification만 허용
+  const isStock = (raw: AnyRecord): boolean => {
+    // 부모(dashboard)가 assetType을 주입했으면 그대로 사용
+    if (raw.assetType) return (raw.assetType as AssetType) === 'STOCK'
+    // 주입 안 된 경우(레거시 경로) — SSOT 폴백
+    const ticker = (raw.ticker || raw.code || '').toString()
+    const name   = (raw.name   || raw.stockName || '').toString()
+    const market = (raw.market || 'US').toString()
+    return getAssetClassification(ticker, name, market).isAnalyzable
+  }
 
-  // 주식만 신호 계산
-  const signals = useMemo(() =>
-    rawPortfolio
-      .filter(raw => {
-        const ticker = (raw.ticker || raw.code || '').toString()
-        const name   = (raw.name   || raw.stockName || '').toString()
-        const market = (raw.market || 'US').toString()
-        return classifyAssetType(ticker, name, market).isAnalyzable
-      })
-      .map(computeSignal),
-  [rawPortfolio])
+  const nonEquityItems = useMemo(
+    () => rawPortfolio.filter(raw => !isStock(raw)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rawPortfolio],
+  )
+
+  const signals = useMemo(
+    () => rawPortfolio.filter(isStock).map(computeSignal),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rawPortfolio],
+  )
 
   // 필터 탭 상태
   const [filterTab, setFilterTab] = useState<FilterTab>('all')

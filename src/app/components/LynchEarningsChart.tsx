@@ -93,27 +93,10 @@ function fmtEps(v: number, currency: string): string {
 }
 
 // ────────────────────────────────────────────────────────────
-// ETF / 원자재 / 가상자산 감지 → 피터 린치 분석 불가 판별
+// SSOT: ETF/원자재/암호화폐 감지는 assetClassifier에서만
+// 컴포넌트 내 인라인 파싱 로직 완전 제거
 // ────────────────────────────────────────────────────────────
-const ETF_NAME_KEYWORDS = [
-  'TIGER','KODEX','KINDEX','ARIRANG','SOL ','ACE ','HANARO','TIMEFOLIO',
-  'KOSEF','TREX','FOCUS','SMART','POWER','SMART',
-  'ETF','인덱스','지수','S&P500','나스닥','코스피','코스닥','다우',
-]
-const ETF_TICKER_SET = new Set([
-  'SPY','QQQ','IVV','VOO','VTI','DIA','IWM','EFA','EEM','TLT','IEF','AGG','BND',
-  'GLD','SLV','IAU','PSLV','SIVR','PHYS','SGOL','PPLT',
-  '102110','069500','360750','133690','148070','229200','252670','305080',
-])
-
-function isNonEquity(stock: InvestmentItem): boolean {
-  if (stock.market === 'CRYPTO') return true
-  const nameU   = (stock.name   ?? '').toUpperCase()
-  const tickerU = (stock.ticker ?? '').toUpperCase()
-  if (ETF_TICKER_SET.has(tickerU)) return true
-  if (ETF_NAME_KEYWORDS.some(kw => nameU.includes(kw.toUpperCase()))) return true
-  return false
-}
+import { getAssetType } from '@/lib/assetClassifier'
 
 // ────────────────────────────────────────────────────────────
 // 빈 포트폴리오 안내 UI
@@ -403,15 +386,18 @@ export default function LynchEarningsChart(props: any) {
     setCurrency(detectedCurrency)
 
     try {
-      // ① 사전 감지: ETF·가상자산·원자재 → 즉시 분석 제한 화면
-      if (isNonEquity(stock)) {
-        const assetType =
-          market === 'CRYPTO' ? '가상자산' :
-          ETF_TICKER_SET.has(ticker.toUpperCase()) ? 'ETF/지수' :
-          ETF_NAME_KEYWORDS.some(k => stock.name.toUpperCase().includes(k.toUpperCase())) ? 'ETF/인덱스' :
-          'ETF·원자재'
+      // ① 사전 감지: SSOT getAssetType 단일 호출 (인라인 파싱 제거)
+      // 부모 dashboard가 assetType을 주입했으면 그대로 사용, 없으면 SSOT 폴백
+      const resolvedAssetType =
+        (stock as { assetType?: string }).assetType ??
+        getAssetType(ticker, stock.name ?? '', market)
+
+      if (resolvedAssetType !== 'STOCK') {
+        const typeLabel =
+          resolvedAssetType === 'CRYPTO'    ? '가상자산' :
+          resolvedAssetType === 'COMMODITY' ? '원자재'   : 'ETF/지수'
         setNoEpsReason(
-          `본 종목(${assetType})은 주당순이익(EPS) 데이터가 존재하지 않아 피터 린치 이익선 분석을 제공하지 않습니다. (포트폴리오 비중 및 가격 추이만 모니터링 가능)`
+          `본 종목(${typeLabel})은 주당순이익(EPS) 데이터가 존재하지 않아 피터 린치 이익선 분석을 제공하지 않습니다. (포트폴리오 비중 및 가격 추이만 모니터링 가능)`
         )
         return
       }

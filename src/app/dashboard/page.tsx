@@ -13,6 +13,8 @@ import AIPortfolioDashboard from '@/app/components/AIPortfolioDashboard'
 import LynchEarningsChart    from '@/app/components/LynchEarningsChart'
 import LynchSellSignalPanel  from '@/app/components/LynchSellSignalPanel'
 import LynchGhostStockPanel  from '@/app/components/LynchGhostStockPanel'
+// SSOT: 자산 유형 분류는 assetClassifier에서만
+import { getAssetType }      from '@/lib/assetClassifier'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface IndexData {
@@ -2874,7 +2876,11 @@ export default function DashboardPage() {
       {/* ── 린치 이익선 차트 탭 ── */}
       <div id="tab-lynch" style={{ display: dashTab==='lynch' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         {/* portfolioStocks: 실제 보유 종목 배열을 그대로 전달 (하드코딩 금지) */}
-        <LynchEarningsChart portfolioStocks={investments} />
+        {/* assetType 주입: SSOT getAssetType으로 각 종목 분류 후 전달 */}
+        <LynchEarningsChart portfolioStocks={investments.map(inv => ({
+          ...inv,
+          assetType: getAssetType(inv.ticker, inv.name, inv.market ?? 'US'),
+        }))} />
       </div>  {/* 린치 이익선 탭 끝 */}
 
       {/* ── 매도 시그널 패널 탭 ── */}
@@ -2911,6 +2917,9 @@ export default function DashboardPage() {
               currentPrice:  lv?.currentPrice   ?? 0,
               dividendYield: (typeof lv?.fundamentals?.dividendYield === 'number')
                              ? lv.fundamentals.dividendYield : 0,
+              // SSOT: 컴포넌트가 직접 판별하지 않도록 assetType 주입
+              assetType:     getAssetType(inv.ticker, inv.name, inv.market ?? 'US'),
+              market:        inv.market ?? 'US',
             }
           })}
         />

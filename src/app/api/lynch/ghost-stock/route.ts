@@ -18,7 +18,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient }        from '@supabase/ssr'
 import { cookies }                   from 'next/headers'
-import { classifyAssetType }         from '@/lib/classifyAssetType'
+import { getAssetClassification }     from '@/lib/assetClassifier'
 
 // ── 타입 정의 ────────────────────────────────────────────────
 interface GhostCacheRow {
@@ -306,14 +306,14 @@ export async function GET() {
   // ETF·암호화폐·원자재는 기업 경영진·애널리스트 개념이 없으므로
   // ghost_stock_cache에 저장하지 않고 'excluded' 목록으로 분리 반환
   const equityHoldings = holdings.filter(h => {
-    const clf = classifyAssetType(h.ticker, h.name, h.market ?? 'US')
+    const clf = getAssetClassification(h.ticker, h.name, h.market ?? 'US')
     return clf.isAnalyzable   // STOCK만 true
   })
   const excludedHoldings = holdings.filter(h => {
-    const clf = classifyAssetType(h.ticker, h.name, h.market ?? 'US')
+    const clf = getAssetClassification(h.ticker, h.name, h.market ?? 'US')
     return !clf.isAnalyzable
   }).map(h => {
-    const clf = classifyAssetType(h.ticker, h.name, h.market ?? 'US')
+    const clf = getAssetClassification(h.ticker, h.name, h.market ?? 'US')
     return {
       ticker:       h.ticker.toUpperCase(),
       name:         h.name,
