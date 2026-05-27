@@ -2918,7 +2918,7 @@ export default function DashboardPage() {
 
       {/* ── 유령 종목 추적기 탭 ── */}
       <div id="tab-ghost" style={{ display: dashTab==='ghost' ? 'flex' : 'none', flexDirection:'column', gap:0 }}>
-        <LynchGhostStockPanel portfolioStocks={investments} />
+        <LynchGhostStockPanel />
       </div>  {/* 유령 종목 탭 끝 */}
 
     </div>
