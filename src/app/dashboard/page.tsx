@@ -2853,11 +2853,15 @@ export default function DashboardPage() {
             }
 
             return {
-              name:      inv.name,
-              ticker:    inv.ticker,
-              lynchType: inv.lynch_category ?? '',
-              per:       per > 0 ? parseFloat(per.toFixed(1)) : 0,
+              name:           inv.name,
+              ticker:         inv.ticker,
+              lynchType:      inv.lynch_category ?? '',
+              per:            per > 0 ? parseFloat(per.toFixed(1)) : 0,
               growthRate,
+              // 투자금액·비중 계산용 (AIPortfolioDashboard 집계에 사용)
+              purchase_price: inv.purchase_price ?? 0,
+              quantity:       inv.quantity       ?? 1,
+              currency:       inv.currency       ?? 'USD',
             }
           })}
         />
