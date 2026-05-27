@@ -10,6 +10,7 @@ import {
 } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
 import AIPortfolioDashboard from '@/app/components/AIPortfolioDashboard'
+import LynchEarningsChart   from '@/app/components/LynchEarningsChart'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface IndexData {
@@ -642,7 +643,7 @@ export default function DashboardPage() {
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
   const [btActive,  setBtActive]  = useState({ rebalanceQ:true, rebalanceY:false, buyAndHold:true, benchmark:true })
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch'>('live')
 
   // ── AI 멘토 탭: MENTOR_STOCKS 제거 후 컴포넌트에 빈 배열 전달 ──
   // 실제 종목 데이터(PER/성장률)가 API에서 수집되면 여기에 연동 예정
@@ -1377,6 +1378,7 @@ export default function DashboardPage() {
           { key:'live'     as const, icon:'📊', label:'실시간 대시보드',         desc:'자산 현황 · 리밸런싱' },
           { key:'backtest' as const, icon:'⏳', label:'투자 타임머신 (백테스트)', desc:'5개년 전략 시뮬레이터' },
           { key:'mentor'   as const, icon:'🤖', label:'AI 멘토 족집게',           desc:'마스터 진단 레포트' },
+          { key:'lynch'    as const, icon:'📈', label:'린치 이익선 차트',          desc:'적정가치 시계열 분석' },
         ]).map(({ key, icon, label, desc }) => (
           <button key={key} type="button" onClick={() => setDashTab(key)}
             style={{
@@ -2860,6 +2862,11 @@ export default function DashboardPage() {
           })}
         />
       </div>  {/* AI 멘토 탭 끝 */}
+
+      {/* ── 린치 이익선 차트 탭 ── */}
+      <div id="tab-lynch" style={{ display: dashTab==='lynch' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <LynchEarningsChart />
+      </div>  {/* 린치 이익선 탭 끝 */}
 
     </div>
   )
