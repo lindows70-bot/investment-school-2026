@@ -24,6 +24,8 @@ import {
   ChevronDown, Info, BarChart2, Zap, Target, Clock, RefreshCw,
   AlertTriangle,
 } from 'lucide-react'
+// SSOT: 자산 분류는 assetClassifier에서만 — 컴포넌트 내 인라인 파싱 금지
+import { getAssetType } from '@/lib/assetClassifier'
 
 // ────────────────────────────────────────────────────────────
 // 타입 정의
@@ -91,12 +93,6 @@ function fmtEps(v: number, currency: string): string {
   if (isKrw) return Math.round(v).toLocaleString('ko-KR') + '원'
   return '$' + v.toFixed(2)
 }
-
-// ────────────────────────────────────────────────────────────
-// SSOT: ETF/원자재/암호화폐 감지는 assetClassifier에서만
-// 컴포넌트 내 인라인 파싱 로직 완전 제거
-// ────────────────────────────────────────────────────────────
-import { getAssetType } from '@/lib/assetClassifier'
 
 // ────────────────────────────────────────────────────────────
 // 빈 포트폴리오 안내 UI
