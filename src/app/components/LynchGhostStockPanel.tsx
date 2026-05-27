@@ -75,9 +75,19 @@ interface ApiCacheRow {
   updated_at:            string
 }
 
+interface ExcludedAsset {
+  ticker:        string
+  name:          string
+  assetType:     'ETF' | 'COMMODITY' | 'CRYPTO'
+  badgeIcon:     string
+  badgeLabel:    string
+  lynchGuidance: string
+}
+
 interface ApiResponse {
-  records:  ApiCacheRow[]
-  source:   'cache' | 'partial' | 'empty'
+  records:   ApiCacheRow[]
+  excluded?: ExcludedAsset[]
+  source:    'cache' | 'partial' | 'empty'
   meta?: {
     totalHoldings: number
     cacheHit:      number
@@ -284,6 +294,85 @@ function InsiderIndicator({ record }: { record: GhostRecord }) {
 }
 
 // ────────────────────────────────────────────────────────────
+// 비주식 자산 플레이스홀더 카드 (ETF·원자재·암호화폐)
+// ────────────────────────────────────────────────────────────
+function NonEquityCard({ asset }: { asset: ExcludedAsset }) {
+  const typeColor =
+    asset.assetType === 'CRYPTO'    ? '#c084fc' :
+    asset.assetType === 'COMMODITY' ? '#fbbf24' : '#60a5fa'
+  const typeBg =
+    asset.assetType === 'CRYPTO'    ? 'rgba(192,132,252,0.08)' :
+    asset.assetType === 'COMMODITY' ? 'rgba(251,191,36,0.08)'  : 'rgba(59,130,246,0.08)'
+  const typeBorder =
+    asset.assetType === 'CRYPTO'    ? 'rgba(192,132,252,0.25)' :
+    asset.assetType === 'COMMODITY' ? 'rgba(251,191,36,0.25)'  : 'rgba(59,130,246,0.25)'
+
+  return (
+    <div style={{
+      borderRadius: 12, overflow: 'hidden',
+      background: C.card, border: `1px solid ${typeBorder}`,
+      opacity: 0.75,
+    }}>
+      {/* 블러 오버레이 효과 */}
+      <div style={{
+        padding: '12px 16px',
+        background: `linear-gradient(135deg, ${typeBg}, rgba(15,23,42,0.6))`,
+        display: 'flex', alignItems: 'center', gap: 12,
+      }}>
+        {/* 제외 마커 */}
+        <div style={{
+          flexShrink: 0, width: 44, height: 44, borderRadius: '50%',
+          background: typeBg, border: `2px dashed ${typeBorder}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 20,
+        }}>
+          {asset.badgeIcon}
+        </div>
+
+        {/* 종목 정보 */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+            <span style={{
+              fontSize: 9, padding: '1px 6px', borderRadius: 3,
+              background: 'rgba(96,165,250,0.12)', color: C.blue,
+              fontFamily: 'monospace', fontWeight: 900,
+            }}>{asset.ticker}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: C.textMid }}>{asset.name}</span>
+            <span style={{
+              fontSize: 9, padding: '2px 8px', borderRadius: 20,
+              background: typeBg, color: typeColor, border: `1px solid ${typeBorder}`,
+              fontWeight: 800,
+            }}>
+              {asset.badgeIcon} {asset.badgeLabel}
+            </span>
+          </div>
+          {/* 린치 가이드 메시지 */}
+          <div style={{
+            fontSize: 11, color: C.textMid, lineHeight: 1.6,
+            padding: '6px 10px', borderRadius: 8,
+            background: 'rgba(15,23,42,0.5)', border: `1px solid ${typeBorder}`,
+          }}>
+            {asset.lynchGuidance}
+          </div>
+        </div>
+
+        {/* 분석 불가 배지 */}
+        <div style={{ flexShrink: 0 }}>
+          <div style={{
+            fontSize: 9, padding: '4px 10px', borderRadius: 20,
+            background: 'rgba(100,116,139,0.15)', color: C.textLow,
+            border: '1px dashed rgba(100,116,139,0.3)', fontWeight: 700,
+            whiteSpace: 'nowrap',
+          }}>
+            🚫 린치 분석 제외
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────
 // Ghost Score 링
 // ────────────────────────────────────────────────────────────
 function GhostScoreRing({ score }: { score: number }) {
@@ -447,6 +536,7 @@ export default function LynchGhostStockPanel() {
 
   // ── 상태 ─────────────────────────────────────────────────
   const [records,    setRecords]    = useState<GhostRecord[]>([])
+  const [excluded,   setExcluded]   = useState<ExcludedAsset[]>([])
   const [loading,    setLoading]    = useState(true)
   const [error,      setError]      = useState<string | null>(null)
   const [meta,       setMeta]       = useState<ApiResponse['meta'] | null>(null)
@@ -467,6 +557,7 @@ export default function LynchGhostStockPanel() {
         return
       }
       setRecords((body.records ?? []).map(mapApiRow))
+      setExcluded(body.excluded ?? [])
       setMeta(body.meta ?? null)
       setLastFetch(new Date().toLocaleTimeString('ko-KR'))
     } catch (e) {
@@ -691,6 +782,28 @@ export default function LynchGhostStockPanel() {
         ) : (
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
             {filtered.map(r => <GhostCard key={r.ticker} record={r} />)}
+          </div>
+        )}
+
+        {/* ── 린치 분석 제외 자산 섹션 (ETF·CRYPTO·COMMODITY) ── */}
+        {!loading && excluded.length > 0 && (
+          <div>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8,
+              paddingBottom: 8, borderBottom: `1px solid ${C.border}`,
+            }}>
+              <span style={{ fontSize: 11, color: C.textLow, fontWeight: 700 }}>
+                🚫 린치 분석 제외 자산 ({excluded.length}개)
+              </span>
+              <span style={{ fontSize: 10, color: C.textLow }}>
+                — ETF·암호화폐·원자재는 기업 경영진이 없어 개별 분석이 불가합니다
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {excluded.map(asset => (
+                <NonEquityCard key={asset.ticker} asset={asset} />
+              ))}
+            </div>
           </div>
         )}
 

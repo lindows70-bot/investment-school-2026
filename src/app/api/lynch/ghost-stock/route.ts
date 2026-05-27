@@ -18,6 +18,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient }        from '@supabase/ssr'
 import { cookies }                   from 'next/headers'
+import { classifyAssetType }         from '@/lib/classifyAssetType'
 
 // ── 타입 정의 ────────────────────────────────────────────────
 interface GhostCacheRow {
@@ -301,7 +302,37 @@ export async function GET() {
     return NextResponse.json({ records: [], source: 'empty' })
   }
 
-  const tickers = holdings.map(h => h.ticker.toUpperCase())
+  // ── 3-b. 자산 유형 분류 — 비주식은 Ghost 분석에서 제외 ─────
+  // ETF·암호화폐·원자재는 기업 경영진·애널리스트 개념이 없으므로
+  // ghost_stock_cache에 저장하지 않고 'excluded' 목록으로 분리 반환
+  const equityHoldings = holdings.filter(h => {
+    const clf = classifyAssetType(h.ticker, h.name, h.market ?? 'US')
+    return clf.isAnalyzable   // STOCK만 true
+  })
+  const excludedHoldings = holdings.filter(h => {
+    const clf = classifyAssetType(h.ticker, h.name, h.market ?? 'US')
+    return !clf.isAnalyzable
+  }).map(h => {
+    const clf = classifyAssetType(h.ticker, h.name, h.market ?? 'US')
+    return {
+      ticker:       h.ticker.toUpperCase(),
+      name:         h.name,
+      assetType:    clf.assetType,
+      badgeIcon:    clf.badgeIcon,
+      badgeLabel:   clf.badgeLabel,
+      lynchGuidance: clf.lynchGuidance,
+    }
+  })
+
+  const tickers = equityHoldings.map(h => h.ticker.toUpperCase())
+
+  if (tickers.length === 0) {
+    return NextResponse.json({
+      records:  [],
+      excluded: excludedHoldings,
+      source:   'empty',
+    })
+  }
 
   // ── 4. 캐시 확인 (오늘 날짜 기준) ─────────────────────────
   const todayISO = new Date().toISOString().slice(0, 10)  // 'YYYY-MM-DD'
@@ -327,7 +358,7 @@ export async function GET() {
   const newRows: Omit<GhostCacheRow, 'updated_at'>[] = []
 
   if (missTickerSet.size > 0) {
-    const missList = holdings.filter(h => missTickerSet.has(h.ticker.toUpperCase()))
+    const missList = equityHoldings.filter(h => missTickerSet.has(h.ticker.toUpperCase()))
 
     const built = await Promise.allSettled(
       missList.map(h =>
@@ -370,13 +401,16 @@ export async function GET() {
   const missCount = newRows.length
 
   return NextResponse.json({
-    records: allRecords,
-    source:  hitCount > 0 && missCount === 0 ? 'cache' : 'partial',
+    records:  allRecords,
+    excluded: excludedHoldings,   // 비주식 자산 목록 (ETF·CRYPTO·COMMODITY)
+    source:   hitCount > 0 && missCount === 0 ? 'cache' : 'partial',
     meta: {
-      totalHoldings: holdings.length,
-      cacheHit:      hitCount,
-      cacheMiss:     missCount,
-      updatedAt:     new Date().toISOString(),
+      totalHoldings:   holdings.length,
+      equityCount:     equityHoldings.length,
+      excludedCount:   excludedHoldings.length,
+      cacheHit:        hitCount,
+      cacheMiss:       missCount,
+      updatedAt:       new Date().toISOString(),
     },
   })
 }

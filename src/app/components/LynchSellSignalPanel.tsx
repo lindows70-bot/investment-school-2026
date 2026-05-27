@@ -20,6 +20,7 @@ import {
   ShieldAlert, Info, SlidersHorizontal, Inbox,
   ChevronRight, Zap,
 } from 'lucide-react'
+import { classifyAssetType } from '@/lib/classifyAssetType'
 
 // ────────────────────────────────────────────────────────────
 // 타입 정의
@@ -668,6 +669,75 @@ function SignalCard({ signal, idx }: { signal: StockSignal; idx: number }) {
 }
 
 // ────────────────────────────────────────────────────────────
+// 비주식 자산 플레이스홀더 카드 (매도 시그널 패널용)
+// ────────────────────────────────────────────────────────────
+function NonEquitySignalCard({ raw }: { raw: AnyRecord }) {
+  const ticker = raw.ticker || raw.code || ''
+  const name   = raw.name   || raw.stockName || '미확인 종목'
+  const market = raw.market || 'US'
+  const clf    = classifyAssetType(ticker, name, market)
+
+  const typeColor  =
+    clf.assetType === 'CRYPTO'    ? '#c084fc' :
+    clf.assetType === 'COMMODITY' ? '#fbbf24' : '#60a5fa'
+  const typeBg     =
+    clf.assetType === 'CRYPTO'    ? 'rgba(192,132,252,0.08)' :
+    clf.assetType === 'COMMODITY' ? 'rgba(251,191,36,0.08)'  : 'rgba(59,130,246,0.08)'
+  const typeBorder =
+    clf.assetType === 'CRYPTO'    ? 'rgba(192,132,252,0.22)' :
+    clf.assetType === 'COMMODITY' ? 'rgba(251,191,36,0.22)'  : 'rgba(59,130,246,0.22)'
+
+  return (
+    <div style={{
+      padding: '12px 16px', borderRadius: 12, opacity: 0.72,
+      background: `linear-gradient(135deg, #1e293b, ${typeBg})`,
+      border: `1px dashed ${typeBorder}`,
+      display: 'flex', alignItems: 'center', gap: 12,
+    }}>
+      {/* 아이콘 */}
+      <div style={{
+        flexShrink: 0, width: 40, height: 40, borderRadius: 9,
+        background: typeBg, border: `1px dashed ${typeBorder}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
+      }}>
+        {clf.badgeIcon}
+      </div>
+
+      {/* 종목 정보 */}
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+          <span style={{
+            fontSize: 9, padding: '1px 6px', borderRadius: 3,
+            background: 'rgba(96,165,250,0.12)', color: '#60a5fa',
+            fontFamily: 'monospace', fontWeight: 900,
+          }}>{ticker}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#f1f5f9' }}>{name}</span>
+          <span style={{
+            fontSize: 9, padding: '2px 8px', borderRadius: 20,
+            background: typeBg, color: typeColor, border: `1px solid ${typeBorder}`,
+            fontWeight: 800,
+          }}>{clf.badgeIcon} {clf.badgeLabel}</span>
+        </div>
+        <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.65 }}>
+          {clf.lynchGuidance}
+        </div>
+      </div>
+
+      {/* 분석 불가 배지 */}
+      <div style={{ flexShrink: 0 }}>
+        <div style={{
+          fontSize: 9, padding: '3px 9px', borderRadius: 20, whiteSpace: 'nowrap',
+          background: 'rgba(100,116,139,0.12)', color: '#64748b',
+          border: '1px dashed rgba(100,116,139,0.3)', fontWeight: 700,
+        }}>
+          🚫 시그널 분석 제외
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────
 // 빈 상태 컴포넌트
 // ────────────────────────────────────────────────────────────
 function EmptyState() {
@@ -717,8 +787,27 @@ export default function LynchSellSignalPanel(props: any) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.portfolioStocks, props.stocks, props.portfolio, props.items, props.data])
 
-  // 신호 계산
-  const signals = useMemo(() => rawPortfolio.map(computeSignal), [rawPortfolio])
+  // 비주식 자산 분리 (ETF·CRYPTO·COMMODITY → 신호 계산 제외)
+  const nonEquityItems = useMemo(() =>
+    rawPortfolio.filter(raw => {
+      const ticker = (raw.ticker || raw.code || '').toString()
+      const name   = (raw.name   || raw.stockName || '').toString()
+      const market = (raw.market || 'US').toString()
+      return !classifyAssetType(ticker, name, market).isAnalyzable
+    }),
+  [rawPortfolio])
+
+  // 주식만 신호 계산
+  const signals = useMemo(() =>
+    rawPortfolio
+      .filter(raw => {
+        const ticker = (raw.ticker || raw.code || '').toString()
+        const name   = (raw.name   || raw.stockName || '').toString()
+        const market = (raw.market || 'US').toString()
+        return classifyAssetType(ticker, name, market).isAnalyzable
+      })
+      .map(computeSignal),
+  [rawPortfolio])
 
   // 필터 탭 상태
   const [filterTab, setFilterTab] = useState<FilterTab>('all')
@@ -868,6 +957,28 @@ export default function LynchSellSignalPanel(props: any) {
             {filtered.map((sig, i) => (
               <SignalCard key={`${sig.ticker}-${i}`} signal={sig} idx={i} />
             ))}
+          </div>
+        )}
+
+        {/* ── 린치 분석 제외 자산 (ETF·CRYPTO·COMMODITY) ──────── */}
+        {nonEquityItems.length > 0 && (
+          <div>
+            <div style={{
+              display:'flex', alignItems:'center', gap:8, marginBottom:8,
+              paddingBottom:8, borderBottom:`1px solid ${C.border}`,
+            }}>
+              <span style={{ fontSize:11, color:C.textLow, fontWeight:700 }}>
+                🚫 린치 시그널 분석 제외 자산 ({nonEquityItems.length}개)
+              </span>
+              <span style={{ fontSize:10, color:C.textLow }}>
+                — ETF·암호화폐·원자재는 발행 기업이 없어 매도 시그널 계산 불가
+              </span>
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              {nonEquityItems.map((raw, i) => (
+                <NonEquitySignalCard key={(raw.ticker || i).toString()} raw={raw} />
+              ))}
+            </div>
           </div>
         )}
 
