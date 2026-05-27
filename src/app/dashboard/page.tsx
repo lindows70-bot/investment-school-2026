@@ -10,7 +10,8 @@ import {
 } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
 import AIPortfolioDashboard from '@/app/components/AIPortfolioDashboard'
-import LynchEarningsChart   from '@/app/components/LynchEarningsChart'
+import LynchEarningsChart    from '@/app/components/LynchEarningsChart'
+import LynchSellSignalPanel  from '@/app/components/LynchSellSignalPanel'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface IndexData {
@@ -643,7 +644,7 @@ export default function DashboardPage() {
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
   const [btActive,  setBtActive]  = useState({ rebalanceQ:true, rebalanceY:false, buyAndHold:true, benchmark:true })
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal'>('live')
 
   // ── AI 멘토 탭: MENTOR_STOCKS 제거 후 컴포넌트에 빈 배열 전달 ──
   // 실제 종목 데이터(PER/성장률)가 API에서 수집되면 여기에 연동 예정
@@ -1379,6 +1380,7 @@ export default function DashboardPage() {
           { key:'backtest' as const, icon:'⏳', label:'투자 타임머신 (백테스트)', desc:'5개년 전략 시뮬레이터' },
           { key:'mentor'   as const, icon:'🤖', label:'AI 멘토 족집게',           desc:'마스터 진단 레포트' },
           { key:'lynch'    as const, icon:'📈', label:'린치 이익선 차트',          desc:'적정가치 시계열 분석' },
+          { key:'signal'   as const, icon:'🚨', label:'매도 시그널 패널',           desc:'유형별 매도 경고등' },
         ]).map(({ key, icon, label, desc }) => (
           <button key={key} type="button" onClick={() => setDashTab(key)}
             style={{
@@ -2872,6 +2874,45 @@ export default function DashboardPage() {
         {/* portfolioStocks: 실제 보유 종목 배열을 그대로 전달 (하드코딩 금지) */}
         <LynchEarningsChart portfolioStocks={investments} />
       </div>  {/* 린치 이익선 탭 끝 */}
+
+      {/* ── 매도 시그널 패널 탭 ── */}
+      <div id="tab-signal" style={{ display: dashTab==='signal' ? 'flex' : 'none', flexDirection:'column', gap:0 }}>
+        <LynchSellSignalPanel
+          portfolioStocks={investments.map(inv => {
+            const key  = inv.ticker.toUpperCase()
+            const dMap = dividendMap[key]
+            const lv   = priceMap[key]
+            const siPe  = dMap?.pe  ?? null
+            const siPeg = dMap?.peg ?? null
+            const fPe   = lv?.fundamentals?.pe
+            const fPeg  = lv?.fundamentals?.peg
+            const fEg   = lv?.fundamentals?.earningsGrowth
+            const per   = siPe ?? (typeof fPe  === 'number' && isFinite(fPe)  && fPe  > 0 ? fPe  : 0)
+            let growthRate = 0
+            if (siPe != null && siPeg != null && siPeg > 0) {
+              growthRate = parseFloat((siPe / siPeg).toFixed(1))
+            } else if (typeof fEg === 'number' && isFinite(fEg) && fEg !== 0) {
+              growthRate = parseFloat((Math.abs(fEg) < 20 ? fEg * 100 : fEg).toFixed(1))
+            } else if (per > 0 && typeof fPeg === 'number' && isFinite(fPeg) && fPeg > 0) {
+              growthRate = parseFloat((per / fPeg).toFixed(1))
+            }
+            const peg = (per > 0 && growthRate > 0) ? parseFloat((per / growthRate).toFixed(2)) : 0
+            return {
+              name:          inv.name,
+              ticker:        inv.ticker,
+              currency:      inv.currency ?? 'USD',
+              lynchType:     inv.lynch_category ?? '',
+              per:           per > 0 ? parseFloat(per.toFixed(1)) : 0,
+              growthRate,
+              peg,
+              purchasePrice: inv.purchase_price ?? 0,
+              currentPrice:  lv?.currentPrice   ?? 0,
+              dividendYield: (typeof lv?.fundamentals?.dividendYield === 'number')
+                             ? lv.fundamentals.dividendYield : 0,
+            }
+          })}
+        />
+      </div>  {/* 매도 시그널 탭 끝 */}
 
     </div>
   )
