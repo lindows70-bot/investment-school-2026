@@ -478,16 +478,32 @@ export default function LynchEarningsChart(props: any) {
       const annualPriceMap: Record<string, number[]> = {}
 
       monthly.forEach((c) => {
-        // 날짜: YYYYMMDD (string) 또는 Unix timestamp (number)
+        // ── 날짜 정규화 ───────────────────────────────────────
+        // KR(Naver): c.date = "YYYYMMDD" (string)
+        // US(Yahoo v8): c.time or c.date = Unix timestamp (seconds, 10자리)
         let yr = ''
-        if (typeof c.date === 'string') {
+        if (typeof c.date === 'string' && c.date.length >= 4) {
           yr = c.date.slice(0, 4)
-        } else if (typeof c.date === 'number') {
+        } else if (typeof c.date === 'number' && c.date > 0) {
           yr = new Date(c.date > 1e10 ? c.date : c.date * 1000).getFullYear().toString()
-        } else if (typeof c.time === 'number') {
+        } else if (typeof c.time === 'number' && c.time > 0) {
           yr = new Date(c.time > 1e10 ? c.time : c.time * 1000).getFullYear().toString()
+        } else if (typeof c.timestamp === 'number' && c.timestamp > 0) {
+          yr = new Date(c.timestamp > 1e10 ? c.timestamp : c.timestamp * 1000).getFullYear().toString()
         }
-        const closePrice = Number(c.close ?? c.c ?? 0)
+
+        // ── 종가 정규화 ───────────────────────────────────────
+        // KR(Naver): c.close
+        // US(Yahoo v8): c.adjClose / c.adjclose / c.close / c.c
+        const closePrice = Number(
+          c.close     ??   // KR Naver & US Yahoo 기본
+          c.adjClose  ??   // Yahoo v8 adjclose (camelCase)
+          c.adjclose  ??   // Yahoo v8 adjclose (lowercase)
+          c.c         ??   // Yahoo compact format
+          c.price     ??   // 일부 API 직접 price 키
+          0
+        )
+
         if (!yr || yr.length !== 4 || closePrice <= 0) return
         if (!annualPriceMap[yr]) annualPriceMap[yr] = []
         annualPriceMap[yr].push(closePrice)
@@ -863,14 +879,16 @@ export default function LynchEarningsChart(props: any) {
                   <Line type="monotone" dataKey="fairValue"
                     stroke={C.fair} strokeWidth={2.5} strokeDasharray="6 3"
                     dot={false} activeDot={{ r:5, fill:C.fair, stroke:C.surface, strokeWidth:2 }}
-                    connectNulls name="린치 적정가치"
+                    connectNulls={true} isAnimationActive={false}
+                    name="린치 적정가치"
                   />
-                  {/* 실제 주가 (블루) */}
+                  {/* 실제 주가 (블루) — isAnimationActive=false: 비동기 리렌더 시 선 소멸 버그 방지 */}
                   <Line type="monotone" dataKey="price"
                     stroke={C.price} strokeWidth={2.5}
-                    dot={{ r:3, fill:C.price, stroke:C.surface, strokeWidth:1 }}
-                    activeDot={{ r:5, fill:C.price, stroke:C.surface, strokeWidth:2 }}
-                    connectNulls name="실제 주가"
+                    dot={{ r:4, fill:C.price, stroke:C.surface, strokeWidth:1.5 }}
+                    activeDot={{ r:6, fill:C.price, stroke:C.surface, strokeWidth:2 }}
+                    connectNulls={true} isAnimationActive={false}
+                    name="실제 주가"
                   />
                 </ComposedChart>
               </ResponsiveContainer>
