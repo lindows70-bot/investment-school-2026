@@ -48,6 +48,8 @@ interface StockSignal {
   triggers:     string[]        // 트리거된 조건 목록
   metrics:      Metric[]        // 표시할 지표들
   returnPct?:   number          // 매입 대비 수익률
+  gaugePos:     number          // 게이지 포인터 위치 (0~100)
+  gaugeText:    string          // 게이지 하단 서브 텍스트
 }
 
 // ────────────────────────────────────────────────────────────
@@ -136,6 +138,8 @@ function computeSignal(raw: AnyRecord): StockSignal {
       triggers: [],
       metrics: baseMetrics,
       returnPct,
+      gaugePos:  50,
+      gaugeText: '린치 유형 미분류 — 게이지 계산 불가',
     }
   }
 
@@ -308,6 +312,75 @@ function computeSignal(raw: AnyRecord): StockSignal {
     lynchAdvice = `"현재 모든 지표가 안정 범위에 있습니다. 린치는 '좋은 주식을 너무 일찍 팔지 말라'고 경고했습니다. 스토리를 지속 확인하며 보유를 유지하세요."`
   }
 
+  // ── 게이지 포인터 위치 계산 (0~100) ─────────────────────────
+  let gaugePos  = 50
+  let gaugeText = ''
+
+  if (lynchType === '고성장주' && peg > 0) {
+    // PEG 0→안전, 1.0→중간, 1.5→위험, 2.0+→최대
+    gaugePos  = Math.min(95, Math.max(3, (peg / 2.0) * 100))
+    gaugeText = `현재 PEG ${peg.toFixed(2)} · 임계치: 안전 <1.0 / 경계 1.0~1.5 / 과열 >1.5`
+    if (peg > 1.5) gaugeText = `현재 PEG ${peg.toFixed(2)} (임계치 1.5 초과 과열 — 린치 매도 구간)`
+    else if (peg > 1.0) gaugeText = `현재 PEG ${peg.toFixed(2)} (PEG 1.0 돌파 — 멀티플 부담 시작)`
+    else gaugeText = `현재 PEG ${peg.toFixed(2)} (PEG 1.0 이하 — 린치 선호 구간)`
+
+  } else if (lynchType === '대형우량주' && per > 0) {
+    // 기준 PER 22배 대비 비율: 50%→좌측, 100%→중간, 130%+→우측
+    const stalwartBase = 22
+    const ratio = per / stalwartBase
+    gaugePos = Math.min(95, Math.max(3, ((ratio - 0.5) / 1.1) * 100))
+    const overshoot = ((ratio - 1) * 100).toFixed(0)
+    gaugeText = ratio > 1
+      ? `PER ${per.toFixed(1)}배 (역사적 평균 22배 대비 +${overshoot}% 오버슈팅)`
+      : `PER ${per.toFixed(1)}배 (역사적 평균 22배 대비 ${overshoot}% 할인)`
+
+  } else if (lynchType === '경기순환주' && per > 0) {
+    // 사이클주 역설: PER 낮을수록 고점(위험) — 역방향 매핑
+    if      (per < 8)  gaugePos = 88
+    else if (per < 12) gaugePos = 68
+    else if (per < 16) gaugePos = 48
+    else if (per < 22) gaugePos = 30
+    else               gaugePos = 15
+    gaugeText = `현재 PER ${per.toFixed(1)}배 · 사이클주: PER 낮을수록 고점 신호 (역설적 위험 구간)`
+
+  } else if (lynchType === '저성장주' && per > 0) {
+    // PER 10→안전, 18→경계, 25+→위험
+    gaugePos  = Math.min(95, Math.max(3, ((per - 10) / 18) * 100))
+    gaugeText = `현재 PER ${per.toFixed(1)}배 · 저성장주 배당 기준 적정 구간: 15~18배`
+
+  } else if (lynchType === '자산주') {
+    if (returnPct !== undefined && returnPct > 0) {
+      gaugePos  = Math.min(95, Math.max(3, (returnPct / 110) * 100))
+      gaugeText = `매입 대비 수익 +${returnPct}% · 숨겨진 자산의 시장 반영도 추정`
+    } else {
+      gaugePos  = status === 'danger' ? 85 : status === 'caution' ? 55 : 22
+      gaugeText = per > 0
+        ? `현재 PER ${per.toFixed(1)}배 · 순자산 대비 프리미엄 측정`
+        : '자산가치 비교 데이터 수집 중'
+    }
+
+  } else if (lynchType === '턴어라운드주') {
+    if (per <= 0 || growthRate < 0) {
+      gaugePos = 88
+      gaugeText = growthRate < 0
+        ? `이익성장률 ${growthRate.toFixed(1)}% (역성장 — 회생 지연)`
+        : 'EPS 여전히 적자 상태 — 회생 전제 흔들림'
+    } else if (peg > 0) {
+      gaugePos  = Math.min(90, Math.max(5, (peg / 2.5) * 100))
+      gaugeText = `PEG ${peg.toFixed(2)} / 성장률 ${growthRate.toFixed(1)}% · 회생 선반영 정도`
+    } else {
+      gaugePos  = status === 'danger' ? 85 : status === 'caution' ? 55 : 22
+      gaugeText = `성장률 ${growthRate.toFixed(1)}% · 흑자전환 모멘텀 모니터링`
+    }
+
+  } else {
+    // 기타 — 상태 등급에 따른 고정 비율
+    gaugePos  = status === 'danger' ? 85 : status === 'caution' ? 55 : 22
+    gaugeText = per > 0
+      ? `PER ${per.toFixed(1)}배 / 성장률 ${growthRate > 0 ? growthRate.toFixed(1) + '%' : '미확인'} · 종합 리스크 포지션`
+      : '재무 데이터 수집 중 — 다음 새로고침에 반영'
+  }
+
   return {
     name, ticker, currency,
     lynchType,
@@ -318,6 +391,8 @@ function computeSignal(raw: AnyRecord): StockSignal {
     triggers,
     metrics: baseMetrics,
     returnPct,
+    gaugePos,
+    gaugeText,
   }
 }
 
@@ -329,6 +404,116 @@ function StatusIcon({ status, size = 16 }: { status: SignalStatus; size?: number
   if (status === 'caution')      return <ShieldAlert   size={size} color={C.yellow} />
   if (status === 'safe')         return <CheckCircle2  size={size} color={C.green}  />
   return                                <Info          size={size} color={C.textLow} />
+}
+
+// ────────────────────────────────────────────────────────────
+// 시각적 게이지 바 컴포넌트 (Value Slider)
+// 안전(초록) ─── 유의(노랑) ─── 위험(빨강) 그라디언트 트랙 + 핀 마커
+// ────────────────────────────────────────────────────────────
+function ValueGaugeBar({ signal }: { signal: StockSignal }) {
+  const pos = Math.max(2, Math.min(98, signal.gaugePos))   // 2~98% clamp
+  const noData = signal.status === 'unclassified' || signal.gaugePos === 50 && !signal.gaugeText
+
+  // 포인터 색상 — 위치에 따라 부드럽게 결정
+  const pinColor =
+    pos < 30 ? 'rgba(74,222,128,0.95)'  :   // 초록 (안전)
+    pos < 55 ? 'rgba(251,191,36,0.95)'  :   // 노랑 (유의)
+               'rgba(248,113,113,0.95)'      // 빨강 (위험)
+
+  const pinGlow =
+    pos < 30 ? '0 0 8px rgba(74,222,128,0.6)'  :
+    pos < 55 ? '0 0 8px rgba(251,191,36,0.6)'  :
+               '0 0 8px rgba(248,113,113,0.6)'
+
+  return (
+    <div style={{ flex: 1, padding: '0 14px', minWidth: 0 }}>
+
+      {/* ── 구간 라벨 ── */}
+      <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
+        <span style={{ fontSize:9, color:'rgba(74,222,128,0.55)', fontWeight:700, letterSpacing:'0.03em' }}>안전 ←</span>
+        <span style={{ fontSize:9, color:'rgba(251,191,36,0.55)',  fontWeight:700 }}>유의</span>
+        <span style={{ fontSize:9, color:'rgba(248,113,113,0.55)', fontWeight:700, letterSpacing:'0.03em' }}>→ 위험</span>
+      </div>
+
+      {/* ── 트랙 + 포인터 래퍼 ── */}
+      <div style={{ position:'relative', height:26 }}>
+
+        {noData ? (
+          // 데이터 없음 — 비활성 트랙
+          <div style={{
+            position:'absolute', top:9, left:0, right:0, height:8, borderRadius:4,
+            background:'rgba(100,116,139,0.18)', border:'1px solid rgba(100,116,139,0.15)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+          }}>
+            <span style={{ fontSize:9, color:C.textLow }}>데이터 없음</span>
+          </div>
+        ) : (
+          <>
+            {/* 삼각형 포인터 (트랙 위) */}
+            <div style={{
+              position: 'absolute',
+              left: `clamp(3px, calc(${pos}% - 5px), calc(100% - 13px))`,
+              top: 0,
+              width: 0, height: 0,
+              borderLeft:  '5px solid transparent',
+              borderRight: '5px solid transparent',
+              borderTop:   `7px solid ${pinColor}`,
+              filter: `drop-shadow(0 0 3px ${pinColor.replace('0.95', '0.7')})`,
+              transition: 'left 0.7s cubic-bezier(0.34, 1.4, 0.64, 1)',
+              zIndex: 2,
+            }} />
+
+            {/* 그라디언트 트랙 */}
+            <div style={{
+              position: 'absolute',
+              top: 9, left: 0, right: 0, height: 8,
+              borderRadius: 4,
+              background:
+                'linear-gradient(to right, ' +
+                'rgba(34,197,94,0.50) 0%, ' +
+                'rgba(34,197,94,0.28) 25%, ' +
+                'rgba(245,158,11,0.45) 47%, ' +
+                'rgba(239,68,68,0.30) 70%, ' +
+                'rgba(239,68,68,0.55) 100%)',
+              overflow: 'hidden',
+            }}>
+              {/* 구간 경계선 (30%, 65%) */}
+              {[30, 65].map(p => (
+                <div key={p} style={{
+                  position:'absolute', left:`${p}%`, top:0, width:1, height:'100%',
+                  background:'rgba(255,255,255,0.07)',
+                }} />
+              ))}
+            </div>
+
+            {/* 트랙 위 발광 원 마커 */}
+            <div style={{
+              position: 'absolute',
+              left: `clamp(1px, calc(${pos}% - 5px), calc(100% - 11px))`,
+              top: 7, width: 10, height: 10,
+              borderRadius: '50%',
+              background: pinColor,
+              boxShadow: pinGlow,
+              border: '1.5px solid rgba(255,255,255,0.25)',
+              transition: 'left 0.7s cubic-bezier(0.34, 1.4, 0.64, 1)',
+              zIndex: 3,
+            }} />
+          </>
+        )}
+      </div>
+
+      {/* ── 서브 텍스트 ── */}
+      <div style={{
+        marginTop: 5, fontSize: 10, color: C.textLow,
+        lineHeight: 1.35, overflow: 'hidden',
+        textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        fontFeatureSettings: '"tnum"',
+      }}>
+        {signal.gaugeText || '—'}
+      </div>
+
+    </div>
+  )
 }
 
 // ────────────────────────────────────────────────────────────
@@ -353,88 +538,91 @@ function SignalCard({ signal, idx }: { signal: StockSignal; idx: number }) {
         userSelect: 'none',
       }}
     >
-      {/* ── 카드 헤더 ── */}
-      <div style={{ display:'flex', alignItems:'flex-start', gap:12 }}>
-        {/* 상태 배지 */}
-        <div style={{
-          flexShrink:0, width:40, height:40, borderRadius:10,
-          background:sm.bg, border:`1px solid ${sm.border}`,
-          display:'flex', alignItems:'center', justifyContent:'center',
-        }}>
-          <StatusIcon status={signal.status} size={20} />
-        </div>
+      {/* ══ 카드 본문: 3단 Flex 레이아웃 ══════════════════════════ */}
+      {/* [좌: 아이콘+종목정보] [중앙: 게이지바] [우: 상태배지+펼치기] */}
+      <div style={{ display:'flex', alignItems:'center', gap:12, minWidth:0 }}>
 
-        {/* 종목 정보 */}
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:4 }}>
-            {/* 티커 */}
-            <span style={{
-              fontSize:10, padding:'2px 7px', borderRadius:4,
-              background:'rgba(96,165,250,0.15)', color:C.blue,
-              fontFamily:'monospace', fontWeight:900, flexShrink:0,
-            }}>
-              {signal.ticker}
-            </span>
-            {/* 종목명 */}
-            <span style={{ fontSize:13, fontWeight:800, color:C.textHi, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-              {signal.name}
-            </span>
+        {/* ── 좌측: 상태 아이콘 + 종목 정보 ── */}
+        <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0, width:220, minWidth:0 }}>
+          {/* 상태 아이콘 원 */}
+          <div style={{
+            flexShrink:0, width:38, height:38, borderRadius:9,
+            background:sm.bg, border:`1px solid ${sm.border}`,
+            display:'flex', alignItems:'center', justifyContent:'center',
+          }}>
+            <StatusIcon status={signal.status} size={19} />
+          </div>
+
+          {/* 종목명·태그·헤드라인 */}
+          <div style={{ minWidth:0, flex:1 }}>
+            {/* 티커 + 종목명 */}
+            <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:3, overflow:'hidden' }}>
+              <span style={{
+                fontSize:9, padding:'1px 6px', borderRadius:3,
+                background:'rgba(96,165,250,0.15)', color:C.blue,
+                fontFamily:'monospace', fontWeight:900, flexShrink:0,
+              }}>
+                {signal.ticker}
+              </span>
+              <span style={{ fontSize:12, fontWeight:800, color:C.textHi, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                {signal.name}
+              </span>
+            </div>
             {/* 린치 유형 태그 */}
             {cat && (
-              <span style={{
-                fontSize:10, padding:'2px 8px', borderRadius:20,
-                background:cat.bg, color:cat.color, border:`1px solid ${cat.border}`,
-                fontWeight:700, flexShrink:0,
-              }}>
-                {cat.icon} {cat.label}
-              </span>
+              <div style={{ marginBottom:3 }}>
+                <span style={{
+                  fontSize:9, padding:'1px 7px', borderRadius:20,
+                  background:cat.bg, color:cat.color, border:`1px solid ${cat.border}`,
+                  fontWeight:700,
+                }}>
+                  {cat.icon} {cat.label}
+                </span>
+              </div>
             )}
-          </div>
-
-          {/* 헤드라인 */}
-          <div style={{ fontSize:12, color:sm.color, fontWeight:700, marginBottom:6 }}>
-            {signal.headline}
-          </div>
-
-          {/* 지표 배지들 */}
-          {signal.metrics.length > 0 && (
-            <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-              {signal.metrics.map((m, i) => {
-                const mColor =
-                  m.highlight === 'red'    ? C.red    :
-                  m.highlight === 'yellow' ? C.yellow :
-                  m.highlight === 'green'  ? C.green  :
-                  C.textLow
-                return (
-                  <div key={i} style={{
-                    fontSize:10, padding:'2px 8px', borderRadius:5,
-                    background:C.surface, border:`1px solid ${C.border}`,
-                    display:'flex', gap:4, alignItems:'center',
-                  }}>
-                    <span style={{ color:C.textLow }}>{m.label}</span>
-                    <span style={{ color:mColor, fontWeight:700, fontFamily:'monospace' }}>{m.value}</span>
-                  </div>
-                )
-              })}
+            {/* 헤드라인 */}
+            <div style={{ fontSize:10, color:sm.color, fontWeight:700, lineHeight:1.3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+              {signal.headline}
             </div>
-          )}
+          </div>
         </div>
 
-        {/* 상태 배지 + 펼치기 아이콘 */}
-        <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:8, flexShrink:0 }}>
+        {/* ── 중앙: 시각적 게이지 바 ─────────────────────────── */}
+        <ValueGaugeBar signal={signal} />
+
+        {/* ── 우측: 상태 배지 + 펼치기 ── */}
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:8, flexShrink:0, width:80 }}>
           <div style={{
-            fontSize:9, padding:'3px 8px', borderRadius:20,
+            fontSize:9, padding:'3px 8px', borderRadius:20, textAlign:'center',
             background:sm.bg, color:sm.color, border:`1px solid ${sm.border}`,
-            fontWeight:800, whiteSpace:'nowrap',
+            fontWeight:800, whiteSpace:'nowrap', lineHeight:1.4,
           }}>
             {sm.label}
           </div>
+          {/* 지표 배지 (1~2개만) */}
+          {signal.metrics.slice(0,2).map((m, i) => {
+            const mColor =
+              m.highlight === 'red'    ? C.red    :
+              m.highlight === 'yellow' ? C.yellow :
+              m.highlight === 'green'  ? C.green  : C.textLow
+            return (
+              <div key={i} style={{
+                fontSize:9, padding:'2px 7px', borderRadius:5, textAlign:'right',
+                background:C.surface, border:`1px solid ${C.border}`,
+                display:'flex', gap:3, alignItems:'center',
+              }}>
+                <span style={{ color:C.textLow }}>{m.label}</span>
+                <span style={{ color:mColor, fontWeight:700, fontFamily:'monospace' }}>{m.value}</span>
+              </div>
+            )
+          })}
           <ChevronRight
-            size={14}
+            size={13}
             color={C.textLow}
             style={{ transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)', transition:'transform 0.2s' }}
           />
         </div>
+
       </div>
 
       {/* ── 확장 패널 ── */}
