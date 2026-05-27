@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "dev:clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next dev",
+    "build": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next build",
+    "deploy": "npm run build && npx vercel --prod --yes",
     "start": "next start",
     "lint": "next lint"
   },
