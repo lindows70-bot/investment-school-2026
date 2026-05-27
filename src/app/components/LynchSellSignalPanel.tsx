@@ -426,7 +426,7 @@ function ValueGaugeBar({ signal }: { signal: StockSignal }) {
                '0 0 8px rgba(248,113,113,0.6)'
 
   return (
-    <div style={{ flex: 1, padding: '0 14px', minWidth: 0 }}>
+    <div style={{ flex: 1, padding: '0 10px', minWidth: 160 }}>
 
       {/* ── 구간 라벨 ── */}
       <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
@@ -542,8 +542,8 @@ function SignalCard({ signal, idx }: { signal: StockSignal; idx: number }) {
       {/* [좌: 아이콘+종목정보] [중앙: 게이지바] [우: 상태배지+펼치기] */}
       <div style={{ display:'flex', alignItems:'center', gap:12, minWidth:0 }}>
 
-        {/* ── 좌측: 상태 아이콘 + 종목 정보 ── */}
-        <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0, width:220, minWidth:0 }}>
+        {/* ── 좌측: 상태 아이콘 + 종목 정보 (너비 확대: 220 → 300, 긴 종목명 잘림 방지) ── */}
+        <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0, width:300, minWidth:260 }}>
           {/* 상태 아이콘 원 */}
           <div style={{
             flexShrink:0, width:38, height:38, borderRadius:9,
@@ -564,7 +564,7 @@ function SignalCard({ signal, idx }: { signal: StockSignal; idx: number }) {
               }}>
                 {signal.ticker}
               </span>
-              <span style={{ fontSize:12, fontWeight:800, color:C.textHi, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+              <span style={{ fontSize:12, fontWeight:800, color:C.textHi, whiteSpace:'nowrap' }}>
                 {signal.name}
               </span>
             </div>
@@ -581,7 +581,7 @@ function SignalCard({ signal, idx }: { signal: StockSignal; idx: number }) {
               </div>
             )}
             {/* 헤드라인 */}
-            <div style={{ fontSize:10, color:sm.color, fontWeight:700, lineHeight:1.3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+            <div style={{ fontSize:10, color:sm.color, fontWeight:700, lineHeight:1.3, whiteSpace:'nowrap' }}>
               {signal.headline}
             </div>
           </div>
@@ -591,7 +591,7 @@ function SignalCard({ signal, idx }: { signal: StockSignal; idx: number }) {
         <ValueGaugeBar signal={signal} />
 
         {/* ── 우측: 상태 배지 + 펼치기 ── */}
-        <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:8, flexShrink:0, width:80 }}>
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:8, flexShrink:0, width:90 }}>
           <div style={{
             fontSize:9, padding:'3px 8px', borderRadius:20, textAlign:'center',
             background:sm.bg, color:sm.color, border:`1px solid ${sm.border}`,
