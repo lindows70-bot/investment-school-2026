@@ -619,8 +619,36 @@ export async function GET() {
   const ORDER: Record<CrossSignal, number> = {
     DANGER: 0, WARNING: 1, HEALTHY: 2, UNKNOWN: 3,
   }
-  const allResults = [...freshResults, ...cachedResults]
+  const rawResults = [...freshResults, ...cachedResults]
     .sort((a, b) => ORDER[a.signal] - ORDER[b.signal] || b.gap - a.gap)
+
+  // ── 8-b. 데이터 기반 완전 배제 (Hard Filter) ─────────────
+  //
+  // 재고자산(inventory) 합계가 0이거나 trend 데이터 자체가 없는 종목은
+  // 소프트웨어·금융·서비스 기업으로 간주하여 결과 배열에서 완전 제거.
+  //
+  // - 하드코딩 방식 아님 — 실제 데이터(숫자) 기반 판별
+  // - GOOGL, PLTR, TEM 등: mock/API 데이터 없음 → trend=[] → 자동 탈락
+  // - 향후 모든 신규 종목에도 자동 적용
+  //
+  const hasInventoryData = (r: InventoryCrossResult): boolean =>
+    r.trend.some(q => (q.inventory ?? 0) > 0)
+
+  const allResults = rawResults.filter(hasInventoryData)
+
+  // 데이터 기반으로 탈락된 종목 → excludedFromAnalysis에 병합
+  const dataExcluded: InventoryExcluded[] = rawResults
+    .filter(r => !hasInventoryData(r))
+    .map(r => ({
+      ticker: r.ticker,
+      name:   r.name,
+      reason: r.trend.length === 0
+        ? '재무 데이터가 없습니다. 소프트웨어·금융·서비스 기업은 재고자산이 존재하지 않아 자동으로 분석에서 제외됩니다.'
+        : '최근 4개 분기 재고자산 합계가 0입니다. 물리적 재고가 없는 기업으로 판단하여 자동 제외됩니다.',
+    }))
+
+  // 하드코딩 사전 제외 + 데이터 기반 사후 제외 통합
+  const finalExcluded = [...excludedFromAnalysis, ...dataExcluded]
 
   // ── 9. 요약 통계 ──────────────────────────────────────────
   const summary = {
@@ -632,13 +660,13 @@ export async function GET() {
 
   return NextResponse.json({
     results:              allResults,
-    excludedFromAnalysis,   // 소프트웨어·금융 등 제외 종목 목록
+    excludedFromAnalysis: finalExcluded,  // 사전(heuristic) + 사후(data) 제외 통합
     summary,
     source:  freshResults.length > 0 && cachedResults.length === 0 ? 'fresh' : 'mixed',
     meta: {
       totalHoldings:   allStockHoldings.length,  // 전체 주식 보유 수
       analyzable:      stockHoldings.length,      // 재고 분석 가능 수
-      excluded:        excludedFromAnalysis.length,
+      excluded:        finalExcluded.length,
       analyzed:        allResults.filter(r => r.signal !== 'UNKNOWN').length,
       cacheHit:        cachedResults.length,
       cacheMiss:       freshResults.length,

@@ -527,11 +527,23 @@ export default function LynchInventorySentinel() {
             background: C.surface, border: `1px dashed ${C.border}`, borderRadius: 12,
           }}>
             <PackageOpen size={28} style={{ margin: '0 auto 10px', opacity: 0.25 }} />
-            <div style={{ fontSize: 12, color: C.textLow }}>
-              {(data?.results ?? []).length === 0
-                ? (data?.message ?? '현재 포트폴리오에 재고 리스크를 추적할 제조업/하드웨어 종목이 없습니다.')
-                : '선택한 시그널의 종목이 없습니다.'}
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.textHi, marginBottom: 6 }}>
+              {filterSig !== 'ALL' ? '선택한 시그널의 종목이 없습니다.' : '분석 대상 제조업 종목 없음'}
             </div>
+            <div style={{ fontSize: 11, color: C.textLow, lineHeight: 1.8, maxWidth: 380, margin: '0 auto' }}>
+              {filterSig !== 'ALL'
+                ? '다른 등급 필터를 선택해주세요.'
+                : (data?.message ?? '현재 포트폴리오에 재고 리스크를 추적할 제조업/하드웨어 종목이 없습니다.')}
+            </div>
+            {filterSig === 'ALL' && excluded.length > 0 && (
+              <div style={{
+                marginTop: 10, fontSize: 10, color: C.textLow,
+                padding: '5px 12px', borderRadius: 8, display: 'inline-block',
+                background: 'rgba(100,116,139,0.1)', border: `1px solid ${C.border}`,
+              }}>
+                소프트웨어·금융·서비스 {excluded.length}개 종목은 하단 제외 목록에서 확인하세요.
+              </div>
+            )}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
