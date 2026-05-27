@@ -234,174 +234,202 @@ function buildLynchAlert(
 }
 
 // ════════════════════════════════════════════════════════════
-// 정교한 Mock 데이터 (화면 개발 + 테스트용)
-// 실제 분기 실적 기반 — 외부 API 연동 시 이 데이터로 검증
+// 실제 FMP API 연동 — Mock 데이터 완전 제거
 // ════════════════════════════════════════════════════════════
 
-type MockQuarterRaw = {
-  quarter:    string
-  fiscalDate: string
-  revenue:    number
-  inventory:  number
-  revYoY:     number | null
-  invYoY:     number | null
+interface RawFmpQuarter { date: string; revenue: number; inventory: number }
+
+/** YYYY-MM-DD → 'YY-Q{n}' 분기 코드 변환 */
+function dateToQuarterCode(dateStr: string): string {
+  const d  = new Date(dateStr)
+  const yy = String(d.getFullYear()).slice(-2)
+  const q  = Math.ceil((d.getMonth() + 1) / 3)
+  return `${yy}-Q${q}`
 }
 
-const MOCK_DATA: Record<string, {
-  name:      string
-  market:    string
-  currency:  string
-  unitLabel: string
-  quarters:  MockQuarterRaw[]
-}> = {
-
-  // ── SK하이닉스 (000660) — DANGER 시나리오 ──────────────────
-  // 반도체 업황 사이클: HBM 공급 확대 국면에서 재고 급증
-  '000660': {
-    name: 'SK하이닉스', market: 'KR', currency: 'KRW', unitLabel: '억원',
-    quarters: [
-      // 기준 분기 (YoY 없음)
-      { quarter: '24-Q1', fiscalDate: '2024-03-31', revenue: 128_613, inventory: 146_720,
-        revYoY: null, invYoY: null },
-      // 실적 회복세 but 재고 더 빠르게 증가
-      { quarter: '24-Q2', fiscalDate: '2024-06-30', revenue: 167_234, inventory: 158_340,
-        revYoY: 124.8, invYoY: 72.4 },
-      { quarter: '24-Q3', fiscalDate: '2024-09-30', revenue: 175_650, inventory: 178_900,
-        revYoY: 94.2, invYoY: 82.3 },
-      // 매출 증가 둔화 + 재고 급증 → DANGER 시작
-      { quarter: '24-Q4', fiscalDate: '2024-12-31', revenue: 192_080, inventory: 198_340,
-        revYoY: 37.5, invYoY: 68.9 },
-      // 최신 분기: 명백한 DANGER
-      { quarter: '25-Q1', fiscalDate: '2025-03-31', revenue: 178_560, inventory: 231_450,
-        revYoY: 38.8, invYoY: 57.7 },
-    ],
-  },
-
-  // ── NVIDIA (NVDA) — WARNING 시나리오 ──────────────────────
-  // AI 데이터센터 수요로 매출 폭증 but 재고도 빠르게 추격 중
-  'NVDA': {
-    name: 'NVIDIA Corporation', market: 'US', currency: 'USD', unitLabel: 'M$',
-    quarters: [
-      { quarter: '24-Q1', fiscalDate: '2024-04-28', revenue: 26_044, inventory: 5_282,
-        revYoY: null, invYoY: null },
-      { quarter: '24-Q2', fiscalDate: '2024-07-28', revenue: 30_040, inventory: 5_921,
-        revYoY: 122.4, invYoY: 95.1 },
-      { quarter: '24-Q3', fiscalDate: '2024-10-27', revenue: 35_082, inventory: 6_675,
-        revYoY: 93.6, invYoY: 115.3 },  // 재고 YoY 급등
-      { quarter: '24-Q4', fiscalDate: '2025-01-26', revenue: 39_331, inventory: 7_471,
-        revYoY: 77.9, invYoY: 76.1 },   // 격차 1.8% → WARNING
-      // 최신: 격차 2.3% → WARNING 지속
-      { quarter: '25-Q1', fiscalDate: '2025-04-27', revenue: 44_062, inventory: 8_274,
-        revYoY: 69.2, invYoY: 71.5 },   // 역전 직전 경보
-    ],
-  },
-
-  // ── Apple (AAPL) — HEALTHY 시나리오 ───────────────────────
-  // 성숙 소비재 기업의 교과서적 재고 관리
-  'AAPL': {
-    name: 'Apple Inc.', market: 'US', currency: 'USD', unitLabel: 'M$',
-    quarters: [
-      { quarter: '24-Q1', fiscalDate: '2023-12-30', revenue: 119_575, inventory: 6_511,
-        revYoY: null, invYoY: null },
-      { quarter: '24-Q2', fiscalDate: '2024-03-30', revenue: 90_753,  inventory: 6_232,
-        revYoY: 4.3,  invYoY: -8.6 },
-      { quarter: '24-Q3', fiscalDate: '2024-06-29', revenue: 85_777,  inventory: 7_286,
-        revYoY: 4.9,  invYoY: -3.2 },
-      { quarter: '24-Q4', fiscalDate: '2024-09-28', revenue: 94_930,  inventory: 6_382,
-        revYoY: 6.1,  invYoY: -12.4 },
-      // 최신: 매출↑ + 재고↓ → 모범적 HEALTHY
-      { quarter: '25-Q1', fiscalDate: '2024-12-28', revenue: 124_300, inventory: 7_050,
-        revYoY: 4.0,  invYoY: -5.1 },
-    ],
-  },
+/** YoY % 계산 — prev=0이거나 null이면 null 반환 */
+function calcYoY(curr: number, prev: number | undefined): number | null {
+  if (!prev || prev === 0) return null
+  return parseFloat(((curr - prev) / Math.abs(prev) * 100).toFixed(2))
 }
 
-// ────────────────────────────────────────────────────────────
-// Mock 데이터 → InventoryCrossResult 변환
-// ────────────────────────────────────────────────────────────
-function buildResultFromMock(
-  ticker: string,
-  mock: typeof MOCK_DATA[string],
-): InventoryCrossResult {
-  // 첫 분기(기준 분기) 제외하고 YoY가 있는 분기만 사용
-  const validQuarters = mock.quarters.filter(q => q.revYoY !== null)
+/** FMP 8개 분기 원본 → 최근 4개 분기 + YoY 계산 */
+function buildTrendFromFmp(
+  raws: RawFmpQuarter[],
+  currency: string,
+): QuarterData[] {
+  // FMP는 최신 순으로 반환 → 역순 정렬 후 처리
+  const sorted = [...raws].sort((a, b) => a.date < b.date ? -1 : 1)
+  // 최근 4개 분기 (index 4~7) + YoY 비교 기준 (index 0~3)
+  const recent4 = sorted.slice(-4)
+  const prev4   = sorted.slice(-8, -4)
 
-  const trend: QuarterData[] = validQuarters.map(q => {
-    const signal = calcSignal(q.invYoY, q.revYoY)
+  return recent4.map((q, i): QuarterData => {
+    const prev      = prev4[i]
+    const revYoY    = calcYoY(q.revenue,   prev?.revenue)
+    const invYoY    = calcYoY(q.inventory, prev?.inventory)
+    const signal    = calcSignal(invYoY, revYoY)
     return {
-      quarter:      q.quarter,
-      fiscalDate:   q.fiscalDate,
-      revenue:      q.revenue,
-      inventory:    q.inventory,
-      revenueYoY:   q.revYoY,
-      inventoryYoY: q.invYoY,
+      quarter:      dateToQuarterCode(q.date),
+      fiscalDate:   q.date,
+      revenue:      currency === 'KRW'
+        ? Math.round(q.revenue / 1e8)     // 원화: 원 → 억원
+        : Math.round(q.revenue / 1e6),    // USD: 달러 → M$
+      inventory:    currency === 'KRW'
+        ? Math.round(q.inventory / 1e8)
+        : Math.round(q.inventory / 1e6),
+      revenueYoY:   revYoY,
+      inventoryYoY: invYoY,
       signal,
-      gap: calcGap(q.invYoY, q.revYoY),
+      gap: calcGap(invYoY, revYoY),
     }
   })
+}
 
-  const latest     = trend[trend.length - 1]
-  const signal     = latest?.signal     ?? 'UNKNOWN'
-  const gap        = latest?.gap        ?? 0
-  const consecutive = countConsecutiveDanger(trend)
+type FetchStatus = 'ok' | 'no_key' | 'rate_limit' | 'not_found' | 'error'
+
+interface FmpFetchResult {
+  status:   FetchStatus
+  quarters: RawFmpQuarter[]
+  source:   string
+}
+
+/**
+ * FMP Quarterly Income Statement + Balance Sheet 실제 호출
+ *
+ * ◆ US 주식: ticker 그대로 사용 (NVDA, ETN, GEV, AAPL ...)
+ * ◆ KR 주식: ticker + '.KS' (KOSPI) 또는 '.KQ' (KOSDAQ) 순서로 시도
+ *   - 000660 → 000660.KS (SK하이닉스, KOSPI)
+ *   - 189300 → 189300.KQ (인텔리안테크, KOSDAQ) → 189300.KS fallback
+ *
+ * FMP 무료 티어: 250 calls/day
+ *   → Supabase 하루 1회 캐시로 실제 호출 최소화
+ */
+async function fetchFmpQuarterly(
+  ticker: string,
+  market: string,
+): Promise<FmpFetchResult> {
+  const FMP_KEY = process.env.FMP_API_KEY
+  if (!FMP_KEY) {
+    return { status: 'no_key', quarters: [], source: 'fmp' }
+  }
+
+  const code    = ticker.replace(/\.(KS|KQ)$/i, '')
+  const suffixes = market === 'KR' ? ['.KQ', '.KS', ''] : ['']
+
+  for (const suffix of suffixes) {
+    const fmpTicker = code + suffix
+    try {
+      const [incomeRes, balanceRes] = await Promise.all([
+        fetch(
+          `https://financialmodelingprep.com/api/v3/income-statement/${fmpTicker}?period=quarter&limit=8&apikey=${FMP_KEY}`,
+          { next: { revalidate: 86400 } }
+        ),
+        fetch(
+          `https://financialmodelingprep.com/api/v3/balance-sheet-statement/${fmpTicker}?period=quarter&limit=8&apikey=${FMP_KEY}`,
+          { next: { revalidate: 86400 } }
+        ),
+      ])
+
+      if (incomeRes.status === 429 || balanceRes.status === 429) {
+        return { status: 'rate_limit', quarters: [], source: `fmp${suffix}` }
+      }
+      if (!incomeRes.ok || !balanceRes.ok) continue
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const income: any[] = await incomeRes.json()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const balance: any[] = await balanceRes.json()
+
+      if (!Array.isArray(income) || income.length < 2) continue
+
+      const quarters: RawFmpQuarter[] = income
+        .slice(0, 8)
+        .map(item => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const b = (balance ?? []).find((bs: any) => bs.date === item.date) ?? {}
+          return {
+            date:      String(item.date ?? ''),
+            revenue:   Number(item.revenue ?? 0),
+            inventory: Number(b.inventory   ?? 0),
+          }
+        })
+        .filter(q => q.date && q.revenue > 0)
+
+      if (quarters.length < 2) continue
+
+      return { status: 'ok', quarters, source: `fmp${suffix}` }
+
+    } catch (err) {
+      console.error(`[inventory-cross] FMP 조회 오류 ${fmpTicker}:`, err)
+      continue
+    }
+  }
+
+  return { status: 'not_found', quarters: [], source: 'fmp' }
+}
+
+/** FMP 결과 + holding 정보 → InventoryCrossResult 조립 */
+function buildResultFromFmp(
+  ticker: string,
+  name:   string,
+  market: string,
+  fmpRes: FmpFetchResult,
+): InventoryCrossResult {
+  const currency  = market === 'KR' ? 'KRW' : 'USD'
+  const unitLabel = market === 'KR' ? '억원' : 'M$'
+  const trend     = buildTrendFromFmp(fmpRes.quarters, currency)
+  const latest    = trend[trend.length - 1]
+  const signal    = latest?.signal     ?? 'UNKNOWN'
+  const gap       = latest?.gap        ?? 0
+  const consec    = countConsecutiveDanger(trend)
 
   return {
-    ticker,
-    name:          mock.name,
-    market:        mock.market,
-    currency:      mock.currency,
-    unitLabel:     mock.unitLabel,
-    signal,
-    gap,
-    latestQuarter: latest?.quarter       ?? '',
-    revenueYoY:    latest?.revenueYoY    ?? 0,
-    inventoryYoY:  latest?.inventoryYoY  ?? 0,
-    consecutiveDanger: consecutive,
+    ticker, name, market, currency, unitLabel,
+    signal, gap,
+    latestQuarter:     latest?.quarter      ?? '',
+    revenueYoY:        latest?.revenueYoY   ?? 0,
+    inventoryYoY:      latest?.inventoryYoY ?? 0,
+    consecutiveDanger: consec,
     trend,
-    lynchAlert:    buildLynchAlert(signal, mock.name, gap, consecutive),
-    dataSource:    'stub',
+    lynchAlert:        buildLynchAlert(signal, name, gap, consec),
+    dataSource:        fmpRes.source,
   }
 }
 
-// ────────────────────────────────────────────────────────────
-// [스터브] 외부 API 호출 함수
-// ────────────────────────────────────────────────────────────
-
 /**
- * US 주식: FMP Quarterly Income Statement + Balance Sheet
- * TODO: 실제 연동
- *   https://financialmodelingprep.com/api/v3/income-statement/{ticker}?period=quarter&limit=8&apikey={KEY}
- *   https://financialmodelingprep.com/api/v3/balance-sheet-statement/{ticker}?period=quarter&limit=8&apikey={KEY}
+ * 제외 사유 메시지 정교화
+ * - 제조기업인데 API 실패 → "재무제표 API 로딩 실패"
+ * - 소프트웨어 기업으로 판단 → "재고 없는 기업"
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function fetchUsQuarterlyData(ticker: string) {
-  // const KEY = process.env.FMP_API_KEY
-  // if (!KEY) return null
-  // try {
-  //   const [incomeRes, balanceRes] = await Promise.all([
-  //     fetch(`https://financialmodelingprep.com/api/v3/income-statement/${ticker}?period=quarter&limit=8&apikey=${KEY}`),
-  //     fetch(`https://financialmodelingprep.com/api/v3/balance-sheet-statement/${ticker}?period=quarter&limit=8&apikey=${KEY}`)
-  //   ])
-  //   const income  = await incomeRes.json()
-  //   const balance = await balanceRes.json()
-  //   // ... 분기별 revenue + inventory 추출 및 YoY 계산
-  // } catch { return null }
-  return null
-}
+function buildExcludeReasonV2(
+  ticker:      string,
+  name:        string,
+  fetchStatus: FetchStatus,
+  inventorySum: number,
+): string {
+  const t  = ticker.toUpperCase()
+  const isKnownManufacturer = HAS_INVENTORY_TICKERS.has(t)
 
-/**
- * KR 주식: DART 분기보고서 재무상태표 + 포괄손익계산서
- * TODO: 실제 연동
- *   DART corp_code 조회 후 → /api/fnlttSinglAcntAll.json
- *   revenue     = 손익계산서 '매출액' 행
- *   inventory   = 재무상태표 '재고자산' 행
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function fetchKrQuarterlyData(ticker: string) {
-  // const DART_KEY = process.env.DART_API_KEY
-  // if (!DART_KEY) return null
-  // ... DART API 구현
-  return null
+  switch (fetchStatus) {
+    case 'no_key':
+      return 'FMP_API_KEY 환경변수가 설정되지 않았습니다. Vercel 환경변수를 확인해주세요.'
+    case 'rate_limit':
+      return 'FMP API 일일 호출 한도(250회) 초과. 내일 자동으로 갱신됩니다.'
+    case 'error':
+      return `분기 재무제표 API 네트워크 오류. 잠시 후 새로고침해주세요.`
+    case 'not_found':
+      if (isKnownManufacturer) {
+        return `${name}는 제조업 기업이나 FMP에서 분기 재무제표를 찾을 수 없습니다. 티커 형식 오류이거나 FMP 미지원 종목일 수 있습니다.`
+      }
+      return `FMP에서 ${name}의 재무제표를 찾을 수 없습니다.`
+    default:
+      // status === 'ok' but inventory = 0
+      if (isKnownManufacturer && inventorySum === 0) {
+        return `${name}는 제조업 기업이나 FMP 재고자산 데이터가 0입니다. FMP 데이터 품질 이슈이거나 재무제표 항목명 불일치일 수 있습니다.`
+      }
+      return '최근 4개 분기 재고자산 합계가 0입니다. 소프트웨어·금융·서비스 기업으로 자동 제외됩니다.'
+  }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -498,44 +526,23 @@ export async function GET() {
   const freshResults: InventoryCrossResult[] = []
   const cacheUpsertRows: object[]           = []
 
+  // FMP API 병렬 호출 (캐시 MISS 종목)
+  const fmpFetchMap = new Map<string, FmpFetchResult>()
+  await Promise.all(
+    missTickers.map(async ticker => {
+      const holding = stockHoldings.find(h => h.ticker.toUpperCase() === ticker)
+      if (!holding) return
+      const res = await fetchFmpQuarterly(ticker, holding.market ?? 'US')
+      fmpFetchMap.set(ticker, res)
+    })
+  )
+
   for (const ticker of missTickers) {
     const holding = stockHoldings.find(h => h.ticker.toUpperCase() === ticker)
     if (!holding) continue
 
-    let result: InventoryCrossResult | null = null
-
-    // ① Mock 데이터 (알려진 종목 — 개발/테스트용)
-    if (MOCK_DATA[ticker]) {
-      result = buildResultFromMock(ticker, MOCK_DATA[ticker])
-    }
-    // ② 실제 외부 API 호출 (TODO: 연동 시 활성화)
-    // else if (holding.market === 'KR') {
-    //   const raw = await fetchKrQuarterlyData(ticker)
-    //   if (raw) result = buildResultFromExternal(ticker, holding.name, raw)
-    // } else {
-    //   const raw = await fetchUsQuarterlyData(ticker)
-    //   if (raw) result = buildResultFromExternal(ticker, holding.name, raw)
-    // }
-
-    // ③ 연동 미완료 종목 → UNKNOWN 처리
-    if (!result) {
-      result = {
-        ticker,
-        name:          holding.name,
-        market:        holding.market ?? 'US',
-        currency:      holding.market === 'KR' ? 'KRW' : 'USD',
-        unitLabel:     holding.market === 'KR' ? '억원' : 'M$',
-        signal:        'UNKNOWN',
-        gap:           0,
-        latestQuarter: '',
-        revenueYoY:    0,
-        inventoryYoY:  0,
-        consecutiveDanger: 0,
-        trend:         [],
-        lynchAlert:    `"${holding.name}의 분기별 재고·매출 데이터를 수집 중입니다. 외부 API 연동 후 분석이 시작됩니다."`,
-        dataSource:    'stub',
-      }
-    }
+    const fmpRes   = fmpFetchMap.get(ticker) ?? { status: 'error' as FetchStatus, quarters: [], source: 'fmp' }
+    const result   = buildResultFromFmp(ticker, holding.name, holding.market ?? 'US', fmpRes)
 
     freshResults.push(result)
 
@@ -639,13 +646,16 @@ export async function GET() {
   // 데이터 기반으로 탈락된 종목 → excludedFromAnalysis에 병합
   const dataExcluded: InventoryExcluded[] = rawResults
     .filter(r => !hasInventoryData(r))
-    .map(r => ({
-      ticker: r.ticker,
-      name:   r.name,
-      reason: r.trend.length === 0
-        ? '재무 데이터가 없습니다. 소프트웨어·금융·서비스 기업은 재고자산이 존재하지 않아 자동으로 분석에서 제외됩니다.'
-        : '최근 4개 분기 재고자산 합계가 0입니다. 물리적 재고가 없는 기업으로 판단하여 자동 제외됩니다.',
-    }))
+    .map(r => {
+      const fmpRes      = fmpFetchMap.get(r.ticker)
+      const fetchStatus = (fmpRes?.status ?? 'not_found') as FetchStatus
+      const invSum      = r.trend.reduce((s, q) => s + (q.inventory ?? 0), 0)
+      return {
+        ticker: r.ticker,
+        name:   r.name,
+        reason: buildExcludeReasonV2(r.ticker, r.name, fetchStatus, invSum),
+      }
+    })
 
   // 하드코딩 사전 제외 + 데이터 기반 사후 제외 통합
   const finalExcluded = [...excludedFromAnalysis, ...dataExcluded]
