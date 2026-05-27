@@ -22,6 +22,7 @@ import {
 import {
   TrendingUp, TrendingDown, Minus,
   ChevronDown, Info, BarChart2, Zap, Target, Clock, RefreshCw,
+  AlertTriangle,
 } from 'lucide-react'
 
 // ────────────────────────────────────────────────────────────
@@ -76,6 +77,45 @@ const MODEL_LABELS: Record<PerModel, string> = {
 }
 
 // ────────────────────────────────────────────────────────────
+// 통화 포매터 — USD: $1,234.56 / KRW: ₩1,234,567
+// ────────────────────────────────────────────────────────────
+function fmtPrice(v: number, currency: string): string {
+  const isKrw = currency === 'KRW'
+  if (isKrw) {
+    return '₩' + Math.round(v).toLocaleString('ko-KR')
+  }
+  return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+function fmtEps(v: number, currency: string): string {
+  const isKrw = currency === 'KRW'
+  if (isKrw) return Math.round(v).toLocaleString('ko-KR') + '원'
+  return '$' + v.toFixed(2)
+}
+
+// ────────────────────────────────────────────────────────────
+// ETF / 원자재 / 가상자산 감지 → 피터 린치 분석 불가 판별
+// ────────────────────────────────────────────────────────────
+const ETF_NAME_KEYWORDS = [
+  'TIGER','KODEX','KINDEX','ARIRANG','SOL ','ACE ','HANARO','TIMEFOLIO',
+  'KOSEF','TREX','FOCUS','SMART','POWER','SMART',
+  'ETF','인덱스','지수','S&P500','나스닥','코스피','코스닥','다우',
+]
+const ETF_TICKER_SET = new Set([
+  'SPY','QQQ','IVV','VOO','VTI','DIA','IWM','EFA','EEM','TLT','IEF','AGG','BND',
+  'GLD','SLV','IAU','PSLV','SIVR','PHYS','SGOL','PPLT',
+  '102110','069500','360750','133690','148070','229200','252670','305080',
+])
+
+function isNonEquity(stock: InvestmentItem): boolean {
+  if (stock.market === 'CRYPTO') return true
+  const nameU   = (stock.name   ?? '').toUpperCase()
+  const tickerU = (stock.ticker ?? '').toUpperCase()
+  if (ETF_TICKER_SET.has(tickerU)) return true
+  if (ETF_NAME_KEYWORDS.some(kw => nameU.includes(kw.toUpperCase()))) return true
+  return false
+}
+
+// ────────────────────────────────────────────────────────────
 // 빈 포트폴리오 안내 UI
 // ────────────────────────────────────────────────────────────
 function EmptyPortfolio() {
@@ -99,28 +139,74 @@ function EmptyPortfolio() {
 }
 
 // ────────────────────────────────────────────────────────────
-// 분석 불가 종목 안내 UI
+// 피터 린치 분석 제한 안내 카드 (ETF / 가상자산 / 원자재 등)
 // ────────────────────────────────────────────────────────────
-function NoEpsState({ name, reason }: { name: string; reason: string }) {
+function NoAnalysisCard({ name, ticker, reason }: { name: string; ticker: string; reason: string }) {
   return (
     <div style={{
       display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-      gap:12, padding:'40px 24px', minHeight:280,
-      background:C.surface, border:`1px dashed ${C.border}`, borderRadius:12,
-      textAlign:'center',
+      gap:16, padding:'48px 32px', minHeight:300,
+      background: 'rgba(251,191,36,0.05)',
+      border: '1px solid rgba(251,191,36,0.25)',
+      borderRadius:14, textAlign:'center',
     }}>
-      <div style={{ fontSize:32 }}>📊</div>
-      <div style={{ fontSize:13, fontWeight:800, color:C.textHi }}>{name}</div>
-      <div style={{ fontSize:11, color:C.textLow, lineHeight:1.8, maxWidth:340 }}>{reason}</div>
+      {/* 아이콘 */}
+      <div style={{
+        width:56, height:56, borderRadius:'50%', display:'flex',
+        alignItems:'center', justifyContent:'center',
+        background:'rgba(251,191,36,0.12)', border:'2px solid rgba(251,191,36,0.3)',
+      }}>
+        <AlertTriangle size={26} color="#fbbf24" />
+      </div>
+
+      {/* 종목명 */}
+      <div>
+        <div style={{ fontSize:16, fontWeight:900, color:C.textHi, marginBottom:4 }}>
+          {name}
+          <span style={{
+            marginLeft:8, fontSize:11, padding:'2px 8px', borderRadius:4,
+            background:'rgba(96,165,250,0.15)', color:'#60a5fa',
+            fontFamily:'monospace', fontWeight:700,
+          }}>
+            {ticker}
+          </span>
+        </div>
+        <div style={{
+          display:'inline-block', fontSize:10, padding:'2px 10px', borderRadius:20,
+          background:'rgba(251,191,36,0.12)', color:'#fbbf24', marginTop:4,
+        }}>
+          피터 린치 분석 제한 종목
+        </div>
+      </div>
+
+      {/* 안내 메시지 */}
+      <div style={{
+        fontSize:12, color:C.textMid, lineHeight:1.9, maxWidth:460,
+        padding:'14px 18px', borderRadius:10,
+        background: C.card, border: `1px solid ${C.border}`,
+      }}>
+        {reason}
+      </div>
+
+      {/* 보조 안내 */}
+      <div style={{ fontSize:11, color:C.textLow, lineHeight:1.7 }}>
+        💡 피터 린치 이익선 분석은 <strong style={{ color:C.textMid }}>EPS(주당순이익)가 존재하는 개별 주식</strong>에만 적용됩니다.<br />
+        해당 종목의 포트폴리오 비중 및 가격 추이는 <strong style={{ color:C.textMid }}>실시간 대시보드 탭</strong>에서 모니터링하세요.
+      </div>
     </div>
   )
+}
+
+// 하위 호환용 별칭 (fetchData 에러 시 사용)
+function NoEpsState({ name, reason }: { name: string; reason: string }) {
+  return <NoAnalysisCard name={name} ticker="" reason={reason} />
 }
 
 // ────────────────────────────────────────────────────────────
 // 커스텀 툴팁
 // ────────────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ChartTooltip({ active, payload, label }: any) {
+function ChartTooltip({ active, payload, label, currency }: any) {
   if (!active || !payload?.length) return null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const get = (key: string) => payload.find((p: any) => p.dataKey === key)?.value ?? null
@@ -129,6 +215,7 @@ function ChartTooltip({ active, payload, label }: any) {
   const fairValue = get('fairValue')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ttmEps    = payload[0]?.payload?.ttmEps ?? 0
+  const cur       = currency ?? 'USD'
   const gap       = (price !== null && fairValue !== null && fairValue > 0)
     ? ((price - fairValue) / fairValue * 100)
     : null
@@ -136,7 +223,7 @@ function ChartTooltip({ active, payload, label }: any) {
   return (
     <div style={{
       background:'#0f172a', border:`1px solid ${C.border}`, borderRadius:10,
-      padding:'12px 16px', fontSize:12, minWidth:210, zIndex:50,
+      padding:'12px 16px', fontSize:12, minWidth:220, zIndex:50,
       boxShadow:'0 8px 24px rgba(0,0,0,0.5)',
     }}>
       <div style={{ fontWeight:800, color:C.fair, marginBottom:8, fontSize:13 }}>
@@ -147,20 +234,20 @@ function ChartTooltip({ active, payload, label }: any) {
           <div style={{ display:'flex', justifyContent:'space-between', gap:20 }}>
             <span style={{ color:C.textMid }}>실제 주가</span>
             <span style={{ color:C.price, fontWeight:700, fontFamily:'monospace' }}>
-              {price.toLocaleString(undefined, { maximumFractionDigits:2 })}
+              {fmtPrice(price, cur)}
             </span>
           </div>
         )}
         <div style={{ display:'flex', justifyContent:'space-between', gap:20 }}>
           <span style={{ color:C.textMid }}>연간 EPS</span>
           <span style={{ color:C.textHi, fontFamily:'monospace' }}>
-            {ttmEps.toLocaleString(undefined, { maximumFractionDigits:2 })}
+            {fmtEps(ttmEps, cur)}
           </span>
         </div>
         <div style={{ display:'flex', justifyContent:'space-between', gap:20 }}>
           <span style={{ color:C.textMid }}>린치 적정가치</span>
           <span style={{ color:C.fair, fontWeight:700, fontFamily:'monospace' }}>
-            {fairValue?.toLocaleString(undefined, { maximumFractionDigits:2 })}
+            {fairValue != null ? fmtPrice(fairValue, cur) : '—'}
           </span>
         </div>
         {gap !== null && (
@@ -186,13 +273,14 @@ function ChartTooltip({ active, payload, label }: any) {
 // 괴리율 진단 패널
 // ────────────────────────────────────────────────────────────
 function ValuationPanel({
-  price, fair, ticker, model, growthRate,
+  price, fair, ticker, model, growthRate, currency,
 }: {
   price:      number
   fair:       number
   ticker:     string
   model:      PerModel
   growthRate: number
+  currency:   string
 }) {
   const gap    = ((price - fair) / fair) * 100
   const absGap = Math.abs(gap)
@@ -251,14 +339,10 @@ function ValuationPanel({
         <div style={{ marginTop:8, display:'flex', gap:12, flexWrap:'wrap', fontSize:10, color:C.textLow }}>
           <span>
             현재가{' '}
-            <span style={{ color:C.price, fontWeight:700 }}>
-              {price.toLocaleString(undefined, { maximumFractionDigits:2 })}
-            </span>
+            <span style={{ color:C.price, fontWeight:700 }}>{fmtPrice(price, currency)}</span>
           </span>
           <span>vs 적정가{' '}
-            <span style={{ color:C.fair, fontWeight:700 }}>
-              {fair.toLocaleString(undefined, { maximumFractionDigits:2 })}
-            </span>
+            <span style={{ color:C.fair, fontWeight:700 }}>{fmtPrice(fair, currency)}</span>
           </span>
           <span style={{ fontStyle:'italic' }}>({modelDesc})</span>
         </div>
@@ -300,6 +384,8 @@ export default function LynchEarningsChart(props: any) {
   const [avg5yPer,      setAvg5yPer]      = useState(20)
   const [currentPrice,  setCurrentPrice]  = useState(0)
   const [noEpsReason,   setNoEpsReason]   = useState<string | null>(null)
+  // 통화 — 종목 선택 시 업데이트
+  const [currency,      setCurrency]      = useState('USD')
 
   const selectedStock = portfolio[selectedIdx] ?? null
 
@@ -312,12 +398,20 @@ export default function LynchEarningsChart(props: any) {
     setCurrentPrice(0)
 
     const { ticker, market = 'US' } = stock
-    const isCrypto = market === 'CRYPTO'
+    const detectedCurrency = stock.currency ?? (market === 'KR' ? 'KRW' : 'USD')
+    setCurrency(detectedCurrency)
 
     try {
-      // CRYPTO는 EPS 분석 불가
-      if (isCrypto) {
-        setNoEpsReason(`${stock.name}(${ticker})은 가상자산입니다. 피터 린치 이익선 분석은 EPS가 있는 주식 종목에만 적용됩니다.`)
+      // ① 사전 감지: ETF·가상자산·원자재 → 즉시 분석 제한 화면
+      if (isNonEquity(stock)) {
+        const assetType =
+          market === 'CRYPTO' ? '가상자산' :
+          ETF_TICKER_SET.has(ticker.toUpperCase()) ? 'ETF/지수' :
+          ETF_NAME_KEYWORDS.some(k => stock.name.toUpperCase().includes(k.toUpperCase())) ? 'ETF/인덱스' :
+          'ETF·원자재'
+        setNoEpsReason(
+          `본 종목(${assetType})은 주당순이익(EPS) 데이터가 존재하지 않아 피터 린치 이익선 분석을 제공하지 않습니다. (포트폴리오 비중 및 가격 추이만 모니터링 가능)`
+        )
         return
       }
 
@@ -363,7 +457,18 @@ export default function LynchEarningsChart(props: any) {
         .sort()
 
       if (epsYears.length === 0) {
-        setNoEpsReason(`${stock.name}(${ticker})의 재무 데이터를 가져올 수 없습니다. ETF·인덱스 또는 상장 초기 종목일 수 있습니다.`)
+        setNoEpsReason(
+          `본 종목(ETF·원자재 추정)은 주당순이익(EPS) 데이터가 존재하지 않아 피터 린치 이익선 분석을 제공하지 않습니다. (포트폴리오 비중 및 가격 추이만 모니터링 가능)`
+        )
+        return
+      }
+
+      // ② EPS가 모두 0이면 → ETF·지수 등으로 판별
+      const hasValidEps = epsYears.some(yr => Math.abs(Number(fin[yr]?.eps ?? 0)) > 0.01)
+      if (!hasValidEps) {
+        setNoEpsReason(
+          `본 종목(ETF·지수 추정)은 주당순이익(EPS) 데이터가 존재하지 않아 피터 린치 이익선 분석을 제공하지 않습니다. (포트폴리오 비중 및 가격 추이만 모니터링 가능)`
+        )
         return
       }
 
@@ -476,12 +581,12 @@ export default function LynchEarningsChart(props: any) {
   const latestFair  = latest?.ttmEps ? latest.ttmEps * fairPer : 0
   const gap         = latestFair > 0 ? ((latestPrice - latestFair) / latestFair) * 100 : null
 
-  // Y축 도메인
-  const allY = chartData
-    .flatMap(d => [d.price, d.fairValue])
-    .filter((v): v is number => v !== null && v > 0)
-  const yMin = allY.length > 0 ? Math.floor(Math.min(...allY) * 0.85) : 0
-  const yMax = allY.length > 0 ? Math.ceil( Math.max(...allY) * 1.12) : 100
+  // Y축: auto 도메인 (USD/KRW 스케일 차이를 Recharts가 자동 최적화)
+  const isKrw = currency === 'KRW'
+  const yTickFormatter = (v: number) =>
+    isKrw
+      ? (v >= 1_000_000 ? (v / 1_000_000).toFixed(1) + 'M' : v >= 10_000 ? (v / 10_000).toFixed(0) + '만' : v.toLocaleString())
+      : (v >= 1000 ? v.toLocaleString() : v.toFixed(0))
 
   // ────────────────────────────────────────────────────────
   // 렌더링
@@ -678,8 +783,14 @@ export default function LynchEarningsChart(props: any) {
           </div>
         )}
 
-        {/* ── EPS 없는 종목 안내 ─────────────────────────── */}
-        {!loading && noEpsReason && <NoEpsState name={selectedStock?.name ?? ''} reason={noEpsReason} />}
+        {/* ── 분석 제한 종목 안내 카드 ──────────────────────── */}
+        {!loading && noEpsReason && (
+          <NoAnalysisCard
+            name={selectedStock?.name ?? ''}
+            ticker={selectedStock?.ticker ?? ''}
+            reason={noEpsReason}
+          />
+        )}
 
         {/* ── 로딩 스피너 ────────────────────────────────── */}
         {loading && (
@@ -718,12 +829,13 @@ export default function LynchEarningsChart(props: any) {
                   <XAxis dataKey="year"
                     tick={{ fill:C.textLow, fontSize:11 }} axisLine={{ stroke:C.border }} tickLine={false}
                   />
-                  <YAxis domain={[yMin, yMax]}
+                  <YAxis
+                    domain={['auto', 'auto']}
                     tick={{ fill:C.textLow, fontSize:10 }} axisLine={false} tickLine={false}
-                    tickFormatter={v => v.toLocaleString()}
-                    width={60}
+                    tickFormatter={yTickFormatter}
+                    width={isKrw ? 70 : 58}
                   />
-                  <Tooltip content={<ChartTooltip />} />
+                  <Tooltip content={(p) => <ChartTooltip {...p} currency={currency} />} />
 
                   {/* 현재 연도 기준선 */}
                   <ReferenceLine
@@ -767,9 +879,9 @@ export default function LynchEarningsChart(props: any) {
             {/* ── KPI 카드 4개 ───────────────────────────── */}
             <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginTop:14 }}>
               {[
-                { label:'현재 주가',     value: latestPrice > 0 ? latestPrice.toLocaleString(undefined,{maximumFractionDigits:2}) : '—', color:C.price },
-                { label:'린치 적정가치', value: latestFair  > 0 ? latestFair.toLocaleString( undefined,{maximumFractionDigits:2}) : '—', color:C.fair },
-                { label:'최근 EPS',      value: latest?.ttmEps ? latest.ttmEps.toLocaleString(undefined,{maximumFractionDigits:2}) : '—', color:C.textHi },
+                { label:'현재 주가',     value: latestPrice > 0 ? fmtPrice(latestPrice, currency) : '—', color:C.price },
+                { label:'린치 적정가치', value: latestFair  > 0 ? fmtPrice(latestFair,  currency) : '—', color:C.fair },
+                { label:'최근 EPS',      value: latest?.ttmEps ? fmtEps(latest.ttmEps,  currency) : '—', color:C.textHi },
                 { label:'적용 PER',      value:`${fairPer}×`, color:C.textHi },
               ].map(item => (
                 <div key={item.label} style={{
@@ -790,6 +902,7 @@ export default function LynchEarningsChart(props: any) {
                 price={latestPrice} fair={latestFair}
                 ticker={selectedStock?.ticker ?? ''}
                 model={perModel} growthRate={growthRate}
+                currency={currency}
               />
             )}
 
