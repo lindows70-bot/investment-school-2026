@@ -380,10 +380,11 @@ export default function LynchEarningsChart(props: any) {
   const [loading,       setLoading]       = useState(false)
   const [error,         setError]         = useState<string | null>(null)
   const [rawPoints,     setRawPoints]     = useState<Omit<AnnualPoint,'fairValue'|'underLow'|'underHigh'|'overLow'|'overHigh'>[]>([])
-  const [growthRate,    setGrowthRate]    = useState(15)
-  const [avg5yPer,      setAvg5yPer]      = useState(20)
-  const [currentPrice,  setCurrentPrice]  = useState(0)
-  const [noEpsReason,   setNoEpsReason]   = useState<string | null>(null)
+  const [growthRate,        setGrowthRate]        = useState(15)
+  const [rawGrowthRate,     setRawGrowthRate]     = useState(15)  // 캡핑 전 원본 성장률
+  const [avg5yPer,          setAvg5yPer]          = useState(20)
+  const [currentPrice,      setCurrentPrice]      = useState(0)
+  const [noEpsReason,       setNoEpsReason]       = useState<string | null>(null)
   // 통화 — 종목 선택 시 업데이트
   const [currency,      setCurrency]      = useState('USD')
 
@@ -450,7 +451,10 @@ export default function LynchEarningsChart(props: any) {
         const eg = Number(infoData?.earningsGrowth ?? infoData?.fundamentals?.earningsGrowth ?? 0)
         if (eg !== 0) g = Math.round(Math.abs(eg) < 5 ? eg * 100 : eg)
       }
-      setGrowthRate(Math.max(1, Math.min(g, 200)))
+      // 피터 린치 지속 가능한 성장률 상한: 50%
+      // 50% 초과는 턴어라운드/신규상장 등 일시적 급등으로 이익선 신뢰도 저하
+      setRawGrowthRate(Math.max(1, Math.min(g, 200)))   // 원본 보존 (경고 배너용)
+      setGrowthRate(Math.max(1, Math.min(g, 50)))        // 실제 계산: 50% 캡
 
       // ── 연도별 EPS (financials) ────────────────────────────
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -562,12 +566,29 @@ export default function LynchEarningsChart(props: any) {
     ? ((latestPrice - latestFair) / latestFair) * 100
     : null
 
-  // Y축: auto 도메인 (USD/KRW 스케일 차이를 Recharts가 자동 최적화)
+  // ── Y축 도메인: 주가·이익선 모두 차트 안에 들어오도록 수동 계산 ─
+  // 'auto' 사용 시 이상치 fairValue에 축이 끌려가 주가선이 바닥에 붙는 문제 방지
   const isKrw = currency === 'KRW'
-  const yTickFormatter = (v: number) =>
-    isKrw
-      ? (v >= 1_000_000 ? (v / 1_000_000).toFixed(1) + 'M' : v >= 10_000 ? (v / 10_000).toFixed(0) + '만' : v.toLocaleString())
-      : (v >= 1000 ? v.toLocaleString() : v.toFixed(0))
+
+  const yDomain = useMemo((): [number, number] => {
+    const vals = chartData
+      .flatMap(d => [d.price, d.fairValue])
+      .filter((v): v is number => v !== null && v > 0)
+    if (vals.length === 0) return [0, 100]
+    const lo  = Math.min(...vals)
+    const hi  = Math.max(...vals)
+    const pad = Math.max((hi - lo) * 0.14, hi * 0.06)  // 최소 6% 패딩
+    return [Math.max(0, Math.floor(lo - pad)), Math.ceil(hi + pad)]
+  }, [chartData])
+
+  const yTickFormatter = (v: number) => {
+    if (isKrw) {
+      if (v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M'
+      if (v >= 10_000)    return (v / 10_000).toFixed(0) + '만'
+      return v.toLocaleString()
+    }
+    return v >= 1000 ? v.toLocaleString() : v.toFixed(0)
+  }
 
   // ────────────────────────────────────────────────────────
   // 렌더링
@@ -753,6 +774,24 @@ export default function LynchEarningsChart(props: any) {
           </div>
         </div>
 
+        {/* ── 성장률 50% 초과 경고 배너 ─────────────────────── */}
+        {!loading && !noEpsReason && rawGrowthRate > 50 && perModel === 'growth' && (
+          <div style={{
+            padding:'10px 14px', borderRadius:10, marginBottom:6,
+            background:'rgba(251,191,36,0.10)', border:'1px solid rgba(251,191,36,0.35)',
+            display:'flex', alignItems:'flex-start', gap:10,
+          }}>
+            <span style={{ fontSize:15, flexShrink:0 }}>⚠️</span>
+            <div style={{ fontSize:11, color:'#fcd34d', lineHeight:1.7 }}>
+              <strong>측정 성장률 {rawGrowthRate}% → 50% 캡 적용</strong>
+              {' '}· 턴어라운드 또는 일시적 급등 종목으로 이익성장률 모델의 신뢰도가 낮습니다.
+              {' '}<span style={{ color:'#94a3b8' }}>
+                더 안정적인 분석을 위해 <strong style={{ color:'#fbbf24' }}>5년 평균 PER</strong> 또는 <strong style={{ color:'#fbbf24' }}>고정 PER 15배</strong> 모델을 권장합니다.
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* ── 에러 상태 ──────────────────────────────────── */}
         {error && (
           <div style={{
@@ -811,10 +850,10 @@ export default function LynchEarningsChart(props: any) {
                     tick={{ fill:C.textLow, fontSize:11 }} axisLine={{ stroke:C.border }} tickLine={false}
                   />
                   <YAxis
-                    domain={['auto', 'auto']}
+                    domain={yDomain}
                     tick={{ fill:C.textLow, fontSize:10 }} axisLine={false} tickLine={false}
                     tickFormatter={yTickFormatter}
-                    width={isKrw ? 70 : 58}
+                    width={isKrw ? 72 : 60}
                   />
                   <Tooltip content={(p) => <ChartTooltip {...p} currency={currency} />} />
 
