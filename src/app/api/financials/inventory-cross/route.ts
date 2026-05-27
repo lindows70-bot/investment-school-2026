@@ -24,6 +24,128 @@ import { createServerClient }    from '@supabase/ssr'
 import { cookies }               from 'next/headers'
 import { getAssetType }          from '@/lib/assetClassifier'
 
+// ════════════════════════════════════════════════════════════
+// 재고자산 보유 여부 판별 — 재고 센티넬 분석 대상 필터
+//
+// 피터 린치의 '재고 vs 매출 데드크로스'는 물리적 재고를 보유한
+// 제조업·반도체·하드웨어·소매업에만 적용 가능합니다.
+//
+// 소프트웨어·금융·인터넷 서비스 등은 재고자산 개념 자체가 없으므로
+// 분석 대상에서 자동 제외합니다.
+// ════════════════════════════════════════════════════════════
+
+/** 재고자산이 없는 업종 — 소프트웨어·금융·서비스·인터넷 등 */
+const NO_INVENTORY_TICKERS = new Set([
+  // ── 순수 소프트웨어 ─────────────────────────────────────
+  'PLTR','CRM','ADBE','ORCL','NOW','SNOW','WDAY','ZM','DOCU','TWLO',
+  'DDOG','CRWD','OKTA','SPLK','VEEV','TEAM','HUBS','BILL','ESTC',
+  'NET','CFLT','MDB','GTLB','PATH','ZS','S','SMAR',
+  // ── 인터넷·빅테크 서비스 ─────────────────────────────────
+  'GOOGL','GOOG','META','MSFT','NFLX','UBER','LYFT','ABNB','SNAP','PINS',
+  'TWTR','SPOT','RBLX','U','AI','CPNG','GRAB',
+  // ── 금융 (은행·증권·보험·카드) ──────────────────────────
+  'JPM','GS','MS','BAC','C','WFC','USB','TFC','PNC','SCHW','IBKR',
+  'V','MA','AXP','DFS','COF','PYPL','SQ','AFRM',
+  'BRK','BRK.A','BRK.B',
+  'BLK','GS','MS','RJF','IVZ','TROW',
+  'MET','PRU','AFL','AIG','TRV','CB','AON','MMC','AJG',
+  'AMP','PGR','ALL','CNA',
+  // ── 통신 서비스 ─────────────────────────────────────────
+  'T','VZ','TMUS','CMCSA','CHTR','LUMN',
+  // ── 헬스케어 서비스 (제조 아님) ─────────────────────────
+  'UNH','CVS','MCK','ABC','CI','HUM','MOH','CNC','ELV',
+  // ── 한국 금융·서비스 ─────────────────────────────────────
+  '055550','105560','086790','032830','030200','017670','000100',
+])
+
+/** 이름에 포함되면 소프트웨어·서비스로 판별 */
+const NO_INVENTORY_NAME_KW = [
+  'SOFTWARE','CLOUD','SAAS','DIGITAL SERVICES','INTERNET SERVICES',
+  'FINANCIAL SERVICES','BANCORP','BANCSHARES','FINANCIAL GROUP',
+  'INSURANCE','REINSURANCE',
+  'ADVISORY','CONSULTING',
+  'STREAMING','SOCIAL NETWORK',
+]
+
+/** 재고자산이 명확히 존재하는 업종 허용 목록 */
+const HAS_INVENTORY_TICKERS = new Set([
+  // ── 반도체 (가장 중요한 재고 추적 대상) ────────────────
+  'NVDA','AMD','INTC','QCOM','MU','AVGO','TXN','AMAT','LRCX','KLAC',
+  'ASML','MRVL','ON','SWKS','QRVO','MPWR','WOLF','ENTG',
+  'TSM','ASX',
+  // ── 하드웨어·가전 ────────────────────────────────────────
+  'AAPL','DELL','HPQ','HPE','NTAP','STX','WDC','SEAGATE',
+  'SNX','CDW',
+  // ── 자동차 ──────────────────────────────────────────────
+  'TSLA','F','GM','STLA','TM','HMC','RIVN','LCID',
+  // ── 산업재·제조 ─────────────────────────────────────────
+  'GE','GEV','ETN','CAT','DE','HON','MMM','EMR','ROK','ITW',
+  'PH','GWW','CMI','PCAR','TEL','AME','FTV','DHR','A',
+  // ── 소매·유통 (재고 추적 핵심) ──────────────────────────
+  'WMT','TGT','COST','HD','LOW','NKE','LULU','PVH','HBI',
+  // ── 소비재·식품음료 ─────────────────────────────────────
+  'PG','KO','PEP','CL','CHD','CLX','GIS','CAG','K','CPB',
+  'PM','MO','BTI',
+  // ── 에너지 장비·소재 ────────────────────────────────────
+  'SLB','HAL','BKR','NOV',
+  // ── 특수 케이스 (Mock 데이터 포함) ──────────────────────
+  'TEM',
+  // ── 한국 제조업 ─────────────────────────────────────────
+  '000660','005930','005380','000270','066570','006400','009150',
+  '051910','207940','068270','010130','006280','003490','011200',
+  '034220','042660','329180','000830','001680',
+])
+
+export interface InventoryExcluded {
+  ticker:  string
+  name:    string
+  reason:  string   // 제외 사유 설명
+}
+
+/**
+ * 재고자산 보유 여부 판별 — 센티넬 분석 대상 여부 반환
+ * @returns true = 분석 가능 (제조업 등), false = 제외 (소프트웨어·금융 등)
+ */
+function hasPhysicalInventory(ticker: string, name: string): boolean {
+  const t = ticker.toUpperCase()
+  const n = name.toUpperCase()
+
+  // 명시적 허용 목록 우선
+  if (HAS_INVENTORY_TICKERS.has(t)) return true
+
+  // 명시적 제외 목록
+  if (NO_INVENTORY_TICKERS.has(t)) return false
+
+  // 종목명 키워드로 제외 판별
+  if (NO_INVENTORY_NAME_KW.some(kw => n.includes(kw))) return false
+
+  // 기본값: 분석 포함 (알 수 없는 종목은 보수적으로 포함하여 추후 데이터로 판별)
+  return true
+}
+
+/** 제외 사유 메시지 생성 */
+function buildExcludeReason(ticker: string, name: string): string {
+  const t = ticker.toUpperCase()
+  const n = name.toUpperCase()
+
+  if (NO_INVENTORY_TICKERS.has(t)) {
+    if (['JPM','GS','MS','BAC','C','WFC','V','MA','AXP','DFS','COF','PYPL',
+         'BRK','MET','PRU','AFL','AIG','055550','105560','086790','032830'].some(f => t === f)) {
+      return '금융·보험·카드사는 물리적 재고자산이 없어 재고 리스크 분석 대상이 아닙니다.'
+    }
+    if (['T','VZ','TMUS','CMCSA','CHTR','017670','030200'].some(f => t === f)) {
+      return '통신 서비스 기업은 재고자산 개념이 없어 분석 대상에서 제외됩니다.'
+    }
+    return '소프트웨어·인터넷 서비스 기업은 물리적 재고가 없어 재고 vs 매출 분석을 적용할 수 없습니다.'
+  }
+
+  if (NO_INVENTORY_NAME_KW.some(kw => n.includes(kw))) {
+    return `종목명 패턴 분석 결과 서비스·금융 기업으로 분류되어 재고 분석에서 제외됩니다.`
+  }
+
+  return '재고자산이 없는 업종으로 분류되어 센티넬 분석 대상이 아닙니다.'
+}
+
 // ────────────────────────────────────────────────────────────
 // 타입 정의
 // ────────────────────────────────────────────────────────────
@@ -325,16 +447,33 @@ export async function GET() {
   }
 
   // STOCK 자산만 필터 (ETF·CRYPTO·COMMODITY 제외)
-  const stockHoldings = (holdings ?? []).filter(h =>
+  const allStockHoldings = (holdings ?? []).filter(h =>
     getAssetType(h.ticker, h.name, h.market ?? 'US') === 'STOCK'
   )
 
+  // 재고자산이 없는 업종(소프트웨어·금융·서비스 등) 제외 — 2차 필터
+  const stockHoldings = allStockHoldings.filter(h =>
+    hasPhysicalInventory(h.ticker, h.name)
+  )
+
+  // 제외된 종목 목록 (UI 안내용)
+  const excludedFromAnalysis: InventoryExcluded[] = allStockHoldings
+    .filter(h => !hasPhysicalInventory(h.ticker, h.name))
+    .map(h => ({
+      ticker: h.ticker.toUpperCase(),
+      name:   h.name,
+      reason: buildExcludeReason(h.ticker, h.name),
+    }))
+
   if (stockHoldings.length === 0) {
     return NextResponse.json({
-      results:  [],
-      summary:  { danger: 0, warning: 0, healthy: 0, unknown: 0 },
-      source:   'empty',
-      message:  '포트폴리오에 분석 가능한 주식이 없습니다.',
+      results:              [],
+      excludedFromAnalysis,
+      summary:              { danger: 0, warning: 0, healthy: 0, unknown: 0 },
+      source:               'empty',
+      message:              excludedFromAnalysis.length > 0
+        ? '현재 포트폴리오에 재고 리스크를 추적할 제조업/하드웨어 종목이 없습니다.'
+        : '포트폴리오에 분석 가능한 주식이 없습니다.',
     })
   }
 
@@ -492,15 +631,18 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    results: allResults,
+    results:              allResults,
+    excludedFromAnalysis,   // 소프트웨어·금융 등 제외 종목 목록
     summary,
     source:  freshResults.length > 0 && cachedResults.length === 0 ? 'fresh' : 'mixed',
     meta: {
-      totalStocks: stockHoldings.length,
-      analyzed:    allResults.filter(r => r.signal !== 'UNKNOWN').length,
-      cacheHit:    cachedResults.length,
-      cacheMiss:   freshResults.length,
-      updatedAt:   new Date().toISOString(),
+      totalHoldings:   allStockHoldings.length,  // 전체 주식 보유 수
+      analyzable:      stockHoldings.length,      // 재고 분석 가능 수
+      excluded:        excludedFromAnalysis.length,
+      analyzed:        allResults.filter(r => r.signal !== 'UNKNOWN').length,
+      cacheHit:        cachedResults.length,
+      cacheMiss:       freshResults.length,
+      updatedAt:       new Date().toISOString(),
     },
   })
 }

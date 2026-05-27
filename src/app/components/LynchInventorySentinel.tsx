@@ -52,10 +52,25 @@ interface InventoryCrossResult {
   lynchAlert:       string
 }
 
+interface InventoryExcluded {
+  ticker:  string
+  name:    string
+  reason:  string
+}
+
 interface ApiResponse {
-  results: InventoryCrossResult[]
-  summary: { danger: number; warning: number; healthy: number; unknown: number }
-  meta?:   { totalStocks: number; analyzed: number; cacheHit: number; cacheMiss: number }
+  results:              InventoryCrossResult[]
+  excludedFromAnalysis?: InventoryExcluded[]
+  summary:              { danger: number; warning: number; healthy: number; unknown: number }
+  message?:             string
+  meta?:                {
+    totalHoldings: number
+    analyzable:    number
+    excluded:      number
+    analyzed:      number
+    cacheHit:      number
+    cacheMiss:     number
+  }
 }
 
 // ────────────────────────────────────────────────────────────
@@ -341,6 +356,7 @@ function SkeletonCard() {
 // ────────────────────────────────────────────────────────────
 export default function LynchInventorySentinel() {
   const [data,      setData]      = useState<ApiResponse | null>(null)
+  const [excluded,  setExcluded]  = useState<InventoryExcluded[]>([])
   const [loading,   setLoading]   = useState(true)
   const [error,     setError]     = useState<string | null>(null)
   const [filterSig, setFilterSig] = useState<CrossSignal | 'ALL'>('ALL')
@@ -354,6 +370,7 @@ export default function LynchInventorySentinel() {
       const body = await res.json()
       if (!res.ok) { setError(body.error ?? `오류 (${res.status})`); return }
       setData(body)
+      setExcluded(body.excludedFromAnalysis ?? [])
       setLastFetch(new Date().toLocaleTimeString('ko-KR'))
     } catch (e) {
       setError('네트워크 오류: ' + (e as Error).message)
@@ -512,7 +529,7 @@ export default function LynchInventorySentinel() {
             <PackageOpen size={28} style={{ margin: '0 auto 10px', opacity: 0.25 }} />
             <div style={{ fontSize: 12, color: C.textLow }}>
               {(data?.results ?? []).length === 0
-                ? '분석 가능한 주식이 없습니다. 포트폴리오에 개별 주식을 추가해주세요.'
+                ? (data?.message ?? '현재 포트폴리오에 재고 리스크를 추적할 제조업/하드웨어 종목이 없습니다.')
                 : '선택한 시그널의 종목이 없습니다.'}
             </div>
           </div>
@@ -522,13 +539,62 @@ export default function LynchInventorySentinel() {
           </div>
         )}
 
+        {/* ── 분석 제외 종목 섹션 (소프트웨어·금융·서비스) ──── */}
+        {!loading && excluded.length > 0 && (
+          <div style={{ marginTop: 4 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8,
+              paddingBottom: 8, borderBottom: `1px solid ${C.border}`,
+            }}>
+              <span style={{ fontSize: 11, color: C.textLow, fontWeight: 700 }}>
+                🚫 재고 분석 미적용 종목 ({excluded.length}개)
+              </span>
+              <span style={{ fontSize: 10, color: C.textLow }}>
+                — 소프트웨어·금융·서비스 기업은 물리적 재고가 없어 제외됨
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {excluded.map(ex => (
+                <div key={ex.ticker} style={{
+                  padding: '10px 14px', borderRadius: 10, opacity: 0.72,
+                  background: 'rgba(15,23,42,0.7)',
+                  border: '1px dashed rgba(100,116,139,0.3)',
+                  display: 'flex', alignItems: 'center', gap: 12,
+                }}>
+                  <div style={{
+                    flexShrink: 0, width: 36, height: 36, borderRadius: 8,
+                    background: 'rgba(100,116,139,0.12)', border: '1px dashed rgba(100,116,139,0.25)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15,
+                  }}>🚫</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                      <span style={{
+                        fontSize: 9, padding: '1px 6px', borderRadius: 3,
+                        background: 'rgba(96,165,250,0.12)', color: C.blue,
+                        fontFamily: 'monospace', fontWeight: 900,
+                      }}>{ex.ticker}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: C.textMid }}>{ex.name}</span>
+                    </div>
+                    <div style={{ fontSize: 10, color: C.textLow, lineHeight: 1.5 }}>{ex.reason}</div>
+                  </div>
+                  <div style={{
+                    flexShrink: 0, fontSize: 9, padding: '3px 9px', borderRadius: 20,
+                    background: 'rgba(100,116,139,0.12)', color: C.textLow,
+                    border: '1px dashed rgba(100,116,139,0.3)', fontWeight: 700,
+                  }}>
+                    재고 분석 제외
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ── 데이터 메타 ─────────────────────────────────── */}
         {!loading && data?.meta && (
-          <div style={{
-            fontSize: 10, color: C.textLow, textAlign: 'right',
-          }}>
-            총 {data.meta.totalStocks}개 주식 · 분석 완료 {data.meta.analyzed}개 ·
-            캐시 {data.meta.cacheHit}건 · 신규 {data.meta.cacheMiss}건
+          <div style={{ fontSize: 10, color: C.textLow, textAlign: 'right' }}>
+            보유 주식 {data.meta.totalHoldings}개 중 재고 분석 대상 {data.meta.analyzable}개 ·
+            제외 {data.meta.excluded}개 · 분석 완료 {data.meta.analyzed}개
           </div>
         )}
       </div>
