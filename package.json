@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "dev:clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next dev",
-    "build": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next build",
-    "deploy": "npm run build && npx vercel --prod --yes",
+    "build": "next build",
+    "deploy": "cross-env NEXT_BUILD_DIR=.next-build next build && npx vercel --prod --yes",
     "start": "next start",
     "lint": "next lint"
   },
@@ -32,6 +32,7 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "cross-env": "^10.1.0",
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
     "postcss": "^8",

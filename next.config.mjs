@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // ★ 핵심: dev와 build가 서로 다른 폴더 사용 → 캐시 충돌 영구 차단
+  //   dev   → .next/       (기본값)
+  //   build → .next-build/ (Vercel은 이 폴더 자동 감지)
+  distDir: process.env.NEXT_BUILD_DIR ?? '.next',
+
   // yahoo-finance2 를 번들링하지 않고 Node.js 런타임에서 직접 사용 (Vercel 포함)
   // Next.js 14: experimental.serverComponentsExternalPackages
   experimental: {
