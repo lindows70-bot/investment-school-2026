@@ -2869,7 +2869,8 @@ export default function DashboardPage() {
 
       {/* ── 린치 이익선 차트 탭 ── */}
       <div id="tab-lynch" style={{ display: dashTab==='lynch' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
-        <LynchEarningsChart />
+        {/* portfolioStocks: 실제 보유 종목 배열을 그대로 전달 (하드코딩 금지) */}
+        <LynchEarningsChart portfolioStocks={investments} />
       </div>  {/* 린치 이익선 탭 끝 */}
 
     </div>
