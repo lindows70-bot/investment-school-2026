@@ -6,7 +6,7 @@
     "dev": "next dev",
     "dev:clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next dev",
     "build": "next build",
-    "deploy": "cross-env NEXT_BUILD_DIR=.next-build next build && npx vercel --prod --yes",
+    "deploy": "npx vercel --prod --yes",
     "start": "next start",
     "lint": "next lint"
   },
