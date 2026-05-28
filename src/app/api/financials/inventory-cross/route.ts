@@ -74,69 +74,106 @@ async function fetchUSStockData(ticker: string): Promise<QuarterPoint[] | null> 
     console.log(`[US] ${ticker} 조회 시작`);
 
     // ★ yahooFinance는 class — 반드시 인스턴스 생성 후 호출
-    //   (yahooFinance as any).quoteSummary() 는 TypeError 발생
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const yf = new (yahooFinance as any)({ suppressNotices: ['yahooSurvey', 'ripHistorical'] });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const summary: any = await yf.quoteSummary(ticker, {
-      modules: ['balanceSheetHistoryQuarterly', 'incomeStatementHistoryQuarterly'],
-    });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const bsStatements: any[] = summary?.balanceSheetHistoryQuarterly?.balanceSheetStatements  ?? [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const isStatements: any[] = summary?.incomeStatementHistoryQuarterly?.incomeStatementHistory ?? [];
+    // ★ quoteSummary balanceSheetHistoryQuarterly는 Nov 2024부터 inventory 필드 공급 중단
+    //   → fundamentalsTimeSeries 'balance-sheet' 사용 (inventory 존재하는 항목만 필터)
+    //   → fundamentalsTimeSeries 'financials'    사용 (totalRevenue)
+    const since = new Date(Date.now() - 3 * 365 * 86400_000).toISOString().slice(0, 10);
 
-    // 날짜별 매핑 (손익 + 재무상태표 병합)
-    const dataMap: Record<string, { revenue: number; inventory: number; date: Date }> = {};
+    const [balResult, finResult] = await Promise.allSettled([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      yf.fundamentalsTimeSeries(ticker, { module: 'balance-sheet', period1: since }) as Promise<any[]>,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      yf.fundamentalsTimeSeries(ticker, { module: 'financials',    period1: since }) as Promise<any[]>,
+    ]);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    isStatements.forEach((stmt: any) => {
-      const key = new Date(stmt.endDate).toISOString().slice(0, 10);
-      if (!dataMap[key]) dataMap[key] = { revenue: 0, inventory: 0, date: new Date(stmt.endDate) };
-      dataMap[key].revenue = safeGetNumber(stmt.totalRevenue);
-    });
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    bsStatements.forEach((stmt: any) => {
-      const key = new Date(stmt.endDate).toISOString().slice(0, 10);
-      if (!dataMap[key]) dataMap[key] = { revenue: 0, inventory: 0, date: new Date(stmt.endDate) };
-      dataMap[key].inventory = safeGetNumber(stmt.inventory);
-    });
-
-    // 과거 → 현재 정렬
-    const sorted = Object.values(dataMap).sort((a, b) => a.date.getTime() - b.date.getTime());
-
-    if (sorted.length < 2) {
-      console.error(`[US] ${ticker} 데이터 부족 (${sorted.length}개)`);
+    if (finResult.status === 'rejected') {
+      console.error(`[US] ${ticker} financials 오류:`, finResult.reason?.message);
       return null;
     }
 
-    console.log(`[US] ${ticker} 분기 ${sorted.length}개 취득`);
-    sorted.forEach((d, i) =>
-      console.log(`  Q${i}: ${formatQuarter(d.date)} rev=${d.revenue.toLocaleString()} inv=${d.inventory.toLocaleString()}`)
-    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const balArr: any[] = balResult.status === 'fulfilled'
+      ? (Array.isArray(balResult.value) ? balResult.value : Object.values(balResult.value as object))
+      : [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const finRaw = (finResult as PromiseFulfilledResult<any>).value;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const finArr: any[] = Array.isArray(finRaw) ? finRaw : Object.values(finRaw as object);
+
+    if (!finArr.length) {
+      console.error(`[US] ${ticker} financials 빈 배열`);
+      return null;
+    }
+
+    // ★ balance-sheet에서 inventory가 실제로 있는 항목만 사용
+    //   (일부 분기는 inventory 필드 자체가 없음 — undefined)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const balWithInv = balArr.filter((b: any) => b.inventory != null && Number(b.inventory) > 0);
+    console.log(`[US] ${ticker} balance-sheet 전체=${balArr.length} / inventory있는항목=${balWithInv.length}`);
+
+    // balance-sheet를 날짜 기준 정렬
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const balSorted = [...balWithInv].sort((a: any, b: any) => {
+      const da = a.date instanceof Date ? a.date.getTime() : new Date(String(a.date ?? '')).getTime();
+      const db = b.date instanceof Date ? b.date.getTime() : new Date(String(b.date ?? '')).getTime();
+      return da - db;
+    });
+
+    // financials 과거→현재 정렬
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const finSorted = [...finArr].sort((a: any, b: any) => {
+      const da = a.date instanceof Date ? a.date.getTime() : new Date(String(a.date ?? '')).getTime();
+      const db = b.date instanceof Date ? b.date.getTime() : new Date(String(b.date ?? '')).getTime();
+      return da - db;
+    });
+
+    // financials 기준으로 balance-sheet 날짜 매칭 (±60일)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const combined: { date: Date; revenue: number; inventory: number }[] = finSorted.map((fin: any, idx: number) => {
+      const finMs = fin.date instanceof Date ? fin.date.getTime() : new Date(String(fin.date ?? '')).getTime();
+      // 1차: ±60일 매칭  2차: 동일 인덱스 fallback
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let matchB = balSorted.find((b: any) => {
+        const bMs = b.date instanceof Date ? b.date.getTime() : new Date(String(b.date ?? '')).getTime();
+        return Math.abs(bMs - finMs) < 60 * 86400_000;
+      });
+      if (!matchB && balSorted[idx]) matchB = balSorted[idx];
+
+      const rev = safeGetNumber(fin.totalRevenue);
+      const inv = matchB ? safeGetNumber(matchB.inventory) : 0;
+      const d   = fin.date instanceof Date ? fin.date : new Date(String(fin.date ?? ''));
+
+      console.log(`[US] ${ticker} ${formatQuarter(d)}: rev=${(rev/1e6).toFixed(0)}M inv=${(inv/1e6).toFixed(0)}M`);
+      return { date: d, revenue: rev, inventory: inv };
+    }).filter(q => q.revenue > 0);
+
+    if (combined.length < 2) {
+      console.error(`[US] ${ticker} 유효 분기 부족 (${combined.length}개)`);
+      return null;
+    }
 
     // YoY 계산 — 4분기 전과 비교 (동일 계절 분기)
-    const result: QuarterPoint[] = sorted.map((curr, idx) => {
-      const label = formatQuarter(curr.date);
+    const result: QuarterPoint[] = combined.map((curr, idx) => {
       let revYoY = 0, invYoY = 0, hasYoY = false;
 
       if (idx >= 4) {
-        const prev = sorted[idx - 4];   // 정확한 전년 동기
+        const prev = combined[idx - 4];
         if (prev.revenue   > 0) { revYoY = ((curr.revenue   - prev.revenue)   / prev.revenue)   * 100; hasYoY = true; }
         if (prev.inventory > 0) { invYoY = ((curr.inventory - prev.inventory) / prev.inventory) * 100; }
       }
 
       return {
-        quarter:      label,
+        quarter:      formatQuarter(curr.date),
         revenueYoY:   parseFloat(revYoY.toFixed(1)),
         inventoryYoY: parseFloat(invYoY.toFixed(1)),
         hasYoY,
       };
     });
 
-    // 최근 4~8개 분기 반환 (차트에 표시할 분량)
+    console.log(`[US] ${ticker} 성공 — 총 ${result.length}분기, YoY 있는 분기: ${result.filter(r=>r.hasYoY).length}개`);
     return result.slice(-8);
 
   } catch (err: unknown) {
