@@ -295,78 +295,80 @@ interface FmpFetchResult {
 }
 
 /**
- * FMP Quarterly Income Statement + Balance Sheet 실제 호출
+ * Yahoo Finance fundamentalsTimeSeries 기반 분기 재무 데이터 조회
  *
- * ◆ US 주식: ticker 그대로 사용 (NVDA, ETN, GEV, AAPL ...)
- * ◆ KR 주식: ticker + '.KS' (KOSPI) 또는 '.KQ' (KOSDAQ) 순서로 시도
- *   - 000660 → 000660.KS (SK하이닉스, KOSPI)
- *   - 189300 → 189300.KQ (인텔리안테크, KOSDAQ) → 189300.KS fallback
+ * FMP v3 엔드포인트가 2025-08-31 이후 무료 사용자 차단됨 → Yahoo Finance로 전환
+ * yahoo-finance2 라이브러리(v3.14+): fundamentalsTimeSeries API 사용
  *
- * FMP 무료 티어: 250 calls/day
- *   → Supabase 하루 1회 캐시로 실제 호출 최소화
+ * ◆ US 주식: ticker 그대로 (NVDA, ETN, GEV, AAPL ...)
+ * ◆ KR 주식: ticker + '.KQ' → '.KS' 순서로 시도
+ *   - 000660 → 000660.KQ (실패 시) → 000660.KS (SK하이닉스, KOSPI)
+ *   - 189300 → 189300.KQ (인텔리안테크, KOSDAQ)
  */
 async function fetchFmpQuarterly(
   ticker: string,
   market: string,
 ): Promise<FmpFetchResult> {
-  const FMP_KEY = process.env.FMP_API_KEY
-  if (!FMP_KEY) {
-    return { status: 'no_key', quarters: [], source: 'fmp' }
-  }
-
-  const code    = ticker.replace(/\.(KS|KQ)$/i, '')
+  const code     = ticker.replace(/\.(KS|KQ)$/i, '')
   const suffixes = market === 'KR' ? ['.KQ', '.KS', ''] : ['']
 
   for (const suffix of suffixes) {
-    const fmpTicker = code + suffix
+    const yTicker = code + suffix
     try {
-      const [incomeRes, balanceRes] = await Promise.all([
-        fetch(
-          `https://financialmodelingprep.com/api/v3/income-statement/${fmpTicker}?period=quarter&limit=8&apikey=${FMP_KEY}`,
-          { next: { revalidate: 86400 } }
-        ),
-        fetch(
-          `https://financialmodelingprep.com/api/v3/balance-sheet-statement/${fmpTicker}?period=quarter&limit=8&apikey=${FMP_KEY}`,
-          { next: { revalidate: 86400 } }
-        ),
+      // yahoo-finance2 라이브러리 동적 임포트 (서버사이드 only)
+      const { default: YahooFinance } = await import('yahoo-finance2')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const yf = new (YahooFinance as any)({ suppressNotices: ['yahooSurvey', 'ripHistorical'] })
+
+      // balance-sheet: inventory 데이터
+      // financials: totalRevenue 데이터
+      const period1 = new Date(Date.now() - 2 * 365 * 24 * 3600 * 1000).toISOString().slice(0, 10)
+
+      const [balData, finData] = await Promise.all([
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        yf.fundamentalsTimeSeries(yTicker, { module: 'balance-sheet', period1 }) as Promise<any[]>,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        yf.fundamentalsTimeSeries(yTicker, { module: 'financials',    period1 }) as Promise<any[]>,
       ])
 
-      if (incomeRes.status === 429 || balanceRes.status === 429) {
-        return { status: 'rate_limit', quarters: [], source: `fmp${suffix}` }
-      }
-      if (!incomeRes.ok || !balanceRes.ok) continue
+      const balArr = Array.isArray(balData) ? balData : Object.values(balData)
+      const finArr = Array.isArray(finData) ? finData : Object.values(finData)
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const income: any[] = await incomeRes.json()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const balance: any[] = await balanceRes.json()
+      if (!finArr.length || finArr.length < 2) continue
 
-      if (!Array.isArray(income) || income.length < 2) continue
-
-      const quarters: RawFmpQuarter[] = income
+      // 날짜 기준으로 재고 + 매출 매핑
+      const quarters: RawFmpQuarter[] = finArr
         .slice(0, 8)
-        .map(item => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const b = (balance ?? []).find((bs: any) => bs.date === item.date) ?? {}
+        .map(fin => {
+          const finDate  = fin.date instanceof Date ? fin.date.toISOString().slice(0, 10) : String(fin.date ?? '').slice(0, 10)
+          // 같은 날짜의 balance sheet 항목 매칭 (±5일 허용)
+          const finTime  = new Date(finDate).getTime()
+          const matchBal = balArr.find(b => {
+            const bDate = b.date instanceof Date ? b.date.toISOString().slice(0, 10) : String(b.date ?? '').slice(0, 10)
+            return Math.abs(new Date(bDate).getTime() - finTime) < 5 * 86400 * 1000
+          })
           return {
-            date:      String(item.date ?? ''),
-            revenue:   Number(item.revenue ?? 0),
-            inventory: Number(b.inventory   ?? 0),
+            date:      finDate,
+            revenue:   Number(fin.totalRevenue   ?? 0),
+            inventory: Number(matchBal?.inventory ?? 0),
           }
         })
         .filter(q => q.date && q.revenue > 0)
 
       if (quarters.length < 2) continue
 
-      return { status: 'ok', quarters, source: `fmp${suffix}` }
+      return { status: 'ok', quarters, source: `yahoo${suffix}` }
 
-    } catch (err) {
-      console.error(`[inventory-cross] FMP 조회 오류 ${fmpTicker}:`, err)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      // "Not Found" → 해당 suffix가 맞지 않음, 다음 suffix 시도
+      if (msg.includes('Not Found') || msg.includes('404') || msg.toLowerCase().includes('no data')) continue
+      console.error(`[inventory-cross] Yahoo Finance 오류 ${yTicker}:`, msg.slice(0, 120))
       continue
     }
   }
 
-  return { status: 'not_found', quarters: [], source: 'fmp' }
+  return { status: 'not_found', quarters: [], source: 'yahoo' }
 }
 
 /** FMP 결과 + holding 정보 → InventoryCrossResult 조립 */
