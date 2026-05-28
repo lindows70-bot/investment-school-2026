@@ -518,17 +518,31 @@ export async function GET() {
   // ── 4. 캐시 확인 (오늘 날짜 기준, 최근 4개 분기) ──────────
   const todayISO = new Date().toISOString().slice(0, 10)
 
+  // 오늘 updated된 캐시를 가져옴 (복수 분기 포함)
+  // note: 4개 미만이면 아래에서 MISS로 판정해 재조회
   const { data: cachedRows } = await sbAdmin
     .from('stock_financial_quarters')
     .select('*')
     .in('ticker', tickers)
     .gte('updated_at', `${todayISO}T00:00:00Z`)
     .order('ticker')
-    .order('quarter', { ascending: false })
+    .order('quarter', { ascending: true })
 
-  // 오늘 캐시가 있는 ticker 세트
-  const cachedTickers = new Set((cachedRows ?? []).map(r => r.ticker))
-  const missTickers   = tickers.filter(t => !cachedTickers.has(t))
+  // ── 캐시 HIT 판정: 오늘 날짜 + 4개 이상 분기 보유 시만 HIT ──
+  // 이유: 이전에 1개 분기만 저장된 스텁 데이터는 YoY 계산 불가 → MISS 처리
+  const rowsByTicker = new Map<string, typeof cachedRows extends (infer U)[] | null ? U[] : never[]>()
+  for (const row of (cachedRows ?? [])) {
+    const arr = rowsByTicker.get(row.ticker) ?? []
+    arr.push(row)
+    rowsByTicker.set(row.ticker, arr)
+  }
+  // 4개 분기 미만 캐시 → MISS (API 재호출 필요)
+  const cachedTickers = new Set(
+    Array.from(rowsByTicker.entries())
+      .filter(([, rows]) => rows.length >= 4)
+      .map(([ticker]) => ticker)
+  )
+  const missTickers = tickers.filter(t => !cachedTickers.has(t))
 
   // ── 5. 캐시 MISS → 외부 API 또는 Mock 데이터 ─────────────
   const freshResults: InventoryCrossResult[] = []
@@ -554,30 +568,41 @@ export async function GET() {
 
     freshResults.push(result)
 
-    // 캐시 저장용 행 준비 (최신 분기만)
-    if (result.trend.length > 0) {
-      const latest = result.trend[result.trend.length - 1]
+    // 캐시 저장용 행 준비 — 전체 4개 분기 저장 (YoY 계산에 필요)
+    // 이전 버그: 최신 1개만 저장 → 캐시 HIT 시 YoY 계산 불가 → UNKNOWN
+    const now = new Date().toISOString()
+    for (const q of result.trend) {
       cacheUpsertRows.push({
         ticker:        result.ticker,
-        quarter:       latest.quarter,
+        quarter:       q.quarter,
         company_name:  result.name,
         market:        result.market,
         currency:      result.currency,
         unit_label:    result.unitLabel,
-        fiscal_date:   latest.fiscalDate || null,
-        revenue:       latest.revenue,
-        inventory:     latest.inventory,
-        revenue_yoy:   latest.revenueYoY,
-        inventory_yoy: latest.inventoryYoY,
-        signal:        latest.signal,
-        gap:           latest.gap,
+        fiscal_date:   q.fiscalDate || null,
+        revenue:       q.revenue,
+        inventory:     q.inventory,
+        revenue_yoy:   q.revenueYoY,
+        inventory_yoy: q.inventoryYoY,
+        signal:        q.signal,
+        gap:           q.gap,
         data_source:   result.dataSource,
-        updated_at:    new Date().toISOString(),
+        updated_at:    now,
       })
     }
   }
 
-  // ── 6. 캐시 Upsert ────────────────────────────────────────
+  // ── 6. 기존 스텁 캐시 삭제 + 신규 데이터 Upsert ────────────
+  // missTickers의 기존 캐시를 모두 삭제한 후 새 4분기 데이터를 저장
+  // (이전 1-row 스텁 데이터가 남아있으면 4개 미만 판정 → 무한 MISS 방지)
+  if (missTickers.length > 0) {
+    const { error: delErr } = await sbAdmin
+      .from('stock_financial_quarters')
+      .delete()
+      .in('ticker', missTickers)
+    if (delErr) console.warn('[inventory-cross] 기존 캐시 삭제 실패:', delErr)
+  }
+
   if (cacheUpsertRows.length > 0) {
     const { error: upsertErr } = await sbAdmin
       .from('stock_financial_quarters')
@@ -588,11 +613,11 @@ export async function GET() {
   // ── 7. 캐시 HIT 종목 → 결과 변환 ─────────────────────────
   const cachedResults: InventoryCrossResult[] = []
   for (const ticker of Array.from(cachedTickers)) {
-    const rows = (cachedRows ?? [])
-      .filter(r => r.ticker === ticker)
+    const rows = (rowsByTicker.get(ticker) ?? [])
+      .slice()
       .sort((a, b) => a.quarter < b.quarter ? -1 : 1)
 
-    if (rows.length === 0) continue
+    if (rows.length < 4) continue  // 4개 미만은 건너뜀 (위에서 MISS로 처리됨)
 
     const latest = rows[rows.length - 1]
     const holding = stockHoldings.find(h => h.ticker.toUpperCase() === ticker)
