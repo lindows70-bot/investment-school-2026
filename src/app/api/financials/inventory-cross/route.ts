@@ -73,8 +73,12 @@ async function fetchUSStockData(ticker: string): Promise<QuarterPoint[] | null> 
   try {
     console.log(`[US] ${ticker} 조회 시작`);
 
+    // ★ yahooFinance는 class — 반드시 인스턴스 생성 후 호출
+    //   (yahooFinance as any).quoteSummary() 는 TypeError 발생
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const summary: any = await (yahooFinance as any).quoteSummary(ticker, {
+    const yf = new (yahooFinance as any)({ suppressNotices: ['yahooSurvey', 'ripHistorical'] });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const summary: any = await yf.quoteSummary(ticker, {
       modules: ['balanceSheetHistoryQuarterly', 'incomeStatementHistoryQuarterly'],
     });
 
@@ -449,13 +453,16 @@ export async function GET() {
     excludedFromAnalysis: excluded,
     summary,
     source: 'live',
+    // ★ 프론트엔드 ApiResponse.meta 스키마와 1:1 매칭
+    //   { totalHoldings, analyzable, excluded, analyzed, cacheHit, cacheMiss, pipeline? }
     meta: {
       totalHoldings: holdings.length,
       analyzable:    analyzeList.length,
       excluded:      excluded.length,
       analyzed:      results.filter(r => r.signal !== 'UNKNOWN').length,
-      pipeline:      '미국:yahoo-finance2(quoteSummary) / 한국:WiseReport-스크래핑',
-      updatedAt:     new Date().toISOString(),
+      cacheHit:      0,   // 현재 캐시 없는 실시간 수집 방식
+      cacheMiss:     analyzeList.length,
+      pipeline:      '미국:yahoo-finance2 / 한국:WiseReport',
     },
   });
 }
