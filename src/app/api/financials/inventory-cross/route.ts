@@ -1,182 +1,73 @@
 /**
  * GET /api/financials/inventory-cross
  *
- * ◆ 기능: 재고 vs 매출 데드크로스 추적 시스템
+ * ◆ 국가별 이원화 데이터 수집 파이프라인 (무료, 무제한)
  *
- * 피터 린치 원칙:
- *   "재고가 매출보다 빠르게 쌓이기 시작하면 그 기업은 문제가 있는 것입니다.
- *    재고 증가율이 매출 증가율을 2분기 연속 앞지르면 즉시 경계하세요."
+ *  미국 주식 (영문 티커: NVDA, ETN, GEV ...)
+ *    → yahoo-finance2 라이브러리 fundamentalsTimeSeries API
+ *    → balance-sheet 모듈: 재고자산(inventory) 분기별
+ *    → financials 모듈:   매출액(totalRevenue) 분기별
  *
- * ◆ 시그널 판정
- *   DANGER  : inventoryYoY > revenueYoY (데드크로스 발생)
- *   WARNING : inventoryYoY <= revenueYoY, but gap < 5% (격차 축소 경보)
- *   HEALTHY : revenueYoY >= inventoryYoY + 5 (안전 여유 확보)
+ *  한국 주식 (6자리 숫자 티커: 000660, 189300 ...)
+ *    → 네이버 페이 증권 PC 버전 HTML 스크래핑 (fetch + cheerio)
+ *    → URL: finance.naver.com/item/coinfo.naver?code=&target=finsum_more
+ *    → 분기 재무제표 테이블에서 매출액 + 재고자산 행 파싱
  *
- * ◆ 데이터 소스 전략 (하루 1회 캐싱)
- *   캐시 HIT  → stock_financial_quarters 즉시 반환
- *   캐시 MISS → 외부 API 호출 (현재: 정교한 Mock 데이터)
- *               → US: FMP quarterly financials
- *               → KR: DART 분기보고서
+ *  공통 출력 포맷: { quarter:'24-Q3', revenue:N, inventory:N, revenueYoY:%, inventoryYoY:% }
  */
 
-import { NextResponse }          from 'next/server'
-import { createServerClient }    from '@supabase/ssr'
-import { cookies }               from 'next/headers'
-import { getAssetType }          from '@/lib/assetClassifier'
-
-// ════════════════════════════════════════════════════════════
-// 재고자산 보유 여부 판별 — 재고 센티넬 분석 대상 필터
-//
-// 피터 린치의 '재고 vs 매출 데드크로스'는 물리적 재고를 보유한
-// 제조업·반도체·하드웨어·소매업에만 적용 가능합니다.
-//
-// 소프트웨어·금융·인터넷 서비스 등은 재고자산 개념 자체가 없으므로
-// 분석 대상에서 자동 제외합니다.
-// ════════════════════════════════════════════════════════════
-
-/** 재고자산이 없는 업종 — 소프트웨어·금융·서비스·인터넷 등 */
-const NO_INVENTORY_TICKERS = new Set([
-  // ── 순수 소프트웨어 ─────────────────────────────────────
-  'PLTR','CRM','ADBE','ORCL','NOW','SNOW','WDAY','ZM','DOCU','TWLO',
-  'DDOG','CRWD','OKTA','SPLK','VEEV','TEAM','HUBS','BILL','ESTC',
-  'NET','CFLT','MDB','GTLB','PATH','ZS','S','SMAR',
-  // ── 인터넷·빅테크 서비스 ─────────────────────────────────
-  'GOOGL','GOOG','META','MSFT','NFLX','UBER','LYFT','ABNB','SNAP','PINS',
-  'TWTR','SPOT','RBLX','U','AI','CPNG','GRAB',
-  // ── 금융 (은행·증권·보험·카드) ──────────────────────────
-  'JPM','GS','MS','BAC','C','WFC','USB','TFC','PNC','SCHW','IBKR',
-  'V','MA','AXP','DFS','COF','PYPL','SQ','AFRM',
-  'BRK','BRK.A','BRK.B',
-  'BLK','GS','MS','RJF','IVZ','TROW',
-  'MET','PRU','AFL','AIG','TRV','CB','AON','MMC','AJG',
-  'AMP','PGR','ALL','CNA',
-  // ── 통신 서비스 ─────────────────────────────────────────
-  'T','VZ','TMUS','CMCSA','CHTR','LUMN',
-  // ── 헬스케어 서비스 (제조 아님) ─────────────────────────
-  'UNH','CVS','MCK','ABC','CI','HUM','MOH','CNC','ELV',
-  // ── 한국 금융·서비스 ─────────────────────────────────────
-  '055550','105560','086790','032830','030200','017670','000100',
-])
-
-/** 이름에 포함되면 소프트웨어·서비스로 판별 */
-const NO_INVENTORY_NAME_KW = [
-  'SOFTWARE','CLOUD','SAAS','DIGITAL SERVICES','INTERNET SERVICES',
-  'FINANCIAL SERVICES','BANCORP','BANCSHARES','FINANCIAL GROUP',
-  'INSURANCE','REINSURANCE',
-  'ADVISORY','CONSULTING',
-  'STREAMING','SOCIAL NETWORK',
-]
-
-/** 재고자산이 명확히 존재하는 업종 허용 목록 */
-const HAS_INVENTORY_TICKERS = new Set([
-  // ── 반도체 (가장 중요한 재고 추적 대상) ────────────────
-  'NVDA','AMD','INTC','QCOM','MU','AVGO','TXN','AMAT','LRCX','KLAC',
-  'ASML','MRVL','ON','SWKS','QRVO','MPWR','WOLF','ENTG',
-  'TSM','ASX',
-  // ── 하드웨어·가전 ────────────────────────────────────────
-  'AAPL','DELL','HPQ','HPE','NTAP','STX','WDC','SEAGATE',
-  'SNX','CDW',
-  // ── 자동차 ──────────────────────────────────────────────
-  'TSLA','F','GM','STLA','TM','HMC','RIVN','LCID',
-  // ── 산업재·제조 ─────────────────────────────────────────
-  'GE','GEV','ETN','CAT','DE','HON','MMM','EMR','ROK','ITW',
-  'PH','GWW','CMI','PCAR','TEL','AME','FTV','DHR','A',
-  // ── 소매·유통 (재고 추적 핵심) ──────────────────────────
-  'WMT','TGT','COST','HD','LOW','NKE','LULU','PVH','HBI',
-  // ── 소비재·식품음료 ─────────────────────────────────────
-  'PG','KO','PEP','CL','CHD','CLX','GIS','CAG','K','CPB',
-  'PM','MO','BTI',
-  // ── 에너지 장비·소재 ────────────────────────────────────
-  'SLB','HAL','BKR','NOV',
-  // ── 특수 케이스 (Mock 데이터 포함) ──────────────────────
-  'TEM',
-  // ── 한국 제조업 ─────────────────────────────────────────
-  '000660','005930','005380','000270','066570','006400','009150',
-  '051910','207940','068270','010130','006280','003490','011200',
-  '034220','042660','329180','000830','001680',
-])
-
-export interface InventoryExcluded {
-  ticker:  string
-  name:    string
-  reason:  string   // 제외 사유 설명
-}
-
-/**
- * 재고자산 보유 여부 판별 — 센티넬 분석 대상 여부 반환
- * @returns true = 분석 가능 (제조업 등), false = 제외 (소프트웨어·금융 등)
- */
-function hasPhysicalInventory(ticker: string, name: string): boolean {
-  const t = ticker.toUpperCase()
-  const n = name.toUpperCase()
-
-  // 명시적 허용 목록 우선
-  if (HAS_INVENTORY_TICKERS.has(t)) return true
-
-  // 명시적 제외 목록
-  if (NO_INVENTORY_TICKERS.has(t)) return false
-
-  // 종목명 키워드로 제외 판별
-  if (NO_INVENTORY_NAME_KW.some(kw => n.includes(kw))) return false
-
-  // 기본값: 분석 포함 (알 수 없는 종목은 보수적으로 포함하여 추후 데이터로 판별)
-  return true
-}
-
-/** 제외 사유 메시지 생성 */
-function buildExcludeReason(ticker: string, name: string): string {
-  const t = ticker.toUpperCase()
-  const n = name.toUpperCase()
-
-  if (NO_INVENTORY_TICKERS.has(t)) {
-    if (['JPM','GS','MS','BAC','C','WFC','V','MA','AXP','DFS','COF','PYPL',
-         'BRK','MET','PRU','AFL','AIG','055550','105560','086790','032830'].some(f => t === f)) {
-      return '금융·보험·카드사는 물리적 재고자산이 없어 재고 리스크 분석 대상이 아닙니다.'
-    }
-    if (['T','VZ','TMUS','CMCSA','CHTR','017670','030200'].some(f => t === f)) {
-      return '통신 서비스 기업은 재고자산 개념이 없어 분석 대상에서 제외됩니다.'
-    }
-    return '소프트웨어·인터넷 서비스 기업은 물리적 재고가 없어 재고 vs 매출 분석을 적용할 수 없습니다.'
-  }
-
-  if (NO_INVENTORY_NAME_KW.some(kw => n.includes(kw))) {
-    return `종목명 패턴 분석 결과 서비스·금융 기업으로 분류되어 재고 분석에서 제외됩니다.`
-  }
-
-  return '재고자산이 없는 업종으로 분류되어 센티넬 분석 대상이 아닙니다.'
-}
+import { NextResponse }       from 'next/server'
+import { createServerClient } from '@supabase/ssr'
+import { cookies }            from 'next/headers'
+import { getAssetType }       from '@/lib/assetClassifier'
 
 // ────────────────────────────────────────────────────────────
 // 타입 정의
 // ────────────────────────────────────────────────────────────
 export type CrossSignal = 'DANGER' | 'WARNING' | 'HEALTHY' | 'UNKNOWN'
+type FetchStatus = 'ok' | 'not_found' | 'error'
 
 export interface QuarterData {
-  quarter:       string    // 'YY-Q{1-4}' (예: '25-Q1')
-  fiscalDate:    string    // ISO date
-  revenue:       number    // 매출액 (단위는 unitLabel)
-  inventory:     number    // 재고자산
-  revenueYoY:    number | null   // YoY % (null = 비교 불가)
+  quarter:       string
+  fiscalDate:    string
+  revenue:       number    // 억원 or M$
+  inventory:     number
+  revenueYoY:    number | null
   inventoryYoY:  number | null
   signal:        CrossSignal
-  gap:           number | null   // inventoryYoY - revenueYoY
+  gap:           number | null
 }
 
 export interface InventoryCrossResult {
-  ticker:        string
-  name:          string
-  market:        string
-  currency:      string
-  unitLabel:     string    // 'M$' or '억원'
-  signal:        CrossSignal
-  gap:           number    // 최신 분기 gap
-  latestQuarter: string
-  revenueYoY:    number
-  inventoryYoY:  number
-  consecutiveDanger: number   // 연속 DANGER 분기 수
-  trend:         QuarterData[]  // 최근 4개 분기
-  lynchAlert:    string    // 린치 스타일 경보 메시지
-  dataSource:    'cache' | 'stub' | 'fmp' | 'dart'
+  ticker:           string
+  name:             string
+  market:           string
+  currency:         string
+  unitLabel:        string
+  signal:           CrossSignal
+  gap:              number
+  latestQuarter:    string
+  revenueYoY:       number
+  inventoryYoY:     number
+  consecutiveDanger: number
+  trend:            QuarterData[]
+  lynchAlert:       string
+  dataSource:       string
+}
+
+export interface InventoryExcluded {
+  ticker:  string
+  name:    string
+  reason:  string
+}
+
+interface RawQuarter { date: string; revenue: number; inventory: number }
+
+interface FetchResult {
+  status:   FetchStatus
+  quarters: RawQuarter[]
+  source:   string
+  errorMsg?: string
 }
 
 // ────────────────────────────────────────────────────────────
@@ -189,202 +80,267 @@ function calcSignal(invYoY: number | null, revYoY: number | null): CrossSignal {
   if (gap > -5)  return 'WARNING'
   return 'HEALTHY'
 }
-
 function calcGap(invYoY: number | null, revYoY: number | null): number | null {
   if (invYoY === null || revYoY === null) return null
   return parseFloat((invYoY - revYoY).toFixed(2))
 }
-
-/** 연속 DANGER 분기 수 계산 (최신 → 과거 방향으로 카운트) */
 function countConsecutiveDanger(trend: QuarterData[]): number {
-  let count = 0
-  for (const q of [...trend].reverse()) {  // 최신 분기부터
-    if (q.signal === 'DANGER') count++
-    else break
-  }
-  return count
+  let n = 0
+  for (const q of [...trend].reverse()) { if (q.signal === 'DANGER') n++; else break }
+  return n
 }
-
-/** 린치 경보 메시지 생성 */
-function buildLynchAlert(
-  signal:     CrossSignal,
-  name:       string,
-  gap:        number,
-  consecutive: number,
-): string {
-  if (signal === 'DANGER') {
-    const absGap = Math.abs(gap).toFixed(1)
-    if (consecutive >= 2) {
-      return `"위험 신호! ${name}의 재고가 매출보다 ${absGap}%p 빠르게 쌓이는 상황이 ${consecutive}분기 연속 지속되고 있습니다. ` +
-             `린치는 '재고가 2분기 연속으로 매출보다 빠르게 늘어나면 즉시 팔라'고 했습니다. 포지션을 재검토하세요."`
-    }
-    return `"${name}의 재고 증가율이 매출 증가율을 ${absGap}%p 앞질렀습니다. ` +
-           `단 1분기이므로 아직 확정적이지 않지만, 다음 분기에도 이어진다면 린치의 매도 신호입니다."`
-  }
-  if (signal === 'WARNING') {
-    const absGap = Math.abs(gap).toFixed(1)
-    return `"${name}는 아직 역전되지 않았지만, 재고와 매출 성장률 격차가 ${absGap}%p로 좁혀졌습니다. ` +
-           `데드크로스 전조 단계입니다. 다음 분기 재고 동향을 주시하세요."`
-  }
-  if (signal === 'HEALTHY') {
-    return `"${name}는 매출이 재고보다 건강하게 앞서고 있습니다. ` +
-           `린치가 좋아하는 '팔리는 속도 > 쌓이는 속도' 상태입니다. 현 포지션 유지가 적합합니다."`
-  }
-  return `"${name}의 재고·매출 데이터를 수집 중입니다. 다음 새로고침 때 분석 결과가 업데이트됩니다."`
-}
-
-// ════════════════════════════════════════════════════════════
-// 실제 FMP API 연동 — Mock 데이터 완전 제거
-// ════════════════════════════════════════════════════════════
-
-interface RawFmpQuarter { date: string; revenue: number; inventory: number }
-
-/** YYYY-MM-DD → 'YY-Q{n}' 분기 코드 변환 */
-function dateToQuarterCode(dateStr: string): string {
-  const d  = new Date(dateStr)
-  const yy = String(d.getFullYear()).slice(-2)
-  const q  = Math.ceil((d.getMonth() + 1) / 3)
+function dateToQ(d: string | Date): string {
+  const dt = typeof d === 'string' ? new Date(d) : d
+  const yy  = String(dt.getFullYear()).slice(-2)
+  const q   = Math.ceil((dt.getMonth() + 1) / 3)
   return `${yy}-Q${q}`
 }
-
-/** YoY % 계산 — prev=0이거나 null이면 null 반환 */
-function calcYoY(curr: number, prev: number | undefined): number | null {
+function yoy(curr: number, prev: number | undefined): number | null {
   if (!prev || prev === 0) return null
   return parseFloat(((curr - prev) / Math.abs(prev) * 100).toFixed(2))
 }
 
-/** FMP 8개 분기 원본 → 최근 4개 분기 + YoY 계산 */
-function buildTrendFromFmp(
-  raws: RawFmpQuarter[],
-  currency: string,
-): QuarterData[] {
-  // FMP는 최신 순으로 반환 → 역순 정렬 후 처리
+/** 8개 분기 원본 → 최근 4개 YoY 계산 (currency별 단위 변환) */
+function buildTrend(raws: RawQuarter[], currency: string): QuarterData[] {
   const sorted = [...raws].sort((a, b) => a.date < b.date ? -1 : 1)
-  // 최근 4개 분기 (index 4~7) + YoY 비교 기준 (index 0~3)
-  const recent4 = sorted.slice(-4)
-  const prev4   = sorted.slice(-8, -4)
-
-  return recent4.map((q, i): QuarterData => {
-    const prev      = prev4[i]
-    const revYoY    = calcYoY(q.revenue,   prev?.revenue)
-    const invYoY    = calcYoY(q.inventory, prev?.inventory)
-    const signal    = calcSignal(invYoY, revYoY)
+  const recent  = sorted.slice(-4)
+  const prevYr  = sorted.slice(-8, -4)
+  return recent.map((q, i): QuarterData => {
+    const p       = prevYr[i]
+    const rev     = currency === 'KRW' ? q.revenue   : Math.round(q.revenue   / 1e6)
+    const inv     = currency === 'KRW' ? q.inventory : Math.round(q.inventory / 1e6)
+    const pRev    = p ? (currency === 'KRW' ? p.revenue   : Math.round(p.revenue   / 1e6)) : 0
+    const pInv    = p ? (currency === 'KRW' ? p.inventory : Math.round(p.inventory / 1e6)) : 0
+    const revYoY  = yoy(rev, pRev || undefined)
+    const invYoY  = yoy(inv, pInv || undefined)
+    const signal  = calcSignal(invYoY, revYoY)
     return {
-      quarter:      dateToQuarterCode(q.date),
+      quarter:      dateToQ(q.date),
       fiscalDate:   q.date,
-      revenue:      currency === 'KRW'
-        ? Math.round(q.revenue / 1e8)     // 원화: 원 → 억원
-        : Math.round(q.revenue / 1e6),    // USD: 달러 → M$
-      inventory:    currency === 'KRW'
-        ? Math.round(q.inventory / 1e8)
-        : Math.round(q.inventory / 1e6),
+      revenue:      rev,
+      inventory:    inv,
       revenueYoY:   revYoY,
       inventoryYoY: invYoY,
       signal,
-      gap: calcGap(invYoY, revYoY),
+      gap:          calcGap(invYoY, revYoY),
     }
   })
 }
 
-type FetchStatus = 'ok' | 'no_key' | 'rate_limit' | 'not_found' | 'error'
+// ════════════════════════════════════════════════════════════
+// ① 미국 주식: yahoo-finance2 fundamentalsTimeSeries
+// ════════════════════════════════════════════════════════════
+async function fetchUsQuarterly(ticker: string): Promise<FetchResult> {
+  try {
+    const { default: YahooFinance } = await import('yahoo-finance2')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const yf     = new (YahooFinance as any)({ suppressNotices: ['yahooSurvey', 'ripHistorical'] })
+    const since  = new Date(Date.now() - 2.5 * 365 * 86400 * 1000).toISOString().slice(0, 10)
 
-interface FmpFetchResult {
-  status:   FetchStatus
-  quarters: RawFmpQuarter[]
-  source:   string
-}
-
-/**
- * Yahoo Finance fundamentalsTimeSeries 기반 분기 재무 데이터 조회
- *
- * FMP v3 엔드포인트가 2025-08-31 이후 무료 사용자 차단됨 → Yahoo Finance로 전환
- * yahoo-finance2 라이브러리(v3.14+): fundamentalsTimeSeries API 사용
- *
- * ◆ US 주식: ticker 그대로 (NVDA, ETN, GEV, AAPL ...)
- * ◆ KR 주식: ticker + '.KQ' → '.KS' 순서로 시도
- *   - 000660 → 000660.KQ (실패 시) → 000660.KS (SK하이닉스, KOSPI)
- *   - 189300 → 189300.KQ (인텔리안테크, KOSDAQ)
- */
-async function fetchFmpQuarterly(
-  ticker: string,
-  market: string,
-): Promise<FmpFetchResult> {
-  const code     = ticker.replace(/\.(KS|KQ)$/i, '')
-  const suffixes = market === 'KR' ? ['.KQ', '.KS', ''] : ['']
-
-  for (const suffix of suffixes) {
-    const yTicker = code + suffix
-    try {
-      // yahoo-finance2 라이브러리 동적 임포트 (서버사이드 only)
-      const { default: YahooFinance } = await import('yahoo-finance2')
+    // 병렬로 대차대조표(재고) + 손익계산서(매출) 조회
+    const [balArr, finArr] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const yf = new (YahooFinance as any)({ suppressNotices: ['yahooSurvey', 'ripHistorical'] })
+      yf.fundamentalsTimeSeries(ticker, { module: 'balance-sheet', period1: since }) as Promise<any[]>,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      yf.fundamentalsTimeSeries(ticker, { module: 'financials',    period1: since }) as Promise<any[]>,
+    ])
 
-      // balance-sheet: inventory 데이터
-      // financials: totalRevenue 데이터
-      const period1 = new Date(Date.now() - 2 * 365 * 24 * 3600 * 1000).toISOString().slice(0, 10)
+    const balList = Array.isArray(balArr) ? balArr : Object.values(balArr)
+    const finList = Array.isArray(finArr) ? finArr : Object.values(finArr)
 
-      const [balData, finData] = await Promise.all([
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        yf.fundamentalsTimeSeries(yTicker, { module: 'balance-sheet', period1 }) as Promise<any[]>,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        yf.fundamentalsTimeSeries(yTicker, { module: 'financials',    period1 }) as Promise<any[]>,
-      ])
+    if (!finList.length) return { status: 'not_found', quarters: [], source: 'yahoo-us' }
 
-      const balArr = Array.isArray(balData) ? balData : Object.values(balData)
-      const finArr = Array.isArray(finData) ? finData : Object.values(finData)
+    const quarters: RawQuarter[] = finList.map(fin => {
+      const dRaw   = fin.date
+      const dStr   = dRaw instanceof Date
+        ? dRaw.toISOString().slice(0, 10)
+        : String(dRaw ?? '').slice(0, 10)
+      const finMs  = new Date(dStr).getTime()
+      // 날짜 ±7일 범위로 대차대조표 매칭
+      const matchB = balList.find(b => {
+        const bd = b.date instanceof Date
+          ? b.date.toISOString().slice(0, 10)
+          : String(b.date ?? '').slice(0, 10)
+        return Math.abs(new Date(bd).getTime() - finMs) < 7 * 86400_000
+      })
+      return {
+        date:      dStr,
+        revenue:   Number(fin.totalRevenue   ?? 0),
+        inventory: Number(matchB?.inventory  ?? 0),
+      }
+    }).filter(q => q.date && q.revenue > 0)
 
-      if (!finArr.length || finArr.length < 2) continue
+    if (quarters.length < 4) return { status: 'not_found', quarters: [], source: 'yahoo-us' }
 
-      // 날짜 기준으로 재고 + 매출 매핑
-      const quarters: RawFmpQuarter[] = finArr
-        .slice(0, 8)
-        .map(fin => {
-          const finDate  = fin.date instanceof Date ? fin.date.toISOString().slice(0, 10) : String(fin.date ?? '').slice(0, 10)
-          // 같은 날짜의 balance sheet 항목 매칭 (±5일 허용)
-          const finTime  = new Date(finDate).getTime()
-          const matchBal = balArr.find(b => {
-            const bDate = b.date instanceof Date ? b.date.toISOString().slice(0, 10) : String(b.date ?? '').slice(0, 10)
-            return Math.abs(new Date(bDate).getTime() - finTime) < 5 * 86400 * 1000
-          })
-          return {
-            date:      finDate,
-            revenue:   Number(fin.totalRevenue   ?? 0),
-            inventory: Number(matchBal?.inventory ?? 0),
-          }
-        })
-        .filter(q => q.date && q.revenue > 0)
-
-      if (quarters.length < 2) continue
-
-      return { status: 'ok', quarters, source: `yahoo${suffix}` }
-
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
-      // "Not Found" → 해당 suffix가 맞지 않음, 다음 suffix 시도
-      if (msg.includes('Not Found') || msg.includes('404') || msg.toLowerCase().includes('no data')) continue
-      console.error(`[inventory-cross] Yahoo Finance 오류 ${yTicker}:`, msg.slice(0, 120))
-      continue
-    }
+    return { status: 'ok', quarters, source: 'yahoo-us' }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`[inventory-cross] US Yahoo 오류 ${ticker}:`, msg.slice(0, 120))
+    return { status: 'error', quarters: [], source: 'yahoo-us', errorMsg: msg }
   }
-
-  return { status: 'not_found', quarters: [], source: 'yahoo' }
 }
 
-/** FMP 결과 + holding 정보 → InventoryCrossResult 조립 */
-function buildResultFromFmp(
-  ticker: string,
-  name:   string,
-  market: string,
-  fmpRes: FmpFetchResult,
+// ════════════════════════════════════════════════════════════
+// ② 한국 주식: 네이버 페이 증권 HTML 스크래핑 (fetch + cheerio)
+// ════════════════════════════════════════════════════════════
+const NAVER_HEADERS = {
+  'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
+  'Referer':         'https://finance.naver.com/',
+}
+
+/** 숫자 문자열 → 억원 단위 숫자 변환 ("12,861" → 12861, "-" → 0) */
+function parseKrNumber(s: string): number {
+  const clean = s.replace(/[,\s]/g, '').trim()
+  if (!clean || clean === '-' || clean === 'N/A') return 0
+  return parseFloat(clean) || 0
+}
+
+async function fetchKrNaverQuarterly(ticker: string): Promise<FetchResult> {
+  const code = ticker.replace(/\.(KS|KQ)$/i, '').padStart(6, '0')
+
+  try {
+    // ── 네이버 페이 증권 분기 재무 요약 페이지 ──────────────────
+    const url = `https://finance.naver.com/item/coinfo.naver?code=${code}&target=finsum_more`
+    const res = await fetch(url, {
+      headers: NAVER_HEADERS,
+      next:    { revalidate: 86400 },
+    })
+    if (!res.ok) {
+      return { status: 'not_found', quarters: [], source: 'naver', errorMsg: `HTTP ${res.status}` }
+    }
+
+    const rawHtml = await res.arrayBuffer()
+    // EUC-KR 인코딩 처리 (네이버 페이 증권은 EUC-KR 사용)
+    let html: string
+    try {
+      html = new TextDecoder('euc-kr').decode(rawHtml)
+    } catch {
+      html = new TextDecoder('utf-8').decode(rawHtml)
+    }
+
+    // ── cheerio로 파싱 ───────────────────────────────────────────
+    const { load } = await import('cheerio')
+    const $        = load(html)
+
+    // 분기 재무 테이블 찾기 (네이버 증권: .tb_type1_ifrs 또는 .tb_type1)
+    const table = $('table.tb_type1_ifrs, table.tb_type1').first()
+    if (!table.length) {
+      return { status: 'not_found', quarters: [], source: 'naver', errorMsg: '재무 테이블 없음' }
+    }
+
+    // ── 헤더: 분기 날짜 추출 (예: "2024.03" → "2024-03-31") ─────
+    const headers: string[] = []
+    table.find('thead th').each((_, el) => {
+      const text = $(el).text().trim()
+      // 날짜 형식: "2024.03", "2023/12" 등
+      if (/^\d{4}[./]\d{2}$/.test(text)) {
+        const [yr, mo] = text.split(/[./]/)
+        const lastDay  = new Date(parseInt(yr), parseInt(mo), 0).getDate()
+        headers.push(`${yr}-${mo.padStart(2,'0')}-${lastDay}`)
+      }
+    })
+
+    if (headers.length < 4) {
+      return { status: 'not_found', quarters: [], source: 'naver', errorMsg: `분기 헤더 부족 (${headers.length}개)` }
+    }
+
+    // ── 행 데이터 추출 헬퍼 ────────────────────────────────────
+    const extractRowValues = (labelKeywords: string[]): number[] => {
+      let values: number[] = []
+      table.find('tr').each((_, row) => {
+        const th    = $(row).find('th').first().text().trim()
+        const isMatch = labelKeywords.some(kw => th.includes(kw))
+        if (isMatch) {
+          const cells: number[] = []
+          $(row).find('td').each((_, td) => {
+            cells.push(parseKrNumber($(td).text()))
+          })
+          if (cells.length > 0) values = cells
+        }
+      })
+      return values
+    }
+
+    const revenues    = extractRowValues(['매출액', '매출'])
+    const inventories = extractRowValues(['재고자산', '재고'])
+
+    if (revenues.length < 4) {
+      return {
+        status: 'not_found', quarters: [], source: 'naver',
+        errorMsg: `매출액 행 미발견 (revenues=${revenues.length})`,
+      }
+    }
+
+    // ── 분기 데이터 조립 ─────────────────────────────────────────
+    // 헤더와 값 배열의 길이를 맞춤 (최대 8개 분기)
+    const count    = Math.min(headers.length, revenues.length, 8)
+    const quarters: RawQuarter[] = []
+
+    for (let i = 0; i < count; i++) {
+      const rev = revenues[i]
+      const inv = inventories.length > i ? inventories[i] : 0
+      if (rev > 0) {
+        quarters.push({
+          date:      headers[i],
+          revenue:   rev,    // 단위: 억원 (KR 단위 그대로)
+          inventory: inv,
+        })
+      }
+    }
+
+    if (quarters.length < 4) {
+      return { status: 'not_found', quarters: [], source: 'naver', errorMsg: `유효 분기 부족 (${quarters.length}개)` }
+    }
+
+    return { status: 'ok', quarters, source: 'naver' }
+
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`[inventory-cross] KR 네이버 스크래핑 오류 ${code}:`, msg.slice(0, 150))
+    return { status: 'error', quarters: [], source: 'naver', errorMsg: msg }
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// 라우터: US/KR 판별 후 해당 파이프라인 호출
+// ════════════════════════════════════════════════════════════
+function isKoreanStock(ticker: string, market: string): boolean {
+  return market === 'KR' || /^\d{6}$/.test(ticker.replace(/\.(KS|KQ)$/i, ''))
+}
+
+async function fetchQuarterly(ticker: string, market: string): Promise<FetchResult> {
+  if (isKoreanStock(ticker, market)) {
+    return fetchKrNaverQuarterly(ticker)
+  }
+  // US 주식 — yahoo-finance2 fundamentalsTimeSeries
+  // .KQ/.KS 접미사 없는 US 티커 그대로 사용
+  const t = ticker.replace(/\.(KS|KQ)$/i, '')
+  return fetchUsQuarterly(t)
+}
+
+// ────────────────────────────────────────────────────────────
+// 최종 결과 객체 조립
+// ────────────────────────────────────────────────────────────
+function buildResult(
+  ticker: string, name: string, market: string,
+  res: FetchResult,
 ): InventoryCrossResult {
-  const currency  = market === 'KR' ? 'KRW' : 'USD'
-  const unitLabel = market === 'KR' ? '억원' : 'M$'
-  const trend     = buildTrendFromFmp(fmpRes.quarters, currency)
+  const currency  = isKoreanStock(ticker, market) ? 'KRW' : 'USD'
+  const unitLabel = currency === 'KRW' ? '억원' : 'M$'
+  const trend     = res.status === 'ok' ? buildTrend(res.quarters, currency) : []
   const latest    = trend[trend.length - 1]
   const signal    = latest?.signal     ?? 'UNKNOWN'
   const gap       = latest?.gap        ?? 0
   const consec    = countConsecutiveDanger(trend)
+
+  // 에러 사유별 린치 메시지
+  const lynchAlert = res.status === 'ok'
+    ? buildLynchAlert(signal, name, gap, consec)
+    : res.status === 'not_found'
+      ? `"${name}의 분기 재고·매출 데이터를 수집할 수 없었습니다. 해당 종목의 재무 공시가 아직 업데이트되지 않았거나 지원되지 않는 형식일 수 있습니다."`
+      : `"${name}의 재무 데이터 API 조회 중 오류가 발생했습니다. (${res.errorMsg ?? '알 수 없는 오류'}) 잠시 후 새로고침해주세요."`
 
   return {
     ticker, name, market, currency, unitLabel,
@@ -394,50 +350,67 @@ function buildResultFromFmp(
     inventoryYoY:      latest?.inventoryYoY ?? 0,
     consecutiveDanger: consec,
     trend,
-    lynchAlert: fmpRes.status === 'ok'
-      ? buildLynchAlert(signal, name, gap, consec)
-      : fmpRes.status === 'no_key'
-        ? `"FMP_API_KEY 환경변수가 설정되지 않아 ${name}의 분기 재무제표를 조회할 수 없습니다. Vercel 환경변수 설정을 확인해주세요."`
-        : fmpRes.status === 'rate_limit'
-          ? `"FMP API 일일 호출 한도(250회) 초과. 내일 자동으로 갱신됩니다. 오늘 조회는 캐시가 없어 대기 중입니다."`
-          : `"${name}의 분기 재무제표 API 조회에 실패했습니다. FMP 미지원 티커이거나 네트워크 오류일 수 있습니다. 잠시 후 새로고침해주세요."`,
-    dataSource:        (fmpRes.source as 'fmp' | 'cache' | 'stub' | 'dart'),
+    lynchAlert,
+    dataSource:        res.source,
   }
 }
 
-/**
- * 제외 사유 메시지 정교화
- * - 제조기업인데 API 실패 → "재무제표 API 로딩 실패"
- * - 소프트웨어 기업으로 판단 → "재고 없는 기업"
- */
-function buildExcludeReasonV2(
-  ticker:      string,
-  name:        string,
-  fetchStatus: FetchStatus,
-  inventorySum: number,
-): string {
-  const t  = ticker.toUpperCase()
-  const isKnownManufacturer = HAS_INVENTORY_TICKERS.has(t)
-
-  switch (fetchStatus) {
-    case 'no_key':
-      return 'FMP_API_KEY 환경변수가 설정되지 않았습니다. Vercel 환경변수를 확인해주세요.'
-    case 'rate_limit':
-      return 'FMP API 일일 호출 한도(250회) 초과. 내일 자동으로 갱신됩니다.'
-    case 'error':
-      return `분기 재무제표 API 네트워크 오류. 잠시 후 새로고침해주세요.`
-    case 'not_found':
-      if (isKnownManufacturer) {
-        return `${name}는 제조업 기업이나 FMP에서 분기 재무제표를 찾을 수 없습니다. 티커 형식 오류이거나 FMP 미지원 종목일 수 있습니다.`
-      }
-      return `FMP에서 ${name}의 재무제표를 찾을 수 없습니다.`
-    default:
-      // status === 'ok' but inventory = 0
-      if (isKnownManufacturer && inventorySum === 0) {
-        return `${name}는 제조업 기업이나 FMP 재고자산 데이터가 0입니다. FMP 데이터 품질 이슈이거나 재무제표 항목명 불일치일 수 있습니다.`
-      }
-      return '최근 4개 분기 재고자산 합계가 0입니다. 소프트웨어·금융·서비스 기업으로 자동 제외됩니다.'
+function buildLynchAlert(signal: CrossSignal, name: string, gap: number, consec: number): string {
+  const abs = Math.abs(gap).toFixed(1)
+  if (signal === 'DANGER') {
+    return consec >= 2
+      ? `"위험! ${name}의 재고가 매출보다 ${abs}%p 빠르게 쌓이는 상황이 ${consec}분기 연속 지속 중. 린치는 '2분기 연속 역전 시 즉시 매도'를 원칙으로 합니다."`
+      : `"${name}의 재고 증가율이 매출을 ${abs}%p 앞질렀습니다. 단 1분기이므로 추세를 지켜보되, 다음 분기도 역전 시 매도를 검토하세요."`
   }
+  if (signal === 'WARNING') {
+    return `"${name}는 아직 역전되지 않았지만 격차가 ${abs}%p로 좁혀졌습니다. 재고 동향을 집중 모니터링 하세요."`
+  }
+  if (signal === 'HEALTHY') {
+    return `"${name}는 매출이 재고보다 건강하게 앞서고 있습니다. 린치가 선호하는 '팔리는 속도 > 쌓이는 속도' 상태입니다."`
+  }
+  return `"${name}의 분기 재고·매출 데이터를 분석 중입니다."`
+}
+
+// ────────────────────────────────────────────────────────────
+// 하드코딩 없는 업종별 제외 판별 (비제조업 필터)
+// ────────────────────────────────────────────────────────────
+const NO_INVENTORY_TICKERS = new Set([
+  'PLTR','CRM','ADBE','ORCL','NOW','SNOW','WDAY','ZM','DDOG','CRWD','NET',
+  'GOOGL','GOOG','META','MSFT','NFLX','UBER','LYFT','ABNB','SNAP',
+  'JPM','GS','MS','BAC','C','WFC','V','MA','AXP','PYPL',
+  'BRK','T','VZ','TMUS','UNH','CVS',
+  '055550','105560','086790','032830','030200','017670',
+])
+const NO_INVENTORY_NAME_KW = [
+  'SOFTWARE','CLOUD','SAAS','INTERNET','FINANCIALS','BANCORP','INSURANCE','ADVISORY',
+  'STREAMING','소프트웨어','핀테크','금융','보험','증권','통신',
+]
+
+function isNoInventoryCompany(ticker: string, name: string): boolean {
+  const t = ticker.toUpperCase()
+  const n = name.toUpperCase()
+  if (NO_INVENTORY_TICKERS.has(t)) return true
+  if (NO_INVENTORY_NAME_KW.some(kw => n.includes(kw))) return true
+  return false
+}
+
+function getExcludeReason(
+  ticker: string, name: string,
+  fetchStatus: FetchStatus, inventorySum: number,
+): string {
+  if (isNoInventoryCompany(ticker, name)) {
+    return '소프트웨어·금융·서비스 기업은 물리적 재고자산이 없어 분석 대상이 아닙니다.'
+  }
+  if (fetchStatus === 'error') {
+    return `${name} 재무데이터 API 조회 오류. 잠시 후 새로고침해주세요.`
+  }
+  if (fetchStatus === 'not_found') {
+    return `${name} 분기 재무제표를 수집할 수 없었습니다. FnGuide 데이터 미제공 종목이거나 재무 공시 지연 상태일 수 있습니다.`
+  }
+  if (inventorySum === 0) {
+    return '4개 분기 재고자산 합계가 0입니다. API 데이터 이상 또는 소프트웨어 기업으로 추정됩니다.'
+  }
+  return '재고자산 데이터를 확인할 수 없습니다.'
 }
 
 // ════════════════════════════════════════════════════════════
@@ -446,80 +419,63 @@ function buildExcludeReasonV2(
 export async function GET() {
   const cookieStore = await cookies()
 
-  // ── 1. 인증 확인 ────────────────────────────────────────
+  // ── 1. 인증 ────────────────────────────────────────────────
   const supabaseAuth = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll:  () => cookieStore.getAll(),
-        setAll:  (list) => list.forEach(({ name, value, options }) =>
-          cookieStore.set(name, value, options)
-        ),
+        setAll:  (list) => list.forEach(({ name, value, options }) => cookieStore.set(name, value, options)),
       },
     },
   )
-
   const { data: { user }, error: authErr } = await supabaseAuth.auth.getUser()
   if (authErr || !user) {
     return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 })
   }
 
-  // ── 2. 서비스 롤 클라이언트 ─────────────────────────────
+  // ── 2. Supabase 서비스 롤 ────────────────────────────────
   const { createClient: mkAdmin } = await import('@supabase/supabase-js')
   const sbAdmin = mkAdmin(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   )
 
-  // ── 3. 포트폴리오 내 주식(STOCK) 종목만 조회 ─────────────
+  // ── 3. 포트폴리오 주식(STOCK) 조회 ──────────────────────
   const { data: holdings, error: holdErr } = await sbAdmin
     .from('investments')
     .select('ticker, name, market')
     .eq('user_id', user.id)
 
-  if (holdErr) {
-    return NextResponse.json({ error: holdErr.message }, { status: 500 })
-  }
+  if (holdErr) return NextResponse.json({ error: holdErr.message }, { status: 500 })
 
-  // STOCK 자산만 필터 (ETF·CRYPTO·COMMODITY 제외)
-  const allStockHoldings = (holdings ?? []).filter(h =>
+  // STOCK 자산만 (ETF·CRYPTO·COMMODITY 제외)
+  const allStocks = (holdings ?? []).filter(h =>
     getAssetType(h.ticker, h.name, h.market ?? 'US') === 'STOCK'
   )
 
-  // 재고자산이 없는 업종(소프트웨어·금융·서비스 등) 제외 — 2차 필터
-  const stockHoldings = allStockHoldings.filter(h =>
-    hasPhysicalInventory(h.ticker, h.name)
-  )
+  // 사전 제외: 알려진 비제조업 (소프트웨어·금융 등)
+  const analyzeHoldings = allStocks.filter(h => !isNoInventoryCompany(h.ticker, h.name))
+  const heuristicExcluded: InventoryExcluded[] = allStocks
+    .filter(h => isNoInventoryCompany(h.ticker, h.name))
+    .map(h => ({ ticker: h.ticker, name: h.name, reason: getExcludeReason(h.ticker, h.name, 'ok', 0) }))
 
-  // 제외된 종목 목록 (UI 안내용)
-  const excludedFromAnalysis: InventoryExcluded[] = allStockHoldings
-    .filter(h => !hasPhysicalInventory(h.ticker, h.name))
-    .map(h => ({
-      ticker: h.ticker.toUpperCase(),
-      name:   h.name,
-      reason: buildExcludeReason(h.ticker, h.name),
-    }))
-
-  if (stockHoldings.length === 0) {
+  if (analyzeHoldings.length === 0) {
     return NextResponse.json({
-      results:              [],
-      excludedFromAnalysis,
-      summary:              { danger: 0, warning: 0, healthy: 0, unknown: 0 },
-      source:               'empty',
-      message:              excludedFromAnalysis.length > 0
+      results: [], excludedFromAnalysis: heuristicExcluded,
+      summary: { danger:0, warning:0, healthy:0, unknown:0 },
+      source: 'empty',
+      message: heuristicExcluded.length > 0
         ? '현재 포트폴리오에 재고 리스크를 추적할 제조업/하드웨어 종목이 없습니다.'
         : '포트폴리오에 분석 가능한 주식이 없습니다.',
     })
   }
 
-  const tickers = stockHoldings.map(h => h.ticker.toUpperCase())
-
-  // ── 4. 캐시 확인 (오늘 날짜 기준, 최근 4개 분기) ──────────
+  const tickers  = analyzeHoldings.map(h => h.ticker.toUpperCase())
   const todayISO = new Date().toISOString().slice(0, 10)
 
-  // 오늘 updated된 캐시를 가져옴 (복수 분기 포함)
-  // note: 4개 미만이면 아래에서 MISS로 판정해 재조회
+  // ── 4. Supabase 캐시 확인 (오늘 날짜 + 4개 이상 분기) ────
   const { data: cachedRows } = await sbAdmin
     .from('stock_financial_quarters')
     .select('*')
@@ -528,100 +484,80 @@ export async function GET() {
     .order('ticker')
     .order('quarter', { ascending: true })
 
-  // ── 캐시 HIT 판정: 오늘 날짜 + 4개 이상 분기 보유 시만 HIT ──
-  // 이유: 이전에 1개 분기만 저장된 스텁 데이터는 YoY 계산 불가 → MISS 처리
+  // 4개 이상 분기 보유 시만 HIT
   const rowsByTicker = new Map<string, typeof cachedRows extends (infer U)[] | null ? U[] : never[]>()
   for (const row of (cachedRows ?? [])) {
     const arr = rowsByTicker.get(row.ticker) ?? []
     arr.push(row)
     rowsByTicker.set(row.ticker, arr)
   }
-  // 4개 분기 미만 캐시 → MISS (API 재호출 필요)
   const cachedTickers = new Set(
     Array.from(rowsByTicker.entries())
       .filter(([, rows]) => rows.length >= 4)
-      .map(([ticker]) => ticker)
+      .map(([t]) => t)
   )
   const missTickers = tickers.filter(t => !cachedTickers.has(t))
 
-  // ── 5. 캐시 MISS → 외부 API 또는 Mock 데이터 ─────────────
-  const freshResults: InventoryCrossResult[] = []
-  const cacheUpsertRows: object[]           = []
-
-  // FMP API 병렬 호출 (캐시 MISS 종목)
-  const fmpFetchMap = new Map<string, FmpFetchResult>()
-  await Promise.all(
+  // ── 5. MISS → 이원화 파이프라인 병렬 호출 ───────────────
+  const fetchMap = new Map<string, FetchResult>()
+  await Promise.allSettled(
     missTickers.map(async ticker => {
-      const holding = stockHoldings.find(h => h.ticker.toUpperCase() === ticker)
-      if (!holding) return
-      const res = await fetchFmpQuarterly(ticker, holding.market ?? 'US')
-      fmpFetchMap.set(ticker, res)
+      const h = analyzeHoldings.find(x => x.ticker.toUpperCase() === ticker)
+      if (!h) return
+      const res = await fetchQuarterly(ticker, h.market ?? 'US')
+      fetchMap.set(ticker, res)
     })
   )
 
+  // ── 6. freshResults 조립 + 캐시 저장 ─────────────────────
+  const freshResults: InventoryCrossResult[] = []
+  const cacheRows: object[] = []
+
   for (const ticker of missTickers) {
-    const holding = stockHoldings.find(h => h.ticker.toUpperCase() === ticker)
-    if (!holding) continue
+    const h   = analyzeHoldings.find(x => x.ticker.toUpperCase() === ticker)
+    if (!h) continue
+    const res = fetchMap.get(ticker) ?? { status: 'error' as FetchStatus, quarters: [], source: 'unknown' }
+    freshResults.push(buildResult(ticker, h.name, h.market ?? 'US', res))
 
-    const fmpRes   = fmpFetchMap.get(ticker) ?? { status: 'error' as FetchStatus, quarters: [], source: 'fmp' }
-    const result   = buildResultFromFmp(ticker, holding.name, holding.market ?? 'US', fmpRes)
-
-    freshResults.push(result)
-
-    // 캐시 저장용 행 준비 — 전체 4개 분기 저장 (YoY 계산에 필요)
-    // 이전 버그: 최신 1개만 저장 → 캐시 HIT 시 YoY 계산 불가 → UNKNOWN
-    const now = new Date().toISOString()
-    for (const q of result.trend) {
-      cacheUpsertRows.push({
-        ticker:        result.ticker,
-        quarter:       q.quarter,
-        company_name:  result.name,
-        market:        result.market,
-        currency:      result.currency,
-        unit_label:    result.unitLabel,
-        fiscal_date:   q.fiscalDate || null,
-        revenue:       q.revenue,
-        inventory:     q.inventory,
-        revenue_yoy:   q.revenueYoY,
-        inventory_yoy: q.inventoryYoY,
-        signal:        q.signal,
-        gap:           q.gap,
-        data_source:   result.dataSource,
-        updated_at:    now,
-      })
+    // 전체 4개 분기 저장 (YoY 계산용)
+    if (res.status === 'ok') {
+      const result  = freshResults[freshResults.length - 1]
+      const now     = new Date().toISOString()
+      for (const q of result.trend) {
+        cacheRows.push({
+          ticker, quarter: q.quarter,
+          company_name: result.name, market: result.market,
+          currency: result.currency, unit_label: result.unitLabel,
+          fiscal_date: q.fiscalDate || null,
+          revenue: q.revenue, inventory: q.inventory,
+          revenue_yoy: q.revenueYoY, inventory_yoy: q.inventoryYoY,
+          signal: q.signal, gap: q.gap,
+          data_source: result.dataSource, updated_at: now,
+        })
+      }
     }
   }
 
-  // ── 6. 기존 스텁 캐시 삭제 + 신규 데이터 Upsert ────────────
-  // missTickers의 기존 캐시를 모두 삭제한 후 새 4분기 데이터를 저장
-  // (이전 1-row 스텁 데이터가 남아있으면 4개 미만 판정 → 무한 MISS 방지)
+  // 기존 스텁 캐시 삭제 후 새 데이터 저장
   if (missTickers.length > 0) {
-    const { error: delErr } = await sbAdmin
+    await sbAdmin.from('stock_financial_quarters').delete().in('ticker', missTickers)
+  }
+  if (cacheRows.length > 0) {
+    const { error: uErr } = await sbAdmin
       .from('stock_financial_quarters')
-      .delete()
-      .in('ticker', missTickers)
-    if (delErr) console.warn('[inventory-cross] 기존 캐시 삭제 실패:', delErr)
+      .upsert(cacheRows, { onConflict: 'ticker,quarter' })
+    if (uErr) console.error('[inventory-cross] 캐시 저장 실패:', uErr)
   }
 
-  if (cacheUpsertRows.length > 0) {
-    const { error: upsertErr } = await sbAdmin
-      .from('stock_financial_quarters')
-      .upsert(cacheUpsertRows, { onConflict: 'ticker,quarter' })
-    if (upsertErr) console.error('[inventory-cross] cache upsert 실패:', upsertErr)
-  }
-
-  // ── 7. 캐시 HIT 종목 → 결과 변환 ─────────────────────────
+  // ── 7. 캐시 HIT → 결과 변환 ──────────────────────────────
   const cachedResults: InventoryCrossResult[] = []
   for (const ticker of Array.from(cachedTickers)) {
-    const rows = (rowsByTicker.get(ticker) ?? [])
-      .slice()
+    const rows = (rowsByTicker.get(ticker) ?? []).slice()
       .sort((a, b) => a.quarter < b.quarter ? -1 : 1)
-
-    if (rows.length < 4) continue  // 4개 미만은 건너뜀 (위에서 MISS로 처리됨)
+    if (rows.length < 4) continue
 
     const latest = rows[rows.length - 1]
-    const holding = stockHoldings.find(h => h.ticker.toUpperCase() === ticker)
-
+    const h      = analyzeHoldings.find(x => x.ticker.toUpperCase() === ticker)
     const trend: QuarterData[] = rows.map(r => ({
       quarter:      r.quarter,
       fiscalDate:   r.fiscal_date ?? '',
@@ -632,75 +568,39 @@ export async function GET() {
       signal:       (r.signal as CrossSignal) ?? 'UNKNOWN',
       gap:          r.gap !== null ? Number(r.gap) : null,
     }))
-
-    const consecutive = countConsecutiveDanger(trend)
-    const signal      = (latest.signal as CrossSignal) ?? 'UNKNOWN'
-    const gap         = latest.gap !== null ? Number(latest.gap) : 0
-
+    const consec   = countConsecutiveDanger(trend)
+    const signal   = (latest.signal as CrossSignal) ?? 'UNKNOWN'
+    const gap      = latest.gap !== null ? Number(latest.gap) : 0
     cachedResults.push({
-      ticker,
-      name:          latest.company_name || holding?.name || ticker,
-      market:        latest.market   || 'US',
-      currency:      latest.currency || 'USD',
-      unitLabel:     latest.unit_label || 'M$',
-      signal,
-      gap,
-      latestQuarter: latest.quarter,
+      ticker, name: latest.company_name || h?.name || ticker,
+      market: latest.market || 'US', currency: latest.currency || 'USD',
+      unitLabel: latest.unit_label || 'M$',
+      signal, gap, latestQuarter: latest.quarter,
       revenueYoY:    latest.revenue_yoy   !== null ? Number(latest.revenue_yoy)   : 0,
       inventoryYoY:  latest.inventory_yoy !== null ? Number(latest.inventory_yoy) : 0,
-      consecutiveDanger: consecutive,
-      trend,
-      lynchAlert:    buildLynchAlert(signal, latest.company_name || ticker, gap, consecutive),
-      dataSource:    'cache',
+      consecutiveDanger: consec, trend,
+      lynchAlert:   buildLynchAlert(signal, latest.company_name || ticker, gap, consec),
+      dataSource:   'cache',
     })
   }
 
-  // ── 8. 최종 결과 조합 + 정렬 (DANGER → WARNING → HEALTHY) ──
-  const ORDER: Record<CrossSignal, number> = {
-    DANGER: 0, WARNING: 1, HEALTHY: 2, UNKNOWN: 3,
-  }
+  // ── 8. Hard Filter: API 성공 + 재고=0 → 제외 ─────────────
+  const ORDER: Record<CrossSignal, number> = { DANGER:0, WARNING:1, HEALTHY:2, UNKNOWN:3 }
   const rawResults = [...freshResults, ...cachedResults]
     .sort((a, b) => ORDER[a.signal] - ORDER[b.signal] || b.gap - a.gap)
 
-  // ── 8-b. 데이터 기반 배제 — Race Condition 방지 원칙 ────────
-  //
-  // ★ 핵심 규칙:
-  //   API 실패(no_key / rate_limit / error / not_found) → results에 UNKNOWN으로 유지
-  //   API 성공 + inventory = 0 → 실제 재고 없는 기업 → excludedFromAnalysis
-  //
-  // 이유: API 실패 상태를 "재고 없는 기업"으로 오해하면
-  //       SK하이닉스·ETN·GEV 같은 제조업 종목이 전부 탈락하는 버그 발생
-  //
   const shouldExclude = (r: InventoryCrossResult): boolean => {
-    const fmpRes = fmpFetchMap.get(r.ticker)
-
-    // ① API 결과 없거나 실패 → 절대 탈락 금지 (데이터 로딩 실패일 뿐)
-    if (!fmpRes || fmpRes.status !== 'ok') return false
-
-    // ② API 성공 → 실제 재고 데이터가 하나라도 있으면 유지
-    if (r.trend.some(q => (q.inventory ?? 0) > 0)) return false
-
-    // ③ API 성공 + 재고 = 0 → 진짜 재고 없는 기업 (소프트웨어·금융 등)
-    return true
+    const fr = fetchMap.get(r.ticker)
+    if (!fr || fr.status !== 'ok') return false   // API 실패 → 탈락 금지 (UNKNOWN 유지)
+    return !r.trend.some(q => (q.inventory ?? 0) > 0)  // 성공했는데 재고=0 → 제외
   }
-
-  const allResults = rawResults.filter(r => !shouldExclude(r))
-
-  // 탈락 종목(API 성공 + inventory=0 케이스만) → excludedFromAnalysis 병합
-  const dataExcluded: InventoryExcluded[] = rawResults
-    .filter(shouldExclude)
-    .map(r => {
-      const fmpRes  = fmpFetchMap.get(r.ticker)
-      const invSum  = r.trend.reduce((s, q) => s + (q.inventory ?? 0), 0)
-      return {
-        ticker: r.ticker,
-        name:   r.name,
-        reason: buildExcludeReasonV2(r.ticker, r.name, fmpRes?.status as FetchStatus ?? 'ok', invSum),
-      }
-    })
-
-  // 하드코딩 사전 제외 + 데이터 기반 사후 제외 통합
-  const finalExcluded = [...excludedFromAnalysis, ...dataExcluded]
+  const allResults    = rawResults.filter(r => !shouldExclude(r))
+  const dataExcluded: InventoryExcluded[] = rawResults.filter(shouldExclude).map(r => {
+    const fr     = fetchMap.get(r.ticker)
+    const invSum = r.trend.reduce((s, q) => s + (q.inventory ?? 0), 0)
+    return { ticker: r.ticker, name: r.name, reason: getExcludeReason(r.ticker, r.name, fr?.status ?? 'ok', invSum) }
+  })
+  const finalExcluded = [...heuristicExcluded, ...dataExcluded]
 
   // ── 9. 요약 통계 ──────────────────────────────────────────
   const summary = {
@@ -712,17 +612,18 @@ export async function GET() {
 
   return NextResponse.json({
     results:              allResults,
-    excludedFromAnalysis: finalExcluded,  // 사전(heuristic) + 사후(data) 제외 통합
+    excludedFromAnalysis: finalExcluded,
     summary,
-    source:  freshResults.length > 0 && cachedResults.length === 0 ? 'fresh' : 'mixed',
+    source: freshResults.length > 0 ? 'fresh' : 'cache',
     meta: {
-      totalHoldings:   allStockHoldings.length,  // 전체 주식 보유 수
-      analyzable:      stockHoldings.length,      // 재고 분석 가능 수
-      excluded:        finalExcluded.length,
-      analyzed:        allResults.filter(r => r.signal !== 'UNKNOWN').length,
-      cacheHit:        cachedResults.length,
-      cacheMiss:       freshResults.length,
-      updatedAt:       new Date().toISOString(),
+      totalHoldings: allStocks.length,
+      analyzable:    analyzeHoldings.length,
+      excluded:      finalExcluded.length,
+      analyzed:      allResults.filter(r => r.signal !== 'UNKNOWN').length,
+      cacheHit:      cachedResults.length,
+      cacheMiss:     freshResults.length,
+      pipeline:      '미국:yahoo-finance2 / 한국:네이버증권-스크래핑',
+      updatedAt:     new Date().toISOString(),
     },
   })
 }
