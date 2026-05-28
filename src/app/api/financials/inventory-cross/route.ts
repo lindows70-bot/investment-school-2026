@@ -221,24 +221,35 @@ async function fetchUsQuarterly(ticker: string): Promise<FetchResult> {
 
     if (!finList.length) return { status: 'not_found', quarters: [], source: 'yahoo-us' }
 
-    const quarters: RawQuarter[] = finList.map(fin => {
-      const dRaw   = fin.date
-      const dStr   = dRaw instanceof Date
+    // balance-sheet를 날짜 기준 정렬 (매칭용)
+    const balSorted = [...balList].sort((a, b) => {
+      const da = a.date instanceof Date ? a.date.getTime() : new Date(String(a.date??'')).getTime()
+      const db = b.date instanceof Date ? b.date.getTime() : new Date(String(b.date??'')).getTime()
+      return da - db
+    })
+
+    const quarters: RawQuarter[] = finList.map((fin, idx) => {
+      const dRaw = fin.date
+      const dStr = dRaw instanceof Date
         ? dRaw.toISOString().slice(0, 10)
         : String(dRaw ?? '').slice(0, 10)
-      const finMs  = new Date(dStr).getTime()
-      // 날짜 ±7일 범위로 대차대조표 매칭
-      const matchB = balList.find(b => {
+      const finMs = new Date(dStr).getTime()
+
+      // ★ 날짜 매칭 60일로 완화 (NVDA 등 비표준 회계연도 대응)
+      //   1차: ±60일 날짜 매칭
+      //   2차: 날짜 매칭 실패 시 같은 인덱스 항목 사용 (fallback)
+      let matchB = balSorted.find(b => {
         const bd = b.date instanceof Date
           ? b.date.toISOString().slice(0, 10)
           : String(b.date ?? '').slice(0, 10)
-        return Math.abs(new Date(bd).getTime() - finMs) < 7 * 86400_000
+        return Math.abs(new Date(bd).getTime() - finMs) < 60 * 86400_000
       })
-      return {
-        date:      dStr,
-        revenue:   Number(fin.totalRevenue   ?? 0),
-        inventory: Number(matchB?.inventory  ?? 0),
-      }
+      if (!matchB && balSorted[idx]) matchB = balSorted[idx]  // index fallback
+
+      const rev = Number(fin.totalRevenue ?? 0)
+      const inv = Number(matchB?.inventory ?? 0)
+      console.log(`[inventory-cross] ${ticker} Q${idx}: date=${dStr} rev=${rev} inv=${inv}`)
+      return { date: dStr, revenue: rev, inventory: inv }
     }).filter(q => q.date && q.revenue > 0)
 
     if (quarters.length < 4) return { status: 'not_found', quarters: [], source: 'yahoo-us' }
@@ -254,6 +265,8 @@ async function fetchUsQuarterly(ticker: string): Promise<FetchResult> {
 // ════════════════════════════════════════════════════════════
 // ② 한국 주식: 네이버 페이 증권 HTML 스크래핑 (fetch + cheerio)
 // ════════════════════════════════════════════════════════════
+// NAVER_HEADERS 는 WiseReport 내부 WISE_HEADERS로 대체됨 (삭제 금지 — 추후 fallback 용)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const NAVER_HEADERS = {
   'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -268,112 +281,159 @@ function parseKrNumber(s: string): number {
   return parseFloat(clean) || 0
 }
 
-/** 네이버 증권 스크래핑 실제 로직 (내부 함수) */
-async function _naverScrapingCore(code: string): Promise<FetchResult> {
-  const url = `https://finance.naver.com/item/coinfo.naver?code=${code}&target=finsum_more`
-  console.log(`[inventory-cross] KR 네이버 스크래핑 시작: ${code}`)
+/**
+ * WiseReport AJAX 엔드포인트로 분기 재무제표 파싱
+ *
+ * ★ 네이버 증권 coinfo.naver 사용 금지 이유:
+ *   해당 페이지의 재무 테이블은 WiseReport iframe 내부에 있어 빈 HTML 반환
+ *   → 재고자산 행 없음 → inventory=0 → "소프트웨어 기업" 오분류 발생
+ *
+ * WiseReport AJAX 직접 호출:
+ *   손익계산서 (매출액): finDetailGubun=A
+ *   재무상태표 (재고자산): finDetailGubun=B
+ */
+async function _wiseReportScrapingCore(code: string): Promise<FetchResult> {
+  const year = new Date().getFullYear()
 
-  // HTTP fetch (cache: no-store 로 next 캐시 간섭 방지)
-  const res = await fetch(url, { headers: NAVER_HEADERS, cache: 'no-store' })
-  if (!res.ok) {
-    console.error(`[inventory-cross] ${code} 네이버 HTTP ${res.status}`)
-    return { status: 'not_found', quarters: [], source: 'naver', errorMsg: `HTTP ${res.status}` }
+  const WISE_HEADERS = {
+    'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept':          'text/html,application/xhtml+xml,*/*;q=0.8',
+    'Accept-Language': 'ko-KR,ko;q=0.9',
+    'Referer':         `https://navercomp.wisereport.co.kr/v2/company/c1010001.aspx?cmp_cd=${code}`,
   }
 
-  // EUC-KR → 문자열 변환
-  const rawBuf = await res.arrayBuffer()
-  let html: string
-  try { html = new TextDecoder('euc-kr').decode(rawBuf) }
-  catch { html = new TextDecoder('utf-8').decode(rawBuf) }
+  // WiseReport AJAX: 손익계산서 (매출액) + 재무상태표 (재고자산) 병렬 요청
+  const baseUrl = 'https://navercomp.wisereport.co.kr/v2/company/ajax/cF1001.aspx'
+  const commonParams = `cmp_cd=${code}&frmt=&cont=finstate&finGubun=CONNECT&freq=Q&bsns_year=${year}&cnt=8`
 
-  // cheerio 파싱
+  console.log(`[inventory-cross] WiseReport AJAX 요청: ${code}`)
+
+  const [incomeRes, balanceRes] = await Promise.allSettled([
+    fetch(`${baseUrl}?${commonParams}&finDetailGubun=A`, { headers: WISE_HEADERS, cache: 'no-store' }),
+    fetch(`${baseUrl}?${commonParams}&finDetailGubun=B`, { headers: WISE_HEADERS, cache: 'no-store' }),
+  ])
+
+  if (incomeRes.status === 'rejected') {
+    console.error(`[inventory-cross] ${code} WiseReport 손익계산서 요청 실패:`, incomeRes.reason)
+    return { status: 'error', quarters: [], source: 'wisereport', errorMsg: '손익계산서 요청 실패' }
+  }
+  if (!incomeRes.value.ok) {
+    console.error(`[inventory-cross] ${code} WiseReport HTTP ${incomeRes.value.status}`)
+    return { status: 'not_found', quarters: [], source: 'wisereport', errorMsg: `HTTP ${incomeRes.value.status}` }
+  }
+
   const { load } = await import('cheerio')
-  const $        = load(html)
-  const table    = $('table.tb_type1_ifrs, table.tb_type1').first()
 
-  if (!table.length) {
-    // HTML 구조 로깅 (디버깅용)
-    const snippet = html.slice(0, 500).replace(/\s+/g, ' ')
-    console.error(`[inventory-cross] ${code} 재무테이블 미발견. HTML 앞 500자: ${snippet}`)
-    return { status: 'not_found', quarters: [], source: 'naver', errorMsg: '재무 테이블 없음' }
+  // 손익계산서 파싱 (매출액)
+  const incomeHtml = await incomeRes.value.text()
+  const $i         = load(incomeHtml)
+
+  // WiseReport 테이블 찾기 (여러 셀렉터 시도)
+  const incomeTable = $i('table').first()
+  if (!incomeTable.length) {
+    const snippet = incomeHtml.slice(0, 300).replace(/\s+/g, ' ')
+    console.error(`[inventory-cross] ${code} WiseReport 손익 테이블 없음. 앞 300자: ${snippet}`)
+    return { status: 'not_found', quarters: [], source: 'wisereport', errorMsg: '손익계산서 테이블 없음' }
   }
 
-  // 분기 헤더 추출 (예: "2024.03" → "2024-03-31")
+  // 헤더 추출 (날짜 컬럼: "2024/06", "2024/09" 등)
   const headers: string[] = []
-  table.find('thead th').each((_, el) => {
-    const text = $(el).text().trim()
-    if (/^\d{4}[./]\d{2}$/.test(text)) {
-      const [yr, mo] = text.split(/[./]/)
+  incomeTable.find('th').each((_, el) => {
+    const text = $i(el).text().trim()
+    if (/^\d{4}[/.-]\d{2}$/.test(text)) {
+      const [yr, mo] = text.split(/[/.-]/)
       const lastDay  = new Date(parseInt(yr), parseInt(mo), 0).getDate()
       headers.push(`${yr}-${mo.padStart(2,'0')}-${lastDay}`)
     }
   })
-  console.log(`[inventory-cross] ${code} 분기 헤더:`, headers)
+  console.log(`[inventory-cross] ${code} WiseReport 분기 헤더:`, headers)
 
   if (headers.length < 2) {
-    return { status: 'not_found', quarters: [], source: 'naver', errorMsg: `분기 헤더 부족 (${headers.length}개)` }
+    return { status: 'not_found', quarters: [], source: 'wisereport',
+      errorMsg: `분기 헤더 부족 (${headers.length}개). WiseReport 페이지 구조 변경 가능성` }
   }
 
-  // 행 데이터 추출
-  const extractRow = (keywords: string[]): number[] => {
+  // 테이블 행 파싱 헬퍼
+  const extractTableRow = ($: ReturnType<typeof load>, table: ReturnType<ReturnType<typeof load>>, keywords: string[]): number[] => {
     let vals: number[] = []
     table.find('tr').each((_, row) => {
-      const th   = $(row).find('th').first().text().trim()
-      const isOk = keywords.some(kw => th.includes(kw))
-      if (isOk) {
+      const thText = $(row).find('th, td').first().text().trim()
+      const isMatch = keywords.some(kw => thText.includes(kw))
+      if (isMatch) {
         const cells: number[] = []
-        $(row).find('td').each((_, td) => { cells.push(parseKrNumber($(td).text())) })
+        $(row).find('td').each((_, td) => {
+          cells.push(parseKrNumber($(td).text()))
+        })
         if (cells.length > 0) vals = cells
       }
     })
     return vals
   }
 
-  const revenues    = extractRow(['매출액', '매출'])
-  const inventories = extractRow(['재고자산', '재고'])
-  console.log(`[inventory-cross] ${code} 매출 ${revenues.length}개, 재고 ${inventories.length}개`)
+  const revenues = extractTableRow($i, incomeTable, ['매출액', '수익(매출액)', '영업수익', '매출'])
+  console.log(`[inventory-cross] ${code} 매출액 ${revenues.length}개: ${revenues.slice(0,4).join(',')}`)
 
   if (revenues.length < 2) {
-    return { status: 'not_found', quarters: [], source: 'naver',
-      errorMsg: `매출액 데이터 부족 (${revenues.length}개)` }
+    return { status: 'not_found', quarters: [], source: 'wisereport',
+      errorMsg: `매출액 행 미발견 (${revenues.length}개). 행 라벨이 다를 수 있습니다.` }
   }
 
-  // 분기 조립 (최대 8개)
-  const count = Math.min(headers.length, revenues.length, 8)
+  // 재무상태표 파싱 (재고자산)
+  let inventories: number[] = Array(revenues.length).fill(0)
+  if (balanceRes.status === 'fulfilled' && balanceRes.value.ok) {
+    const balHtml  = await balanceRes.value.text()
+    const $b       = load(balHtml)
+    const balTable = $b('table').first()
+    if (balTable.length) {
+      const found = extractTableRow($b, balTable, ['재고자산', '재고'])
+      if (found.length >= 2) {
+        inventories = found
+        console.log(`[inventory-cross] ${code} 재고자산 ${found.length}개: ${found.slice(0,4).join(',')}`)
+      } else {
+        console.warn(`[inventory-cross] ${code} 재고자산 행 미발견 — 제조업이지만 공시 누락 가능`)
+      }
+    }
+  } else {
+    console.warn(`[inventory-cross] ${code} 재무상태표 요청 실패 — 재고 데이터 없이 진행`)
+  }
+
+  // 분기 데이터 조립
+  const count    = Math.min(headers.length, revenues.length, 8)
   const quarters: RawQuarter[] = []
   for (let i = 0; i < count; i++) {
     const rev = revenues[i]
     const inv = inventories.length > i ? inventories[i] : 0
-    if (rev > 0) quarters.push({ date: headers[i], revenue: rev, inventory: inv })
+    if (rev > 0) {
+      quarters.push({ date: headers[i], revenue: rev, inventory: inv })
+    }
   }
 
   if (quarters.length < 2) {
-    return { status: 'not_found', quarters: [], source: 'naver',
+    return { status: 'not_found', quarters: [], source: 'wisereport',
       errorMsg: `유효 분기 부족 (${quarters.length}개)` }
   }
 
-  console.log(`[inventory-cross] ${code} 스크래핑 성공 — ${quarters.length}분기`)
-  return { status: 'ok', quarters, source: 'naver' }
+  console.log(`[inventory-cross] ${code} WiseReport 성공 — ${quarters.length}분기`)
+  return { status: 'ok', quarters, source: 'wisereport' }
 }
 
-/** 네이버 증권 스크래핑 — Promise.race 8초 타임아웃으로 무한 pending 완전 차단 */
+/** WiseReport 스크래핑 — Promise.race 12초 타임아웃으로 무한 pending 차단 */
 async function fetchKrNaverQuarterly(ticker: string): Promise<FetchResult> {
   const code = ticker.replace(/\.(KS|KQ)$/i, '').padStart(6, '0')
 
-  // ★ Promise.race: 8초 안에 응답 없으면 무조건 timeout 결과 반환
-  //   AbortController 단독으로는 Vercel 서버리스 환경에서 발화 안 됨
-  const TIMEOUT_MS = 8_000
+  const TIMEOUT_MS = 12_000
   const timeout = new Promise<FetchResult>(resolve =>
     setTimeout(() => {
-      console.error(`[inventory-cross] ${code} 네이버 타임아웃 (${TIMEOUT_MS}ms)`)
-      resolve({ status: 'error', quarters: [], source: 'naver', errorMsg: `타임아웃 ${TIMEOUT_MS}ms` })
+      console.error(`[inventory-cross] ${code} WiseReport 타임아웃 (${TIMEOUT_MS}ms)`)
+      resolve({ status: 'error', quarters: [], source: 'wisereport',
+        errorMsg: `타임아웃 ${TIMEOUT_MS}ms — WiseReport 서버 응답 지연` })
     }, TIMEOUT_MS)
   )
 
-  const scraping = _naverScrapingCore(code).catch((err: unknown) => {
+  const scraping = _wiseReportScrapingCore(code).catch((err: unknown) => {
     const msg = err instanceof Error ? err.message : String(err)
-    console.error(`[inventory-cross] ${code} 네이버 스크래핑 예외:`, msg.slice(0, 200))
-    return { status: 'error' as const, quarters: [], source: 'naver', errorMsg: msg }
+    console.error(`[inventory-cross] ${code} WiseReport 예외:`, msg.slice(0, 200))
+    return { status: 'error' as const, quarters: [], source: 'wisereport', errorMsg: msg }
   })
 
   return Promise.race([scraping, timeout])
@@ -494,7 +554,12 @@ function getExcludeReason(
     return `${name} 분기 재무제표를 수집할 수 없었습니다. FnGuide 데이터 미제공 종목이거나 재무 공시 지연 상태일 수 있습니다.`
   }
   if (inventorySum === 0) {
-    return '4개 분기 재고자산 합계가 0입니다. API 데이터 이상 또는 소프트웨어 기업으로 추정됩니다.'
+    // ★ 제조업인데 재고=0 → "소프트웨어 기업" 오안내 금지
+    //    isNoInventoryCompany=false(제조업 추정) → 데이터 파싱 오류로 명확 표시
+    const isLikelySoftware = isNoInventoryCompany(ticker, name)
+    return isLikelySoftware
+      ? '소프트웨어·금융·서비스 기업은 물리적 재고자산이 없습니다.'
+      : `${name}는 제조업 기업이나 재고자산 데이터가 0입니다. WiseReport 재무상태표 파싱 오류 또는 공시 누락 상태입니다.`
   }
   return '재고자산 데이터를 확인할 수 없습니다.'
 }
