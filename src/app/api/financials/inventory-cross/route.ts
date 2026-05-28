@@ -176,7 +176,10 @@ async function fetchUsQuarterly(ticker: string): Promise<FetchResult> {
     const { default: YahooFinance } = await import('yahoo-finance2')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const yf     = new (YahooFinance as any)({ suppressNotices: ['yahooSurvey', 'ripHistorical'] })
-    const since  = new Date(Date.now() - 2.5 * 365 * 86400 * 1000).toISOString().slice(0, 10)
+    // ★ 4년치 데이터 요청 — YoY 계산에는 8개 분기(2년)가 필요
+    //   2.5년 → Yahoo Finance가 5~7분기만 반환 → 전년 동기 없음 → YoY=null → 차트 공백
+    //   4년 요청 시 12~16분기 반환 → 안정적 YoY 계산 가능
+    const since  = new Date(Date.now() - 4 * 365 * 86400 * 1000).toISOString().slice(0, 10)
 
     // ★ Promise.allSettled: 한쪽 실패해도 다른 쪽 데이터 활용 (전체 크래시 방지)
     console.log(`[inventory-cross] US Yahoo 조회 시작: ${ticker}`)
@@ -257,132 +260,115 @@ function parseKrNumber(s: string): number {
   return parseFloat(clean) || 0
 }
 
+/** 네이버 증권 스크래핑 실제 로직 (내부 함수) */
+async function _naverScrapingCore(code: string): Promise<FetchResult> {
+  const url = `https://finance.naver.com/item/coinfo.naver?code=${code}&target=finsum_more`
+  console.log(`[inventory-cross] KR 네이버 스크래핑 시작: ${code}`)
+
+  // HTTP fetch (cache: no-store 로 next 캐시 간섭 방지)
+  const res = await fetch(url, { headers: NAVER_HEADERS, cache: 'no-store' })
+  if (!res.ok) {
+    console.error(`[inventory-cross] ${code} 네이버 HTTP ${res.status}`)
+    return { status: 'not_found', quarters: [], source: 'naver', errorMsg: `HTTP ${res.status}` }
+  }
+
+  // EUC-KR → 문자열 변환
+  const rawBuf = await res.arrayBuffer()
+  let html: string
+  try { html = new TextDecoder('euc-kr').decode(rawBuf) }
+  catch { html = new TextDecoder('utf-8').decode(rawBuf) }
+
+  // cheerio 파싱
+  const { load } = await import('cheerio')
+  const $        = load(html)
+  const table    = $('table.tb_type1_ifrs, table.tb_type1').first()
+
+  if (!table.length) {
+    // HTML 구조 로깅 (디버깅용)
+    const snippet = html.slice(0, 500).replace(/\s+/g, ' ')
+    console.error(`[inventory-cross] ${code} 재무테이블 미발견. HTML 앞 500자: ${snippet}`)
+    return { status: 'not_found', quarters: [], source: 'naver', errorMsg: '재무 테이블 없음' }
+  }
+
+  // 분기 헤더 추출 (예: "2024.03" → "2024-03-31")
+  const headers: string[] = []
+  table.find('thead th').each((_, el) => {
+    const text = $(el).text().trim()
+    if (/^\d{4}[./]\d{2}$/.test(text)) {
+      const [yr, mo] = text.split(/[./]/)
+      const lastDay  = new Date(parseInt(yr), parseInt(mo), 0).getDate()
+      headers.push(`${yr}-${mo.padStart(2,'0')}-${lastDay}`)
+    }
+  })
+  console.log(`[inventory-cross] ${code} 분기 헤더:`, headers)
+
+  if (headers.length < 2) {
+    return { status: 'not_found', quarters: [], source: 'naver', errorMsg: `분기 헤더 부족 (${headers.length}개)` }
+  }
+
+  // 행 데이터 추출
+  const extractRow = (keywords: string[]): number[] => {
+    let vals: number[] = []
+    table.find('tr').each((_, row) => {
+      const th   = $(row).find('th').first().text().trim()
+      const isOk = keywords.some(kw => th.includes(kw))
+      if (isOk) {
+        const cells: number[] = []
+        $(row).find('td').each((_, td) => { cells.push(parseKrNumber($(td).text())) })
+        if (cells.length > 0) vals = cells
+      }
+    })
+    return vals
+  }
+
+  const revenues    = extractRow(['매출액', '매출'])
+  const inventories = extractRow(['재고자산', '재고'])
+  console.log(`[inventory-cross] ${code} 매출 ${revenues.length}개, 재고 ${inventories.length}개`)
+
+  if (revenues.length < 2) {
+    return { status: 'not_found', quarters: [], source: 'naver',
+      errorMsg: `매출액 데이터 부족 (${revenues.length}개)` }
+  }
+
+  // 분기 조립 (최대 8개)
+  const count = Math.min(headers.length, revenues.length, 8)
+  const quarters: RawQuarter[] = []
+  for (let i = 0; i < count; i++) {
+    const rev = revenues[i]
+    const inv = inventories.length > i ? inventories[i] : 0
+    if (rev > 0) quarters.push({ date: headers[i], revenue: rev, inventory: inv })
+  }
+
+  if (quarters.length < 2) {
+    return { status: 'not_found', quarters: [], source: 'naver',
+      errorMsg: `유효 분기 부족 (${quarters.length}개)` }
+  }
+
+  console.log(`[inventory-cross] ${code} 스크래핑 성공 — ${quarters.length}분기`)
+  return { status: 'ok', quarters, source: 'naver' }
+}
+
+/** 네이버 증권 스크래핑 — Promise.race 8초 타임아웃으로 무한 pending 완전 차단 */
 async function fetchKrNaverQuarterly(ticker: string): Promise<FetchResult> {
   const code = ticker.replace(/\.(KS|KQ)$/i, '').padStart(6, '0')
 
-  try {
-    // ── 네이버 페이 증권 분기 재무 요약 페이지 ──────────────────
-    const url = `https://finance.naver.com/item/coinfo.naver?code=${code}&target=finsum_more`
-    console.log(`[inventory-cross] KR 네이버 스크래핑 시작: ${code}`)
+  // ★ Promise.race: 8초 안에 응답 없으면 무조건 timeout 결과 반환
+  //   AbortController 단독으로는 Vercel 서버리스 환경에서 발화 안 됨
+  const TIMEOUT_MS = 8_000
+  const timeout = new Promise<FetchResult>(resolve =>
+    setTimeout(() => {
+      console.error(`[inventory-cross] ${code} 네이버 타임아웃 (${TIMEOUT_MS}ms)`)
+      resolve({ status: 'error', quarters: [], source: 'naver', errorMsg: `타임아웃 ${TIMEOUT_MS}ms` })
+    }, TIMEOUT_MS)
+  )
 
-    // ★ AbortController로 10초 타임아웃 (전체 API 블로킹 방지)
-    const ac  = new AbortController()
-    const tid = setTimeout(() => ac.abort(), 10_000)
-    let res: Response
-    try {
-      res = await fetch(url, {
-        headers: NAVER_HEADERS,
-        signal:  ac.signal,
-        next:    { revalidate: 86400 },
-      })
-    } catch (fetchErr: unknown) {
-      clearTimeout(tid)
-      const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
-      console.error(`[inventory-cross] ${code} 네이버 fetch 오류:`, msg)
-      return { status: 'error', quarters: [], source: 'naver', errorMsg: msg }
-    }
-    clearTimeout(tid)
-
-    if (!res.ok) {
-      console.error(`[inventory-cross] ${code} 네이버 HTTP ${res.status} (봇 차단 가능성)`)
-      return { status: 'not_found', quarters: [], source: 'naver', errorMsg: `HTTP ${res.status}` }
-    }
-
-    const rawHtml = await res.arrayBuffer()
-    // EUC-KR 인코딩 처리 (네이버 페이 증권은 EUC-KR 사용)
-    let html: string
-    try {
-      html = new TextDecoder('euc-kr').decode(rawHtml)
-    } catch {
-      html = new TextDecoder('utf-8').decode(rawHtml)
-    }
-
-    // ── cheerio로 파싱 ───────────────────────────────────────────
-    const { load } = await import('cheerio')
-    const $        = load(html)
-
-    // 분기 재무 테이블 찾기 (네이버 증권: .tb_type1_ifrs 또는 .tb_type1)
-    const table = $('table.tb_type1_ifrs, table.tb_type1').first()
-    if (!table.length) {
-      console.error(`[inventory-cross] ${code} 네이버 재무 테이블 미발견 (HTML 구조 변경 가능성)`)
-      return { status: 'not_found', quarters: [], source: 'naver', errorMsg: '재무 테이블 없음' }
-    }
-
-    // ── 헤더: 분기 날짜 추출 (예: "2024.03" → "2024-03-31") ─────
-    const headers: string[] = []
-    table.find('thead th').each((_, el) => {
-      const text = $(el).text().trim()
-      // 날짜 형식: "2024.03", "2023/12" 등
-      if (/^\d{4}[./]\d{2}$/.test(text)) {
-        const [yr, mo] = text.split(/[./]/)
-        const lastDay  = new Date(parseInt(yr), parseInt(mo), 0).getDate()
-        headers.push(`${yr}-${mo.padStart(2,'0')}-${lastDay}`)
-      }
-    })
-
-    if (headers.length < 4) {
-      return { status: 'not_found', quarters: [], source: 'naver', errorMsg: `분기 헤더 부족 (${headers.length}개)` }
-    }
-
-    // ── 행 데이터 추출 헬퍼 ────────────────────────────────────
-    const extractRowValues = (labelKeywords: string[]): number[] => {
-      let values: number[] = []
-      table.find('tr').each((_, row) => {
-        const th    = $(row).find('th').first().text().trim()
-        const isMatch = labelKeywords.some(kw => th.includes(kw))
-        if (isMatch) {
-          const cells: number[] = []
-          $(row).find('td').each((_, td) => {
-            cells.push(parseKrNumber($(td).text()))
-          })
-          if (cells.length > 0) values = cells
-        }
-      })
-      return values
-    }
-
-    const revenues    = extractRowValues(['매출액', '매출'])
-    const inventories = extractRowValues(['재고자산', '재고'])
-
-    if (revenues.length < 4) {
-      console.error(`[inventory-cross] ${code} 네이버 매출액 행 부족: ${revenues.length}개 (최소 4개 필요)`)
-      return {
-        status: 'not_found', quarters: [], source: 'naver',
-        errorMsg: `매출액 행 미발견 (revenues=${revenues.length})`,
-      }
-    }
-    if (inventories.length === 0) {
-      console.warn(`[inventory-cross] ${code} 네이버 재고자산 행 없음 - 서비스 기업일 가능성`)
-    }
-
-    // ── 분기 데이터 조립 ─────────────────────────────────────────
-    // 헤더와 값 배열의 길이를 맞춤 (최대 8개 분기)
-    const count    = Math.min(headers.length, revenues.length, 8)
-    const quarters: RawQuarter[] = []
-
-    for (let i = 0; i < count; i++) {
-      const rev = revenues[i]
-      const inv = inventories.length > i ? inventories[i] : 0
-      if (rev > 0) {
-        quarters.push({
-          date:      headers[i],
-          revenue:   rev,    // 단위: 억원 (KR 단위 그대로)
-          inventory: inv,
-        })
-      }
-    }
-
-    if (quarters.length < 4) {
-      return { status: 'not_found', quarters: [], source: 'naver', errorMsg: `유효 분기 부족 (${quarters.length}개)` }
-    }
-
-    return { status: 'ok', quarters, source: 'naver' }
-
-  } catch (err: unknown) {
+  const scraping = _naverScrapingCore(code).catch((err: unknown) => {
     const msg = err instanceof Error ? err.message : String(err)
-    console.error(`[inventory-cross] KR 네이버 스크래핑 오류 ${code}:`, msg.slice(0, 150))
-    return { status: 'error', quarters: [], source: 'naver', errorMsg: msg }
-  }
+    console.error(`[inventory-cross] ${code} 네이버 스크래핑 예외:`, msg.slice(0, 200))
+    return { status: 'error' as const, quarters: [], source: 'naver', errorMsg: msg }
+  })
+
+  return Promise.race([scraping, timeout])
 }
 
 // ════════════════════════════════════════════════════════════

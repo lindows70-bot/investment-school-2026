@@ -142,13 +142,17 @@ function ChartTip({ active, payload, label }: any) {
 // 4분기 트렌드 차트
 // ────────────────────────────────────────────────────────────
 function TrendMiniChart({ trend }: { trend: QuarterData[] }) {
+  // ★ YoY null 분기도 포함 (revenue > 0 이면 표시)
+  //   이전: null 분기 제외 → 데이터 부족 시 차트 공백
+  //   수정: null → 0 으로 처리, 실제 값 없으면 툴팁에 "데이터 없음" 표시
   const chartData = trend
-    .filter(q => q.revenueYoY !== null && q.inventoryYoY !== null)
+    .filter(q => q.revenue > 0)
     .map(q => ({
       quarter:      q.quarter,
-      revenueYoY:   q.revenueYoY,
-      inventoryYoY: q.inventoryYoY,
+      revenueYoY:   q.revenueYoY,    // null 허용 (차트가 null 처리)
+      inventoryYoY: q.inventoryYoY,  // null 허용
       gap:          q.gap ?? 0,
+      hasYoY:       q.revenueYoY !== null && q.inventoryYoY !== null,
     }))
 
   if (chartData.length === 0) {
