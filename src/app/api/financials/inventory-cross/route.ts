@@ -245,10 +245,20 @@ async function fetchAV(ticker: string): Promise<{ history: QuarterPoint[]; error
 }
 
 // ────────────────────────────────────────────────────────────
-// ② DART OpenAPI — 한국 주식 단일 티커
+// ② DART OpenAPI — 한국 주식 단일 티커 (다중 분기 루프)
+//
+// 전략: 4개 분기 보고서를 개별 호출(Loop)
+//   reprt_code: 11014=Q1, 11012=H1(Q2), 11013=9M(Q3), 11011=Annual(Q4)
+//
+// 누적 보고서 구조:
+//   thstrm_amount = 당기 누적금액  (Q1부터 해당 분기까지)
+//   frmtrm_amount = 전년 동기 누적금액
+//   → YoY = (thstrm - frmtrm) / frmtrm × 100  ← 직접 계산 가능
+//
+// CFS(연결재무제표) 우선 → OFS(별도) 폴백
 // ────────────────────────────────────────────────────────────
 async function fetchDART(ticker: string): Promise<{ history: QuarterPoint[]; errorMsg?: string }> {
-  const KEY      = process.env.DART_API_KEY;
+  const KEY = process.env.DART_API_KEY;
   if (!KEY) return { history: [], errorMsg: 'DART_API_KEY 미설정' };
 
   const code     = ticker.replace(/\.(KS|KQ)$/i, '').padStart(6, '0');
@@ -261,81 +271,137 @@ async function fetchDART(ticker: string): Promise<{ history: QuarterPoint[]; err
 
   const now  = new Date();
   const year = now.getFullYear();
-  const mon  = now.getMonth() + 1;
+  const mon  = now.getMonth() + 1;  // 1~12
 
-  // 현재 시점 기준으로 제출 가능한 보고서 목록 (최신→과거)
-  // 보고서 제출기한: Q1(5월 중), Q2/H1(8월 중), Q3/9M(11월 중), Annual(3월 말)
-  const periods = [
-    ...(mon >= 5  ? [{ y: year,     r: '11014', label: `${String(year).slice(-2)}-Q1` }] : []),
-    ...(mon >= 8  ? [{ y: year,     r: '11012', label: `${String(year).slice(-2)}-Q2` }] : []),
-    ...(mon >= 11 ? [{ y: year,     r: '11013', label: `${String(year).slice(-2)}-Q3` }] : []),
-    { y: year-1, r: '11011', label: `${String(year-1).slice(-2)}-Q4` },
-    { y: year-1, r: '11013', label: `${String(year-1).slice(-2)}-Q3` },
-    { y: year-1, r: '11012', label: `${String(year-1).slice(-2)}-Q2` },
-    { y: year-1, r: '11014', label: `${String(year-1).slice(-2)}-Q1` },
-  ].slice(0, 5);
+  // ── 보고서 제출 기준으로 4개 분기 목록 구성 ─────────────────
+  // DART 제출기한: Q1→5월 중, Q2→8월 중, Q3→11월 중, Annual→익년 3월 말
+  // 현재 시점 기준으로 공시된 가장 최근 4개 분기를 역순 배열
+  const periods: { bsnsYear: number; reprtCode: string; label: string }[] = [];
 
-  console.log(`[DART] ${code} 조회 periods: ${periods.map(p => p.label).join(',')}`);
+  // 당해연도 공시된 분기
+  if (mon >= 5)  periods.push({ bsnsYear: year,   reprtCode: '11014', label: `${String(year).slice(-2)}.1Q` });
+  if (mon >= 8)  periods.push({ bsnsYear: year,   reprtCode: '11012', label: `${String(year).slice(-2)}.2Q` });
+  if (mon >= 11) periods.push({ bsnsYear: year,   reprtCode: '11013', label: `${String(year).slice(-2)}.3Q` });
+  // 전년도 분기 (Annual=Q4, 3Q, 2Q, 1Q)
+  periods.push({ bsnsYear: year-1, reprtCode: '11011', label: `${String(year-1).slice(-2)}.4Q` });
+  periods.push({ bsnsYear: year-1, reprtCode: '11013', label: `${String(year-1).slice(-2)}.3Q` });
+  periods.push({ bsnsYear: year-1, reprtCode: '11012', label: `${String(year-1).slice(-2)}.2Q` });
+  periods.push({ bsnsYear: year-1, reprtCode: '11014', label: `${String(year-1).slice(-2)}.1Q` });
+  // 재재작년 Q4 (4분기 앞 YoY 비교 여유분)
+  periods.push({ bsnsYear: year-2, reprtCode: '11011', label: `${String(year-2).slice(-2)}.4Q` });
+
+  // 최신 4~5개만 조회 (API 호출 최소화)
+  const target = periods.slice(0, 5);
+  console.log(`[DART] ${code} 조회: ${target.map(p => p.label).join(', ')}`);
 
   const BASE = 'https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json';
 
-  const fetches = await Promise.allSettled(
-    periods.map(async p => {
-      const url = `${BASE}?crtfc_key=${KEY}&corp_code=${corpCode}&bsns_year=${p.y}&reprt_code=${p.r}&fs_div=CFS`;
+  /** 단일 분기 보고서 조회 — CFS 우선, 실패 시 OFS 폴백 */
+  const fetchOnePeriod = async (
+    p: typeof target[0]
+  ): Promise<{ label: string; list: unknown[] | null }> => {
+    // CFS(연결) 먼저 시도
+    for (const fsDiv of ['CFS', 'OFS']) {
       try {
-        const res = await fetch(url, { cache: 'no-store' });
-        if (!res.ok) return { label: p.label, data: null };
+        const url = `${BASE}?crtfc_key=${KEY}`
+                  + `&corp_code=${corpCode}`
+                  + `&bsns_year=${p.bsnsYear}`
+                  + `&reprt_code=${p.reprtCode}`
+                  + `&fs_div=${fsDiv}`;
+        const res  = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) continue;
         const json = await res.json();
-        if (json.status !== '000') return { label: p.label, data: null };
-        return { label: p.label, data: json.list ?? [] };
-      } catch { return { label: p.label, data: null }; }
-    })
-  );
+        // status '000'=정상, '013'=데이터없음
+        if (json.status === '000' && Array.isArray(json.list) && json.list.length > 0) {
+          console.log(`[DART] ${code} ${p.label} [${fsDiv}] 수신 ${json.list.length}행`);
+          return { label: p.label, list: json.list };
+        }
+      } catch (e) {
+        console.error(`[DART] ${code} ${p.label} [${fsDiv}] 오류:`, e instanceof Error ? e.message : e);
+      }
+    }
+    console.warn(`[DART] ${code} ${p.label} 데이터 없음`);
+    return { label: p.label, list: null };
+  };
 
+  // 순차 호출 (DART는 제한 관대하지만 동시 다발 방지)
+  const results: Array<{ label: string; list: unknown[] | null }> = [];
+  for (const p of target) {
+    results.push(await fetchOnePeriod(p));
+  }
+
+  // ── 파싱: 각 보고서에서 매출액·재고자산 YoY 추출 ────────────
   const history: QuarterPoint[] = [];
 
-  fetches.forEach(settled => {
-    if (settled.status === 'rejected' || !settled.value.data) return;
-    const { label, data } = settled.value;
+  for (const { label, list } of results) {
+    if (!list) continue;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const find = (keywords: string[]) => (data as any[]).find(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (item: any) => keywords.some(kw => (item.account_nm ?? '').includes(kw))
-    );
+    const items = list as any[];
 
-    const revItem = find(['매출액', '수익(매출액)', '영업수익']);
-    const invItem = find(['재고자산']);
+    // CFS 행만 우선 필터 (혼합된 경우 대비)
+    const cfsList = items.filter(i => i.fs_div === 'CFS');
+    const rows    = cfsList.length > 0 ? cfsList : items;
 
-    const revenue       = toNum(revItem?.thstrm_amount);
-    const prevRevenue   = toNum(revItem?.frmtrm_amount);
-    const inventory     = toNum(invItem?.thstrm_amount);
-    const prevInventory = toNum(invItem?.frmtrm_amount);
+    // ── 매출액 행 탐색 ────────────────────────────────────────
+    // account_nm 우선순위: '매출액' > '수익(매출액)' > '영업수익'
+    const revRow =
+      rows.find(i => i.account_nm === '매출액') ??
+      rows.find(i => (i.account_nm ?? '').includes('매출액')) ??
+      rows.find(i => (i.account_nm ?? '').includes('수익(매출액)')) ??
+      rows.find(i => (i.account_nm ?? '').includes('영업수익'));
 
-    if (revenue === 0) { console.warn(`[DART] ${code} ${label} 매출액 없음`); return; }
+    // ── 재고자산 행 탐색 ─────────────────────────────────────
+    const invRow =
+      rows.find(i => i.account_nm === '재고자산') ??
+      rows.find(i => (i.account_nm ?? '').includes('재고자산'));
 
+    if (!revRow) {
+      console.warn(`[DART] ${code} ${label} 매출액 행 없음. 사용 가능 account_nm:`,
+        rows.slice(0, 8).map(r => r.account_nm).join(', '));
+      continue;
+    }
+
+    // ── 금액 파싱: 쉼표 제거 후 숫자 변환 ────────────────────
+    const revenue       = toNum(revRow.thstrm_amount);  // 당기 누적매출
+    const prevRevenue   = toNum(revRow.frmtrm_amount);  // 전년 동기 누적매출
+    const inventory     = toNum(invRow?.thstrm_amount); // 당기 재고자산
+    const prevInventory = toNum(invRow?.frmtrm_amount); // 전년 동기 재고자산
+
+    console.log(`[DART] ${code} ${label}: rev=${revenue.toLocaleString()} prevRev=${prevRevenue.toLocaleString()} inv=${inventory.toLocaleString()} prevInv=${prevInventory.toLocaleString()}`);
+
+    if (revenue === 0) {
+      console.warn(`[DART] ${code} ${label} thstrm_amount=0, 스킵`);
+      continue;
+    }
+
+    // ── YoY 계산 ────────────────────────────────────────────
+    // frmtrm_amount = 전년 동기 동일 누적값 → 직접 YoY 산출 가능
     const revYoY = calcYoY(revenue,   prevRevenue);
     const invYoY = calcYoY(inventory, prevInventory);
 
-    console.log(`[DART] ${code} ${label}: rev=${revenue} inv=${inventory} revYoY=${revYoY}`);
-
     history.push({
       quarter:      label,
-      revenueYoY:   revYoY ?? 0,
-      inventoryYoY: invYoY ?? 0,
+      revenueYoY:   parseFloat((revYoY   ?? 0).toFixed(1)),
+      inventoryYoY: parseFloat((invYoY   ?? 0).toFixed(1)),
       hasYoY:       revYoY !== null,
     });
-  });
+  }
 
-  // 과거→현재 정렬
+  // ── 과거 → 현재 정렬 후 반환 ─────────────────────────────
   history.sort((a, b) => a.quarter < b.quarter ? -1 : 1);
 
   const withYoY = history.filter(h => h.hasYoY);
   if (withYoY.length === 0) {
-    return { history, errorMsg: `${code}: DART YoY 계산 가능한 분기 없음 (공시 미제출 또는 이전년도 데이터 부족).` };
+    const msg = `${code}: YoY 계산 가능한 분기 없음. DART 공시 미제출 또는 전년 동기 데이터 부족.`;
+    console.error(`[DART] ${msg}`);
+    return {
+      history: history.length > 0 ? history : [],
+      errorMsg: msg,
+    };
   }
 
-  console.log(`[DART] ${code} 성공 — YoY ${withYoY.length}분기`);
+  console.log(`[DART] ${code} 최종 성공 — 전체 ${history.length}분기, YoY있는 분기 ${withYoY.length}개`);
   return { history };
 }
 
