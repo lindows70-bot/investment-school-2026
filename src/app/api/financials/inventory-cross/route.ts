@@ -392,7 +392,13 @@ function buildResultFromFmp(
     inventoryYoY:      latest?.inventoryYoY ?? 0,
     consecutiveDanger: consec,
     trend,
-    lynchAlert:        buildLynchAlert(signal, name, gap, consec),
+    lynchAlert: fmpRes.status === 'ok'
+      ? buildLynchAlert(signal, name, gap, consec)
+      : fmpRes.status === 'no_key'
+        ? `"FMP_API_KEY 환경변수가 설정되지 않아 ${name}의 분기 재무제표를 조회할 수 없습니다. Vercel 환경변수 설정을 확인해주세요."`
+        : fmpRes.status === 'rate_limit'
+          ? `"FMP API 일일 호출 한도(250회) 초과. 내일 자동으로 갱신됩니다. 오늘 조회는 캐시가 없어 대기 중입니다."`
+          : `"${name}의 분기 재무제표 API 조회에 실패했습니다. FMP 미지원 티커이거나 네트워크 오류일 수 있습니다. 잠시 후 새로고침해주세요."`,
     dataSource:        (fmpRes.source as 'fmp' | 'cache' | 'stub' | 'dart'),
   }
 }
@@ -629,31 +635,40 @@ export async function GET() {
   const rawResults = [...freshResults, ...cachedResults]
     .sort((a, b) => ORDER[a.signal] - ORDER[b.signal] || b.gap - a.gap)
 
-  // ── 8-b. 데이터 기반 완전 배제 (Hard Filter) ─────────────
+  // ── 8-b. 데이터 기반 배제 — Race Condition 방지 원칙 ────────
   //
-  // 재고자산(inventory) 합계가 0이거나 trend 데이터 자체가 없는 종목은
-  // 소프트웨어·금융·서비스 기업으로 간주하여 결과 배열에서 완전 제거.
+  // ★ 핵심 규칙:
+  //   API 실패(no_key / rate_limit / error / not_found) → results에 UNKNOWN으로 유지
+  //   API 성공 + inventory = 0 → 실제 재고 없는 기업 → excludedFromAnalysis
   //
-  // - 하드코딩 방식 아님 — 실제 데이터(숫자) 기반 판별
-  // - GOOGL, PLTR, TEM 등: mock/API 데이터 없음 → trend=[] → 자동 탈락
-  // - 향후 모든 신규 종목에도 자동 적용
+  // 이유: API 실패 상태를 "재고 없는 기업"으로 오해하면
+  //       SK하이닉스·ETN·GEV 같은 제조업 종목이 전부 탈락하는 버그 발생
   //
-  const hasInventoryData = (r: InventoryCrossResult): boolean =>
-    r.trend.some(q => (q.inventory ?? 0) > 0)
+  const shouldExclude = (r: InventoryCrossResult): boolean => {
+    const fmpRes = fmpFetchMap.get(r.ticker)
 
-  const allResults = rawResults.filter(hasInventoryData)
+    // ① API 결과 없거나 실패 → 절대 탈락 금지 (데이터 로딩 실패일 뿐)
+    if (!fmpRes || fmpRes.status !== 'ok') return false
 
-  // 데이터 기반으로 탈락된 종목 → excludedFromAnalysis에 병합
+    // ② API 성공 → 실제 재고 데이터가 하나라도 있으면 유지
+    if (r.trend.some(q => (q.inventory ?? 0) > 0)) return false
+
+    // ③ API 성공 + 재고 = 0 → 진짜 재고 없는 기업 (소프트웨어·금융 등)
+    return true
+  }
+
+  const allResults = rawResults.filter(r => !shouldExclude(r))
+
+  // 탈락 종목(API 성공 + inventory=0 케이스만) → excludedFromAnalysis 병합
   const dataExcluded: InventoryExcluded[] = rawResults
-    .filter(r => !hasInventoryData(r))
+    .filter(shouldExclude)
     .map(r => {
-      const fmpRes      = fmpFetchMap.get(r.ticker)
-      const fetchStatus = (fmpRes?.status ?? 'not_found') as FetchStatus
-      const invSum      = r.trend.reduce((s, q) => s + (q.inventory ?? 0), 0)
+      const fmpRes  = fmpFetchMap.get(r.ticker)
+      const invSum  = r.trend.reduce((s, q) => s + (q.inventory ?? 0), 0)
       return {
         ticker: r.ticker,
         name:   r.name,
-        reason: buildExcludeReasonV2(r.ticker, r.name, fetchStatus, invSum),
+        reason: buildExcludeReasonV2(r.ticker, r.name, fmpRes?.status as FetchStatus ?? 'ok', invSum),
       }
     })
 

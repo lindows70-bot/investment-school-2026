@@ -219,7 +219,11 @@ function StockCard({ result }: { result: InventoryCrossResult }) {
             {result.signal === 'DANGER'  && <AlertTriangle size={20} color={C.red} />}
             {result.signal === 'WARNING' && <ShieldAlert   size={20} color={C.yellow} />}
             {result.signal === 'HEALTHY' && <CheckCircle2  size={20} color={C.green} />}
-            {result.signal === 'UNKNOWN' && <PackageOpen   size={20} color={C.textLow} />}
+            {result.signal === 'UNKNOWN' && (
+              <RefreshCw size={18} color={C.textLow}
+                style={{ animation: 'spin 2s linear infinite' }}
+              />
+            )}
           </div>
 
           {/* 종목 정보 */}
@@ -249,7 +253,14 @@ function StockCard({ result }: { result: InventoryCrossResult }) {
               }}>
                 {sm.icon} {sm.label}
               </span>
-              <span style={{ fontSize: 10, color: C.textLow }}>{result.latestQuarter}</span>
+              {result.signal === 'UNKNOWN'
+                ? <span style={{
+                    fontSize: 9, padding: '2px 7px', borderRadius: 20,
+                    background: 'rgba(100,116,139,0.15)', color: C.textLow,
+                    border: '1px dashed rgba(100,116,139,0.3)',
+                  }}>⏳ 재무데이터 조회 중</span>
+                : <span style={{ fontSize: 10, color: C.textLow }}>{result.latestQuarter}</span>
+              }
             </div>
           </div>
 
@@ -528,12 +539,18 @@ export default function LynchInventorySentinel() {
           }}>
             <PackageOpen size={28} style={{ margin: '0 auto 10px', opacity: 0.25 }} />
             <div style={{ fontSize: 13, fontWeight: 700, color: C.textHi, marginBottom: 6 }}>
-              {filterSig !== 'ALL' ? '선택한 시그널의 종목이 없습니다.' : '분석 대상 제조업 종목 없음'}
+              {filterSig !== 'ALL'
+                ? '선택한 시그널의 종목이 없습니다.'
+                : (data?.results ?? []).length > 0
+                  ? '현재 필터에 해당하는 종목이 없습니다.'
+                  : '분석 대상 제조업 종목 없음'}
             </div>
             <div style={{ fontSize: 11, color: C.textLow, lineHeight: 1.8, maxWidth: 380, margin: '0 auto' }}>
               {filterSig !== 'ALL'
-                ? '다른 등급 필터를 선택해주세요.'
-                : (data?.message ?? '현재 포트폴리오에 재고 리스크를 추적할 제조업/하드웨어 종목이 없습니다.')}
+                ? '전체 보기로 전환하거나 다른 필터를 선택해주세요.'
+                : (data?.results ?? []).length > 0
+                  ? '전체 보기 탭을 선택해주세요.'
+                  : (data?.message ?? '현재 포트폴리오에 재고 리스크를 추적할 제조업/하드웨어 종목이 없습니다.')}
             </div>
             {filterSig === 'ALL' && excluded.length > 0 && (
               <div style={{
