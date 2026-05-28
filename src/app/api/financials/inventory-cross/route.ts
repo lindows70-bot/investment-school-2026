@@ -38,6 +38,13 @@ export interface QuarterData {
   gap:           number | null
 }
 
+export interface QuarterlyHistoryItem {
+  quarter:      string
+  revenueYoY:   number   // null → 0 변환 완료 (차트 전용)
+  inventoryYoY: number
+  hasYoY:       boolean
+}
+
 export interface InventoryCrossResult {
   ticker:           string
   name:             string
@@ -51,6 +58,7 @@ export interface InventoryCrossResult {
   inventoryYoY:     number
   consecutiveDanger: number
   trend:            QuarterData[]
+  quarterlyHistory: QuarterlyHistoryItem[]  // 차트 전용 정규화 배열
   lynchAlert:       string
   dataSource:       string
 }
@@ -410,6 +418,15 @@ function buildResult(
       ? `"${name}의 분기 재고·매출 데이터를 수집할 수 없었습니다. 해당 종목의 재무 공시가 아직 업데이트되지 않았거나 지원되지 않는 형식일 수 있습니다."`
       : `"${name}의 재무 데이터 API 조회 중 오류가 발생했습니다. (${res.errorMsg ?? '알 수 없는 오류'}) 잠시 후 새로고침해주세요."`
 
+  // quarterlyHistory: 프론트엔드 차트 dataKey와 1:1 매핑되는 정규화 배열
+  // { quarter, revenueYoY, inventoryYoY } 형태만 포함 (차트 전용)
+  const quarterlyHistory = trend.map(q => ({
+    quarter:      q.quarter,
+    revenueYoY:   q.revenueYoY   ?? 0,   // null → 0 (Recharts Bar는 null 처리 불가)
+    inventoryYoY: q.inventoryYoY ?? 0,
+    hasYoY:       q.revenueYoY !== null && q.inventoryYoY !== null,
+  }))
+
   return {
     ticker, name, market, currency, unitLabel,
     signal, gap,
@@ -418,6 +435,7 @@ function buildResult(
     inventoryYoY:      latest?.inventoryYoY ?? 0,
     consecutiveDanger: consec,
     trend,
+    quarterlyHistory,   // ← 차트 전용 정규화 배열
     lynchAlert,
     dataSource:        res.source,
   }
@@ -661,6 +679,12 @@ export async function GET() {
       revenueYoY:    latest.revenue_yoy   !== null ? Number(latest.revenue_yoy)   : 0,
       inventoryYoY:  latest.inventory_yoy !== null ? Number(latest.inventory_yoy) : 0,
       consecutiveDanger: consec, trend,
+      quarterlyHistory: trend.map(q => ({
+        quarter:      q.quarter,
+        revenueYoY:   q.revenueYoY   ?? 0,
+        inventoryYoY: q.inventoryYoY ?? 0,
+        hasYoY:       q.revenueYoY !== null && q.inventoryYoY !== null,
+      })),
       lynchAlert:   buildLynchAlert(signal, latest.company_name || ticker, gap, consec),
       dataSource:   'cache',
     })
