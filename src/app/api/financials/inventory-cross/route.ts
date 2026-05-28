@@ -100,29 +100,70 @@ function yoy(curr: number, prev: number | undefined): number | null {
   return parseFloat(((curr - prev) / Math.abs(prev) * 100).toFixed(2))
 }
 
-/** 8개 분기 원본 → 최근 4개 YoY 계산 (currency별 단위 변환) */
+/** 8개 분기 원본 → 최근 4개 YoY 계산 (currency별 단위 변환)
+ *  ★ 방어 코드:
+ *   - 전년 동기 데이터 없으면 YoY = null (NaN 전파 방지)
+ *   - NVDA 같은 비표준 회계연도: 날짜 ±45일 유연 매칭
+ *   - 개별 분기 계산 에러 시 try-catch로 격리
+ */
 function buildTrend(raws: RawQuarter[], currency: string): QuarterData[] {
-  const sorted = [...raws].sort((a, b) => a.date < b.date ? -1 : 1)
-  const recent  = sorted.slice(-4)
-  const prevYr  = sorted.slice(-8, -4)
-  return recent.map((q, i): QuarterData => {
-    const p       = prevYr[i]
-    const rev     = currency === 'KRW' ? q.revenue   : Math.round(q.revenue   / 1e6)
-    const inv     = currency === 'KRW' ? q.inventory : Math.round(q.inventory / 1e6)
-    const pRev    = p ? (currency === 'KRW' ? p.revenue   : Math.round(p.revenue   / 1e6)) : 0
-    const pInv    = p ? (currency === 'KRW' ? p.inventory : Math.round(p.inventory / 1e6)) : 0
-    const revYoY  = yoy(rev, pRev || undefined)
-    const invYoY  = yoy(inv, pInv || undefined)
-    const signal  = calcSignal(invYoY, revYoY)
-    return {
-      quarter:      dateToQ(q.date),
-      fiscalDate:   q.date,
-      revenue:      rev,
-      inventory:    inv,
-      revenueYoY:   revYoY,
-      inventoryYoY: invYoY,
-      signal,
-      gap:          calcGap(invYoY, revYoY),
+  if (!Array.isArray(raws) || raws.length === 0) return []
+
+  // 날짜 오름차순 정렬
+  const sorted = [...raws]
+    .filter(q => q.date && q.revenue > 0)
+    .sort((a, b) => a.date < b.date ? -1 : 1)
+
+  const recent = sorted.slice(-4)
+  const older  = sorted.slice(0, -4)  // 전년 동기 후보군
+
+  return recent.map((q): QuarterData => {
+    try {
+      const toUnit = (v: number) => currency === 'KRW' ? v : Math.round(v / 1e6)
+      const rev = toUnit(Number(q.revenue   ?? 0))
+      const inv = toUnit(Number(q.inventory ?? 0))
+
+      // 전년 동기 유연 매칭: ±45일 범위 내 가장 가까운 날짜
+      const qMs = new Date(q.date).getTime()
+      const oneYearMs = 365 * 86400_000
+      const prevCandidates = older.filter(p => {
+        const diff = Math.abs(new Date(p.date).getTime() - (qMs - oneYearMs))
+        return diff < 45 * 86400_000   // ±45일
+      })
+      const p = prevCandidates.length > 0
+        ? prevCandidates.sort((a, b) => {
+            const da = Math.abs(new Date(a.date).getTime() - (qMs - oneYearMs))
+            const db = Math.abs(new Date(b.date).getTime() - (qMs - oneYearMs))
+            return da - db
+          })[0]
+        : undefined  // 전년 동기 없음 → YoY = null
+
+      const pRev = p ? toUnit(Number(p.revenue   ?? 0)) : undefined
+      const pInv = p ? toUnit(Number(p.inventory ?? 0)) : undefined
+
+      const revYoY = yoy(rev, pRev)
+      const invYoY = yoy(inv, pInv)
+      const signal = calcSignal(invYoY, revYoY)
+
+      return {
+        quarter:      dateToQ(q.date),
+        fiscalDate:   q.date,
+        revenue:      rev,
+        inventory:    inv,
+        revenueYoY:   revYoY,
+        inventoryYoY: invYoY,
+        signal,
+        gap:          calcGap(invYoY, revYoY),
+      }
+    } catch (err) {
+      // 개별 분기 계산 오류 → UNKNOWN으로 처리 (전체 중단 금지)
+      console.error(`[inventory-cross] buildTrend 분기 오류 (${q.date}):`, err)
+      return {
+        quarter:      dateToQ(q.date), fiscalDate: q.date,
+        revenue:      0, inventory: 0,
+        revenueYoY:   null, inventoryYoY: null,
+        signal:       'UNKNOWN', gap: null,
+      }
     }
   })
 }
@@ -137,16 +178,35 @@ async function fetchUsQuarterly(ticker: string): Promise<FetchResult> {
     const yf     = new (YahooFinance as any)({ suppressNotices: ['yahooSurvey', 'ripHistorical'] })
     const since  = new Date(Date.now() - 2.5 * 365 * 86400 * 1000).toISOString().slice(0, 10)
 
-    // 병렬로 대차대조표(재고) + 손익계산서(매출) 조회
-    const [balArr, finArr] = await Promise.all([
+    // ★ Promise.allSettled: 한쪽 실패해도 다른 쪽 데이터 활용 (전체 크래시 방지)
+    console.log(`[inventory-cross] US Yahoo 조회 시작: ${ticker}`)
+    const [balResult, finResult] = await Promise.allSettled([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       yf.fundamentalsTimeSeries(ticker, { module: 'balance-sheet', period1: since }) as Promise<any[]>,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       yf.fundamentalsTimeSeries(ticker, { module: 'financials',    period1: since }) as Promise<any[]>,
     ])
 
-    const balList = Array.isArray(balArr) ? balArr : Object.values(balArr)
-    const finList = Array.isArray(finArr) ? finArr : Object.values(finArr)
+    if (balResult.status === 'rejected') {
+      console.error(`[inventory-cross] ${ticker} balance-sheet 오류:`, balResult.reason?.message ?? balResult.reason)
+    }
+    if (finResult.status === 'rejected') {
+      console.error(`[inventory-cross] ${ticker} financials 오류:`, finResult.reason?.message ?? finResult.reason)
+      return { status: 'error', quarters: [], source: 'yahoo-us',
+        errorMsg: `financials 조회 실패: ${finResult.reason?.message ?? '알 수 없는 오류'}` }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const balArr: any[] = balResult.status === 'fulfilled'
+      ? (Array.isArray(balResult.value) ? balResult.value : Object.values(balResult.value as object))
+      : []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const finRaw = (finResult as PromiseFulfilledResult<any>).value
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const finArr: any[] = Array.isArray(finRaw) ? finRaw : Object.values(finRaw as object)
+
+    const balList = balArr
+    const finList = finArr
 
     if (!finList.length) return { status: 'not_found', quarters: [], source: 'yahoo-us' }
 
@@ -203,11 +263,28 @@ async function fetchKrNaverQuarterly(ticker: string): Promise<FetchResult> {
   try {
     // ── 네이버 페이 증권 분기 재무 요약 페이지 ──────────────────
     const url = `https://finance.naver.com/item/coinfo.naver?code=${code}&target=finsum_more`
-    const res = await fetch(url, {
-      headers: NAVER_HEADERS,
-      next:    { revalidate: 86400 },
-    })
+    console.log(`[inventory-cross] KR 네이버 스크래핑 시작: ${code}`)
+
+    // ★ AbortController로 10초 타임아웃 (전체 API 블로킹 방지)
+    const ac  = new AbortController()
+    const tid = setTimeout(() => ac.abort(), 10_000)
+    let res: Response
+    try {
+      res = await fetch(url, {
+        headers: NAVER_HEADERS,
+        signal:  ac.signal,
+        next:    { revalidate: 86400 },
+      })
+    } catch (fetchErr: unknown) {
+      clearTimeout(tid)
+      const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
+      console.error(`[inventory-cross] ${code} 네이버 fetch 오류:`, msg)
+      return { status: 'error', quarters: [], source: 'naver', errorMsg: msg }
+    }
+    clearTimeout(tid)
+
     if (!res.ok) {
+      console.error(`[inventory-cross] ${code} 네이버 HTTP ${res.status} (봇 차단 가능성)`)
       return { status: 'not_found', quarters: [], source: 'naver', errorMsg: `HTTP ${res.status}` }
     }
 
@@ -227,6 +304,7 @@ async function fetchKrNaverQuarterly(ticker: string): Promise<FetchResult> {
     // 분기 재무 테이블 찾기 (네이버 증권: .tb_type1_ifrs 또는 .tb_type1)
     const table = $('table.tb_type1_ifrs, table.tb_type1').first()
     if (!table.length) {
+      console.error(`[inventory-cross] ${code} 네이버 재무 테이블 미발견 (HTML 구조 변경 가능성)`)
       return { status: 'not_found', quarters: [], source: 'naver', errorMsg: '재무 테이블 없음' }
     }
 
@@ -267,10 +345,14 @@ async function fetchKrNaverQuarterly(ticker: string): Promise<FetchResult> {
     const inventories = extractRowValues(['재고자산', '재고'])
 
     if (revenues.length < 4) {
+      console.error(`[inventory-cross] ${code} 네이버 매출액 행 부족: ${revenues.length}개 (최소 4개 필요)`)
       return {
         status: 'not_found', quarters: [], source: 'naver',
         errorMsg: `매출액 행 미발견 (revenues=${revenues.length})`,
       }
+    }
+    if (inventories.length === 0) {
+      console.warn(`[inventory-cross] ${code} 네이버 재고자산 행 없음 - 서비스 기업일 가능성`)
     }
 
     // ── 분기 데이터 조립 ─────────────────────────────────────────
@@ -500,14 +582,28 @@ export async function GET() {
 
   // ── 5. MISS → 이원화 파이프라인 병렬 호출 ───────────────
   const fetchMap = new Map<string, FetchResult>()
-  await Promise.allSettled(
+  const fetchSettled = await Promise.allSettled(
     missTickers.map(async ticker => {
       const h = analyzeHoldings.find(x => x.ticker.toUpperCase() === ticker)
       if (!h) return
-      const res = await fetchQuarterly(ticker, h.market ?? 'US')
-      fetchMap.set(ticker, res)
+      try {
+        const res = await fetchQuarterly(ticker, h.market ?? 'US')
+        fetchMap.set(ticker, res)
+        console.log(`[inventory-cross] ${ticker} 완료: status=${res.status} quarters=${res.quarters.length} source=${res.source}`)
+      } catch (err: unknown) {
+        // ★ try-catch: 개별 종목 에러가 전체 allSettled를 오염시키지 않도록 격리
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error(`[inventory-cross] ${ticker} 예외 발생:`, msg)
+        fetchMap.set(ticker, { status: 'error', quarters: [], source: 'unknown', errorMsg: msg })
+      }
     })
   )
+  // rejected된 Promise 로그 (try-catch 밖 예외)
+  fetchSettled.forEach((r, i) => {
+    if (r.status === 'rejected') {
+      console.error(`[inventory-cross] missTickers[${i}] (${missTickers[i]}) 예외 탈출:`, r.reason)
+    }
+  })
 
   // ── 6. freshResults 조립 + 캐시 저장 ─────────────────────
   const freshResults: InventoryCrossResult[] = []
