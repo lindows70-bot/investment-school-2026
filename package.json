@@ -3,12 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "dev:clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next dev",
-    "build": "next build",
-    "deploy": "npx vercel --prod --yes",
-    "start": "next start",
-    "lint": "next lint"
+    "dev":       "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next dev",
+    "build":     "next build",
+    "deploy":    "npx vercel --prod --yes",
+    "start":     "next start",
+    "lint":      "next lint"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
