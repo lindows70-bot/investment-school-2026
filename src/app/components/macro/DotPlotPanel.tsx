@@ -273,7 +273,7 @@ export default function DotPlotPanel({ currentRate = 3.375 }: DotPlotPanelProps)
           ) : (
             <>
               <ResponsiveContainer width="100%" height={240}>
-                <ScatterChart margin={{ top: 12, right: 16, bottom: 0, left: -12 }}>
+                <ScatterChart margin={{ top: 30, right: 20, bottom: 20, left: 10 }}>
                   <CartesianGrid stroke={C.grid} strokeDasharray="3 3" />
                   <XAxis
                     type="number"
@@ -289,8 +289,8 @@ export default function DotPlotPanel({ currentRate = 3.375 }: DotPlotPanelProps)
                     type="number"
                     dataKey="y"
                     domain={[
-                      Math.min(...yTicks) - 0.05,
-                      Math.max(...yTicks) + 0.05,
+                      (dataMin: number) => dataMin - 0.25,
+                      (dataMax: number) => dataMax + 0.35,
                     ]}
                     ticks={yTicks}
                     tickFormatter={(v: number) => `${Number(v).toFixed(2)}%`}

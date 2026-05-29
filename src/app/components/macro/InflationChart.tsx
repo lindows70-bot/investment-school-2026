@@ -186,7 +186,7 @@ export default function InflationChart({ data, loading, error, isMock, lastUpdat
       )}
 
       <ResponsiveContainer width="100%" height={260}>
-        <LineChart data={data} margin={{ top: 4, right: 24, bottom: 0, left: -8 }}>
+        <LineChart data={data} margin={{ top: 20, right: 45, bottom: 20, left: 20 }}>
           <CartesianGrid stroke={C.grid} strokeDasharray="3 3" vertical={false} />
           <XAxis
             dataKey="month"
@@ -195,6 +195,14 @@ export default function InflationChart({ data, loading, error, isMock, lastUpdat
             interval={Math.floor(data.length / 8)}
           />
           <YAxis
+            yAxisId="left"
+            domain={[yMin, parseFloat(yMax.toFixed(1))]}
+            tick={{ fill: C.textLow, fontSize: 10 }} tickLine={false} axisLine={false}
+            tickFormatter={(v: number) => `${Number(v).toFixed(1)}%`}
+          />
+          <YAxis
+            yAxisId="right"
+            orientation="right"
             domain={[yMin, parseFloat(yMax.toFixed(1))]}
             tick={{ fill: C.textLow, fontSize: 10 }} tickLine={false} axisLine={false}
             tickFormatter={(v: number) => `${Number(v).toFixed(1)}%`}
@@ -202,19 +210,20 @@ export default function InflationChart({ data, loading, error, isMock, lastUpdat
           <Tooltip content={<CustomTooltip />} />
           <Legend wrapperStyle={{ fontSize: 11, color: C.text, paddingTop: 8 }} iconType="plainline" />
           <ReferenceLine
+            yAxisId="left"
             y={FED_TARGET} stroke={C.target} strokeDasharray="6 3"
             strokeWidth={1.5} strokeOpacity={0.75}
             label={{ value: 'Fed Target 2.0%', position: 'insideTopRight', fill: C.target, fontSize: 10, fontWeight: 700 }}
           />
-          <Line type="monotone" dataKey="headlinePCE" name="Headline PCE"
+          <Line yAxisId="left" type="monotone" dataKey="headlinePCE" name="Headline PCE"
             stroke={C.headline} strokeWidth={2.2} dot={false}
             activeDot={{ r: 5, fill: C.headline, stroke: '#0f172a', strokeWidth: 2 }}
           />
-          <Line type="monotone" dataKey="corePCE" name="Core PCE"
+          <Line yAxisId="left" type="monotone" dataKey="corePCE" name="Core PCE"
             stroke={C.core} strokeWidth={2.2} dot={false}
             activeDot={{ r: 5, fill: C.core, stroke: '#0f172a', strokeWidth: 2 }}
           />
-          <Line type="monotone" dataKey="fedRate" name="연방기금금리(EFFR)"
+          <Line yAxisId="left" type="monotone" dataKey="fedRate" name="연방기금금리(EFFR)"
             stroke={C.rate} strokeWidth={2.5} dot={false} strokeDasharray="8 3"
             activeDot={{ r: 5, fill: C.rate, stroke: '#0f172a', strokeWidth: 2 }}
           />
