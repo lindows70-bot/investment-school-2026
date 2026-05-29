@@ -125,8 +125,11 @@ export default function InflationChart({ data, loading, error, isMock, lastUpdat
 
   const badge  = getInflationBadge(data)
   const latest = data[data.length - 1]
-  const yMax   = Math.max(...data.flatMap(d => [d.headlinePCE, d.corePCE, d.fedRate])) + 0.5
-  const yMin   = Math.max(0, Math.min(...data.flatMap(d => [d.headlinePCE, d.corePCE])) - 0.3)
+  // data가 비어있을 때 Infinity/-Infinity 방지 — Mock/에러 상황 모두 안전하게 처리
+  const allVals  = data.length > 0 ? data.flatMap(d => [d.headlinePCE, d.corePCE, d.fedRate]) : [2.0, 5.5]
+  const pceVals  = data.length > 0 ? data.flatMap(d => [d.headlinePCE, d.corePCE])            : [2.0, 3.5]
+  const yMax     = parseFloat((Math.max(...allVals) + 0.5).toFixed(1))
+  const yMin     = parseFloat((Math.max(0, Math.min(...pceVals) - 0.3)).toFixed(1))
 
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: '18px 20px' }}>
@@ -196,14 +199,14 @@ export default function InflationChart({ data, loading, error, isMock, lastUpdat
           />
           <YAxis
             yAxisId="left"
-            domain={[yMin, parseFloat(yMax.toFixed(1))]}
+            domain={[yMin, yMax]}
             tick={{ fill: C.textLow, fontSize: 10 }} tickLine={false} axisLine={false}
             tickFormatter={(v: number) => `${Number(v).toFixed(1)}%`}
           />
           <YAxis
             yAxisId="right"
             orientation="right"
-            domain={[yMin, parseFloat(yMax.toFixed(1))]}
+            domain={[yMin, yMax]}
             tick={{ fill: C.textLow, fontSize: 10 }} tickLine={false} axisLine={false}
             tickFormatter={(v: number) => `${Number(v).toFixed(1)}%`}
           />

@@ -70,10 +70,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const fredUrl = `${FRED_BASE}?${params.toString()}`
 
+  const CACHE_HEADERS = {
+    'Cache-Control': 's-maxage=43200, stale-while-revalidate=86400',
+  }
+
   try {
     const res = await fetch(fredUrl, {
-      // Next.js 서버 캐시: 1시간 (FRED 데이터는 월 1회 업데이트)
-      next: { revalidate: 3600 },
+      // Next.js 서버 캐시: 12시간 (FRED PCE/EFFR는 월 1회 업데이트)
+      next: { revalidate: 43200 },
     })
 
     if (!res.ok) {
@@ -92,11 +96,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       .filter(o => o.value !== '.' && o.value !== '')
       .map(o => ({ date: o.date, value: parseFloat(o.value) }))
 
-    return NextResponse.json({
-      seriesId,
-      units: units ?? 'lin',
-      observations: cleaned,
-    })
+    return NextResponse.json(
+      { seriesId, units: units ?? 'lin', observations: cleaned },
+      { headers: CACHE_HEADERS },
+    )
 
   } catch (err) {
     console.error('[/api/fred] fetch error:', err)

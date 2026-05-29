@@ -17,7 +17,9 @@
     "src/app/api/lynch-classify/route.ts":       { "maxDuration": 20 },
     "src/app/api/lynch-batch/route.ts":          { "maxDuration": 45 },
     "src/app/api/market-indices/route.ts":       { "maxDuration": 20 },
-    "src/app/api/macro-data/route.ts":           { "maxDuration": 30 }
+    "src/app/api/macro-data/route.ts":           { "maxDuration": 30 },
+    "src/app/api/fred/route.ts":                 { "maxDuration": 30 },
+    "src/app/api/fedwatch/route.ts":             { "maxDuration": 20 }
   },
 
   "headers": [
@@ -27,6 +29,18 @@
         { "key": "Cache-Control",              "value": "no-store, no-cache, must-revalidate" },
         { "key": "Access-Control-Allow-Origin", "value": "*" },
         { "key": "X-Content-Type-Options",     "value": "nosniff" }
+      ]
+    },
+    {
+      "source": "/api/fred",
+      "headers": [
+        { "key": "Cache-Control", "value": "s-maxage=43200, stale-while-revalidate=86400" }
+      ]
+    },
+    {
+      "source": "/api/macro-data",
+      "headers": [
+        { "key": "Cache-Control", "value": "s-maxage=43200, stale-while-revalidate=86400" }
       ]
     },
     {
