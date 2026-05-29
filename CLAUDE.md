@@ -1,6 +1,6 @@
 # 2026 투자학교 포트폴리오 앱
 
-> **최종 업데이트**: 2026-05-29
+> **최종 업데이트**: 2026-05-30
 
 ## 프로젝트 개요
 
@@ -84,6 +84,7 @@ src/
 │       ├── LynchEarningsChart.tsx      # 피터 린치 이익선 차트 (FRED 적자구간 처리)
 │       ├── LynchSellSignalPanel.tsx    # 매도 시그널 패널
 │       ├── LynchGhostStockPanel.tsx    # 유령 종목 추적기
+│       ├── EarningsAlertTerminal.tsx   # ★ 어닝 터미널 — G 리비전 추적기 + PEG 알럿 (NEW)
 │       ├── AIPortfolioDashboard.tsx    # AI 멘토 족집게 (PEG 분석)
 │       ├── FullCandleChart.tsx         # 풀 캔들 차트 (평단가 기준선 포함)
 │       ├── CandleChart.tsx             # 기본 캔들 차트
@@ -199,6 +200,57 @@ targetP/S = min(revenueGrowth / 10, 30)
 - ETF·원자재·코인 자동 제외 (`getAssetType() === 'STOCK'` 필터)
 - localStorage 수동 입력 폐기 → `purchase_price` DB 자동 연동
 - 1배(원금) → 2배(2루타) → 5배(홈런) → 10배🏆 마일스톤 게이지
+
+---
+
+## 어닝 터미널 — G 리비전 추적기 (2026-05-30 신규)
+
+### `src/app/components/EarningsAlertTerminal.tsx`
+
+**기능:**
+- 보유 개별 주식의 12M Forward 이익성장률(G) 컨센서스 추이 시각화
+- G 슬라이더 조정 → PEG 실시간 재계산 → 버블 차트 동기화
+- 피터 린치 기준 매매 알럿 자동 판정
+
+**알럿 로직 (우선순위):**
+1. 🟡 체질 변화: 원래 G≥20% 이었으나 현재 G<12% → 고성장→중저성장 다운그레이드
+2. 🟢 매수 적기: PEG ≤ 0.5
+3. ⚡ 매수 경계: 0.4 ≤ PEG ≤ 0.6 (기준선 ±0.1)
+4. 🔴 매도 고려: PEG ≥ 1.5
+5. ⚡ 매도 경계: 1.4 ≤ PEG ≤ 1.6
+6. ⚪ 합리적 보유: 0.6 ≤ PEG < 1.4
+
+**PEG 공식:** `PEG = PE ÷ G(%)` (G는 % 정수, PE=20 + G=20% → PEG=1.0)
+
+**G 추출 우선순위:**
+1. PE/PEG 역산 (dividendMap)
+2. `earningsGrowth` (stock-info YoY 실데이터)
+3. 카테고리 기본값 (fast_grower=25, stalwart=12 등)
+
+**버블 차트 설계:**
+- X축: G 순위 균등 배치 (8종목 겹침 방지, 좌=저성장, 우=고성장)
+- Y축: 실제 PEG 값 (0~3.0 클램핑)
+- 버블 위 라벨: 실제 G% 표시
+- TEMPUS AI 등 PE 없는 종목: 점선 버블 + "PE—"
+
+**필터링:**
+- `getAssetType() === 'STOCK'` 으로 ETF·코인·원자재 제외
+- 티커 중복 방지 (Map dedup)
+- 개별 주식 0개 → Empty State UI
+
+**다국적 통화 지원:**
+```
+isKrTicker(): KRW / market=KR / 6자리 / .KS/.KQ
+fmtPrice(): ₩(KRW) / ¥(JPY) / €(EUR) / $(기본 USD)
+```
+
+**KR 가격 이상값 방어:**
+- PE 역산 EPS가 ₩100,000+ 이면 10배 버그로 판단 → ÷10 보정
+- 삼성바이오로직스(₩750K+)처럼 정상 고가 주식은 보정 안 함
+
+**카테고리 자동 보정:**
+- DB가 fast_grower이지만 실제 G<12% → stalwart 표시
+- 모든 배지 동일 회색 (⚠ 배지 없이 조용히 보정)
 
 ---
 

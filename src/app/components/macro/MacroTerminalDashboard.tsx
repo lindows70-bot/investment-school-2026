@@ -43,9 +43,10 @@ interface PortfolioInvestment {
 }
 
 interface DividendEntry {
-  annualDividend?: number | null
-  dividendYield?:  number | null
-  pe?:             number | null
+  annualDividend?:  number | null
+  dividendYield?:   number | null
+  pe?:              number | null
+  earningsGrowth?:  number | null  // 0~1 소수 또는 % 정수
   peg?:            number | null
 }
 
@@ -146,8 +147,19 @@ export default function MacroTerminalDashboard({
         return {
           ticker:          inv.ticker,
           name:            inv.name ?? inv.ticker,
-          epsGrowth:       pe > 0 && peg > 0 ? Math.round(pe / peg) : 15,
-          revenueGrowth:   pe > 0 && peg > 0 ? Math.round((pe / peg) * 0.85) : 12,
+          // earningsGrowth 폴백: PE/PEG 없는 신규 종목도 합리적 G값 추출
+          epsGrowth: (() => {
+            if (pe > 0 && peg > 0) return Math.round(pe / peg)
+            const eg = safeNumber(div.earningsGrowth)
+            if (eg > 0) return Math.round(eg < 2 ? eg * 100 : eg)
+            return 15
+          })(),
+          revenueGrowth: (() => {
+            if (pe > 0 && peg > 0) return Math.round((pe / peg) * 0.85)
+            const eg = safeNumber(div.earningsGrowth)
+            if (eg > 0) return Math.round((eg < 2 ? eg * 100 : eg) * 0.85)
+            return 12
+          })(),
           debtRatio:       inv.market === 'KR' ? 60 : 50,
           divYield:        safeNumber(div.dividendYield),
           netCashRatio:    10,

@@ -92,8 +92,10 @@ function getLynchMessage(returnPct: number): { text: string; color: string } {
   return { color: '#fbbf24', text: '🏆 텐배거 달성! 피터 린치조차 감탄할 위대한 10루타의 주역이 되셨습니다!' }
 }
 
-function fmtPrice(v: number, currency: 'USD' | 'KRW'): string {
+function fmtPrice(v: number, currency: string): string {
   if (currency === 'KRW') return '₩' + Math.round(v).toLocaleString('ko-KR')
+  if (currency === 'JPY')  return '¥' + Math.round(v).toLocaleString('ja-JP')
+  if (currency === 'EUR')  return '€' + v.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 

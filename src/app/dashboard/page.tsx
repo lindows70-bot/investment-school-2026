@@ -11,6 +11,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import AIPortfolioDashboard from '@/app/components/AIPortfolioDashboard'
 import LynchEarningsChart    from '@/app/components/LynchEarningsChart'
+import EarningsAlertTerminal from '@/app/components/EarningsAlertTerminal'
 import LynchSellSignalPanel  from '@/app/components/LynchSellSignalPanel'
 import TenbaggerRadar        from '@/app/components/TenbaggerRadar'
 import MacroDashboard        from '@/app/components/MacroDashboard'
@@ -652,7 +653,7 @@ export default function DashboardPage() {
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
   const [btActive,  setBtActive]  = useState({ rebalanceQ:true, rebalanceY:false, buyAndHold:true, benchmark:true })
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings'>('live')
 
   // ── AI 멘토 탭: MENTOR_STOCKS 제거 후 컴포넌트에 빈 배열 전달 ──
   // 실제 종목 데이터(PER/성장률)가 API에서 수집되면 여기에 연동 예정
@@ -1390,6 +1391,7 @@ export default function DashboardPage() {
           { key:'signal'   as const, icon:'🚨', label:'매도 시그널 패널',           desc:'유형별 매도 경고등' },
           { key:'ghost'    as const, icon:'👻', label:'유령 종목 추적기',           desc:'기관 소외 × 내부자 매수' },
           { key:'macro'    as const, icon:'🏛️', label:'거시경제 (Fed Watch)',        desc:'금리 · 인플레이션 · QT' },
+          { key:'earnings' as const, icon:'📋', label:'어닝 터미널',                 desc:'G 리비전 · PEG 알럿' },
         ]).map(({ key, icon, label, desc }) => (
           <button key={key} type="button" onClick={() => setDashTab(key)}
             style={{
@@ -2945,6 +2947,19 @@ export default function DashboardPage() {
       <div id="tab-ghost" style={{ display: dashTab==='ghost' ? 'flex' : 'none', flexDirection:'column', gap:0 }}>
         <LynchGhostStockPanel />
       </div>  {/* 유령 종목 탭 끝 */}
+
+      {/* ── 어닝 터미널 탭 ── */}
+      {/* 원본 investments는 그대로 유지 (파이차트·수익률 현황판에 사용)
+          EarningsAlertTerminal에는 SSOT getAssetType으로 개별주식만 필터링하여 전달 */}
+      <div id="tab-earnings" style={{ display: dashTab==='earnings' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <EarningsAlertTerminal
+          investments={investments.filter(
+            inv => getAssetType(inv.ticker, inv.name ?? '', inv.market) === 'STOCK'
+          )}
+          dividendMap={dividendMap}
+          priceMap={priceMap}
+        />
+      </div>
 
       {/* ── 거시경제 Fed Watch 탭 ── */}
       <div id="tab-macro" style={{ display: dashTab==='macro' ? 'flex' : 'none', flexDirection:'column', gap:20 }}>
