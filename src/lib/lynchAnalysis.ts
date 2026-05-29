@@ -334,7 +334,8 @@ export function analyzeEpsMode(
   market:        string | undefined,
   currentPs = 0,
 ): EpsAnalysis {
-  const cat     = (category as LynchCategoryKey) ?? 'na'
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _cat    = (category as LynchCategoryKey) ?? 'na'
   const isKr    = market === 'KR'
 
   // ── Mode 1: ACTUAL (정상 흑자)

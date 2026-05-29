@@ -61,6 +61,8 @@ export default function MacroTerminalDashboard({
   dividendMap       = {},
 }: Props) {
   const [rateShock, setRateShock] = useState(0)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  void setRateShock  // Phase 1 슬라이더 UI 연동 예정
   const macroFactor = toMacroFactor(rateShock)
 
   const getLivePrice = (ticker: string) =>
@@ -97,7 +99,7 @@ export default function MacroTerminalDashboard({
   // Phase 2: 실제 재무 데이터 (/api/macro-fundamentals)
   // ────────────────────────────────────────────────────────
   const [fundamentalData,    setFundamentalData]    = useState<StockFundamental[]>([])
-  const [fundamentalLoading, setFundamentalLoading] = useState(false)
+  const [, setFundamentalLoading] = useState(false)
 
   const fetchFundamentals = useCallback(async () => {
     const stocks = investments.filter(inv => isIndividualStock(inv))

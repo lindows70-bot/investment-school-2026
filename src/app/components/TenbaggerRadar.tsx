@@ -516,8 +516,8 @@ export default function TenbaggerRadar({ priceMap, investments, loading }: Tenba
         <span className="text-base flex-shrink-0">💬</span>
         <p className="text-[11px] leading-relaxed" style={{ color:'#1e2d40' }}>
           <span style={{ color:'#f59e0b', fontWeight:700 }}>피터 린치: </span>
-          "10배짜리 종목(Tenbagger)은 단 한 개만 있어도 포트폴리오 전체의 실수를 만회하고도 남는다.
-          핵심은 성장하는 기업을 포트폴리오에 품고, 주가 등락에 흔들리지 않고 오래 보유하는 것이다."
+          &quot;10배짜리 종목(Tenbagger)은 단 한 개만 있어도 포트폴리오 전체의 실수를 만회하고도 남는다.
+          핵심은 성장하는 기업을 포트폴리오에 품고, 주가 등락에 흔들리지 않고 오래 보유하는 것이다.&quot;
         </p>
       </div>
     </div>

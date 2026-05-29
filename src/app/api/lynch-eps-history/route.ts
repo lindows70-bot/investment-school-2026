@@ -78,7 +78,6 @@ function mapAnnualEpsToQuarters(
 function estimatePrices(
   currentPrice: number,
   quarters: string[],
-  epsArr: number[],
 ): number[] {
   const n = quarters.length
   return quarters.map((_, i) => {
@@ -176,7 +175,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
         // 연간 EPS를 분기 포인트에 매핑 (Lynch 공식: fair value = 연간EPS × PER)
         const epsArr    = mapAnnualEpsToQuarters(annualEps, quarters)
-        const priceArr  = estimatePrices(currentPrice, quarters, epsArr)
+        const priceArr  = estimatePrices(currentPrice, quarters)
         let finalMultiple = baseMultiple
         if (currentPe > 0 && currentPeg > 0 && currentPeg <= 6) {
           const implied = Math.round(currentPe / currentPeg)

@@ -243,7 +243,7 @@ export default function LynchLineTerminal({
             ) : null}
           </div>
           <p className="text-[11px] text-zinc-400 mt-0.5">
-            EPS × 기질 멀티플 실시간 연산 · "현재" 노드 자동 동기화
+            EPS × 기질 멀티플 실시간 연산 · &quot;현재&quot; 노드 자동 동기화
           </p>
         </div>
 
