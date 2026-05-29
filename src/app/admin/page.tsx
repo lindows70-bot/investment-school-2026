@@ -349,7 +349,9 @@ export default function AdminPage() {
   const [copied,          setCopied]          = useState(false)
   const [batchRunning,    setBatchRunning]    = useState(false)
   const [batchResult,     setBatchResult]     = useState<{ updated: number; skipped: number; total: number } | null>(null)
-  const [deletingId,      setDeletingId]      = useState<string | null>(null)   // 삭제 중인 학생 id
+  const [deletingId,      setDeletingId]      = useState<string | null>(null)
+  const [resetPwEmail,    setResetPwEmail]    = useState<string | null>(null)   // 비밀번호 재설정 중인 이메일
+  const [resetPwResult,   setResetPwResult]   = useState<string>('')
 
   // 배포 URL 감지: env 우선 → 배포 환경(non-localhost) → localhost 경고
   const rawOrigin = typeof window !== 'undefined' ? window.location.origin : ''
@@ -514,6 +516,27 @@ export default function AdminPage() {
     }
   }
 
+  // ── 관리자가 특정 학생에게 비밀번호 재설정 이메일 발송 ──────────────────────
+  const handleSendPasswordReset = async (email: string) => {
+    setResetPwEmail(email)
+    setResetPwResult('')
+    try {
+      const sb = createClient()
+      const { error } = await sb.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/login?type=recovery`,
+      })
+      if (error) {
+        setResetPwResult(`❌ 발송 실패: ${error.message}`)
+      } else {
+        setResetPwResult(`✅ ${email} 로 재설정 링크를 발송했습니다.`)
+      }
+    } catch (e) {
+      setResetPwResult(`❌ 오류: ${(e as Error).message}`)
+    } finally {
+      setResetPwEmail(null)
+    }
+  }
+
   // ── 정렬 + 검색 ────────────────────────────────────────────
   const displayed = students
     .filter(s => {
@@ -629,6 +652,16 @@ export default function AdminPage() {
                 {batchResult && (
                   <span style={{ fontSize: 12, color: '#4ade80', alignSelf: 'center', background: '#14532d33', padding: '4px 10px', borderRadius: 6 }}>
                     ✅ {batchResult.updated}개 분류 완료 (건너뜀 {batchResult.skipped})
+                  </span>
+                )}
+                {/* 비밀번호 재설정 결과 */}
+                {resetPwResult && (
+                  <span style={{
+                    fontSize: 12, alignSelf: 'center', padding: '4px 10px', borderRadius: 6,
+                    color: resetPwResult.startsWith('✅') ? '#4ade80' : '#f87171',
+                    background: resetPwResult.startsWith('✅') ? '#14532d33' : '#7f1d1d33',
+                  }}>
+                    {resetPwResult}
                   </span>
                 )}
                 <button onClick={fetchData} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, background: '#1b1e2e', boxShadow: '4px 4px 10px #0e1020, -2px -2px 7px #282c44', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer' }}>
@@ -827,6 +860,26 @@ USING (
                                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#1e1e1e'; (e.currentTarget as HTMLButtonElement).style.color = '#94a3b8' }}
                               >
                                 상세보기
+                              </button>
+                              {/* 비밀번호 재설정 이메일 발송 */}
+                              <button
+                                onClick={() => handleSendPasswordReset(s.email)}
+                                disabled={resetPwEmail === s.email}
+                                title={`${s.full_name} 비밀번호 재설정 링크 발송`}
+                                style={{
+                                  padding: '5px 10px', borderRadius: 7,
+                                  border: '1px solid #1e3a5f',
+                                  background: resetPwEmail === s.email ? '#1e1e1e' : '#0c1e30',
+                                  color: resetPwEmail === s.email ? '#4b5563' : '#60a5fa',
+                                  cursor: resetPwEmail === s.email ? 'not-allowed' : 'pointer',
+                                  fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+                                  display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0,
+                                  transition: 'all 0.15s',
+                                }}
+                                onMouseEnter={e => { if (!resetPwEmail) (e.currentTarget as HTMLButtonElement).style.background = '#1e3a5f' }}
+                                onMouseLeave={e => { if (!resetPwEmail) (e.currentTarget as HTMLButtonElement).style.background = '#0c1e30' }}
+                              >
+                                🔑 비번 재설정
                               </button>
                               {/* 삭제 */}
                               <button

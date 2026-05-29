@@ -14,6 +14,7 @@ import LynchEarningsChart    from '@/app/components/LynchEarningsChart'
 import LynchSellSignalPanel  from '@/app/components/LynchSellSignalPanel'
 import TenbaggerRadar        from '@/app/components/TenbaggerRadar'
 import MacroDashboard        from '@/app/components/MacroDashboard'
+import MacroTerminalDashboard                                from '@/app/components/macro/MacroTerminalDashboard'
 import LynchGhostStockPanel  from '@/app/components/LynchGhostStockPanel'
 // SSOT: 자산 유형 분류는 assetClassifier에서만
 import { getAssetType }          from '@/lib/assetClassifier'
@@ -2752,8 +2753,15 @@ export default function DashboardPage() {
         </Card>
       </div>  {/* 6fr/4fr grid 닫기 */}
 
-      {/* ── 텐배거 마일스톤 트래커 (실시간 탭 하단 고정) ── */}
-      <TenbaggerRadar priceMap={priceMap} usdKrw={usdKrw} />
+      {/* ── 텐배거 마일스톤 트래커 — 개별 주식만 (ETF·원자재·코인 제외) ── */}
+      <TenbaggerRadar
+        priceMap={priceMap}
+        investments={investments.filter(
+          inv => getAssetType(inv.ticker, inv.name ?? '', inv.market) === 'STOCK'
+        )}
+        loading={loading}
+        usdKrw={usdKrw}
+      />
 
       </div>  {/* 실시간 대시보드 탭 끝 */}
 
@@ -2939,8 +2947,15 @@ export default function DashboardPage() {
       </div>  {/* 유령 종목 탭 끝 */}
 
       {/* ── 거시경제 Fed Watch 탭 ── */}
-      <div id="tab-macro" style={{ display: dashTab==='macro' ? 'flex' : 'none', flexDirection:'column', gap:0 }}>
+      <div id="tab-macro" style={{ display: dashTab==='macro' ? 'flex' : 'none', flexDirection:'column', gap:20 }}>
         <MacroDashboard />
+
+        {/* ── Phase 1·2·3 통합 오케스트레이터 — 포트폴리오 + 실시간 가격 + 재무 데이터 */}
+        <MacroTerminalDashboard
+          investments={investments}
+          livePortfolioData={priceMap}
+          dividendMap={dividendMap}
+        />
       </div>  {/* 거시경제 탭 끝 */}
 
     </div>

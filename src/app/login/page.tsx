@@ -264,6 +264,11 @@ function LoginContent() {
   const [forgotEmail,   setForgotEmail]   = useState('')
   const [forgotStatus,  setForgotStatus]  = useState<Status>('idle')
   const [forgotMsg,     setForgotMsg]     = useState('')
+  // ── 비밀번호 재설정 모드 (이메일 링크 클릭 후)
+  const [isRecoveryMode,  setIsRecoveryMode]  = useState(false)
+  const [newPassword,     setNewPassword]     = useState('')
+  const [newPwStatus,     setNewPwStatus]     = useState<Status>('idle')
+  const [newPwMsg,        setNewPwMsg]        = useState('')
   const redirectingRef = useRef(false)  // 중복 리다이렉트 방지
 
   // ── 안정적인 리다이렉트 함수 ────────────────────────────────────────────────
@@ -277,25 +282,65 @@ function LoginContent() {
     window.location.href = '/dashboard'
   }
 
-  // ── onAuthStateChange 리스너 — 세션 수립 즉시 감지 ──────────────────────────
-  // signInWithPassword 후 쿠키가 완전히 전파되는 시점에 SIGNED_IN 이벤트가 발생
+  // ── onAuthStateChange 리스너 ────────────────────────────────────────────────
   useEffect(() => {
     const sb = createClient()
     const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
+      if (event === 'SIGNED_IN' && session && !isRecoveryMode) {
         redirectToDashboard()
+      }
+      // ★ PASSWORD_RECOVERY: 재설정 링크 클릭 시 — 새 비밀번호 입력 화면으로 전환
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsRecoveryMode(true)
+        setShowForgot(false)
       }
     })
     return () => subscription.unsubscribe()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [isRecoveryMode])
 
-  // Support ?tab=signup and ?reason=idle in URL
+  // ── URL ?type=recovery 감지 (이메일 링크에서 직접 접근 시 모드 전환) ─────────
+  useEffect(() => {
+    if (searchParams.get('type') === 'recovery') {
+      setIsRecoveryMode(true)
+    }
+  }, [searchParams])
+
+  // ── 새 비밀번호 설정 핸들러 ────────────────────────────────────────────────
+  const handleSetNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (newPassword.length < 6) {
+      setNewPwStatus('error'); setNewPwMsg('비밀번호는 6자 이상이어야 합니다.'); return
+    }
+    setNewPwStatus('loading'); setNewPwMsg('')
+    const sb = createClient()
+    const { error } = await sb.auth.updateUser({ password: newPassword })
+    if (error) {
+      setNewPwStatus('error')
+      setNewPwMsg('비밀번호 변경에 실패했습니다. 링크가 만료되었을 수 있습니다. 다시 요청해주세요.')
+      return
+    }
+    setNewPwStatus('success')
+    setNewPwMsg('비밀번호가 성공적으로 변경되었습니다. 3초 후 로그인 화면으로 이동합니다.')
+    setTimeout(() => {
+      setIsRecoveryMode(false)
+      setNewPassword('')
+      setNewPwStatus('idle')
+      setNewPwMsg('')
+      setTab('login')
+    }, 3000)
+  }
+
+  // Support ?tab=signup / ?reason=idle / ?type=recovery in URL
   useEffect(() => {
     if (searchParams.get('tab') === 'signup') setTab('signup')
     if (searchParams.get('reason') === 'idle') {
       setStatus('error')
       setMessage('30분 동안 활동이 없어 자동 로그아웃 되었습니다.')
+    }
+    // ?type=recovery 는 onAuthStateChange 이전에 URL만 먼저 도착하는 경우 대비
+    if (searchParams.get('type') === 'recovery') {
+      setIsRecoveryMode(true)
     }
   }, [searchParams])
 
@@ -452,6 +497,77 @@ function LoginContent() {
 
           {/* ── Card ── */}
           <div style={S.card}>
+
+            {/* ★ 비밀번호 재설정 모드 — 탭 전체를 대체 */}
+            {isRecoveryMode ? (
+              <div>
+                <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                  <div style={{ fontSize: 36, marginBottom: 8 }}>🔑</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: '#f1f5f9', marginBottom: 6 }}>
+                    새 비밀번호 설정
+                  </div>
+                  <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6 }}>
+                    새로 사용할 비밀번호를 입력해주세요.<br />
+                    6자 이상이어야 합니다.
+                  </div>
+                </div>
+
+                {newPwStatus === 'error'   && <div style={{ ...S.errorBox,   marginBottom: 16 }}>⚠ {newPwMsg}</div>}
+                {newPwStatus === 'success' && <div style={{ ...S.successBox, marginBottom: 16 }}>✓ {newPwMsg}</div>}
+
+                {newPwStatus !== 'success' && (
+                  <form onSubmit={handleSetNewPassword}>
+                    <div style={S.fieldWrap}>
+                      <label style={S.label}>새 비밀번호</label>
+                      <div style={S.inputWrap}>
+                        <span style={S.inputIcon}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                          </svg>
+                        </span>
+                        <input
+                          type="password"
+                          required
+                          minLength={6}
+                          placeholder="새 비밀번호 (6자 이상)"
+                          value={newPassword}
+                          onChange={e => setNewPassword(e.target.value)}
+                          onFocus={() => setFocused('newpw')}
+                          onBlur={() => setFocused(null)}
+                          style={inputStyle('newpw')}
+                          autoComplete="new-password"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={newPwStatus === 'loading'}
+                      style={{
+                        width: '100%', padding: '12px',
+                        background: newPwStatus === 'loading'
+                          ? 'rgba(37,99,235,0.5)'
+                          : 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                        border: 'none', borderRadius: 8, color: '#fff',
+                        fontSize: 14, fontWeight: 600, cursor: newPwStatus === 'loading' ? 'default' : 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        marginTop: 4, letterSpacing: '0.01em',
+                      }}
+                    >
+                      {newPwStatus === 'loading' ? '변경 중…' : '비밀번호 변경하기'}
+                    </button>
+                  </form>
+                )}
+
+                <button
+                  onClick={() => { setIsRecoveryMode(false); setNewPassword(''); setNewPwStatus('idle'); setNewPwMsg('') }}
+                  style={{ width: '100%', marginTop: 14, background: 'none', border: 'none', color: '#475569', fontSize: 13, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}
+                >
+                  취소하고 로그인으로 돌아가기
+                </button>
+              </div>
+            ) : (
+            <>
             {/* Tab bar */}
             <div style={S.tabBar}>
               <button style={S.tab(tab === 'login')}  onClick={() => reset('login')}>로그인</button>
@@ -639,6 +755,8 @@ function LoginContent() {
                 </>
               )}
             </p>
+            </>
+            )} {/* isRecoveryMode 조건부 닫기 */}
           </div>
 
           {/* Bottom caption */}

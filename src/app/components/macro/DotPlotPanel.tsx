@@ -259,8 +259,34 @@ export default function DotPlotPanel({ currentRate = 3.375 }: DotPlotPanelProps)
 
         {/* ── 버블 ScatterChart */}
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: C.text, marginBottom: 8, letterSpacing: '0.05em' }}>
-            MARKET IMPLIED RATE PATH — BUBBLE CHART
+          {/* 차트 제목 + 읽는 법 안내 */}
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.text, letterSpacing: '0.05em', marginBottom: 6 }}>
+              FOMC별 기준금리 확률 분포 (채권 선물 시장 컨센서스)
+            </div>
+            {/* 📖 차트 읽는 법 박스 */}
+            <div style={{
+              padding: '8px 12px', borderRadius: 8,
+              background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(30,45,65,1)',
+              fontSize: 10, color: '#64748b', lineHeight: 1.7,
+            }}>
+              <div style={{ fontWeight: 700, color: '#94a3b8', marginBottom: 3 }}>📖 차트 읽는 법</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <div>
+                  <span style={{ color: C.consensus, fontWeight: 700 }}>● 황금 버블</span>
+                  {' '}= 해당 FOMC에서 시장이 가장 유력하게 예상하는 금리 수준{' '}
+                  <span style={{ color: '#475569' }}>(= 컨센서스)</span>
+                </div>
+                <div>
+                  <span style={{ color: C.bubble, fontWeight: 700 }}>● 파란 버블</span>
+                  {' '}= 가능하지만 확률이 낮은 대안 시나리오
+                  <span style={{ color: '#475569' }}> · 버블이 클수록 해당 확률이 높음</span>
+                </div>
+                <div style={{ color: '#475569' }}>
+                  📌 X축: 향후 FOMC 회의 날짜 · Y축: 예상 기준금리 수준(%)
+                </div>
+              </div>
+            </div>
           </div>
           {availableCount === 0 ? (
             <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.textLow, fontSize: 12 }}>
@@ -273,7 +299,7 @@ export default function DotPlotPanel({ currentRate = 3.375 }: DotPlotPanelProps)
           ) : (
             <>
               <ResponsiveContainer width="100%" height={240}>
-                <ScatterChart margin={{ top: 30, right: 20, bottom: 20, left: 10 }}>
+                <ScatterChart margin={{ top: 20, right: 16, bottom: 10, left: 8 }}>
                   <CartesianGrid stroke={C.grid} strokeDasharray="3 3" />
                   <XAxis
                     type="number"
@@ -334,15 +360,34 @@ export default function DotPlotPanel({ currentRate = 3.375 }: DotPlotPanelProps)
                 </ScatterChart>
               </ResponsiveContainer>
 
-              {/* 범례 */}
-              <div style={{ display: 'flex', gap: 14, marginTop: 6, fontSize: 10, color: C.textLow }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: C.consensus, boxShadow: '0 0 5px rgba(251,191,36,0.6)' }} />
-                  <span style={{ color: C.consensus }}>★ 컨센서스 (최고 확률)</span>
+              {/* 범례 + 해석 가이드 */}
+              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {/* 범례 아이콘 */}
+                <div style={{ display: 'flex', gap: 16, fontSize: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: C.consensus, boxShadow: '0 0 6px rgba(251,191,36,0.7)', flexShrink: 0 }} />
+                    <span style={{ color: C.consensus, fontWeight: 700 }}>★ 컨센서스 (최고 확률)</span>
+                    <span style={{ color: '#334155' }}>— 시장이 가장 유력하게 보는 금리</span>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: C.bubble, opacity: 0.6 }} />
-                  <span>기타 시나리오 (크기 = 확률)</span>
+                <div style={{ display: 'flex', gap: 16, fontSize: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: C.bubble, opacity: 0.7, flexShrink: 0 }} />
+                    <span style={{ color: C.textLow }}>기타 시나리오</span>
+                    <span style={{ color: '#334155' }}>— 크기(면적)가 클수록 시장 베팅 확률 높음</span>
+                  </div>
+                </div>
+                {/* 실전 해석 팁 */}
+                <div style={{
+                  padding: '6px 10px', borderRadius: 6,
+                  background: 'rgba(251,191,36,0.05)', border: '1px solid rgba(251,191,36,0.12)',
+                  fontSize: 10, color: '#64748b', lineHeight: 1.6,
+                }}>
+                  <span style={{ color: '#fbbf24', fontWeight: 700 }}>💡 실전 팁: </span>
+                  황금 버블이 현재 기준금리(<span style={{ color: '#60a5fa' }}>{currentRate.toFixed(2)}%</span>) 아래로 이동하면
+                  {' '}<span style={{ color: '#34d399' }}>금리 인하 기대</span>,
+                  위로 이동하면 <span style={{ color: '#f87171' }}>인상 기대</span>를 의미합니다.
+                  버블 안의 숫자(%)는 해당 금리가 실현될 확률입니다.
                 </div>
               </div>
             </>

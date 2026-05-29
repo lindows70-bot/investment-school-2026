@@ -131,6 +131,14 @@ export default function InflationChart({ data, loading, error, isMock, lastUpdat
   const yMax     = parseFloat((Math.max(...allVals) + 0.5).toFixed(1))
   const yMin     = parseFloat((Math.max(0, Math.min(...pceVals) - 0.3)).toFixed(1))
 
+  // ★ 명시적 tick 배열 — 좌·우 양쪽 Y축에 동일하게 전달
+  // Recharts 우측 Y축은 데이터가 바인딩되지 않으면 tick을 자동 계산하지 않으므로 반드시 명시 필요
+  const tickStep  = (yMax - yMin) > 3 ? 1.0 : 0.5
+  const yTicks: number[] = []
+  for (let v = Math.ceil(yMin / tickStep) * tickStep; v <= yMax + 0.001; v += tickStep) {
+    yTicks.push(parseFloat(v.toFixed(1)))
+  }
+
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: '18px 20px' }}>
       {/* 헤더 */}
@@ -200,6 +208,7 @@ export default function InflationChart({ data, loading, error, isMock, lastUpdat
           <YAxis
             yAxisId="left"
             domain={[yMin, yMax]}
+            ticks={yTicks}
             tick={{ fill: C.textLow, fontSize: 10 }} tickLine={false} axisLine={false}
             tickFormatter={(v: number) => `${Number(v).toFixed(1)}%`}
           />
@@ -207,6 +216,8 @@ export default function InflationChart({ data, loading, error, isMock, lastUpdat
             yAxisId="right"
             orientation="right"
             domain={[yMin, yMax]}
+            ticks={yTicks}
+            width={48}
             tick={{ fill: C.textLow, fontSize: 10 }} tickLine={false} axisLine={false}
             tickFormatter={(v: number) => `${Number(v).toFixed(1)}%`}
           />
@@ -229,6 +240,18 @@ export default function InflationChart({ data, loading, error, isMock, lastUpdat
           <Line yAxisId="left" type="monotone" dataKey="fedRate" name="연방기금금리(EFFR)"
             stroke={C.rate} strokeWidth={2.5} dot={false} strokeDasharray="8 3"
             activeDot={{ r: 5, fill: C.rate, stroke: '#0f172a', strokeWidth: 2 }}
+          />
+          {/* ★ 우측 Y축 tick 강제 렌더링용 더미 Line
+              Recharts는 데이터가 바인딩된 YAxis만 tick을 렌더링함
+              stroke/dot 모두 투명 → 시각적으로 완전히 숨김 */}
+          <Line
+            yAxisId="right"
+            dataKey="fedRate"
+            stroke="transparent"
+            dot={false}
+            activeDot={false}
+            legendType="none"
+            isAnimationActive={false}
           />
         </LineChart>
       </ResponsiveContainer>
