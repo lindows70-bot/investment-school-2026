@@ -101,6 +101,8 @@ export default function AssetsPage() {
   const [sortKR,     setSortKR]     = useState<SortOption>('eval')
   const [sortCRYPTO, setSortCRYPTO] = useState<SortOption>('eval')
   const classifyAttempted = useRef<Set<string>>(new Set())
+  // ── 텐배거 트래커 평단가 (localStorage → FullCandleChart avgPrice prop 연동)
+  const [tenbaggerPrices, setTenbaggerPrices] = useState<Record<string, number>>({})
   const abortRef = useRef<AbortController|null>(null)
 
   const getTf  = (ticker: string): TimeFrame => tfMap[ticker] ?? '1D'
@@ -293,6 +295,19 @@ export default function AssetsPage() {
   useEffect(() => {
     fetchInvestments().then(invs => { if (invs?.length) { fetchPrices(invs); autoClassify(invs) } })
   }, [fetchInvestments, fetchPrices, autoClassify])
+
+  // ── 텐배거 트래커 평단가 localStorage 로드 ──────────────────
+  // TenbaggerRadar 와 동일한 키 'tenbagger_base_prices_v1' 사용
+  // { "ETN": 320, "NVDA": 120, "000660": 180000, ... } 형태
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('tenbagger_base_prices_v1')
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<string, number>
+        setTenbaggerPrices(parsed)
+      }
+    } catch { /* localStorage 접근 불가 환경 — 기본값 유지 */ }
+  }, [])
 
   const handleRefresh = useCallback(async () => {
     const invs = await fetchInvestments(true)
@@ -754,6 +769,12 @@ export default function AssetsPage() {
                         timeframe={getTf(inv.ticker)}
                         prevClose={prevClose}
                         height={220}
+                        avgPrice={
+                          // 1순위: Supabase DB 실제 매수 평단가 (포트폴리오 등록가 — 항상 정확)
+                          inv.purchase_price > 0 ? inv.purchase_price
+                          // 2순위: 텐배거 트래커 localStorage (포트폴리오 미등록 종목용)
+                          : (tenbaggerPrices[inv.ticker.toUpperCase()] ?? tenbaggerPrices[inv.ticker])
+                        }
                       />
                     ) : (
                       <div style={{ height:220, display:'flex', alignItems:'center', justifyContent:'center', color:'#363855', fontSize:11 }}>

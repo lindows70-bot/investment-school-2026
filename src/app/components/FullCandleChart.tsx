@@ -1,21 +1,38 @@
 'use client'
 
+/**
+ * FullCandleChart v2
+ *
+ * v2 신규 기능
+ *  - avgPrice?: number prop 추가
+ *    · Y축 domain에 avgPrice를 강제 포함 (상하 5% 여유)
+ *    · 황금 점선 수평 기준선 + 우측 라벨 태그 렌더링
+ *    · 호버 툴팁에 "평단가 대비" 수익률 표시
+ *    · 1D / 1W / 1M / 1Y 기간 전환 시에도 고정 유지
+ */
+
 import { useState } from 'react'
 import type { Candle } from './CandleChart'
 
 type TimeFrame = '1D' | '1W' | '1M' | '1Y'
+
+// 평단가 선 색상 — 눈에 잘 띄는 애시드 그린
+const AVG_COLOR = '#deff9a'
 
 interface Props {
   data:       Candle[]
   currency:   string
   timeframe:  TimeFrame
   prevClose?: number
-  height?:    number   // 기본값 300
+  avgPrice?:  number    // ★ 평균단가 (텐배거 트래커 localStorage 연동)
+  height?:    number
 }
 
 const N   = '#1b1e2e'
 
-export default function FullCandleChart({ data, currency, timeframe, prevClose, height: heightProp = 300 }: Props) {
+export default function FullCandleChart({
+  data, currency, timeframe, prevClose, avgPrice, height: heightProp = 300,
+}: Props) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
 
   if (!data?.length) return (
@@ -25,30 +42,29 @@ export default function FullCandleChart({ data, currency, timeframe, prevClose, 
   )
 
   // ── SVG 레이아웃 ──────────────────────────────────────────
-  const W    = 760    // viewBox 너비 (100% 비율 유지)
+  const W    = 760
   const H    = heightProp
   const padL = 6
-  const padR = 66     // Y축 라벨 (우측)
+  const padR = 66
   const padT = 22
-  const padB = 26     // X축 라벨 (하단)
+  const padB = 26
   const plotW = W - padL - padR
   const plotH = H - padT - padB
 
-  // ── 가격 범위 ─────────────────────────────────────────────
+  // ── 가격 범위 — 오직 캔들 데이터만 기준 (avgPrice 완전 제외)
+  // 평단가 때문에 캔들이 납작해지는 것을 방지: Y축은 항상 주가 데이터에만 맞춤
   const prices = data.flatMap(d => [d.high, d.low])
-  const minP   = Math.min(...prices)
-  const maxP   = Math.max(...prices)
-  const range  = maxP - minP || minP * 0.02 || 1
-  const vPad   = range * 0.12
-  const yMin   = minP - vPad
-  const yMax   = maxP + vPad
+  const minP  = Math.min(...prices)
+  const maxP  = Math.max(...prices)
+  const range = maxP - minP || minP * 0.02 || 1
+  const vPad  = range * 0.12
+  const yMin  = minP - vPad
+  const yMax  = maxP + vPad
   const yRange = yMax - yMin
 
   // ── 좌표 변환 ─────────────────────────────────────────────
   const n    = data.length
   const step = plotW / n
-  // 캔들 너비: 캔들 수에 따라 자연스럽게 조절
-  // 30개 이하 → 넓게, 30~80개 → 중간, 80개+ → 좁게
   const cw   = n <= 30 ? Math.min(step * 0.7, 12)
              : n <= 80 ? Math.max(1.5, step * 0.65)
              : Math.max(1, step * 0.6)
@@ -69,10 +85,6 @@ export default function FullCandleChart({ data, currency, timeframe, prevClose, 
   }
   const fmtDate = (date: string) => {
     const d = new Date(date + (date.length === 10 ? 'T09:00:00' : ''))
-    // 1D : 일봉 30개 → MM/DD
-    // 1W : 주봉 26개 → MM/DD (주 시작일)
-    // 1M : 월봉 24개 → YY/MM
-    // 1Y : 월봉 60개 → YY/MM (더 간결하게)
     if (timeframe === '1M' || timeframe === '1Y') {
       return `${String(d.getFullYear()).slice(2)}/${String(d.getMonth()+1).padStart(2,'0')}`
     }
@@ -89,10 +101,26 @@ export default function FullCandleChart({ data, currency, timeframe, prevClose, 
   )
 
   // ── 고가 / 저가 / 마지막 캔들 ─────────────────────────────
-  const maxIdx    = data.reduce((mi, c, i) => c.high > data[mi].high ? i : mi, 0)
-  const minIdx    = data.reduce((mi, c, i) => c.low  < data[mi].low  ? i : mi, 0)
+  const maxIdx     = data.reduce((mi, c, i) => c.high > data[mi].high ? i : mi, 0)
+  const minIdx     = data.reduce((mi, c, i) => c.low  < data[mi].low  ? i : mi, 0)
   const lastCandle = data[n - 1]
   const lastColor  = lastCandle.close >= lastCandle.open ? '#ef4444' : '#3b82f6'
+
+  // ── 평단가 관련 계산 ──────────────────────────────────────
+  const hasAvg  = avgPrice != null && avgPrice > 0
+  const avgY    = hasAvg ? toY(avgPrice!) : 0
+  // ★ 가시 범위 체크: avgY 가 plot 영역(padT ~ padT+plotH) 안에 있을 때만 렌더링
+  //   범위 밖이면 스케일을 깨뜨리지 않고 조용히 숨김 (자연스러운 클리핑)
+  const avgInView = hasAvg && avgY >= padT - 2 && avgY <= padT + plotH + 2
+  // 현재가 기준 수익률 (가시 여부와 무관하게 계산 — 툴팁에도 사용)
+  const avgGap  = hasAvg
+    ? ((lastCandle.close - avgPrice!) / avgPrice!) * 100
+    : null
+  // 라벨 문자열
+  const avgLabel = hasAvg
+    ? `${isKrw ? '평단가' : 'My Avg'}: ${fmtY(avgPrice!)}`
+    : ''
+  const avgTagW  = hasAvg ? Math.max(68, avgLabel.length * 5.4 + 10) : 0
 
   return (
     <div style={{ position:'relative', width:'100%' }}>
@@ -110,6 +138,82 @@ export default function FullCandleChart({ data, currency, timeframe, prevClose, 
           />
         ))}
 
+        {/* ── ★ 평단가 기준선 — 가시 범위 내에 있을 때만 렌더링 ── */}
+        {avgInView && (
+          <>
+            {/* 평단가 배경 글로우 밴드 (±1.5% 범위) */}
+            {(() => {
+              const bandH = Math.max(4, Math.abs(toY(avgPrice! * 0.985) - toY(avgPrice! * 1.015)))
+              const bandY = toY(avgPrice! * 1.015)
+              return (
+                <rect
+                  x={padL} y={bandY}
+                  width={plotW} height={bandH}
+                  fill={AVG_COLOR} fillOpacity={0.04}
+                  rx={2}
+                />
+              )
+            })()}
+
+            {/* 점선 수평선 */}
+            <line
+              x1={padL}      y1={avgY}
+              x2={W - padR}  y2={avgY}
+              stroke={AVG_COLOR}
+              strokeWidth={1.8}
+              strokeDasharray="6 4"
+              strokeOpacity={0.85}
+            />
+
+            {/* 우측 라벨 태그 */}
+            {(() => {
+              const tagH = 15
+              const tagX = W - padR + 1
+              const gapPct = avgGap!
+              const gapStr = `${gapPct >= 0 ? '+' : ''}${gapPct.toFixed(1)}%`
+              const gapColor = gapPct >= 0 ? '#4ade80' : '#f87171'
+              return (
+                <g>
+                  {/* 평단가 태그 */}
+                  <rect
+                    x={tagX} y={avgY - tagH / 2}
+                    width={avgTagW} height={tagH}
+                    fill={`${AVG_COLOR}22`}
+                    stroke={AVG_COLOR}
+                    strokeWidth={0.9}
+                    rx={3}
+                    opacity={0.92}
+                  />
+                  <text
+                    x={tagX + avgTagW / 2} y={avgY + 4}
+                    textAnchor="middle"
+                    fill={AVG_COLOR}
+                    fontSize={8} fontWeight={700}
+                  >
+                    {avgLabel}
+                  </text>
+                  {/* 수익률 작은 태그 (평단가 태그 아래) */}
+                  <text
+                    x={tagX + avgTagW / 2} y={avgY + tagH / 2 + 9}
+                    textAnchor="middle"
+                    fill={gapColor}
+                    fontSize={7.5} fontWeight={700}
+                  >
+                    {gapStr}
+                  </text>
+                </g>
+              )
+            })()}
+
+            {/* 좌측 삼각 인디케이터 */}
+            <polygon
+              points={`${padL - 4},${avgY - 4} ${padL - 4},${avgY + 4} ${padL + 1},${avgY}`}
+              fill={AVG_COLOR}
+              opacity={0.8}
+            />
+          </>
+        )}
+
         {/* ── 전일 종가 기준선 (점선) ── */}
         {prevClose != null && prevClose > 0 && (
           <>
@@ -119,7 +223,6 @@ export default function FullCandleChart({ data, currency, timeframe, prevClose, 
               stroke={lastCandle.close >= prevClose ? '#f87171' : '#60a5fa'}
               strokeWidth={0.9} strokeDasharray="5 4" strokeOpacity={0.55}
             />
-            {/* 전일종가 작은 태그 */}
             {(() => {
               const pColor = lastCandle.close >= prevClose ? '#f87171' : '#60a5fa'
               const lbl = fmtY(prevClose)
@@ -155,7 +258,6 @@ export default function FullCandleChart({ data, currency, timeframe, prevClose, 
               onMouseLeave={() => setHoveredIdx(null)}
               style={{ cursor:'crosshair' }}
             >
-              {/* 호버 배경 */}
               {hovered && (
                 <rect
                   x={x - step / 2} y={padT}
@@ -163,15 +265,12 @@ export default function FullCandleChart({ data, currency, timeframe, prevClose, 
                   fill="rgba(255,255,255,0.035)" rx={2}
                 />
               )}
-              {/* 수직 호버 라인 */}
               {hovered && (
                 <line x1={x} y1={padT} x2={x} y2={padT + plotH}
                   stroke={color} strokeWidth={0.7} strokeDasharray="3 3" strokeOpacity={0.4}/>
               )}
-              {/* 위꼬리 */}
               <line x1={x} y1={toY(c.high)} x2={x} y2={bodyT}
                 stroke={color} strokeWidth={1.2}/>
-              {/* 몸통: 상승=채움, 하락=외곽선 (한국 스타일) */}
               <rect
                 x={x - cw / 2} y={bodyT}
                 width={cw} height={bodyH}
@@ -179,18 +278,16 @@ export default function FullCandleChart({ data, currency, timeframe, prevClose, 
                 stroke={color} strokeWidth={1.2}
                 rx={0.5}
               />
-              {/* 아래꼬리 */}
               <line x1={x} y1={bodyB} x2={x} y2={toY(c.low)}
                 stroke={color} strokeWidth={1.2}/>
             </g>
           )
         })}
 
-        {/* ── 고가 마커 🟡 — 차트 내부에 작은 점+라벨 ── */}
+        {/* ── 고가 마커 ── */}
         {(() => {
           const hx = toX(maxIdx), hy = toY(data[maxIdx].high)
           const lbl = `▲ ${fmtY(data[maxIdx].high)}`
-          // 라벨 위치: 오른쪽 공간 있으면 오른쪽, 없으면 왼쪽
           const lblX = maxIdx > n * 0.7 ? hx - 4 : hx + 4
           const anchor = maxIdx > n * 0.7 ? 'end' : 'start'
           return (
@@ -202,7 +299,7 @@ export default function FullCandleChart({ data, currency, timeframe, prevClose, 
           )
         })()}
 
-        {/* ── 저가 마커 🟣 ── */}
+        {/* ── 저가 마커 ── */}
         {(() => {
           const lx = toX(minIdx), ly = toY(data[minIdx].low)
           const lbl = `▼ ${fmtY(data[minIdx].low)}`
@@ -217,7 +314,7 @@ export default function FullCandleChart({ data, currency, timeframe, prevClose, 
           )
         })()}
 
-        {/* ── 현재가 글로우 점 + 배경 태그 (Y축과 겹치지 않게) ── */}
+        {/* ── 현재가 글로우 점 + 배경 태그 ── */}
         {(() => {
           const cy    = toY(lastCandle.close)
           const label = fmtY(lastCandle.close)
@@ -226,11 +323,9 @@ export default function FullCandleChart({ data, currency, timeframe, prevClose, 
           const tagX  = W - padR + 1
           return (
             <g>
-              {/* 글로우 점 */}
               <circle cx={toX(n - 1)} cy={cy} r={5}
                 fill={lastColor} stroke={N} strokeWidth={2}
                 style={{ filter:`drop-shadow(0 0 6px ${lastColor})` }}/>
-              {/* 현재가 컬러 태그 */}
               <rect x={tagX} y={cy - tagH / 2}
                 width={tagW} height={tagH}
                 fill={lastColor} rx={3} opacity={0.92}/>
@@ -243,13 +338,12 @@ export default function FullCandleChart({ data, currency, timeframe, prevClose, 
           )
         })()}
 
-        {/* ── Y축 라벨 (우측) — 현재가·전일종가 근처 숨김 ── */}
+        {/* ── Y축 라벨 (우측) — 현재가·전일종가·평단가 근처 숨김 ── */}
         {yTicks.map((t, i) => {
           const ty = toY(t)
-          // 현재가 태그와 15px 이내면 숨김 (겹침 방지)
           if (Math.abs(ty - toY(lastCandle.close)) < 14) return null
-          // 전일종가 근처도 숨김
           if (prevClose != null && Math.abs(ty - toY(prevClose)) < 10) return null
+          if (avgInView && Math.abs(ty - avgY) < 10) return null
           return (
             <text key={i} x={W - padR + 4} y={ty + 3.5}
               fill="#3d4155" fontSize={9.5}>{fmtY(t)}</text>
@@ -274,12 +368,16 @@ export default function FullCandleChart({ data, currency, timeframe, prevClose, 
           const c    = data[hoveredIdx]
           const isUp = c.close >= c.open
           const cx   = toX(hoveredIdx)
-          const tipW = 126
-          const tipH = 88
+          // 평단가 행 추가 시 툴팁 높이 증가
+          const tipH = hasAvg ? 102 : 88
+          const tipW = 130
           const tipX = cx + step + tipW > W - padR ? cx - tipW - 4 : cx + 4
           const tipY = Math.max(padT, Math.min(H - padB - tipH - 4, toY(c.high) - tipH / 2))
-          const diff = prevClose ? c.close - prevClose : 0
-          const pct  = prevClose && prevClose > 0 ? (diff / prevClose) * 100 : 0
+          const diff    = prevClose ? c.close - prevClose : 0
+          const pct     = prevClose && prevClose > 0 ? (diff / prevClose) * 100 : 0
+          // 평단가 대비 수익률
+          const avgDiff = hasAvg ? c.close - avgPrice! : null
+          const avgPct  = hasAvg && avgPrice! > 0 ? (avgDiff! / avgPrice!) * 100 : null
           return (
             <g style={{ pointerEvents:'none' }}>
               <rect x={tipX} y={tipY} width={tipW} height={tipH}
@@ -301,6 +399,21 @@ export default function FullCandleChart({ data, currency, timeframe, prevClose, 
                   fill={diff >= 0 ? '#f87171' : '#60a5fa'} fontSize={9} fontWeight={600}>
                   {diff >= 0 ? '+' : ''}{fmtY(diff)} ({pct >= 0 ? '+' : ''}{pct.toFixed(2)}%)
                 </text>
+              )}
+              {/* ★ 평단가 대비 수익률 행 */}
+              {hasAvg && avgPct !== null && (
+                <g>
+                  {/* 구분선 */}
+                  <line
+                    x1={tipX + 6} y1={tipY + tipH - 20}
+                    x2={tipX + tipW - 6} y2={tipY + tipH - 20}
+                    stroke={AVG_COLOR} strokeWidth={0.5} strokeOpacity={0.4}
+                  />
+                  <text x={tipX + 8} y={tipY + tipH - 7}
+                    fill={AVG_COLOR} fontSize={9} fontWeight={700}>
+                    평단가 대비: {avgPct >= 0 ? '+' : ''}{avgPct.toFixed(1)}%
+                  </text>
+                </g>
               )}
             </g>
           )

@@ -45,7 +45,8 @@ interface AnnualPoint {
   price:     number | null   // 연간 평균 실제 주가
   ttmEps:    number          // 해당 연도 EPS (연간)
   actualPer: number | null   // 실제 PER
-  fairValue: number | null   // EPS × 적정PER (음수EPS → null)
+  fairValue: number | null   // EPS × 적정PER (음수EPS → 0, 선 단절 방지)
+  isDeficit: boolean         // EPS ≤ 0 적자 구간 플래그 (툴팁 예외 처리용)
   underLow:  number | null   // 저평가 음영 하단
   underHigh: number | null   // 저평가 음영 상단
   overLow:   number | null   // 고평가 음영 하단
@@ -190,12 +191,14 @@ function ChartTooltip({ active, payload, label, currency }: any) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const get = (key: string) => payload.find((p: any) => p.dataKey === key)?.value ?? null
 
-  const price     = get('price')
-  const fairValue = get('fairValue')
+  const price      = get('price')
+  const fairValue  = get('fairValue')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ttmEps    = payload[0]?.payload?.ttmEps ?? 0
-  const cur       = currency ?? 'USD'
-  const gap       = (price !== null && fairValue !== null && fairValue > 0)
+  const ttmEps     = payload[0]?.payload?.ttmEps     ?? 0
+  const isDeficit  = payload[0]?.payload?.isDeficit  ?? false
+  const cur        = currency ?? 'USD'
+  // 적자 구간(fairValue===0)에서는 괴리율 표시 안 함
+  const gap        = (!isDeficit && price !== null && fairValue !== null && fairValue > 0)
     ? ((price - fairValue) / fairValue * 100)
     : null
 
@@ -207,6 +210,14 @@ function ChartTooltip({ active, payload, label, currency }: any) {
     }}>
       <div style={{ fontWeight:800, color:C.fair, marginBottom:8, fontSize:13 }}>
         📅 {label}년
+        {isDeficit && (
+          <span style={{
+            marginLeft:8, fontSize:10, padding:'2px 6px', borderRadius:4,
+            background:'rgba(248,113,113,0.15)', color:'#f87171', fontWeight:700,
+          }}>
+            📉 적자 구간
+          </span>
+        )}
       </div>
       <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
         {price !== null && (
@@ -219,14 +230,21 @@ function ChartTooltip({ active, payload, label, currency }: any) {
         )}
         <div style={{ display:'flex', justifyContent:'space-between', gap:20 }}>
           <span style={{ color:C.textMid }}>연간 EPS</span>
-          <span style={{ color:C.textHi, fontFamily:'monospace' }}>
+          <span style={{
+            color: isDeficit ? '#f87171' : C.textHi,
+            fontFamily:'monospace',
+          }}>
             {fmtEps(ttmEps, cur)}
+            {isDeficit && <span style={{ marginLeft:4, fontSize:10 }}>(적자)</span>}
           </span>
         </div>
         <div style={{ display:'flex', justifyContent:'space-between', gap:20 }}>
           <span style={{ color:C.textMid }}>린치 적정가치</span>
-          <span style={{ color:C.fair, fontWeight:700, fontFamily:'monospace' }}>
-            {fairValue != null ? fmtPrice(fairValue, cur) : '—'}
+          <span style={{
+            color: isDeficit ? '#f87171' : C.fair,
+            fontWeight:700, fontFamily:'monospace',
+          }}>
+            {isDeficit ? '계산 불가 (적자)' : (fairValue != null ? fmtPrice(fairValue, cur) : '—')}
           </span>
         </div>
         {gap !== null && (
@@ -358,7 +376,7 @@ export default function LynchEarningsChart(props: any) {
   // API 결과
   const [loading,       setLoading]       = useState(false)
   const [error,         setError]         = useState<string | null>(null)
-  const [rawPoints,     setRawPoints]     = useState<Omit<AnnualPoint,'fairValue'|'underLow'|'underHigh'|'overLow'|'overHigh'>[]>([])
+  const [rawPoints,     setRawPoints]     = useState<Omit<AnnualPoint,'fairValue'|'isDeficit'|'underLow'|'underHigh'|'overLow'|'overHigh'>[]>([])
   const [growthRate,        setGrowthRate]        = useState(15)
   const [rawGrowthRate,     setRawGrowthRate]     = useState(15)  // 캡핑 전 원본 성장률
   const [avg5yPer,          setAvg5yPer]          = useState(20)
@@ -520,18 +538,22 @@ export default function LynchEarningsChart(props: any) {
     const years = period === '3Y' ? 3 : 5
     const sliced = rawPoints.slice(-years)
     return sliced.map(p => {
-      // 양수 EPS만 이익선 계산 (음수/0 EPS → null, 차트에 미표시)
-      const fv  = p.ttmEps > 0 ? parseFloat((p.ttmEps * fairPer).toFixed(2)) : null
+      // ★ 적자 구간(EPS ≤ 0): fairValue=0 으로 명시 → 선이 바닥으로 이어짐 (단절 방지)
+      // 양수 EPS: 정상 계산
+      const isDeficit = p.ttmEps <= 0
+      const fv  = isDeficit ? 0 : parseFloat((p.ttmEps * fairPer).toFixed(2))
       const pr  = p.price
-      const isUnder = pr !== null && fv !== null && fv > 0 && pr < fv
-      const isOver  = pr !== null && fv !== null && fv > 0 && pr > fv
+      // 저평가·고평가 음영: fairValue > 0 인 구간에서만 표시
+      const isUnder = pr !== null && !isDeficit && fv > 0 && pr < fv
+      const isOver  = pr !== null && !isDeficit && fv > 0 && pr > fv
       return {
         ...p,
         fairValue:  fv,
-        underLow:   isUnder ? pr       : null,
-        underHigh:  isUnder ? fv       : null,
-        overLow:    isOver  ? fv       : null,
-        overHigh:   isOver  ? pr       : null,
+        isDeficit,
+        underLow:   isUnder ? pr : null,
+        underHigh:  isUnder ? fv : null,
+        overLow:    isOver  ? fv : null,
+        overHigh:   isOver  ? pr : null,
       }
     })
   }, [rawPoints, fairPer, period])
@@ -553,12 +575,15 @@ export default function LynchEarningsChart(props: any) {
   const isKrw = currency === 'KRW'
 
   const yDomain = useMemo((): [number, number] => {
-    const vals = chartData
-      .flatMap(d => [d.price, d.fairValue])
-      .filter((v): v is number => v !== null && v > 0)
+    // 실제 주가는 > 0, fairValue는 0(적자) 포함 — 0 값도 차트에 표시하기 위해 >= 0
+    const prices    = chartData.map(d => d.price).filter((v): v is number => v !== null && v > 0)
+    const fairVals  = chartData.map(d => d.fairValue).filter((v): v is number => v !== null && v >= 0)
+    const vals = [...prices, ...fairVals]
     if (vals.length === 0) return [0, 100]
-    const lo  = Math.min(...vals)
-    const hi  = Math.max(...vals)
+    // 적자 구간(fairValue=0)이 있으면 하단을 0으로 고정, 없으면 정상 패딩
+    const hasDeficit = chartData.some(d => d.isDeficit)
+    const hi  = Math.max(...vals.filter(v => v > 0))
+    const lo  = hasDeficit ? 0 : Math.min(...vals.filter(v => v > 0))
     const pad = Math.max((hi - lo) * 0.14, hi * 0.06)  // 최소 6% 패딩
     return [Math.max(0, Math.floor(lo - pad)), Math.ceil(hi + pad)]
   }, [chartData])
@@ -756,6 +781,23 @@ export default function LynchEarningsChart(props: any) {
           </div>
         </div>
 
+        {/* ── 적자 구간 안내 배너 ─────────────────────────────── */}
+        {!loading && !noEpsReason && chartData.some(d => d.isDeficit) && (
+          <div style={{
+            padding:'10px 14px', borderRadius:10, marginBottom:6,
+            background:'rgba(248,113,113,0.08)', border:'1px solid rgba(248,113,113,0.25)',
+            display:'flex', alignItems:'flex-start', gap:10,
+          }}>
+            <span style={{ fontSize:15, flexShrink:0 }}>📉</span>
+            <div style={{ fontSize:11, color:'#fca5a5', lineHeight:1.7 }}>
+              <strong>EPS 적자 구간 포함</strong>
+              {' '}· {chartData.filter(d => d.isDeficit).map(d => d.year).join(', ')}년은 적자로
+              인해 린치 적정가치를 계산할 수 없습니다. 해당 구간은 <strong>이익선이 바닥(0)으로
+              표시</strong>되며, 마우스 오버 시 &ldquo;계산 불가(적자)&rdquo; 안내가 표시됩니다.
+            </div>
+          </div>
+        )}
+
         {/* ── 성장률 50% 초과 경고 배너 ─────────────────────── */}
         {!loading && !noEpsReason && rawGrowthRate > 50 && perModel === 'growth' && (
           <div style={{
@@ -848,18 +890,18 @@ export default function LynchEarningsChart(props: any) {
                   {/* 저평가 음영 */}
                   <Area type="monotone" dataKey="underHigh"
                     stroke="none" fill="url(#lc-underGrad)" fillOpacity={1}
-                    connectNulls={false} isAnimationActive={false} legendType="none" />
+                    connectNulls={true} isAnimationActive={false} legendType="none" />
                   <Area type="monotone" dataKey="underLow"
                     stroke="none" fill={C.bg} fillOpacity={1}
-                    connectNulls={false} isAnimationActive={false} legendType="none" />
+                    connectNulls={true} isAnimationActive={false} legendType="none" />
 
                   {/* 고평가 음영 */}
                   <Area type="monotone" dataKey="overHigh"
                     stroke="none" fill="url(#lc-overGrad)" fillOpacity={1}
-                    connectNulls={false} isAnimationActive={false} legendType="none" />
+                    connectNulls={true} isAnimationActive={false} legendType="none" />
                   <Area type="monotone" dataKey="overLow"
                     stroke="none" fill={C.bg} fillOpacity={1}
-                    connectNulls={false} isAnimationActive={false} legendType="none" />
+                    connectNulls={true} isAnimationActive={false} legendType="none" />
 
                   {/* 피터 린치 이익선 (황금 점선) */}
                   <Line type="monotone" dataKey="fairValue"

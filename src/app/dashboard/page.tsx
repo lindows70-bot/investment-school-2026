@@ -12,6 +12,8 @@ import { createClient } from '@/lib/supabase/client'
 import AIPortfolioDashboard from '@/app/components/AIPortfolioDashboard'
 import LynchEarningsChart    from '@/app/components/LynchEarningsChart'
 import LynchSellSignalPanel  from '@/app/components/LynchSellSignalPanel'
+import TenbaggerRadar        from '@/app/components/TenbaggerRadar'
+import MacroDashboard        from '@/app/components/MacroDashboard'
 import LynchGhostStockPanel  from '@/app/components/LynchGhostStockPanel'
 // SSOT: 자산 유형 분류는 assetClassifier에서만
 import { getAssetType }          from '@/lib/assetClassifier'
@@ -649,7 +651,7 @@ export default function DashboardPage() {
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
   const [btActive,  setBtActive]  = useState({ rebalanceQ:true, rebalanceY:false, buyAndHold:true, benchmark:true })
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro'>('live')
 
   // ── AI 멘토 탭: MENTOR_STOCKS 제거 후 컴포넌트에 빈 배열 전달 ──
   // 실제 종목 데이터(PER/성장률)가 API에서 수집되면 여기에 연동 예정
@@ -835,8 +837,8 @@ export default function DashboardPage() {
     return () => clearInterval(iv)
   }, [])
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true)
+  const fetchAll = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const sb = createClient()
       const { data:{session} } = await sb.auth.getSession()
@@ -920,27 +922,26 @@ export default function DashboardPage() {
         }
       }
     } catch(e) { console.error('[Dashboard]', e) }
-    finally { setLoading(false) }
+    finally { if (!silent) setLoading(false) }
   }, [router])
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
-  // ★ 자산관리 탭에서 매수/매도/편집 발생 시 즉시 리렌더링
+  // ★ 자산관리 탭에서 매수/매도/편집 발생 시 즉시 리렌더링 (silent: 화면 깜빡임 없음)
   useEffect(() => {
     const handler = () => {
       console.log('[Dashboard] portfolio-updated 이벤트 수신 → 데이터 갱신')
-      fetchAll()
+      fetchAll(true)
     }
     window.addEventListener('portfolio-updated', handler)
     return () => window.removeEventListener('portfolio-updated', handler)
   }, [fetchAll])
 
-  // ★ 브라우저 탭/창 전환 후 돌아올 때 자동 갱신 (캐시 데이터 방지)
+  // ★ 브라우저 탭/창 전환 후 돌아올 때 자동 갱신 — silent=true로 깜빡임 방지
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
-        console.log('[Dashboard] 탭 전환 복귀 → 데이터 자동 갱신')
-        fetchAll()
+        fetchAll(true)  // 로딩 스켈레톤 없이 백그라운드 갱신
       }
     }
     document.addEventListener('visibilitychange', onVisible)
@@ -1387,6 +1388,7 @@ export default function DashboardPage() {
           { key:'lynch'    as const, icon:'📈', label:'린치 이익선 차트',          desc:'적정가치 시계열 분석' },
           { key:'signal'   as const, icon:'🚨', label:'매도 시그널 패널',           desc:'유형별 매도 경고등' },
           { key:'ghost'    as const, icon:'👻', label:'유령 종목 추적기',           desc:'기관 소외 × 내부자 매수' },
+          { key:'macro'    as const, icon:'🏛️', label:'거시경제 (Fed Watch)',        desc:'금리 · 인플레이션 · QT' },
         ]).map(({ key, icon, label, desc }) => (
           <button key={key} type="button" onClick={() => setDashTab(key)}
             style={{
@@ -2749,6 +2751,10 @@ export default function DashboardPage() {
           </div>
         </Card>
       </div>  {/* 6fr/4fr grid 닫기 */}
+
+      {/* ── 텐배거 마일스톤 트래커 (실시간 탭 하단 고정) ── */}
+      <TenbaggerRadar priceMap={priceMap} usdKrw={usdKrw} />
+
       </div>  {/* 실시간 대시보드 탭 끝 */}
 
       {/* ── 투자 타임머신 탭 ── */}
@@ -2931,6 +2937,11 @@ export default function DashboardPage() {
       <div id="tab-ghost" style={{ display: dashTab==='ghost' ? 'flex' : 'none', flexDirection:'column', gap:0 }}>
         <LynchGhostStockPanel />
       </div>  {/* 유령 종목 탭 끝 */}
+
+      {/* ── 거시경제 Fed Watch 탭 ── */}
+      <div id="tab-macro" style={{ display: dashTab==='macro' ? 'flex' : 'none', flexDirection:'column', gap:0 }}>
+        <MacroDashboard />
+      </div>  {/* 거시경제 탭 끝 */}
 
     </div>
   )
