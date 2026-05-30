@@ -9,7 +9,6 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/client'
 import { createClient as createServerClient } from '@supabase/supabase-js'
 
 // 임시 비밀번호 생성: 영문+숫자 조합 8자 (학생이 입력하기 쉬운 형태)
