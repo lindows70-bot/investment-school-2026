@@ -103,7 +103,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const tickers    = tickersRaw.split(',').filter(Boolean)
   const markets    = marketsRaw.split(',')
   const prices     = pricesRaw.split(',').map(Number)
-  const names      = namesRaw.split(',')
+  // ★ URL 인코딩된 한글 종목명 디코딩 (인텔리안테크 등 한국어 이름)
+  const names      = namesRaw.split(',').map(n => { try { return decodeURIComponent(n) } catch { return n } })
   const categories = catsRaw.split(',')
   const pes        = pesRaw.split(',').map(Number)  // 종목별 실제 PE
 

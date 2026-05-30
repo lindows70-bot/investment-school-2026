@@ -62,7 +62,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const tickers    = tickersRaw.split(',').filter(Boolean)
   const markets    = marketsRaw.split(',')
-  const names      = namesRaw.split(',')
+  const names      = namesRaw.split(',').map(n => { try { return decodeURIComponent(n) } catch { return n } })
   const categories = catsRaw.split(',')
 
   if (!tickers.length) return NextResponse.json({}, { status: 400 })

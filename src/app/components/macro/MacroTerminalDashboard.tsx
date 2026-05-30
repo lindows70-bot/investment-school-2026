@@ -214,7 +214,7 @@ export default function MacroTerminalDashboard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [individualStocks, dividendMap])
 
-  const CACHE_VERSION = 'v4'
+  const CACHE_VERSION = 'v5'  // 종목명 URL 디코딩 캐시 무효화
   const CACHE_TTL     = 6 * 60 * 60 * 1000  // 6시간 (EPS는 분기 업데이트)
 
   const fetchEpsHistory = useCallback(async () => {

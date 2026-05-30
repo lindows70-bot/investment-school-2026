@@ -331,7 +331,9 @@ export default function TransactionModal({
         style={{
           position: 'fixed', inset: 0, zIndex: 1000,
           background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+          overflowY: 'auto',          // ★ 오버레이 전체 스크롤 허용
+          padding: '24px 16px',       // ★ 상하 여백으로 카드가 화면 밖으로 나가지 않도록
         }}
       >
         {/* Card */}
@@ -342,10 +344,12 @@ export default function TransactionModal({
             boxShadow: '0 0 0 1px #282c44, 12px 12px 32px #0a0c18, -6px -6px 20px #282c44',
             borderRadius: 18,
             maxWidth: 480,
-            width: 'calc(100% - 32px)',
+            width: '100%',
             padding: '28px 24px 24px',
             animation: 'slideUp 0.2s ease-out',
             color: '#dde4f0',
+            marginTop: 'auto',        // ★ 세로 가운데 정렬 (내용이 짧을 때)
+            marginBottom: 'auto',
           }}
         >
           {/* Header */}
