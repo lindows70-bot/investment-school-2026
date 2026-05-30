@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/client'
 import AIPortfolioDashboard from '@/app/components/AIPortfolioDashboard'
 import LynchEarningsChart    from '@/app/components/LynchEarningsChart'
 import EarningsAlertTerminal from '@/app/components/EarningsAlertTerminal'
+import ChangePasswordBanner  from '@/app/components/ChangePasswordBanner'
 import LynchSellSignalPanel  from '@/app/components/LynchSellSignalPanel'
 import TenbaggerRadar        from '@/app/components/TenbaggerRadar'
 import MacroDashboard        from '@/app/components/MacroDashboard'
@@ -1380,6 +1381,9 @@ export default function DashboardPage() {
         .hover-row:hover td{background:rgba(255,255,255,0.03)!important}
         @keyframes divModalIn{from{opacity:0;transform:translate(-50%,-48%) scale(0.96)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
       `}</style>
+
+      {/* ── 비밀번호 변경 안내 배너 (임시 비번으로 로그인 시) ── */}
+      <ChangePasswordBanner />
 
       {/* ── 대시보드 탭 네비게이션 ── */}
       <div style={{ display:'flex', gap:4, background:'#0f172a', padding:'4px', borderRadius:10, border:'1px solid #1f2937', alignSelf:'flex-start' }}>

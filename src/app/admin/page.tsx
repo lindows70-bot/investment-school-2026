@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -516,7 +516,41 @@ export default function AdminPage() {
     }
   }
 
-  // ── 관리자가 특정 학생에게 비밀번호 재설정 이메일 발송 ──────────────────────
+  // ── 임시 비밀번호 발급 (Supabase Admin API로 직접 설정) ─────────────────────
+  const [tempPwModal, setTempPwModal] = useState<{ id: string; email: string; name: string } | null>(null)
+  const [issuedTempPw, setIssuedTempPw] = useState<string>('')
+
+  const handleIssueTempPassword = async (s: StudentRow) => {
+    setResetPwEmail(s.id)
+    setResetPwResult('')
+    setIssuedTempPw('')
+    try {
+      const sb = createClient()
+      const { data: { session } } = await sb.auth.getSession()
+      const token = session?.access_token ?? ''
+
+      const res = await fetch('/api/admin/set-temp-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ userId: s.id, email: s.email }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setResetPwResult(`❌ 실패: ${data.error}`)
+      } else {
+        setIssuedTempPw(data.tempPassword)
+        setTempPwModal({ id: s.id, email: s.email, name: s.full_name ?? s.email })
+        setResetPwResult(`✅ ${s.email} 임시 비번 발급 완료`)
+      }
+    } catch (e) {
+      setResetPwResult(`❌ 오류: ${(e as Error).message}`)
+    } finally {
+      setResetPwEmail(null)
+    }
+  }
+
+  // ── 기존 이메일 링크 방식 (폴백용으로 유지)
   const handleSendPasswordReset = async (email: string) => {
     setResetPwEmail(email)
     setResetPwResult('')
@@ -861,7 +895,27 @@ USING (
                               >
                                 상세보기
                               </button>
-                              {/* 비밀번호 재설정 이메일 발송 */}
+                              {/* ★ 임시 비밀번호 직접 발급 (권장) */}
+                              <button
+                                onClick={() => handleIssueTempPassword(s)}
+                                disabled={resetPwEmail === s.id}
+                                title={`${s.full_name} 임시 비밀번호 발급`}
+                                style={{
+                                  padding: '5px 10px', borderRadius: 7,
+                                  border: '1px solid rgba(251,191,36,0.4)',
+                                  background: resetPwEmail === s.id ? '#1e1e1e' : 'rgba(251,191,36,0.08)',
+                                  color: resetPwEmail === s.id ? '#4b5563' : '#fbbf24',
+                                  cursor: resetPwEmail === s.id ? 'not-allowed' : 'pointer',
+                                  fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
+                                  display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0,
+                                  transition: 'all 0.15s',
+                                }}
+                                onMouseEnter={e => { if (!resetPwEmail) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(251,191,36,0.18)' }}
+                                onMouseLeave={e => { if (!resetPwEmail) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(251,191,36,0.08)' }}
+                              >
+                                🔑 임시 비번 발급
+                              </button>
+                              {/* 이메일 링크 방식 (보조) */}
                               <button
                                 onClick={() => handleSendPasswordReset(s.email)}
                                 disabled={resetPwEmail === s.email}
@@ -918,6 +972,39 @@ USING (
 
       {/* ── 학생 상세 모달 ── */}
       {selected && <StudentModal student={selected} onClose={() => setSelected(null)}/>}
+
+      {/* ★ 임시 비밀번호 발급 결과 모달 */}
+      {tempPwModal && issuedTempPw && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 2000,
+          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+        }}>
+          <div style={{
+            background: '#0f1117', border: '1px solid rgba(251,191,36,0.4)',
+            borderRadius: 16, padding: '32px 28px', maxWidth: 440, width: '100%',
+            boxShadow: '0 0 40px rgba(251,191,36,0.15)',
+          }}>
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+              <div style={{ fontSize: 40, marginBottom: 8 }}>🔑</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: '#f1f5f9', marginBottom: 6 }}>임시 비밀번호 발급 완료</div>
+              <div style={{ fontSize: 13, color: '#64748b' }}>{tempPwModal.name} ({tempPwModal.email})</div>
+            </div>
+            <div style={{ padding: '16px 20px', borderRadius: 10, marginBottom: 20, background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.35)', textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>임시 비밀번호</div>
+              <div style={{ fontSize: 28, fontWeight: 900, fontFamily: 'monospace', color: '#fbbf24', letterSpacing: '0.1em' }}>{issuedTempPw}</div>
+              <button onClick={() => { navigator.clipboard.writeText(issuedTempPw) }} style={{ marginTop: 10, padding: '4px 12px', borderRadius: 6, background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.3)', color: '#fbbf24', fontSize: 11, cursor: 'pointer' }}>📋 복사</button>
+            </div>
+            <div style={{ padding: '12px 14px', borderRadius: 8, background: 'rgba(96,165,250,0.07)', border: '1px solid rgba(96,165,250,0.2)', fontSize: 12, color: '#94a3b8', lineHeight: 1.7, marginBottom: 20 }}>
+              <strong style={{ color: '#60a5fa' }}>학생 안내 방법:</strong><br />
+              1 위 임시 비번을 학생에게 카톡/문자로 전달<br />
+              2 학생이 임시 비번으로 로그인<br />
+              3 대시보드 상단 안내 배너에서 새 비밀번호로 즉시 변경
+            </div>
+            <button onClick={() => { setTempPwModal(null); setIssuedTempPw('') }} style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #d97706, #b45309)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>확인 (닫기)</button>
+          </div>
+        </div>
+      )}
     </>
   )
 }
