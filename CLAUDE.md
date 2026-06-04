@@ -1309,7 +1309,7 @@ FRED 매크로 + 피터 린치 6대 가중치 매트릭스 + 퀀트 스크리닝
 
 보유 개별주식의 최신 뉴스를 수집·분석해 **HOLD_STRONG(견고 보유) / OBSERVE(관찰 중) / RE_EVALUATE(재검토 필요)** 3단계로 분류. 피터 린치 "뉴스 소음은 걸러내고 투자 thesis에 영향 주는 신호만" 철학. **대시보드 자산&모니터링 → 📰 뉴스 촉매 레이더** 탭(상관관계 매트릭스 다음).
 - **`/api/news-catalyst`** (Supabase auth 필수·force-dynamic·maxDuration:60): 사용자 investments → 개별주식만(assetClassifier) → ticker 디듀프 → 동시성 3으로 분석
-  - **뉴스 소스**: US=Yahoo Finance RSS(`feeds.finance.yahoo.com/rss/2.0/headline?s=`, 기존 Jarvis 검증 소스), KR=Google News RSS(`news.google.com/rss/search`, 무료·무인증) + Yahoo `.KS/.KQ` 병행
+  - **뉴스 소스**: US=Yahoo Finance RSS(`feeds.finance.yahoo.com/rss/2.0/headline?s=`, 기존 Jarvis 검증 소스), KR=**네이버 증권 종목뉴스**(`m.stock.naver.com/api/news/stock/{종목6자리}`, 종목 특화)+Google News RSS(`news.google.com/rss/search`, 아그리게이터)+Yahoo `.KS/.KQ` 백업. **네이버·Google 인터리브**(대형주는 네이버 거시뉴스에 종목특화 Google이 안 밀리고, 소형주는 네이버 특화뉴스가 채워짐 — 인텔리안테크 우주항공 등 Google 약한 종목 보강)
   - **ticker별 개별 캐시**: `app_cache(news-catalyst-v3:TICKER:MKT:YYYYMMDD, 3h)` — 전체 포트폴리오 한 키로 묶지 않음(한 명이 종목 추가/삭제해도 나머지 캐시 유지). A·B 학생이 같은 NVDA 조회 시 동일 분석 공유(제2원칙)
   - **Gemini 출력 6필드**: catalystStatus·keyFact(핵심 팩트 1문장)·actionGuide(린치 행동 가이드)·riskLevel(LOW/MEDIUM/HIGH)·relevantMetric(연결 재무지표)·isNoise(주가 시황성 필터)
   - RE_EVALUATE → OBSERVE → HOLD_STRONG 순 정렬, reEvaluateCount 상단 경보
