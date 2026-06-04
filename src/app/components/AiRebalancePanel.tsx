@@ -112,6 +112,20 @@ export default function AiRebalancePanel() {
         </div>
       )}
 
+      {/* 💭 하이프 프리미엄 경고 (실체=이익 없이 내러티브로 프리미엄 = 거품) */}
+      {data.hypePremium && (
+        <div style={{ background: 'rgba(168,85,247,0.08)', border: '1px solid rgba(168,85,247,0.35)', borderRadius: 12, padding: '14px 18px' }}>
+          <div style={{ color: '#c084fc', fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
+            💭 하이프 프리미엄 주의 — 영업적자 종목 {data.hypePremium.weight}% 보유
+          </div>
+          <div style={{ color: '#d8b4fe', fontSize: 12.5, lineHeight: 1.7 }}>
+            <b>{data.hypePremium.tickers.map(t => `${t.market === 'KR' ? (t.name || t.ticker).slice(0, 10) : t.ticker}(영업이익률 ${t.opMargin}%)`).join(', ')}</b>는 아직 영업적자라 &lsquo;이익&rsquo;이라는 실체가 없습니다.
+            이익 없이 성장 스토리·유명인 투자 소식으로 프리미엄을 받는 종목은 <b>거품(하이프 프리미엄) 위험</b>이 큽니다(버핏 원리).
+            일방적으로 팔라는 게 아니라 — ① 매출이 실제로 폭증하는지 ② 물리적 해자(기술·데이터·제조)가 진짜인지 확인하고, 스토리만 남으면 비중을 관리하세요.
+          </div>
+        </div>
+      )}
+
       {/* ① 교체매매(익절/손절) 카드 */}
       {sellList.length > 0 && (
         <div>
