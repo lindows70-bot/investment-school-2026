@@ -1311,7 +1311,8 @@ FRED 매크로 + 피터 린치 6대 가중치 매트릭스 + 퀀트 스크리닝
 - **`/api/news-catalyst`** (Supabase auth 필수·force-dynamic·maxDuration:60): 사용자 investments → 개별주식만(assetClassifier) → ticker 디듀프 → 동시성 3으로 분석
   - **뉴스 소스**: US=Yahoo Finance RSS(`feeds.finance.yahoo.com/rss/2.0/headline?s=`, 기존 Jarvis 검증 소스), KR=**네이버 증권 종목뉴스**(`m.stock.naver.com/api/news/stock/{종목6자리}`, 종목 특화)+Google News RSS(`news.google.com/rss/search`, 아그리게이터)+Yahoo `.KS/.KQ` 백업. **네이버·Google 인터리브**(대형주는 네이버 거시뉴스에 종목특화 Google이 안 밀리고, 소형주는 네이버 특화뉴스가 채워짐 — 인텔리안테크 우주항공 등 Google 약한 종목 보강)
   - **ticker별 개별 캐시**: `app_cache(news-catalyst-v3:TICKER:MKT:YYYYMMDD, 3h)` — 전체 포트폴리오 한 키로 묶지 않음(한 명이 종목 추가/삭제해도 나머지 캐시 유지). A·B 학생이 같은 NVDA 조회 시 동일 분석 공유(제2원칙)
-  - **Gemini 출력 6필드**: catalystStatus·keyFact(핵심 팩트 1문장)·actionGuide(린치 행동 가이드)·riskLevel(LOW/MEDIUM/HIGH)·relevantMetric(연결 재무지표)·isNoise(주가 시황성 필터)
+  - **Gemini 출력 필드**: catalystStatus·keyFact(핵심 팩트 1문장)·**newsItems(유형별 주요 뉴스 2~3건)**·actionGuide(린치 행동 가이드)·riskLevel(LOW/MEDIUM/HIGH)·relevantMetric(연결 재무지표)·isNoise(주가 시황성 필터)
+  - 🗞️ **유형별 뉴스 2~3건 색깔 구분(2026-06)**: keyFact 한 줄만으론 계약·실적·협약 등 서로 다른 호재/악재를 한 가지만 봄 → Gemini가 헤드라인에서 **서로 다른 유형 2~3건 추출**(중복 유형 금지). category 7종(계약수주·실적·협약제휴·신제품기술·규제소송·인사지배구조·시장수급)+tone(호재▲/악재▼/중립)+summary(헤드라인 근거 한 줄). UI는 카드에 유형 칩(아이콘+색상)+요약+톤 마크. 시장 전반·노이즈뿐이면 빈 배열, 헤드라인 밖 창작 금지(할루시네이션 방어 유지). 백엔드 검증(유효 category·최대 3건). 캐시 v6
   - RE_EVALUATE → OBSERVE → HOLD_STRONG 순 정렬, reEvaluateCount 상단 경보
 - **`NewsCatalystRadar.tsx`**: RE_EVALUATE 경보 배너(펄스) + 4개 필터 탭(전체/재검토/관찰/견고) + 카드 펼침(행동 가이드 + 근거 헤드라인 토글)
 - ⚖️ **가치×모멘텀 2축 통합(2026-06) — Jarvis 처방전과의 충돌 해결**:
