@@ -126,6 +126,19 @@ export default function AiRebalancePanel() {
         </div>
       )}
 
+      {/* 🧟 좀비 기업 경고 (영업이익으로 이자도 못 갚음 — 이자보상배율<1.5) */}
+      {data.zombieRisk && (
+        <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 12, padding: '14px 18px' }}>
+          <div style={{ color: '#f87171', fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
+            🧟 좀비 기업 경고 — 이자도 못 갚는 종목 {data.zombieRisk.weight}% 보유
+          </div>
+          <div style={{ color: '#fca5a5', fontSize: 12.5, lineHeight: 1.7 }}>
+            <b>{data.zombieRisk.tickers.map(t => `${t.market === 'KR' ? (t.name || t.ticker).slice(0, 10) : t.ticker}(이자보상배율 ${t.interestCoverage}배)`).join(', ')}</b>는 영업이익으로 이자비용도 충분히 못 갚습니다(이자보상배율 1.5 미만).
+            흑자 여부와 별개로 <b>빚을 감당 못 하는 구조적 약체</b>로, 금리·업황이 악화되면 파산 위험이 큽니다. 부채가 줄거나 이익이 회복되는지 확인하고 비중을 관리하세요.
+          </div>
+        </div>
+      )}
+
       {/* ① 교체매매(익절/손절) 카드 */}
       {sellList.length > 0 && (
         <div>
