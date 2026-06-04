@@ -98,6 +98,20 @@ export default function AiRebalancePanel() {
         </div>
       )}
 
+      {/* 🔁 시클리컬 가치함정 경고 (피터 린치 영구 원리) */}
+      {data.cyclicalTrap && (
+        <div style={{ background: 'rgba(251,146,60,0.08)', border: '1px solid rgba(251,146,60,0.35)', borderRadius: 12, padding: '14px 18px' }}>
+          <div style={{ color: '#fb923c', fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
+            🔁 시클리컬 가치함정 주의 — 경기순환주 {data.cyclicalTrap.weight}% 집중
+          </div>
+          <div style={{ color: '#fdba74', fontSize: 12.5, lineHeight: 1.7 }}>
+            <b>{data.cyclicalTrap.tickers.map(t => `${t.market === 'KR' ? (t.name || t.ticker).slice(0, 10) : t.ticker}(PEG ${t.peg})`).join(', ')}</b>는 PEG가 낮아 저평가처럼 보입니다.
+            하지만 <b>경기순환주(반도체 등)는 이익이 정점일 때 PER이 가장 낮아 보이는 &lsquo;가치 함정&rsquo;</b>일 수 있습니다(피터 린치).
+            저PEG만 보고 &lsquo;사수&rsquo;로 안심하지 말고, ① 영업이익률이 역사적 고점인지 ② 마진이 꺾이기 시작했는지를 함께 확인하세요. 사이클 고점에서의 저PER은 매수가 아니라 매도 신호일 수 있습니다.
+          </div>
+        </div>
+      )}
+
       {/* ① 교체매매(익절/손절) 카드 */}
       {sellList.length > 0 && (
         <div>

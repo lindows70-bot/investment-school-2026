@@ -77,11 +77,18 @@ export interface DiversificationView {
   topSectorAfter:  number
 }
 
+// 시클리컬 가치함정 경고 — 피터 린치 영구 원리(경기순환주는 이익 정점에서 PER 최저=함정)
+export interface CyclicalTrap {
+  weight:  number    // 경기순환주 총 비중 %
+  tickers: { ticker: string; name: string; market: string; peg: number | null }[]  // 저PEG 경기순환주(함정 의심)
+}
+
 export interface RebalanceResult {
   holdings:       HoldingDiagnosis[]
   buyCandidates:  BuyCandidate[]
   sellBudget:     number         // 회수 가능 총 비중 %
   diversification: DiversificationView | null
+  cyclicalTrap:   CyclicalTrap | null
   narrative:      string         // Gemini 종합 플랜 내러티브
   generatedAt:    string
   fromCache:      boolean
@@ -148,8 +155,8 @@ export async function GET(req: Request) {
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const forceRefresh = new URL(req.url).searchParams.get('refresh') === '1'
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
-  // v2: Phase 3 집중 트림 추가 — 캐시 무효화(이전 Phase 2 결과 제거)
-  const cacheKey = `ai-rebalance-v2:${user.id}:${today}`
+  // v3: 시클리컬 가치함정 경고 추가 — 캐시 무효화
+  const cacheKey = `ai-rebalance-v3:${user.id}:${today}`
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -163,7 +170,7 @@ export async function GET(req: Request) {
     .eq('user_id', user.id)
   const holds = (rows ?? []).filter(h => getAssetType(h.ticker, h.name ?? '', h.market ?? 'US') === 'STOCK')
   if (holds.length === 0) {
-    return NextResponse.json({ holdings: [], buyCandidates: [], sellBudget: 0, diversification: null, narrative: '분석할 개별 주식이 없습니다. 종목을 추가하면 리밸런싱 진단이 시작됩니다.', generatedAt: new Date().toISOString(), fromCache: false })
+    return NextResponse.json({ holdings: [], buyCandidates: [], sellBudget: 0, diversification: null, cyclicalTrap: null, narrative: '분석할 개별 주식이 없습니다. 종목을 추가하면 리밸런싱 진단이 시작됩니다.', generatedAt: new Date().toISOString(), fromCache: false })
   }
 
   // ② 현재가 배치 → 평가액·비중·손익률
@@ -232,6 +239,17 @@ export async function GET(req: Request) {
   const curCat: Record<string, number> = {}
   for (const d of diagnoses) if (d.lynchCategory) curCat[d.lynchCategory] = (curCat[d.lynchCategory] ?? 0) + d.weight
 
+  // 🔁 시클리컬 가치함정 — 경기순환주 비중 高 + 저PEG(저평가처럼 보임)면 '이익 정점 함정' 경고
+  //    (피터 린치 영구 원리: 경기순환주는 이익이 정점일 때 PER이 가장 낮아 보임 → 저PEG≠저평가)
+  const cyclicalWeight = Math.round((curCat['cyclical'] ?? 0) * 10) / 10
+  const lowPegCyclicals = diagnoses
+    .filter(d => d.lynchCategory === 'cyclical' && d.peg != null && d.peg > 0 && d.peg < 0.8 && d.weight > 0.5)
+    .map(d => ({ ticker: d.ticker, name: d.name, market: d.market, peg: d.peg }))
+  const cyclicalTrap: CyclicalTrap | null =
+    cyclicalWeight >= 40 && lowPegCyclicals.length > 0
+      ? { weight: cyclicalWeight, tickers: lowPegCyclicals }
+      : null
+
   // ④ Phase 3 — 목표 추종 집중 트림: 종목 신호가 없어도 황금비율 초과 분류를 점진 축소
   applyConcentrationTrim(diagnoses, curCat)
 
@@ -285,11 +303,11 @@ export async function GET(req: Request) {
   // ⑥ Before → After (매도 회수분 차감 + 매수 배분분 가산)
   const diversification = buildDiversification(diagnoses, secByTicker, curCat, curSec, buyCandidates)
 
-  // ⑦ Gemini 내러티브 (심리 인지 + 정직)
-  const narrative = await buildNarrative(diagnoses, buyCandidates, sellBudget, diversification)
+  // ⑦ Gemini 내러티브 (심리 인지 + 정직 + 시클리컬 함정)
+  const narrative = await buildNarrative(diagnoses, buyCandidates, sellBudget, diversification, cyclicalTrap)
 
   const result: RebalanceResult = {
-    holdings: diagnoses, buyCandidates, sellBudget, diversification,
+    holdings: diagnoses, buyCandidates, sellBudget, diversification, cyclicalTrap,
     narrative, generatedAt: new Date().toISOString(), fromCache: false,
   }
   await setCache(cacheKey, result)
@@ -346,7 +364,7 @@ const ACTION_KO: Record<RebalanceAction, string> = {
   HOLD_DIP: '보류(손실중·단순고평가→저점매도 방지)', DEFEND: '사수(저평가/호재)', KEEP: '유지',
 }
 
-async function buildNarrative(holdings: HoldingDiagnosis[], buys: BuyCandidate[], sellBudget: number, div: DiversificationView | null): Promise<string> {
+async function buildNarrative(holdings: HoldingDiagnosis[], buys: BuyCandidate[], sellBudget: number, div: DiversificationView | null, trap: CyclicalTrap | null): Promise<string> {
   const sellLines = holdings
     // 실제 행동 가능한 것만: 회수 비중 ≥0.1% 이거나 보류(저점매도 방지) — 소액(0%) 익절 노이즈 제외
     .filter(h => h.releaseWeight >= 0.1 || h.action === 'HOLD_DIP')
@@ -355,6 +373,9 @@ async function buildNarrative(holdings: HoldingDiagnosis[], buys: BuyCandidate[]
   const buyLines = buys.map(b => `- ${b.name}(${b.ticker}): AI점수 ${b.aiScore}, PEG ${b.peg ?? '—'}, 섹터 ${b.sector}, 제안 ${b.allocWeight}%, ${b.reason}`).join('\n')
   const divLine = div
     ? `최대 단일 섹터 비중 ${div.topSectorBefore}%→${div.topSectorAfter}% (낮을수록 분산 양호). 분류 편중: ${div.categories.filter(c => c.before > c.ideal + 10).map(c => `${c.label} ${c.before}%(권장 ${c.ideal}%)`).join(', ') || '없음'}`
+    : ''
+  const trapLine = trap
+    ? `⚠️경기순환주(반도체 등)가 ${trap.weight}%로 집중. ${trap.tickers.map(t => `${t.name} PEG ${t.peg}`).join(', ')}처럼 PEG가 낮아 저평가로 보이지만, 경기순환주는 이익이 정점일 때 PER이 가장 낮아 보이는 '가치 함정'일 수 있다(피터 린치 원리). 저PEG만 보고 안심하지 말 것.`
     : ''
 
   const prompt = `너는 '2026 투자학교'의 AI 자산관리 비서다. 학생의 실제 포트폴리오 손익을 고려해 따뜻하지만 정직한 리밸런싱 코칭을 하라.
@@ -369,12 +390,15 @@ ${buyLines || '없음'}
 
 [분산 상태] ${divLine || '자료없음'}
 
+[시클리컬 함정] ${trapLine || '해당 없음'}
+
 [⛔ 절대 규칙]
 - '승률 95%' 같은 지어낸 확률·숫자 금지. 주어진 AI점수·PEG·손익률만 사용.
 - 손실 종목을 '단순 고평가'만으로 손절 강요 금지(보류 종목은 "저점 매도 금물"로 안내).
 - 손실 회피 심리를 헤아려라: 익절은 축하의 톤, 손절은 "기회비용·전략적 후퇴"로 위로하되 강요 아닌 '고려' 권유.
 - 본전까지 필요 상승률은 확정된 수학이니 그대로 활용해 설득하라(예: "−15%면 본전까지 +17.6%가 필요한데 회복 동력이 없다").
 - [분산 상태]가 있으면 섹터·분류 편중을 한 문장으로 짚고, 이 리밸런싱이 분산을 어떻게 개선하는지 설명하라.
+- [시클리컬 함정]이 '해당 없음'이 아니면, 저PEG 경기순환주를 무조건 저평가로 믿지 말라는 린치의 '가치 함정' 경고를 한 문장으로 꼭 포함하라.
 - 마지막에 "교육용 시뮬레이션이며 투자 추천이 아닙니다"를 반드시 덧붙여라.
 
 [출력] 3~6문장의 한국어 코칭 1단락. JSON {"narrative": "..."} 형식만.`
