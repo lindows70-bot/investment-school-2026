@@ -1,7 +1,7 @@
 'use client'
 // 포트폴리오 뉴스 촉매 레이더 — 보유 종목별 뉴스 이벤트를 3단계로 분류해 표시
 import { useState, useEffect, useCallback } from 'react'
-import type { NewsCatalystResult, CatalystStatus, RiskLevel } from '@/app/api/news-catalyst/route'
+import type { NewsCatalystResult, TickerCatalyst, CatalystStatus, RiskLevel, ValuationTier } from '@/app/api/news-catalyst/route'
 
 // ── 스타일 상수 ───────────────────────────────────────────────────────────────
 const BG    = '#0f1117'
@@ -18,6 +18,28 @@ const RISK_CONFIG: Record<RiskLevel, { color: string; label: string }> = {
   HIGH:   { color: '#ef4444', label: '고위험' },
   MEDIUM: { color: '#f59e0b', label: '중위험' },
   LOW:    { color: '#22c55e', label: '저위험' },
+}
+
+// 가격 축(밸류에이션) 배지 — PEG에서 결정론적 산출(Jarvis 매도 기준과 일치)
+const VALUATION_CONFIG: Record<ValuationTier, { color: string; bg: string; label: string } | null> = {
+  EXPENSIVE: { color: '#f87171', bg: 'rgba(248,113,113,0.1)', label: '밸류 부담' },
+  CHEAP:     { color: '#34d399', bg: 'rgba(52,211,153,0.1)',  label: '가격 매력' },
+  FAIR:      { color: '#94a3b8', bg: 'rgba(148,163,184,0.08)', label: '적정가' },
+  UNKNOWN:   null,
+}
+
+/** 사업(뉴스) 축 × 가격(밸류) 축 융합 진단 — 충돌 케이스에 상단 띠로 노출 */
+function fusionVerdict(c: TickerCatalyst): { color: string; bg: string; text: string } | null {
+  const exp = c.valuationTier === 'EXPENSIVE'
+  const cheap = c.valuationTier === 'CHEAP'
+  const pegStr = c.peg != null ? `PEG ${c.peg.toFixed(2)}` : ''
+  if (c.catalystStatus === 'RE_EVALUATE' && exp)
+    return { color: '#ef4444', bg: 'rgba(239,68,68,0.12)', text: `🚨 고평가(${pegStr}) + 사업 악재 — 비중 축소·매도 우선 검토` }
+  if (c.catalystStatus !== 'RE_EVALUATE' && exp)
+    return { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', text: `⚖️ 좋은 사업 · 비싼 가격(${pegStr}) — 보유는 OK, 신규 추격매수 자제·분할 익절 검토` }
+  if (c.catalystStatus === 'HOLD_STRONG' && cheap)
+    return { color: '#22c55e', bg: 'rgba(34,197,94,0.12)', text: `🟢 견고한 사업 · 합리적 가격(${pegStr}) — 린치가 좋아할 자리` }
+  return null
 }
 
 // ── 컴포넌트 ──────────────────────────────────────────────────────────────────
@@ -97,8 +119,9 @@ export default function NewsCatalystRadar() {
                 </span>
               )}
             </div>
-            <div style={{ color: '#7f93a8', fontSize: 12, marginTop: 4 }}>
-              피터 린치 시각: 뉴스 소음은 걸러내고 투자 thesis에 영향 주는 신호만
+            <div style={{ color: '#7f93a8', fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>
+              피터 린치 시각: 뉴스 소음은 걸러내고 투자 thesis에 영향 주는 신호만<br />
+              <span style={{ color: '#6b7280' }}>※ <b style={{ color: '#8599ae' }}>사업 축</b>(뉴스 견고/관찰/재검토)과 <b style={{ color: '#8599ae' }}>가격 축</b>(💲PEG 밸류에이션)은 별개 — 좋은 기업도 비싸면 추격은 신중히</span>
             </div>
           </div>
           <button
@@ -147,6 +170,8 @@ export default function NewsCatalystRadar() {
           {filtered.map(c => {
             const cfg = STATUS_CONFIG[c.catalystStatus]
             const riskCfg = RISK_CONFIG[c.riskLevel]
+            const valCfg = VALUATION_CONFIG[c.valuationTier]
+            const fusion = fusionVerdict(c)
             const isOpen = expanded === `${c.ticker}|${c.market}`
             const toggleKey = `${c.ticker}|${c.market}`
 
@@ -197,10 +222,31 @@ export default function NewsCatalystRadar() {
                       }}>
                         {riskCfg.label}
                       </span>
+                      {/* 가격(밸류에이션) 축 배지 — 사업 축과 별도 */}
+                      {valCfg && (
+                        <span style={{
+                          background: valCfg.bg, color: valCfg.color,
+                          border: `1px solid ${valCfg.color}40`, borderRadius: 4,
+                          padding: '1px 6px', fontSize: 11,
+                        }}>
+                          💲 {valCfg.label}{c.peg != null ? ` · PEG ${c.peg.toFixed(2)}` : ''}
+                        </span>
+                      )}
                       {c.fromCache && (
                         <span style={{ color: '#4b6380', fontSize: 10 }}>캐시</span>
                       )}
                     </div>
+
+                    {/* 가치×모멘텀 융합 진단 띠 (충돌 케이스) */}
+                    {fusion && (
+                      <div style={{
+                        marginTop: 8, padding: '6px 10px', borderRadius: 6,
+                        background: fusion.bg, border: `1px solid ${fusion.color}40`,
+                        color: fusion.color, fontSize: 12, fontWeight: 600, lineHeight: 1.4,
+                      }}>
+                        {fusion.text}
+                      </div>
+                    )}
                     <div style={{ color: '#94a3b8', fontSize: 13, marginTop: 6, lineHeight: 1.5 }}>
                       {c.keyFact}
                     </div>
