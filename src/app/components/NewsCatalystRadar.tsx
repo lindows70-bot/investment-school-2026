@@ -20,8 +20,9 @@ const RISK_CONFIG: Record<RiskLevel, { color: string; label: string }> = {
   LOW:    { color: '#22c55e', label: '저위험' },
 }
 
-// 가격 축(밸류에이션) 배지 — PEG에서 결정론적 산출(Jarvis 매도 기준과 일치)
+// 가격 축(밸류에이션) 배지 — PEG/수익성에서 결정론적 산출(Jarvis 매도 기준과 일치)
 const VALUATION_CONFIG: Record<ValuationTier, { color: string; bg: string; label: string } | null> = {
+  LOSS:      { color: '#ef4444', bg: 'rgba(239,68,68,0.12)',  label: '영업적자' },
   EXPENSIVE: { color: '#f87171', bg: 'rgba(248,113,113,0.1)', label: '밸류 부담' },
   CHEAP:     { color: '#34d399', bg: 'rgba(52,211,153,0.1)',  label: '가격 매력' },
   FAIR:      { color: '#94a3b8', bg: 'rgba(148,163,184,0.08)', label: '적정가' },
@@ -32,7 +33,13 @@ const VALUATION_CONFIG: Record<ValuationTier, { color: string; bg: string; label
 function fusionVerdict(c: TickerCatalyst): { color: string; bg: string; text: string } | null {
   const exp = c.valuationTier === 'EXPENSIVE'
   const cheap = c.valuationTier === 'CHEAP'
+  const loss = c.valuationTier === 'LOSS'
   const pegStr = c.peg != null ? `PEG ${c.peg.toFixed(2)}` : ''
+  // 적자기업 — 뉴스가 좋아도 가장 강한 브레이크 (현금 소진 본질)
+  if (loss && c.catalystStatus === 'RE_EVALUATE')
+    return { color: '#ef4444', bg: 'rgba(239,68,68,0.14)', text: `🚨 영업적자 + 사업 악재 — 손절 기준을 명확히, 비중 축소 우선` }
+  if (loss)
+    return { color: '#ef4444', bg: 'rgba(239,68,68,0.12)', text: `⚠️ 영업적자 기업 — 뉴스 호재여도 '진주' 아님. 흑자 전환·현금 런웨이 먼저 확인, 추격매수 금물` }
   if (c.catalystStatus === 'RE_EVALUATE' && exp)
     return { color: '#ef4444', bg: 'rgba(239,68,68,0.12)', text: `🚨 고평가(${pegStr}) + 사업 악재 — 비중 축소·매도 우선 검토` }
   if (c.catalystStatus !== 'RE_EVALUATE' && exp)
@@ -229,7 +236,9 @@ export default function NewsCatalystRadar() {
                           border: `1px solid ${valCfg.color}40`, borderRadius: 4,
                           padding: '1px 6px', fontSize: 11,
                         }}>
-                          💲 {valCfg.label}{c.peg != null ? ` · PEG ${c.peg.toFixed(2)}` : ''}
+                          {c.valuationTier === 'LOSS'
+                            ? `⚠️ ${valCfg.label}`
+                            : `💲 ${valCfg.label}${c.peg != null ? ` · PEG ${c.peg.toFixed(2)}` : ''}`}
                         </span>
                       )}
                       {c.fromCache && (
