@@ -1225,6 +1225,12 @@ create policy "read sector index" on public.school_index_sector_snapshots for se
 ### NPS DART corpCode 정규식 버그
 - `<corp_eng_name>` 태그가 `<corp_name>`·`<stock_code>` 사이에 끼어 기존 인접 정규식이 전 종목 매칭 실패(mapSize=0) → `<list>` 경계 안전 lazy 매칭으로 수정
 
+### 린치 밸류에이션 이익성장률(G) 이상값 → 가짜 '강력매수' (2026-06)
+- **증상**: 이튼(ETN)이 린치 밸류에이션 엔진=**강력 매수**(스코어 20.35)인데 Jarvis=매도검토·뉴스레이더=밸류부담(PEG 4.91)으로 정반대 → 학생 혼란
+- **원인**: 린치 우량주 스코어 `(G+DY)/PER`에 이익성장률 **G=770%**(이상값, 기저효과·데이터 글리치)가 클램핑 없이 투입. 수학적으로 **스코어 = 1/PEG**인데 PEG 4.91이면 스코어는 ~0.23이어야 정상 → G 770%는 PEG 내재 G(7.7%)와 **100배 괴리**한 제2원칙 위반
+- **수정**: `LynchValuationEngine.effectiveGrowth(m)` — PEG가 있으면 내재 성장률(PER/PEG)이 진실값. 표시 G가 PEG 내재값과 2.5배↑ 괴리/비양수/100%↑면 PEG 기준으로 교체. FastGrower·Stalwart 패널 공유
+- **검증**: ETN 770%→7.7%·스코어 0.23→🔴교체고려(Jarvis·뉴스레이더 일치) / 정상 15%·65%는 유지(린치 스코어=1/PEG로 PEG와 일관)
+
 ---
 
 ## 📡 가이던스 수정 모멘텀 레이더 (2026-06) — 투자 리서치 탭
