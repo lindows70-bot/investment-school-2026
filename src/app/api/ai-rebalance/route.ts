@@ -146,11 +146,15 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
+  const forceRefresh = new URL(req.url).searchParams.get('refresh') === '1'
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
-  const cacheKey = `ai-rebalance-v1:${user.id}:${today}`
+  // v2: Phase 3 집중 트림 추가 — 캐시 무효화(이전 Phase 2 결과 제거)
+  const cacheKey = `ai-rebalance-v2:${user.id}:${today}`
 
-  const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
-  if (cached) return NextResponse.json({ ...cached, fromCache: true }, { headers: { 'Cache-Control': 'no-store' } })
+  if (!forceRefresh) {
+    const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
+    if (cached) return NextResponse.json({ ...cached, fromCache: true }, { headers: { 'Cache-Control': 'no-store' } })
+  }
 
   // ① 보유 종목 (STOCK만)
   const db = admin()

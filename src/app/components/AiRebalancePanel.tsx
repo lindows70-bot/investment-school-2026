@@ -25,10 +25,10 @@ export default function AiRebalancePanel() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (force = false) => {
     setLoading(true); setError(null)
     try {
-      const r = await fetch('/api/ai-rebalance', { cache: 'no-store' })
+      const r = await fetch(`/api/ai-rebalance${force ? '?refresh=1' : ''}`, { cache: 'no-store' })
       if (r.status === 401) { setError('로그인이 필요합니다'); return }
       if (!r.ok) { setError('데이터 로드 실패'); return }
       setData(await r.json())
@@ -49,7 +49,7 @@ export default function AiRebalancePanel() {
   if (error) return (
     <div style={{ background: BG, borderRadius: 12, padding: 24, color: '#ef4444', textAlign: 'center' }}>
       {error}
-      <button onClick={load} style={{ display: 'block', margin: '12px auto 0', padding: '6px 16px', background: '#1e293b', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>재시도</button>
+      <button onClick={() => load()} style={{ display: 'block', margin: '12px auto 0', padding: '6px 16px', background: '#1e293b', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>재시도</button>
     </div>
   )
   if (!data || data.holdings.length === 0) return (
@@ -86,7 +86,7 @@ export default function AiRebalancePanel() {
               내 실제 수익률을 반영한 교체매매 — 익절/손절/보류를 구분합니다
             </div>
           </div>
-          <button onClick={load} style={{ padding: '6px 14px', background: '#1e293b', color: '#94a3b8', border: `1px solid ${BORDER}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>🔄 새로고침</button>
+          <button onClick={() => load(true)} style={{ padding: '6px 14px', background: '#1e293b', color: '#94a3b8', border: `1px solid ${BORDER}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>🔄 새로고침</button>
         </div>
       </div>
 
