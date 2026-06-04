@@ -59,10 +59,13 @@ export default function AiRebalancePanel() {
     </div>
   )
 
-  // 회수 비중이 의미 있는(≥0.1%) 교체 후보만 — 소액(0%) 익절 노이즈 제거
+  // 회수 비중이 의미 있는(≥0.1%) 신호 교체 후보(익절/손절)
   const sellList = data.holdings.filter(h => (h.action === 'TAKE_PROFIT' || h.action === 'CUT_LOSS') && h.releaseWeight >= 0.1)
-  const holdDips = data.holdings.filter(h => h.action === 'HOLD_DIP')
-  const defends = data.holdings.filter(h => h.action === 'DEFEND')
+  // Phase 3: 분산 목적 트림(신호 없으나 과집중 → 일부 축소)
+  const trimList = data.holdings.filter(h => h.trimWeight >= 0.1 && h.action !== 'TAKE_PROFIT' && h.action !== 'CUT_LOSS')
+  const trimmedSet = new Set(trimList.map(h => h.ticker))
+  const holdDips = data.holdings.filter(h => h.action === 'HOLD_DIP' && !trimmedSet.has(h.ticker))
+  const defends = data.holdings.filter(h => h.action === 'DEFEND' && !trimmedSet.has(h.ticker))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -98,9 +101,56 @@ export default function AiRebalancePanel() {
       {/* ① 교체매매(익절/손절) 카드 */}
       {sellList.length > 0 && (
         <div>
-          <SectionTitle icon="🔄" text="1-Click 교체매매 후보" sub="회수 → 신규 편입" />
+          <SectionTitle icon="🔄" text="신호 기반 교체매매 (익절/손절)" sub="종목별 매도 신호" />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {sellList.map(h => <SwapCard key={h.ticker} h={h} buys={data.buyCandidates} />)}
+            {sellList.map(h => <SwapCard key={h.ticker} h={h} />)}
+          </div>
+        </div>
+      )}
+
+      {/* ①-b 분산 트림 (Phase 3: 과집중 분류 일부 축소) */}
+      {trimList.length > 0 && (
+        <div>
+          <SectionTitle icon="✂️" text="분산을 위한 일부 축소" sub="좋은 종목이나 한 분류 집중이 과해 일부만 트림" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {trimList.map(h => (
+              <div key={h.ticker} style={{ background: CARD, borderRadius: 10, border: '1px solid rgba(168,85,247,0.35)', padding: '12px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ color: '#c084fc', fontSize: 11 }}>✂️ 축소</span>
+                  <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 14 }}>{h.market === 'KR' ? (h.name || h.ticker).slice(0, 12) : `${h.name} (${h.ticker})`}</span>
+                  <span style={{ color: pnlColor(h.pnlPct), fontSize: 13, fontWeight: 700 }}>{pnlStr(h.pnlPct)}</span>
+                  <span style={{ color: '#6b7280', fontSize: 11 }}>비중 {h.weight}% → <b style={{ color: '#c084fc' }}>−{h.trimWeight}%</b> 축소</span>
+                  {h.peg != null && <span style={{ color: '#3b82f6', fontSize: 11 }}>PEG {h.peg.toFixed(2)}</span>}
+                </div>
+                {h.sellReasons.length > 0 && (
+                  <div style={{ marginTop: 6, color: '#aab6c4', fontSize: 12, lineHeight: 1.5 }}>
+                    {h.sellReasons.map((r, i) => <div key={i}>· {r}</div>)}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ①-c 신규 편입 후보 (회수 예산 재배분 — 부족 분류 갭 가중) */}
+      {data.buyCandidates.filter(b => b.allocWeight > 0).length > 0 && (
+        <div>
+          <SectionTitle icon="🎯" text={`신규 편입 후보 — 회수 ${data.sellBudget}% 재배분`} sub="부족 분류·섹터를 채우는 AI 추천" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {data.buyCandidates.filter(b => b.allocWeight > 0).map(b => (
+              <div key={b.ticker} style={{ background: CARD, borderRadius: 10, border: '1px solid rgba(34,197,94,0.3)', padding: '12px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ color: '#22c55e', fontSize: 11 }}>🎯 편입</span>
+                  <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 14 }}>{b.market === 'KR' ? (b.name || b.ticker).slice(0, 12) : `${b.name} (${b.ticker})`}</span>
+                  <span style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e', borderRadius: 6, padding: '1px 8px', fontSize: 11, fontWeight: 600 }}>AI {b.aiScore}점</span>
+                  {b.peg != null && <span style={{ color: '#3b82f6', fontSize: 11 }}>PEG {b.peg.toFixed(2)}</span>}
+                  <span style={{ color: '#8599ae', fontSize: 11 }}>{b.sector}</span>
+                  <span style={{ color: '#22c55e', fontSize: 12, fontWeight: 700, marginLeft: 'auto' }}>+{b.allocWeight}%</span>
+                </div>
+                {b.reason && <div style={{ marginTop: 6, color: '#aab6c4', fontSize: 12, lineHeight: 1.5 }}>{b.reason}</div>}
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -208,9 +258,8 @@ function SectionTitle({ icon, text, sub }: { icon: string; text: string; sub?: s
   )
 }
 
-function SwapCard({ h, buys }: { h: HoldingDiagnosis; buys: RebalanceResult['buyCandidates'] }) {
+function SwapCard({ h }: { h: HoldingDiagnosis }) {
   const cfg = ACTION_CFG[h.action]
-  const topBuy = buys[0]
   return (
     <div style={{ background: CARD, borderRadius: 10, border: `1px solid ${cfg.color}40`, padding: '14px 16px' }}>
       {/* 매도 종목 라인 */}
@@ -233,17 +282,6 @@ function SwapCard({ h, buys }: { h: HoldingDiagnosis; buys: RebalanceResult['buy
       {h.action === 'CUT_LOSS' && h.breakEvenRise != null && (
         <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', fontSize: 12, color: '#fca5a5', lineHeight: 1.5 }}>
           ⏳ 본전까지 <b>+{h.breakEvenRise}%</b> 필요 — 회복 동력이 없는 종목에 묶여 기다리는 기회비용을 점검하세요
-        </div>
-      )}
-
-      {/* 신규 편입 후보 */}
-      {topBuy && h.releaseWeight > 0 && (
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ color: '#22c55e', fontSize: 11 }}>↳ 신규 편입 후보</span>
-          <span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13 }}>{topBuy.name} ({topBuy.ticker})</span>
-          <span style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e', borderRadius: 6, padding: '1px 8px', fontSize: 11, fontWeight: 600 }}>AI {topBuy.aiScore}점</span>
-          {topBuy.peg != null && <span style={{ color: '#3b82f6', fontSize: 11 }}>PEG {topBuy.peg.toFixed(2)}</span>}
-          {topBuy.allocWeight > 0 && <span style={{ color: '#6b7280', fontSize: 11 }}>제안 {topBuy.allocWeight}%</span>}
         </div>
       )}
     </div>

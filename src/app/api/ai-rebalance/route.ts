@@ -44,7 +44,8 @@ export interface HoldingDiagnosis {
   sellReasons:   string[]        // 매도/축소 사유
   peg:           number | null
   breakEvenRise: number | null   // 손실 종목: 본전까지 필요 상승률 % (확정 수학)
-  releaseWeight: number          // 이 종목에서 회수할 비중 %(익절=절반, 손절=전량)
+  releaseWeight: number          // 이 종목에서 회수할 총 비중 %(신호 회수 + 집중 트림)
+  trimWeight:    number          // Phase 3: 과집중 분류 분산 목적 축소 비중 %(releaseWeight에 포함)
 }
 
 export interface BuyCandidate {
@@ -96,6 +97,47 @@ function breakEvenRiseOf(pnlPct: number | null): number | null {
   if (pnlPct == null || pnlPct >= 0) return null
   const r = pnlPct / 100
   return Math.round((-r / (1 + r)) * 1000) / 10
+}
+
+/**
+ * Phase 3 — 목표 추종 집중 트림.
+ * 종목별 매도 신호가 없어도 '포트폴리오 집중 위험'(한 분류가 황금비율 +15%p 초과)을 점진 축소.
+ * 안전장치(사용자 요구 "일방적 매도 금지" 확장):
+ *   · 점진적: 초과분의 절반만, 종목당 최대 비중의 절반
+ *   · 깊은 손실(-15%↓)은 트림 제외 — 저점 매도 방지
+ *   · 고PEG(매력 낮은)부터 트림, 최저PEG 핵심 1종목은 보호
+ */
+function applyConcentrationTrim(diagnoses: HoldingDiagnosis[], curCat: Record<string, number>) {
+  const TRIM_THRESHOLD = 15   // 권장 대비 초과 허용폭(%p)
+  for (const [cat, cur] of Object.entries(curCat)) {
+    const ideal = IDEAL_RATIOS[cat] ?? 0
+    const excess = cur - ideal
+    if (excess <= TRIM_THRESHOLD) continue
+    let trimTarget = Math.round(excess * 0.5 * 10) / 10   // 초과분의 절반만(점진)
+
+    // 이 분류 보유 종목 — 트림 우선순위: 고PEG 먼저, 깊은손실 보호, 최저PEG 핵심 보호
+    const inCat = diagnoses
+      .filter(d => d.lynchCategory === cat && d.weight > 0.1)
+      .sort((a, b) => (b.peg ?? 0) - (a.peg ?? 0))   // 고PEG(덜 매력적)부터
+    const coreTicker = inCat.reduce<HoldingDiagnosis | null>((best, d) =>
+      (d.peg != null && d.peg > 0 && (best == null || (d.peg < (best.peg ?? 99)))) ? d : best, null)?.ticker
+
+    for (const d of inCat) {
+      if (trimTarget <= 0.1) break
+      if (d.pnlPct != null && d.pnlPct < -15) continue   // 깊은 손실 보호(저점매도 방지)
+      if (d.ticker === coreTicker && inCat.length > 1) continue   // 최저PEG 핵심 1종목 보호
+      const avail = Math.max(0, d.weight - d.releaseWeight)
+      const cap = Math.round(d.weight * 0.5 * 10) / 10   // 종목당 최대 절반
+      const t = Math.round(Math.min(avail, trimTarget, cap) * 10) / 10
+      if (t >= 0.1) {
+        d.trimWeight = t
+        d.releaseWeight = Math.round((d.releaseWeight + t) * 10) / 10
+        if (!d.sellReasons.length || d.action === 'DEFEND' || d.action === 'KEEP')
+          d.sellReasons = [...d.sellReasons, `${CAT_KR[cat] ?? cat} 비중 과다(현재 ${Math.round(cur)}% · 권장 ${ideal}%) — 분산 위해 일부 축소`]
+        trimTarget = Math.round((trimTarget - t) * 10) / 10
+      }
+    }
+  }
 }
 
 export async function GET(req: Request) {
@@ -176,27 +218,31 @@ export async function GET(req: Request) {
       return {
         ticker: v.ticker, name: v.name ?? v.ticker, market: v.market ?? 'US',
         lynchCategory: v.lynch_category ?? null, weight, pnlPct: v.pnlPct,
-        action, sellReasons, peg, breakEvenRise: breakEvenRiseOf(v.pnlPct), releaseWeight,
+        action, sellReasons, peg, breakEvenRise: breakEvenRiseOf(v.pnlPct), releaseWeight, trimWeight: 0,
       } as HoldingDiagnosis
     }))
     diagnoses.push(...rs)
   }
-  diagnoses.sort((a, b) => b.releaseWeight - a.releaseWeight || b.weight - a.weight)
 
+  // 현재 분류/섹터 비중
+  const curCat: Record<string, number> = {}
+  for (const d of diagnoses) if (d.lynchCategory) curCat[d.lynchCategory] = (curCat[d.lynchCategory] ?? 0) + d.weight
+
+  // ④ Phase 3 — 목표 추종 집중 트림: 종목 신호가 없어도 황금비율 초과 분류를 점진 축소
+  applyConcentrationTrim(diagnoses, curCat)
+
+  diagnoses.sort((a, b) => b.releaseWeight - a.releaseWeight || b.weight - a.weight)
   const sellBudget = Math.round(diagnoses.reduce((s, d) => s + d.releaseWeight, 0) * 10) / 10
 
-  // ④ 분산 진단용 — 보유 종목 섹터 수집(getSector 7일 캐시 공유)
+  // ⑤ 분산 진단용 — 보유 종목 섹터 수집(getSector 7일 캐시 공유)
   const secByTicker: Record<string, string> = {}
   for (let i = 0; i < valued.length; i += 6) {
     const batch = valued.slice(i, i + 6)
     const secs = await Promise.all(batch.map(v => getSector(v.ticker, v.market ?? 'US').catch(() => '기타')))
     batch.forEach((v, k) => { secByTicker[v.ticker.toUpperCase()] = secs[k] })
   }
-  // 현재 분류/섹터 비중
-  const curCat: Record<string, number> = {}
   const curSec: Record<string, number> = {}
   for (const d of diagnoses) {
-    if (d.lynchCategory) curCat[d.lynchCategory] = (curCat[d.lynchCategory] ?? 0) + d.weight
     const sec = secByTicker[d.ticker.toUpperCase()] ?? '기타'
     curSec[sec] = (curSec[sec] ?? 0) + d.weight
   }
@@ -298,8 +344,9 @@ const ACTION_KO: Record<RebalanceAction, string> = {
 
 async function buildNarrative(holdings: HoldingDiagnosis[], buys: BuyCandidate[], sellBudget: number, div: DiversificationView | null): Promise<string> {
   const sellLines = holdings
-    .filter(h => h.action === 'TAKE_PROFIT' || h.action === 'CUT_LOSS' || h.action === 'HOLD_DIP')
-    .map(h => `- ${h.name}(${h.ticker}): 비중 ${h.weight}%, 손익 ${h.pnlPct != null ? `${h.pnlPct > 0 ? '+' : ''}${h.pnlPct}%` : '자료없음'}, ${ACTION_KO[h.action]}${h.breakEvenRise != null ? `, 본전까지 +${h.breakEvenRise}% 필요` : ''}, 사유: ${h.sellReasons.join('·') || '—'}`)
+    // 실제 행동 가능한 것만: 회수 비중 ≥0.1% 이거나 보류(저점매도 방지) — 소액(0%) 익절 노이즈 제외
+    .filter(h => h.releaseWeight >= 0.1 || h.action === 'HOLD_DIP')
+    .map(h => `- ${h.name}(${h.ticker}): 비중 ${h.weight}%, 손익 ${h.pnlPct != null ? `${h.pnlPct > 0 ? '+' : ''}${h.pnlPct}%` : '자료없음'}, ${ACTION_KO[h.action]}${h.trimWeight >= 0.1 ? `+분산트림 ${h.trimWeight}%` : ''}${h.breakEvenRise != null ? `, 본전까지 +${h.breakEvenRise}% 필요` : ''}, 사유: ${h.sellReasons.join('·') || '—'}`)
     .join('\n')
   const buyLines = buys.map(b => `- ${b.name}(${b.ticker}): AI점수 ${b.aiScore}, PEG ${b.peg ?? '—'}, 섹터 ${b.sector}, 제안 ${b.allocWeight}%, ${b.reason}`).join('\n')
   const divLine = div
