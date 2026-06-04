@@ -1298,10 +1298,17 @@ FRED 매크로 + 피터 린치 6대 가중치 매트릭스 + 퀀트 스크리닝
 보유 개별주식의 최신 뉴스를 수집·분석해 **HOLD_STRONG(견고 보유) / OBSERVE(관찰 중) / RE_EVALUATE(재검토 필요)** 3단계로 분류. 피터 린치 "뉴스 소음은 걸러내고 투자 thesis에 영향 주는 신호만" 철학. **대시보드 자산&모니터링 → 📰 뉴스 촉매 레이더** 탭(상관관계 매트릭스 다음).
 - **`/api/news-catalyst`** (Supabase auth 필수·force-dynamic·maxDuration:60): 사용자 investments → 개별주식만(assetClassifier) → ticker 디듀프 → 동시성 3으로 분석
   - **뉴스 소스**: US=Yahoo Finance RSS(`feeds.finance.yahoo.com/rss/2.0/headline?s=`, 기존 Jarvis 검증 소스), KR=Google News RSS(`news.google.com/rss/search`, 무료·무인증) + Yahoo `.KS/.KQ` 병행
-  - **ticker별 개별 캐시**: `app_cache(news-catalyst-v2:TICKER:MKT:YYYYMMDD, 3h)` — 전체 포트폴리오 한 키로 묶지 않음(한 명이 종목 추가/삭제해도 나머지 캐시 유지). A·B 학생이 같은 NVDA 조회 시 동일 분석 공유(제2원칙)
+  - **ticker별 개별 캐시**: `app_cache(news-catalyst-v3:TICKER:MKT:YYYYMMDD, 3h)` — 전체 포트폴리오 한 키로 묶지 않음(한 명이 종목 추가/삭제해도 나머지 캐시 유지). A·B 학생이 같은 NVDA 조회 시 동일 분석 공유(제2원칙)
   - **Gemini 출력 6필드**: catalystStatus·keyFact(핵심 팩트 1문장)·actionGuide(린치 행동 가이드)·riskLevel(LOW/MEDIUM/HIGH)·relevantMetric(연결 재무지표)·isNoise(주가 시황성 필터)
   - RE_EVALUATE → OBSERVE → HOLD_STRONG 순 정렬, reEvaluateCount 상단 경보
 - **`NewsCatalystRadar.tsx`**: RE_EVALUATE 경보 배너(펄스) + 4개 필터 탭(전체/재검토/관찰/견고) + 카드 펼침(행동 가이드 + 근거 헤드라인 토글)
+- ⚖️ **가치×모멘텀 2축 통합(2026-06) — Jarvis 처방전과의 충돌 해결**:
+  - **증상**: 이튼(ETN)이 Jarvis 모닝 처방전=**매도 검토**(PEG 4.91 고평가)인데 뉴스 레이더=**견고 보유/저위험**으로 정반대 표시 → 학생 혼란("보유? 매도?"). **버그가 아니라** 두 도구가 다른 축(Jarvis=가격/밸류에이션, 뉴스레이더=사업/모멘텀)을 측정 + 학생에게 설명 부재. 월가의 "가치 vs 모멘텀" 충돌이 그대로 노출됨
+  - **해결(제미나이 컨텍스트 교차주입 + SSOT 보강)**: PEG SSOT(`canonicalFundamentals.getCanonicalPeg`)를 뉴스 분석에 주입 → Gemini가 **가치×모멘텀 융합 actionGuide** 작성. 단 **catalystStatus(사업축)는 가격 이유로 낮추지 않음**(순수 뉴스/thesis 축 유지)
+  - **밸류에이션 등급은 코드가 결정론적 산출**(`valuationOf`): 고평가=PEG>2.2(=Jarvis SELL 기준과 정확히 일치, 제2원칙) / 저평가=PEG≤1.0 / 적정=그 사이. Gemini 판단에 안 맡김 → 두 화면 PEG 영구 일치
+  - **UI 2축 분리**: 사업 배지(견고/관찰/재검토) + **가격 배지**(💲밸류 부담/적정가/가격 매력 · PEG값) 나란히. 충돌 조합엔 **융합 띠** 자동 노출 — [견고+고평가]→"⚖️ 좋은 사업·비싼 가격, 추격매수 자제·분할익절" / [악재+고평가]→"🚨 비중 축소 우선" / [견고+저평가]→"🟢 린치가 좋아할 자리". 헤더에 2축 개념 안내
+  - **검증**: ETN PEG 4.91 주입 → 사업축 HOLD_STRONG·riskLevel HIGH·actionGuide "훌륭한 기업이나 PEG 4.91 과도, 좋은뉴스 무조건 추격매수는 초보 실수, 분할익절로 현금확보" ✓ (riskLevel·catalystStatus enum 방어 보정 + 캐시 v3)
+  - **교육 효과**: "이 앱은 뉴스 좋다고 무지성 매수 권하지 않고 밸류에이션까지 보고 냉정하게 브레이크를 밟아준다" — 같은 종목이 두 화면서 다르게 보이던 모순이 "사업은 좋지만 가격이 비싸다"는 린치·버핏 핵심 교훈으로 전환
 - ⚠️ **핵심 버그 수정(검증 중 발견) — Gemini 할루시네이션 차단**:
   - **증상**: NVDA의 keyFact가 "LG그룹이 엔비디아 GPU 1만 대 도입 결정"이라 단언했으나, 실제 수집된 5개 헤드라인엔 LG·한국·GPU 언급이 **전혀 없음**. 헤드라인이 전부 시장 전반 클릭베이트("AI 주식 백만장자" 등)라 Gemini가 **훈련 데이터에서 그럴듯한 가짜 뉴스를 창작** → 투자 교육 앱에서 학생이 사실로 오인하는 최악의 오류
   - **수정**: 프롬프트에 "⛔ 절대 규칙 — 헤드라인 밖 사실(기업명·금액·계약·수치) 창작 엄격 금지. 시장 전반·타종목 기사뿐이면 isNoise=true + '고유 중요 뉴스 없음'으로 정직하게" 명시. **캐시 키 v2로 무효화**
