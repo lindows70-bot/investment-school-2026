@@ -11,7 +11,23 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import AIPortfolioDashboard from '@/app/components/AIPortfolioDashboard'
 import LynchEarningsChart    from '@/app/components/LynchEarningsChart'
-import EarningsAlertTerminal from '@/app/components/EarningsAlertTerminal'
+import EarningsAlertTerminal      from '@/app/components/EarningsAlertTerminal'
+import ShareholderYieldTerminal   from '@/app/components/ShareholderYieldTerminal'
+import LynchValuationEngine       from '@/app/components/LynchValuationEngine'
+import LeverageRiskSimulator      from '@/app/components/LeverageRiskSimulator'
+import PortfolioBalanceRadar      from '@/app/components/PortfolioBalanceRadar'
+import CocktailPartyGauge         from '@/app/components/CocktailPartyGauge'
+import MacroWeather               from '@/app/components/MacroWeather'
+import NpsPortfolio               from '@/app/components/NpsPortfolio'
+import JarvisMorningBriefing      from '@/app/components/JarvisMorningBriefing'
+import SchoolIndexDashboard       from '@/app/components/SchoolIndexDashboard'
+import NewsCatalystRadar          from '@/app/components/NewsCatalystRadar'
+import CorrelationMatrix          from '@/app/components/CorrelationMatrix'
+import LynchEarningsLineTracer    from '@/app/components/LynchEarningsLineTracer'
+import GuidanceRevisionRadar      from '@/app/components/GuidanceRevisionRadar'
+import DividendExplorer           from '@/app/components/DividendExplorer'
+import MacroAiTerminal            from '@/app/components/MacroAiTerminal'
+import ErrorBoundary              from '@/app/components/ErrorBoundary'
 import ChangePasswordBanner  from '@/app/components/ChangePasswordBanner'
 import LynchSellSignalPanel  from '@/app/components/LynchSellSignalPanel'
 import TenbaggerRadar        from '@/app/components/TenbaggerRadar'
@@ -63,13 +79,13 @@ interface LivePrice {
 const USD_KRW = 1_350
 
 const LYNCH_META: Record<string, { label: string; color: string }> = {
-  slow_grower: { label: '완만한 성장주', color: '#9ca3af' },
+  slow_grower: { label: '저성장주', color: '#a8b5c2' },
   stalwart:    { label: '대형 우량주',   color: '#60a5fa' },
   fast_grower: { label: '빠른 성장주',   color: '#34d399' },
   cyclical:    { label: '경기 순환주',   color: '#fb923c' },
   turnaround:  { label: '회생 기업주',   color: '#f87171' },
   asset_play:  { label: '자산 보유주',   color: '#c084fc' },
-  na:          { label: 'N/A',           color: '#374151' },
+  na:          { label: 'N/A',           color: '#7a8fa3' },
 }
 const MKT_COLOR: Record<Market, string> = { US:'#34d399', KR:'#60a5fa', CRYPTO:'#fb923c' }
 
@@ -215,7 +231,7 @@ const CustomTreemapContent = (props: any) => {
 // ─── Mini sparkline for table ─────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const MiniChart = ({ data }: { data: PricePoint[] }) => {
-  if (!data?.length) return <span style={{ color:'#374151', fontSize:11 }}>—</span>
+  if (!data?.length) return <span style={{ color:'#7a8fa3', fontSize:11 }}>—</span>
   const dir = data[data.length-1].v > data[0].v
   return (
     <ResponsiveContainer width={60} height={24}>
@@ -233,7 +249,7 @@ const DarkTip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
     <div style={{ background:'#1a1d27', border:'1px solid #2a2d3a', borderRadius:8, padding:'8px 12px', fontSize:12, color:'#f1f5f9' }}>
-      {label && <div style={{ color:'#4b5563', marginBottom:4, fontSize:11 }}>{label}</div>}
+      {label && <div style={{ color:'#8a96a8', marginBottom:4, fontSize:11 }}>{label}</div>}
       {payload.map((p: { name: string; value: number; color: string }, i: number) => (
         <div key={i} style={{ color: p.color }}>{p.name}: {typeof p.value === 'number' ? fmtKrw(p.value) : p.value}</div>
       ))}
@@ -243,7 +259,7 @@ const DarkTip = ({ active, payload, label }: any) => {
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
 const Empty = ({ msg = '종목을 추가하면 차트가 표시됩니다' }) => (
-  <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100%', color:'#374151', fontSize:13, minHeight:100 }}>
+  <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100%', color:'#7a8fa3', fontSize:13, minHeight:100 }}>
     {msg}
   </div>
 )
@@ -286,10 +302,10 @@ const BACKTEST_SUMMARY = [
   { key:'rebalanceQ' as const, name:'분기별 리밸런싱', final:'2,080만', ret:'+108.0%', mdd:'-16.9%', color:'#10b981' },
   { key:'rebalanceY' as const, name:'연간 리밸런싱',   final:'1,940만', ret:'+94.0%',  mdd:'-20.5%', color:'#818cf8' },
   { key:'buyAndHold' as const, name:'단순 보유 (방치)',final:'1,980만', ret:'+98.0%',  mdd:'-34.6%', color:'#f87171' },
-  { key:'benchmark'  as const, name:'시장 평균 지수',  final:'1,620만', ret:'+62.0%',  mdd:'-18.1%', color:'#64748b' },
+  { key:'benchmark'  as const, name:'시장 평균 지수',  final:'1,620만', ret:'+62.0%',  mdd:'-18.1%', color:'#7f93a8' },
 ]
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
-  <div style={{ fontSize:12, fontWeight:700, color:'#9ca3af', padding:'14px 18px 0', letterSpacing:'0.04em', textTransform:'uppercase' as const }}>
+  <div style={{ fontSize:12, fontWeight:700, color:'#a8b5c2', padding:'14px 18px 0', letterSpacing:'0.04em', textTransform:'uppercase' as const }}>
     {children}
   </div>
 )
@@ -415,14 +431,14 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore }: RebalanceWidgetPr
 
           {/* ── 좌측: 비중 비교 바 그래프 ────────────────────────── */}
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#7f93a8', textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: 14 }}>
               비중 비교
             </div>
 
             {/* 목표 비중 바 */}
             <div style={{ marginBottom: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>목표 비중</span>
+                <span style={{ fontSize: 11, color: '#7f93a8', fontWeight: 600 }}>목표 비중</span>
                 <span style={{ fontSize: 11, color: '#94a3b8' }}>
                   Core {targetCore}% / Sat {targetSat}%
                 </span>
@@ -451,7 +467,7 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore }: RebalanceWidgetPr
             {/* 현재 비중 바 (시뮬레이션 시 애니메이션) */}
             <div style={{ marginBottom: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>
+                <span style={{ fontSize: 11, color: '#7f93a8', fontWeight: 600 }}>
                   현재 비중 {simulated && <span style={{ color: '#4ade80', marginLeft: 4 }}>→ 조정 완료 ✓</span>}
                 </span>
                 <span style={{ fontSize: 11, color: '#94a3b8' }}>
@@ -496,7 +512,7 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore }: RebalanceWidgetPr
                   <div style={{ fontSize: 11, fontWeight: 800, color: '#f87171' }}>
                     {coreIsOver ? `Core +${absGap.toFixed(1)}%p 쏠림` : `Satellite +${absGap.toFixed(1)}%p 쏠림`}
                   </div>
-                  <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>
+                  <div style={{ fontSize: 10, color: '#7f93a8', marginTop: 1 }}>
                     목표 대비 {absGap.toFixed(1)}%p 이탈
                   </div>
                 </div>
@@ -522,7 +538,7 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore }: RebalanceWidgetPr
 
           {/* ── 우측: 매매 처방전 ─────────────────────────────────── */}
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#7f93a8', textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: 14 }}>
               매매 처방전
             </div>
 
@@ -567,14 +583,14 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore }: RebalanceWidgetPr
               marginBottom: 14,
             }}>
               <div>
-                <div style={{ fontSize: 10, color: '#4b5563', textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: 3 }}>
+                <div style={{ fontSize: 10, color: '#8a96a8', textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: 3 }}>
                   가상 이동 필요 금액
                 </div>
                 <div style={{ fontSize: 22, fontWeight: 900, color: '#f1f5f9', fontVariantNumeric: 'tabular-nums' }}>
                   {fmtKrw(adjustKrw)}
                 </div>
               </div>
-              <div style={{ textAlign: 'right', fontSize: 10, color: '#374151', lineHeight: 1.6 }}>
+              <div style={{ textAlign: 'right', fontSize: 10, color: '#7a8fa3', lineHeight: 1.6 }}>
                 <div>{coreIsOver ? 'Core → Satellite' : 'Satellite → Core'}</div>
                 <div>전체 자산의 {absGap.toFixed(1)}%</div>
               </div>
@@ -623,7 +639,7 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore }: RebalanceWidgetPr
                 🔄 초기 상태로 되돌리기
               </button>
             )}
-            <div style={{ fontSize: 10, color: '#374151', textAlign: 'center', marginTop: 6 }}>
+            <div style={{ fontSize: 10, color: '#7a8fa3', textAlign: 'center', marginTop: 6 }}>
               * 가상 시뮬레이션 — 실제 매매와 무관합니다
             </div>
           </div>
@@ -646,15 +662,17 @@ export default function DashboardPage() {
   // 배당 데이터 (stock-info API — SEIBro/Yahoo 포함, 1시간 캐시)
   const [targetCore, setTargetCore] = useState(70)   // 목표 코어 비중 (기본 70%)
   const [dividendMap, setDividendMap] = useState<Record<string, {
-    annualDividend: number | null
-    dividendYield:  number | null
-    pe?:            number | null   // AI 멘토 차트용
+    annualDividend:  number | null
+    dividendYield:   number | null
+    pe?:             number | null   // AI 멘토 차트용
+    earningsGrowth?: number | null   // 적자 기업 성장률 (TEM 등)
     peg?:           number | null   // AI 멘토 차트용
   }>>({})
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
   const [btActive,  setBtActive]  = useState({ rebalanceQ:true, rebalanceY:false, buyAndHold:true, benchmark:true })
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst'>('live')
+  const [openGroup, setOpenGroup] = useState<string | null>(null)
 
   // ── AI 멘토 탭: MENTOR_STOCKS 제거 후 컴포넌트에 빈 배열 전달 ──
   // 실제 종목 데이터(PER/성장률)가 API에서 수집되면 여기에 연동 예정
@@ -993,10 +1011,17 @@ export default function DashboardPage() {
             const peNum  = typeof f?.pe  === 'number' && isFinite(f.pe)  && f.pe  > 0 ? f.pe  : null
             const pegNum = typeof f?.peg === 'number' && isFinite(f.peg) && f.peg > 0 ? f.peg : null
             result[inv.ticker.toUpperCase()] = {
-              annualDividend: f?.annualDividend ?? null,
-              dividendYield:  f?.dividendYield  ?? null,
-              pe:  peNum,
-              peg: pegNum,
+              annualDividend:  f?.annualDividend ?? null,
+              dividendYield:   f?.dividendYield  ?? null,
+              pe:              peNum,
+              peg:             pegNum,
+              // 적자 기업(TEM 등) earningsGrowth 수집 — AI 멘토 차트에서 growthRate 대체 사용
+              earningsGrowth:  (() => {
+                const eg = f?.earningsGrowth
+                if (typeof eg !== 'number' || !isFinite(eg) || eg === 0) return null
+                // Yahoo Finance: 0.55 = 55% 형태 → 퍼센트 변환
+                return Math.abs(eg) < 20 ? parseFloat((eg * 100).toFixed(1)) : parseFloat(eg.toFixed(1))
+              })(),
             }
           } catch { /* 무시 */ }
         }))
@@ -1144,7 +1169,7 @@ export default function DashboardPage() {
     const counts: Record<string,number> = {}
     investments.forEach(i => { const k = i.lynch_category ?? 'na'; counts[k] = (counts[k]??0)+1 })
     return Object.entries(counts).map(([k,v]) => ({
-      name: LYNCH_META[k]?.label ?? k, value: v, color: LYNCH_META[k]?.color ?? '#374151'
+      name: LYNCH_META[k]?.label ?? k, value: v, color: LYNCH_META[k]?.color ?? '#7a8fa3'
     }))
   }, [investments])
 
@@ -1286,7 +1311,7 @@ export default function DashboardPage() {
       cyclical:    '경기 순환주 고점 접근 가능 — 사이클 전환 징후 모니터링 권장',
       turnaround:  '회생주 목표 구간 — 펀더멘탈 개선 지속 여부 재확인 필요',
       asset_play:  '자산 가치 실현 중 — 자산 대비 현재 가격 수준 재점검',
-      slow_grower: '완만한 성장주 수익 구간 — 배당 재투자 전략 병행 권장',
+      slow_grower: '저성장주 수익 구간 — 배당 재투자 전략 병행 권장',
       na:          '인덱스 펀드 — 피터린치·버핏 공통 추천: 장기 적립 유지',
     }
 
@@ -1385,36 +1410,211 @@ export default function DashboardPage() {
       {/* ── 비밀번호 변경 안내 배너 (임시 비번으로 로그인 시) ── */}
       <ChangePasswordBanner />
 
-      {/* ── 대시보드 탭 네비게이션 ── */}
-      <div style={{ display:'flex', gap:4, background:'#0f172a', padding:'4px', borderRadius:10, border:'1px solid #1f2937', alignSelf:'flex-start' }}>
-        {([
-          { key:'live'     as const, icon:'📊', label:'실시간 대시보드',         desc:'자산 현황 · 리밸런싱' },
-          { key:'backtest' as const, icon:'⏳', label:'투자 타임머신 (백테스트)', desc:'5개년 전략 시뮬레이터' },
-          { key:'mentor'   as const, icon:'🤖', label:'AI 멘토 족집게',           desc:'마스터 진단 레포트' },
-          { key:'lynch'    as const, icon:'📈', label:'린치 이익선 차트',          desc:'적정가치 시계열 분석' },
-          { key:'signal'   as const, icon:'🚨', label:'매도 시그널 패널',           desc:'유형별 매도 경고등' },
-          { key:'ghost'    as const, icon:'👻', label:'유령 종목 추적기',           desc:'기관 소외 × 내부자 매수' },
-          { key:'macro'    as const, icon:'🏛️', label:'거시경제 (Fed Watch)',        desc:'금리 · 인플레이션 · QT' },
-          { key:'earnings' as const, icon:'📋', label:'어닝 터미널',                 desc:'G 리비전 · PEG 알럿' },
-        ]).map(({ key, icon, label, desc }) => (
-          <button key={key} type="button" onClick={() => setDashTab(key)}
-            style={{
-              display:'flex', flexDirection:'column', alignItems:'flex-start',
-              padding:'8px 16px', borderRadius:8, border:'none', cursor:'pointer',
-              transition:'all 0.18s',
-              background:  dashTab === key ? '#1e293b' : 'transparent',
-              boxShadow:   dashTab === key ? '0 2px 8px rgba(0,0,0,0.4)' : 'none',
-            }}>
-            <span style={{ fontSize:13, fontWeight:700, color: dashTab === key ? '#f1f5f9' : '#475569' }}>
-              {icon} {label}
-            </span>
-            <span style={{ fontSize:9, color: dashTab === key ? '#64748b' : '#334155', marginTop:1 }}>{desc}</span>
-          </button>
-        ))}
-      </div>
+      {/* ── 대시보드 탭 네비게이션 (4대 대분류 드롭다운) ── */}
+      {(() => {
+        // ── 4대 대분류 그룹 정의 ──────────────────────────────────────
+        const GROUPS: {
+          id: string
+          icon: string
+          label: string
+          items: { key: typeof dashTab; icon: string; label: string; desc: string }[]
+        }[] = [
+          {
+            id: 'monitor', icon: '📊', label: '자산 & 모니터링',
+            items: [
+              { key: 'live',        icon: '📊', label: '실시간 대시보드',    desc: '자산 현황 · 리밸런싱' },
+              { key: 'balance',     icon: '⚖️', label: '린치 황금비율',      desc: '6대 분류 밸런스 진단' },
+              { key: 'correlation',  icon: '📐', label: '상관관계 매트릭스',  desc: '종목 간 동조화 · 분산 진단' },
+              { key: 'newscatalyst',icon: '📰', label: '뉴스 촉매 레이더',   desc: '보유 종목 뉴스 → 3단계 신호' },
+              { key: 'earnings',    icon: '📋', label: '어닝 터미널',        desc: 'G 리비전 · PEG 알럿' },
+              { key: 'yield',       icon: '💰', label: '주주환원 터미널',    desc: '배당 + 자사주 · 총환원율' },
+            ],
+          },
+          {
+            id: 'valuation', icon: '🔍', label: '린치 가치평가',
+            items: [
+              { key: 'valuation', icon: '🔬', label: '린치 밸류에이션',  desc: '6대 분류 맞춤 가치평가' },
+              { key: 'tracer',    icon: '🔭', label: '이익선 트레이서',  desc: '역사적 EPS × 이격도 추적' },
+              { key: 'lynch',     icon: '📈', label: '린치 이익선 차트', desc: '적정가치 시계열 분석' },
+              { key: 'signal',    icon: '🚨', label: '매도 시그널 패널', desc: '유형별 매도 경고등' },
+            ],
+          },
+          {
+            id: 'research', icon: '💡', label: '투자 리서치',
+            items: [
+              { key: 'macroai',  icon: '🌐', label: '거시경제 AI 추천',       desc: '매크로 × 린치 × Gemini 종합 추천' },
+              { key: 'mentor',   icon: '🤖', label: 'AI 멘토 족집게',       desc: '마스터 진단 레포트' },
+              { key: 'guidance', icon: '📡', label: '가이던스 모멘텀 레이더', desc: 'EPS 컨센서스 기울기 스캐닝' },
+              { key: 'schoolflow', icon: '🏫', label: '학교 13F 인덱스',  desc: '집단지성 동일가중 인덱스' },
+              { key: 'ghost',  icon: '👻', label: '유령 종목 추적기',     desc: '기관 소외 × 내부자 매수' },
+              { key: 'macro',  icon: '🏛️', label: '거시경제 (Fed Watch)', desc: '금리 · 인플레이션 · QT' },
+            ],
+          },
+          {
+            id: 'simulation', icon: '⏳', label: '시뮬레이션',
+            items: [
+              { key: 'backtest', icon: '⏳', label: '투자 타임머신',     desc: '5개년 전략 백테스트' },
+              { key: 'leverage', icon: '⚠️', label: '레버리지 위험 시뮬', desc: '음의 복리 · 투자 vs 투기' },
+            ],
+          },
+        ]
+
+        // 현재 탭이 속한 그룹 찾기 (부모 하이라이트용)
+        const activeGroupId = GROUPS.find(g =>
+          g.items.some(it => it.key === dashTab)
+        )?.id ?? null
+
+        const GOLD   = '#f59e0b'
+        const BORDER = '#1e293b'
+
+        return (
+          <div
+            style={{ position: 'relative', display: 'flex', gap: 4,
+              background: '#0a0e1a', padding: '4px 6px',
+              borderRadius: 12, border: '1px solid #1e293b',
+              alignSelf: 'flex-start', zIndex: 50,
+            }}
+            // 바깥 클릭 시 드롭다운 닫기
+            onMouseLeave={() => setOpenGroup(null)}
+          >
+            {GROUPS.map(group => {
+              const isActive  = activeGroupId === group.id
+              const isOpen    = openGroup === group.id
+
+              return (
+                <div key={group.id} style={{ position: 'relative' }}>
+                  {/* ── 대분류 버튼 ── */}
+                  <button
+                    type="button"
+                    onMouseEnter={() => setOpenGroup(group.id)}
+                    onClick={() => setOpenGroup(isOpen ? null : group.id)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      padding: '8px 14px', borderRadius: 8, border: 'none',
+                      cursor: 'pointer', transition: 'all 0.15s',
+                      background: isOpen || isActive ? '#1e293b' : 'transparent',
+                      position: 'relative',
+                    }}
+                  >
+                    <span style={{ fontSize: 14 }}>{group.icon}</span>
+                    <span style={{
+                      fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap',
+                      color: isActive ? GOLD : isOpen ? '#f1f5f9' : '#7f93a8',
+                      transition: 'color 0.15s',
+                    }}>
+                      {group.label}
+                    </span>
+                    {/* 드롭다운 화살표 */}
+                    <svg
+                      width="10" height="10" viewBox="0 0 24 24" fill="none"
+                      stroke={isActive ? GOLD : '#8599ae'} strokeWidth="2.5"
+                      strokeLinecap="round" strokeLinejoin="round"
+                      style={{ transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                    >
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                    {/* 활성 인디케이터 바 */}
+                    {isActive && (
+                      <div style={{
+                        position: 'absolute', bottom: 2, left: '50%',
+                        transform: 'translateX(-50%)',
+                        width: '60%', height: 2, borderRadius: 999,
+                        background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)`,
+                      }} />
+                    )}
+                  </button>
+
+                  {/* ── 드롭다운 패널 ── */}
+                  <div style={{
+                    position: 'absolute', top: 'calc(100% + 6px)', left: 0,
+                    minWidth: 220,
+                    background: '#0f1117',
+                    border: `1px solid ${BORDER}`,
+                    borderRadius: 10,
+                    boxShadow: '0 12px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)',
+                    zIndex: 200,
+                    overflow: 'hidden',
+                    // 애니메이션
+                    opacity: isOpen ? 1 : 0,
+                    transform: isOpen ? 'translateY(0)' : 'translateY(-6px)',
+                    pointerEvents: isOpen ? 'auto' : 'none',
+                    transition: 'opacity 0.18s ease, transform 0.18s ease',
+                  }}>
+                    {/* 헤더 */}
+                    <div style={{
+                      padding: '8px 14px 6px',
+                      borderBottom: `1px solid ${BORDER}`,
+                      fontSize: 9, fontWeight: 800, letterSpacing: '0.1em',
+                      color: '#7a8fa3', textTransform: 'uppercase' as const,
+                    }}>
+                      {group.icon} {group.label}
+                    </div>
+
+                    {/* 소분류 메뉴 목록 */}
+                    {group.items.map((item, idx) => {
+                      const isItemActive = dashTab === item.key
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() => { setDashTab(item.key); setOpenGroup(null) }}
+                          style={{
+                            display: 'flex', flexDirection: 'column' as const,
+                            alignItems: 'flex-start', gap: 1,
+                            width: '100%', padding: '9px 14px',
+                            border: 'none', cursor: 'pointer',
+                            borderTop: idx > 0 ? `1px solid #111827` : 'none',
+                            background: isItemActive
+                              ? 'rgba(245,158,11,0.08)'
+                              : 'transparent',
+                            transition: 'background 0.12s',
+                          }}
+                          onMouseEnter={e => {
+                            if (!isItemActive) (e.currentTarget as HTMLButtonElement).style.background = '#1e293b'
+                          }}
+                          onMouseLeave={e => {
+                            if (!isItemActive) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                            <span style={{ fontSize: 13 }}>{item.icon}</span>
+                            <span style={{
+                              fontSize: 12, fontWeight: 700,
+                              color: isItemActive ? GOLD : '#cbd5e1',
+                            }}>
+                              {item.label}
+                            </span>
+                            {isItemActive && (
+                              <span style={{
+                                fontSize: 8, padding: '1px 6px', borderRadius: 20,
+                                background: 'rgba(245,158,11,0.15)', color: GOLD,
+                                fontWeight: 800,
+                              }}>
+                                NOW
+                              </span>
+                            )}
+                          </div>
+                          <span style={{ fontSize: 10, color: '#7a8fa3', marginLeft: 20 }}>
+                            {item.desc}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
+      })()}
 
       {/* ── 실시간 대시보드 탭 ── */}
       <div id="tab-live" style={{ display: dashTab==='live' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+
+      {/* 🤖 Jarvis 모닝 포트폴리오 처방전 (2단계) — 아침에 가장 먼저 보는 AI 비서 브리핑 */}
+      <ErrorBoundary label="Jarvis 모닝 처방전">
+        <JarvisMorningBriefing />
+      </ErrorBoundary>
 
       {/* ── 배당 상세 모달 (fixed center) ── */}
       {showDivDetail && (
@@ -1465,7 +1665,7 @@ export default function DashboardPage() {
                 style={{
                   width:28, height:28, borderRadius:8,
                   background:'#1a2235', border:'1px solid #252f47',
-                  color:'#6b7280', cursor:'pointer', fontSize:14,
+                  color:'#8a9aaa', cursor:'pointer', fontSize:14,
                   display:'flex', alignItems:'center', justifyContent:'center',
                   flexShrink:0,
                 }}
@@ -1541,7 +1741,7 @@ export default function DashboardPage() {
               flexShrink:0,
             }}>
               <div>
-                <div style={{ fontSize:9, color:'#454868', fontWeight:700, letterSpacing:'0.1em' }}>TOTAL / 월</div>
+                <div style={{ fontSize:9, color:'#9aa0b8', fontWeight:700, letterSpacing:'0.1em' }}>TOTAL / 월</div>
                 <div style={{ fontSize:10, color:'#374168', marginTop:2 }}>
                   연 {fmtKrw(Math.round(
                     investments.reduce((sum, inv) => {
@@ -1732,13 +1932,13 @@ export default function DashboardPage() {
                   borderLeft: `3px solid ${accent}`,
                   position: 'relative' as const,
                 }}>
-                  <div style={{ fontSize:8, fontWeight:700, color:'#454868', textTransform:'uppercase' as const, letterSpacing:'0.1em', marginBottom:6 }}>
+                  <div style={{ fontSize:8, fontWeight:700, color:'#9aa0b8', textTransform:'uppercase' as const, letterSpacing:'0.1em', marginBottom:6 }}>
                     {label}
                   </div>
                   <div style={{ fontSize:20, fontWeight:800, color:accent, fontVariantNumeric:'tabular-nums', letterSpacing:'-0.4px', lineHeight:1.1 }}>
                     {main}
                   </div>
-                  {sub && <div style={{ fontSize:10, color:'#454868', marginTop:4 }}>{sub}</div>}
+                  {sub && <div style={{ fontSize:10, color:'#9aa0b8', marginTop:4 }}>{sub}</div>}
 
                   {/* 배당 카드 전용: 상세보기 버튼 */}
                   {isDivCard && !dividendLoading && monthlyDividend > 0 && (
@@ -1747,8 +1947,8 @@ export default function DashboardPage() {
                       style={{
                         marginTop:7, padding:'3px 10px',
                         background:'transparent',
-                        border:`1px solid ${showDivDetail ? '#34d399' : '#2a3050'}`,
-                        borderRadius:5, color: showDivDetail ? '#34d399' : '#4b5680',
+                        border:`1px solid ${showDivDetail ? '#34d399' : '#4a5c7a'}`,
+                        borderRadius:5, color: showDivDetail ? '#34d399' : '#8a94b0',
                         fontSize:9, fontWeight:600, cursor:'pointer',
                         letterSpacing:'0.04em', transition:'all 0.15s',
                       }}
@@ -1808,7 +2008,7 @@ export default function DashboardPage() {
               {/* 섹션 레이블 */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ width: 3, height: 12, borderRadius: 2, background: 'linear-gradient(180deg,#6366f1,#3b82f6)' }}/>
-                <span style={{ fontSize: 9, fontWeight: 800, color: '#454868', letterSpacing: '0.14em', textTransform: 'uppercase' as const }}>
+                <span style={{ fontSize: 9, fontWeight: 800, color: '#9aa0b8', letterSpacing: '0.14em', textTransform: 'uppercase' as const }}>
                   Global Market Indices
                 </span>
               </div>
@@ -1848,7 +2048,7 @@ export default function DashboardPage() {
                           {/* ① 헤더 */}
                           <div style={{ padding: '11px 13px 9px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-                              <span style={{ fontSize: 9, fontWeight: 700, color: '#454868', letterSpacing: '0.07em', textTransform: 'uppercase' as const }}>
+                              <span style={{ fontSize: 9, fontWeight: 700, color: '#9aa0b8', letterSpacing: '0.07em', textTransform: 'uppercase' as const }}>
                                 {idx.name}
                               </span>
                               <span style={{
@@ -1874,10 +2074,10 @@ export default function DashboardPage() {
                             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                               <span style={{ fontSize: 11, fontWeight: 700, color: Cs, fontVariantNumeric: 'tabular-nums' }}>
                                 {up ? '+' : ''}{fmtIdx(idx.change, idx.currency)}
-                                <span style={{ fontSize: 8, color: '#363855', marginLeft: 3, fontWeight: 400 }}>{idx.currency}</span>
+                                <span style={{ fontSize: 8, color: '#7a8599', marginLeft: 3, fontWeight: 400 }}>{idx.currency}</span>
                               </span>
-                              <span style={{ width: 1, height: 9, background: '#2e3050', flexShrink: 0 }}/>
-                              <span style={{ fontSize: 9, color: '#363855' }}>
+                              <span style={{ width: 1, height: 9, background: '#8088a8', flexShrink: 0 }}/>
+                              <span style={{ fontSize: 9, color: '#7a8599' }}>
                                 시가 <span style={{ color: '#525678' }}>{fmtIdx(idxOpen, idx.currency)}</span>
                               </span>
                             </div>
@@ -1913,9 +2113,9 @@ export default function DashboardPage() {
                               {([['시가', idxOpen], ['고가', idxHigh], ['저가', idxLow]] as [string, number][]).map(([lbl, val], i) => (
                                 <div key={lbl} style={{
                                   flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-                                  borderLeft: i > 0 ? '1px solid #252840' : 'none',
+                                  borderLeft: i > 0 ? '1px solid #4a5070' : 'none',
                                 }}>
-                                  <span style={{ fontSize: 8, color: '#363855', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>{lbl}</span>
+                                  <span style={{ fontSize: 8, color: '#7a8599', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>{lbl}</span>
                                   <span style={{ fontSize: 12, fontWeight: 700, color: '#5a5f7a', fontVariantNumeric: 'tabular-nums' }}>
                                     {fmtIdx(val, idx.currency)}
                                   </span>
@@ -1929,7 +2129,7 @@ export default function DashboardPage() {
                             {hasRange ? (
                               <>
                                 {/* 섹션 레이블 */}
-                                <div style={{ fontSize: 8, fontWeight: 700, color: '#363855', letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: 6 }}>
+                                <div style={{ fontSize: 8, fontWeight: 700, color: '#7a8599', letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: 6 }}>
                                   Day Range
                                 </div>
 
@@ -1948,7 +2148,7 @@ export default function DashboardPage() {
                                     {/* 트랙 배경 */}
                                     <div style={{
                                       height: 6, borderRadius: 3,
-                                      background: '#13162a',
+                                      background: '#0a0e1a',
                                       boxShadow: SHI,
                                       position: 'relative', overflow: 'visible',
                                     }}>
@@ -2003,7 +2203,7 @@ export default function DashboardPage() {
                               <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                                 {([['시가', idxOpen], ['고가', idxHigh], ['저가', idxLow]] as [string,number][]).map(([lbl,val]) => (
                                   <div key={lbl}>
-                                    <div style={{ fontSize: 7, color: '#363855', textTransform: 'uppercase' as const, letterSpacing: '0.07em' }}>{lbl}</div>
+                                    <div style={{ fontSize: 7, color: '#7a8599', textTransform: 'uppercase' as const, letterSpacing: '0.07em' }}>{lbl}</div>
                                     <div style={{ fontSize: 9, color: '#525678', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{fmtIdx(val, idx.currency)}</div>
                                   </div>
                                 ))}
@@ -2023,7 +2223,7 @@ export default function DashboardPage() {
               {/* 섹션 레이블 */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ width: 3, height: 12, borderRadius: 2, background: 'linear-gradient(180deg,#a855f7,#6366f1)' }}/>
-                <span style={{ fontSize: 9, fontWeight: 800, color: '#454868', letterSpacing: '0.14em', textTransform: 'uppercase' as const }}>
+                <span style={{ fontSize: 9, fontWeight: 800, color: '#9aa0b8', letterSpacing: '0.14em', textTransform: 'uppercase' as const }}>
                   Today&apos;s Market
                 </span>
               </div>
@@ -2036,21 +2236,21 @@ export default function DashboardPage() {
 
                 {/* A. 지수 방향 */}
                 <div>
-                  <div style={{ fontSize: 8, fontWeight: 800, color: '#363855', letterSpacing: '0.12em', textTransform: 'uppercase' as const, marginBottom: 9 }}>
+                  <div style={{ fontSize: 8, fontWeight: 800, color: '#7a8599', letterSpacing: '0.12em', textTransform: 'uppercase' as const, marginBottom: 9 }}>
                     Market Direction
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 7 }}>
                     <span style={{ fontSize: 22, fontWeight: 900, color: '#ef4444', letterSpacing: '-1px', lineHeight: 1 }}>{upCount}</span>
-                    <span style={{ fontSize: 11, color: '#363855', margin: '0 5px', fontWeight: 700 }}>/</span>
+                    <span style={{ fontSize: 11, color: '#7a8599', margin: '0 5px', fontWeight: 700 }}>/</span>
                     <span style={{ fontSize: 22, fontWeight: 900, color: '#3b82f6', letterSpacing: '-1px', lineHeight: 1 }}>{downCount}</span>
-                    <span style={{ fontSize: 9, color: '#454868', marginLeft: 8, lineHeight: 1.3 }}>
+                    <span style={{ fontSize: 9, color: '#9aa0b8', marginLeft: 8, lineHeight: 1.3 }}>
                       상승<br/>하락
                     </span>
                   </div>
                   {/* inset 프로그레스 바 */}
                   <div style={{
                     height: 7, borderRadius: 4,
-                    boxShadow: SHI, background: '#13162a',
+                    boxShadow: SHI, background: '#0a0e1a',
                     overflow: 'hidden', position: 'relative',
                   }}>
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,#3b82f628,#3b82f640)' }}/>
@@ -2078,7 +2278,7 @@ export default function DashboardPage() {
 
                 {/* B. 시장 현황 */}
                 <div>
-                  <div style={{ fontSize: 8, fontWeight: 800, color: '#363855', letterSpacing: '0.12em', textTransform: 'uppercase' as const, marginBottom: 9 }}>
+                  <div style={{ fontSize: 8, fontWeight: 800, color: '#7a8599', letterSpacing: '0.12em', textTransform: 'uppercase' as const, marginBottom: 9 }}>
                     Market Hours
                   </div>
                   {([
@@ -2095,24 +2295,24 @@ export default function DashboardPage() {
                         : SHI,
                     }}>
                       <span style={{ fontSize: 14, lineHeight: 1, flexShrink: 0 }}>{m.flag}</span>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: m.isOpen ? '#86efac' : '#3d4060', width: 30, letterSpacing: '0.04em' }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: m.isOpen ? '#86efac' : '#8a90b0', width: 30, letterSpacing: '0.04em' }}>
                         {m.name}
                       </span>
                       <div style={{
                         width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-                        background: m.isOpen ? '#22c55e' : '#252840',
+                        background: m.isOpen ? '#22c55e' : '#4a5070',
                         boxShadow: m.isOpen ? '0 0 8px #22c55e, 0 0 3px #4ade80' : 'none',
                       }}/>
                       <span style={{
                         fontSize: 9, fontWeight: 800, marginLeft: 'auto' as const,
-                        color: m.isOpen ? '#4ade80' : '#2e3050',
+                        color: m.isOpen ? '#4ade80' : '#8088a8',
                         letterSpacing: '0.04em',
                       }}>
                         {m.isOpen ? 'OPEN' : 'CLOSED'}
                       </span>
                     </div>
                   ))}
-                  <div style={{ fontSize: 8, color: '#2a2d42', textAlign: 'center' as const, letterSpacing: '0.04em' }}>
+                  <div style={{ fontSize: 8, color: '#7a7f9a', textAlign: 'center' as const, letterSpacing: '0.04em' }}>
                     평일 기준 · EDT / KST / JST
                   </div>
                 </div>
@@ -2122,7 +2322,7 @@ export default function DashboardPage() {
 
                 {/* C. 오늘 내 포트폴리오 */}
                 <div>
-                  <div style={{ fontSize: 8, fontWeight: 800, color: '#363855', letterSpacing: '0.12em', textTransform: 'uppercase' as const, marginBottom: 9 }}>
+                  <div style={{ fontSize: 8, fontWeight: 800, color: '#7a8599', letterSpacing: '0.12em', textTransform: 'uppercase' as const, marginBottom: 9 }}>
                     My Portfolio Today
                   </div>
                   <div style={{ borderRadius: 10, background: N, boxShadow: SHI, padding: '11px 12px' }}>
@@ -2141,11 +2341,11 @@ export default function DashboardPage() {
                           color: todayPnL.pct >= 0 ? '#f87171' : '#60a5fa', fontWeight: 600,
                         }}>
                           {todayPnL.pct >= 0 ? '+' : ''}{todayPnL.pct.toFixed(2)}%
-                          <span style={{ color: '#363855', marginLeft: 5, fontWeight: 400 }}>금일 등락</span>
+                          <span style={{ color: '#7a8599', marginLeft: 5, fontWeight: 400 }}>금일 등락</span>
                         </div>
                       </>
                     ) : (
-                      <div style={{ fontSize: 11, color: '#363855' }}>
+                      <div style={{ fontSize: 11, color: '#7a8599' }}>
                         {pricedInvs.length > 0 ? '보합' : '로딩 중…'}
                       </div>
                     )}
@@ -2176,8 +2376,8 @@ export default function DashboardPage() {
           )}
           {/* 히트맵 범례 */}
           <div style={{ display:'flex', gap:16, marginTop:10, flexWrap:'wrap' }}>
-            {[['#dc2626','+10% 이상'],['#ef4444','0~+10%'],['#374151','보합'],['#3b82f6','0~-10%'],['#1d4ed8','-10% 이하']].map(([c,l]) => (
-              <span key={l} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:'#6b7280' }}>
+            {[['#dc2626','+10% 이상'],['#ef4444','0~+10%'],['#7a8fa3','보합'],['#3b82f6','0~-10%'],['#1d4ed8','-10% 이하']].map(([c,l]) => (
+              <span key={l} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:'#8a9aaa' }}>
                 <span style={{ width:10, height:10, borderRadius:2, background:c, display:'inline-block', flexShrink:0 }}/>
                 {l}
               </span>
@@ -2193,17 +2393,17 @@ export default function DashboardPage() {
         <Card>
           {/* 헤더: 타이틀 + 토글 */}
           <div style={{ padding:'14px 18px 0', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8 }}>
-            <div style={{ fontSize:11, fontWeight:700, color:'#6b7280', textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>
+            <div style={{ fontSize:11, fontWeight:700, color:'#8a9aaa', textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>
               자산 총액 변화 (최근 30일)
             </div>
             {/* 세그먼트 토글 */}
-            <div style={{ display:'flex', background:'#13162a', borderRadius:8, padding:2, gap:2 }}>
+            <div style={{ display:'flex', background:'#0a0e1a', borderRadius:8, padding:2, gap:2 }}>
               {(['amount','pct'] as const).map(mode => (
                 <button key={mode} onClick={() => setTrendMode(mode)} style={{
                   padding:'4px 12px', borderRadius:6, border:'none', cursor:'pointer',
                   fontSize:10, fontWeight:700, letterSpacing:'0.04em',
                   background: trendMode === mode ? NEON : 'transparent',
-                  color:       trendMode === mode ? '#0a0a0a' : '#4b5563',
+                  color:       trendMode === mode ? '#0a0a0a' : '#8a96a8',
                   transition:'all 0.18s',
                 }}>
                   {mode === 'amount' ? '₩ 금액' : '% 수익률'}
@@ -2217,11 +2417,11 @@ export default function DashboardPage() {
             {totalRet != null && (
               <>
                 <div>
-                  <div style={{ fontSize:9, color:'#4b5563', textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>30일 수익률</div>
+                  <div style={{ fontSize:9, color:'#8a96a8', textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>30일 수익률</div>
                   <div style={{ fontSize:15, fontWeight:800, color:(totalRet??0)>=0?'#ef4444':'#3b82f6', fontVariantNumeric:'tabular-nums' }}>{fmtPct(totalRet)}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize:9, color:'#4b5563', textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>평가 손익</div>
+                  <div style={{ fontSize:9, color:'#8a96a8', textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>평가 손익</div>
                   <div style={{ fontSize:15, fontWeight:800, color:totalPnL>=0?'#ef4444':'#3b82f6', fontVariantNumeric:'tabular-nums' }}>{fmtKrw(totalPnL)}</div>
                 </div>
                 {trendData.length >= 2 && (() => {
@@ -2232,7 +2432,7 @@ export default function DashboardPage() {
                     <>
                       {maxVal != null && (
                         <div>
-                          <div style={{ fontSize:9, color:'#4b5563', textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>30일 최고</div>
+                          <div style={{ fontSize:9, color:'#8a96a8', textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>30일 최고</div>
                           <div style={{ fontSize:15, fontWeight:800, color:NEON, fontVariantNumeric:'tabular-nums' }}>
                             {trendMode==='amount' ? fmtKrw(maxVal) : `+${maxVal.toFixed(2)}%`}
                           </div>
@@ -2240,8 +2440,8 @@ export default function DashboardPage() {
                       )}
                       {minVal != null && (
                         <div>
-                          <div style={{ fontSize:9, color:'#4b5563', textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>30일 최저</div>
-                          <div style={{ fontSize:15, fontWeight:800, color:'#6b7280', fontVariantNumeric:'tabular-nums' }}>
+                          <div style={{ fontSize:9, color:'#8a96a8', textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>30일 최저</div>
+                          <div style={{ fontSize:15, fontWeight:800, color:'#8a9aaa', fontVariantNumeric:'tabular-nums' }}>
                             {trendMode==='amount' ? fmtKrw(minVal) : `${minVal.toFixed(2)}%`}
                           </div>
                         </div>
@@ -2268,12 +2468,12 @@ export default function DashboardPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#1a1e30" vertical={false}/>
                   <XAxis
                     dataKey="date"
-                    tick={{ fill:'#374151', fontSize:9 }}
+                    tick={{ fill:'#7a8fa3', fontSize:9 }}
                     axisLine={false} tickLine={false}
                     interval="preserveStartEnd"
                   />
                   <YAxis
-                    tick={{ fill:'#374151', fontSize:9 }}
+                    tick={{ fill:'#7a8fa3', fontSize:9 }}
                     axisLine={false} tickLine={false}
                     width={48}
                     domain={[
@@ -2300,7 +2500,7 @@ export default function DashboardPage() {
                           boxShadow:'0 8px 32px rgba(0,0,0,0.6)',
                           minWidth:130,
                         }}>
-                          <div style={{ fontSize:10, color:'#4b5563', marginBottom:6, fontWeight:600 }}>{label}</div>
+                          <div style={{ fontSize:10, color:'#8a96a8', marginBottom:6, fontWeight:600 }}>{label}</div>
                           <div style={{ fontSize:14, fontWeight:800, color:NEON, fontVariantNumeric:'tabular-nums' }}>
                             {trendMode === 'pct'
                               ? `${val > 0 ? '+' : ''}${val.toFixed(2)}%`
@@ -2310,7 +2510,7 @@ export default function DashboardPage() {
                             }
                           </div>
                           {trendMode === 'pct' && (
-                            <div style={{ fontSize:10, color:'#374151', marginTop:3 }}>
+                            <div style={{ fontSize:10, color:'#7a8fa3', marginTop:3 }}>
                               {val >= 0 ? '▲' : '▼'} 기준일 대비
                             </div>
                           )}
@@ -2345,8 +2545,8 @@ export default function DashboardPage() {
                       if (index === minIdx) {
                         return (
                           <g key={`min-${index}`}>
-                            <circle cx={cx} cy={cy} r={5} fill="#6b7280" stroke="#0f1117" strokeWidth={2}/>
-                            <text x={cx} y={cy + 18} textAnchor="middle" fontSize={9} fontWeight={700} fill="#6b7280">최저</text>
+                            <circle cx={cx} cy={cy} r={5} fill="#8a9aaa" stroke="#0f1117" strokeWidth={2}/>
+                            <text x={cx} y={cy + 18} textAnchor="middle" fontSize={9} fontWeight={700} fill="#8a9aaa">최저</text>
                           </g>
                         )
                       }
@@ -2364,7 +2564,7 @@ export default function DashboardPage() {
         <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
           {/* 시장별 */}
           <Card style={{ flex:1, padding:'14px 16px' }}>
-            <div style={{ fontSize:11, fontWeight:700, color:'#6b7280', marginBottom:10, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>시장별 비중</div>
+            <div style={{ fontSize:11, fontWeight:700, color:'#8a9aaa', marginBottom:10, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>시장별 비중</div>
             {mktData.length === 0 ? <Empty/> : (
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                 <ResponsiveContainer width={90} height={90}>
@@ -2379,7 +2579,7 @@ export default function DashboardPage() {
                     <div key={d.name} style={{ display:'flex', alignItems:'center', gap:6 }}>
                       <span style={{ width:8,height:8,borderRadius:'50%',background:d.color,flexShrink:0 }}/>
                       <span style={{ fontSize:11, color:d.color, fontWeight:600 }}>{d.name}</span>
-                      <span style={{ fontSize:11, color:'#4b5563', marginLeft:'auto' }}>{d.value}종</span>
+                      <span style={{ fontSize:11, color:'#8a96a8', marginLeft:'auto' }}>{d.value}종</span>
                     </div>
                   ))}
                 </div>
@@ -2389,9 +2589,9 @@ export default function DashboardPage() {
 
           {/* 린치 분류 */}
           <Card style={{ flex:1, padding:'14px 16px' }}>
-            <div style={{ fontSize:11, fontWeight:700, color:'#6b7280', marginBottom:10, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>
+            <div style={{ fontSize:11, fontWeight:700, color:'#8a9aaa', marginBottom:10, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>
               피터 린치 분류
-              <span style={{ float:'right', color:'#374151' }}>{investments.length}종목</span>
+              <span style={{ float:'right', color:'#7a8fa3' }}>{investments.length}종목</span>
             </div>
             {lynchData.filter(d=>d.name!=='N/A').length === 0 ? <Empty/> : (
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
@@ -2411,8 +2611,8 @@ export default function DashboardPage() {
                   {lynchData.slice(0,5).map(d => (
                     <div key={d.name} style={{ display:'flex', alignItems:'center', gap:5 }}>
                       <span style={{ width:7,height:7,borderRadius:'50%',background:d.color,flexShrink:0 }}/>
-                      <span style={{ fontSize:9,color:'#6b7280',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1 }}>{d.name}</span>
-                      <span style={{ fontSize:10,color:'#4b5563',flexShrink:0 }}>{d.value}</span>
+                      <span style={{ fontSize:9,color:'#8a9aaa',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1 }}>{d.name}</span>
+                      <span style={{ fontSize:10,color:'#8a96a8',flexShrink:0 }}>{d.value}</span>
                     </div>
                   ))}
                 </div>
@@ -2427,10 +2627,10 @@ export default function DashboardPage() {
         {/* 헤더 */}
         <div style={{ padding:'14px 20px 6px', display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:8 }}>
           <div>
-            <div style={{ fontSize:12, fontWeight:700, color:'#9ca3af', letterSpacing:'0.04em', textTransform:'uppercase' as const }}>
+            <div style={{ fontSize:12, fontWeight:700, color:'#a8b5c2', letterSpacing:'0.04em', textTransform:'uppercase' as const }}>
               📊 월별 평가손익 (매수월 기준)
             </div>
-            <div style={{ fontSize:11, color:'#374151', marginTop:3 }}>
+            <div style={{ fontSize:11, color:'#7a8fa3', marginTop:3 }}>
               Core · Satellite 분리 누적 손익 + 추이선
             </div>
           </div>
@@ -2441,7 +2641,7 @@ export default function DashboardPage() {
               { color:'#38bdf8', label:'Satellite (성장·테마)', dash:false },
               { color:'#818cf8', label:'누적 추이', dash:true },
             ].map(({ color, label, dash }) => (
-              <span key={label} style={{ display:'flex', alignItems:'center', gap:5, fontSize:10, color:'#6b7280' }}>
+              <span key={label} style={{ display:'flex', alignItems:'center', gap:5, fontSize:10, color:'#8a9aaa' }}>
                 {dash
                   ? <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke={color} strokeWidth="2" strokeDasharray="4 2"/></svg>
                   : <span style={{ width:10, height:10, borderRadius:3, background:color, display:'inline-block', opacity:0.85 }}/>
@@ -2485,19 +2685,19 @@ export default function DashboardPage() {
 
                 <XAxis
                   dataKey="label"
-                  tick={{ fill:'#4b5563', fontSize:10, fontWeight:500 }}
+                  tick={{ fill:'#8a96a8', fontSize:10, fontWeight:500 }}
                   axisLine={{ stroke:'#1e2a3a' }} tickLine={false}
                 />
                 <YAxis
                   yAxisId="bar"
-                  tick={{ fill:'#4b5563', fontSize:9 }}
+                  tick={{ fill:'#8a96a8', fontSize:9 }}
                   axisLine={false} tickLine={false} width={52}
                   tickFormatter={v => v === 0 ? '0' : v >= 1e8 ? `${(v/1e8).toFixed(1)}억` : v >= 1e4 ? `${(v/1e4).toFixed(0)}만` : Math.abs(v) >= 1e4 ? `-${(Math.abs(v)/1e4).toFixed(0)}만` : `${(v/1e4).toFixed(0)}만`}
                 />
                 <YAxis
                   yAxisId="line"
                   orientation="right"
-                  tick={{ fill:'#374151', fontSize:9 }}
+                  tick={{ fill:'#7a8fa3', fontSize:9 }}
                   axisLine={false} tickLine={false} width={52}
                   tickFormatter={v => v === 0 ? '0' : v >= 1e8 ? `${(v/1e8).toFixed(1)}억` : v >= 1e4 ? `${(v/1e4).toFixed(0)}만` : `${v}`}
                 />
@@ -2528,7 +2728,7 @@ export default function DashboardPage() {
                       {/* 헤더 */}
                       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10, paddingBottom:8, borderBottom:'1px solid #1e2a40' }}>
                         <span style={{ fontWeight:700, color:'#dde4f0', fontSize:13 }}>{d.label}</span>
-                        <span style={{ fontSize:10, color:'#4b5563' }}>{d.count}개 종목</span>
+                        <span style={{ fontSize:10, color:'#8a96a8' }}>{d.count}개 종목</span>
                       </div>
                       {/* Core / Satellite 분리 */}
                       {[
@@ -2536,7 +2736,7 @@ export default function DashboardPage() {
                         { label:'Satellite', value: d.satPnl, color: d.satPnl >= 0 ? '#38bdf8' : '#fb923c' },
                       ].map(({ label, value, color }) => (
                         <div key={label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:5 }}>
-                          <span style={{ fontSize:11, color:'#6b7280', display:'flex', alignItems:'center', gap:5 }}>
+                          <span style={{ fontSize:11, color:'#8a9aaa', display:'flex', alignItems:'center', gap:5 }}>
                             <span style={{ width:7, height:7, borderRadius:2, background:color, display:'inline-block' }}/>
                             {label}
                           </span>
@@ -2547,19 +2747,19 @@ export default function DashboardPage() {
                       ))}
                       {/* 합계 */}
                       <div style={{ marginTop:8, paddingTop:8, borderTop:'1px solid #1e2a40', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                        <span style={{ fontSize:11, color:'#6b7280', fontWeight:600 }}>합계</span>
+                        <span style={{ fontSize:11, color:'#8a9aaa', fontWeight:600 }}>합계</span>
                         <div style={{ textAlign:'right' as const }}>
                           <div style={{ fontWeight:900, color: d.isUp ? '#deff9a' : '#f87171', fontSize:15, fontVariantNumeric:'tabular-nums' }}>
                             {fmtAmt(d.totalPnl)}
                           </div>
-                          <div style={{ fontSize:10, color:'#4b5563', marginTop:1 }}>
+                          <div style={{ fontSize:10, color:'#8a96a8', marginTop:1 }}>
                             {d.pnlPct >= 0 ? '+' : ''}{d.pnlPct}%
                           </div>
                         </div>
                       </div>
                       {/* 누적 */}
                       <div style={{ marginTop:6, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                        <span style={{ fontSize:10, color:'#374151' }}>누적 손익</span>
+                        <span style={{ fontSize:10, color:'#7a8fa3' }}>누적 손익</span>
                         <span style={{ fontSize:11, fontWeight:700, color:'#818cf8', fontVariantNumeric:'tabular-nums' }}>
                           {fmtAmt(d.cumulative)}
                         </span>
@@ -2593,7 +2793,7 @@ export default function DashboardPage() {
                     position="top"
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     formatter={(v: any) => `${v >= 0 ? '+' : ''}${v}%`}
-                    style={{ fontSize:10, fontWeight:700, fill:'#6b7280' }}
+                    style={{ fontSize:10, fontWeight:700, fill:'#8a9aaa' }}
                   />
                 </Bar>
 
@@ -2636,25 +2836,25 @@ export default function DashboardPage() {
                 <tr style={{ borderBottom:'1px solid #1f2937' }}>
                   {/* ★ '자산분류' 컬럼 추가 — RebalanceWidget 색상과 동기화 */}
                   {['자산명','시장','자산분류','매수수량','매수단가','현재가','수익률','7일 추이'].map(h => (
-                    <th key={h} style={{ padding:'6px 14px', textAlign:'left', fontSize:9, fontWeight:700, color:'#4b5563', textTransform:'uppercase', letterSpacing:'0.07em', whiteSpace:'nowrap' }}>{h}</th>
+                    <th key={h} style={{ padding:'6px 14px', textAlign:'left', fontSize:9, fontWeight:700, color:'#8a96a8', textTransform:'uppercase', letterSpacing:'0.07em', whiteSpace:'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {investments.length === 0 ? (
-                  <tr><td colSpan={6} style={{ padding:'32px 14px', textAlign:'center', color:'#374151', fontSize:13 }}>
+                  <tr><td colSpan={6} style={{ padding:'32px 14px', textAlign:'center', color:'#7a8fa3', fontSize:13 }}>
                     자산관리 페이지에서 종목을 추가해주세요
                   </td></tr>
                 ) : investments.map((inv, idx) => {
                   const lv  = live(inv)
                   const ret = lv ? ((lv.currentPrice - inv.purchase_price) / inv.purchase_price) * 100 : null
-                  const rc  = ret == null ? '#6b7280' : ret >= 0 ? '#ef4444' : '#3b82f6'
+                  const rc  = ret == null ? '#8a9aaa' : ret >= 0 ? '#ef4444' : '#3b82f6'
                   const w7  = lv?.charts?.['1W'] ?? []
                   return (
                     <tr key={inv.id} className="hover-row" style={{ borderTop:'1px solid #1f2937', background:idx%2===0?'transparent':'rgba(13,17,23,0.3)' }}>
                       <td style={{ padding:'9px 14px' }}>
                         <div style={{ fontWeight:600, color:'#f1f5f9' }}>{inv.name}</div>
-                        <div style={{ fontSize:10, color:'#4b5563', fontFamily:'monospace', marginTop:1 }}>{inv.ticker}</div>
+                        <div style={{ fontSize:10, color:'#8a96a8', fontFamily:'monospace', marginTop:1 }}>{inv.ticker}</div>
                       </td>
                       <td style={{ padding:'9px 14px' }}>
                         <span style={{ fontSize:9,fontWeight:700,color:MKT_COLOR[inv.market],border:`1px solid ${MKT_COLOR[inv.market]}44`,borderRadius:4,padding:'1px 4px' }}>{inv.market}</span>
@@ -2689,7 +2889,7 @@ export default function DashboardPage() {
                       <td style={{ padding:'9px 14px', color:'#60a5fa', fontVariantNumeric:'tabular-nums', fontWeight:600, whiteSpace:'nowrap' }}>
                         {inv.quantity.toLocaleString('ko-KR')}주
                       </td>
-                      <td style={{ padding:'9px 14px', color:'#6b7280', fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap' }}>
+                      <td style={{ padding:'9px 14px', color:'#8a9aaa', fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap' }}>
                         {inv.currency==='KRW' ? `₩${Math.round(inv.purchase_price).toLocaleString()}` : `$${inv.purchase_price.toFixed(2)}`}
                       </td>
                       <td style={{ padding:'9px 14px', color:'#cbd5e1', fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap' }}>
@@ -2700,7 +2900,7 @@ export default function DashboardPage() {
                           <span style={{ fontSize:13,fontWeight:800,color:rc,fontVariantNumeric:'tabular-nums' }}>
                             {(ret??0)>=0?'+':''}{safeFixed(ret,2)}%
                           </span>
-                        ) : <span style={{ color:'#374151' }}>—</span>}
+                        ) : <span style={{ color:'#7a8fa3' }}>—</span>}
                       </td>
                       <td style={{ padding:'5px 14px' }}>
                         <MiniChart data={w7}/>
@@ -2711,7 +2911,7 @@ export default function DashboardPage() {
 
                 {/* 합계 행 */}
                 {investments.length > 0 && (
-                  <tr style={{ borderTop:'2px solid #374151', background:'#0d1117' }}>
+                  <tr style={{ borderTop:'2px solid #7a8fa3', background:'#0d1117' }}>
                     {/* ★ 자산분류 컬럼 추가로 colSpan 4→5 */}
                     <td colSpan={5} style={{ padding:'9px 14px', fontWeight:700, color:'#f1f5f9', fontSize:12 }}>합계 ({investments.length}종목)</td>
                     <td style={{ padding:'9px 14px', fontWeight:700, color:'#f1f5f9', fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap' }}>
@@ -2780,7 +2980,7 @@ export default function DashboardPage() {
               <span style={{ fontSize:18 }}>⏳</span>
               <span style={{ fontSize:14, fontWeight:800, color:'#f1f5f9', letterSpacing:'-0.3px' }}>투자 타임머신 — 과거 5개년 백테스팅 시뮬레이터</span>
             </div>
-            <div style={{ fontSize:11, color:'#64748b' }}>2021년 초에 1,000만 원 투자 가정 · 리밸런싱 여부에 따른 자산 성장 추이 비교</div>
+            <div style={{ fontSize:11, color:'#7f93a8' }}>2021년 초에 1,000만 원 투자 가정 · 리밸런싱 여부에 따른 자산 성장 추이 비교</div>
           </div>
           <div style={{ display:'flex', gap:4, background:'#0f172a', padding:'4px', borderRadius:9, flexWrap:'wrap' }}>
             {([
@@ -2790,7 +2990,7 @@ export default function DashboardPage() {
             ]).map(({ key, label, color }) => (
               <button key={key} type="button" onClick={() => setBtActive(p => ({ ...p, [key]: !p[key] }))}
                 style={{ padding:'5px 11px', borderRadius:7, border:'none', cursor:'pointer', fontSize:11, fontWeight:700, transition:'all 0.15s',
-                  background: btActive[key] ? '#1e293b' : 'transparent', color: btActive[key] ? color : '#475569',
+                  background: btActive[key] ? '#1e293b' : 'transparent', color: btActive[key] ? color : '#8599ae',
                   boxShadow: btActive[key] ? '0 1px 4px rgba(0,0,0,0.4)' : 'none' }}>{label}</button>
             ))}
           </div>
@@ -2803,11 +3003,11 @@ export default function DashboardPage() {
               <div key={s.key} onClick={() => setBtActive(p => ({ ...p, [s.key]: !p[s.key] }))}
                 style={{ padding:'10px 12px', borderRadius:10, cursor:'pointer', transition:'all 0.2s',
                   background: on ? '#1e293b' : '#0f172a', border: `1.5px solid ${on ? s.color + '55' : '#1f2937'}`, opacity: on ? 1 : 0.45 }}>
-                <div style={{ fontSize:10, color:'#64748b', marginBottom:4 }}>{s.name}</div>
+                <div style={{ fontSize:10, color:'#7f93a8', marginBottom:4 }}>{s.name}</div>
                 <div style={{ fontSize:16, fontWeight:800, color:'#f1f5f9', fontVariantNumeric:'tabular-nums' }}>{s.final}</div>
                 <div style={{ display:'flex', justifyContent:'space-between', marginTop:6, paddingTop:6, borderTop:'1px solid #1f2937', fontSize:10 }}>
                   <span style={{ fontWeight:700, color: s.color }}>{s.ret}</span>
-                  <span style={{ color:'#475569' }}>MDD <b style={{ color:'#94a3b8' }}>{s.mdd}</b></span>
+                  <span style={{ color:'#8599ae' }}>MDD <b style={{ color:'#94a3b8' }}>{s.mdd}</b></span>
                 </div>
               </div>
             )
@@ -2819,11 +3019,11 @@ export default function DashboardPage() {
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={BACKTEST_DATA} margin={{ top:10, right:20, bottom:5, left:10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-                <XAxis dataKey="date" tick={{ fill:'#64748b', fontSize:10 }} axisLine={{ stroke:'#1f2937' }} tickLine={false} />
+                <XAxis dataKey="date" tick={{ fill:'#7f93a8', fontSize:10 }} axisLine={{ stroke:'#1f2937' }} tickLine={false} />
                 <YAxis domain={[700, 2200]} tickFormatter={(v:number) => `${v}만`}
-                  tick={{ fill:'#64748b', fontSize:10 }} axisLine={{ stroke:'#1f2937' }} tickLine={false} width={46} />
+                  tick={{ fill:'#7f93a8', fontSize:10 }} axisLine={{ stroke:'#1f2937' }} tickLine={false} width={46} />
                 <Tooltip
-                  contentStyle={{ background:'#1e293b', border:'1px solid #334155', borderRadius:8, fontSize:12 }}
+                  contentStyle={{ background:'#1e293b', border:'1px solid #7a8fa3', borderRadius:8, fontSize:12 }}
                   labelStyle={{ color:'#94a3b8', fontWeight:700 }}
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   formatter={(v: any, name: any) => [`${v}만 원`, String(name)]}
@@ -2835,7 +3035,7 @@ export default function DashboardPage() {
                 {btActive.rebalanceQ && <Line type="monotone" dataKey="rebalanceQ" name="분기별 리밸런싱" stroke="#10b981" strokeWidth={2.5} dot={false} activeDot={{ r:5, fill:'#10b981' }} />}
                 {btActive.rebalanceY && <Line type="monotone" dataKey="rebalanceY" name="연간 리밸런싱"   stroke="#818cf8" strokeWidth={2}   dot={false} activeDot={{ r:4, fill:'#818cf8' }} />}
                 {btActive.buyAndHold && <Line type="monotone" dataKey="buyAndHold" name="단순 보유(방치)" stroke="#f87171" strokeWidth={2.5} dot={false} activeDot={{ r:5, fill:'#f87171' }} />}
-                {btActive.benchmark  && <Line type="monotone" dataKey="benchmark"  name="시장 평균 지수" stroke="#64748b" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />}
+                {btActive.benchmark  && <Line type="monotone" dataKey="benchmark"  name="시장 평균 지수" stroke="#7f93a8" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />}
                 {btActive.buyAndHold && <ReferenceDot x="22.Q3" y={810} r={5} fill="#f87171" stroke="#0f172a" strokeWidth={2} />}
                 {btActive.rebalanceQ && <ReferenceDot x="22.Q3" y={980} r={5} fill="#10b981" stroke="#0f172a" strokeWidth={2} />}
               </LineChart>
@@ -2850,34 +3050,45 @@ export default function DashboardPage() {
       </Card>
       </div>  {/* 투자 타임머신 탭 끝 */}
 
+      {/* ── 레버리지 위험 시뮬레이터 탭 ── */}
+      <div id="tab-leverage" style={{ display: dashTab==='leverage' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="레버리지 시뮬레이터">
+          <LeverageRiskSimulator />
+        </ErrorBoundary>
+      </div>
+
+      {/* ── 🌐 거시경제 AI 추천 터미널 탭 ── */}
+      <div id="tab-macroai" style={{ display: dashTab==='macroai' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="거시경제 AI 추천">
+          <MacroAiTerminal />
+        </ErrorBoundary>
+      </div>
+
+      {/* ── 📡 가이던스 수정 모멘텀 레이더 탭 ── */}
+      <div id="tab-guidance" style={{ display: dashTab==='guidance' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="가이던스 모멘텀 레이더">
+          <GuidanceRevisionRadar />
+        </ErrorBoundary>
+      </div>
+
       {/* ── AI 멘토 족집게 탭 ── */}
       <div id="tab-mentor" style={{ display: dashTab==='mentor' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         <AIPortfolioDashboard
           portfolioStocks={investments.map(inv => {
             const key = inv.ticker.toUpperCase()
-            // ★ stock-info API에서 로드한 정확한 pe/peg 우선 사용
+            // ★ PEG/PER/성장률은 stock-info(SSOT)만 사용 — 전 화면 PEG 일치(Yahoo 폴백 제거).
+            //   stock-info 로드 전엔 0(로딩)으로 두고, Yahoo값을 임시로 띄우지 않음.
             const dMap = dividendMap[key]
-            const siPe  = dMap?.pe  ?? null   // stock-info PER (신뢰도 높음)
-            const siPeg = dMap?.peg ?? null   // stock-info PEG (신뢰도 높음)
+            const siPe  = dMap?.pe  ?? null   // stock-info PER
+            const siPeg = dMap?.peg ?? null   // stock-info PEG
 
-            // priceMap 폴백 (stock-info 로드 전)
-            const lv   = priceMap[key]
-            const fPe  = lv?.fundamentals?.pe
-            const fPeg = lv?.fundamentals?.peg
-            const fEg  = lv?.fundamentals?.earningsGrowth
-
-            // PER: stock-info → priceMap 순서
-            const per = siPe ?? (typeof fPe === 'number' && isFinite(fPe) && fPe > 0 ? fPe : 0)
-
-            // 성장률: stock-info PEG역산 → priceMap earningsGrowth → priceMap PEG역산
+            const per = (siPe != null && siPe > 0) ? siPe : 0
+            // 성장률: stock-info PE/PEG 역산 → stock-info earningsGrowth (둘 다 SSOT)
             let growthRate = 0
             if (siPe != null && siPeg != null && siPeg > 0) {
-              // PEG = PER / 성장률 → 성장률 = PER / PEG
               growthRate = parseFloat((siPe / siPeg).toFixed(1))
-            } else if (typeof fEg === 'number' && isFinite(fEg) && fEg !== 0) {
-              growthRate = parseFloat((Math.abs(fEg) < 20 ? fEg * 100 : fEg).toFixed(1))
-            } else if (per > 0 && typeof fPeg === 'number' && isFinite(fPeg) && fPeg > 0) {
-              growthRate = parseFloat((per / fPeg).toFixed(1))
+            } else if (dMap?.earningsGrowth != null && isFinite(dMap.earningsGrowth) && dMap.earningsGrowth > 0) {
+              growthRate = dMap.earningsGrowth   // 적자 기업 등 PEG 역산 불가 시
             }
 
             return {
@@ -2895,6 +3106,13 @@ export default function DashboardPage() {
         />
       </div>  {/* AI 멘토 탭 끝 */}
 
+      {/* ── 🔭 린치 이익선 트레이서 탭 (독립 티커·역사적 EPS×이격도) ── */}
+      <div id="tab-tracer" style={{ display: dashTab==='tracer' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="린치 이익선 트레이서">
+          <LynchEarningsLineTracer />
+        </ErrorBoundary>
+      </div>
+
       {/* ── 린치 이익선 차트 탭 ── */}
       <div id="tab-lynch" style={{ display: dashTab==='lynch' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         {/* portfolioStocks: 실제 보유 종목 배열을 그대로 전달 (하드코딩 금지) */}
@@ -2911,20 +3129,16 @@ export default function DashboardPage() {
           portfolioStocks={investments.map(inv => {
             const key  = inv.ticker.toUpperCase()
             const dMap = dividendMap[key]
-            const lv   = priceMap[key]
+            const lv   = priceMap[key]              // 현재가·배당수익률용(가격)만
+            // ★ PEG/PER/성장률은 stock-info(SSOT)만 — Yahoo 폴백 제거(전 화면 PEG 일치)
             const siPe  = dMap?.pe  ?? null
             const siPeg = dMap?.peg ?? null
-            const fPe   = lv?.fundamentals?.pe
-            const fPeg  = lv?.fundamentals?.peg
-            const fEg   = lv?.fundamentals?.earningsGrowth
-            const per   = siPe ?? (typeof fPe  === 'number' && isFinite(fPe)  && fPe  > 0 ? fPe  : 0)
+            const per   = (siPe != null && siPe > 0) ? siPe : 0
             let growthRate = 0
             if (siPe != null && siPeg != null && siPeg > 0) {
               growthRate = parseFloat((siPe / siPeg).toFixed(1))
-            } else if (typeof fEg === 'number' && isFinite(fEg) && fEg !== 0) {
-              growthRate = parseFloat((Math.abs(fEg) < 20 ? fEg * 100 : fEg).toFixed(1))
-            } else if (per > 0 && typeof fPeg === 'number' && isFinite(fPeg) && fPeg > 0) {
-              growthRate = parseFloat((per / fPeg).toFixed(1))
+            } else if (dMap?.earningsGrowth != null && isFinite(dMap.earningsGrowth) && dMap.earningsGrowth > 0) {
+              growthRate = dMap.earningsGrowth
             }
             const peg = (per > 0 && growthRate > 0) ? parseFloat((per / growthRate).toFixed(2)) : 0
             return {
@@ -2952,29 +3166,98 @@ export default function DashboardPage() {
         <LynchGhostStockPanel />
       </div>  {/* 유령 종목 탭 끝 */}
 
+      {/* ── 🏫 투자학교 13F 인덱스 탭 (School Insider Flow · 2단계) ── */}
+      <div id="tab-schoolflow" style={{ display: dashTab==='schoolflow' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="학교 13F 인덱스">
+          <SchoolIndexDashboard />
+        </ErrorBoundary>
+      </div>  {/* 학교 13F 인덱스 탭 끝 */}
+
+      {/* ── 린치 황금비율 로드맵 탭 (비밀병기 1단계) ── */}
+      <div id="tab-balance" style={{ display: dashTab==='balance' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="린치 황금비율">
+          <PortfolioBalanceRadar investments={investments} usdKrw={usdKrw} />
+        </ErrorBoundary>
+      </div>
+
+      {/* ── 📐 상관관계 매트릭스 탭 ── */}
+      <div id="tab-correlation" style={{ display: dashTab==='correlation' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="상관관계 매트릭스">
+          <CorrelationMatrix />
+        </ErrorBoundary>
+      </div>
+
+      {/* ── 뉴스 촉매 레이더 탭 ── */}
+      <div id="tab-newscatalyst" style={{ display: dashTab==='newscatalyst' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="뉴스 촉매 레이더">
+          <NewsCatalystRadar />
+        </ErrorBoundary>
+      </div>
+
       {/* ── 어닝 터미널 탭 ── */}
-      {/* 원본 investments는 그대로 유지 (파이차트·수익률 현황판에 사용)
-          EarningsAlertTerminal에는 SSOT getAssetType으로 개별주식만 필터링하여 전달 */}
       <div id="tab-earnings" style={{ display: dashTab==='earnings' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
-        <EarningsAlertTerminal
-          investments={investments.filter(
-            inv => getAssetType(inv.ticker, inv.name ?? '', inv.market) === 'STOCK'
-          )}
-          dividendMap={dividendMap}
-          priceMap={priceMap}
-        />
+        <ErrorBoundary label="어닝 터미널">
+          <EarningsAlertTerminal
+            investments={investments.filter(
+              inv => getAssetType(inv.ticker, inv.name ?? '', inv.market) === 'STOCK'
+            )}
+            dividendMap={dividendMap}
+            priceMap={priceMap}
+          />
+        </ErrorBoundary>
+      </div>
+
+      {/* ── 주주환원율 터미널 탭 ── */}
+      <div id="tab-yield" style={{ display: dashTab==='yield' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="주주환원 터미널">
+          <ShareholderYieldTerminal
+            investments={investments.filter(
+              inv => getAssetType(inv.ticker, inv.name ?? '', inv.market) === 'STOCK'
+            )}
+            dividendMap={dividendMap}
+            priceMap={priceMap}
+          />
+        </ErrorBoundary>
+        {/* 💰 글로벌 배당 익스플로러 — 포트폴리오 미보유 종목 탐색 + 배당 함정 경보 */}
+        <ErrorBoundary label="배당 익스플로러">
+          <DividendExplorer />
+        </ErrorBoundary>
+      </div>
+
+      {/* ── 린치 밸류에이션 엔진 탭 ── */}
+      <div id="tab-valuation" style={{ display: dashTab==='valuation' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="린치 밸류에이션">
+          <LynchValuationEngine
+            investments={investments.filter(
+              inv => getAssetType(inv.ticker, inv.name ?? '', inv.market) === 'STOCK'
+            )}
+            dividendMap={dividendMap}
+            priceMap={priceMap}
+          />
+        </ErrorBoundary>
       </div>
 
       {/* ── 거시경제 Fed Watch 탭 ── */}
       <div id="tab-macro" style={{ display: dashTab==='macro' ? 'flex' : 'none', flexDirection:'column', gap:20 }}>
-        <MacroDashboard />
-
-        {/* ── Phase 1·2·3 통합 오케스트레이터 — 포트폴리오 + 실시간 가격 + 재무 데이터 */}
-        <MacroTerminalDashboard
-          investments={investments}
-          livePortfolioData={priceMap}
-          dividendMap={dividendMap}
-        />
+        <ErrorBoundary label="매크로 날씨예보">
+          <MacroWeather investments={investments} />
+        </ErrorBoundary>
+        <ErrorBoundary label="칵테일 파티 지수">
+          <CocktailPartyGauge />
+        </ErrorBoundary>
+        <ErrorBoundary label="국민연금 포트폴리오">
+          <NpsPortfolio />
+        </ErrorBoundary>
+        <ErrorBoundary label="거시경제 대시보드">
+          <MacroDashboard />
+        </ErrorBoundary>
+        <ErrorBoundary label="매크로 터미널">
+          <MacroTerminalDashboard
+            investments={investments}
+            livePortfolioData={priceMap}
+            dividendMap={dividendMap}
+          />
+        </ErrorBoundary>
       </div>  {/* 거시경제 탭 끝 */}
 
     </div>
