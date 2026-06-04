@@ -1,5 +1,6 @@
-// 🤖 AI 포트폴리오 리밸런싱 (Phase 1) — 수익률 연동형 교체매매 플랜
+// 🤖 AI 포트폴리오 리밸런싱 — 수익률 연동형 교체매매 + 분산 최적화(Phase 2)
 // 매도 진단(jarvisBriefing 재사용) × 실제 손익률 → 익절/손절/보류 4분면 + 신규 매수후보(macro-ai-picks)
+// Phase 2: 린치 황금비율 갭 가중 배분 + 분류/섹터 Before→After
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 export const maxDuration = 120
@@ -11,7 +12,17 @@ import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache } from '@/lib/appCache'
 import { callGeminiJSON } from '@/lib/gemini'
 import { buildSignalMetrics, evaluateSignal } from '@/lib/jarvisBriefing'
+import { getSector } from '@/lib/schoolIndex'
 import type { MacroAiResult, AiRecommendation } from '@/app/api/macro-ai-picks/route'
+
+// 피터 린치 황금비율(권장 분류 비중 %) — PortfolioBalanceRadar와 동일 SSOT
+const IDEAL_RATIOS: Record<string, number> = {
+  stalwart: 35, fast_grower: 30, cyclical: 20, turnaround: 10, asset_play: 5, slow_grower: 0,
+}
+const CAT_KR: Record<string, string> = {
+  stalwart: '대형우량주', fast_grower: '빠른성장주', cyclical: '경기순환주',
+  turnaround: '회생주', asset_play: '자산주', slow_grower: '저성장주',
+}
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 // 수익률 × 매도진단 4분면 액션
@@ -45,12 +56,31 @@ export interface BuyCandidate {
   aiScore:       number
   reason:        string          // macroFit/fundamental 요약
   allocWeight:   number          // 제안 편입 비중 %
+  sector:        string          // GICS 섹터(분산 진단용)
+}
+
+// Phase 2 — 분산 진단(분류 Before→After + 섹터 집중도)
+export interface CategoryBalance {
+  key:    string
+  label:  string
+  before: number   // 현재 비중 %
+  after:  number   // 리밸런싱 후 비중 %
+  ideal:  number   // 린치 황금비율 %
+}
+export interface SectorWeight { sector: string; weight: number }
+export interface DiversificationView {
+  categories:      CategoryBalance[]
+  sectorsBefore:   SectorWeight[]
+  sectorsAfter:    SectorWeight[]
+  topSectorBefore: number   // 최대 단일 섹터 비중 % (집중도)
+  topSectorAfter:  number
 }
 
 export interface RebalanceResult {
   holdings:       HoldingDiagnosis[]
   buyCandidates:  BuyCandidate[]
   sellBudget:     number         // 회수 가능 총 비중 %
+  diversification: DiversificationView | null
   narrative:      string         // Gemini 종합 플랜 내러티브
   generatedAt:    string
   fromCache:      boolean
@@ -87,7 +117,7 @@ export async function GET(req: Request) {
     .eq('user_id', user.id)
   const holds = (rows ?? []).filter(h => getAssetType(h.ticker, h.name ?? '', h.market ?? 'US') === 'STOCK')
   if (holds.length === 0) {
-    return NextResponse.json({ holdings: [], buyCandidates: [], sellBudget: 0, narrative: '분석할 개별 주식이 없습니다. 종목을 추가하면 리밸런싱 진단이 시작됩니다.', generatedAt: new Date().toISOString(), fromCache: false })
+    return NextResponse.json({ holdings: [], buyCandidates: [], sellBudget: 0, diversification: null, narrative: '분석할 개별 주식이 없습니다. 종목을 추가하면 리밸런싱 진단이 시작됩니다.', generatedAt: new Date().toISOString(), fromCache: false })
   }
 
   // ② 현재가 배치 → 평가액·비중·손익률
@@ -155,7 +185,23 @@ export async function GET(req: Request) {
 
   const sellBudget = Math.round(diagnoses.reduce((s, d) => s + d.releaseWeight, 0) * 10) / 10
 
-  // ④ 신규 매수 후보 (macro-ai-picks 재사용) — 미보유만, aiScore 순
+  // ④ 분산 진단용 — 보유 종목 섹터 수집(getSector 7일 캐시 공유)
+  const secByTicker: Record<string, string> = {}
+  for (let i = 0; i < valued.length; i += 6) {
+    const batch = valued.slice(i, i + 6)
+    const secs = await Promise.all(batch.map(v => getSector(v.ticker, v.market ?? 'US').catch(() => '기타')))
+    batch.forEach((v, k) => { secByTicker[v.ticker.toUpperCase()] = secs[k] })
+  }
+  // 현재 분류/섹터 비중
+  const curCat: Record<string, number> = {}
+  const curSec: Record<string, number> = {}
+  for (const d of diagnoses) {
+    if (d.lynchCategory) curCat[d.lynchCategory] = (curCat[d.lynchCategory] ?? 0) + d.weight
+    const sec = secByTicker[d.ticker.toUpperCase()] ?? '기타'
+    curSec[sec] = (curSec[sec] ?? 0) + d.weight
+  }
+
+  // ⑤ 신규 매수 후보 (macro-ai-picks 재사용) — 미보유 + 린치 황금비율 '부족 분류' 갭 가중
   let buyCandidates: BuyCandidate[] = []
   try {
     const mr = await fetch(`${base}/api/macro-ai-picks`, { signal: AbortSignal.timeout(30_000) })
@@ -163,28 +209,85 @@ export async function GET(req: Request) {
       const md = await mr.json() as MacroAiResult
       const pool = (md.recommendations ?? [])
         .filter((r: AiRecommendation) => !heldSet.has(r.ticker.toUpperCase()))
-        .sort((a, b) => b.aiScore - a.aiScore)
-        .slice(0, 4)
-      // 매도 예산을 aiScore 비례로 배분
-      const scoreSum = pool.reduce((s, r) => s + r.aiScore, 0) || 1
-      buyCandidates = pool.map(r => ({
+      // 후보 섹터 수집
+      const poolSec: Record<string, string> = {}
+      for (let i = 0; i < pool.length; i += 6) {
+        const batch = pool.slice(i, i + 6)
+        const secs = await Promise.all(batch.map(r => getSector(r.ticker, r.market).catch(() => '기타')))
+        batch.forEach((r, k) => { poolSec[r.ticker.toUpperCase()] = secs[k] })
+      }
+      // 갭 가중 점수 = aiScore × (1 + 분류 부족갭/35) — 부족한 분류 채우는 종목 우대
+      const fillScore = (r: AiRecommendation) => {
+        const gap = Math.max(0, (IDEAL_RATIOS[r.lynchCategory] ?? 0) - (curCat[r.lynchCategory] ?? 0))
+        return r.aiScore * (1 + gap / 35)
+      }
+      const ranked = [...pool].sort((a, b) => fillScore(b) - fillScore(a)).slice(0, 4)
+      const fsSum = ranked.reduce((s, r) => s + fillScore(r), 0) || 1
+      buyCandidates = ranked.map(r => ({
         ticker: r.ticker, name: r.name, market: r.market, lynchCategory: r.lynchCategory,
-        peg: r.peg, aiScore: r.aiScore,
+        peg: r.peg, aiScore: r.aiScore, sector: poolSec[r.ticker.toUpperCase()] ?? '기타',
         reason: r.macroFitReason || r.fundamentalReason || '',
-        allocWeight: sellBudget > 0 ? Math.round((sellBudget * (r.aiScore / scoreSum)) * 10) / 10 : 0,
+        allocWeight: sellBudget > 0 ? Math.round((sellBudget * (fillScore(r) / fsSum)) * 10) / 10 : 0,
       }))
     }
   } catch { /* graceful */ }
 
-  // ⑤ Gemini 내러티브 (심리 인지 + 정직)
-  const narrative = await buildNarrative(diagnoses, buyCandidates, sellBudget)
+  // ⑥ Before → After (매도 회수분 차감 + 매수 배분분 가산)
+  const diversification = buildDiversification(diagnoses, secByTicker, curCat, curSec, buyCandidates)
+
+  // ⑦ Gemini 내러티브 (심리 인지 + 정직)
+  const narrative = await buildNarrative(diagnoses, buyCandidates, sellBudget, diversification)
 
   const result: RebalanceResult = {
-    holdings: diagnoses, buyCandidates, sellBudget,
+    holdings: diagnoses, buyCandidates, sellBudget, diversification,
     narrative, generatedAt: new Date().toISOString(), fromCache: false,
   }
   await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
+}
+
+// ── 분산 진단: 분류 Before→After + 섹터 집중도 ────────────────────────────────
+function buildDiversification(
+  diagnoses: HoldingDiagnosis[], secByTicker: Record<string, string>,
+  curCat: Record<string, number>, curSec: Record<string, number>,
+  buys: BuyCandidate[],
+): DiversificationView | null {
+  if (diagnoses.length === 0) return null
+  // after 분류 = 현재 − 회수분(매도종목 분류에서) + 매수 배분분(후보 분류로)
+  const afterCat: Record<string, number> = { ...curCat }
+  const afterSec: Record<string, number> = { ...curSec }
+  for (const d of diagnoses) {
+    if (d.releaseWeight > 0) {
+      if (d.lynchCategory) afterCat[d.lynchCategory] = Math.max(0, (afterCat[d.lynchCategory] ?? 0) - d.releaseWeight)
+      const s = secByTicker[d.ticker.toUpperCase()] ?? '기타'
+      afterSec[s] = Math.max(0, (afterSec[s] ?? 0) - d.releaseWeight)
+    }
+  }
+  for (const b of buys) {
+    if (b.allocWeight > 0) {
+      afterCat[b.lynchCategory] = (afterCat[b.lynchCategory] ?? 0) + b.allocWeight
+      afterSec[b.sector] = (afterSec[b.sector] ?? 0) + b.allocWeight
+    }
+  }
+  const r1 = (n: number) => Math.round(n * 10) / 10
+  // 분류: 황금비율 6종 + 실제 보유 분류 모두 표기
+  const catKeys = Array.from(new Set([...Object.keys(IDEAL_RATIOS), ...Object.keys(curCat)]))
+  const categories: CategoryBalance[] = catKeys.map(k => ({
+    key: k, label: CAT_KR[k] ?? k,
+    before: r1(curCat[k] ?? 0), after: r1(afterCat[k] ?? 0), ideal: IDEAL_RATIOS[k] ?? 0,
+  })).sort((a, b) => b.ideal - a.ideal || b.before - a.before)
+
+  const toSorted = (rec: Record<string, number>): SectorWeight[] =>
+    Object.entries(rec).filter(([, w]) => w > 0.05)
+      .map(([sector, weight]) => ({ sector, weight: r1(weight) }))
+      .sort((a, b) => b.weight - a.weight)
+  const sectorsBefore = toSorted(curSec)
+  const sectorsAfter = toSorted(afterSec)
+  return {
+    categories, sectorsBefore, sectorsAfter,
+    topSectorBefore: sectorsBefore[0]?.weight ?? 0,
+    topSectorAfter: sectorsAfter[0]?.weight ?? 0,
+  }
 }
 
 // ── Gemini 내러티브 ───────────────────────────────────────────────────────────
@@ -193,12 +296,15 @@ const ACTION_KO: Record<RebalanceAction, string> = {
   HOLD_DIP: '보류(손실중·단순고평가→저점매도 방지)', DEFEND: '사수(저평가/호재)', KEEP: '유지',
 }
 
-async function buildNarrative(holdings: HoldingDiagnosis[], buys: BuyCandidate[], sellBudget: number): Promise<string> {
+async function buildNarrative(holdings: HoldingDiagnosis[], buys: BuyCandidate[], sellBudget: number, div: DiversificationView | null): Promise<string> {
   const sellLines = holdings
     .filter(h => h.action === 'TAKE_PROFIT' || h.action === 'CUT_LOSS' || h.action === 'HOLD_DIP')
     .map(h => `- ${h.name}(${h.ticker}): 비중 ${h.weight}%, 손익 ${h.pnlPct != null ? `${h.pnlPct > 0 ? '+' : ''}${h.pnlPct}%` : '자료없음'}, ${ACTION_KO[h.action]}${h.breakEvenRise != null ? `, 본전까지 +${h.breakEvenRise}% 필요` : ''}, 사유: ${h.sellReasons.join('·') || '—'}`)
     .join('\n')
-  const buyLines = buys.map(b => `- ${b.name}(${b.ticker}): AI점수 ${b.aiScore}, PEG ${b.peg ?? '—'}, 제안 ${b.allocWeight}%, ${b.reason}`).join('\n')
+  const buyLines = buys.map(b => `- ${b.name}(${b.ticker}): AI점수 ${b.aiScore}, PEG ${b.peg ?? '—'}, 섹터 ${b.sector}, 제안 ${b.allocWeight}%, ${b.reason}`).join('\n')
+  const divLine = div
+    ? `최대 단일 섹터 비중 ${div.topSectorBefore}%→${div.topSectorAfter}% (낮을수록 분산 양호). 분류 편중: ${div.categories.filter(c => c.before > c.ideal + 10).map(c => `${c.label} ${c.before}%(권장 ${c.ideal}%)`).join(', ') || '없음'}`
+    : ''
 
   const prompt = `너는 '2026 투자학교'의 AI 자산관리 비서다. 학생의 실제 포트폴리오 손익을 고려해 따뜻하지만 정직한 리밸런싱 코칭을 하라.
 
@@ -210,14 +316,17 @@ ${buyLines || '없음'}
 
 [회수 가능 예산] 총 ${sellBudget}% (이 비중만큼만 신규 매수 — 현금 중립)
 
+[분산 상태] ${divLine || '자료없음'}
+
 [⛔ 절대 규칙]
 - '승률 95%' 같은 지어낸 확률·숫자 금지. 주어진 AI점수·PEG·손익률만 사용.
 - 손실 종목을 '단순 고평가'만으로 손절 강요 금지(보류 종목은 "저점 매도 금물"로 안내).
 - 손실 회피 심리를 헤아려라: 익절은 축하의 톤, 손절은 "기회비용·전략적 후퇴"로 위로하되 강요 아닌 '고려' 권유.
 - 본전까지 필요 상승률은 확정된 수학이니 그대로 활용해 설득하라(예: "−15%면 본전까지 +17.6%가 필요한데 회복 동력이 없다").
+- [분산 상태]가 있으면 섹터·분류 편중을 한 문장으로 짚고, 이 리밸런싱이 분산을 어떻게 개선하는지 설명하라.
 - 마지막에 "교육용 시뮬레이션이며 투자 추천이 아닙니다"를 반드시 덧붙여라.
 
-[출력] 3~5문장의 한국어 코칭 1단락. JSON {"narrative": "..."} 형식만.`
+[출력] 3~6문장의 한국어 코칭 1단락. JSON {"narrative": "..."} 형식만.`
 
   const r = await callGeminiJSON<{ narrative: string }>(prompt, {
     type: 'OBJECT', properties: { narrative: { type: 'STRING' } }, required: ['narrative'],

@@ -1,7 +1,7 @@
 'use client'
 // 🤖 AI 포트폴리오 리밸런싱 — 수익률 연동형 교체매매 플랜(익절/손절/보류 + 신규 매수후보)
 import { useState, useEffect, useCallback } from 'react'
-import type { RebalanceResult, HoldingDiagnosis, RebalanceAction } from '@/app/api/ai-rebalance/route'
+import type { RebalanceResult, HoldingDiagnosis, RebalanceAction, DiversificationView } from '@/app/api/ai-rebalance/route'
 
 const BG = '#0f1117', CARD = '#161b25', BORDER = '#1e293b'
 
@@ -139,8 +139,61 @@ export default function AiRebalancePanel() {
         </div>
       )}
 
+      {/* ④ 분산 개선 Before → After */}
+      {data.diversification && (
+        <DiversificationSection d={data.diversification} />
+      )}
+
       <div style={{ textAlign: 'right', color: '#4b5563', fontSize: 11 }}>
         분석 기준: {new Date(data.generatedAt).toLocaleString('ko-KR')} · 24h 캐시 · 교육용 시뮬레이션이며 투자 추천이 아닙니다
+      </div>
+    </div>
+  )
+}
+
+// ── 분산 개선 Before→After (분류 황금비율 + 섹터 집중도) ───────────────────────
+function DiversificationSection({ d }: { d: DiversificationView }) {
+  const cats = d.categories.filter(c => c.before > 0 || c.after > 0 || c.ideal > 0)
+  const maxV = Math.max(40, ...cats.map(c => Math.max(c.before, c.after, c.ideal)))
+  const secImproved = d.topSectorAfter < d.topSectorBefore - 0.05
+  return (
+    <div>
+      <SectionTitle icon="⚖️" text="분산 개선 (리밸런싱 전 → 후)" sub="린치 황금비율 · 섹터 집중도" />
+      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+        {/* 섹터 집중도 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ color: '#94a3b8', fontSize: 12 }}>최대 단일 섹터 비중</span>
+          <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 14 }}>{d.topSectorBefore}%</span>
+          <span style={{ color: '#6b7280' }}>→</span>
+          <span style={{ color: secImproved ? '#22c55e' : '#e2e8f0', fontWeight: 700, fontSize: 14 }}>{d.topSectorAfter}%</span>
+          {secImproved && <span style={{ color: '#22c55e', fontSize: 11, fontWeight: 600 }}>✓ 집중도 완화</span>}
+          {d.sectorsBefore[0] && <span style={{ color: '#6b7280', fontSize: 11 }}>({d.sectorsBefore[0].sector})</span>}
+        </div>
+
+        {/* 분류별 Before→After 바 (황금비율 마커) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {cats.map(c => (
+            <div key={c.key}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 3 }}>
+                <span style={{ color: '#94a3b8' }}>{c.label}</span>
+                <span style={{ color: '#6b7280' }}>
+                  <span style={{ color: '#8599ae' }}>{c.before}%</span> → <span style={{ color: c.after >= c.before ? '#60a5fa' : '#8599ae', fontWeight: 600 }}>{c.after}%</span>
+                  <span style={{ color: '#4b6380', marginLeft: 6 }}>권장 {c.ideal}%</span>
+                </span>
+              </div>
+              {/* 바: after(파랑) 위에 before(회색 외곽) + 권장 마커 */}
+              <div style={{ position: 'relative', height: 8, background: '#0f1117', borderRadius: 4, overflow: 'visible' }}>
+                <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${(c.after / maxV) * 100}%`, background: '#3b82f6', borderRadius: 4, transition: 'width 0.4s' }} />
+                {/* 권장선 마커 */}
+                <div style={{ position: 'absolute', left: `${(c.ideal / maxV) * 100}%`, top: -2, height: 12, width: 2, background: '#a8b5c2' }} title={`권장 ${c.ideal}%`} />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: 10.5, color: '#6b7280', lineHeight: 1.5 }}>
+          파란 막대 = 리밸런싱 후 비중 · <span style={{ color: '#a8b5c2' }}>|</span> = 린치 황금비율 권장선. 권장선에 가까울수록 균형 잡힌 포트폴리오입니다.
+        </div>
       </div>
     </div>
   )
