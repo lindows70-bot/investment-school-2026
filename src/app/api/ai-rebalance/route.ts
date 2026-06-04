@@ -170,8 +170,8 @@ export async function GET(req: Request) {
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const forceRefresh = new URL(req.url).searchParams.get('refresh') === '1'
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
-  // v6: 통화 환산 비중 수정 + 섹터 페널티 + 실행가이드 — 캐시 무효화
-  const cacheKey = `ai-rebalance-v6:${user.id}:${today}`
+  // v7: 분류 페널티 추가(과다분류 감점) — 캐시 무효화
+  const cacheKey = `ai-rebalance-v7:${user.id}:${today}`
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -335,10 +335,14 @@ export async function GET(req: Request) {
         const curW = curSec[sec] ?? 0   // 이 후보 섹터의 현재 포트 비중
         return curW >= 50 ? 0.35 : curW >= 35 ? 0.55 : curW >= 20 ? 0.8 : 1.0
       }
-      const fillScore = (r: AiRecommendation) => {
-        const gap = Math.max(0, (IDEAL_RATIOS[r.lynchCategory] ?? 0) - (curCat[r.lynchCategory] ?? 0))
-        return r.aiScore * (1 + gap / 35) * sectorPenalty(r)
+      // 분류 가중: 부족분류 보너스(+) / 과다분류 페널티(−). 섹터 페널티와 동일 철학 — '빼서 또 같은 분류' 방지
+      const categoryMult = (r: AiRecommendation) => {
+        const cur = curCat[r.lynchCategory] ?? 0
+        const ideal = IDEAL_RATIOS[r.lynchCategory] ?? 0
+        const diff = ideal - cur   // 양수=부족(보너스), 음수=과다(페널티)
+        return diff >= 0 ? 1 + diff / 35 : Math.max(0.4, 1 + diff / 40)   // 과다일수록 감점(하한 0.4)
       }
+      const fillScore = (r: AiRecommendation) => r.aiScore * categoryMult(r) * sectorPenalty(r)
       const ranked = [...pool].sort((a, b) => fillScore(b) - fillScore(a)).slice(0, 4)
       const fsSum = ranked.reduce((s, r) => s + fillScore(r), 0) || 1
       buyCandidates = ranked.map(r => ({
