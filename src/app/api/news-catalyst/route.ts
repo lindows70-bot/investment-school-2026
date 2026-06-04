@@ -117,36 +117,40 @@ const CATALYST_SCHEMA = {
 
 function buildPrompt(ticker: string, name: string, market: string, headlines: string[]): string {
   const headlineText = headlines.map((h, i) => `${i + 1}. ${h}`).join('\n')
-  return `너는 피터 린치처럼 생각하는 투자 교육자다. 아래 뉴스 헤드라인들을 분석해 학생 투자자가 지금 무엇을 해야 하는지 판단하라.
+  return `너는 피터 린치처럼 생각하는 투자 교육자다. 아래 뉴스 헤드라인들만 근거로 학생 투자자가 지금 무엇을 해야 하는지 판단하라.
 
 [종목]
 티커: ${ticker}
 이름: ${name || ticker}
 시장: ${market}
 
-[최근 뉴스 헤드라인]
+[최근 뉴스 헤드라인 — 이것이 유일한 근거다]
 ${headlineText || '(수집된 헤드라인 없음)'}
+
+[⛔ 절대 규칙 — 위반 금지]
+- keyFact·actionGuide는 위 헤드라인에 실제로 적힌 내용에서만 도출하라. 헤드라인에 없는 구체적 사실(특정 기업명·금액·계약·수치)을 너의 사전 지식으로 지어내는 것은 엄격히 금지한다.
+- 위 헤드라인들이 이 종목(${ticker}) 고유의 내용이 아니라 시장 전반·다른 종목·일반론(예: "AI 주식 백만장자", "시장 경보")뿐이라면: isNoise=true, catalystStatus=HOLD_STRONG, keyFact="${name || ticker} 고유의 중요 뉴스 없음 (시장 전반 기사만 존재)"로 정직하게 답하라. 절대 그럴듯한 뉴스를 창작하지 마라.
 
 [분석 지침]
 1. catalystStatus 판정:
    - HOLD_STRONG: 핵심 사업 모델 변화 없음, 일시적 노이즈, 계속 보유 권장
    - OBSERVE: 중요한 변화 징후, 추가 지표 모니터링 필요
-   - RE_EVALUATE: 투자 thesis를 다시 검토해야 할 중요 사건 발생
-
-2. keyFact: 이 뉴스에서 가장 중요한 사실 1문장 (학생이 원문 안 읽어도 핵심 파악)
+   - RE_EVALUATE: 투자 thesis를 다시 검토해야 할 중요 사건 발생 (헤드라인에 명시적 근거 있을 때만)
+2. keyFact: 헤드라인에 적힌 가장 중요한 사실 1문장 (헤드라인 밖 정보 추가 금지)
 3. actionGuide: 피터 린치 스타일로 학생이 지금 무엇을 해야 하는지 1~2문장
-4. riskLevel: 현재 뉴스가 포트폴리오에 가져오는 리스크 수준
+4. riskLevel: 현재 뉴스가 포트폴리오에 가져오는 리스크 수준 (LOW/MEDIUM/HIGH)
 5. relevantMetric: 이 뉴스와 가장 관련된 재무 지표 (예: "영업이익률", "매출성장률", "부채비율", "EPS")
-6. isNoise: 주가 시황, 시장 전체 등락, 단순 목표가 변경만 다루는 기사면 true
+6. isNoise: 헤드라인이 주가 시황·시장 전체 등락·단순 목표가 변경·다른 종목 위주면 true
 
-뉴스가 없거나 매우 빈약하면: catalystStatus=HOLD_STRONG, isNoise=true, keyFact="최근 중요 뉴스 없음"으로.
+keyFact·actionGuide는 반드시 한국어로 작성하라(영어 헤드라인도 한국어로 요약). relevantMetric도 한국어로.
 반드시 JSON으로만 응답.`
 }
 
 // ── 캐시 키 ───────────────────────────────────────────────────────────────────
+// v2: 할루시네이션 방지 프롬프트 강화 — 기존 캐시 무효화
 function cacheKey(ticker: string, market: string): string {
   const yyyymmdd = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-  return `news-catalyst:${ticker.toUpperCase()}:${market}:${yyyymmdd}`
+  return `news-catalyst-v2:${ticker.toUpperCase()}:${market}:${yyyymmdd}`
 }
 
 // ── 단일 ticker 분석 ──────────────────────────────────────────────────────────
@@ -179,7 +183,7 @@ async function analyzeTicker(
       actionGuide:    result.data.actionGuide    || '현재 보유 전략 유지',
       riskLevel:      result.data.riskLevel      ?? 'LOW',
       relevantMetric: result.data.relevantMetric || '영업이익률',
-      headlines:      headlines.slice(0, 3),
+      headlines:      headlines.slice(0, 5),
       isNoise:        result.data.isNoise        ?? false,
       cachedAt: now,
       fromCache: false,
@@ -193,7 +197,7 @@ async function analyzeTicker(
       actionGuide:    '뉴스를 직접 확인하세요',
       riskLevel:      'MEDIUM',
       relevantMetric: '—',
-      headlines:      headlines.slice(0, 3),
+      headlines:      headlines.slice(0, 5),
       isNoise:        false,
       cachedAt: now,
       fromCache: false,
