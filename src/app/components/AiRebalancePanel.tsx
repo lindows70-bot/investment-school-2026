@@ -15,6 +15,10 @@ const ACTION_CFG: Record<RebalanceAction, { color: string; bg: string; icon: str
 
 function pnlColor(p: number | null) { return p == null ? '#8599ae' : p > 0 ? '#22c55e' : p < 0 ? '#ef4444' : '#8599ae' }
 function pnlStr(p: number | null) { return p == null ? '—' : `${p > 0 ? '+' : ''}${p}%` }
+// 국내(KR)는 한국 종목명, 해외는 티커 표시
+function disp(market: string, name: string, ticker: string) {
+  return market === 'KR' ? (name || ticker).slice(0, 12) : ticker
+}
 
 export default function AiRebalancePanel() {
   const [data, setData] = useState<RebalanceResult | null>(null)
@@ -55,7 +59,8 @@ export default function AiRebalancePanel() {
     </div>
   )
 
-  const sellList = data.holdings.filter(h => h.action === 'TAKE_PROFIT' || h.action === 'CUT_LOSS')
+  // 회수 비중이 의미 있는(≥0.1%) 교체 후보만 — 소액(0%) 익절 노이즈 제거
+  const sellList = data.holdings.filter(h => (h.action === 'TAKE_PROFIT' || h.action === 'CUT_LOSS') && h.releaseWeight >= 0.1)
   const holdDips = data.holdings.filter(h => h.action === 'HOLD_DIP')
   const defends = data.holdings.filter(h => h.action === 'DEFEND')
 
@@ -107,7 +112,7 @@ export default function AiRebalancePanel() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {holdDips.map(h => (
               <div key={h.ticker} style={{ background: CARD, border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '8px 12px' }}>
-                <span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13 }}>{h.ticker}</span>
+                <span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13 }}>{disp(h.market, h.name, h.ticker)}</span>
                 <span style={{ color: pnlColor(h.pnlPct), fontSize: 12, marginLeft: 8, fontWeight: 600 }}>{pnlStr(h.pnlPct)}</span>
                 <span style={{ color: '#f59e0b', fontSize: 11, marginLeft: 8 }}>
                   본전까지 +{h.breakEvenRise ?? '—'}% · 저점매도 금물
@@ -125,7 +130,7 @@ export default function AiRebalancePanel() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {defends.map(h => (
               <div key={h.ticker} style={{ background: CARD, border: '1px solid rgba(59,130,246,0.3)', borderRadius: 8, padding: '8px 12px' }}>
-                <span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13 }}>{h.ticker}</span>
+                <span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13 }}>{disp(h.market, h.name, h.ticker)}</span>
                 <span style={{ color: pnlColor(h.pnlPct), fontSize: 12, marginLeft: 8, fontWeight: 600 }}>{pnlStr(h.pnlPct)}</span>
                 {h.peg != null && <span style={{ color: '#3b82f6', fontSize: 11, marginLeft: 8 }}>PEG {h.peg.toFixed(2)}</span>}
               </div>
