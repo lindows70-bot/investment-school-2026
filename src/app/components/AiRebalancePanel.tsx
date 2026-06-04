@@ -19,6 +19,13 @@ function pnlStr(p: number | null) { return p == null ? '—' : `${p > 0 ? '+' : 
 function disp(market: string, name: string, ticker: string) {
   return market === 'KR' ? (name || ticker).slice(0, 12) : ticker
 }
+// 비중(%) → 원화 금액 (실행 가이드). 1억 이상은 억, 이하는 만원
+function wonAmount(pct: number, portfolioValue: number): string {
+  const won = (pct / 100) * portfolioValue
+  if (won <= 0) return ''
+  if (won >= 1e8) return `≈ ${(won / 1e8).toFixed(1)}억원`
+  return `≈ ${Math.round(won / 1e4).toLocaleString()}만원`
+}
 
 export default function AiRebalancePanel() {
   const [data, setData] = useState<RebalanceResult | null>(null)
@@ -144,7 +151,7 @@ export default function AiRebalancePanel() {
         <div>
           <SectionTitle icon="🔄" text="신호 기반 교체매매 (익절/손절)" sub="종목별 매도 신호" />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {sellList.map(h => <SwapCard key={h.ticker} h={h} />)}
+            {sellList.map(h => <SwapCard key={h.ticker} h={h} pv={data.portfolioValue} />)}
           </div>
         </div>
       )}
@@ -160,7 +167,7 @@ export default function AiRebalancePanel() {
                   <span style={{ color: '#c084fc', fontSize: 11 }}>✂️ 축소</span>
                   <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 14 }}>{h.market === 'KR' ? (h.name || h.ticker).slice(0, 12) : `${h.name} (${h.ticker})`}</span>
                   <span style={{ color: pnlColor(h.pnlPct), fontSize: 13, fontWeight: 700 }}>{pnlStr(h.pnlPct)}</span>
-                  <span style={{ color: '#6b7280', fontSize: 11 }}>비중 {h.weight}% → <b style={{ color: '#c084fc' }}>−{h.trimWeight}%</b> 축소</span>
+                  <span style={{ color: '#6b7280', fontSize: 11 }}>비중 {h.weight}% → <b style={{ color: '#c084fc' }}>−{h.trimWeight}%</b> 축소 <span style={{ color: '#c084fc' }}>{wonAmount(h.trimWeight, data.portfolioValue)}</span></span>
                   {h.peg != null && <span style={{ color: '#3b82f6', fontSize: 11 }}>PEG {h.peg.toFixed(2)}</span>}
                 </div>
                 {h.sellReasons.length > 0 && (
@@ -187,7 +194,7 @@ export default function AiRebalancePanel() {
                   <span style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e', borderRadius: 6, padding: '1px 8px', fontSize: 11, fontWeight: 600 }}>AI {b.aiScore}점</span>
                   {b.peg != null && <span style={{ color: '#3b82f6', fontSize: 11 }}>PEG {b.peg.toFixed(2)}</span>}
                   <span style={{ color: '#8599ae', fontSize: 11 }}>{b.sector}</span>
-                  <span style={{ color: '#22c55e', fontSize: 12, fontWeight: 700, marginLeft: 'auto' }}>+{b.allocWeight}%</span>
+                  <span style={{ color: '#22c55e', fontSize: 12, fontWeight: 700, marginLeft: 'auto' }}>+{b.allocWeight}% <span style={{ fontWeight: 400, fontSize: 11 }}>{wonAmount(b.allocWeight, data.portfolioValue)}</span></span>
                 </div>
                 {b.reason && <div style={{ marginTop: 6, color: '#aab6c4', fontSize: 12, lineHeight: 1.5 }}>{b.reason}</div>}
               </div>
@@ -233,6 +240,17 @@ export default function AiRebalancePanel() {
       {/* ④ 분산 개선 Before → After */}
       {data.diversification && (
         <DiversificationSection d={data.diversification} />
+      )}
+
+      {/* 실행 가이드 안내 (자동매매 없음 — 직접 실행) */}
+      {data.portfolioValue > 0 && (data.sellBudget > 0) && (
+        <div style={{ background: '#141720', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '12px 16px' }}>
+          <div style={{ color: '#94a3b8', fontSize: 12, lineHeight: 1.7 }}>
+            🧾 <b style={{ color: '#cbd5e1' }}>실행 가이드</b> — 위 비율 옆의 <b>≈₩금액</b>은 내 포트폴리오(약 {(data.portfolioValue / 1e8).toFixed(1)}억원) 기준 환산액입니다.
+            이 금액만큼 <b>본인 증권계좌에서 직접</b> 매도·매수하시면 됩니다.
+            <br /><span style={{ color: '#6b7280', fontSize: 11 }}>※ 이 앱은 교육용이라 자동 주문·일괄 거래를 실행하지 않습니다. 실제 매매는 학생 본인이 판단·집행합니다.</span>
+          </div>
+        </div>
       )}
 
       <div style={{ textAlign: 'right', color: '#4b5563', fontSize: 11 }}>
@@ -299,7 +317,7 @@ function SectionTitle({ icon, text, sub }: { icon: string; text: string; sub?: s
   )
 }
 
-function SwapCard({ h }: { h: HoldingDiagnosis }) {
+function SwapCard({ h, pv }: { h: HoldingDiagnosis; pv: number }) {
   const cfg = ACTION_CFG[h.action]
   return (
     <div style={{ background: CARD, borderRadius: 10, border: `1px solid ${cfg.color}40`, padding: '14px 16px' }}>
@@ -309,7 +327,7 @@ function SwapCard({ h }: { h: HoldingDiagnosis }) {
         <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 14 }}>{h.name} ({h.ticker})</span>
         <span style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}40`, borderRadius: 6, padding: '1px 8px', fontSize: 11, fontWeight: 600 }}>{cfg.icon} {cfg.label}</span>
         <span style={{ color: pnlColor(h.pnlPct), fontSize: 13, fontWeight: 700 }}>{pnlStr(h.pnlPct)}</span>
-        <span style={{ color: '#6b7280', fontSize: 11 }}>비중 {h.weight}% → 회수 {h.releaseWeight}%</span>
+        <span style={{ color: '#6b7280', fontSize: 11 }}>비중 {h.weight}% → 회수 {h.releaseWeight}% <span style={{ color: '#94a3b8' }}>{wonAmount(h.releaseWeight, pv)}</span></span>
       </div>
 
       {/* 매도 사유 */}

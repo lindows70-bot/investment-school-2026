@@ -103,6 +103,7 @@ export interface RebalanceResult {
   cyclicalTrap:   CyclicalTrap | null
   hypePremium:    HypePremium | null
   zombieRisk:     ZombieRisk | null
+  portfolioValue: number         // 원화 환산 총 평가액 (실행 가이드용 — % → ₩ 금액 환산)
   narrative:      string         // Gemini 종합 플랜 내러티브
   generatedAt:    string
   fromCache:      boolean
@@ -169,8 +170,8 @@ export async function GET(req: Request) {
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const forceRefresh = new URL(req.url).searchParams.get('refresh') === '1'
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
-  // v5: 좀비(이자보상배율) 경고 추가 — 캐시 무효화
-  const cacheKey = `ai-rebalance-v5:${user.id}:${today}`
+  // v6: 통화 환산 비중 수정 + 섹터 페널티 + 실행가이드 — 캐시 무효화
+  const cacheKey = `ai-rebalance-v6:${user.id}:${today}`
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -184,7 +185,7 @@ export async function GET(req: Request) {
     .eq('user_id', user.id)
   const holds = (rows ?? []).filter(h => getAssetType(h.ticker, h.name ?? '', h.market ?? 'US') === 'STOCK')
   if (holds.length === 0) {
-    return NextResponse.json({ holdings: [], buyCandidates: [], sellBudget: 0, diversification: null, cyclicalTrap: null, hypePremium: null, zombieRisk: null, narrative: '분석할 개별 주식이 없습니다. 종목을 추가하면 리밸런싱 진단이 시작됩니다.', generatedAt: new Date().toISOString(), fromCache: false })
+    return NextResponse.json({ holdings: [], buyCandidates: [], sellBudget: 0, diversification: null, cyclicalTrap: null, hypePremium: null, zombieRisk: null, portfolioValue: 0, narrative: '분석할 개별 주식이 없습니다. 종목을 추가하면 리밸런싱 진단이 시작됩니다.', generatedAt: new Date().toISOString(), fromCache: false })
   }
 
   // ② 현재가 배치 → 평가액·비중·손익률
@@ -201,11 +202,20 @@ export async function GET(req: Request) {
     }
   } catch { /* graceful — 비중 계산 불가 종목은 0 */ }
 
+  // ⭐ 통화 통일(원화 환산) — KR(₩)·US($) 혼합 포트폴리오의 비중 왜곡 방지
+  //    (버그: 환산 없이 합산하면 ₩가격(수십만)이 $가격(수백)을 압도해 국내종목이 비중 독식)
+  let usdKrw = 1380   // 폴백
+  try {
+    const fx = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8000) })
+    if (fx.ok) { const j = await fx.json(); if (typeof j.rate === 'number' && j.rate > 0) usdKrw = j.rate }
+  } catch { /* 폴백 사용 */ }
+  const toKrw = (market: string | null) => (market === 'KR' ? 1 : usdKrw)   // 종목 통화 → 원화 배율
+
   const valued = holds.map(h => {
     const price = prices[h.ticker.toUpperCase()] ?? 0
     const qty = Number(h.quantity) || 0
     const buy = Number(h.purchase_price) || 0
-    const mv = price * qty
+    const mv = price * qty * toKrw(h.market ?? 'US')   // 원화 환산 평가액
     const pnlPct = buy > 0 && price > 0 ? Math.round(((price - buy) / buy) * 1000) / 10 : null
     return { ...h, price, mv, pnlPct }
   })
@@ -317,10 +327,17 @@ export async function GET(req: Request) {
         const secs = await Promise.all(batch.map(r => getSector(r.ticker, r.market).catch(() => '기타')))
         batch.forEach((r, k) => { poolSec[r.ticker.toUpperCase()] = secs[k] })
       }
-      // 갭 가중 점수 = aiScore × (1 + 분류 부족갭/35) — 부족한 분류 채우는 종목 우대
+      // 갭 가중 점수 = aiScore × (1 + 분류 부족갭/35) × 섹터집중 페널티
+      //   ⭐ 섹터 페널티: 이미 무거운 섹터(특히 매도 중인 섹터)로의 편입을 감점 → '반도체 빼서 또 반도체' 방지
+      //      (제미나이 보강: 단일 섹터 71% 잔존 문제 → 결 다른 섹터로 강제 분산)
+      const sectorPenalty = (r: AiRecommendation) => {
+        const sec = poolSec[r.ticker.toUpperCase()] ?? '기타'
+        const curW = curSec[sec] ?? 0   // 이 후보 섹터의 현재 포트 비중
+        return curW >= 50 ? 0.35 : curW >= 35 ? 0.55 : curW >= 20 ? 0.8 : 1.0
+      }
       const fillScore = (r: AiRecommendation) => {
         const gap = Math.max(0, (IDEAL_RATIOS[r.lynchCategory] ?? 0) - (curCat[r.lynchCategory] ?? 0))
-        return r.aiScore * (1 + gap / 35)
+        return r.aiScore * (1 + gap / 35) * sectorPenalty(r)
       }
       const ranked = [...pool].sort((a, b) => fillScore(b) - fillScore(a)).slice(0, 4)
       const fsSum = ranked.reduce((s, r) => s + fillScore(r), 0) || 1
@@ -340,7 +357,7 @@ export async function GET(req: Request) {
   const narrative = await buildNarrative(diagnoses, buyCandidates, sellBudget, diversification, cyclicalTrap, hypePremium, zombieRisk)
 
   const result: RebalanceResult = {
-    holdings: diagnoses, buyCandidates, sellBudget, diversification, cyclicalTrap, hypePremium, zombieRisk,
+    holdings: diagnoses, buyCandidates, sellBudget, diversification, cyclicalTrap, hypePremium, zombieRisk, portfolioValue: Math.round(totalMv),
     narrative, generatedAt: new Date().toISOString(), fromCache: false,
   }
   await setCache(cacheKey, result)
