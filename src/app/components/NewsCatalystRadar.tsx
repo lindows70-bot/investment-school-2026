@@ -1,7 +1,7 @@
 'use client'
 // 포트폴리오 뉴스 촉매 레이더 — 보유 종목별 뉴스 이벤트를 3단계로 분류해 표시
 import { useState, useEffect, useCallback } from 'react'
-import type { NewsCatalystResult, TickerCatalyst, CatalystStatus, RiskLevel, ValuationTier } from '@/app/api/news-catalyst/route'
+import type { NewsCatalystResult, TickerCatalyst, CatalystStatus, RiskLevel, ValuationTier, NewsCategory, NewsTone } from '@/app/api/news-catalyst/route'
 
 // ── 스타일 상수 ───────────────────────────────────────────────────────────────
 const BG    = '#0f1117'
@@ -18,6 +18,22 @@ const RISK_CONFIG: Record<RiskLevel, { color: string; label: string }> = {
   HIGH:   { color: '#ef4444', label: '고위험' },
   MEDIUM: { color: '#f59e0b', label: '중위험' },
   LOW:    { color: '#22c55e', label: '저위험' },
+}
+
+// 뉴스 유형(색깔) 칩 — 계약/실적/협약 등을 한눈에
+const NEWS_CAT_CONFIG: Record<NewsCategory, { color: string; icon: string; label: string }> = {
+  계약수주:   { color: '#22c55e', icon: '📝', label: '계약·수주' },
+  실적:       { color: '#3b82f6', icon: '📊', label: '실적' },
+  협약제휴:   { color: '#06b6d4', icon: '🤝', label: '협약·제휴' },
+  신제품기술: { color: '#a855f7', icon: '🔬', label: '신제품·기술' },
+  규제소송:   { color: '#ef4444', icon: '⚖️', label: '규제·소송' },
+  인사지배구조:{ color: '#f59e0b', icon: '👔', label: '인사·지배구조' },
+  시장수급:   { color: '#8599ae', icon: '📈', label: '시장·수급' },
+}
+const TONE_MARK: Record<NewsTone, { mark: string; color: string }> = {
+  POSITIVE: { mark: '▲ 호재', color: '#22c55e' },
+  NEGATIVE: { mark: '▼ 악재', color: '#ef4444' },
+  NEUTRAL:  { mark: '· 중립', color: '#8599ae' },
 }
 
 // 가격 축(밸류에이션) 배지 — PEG/수익성에서 결정론적 산출(Jarvis 매도 기준과 일치)
@@ -259,8 +275,35 @@ export default function NewsCatalystRadar() {
                     <div style={{ color: '#94a3b8', fontSize: 13, marginTop: 6, lineHeight: 1.5 }}>
                       {c.keyFact}
                     </div>
+
+                    {/* 유형별 주요 뉴스 2~3건 (계약·실적·협약 등 색깔 구분) */}
+                    {c.newsItems && c.newsItems.length > 0 && (
+                      <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                        {c.newsItems.map((ni, idx) => {
+                          const cat = NEWS_CAT_CONFIG[ni.category] ?? { color: '#8599ae', icon: '•', label: ni.category }
+                          const tone = TONE_MARK[ni.tone] ?? TONE_MARK.NEUTRAL
+                          return (
+                            <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 7 }}>
+                              <span style={{
+                                flexShrink: 0, fontSize: 10, fontWeight: 700,
+                                color: cat.color, background: `${cat.color}1a`,
+                                border: `1px solid ${cat.color}40`, borderRadius: 4,
+                                padding: '1px 6px', whiteSpace: 'nowrap',
+                              }}>
+                                {cat.icon} {cat.label}
+                              </span>
+                              <span style={{ fontSize: 12, color: '#aab6c4', lineHeight: 1.45 }}>
+                                {ni.summary}
+                                <span style={{ color: tone.color, fontSize: 10.5, marginLeft: 5, fontWeight: 600 }}>{tone.mark}</span>
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+
                     {c.relevantMetric && c.relevantMetric !== '—' && (
-                      <div style={{ marginTop: 4 }}>
+                      <div style={{ marginTop: 6 }}>
                         <span style={{ color: '#f59e0b', fontSize: 11, background: 'rgba(245,158,11,0.08)', borderRadius: 4, padding: '1px 6px' }}>
                           📊 {c.relevantMetric}
                         </span>

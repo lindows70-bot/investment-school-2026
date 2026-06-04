@@ -17,12 +17,23 @@ export type RiskLevel      = 'LOW' | 'MEDIUM' | 'HIGH'
 // LOSS = 적자기업(PEG 무의미) — 영업이익률/ROE 폴백으로 별도 브레이크
 export type ValuationTier  = 'CHEAP' | 'FAIR' | 'EXPENSIVE' | 'LOSS' | 'UNKNOWN'
 
+// 뉴스 유형(색깔) — 학생이 호재/악재/유형을 한눈에 구분
+export type NewsCategory =
+  | '계약수주' | '실적' | '협약제휴' | '신제품기술' | '규제소송' | '인사지배구조' | '시장수급'
+export type NewsTone = 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL'
+export interface NewsItem {
+  category: NewsCategory
+  tone:     NewsTone
+  summary:  string   // 헤드라인 근거 1줄 요약
+}
+
 export interface TickerCatalyst {
   ticker:         string
   name:           string
   market:         string
   catalystStatus: CatalystStatus  // 사업/뉴스 축 (thesis 깨는 사건이 있나)
   keyFact:        string          // 가장 중요한 팩트 1문장
+  newsItems:      NewsItem[]      // 유형별 주요 뉴스 2~3건 (계약/실적/협약 등)
   actionGuide:    string          // 피터 린치 행동 가이드 (가치×모멘텀 융합)
   riskLevel:      RiskLevel
   relevantMetric: string          // 연결되는 재무 지표 (예: "영업이익률")
@@ -154,23 +165,38 @@ async function fetchHeadlines(ticker: string, name: string, market: string): Pro
 interface GeminiCatalyst {
   catalystStatus: CatalystStatus
   keyFact:        string
+  newsItems:      NewsItem[]
   actionGuide:    string
   riskLevel:      RiskLevel
   relevantMetric: string
   isNoise:        boolean
 }
 
+const NEWS_CATEGORIES = ['계약수주', '실적', '협약제휴', '신제품기술', '규제소송', '인사지배구조', '시장수급']
+
 const CATALYST_SCHEMA = {
   type: 'OBJECT',
   properties: {
     catalystStatus: { type: 'STRING', enum: ['HOLD_STRONG', 'OBSERVE', 'RE_EVALUATE'] },
     keyFact:        { type: 'STRING' },
+    newsItems: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          category: { type: 'STRING', enum: NEWS_CATEGORIES },
+          tone:     { type: 'STRING', enum: ['POSITIVE', 'NEGATIVE', 'NEUTRAL'] },
+          summary:  { type: 'STRING' },
+        },
+        required: ['category', 'tone', 'summary'],
+      },
+    },
     actionGuide:    { type: 'STRING' },
     riskLevel:      { type: 'STRING', enum: ['LOW', 'MEDIUM', 'HIGH'] },
     relevantMetric: { type: 'STRING' },
     isNoise:        { type: 'BOOLEAN' },
   },
-  required: ['catalystStatus', 'keyFact', 'actionGuide', 'riskLevel', 'relevantMetric', 'isNoise'],
+  required: ['catalystStatus', 'keyFact', 'newsItems', 'actionGuide', 'riskLevel', 'relevantMetric', 'isNoise'],
 }
 
 function buildPrompt(ticker: string, name: string, market: string, headlines: string[], peg: number | null, tier: ValuationTier, opMargin: number | null): string {
@@ -218,19 +244,25 @@ ${headlineText || '(수집된 헤드라인 없음)'}
 
 [나머지 필드]
 - keyFact: 헤드라인에 적힌 가장 중요한 사실 1문장 (헤드라인 밖 정보 추가 금지)
+- newsItems: 위 헤드라인에서 **서로 다른 유형의 주요 뉴스 2~3건**을 골라 분류·요약하라(중복 유형 금지, 가장 중요한 순). 각 항목:
+   · category(반드시 다음 중 하나): 계약수주(수주·납품·공급계약), 실적(매출·이익·가이던스), 협약제휴(MOU·파트너십·합작), 신제품기술(출시·개발·FDA·특허), 규제소송(소송·제재·리콜·조사), 인사지배구조(CEO·지분·인수합병), 시장수급(외국인·기관 매매·지수 등 시황)
+   · tone: POSITIVE(호재)/NEGATIVE(악재)/NEUTRAL(중립)
+   · summary: 해당 뉴스 한 줄 요약(헤드라인 근거만, 한국어)
+   ※ 헤드라인이 시장 전반·노이즈뿐이면 newsItems는 빈 배열([])로 두라. 종목 고유 뉴스가 1건뿐이면 1건만.
+   ※ 절대 헤드라인에 없는 뉴스를 지어내지 마라.
 - riskLevel: LOW/MEDIUM/HIGH (※고평가·영업적자면 가격/재무 위험을 반영해 한 단계 높게)
 - relevantMetric: 이 뉴스와 가장 관련된 재무 지표 (예: "영업이익률", "매출성장률", "PEG")
 - isNoise: 헤드라인이 주가 시황·시장 전체 등락·단순 목표가 변경·다른 종목 위주면 true
 
-keyFact·actionGuide·relevantMetric은 반드시 한국어로 작성하라(영어 헤드라인도 한국어로 요약).
+keyFact·actionGuide·relevantMetric·newsItems.summary는 반드시 한국어로 작성하라(영어 헤드라인도 한국어로 요약).
 반드시 JSON으로만 응답.`
 }
 
 // ── 캐시 키 ───────────────────────────────────────────────────────────────────
-// v5: 네이버 증권 뉴스 추가(KR) — 소스 변경으로 무효화
+// v6: 유형별 뉴스 2~3건(newsItems) 추가 — 구조 변경으로 무효화
 function cacheKey(ticker: string, market: string): string {
   const yyyymmdd = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-  return `news-catalyst-v5:${ticker.toUpperCase()}:${market}:${yyyymmdd}`
+  return `news-catalyst-v6:${ticker.toUpperCase()}:${market}:${yyyymmdd}`
 }
 
 // ── 단일 ticker 분석 ──────────────────────────────────────────────────────────
@@ -265,10 +297,22 @@ async function analyzeTicker(
     let riskLevel: RiskLevel = (['LOW', 'MEDIUM', 'HIGH'] as const).includes(result.data.riskLevel) ? result.data.riskLevel : 'MEDIUM'
     // 적자기업은 본질적으로 위험 — 저위험으로 안심시키지 않도록 최소 중위험 보정
     if (valuationTier === 'LOSS' && riskLevel === 'LOW') riskLevel = 'MEDIUM'
+    // newsItems 검증: 유효 category·summary만, 최대 3건
+    const validCats = new Set(NEWS_CATEGORIES)
+    const validTones = new Set(['POSITIVE', 'NEGATIVE', 'NEUTRAL'])
+    const newsItems: NewsItem[] = (Array.isArray(result.data.newsItems) ? result.data.newsItems : [])
+      .filter(it => it && validCats.has(it.category) && typeof it.summary === 'string' && it.summary.trim())
+      .map(it => ({
+        category: it.category,
+        tone: validTones.has(it.tone) ? it.tone : 'NEUTRAL',
+        summary: it.summary.trim(),
+      }))
+      .slice(0, 3)
     catalyst = {
       ticker, name, market,
       catalystStatus: (['HOLD_STRONG', 'OBSERVE', 'RE_EVALUATE'] as const).includes(result.data.catalystStatus) ? result.data.catalystStatus : 'HOLD_STRONG',
       keyFact:        result.data.keyFact        || '최근 중요 뉴스 없음',
+      newsItems,
       actionGuide:    result.data.actionGuide    || '현재 보유 전략 유지',
       riskLevel,
       relevantMetric: result.data.relevantMetric || '영업이익률',
@@ -284,6 +328,7 @@ async function analyzeTicker(
       ticker, name, market,
       catalystStatus: 'OBSERVE',
       keyFact:        headlines[0] || '뉴스 수집 완료 (AI 분석 대기)',
+      newsItems:      [],
       actionGuide:    '뉴스를 직접 확인하세요',
       riskLevel:      'MEDIUM',
       relevantMetric: '—',
