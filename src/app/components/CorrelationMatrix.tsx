@@ -55,6 +55,29 @@ function extractPairs(tickers: string[], matrix: (number | null)[][]): Pair[] {
   return out
 }
 
+// ── GICS 섹터 영문 → 한글 ─────────────────────────────────────────────────────
+const SECTOR_KO: Record<string, string> = {
+  'Technology': '기술', 'Communication Services': '커뮤니케이션',
+  'Consumer Cyclical': '경기소비재', 'Consumer Defensive': '필수소비재',
+  'Industrials': '산업재', 'Healthcare': '헬스케어', 'Financial Services': '금융',
+  'Energy': '에너지', 'Basic Materials': '소재', 'Utilities': '유틸리티',
+  'Real Estate': '부동산',
+}
+const secKo = (s: string | undefined): string | null => (s && s !== '기타' ? (SECTOR_KO[s] ?? s) : null)
+
+/** 종목 쌍의 섹터 관계 설명 (동조화/헷지 맥락별) */
+function pairReason(secA: string | undefined, secB: string | undefined, mode: 'corr' | 'hedge'): string | null {
+  const a = secKo(secA), b = secKo(secB)
+  if (!a || !b) return null
+  if (a === b)
+    return mode === 'corr'
+      ? `둘 다 ${a} 섹터 — 같은 산업이라 함께 움직입니다`
+      : null   // 같은 섹터인데 헷지면 종목 고유 요인 → 단정 회피
+  return mode === 'hedge'
+    ? `${a} ↔ ${b} — 산업이 달라 서로를 받쳐줍니다`
+    : `${a}·${b}로 섹터는 다르나 공통 테마(예: AI)에 동반 반응`
+}
+
 // ── 스켈레톤 ──────────────────────────────────────────────────────────────────
 function Skeleton({ n }: { n: number }) {
   const size = Math.max(3, n)
@@ -133,6 +156,7 @@ export default function CorrelationMatrix() {
   if (!data)   return null
 
   const { tickers, names, matrix, avgR } = data
+  const sectors = data.sectors ?? {}
   const n = tickers.length
   const grade = avgGrade(avgR)
   const nm = (t: string) => (names[t] || t).slice(0, 9)
@@ -185,21 +209,29 @@ export default function CorrelationMatrix() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {topCorr.map(p => (
+            {topCorr.map(p => {
+              const reason = pairReason(sectors[p.a], sectors[p.b], 'corr')
+              return (
               <div key={`${p.a}-${p.b}`} style={{
-                display: 'flex', alignItems: 'center', gap: 8,
                 padding: '7px 10px', borderRadius: 8,
                 background: '#1f1410', border: '1px solid #78350f',
               }}>
-                <span style={{
-                  fontSize: 11.5, fontWeight: 800, fontFamily: 'monospace',
-                  color: p.r >= 0.7 ? '#fca5a5' : '#fcd34d', minWidth: 34,
-                }}>{p.r.toFixed(2)}</span>
-                <span style={{ fontSize: 11.5, color: C.textSub }}>
-                  {nm(p.a)} <span style={{ color: C.textLow }}>×</span> {nm(p.b)}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{
+                    fontSize: 11.5, fontWeight: 800, fontFamily: 'monospace',
+                    color: p.r >= 0.7 ? '#fca5a5' : '#fcd34d', minWidth: 34,
+                  }}>{p.r.toFixed(2)}</span>
+                  <span style={{ fontSize: 11.5, color: C.textSub }}>
+                    {nm(p.a)} <span style={{ color: C.textLow }}>×</span> {nm(p.b)}
+                  </span>
+                </div>
+                {reason && (
+                  <div style={{ fontSize: 10, color: '#d9a066', marginTop: 4, paddingLeft: 42, lineHeight: 1.4 }}>
+                    🏭 {reason}
+                  </div>
+                )}
               </div>
-            ))}
+            )})}
             <div style={{ fontSize: 10.5, color: C.textLow, lineHeight: 1.5, marginTop: 2 }}>
               두 종목 비중의 <b style={{ color: C.textSub }}>합계</b>가 너무 크면, 한 종목에 몰빵한 것과 같습니다.
             </div>
@@ -214,21 +246,29 @@ export default function CorrelationMatrix() {
             🛡️ 계좌를 지키는 헷지 종목 <span style={{ color: C.textLow, fontWeight: 400 }}>(따로/반대로 움직임)</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {hedges.map(p => (
+            {hedges.map(p => {
+              const reason = pairReason(sectors[p.a], sectors[p.b], 'hedge')
+              return (
               <div key={`${p.a}-${p.b}`} style={{
-                display: 'flex', alignItems: 'center', gap: 8,
                 padding: '7px 10px', borderRadius: 8,
                 background: '#0c1f17', border: '1px solid #064e3b',
               }}>
-                <span style={{
-                  fontSize: 11.5, fontWeight: 800, fontFamily: 'monospace',
-                  color: p.r < 0 ? '#34d399' : '#6ee7b7', minWidth: 34,
-                }}>{p.r.toFixed(2)}</span>
-                <span style={{ fontSize: 11.5, color: C.textSub }}>
-                  {nm(p.a)} <span style={{ color: C.textLow }}>×</span> {nm(p.b)}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{
+                    fontSize: 11.5, fontWeight: 800, fontFamily: 'monospace',
+                    color: p.r < 0 ? '#34d399' : '#6ee7b7', minWidth: 34,
+                  }}>{p.r.toFixed(2)}</span>
+                  <span style={{ fontSize: 11.5, color: C.textSub }}>
+                    {nm(p.a)} <span style={{ color: C.textLow }}>×</span> {nm(p.b)}
+                  </span>
+                </div>
+                {reason && (
+                  <div style={{ fontSize: 10, color: '#5fb89a', marginTop: 4, paddingLeft: 42, lineHeight: 1.4 }}>
+                    🔀 {reason}
+                  </div>
+                )}
               </div>
-            ))}
+            )})}
             <div style={{ fontSize: 10.5, color: C.textLow, lineHeight: 1.5, marginTop: 2 }}>
               한쪽이 흔들릴 때 다른 쪽이 버텨주는 <b style={{ color: C.textSub }}>리스크 방어막</b>입니다.
             </div>
