@@ -34,6 +34,8 @@ export interface SignalMetrics {
   fcfNegative:    boolean
   roe:            number | null   // %
   interestCoverage: number | null  // 이자보상배율(영업이익/이자비용) — <1=좀비(이자도 못 갚음). 무차입은 null
+  marketCap:      number | null   // 시가총액(종목 통화 — US=USD, KR=KRW) — 10배거 시총 룸 판별
+  revenueGrowth:  number | null   // 매출 성장률(Yahoo 소수, 0.36=36%) — 적자 하이퍼그로스 포착
   currency:       string | null
 }
 export interface SignalDecision { type: SignalType; reasons: string[] }
@@ -59,7 +61,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
   const tk = ticker.trim().toUpperCase()
   // v4: PEG를 app_cache(canon-fund) 직접 읽기로 변경 — selfBase 의존성 제거
   //     selfBase가 undefined여도 canon-fund 캐시에서 SSOT PEG를 가져옴
-  const cacheKey = `jarvis-metrics-v5:${tk}:${market}:${kstDate()}`   // v5: 이자보상배율 추가
+  const cacheKey = `jarvis-metrics-v6:${tk}:${market}:${kstDate()}`   // v6: 시총·매출성장 추가
   const cached = await getCache<SignalMetrics>(cacheKey, 12 * 3600_000)
   if (cached) return cached
 
@@ -127,6 +129,9 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
       if (sumInt > 0) interestCoverage = Math.round((sumOi / sumInt) * 10) / 10
     } catch { /* 추세/이자보상 없으면 기본값 */ }
 
+    const marketCap = num(q.summaryDetail?.marketCap) ?? num(pr.marketCap)
+    const revenueGrowth = num(fd.revenueGrowth)
+
     const m: SignalMetrics = {
       ticker: tk, name: name || String(pr.shortName || tk),
       market: market || 'US',
@@ -134,7 +139,8 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
       industry: ap.industry ? String(ap.industry) : null,
       peg, opMargin, opMargin2qDown,
       fcf, fcfNegative: fcf != null && fcf < 0,
-      roe, interestCoverage, currency: pr.currency ? String(pr.currency) : null,
+      roe, interestCoverage, marketCap, revenueGrowth,
+      currency: pr.currency ? String(pr.currency) : null,
     }
     await setCache(cacheKey, m)
     return m

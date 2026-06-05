@@ -34,13 +34,16 @@ export interface TenbaggerResult {
 
 const USD_KRW = 1350
 
-async function fetchStockInfo(ticker: string, market: string, base: string) {
+// stock-info에서 종목명(특히 KR 한글명)과 PEG SSOT만 — 숫자는 buildSignalMetrics가 SSOT
+async function fetchStockMeta(ticker: string, market: string, base: string): Promise<{ name: string | null; peg: number | null; opMargin: number | null } | null> {
   try {
     const code = ticker.replace(/\.(KS|KQ)$/i, '')
     const r = await fetch(`${base}/api/stock-info?ticker=${encodeURIComponent(code)}&market=${market}`, { signal: AbortSignal.timeout(20_000) })
     if (!r.ok) return null
     const j = await r.json()
-    return j?.fundamentals ?? null
+    const f = j?.fundamentals ?? {}
+    const n = (v: unknown) => (typeof v === 'number' && isFinite(v) ? v : null)
+    return { name: typeof j?.name === 'string' ? j.name : null, peg: n(f.peg), opMargin: n(f.operatingMargins) }
   } catch { return null }
 }
 
@@ -58,32 +61,30 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: '개별 주식만 검증할 수 있습니다 (ETF·코인·원자재 제외)' }, { status: 400 })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-  const cacheKey = `tenbagger-v1:${code}:${market}`
+  const cacheKey = `tenbagger-v2:${code}:${market}`
   const cached = await getCache<TenbaggerResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
-  // ── 실데이터 병렬 수집 (전부 기존 엔진 재사용) ──
-  const [fund, metrics, analyst, insider] = await Promise.all([
-    fetchStockInfo(code, market, base),
+  // ── 실데이터 병렬 수집 (숫자는 buildSignalMetrics SSOT, 이름은 stock-info) ──
+  const [meta, metrics, analyst, insider] = await Promise.all([
+    fetchStockMeta(code, market, base),
     buildSignalMetrics(code, market, '', base).catch(() => null),
     getAnalystSignal({ ticker: code, market }).catch(() => null),
     getInsiderSignal({ ticker: code, market }).catch(() => null),
   ])
 
-  if (!fund) return NextResponse.json({ error: '종목 데이터를 불러오지 못했습니다. 코드를 확인하세요.' }, { status: 404 })
+  if (!metrics && !meta) return NextResponse.json({ error: '종목 데이터를 불러오지 못했습니다. 코드를 확인하세요.' }, { status: 404 })
 
-  const name = typeof fund.name === 'string' ? fund.name : code
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const num = (v: any): number | null => { const f = typeof v === 'number' ? v : parseFloat(v); return isFinite(f) ? f : null }
+  const name = meta?.name || metrics?.name || code
 
-  // 시총(USD 환산) — 린치 핵심: 작아야 10배 룸. KR 시총은 stock-info가 원(KRW)으로 주므로 항상 환산
-  let mcUsd = num(fund.marketCap)
+  // 시총(USD 환산) — buildSignalMetrics SSOT. KR 시총은 KRW이므로 항상 환산
+  let mcUsd = metrics?.marketCap ?? null
   if (mcUsd != null && market === 'KR') mcUsd = mcUsd / USD_KRW
-  // 성장률(% 정수): stock-info earningsGrowth는 소수(0.25) 또는 매출성장 폴백
-  const egRaw = num(fund.earningsGrowth)
-  const growthPct = egRaw != null ? (Math.abs(egRaw) < 5 ? egRaw * 100 : egRaw) : null
-  const peg = num(fund.peg)
-  const opMargin = metrics?.opMargin ?? null
+  // 성장률(%) — 매출성장(Yahoo 소수) 우선: 적자 하이퍼그로스(IONQ 755%) 정확 포착. 없으면 PEG 역산 생략
+  const revG = metrics?.revenueGrowth ?? null
+  const growthPct = revG != null ? revG * 100 : null
+  const peg = metrics?.peg ?? meta?.peg ?? null
+  const opMargin = metrics?.opMargin ?? meta?.opMargin ?? null
   const fcf = metrics?.fcf ?? null
   const icr = metrics?.interestCoverage ?? null
 
