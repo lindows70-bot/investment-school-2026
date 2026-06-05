@@ -349,25 +349,26 @@ type PosType = 'keep' | 'sell' | 'core' | 'satellite' | 'etc'
 const POS_COLOR: Record<PosType, string> = {
   keep: '#3b82f6', sell: '#ef4444', core: '#22c55e', satellite: '#a855f7', etc: '#475569',
 }
-interface Pos { name: string; value: number; type: PosType }
+interface Pos { name: string; value: number; type: PosType; change?: number }   // change=회수/편입 실제 비중(±)
 
 function BeforeAfterDonuts({ data }: { data: RebalanceResult }) {
   const dnm = (market: string, name: string, ticker: string) => (market === 'KR' ? (name || ticker).slice(0, 8) : ticker.toUpperCase())
 
-  // 소액(<2%)은 '기타'로 합산해 슬라이스 정리
+  // 소액 '유지' 종목만 '기타'로 합산(변화 항목=매도/신규/위성은 작아도 항상 개별 표시)
   const pack = (raw: Pos[]): Pos[] => {
-    const big = raw.filter(p => p.value >= 2)
-    const small = raw.filter(p => p.value < 2)
-    const etcSum = Math.round(small.reduce((s, p) => s + p.value, 0) * 10) / 10
-    const out = [...big].sort((a, b) => b.value - a.value)
+    const changed = raw.filter(p => p.type !== 'keep')
+    const keepBig = raw.filter(p => p.type === 'keep' && p.value >= 2)
+    const keepSmall = raw.filter(p => p.type === 'keep' && p.value < 2)
+    const etcSum = Math.round(keepSmall.reduce((s, p) => s + p.value, 0) * 10) / 10
+    const out: Pos[] = [...changed, ...keepBig].sort((a, b) => b.value - a.value)
     if (etcSum >= 0.5) out.push({ name: '기타', value: etcSum, type: 'etc' })
     return out
   }
 
-  // 리밸런싱 전: 현재 보유 (매도·축소 대상은 빨강)
+  // 리밸런싱 전: 현재 보유 (매도·축소 대상은 빨강). change=회수 비중(실제 파는 양)
   const before = pack(data.holdings
     .filter(h => h.weight > 0)
-    .map(h => ({ name: dnm(h.market, h.name, h.ticker), value: h.weight, type: (h.releaseWeight > 0 ? 'sell' : 'keep') as PosType })))
+    .map(h => ({ name: dnm(h.market, h.name, h.ticker), value: h.weight, type: (h.releaseWeight > 0 ? 'sell' : 'keep') as PosType, change: h.releaseWeight > 0 ? h.releaseWeight : undefined })))
 
   // 리밸런싱 후: 유지(회수분 차감) + 신규 코어 + 위성
   const afterRaw: Pos[] = [
@@ -377,25 +378,48 @@ function BeforeAfterDonuts({ data }: { data: RebalanceResult }) {
   ]
   const after = pack(afterRaw)
 
-  const Donut = ({ title, rows }: { title: string; rows: Pos[] }) => (
+  const Donut = ({ title, rows, priority, changeLabel }: { title: string; rows: Pos[]; priority: PosType[]; changeLabel: string }) => {
+    // 변화 항목(매도/신규)을 먼저, 그 다음 유지 종목 상위 — 사용자가 '뭘 팔고 뭘 사는지' 확실히 보이게
+    const changed = rows.filter(p => priority.includes(p.type))
+    const kept = rows.filter(p => !priority.includes(p.type)).sort((a, b) => b.value - a.value)
+    return (
     <div style={{ flex: '1 1 240px', minWidth: 220 }}>
       <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>{title}</div>
-      <div style={{ position: 'relative', height: 200 }}>
+      <div style={{ position: 'relative', height: 190 }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie data={rows} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={52} outerRadius={82} paddingAngle={1} stroke="#0f1117" strokeWidth={2}>
+            <Pie data={rows} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={1} stroke="#0f1117" strokeWidth={2}>
               {rows.map((p, i) => <Cell key={i} fill={POS_COLOR[p.type]} />)}
             </Pie>
           </PieChart>
         </ResponsiveContainer>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
           <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 18 }}>{rows.length}</div>
-          <div style={{ color: '#6b7280', fontSize: 10 }}>슬라이스</div>
+          <div style={{ color: '#6b7280', fontSize: 10 }}>종목</div>
         </div>
       </div>
-      {/* 슬라이스 라벨(상위 5) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 }}>
-        {rows.slice(0, 5).map((p, i) => (
+      {/* 변화 항목(매도/신규) 전부 표시 */}
+      {changed.length > 0 && (
+        <div style={{ marginTop: 6 }}>
+          <div style={{ color: priority[0] === 'sell' ? '#f87171' : '#34d399', fontSize: 10, fontWeight: 700, marginBottom: 2 }}>{changeLabel}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {changed.map((p, i) => {
+              const isSell = p.type === 'sell'
+              const amt = isSell ? (p.change ?? p.value) : p.value   // 매도=회수비중 / 신규=편입비중
+              return (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: POS_COLOR[p.type], flexShrink: 0 }} />
+                <span style={{ color: '#cbd5e1', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                <span style={{ color: isSell ? '#f87171' : '#34d399', fontWeight: 700 }}>{isSell ? '−' : '+'}{amt}%</span>
+              </div>
+            )})}
+          </div>
+        </div>
+      )}
+      {/* 유지 종목 상위 4 */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: changed.length > 0 ? 6 : 4 }}>
+        {changed.length > 0 && <div style={{ color: '#6b7280', fontSize: 10, fontWeight: 700, marginBottom: 2 }}>유지(상위)</div>}
+        {kept.slice(0, 4).map((p, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5 }}>
             <span style={{ width: 8, height: 8, borderRadius: 2, background: POS_COLOR[p.type], flexShrink: 0 }} />
             <span style={{ color: '#aab6c4', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
@@ -404,15 +428,15 @@ function BeforeAfterDonuts({ data }: { data: RebalanceResult }) {
         ))}
       </div>
     </div>
-  )
+  )}
 
   return (
     <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '16px 18px' }}>
       <div style={{ color: '#e2e8f0', fontSize: 14, fontWeight: 700, marginBottom: 10 }}>📊 포트폴리오 변화 — 한눈에 보기</div>
       <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        <Donut title="리밸런싱 전 (현재)" rows={before} />
+        <Donut title="리밸런싱 전 (현재)" rows={before} priority={['sell']} changeLabel="🔴 매도·축소 (회수 %)" />
         <div style={{ alignSelf: 'center', color: '#6b7280', fontSize: 22, padding: '0 4px' }}>→</div>
-        <Donut title="리밸런싱 후 (제안)" rows={after} />
+        <Donut title="리밸런싱 후 (제안)" rows={after} priority={['core', 'satellite']} changeLabel="🟢 신규 편입 (편입 %)" />
       </div>
       {/* 색깔 범례 */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginTop: 12, fontSize: 11 }}>
