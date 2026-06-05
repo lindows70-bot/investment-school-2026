@@ -86,7 +86,7 @@ export default function TenbaggerHunter() {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 18 }}>{data.name}</span>
-                  <span style={{ color: '#7f93a8', fontSize: 12 }}>{data.ticker} · {data.market}</span>
+                  <span style={{ color: '#7f93a8', fontSize: 12 }}>{data.market === 'KR' ? data.ticker : data.ticker.toUpperCase()} · {data.market}</span>
                   {data.isCandidate && (
                     <span style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.4)', borderRadius: 12, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>
                       🚀 10배거 후보

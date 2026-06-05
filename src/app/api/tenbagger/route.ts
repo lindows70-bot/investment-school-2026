@@ -61,7 +61,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: '개별 주식만 검증할 수 있습니다 (ETF·코인·원자재 제외)' }, { status: 400 })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-  const cacheKey = `tenbagger-v4:${code}:${market}`
+  const cacheKey = `tenbagger-v5:${code}:${market}`
   const cached = await getCache<TenbaggerResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -114,7 +114,7 @@ export async function GET(req: Request) {
     // 저PEG인데 매출성장이 약하면 = 진짜 저평가가 아니라 경기순환 이익 정점일 가능성(시클리컬 함정)
     if (peg < 1.0 && lowGrowth)
       return mk('peg', '💎 저PEG(성장 대비 저평가)', 'PARTIAL', `PEG ${peg.toFixed(2)}는 낮지만 매출성장 ${growthPct!.toFixed(0)}%로 약함 — 저PER이 성장이 아니라 일시적 이익(경기순환 정점 등) 때문일 수 있어 진짜 저평가가 아닐 수 있음`, 20)
-    if (peg < 0.5) return mk('peg', '💎 저PEG(성장 대비 저평가)', 'PASS', `PEG ${peg.toFixed(2)} — 진흙 속 진주(성장 폭발하는데 시장이 소외)`, 20)
+    if (peg < 0.5) return mk('peg', '💎 저PEG(성장 대비 저평가)', 'PASS', `PEG ${peg.toFixed(2)} — 이익 성장 대비 매우 저평가(진흙 속 진주 후보)`, 20)
     if (peg < 1.0) return mk('peg', '💎 저PEG(성장 대비 저평가)', 'PARTIAL', `PEG ${peg.toFixed(2)} — 합리적이나 초저평가는 아님`, 20)
     return mk('peg', '💎 저PEG(성장 대비 저평가)', 'FAIL', `PEG ${peg.toFixed(2)} — 성장 프리미엄 이미 반영됨`, 20)
   })())
