@@ -27,7 +27,7 @@ import { NextResponse }       from 'next/server'
 import { createClient }       from '@/lib/supabase/server'
 import { createClient as adminClient } from '@supabase/supabase-js'
 import { getAssetType }       from '@/lib/assetClassifier'
-import { getCache, setCache } from '@/lib/appCache'
+import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { getSector }          from '@/lib/schoolIndex'
 import https                  from 'node:https'
 
@@ -114,7 +114,8 @@ export async function GET() {
   if (authErr || !user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   // ② 24h 개인 캐시 (v2: 섹터 필드 추가로 키 버전 업)
-  const cacheKey = `corr-matrix-v2:${user.id}:${new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)}`
+  const fp = await holdingsFingerprint(user.id)   // 보유 변경 시 키 자동 무효화
+  const cacheKey = `corr-matrix-v2:${user.id}:${new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)}:${fp}`
   const cached = await getCache<CorrelationResult>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

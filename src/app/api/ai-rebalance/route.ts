@@ -9,7 +9,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
-import { getCache, setCache } from '@/lib/appCache'
+import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { callGeminiJSON } from '@/lib/gemini'
 import { buildSignalMetrics, evaluateSignal } from '@/lib/jarvisBriefing'
 import { getSector } from '@/lib/schoolIndex'
@@ -244,8 +244,9 @@ export async function GET(req: Request) {
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const forceRefresh = new URL(req.url).searchParams.get('refresh') === '1'
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
-  // v9: 위성(10배거) 레이어 추가 — 캐시 무효화
-  const cacheKey = `ai-rebalance-v10:${user.id}:${today}`
+  // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
+  const fp = await holdingsFingerprint(user.id)
+  const cacheKey = `ai-rebalance-v10:${user.id}:${today}:${fp}`
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)

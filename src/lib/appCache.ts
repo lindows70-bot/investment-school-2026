@@ -51,6 +51,23 @@ export async function setCache(key: string, payload: unknown): Promise<void> {
  * 티커 단위 공유 캐시(jarvis-metrics:ticker 등)는 건드리지 않는다(다른 사용자도 쓰므로).
  * 반환값은 삭제된 행 수. 실패는 조용히 0.
  */
+/**
+ * 보유종목 지문 — 티커+수량 집합의 짧은 해시. 캐시 키에 붙이면 보유가 바뀔 때
+ * 키가 자동으로 달라져 옛 캐시(매도 종목 포함)를 버리고 라이브로 재생성한다.
+ * bust 호출 타이밍에 의존하지 않는 견고한 무효화. 실패/미보유는 'na'.
+ */
+export async function holdingsFingerprint(userId: string): Promise<string> {
+  try {
+    const db = admin()
+    if (!db || !userId) return 'na'
+    const { data } = await db.from('investments').select('ticker,quantity').eq('user_id', userId)
+    const sig = (data ?? []).map(r => `${String(r.ticker).toUpperCase()}:${r.quantity}`).sort().join('|')
+    let h = 0
+    for (let i = 0; i < sig.length; i++) h = (Math.imul(h, 31) + sig.charCodeAt(i)) | 0
+    return (h >>> 0).toString(36)
+  } catch { return 'na' }
+}
+
 export async function bustUserCache(userId: string): Promise<number> {
   try {
     const db = admin()
