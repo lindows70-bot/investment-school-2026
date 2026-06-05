@@ -25,12 +25,19 @@ import { classifyAsset } from '@/lib/classifyAsset'
  *  → 대시보드·자산관리·투자기록 탭 페이지 새로고침 없이 즉시 리렌더링
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { bustServerCache } from '@/lib/bustCache'
 
 type Market    = 'US' | 'KR' | 'CRYPTO'
 type LynchKey  = 'slow_grower' | 'stalwart' | 'fast_grower' | 'cyclical' | 'turnaround' | 'asset_play' | 'na'
 type AssetRole = 'CORE' | 'SATELLITE'
+
+// 린치 6대 분류 한글 라벨 (스냅샷 표시용)
+const LYNCH_KR: Record<string, string> = {
+  slow_grower: '저성장주', stalwart: '대형 우량주', fast_grower: '빠른 성장주',
+  cyclical: '경기 순환주', turnaround: '회생주', asset_play: '자산 보유주', na: '해당없음',
+}
 
 interface Investment {
   id: string
@@ -59,7 +66,7 @@ const SHO = '7px 7px 18px #0e1020, -4px -4px 12px #282c44'
 const SHI = 'inset 4px 4px 10px #0e1020, inset -3px -3px 8px #282c44'
 
 const inputStyle: React.CSSProperties = {
-  background: '#13162a',
+  background: '#0a0e1a',
   boxShadow: SHI,
   border: 'none',
   borderRadius: 9,
@@ -74,7 +81,7 @@ const inputStyle: React.CSSProperties = {
 const labelStyle: React.CSSProperties = {
   fontSize: 11,
   fontWeight: 700,
-  color: '#454868',
+  color: '#9aa0b8',
   textTransform: 'uppercase',
   letterSpacing: '0.08em',
   marginBottom: 4,
@@ -83,7 +90,7 @@ const labelStyle: React.CSSProperties = {
 
 const hintStyle: React.CSSProperties = {
   fontSize: 11,
-  color: '#363855',
+  color: '#7a8599',
   marginTop: 5,
   lineHeight: 1.5,
 }
@@ -112,6 +119,33 @@ export default function TransactionModal({
   const [loading,      setLoading]      = useState(false)
   const [error,        setError]        = useState<string | null>(null)
   const [priceLoading, setPriceLoading] = useState(false)
+
+  // ── 📸 자동 스냅샷 (블랙박스) — 매매 시점의 핵심 지표 자동 보존 ──────────────
+  const [snapshot, setSnapshot] = useState<{ peg: number | null; growth: number | null; category: string | null }>({
+    peg: null, growth: null, category: investment.lynch_category,
+  })
+  const [snapLoading, setSnapLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setSnapLoading(true)
+      try {
+        const r = await fetch(`/api/stock-info?ticker=${encodeURIComponent(investment.ticker)}&market=${investment.market}`)
+        if (r.ok) {
+          const d = await r.json()
+          const f = d?.fundamentals ?? {}
+          const peg = typeof f.peg === 'number' && isFinite(f.peg) && f.peg > 0 ? f.peg : null
+          const egRaw = typeof f.earningsGrowth === 'number' && isFinite(f.earningsGrowth) ? f.earningsGrowth : null
+          // earningsGrowth: 0.35(소수) → 35%, 이미 % 단위면 그대로
+          const growth = egRaw != null && egRaw !== 0 ? (Math.abs(egRaw) < 5 ? egRaw * 100 : egRaw) : null
+          if (!cancelled) setSnapshot({ peg, growth, category: investment.lynch_category })
+        }
+      } catch { /* 스냅샷 실패해도 거래는 진행 */ }
+      finally { if (!cancelled) setSnapLoading(false) }
+    })()
+    return () => { cancelled = true }
+  }, [investment.ticker, investment.market, investment.lynch_category])
 
   const qtyNum      = Math.max(0, parseFloat(quantity)   || 0)
   const priceNum    = Math.max(0, parseFloat(priceInput) || 0)
@@ -245,6 +279,14 @@ export default function TransactionModal({
           fee:              0,
           memo:             memo || null,
           transaction_date: date,
+          // ★ 📸 자동 스냅샷 — 매수 시점의 핵심 지표 블랙박스 보존
+          snapshot_data: {
+            peg:            snapshot.peg,
+            growth_rate:    snapshot.growth,
+            category:       snapshot.category,
+            price_at_record: execPrice,
+            recorded_at:    new Date().toISOString(),
+          },
         })
 
         // 2) 보유 종목 업데이트 — 새 수량 + 새 평단가 + 자산 포지션
@@ -278,6 +320,14 @@ export default function TransactionModal({
           avg_cost_basis:   investment.purchase_price,
           memo:             memo || null,
           transaction_date: date,
+          // ★ 📸 자동 스냅샷 — 매도 시점의 핵심 지표 블랙박스 보존
+          snapshot_data: {
+            peg:            snapshot.peg,
+            growth_rate:    snapshot.growth,
+            category:       snapshot.category,
+            price_at_record: priceNum,
+            recorded_at:    new Date().toISOString(),
+          },
         })
 
         // 2) 보유 종목 업데이트
@@ -292,6 +342,9 @@ export default function TransactionModal({
             .eq('id', investment.id)
         }
       }
+
+      // ★ 서버 캐시 무효화 — 리밸런싱·상관행렬 등 user 조립 캐시 즉시 갱신
+      await bustServerCache()
 
       // ★ 전역 동기화 이벤트 발송 — 대시보드·자산관리·투자기록 즉시 갱신
       window.dispatchEvent(
@@ -358,17 +411,17 @@ export default function TransactionModal({
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#dde4f0' }}>
                 {mode === 'buy' ? '추가매수 기록' : '추가매도 기록'}
               </h2>
-              <div style={{ fontSize: 12, color: '#454868', marginTop: 3 }}>{investment.name}</div>
+              <div style={{ fontSize: 12, color: '#9aa0b8', marginTop: 3 }}>{investment.name}</div>
             </div>
             <button
               onClick={onClose}
-              style={{ background: 'none', border: 'none', color: '#454868', fontSize: 22, cursor: 'pointer', lineHeight: 1, padding: '0 4px' }}
+              style={{ background: 'none', border: 'none', color: '#9aa0b8', fontSize: 22, cursor: 'pointer', lineHeight: 1, padding: '0 4px' }}
               aria-label="닫기"
             >×</button>
           </div>
 
           {/* 현재 보유 정보 */}
-          <div style={{ background: '#13162a', boxShadow: SHI, borderRadius: 10, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#8b92b8' }}>
+          <div style={{ background: '#0a0e1a', boxShadow: SHI, borderRadius: 10, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#8b92b8' }}>
             보유{' '}
             <strong style={{ color: '#dde4f0' }}>{investment.quantity.toLocaleString()}주</strong>
             &nbsp;|&nbsp;현재 평단{' '}
@@ -399,7 +452,7 @@ export default function TransactionModal({
                     cursor: 'pointer', fontWeight: 700, fontSize: 14, transition: 'all 0.15s',
                     ...(isActive
                       ? { background: N, boxShadow: SHO, color: activeColor, borderLeft: `3px solid ${activeColor}` }
-                      : { background: '#13162a', boxShadow: SHI, color: '#454868', borderLeft: '3px solid transparent' }
+                      : { background: '#0a0e1a', boxShadow: SHI, color: '#9aa0b8', borderLeft: '3px solid transparent' }
                     ),
                   }}
                 >
@@ -437,7 +490,7 @@ export default function TransactionModal({
 
               <div style={{ display: 'flex', gap: 8 }}>
                 <div style={{ flex: 1, position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#454868', fontSize: 13, pointerEvents: 'none' }}>
+                  <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9aa0b8', fontSize: 13, pointerEvents: 'none' }}>
                     {currSym}
                   </span>
                   <input
@@ -454,7 +507,7 @@ export default function TransactionModal({
                   onClick={fetchCurrentPrice}
                   disabled={priceLoading}
                   style={{
-                    background: '#13162a', boxShadow: priceLoading ? SHI : SHO,
+                    background: '#0a0e1a', boxShadow: priceLoading ? SHI : SHO,
                     border: 'none', borderRadius: 9, color: '#8b92b8',
                     fontSize: 12, fontWeight: 600, padding: '0 14px',
                     cursor: priceLoading ? 'wait' : 'pointer', whiteSpace: 'nowrap',
@@ -466,7 +519,7 @@ export default function TransactionModal({
 
               {/* 매수 모드 가이드 텍스트 */}
               {mode === 'buy' && (
-                <p style={{ ...hintStyle, color: '#454868' }}>
+                <p style={{ ...hintStyle, color: '#9aa0b8' }}>
                   💡 역산 공식: 실제 체결가 = (새 평단 × 전체수량 − 기존 평단 × 기존수량) / 추가수량
                 </p>
               )}
@@ -519,8 +572,49 @@ export default function TransactionModal({
                 value={memo}
                 onChange={e => setMemo(e.target.value)}
                 style={inputStyle}
-                placeholder="메모를 입력하세요"
+                placeholder="투자 이유·근거를 적어두면 복기에 도움됩니다"
               />
+            </div>
+
+            {/* ── 📸 자동 스냅샷 알림 (블랙박스) ── */}
+            <div style={{
+              padding: '14px 16px', borderRadius: 10,
+              background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.3)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
+                <span style={{ fontSize: 15 }}>📸</span>
+                <span style={{ fontSize: 13, fontWeight: 800, color: '#a5b4fc' }}>
+                  시스템 자동 기록 중 (블랙박스)
+                </span>
+                {snapLoading && <span style={{ fontSize: 10, color: '#6366f1' }}>수집 중…</span>}
+              </div>
+              <div style={{ fontSize: 11, color: '#8b92b8', marginBottom: 12, lineHeight: 1.6 }}>
+                학생님의 번거로움을 덜기 위해, 지금 이 순간의 핵심 지표가 복기 노트에 자동 보존됩니다.
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+                {/* 분류 */}
+                <div style={{ background: '#0a0e1a', borderRadius: 8, padding: '9px 6px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 9, color: '#9aa0b8', marginBottom: 4 }}>린치 분류</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#dde4f0' }}>
+                    {snapshot.category ? (LYNCH_KR[snapshot.category] ?? snapshot.category) : '미분류'}
+                  </div>
+                </div>
+                {/* PEG */}
+                <div style={{ background: '#0a0e1a', borderRadius: 8, padding: '9px 6px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 9, color: '#9aa0b8', marginBottom: 4 }}>현재 PEG</div>
+                  <div style={{ fontSize: 12, fontWeight: 700,
+                    color: snapshot.peg == null ? '#9aa0b8' : snapshot.peg < 1 ? '#34d399' : '#f87171' }}>
+                    {snapshot.peg != null ? snapshot.peg.toFixed(2) : 'N/A'}
+                  </div>
+                </div>
+                {/* 성장률 G */}
+                <div style={{ background: '#0a0e1a', borderRadius: 8, padding: '9px 6px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 9, color: '#9aa0b8', marginBottom: 4 }}>예상 성장률(G)</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: snapshot.growth != null ? '#fbbf24' : '#9aa0b8' }}>
+                    {snapshot.growth != null ? `${snapshot.growth.toFixed(1)}%` : 'N/A'}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -549,11 +643,11 @@ export default function TransactionModal({
                     style={{
                       flex: 1, padding: '9px 4px', borderRadius: 9, border: 'none', cursor: 'pointer',
                       fontSize: 12, fontWeight: 700, transition: 'all 0.15s',
-                      background: assetRole === role ? N : '#13162a',
+                      background: assetRole === role ? N : '#0a0e1a',
                       boxShadow:  assetRole === role ? SHO : SHI,
                       color:      assetRole === role
                         ? (role === 'CORE' ? '#34d399' : '#fbbf24')
-                        : '#454868',
+                        : '#9aa0b8',
                       borderLeft: `3px solid ${assetRole === role
                         ? (role === 'CORE' ? '#34d399' : '#fbbf24')
                         : 'transparent'}`,
@@ -572,31 +666,31 @@ export default function TransactionModal({
           )}
 
           {/* ── 거래 요약 박스 ── */}
-          <div style={{ background: '#13162a', boxShadow: SHI, borderRadius: 10, padding: '14px 16px', marginTop: 20, fontSize: 13, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ background: '#0a0e1a', boxShadow: SHI, borderRadius: 10, padding: '14px 16px', marginTop: 20, fontSize: 13, display: 'flex', flexDirection: 'column', gap: 8 }}>
 
             {/* 매수 요약 */}
             {mode === 'buy' && buyCalc && (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: '#454868' }}>역산된 실제 체결가</span>
+                  <span style={{ color: '#9aa0b8' }}>역산된 실제 체결가</span>
                   <span style={{ color: '#ef4444', fontWeight: 800, fontVariantNumeric: 'tabular-nums', fontSize: 15 }}>
                     {currSym}{formatNum(buyCalc.execPrice, investment.currency === 'KRW' ? 0 : 2)}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#454868' }}>이번 거래금액</span>
+                  <span style={{ color: '#9aa0b8' }}>이번 거래금액</span>
                   <span style={{ color: '#dde4f0', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                     {currSym}{formatNum(buyCalc.totalAmt, investment.currency === 'KRW' ? 0 : 2)}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#454868' }}>거래 후 평단가</span>
+                  <span style={{ color: '#9aa0b8' }}>거래 후 평단가</span>
                   <span style={{ color: '#fbbf24', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                     {currSym}{formatNum(buyCalc.newAvg, investment.currency === 'KRW' ? 0 : 2)}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#454868' }}>거래 후 총 보유수량</span>
+                  <span style={{ color: '#9aa0b8' }}>거래 후 총 보유수량</span>
                   <span style={{ color: '#dde4f0', fontWeight: 600 }}>
                     {buyCalc.newQty.toLocaleString()}주
                   </span>
@@ -607,7 +701,7 @@ export default function TransactionModal({
                   <div style={{ fontSize: 11, color: '#6366f1', fontWeight: 600, marginBottom: 3 }}>
                     ✔ 역산 검증
                   </div>
-                  <div style={{ fontSize: 11, color: '#454868', lineHeight: 1.6 }}>
+                  <div style={{ fontSize: 11, color: '#9aa0b8', lineHeight: 1.6 }}>
                     기존 {investment.quantity}주 @ {currSym}{formatNum(investment.purchase_price, 0)}{' '}
                     + 추가 {qtyNum}주 @ {currSym}{formatNum(buyCalc.execPrice, 0)}{' '}
                     = 평단 {currSym}{formatNum(buyCalc.newAvg, 0)}
@@ -631,19 +725,19 @@ export default function TransactionModal({
             {mode === 'sell' && sellCalc && (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#454868' }}>매도 체결가</span>
+                  <span style={{ color: '#9aa0b8' }}>매도 체결가</span>
                   <span style={{ color: '#dde4f0', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                     {currSym}{formatNum(priceNum, investment.currency === 'KRW' ? 0 : 2)}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#454868' }}>매도 총액</span>
+                  <span style={{ color: '#9aa0b8' }}>매도 총액</span>
                   <span style={{ color: '#dde4f0', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                     {currSym}{formatNum(sellCalc.totalAmt, investment.currency === 'KRW' ? 0 : 2)}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#454868' }}>실현 손익</span>
+                  <span style={{ color: '#9aa0b8' }}>실현 손익</span>
                   <span style={{
                     fontWeight: 700, fontVariantNumeric: 'tabular-nums',
                     color: sellCalc.pnl > 0 ? '#ef4444' : sellCalc.pnl < 0 ? '#3b82f6' : '#dde4f0',
@@ -652,7 +746,7 @@ export default function TransactionModal({
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#454868' }}>매도 후 잔여수량</span>
+                  <span style={{ color: '#9aa0b8' }}>매도 후 잔여수량</span>
                   <span style={{ color: '#dde4f0', fontWeight: 600 }}>
                     {Math.max(0, sellCalc.remaining).toLocaleString()}주
                   </span>
@@ -668,7 +762,7 @@ export default function TransactionModal({
             {/* 입력 대기 안내 */}
             {((mode === 'buy'  && (!priceNum || !qtyNum)) ||
               (mode === 'sell' && (!priceNum || !qtyNum))) && (
-              <div style={{ color: '#363855', fontSize: 12, textAlign: 'center', padding: '6px 0' }}>
+              <div style={{ color: '#7a8599', fontSize: 12, textAlign: 'center', padding: '6px 0' }}>
                 {mode === 'buy'
                   ? '거래 후 최종 평단가와 추가 수량을 입력하면 체결가가 자동 계산됩니다'
                   : '매도 체결가와 수량을 입력하면 손익이 계산됩니다'}
@@ -688,7 +782,7 @@ export default function TransactionModal({
             <button
               onClick={onClose}
               disabled={loading}
-              style={{ flex: 1, padding: '12px 0', borderRadius: 9, border: 'none', cursor: 'pointer', background: '#13162a', boxShadow: SHI, color: '#454868', fontWeight: 600, fontSize: 14 }}
+              style={{ flex: 1, padding: '12px 0', borderRadius: 9, border: 'none', cursor: 'pointer', background: '#0a0e1a', boxShadow: SHI, color: '#9aa0b8', fontWeight: 600, fontSize: 14 }}
             >
               취소
             </button>

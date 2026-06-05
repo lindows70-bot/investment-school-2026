@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { bustServerCache } from '@/lib/bustCache'
 import { classifyAsset } from '@/lib/classifyAsset'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -56,7 +57,7 @@ const S = {
   body:    { padding: '20px 24px 28px' },
   section: { marginBottom: 16 },
   label:   {
-    display: 'block', fontSize: 11, fontWeight: 600, color: '#64748b',
+    display: 'block', fontSize: 11, fontWeight: 600, color: '#7f93a8',
     marginBottom: 6, letterSpacing: '0.07em', textTransform: 'uppercase' as const,
   },
   input: {
@@ -66,7 +67,7 @@ const S = {
     color: '#f1f5f9', fontSize: 14, outline: 'none',
     transition: 'border-color 0.15s, box-shadow 0.15s',
   },
-  hint:    { fontSize: 11, color: '#475569', marginTop: 6, lineHeight: 1.5 },
+  hint:    { fontSize: 11, color: '#8599ae', marginTop: 6, lineHeight: 1.5 },
   divider: { border: 'none', borderTop: '1px solid #1e1e1e', margin: '18px 0' },
   errBox:  {
     background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
@@ -256,7 +257,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
           })
         } catch { /* ignore */ }
 
-        await onRefresh(); setSaving(false); onClose(); return
+        await bustServerCache(); await onRefresh(); setSaving(false); onClose(); return
       }
     }
 
@@ -382,6 +383,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
       }
     }
 
+    await bustServerCache()
     setSaving(false); onClose()
   }
 
@@ -391,7 +393,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
     setDeleting(true)
     const supabase = createClient()
     await supabase.from('investments').delete().eq('id', initial!.id)
-    await onRefresh(); setDeleting(false); onClose()
+    await bustServerCache(); await onRefresh(); setDeleting(false); onClose()
   }
 
   return (
@@ -414,7 +416,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
               <h2 style={{ fontSize: 17, fontWeight: 700, color: '#f1f5f9', letterSpacing: '-0.3px', margin: 0 }}>
                 {isEdit ? '종목 수정' : dcaHint ? '📊 DCA 추가매수' : '종목 추가'}
               </h2>
-              <p style={{ fontSize: 12, color: '#475569', marginTop: 3 }}>
+              <p style={{ fontSize: 12, color: '#8599ae', marginTop: 3 }}>
                 {isEdit
                   ? `${initial!.ticker} · ${initial!.name}`
                   : dcaHint
@@ -423,7 +425,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
               </p>
             </div>
             <button onClick={onClose}
-              style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: '#1e1e1e', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', flexShrink: 0 }}
+              style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: '#1e1e1e', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7f93a8', flexShrink: 0 }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#2a2a2a' }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#1e1e1e' }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -449,7 +451,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
                           transition: 'all 0.15s', textAlign: 'center' as const,
                           background:  active ? 'rgba(37,99,235,0.15)' : '#1e1e1e',
                           borderColor: active ? '#2563eb' : '#2a2a2a',
-                          color:       active ? '#60a5fa' : '#64748b',
+                          color:       active ? '#60a5fa' : '#7f93a8',
                         }}>
                         <div style={{ fontSize: 18, marginBottom: 3 }}>{m.flag}</div>
                         <div style={{ fontSize: 11, fontWeight: 600 }}>{m.id}</div>
@@ -475,7 +477,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
                     autoCapitalize="characters" autoComplete="off" spellCheck={false}
                   />
                   <div style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
-                    {nameStatus === 'loading' && <Spin size={13} color="#475569"/>}
+                    {nameStatus === 'loading' && <Spin size={13} color="#8599ae"/>}
                     {nameStatus === 'found' && lookedUpName && (
                       <span style={{ fontSize: 11, color: '#34d399', background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', borderRadius: 5, padding: '2px 7px', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         ✓ {lookedUpName}
@@ -514,7 +516,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
               <div style={S.section}>
                 <label style={S.label}>
                   종목명
-                  {nameStatus === 'loading' && <span style={{ marginLeft: 6 }}><Spin size={10} color="#475569"/></span>}
+                  {nameStatus === 'loading' && <span style={{ marginLeft: 6 }}><Spin size={10} color="#8599ae"/></span>}
                 </label>
                 <input
                   style={iStyle('name')} {...bind('name')}
@@ -558,7 +560,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
               {/* 총 매수금액 미리보기 */}
               {purchasePrice && quantity && parseFloat(purchasePrice) > 0 && parseFloat(quantity) > 0 && (
                 <div style={{ background: '#1a1a1a', border: '1px solid #222', borderRadius: 8, padding: '9px 14px', display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, color: '#475569' }}>이번 거래금액</span>
+                  <span style={{ fontSize: 12, color: '#8599ae' }}>이번 거래금액</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8', fontVariantNumeric: 'tabular-nums' }}>
                     {currency === 'KRW' ? '₩' : '$'}
                     {(parseFloat(purchasePrice) * parseFloat(quantity)).toLocaleString(
@@ -575,7 +577,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
                   <div style={{ fontSize:11, fontWeight:800, color:'#818cf8', marginBottom:6, letterSpacing:'0.05em' }}>
                     📊 DCA 추가매수 감지
                   </div>
-                  <div style={{ fontSize:12, color:'#64748b', lineHeight:1.7 }}>
+                  <div style={{ fontSize:12, color:'#7f93a8', lineHeight:1.7 }}>
                     현재 보유:{' '}
                     <strong style={{ color:'#94a3b8' }}>{dcaHint.qty}주</strong>
                     {' × '}
@@ -657,7 +659,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
                       style={{
                         fontSize:9, padding:'2px 8px', borderRadius:4,
                         border:'1px solid #2a2a2a', background:'#181818',
-                        color:'#6b7280', cursor:'pointer',
+                        color:'#8a9aaa', cursor:'pointer',
                       }}>
                       {manualOverride ? '🔄 자동으로' : '✏️ 수동 변경'}
                     </button>
@@ -685,14 +687,14 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
                         opacity: !manualOverride && assetRole !== role ? 0.5 : 1,
                       }}>
                       <div style={{ fontSize:18, marginBottom:3 }}>{icon}</div>
-                      <div style={{ fontSize:11, fontWeight:700, color: assetRole===role ? (role==='CORE'?'#34d399':'#fbbf24') : '#6b7280', marginBottom:2 }}>{label}</div>
-                      <div style={{ fontSize:9, color:'#4b5563', lineHeight:1.4 }}>{desc}</div>
+                      <div style={{ fontSize:11, fontWeight:700, color: assetRole===role ? (role==='CORE'?'#34d399':'#fbbf24') : '#8a9aaa', marginBottom:2 }}>{label}</div>
+                      <div style={{ fontSize:9, color:'#8a96a8', lineHeight:1.4 }}>{desc}</div>
                     </button>
                   ))}
                 </div>
                 {/* 자동 분류 근거 안내 */}
                 {autoClassified && !manualOverride && (
-                  <div style={{ fontSize:10, color:'#4b5563', marginTop:6, paddingLeft:2 }}>
+                  <div style={{ fontSize:10, color:'#8a96a8', marginTop:6, paddingLeft:2 }}>
                     {assetRole === 'CORE'
                       ? '✅ 지수형 ETF · 채권으로 코어 자동 분류됨'
                       : '✅ 개별종목 · 테마 ETF · 암호화폐로 새틀라이트 자동 분류됨'}
