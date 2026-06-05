@@ -141,9 +141,13 @@ async function migrateAssetRoles(
 }
 
 // ── Route Handler ────────────────────────────────────────────────
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const sb = adminClient()
+    // 내부 stock-price 호출용 base — 요청 origin 사용(로컬·프로덕션 별칭 모두 정확).
+    // ⚠️ 과거 `NEXT_PUBLIC_APP_URL || VERCEL_URL ? ... : ...`는 연산자 우선순위 버그로
+    //    프로덕션에서 '보호된 배포 URL'로 self-fetch → 401 → 가격조회 실패 → 수익률 전부 0%였음.
+    const selfBase = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
 
     // ── 1. 전체 프로필 조회 ──────────────────────────────────────
     const { data: profiles, error: profileErr } = await sb
@@ -203,11 +207,7 @@ export async function GET() {
         const BATCH = 30
         for (let i = 0; i < uniqueTickers.length; i += BATCH) {
           const slice = uniqueTickers.slice(i, i + BATCH)
-          const base  = process.env.NEXT_PUBLIC_APP_URL
-                     || process.env.VERCEL_URL
-                       ? `https://${process.env.VERCEL_URL}`
-                       : 'http://localhost:3000'
-          const res = await fetch(`${base}/api/stock-price`, {
+          const res = await fetch(`${selfBase}/api/stock-price`, {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify(slice),
@@ -312,7 +312,9 @@ export async function GET() {
     })
 
     // ── 5. 인기 종목 집계 (등록 학생 기준) ───────────────────────
-    const tickerCount: Record<string, { name: string; market: string; count: number }> = {}
+    // ★ '보유 N명'은 고유 보유자(distinct user) 수여야 함. 과거엔 투자 '행' 수를 세어,
+    //    한 학생이 같은 종목을 2행(분할매수 등)으로 가지면 1명인데 2명으로 잘못 집계됨.
+    const tickerUsers: Record<string, { name: string; market: string; users: Set<string> }> = {}
     for (const inv of investments) {
       const profile = profiles.find(p => p.id === inv.user_id)
       if (!profile) continue
@@ -320,23 +322,18 @@ export async function GET() {
       if (userInvs.length === 0) continue   // 미등록 사용자 제외
 
       const key = inv.ticker?.toUpperCase() ?? ''
-      if (!tickerCount[key]) {
-        tickerCount[key] = { name: inv.name ?? key, market: inv.market ?? 'KR', count: 0 }
+      if (!tickerUsers[key]) {
+        tickerUsers[key] = { name: inv.name ?? key, market: inv.market ?? 'KR', users: new Set() }
       }
-      tickerCount[key].count += 1
+      tickerUsers[key].users.add(inv.user_id)
     }
 
-    const trendingStocks: TrendingStock[] = Object.entries(tickerCount)
-      .filter(([, v]) => v.count >= 1)
-      .sort(([, a], [, b]) => b.count - a.count)
+    const trendingStocks: TrendingStock[] = Object.entries(tickerUsers)
+      .map(([ticker, v]) => ({ ticker, name: v.name, market: v.market, count: v.users.size }))
+      .filter(v => v.count >= 1)
+      .sort((a, b) => b.count - a.count)
       .slice(0, 8)
-      .map(([ticker, v], i) => ({
-        ticker,
-        name:   v.name,
-        market: v.market,
-        count:  v.count,
-        color:  TICKER_COLORS[i % TICKER_COLORS.length],
-      }))
+      .map((v, i) => ({ ...v, color: TICKER_COLORS[i % TICKER_COLORS.length] }))
 
     // ── 스쿨 전체 Lynch 평균 (등록자만 집계) ─────────────────────
     const LYNCH_KEYS: LynchKey[] = ['fast_grower','stalwart','slow_grower','cyclical','asset_play','turnaround']
