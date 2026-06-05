@@ -245,7 +245,7 @@ export async function GET(req: Request) {
   const forceRefresh = new URL(req.url).searchParams.get('refresh') === '1'
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화
-  const cacheKey = `ai-rebalance-v9:${user.id}:${today}`
+  const cacheKey = `ai-rebalance-v10:${user.id}:${today}`
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -556,6 +556,8 @@ ${buyLines || '없음'}
 
 [⛔ 절대 규칙]
 - '승률 95%' 같은 지어낸 확률·숫자 금지. 주어진 AI점수·PEG·손익률만 사용.
+- 【손익 부호 엄수】각 종목의 '손익'이 음수(−)면 절대 '수익 중'이라 표현하지 말 것. 음수=손실 중, 양수=수익 중으로만 서술하라.
+- 【매도 유형 엄수】각 종목에 표기된 유형(익절/손절/보류/유지+분산트림)을 그대로 반영하라. 특히 '분산트림'으로 축소되는 종목은 '차익 실현·익절'이 아니라 반드시 '분산(비중 조정)을 위한 축소'로만 서술하라. '차익 실현/익절'이라는 표현은 유형이 '익절(수익중·고평가)'로 명시된 종목에만 사용 가능하다.
 - 손실 종목을 '단순 고평가'만으로 손절 강요 금지(보류 종목은 "저점 매도 금물"로 안내).
 - 손실 회피 심리를 헤아려라: 익절은 축하의 톤, 손절은 "기회비용·전략적 후퇴"로 위로하되 강요 아닌 '고려' 권유.
 - 본전까지 필요 상승률은 확정된 수학이니 그대로 활용해 설득하라(예: "−15%면 본전까지 +17.6%가 필요한데 회복 동력이 없다").
