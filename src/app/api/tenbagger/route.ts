@@ -61,7 +61,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: '개별 주식만 검증할 수 있습니다 (ETF·코인·원자재 제외)' }, { status: 400 })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-  const cacheKey = `tenbagger-v3:${code}:${market}`
+  const cacheKey = `tenbagger-v4:${code}:${market}`
   const cached = await getCache<TenbaggerResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -113,15 +113,16 @@ export async function GET(req: Request) {
     const lowGrowth = growthPct != null && growthPct < 18
     // 저PEG인데 매출성장이 약하면 = 진짜 저평가가 아니라 경기순환 이익 정점일 가능성(시클리컬 함정)
     if (peg < 1.0 && lowGrowth)
-      return mk('peg', '💎 저PEG(성장 대비 저평가)', 'PARTIAL', `PEG ${peg.toFixed(2)}는 낮지만 매출성장 ${growthPct!.toFixed(0)}%로 약함 — 경기순환 이익 정점에서 PER이 낮아 보이는 '시클리컬 함정'일 수 있어 진짜 저평가가 아닐 수 있음`, 20)
+      return mk('peg', '💎 저PEG(성장 대비 저평가)', 'PARTIAL', `PEG ${peg.toFixed(2)}는 낮지만 매출성장 ${growthPct!.toFixed(0)}%로 약함 — 저PER이 성장이 아니라 일시적 이익(경기순환 정점 등) 때문일 수 있어 진짜 저평가가 아닐 수 있음`, 20)
     if (peg < 0.5) return mk('peg', '💎 저PEG(성장 대비 저평가)', 'PASS', `PEG ${peg.toFixed(2)} — 진흙 속 진주(성장 폭발하는데 시장이 소외)`, 20)
     if (peg < 1.0) return mk('peg', '💎 저PEG(성장 대비 저평가)', 'PARTIAL', `PEG ${peg.toFixed(2)} — 합리적이나 초저평가는 아님`, 20)
     return mk('peg', '💎 저PEG(성장 대비 저평가)', 'FAIL', `PEG ${peg.toFixed(2)} — 성장 프리미엄 이미 반영됨`, 20)
   })())
 
   // ④ 언더커버리지 (월가가 아직 모름 = 진주) — 가중 10
+  //    KR=네이버 리포트 수, US=Yahoo 애널리스트 수(getAnalystSignal US는 reportCount 미제공이라 오판 방지)
   criteria.push((() => {
-    const cov = analyst?.reportCount ?? (analyst?.brokers?.length ?? null)
+    const cov = market === 'KR' ? (analyst?.reportCount ?? null) : (metrics?.analystCount ?? null)
     if (cov == null) return mk('coverage', '🔍 언더커버리지(아직 안 알려짐)', 'UNKNOWN', '커버리지 자료 없음', 10)
     if (cov <= 3) return mk('coverage', '🔍 언더커버리지(아직 안 알려짐)', 'PASS', `애널/리포트 ${cov}건 — 월가가 아직 주목 안 함(린치: 기관 들어오기 전 매수)`, 10)
     if (cov <= 8) return mk('coverage', '🔍 언더커버리지(아직 안 알려짐)', 'PARTIAL', `커버리지 ${cov}건 — 어느 정도 알려짐`, 10)
@@ -150,10 +151,16 @@ export async function GET(req: Request) {
   // ── 점수 = 가중 충족도 ──
   const wsum = criteria.reduce((s, c) => s + c.weight, 0)
   const earned = criteria.reduce((s, c) => s + c.weight * (c.status === 'PASS' ? 1 : c.status === 'PARTIAL' ? 0.5 : 0), 0)
-  const score = Math.round((earned / wsum) * 100)
+  let score = Math.round((earned / wsum) * 100)
+
+  // ⭐ 10배거 '실격 조건' 점수 상한 — 다른 항목이 좋아도 이 둘은 본질적으로 텐배거 불가
+  const mcapFail = criteria.find(c => c.key === 'mcap')?.status === 'FAIL'   // 대형주 → 10배 수학적 불가
+  const zombie = icr != null && icr < 1.5                                     // 좀비 → 10배 전 파산 위험
+  if (mcapFail) score = Math.min(score, 35)
+  else if (zombie) score = Math.min(score, 49)
 
   // 🚀 후보 뱃지: 점수 ≥ 60 AND 시총 작음(<$30B) AND 좀비 아님
-  const isCandidate = score >= 60 && mcUsd != null && mcUsd < 30e9 && !(icr != null && icr < 1.5)
+  const isCandidate = score >= 60 && mcUsd != null && mcUsd < 30e9 && !zombie
 
   const verdict = buildVerdict(name, score, isCandidate, mcUsd, criteria)
 
