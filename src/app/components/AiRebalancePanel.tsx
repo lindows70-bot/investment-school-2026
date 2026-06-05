@@ -188,7 +188,7 @@ export default function AiRebalancePanel() {
       {/* ①-c 신규 편입 후보 (회수 예산 재배분 — 부족 분류 갭 가중) */}
       {data.buyCandidates.filter(b => b.allocWeight > 0).length > 0 && (
         <div>
-          <SectionTitle icon="🎯" text={`신규 편입 후보 — 회수 ${data.sellBudget}% 재배분`} sub="부족 분류·섹터를 채우는 AI 추천" />
+          <SectionTitle icon="🛡️" text="코어 편입 후보 — 안정 대형주" sub="부족 분류·섹터를 채우는 AI 추천 (회수 예산의 80%)" />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {data.buyCandidates.filter(b => b.allocWeight > 0).map(b => (
               <div key={b.ticker} style={{ background: CARD, borderRadius: 10, border: '1px solid rgba(34,197,94,0.3)', padding: '12px 16px' }}>
@@ -203,6 +203,30 @@ export default function AiRebalancePanel() {
                 {b.reason && <div style={{ marginTop: 6, color: '#aab6c4', fontSize: 12, lineHeight: 1.5 }}>{b.reason}</div>}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ①-d 🚀 위성(10배거 공격) 후보 — 코어와 별개, 고위험 소액 */}
+      {data.satelliteCandidates && data.satelliteCandidates.length > 0 && (
+        <div>
+          <SectionTitle icon="🚀" text="위성 후보 — 10배거 공격(소액·고위험)" sub="중소형 성장주, 회수 예산의 20% 한정" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {data.satelliteCandidates.map(s => (
+              <div key={s.ticker} style={{ background: CARD, borderRadius: 10, border: '1px solid rgba(168,85,247,0.35)', padding: '12px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ color: '#c084fc', fontSize: 11 }}>🚀 위성</span>
+                  <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 14 }}>{s.market === 'KR' ? (s.name || s.ticker).slice(0, 12) : `${s.name} (${s.ticker.toUpperCase()})`}</span>
+                  <span style={{ background: 'rgba(168,85,247,0.12)', color: '#c084fc', borderRadius: 6, padding: '1px 8px', fontSize: 11, fontWeight: 600 }}>10배거 {s.tenScore}점</span>
+                  {s.marketCapUsd != null && <span style={{ color: '#8599ae', fontSize: 11 }}>시총 ${(s.marketCapUsd / 1e9).toFixed(1)}B</span>}
+                  <span style={{ color: '#c084fc', fontSize: 12, fontWeight: 700, marginLeft: 'auto' }}>+{s.allocWeight}% <span style={{ fontWeight: 400, fontSize: 11 }}>{wonAmount(s.allocWeight, data.portfolioValue)}</span></span>
+                </div>
+                {s.reason && <div style={{ marginTop: 6, color: '#aab6c4', fontSize: 12, lineHeight: 1.5 }}>{s.reason}</div>}
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: 8, fontSize: 11, color: '#8a6fb0', lineHeight: 1.6 }}>
+            ⚠️ 위성은 <b>중소형 고성장주(10배거 잠재)</b>로 변동성·실패 위험이 큽니다. 코어(안정 대형주)와 분리해 <b>소액만</b> 편입하고, 성장 스토리가 실현되는지 분기마다 확인하세요. 자세한 7대 기준은 &lsquo;🚀 10배거 헌터&rsquo; 탭에서 검증할 수 있습니다.
           </div>
         </div>
       )}
