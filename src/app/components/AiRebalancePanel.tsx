@@ -19,12 +19,16 @@ function pnlStr(p: number | null) { return p == null ? '—' : `${p > 0 ? '+' : 
 function disp(market: string, name: string, ticker: string) {
   return market === 'KR' ? (name || ticker).slice(0, 12) : ticker
 }
-// 비중(%) → 원화 금액 (실행 가이드). 1억 이상은 억, 이하는 만원
+// 원화 총액 포맷 (1억 이상은 억, 이하는 만원) — 금액과 단위 일관
+function wonTotal(won: number): string {
+  if (won >= 1e8) return `${(won / 1e8).toFixed(2)}억원`
+  return `${Math.round(won / 1e4).toLocaleString()}만원`
+}
+// 비중(%) → 원화 금액 (실행 가이드). 총액 포맷과 동일 단위 기준
 function wonAmount(pct: number, portfolioValue: number): string {
   const won = (pct / 100) * portfolioValue
   if (won <= 0) return ''
-  if (won >= 1e8) return `≈ ${(won / 1e8).toFixed(1)}억원`
-  return `≈ ${Math.round(won / 1e4).toLocaleString()}만원`
+  return `≈ ${wonTotal(won)}`
 }
 
 export default function AiRebalancePanel() {
@@ -246,7 +250,7 @@ export default function AiRebalancePanel() {
       {data.portfolioValue > 0 && (data.sellBudget > 0) && (
         <div style={{ background: '#141720', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '12px 16px' }}>
           <div style={{ color: '#94a3b8', fontSize: 12, lineHeight: 1.7 }}>
-            🧾 <b style={{ color: '#cbd5e1' }}>실행 가이드</b> — 위 비율 옆의 <b>≈₩금액</b>은 내 포트폴리오(약 {(data.portfolioValue / 1e8).toFixed(1)}억원) 기준 환산액입니다.
+            🧾 <b style={{ color: '#cbd5e1' }}>실행 가이드</b> — 위 비율 옆의 <b>≈₩금액</b>은 내 포트폴리오(약 {wonTotal(data.portfolioValue)}) 기준 환산액입니다.
             이 금액만큼 <b>본인 증권계좌에서 직접</b> 매도·매수하시면 됩니다.
             <br /><span style={{ color: '#6b7280', fontSize: 11 }}>※ 이 앱은 교육용이라 자동 주문·일괄 거래를 실행하지 않습니다. 실제 매매는 학생 본인이 판단·집행합니다.</span>
           </div>
@@ -262,7 +266,9 @@ export default function AiRebalancePanel() {
 
 // ── 분산 개선 Before→After (분류 황금비율 + 섹터 집중도) ───────────────────────
 function DiversificationSection({ d }: { d: DiversificationView }) {
-  const cats = d.categories.filter(c => c.before > 0 || c.after > 0 || c.ideal > 0)
+  // 린치 6대 분류 전부 표시 (저성장주 권장 0%도 포함 — '6대 분류 밸런스' 본질 유지)
+  const LYNCH6 = ['stalwart', 'fast_grower', 'cyclical', 'turnaround', 'asset_play', 'slow_grower']
+  const cats = d.categories.filter(c => LYNCH6.includes(c.key) || c.before > 0 || c.after > 0)
   const maxV = Math.max(40, ...cats.map(c => Math.max(c.before, c.after, c.ideal)))
   const secImproved = d.topSectorAfter < d.topSectorBefore - 0.05
   return (

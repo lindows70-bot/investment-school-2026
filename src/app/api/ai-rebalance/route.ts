@@ -170,8 +170,8 @@ export async function GET(req: Request) {
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const forceRefresh = new URL(req.url).searchParams.get('refresh') === '1'
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
-  // v7: 분류 페널티 추가(과다분류 감점) — 캐시 무효화
-  const cacheKey = `ai-rebalance-v7:${user.id}:${today}`
+  // v8: 매수 잔돈 1순위 합산(예수금 0) — 캐시 무효화
+  const cacheKey = `ai-rebalance-v8:${user.id}:${today}`
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -351,6 +351,12 @@ export async function GET(req: Request) {
         reason: r.macroFitReason || r.fundamentalReason || '',
         allocWeight: sellBudget > 0 ? Math.round((sellBudget * (fillScore(r) / fsSum)) * 10) / 10 : 0,
       }))
+      // ⭐ 반올림 잔돈을 1순위(최고 점수)에 합산 → 매수 합 = 매도 예산 정확히 일치(예수금 0)
+      if (sellBudget > 0 && buyCandidates.length > 0) {
+        const allocSum = buyCandidates.reduce((s, b) => s + b.allocWeight, 0)
+        const remainder = Math.round((sellBudget - allocSum) * 10) / 10
+        if (Math.abs(remainder) >= 0.1) buyCandidates[0].allocWeight = Math.round((buyCandidates[0].allocWeight + remainder) * 10) / 10
+      }
     }
   } catch { /* graceful */ }
 
