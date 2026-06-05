@@ -365,20 +365,30 @@ function BeforeAfterDonuts({ data }: { data: RebalanceResult }) {
     return out
   }
 
-  // 리밸런싱 전: 현재 보유 (매도·축소 대상은 빨강). change=회수 비중(실제 파는 양)
+  const r1 = (n: number) => Math.round(n * 10) / 10
+  // 리밸런싱 전: 부분 트림은 '남는 양(파랑)+파는 양(빨강)' 2슬라이스로 쪼개 빨강 면적=회수예산 일치
   const before = pack(data.holdings
     .filter(h => h.weight > 0)
-    .map(h => ({ name: dnm(h.market, h.name, h.ticker), value: h.weight, type: (h.releaseWeight > 0 ? 'sell' : 'keep') as PosType, change: h.releaseWeight > 0 ? h.releaseWeight : undefined })))
+    .flatMap(h => {
+      const nm = dnm(h.market, h.name, h.ticker)
+      if (h.releaseWeight <= 0) return [{ name: nm, value: r1(h.weight), type: 'keep' as PosType }]
+      const sold = r1(h.releaseWeight), kept = r1(h.weight - h.releaseWeight)
+      const parts: Pos[] = [{ name: nm, value: sold, type: 'sell' as PosType, change: sold }]
+      if (kept >= 0.1) parts.unshift({ name: nm, value: kept, type: 'keep' as PosType })
+      return parts
+    }))
+  const beforeCount = data.holdings.filter(h => h.weight > 0).length
 
   // 리밸런싱 후: 유지(회수분 차감) + 신규 코어 + 위성
   const afterRaw: Pos[] = [
-    ...data.holdings.map(h => ({ name: dnm(h.market, h.name, h.ticker), value: Math.round((h.weight - h.releaseWeight) * 10) / 10, type: 'keep' as PosType })).filter(p => p.value >= 0.1),
+    ...data.holdings.map(h => ({ name: dnm(h.market, h.name, h.ticker), value: r1(h.weight - h.releaseWeight), type: 'keep' as PosType })).filter(p => p.value >= 0.1),
     ...data.buyCandidates.filter(b => b.allocWeight > 0).map(b => ({ name: dnm(b.market, b.name, b.ticker), value: b.allocWeight, type: 'core' as PosType })),
     ...(data.satelliteCandidates ?? []).filter(s => s.allocWeight > 0).map(s => ({ name: dnm(s.market, s.name, s.ticker), value: s.allocWeight, type: 'satellite' as PosType })),
   ]
   const after = pack(afterRaw)
+  const afterCount = afterRaw.length
 
-  const Donut = ({ title, rows, priority, changeLabel }: { title: string; rows: Pos[]; priority: PosType[]; changeLabel: string }) => {
+  const Donut = ({ title, rows, priority, changeLabel, count }: { title: string; rows: Pos[]; priority: PosType[]; changeLabel: string; count: number }) => {
     // 변화 항목(매도/신규)을 먼저, 그 다음 유지 종목 상위 — 사용자가 '뭘 팔고 뭘 사는지' 확실히 보이게
     const changed = rows.filter(p => priority.includes(p.type))
     const kept = rows.filter(p => !priority.includes(p.type)).sort((a, b) => b.value - a.value)
@@ -394,7 +404,7 @@ function BeforeAfterDonuts({ data }: { data: RebalanceResult }) {
           </PieChart>
         </ResponsiveContainer>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-          <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 18 }}>{rows.length}</div>
+          <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 18 }}>{count}</div>
           <div style={{ color: '#6b7280', fontSize: 10 }}>종목</div>
         </div>
       </div>
@@ -434,9 +444,9 @@ function BeforeAfterDonuts({ data }: { data: RebalanceResult }) {
     <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '16px 18px' }}>
       <div style={{ color: '#e2e8f0', fontSize: 14, fontWeight: 700, marginBottom: 10 }}>📊 포트폴리오 변화 — 한눈에 보기</div>
       <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        <Donut title="리밸런싱 전 (현재)" rows={before} priority={['sell']} changeLabel="🔴 매도·축소 (회수 %)" />
+        <Donut title="리밸런싱 전 (현재)" rows={before} count={beforeCount} priority={['sell']} changeLabel="🔴 매도·축소 (회수 %)" />
         <div style={{ alignSelf: 'center', color: '#6b7280', fontSize: 22, padding: '0 4px' }}>→</div>
-        <Donut title="리밸런싱 후 (제안)" rows={after} priority={['core', 'satellite']} changeLabel="🟢 신규 편입 (편입 %)" />
+        <Donut title="리밸런싱 후 (제안)" rows={after} count={afterCount} priority={['core', 'satellite']} changeLabel="🟢 신규 편입 (편입 %)" />
       </div>
       {/* 색깔 범례 */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginTop: 12, fontSize: 11 }}>
