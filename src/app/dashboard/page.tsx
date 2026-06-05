@@ -23,6 +23,7 @@ import JarvisMorningBriefing      from '@/app/components/JarvisMorningBriefing'
 import SchoolIndexDashboard       from '@/app/components/SchoolIndexDashboard'
 import NewsCatalystRadar          from '@/app/components/NewsCatalystRadar'
 import AiRebalancePanel           from '@/app/components/AiRebalancePanel'
+import TenbaggerHunter            from '@/app/components/TenbaggerHunter'
 import CorrelationMatrix          from '@/app/components/CorrelationMatrix'
 import LynchEarningsLineTracer    from '@/app/components/LynchEarningsLineTracer'
 import GuidanceRevisionRadar      from '@/app/components/GuidanceRevisionRadar'
@@ -672,7 +673,7 @@ export default function DashboardPage() {
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
   const [btActive,  setBtActive]  = useState({ rebalanceQ:true, rebalanceY:false, buyAndHold:true, benchmark:true })
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'tenbagger'>('live')
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
   // ── AI 멘토 탭: MENTOR_STOCKS 제거 후 컴포넌트에 빈 배열 전달 ──
@@ -1445,6 +1446,7 @@ export default function DashboardPage() {
             id: 'research', icon: '💡', label: '투자 리서치',
             items: [
               { key: 'macroai',  icon: '🌐', label: '거시경제 AI 추천',       desc: '매크로 × 린치 × Gemini 종합 추천' },
+              { key: 'tenbagger',icon: '🚀', label: '10배거 헌터',           desc: '린치 10루타 7대 기준 종목 검증' },
               { key: 'mentor',   icon: '🤖', label: 'AI 멘토 족집게',       desc: '마스터 진단 레포트' },
               { key: 'guidance', icon: '📡', label: '가이던스 모멘텀 레이더', desc: 'EPS 컨센서스 기울기 스캐닝' },
               { key: 'schoolflow', icon: '🏫', label: '학교 13F 인덱스',  desc: '집단지성 동일가중 인덱스' },
@@ -3200,6 +3202,13 @@ export default function DashboardPage() {
       <div id="tab-rebalance" style={{ display: dashTab==='rebalance' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         <ErrorBoundary label="AI 리밸런싱">
           <AiRebalancePanel />
+        </ErrorBoundary>
+      </div>
+
+      {/* ── 10배거 헌터 탭 ── */}
+      <div id="tab-tenbagger" style={{ display: dashTab==='tenbagger' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="10배거 헌터">
+          <TenbaggerHunter />
         </ErrorBoundary>
       </div>
 
