@@ -349,7 +349,13 @@ type PosType = 'keep' | 'sell' | 'core' | 'satellite' | 'etc'
 const POS_COLOR: Record<PosType, string> = {
   keep: '#3b82f6', sell: '#ef4444', core: '#22c55e', satellite: '#a855f7', etc: '#475569',
 }
-interface Pos { name: string; value: number; type: PosType; change?: number }   // change=회수/편입 실제 비중(±)
+type SellKind = 'tp' | 'cut' | 'trim'   // 익절(절반)·손절(전량)·분산축소
+const SELL_TAG: Record<SellKind, { label: string; color: string }> = {
+  tp:   { label: '익절·절반', color: '#f59e0b' },
+  cut:  { label: '손절·전량', color: '#ef4444' },
+  trim: { label: '분산·축소', color: '#60a5fa' },
+}
+interface Pos { name: string; value: number; type: PosType; change?: number; kind?: SellKind }   // change=회수/편입 실제 비중(±)
 
 function BeforeAfterDonuts({ data }: { data: RebalanceResult }) {
   const dnm = (market: string, name: string, ticker: string) => (market === 'KR' ? (name || ticker).slice(0, 8) : ticker.toUpperCase())
@@ -373,7 +379,8 @@ function BeforeAfterDonuts({ data }: { data: RebalanceResult }) {
       const nm = dnm(h.market, h.name, h.ticker)
       if (h.releaseWeight <= 0) return [{ name: nm, value: r1(h.weight), type: 'keep' as PosType }]
       const sold = r1(h.releaseWeight), kept = r1(h.weight - h.releaseWeight)
-      const parts: Pos[] = [{ name: nm, value: sold, type: 'sell' as PosType, change: sold }]
+      const kind: SellKind = h.action === 'TAKE_PROFIT' ? 'tp' : h.action === 'CUT_LOSS' ? 'cut' : 'trim'
+      const parts: Pos[] = [{ name: nm, value: sold, type: 'sell' as PosType, change: sold, kind }]
       if (kept >= 0.1) parts.unshift({ name: nm, value: kept, type: 'keep' as PosType })
       return parts
     }))
@@ -416,14 +423,21 @@ function BeforeAfterDonuts({ data }: { data: RebalanceResult }) {
             {changed.map((p, i) => {
               const isSell = p.type === 'sell'
               const amt = isSell ? (p.change ?? p.value) : p.value   // 매도=회수비중 / 신규=편입비중
+              const tag = isSell && p.kind ? SELL_TAG[p.kind] : null
               return (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5 }}>
                 <span style={{ width: 8, height: 8, borderRadius: 2, background: POS_COLOR[p.type], flexShrink: 0 }} />
-                <span style={{ color: '#cbd5e1', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                <span style={{ color: isSell ? '#f87171' : '#34d399', fontWeight: 700 }}>{isSell ? '−' : '+'}{amt}%</span>
+                <span style={{ color: '#cbd5e1', flex: '0 1 auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                {tag && <span style={{ color: tag.color, border: `1px solid ${tag.color}55`, borderRadius: 4, padding: '0 4px', fontSize: 9, fontWeight: 600, flexShrink: 0 }}>{tag.label}</span>}
+                <span style={{ marginLeft: 'auto', color: isSell ? '#f87171' : '#34d399', fontWeight: 700, flexShrink: 0 }}>{isSell ? '−' : '+'}{amt}%</span>
               </div>
             )})}
           </div>
+          {priority[0] === 'sell' && changed.some(p => p.kind === 'tp') && (
+            <div style={{ color: '#7f8b99', fontSize: 9.5, lineHeight: 1.5, marginTop: 4 }}>
+              💡 <b style={{ color: '#f59e0b' }}>익절·절반</b>=수익 중이지만 고평가라 보유의 50%만 실현(나머지 절반은 추세 유지). · <b style={{ color: '#ef4444' }}>손절·전량</b>=손실+투자근거 붕괴라 전량 정리.
+            </div>
+          )}
         </div>
       )}
       {/* 유지 종목 상위 4 */}
