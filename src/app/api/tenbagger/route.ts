@@ -61,7 +61,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: '개별 주식만 검증할 수 있습니다 (ETF·코인·원자재 제외)' }, { status: 400 })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-  const cacheKey = `tenbagger-v2:${code}:${market}`
+  const cacheKey = `tenbagger-v3:${code}:${market}`
   const cached = await getCache<TenbaggerResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -107,9 +107,13 @@ export async function GET(req: Request) {
     return mk('growth', '📈 고성장(이익·매출)', 'FAIL', `성장률 ${growthPct.toFixed(0)}% — 10배거 동력으론 약함`, 25)
   })())
 
-  // ③ 저PEG (성장 대비 저평가) — 가중 20
+  // ③ 저PEG (성장 대비 저평가) — ⭐저PEG가 '성장' 덕인지 '경기순환 이익정점(시클리컬 함정)' 탓인지 구분
   criteria.push((() => {
     if (peg == null || peg <= 0) return mk('peg', '💎 저PEG(성장 대비 저평가)', 'UNKNOWN', opMargin != null && opMargin < 0 ? '영업적자라 PEG 산출 불가(매출 성장으로 대체 판단)' : 'PEG 자료 없음', 20)
+    const lowGrowth = growthPct != null && growthPct < 18
+    // 저PEG인데 매출성장이 약하면 = 진짜 저평가가 아니라 경기순환 이익 정점일 가능성(시클리컬 함정)
+    if (peg < 1.0 && lowGrowth)
+      return mk('peg', '💎 저PEG(성장 대비 저평가)', 'PARTIAL', `PEG ${peg.toFixed(2)}는 낮지만 매출성장 ${growthPct!.toFixed(0)}%로 약함 — 경기순환 이익 정점에서 PER이 낮아 보이는 '시클리컬 함정'일 수 있어 진짜 저평가가 아닐 수 있음`, 20)
     if (peg < 0.5) return mk('peg', '💎 저PEG(성장 대비 저평가)', 'PASS', `PEG ${peg.toFixed(2)} — 진흙 속 진주(성장 폭발하는데 시장이 소외)`, 20)
     if (peg < 1.0) return mk('peg', '💎 저PEG(성장 대비 저평가)', 'PARTIAL', `PEG ${peg.toFixed(2)} — 합리적이나 초저평가는 아님`, 20)
     return mk('peg', '💎 저PEG(성장 대비 저평가)', 'FAIL', `PEG ${peg.toFixed(2)} — 성장 프리미엄 이미 반영됨`, 20)
