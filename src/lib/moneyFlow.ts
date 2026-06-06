@@ -209,7 +209,7 @@ function judgeUs(us: UsFlow, nearHigh: boolean): { status: FlowStatus; badges: s
 }
 
 async function getUsFlow(ticker: string, name: string, base: MoneyFlowResult, selfBase?: string): Promise<MoneyFlowResult> {
-  const cacheKey = `money-flow-v3:${ticker.toUpperCase()}:US:${kstDate()}`
+  const cacheKey = `money-flow-v4:${ticker.toUpperCase()}:US:${kstDate()}`
   const cached = await getCache<MoneyFlowResult>(cacheKey, 24 * 3600_000)
   if (cached) return cached
   try {
@@ -251,7 +251,7 @@ export async function getMoneyFlow(ticker: string, market: 'KR' | 'US', name: st
   const code6 = (ticker.match(/\d{6}/)?.[0]) ?? ''
   if (!code6) return { ...base, status: 'UNSUPPORTED', note: '종목 코드를 확인할 수 없습니다.' }
 
-  const cacheKey = `money-flow-v3:${code6}:KR:${kstDate()}`   // v3: 대금 부호 일치 + US 프록시 분리
+  const cacheKey = `money-flow-v4:${code6}:KR:${kstDate()}`   // v4: shadow-13f OXY 매칭 수정 반영
   const cached = await getCache<MoneyFlowResult>(cacheKey, 24 * 3600_000)
   if (cached) return cached
 
