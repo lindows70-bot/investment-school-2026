@@ -14,6 +14,7 @@ export interface UsFlow {
   insiderCluster: boolean         // 2명+ 동시 매수
   giantHolders:   number          // 13F 전설 거인 보유 수(청산 제외)
   giantTrend:     'add' | 'cut' | 'mixed' | 'none'
+  giantKnown:     boolean         // 13F 조회 성공 여부(false=집계중, '미보유'와 구분)
 }
 
 export interface FlowActor {
@@ -151,27 +152,27 @@ async function computeUsMfi(ticker: string): Promise<{ mfi: number | null; trend
   } catch { return { mfi: null, trend: 'flat', nearHigh: false } }
 }
 
-// 기존 13F(shadow-13f) 재사용 — best-effort(펀드 캐시 워밍 시 ~1s, 실패 graceful)
-async function fetch13F(ticker: string, name: string, selfBase?: string): Promise<{ holders: number; trend: UsFlow['giantTrend'] }> {
-  if (!selfBase) return { holders: 0, trend: 'none' }
+// 기존 13F(shadow-13f) 재사용 — best-effort. ok=false면 '집계중'(미보유와 구분, 콜드 타임아웃 오판 방지)
+async function fetch13F(ticker: string, name: string, selfBase?: string): Promise<{ holders: number; trend: UsFlow['giantTrend']; ok: boolean }> {
+  if (!selfBase) return { holders: 0, trend: 'none', ok: false }
   try {
-    const r = await fetch(`${selfBase}/api/shadow-13f?ticker=${encodeURIComponent(ticker)}&market=US&name=${encodeURIComponent(name)}`, { signal: AbortSignal.timeout(9_000) })
-    if (!r.ok) return { holders: 0, trend: 'none' }
+    const r = await fetch(`${selfBase}/api/shadow-13f?ticker=${encodeURIComponent(ticker)}&market=US&name=${encodeURIComponent(name)}`, { signal: AbortSignal.timeout(16_000) })
+    if (!r.ok) return { holders: 0, trend: 'none', ok: false }
     const j = (await r.json()) as ShadowResult
+    if (j.status !== 'ok' && j.status !== 'none') return { holders: 0, trend: 'none', ok: false }
     const owning = (j.holders ?? []).filter(h => h.action !== 'exit')
     const adders = owning.filter(h => h.action === 'add' || h.action === 'new').length
     const cutters = (j.holders ?? []).filter(h => h.action === 'trim' || h.action === 'exit').length
     const trend: UsFlow['giantTrend'] = adders > 0 && cutters > 0 ? 'mixed' : adders > 0 ? 'add' : cutters > 0 ? 'cut' : 'none'
-    return { holders: owning.length, trend }
-  } catch { return { holders: 0, trend: 'none' } }
+    return { holders: owning.length, trend, ok: true }   // status ok/none = 정상 조회(none=정말 미보유)
+  } catch { return { holders: 0, trend: 'none', ok: false } }
 }
 
 function judgeUs(us: UsFlow, nearHigh: boolean): { status: FlowStatus; badges: string[]; lynchComment: string; actionGuide: string } {
   const badges: string[] = []
   if (us.insiderCluster) badges.push('🔥 내부자 클러스터')
   else if (us.insiderBuyers > 0) badges.push('🕵️ 내부자 매수')
-  if (us.giantHolders > 0) badges.push(`🐳 거인 ${us.giantHolders}인 보유`)
-  else badges.push('🏛️ 기관(거인) 미발견')
+  if (us.giantKnown) badges.push(us.giantHolders > 0 ? `🐳 거인 ${us.giantHolders}인 보유` : '🏛️ 기관(거인) 미발견')
   if (us.mfi != null && us.mfi < 20) badges.push('⚡ 자금흐름 과매도')
   if (us.mfi != null && us.mfi > 80) badges.push('🌡️ 자금흐름 과매수')
 
@@ -192,8 +193,8 @@ function judgeUs(us: UsFlow, nearHigh: boolean): { status: FlowStatus; badges: s
       actionGuide: '추격 매수보다 자금흐름이 식는지 관망하세요. 좋은 기업도 과열 구간 진입은 손실 회피에 불리합니다.',
     }
   }
-  // 🟡 소외: 거인 미보유 + 자금흐름 중립
-  if (us.giantHolders === 0 && us.mfi != null && us.mfi >= 35 && us.mfi <= 65) {
+  // 🟡 소외: 거인 미보유(조회 성공 시에만) + 자금흐름 중립
+  if (us.giantKnown && us.giantHolders === 0 && us.mfi != null && us.mfi >= 35 && us.mfi <= 65) {
     return {
       status: 'NEGLECTED', badges,
       lynchComment: '전설적 투자자(13F 추적 거인)들이 아직 담지 않은 종목입니다. 린치가 좋아한 "기관이 발견하지 못한 진주" 후보일 수 있습니다.',
@@ -208,7 +209,7 @@ function judgeUs(us: UsFlow, nearHigh: boolean): { status: FlowStatus; badges: s
 }
 
 async function getUsFlow(ticker: string, name: string, base: MoneyFlowResult, selfBase?: string): Promise<MoneyFlowResult> {
-  const cacheKey = `money-flow-v2:${ticker.toUpperCase()}:US:${kstDate()}`
+  const cacheKey = `money-flow-v3:${ticker.toUpperCase()}:US:${kstDate()}`
   const cached = await getCache<MoneyFlowResult>(cacheKey, 24 * 3600_000)
   if (cached) return cached
   try {
@@ -228,6 +229,7 @@ async function getUsFlow(ticker: string, name: string, base: MoneyFlowResult, se
       insiderCluster: insider?.cluster ?? false,
       giantHolders: f13.holders,
       giantTrend: f13.trend,
+      giantKnown: f13.ok,
     }
     const j = judgeUs(us, mfiRes.nearHigh)
     const result: MoneyFlowResult = { ...base, us, nearHigh: mfiRes.nearHigh, asOf: new Date().toISOString(), ...j }
@@ -249,7 +251,7 @@ export async function getMoneyFlow(ticker: string, market: 'KR' | 'US', name: st
   const code6 = (ticker.match(/\d{6}/)?.[0]) ?? ''
   if (!code6) return { ...base, status: 'UNSUPPORTED', note: '종목 코드를 확인할 수 없습니다.' }
 
-  const cacheKey = `money-flow-v2:${code6}:KR:${kstDate()}`   // v2: 대금=순매수수량×평균종가(부호 일치)
+  const cacheKey = `money-flow-v3:${code6}:KR:${kstDate()}`   // v3: 대금 부호 일치 + US 프록시 분리
   const cached = await getCache<MoneyFlowResult>(cacheKey, 24 * 3600_000)
   if (cached) return cached
 
