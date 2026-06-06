@@ -46,8 +46,11 @@ async function fetchKrTrend(code6: string): Promise<TrendRow[]> {
 
 function actorOf(rows: TrendRow[], key: 'foreignerPureBuyQuant' | 'organPureBuyQuant' | 'individualPureBuyQuant'): FlowActor {
   const cum = (n: number) => rows.slice(0, n).reduce((s, r) => s + num(r[key]), 0)
-  const amt20 = rows.slice(0, 20).reduce((s, r) => s + num(r[key]) * num(r.closePrice), 0)
   const net20 = cum(20)
+  // 추정 대금 = 20일 순매수 수량 × 평균종가 (부호가 순매수 수량과 항상 일치하도록)
+  const closes20 = rows.slice(0, 20).map(r => num(r.closePrice)).filter(c => c > 0)
+  const avgClose = closes20.length ? closes20.reduce((a, b) => a + b, 0) / closes20.length : 0
+  const amt20 = net20 * avgClose
   // 방향: 20일 순매수가 거래대금 대비 의미있는 수준일 때만 BUY/SELL
   const dir: FlowActor['dir'] = Math.abs(net20) < 1 ? 'FLAT' : net20 > 0 ? 'BUY' : 'SELL'
   return { net5: cum(5), net20, net60: cum(60), amt20, dir }
@@ -107,7 +110,7 @@ export async function getMoneyFlow(ticker: string, market: 'KR' | 'US', name: st
   const code6 = (ticker.match(/\d{6}/)?.[0]) ?? ''
   if (!code6) return { ...base, status: 'UNSUPPORTED', note: '종목 코드를 확인할 수 없습니다.' }
 
-  const cacheKey = `money-flow-v1:${code6}:KR:${kstDate()}`
+  const cacheKey = `money-flow-v2:${code6}:KR:${kstDate()}`   // v2: 대금=순매수수량×평균종가(부호 일치)
   const cached = await getCache<MoneyFlowResult>(cacheKey, 24 * 3600_000)
   if (cached) return cached
 
