@@ -38,10 +38,10 @@ const dirArrow = (d?: string) => (d === 'BUY' ? '▲' : d === 'SELL' ? '▼' : '
 
 function quadrantOf(status: FlowStatus, peg: number | null, opMargin: number | null): Quadrant {
   const fundGood = peg != null && peg > 0 && peg < 1.2 && (opMargin == null || opMargin > -10)
-  if (fundGood && status === 'INFLOW') return 'LEADER'
-  if (fundGood) return 'PEARL'
-  if (status === 'CROWDED') return 'CROWDED'
-  return 'REVIEW'
+  if (fundGood && status === 'INFLOW') return 'LEADER'   // 저평가 + 수급 유입
+  if (fundGood) return 'PEARL'                            // 저평가 + 수급 잠잠(대기)
+  if (status === 'INFLOW' || status === 'CROWDED') return 'CROWDED'  // 고평가 + 수급 몰림/이탈 = 과열·상투
+  return 'REVIEW'                                         // 고평가 + 수급 약함
 }
 
 export async function GET(req: Request) {
@@ -50,7 +50,7 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `portfolio-flow-v1:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `portfolio-flow-v2:${user.id}:${kstDate()}:${fp}`
   const cached = await getCache<PortfolioFlowResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

@@ -13,9 +13,9 @@ const ST: Record<Exclude<FlowStatus, 'UNSUPPORTED'>, { label: string; color: str
   NEUTRAL:   { label: '중립',   color: '#8a9aaa', emoji: '⚪' },
 }
 const QUAD: Record<Quadrant, { label: string; emoji: string; color: string; desc: string }> = {
-  LEADER:  { label: '메이저 주도주', emoji: '🏆', color: '#22c55e', desc: '저PEG + 수급 유입' },
-  PEARL:   { label: '소외된 진주',   emoji: '✨', color: '#3b82f6', desc: '저PEG인데 수급은 아직' },
-  CROWDED: { label: '상투·과열 위험', emoji: '⚠️', color: '#ef4444', desc: '고평가 + 수급 이탈/과열' },
+  LEADER:  { label: '메이저 주도주', emoji: '🏆', color: '#22c55e', desc: '저PEG + 수급 유입(우선순위)' },
+  PEARL:   { label: '저평가 대기',   emoji: '💎', color: '#3b82f6', desc: '저PEG인데 수급은 아직(붙으면 탄력)' },
+  CROWDED: { label: '상투·과열 위험', emoji: '⚠️', color: '#ef4444', desc: '고평가 + 수급 몰림/이탈' },
   REVIEW:  { label: '재검토 필요',   emoji: '🔍', color: '#8a9aaa', desc: '펀더멘탈·수급 모두 약함' },
 }
 const dnm = (e: FlowEntry) => (e.market === 'KR' ? (e.name || e.ticker).slice(0, 10) : e.ticker.toUpperCase())
@@ -90,8 +90,8 @@ export default function PortfolioFlowDashboard() {
       {/* 쌍끌이 / 과밀 2단 보드 */}
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 320px', background: CARD, borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(34,197,94,0.3)' }}>
-          <div style={{ color: '#22c55e', fontWeight: 700, fontSize: 13, marginBottom: 4 }}>🔥 스마트머니 쌍끌이 순항</div>
-          <div style={{ color: '#7f93a8', fontSize: 11, marginBottom: 10 }}>외국인·기관이 동반 매집 중인 내 종목</div>
+          <div style={{ color: '#22c55e', fontWeight: 700, fontSize: 13, marginBottom: 4 }}>🔥 스마트머니 유입 순항</div>
+          <div style={{ color: '#7f93a8', fontSize: 11, marginBottom: 10 }}>외인·기관(국내) 또는 내부자·자금흐름(미국)이 유입 중인 내 종목</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {inflow.length ? inflow.map(e => <Row key={e.ticker} e={e} />) : <div style={{ color: '#64748b', fontSize: 12, padding: '6px 0' }}>현재 쌍끌이 매집 종목이 없습니다.</div>}
           </div>
