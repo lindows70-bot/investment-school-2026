@@ -172,7 +172,8 @@ function judgeUs(us: UsFlow, nearHigh: boolean): { status: FlowStatus; badges: s
   const badges: string[] = []
   if (us.insiderCluster) badges.push('🔥 내부자 클러스터')
   else if (us.insiderBuyers > 0) badges.push('🕵️ 내부자 매수')
-  if (us.giantKnown) badges.push(us.giantHolders > 0 ? `🐳 거인 ${us.giantHolders}인 보유` : '🏛️ 기관(거인) 미발견')
+  // 추적 거인은 9인뿐 → 보유는 양(+)의 신호로만. 0(미매칭 가능)을 '소외'로 단정하지 않음
+  if (us.giantHolders > 0) badges.push(`🐳 거인 ${us.giantHolders}인 보유`)
   if (us.mfi != null && us.mfi < 20) badges.push('⚡ 자금흐름 과매도')
   if (us.mfi != null && us.mfi > 80) badges.push('🌡️ 자금흐름 과매수')
 
@@ -193,14 +194,7 @@ function judgeUs(us: UsFlow, nearHigh: boolean): { status: FlowStatus; badges: s
       actionGuide: '추격 매수보다 자금흐름이 식는지 관망하세요. 좋은 기업도 과열 구간 진입은 손실 회피에 불리합니다.',
     }
   }
-  // 🟡 소외: 거인 미보유(조회 성공 시에만) + 자금흐름 중립
-  if (us.giantKnown && us.giantHolders === 0 && us.mfi != null && us.mfi >= 35 && us.mfi <= 65) {
-    return {
-      status: 'NEGLECTED', badges,
-      lynchComment: '전설적 투자자(13F 추적 거인)들이 아직 담지 않은 종목입니다. 린치가 좋아한 "기관이 발견하지 못한 진주" 후보일 수 있습니다.',
-      actionGuide: '펀더멘탈이 우수(저PEG·이익 성장)하다면, 향후 기관 유입 시 탄력이 기대됩니다. 자금흐름 반등을 함께 관찰하세요.',
-    }
-  }
+  // US 소외 판정은 제거 — 추적 거인 9인뿐이라 0이 흔하고 매칭 미스 가능(거짓 '소외주' 방지)
   return {
     status: 'NEUTRAL', badges,
     lynchComment: `뚜렷한 스마트머니 신호는 약합니다(MFI ${us.mfi ?? '—'}, 내부자 매수 ${us.insiderBuyers}명). 수급보다 펀더멘탈 중심으로 판단할 구간입니다.`,
@@ -209,7 +203,7 @@ function judgeUs(us: UsFlow, nearHigh: boolean): { status: FlowStatus; badges: s
 }
 
 async function getUsFlow(ticker: string, name: string, base: MoneyFlowResult, selfBase?: string): Promise<MoneyFlowResult> {
-  const cacheKey = `money-flow-v4:${ticker.toUpperCase()}:US:${kstDate()}`
+  const cacheKey = `money-flow-v5:${ticker.toUpperCase()}:US:${kstDate()}`
   const cached = await getCache<MoneyFlowResult>(cacheKey, 24 * 3600_000)
   if (cached) return cached
   try {
@@ -251,7 +245,7 @@ export async function getMoneyFlow(ticker: string, market: 'KR' | 'US', name: st
   const code6 = (ticker.match(/\d{6}/)?.[0]) ?? ''
   if (!code6) return { ...base, status: 'UNSUPPORTED', note: '종목 코드를 확인할 수 없습니다.' }
 
-  const cacheKey = `money-flow-v4:${code6}:KR:${kstDate()}`   // v4: shadow-13f OXY 매칭 수정 반영
+  const cacheKey = `money-flow-v5:${code6}:KR:${kstDate()}`   // v4: shadow-13f OXY 매칭 수정 반영
   const cached = await getCache<MoneyFlowResult>(cacheKey, 24 * 3600_000)
   if (cached) return cached
 

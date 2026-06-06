@@ -49,7 +49,7 @@ function UsBody({ us }: { us: UsFlow }) {
           {us.insiderBuyers > 0 ? `🕵️ 내부자 ${us.insiderBuyers}명 장내매수${us.insiderCluster ? ' 🔥' : ''}` : '🕵️ 내부자 매수 없음'}
         </span>
         <span style={{ background: us.giantHolders > 0 ? 'rgba(59,130,246,0.12)' : '#0f1117', color: us.giantHolders > 0 ? '#60a5fa' : '#8a9aaa', border: `1px solid ${us.giantHolders > 0 ? '#3b82f644' : '#1e293b'}`, borderRadius: 8, padding: '4px 11px', fontSize: 12, fontWeight: 600 }}>
-          {!us.giantKnown ? '🐳 13F 집계 중' : us.giantHolders > 0 ? `🐳 13F 거인 ${us.giantHolders}인 보유 · ${TREND_KR[us.giantTrend]}` : '🏛️ 거인 미보유'}
+          {!us.giantKnown ? '🐳 13F 집계 중' : us.giantHolders > 0 ? `🐳 13F 거인 ${us.giantHolders}인 보유 · ${TREND_KR[us.giantTrend]}` : '🐳 추적 거인(9인) 없음'}
         </span>
       </div>
     </div>
