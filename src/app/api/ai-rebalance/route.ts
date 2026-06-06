@@ -45,6 +45,25 @@ const SATELLITE_UNIVERSE: { ticker: string; market: 'US' | 'KR'; name: string }[
   { ticker: '389020', market: 'KR', name: '레이저쎌' },
   { ticker: '281740', market: 'KR', name: '레이크머티리얼즈' },
   { ticker: '348370', market: 'KR', name: '엔켐' },
+  // ── 위성(10배거) 풀 확장(2026-06) 18→36 — 소형 고성장 폭 확대(라이브 지표 fetch라 36 안전선) ──
+  { ticker: 'SOFI', market: 'US', name: 'SoFi Technologies' },
+  { ticker: 'AFRM', market: 'US', name: 'Affirm' },
+  { ticker: 'DKNG', market: 'US', name: 'DraftKings' },
+  { ticker: 'RBLX', market: 'US', name: 'Roblox' },
+  { ticker: 'SMCI', market: 'US', name: 'Super Micro Computer' },
+  { ticker: 'ARM',  market: 'US', name: 'Arm Holdings' },
+  { ticker: 'CELH', market: 'US', name: 'Celsius Holdings' },
+  { ticker: 'DUOL', market: 'US', name: 'Duolingo' },
+  { ticker: 'ENPH', market: 'US', name: 'Enphase Energy' },
+  { ticker: 'FSLR', market: 'US', name: 'First Solar' },
+  { ticker: 'CRSP', market: 'US', name: 'CRISPR Therapeutics' },
+  { ticker: 'OKLO', market: 'US', name: 'Oklo' },
+  { ticker: '403870', market: 'KR', name: 'HPSP' },
+  { ticker: '357780', market: 'KR', name: '솔브레인' },
+  { ticker: '140860', market: 'KR', name: '파크시스템스' },
+  { ticker: '095340', market: 'KR', name: 'ISC' },
+  { ticker: '087010', market: 'KR', name: '펩트론' },
+  { ticker: '137400', market: 'KR', name: '피엔티' },
 ]
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
@@ -246,7 +265,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v10:${user.id}:${today}:${fp}`
+  const cacheKey = `ai-rebalance-v11:${user.id}:${today}:${fp}`
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)

@@ -90,6 +90,37 @@ const US_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'CRM',  lynch:'fast_grower',name:'Salesforce' },
   { ticker:'NOW',  lynch:'fast_grower',name:'ServiceNow' },
   { ticker:'AMD',  lynch:'fast_grower',name:'AMD' },
+  // ── 코어 풀 2차 확장(2026-06) US 30→60 — 반도체·SW·헬스케어·금융·산업재 폭 확대 ──
+  { ticker:'QCOM', lynch:'cyclical',   name:'Qualcomm' },
+  { ticker:'TXN',  lynch:'cyclical',   name:'Texas Instruments' },
+  { ticker:'MU',   lynch:'cyclical',   name:'Micron' },
+  { ticker:'INTC', lynch:'turnaround', name:'Intel' },
+  { ticker:'ORCL', lynch:'stalwart',   name:'Oracle' },
+  { ticker:'ADBE', lynch:'fast_grower',name:'Adobe' },
+  { ticker:'CRWD', lynch:'fast_grower',name:'CrowdStrike' },
+  { ticker:'PANW', lynch:'fast_grower',name:'Palo Alto Networks' },
+  { ticker:'ANET', lynch:'fast_grower',name:'Arista Networks' },
+  { ticker:'MRVL', lynch:'fast_grower',name:'Marvell' },
+  { ticker:'NFLX', lynch:'fast_grower',name:'Netflix' },
+  { ticker:'DIS',  lynch:'stalwart',   name:'Disney' },
+  { ticker:'NKE',  lynch:'stalwart',   name:'Nike' },
+  { ticker:'MCD',  lynch:'slow_grower',name:'McDonald’s' },
+  { ticker:'TSLA', lynch:'fast_grower',name:'Tesla' },
+  { ticker:'MRK',  lynch:'stalwart',   name:'Merck' },
+  { ticker:'PFE',  lynch:'slow_grower',name:'Pfizer' },
+  { ticker:'TMO',  lynch:'stalwart',   name:'Thermo Fisher' },
+  { ticker:'ISRG', lynch:'fast_grower',name:'Intuitive Surgical' },
+  { ticker:'ABT',  lynch:'stalwart',   name:'Abbott' },
+  { ticker:'GS',   lynch:'cyclical',   name:'Goldman Sachs' },
+  { ticker:'MS',   lynch:'cyclical',   name:'Morgan Stanley' },
+  { ticker:'WFC',  lynch:'cyclical',   name:'Wells Fargo' },
+  { ticker:'SCHW', lynch:'cyclical',   name:'Charles Schwab' },
+  { ticker:'BLK',  lynch:'stalwart',   name:'BlackRock' },
+  { ticker:'AXP',  lynch:'cyclical',   name:'American Express' },
+  { ticker:'BA',   lynch:'turnaround', name:'Boeing' },
+  { ticker:'HON',  lynch:'stalwart',   name:'Honeywell' },
+  { ticker:'DE',   lynch:'cyclical',   name:'Deere' },
+  { ticker:'COP',  lynch:'cyclical',   name:'ConocoPhillips' },
 ]
 const KR_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'005930',lynch:'stalwart',   name:'삼성전자' },
@@ -113,6 +144,27 @@ const KR_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'009540',lynch:'cyclical',   name:'HD한국조선해양' },
   { ticker:'042700',lynch:'cyclical',   name:'한미반도체' },
   { ticker:'196170',lynch:'fast_grower',name:'알테오젠' },
+  // ── 코어 풀 2차 확장(2026-06) KR 20→40 — 금융·통신·바이오·소재·조선·전자 폭 확대 ──
+  { ticker:'000810',lynch:'stalwart',   name:'삼성화재' },
+  { ticker:'086790',lynch:'cyclical',   name:'하나금융지주' },
+  { ticker:'316140',lynch:'cyclical',   name:'우리금융지주' },
+  { ticker:'015760',lynch:'slow_grower',name:'한국전력' },
+  { ticker:'034730',lynch:'stalwart',   name:'SK' },
+  { ticker:'017670',lynch:'slow_grower',name:'SK텔레콤' },
+  { ticker:'030200',lynch:'slow_grower',name:'KT' },
+  { ticker:'066570',lynch:'cyclical',   name:'LG전자' },
+  { ticker:'011200',lynch:'cyclical',   name:'HMM' },
+  { ticker:'010130',lynch:'cyclical',   name:'고려아연' },
+  { ticker:'028260',lynch:'stalwart',   name:'삼성물산' },
+  { ticker:'010140',lynch:'cyclical',   name:'삼성중공업' },
+  { ticker:'042660',lynch:'cyclical',   name:'한화오션' },
+  { ticker:'064350',lynch:'cyclical',   name:'현대로템' },
+  { ticker:'247540',lynch:'fast_grower',name:'에코프로비엠' },
+  { ticker:'000100',lynch:'stalwart',   name:'유한양행' },
+  { ticker:'128940',lynch:'fast_grower',name:'한미약품' },
+  { ticker:'326030',lynch:'fast_grower',name:'SK바이오팜' },
+  { ticker:'009150',lynch:'cyclical',   name:'삼성전기' },
+  { ticker:'018260',lynch:'stalwart',   name:'삼성에스디에스' },
 ]
 
 // ── 매크로 국면 × 피터 린치 가중치 매트릭스 (제미나이 보강 ①) ─────────────────
@@ -233,13 +285,13 @@ async function screenOne(
 
 export async function runScreener(phase: MacroPhase): Promise<{ us: ScreenedStock[]; kr: ScreenedStock[] }> {
   const all: ScreenedStock[] = []
-  // 동시성 4 — Yahoo 스로틀 방지
+  // 동시성 6 — 유니버스 100종목 확장(2026-06) 대응. Yahoo 스로틀은 screenOne catch로 graceful
   const universe = [
     ...US_UNIVERSE.map(s => ({ ...s, market: 'US' as const })),
     ...KR_UNIVERSE.map(s => ({ ...s, market: 'KR' as const })),
   ]
-  for (let i = 0; i < universe.length; i += 4) {
-    const batch = universe.slice(i, i + 4)
+  for (let i = 0; i < universe.length; i += 6) {
+    const batch = universe.slice(i, i + 6)
     const results = await Promise.all(batch.map(s => screenOne(s.ticker, s.market, s.lynch, s.name, phase).catch(() => null)))
     for (const r of results) if (r) all.push(r)
   }
