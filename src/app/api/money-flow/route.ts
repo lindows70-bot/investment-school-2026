@@ -18,6 +18,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ ticker, name, market, status: 'UNSUPPORTED', note: '개별 주식 전용 분석입니다.' })
   }
 
-  const result = await getMoneyFlow(ticker, market, name)
+  const selfBase = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
+  const result = await getMoneyFlow(ticker, market, name, selfBase)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

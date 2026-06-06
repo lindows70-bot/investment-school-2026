@@ -1,7 +1,7 @@
 'use client'
 // 💰 스마트머니 수급 레이더 — 외국인/기관/개인 일별 순매수로 돈의 유입·이탈을 시각화(KR)
 import { useState, useEffect } from 'react'
-import type { MoneyFlowResult, FlowActor, FlowStatus } from '@/lib/moneyFlow'
+import type { MoneyFlowResult, FlowActor, FlowStatus, UsFlow } from '@/lib/moneyFlow'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 
@@ -19,6 +19,41 @@ function won(v: number): string {
   if (a >= 1e8)  return `${s}${Math.round(a / 1e8)}억`
   if (a >= 1e4)  return `${s}${Math.round(a / 1e4)}만`
   return `${s}${Math.round(a)}`
+}
+
+const TREND_KR: Record<UsFlow['giantTrend'], string> = { add: '확대', cut: '축소', mixed: '혼조', none: '유지' }
+
+function UsBody({ us }: { us: UsFlow }) {
+  const zoneCol = us.mfiZone === 'oversold' ? '#22c55e' : us.mfiZone === 'overbought' ? '#ef4444' : '#3b82f6'
+  const trArrow = us.mfiTrend === 'rising' ? '▲' : us.mfiTrend === 'falling' ? '▼' : '─'
+  const trCol = us.mfiTrend === 'rising' ? '#34d399' : us.mfiTrend === 'falling' ? '#f87171' : '#8a9aaa'
+  const w = us.mfi ?? 50
+  return (
+    <div style={{ marginBottom: 12 }}>
+      {/* MFI 게이지 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, fontSize: 12.5 }}>
+        <span style={{ color: '#aab6c4', fontWeight: 700 }}>자금흐름 MFI</span>
+        <span style={{ color: zoneCol, fontWeight: 800, fontFamily: 'monospace' }}>{us.mfi ?? '—'}</span>
+        <span style={{ color: trCol, fontSize: 11 }}>{trArrow} {us.mfiTrend === 'rising' ? '상승' : us.mfiTrend === 'falling' ? '하락' : '횡보'}</span>
+        <span style={{ marginLeft: 'auto', color: '#7f93a8', fontSize: 10.5 }}>20 과매도 · 80 과매수</span>
+      </div>
+      <div style={{ position: 'relative', height: 12, background: '#0f1117', borderRadius: 6, overflow: 'hidden' }}>
+        <div style={{ width: `${w}%`, height: '100%', background: zoneCol, borderRadius: 6, transition: 'width .3s' }} />
+        {[20, 80].map(m => (
+          <div key={m} style={{ position: 'absolute', left: `${m}%`, top: 0, bottom: 0, width: 1, background: '#475569' }} />
+        ))}
+      </div>
+      {/* 내부자 · 13F 칩 */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+        <span style={{ background: us.insiderBuyers > 0 ? 'rgba(34,197,94,0.12)' : '#0f1117', color: us.insiderBuyers > 0 ? '#34d399' : '#8a9aaa', border: `1px solid ${us.insiderBuyers > 0 ? '#22c55e44' : '#1e293b'}`, borderRadius: 8, padding: '4px 11px', fontSize: 12, fontWeight: 600 }}>
+          {us.insiderBuyers > 0 ? `🕵️ 내부자 ${us.insiderBuyers}명 장내매수${us.insiderCluster ? ' 🔥' : ''}` : '🕵️ 내부자 매수 없음'}
+        </span>
+        <span style={{ background: us.giantHolders > 0 ? 'rgba(59,130,246,0.12)' : '#0f1117', color: us.giantHolders > 0 ? '#60a5fa' : '#8a9aaa', border: `1px solid ${us.giantHolders > 0 ? '#3b82f644' : '#1e293b'}`, borderRadius: 8, padding: '4px 11px', fontSize: 12, fontWeight: 600 }}>
+          {us.giantHolders > 0 ? `🐳 13F 거인 ${us.giantHolders}인 보유 · ${TREND_KR[us.giantTrend]}` : '🏛️ 거인 미보유'}
+        </span>
+      </div>
+    </div>
+  )
 }
 
 export default function MoneyFlowRadar({ ticker, name, market }: { ticker: string; name: string; market: string }) {
@@ -74,30 +109,36 @@ export default function MoneyFlowRadar({ ticker, name, market }: { ticker: strin
         </span>
       </div>
       <div style={{ color: '#7f93a8', fontSize: 11.5, marginBottom: 12 }}>
-        최근 20일 누적 순매수(추정 대금) · 외국인 보유율 {data.foreignHoldRatio != null ? `${data.foreignHoldRatio.toFixed(1)}%` : '—'}
+        {data.us
+          ? 'MFI 자금흐름지수 · 내부자 매수(90일) · 13F 거인 보유 — 미국 스마트머니 프록시'
+          : `최근 20일 누적 순매수(추정 대금) · 외국인 보유율 ${data.foreignHoldRatio != null ? `${data.foreignHoldRatio.toFixed(1)}%` : '—'}`}
       </div>
 
-      {/* 3대 주체 에너지 바 */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-        {actors.map(({ key, label, a }) => {
-          const amt = a?.amt20 ?? 0
-          const buy = (a?.net20 ?? 0) > 0
-          const w = Math.round((Math.abs(amt) / maxAbs) * 100)
-          const col = a?.dir === 'FLAT' ? '#64748b' : buy ? '#22c55e' : '#ef4444'
-          return (
-            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
-              <span style={{ width: 44, color: '#aab6c4', fontWeight: 700, flexShrink: 0 }}>{label}</span>
-              <div style={{ flex: 1, height: 12, background: '#0f1117', borderRadius: 6, overflow: 'hidden' }}>
-                <div style={{ width: `${w}%`, height: '100%', background: col, borderRadius: 6, transition: 'width .3s' }} />
+      {/* US: MFI 게이지 + 내부자·13F 칩 / KR: 3대 주체 에너지 바 */}
+      {data.us ? (
+        <UsBody us={data.us} />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+          {actors.map(({ key, label, a }) => {
+            const amt = a?.amt20 ?? 0
+            const buy = (a?.net20 ?? 0) > 0
+            const w = Math.round((Math.abs(amt) / maxAbs) * 100)
+            const col = a?.dir === 'FLAT' ? '#64748b' : buy ? '#22c55e' : '#ef4444'
+            return (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
+                <span style={{ width: 44, color: '#aab6c4', fontWeight: 700, flexShrink: 0 }}>{label}</span>
+                <div style={{ flex: 1, height: 12, background: '#0f1117', borderRadius: 6, overflow: 'hidden' }}>
+                  <div style={{ width: `${w}%`, height: '100%', background: col, borderRadius: 6, transition: 'width .3s' }} />
+                </div>
+                <span style={{ width: 70, textAlign: 'right', color: col, fontWeight: 700, flexShrink: 0 }}>{won(amt)}</span>
+                <span style={{ width: 64, textAlign: 'right', color: a?.dir === 'FLAT' ? '#64748b' : buy ? '#34d399' : '#f87171', fontSize: 11, flexShrink: 0 }}>
+                  {a?.dir === 'FLAT' ? '─ 중립' : buy ? '▲ 매수우위' : '▼ 매도'}
+                </span>
               </div>
-              <span style={{ width: 70, textAlign: 'right', color: col, fontWeight: 700, flexShrink: 0 }}>{won(amt)}</span>
-              <span style={{ width: 64, textAlign: 'right', color: a?.dir === 'FLAT' ? '#64748b' : buy ? '#34d399' : '#f87171', fontSize: 11, flexShrink: 0 }}>
-                {a?.dir === 'FLAT' ? '─ 중립' : buy ? '▲ 매수우위' : '▼ 매도'}
-              </span>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* 린치식 배지 */}
       {data.badges.length > 0 && (
@@ -115,7 +156,9 @@ export default function MoneyFlowRadar({ ticker, name, market }: { ticker: strin
       </div>
 
       <div style={{ color: '#4b5563', fontSize: 10.5, marginTop: 8, lineHeight: 1.5 }}>
-        ※ 대금은 일별 순매수 수량×종가 추정치입니다. 외국인 순매수엔 패시브·프로그램 매매도 포함됩니다 — 수급은 연료일 뿐 방향은 펀더멘탈이 결정합니다. 교육용 시뮬레이션이며 투자 추천이 아닙니다.
+        {data.us
+          ? '※ MFI는 거래량 가중 자금흐름지수, 13F는 분기·45일 지연 공시입니다. 수급은 연료일 뿐 방향은 펀더멘탈이 결정합니다. 교육용 시뮬레이션이며 투자 추천이 아닙니다.'
+          : '※ 대금은 일별 순매수 수량×종가 추정치입니다. 외국인 순매수엔 패시브·프로그램 매매도 포함됩니다 — 수급은 연료일 뿐 방향은 펀더멘탈이 결정합니다. 교육용 시뮬레이션이며 투자 추천이 아닙니다.'}
       </div>
     </div>
   )

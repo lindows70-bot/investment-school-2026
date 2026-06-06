@@ -1,7 +1,20 @@
-// 스마트머니 수급 레이더 — KR 외국인/기관/개인 일별 순매수 수집·린치식 판정 SSOT (Zero Cost·Lazy Cache)
+// 스마트머니 수급 레이더 SSOT — KR 외국인/기관/개인 직접 + US 프록시(MFI·내부자·13F) (Zero Cost·Lazy Cache)
 import { getCache, setCache } from '@/lib/appCache'
+import { getInsiderSignal } from '@/app/actions/getInsiderSignal'
+import type { ShadowResult } from '@/app/api/shadow-13f/route'
 
 export type FlowStatus = 'INFLOW' | 'CROWDED' | 'NEGLECTED' | 'NEUTRAL' | 'UNSUPPORTED'
+
+// US 프록시 수급 — MFI(자금흐름지수) + 내부자 매수 + 13F 거인 보유
+export interface UsFlow {
+  mfi:            number | null   // Money Flow Index 0~100
+  mfiZone:        'oversold' | 'overbought' | 'neutral'
+  mfiTrend:       'rising' | 'falling' | 'flat'
+  insiderBuyers:  number          // 최근 90일 장내매수 내부자 수
+  insiderCluster: boolean         // 2명+ 동시 매수
+  giantHolders:   number          // 13F 전설 거인 보유 수(청산 제외)
+  giantTrend:     'add' | 'cut' | 'mixed' | 'none'
+}
 
 export interface FlowActor {
   net5:  number   // 최근 5일 누적 순매수 수량(주)
@@ -20,6 +33,7 @@ export interface MoneyFlowResult {
   organ:            FlowActor | null
   individual:       FlowActor | null
   foreignHoldRatio: number | null   // 외국인 보유율 %
+  us:               UsFlow | null   // US 프록시(미국 종목만)
   nearHigh:         boolean         // 60일 고점 근처(과열 판정용)
   badges:           string[]        // 👥쌍끌이 매수 · 🚨개미 독박 · 🏛️기관 소외주
   lynchComment:     string
@@ -98,15 +112,140 @@ function judgeKr(f: FlowActor, o: FlowActor, ind: FlowActor, foreignHold: number
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
-// 메인: 종목 수급 분석. KR=3주체 직접 / US=2단계(준비중)
-export async function getMoneyFlow(ticker: string, market: 'KR' | 'US', name: string): Promise<MoneyFlowResult> {
+// ── US 프록시 ────────────────────────────────────────────────────────────────
+// Yahoo 일봉(3개월)에서 MFI(14) 계산 + 60일 고점 근접 여부
+async function computeUsMfi(ticker: string): Promise<{ mfi: number | null; trend: UsFlow['mfiTrend']; nearHigh: boolean }> {
+  try {
+    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker.toUpperCase()}?range=3mo&interval=1d`, {
+      headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10_000),
+    })
+    if (!r.ok) return { mfi: null, trend: 'flat', nearHigh: false }
+    const j = await r.json()
+    const q = j?.chart?.result?.[0]?.indicators?.quote?.[0]
+    if (!q) return { mfi: null, trend: 'flat', nearHigh: false }
+    // null 끼인 봉 제거(인덱스 정렬 유지)
+    const bars: { h: number; l: number; c: number; v: number }[] = []
+    for (let i = 0; i < (q.close?.length ?? 0); i++) {
+      const h = q.high?.[i], l = q.low?.[i], c = q.close?.[i], v = q.volume?.[i]
+      if (h != null && l != null && c != null && v != null) bars.push({ h, l, c, v })
+    }
+    if (bars.length < 16) return { mfi: null, trend: 'flat', nearHigh: false }
+    const tp = bars.map(b => (b.h + b.l + b.c) / 3)
+    const rmf = bars.map((b, i) => tp[i] * b.v)
+    const period = 14
+    const series: number[] = []
+    for (let i = period; i < tp.length; i++) {
+      let pos = 0, neg = 0
+      for (let k = i - period + 1; k <= i; k++) {
+        if (tp[k] > tp[k - 1]) pos += rmf[k]
+        else if (tp[k] < tp[k - 1]) neg += rmf[k]
+      }
+      series.push(neg === 0 ? 100 : 100 - 100 / (1 + pos / neg))
+    }
+    const last = series[series.length - 1] ?? null
+    const prev = series[series.length - 2] ?? last
+    const trend: UsFlow['mfiTrend'] = last == null || prev == null ? 'flat' : last > prev + 2 ? 'rising' : last < prev - 2 ? 'falling' : 'flat'
+    const closes = bars.map(b => b.c)
+    const nearHigh = closes[closes.length - 1] >= Math.max(...closes) * 0.95
+    return { mfi: last == null ? null : Math.round(last), trend, nearHigh }
+  } catch { return { mfi: null, trend: 'flat', nearHigh: false } }
+}
+
+// 기존 13F(shadow-13f) 재사용 — best-effort(펀드 캐시 워밍 시 ~1s, 실패 graceful)
+async function fetch13F(ticker: string, name: string, selfBase?: string): Promise<{ holders: number; trend: UsFlow['giantTrend'] }> {
+  if (!selfBase) return { holders: 0, trend: 'none' }
+  try {
+    const r = await fetch(`${selfBase}/api/shadow-13f?ticker=${encodeURIComponent(ticker)}&market=US&name=${encodeURIComponent(name)}`, { signal: AbortSignal.timeout(9_000) })
+    if (!r.ok) return { holders: 0, trend: 'none' }
+    const j = (await r.json()) as ShadowResult
+    const owning = (j.holders ?? []).filter(h => h.action !== 'exit')
+    const adders = owning.filter(h => h.action === 'add' || h.action === 'new').length
+    const cutters = (j.holders ?? []).filter(h => h.action === 'trim' || h.action === 'exit').length
+    const trend: UsFlow['giantTrend'] = adders > 0 && cutters > 0 ? 'mixed' : adders > 0 ? 'add' : cutters > 0 ? 'cut' : 'none'
+    return { holders: owning.length, trend }
+  } catch { return { holders: 0, trend: 'none' } }
+}
+
+function judgeUs(us: UsFlow, nearHigh: boolean): { status: FlowStatus; badges: string[]; lynchComment: string; actionGuide: string } {
+  const badges: string[] = []
+  if (us.insiderCluster) badges.push('🔥 내부자 클러스터')
+  else if (us.insiderBuyers > 0) badges.push('🕵️ 내부자 매수')
+  if (us.giantHolders > 0) badges.push(`🐳 거인 ${us.giantHolders}인 보유`)
+  else badges.push('🏛️ 기관(거인) 미발견')
+  if (us.mfi != null && us.mfi < 20) badges.push('⚡ 자금흐름 과매도')
+  if (us.mfi != null && us.mfi > 80) badges.push('🌡️ 자금흐름 과매수')
+
+  const insiderBuy = us.insiderBuyers > 0
+  // 🟢 유입: 내부자 매수 + 자금흐름이 과열(>70) 아님 → 린치가 좋아하는 자리
+  if (insiderBuy && us.mfi != null && us.mfi < 70) {
+    return {
+      status: 'INFLOW', badges,
+      lynchComment: `최근 90일 내부자 ${us.insiderBuyers}명이 자기 돈으로 장내매수${us.insiderCluster ? '(클러스터)' : ''}했고, 자금흐름(MFI ${us.mfi})도 과열 구간이 아닙니다. 린치가 말한 "내부자가 사는 데는 이유가 하나"입니다.`,
+      actionGuide: '펀더멘탈이 받쳐준다면 분할 매수 관점에서 참고하세요. 내부자 매수는 강력하나, 방향은 결국 실적이 결정합니다.',
+    }
+  }
+  // 🔴 과열: 신고가 + MFI 과매수
+  if (nearHigh && us.mfi != null && us.mfi > 80) {
+    return {
+      status: 'CROWDED', badges,
+      lynchComment: `주가는 고점 부근이고 자금흐름지수(MFI ${us.mfi})가 과매수권입니다. 단기 과열로 변동성이 커질 수 있는 구간입니다.`,
+      actionGuide: '추격 매수보다 자금흐름이 식는지 관망하세요. 좋은 기업도 과열 구간 진입은 손실 회피에 불리합니다.',
+    }
+  }
+  // 🟡 소외: 거인 미보유 + 자금흐름 중립
+  if (us.giantHolders === 0 && us.mfi != null && us.mfi >= 35 && us.mfi <= 65) {
+    return {
+      status: 'NEGLECTED', badges,
+      lynchComment: '전설적 투자자(13F 추적 거인)들이 아직 담지 않은 종목입니다. 린치가 좋아한 "기관이 발견하지 못한 진주" 후보일 수 있습니다.',
+      actionGuide: '펀더멘탈이 우수(저PEG·이익 성장)하다면, 향후 기관 유입 시 탄력이 기대됩니다. 자금흐름 반등을 함께 관찰하세요.',
+    }
+  }
+  return {
+    status: 'NEUTRAL', badges,
+    lynchComment: `뚜렷한 스마트머니 신호는 약합니다(MFI ${us.mfi ?? '—'}, 내부자 매수 ${us.insiderBuyers}명). 수급보다 펀더멘탈 중심으로 판단할 구간입니다.`,
+    actionGuide: '수급 프록시는 중립입니다. PEG·이익 추세 등 본질 지표를 우선 보세요.',
+  }
+}
+
+async function getUsFlow(ticker: string, name: string, base: MoneyFlowResult, selfBase?: string): Promise<MoneyFlowResult> {
+  const cacheKey = `money-flow-v2:${ticker.toUpperCase()}:US:${kstDate()}`
+  const cached = await getCache<MoneyFlowResult>(cacheKey, 24 * 3600_000)
+  if (cached) return cached
+  try {
+    const [mfiRes, insider, f13] = await Promise.all([
+      computeUsMfi(ticker),
+      getInsiderSignal({ ticker, market: 'US', name }).catch(() => null),
+      fetch13F(ticker, name, selfBase),
+    ])
+    if (mfiRes.mfi == null && !insider?.hasBuys && f13.holders === 0) {
+      return { ...base, status: 'UNSUPPORTED', note: '미국 수급 프록시 데이터를 불러오지 못했습니다.' }
+    }
+    const us: UsFlow = {
+      mfi: mfiRes.mfi,
+      mfiZone: mfiRes.mfi == null ? 'neutral' : mfiRes.mfi < 20 ? 'oversold' : mfiRes.mfi > 80 ? 'overbought' : 'neutral',
+      mfiTrend: mfiRes.trend,
+      insiderBuyers: insider?.buyerCount ?? 0,
+      insiderCluster: insider?.cluster ?? false,
+      giantHolders: f13.holders,
+      giantTrend: f13.trend,
+    }
+    const j = judgeUs(us, mfiRes.nearHigh)
+    const result: MoneyFlowResult = { ...base, us, nearHigh: mfiRes.nearHigh, asOf: new Date().toISOString(), ...j }
+    await setCache(cacheKey, result)
+    return result
+  } catch {
+    return { ...base, status: 'UNSUPPORTED', note: '미국 수급 프록시 데이터를 불러오지 못했습니다.' }
+  }
+}
+
+// 메인: 종목 수급 분석. KR=외인/기관/개인 직접 / US=MFI+내부자+13F 프록시
+export async function getMoneyFlow(ticker: string, market: 'KR' | 'US', name: string, selfBase?: string): Promise<MoneyFlowResult> {
   const base: MoneyFlowResult = {
     ticker, name, market, status: 'NEUTRAL', foreign: null, organ: null, individual: null,
-    foreignHoldRatio: null, nearHigh: false, badges: [], lynchComment: '', actionGuide: '', asOf: new Date().toISOString(),
+    foreignHoldRatio: null, us: null, nearHigh: false, badges: [], lynchComment: '', actionGuide: '', asOf: new Date().toISOString(),
   }
-  if (market === 'US') {
-    return { ...base, status: 'UNSUPPORTED', note: '미국 수급(MFI·내부자·13F 프록시)은 2단계에서 제공됩니다.' }
-  }
+  if (market === 'US') return getUsFlow(ticker, name, base, selfBase)
+
   const code6 = (ticker.match(/\d{6}/)?.[0]) ?? ''
   if (!code6) return { ...base, status: 'UNSUPPORTED', note: '종목 코드를 확인할 수 없습니다.' }
 
