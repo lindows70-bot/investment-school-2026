@@ -26,6 +26,29 @@ function StatusChip({ s }: { s: FlowStatus }) {
   return <span style={{ background: `${c.color}1a`, color: c.color, border: `1px solid ${c.color}55`, borderRadius: 999, padding: '0 7px', fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>{c.emoji} {c.label}</span>
 }
 
+// 동행지수 추이 스파크라인 — 누적된 일별 rate 시계열. 2점 미만이면 '누적 중'
+function Sparkline({ data }: { data: { date: string; rate: number }[] }) {
+  if (data.length < 2) {
+    return <span style={{ color: '#5b6b7d', fontSize: 10.5, minWidth: 88 }}>추이 누적 중…</span>
+  }
+  const W = 92, H = 30, P = 3
+  const xs = data.map((_, i) => P + (i / (data.length - 1)) * (W - 2 * P))
+  const ys = data.map(d => P + (1 - Math.min(Math.max(d.rate, 0), 100) / 100) * (H - 2 * P))
+  const pts = xs.map((x, i) => `${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ')
+  const last = data[data.length - 1].rate, prev = data[data.length - 2].rate
+  const delta = last - prev
+  const col = delta > 0 ? '#22c55e' : delta < 0 ? '#ef4444' : '#8a9aaa'
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 88 }} title={`최근 ${data.length}일 동행지수 추이`}>
+      <svg width={W} height={H} style={{ display: 'block' }}>
+        <polyline points={pts} fill="none" stroke={col} strokeWidth={1.6} strokeLinejoin="round" strokeLinecap="round" />
+        <circle cx={xs[xs.length - 1]} cy={ys[ys.length - 1]} r={2.2} fill={col} />
+      </svg>
+      <span style={{ color: col, fontSize: 10.5, fontWeight: 700 }}>{delta > 0 ? '▲' : delta < 0 ? '▼' : '─'}{delta !== 0 ? Math.abs(delta) : ''}</span>
+    </span>
+  )
+}
+
 function Row({ e }: { e: FlowEntry }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: '#0f1117', borderRadius: 8, fontSize: 12 }}>
@@ -84,10 +107,11 @@ export default function PortfolioFlowDashboard() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <span style={{ fontSize: 19 }}>📡</span>
           <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 16 }}>포트폴리오 수급 레이더</span>
-          <span style={{ marginLeft: 'auto', color: '#7f93a8', fontSize: 11 }}>내 종목 {data.total}개 · 스마트머니 동행지수</span>
+          <span style={{ marginLeft: 'auto', color: '#7f93a8', fontSize: 11 }}>내 종목 {data.total}개 · 스마트머니 동행지수 <span style={{ color: '#5b6b7d' }}>(밸류 무관 자금 유입률)</span></span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ color: rate >= 50 ? '#22c55e' : rate >= 25 ? '#f59e0b' : '#8a9aaa', fontWeight: 900, fontSize: 28, fontFamily: 'monospace', minWidth: 64 }}>{rate}%</span>
+          <Sparkline data={data.history ?? []} />
           <div style={{ flex: 1 }}>
             <div style={{ height: 14, background: '#0f1117', borderRadius: 7, overflow: 'hidden' }}>
               <div style={{ width: `${rate}%`, height: '100%', background: `linear-gradient(90deg,#22c55e,#34d399)`, borderRadius: 7, transition: 'width .4s' }} />

@@ -32,6 +32,7 @@ export interface PortfolioFlowResult {
   crowdedCount:   number     // 이탈·과열 종목 수
   smartMoneyRate: number     // 유입 비율 % (종목 수 기준)
   headline:       string     // 결정론적 앵커 브리핑(AI 미사용)
+  history:        { date: string; rate: number }[]   // 동행지수 일별 추이(스파크라인용·누적)
   asOf:           string
 }
 
@@ -69,7 +70,7 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `portfolio-flow-v3:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `portfolio-flow-v4:${user.id}:${kstDate()}:${fp}`
   const cached = await getCache<PortfolioFlowResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -77,7 +78,7 @@ export async function GET(req: Request) {
   const { data: rows } = await admin.from('investments').select('ticker,name,market,purchase_price,quantity,currency').eq('user_id', user.id)
   const stocks = (rows ?? []).filter(r => getAssetType(r.ticker, r.name ?? '', r.market ?? 'US') === 'STOCK')
   if (!stocks.length) {
-    return NextResponse.json({ entries: [], total: 0, inflowCount: 0, crowdedCount: 0, smartMoneyRate: 0, headline: '', asOf: new Date().toISOString() })
+    return NextResponse.json({ entries: [], total: 0, inflowCount: 0, crowdedCount: 0, smartMoneyRate: 0, headline: '', history: [], asOf: new Date().toISOString() })
   }
 
   // 원가 기준 비중(히트맵용) — 통화 정규화(USD→KRW), 추가 fetch 0
@@ -115,9 +116,17 @@ export async function GET(req: Request) {
   const inflowCount = entries.filter(e => e.status === 'INFLOW').length
   const crowdedCount = entries.filter(e => e.status === 'CROWDED').length
   const smartMoneyRate = total ? Math.round((inflowCount / total) * 100) : 0
+
+  // 동행지수 일별 추이 누적(스파크라인) — 오늘 값 upsert, 최근 14일 유지(영구 키, 60일 TTL)
+  const today = kstDate()
+  const histKey = `portfolio-flow-hist:${user.id}`
+  const prevHist = (await getCache<{ date: string; rate: number }[]>(histKey, 60 * 86400_000)) ?? []
+  const history = [...prevHist.filter(h => h.date !== today), { date: today, rate: smartMoneyRate }].slice(-14)
+  await setCache(histKey, history)
+
   const result: PortfolioFlowResult = {
     entries, total, inflowCount, crowdedCount, smartMoneyRate,
-    headline: buildHeadline(entries, smartMoneyRate),
+    headline: buildHeadline(entries, smartMoneyRate), history,
     asOf: new Date().toISOString(),
   }
   await setCache(cacheKey, result)
