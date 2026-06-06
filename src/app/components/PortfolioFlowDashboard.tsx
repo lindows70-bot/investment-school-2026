@@ -30,6 +30,7 @@ function Row({ e }: { e: FlowEntry }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: '#0f1117', borderRadius: 8, fontSize: 12 }}>
       <span style={{ color: '#e2e8f0', fontWeight: 700, minWidth: 70 }}>{dnm(e)}</span>
+      <span style={{ color: '#64748b', fontSize: 10, fontFamily: 'monospace' }}>{e.weight}%</span>
       <StatusChip s={e.status} />
       {e.peg != null && <span style={{ color: '#3b82f6', fontSize: 11 }}>PEG {e.peg.toFixed(2)}</span>}
       <span style={{ marginLeft: 'auto', color: '#8a9aaa', fontSize: 11, whiteSpace: 'nowrap' }}>{e.flowText}</span>
@@ -66,6 +67,17 @@ export default function PortfolioFlowDashboard() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* 📡 앵커 브리핑 (결정론적 한 줄 요약 — 와꾸 잡기) */}
+      {data.headline && (
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'linear-gradient(135deg, rgba(34,197,94,0.10), rgba(59,130,246,0.06))', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 12, padding: '12px 16px' }}>
+          <span style={{ fontSize: 16, lineHeight: 1.4 }}>📡</span>
+          <div>
+            <div style={{ color: '#22c55e', fontWeight: 800, fontSize: 11, marginBottom: 2 }}>오늘 자 포트폴리오 수급 브리핑</div>
+            <div style={{ color: '#e2e8f0', fontSize: 13, lineHeight: 1.6 }}>{data.headline}</div>
+          </div>
+        </div>
+      )}
+
       {/* 헤더 + 스마트머니 동행지수 */}
       <div style={{ background: CARD, borderRadius: 12, padding: '16px 20px', border: `1px solid ${BORDER}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -120,12 +132,19 @@ export default function PortfolioFlowDashboard() {
                   <span style={{ color: '#64748b', fontSize: 13 }}>{list.length}</span>
                 </div>
                 <div style={{ color: '#6e7f8f', fontSize: 10.5, marginBottom: 8 }}>{cfg.desc}</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                  {list.length ? list.map(e => (
-                    <span key={e.ticker} style={{ background: `${cfg.color}1a`, color: '#cbd5e1', border: `1px solid ${cfg.color}40`, borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>
-                      {dnm(e)}{e.peg != null ? <span style={{ color: '#7f93a8', fontWeight: 400 }}> · {e.peg.toFixed(2)}</span> : null}
-                    </span>
-                  )) : <span style={{ color: '#475569', fontSize: 11 }}>해당 없음</span>}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
+                  {list.length ? list.slice().sort((a, b) => b.weight - a.weight).map(e => {
+                    // 비중 히트맵 — 비중 클수록 크고 굵고 진하게
+                    const w = e.weight
+                    const fs = 11 + Math.min(w * 0.16, 5)
+                    const fw = w >= 15 ? 800 : w >= 7 ? 700 : 600
+                    const alpha = w >= 15 ? '33' : w >= 7 ? '22' : '12'
+                    return (
+                      <span key={e.ticker} title={`비중 ${w}%`} style={{ background: `${cfg.color}${alpha}`, color: '#e2e8f0', border: `1px solid ${cfg.color}${w >= 7 ? '66' : '33'}`, borderRadius: 6, padding: '2px 8px', fontSize: fs, fontWeight: fw, lineHeight: 1.5 }}>
+                        {dnm(e)}{e.peg != null ? <span style={{ color: '#9aa7b4', fontWeight: 400, fontSize: 10.5 }}> · {e.peg.toFixed(2)}</span> : null}
+                      </span>
+                    )
+                  }) : <span style={{ color: '#475569', fontSize: 11 }}>해당 없음</span>}
                 </div>
               </div>
             )
