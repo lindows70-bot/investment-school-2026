@@ -63,7 +63,7 @@ export const SATELLITE_UNIVERSE: { ticker: string; market: 'US' | 'KR'; name: st
   { ticker: 'DDOG', market: 'US', name: 'Datadog' },
   { ticker: 'SNOW', market: 'US', name: 'Snowflake' },
   { ticker: 'ESTC', market: 'US', name: 'Elastic' },
-  { ticker: 'CFLT', market: 'US', name: 'Confluent' },
+  { ticker: 'ZETA', market: 'US', name: 'Zeta Global' },
   { ticker: 'S',    market: 'US', name: 'SentinelOne' },
   { ticker: 'ZS',   market: 'US', name: 'Zscaler' },
   { ticker: 'BILL', market: 'US', name: 'Bill Holdings' },
