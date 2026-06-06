@@ -13,6 +13,7 @@ import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { callGeminiJSON } from '@/lib/gemini'
 import { buildSignalMetrics, evaluateSignal } from '@/lib/jarvisBriefing'
 import { getSector } from '@/lib/schoolIndex'
+import { screenSatellite, type SatelliteScore } from '@/lib/satelliteScreener'
 import type { MacroAiResult, AiRecommendation } from '@/app/api/macro-ai-picks/route'
 
 // 피터 린치 황금비율(권장 분류 비중 %) — PortfolioBalanceRadar와 동일 SSOT
@@ -24,47 +25,6 @@ const CAT_KR: Record<string, string> = {
   turnaround: '회생주', asset_play: '자산주', slow_grower: '저성장주',
 }
 
-// 🚀 10배거 위성 후보 유니버스 — 중소형 성장주(코어 대형주 풀과 별개). 10배거 기준으로 스크리닝
-//    (제1원칙: 분석값은 실데이터·하드코딩 0. 후보 풀만 큐레이션 — 코어 유니버스와 동일 방식)
-const SATELLITE_UNIVERSE: { ticker: string; market: 'US' | 'KR'; name: string }[] = [
-  { ticker: 'IONQ', market: 'US', name: 'IonQ' },
-  { ticker: 'RGTI', market: 'US', name: 'Rigetti' },
-  { ticker: 'TEM',  market: 'US', name: 'Tempus AI' },
-  { ticker: 'RKLB', market: 'US', name: 'Rocket Lab' },
-  { ticker: 'ASTS', market: 'US', name: 'AST SpaceMobile' },
-  { ticker: 'CRDO', market: 'US', name: 'Credo Tech' },
-  { ticker: 'ALAB', market: 'US', name: 'Astera Labs' },
-  { ticker: 'HIMS', market: 'US', name: 'Hims & Hers' },
-  { ticker: 'OSCR', market: 'US', name: 'Oscar Health' },
-  { ticker: 'NBIS', market: 'US', name: 'Nebius' },
-  { ticker: '278470', market: 'KR', name: '에이피알' },
-  { ticker: '277810', market: 'KR', name: '레인보우로보틱스' },
-  { ticker: '058470', market: 'KR', name: '리노공업' },
-  { ticker: '240810', market: 'KR', name: '원익IPS' },
-  { ticker: '347860', market: 'KR', name: '알체라' },
-  { ticker: '389020', market: 'KR', name: '레이저쎌' },
-  { ticker: '281740', market: 'KR', name: '레이크머티리얼즈' },
-  { ticker: '348370', market: 'KR', name: '엔켐' },
-  // ── 위성(10배거) 풀 확장(2026-06) 18→36 — 소형 고성장 폭 확대(라이브 지표 fetch라 36 안전선) ──
-  { ticker: 'SOFI', market: 'US', name: 'SoFi Technologies' },
-  { ticker: 'AFRM', market: 'US', name: 'Affirm' },
-  { ticker: 'DKNG', market: 'US', name: 'DraftKings' },
-  { ticker: 'RBLX', market: 'US', name: 'Roblox' },
-  { ticker: 'SMCI', market: 'US', name: 'Super Micro Computer' },
-  { ticker: 'ARM',  market: 'US', name: 'Arm Holdings' },
-  { ticker: 'CELH', market: 'US', name: 'Celsius Holdings' },
-  { ticker: 'DUOL', market: 'US', name: 'Duolingo' },
-  { ticker: 'ENPH', market: 'US', name: 'Enphase Energy' },
-  { ticker: 'FSLR', market: 'US', name: 'First Solar' },
-  { ticker: 'CRSP', market: 'US', name: 'CRISPR Therapeutics' },
-  { ticker: 'OKLO', market: 'US', name: 'Oklo' },
-  { ticker: '403870', market: 'KR', name: 'HPSP' },
-  { ticker: '357780', market: 'KR', name: '솔브레인' },
-  { ticker: '140860', market: 'KR', name: '파크시스템스' },
-  { ticker: '095340', market: 'KR', name: 'ISC' },
-  { ticker: '087010', market: 'KR', name: '펩트론' },
-  { ticker: '137400', market: 'KR', name: '피엔티' },
-]
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 // 수익률 × 매도진단 4분면 액션
@@ -136,17 +96,9 @@ export interface ZombieRisk {
   weight:  number
   tickers: { ticker: string; name: string; market: string; interestCoverage: number | null }[]
 }
-// 🚀 위성(공격) 후보 — 중소형 10배거 잠재 종목. 코어와 별개로 소액 편입
-export interface SatelliteCandidate {
-  ticker:       string
-  name:         string
-  market:       string
-  marketCapUsd: number | null   // 시총(작을수록 룸↑)
-  growthPct:    number | null   // 매출 성장률 %
-  peg:          number | null
-  tenScore:     number          // 10배거 기준 충족 점수(0~100, 라이트)
-  allocWeight:  number          // 제안 편입 비중 %
-  reason:       string          // 한 줄 근거
+// 🚀 위성(공격) 후보 — 중소형 10배거 잠재 종목(satelliteScreener의 SatelliteScore + 제안 편입 비중)
+export interface SatelliteCandidate extends SatelliteScore {
+  allocWeight: number          // 제안 편입 비중 %
 }
 
 export interface RebalanceResult {
@@ -169,43 +121,6 @@ function admin() {
     { auth: { autoRefreshToken: false, persistSession: false } })
 }
 
-/**
- * 🚀 위성 10배거 스크리너 — 중소형 유니버스를 라이트 10배거 점수로 평가(buildSignalMetrics만, 추가 fetch 적음).
- *   시총 룸(작을수록↑) + 매출성장 + 저PEG + 비좀비. 보유 종목 제외. 상위 maxPick 반환.
- */
-async function screenSatellite(base: string, heldSet: Set<string>, maxPick: number): Promise<Omit<SatelliteCandidate, 'allocWeight'>[]> {
-  const pool = SATELLITE_UNIVERSE.filter(s => !heldSet.has(s.ticker.toUpperCase()))
-  const scored: Omit<SatelliteCandidate, 'allocWeight'>[] = []
-  for (let i = 0; i < pool.length; i += 6) {
-    const batch = pool.slice(i, i + 6)
-    const rs = await Promise.all(batch.map(async s => {
-      try {
-        const m = await buildSignalMetrics(s.ticker, s.market, s.name, base)
-        if (!m) return null
-        let mcUsd = m.marketCap
-        if (mcUsd != null && s.market === 'KR') mcUsd = mcUsd / 1350
-        const growthPct = m.revenueGrowth != null ? Math.round(m.revenueGrowth * 1000) / 10 : null
-        const icr = m.interestCoverage
-        const zombie = icr != null && icr < 1.5
-        // 라이트 점수: 시총룸(40) + 성장(35) + 저PEG(25), 좀비면 강한 감점
-        let sc = 0
-        if (mcUsd != null) sc += mcUsd < 10e9 ? 40 : mcUsd < 50e9 ? 22 : 0
-        if (growthPct != null) sc += growthPct >= 30 ? 35 : growthPct >= 18 ? 18 : 0
-        if (m.peg != null && m.peg > 0) sc += m.peg < 0.5 ? 25 : m.peg < 1.0 ? 14 : 0
-        if (zombie) sc = Math.min(sc, 30)   // 좀비는 위성에서도 강등(파산 위험)
-        const reason = [
-          mcUsd != null ? `시총 $${(mcUsd / 1e9).toFixed(1)}B` : null,
-          growthPct != null ? `매출성장 ${growthPct.toFixed(0)}%` : null,
-          m.peg != null && m.peg > 0 ? `PEG ${m.peg.toFixed(2)}` : null,
-          zombie ? '⚠️좀비위험' : null,
-        ].filter(Boolean).join(' · ')
-        return { ticker: s.ticker, name: s.name, market: s.market, marketCapUsd: mcUsd, growthPct, peg: m.peg, tenScore: sc, reason }
-      } catch { return null }
-    }))
-    for (const r of rs) if (r) scored.push(r)
-  }
-  return scored.sort((a, b) => b.tenScore - a.tenScore).slice(0, maxPick)
-}
 
 /** 손실률 → 본전까지 필요 상승률 (확정 수학): r=-15% → +17.6% */
 function breakEvenRiseOf(pnlPct: number | null): number | null {
@@ -265,7 +180,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v11:${user.id}:${today}:${fp}`
+  const cacheKey = `ai-rebalance-v12:${user.id}:${today}:${fp}`
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)

@@ -19,8 +19,27 @@
     "src/app/api/market-indices/route.ts":       { "maxDuration": 20 },
     "src/app/api/macro-data/route.ts":           { "maxDuration": 30 },
     "src/app/api/fred/route.ts":                 { "maxDuration": 30 },
-    "src/app/api/fedwatch/route.ts":             { "maxDuration": 20 }
+    "src/app/api/fedwatch/route.ts":             { "maxDuration": 20 },
+    "src/app/api/shadow-13f/route.ts":           { "maxDuration": 45 },
+    "src/app/api/nps-portfolio/route.ts":        { "maxDuration": 60 },
+    "src/app/api/cron/morning-briefing/route.ts":{ "maxDuration": 300 },
+    "src/app/api/cron/school-index/route.ts":    { "maxDuration": 120 },
+    "src/app/api/correlation-matrix/route.ts":   { "maxDuration": 60 },
+    "src/app/api/lynch-earnings-tracer/route.ts":{ "maxDuration": 45 },
+    "src/app/api/guidance-radar/route.ts":       { "maxDuration": 60 },
+    "src/app/api/dividend-explorer/route.ts":    { "maxDuration": 30 },
+    "src/app/api/macro-ai-picks/route.ts":       { "maxDuration": 120 },
+    "src/app/api/cron/satellite-scores/route.ts":{ "maxDuration": 120 }
   },
+
+  "crons": [
+    { "path": "/api/nps-portfolio", "schedule": "0 18 * * *" },
+    { "path": "/api/shadow-13f?ticker=AAPL&name=Apple%20Inc&market=US", "schedule": "0 18 * * *" },
+    { "path": "/api/cron/school-index", "schedule": "0 19 * * *" },
+    { "path": "/api/cron/morning-briefing", "schedule": "0 20 * * *" },
+    { "path": "/api/macro-ai-picks?refresh=1", "schedule": "0 19 * * 1" },
+    { "path": "/api/cron/satellite-scores", "schedule": "30 18 * * *" }
+  ],
 
   "headers": [
     {
