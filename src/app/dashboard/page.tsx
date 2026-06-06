@@ -23,6 +23,7 @@ import JarvisMorningBriefing      from '@/app/components/JarvisMorningBriefing'
 import SchoolIndexDashboard       from '@/app/components/SchoolIndexDashboard'
 import NewsCatalystRadar          from '@/app/components/NewsCatalystRadar'
 import AiRebalancePanel           from '@/app/components/AiRebalancePanel'
+import PortfolioFlowDashboard     from '@/app/components/PortfolioFlowDashboard'
 import TenbaggerHunter            from '@/app/components/TenbaggerHunter'
 import CorrelationMatrix          from '@/app/components/CorrelationMatrix'
 import LynchEarningsLineTracer    from '@/app/components/LynchEarningsLineTracer'
@@ -673,7 +674,7 @@ export default function DashboardPage() {
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
   const [btActive,  setBtActive]  = useState({ rebalanceQ:true, rebalanceY:false, buyAndHold:true, benchmark:true })
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'tenbagger'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger'>('live')
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
   // ── AI 멘토 탭: MENTOR_STOCKS 제거 후 컴포넌트에 빈 배열 전달 ──
@@ -1429,6 +1430,7 @@ export default function DashboardPage() {
               { key: 'correlation',  icon: '📐', label: '상관관계 매트릭스',  desc: '종목 간 동조화 · 분산 진단' },
               { key: 'newscatalyst',icon: '📰', label: '뉴스 촉매 레이더',   desc: '보유 종목 뉴스 → 3단계 신호' },
               { key: 'rebalance',   icon: '🤖', label: 'AI 리밸런싱',        desc: '손익 반영 익절/손절 교체매매' },
+              { key: 'moneyflow',   icon: '📡', label: '수급 레이더',        desc: '내 종목 스마트머니 유입/이탈' },
               { key: 'earnings',    icon: '📋', label: '어닝 터미널',        desc: 'G 리비전 · PEG 알럿' },
               { key: 'yield',       icon: '💰', label: '주주환원 터미널',    desc: '배당 + 자사주 · 총환원율' },
             ],
@@ -3202,6 +3204,13 @@ export default function DashboardPage() {
       <div id="tab-rebalance" style={{ display: dashTab==='rebalance' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         <ErrorBoundary label="AI 리밸런싱">
           <AiRebalancePanel />
+        </ErrorBoundary>
+      </div>
+
+      {/* ── 📡 포트폴리오 수급 레이더 탭 ── */}
+      <div id="tab-moneyflow" style={{ display: dashTab==='moneyflow' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="수급 레이더">
+          <PortfolioFlowDashboard />
         </ErrorBoundary>
       </div>
 
