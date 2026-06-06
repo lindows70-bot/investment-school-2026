@@ -60,9 +60,10 @@ export default function PortfolioFlowDashboard() {
   if (loading) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa' }}>📡 내 종목 수급을 분석 중입니다…</div>
   if (!data || data.total === 0) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa' }}>분석할 개별 주식이 없습니다. 종목을 추가하면 수급 레이더가 작동합니다.</div>
 
-  const inflow = data.entries.filter(e => e.status === 'INFLOW')
-  const crowded = data.entries.filter(e => e.status === 'CROWDED')
+  // 보드는 4분면과 동일 기준(LEADER/CROWDED) — status만 보면 'ETN 유입(좋음) vs 과열(나쁨)' 모순 발생
   const byQuad = (q: Quadrant) => data.entries.filter(e => e.quadrant === q)
+  const leaders = byQuad('LEADER')
+  const crowded = byQuad('CROWDED')
   const rate = data.smartMoneyRate
 
   return (
@@ -102,15 +103,15 @@ export default function PortfolioFlowDashboard() {
       {/* 쌍끌이 / 과밀 2단 보드 */}
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 320px', background: CARD, borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(34,197,94,0.3)' }}>
-          <div style={{ color: '#22c55e', fontWeight: 700, fontSize: 13, marginBottom: 4 }}>🔥 스마트머니 유입 순항</div>
-          <div style={{ color: '#7f93a8', fontSize: 11, marginBottom: 10 }}>외인·기관(국내) 또는 내부자·자금흐름(미국)이 유입 중인 내 종목</div>
+          <div style={{ color: '#22c55e', fontWeight: 700, fontSize: 13, marginBottom: 4 }}>🏆 매수 우선순위 (저평가 + 유입)</div>
+          <div style={{ color: '#7f93a8', fontSize: 11, marginBottom: 10 }}>저PEG인데 스마트머니까지 유입 — 가장 매력적인 자리</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {inflow.length ? inflow.map(e => <Row key={e.ticker} e={e} />) : <div style={{ color: '#64748b', fontSize: 12, padding: '6px 0' }}>현재 쌍끌이 매집 종목이 없습니다.</div>}
+            {leaders.length ? leaders.map(e => <Row key={e.ticker} e={e} />) : <div style={{ color: '#64748b', fontSize: 12, padding: '6px 0' }}>현재 저평가 + 수급 유입을 모두 만족하는 종목이 없습니다.</div>}
           </div>
         </div>
         <div style={{ flex: '1 1 320px', background: CARD, borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(239,68,68,0.3)' }}>
-          <div style={{ color: '#ef4444', fontWeight: 700, fontSize: 13, marginBottom: 4 }}>⚠️ 개미 과밀·상투 경보</div>
-          <div style={{ color: '#7f93a8', fontSize: 11, marginBottom: 10 }}>메이저는 빠지고 개인만 받아내는 내 종목</div>
+          <div style={{ color: '#ef4444', fontWeight: 700, fontSize: 13, marginBottom: 4 }}>⚠️ 상투·과열 경보 (고평가)</div>
+          <div style={{ color: '#7f93a8', fontSize: 11, marginBottom: 10 }}>고평가인데 수급이 몰리거나(추격 과열) 메이저가 이탈 중 — 추격 자제</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {crowded.length ? crowded.map(e => <Row key={e.ticker} e={e} />) : <div style={{ color: '#64748b', fontSize: 12, padding: '6px 0' }}>현재 과밀·상투 경보 종목이 없습니다.</div>}
           </div>
@@ -134,14 +135,15 @@ export default function PortfolioFlowDashboard() {
                 <div style={{ color: '#6e7f8f', fontSize: 10.5, marginBottom: 8 }}>{cfg.desc}</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
                   {list.length ? list.slice().sort((a, b) => b.weight - a.weight).map(e => {
-                    // 비중 히트맵 — 비중 클수록 크고 굵고 진하게
+                    // 비중 히트맵 — 비중 클수록 크고 굵고 진하게 + 비중% 직접 표기
                     const w = e.weight
-                    const fs = 11 + Math.min(w * 0.16, 5)
+                    const fs = 11.5 + Math.min(w * 0.28, 9)        // 11.5 ~ 20.5
                     const fw = w >= 15 ? 800 : w >= 7 ? 700 : 600
-                    const alpha = w >= 15 ? '33' : w >= 7 ? '22' : '12'
+                    const alpha = w >= 20 ? '40' : w >= 10 ? '2a' : w >= 4 ? '18' : '0e'
                     return (
-                      <span key={e.ticker} title={`비중 ${w}%`} style={{ background: `${cfg.color}${alpha}`, color: '#e2e8f0', border: `1px solid ${cfg.color}${w >= 7 ? '66' : '33'}`, borderRadius: 6, padding: '2px 8px', fontSize: fs, fontWeight: fw, lineHeight: 1.5 }}>
-                        {dnm(e)}{e.peg != null ? <span style={{ color: '#9aa7b4', fontWeight: 400, fontSize: 10.5 }}> · {e.peg.toFixed(2)}</span> : null}
+                      <span key={e.ticker} title={`비중 ${w}%`} style={{ background: `${cfg.color}${alpha}`, color: '#e2e8f0', border: `1px solid ${cfg.color}${w >= 7 ? '77' : '33'}`, borderRadius: 7, padding: '3px 9px', fontSize: fs, fontWeight: fw, lineHeight: 1.4 }}>
+                        {dnm(e)}<span style={{ color: cfg.color, fontWeight: 800, marginLeft: 5 }}>{w}%</span>
+                        {e.peg != null ? <span style={{ color: '#9aa7b4', fontWeight: 400, fontSize: 10.5 }}> · PEG {e.peg.toFixed(2)}</span> : null}
                       </span>
                     )
                   }) : <span style={{ color: '#475569', fontSize: 11 }}>해당 없음</span>}
