@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
-import { getMoneyFlow, type FlowStatus } from '@/lib/moneyFlow'
+import { getMoneyFlow, type FlowStatus, type MoneyFlowResult } from '@/lib/moneyFlow'
 import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
 
 export const dynamic = 'force-dynamic'
@@ -22,6 +22,7 @@ export interface FlowEntry {
   opMargin: number | null
   quadrant: Quadrant
   weight:   number          // 포트폴리오 비중 %(원가 기준 — 히트맵용)
+  momentum: number          // 수급 모멘텀 0~100(유입에 얼마나 근접 — '우선순위 임박' 판정용)
   flowText: string          // 한 줄 수급 요약(KR=주체 방향 / US=MFI·내부자·거인)
 }
 
@@ -56,6 +57,23 @@ function buildHeadline(entries: FlowEntry[], rate: number): string {
   return parts.join('. ') + '.'
 }
 
+// 수급 모멘텀 0~100 — 유입(INFLOW)에 얼마나 근접한가. PEARL 중 '곧 1순위 될 후보' 선별용
+function momentumOf(mf: MoneyFlowResult, market: 'KR' | 'US'): number {
+  if (market === 'KR') {
+    let m = 0
+    if (mf.foreign?.dir === 'BUY') m += 40       // 외국인 매수 전환
+    if (mf.organ?.dir === 'BUY') m += 40         // 기관 매수 전환
+    if (mf.individual?.dir === 'SELL') m += 20   // 개인 이탈(메이저가 받는 중)
+    return m
+  }
+  const u = mf.us
+  let m = 0
+  if (u?.mfiTrend === 'rising') m += 40                                  // 자금흐름 상승 전환
+  if (u && u.mfi != null && u.mfi >= 40 && u.mfi <= 72) m += 20          // 과매도 탈출~과열 전 구간
+  if ((u?.insiderBuyers ?? 0) > 0) m += 40                              // 내부자 매수
+  return m
+}
+
 function quadrantOf(status: FlowStatus, peg: number | null, opMargin: number | null): Quadrant {
   const fundGood = peg != null && peg > 0 && peg < 1.2 && (opMargin == null || opMargin > -10)
   if (fundGood && status === 'INFLOW') return 'LEADER'   // 저평가 + 수급 유입
@@ -70,7 +88,7 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `portfolio-flow-v4:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `portfolio-flow-v5:${user.id}:${kstDate()}:${fp}`
   const cached = await getCache<PortfolioFlowResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -104,7 +122,8 @@ export async function GET(req: Request) {
           : `MFI ${mf.us?.mfi ?? '—'}${(mf.us?.insiderBuyers ?? 0) > 0 ? ` · 내부자 ${mf.us!.insiderBuyers}` : ''}${(mf.us?.giantHolders ?? 0) > 0 ? ` · 거인 ${mf.us!.giantHolders}` : ''}`
         const e: FlowEntry = {
           ticker: s.ticker, name, market, status: mf.status, peg: cf.peg, opMargin: cf.opMargin,
-          quadrant: quadrantOf(mf.status, cf.peg, cf.opMargin), weight: weightOf(s), flowText,
+          quadrant: quadrantOf(mf.status, cf.peg, cf.opMargin), weight: weightOf(s),
+          momentum: momentumOf(mf, market), flowText,
         }
         return e
       } catch { return null }

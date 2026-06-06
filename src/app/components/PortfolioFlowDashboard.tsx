@@ -49,12 +49,14 @@ function Sparkline({ data }: { data: { date: string; rate: number }[] }) {
   )
 }
 
-function Row({ e }: { e: FlowEntry }) {
+function Row({ e, near }: { e: FlowEntry; near?: boolean }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: '#0f1117', borderRadius: 8, fontSize: 12 }}>
       <span style={{ color: '#e2e8f0', fontWeight: 700, minWidth: 70 }}>{dnm(e)}</span>
       <span style={{ color: '#64748b', fontSize: 10, fontFamily: 'monospace' }}>{e.weight}%</span>
-      <StatusChip s={e.status} />
+      {near
+        ? <span style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid #f59e0b55', borderRadius: 999, padding: '0 7px', fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>🔜 임박</span>
+        : <StatusChip s={e.status} />}
       {e.peg != null && <span style={{ color: '#3b82f6', fontSize: 11 }}>PEG {e.peg.toFixed(2)}</span>}
       <span style={{ marginLeft: 'auto', color: '#8a9aaa', fontSize: 11, whiteSpace: 'nowrap' }}>{e.flowText}</span>
     </div>
@@ -87,6 +89,8 @@ export default function PortfolioFlowDashboard() {
   const byQuad = (q: Quadrant) => data.entries.filter(e => e.quadrant === q)
   const leaders = byQuad('LEADER')
   const crowded = byQuad('CROWDED')
+  // 우선순위가 비면: 저평가 대기 중 수급이 막 살아나는(모멘텀≥40) 종목 = '곧 1순위 될 후보'
+  const nearPriority = leaders.length ? [] : byQuad('PEARL').filter(e => e.momentum >= 40).sort((a, b) => b.momentum - a.momentum).slice(0, 2)
   const rate = data.smartMoneyRate
 
   return (
@@ -130,7 +134,13 @@ export default function PortfolioFlowDashboard() {
           <div style={{ color: '#22c55e', fontWeight: 700, fontSize: 13, marginBottom: 4 }}>🏆 매수 우선순위 (저평가 + 유입)</div>
           <div style={{ color: '#7f93a8', fontSize: 11, marginBottom: 10 }}>저PEG인데 스마트머니까지 유입 — 가장 매력적인 자리</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {leaders.length ? leaders.map(e => <Row key={e.ticker} e={e} />) : <div style={{ color: '#64748b', fontSize: 12, padding: '6px 0' }}>현재 저평가 + 수급 유입을 모두 만족하는 종목이 없습니다.</div>}
+            {leaders.length ? leaders.map(e => <Row key={e.ticker} e={e} />)
+              : nearPriority.length ? (
+                <>
+                  <div style={{ color: '#f59e0b', fontSize: 11, marginBottom: 2 }}>🔜 곧 1순위가 될 후보 — 저평가주에 수급이 막 살아나는 중</div>
+                  {nearPriority.map(e => <Row key={e.ticker} e={e} near />)}
+                </>
+              ) : <div style={{ color: '#64748b', fontSize: 12, padding: '6px 0' }}>현재 저평가 + 수급 유입(또는 임박) 종목이 없습니다.</div>}
           </div>
         </div>
         <div style={{ flex: '1 1 320px', background: CARD, borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(239,68,68,0.3)' }}>
