@@ -12,11 +12,11 @@ const ST: Record<Exclude<FlowStatus, 'UNSUPPORTED'>, { label: string; color: str
   NEGLECTED: { label: '소외',   color: '#f59e0b', emoji: '🟡' },
   NEUTRAL:   { label: '중립',   color: '#8a9aaa', emoji: '⚪' },
 }
-const QUAD: Record<Quadrant, { label: string; emoji: string; color: string; desc: string }> = {
-  LEADER:  { label: '메이저 주도주', emoji: '🏆', color: '#22c55e', desc: '저PEG + 수급 유입(우선순위)' },
-  PEARL:   { label: '저평가 대기',   emoji: '💎', color: '#3b82f6', desc: '저PEG인데 수급은 아직(붙으면 탄력)' },
-  CROWDED: { label: '상투·과열 위험', emoji: '⚠️', color: '#ef4444', desc: '고평가 + 수급 몰림/이탈' },
-  REVIEW:  { label: '재검토 필요',   emoji: '🔍', color: '#8a9aaa', desc: '펀더멘탈·수급 모두 약함' },
+const QUAD: Record<Quadrant, { label: string; emoji: string; color: string; desc: string; empty: string }> = {
+  LEADER:  { label: '메이저 주도주', emoji: '🏆', color: '#22c55e', desc: '저PEG + 수급 유입(우선순위)', empty: '해당 종목 없음' },
+  PEARL:   { label: '저평가 대기',   emoji: '💎', color: '#3b82f6', desc: '저PEG인데 수급은 아직(붙으면 탄력)', empty: '해당 종목 없음' },
+  CROWDED: { label: '상투·과열 위험', emoji: '⚠️', color: '#ef4444', desc: '고평가 + 수급 몰림/이탈', empty: '과열·상투 위험 없음 ✓' },
+  REVIEW:  { label: '재검토 필요',   emoji: '🔍', color: '#8a9aaa', desc: '펀더멘탈·수급 모두 약함', empty: '재검토 종목 없음 ✓' },
 }
 const dnm = (e: FlowEntry) => (e.market === 'KR' ? (e.name || e.ticker).slice(0, 10) : e.ticker.toUpperCase())
 
@@ -180,7 +180,12 @@ export default function PortfolioFlowDashboard() {
                         {e.peg != null ? <span style={{ color: '#9aa7b4', fontWeight: 400, fontSize: 10.5 }}> · PEG {e.peg.toFixed(2)}</span> : null}
                       </span>
                     )
-                  }) : <span style={{ color: '#475569', fontSize: 11 }}>해당 없음</span>}
+                  }) : (
+                    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '8px 0 4px', border: `1px dashed ${cfg.color}22`, borderRadius: 8 }}>
+                      <span style={{ fontSize: 22, opacity: 0.16, filter: 'grayscale(0.4)' }}>{cfg.emoji}</span>
+                      <span style={{ color: '#475569', fontSize: 10.5 }}>{cfg.empty}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )
