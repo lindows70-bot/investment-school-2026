@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import type { RebalanceResult, HoldingDiagnosis, RebalanceAction, DiversificationView } from '@/app/api/ai-rebalance/route'
+import MoneyFlowBadge from '@/app/components/MoneyFlowBadge'
 
 const BG = '#0f1117', CARD = '#161b25', BORDER = '#1e293b'
 
@@ -176,6 +177,7 @@ export default function AiRebalancePanel() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ color: '#c084fc', fontSize: 11 }}>✂️ 축소</span>
                   <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 14 }}>{h.market === 'KR' ? (h.name || h.ticker).slice(0, 12) : `${h.name} (${h.ticker})`}</span>
+                  <MoneyFlowBadge ticker={h.ticker} name={h.name} market={h.market} />
                   <span style={{ color: pnlColor(h.pnlPct), fontSize: 13, fontWeight: 700 }}>{pnlStr(h.pnlPct)}</span>
                   <span style={{ color: '#6b7280', fontSize: 11 }}>비중 {h.weight}% → <b style={{ color: '#c084fc' }}>−{h.trimWeight}%</b> 축소 <span style={{ color: '#c084fc' }}>{wonAmount(h.trimWeight, data.portfolioValue)}</span></span>
                   {h.peg != null && <span style={{ color: '#3b82f6', fontSize: 11 }}>PEG {h.peg.toFixed(2)}</span>}
@@ -201,6 +203,7 @@ export default function AiRebalancePanel() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ color: '#22c55e', fontSize: 11 }}>🎯 편입</span>
                   <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 14 }}>{b.market === 'KR' ? (b.name || b.ticker).slice(0, 12) : `${b.name} (${b.ticker})`}</span>
+                  <MoneyFlowBadge ticker={b.ticker} name={b.name} market={b.market} />
                   <span style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e', borderRadius: 6, padding: '1px 8px', fontSize: 11, fontWeight: 600 }}>AI {b.aiScore}점</span>
                   {b.peg != null && <span style={{ color: '#3b82f6', fontSize: 11 }}>PEG {b.peg.toFixed(2)}</span>}
                   <span style={{ color: '#8599ae', fontSize: 11 }}>{b.sector}</span>
@@ -223,6 +226,7 @@ export default function AiRebalancePanel() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ color: '#c084fc', fontSize: 11 }}>🚀 위성</span>
                   <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 14 }}>{s.market === 'KR' ? (s.name || s.ticker).slice(0, 12) : `${s.name} (${s.ticker.toUpperCase()})`}</span>
+                  <MoneyFlowBadge ticker={s.ticker} name={s.name} market={s.market} />
                   <span style={{ background: 'rgba(168,85,247,0.12)', color: '#c084fc', borderRadius: 6, padding: '1px 8px', fontSize: 11, fontWeight: 600 }} title="시총·성장·저PEG 라이트 스크리닝 점수(헌터 탭의 7대 기준 점수와 다름)">성장스크리닝 {s.tenScore}</span>
                   {s.marketCapUsd != null && <span style={{ color: '#8599ae', fontSize: 11 }}>시총 ${(s.marketCapUsd / 1e9).toFixed(1)}B</span>}
                   <span style={{ color: '#c084fc', fontSize: 12, fontWeight: 700, marginLeft: 'auto' }}>+{s.allocWeight}% <span style={{ fontWeight: 400, fontSize: 11 }}>{wonAmount(s.allocWeight, data.portfolioValue)}</span></span>
@@ -492,6 +496,7 @@ function SwapCard({ h, pv }: { h: HoldingDiagnosis; pv: number }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <span style={{ color: '#94a3b8', fontSize: 11 }}>매도</span>
         <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 14 }}>{h.name} ({h.ticker})</span>
+        <MoneyFlowBadge ticker={h.ticker} name={h.name} market={h.market} />
         <span style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}40`, borderRadius: 6, padding: '1px 8px', fontSize: 11, fontWeight: 600 }}>{cfg.icon} {cfg.label}</span>
         <span style={{ color: pnlColor(h.pnlPct), fontSize: 13, fontWeight: 700 }}>{pnlStr(h.pnlPct)}</span>
         <span style={{ color: '#6b7280', fontSize: 11 }}>비중 {h.weight}% → 회수 {h.releaseWeight}% <span style={{ color: '#94a3b8' }}>{wonAmount(h.releaseWeight, pv)}</span></span>
