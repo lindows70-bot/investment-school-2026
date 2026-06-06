@@ -3,6 +3,16 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import FullCandleChart from '@/app/components/FullCandleChart'
 import LynchWizard    from '@/app/components/LynchWizard'
+import JarvisInsight   from '@/app/components/JarvisInsight'
+import InsiderReceipt   from '@/app/components/InsiderReceipt'
+import NoiseCanceller   from '@/app/components/NoiseCanceller'
+import CashRunwayTimer  from '@/app/components/CashRunwayTimer'
+import SectorPeerXray   from '@/app/components/SectorPeerXray'
+import PairTradingMonitor from '@/app/components/PairTradingMonitor'
+import ShadowTracker13F from '@/app/components/ShadowTracker13F'
+import MoatBreachDetector from '@/app/components/MoatBreachDetector'
+import MoneyFlowRadar    from '@/app/components/MoneyFlowRadar'
+import { getAssetType } from '@/lib/assetClassifier'
 import type { Candle } from '@/app/components/CandleChart'
 
 const N   = '#1b1e2e'
@@ -39,6 +49,12 @@ interface StockInfo {
   lynchCategory?: string | null
   lynchLabel?: string | null
   hasCash?: boolean | null   // API 자동 계산: true=순현금, false=순부채, null=미확인
+  // ⏳ 좀비 생존 타이머용 (DCF 데이터 재사용)
+  freeCashflow?: number | null
+  totalCash?: number | null
+  sharesOutstanding?: number | null
+  returnOnEquity?: number | null   // 손익 흑자/적자 판별 (FCF 음수 ≠ 적자)
+  operatingMargins?: number | null // 영업이익률 (ROE 왜곡 교차검증용)
 }
 interface WatchlistItem {
   id: string; ticker: string; name: string; market: Market
@@ -122,7 +138,7 @@ export default function ResearchPage() {
             const lynchData = await lynchRes.json()
             lynchCategory = lynchData.category ?? null
             const LYNCH_LABELS: Record<string,string> = {
-              slow_grower: '완만한 성장주', stalwart: '대형 우량주',
+              slow_grower: '저성장주', stalwart: '대형 우량주',
               fast_grower: '빠른 성장주',  cyclical:  '경기 순환주',
               turnaround:  '회생 기업주',  asset_play:'자산 보유주',
               na: 'N/A',
@@ -151,6 +167,12 @@ export default function ResearchPage() {
             lynchLabel,
             // API가 자동 계산한 순현금 여부 (US: FMP, KR: Naver annual)
             hasCash: typeof raw.hasCash === 'boolean' ? raw.hasCash : null,
+            // ⏳ 생존 타이머용 (DCF 데이터 재사용 — 추가 fetch 없음)
+            freeCashflow:      toNum(f.freeCashflow),
+            totalCash:         toNum(f.totalCash),
+            sharesOutstanding: toNum(f.sharesOutstanding),
+            returnOnEquity:    toNum(f.returnOnEquity),
+            operatingMargins:  toNum(f.operatingMargins),
           })
         }
       }
@@ -189,12 +211,30 @@ export default function ResearchPage() {
 
   const isInWatchlist = watchlist.some(w => w.ticker === query)
 
+  // ★ 린치/내부자/어닝/애널리스트 분석은 '개별 주식'만 — ETF·코인·원자재 제외
+  const assetType = stockInfo ? getAssetType(stockInfo.ticker, stockInfo.name, stockInfo.market) : null
+  const isStock = assetType === 'STOCK'
+  const NON_STOCK_KR: Record<string, string> = { ETF: 'ETF·인덱스 펀드', CRYPTO: '암호화폐', COMMODITY: '원자재·실물자산' }
+  const NonStockNotice = (
+    <div style={{ background: N, boxShadow: SHO, borderRadius: 14, padding: '20px 24px', textAlign: 'center' }}>
+      <div style={{ fontSize: 26, marginBottom: 6 }}>🚫</div>
+      <div style={{ fontSize: 14, fontWeight: 800, color: '#dde4f0', marginBottom: 6 }}>
+        개별 주식 전용 분석입니다
+      </div>
+      <div style={{ fontSize: 12, color: '#8b92b8', lineHeight: 1.7 }}>
+        <b style={{ color: '#fbbf24' }}>{stockInfo?.name || query}</b>은(는) <b>{assetType ? (NON_STOCK_KR[assetType] ?? assetType) : '비주식'}</b>이라
+        피터 린치 6대 분류·내부자 매수·어닝콜·애널리스트 분석 대상이 아닙니다.<br/>
+        (ETF·코인·원자재는 발행 기업·내부자·EPS가 없어 개별 기업 분석이 불가능합니다.)
+      </div>
+    </div>
+  )
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}`}</style>
 
       {/* ── 탭 네비게이션 ───────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 6, borderBottom: `1px solid #252840`, paddingBottom: 0 }}>
+      <div style={{ display: 'flex', gap: 6, borderBottom: `1px solid #4a5070`, paddingBottom: 0 }}>
         {([
           { key: 'chart',  label: '📈 차트 리서치',     desc: '실시간 캔들 + 핵심 지표' },
           { key: 'wizard', label: '🔬 피터린치 진단',   desc: '3단계 인터랙티브 분류 위저드' },
@@ -205,13 +245,13 @@ export default function ResearchPage() {
             style={{
               padding: '10px 18px 12px', border: 'none', cursor: 'pointer',
               background: 'transparent', fontSize: 13, fontWeight: 700,
-              color:       activeTab === key ? '#fbbf24' : '#454868',
+              color:       activeTab === key ? '#fbbf24' : '#9aa0b8',
               borderBottom: `3px solid ${activeTab === key ? '#fbbf24' : 'transparent'}`,
               transition: 'all 0.18s',
             }}
           >
             <div>{label}</div>
-            <div style={{ fontSize: 9, fontWeight: 400, color: activeTab === key ? '#92400e' : '#363855', marginTop: 1 }}>
+            <div style={{ fontSize: 9, fontWeight: 400, color: activeTab === key ? '#92400e' : '#7a8599', marginTop: 1 }}>
               {desc}
             </div>
           </button>
@@ -220,13 +260,16 @@ export default function ResearchPage() {
 
       {/* ── 피터린치 진단 위저드 탭 ───────────────────────────── */}
       {activeTab === 'wizard' && (
-        <LynchWizard
-          autoTicker={query                   || null}
-          autoName={stockInfo?.name           ?? null}
-          autoPer={stockInfo?.per             ?? null}
-          autoEpsGrowth={stockInfo?.epsGrowth ?? null}
-          autoHasCash={stockInfo?.hasCash     ?? null}
-        />
+        stockInfo && !isStock ? NonStockNotice : (
+          <LynchWizard
+            autoTicker={stockInfo?.ticker ?? query ?? null}
+            autoName={stockInfo?.name           ?? null}
+            autoPer={stockInfo?.per             ?? null}
+            autoEpsGrowth={stockInfo?.epsGrowth ?? null}
+            autoHasCash={stockInfo?.hasCash     ?? null}
+            autoMarket={stockInfo?.market       ?? null}
+          />
+        )
       )}
 
       {/* ── 차트 리서치 탭 (기존 UI 전체) ────────────────────── */}
@@ -243,7 +286,7 @@ export default function ResearchPage() {
             placeholder="티커 입력 (예: AAPL, 005930, BTC)"
             style={{
               flex: 1, padding: '12px 16px', borderRadius: 10, border: 'none',
-              background: '#13162a', boxShadow: SHI, color: '#dde4f0',
+              background: '#0a0e1a', boxShadow: SHI, color: '#dde4f0',
               fontSize: 16, fontWeight: 600, outline: 'none', letterSpacing: '0.04em',
               fontFamily: 'monospace',
             }}
@@ -261,7 +304,7 @@ export default function ResearchPage() {
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-          <span style={{ fontSize: 10, color: '#454868', marginRight: 4, fontWeight: 700, letterSpacing: '0.08em' }}>빠른 조회:</span>
+          <span style={{ fontSize: 10, color: '#9aa0b8', marginRight: 4, fontWeight: 700, letterSpacing: '0.08em' }}>빠른 조회:</span>
           {[
             { t: 'AAPL',   label: 'AAPL · Apple' },
             { t: 'NVDA',   label: 'NVDA · NVIDIA' },
@@ -272,12 +315,12 @@ export default function ResearchPage() {
           ].map(({ t, label }) => (
             <button key={t} onClick={() => handleSearch(t)}
               style={{
-                padding: '4px 10px', borderRadius: 6, border: '1px solid #252840',
-                background: 'transparent', color: '#6b7280', fontSize: 11, cursor: 'pointer',
+                padding: '4px 10px', borderRadius: 6, border: '1px solid #4a5070',
+                background: 'transparent', color: '#8a9aaa', fontSize: 11, cursor: 'pointer',
                 transition: 'all 0.15s',
               }}
               onMouseEnter={e => { (e.currentTarget).style.borderColor = '#fbbf24'; (e.currentTarget).style.color = '#fbbf24' }}
-              onMouseLeave={e => { (e.currentTarget).style.borderColor = '#252840'; (e.currentTarget).style.color = '#6b7280' }}
+              onMouseLeave={e => { (e.currentTarget).style.borderColor = '#4a5070'; (e.currentTarget).style.color = '#8a9aaa' }}
             >{label}</button>
           ))}
         </div>
@@ -307,13 +350,13 @@ export default function ResearchPage() {
             <div style={{ padding: '20px 24px 16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#454868', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#9aa0b8', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
                     {stockInfo?.market === 'KR' ? 'KR Stock' : stockInfo?.market === 'CRYPTO' ? 'Crypto' : 'US Stock'}
                   </div>
                   <div style={{ fontSize: 28, fontWeight: 900, color: '#dde4f0', letterSpacing: '-0.5px', lineHeight: 1.1 }}>
                     {stockInfo?.name ?? query}
                   </div>
-                  <div style={{ fontSize: 13, color: '#454868', marginTop: 4, fontFamily: 'monospace' }}>{query}</div>
+                  <div style={{ fontSize: 13, color: '#9aa0b8', marginTop: 4, fontFamily: 'monospace' }}>{query}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   {priceData && (
@@ -343,9 +386,9 @@ export default function ResearchPage() {
                   <button key={tf} onClick={() => setTimeframe(tf)}
                     style={{
                       padding: '5px 14px', borderRadius: 20, border: 'none', cursor: 'pointer',
-                      background: timeframe === tf ? '#fbbf24' : '#13162a',
+                      background: timeframe === tf ? '#fbbf24' : '#0a0e1a',
                       boxShadow: timeframe === tf ? '0 2px 8px rgba(251,191,36,0.3)' : SHI,
-                      color: timeframe === tf ? '#1b1e2e' : '#6b7280',
+                      color: timeframe === tf ? '#1b1e2e' : '#8a9aaa',
                       fontSize: 12, fontWeight: 700, transition: 'all 0.15s',
                     }}>{tf}</button>
                 ))}
@@ -373,7 +416,7 @@ export default function ResearchPage() {
 
               // OHLC 없는 경우 → 빈 상태
               return (
-                <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#454868', fontSize: 13 }}>
+                <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9aa0b8', fontSize: 13 }}>
                   {!priceData ? '종목을 조회해주세요' : '캔들 데이터 없음'}
                 </div>
               )
@@ -384,8 +427,8 @@ export default function ResearchPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ background: N, boxShadow: SHO, borderRadius: 14, padding: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <span style={{ fontSize: 11, fontWeight: 800, color: '#454868', textTransform: 'uppercase', letterSpacing: '0.1em' }}>핵심 지표</span>
-                <span style={{ fontSize: 11, color: '#363855' }}>{new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: '#9aa0b8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>핵심 지표</span>
+                <span style={{ fontSize: 11, color: '#7a8599' }}>{new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 {stockInfo && [
@@ -396,15 +439,15 @@ export default function ResearchPage() {
                   { label: 'Forward EPS', value: stockInfo.forwardEps != null ? (stockInfo.currency === 'KRW' ? `₩${Math.round(stockInfo.forwardEps).toLocaleString()}` : `$${stockInfo.forwardEps.toFixed(2)}`) : '—' },
                   { label: 'PEG',         value: stockInfo.peg != null ? stockInfo.peg.toFixed(2) : '—' },
                 ].map(({ label, value }) => (
-                  <div key={label} style={{ background: '#13162a', boxShadow: SHI, borderRadius: 9, padding: '10px 12px' }}>
-                    <div style={{ fontSize: 9, color: '#454868', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>{label}</div>
+                  <div key={label} style={{ background: '#0a0e1a', boxShadow: SHI, borderRadius: 9, padding: '10px 12px' }}>
+                    <div style={{ fontSize: 9, color: '#9aa0b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>{label}</div>
                     <div style={{ fontSize: 18, fontWeight: 800, color: '#dde4f0', fontVariantNumeric: 'tabular-nums' }}>{value}</div>
                   </div>
                 ))}
               </div>
               {stockInfo?.marketCap != null && (
-                <div style={{ marginTop: 8, background: '#13162a', boxShadow: SHI, borderRadius: 9, padding: '10px 12px' }}>
-                  <div style={{ fontSize: 9, color: '#454868', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>시가총액</div>
+                <div style={{ marginTop: 8, background: '#0a0e1a', boxShadow: SHI, borderRadius: 9, padding: '10px 12px' }}>
+                  <div style={{ fontSize: 9, color: '#9aa0b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>시가총액</div>
                   <div style={{ fontSize: 18, fontWeight: 800, color: '#dde4f0' }}>
                     {stockInfo.marketCap >= 1e12
                       ? `${(stockInfo.marketCap / 1e12).toFixed(2)}T`
@@ -442,16 +485,16 @@ export default function ResearchPage() {
       {!loading && stockInfo && priceData && (
         <div style={{ background: N, boxShadow: SHO, borderRadius: 14, padding: '16px 20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <span style={{ fontSize: 11, fontWeight: 800, color: '#454868', textTransform: 'uppercase', letterSpacing: '0.1em' }}>🎯 리서치 체크포인트</span>
-            <span style={{ fontSize: 10, color: '#363855' }}>자동 요약</span>
+            <span style={{ fontSize: 11, fontWeight: 800, color: '#9aa0b8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>🎯 리서치 체크포인트</span>
+            <span style={{ fontSize: 10, color: '#7a8599' }}>자동 요약</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 10 }}>
 
             {/* 피터린치 분류 */}
-            <div style={{ background: '#13162a', boxShadow: SHI, borderRadius: 10, padding: '12px 14px', borderLeft: '3px solid #a78bfa' }}>
-              <div style={{ fontSize: 9, color: '#454868', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>피터린치 분류</div>
+            <div style={{ background: '#0a0e1a', boxShadow: SHI, borderRadius: 10, padding: '12px 14px', borderLeft: '3px solid #a78bfa' }}>
+              <div style={{ fontSize: 9, color: '#9aa0b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>피터린치 분류</div>
               <div style={{ fontSize: 16, fontWeight: 800, color: '#a78bfa' }}>{stockInfo.lynchLabel ?? '분석 불가'}</div>
-              <div style={{ fontSize: 10, color: '#363855', marginTop: 4 }}>
+              <div style={{ fontSize: 10, color: '#7a8599', marginTop: 4 }}>
                 {stockInfo.lynchCategory === 'fast_grower' ? '연 20%+ 고성장. 미래 가치 선반영.' :
                  stockInfo.lynchCategory === 'stalwart'    ? '연 10~12% 안정 성장. 대형 우량주.' :
                  stockInfo.lynchCategory === 'slow_grower' ? '저성장. 배당 중심 투자.' :
@@ -463,13 +506,13 @@ export default function ResearchPage() {
             </div>
 
             {/* PEG 해석 */}
-            <div style={{ background: '#13162a', boxShadow: SHI, borderRadius: 10, padding: '12px 14px',
-              borderLeft: `3px solid ${stockInfo.peg != null ? (stockInfo.peg <= 1 ? '#10b981' : stockInfo.peg <= 2 ? '#60a5fa' : '#f87171') : '#363855'}` }}>
-              <div style={{ fontSize: 9, color: '#454868', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>PEG 해석</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: stockInfo.peg != null ? (stockInfo.peg <= 1 ? '#10b981' : stockInfo.peg <= 2 ? '#60a5fa' : '#f87171') : '#363855' }}>
+            <div style={{ background: '#0a0e1a', boxShadow: SHI, borderRadius: 10, padding: '12px 14px',
+              borderLeft: `3px solid ${stockInfo.peg != null ? (stockInfo.peg <= 1 ? '#10b981' : stockInfo.peg <= 2 ? '#60a5fa' : '#f87171') : '#7a8599'}` }}>
+              <div style={{ fontSize: 9, color: '#9aa0b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>PEG 해석</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: stockInfo.peg != null ? (stockInfo.peg <= 1 ? '#10b981' : stockInfo.peg <= 2 ? '#60a5fa' : '#f87171') : '#7a8599' }}>
                 {stockInfo.peg != null ? stockInfo.peg.toFixed(2) : '—'}
               </div>
-              <div style={{ fontSize: 10, color: '#363855', marginTop: 4 }}>
+              <div style={{ fontSize: 10, color: '#7a8599', marginTop: 4 }}>
                 {stockInfo.peg == null ? 'PEG 데이터 없음' :
                  stockInfo.peg <= 1 ? '✅ 강력 매수 구간. 성장 대비 저평가.' :
                  stockInfo.peg <= 2 ? '🔵 적정 가격 수준.' :
@@ -478,30 +521,129 @@ export default function ResearchPage() {
             </div>
 
             {/* 기간 수익률 */}
-            <div style={{ background: '#13162a', boxShadow: SHI, borderRadius: 10, padding: '12px 14px',
+            <div style={{ background: '#0a0e1a', boxShadow: SHI, borderRadius: 10, padding: '12px 14px',
               borderLeft: `3px solid ${priceData.changePct >= 0 ? '#ef4444' : '#3b82f6'}` }}>
-              <div style={{ fontSize: 9, color: '#454868', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>당일 수익률</div>
+              <div style={{ fontSize: 9, color: '#9aa0b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>당일 수익률</div>
               <div style={{ fontSize: 16, fontWeight: 800, color: priceData.changePct >= 0 ? '#f87171' : '#60a5fa' }}>
                 {priceData.changePct >= 0 ? '+' : ''}{priceData.changePct.toFixed(2)}%
               </div>
-              <div style={{ fontSize: 10, color: '#363855', marginTop: 4 }}>
+              <div style={{ fontSize: 10, color: '#7a8599', marginTop: 4 }}>
                 전일 대비 {priceData.change >= 0 ? '+' : ''}{stockInfo.currency === 'KRW' ? `₩${Math.round(priceData.change).toLocaleString()}` : `$${priceData.change.toFixed(2)}`}
               </div>
             </div>
 
             {/* Forward EPS */}
-            <div style={{ background: '#13162a', boxShadow: SHI, borderRadius: 10, padding: '12px 14px', borderLeft: '3px solid #34d399' }}>
-              <div style={{ fontSize: 9, color: '#454868', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>Forward EPS</div>
+            <div style={{ background: '#0a0e1a', boxShadow: SHI, borderRadius: 10, padding: '12px 14px', borderLeft: '3px solid #34d399' }}>
+              <div style={{ fontSize: 9, color: '#9aa0b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>Forward EPS</div>
               <div style={{ fontSize: 16, fontWeight: 800, color: '#34d399' }}>
                 {stockInfo.forwardEps != null
                   ? (stockInfo.currency === 'KRW' ? `₩${Math.round(stockInfo.forwardEps).toLocaleString()}` : `$${stockInfo.forwardEps.toFixed(2)}`)
                   : '—'}
               </div>
-              <div style={{ fontSize: 10, color: '#363855', marginTop: 4 }}>애널리스트 예상 이익 기준 EPS</div>
+              <div style={{ fontSize: 10, color: '#7a8599', marginTop: 4 }}>애널리스트 예상 이익 기준 EPS</div>
             </div>
 
           </div>
         </div>
+      )}
+
+      {/* ★ ETF·코인·원자재 → 개별주식 전용 분석 차단 안내 (1회) */}
+      {!loading && stockInfo && priceData && !isStock && NonStockNotice}
+
+      {/* 🕵️ CEO의 장바구니 (비밀병기 5단계) — 내부자 장내매수 자동 시그널 */}
+      {!loading && stockInfo && priceData && isStock && (
+        <InsiderReceipt
+          ticker={stockInfo.ticker}
+          name={stockInfo.name}
+          market={stockInfo.market}
+        />
+      )}
+
+      {/* 💰 스마트머니 수급 레이더 — 외국인/기관/개인 돈의 유입·이탈(KR) */}
+      {!loading && stockInfo && priceData && isStock && (
+        <MoneyFlowRadar
+          ticker={stockInfo.ticker}
+          name={stockInfo.name}
+          market={stockInfo.market}
+        />
+      )}
+
+      {/* 🤖 Jarvis 어닝콜 애널리스트 (비밀병기 4단계) — 종목 상세 하단 자동 분석 */}
+      {!loading && stockInfo && priceData && isStock && (
+        <JarvisInsight
+          ticker={stockInfo.ticker}
+          name={stockInfo.name}
+          market={stockInfo.market}
+          facts={{
+            per:        stockInfo.per,
+            peg:        stockInfo.peg,
+            eps:        stockInfo.eps,
+            epsGrowth:  stockInfo.epsGrowth,
+            forwardEps: stockInfo.forwardEps,
+            lynchLabel: stockInfo.lynchLabel,
+            marketCap:  stockInfo.marketCap,
+            currency:   stockInfo.currency,
+          }}
+        />
+      )}
+
+      {/* 🎧 노이즈 캔슬러 (비밀병기 7단계) — 애널리스트 소음 제거 + 실적 리비전 신호 */}
+      {!loading && stockInfo && priceData && isStock && (
+        <NoiseCanceller
+          ticker={stockInfo.ticker}
+          name={stockInfo.name}
+          market={stockInfo.market}
+        />
+      )}
+
+      {/* ⏳ 좀비 생존 타이머 (킬러 기능 8단계) — 현금 런웨이 + 유상증자 희석 경보 */}
+      {!loading && stockInfo && priceData && isStock && (
+        <CashRunwayTimer
+          ticker={stockInfo.ticker}
+          name={stockInfo.name}
+          currency={stockInfo.currency}
+          freeCashflow={stockInfo.freeCashflow}
+          totalCash={stockInfo.totalCash}
+          sharesOutstanding={stockInfo.sharesOutstanding}
+          returnOnEquity={stockInfo.returnOnEquity}
+          operatingMargins={stockInfo.operatingMargins}
+        />
+      )}
+
+      {/* ⚔️ 섹터 피어 X-Ray (킬러 기능 9단계) — 동종업계 상대평가 */}
+      {!loading && stockInfo && priceData && isStock && (
+        <SectorPeerXray
+          ticker={stockInfo.ticker}
+          name={stockInfo.name}
+          market={stockInfo.market}
+        />
+      )}
+
+      {/* 📊 글로벌 페어-트레이딩 시그널 — 글로벌 1등 대비 상대가치 z-score */}
+      {!loading && stockInfo && priceData && isStock && (
+        <PairTradingMonitor
+          ticker={stockInfo.ticker}
+          name={stockInfo.name}
+          market={stockInfo.market}
+        />
+      )}
+
+      {/* 🐳 슈퍼 클론 (킬러 기능 10단계) — 전설적 투자자 13F 포트폴리오 추적 */}
+      {!loading && stockInfo && priceData && isStock && (
+        <ShadowTracker13F
+          ticker={stockInfo.ticker}
+          name={stockInfo.name}
+          market={stockInfo.market}
+        />
+      )}
+
+      {/* 🏰 해자 붕괴 경보기 (킬러 기능 11단계, 마지막) — 총마진 추세로 가격결정력 점검 */}
+      {!loading && stockInfo && priceData && isStock && (
+        <MoatBreachDetector
+          ticker={stockInfo.ticker}
+          name={stockInfo.name}
+          market={stockInfo.market}
+        />
       )}
 
       </>)} {/* activeTab === 'chart' 닫기 */}

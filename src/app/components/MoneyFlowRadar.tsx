@@ -1,0 +1,122 @@
+'use client'
+// 💰 스마트머니 수급 레이더 — 외국인/기관/개인 일별 순매수로 돈의 유입·이탈을 시각화(KR)
+import { useState, useEffect } from 'react'
+import type { MoneyFlowResult, FlowActor, FlowStatus } from '@/lib/moneyFlow'
+
+const CARD = '#161b25', BORDER = '#1e293b'
+
+const STATUS_CFG: Record<FlowStatus, { label: string; color: string; emoji: string }> = {
+  INFLOW:      { label: '스마트머니 유입', color: '#22c55e', emoji: '🟢' },
+  CROWDED:     { label: '개미 독박·과열', color: '#ef4444', emoji: '🔴' },
+  NEGLECTED:   { label: '기관 소외주',     color: '#f59e0b', emoji: '🟡' },
+  NEUTRAL:     { label: '수급 중립',       color: '#8a9aaa', emoji: '⚪' },
+  UNSUPPORTED: { label: '준비 중',         color: '#6b7280', emoji: '—' },
+}
+
+function won(v: number): string {
+  const a = Math.abs(v), s = v < 0 ? '−' : '+'
+  if (a >= 1e12) return `${s}${(a / 1e12).toFixed(1)}조`
+  if (a >= 1e8)  return `${s}${Math.round(a / 1e8)}억`
+  if (a >= 1e4)  return `${s}${Math.round(a / 1e4)}만`
+  return `${s}${Math.round(a)}`
+}
+
+export default function MoneyFlowRadar({ ticker, name, market }: { ticker: string; name: string; market: string }) {
+  const [data, setData] = useState<MoneyFlowResult | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let alive = true
+    setLoading(true)
+    fetch(`/api/money-flow?ticker=${encodeURIComponent(ticker)}&market=${market}&name=${encodeURIComponent(name)}`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(j => { if (alive) setData(j) })
+      .catch(() => { if (alive) setData(null) })
+      .finally(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
+  }, [ticker, name, market])
+
+  if (loading) {
+    return (
+      <div style={{ background: CARD, borderRadius: 12, padding: 20, border: `1px solid ${BORDER}`, color: '#8a9aaa', fontSize: 13 }}>
+        💰 수급 흐름을 분석 중입니다…
+      </div>
+    )
+  }
+  if (!data || data.status === 'UNSUPPORTED') {
+    return (
+      <div style={{ background: CARD, borderRadius: 12, padding: 18, border: `1px solid ${BORDER}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <span style={{ fontSize: 18 }}>💰</span>
+          <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 15 }}>스마트머니 수급 레이더</span>
+        </div>
+        <div style={{ color: '#8a9aaa', fontSize: 12.5, lineHeight: 1.6 }}>{data?.note ?? '수급 데이터를 제공할 수 없는 종목입니다.'}</div>
+      </div>
+    )
+  }
+
+  const cfg = STATUS_CFG[data.status]
+  const actors: { key: string; label: string; a: FlowActor | null }[] = [
+    { key: 'f', label: '외국인', a: data.foreign },
+    { key: 'o', label: '기관',   a: data.organ },
+    { key: 'i', label: '개인',   a: data.individual },
+  ]
+  const maxAbs = Math.max(1, ...actors.map(x => Math.abs(x.a?.amt20 ?? 0)))
+
+  return (
+    <div style={{ background: CARD, borderRadius: 12, padding: '16px 20px', border: `1px solid ${data.status === 'INFLOW' ? '#22c55e55' : data.status === 'CROWDED' ? '#ef444455' : BORDER}` }}>
+      {/* 헤더 + 종합 배지 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+        <span style={{ fontSize: 18 }}>💰</span>
+        <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 15 }}>스마트머니 수급 레이더</span>
+        <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, background: `${cfg.color}1f`, color: cfg.color, border: `1px solid ${cfg.color}66`, borderRadius: 999, padding: '3px 12px', fontSize: 12.5, fontWeight: 800 }}>
+          {cfg.emoji} {cfg.label}
+        </span>
+      </div>
+      <div style={{ color: '#7f93a8', fontSize: 11.5, marginBottom: 12 }}>
+        최근 20일 누적 순매수(추정 대금) · 외국인 보유율 {data.foreignHoldRatio != null ? `${data.foreignHoldRatio.toFixed(1)}%` : '—'}
+      </div>
+
+      {/* 3대 주체 에너지 바 */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+        {actors.map(({ key, label, a }) => {
+          const amt = a?.amt20 ?? 0
+          const buy = (a?.net20 ?? 0) > 0
+          const w = Math.round((Math.abs(amt) / maxAbs) * 100)
+          const col = a?.dir === 'FLAT' ? '#64748b' : buy ? '#22c55e' : '#ef4444'
+          return (
+            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
+              <span style={{ width: 44, color: '#aab6c4', fontWeight: 700, flexShrink: 0 }}>{label}</span>
+              <div style={{ flex: 1, height: 12, background: '#0f1117', borderRadius: 6, overflow: 'hidden' }}>
+                <div style={{ width: `${w}%`, height: '100%', background: col, borderRadius: 6, transition: 'width .3s' }} />
+              </div>
+              <span style={{ width: 70, textAlign: 'right', color: col, fontWeight: 700, flexShrink: 0 }}>{won(amt)}</span>
+              <span style={{ width: 64, textAlign: 'right', color: a?.dir === 'FLAT' ? '#64748b' : buy ? '#34d399' : '#f87171', fontSize: 11, flexShrink: 0 }}>
+                {a?.dir === 'FLAT' ? '─ 중립' : buy ? '▲ 매수우위' : '▼ 매도'}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* 린치식 배지 */}
+      {data.badges.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+          {data.badges.map((b, i) => (
+            <span key={i} style={{ background: '#1e293b', color: '#cbd5e1', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '3px 9px', fontSize: 11.5, fontWeight: 600 }}>{b}</span>
+          ))}
+        </div>
+      )}
+
+      {/* 린치 코멘트 + 행동지침 */}
+      <div style={{ background: `${cfg.color}0d`, border: `1px solid ${cfg.color}33`, borderRadius: 10, padding: '11px 14px' }}>
+        <div style={{ color: '#cbd5e1', fontSize: 12.5, lineHeight: 1.65 }}>{data.lynchComment}</div>
+        <div style={{ color: cfg.color, fontSize: 12.5, fontWeight: 600, lineHeight: 1.6, marginTop: 6 }}>🧭 {data.actionGuide}</div>
+      </div>
+
+      <div style={{ color: '#4b5563', fontSize: 10.5, marginTop: 8, lineHeight: 1.5 }}>
+        ※ 대금은 일별 순매수 수량×종가 추정치입니다. 외국인 순매수엔 패시브·프로그램 매매도 포함됩니다 — 수급은 연료일 뿐 방향은 펀더멘탈이 결정합니다. 교육용 시뮬레이션이며 투자 추천이 아닙니다.
+      </div>
+    </div>
+  )
+}
