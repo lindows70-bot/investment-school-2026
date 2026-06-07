@@ -13,6 +13,7 @@ export interface MarketFlowEntry {
   changePct: number | null   // 당일 등락률 %
   foreign:   Record<Period, number>   // 외국인 누적 순매수 대금(₩) — 1/5/20일
   organ:     Record<Period, number>   // 기관 누적 순매수 대금(₩)
+  individual?: Record<Period, number> // 개인 누적 순매수(음수=이탈 — 진주 발굴 개인이탈 조건용)
   dualStreak: number         // 외인+기관 동시 순매수 연속일수(0=오늘 미해당)
   peg:        number | null  // 저PEG 뱃지용(상위 종목만 채움)
   closes:     number[]       // 최근 20일 일별 종가(오래된→최신) — 1주/1개월 스파크라인용(추가 fetch 0)
@@ -90,12 +91,12 @@ const POOL: { t: string; n: string; s: string }[] = [
   { t:'137310', n:'에스디바이오센서', s:'진단' }, { t:'091990', n:'셀트리온헬스케어', s:'바이오' },
 ]
 
-function entryOf(p: { t: string; n: string; s: string }, rows: { foreignerPureBuyQuant: string; organPureBuyQuant: string; closePrice: string; compareToPreviousClosePrice?: string }[]): MarketFlowEntry | null {
+function entryOf(p: { t: string; n: string; s: string }, rows: { foreignerPureBuyQuant: string; organPureBuyQuant: string; individualPureBuyQuant: string; closePrice: string; compareToPreviousClosePrice?: string }[]): MarketFlowEntry | null {
   if (!rows.length) return null
   const close = num(rows[0].closePrice)
   if (close <= 0) return null
   // 누적 순매수 대금 = Σ(일별 순매수수량 × 그날 종가). 1/5/20일
-  const cumAmt = (key: 'foreignerPureBuyQuant' | 'organPureBuyQuant', n: number) =>
+  const cumAmt = (key: 'foreignerPureBuyQuant' | 'organPureBuyQuant' | 'individualPureBuyQuant', n: number) =>
     rows.slice(0, n).reduce((s, r) => s + num(r[key]) * num(r.closePrice), 0)
   // 쌍끌이 연속일수: 오늘부터 외인>0 AND 기관>0 연속
   let streak = 0
@@ -105,8 +106,9 @@ function entryOf(p: { t: string; n: string; s: string }, rows: { foreignerPureBu
   const closes = rows.slice(0, 20).map(r => num(r.closePrice)).filter(c => c > 0).reverse()   // 오래된→최신
   return {
     ticker: p.t, name: p.n, sector: p.s, close, changePct, dualStreak: streak, peg: null, closes,
-    foreign: { d1: cumAmt('foreignerPureBuyQuant', 1), d5: cumAmt('foreignerPureBuyQuant', 5), d20: cumAmt('foreignerPureBuyQuant', 20) },
-    organ:   { d1: cumAmt('organPureBuyQuant', 1),     d5: cumAmt('organPureBuyQuant', 5),     d20: cumAmt('organPureBuyQuant', 20) },
+    foreign:    { d1: cumAmt('foreignerPureBuyQuant', 1),    d5: cumAmt('foreignerPureBuyQuant', 5),    d20: cumAmt('foreignerPureBuyQuant', 20) },
+    organ:      { d1: cumAmt('organPureBuyQuant', 1),        d5: cumAmt('organPureBuyQuant', 5),        d20: cumAmt('organPureBuyQuant', 20) },
+    individual: { d1: cumAmt('individualPureBuyQuant', 1),   d5: cumAmt('individualPureBuyQuant', 5),   d20: cumAmt('individualPureBuyQuant', 20) },
   }
 }
 

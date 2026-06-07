@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
-const CACHE_KEY = () => `market-flow-kr-v3:${kstDate()}`
+const CACHE_KEY = () => `market-flow-kr-v4:${kstDate()}`
 
 export async function GET(req: Request) {
   const cached = await getCache<MarketFlowKrResult>(CACHE_KEY(), 24 * 3600_000)
