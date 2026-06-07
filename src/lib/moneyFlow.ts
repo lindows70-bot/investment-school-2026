@@ -46,10 +46,11 @@ export interface MoneyFlowResult {
 const NAVER_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148'
 const num = (s: unknown): number => parseFloat(String(s ?? '').replace(/[,+%\s]/g, '')) || 0
 
-interface TrendRow { bizdate: string; foreignerPureBuyQuant: string; foreignerHoldRatio: string; organPureBuyQuant: string; individualPureBuyQuant: string; closePrice: string }
+export interface TrendRow { bizdate: string; foreignerPureBuyQuant: string; foreignerHoldRatio: string; organPureBuyQuant: string; individualPureBuyQuant: string; closePrice: string; compareToPreviousClosePrice?: string }
+export const trendNum = num   // 시장 수급 랭킹(marketFlowKr)에서 재사용
 
 // KR 일별 수급 추이(최대 60거래일) — m.stock.naver.com (JSON)
-async function fetchKrTrend(code6: string): Promise<TrendRow[]> {
+export async function fetchKrTrend(code6: string): Promise<TrendRow[]> {
   const r = await fetch(`https://m.stock.naver.com/api/stock/${code6}/trend?pageSize=60`, {
     headers: { 'User-Agent': NAVER_UA, Referer: 'https://m.stock.naver.com/' },
     signal: AbortSignal.timeout(12_000),
