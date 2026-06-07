@@ -171,6 +171,25 @@ function buildGuideCards(
   return [card1, card2, card3]
 }
 
+// 3축(실질금리·유동성·금리방향) 합산 → 한 줄 종합 스탠스 (카드들을 묶는 결론)
+function buildSynthesis(
+  inflData: InflationPoint[], bsData: BalanceSheetPoint[], rateDir?: 'cut' | 'hold' | 'hike',
+): { label: string; body: string; color: string; bg: string; border: string } {
+  const latest = inflData[inflData.length - 1]
+  const spread = (latest?.fedRate ?? 0) - (latest?.corePCE ?? 0)
+  const qtActive = isQtOngoing(bsData)
+  // 공격(+) / 방어(-)
+  const realRate = spread > 0.5 ? -1 : rateDir === 'cut' ? 1 : 0
+  const liquidity = qtActive ? -1 : 1
+  const direction = rateDir === 'cut' ? 1 : rateDir === 'hike' ? -1 : 0
+  const net = realRate + liquidity + direction
+  if (net >= 2)
+    return { label: '종합: 공격 우호', body: '실질금리 완화·유동성·금리 인하가 위험자산에 우호적 — 우량 성장주 중심 적극 운용이 유리합니다.', color: '#4ade80', bg: 'rgba(74,222,128,0.08)', border: 'rgba(74,222,128,0.3)' }
+  if (net <= -3)
+    return { label: '종합: 방어 우선', body: '제약적 금리·유동성 흡수·금리 동결/인상이 겹치는 방어적 환경 — 현금·단기채·이자수익 우량주 비중을 높이세요.', color: '#f87171', bg: 'rgba(248,113,113,0.08)', border: 'rgba(248,113,113,0.3)' }
+  return { label: '종합: 중립~방어 — 우량주 선별', body: '실질금리 제약은 완화됐으나 유동성(QT)·금리 방향(동결/인상)이 아직 보수적입니다. 적극 추격보다 우량주를 선별 매수하는 구간입니다.', color: '#fbbf24', bg: 'rgba(251,191,36,0.08)', border: 'rgba(251,191,36,0.3)' }
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 export default function MacroDashboard() {
   // ── 섹션 1: 인플레이션 & 금리
@@ -247,6 +266,7 @@ export default function MacroDashboard() {
   // ── 파생 상태 (데이터 로딩 후 계산)
   const latestInfl  = inflData[inflData.length - 1]
   const policyStance = getPolicyStance(inflData)
+  const synthesis    = (!inflLoading && !bsLoading) ? buildSynthesis(inflData, bsData, rateDir) : null
   const guideCards   = (!inflLoading && !bsLoading)
     ? buildGuideCards(inflData, bsData, rateDir)
     : null
@@ -385,6 +405,14 @@ export default function MacroDashboard() {
             {[0, 1, 2].map(i => (
               <div key={i} style={{ height: 80, background: '#1e2535', borderRadius: 10, animation: 'pulse 1.5s infinite' }} />
             ))}
+          </div>
+        )}
+
+        {/* 종합 스탠스 한 줄 — 3축을 묶는 결론 */}
+        {synthesis && (
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 14px', borderRadius: 10, background: synthesis.bg, border: `1px solid ${synthesis.border}`, marginBottom: 10 }}>
+            <span style={{ fontSize: 13, fontWeight: 800, color: synthesis.color, whiteSpace: 'nowrap' }}>{synthesis.label}</span>
+            <span style={{ fontSize: 11.5, color: '#aab6c4', lineHeight: 1.5 }}>{synthesis.body}</span>
           </div>
         )}
 
