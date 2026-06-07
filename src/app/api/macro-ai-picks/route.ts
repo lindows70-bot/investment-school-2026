@@ -53,7 +53,7 @@ export interface MacroAiResult {
   nextRefreshAt:    string
 }
 
-const CACHE_KEY = 'macro-ai-picks:weekly:v2'   // v2: 유니버스 50→100 확장
+const CACHE_KEY = 'macro-ai-picks:weekly:v3'   // v2: 유니버스 50→100 확장
 const PHASE_KEY = 'macro-ai-picks:phase'
 const CACHE_TTL = 7 * 24 * 3600_000   // 7일
 
@@ -108,15 +108,17 @@ ${krw.map(formatStock).join('\n')}
 
 // ── 메인 핸들러 ───────────────────────────────────────────────────────────────
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url)
+  const reqUrl = new URL(req.url)
+  const { searchParams } = reqUrl
   const forceRefresh = searchParams.get('refresh') === '1'
   const now = new Date().toISOString()
+  const selfBase = process.env.NEXT_PUBLIC_APP_URL || reqUrl.origin
 
   // ── Stale-while-revalidate (제미나이 보강 ④) ──────────────────────────────
   const cached = await getCache<MacroAiResult>(CACHE_KEY, CACHE_TTL)
 
-  // 매크로 데이터는 항상 최신으로 수집 (24h 자체 캐시)
-  const macroData = await fetchMacroData()
+  // 매크로 데이터는 항상 최신으로 수집 (24h 자체 캐시). selfBase로 FedWatch 방향 그라운딩
+  const macroData = await fetchMacroData(selfBase)
   const phaseResult = detectMacroPhase(macroData)
 
   // 국면 변화 감지 (이전 국면과 다르면 강제 갱신)

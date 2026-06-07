@@ -70,18 +70,17 @@ interface GuideCard {
 function buildGuideCards(
   inflData: InflationPoint[],
   bsData:   BalanceSheetPoint[],
+  rateDir?: 'cut' | 'hold' | 'hike',   // 매크로 SSOT(/api/macro-regime) — FedWatch 방향
 ): GuideCard[] {
   const latest = inflData[inflData.length - 1]
   const effr   = latest?.fedRate   ?? 0
   const core   = latest?.corePCE   ?? 0
   const qtActive = isQtOngoing(bsData)
 
-  // SEP 금리 인하 경로 확인
+  // SEP 점도표(연준 장기 전망) — 참고용. '현재 금리 방향'은 FedWatch SSOT(rateDir)가 결정
   const rateMedians = LATEST_SEP.dotPlot
     .filter(d => d.year !== 'Longer-run')
     .map(d => d.median)
-  const isRatePathDown = rateMedians.length >= 2 &&
-    rateMedians[rateMedians.length - 1] < rateMedians[0]
 
   // ── 카드 1: 공격 포지션 ──────────────────────────────────
   const isRestrictive = effr > core + 0.5
@@ -126,22 +125,32 @@ function buildGuideCards(
         border: 'rgba(74,222,128,0.25)',
       }
 
-  // ── 카드 3: 금리 사이클 모니터 ───────────────────────────
-  const card3: GuideCard = isRatePathDown
+  // ── 카드 3: 금리 사이클 모니터 — FedWatch SSOT(rateDir) 기준 (SEP는 참고용) ──
+  const card3: GuideCard = rateDir === 'cut'
     ? {
         icon:   '🟢',
         title:  '금리 인하 사이클 가동 중',
-        body:   `SEP 금리 중간값이 ${rateMedians[0].toFixed(2)}% → ${rateMedians[rateMedians.length - 1].toFixed(2)}%로 우하향 경로 전망. ` +
-                '연준의 피벗 기조가 유효합니다. 유동성 리레이팅 수혜 핵심 주도주 분할 매수 타이밍으로 활용하세요.',
+        body:   `FF선물이 인하 경로를 반영 중입니다(SEP 점도표 ${rateMedians[0]?.toFixed(2)}%→${rateMedians[rateMedians.length - 1]?.toFixed(2)}% 우하향과 일치). ` +
+                '유동성 리레이팅 수혜 핵심 주도주 분할 매수 타이밍으로 활용하세요.',
         color:  '#4ade80',
         bg:     'rgba(74,222,128,0.07)',
         border: 'rgba(74,222,128,0.25)',
       }
+    : rateDir === 'hike'
+    ? {
+        icon:   '🔴',
+        title:  '동결~소폭 인상 기대',
+        body:   'FF선물이 당분간 동결 또는 소폭 인상 가능성을 반영하고 있습니다. ' +
+                '추격 매수를 자제하고 이자수익 우량주·현금 비중을 유지하세요. (연준 점도표상 장기 인하 경로는 참고용)',
+        color:  '#f87171',
+        bg:     'rgba(248,113,113,0.07)',
+        border: 'rgba(248,113,113,0.25)',
+      }
     : {
         icon:   '🟡',
-        title:  '금리 경로 모니터링',
-        body:   'SEP 금리 중간값이 뚜렷한 인하 경로를 제시하지 않고 있습니다. ' +
-                '다음 FOMC SEP 업데이트까지 포지션을 보수적으로 유지하고 데이터를 추적하세요.',
+        title:  '금리 고점·동결 국면',
+        body:   '시장(FF선물)은 당분간 금리 동결을 기대하고 있습니다. ' +
+                '연준 점도표상 장기 인하 경로는 참고용이며, 단기 추격보다 이자수익 금융주·FCF 우량주 중심이 유리합니다.',
         color:  '#fbbf24',
         bg:     'rgba(251,191,36,0.07)',
         border: 'rgba(251,191,36,0.25)',
@@ -166,9 +175,18 @@ export default function MacroDashboard() {
   const [bsMock,    setBsMock]    = useState(false)
   const [bsUpdated, setBsUpdated] = useState<string | null>(null)
 
+  // 매크로 국면 SSOT (FedWatch 방향) — 포지션 가이드 카드3 결론 일치용
+  const [rateDir, setRateDir] = useState<'cut' | 'hold' | 'hike' | undefined>(undefined)
+
   useEffect(() => {
     let cancelled = false
     const now = new Date().toLocaleString('ko-KR')
+
+    // 매크로 국면 SSOT
+    fetch('/api/macro-regime', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(j => { if (!cancelled && (j?.rateDir === 'cut' || j?.rateDir === 'hold' || j?.rateDir === 'hike')) setRateDir(j.rateDir) })
+      .catch(() => {})
 
     // 인플레이션 데이터
     fetchInflationAndRate(36)
@@ -213,7 +231,7 @@ export default function MacroDashboard() {
   const latestInfl  = inflData[inflData.length - 1]
   const policyStance = getPolicyStance(inflData)
   const guideCards   = (!inflLoading && !bsLoading)
-    ? buildGuideCards(inflData, bsData)
+    ? buildGuideCards(inflData, bsData, rateDir)
     : null
 
   return (
@@ -239,7 +257,7 @@ export default function MacroDashboard() {
           }}>🏛️</div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 900, color: '#f1f5f9' }}>Fed Watch — 거시경제 모니터</div>
-            <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>연준 통화정책 · 인플레이션 · 유동성 지표 실시간 추적</div>
+            <div style={{ fontSize: 11, color: '#8599ae', marginTop: 2 }}>연준 통화정책 · 인플레이션 · 유동성 지표 실시간 추적</div>
           </div>
         </div>
 
@@ -252,7 +270,7 @@ export default function MacroDashboard() {
           }}>
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: policyStance.color }} />
             <span style={{ fontSize: 11, color: policyStance.color, fontWeight: 700 }}>{policyStance.label}</span>
-            <span style={{ fontSize: 10, color: '#475569' }}>{policyStance.desc}</span>
+            <span style={{ fontSize: 10, color: '#8599ae' }}>{policyStance.desc}</span>
           </div>
 
           {/* 현재 기준금리 (실시간) */}
@@ -261,7 +279,7 @@ export default function MacroDashboard() {
             background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.2)',
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            <span style={{ fontSize: 10, color: '#475569' }}>기준금리</span>
+            <span style={{ fontSize: 10, color: '#8599ae' }}>기준금리</span>
             <span style={{ fontSize: 13, fontWeight: 900, color: '#60a5fa', fontFamily: 'monospace' }}>
               {latestInfl ? `${latestInfl.fedRate.toFixed(2)}%` : '…'}
             </span>
@@ -273,7 +291,7 @@ export default function MacroDashboard() {
             background: 'rgba(255,193,7,0.07)', border: '1px solid rgba(255,193,7,0.2)',
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            <span style={{ fontSize: 10, color: '#475569' }}>Core PCE</span>
+            <span style={{ fontSize: 10, color: '#8599ae' }}>Core PCE</span>
             <span style={{ fontSize: 13, fontWeight: 900, color: '#FFC107', fontFamily: 'monospace' }}>
               {latestInfl ? `${latestInfl.corePCE.toFixed(2)}%` : '…'}
             </span>
@@ -285,7 +303,7 @@ export default function MacroDashboard() {
             background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.2)',
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            <span style={{ fontSize: 10, color: '#475569' }}>다음 FOMC</span>
+            <span style={{ fontSize: 10, color: '#8599ae' }}>다음 FOMC</span>
             <span style={{ fontSize: 11, fontWeight: 700, color: '#fbbf24' }}>{NEXT_FOMC.date}</span>
             <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 4, background: 'rgba(251,191,36,0.15)', color: '#fbbf24', fontWeight: 800 }}>
               D-{NEXT_FOMC.dDay}
@@ -365,7 +383,7 @@ export default function MacroDashboard() {
                   {card.icon}{' '}
                   <span style={{ color: card.color, fontWeight: 700, fontSize: 12 }}>{card.title}</span>
                 </div>
-                <div style={{ fontSize: 11, color: '#64748b', lineHeight: 1.65 }}>{card.body}</div>
+                <div style={{ fontSize: 11, color: '#7f93a8', lineHeight: 1.65 }}>{card.body}</div>
               </div>
             ))}
           </div>

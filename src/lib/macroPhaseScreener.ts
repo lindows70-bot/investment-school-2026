@@ -27,10 +27,11 @@ export type MacroPhase =
 export type LynchCategory = 'fast_grower' | 'stalwart' | 'cyclical' | 'turnaround' | 'asset_play' | 'slow_grower'
 
 export interface MacroData {
-  fedRate:    number      // 기준금리 % (e.g. 3.75)
+  fedRate:    number      // 현재 기준금리 % = FRED FEDFUNDS(EFFR, ≈3.64) — FedWatch와 동일 출처(SSOT)
   cpiYoY:     number      // CPI 전년대비 % (e.g. 3.95)
   yieldCurve: number      // 10Y-2Y %p (양수=정상, 음수=역전)
   hySpread:   number      // HY 스프레드 % (낮을수록 risk-on)
+  rateDir:    'cut' | 'hold' | 'hike'   // FedWatch FF선물 net 방향(SSOT) — 국면 판정의 실제 금리 방향
 }
 
 export interface MacroPhaseResult {
@@ -180,7 +181,7 @@ const LYNCH_MACRO_WEIGHTS: Record<MacroPhase, Record<LynchCategory, number>> = {
 
 // ── 매크로 국면 판별 알고리즘 ─────────────────────────────────────────────────
 export function detectMacroPhase(d: MacroData): MacroPhaseResult {
-  const { fedRate, cpiYoY, yieldCurve, hySpread } = d
+  const { fedRate, cpiYoY, yieldCurve, hySpread, rateDir } = d
   // 1) 스태그플레이션: 고물가 + HY 스프레드 급등
   if (cpiYoY > 5 && hySpread > 5)
     return { phase:'stagflation', label:'스태그플레이션 우려', color:'#f87171', icon:'🔥', description:'고물가·저성장 복합 위기 — 현금 흐름 우량주·실물 자산주 선호' }
@@ -190,16 +191,19 @@ export function detectMacroPhase(d: MacroData): MacroPhaseResult {
   // 3) 스태그플레이션 전조: 높은 물가
   if (cpiYoY > 4.5)
     return { phase:'stagflation', label:'인플레 압박 국면', color:'#fb923c', icon:'📈', description:'물가 압박 지속 — 가격 결정력 보유 기업(해자 넓은 대형주) 선호' }
-  // 4) 금리 고점 연착륙: 고금리·물가 안정 기조
-  if (fedRate > 4 && cpiYoY < 4)
-    return { phase:'peak_rate', label:'금리 고점 연착륙', color:'#f59e0b', icon:'🏔️', description:'고금리 안정화 — 이자 수익 수혜 금융주·FCF 우량주 선호' }
-  // 5) 금리 인하 초입: 현재 국면
-  if (fedRate <= 4.5 && fedRate > 2 && cpiYoY < 5 && yieldCurve >= 0)
-    return { phase:'rate_cut_early', label:'금리 인하 초입', color:'#4ade80', icon:'✂️', description:'인하 사이클 시작 — 성장주·기술주 리레이팅 기대, 선별적 접근' }
-  // 6) 저금리 유동성
+  // 4) 저금리 유동성
   if (fedRate <= 2)
     return { phase:'easy_money', label:'유동성 장세', color:'#22d3ee', icon:'💧', description:'저금리 풍부한 유동성 — 성장주·혁신 기업 강세 국면' }
-  return { phase:'neutral', label:'중립 국면', color:'#94a3b8', icon:'⚖️', description:'특별한 매크로 방향성 없음 — 펀더멘탈 기반 종목 선별' }
+  // 5) 금리 인하 초입: FedWatch가 '실제 인하 컨센서스'일 때만 (정적 레벨만으로 단정 금지)
+  if (rateDir === 'cut' && fedRate > 2 && cpiYoY < 5 && yieldCurve >= 0)
+    return { phase:'rate_cut_early', label:'금리 인하 초입', color:'#4ade80', icon:'✂️', description:'FF선물이 인하 사이클 진입을 반영 — 성장주·기술주 리레이팅 기대, 선별적 접근' }
+  // 6) 금리 고점·동결: FedWatch가 동결/소폭 인상을 반영(현재 국면). '인하'로 오표기하지 않음
+  return {
+    phase:'peak_rate', label:'금리 고점·동결', color:'#f59e0b', icon:'🏔️',
+    description: rateDir === 'hike'
+      ? '시장은 당분간 동결~소폭 인상을 기대 — 이자수익 금융주·FCF 우량주 선호 (점도표상 장기 인하 경로는 참고)'
+      : '시장은 당분간 금리 동결을 기대 — 이자수익 금융주·FCF 우량주 선호 (점도표상 장기 인하 경로는 참고)',
+  }
 }
 
 // ── FRED 데이터 수집 (24h 캐시) ──────────────────────────────────────────────
@@ -215,19 +219,36 @@ async function fredLatest(series: string, count = 14): Promise<{ date: string; v
   } catch { return [] }
 }
 
-export async function fetchMacroData(): Promise<MacroData> {
-  const cacheKey = 'macro-phase-data'
+// FedWatch FF선물 컨센서스로 '실제 금리 방향' 산출 — FedWatch 화면과 동일 출처(제2원칙)
+async function fetchRateDirection(currentRate: number, selfBase?: string): Promise<'cut' | 'hold' | 'hike'> {
+  if (!selfBase) return 'hold'
+  try {
+    const r = await fetch(`${selfBase}/api/fedwatch?currentRate=${currentRate.toFixed(4)}`, { signal: AbortSignal.timeout(12_000) })
+    if (!r.ok) return 'hold'
+    const j = await r.json()
+    const meetings: { consensusRate: number | null }[] = j?.meetings ?? []
+    const last = [...meetings].reverse().find(m => m?.consensusRate != null)   // 가장 먼 회의의 컨센서스
+    if (!last || last.consensusRate == null) return 'hold'
+    const net = last.consensusRate - currentRate     // 양수=인상, 음수=인하 (25bp의 절반=0.125 임계)
+    if (net <= -0.13) return 'cut'
+    if (net >= 0.13) return 'hike'
+    return 'hold'
+  } catch { return 'hold' }
+}
+
+export async function fetchMacroData(selfBase?: string): Promise<MacroData> {
+  const cacheKey = 'macro-phase-data-v2'   // v2: FEDFUNDS 기준금리 + FedWatch 방향
   const cached = await getCache<MacroData>(cacheKey, 24 * 3600_000)
   if (cached) return cached
 
   const [fedArr, cpiArr, yc2Arr, yc10Arr, hyArr] = await Promise.all([
-    fredLatest('DFEDTARU', 3),
+    fredLatest('FEDFUNDS', 3),   // EFFR(실효 기준금리 midpoint) — FedWatch currentRate와 동일 출처
     fredLatest('CPIAUCSL', 14),
     fredLatest('DGS2', 3),
     fredLatest('GS10', 3),
     fredLatest('BAMLH0A0HYM2', 3),
   ])
-  const fedRate = fedArr[0]?.v ?? 4.5
+  const fedRate = Math.round((fedArr[0]?.v ?? 3.64) * 100) / 100
   const cpiYoY = cpiArr.length >= 13
     ? Math.round(((cpiArr[0].v - cpiArr[12].v) / cpiArr[12].v) * 1000) / 10
     : 4.0
@@ -235,7 +256,8 @@ export async function fetchMacroData(): Promise<MacroData> {
     ? Math.round((yc10Arr[0].v - yc2Arr[0].v) * 100) / 100
     : 0.4
   const hySpread = hyArr[0]?.v ?? 3.0
-  const data: MacroData = { fedRate, cpiYoY, yieldCurve, hySpread }
+  const rateDir = await fetchRateDirection(fedRate, selfBase)
+  const data: MacroData = { fedRate, cpiYoY, yieldCurve, hySpread, rateDir }
   await setCache(cacheKey, data)
   return data
 }
