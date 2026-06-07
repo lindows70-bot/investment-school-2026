@@ -3,24 +3,24 @@
 import { fetchKrTrend, trendNum as num } from '@/lib/moneyFlow'
 import { getCanonicalPeg } from '@/lib/canonicalFundamentals'
 
+export type Period = 'd1' | 'd5' | 'd20'
+
 export interface MarketFlowEntry {
   ticker:    string
   name:      string
   sector:    string
   close:     number
   changePct: number | null   // 당일 등락률 %
-  foreignAmt: number         // 외국인 순매수 대금(₩, 당일=수량×종가)
-  organAmt:   number         // 기관 순매수 대금(₩)
+  foreign:   Record<Period, number>   // 외국인 누적 순매수 대금(₩) — 1/5/20일
+  organ:     Record<Period, number>   // 기관 누적 순매수 대금(₩)
   dualStreak: number         // 외인+기관 동시 순매수 연속일수(0=오늘 미해당)
   peg:        number | null  // 저PEG 뱃지용(상위 종목만 채움)
 }
 
 export interface MarketFlowKrResult {
-  foreignTop: MarketFlowEntry[]   // 외국인 순매수 Top
-  organTop:   MarketFlowEntry[]   // 기관 순매수 Top
-  dualBuy:    MarketFlowEntry[]   // 쌍끌이 연속매집(streak≥2)
-  asOf:       string
-  poolSize:   number
+  entries:  MarketFlowEntry[]   // 전체 풀 — 클라이언트가 기간(1/5/20)·주체(외인/기관)별 랭킹
+  asOf:     string
+  poolSize: number
 }
 
 // 주요 코스피/코스닥 유니버스(개별주식만 — ETF·ETN 없음). 섹터 라벨 포함
@@ -71,42 +71,69 @@ const POOL: { t: string; n: string; s: string }[] = [
   { t:'023530', n:'롯데쇼핑', s:'유통' }, { t:'282330', n:'BGF리테일', s:'유통' },
   { t:'161890', n:'한국콜마', s:'화장품' }, { t:'278470', n:'에이피알', s:'화장품' },
   { t:'277810', n:'레인보우로보틱스', s:'로봇' }, { t:'454910', n:'두산로보틱스', s:'로봇' },
-  { t:'108860', n:'셀바스AI', s:'AI' }, { t:'042660', n:'한화오션', s:'조선' },
+  { t:'108860', n:'셀바스AI', s:'AI' },
+  // ── 보강(2026-06): 검증 중 발견된 풀 누락 종목 ──
+  { t:'005935', n:'삼성전자우', s:'반도체' }, { t:'402340', n:'SK스퀘어', s:'지주사' },
+  { t:'007810', n:'코리아써키트', s:'PCB/반도체' }, { t:'336260', n:'두산퓨얼셀', s:'신재생에너지' },
+  { t:'005387', n:'현대차2우B', s:'자동차' }, { t:'005385', n:'현대차우', s:'자동차' },
+  { t:'051900', n:'LG생활건강', s:'화장품' }, { t:'090430', n:'아모레퍼시픽', s:'화장품' },
+  { t:'010120', n:'LS ELECTRIC', s:'전력기기' }, { t:'267250', n:'HD현대', s:'지주사' },
+  { t:'267270', n:'HD현대건설기계', s:'건설기계' }, { t:'042670', n:'HD현대인프라코어', s:'건설기계' },
+  { t:'241560', n:'두산밥캣', s:'건설기계' }, { t:'241590', n:'화승엔터프라이즈', s:'신발' },
+  { t:'001440', n:'대한전선', s:'전선' }, { t:'103140', n:'풍산', s:'비철금속' },
+  { t:'010620', n:'HD현대미포', s:'조선' }, { t:'009830', n:'한화솔루션', s:'태양광' },
+  { t:'047050', n:'포스코인터내셔널', s:'무역/에너지' }, { t:'011200', n:'HMM', s:'해운' },
+  { t:'180640', n:'한진칼', s:'지주사' }, { t:'003490', n:'대한항공', s:'항공' },
+  { t:'375500', n:'DL이앤씨', s:'건설' }, { t:'000720', n:'현대건설', s:'건설' },
+  { t:'034220', n:'LG디스플레이', s:'디스플레이' }, { t:'066970', n:'엘앤에프', s:'2차전지소재' },
+  { t:'137310', n:'에스디바이오센서', s:'진단' }, { t:'091990', n:'셀트리온헬스케어', s:'바이오' },
 ]
 
 function entryOf(p: { t: string; n: string; s: string }, rows: { foreignerPureBuyQuant: string; organPureBuyQuant: string; closePrice: string; compareToPreviousClosePrice?: string }[]): MarketFlowEntry | null {
   if (!rows.length) return null
   const close = num(rows[0].closePrice)
   if (close <= 0) return null
-  const fQ = num(rows[0].foreignerPureBuyQuant), oQ = num(rows[0].organPureBuyQuant)
+  // 누적 순매수 대금 = Σ(일별 순매수수량 × 그날 종가). 1/5/20일
+  const cumAmt = (key: 'foreignerPureBuyQuant' | 'organPureBuyQuant', n: number) =>
+    rows.slice(0, n).reduce((s, r) => s + num(r[key]) * num(r.closePrice), 0)
   // 쌍끌이 연속일수: 오늘부터 외인>0 AND 기관>0 연속
   let streak = 0
   for (const r of rows) { if (num(r.foreignerPureBuyQuant) > 0 && num(r.organPureBuyQuant) > 0) streak++; else break }
   const prevClose = rows[1] ? num(rows[1].closePrice) : 0
   const changePct = prevClose > 0 ? Math.round(((close - prevClose) / prevClose) * 1000) / 10 : null
-  return { ticker: p.t, name: p.n, sector: p.s, close, changePct, foreignAmt: fQ * close, organAmt: oQ * close, dualStreak: streak, peg: null }
+  return {
+    ticker: p.t, name: p.n, sector: p.s, close, changePct, dualStreak: streak, peg: null,
+    foreign: { d1: cumAmt('foreignerPureBuyQuant', 1), d5: cumAmt('foreignerPureBuyQuant', 5), d20: cumAmt('foreignerPureBuyQuant', 20) },
+    organ:   { d1: cumAmt('organPureBuyQuant', 1),     d5: cumAmt('organPureBuyQuant', 5),     d20: cumAmt('organPureBuyQuant', 20) },
+  }
 }
 
-// 전체 풀 수집·랭킹 (크론/콜드폴백). base=selfBase(PEG 조회용)
+// 전체 풀 수집 (크론/콜드폴백). base=selfBase(PEG 조회용). 랭킹은 클라이언트가 기간별로 수행
 export async function computeMarketFlowKr(base?: string): Promise<MarketFlowKrResult> {
+  // 풀 중복 제거(보강 시 중복 티커 방지)
+  const seen = new Set<string>()
+  const pool = POOL.filter(p => (seen.has(p.t) ? false : (seen.add(p.t), true)))
+
   const entries: MarketFlowEntry[] = []
-  for (let i = 0; i < POOL.length; i += 6) {
-    const batch = POOL.slice(i, i + 6)
+  for (let i = 0; i < pool.length; i += 6) {
+    const batch = pool.slice(i, i + 6)
     const rs = await Promise.all(batch.map(async p => {
       try { return entryOf(p, await fetchKrTrend(p.t)) } catch { return null }
     }))
     for (const r of rs) if (r) entries.push(r)
   }
-  const foreignTop = [...entries].sort((a, b) => b.foreignAmt - a.foreignAmt).filter(e => e.foreignAmt > 0).slice(0, 12)
-  const organTop = [...entries].sort((a, b) => b.organAmt - a.organAmt).filter(e => e.organAmt > 0).slice(0, 12)
-  const dualBuy = [...entries].filter(e => e.dualStreak >= 2).sort((a, b) => b.dualStreak - a.dualStreak || (b.foreignAmt + b.organAmt) - (a.foreignAmt + a.organAmt)).slice(0, 12)
 
-  // 저PEG 뱃지 — 표시되는 상위 종목 union만(과도한 fetch 방지)
-  const shown = new Map<string, MarketFlowEntry>()
-  for (const e of [...foreignTop, ...organTop, ...dualBuy]) shown.set(e.ticker, e)
-  await Promise.all(Array.from(shown.values()).map(async e => {
+  // 저PEG 뱃지 — 6개 랭킹(기간×주체) Top12 + 쌍끌이 union만 PEG 조회(과도한 fetch 방지)
+  const union = new Map<string, MarketFlowEntry>()
+  const periods: Period[] = ['d1', 'd5', 'd20']
+  for (const pr of periods) {
+    for (const e of [...entries].sort((a, b) => b.foreign[pr] - a.foreign[pr]).slice(0, 12)) union.set(e.ticker, e)
+    for (const e of [...entries].sort((a, b) => b.organ[pr] - a.organ[pr]).slice(0, 12)) union.set(e.ticker, e)
+  }
+  for (const e of entries.filter(e => e.dualStreak >= 2)) union.set(e.ticker, e)
+  await Promise.all(Array.from(union.values()).map(async e => {
     try { e.peg = await getCanonicalPeg(e.ticker, 'KR', base) } catch { /* graceful */ }
   }))
 
-  return { foreignTop, organTop, dualBuy, asOf: new Date().toISOString(), poolSize: entries.length }
+  return { entries, asOf: new Date().toISOString(), poolSize: entries.length }
 }

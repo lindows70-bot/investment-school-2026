@@ -1,18 +1,19 @@
 'use client'
-// 🌐 국내 시장 수급 랭킹 — 외국인/기관 순매수 상위 + 쌍끌이 연속매집 (주요 코스피 유니버스)
+// 🌐 국내 시장 수급 랭킹 — 외국인/기관 순매수 상위(1/5/20일) + 쌍끌이 연속매집 (주요 코스피 유니버스)
 import { useState, useEffect } from 'react'
-import type { MarketFlowKrResult, MarketFlowEntry } from '@/lib/marketFlowKr'
+import type { MarketFlowKrResult, MarketFlowEntry, Period } from '@/lib/marketFlowKr'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 type View = 'foreign' | 'organ' | 'dual'
 
 const won = (v: number) => {
   const eok = Math.round(v / 1e8)
-  return eok >= 10000 ? `${(eok / 10000).toFixed(2)}조` : `${eok.toLocaleString()}억`
+  if (Math.abs(eok) >= 10000) return `${(eok / 10000).toFixed(2)}조`
+  return `${eok.toLocaleString()}억`
 }
 const medal = (i: number) => (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`)
 
-function Row({ e, rank, amtKey }: { e: MarketFlowEntry; rank: number; amtKey: 'foreignAmt' | 'organAmt' }) {
+function Row({ e, rank, amt }: { e: MarketFlowEntry; rank: number; amt: number }) {
   const up = (e.changePct ?? 0) > 0
   const chgCol = e.changePct == null ? '#8a9aaa' : up ? '#22c55e' : '#ef4444'
   const cheap = e.peg != null && e.peg > 0 && e.peg < 1.0
@@ -27,7 +28,7 @@ function Row({ e, rank, amtKey }: { e: MarketFlowEntry; rank: number; amtKey: 'f
           {e.dualStreak >= 2 && <span style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid #f59e0b55', borderRadius: 6, padding: '0 6px', fontSize: 10, fontWeight: 700 }}>🔥 {e.dualStreak}일 쌍끌이</span>}
         </div>
       </div>
-      <span style={{ width: 78, textAlign: 'right', color: '#e2e8f0', fontWeight: 800, fontFamily: 'monospace' }}>{won(e[amtKey])}</span>
+      <span style={{ width: 84, textAlign: 'right', color: amt >= 0 ? '#e2e8f0' : '#f87171', fontWeight: 800, fontFamily: 'monospace' }}>{won(amt)}</span>
       <span style={{ width: 64, textAlign: 'right', color: chgCol, fontWeight: 700, fontFamily: 'monospace', fontSize: 12 }}>
         {e.changePct == null ? '—' : `${up ? '▲' : '▼'}${Math.abs(e.changePct)}%`}
       </span>
@@ -39,6 +40,7 @@ export default function MarketFlowKr() {
   const [data, setData] = useState<MarketFlowKrResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<View>('foreign')
+  const [period, setPeriod] = useState<Period>('d1')
 
   useEffect(() => {
     let alive = true
@@ -52,12 +54,19 @@ export default function MarketFlowKr() {
   if (loading) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa' }}>🌐 시장 수급 랭킹을 집계 중입니다…</div>
   if (!data || !data.poolSize) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa' }}>시장 수급 데이터를 불러오지 못했습니다. 장 마감 후 다시 확인해 주세요.</div>
 
-  const list = view === 'foreign' ? data.foreignTop : view === 'organ' ? data.organTop : data.dualBuy
-  const amtKey: 'foreignAmt' | 'organAmt' = view === 'organ' ? 'organAmt' : 'foreignAmt'
+  // 클라이언트 랭킹 — 선택한 주체(외인/기관) × 기간(1/5/20)
+  const amtOf = (e: MarketFlowEntry) => (view === 'organ' ? e.organ[period] : e.foreign[period])
+  const list: MarketFlowEntry[] = view === 'dual'
+    ? data.entries.filter(e => e.dualStreak >= 2).sort((a, b) => b.dualStreak - a.dualStreak || (b.foreign.d1 + b.organ.d1) - (a.foreign.d1 + a.organ.d1)).slice(0, 12)
+    : [...data.entries].sort((a, b) => amtOf(b) - amtOf(a)).filter(e => amtOf(e) > 0).slice(0, 12)
+
   const TABS: { key: View; label: string; color: string }[] = [
     { key: 'foreign', label: '🟢 외국인 순매수', color: '#22c55e' },
     { key: 'organ', label: '🔵 기관 순매수', color: '#3b82f6' },
     { key: 'dual', label: '🔥 쌍끌이 연속매집', color: '#f59e0b' },
+  ]
+  const PERIODS: { key: Period; label: string }[] = [
+    { key: 'd1', label: '1일' }, { key: 'd5', label: '5일 누적' }, { key: 'd20', label: '20일 누적' },
   ]
 
   return (
@@ -69,8 +78,8 @@ export default function MarketFlowKr() {
       </div>
       <div style={{ color: '#7f93a8', fontSize: 11, marginBottom: 12 }}>지금 메이저 돈이 어디로 쏠리나 — 새로운 주도주 발굴용. 저PEG면 💎 표시(리밸런싱 위성 후보 힌트)</div>
 
-      {/* 탭 */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+      {/* 주체 탭 */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
         {TABS.map(t => (
           <button key={t.key} onClick={() => setView(t.key)}
             style={{ padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer',
@@ -81,23 +90,37 @@ export default function MarketFlowKr() {
         ))}
       </div>
 
+      {/* 기간 토글 (쌍끌이 뷰에선 숨김) */}
+      {view !== 'dual' && (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+          {PERIODS.map(p => (
+            <button key={p.key} onClick={() => setPeriod(p.key)}
+              style={{ padding: '3px 11px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                background: period === p.key ? 'rgba(148,163,184,0.18)' : '#0f1117', color: period === p.key ? '#e2e8f0' : '#7f93a8',
+                border: `1px solid ${period === p.key ? '#475569' : BORDER}` }}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* 헤더 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 12px 6px', fontSize: 10.5, color: '#7f93a8' }}>
         <span style={{ width: 26, textAlign: 'center' }}>순위</span>
         <span style={{ flex: 1 }}>종목 (섹터)</span>
-        <span style={{ width: 78, textAlign: 'right' }}>순매수 대금</span>
+        <span style={{ width: 84, textAlign: 'right' }}>{view === 'dual' ? '순매수 대금' : `순매수 (${PERIODS.find(p => p.key === period)!.label})`}</span>
         <span style={{ width: 64, textAlign: 'right' }}>등락률</span>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-        {list.length ? list.map((e, i) => <Row key={e.ticker} e={e} rank={i} amtKey={amtKey} />)
+        {list.length ? list.map((e, i) => <Row key={e.ticker} e={e} rank={i} amt={view === 'dual' ? (e.foreign.d1 + e.organ.d1) : amtOf(e)} />)
           : <div style={{ color: '#8a9aaa', fontSize: 12, padding: '10px 0', textAlign: 'center' }}>
               {view === 'dual' ? '현재 외인·기관 동시 연속매집(2일+) 종목이 없습니다.' : '해당 순매수 종목이 없습니다.'}
             </div>}
       </div>
 
       <div style={{ color: '#6e7f8f', fontSize: 10, marginTop: 10, lineHeight: 1.5 }}>
-        ※ 순매수 대금은 일별 순매수 수량×종가 추정치 · 주요 코스피 유니버스 기준(전 종목 아님, ETF 제외) · 매일 장 마감 후 갱신. 교육용 시뮬레이션이며 투자 추천이 아닙니다.
+        ※ 순매수 대금 = 일별 순매수 수량×종가 누적 추정치(1/5/20일) · 주요 코스피 유니버스 기준(전 종목 아님, ETF 제외) · 매일 장 마감 후 갱신. 교육용 시뮬레이션이며 투자 추천이 아닙니다.
       </div>
     </div>
   )
