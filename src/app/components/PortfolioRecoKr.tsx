@@ -34,7 +34,7 @@ function Item({ it }: { it: RecoItem }) {
   const indNeg = it.individual1 < 0   // 개인 이탈 여부
   return (
     <div>
-      <div onClick={() => setOpen(o => !o)} style={{ cursor: 'pointer', background: '#0f1117', borderRadius: 9, border: `1px solid ${cfg.color}33`, padding: '11px 13px' }}>
+      <div style={{ background: '#0f1117', borderRadius: 9, border: `1px solid ${cfg.color}33`, padding: '11px 13px' }}>
         {/* 상단: 종목명 + 배지들 + 점수 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 6 }}>
           <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 14 }}>{it.name}</span>
@@ -47,19 +47,30 @@ function Item({ it }: { it: RecoItem }) {
             <span style={{ color: it.organ5 >= 0 ? '#22c55e' : '#ef4444' }}>기 {fmtEok(it.organ5)}</span>
             {indNeg && <span style={{ color: '#ef4444' }}>개 {fmtEok(it.individual1)}</span>}
           </span>
-          <span style={{ color: '#64748b', fontSize: 9, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
         </div>
         {/* 추천 점수 바 */}
         <ScoreBar score={it.recoScore} />
         {/* 이유 + ₩ 가이드 */}
         <div style={{ color: '#aab6c4', fontSize: 11.5, lineHeight: 1.55, marginTop: 6 }}>{it.reason}</div>
-        {it.suggestWon > 0 && (
-          <div style={{ marginTop: 7, display: 'inline-flex', alignItems: 'center', gap: 6, background: `${cfg.color}14`, border: `1px solid ${cfg.color}44`, borderRadius: 7, padding: '5px 10px' }}>
-            <span style={{ color: cfg.color, fontSize: 11, fontWeight: 800 }}>💰 권장 매수</span>
-            <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13, fontFamily: 'monospace' }}>{fmtW(it.suggestWon)}</span>
-            <span style={{ color: '#8a9aaa', fontSize: 10 }}>({it.category === 'addMore' ? '포트폴리오 1%' : '포트폴리오 2%'})</span>
-          </div>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+          {it.suggestWon > 0 && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: `${cfg.color}14`, border: `1px solid ${cfg.color}44`, borderRadius: 7, padding: '5px 10px' }}>
+              <span style={{ color: cfg.color, fontSize: 11, fontWeight: 800 }}>💰 권장 매수</span>
+              <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13, fontFamily: 'monospace' }}>{fmtW(it.suggestWon)}</span>
+              <span style={{ color: '#8a9aaa', fontSize: 10 }}>({it.category === 'addMore' ? '포트폴리오 1%' : '포트폴리오 2%'})</span>
+            </div>
+          )}
+          {/* 명시적 타임라인 버튼 — 학생들이 클릭 가능 여부를 바로 알 수 있게 */}
+          <button
+            onClick={e => { e.stopPropagation(); setOpen(o => !o) }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+              background: open ? 'rgba(99,102,241,0.18)' : 'rgba(99,102,241,0.08)', color: open ? '#a5b4fc' : '#818cf8',
+              border: `1px solid ${open ? '#818cf866' : '#818cf833'}` }}>
+            <span>📅</span>
+            <span>{open ? '매매동향 접기' : '최근 20일 매매동향 보기'}</span>
+            <span style={{ fontSize: 8, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
+          </button>
+        </div>
       </div>
       {open && <div style={{ marginTop: 4 }}><InvestorTimeline ticker={it.ticker} name={it.name} /></div>}
     </div>

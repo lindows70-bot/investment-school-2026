@@ -157,18 +157,30 @@ export default function MarketFlowKr() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-        {list.length ? list.map((e, i) => (
-          <div key={e.ticker}>
-            <div onClick={() => setOpenTicker(t => t === e.ticker ? null : e.ticker)} style={{ cursor: 'pointer' }}>
-              <Row e={e} rank={i} amt={view === 'dual' ? (e.foreign.d1 + e.organ.d1) : amtOf(e)} prices={pricesFor(e)} open={openTicker === e.ticker} />
+        {list.length ? list.map((e, i) => {
+          const isOpen = openTicker === e.ticker
+          return (
+            <div key={e.ticker}>
+              <Row e={e} rank={i} amt={view === 'dual' ? (e.foreign.d1 + e.organ.d1) : amtOf(e)} prices={pricesFor(e)} open={isOpen} />
+              {/* 명시적 타임라인 버튼 — 행 아래에 항상 노출 */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '3px 4px 0' }}>
+                <button
+                  onClick={() => setOpenTicker(t => t === e.ticker ? null : e.ticker)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 6, fontSize: 10.5, fontWeight: 700, cursor: 'pointer',
+                    background: isOpen ? 'rgba(99,102,241,0.18)' : 'rgba(99,102,241,0.08)', color: isOpen ? '#a5b4fc' : '#818cf8',
+                    border: `1px solid ${isOpen ? '#818cf866' : '#818cf833'}` }}>
+                  <span>📅</span>
+                  <span>{isOpen ? '접기' : '20일 매매동향'}</span>
+                  <span style={{ fontSize: 8, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
+                </button>
+              </div>
+              {isOpen && <div style={{ marginTop: 4 }}><InvestorTimeline ticker={e.ticker} name={e.name} /></div>}
             </div>
-            {openTicker === e.ticker && <div style={{ marginTop: 4 }}><InvestorTimeline ticker={e.ticker} name={e.name} /></div>}
-          </div>
-        )) : <div style={{ color: '#8a9aaa', fontSize: 12, padding: '10px 0', textAlign: 'center' }}>
+          )
+        }) : <div style={{ color: '#8a9aaa', fontSize: 12, padding: '10px 0', textAlign: 'center' }}>
               {view === 'dual' ? '현재 외인·기관 동시 연속매집(2일+) 종목이 없습니다.' : '해당 순매수 종목이 없습니다.'}
             </div>}
       </div>
-      <div style={{ color: '#7f93a8', fontSize: 10.5, marginTop: 6 }}>💡 종목을 클릭하면 외국인·기관·개인 <b>일별 매매동향 타임라인</b>이 펼쳐집니다.</div>
 
       <div style={{ color: '#6e7f8f', fontSize: 10, marginTop: 10, lineHeight: 1.5 }}>
         ※ 순매수 대금 = 일별 순매수 수량×종가 누적 추정치(1/5/20일) · 주요 코스피 유니버스 기준(전 종목 아님, ETF 제외) · 매일 장 마감 후 갱신. 교육용 시뮬레이션이며 투자 추천이 아닙니다.
