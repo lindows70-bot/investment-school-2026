@@ -1481,6 +1481,23 @@ FRED 매크로 + 피터 린치 6대 가중치 매트릭스 + 퀀트 스크리닝
 
 ---
 
+## 🧭 매크로 국면 SSOT 통일 (2026-06-07) — 제2원칙
+
+**문제**: 매크로 '금리 방향' 결론이 화면마다 모순. FedWatch(FF선물)는 "동결/인상"인데 macro-ai-picks(MacroAiTerminal)·MacroDashboard는 "금리 인하 초입/사이클". 기준금리도 3.64(EFFR) vs 3.75(목표상단)로 불일치.
+
+**근본 원인**: 매크로 결론이 4~5곳에서 독립 계산 + 아무도 FedWatch 방향을 안 봄. `detectMacroPhase`가 정적 레벨(금리 밴드+CPI+장단기차)만으로 "인하 초입" 단정.
+
+**해결 — 단일 SSOT(`/api/macro-regime`)**:
+- **`macroPhaseScreener.fetchMacroData(selfBase)`**: 기준금리를 `DFEDTARU`(상단 3.75)→**`FEDFUNDS`(EFFR 3.63, FedWatch와 동일출처)**. **FedWatch FF선물 net 방향(rateDir: cut/hold/hike)** + **다음 FOMC 날짜**도 산출(`fetchRateDirection`이 `/api/fedwatch` meetings에서). 캐시 `macro-phase-data-v3`
+- **`detectMacroPhase`**: `rateDir==='cut'`(실제 인하 컨센서스)일 때만 `rate_cut_early`. 그 외엔 `peak_rate`(**금리 고점·동결**) — 정적 레벨만으로 '인하' 단정 금지
+- **`/api/macro-regime`**(신규): `{ fedRate, rateDir, rateDirLabel, phase, label, description, nextFomc{date,dDay} }` 단일 SSOT
+- **MacroDashboard**: 포지션 카드3을 SEP 점도표 단독→**rateDir 기준**(cut=인하사이클/hold=고점·동결/hike=동결~소폭인상). 다음 FOMC도 하드코딩(`2025년 6월 D-20`)→SSOT 동적값. SEP는 참고용으로 강등
+- **macro-ai-picks**: selfBase 전달 + 캐시 v3 → 기준금리·국면 자동 일치
+- ⚠️ **BondSimulator·MacroStressTester는 미수정**: 사용자가 시나리오를 직접 토글하는 교육용 도구라 '현재=인하' 라이브 결론을 주장하지 않음(충돌 없음)
+- 검증(2026-06-07): `/api/macro-regime` = `fedRate 3.63 · rateDir 인상 · 금리 고점·동결 · 다음FOMC 2026년 6월 17~18일 D-10`. macro-ai-picks·MacroDashboard·FedWatch 전부 일치
+
+---
+
 ## 배포
 
 - **프로덕션**: https://investment-school-portfolio.vercel.app
