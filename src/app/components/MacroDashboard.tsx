@@ -82,26 +82,38 @@ function buildGuideCards(
     .filter(d => d.year !== 'Longer-run')
     .map(d => d.median)
 
-  // ── 카드 1: 공격 포지션 ──────────────────────────────────
-  const isRestrictive = effr > core + 0.5
+  // ── 카드 1: 공격 포지션 — 실질금리(스프레드) × 금리방향(SSOT) 결합 ──
+  //    '완화 중 → 적극 공격'은 실제 인하(rateDir==='cut')일 때만. 동결/인상이면 선별적(모순 방지)
+  const spread = effr - core
+  const isRestrictive = spread > 0.5
   const card1: GuideCard = isRestrictive
     ? {
         icon:   '🔴',
         title:  '공격 포지션 주의',
-        body:   `기준금리(${effr.toFixed(2)}%)가 Core PCE(${core.toFixed(2)}%)를 +${(effr - core).toFixed(2)}%p 상회하는 제약적 환경입니다. ` +
+        body:   `기준금리(${effr.toFixed(2)}%)가 Core PCE(${core.toFixed(2)}%)를 +${spread.toFixed(2)}%p 상회하는 제약적 환경입니다. ` +
                 '고밸류에이션 성장주 비중을 조절하고 리스크 관리에 집중하세요.',
         color:  '#f87171',
         bg:     'rgba(248,113,113,0.07)',
         border: 'rgba(248,113,113,0.25)',
       }
-    : {
+    : rateDir === 'cut'
+    ? {
         icon:   '🟢',
         title:  '공격 포지션 유효',
-        body:   `기준금리(${effr.toFixed(2)}%) vs Core PCE(${core.toFixed(2)}%) 스프레드 축소 — 제약적 통화정책이 완화되고 있습니다. ` +
-                '우량 성장주 중심의 적극적인 포트폴리오 운용이 유리한 구간입니다.',
+        body:   `실질금리 스프레드 축소(${effr.toFixed(2)}% vs ${core.toFixed(2)}%) + 금리 인하 진행 — 제약적 통화정책이 실제로 완화되는 구간입니다. ` +
+                '우량 성장주 중심의 적극적인 포트폴리오 운용이 유리합니다.',
         color:  '#4ade80',
         bg:     'rgba(74,222,128,0.07)',
         border: 'rgba(74,222,128,0.25)',
+      }
+    : {
+        icon:   '🟡',
+        title:  '선별적 접근 (중립)',
+        body:   `실질금리 스프레드(${effr.toFixed(2)}% vs ${core.toFixed(2)}%, +${spread.toFixed(2)}%p)는 제약 강도가 완화됐으나, 금리는 당분간 ` +
+                `${rateDir === 'hike' ? '동결~소폭 인상' : '동결'} 기조입니다. 적극적 공격보다 우량주 선별 접근이 유리한 구간입니다.`,
+        color:  '#fbbf24',
+        bg:     'rgba(251,191,36,0.07)',
+        border: 'rgba(251,191,36,0.25)',
       }
 
   // ── 카드 2: 방어 포지션 ──────────────────────────────────
