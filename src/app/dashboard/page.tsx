@@ -21,6 +21,7 @@ import MacroWeather               from '@/app/components/MacroWeather'
 import NpsPortfolio               from '@/app/components/NpsPortfolio'
 import JarvisMorningBriefing      from '@/app/components/JarvisMorningBriefing'
 import SchoolIndexDashboard       from '@/app/components/SchoolIndexDashboard'
+import GlobalTop10                from '@/app/components/GlobalTop10'
 import NewsCatalystRadar          from '@/app/components/NewsCatalystRadar'
 import AiRebalancePanel           from '@/app/components/AiRebalancePanel'
 import PortfolioFlowDashboard     from '@/app/components/PortfolioFlowDashboard'
@@ -676,7 +677,7 @@ export default function DashboardPage() {
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
   const [btActive,  setBtActive]  = useState({ rebalanceQ:true, rebalanceY:false, buyAndHold:true, benchmark:true })
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10'>('live')
   const [flowView, setFlowView] = useState<'mine' | 'market' | 'reco'>('mine')
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
@@ -1450,6 +1451,7 @@ export default function DashboardPage() {
           {
             id: 'research', icon: '💡', label: '투자 리서치',
             items: [
+              { key: 'globaltop10', icon: '🌍', label: '글로벌 시총 Top 10',  desc: '미국 vs 한국 시총 거인 체급 비교' },
               { key: 'macroai',  icon: '🌐', label: '거시경제 AI 추천',       desc: '매크로 × 린치 × Gemini 종합 추천' },
               { key: 'tenbagger',icon: '🚀', label: '10배거 헌터',           desc: '린치 10루타 7대 기준 종목 검증' },
               { key: 'mentor',   icon: '🤖', label: 'AI 멘토 족집게',       desc: '마스터 진단 레포트' },
@@ -3174,6 +3176,13 @@ export default function DashboardPage() {
       <div id="tab-ghost" style={{ display: dashTab==='ghost' ? 'flex' : 'none', flexDirection:'column', gap:0 }}>
         <LynchGhostStockPanel />
       </div>  {/* 유령 종목 탭 끝 */}
+
+      {/* ── 🌍 글로벌 시총 Top 10 탭 ── */}
+      <div id="tab-globaltop10" style={{ display: dashTab==='globaltop10' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="글로벌 시총 Top 10">
+          <GlobalTop10 />
+        </ErrorBoundary>
+      </div>
 
       {/* ── 🏫 투자학교 13F 인덱스 탭 (School Insider Flow · 2단계) ── */}
       <div id="tab-schoolflow" style={{ display: dashTab==='schoolflow' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
