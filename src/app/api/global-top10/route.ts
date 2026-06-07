@@ -81,16 +81,21 @@ async function fetchKrTop10(usdKrw: number): Promise<TopEntry[]> {
     })
     if (!r.ok) return []
     const j = await r.json()
-    const stocks: { stockType: string; itemCode: string; stockName: string; marketValue: number; closePrice: string; compareToPreviousClosePrice: string }[] = j.stocks ?? []
+    // marketValue = 문자열 "19,234,257" (백만원) 또는 marketValueRaw(숫자)
+    const stocks: { stockType: string; itemCode: string; stockName: string; marketValue: string | number; marketValueRaw?: number; closePrice: string; compareToPreviousClosePrice: string; fluctuationsRatio?: string }[] = j.stocks ?? []
     const entries: TopEntry[] = []
     for (const s of stocks) {
       if (entries.length >= 10) break
       if (getAssetType(s.itemCode, s.stockName, 'KR') !== 'STOCK') continue
       const meta = LYNCH_KR[s.itemCode] ?? { lynchLabel: '대형우량주', sector: '기타' }
       const close = parseFloat(s.closePrice?.replace(/,/g, '') || '0')
+      // fluctuationsRatio 직접 사용(더 정확) — 없으면 closePrice로 역산
+      const flucRaw = s.fluctuationsRatio ? parseFloat(s.fluctuationsRatio) : null
       const chgAmt = parseFloat(s.compareToPreviousClosePrice?.replace(/,/g, '') || '0')
-      const changePct = close > 0 ? Math.round((chgAmt / (close - chgAmt)) * 1000) / 10 : null
-      const marketCapKrw = (s.marketValue ?? 0) * 1e6   // marketValue가 백만원 단위
+      const changePct = flucRaw ?? (close > 0 ? Math.round((chgAmt / (close - chgAmt)) * 1000) / 10 : null)
+      // marketValueRaw(숫자, 백만원) 우선, 없으면 marketValue 문자열 파싱
+      const rawMv = s.marketValueRaw ?? parseFloat(String(s.marketValue).replace(/,/g, '') || '0')
+      const marketCapKrw = rawMv * 1e6   // 백만원 → 원
       entries.push({ rank: entries.length + 1, ticker: s.itemCode, name: s.stockName, market: 'KR', marketCapKrw, marketCapUsd: marketCapKrw / usdKrw, changePct, ...meta })
     }
     return entries
