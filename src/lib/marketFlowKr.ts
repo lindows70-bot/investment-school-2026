@@ -15,6 +15,7 @@ export interface MarketFlowEntry {
   organ:     Record<Period, number>   // 기관 누적 순매수 대금(₩)
   dualStreak: number         // 외인+기관 동시 순매수 연속일수(0=오늘 미해당)
   peg:        number | null  // 저PEG 뱃지용(상위 종목만 채움)
+  closes:     number[]       // 최근 20일 일별 종가(오래된→최신) — 1주/1개월 스파크라인용(추가 fetch 0)
 }
 
 export interface MarketFlowKrResult {
@@ -101,8 +102,9 @@ function entryOf(p: { t: string; n: string; s: string }, rows: { foreignerPureBu
   for (const r of rows) { if (num(r.foreignerPureBuyQuant) > 0 && num(r.organPureBuyQuant) > 0) streak++; else break }
   const prevClose = rows[1] ? num(rows[1].closePrice) : 0
   const changePct = prevClose > 0 ? Math.round(((close - prevClose) / prevClose) * 1000) / 10 : null
+  const closes = rows.slice(0, 20).map(r => num(r.closePrice)).filter(c => c > 0).reverse()   // 오래된→최신
   return {
-    ticker: p.t, name: p.n, sector: p.s, close, changePct, dualStreak: streak, peg: null,
+    ticker: p.t, name: p.n, sector: p.s, close, changePct, dualStreak: streak, peg: null, closes,
     foreign: { d1: cumAmt('foreignerPureBuyQuant', 1), d5: cumAmt('foreignerPureBuyQuant', 5), d20: cumAmt('foreignerPureBuyQuant', 20) },
     organ:   { d1: cumAmt('organPureBuyQuant', 1),     d5: cumAmt('organPureBuyQuant', 5),     d20: cumAmt('organPureBuyQuant', 20) },
   }

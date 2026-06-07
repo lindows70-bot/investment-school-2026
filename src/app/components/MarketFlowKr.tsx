@@ -13,7 +13,25 @@ const won = (v: number) => {
 }
 const medal = (i: number) => (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`)
 
-function Row({ e, rank, amt }: { e: MarketFlowEntry; rank: number; amt: number }) {
+// 미니 주가 스파크라인 — 마지막>처음이면 초록, 아니면 빨강
+function MiniChart({ prices }: { prices: number[] }) {
+  if (!prices || prices.length < 2) return <div style={{ width: 84, height: 26 }} />
+  const W = 84, H = 26, P = 2
+  const min = Math.min(...prices), max = Math.max(...prices), rng = max - min || 1
+  const xs = prices.map((_, i) => P + (i / (prices.length - 1)) * (W - 2 * P))
+  const ys = prices.map(p => P + (1 - (p - min) / rng) * (H - 2 * P))
+  const pts = xs.map((x, i) => `${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ')
+  const up = prices[prices.length - 1] >= prices[0]
+  const col = up ? '#22c55e' : '#ef4444'
+  return (
+    <svg width={W} height={H} style={{ display: 'block', flexShrink: 0 }}>
+      <polyline points={pts} fill="none" stroke={col} strokeWidth={1.3} strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={xs[xs.length - 1]} cy={ys[ys.length - 1]} r={1.8} fill={col} />
+    </svg>
+  )
+}
+
+function Row({ e, rank, amt, prices }: { e: MarketFlowEntry; rank: number; amt: number; prices: number[] }) {
   const up = (e.changePct ?? 0) > 0
   const chgCol = e.changePct == null ? '#8a9aaa' : up ? '#22c55e' : '#ef4444'
   const cheap = e.peg != null && e.peg > 0 && e.peg < 1.0
@@ -28,6 +46,7 @@ function Row({ e, rank, amt }: { e: MarketFlowEntry; rank: number; amt: number }
           {e.dualStreak >= 2 && <span style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid #f59e0b55', borderRadius: 6, padding: '0 6px', fontSize: 10, fontWeight: 700 }}>🔥 {e.dualStreak}일 쌍끌이</span>}
         </div>
       </div>
+      <MiniChart prices={prices} />
       <span style={{ width: 84, textAlign: 'right', color: amt >= 0 ? '#e2e8f0' : '#f87171', fontWeight: 800, fontFamily: 'monospace' }}>{won(amt)}</span>
       <span style={{ width: 64, textAlign: 'right', color: chgCol, fontWeight: 700, fontFamily: 'monospace', fontSize: 12 }}>
         {e.changePct == null ? '—' : `${up ? '▲' : '▼'}${Math.abs(e.changePct)}%`}
@@ -41,6 +60,7 @@ export default function MarketFlowKr() {
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<View>('foreign')
   const [period, setPeriod] = useState<Period>('d1')
+  const [intraday, setIntraday] = useState<Record<string, number[]>>({})   // 1Day 인트라데이(표시 행만)
 
   useEffect(() => {
     let alive = true
@@ -50,6 +70,19 @@ export default function MarketFlowKr() {
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [])
+
+  // 1일(인트라데이) 뷰일 때만 표시 행의 분봉 차트를 lazy 로드
+  useEffect(() => {
+    if (!data || view === 'dual' || period !== 'd1') return
+    const codes = [...data.entries].sort((a, b) => (view === 'organ' ? b.organ.d1 - a.organ.d1 : b.foreign.d1 - a.foreign.d1)).slice(0, 12).map(e => e.ticker)
+    const need = codes.filter(c => !intraday[c])
+    if (!need.length) return
+    let alive = true
+    fetch(`/api/kr-chart?codes=${need.join(',')}`, { cache: 'no-store' })
+      .then(r => r.json()).then(j => { if (alive && j && typeof j === 'object') setIntraday(prev => ({ ...prev, ...j })) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [data, view, period, intraday])
 
   if (loading) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa' }}>🌐 시장 수급 랭킹을 집계 중입니다…</div>
   if (!data || !data.poolSize) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa' }}>시장 수급 데이터를 불러오지 못했습니다. 장 마감 후 다시 확인해 주세요.</div>
@@ -68,6 +101,13 @@ export default function MarketFlowKr() {
   const PERIODS: { key: Period; label: string }[] = [
     { key: 'd1', label: '1일' }, { key: 'd5', label: '5일 누적' }, { key: 'd20', label: '20일 누적' },
   ]
+  // 기간 → 차트 데이터: 1일=인트라데이(1Day) / 5일·쌍끌이=최근5일(1주) / 20일=최근20일(1개월)
+  const pricesFor = (e: MarketFlowEntry): number[] => {
+    if (view !== 'dual' && period === 'd1') return intraday[e.ticker] ?? []
+    const w = (view === 'dual' || period === 'd5') ? 5 : 20
+    return e.closes.slice(-w)
+  }
+  const chartLabel = view === 'dual' ? '1주' : period === 'd1' ? '1Day' : period === 'd5' ? '1주' : '1개월'
 
   return (
     <div style={{ background: CARD, borderRadius: 12, padding: '16px 18px', border: `1px solid ${BORDER}` }}>
@@ -108,12 +148,13 @@ export default function MarketFlowKr() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 12px 6px', fontSize: 10.5, color: '#7f93a8' }}>
         <span style={{ width: 26, textAlign: 'center' }}>순위</span>
         <span style={{ flex: 1 }}>종목 (섹터)</span>
+        <span style={{ width: 84, textAlign: 'center' }}>주가 ({chartLabel})</span>
         <span style={{ width: 84, textAlign: 'right' }}>{view === 'dual' ? '순매수 대금' : `순매수 (${PERIODS.find(p => p.key === period)!.label})`}</span>
         <span style={{ width: 64, textAlign: 'right' }}>등락률</span>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-        {list.length ? list.map((e, i) => <Row key={e.ticker} e={e} rank={i} amt={view === 'dual' ? (e.foreign.d1 + e.organ.d1) : amtOf(e)} />)
+        {list.length ? list.map((e, i) => <Row key={e.ticker} e={e} rank={i} amt={view === 'dual' ? (e.foreign.d1 + e.organ.d1) : amtOf(e)} prices={pricesFor(e)} />)
           : <div style={{ color: '#8a9aaa', fontSize: 12, padding: '10px 0', textAlign: 'center' }}>
               {view === 'dual' ? '현재 외인·기관 동시 연속매집(2일+) 종목이 없습니다.' : '해당 순매수 종목이 없습니다.'}
             </div>}
