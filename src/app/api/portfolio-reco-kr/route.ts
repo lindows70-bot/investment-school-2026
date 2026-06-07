@@ -47,8 +47,9 @@ function recoScore(e: MarketFlowEntry, sectBonus = 0): number {
     s += e.peg < 0.3 ? 35 : e.peg < 0.5 ? 30 : e.peg < 0.8 ? 22 : e.peg < 1.0 ? 14 : 0
   }
   // 수급 강도 점수(최대 40) — 쌍끌이 일수 + 5일 누적 대금 규모
+  // ※ max(0, ...) : 5일 누적이 음수여도 최근 쌍끌이 달성 종목에 음수 페널티 금지
   s += Math.min(e.dualStreak * 8, 24)
-  const f5 = e.foreign.d5 / 1e10, o5 = e.organ.d5 / 1e10   // 천억 단위
+  const f5 = Math.max(0, e.foreign.d5 / 1e10), o5 = Math.max(0, e.organ.d5 / 1e10)
   s += Math.min(Math.floor((f5 + o5) * 3), 16)
   // 개인 이탈 보너스(최대 15) — 개인이 팔고 메이저가 받는 구조 = 수급 신뢰도 UP
   const ind1 = e.individual?.d1 ?? 0
@@ -75,7 +76,7 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `portfolio-reco-kr-v2:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `portfolio-reco-kr-v3:${user.id}:${kstDate()}:${fp}`
   const cached = await getCache<PortfolioRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -111,7 +112,7 @@ export async function GET(req: Request) {
     .map(e => {
       const indStr = (e.individual?.d1 ?? 0) < 0 ? ` + 개인 ${eok(e.individual?.d1 ?? 0)}억 이탈(수급 신뢰↑)` : ''
       return toItem(e,
-        `내 포폴에 없는 '${e.sector}' 섹터 — 외인·기관 ${e.dualStreak >= 2 ? `${e.dualStreak}일 쌍끌이` : '5일 동반매수'}${indStr}. 권장 편입 ${(suggestNew / 1e6).toFixed(0)}만원(포트폴리오 2%).`,
+        `내 포폴에 없는 '${e.sector}' 섹터 — 외인·기관 ${e.dualStreak >= 2 ? `${e.dualStreak}일 쌍끌이` : '5일 동반매수'}${indStr}. 권장 편입 ${(suggestNew / 1e4).toFixed(0)}만원(포트폴리오 2%).`,
         'fillGap', 10, suggestNew)
     })
 
@@ -123,7 +124,7 @@ export async function GET(req: Request) {
     .map(e => {
       const indStr = (e.individual?.d1 ?? 0) < 0 ? ` · 개인 이탈 중 — 수급 구조 최적` : ''
       return toItem(e,
-        `PEG ${e.peg!.toFixed(2)} 저평가 + 외인·기관 ${e.dualStreak}일 쌍끌이${indStr}. 권장 신규 편입 ${(suggestNew / 1e6).toFixed(0)}만원.`,
+        `PEG ${e.peg!.toFixed(2)} 저평가 + 외인·기관 ${e.dualStreak}일 쌍끌이${indStr}. 권장 신규 편입 ${(suggestNew / 1e4).toFixed(0)}만원.`,
         'pearl', 0, suggestNew)
     })
 
@@ -136,7 +137,7 @@ export async function GET(req: Request) {
     .map(e => {
       const hasInd = (e.individual?.d1 ?? 0) < 0
       return toItem(e,
-        `보유 중 — ${e.dualStreak >= 2 ? `외인·기관 ${e.dualStreak}일 쌍끌이` : '외인 연속 순매수'}${hasInd ? ' + 개인 이탈 — 메이저 단독 매집 구조' : ''}. 비중 확대 권장 ${(suggestAdd / 1e6).toFixed(0)}만원(포트폴리오 1%).`,
+        `보유 중 — ${e.dualStreak >= 2 ? `외인·기관 ${e.dualStreak}일 쌍끌이` : '외인 연속 순매수'}${hasInd ? ' + 개인 이탈 — 메이저 단독 매집 구조' : ''}. 비중 확대 권장 ${(suggestAdd / 1e4).toFixed(0)}만원(포트폴리오 1%).`,
         'addMore', 0, suggestAdd)
     })
 
