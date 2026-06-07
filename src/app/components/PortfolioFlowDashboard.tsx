@@ -15,7 +15,7 @@ const ST: Record<Exclude<FlowStatus, 'UNSUPPORTED'>, { label: string; color: str
 const QUAD: Record<Quadrant, { label: string; emoji: string; color: string; desc: string; empty: string }> = {
   LEADER:  { label: '메이저 주도주', emoji: '🏆', color: '#22c55e', desc: '저PEG + 수급 유입(우선순위)', empty: '해당 종목 없음' },
   PEARL:   { label: '저평가 대기',   emoji: '💎', color: '#3b82f6', desc: '저PEG인데 수급은 아직(붙으면 탄력)', empty: '해당 종목 없음' },
-  CROWDED: { label: '상투·과열 위험', emoji: '⚠️', color: '#ef4444', desc: '고평가 + 수급 몰림/이탈', empty: '과열·상투 위험 없음 ✓' },
+  CROWDED: { label: '상투·과열 위험', emoji: '⚠️', color: '#ef4444', desc: '고평가 + 수급 과열(추격) 또는 메이저 이탈', empty: '과열·상투 위험 없음 ✓' },
   REVIEW:  { label: '재검토 필요',   emoji: '🔍', color: '#8a9aaa', desc: '펀더멘탈·수급 모두 약함', empty: '재검토 종목 없음 ✓' },
 }
 const dnm = (e: FlowEntry) => (e.market === 'KR' ? (e.name || e.ticker).slice(0, 10) : e.ticker.toUpperCase())
@@ -29,7 +29,7 @@ function StatusChip({ s }: { s: FlowStatus }) {
 // 동행지수 추이 스파크라인 — 누적된 일별 rate 시계열. 2점 미만이면 '누적 중'
 function Sparkline({ data }: { data: { date: string; rate: number }[] }) {
   if (data.length < 2) {
-    return <span style={{ color: '#5b6b7d', fontSize: 10.5, minWidth: 88 }}>추이 누적 중…</span>
+    return <span style={{ color: '#8a9aaa', fontSize: 10.5, minWidth: 88 }}>추이 누적 중…</span>
   }
   const W = 92, H = 30, P = 3
   const xs = data.map((_, i) => P + (i / (data.length - 1)) * (W - 2 * P))
@@ -53,7 +53,7 @@ function Row({ e, near }: { e: FlowEntry; near?: boolean }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: '#0f1117', borderRadius: 8, fontSize: 12 }}>
       <span style={{ color: '#e2e8f0', fontWeight: 700, minWidth: 70 }}>{dnm(e)}</span>
-      <span style={{ color: '#64748b', fontSize: 10, fontFamily: 'monospace' }}>{e.weight}%</span>
+      <span style={{ color: '#8a9aaa', fontSize: 10, fontFamily: 'monospace' }}>{e.weight}%</span>
       {near
         ? <span style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid #f59e0b55', borderRadius: 999, padding: '0 7px', fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>🔜 임박</span>
         : <StatusChip s={e.status} />}
@@ -111,7 +111,7 @@ export default function PortfolioFlowDashboard() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <span style={{ fontSize: 19 }}>📡</span>
           <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 16 }}>포트폴리오 수급 레이더</span>
-          <span style={{ marginLeft: 'auto', color: '#7f93a8', fontSize: 11 }}>내 종목 {data.total}개 · 스마트머니 동행지수 <span style={{ color: '#5b6b7d' }}>(밸류 무관 자금 유입률)</span></span>
+          <span style={{ marginLeft: 'auto', color: '#7f93a8', fontSize: 11 }}>내 종목 {data.total}개 · 스마트머니 동행지수 <span style={{ color: '#8a9aaa' }}>(밸류 무관 자금 유입률)</span></span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ color: rate >= 50 ? '#22c55e' : rate >= 25 ? '#f59e0b' : '#8a9aaa', fontWeight: 900, fontSize: 28, fontFamily: 'monospace', minWidth: 64 }}>{rate}%</span>
@@ -140,14 +140,14 @@ export default function PortfolioFlowDashboard() {
                   <div style={{ color: '#f59e0b', fontSize: 11, marginBottom: 2 }}>🔜 곧 1순위가 될 후보 — 저평가주에 수급이 막 살아나는 중</div>
                   {nearPriority.map(e => <Row key={e.ticker} e={e} near />)}
                 </>
-              ) : <div style={{ color: '#64748b', fontSize: 12, padding: '6px 0' }}>현재 저평가 + 수급 유입(또는 임박) 종목이 없습니다.</div>}
+              ) : <div style={{ color: '#8a9aaa', fontSize: 12, padding: '6px 0' }}>현재 저평가 + 수급 유입(또는 임박) 종목이 없습니다.</div>}
           </div>
         </div>
         <div style={{ flex: '1 1 320px', background: CARD, borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(239,68,68,0.3)' }}>
           <div style={{ color: '#ef4444', fontWeight: 700, fontSize: 13, marginBottom: 4 }}>⚠️ 상투·과열 경보 (고평가)</div>
           <div style={{ color: '#7f93a8', fontSize: 11, marginBottom: 10 }}>고평가인데 수급이 몰리거나(추격 과열) 메이저가 이탈 중 — 추격 자제</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {crowded.length ? crowded.map(e => <Row key={e.ticker} e={e} />) : <div style={{ color: '#64748b', fontSize: 12, padding: '6px 0' }}>현재 과밀·상투 경보 종목이 없습니다.</div>}
+            {crowded.length ? crowded.map(e => <Row key={e.ticker} e={e} />) : <div style={{ color: '#8a9aaa', fontSize: 12, padding: '6px 0' }}>현재 과밀·상투 경보 종목이 없습니다.</div>}
           </div>
         </div>
       </div>
@@ -164,9 +164,9 @@ export default function PortfolioFlowDashboard() {
               <div key={q} style={{ background: '#0f1117', borderRadius: 10, border: `1px solid ${cfg.color}33`, padding: '11px 13px', minHeight: 92 }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 2 }}>
                   <span style={{ color: cfg.color, fontWeight: 800, fontSize: 13 }}>{cfg.emoji} {cfg.label}</span>
-                  <span style={{ color: '#64748b', fontSize: 13 }}>{list.length}</span>
+                  <span style={{ color: '#8a9aaa', fontSize: 13 }}>{list.length}</span>
                 </div>
-                <div style={{ color: '#6e7f8f', fontSize: 10.5, marginBottom: 8 }}>{cfg.desc}</div>
+                <div style={{ color: '#9aa7b4', fontSize: 10.5, marginBottom: 8 }}>{cfg.desc}</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
                   {list.length ? list.slice().sort((a, b) => b.weight - a.weight).map(e => {
                     // 비중 히트맵 — 비중 클수록 크고 굵고 진하게 + 비중% 직접 표기
@@ -183,7 +183,7 @@ export default function PortfolioFlowDashboard() {
                   }) : (
                     <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '8px 0 4px', border: `1px dashed ${cfg.color}22`, borderRadius: 8 }}>
                       <span style={{ fontSize: 22, opacity: 0.16, filter: 'grayscale(0.4)' }}>{cfg.emoji}</span>
-                      <span style={{ color: '#475569', fontSize: 10.5 }}>{cfg.empty}</span>
+                      <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>{cfg.empty}</span>
                     </div>
                   )}
                 </div>
@@ -193,7 +193,7 @@ export default function PortfolioFlowDashboard() {
         </div>
       </div>
 
-      <div style={{ color: '#4b5563', fontSize: 10.5, lineHeight: 1.6 }}>
+      <div style={{ color: '#8a9aaa', fontSize: 10.5, lineHeight: 1.6 }}>
         ※ 동행지수는 종목 수 기준 유입 비율입니다. 수급은 종목별 레이더(리서치)와 동일 엔진 · 매수/매도 시 자동 갱신. 수급은 연료일 뿐 방향은 펀더멘탈이 결정합니다 — 교육용 시뮬레이션이며 투자 추천이 아닙니다.
       </div>
     </div>
