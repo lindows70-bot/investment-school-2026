@@ -76,7 +76,7 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `portfolio-reco-kr-v3:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `portfolio-reco-kr-v4:${user.id}:${kstDate()}:${fp}`
   const cached = await getCache<PortfolioRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -104,21 +104,24 @@ export async function GET(req: Request) {
   const suggestAdd = Math.round(portfolioKrw * 0.01)    // 추가: 1%
 
   // ① 빈집 채우기: 미보유 + 없는 섹터 + 쌍끌이/5일동반매수
+  //    점수는 sectBonus 없이 통일(빈집 보너스는 정렬 기준으로만, 표시 점수는 공정하게)
   const fillGap = entries
     .filter(e => !heldCodes.has(e.ticker) && !heldSectorsSet.has(e.sector)
       && (e.dualStreak >= 2 || (e.foreign.d5 > 0 && e.organ.d5 > 0)))
-    .sort((a, b) => recoScore(b, 10) - recoScore(a, 10))   // 빈집엔 섹터 보너스 10점
+    .sort((a, b) => recoScore(b, 10) - recoScore(a, 10))   // 정렬만 섹터 보너스 반영
     .slice(0, 3)
     .map(e => {
       const indStr = (e.individual?.d1 ?? 0) < 0 ? ` + 개인 ${eok(e.individual?.d1 ?? 0)}억 이탈(수급 신뢰↑)` : ''
-      return toItem(e,
+      return toItem(e,    // toItem은 sectBonus=0 → 표시 점수에 보너스 미반영(공정성)
         `내 포폴에 없는 '${e.sector}' 섹터 — 외인·기관 ${e.dualStreak >= 2 ? `${e.dualStreak}일 쌍끌이` : '5일 동반매수'}${indStr}. 권장 편입 ${(suggestNew / 1e4).toFixed(0)}만원(포트폴리오 2%).`,
-        'fillGap', 10, suggestNew)
+        'fillGap', 0, suggestNew)
     })
+  const fillGapSet = new Set(fillGap.map(r => r.ticker))   // 중복 방지용
 
-  // ② 진주 발굴: 미보유 + 저PEG(<1.0) + 쌍끌이 2일+ + ★개인 이탈 있으면 최우선
+  // ② 진주 발굴: 미보유 + 저PEG(<1.0) + 쌍끌이 2일+ — 빈집에 이미 있으면 제외(중복 방지)
   const pearl = entries
-    .filter(e => !heldCodes.has(e.ticker) && e.peg != null && e.peg > 0 && e.peg < 1.0 && e.dualStreak >= 2)
+    .filter(e => !heldCodes.has(e.ticker) && !fillGapSet.has(e.ticker)   // ★ 중복 제거
+      && e.peg != null && e.peg > 0 && e.peg < 1.0 && e.dualStreak >= 2)
     .sort((a, b) => recoScore(b) - recoScore(a))
     .slice(0, 3)
     .map(e => {
