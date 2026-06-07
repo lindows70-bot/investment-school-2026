@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import type { GlobalTop10Result, TopEntry } from '@/app/api/global-top10/route'
 
-const CARD = '#161b25', BORDER = '#1e293b'
+const BORDER = '#1e293b'
 const LYNCH_COLOR: Record<string, string> = { '빠른성장주': '#22c55e', '대형우량주': '#3b82f6', '경기순환주': '#f59e0b', '저성장주': '#8a9aaa', '회생주': '#ef4444', '자산주': '#c084fc' }
 const medal = (r: number) => r === 1 ? '🥇' : r === 2 ? '🥈' : r === 3 ? '🥉' : `${r}`
 
@@ -17,7 +17,7 @@ const fmtUsd = (v: number) => {
   return `$${(v / 1e9).toFixed(0)}B`
 }
 
-function Row({ e, maxMc, krw }: { e: TopEntry; maxMc: number; krw: number }) {
+function Row({ e, maxMc }: { e: TopEntry; maxMc: number }) {
   const up = (e.changePct ?? 0) > 0
   const chgCol = e.changePct == null ? '#64748b' : up ? '#22c55e' : '#ef4444'
   const lCol = LYNCH_COLOR[e.lynchLabel] ?? '#8a9aaa'
@@ -54,7 +54,7 @@ function Row({ e, maxMc, krw }: { e: TopEntry; maxMc: number; krw: number }) {
   )
 }
 
-function SidePanel({ flag, title, list, usdKrw, maxMc }: { flag: string; title: string; list: TopEntry[]; usdKrw: number; maxMc: number }) {
+function SidePanel({ flag, title, list, maxMc }: { flag: string; title: string; list: TopEntry[]; maxMc: number }) {
   const total = list.reduce((s, e) => s + e.marketCapKrw, 0)
   return (
     <div style={{ flex: '1 1 340px', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -63,7 +63,7 @@ function SidePanel({ flag, title, list, usdKrw, maxMc }: { flag: string; title: 
         <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 15 }}>{title}</span>
         <span style={{ marginLeft: 'auto', color: '#7f93a8', fontSize: 11 }}>합계: <b style={{ color: '#e2e8f0' }}>{fmtKrw(total)}</b></span>
       </div>
-      {list.length ? list.map(e => <Row key={e.ticker} e={e} maxMc={maxMc} krw={usdKrw} />)
+      {list.length ? list.map(e => <Row key={e.ticker} e={e} maxMc={maxMc} />)
         : <div style={{ color: '#8a9aaa', fontSize: 12, textAlign: 'center', padding: 20 }}>데이터 로딩 중…</div>}
     </div>
   )
@@ -110,8 +110,8 @@ export default function GlobalTop10() {
         <div style={{ color: '#8a9aaa', textAlign: 'center', padding: 40 }}>🌍 글로벌 시총 데이터를 수집 중입니다…</div>
       ) : (
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-          <SidePanel flag="🇺🇸" title="미국 시총 Top 10" list={data?.us ?? []} usdKrw={data?.usdKrw ?? 1350} maxMc={maxMc} />
-          <SidePanel flag="🇰🇷" title="한국 시총 Top 10" list={data?.kr ?? []} usdKrw={data?.usdKrw ?? 1350} maxMc={maxMc} />
+          <SidePanel flag="🇺🇸" title="미국 시총 Top 10" list={data?.us ?? []} maxMc={maxMc} />
+          <SidePanel flag="🇰🇷" title="한국 시총 Top 10" list={data?.kr ?? []} maxMc={maxMc} />
         </div>
       )}
 
