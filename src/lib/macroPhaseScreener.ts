@@ -32,6 +32,7 @@ export interface MacroData {
   yieldCurve: number      // 10Y-2Y %p (양수=정상, 음수=역전)
   hySpread:   number      // HY 스프레드 % (낮을수록 risk-on)
   rateDir:    'cut' | 'hold' | 'hike'   // FedWatch FF선물 net 방향(SSOT) — 국면 판정의 실제 금리 방향
+  nextFomc:   string | null             // 다음 FOMC 날짜(ISO) — FedWatch 회의 일정에서(하드코딩 제거)
 }
 
 export interface MacroPhaseResult {
@@ -219,25 +220,26 @@ async function fredLatest(series: string, count = 14): Promise<{ date: string; v
   } catch { return [] }
 }
 
-// FedWatch FF선물 컨센서스로 '실제 금리 방향' 산출 — FedWatch 화면과 동일 출처(제2원칙)
-async function fetchRateDirection(currentRate: number, selfBase?: string): Promise<'cut' | 'hold' | 'hike'> {
-  if (!selfBase) return 'hold'
+// FedWatch FF선물 컨센서스로 '실제 금리 방향' + '다음 FOMC 날짜' 산출 — FedWatch와 동일 출처(제2원칙)
+async function fetchRateDirection(currentRate: number, selfBase?: string): Promise<{ dir: 'cut' | 'hold' | 'hike'; nextFomc: string | null }> {
+  if (!selfBase) return { dir: 'hold', nextFomc: null }
   try {
     const r = await fetch(`${selfBase}/api/fedwatch?currentRate=${currentRate.toFixed(4)}`, { signal: AbortSignal.timeout(12_000) })
-    if (!r.ok) return 'hold'
+    if (!r.ok) return { dir: 'hold', nextFomc: null }
     const j = await r.json()
-    const meetings: { consensusRate: number | null }[] = j?.meetings ?? []
+    const meetings: { consensusRate: number | null; date: string }[] = j?.meetings ?? []
+    const today = new Date().toISOString().slice(0, 10)
+    const nextFomc = meetings.find(m => m?.date && m.date >= today)?.date ?? meetings[0]?.date ?? null
     const last = [...meetings].reverse().find(m => m?.consensusRate != null)   // 가장 먼 회의의 컨센서스
-    if (!last || last.consensusRate == null) return 'hold'
+    if (!last || last.consensusRate == null) return { dir: 'hold', nextFomc }
     const net = last.consensusRate - currentRate     // 양수=인상, 음수=인하 (25bp의 절반=0.125 임계)
-    if (net <= -0.13) return 'cut'
-    if (net >= 0.13) return 'hike'
-    return 'hold'
-  } catch { return 'hold' }
+    const dir: 'cut' | 'hold' | 'hike' = net <= -0.13 ? 'cut' : net >= 0.13 ? 'hike' : 'hold'
+    return { dir, nextFomc }
+  } catch { return { dir: 'hold', nextFomc: null } }
 }
 
 export async function fetchMacroData(selfBase?: string): Promise<MacroData> {
-  const cacheKey = 'macro-phase-data-v2'   // v2: FEDFUNDS 기준금리 + FedWatch 방향
+  const cacheKey = 'macro-phase-data-v3'   // v3: FEDFUNDS 기준금리 + FedWatch 방향 + 다음 FOMC 날짜
   const cached = await getCache<MacroData>(cacheKey, 24 * 3600_000)
   if (cached) return cached
 
@@ -256,8 +258,8 @@ export async function fetchMacroData(selfBase?: string): Promise<MacroData> {
     ? Math.round((yc10Arr[0].v - yc2Arr[0].v) * 100) / 100
     : 0.4
   const hySpread = hyArr[0]?.v ?? 3.0
-  const rateDir = await fetchRateDirection(fedRate, selfBase)
-  const data: MacroData = { fedRate, cpiYoY, yieldCurve, hySpread, rateDir }
+  const { dir: rateDir, nextFomc } = await fetchRateDirection(fedRate, selfBase)
+  const data: MacroData = { fedRate, cpiYoY, yieldCurve, hySpread, rateDir, nextFomc }
   await setCache(cacheKey, data)
   return data
 }

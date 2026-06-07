@@ -32,7 +32,7 @@ import DotPlotPanel                                 from './macro/DotPlotPanel'
 import BalanceSheetChart, { isQtOngoing }           from './macro/BalanceSheetChart'
 
 // ── FOMC 다음 일정 (수동 갱신)
-const NEXT_FOMC = { date: '2025년 6월 17~18일', dDay: 20 }
+const NEXT_FOMC = { date: '집계 중…', dDay: 0 }   // 로딩 폴백 — 실제 값은 /api/macro-regime(FedWatch 일정)에서
 
 // ── 통화정책 스탠스 계산 (인플레이션 데이터 기반)
 function getPolicyStance(data: InflationPoint[]): {
@@ -175,8 +175,9 @@ export default function MacroDashboard() {
   const [bsMock,    setBsMock]    = useState(false)
   const [bsUpdated, setBsUpdated] = useState<string | null>(null)
 
-  // 매크로 국면 SSOT (FedWatch 방향) — 포지션 가이드 카드3 결론 일치용
+  // 매크로 국면 SSOT (FedWatch 방향 + 다음 FOMC) — 포지션 가이드·FOMC 표기 일치용
   const [rateDir, setRateDir] = useState<'cut' | 'hold' | 'hike' | undefined>(undefined)
+  const [nextFomc, setNextFomc] = useState<{ date: string; dDay: number }>(NEXT_FOMC)
 
   useEffect(() => {
     let cancelled = false
@@ -185,7 +186,11 @@ export default function MacroDashboard() {
     // 매크로 국면 SSOT
     fetch('/api/macro-regime', { cache: 'no-store' })
       .then(r => r.json())
-      .then(j => { if (!cancelled && (j?.rateDir === 'cut' || j?.rateDir === 'hold' || j?.rateDir === 'hike')) setRateDir(j.rateDir) })
+      .then(j => {
+        if (cancelled) return
+        if (j?.rateDir === 'cut' || j?.rateDir === 'hold' || j?.rateDir === 'hike') setRateDir(j.rateDir)
+        if (j?.nextFomc?.date) setNextFomc(j.nextFomc)
+      })
       .catch(() => {})
 
     // 인플레이션 데이터
@@ -304,9 +309,9 @@ export default function MacroDashboard() {
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
             <span style={{ fontSize: 10, color: '#8599ae' }}>다음 FOMC</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#fbbf24' }}>{NEXT_FOMC.date}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#fbbf24' }}>{nextFomc.date}</span>
             <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 4, background: 'rgba(251,191,36,0.15)', color: '#fbbf24', fontWeight: 800 }}>
-              D-{NEXT_FOMC.dDay}
+              D-{nextFomc.dDay}
             </span>
           </div>
 
