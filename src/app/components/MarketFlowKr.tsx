@@ -2,6 +2,7 @@
 // 🌐 국내 시장 수급 랭킹 — 외국인/기관 순매수 상위(1/5/20일) + 쌍끌이 연속매집 (주요 코스피 유니버스)
 import { useState, useEffect } from 'react'
 import type { MarketFlowKrResult, MarketFlowEntry, Period } from '@/lib/marketFlowKr'
+import InvestorTimeline from '@/app/components/InvestorTimeline'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 type View = 'foreign' | 'organ' | 'dual'
@@ -31,7 +32,7 @@ function MiniChart({ prices }: { prices: number[] }) {
   )
 }
 
-function Row({ e, rank, amt, prices }: { e: MarketFlowEntry; rank: number; amt: number; prices: number[] }) {
+function Row({ e, rank, amt, prices, open }: { e: MarketFlowEntry; rank: number; amt: number; prices: number[]; open?: boolean }) {
   const up = (e.changePct ?? 0) > 0
   const chgCol = e.changePct == null ? '#8a9aaa' : up ? '#22c55e' : '#ef4444'
   const cheap = e.peg != null && e.peg > 0 && e.peg < 1.0
@@ -51,6 +52,7 @@ function Row({ e, rank, amt, prices }: { e: MarketFlowEntry; rank: number; amt: 
       <span style={{ width: 64, textAlign: 'right', color: chgCol, fontWeight: 700, fontFamily: 'monospace', fontSize: 12 }}>
         {e.changePct == null ? '—' : `${up ? '▲' : '▼'}${Math.abs(e.changePct)}%`}
       </span>
+      <span style={{ width: 12, textAlign: 'center', color: '#64748b', fontSize: 9, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
     </div>
   )
 }
@@ -61,6 +63,7 @@ export default function MarketFlowKr() {
   const [view, setView] = useState<View>('foreign')
   const [period, setPeriod] = useState<Period>('d1')
   const [intraday, setIntraday] = useState<Record<string, number[]>>({})   // 1Day 인트라데이(표시 행만)
+  const [openTicker, setOpenTicker] = useState<string | null>(null)        // 행 클릭 → 일별 매매동향 타임라인 펼침
 
   useEffect(() => {
     let alive = true
@@ -154,11 +157,18 @@ export default function MarketFlowKr() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-        {list.length ? list.map((e, i) => <Row key={e.ticker} e={e} rank={i} amt={view === 'dual' ? (e.foreign.d1 + e.organ.d1) : amtOf(e)} prices={pricesFor(e)} />)
-          : <div style={{ color: '#8a9aaa', fontSize: 12, padding: '10px 0', textAlign: 'center' }}>
+        {list.length ? list.map((e, i) => (
+          <div key={e.ticker}>
+            <div onClick={() => setOpenTicker(t => t === e.ticker ? null : e.ticker)} style={{ cursor: 'pointer' }}>
+              <Row e={e} rank={i} amt={view === 'dual' ? (e.foreign.d1 + e.organ.d1) : amtOf(e)} prices={pricesFor(e)} open={openTicker === e.ticker} />
+            </div>
+            {openTicker === e.ticker && <div style={{ marginTop: 4 }}><InvestorTimeline ticker={e.ticker} name={e.name} /></div>}
+          </div>
+        )) : <div style={{ color: '#8a9aaa', fontSize: 12, padding: '10px 0', textAlign: 'center' }}>
               {view === 'dual' ? '현재 외인·기관 동시 연속매집(2일+) 종목이 없습니다.' : '해당 순매수 종목이 없습니다.'}
             </div>}
       </div>
+      <div style={{ color: '#7f93a8', fontSize: 10.5, marginTop: 6 }}>💡 종목을 클릭하면 외국인·기관·개인 <b>일별 매매동향 타임라인</b>이 펼쳐집니다.</div>
 
       <div style={{ color: '#6e7f8f', fontSize: 10, marginTop: 10, lineHeight: 1.5 }}>
         ※ 순매수 대금 = 일별 순매수 수량×종가 누적 추정치(1/5/20일) · 주요 코스피 유니버스 기준(전 종목 아님, ETF 제외) · 매일 장 마감 후 갱신. 교육용 시뮬레이션이며 투자 추천이 아닙니다.
