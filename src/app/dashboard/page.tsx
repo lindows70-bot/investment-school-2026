@@ -25,6 +25,7 @@ import NewsCatalystRadar          from '@/app/components/NewsCatalystRadar'
 import AiRebalancePanel           from '@/app/components/AiRebalancePanel'
 import PortfolioFlowDashboard     from '@/app/components/PortfolioFlowDashboard'
 import MarketFlowKr               from '@/app/components/MarketFlowKr'
+import PortfolioRecoKr            from '@/app/components/PortfolioRecoKr'
 import TenbaggerHunter            from '@/app/components/TenbaggerHunter'
 import CorrelationMatrix          from '@/app/components/CorrelationMatrix'
 import LynchEarningsLineTracer    from '@/app/components/LynchEarningsLineTracer'
@@ -676,7 +677,7 @@ export default function DashboardPage() {
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
   const [btActive,  setBtActive]  = useState({ rebalanceQ:true, rebalanceY:false, buyAndHold:true, benchmark:true })
   const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger'>('live')
-  const [flowView, setFlowView] = useState<'mine' | 'market'>('mine')   // 수급 레이더: 내 종목 / 시장 랭킹
+  const [flowView, setFlowView] = useState<'mine' | 'market' | 'reco'>('mine')
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
   // ── AI 멘토 탭: MENTOR_STOCKS 제거 후 컴포넌트에 빈 배열 전달 ──
@@ -3209,20 +3210,24 @@ export default function DashboardPage() {
         </ErrorBoundary>
       </div>
 
-      {/* ── 📡 수급 레이더 탭 (내 종목 / 시장 랭킹) ── */}
+      {/* ── 📡 수급 레이더 탭 (내 종목 / 시장 랭킹 / 맞춤 추천) ── */}
       <div id="tab-moneyflow" style={{ display: dashTab==='moneyflow' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
-        <div style={{ display:'flex', gap:8 }}>
-          {([['mine','📡 내 종목 수급'],['market','🌐 시장 수급 랭킹']] as const).map(([k,label]) => (
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+          {([
+            ['mine','📡 내 종목 수급','#22c55e'],
+            ['market','🌐 시장 수급 랭킹','#22c55e'],
+            ['reco','🎯 맞춤 추천','#f59e0b'],
+          ] as const).map(([k,label,col]) => (
             <button key={k} onClick={()=>setFlowView(k)}
               style={{ padding:'7px 16px', borderRadius:999, fontSize:13, fontWeight:700, cursor:'pointer',
-                background: flowView===k ? 'rgba(34,197,94,0.18)' : '#161b25', color: flowView===k ? '#22c55e' : '#8a9aaa',
-                border:`1px solid ${flowView===k ? '#22c55e66' : '#1e293b'}` }}>
+                background: flowView===k ? `${col}22` : '#161b25', color: flowView===k ? col : '#8a9aaa',
+                border:`1px solid ${flowView===k ? `${col}66` : '#1e293b'}` }}>
               {label}
             </button>
           ))}
         </div>
         <ErrorBoundary label="수급 레이더">
-          {flowView==='mine' ? <PortfolioFlowDashboard /> : <MarketFlowKr />}
+          {flowView==='mine' ? <PortfolioFlowDashboard /> : flowView==='market' ? <MarketFlowKr /> : <PortfolioRecoKr />}
         </ErrorBoundary>
       </div>
 
