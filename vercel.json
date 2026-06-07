@@ -13,7 +13,7 @@
     "src/app/api/financials/route.ts":           { "maxDuration": 45 },
     "src/app/api/stock-info/route.ts":           { "maxDuration": 30 },
     "src/app/api/stock-price-history/route.ts":  { "maxDuration": 30 },
-    "src/app/api/school-league/route.ts":        { "maxDuration": 30 },
+    "src/app/api/school-league/route.ts":        { "maxDuration": 45 },
     "src/app/api/lynch-classify/route.ts":       { "maxDuration": 20 },
     "src/app/api/lynch-batch/route.ts":          { "maxDuration": 45 },
     "src/app/api/market-indices/route.ts":       { "maxDuration": 20 },
