@@ -38,14 +38,15 @@ function Row({ e, maxMc }: { e: TopEntry; maxMc: number }) {
             <div style={{ width: `${barW}%`, height: '100%', background: e.market === 'US' ? '#3b82f6' : '#22c55e', borderRadius: 2 }} />
           </div>
         </div>
-        <div style={{ textAlign: 'right', flexShrink: 0 }}>
-          <div style={{ color: '#e2e8f0', fontWeight: 900, fontSize: 13, fontFamily: 'monospace' }}>
-            {fmtKrw(e.marketCapKrw)}
+        <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 110 }}>
+          {/* KRW + USD 한 줄 — US/KR 행 높이 통일 */}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, justifyContent: 'flex-end' }}>
+            <span style={{ color: '#e2e8f0', fontWeight: 900, fontSize: 13, fontFamily: 'monospace' }}>{fmtKrw(e.marketCapKrw)}</span>
+            {e.market === 'US' && e.marketCapUsd && (
+              <span style={{ color: '#64748b', fontSize: 10, fontFamily: 'monospace' }}>({fmtUsd(e.marketCapUsd)})</span>
+            )}
           </div>
-          {e.market === 'US' && e.marketCapUsd && (
-            <div style={{ color: '#64748b', fontSize: 10.5, fontFamily: 'monospace' }}>{fmtUsd(e.marketCapUsd)}</div>
-          )}
-          <div style={{ color: chgCol, fontSize: 11, fontFamily: 'monospace' }}>
+          <div style={{ color: chgCol, fontSize: 11, fontFamily: 'monospace', marginTop: 2 }}>
             {e.changePct == null ? '─' : `${up ? '▲' : '▼'}${Math.abs(e.changePct).toFixed(1)}%`}
           </div>
         </div>
