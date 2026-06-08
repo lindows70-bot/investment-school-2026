@@ -56,7 +56,8 @@ export default function SeasonNavigator() {
 
   const accent = Q_COLOR[data.quadrant] ?? '#8a9aaa'
   const growthTxt = `${data.growth.cli.toFixed(1)} ${data.growth.dir === 'up' ? '▲ 상승' : '▼ 하강'}${data.growth.aboveTrend ? ' · 추세 상회' : ' · 추세 하회'}`
-  const infTxt = `${data.inflation.cpiYoY.toFixed(1)}% · ${data.inflation.rateDir === 'cut' ? '금리 인하' : data.inflation.rateDir === 'hike' ? '금리 인상' : '금리 동결'}`
+  // 물가축은 'CPI 사실' 위주로 표기 — 금리 방향(rateDir) 직역은 국면 SSOT 라벨과 충돌하므로 제외
+  const infTxt = `CPI ${data.inflation.cpiYoY.toFixed(1)}% · ${data.inflation.hot ? '고물가 압력' : '물가 안정'}`
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
