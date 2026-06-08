@@ -6,6 +6,7 @@ import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { getSector } from '@/lib/schoolIndex'
+import type { ScreenedStock } from '@/lib/macroPhaseScreener'
 import {
   growthFromCli, inflationFromRegime, seasonOf, holdingFit,
   SEASON_META, type Holding, type Quadrant,
@@ -42,8 +43,13 @@ export interface SeasonNavResult {
   // 무료 조기 경보
   yieldCurveInverted: boolean
   yieldCurve: number | null
+  // 🛒 이 계절 우대 섹터 매수 후보(공유 스크리너 캐시 재사용 · 보유 종목 제외)
+  buyCandidates: { ticker: string; name: string; market: string; sector: string; lynchCategory: string; peg: number | null; opMargin: number | null; fcfPositive: boolean; score: number }[]
   asOf: string
 }
+
+// 점수 0~100 환산(screenOne score 합은 최상위가 ~1.0 → ×100, 상한 100). 라이브 검증값과 정합
+const scaleScore = (s: number) => Math.min(100, Math.round(s * 100))
 
 export interface MarketSeason {
   quadrant: Quadrant
@@ -85,7 +91,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `season-navigator-v2:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `season-navigator-v3:${user.id}:${kstDate()}:${fp}`
   const cached = await getCache<SeasonNavResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -162,6 +168,18 @@ export async function GET(req: Request) {
     return s + (h.weight / totalW) * holdingFit(h, q)
   }, 0) * 100)
 
+  // 🛒 이 계절 우대 섹터 매수 후보 — macro-ai-picks가 적재한 공유 스크리너 캐시 재사용(추가 fetch 0)
+  const heldSet = new Set(stocks.map(r => r.ticker.replace(/\.(KS|KQ)$/i, '')))
+  const screened = await getCache<ScreenedStock[]>('macro-screened-universe:v1', 8 * 24 * 3600_000)
+  const buyCandidates = (screened ?? [])
+    .filter(s => s.sector != null && meta.favored.includes(s.sector) && !heldSet.has(s.ticker.replace(/\.(KS|KQ)$/i, '')))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8)
+    .map(s => ({
+      ticker: s.ticker, name: s.name, market: s.market as string, sector: s.sector ?? '—', lynchCategory: s.lynchCategory as string,
+      peg: s.peg, opMargin: s.opMargin, fcfPositive: s.fcfPositive, score: scaleScore(s.score),
+    }))
+
   const result: SeasonNavResult = {
     quadrant: meta.quadrant, seasonKo: meta.seasonKo, icon: meta.icon, label: meta.label,
     guide: meta.guide, cashHint: meta.cashHint, favored: meta.favored,
@@ -173,6 +191,7 @@ export async function GET(req: Request) {
     marketSeasons: { us: mkMeta(usQuad, gUs), kr: mkMeta(krQuad, gKr) },
     yieldCurveInverted: yieldCurve != null && yieldCurve < 0,
     yieldCurve,
+    buyCandidates,
     asOf: new Date().toISOString(),
   }
 

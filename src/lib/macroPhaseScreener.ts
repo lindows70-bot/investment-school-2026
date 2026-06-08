@@ -276,7 +276,7 @@ async function screenOne(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const yf = new (YF as any)({ suppressNotices: ['yahooSurvey'] })
     const sym = market === 'KR' ? `${ticker.replace(/\D/g, '')}.KS` : ticker
-    const q = await yf.quoteSummary(sym, { modules: ['defaultKeyStatistics', 'financialData', 'summaryDetail', 'price'] })
+    const q = await yf.quoteSummary(sym, { modules: ['defaultKeyStatistics', 'financialData', 'summaryDetail', 'price', 'assetProfile'] })
     const ks = q?.defaultKeyStatistics ?? {}, fd = q?.financialData ?? {}, sd = q?.summaryDetail ?? {}, pr = q?.price ?? {}
     const peg = numf(ks.pegRatio)
     const opMargin = numf(fd.operatingMargins) != null ? Math.round((fd.operatingMargins as number) * 1000) / 10 : null
@@ -284,7 +284,7 @@ async function screenOne(
     const fcfPositive = fcf != null ? fcf > 0 : true   // 모를 때 긍정 가정
     const price = numf(pr.regularMarketPrice) ?? numf(sd.regularMarketPrice)
     const currency = market === 'KR' ? 'KRW' as const : 'USD' as const
-    const sector = String(q?.price?.sector || '—')
+    const sector = String(q?.assetProfile?.sector || q?.price?.sector || '—')   // ★ price.sector는 빈값 → assetProfile 우선(섹터 필터·LLM 정확도)
 
     // 최소 품질 필터 (탈락): 영업이익 -20% 이하만 제거
     if (opMargin != null && opMargin < -20) return null

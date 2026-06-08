@@ -250,6 +250,40 @@ export default function SeasonNavigator() {
         </div>
       </div>
 
+      {/* 🛒 이 계절 우대 섹터 매수 후보 — 유니버스에서 우대 섹터만 추려 우리 퀀트 점수로 정렬 */}
+      {data.buyCandidates && data.buyCandidates.length > 0 && (
+        <div style={{ background: CARD, borderRadius: 12, padding: 16, border: `1px solid ${BORDER}` }}>
+          <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13, marginBottom: 2 }}>🛒 이 계절 매수 후보 — {data.favored.join(' · ')}</div>
+          <div style={{ color: '#aab6c4', fontSize: 11.5, lineHeight: 1.5, marginBottom: 10 }}>
+            지금 계절({data.seasonKo.replace(/^.. /, '')})에 유리한 섹터의 종목을 우리 유니버스(100+)에서 추려, <b>퀀트 점수</b>(린치가중 35% + PEG 35% + 영업이익률 20% + FCF 10%)순으로 보여줍니다. 이미 보유한 종목은 제외했습니다.
+          </div>
+          {/* 헤더 */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(120px,1.5fr) 1.2fr 48px 56px 40px', gap: 8, alignItems: 'center', padding: '0 2px 5px', borderBottom: `1px solid ${BORDER}`, color: '#8a9aaa', fontSize: 10 }}>
+            <span>종목</span><span>섹터</span><span style={{ textAlign: 'right' }}>PEG</span><span style={{ textAlign: 'right' }}>영업익률</span><span style={{ textAlign: 'right' }}>점수</span>
+          </div>
+          <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {data.buyCandidates.map(c => {
+              const sc = c.score >= 85 ? '#22c55e' : c.score >= 65 ? '#f59e0b' : '#8a9aaa'
+              return (
+                <div key={c.ticker} style={{ display: 'grid', gridTemplateColumns: 'minmax(120px,1.5fr) 1.2fr 48px 56px 40px', gap: 8, alignItems: 'center', fontSize: 11.5 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden' }}>
+                    <span style={{ fontSize: 10 }}>{c.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
+                    <span style={{ color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                  </span>
+                  <span style={{ color: '#8a9aaa', fontSize: 10.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.sector}</span>
+                  <span style={{ color: c.peg != null && c.peg > 0 && c.peg < 1 ? '#22c55e' : '#cbd5e1', fontFamily: 'monospace', fontSize: 10.5, textAlign: 'right' }}>{c.peg != null ? c.peg.toFixed(2) : '—'}</span>
+                  <span style={{ color: '#cbd5e1', fontFamily: 'monospace', fontSize: 10.5, textAlign: 'right' }}>{c.opMargin != null ? `${c.opMargin}%` : '—'}</span>
+                  <span style={{ color: sc, fontWeight: 800, fontSize: 12.5, fontFamily: 'monospace', textAlign: 'right' }}>{c.score}</span>
+                </div>
+              )
+            })}
+          </div>
+          <div style={{ color: '#9aa7b5', fontSize: 10, marginTop: 8, lineHeight: 1.5 }}>
+            ※ 점수는 &ldquo;이 계절+현재 국면에 얼마나 맞는 펀더멘탈인가&rdquo;이며 주가 예측이 아닙니다. 저PEG는 초록 표시. 위성/소형주는 별도 10배거 헌터에서 검증하세요.
+          </div>
+        </div>
+      )}
+
       <div style={{ color: '#9aa7b5', fontSize: 10.5, lineHeight: 1.6 }}>
         ※ 계절 = 성장(OECD 경기선행지수)×물가(CPI·금리) 2×2 사분면 · 매크로 결론은 거시경제 대시보드와 동일한 macro-regime SSOT를 따릅니다. 시장별 계절은 성장축에 미국·한국 각각의 CLI를 쓰되, 물가축은 글로벌 공통(한국 CPI는 무료 신선 데이터 부재로 글로벌 기준 사용)입니다. 현금 비중은 앱이 추적하지 않으므로 권장치는 직접 확인하세요. 교육용 시뮬레이션이며 투자 추천이 아닙니다.
       </div>
