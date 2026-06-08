@@ -43,14 +43,25 @@ function Item({ it }: { it: RecoItem }) {
           {it.peg != null && it.peg > 0 && it.peg < 1.0 && <span style={{ background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid #3b82f655', borderRadius: 6, padding: '0 6px', fontSize: 10, fontWeight: 700 }}>💎 PEG {it.peg.toFixed(2)}</span>}
           {it.dualStreak >= 2 && <span style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid #f59e0b55', borderRadius: 6, padding: '0 6px', fontSize: 10, fontWeight: 700 }}>🔥 {it.dualStreak}일 쌍끌이</span>}
           {indNeg && <span style={{ background: 'rgba(239,68,68,0.12)', color: '#f87171', border: '1px solid #ef444433', borderRadius: 6, padding: '0 6px', fontSize: 10, fontWeight: 700 }}>👤 개인 이탈</span>}
-          <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, fontSize: 10.5, fontFamily: 'monospace' }}>
-            <span style={{ color: it.foreign5 >= 0 ? '#22c55e' : '#ef4444' }}>외 {fmtEok(it.foreign5)}</span>
-            <span style={{ color: it.organ5 >= 0 ? '#22c55e' : '#ef4444' }}>기 {fmtEok(it.organ5)}</span>
-            {indNeg && <span style={{ color: '#ef4444' }}>개 {fmtEok(it.individual1)}</span>}
+          <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5, fontFamily: 'monospace' }}>
+            {it.category === 'riskAlert' ? (
+              <>
+                <span style={{ color: '#7f93a8', fontSize: 9 }}>(오늘)</span>
+                <span style={{ color: it.foreign1 >= 0 ? '#22c55e' : '#ef4444' }}>외 {fmtEok(it.foreign1)}</span>
+                <span style={{ color: it.organ1 >= 0 ? '#22c55e' : '#ef4444' }}>기 {fmtEok(it.organ1)}</span>
+                <span style={{ color: '#ef4444' }}>개 {fmtEok(it.individual1)}</span>
+              </>
+            ) : (
+              <>
+                <span style={{ color: it.foreign5 >= 0 ? '#22c55e' : '#ef4444' }}>외 {fmtEok(it.foreign5)}</span>
+                <span style={{ color: it.organ5 >= 0 ? '#22c55e' : '#ef4444' }}>기 {fmtEok(it.organ5)}</span>
+                {indNeg && <span style={{ color: '#ef4444' }}>개 {fmtEok(it.individual1)}</span>}
+              </>
+            )}
           </span>
         </div>
-        {/* 추천 점수 바 */}
-        <ScoreBar score={it.recoScore} />
+        {/* 추천 점수 바 — riskAlert는 '매수 매력도' 척도라 위험 신호와 의미가 달라 숨김 */}
+        {it.category !== 'riskAlert' && <ScoreBar score={it.recoScore} />}
         {/* 이유 + ₩ 가이드 */}
         <div style={{ color: '#aab6c4', fontSize: 11.5, lineHeight: 1.55, marginTop: 6 }}>{it.reason}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>

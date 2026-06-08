@@ -19,6 +19,8 @@ export interface RecoItem {
   dualStreak:  number
   foreign5:    number         // 5일 누적 순매수(억)
   organ5:      number
+  foreign1:    number         // ★ NEW: 당일 순매수(억) — riskAlert 카드는 5일 추세 대신 이 값을 표시(설명 문구와 시점 일치)
+  organ1:      number
   individual1: number         // ★ NEW: 당일 개인 순매수(억) — 음수=이탈 = 강한 신호
   changePct:   number | null
   recoScore:   number         // ★ NEW: 통합 추천 점수 0~100
@@ -91,6 +93,7 @@ const toItem = (
 ): RecoItem => ({
   ticker: e.ticker, name: e.name, sector: e.sector, peg: e.peg, dualStreak: e.dualStreak,
   foreign5: eok(e.foreign.d5), organ5: eok(e.organ.d5),
+  foreign1: eok(e.foreign.d1), organ1: eok(e.organ.d1),
   individual1: eok(e.individual?.d1 ?? 0),
   changePct: e.changePct, recoScore: recoScore(e, sectBonus), suggestWon, reason, category,
 })
@@ -101,7 +104,7 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `portfolio-reco-kr-v5:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `portfolio-reco-kr-v6:${user.id}:${kstDate()}:${fp}`
   const cached = await getCache<PortfolioRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
