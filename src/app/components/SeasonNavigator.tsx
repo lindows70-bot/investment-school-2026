@@ -193,19 +193,44 @@ export default function SeasonNavigator() {
 
       {/* 정합성 점수 + 종목별 적합도 (전체 폭) */}
       <div style={{ background: CARD, borderRadius: 12, padding: 16, border: `1px solid ${BORDER}` }}>
-        <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13, marginBottom: 10 }}>⚖️ 내 포트폴리오 계절 정합성</div>
+        <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13, marginBottom: 2 }}>⚖️ 내 포트폴리오 계절 정합성</div>
+        <div style={{ color: '#aab6c4', fontSize: 11.5, lineHeight: 1.5, marginBottom: 10 }}>
+          지금 계절({data.icon} {data.seasonKo.replace(/^.. /, '')})에 내 보유 종목이 각각 얼마나 잘 맞는지 보여줍니다. 비중 큰 종목이 잘 맞을수록 점수가 올라갑니다.
+        </div>
         <Gauge score={data.alignmentScore} />
-        <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '5px 16px' }}>
-          {data.perHolding.slice(0, 8).map(h => {
+
+        {/* 범례 — 막대 색의 의미 */}
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 12, marginBottom: 8, fontSize: 10.5 }}>
+          <span style={{ color: '#8a9aaa' }}>막대 = 계절 적합도:</span>
+          <span style={{ color: '#22c55e', fontWeight: 700 }}>🟢 유리 (이 계절에 강함)</span>
+          <span style={{ color: '#f59e0b', fontWeight: 700 }}>🟠 중립 (보통)</span>
+          <span style={{ color: '#ef4444', fontWeight: 700 }}>🔴 불리 (점검 권장)</span>
+          <span style={{ color: '#8a9aaa', marginLeft: 'auto' }}>% = 내 포트폴리오 비중</span>
+        </div>
+
+        {/* 헤더 행 */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(120px,1.4fr) 56px 1fr 52px', gap: 8, alignItems: 'center', padding: '0 2px 5px', borderBottom: `1px solid ${BORDER}`, color: '#8a9aaa', fontSize: 10 }}>
+          <span>종목</span>
+          <span style={{ textAlign: 'right' }}>내 비중</span>
+          <span>이 계절 적합도</span>
+          <span style={{ textAlign: 'right' }}>판정</span>
+        </div>
+
+        <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 7 }}>
+          {data.perHolding.slice(0, 12).map(h => {
             const fc = h.fit >= 0.7 ? '#22c55e' : h.fit >= 0.5 ? '#f59e0b' : '#ef4444'
+            const verdict = h.fit >= 0.7 ? '유리' : h.fit >= 0.5 ? '중립' : '불리'
             return (
-              <div key={h.ticker} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5 }}>
-                <span style={{ fontSize: 10 }}>{h.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
-                <span style={{ color: '#cbd5e1', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</span>
-                <span style={{ color: '#8a9aaa', fontFamily: 'monospace', fontSize: 10.5 }}>{h.weight}%</span>
-                <div style={{ width: 56, height: 5, background: '#0f1117', borderRadius: 3, overflow: 'hidden' }}>
-                  <div style={{ width: `${h.fit * 100}%`, height: '100%', background: fc }} />
+              <div key={h.ticker} style={{ display: 'grid', gridTemplateColumns: 'minmax(120px,1.4fr) 56px 1fr 52px', gap: 8, alignItems: 'center', fontSize: 11.5 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden' }}>
+                  <span style={{ fontSize: 10 }}>{h.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
+                  <span style={{ color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</span>
+                </span>
+                <span style={{ color: '#cbd5e1', fontFamily: 'monospace', fontSize: 11, textAlign: 'right' }}>{h.weight}%</span>
+                <div style={{ height: 8, background: '#0f1117', borderRadius: 4, overflow: 'hidden', border: `1px solid ${BORDER}` }}>
+                  <div style={{ width: `${Math.round(h.fit * 100)}%`, height: '100%', background: fc }} />
                 </div>
+                <span style={{ color: fc, fontWeight: 700, fontSize: 11, textAlign: 'right' }}>{verdict}</span>
               </div>
             )
           })}
