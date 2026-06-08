@@ -158,10 +158,10 @@ async function generatePicks(
   now: string
 ): Promise<MacroAiResult> {
   // 1차 퀀트 스크리닝
-  const { us, kr } = await runScreener(phaseResult.phase as Parameters<typeof runScreener>[0])
+  const { us, kr, all } = await runScreener(phaseResult.phase as Parameters<typeof runScreener>[0])
   const allScreened = [...us, ...kr]
-  // ★ 전체 채점 유니버스를 공유 캐시에 적재 → 4계절 내비게이터의 '계절 매수 후보'가 재사용(추가 스크리닝 0)
-  await setCache('macro-screened-universe:v1', allScreened)
+  // ★ 슬라이스 전 전체 채점 유니버스(섹터 무관 100종)를 공유 캐시에 적재 → 4계절 '계절 매수 후보'가 섹터 필터로 재사용(추가 스크리닝 0)
+  await setCache('macro-screened-universe:v1', all)
 
   // Gemini 호출
   const prompt = buildPrompt(macroData, phaseResult, allScreened)

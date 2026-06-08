@@ -307,7 +307,7 @@ async function screenOne(
   } catch { return null }
 }
 
-export async function runScreener(phase: MacroPhase): Promise<{ us: ScreenedStock[]; kr: ScreenedStock[] }> {
+export async function runScreener(phase: MacroPhase): Promise<{ us: ScreenedStock[]; kr: ScreenedStock[]; all: ScreenedStock[] }> {
   const all: ScreenedStock[] = []
   // 동시성 6 — 유니버스 100종목 확장(2026-06) 대응. Yahoo 스로틀은 screenOne catch로 graceful
   const universe = [
@@ -322,5 +322,5 @@ export async function runScreener(phase: MacroPhase): Promise<{ us: ScreenedStoc
   // 쿼터 확장(US 10 + KR 7 = 17) — 사용자 보유 종목 제외 후 5개 신규 확보에 충분한 버퍼
   const us = all.filter(s => s.market === 'US').sort((a, b) => b.score - a.score).slice(0, 10)
   const kr = all.filter(s => s.market === 'KR').sort((a, b) => b.score - a.score).slice(0, 7)
-  return { us, kr }
+  return { us, kr, all }   // all = 슬라이스 전 전체 채점(섹터 필터용 — 4계절 매수 후보가 재사용)
 }
