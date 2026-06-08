@@ -130,6 +130,14 @@ export interface Holding {
   weight: number              // 포트폴리오 내 비중(%) — 주식 합 100 기준
   lynchCategory: LynchCat | null
   sector?: string             // Yahoo GICS 섹터(선택)
+  market?: string             // 'KR' | 'US' — 시장별 계절 채점용(선택)
+}
+
+// 종목 한 개의 계절 적합도(0~1) — 린치 분류 기반 + 우대 섹터 보정. seasonalAlignment·시장별 채점 공유 SSOT
+export function holdingFit(h: Holding, quadrant: Quadrant): number {
+  const cat = h.lynchCategory ?? 'stalwart'   // 미분류는 중립(대형우량주)으로 폴백
+  const base = FIT[quadrant][cat] ?? 0.5
+  return sectorAdjust(base, quadrant, h.sector)
 }
 
 export interface AlignmentResult {
@@ -143,9 +151,7 @@ export function seasonalAlignment(holdings: Holding[], quadrant: Quadrant): Alig
   if (totalW <= 0) return { score: 0, perHolding: [] }
 
   const perHolding = holdings.map(h => {
-    const cat = h.lynchCategory ?? 'stalwart'   // 미분류는 중립(대형우량주)으로 폴백
-    const base = FIT[quadrant][cat] ?? 0.5
-    const fit = sectorAdjust(base, quadrant, h.sector)
+    const fit = holdingFit(h, quadrant)
     const contribution = (h.weight / totalW) * fit
     return { ticker: h.ticker, weight: h.weight, fit, contribution }
   })

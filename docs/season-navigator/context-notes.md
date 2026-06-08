@@ -39,3 +39,12 @@
 - getSector (schoolIndex.ts, Yahoo assetProfile 7일 캐시) — 섹터 적합도.
 - macro-regime — 물가/금리축 + 역전 경보.
 - exchange-rate — 혼합 통화 비중 정규화(ai-rebalance와 동일 패턴).
+
+## 결정 5 (확장). 시장별 계절 분리 — 성장축만 시장별, 물가축은 글로벌 공통
+- 사용자 요청. 국장/미장 계절 분리.
+- Phase 0와 동일 검증. 한국 CPI(KORCPIALLMINMEI·CPALTT01KRM659N) FRED에서 stale(2023-11) → 완전 분리된 한국 계절은 물가축이 막힘.
+- 한국 CLI(KORLOLITOAASTSAM)·정책금리(IRSTCI01KRM156N)는 신선(2026-04) → 성장축은 시장별 가능.
+- 절충. 한국 계절 = 한국 CLI(성장) × 글로벌 물가(macro-regime). 한국은 소규모 개방경제로 글로벌 물가를 수입하고 한은이 연준 추종 → 물가축 글로벌 사용은 방어 가능. 단 "물가=글로벌 기준" 명시.
+- 구현. fetchCli(US·KR) 병렬, seasonOf로 각각 판정. 종목은 시장(6자리/market)으로 갈라 자기 시장 계절로 채점(holdingFit 추출해 SSOT 공유). UI는 메인 다이어그램=미국 앵커 + 시장별 배지 strip + 종목행 국기.
+- 메인 다이어그램·행동가이드는 미국(글로벌 앵커) 기준 유지(물가축이 글로벌이라 미국이 앵커로 일관).
+- 검증. 현재 미 CLI 100.85↑·한 CLI 102.50↑·물가 과열 → 양쪽 여름(동조). 갈리면 strip에 ⚠️ + 종목별 분리 채점.

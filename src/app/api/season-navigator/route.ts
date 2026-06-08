@@ -7,7 +7,7 @@ import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { getSector } from '@/lib/schoolIndex'
 import {
-  growthFromCli, inflationFromRegime, seasonOf, seasonalAlignment,
+  growthFromCli, inflationFromRegime, seasonOf, holdingFit,
   SEASON_META, type Holding, type Quadrant,
 } from '@/lib/seasonNavigator'
 
@@ -33,31 +33,50 @@ export interface SeasonNavResult {
   regimeLabel: string         // macro-regime이 말하는 국면 라벨(SSOT 일치 확인용)
   // 보유 정합성
   alignmentScore: number
-  perHolding: { ticker: string; name: string; weight: number; fit: number }[]
+  perHolding: { ticker: string; name: string; weight: number; fit: number; market: string }[]
+  // 🌏 시장별 계절(성장축은 시장별 CLI, 물가축은 글로벌 공통)
+  marketSeasons: {
+    us: MarketSeason
+    kr: MarketSeason
+  }
   // 무료 조기 경보
   yieldCurveInverted: boolean
   yieldCurve: number | null
   asOf: string
 }
 
-// FRED OECD CLI(미국, USALOLITOAASTSAM) 최신 + 3개월 전 레벨 — 12h 캐시
-async function fetchUsCli(): Promise<{ cli: number; cliPrev: number } | null> {
-  const cached = await getCache<{ cli: number; cliPrev: number }>('oecd-cli-us-v1', 12 * 3600_000)
+export interface MarketSeason {
+  quadrant: Quadrant
+  seasonKo: string
+  icon: string
+  label: string
+  cli: number
+  cliPrev: number
+  dir: 'up' | 'down'
+  aboveTrend: boolean
+}
+
+// FRED OECD CLI 최신 + 3개월 전 레벨(모멘텀) — 시리즈별 12h 캐시
+async function fetchCli(seriesId: string, cacheKey: string): Promise<{ cli: number; cliPrev: number } | null> {
+  const cached = await getCache<{ cli: number; cliPrev: number }>(cacheKey, 12 * 3600_000)
   if (cached) return cached
   const key = process.env.FRED_API_KEY
   if (!key) return null
   try {
-    const url = `https://api.stlouisfed.org/fred/series/observations?series_id=USALOLITOAASTSAM&api_key=${key}&file_type=json&sort_order=desc&limit=4`
+    const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${seriesId}&api_key=${key}&file_type=json&sort_order=desc&limit=4`
     const r = await fetch(url, { signal: AbortSignal.timeout(10_000) })
     if (!r.ok) return null
     const j = await r.json()
     const obs = (j.observations ?? []).map((o: { value: string }) => parseFloat(o.value)).filter((v: number) => !isNaN(v))
     if (obs.length < 4) return null
-    const out = { cli: obs[0], cliPrev: obs[3] }   // 최신 vs 3개월 전(모멘텀)
-    await setCache('oecd-cli-us-v1', out)
+    const out = { cli: obs[0], cliPrev: obs[3] }
+    await setCache(cacheKey, out)
     return out
   } catch { return null }
 }
+
+// KR 시장 판별(6자리 코드 또는 market 필드)
+const isKrHolding = (ticker: string, market?: string) => market === 'KR' || /^\d{6}$/.test(ticker.replace(/\.(KS|KQ)$/i, ''))
 
 export async function GET(req: Request) {
   const sb = createClient()
@@ -66,7 +85,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `season-navigator-v1:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `season-navigator-v2:${user.id}:${kstDate()}:${fp}`
   const cached = await getCache<SeasonNavResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -84,12 +103,23 @@ export async function GET(req: Request) {
     }
   } catch { /* graceful — 폴백 중립값 사용 */ }
 
-  // ② 성장축 = OECD CLI(미국, 물가/금리축과 같은 경제권으로 정합)
-  const cli = await fetchUsCli()
-  const g = growthFromCli(cli?.cli ?? 100, cli?.cliPrev ?? 100)
+  // ② 성장축 = OECD CLI(미국·한국 각각). 물가축은 글로벌 공통(KR CPI는 FRED stale → 글로벌 기준 사용)
+  const [usCli, krCli] = await Promise.all([
+    fetchCli('USALOLITOAASTSAM', 'oecd-cli-us-v1'),
+    fetchCli('KORLOLITOAASTSAM', 'oecd-cli-kr-v1'),
+  ])
   const i = inflationFromRegime(cpiYoY, rateDir)
-  const quadrant = seasonOf(g, i)
+  const gUs = growthFromCli(usCli?.cli ?? 100, usCli?.cliPrev ?? 100)
+  const gKr = growthFromCli(krCli?.cli ?? 100, krCli?.cliPrev ?? 100)
+  const usQuad = seasonOf(gUs, i)   // 미국 = 글로벌 매크로 앵커(메인 다이어그램·행동가이드 기준)
+  const krQuad = seasonOf(gKr, i)
+  const g = gUs                      // 축 진단·메인 다이어그램은 미국 앵커
+  const quadrant = usQuad
   const meta = SEASON_META[quadrant]
+  const mkMeta = (q: Quadrant, gg: typeof gUs): MarketSeason => ({
+    quadrant: q, seasonKo: SEASON_META[q].seasonKo, icon: SEASON_META[q].icon, label: SEASON_META[q].label,
+    cli: gg.cli, cliPrev: gg.cliPrev, dir: gg.dir, aboveTrend: gg.aboveTrend,
+  })
 
   // ③ 보유 종목 → ₩환산 비중 + 섹터(재사용) → 정합성 점수
   let usdKrw = FALLBACK_KRW
@@ -108,20 +138,29 @@ export async function GET(req: Request) {
     try { return await getSector(r.ticker, r.market ?? 'US') } catch { return '' }
   }))
 
-  const holdings: Holding[] = stocks.map((r, idx) => {
+  const holdings: (Holding & { name: string })[] = stocks.map((r, idx) => {
     const rate = r.currency === 'USD' ? usdKrw : 1
     const weight = (r.purchase_price ?? 0) * (r.quantity ?? 0) * rate   // ₩환산 평가(원가) — 내부에서 비중 정규화
     return {
       ticker: r.ticker,
+      name: r.name ?? r.ticker,
       weight,
       lynchCategory: (r.lynch_category ?? null) as LynchCat,
       sector: sectors[idx] || undefined,
+      market: isKrHolding(r.ticker, r.market ?? undefined) ? 'KR' : 'US',
     }
   }).filter(h => h.weight > 0)
 
-  const align = seasonalAlignment(holdings, quadrant)
-  const nameByTicker = new Map(stocks.map(r => [r.ticker, r.name ?? r.ticker]))
+  // ③ 시장별 계절로 종목 채점 — 한국 종목은 한국 계절, 미국 종목은 미국 계절(더 정확)
   const totalW = holdings.reduce((s, h) => s + h.weight, 0) || 1
+  const perHolding = holdings.map(h => {
+    const q = h.market === 'KR' ? krQuad : usQuad
+    return { ticker: h.ticker, name: h.name, weight: Math.round((h.weight / totalW) * 1000) / 10, fit: holdingFit(h, q), market: h.market ?? 'US' }
+  }).sort((a, b) => b.weight - a.weight)
+  const alignmentScore = Math.round(holdings.reduce((s, h) => {
+    const q = h.market === 'KR' ? krQuad : usQuad
+    return s + (h.weight / totalW) * holdingFit(h, q)
+  }, 0) * 100)
 
   const result: SeasonNavResult = {
     quadrant: meta.quadrant, seasonKo: meta.seasonKo, icon: meta.icon, label: meta.label,
@@ -129,10 +168,9 @@ export async function GET(req: Request) {
     growth: { cli: g.cli, cliPrev: g.cliPrev, dir: g.dir, aboveTrend: g.aboveTrend },
     inflation: { cpiYoY: i.cpiYoY, rateDir: i.rateDir, hot: i.hot },
     regimeLabel,
-    alignmentScore: align.score,
-    perHolding: align.perHolding
-      .map(p => ({ ticker: p.ticker, name: nameByTicker.get(p.ticker) ?? p.ticker, weight: Math.round((p.weight / totalW) * 1000) / 10, fit: p.fit }))
-      .sort((a, b) => b.weight - a.weight),
+    alignmentScore,
+    perHolding,
+    marketSeasons: { us: mkMeta(usQuad, gUs), kr: mkMeta(krQuad, gKr) },
     yieldCurveInverted: yieldCurve != null && yieldCurve < 0,
     yieldCurve,
     asOf: new Date().toISOString(),
