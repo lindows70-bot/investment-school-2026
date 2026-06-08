@@ -180,7 +180,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v12:${user.id}:${today}:${fp}`
+  const cacheKey = `ai-rebalance-v13:${user.id}:${today}:${fp}`
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -391,7 +391,18 @@ export async function GET(req: Request) {
   const diversification = buildDiversification(diagnoses, secByTicker, curCat, curSec, buyCandidates)
 
   // ⑦ Gemini 내러티브 (심리 인지 + 정직 + 시클리컬 함정)
-  const narrative = await buildNarrative(diagnoses, buyCandidates, sellBudget, diversification, cyclicalTrap, hypePremium, zombieRisk)
+  // ⭐ 매크로 국면 SSOT(/api/macro-regime) 재사용 — 내러티브에 시장 맥락 한 줄 주입(추가 fetch 0, 캐시 공유)
+  let regimeNote: string | null = null
+  try {
+    const rg = await fetch(`${base}/api/macro-regime`, { signal: AbortSignal.timeout(8_000) })
+    if (rg.ok) {
+      const j = await rg.json()
+      const dirKo = j.rateDir === 'cut' ? '인하' : j.rateDir === 'hike' ? '인상' : '동결'
+      regimeNote = `현재 매크로 국면: ${j.label}(시장은 당분간 금리 ${dirKo} 컨센서스). ${j.description ?? ''}`
+    }
+  } catch { /* graceful */ }
+
+  const narrative = await buildNarrative(diagnoses, buyCandidates, sellBudget, diversification, cyclicalTrap, hypePremium, zombieRisk, regimeNote)
 
   const result: RebalanceResult = {
     holdings: diagnoses, buyCandidates, sellBudget, diversification, cyclicalTrap, hypePremium, zombieRisk, satelliteCandidates, portfolioValue: Math.round(totalMv),
@@ -451,7 +462,7 @@ const ACTION_KO: Record<RebalanceAction, string> = {
   HOLD_DIP: '보류(손실중·단순고평가→저점매도 방지)', DEFEND: '사수(저평가/호재)', KEEP: '유지',
 }
 
-async function buildNarrative(holdings: HoldingDiagnosis[], buys: BuyCandidate[], sellBudget: number, div: DiversificationView | null, trap: CyclicalTrap | null, hype: HypePremium | null, zombie: ZombieRisk | null): Promise<string> {
+async function buildNarrative(holdings: HoldingDiagnosis[], buys: BuyCandidate[], sellBudget: number, div: DiversificationView | null, trap: CyclicalTrap | null, hype: HypePremium | null, zombie: ZombieRisk | null, regimeNote: string | null): Promise<string> {
   const sellLines = holdings
     // 실제 행동 가능한 것만: 회수 비중 ≥0.1% 이거나 보류(저점매도 방지) — 소액(0%) 익절 노이즈 제외
     .filter(h => h.releaseWeight >= 0.1 || h.action === 'HOLD_DIP')
@@ -472,6 +483,9 @@ async function buildNarrative(holdings: HoldingDiagnosis[], buys: BuyCandidate[]
     : ''
 
   const prompt = `너는 '2026 투자학교'의 AI 자산관리 비서다. 학생의 실제 포트폴리오 손익을 고려해 따뜻하지만 정직한 리밸런싱 코칭을 하라.
+
+[시장 매크로 맥락 — 참고용, SSOT]
+${regimeNote ?? '자료없음'}
 
 [매도/축소 후보 (실제 손익 반영)]
 ${sellLines || '없음'}
@@ -496,6 +510,7 @@ ${buyLines || '없음'}
 - 손실 종목을 '단순 고평가'만으로 손절 강요 금지(보류 종목은 "저점 매도 금물"로 안내).
 - 손실 회피 심리를 헤아려라: 익절은 축하의 톤, 손절은 "기회비용·전략적 후퇴"로 위로하되 강요 아닌 '고려' 권유.
 - 본전까지 필요 상승률은 확정된 수학이니 그대로 활용해 설득하라(예: "−15%면 본전까지 +17.6%가 필요한데 회복 동력이 없다").
+- [시장 매크로 맥락]이 '자료없음'이 아니면, 신규 매수 비중을 어느 정도로 가져갈지에 참고할 한 문장을 코칭에 자연스럽게 녹여라(예: "현재 금리 고점기이니 신규 편입은 분할로 신중하게 접근" 식). 단정적 예측이나 매수/매도 지시가 아니라 '참고할 시장 맥락'으로만 다뤄라.
 - [분산 상태]가 있으면 섹터·분류 편중을 한 문장으로 짚고, 이 리밸런싱이 분산을 어떻게 개선하는지 설명하라.
 - [시클리컬 함정]이 '해당 없음'이 아니면, 저PEG 경기순환주를 무조건 저평가로 믿지 말라는 린치의 '가치 함정' 경고를 한 문장으로 꼭 포함하라.
 - [하이프 프리미엄]이 '해당 없음'이 아니면, 이익 실체 없이 스토리로 프리미엄 받는 거품 위험을 한 문장으로 짚되 일방적 매도가 아닌 비중 관리·해자 확인으로 안내하라.
@@ -512,5 +527,6 @@ ${buyLines || '없음'}
   // 폴백(결정론적)
   const cut = holdings.filter(h => h.action === 'CUT_LOSS').length
   const tp = holdings.filter(h => h.action === 'TAKE_PROFIT').length
-  return `현재 포트폴리오에서 익절 대상 ${tp}종목, 손절 검토 ${cut}종목이 포착됐습니다. 회수 가능한 ${sellBudget}%를 AI 추천 저평가 종목으로 재배분하면 분산이 개선됩니다. 손실 종목 중 단순 고평가뿐인 종목은 저점 매도를 피하고 보유를 권합니다. ※ 교육용 시뮬레이션이며 투자 추천이 아닙니다.`
+  const macroSuffix = regimeNote ? ` 참고로 ${regimeNote.split('.')[0]}이니 신규 편입은 분할로 신중하게 접근하세요.` : ''
+  return `현재 포트폴리오에서 익절 대상 ${tp}종목, 손절 검토 ${cut}종목이 포착됐습니다. 회수 가능한 ${sellBudget}%를 AI 추천 저평가 종목으로 재배분하면 분산이 개선됩니다. 손실 종목 중 단순 고평가뿐인 종목은 저점 매도를 피하고 보유를 권합니다.${macroSuffix} ※ 교육용 시뮬레이션이며 투자 추천이 아닙니다.`
 }
