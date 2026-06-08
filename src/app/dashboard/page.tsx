@@ -22,6 +22,7 @@ import NpsPortfolio               from '@/app/components/NpsPortfolio'
 import JarvisMorningBriefing      from '@/app/components/JarvisMorningBriefing'
 import SchoolIndexDashboard       from '@/app/components/SchoolIndexDashboard'
 import GlobalTop10                from '@/app/components/GlobalTop10'
+import SeasonNavigator            from '@/app/components/SeasonNavigator'
 import NewsCatalystRadar          from '@/app/components/NewsCatalystRadar'
 import AiRebalancePanel           from '@/app/components/AiRebalancePanel'
 import PortfolioFlowDashboard     from '@/app/components/PortfolioFlowDashboard'
@@ -677,7 +678,7 @@ export default function DashboardPage() {
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
   const [btActive,  setBtActive]  = useState({ rebalanceQ:true, rebalanceY:false, buyAndHold:true, benchmark:true })
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season'>('live')
   const [flowView, setFlowView] = useState<'mine' | 'market' | 'reco'>('mine')
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
@@ -1459,6 +1460,7 @@ export default function DashboardPage() {
               { key: 'schoolflow', icon: '🏫', label: '학교 13F 인덱스',  desc: '집단지성 동일가중 인덱스' },
               { key: 'ghost',  icon: '👻', label: '유령 종목 추적기',     desc: '기관 소외 × 내부자 매수' },
               { key: 'macro',  icon: '🏛️', label: '거시경제 (Fed Watch)', desc: '금리 · 인플레이션 · QT' },
+              { key: 'season', icon: '🧭', label: '4계절 내비게이터',     desc: '성장×물가 2×2 · 내 포폴 계절 정합성' },
             ],
           },
           {
@@ -3181,6 +3183,13 @@ export default function DashboardPage() {
       <div id="tab-globaltop10" style={{ display: dashTab==='globaltop10' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         <ErrorBoundary label="글로벌 시총 Top 10">
           <GlobalTop10 />
+        </ErrorBoundary>
+      </div>
+
+      {/* ── 🧭 4계절 매크로 내비게이터 탭 ── */}
+      <div id="tab-season" style={{ display: dashTab==='season' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="4계절 내비게이터">
+          <SeasonNavigator />
         </ErrorBoundary>
       </div>
 
