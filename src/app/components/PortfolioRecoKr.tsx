@@ -10,10 +10,11 @@ const fmtW = (w: number) => w >= 1e8 ? `${(w/1e8).toFixed(0)}억원` : `${(w/1e4
 const fmtEok = (v: number) => `${v >= 0 ? '+' : ''}${v.toLocaleString()}억`
 
 const CATS = {
-  fillGap: { color: '#3b82f6', icon: '🧩', label: '빈집 채우기', desc: '내 포폴에 없는 섹터 + 메이저 매집' },
-  pearl:   { color: '#22c55e', icon: '💎', label: '진주 발굴',   desc: '저PEG + 쌍끌이 + 개인 이탈 = 최강 신호' },
-  addMore: { color: '#f59e0b', icon: '🔥', label: '보유 불타기', desc: '보유 종목 수급 가속 → 비중 확대 타이밍' },
-  near:    { color: '#8a9aaa', icon: '🔜', label: '우선순위 임박', desc: '쌍끌이 아직이지만 추세 감지 중' },
+  fillGap:   { color: '#3b82f6', icon: '🧩', label: '빈집 채우기',   desc: '내 포폴에 없는 섹터 + 메이저 매집' },
+  pearl:     { color: '#22c55e', icon: '💎', label: '진주 발굴',     desc: '저PEG + 쌍끌이 + 개인 이탈 = 최강 신호' },
+  addMore:   { color: '#f59e0b', icon: '🔥', label: '보유 불타기',   desc: '보유 종목 수급 가속 → 비중 확대 타이밍' },
+  near:      { color: '#8a9aaa', icon: '🔜', label: '우선순위 임박', desc: '쌍끌이 아직이지만 추세 감지 중' },
+  riskAlert: { color: '#ef4444', icon: '⚠️', label: '수급 훼손 경보', desc: '보유 종목에서 메이저 동반 이탈 + 개미 단독 매수 포착' },
 }
 
 function ScoreBar({ score }: { score: number }) {
@@ -115,6 +116,8 @@ export default function PortfolioRecoKr() {
   if (!data) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa' }}>추천 데이터를 불러오지 못했습니다.</div>
 
   const anyReco = data.fillGap.length + data.pearl.length + data.addMore.length + data.near.length > 0
+  const rg = data.regime
+  const adjusted = rg && rg.multiplier < 1.0
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -131,6 +134,25 @@ export default function PortfolioRecoKr() {
         </div>
       </div>
 
+      {/* 🌦️ 매크로 국면 배너 — 권장액 동적 조절 근거 */}
+      {rg && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: adjusted ? 'rgba(245,158,11,0.08)' : 'rgba(59,130,246,0.06)', border: `1px solid ${adjusted ? 'rgba(245,158,11,0.3)' : 'rgba(59,130,246,0.25)'}`, borderRadius: 10, padding: '9px 14px' }}>
+          <span style={{ fontSize: 15 }}>{adjusted ? '⛈️' : '🌦️'}</span>
+          <div style={{ flex: 1 }}>
+            <span style={{ color: adjusted ? '#f59e0b' : '#60a5fa', fontWeight: 800, fontSize: 12 }}>현재 국면: {rg.label}</span>
+            <span style={{ color: '#aab6c4', fontSize: 11.5, marginLeft: 8 }}>{rg.guide}</span>
+          </div>
+          {adjusted && (
+            <span style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid #f59e0b55', borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' }}>
+              권장액 {Math.round(rg.multiplier * 100)}%로 자동 조정
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* ⚠️ 수급 훼손 경보 — 맨 위 우선 노출(보유 종목 위험 신호) */}
+      {data.riskAlert.length > 0 && <Section cat="riskAlert" items={data.riskAlert} />}
+
       {anyReco ? (
         <>
           <Section cat="fillGap" items={data.fillGap} />
@@ -145,7 +167,7 @@ export default function PortfolioRecoKr() {
       )}
 
       <div style={{ color: '#6e7f8f', fontSize: 10.5, lineHeight: 1.6 }}>
-        ※ 추천 점수(0~100) = PEG 가치(35) + 수급 강도(40) + 개인 이탈 보너스(15) + 섹터 갭 보너스(10) · ₩ 가이드 = 포트폴리오 원가의 2%(신규)/1%(추가). 수급은 연료일 뿐 방향은 펀더멘탈이 결정합니다 — 교육용 시뮬레이션이며 투자 추천이 아닙니다.
+        ※ 추천 점수(0~100) = PEG 가치(35) + 수급 강도(40) + 개인 이탈 보너스(15) + 섹터 갭 보너스(10) · ₩ 가이드 = 포트폴리오 원가의 2%(신규)/1%(추가) × 매크로 국면 배율. 수급 훼손 경보는 펀더멘탈과 무관하게 '메이저 자금의 선행 이탈'만 포착하는 별도 신호입니다(리밸런싱의 손익 기준 매도 진단을 보완). 수급은 연료일 뿐 방향은 펀더멘탈이 결정합니다 — 교육용 시뮬레이션이며 투자 추천이 아닙니다.
       </div>
     </div>
   )
