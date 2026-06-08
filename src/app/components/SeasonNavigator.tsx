@@ -114,7 +114,7 @@ export default function SeasonNavigator() {
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
           <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 14 }}>{data.icon} 현재 계절: {data.seasonKo}</span>
           <span style={{ color: accent, fontSize: 12, fontWeight: 700 }}>{data.label}</span>
-          <span style={{ marginLeft: 'auto', color: '#6e7f8f', fontSize: 10.5 }}>최일 4계절 — 성장×물가 4분면</span>
+          <span style={{ marginLeft: 'auto', color: '#9aa7b5', fontSize: 10.5 }}>최일 4계절 — 성장×물가 4분면</span>
         </div>
 
         {/* 🌏 시장별 현재 계절 — 성장축(CLI)이 갈리면 국장/미장 계절 분리 */}
@@ -133,18 +133,17 @@ export default function SeasonNavigator() {
               <span style={{ color: '#8a9aaa', fontSize: 11, fontWeight: 700 }}>🌏 시장별 계절</span>
               <Badge flag="🇺🇸" m={us} />
               <Badge flag="🇰🇷" m={kr} />
-              <span style={{ color: diverge ? '#f59e0b' : '#6e7f8f', fontSize: 10.5 }}>
+              <span style={{ color: diverge ? '#f59e0b' : '#9aa7b5', fontSize: 10.5 }}>
                 {diverge ? '⚠️ 두 시장의 경기 국면이 갈립니다 — 종목별로 해당 시장 계절로 채점' : '두 시장 경기 국면 동조 · 물가축은 글로벌 공통'}
               </span>
             </div>
           )
         })()}
 
-        {/* 상단 축 라벨 */}
-        <div style={{ textAlign: 'center', color: '#8a9aaa', fontSize: 10.5, fontWeight: 700, marginBottom: 4 }}>▲ 고물가</div>
-        {/* 좌우 축 + 그리드 */}
+        {/* 세로축(물가) 상단 라벨 */}
+        <div style={{ textAlign: 'center', color: '#a8b5c2', fontSize: 11, fontWeight: 700, marginBottom: 5 }}>▲ 물가 높음 (고물가)</div>
+        {/* 그리드 */}
         <div style={{ display: 'flex', alignItems: 'stretch', gap: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'center', color: '#8a9aaa', fontSize: 10.5, fontWeight: 700, writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>← 고성장</div>
           <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {WHEEL_ORDER.map(q => {
               const info = QUADRANT_INFO[q]
@@ -163,16 +162,20 @@ export default function SeasonNavigator() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                     <div style={{ fontSize: 10.5, lineHeight: 1.4 }}><span style={{ color: '#86efac', fontWeight: 700 }}>🟢 유리 </span><span style={{ color: '#cbd5e1' }}>{info.good}</span></div>
                     <div style={{ fontSize: 10.5, lineHeight: 1.4 }}><span style={{ color: '#fca5a5', fontWeight: 700 }}>🔴 불리 </span><span style={{ color: '#cbd5e1' }}>{info.bad}</span></div>
-                    <div style={{ fontSize: 9.5, color: '#6e7f8f', marginTop: 2 }}>📖 {info.textbook}</div>
+                    <div style={{ fontSize: 10, color: '#9aa7b5', marginTop: 3 }}>📖 {info.textbook}</div>
                   </div>
                 </div>
               )
             })}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', color: '#8a9aaa', fontSize: 10.5, fontWeight: 700, writingMode: 'vertical-rl' }}>저성장 →</div>
         </div>
-        {/* 하단 축 라벨 */}
-        <div style={{ textAlign: 'center', color: '#8a9aaa', fontSize: 10.5, fontWeight: 700, marginTop: 4 }}>▼ 저물가</div>
+        {/* 가로축(성장) 좌우 라벨 — 세로 회전 대신 명확한 가로 표기 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, padding: '0 2px' }}>
+          <span style={{ color: '#a8b5c2', fontSize: 11, fontWeight: 700 }}>◀ 왼쪽 = 고성장 (경기 확장)</span>
+          <span style={{ color: '#a8b5c2', fontSize: 11, fontWeight: 700 }}>오른쪽 = 저성장 (경기 둔화) ▶</span>
+        </div>
+        {/* 세로축(물가) 하단 라벨 */}
+        <div style={{ textAlign: 'center', color: '#a8b5c2', fontSize: 11, fontWeight: 700, marginTop: 5 }}>▼ 물가 낮음 (저물가)</div>
 
         {/* 축 진단(투명성) */}
         <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${BORDER}`, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
@@ -184,7 +187,7 @@ export default function SeasonNavigator() {
             <span style={{ color: '#8a9aaa' }}>🔥 물가축</span>
             <span style={{ color: '#cbd5e1', fontFamily: 'monospace' }}>{infTxt}</span>
           </div>
-          <div style={{ color: '#6e7f8f', fontSize: 10.5, marginLeft: 'auto' }}>국면 SSOT: {data.regimeLabel}</div>
+          <div style={{ color: '#9aa7b5', fontSize: 10.5, marginLeft: 'auto' }}>국면 SSOT: {data.regimeLabel}</div>
         </div>
       </div>
 
@@ -222,7 +225,7 @@ export default function SeasonNavigator() {
         </div>
       </div>
 
-      <div style={{ color: '#6e7f8f', fontSize: 10.5, lineHeight: 1.6 }}>
+      <div style={{ color: '#9aa7b5', fontSize: 10.5, lineHeight: 1.6 }}>
         ※ 계절 = 성장(OECD 경기선행지수)×물가(CPI·금리) 2×2 사분면 · 매크로 결론은 거시경제 대시보드와 동일한 macro-regime SSOT를 따릅니다. 시장별 계절은 성장축에 미국·한국 각각의 CLI를 쓰되, 물가축은 글로벌 공통(한국 CPI는 무료 신선 데이터 부재로 글로벌 기준 사용)입니다. 현금 비중은 앱이 추적하지 않으므로 권장치는 직접 확인하세요. 교육용 시뮬레이션이며 투자 추천이 아닙니다.
       </div>
     </div>
