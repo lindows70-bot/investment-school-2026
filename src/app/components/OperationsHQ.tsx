@@ -57,11 +57,13 @@ export default function OperationsHQ() {
               {brief.model && <span style={{ marginLeft: 'auto', color: '#6e7f8f', fontSize: 9.5 }}>Gemini</span>}
             </div>
             <div style={{ color: '#dbe3ec', fontSize: 12.5, lineHeight: 1.7 }}>{brief.briefing}</div>
-            {(brief.trim.length > 0 || brief.buys.length > 0) && (
-              <div style={{ display: 'flex', gap: 14, marginTop: 8, flexWrap: 'wrap', fontSize: 11 }}>
-                {brief.trim.length > 0 && (
-                  <span style={{ color: '#fca5a5' }}>▼ 점검: {brief.trim.slice(0, 3).map(t => t.name).join(', ')}</span>
-                )}
+            {((brief.sells?.length ?? 0) > 0 || (brief.trim?.length ?? 0) > 0 || brief.buys.length > 0) && (
+              <div style={{ display: 'flex', gap: 14, marginTop: 8, flexWrap: 'wrap', fontSize: 11, alignItems: 'center' }}>
+                {(brief.sells?.length ?? 0) > 0 ? (
+                  <span style={{ color: '#fca5a5' }}>▼ 매도: {brief.sells.slice(0, 3).map(s => `${s.name}(${s.action === 'CUT_LOSS' ? '손절' : '익절'} ${s.pnlPct != null ? (s.pnlPct > 0 ? '+' : '') + s.pnlPct + '%' : ''})`).join(', ')}{brief.sellBudget > 0 && <span style={{ color: '#8a9aaa' }}> · 회수 {brief.sellBudget}%</span>}</span>
+                ) : brief.trim.length > 0 ? (
+                  <span style={{ color: '#fbbf24' }}>▼ 계절 점검: {brief.trim.slice(0, 3).map(t => t.name).join(', ')}</span>
+                ) : null}
                 {brief.buys.length > 0 && (
                   <span style={{ color: '#86efac' }}>▲ 1순위 매수: {brief.buys[0].name} (통합 {brief.buys[0].combined})</span>
                 )}
