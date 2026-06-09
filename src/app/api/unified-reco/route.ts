@@ -74,7 +74,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v5:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `unified-reco-v6:${user.id}:${kstDate()}:${fp}`
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -166,11 +166,11 @@ export async function GET(req: Request) {
     return { p, supplyScore, supplyKnown, supplyProxy, badges, combined }
   })
 
-  // ⑤ 원칙적 선별(임의 개수 금지) — ① 품질 바닥 통합 65↑ ② 섹터당 최대 4(분산) ③ 최대 12종(실행 가능)
-  const QUALITY_FLOOR = 65, SECTOR_CAP = 4, MAX_ITEMS = 12
+  // ⑤ 원칙적 선별 — ① 품질 바닥 통합 65↑ ② 섹터당 최대 4(분산) ③ 최대 12종 ④ 한국 최소 3종 보장(국내 학생용)
+  const QUALITY_FLOOR = 65, SECTOR_CAP = 4, MAX_ITEMS = 12, MIN_KR = 3
   const ranked = scored.sort((a, b) => b.combined - a.combined)
   const secCount = new Map<string, number>()
-  const top: typeof ranked = []
+  let top: typeof ranked = []
   for (const t of ranked) {
     if (t.combined < QUALITY_FLOOR) continue
     const sec = t.p.s.sector ?? '—'
@@ -179,7 +179,25 @@ export async function GET(req: Request) {
     secCount.set(sec, c + 1); top.push(t)
     if (top.length >= MAX_ITEMS) break
   }
-  const selectionRule = `통합 ${QUALITY_FLOOR}점 이상 · 섹터당 최대 ${SECTOR_CAP}종(분산) · 최대 ${MAX_ITEMS}종`
+  // ④ 한국 대표성 — KR이 MIN_KR 미만이면, 품질 바닥 넘는 최상위 KR로 최저 미국 종목을 교체(국내 학생 체감↑)
+  const krInTop = top.filter(t => t.p.isKr).length
+  if (krInTop < MIN_KR) {
+    const inTop = new Set(top.map(t => t.p.s.ticker))
+    const krAdd: typeof ranked = []
+    for (const t of ranked) {
+      if (krAdd.length >= MIN_KR - krInTop) break
+      if (!t.p.isKr || t.combined < QUALITY_FLOOR || inTop.has(t.p.s.ticker)) continue
+      const sec = t.p.s.sector ?? '—'
+      if ((secCount.get(sec) ?? 0) >= SECTOR_CAP) continue
+      secCount.set(sec, (secCount.get(sec) ?? 0) + 1); krAdd.push(t)
+    }
+    if (krAdd.length > 0) {
+      const dropUs = top.filter(t => !t.p.isKr).sort((a, b) => a.combined - b.combined).slice(0, krAdd.length)
+      const dropSet = new Set(dropUs.map(t => t.p.s.ticker))
+      top = top.filter(t => !dropSet.has(t.p.s.ticker)).concat(krAdd).sort((a, b) => b.combined - a.combined)
+    }
+  }
+  const selectionRule = `통합 ${QUALITY_FLOOR}점 이상 · 섹터당 최대 ${SECTOR_CAP}종(분산) · 한국 최소 ${MIN_KR}종 보장 · 최대 ${MAX_ITEMS}종`
 
   // ⑥ 표시용 canonical PEG(제2원칙) — 최종 선별분만
   const items: UnifiedRecoItem[] = await Promise.all(top.map(async t => {
