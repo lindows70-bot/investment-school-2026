@@ -116,8 +116,12 @@ export default function OperationsHQ() {
                 </div>
                 <div style={{ color: '#9aa7b5', fontSize: 10, marginTop: 6 }}>아래 ② 리밸런싱에서 손익을 함께 보고, 펀더멘탈이 멀쩡하면 보유·과열이면 분할 점검하세요(계절만으로 매도 단정 금지).</div>
               </div>
+            ) : fitWeight >= 65 ? (
+              <div style={{ color: '#86efac', fontSize: 11.5 }}>✓ 보유 종목 대부분이 현재 국면에 적합합니다(적합 비중 {Math.round(fitWeight)}%).</div>
             ) : (
-              <div style={{ color: '#86efac', fontSize: 11.5 }}>✓ 보유 종목 대부분이 현재 국면에 적합합니다.</div>
+              <div style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid #f59e0b33', borderRadius: 9, padding: '9px 12px', color: '#fbbf24', fontSize: 11.5, lineHeight: 1.5 }}>
+                ⚖️ 계절에 크게 어긋난 종목은 없으나 적합 비중이 {Math.round(fitWeight)}%로, 절반가량이 &lsquo;중립&rsquo;입니다 — 현재 국면 우대 섹터({(data.favored ?? []).join('·')}) 비중을 늘릴 여지가 있습니다.
+              </div>
             )}
           </>
         )}

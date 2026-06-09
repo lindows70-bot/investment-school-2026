@@ -28,7 +28,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `hq-briefing-v1:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `hq-briefing-v2:${user.id}:${kstDate()}:${fp}`
   const cached = await getCache<HqBriefing>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -83,6 +83,7 @@ ${buyTxt || '없음'}
   }
 
   const result: HqBriefing = { briefing, seasonLabel, alignmentScore, trim, buys, model }
-  await setCache(cacheKey, result)
+  // 매수 후보가 비었으면(통합추천 콜드/타임아웃) 캐시하지 않음 → 다음 로드에서 통합추천 워밍 후 재생성
+  if (buys.length > 0) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }
