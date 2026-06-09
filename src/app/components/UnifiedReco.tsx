@@ -96,6 +96,7 @@ export default function UnifiedReco() {
             통합 = 🌦️ 계절 {Math.round(data.weights.season * 100)}% + 💎 가치 {Math.round(data.weights.fund * 100)}% + 💰 수급 {Math.round(data.weights.supply * 100)}%
             {data.usSeason && <> · 🇺🇸 {data.usSeason.label.split(' ')[0]} · 🇰🇷 {data.krSeason.label.split(' ')[0]}</>}
           </div>
+          {data.selectionRule && <div style={{ color: '#8a9aaa', fontSize: 10.5, marginTop: 3 }}>📋 선별 기준: {data.selectionRule} → 총 <b style={{ color: '#cbd5e1' }}>{data.items.length}종</b></div>}
         </div>
       </div>
 

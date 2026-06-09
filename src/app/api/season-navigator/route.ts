@@ -6,7 +6,7 @@ import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { getSector } from '@/lib/schoolIndex'
-import type { ScreenedStock } from '@/lib/macroPhaseScreener'
+import { fetchMacroData, detectMacroPhase, type ScreenedStock } from '@/lib/macroPhaseScreener'
 import {
   growthFromCli, inflationFromRegime, seasonOf, holdingFit,
   SEASON_META, type Holding, type Quadrant,
@@ -91,22 +91,20 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `season-navigator-v6:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `season-navigator-v7:${user.id}:${kstDate()}:${fp}`
   const cached = await getCache<SeasonNavResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
-  // ① 물가/금리축 + 역전경보 = macro-regime SSOT 재사용(추가 판정 0)
+  // ① 물가/금리축 + 역전경보 = macro SSOT를 ★in-process로 직접 호출(HTTP 자기호출 제거)
+  //    이유: /api/macro-regime HTTP 자기호출이 실패하면 조용히 기본값(2.5,hold)→골디락스 오판. CPI는 FRED 직접이라 신뢰
   let cpiYoY = 2.5, rateDir: 'cut' | 'hold' | 'hike' = 'hold', regimeLabel = '—'
   let yieldCurve: number | null = null
   try {
-    const rg = await fetch(`${base}/api/macro-regime`, { signal: AbortSignal.timeout(10_000) })
-    if (rg.ok) {
-      const j = await rg.json()
-      cpiYoY = typeof j.cpiYoY === 'number' ? j.cpiYoY : cpiYoY
-      rateDir = j.rateDir ?? 'hold'
-      regimeLabel = j.label ?? '—'
-      yieldCurve = typeof j.yieldCurve === 'number' ? j.yieldCurve : null
-    }
+    const md = await fetchMacroData(base)
+    cpiYoY = typeof md.cpiYoY === 'number' ? md.cpiYoY : cpiYoY
+    rateDir = md.rateDir ?? 'hold'
+    yieldCurve = typeof md.yieldCurve === 'number' ? md.yieldCurve : null
+    regimeLabel = detectMacroPhase(md).label
   } catch { /* graceful — 폴백 중립값 사용 */ }
 
   // ② 성장축 = OECD CLI(미국·한국 각각). 물가축은 글로벌 공통(KR CPI는 FRED stale → 글로벌 기준 사용)

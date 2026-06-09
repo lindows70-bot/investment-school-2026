@@ -9,7 +9,7 @@ import { growthFromCli, inflationFromRegime, seasonOf, holdingFit, SEASON_META, 
 import { computeMarketFlowKr, type MarketFlowKrResult, type MarketFlowEntry } from '@/lib/marketFlowKr'
 import { getMoneyFlow } from '@/lib/moneyFlow'
 import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
-import type { ScreenedStock } from '@/lib/macroPhaseScreener'
+import { fetchMacroData, type ScreenedStock } from '@/lib/macroPhaseScreener'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -33,6 +33,7 @@ export interface UnifiedRecoResult {
   usSeason: { quadrant: Quadrant; label: string; favored: string[] }
   krSeason: { quadrant: Quadrant; label: string; favored: string[] }
   items: UnifiedRecoItem[]
+  selectionRule: string
   asOf: string
 }
 
@@ -73,7 +74,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v4:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `unified-reco-v5:${user.id}:${kstDate()}:${fp}`
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -83,11 +84,12 @@ export async function GET(req: Request) {
     return NextResponse.json({ weights: W, usSeason: null, krSeason: null, items: [], asOf: new Date().toISOString(), warming: true }, { headers: { 'Cache-Control': 'no-store' } })
   }
 
-  // ① 계절(US·KR) — macro-regime(물가축) + OECD CLI(성장축) 재사용
+  // ① 계절(US·KR) — macro SSOT를 ★in-process 직접 호출(HTTP 자기호출 실패→골디락스 오판 버그 차단)
   let cpiYoY = 2.5, rateDir: 'cut' | 'hold' | 'hike' = 'hold'
   try {
-    const rg = await fetch(`${base}/api/macro-regime`, { signal: AbortSignal.timeout(10_000) })
-    if (rg.ok) { const j = await rg.json(); cpiYoY = typeof j.cpiYoY === 'number' ? j.cpiYoY : cpiYoY; rateDir = j.rateDir ?? 'hold' }
+    const md = await fetchMacroData(base)
+    cpiYoY = typeof md.cpiYoY === 'number' ? md.cpiYoY : cpiYoY
+    rateDir = md.rateDir ?? 'hold'
   } catch { /* graceful */ }
   const fetchCli = async (sid: string, key: string) => {
     const c = await getCache<{ cli: number; cliPrev: number }>(key, 12 * 3600_000)
@@ -164,9 +166,22 @@ export async function GET(req: Request) {
     return { p, supplyScore, supplyKnown, supplyProxy, badges, combined }
   })
 
-  const top = scored.sort((a, b) => b.combined - a.combined).slice(0, 15)
+  // ⑤ 원칙적 선별(임의 개수 금지) — ① 품질 바닥 통합 65↑ ② 섹터당 최대 4(분산) ③ 최대 12종(실행 가능)
+  const QUALITY_FLOOR = 65, SECTOR_CAP = 4, MAX_ITEMS = 12
+  const ranked = scored.sort((a, b) => b.combined - a.combined)
+  const secCount = new Map<string, number>()
+  const top: typeof ranked = []
+  for (const t of ranked) {
+    if (t.combined < QUALITY_FLOOR) continue
+    const sec = t.p.s.sector ?? '—'
+    const c = secCount.get(sec) ?? 0
+    if (c >= SECTOR_CAP) continue   // 한 섹터 과밀 방지
+    secCount.set(sec, c + 1); top.push(t)
+    if (top.length >= MAX_ITEMS) break
+  }
+  const selectionRule = `통합 ${QUALITY_FLOOR}점 이상 · 섹터당 최대 ${SECTOR_CAP}종(분산) · 최대 ${MAX_ITEMS}종`
 
-  // ⑤ 표시용 canonical PEG(제2원칙) — 최종 15종만
+  // ⑥ 표시용 canonical PEG(제2원칙) — 최종 선별분만
   const items: UnifiedRecoItem[] = await Promise.all(top.map(async t => {
     let peg = t.p.s.peg
     try { const cf = await getCanonicalFundamentals(t.p.s.ticker, t.p.s.market, base); if (cf.peg != null) peg = cf.peg } catch { /* 폴백 Yahoo */ }
@@ -181,7 +196,7 @@ export async function GET(req: Request) {
     weights: W,
     usSeason: { quadrant: usQuad, label: SEASON_META[usQuad].label, favored: SEASON_META[usQuad].favored },
     krSeason: { quadrant: krQuad, label: SEASON_META[krQuad].label, favored: SEASON_META[krQuad].favored },
-    items, asOf: new Date().toISOString(),
+    items, selectionRule, asOf: new Date().toISOString(),
   }
   await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
