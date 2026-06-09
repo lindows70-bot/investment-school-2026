@@ -10,9 +10,10 @@ const AX = { season: '#f59e0b', fund: '#22c55e', supply: '#60a5fa' }  // 계절/
 function MiniBar({ label, score, color, unknown }: { label: string; score: number; color: string; unknown?: boolean }) {
   return (
     <div style={{ flex: 1, minWidth: 78 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9.5, marginBottom: 2 }}>
+      {/* 라벨 옆에 점수를 바로 붙여 표시 — 세 축 모두 명확히(수급 점수 낮아도 안 묻힘) */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, fontSize: 9.5, marginBottom: 2 }}>
         <span style={{ color: '#8a9aaa' }}>{label}</span>
-        <span style={{ color: unknown ? '#7f93a8' : color, fontWeight: 700, fontFamily: 'monospace' }}>{unknown ? '미집계' : score}</span>
+        <span style={{ color: unknown ? '#7f93a8' : color, fontWeight: 800, fontFamily: 'monospace', fontSize: 11 }}>{unknown ? '미집계' : score}</span>
       </div>
       <div style={{ height: 5, background: '#0f1117', borderRadius: 3, overflow: 'hidden' }}>
         {unknown
