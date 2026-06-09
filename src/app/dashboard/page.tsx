@@ -24,6 +24,7 @@ import SchoolIndexDashboard       from '@/app/components/SchoolIndexDashboard'
 import GlobalTop10                from '@/app/components/GlobalTop10'
 import SeasonNavigator            from '@/app/components/SeasonNavigator'
 import UnifiedReco                 from '@/app/components/UnifiedReco'
+import OperationsHQ                 from '@/app/components/OperationsHQ'
 import NewsCatalystRadar          from '@/app/components/NewsCatalystRadar'
 import AiRebalancePanel           from '@/app/components/AiRebalancePanel'
 import PortfolioFlowDashboard     from '@/app/components/PortfolioFlowDashboard'
@@ -3224,8 +3225,19 @@ export default function DashboardPage() {
 
       {/* ── AI 리밸런싱 탭 ── */}
       <div id="tab-rebalance" style={{ display: dashTab==='rebalance' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {/* ① 진단 — AI 운용 본부 헤더(4계절 정합) */}
+        <ErrorBoundary label="운용 본부 진단">
+          <OperationsHQ />
+        </ErrorBoundary>
+        {/* ② 매도·리밸런싱 */}
+        <div style={{ color:'#818cf8', fontWeight:800, fontSize:13, marginTop:4 }}>② 매도 · 리밸런싱 — 손익 반영 교체매매</div>
         <ErrorBoundary label="AI 리밸런싱">
           <AiRebalancePanel />
+        </ErrorBoundary>
+        {/* ③ 통합 매수 처방 — 계절×가치×수급 3축 */}
+        <div style={{ color:'#818cf8', fontWeight:800, fontSize:13, marginTop:4 }}>③ 통합 매수 처방 — 계절 × 가치 × 수급 3축</div>
+        <ErrorBoundary label="통합 매수 처방">
+          <UnifiedReco />
         </ErrorBoundary>
       </div>
 
