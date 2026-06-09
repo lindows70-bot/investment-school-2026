@@ -1,0 +1,188 @@
+// 🎯 통합 3축 추천 — 계절(매크로 방향)×펀더멘탈(가치)×수급(연료)을 하나의 점수로 융합
+// 4계절 내비게이터(방향) + 수급 레이더 맞춤추천(연료)을 단일 기준으로 통합. 기존 엔진 전부 재사용
+import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdmin } from '@supabase/supabase-js'
+import { getAssetType } from '@/lib/assetClassifier'
+import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
+import { growthFromCli, inflationFromRegime, seasonOf, holdingFit, SEASON_META, type Quadrant, type Holding } from '@/lib/seasonNavigator'
+import { computeMarketFlowKr, type MarketFlowKrResult, type MarketFlowEntry } from '@/lib/marketFlowKr'
+import { getMoneyFlow } from '@/lib/moneyFlow'
+import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
+import type { ScreenedStock } from '@/lib/macroPhaseScreener'
+
+export const dynamic = 'force-dynamic'
+export const maxDuration = 120
+
+const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
+const code6 = (t: string) => t.replace(/\.(KS|KQ)$/i, '').replace(/\D/g, '').padStart(6, '0').slice(-6)
+const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
+
+// 축 가중치 — 방향(펀더멘탈)이 가장 무겁게(앱 철학: 수급은 연료, 방향은 펀더멘탈)
+const W = { season: 0.25, fund: 0.40, supply: 0.35 }
+
+export interface UnifiedRecoItem {
+  ticker: string; name: string; market: string; sector: string; lynchCategory: string
+  seasonScore: number; fundScore: number; supplyScore: number; combined: number
+  peg: number | null; opMargin: number | null
+  seasonFavored: boolean; supplyProxy: boolean; supplyKnown: boolean
+  badges: string[]
+}
+export interface UnifiedRecoResult {
+  weights: typeof W
+  usSeason: { quadrant: Quadrant; label: string; favored: string[] }
+  krSeason: { quadrant: Quadrant; label: string; favored: string[] }
+  items: UnifiedRecoItem[]
+  asOf: string
+}
+
+// 펀더멘탈 점수(0~100) — screenOne score 합(최상위 ~1.0) ×100
+const fundOf = (s: number) => clamp(s * 100)
+
+// KR 수급 점수(0~100) — 외인/기관 5일 + 쌍끌이 + 개인 이탈(메이저가 받는 구조)
+function krSupply(e: MarketFlowEntry): number {
+  let s = 30
+  s += Math.min(e.dualStreak * 12, 36)
+  s += e.foreign.d5 > 0 ? 15 : e.foreign.d5 < 0 ? -12 : 0
+  s += e.organ.d5 > 0 ? 15 : e.organ.d5 < 0 ? -12 : 0
+  s += (e.individual?.d1 ?? 0) < 0 ? 12 : 0
+  return clamp(s)
+}
+// US 수급 점수(0~100, 프록시) — MFI 과매도·상승 + 내부자 + 13F 거인
+function usSupply(mf: Awaited<ReturnType<typeof getMoneyFlow>>): number {
+  let s = 40
+  const u = mf.us
+  if (u?.mfi != null) {
+    if (u.mfi < 30) s += 22
+    else if (u.mfi < 50) s += 12
+    else if (u.mfi <= 70) s += 4
+    else if (u.mfi > 80) s -= 15
+    if (u.mfiTrend === 'rising') s += 10
+  }
+  if (u?.insiderCluster) s += 20
+  else if ((u?.insiderBuyers ?? 0) > 0) s += 10
+  if (u?.giantTrend === 'add') s += 14
+  else if ((u?.giantHolders ?? 0) > 0) s += 6
+  return clamp(s)
+}
+
+export async function GET(req: Request) {
+  const sb = createClient()
+  const { data: { user } } = await sb.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+
+  const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
+  const fp = await holdingsFingerprint(user.id)
+  const cacheKey = `unified-reco-v1:${user.id}:${kstDate()}:${fp}`
+  const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
+  if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
+
+  // base 유니버스 — macro-ai-picks가 적재한 전체 채점 캐시(없으면 빈 결과 graceful)
+  const screened = await getCache<ScreenedStock[]>('macro-screened-universe:v1', 8 * 24 * 3600_000)
+  if (!screened || screened.length === 0) {
+    return NextResponse.json({ weights: W, usSeason: null, krSeason: null, items: [], asOf: new Date().toISOString(), warming: true }, { headers: { 'Cache-Control': 'no-store' } })
+  }
+
+  // ① 계절(US·KR) — macro-regime(물가축) + OECD CLI(성장축) 재사용
+  let cpiYoY = 2.5, rateDir: 'cut' | 'hold' | 'hike' = 'hold'
+  try {
+    const rg = await fetch(`${base}/api/macro-regime`, { signal: AbortSignal.timeout(10_000) })
+    if (rg.ok) { const j = await rg.json(); cpiYoY = typeof j.cpiYoY === 'number' ? j.cpiYoY : cpiYoY; rateDir = j.rateDir ?? 'hold' }
+  } catch { /* graceful */ }
+  const fetchCli = async (sid: string, key: string) => {
+    const c = await getCache<{ cli: number; cliPrev: number }>(key, 12 * 3600_000)
+    if (c) return c
+    try {
+      const r = await fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=${sid}&api_key=${process.env.FRED_API_KEY}&file_type=json&sort_order=desc&limit=4`, { signal: AbortSignal.timeout(10_000) })
+      if (!r.ok) return null
+      const j = await r.json(); const o = (j.observations ?? []).map((x: { value: string }) => parseFloat(x.value)).filter((v: number) => !isNaN(v))
+      if (o.length < 4) return null
+      const out = { cli: o[0], cliPrev: o[3] }; await setCache(key, out); return out
+    } catch { return null }
+  }
+  const [usCli, krCli] = await Promise.all([fetchCli('USALOLITOAASTSAM', 'oecd-cli-us-v1'), fetchCli('KORLOLITOAASTSAM', 'oecd-cli-kr-v1')])
+  const inf = inflationFromRegime(cpiYoY, rateDir)
+  const usQuad = seasonOf(growthFromCli(usCli?.cli ?? 100, usCli?.cliPrev ?? 100), inf)
+  const krQuad = seasonOf(growthFromCli(krCli?.cli ?? 100, krCli?.cliPrev ?? 100), inf)
+
+  // ② KR 수급 — marketFlowKr 캐시(113) 6자리 조인
+  let mf = await getCache<MarketFlowKrResult>(`market-flow-kr-v4:${kstDate()}`, 24 * 3600_000)
+  if (!mf) { try { mf = await computeMarketFlowKr(base) } catch { mf = null } }
+  const krFlow = new Map((mf?.entries ?? []).map(e => [e.ticker, e]))
+
+  // 보유 종목 제외
+  const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
+  const { data: rows } = await admin.from('investments').select('ticker,name,market').eq('user_id', user.id)
+  const held = new Set((rows ?? []).filter(r => getAssetType(r.ticker, r.name ?? '', r.market ?? '') === 'STOCK').map(r => (r.market === 'KR' || /^\d/.test(r.ticker)) ? code6(r.ticker) : r.ticker.toUpperCase()))
+
+  // ③ 계절+펀더멘탈 즉시 채점(전체) → US는 상위만 수급 fetch
+  type Pre = { s: ScreenedStock; quad: Quadrant; seasonScore: number; fundScore: number; isKr: boolean; favored: boolean }
+  const pre: Pre[] = screened
+    .filter(s => !held.has(s.market === 'KR' ? code6(s.ticker) : s.ticker.toUpperCase()))
+    .map(s => {
+      const isKr = s.market === 'KR'
+      const quad = isKr ? krQuad : usQuad
+      const h: Holding = { ticker: s.ticker, weight: 0, lynchCategory: s.lynchCategory as Holding['lynchCategory'], sector: s.sector ?? undefined }
+      const seasonScore = clamp(holdingFit(h, quad) * 100)
+      const favored = s.sector != null && SEASON_META[quad].favored.includes(s.sector)
+      return { s, quad, seasonScore, fundScore: fundOf(s.score), isKr, favored }
+    })
+
+  // US 수급 fetch 대상 — 계절+펀더멘탈 상위 25만(성능 바운드)
+  const usPre = pre.filter(p => !p.isKr).sort((a, b) => (b.fundScore * 0.6 + b.seasonScore * 0.4) - (a.fundScore * 0.6 + a.seasonScore * 0.4)).slice(0, 25)
+  const usFlowMap = new Map<string, Awaited<ReturnType<typeof getMoneyFlow>>>()
+  for (let i = 0; i < usPre.length; i += 5) {
+    const batch = usPre.slice(i, i + 5)
+    const r = await Promise.all(batch.map(p => getMoneyFlow(p.s.ticker, 'US', p.s.name, base).catch(() => null)))
+    batch.forEach((p, idx) => { if (r[idx]) usFlowMap.set(p.s.ticker, r[idx]!) })
+  }
+
+  // ④ 수급 점수 + 통합 점수
+  const scored = pre.map(p => {
+    let supplyScore = 50, supplyKnown = false, supplyProxy = false
+    const badges: string[] = []
+    if (p.isKr) {
+      const e = krFlow.get(code6(p.s.ticker))
+      if (e) {
+        supplyScore = krSupply(e); supplyKnown = true
+        if (e.dualStreak >= 2) badges.push(`🔥 ${e.dualStreak}일 쌍끌이`)
+        if ((e.individual?.d1 ?? 0) < 0) badges.push('👤 개인 이탈')
+      }
+    } else {
+      supplyProxy = true
+      const m = usFlowMap.get(p.s.ticker)
+      if (m) {
+        supplyScore = usSupply(m); supplyKnown = true
+        if (m.us?.mfi != null && m.us.mfi < 30) badges.push('📉 MFI 과매도(매집 여력)')
+        if (m.us?.insiderCluster) badges.push('🕵️ 내부자 클러스터')
+        if (m.us?.giantTrend === 'add') badges.push('🐳 13F 거인 매집')
+      }
+    }
+    if (p.favored) badges.push('🌦️ 계절 우대 섹터')
+    if (p.s.peg != null && p.s.peg > 0 && p.s.peg < 1) badges.push('💎 저PEG')
+    const combined = clamp(p.seasonScore * W.season + p.fundScore * W.fund + supplyScore * W.supply)
+    return { p, supplyScore, supplyKnown, supplyProxy, badges, combined }
+  })
+
+  const top = scored.sort((a, b) => b.combined - a.combined).slice(0, 15)
+
+  // ⑤ 표시용 canonical PEG(제2원칙) — 최종 15종만
+  const items: UnifiedRecoItem[] = await Promise.all(top.map(async t => {
+    let peg = t.p.s.peg
+    try { const cf = await getCanonicalFundamentals(t.p.s.ticker, t.p.s.market, base); if (cf.peg != null) peg = cf.peg } catch { /* 폴백 Yahoo */ }
+    return {
+      ticker: t.p.s.ticker, name: t.p.s.name, market: t.p.s.market, sector: t.p.s.sector ?? '—', lynchCategory: t.p.s.lynchCategory as string,
+      seasonScore: t.p.seasonScore, fundScore: t.p.fundScore, supplyScore: t.supplyScore, combined: t.combined,
+      peg, opMargin: t.p.s.opMargin, seasonFavored: t.p.favored, supplyProxy: t.supplyProxy, supplyKnown: t.supplyKnown, badges: t.badges,
+    }
+  }))
+
+  const result: UnifiedRecoResult = {
+    weights: W,
+    usSeason: { quadrant: usQuad, label: SEASON_META[usQuad].label, favored: SEASON_META[usQuad].favored },
+    krSeason: { quadrant: krQuad, label: SEASON_META[krQuad].label, favored: SEASON_META[krQuad].favored },
+    items, asOf: new Date().toISOString(),
+  }
+  await setCache(cacheKey, result)
+  return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
+}

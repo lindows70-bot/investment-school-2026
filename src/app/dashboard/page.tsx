@@ -23,6 +23,7 @@ import JarvisMorningBriefing      from '@/app/components/JarvisMorningBriefing'
 import SchoolIndexDashboard       from '@/app/components/SchoolIndexDashboard'
 import GlobalTop10                from '@/app/components/GlobalTop10'
 import SeasonNavigator            from '@/app/components/SeasonNavigator'
+import UnifiedReco                 from '@/app/components/UnifiedReco'
 import NewsCatalystRadar          from '@/app/components/NewsCatalystRadar'
 import AiRebalancePanel           from '@/app/components/AiRebalancePanel'
 import PortfolioFlowDashboard     from '@/app/components/PortfolioFlowDashboard'
@@ -679,7 +680,7 @@ export default function DashboardPage() {
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
   const [btActive,  setBtActive]  = useState({ rebalanceQ:true, rebalanceY:false, buyAndHold:true, benchmark:true })
   const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season'>('live')
-  const [flowView, setFlowView] = useState<'mine' | 'market' | 'reco'>('mine')
+  const [flowView, setFlowView] = useState<'mine' | 'market' | 'reco' | 'unified'>('mine')
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
   // ── AI 멘토 탭: MENTOR_STOCKS 제거 후 컴포넌트에 빈 배열 전달 ──
@@ -3235,6 +3236,7 @@ export default function DashboardPage() {
             ['mine','📡 내 종목 수급','#22c55e'],
             ['market','🌐 시장 수급 랭킹','#22c55e'],
             ['reco','🎯 맞춤 추천','#f59e0b'],
+            ['unified','🎯 통합 추천','#f59e0b'],
           ] as const).map(([k,label,col]) => (
             <button key={k} onClick={()=>setFlowView(k)}
               style={{ padding:'7px 16px', borderRadius:999, fontSize:13, fontWeight:700, cursor:'pointer',
@@ -3245,7 +3247,7 @@ export default function DashboardPage() {
           ))}
         </div>
         <ErrorBoundary label="수급 레이더">
-          {flowView==='mine' ? <PortfolioFlowDashboard /> : flowView==='market' ? <MarketFlowKr /> : <PortfolioRecoKr />}
+          {flowView==='mine' ? <PortfolioFlowDashboard /> : flowView==='market' ? <MarketFlowKr /> : flowView==='reco' ? <PortfolioRecoKr /> : <UnifiedReco />}
         </ErrorBoundary>
       </div>
 
