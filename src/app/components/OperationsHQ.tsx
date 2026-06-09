@@ -2,11 +2,13 @@
 // 🎛️ AI 포트폴리오 운용 본부 — 진단 헤더(4계절 정합 + 계절 미스매치 보유 종목). 매도(리밸런싱)·매수(통합추천)를 잇는 본부 상단
 import { useState, useEffect } from 'react'
 import type { SeasonNavResult } from '@/app/api/season-navigator/route'
+import type { HqBriefing } from '@/app/api/hq-briefing/route'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 
 export default function OperationsHQ() {
   const [data, setData] = useState<SeasonNavResult | null>(null)
+  const [brief, setBrief] = useState<HqBriefing | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -17,6 +19,10 @@ export default function OperationsHQ() {
         .then(r => r.json()).then(j => { if (alive) setData(j.error ? null : j) })
         .catch(() => { if (alive) setData(null) })
         .finally(() => { if (alive) setLoading(false) })
+      // 본부장 브리핑(진단+매수 합성) — 별도 로드(느려도 화면 막지 않음)
+      fetch('/api/hq-briefing', { cache: 'no-store' })
+        .then(r => r.json()).then(j => { if (alive) setBrief(j.error ? null : j) })
+        .catch(() => { if (alive) setBrief(null) })
     }
     load()
     window.addEventListener('portfolio-updated', load)
@@ -42,6 +48,28 @@ export default function OperationsHQ() {
           밸류에이션·수급·거시(4계절)·피터린치·버핏을 하나로 묶어 <b>무엇을 팔고 무엇을 사야 하는지</b>를 AI가 종합 처방합니다.
           <span style={{ color: '#fbbf24' }}> ※ 자동 주문 체결은 하지 않습니다 — 종목·금액 제안까지, 매매는 직접.</span>
         </div>
+        {/* 🎖️ AI 본부장 종합 브리핑 — 매도↔매수 연결 처방 */}
+        {brief?.briefing && (
+          <div style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(129,140,248,0.4)', borderRadius: 10, padding: '11px 14px', marginTop: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+              <span style={{ fontSize: 14 }}>🎖️</span>
+              <span style={{ color: '#a5b4fc', fontWeight: 800, fontSize: 12 }}>AI 본부장 종합 브리핑</span>
+              {brief.model && <span style={{ marginLeft: 'auto', color: '#6e7f8f', fontSize: 9.5 }}>Gemini</span>}
+            </div>
+            <div style={{ color: '#dbe3ec', fontSize: 12.5, lineHeight: 1.7 }}>{brief.briefing}</div>
+            {(brief.trim.length > 0 || brief.buys.length > 0) && (
+              <div style={{ display: 'flex', gap: 14, marginTop: 8, flexWrap: 'wrap', fontSize: 11 }}>
+                {brief.trim.length > 0 && (
+                  <span style={{ color: '#fca5a5' }}>▼ 점검: {brief.trim.slice(0, 3).map(t => t.name).join(', ')}</span>
+                )}
+                {brief.buys.length > 0 && (
+                  <span style={{ color: '#86efac' }}>▲ 1순위 매수: {brief.buys[0].name} (통합 {brief.buys[0].combined})</span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 3단계 흐름 */}
         <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
           {[['①', '진단', '지금 국면 · 내 포폴 정합'], ['②', '매도·리밸런싱', '익절/손절/분산 트림'], ['③', '통합 매수', '계절×가치×수급 3축']].map(([n, t, d]) => (
