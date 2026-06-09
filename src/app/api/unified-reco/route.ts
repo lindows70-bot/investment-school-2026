@@ -107,9 +107,15 @@ export async function GET(req: Request) {
   const usQuad = seasonOf(growthFromCli(usCli?.cli ?? 100, usCli?.cliPrev ?? 100), inf)
   const krQuad = seasonOf(growthFromCli(krCli?.cli ?? 100, krCli?.cliPrev ?? 100), inf)
 
-  // ② KR 수급 — marketFlowKr 캐시(113) 6자리 조인
-  let mf = await getCache<MarketFlowKrResult>(`market-flow-kr-v4:${kstDate()}`, 24 * 3600_000)
-  if (!mf) { try { mf = await computeMarketFlowKr(base) } catch { mf = null } }
+  // ② KR 수급 — marketFlowKr 캐시(113) 6자리 조인. ★최근 5일 내 최신 캐시 폴백(장중/주말 라이브 스크랩 회피)
+  //    크론이 16:00 KST 장마감 후에만 워밍 → 아침·장중·주말엔 오늘 키가 비므로 최근 영업일 캐시 재사용(누적 수급 유효)
+  let mf: MarketFlowKrResult | null = null
+  for (let d = 0; d < 5 && !mf; d++) {
+    const dt = new Date(Date.now() + 9 * 3600_000 - d * 86_400_000).toISOString().slice(0, 10)
+    mf = await getCache<MarketFlowKrResult>(`market-flow-kr-v4:${dt}`, 6 * 24 * 3600_000)
+  }
+  // 5일 내 캐시도 없으면(콜드/크론 미실행) 1회 라이브 컴퓨트 후 오늘 키에 적재 → 이후 요청 재사용
+  if (!mf) { try { mf = await computeMarketFlowKr(base); if (mf) await setCache(`market-flow-kr-v4:${kstDate()}`, mf) } catch { mf = null } }
   const krFlow = new Map((mf?.entries ?? []).map(e => [e.ticker, e]))
 
   // 보유 종목 제외
