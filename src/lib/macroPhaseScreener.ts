@@ -319,6 +319,18 @@ export async function runScreener(phase: MacroPhase): Promise<{ us: ScreenedStoc
     const results = await Promise.all(batch.map(s => screenOne(s.ticker, s.market, s.lynch, s.name, phase).catch(() => null)))
     for (const r of results) if (r) all.push(r)
   }
+  // ★ 스로틀 누락 1회 재시도(2026-06) — Yahoo throttle로 빠진 종목(예: 조선주) 복구. 커버리지 완전성↑
+  //   (catch→null로 빠진 것만. 첫 패스 ~15s 뒤라 Yahoo 회복 여유. 동시성 4·종목당 80ms 간격)
+  const done = new Set(all.map(s => s.ticker))
+  const missing = universe.filter(u => !done.has(u.ticker))
+  for (let i = 0; i < missing.length; i += 4) {
+    const batch = missing.slice(i, i + 4)
+    const results = await Promise.all(batch.map(async (s, k) => {
+      await new Promise(r => setTimeout(r, k * 80))
+      return screenOne(s.ticker, s.market, s.lynch, s.name, phase).catch(() => null)
+    }))
+    for (const r of results) if (r) all.push(r)
+  }
   // 쿼터 확장(US 10 + KR 7 = 17) — 사용자 보유 종목 제외 후 5개 신규 확보에 충분한 버퍼
   const us = all.filter(s => s.market === 'US').sort((a, b) => b.score - a.score).slice(0, 10)
   const kr = all.filter(s => s.market === 'KR').sort((a, b) => b.score - a.score).slice(0, 7)
