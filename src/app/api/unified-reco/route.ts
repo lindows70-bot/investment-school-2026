@@ -11,30 +11,7 @@ import { getMoneyFlow } from '@/lib/moneyFlow'
 import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
 import { getAnalystSignal } from '@/app/actions/getAnalystSignal'
 import { fetchMacroData, type ScreenedStock } from '@/lib/macroPhaseScreener'
-
-// 🛡️ 버핏 DCF 안전마진(%) — 원시 통화 단위(현재가/FCF/부채/주식수 동일 통화). 양수=내재가치 대비 저평가
-function dcfMargin(fcf: number | null, growth: number | null, shares: number | null, netDebt: number, price: number | null): number | null {
-  if (fcf == null || fcf <= 0 || shares == null || shares <= 0 || price == null || price <= 0) return null
-  const g = Math.max(0, Math.min(0.15, growth ?? 0.05))   // 성장 0~15% 클램프(과대 방지)
-  const r = 0.09, gp = 0.025                              // WACC 9% · 영구성장 2.5%
-  let pv = 0, f = fcf
-  for (let yr = 1; yr <= 5; yr++) { f *= (1 + g); pv += f / Math.pow(1 + r, yr) }
-  const tv = (f * (1 + gp)) / (r - gp)
-  const intrinsic = (pv + tv / Math.pow(1 + r, 5) - netDebt) / shares
-  if (intrinsic <= 0) return null
-  return Math.round(((intrinsic - price) / intrinsic) * 100)
-}
-
-// stock-info에서 DCF 입력만 추출(최종 12종 심화용)
-async function fetchDcfInputs(ticker: string, market: string, base: string): Promise<{ fcf: number | null; shares: number | null; netDebt: number; growth: number | null } | null> {
-  try {
-    const r = await fetch(`${base}/api/stock-info?ticker=${encodeURIComponent(ticker)}&market=${market}`, { signal: AbortSignal.timeout(15_000) })
-    if (!r.ok) return null
-    const f = (await r.json())?.fundamentals ?? {}
-    const n = (v: unknown) => (typeof v === 'number' && isFinite(v) ? v : null)
-    return { fcf: n(f.freeCashflow), shares: n(f.sharesOutstanding), netDebt: (n(f.totalDebt) ?? 0) - (n(f.totalCash) ?? 0), growth: n(f.earningsGrowth) }
-  } catch { return null }
-}
+// ⚠️ 버핏 DCF는 원시 FCF 변동성(예: TXN 팹 capex)으로 비현실적 값(-2637%) 발생 → 신뢰 가능한 ROE(버핏 핵심)로 대체
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -50,7 +27,7 @@ export interface UnifiedRecoItem {
   ticker: string; name: string; market: string; sector: string; lynchCategory: string
   seasonScore: number; fundScore: number; supplyScore: number; combined: number
   peg: number | null; opMargin: number | null
-  dcfMarginPct: number | null      // 🛡️ 버핏 DCF 안전마진(%) — 양수=저평가
+  roe: number | null               // 🏰 버핏 퀄리티 — 자기자본이익률(소수)
   epsRevision: string | null       // 📈 Fwd EPS 추정 모멘텀 up/down/mixed
   seasonFavored: boolean; supplyProxy: boolean; supplyKnown: boolean
   badges: string[]
@@ -101,7 +78,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v7:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `unified-reco-v8:${user.id}:${kstDate()}:${fp}`
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -237,23 +214,21 @@ export async function GET(req: Request) {
   for (let i = 0; i < top.length; i += 4) {
     const batch = top.slice(i, i + 4)
     const part = await Promise.all(batch.map(async t => {
-      const [cf, dcf, analyst] = await Promise.all([
+      const [cf, analyst] = await Promise.all([
         getCanonicalFundamentals(t.p.s.ticker, t.p.s.market, base).catch(() => null),
-        fetchDcfInputs(t.p.s.ticker, t.p.s.market, base),
         getAnalystSignal({ ticker: t.p.s.ticker, name: t.p.s.name, market: t.p.s.market }).catch(() => null),
       ])
       const peg = cf?.peg ?? t.p.s.peg
-      const dcfMarginPct = dcf ? dcfMargin(dcf.fcf, dcf.growth, dcf.shares, dcf.netDebt, t.p.s.price) : null
+      const roe = cf?.roe ?? null
       const epsRevision = analyst?.revisionSignal ?? null
       const badges = [...t.badges]
-      if (dcfMarginPct != null && dcfMarginPct >= 30) badges.push(`🛡️ DCF 안전마진 +${dcfMarginPct}%`)   // 버핏 30% 기준
-      else if (dcfMarginPct != null && dcfMarginPct <= -25) badges.push(`⚠️ DCF 고평가 ${dcfMarginPct}%`)
+      if (roe != null && roe >= 0.20) badges.push(`🏰 고ROE ${Math.round(roe * 100)}%`)   // 버핏 퀄리티(자본효율)
       if (epsRevision === 'up') badges.push('📈 이익추정 상향')
       else if (epsRevision === 'down') badges.push('📉 이익추정 하향')
       return {
         ticker: t.p.s.ticker, name: t.p.s.name, market: t.p.s.market, sector: t.p.s.sector ?? '—', lynchCategory: t.p.s.lynchCategory as string,
         seasonScore: t.p.seasonScore, fundScore: t.p.fundScore, supplyScore: t.supplyScore, combined: t.combined,
-        peg, opMargin: t.p.s.opMargin, dcfMarginPct, epsRevision,
+        peg, opMargin: t.p.s.opMargin, roe, epsRevision,
         seasonFavored: t.p.favored, supplyProxy: t.supplyProxy, supplyKnown: t.supplyKnown, badges,
       }
     }))
