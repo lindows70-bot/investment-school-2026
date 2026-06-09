@@ -7,15 +7,17 @@ import InvestorTimeline from '@/app/components/InvestorTimeline'
 const CARD = '#161b25', BORDER = '#1e293b'
 const AX = { season: '#f59e0b', fund: '#22c55e', supply: '#60a5fa' }  // 계절/펀더멘탈/수급 축 색
 
-function MiniBar({ label, score, color }: { label: string; score: number; color: string }) {
+function MiniBar({ label, score, color, unknown }: { label: string; score: number; color: string; unknown?: boolean }) {
   return (
     <div style={{ flex: 1, minWidth: 78 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9.5, marginBottom: 2 }}>
         <span style={{ color: '#8a9aaa' }}>{label}</span>
-        <span style={{ color, fontWeight: 700, fontFamily: 'monospace' }}>{score}</span>
+        <span style={{ color: unknown ? '#7f93a8' : color, fontWeight: 700, fontFamily: 'monospace' }}>{unknown ? '미집계' : score}</span>
       </div>
       <div style={{ height: 5, background: '#0f1117', borderRadius: 3, overflow: 'hidden' }}>
-        <div style={{ width: `${score}%`, height: '100%', background: color }} />
+        {unknown
+          ? <div style={{ width: '100%', height: '100%', background: 'repeating-linear-gradient(45deg,#1e293b,#1e293b 3px,#0f1117 3px,#0f1117 6px)' }} />
+          : <div style={{ width: `${score}%`, height: '100%', background: color }} />}
       </div>
     </div>
   )
@@ -40,7 +42,7 @@ function Item({ it }: { it: UnifiedRecoItem }) {
       <div style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
         <MiniBar label="🌦️ 계절" score={it.seasonScore} color={AX.season} />
         <MiniBar label="💎 가치" score={it.fundScore} color={AX.fund} />
-        <MiniBar label={it.supplyProxy ? '💰 수급*' : '💰 수급'} score={it.supplyScore} color={AX.supply} />
+        <MiniBar label={it.supplyProxy ? '💰 수급*' : '💰 수급'} score={it.supplyScore} color={AX.supply} unknown={!it.supplyKnown} />
       </div>
       {/* 배지 */}
       {it.badges.length > 0 && (
