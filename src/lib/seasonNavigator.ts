@@ -117,14 +117,6 @@ const FIT: Record<Quadrant, Record<LynchCat, number>> = {
   shoulder:    { slow_grower: 0.7, stalwart: 0.7, asset_play: 0.6, turnaround: 0.5, cyclical: 0.5, fast_grower: 0.5 },
 }
 
-// 섹터 보정 — 우대 섹터면 적합도를 끌어올림(린치 분류만으로 못 잡는 에너지·유틸 등 보강)
-function sectorAdjust(base: number, quadrant: Quadrant, sector: string | undefined): number {
-  if (!sector) return base
-  const favored = SEASON_META[quadrant].favored
-  if (favored.includes(sector)) return Math.min(1, base + 0.2)  // 우대 섹터 +0.2
-  return base
-}
-
 export interface Holding {
   ticker: string
   weight: number              // 포트폴리오 내 비중(%) — 주식 합 100 기준
@@ -133,11 +125,16 @@ export interface Holding {
   market?: string             // 'KR' | 'US' — 시장별 계절 채점용(선택)
 }
 
-// 종목 한 개의 계절 적합도(0~1) — 린치 분류 기반 + 우대 섹터 보정. seasonalAlignment·시장별 채점 공유 SSOT
+// 종목 한 개의 계절 적합도(0~1) — ★ 섹터(이 계절 우대 여부) 50% + 린치 분류 50% 블렌드
+//   왜 50/50인가: 4계절 모델의 핵심은 '우대 섹터'인데, 린치분류만 쓰면 비우대 cyclical(은행·반도체)이
+//   우대 cyclical(에너지·산업재)과 똑같이 1.0을 받아 '우대 섹터'가 무력화됨 → 섹터를 동등 주축으로 승격
 export function holdingFit(h: Holding, quadrant: Quadrant): number {
   const cat = h.lynchCategory ?? 'stalwart'   // 미분류는 중립(대형우량주)으로 폴백
-  const base = FIT[quadrant][cat] ?? 0.5
-  return sectorAdjust(base, quadrant, h.sector)
+  const lynchFit = FIT[quadrant][cat] ?? 0.5
+  const sectorFit = h.sector
+    ? (SEASON_META[quadrant].favored.includes(h.sector) ? 1.0 : 0.5)   // 우대 섹터=1.0 · 그 외=0.5(중립)
+    : 0.6                                                              // 섹터 미상=약중립
+  return 0.5 * sectorFit + 0.5 * lynchFit
 }
 
 export interface AlignmentResult {
