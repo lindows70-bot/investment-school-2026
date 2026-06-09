@@ -91,7 +91,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `season-navigator-v4:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `season-navigator-v5:${user.id}:${kstDate()}:${fp}`
   const cached = await getCache<SeasonNavResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
