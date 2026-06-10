@@ -33,7 +33,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `hq-briefing-v3:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `hq-briefing-v4:${user.id}:${kstDate()}:${fp}`   // v4: 정합성에 ETF 반영(season v8) 연동
   const cached = await getCache<HqBriefing>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

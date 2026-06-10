@@ -225,6 +225,7 @@ export default function SeasonNavigator() {
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden' }}>
                   <span style={{ fontSize: 10 }}>{h.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
                   <span style={{ color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</span>
+                  {h.isEtf && <span style={{ background: 'rgba(34,211,238,0.12)', color: '#22d3ee', border: '1px solid #22d3ee44', borderRadius: 5, padding: '0 5px', fontSize: 9, fontWeight: 700, flexShrink: 0 }}>📦 ETF</span>}
                 </span>
                 <span style={{ color: '#cbd5e1', fontFamily: 'monospace', fontSize: 11, textAlign: 'right' }}>{h.weight}%</span>
                 <div style={{ height: 8, background: '#0f1117', borderRadius: 4, overflow: 'hidden', border: `1px solid ${BORDER}` }}>

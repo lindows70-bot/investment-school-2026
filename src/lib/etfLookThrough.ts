@@ -18,6 +18,7 @@ export interface EtfComposition {
   topHoldings: EtfHolding[]        // 상위 ~10 구성종목
   topWeightSum: number | null     // 상위 종목 비중 합(%) — 나머지는 '기타 분산'
   sectorWeights: { sector: string; weight: number }[]   // GICS 영문 통일(합 ~100)
+  usWeight: number                 // 미국 자산 비중 %(KR=countryPortfolioList, US ETF=100) — 시장별 계절 채점용
   holdingsHaveWeights: boolean     // false=해외주식형 KR(섹터만 신뢰)
   source: 'yahoo' | 'naver'
   asOf: string
@@ -80,6 +81,7 @@ async function fetchUs(ticker: string): Promise<EtfComposition | null> {
       isLeveraged: isLev(ticker, name),
       topHoldings: holdings, topWeightSum: weights.length ? Math.round(weights.reduce((s, w) => s + w, 0) * 10) / 10 : null,
       sectorWeights: sectorWeights.sort((a, b) => b.weight - a.weight),
+      usWeight: 100,   // US 상장 ETF는 미국 자산 가정(시장별 계절 채점용)
       holdingsHaveWeights: weights.length > 0, source: 'yahoo', asOf: new Date().toISOString(),
     }
   } catch { return null }
@@ -103,6 +105,8 @@ async function fetchKr(code6: string): Promise<EtfComposition | null> {
       .sort((a, b) => b.weight - a.weight)
     const equity = ((j.assetPortfolioList ?? []) as { detailTypeCode?: string; weight?: number }[])
       .find(a => a.detailTypeCode === 'EQUITY')?.weight ?? 0
+    const usWeight = ((j.countryPortfolioList ?? []) as { detailTypeCode?: string; weight?: number }[])
+      .find(c => c.detailTypeCode === 'US')?.weight ?? 0
     const weights = holdings.map(h => h.weight).filter((w): w is number => w != null)
     const name = String(j.itemName ?? code6)
     return {
@@ -110,7 +114,7 @@ async function fetchKr(code6: string): Promise<EtfComposition | null> {
       isEquityEtf: equity >= 60,   // 주식 비중 60%↑ = 주식형(채권·원자재·혼합형 제외)
       isLeveraged: isLev(code6, name),
       topHoldings: holdings, topWeightSum: weights.length ? Math.round(weights.reduce((s, w) => s + w, 0) * 10) / 10 : null,
-      sectorWeights, holdingsHaveWeights: weights.length > 0, source: 'naver', asOf: new Date().toISOString(),
+      sectorWeights, usWeight, holdingsHaveWeights: weights.length > 0, source: 'naver', asOf: new Date().toISOString(),
     }
   } catch { return null }
 }
@@ -123,7 +127,7 @@ export async function getEtfComposition(ticker: string, market?: string): Promis
   const isKr = (market ?? '').toUpperCase() === 'KR' || isKrCode
   const code = t   // 영숫자 코드 그대로 사용(네이버 API가 0131V0 형식 직접 수용 — 실측 확인)
   const mkt: 'US' | 'KR' = isKr ? 'KR' : 'US'
-  const cacheKey = `etf-comp-v2:${code}:${mkt}`
+  const cacheKey = `etf-comp-v3:${code}:${mkt}`   // v3: usWeight(국가 비중) 추가
   const cached = await getCache<EtfComposition>(cacheKey, TTL)
   if (cached) return cached
   const result = mkt === 'KR' ? await fetchKr(code) : await fetchUs(code)
