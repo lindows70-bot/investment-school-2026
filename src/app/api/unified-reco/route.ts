@@ -10,7 +10,7 @@ import { computeMarketFlowKr, type MarketFlowKrResult, type MarketFlowEntry } fr
 import { getMoneyFlow } from '@/lib/moneyFlow'
 import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
 import { getAnalystSignal } from '@/app/actions/getAnalystSignal'
-import { fetchMacroData, type ScreenedStock } from '@/lib/macroPhaseScreener'
+import { fetchMacroData, detectMacroPhase, type ScreenedStock } from '@/lib/macroPhaseScreener'
 // ⚠️ 버핏 DCF는 원시 FCF 변동성(예: TXN 팹 capex)으로 비현실적 값(-2637%) 발생 → 신뢰 가능한 ROE(버핏 핵심)로 대체
 
 export const dynamic = 'force-dynamic'
@@ -29,6 +29,8 @@ export interface UnifiedRecoItem {
   peg: number | null; opMargin: number | null
   roe: number | null               // 🏰 버핏 퀄리티 — 자기자본이익률(소수)
   epsRevision: string | null       // 📈 Fwd EPS 추정 모멘텀 up/down/mixed
+  suggestWeight: number            // 💰 권장 편입 비중(%) — 통합점수·국면 배율 반영
+  suggestWon: number               // 💰 권장 편입 금액(₩) — 포트폴리오 기준
   seasonFavored: boolean; supplyProxy: boolean; supplyKnown: boolean
   badges: string[]
 }
@@ -38,6 +40,8 @@ export interface UnifiedRecoResult {
   krSeason: { quadrant: Quadrant; label: string; favored: string[] }
   items: UnifiedRecoItem[]
   selectionRule: string
+  portfolioKrw: number          // 포트폴리오 총가치(₩) — 권장 편입액 기준
+  regimeMult: number            // 국면 배율(위험 국면 축소)
   asOf: string
 }
 
@@ -78,7 +82,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v8:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `unified-reco-v9:${user.id}:${kstDate()}:${fp}`
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -89,11 +93,13 @@ export async function GET(req: Request) {
   }
 
   // ① 계절(US·KR) — macro SSOT를 ★in-process 직접 호출(HTTP 자기호출 실패→골디락스 오판 버그 차단)
-  let cpiYoY = 2.5, rateDir: 'cut' | 'hold' | 'hike' = 'hold'
+  let cpiYoY = 2.5, rateDir: 'cut' | 'hold' | 'hike' = 'hold', regimeMult = 1.0
   try {
     const md = await fetchMacroData(base)
     cpiYoY = typeof md.cpiYoY === 'number' ? md.cpiYoY : cpiYoY
     rateDir = md.rateDir ?? 'hold'
+    const phase = detectMacroPhase(md).phase   // 권장 편입액 국면 배율(위험 국면일수록 축소)
+    regimeMult = phase === 'stagflation' || phase === 'recession_risk' ? 0.5 : phase === 'peak_rate' ? 0.75 : 1.0
   } catch { /* graceful */ }
   const fetchCli = async (sid: string, key: string) => {
     const c = await getCache<{ cli: number; cliPrev: number }>(key, 12 * 3600_000)
@@ -122,10 +128,13 @@ export async function GET(req: Request) {
   if (!mf) { try { mf = await computeMarketFlowKr(base); if (mf) await setCache(`market-flow-kr-v4:${kstDate()}`, mf) } catch { mf = null } }
   const krFlow = new Map((mf?.entries ?? []).map(e => [e.ticker, e]))
 
-  // 보유 종목 제외
+  // 보유 종목 제외 + ₩환산 포트폴리오 총가치(권장 편입 금액 계산용)
   const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
-  const { data: rows } = await admin.from('investments').select('ticker,name,market').eq('user_id', user.id)
+  const { data: rows } = await admin.from('investments').select('ticker,name,market,purchase_price,quantity,currency').eq('user_id', user.id)
   const held = new Set((rows ?? []).filter(r => getAssetType(r.ticker, r.name ?? '', r.market ?? '') === 'STOCK').map(r => (r.market === 'KR' || /^\d/.test(r.ticker)) ? code6(r.ticker) : r.ticker.toUpperCase()))
+  let usdKrw = 1350
+  try { const ex = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) }); if (ex.ok) { const j = await ex.json(); if (typeof j.rate === 'number' && j.rate > 0) usdKrw = j.rate } } catch { /* 폴백 */ }
+  const portfolioKrw = (rows ?? []).reduce((s, r) => s + (r.purchase_price ?? 0) * (r.quantity ?? 0) * (r.currency === 'USD' ? usdKrw : 1), 0)
 
   // ③ 계절+펀더멘탈 즉시 채점(전체) → US는 상위만 수급 fetch
   type Pre = { s: ScreenedStock; quad: Quadrant; seasonScore: number; fundScore: number; isKr: boolean; favored: boolean }
@@ -225,10 +234,13 @@ export async function GET(req: Request) {
       if (roe != null && roe >= 0.20) badges.push(`🏰 고ROE ${Math.round(roe * 100)}%`)   // 버핏 퀄리티(자본효율)
       if (epsRevision === 'up') badges.push('📈 이익추정 상향')
       else if (epsRevision === 'down') badges.push('📉 이익추정 하향')
+      // 💰 권장 편입 비중 — 통합점수 티어(2.5/2/1.5%) × 국면 배율, 포트폴리오 기준 ₩
+      const suggestWeight = Math.round((t.combined >= 85 ? 2.5 : t.combined >= 78 ? 2.0 : 1.5) * regimeMult * 10) / 10
+      const suggestWon = Math.round(portfolioKrw * suggestWeight / 100)
       return {
         ticker: t.p.s.ticker, name: t.p.s.name, market: t.p.s.market, sector: t.p.s.sector ?? '—', lynchCategory: t.p.s.lynchCategory as string,
         seasonScore: t.p.seasonScore, fundScore: t.p.fundScore, supplyScore: t.supplyScore, combined: t.combined,
-        peg, opMargin: t.p.s.opMargin, roe, epsRevision,
+        peg, opMargin: t.p.s.opMargin, roe, epsRevision, suggestWeight, suggestWon,
         seasonFavored: t.p.favored, supplyProxy: t.supplyProxy, supplyKnown: t.supplyKnown, badges,
       }
     }))
@@ -240,7 +252,7 @@ export async function GET(req: Request) {
     weights: W,
     usSeason: { quadrant: usQuad, label: SEASON_META[usQuad].label, favored: SEASON_META[usQuad].favored },
     krSeason: { quadrant: krQuad, label: SEASON_META[krQuad].label, favored: SEASON_META[krQuad].favored },
-    items, selectionRule, asOf: new Date().toISOString(),
+    items, selectionRule, portfolioKrw, regimeMult, asOf: new Date().toISOString(),
   }
   await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })

@@ -6,6 +6,7 @@ import InvestorTimeline from '@/app/components/InvestorTimeline'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 const AX = { season: '#f59e0b', fund: '#22c55e', supply: '#60a5fa' }  // 계절/펀더멘탈/수급 축 색
+const fmtWon = (w: number) => w >= 1e8 ? `${(w / 1e8).toFixed(1)}억원` : `${Math.round(w / 1e4)}만원`
 
 function MiniBar({ label, score, color, unknown }: { label: string; score: number; color: string; unknown?: boolean }) {
   return (
@@ -45,12 +46,17 @@ function Item({ it }: { it: UnifiedRecoItem }) {
         <MiniBar label="💎 가치" score={it.fundScore} color={AX.fund} />
         <MiniBar label={it.supplyProxy ? '💰 수급*' : '💰 수급'} score={it.supplyScore} color={AX.supply} unknown={!it.supplyKnown} />
       </div>
-      {/* 배지 */}
-      {it.badges.length > 0 && (
-        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 6 }}>
-          {it.badges.map(b => <span key={b} style={{ background: 'rgba(148,163,184,0.1)', color: '#cbd5e1', border: `1px solid ${BORDER}`, borderRadius: 6, padding: '1px 7px', fontSize: 10 }}>{b}</span>)}
-        </div>
-      )}
+      {/* 💰 권장 편입 금액 + 배지 */}
+      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 6, alignItems: 'center' }}>
+        {it.suggestWon > 0 && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(34,197,94,0.12)', border: '1px solid #22c55e55', borderRadius: 7, padding: '2px 9px' }}>
+            <span style={{ color: '#22c55e', fontWeight: 800, fontSize: 10.5 }}>💰 권장 편입</span>
+            <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 12, fontFamily: 'monospace' }}>{fmtWon(it.suggestWon)}</span>
+            <span style={{ color: '#8a9aaa', fontSize: 9.5 }}>(포트 {it.suggestWeight}%)</span>
+          </span>
+        )}
+        {it.badges.map(b => <span key={b} style={{ background: 'rgba(148,163,184,0.1)', color: '#cbd5e1', border: `1px solid ${BORDER}`, borderRadius: 6, padding: '1px 7px', fontSize: 10 }}>{b}</span>)}
+      </div>
       {it.market === 'KR' && (
         <button onClick={() => setOpen(o => !o)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 7, fontSize: 10.5, fontWeight: 700, cursor: 'pointer', background: open ? 'rgba(99,102,241,0.18)' : 'rgba(99,102,241,0.08)', color: open ? '#a5b4fc' : '#818cf8', border: `1px solid ${open ? '#818cf866' : '#818cf833'}` }}>
           📅 {open ? '매매동향 접기' : '최근 20일 매매동향'}
@@ -98,6 +104,7 @@ export default function UnifiedReco() {
             {data.usSeason && <> · 🇺🇸 {data.usSeason.label.split(' ')[0]} · 🇰🇷 {data.krSeason.label.split(' ')[0]}</>}
           </div>
           {data.selectionRule && <div style={{ color: '#8a9aaa', fontSize: 10.5, marginTop: 3 }}>📋 선별 기준: {data.selectionRule} → 총 <b style={{ color: '#cbd5e1' }}>{data.items.length}종</b></div>}
+          {data.portfolioKrw > 0 && <div style={{ color: '#86efac', fontSize: 10.5, marginTop: 2 }}>💰 권장 편입 = 포트폴리오({fmtWon(data.portfolioKrw)}) 기준 통합점수 1.5~2.5%{data.regimeMult < 1 && <> × 국면 조정 {Math.round(data.regimeMult * 100)}%</>} · 분할 신규 편입 기준</div>}
         </div>
       </div>
 
