@@ -7,6 +7,7 @@ import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { getSector } from '@/lib/schoolIndex'
 import { getEtfComposition, type EtfComposition } from '@/lib/etfLookThrough'
+import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -30,6 +31,8 @@ export interface XrayEtfDetail {
   isLeveraged: boolean         // 레버리지·인버스 — 분해 부적합(스왑 구조)
   holdingsHaveWeights: boolean // false=해외주식형 KR(종목명만, 섹터로만 반영)
   twinTicker: string | null    // 표준지수 추종 해외형 — US 쌍둥이 ETF 구성 차용(SPY·QQQ 등)
+  syntheticPeg: number | null  // 💎 합산 PEG — 상위 구성종목 canonical PEG 가중평균(Phase 4)
+  pegCoverage: number | null   // 합산에 포함된 비중 / 상위 비중 합 (%) — 정직성 표기
   topNames: string[]           // 상위 구성종목명(표시용)
   topSectors: { sector: string; weight: number }[]
   resolved: boolean            // 분해 성공 여부
@@ -51,7 +54,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `portfolio-xray-v3:${user.id}:${kstDate()}:${fp}`   // v3: 쌍둥이 지수 차용
+  const cacheKey = `portfolio-xray-v4:${user.id}:${kstDate()}:${fp}`   // v4: 합산 PEG(Phase 4)
   const cached = await getCache<XrayResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -104,7 +107,7 @@ export async function GET(req: Request) {
     if (!c || !c.isEquityEtf || c.isLeveraged || c.sectorWeights.length === 0) {
       // 분해 불가(채권·원자재·레버리지·데이터없음) → 정직하게 '기타'. 레버리지는 스왑 구조라 구성종목이 실노출(2X) 왜곡
       other += w
-      etfDetails.push({ ticker: h.ticker, name: c?.name ?? h.name, market: h.market, weight: w, isEquityEtf: c?.isEquityEtf ?? false, isLeveraged: c?.isLeveraged ?? false, holdingsHaveWeights: false, twinTicker: null, topNames: (c?.topHoldings ?? []).slice(0, 5).map(x => x.name), topSectors: [], resolved: false })
+      etfDetails.push({ ticker: h.ticker, name: c?.name ?? h.name, market: h.market, weight: w, isEquityEtf: c?.isEquityEtf ?? false, isLeveraged: c?.isLeveraged ?? false, holdingsHaveWeights: false, twinTicker: null, syntheticPeg: null, pegCoverage: null, topNames: (c?.topHoldings ?? []).slice(0, 5).map(x => x.name), topSectors: [], resolved: false })
       return
     }
     // 섹터 — 네이티브 비중 그대로(합 ~100, 왜곡 0)
@@ -127,10 +130,28 @@ export async function GET(req: Request) {
     etfDetails.push({
       ticker: h.ticker, name: c.name, market: h.market, weight: w, isEquityEtf: true, isLeveraged: false,
       holdingsHaveWeights: c.holdingsHaveWeights, twinTicker: c.weightSource === 'twin' ? c.twinTicker : null,
+      syntheticPeg: null, pegCoverage: null,   // Phase 4에서 아래 일괄 계산
       topNames: c.topHoldings.slice(0, 5).map(x => x.name),
       topSectors: c.sectorWeights.slice(0, 3), resolved: true,
     })
   })
+
+  // ④ 💎 Phase 4: 합산 PEG — 비중 있는 ETF의 상위 구성종목 canonical PEG(SSOT) 가중평균
+  //    커버리지(합산에 실제 포함된 비중) 명시 — 40% 미만이면 표시 안 함(반쪽 평균의 과신 방지)
+  for (let i = 0; i < etfs.length; i++) {
+    const c = comps[i], d = etfDetails.find(x => x.ticker === etfs[i].ticker)
+    if (!c || !d || !d.resolved || !c.holdingsHaveWeights || c.topWeightSum == null) continue
+    const withTicker = c.topHoldings.filter(t => t.ticker && t.weight != null)
+    const cfs = await Promise.all(withTicker.map(t =>
+      getCanonicalFundamentals(t.ticker!, /^\d{6}$/.test(t.ticker!) ? 'KR' : 'US', base).catch(() => null)))
+    let pegW = 0, wSum = 0
+    withTicker.forEach((t, k) => {
+      const peg = cfs[k]?.peg
+      if (peg != null && peg > 0 && peg <= 10) { pegW += peg * t.weight!; wSum += t.weight! }   // 음수·극단값 제외(평균 오염 방지)
+    })
+    const covPct = r1(wSum / c.topWeightSum * 100)
+    if (wSum > 0 && covPct >= 40) { d.syntheticPeg = Math.round(pegW / wSum * 100) / 100; d.pegCoverage = covPct }
+  }
 
   // ③ 비주식 자산(코인·원자재) → 기타
   for (const h of all.filter(x => x.type !== 'STOCK' && x.type !== 'ETF')) other += r1(h.krw / totalKrw * 100)

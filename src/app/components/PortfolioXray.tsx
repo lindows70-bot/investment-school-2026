@@ -108,6 +108,16 @@ export default function PortfolioXray() {
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                     <span style={{ color: '#e2e8f0', fontWeight: 700 }}>{e.name}</span>
                     <span style={{ color: '#8a9aaa', fontFamily: 'monospace' }}>{e.weight}%</span>
+                    {e.syntheticPeg != null && (() => {
+                      // 밸류 판정 임계 = 뉴스레이더 valuationOf와 동일(제2원칙): ≤1.0 저평가 / ≤2.2 적정 / >2.2 고평가
+                      const verdict = e.syntheticPeg <= 1.0 ? ['저평가', '#22c55e'] : e.syntheticPeg <= 2.2 ? ['적정', '#fbbf24'] : ['고평가', '#f87171']
+                      return (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: `${verdict[1]}14`, border: `1px solid ${verdict[1]}44`, borderRadius: 6, padding: '1px 8px' }}>
+                          <span style={{ color: verdict[1], fontWeight: 800, fontSize: 10 }}>💎 합산 PEG {e.syntheticPeg.toFixed(2)} · {verdict[0]}</span>
+                          <span style={{ color: '#8a9aaa', fontSize: 9 }}>(상위 {e.pegCoverage}% 기준)</span>
+                        </span>
+                      )
+                    })()}
                     {!e.resolved && e.isLeveraged && <span style={{ color: '#f87171', fontSize: 10 }}>⚠️ 레버리지·인버스 — 스왑 구조라 분해 부적합(실노출 왜곡)</span>}
                     {!e.resolved && !e.isLeveraged && <span style={{ color: '#fbbf24', fontSize: 10 }}>⚠️ 비주식/분해불가 — 기타 자산 처리</span>}
                     {e.resolved && e.holdingsHaveWeights && e.twinTicker && <span style={{ color: '#22d3ee', fontSize: 10 }}>📈 표준지수 추종 — {e.twinTicker} 구성비중 차용(동일 지수)</span>}
@@ -122,7 +132,7 @@ export default function PortfolioXray() {
 
           <div style={{ color: '#9aa7b5', fontSize: 10, lineHeight: 1.6 }}>
             ※ 커버리지: 직접 주식 {cov.directStock}% + ETF 분해(상위종목) {cov.etfDecomposed}% + ETF 기타분산·비중미제공 {cov.etfResidual}% + 기타 자산 {cov.other}%.
-            종목 비중은 ETF 상위 구성종목의 <b>원시 비중</b>(재정규화 안 함 — 과장 방지), 섹터는 ETF 전체 섹터 비중. 해외주식형 한국 ETF는 비중 미제공이라 종목 합산에서 정직하게 제외. 7일 캐시 · 교육용.
+            종목 비중은 ETF 상위 구성종목의 <b>원시 비중</b>(재정규화 안 함 — 과장 방지), 섹터는 ETF 전체 섹터 비중. 해외주식형 한국 ETF는 비중 미제공이라 종목 합산에서 정직하게 제외(표준지수 추종은 US 쌍둥이 차용). 💎 합산 PEG는 상위 구성종목 PEG(stock-info SSOT) 가중평균 — 경기순환주 저PEG는 이익 정점 함정일 수 있으니 단독 판단 금지. 7일 캐시 · 교육용.
           </div>
         </div>
       )}
