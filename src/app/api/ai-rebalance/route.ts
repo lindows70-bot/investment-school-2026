@@ -14,7 +14,7 @@ import { callGeminiJSON } from '@/lib/gemini'
 import { buildSignalMetrics, evaluateSignal } from '@/lib/jarvisBriefing'
 import { getSector } from '@/lib/schoolIndex'
 import { screenSatellite, type SatelliteScore } from '@/lib/satelliteScreener'
-import type { MacroAiResult, AiRecommendation } from '@/app/api/macro-ai-picks/route'
+import type { UnifiedRecoResult } from '@/app/api/unified-reco/route'   // ③통합매수와 동일 SSOT(제2원칙)
 
 // 피터 린치 황금비율(권장 분류 비중 %) — PortfolioBalanceRadar와 동일 SSOT
 const IDEAL_RATIOS: Record<string, number> = {
@@ -176,11 +176,12 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
+  const cookie = req.headers.get('cookie') ?? ''   // unified-reco는 인증 필요 → 쿠키 전달
   const forceRefresh = new URL(req.url).searchParams.get('refresh') === '1'
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v13:${user.id}:${today}:${fp}`
+  const cacheKey = `ai-rebalance-v14:${user.id}:${today}:${fp}`   // v14: 신규편입 SSOT를 unified-reco로 통일
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -324,44 +325,23 @@ export async function GET(req: Request) {
     curSec[sec] = (curSec[sec] ?? 0) + d.weight
   }
 
-  // ⑤ 신규 매수 후보 (macro-ai-picks 재사용) — 미보유 + 린치 황금비율 '부족 분류' 갭 가중
+  // ⑤ 신규 매수 후보 — ③통합매수(unified-reco)와 동일 SSOT 사용(제2원칙: 진단·통합매수·리밸런싱 일관)
+  //    기존엔 macro-ai-picks 별도 엔진 + 갭/섹터 재랭킹을 써 ①③과 종목이 달라지는 불일치가 있었음.
+  //    → unified-reco가 이미 보유제외·섹터분산(SECTOR_CAP)·통합 3축 채점을 수행하므로 그 상위를 그대로 채택.
   let buyCandidates: BuyCandidate[] = []
   try {
-    const mr = await fetch(`${base}/api/macro-ai-picks`, { signal: AbortSignal.timeout(30_000) })
-    if (mr.ok) {
-      const md = await mr.json() as MacroAiResult
-      const pool = (md.recommendations ?? [])
-        .filter((r: AiRecommendation) => !heldSet.has(r.ticker.toUpperCase()))
-      // 후보 섹터 수집
-      const poolSec: Record<string, string> = {}
-      for (let i = 0; i < pool.length; i += 6) {
-        const batch = pool.slice(i, i + 6)
-        const secs = await Promise.all(batch.map(r => getSector(r.ticker, r.market).catch(() => '기타')))
-        batch.forEach((r, k) => { poolSec[r.ticker.toUpperCase()] = secs[k] })
-      }
-      // 갭 가중 점수 = aiScore × (1 + 분류 부족갭/35) × 섹터집중 페널티
-      //   ⭐ 섹터 페널티: 이미 무거운 섹터(특히 매도 중인 섹터)로의 편입을 감점 → '반도체 빼서 또 반도체' 방지
-      //      (제미나이 보강: 단일 섹터 71% 잔존 문제 → 결 다른 섹터로 강제 분산)
-      const sectorPenalty = (r: AiRecommendation) => {
-        const sec = poolSec[r.ticker.toUpperCase()] ?? '기타'
-        const curW = curSec[sec] ?? 0   // 이 후보 섹터의 현재 포트 비중
-        return curW >= 50 ? 0.35 : curW >= 35 ? 0.55 : curW >= 20 ? 0.8 : 1.0
-      }
-      // 분류 가중: 부족분류 보너스(+) / 과다분류 페널티(−). 섹터 페널티와 동일 철학 — '빼서 또 같은 분류' 방지
-      const categoryMult = (r: AiRecommendation) => {
-        const cur = curCat[r.lynchCategory] ?? 0
-        const ideal = IDEAL_RATIOS[r.lynchCategory] ?? 0
-        const diff = ideal - cur   // 양수=부족(보너스), 음수=과다(페널티)
-        return diff >= 0 ? 1 + diff / 35 : Math.max(0.4, 1 + diff / 40)   // 과다일수록 감점(하한 0.4)
-      }
-      const fillScore = (r: AiRecommendation) => r.aiScore * categoryMult(r) * sectorPenalty(r)
-      const ranked = [...pool].sort((a, b) => fillScore(b) - fillScore(a)).slice(0, 4)
-      const fsSum = ranked.reduce((s, r) => s + fillScore(r), 0) || 1
-      buyCandidates = ranked.map(r => ({
-        ticker: r.ticker, name: r.name, market: r.market, lynchCategory: r.lynchCategory,
-        peg: r.peg, aiScore: r.aiScore, sector: poolSec[r.ticker.toUpperCase()] ?? '기타',
-        reason: r.macroFitReason || r.fundamentalReason || '',
-        allocWeight: coreBudget > 0 ? Math.round((coreBudget * (fillScore(r) / fsSum)) * 10) / 10 : 0,
+    const ur = await fetch(`${base}/api/unified-reco`, { headers: { cookie }, signal: AbortSignal.timeout(40_000) })
+    if (ur.ok) {
+      const ud = await ur.json() as UnifiedRecoResult
+      // 통합점수 상위 4종(코어) — 순서·종목을 ③통합매수와 동일하게. (이미 미보유로 필터됨, 안전망으로 재확인)
+      const ranked = (ud.items ?? []).filter(it => !heldSet.has(it.ticker.toUpperCase())).slice(0, 4)
+      const csum = ranked.reduce((s, it) => s + it.combined, 0) || 1
+      buyCandidates = ranked.map(it => ({
+        ticker: it.ticker, name: it.name, market: it.market, lynchCategory: it.lynchCategory,
+        peg: it.peg, aiScore: it.combined, sector: it.sector,
+        reason: it.badges.slice(0, 3).join(' · ') || `통합 ${it.combined}점(계절·가치·수급)`,
+        // 회수 예산(coreBudget)을 통합점수 비례로 배분 — 어떤 종목을 살지는 ③과 동일, 얼마나는 회수액 기준
+        allocWeight: coreBudget > 0 ? Math.round((coreBudget * (it.combined / csum)) * 10) / 10 : 0,
       }))
       // ⭐ 반올림 잔돈을 1순위(최고 점수)에 합산 → 코어 매수 합 = 코어 예산 정확히 일치
       if (coreBudget > 0 && buyCandidates.length > 0) {
