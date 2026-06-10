@@ -21,8 +21,18 @@ export interface MarketFlowEntry {
 
 export interface MarketFlowKrResult {
   entries:  MarketFlowEntry[]   // 전체 풀 — 클라이언트가 기간(1/5/20)·주체(외인/기관)별 랭킹
-  asOf:     string
+  asOf:     string              // 계산 시각(벽시계)
+  dataDate: string              // 데이터 최신 거래일(YYYY-MM-DD) — 신선도 판정 SSOT(네이버 발행 지연 셀프힐용)
   poolSize: number
+}
+
+/** 신선도 프로브 — 대표 종목(삼성전자) 트렌드의 최신 거래일(YYYY-MM-DD). 캐시 셀프힐 판정용(1 fetch) */
+export async function latestTradeDate(code6 = '005930'): Promise<string | null> {
+  try {
+    const rows = await fetchKrTrend(code6)
+    const b = rows[0]?.bizdate
+    return b && b.length >= 8 ? `${b.slice(0, 4)}-${b.slice(4, 6)}-${b.slice(6, 8)}` : null
+  } catch { return null }
 }
 
 // 주요 코스피/코스닥 유니버스(개별주식만 — ETF·ETN 없음). 섹터 라벨 포함
@@ -119,13 +129,16 @@ export async function computeMarketFlowKr(base?: string): Promise<MarketFlowKrRe
   const pool = POOL.filter(p => (seen.has(p.t) ? false : (seen.add(p.t), true)))
 
   const entries: MarketFlowEntry[] = []
+  let newestBiz = ''   // 풀 전체에서 가장 최신 거래일(YYYYMMDD) — dataDate 산출용
   for (let i = 0; i < pool.length; i += 6) {
     const batch = pool.slice(i, i + 6)
     const rs = await Promise.all(batch.map(async p => {
-      try { return entryOf(p, await fetchKrTrend(p.t)) } catch { return null }
+      try { const rows = await fetchKrTrend(p.t); return { entry: entryOf(p, rows), biz: rows[0]?.bizdate ?? '' } }
+      catch { return { entry: null, biz: '' } }
     }))
-    for (const r of rs) if (r) entries.push(r)
+    for (const r of rs) if (r.entry) { entries.push(r.entry); if (r.biz > newestBiz) newestBiz = r.biz }
   }
+  const dataDate = newestBiz.length >= 8 ? `${newestBiz.slice(0, 4)}-${newestBiz.slice(4, 6)}-${newestBiz.slice(6, 8)}` : ''
 
   // 저PEG 뱃지 — 6개 랭킹(기간×주체) Top12 + 쌍끌이 union만 PEG 조회(과도한 fetch 방지)
   const union = new Map<string, MarketFlowEntry>()
@@ -139,5 +152,5 @@ export async function computeMarketFlowKr(base?: string): Promise<MarketFlowKrRe
     try { e.peg = await getCanonicalPeg(e.ticker, 'KR', base) } catch { /* graceful */ }
   }))
 
-  return { entries, asOf: new Date().toISOString(), poolSize: entries.length }
+  return { entries, asOf: new Date().toISOString(), dataDate, poolSize: entries.length }
 }
