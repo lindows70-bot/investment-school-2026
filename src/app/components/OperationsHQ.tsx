@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import type { SeasonNavResult } from '@/app/api/season-navigator/route'
 import type { HqBriefing } from '@/app/api/hq-briefing/route'
+import PortfolioXray from '@/app/components/PortfolioXray'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 
@@ -128,6 +129,9 @@ export default function OperationsHQ() {
           </>
         )}
       </div>
+
+      {/* 🔬 ETF 속살 투시 — 보유 ETF를 분해해 실질 노출도(진단 보강). ETF 미보유면 자동 숨김 */}
+      <PortfolioXray />
     </div>
   )
 }
