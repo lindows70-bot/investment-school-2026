@@ -68,6 +68,16 @@ export default function OperationsHQ() {
                 {brief.buys.length > 0 && (
                   <span style={{ color: '#86efac' }}>▲ 1순위 매수: {brief.buys[0].name} (통합 {brief.buys[0].combined})</span>
                 )}
+                {brief.policyTilt && (() => {
+                  const t = brief.policyTilt
+                  const c = t.tilt === 'dovish' ? '#22d3ee' : t.tilt === 'hawkish' ? '#fbbf24' : '#94a3b8'
+                  const ic = t.tilt === 'dovish' ? '🕊️' : t.tilt === 'hawkish' ? '🦅' : '⚖️'
+                  return (
+                    <span title={t.note} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: `${c}14`, border: `1px solid ${c}44`, borderRadius: 6, padding: '1px 8px', color: c }}>
+                      {ic} 연준 기조: {t.label}
+                    </span>
+                  )
+                })()}
               </div>
             )}
           </div>
