@@ -31,9 +31,22 @@ const config: Config = {
         warn: { DEFAULT: '#F59E0B', light: '#FCD34D', muted: '#451A03' },
         ink: {
           primary:   '#F1F5F9',
-          secondary: '#94A3B8',
-          muted:     '#64748B',
-          faint:     '#334155',
+          secondary: '#C0CEDB',   // brightened for darkest bg (#020617): 12.5:1
+          muted:     '#9BABB8',   // brightened: 8.1:1
+          faint:     '#8A9DB0',   // brightened: 7.1:1
+        },
+        // Tailwind zinc 기본값 오버라이드 — 기본값이 어두운 배경에서 너무 어두움
+        zinc: {
+          100: '#F4F4F5',
+          200: '#E4E4E7',
+          300: '#D1D5DB',   // was #D4D4D8 → neutral bright
+          400: '#B0B8C4',   // was #A1A1AA(7.9:1) → 10.1:1
+          500: '#9FA8B3',   // was #71717A(4.2:1) → 8.4:1
+          600: '#8E9AAA',   // was #52525B(2.6:1) → 7.1:1
+          700: '#6B7B8D',   // was #3F3F46 → readable
+          800: '#3D4F63',   // was #27272A → brightened
+          900: '#1A2030',
+          950: '#0F1520',
         },
       },
       fontFamily: {

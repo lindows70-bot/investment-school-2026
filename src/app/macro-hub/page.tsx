@@ -43,9 +43,9 @@ const C = {
   red:     '#f87171',
   orange:  '#fb923c',
   green:   '#4ade80',
-  muted:   '#1e3a5c',
+  muted:   '#7fa0be',   // was '#1e3a5c' (1.65:1 ❌) → 6.97:1 ✅
   text:    '#e2e8f0',
-  sub:     '#64748b',
+  sub:     '#7f93a8',
   dim:     '#1e293b',
 } as const
 

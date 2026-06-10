@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next dev",
+    "dev": "node scripts/dev.js",
+    "dev:quick": "next dev",
     "build": "next build",
+    "check": "npx tsc --noEmit && next lint",
     "deploy": "npx vercel --prod --yes",
     "start": "next start",
     "lint": "next lint"

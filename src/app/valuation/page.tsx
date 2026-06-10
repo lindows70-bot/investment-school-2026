@@ -32,8 +32,8 @@ import {
 const T = {
   bg:  '#0f1117', card:'#1a1d27', bd:  '#2a2d3a',
   up:  '#ef4444', dn:  '#3b82f6', grn: '#34d399',
-  gld: '#fbbf24', mut: '#6b7280', txt: '#f1f5f9',
-  sub: '#94a3b8', est: '#4b5563',
+  gld: '#fbbf24', mut: '#8a9aaa', txt: '#f1f5f9',
+  sub: '#94a3b8', est: '#8a96a8',
 } as const
 
 function cs(extra: React.CSSProperties = {}): React.CSSProperties {
@@ -113,7 +113,7 @@ function Cell({ value, isEst, onChange, loading }: CellProps) {
         width: '100%', minWidth: 58, background: focused ? '#0f1117' : 'transparent',
         border: focused ? `1px solid ${isEst ? T.gld : T.grn}` : 'none',
         borderRadius: 4, outline: 'none', textAlign: 'right',
-        color: isEst ? '#9ca3af' : T.txt, fontSize: 12, padding: '3px 6px',
+        color: isEst ? '#a8b5c2' : T.txt, fontSize: 12, padding: '3px 6px',
         fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums',
       }}
     />
@@ -477,7 +477,7 @@ export default function ValuationPage() {
     //   - EPS기반 / OI기반: 해당 시나리오 PER 로 계산 → PER에 따라 높이 변화
     //   - 매출기반: PSR 배수 사용 → 모든 시나리오에서 동일 (PER 무관)
     const scenariosForBar = [
-      { label: '보수적\n(PER 15)',               per: 15,     barColor: '#6b7280' },
+      { label: '보수적\n(PER 15)',               per: 15,     barColor: '#8a9aaa' },
       { label: '적정\n(PER 25)',                  per: 25,     barColor: T.gld     },
       { label: '성장주\n(PER 50)',                per: 50,     barColor: '#fb923c' },
       { label: `현재 시장\n(PER ${perMkt.toFixed(0)}배)`, per: perMkt, barColor: T.dn     },
@@ -1143,7 +1143,7 @@ export default function ValuationPage() {
                 <div key={label} style={cs({ padding: '14px 16px', border: hl ? `1px solid ${T.gld}55` : `1px solid ${T.bd}` })}>
                   <div style={{ fontSize: 10, color: T.mut, marginBottom: 4 }}>{label}</div>
                   <div style={{ fontSize: hl ? 20 : 16, fontWeight: 900, color: hl ? T.gld : T.txt }}>{val != null ? fmtP(val, analysis.cur) : '—'}</div>
-                  <div style={{ fontSize: 10, color: '#374151', marginTop: 2 }}>{note}</div>
+                  <div style={{ fontSize: 10, color: '#7a8fa3', marginTop: 2 }}>{note}</div>
                 </div>
               ))}
             </div>
@@ -1257,7 +1257,7 @@ export default function ValuationPage() {
               )}
 
               {/* ── 시나리오 라인 ── */}
-              <Line type="monotone" dataKey="보수적"   stroke="#6b7280" strokeWidth={1.5} dot={false}/>
+              <Line type="monotone" dataKey="보수적"   stroke="#8a9aaa" strokeWidth={1.5} dot={false}/>
               <Line type="monotone" dataKey="단기CAGR" stroke={T.dn}    strokeWidth={2}   dot={false}/>
               <Line type="monotone" dataKey="장기CAGR" stroke={T.grn}   strokeWidth={2.5} dot={false}/>
               <Line type="monotone" dataKey="애널추정"  stroke={T.up}    strokeWidth={2}   dot={false} strokeDasharray="5 3"/>
@@ -1310,7 +1310,7 @@ export default function ValuationPage() {
               {tenBaggerPoints?.보수적 && (() => {
                 const { year, value } = tenBaggerPoints.보수적
                 return (
-                  <ReferenceDot x={year} y={value} r={6} fill="#6b7280" stroke={T.txt} strokeWidth={2}
+                  <ReferenceDot x={year} y={value} r={6} fill="#8a9aaa" stroke={T.txt} strokeWidth={2}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     label={{ content: (props: any) => {
                       const cx = props.viewBox?.cx ?? 0
@@ -1319,9 +1319,9 @@ export default function ValuationPage() {
                       const w = txt.length * 6.2 + 14
                       return (
                         <g>
-                          <rect x={cx - w/2} y={cy - 34} width={w} height={20} rx={4} fill={T.card} stroke="#6b7280" strokeWidth={1.5}/>
-                          <text x={cx} y={cy - 20} textAnchor="middle" fill="#9ca3af" fontSize={10} fontWeight={700}>{txt}</text>
-                          <polygon points={`${cx-5},${cy-14} ${cx+5},${cy-14} ${cx},${cy-7}`} fill="#6b7280"/>
+                          <rect x={cx - w/2} y={cy - 34} width={w} height={20} rx={4} fill={T.card} stroke="#8a9aaa" strokeWidth={1.5}/>
+                          <text x={cx} y={cy - 20} textAnchor="middle" fill="#a8b5c2" fontSize={10} fontWeight={700}>{txt}</text>
+                          <polygon points={`${cx-5},${cy-14} ${cx+5},${cy-14} ${cx},${cy-7}`} fill="#8a9aaa"/>
                         </g>
                       )
                     }}}

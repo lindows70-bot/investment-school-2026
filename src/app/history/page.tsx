@@ -8,6 +8,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend, LineChart, Line,
 } from 'recharts'
+import TimeMachineNote from '@/app/components/TimeMachineNote'
 
 type Market = 'US' | 'KR' | 'CRYPTO'
 
@@ -27,6 +28,8 @@ interface Transaction {
   memo: string | null
   transaction_date: string
   created_at: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  snapshot_data?: any   // 📸 매매 시점 블랙박스 스냅샷 (peg·growth_rate·category)
 }
 
 interface Investment {
@@ -63,7 +66,7 @@ function LoadingSpinner() {
   return (
     <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 60 }}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite' }}>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7a8fa3" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite' }}>
         <path d="M21 12a9 9 0 1 1-6.219-8.56" />
       </svg>
     </div>
@@ -77,7 +80,7 @@ export default function HistoryPage() {
   const [priceMap,     setPriceMap]     = useState<Record<string, number>>({})
   const [loading,      setLoading]      = useState(true)
   const [usdKrw,       setUsdKrw]       = useState(1_350)
-  const [activeTab,    setActiveTab]    = useState<'transactions' | 'cashflow'>('transactions')
+  const [activeTab,    setActiveTab]    = useState<'transactions' | 'cashflow' | 'replay'>('transactions')
   const [filterType,   setFilterType]   = useState<'all' | 'buy' | 'sell'>('all')
 
   // USD/KRW rate — localStorage cache (1 hour TTL)
@@ -331,6 +334,7 @@ export default function HistoryPage() {
   const tabs = [
     { id: 'transactions', label: '📋 거래 내역' },
     { id: 'cashflow', label: '💰 현금 흐름' },
+    { id: 'replay', label: '👻 타임머신 복기' },
   ]
 
   const filterBtns = [
@@ -365,13 +369,13 @@ export default function HistoryPage() {
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 0 }}>
         {tabs.map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id as 'transactions' | 'cashflow')}
+          <button key={tab.id} onClick={() => setActiveTab(tab.id as 'transactions' | 'cashflow' | 'replay')}
             style={{
               padding: '9px 20px', borderRadius: 10, border: 'none', cursor: 'pointer',
               fontSize: 13, fontWeight: 700,
-              background: activeTab === tab.id ? N : '#13162a',
+              background: activeTab === tab.id ? N : '#0a0e1a',
               boxShadow: activeTab === tab.id ? SHO : SHI,
-              color: activeTab === tab.id ? '#dde4f0' : '#454868',
+              color: activeTab === tab.id ? '#dde4f0' : '#9aa0b8',
               borderLeft: activeTab === tab.id ? '3px solid #6366f1' : '3px solid transparent',
               transition: 'all 0.2s',
             }}
@@ -390,9 +394,9 @@ export default function HistoryPage() {
                 style={{
                   padding: '5px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
                   fontSize: 11, fontWeight: 700,
-                  background: filterType === btn.id ? N : '#13162a',
+                  background: filterType === btn.id ? N : '#0a0e1a',
                   boxShadow: filterType === btn.id ? SHO : SHI,
-                  color: filterType === btn.id ? '#dde4f0' : '#454868',
+                  color: filterType === btn.id ? '#dde4f0' : '#9aa0b8',
                   borderLeft: filterType === btn.id ? '3px solid #6366f1' : '3px solid transparent',
                   transition: 'all 0.2s',
                 }}
@@ -405,12 +409,12 @@ export default function HistoryPage() {
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
-                  <tr style={{ background: '#141728', borderBottom: '1px solid #252840' }}>
+                  <tr style={{ background: '#141728', borderBottom: '1px solid #4a5070' }}>
                     {['날짜', '구분', '종목명', '단가', '수량', '거래금액', '실현손익', '메모'].map(h => (
                       <th key={h} style={{
                         padding: '11px 14px',
                         textAlign: 'left',
-                        fontSize: 10, fontWeight: 600, color: '#4b5563',
+                        fontSize: 10, fontWeight: 600, color: '#8a96a8',
                         textTransform: 'uppercase', letterSpacing: '0.07em', whiteSpace: 'nowrap',
                       }}>{h}</th>
                     ))}
@@ -424,7 +428,7 @@ export default function HistoryPage() {
                         <div style={{ color: '#dde4f0', fontSize: 14, fontWeight: 600, marginBottom: 6 }}>
                           아직 거래 내역이 없습니다
                         </div>
-                        <div style={{ color: '#454868', fontSize: 12 }}>
+                        <div style={{ color: '#9aa0b8', fontSize: 12 }}>
                           자산관리 페이지에서 매수/매도를 진행하면 여기에 기록됩니다
                         </div>
                       </td>
@@ -432,7 +436,7 @@ export default function HistoryPage() {
                   ) : filtered.map((t, idx) => (
                     <tr key={t.id} style={{ borderTop: '1px solid #1e2140', background: idx % 2 === 0 ? 'transparent' : 'rgba(20,23,40,0.5)' }}>
                       {/* 날짜 */}
-                      <td style={{ padding: '10px 14px', color: '#6b7280', fontSize: 12, whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '10px 14px', color: '#8a9aaa', fontSize: 12, whiteSpace: 'nowrap' }}>
                         {fmtDate(t.transaction_date)}
                       </td>
                       {/* 구분 */}
@@ -449,14 +453,14 @@ export default function HistoryPage() {
                       {/* 종목명 */}
                       <td style={{ padding: '10px 14px' }}>
                         <div style={{ color: '#f1f5f9', fontWeight: 600, fontSize: 13 }}>{t.name}</div>
-                        <div style={{ color: '#454868', fontFamily: 'monospace', fontSize: 11 }}>{t.ticker}</div>
+                        <div style={{ color: '#9aa0b8', fontFamily: 'monospace', fontSize: 11 }}>{t.ticker}</div>
                       </td>
                       {/* 단가 */}
-                      <td style={{ padding: '10px 14px', color: '#9ca3af', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', fontSize: 12 }}>
+                      <td style={{ padding: '10px 14px', color: '#a8b5c2', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', fontSize: 12 }}>
                         {fmtPrice(t.price, t.currency)}
                       </td>
                       {/* 수량 */}
-                      <td style={{ padding: '10px 14px', color: '#9ca3af', fontVariantNumeric: 'tabular-nums', fontSize: 12 }}>
+                      <td style={{ padding: '10px 14px', color: '#a8b5c2', fontVariantNumeric: 'tabular-nums', fontSize: 12 }}>
                         {t.quantity.toLocaleString()}
                       </td>
                       {/* 거래금액 */}
@@ -474,11 +478,11 @@ export default function HistoryPage() {
                             {t.realized_pnl >= 0 ? '+' : ''}{fmtPrice(t.realized_pnl, t.currency)}
                           </span>
                         ) : (
-                          <span style={{ color: '#363855' }}>—</span>
+                          <span style={{ color: '#7a8599' }}>—</span>
                         )}
                       </td>
                       {/* 메모 */}
-                      <td style={{ padding: '10px 14px', color: '#454868', fontSize: 12 }}>
+                      <td style={{ padding: '10px 14px', color: '#9aa0b8', fontSize: 12 }}>
                         {t.memo || '—'}
                       </td>
                     </tr>
@@ -489,8 +493,8 @@ export default function HistoryPage() {
           </div>
 
           {/* Footer note */}
-          <p style={{ fontSize: 11, color: '#363855', textAlign: 'center' }}>
-            환산금액은 USD×<strong style={{ color: '#4b5563' }}>₩{usdKrw.toLocaleString('ko-KR')}</strong> 기준입니다
+          <p style={{ fontSize: 11, color: '#7a8599', textAlign: 'center' }}>
+            환산금액은 USD×<strong style={{ color: '#8a96a8' }}>₩{usdKrw.toLocaleString('ko-KR')}</strong> 기준입니다
           </p>
         </div>
       )}
@@ -506,19 +510,19 @@ export default function HistoryPage() {
                 background: N, boxShadow: SHO, borderRadius: 12,
                 padding: '16px 18px', borderLeft: `3px solid ${card.accent}`,
               }}>
-                <div style={{ fontSize: 9, fontWeight: 700, color: '#454868', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: '#9aa0b8', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
                   {card.label}
                 </div>
                 {'isUnrealized' in card && !cashFlowData.hasPrices ? (
                   /* 현재가 로딩 전 */
-                  <div style={{ fontSize: 18, fontWeight: 700, color: '#454868', letterSpacing: '-0.3px' }}>—</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: '#9aa0b8', letterSpacing: '-0.3px' }}>—</div>
                 ) : (
                   <div style={{ fontSize: 22, fontWeight: 800, color: card.accent, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.4px' }}>
                     {card.value >= 0 ? '+' : ''}{fmtKrw(card.value)}
                   </div>
                 )}
                 {card.subLabel && (
-                  <div style={{ fontSize: 10, color: '#363855', marginTop: 4 }}>{card.subLabel}</div>
+                  <div style={{ fontSize: 10, color: '#7a8599', marginTop: 4 }}>{card.subLabel}</div>
                 )}
               </div>
             ))}
@@ -526,27 +530,27 @@ export default function HistoryPage() {
 
           {/* Monthly bar chart */}
           <div style={{ background: N, boxShadow: SHO, borderRadius: 14, padding: '16px 18px 12px' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#a8b5c2', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
               월별 거래 현황
             </div>
             {cashFlowData.monthly.length === 0 ? (
-              <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#363855', fontSize: 13 }}>
+              <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7a8599', fontSize: 13 }}>
                 거래 내역이 없습니다
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={cashFlowData.monthly} barCategoryGap="30%">
                   <CartesianGrid strokeDasharray="3 3" stroke="#1e2140" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fill: '#454868', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="label" tick={{ fill: '#9aa0b8', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis
-                    tick={{ fill: '#454868', fontSize: 10 }} axisLine={false} tickLine={false} width={56}
+                    tick={{ fill: '#9aa0b8', fontSize: 10 }} axisLine={false} tickLine={false} width={56}
                     tickFormatter={(v: number) => v >= 1e8 ? `${(v / 1e8).toFixed(0)}억` : v >= 1e4 ? `${(v / 1e4).toFixed(0)}만` : `${v}`}
                   />
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   <Tooltip content={({ active, payload }: any) => {
                     if (!active || !payload?.length) return null
                     return (
-                      <div style={{ background: '#1b1e2e', border: '1px solid #252840', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#dde4f0' }}>
+                      <div style={{ background: '#1b1e2e', border: '1px solid #4a5070', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#dde4f0' }}>
                         <div style={{ fontWeight: 700, marginBottom: 6 }}>{payload[0]?.payload?.label}</div>
                         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                         {payload.map((p: any, i: number) => (
@@ -557,7 +561,7 @@ export default function HistoryPage() {
                       </div>
                     )
                   }} />
-                  <Legend wrapperStyle={{ fontSize: 11, color: '#6b7280' }} />
+                  <Legend wrapperStyle={{ fontSize: 11, color: '#8a9aaa' }} />
                   <Bar dataKey="buy" name="매수" fill="#ef4444" fillOpacity={0.8} radius={[4, 4, 0, 0]} maxBarSize={48} />
                   <Bar dataKey="sell" name="매도" fill="#3b82f6" fillOpacity={0.8} radius={[4, 4, 0, 0]} maxBarSize={48} />
                 </BarChart>
@@ -567,26 +571,26 @@ export default function HistoryPage() {
 
           {/* Cumulative line chart */}
           <div style={{ background: N, boxShadow: SHO, borderRadius: 14, padding: '16px 18px 12px' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#a8b5c2', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
               누적 순투자금액 추이
             </div>
             {cashFlowData.cumulativeLine.length === 0 ? (
-              <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#363855', fontSize: 13 }}>
+              <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7a8599', fontSize: 13 }}>
                 거래 내역이 없습니다
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={180}>
                 <LineChart data={cashFlowData.cumulativeLine}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1e2140" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fill: '#454868', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="label" tick={{ fill: '#9aa0b8', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis
-                    tick={{ fill: '#454868', fontSize: 10 }} axisLine={false} tickLine={false} width={56}
+                    tick={{ fill: '#9aa0b8', fontSize: 10 }} axisLine={false} tickLine={false} width={56}
                     tickFormatter={(v: number) => v >= 1e4 ? `${(v / 1e4).toFixed(0)}만` : `${v}`}
                   />
                   <Tooltip
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     formatter={(v: any) => [`₩${Math.round((v as number) / 1e4).toLocaleString()}만`, '누적 순투자']}
-                    contentStyle={{ background: '#1b1e2e', border: '1px solid #252840', borderRadius: 10, fontSize: 12 }}
+                    contentStyle={{ background: '#1b1e2e', border: '1px solid #4a5070', borderRadius: 10, fontSize: 12 }}
                     labelStyle={{ color: '#dde4f0' }}
                     itemStyle={{ color: '#a78bfa' }}
                   />
@@ -600,11 +604,34 @@ export default function HistoryPage() {
           </div>
 
           {/* Footer note */}
-          <p style={{ fontSize: 11, color: '#363855', textAlign: 'center' }}>
-            환산금액은 USD×<strong style={{ color: '#4b5563' }}>₩{usdKrw.toLocaleString('ko-KR')}</strong> 기준입니다
+          <p style={{ fontSize: 11, color: '#7a8599', textAlign: 'center' }}>
+            환산금액은 USD×<strong style={{ color: '#8a96a8' }}>₩{usdKrw.toLocaleString('ko-KR')}</strong> 기준입니다
           </p>
         </div>
       )}
+
+      {/* Tab 3: 타임머신 복기 노트 */}
+      {activeTab === 'replay' && (() => {
+        const sellHistory = transactions.filter(t => t.type === 'sell')
+        const hasSnapshot = sellHistory.some(t => t.snapshot_data && (t.snapshot_data.peg != null || t.snapshot_data.category))
+        if (!hasSnapshot) {
+          return (
+            <div style={{
+              background: N, boxShadow: SHO, borderRadius: 14, padding: '48px 24px', textAlign: 'center',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+            }}>
+              <div style={{ fontSize: 36 }}>👻</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#dde4f0' }}>복기할 매도 기록이 아직 없습니다</div>
+              <div style={{ fontSize: 13, color: '#8b92b8', lineHeight: 1.7, maxWidth: 400 }}>
+                종목을 매도하면 그 순간의 PEG·성장률·분류가 자동으로 블랙박스에 보존됩니다.<br />
+                나중에 이 탭에서 &ldquo;팔지 말걸 / 잘 팔았다&rdquo;를 데이터로 복기할 수 있습니다.
+                <br /><span style={{ fontSize: 11, color: '#9aa0b8' }}>※ 스냅샷 도입(2026-05-31) 이후 매도부터 기록됩니다.</span>
+              </div>
+            </div>
+          )
+        }
+        return <TimeMachineNote sellHistory={sellHistory} priceMap={priceMap} />
+      })()}
     </div>
   )
 }

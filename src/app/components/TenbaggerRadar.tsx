@@ -120,11 +120,11 @@ function ProgressBar({
             <div key={m.pct} className="absolute top-0 flex flex-col items-center"
               style={{ left: `${m.barPos}%`, transform: 'translateX(-50%)' }}>
               <span className="text-[8.5px] font-bold leading-tight whitespace-nowrap transition-colors duration-500"
-                style={{ color: reached ? m.color : '#2d3f55' }}>
+                style={{ color: reached ? m.color : '#6a7f96' }}>
                 {m.label}
               </span>
               <span className="text-[7px] leading-tight whitespace-nowrap"
-                style={{ color: reached ? `${m.color}99` : '#1e2d3e' }}>
+                style={{ color: reached ? `${m.color}99` : '#5a7088' }}>
                 {m.sublabel}
               </span>
             </div>
@@ -188,7 +188,7 @@ function ProgressBar({
               left:`${m.barPos}%`, top:2, transform:'translateX(-50%)',
               width:6, height:6, borderRadius:'50%',
               background: returnPct >= m.pct ? m.color : '#1a2535',
-              border:`1.5px solid ${returnPct >= m.pct ? m.color : '#2a3a50'}`,
+              border:`1.5px solid ${returnPct >= m.pct ? m.color : '#8899aa'}`,
               boxShadow: returnPct >= m.pct ? `0 0 7px ${m.color}90` : 'none',
             }}
           />
@@ -256,7 +256,7 @@ function StockCard({
               {/* 포트폴리오 상태 배지 */}
               {!isRegistered ? (
                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded flex-shrink-0"
-                  style={{ background:'rgba(51,65,85,0.6)', color:'#475569', border:'1px solid rgba(51,65,85,0.8)' }}>
+                  style={{ background:'rgba(51,65,85,0.6)', color:'#8599ae', border:'1px solid rgba(51,65,85,0.8)' }}>
                   포트폴리오 미등록
                 </span>
               ) : isTenbagger ? (
@@ -266,7 +266,7 @@ function StockCard({
                 </span>
               ) : null}
             </div>
-            <div className="text-[10px] mt-0.5" style={{ color:'#334155' }}>
+            <div className="text-[10px] mt-0.5" style={{ color:'#7a8fa3' }}>
               {stock.nameEn} · {stock.market}
             </div>
           </div>
@@ -279,7 +279,7 @@ function StockCard({
               <div key={i} className="w-2 h-2 rounded-full transition-all duration-500"
                 style={{
                   background: reachedCount > i ? m.color : '#1a2535',
-                  border:`1px solid ${reachedCount > i ? m.color : '#2a3a50'}`,
+                  border:`1px solid ${reachedCount > i ? m.color : '#8899aa'}`,
                   boxShadow: reachedCount > i ? `0 0 5px ${m.color}70` : 'none',
                 }}
               />
@@ -295,13 +295,13 @@ function StockCard({
           <div className="flex flex-col gap-1 rounded-lg px-3 py-2"
             style={{ background:'rgba(10,18,32,0.8)', border:'1px solid rgba(25,38,58,1)' }}>
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-medium" style={{ color:'#334155' }}>포트폴리오 평단가</span>
+              <span className="text-[10px] font-medium" style={{ color:'#7a8fa3' }}>포트폴리오 평단가</span>
               <span className="text-[9px] font-bold px-1 py-0.5 rounded"
                 style={{ background:'rgba(52,211,153,0.10)', color:'#34d399' }}>
                 AUTO
               </span>
             </div>
-            <span className="text-sm font-mono font-bold" style={{ color:'#64748b' }}>
+            <span className="text-sm font-mono font-bold" style={{ color:'#7f93a8' }}>
               {basePrice ? fmtPrice(basePrice, stock.currency) : '—'}
             </span>
           </div>
@@ -312,7 +312,7 @@ function StockCard({
               background: hasPrice ? (isWin ? 'rgba(16,185,129,0.05)' : 'rgba(239,68,68,0.05)') : 'rgba(10,18,32,0.8)',
               border: hasPrice ? (isWin ? '1px solid rgba(16,185,129,0.18)' : '1px solid rgba(239,68,68,0.18)') : '1px solid rgba(25,38,58,1)',
             }}>
-            <span className="text-[10px] font-medium" style={{ color:'#334155' }}>현재가 / 수익률</span>
+            <span className="text-[10px] font-medium" style={{ color:'#7a8fa3' }}>현재가 / 수익률</span>
             {hasPrice ? (
               <div className="flex items-baseline gap-1.5 flex-wrap">
                 <span className="text-sm font-mono font-bold" style={{ color:'#e2e8f0' }}>
@@ -331,7 +331,7 @@ function StockCard({
       ) : (
         /* 미등록 종목 안내 */
         <div className="rounded-lg px-3 py-3 text-[11px] leading-relaxed"
-          style={{ background:'rgba(15,20,35,0.6)', border:'1px solid rgba(25,38,58,1)', color:'#334155' }}>
+          style={{ background:'rgba(15,20,35,0.6)', border:'1px solid rgba(25,38,58,1)', color:'#7a8fa3' }}>
           자산관리 탭에서 이 종목을 포트폴리오에 추가하면<br />
           실시간 텐배거 진행도가 자동으로 계산됩니다.
         </div>
@@ -440,7 +440,7 @@ export default function TenbaggerRadar({ priceMap, investments, loading }: Tenba
             <div className="text-sm font-bold" style={{ color:'#e2e8f0' }}>
               피터 린치 텐배거 마일스톤 트래커
             </div>
-            <div className="text-[11px] mt-0.5" style={{ color:'#334155' }}>
+            <div className="text-[11px] mt-0.5" style={{ color:'#7a8fa3' }}>
               포트폴리오 평단가 자동 연동 · 전체 보유 종목 10배 달성 진행도
             </div>
           </div>
@@ -460,7 +460,7 @@ export default function TenbaggerRadar({ priceMap, investments, loading }: Tenba
                 <div className="text-base font-mono font-bold leading-none" style={{ color:item.color }}>
                   {item.val}
                 </div>
-                <div className="text-[10px] mt-0.5" style={{ color:'#2a3a50' }}>{item.label}</div>
+                <div className="text-[10px] mt-0.5" style={{ color:'#8899aa' }}>{item.label}</div>
               </div>
             ))}
           </div>
@@ -470,15 +470,15 @@ export default function TenbaggerRadar({ priceMap, investments, loading }: Tenba
       {/* 마일스톤 범례 */}
       <div className="flex items-center gap-3 px-5 py-2 flex-wrap"
         style={{ borderBottom:'1px solid rgba(15,25,42,1)', background:'rgba(6,10,18,0.6)' }}>
-        <span className="text-[10px] font-bold tracking-widest" style={{ color:'#1e2d40' }}>MILESTONE</span>
+        <span className="text-[10px] font-bold tracking-widest" style={{ color:'#8a9db5' }}>MILESTONE</span>
         {MILESTONES.map((m, i) => (
           <div key={i} className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full" style={{ background:m.color, boxShadow:`0 0 5px ${m.color}50` }} />
             <span className="text-[10px] font-mono font-semibold" style={{ color:m.color }}>{m.label}</span>
-            {i < MILESTONES.length - 1 && <span className="text-[10px]" style={{ color:'#1a2535' }}>›</span>}
+            {i < MILESTONES.length - 1 && <span className="text-[10px]" style={{ color:'#6a7f96' }}>›</span>}
           </div>
         ))}
-        <div className="ml-auto text-[10px] flex items-center gap-1.5" style={{ color:'#1e2d40' }}>
+        <div className="ml-auto text-[10px] flex items-center gap-1.5" style={{ color:'#8a9db5' }}>
           <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
             style={{ background:'rgba(52,211,153,0.10)', color:'#34d399' }}>AUTO</span>
           포트폴리오 평단가 자동 연동
@@ -491,7 +491,7 @@ export default function TenbaggerRadar({ priceMap, investments, loading }: Tenba
           ? Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)
           : stocks.length === 0
           ? (
-            <div className="col-span-3 py-12 text-center text-sm" style={{ color: '#334155' }}>
+            <div className="col-span-3 py-12 text-center text-sm" style={{ color: '#7a8fa3' }}>
               자산관리 탭에서 종목을 추가하면 텐배거 진행도가 표시됩니다.
             </div>
           )
@@ -516,7 +516,7 @@ export default function TenbaggerRadar({ priceMap, investments, loading }: Tenba
       <div className="px-5 py-3 flex items-start gap-2"
         style={{ borderTop:'1px solid rgba(15,25,42,1)', background:'rgba(6,10,18,0.6)' }}>
         <span className="text-base flex-shrink-0">💬</span>
-        <p className="text-[11px] leading-relaxed" style={{ color:'#1e2d40' }}>
+        <p className="text-[11px] leading-relaxed" style={{ color:'#8a9db5' }}>
           <span style={{ color:'#f59e0b', fontWeight:700 }}>피터 린치: </span>
           &quot;10배짜리 종목(Tenbagger)은 단 한 개만 있어도 포트폴리오 전체의 실수를 만회하고도 남는다.
           핵심은 성장하는 기업을 포트폴리오에 품고, 주가 등락에 흔들리지 않고 오래 보유하는 것이다.&quot;

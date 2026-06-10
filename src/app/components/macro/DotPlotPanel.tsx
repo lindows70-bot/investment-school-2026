@@ -34,7 +34,7 @@ const C = {
   grid:     '#1e2140',
   text:     '#94a3b8',
   textHi:   '#f1f5f9',
-  textLow:  '#475569',
+  textLow:  '#8599ae',
   consensus: '#fbbf24',   // 컨센서스 — 골드
   bubble:    '#60a5fa',   // 일반 버블 — 파랑
   down:      '#34d399',
@@ -228,7 +228,7 @@ export default function DotPlotPanel({ currentRate = 3.375 }: DotPlotPanelProps)
           </span>
         )}
         {lastUpdated && (
-          <span style={{ fontSize: 9, color: '#334155', marginLeft: 4 }}>업데이트: {lastUpdated}</span>
+          <span style={{ fontSize: 9, color: '#7a8fa3', marginLeft: 4 }}>업데이트: {lastUpdated}</span>
         )}
       </div>
 
@@ -268,21 +268,21 @@ export default function DotPlotPanel({ currentRate = 3.375 }: DotPlotPanelProps)
             <div style={{
               padding: '8px 12px', borderRadius: 8,
               background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(30,45,65,1)',
-              fontSize: 10, color: '#64748b', lineHeight: 1.7,
+              fontSize: 10, color: '#7f93a8', lineHeight: 1.7,
             }}>
               <div style={{ fontWeight: 700, color: '#94a3b8', marginBottom: 3 }}>📖 차트 읽는 법</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <div>
                   <span style={{ color: C.consensus, fontWeight: 700 }}>● 황금 버블</span>
                   {' '}= 해당 FOMC에서 시장이 가장 유력하게 예상하는 금리 수준{' '}
-                  <span style={{ color: '#475569' }}>(= 컨센서스)</span>
+                  <span style={{ color: '#8599ae' }}>(= 컨센서스)</span>
                 </div>
                 <div>
                   <span style={{ color: C.bubble, fontWeight: 700 }}>● 파란 버블</span>
                   {' '}= 가능하지만 확률이 낮은 대안 시나리오
-                  <span style={{ color: '#475569' }}> · 버블이 클수록 해당 확률이 높음</span>
+                  <span style={{ color: '#8599ae' }}> · 버블이 클수록 해당 확률이 높음</span>
                 </div>
-                <div style={{ color: '#475569' }}>
+                <div style={{ color: '#8599ae' }}>
                   📌 X축: 향후 FOMC 회의 날짜 · Y축: 예상 기준금리 수준(%)
                 </div>
               </div>
@@ -293,7 +293,7 @@ export default function DotPlotPanel({ currentRate = 3.375 }: DotPlotPanelProps)
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 22, marginBottom: 8 }}>📭</div>
                 <div>FF Futures 데이터를 가져올 수 없습니다.</div>
-                <div style={{ fontSize: 10, marginTop: 4, color: '#334155' }}>Yahoo Finance 연결 상태를 확인하세요.</div>
+                <div style={{ fontSize: 10, marginTop: 4, color: '#7a8fa3' }}>Yahoo Finance 연결 상태를 확인하세요.</div>
               </div>
             </div>
           ) : (
@@ -307,7 +307,7 @@ export default function DotPlotPanel({ currentRate = 3.375 }: DotPlotPanelProps)
                     domain={[-0.5, meetings.length - 0.5]}
                     ticks={meetings.map((_, i) => i)}
                     tickFormatter={(v: number) => meetings[v]?.label ?? ''}
-                    tick={{ fill: '#475569', fontSize: 10, fontWeight: 700 }}
+                    tick={{ fill: '#8599ae', fontSize: 10, fontWeight: 700 }}
                     tickLine={false}
                     axisLine={{ stroke: C.border }}
                   />
@@ -320,13 +320,13 @@ export default function DotPlotPanel({ currentRate = 3.375 }: DotPlotPanelProps)
                     ]}
                     ticks={yTicks}
                     tickFormatter={(v: number) => `${Number(v).toFixed(2)}%`}
-                    tick={{ fill: '#475569', fontSize: 9.5 }}
+                    tick={{ fill: '#8599ae', fontSize: 9.5 }}
                     tickLine={false}
                     axisLine={false}
                     width={52}
                   />
                   <ZAxis dataKey="z" range={[16, 900]} />
-                  <Tooltip content={<BubbleTooltip />} cursor={{ strokeDasharray: '3 3', stroke: '#334155' }} />
+                  <Tooltip content={<BubbleTooltip />} cursor={{ strokeDasharray: '3 3', stroke: '#7a8fa3' }} />
 
                   {/* 현재 기준금리 */}
                   <ReferenceLine
@@ -367,21 +367,21 @@ export default function DotPlotPanel({ currentRate = 3.375 }: DotPlotPanelProps)
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <div style={{ width: 12, height: 12, borderRadius: '50%', background: C.consensus, boxShadow: '0 0 6px rgba(251,191,36,0.7)', flexShrink: 0 }} />
                     <span style={{ color: C.consensus, fontWeight: 700 }}>★ 컨센서스 (최고 확률)</span>
-                    <span style={{ color: '#334155' }}>— 시장이 가장 유력하게 보는 금리</span>
+                    <span style={{ color: '#7a8fa3' }}>— 시장이 가장 유력하게 보는 금리</span>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 16, fontSize: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <div style={{ width: 10, height: 10, borderRadius: '50%', background: C.bubble, opacity: 0.7, flexShrink: 0 }} />
                     <span style={{ color: C.textLow }}>기타 시나리오</span>
-                    <span style={{ color: '#334155' }}>— 크기(면적)가 클수록 시장 베팅 확률 높음</span>
+                    <span style={{ color: '#7a8fa3' }}>— 크기(면적)가 클수록 시장 베팅 확률 높음</span>
                   </div>
                 </div>
                 {/* 실전 해석 팁 */}
                 <div style={{
                   padding: '6px 10px', borderRadius: 6,
                   background: 'rgba(251,191,36,0.05)', border: '1px solid rgba(251,191,36,0.12)',
-                  fontSize: 10, color: '#64748b', lineHeight: 1.6,
+                  fontSize: 10, color: '#7f93a8', lineHeight: 1.6,
                 }}>
                   <span style={{ color: '#fbbf24', fontWeight: 700 }}>💡 실전 팁: </span>
                   황금 버블이 현재 기준금리(<span style={{ color: '#60a5fa' }}>{currentRate.toFixed(2)}%</span>) 아래로 이동하면
@@ -407,7 +407,7 @@ export default function DotPlotPanel({ currentRate = 3.375 }: DotPlotPanelProps)
                     <th key={h} style={{
                       padding: '6px 8px',
                       textAlign: i === 0 ? 'left' : 'center',
-                      color: '#475569', fontWeight: 700, fontSize: 10,
+                      color: '#8599ae', fontWeight: 700, fontSize: 10,
                       letterSpacing: '0.04em', whiteSpace: 'nowrap',
                     }}>{h}</th>
                   ))}
@@ -448,7 +448,7 @@ export default function DotPlotPanel({ currentRate = 3.375 }: DotPlotPanelProps)
                             {m.consensusRate.toFixed(2)}%
                           </span>
                         ) : (
-                          <span style={{ color: '#334155', fontSize: 11 }}>—</span>
+                          <span style={{ color: '#7a8fa3', fontSize: 11 }}>—</span>
                         )}
                       </td>
                       <td style={{ padding: '7px 8px', textAlign: 'center' }}>
@@ -460,14 +460,14 @@ export default function DotPlotPanel({ currentRate = 3.375 }: DotPlotPanelProps)
                             {m.consensusProb.toFixed(1)}%
                           </span>
                         ) : (
-                          <span style={{ color: '#334155', fontSize: 11 }}>—</span>
+                          <span style={{ color: '#7a8fa3', fontSize: 11 }}>—</span>
                         )}
                       </td>
                       <td style={{ padding: '7px 8px', textAlign: 'center' }}>
                         {moves !== null ? (
                           <span style={{
                             fontFamily: 'monospace', fontSize: 11, fontWeight: 700,
-                            color: moves < 0 ? '#34d399' : moves > 0 ? '#f87171' : '#64748b',
+                            color: moves < 0 ? '#34d399' : moves > 0 ? '#f87171' : '#7f93a8',
                           }}>
                             {moves < 0
                               ? `▼${Math.abs(moves)}회 인하`
@@ -476,11 +476,11 @@ export default function DotPlotPanel({ currentRate = 3.375 }: DotPlotPanelProps)
                               : '동결'}
                           </span>
                         ) : (
-                          <span style={{ color: '#334155' }}>—</span>
+                          <span style={{ color: '#7a8fa3' }}>—</span>
                         )}
                       </td>
                       <td style={{ padding: '7px 8px', textAlign: 'center' }}>
-                        <span style={{ fontSize: 9, fontFamily: 'monospace', color: '#334155' }}>
+                        <span style={{ fontSize: 9, fontFamily: 'monospace', color: '#7a8fa3' }}>
                           {m.futuresTicker}
                         </span>
                       </td>
@@ -534,7 +534,7 @@ export default function DotPlotPanel({ currentRate = 3.375 }: DotPlotPanelProps)
                   </>
                 ) : '...'}
                 {' '}각 버블의 크기는 해당 금리 시나리오의 시장 확률을 나타냅니다.
-                <div style={{ marginTop: 4, fontSize: 10, color: '#334155' }}>
+                <div style={{ marginTop: 4, fontSize: 10, color: '#7a8fa3' }}>
                   출처: CME FF Futures (ZQ 시리즈) via Yahoo Finance · {lastUpdated ?? '업데이트 중'}
                 </div>
               </div>

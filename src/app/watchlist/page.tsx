@@ -156,12 +156,12 @@ export default function WatchlistPage() {
       <div style={{ background:N, boxShadow:SHO, borderRadius:14, padding:'14px 20px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <div>
           <div style={{ fontSize:16, fontWeight:800, color:'#dde4f0' }}>⭐ 관심종목</div>
-          <div style={{ fontSize:11, color:'#454868', marginTop:2 }}>{items.length}개 종목 모니터링 중</div>
+          <div style={{ fontSize:11, color:'#9aa0b8', marginTop:2 }}>{items.length}개 종목 모니터링 중</div>
         </div>
         <div style={{ display:'flex', gap:8 }}>
           <button onClick={fetchAll}
             style={{ padding:'7px 14px', borderRadius:9, border:'none', cursor:'pointer',
-              background:N, boxShadow:SHI, color:'#6b7280', fontSize:12, fontWeight:600 }}>
+              background:N, boxShadow:SHI, color:'#8a9aaa', fontSize:12, fontWeight:600 }}>
             🔄 새로고침
           </button>
           <a href="/research"
@@ -178,7 +178,7 @@ export default function WatchlistPage() {
         <div style={{ background:N, boxShadow:SHO, borderRadius:14, padding:'60px 20px', textAlign:'center' as const }}>
           <div style={{ fontSize:40, marginBottom:14 }}>⭐</div>
           <div style={{ fontSize:16, fontWeight:700, color:'#dde4f0', marginBottom:8 }}>관심종목이 없습니다</div>
-          <div style={{ fontSize:13, color:'#454868', marginBottom:20 }}>종목 리서치에서 관심 종목을 추가해보세요</div>
+          <div style={{ fontSize:13, color:'#9aa0b8', marginBottom:20 }}>종목 리서치에서 관심 종목을 추가해보세요</div>
           <a href="/research" style={{ display:'inline-block', padding:'10px 24px', borderRadius:10, textDecoration:'none',
             background:'linear-gradient(135deg,#92400e,#b45309)', color:'#fde68a', fontSize:13, fontWeight:700 }}>
             🔭 종목 리서치 바로가기
@@ -211,7 +211,7 @@ export default function WatchlistPage() {
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
                 <div>
                   <div style={{ fontSize:14, fontWeight:800, color:'#dde4f0', marginBottom:1 }}>{item.name}</div>
-                  <div style={{ fontSize:10, color:'#454868', fontFamily:'monospace' }}>{item.ticker}</div>
+                  <div style={{ fontSize:10, color:'#9aa0b8', fontFamily:'monospace' }}>{item.ticker}</div>
                 </div>
                 <span style={{ fontSize:9, fontWeight:700, color:'#fbbf24',
                   background:'rgba(251,191,36,0.1)', border:'1px solid rgba(251,191,36,0.2)',
@@ -226,7 +226,7 @@ export default function WatchlistPage() {
                   </div>
                   <div style={{ fontSize:12, fontWeight:700, color:Cs, fontVariantNumeric:'tabular-nums' }}>
                     {isUp ? '▲' : '▼'} {Math.abs(price.changePct).toFixed(2)}%
-                    <span style={{ color:'#454868', marginLeft:6, fontWeight:400 }}>
+                    <span style={{ color:'#9aa0b8', marginLeft:6, fontWeight:400 }}>
                       {price.change >= 0 ? '+' : ''}{currency === 'KRW'
                         ? `₩${Math.round(price.change).toLocaleString('ko-KR')}`
                         : `$${price.change.toFixed(2)}`}
@@ -234,7 +234,7 @@ export default function WatchlistPage() {
                   </div>
                 </>
               ) : (
-                <div style={{ fontSize:13, color:'#363855', marginTop:8 }}>로딩 중…</div>
+                <div style={{ fontSize:13, color:'#7a8599', marginTop:8 }}>로딩 중…</div>
               )}
 
               {/* 액션 버튼 */}
@@ -259,7 +259,7 @@ export default function WatchlistPage() {
 
             {/* ─ 2. 재무 지표 (중간 220px) ─ */}
             <div style={{ width:220, flexShrink:0, padding:'14px 16px', display:'flex', flexDirection:'column', justifyContent:'center' }}>
-              <div style={{ fontSize:9, fontWeight:800, color:'#363855', letterSpacing:'0.1em',
+              <div style={{ fontSize:9, fontWeight:800, color:'#7a8599', letterSpacing:'0.1em',
                 textTransform:'uppercase' as const, marginBottom:10 }}>핵심 지표</div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:7 }}>
                 {[
@@ -274,10 +274,10 @@ export default function WatchlistPage() {
                     : '—' },
                   { label:'시가총액',   val: info?.marketCap  != null ? fmtKrw(info.marketCap)         : '—' },
                 ].map(({ label, val }) => (
-                  <div key={label} style={{ background:'#13162a', boxShadow:SHI, borderRadius:7, padding:'7px 9px' }}>
-                    <div style={{ fontSize:8, color:'#363855', textTransform:'uppercase' as const,
+                  <div key={label} style={{ background:'#0a0e1a', boxShadow:SHI, borderRadius:7, padding:'7px 9px' }}>
+                    <div style={{ fontSize:8, color:'#7a8599', textTransform:'uppercase' as const,
                       letterSpacing:'0.06em', marginBottom:3 }}>{label}</div>
-                    <div style={{ fontSize:13, fontWeight:700, color:'#9ca3af',
+                    <div style={{ fontSize:13, fontWeight:700, color:'#a8b5c2',
                       fontVariantNumeric:'tabular-nums', overflow:'hidden',
                       textOverflow:'ellipsis', whiteSpace:'nowrap' as const }}>{val}</div>
                   </div>
@@ -299,10 +299,10 @@ export default function WatchlistPage() {
                       fontSize:11, fontWeight:700, transition:'all 0.15s',
                       background: tf === t ? '#fbbf24' : N,
                       boxShadow:  tf === t ? '0 2px 8px rgba(251,191,36,0.3)' : SHI,
-                      color:      tf === t ? '#1b1e2e' : '#454868',
+                      color:      tf === t ? '#1b1e2e' : '#9aa0b8',
                     }}>{t}</button>
                 ))}
-                <span style={{ marginLeft:'auto', fontSize:10, color:'#363855', alignSelf:'center' }}>
+                <span style={{ marginLeft:'auto', fontSize:10, color:'#7a8599', alignSelf:'center' }}>
                   {ohlc.length > 0 ? `${ohlc.length}캔들` : ''}
                 </span>
               </div>
@@ -319,7 +319,7 @@ export default function WatchlistPage() {
                   />
                 ) : (
                   <div style={{ height:170, display:'flex', alignItems:'center',
-                    justifyContent:'center', color:'#363855', fontSize:12 }}>
+                    justifyContent:'center', color:'#7a8599', fontSize:12 }}>
                     {price ? `${tf} 차트 데이터 없음` : '현재가 로딩 중…'}
                   </div>
                 )}

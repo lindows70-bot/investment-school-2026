@@ -36,7 +36,7 @@ export default function FullCandleChart({
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
 
   if (!data?.length) return (
-    <div style={{ height: heightProp, display:'flex', alignItems:'center', justifyContent:'center', color:'#454868', fontSize:13 }}>
+    <div style={{ height: heightProp, display:'flex', alignItems:'center', justifyContent:'center', color:'#9aa0b8', fontSize:13 }}>
       캔들 데이터 없음
     </div>
   )
@@ -352,7 +352,7 @@ export default function FullCandleChart({
 
         {/* ── X축 라인 ── */}
         <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB}
-          stroke="#252840" strokeWidth={1}/>
+          stroke="#4a5070" strokeWidth={1}/>
 
         {/* ── X축 라벨 (하단) ── */}
         {xIdxs.map(idx => (
@@ -384,11 +384,11 @@ export default function FullCandleChart({
                 fill="#141728"
                 stroke={isUp ? '#ef4444' : '#3b82f6'}
                 strokeWidth={0.8} rx={9} opacity={0.97}/>
-              <text x={tipX + 8} y={tipY + 13} fill="#6b7280" fontSize={8.5}>{fmtDate(c.date)}</text>
+              <text x={tipX + 8} y={tipY + 13} fill="#8a9aaa" fontSize={8.5}>{fmtDate(c.date)}</text>
               {([['시가',c.open],['고가',c.high],['저가',c.low],['종가',c.close]] as [string,number][])
                 .map(([lbl,val], i) => (
                   <text key={i} x={tipX + 8} y={tipY + 27 + i * 14}
-                    fill={lbl === '종가' ? (isUp ? '#f87171' : '#60a5fa') : '#9ca3af'}
+                    fill={lbl === '종가' ? (isUp ? '#f87171' : '#60a5fa') : '#a8b5c2'}
                     fontSize={10} fontWeight={lbl === '종가' ? 700 : 400}>
                     {lbl}: {fmtY(val)}
                   </text>

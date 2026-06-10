@@ -115,6 +115,63 @@ async function fetchDividendFromYahoo(
   return Promise.race([fetch(), timeout])
 }
 
+// ── Yahoo Finance DCF 데이터 헬퍼 (워렌 버핏 자동 분석용) ────────────────────
+// financialData: freeCashflow, totalDebt, totalCash, returnOnEquity, grossMargins
+// defaultKeyStatistics: sharesOutstanding
+// KR 주식: .KS(코스피) 우선, 실패 시 .KQ(코스닥) 재시도
+interface DcfData {
+  freeCashflow:      number | null
+  sharesOutstanding: number | null
+  totalDebt:         number | null
+  totalCash:         number | null
+  returnOnEquity:    number | null
+  grossMargins:      number | null
+  operatingMargins:  number | null
+}
+const DCF_EMPTY: DcfData = {
+  freeCashflow: null, sharesOutstanding: null, totalDebt: null,
+  totalCash: null, returnOnEquity: null, grossMargins: null, operatingMargins: null,
+}
+
+async function fetchDcfFromYahoo(ticker: string, market: Market): Promise<DcfData> {
+  const queryOne = async (yfTicker: string): Promise<DcfData> => {
+    try {
+      const { default: YahooFinance } = await import('yahoo-finance2')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const yf = new (YahooFinance as any)({ suppressNotices: ['yahooSurvey'] })
+      const s = await yf.quoteSummary(yfTicker, { modules: ['financialData', 'defaultKeyStatistics'] })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const fd: any = s?.financialData ?? {}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const ks: any = s?.defaultKeyStatistics ?? {}
+      const pick = (v: unknown) => typeof v === 'number' && isFinite(v) ? v : null
+      return {
+        freeCashflow:      pick(fd.freeCashflow),
+        sharesOutstanding: pick(ks.sharesOutstanding),
+        totalDebt:         pick(fd.totalDebt),
+        totalCash:         pick(fd.totalCash),
+        returnOnEquity:    pick(fd.returnOnEquity),
+        grossMargins:      pick(fd.grossMargins),
+        operatingMargins:  pick(fd.operatingMargins),
+      }
+    } catch {
+      return DCF_EMPTY
+    }
+  }
+
+  // 5초 타임아웃
+  const timeout = new Promise<DcfData>(res => setTimeout(() => res(DCF_EMPTY), 5000))
+
+  if (market === 'KR') {
+    // .KS 먼저 시도
+    const ks = await Promise.race([queryOne(`${ticker}.KS`), timeout])
+    if (ks.sharesOutstanding != null || ks.freeCashflow != null) return ks
+    // 실패 시 .KQ(코스닥) 재시도
+    return Promise.race([queryOne(`${ticker}.KQ`), timeout])
+  }
+  return Promise.race([queryOne(ticker), timeout])
+}
+
 // ── 공통 유틸 ────────────────────────────────────────────────────────────────
 const parseNum = (v: unknown): number | null => {
   if (typeof v === 'number') return isFinite(v) ? v : null
@@ -725,6 +782,9 @@ async function krInfo(ticker: string): Promise<StockInfo> {
     }
   }
 
+  // ── DCF 자동 분석 데이터 (개별 주식만 — ETF는 불필요) ──
+  const dcf = isEtf ? DCF_EMPTY : await fetchDcfFromYahoo(code, 'KR')
+
   return {
     ticker: code, name: d.stockName as string,
     market: 'KR', currency: 'KRW',
@@ -733,6 +793,14 @@ async function krInfo(ticker: string): Promise<StockInfo> {
       pe: per, peg, marketCap: mc, volume: null,
       high52w, low52w, sector, earningsGrowth, dividendYield, isEtf,
       eps, pbr, forwardEps, payoutRatio, annualDividend,
+      // DCF 실데이터
+      freeCashflow:      dcf.freeCashflow,
+      sharesOutstanding: dcf.sharesOutstanding,
+      totalDebt:         dcf.totalDebt,
+      totalCash:         dcf.totalCash,
+      returnOnEquity:    dcf.returnOnEquity,
+      grossMargins:      dcf.grossMargins,
+      operatingMargins:  dcf.operatingMargins,
     },
     source: 'live',
   }
@@ -856,6 +924,9 @@ async function usInfo(ticker: string): Promise<StockInfo> {
     ])
     if (fwdEpsResult !== null) forwardEpsUs = fwdEpsResult
 
+    // ── DCF 자동 분석 데이터 (개별 주식만) ──
+    const usDcf = isEtf ? DCF_EMPTY : await fetchDcfFromYahoo(t, 'US')
+
     return {
       ticker: t, name, market: 'US', currency: 'USD',
       fundamentals: {
@@ -874,6 +945,14 @@ async function usInfo(ticker: string): Promise<StockInfo> {
         forwardEps: forwardEpsUs,
         payoutRatio:    usDivData.payoutRatio,
         annualDividend: usDivData.annualDividend,
+        // DCF 실데이터
+        freeCashflow:      usDcf.freeCashflow,
+        sharesOutstanding: usDcf.sharesOutstanding,
+        totalDebt:         usDcf.totalDebt,
+        totalCash:         usDcf.totalCash,
+        returnOnEquity:    usDcf.returnOnEquity,
+        grossMargins:      usDcf.grossMargins,
+        operatingMargins:  usDcf.operatingMargins,
       },
       // ── FMP 배런스시트 → 순현금 자동 계산 ──────────────────
       hasCash: isEtf ? null : await fetchNetCashUS(t),
@@ -914,6 +993,15 @@ async function usInfo(ticker: string): Promise<StockInfo> {
     const isEtfY = qData?.quoteType?.toUpperCase() === 'ETF'
     const payoutRatioY    = sData?.summaryDetail?.payoutRatio?.raw ?? sData?.summaryDetail?.payoutRatio ?? null
     const annualDividendY = sData?.summaryDetail?.dividendRate?.raw ?? sData?.summaryDetail?.dividendRate ?? null
+    // DCF 데이터 — 이미 호출한 financialData/defaultKeyStatistics 재사용
+    const pickN = (v: unknown) => typeof v === 'number' && isFinite(v) ? v : null
+    const dcfFcf    = pickN(sData?.financialData?.freeCashflow)
+    const dcfShares = pickN(sData?.defaultKeyStatistics?.sharesOutstanding)
+    const dcfDebt   = pickN(sData?.financialData?.totalDebt)
+    const dcfCash   = pickN(sData?.financialData?.totalCash)
+    const dcfRoe    = pickN(sData?.financialData?.returnOnEquity)
+    const dcfGm     = pickN(sData?.financialData?.grossMargins)
+    const dcfOm     = pickN(sData?.financialData?.operatingMargins)
 
     // PEG: Yahoo 직접값 → 재계산 순서
     let finalPeg: number | 'N/A' = 'N/A'
@@ -941,6 +1029,14 @@ async function usInfo(ticker: string): Promise<StockInfo> {
         forwardEps: typeof fwdEps === 'number' ? fwdEps : null,
         payoutRatio:    typeof payoutRatioY === 'number'    && isFinite(payoutRatioY)    ? payoutRatioY    : null,
         annualDividend: typeof annualDividendY === 'number' && isFinite(annualDividendY) ? annualDividendY : null,
+        // DCF 실데이터 (financialData/defaultKeyStatistics 재사용)
+        freeCashflow:      dcfFcf,
+        sharesOutstanding: dcfShares,
+        totalDebt:         dcfDebt,
+        totalCash:         dcfCash,
+        returnOnEquity:    dcfRoe,
+        grossMargins:      dcfGm,
+        operatingMargins:  dcfOm,
       },
       hasCash: isEtfY ? null : await fetchNetCashUS(t),
       source: 'live',

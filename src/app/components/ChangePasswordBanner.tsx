@@ -86,7 +86,7 @@ export default function ChangePasswordBanner() {
           ) : (
             <form onSubmit={handleChange} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
               <div style={{ flex: 1, minWidth: 160 }}>
-                <div style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>새 비밀번호</div>
+                <div style={{ fontSize: 10, color: '#7f93a8', marginBottom: 4 }}>새 비밀번호</div>
                 <input
                   type="password"
                   value={newPw}
@@ -102,7 +102,7 @@ export default function ChangePasswordBanner() {
                 />
               </div>
               <div style={{ flex: 1, minWidth: 160 }}>
-                <div style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>비밀번호 확인</div>
+                <div style={{ fontSize: 10, color: '#7f93a8', marginBottom: 4 }}>비밀번호 확인</div>
                 <input
                   type="password"
                   value={confirm}
@@ -147,7 +147,7 @@ export default function ChangePasswordBanner() {
           onClick={() => setShow(false)}
           title="나중에 변경"
           style={{
-            background: 'none', border: 'none', color: '#475569',
+            background: 'none', border: 'none', color: '#8599ae',
             fontSize: 18, cursor: 'pointer', flexShrink: 0, paddingTop: 2,
           }}
         >×</button>

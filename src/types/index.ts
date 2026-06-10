@@ -7,7 +7,7 @@ export type PeterLynchCategory =
   | 'asset_play'
 
 export const PETER_LYNCH_LABELS: Record<PeterLynchCategory, string> = {
-  slow_grower: '완만한 성장주',
+  slow_grower: '저성장주',
   stalwart: '대형 우량주',
   fast_grower: '빠른 성장주',
   cyclical: '경기 순환주',
@@ -16,7 +16,7 @@ export const PETER_LYNCH_LABELS: Record<PeterLynchCategory, string> = {
 }
 
 export const PETER_LYNCH_COLORS: Record<PeterLynchCategory, string> = {
-  slow_grower: '#6B7280',
+  slow_grower: '#8a9aaa',
   stalwart: '#3B82F6',
   fast_grower: '#10B981',
   cyclical: '#F59E0B',

@@ -150,7 +150,7 @@ export default function IdleTimer() {
           <h3 style={{ fontSize: 17, fontWeight: 700, color: '#f1f5f9', margin: '0 0 8px', letterSpacing: '-0.3px' }}>
             자동 로그아웃 예정
           </h3>
-          <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 24px', lineHeight: 1.6 }}>
+          <p style={{ fontSize: 13, color: '#7f93a8', margin: '0 0 24px', lineHeight: 1.6 }}>
             30분 동안 활동이 없어 곧 자동 로그아웃됩니다.<br/>
             계속 사용하시려면 아래 버튼을 눌러주세요.
           </p>
@@ -184,11 +184,11 @@ export default function IdleTimer() {
               style={{
                 flex: 1, padding: '11px', borderRadius: 10,
                 border: '1px solid #2a2a2a', background: 'transparent',
-                color: '#64748b', fontSize: 14, cursor: 'pointer',
+                color: '#7f93a8', fontSize: 14, cursor: 'pointer',
                 transition: 'background 0.15s, color 0.15s',
               }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#1e1e1e'; (e.currentTarget as HTMLButtonElement).style.color = '#f1f5f9' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = '#64748b' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = '#7f93a8' }}
             >
               지금 로그아웃
             </button>

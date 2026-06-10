@@ -96,7 +96,7 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
           {title && (
             <>
               <span style={{ color: '#2a2a2a', fontSize: 16 }}>/</span>
-              <span style={{ fontSize: 13, color: '#64748b', fontWeight: 500 }}>{title}</span>
+              <span style={{ fontSize: 13, color: '#7f93a8', fontWeight: 500 }}>{title}</span>
             </>
           )}
 
@@ -146,7 +146,7 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
               href="/dashboard"
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
-                background: '#374151',
+                background: '#7a8fa3',
                 color: '#ffffff',
                 padding: '6px 14px',
                 borderRadius: 8,
@@ -166,7 +166,7 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
           {/* 이메일 (md 이상에서만 표시) */}
           {email && (
             <span style={{
-              fontSize: 12, color: '#475569',
+              fontSize: 12, color: '#8599ae',
               maxWidth: 200, overflow: 'hidden',
               textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               display: 'none',
@@ -215,7 +215,7 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
               </div>
 
               {/* Email short */}
-              <span style={{ fontSize: 12, color: '#64748b', maxWidth: 140,
+              <span style={{ fontSize: 12, color: '#7f93a8', maxWidth: 140,
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                 className="header-email"
               >
@@ -224,7 +224,7 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
 
               {/* Chevron */}
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-                stroke="#475569" strokeWidth="2.5" strokeLinecap="round"
+                stroke="#8599ae" strokeWidth="2.5" strokeLinecap="round"
                 style={{ transition: 'transform 0.15s', transform: menuOpen ? 'rotate(180deg)' : 'none' }}>
                 <path d="m6 9 6 6 6-6"/>
               </svg>
@@ -265,7 +265,7 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
                           {email?.split('@')[0]}
                         </div>
                         <div style={{
-                          fontSize: 11, color: '#475569',
+                          fontSize: 11, color: '#8599ae',
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                           maxWidth: 150,
                         }}>
@@ -397,10 +397,10 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
             <h3 style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9', margin: '0 0 8px', letterSpacing: '-0.3px' }}>
               로그아웃 하시겠습니까?
             </h3>
-            <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 6px', lineHeight: 1.6 }}>
+            <p style={{ fontSize: 13, color: '#7f93a8', margin: '0 0 6px', lineHeight: 1.6 }}>
               {email}
             </p>
-            <p style={{ fontSize: 12, color: '#334155', margin: '0 0 26px' }}>
+            <p style={{ fontSize: 12, color: '#7a8fa3', margin: '0 0 26px' }}>
               모든 기기에서 세션이 종료됩니다.
             </p>
 

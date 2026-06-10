@@ -8,6 +8,9 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
+import BuffettAnalysisPanel from '@/app/components/BuffettAnalysisPanel'
+// SSOT: 자산 유형 분류 (STOCK / ETF / CRYPTO / COMMODITY)
+import { getAssetType } from '@/lib/assetClassifier'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Market   = 'US' | 'KR' | 'CRYPTO'
@@ -28,18 +31,26 @@ interface Fundamentals {
   earningsGrowth: number | null
   sector:         string | null
   isEtf:          boolean
+  // DCF 자동 분석용 (워렌 버핏 패널)
+  marketCap?:         number | null
+  freeCashflow?:      number | null
+  sharesOutstanding?: number | null
+  totalDebt?:         number | null
+  totalCash?:         number | null
+  returnOnEquity?:    number | null
+  grossMargins?:      number | null
 }
 
 const USD_KRW = 1_350
 
 const LYNCH_META: Record<string,{ label:string; color:string; moat:string; buffett:number }> = {
-  slow_grower: { label:'완만한 성장주', color:'#9ca3af', moat:'배당형 해자',   buffett:65 },
+  slow_grower: { label:'저성장주', color:'#a8b5c2', moat:'배당형 해자',   buffett:65 },
   stalwart:    { label:'대형 우량주',   color:'#60a5fa', moat:'브랜드 해자',   buffett:82 },
   fast_grower: { label:'빠른 성장주',   color:'#34d399', moat:'성장 해자',     buffett:70 },
   cyclical:    { label:'경기 순환주',   color:'#fb923c', moat:'해자 약함',     buffett:40 },
   turnaround:  { label:'회생 기업주',   color:'#f87171', moat:'회복 중',       buffett:35 },
   asset_play:  { label:'자산 보유주',   color:'#c084fc', moat:'자산 해자',     buffett:75 },
-  na:          { label:'N/A',           color:'#4b5563', moat:'해당 없음',     buffett:0  },
+  na:          { label:'N/A',           color:'#8a96a8', moat:'해당 없음',     buffett:0  },
 }
 
 const fmtKrw = (n: number) =>
@@ -61,9 +72,9 @@ function Tab({ active, onClick, color, icon, label, sub }: {
     }}>
       <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
         <div style={{ width:34, height:34, borderRadius:9, background:`${color}22`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>{icon}</div>
-        <span style={{ fontSize:15, fontWeight:700, color: active ? color : '#9ca3af' }}>{label}</span>
+        <span style={{ fontSize:15, fontWeight:700, color: active ? color : '#a8b5c2' }}>{label}</span>
       </div>
-      <p style={{ fontSize:12, color:'#4b5563', margin:0, lineHeight:1.5 }}>{sub}</p>
+      <p style={{ fontSize:12, color:'#8a96a8', margin:0, lineHeight:1.5 }}>{sub}</p>
     </button>
   )
 }
@@ -118,6 +129,14 @@ function AnalysisContent() {
                 earningsGrowth: d.fundamentals?.earningsGrowth ?? null,
                 sector:         d.fundamentals?.sector ?? null,
                 isEtf:          d.fundamentals?.isEtf ?? false,
+                // DCF 자동 분석 데이터
+                marketCap:         d.fundamentals?.marketCap ?? null,
+                freeCashflow:      d.fundamentals?.freeCashflow ?? null,
+                sharesOutstanding: d.fundamentals?.sharesOutstanding ?? null,
+                totalDebt:         d.fundamentals?.totalDebt ?? null,
+                totalCash:         d.fundamentals?.totalCash ?? null,
+                returnOnEquity:    d.fundamentals?.returnOnEquity ?? null,
+                grossMargins:      d.fundamentals?.grossMargins ?? null,
               }
             } catch { /* 실패 무시 */ }
           })
@@ -194,13 +213,13 @@ function AnalysisContent() {
         // 피터린치식 판단
         const lynchJudge = (() => {
           // ETF는 인덱스 펀드로, 일반 주식 'na'는 분류 미지정으로 별도 처리
-          if (isEtf(inv)) return { label:'인덱스 펀드', color:'#6b7280', icon:'📊' }
-          if (cat === 'na') return { label:'분류 미지정', color:'#4b5563', icon:'❓' }
+          if (isEtf(inv)) return { label:'인덱스 펀드', color:'#8a9aaa', icon:'📊' }
+          if (cat === 'na') return { label:'분류 미지정', color:'#8a96a8', icon:'❓' }
           if (cat === 'cyclical')   return { label:'경기 사이클 주의', color:'#fb923c', icon:'🔄' }
           if (cat === 'turnaround') return { label:'회생 여부 모니터링', color:'#f87171', icon:'⚠️' }
           if (pegVal === null) {
             if (cat === 'fast_grower') return { label:'성장률 확인 필요', color:'#f59e0b', icon:'🔍' }
-            return { label:'재무 데이터 확인 필요', color:'#4b5563', icon:'❓' }
+            return { label:'재무 데이터 확인 필요', color:'#8a96a8', icon:'❓' }
           }
           if (pegVal <= 0.5) return { label:'강력 매수 구간', color:'#10b981', icon:'🚀' }
           if (pegVal <= 1)   return { label:'성장 대비 저평가', color:'#34d399', icon:'✅' }
@@ -228,9 +247,13 @@ function AnalysisContent() {
   }
 
   // ── 워렌버핏 레이더 데이터 ──────────────────────────────────────
+  // ★ 버핏 가치분석은 개별 주식만 평가 — ETF·코인·원자재는 전체 스코어에서 제외
   const buffettRadar = useMemo(()=>{
     if (!investments.length) return []
-    const pricedInvs = investments.filter(i=>live(i))
+    // 개별 주식만 필터링 (SSOT)
+    const stockInvs = investments.filter(i => getAssetType(i.ticker, i.name, i.market) === 'STOCK')
+    if (!stockInvs.length) return []
+    const pricedInvs = stockInvs.filter(i=>live(i))
 
     // 수익성: 평균 수익률 → 0~100 스케일
     const avgRet = pricedInvs.length
@@ -242,20 +265,20 @@ function AnalysisContent() {
     const stabilityScore = pricedInvs.length ? (1-losers/pricedInvs.length)*100 : 50
 
     // 해자 강도: 버핏 선호 분류 비중 (stalwart, asset_play 높은 점수)
-    const moatScore = investments.length
-      ? investments.reduce((s,i)=>s+(LYNCH_META[i.lynch_category??'na']?.buffett??0),0)/investments.length : 50
+    const moatScore = stockInvs.length
+      ? stockInvs.reduce((s,i)=>s+(LYNCH_META[i.lynch_category??'na']?.buffett??0),0)/stockInvs.length : 50
 
-    // 분산 투자: 시장·분류 다양성
-    const markets = new Set(investments.map(i=>i.market)).size
-    const categories = new Set(investments.map(i=>i.lynch_category)).size
+    // 분산 투자: 시장·분류 다양성 (개별 주식 기준)
+    const markets = new Set(stockInvs.map(i=>i.market)).size
+    const categories = new Set(stockInvs.map(i=>i.lynch_category)).size
     const divScore = Math.min(100, (markets*20 + categories*12))
 
     // 지속성 — 3가지 지표를 합산해 신규 투자자도 의미있는 점수를 받도록 개선
     //  ① 보유 기간 (최대 50점): 30일=10점, 90일=20점, 180일=35점, 1년=50점
-    const avgDays = investments.reduce((s,i)=>{
+    const avgDays = stockInvs.reduce((s,i)=>{
       const d = Math.floor((Date.now()-new Date(i.purchase_date).getTime())/86400000)
       return s+d
-    },0)/Math.max(investments.length,1)
+    },0)/Math.max(stockInvs.length,1)
     const holdPart = Math.min(50, avgDays / 7.3)
 
     //  ② 수익 종목 비율 (최대 30점): 이익 나는 종목이 많을수록 ↑
@@ -265,7 +288,7 @@ function AnalysisContent() {
     const profitablePart = profitableRatio * 30
 
     //  ③ 포트폴리오 구성 완성도 (최대 20점): 종목 수, 시장 다양성
-    const completePart = Math.min(20, investments.length * 3 + markets * 2)
+    const completePart = Math.min(20, stockInvs.length * 3 + markets * 2)
 
     const holdScore = holdPart + profitablePart + completePart
 
@@ -305,20 +328,30 @@ function AnalysisContent() {
   }
 
   // 종목별 버핏 점수
+  // ★ SSOT getAssetType으로 4-way 분류 — PSLV(은) 등 원자재가 'stock'으로 새는 버그 수정
   const stockBuffettScores = useMemo(()=>{
     return investments.map(inv=>{
       const ret  = getRet(inv) ?? 0
       const cat  = inv.lynch_category ?? 'na'
+      // SSOT 기준 자산 유형 (자체 isEtf보다 우선)
+      const at   = getAssetType(inv.ticker, inv.name, inv.market)
 
       // ① 암호화폐 → 분석 불가
-      if (inv.market === 'CRYPTO') return {
+      if (at === 'CRYPTO') return {
         ...inv, score:0, ret, cat,
         assetType: 'crypto' as const,
         safeMargin: null, moat:'분석 불가',
       }
 
-      // ② ETF → 인덱스 펀드 전용 스코어
-      if (isEtf(inv)) {
+      // ② 원자재 → 분석 불가 (FCF·이익률 부재)
+      if (at === 'COMMODITY') return {
+        ...inv, score:0, ret, cat,
+        assetType: 'commodity' as const,
+        safeMargin: null, moat:'분석 불가',
+      }
+
+      // ③ ETF → 인덱스 펀드 전용 스코어 (SSOT ETF 또는 자체 isEtf 폴백)
+      if (at === 'ETF' || isEtf(inv)) {
         const { score:baseEtf, type, note } = etfScore(inv)
         const retAdj = Math.min(10, Math.max(-10, ret*0.15))
         return {
@@ -328,7 +361,7 @@ function AnalysisContent() {
         }
       }
 
-      // ③ 일반 주식 → 린치 카테고리 + 수익률 기반
+      // ④ 일반 주식 → 린치 카테고리 + 수익률 기반
       const base   = LYNCH_META[cat]?.buffett ?? 50
       const retAdj = Math.min(20, Math.max(-20, ret*0.2))
       return {
@@ -338,13 +371,20 @@ function AnalysisContent() {
         moat: LYNCH_META[cat]?.moat,
       }
     }).sort((a,b) => {
-      // 크립토 맨 뒤, 나머지는 점수 내림차순
-      if (a.assetType==='crypto' && b.assetType!=='crypto') return 1
-      if (a.assetType!=='crypto' && b.assetType==='crypto') return -1
+      // 비주식(crypto·commodity·etf)은 뒤로, 개별 주식은 점수 내림차순
+      const aStock = a.assetType === 'stock'
+      const bStock = b.assetType === 'stock'
+      if (aStock && !bStock) return -1
+      if (!aStock && bStock) return 1
       return b.score - a.score
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[investments, priceMap])
+  },[investments, priceMap, fundMap])
+
+  // ── 버핏 탭 전용: 개별 주식만 필터링 ──────────────────────────────────────
+  // 격리 원칙: 이 변수는 버핏 탭 UI에서만 사용 → 피터린치 탭 데이터 오염 없음
+  // stockBuffettScores 원본은 건드리지 않고, 새 변수로 완전 격리
+  const buffettStocksOnly = stockBuffettScores.filter(inv => inv.assetType === 'stock')
 
   // 추천 리밸런싱
   const RECOMMENDED: Record<string,number> = { fast_grower:30, stalwart:30, cyclical:15, slow_grower:10, turnaround:10, asset_play:5 }
@@ -355,12 +395,12 @@ function AnalysisContent() {
 
   if (loading) return (
     <div style={{ display:'flex', justifyContent:'center', paddingTop:60 }}>
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" style={{ animation:'spin 0.8s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7a8fa3" strokeWidth="2.5" strokeLinecap="round" style={{ animation:'spin 0.8s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   )
 
-  const C = { bg:'#1b1e2e', border:'#252840', card:'#1b1e2e', text:'#dde4f0', sub:'#6b7280', muted:'#363855' }
+  const C = { bg:'#1b1e2e', border:'#4a5070', card:'#1b1e2e', text:'#dde4f0', sub:'#8a9aaa', muted:'#7a8599' }
   const SHO = '7px 7px 18px #0e1020, -4px -4px 12px #282c44'
   const SHI = 'inset 4px 4px 10px #0e1020, inset -3px -3px 8px #282c44'
   const th = { padding:'9px 14px', textAlign:'left' as const, fontSize:10, fontWeight:600, color:C.sub, textTransform:'uppercase' as const, letterSpacing:'0.07em', whiteSpace:'nowrap' as const }
@@ -373,7 +413,7 @@ function AnalysisContent() {
       {/* ── 헤더 ── */}
       <div style={{ background:'#1b1e2e', borderRadius:16, padding:'24px 28px', border:'none', boxShadow:'10px 10px 28px #0b0d1a, -6px -6px 18px #2b2f46' }}>
         <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:8 }}>
-          <div style={{ width:44, height:44, borderRadius:12, background:'linear-gradient(135deg,#f59e0b22,#10b98122)', border:'1px solid #374151', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>📈</div>
+          <div style={{ width:44, height:44, borderRadius:12, background:'linear-gradient(135deg,#f59e0b22,#10b98122)', border:'1px solid #7a8fa3', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>📈</div>
           <div>
             <h1 style={{ fontSize:20, fontWeight:800, color:C.text, margin:0, letterSpacing:'-0.5px' }}>투자 전략 분석</h1>
             <p style={{ fontSize:13, color:C.sub, margin:0, marginTop:3 }}>전설적인 투자자들의 철학으로 포트폴리오를 진단합니다.</p>
@@ -437,7 +477,7 @@ function AnalysisContent() {
                       <td style={{ ...td, color:'#cbd5e1', fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap' }}>{fmtKrw(g.invested)}</td>
                       <td style={{ ...td, color:g.color, fontWeight:700, textAlign:'right', whiteSpace:'nowrap' }}>{g.pct}%</td>
                       <td style={{ ...td }}>
-                        <div style={{ height:5, background:'#13162a', boxShadow: SHI, borderRadius:99, overflow:'hidden', minWidth:48 }}>
+                        <div style={{ height:5, background:'#0a0e1a', boxShadow: SHI, borderRadius:99, overflow:'hidden', minWidth:48 }}>
                           <div style={{ height:'100%', width:`${Math.min(parseFloat(g.pct),100)}%`, background:g.color, borderRadius:99 }}/>
                         </div>
                       </td>
@@ -513,7 +553,7 @@ function AnalysisContent() {
                         <td style={td}><span style={{ display:'inline-flex',alignItems:'center',gap:5,padding:'2px 8px',borderRadius:99,fontSize:11,fontWeight:600,color:r.color,background:`${r.color}18`,border:`1px solid ${r.color}35` }}>{r.label}</span></td>
                         <td style={{ ...td }}>
                           <div style={{ display:'flex',alignItems:'center',gap:8 }}>
-                            <div style={{ width:48,height:4,background:'#13162a', boxShadow: SHI,borderRadius:99,overflow:'hidden' }}>
+                            <div style={{ width:48,height:4,background:'#0a0e1a', boxShadow: SHI,borderRadius:99,overflow:'hidden' }}>
                               <div style={{ height:'100%',width:`${Math.min(r.current,100)}%`,background:r.color,borderRadius:99 }}/>
                             </div>
                             <span style={{ fontSize:12, color:C.text, fontVariantNumeric:'tabular-nums' }}>{r.current.toFixed(1)}%</span>
@@ -561,12 +601,12 @@ function AnalysisContent() {
                   { label:'저평가', sub:'PEG ≤ 1', count:pegCounts.undervalued, color:'#10b981', emoji:'🟢' },
                   { label:'적정',   sub:'1 < PEG ≤ 2', count:pegCounts.fair,   color:'#60a5fa', emoji:'🔵' },
                   { label:'고평가', sub:'PEG > 2', count:pegCounts.overvalued, color:'#f87171', emoji:'🔴' },
-                  { label:'미확인', sub:'데이터 없음', count:pegCounts.unknown, color:'#4b5563', emoji:'⬜' },
+                  { label:'미확인', sub:'데이터 없음', count:pegCounts.unknown, color:'#8a96a8', emoji:'⬜' },
                 ].map(s => (
                   <div key={s.label} style={{ background:'rgba(0,0,0,0.3)', border:`1px solid ${s.color}33`, borderRadius:10, padding:'10px 14px', textAlign:'center' as const }}>
                     <div style={{ fontSize:22, fontWeight:900, color:s.color, lineHeight:1 }}>{s.count}</div>
                     <div style={{ fontSize:11, fontWeight:700, color:s.color, marginTop:2 }}>{s.label}</div>
-                    <div style={{ fontSize:9, color:'#6b7280', marginTop:1 }}>{s.sub}</div>
+                    <div style={{ fontSize:9, color:'#8a9aaa', marginTop:1 }}>{s.sub}</div>
                   </div>
                 ))}
               </div>
@@ -574,7 +614,7 @@ function AnalysisContent() {
 
             {/* PEG 수평 바 차트 */}
             {fundLoading ? (
-              <div style={{ padding:'24px 0', textAlign:'center', color:'#6b7280', fontSize:13 }}>
+              <div style={{ padding:'24px 0', textAlign:'center', color:'#8a9aaa', fontSize:13 }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation:'spin 0.8s linear infinite', verticalAlign:'middle', marginRight:8 }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
                 재무 데이터 조회 중... (PER·PEG·EPS 성장률)
               </div>
@@ -582,7 +622,7 @@ function AnalysisContent() {
               <div style={{ marginBottom:16 }}>
                 <div style={{ fontSize:11, color:'#92400e', marginBottom:10, display:'flex', alignItems:'center', gap:8 }}>
                   <span>📊 PEG 분포</span>
-                  <span style={{ borderLeft:'1px solid #374151', paddingLeft:8 }}>낮을수록 성장 대비 가격 부담이 낮습니다</span>
+                  <span style={{ borderLeft:'1px solid #7a8fa3', paddingLeft:8 }}>낮을수록 성장 대비 가격 부담이 낮습니다</span>
                   {/* 기준선 범례 */}
                   <div style={{ marginLeft:'auto', display:'flex', gap:12 }}>
                     {[['#10b981','≤ 1 저평가'],['#60a5fa','≤ 2 적정'],['#f87171','> 2 고평가']].map(([c,l])=>(
@@ -607,7 +647,7 @@ function AnalysisContent() {
                     {/* PEG=2 라벨 */}
                     <div style={{ position:'absolute', left:`${(2/3)*100}%`, transform:'translateX(-50%)',
                       display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
-                      <span style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,0.35)',
+                      <span style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,0.72)',
                         background:'rgba(239,68,68,0.12)', border:'1px solid rgba(239,68,68,0.25)',
                         padding:'1px 6px', borderRadius:4, whiteSpace:'nowrap' }}>PEG = 2</span>
                       <div style={{ width:1, height:6, background:'rgba(255,255,255,0.2)' }}/>
@@ -625,7 +665,7 @@ function AnalysisContent() {
                     <div key={p.inv.id} style={{ display:'flex', alignItems:'center', gap:12, marginBottom:8 }}>
                       <div style={{ width:120, flexShrink:0 }}>
                         <div style={{ fontSize:12, fontWeight:600, color:'#f1f5f9', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.inv.name}</div>
-                        <div style={{ fontSize:9, color:'#4b5563', fontFamily:'monospace' }}>{p.inv.ticker}</div>
+                        <div style={{ fontSize:9, color:'#8a96a8', fontFamily:'monospace' }}>{p.inv.ticker}</div>
                       </div>
                       <div style={{ flex:1, position:'relative' }}>
                         <div style={{ height:16, background:'rgba(0,0,0,0.3)', borderRadius:99, overflow:'visible', position:'relative' }}>
@@ -664,7 +704,7 @@ function AnalysisContent() {
                 </thead>
                 <tbody>
                   {pegAnalysis.length === 0 ? (
-                    <tr><td colSpan={7} style={{ padding:'24px 0', textAlign:'center', color:'#4b5563', fontSize:13 }}>종목을 추가하면 분석이 시작됩니다.</td></tr>
+                    <tr><td colSpan={7} style={{ padding:'24px 0', textAlign:'center', color:'#8a96a8', fontSize:13 }}>종목을 추가하면 분석이 시작됩니다.</td></tr>
                   ) : pegAnalysis.map((p,i)=>{
                     const hasData = p.pe !== null || p.pegVal !== null
                     const borderTop = i>0 ? '1px solid rgba(245,158,11,0.08)' : 'none'
@@ -672,16 +712,16 @@ function AnalysisContent() {
                       <tr key={p.inv.id} style={{ borderTop, background:i%2===0?'transparent':'rgba(0,0,0,0.15)' }}>
                         <td style={{ padding:'9px 12px' }}>
                           <div style={{ fontWeight:600, color:'#f1f5f9', fontSize:12 }}>{p.inv.name}</div>
-                          <div style={{ fontSize:9, color:'#4b5563', fontFamily:'monospace', marginTop:1 }}>{p.inv.ticker}</div>
+                          <div style={{ fontSize:9, color:'#8a96a8', fontFamily:'monospace', marginTop:1 }}>{p.inv.ticker}</div>
                         </td>
                         <td style={{ padding:'9px 12px', color:'#92400e', fontVariantNumeric:'tabular-nums' }}>{p.weight.toFixed(1)}%</td>
-                        <td style={{ padding:'9px 12px', color: p.pe !== null ? '#fde68a' : '#4b5563', fontVariantNumeric:'tabular-nums', fontWeight: p.pe !== null ? 600 : 400 }}>
+                        <td style={{ padding:'9px 12px', color: p.pe !== null ? '#fde68a' : '#8a96a8', fontVariantNumeric:'tabular-nums', fontWeight: p.pe !== null ? 600 : 400 }}>
                           {p.pe !== null ? p.pe.toFixed(1) : '—'}
                         </td>
                         <td style={{ padding:'9px 12px', fontVariantNumeric:'tabular-nums' }}>
                           {p.epsGrowth !== null
                             ? <span style={{ color: p.epsGrowth>=20?'#10b981':p.epsGrowth>=10?'#60a5fa':p.epsGrowth>=0?'#fde68a':'#f87171', fontWeight:700 }}>{p.epsGrowth>=0?'+':''}{p.epsGrowth.toFixed(1)}%</span>
-                            : <span style={{ color:'#4b5563' }}>—</span>}
+                            : <span style={{ color:'#8a96a8' }}>—</span>}
                         </td>
                         <td style={{ padding:'9px 12px' }}>
                           {p.pegVal !== null ? (
@@ -689,13 +729,13 @@ function AnalysisContent() {
                               {p.pegVal.toFixed(2)}
                             </span>
                           ) : (
-                            <span style={{ color:'#4b5563', fontSize:11 }}>{hasData ? '계산불가' : '—'}</span>
+                            <span style={{ color:'#8a96a8', fontSize:11 }}>{hasData ? '계산불가' : '—'}</span>
                           )}
                         </td>
                         <td style={{ padding:'9px 12px' }}>
                           {p.cat && p.cat !== 'na' && LYNCH_META[p.cat]
                             ? <span style={{ fontSize:10, padding:'2px 7px', borderRadius:99, color:LYNCH_META[p.cat].color, background:`${LYNCH_META[p.cat].color}18`, border:`1px solid ${LYNCH_META[p.cat].color}35` }}>{LYNCH_META[p.cat].label}</span>
-                            : <span style={{ color:'#4b5563', fontSize:10 }}>—</span>}
+                            : <span style={{ color:'#8a96a8', fontSize:10 }}>—</span>}
                         </td>
                         <td style={{ padding:'9px 12px' }}>
                           <span style={{ fontSize:11, fontWeight:600, color:p.lynchJudge.color }}>
@@ -720,11 +760,11 @@ function AnalysisContent() {
                 <div key={range} style={{ padding:'10px 12px', background:'rgba(0,0,0,0.2)', border:`1px solid ${color}22`, borderRadius:8 }}>
                   <div style={{ fontSize:12, fontWeight:800, color, marginBottom:3 }}>{range}</div>
                   <div style={{ fontSize:11, fontWeight:600, color:'#f1f5f9', marginBottom:2 }}>{label}</div>
-                  <div style={{ fontSize:10, color:'#6b7280' }}>{desc}</div>
+                  <div style={{ fontSize:10, color:'#8a9aaa' }}>{desc}</div>
                 </div>
               ))}
             </div>
-            <div style={{ marginTop:10, fontSize:10, color:'#6b7280', textAlign:'center' as const }}>
+            <div style={{ marginTop:10, fontSize:10, color:'#8a9aaa', textAlign:'center' as const }}>
               * PEG = PER ÷ EPS연간성장률(%)  ·  단순 참고용이며 투자 결정의 전부가 아닙니다. 피터린치도 &quot;PEG는 출발점일 뿐&quot;이라고 강조했습니다.
             </div>
           </div>
@@ -741,8 +781,13 @@ function AnalysisContent() {
               <div style={{ fontSize:11, fontWeight:700, color:'#6ee7b7', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:8 }}>WARREN BUFFETT SCORE</div>
               <div style={{ fontSize:13, color:'#a7f3d0', marginBottom:12 }}>포트폴리오의 경제적 해자와 내재 가치를 종합 진단합니다.</div>
               <div style={{ display:'flex', alignItems:'center', gap:16, flexWrap:'wrap' }}>
-                <div style={{ fontSize:11, color:'#6ee7b7' }}>⚖️ <strong style={{ color:'#f1f5f9' }}>{investments.length}개</strong> 종목 분석</div>
+                <div style={{ fontSize:11, color:'#6ee7b7' }}>⚖️ 개별 주식 <strong style={{ color:'#f1f5f9' }}>{buffettStocksOnly.length}개</strong> 분석</div>
                 <div style={{ fontSize:11, color:'#6ee7b7' }}>📊 레이더 5개 항목 평가</div>
+                {stockBuffettScores.length > buffettStocksOnly.length && (
+                  <div style={{ fontSize:10, color:'#34d399', opacity:0.7 }}>
+                    (ETF·코인·원자재 {stockBuffettScores.length - buffettStocksOnly.length}개 제외)
+                  </div>
+                )}
               </div>
             </div>
             <div style={{ textAlign:'center' }}>
@@ -766,7 +811,7 @@ function AnalysisContent() {
                 <ResponsiveContainer width="100%" height={220}>
                   <RadarChart data={buffettRadar}>
                     <PolarGrid stroke="#1f2937" />
-                    <PolarAngleAxis dataKey="subject" tick={{ fill:'#6b7280', fontSize:11 }} />
+                    <PolarAngleAxis dataKey="subject" tick={{ fill:'#8a9aaa', fontSize:11 }} />
                     <Radar name="점수" dataKey="score" stroke="#10b981" fill="#10b981" fillOpacity={0.25} strokeWidth={2}/>
                   </RadarChart>
                 </ResponsiveContainer>
@@ -776,7 +821,7 @@ function AnalysisContent() {
                 {buffettRadar.map(d=>(
                   <div key={d.subject} style={{ display:'flex', alignItems:'center', gap:8 }}>
                     <span style={{ fontSize:10, color:C.sub, width:90, flexShrink:0 }}>{d.subject}</span>
-                    <div style={{ flex:1, height:4, background:'#13162a', boxShadow: SHI, borderRadius:99, overflow:'hidden' }}>
+                    <div style={{ flex:1, height:4, background:'#0a0e1a', boxShadow: SHI, borderRadius:99, overflow:'hidden' }}>
                       <div style={{ height:'100%', width:`${d.score}%`, background:d.score>=70?'#10b981':d.score>=50?'#f59e0b':'#f87171', borderRadius:99, transition:'width 1s ease' }}/>
                     </div>
                     <span style={{ fontSize:10, fontWeight:700, color:d.score>=70?'#10b981':d.score>=50?'#f59e0b':'#f87171', width:28, textAlign:'right', flexShrink:0 }}>{d.score}</span>
@@ -821,67 +866,50 @@ function AnalysisContent() {
             </div>
           </div>
 
-          {/* 종목별 버핏 점수 */}
+          {/* 종목별 버핏 점수 — 개별 주식 전용 */}
           <div style={{ background:'#1b1e2e', boxShadow: SHO, border:'none', borderRadius:12, overflow:'hidden' }}>
-            <div style={{ padding:'14px 18px', borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center', gap:8 }}>
-              <span style={{ fontSize:15 }}>📋</span>
-              <div>
-                <div style={{ fontSize:13, fontWeight:700, color:'#10b981' }}>종목별 가치투자 적합도</div>
-                <div style={{ fontSize:11, color:C.sub }}>경제적 해자 · 안전마진 · 버핏 스코어 분석</div>
+            <div style={{ padding:'14px 18px', borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ fontSize:15 }}>📋</span>
+                <div>
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <span style={{ fontSize:13, fontWeight:700, color:'#10b981' }}>종목별 가치투자 적합도</span>
+                    {/* 개별 주식 전용 배지 */}
+                    <span style={{ fontSize:9, padding:'2px 7px', borderRadius:20, fontWeight:800,
+                      background:'rgba(16,185,129,0.12)', color:'#10b981', border:'1px solid rgba(16,185,129,0.3)' }}>
+                      개별 주식 전용
+                    </span>
+                  </div>
+                  <div style={{ fontSize:11, color:C.sub }}>경제적 해자 · 안전마진 · 버핏 스코어 분석</div>
+                </div>
               </div>
+              {/* 제외 자산 안내 */}
+              {stockBuffettScores.length > buffettStocksOnly.length && (
+                <div style={{ fontSize:10, color:'#7a8fa3', padding:'4px 10px', borderRadius:6,
+                  background:'rgba(55,65,81,0.3)', border:'1px solid #7a8fa3' }}>
+                  ETF·코인·원자재 {stockBuffettScores.length - buffettStocksOnly.length}개 제외
+                </div>
+              )}
             </div>
-            {stockBuffettScores.length === 0 ? (
-              <div style={{ padding:'32px 0', textAlign:'center', color:C.muted, fontSize:13 }}>종목이 없습니다.</div>
+
+            {/* Empty State — 주식이 0개일 때 */}
+            {buffettStocksOnly.length === 0 ? (
+              <div style={{ padding:'40px 24px', textAlign:'center', display:'flex', flexDirection:'column', alignItems:'center', gap:12 }}>
+                <div style={{ fontSize:32 }}>🏰</div>
+                <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9' }}>
+                  가치투자 분석이 가능한 개별 주식 종목이 없습니다.
+                </div>
+                <div style={{ fontSize:12, color:C.sub, lineHeight:1.7, maxWidth:380 }}>
+                  자산관리 탭에서 개별 주식을 추가하면 버핏 스코어 분석이 시작됩니다.<br/>
+                  <span style={{ fontSize:10, color:'#7a8fa3' }}>
+                    ※ ETF·암호화폐·원자재는 현금흐름이 없어 DCF 분석 대상에서 제외됩니다.
+                  </span>
+                </div>
+              </div>
             ) : (
               <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))', gap:12, padding:16 }}>
-                {stockBuffettScores.map(inv=>{
-                  // ── 암호화폐: N/A 카드 ──
-                  if (inv.assetType === 'crypto') return (
-                    <div key={inv.id} style={{ background:'#1b1e2e', boxShadow: SHO, border:'none', borderRadius:10, padding:'14px 16px', opacity:0.6 }}>
-                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
-                        <div>
-                          <div style={{ fontSize:13, fontWeight:700, color:'#f1f5f9' }}>{inv.name}</div>
-                          <div style={{ fontSize:10, color:'#4b5563', fontFamily:'monospace', marginTop:2 }}>{inv.ticker}</div>
-                        </div>
-                        <div style={{ padding:'4px 10px', borderRadius:7, background:'rgba(75,85,99,0.2)', border:'1px solid #374151', fontSize:11, fontWeight:700, color:'#6b7280' }}>N/A</div>
-                      </div>
-                      <div style={{ fontSize:11, color:'#4b5563', lineHeight:1.5 }}>
-                        🪙 암호화폐는 버핏의 가치투자 분석 대상이 아닙니다.<br/>
-                        <span style={{ color:'#374151', fontSize:10 }}>&quot;비트코인에는 내재 가치가 없다.&quot; — 워렌 버핏</span>
-                      </div>
-                    </div>
-                  )
-
-                  // ── ETF: 인덱스 펀드 전용 카드 ──
-                  if (inv.assetType === 'etf') {
-                    const eColor = inv.score>=75?'#10b981':inv.score>=60?'#60a5fa':'#fb923c'
-                    return (
-                      <div key={inv.id} style={{ background:'#1b1e2e', boxShadow: SHO, border:'none', borderRadius:10, padding:'14px 16px' }}>
-                        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:10 }}>
-                          <div>
-                            <div style={{ fontSize:13, fontWeight:700, color:'#f1f5f9' }}>{inv.name}</div>
-                            <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:4 }}>
-                              <span style={{ fontSize:9, padding:'1px 5px', borderRadius:4, background:'rgba(16,185,129,0.15)', color:'#10b981', fontWeight:700 }}>INDEX FUND</span>
-                            </div>
-                          </div>
-                          <div style={{ textAlign:'center' }}>
-                            <div style={{ fontSize:24, fontWeight:900, color:eColor, lineHeight:1 }}>{inv.score}</div>
-                            <div style={{ fontSize:9, color:'#4b5563' }}>/ 100</div>
-                          </div>
-                        </div>
-                        <div style={{ height:4, background:'#13162a', boxShadow:SHI, borderRadius:99, overflow:'hidden', marginBottom:10 }}>
-                          <div style={{ height:'100%', width:`${inv.score}%`, background:eColor, borderRadius:99 }}/>
-                        </div>
-                        <div style={{ fontSize:11, color:'#6b7280', marginBottom:6 }}>📊 {inv.moat}</div>
-                        {'etfNote' in inv && <div style={{ fontSize:10, color:'#10b981', fontStyle:'italic' }}>💬 {(inv as { etfNote?: string }).etfNote}</div>}
-                        <div style={{ marginTop:8, padding:'5px 10px', borderRadius:7, background:'rgba(16,185,129,0.12)', border:'1px solid rgba(16,185,129,0.25)', textAlign:'center', fontSize:11, fontWeight:700, color:'#10b981' }}>
-                          버핏 추천 장기 보유
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  // ── 일반 주식 카드 ──
+                {/* 개별 주식 카드만 렌더링 (buffettStocksOnly = assetType === 'stock'만 포함) */}
+                {buffettStocksOnly.map(inv=>{
                   const color = inv.score>=75?'#10b981':inv.score>=55?'#60a5fa':inv.score>=40?'#fb923c':'#f87171'
                   const recommend = inv.score>=75?'매수 적합':inv.score>=55?'보유 유지':inv.score>=40?'모니터링':'리밸런싱'
                   return (
@@ -896,8 +924,7 @@ function AnalysisContent() {
                           <div style={{ fontSize:9, color:C.sub }}>/ 100</div>
                         </div>
                       </div>
-                      {/* 점수 바 */}
-                      <div style={{ height:5, background:'#13162a', boxShadow: SHI, borderRadius:99, overflow:'hidden', marginBottom:10 }}>
+                      <div style={{ height:5, background:'#0a0e1a', boxShadow: SHI, borderRadius:99, overflow:'hidden', marginBottom:10 }}>
                         <div style={{ height:'100%', width:`${inv.score}%`, background:color, borderRadius:99 }}/>
                       </div>
                       <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
@@ -927,28 +954,35 @@ function AnalysisContent() {
           </div>
 
           {/* 안전마진 바 차트 */}
-          {stockBuffettScores.filter(i=>live(i)).length > 0 && (
+          {/* 버핏 스코어 막대 차트 — 개별 주식만 표시 (buffettStocksOnly 사용) */}
+          {buffettStocksOnly.filter(i=>live(i)).length > 0 && (
             <div style={{ background:'#1b1e2e', boxShadow: SHO, border:'none', borderRadius:12, padding:'16px 18px' }}>
-              <div style={{ fontSize:13, fontWeight:700, color:'#10b981', marginBottom:4 }}>📊 종목별 버핏 스코어 비교</div>
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+                <span style={{ fontSize:13, fontWeight:700, color:'#10b981' }}>📊 종목별 버핏 스코어 비교</span>
+                <span style={{ fontSize:9, padding:'2px 7px', borderRadius:20, fontWeight:800,
+                  background:'rgba(16,185,129,0.12)', color:'#10b981', border:'1px solid rgba(16,185,129,0.3)' }}>
+                  개별 주식 전용
+                </span>
+              </div>
               <div style={{ fontSize:11, color:C.sub, marginBottom:12 }}>75점 이상 → 매수 적합 구간</div>
               <ResponsiveContainer width="100%" height={180}>
                 <BarChart
-                  data={stockBuffettScores
-                    .filter(i => live(i) && i.assetType !== 'crypto')  // 크립토 제외
+                  data={buffettStocksOnly
+                    .filter(i => live(i))
                     .slice(0,10)
                     .map(i => ({ ...i, shortName: i.name.length > 8 ? i.name.slice(0,7)+'…' : i.name }))}
                   margin={{ top:10, right:10, bottom:0, left:0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false}/>
                   <XAxis
-                    dataKey="shortName"                    /* 종목명(단축) 표시 */
-                    tick={{ fill:'#6b7280', fontSize:10 }}
+                    dataKey="shortName"
+                    tick={{ fill:'#8a9aaa', fontSize:10 }}
                     axisLine={false} tickLine={false}
                   />
-                  <YAxis domain={[0,100]} tick={{ fill:'#6b7280', fontSize:10 }} axisLine={false} tickLine={false}/>
+                  <YAxis domain={[0,100]} tick={{ fill:'#8a9aaa', fontSize:10 }} axisLine={false} tickLine={false}/>
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   <Tooltip content={({active,payload}:any)=>{ if(!active||!payload?.length) return null; const d=payload[0].payload; return <div style={{background:'#1f2937',border:`1px solid ${C.border}`,borderRadius:8,padding:'8px 12px',fontSize:12,color:C.text}}><strong>{d.name}</strong><br/>버핏 점수: {d.score}점<br/>{d.moat}</div> }}/>
                   <Bar dataKey="score" radius={[4,4,0,0]} maxBarSize={40}>
-                    {stockBuffettScores.filter(i=>live(i)).slice(0,10).map((entry,i)=>(
+                    {buffettStocksOnly.filter(i=>live(i)).slice(0,10).map((entry,i)=>(
                       <Cell key={i} fill={entry.score>=75?'#10b981':entry.score>=55?'#60a5fa':entry.score>=40?'#fb923c':'#f87171'} fillOpacity={0.85}/>
                     ))}
                   </Bar>
@@ -963,6 +997,14 @@ function AnalysisContent() {
               </div>
             </div>
           )}
+
+          {/* ── 포트폴리오 연동 DCF 내재가치 분석기 ── */}
+          <BuffettAnalysisPanel
+            investments={investments}
+            priceMap={priceMap}
+            fundMap={fundMap}
+          />
+
         </div>
       )}
     </div>
@@ -974,7 +1016,7 @@ export default function AnalysisPage() {
   return (
     <Suspense fallback={
       <div style={{ display:'flex', justifyContent:'center', paddingTop:80 }}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" style={{ animation:'spin 0.8s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7a8fa3" strokeWidth="2.5" strokeLinecap="round" style={{ animation:'spin 0.8s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       </div>
     }>

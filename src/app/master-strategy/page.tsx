@@ -42,8 +42,8 @@ const D = {
   green:   '#4ade80',
   muted:   '#1e3a5c',
   text:    '#e2e8f0',
-  textSub: '#64748b',
-  textDim: '#334155',
+  textSub: '#7f93a8',
+  textDim: '#7a8fa3',
 } as const
 
 // ═══════════════════════════════════════════════════════════════

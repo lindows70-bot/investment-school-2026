@@ -90,7 +90,7 @@ export default function TopHeader() {
         {/* USD/KRW 환율 — dashboard 카드와 동일한 값 */}
         {usdKrw && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 10, color: '#4b5563', fontWeight: 600, letterSpacing: '0.05em' }}>USD/KRW</span>
+            <span style={{ fontSize: 10, color: '#8a96a8', fontWeight: 600, letterSpacing: '0.05em' }}>USD/KRW</span>
             <span style={{ fontSize: 13, color: '#10b981', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
               ₩{usdKrw.toLocaleString('ko-KR')}
             </span>
@@ -100,7 +100,7 @@ export default function TopHeader() {
         {usdKrw && <div style={{ width: 1, height: 16, background: '#1f2937' }}/>}
 
         {/* 날짜 */}
-        <span style={{ fontSize: 12, color: '#4b5563' }}>
+        <span style={{ fontSize: 12, color: '#8a96a8' }}>
           {new Date().toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })}
         </span>
       </div>

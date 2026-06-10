@@ -25,10 +25,10 @@ const C = {
   surface:'#0f172a',
   card:   '#1e293b',
   cardHi: '#263348',
-  border: '#334155',
+  border: '#7a8fa3',
   textHi: '#f1f5f9',
   textMid:'#94a3b8',
-  textLow:'#64748b',
+  textLow:'#7f93a8',
   green:  '#4ade80',
   red:    '#f87171',
   amber:  '#fbbf24',
@@ -61,7 +61,7 @@ function CustomTooltip({ active, payload }: any) {
   const d = payload[0].payload
   return (
     <div style={{
-      background:'#0f172a', border:'1px solid #334155', borderRadius:10,
+      background:'#0f172a', border:'1px solid #7a8fa3', borderRadius:10,
       padding:'10px 14px', fontSize:12, minWidth:190, zIndex:50,
       boxShadow:'0 8px 24px rgba(0,0,0,0.5)',
     }}>
@@ -217,8 +217,9 @@ export default function AIPortfolioDashboard(props: any) {
   )
 
   // ── Step 4: PEG 산점도용 데이터 ───────────────────────────
+  // growthRate > 0 이면 per=0(적자) 종목도 포함 — 차트 하단에 별도 표시
   const chartData = useMemo(
-    () => stocks.filter(s => s.per > 0 && s.growthRate > 0),
+    () => stocks.filter(s => s.growthRate > 0),
     [stocks]
   )
 
@@ -231,7 +232,8 @@ export default function AIPortfolioDashboard(props: any) {
   const chartMax = useMemo(() => {
     if (!chartData.length) return { x: 60, y: 60 }
     const mx = Math.max(...chartData.map(s => s.growthRate), 50)
-    const my = Math.max(...chartData.map(s => s.per), 50)
+    // per=0(적자) 종목은 y 계산에서 제외, 최소 30 확보
+    const my = Math.max(...chartData.filter(s => s.per > 0).map(s => s.per), 30)
     return { x: Math.ceil(mx / 10) * 10 + 10, y: Math.ceil(my / 10) * 10 + 10 }
   }, [chartData])
 
@@ -407,15 +409,28 @@ export default function AIPortfolioDashboard(props: any) {
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   shape={(shapeProps: any) => {
                     const { cx, cy, payload } = shapeProps
-                    const isUnder = (payload.peg ?? 0) <= 1.0
-                    const col = isUnder ? C.green : C.red
+                    const isLoss  = payload.per <= 0   // 적자 기업 (PE 없음)
+                    const isUnder = !isLoss && (payload.peg ?? 0) <= 1.0
+                    // 적자=주황 점선 / 저평가=초록 / 고평가=빨강
+                    const col = isLoss ? '#fb923c' : isUnder ? C.green : C.red
                     const label = payload.name.length > 9 ? payload.name.slice(0, 8) + '…' : payload.name
                     return (
                       <g style={{ cursor:'pointer' }}>
-                        <text x={cx} y={cy - 11} textAnchor="middle" fill={col} fontSize={9} fontWeight={700} style={{ pointerEvents:'none' }}>
+                        <text x={cx} y={cy - 13} textAnchor="middle" fill={col} fontSize={9} fontWeight={700} style={{ pointerEvents:'none' }}>
                           {label}
                         </text>
-                        <circle cx={cx} cy={cy} r={6} fill={col} opacity={0.88} stroke={C.surface} strokeWidth={1.5} />
+                        {/* 적자 종목: 점선 원 + "PE—" 라벨 */}
+                        {isLoss ? (
+                          <>
+                            <circle cx={cx} cy={cy} r={7} fill="none" stroke={col} strokeWidth={1.5} strokeDasharray="3 2" opacity={0.85} />
+                            <circle cx={cx} cy={cy} r={3} fill={col} opacity={0.5} />
+                            <text x={cx} y={cy + 18} textAnchor="middle" fill={col} fontSize={8} style={{ pointerEvents:'none' }}>
+                              PE—
+                            </text>
+                          </>
+                        ) : (
+                          <circle cx={cx} cy={cy} r={6} fill={col} opacity={0.88} stroke={C.surface} strokeWidth={1.5} />
+                        )}
                       </g>
                     )
                   }}
@@ -435,12 +450,15 @@ export default function AIPortfolioDashboard(props: any) {
           )}
         </div>
         {chartData.length > 0 && (
-          <div style={{ display:'flex', justifyContent:'center', gap:24, padding:'8px 0 14px', fontSize:11, color:C.textMid }}>
+          <div style={{ display:'flex', justifyContent:'center', gap:20, padding:'8px 0 14px', fontSize:11, color:C.textMid, flexWrap:'wrap' }}>
             <div style={{ display:'flex', alignItems:'center', gap:5 }}>
               <div style={{ width:10, height:10, borderRadius:'50%', background:C.green }} /> 저평가 (PEG ≤ 1.0)
             </div>
             <div style={{ display:'flex', alignItems:'center', gap:5 }}>
               <div style={{ width:10, height:10, borderRadius:'50%', background:C.red }} /> 고평가 유의 (PEG &gt; 1.0)
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+              <div style={{ width:10, height:10, borderRadius:'50%', background:'none', border:'1.5px dashed #fb923c' }} /> 적자 기업 (PE 없음)
             </div>
           </div>
         )}

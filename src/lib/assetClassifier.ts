@@ -110,6 +110,11 @@ const ETF_TICKERS = new Set([
   'ARKK','ARKW','ARKG','ARKF','ARKQ','ARKG',
   // 채권·안전자산 ETF
   'TLT','IEF','SHV','TIP','SCHD','VIG','VYM',
+  // 레버리지·인버스 ETF (Direxion·GraniteShares 등 — 개별주식 분석 불가)
+  'TSLL','TSLR','TSLG','TSLS','TSLQ',   // 테슬라 레버리지
+  'NVDL','NVDU','NVDX','NVDQ','NVDS',   // 엔비디아 레버리지
+  'SOXL','SOXS','TQQQ','SQQQ','UPRO','SPXL','SPXS','TNA','TZA',
+  'AAPU','AAPD','MSFU','GGLL','AMZU','METU','CONL','MSTU','MSTX',
   // 한국 주요 ETF (6자리 코드)
   '069500',  // KODEX 200
   '102110',  // TIGER 200

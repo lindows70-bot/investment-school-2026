@@ -21,7 +21,7 @@ const C = {
   card:    '#1a1d27',
   border:  '#2a2d3a',
   textHi:  '#f1f5f9',
-  textLow: '#475569',
+  textLow: '#8599ae',
 }
 
 const fmtT = (v: number) => `$${v.toFixed(2)}T`
@@ -79,7 +79,7 @@ function Skeleton() {
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 24, marginBottom: 8 }}>📡</div>
           <div style={{ fontSize: 12, color: C.textLow }}>FRED API 데이터 수신 중…</div>
-          <div style={{ fontSize: 11, color: '#334155', marginTop: 4 }}>WALCL · WSHOTSL · WSHOMCB</div>
+          <div style={{ fontSize: 11, color: '#7a8fa3', marginTop: 4 }}>WALCL · WSHOTSL · WSHOMCB</div>
         </div>
       </div>
     </div>
@@ -92,7 +92,7 @@ function CustomTooltip({ active, payload, label }: any) {
   const d: BalanceSheetPoint | undefined = payload[0]?.payload
   return (
     <div style={{ background: '#0f172a', border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 14px', fontSize: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
-      <div style={{ color: '#64748b', marginBottom: 6, fontSize: 11, fontWeight: 700 }}>{label}</div>
+      <div style={{ color: '#7f93a8', marginBottom: 6, fontSize: 11, fontWeight: 700 }}>{label}</div>
       {d && (
         <>
           <div style={{ color: C.total, marginBottom: 3 }}>총자산: <strong style={{ fontFamily: 'monospace' }}>{fmtT(d.total)}</strong></div>
@@ -138,7 +138,7 @@ export default function BalanceSheetChart({ data, loading, error, isMock, lastUp
             ) : (
               <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'rgba(74,222,128,0.12)', color: '#4ade80', fontWeight: 700 }}>🟢 LIVE · FRED</span>
             )}
-            {lastUpdated && !isMock && <span style={{ fontSize: 9, color: '#334155' }}>업데이트: {lastUpdated}</span>}
+            {lastUpdated && !isMock && <span style={{ fontSize: 9, color: '#7a8fa3' }}>업데이트: {lastUpdated}</span>}
           </div>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -175,7 +175,7 @@ export default function BalanceSheetChart({ data, loading, error, isMock, lastUp
             ].map(item => (
               <div key={item.label} style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 18, fontWeight: 900, color: item.color, fontFamily: 'monospace', lineHeight: 1.1 }}>{item.val}</div>
-                <div style={{ fontSize: 9, color: '#475569', marginTop: 2 }}>{item.label}</div>
+                <div style={{ fontSize: 9, color: '#8599ae', marginTop: 2 }}>{item.label}</div>
               </div>
             ))}
           </div>
@@ -224,7 +224,7 @@ export default function BalanceSheetChart({ data, loading, error, isMock, lastUp
           ? <strong style={{ color: '#f87171' }}>진행 중 — 위험자산에 구조적 압력</strong>
           : <strong style={{ color: '#4ade80' }}>감속 감지 — 유동성 압박 완화 신호</strong>
         }
-        {!isMock && <span style={{ marginLeft: 8, color: '#334155' }}>· 출처: FRED WALCL/WSHOTSL/WSHOMCB</span>}
+        {!isMock && <span style={{ marginLeft: 8, color: '#7a8fa3' }}>· 출처: FRED WALCL/WSHOTSL/WSHOMCB</span>}
       </div>
     </div>
   )

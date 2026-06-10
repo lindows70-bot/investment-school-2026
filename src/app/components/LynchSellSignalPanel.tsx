@@ -62,10 +62,10 @@ const C = {
   surface: '#0f172a',
   card:    '#1e293b',
   cardHi:  '#263348',
-  border:  '#334155',
+  border:  '#7a8fa3',
   textHi:  '#f1f5f9',
   textMid: '#94a3b8',
-  textLow: '#64748b',
+  textLow: '#7f93a8',
   red:     '#f87171',
   yellow:  '#fbbf24',
   green:   '#4ade80',
@@ -76,7 +76,7 @@ const STATUS_META = {
   danger:        { label:'매도 검토',   color:'#f87171', bg:'rgba(239,68,68,0.12)',   border:'rgba(239,68,68,0.30)'   },
   caution:       { label:'비중 축소 고민', color:'#fbbf24', bg:'rgba(245,158,11,0.12)', border:'rgba(245,158,11,0.30)' },
   safe:          { label:'보유 유지',   color:'#4ade80', bg:'rgba(34,197,94,0.12)',  border:'rgba(34,197,94,0.30)'  },
-  unclassified:  { label:'데이터 부족', color:'#64748b', bg:'rgba(100,116,139,0.10)', border:'rgba(100,116,139,0.25)' },
+  unclassified:  { label:'데이터 부족', color:'#7f93a8', bg:'rgba(100,116,139,0.10)', border:'rgba(100,116,139,0.25)' },
 }
 
 const CAT_META: Record<string, { icon: string; label: string; color: string; bg: string; border: string }> = {
@@ -729,7 +729,7 @@ function NonEquitySignalCard({ raw }: { raw: AnyRecord }) {
       <div style={{ flexShrink: 0 }}>
         <div style={{
           fontSize: 9, padding: '3px 9px', borderRadius: 20, whiteSpace: 'nowrap',
-          background: 'rgba(100,116,139,0.12)', color: '#64748b',
+          background: 'rgba(100,116,139,0.12)', color: '#7f93a8',
           border: '1px dashed rgba(100,116,139,0.3)', fontWeight: 700,
         }}>
           🚫 시그널 분석 제외

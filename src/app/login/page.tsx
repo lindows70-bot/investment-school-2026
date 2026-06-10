@@ -62,7 +62,7 @@ const S = {
   },
   logoSub: {
     fontSize: 13,
-    color: '#64748b',
+    color: '#7f93a8',
     marginTop: 4,
   },
 
@@ -94,7 +94,7 @@ const S = {
     fontWeight: 500,
     transition: 'all 0.18s ease',
     background: active ? '#1a1a1a' : 'transparent',
-    color: active ? '#f1f5f9' : '#64748b',
+    color: active ? '#f1f5f9' : '#7f93a8',
     boxShadow: active ? '0 1px 4px rgba(0,0,0,0.4)' : 'none',
   }),
 
@@ -115,7 +115,7 @@ const S = {
     left: 12,
     top: '50%',
     transform: 'translateY(-50%)',
-    color: '#475569',
+    color: '#8599ae',
     pointerEvents: 'none' as const,
     lineHeight: 1,
   },
@@ -179,7 +179,7 @@ const S = {
   footerText: {
     textAlign: 'center' as const,
     fontSize: 13,
-    color: '#475569',
+    color: '#8599ae',
     marginTop: 20,
   },
   footerLink: {
@@ -506,7 +506,7 @@ function LoginContent() {
                   <div style={{ fontSize: 18, fontWeight: 700, color: '#f1f5f9', marginBottom: 6 }}>
                     새 비밀번호 설정
                   </div>
-                  <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6 }}>
+                  <div style={{ fontSize: 13, color: '#7f93a8', lineHeight: 1.6 }}>
                     새로 사용할 비밀번호를 입력해주세요.<br />
                     6자 이상이어야 합니다.
                   </div>
@@ -561,7 +561,7 @@ function LoginContent() {
 
                 <button
                   onClick={() => { setIsRecoveryMode(false); setNewPassword(''); setNewPwStatus('idle'); setNewPwMsg('') }}
-                  style={{ width: '100%', marginTop: 14, background: 'none', border: 'none', color: '#475569', fontSize: 13, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}
+                  style={{ width: '100%', marginTop: 14, background: 'none', border: 'none', color: '#8599ae', fontSize: 13, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}
                 >
                   취소하고 로그인으로 돌아가기
                 </button>
@@ -622,7 +622,7 @@ function LoginContent() {
                   <button
                     type="button"
                     onClick={() => { setShowForgot(true); setForgotEmail(email); setForgotStatus('idle'); setForgotMsg('') }}
-                    style={{ background: 'none', border: 'none', color: '#475569', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}
+                    style={{ background: 'none', border: 'none', color: '#8599ae', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}
                   >
                     비밀번호를 잊으셨나요?
                   </button>
@@ -635,7 +635,7 @@ function LoginContent() {
                   <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 14, padding: '28px 24px', width: '100%', maxWidth: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.7)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                       <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>🔑 비밀번호 재설정</h3>
-                      <button onClick={() => setShowForgot(false)} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 20, cursor: 'pointer' }}>×</button>
+                      <button onClick={() => setShowForgot(false)} style={{ background: 'none', border: 'none', color: '#7f93a8', fontSize: 20, cursor: 'pointer' }}>×</button>
                     </div>
                     <p style={{ fontSize: 13, color: '#94a3b8', marginTop: 0, marginBottom: 18, lineHeight: 1.6 }}>
                       가입한 이메일 주소를 입력하면 비밀번호 재설정 링크를 보내드립니다.
@@ -708,7 +708,7 @@ function LoginContent() {
                 </div>
 
                 <div style={S.fieldWrap}>
-                  <label style={S.label}>비밀번호 <span style={{ color: '#475569', fontWeight: 400 }}>(6자 이상)</span></label>
+                  <label style={S.label}>비밀번호 <span style={{ color: '#8599ae', fontWeight: 400 }}>(6자 이상)</span></label>
                   <div style={S.inputWrap}>
                     <span style={S.inputIcon}><LockIcon /></span>
                     <input
@@ -760,7 +760,7 @@ function LoginContent() {
           </div>
 
           {/* Bottom caption */}
-          <p style={{ textAlign: 'center', color: '#334155', fontSize: 12, marginTop: 20 }}>
+          <p style={{ textAlign: 'center', color: '#7a8fa3', fontSize: 12, marginTop: 20 }}>
             © 2026 투자학교 · 모든 투자의 책임은 본인에게 있습니다
           </p>
         </div>

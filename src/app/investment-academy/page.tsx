@@ -9,7 +9,7 @@ const SHI = 'inset 4px 4px 10px #0e1020, inset -3px -3px 8px #282c44'
 const LYNCH_TYPES = [
   {
     emoji: '🐢', name: '저성장주', en: 'Slow Growers',
-    color: '#9ca3af',
+    color: '#a8b5c2',
     desc: '연 2~4% 성장. 배당이 주 수입원. GE, 유틸리티 등 성숙 산업 대표주.',
     tip: '배당수익률 > 성장률이면 보유 검토',
   },
@@ -144,7 +144,7 @@ export default function InvestmentAcademyPage() {
         <h1 style={{ fontSize: 30, fontWeight: 900, color: '#f1f5f9', margin: '0 0 10px', letterSpacing: '-0.5px' }}>
           투자 거장들의 디지털 도서관
         </h1>
-        <p style={{ fontSize: 14, color: '#6b7280', margin: 0, maxWidth: 520, lineHeight: 1.6 }}>
+        <p style={{ fontSize: 14, color: '#8a9aaa', margin: 0, maxWidth: 520, lineHeight: 1.6 }}>
           피터 린치와 워런 버핏의 검증된 원칙을 배우고, 내 포트폴리오에 직접 적용해보세요.
         </p>
       </div>
@@ -168,7 +168,7 @@ export default function InvestmentAcademyPage() {
               📈 피터 린치 — 성장의 마법
             </h2>
           </div>
-          <div style={{ fontSize: 13, color: '#6b7280', fontStyle: 'italic', maxWidth: 300 }}>
+          <div style={{ fontSize: 13, color: '#8a9aaa', fontStyle: 'italic', maxWidth: 300 }}>
             &ldquo;주식시장에서 10루타를 치려면 평범한 기업을 특별하게 볼 줄 알아야 한다.&rdquo;
           </div>
         </div>
@@ -191,7 +191,7 @@ export default function InvestmentAcademyPage() {
               </div>
               <p style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.6, margin: '0 0 10px' }}>{t.desc}</p>
               <div style={{
-                background: '#13162a', boxShadow: SHI, borderRadius: 7,
+                background: '#0a0e1a', boxShadow: SHI, borderRadius: 7,
                 padding: '7px 10px', fontSize: 11, color: t.color, fontWeight: 600,
               }}>
                 💡 {t.tip}
@@ -212,7 +212,7 @@ export default function InvestmentAcademyPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
             {/* 공식 */}
             <div style={{
-              background: '#13162a', boxShadow: SHI, borderRadius: 10,
+              background: '#0a0e1a', boxShadow: SHI, borderRadius: 10,
               padding: '16px 24px', textAlign: 'center',
             }}>
               <div style={{ fontSize: 20, fontWeight: 900, color: '#34d399', fontFamily: 'monospace', letterSpacing: '0.05em' }}>
@@ -229,7 +229,7 @@ export default function InvestmentAcademyPage() {
               ].map(p => (
                 <div key={p.range} style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: p.color, fontFamily: 'monospace' }}>{p.range}</div>
-                  <div style={{ fontSize: 10, color: '#6b7280', marginTop: 3 }}>{p.label}</div>
+                  <div style={{ fontSize: 10, color: '#8a9aaa', marginTop: 3 }}>{p.label}</div>
                 </div>
               ))}
             </div>
@@ -255,7 +255,7 @@ export default function InvestmentAcademyPage() {
               💰 워런 버핏 — 복리의 마법
             </h2>
           </div>
-          <div style={{ fontSize: 13, color: '#6b7280', fontStyle: 'italic', maxWidth: 300 }}>
+          <div style={{ fontSize: 13, color: '#8a9aaa', fontStyle: 'italic', maxWidth: 300 }}>
             &ldquo;10년 보유할 자신이 없다면, 10분도 갖지 마라.&rdquo;
           </div>
         </div>
@@ -300,12 +300,12 @@ export default function InvestmentAcademyPage() {
             </p>
           </div>
           <div style={{
-            background: '#13162a', boxShadow: SHI, borderRadius: 10,
+            background: '#0a0e1a', boxShadow: SHI, borderRadius: 10,
             padding: '16px 20px', textAlign: 'center', minWidth: 140,
           }}>
-            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 6 }}>목표 할인율</div>
+            <div style={{ fontSize: 11, color: '#8a9aaa', marginBottom: 6 }}>목표 할인율</div>
             <div style={{ fontSize: 28, fontWeight: 900, color: '#fbbf24' }}>30~40%</div>
-            <div style={{ fontSize: 10, color: '#6b7280', marginTop: 4 }}>내재가치 대비</div>
+            <div style={{ fontSize: 10, color: '#8a9aaa', marginTop: 4 }}>내재가치 대비</div>
           </div>
         </div>
 
@@ -370,7 +370,7 @@ export default function InvestmentAcademyPage() {
 
                 {/* 트리거 뱃지 */}
                 <div style={{
-                  background: '#13162a', boxShadow: SHI, borderRadius: 7,
+                  background: '#0a0e1a', boxShadow: SHI, borderRadius: 7,
                   padding: '6px 10px', marginBottom: 12,
                   fontSize: 11, color: p.color, fontWeight: 600,
                   display: 'flex', alignItems: 'center', gap: 5,
@@ -386,12 +386,12 @@ export default function InvestmentAcademyPage() {
 
                 {/* 실제 사례 예시 */}
                 <div style={{ borderTop: '1px solid #1e2140', paddingTop: 10 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#454868', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#9aa0b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
                     실전 사례
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {p.examples.map((ex, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 11, color: '#6b7280' }}>
+                      <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 11, color: '#8a9aaa' }}>
                         <span style={{ color: p.color, marginTop: 1, flexShrink: 0 }}>▸</span>
                         {ex}
                       </div>
@@ -440,7 +440,7 @@ export default function InvestmentAcademyPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#141728' }}>
-                <th style={{ padding: '14px 20px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#454868', textTransform: 'uppercase', letterSpacing: '0.08em', width: '22%' }}>항목</th>
+                <th style={{ padding: '14px 20px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#9aa0b8', textTransform: 'uppercase', letterSpacing: '0.08em', width: '22%' }}>항목</th>
                 <th style={{ padding: '14px 20px', textAlign: 'left', fontSize: 13, fontWeight: 800, color: '#34d399', width: '39%' }}>
                   📈 피터 린치
                 </th>
@@ -455,7 +455,7 @@ export default function InvestmentAcademyPage() {
                   borderTop: '1px solid #1e2140',
                   background: i % 2 === 0 ? 'transparent' : 'rgba(20,23,40,0.4)',
                 }}>
-                  <td style={{ padding: '13px 20px', fontWeight: 700, color: '#6b7280', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  <td style={{ padding: '13px 20px', fontWeight: 700, color: '#8a9aaa', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     {row.label}
                   </td>
                   <td style={{ padding: '13px 20px', color: '#dde4f0', lineHeight: 1.5 }}>{row.lynch}</td>
@@ -471,7 +471,7 @@ export default function InvestmentAcademyPage() {
           섹션 4: Next Master — Coming Soon
       ══════════════════════════════════════════════════════════ */}
       <section>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#454868', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#9aa0b8', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14 }}>
           SECTION 4
         </div>
         <div style={{
@@ -480,7 +480,7 @@ export default function InvestmentAcademyPage() {
           borderRadius: 16,
           padding: '48px 36px',
           textAlign: 'center',
-          border: '1px dashed #2a2d42',
+          border: '1px dashed #7a7f9a',
           position: 'relative',
           overflow: 'hidden',
         }}>
@@ -492,18 +492,18 @@ export default function InvestmentAcademyPage() {
           }}>✦</div>
 
           <div style={{ fontSize: 36, marginBottom: 16 }}>🌟</div>
-          <h3 style={{ fontSize: 22, fontWeight: 900, color: '#454868', margin: '0 0 12px', letterSpacing: '0.04em' }}>
+          <h3 style={{ fontSize: 22, fontWeight: 900, color: '#9aa0b8', margin: '0 0 12px', letterSpacing: '0.04em' }}>
             Next Master is Coming...
           </h3>
-          <p style={{ fontSize: 13, color: '#363855', margin: 0, maxWidth: 380, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.6 }}>
+          <p style={{ fontSize: 13, color: '#7a8599', margin: 0, maxWidth: 380, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.6 }}>
             다음 거장의 지혜가 곧 이 공간을 채웁니다.<br/>
             하워드 막스, 필립 피셔, 조지 소로스 중 누가 될까요?
           </p>
           <div style={{
             display: 'inline-block', marginTop: 20,
             padding: '6px 16px', borderRadius: 20,
-            background: '#13162a', boxShadow: SHI,
-            fontSize: 11, color: '#363855', fontWeight: 600, letterSpacing: '0.08em',
+            background: '#0a0e1a', boxShadow: SHI,
+            fontSize: 11, color: '#7a8599', fontWeight: 600, letterSpacing: '0.08em',
           }}>
             COMING SOON
           </div>

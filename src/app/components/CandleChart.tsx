@@ -16,7 +16,7 @@ interface Props {
 }
 
 export default function CandleChart({ data, width = 120, height = 60 }: Props) {
-  if (!data?.length) return <span style={{ color:'#374151', fontSize:11 }}>—</span>
+  if (!data?.length) return <span style={{ color:'#7a8fa3', fontSize:11 }}>—</span>
 
   // Price range with padding
   const prices = data.flatMap(d => [d.high, d.low])

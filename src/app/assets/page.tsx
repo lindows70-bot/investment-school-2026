@@ -57,13 +57,13 @@ const USD_KRW = 1_350
 const FRAMES: TimeFrame[] = ['1D','1W','1M','1Y']
 
 const LYNCH_META: Record<string, { label: string; color: string }> = {
-  slow_grower: { label: '완만한 성장주', color: '#9ca3af' },
+  slow_grower: { label: '저성장주', color: '#a8b5c2' },
   stalwart:    { label: '대형 우량주',   color: '#60a5fa' },
   fast_grower: { label: '빠른 성장주',   color: '#34d399' },
   cyclical:    { label: '경기 순환주',   color: '#fb923c' },
   turnaround:  { label: '회생 기업주',   color: '#f87171' },
   asset_play:  { label: '자산 보유주',   color: '#c084fc' },
-  na:          { label: 'N/A',           color: '#4b5563' },
+  na:          { label: 'N/A',           color: '#8a96a8' },
 }
 const MARKET_COLOR: Record<Market, string> = { US:'#34d399', KR:'#60a5fa', CRYPTO:'#fb923c' }
 const ETF_BRANDS = ['TIGER','KODEX','ACE','PLUS','KBSTAR','ARIRANG','HANARO','SOL']
@@ -406,21 +406,21 @@ export default function AssetsPage() {
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}input::placeholder{color:#374151}select option{background:#1f2937}`}</style>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}input::placeholder{color:#7a8fa3}select option{background:#1f2937}`}</style>
 
       {/* 요약 스트립 */}
       {!dbLoading && (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))', gap:10 }}>
           {[
             { label:'보유 종목',   value:`${investments.length}개`,                                                                                               accent:'#f1f5f9' },
-            { label:'총 투자금액', value:fmtKrwVal(totalCostKrw), sub:hasUsd?'USD 환산 포함':undefined,                                                           accent:'#9ca3af' },
+            { label:'총 투자금액', value:fmtKrwVal(totalCostKrw), sub:hasUsd?'USD 환산 포함':undefined,                                                           accent:'#a8b5c2' },
             { label:'수익 종목',   value:`${investments.filter(i=>getLive(i)&&getLive(i)!.currentPrice>i.purchase_price).length}개`,                               accent:'#ef4444' },
             { label:'손실 종목',   value:`${investments.filter(i=>getLive(i)&&getLive(i)!.currentPrice<i.purchase_price).length}개`,                               accent:'#3b82f6' },
           ].map(({label,value,sub,accent})=>(
             <div key={label} style={{ background:N, boxShadow:SHO, borderRadius:10, padding:'12px 14px' }}>
-              <div style={{ fontSize:9, fontWeight:600, color:'#4b5563', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>{label}</div>
+              <div style={{ fontSize:9, fontWeight:600, color:'#8a96a8', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>{label}</div>
               <div style={{ fontSize:18, fontWeight:800, color:accent, fontVariantNumeric:'tabular-nums' }}>{value}</div>
-              {sub&&<div style={{ fontSize:9, color:'#374151', marginTop:2 }}>{sub}</div>}
+              {sub&&<div style={{ fontSize:9, color:'#7a8fa3', marginTop:2 }}>{sub}</div>}
             </div>
           ))}
         </div>
@@ -429,20 +429,20 @@ export default function AssetsPage() {
       {/* 컨트롤 */}
       <div style={{ display:'flex', flexWrap:'wrap', gap:8, alignItems:'center' }}>
         <div style={{ position:'relative', flexGrow:1, minWidth:150, maxWidth:260 }}>
-          <svg style={{ position:'absolute',left:9,top:'50%',transform:'translateY(-50%)',color:'#4b5563',pointerEvents:'none' }} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <svg style={{ position:'absolute',left:9,top:'50%',transform:'translateY(-50%)',color:'#8a96a8',pointerEvents:'none' }} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="종목명 / 티커" style={{ width:'100%',padding:'7px 10px 7px 26px',background:N,boxShadow:SHI,border:'none',borderRadius:8,color:'#f1f5f9',fontSize:12,outline:'none',boxSizing:'border-box' }} onFocus={e=>{e.currentTarget.style.boxShadow=`${SHI}, 0 0 0 1px #2563eb`}} onBlur={e=>{e.currentTarget.style.boxShadow=SHI}}/>
         </div>
         {(['all','US','KR','CRYPTO'] as const).map(m=>(
-          <button key={m} onClick={()=>setFilterMarket(m)} style={{ padding:'6px 11px',borderRadius:99,fontSize:11,fontWeight:600,cursor:'pointer',border:'none',transition:'all 0.12s', background:filterMarket===m?(m==='all'?'rgba(255,255,255,0.06)':`${({US:'#34d399',KR:'#60a5fa',CRYPTO:'#fb923c'} as Record<string,string>)[m]}18`):N, color:filterMarket===m?(m==='all'?'#f1f5f9':({US:'#34d399',KR:'#60a5fa',CRYPTO:'#fb923c'} as Record<string,string>)[m]):'#4b5563', boxShadow:filterMarket===m?SHI:SHO }}>
+          <button key={m} onClick={()=>setFilterMarket(m)} style={{ padding:'6px 11px',borderRadius:99,fontSize:11,fontWeight:600,cursor:'pointer',border:'none',transition:'all 0.12s', background:filterMarket===m?(m==='all'?'rgba(255,255,255,0.06)':`${({US:'#34d399',KR:'#60a5fa',CRYPTO:'#fb923c'} as Record<string,string>)[m]}18`):N, color:filterMarket===m?(m==='all'?'#f1f5f9':({US:'#34d399',KR:'#60a5fa',CRYPTO:'#fb923c'} as Record<string,string>)[m]):'#8a96a8', boxShadow:filterMarket===m?SHI:SHO }}>
             {m==='all'?'전체':m}
           </button>
         ))}
-        <select value={sortBy} onChange={e=>setSortBy(e.target.value as SortKey)} style={{ padding:'7px 9px',background:N,boxShadow:SHI,border:'none',borderRadius:8,color:'#4b5563',fontSize:11,outline:'none',cursor:'pointer' }}>
+        <select value={sortBy} onChange={e=>setSortBy(e.target.value as SortKey)} style={{ padding:'7px 9px',background:N,boxShadow:SHI,border:'none',borderRadius:8,color:'#8a96a8',fontSize:11,outline:'none',cursor:'pointer' }}>
           <option value="return">수익률순</option>
           <option value="name">이름순</option>
           <option value="invested">투자금액순</option>
         </select>
-        <button onClick={()=>fetchPrices(investments)} disabled={priceStatus==='loading'||!investments.length} style={{ padding:'7px 10px',background:N,boxShadow:SHO,border:'none',borderRadius:8,color:'#4b5563',cursor:'pointer',display:'flex',alignItems:'center',gap:4,fontSize:11,opacity:priceStatus==='loading'?0.5:1,transition:'color 0.15s,box-shadow 0.15s' }} onMouseEnter={e=>{(e.currentTarget as HTMLButtonElement).style.color='#f1f5f9';(e.currentTarget as HTMLButtonElement).style.boxShadow='9px 9px 22px #0e1020, -5px -5px 15px #282c44'}} onMouseLeave={e=>{(e.currentTarget as HTMLButtonElement).style.color='#4b5563';(e.currentTarget as HTMLButtonElement).style.boxShadow=SHO}}>
+        <button onClick={()=>fetchPrices(investments)} disabled={priceStatus==='loading'||!investments.length} style={{ padding:'7px 10px',background:N,boxShadow:SHO,border:'none',borderRadius:8,color:'#8a96a8',cursor:'pointer',display:'flex',alignItems:'center',gap:4,fontSize:11,opacity:priceStatus==='loading'?0.5:1,transition:'color 0.15s,box-shadow 0.15s' }} onMouseEnter={e=>{(e.currentTarget as HTMLButtonElement).style.color='#f1f5f9';(e.currentTarget as HTMLButtonElement).style.boxShadow='9px 9px 22px #0e1020, -5px -5px 15px #282c44'}} onMouseLeave={e=>{(e.currentTarget as HTMLButtonElement).style.color='#8a96a8';(e.currentTarget as HTMLButtonElement).style.boxShadow=SHO}}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation:priceStatus==='loading'?'spin 0.8s linear infinite':'none' }}><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/></svg>
           현재가
         </button>
@@ -462,12 +462,12 @@ export default function AssetsPage() {
       ) : investments.length === 0 ? (
         <div style={{ display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 0',gap:14 }}>
           <div style={{ fontSize:36 }}>💼</div>
-          <div style={{ fontWeight:700,fontSize:16,color:'#6b7280' }}>포트폴리오가 비어있습니다</div>
-          <div style={{ fontSize:13,color:'#374151' }}>첫 번째 종목을 추가해 투자 현황을 추적하세요</div>
+          <div style={{ fontWeight:700,fontSize:16,color:'#8a9aaa' }}>포트폴리오가 비어있습니다</div>
+          <div style={{ fontSize:13,color:'#7a8fa3' }}>첫 번째 종목을 추가해 투자 현황을 추적하세요</div>
           <button onClick={()=>{setEditTarget(null);setModalOpen(true)}} style={{ padding:'10px 24px',background:'linear-gradient(135deg,#2563eb,#1d4ed8)',border:'none',borderRadius:10,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer' }}>+ 종목 추가하기</button>
         </div>
       ) : filtered.length === 0 ? (
-        <div style={{ textAlign:'center',padding:'48px 0',color:'#374151',fontSize:13 }}>검색 결과가 없습니다</div>
+        <div style={{ textAlign:'center',padding:'48px 0',color:'#7a8fa3',fontSize:13 }}>검색 결과가 없습니다</div>
       ) : (
         /* ── 섹션별 그룹 렌더 ── */
         <div style={{ display:'flex', flexDirection:'column', gap:24 }}>
@@ -491,15 +491,15 @@ export default function AssetsPage() {
                 <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10, flexWrap:'wrap' }}>
                   {/* 타이틀 */}
                   <span style={{ fontSize:14, fontWeight:800, color:'#dde4f0' }}>{flag} {label}</span>
-                  <span style={{ fontSize:11, color:'#454868' }}>({group.length}종목)</span>
+                  <span style={{ fontSize:11, color:'#9aa0b8' }}>({group.length}종목)</span>
 
                   {/* 요약 배지 */}
-                  <span style={{ padding:'2px 10px', borderRadius:99, background:'#13162a', boxShadow:SHI, fontSize:11, fontWeight:600, color:'#c084fc' }}>
+                  <span style={{ padding:'2px 10px', borderRadius:99, background:'#0a0e1a', boxShadow:SHI, fontSize:11, fontWeight:600, color:'#c084fc' }}>
                     {fmtEval(summary.totalEval)}
                   </span>
                   {summary.avgRet !== null && (
                     <span style={{
-                      padding:'2px 10px', borderRadius:99, background:'#13162a', boxShadow:SHI,
+                      padding:'2px 10px', borderRadius:99, background:'#0a0e1a', boxShadow:SHI,
                       fontSize:11, fontWeight:700,
                       color: summary.avgRet >= 0 ? '#f87171' : '#60a5fa',
                     }}>
@@ -512,7 +512,7 @@ export default function AssetsPage() {
                     value={sort}
                     onChange={e => setSort(e.target.value as SortOption)}
                     onClick={e => e.stopPropagation()}
-                    style={{ marginLeft:'auto', padding:'4px 9px', background:N, boxShadow:SHI, border:'none', borderRadius:8, color:'#9ca3af', fontSize:11, outline:'none', cursor:'pointer' }}
+                    style={{ marginLeft:'auto', padding:'4px 9px', background:N, boxShadow:SHI, border:'none', borderRadius:8, color:'#a8b5c2', fontSize:11, outline:'none', cursor:'pointer' }}
                   >
                     <option value="eval">평가금액 높은 순</option>
                     <option value="return">수익률 높은 순</option>
@@ -555,7 +555,7 @@ export default function AssetsPage() {
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
                     <div style={{ minWidth:0 }}>
                       <div style={{ fontSize:13, fontWeight:800, color:'#dde4f0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{inv.name}</div>
-                      <div style={{ fontSize:9, color:'#454868', fontFamily:'monospace', marginTop:1 }}>{inv.ticker}</div>
+                      <div style={{ fontSize:9, color:'#9aa0b8', fontFamily:'monospace', marginTop:1 }}>{inv.ticker}</div>
                     </div>
                     <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:3, flexShrink:0, marginLeft:4 }}>
                       <span style={{ fontSize:8, fontWeight:700, color:MARKET_COLOR[inv.market], border:`1px solid ${MARKET_COLOR[inv.market]}44`, borderRadius:4, padding:'1px 5px' }}>{inv.market}</span>
@@ -583,9 +583,9 @@ export default function AssetsPage() {
                     </span>
                   )}
                   {!isNA && !inv.lynch_category && !classifyDone.has(inv.id) && (
-                    <span style={{ fontSize:9, color:'#374151', alignSelf:'flex-start' }}>분류 중…</span>
+                    <span style={{ fontSize:9, color:'#7a8fa3', alignSelf:'flex-start' }}>분류 중…</span>
                   )}
-                  {isNA && <span style={{ fontSize:9, color:'#4b5563', background:'#1f2937', padding:'2px 7px', borderRadius:4, border:'1px solid #374151', alignSelf:'flex-start' }}>N/A</span>}
+                  {isNA && <span style={{ fontSize:9, color:'#8a96a8', background:'#1f2937', padding:'2px 7px', borderRadius:4, border:'1px solid #7a8fa3', alignSelf:'flex-start' }}>N/A</span>}
 
                   {/* Current price + change */}
                   {livePrice && (
@@ -595,7 +595,7 @@ export default function AssetsPage() {
                       </div>
                       <div style={{ fontSize:11, fontWeight:700, color:Cs }}>
                         {isUp ? '▲' : '▼'} {Math.abs(livePrice.changePct).toFixed(2)}%
-                        <span style={{ color:'#454868', marginLeft:5, fontWeight:400 }}>
+                        <span style={{ color:'#9aa0b8', marginLeft:5, fontWeight:400 }}>
                           {livePrice.change >= 0 ? '+' : ''}{inv.currency==='KRW' ? `₩${Math.round(livePrice.change).toLocaleString('ko-KR')}` : `$${livePrice.change.toFixed(2)}`}
                         </span>
                       </div>
@@ -623,7 +623,7 @@ export default function AssetsPage() {
                       : `₩${Math.round(n).toLocaleString('ko-KR')}`
 
                     return (
-                      <div style={{ background:'#13162a', boxShadow:SHI, borderRadius:7, padding:'6px 9px' }}>
+                      <div style={{ background:'#0a0e1a', boxShadow:SHI, borderRadius:7, padding:'6px 9px' }}>
                         <div style={{ display:'flex', alignItems:'center', gap:4, marginBottom: hasDividend ? 4 : 0 }}>
                           <span style={{ fontSize:10 }}>💰</span>
                           {hasDividend ? (
@@ -631,7 +631,7 @@ export default function AssetsPage() {
                               {(dy * 100).toFixed(2)}%
                             </span>
                           ) : (
-                            <span style={{ fontSize:9, color:'#363855' }}>배당 없음</span>
+                            <span style={{ fontSize:9, color:'#7a8599' }}>배당 없음</span>
                           )}
                           {/* 주당 배당금 서브텍스트 */}
                           {annDiv && annDiv > 0 && (
@@ -646,11 +646,11 @@ export default function AssetsPage() {
                             <span style={{ fontSize:11, fontWeight:800, color:'#dde4f0', fontVariantNumeric:'tabular-nums' }}>
                               {fmtSmall(annualTotal)}
                             </span>
-                            <span style={{ fontSize:8, color:'#454868' }}>연</span>
+                            <span style={{ fontSize:8, color:'#9aa0b8' }}>연</span>
                             <span style={{ fontSize:9, color:'#34d399', fontVariantNumeric:'tabular-nums' }}>
                               {fmtSmall(monthlyTotal)}
                             </span>
-                            <span style={{ fontSize:8, color:'#454868' }}>월</span>
+                            <span style={{ fontSize:8, color:'#9aa0b8' }}>월</span>
                           </div>
                         )}
                       </div>
@@ -681,19 +681,19 @@ export default function AssetsPage() {
                 <div style={{ width:280, flexShrink:0, padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
                   {/* Portfolio performance */}
                   <div>
-                    <div style={{ fontSize:8, fontWeight:800, color:'#363855', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:7 }}>포트폴리오</div>
+                    <div style={{ fontSize:8, fontWeight:800, color:'#7a8599', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:7 }}>포트폴리오</div>
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:5, marginBottom:8 }}>
                       {[
                         { label:'현재가',  val: livePrice ? (inv.currency==='KRW' ? `₩${Math.round(livePrice.currentPrice).toLocaleString('ko-KR')}` : `$${livePrice.currentPrice.toFixed(2)}`) : '—', color:'#dde4f0' },
-                        { label:'매수가',  val: inv.currency==='KRW' ? `₩${Math.round(inv.purchase_price).toLocaleString('ko-KR')}` : `$${inv.purchase_price.toFixed(2)}`, color:'#9ca3af' },
+                        { label:'매수가',  val: inv.currency==='KRW' ? `₩${Math.round(inv.purchase_price).toLocaleString('ko-KR')}` : `$${inv.purchase_price.toFixed(2)}`, color:'#a8b5c2' },
                         /* ★ 매수수량 — 자산관리 카드 중앙 영역에 추가 */
                         { label:'매수수량', val: `${inv.quantity.toLocaleString('ko-KR')}주`, color:'#60a5fa' },
                         { label:'보유금액', val: livePrice ? (inv.currency==='KRW' ? fmtKrwVal(livePrice.currentPrice*inv.quantity) : `$${(livePrice.currentPrice*inv.quantity).toFixed(0)}`) : fmtKrwVal(inv.purchase_price*inv.quantity*(inv.currency==='USD'?USD_KRW:1)), color:'#c084fc' },
                         { label:'평가손익', val: livePrice ? (inv.currency==='KRW' ? ((livePrice.currentPrice-inv.purchase_price)*inv.quantity>=0?'+':'')+`₩${Math.round((livePrice.currentPrice-inv.purchase_price)*inv.quantity).toLocaleString('ko-KR')}` : ((livePrice.currentPrice-inv.purchase_price)*inv.quantity>=0?'+':'')+'$'+(Math.abs((livePrice.currentPrice-inv.purchase_price)*inv.quantity)).toFixed(2)) : '—', color: livePrice && livePrice.currentPrice >= inv.purchase_price ? '#f87171' : '#60a5fa' },
                         { label:'수익률',  val: livePrice ? `${ret >= 0 ? '+' : ''}${ret.toFixed(2)}%` : '—', color: ret >= 0 ? '#f87171' : '#60a5fa' },
                       ].map(({ label, val, color }) => (
-                        <div key={label} style={{ background:'#13162a', boxShadow:SHI, borderRadius:7, padding:'6px 9px' }}>
-                          <div style={{ fontSize:8, color:'#363855', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>{label}</div>
+                        <div key={label} style={{ background:'#0a0e1a', boxShadow:SHI, borderRadius:7, padding:'6px 9px' }}>
+                          <div style={{ fontSize:8, color:'#7a8599', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>{label}</div>
                           <div style={{ fontSize:11, fontWeight:700, color, fontVariantNumeric:'tabular-nums' }}>{val}</div>
                         </div>
                       ))}
@@ -702,7 +702,7 @@ export default function AssetsPage() {
 
                   {/* Financial metrics */}
                   <div>
-                    <div style={{ fontSize:8, fontWeight:800, color:'#363855', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:7 }}>핵심 지표</div>
+                    <div style={{ fontSize:8, fontWeight:800, color:'#7a8599', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:7 }}>핵심 지표</div>
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:5 }}>
                       {[
                         { label:'PER',      val: livePrice?.per        != null ? livePrice.per.toFixed(1)                                                                        : '—' },
@@ -728,9 +728,9 @@ export default function AssetsPage() {
                           })(),
                         },
                       ].map(({ label, val }) => (
-                        <div key={label} style={{ background:'#13162a', boxShadow:SHI, borderRadius:7, padding:'5px 8px' }}>
-                          <div style={{ fontSize:7, color:'#363855', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>{label}</div>
-                          <div style={{ fontSize:10, fontWeight:700, color:'#9ca3af', fontVariantNumeric:'tabular-nums', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{val}</div>
+                        <div key={label} style={{ background:'#0a0e1a', boxShadow:SHI, borderRadius:7, padding:'5px 8px' }}>
+                          <div style={{ fontSize:7, color:'#7a8599', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>{label}</div>
+                          <div style={{ fontSize:10, fontWeight:700, color:'#a8b5c2', fontVariantNumeric:'tabular-nums', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{val}</div>
                         </div>
                       ))}
                     </div>
@@ -751,10 +751,10 @@ export default function AssetsPage() {
                           fontSize:11, fontWeight:700, transition:'all 0.15s',
                           background: getTf(inv.ticker) === t ? '#fbbf24' : N,
                           boxShadow:  getTf(inv.ticker) === t ? '0 2px 8px rgba(251,191,36,0.3)' : SHI,
-                          color:      getTf(inv.ticker) === t ? '#1b1e2e' : '#454868',
+                          color:      getTf(inv.ticker) === t ? '#1b1e2e' : '#9aa0b8',
                         }}>{t}</button>
                     ))}
-                    <span style={{ marginLeft:'auto', fontSize:9, color:'#363855', alignSelf:'center' }}>
+                    <span style={{ marginLeft:'auto', fontSize:9, color:'#7a8599', alignSelf:'center' }}>
                       {ohlc.length > 0 ? `${ohlc.length}캔들` : ''}
                     </span>
                   </div>
@@ -777,7 +777,7 @@ export default function AssetsPage() {
                         }
                       />
                     ) : (
-                      <div style={{ height:220, display:'flex', alignItems:'center', justifyContent:'center', color:'#363855', fontSize:11 }}>
+                      <div style={{ height:220, display:'flex', alignItems:'center', justifyContent:'center', color:'#7a8599', fontSize:11 }}>
                         {priceStatus === 'loading' ? '로딩 중…' : `${getTf(inv.ticker)} 차트 없음`}
                       </div>
                     )}
@@ -869,11 +869,11 @@ function AssetRoleModal({
           {/* 타이틀 */}
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
             <h3 style={{ margin:0, fontSize:16, fontWeight:800 }}>🏷 자산 포지션 변경</h3>
-            <button onClick={onClose} style={{ background:'none', border:'none', color:'#454868', fontSize:20, cursor:'pointer' }}>×</button>
+            <button onClick={onClose} style={{ background:'none', border:'none', color:'#9aa0b8', fontSize:20, cursor:'pointer' }}>×</button>
           </div>
 
           {/* 종목 정보 */}
-          <div style={{ background:'#13162a', boxShadow:SHI, borderRadius:10, padding:'9px 13px', marginBottom:20, fontSize:13, color:'#8b92b8' }}>
+          <div style={{ background:'#0a0e1a', boxShadow:SHI, borderRadius:10, padding:'9px 13px', marginBottom:20, fontSize:13, color:'#8b92b8' }}>
             <strong style={{ color:'#dde4f0' }}>{investment.name}</strong>
             <span style={{ marginLeft:8, fontFamily:'monospace', fontSize:11 }}>{investment.ticker}</span>
           </div>
@@ -890,7 +890,7 @@ function AssetRoleModal({
                 style={{
                   display:'flex', alignItems:'flex-start', gap:12, padding:'12px 14px',
                   borderRadius:11, border:'none', cursor:'pointer', textAlign:'left',
-                  background: selected === role ? '#13162a' : 'transparent',
+                  background: selected === role ? '#0a0e1a' : 'transparent',
                   boxShadow:  selected === role ? SHO : SHI,
                   borderLeft: `3px solid ${selected === role
                     ? (role === 'CORE' ? '#34d399' : '#fbbf24')
@@ -900,13 +900,13 @@ function AssetRoleModal({
               >
                 <span style={{ fontSize:22, flexShrink:0 }}>{icon}</span>
                 <div>
-                  <div style={{ fontSize:13, fontWeight:700, color: selected === role ? '#dde4f0' : '#6b7280', marginBottom:3 }}>{label}</div>
-                  <div style={{ fontSize:11, color:'#454868', lineHeight:1.5 }}>{desc}</div>
+                  <div style={{ fontSize:13, fontWeight:700, color: selected === role ? '#dde4f0' : '#8a9aaa', marginBottom:3 }}>{label}</div>
+                  <div style={{ fontSize:11, color:'#9aa0b8', lineHeight:1.5 }}>{desc}</div>
                 </div>
                 <div style={{ marginLeft:'auto', flexShrink:0, paddingTop:2 }}>
                   <div style={{
                     width:16, height:16, borderRadius:'50%',
-                    border: `2px solid ${selected === role ? (role === 'CORE' ? '#34d399' : '#fbbf24') : '#374151'}`,
+                    border: `2px solid ${selected === role ? (role === 'CORE' ? '#34d399' : '#fbbf24') : '#7a8fa3'}`,
                     background: selected === role ? (role === 'CORE' ? '#34d399' : '#fbbf24') : 'transparent',
                     transition:'all 0.15s',
                   }}/>
@@ -919,7 +919,7 @@ function AssetRoleModal({
           <div style={{ display:'flex', gap:10 }}>
             <button onClick={onClose} disabled={loading}
               style={{ flex:1, padding:'11px 0', borderRadius:9, border:'none', cursor:'pointer',
-                background:'#13162a', boxShadow:SHI, color:'#454868', fontWeight:600, fontSize:14 }}>
+                background:'#0a0e1a', boxShadow:SHI, color:'#9aa0b8', fontWeight:600, fontSize:14 }}>
               취소
             </button>
             <button onClick={() => onConfirm(selected)} disabled={loading || selected === investment.asset_role}

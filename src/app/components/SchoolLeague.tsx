@@ -34,10 +34,10 @@ const C = {
   surface: '#0f172a',
   card:    '#1e293b',
   cardHi:  '#263348',
-  border:  '#334155',
+  border:  '#7a8fa3',
   textHi:  '#f1f5f9',
   textMid: '#94a3b8',
-  textLow: '#64748b',
+  textLow: '#7f93a8',
   // 대시보드·리밸런싱 위젯과 통일
   core:    '#38bdf8',
   sat:     '#fb923c',

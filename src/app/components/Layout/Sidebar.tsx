@@ -156,7 +156,7 @@ function SidebarInner() {
 
       {/* ── 메인 메뉴 ─────────────────────────────────────── */}
       <nav style={{ padding: '14px 10px', flex: 1 }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: '#374151', letterSpacing: '0.12em', padding: '0 10px 10px', textTransform: 'uppercase' as const }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: '#7a8fa3', letterSpacing: '0.12em', padding: '0 10px 10px', textTransform: 'uppercase' as const }}>
           MAIN MENU
         </div>
 
@@ -166,7 +166,7 @@ function SidebarInner() {
             <a key={href} href={href} style={{
               display: 'flex', alignItems: 'center', gap: 12,
               padding: '10px 12px', borderRadius: 10, textDecoration: 'none',
-              color:      active ? '#f1f5f9' : '#6b7280',
+              color:      active ? '#f1f5f9' : '#8a9aaa',
               background: active ? 'rgba(37,99,235,0.2)' : 'transparent',
               borderLeft: `3px solid ${active ? '#10b981' : 'transparent'}`,
               fontSize: 14, fontWeight: active ? 700 : 400,
@@ -174,7 +174,7 @@ function SidebarInner() {
               boxShadow: active ? 'inset 0 0 0 1px rgba(37,99,235,0.15)' : 'none',
             }}
               onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLAnchorElement).style.color = '#d1d5db' } }}
-              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; (e.currentTarget as HTMLAnchorElement).style.color = '#6b7280' } }}
+              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; (e.currentTarget as HTMLAnchorElement).style.color = '#8a9aaa' } }}
             >
               <span style={{ fontSize: 17, lineHeight: 1, minWidth: 20, textAlign: 'center' as const }}>{icon}</span>
               {label}
@@ -184,7 +184,7 @@ function SidebarInner() {
 
         {/* ── 분석 도구 ── */}
         <div style={{ height: 1, background: '#1f2937', margin: '12px 4px 12px' }}/>
-        <div style={{ fontSize: 10, fontWeight: 700, color: '#374151', letterSpacing: '0.12em', padding: '0 10px 10px', textTransform: 'uppercase' as const }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: '#7a8fa3', letterSpacing: '0.12em', padding: '0 10px 10px', textTransform: 'uppercase' as const }}>
           ANALYSIS TOOL
         </div>
 
@@ -198,14 +198,14 @@ function SidebarInner() {
             <a key={href} href={href} style={{
               display: 'flex', alignItems: 'center', gap: 12,
               padding: '10px 12px', borderRadius: 10, textDecoration: 'none',
-              color:      active ? '#f1f5f9' : '#6b7280',
+              color:      active ? '#f1f5f9' : '#8a9aaa',
               background: active ? 'rgba(124,58,237,0.18)' : 'transparent',
               borderLeft: `3px solid ${active ? '#a78bfa' : 'transparent'}`,
               fontSize: 14, fontWeight: active ? 700 : 400,
               transition: 'all 0.12s', marginBottom: 3,
             }}
               onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(167,139,250,0.08)'; (e.currentTarget as HTMLAnchorElement).style.color = '#c4b5fd' } }}
-              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; (e.currentTarget as HTMLAnchorElement).style.color = '#6b7280' } }}
+              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; (e.currentTarget as HTMLAnchorElement).style.color = '#8a9aaa' } }}
             >
               <span style={{ fontSize: 17, lineHeight: 1, minWidth: 20, textAlign: 'center' as const }}>{icon}</span>
               {label}
@@ -215,7 +215,7 @@ function SidebarInner() {
 
         {/* ── 리서치 도구 ── */}
         <div style={{ height: 1, background: '#1f2937', margin: '12px 4px 12px' }}/>
-        <div style={{ fontSize: 10, fontWeight: 700, color: '#374151', letterSpacing: '0.12em', padding: '0 10px 10px', textTransform: 'uppercase' as const }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: '#7a8fa3', letterSpacing: '0.12em', padding: '0 10px 10px', textTransform: 'uppercase' as const }}>
           RESEARCH
         </div>
         {RESEARCH_NAV.map(({ href, icon, label }) => {
@@ -224,14 +224,14 @@ function SidebarInner() {
             <a key={href} href={href} style={{
               display: 'flex', alignItems: 'center', gap: 12,
               padding: '10px 12px', borderRadius: 10, textDecoration: 'none',
-              color:      active ? '#f1f5f9' : '#6b7280',
+              color:      active ? '#f1f5f9' : '#8a9aaa',
               background: active ? 'rgba(251,191,36,0.12)' : 'transparent',
               borderLeft: `3px solid ${active ? '#fbbf24' : 'transparent'}`,
               fontSize: 14, fontWeight: active ? 700 : 400,
               transition: 'all 0.12s', marginBottom: 3,
             }}
               onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(251,191,36,0.07)'; (e.currentTarget as HTMLAnchorElement).style.color = '#fde68a' } }}
-              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; (e.currentTarget as HTMLAnchorElement).style.color = '#6b7280' } }}
+              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; (e.currentTarget as HTMLAnchorElement).style.color = '#8a9aaa' } }}
             >
               <span style={{ fontSize: 17, lineHeight: 1, minWidth: 20, textAlign: 'center' as const }}>{icon}</span>
               {label}
@@ -241,7 +241,7 @@ function SidebarInner() {
 
         {/* ── SCHOOL 섹션 ── */}
         <div style={{ height: 1, background: '#1f2937', margin: '12px 4px 12px' }}/>
-        <div style={{ fontSize: 10, fontWeight: 700, color: '#374151', letterSpacing: '0.12em', padding: '0 10px 10px', textTransform: 'uppercase' as const }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: '#7a8fa3', letterSpacing: '0.12em', padding: '0 10px 10px', textTransform: 'uppercase' as const }}>
           SCHOOL
         </div>
         {SCHOOL_NAV.map(({ href, icon, label }) => {
@@ -250,14 +250,14 @@ function SidebarInner() {
             <a key={href} href={href} style={{
               display: 'flex', alignItems: 'center', gap: 12,
               padding: '10px 12px', borderRadius: 10, textDecoration: 'none',
-              color:      active ? '#f1f5f9' : '#6b7280',
+              color:      active ? '#f1f5f9' : '#8a9aaa',
               background: active ? 'rgba(99,102,241,0.15)' : 'transparent',
               borderLeft: `3px solid ${active ? '#818cf8' : 'transparent'}`,
               fontSize: 14, fontWeight: active ? 700 : 400,
               transition: 'all 0.12s', marginBottom: 3,
             }}
               onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(99,102,241,0.07)'; (e.currentTarget as HTMLAnchorElement).style.color = '#a5b4fc' } }}
-              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; (e.currentTarget as HTMLAnchorElement).style.color = '#6b7280' } }}
+              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; (e.currentTarget as HTMLAnchorElement).style.color = '#8a9aaa' } }}
             >
               <span style={{ fontSize: 17, lineHeight: 1, minWidth: 20, textAlign: 'center' as const }}>{icon}</span>
               {label}
@@ -269,13 +269,13 @@ function SidebarInner() {
         {isTeacher && (
           <>
             <div style={{ height: 1, background: '#1f2937', margin: '12px 4px 12px' }}/>
-            <div style={{ fontSize: 10, fontWeight: 700, color: '#374151', letterSpacing: '0.12em', padding: '0 10px 10px', textTransform: 'uppercase' as const }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#7a8fa3', letterSpacing: '0.12em', padding: '0 10px 10px', textTransform: 'uppercase' as const }}>
               ADMIN
             </div>
             <a href="/admin" style={{
               display: 'flex', alignItems: 'center', gap: 12,
               padding: '10px 12px', borderRadius: 10, textDecoration: 'none',
-              color:      pathname === '/admin' ? '#f1f5f9' : '#6b7280',
+              color:      pathname === '/admin' ? '#f1f5f9' : '#8a9aaa',
               background: pathname === '/admin' ? 'rgba(251,146,60,0.15)' : 'transparent',
               borderLeft: `3px solid ${pathname === '/admin' ? '#fb923c' : 'transparent'}`,
               fontSize: 14, fontWeight: pathname === '/admin' ? 700 : 400,
@@ -298,7 +298,7 @@ function SidebarInner() {
             <div style={{ fontSize: 13, color: '#f1f5f9', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {displayName ?? email?.split('@')[0] ?? '—'}
             </div>
-            <div style={{ fontSize: 10, color: '#4b5563', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
+            <div style={{ fontSize: 10, color: '#8a96a8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
               {email}
             </div>
           </div>
@@ -307,9 +307,9 @@ function SidebarInner() {
         {!confirming ? (
           <button
             onClick={() => setConfirming(true)}
-            style={{ width: '100%', padding: '8px', borderRadius: 8, background: 'transparent', border: '1px solid #1f2937', color: '#6b7280', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.15s' }}
+            style={{ width: '100%', padding: '8px', borderRadius: 8, background: 'transparent', border: '1px solid #1f2937', color: '#8a9aaa', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.15s' }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.1)'; (e.currentTarget as HTMLButtonElement).style.color = '#f87171'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(239,68,68,0.3)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = '#6b7280'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#1f2937' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = '#8a9aaa'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#1f2937' }}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
@@ -318,9 +318,9 @@ function SidebarInner() {
           </button>
         ) : (
           <div>
-            <div style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center' as const, marginBottom: 6 }}>정말 로그아웃?</div>
+            <div style={{ fontSize: 11, color: '#a8b5c2', textAlign: 'center' as const, marginBottom: 6 }}>정말 로그아웃?</div>
             <div style={{ display: 'flex', gap: 6 }}>
-              <button onClick={() => setConfirming(false)} style={{ flex: 1, padding: '7px', borderRadius: 7, background: '#1f2937', border: 'none', color: '#9ca3af', fontSize: 12, cursor: 'pointer' }}>취소</button>
+              <button onClick={() => setConfirming(false)} style={{ flex: 1, padding: '7px', borderRadius: 7, background: '#1f2937', border: 'none', color: '#a8b5c2', fontSize: 12, cursor: 'pointer' }}>취소</button>
               <button onClick={handleLogout} style={{ flex: 1, padding: '7px', borderRadius: 7, background: '#dc2626', border: 'none', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>나가기</button>
             </div>
           </div>

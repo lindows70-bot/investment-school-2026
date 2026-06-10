@@ -66,7 +66,7 @@ type TickerState =
 // ────────────────────────────────────────────────────────────
 const C = {
   bg:'#020617', surface:'#0f172a', card:'#1e293b', cardHi:'#263348',
-  border:'#334155', textHi:'#f1f5f9', textMid:'#94a3b8', textLow:'#64748b',
+  border:'#7a8fa3', textHi:'#f1f5f9', textMid:'#94a3b8', textLow:'#7f93a8',
   red:'#f87171', yellow:'#fbbf24', green:'#4ade80', blue:'#60a5fa',
   barRev:'#3b82f6', lineInv:'#ec4899',
 }

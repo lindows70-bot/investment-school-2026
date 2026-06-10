@@ -151,7 +151,7 @@ function calcAlert(
   return {
     type: 'hold', icon: '⚪', label: '합리적 보유',
     desc: `PEG ${revisedPeg > 0 ? revisedPeg.toFixed(2) : '—'} — 0.5~1.5 적정 범위. 현재 포지션 유지 권고`,
-    color: '#64748b', bg: 'transparent', border: 'rgba(100,116,139,0.25)',
+    color: '#7f93a8', bg: 'transparent', border: 'rgba(100,116,139,0.25)',
   }
 }
 
@@ -232,7 +232,7 @@ function BubbleDot(props: any) {
       {!hasPeg && (
         <text x={cx} y={cy + r + 10}
           textAnchor="middle"
-          fill="#475569" fontSize={7}>
+          fill="#8599ae" fontSize={7}>
           PE—
         </text>
       )}
@@ -413,7 +413,7 @@ export default function EarningsAlertTerminal({
 
   const C = {
     card: '#1a1d27', border: '#2a2d3a', grid: '#1e2140',
-    text: '#94a3b8', textHi: '#f1f5f9', textLow: '#475569',
+    text: '#94a3b8', textHi: '#f1f5f9', textLow: '#8599ae',
   }
 
   // ── Empty State: 개별 주식이 하나도 없을 때
@@ -424,7 +424,7 @@ export default function EarningsAlertTerminal({
       background: C.card, border: `1px dashed ${C.border}`,
       borderRadius: 14, textAlign: 'center',
     }}>
-      <AlertTriangle size={36} color="#475569" />
+      <AlertTriangle size={36} color="#8599ae" />
       <div>
         <div style={{ fontSize: 15, fontWeight: 700, color: C.textHi, marginBottom: 8 }}>
           린치 PEG 분석 적용 불가
@@ -556,7 +556,7 @@ export default function EarningsAlertTerminal({
                       {gOverrides[row.ticker] !== undefined && (
                         <button
                           onClick={() => setGOverrides(prev => { const n = { ...prev }; delete n[row.ticker]; return n })}
-                          style={{ fontSize: 8, color: '#334155', background: 'none', border: 'none', cursor: 'pointer' }}
+                          style={{ fontSize: 8, color: '#7a8fa3', background: 'none', border: 'none', cursor: 'pointer' }}
                         >
                           초기화
                         </button>

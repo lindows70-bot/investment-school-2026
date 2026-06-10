@@ -25,7 +25,7 @@ const C = {
   border:   '#2a2d3a',
   text:     '#94a3b8',
   textHi:   '#f1f5f9',
-  textLow:  '#475569',
+  textLow:  '#8599ae',
 }
 
 export interface InflationChartProps {
@@ -83,7 +83,7 @@ function Skeleton() {
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 24, marginBottom: 8 }}>📡</div>
           <div style={{ fontSize: 12, color: C.textLow }}>FRED API 데이터 수신 중…</div>
-          <div style={{ fontSize: 11, color: '#334155', marginTop: 4 }}>Headline PCE · Core PCE · EFFR</div>
+          <div style={{ fontSize: 11, color: '#7a8fa3', marginTop: 4 }}>Headline PCE · Core PCE · EFFR</div>
         </div>
       </div>
     </div>
@@ -101,7 +101,7 @@ function CustomTooltip({ active, payload, label }: any) {
       borderRadius: 10, padding: '10px 14px', fontSize: 12,
       boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
     }}>
-      <div style={{ color: '#64748b', marginBottom: 6, fontSize: 11, fontWeight: 700 }}>{label}</div>
+      <div style={{ color: '#7f93a8', marginBottom: 6, fontSize: 11, fontWeight: 700 }}>{label}</div>
       {payload.map((item: { name: string; value: number; color: string }, i: number) => (
         <div key={i} style={{ color: item.color, marginBottom: 3 }}>
           {item.name}: <strong style={{ fontFamily: 'monospace' }}>{item.value.toFixed(2)}%</strong>
@@ -153,7 +153,7 @@ export default function InflationChart({ data, loading, error, isMock, lastUpdat
               <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'rgba(74,222,128,0.12)', color: '#4ade80', fontWeight: 700 }}>🟢 LIVE · FRED</span>
             )}
             {lastUpdated && !isMock && (
-              <span style={{ fontSize: 9, color: '#334155' }}>업데이트: {lastUpdated}</span>
+              <span style={{ fontSize: 9, color: '#7a8fa3' }}>업데이트: {lastUpdated}</span>
             )}
           </div>
           <div style={{
@@ -177,7 +177,7 @@ export default function InflationChart({ data, loading, error, isMock, lastUpdat
                 <div style={{ fontSize: 20, fontWeight: 900, color: item.color, fontFamily: 'monospace', lineHeight: 1.1 }}>
                   {item.val.toFixed(2)}%
                 </div>
-                <div style={{ fontSize: 9, color: '#475569', marginTop: 2 }}>{item.label}</div>
+                <div style={{ fontSize: 9, color: '#8599ae', marginTop: 2 }}>{item.label}</div>
               </div>
             ))}
           </div>
@@ -265,7 +265,7 @@ export default function InflationChart({ data, loading, error, isMock, lastUpdat
         ].map(item => (
           <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <div style={{ width: 14, height: 2, background: item.color, borderRadius: 2 }} />
-            <span style={{ fontSize: 10, color: '#334155' }}>{item.text}</span>
+            <span style={{ fontSize: 10, color: '#7a8fa3' }}>{item.text}</span>
           </div>
         ))}
         <div style={{ marginLeft: 'auto', fontSize: 10, color: '#1e293b' }}>

@@ -71,7 +71,7 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
             <a key={href} href={href} style={{
               flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
               padding: '10px 0 12px', gap: 3, textDecoration: 'none',
-              color: active ? '#3b82f6' : '#4b5563',
+              color: active ? '#3b82f6' : '#8a96a8',
               fontSize: 10, fontWeight: active ? 600 : 400,
             }}>
               <span style={{ fontSize: 20 }}>{icon}</span>

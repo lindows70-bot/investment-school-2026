@@ -42,13 +42,13 @@ interface StudentRow extends Profile {
 const USD_KRW = 1_350
 
 const LYNCH_META: Record<string, { label: string; color: string }> = {
-  slow_grower: { label: '완만한 성장주', color: '#9ca3af' },
+  slow_grower: { label: '저성장주', color: '#a8b5c2' },
   stalwart:    { label: '대형 우량주',   color: '#60a5fa' },
   fast_grower: { label: '빠른 성장주',   color: '#34d399' },
   cyclical:    { label: '경기 순환주',   color: '#fb923c' },
   turnaround:  { label: '회생 기업주',   color: '#f87171' },
   asset_play:  { label: '자산 보유주',   color: '#c084fc' },
-  na:          { label: 'N/A',           color: '#4b5563' },
+  na:          { label: 'N/A',           color: '#8a96a8' },
 }
 
 const MARKET_COLOR: Record<Market, string> = {
@@ -141,7 +141,7 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
   const pieData = Object.entries(lynchCounts).map(([k, v]) => ({
     name: LYNCH_META[k]?.label ?? k,
     value: v,
-    color: LYNCH_META[k]?.color ?? '#4b5563',
+    color: LYNCH_META[k]?.color ?? '#8a96a8',
   }))
 
   // 마켓 구성
@@ -159,17 +159,17 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
       <div style={{ background: '#1b1e2e', boxShadow: '0 24px 64px rgba(0,0,0,0.8), 10px 10px 28px #0b0d1a, -6px -6px 18px #2b2f46', border: 'none', borderRadius: 18, width: '100%', maxWidth: 920, maxHeight: '90vh', overflowY: 'auto', animation: 'slideUp 0.2s ease-out' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid #252840' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid #4a5070' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg,#2563eb,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
               {(student.full_name ?? student.email)[0].toUpperCase()}
             </div>
             <div>
               <div style={{ fontWeight: 700, fontSize: 16, color: '#f1f5f9' }}>{student.full_name ?? '—'}</div>
-              <div style={{ fontSize: 12, color: '#475569', marginTop: 2 }}>{student.email}</div>
+              <div style={{ fontSize: 12, color: '#8599ae', marginTop: 2 }}>{student.email}</div>
             </div>
           </div>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, background: '#1b1e2e', boxShadow: '3px 3px 8px #0e1020, -2px -2px 6px #282c44', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, background: '#1b1e2e', boxShadow: '3px 3px 8px #0e1020, -2px -2px 6px #282c44', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7f93a8' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
         </div>
@@ -179,35 +179,35 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10, marginBottom: 20 }}>
             {/* 보유 종목 */}
             <div style={{ background: '#1b1e2e', boxShadow: '5px 5px 14px #0e1020, -3px -3px 10px #282c44', borderRadius: 10, padding: '12px 14px' }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>보유 종목</div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: '#8599ae', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>보유 종목</div>
               <div style={{ fontSize: 19, fontWeight: 800, color: '#f1f5f9' }}>{invs.length}개</div>
-              <div style={{ fontSize: 10, color: '#334155', marginTop: 2 }}>
+              <div style={{ fontSize: 10, color: '#7a8fa3', marginTop: 2 }}>
                 분류완료 {invs.filter(i => i.lynch_category && i.lynch_category !== 'na').length}/{invs.length}
               </div>
             </div>
             {/* 총 투자원가 */}
             <div style={{ background: '#1b1e2e', boxShadow: '5px 5px 14px #0e1020, -3px -3d 10px #282c44', borderRadius: 10, padding: '12px 14px' }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>총 투자원가</div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: '#8599ae', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>총 투자원가</div>
               <div style={{ fontSize: 19, fontWeight: 800, color: '#f1f5f9', fontVariantNumeric: 'tabular-nums' }}>{fmtKrw(totalInvested)}</div>
-              <div style={{ fontSize: 10, color: '#334155', marginTop: 2 }}>USD×₩{usdKrw.toLocaleString('ko-KR')} 실시간</div>
+              <div style={{ fontSize: 10, color: '#7a8fa3', marginTop: 2 }}>USD×₩{usdKrw.toLocaleString('ko-KR')} 실시간</div>
             </div>
             {/* 총 평가손익 */}
             <div style={{ background: '#1b1e2e', boxShadow: '5px 5px 14px #0e1020, -3px -3px 10px #282c44', borderRadius: 10, padding: '12px 14px', borderLeft: `3px solid ${totalPnL >= 0 ? '#ef4444' : '#3b82f6'}` }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: '#8599ae', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
                 {loadingPrices ? '평가손익 조회 중...' : '총 평가손익'}
               </div>
               <div style={{ fontSize: 19, fontWeight: 800, color: totalPnL >= 0 ? '#ef4444' : '#3b82f6', fontVariantNumeric: 'tabular-nums' }}>
                 {loadingPrices ? '—' : `${totalPnL >= 0 ? '+' : ''}${fmtKrw(Math.round(totalPnL))}`}
               </div>
-              <div style={{ fontSize: 10, color: '#334155', marginTop: 2 }}>현재가 기준 평가</div>
+              <div style={{ fontSize: 10, color: '#7a8fa3', marginTop: 2 }}>현재가 기준 평가</div>
             </div>
             {/* 총 수익률 */}
             <div style={{ background: '#1b1e2e', boxShadow: '5px 5px 14px #0e1020, -3px -3px 10px #282c44', borderRadius: 10, padding: '12px 14px', borderLeft: `3px solid ${(totalRet ?? 0) >= 0 ? '#ef4444' : '#3b82f6'}` }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>총 수익률</div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: '#8599ae', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>총 수익률</div>
               <div style={{ fontSize: 19, fontWeight: 800, color: (totalRet ?? 0) >= 0 ? '#ef4444' : '#3b82f6', fontVariantNumeric: 'tabular-nums' }}>
                 {loadingPrices ? '—' : totalRet != null ? `${totalRet >= 0 ? '+' : ''}${totalRet.toFixed(2)}%` : '—'}
               </div>
-              <div style={{ fontSize: 10, color: '#334155', marginTop: 2 }}>
+              <div style={{ fontSize: 10, color: '#7a8fa3', marginTop: 2 }}>
                 {pricedInvs.length < invs.length && !loadingPrices ? `${pricedInvs.length}/${invs.length}개 현재가 로드` : '현재가 기준'}
               </div>
             </div>
@@ -217,7 +217,7 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
             {/* 린치 분류 도넛 차트 */}
             <div style={{ background: '#1b1e2e', boxShadow: '5px 5px 14px #0e1020, -3px -3px 10px #282c44', border: 'none', borderRadius: 10, padding: '14px 16px' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>피터 린치 분류</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#8599ae', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>피터 린치 분류</div>
               {pieData.length > 0 ? (
                 <>
                   <ResponsiveContainer width="100%" height={120}>
@@ -234,41 +234,41 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
                   </ResponsiveContainer>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', marginTop: 6 }}>
                     {pieData.map(e => (
-                      <span key={e.name} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#64748b' }}>
+                      <span key={e.name} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#7f93a8' }}>
                         <span style={{ width: 6, height: 6, borderRadius: '50%', background: e.color, display: 'inline-block', flexShrink: 0 }}/>
                         {e.name} {e.value}
                       </span>
                     ))}
                   </div>
                 </>
-              ) : <div style={{ fontSize: 12, color: '#334155', padding: '20px 0' }}>종목 없음</div>}
+              ) : <div style={{ fontSize: 12, color: '#7a8fa3', padding: '20px 0' }}>종목 없음</div>}
             </div>
 
             {/* 마켓 구성 */}
             <div style={{ background: '#1b1e2e', boxShadow: '5px 5px 14px #0e1020, -3px -3px 10px #282c44', border: 'none', borderRadius: 10, padding: '14px 16px' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>시장 구성</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#8599ae', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>시장 구성</div>
               {Object.entries(mkDist).map(([m, cnt]) => {
                 const pct = invs.length > 0 ? (cnt / invs.length) * 100 : 0
                 return (
                   <div key={m} style={{ marginBottom: 10 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 5 }}>
-                      <span style={{ color: MARKET_COLOR[m as Market] ?? '#64748b', fontWeight: 600 }}>{m}</span>
-                      <span style={{ color: '#475569', fontVariantNumeric: 'tabular-nums' }}>{cnt}개 ({pct.toFixed(0)}%)</span>
+                      <span style={{ color: MARKET_COLOR[m as Market] ?? '#7f93a8', fontWeight: 600 }}>{m}</span>
+                      <span style={{ color: '#8599ae', fontVariantNumeric: 'tabular-nums' }}>{cnt}개 ({pct.toFixed(0)}%)</span>
                     </div>
-                    <div style={{ height: 4, background: '#13162a', boxShadow: 'inset 3px 3px 7px #0e1020, inset -2px -2px 5px #282c44', borderRadius: 99, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${pct}%`, background: MARKET_COLOR[m as Market] ?? '#475569', borderRadius: 99 }}/>
+                    <div style={{ height: 4, background: '#0a0e1a', boxShadow: 'inset 3px 3px 7px #0e1020, inset -2px -2px 5px #282c44', borderRadius: 99, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: MARKET_COLOR[m as Market] ?? '#8599ae', borderRadius: 99 }}/>
                     </div>
                   </div>
                 )
               })}
-              {invs.length === 0 && <div style={{ fontSize: 12, color: '#334155' }}>종목 없음</div>}
+              {invs.length === 0 && <div style={{ fontSize: 12, color: '#7a8fa3' }}>종목 없음</div>}
             </div>
           </div>
 
           {/* 종목 목록 */}
           {invs.length > 0 && (
             <div style={{ background: '#1b1e2e', boxShadow: '5px 5px 14px #0e1020, -3px -3px 10px #282c44', border: 'none', borderRadius: 10, overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid #252840', fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid #4a5070', fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>
                 보유 종목 ({invs.length})
               </div>
               <div style={{ overflowX: 'auto' }}>
@@ -276,7 +276,7 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
                   <thead>
                     <tr style={{ background: '#141728' }}>
                       {['종목명','티커','시장','매수가','현재가','수익률','수량','투자금액','분류'].map(h => (
-                        <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
+                        <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: '#8599ae', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -288,11 +288,11 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
                       const ret      = curPrice != null
                         ? ((curPrice - inv.purchase_price) / inv.purchase_price) * 100
                         : null
-                      const retColor = ret == null ? '#475569' : ret >= 0 ? '#ef4444' : '#3b82f6'
+                      const retColor = ret == null ? '#8599ae' : ret >= 0 ? '#ef4444' : '#3b82f6'
                       return (
                         <tr key={inv.id} style={{ borderTop: '1px solid #1e1e1e', background: i % 2 === 0 ? 'transparent' : '#111' }}>
                           <td style={{ padding: '9px 12px', color: '#f1f5f9', fontWeight: 500, whiteSpace: 'nowrap', minWidth: 120 }}>{inv.name}</td>
-                          <td style={{ padding: '9px 12px', color: '#64748b', fontFamily: 'monospace' }}>{inv.ticker}</td>
+                          <td style={{ padding: '9px 12px', color: '#7f93a8', fontFamily: 'monospace' }}>{inv.ticker}</td>
                           <td style={{ padding: '9px 12px' }}>
                             <span style={{ fontSize: 10, fontWeight: 700, color: MARKET_COLOR[inv.market], border: `1px solid ${MARKET_COLOR[inv.market]}44`, borderRadius: 4, padding: '1px 5px' }}>{inv.market}</span>
                           </td>
@@ -302,24 +302,24 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
                           </td>
                           {/* 현재가 */}
                           <td style={{ padding: '9px 12px', color: '#cbd5e1', fontVariantNumeric: 'tabular-nums' }}>
-                            {loadingPrices ? <span style={{ color: '#374151' }}>…</span>
+                            {loadingPrices ? <span style={{ color: '#7a8fa3' }}>…</span>
                               : curPrice != null
                               ? (inv.currency === 'KRW' ? `₩${fmt(curPrice)}` : `$${curPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
-                              : <span style={{ color: '#374151' }}>—</span>}
+                              : <span style={{ color: '#7a8fa3' }}>—</span>}
                           </td>
                           {/* 수익률 */}
                           <td style={{ padding: '9px 12px', fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>
                             {ret != null
                               ? <span style={{ color: retColor }}>{ret >= 0 ? '+' : ''}{ret.toFixed(2)}%</span>
-                              : <span style={{ color: '#374151' }}>—</span>}
+                              : <span style={{ color: '#7a8fa3' }}>—</span>}
                           </td>
                           <td style={{ padding: '9px 12px', color: '#94a3b8', fontVariantNumeric: 'tabular-nums' }}>{inv.quantity.toLocaleString()}</td>
                           <td style={{ padding: '9px 12px', color: '#cbd5e1', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmtKrw(cost)}</td>
                           <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>
                             {cat && cat !== 'na' && LYNCH_META[cat]
                               ? <span style={{ fontSize: 10, color: LYNCH_META[cat].color, background: `${LYNCH_META[cat].color}18`, border: `1px solid ${LYNCH_META[cat].color}40`, borderRadius: 99, padding: '2px 8px', whiteSpace: 'nowrap', display: 'inline-block' }}>{LYNCH_META[cat].label}</span>
-                              : cat === 'na' ? <span style={{ fontSize: 10, color: '#4b5563' }}>N/A</span>
-                              : <span style={{ fontSize: 10, color: '#334155' }}>미분류</span>}
+                              : cat === 'na' ? <span style={{ fontSize: 10, color: '#8a96a8' }}>N/A</span>
+                              : <span style={{ fontSize: 10, color: '#7a8fa3' }}>미분류</span>}
                           </td>
                         </tr>
                       )
@@ -602,7 +602,7 @@ export default function AdminPage() {
   // ── 공통 스타일 ─────────────────────────────────────────────
   const thStyle = (col: SortCol): React.CSSProperties => ({
     padding: '10px 14px', textAlign: 'left',
-    fontSize: 10, fontWeight: 600, color: sortCol === col ? '#60a5fa' : '#475569',
+    fontSize: 10, fontWeight: 600, color: sortCol === col ? '#60a5fa' : '#8599ae',
     textTransform: 'uppercase', letterSpacing: '0.06em',
     cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
   })
@@ -619,7 +619,7 @@ export default function AdminPage() {
         ::-webkit-scrollbar { width: 5px; height: 5px }
         ::-webkit-scrollbar-track { background: #0a0a0a }
         ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 99px }
-        input::placeholder { color: #334155 }
+        input::placeholder { color: #7a8fa3 }
         tr.hoverable:hover td { background: rgba(30,30,30,0.8) !important }
       `}</style>
 
@@ -633,7 +633,7 @@ export default function AdminPage() {
             <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 12, padding: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
               <div style={{ fontSize: 32 }}>🔒</div>
               <div style={{ fontSize: 16, fontWeight: 700, color: '#f87171' }}>접근 권한 없음</div>
-              <div style={{ fontSize: 14, color: '#64748b' }}>{authErr}</div>
+              <div style={{ fontSize: 14, color: '#7f93a8' }}>{authErr}</div>
               <button onClick={() => router.push('/dashboard')} style={{ padding: '8px 20px', borderRadius: 8, background: '#1e1e1e', border: '1px solid #2a2a2a', color: '#94a3b8', fontSize: 13, cursor: 'pointer' }}>
                 대시보드로 이동
               </button>
@@ -644,7 +644,7 @@ export default function AdminPage() {
         {/* ── Loading ── */}
         {loading && !authErr && (
           <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 80 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8599ae" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite' }}>
               <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
             </svg>
           </div>
@@ -658,7 +658,7 @@ export default function AdminPage() {
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', paddingBottom: 24, flexWrap: 'wrap', gap: 12 }}>
               <div>
                 <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.5px', margin: 0 }}>관리자 대시보드</h1>
-                <p style={{ fontSize: 13, color: '#475569', marginTop: 4 }}>전체 학생 포트폴리오 현황</p>
+                <p style={{ fontSize: 13, color: '#8599ae', marginTop: 4 }}>전체 학생 포트폴리오 현황</p>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {/* 피터린치 일괄분류 버튼 */}
@@ -680,7 +680,7 @@ export default function AdminPage() {
                     } catch { alert('네트워크 오류') }
                     finally { setBatchRunning(false) }
                   }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, background: batchRunning ? '#1b1e2e' : '#14532d22', boxShadow: '4px 4px 10px #0e1020, -2px -2px 7px #282c44', border: `1px solid ${batchRunning ? '#374151' : '#16a34a55'}`, color: batchRunning ? '#64748b' : '#4ade80', fontSize: 13, cursor: batchRunning ? 'not-allowed' : 'pointer' }}>
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, background: batchRunning ? '#1b1e2e' : '#14532d22', boxShadow: '4px 4px 10px #0e1020, -2px -2px 7px #282c44', border: `1px solid ${batchRunning ? '#7a8fa3' : '#16a34a55'}`, color: batchRunning ? '#7f93a8' : '#4ade80', fontSize: 13, cursor: batchRunning ? 'not-allowed' : 'pointer' }}>
                   {batchRunning ? '⏳ 분류 중…' : '🤖 피터린치 일괄분류'}
                 </button>
                 {batchResult && (
@@ -698,7 +698,7 @@ export default function AdminPage() {
                     {resetPwResult}
                   </span>
                 )}
-                <button onClick={fetchData} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, background: '#1b1e2e', boxShadow: '4px 4px 10px #0e1020, -2px -2px 7px #282c44', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer' }}>
+                <button onClick={fetchData} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, background: '#1b1e2e', boxShadow: '4px 4px 10px #0e1020, -2px -2px 7px #282c44', border: 'none', color: '#7f93a8', fontSize: 13, cursor: 'pointer' }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/></svg>
                   새로고침
                 </button>
@@ -714,9 +714,9 @@ export default function AdminPage() {
                 { label: '린치 분류 완료',   value: `${lynchDone}개`,              accent: '#fb923c' },
               ].map(({ label, value, accent, note }) => (
                 <div key={label} style={{ background: '#1b1e2e', boxShadow: '7px 7px 18px #0e1020, -4px -4px 12px #282c44', border: 'none', borderRadius: 12, padding: '16px 18px' }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>{label}</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: '#8599ae', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>{label}</div>
                   <div style={{ fontSize: 22, fontWeight: 800, color: accent, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.4px' }}>{value}</div>
-                  {note && <div style={{ fontSize: 10, color: '#334155', marginTop: 4 }}>{note}</div>}
+                  {note && <div style={{ fontSize: 10, color: '#7a8fa3', marginTop: 4 }}>{note}</div>}
                 </div>
               ))}
             </div>
@@ -724,7 +724,7 @@ export default function AdminPage() {
             {/* ── 검색 ── */}
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16 }}>
               <div style={{ position: 'relative', flexGrow: 1, maxWidth: 280 }}>
-                <svg style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#475569', pointerEvents: 'none' }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <svg style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#8599ae', pointerEvents: 'none' }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
                 </svg>
                 <input
@@ -735,7 +735,7 @@ export default function AdminPage() {
                   onBlur={e   => { e.currentTarget.style.boxShadow = 'inset 4px 4px 10px #0e1020, inset -3px -3px 8px #282c44' }}
                 />
               </div>
-              <span style={{ fontSize: 12, color: '#334155', marginLeft: 'auto' }}>{displayed.length}명 표시</span>
+              <span style={{ fontSize: 12, color: '#7a8fa3', marginLeft: 'auto' }}>{displayed.length}명 표시</span>
             </div>
 
             {/* ── 학생 테이블 ── */}
@@ -743,31 +743,31 @@ export default function AdminPage() {
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr style={{ background: '#141728', borderBottom: '1px solid #252840' }}>
-                      <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>학생</th>
+                    <tr style={{ background: '#141728', borderBottom: '1px solid #4a5070' }}>
+                      <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: '#8599ae', textTransform: 'uppercase', letterSpacing: '0.06em' }}>학생</th>
                       <th style={thStyle('joined')} onClick={() => toggleSort('joined')}>가입일{sortArrow('joined')}</th>
                       <th style={thStyle('count')}  onClick={() => toggleSort('count')}>종목 수{sortArrow('count')}</th>
                       <th style={thStyle('invested')} onClick={() => toggleSort('invested')}>투자금액{sortArrow('invested')}</th>
-                      <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>시장 구성</th>
-                      <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>린치 분류율</th>
-                      <th style={{ padding: '10px 14px', textAlign: 'center', fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>상세</th>
+                      <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: '#8599ae', textTransform: 'uppercase', letterSpacing: '0.06em' }}>시장 구성</th>
+                      <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: '#8599ae', textTransform: 'uppercase', letterSpacing: '0.06em' }}>린치 분류율</th>
+                      <th style={{ padding: '10px 14px', textAlign: 'center', fontSize: 10, fontWeight: 600, color: '#8599ae', textTransform: 'uppercase', letterSpacing: '0.06em' }}>상세</th>
                     </tr>
                   </thead>
                   <tbody>
                     {displayed.length === 0 ? (
                       <tr><td colSpan={7} style={{ padding: '40px 20px', textAlign: 'center' }}>
                         {search ? (
-                          <span style={{ color: '#334155', fontSize: 14 }}>검색 결과가 없습니다</span>
+                          <span style={{ color: '#7a8fa3', fontSize: 14 }}>검색 결과가 없습니다</span>
                         ) : (
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
                             <span style={{ fontSize: 32 }}>🎓</span>
-                            <span style={{ color: '#475569', fontSize: 15, fontWeight: 600 }}>학생이 표시되지 않습니다</span>
+                            <span style={{ color: '#8599ae', fontSize: 15, fontWeight: 600 }}>학생이 표시되지 않습니다</span>
                             {/* RLS 차단 안내 — DB에 학생이 있는데 0명으로 보이는 경우 */}
                             <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '14px 18px', maxWidth: 540, textAlign: 'left' as const, marginTop: 4 }}>
                               <div style={{ fontSize: 12, fontWeight: 700, color: '#f87171', marginBottom: 8 }}>
                                 🔒 Supabase RLS 정책으로 학생 데이터가 차단되고 있을 수 있습니다
                               </div>
-                              <div style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.7, marginBottom: 10 }}>
+                              <div style={{ fontSize: 11, color: '#8a9aaa', lineHeight: 1.7, marginBottom: 10 }}>
                                 DB에 학생이 있는데도 0명으로 표시된다면, Supabase SQL Editor에서 아래를 실행하세요:
                               </div>
                               <pre style={{
@@ -791,7 +791,7 @@ USING (
   OR public.current_user_is_teacher()
 );`}</pre>
                             </div>
-                            <span style={{ color: '#334155', fontSize: 13 }}>또는 학생들에게 아래 가입 링크를 공유해 주세요</span>
+                            <span style={{ color: '#7a8fa3', fontSize: 13 }}>또는 학생들에게 아래 가입 링크를 공유해 주세요</span>
                             {/* 가입 링크 + 복사 버튼 */}
                             {loginUrl ? (
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, background: '#1b1e2e', boxShadow: '5px 5px 14px #0e1020, -3px -3px 10px #282c44', borderRadius: 10, padding: '10px 14px' }}>
@@ -815,11 +815,11 @@ USING (
                               /* localhost 개발 환경 — 배포 URL 미설정 안내 */
                               <div style={{ marginTop: 8, background: '#1b1e2e', boxShadow: 'inset 4px 4px 10px #0e1020, inset -3px -3px 8px #282c44', borderRadius: 10, padding: '12px 16px', maxWidth: 480, textAlign: 'left' as const }}>
                                 <div style={{ fontSize: 11, color: '#f59e0b', fontWeight: 700, marginBottom: 6 }}>⚠️ 로컬 개발 환경</div>
-                                <div style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.6 }}>
+                                <div style={{ fontSize: 11, color: '#8a9aaa', lineHeight: 1.6 }}>
                                   배포 후 Vercel URL이 자동으로 표시됩니다.<br/>
-                                  지금 바로 설정하려면 <code style={{ color: '#60a5fa', background: '#13162a', padding: '1px 5px', borderRadius: 4 }}>.env.local</code> 에 추가하세요:
+                                  지금 바로 설정하려면 <code style={{ color: '#60a5fa', background: '#0a0e1a', padding: '1px 5px', borderRadius: 4 }}>.env.local</code> 에 추가하세요:
                                 </div>
-                                <div style={{ marginTop: 8, background: '#13162a', borderRadius: 7, padding: '8px 12px', fontFamily: 'monospace', fontSize: 11, color: '#34d399' }}>
+                                <div style={{ marginTop: 8, background: '#0a0e1a', borderRadius: 7, padding: '8px 12px', fontFamily: 'monospace', fontSize: 11, color: '#34d399' }}>
                                   NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
                                 </div>
                               </div>
@@ -847,17 +847,17 @@ USING (
                                   {s.full_name ?? '—'}
                                   {s.role === 'teacher' && <span style={{ fontSize: 9, color: '#fb923c', border: '1px solid rgba(251,146,60,0.4)', borderRadius: 4, padding: '1px 5px' }}>TEACHER</span>}
                                 </div>
-                                <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>{s.email}</div>
+                                <div style={{ fontSize: 11, color: '#8599ae', marginTop: 2 }}>{s.email}</div>
                               </div>
                             </div>
                           </td>
                           {/* 가입일 */}
-                          <td style={{ padding: '12px 14px', fontSize: 12, color: '#475569', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                          <td style={{ padding: '12px 14px', fontSize: 12, color: '#8599ae', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
                             {new Date(s.created_at).toLocaleDateString('ko-KR', { year: '2-digit', month: 'short', day: 'numeric' })}
                           </td>
                           {/* 종목 수 */}
                           <td style={{ padding: '12px 14px', fontSize: 15, fontWeight: 700, color: '#f1f5f9', fontVariantNumeric: 'tabular-nums' }}>
-                            {s.count}<span style={{ fontSize: 11, color: '#475569', marginLeft: 3 }}>개</span>
+                            {s.count}<span style={{ fontSize: 11, color: '#8599ae', marginLeft: 3 }}>개</span>
                           </td>
                           {/* 투자금액 */}
                           <td style={{ padding: '12px 14px', fontSize: 13, fontWeight: 600, color: '#cbd5e1', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
@@ -869,7 +869,7 @@ USING (
                               {(Object.entries(mkDist) as [Market, number][]).map(([m, cnt]) => (
                                 <span key={m} style={{ fontSize: 10, fontWeight: 700, color: MARKET_COLOR[m], border: `1px solid ${MARKET_COLOR[m]}44`, borderRadius: 4, padding: '1px 5px' }}>{m} {cnt}</span>
                               ))}
-                              {s.count === 0 && <span style={{ fontSize: 11, color: '#334155' }}>—</span>}
+                              {s.count === 0 && <span style={{ fontSize: 11, color: '#7a8fa3' }}>—</span>}
                             </div>
                           </td>
                           {/* 린치 분류율 */}
@@ -881,7 +881,7 @@ USING (
                                 </div>
                                 <span style={{ fontSize: 12, fontWeight: 600, color: pctColor, fontVariantNumeric: 'tabular-nums' }}>{lynchPct}%</span>
                               </div>
-                            ) : <span style={{ fontSize: 12, color: '#334155' }}>—</span>}
+                            ) : <span style={{ fontSize: 12, color: '#7a8fa3' }}>—</span>}
                           </td>
                           {/* 상세 / 삭제 버튼 */}
                           <td style={{ padding: '12px 14px', textAlign: 'center' }}>
@@ -904,7 +904,7 @@ USING (
                                   padding: '5px 10px', borderRadius: 7,
                                   border: '1px solid rgba(251,191,36,0.4)',
                                   background: resetPwEmail === s.id ? '#1e1e1e' : 'rgba(251,191,36,0.08)',
-                                  color: resetPwEmail === s.id ? '#4b5563' : '#fbbf24',
+                                  color: resetPwEmail === s.id ? '#8a96a8' : '#fbbf24',
                                   cursor: resetPwEmail === s.id ? 'not-allowed' : 'pointer',
                                   fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
                                   display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0,
@@ -924,7 +924,7 @@ USING (
                                   padding: '5px 10px', borderRadius: 7,
                                   border: '1px solid #1e3a5f',
                                   background: resetPwEmail === s.email ? '#1e1e1e' : '#0c1e30',
-                                  color: resetPwEmail === s.email ? '#4b5563' : '#60a5fa',
+                                  color: resetPwEmail === s.email ? '#8a96a8' : '#60a5fa',
                                   cursor: resetPwEmail === s.email ? 'not-allowed' : 'pointer',
                                   fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
                                   display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0,
@@ -943,7 +943,7 @@ USING (
                                 style={{
                                   width: 28, height: 28, borderRadius: 7, border: '1px solid #3f1515',
                                   background: deletingId === s.id ? '#1e1e1e' : '#2d0a0a',
-                                  color: deletingId === s.id ? '#4b5563' : '#f87171',
+                                  color: deletingId === s.id ? '#8a96a8' : '#f87171',
                                   cursor: deletingId === s.id ? 'not-allowed' : 'pointer',
                                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                                   flexShrink: 0, transition: 'all 0.15s', fontSize: 13,
@@ -963,7 +963,7 @@ USING (
               </div>
             </div>
 
-            <p style={{ fontSize: 12, color: '#334155', textAlign: 'center', marginTop: 14 }}>
+            <p style={{ fontSize: 12, color: '#7a8fa3', textAlign: 'center', marginTop: 14 }}>
               행을 클릭하거나 상세보기 버튼으로 개별 포트폴리오를 조회합니다
             </p>
           </div>
@@ -988,7 +988,7 @@ USING (
             <div style={{ textAlign: 'center', marginBottom: 24 }}>
               <div style={{ fontSize: 40, marginBottom: 8 }}>🔑</div>
               <div style={{ fontSize: 18, fontWeight: 800, color: '#f1f5f9', marginBottom: 6 }}>임시 비밀번호 발급 완료</div>
-              <div style={{ fontSize: 13, color: '#64748b' }}>{tempPwModal.name} ({tempPwModal.email})</div>
+              <div style={{ fontSize: 13, color: '#7f93a8' }}>{tempPwModal.name} ({tempPwModal.email})</div>
             </div>
             <div style={{ padding: '16px 20px', borderRadius: 10, marginBottom: 20, background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.35)', textAlign: 'center' }}>
               <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>임시 비밀번호</div>

@@ -39,10 +39,10 @@ const C = {
   red:      '#f87171',
   purple:   '#a78bfa',
   gold:     '#fbbf24',
-  gray:     '#64748b',
+  gray:     '#7f93a8',
   textHi:   '#f1f5f9',
   textMid:  '#94a3b8',
-  textLow:  '#475569',
+  textLow:  '#8599ae',
 }
 
 // ── 채권 현재가치(PV) 계산 ────────────────────────────────────────────────

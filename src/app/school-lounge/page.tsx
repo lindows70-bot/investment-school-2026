@@ -226,7 +226,7 @@ export default function SchoolLoungePage() {
 
   // ══ 로딩 / 오류 상태 ════════════════════════════════════════════════════════
   if (authLoading) return (
-    <div style={{ padding: 60, textAlign: 'center', color: '#454868', fontFamily: 'sans-serif' }}>인증 확인 중…</div>
+    <div style={{ padding: 60, textAlign: 'center', color: '#9aa0b8', fontFamily: 'sans-serif' }}>인증 확인 중…</div>
   )
 
   // ══ 렌더 ════════════════════════════════════════════════════════════════════
@@ -277,19 +277,19 @@ export default function SchoolLoungePage() {
             <div style={{ background: N, boxShadow: SHO, borderRadius: 12, padding: 16, marginBottom: 12, animation: 'fadeIn .2s' }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#fbbf24', letterSpacing: '0.08em', marginBottom: 10 }}>📌 새 공지 작성</div>
               <select value={noticeTag} onChange={e => setNoticeTag(e.target.value)}
-                style={{ width: '100%', background: '#13162a', boxShadow: SHI, border: 'none', borderRadius: 7, color: '#dde4f0', padding: '7px 10px', fontSize: 12, marginBottom: 8, cursor: 'pointer' }}>
+                style={{ width: '100%', background: '#0a0e1a', boxShadow: SHI, border: 'none', borderRadius: 7, color: '#dde4f0', padding: '7px 10px', fontSize: 12, marginBottom: 8, cursor: 'pointer' }}>
                 <option>공지</option><option>필독</option><option>일정</option>
               </select>
               <input placeholder="공지 제목 *" value={noticeTitle} onChange={e => setNoticeTitle(e.target.value)}
-                style={{ width: '100%', background: '#13162a', boxShadow: SHI, border: 'none', borderRadius: 7, color: '#dde4f0', padding: '8px 10px', fontSize: 12, marginBottom: 8, boxSizing: 'border-box' as const }}/>
+                style={{ width: '100%', background: '#0a0e1a', boxShadow: SHI, border: 'none', borderRadius: 7, color: '#dde4f0', padding: '8px 10px', fontSize: 12, marginBottom: 8, boxSizing: 'border-box' as const }}/>
               <textarea placeholder="본문 내용 (선택 — 상세 내용을 입력하세요)" value={noticeContent}
                 onChange={e => setNoticeContent(e.target.value)} rows={4}
-                style={{ width: '100%', background: '#13162a', boxShadow: SHI, border: 'none', borderRadius: 7, color: '#dde4f0', padding: '8px 10px', fontSize: 12, marginBottom: 10, boxSizing: 'border-box' as const, resize: 'vertical', lineHeight: 1.6 }}/>
+                style={{ width: '100%', background: '#0a0e1a', boxShadow: SHI, border: 'none', borderRadius: 7, color: '#dde4f0', padding: '8px 10px', fontSize: 12, marginBottom: 10, boxSizing: 'border-box' as const, resize: 'vertical', lineHeight: 1.6 }}/>
               <div style={{ display: 'flex', gap: 7 }}>
                 <button onClick={addNotice} disabled={busy || !noticeTitle.trim()}
                   style={{ flex: 1, padding: '8px', borderRadius: 7, border: 'none', cursor: noticeTitle.trim() ? 'pointer' : 'not-allowed', background: 'linear-gradient(135deg,#1e3a8a,#3b82f6)', color: '#fff', fontSize: 12, fontWeight: 700, opacity: noticeTitle.trim() ? 1 : 0.5 }}>등록</button>
                 <button onClick={() => { setShowAddNotice(false); setNoticeTitle(''); setNoticeContent('') }}
-                  style={{ padding: '8px 14px', borderRadius: 7, border: 'none', cursor: 'pointer', background: '#13162a', boxShadow: SHI, color: '#6b7280', fontSize: 12 }}>취소</button>
+                  style={{ padding: '8px 14px', borderRadius: 7, border: 'none', cursor: 'pointer', background: '#0a0e1a', boxShadow: SHI, color: '#8a9aaa', fontSize: 12 }}>취소</button>
               </div>
             </div>
           )}
@@ -299,19 +299,19 @@ export default function SchoolLoungePage() {
             <div style={{ background: N, boxShadow: SHO, borderRadius: 12, padding: 16, marginBottom: 12, border: '1px solid rgba(251,191,36,.3)', animation: 'fadeIn .2s' }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#fbbf24', letterSpacing: '0.08em', marginBottom: 10 }}>✏️ 공지 수정</div>
               <select value={editNotice.tag} onChange={e => setEditNotice({ ...editNotice, tag: e.target.value })}
-                style={{ width: '100%', background: '#13162a', boxShadow: SHI, border: 'none', borderRadius: 7, color: '#dde4f0', padding: '7px 10px', fontSize: 12, marginBottom: 8, cursor: 'pointer' }}>
+                style={{ width: '100%', background: '#0a0e1a', boxShadow: SHI, border: 'none', borderRadius: 7, color: '#dde4f0', padding: '7px 10px', fontSize: 12, marginBottom: 8, cursor: 'pointer' }}>
                 <option>공지</option><option>필독</option><option>일정</option>
               </select>
               <input value={editNotice.title} onChange={e => setEditNotice({ ...editNotice, title: e.target.value })}
-                style={{ width: '100%', background: '#13162a', boxShadow: SHI, border: 'none', borderRadius: 7, color: '#dde4f0', padding: '8px 10px', fontSize: 12, marginBottom: 8, boxSizing: 'border-box' as const }}/>
+                style={{ width: '100%', background: '#0a0e1a', boxShadow: SHI, border: 'none', borderRadius: 7, color: '#dde4f0', padding: '8px 10px', fontSize: 12, marginBottom: 8, boxSizing: 'border-box' as const }}/>
               <textarea value={editNotice.content} onChange={e => setEditNotice({ ...editNotice, content: e.target.value })} rows={4}
                 placeholder="본문 내용 (선택)"
-                style={{ width: '100%', background: '#13162a', boxShadow: SHI, border: 'none', borderRadius: 7, color: '#dde4f0', padding: '8px 10px', fontSize: 12, marginBottom: 10, boxSizing: 'border-box' as const, resize: 'vertical', lineHeight: 1.6 }}/>
+                style={{ width: '100%', background: '#0a0e1a', boxShadow: SHI, border: 'none', borderRadius: 7, color: '#dde4f0', padding: '8px 10px', fontSize: 12, marginBottom: 10, boxSizing: 'border-box' as const, resize: 'vertical', lineHeight: 1.6 }}/>
               <div style={{ display: 'flex', gap: 7 }}>
                 <button onClick={saveEditNotice} disabled={busy || !editNotice.title.trim()}
                   style={{ flex: 1, padding: '8px', borderRadius: 7, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg,#78350f,#f59e0b)', color: '#fff', fontSize: 12, fontWeight: 700 }}>저장</button>
                 <button onClick={() => setEditNotice(null)}
-                  style={{ padding: '8px 14px', borderRadius: 7, border: 'none', cursor: 'pointer', background: '#13162a', boxShadow: SHI, color: '#6b7280', fontSize: 12 }}>취소</button>
+                  style={{ padding: '8px 14px', borderRadius: 7, border: 'none', cursor: 'pointer', background: '#0a0e1a', boxShadow: SHI, color: '#8a9aaa', fontSize: 12 }}>취소</button>
               </div>
             </div>
           )}
@@ -319,7 +319,7 @@ export default function SchoolLoungePage() {
           {dataLoading ? (
             [1,2,3].map(i => <div key={i} style={{ height: 56, background: N, boxShadow: SHO, borderRadius: 11, marginBottom: 9, opacity: 0.5 }}/>)
           ) : notices.length === 0 ? (
-            <div style={{ textAlign: 'center', color: '#363855', fontSize: 12, padding: '24px 0' }}>공지사항이 없습니다</div>
+            <div style={{ textAlign: 'center', color: '#7a8599', fontSize: 12, padding: '24px 0' }}>공지사항이 없습니다</div>
           ) : notices.map(n => (
             <div key={n.id} style={{ background: N, boxShadow: SHO, borderRadius: 11, marginBottom: 9, animation: 'fadeIn .3s', overflow: 'hidden' }}>
               {/* 공지 헤더 행 */}
@@ -328,20 +328,20 @@ export default function SchoolLoungePage() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: '#dde4f0', lineHeight: 1.4, marginBottom: 3 }}>
                     {n.title}
-                    {n.is_edited && <span style={{ fontSize: 9, color: '#4b5563', marginLeft: 5 }}>(수정됨)</span>}
+                    {n.is_edited && <span style={{ fontSize: 9, color: '#8a96a8', marginLeft: 5 }}>(수정됨)</span>}
                   </div>
-                  <div style={{ fontSize: 10, color: '#454868' }}>{fmtDate(n.created_at)}</div>
+                  <div style={{ fontSize: 10, color: '#9aa0b8' }}>{fmtDate(n.created_at)}</div>
                 </div>
                 {me?.isAdmin && (
                   <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                     <button
                       onClick={() => { setEditNotice({ id: n.id, title: n.title, content: n.content ?? '', tag: n.tag }); setShowAddNotice(false) }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4b5563', padding: 2 }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8a96a8', padding: 2 }}
                       onMouseEnter={e => (e.currentTarget.style.color='#fbbf24')}
-                      onMouseLeave={e => (e.currentTarget.style.color='#4b5563')}>
+                      onMouseLeave={e => (e.currentTarget.style.color='#8a96a8')}>
                       <IcoPen/>
                     </button>
-                    <button onClick={() => deleteNotice(n.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4b5563', padding: 2 }} onMouseEnter={e => (e.currentTarget.style.color='#f87171')} onMouseLeave={e => (e.currentTarget.style.color='#4b5563')}>
+                    <button onClick={() => deleteNotice(n.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8a96a8', padding: 2 }} onMouseEnter={e => (e.currentTarget.style.color='#f87171')} onMouseLeave={e => (e.currentTarget.style.color='#8a96a8')}>
                       <IcoTrash/>
                     </button>
                   </div>
@@ -364,10 +364,10 @@ export default function SchoolLoungePage() {
             <div style={{ background: N, boxShadow: SHO, borderRadius: 14, padding: 16, marginBottom: 18 }}>
               <textarea placeholder="투자 인사이트를 공유해보세요... 종목 분석, 시장 의견, 질문 모두 환영합니다 💬"
                 value={newPost} onChange={e => setNewPost(e.target.value)} rows={3}
-                style={{ width: '100%', background: '#13162a', boxShadow: SHI, border: 'none', borderRadius: 9, color: '#dde4f0', padding: '11px 13px', fontSize: 13, resize: 'none', lineHeight: 1.6, boxSizing: 'border-box' as const }}/>
+                style={{ width: '100%', background: '#0a0e1a', boxShadow: SHI, border: 'none', borderRadius: 9, color: '#dde4f0', padding: '11px 13px', fontSize: 13, resize: 'none', lineHeight: 1.6, boxSizing: 'border-box' as const }}/>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
                 <button onClick={addPost} disabled={!newPost.trim() || busy}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 9, border: 'none', cursor: newPost.trim() ? 'pointer' : 'not-allowed', background: newPost.trim() ? 'linear-gradient(135deg,#78350f,#f59e0b)' : '#13162a', boxShadow: newPost.trim() ? '0 4px 14px rgba(245,158,11,.3)' : SHI, color: newPost.trim() ? '#fff' : '#454868', fontSize: 13, fontWeight: 700, transition: 'all .2s' }}>
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 9, border: 'none', cursor: newPost.trim() ? 'pointer' : 'not-allowed', background: newPost.trim() ? 'linear-gradient(135deg,#78350f,#f59e0b)' : '#0a0e1a', boxShadow: newPost.trim() ? '0 4px 14px rgba(245,158,11,.3)' : SHI, color: newPost.trim() ? '#fff' : '#9aa0b8', fontSize: 13, fontWeight: 700, transition: 'all .2s' }}>
                   <IcoSend/> 게시하기
                 </button>
               </div>
@@ -379,7 +379,7 @@ export default function SchoolLoungePage() {
             [1,2].map(i => <div key={i} style={{ height: 120, background: N, boxShadow: SHO, borderRadius: 14, marginBottom: 14, opacity: 0.5 }}/>)
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {posts.length === 0 && <div style={{ textAlign: 'center', color: '#363855', fontSize: 13, padding: '40px 0' }}><div style={{ fontSize: 32, marginBottom: 10 }}>💬</div>첫 번째 인사이트를 공유해보세요!</div>}
+              {posts.length === 0 && <div style={{ textAlign: 'center', color: '#7a8599', fontSize: 13, padding: '40px 0' }}><div style={{ fontSize: 32, marginBottom: 10 }}>💬</div>첫 번째 인사이트를 공유해보세요!</div>}
 
               {posts.map(post => (
                 <div key={post.id} style={{ background: N, boxShadow: post.is_admin_post ? `${SHO},0 0 0 1px rgba(251,191,36,.35)` : SHO, borderRadius: 14, border: post.is_admin_post ? '1px solid rgba(251,191,36,.3)' : 'none', animation: post.is_admin_post ? 'glow 3s infinite' : 'fadeIn .3s', overflow: 'hidden' }}>
@@ -396,18 +396,18 @@ export default function SchoolLoungePage() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>{post.author_name}</span>
                             {post.is_admin_post && <span style={{ fontSize: 9, fontWeight: 800, color: '#fbbf24', background: 'rgba(251,191,36,.12)', border: '1px solid rgba(251,191,36,.4)', borderRadius: 4, padding: '1px 6px' }}>교장</span>}
-                            {post.is_edited && <span style={{ fontSize: 9, color: '#454868' }}>수정됨</span>}
+                            {post.is_edited && <span style={{ fontSize: 9, color: '#9aa0b8' }}>수정됨</span>}
                           </div>
-                          <div style={{ fontSize: 10, color: '#454868' }}>{fmtDate(post.created_at)}</div>
+                          <div style={{ fontSize: 10, color: '#9aa0b8' }}>{fmtDate(post.created_at)}</div>
                         </div>
                       </div>
                       {/* 수정/삭제 버튼 */}
                       <div style={{ display: 'flex', gap: 4 }}>
                         {canEdit(post.user_id) && !editPost && (
-                          <button onClick={() => setEditPost({ id: post.id, val: post.content })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#454868', padding: 4 }} onMouseEnter={e => (e.currentTarget.style.color='#60a5fa')} onMouseLeave={e => (e.currentTarget.style.color='#454868')}><IcoPen/></button>
+                          <button onClick={() => setEditPost({ id: post.id, val: post.content })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9aa0b8', padding: 4 }} onMouseEnter={e => (e.currentTarget.style.color='#60a5fa')} onMouseLeave={e => (e.currentTarget.style.color='#9aa0b8')}><IcoPen/></button>
                         )}
                         {canDelete(post.user_id) && (
-                          <button onClick={() => deletePost(post.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#454868', padding: 4 }} onMouseEnter={e => (e.currentTarget.style.color='#f87171')} onMouseLeave={e => (e.currentTarget.style.color='#454868')}><IcoTrash/></button>
+                          <button onClick={() => deletePost(post.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9aa0b8', padding: 4 }} onMouseEnter={e => (e.currentTarget.style.color='#f87171')} onMouseLeave={e => (e.currentTarget.style.color='#9aa0b8')}><IcoTrash/></button>
                         )}
                       </div>
                     </div>
@@ -416,10 +416,10 @@ export default function SchoolLoungePage() {
                     {editPost?.id === post.id ? (
                       <div>
                         <textarea value={editPost.val} onChange={e => setEditPost({ ...editPost, val: e.target.value })} rows={3}
-                          style={{ width: '100%', background: '#13162a', boxShadow: SHI, border: 'none', borderRadius: 9, color: '#dde4f0', padding: '10px 12px', fontSize: 13, resize: 'none', marginBottom: 8, boxSizing: 'border-box' as const }}/>
+                          style={{ width: '100%', background: '#0a0e1a', boxShadow: SHI, border: 'none', borderRadius: 9, color: '#dde4f0', padding: '10px 12px', fontSize: 13, resize: 'none', marginBottom: 8, boxSizing: 'border-box' as const }}/>
                         <div style={{ display: 'flex', gap: 8 }}>
                           <button onClick={saveEditPost} style={{ padding: '7px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg,#1e3a8a,#3b82f6)', color: '#fff', fontSize: 12, fontWeight: 700 }}>저장</button>
-                          <button onClick={() => setEditPost(null)} style={{ padding: '7px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#13162a', boxShadow: SHI, color: '#6b7280', fontSize: 12 }}>취소</button>
+                          <button onClick={() => setEditPost(null)} style={{ padding: '7px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#0a0e1a', boxShadow: SHI, color: '#8a9aaa', fontSize: 12 }}>취소</button>
                         </div>
                       </div>
                     ) : (
@@ -429,7 +429,7 @@ export default function SchoolLoungePage() {
                     {/* 답글 토글 버튼 */}
                     {!editPost && (
                       <button onClick={() => setOpenThread(openThread === post.id ? null : post.id)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: openThread === post.id ? '#60a5fa' : '#454868', fontSize: 12, fontWeight: 600, padding: 0 }}>
+                        style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: openThread === post.id ? '#60a5fa' : '#9aa0b8', fontSize: 12, fontWeight: 600, padding: 0 }}>
                         <IcoReply/> 답글 {post.comments.length > 0 ? `(${post.comments.length})` : '달기'}
                       </button>
                     )}
@@ -437,7 +437,7 @@ export default function SchoolLoungePage() {
 
                   {/* 스레드 */}
                   {openThread === post.id && (
-                    <div style={{ borderTop: '1px solid #1e2140', background: '#13162a', padding: '14px 18px' }}>
+                    <div style={{ borderTop: '1px solid #1e2140', background: '#0a0e1a', padding: '14px 18px' }}>
                       {post.comments.map(c => (
                         <div key={c.id} style={{ display: 'flex', gap: 9, marginBottom: 12, animation: 'fadeIn .2s' }}>
                           <div style={{ width: 26, height: 26, borderRadius: 7, background: 'linear-gradient(135deg,#1e3a5f,#2563eb)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#fff', flexShrink: 0 }}>{c.author_name[0]}</div>
@@ -445,25 +445,25 @@ export default function SchoolLoungePage() {
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <span style={{ fontSize: 12, fontWeight: 700, color: '#dde4f0' }}>{c.author_name}</span>
-                                {c.is_edited && <span style={{ fontSize: 9, color: '#454868' }}>수정됨</span>}
-                                <span style={{ fontSize: 10, color: '#363855' }}>{fmtDate(c.created_at)}</span>
+                                {c.is_edited && <span style={{ fontSize: 9, color: '#9aa0b8' }}>수정됨</span>}
+                                <span style={{ fontSize: 10, color: '#7a8599' }}>{fmtDate(c.created_at)}</span>
                               </div>
                               <div style={{ display: 'flex', gap: 4 }}>
                                 {canEdit(c.user_id) && !editComment && (
-                                  <button onClick={() => setEditComment({ id: c.id, postId: post.id, val: c.content })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#454868', padding: 2 }} onMouseEnter={e => (e.currentTarget.style.color='#60a5fa')} onMouseLeave={e => (e.currentTarget.style.color='#454868')}><IcoPen/></button>
+                                  <button onClick={() => setEditComment({ id: c.id, postId: post.id, val: c.content })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9aa0b8', padding: 2 }} onMouseEnter={e => (e.currentTarget.style.color='#60a5fa')} onMouseLeave={e => (e.currentTarget.style.color='#9aa0b8')}><IcoPen/></button>
                                 )}
                                 {canDelete(c.user_id) && (
-                                  <button onClick={() => deleteComment(post.id, c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#454868', padding: 2 }} onMouseEnter={e => (e.currentTarget.style.color='#f87171')} onMouseLeave={e => (e.currentTarget.style.color='#454868')}><IcoTrash/></button>
+                                  <button onClick={() => deleteComment(post.id, c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9aa0b8', padding: 2 }} onMouseEnter={e => (e.currentTarget.style.color='#f87171')} onMouseLeave={e => (e.currentTarget.style.color='#9aa0b8')}><IcoTrash/></button>
                                 )}
                               </div>
                             </div>
                             {editComment?.id === c.id ? (
                               <div>
                                 <input value={editComment.val} onChange={e => setEditComment({ ...editComment, val: e.target.value })}
-                                  style={{ width: '100%', background: '#13162a', boxShadow: SHI, border: 'none', borderRadius: 7, color: '#dde4f0', padding: '7px 10px', fontSize: 12, marginBottom: 7, boxSizing: 'border-box' as const }}/>
+                                  style={{ width: '100%', background: '#0a0e1a', boxShadow: SHI, border: 'none', borderRadius: 7, color: '#dde4f0', padding: '7px 10px', fontSize: 12, marginBottom: 7, boxSizing: 'border-box' as const }}/>
                                 <div style={{ display: 'flex', gap: 6 }}>
                                   <button onClick={saveEditComment} style={{ padding: '5px 12px', borderRadius: 7, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg,#1e3a8a,#3b82f6)', color: '#fff', fontSize: 11, fontWeight: 700 }}>저장</button>
-                                  <button onClick={() => setEditComment(null)} style={{ padding: '5px 10px', borderRadius: 7, border: 'none', cursor: 'pointer', background: '#0e1020', color: '#6b7280', fontSize: 11 }}>취소</button>
+                                  <button onClick={() => setEditComment(null)} style={{ padding: '5px 10px', borderRadius: 7, border: 'none', cursor: 'pointer', background: '#0e1020', color: '#8a9aaa', fontSize: 11 }}>취소</button>
                                 </div>
                               </div>
                             ) : (

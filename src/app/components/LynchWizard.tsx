@@ -14,8 +14,9 @@
  */
 
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { getQualitativeChecks, type QualResult } from '@/app/actions/getQualitativeChecks'
 import {
-  CheckCircle2, Circle, ChevronRight, ChevronLeft,
+  CheckCircle2, ChevronRight, ChevronLeft,
   RotateCcw, TrendingUp, AlertTriangle, Award,
   DollarSign, Activity, ShieldCheck, Zap, Sparkles,
 } from 'lucide-react'
@@ -23,11 +24,11 @@ import {
 // ── 디자인 토큰 (리서치 페이지 뉴모피즘 팔레트 계승) ──────────
 const T = {
   bg:     '#1b1e2e',         // 카드 배경
-  deep:   '#13162a',         // 인풋·인셋 배경
-  border: '#252840',         // 보더
+  deep:   '#0a0e1a',         // 인풋·인셋 배경
+  border: '#4a5070',         // 보더
   text:   '#dde4f0',         // 본문
-  muted:  '#454868',         // 보조
-  dim:    '#363855',         // 비활성
+  muted:  '#9aa0b8',         // 보조
+  dim:    '#7a8599',         // 비활성
   // 유형별 컬러
   fast:   '#a3e635',         // 고성장주 — 네온그린
   stalw:  '#38bdf8',         // 대형우량주 — 스카이블루
@@ -57,6 +58,8 @@ interface LynchWizardProps {
   autoEpsGrowth?: number | null
   /** FMP/Naver 배런스시트로 자동 계산한 순현금 여부 */
   autoHasCash?:   boolean | null
+  /** 시장 (US/KR) — 내부자·애널리스트 자동 진단용 */
+  autoMarket?:    string | null
 }
 
 // ── 6대 유형 메타 ─────────────────────────────────────────────
@@ -390,6 +393,7 @@ export default function LynchWizard({
   autoPer,
   autoEpsGrowth,
   autoHasCash,
+  autoMarket,
 }: LynchWizardProps = {}) {
   // ── 스텝 상태 ─────────────────────────────────────────────
   const [step, setStep] = useState<1 | 2 | 3>(1)
@@ -457,12 +461,40 @@ export default function LynchWizard({
 
   const badge = pegBadge(computedPeg)
 
-  // ── STEP 2: 체크리스트 ────────────────────────────────────
+  // ── STEP 2: 체크리스트 (🤖 자동 진단 + 학생 수정) ──────────
   const [checks, setChecks] = useState<Record<CheckKey, boolean>>(
     () => Object.fromEntries(CHECKLIST.map(c => [c.key, false])) as Record<CheckKey, boolean>
   )
-  const toggleCheck = (key: CheckKey) =>
-    setChecks(prev => ({ ...prev, [key]: !prev[key] }))
+  const [autoChecking, setAutoChecking] = useState(false)
+  const [autoQual,     setAutoQual]     = useState<QualResult | null>(null)
+  const autoQualRef = useRef<string | null>(null)   // 진단 완료한 티커(중복 방지)
+
+  // STEP 2 진입 시 자동 진단 (내부자·애널리스트 하드데이터 + AI) → checks 자동 채움
+  useEffect(() => {
+    const tk = autoTicker?.toUpperCase().trim()
+    if (step !== 2 || !tk) return
+    if (autoQualRef.current === tk) return            // 같은 종목 재진단 방지
+    autoQualRef.current = tk
+    let alive = true
+    setAutoChecking(true); setAutoQual(null)
+    getQualitativeChecks({ ticker: tk, name: autoName ?? undefined, market: autoMarket ?? 'US' })
+      .then(r => {
+        if (!alive) return
+        setAutoQual(r)
+        // 자동 판정된 키만 반영 (학생이 이후 수정 가능)
+        setChecks(prev => {
+          const next = { ...prev }
+          for (const k of Object.keys(r.checks) as CheckKey[]) {
+            if (typeof r.checks[k] === 'boolean') next[k] = r.checks[k] as boolean
+          }
+          return next
+        })
+      })
+      .catch(() => {})
+      .finally(() => { if (alive) setAutoChecking(false) })
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, autoTicker])
 
   const positiveCount = CHECKLIST.filter(c => c.positive && checks[c.key]).length
   const negativeCount = CHECKLIST.filter(c => !c.positive && checks[c.key]).length
@@ -733,7 +765,7 @@ export default function LynchWizard({
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
               <div style={{ fontSize: 16, fontWeight: 800, color: T.text }}>
-                🧠 STEP 2 · 피터 린치식 정성 체크리스트
+                🤖 STEP 2 · AI 자동 정성 진단
               </div>
               <div style={{ fontSize: 12, color: T.muted, textAlign: 'right' }}>
                 <span style={{ color: T.fast }}>선호 {positiveCount}</span>
@@ -742,94 +774,81 @@ export default function LynchWizard({
                 {' / 14항목'}
               </div>
             </div>
-            <div style={{ fontSize: 12, color: T.muted, marginBottom: 20 }}>
-              <b style={{ color: '#fbbf24' }}>{stockName}</b>에 해당하는 항목을 모두 체크하세요.
-              각 항목은 최종 유형 판정에 가중치로 반영됩니다.
+            {/* 🤖 자동 진단 배너 */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18,
+              padding: '11px 14px', borderRadius: 10,
+              background: autoChecking ? `${T.fast}10` : 'rgba(34,211,238,0.08)',
+              border: `1px solid ${autoChecking ? `${T.fast}40` : 'rgba(34,211,238,0.25)'}`,
+            }}>
+              {autoChecking ? (
+                <>
+                  <div className="lw-spin" style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${T.border}`, borderTopColor: '#22d3ee', flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, color: T.text }}>🤖 <b>{autoName || stockName}</b> 자동 진단 중 — 내부자·애널리스트 데이터와 AI로 항목을 채우고 있어요…</span>
+                  <style jsx>{`@keyframes lw-spin{to{transform:rotate(360deg)}}.lw-spin{animation:lw-spin .8s linear infinite}`}</style>
+                </>
+              ) : (
+                <span style={{ fontSize: 12, color: T.text, lineHeight: 1.5 }}>
+                  🤖 <b style={{ color: '#67e8f9' }}>AI 자동 진단 완료</b> — 내부자 매수·애널리스트 커버리지(실데이터){autoQual?.aiUsed ? ' + 업종·특성(AI)' : ''}을 분석해
+                  <span style={{ color: T.muted }}> 정성 신호를 자동 판정했어요. 아래 결과는 정량 지표와 함께 최종 유형에 반영됩니다.</span>
+                  {!autoQual?.aiUsed && (autoQual?.insiderKnown || autoQual?.analystKnown) &&
+                    <span style={{ color: T.muted, fontSize: 11 }}> (AI 분석 일시 한도 초과 — 핵심 실데이터만 자동)</span>}
+                </span>
+              )}
             </div>
 
-            {/* 선호 속성 섹션 */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                <ShieldCheck size={14} color={T.fast} />
-                <span style={{ fontSize: 11, fontWeight: 800, color: T.fast, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  린치 선호 속성 — 체크할수록 긍정 신호
-                </span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {CHECKLIST.filter(c => c.positive).map(item => {
-                  const checked = checks[item.key]
-                  return (
-                    <button
-                      key={item.key}
-                      onClick={() => toggleCheck(item.key)}
-                      style={{
-                        display: 'flex', alignItems: 'flex-start', gap: 12,
-                        padding: '12px 14px', borderRadius: 10, border: `1.5px solid ${checked ? T.fast : T.border}`,
-                        background: checked ? `${T.fast}12` : T.deep,
-                        boxShadow: checked ? `0 0 8px ${T.fast}25` : SHI,
-                        cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s',
-                        width: '100%',
-                      }}
-                    >
-                      <div style={{ marginTop: 2, flexShrink: 0 }}>
-                        {checked
-                          ? <CheckCircle2 size={18} color={T.fast} />
-                          : <Circle size={18} color={T.muted} />
-                        }
+            {/* 🤖 자동 감지된 정성 신호 (읽기전용 — 수동 입력 없음) */}
+            {(() => {
+              const posHits = CHECKLIST.filter(c => c.positive && checks[c.key])
+              const negHits = CHECKLIST.filter(c => !c.positive && checks[c.key])
+              if (!autoChecking && posHits.length === 0 && negHits.length === 0) {
+                return (
+                  <div style={{ padding: '22px 18px', borderRadius: 10, background: T.deep, border: `1px solid ${T.border}`, boxShadow: SHI, textAlign: 'center' }}>
+                    <div style={{ fontSize: 13.5, color: T.text, fontWeight: 800, marginBottom: 6 }}>두드러진 정성 신호는 없어요</div>
+                    <div style={{ fontSize: 11.5, color: T.muted, lineHeight: 1.7 }}>
+                      내부자 매수·애널리스트 무관심·업종 특성 등에서 특별한 린치 신호가 감지되지 않았습니다.<br/>
+                      이 종목은 <b style={{ color: T.text }}>정량 지표(EPS 성장률·PEG·재무 상태)</b>를 중심으로 유형을 판정합니다.
+                    </div>
+                  </div>
+                )
+              }
+              const Card = (item: CheckItem, accent: string) => (
+                <div key={item.key} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 14px', borderRadius: 10, border: `1.5px solid ${accent}`, background: `${accent}12`, boxShadow: `0 0 8px ${accent}25` }}>
+                  <div style={{ marginTop: 2, flexShrink: 0 }}>
+                    {item.positive ? <CheckCircle2 size={18} color={accent} /> : <AlertTriangle size={18} color={accent} />}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: accent, marginBottom: 2 }}>{item.label}</div>
+                    <div style={{ fontSize: 11, color: T.muted, lineHeight: 1.5 }}>{item.detail}</div>
+                    {autoQual?.reasons?.[item.key] && (
+                      <div style={{ fontSize: 10.5, color: '#67e8f9', marginTop: 4, fontWeight: 600 }}>🤖 {autoQual.reasons[item.key]}</div>
+                    )}
+                  </div>
+                </div>
+              )
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                  {posHits.length > 0 && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                        <ShieldCheck size={14} color={T.fast} />
+                        <span style={{ fontSize: 11, fontWeight: 800, color: T.fast, textTransform: 'uppercase', letterSpacing: '0.08em' }}>감지된 린치 선호 신호 · {posHits.length}개</span>
                       </div>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: checked ? T.fast : T.text, marginBottom: 2 }}>
-                          {item.label}
-                        </div>
-                        <div style={{ fontSize: 11, color: T.muted, lineHeight: 1.5 }}>{item.detail}</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{posHits.map(item => Card(item, T.fast))}</div>
+                    </div>
+                  )}
+                  {negHits.length > 0 && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                        <AlertTriangle size={14} color={T.turn} />
+                        <span style={{ fontSize: 11, fontWeight: 800, color: T.turn, textTransform: 'uppercase', letterSpacing: '0.08em' }}>감지된 린치 기피 신호 · {negHits.length}개</span>
                       </div>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* 기피 속성 섹션 */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                <AlertTriangle size={14} color={T.turn} />
-                <span style={{ fontSize: 11, fontWeight: 800, color: T.turn, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  린치 기피 속성 — 체크할수록 주의 신호
-                </span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {CHECKLIST.filter(c => !c.positive).map(item => {
-                  const checked = checks[item.key]
-                  return (
-                    <button
-                      key={item.key}
-                      onClick={() => toggleCheck(item.key)}
-                      style={{
-                        display: 'flex', alignItems: 'flex-start', gap: 12,
-                        padding: '12px 14px', borderRadius: 10, border: `1.5px solid ${checked ? T.turn : T.border}`,
-                        background: checked ? `${T.turn}12` : T.deep,
-                        boxShadow: checked ? `0 0 8px ${T.turn}25` : SHI,
-                        cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s',
-                        width: '100%',
-                      }}
-                    >
-                      <div style={{ marginTop: 2, flexShrink: 0 }}>
-                        {checked
-                          ? <CheckCircle2 size={18} color={T.turn} />
-                          : <Circle size={18} color={T.muted} />
-                        }
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: checked ? T.turn : T.text, marginBottom: 2 }}>
-                          {item.label}
-                        </div>
-                        <div style={{ fontSize: 11, color: T.muted, lineHeight: 1.5 }}>{item.detail}</div>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{negHits.map(item => Card(item, T.turn))}</div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
 
             {/* 네비게이션 버튼 */}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24 }}>

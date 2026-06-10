@@ -52,7 +52,7 @@ function ChartTooltip({ active, payload, label, currencySign }: any) {
       background: '#000', border: '1px solid #333', borderRadius: 8,
       padding: '10px 14px', fontSize: 12, minWidth: 190,
     }}>
-      <div style={{ color: '#64748b', fontWeight: 700, marginBottom: 6 }}>{label}</div>
+      <div style={{ color: '#7f93a8', fontWeight: 700, marginBottom: 6 }}>{label}</div>
       {payload
         .filter((p: { name: string }) => p.name !== '__mirror__')
         .map((p: { name: string; value: number; color: string }, i: number) => (
