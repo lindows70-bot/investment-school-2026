@@ -18,6 +18,7 @@ import LeverageRiskSimulator      from '@/app/components/LeverageRiskSimulator'
 import PortfolioBalanceRadar      from '@/app/components/PortfolioBalanceRadar'
 import CocktailPartyGauge         from '@/app/components/CocktailPartyGauge'
 import MacroWeather               from '@/app/components/MacroWeather'
+import DualMandateDashboard       from '@/app/components/DualMandateDashboard'
 import NpsPortfolio               from '@/app/components/NpsPortfolio'
 import JarvisMorningBriefing      from '@/app/components/JarvisMorningBriefing'
 import SchoolIndexDashboard       from '@/app/components/SchoolIndexDashboard'
@@ -3317,6 +3318,9 @@ export default function DashboardPage() {
       <div id="tab-macro" style={{ display: dashTab==='macro' ? 'flex' : 'none', flexDirection:'column', gap:20 }}>
         <ErrorBoundary label="매크로 날씨예보">
           <MacroWeather investments={investments} />
+        </ErrorBoundary>
+        <ErrorBoundary label="연준 양대책무">
+          <DualMandateDashboard />
         </ErrorBoundary>
         <ErrorBoundary label="칵테일 파티 지수">
           <CocktailPartyGauge />
