@@ -35,9 +35,10 @@ export interface DualMandateResult {
 }
 
 export async function GET() {
-  const cacheKey = 'fed-dual-mandate-v1'
+  const cacheKey = 'fed-dual-mandate-v2'   // v2: 라벨 통일 + PAYEMS 콜드 재계산
   const cached = await getCache<DualMandateResult>(cacheKey, 12 * 3600_000)
-  if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
+  // momK=0(콜드 시점 PAYEMS 1개월만 수집)이면 캐시 무시하고 재계산(비농업은 0이 사실상 없음)
+  if (cached && cached.payems.momK !== 0) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   const [payems, unrate, icsa, jolts, unemploy, sahm, trim, headPce] = await Promise.all([
     fred('PAYEMS', 3), fred('UNRATE', 2), fred('ICSA', 26), fred('JTSJOL', 2),
@@ -86,6 +87,6 @@ export async function GET() {
     headlinePce: headV, noiseGap, warshNote,
     asOf: new Date().toISOString(),
   }
-  await setCache(cacheKey, result)
+  if (momK !== 0 && payems[0]?.v) await setCache(cacheKey, result)   // 콜드(불완전) 데이터는 캐시하지 않음 → 다음 호출 재시도
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

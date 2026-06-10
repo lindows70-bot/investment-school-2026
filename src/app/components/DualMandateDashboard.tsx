@@ -5,9 +5,10 @@ import type { DualMandateResult } from '@/app/api/fed-dual-mandate/route'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 const fmtK = (n: number) => `${(n / 1000).toFixed(0)}K`
+// ⚠️ 라벨 주의: '골디락스'는 4계절 투자법(성장↑·물가↓ 사분면)과 충돌 → 고용 신호등은 '균형(연착륙)'으로 통일
 const LABOR = {
   hot: { c: '#f87171', icon: '🔴', label: '과열 (인플레 위험)' },
-  balanced: { c: '#4ade80', icon: '🟢', label: '균형 (골디락스)' },
+  balanced: { c: '#4ade80', icon: '🟢', label: '균형 (연착륙)' },
   cooling: { c: '#60a5fa', icon: '🔵', label: '냉각 (침체 경고)' },
 }
 
