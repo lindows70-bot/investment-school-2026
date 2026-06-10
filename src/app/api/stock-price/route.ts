@@ -32,6 +32,14 @@ export interface Fundamentals {
   forwardEps:     number | null
   payoutRatio:    number | null   // 배당성향 (0.25 = 25%)
   annualDividend: number | null   // 연간 배당금/주 (원화 or USD)
+  // ── DCF 자동 분석용 (워렌 버핏 패널) — Yahoo Finance 실데이터 ──
+  freeCashflow?:      number | null   // 연간 잉여현금흐름 (통화 원시값: KR=원, US=USD)
+  sharesOutstanding?: number | null   // 유통주식수 (주 단위)
+  totalDebt?:         number | null   // 총부채 (통화 원시값)
+  totalCash?:         number | null   // 현금성자산 (통화 원시값)
+  returnOnEquity?:    number | null   // ROE (0.15 = 15%)
+  grossMargins?:      number | null   // 매출총이익률 (0.40 = 40%)
+  operatingMargins?:  number | null   // 영업이익률 (0.20 = 20%, 음수=영업적자)
 }
 
 export interface StockData {
@@ -377,11 +385,12 @@ const YF_HEADERS: HeadersInit = {
   Referer: 'https://finance.yahoo.com/',
 }
 
-const YF_RANGE: Record<TimeFrame, { range: string; interval: string }> = {
-  '1D': { range: '1d',  interval: '5m'  },   // 78 포인트 (장중 5분봉)
-  '1W': { range: '5d',  interval: '60m' },   // ~33 포인트 (시간봉 → 야간갭 최소화)
-  '1M': { range: '1mo', interval: '1d'  },   // ~22 포인트 (일봉)
-  '1Y': { range: '1y',  interval: '1wk' },   // ~52 포인트 (주봉)
+// KR(네이버)과 동일한 캔들 입도 정책 — 1D=일봉 / 1W=주봉 / 1M·1Y=월봉. 두 시장 차트 일관성(제2원칙).
+const YF_RANGE: Record<TimeFrame, { range: string; interval: string; take: number }> = {
+  '1D': { range: '3mo', interval: '1d',  take: 30 },   // 일봉 최근 30거래일 (KR과 동일)
+  '1W': { range: '6mo', interval: '1wk', take: 26 },   // 주봉 26
+  '1M': { range: '2y',  interval: '1mo', take: 24 },   // 월봉 24 (약 2년)
+  '1Y': { range: '5y',  interval: '1mo', take: 60 },   // 월봉 60 (약 5년)
 }
 
 // v8 chart: query1 → query2 순서로 fallback (v7/v10은 401 차단)
@@ -399,7 +408,7 @@ async function yfChartFetch(ticker: string, qs: string): Promise<Response | null
 }
 
 async function yfChart(ticker: string, tf: TimeFrame): Promise<PricePoint[]> {
-  const { range, interval } = YF_RANGE[tf]
+  const { range, interval, take } = YF_RANGE[tf]
   const res = await yfChartFetch(ticker, `range=${range}&interval=${interval}&includePrePost=false`)
   if (!res) throw new Error(`YF chart 조회 실패: ${ticker}`)
 
@@ -414,20 +423,13 @@ async function yfChart(ticker: string, tf: TimeFrame): Promise<PricePoint[]> {
     const v = closes[i]
     if (v != null && isFinite(v)) points.push({ t: timestamps[i] * 1000, v })
   }
-  return points
+  return points.slice(-take)   // 최근 N개만 (KR과 동일 개수)
 }
 
 /** US OHLC 캔들 데이터 (Yahoo Finance v8 → Candle[]) */
 async function yfOhlcChart(ticker: string, tf: TimeFrame): Promise<Candle[]> {
-  // 캔들 밀도 최적화 — 각 탭별 자연스러운 캔들 수 확보
-  // 1D: 5분봉 78개(장중 하루), 1W: 30분봉 65개(5일), 1M: 일봉 30개, 1Y: 주봉 52개
-  const tfCfg: Record<TimeFrame, { range: string; interval: string }> = {
-    '1D': { range: '1d',  interval: '5m'  },  // 78 candles
-    '1W': { range: '5d',  interval: '30m' },  // 65 candles
-    '1M': { range: '1mo', interval: '1d'  },  // 30 candles
-    '1Y': { range: '1y',  interval: '1wk' },  // 52 candles
-  }
-  const { range, interval } = tfCfg[tf]
+  // KR과 동일 입도 정책(일/주/월봉) — 라인차트(yfChart)와 같은 YF_RANGE 사용(SSOT)
+  const { range, interval, take } = YF_RANGE[tf]
   try {
     const res = await yfChartFetch(ticker, `range=${range}&interval=${interval}&includePrePost=false`)
     if (!res || !res.ok) return []
@@ -458,6 +460,7 @@ async function yfOhlcChart(ticker: string, tf: TimeFrame): Promise<Candle[]> {
         } as Candle
       })
       .filter((c): c is Candle => c !== null)
+      .slice(-take)   // 최근 N개만 (KR과 동일 개수)
   } catch { return [] }
 }
 
