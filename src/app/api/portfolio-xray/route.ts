@@ -29,6 +29,7 @@ export interface XrayEtfDetail {
   isEquityEtf: boolean
   isLeveraged: boolean         // 레버리지·인버스 — 분해 부적합(스왑 구조)
   holdingsHaveWeights: boolean // false=해외주식형 KR(종목명만, 섹터로만 반영)
+  twinTicker: string | null    // 표준지수 추종 해외형 — US 쌍둥이 ETF 구성 차용(SPY·QQQ 등)
   topNames: string[]           // 상위 구성종목명(표시용)
   topSectors: { sector: string; weight: number }[]
   resolved: boolean            // 분해 성공 여부
@@ -50,7 +51,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `portfolio-xray-v2:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `portfolio-xray-v3:${user.id}:${kstDate()}:${fp}`   // v3: 쌍둥이 지수 차용
   const cached = await getCache<XrayResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -103,7 +104,7 @@ export async function GET(req: Request) {
     if (!c || !c.isEquityEtf || c.isLeveraged || c.sectorWeights.length === 0) {
       // 분해 불가(채권·원자재·레버리지·데이터없음) → 정직하게 '기타'. 레버리지는 스왑 구조라 구성종목이 실노출(2X) 왜곡
       other += w
-      etfDetails.push({ ticker: h.ticker, name: c?.name ?? h.name, market: h.market, weight: w, isEquityEtf: c?.isEquityEtf ?? false, isLeveraged: c?.isLeveraged ?? false, holdingsHaveWeights: false, topNames: (c?.topHoldings ?? []).slice(0, 5).map(x => x.name), topSectors: [], resolved: false })
+      etfDetails.push({ ticker: h.ticker, name: c?.name ?? h.name, market: h.market, weight: w, isEquityEtf: c?.isEquityEtf ?? false, isLeveraged: c?.isLeveraged ?? false, holdingsHaveWeights: false, twinTicker: null, topNames: (c?.topHoldings ?? []).slice(0, 5).map(x => x.name), topSectors: [], resolved: false })
       return
     }
     // 섹터 — 네이티브 비중 그대로(합 ~100, 왜곡 0)
@@ -114,7 +115,9 @@ export async function GET(req: Request) {
       for (const t of c.topHoldings) {
         if (t.weight == null) continue
         const cw = r1(w * t.weight / 100)
-        addStock(t.ticker ?? t.name, t.name, c.market, cw, c.name)
+        // 구성종목 시장은 종목 코드 형태로 판별(쌍둥이 차용 시 KR ETF 안에 US 종목 — c.market 아님)
+        const hMkt: 'KR' | 'US' = t.ticker && /^\d{6}$/.test(t.ticker) ? 'KR' : 'US'
+        addStock(t.ticker ?? t.name, t.name, hMkt, cw, c.name)
       }
       etfDecomposed += r1(w * c.topWeightSum / 100)
       etfResidual += r1(w * (100 - c.topWeightSum) / 100)
@@ -123,7 +126,8 @@ export async function GET(req: Request) {
     }
     etfDetails.push({
       ticker: h.ticker, name: c.name, market: h.market, weight: w, isEquityEtf: true, isLeveraged: false,
-      holdingsHaveWeights: c.holdingsHaveWeights, topNames: c.topHoldings.slice(0, 5).map(x => x.name),
+      holdingsHaveWeights: c.holdingsHaveWeights, twinTicker: c.weightSource === 'twin' ? c.twinTicker : null,
+      topNames: c.topHoldings.slice(0, 5).map(x => x.name),
       topSectors: c.sectorWeights.slice(0, 3), resolved: true,
     })
   })

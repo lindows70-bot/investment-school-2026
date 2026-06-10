@@ -110,6 +110,7 @@ export default function PortfolioXray() {
                     <span style={{ color: '#8a9aaa', fontFamily: 'monospace' }}>{e.weight}%</span>
                     {!e.resolved && e.isLeveraged && <span style={{ color: '#f87171', fontSize: 10 }}>⚠️ 레버리지·인버스 — 스왑 구조라 분해 부적합(실노출 왜곡)</span>}
                     {!e.resolved && !e.isLeveraged && <span style={{ color: '#fbbf24', fontSize: 10 }}>⚠️ 비주식/분해불가 — 기타 자산 처리</span>}
+                    {e.resolved && e.holdingsHaveWeights && e.twinTicker && <span style={{ color: '#22d3ee', fontSize: 10 }}>📈 표준지수 추종 — {e.twinTicker} 구성비중 차용(동일 지수)</span>}
                     {e.resolved && !e.holdingsHaveWeights && <span style={{ color: '#fbbf24', fontSize: 10 }}>ℹ️ 종목 비중 미제공(해외주식형) — 섹터로만 반영</span>}
                   </div>
                   {e.topNames.length > 0 && <div style={{ color: '#8a9aaa', fontSize: 10.5, marginTop: 3 }}>상위: {e.topNames.join(' · ')}</div>}

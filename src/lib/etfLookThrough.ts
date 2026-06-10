@@ -20,6 +20,8 @@ export interface EtfComposition {
   sectorWeights: { sector: string; weight: number }[]   // GICS 영문 통일(합 ~100)
   usWeight: number                 // 미국 자산 비중 %(KR=countryPortfolioList, US ETF=100) — 시장별 계절 채점용
   holdingsHaveWeights: boolean     // false=해외주식형 KR(섹터만 신뢰)
+  weightSource: 'native' | 'twin' | null   // twin=해외형 KR이 표준지수 추종 → US 쌍둥이 ETF 구성 차용
+  twinTicker: string | null        // 차용한 US ETF(SPY·QQQ·SOXX 등)
   source: 'yahoo' | 'naver'
   asOf: string
 }
@@ -46,6 +48,20 @@ const NAVER_SECTOR: Record<string, string> = {
 const LEV_NAME = /레버리지|인버스|곱버스|\b[23]X\b|Bull|Bear|Ultra(?:Pro)?\b|Daily\s/i
 const LEV_TICKERS = new Set(['TSLL','TSLR','TSLG','TSLS','TSLQ','NVDL','NVDU','NVDX','NVDQ','NVDS','SOXL','SOXS','TQQQ','SQQQ','UPRO','SPXU','AGQ','ZSL','UCO','SCO','BOIL','KOLD','LABU','LABD','FNGU','FNGD','TNA','TZA'])
 const isLev = (ticker: string, name: string) => LEV_TICKERS.has(ticker.toUpperCase()) || LEV_NAME.test(name)
+
+// 해외형 KR ETF의 추종지수 → US 쌍둥이 ETF(구성비중 차용). 표준지수만(정확 매칭 — 레버리지·헤지·커버드콜 변형 제외)
+const INDEX_TWIN: [RegExp, string][] = [
+  [/^S&P\s*500$/i, 'SPY'],
+  [/^NASDAQ\s*100$/i, 'QQQ'],
+  [/필라델피아\s*반도체|PHLX\s*Semiconductor/i, 'SOXX'],
+  [/^Dow\s*Jones|^다우존스/i, 'DIA'],
+  [/^Russell\s*2000|^러셀\s*2000/i, 'IWM'],
+]
+const twinOf = (baseIndex: string): string | null => {
+  const idx = baseIndex.trim()
+  for (const [re, t] of INDEX_TWIN) if (re.test(idx)) return t
+  return null
+}
 
 const NAVER_UA = {
   'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148',
@@ -82,7 +98,8 @@ async function fetchUs(ticker: string): Promise<EtfComposition | null> {
       topHoldings: holdings, topWeightSum: weights.length ? Math.round(weights.reduce((s, w) => s + w, 0) * 10) / 10 : null,
       sectorWeights: sectorWeights.sort((a, b) => b.weight - a.weight),
       usWeight: 100,   // US 상장 ETF는 미국 자산 가정(시장별 계절 채점용)
-      holdingsHaveWeights: weights.length > 0, source: 'yahoo', asOf: new Date().toISOString(),
+      holdingsHaveWeights: weights.length > 0, weightSource: weights.length > 0 ? 'native' as const : null, twinTicker: null,
+      source: 'yahoo', asOf: new Date().toISOString(),
     }
   } catch { return null }
 }
@@ -107,14 +124,29 @@ async function fetchKr(code6: string): Promise<EtfComposition | null> {
       .find(a => a.detailTypeCode === 'EQUITY')?.weight ?? 0
     const usWeight = ((j.countryPortfolioList ?? []) as { detailTypeCode?: string; weight?: number }[])
       .find(c => c.detailTypeCode === 'US')?.weight ?? 0
-    const weights = holdings.map(h => h.weight).filter((w): w is number => w != null)
+    let weights = holdings.map(h => h.weight).filter((w): w is number => w != null)
     const name = String(j.itemName ?? code6)
+    let finalHoldings = holdings, weightSource: 'native' | 'twin' | null = weights.length > 0 ? 'native' : null
+    let twinTicker: string | null = null
+    // 해외형(비중 미제공)이 표준지수 추종이면 → US 쌍둥이 ETF 구성비중 차용(추정 아닌 동일지수 실측값)
+    if (weights.length === 0 && !isLev(code6, name)) {
+      const twin = twinOf(String(j.etfBaseIndex ?? ''))
+      if (twin) {
+        const tc = await fetchUs(twin)
+        if (tc?.holdingsHaveWeights) {
+          finalHoldings = tc.topHoldings
+          weights = finalHoldings.map(h => h.weight).filter((w): w is number => w != null)
+          weightSource = 'twin'; twinTicker = twin
+        }
+      }
+    }
     return {
       ticker: code6, name, market: 'KR',
       isEquityEtf: equity >= 60,   // 주식 비중 60%↑ = 주식형(채권·원자재·혼합형 제외)
       isLeveraged: isLev(code6, name),
-      topHoldings: holdings, topWeightSum: weights.length ? Math.round(weights.reduce((s, w) => s + w, 0) * 10) / 10 : null,
-      sectorWeights, usWeight, holdingsHaveWeights: weights.length > 0, source: 'naver', asOf: new Date().toISOString(),
+      topHoldings: finalHoldings, topWeightSum: weights.length ? Math.round(weights.reduce((s, w) => s + w, 0) * 10) / 10 : null,
+      sectorWeights, usWeight, holdingsHaveWeights: weights.length > 0, weightSource, twinTicker,
+      source: 'naver', asOf: new Date().toISOString(),
     }
   } catch { return null }
 }
@@ -127,7 +159,7 @@ export async function getEtfComposition(ticker: string, market?: string): Promis
   const isKr = (market ?? '').toUpperCase() === 'KR' || isKrCode
   const code = t   // 영숫자 코드 그대로 사용(네이버 API가 0131V0 형식 직접 수용 — 실측 확인)
   const mkt: 'US' | 'KR' = isKr ? 'KR' : 'US'
-  const cacheKey = `etf-comp-v3:${code}:${mkt}`   // v3: usWeight(국가 비중) 추가
+  const cacheKey = `etf-comp-v4:${code}:${mkt}`   // v4: 쌍둥이 지수 차용(weightSource·twinTicker)
   const cached = await getCache<EtfComposition>(cacheKey, TTL)
   if (cached) return cached
   const result = mkt === 'KR' ? await fetchKr(code) : await fetchUs(code)
