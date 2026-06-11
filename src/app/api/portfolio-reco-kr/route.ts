@@ -16,6 +16,7 @@ export interface RecoItem {
   name:        string
   sector:      string
   peg:         number | null
+  pegSuspect?: boolean        // ⚠️ 기저효과 의심(G>100% → PEG 0 수렴 착시) — 가치점수 0 처리·배지 표시
   dualStreak:  number
   foreign5:    number         // 5일 누적 순매수(억)
   organ5:      number
@@ -69,8 +70,8 @@ function regimeMultiplier(phase: string, rateDir: string): { multiplier: number;
 // ★ 통합 추천 점수(0~100) — PEG 가치 + 수급 강도 + 개인 이탈 가산
 function recoScore(e: MarketFlowEntry, sectBonus = 0): number {
   let s = 0
-  // PEG 밸류에이션 점수(최대 35)
-  if (e.peg != null && e.peg > 0) {
+  // PEG 밸류에이션 점수(최대 35) — ⚠️ 기저효과 의심(pegSuspect)이면 0점(BP 0.01 사건: 착시 저PEG가 만점 받는 왜곡 차단)
+  if (e.peg != null && e.peg > 0 && !e.pegSuspect) {
     s += e.peg < 0.3 ? 35 : e.peg < 0.5 ? 30 : e.peg < 0.8 ? 22 : e.peg < 1.0 ? 14 : 0
   }
   // 수급 강도 점수(최대 40) — 쌍끌이 일수 + 5일 누적 대금 규모
@@ -91,7 +92,7 @@ const toItem = (
   e: MarketFlowEntry, reason: string, category: RecoItem['category'],
   sectBonus = 0, suggestWon = 0,
 ): RecoItem => ({
-  ticker: e.ticker, name: e.name, sector: e.sector, peg: e.peg, dualStreak: e.dualStreak,
+  ticker: e.ticker, name: e.name, sector: e.sector, peg: e.peg, pegSuspect: e.pegSuspect, dualStreak: e.dualStreak,
   foreign5: eok(e.foreign.d5), organ5: eok(e.organ.d5),
   foreign1: eok(e.foreign.d1), organ1: eok(e.organ.d1),
   individual1: eok(e.individual?.d1 ?? 0),
@@ -104,13 +105,13 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `portfolio-reco-kr-v6:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `portfolio-reco-kr-v7:${user.id}:${kstDate()}:${fp}`   // v7: 기저효과 PEG 가드(pegSuspect)
   const cached = await getCache<PortfolioRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // 시장 수급 — 캐시 우선(추가 수집 0)
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-  let mf = await getCache<MarketFlowKrResult>(`market-flow-kr-v4:${kstDate()}`, 24 * 3600_000)
+  let mf = await getCache<MarketFlowKrResult>(`market-flow-kr-v5:${kstDate()}`, 24 * 3600_000)
   if (!mf) mf = await computeMarketFlowKr(base)
   const entries = mf.entries
 
@@ -163,7 +164,7 @@ export async function GET(req: Request) {
   // ② 진주 발굴: 미보유 + 저PEG(<1.0) + 쌍끌이 2일+ — 빈집에 이미 있으면 제외(중복 방지)
   const pearl = entries
     .filter(e => !heldCodes.has(e.ticker) && !fillGapSet.has(e.ticker)   // ★ 중복 제거
-      && e.peg != null && e.peg > 0 && e.peg < 1.0 && e.dualStreak >= 2)
+      && e.peg != null && e.peg > 0 && e.peg < 1.0 && !e.pegSuspect && e.dualStreak >= 2)   // ⚠️ 기저효과 PEG는 진주 자격 박탈
     .sort((a, b) => recoScore(b) - recoScore(a))
     .slice(0, 3)
     .map(e => {
@@ -190,7 +191,7 @@ export async function GET(req: Request) {
   const covered = new Set([...fillGap, ...pearl, ...addMore].map(r => r.ticker))
   const near = entries
     .filter(e => !covered.has(e.ticker) && !heldCodes.has(e.ticker)
-      && e.peg != null && e.peg > 0 && e.peg < 1.2
+      && e.peg != null && e.peg > 0 && e.peg < 1.2 && !e.pegSuspect   // ⚠️ 기저효과 PEG는 저PEG 자격 박탈
       && (e.foreign.d5 > 0 || e.dualStreak >= 1))
     .map(e => ({ e, score: recoScore(e) }))
     .filter(x => x.score >= 30)

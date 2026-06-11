@@ -40,7 +40,8 @@ function Item({ it }: { it: RecoItem }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 6 }}>
           <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 14 }}>{it.name}</span>
           <span style={{ color: '#8a9aaa', fontSize: 11 }}>{it.sector}</span>
-          {it.peg != null && it.peg > 0 && it.peg < 1.0 && <span style={{ background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid #3b82f655', borderRadius: 6, padding: '0 6px', fontSize: 10, fontWeight: 700 }}>💎 PEG {it.peg.toFixed(2)}</span>}
+          {it.peg != null && it.peg > 0 && it.peg < 1.0 && !it.pegSuspect && <span style={{ background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid #3b82f655', borderRadius: 6, padding: '0 6px', fontSize: 10, fontWeight: 700 }}>💎 PEG {it.peg.toFixed(2)}</span>}
+          {it.peg != null && it.peg > 0 && it.pegSuspect && <span title="이익 붕괴 후 회복(성장률 100%↑)으로 PEG가 0에 수렴하는 착시 — 경기순환주 저PEG 함정. 가치 점수에서 제외됨" style={{ background: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid #f59e0b44', borderRadius: 6, padding: '0 6px', fontSize: 10, fontWeight: 700 }}>⚠️ PEG {it.peg.toFixed(2)} 기저효과 의심</span>}
           {it.dualStreak >= 2 && <span style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid #f59e0b55', borderRadius: 6, padding: '0 6px', fontSize: 10, fontWeight: 700 }}>🔥 {it.dualStreak}일 쌍끌이</span>}
           {indNeg && <span style={{ background: 'rgba(239,68,68,0.12)', color: '#f87171', border: '1px solid #ef444433', borderRadius: 6, padding: '0 6px', fontSize: 10, fontWeight: 700 }}>👤 개인 이탈</span>}
           <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5, fontFamily: 'monospace' }}>

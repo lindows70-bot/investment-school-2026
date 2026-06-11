@@ -35,7 +35,7 @@ function MiniChart({ prices }: { prices: number[] }) {
 function Row({ e, rank, amt, prices, open }: { e: MarketFlowEntry; rank: number; amt: number; prices: number[]; open?: boolean }) {
   const up = (e.changePct ?? 0) > 0
   const chgCol = e.changePct == null ? '#8a9aaa' : up ? '#22c55e' : '#ef4444'
-  const cheap = e.peg != null && e.peg > 0 && e.peg < 1.0
+  const cheap = e.peg != null && e.peg > 0 && e.peg < 1.0 && !e.pegSuspect   // ⚠️ 기저효과 의심은 💎 박탈
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', background: '#0f1117', borderRadius: 8, fontSize: 13 }}>
       <span style={{ width: 26, textAlign: 'center', fontWeight: 800, color: rank < 3 ? '#f1f5f9' : '#8a9aaa', fontSize: rank < 3 ? 15 : 12 }}>{medal(rank)}</span>
@@ -44,6 +44,7 @@ function Row({ e, rank, amt, prices, open }: { e: MarketFlowEntry; rank: number;
           <span style={{ color: '#e2e8f0', fontWeight: 700 }}>{e.name}</span>
           <span style={{ color: '#8a9aaa', fontSize: 11 }}>{e.sector}</span>
           {cheap && <span style={{ background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid #3b82f655', borderRadius: 6, padding: '0 6px', fontSize: 10, fontWeight: 700 }}>💎 저평가 PEG {e.peg!.toFixed(2)}</span>}
+          {e.peg != null && e.peg > 0 && e.pegSuspect && <span title="이익 붕괴 후 회복(성장률 100%↑)으로 PEG가 0에 수렴하는 착시 — 경기순환주 저PEG 함정" style={{ background: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid #f59e0b44', borderRadius: 6, padding: '0 6px', fontSize: 10, fontWeight: 700 }}>⚠️ PEG {e.peg!.toFixed(2)} 기저효과</span>}
           {e.dualStreak >= 2 && <span style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid #f59e0b55', borderRadius: 6, padding: '0 6px', fontSize: 10, fontWeight: 700 }}>🔥 {e.dualStreak}일 쌍끌이</span>}
         </div>
       </div>

@@ -1,7 +1,7 @@
 // 🌐 국내 시장 수급 랭킹 — 주요 코스피 유니버스의 외국인/기관 순매수 상위 + 쌍끌이 연속매집
 // 검증된 per-ticker trend(moneyFlow.fetchKrTrend) 재사용 · ETF는 큐레이션(STOCK)으로 원천차단 · Zero Cost
 import { fetchKrTrend, trendNum as num } from '@/lib/moneyFlow'
-import { getCanonicalPeg } from '@/lib/canonicalFundamentals'
+import { getCanonicalFundamentals, isPegBaseEffect } from '@/lib/canonicalFundamentals'
 
 export type Period = 'd1' | 'd5' | 'd20'
 
@@ -16,6 +16,7 @@ export interface MarketFlowEntry {
   individual?: Record<Period, number> // 개인 누적 순매수(음수=이탈 — 진주 발굴 개인이탈 조건용)
   dualStreak: number         // 외인+기관 동시 순매수 연속일수(0=오늘 미해당)
   peg:        number | null  // 저PEG 뱃지용(상위 종목만 채움)
+  pegSuspect?: boolean       // ⚠️ 기저효과 의심(이익 붕괴 후 회복 G>100% → PEG 0 수렴 착시) — 저PEG 뱃지·추천 점수에서 제외
   closes:     number[]       // 최근 20일 일별 종가(오래된→최신) — 1주/1개월 스파크라인용(추가 fetch 0)
 }
 
@@ -149,7 +150,11 @@ export async function computeMarketFlowKr(base?: string): Promise<MarketFlowKrRe
   }
   for (const e of entries.filter(e => e.dualStreak >= 2)) union.set(e.ticker, e)
   await Promise.all(Array.from(union.values()).map(async e => {
-    try { e.peg = await getCanonicalPeg(e.ticker, 'KR', base) } catch { /* graceful */ }
+    try {
+      const cf = await getCanonicalFundamentals(e.ticker, 'KR', base)   // 동일 SSOT 캐시(canon-fund) 공유 — 추가 비용 0
+      e.peg = cf.peg
+      e.pegSuspect = isPegBaseEffect(cf.peg, cf.growth)
+    } catch { /* graceful */ }
   }))
 
   return { entries, asOf: new Date().toISOString(), dataDate, poolSize: entries.length }

@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   const t0 = Date.now()
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const result = await computeMarketFlowKr(base)
-  const key = `market-flow-kr-v4:${new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)}`
+  const key = `market-flow-kr-v5:${new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)}`
   if (result.poolSize > 0) await setCache(key, result)
   const top = [...result.entries].sort((a, b) => b.foreign.d1 - a.foreign.d1).slice(0, 3).map(e => e.name)
   return NextResponse.json(
