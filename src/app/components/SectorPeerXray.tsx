@@ -112,7 +112,14 @@ export default function SectorPeerXray({ ticker, name, market }: Props) {
                     )}
                   </td>
                   <td style={{ textAlign: 'right', fontWeight: 700, color: p.mcapUsd == null ? C.textLow : hl ? C.cyan : C.textSub, padding: '9px 4px' }}>{mcapFmt(p.mcapUsd)}</td>
-                  <td style={{ textAlign: 'right', fontWeight: 800, color: pegColor(p.peg), padding: '9px 4px' }}>{p.peg != null && p.peg > 0 ? p.peg.toFixed(2) : '—'}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 800, color: pegColor(p.peg), padding: '9px 4px' }}>
+                    {p.peg != null && p.peg > 0 ? p.peg.toFixed(2) : '—'}
+                    {p.pegBaseEffect && (
+                      <span title="작년 이익 붕괴 후 회복(성장률 100%↑)으로 원시 PEG가 0에 수렴하는 착시(경기순환주 저PEG 함정) — 내년 예상 성장 기준으로 정상화하거나, 그마저 왜곡이면 —(비교 제외) 처리합니다." style={{ display: 'block', fontSize: 8.5, color: C.gold, fontWeight: 700 }}>
+                        ⚠️ 기저효과
+                      </span>
+                    )}
+                  </td>
                   <td style={{ textAlign: 'right', fontWeight: 800, color: marginColor(p.opMargin), padding: '9px 4px' }}>{p.opMargin != null ? `${p.opMargin}%` : '—'}</td>
                   <td style={{ textAlign: 'right', fontWeight: 700, color: p.debtRatio == null ? C.textLow : p.debtRatio > 50 ? C.red : C.textSub, padding: '9px 4px' }}>{p.debtRatio != null ? (p.debtRatio > 300 ? '>300%' : `${p.debtRatio}%`) : '—'}</td>
                 </tr>
@@ -128,7 +135,7 @@ export default function SectorPeerXray({ ticker, name, market }: Props) {
       </div>
 
       <div style={{ marginTop: 12, fontSize: 9.5, color: C.textLow, lineHeight: 1.6 }}>
-        ⚔️ 체급(시총)=USD로 통일해 글로벌 1등과 체급 비교(원화는 대략 환산) · PEG=낮을수록 저평가 · 영업이익률=높을수록 가격결정력(해자) · 부채/시총=낮을수록 안전(자동차·은행은 금융자회사 부채 포함되어 높게 나옴, 300%↑는 생략).
+        ⚔️ 체급(시총)=USD로 통일해 글로벌 1등과 체급 비교(원화는 대략 환산) · PEG=낮을수록 저평가 · 영업이익률=높을수록 가격결정력(해자) · 부채/시총=낮을수록 안전(자동차·은행은 금융자회사 부채 포함되어 높게 나옴, 300%↑는 생략) · ⚠️기저효과 보정=이익 붕괴 후 회복으로 성장률이 100%↑ 튄 종목은 원시 PEG가 0에 수렴(저평가 착시) → 내년 예상 성장 기준으로 정상화(린치의 경기순환주 함정 경고).
         {data.source === 'curated'
           ? ' 글로벌 GICS 동종업계 대표기업 기준(美·韓 통합 · 비율 지표라 환율 무관) · 교육용 참고.'
           : ' Yahoo 동종업계 추천 기준 · 교육용 참고.'}

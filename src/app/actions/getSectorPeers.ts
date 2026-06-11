@@ -22,6 +22,7 @@ export interface PeerMetric {
   industry:  string | null    // 업종 (동일업종만 직접 비교)
   sameInd:   boolean          // 대상과 동일 업종인가
   peg:       number | null
+  pegBaseEffect?: boolean     // 기저효과 보정 표시 — 원시 PEG가 이상 저값(이익 붕괴 후 회복 G>100%)이라 Fwd 성장 기준으로 정상화함
   opMargin:  number | null    // 영업이익률 %
   debtRatio: number | null    // 부채/시총 %
   mcapUsd:   number | null    // USD 통일 시가총액 (체급 비교용 · 대략 환산)
@@ -118,6 +119,22 @@ async function fetchMetric(yf: any, symbol: string, isTarget: boolean, base?: st
         if (pe != null && g != null && g > 0) peg = +(pe / (g * 100)).toFixed(2)
       }
     }
+    // 🩹 기저효과 가드(린치 엔진 effectiveGrowth와 동일 철학, 제2원칙) — BP PEG 0.01 사건:
+    //    작년 이익 붕괴 후 회복하면 성장률이 수백%로 튀어 PEG가 0에 수렴(저평가 착시, 경기순환주 함정).
+    //    원시 G>100% + PEG 비정상 저값이면 → Fwd EPS 성장 기준으로 PEG 정상화(불가하면 — 처리), 배지로 공개.
+    let pegBaseEffect = false
+    const rawG = num(fd.earningsGrowth)   // 소수 표기(0.15=15%, 10.19=+1019%)
+    if (peg != null && peg > 0 && peg < 0.3 && rawG != null && rawG > 1.0) {
+      const tEps = num(ks.trailingEps), fEps = num(ks.forwardEps), pe = num(sd.trailingPE)
+      const fwdG = tEps != null && tEps > 0 && fEps != null ? (fEps / tEps - 1) * 100 : null
+      // Fwd 성장도 100%↑면 trailing EPS 자체가 붕괴 저점이라 정상화 불가(BP: Fwd도 +230%) → 정직하게 비교 제외
+      if (fwdG != null && fwdG > 0 && fwdG <= 100 && pe != null && pe > 0) {
+        peg = +(pe / fwdG).toFixed(2)   // 전방 성장 기준 정상화
+      } else {
+        peg = null                       // 정상화 불가 → '—' 처리(순위·라이벌 판정에서 자동 제외)
+      }
+      pegBaseEffect = true
+    }
     const opMargin  = num(fd.operatingMargins) != null ? +(fd.operatingMargins * 100).toFixed(1) : null
     const mc = num(sd.marketCap) ?? num(ks.enterpriseValue)
     const debtRatio = (num(fd.totalDebt) != null && mc) ? Math.round((fd.totalDebt / mc) * 100) : null
@@ -126,7 +143,7 @@ async function fetchMetric(yf: any, symbol: string, isTarget: boolean, base?: st
     const mcapUsd = mc != null ? Math.round(currency === 'KRW' ? mc / USDKRW_APPROX : mc) : null
     const name = String(pr.shortName || pr.longName || symbol).replace(/\.(KS|KQ)$/i, '')
     const industry = ap.industry ? String(ap.industry) : null
-    return { ticker: symbol.replace(/\.(KS|KQ)$/i, ''), name, industry, sameInd: false, peg, opMargin, debtRatio, mcapUsd, isTarget }
+    return { ticker: symbol.replace(/\.(KS|KQ)$/i, ''), name, industry, sameInd: false, peg, pegBaseEffect, opMargin, debtRatio, mcapUsd, isTarget }
   } catch { return null }
 }
 
