@@ -40,10 +40,13 @@ export async function GET() {
   // momK=0(콜드 시점 PAYEMS 1개월만 수집)이면 캐시 무시하고 재계산(비농업은 0이 사실상 없음)
   if (cached && cached.payems.momK !== 0) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
-  const [payems, unrate, icsa, jolts, unemploy, sahm, trim, headPce] = await Promise.all([
+  // eslint-disable-next-line prefer-const
+  let [payems, unrate, icsa, jolts, unemploy, sahm, trim, headPce] = await Promise.all([
     fred('PAYEMS', 3), fred('UNRATE', 2), fred('ICSA', 26), fred('JTSJOL', 2),
     fred('UNEMPLOY', 2), fred('SAHMREALTIME', 2), fred('PCETRIM12M159SFRBDAL', 2), fred('PCEPI', 14, '&units=pc1'),
   ])
+  // 🩹 간헐 장애 방어: 지표 발행 직후(ICSA 목요일 밤 등) FRED가 순간 불안정하면 PAYEMS 부분 수신(<2개)→momK=0 표시 사고. 1회 재시도
+  if (payems.length < 2) payems = await fred('PAYEMS', 3)
 
   const momK = payems.length >= 2 ? Math.round(payems[0].v - payems[1].v) : 0
   const icsaLatest = icsa[0]?.v ?? 0

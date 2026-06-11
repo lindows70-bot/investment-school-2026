@@ -70,7 +70,8 @@ export default function DualMandateDashboard() {
         <div style={{ color: '#aab6c4', fontSize: 11.5, lineHeight: 1.6, marginBottom: 10 }}>{d.laborNote}</div>
         {/* 4지표 */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-          <Stat label="비농업 고용(MoM)" value={`${d.payems.momK >= 0 ? '+' : ''}${fmtK(d.payems.momK)}`} sub={`${d.payems.date.slice(0, 7)}`} hint="고용 시장의 심장" />
+          {/* momK=0은 FRED 간헐 장애(부분 수신) 신호 — 가짜 +0K 대신 정직하게 '수집 중' */}
+          <Stat label="비농업 고용(MoM)" value={d.payems.momK !== 0 ? `${d.payems.momK > 0 ? '+' : ''}${fmtK(d.payems.momK)}` : '수집 중'} sub={`${d.payems.date.slice(0, 7)}`} hint="고용 시장의 심장" />
           <Stat label="실업률" value={`${d.unrate.latest}%`} sub="자연실업률 4.0~4.4%" hint={d.unrate.latest <= 4.4 ? '정상 범위' : '둔화 신호'} />
           <Stat label="신규 실업수당(주간)" value={fmtK(d.icsa.latest)} sub={`4주평균 ${fmtK(d.icsa.avg4w)} ${d.icsa.rising ? '▲' : '▼'}`} hint="가장 빠른 선행 신호" />
           <Stat label="구인배율(JOLTs)" value={`${d.jobRatio.ratio}`} sub="구인÷실업자" hint={d.jobRatio.ratio >= 1.5 ? '과열' : d.jobRatio.ratio < 1.0 ? '냉각' : '균형'} />
