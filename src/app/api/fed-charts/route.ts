@@ -25,8 +25,8 @@ const ym = (d: string) => d.slice(0, 7)   // YYYY-MM 조인 키
 const r2 = (n: number) => Math.round(n * 100) / 100
 
 export interface FedChartsResult {
-  // ① 물가 3겹 — 헤드라인 CPI vs 근원 CPI vs 절사평균 PCE (5년, 전년비%)
-  inflation: { date: string; headline: number | null; core: number | null; trimmed: number | null }[]
+  // ① 물가 4겹 — 헤드라인 CPI vs 근원 CPI vs 근원 PCE(연준 공식 목표) vs 절사평균 PCE (5년, 전년비%)
+  inflation: { date: string; headline: number | null; core: number | null; corePce: number | null; trimmed: number | null }[]
   inflationNote: string
   // ② PPI 전월비(%) — CPI의 상류 (36개월)
   ppi: { date: string; v: number }[]
@@ -42,14 +42,15 @@ export interface FedChartsResult {
 }
 
 export async function GET() {
-  const cacheKey = 'fed-charts-v1'
+  const cacheKey = 'fed-charts-v3'   // v3: 근원 PCE 라인 + CPI↔PCE 괴리 양방향 해석
   const cached = await getCache<FedChartsResult>(cacheKey, 12 * 3600_000)
   if (cached && cached.inflation.length > 0) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // 전 시리즈 일괄 수집(BFF) — 분당 제한 회피·요청 1회로 응집
-  const [cpiH, cpiC, trimmed, ppi, payems, unrate, ffr] = await Promise.all([
+  const [cpiH, cpiC, pceC, trimmed, ppi, payems, unrate, ffr] = await Promise.all([
     fred('CPIAUCSL', 61, '&units=pc1'),                              // 헤드라인 CPI YoY
     fred('CPILFESL', 61, '&units=pc1'),                              // 근원 CPI YoY
+    fred('PCEPILFE', 61, '&units=pc1'),                              // 근원 PCE YoY — 연준 공식 목표 지표(2000년~)
     fred('PCETRIM12M159SFRBDAL', 61),                                // 절사평균 PCE(이미 12M %)
     fred('PPIFIS', 37, '&units=pch'),                                // PPI 최종수요 MoM
     fred('PAYEMS', 26),                                              // 비농업(레벨, 천명) → diff
@@ -58,15 +59,20 @@ export async function GET() {
   ])
 
   // ① 물가 3겹 — 월 키로 조인(시리즈별 발행 시차는 null 허용, 차트가 끊김 없이 그리도록 connectNulls)
-  const months = Array.from(new Set([...cpiH, ...cpiC, ...trimmed].map(o => ym(o.date)))).sort().slice(-60)
+  const months = Array.from(new Set([...cpiH, ...cpiC, ...pceC, ...trimmed].map(o => ym(o.date)))).sort().slice(-60)
   const byYm = (arr: { date: string; v: number }[]) => new Map(arr.map(o => [ym(o.date), o.v]))
-  const hM = byYm(cpiH), cM = byYm(cpiC), tM = byYm(trimmed)
+  const hM = byYm(cpiH), cM = byYm(cpiC), pM = byYm(pceC), tM = byYm(trimmed)
   const inflation = months.map(m => ({
-    date: m, headline: hM.has(m) ? r2(hM.get(m)!) : null, core: cM.has(m) ? r2(cM.get(m)!) : null, trimmed: tM.has(m) ? r2(tM.get(m)!) : null,
+    date: m, headline: hM.has(m) ? r2(hM.get(m)!) : null, core: cM.has(m) ? r2(cM.get(m)!) : null,
+    corePce: pM.has(m) ? r2(pM.get(m)!) : null, trimmed: tM.has(m) ? r2(tM.get(m)!) : null,
   }))
-  const lastH = [...cpiH].pop()?.v, lastC = [...cpiC].pop()?.v, lastT = [...trimmed].pop()?.v
+  const lastH = [...cpiH].pop()?.v, lastC = [...cpiC].pop()?.v, lastP = [...pceC].pop()?.v, lastT = [...trimmed].pop()?.v
+  // CPI-PCE 괴리(주거비 가중치 차이) 동적 언급 — 근원끼리 비교
+  const cpiPceGap = lastC != null && lastP != null ? r2(lastC - lastP) : null
   const inflationNote = lastH != null && lastC != null && lastT != null
-    ? `노이즈를 한 겹씩 벗기면 — 헤드라인 ${r2(lastH)}% → 근원 ${r2(lastC)}% → 절사평균 ${r2(lastT)}%${lastT <= 2.2 ? '로 목표(2%)에 근접합니다. 헤드라인 공포에 속지 마세요.' : '. 기조 물가가 아직 목표(2%) 위라 연준은 신중할 명분이 있습니다.'}`
+    ? `노이즈를 한 겹씩 벗기면 — 헤드라인 CPI ${r2(lastH)}% → 근원 CPI ${r2(lastC)}%${lastP != null ? ` → 근원 PCE ${r2(lastP)}%(연준 공식 목표)` : ''} → 절사평균 ${r2(lastT)}%${lastT <= 2.2 ? '로 목표(2%)에 근접합니다. 헤드라인 공포에 속지 마세요.' : '. 기조 물가가 아직 목표(2%) 위라 연준은 신중할 명분이 있습니다.'}` +
+      (cpiPceGap != null && cpiPceGap >= 0.3 ? ` 근원 CPI가 근원 PCE보다 ${cpiPceGap}%p 높습니다 — 주거비 가중치 차이(CPI ~34% vs PCE ~15%)로 임대료 시차가 CPI를 부풀리는 국면, 연준이 보는 물가는 그보다 낮습니다.`
+        : cpiPceGap != null && cpiPceGap <= -0.3 ? ` 근원 PCE가 근원 CPI보다 ${r2(-cpiPceGap)}%p 높습니다 — 의료·서비스 쪽 물가 압력이 큰 국면이라, 연준이 보는 물가가 뉴스의 CPI보다 오히려 높다는 뜻이니 인하 기대를 서두르지 마세요.` : '')
     : '자료 수집 중'
 
   // ② PPI — 재가속 판정: 최근 2개월 평균 vs 직전 6개월 평균
