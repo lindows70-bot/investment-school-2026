@@ -54,7 +54,7 @@ export default function FedChartsBoard() {
               <YAxis tick={TICK} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
               <Tooltip contentStyle={TIP_STYLE} labelStyle={{ color: '#8a9aaa' }} formatter={v => `${v}%`} />
               <Legend wrapperStyle={{ fontSize: 10 }} />
-              <ReferenceLine y={2} stroke="#94a3b8" strokeDasharray="4 3" label={{ value: '목표 2%', fill: '#94a3b8', fontSize: 9, position: 'insideTopRight' }} />
+              <ReferenceLine y={2} stroke="#94a3b8" strokeDasharray="4 3" label={{ value: '목표 2%', fill: '#94a3b8', fontSize: 9, position: 'insideRight', dy: -9 }} />
               <Line name="헤드라인 CPI" dataKey="headline" stroke="#fb923c" dot={false} strokeWidth={1.8} connectNulls />
               <Line name="근원 CPI" dataKey="core" stroke="#60a5fa" dot={false} strokeWidth={1.6} strokeDasharray="5 3" connectNulls />
               <Line name="절사평균 PCE (워시 픽)" dataKey="trimmed" stroke="#22d3ee" dot={false} strokeWidth={2.2} connectNulls />
