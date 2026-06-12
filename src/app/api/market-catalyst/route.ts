@@ -31,10 +31,11 @@ export interface MarketCatalystResult {
   asOf: string
 }
 
-// ── Google News RSS(무료·무인증) — 시장 전반 헤드라인 ─────────────────────────
-async function googleNews(query: string, take = 8): Promise<string[]> {
+// ── Google News RSS(무료·무인증) — 시장 전반 헤드라인. lang='en'이면 미국판(글로벌 메가 뉴스 포착) ──
+async function googleNews(query: string, take = 8, lang: 'ko' | 'en' = 'ko'): Promise<string[]> {
   try {
-    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`
+    const loc = lang === 'en' ? 'hl=en-US&gl=US&ceid=US:en' : 'hl=ko&gl=KR&ceid=KR:ko'
+    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&${loc}`
     const r = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(10_000) })
     if (!r.ok) return []
     const xml = await r.text()
@@ -115,19 +116,22 @@ const GEMINI_SCHEMA = {
 }
 
 export async function GET() {
-  const cacheKey = `market-catalyst-v2:${kstDate()}`   // v2: KR 종목은 한글 종목명 표기
+  const cacheKey = `market-catalyst-v3:${kstDate()}`   // v3: 영문 글로벌 메가 뉴스 피드 추가 + 우선순위 규칙
   const cached = await getCache<MarketCatalystResult>(cacheKey, 3 * 3600_000)   // 3h — 아침/오후 갱신
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
-  // ① 정량 수급 + ② 시장 헤드라인 일괄 수집
-  const [us, kr, hUs, hKr, hBig] = await Promise.all([
+  // ① 정량 수급 + ② 시장 헤드라인 일괄 수집 — 글로벌 메가 이벤트(영문)를 국내 시황보다 앞에(스페이스X 상장급 포착)
+  const [us, kr, hMegaEn, hIpoEn, hBigKo, hUs2, hKr2] = await Promise.all([
     usMovers(), krMovers(),
+    googleNews('stock market when:1d', 8, 'en'),                           // 미국판 당일 마켓 메가 뉴스
+    googleNews('IPO OR listing OR Nasdaq debut when:2d', 6, 'en'),         // 초대형 상장·데뷔(스페이스X급)
+    googleNews('증시 상장 OR FOMC OR 빅테크 when:1d', 6),                  // 한국어 글로벌·정책 뉴스
     googleNews('미국 증시 특징주 급등'),
     googleNews('코스피 코스닥 특징주'),
-    googleNews('IPO 상장 OR 인수합병 OR FOMC 발표', 6),
   ])
   const movers = [...us, ...kr]
-  const headlines = Array.from(new Set([...hBig, ...hUs, ...hKr])).slice(0, 22)
+  // 글로벌 메가 → 국내 순으로 배치(LLM이 앞쪽을 더 중요하게 인식)
+  const headlines = Array.from(new Set([...hMegaEn, ...hIpoEn, ...hBigKo, ...hUs2, ...hKr2])).slice(0, 28)
 
   // ③ Gemini — 메가 카탈리스트 ≤3건 + 자비스 페르소나 처방(실패 시 movers만으로 graceful)
   let catalysts: MarketCatalyst[] = []
@@ -146,6 +150,7 @@ ${moverText || '(없음)'}
 - 헤드라인에 실제로 있는 사건만 사용. 헤드라인에 없는 사건·수치·날짜를 지어내지 마라.
 - catalysts: 시장 전체 유동성을 움직일 큰 사건 순. title=한국어 한줄 요약, why=어느 섹터/밸류체인으로 수급 쏠림이 생기는지 1~2문장, tickers=관련 종목(헤드라인·수급 데이터에 근거한 것만, 최대 4개). 표기: 미국 종목은 티커(NVDA), 한국 종목은 6자리 코드가 아니라 반드시 한글 종목명(삼성전자·SK하이닉스)으로.
 - jarvisTip: 피터 린치/워런 버핏 관점 한줄 처방. 뇌동매수 경계가 기본 톤 — 급등 뉴스면 "경기순환주 고점 촉매인지 진단 탭 함정 레이더 확인", 대형 IPO면 "축제 첫날 추격보다 밸류체인의 이익 실체 확인" 식으로.
+- 우선순위: ①글로벌 메가 이벤트(초대형 기업 IPO/상장, FOMC·금리 결정, 지정학 급변, 메가 M&A) > ②섹터 단위 수급 쏠림 > ③개별 특징주. 스페이스X 상장급 사건이 있으면 반드시 1순위로. 국내 소형 스팩·공시·반복 시황은 메가 사건을 밀어내면 안 된다.
 - 사소한 종목 뉴스·반복 시황은 제외. 진짜 메가급이 1건뿐이면 1건만.
 - marketMood: 오늘 시장 분위기 한 줄(헤드라인 근거).
 - 전부 한국어.`
