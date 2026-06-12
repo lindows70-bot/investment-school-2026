@@ -29,6 +29,7 @@ import UnifiedReco                 from '@/app/components/UnifiedReco'
 import OperationsHQ                 from '@/app/components/OperationsHQ'
 import NewsCatalystRadar          from '@/app/components/NewsCatalystRadar'
 import AiRebalancePanel           from '@/app/components/AiRebalancePanel'
+import QuantBuilderLab            from '@/app/components/QuantBuilderLab'
 import PortfolioFlowDashboard     from '@/app/components/PortfolioFlowDashboard'
 import MarketFlowKr               from '@/app/components/MarketFlowKr'
 import PortfolioRecoKr            from '@/app/components/PortfolioRecoKr'
@@ -682,7 +683,7 @@ export default function DashboardPage() {
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
   const [btActive,  setBtActive]  = useState({ rebalanceQ:true, rebalanceY:false, buyAndHold:true, benchmark:true })
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder'>('live')
   const [flowView, setFlowView] = useState<'mine' | 'market' | 'reco' | 'unified'>('mine')
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
@@ -1439,6 +1440,7 @@ export default function DashboardPage() {
               { key: 'correlation',  icon: '📐', label: '상관관계 매트릭스',  desc: '종목 간 동조화 · 분산 진단' },
               { key: 'newscatalyst',icon: '📰', label: '뉴스 촉매 레이더',   desc: '보유 종목 뉴스 → 3단계 신호' },
               { key: 'rebalance',   icon: '🤖', label: 'AI 리밸런싱',        desc: '손익 반영 익절/손절 교체매매' },
+              { key: 'quantbuilder',icon: '🛰️', label: 'AI 1억 퀀트 빌더',   desc: '코어-새틀라이트 백지 설계' },
               { key: 'moneyflow',   icon: '📡', label: '수급 레이더',        desc: '내 종목 스마트머니 유입/이탈' },
               { key: 'earnings',    icon: '📋', label: '어닝 터미널',        desc: 'G 리비전 · PEG 알럿' },
               { key: 'yield',       icon: '💰', label: '주주환원 터미널',    desc: '배당 + 자사주 · 총환원율' },
@@ -3240,6 +3242,13 @@ export default function DashboardPage() {
         <div style={{ color:'#818cf8', fontWeight:800, fontSize:13, marginTop:4 }}>③ 통합 매수 처방 — 계절 × 가치 × 수급 3축</div>
         <ErrorBoundary label="통합 매수 처방">
           <UnifiedReco />
+        </ErrorBoundary>
+      </div>
+
+      {/* ── 🛰️ AI 1억 백지 퀀트 빌더 탭 (코어-새틀라이트 백지 설계) ── */}
+      <div id="tab-quantbuilder" style={{ display: dashTab==='quantbuilder' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="AI 퀀트 빌더">
+          <QuantBuilderLab />
         </ErrorBoundary>
       </div>
 
