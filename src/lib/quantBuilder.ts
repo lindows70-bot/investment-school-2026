@@ -89,6 +89,43 @@ function judgeAxes(it: UnifiedRecoItem): SatelliteAxes {
   return { buffett, lynch, supply }
 }
 
+// 📈 주가 컨텍스트 — 52주 위치 + 1년 주봉 스파크라인("현재 어느 위치에서 사라는 건지" 시각화)
+export interface PriceContext {
+  price: number          // 최근 종가(종목 통화)
+  low52: number
+  high52: number
+  posPct: number         // 52주 밴드 내 현재 위치 0~100 (0=52주 최저, 100=52주 최고)
+  spark: number[]        // 1년 주봉 종가(다운샘플 ≤32포인트) — UI 스파크라인용
+}
+
+async function fetchPriceContext(ticker: string, market: string): Promise<PriceContext | null> {
+  try {
+    const { default: YF } = await import('yahoo-finance2')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const yf = new (YF as any)({ suppressNotices: ['yahooSurvey'] })
+    const code = ticker.replace(/\D/g, '')
+    const tries = market === 'KR' ? [`${code}.KS`, `${code}.KQ`] : [ticker]
+    const period1 = new Date(Date.now() - 370 * 86400_000)
+    for (const sym of tries) {
+      try {
+        const r = await yf.chart(sym, { period1, interval: '1wk' })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const closes: number[] = (r?.quotes ?? []).map((q: any) => q.close).filter((v: unknown) => typeof v === 'number' && isFinite(v as number))
+        if (closes.length >= 10) {
+          const price = closes[closes.length - 1]
+          const low52 = Math.min(...closes), high52 = Math.max(...closes)
+          const posPct = high52 > low52 ? Math.round(((price - low52) / (high52 - low52)) * 100) : 50
+          // 다운샘플 ≤32포인트(페이로드 절약)
+          const step = Math.max(1, Math.ceil(closes.length / 32))
+          const spark = closes.filter((_, i) => i % step === 0 || i === closes.length - 1).map(v => Math.round(v * 100) / 100)
+          return { price: Math.round(price * 100) / 100, low52: Math.round(low52 * 100) / 100, high52: Math.round(high52 * 100) / 100, posPct, spark }
+        }
+      } catch { /* 다음 심볼 */ }
+    }
+    return null
+  } catch { return null }
+}
+
 export interface QuantSatellite {
   ticker: string; name: string; market: string; sector: string
   combined: number; peg: number | null; roePct: number | null; epsRevision: string | null; supplyScore: number
@@ -96,6 +133,7 @@ export interface QuantSatellite {
   passCount: number              // 3축 중 pass 수(3=최정예, 2=정예)
   weightPct: number              // 총투자금 대비 비중 %
   badges: string[]
+  priceCtx: PriceContext | null  // 📈 52주 위치 + 스파크라인(수집 실패 시 null — 정직)
 }
 export interface QuantBuilderResult {
   quadrant: Quadrant
@@ -103,7 +141,7 @@ export interface QuantBuilderResult {
   coreRatio: number              // Core % (50~70)
   satelliteRatio: number
   rationale: string
-  core: { ticker: string; name: string; market: string; role: string; mixPct: number; weightPct: number }[]   // mixPct=Core 내, weightPct=전체
+  core: { ticker: string; name: string; market: string; role: string; mixPct: number; weightPct: number; priceCtx: PriceContext | null }[]   // mixPct=Core 내, weightPct=전체
   unallocatedNote: string | null   // 위성 미달분 → Core 증액 안내(있을 때만)
   satellites: QuantSatellite[]
   effectiveSectors: { sector: string; weightPct: number }[]   // ETF 투시경 합성 실질 섹터(전체 기준)
@@ -114,7 +152,7 @@ export interface QuantBuilderResult {
 
 /** 빌드 본체 — GET과 copy(POST)가 공유. base=요청 origin, cookie=인증 전달용 */
 export async function buildQuantPlan(base: string, cookie: string): Promise<QuantBuilderResult | null> {
-  const cacheKey = `quant-builder-v2:${kstDate()}`   // v2: KODEX200 편입 + 게이트 완화 + 위성 종목당 상한 10%
+  const cacheKey = `quant-builder-v3:${kstDate()}`   // v3: 52주 위치 + 스파크라인(priceCtx)
   const cached = await getCache<QuantBuilderResult>(cacheKey, 12 * 3600_000)
   if (cached && !cached.warming) return cached
 
@@ -152,10 +190,24 @@ export async function buildQuantPlan(base: string, cookie: string): Promise<Quan
     axes: j.axes, passCount: j.passCount,
     weightPct: Math.min(SAT_CAP, Math.round(satelliteBudget * (j.it.combined / csum) * 10) / 10),
     badges: j.it.badges,
+    priceCtx: null,   // ③-b에서 채움
   }))
   const satAllocated = Math.round(satellites.reduce((s, x) => s + x.weightPct, 0) * 10) / 10
   const leftover = Math.round((satelliteBudget - satAllocated) * 10) / 10   // 위성 미달분 → Core 증액
   const coreEffective = Math.round((plan.coreRatio + Math.max(0, leftover)) * 10) / 10
+
+  // ③-b 📈 주가 컨텍스트(52주 위치 + 1년 스파크라인) — 코어 ETF + 위성 전 종목, 동시성 4
+  const ctxTargets = [
+    ...plan.mix.map(m => ({ key: `C:${m.ticker}`, ticker: m.ticker, market: m.market as string })),
+    ...satellites.map(s => ({ key: `S:${s.ticker}`, ticker: s.ticker, market: s.market })),
+  ]
+  const ctxMap = new Map<string, PriceContext | null>()
+  for (let i = 0; i < ctxTargets.length; i += 4) {
+    const batch = ctxTargets.slice(i, i + 4)
+    const rs = await Promise.all(batch.map(t => fetchPriceContext(t.ticker, t.market).catch(() => null)))
+    batch.forEach((t, k) => ctxMap.set(t.key, rs[k]))
+  }
+  for (const s of satellites) s.priceCtx = ctxMap.get(`S:${s.ticker}`) ?? null
 
   // ④ ETF 투시경 — Core ETF 섹터 분해 × 전체 비중 + 위성 섹터 합성 = 1억 전체의 실질 섹터
   const comps = await Promise.all(plan.mix.map(m => getEtfComposition(m.ticker, m.market).catch(() => null)))
@@ -181,7 +233,7 @@ export async function buildQuantPlan(base: string, cookie: string): Promise<Quan
   const result: QuantBuilderResult = {
     quadrant: quad, seasonLabel: ur.usSeason.label,
     coreRatio: coreEffective, satelliteRatio: satAllocated, rationale: plan.rationale,
-    core: plan.mix.map(m => ({ ticker: m.ticker, name: m.name, market: m.market, role: m.role, mixPct: m.weight, weightPct: Math.round(coreEffective * m.weight / 100 * 10) / 10 })),
+    core: plan.mix.map(m => ({ ticker: m.ticker, name: m.name, market: m.market, role: m.role, mixPct: m.weight, weightPct: Math.round(coreEffective * m.weight / 100 * 10) / 10, priceCtx: ctxMap.get(`C:${m.ticker}`) ?? null })),
     satellites, effectiveSectors,
     axisRule: '3축 게이트: 🏰 버핏(ROE 15%↑) · 💎 린치(PEG 1.0↓ & 기저효과 가드) · 📡 수급(60↑) — 결격(추정하향·PEG 2↑·저ROE·수급이탈) 0개 + 1축 이상 통과 · 종목당 상한 10% · 최대 7종',
     unallocatedNote: leftover >= 0.5 ? `위성 분산 상한(종목당 10%) 때문에 ${leftover}%는 Core(시장 ETF)로 환류했습니다 — 정예 후보가 늘어나면 자동으로 위성에 재배분됩니다.` : null,

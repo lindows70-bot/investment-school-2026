@@ -2,7 +2,7 @@
 // 🛰️ AI 1억 백지 퀀트 빌더 — 코어(행성)·위성 궤도 시각화 + 3축 통과 처방전 + ETF 투시경 실질 섹터 도넛
 import { useState, useEffect, useMemo } from 'react'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
-import type { QuantBuilderResult, QuantSatellite, AxisStatus } from '@/lib/quantBuilder'
+import type { QuantBuilderResult, QuantSatellite, AxisStatus, PriceContext } from '@/lib/quantBuilder'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 
@@ -23,6 +23,38 @@ const axisColor = (s: AxisStatus) => s === 'pass' ? '#4ade80' : s === 'fail' ? '
 const axisMark = (s: AxisStatus) => s === 'pass' ? '✓' : s === 'fail' ? '✗' : '–'
 
 const fmtWon = (n: number) => n >= 1e8 ? `${Math.round(n / 1e7) / 10}억` : n >= 1e4 ? `${Math.round(n / 1e4).toLocaleString('ko-KR')}만` : `${Math.round(n).toLocaleString('ko-KR')}`
+
+// 52주 위치 해설 — 학생용 직관 라벨(낮을수록 바닥권 = 싸게 사는 것, 높을수록 추격 매수 주의)
+const posLabel = (p: number) => p <= 25 ? { t: '바닥권', c: '#4ade80' } : p <= 50 ? { t: '중하단', c: '#a3e635' } : p <= 75 ? { t: '중상단', c: '#fbbf24' } : p <= 92 ? { t: '고점권', c: '#fb923c' } : { t: '신고가권', c: '#f87171' }
+
+// 📈 1년 주봉 스파크라인(SVG polyline) — 라이브러리 없이 가볍게
+function Spark({ ctx }: { ctx: PriceContext }) {
+  const W = 110, H = 26
+  const min = Math.min(...ctx.spark), max = Math.max(...ctx.spark)
+  const range = max - min || 1
+  const pts = ctx.spark.map((v, i) => `${(i / (ctx.spark.length - 1)) * W},${H - 2 - ((v - min) / range) * (H - 4)}`).join(' ')
+  const up = ctx.spark[ctx.spark.length - 1] >= ctx.spark[0]
+  const col = up ? '#4ade80' : '#f87171'
+  return (
+    <svg width={W} height={H} style={{ flexShrink: 0 }}>
+      <polyline points={pts} fill="none" stroke={col} strokeWidth={1.4} />
+      <circle cx={W} cy={H - 2 - ((ctx.spark[ctx.spark.length - 1] - min) / range) * (H - 4)} r={2} fill={col} />
+    </svg>
+  )
+}
+
+// 📍 52주 밴드 위치 게이지 — "지금 어느 위치에서 사라는 건지"
+function Band52({ ctx }: { ctx: PriceContext }) {
+  const lb = posLabel(ctx.posPct)
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }} title={`52주 ${ctx.low52.toLocaleString()} ~ ${ctx.high52.toLocaleString()} · 현재 ${ctx.price.toLocaleString()}`}>
+      <span style={{ position: 'relative', width: 72, height: 6, borderRadius: 3, background: 'linear-gradient(90deg,#22c55e44,#fbbf2444,#ef444444)' }}>
+        <span style={{ position: 'absolute', left: `calc(${ctx.posPct}% - 3px)`, top: -2, width: 6, height: 10, borderRadius: 2, background: lb.c, border: '1px solid #0f1117' }} />
+      </span>
+      <span style={{ color: lb.c, fontSize: 9.5, fontWeight: 800, whiteSpace: 'nowrap' }}>52주 {ctx.posPct}% · {lb.t}</span>
+    </span>
+  )
+}
 
 export default function QuantBuilderLab() {
   const [d, setD] = useState<QuantBuilderResult | null>(null)
@@ -173,7 +205,13 @@ export default function QuantBuilderLab() {
             <span>{c.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
             <span style={{ color: '#e2e8f0', fontWeight: 700 }}>{c.ticker}</span>
             <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>{c.name} · {c.role}</span>
-            <span style={{ marginLeft: 'auto', color: '#22d3ee', fontWeight: 800, fontFamily: 'monospace' }}>{c.weightPct}%</span>
+            {c.priceCtx && (
+              <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                <Spark ctx={c.priceCtx} />
+                <Band52 ctx={c.priceCtx} />
+              </span>
+            )}
+            <span style={{ marginLeft: c.priceCtx ? 0 : 'auto', color: '#22d3ee', fontWeight: 800, fontFamily: 'monospace' }}>{c.weightPct}%</span>
             <span style={{ color: '#cbd5e1', fontFamily: 'monospace', minWidth: 76, textAlign: 'right' }}>₩{fmtWon(amountKrw * c.weightPct / 100)}</span>
           </div>
         ))}
@@ -188,7 +226,13 @@ export default function QuantBuilderLab() {
                 <span key={a.key} title={a.label} style={{ color: axisColor(s.axes[a.key]), fontSize: 10, fontWeight: 800 }}>{a.icon}{axisMark(s.axes[a.key])}</span>
               ))}
               <span style={{ color: '#8a9aaa', fontSize: 10 }}>통합 {s.combined}</span>
-              <span style={{ marginLeft: 'auto', color: '#a78bfa', fontWeight: 800, fontFamily: 'monospace' }}>{s.weightPct}%</span>
+              {s.priceCtx && (
+                <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                  <Spark ctx={s.priceCtx} />
+                  <Band52 ctx={s.priceCtx} />
+                </span>
+              )}
+              <span style={{ marginLeft: s.priceCtx ? 0 : 'auto', color: '#a78bfa', fontWeight: 800, fontFamily: 'monospace' }}>{s.weightPct}%</span>
               <span style={{ color: '#cbd5e1', fontFamily: 'monospace', minWidth: 76, textAlign: 'right' }}>₩{fmtWon(amountKrw * s.weightPct / 100)}</span>
             </div>
             {openSat === s.ticker && (
@@ -224,7 +268,8 @@ export default function QuantBuilderLab() {
       </div>
 
       <div style={{ color: '#6e7f8f', fontSize: 10, lineHeight: 1.6 }}>
-        ※ 실제 매매 연동은 하지 않습니다 — 복사 시 현재가가 가상 매입가로 기록될 뿐입니다 · 위성 점수는 통합추천(③)과 동일한 SSOT(계절×가치×수급 + 기저효과 가드) · Core 배분은 4계절 국면 연동 교육용 룰 · 12h 캐시 · 교육용이며 투자 추천이 아닙니다.
+        ※ 실제 매매 연동은 하지 않습니다 — 복사 시 현재가가 가상 매입가로 기록될 뿐입니다 · 위성 점수는 통합추천(③)과 동일한 SSOT(계절×가치×수급 + 기저효과 가드) · Core 배분은 4계절 국면 연동 교육용 룰 ·
+        📈 스파크라인=최근 1년 주봉, 📍 52주 게이지=현재가가 52주 밴드의 어디인지(0%=최저, 100%=최고 — 바닥권일수록 싸게 사는 것, 신고가권은 추격 매수 주의) · 12h 캐시 · 교육용이며 투자 추천이 아닙니다.
       </div>
     </div>
   )
