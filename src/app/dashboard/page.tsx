@@ -30,6 +30,7 @@ import OperationsHQ                 from '@/app/components/OperationsHQ'
 import NewsCatalystRadar          from '@/app/components/NewsCatalystRadar'
 import AiRebalancePanel           from '@/app/components/AiRebalancePanel'
 import QuantBuilderLab            from '@/app/components/QuantBuilderLab'
+import MarketCatalystBanner       from '@/app/components/MarketCatalystBanner'
 import PortfolioFlowDashboard     from '@/app/components/PortfolioFlowDashboard'
 import MarketFlowKr               from '@/app/components/MarketFlowKr'
 import PortfolioRecoKr            from '@/app/components/PortfolioRecoKr'
@@ -1629,6 +1630,11 @@ export default function DashboardPage() {
 
       {/* ── 실시간 대시보드 탭 ── */}
       <div id="tab-live" style={{ display: dashTab==='live' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+
+      {/* 🔥 오늘 시장의 눈 — 마켓 카탈리스트(메가 뉴스 + 수급 블랙홀). 데이터 없으면 자동 숨김 */}
+      <ErrorBoundary label="마켓 카탈리스트">
+        <MarketCatalystBanner />
+      </ErrorBoundary>
 
       {/* 🤖 Jarvis 모닝 포트폴리오 처방전 (2단계) — 아침에 가장 먼저 보는 AI 비서 브리핑 */}
       <ErrorBoundary label="Jarvis 모닝 처방전">
