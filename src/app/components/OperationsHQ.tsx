@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import type { SeasonNavResult } from '@/app/api/season-navigator/route'
 import type { HqBriefing } from '@/app/api/hq-briefing/route'
 import PortfolioXray from '@/app/components/PortfolioXray'
+import LynchClassificationMatrix from '@/app/components/LynchClassificationMatrix'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 
@@ -139,6 +140,9 @@ export default function OperationsHQ() {
           </>
         )}
       </div>
+
+      {/* 🧬 피터 린치 7대 분류 Matrix & 함정 레이더 — 진단 해상도 보강(주식 미보유면 자동 숨김) */}
+      <LynchClassificationMatrix />
 
       {/* 🔬 ETF 속살 투시 — 보유 ETF를 분해해 실질 노출도(진단 보강). ETF 미보유면 자동 숨김 */}
       <PortfolioXray />
