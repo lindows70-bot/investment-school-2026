@@ -170,6 +170,7 @@ export default function QuantBuilderLab() {
         {d.core.map(c => (
           <div key={c.ticker} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderTop: `1px solid ${BORDER}`, fontSize: 11.5, flexWrap: 'wrap' }}>
             <span style={{ background: 'rgba(34,211,238,0.12)', color: '#22d3ee', border: '1px solid rgba(34,211,238,0.4)', borderRadius: 5, padding: '1px 7px', fontSize: 9.5, fontWeight: 800 }}>CORE</span>
+            <span>{c.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
             <span style={{ color: '#e2e8f0', fontWeight: 700 }}>{c.ticker}</span>
             <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>{c.name} · {c.role}</span>
             <span style={{ marginLeft: 'auto', color: '#22d3ee', fontWeight: 800, fontFamily: 'monospace' }}>{c.weightPct}%</span>
@@ -206,6 +207,12 @@ export default function QuantBuilderLab() {
             )}
           </div>
         ))}
+        {/* 위성 미달분 → Core 환류 안내 */}
+        {d.unallocatedNote && (
+          <div style={{ marginTop: 8, background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.25)', borderRadius: 8, padding: '7px 11px', color: '#9fd6e3', fontSize: 10.5, lineHeight: 1.6 }}>
+            ⚖️ {d.unallocatedNote}
+          </div>
+        )}
         {/* 복사 버튼 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
           <button onClick={onCopy} disabled={copying}

@@ -27,7 +27,7 @@ export async function POST(req: Request) {
 
   // 전 종목(코어 ETF + 위성) 현재가 배치
   const targets = [
-    ...plan.core.map(c => ({ ticker: c.ticker, name: c.name, market: 'US', weightPct: c.weightPct, role: 'CORE' as const })),
+    ...plan.core.map(c => ({ ticker: c.ticker, name: c.name, market: c.market, weightPct: c.weightPct, role: 'CORE' as const })),
     ...plan.satellites.map(s => ({ ticker: s.ticker, name: s.name, market: s.market, weightPct: s.weightPct, role: 'SATELLITE' as const })),
   ]
   let prices: Record<string, number> = {}
