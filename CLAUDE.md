@@ -1711,6 +1711,17 @@ X-Ray가 BP(PEG 0.01)를 CVX보다 '더 싸고 탄탄한 1등'으로 추천 — 
 
 ---
 
+## 🧬 피터 린치 7대 분류 Matrix & 함정 레이더 (2026-06-12) — 진단 탭
+
+운용 본부 ① 진단에 보유 주식의 린치 7대 분류 시각화 추가(제미나이 지시서 기반, 'AI 1억 백지 퀀트 빌더'의 분류 엔진 베이스).
+- **`/api/lynch-matrix`**(v2·12h 캐시·fp 무효화): ①**티커 병합**(분할매수 여러 행→1종목, 카테고리 충돌 시 최대 비중 행 채택) ②**MECE 단판 분류** ③함정 레이더 = `isPegBaseEffect` SSOT 재사용. 비중은 **평가액(현재가) 기준**(stock-price 배치, 실패 시 원가 폴백) — ai-rebalance '분산 개선'과 동일 기준
+- **`classifyLynchMece()`를 lynchAnalysis.ts(SSOT)로 승격**: 사용자 지정 > 펀더멘탈 자동(G<-10%→턴어라운드 / 경기민감 섹터→경기순환 / G≥20%→고성장 / G≥10%→우량 / 그 외→저성장) > 미분류. 첫 매치 단판이라 중복 소속 구조적 불가
+- **`LynchClassificationMatrix.tsx`**: 도넛(Recharts Pie) + 클릭 펼침 분포표(PEG·성장률·분류 출처) + 🚨 함정 배지(클릭 시 린치 페르소나 해설). Tailwind 대신 기존 인라인 다크테마 준수
+- ✅ **사수(DEFEND) 기저효과 가드 + 분류 SSOT 통일(같은 날)**: 진단 탭이 "GEV PEG 0.21 믿지 마라" 경고하는데 ② 사수 패널은 같은 PEG를 호재로 표기하던 모순 해소. ① `SignalMetrics`에 `earningsGrowth` 추가(canon-fund 우선, jarvis-metrics v8) → `evaluateSignal` BUY에서 suspect PEG 제외 ② ai-rebalance(v15): MECE 분류 적용 + `pegSuspect` 필드, 사수 칩 UI는 suspect면 ⚠️ 붉은 배지 ③ 검증: 사수 4종→2종(NVDA 0.48·PLTR 0.59만 잔류, GEV·인텔리안테크 탈락), Matrix(44.2/33.7/21.9) = 분산 개선 수치 **소수점까지 일치**
+- 교훈(제2원칙 확장): "같은 지표는 같은 출처"를 넘어 **"같은 분류는 같은 분류기, 같은 비중은 같은 평가 기준(원가 vs 평가액)"**까지 통일해야 화면 간 모순이 안 생긴다
+
+---
+
 ## 배포
 
 - **프로덕션**: https://investment-school-portfolio.vercel.app
