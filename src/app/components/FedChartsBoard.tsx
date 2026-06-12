@@ -90,7 +90,7 @@ export default function FedChartsBoard() {
               <Tooltip contentStyle={TIP_STYLE} labelStyle={{ color: '#8a9aaa' }} />
               <Legend wrapperStyle={{ fontSize: 10 }} />
               <ReferenceLine yAxisId="l" y={0} stroke={BORDER} />
-              <Bar yAxisId="l" dataKey="payemsK" name="비농업 MoM(K)" radius={[2, 2, 0, 0]}>
+              <Bar yAxisId="l" dataKey="payemsK" name="비농업 MoM(K)" fill="#4ade80" radius={[2, 2, 0, 0]}>
                 {d.labor.map(o => <Cell key={o.date} fill={o.payemsK >= 0 ? '#4ade80' : '#f87171'} />)}
               </Bar>
               <Line yAxisId="r" dataKey="unrate" name="실업률 %" stroke="#fbbf24" dot={false} strokeWidth={1.8} connectNulls />
