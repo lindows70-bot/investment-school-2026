@@ -31,11 +31,13 @@ export interface DualMandateResult {
   headlinePce: number                                            // 헤드라인 PCE YoY % (노이즈 비교)
   noiseGap: number                                               // 헤드라인 − 절사평균(%p)
   warshNote: string
+  // 🎓 최일 쌤의 통합 진단 — 고용×기조물가×시장 금리방향 융합 해석(전부 동적 계산 — 숫자 박제 금지)
+  integratedTip: string
   asOf: string
 }
 
-export async function GET() {
-  const cacheKey = 'fed-dual-mandate-v2'   // v2: 라벨 통일 + PAYEMS 콜드 재계산
+export async function GET(req: Request) {
+  const cacheKey = 'fed-dual-mandate-v3'   // v3: 통합 진단(integratedTip) 추가
   const cached = await getCache<DualMandateResult>(cacheKey, 12 * 3600_000)
   // momK=0(콜드 시점 PAYEMS 1개월만 수집)이면 캐시 무시하고 재계산(비농업은 0이 사실상 없음)
   if (cached && cached.payems.momK !== 0) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
@@ -79,6 +81,28 @@ export async function GET() {
         : trimV > 2.5 ? '기조 물가가 여전히 목표(2%)를 웃돌아 연준은 신중할 가능성이 높습니다.'
           : '기조 물가가 목표(2%)에 근접해 안정적입니다.')
 
+  // 🎓 최일 쌤의 통합 진단 — 고용(신호등)×기조물가(워시)×시장 금리방향(macro-regime SSOT) 융합 해석.
+  //    제미나이가 제안한 '고정 문구 바인딩'은 거부(데이터가 바뀌면 거짓말하는 박제) — 전부 라이브 값으로 동적 조립.
+  //    교육 목적: 고용 🟢만 보고 "물가도 잡혔다"로 오독하는 학생 방지(두 책무를 항상 함께 읽도록).
+  let rateDir: 'cut' | 'hold' | 'hike' = 'hold'
+  try {
+    const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
+    const rg = await fetch(`${base}/api/macro-regime`, { signal: AbortSignal.timeout(8_000), cache: 'no-store' })
+    if (rg.ok) { const j = await rg.json(); if (j.rateDir === 'cut' || j.rateDir === 'hike') rateDir = j.rateDir }
+  } catch { /* graceful — hold */ }
+  const laborKo = laborStatus === 'hot' ? '과열' : laborStatus === 'cooling' ? '둔화(냉각)' : '균형(연착륙)'
+  const mktKo = rateDir === 'hike' ? '동결~인상을' : rateDir === 'cut' ? '인하를' : '동결을'
+  const aboveTarget = trimV > 2.0
+  const integratedTip = trimV === 0 ? ''
+    : `💡 고용 신호등(${laborKo})만 보고 판단하면 절반만 읽은 것입니다. 워시 의장이 노이즈를 걷어내고 보는 기조 물가(절사평균 PCE)는 ${trimV}%로 목표(2.0%)${aboveTarget ? '를 아직 웃돌고' : '에 근접했고'}, 시장(FF선물)은 당분간 ${mktKo} 반영 중입니다. ` +
+      (laborStatus === 'balanced' && aboveTarget
+        ? `고용이 버텨주는 동안 연준은 물가와 싸울 시간을 법니다 — '고용 좋음=금리 인하'가 아니라, 오히려 고금리를 끌고 갈 여유가 된다는 뜻이니 자산 배분 시 속지 마세요.`
+        : laborStatus === 'cooling'
+          ? `고용이 식기 시작하면 연준의 무게중심은 물가에서 고용으로 이동합니다 — 인하 압력이 커지는 구간이니 두 지표의 줄다리기를 함께 지켜보세요.`
+          : laborStatus === 'hot'
+            ? `고용 과열은 임금발 인플레로 이어질 수 있어 연준이 긴축을 유지할 명분이 됩니다 — 두 책무가 같은 방향(긴축)을 가리키는 구간입니다.`
+            : `기조 물가가 목표에 근접해 연준의 다음 행보는 고용 데이터가 결정합니다 — 두 책무를 함께 읽으세요.`)
+
   const result: DualMandateResult = {
     payems: { latest: payems[0]?.v ?? 0, momK, date: payems[0]?.date ?? '' },
     unrate: { latest: unrate[0]?.v ?? 0, date: unrate[0]?.date ?? '' },
@@ -87,7 +111,7 @@ export async function GET() {
     sahm: { value: sahmV, gap: Math.round((0.5 - sahmV) * 100) / 100, date: sahm[0]?.date ?? '' },
     laborStatus, laborNote,
     trimmedPce: { latest: trimV, target: 2.0, date: trim[0]?.date ?? '' },
-    headlinePce: headV, noiseGap, warshNote,
+    headlinePce: headV, noiseGap, warshNote, integratedTip,
     asOf: new Date().toISOString(),
   }
   if (momK !== 0 && payems[0]?.v) await setCache(cacheKey, result)   // 콜드(불완전) 데이터는 캐시하지 않음 → 다음 호출 재시도

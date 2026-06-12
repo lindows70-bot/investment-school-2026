@@ -120,6 +120,14 @@ export default function DualMandateDashboard() {
         </div>
       </div>
 
+      {/* 🎓 최일 쌤의 통합 진단 — 고용×물가 융합 해석(전부 동적 계산, 숫자 박제 없음) */}
+      {d.integratedTip && (
+        <div style={{ background: 'linear-gradient(135deg,rgba(245,158,11,0.08),rgba(34,211,238,0.05))', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 12, padding: '12px 15px' }}>
+          <div style={{ color: '#fbbf24', fontWeight: 800, fontSize: 12, marginBottom: 5 }}>🎓 최일 쌤의 통합 진단 — 두 책무를 함께 읽는 법</div>
+          <div style={{ color: '#dbe3ec', fontSize: 11.5, lineHeight: 1.75 }}>{d.integratedTip}</div>
+        </div>
+      )}
+
       <div style={{ color: '#6e7f8f', fontSize: 10, lineHeight: 1.6 }}>
         ※ FRED 실시간(PAYEMS·UNRATE·ICSA·JTSJOL·SAHMREALTIME·PCETRIM12M159SFRBDAL) · 12h 캐시 · 이 지표는 참고 맥락이며 계절/국면 판정(거시경제 대시보드 SSOT)을 바꾸지 않습니다 · 교육용이며 투자 추천이 아닙니다.
       </div>
