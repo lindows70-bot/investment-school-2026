@@ -115,7 +115,7 @@ const GEMINI_SCHEMA = {
 }
 
 export async function GET() {
-  const cacheKey = `market-catalyst-v1:${kstDate()}`
+  const cacheKey = `market-catalyst-v2:${kstDate()}`   // v2: KR 종목은 한글 종목명 표기
   const cached = await getCache<MarketCatalystResult>(cacheKey, 3 * 3600_000)   // 3h — 아침/오후 갱신
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -144,7 +144,7 @@ ${moverText || '(없음)'}
 
 [규칙 — 절대 엄수]
 - 헤드라인에 실제로 있는 사건만 사용. 헤드라인에 없는 사건·수치·날짜를 지어내지 마라.
-- catalysts: 시장 전체 유동성을 움직일 큰 사건 순. title=한국어 한줄 요약, why=어느 섹터/밸류체인으로 수급 쏠림이 생기는지 1~2문장, tickers=관련 종목 티커(헤드라인·수급 데이터에 근거한 것만, 최대 4개).
+- catalysts: 시장 전체 유동성을 움직일 큰 사건 순. title=한국어 한줄 요약, why=어느 섹터/밸류체인으로 수급 쏠림이 생기는지 1~2문장, tickers=관련 종목(헤드라인·수급 데이터에 근거한 것만, 최대 4개). 표기: 미국 종목은 티커(NVDA), 한국 종목은 6자리 코드가 아니라 반드시 한글 종목명(삼성전자·SK하이닉스)으로.
 - jarvisTip: 피터 린치/워런 버핏 관점 한줄 처방. 뇌동매수 경계가 기본 톤 — 급등 뉴스면 "경기순환주 고점 촉매인지 진단 탭 함정 레이더 확인", 대형 IPO면 "축제 첫날 추격보다 밸류체인의 이익 실체 확인" 식으로.
 - 사소한 종목 뉴스·반복 시황은 제외. 진짜 메가급이 1건뿐이면 1건만.
 - marketMood: 오늘 시장 분위기 한 줄(헤드라인 근거).
