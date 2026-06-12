@@ -12,6 +12,8 @@ import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { callGeminiJSON } from '@/lib/gemini'
 import { buildSignalMetrics, evaluateSignal } from '@/lib/jarvisBriefing'
+import { classifyLynchMece } from '@/lib/lynchAnalysis'
+import { isPegBaseEffect } from '@/lib/canonicalFundamentals'
 import { getSector } from '@/lib/schoolIndex'
 import { screenSatellite, type SatelliteScore } from '@/lib/satelliteScreener'
 import type { UnifiedRecoResult } from '@/app/api/unified-reco/route'   // ③통합매수와 동일 SSOT(제2원칙)
@@ -45,6 +47,7 @@ export interface HoldingDiagnosis {
   action:        RebalanceAction
   sellReasons:   string[]        // 매도/축소 사유
   peg:           number | null
+  pegSuspect:    boolean         // ⚠️ 기저효과 저PEG 의심(isPegBaseEffect SSOT) — UI에서 PEG를 호재로 표기 금지
   opMargin:      number | null   // 영업이익률 % (음수=영업적자=실체 없음 → 하이프 판별)
   interestCoverage: number | null  // 이자보상배율 (<1.5=좀비 위험, 무차입은 null)
   breakEvenRise: number | null   // 손실 종목: 본전까지 필요 상승률 % (확정 수학)
@@ -181,7 +184,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v14:${user.id}:${today}:${fp}`   // v14: 신규편입 SSOT를 unified-reco로 통일
+  const cacheKey = `ai-rebalance-v15:${user.id}:${today}:${fp}`   // v15: MECE 분류 SSOT + pegSuspect(기저효과) 가드
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -241,15 +244,21 @@ export async function GET(req: Request) {
       let action: RebalanceAction = 'KEEP'
       let sellReasons: string[] = []
       let peg: number | null = null
+      let pegSuspect = false
       let opMargin: number | null = null
       let interestCoverage: number | null = null
+      // MECE 분류 SSOT — lynch-matrix(진단 탭)와 동일 분류기(제2원칙). DB 지정 > 펀더멘탈 자동
+      let lynchCategory: string | null = v.lynch_category ?? null
       try {
         const m = await buildSignalMetrics(v.ticker, v.market ?? 'US', v.name ?? '', base)
         if (m) {
           peg = m.peg
+          pegSuspect = isPegBaseEffect(m.peg, m.earningsGrowth)
           opMargin = m.opMargin
           interestCoverage = m.interestCoverage
-          const decision = evaluateSignal(m, v.lynch_category ?? null, false)
+          const mece = classifyLynchMece(v.lynch_category ?? null, m.earningsGrowth, m.sector).cat
+          lynchCategory = mece === 'na' ? null : mece   // 'na'는 기존처럼 미분류(null) — 황금비율 트림 대상 제외
+          const decision = evaluateSignal(m, lynchCategory, false)
           const thesisBroken = m.opMargin2qDown || m.fcfNegative || (m.opMargin != null && m.opMargin < -10)
           if (decision.type === 'SELL') {
             sellReasons = decision.reasons
@@ -266,8 +275,8 @@ export async function GET(req: Request) {
         : 0
       return {
         ticker: v.ticker, name: v.name ?? v.ticker, market: v.market ?? 'US',
-        lynchCategory: v.lynch_category ?? null, weight, pnlPct: v.pnlPct,
-        action, sellReasons, peg, opMargin, interestCoverage, breakEvenRise: breakEvenRiseOf(v.pnlPct), releaseWeight, trimWeight: 0,
+        lynchCategory, weight, pnlPct: v.pnlPct,
+        action, sellReasons, peg, pegSuspect, opMargin, interestCoverage, breakEvenRise: breakEvenRiseOf(v.pnlPct), releaseWeight, trimWeight: 0,
       } as HoldingDiagnosis
     }))
     diagnoses.push(...rs)

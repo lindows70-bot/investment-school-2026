@@ -268,7 +268,10 @@ export default function AiRebalancePanel() {
               <div key={h.ticker} style={{ background: CARD, border: '1px solid rgba(59,130,246,0.3)', borderRadius: 8, padding: '8px 12px' }}>
                 <span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13 }}>{disp(h.market, h.name, h.ticker)}</span>
                 <span style={{ color: pnlColor(h.pnlPct), fontSize: 12, marginLeft: 8, fontWeight: 600 }}>{pnlStr(h.pnlPct)}</span>
-                {h.peg != null && <span style={{ color: '#3b82f6', fontSize: 11, marginLeft: 8 }}>PEG {h.peg.toFixed(2)}</span>}
+                {/* ⚠️ 기저효과 의심 PEG는 호재(파란색)로 표기 금지 — 진단 탭 함정 레이더와 동일 기준(제2원칙) */}
+                {h.peg != null && (h.pegSuspect
+                  ? <span title="작년 이익 붕괴 후 회복(기저효과)으로 PEG가 낮아 보이는 착시일 수 있습니다 — 저평가 근거로 쓰지 마세요" style={{ color: '#f87171', fontSize: 11, marginLeft: 8, fontWeight: 700 }}>⚠️ PEG {h.peg.toFixed(2)} 기저효과</span>
+                  : <span style={{ color: '#3b82f6', fontSize: 11, marginLeft: 8 }}>PEG {h.peg.toFixed(2)}</span>)}
               </div>
             ))}
           </div>

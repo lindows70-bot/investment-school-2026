@@ -15,7 +15,7 @@
 
 import { getCache, setCache } from '@/lib/appCache'
 import { callGeminiJSON } from '@/lib/gemini'
-import { getCanonicalPeg } from '@/lib/canonicalFundamentals'
+import { getCanonicalPeg, isPegBaseEffect } from '@/lib/canonicalFundamentals'
 import { getInsiderSignal } from '@/app/actions/getInsiderSignal'
 import { getSectorPeers } from '@/app/actions/getSectorPeers'
 
@@ -36,6 +36,7 @@ export interface SignalMetrics {
   interestCoverage: number | null  // 이자보상배율(영업이익/이자비용) — <1=좀비(이자도 못 갚음). 무차입은 null
   marketCap:      number | null   // 시가총액(종목 통화 — US=USD, KR=KRW) — 10배거 시총 룸 판별
   revenueGrowth:  number | null   // 매출 성장률(Yahoo 소수, 0.36=36%) — 적자 하이퍼그로스 포착
+  earningsGrowth: number | null   // 이익 성장률(소수, 1.0=+100%) — 기저효과 저PEG 가드(isPegBaseEffect)용
   analystCount:   number | null   // 애널리스트 커버 수(Yahoo) — 언더커버리지 판별(US용, KR은 Naver 별도)
   currency:       string | null
 }
@@ -62,7 +63,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
   const tk = ticker.trim().toUpperCase()
   // v4: PEG를 app_cache(canon-fund) 직접 읽기로 변경 — selfBase 의존성 제거
   //     selfBase가 undefined여도 canon-fund 캐시에서 SSOT PEG를 가져옴
-  const cacheKey = `jarvis-metrics-v7:${tk}:${market}:${kstDate()}`   // v7: 애널리스트 수 추가
+  const cacheKey = `jarvis-metrics-v8:${tk}:${market}:${kstDate()}`   // v8: 이익성장률 추가(기저효과 가드)
   const cached = await getCache<SignalMetrics>(cacheKey, 12 * 3600_000)
   if (cached) return cached
 
@@ -90,7 +91,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
     // 2순위: PER/성장률 직접 계산 (Yahoo 제공 시)
     // 3순위: 절대 Yahoo pegRatio 사용 금지 (KR에서 Naver PER과 달라 3.34 같은 오류 발생)
     const mkt = market === 'KR' ? 'KR' : 'US'
-    const canonFund = await getCache<{ peg: number | null; pe: number | null }>(`canon-fund:${tk}:${mkt}`, 8 * 3600_000)
+    const canonFund = await getCache<{ peg: number | null; pe: number | null; growth: number | null }>(`canon-fund:${tk}:${mkt}`, 8 * 3600_000)
     let peg: number | null = canonFund?.peg ?? null
     if (peg == null) {
       // canon-fund 캐시 없으면 PER/성장률 직접 계산 (같은 공식)
@@ -132,6 +133,8 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
 
     const marketCap = num(q.summaryDetail?.marketCap) ?? num(pr.marketCap)
     const revenueGrowth = num(fd.revenueGrowth)
+    // 이익성장률 — canon-fund SSOT 우선(KR은 Naver 기반), 폴백 Yahoo. PEG와 같은 출처여야 기저효과 판정 정합
+    const earningsGrowth = (canonFund?.growth ?? null) != null ? canonFund!.growth : num(fd.earningsGrowth)
     const analystCount = num(fd.numberOfAnalystOpinions)
 
     const m: SignalMetrics = {
@@ -141,7 +144,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
       industry: ap.industry ? String(ap.industry) : null,
       peg, opMargin, opMargin2qDown,
       fcf, fcfNegative: fcf != null && fcf < 0,
-      roe, interestCoverage, marketCap, revenueGrowth, analystCount,
+      roe, interestCoverage, marketCap, revenueGrowth, earningsGrowth, analystCount,
       currency: pr.currency ? String(pr.currency) : null,
     }
     await setCache(cacheKey, m)
@@ -169,9 +172,11 @@ export function evaluateSignal(m: SignalMetrics, lynchCategory: string | null, i
   if (sell.length) return { type: 'SELL', reasons: sell }
 
   // BUY — 우량/고성장 저평가 또는 내부자 매집
+  // ⚠️ 기저효과 가드(SSOT) — 작년 이익 붕괴 후 회복으로 PEG가 0에 수렴한 착시는 '저평가' 근거에서 제외
   const buy: string[] = []
+  const pegSuspect = isPegBaseEffect(m.peg, m.earningsGrowth)
   const quality = lynchCategory === 'stalwart' || lynchCategory === 'fast_grower'
-  if (quality && m.peg != null && m.peg > 0 && m.peg < 0.8) buy.push(`PEG ${m.peg.toFixed(2)} — 우량·고성장주가 저평가(기준 0.8 미만)`)
+  if (quality && m.peg != null && m.peg > 0 && m.peg < 0.8 && !pegSuspect) buy.push(`PEG ${m.peg.toFixed(2)} — 우량·고성장주가 저평가(기준 0.8 미만)`)
   if (insiderRecent) buy.push('최근 30일 내 내부자·대주주의 장내 매집 포착')
   if (buy.length) return { type: 'BUY', reasons: buy }
 

@@ -73,6 +73,37 @@ export const LYNCH_CATEGORY_KR: Record<string, string> = {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// MECE 상호배타 분류 (SSOT) — lynch-matrix·ai-rebalance 등 모든 화면이 동일 분류(제2원칙)
+// ────────────────────────────────────────────────────────────────────────────
+
+/** 경기순환 GICS 섹터(Yahoo 표기) — seasonNavigator favored와 동일 어휘 체계 */
+export const CYCLICAL_SECTORS = new Set(['Energy', 'Basic Materials', 'Industrials', 'Financial Services', 'Consumer Cyclical'])
+
+/**
+ * MECE 단판 분류 — 한 종목은 정확히 1개 카테고리. 우선순위: 사용자 지정 > 펀더멘탈 자동 > 미분류.
+ * 자동 분류는 위→아래 첫 매치로 확정되므로 중복 소속이 구조적으로 불가능하다.
+ * growth = 소수(0.25=25%).
+ */
+export function classifyLynchMece(
+  userCat: string | null | undefined,
+  growth: number | null,
+  sector: string | null,
+): { cat: LynchCategoryKey; source: 'user' | 'auto' } {
+  const valid: LynchCategoryKey[] = ['fast_grower', 'stalwart', 'slow_grower', 'cyclical', 'turnaround', 'asset_play']
+  if (userCat && (valid as string[]).includes(userCat)) return { cat: userCat as LynchCategoryKey, source: 'user' }
+  const cyc = sector != null && CYCLICAL_SECTORS.has(sector)
+  if (growth != null) {
+    if (growth < -0.10) return { cat: 'turnaround', source: 'auto' }            // 이익 붕괴 → 회복 베팅 영역
+    if (cyc) return { cat: 'cyclical', source: 'auto' }                          // 경기민감 섹터는 성장률보다 사이클이 정체성
+    if (growth >= 0.20) return { cat: 'fast_grower', source: 'auto' }
+    if (growth >= 0.10) return { cat: 'stalwart', source: 'auto' }
+    return { cat: 'slow_grower', source: 'auto' }
+  }
+  if (cyc) return { cat: 'cyclical', source: 'auto' }
+  return { cat: 'na', source: 'auto' }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // 2. 안전한 숫자 변환
 // ────────────────────────────────────────────────────────────────────────────
 

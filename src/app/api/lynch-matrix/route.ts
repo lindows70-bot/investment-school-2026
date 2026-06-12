@@ -7,16 +7,13 @@ import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { getCanonicalFundamentals, isPegBaseEffect } from '@/lib/canonicalFundamentals'
-import { LYNCH_CATEGORY_KR, type LynchCategoryKey } from '@/lib/lynchAnalysis'
+import { LYNCH_CATEGORY_KR, classifyLynchMece, type LynchCategoryKey } from '@/lib/lynchAnalysis'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const FALLBACK_KRW = 1350
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
-
-// 경기순환 GICS 섹터(Yahoo 표기) — seasonNavigator favored와 동일 어휘 체계
-const CYCLICAL_SECTORS = new Set(['Energy', 'Basic Materials', 'Industrials', 'Financial Services', 'Consumer Cyclical'])
 
 export interface LynchMatrixItem {
   ticker: string
@@ -41,27 +38,6 @@ export interface LynchMatrixResult {
   asOf: string
 }
 
-// MECE 단판 분류 — 한 종목은 정확히 1개 카테고리. 우선순위: 사용자 지정 > 펀더멘탈 자동 > 미분류
-function classify(
-  userCat: string | null,
-  growth: number | null,           // 소수(0.25=25%)
-  sector: string | null,
-): { cat: LynchCategoryKey; source: 'user' | 'auto' } {
-  const valid: LynchCategoryKey[] = ['fast_grower', 'stalwart', 'slow_grower', 'cyclical', 'turnaround', 'asset_play']
-  if (userCat && (valid as string[]).includes(userCat)) return { cat: userCat as LynchCategoryKey, source: 'user' }
-  // 자동 분류(위→아래 첫 매치 단판 — 중복 소속 원천 불가)
-  const cyc = sector != null && CYCLICAL_SECTORS.has(sector)
-  if (growth != null) {
-    if (growth < -0.10) return { cat: 'turnaround', source: 'auto' }            // 이익 붕괴 → 회복 베팅 영역
-    if (cyc) return { cat: 'cyclical', source: 'auto' }                          // 경기민감 섹터는 성장률보다 사이클이 정체성
-    if (growth >= 0.20) return { cat: 'fast_grower', source: 'auto' }
-    if (growth >= 0.10) return { cat: 'stalwart', source: 'auto' }
-    return { cat: 'slow_grower', source: 'auto' }
-  }
-  if (cyc) return { cat: 'cyclical', source: 'auto' }
-  return { cat: 'na', source: 'auto' }
-}
-
 const isKr = (ticker: string, market?: string) => market === 'KR' || /^\d{6}$/.test(ticker.replace(/\.(KS|KQ)$/i, ''))
 
 export async function GET(req: Request) {
@@ -71,7 +47,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `lynch-matrix-v1:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `lynch-matrix-v2:${user.id}:${kstDate()}:${fp}`   // v2: 평가액(현재가) 기준 비중 + 분류기 SSOT 공유(ai-rebalance와 정합)
   const cached = await getCache<LynchMatrixResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -87,12 +63,29 @@ export async function GET(req: Request) {
     .select('ticker,name,market,purchase_price,quantity,currency,lynch_category').eq('user_id', user.id)
   const stocks = (rows ?? []).filter(r => getAssetType(r.ticker, r.name ?? '', r.market ?? '') === 'STOCK')
 
+  // 현재가 배치 — 비중을 ai-rebalance '분산 개선'과 동일한 평가액(현재가) 기준으로 통일(제2원칙).
+  // 가격 조회 실패 종목은 매입원가로 폴백(비중 0으로 누락시키지 않음 — 정직)
+  let prices: Record<string, number> = {}
+  try {
+    const pr = await fetch(`${base}/api/stock-price`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(stocks.map(h => ({ ticker: h.ticker, market: h.market ?? 'US' }))),
+      signal: AbortSignal.timeout(30_000),
+    })
+    if (pr.ok) {
+      const arr = await pr.json() as Array<{ ticker: string; currentPrice: number }>
+      prices = Object.fromEntries(arr.map(d => [d.ticker.toUpperCase(), d.currentPrice]))
+    }
+  } catch { /* graceful — 원가 폴백 */ }
+
   // ① 티커 병합 — 분할매수 여러 행을 1종목으로. 카테고리 충돌 시 비중 최대 행의 지정을 채택(MECE 1단계)
   type Merged = { ticker: string; name: string; market: 'US' | 'KR'; weight: number; userCat: string | null; maxRowW: number }
   const merged = new Map<string, Merged>()
   for (const r of stocks) {
     const code = r.ticker.replace(/\.(KS|KQ)$/i, '').toUpperCase()
-    const w = (r.purchase_price ?? 0) * (r.quantity ?? 0) * (r.currency === 'USD' ? usdKrw : 1)
+    const px = prices[r.ticker.toUpperCase()] ?? 0
+    const unit = px > 0 ? px : (r.purchase_price ?? 0)   // 현재가 우선, 실패 시 원가
+    const w = unit * (r.quantity ?? 0) * (r.currency === 'USD' ? usdKrw : 1)
     if (w <= 0) continue
     const prev = merged.get(code)
     if (!prev) {
@@ -113,7 +106,7 @@ export async function GET(req: Request) {
   const traps: LynchMatrixResult['traps'] = []
   holdings.forEach((h, i) => {
     const f = funds[i]
-    const { cat, source } = classify(h.userCat, f?.growth ?? null, f?.sector ?? null)
+    const { cat, source } = classifyLynchMece(h.userCat, f?.growth ?? null, f?.sector ?? null)
     const trap = isPegBaseEffect(f?.peg ?? null, f?.growth ?? null)
     const item: LynchMatrixItem = {
       ticker: h.ticker, name: h.name, market: h.market,
