@@ -2793,8 +2793,8 @@ export default function DashboardPage() {
                   )
                 }}/>
 
-                {/* Core 막대 — 수익/손실 그라데이션 */}
-                <Bar yAxisId="bar" dataKey="corePnl" name="Core" stackId="pnl" maxBarSize={56} radius={[0,0,0,0]}>
+                {/* Core 막대 — 수익/손실 그라데이션. minPointSize: 소액 월(수천원대)도 막대가 보이도록 최소 3px 보장 */}
+                <Bar yAxisId="bar" dataKey="corePnl" name="Core" stackId="pnl" maxBarSize={56} minPointSize={3} radius={[0,0,0,0]}>
                   {monthlyPnL.map((entry, i) => (
                     <BarCell
                       key={i}
@@ -2804,7 +2804,7 @@ export default function DashboardPage() {
                 </Bar>
 
                 {/* Satellite 막대 */}
-                <Bar yAxisId="bar" dataKey="satPnl" name="Satellite" stackId="pnl" maxBarSize={56}
+                <Bar yAxisId="bar" dataKey="satPnl" name="Satellite" stackId="pnl" maxBarSize={56} minPointSize={3}
                   radius={[4,4,0,0]}
                 >
                   {monthlyPnL.map((entry, i) => (
