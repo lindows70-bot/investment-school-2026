@@ -19,6 +19,7 @@ import PortfolioBalanceRadar      from '@/app/components/PortfolioBalanceRadar'
 import CocktailPartyGauge         from '@/app/components/CocktailPartyGauge'
 import MacroWeather               from '@/app/components/MacroWeather'
 import DualMandateDashboard       from '@/app/components/DualMandateDashboard'
+import FedChartsBoard             from '@/app/components/FedChartsBoard'
 import NpsPortfolio               from '@/app/components/NpsPortfolio'
 import JarvisMorningBriefing      from '@/app/components/JarvisMorningBriefing'
 import SchoolIndexDashboard       from '@/app/components/SchoolIndexDashboard'
@@ -3321,6 +3322,9 @@ export default function DashboardPage() {
         </ErrorBoundary>
         <ErrorBoundary label="연준 양대책무">
           <DualMandateDashboard />
+        </ErrorBoundary>
+        <ErrorBoundary label="연준 핵심지표 차트보드">
+          <FedChartsBoard />
         </ErrorBoundary>
         <ErrorBoundary label="칵테일 파티 지수">
           <CocktailPartyGauge />
