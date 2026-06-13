@@ -23,15 +23,23 @@ export interface CoinLabResult {
   asOf: string
 }
 
-const cg = async (path: string) => {
-  const r = await fetch(`https://api.coingecko.com/api/v3${path}`, { signal: AbortSignal.timeout(12_000), headers: { accept: 'application/json' } })
-  if (!r.ok) throw new Error(`cg ${r.status}`)
-  return r.json()
+// CoinGecko 무료 API — 브라우저형 UA 필수(기본 fetch UA는 종종 차단), 429 시 1회 재시도. 절대 동시 버스트 금지
+const CG_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36'
+async function cg<T = unknown>(path: string): Promise<T | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const r = await fetch(`https://api.coingecko.com/api/v3${path}`, { signal: AbortSignal.timeout(12_000), headers: { accept: 'application/json', 'User-Agent': CG_UA } })
+      if (r.ok) return await r.json() as T
+      if (r.status !== 429) return null
+    } catch { /* 재시도 */ }
+    await new Promise(res => setTimeout(res, 1500))   // 429·실패 후 백오프
+  }
+  return null
 }
 const num = (v: unknown): number | null => (typeof v === 'number' && isFinite(v) ? v : null)
 
 export async function GET(req: Request) {
-  const cacheKey = 'coin-lab-v1'
+  const cacheKey = 'coin-lab-v3'   // v3: M2vsBTC 교집합 정규화(BTC 라인 누락 수정)
   const cached = await getCache<CoinLabResult>(cacheKey, 3600_000)   // 1h
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -42,27 +50,29 @@ export async function GET(req: Request) {
   let usdKrw = 1350
   try { const ex = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) }); if (ex.ok) { const j = await ex.json(); if (typeof j.rate === 'number' && j.rate > 0) usdKrw = j.rate } } catch { /* 폴백 */ }
 
-  // ── 병렬 수집(각자 graceful) ──────────────────────────────────────
-  const [globalR, marketsR, chartR, fngR, hashR, upbitR, m2R] = await Promise.allSettled([
-    cg('/global'),
-    cg('/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=12&page=1&price_change_percentage=24h,7d'),
-    cg('/coins/bitcoin/market_chart?vs_currency=usd&days=300&interval=daily'),
+  // ── CoinGecko 외 소스: 병렬(서로 다른 호스트라 충돌 없음) ──────────
+  const [fngR, hashR, upbitR, m2R] = await Promise.allSettled([
     fetch('https://api.alternative.me/fng/?limit=2', { signal: AbortSignal.timeout(10_000) }).then(r => r.json()),
     fetch('https://mempool.space/api/v1/mining/hashrate/3m', { signal: AbortSignal.timeout(12_000) }).then(r => r.json()),
     fetch('https://api.upbit.com/v1/ticker?markets=KRW-BTC', { signal: AbortSignal.timeout(10_000) }).then(r => r.json()),
     FRED ? fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=M2SL&api_key=${FRED}&file_type=json&sort_order=desc&limit=37`, { signal: AbortSignal.timeout(10_000) }).then(r => r.json()) : Promise.resolve(null),
   ])
   const val = <T,>(r: PromiseSettledResult<T>): T | null => (r.status === 'fulfilled' ? r.value : null)
-  const global = val(globalR), markets = val(marketsR) as Record<string, unknown>[] | null
-  const chart = val(chartR) as { prices?: [number, number][] } | null
   const fng = val(fngR) as { data?: { value: string; value_classification: string }[] } | null
   const hash = val(hashR) as { currentHashrate?: number; currentDifficulty?: number; hashrates?: { avgHashrate: number }[] } | null
   const upbit = val(upbitR) as { trade_price: number }[] | null
   const m2j = val(m2R) as { observations?: { date: string; value: string }[] } | null
 
+  // ── CoinGecko: 반드시 순차(무료 API 버스트 429 회피) ──────────────
+  const global = await cg<{ data?: Record<string, unknown> }>('/global')
+  const markets = await cg<Record<string, unknown>[]>('/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=12&page=1&price_change_percentage=24h,7d')
+  const chart = await cg<{ prices?: [number, number][] }>('/coins/bitcoin/market_chart?vs_currency=usd&days=300&interval=daily')
+
   // ── 가격·메이어멀티플·김치프리미엄 ──────────────────────────────
-  const btcUsd = num((markets?.find(m => m.symbol === 'btc') as { current_price?: number })?.current_price)
   const btcKrw = num(upbit?.[0]?.trade_price)
+  const cgBtcUsd = num((markets?.find(m => m.symbol === 'btc') as { current_price?: number })?.current_price)
+  // CoinGecko 실패 시 업비트÷환율로 폴백(헤드라인 가격은 항상 표시)
+  const btcUsd = cgBtcUsd ?? (btcKrw != null ? Math.round(btcKrw / usdKrw) : null)
   const closes = (chart?.prices ?? []).map(p => p[1]).filter(v => isFinite(v))
   const ma200 = closes.length >= 200 ? closes.slice(-200).reduce((a, b) => a + b, 0) / 200 : null
   const mayer = btcUsd != null && ma200 ? Math.round((btcUsd / ma200) * 100) / 100 : null
@@ -113,12 +123,13 @@ export async function GET(req: Request) {
   // BTC 월별 종가: 300일 일봉을 월말로 다운샘플(M2 36개월과 겹치는 최근 구간만)
   const btcMonthly = new Map<string, number>()
   for (const [t, p] of (chart?.prices ?? [])) btcMonthly.set(new Date(t).toISOString().slice(0, 7), p)   // 같은 달은 마지막값으로 덮어씀
-  const macroMonths = m2obs.slice(-12)   // 최근 12개월(BTC 일봉이 300일이라 ~10개월만 겹침)
-  const m2Base = macroMonths[0]?.v, btcBase = macroMonths.length ? btcMonthly.get(macroMonths[0].date) : undefined
-  const macroPoints = macroMonths.map(o => ({
+  // 두 시리즈가 모두 존재하는 교집합 월만(BTC 일봉 300일 ≈ 최근 ~10개월). 첫 공통월을 100 기준으로 양쪽 정규화
+  const common = m2obs.slice(-13).filter(o => btcMonthly.has(o.date))
+  const m2Base = common[0]?.v, btcBase = common.length ? btcMonthly.get(common[0].date) : undefined
+  const macroPoints = common.map(o => ({
     date: o.date,
     m2: m2Base ? Math.round((o.v / m2Base) * 1000) / 10 : null,
-    btc: btcBase && btcMonthly.has(o.date) ? Math.round((btcMonthly.get(o.date)! / btcBase) * 1000) / 10 : null,
+    btc: btcBase ? Math.round((btcMonthly.get(o.date)! / btcBase) * 1000) / 10 : null,
   }))
   const macroNote = '비트코인은 이익을 내지 않는 자산이라, 시중 통화량(M2)·금리 같은 글로벌 유동성에 가장 민감하게 반응합니다 — 돈이 풀리면 디지털 금처럼 먼저 오르고, 죄면 먼저 빠집니다.'
 
@@ -145,7 +156,7 @@ export async function GET(req: Request) {
     guardrailNote,
     asOf: new Date().toISOString(),
   }
-  // 핵심 지표 하나라도 살아있으면 캐시(전부 죽으면 박제 금지)
-  if (btcUsd != null || fngV != null || hashrateEH != null) await setCache(cacheKey, result)
+  // CoinGecko 핵심(가격+도미넌스)까지 살아야 캐시 — 부분 실패(429 등) 결과를 1h 박제하지 않음
+  if (btcUsd != null && btcDom != null) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }
