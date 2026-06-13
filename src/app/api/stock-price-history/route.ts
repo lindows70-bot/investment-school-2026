@@ -97,6 +97,28 @@ async function getKrYearPrices(ticker: string): Promise<Record<string, number>> 
   } catch { return {} }
 }
 
+// ── CRYPTO: 업비트 월봉(KRW) 72개월 → 연도별 평균가 ───────────────
+// 무료·무인증 공개 API. 월봉은 1회 호출로 6년치(=72개) 반환 → 페이지네이션 불필요
+async function getCryptoYearPrices(ticker: string): Promise<Record<string, number>> {
+  const market = `KRW-${ticker.toUpperCase().replace(/^KRW-/, '')}`
+  try {
+    const res = await fetch(`https://api.upbit.com/v1/candles/months?market=${market}&count=72`, { next: { revalidate: 3600 } })
+    if (!res.ok) return {}
+    const arr = await res.json() as { candle_date_time_kst: string; trade_price: number }[]
+    const yearMap: Record<string, number[]> = {}
+    for (const c of arr) {
+      const close = c.trade_price
+      if (!close || !isFinite(close) || close <= 0) continue
+      const yr = c.candle_date_time_kst.slice(0, 4)
+      if (!yearMap[yr]) yearMap[yr] = []
+      yearMap[yr].push(close)
+    }
+    const yearPrices: Record<string, number> = {}
+    Object.entries(yearMap).forEach(([yr, prices]) => { yearPrices[yr] = prices.reduce((a, b) => a + b, 0) / prices.length })
+    return yearPrices
+  } catch { return {} }
+}
+
 // ── GET 핸들러 ──────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
@@ -114,8 +136,9 @@ export async function GET(req: NextRequest) {
       yearPrices = await getKrYearPrices(ticker)
     } else if (market === 'US') {
       yearPrices = await getUsYearPrices(ticker)
+    } else if (market === 'CRYPTO') {
+      yearPrices = await getCryptoYearPrices(ticker)   // 업비트 월봉(KRW)
     }
-    // CRYPTO는 연간 가격 분석 미지원
 
     return NextResponse.json(
       { yearPrices },

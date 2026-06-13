@@ -10,9 +10,10 @@ const CARD = '#161b25', BORDER = '#1e293b'
 const fmtMan = (won: number) => `${Math.round(won / 1e4).toLocaleString('ko-KR')}만`
 
 const LINES = [
-  { key: 'total', name: '내 포트폴리오 (실보유)', color: '#10b981', width: 2.6 },
+  { key: 'total', name: '내 포트폴리오 (전체)',   color: '#10b981', width: 2.6 },
   { key: 'core',  name: 'Core (ETF·우량주)',     color: '#deff9a', width: 1.8 },
   { key: 'sat',   name: 'Satellite (성장·테마)', color: '#38bdf8', width: 1.8 },
+  { key: 'alt',   name: '대안자산 (코인·원자재)', color: '#fbbf24', width: 1.6 },
   { key: 'bench', name: '시장 평균 (벤치마크)',   color: '#7f93a8', width: 1.6, dash: true },
 ] as const
 
@@ -21,7 +22,7 @@ export default function PortfolioTimeMachine() {
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [source, setSource] = useState<'real' | 'quant'>('real')   // 내 실제 보유 ↔ AI 퀀트 빌더 추천
-  const [active, setActive] = useState<Record<string, boolean>>({ total: true, core: true, sat: true, bench: true })
+  const [active, setActive] = useState<Record<string, boolean>>({ total: true, core: true, sat: true, alt: true, bench: true })
 
   useEffect(() => {
     let alive = true
@@ -65,6 +66,7 @@ export default function PortfolioTimeMachine() {
     { k: 'total', label: '내 포트폴리오', s: d.summary.total, color: '#10b981' },
     { k: 'core',  label: 'Core',          s: d.summary.core,  color: '#a3e635' },
     { k: 'sat',   label: 'Satellite',     s: d.summary.sat,   color: '#38bdf8' },
+    { k: 'alt',   label: '대안자산',       s: d.summary.alt,   color: '#fbbf24' },
     { k: 'bench', label: '시장 평균',      s: d.summary.bench, color: '#7f93a8' },
   ].filter(c => c.s)
 

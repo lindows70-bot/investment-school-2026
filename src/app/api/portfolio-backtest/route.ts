@@ -13,7 +13,7 @@ const START_CAPITAL = 10_000_000   // 1,000만 원 기준
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 const isKr = (ticker: string, market?: string) => market === 'KR' || /^\d{6}$/.test(ticker.replace(/\.(KS|KQ)$/i, ''))
 
-export interface BacktestPoint { year: string; total: number; core: number | null; sat: number | null; bench: number }
+export interface BacktestPoint { year: string; total: number; core: number | null; sat: number | null; alt: number | null; bench: number }
 export interface BacktestResult {
   points: BacktestPoint[]
   startYear: string; endYear: string
@@ -22,6 +22,7 @@ export interface BacktestResult {
     total: { final: number; retPct: number; cagrPct: number; mddPct: number }
     core:  { final: number; retPct: number; cagrPct: number } | null
     sat:   { final: number; retPct: number; cagrPct: number } | null
+    alt:   { final: number; retPct: number; cagrPct: number } | null   // 대안자산(코인·원자재)
     bench: { final: number; retPct: number; cagrPct: number }
   }
   insight: string
@@ -31,7 +32,9 @@ export interface BacktestResult {
   asOf: string
 }
 
-type Priced = { ticker: string; name: string; market: 'US' | 'KR'; costW: number; core: boolean; yp: Record<string, number> }
+type Cat = 'core' | 'sat' | 'alt'   // alt = 대안자산(코인·원자재) — EPS 없음, Core/Satellite 분류 밖
+type Mkt = 'US' | 'KR' | 'CRYPTO'
+type Priced = { ticker: string; name: string; market: Mkt; costW: number; cat: Cat; yp: Record<string, number> }
 
 async function yearPrices(base: string, ticker: string, market: string): Promise<Record<string, number>> {
   try {
@@ -45,7 +48,7 @@ async function yearPrices(base: string, ticker: string, market: string): Promise
 const cagr = (mult: number, years: number) => years > 0 ? (Math.pow(mult, 1 / years) - 1) * 100 : 0
 
 // 백테스트 입력 한 종목(출처 무관 공통 형태)
-type HoldInput = { ticker: string; name: string; market: 'US' | 'KR'; costW: number; core: boolean }
+type HoldInput = { ticker: string; name: string; market: Mkt; costW: number; cat: Cat }
 
 export async function GET(req: Request) {
   const sb = createClient()
@@ -57,7 +60,7 @@ export async function GET(req: Request) {
   // source: real = 내 실제 보유 종목(investments) · quant = AI 퀀트 빌더 추천안(DB 미기록, 직접 백테스트)
   const source = new URL(req.url).searchParams.get('source') === 'quant' ? 'quant' : 'real'
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `portfolio-backtest-v4:${source}:${user.id}:${kstDate()}:${fp}`   // v4: 코인·원자재 제외 사실 투명 표기
+  const cacheKey = `portfolio-backtest-v5:${source}:${user.id}:${kstDate()}:${fp}`   // v5: 코인·원자재를 대안자산으로 포함(업비트 월봉)
   const cached = await getCache<BacktestResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -75,8 +78,8 @@ export async function GET(req: Request) {
       if (r.ok) {
         const plan = await r.json()
         holdsInput = [
-          ...(plan.core ?? []).map((c: { ticker: string; name: string; market: string; weightPct: number }) => ({ ticker: c.ticker, name: c.name, market: (c.market === 'KR' ? 'KR' : 'US') as 'US' | 'KR', costW: c.weightPct, core: true })),
-          ...(plan.satellites ?? []).map((s: { ticker: string; name: string; market: string; weightPct: number }) => ({ ticker: s.ticker, name: s.name, market: (s.market === 'KR' ? 'KR' : 'US') as 'US' | 'KR', costW: s.weightPct, core: false })),
+          ...(plan.core ?? []).map((c: { ticker: string; name: string; market: string; weightPct: number }) => ({ ticker: c.ticker, name: c.name, market: (c.market === 'KR' ? 'KR' : 'US') as Mkt, costW: c.weightPct, cat: 'core' as Cat })),
+          ...(plan.satellites ?? []).map((s: { ticker: string; name: string; market: string; weightPct: number }) => ({ ticker: s.ticker, name: s.name, market: (s.market === 'KR' ? 'KR' : 'US') as Mkt, costW: s.weightPct, cat: 'sat' as Cat })),
         ]
       }
     } catch { /* graceful */ }
@@ -86,15 +89,7 @@ export async function GET(req: Request) {
     const { data: rows } = await admin.from('investments')
       .select('ticker,name,market,purchase_price,quantity,currency,lynch_category,asset_role').eq('user_id', user.id)
     const all = rows ?? []
-    const holds = all.filter(r => { const t = getAssetType(r.ticker, r.name ?? '', r.market ?? ''); return t === 'STOCK' || t === 'ETF' })
-    if (holds.length === 0) return NextResponse.json({ error: 'no_holdings' }, { status: 200 })
-    // 비주식 자산(코인·원자재)은 EPS·시장 대비 비교 대상이 아니라 제외 — 그 사실을 투명하게 표기
-    const cryptoN = all.filter(r => getAssetType(r.ticker, r.name ?? '', r.market ?? '') === 'CRYPTO').length
-    const commN = all.filter(r => getAssetType(r.ticker, r.name ?? '', r.market ?? '') === 'COMMODITY').length
-    const ex: string[] = []
-    if (cryptoN > 0) ex.push(`암호화폐 ${cryptoN}종`)
-    if (commN > 0) ex.push(`원자재 ${commN}종`)
-    assetClassNote = `총 보유 ${all.length}종 중 ${ex.length ? ex.join('·') + '은 가격성격이 달라(EPS·시장지수 비교 불가) 제외하고 ' : ''}주식·ETF ${holds.length}종을 분석`
+    if (all.length === 0) return NextResponse.json({ error: 'no_holdings' }, { status: 200 })
     // Core 판별 — asset_role 우선, 없으면 ETF/안정 카테고리 폴백(대시보드 isCoreInv와 동일 룰)
     const ETF_CORE = ['TIGER', 'KODEX', 'ACE', 'PLUS', 'KBSTAR', 'HANARO', 'ARIRANG', 'SOL', 'RISE', 'SPY', 'QQQ', 'SCHD', 'VOO', 'IVV']
     const isCore = (r: { name?: string | null; ticker: string; lynch_category?: string | null; asset_role?: string | null }) => {
@@ -104,11 +99,20 @@ export async function GET(req: Request) {
       if (ETF_CORE.some(b => up.includes(b))) return true
       return r.lynch_category === 'stalwart' || r.lynch_category === 'slow_grower'
     }
-    holdsInput = holds.map(r => ({
-      ticker: r.ticker, name: r.name ?? r.ticker, market: (isKr(r.ticker, r.market ?? undefined) ? 'KR' : 'US') as 'US' | 'KR',
-      costW: (r.purchase_price ?? 0) * (r.quantity ?? 0) * (r.currency === 'USD' ? usdKrw : 1), core: isCore(r),
-    })).filter(h => h.costW > 0)
+    // 전 자산 포함 — 주식·ETF는 Core/Satellite, 코인·원자재는 대안자산(alt). 전체(Total)에 모두 합산
+    let cryptoN = 0, commN = 0
+    holdsInput = all.map(r => {
+      const t = getAssetType(r.ticker, r.name ?? '', r.market ?? '')
+      const mkt: Mkt = t === 'CRYPTO' ? 'CRYPTO' : (isKr(r.ticker, r.market ?? undefined) ? 'KR' : 'US')
+      const cat: Cat = (t === 'CRYPTO' || t === 'COMMODITY') ? 'alt' : (isCore(r) ? 'core' : 'sat')
+      if (t === 'CRYPTO') cryptoN++; if (t === 'COMMODITY') commN++
+      return { ticker: r.ticker, name: r.name ?? r.ticker, market: mkt, costW: (r.purchase_price ?? 0) * (r.quantity ?? 0) * (r.currency === 'USD' ? usdKrw : 1), cat }
+    }).filter(h => h.costW > 0)
     if (holdsInput.length === 0) return NextResponse.json({ error: 'no_holdings' }, { status: 200 })
+    const altParts: string[] = []
+    if (cryptoN > 0) altParts.push(`암호화폐 ${cryptoN}종`)
+    if (commN > 0) altParts.push(`원자재 ${commN}종`)
+    assetClassNote = `보유 ${holdsInput.length}종 전부 포함${altParts.length ? `(${altParts.join('·')}은 대안자산으로 분리·전체에 합산)` : ''}`
   }
 
   // 종목별 연도가 병렬 수집(동시성 5) + 벤치마크
@@ -117,7 +121,7 @@ export async function GET(req: Request) {
     const batch = holdsInput.slice(i, i + 5)
     const yps = await Promise.all(batch.map(h => yearPrices(base, h.ticker, h.market)))
     batch.forEach((h, k) => {
-      if (Object.keys(yps[k]).length >= 2) priced.push({ ticker: h.ticker, name: h.name, market: h.market, costW: h.costW, core: h.core, yp: yps[k] })
+      if (Object.keys(yps[k]).length >= 2) priced.push({ ticker: h.ticker, name: h.name, market: h.market, costW: h.costW, cat: h.cat, yp: yps[k] })
     })
   }
   const holds = holdsInput   // 커버리지 표기용(총 입력 종목 수)
@@ -141,10 +145,14 @@ export async function GET(req: Request) {
   // startYear에 가격이 있는 종목만 백테스트(공정 — 중간 편입 종목은 제외하고 커버리지로 정직 표기)
   const inc = priced.filter(p => p.yp[sY] != null)
   const incCost = inc.reduce((s, p) => s + p.costW, 0) || 1
-  const coreCost = inc.filter(p => p.core).reduce((s, p) => s + p.costW, 0)
-  const satCost = inc.filter(p => !p.core).reduce((s, p) => s + p.costW, 0)
-  const usCost = inc.reduce((s, p) => s + (p.market === 'US' ? p.costW : 0), 0)
-  const krCost = inc.reduce((s, p) => s + (p.market === 'KR' ? p.costW : 0), 0)
+  const coreSub = inc.filter(p => p.cat === 'core'), satSub = inc.filter(p => p.cat === 'sat'), altSub = inc.filter(p => p.cat === 'alt')
+  const coreCost = coreSub.reduce((s, p) => s + p.costW, 0)
+  const satCost = satSub.reduce((s, p) => s + p.costW, 0)
+  const altCost = altSub.reduce((s, p) => s + p.costW, 0)
+  // 벤치마크 US/KR 비중은 주식 자산 기준(대안자산은 시장지수 비교 대상 아님 → 제외)
+  const eqInc = inc.filter(p => p.cat !== 'alt')
+  const usCost = eqInc.reduce((s, p) => s + (p.market === 'US' ? p.costW : 0), 0)
+  const krCost = eqInc.reduce((s, p) => s + (p.market === 'KR' ? p.costW : 0), 0)
   const benchUsW = (usCost + krCost) > 0 ? usCost / (usCost + krCost) : 1
   const benchKrW = 1 - benchUsW
 
@@ -171,8 +179,9 @@ export async function GET(req: Request) {
     points.push({
       year: ys,
       total: Math.round(valueAt(inc, incCost, ys) ?? START_CAPITAL),
-      core: coreCost > 0 ? Math.round(valueAt(inc.filter(p => p.core), coreCost, ys) ?? START_CAPITAL) : null,
-      sat: satCost > 0 ? Math.round(valueAt(inc.filter(p => !p.core), satCost, ys) ?? START_CAPITAL) : null,
+      core: coreCost > 0 ? Math.round(valueAt(coreSub, coreCost, ys) ?? START_CAPITAL) : null,
+      sat: satCost > 0 ? Math.round(valueAt(satSub, satCost, ys) ?? START_CAPITAL) : null,
+      alt: altCost > 0 ? Math.round(valueAt(altSub, altCost, ys) ?? START_CAPITAL) : null,
       bench: Math.round(benchAt(ys)),
     })
   }
@@ -186,6 +195,7 @@ export async function GET(req: Request) {
   const mk = (finalV: number) => ({ final: finalV, retPct: Math.round((finalV / START_CAPITAL - 1) * 1000) / 10, cagrPct: Math.round(cagr(finalV / START_CAPITAL, span) * 10) / 10 })
   const lastCore = points[points.length - 1].core
   const lastSat = points[points.length - 1].sat
+  const lastAlt = points[points.length - 1].alt
 
   const vsB = lastTotal - lastBench
   const beat = vsB >= 0
@@ -195,6 +205,10 @@ export async function GET(req: Request) {
     const coreR = lastCore / START_CAPITAL - 1, satR = lastSat / START_CAPITAL - 1
     insight += ` 수익의 견인차는 ${satR > coreR ? 'Satellite(성장·테마)' : 'Core(ETF·우량주)'} 쪽이었고(Core ${Math.round(coreR * 100)}% vs Satellite ${Math.round(satR * 100)}%), 변동성은 Satellite가 더 컸습니다. 이 기간 주가를 끌어올린 것은 실시간 뉴스가 아니라 기업들이 매년 쌓은 이익(EPS)의 누적이었습니다.`
   }
+  if (lastAlt != null) {
+    const altR = Math.round((lastAlt / START_CAPITAL - 1) * 100)
+    insight += ` 대안자산(코인·원자재)은 ${altR}% — EPS가 없어 시장지수와 직접 비교는 어렵지만, 전체 포트폴리오에는 합산했습니다.`
+  }
 
   const result: BacktestResult = {
     points, startYear: sY, endYear: String(endYear), startCapital: START_CAPITAL,
@@ -202,6 +216,7 @@ export async function GET(req: Request) {
       total: { ...mk(lastTotal), mddPct: Math.round(mdd * 1000) / 10 },
       core: lastCore != null ? mk(lastCore) : null,
       sat: lastSat != null ? mk(lastSat) : null,
+      alt: lastAlt != null ? mk(lastAlt) : null,
       bench: mk(lastBench),
     },
     insight,
