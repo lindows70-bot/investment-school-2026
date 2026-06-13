@@ -27,6 +27,7 @@ export interface BacktestResult {
   insight: string
   coverage: string          // 백테스트에 포함된 종목 수 / 전체(데이터 없는 종목 정직 표기)
   benchLabel: string
+  source: 'real' | 'quant'  // 데이터 출처(실제 보유 vs 퀀트 빌더 추천)
   asOf: string
 }
 
@@ -43,14 +44,20 @@ async function yearPrices(base: string, ticker: string, market: string): Promise
 
 const cagr = (mult: number, years: number) => years > 0 ? (Math.pow(mult, 1 / years) - 1) * 100 : 0
 
+// 백테스트 입력 한 종목(출처 무관 공통 형태)
+type HoldInput = { ticker: string; name: string; market: 'US' | 'KR'; costW: number; core: boolean }
+
 export async function GET(req: Request) {
   const sb = createClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
+  const cookie = req.headers.get('cookie') ?? ''
+  // source: real = 내 실제 보유 종목(investments) · quant = AI 퀀트 빌더 추천안(DB 미기록, 직접 백테스트)
+  const source = new URL(req.url).searchParams.get('source') === 'quant' ? 'quant' : 'real'
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `portfolio-backtest-v2:${user.id}:${kstDate()}:${fp}`   // v2: 데이터 출처 명확화(자산관리 보유 종목 = 직접+퀀트빌더 복사)
+  const cacheKey = `portfolio-backtest-v3:${source}:${user.id}:${kstDate()}:${fp}`   // v3: source 토글(실포트/퀀트빌더 분리)
   const cached = await getCache<BacktestResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -58,34 +65,53 @@ export async function GET(req: Request) {
   let usdKrw = 1350
   try { const ex = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) }); if (ex.ok) { const j = await ex.json(); if (typeof j.rate === 'number' && j.rate > 0) usdKrw = j.rate } } catch { /* 폴백 */ }
 
-  const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
-  const { data: rows } = await admin.from('investments')
-    .select('ticker,name,market,purchase_price,quantity,currency,lynch_category,asset_role').eq('user_id', user.id)
-  // 주식·ETF만(코인·원자재는 연도 평균가 분석 제외)
-  const holds = (rows ?? []).filter(r => { const t = getAssetType(r.ticker, r.name ?? '', r.market ?? ''); return t === 'STOCK' || t === 'ETF' })
-  if (holds.length === 0) return NextResponse.json({ error: 'no_holdings' }, { status: 200 })
-
-  // Core 판별 — asset_role 우선, 없으면 ETF/안정 카테고리 폴백(대시보드 isCoreInv와 동일 룰)
-  const ETF_CORE = ['TIGER', 'KODEX', 'ACE', 'PLUS', 'KBSTAR', 'HANARO', 'ARIRANG', 'SOL', 'RISE', 'SPY', 'QQQ', 'SCHD', 'VOO', 'IVV']
-  const isCore = (r: { name?: string | null; ticker: string; lynch_category?: string | null; asset_role?: string | null }) => {
-    if (r.asset_role === 'SATELLITE') return false
-    if (r.asset_role === 'CORE') return true
-    const up = `${r.name ?? ''} ${r.ticker}`.toUpperCase()
-    if (ETF_CORE.some(b => up.includes(b))) return true
-    return r.lynch_category === 'stalwart' || r.lynch_category === 'slow_grower'
+  // ── 출처별 입력 구성 ──────────────────────────────────────────────
+  let holdsInput: HoldInput[] = []
+  if (source === 'quant') {
+    // 퀀트 빌더 추천안을 직접 백테스트(실제 포트 오염 없음). 비중 = 설계 weightPct
+    try {
+      const r = await fetch(`${base}/api/quant-builder`, { headers: { cookie }, signal: AbortSignal.timeout(50_000) })
+      if (r.ok) {
+        const plan = await r.json()
+        holdsInput = [
+          ...(plan.core ?? []).map((c: { ticker: string; name: string; market: string; weightPct: number }) => ({ ticker: c.ticker, name: c.name, market: (c.market === 'KR' ? 'KR' : 'US') as 'US' | 'KR', costW: c.weightPct, core: true })),
+          ...(plan.satellites ?? []).map((s: { ticker: string; name: string; market: string; weightPct: number }) => ({ ticker: s.ticker, name: s.name, market: (s.market === 'KR' ? 'KR' : 'US') as 'US' | 'KR', costW: s.weightPct, core: false })),
+        ]
+      }
+    } catch { /* graceful */ }
+    if (holdsInput.length === 0) return NextResponse.json({ error: 'no_holdings' }, { status: 200 })
+  } else {
+    const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
+    const { data: rows } = await admin.from('investments')
+      .select('ticker,name,market,purchase_price,quantity,currency,lynch_category,asset_role').eq('user_id', user.id)
+    const holds = (rows ?? []).filter(r => { const t = getAssetType(r.ticker, r.name ?? '', r.market ?? ''); return t === 'STOCK' || t === 'ETF' })
+    if (holds.length === 0) return NextResponse.json({ error: 'no_holdings' }, { status: 200 })
+    // Core 판별 — asset_role 우선, 없으면 ETF/안정 카테고리 폴백(대시보드 isCoreInv와 동일 룰)
+    const ETF_CORE = ['TIGER', 'KODEX', 'ACE', 'PLUS', 'KBSTAR', 'HANARO', 'ARIRANG', 'SOL', 'RISE', 'SPY', 'QQQ', 'SCHD', 'VOO', 'IVV']
+    const isCore = (r: { name?: string | null; ticker: string; lynch_category?: string | null; asset_role?: string | null }) => {
+      if (r.asset_role === 'SATELLITE') return false
+      if (r.asset_role === 'CORE') return true
+      const up = `${r.name ?? ''} ${r.ticker}`.toUpperCase()
+      if (ETF_CORE.some(b => up.includes(b))) return true
+      return r.lynch_category === 'stalwart' || r.lynch_category === 'slow_grower'
+    }
+    holdsInput = holds.map(r => ({
+      ticker: r.ticker, name: r.name ?? r.ticker, market: (isKr(r.ticker, r.market ?? undefined) ? 'KR' : 'US') as 'US' | 'KR',
+      costW: (r.purchase_price ?? 0) * (r.quantity ?? 0) * (r.currency === 'USD' ? usdKrw : 1), core: isCore(r),
+    })).filter(h => h.costW > 0)
+    if (holdsInput.length === 0) return NextResponse.json({ error: 'no_holdings' }, { status: 200 })
   }
 
-  // 종목별 연도가 + 원가 비중 병렬 수집(동시성 5) + 벤치마크
+  // 종목별 연도가 병렬 수집(동시성 5) + 벤치마크
   const priced: Priced[] = []
-  for (let i = 0; i < holds.length; i += 5) {
-    const batch = holds.slice(i, i + 5)
-    const yps = await Promise.all(batch.map(r => yearPrices(base, r.ticker, isKr(r.ticker, r.market ?? undefined) ? 'KR' : 'US')))
-    batch.forEach((r, k) => {
-      const cost = (r.purchase_price ?? 0) * (r.quantity ?? 0) * (r.currency === 'USD' ? usdKrw : 1)
-      if (cost > 0 && Object.keys(yps[k]).length >= 2)
-        priced.push({ ticker: r.ticker, name: r.name ?? r.ticker, market: isKr(r.ticker, r.market ?? undefined) ? 'KR' : 'US', costW: cost, core: isCore(r), yp: yps[k] })
+  for (let i = 0; i < holdsInput.length; i += 5) {
+    const batch = holdsInput.slice(i, i + 5)
+    const yps = await Promise.all(batch.map(h => yearPrices(base, h.ticker, h.market)))
+    batch.forEach((h, k) => {
+      if (Object.keys(yps[k]).length >= 2) priced.push({ ticker: h.ticker, name: h.name, market: h.market, costW: h.costW, core: h.core, yp: yps[k] })
     })
   }
+  const holds = holdsInput   // 커버리지 표기용(총 입력 종목 수)
   const [spy, kodex] = await Promise.all([yearPrices(base, 'SPY', 'US'), yearPrices(base, '069500', 'KR')])
   if (priced.length === 0 || Object.keys(spy).length < 2) return NextResponse.json({ error: 'insufficient_history' }, { status: 200 })
 
@@ -154,7 +180,8 @@ export async function GET(req: Request) {
 
   const vsB = lastTotal - lastBench
   const beat = vsB >= 0
-  let insight = `${startYear}년에 1,000만 원으로 지금 내 자산관리에 담긴 종목(직접 추가 + 퀀트 빌더 복사분 포함)을 샀다면, ${endYear}년 현재 약 ${Math.round(lastTotal / 1e4).toLocaleString('ko-KR')}만 원입니다(연복리 ${mk(lastTotal).cagrPct}%). 같은 기간 시장(벤치마크)은 ${Math.round(lastBench / 1e4).toLocaleString('ko-KR')}만 원 — 내 종목 선택이 시장을 ${beat ? `${Math.round(Math.abs(vsB) / 1e4).toLocaleString('ko-KR')}만 원 이겼습니다` : `${Math.round(Math.abs(vsB) / 1e4).toLocaleString('ko-KR')}만 원 밑돌았습니다`}.`
+  const subject = source === 'quant' ? 'AI 퀀트 빌더가 추천한 종목' : '지금 내가 실제 보유한 종목'
+  let insight = `${startYear}년에 1,000만 원으로 ${subject}을 샀다면, ${endYear}년 현재 약 ${Math.round(lastTotal / 1e4).toLocaleString('ko-KR')}만 원입니다(연복리 ${mk(lastTotal).cagrPct}%). 같은 기간 시장(벤치마크)은 ${Math.round(lastBench / 1e4).toLocaleString('ko-KR')}만 원 — 내 종목 선택이 시장을 ${beat ? `${Math.round(Math.abs(vsB) / 1e4).toLocaleString('ko-KR')}만 원 이겼습니다` : `${Math.round(Math.abs(vsB) / 1e4).toLocaleString('ko-KR')}만 원 밑돌았습니다`}.`
   if (lastCore != null && lastSat != null) {
     const coreR = lastCore / START_CAPITAL - 1, satR = lastSat / START_CAPITAL - 1
     insight += ` 수익의 견인차는 ${satR > coreR ? 'Satellite(성장·테마)' : 'Core(ETF·우량주)'} 쪽이었고(Core ${Math.round(coreR * 100)}% vs Satellite ${Math.round(satR * 100)}%), 변동성은 Satellite가 더 컸습니다. 이 기간 주가를 끌어올린 것은 실시간 뉴스가 아니라 기업들이 매년 쌓은 이익(EPS)의 누적이었습니다.`
@@ -169,8 +196,9 @@ export async function GET(req: Request) {
       bench: mk(lastBench),
     },
     insight,
-    coverage: `보유 ${holds.length}종목 중 ${inc.length}종목 반영(나머지는 ${startYear}년 이후 상장·데이터 없음으로 제외)`,
+    coverage: `${source === 'quant' ? '추천' : '보유'} ${holds.length}종목 중 ${inc.length}종목 반영(나머지는 ${startYear}년 이후 상장·데이터 없음으로 제외)`,
     benchLabel: krCost > 0 && usCost > 0 ? `벤치마크 = S&P500 ${Math.round(benchUsW * 100)}% + KOSPI200 ${Math.round(benchKrW * 100)}%(내 시장 비중 혼합)` : usCost > 0 ? '벤치마크 = S&P500' : '벤치마크 = KOSPI200',
+    source,
     asOf: new Date().toISOString(),
   }
   await setCache(cacheKey, result)

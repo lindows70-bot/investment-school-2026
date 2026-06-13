@@ -20,13 +20,14 @@ export default function PortfolioTimeMachine() {
   const [d, setD] = useState<BacktestResult | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [source, setSource] = useState<'real' | 'quant'>('real')   // 내 실제 보유 ↔ AI 퀀트 빌더 추천
   const [active, setActive] = useState<Record<string, boolean>>({ total: true, core: true, sat: true, bench: true })
 
   useEffect(() => {
     let alive = true
     const load = () => {
       setLoading(true)
-      fetch('/api/portfolio-backtest', { cache: 'no-store' })
+      fetch(`/api/portfolio-backtest?source=${source}`, { cache: 'no-store' })
         .then(r => r.json()).then(j => { if (!alive) return; if (j.error) { setErr(j.error); setD(null) } else { setErr(null); setD(j) } })
         .catch(() => { if (alive) { setErr('fetch'); setD(null) } })
         .finally(() => { if (alive) setLoading(false) })
@@ -34,12 +35,31 @@ export default function PortfolioTimeMachine() {
     load()
     window.addEventListener('portfolio-updated', load)
     return () => { alive = false; window.removeEventListener('portfolio-updated', load) }
-  }, [])
+  }, [source])
 
-  if (loading) return <div style={{ background: CARD, borderRadius: 14, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa', fontSize: 12 }}>⏳ 내 종목의 5개년 실데이터를 불러오는 중…(최초 1회 다소 소요)</div>
-  if (err === 'no_holdings') return <div style={{ background: CARD, borderRadius: 14, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa', fontSize: 12 }}>분석할 보유 종목이 없습니다 — 자산관리에서 종목을 추가하면 5개년 타임머신이 작동합니다.</div>
-  if (err === 'insufficient_history' || err) return <div style={{ background: CARD, borderRadius: 14, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa', fontSize: 12 }}>5개년 백테스트에 필요한 과거 가격 데이터가 부족합니다(최근 상장 종목 위주이거나 데이터 소스 일시 오류).</div>
-  if (!d) return null
+  // 출처 토글 — 항상 보이도록 별도 렌더(로딩/에러 상태에서도 전환 가능)
+  const SourceToggle = (
+    <div style={{ display: 'inline-flex', gap: 4, background: '#0f172a', padding: 4, borderRadius: 9, border: `1px solid ${BORDER}` }}>
+      {([['real', '🧑‍💼 내 실제 포트폴리오'], ['quant', '🛰️ AI 퀀트 빌더 추천']] as const).map(([k, label]) => (
+        <button key={k} type="button" onClick={() => setSource(k)}
+          style={{ padding: '5px 12px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 11.5, fontWeight: 700,
+            background: source === k ? '#1e293b' : 'transparent', color: source === k ? (k === 'real' ? '#10b981' : '#22d3ee') : '#8599ae' }}>{label}</button>
+      ))}
+    </div>
+  )
+  const Frame = (inner: React.ReactNode) => (
+    <div style={{ background: CARD, borderRadius: 14, border: `1px solid ${BORDER}`, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        <span style={{ fontSize: 13, fontWeight: 800, color: '#f1f5f9' }}>⏳ 투자 타임머신</span>{SourceToggle}
+      </div>
+      {inner}
+    </div>
+  )
+
+  if (loading) return Frame(<div style={{ color: '#8a9aaa', fontSize: 12 }}>⏳ {source === 'quant' ? '퀀트 빌더 추천안' : '내 보유 종목'}의 실데이터를 불러오는 중…(최초 1회 다소 소요)</div>)
+  if (err === 'no_holdings') return Frame(<div style={{ color: '#8a9aaa', fontSize: 12 }}>{source === 'quant' ? '퀀트 빌더 추천 데이터를 준비 중입니다 — 잠시 후 다시 시도해주세요.' : '분석할 보유 종목이 없습니다 — 자산관리에서 종목을 추가하면 타임머신이 작동합니다.'}</div>)
+  if (err === 'insufficient_history' || err) return Frame(<div style={{ color: '#8a9aaa', fontSize: 12 }}>백테스트에 필요한 과거 가격 데이터가 부족합니다(최근 상장 종목 위주이거나 데이터 소스 일시 오류).</div>)
+  if (!d) return Frame(null)
 
   const cards = [
     { k: 'total', label: '내 포트폴리오', s: d.summary.total, color: '#10b981' },
@@ -55,16 +75,20 @@ export default function PortfolioTimeMachine() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <span style={{ fontSize: 18 }}>⏳</span>
-            <span style={{ fontSize: 14, fontWeight: 800, color: '#f1f5f9' }}>투자 타임머신 — 내 종목 {Number(d.endYear) - Number(d.startYear) + 1}개년 실데이터 백테스트</span>
+            <span style={{ fontSize: 14, fontWeight: 800, color: '#f1f5f9' }}>투자 타임머신 — {d.source === 'quant' ? 'AI 퀀트 빌더 추천' : '내 실제 포트폴리오'} {Number(d.endYear) - Number(d.startYear) + 1}개년 백테스트</span>
           </div>
           <div style={{ fontSize: 11, color: '#7f93a8' }}>{d.startYear}년 초 1,000만 원 투자 가정 · {d.benchLabel}</div>
-          <div style={{ marginTop: 5, display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.25)', borderRadius: 6, padding: '3px 9px' }}>
+          <div style={{ marginTop: 5, display: 'inline-flex', alignItems: 'center', gap: 5, background: d.source === 'quant' ? 'rgba(34,211,238,0.08)' : 'rgba(16,185,129,0.08)', border: `1px solid ${d.source === 'quant' ? 'rgba(34,211,238,0.25)' : 'rgba(16,185,129,0.25)'}`, borderRadius: 6, padding: '3px 9px' }}>
             <span style={{ fontSize: 11 }}>📌</span>
-            <span style={{ fontSize: 10.5, color: '#9fd6e3', lineHeight: 1.5 }}>
-              분석 대상 = <b>&lsquo;자산관리&rsquo;에 등록된 현재 내 보유 종목 전체</b> — 직접 추가한 종목과 🛰️퀀트 빌더에서 &lsquo;복사하기&rsquo;로 담은 종목이 모두 포함됩니다.
+            <span style={{ fontSize: 10.5, color: d.source === 'quant' ? '#9fd6e3' : '#86efac', lineHeight: 1.5 }}>
+              {d.source === 'quant'
+                ? <>분석 대상 = <b>🛰️ AI 퀀트 빌더가 추천한 가상 포트폴리오</b> — 내 실제 계좌와 무관하며, DB에 저장되지 않습니다.</>
+                : <>분석 대상 = <b>&lsquo;자산관리&rsquo;에 등록된 내 실제 보유 종목</b> — 퀀트 빌더 추천안을 보려면 우측 토글을 누르세요.</>}
             </span>
           </div>
         </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+        {SourceToggle}
         {/* 라인 토글 */}
         <div style={{ display: 'flex', gap: 4, background: '#0f172a', padding: 4, borderRadius: 9, flexWrap: 'wrap' }}>
           {LINES.filter(l => l.key === 'total' || l.key === 'bench' || cards.some(c => c.k === l.key)).map(l => (
@@ -72,6 +96,7 @@ export default function PortfolioTimeMachine() {
               style={{ padding: '5px 11px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700,
                 background: active[l.key] ? '#1e293b' : 'transparent', color: active[l.key] ? l.color : '#8599ae' }}>{l.name.replace(/ \(.*/, '')}</button>
           ))}
+        </div>
         </div>
       </div>
 
@@ -120,7 +145,7 @@ export default function PortfolioTimeMachine() {
       </div>
 
       <div style={{ padding: '0 20px 16px', color: '#6e7f8f', fontSize: 10, lineHeight: 1.6 }}>
-        ※ {d.coverage} · 연도별 실제 평균가(Yahoo·Naver) 기준 · {d.benchLabel} · <b>현재 보유 종목을 과거에 그대로 보유했다고 가정</b>(생존편향·후견편파 존재 — 과거 성과가 미래를 보장하지 않음) · 매매·세금·배당 재투자 미반영 · 교육용 시뮬레이션이며 투자 추천이 아닙니다.
+        ※ {d.coverage} · 연도별 실제 평균가(Yahoo·Naver) 기준 · {d.benchLabel} · <b>{d.source === 'quant' ? '오늘 기준으로 선정된 추천 종목을 과거에 보유했다고 가정' : '현재 보유 종목을 과거에 그대로 보유했다고 가정'}</b>(생존편향·후견편파 존재 — 과거 성과가 미래를 보장하지 않음{d.source === 'quant' ? ', 추천은 현재 시점 선정이라 편파가 특히 큼' : ''}) · 매매·세금·배당 재투자 미반영 · 교육용 시뮬레이션이며 투자 추천이 아닙니다.
       </div>
     </div>
   )

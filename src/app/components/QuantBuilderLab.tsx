@@ -60,8 +60,8 @@ export default function QuantBuilderLab() {
   const [d, setD] = useState<QuantBuilderResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [amountEok, setAmountEok] = useState('1')   // 억 단위 입력(기본 1억)
-  const [copying, setCopying] = useState(false)
-  const [copyMsg, setCopyMsg] = useState<string | null>(null)
+  const [cleaning, setCleaning] = useState(false)
+  const [cleanMsg, setCleanMsg] = useState<string | null>(null)
   const [openSat, setOpenSat] = useState<string | null>(null)
 
   useEffect(() => {
@@ -78,24 +78,18 @@ export default function QuantBuilderLab() {
     return isFinite(v) && v > 0 ? Math.round(v * 1e8) : 1e8
   }, [amountEok])
 
-  const onCopy = async () => {
-    if (!d) return
-    const names = [...d.core.map(c => c.ticker), ...d.satellites.map(s => s.name)].join(', ')
-    if (!window.confirm(`처방전 ${d.core.length + d.satellites.length}종(${names})을 ${fmtWon(amountKrw)}원 기준으로 내 포트폴리오에 가상 편입합니다.\n현재가가 매입가로 기록되며, 이미 보유한 티커는 건너뜁니다. 진행할까요?`)) return
-    setCopying(true); setCopyMsg(null)
+  // 과거 '복사하기'로 실제 포트에 섞여 들어간 가상 종목 정리(오염 복구)
+  const onCleanup = async () => {
+    if (!window.confirm('과거 ‘복사하기’로 내 자산관리에 들어간 AI 퀀트 빌더 가상 종목을 모두 삭제합니다.\n(직접 추가한 실제 종목은 표식이 없어 영향받지 않습니다.) 진행할까요?')) return
+    setCleaning(true); setCleanMsg(null)
     try {
-      const r = await fetch('/api/quant-builder/copy', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amountKrw }),
-      })
+      const r = await fetch('/api/quant-builder/cleanup', { method: 'POST' })
       const j = await r.json()
-      if (j.error) setCopyMsg('❌ 복사 실패 — 잠시 후 다시 시도해주세요.')
-      else {
-        setCopyMsg(`✅ ${j.added.length}종 편입 완료${j.skippedHeld.length ? ` · 이미 보유 ${j.skippedHeld.length}종 건너뜀(${j.skippedHeld.slice(0, 3).join(', ')}${j.skippedHeld.length > 3 ? '…' : ''})` : ''}${j.skippedNoPrice.length ? ` · 가격 미확인 ${j.skippedNoPrice.length}종 제외` : ''}`)
-        window.dispatchEvent(new Event('portfolio-updated'))
-      }
-    } catch { setCopyMsg('❌ 복사 실패 — 네트워크를 확인해주세요.') }
-    setCopying(false)
+      if (j.error) setCleanMsg('❌ 정리 실패 — 잠시 후 다시 시도해주세요.')
+      else if (j.removed === 0) setCleanMsg('✅ 정리할 가상 종목이 없습니다(이미 깨끗합니다).')
+      else { setCleanMsg(`✅ 가상 종목 ${j.removed}종 삭제 완료 — 실제 포트폴리오가 복구됐습니다.`); window.dispatchEvent(new Event('portfolio-updated')) }
+    } catch { setCleanMsg('❌ 정리 실패 — 네트워크를 확인해주세요.') }
+    setCleaning(false)
   }
 
   if (loading) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa', fontSize: 12 }}>🛰️ 퀀트 빌더가 시장 국면과 3축 데이터를 수집 중…(최초 1회 최대 1분)</div>
@@ -257,18 +251,24 @@ export default function QuantBuilderLab() {
             ⚖️ {d.unallocatedNote}
           </div>
         )}
-        {/* 복사 버튼 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-          <button onClick={onCopy} disabled={copying}
-            style={{ background: 'linear-gradient(135deg,#0e7490,#7c3aed)', color: '#fff', border: 'none', borderRadius: 9, padding: '9px 18px', fontSize: 12.5, fontWeight: 800, cursor: copying ? 'wait' : 'pointer', opacity: copying ? 0.6 : 1 }}>
-            {copying ? '편입 중…' : '📋 내 포트폴리오로 복사하기 (가상 트래킹)'}
-          </button>
-          {copyMsg && <span style={{ color: '#aab6c4', fontSize: 11.5 }}>{copyMsg}</span>}
+        {/* 백테스트 안내 + 가상 종목 정리(오염 복구) */}
+        <div style={{ marginTop: 12, background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.25)', borderRadius: 9, padding: '10px 13px' }}>
+          <div style={{ color: '#9fd6e3', fontSize: 11.5, lineHeight: 1.7 }}>
+            📊 이 추천안의 과거 성과가 궁금하면 — <b>‘투자 타임머신’ 탭 → [🛰️ AI 퀀트 빌더 추천] 토글</b>로 확인하세요. 이 추천안은 <b>내 실제 계좌(자산관리)에 저장되지 않습니다</b>(혼재·오염 없음).
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 9, flexWrap: 'wrap' }}>
+            <button onClick={onCleanup} disabled={cleaning}
+              style={{ background: 'transparent', color: '#fca5a5', border: '1px solid rgba(248,113,113,0.45)', borderRadius: 8, padding: '6px 13px', fontSize: 11.5, fontWeight: 700, cursor: cleaning ? 'wait' : 'pointer', opacity: cleaning ? 0.6 : 1 }}>
+              {cleaning ? '정리 중…' : '🧹 예전에 복사된 가상 종목 정리하기'}
+            </button>
+            <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>이전 버전의 ‘복사하기’로 실제 포트에 섞인 가상 종목이 있다면 제거합니다.</span>
+            {cleanMsg && <span style={{ color: '#aab6c4', fontSize: 11.5 }}>{cleanMsg}</span>}
+          </div>
         </div>
       </div>
 
       <div style={{ color: '#6e7f8f', fontSize: 10, lineHeight: 1.6 }}>
-        ※ 실제 매매 연동은 하지 않습니다 — 복사 시 현재가가 가상 매입가로 기록될 뿐입니다 · 위성 점수는 통합추천(③)과 동일한 SSOT(계절×가치×수급 + 기저효과 가드) · Core 배분은 4계절 국면 연동 교육용 룰 ·
+        ※ 실제 매매 연동은 하지 않으며, 이 추천안은 내 실제 계좌에 저장되지 않습니다(혼재 없음) — 성과는 타임머신 탭에서 별도 백테스트 · 위성 점수는 통합추천(③)과 동일한 SSOT(계절×가치×수급 + 기저효과 가드) · Core 배분은 4계절 국면 연동 교육용 룰 ·
         📈 스파크라인=최근 1년 주봉, 📍 52주 게이지=현재가가 52주 밴드의 어디인지(0%=최저, 100%=최고 — 바닥권일수록 싸게 사는 것, 신고가권은 추격 매수 주의) · 12h 캐시 · 교육용이며 투자 추천이 아닙니다.
       </div>
     </div>
