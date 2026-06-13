@@ -2982,6 +2982,10 @@ export default function DashboardPage() {
         <ErrorBoundary label="글로벌 시총 Top 10">
           <GlobalTop10 />
         </ErrorBoundary>
+        {/* 🏛️ 국민연금 자산현황 — '시총 거인 기업' 옆에 '거인 투자자의 장바구니'를 나란히(거시경제 탭에서 이관) */}
+        <ErrorBoundary label="국민연금 포트폴리오">
+          <NpsPortfolio />
+        </ErrorBoundary>
       </div>
 
       {/* ── 🧭 4계절 매크로 내비게이터 탭 ── */}
@@ -3129,9 +3133,6 @@ export default function DashboardPage() {
         </ErrorBoundary>
         <ErrorBoundary label="칵테일 파티 지수">
           <CocktailPartyGauge />
-        </ErrorBoundary>
-        <ErrorBoundary label="국민연금 포트폴리오">
-          <NpsPortfolio />
         </ErrorBoundary>
         <ErrorBoundary label="거시경제 대시보드">
           <MacroDashboard />
