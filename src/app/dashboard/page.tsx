@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   LineChart, Line, XAxis, YAxis, CartesianGrid, Area, AreaChart,
-  Treemap, Bar, Cell as BarCell, ReferenceLine, ReferenceDot, LabelList,
+  Treemap, Bar, Cell as BarCell, ReferenceLine, LabelList,
   ComposedChart
 } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
@@ -31,6 +31,7 @@ import NewsCatalystRadar          from '@/app/components/NewsCatalystRadar'
 import AiRebalancePanel           from '@/app/components/AiRebalancePanel'
 import QuantBuilderLab            from '@/app/components/QuantBuilderLab'
 import MarketCatalystBanner       from '@/app/components/MarketCatalystBanner'
+import PortfolioTimeMachine       from '@/app/components/PortfolioTimeMachine'
 import PortfolioFlowDashboard     from '@/app/components/PortfolioFlowDashboard'
 import MarketFlowKr               from '@/app/components/MarketFlowKr'
 import PortfolioRecoKr            from '@/app/components/PortfolioRecoKr'
@@ -287,36 +288,7 @@ const Card = ({ children, style = {} }: { children: React.ReactNode; style?: Rea
 // ★ 하드코딩 종목 완전 제거 — 사용자가 직접 등록한 데이터만 흘려보냄
 // const MENTOR_STOCKS = []  ← 빈 배열로 대체 (아래 AIPortfolioDashboard에 [] 직접 전달)
 
-// ─── 백테스팅 데이터 (2021.Q1~2026.Q1, 초기 투자금 1,000만 원) ───────────────
-const BACKTEST_DATA = [
-  { date:'21.Q1', rebalanceQ:1000, rebalanceY:1000, buyAndHold:1000, benchmark:1000 },
-  { date:'21.Q2', rebalanceQ:1080, rebalanceY:1080, buyAndHold:1100, benchmark:1050 },
-  { date:'21.Q3', rebalanceQ:1120, rebalanceY:1110, buyAndHold:1150, benchmark:1070 },
-  { date:'21.Q4', rebalanceQ:1180, rebalanceY:1170, buyAndHold:1240, benchmark:1120 },
-  { date:'22.Q1', rebalanceQ:1100, rebalanceY:1080, buyAndHold:1050, benchmark:1040 },
-  { date:'22.Q2', rebalanceQ:1020, rebalanceY:980,  buyAndHold:880,  benchmark:920  },
-  { date:'22.Q3', rebalanceQ:980,  rebalanceY:930,  buyAndHold:810,  benchmark:860  },
-  { date:'22.Q4', rebalanceQ:1040, rebalanceY:990,  buyAndHold:890,  benchmark:910  },
-  { date:'23.Q1', rebalanceQ:1110, rebalanceY:1060, buyAndHold:980,  benchmark:970  },
-  { date:'23.Q2', rebalanceQ:1190, rebalanceY:1140, buyAndHold:1080, benchmark:1030 },
-  { date:'23.Q3', rebalanceQ:1220, rebalanceY:1160, buyAndHold:1120, benchmark:1050 },
-  { date:'23.Q4', rebalanceQ:1310, rebalanceY:1240, buyAndHold:1250, benchmark:1140 },
-  { date:'24.Q1', rebalanceQ:1420, rebalanceY:1350, buyAndHold:1380, benchmark:1220 },
-  { date:'24.Q2', rebalanceQ:1490, rebalanceY:1410, buyAndHold:1450, benchmark:1260 },
-  { date:'24.Q3', rebalanceQ:1530, rebalanceY:1440, buyAndHold:1480, benchmark:1280 },
-  { date:'24.Q4', rebalanceQ:1620, rebalanceY:1530, buyAndHold:1590, benchmark:1350 },
-  { date:'25.Q1', rebalanceQ:1710, rebalanceY:1610, buyAndHold:1680, benchmark:1410 },
-  { date:'25.Q2', rebalanceQ:1780, rebalanceY:1670, buyAndHold:1740, benchmark:1450 },
-  { date:'25.Q3', rebalanceQ:1820, rebalanceY:1710, buyAndHold:1760, benchmark:1470 },
-  { date:'25.Q4', rebalanceQ:1940, rebalanceY:1820, buyAndHold:1890, benchmark:1540 },
-  { date:'26.Q1', rebalanceQ:2080, rebalanceY:1940, buyAndHold:1980, benchmark:1620 },
-]
-const BACKTEST_SUMMARY = [
-  { key:'rebalanceQ' as const, name:'분기별 리밸런싱', final:'2,080만', ret:'+108.0%', mdd:'-16.9%', color:'#10b981' },
-  { key:'rebalanceY' as const, name:'연간 리밸런싱',   final:'1,940만', ret:'+94.0%',  mdd:'-20.5%', color:'#818cf8' },
-  { key:'buyAndHold' as const, name:'단순 보유 (방치)',final:'1,980만', ret:'+98.0%',  mdd:'-34.6%', color:'#f87171' },
-  { key:'benchmark'  as const, name:'시장 평균 지수',  final:'1,620만', ret:'+62.0%',  mdd:'-18.1%', color:'#7f93a8' },
-]
+// (백테스트 하드코딩 데이터 제거 — 내 실보유 종목 실데이터는 PortfolioTimeMachine/api/portfolio-backtest로 이관, 제1원칙)
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
   <div style={{ fontSize:12, fontWeight:700, color:'#a8b5c2', padding:'14px 18px 0', letterSpacing:'0.04em', textTransform:'uppercase' as const }}>
     {children}
@@ -683,126 +655,12 @@ export default function DashboardPage() {
   }>>({})
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
-  const [btActive,  setBtActive]  = useState({ rebalanceQ:true, rebalanceY:false, buyAndHold:true, benchmark:true })
   const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder'>('live')
   const [flowView, setFlowView] = useState<'mine' | 'market' | 'reco' | 'unified'>('mine')
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
   // ── AI 멘토 탭: MENTOR_STOCKS 제거 후 컴포넌트에 빈 배열 전달 ──
   // 실제 종목 데이터(PER/성장률)가 API에서 수집되면 여기에 연동 예정
-
-  // ── 버튼 조합별 동적 인사이트 패널 ─────────────────────────────
-  const renderBtInsight = () => {
-    const { rebalanceQ, rebalanceY, buyAndHold } = btActive
-    const none = !rebalanceQ && !rebalanceY && !buyAndHold
-
-    // 아무것도 선택 안 했을 때
-    if (none) return (
-      <div style={{ marginTop:12, display:'flex', gap:8, padding:'11px 14px', borderRadius:9, background:'rgba(100,116,139,0.08)', border:'1px solid rgba(100,116,139,0.2)' }}>
-        <span style={{ fontSize:16 }}>💡</span>
-        <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.7 }}>
-          <b style={{ color:'#cbd5e1' }}>비교 분석 가이드:</b>{' '}
-          상단 전략 버튼을 2개 이상 켜서 대조해 보세요. 리밸런싱 유무와 주기에 따라 하락장 방어력과 최종 자산 규모가 어떻게 달라지는지 실시간으로 확인할 수 있습니다.
-        </div>
-      </div>
-    )
-
-    // Case 1: 3개 모두 (종합 비교)
-    if (rebalanceQ && rebalanceY && buyAndHold) return (
-      <div style={{ marginTop:12, display:'flex', gap:8, padding:'11px 14px', borderRadius:9, background:'rgba(99,102,241,0.09)', border:'1px solid rgba(99,102,241,0.25)' }}>
-        <span style={{ fontSize:16 }}>🔍</span>
-        <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.7 }}>
-          <b style={{ color:'#818cf8' }}>전체 전략 종합 비교 레포트:</b><br />
-          분기 리밸런싱(+108%) &gt; 단순 보유(+98%) &gt; 연간 리밸런싱(+94%) 순으로 성과가 갈립니다.
-          특히 2022년 하락장 당시 분기 리밸런싱의 MDD는{' '}
-          <b style={{ color:'#10b981' }}>-16.9%</b>로 방치형(<b style={{ color:'#f87171' }}>-34.6%</b>)의 절반 수준에 불과했습니다.
-          리스크를 절반으로 낮추면서도 최종 수익은 더 높이는 것이 가능함을 5년 데이터가 증명합니다.
-        </div>
-      </div>
-    )
-
-    // Case 2: 분기 + 단순 보유 (핵심 교육 뷰)
-    if (rebalanceQ && !rebalanceY && buyAndHold) return (
-      <div style={{ marginTop:12, display:'flex', gap:8, padding:'11px 14px', borderRadius:9, background:'rgba(251,191,36,0.07)', border:'1px solid rgba(251,191,36,0.25)' }}>
-        <span style={{ fontSize:16 }}>⚠️</span>
-        <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.7 }}>
-          <b style={{ color:'#fbbf24' }}>리밸런싱 vs 단순 방치 결정적 차이:</b><br />
-          2022년 하락장 저점(빨간 점)을 복기해 보세요. 방치한 계좌는 고점 대비{' '}
-          <b style={{ color:'#f87171' }}>-34.6%</b> 폭락하며 심리적 한계에 부딪힙니다.
-          반면 분기별 리밸런싱(초록선)은 하락폭을 <b style={{ color:'#10b981' }}>-16.9%</b>로 철저히 방어하고,
-          이때 싼 가격에 자동 매집된 주식들 덕분에 상승장이 오자마자 훨씬 빠르게 복리 성장했습니다.
-        </div>
-      </div>
-    )
-
-    // Case 3: 분기 + 연간 (주기 비교)
-    if (rebalanceQ && rebalanceY && !buyAndHold) return (
-      <div style={{ marginTop:12, display:'flex', gap:8, padding:'11px 14px', borderRadius:9, background:'rgba(16,185,129,0.08)', border:'1px solid rgba(16,185,129,0.25)' }}>
-        <span style={{ fontSize:16 }}>🔄</span>
-        <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.7 }}>
-          <b style={{ color:'#34d399' }}>리밸런싱 주기(빈도)의 비밀:</b><br />
-          연간 1회(보라선)보다 분기별 1회(초록선)로 더 자주 조정하면 2022년 같은 급변 장세에서 훨씬 유리합니다.
-          분기 조율은 시장이 일시적으로 과도하게 눌리는 구간을 기민하게 포착하여,
-          연간 리밸런싱 대비 최종 성과를 약{' '}
-          <b style={{ color:'#34d399' }}>14%p 이상</b> 앞서 나가게 만듭니다.
-        </div>
-      </div>
-    )
-
-    // Case 4: 연간 + 단순 보유
-    if (!rebalanceQ && rebalanceY && buyAndHold) return (
-      <div style={{ marginTop:12, display:'flex', gap:8, padding:'11px 14px', borderRadius:9, background:'rgba(168,85,247,0.08)', border:'1px solid rgba(168,85,247,0.25)' }}>
-        <span style={{ fontSize:16 }}>📊</span>
-        <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.7 }}>
-          <b style={{ color:'#c084fc' }}>연간 관리와 무관심의 차이:</b><br />
-          일 년에 딱 한 번만 리밸런싱해도(보라선) 방치(빨간선)보다 변동성(MDD: -20.5% vs -34.6%)을 크게 낮출 수 있습니다.
-          다만 1년이라는 긴 주기 때문에 하락장 한가운데서 발생하는 저가 매수 기회를 놓쳐 최종 수익률은 다소 아쉽게 마감됩니다.
-        </div>
-      </div>
-    )
-
-    // Case 5: 분기 리밸런싱 단독
-    if (rebalanceQ && !rebalanceY && !buyAndHold) return (
-      <div style={{ marginTop:12, display:'flex', gap:8, padding:'11px 14px', borderRadius:9, background:'rgba(16,185,129,0.07)', border:'1px solid rgba(16,185,129,0.25)' }}>
-        <span style={{ fontSize:16 }}>🟢</span>
-        <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.7 }}>
-          <b style={{ color:'#10b981' }}>분기별 리밸런싱 전략:</b><br />
-          3개월마다 자산 비중을 원래 목표대로 맞춰주는 전략입니다.
-          오를 때 일부 이익 실현, 떨어질 때 기계적으로 분할 매수하는 효과가 자동 발생하여
-          장기 우상향 포트폴리오의 복리 에너지를 극대화하는 최고의 처방전입니다.
-        </div>
-      </div>
-    )
-
-    // Case 6: 단순 보유 단독
-    if (!rebalanceQ && !rebalanceY && buyAndHold) return (
-      <div style={{ marginTop:12, display:'flex', gap:8, padding:'11px 14px', borderRadius:9, background:'rgba(248,113,113,0.08)', border:'1px solid rgba(248,113,113,0.25)' }}>
-        <span style={{ fontSize:16 }}>🔴</span>
-        <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.7 }}>
-          <b style={{ color:'#f87171' }}>단순 보유(Buy & Hold) 무방비 상태:</b><br />
-          좋은 종목이라도 관리를 전혀 하지 않으면 변동성 폭탄을 정면으로 맞습니다.
-          2022년 구간처럼 자산이 <b style={{ color:'#f87171' }}>-34.6%</b>까지 주저앉는 고통을 겪게 되어,
-          투자학교 학생들에게 자산 배분과 주기적 리밸런싱이 왜 생명줄인지 경고합니다.
-        </div>
-      </div>
-    )
-
-    // Case 7: 연간 리밸런싱 단독
-    if (!rebalanceQ && rebalanceY && !buyAndHold) return (
-      <div style={{ marginTop:12, display:'flex', gap:8, padding:'11px 14px', borderRadius:9, background:'rgba(168,85,247,0.07)', border:'1px solid rgba(168,85,247,0.25)' }}>
-        <span style={{ fontSize:16 }}>📅</span>
-        <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.7 }}>
-          <b style={{ color:'#c084fc' }}>연간 리밸런싱 전략:</b><br />
-          1년에 한 번 리밸런싱하는 전략은 관리 부담이 적어 바쁜 직장인에게 적합합니다.
-          단순 방치보다는 분명히 낫지만, 분기별 조정에 비해 급변 장세 대응이 늦어 기회 비용이 발생합니다.
-          입문 단계 전략으로는 충분하며, 익숙해지면 분기별로 업그레이드를 권장합니다.
-        </div>
-      </div>
-    )
-
-    // 기타 (benchmark만 등)
-    return null
-  }
 
   // 5초 타임아웃
   useEffect(() => {
@@ -2996,83 +2854,11 @@ export default function DashboardPage() {
 
       </div>  {/* 실시간 대시보드 탭 끝 */}
 
-      {/* ── 투자 타임머신 탭 ── */}
+      {/* ── 투자 타임머신 탭 — 내 실제 보유 종목 5개년 실데이터 백테스트(하드코딩 제거, 제1원칙) ── */}
       <div id="tab-backtest" style={{ display: dashTab==='backtest' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
-      <Card>
-        <div style={{ padding:'16px 20px 0', display:'flex', flexWrap:'wrap', gap:12, alignItems:'flex-start', justifyContent:'space-between' }}>
-          <div>
-            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-              <span style={{ fontSize:18 }}>⏳</span>
-              <span style={{ fontSize:14, fontWeight:800, color:'#f1f5f9', letterSpacing:'-0.3px' }}>투자 타임머신 — 과거 5개년 백테스팅 시뮬레이터</span>
-            </div>
-            <div style={{ fontSize:11, color:'#7f93a8' }}>2021년 초에 1,000만 원 투자 가정 · 리밸런싱 여부에 따른 자산 성장 추이 비교</div>
-          </div>
-          <div style={{ display:'flex', gap:4, background:'#0f172a', padding:'4px', borderRadius:9, flexWrap:'wrap' }}>
-            {([
-              { key:'rebalanceQ' as const, label:'분기 리밸런싱', color:'#10b981' },
-              { key:'rebalanceY' as const, label:'연간 리밸런싱', color:'#818cf8' },
-              { key:'buyAndHold' as const, label:'단순 방치',     color:'#f87171' },
-            ]).map(({ key, label, color }) => (
-              <button key={key} type="button" onClick={() => setBtActive(p => ({ ...p, [key]: !p[key] }))}
-                style={{ padding:'5px 11px', borderRadius:7, border:'none', cursor:'pointer', fontSize:11, fontWeight:700, transition:'all 0.15s',
-                  background: btActive[key] ? '#1e293b' : 'transparent', color: btActive[key] ? color : '#8599ae',
-                  boxShadow: btActive[key] ? '0 1px 4px rgba(0,0,0,0.4)' : 'none' }}>{label}</button>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, padding:'14px 20px 0' }}>
-          {BACKTEST_SUMMARY.map(s => {
-            const on = btActive[s.key]
-            return (
-              <div key={s.key} onClick={() => setBtActive(p => ({ ...p, [s.key]: !p[s.key] }))}
-                style={{ padding:'10px 12px', borderRadius:10, cursor:'pointer', transition:'all 0.2s',
-                  background: on ? '#1e293b' : '#0f172a', border: `1.5px solid ${on ? s.color + '55' : '#1f2937'}`, opacity: on ? 1 : 0.45 }}>
-                <div style={{ fontSize:10, color:'#7f93a8', marginBottom:4 }}>{s.name}</div>
-                <div style={{ fontSize:16, fontWeight:800, color:'#f1f5f9', fontVariantNumeric:'tabular-nums' }}>{s.final}</div>
-                <div style={{ display:'flex', justifyContent:'space-between', marginTop:6, paddingTop:6, borderTop:'1px solid #1f2937', fontSize:10 }}>
-                  <span style={{ fontWeight:700, color: s.color }}>{s.ret}</span>
-                  <span style={{ color:'#8599ae' }}>MDD <b style={{ color:'#94a3b8' }}>{s.mdd}</b></span>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-        <div style={{ padding:'12px 20px 0' }}>
-          <div style={{ background:'#0f172a', borderRadius:12, border:'1px solid #1f2937', padding:'14px 4px 8px' }}>
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={BACKTEST_DATA} margin={{ top:10, right:20, bottom:5, left:10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-                <XAxis dataKey="date" tick={{ fill:'#7f93a8', fontSize:10 }} axisLine={{ stroke:'#1f2937' }} tickLine={false} />
-                <YAxis domain={[700, 2200]} tickFormatter={(v:number) => `${v}만`}
-                  tick={{ fill:'#7f93a8', fontSize:10 }} axisLine={{ stroke:'#1f2937' }} tickLine={false} width={46} />
-                <Tooltip
-                  contentStyle={{ background:'#1e293b', border:'1px solid #7a8fa3', borderRadius:8, fontSize:12 }}
-                  labelStyle={{ color:'#94a3b8', fontWeight:700 }}
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(v: any, name: any) => [`${v}만 원`, String(name)]}
-                />
-                <ReferenceLine x="22.Q1" stroke="#f87171" strokeDasharray="3 3" strokeWidth={1} opacity={0.5}
-                  label={{ value:'22년 하락 시작', position:'insideTopRight', fill:'#f87171', fontSize:9 }} />
-                <ReferenceLine x="23.Q1" stroke="#4ade80" strokeDasharray="3 3" strokeWidth={1} opacity={0.5}
-                  label={{ value:'회복 시작', position:'insideTopLeft', fill:'#4ade80', fontSize:9 }} />
-                {btActive.rebalanceQ && <Line type="monotone" dataKey="rebalanceQ" name="분기별 리밸런싱" stroke="#10b981" strokeWidth={2.5} dot={false} activeDot={{ r:5, fill:'#10b981' }} />}
-                {btActive.rebalanceY && <Line type="monotone" dataKey="rebalanceY" name="연간 리밸런싱"   stroke="#818cf8" strokeWidth={2}   dot={false} activeDot={{ r:4, fill:'#818cf8' }} />}
-                {btActive.buyAndHold && <Line type="monotone" dataKey="buyAndHold" name="단순 보유(방치)" stroke="#f87171" strokeWidth={2.5} dot={false} activeDot={{ r:5, fill:'#f87171' }} />}
-                {btActive.benchmark  && <Line type="monotone" dataKey="benchmark"  name="시장 평균 지수" stroke="#7f93a8" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />}
-                {btActive.buyAndHold && <ReferenceDot x="22.Q3" y={810} r={5} fill="#f87171" stroke="#0f172a" strokeWidth={2} />}
-                {btActive.rebalanceQ && <ReferenceDot x="22.Q3" y={980} r={5} fill="#10b981" stroke="#0f172a" strokeWidth={2} />}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* ── 버튼 조합별 동적 인사이트 패널 ── */}
-        <div style={{ padding:'0 20px 16px' }}>
-          {renderBtInsight()}
-        </div>
-      </Card>
+        <ErrorBoundary label="투자 타임머신">
+          <PortfolioTimeMachine />
+        </ErrorBoundary>
       </div>  {/* 투자 타임머신 탭 끝 */}
 
       {/* ── 레버리지 위험 시뮬레이터 탭 ── */}
