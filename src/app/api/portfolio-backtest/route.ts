@@ -57,7 +57,7 @@ export async function GET(req: Request) {
   // source: real = 내 실제 보유 종목(investments) · quant = AI 퀀트 빌더 추천안(DB 미기록, 직접 백테스트)
   const source = new URL(req.url).searchParams.get('source') === 'quant' ? 'quant' : 'real'
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `portfolio-backtest-v3:${source}:${user.id}:${kstDate()}:${fp}`   // v3: source 토글(실포트/퀀트빌더 분리)
+  const cacheKey = `portfolio-backtest-v4:${source}:${user.id}:${kstDate()}:${fp}`   // v4: 코인·원자재 제외 사실 투명 표기
   const cached = await getCache<BacktestResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -67,6 +67,7 @@ export async function GET(req: Request) {
 
   // ── 출처별 입력 구성 ──────────────────────────────────────────────
   let holdsInput: HoldInput[] = []
+  let assetClassNote = ''   // 코인·원자재 등 비주식 자산 제외 안내(투명성)
   if (source === 'quant') {
     // 퀀트 빌더 추천안을 직접 백테스트(실제 포트 오염 없음). 비중 = 설계 weightPct
     try {
@@ -84,8 +85,16 @@ export async function GET(req: Request) {
     const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
     const { data: rows } = await admin.from('investments')
       .select('ticker,name,market,purchase_price,quantity,currency,lynch_category,asset_role').eq('user_id', user.id)
-    const holds = (rows ?? []).filter(r => { const t = getAssetType(r.ticker, r.name ?? '', r.market ?? ''); return t === 'STOCK' || t === 'ETF' })
+    const all = rows ?? []
+    const holds = all.filter(r => { const t = getAssetType(r.ticker, r.name ?? '', r.market ?? ''); return t === 'STOCK' || t === 'ETF' })
     if (holds.length === 0) return NextResponse.json({ error: 'no_holdings' }, { status: 200 })
+    // 비주식 자산(코인·원자재)은 EPS·시장 대비 비교 대상이 아니라 제외 — 그 사실을 투명하게 표기
+    const cryptoN = all.filter(r => getAssetType(r.ticker, r.name ?? '', r.market ?? '') === 'CRYPTO').length
+    const commN = all.filter(r => getAssetType(r.ticker, r.name ?? '', r.market ?? '') === 'COMMODITY').length
+    const ex: string[] = []
+    if (cryptoN > 0) ex.push(`암호화폐 ${cryptoN}종`)
+    if (commN > 0) ex.push(`원자재 ${commN}종`)
+    assetClassNote = `총 보유 ${all.length}종 중 ${ex.length ? ex.join('·') + '은 가격성격이 달라(EPS·시장지수 비교 불가) 제외하고 ' : ''}주식·ETF ${holds.length}종을 분석`
     // Core 판별 — asset_role 우선, 없으면 ETF/안정 카테고리 폴백(대시보드 isCoreInv와 동일 룰)
     const ETF_CORE = ['TIGER', 'KODEX', 'ACE', 'PLUS', 'KBSTAR', 'HANARO', 'ARIRANG', 'SOL', 'RISE', 'SPY', 'QQQ', 'SCHD', 'VOO', 'IVV']
     const isCore = (r: { name?: string | null; ticker: string; lynch_category?: string | null; asset_role?: string | null }) => {
@@ -196,7 +205,9 @@ export async function GET(req: Request) {
       bench: mk(lastBench),
     },
     insight,
-    coverage: `${source === 'quant' ? '추천' : '보유'} ${holds.length}종목 중 ${inc.length}종목 반영(나머지는 ${startYear}년 이후 상장·데이터 없음으로 제외)`,
+    coverage: source === 'quant'
+      ? `추천 ${holds.length}종목 중 ${inc.length}종목 반영(나머지는 ${startYear}년 이후 상장·데이터 없음으로 제외)`
+      : `${assetClassNote} · 그중 ${inc.length}종목 반영(나머지는 ${startYear}년 이후 상장·데이터 없음으로 제외)`,
     benchLabel: krCost > 0 && usCost > 0 ? `벤치마크 = S&P500 ${Math.round(benchUsW * 100)}% + KOSPI200 ${Math.round(benchKrW * 100)}%(내 시장 비중 혼합)` : usCost > 0 ? '벤치마크 = S&P500' : '벤치마크 = KOSPI200',
     source,
     asOf: new Date().toISOString(),
