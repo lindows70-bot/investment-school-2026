@@ -55,7 +55,7 @@ export default function PortfolioTimeMachine() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <span style={{ fontSize: 18 }}>⏳</span>
-            <span style={{ fontSize: 14, fontWeight: 800, color: '#f1f5f9' }}>투자 타임머신 — 내 종목 5개년 실데이터 백테스트</span>
+            <span style={{ fontSize: 14, fontWeight: 800, color: '#f1f5f9' }}>투자 타임머신 — 내 종목 {Number(d.endYear) - Number(d.startYear) + 1}개년 실데이터 백테스트</span>
           </div>
           <div style={{ fontSize: 11, color: '#7f93a8' }}>{d.startYear}년 초 1,000만 원 투자 가정 · {d.benchLabel}</div>
         </div>
