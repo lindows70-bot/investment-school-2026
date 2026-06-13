@@ -87,7 +87,7 @@ export async function GET(req: Request) {
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // base 유니버스 — macro-ai-picks가 적재한 전체 채점 캐시(없으면 빈 결과 graceful)
-  const screened = await getCache<ScreenedStock[]>('macro-screened-universe:v2', 8 * 24 * 3600_000)
+  const screened = await getCache<ScreenedStock[]>('macro-screened-universe:v3', 8 * 24 * 3600_000)
   if (!screened || screened.length === 0) {
     return NextResponse.json({ weights: W, usSeason: null, krSeason: null, items: [], asOf: new Date().toISOString(), warming: true }, { headers: { 'Cache-Control': 'no-store' } })
   }

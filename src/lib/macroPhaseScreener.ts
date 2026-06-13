@@ -59,7 +59,8 @@ export interface ScreenedStock {
 }
 
 // ── 스크리닝 유니버스 ──────────────────────────────────────────────────────────
-// US 15 + KR 10 = 25개 → 퀀트 스코어링 → 상위 US 7 + KR 5 = 12개
+// US 125 + KR 94 = 약 220개(3차 확장 2026-06) → 퀀트 스코어링 → 통합추천/리밸런싱 후보 풀
+// 코스닥 성장주(소부장·바이오·로봇) 편입으로 숨은 중소형 10배거 포착 범위 확대
 const US_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'NVDA', lynch:'fast_grower', name:'NVIDIA' },
   { ticker:'MSFT', lynch:'stalwart',   name:'Microsoft' },
@@ -123,6 +124,72 @@ const US_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'HON',  lynch:'stalwart',   name:'Honeywell' },
   { ticker:'DE',   lynch:'cyclical',   name:'Deere' },
   { ticker:'COP',  lynch:'cyclical',   name:'ConocoPhillips' },
+  // ── 3차 확장(2026-06) US 60→120 — 반도체장비·SW·헬스케어·금융·산업재·소비 폭 대확장(숨은 성장주 포착) ──
+  { ticker:'LRCX', lynch:'cyclical',   name:'Lam Research' },
+  { ticker:'KLAC', lynch:'cyclical',   name:'KLA' },
+  { ticker:'AMAT', lynch:'cyclical',   name:'Applied Materials' },
+  { ticker:'ADI',  lynch:'cyclical',   name:'Analog Devices' },
+  { ticker:'NXPI', lynch:'cyclical',   name:'NXP Semiconductors' },
+  { ticker:'ON',   lynch:'cyclical',   name:'ON Semiconductor' },
+  { ticker:'MPWR', lynch:'fast_grower',name:'Monolithic Power' },
+  { ticker:'TER',  lynch:'cyclical',   name:'Teradyne' },
+  { ticker:'ARM',  lynch:'fast_grower',name:'Arm Holdings' },
+  { ticker:'SMCI', lynch:'fast_grower',name:'Super Micro' },
+  { ticker:'SNPS', lynch:'fast_grower',name:'Synopsys' },
+  { ticker:'CDNS', lynch:'fast_grower',name:'Cadence' },
+  { ticker:'INTU', lynch:'stalwart',   name:'Intuit' },
+  { ticker:'IBM',  lynch:'stalwart',   name:'IBM' },
+  { ticker:'CSCO', lynch:'stalwart',   name:'Cisco' },
+  { ticker:'ACN',  lynch:'stalwart',   name:'Accenture' },
+  { ticker:'UBER', lynch:'fast_grower',name:'Uber' },
+  { ticker:'ABNB', lynch:'fast_grower',name:'Airbnb' },
+  { ticker:'SHOP', lynch:'fast_grower',name:'Shopify' },
+  { ticker:'SNOW', lynch:'fast_grower',name:'Snowflake' },
+  { ticker:'DDOG', lynch:'fast_grower',name:'Datadog' },
+  { ticker:'NET',  lynch:'fast_grower',name:'Cloudflare' },
+  { ticker:'ZS',   lynch:'fast_grower',name:'Zscaler' },
+  { ticker:'COIN', lynch:'fast_grower',name:'Coinbase' },
+  { ticker:'HOOD', lynch:'fast_grower',name:'Robinhood' },
+  { ticker:'VRTX', lynch:'fast_grower',name:'Vertex Pharma' },
+  { ticker:'REGN', lynch:'fast_grower',name:'Regeneron' },
+  { ticker:'GILD', lynch:'stalwart',   name:'Gilead' },
+  { ticker:'AMGN', lynch:'stalwart',   name:'Amgen' },
+  { ticker:'BMY',  lynch:'stalwart',   name:'Bristol-Myers' },
+  { ticker:'DHR',  lynch:'stalwart',   name:'Danaher' },
+  { ticker:'BSX',  lynch:'fast_grower',name:'Boston Scientific' },
+  { ticker:'MDT',  lynch:'stalwart',   name:'Medtronic' },
+  { ticker:'SYK',  lynch:'stalwart',   name:'Stryker' },
+  { ticker:'ELV',  lynch:'stalwart',   name:'Elevance Health' },
+  { ticker:'C',    lynch:'cyclical',   name:'Citigroup' },
+  { ticker:'USB',  lynch:'cyclical',   name:'US Bancorp' },
+  { ticker:'PNC',  lynch:'cyclical',   name:'PNC Financial' },
+  { ticker:'COF',  lynch:'cyclical',   name:'Capital One' },
+  { ticker:'SPGI', lynch:'stalwart',   name:'S&P Global' },
+  { ticker:'ICE',  lynch:'stalwart',   name:'Intercontinental Exchange' },
+  { ticker:'CME',  lynch:'stalwart',   name:'CME Group' },
+  { ticker:'PGR',  lynch:'stalwart',   name:'Progressive' },
+  { ticker:'CB',   lynch:'stalwart',   name:'Chubb' },
+  { ticker:'PEP',  lynch:'slow_grower',name:'PepsiCo' },
+  { ticker:'SBUX', lynch:'stalwart',   name:'Starbucks' },
+  { ticker:'LOW',  lynch:'stalwart',   name:'Lowe’s' },
+  { ticker:'TJX',  lynch:'stalwart',   name:'TJX' },
+  { ticker:'BKNG', lynch:'fast_grower',name:'Booking' },
+  { ticker:'CMG',  lynch:'fast_grower',name:'Chipotle' },
+  { ticker:'LULU', lynch:'fast_grower',name:'Lululemon' },
+  { ticker:'GE',   lynch:'cyclical',   name:'GE Aerospace' },
+  { ticker:'RTX',  lynch:'stalwart',   name:'RTX' },
+  { ticker:'LMT',  lynch:'stalwart',   name:'Lockheed Martin' },
+  { ticker:'NOC',  lynch:'stalwart',   name:'Northrop Grumman' },
+  { ticker:'UNP',  lynch:'cyclical',   name:'Union Pacific' },
+  { ticker:'UPS',  lynch:'cyclical',   name:'UPS' },
+  { ticker:'EMR',  lynch:'cyclical',   name:'Emerson Electric' },
+  { ticker:'SLB',  lynch:'cyclical',   name:'Schlumberger' },
+  { ticker:'OXY',  lynch:'cyclical',   name:'Occidental' },
+  { ticker:'MPC',  lynch:'cyclical',   name:'Marathon Petroleum' },
+  { ticker:'FCX',  lynch:'cyclical',   name:'Freeport-McMoRan' },
+  { ticker:'NUE',  lynch:'cyclical',   name:'Nucor' },
+  { ticker:'TMUS', lynch:'stalwart',   name:'T-Mobile' },
+  { ticker:'CMCSA',lynch:'slow_grower',name:'Comcast' },
 ]
 const KR_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'005930',lynch:'stalwart',   name:'삼성전자' },
@@ -167,6 +234,62 @@ const KR_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'326030',lynch:'fast_grower',name:'SK바이오팜' },
   { ticker:'009150',lynch:'cyclical',   name:'삼성전기' },
   { ticker:'018260',lynch:'stalwart',   name:'삼성에스디에스' },
+  // ── 3차 확장(2026-06) KR 40→95 — 코스피 중형 + 코스닥 성장주(소부장·바이오·로봇·2차전지 — 숨은 10배거 포착) ──
+  { ticker:'032830',lynch:'stalwart',   name:'삼성생명' },
+  { ticker:'003550',lynch:'stalwart',   name:'LG' },
+  { ticker:'051900',lynch:'stalwart',   name:'LG생활건강' },
+  { ticker:'090430',lynch:'cyclical',   name:'아모레퍼시픽' },
+  { ticker:'097950',lynch:'stalwart',   name:'CJ제일제당' },
+  { ticker:'271560',lynch:'stalwart',   name:'오리온' },
+  { ticker:'139480',lynch:'cyclical',   name:'이마트' },
+  { ticker:'012330',lynch:'cyclical',   name:'현대모비스' },
+  { ticker:'086280',lynch:'cyclical',   name:'현대글로비스' },
+  { ticker:'011070',lynch:'cyclical',   name:'LG이노텍' },
+  { ticker:'009830',lynch:'cyclical',   name:'한화솔루션' },
+  { ticker:'010950',lynch:'cyclical',   name:'S-Oil' },
+  { ticker:'096770',lynch:'cyclical',   name:'SK이노베이션' },
+  { ticker:'011170',lynch:'cyclical',   name:'롯데케미칼' },
+  { ticker:'011780',lynch:'cyclical',   name:'금호석유' },
+  { ticker:'161390',lynch:'cyclical',   name:'한국타이어앤테크놀로지' },
+  { ticker:'003490',lynch:'cyclical',   name:'대한항공' },
+  { ticker:'047810',lynch:'fast_grower',name:'한국항공우주' },
+  { ticker:'079550',lynch:'fast_grower',name:'LIG넥스원' },
+  { ticker:'267260',lynch:'fast_grower',name:'HD현대일렉트릭' },
+  { ticker:'010120',lynch:'fast_grower',name:'LS ELECTRIC' },
+  { ticker:'454910',lynch:'fast_grower',name:'두산로보틱스' },
+  { ticker:'006800',lynch:'cyclical',   name:'미래에셋증권' },
+  { ticker:'016360',lynch:'cyclical',   name:'삼성증권' },
+  { ticker:'005940',lynch:'cyclical',   name:'NH투자증권' },
+  { ticker:'071050',lynch:'cyclical',   name:'한국금융지주' },
+  { ticker:'138040',lynch:'cyclical',   name:'메리츠금융지주' },
+  { ticker:'024110',lynch:'cyclical',   name:'기업은행' },
+  { ticker:'029780',lynch:'cyclical',   name:'삼성카드' },
+  { ticker:'088350',lynch:'cyclical',   name:'한화생명' },
+  { ticker:'259960',lynch:'fast_grower',name:'크래프톤' },
+  { ticker:'251270',lynch:'fast_grower',name:'넷마블' },
+  { ticker:'036570',lynch:'fast_grower',name:'엔씨소프트' },
+  { ticker:'352820',lynch:'fast_grower',name:'하이브' },
+  // ── 코스닥 성장주(10배거 사냥터 — 소부장·바이오·로봇) ──
+  { ticker:'086520',lynch:'fast_grower',name:'에코프로' },
+  { ticker:'058470',lynch:'fast_grower',name:'리노공업' },
+  { ticker:'240810',lynch:'fast_grower',name:'원익IPS' },
+  { ticker:'357780',lynch:'fast_grower',name:'솔브레인' },
+  { ticker:'403870',lynch:'fast_grower',name:'HPSP' },
+  { ticker:'140860',lynch:'fast_grower',name:'파크시스템스' },
+  { ticker:'098460',lynch:'fast_grower',name:'고영' },
+  { ticker:'005290',lynch:'fast_grower',name:'동진쎄미켐' },
+  { ticker:'039030',lynch:'fast_grower',name:'이오테크닉스' },
+  { ticker:'213420',lynch:'fast_grower',name:'덕산네오룩스' },
+  { ticker:'036930',lynch:'fast_grower',name:'주성엔지니어링' },
+  { ticker:'084370',lynch:'fast_grower',name:'유진테크' },
+  { ticker:'095340',lynch:'fast_grower',name:'ISC' },
+  { ticker:'348370',lynch:'fast_grower',name:'엔켐' },
+  { ticker:'022100',lynch:'fast_grower',name:'포스코DX' },
+  { ticker:'277810',lynch:'fast_grower',name:'레인보우로보틱스' },
+  { ticker:'145020',lynch:'fast_grower',name:'휴젤' },
+  { ticker:'214150',lynch:'fast_grower',name:'클래시스' },
+  { ticker:'195940',lynch:'fast_grower',name:'HK이노엔' },
+  { ticker:'141080',lynch:'fast_grower',name:'리가켐바이오' },
 ]
 
 // ── 매크로 국면 × 피터 린치 가중치 매트릭스 (제미나이 보강 ①) ─────────────────
@@ -309,13 +432,14 @@ async function screenOne(
 
 export async function runScreener(phase: MacroPhase): Promise<{ us: ScreenedStock[]; kr: ScreenedStock[]; all: ScreenedStock[] }> {
   const all: ScreenedStock[] = []
-  // 동시성 6 — 유니버스 100종목 확장(2026-06) 대응. Yahoo 스로틀은 screenOne catch로 graceful
+  // 동시성 8 — 유니버스 ~220종목 확장(2026-06) 대응(120s→300s 함께 상향). Yahoo 스로틀은 screenOne catch + 재시도 패스로 graceful
+  const CONC = 8
   const universe = [
     ...US_UNIVERSE.map(s => ({ ...s, market: 'US' as const })),
     ...KR_UNIVERSE.map(s => ({ ...s, market: 'KR' as const })),
   ]
-  for (let i = 0; i < universe.length; i += 6) {
-    const batch = universe.slice(i, i + 6)
+  for (let i = 0; i < universe.length; i += CONC) {
+    const batch = universe.slice(i, i + CONC)
     const results = await Promise.all(batch.map(s => screenOne(s.ticker, s.market, s.lynch, s.name, phase).catch(() => null)))
     for (const r of results) if (r) all.push(r)
   }
