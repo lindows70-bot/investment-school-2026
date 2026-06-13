@@ -8,6 +8,7 @@ const CARD = '#161b25', BORDER = '#1e293b'
 export default function MarketCatalystBanner() {
   const [d, setD] = useState<MarketCatalystResult | null>(null)
   const [open, setOpen] = useState<number | null>(0)   // 첫 카탈리스트는 기본 펼침
+  const [collapsed, setCollapsed] = useState(true)      // 평소엔 접어둠(메인 화면 차지 최소화) — 헤더 클릭 시 펼침
 
   useEffect(() => {
     let alive = true
@@ -22,12 +23,18 @@ export default function MarketCatalystBanner() {
 
   return (
     <div style={{ background: 'linear-gradient(135deg,rgba(249,115,22,0.10),rgba(239,68,68,0.05))', border: '1px solid rgba(249,115,22,0.35)', borderRadius: 12, padding: '12px 16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: d.catalysts.length > 0 ? 8 : 4 }}>
+      {/* 헤더 — 클릭하면 펼침/접힘. 접힌 상태에선 1순위 카탈리스트만 살짝 미리보기 */}
+      <button onClick={() => setCollapsed(v => !v)}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left', marginBottom: collapsed ? 0 : (d.catalysts.length > 0 ? 8 : 4) }}>
         <span style={{ fontSize: 15 }}>🔥</span>
         <span style={{ color: '#fb923c', fontWeight: 800, fontSize: 13.5 }}>오늘 시장의 눈 — 마켓 카탈리스트</span>
-        {d.marketMood && <span style={{ color: '#aab6c4', fontSize: 11 }}>{d.marketMood}</span>}
-      </div>
+        {collapsed
+          ? <span style={{ color: '#aab6c4', fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.catalysts[0]?.title ?? d.marketMood ?? ''}</span>
+          : (d.marketMood && <span style={{ color: '#aab6c4', fontSize: 11 }}>{d.marketMood}</span>)}
+        <span style={{ marginLeft: 'auto', color: '#fb923c', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' }}>{collapsed ? `▼ 펼치기${d.catalysts.length ? ` (${d.catalysts.length})` : ''}` : '▲ 접기'}</span>
+      </button>
 
+      {!collapsed && (<>
       {/* 메가 카탈리스트 ≤3 */}
       {d.catalysts.map((c, i) => (
         <div key={i} style={{ borderTop: i > 0 ? `1px solid ${BORDER}` : 'none' }}>
@@ -70,6 +77,7 @@ export default function MarketCatalystBanner() {
       <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 7, lineHeight: 1.5 }}>
         ※ 뉴스는 Google News 실시간 헤드라인 요약(Gemini·헤드라인에 있는 사건만), 수급은 Yahoo 트렌딩 거래량·KR 쌍끌이 실측 · 3h 캐시 · 핫하다고 사라는 뜻이 아닙니다 — 진단 탭 함정 레이더부터 확인하세요 · 교육용.
       </div>
+      </>)}
     </div>
   )
 }
