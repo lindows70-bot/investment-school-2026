@@ -50,7 +50,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `portfolio-backtest-v1:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `portfolio-backtest-v2:${user.id}:${kstDate()}:${fp}`   // v2: 데이터 출처 명확화(자산관리 보유 종목 = 직접+퀀트빌더 복사)
   const cached = await getCache<BacktestResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -154,7 +154,7 @@ export async function GET(req: Request) {
 
   const vsB = lastTotal - lastBench
   const beat = vsB >= 0
-  let insight = `${startYear}년에 1,000만 원으로 지금의 보유 종목을 샀다면, ${endYear}년 현재 약 ${Math.round(lastTotal / 1e4).toLocaleString('ko-KR')}만 원입니다(연복리 ${mk(lastTotal).cagrPct}%). 같은 기간 시장(벤치마크)은 ${Math.round(lastBench / 1e4).toLocaleString('ko-KR')}만 원 — 내 종목 선택이 시장을 ${beat ? `${Math.round(Math.abs(vsB) / 1e4).toLocaleString('ko-KR')}만 원 이겼습니다` : `${Math.round(Math.abs(vsB) / 1e4).toLocaleString('ko-KR')}만 원 밑돌았습니다`}.`
+  let insight = `${startYear}년에 1,000만 원으로 지금 내 자산관리에 담긴 종목(직접 추가 + 퀀트 빌더 복사분 포함)을 샀다면, ${endYear}년 현재 약 ${Math.round(lastTotal / 1e4).toLocaleString('ko-KR')}만 원입니다(연복리 ${mk(lastTotal).cagrPct}%). 같은 기간 시장(벤치마크)은 ${Math.round(lastBench / 1e4).toLocaleString('ko-KR')}만 원 — 내 종목 선택이 시장을 ${beat ? `${Math.round(Math.abs(vsB) / 1e4).toLocaleString('ko-KR')}만 원 이겼습니다` : `${Math.round(Math.abs(vsB) / 1e4).toLocaleString('ko-KR')}만 원 밑돌았습니다`}.`
   if (lastCore != null && lastSat != null) {
     const coreR = lastCore / START_CAPITAL - 1, satR = lastSat / START_CAPITAL - 1
     insight += ` 수익의 견인차는 ${satR > coreR ? 'Satellite(성장·테마)' : 'Core(ETF·우량주)'} 쪽이었고(Core ${Math.round(coreR * 100)}% vs Satellite ${Math.round(satR * 100)}%), 변동성은 Satellite가 더 컸습니다. 이 기간 주가를 끌어올린 것은 실시간 뉴스가 아니라 기업들이 매년 쌓은 이익(EPS)의 누적이었습니다.`

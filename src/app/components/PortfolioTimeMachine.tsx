@@ -58,6 +58,12 @@ export default function PortfolioTimeMachine() {
             <span style={{ fontSize: 14, fontWeight: 800, color: '#f1f5f9' }}>투자 타임머신 — 내 종목 {Number(d.endYear) - Number(d.startYear) + 1}개년 실데이터 백테스트</span>
           </div>
           <div style={{ fontSize: 11, color: '#7f93a8' }}>{d.startYear}년 초 1,000만 원 투자 가정 · {d.benchLabel}</div>
+          <div style={{ marginTop: 5, display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.25)', borderRadius: 6, padding: '3px 9px' }}>
+            <span style={{ fontSize: 11 }}>📌</span>
+            <span style={{ fontSize: 10.5, color: '#9fd6e3', lineHeight: 1.5 }}>
+              분석 대상 = <b>&lsquo;자산관리&rsquo;에 등록된 현재 내 보유 종목 전체</b> — 직접 추가한 종목과 🛰️퀀트 빌더에서 &lsquo;복사하기&rsquo;로 담은 종목이 모두 포함됩니다.
+            </span>
+          </div>
         </div>
         {/* 라인 토글 */}
         <div style={{ display: 'flex', gap: 4, background: '#0f172a', padding: 4, borderRadius: 9, flexWrap: 'wrap' }}>
