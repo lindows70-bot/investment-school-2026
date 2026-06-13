@@ -111,7 +111,7 @@ export default function PortfolioFlowDashboard() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <span style={{ fontSize: 19 }}>📡</span>
           <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 16 }}>포트폴리오 수급 레이더</span>
-          <span style={{ marginLeft: 'auto', color: '#7f93a8', fontSize: 11 }}>내 종목 {data.total}개 · 스마트머니 동행지수 <span style={{ color: '#8a9aaa' }}>(밸류 무관 자금 유입률)</span></span>
+          <span style={{ marginLeft: 'auto', color: '#7f93a8', fontSize: 11 }}>내 종목 {data.total}개 · 스마트머니 동행지수 <span style={{ color: '#8a9aaa' }}>(유입·임박 비율)</span></span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ color: rate >= 50 ? '#22c55e' : rate >= 25 ? '#f59e0b' : '#8a9aaa', fontWeight: 900, fontSize: 28, fontFamily: 'monospace', minWidth: 64 }}>{rate}%</span>
@@ -121,7 +121,7 @@ export default function PortfolioFlowDashboard() {
               <div style={{ width: `${rate}%`, height: '100%', background: `linear-gradient(90deg,#22c55e,#34d399)`, borderRadius: 7, transition: 'width .4s' }} />
             </div>
             <div style={{ color: '#aab6c4', fontSize: 12, marginTop: 6 }}>
-              내 {data.total}개 종목 중 <b style={{ color: '#22c55e' }}>{data.inflowCount}개</b>에 스마트머니 유입 중
+              내 {data.total}개 종목 중 <b style={{ color: '#22c55e' }}>{data.inflowCount}개</b>에 스마트머니 유입·임박
               {data.crowdedCount > 0 && <> · <b style={{ color: '#ef4444' }}>{data.crowdedCount}개</b>는 이탈·과열 경보</>}
             </div>
           </div>

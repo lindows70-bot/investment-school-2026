@@ -68,10 +68,12 @@ function momentumOf(mf: MoneyFlowResult, market: 'KR' | 'US'): number {
   }
   const u = mf.us
   let m = 0
-  if (u?.mfiTrend === 'rising') m += 40                                  // 자금흐름 상승 전환
+  if (u?.mfiTrend === 'rising') m += 35                                  // 자금흐름 상승 전환
   if (u && u.mfi != null && u.mfi >= 40 && u.mfi <= 72) m += 20          // 과매도 탈출~과열 전 구간
-  if ((u?.insiderBuyers ?? 0) > 0) m += 40                              // 내부자 매수
-  return m
+  if ((u?.insiderBuyers ?? 0) > 0) m += 35                              // 내부자 매수
+  if (u?.giantTrend === 'add') m += 30                                  // 13F 거인 매집(스마트머니)
+  else if ((u?.giantHolders ?? 0) > 0) m += 15                          // 13F 거인 보유
+  return Math.min(100, m)
 }
 
 function quadrantOf(status: FlowStatus, peg: number | null, opMargin: number | null): Quadrant {
@@ -88,7 +90,7 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `portfolio-flow-v5:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `portfolio-flow-v6:${user.id}:${kstDate()}:${fp}`   // v6: 동행지수=유입+임박(거인 momentum 반영)
   const cached = await getCache<PortfolioFlowResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -132,7 +134,9 @@ export async function GET(req: Request) {
   }
 
   const total = entries.length
-  const inflowCount = entries.filter(e => e.status === 'INFLOW').length
+  // 동행지수 = 확정 유입(INFLOW) + 수급이 살아나는 임박(momentum≥40). US는 INFLOW가 내부자 전용이라
+  // 13F 거인·MFI 같은 실제 스마트머니 신호를 momentum으로 함께 반영(게이지가 0에 고착되던 문제 해결)
+  const inflowCount = entries.filter(e => e.status === 'INFLOW' || e.momentum >= 40).length
   const crowdedCount = entries.filter(e => e.status === 'CROWDED').length
   const smartMoneyRate = total ? Math.round((inflowCount / total) * 100) : 0
 
