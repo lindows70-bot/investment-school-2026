@@ -32,6 +32,7 @@ import AiRebalancePanel           from '@/app/components/AiRebalancePanel'
 import QuantBuilderLab            from '@/app/components/QuantBuilderLab'
 import MarketCatalystBanner       from '@/app/components/MarketCatalystBanner'
 import PortfolioTimeMachine       from '@/app/components/PortfolioTimeMachine'
+import CoinLab                     from '@/app/components/CoinLab'
 import PortfolioFlowDashboard     from '@/app/components/PortfolioFlowDashboard'
 import MarketFlowKr               from '@/app/components/MarketFlowKr'
 import PortfolioRecoKr            from '@/app/components/PortfolioRecoKr'
@@ -655,7 +656,7 @@ export default function DashboardPage() {
   }>>({})
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab'>('live')
   const [flowView, setFlowView] = useState<'mine' | 'market' | 'reco' | 'unified'>('mine')
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
@@ -1073,6 +1074,14 @@ export default function DashboardPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pricedInvs, priceMap, usdKrw])
 
+  // 🪙 코인 랩 가드레일용 — 내 포트폴리오의 암호화폐 비중(%). 보유 없으면 undefined
+  const myCryptoPct = useMemo(() => {
+    if (pricedInvs.length === 0 || totalCurrKrw === 0) return undefined
+    const cv = pricedInvs.filter(i => i.market === 'CRYPTO').reduce((s, i) => s + toKrw(i, live(i)?.currentPrice ?? i.purchase_price), 0)
+    return Math.round((cv / totalCurrKrw) * 1000) / 10
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pricedInvs, priceMap, usdKrw])
+
   const monthlyPnL = useMemo(() => {
     type MonthBucket = { coreCost:number; coreCurr:number; satCost:number; satCurr:number; count:number }
     const map: Record<string, MonthBucket> = {}
@@ -1325,6 +1334,7 @@ export default function DashboardPage() {
               { key: 'schoolflow', icon: '🏫', label: '학교 13F 인덱스',  desc: '집단지성 동일가중 인덱스' },
               { key: 'ghost',  icon: '👻', label: '유령 종목 추적기',     desc: '기관 소외 × 내부자 매수' },
               { key: 'macro',  icon: '🏛️', label: '거시경제 (Fed Watch)', desc: '금리 · 인플레이션 · QT' },
+              { key: 'coinlab',icon: '🪙', label: '코인 랩 (비트코인)',    desc: '사이클·심리·온체인·유동성 — 독립 엔진' },
               { key: 'season', icon: '🧭', label: '4계절 내비게이터',     desc: '성장×물가 2×2 · 내 포폴 계절 정합성' },
             ],
           },
@@ -2992,6 +3002,13 @@ export default function DashboardPage() {
       <div id="tab-season" style={{ display: dashTab==='season' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         <ErrorBoundary label="4계절 내비게이터">
           <SeasonNavigator />
+        </ErrorBoundary>
+      </div>
+
+      {/* ── 🪙 코인 랩 탭 (비트코인 독립 분석 엔진) ── */}
+      <div id="tab-coinlab" style={{ display: dashTab==='coinlab' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="코인 랩">
+          <CoinLab myCryptoPct={myCryptoPct} />
         </ErrorBoundary>
       </div>
 

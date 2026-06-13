@@ -1,0 +1,151 @@
+// 🪙 코인 랩(Coin Lab) — 비트코인 독립 분석 엔진(주식 PER/EPS 엔진과 완전 분리)
+// 4축: 사이클(반감기·메이어멀티플) · 심리(공포탐욕·도미넌스) · 온체인(해시레이트) · 유동성(M2) + 김치프리미엄
+// 전부 무료·무인증 소스(CoinGecko·alternative.me·mempool.space·업비트·FRED) · 1h 캐시 · 추정치 금지(없으면 null)
+import { NextResponse } from 'next/server'
+import { getCache, setCache } from '@/lib/appCache'
+
+export const dynamic = 'force-dynamic'
+export const maxDuration = 30
+
+const HALVING = '2024-04-20'   // 4차 반감기(블록 840,000)
+const CYCLE_DAYS = 1461        // 4년 ≈ 다음 반감기까지
+const STABLES = new Set(['USDT', 'USDC', 'DAI', 'USDE', 'FDUSD', 'TUSD', 'USDS', 'PYUSD'])
+
+export interface CoinLabResult {
+  price: { usd: number | null; krw: number | null; ma200: number | null; mayer: number | null; kimchiPct: number | null }
+  cycle: { halving: string; daysSince: number; cyclePct: number; phase: string; phaseDesc: string }
+  sentiment: { fng: number | null; fngClass: string; fngYesterday: number | null; btcDom: number | null; ethDom: number | null; altHint: string }
+  market: { totalMcapUsdT: number | null; stablecoinPct: number | null; top: { symbol: string; name: string; price: number; ch24: number | null; ch7: number | null; mcapB: number }[] }
+  network: { hashrateEH: number | null; difficultyT: number | null; trend: 'up' | 'down' | 'flat'; spark: number[] }
+  macro: { points: { date: string; m2: number | null; btc: number | null }[]; note: string }   // 100 기준 정규화 오버레이
+  prescription: { regime: string; tone: 'accumulate' | 'caution' | 'neutral'; text: string }
+  guardrailNote: string
+  asOf: string
+}
+
+const cg = async (path: string) => {
+  const r = await fetch(`https://api.coingecko.com/api/v3${path}`, { signal: AbortSignal.timeout(12_000), headers: { accept: 'application/json' } })
+  if (!r.ok) throw new Error(`cg ${r.status}`)
+  return r.json()
+}
+const num = (v: unknown): number | null => (typeof v === 'number' && isFinite(v) ? v : null)
+
+export async function GET(req: Request) {
+  const cacheKey = 'coin-lab-v1'
+  const cached = await getCache<CoinLabResult>(cacheKey, 3600_000)   // 1h
+  if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
+
+  const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
+  const FRED = process.env.FRED_API_KEY
+
+  // 환율(김치프리미엄)
+  let usdKrw = 1350
+  try { const ex = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) }); if (ex.ok) { const j = await ex.json(); if (typeof j.rate === 'number' && j.rate > 0) usdKrw = j.rate } } catch { /* 폴백 */ }
+
+  // ── 병렬 수집(각자 graceful) ──────────────────────────────────────
+  const [globalR, marketsR, chartR, fngR, hashR, upbitR, m2R] = await Promise.allSettled([
+    cg('/global'),
+    cg('/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=12&page=1&price_change_percentage=24h,7d'),
+    cg('/coins/bitcoin/market_chart?vs_currency=usd&days=300&interval=daily'),
+    fetch('https://api.alternative.me/fng/?limit=2', { signal: AbortSignal.timeout(10_000) }).then(r => r.json()),
+    fetch('https://mempool.space/api/v1/mining/hashrate/3m', { signal: AbortSignal.timeout(12_000) }).then(r => r.json()),
+    fetch('https://api.upbit.com/v1/ticker?markets=KRW-BTC', { signal: AbortSignal.timeout(10_000) }).then(r => r.json()),
+    FRED ? fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=M2SL&api_key=${FRED}&file_type=json&sort_order=desc&limit=37`, { signal: AbortSignal.timeout(10_000) }).then(r => r.json()) : Promise.resolve(null),
+  ])
+  const val = <T,>(r: PromiseSettledResult<T>): T | null => (r.status === 'fulfilled' ? r.value : null)
+  const global = val(globalR), markets = val(marketsR) as Record<string, unknown>[] | null
+  const chart = val(chartR) as { prices?: [number, number][] } | null
+  const fng = val(fngR) as { data?: { value: string; value_classification: string }[] } | null
+  const hash = val(hashR) as { currentHashrate?: number; currentDifficulty?: number; hashrates?: { avgHashrate: number }[] } | null
+  const upbit = val(upbitR) as { trade_price: number }[] | null
+  const m2j = val(m2R) as { observations?: { date: string; value: string }[] } | null
+
+  // ── 가격·메이어멀티플·김치프리미엄 ──────────────────────────────
+  const btcUsd = num((markets?.find(m => m.symbol === 'btc') as { current_price?: number })?.current_price)
+  const btcKrw = num(upbit?.[0]?.trade_price)
+  const closes = (chart?.prices ?? []).map(p => p[1]).filter(v => isFinite(v))
+  const ma200 = closes.length >= 200 ? closes.slice(-200).reduce((a, b) => a + b, 0) / 200 : null
+  const mayer = btcUsd != null && ma200 ? Math.round((btcUsd / ma200) * 100) / 100 : null
+  const kimchiPct = btcUsd != null && btcKrw != null ? Math.round(((btcKrw / (btcUsd * usdKrw)) - 1) * 1000) / 10 : null
+
+  // ── 반감기 사이클 ──────────────────────────────────────────────
+  const daysSince = Math.floor((Date.now() - new Date(HALVING).getTime()) / 86400_000)
+  const cyclePct = Math.max(0, Math.min(100, Math.round((daysSince / CYCLE_DAYS) * 1000) / 10))
+  const [phase, phaseDesc] =
+    daysSince < 365 ? ['반감기 직후 (축적기)', '공급 충격이 가격에 반영되기 시작하는 초기. 역사적으로 본격 상승 전 단계.']
+    : daysSince < 550 ? ['상승 가속 (확산기)', '과거 사이클상 강세가 가속되던 구간 — 다만 과거가 미래를 보장하지 않음.']
+    : daysSince < 760 ? ['고점 경계 (과열 위험)', '과거 3사이클 모두 반감기 후 약 12~18개월에 고점 형성. 탐욕·과열 경계 구간.']
+    : daysSince < 1100 ? ['조정·하락 (인내기)', '고점 이후 깊은 조정이 잦았던 구간. 변동성 각오·분할 관점.']
+    : ['바닥 다지기 (다음 사이클 전)', '다음 반감기 전 저점을 다지던 구간. 역사적 축적 기회였으나 확신 금물.']
+
+  // ── 심리·도미넌스 ──────────────────────────────────────────────
+  const fngV = fng?.data?.[0] ? parseInt(fng.data[0].value) : null
+  const fngClass = fng?.data?.[0]?.value_classification ?? '—'
+  const fngY = fng?.data?.[1] ? parseInt(fng.data[1].value) : null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const gd = (global as any)?.data
+  const btcDom = num(gd?.market_cap_percentage?.btc) != null ? Math.round(gd.market_cap_percentage.btc * 10) / 10 : null
+  const ethDom = num(gd?.market_cap_percentage?.eth) != null ? Math.round(gd.market_cap_percentage.eth * 10) / 10 : null
+  const altHint = btcDom != null ? (btcDom >= 58 ? '비트코인 우위 — 알트코인은 상대적 약세(BTC 도미넌스 高)' : btcDom <= 45 ? '알트시즌 성격 — 자금이 알트로 분산(BTC 도미넌스 低)' : '중립 — BTC·알트 혼조') : '—'
+
+  // ── 시장 개요 ──────────────────────────────────────────────────
+  const totalMcapUsd = num(gd?.total_market_cap?.usd)
+  const totalMcapUsdT = totalMcapUsd != null ? Math.round(totalMcapUsd / 1e12 * 100) / 100 : null
+  const top = (markets ?? []).slice(0, 8).map(m => ({
+    symbol: String(m.symbol).toUpperCase(), name: String(m.name),
+    price: num(m.current_price) ?? 0, ch24: num(m.price_change_percentage_24h_in_currency ?? m.price_change_percentage_24h),
+    ch7: num((m as { price_change_percentage_7d_in_currency?: number }).price_change_percentage_7d_in_currency),
+    mcapB: Math.round((num(m.market_cap) ?? 0) / 1e9 * 10) / 10,
+  }))
+  const stableMcap = (markets ?? []).filter(m => STABLES.has(String(m.symbol).toUpperCase())).reduce((s, m) => s + (num(m.market_cap) ?? 0), 0)
+  const stablecoinPct = totalMcapUsd && stableMcap > 0 ? Math.round((stableMcap / totalMcapUsd) * 1000) / 10 : null
+
+  // ── 네트워크(해시레이트) ────────────────────────────────────────
+  const hashrateEH = num(hash?.currentHashrate) != null ? Math.round(hash!.currentHashrate! / 1e18) : null
+  const difficultyT = num(hash?.currentDifficulty) != null ? Math.round(hash!.currentDifficulty! / 1e12) : null
+  const hseries = (hash?.hashrates ?? []).map(h => h.avgHashrate / 1e18).filter(v => isFinite(v))
+  const step = Math.max(1, Math.ceil(hseries.length / 30))
+  const spark = hseries.filter((_, i) => i % step === 0 || i === hseries.length - 1).map(v => Math.round(v))
+  const trend: 'up' | 'down' | 'flat' = hseries.length >= 2 ? (hseries[hseries.length - 1] > hseries[0] * 1.02 ? 'up' : hseries[hseries.length - 1] < hseries[0] * 0.98 ? 'down' : 'flat') : 'flat'
+
+  // ── 거시 유동성(M2) vs BTC 오버레이(월별, 100 정규화) ────────────
+  const m2obs = (m2j?.observations ?? []).map(o => ({ date: o.date.slice(0, 7), v: parseFloat(o.value) })).filter(o => isFinite(o.v)).reverse()
+  // BTC 월별 종가: 300일 일봉을 월말로 다운샘플(M2 36개월과 겹치는 최근 구간만)
+  const btcMonthly = new Map<string, number>()
+  for (const [t, p] of (chart?.prices ?? [])) btcMonthly.set(new Date(t).toISOString().slice(0, 7), p)   // 같은 달은 마지막값으로 덮어씀
+  const macroMonths = m2obs.slice(-12)   // 최근 12개월(BTC 일봉이 300일이라 ~10개월만 겹침)
+  const m2Base = macroMonths[0]?.v, btcBase = macroMonths.length ? btcMonthly.get(macroMonths[0].date) : undefined
+  const macroPoints = macroMonths.map(o => ({
+    date: o.date,
+    m2: m2Base ? Math.round((o.v / m2Base) * 1000) / 10 : null,
+    btc: btcBase && btcMonthly.has(o.date) ? Math.round((btcMonthly.get(o.date)! / btcBase) * 1000) / 10 : null,
+  }))
+  const macroNote = '비트코인은 이익을 내지 않는 자산이라, 시중 통화량(M2)·금리 같은 글로벌 유동성에 가장 민감하게 반응합니다 — 돈이 풀리면 디지털 금처럼 먼저 오르고, 죄면 먼저 빠집니다.'
+
+  // ── 처방(국면×리스크 사이징 — 매수 지시 아님) ──────────────────
+  let tone: 'accumulate' | 'caution' | 'neutral' = 'neutral'
+  let regime = '중립'
+  if (fngV != null && fngV <= 25 && mayer != null && mayer < 1.2) { tone = 'accumulate'; regime = '공포·저평가 구간' }
+  else if ((fngV != null && fngV >= 75) || (mayer != null && mayer > 2.4)) { tone = 'caution'; regime = '탐욕·과열 구간' }
+  const text =
+    tone === 'accumulate' ? `${regime} — 공포탐욕 ${fngV}(${fngClass}), 메이어 ${mayer}로 역사적 저평가 영역입니다. "남이 두려워할 때"가 분할 축적에 유리했던 구간이나, 추가 하락도 흔하니 한 번에 몰빵 금지·분할로.`
+    : tone === 'caution' ? `${regime} — 공포탐욕 ${fngV ?? '—'}(${fngClass})${mayer != null && mayer > 2.4 ? `, 메이어 ${mayer}(>2.4 과열선)` : ''}. 대중이 환호할 때가 가장 위험합니다. 신규 진입은 자제하고 일부 차익·관망을 고려하세요.`
+    : `중립 구간 — 공포탐욕 ${fngV ?? '—'}(${fngClass}), 메이어 ${mayer ?? '—'}. 뚜렷한 극단 신호는 없습니다. 정해둔 비중 안에서 분할로만 접근하세요.`
+
+  const guardrailNote = '⚠️ 비트코인은 이자·배당·이익이 없는 자산입니다. 포트폴리오의 로켓 연료로 소량만 — 권장 상한 5%, 절대 잃어도 되는 돈만. 변동성 -80% 드로다운은 코인 역사에서 정상 범위입니다.'
+
+  const result: CoinLabResult = {
+    price: { usd: btcUsd, krw: btcKrw, ma200: ma200 ? Math.round(ma200) : null, mayer, kimchiPct },
+    cycle: { halving: HALVING, daysSince, cyclePct, phase, phaseDesc },
+    sentiment: { fng: fngV, fngClass, fngYesterday: fngY, btcDom, ethDom, altHint },
+    market: { totalMcapUsdT, stablecoinPct, top },
+    network: { hashrateEH, difficultyT, trend, spark },
+    macro: { points: macroPoints, note: macroNote },
+    prescription: { regime, tone, text },
+    guardrailNote,
+    asOf: new Date().toISOString(),
+  }
+  // 핵심 지표 하나라도 살아있으면 캐시(전부 죽으면 박제 금지)
+  if (btcUsd != null || fngV != null || hashrateEH != null) await setCache(cacheKey, result)
+  return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
+}
