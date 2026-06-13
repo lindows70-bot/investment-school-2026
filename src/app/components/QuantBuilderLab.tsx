@@ -60,8 +60,6 @@ export default function QuantBuilderLab() {
   const [d, setD] = useState<QuantBuilderResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [amountEok, setAmountEok] = useState('1')   // 억 단위 입력(기본 1억)
-  const [cleaning, setCleaning] = useState(false)
-  const [cleanMsg, setCleanMsg] = useState<string | null>(null)
   const [openSat, setOpenSat] = useState<string | null>(null)
 
   useEffect(() => {
@@ -77,20 +75,6 @@ export default function QuantBuilderLab() {
     const v = parseFloat(amountEok)
     return isFinite(v) && v > 0 ? Math.round(v * 1e8) : 1e8
   }, [amountEok])
-
-  // 과거 '복사하기'로 실제 포트에 섞여 들어간 가상 종목 정리(오염 복구)
-  const onCleanup = async () => {
-    if (!window.confirm('과거 ‘복사하기’로 내 자산관리에 들어간 AI 퀀트 빌더 가상 종목을 모두 삭제합니다.\n(직접 추가한 실제 종목은 표식이 없어 영향받지 않습니다.) 진행할까요?')) return
-    setCleaning(true); setCleanMsg(null)
-    try {
-      const r = await fetch('/api/quant-builder/cleanup', { method: 'POST' })
-      const j = await r.json()
-      if (j.error) setCleanMsg('❌ 정리 실패 — 잠시 후 다시 시도해주세요.')
-      else if (j.removed === 0) setCleanMsg('✅ 정리할 가상 종목이 없습니다(이미 깨끗합니다).')
-      else { setCleanMsg(`✅ 가상 종목 ${j.removed}종 삭제 완료 — 실제 포트폴리오가 복구됐습니다.`); window.dispatchEvent(new Event('portfolio-updated')) }
-    } catch { setCleanMsg('❌ 정리 실패 — 네트워크를 확인해주세요.') }
-    setCleaning(false)
-  }
 
   if (loading) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa', fontSize: 12 }}>🛰️ 퀀트 빌더가 시장 국면과 3축 데이터를 수집 중…(최초 1회 최대 1분)</div>
   if (!d) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa', fontSize: 12 }}>설계 데이터를 불러오지 못했습니다 — 잠시 후 새로고침해주세요.</div>
@@ -251,18 +235,10 @@ export default function QuantBuilderLab() {
             ⚖️ {d.unallocatedNote}
           </div>
         )}
-        {/* 백테스트 안내 + 가상 종목 정리(오염 복구) */}
+        {/* 백테스트 안내 */}
         <div style={{ marginTop: 12, background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.25)', borderRadius: 9, padding: '10px 13px' }}>
           <div style={{ color: '#9fd6e3', fontSize: 11.5, lineHeight: 1.7 }}>
             📊 이 추천안의 과거 성과가 궁금하면 — <b>‘투자 타임머신’ 탭 → [🛰️ AI 퀀트 빌더 추천] 토글</b>로 확인하세요. 이 추천안은 <b>내 실제 계좌(자산관리)에 저장되지 않습니다</b>(혼재·오염 없음).
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 9, flexWrap: 'wrap' }}>
-            <button onClick={onCleanup} disabled={cleaning}
-              style={{ background: 'transparent', color: '#fca5a5', border: '1px solid rgba(248,113,113,0.45)', borderRadius: 8, padding: '6px 13px', fontSize: 11.5, fontWeight: 700, cursor: cleaning ? 'wait' : 'pointer', opacity: cleaning ? 0.6 : 1 }}>
-              {cleaning ? '정리 중…' : '🧹 예전에 복사된 가상 종목 정리하기'}
-            </button>
-            <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>이전 버전의 ‘복사하기’로 실제 포트에 섞인 가상 종목이 있다면 제거합니다.</span>
-            {cleanMsg && <span style={{ color: '#aab6c4', fontSize: 11.5 }}>{cleanMsg}</span>}
           </div>
         </div>
       </div>
