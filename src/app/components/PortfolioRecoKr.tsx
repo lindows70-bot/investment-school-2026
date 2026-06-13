@@ -137,9 +137,12 @@ export default function PortfolioRecoKr() {
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'linear-gradient(135deg,rgba(34,197,94,0.10),rgba(59,130,246,0.06))', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 12, padding: '12px 16px' }}>
         <span style={{ fontSize: 16 }}>🎯</span>
         <div>
-          <div style={{ color: '#22c55e', fontWeight: 800, fontSize: 12, marginBottom: 2 }}>린치 × 수급 융합 추천 — 맞춤 나침반</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 2 }}>
+            <span style={{ color: '#22c55e', fontWeight: 800, fontSize: 12 }}>린치 × 수급 융합 추천 — 맞춤 나침반</span>
+            <span style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid #22c55e55', borderRadius: 999, padding: '1px 8px', fontSize: 10, fontWeight: 800 }}>🇰🇷 국내 종목 전용</span>
+          </div>
           <div style={{ color: '#aab6c4', fontSize: 12, lineHeight: 1.6 }}>
-            PEG 저평가 + 외인·기관 쌍끌이 + <b>개인 이탈</b> 삼박자가 맞는 종목을 추천 점수 순으로 제시합니다.
+            외인·기관 일별 수급 공시가 있는 <b>한국 주식만</b> 대상입니다(미국 종목은 &lsquo;통합 추천&rsquo; 탭에서). PEG 저평가 + 외인·기관 쌍끌이 + <b>개인 이탈</b> 삼박자가 맞는 종목을 추천 점수 순으로 제시합니다.
             {data.portfolioKrw > 0 && <span style={{ color: '#8a9aaa' }}> 총 포트폴리오 {(data.portfolioKrw/1e4).toFixed(0)}만원 기준 ₩ 가이드 포함.</span>}
           </div>
           {data.heldSectors.length > 0 && <div style={{ color: '#6e7f8f', fontSize: 11, marginTop: 4 }}>보유 섹터: {data.heldSectors.join(' · ')}</div>}

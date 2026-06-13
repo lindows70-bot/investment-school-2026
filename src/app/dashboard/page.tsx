@@ -3054,7 +3054,7 @@ export default function DashboardPage() {
           {([
             ['mine','📡 내 종목 수급','#22c55e'],
             ['market','🌐 시장 수급 랭킹','#22c55e'],
-            ['reco','🎯 맞춤 추천','#f59e0b'],
+            ['reco','🎯 맞춤 추천 (국내)','#f59e0b'],
             ['unified','🎯 통합 추천','#f59e0b'],
           ] as const).map(([k,label,col]) => (
             <button key={k} onClick={()=>setFlowView(k)}
