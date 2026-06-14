@@ -21,10 +21,10 @@ function CoinChart({ c }: { c: AltCoin }) {
   const col = SYM_COLOR[c.symbol] ?? '#a78bfa'
   const dv = DIV_META[c.divergence]
   const hasNet = c.points.some(p => p.net != null)
-  // 월별 첫 주 1개만 X축 라벨(주간 포인트라 같은 달 중복 방지)
+  // 3년치 주봉이라 분기별(1·4·7·10월) 첫 주만 X축 라벨(과밀 방지)
   const monthTicks: string[] = []
-  const seenMonth = new Set<string>()
-  for (const p of c.points) { const m = p.date.slice(0, 7); if (!seenMonth.has(m)) { seenMonth.add(m); monthTicks.push(p.date) } }
+  const seenQ = new Set<string>()
+  for (const p of c.points) { const mo = p.date.slice(5, 7); if (['01', '04', '07', '10'].includes(mo)) { const k = p.date.slice(0, 7); if (!seenQ.has(k)) { seenQ.add(k); monthTicks.push(p.date) } } }
   return (
     <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
@@ -35,7 +35,7 @@ function CoinChart({ c }: { c: AltCoin }) {
         <span style={{ background: `${dv.c}1a`, color: dv.c, border: `1px solid ${dv.c}55`, borderRadius: 999, padding: '1px 9px', fontSize: 10, fontWeight: 800 }}>{dv.label}</span>
       </div>
       <div style={{ color: '#8a9aaa', fontSize: 10.5, marginBottom: 6 }}>
-        1년 가격 <b style={{ color: (c.priceChgPct ?? 0) >= 0 ? '#22c55e' : '#ef4444' }}>{c.priceChgPct != null ? `${c.priceChgPct >= 0 ? '+' : ''}${c.priceChgPct}%` : '—'}</b>
+        3년 가격 <b style={{ color: (c.priceChgPct ?? 0) >= 0 ? '#22c55e' : '#ef4444' }}>{c.priceChgPct != null ? `${c.priceChgPct >= 0 ? '+' : ''}${c.priceChgPct}%` : '—'}</b>
         {' · '}{c.netLabel} <b style={{ color: (c.netChgPct ?? 0) >= 0 ? '#22c55e' : '#ef4444' }}>{c.netChgPct != null ? `${c.netChgPct >= 0 ? '+' : ''}${c.netChgPct}%` : '—'}</b>
       </div>
       <div style={{ height: 200 }}>

@@ -1,7 +1,7 @@
 'use client'
 // 🪙 코인 랩 — 비트코인 독립 분석(사이클·심리·온체인·유동성 + 김치프리미엄 + 국면×리스크 처방)
 import { useState, useEffect } from 'react'
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, ReferenceLine } from 'recharts'
+import { ResponsiveContainer, LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, Legend, ReferenceLine } from 'recharts'
 import type { CoinLabResult } from '@/app/api/coin-lab/route'
 import AltcoinNetworkChart from '@/app/components/AltcoinNetworkChart'
 
@@ -209,11 +209,25 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
               {d.network.trend === 'up' ? '▲ 강화' : d.network.trend === 'down' ? '▼ 약화' : '— 유지'}
             </span>
           </div>
-          {d.network.spark.length > 1 && (() => {
-            const W = 300, H = 56, mn = Math.min(...d.network.spark), mx = Math.max(...d.network.spark), rg = mx - mn || 1
-            const pts = d.network.spark.map((v, i) => `${(i / (d.network.spark.length - 1)) * W},${H - 2 - ((v - mn) / rg) * (H - 4)}`).join(' ')
-            return <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ height: 70, marginTop: 8 }}><polyline points={pts} fill="none" stroke="#f7931a" strokeWidth={1.6} /></svg>
-          })()}
+          {d.network.spark.length > 1 && (
+            <div style={{ height: 110, marginTop: 8 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={d.network.spark.map((v, i) => ({ i, v }))} margin={{ top: 4, right: 6, left: -10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="hashGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#f7931a" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="#f7931a" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <YAxis domain={['dataMin', 'dataMax']} hide />
+                  <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }} labelFormatter={() => ''}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={(v: any) => [`${Math.round(v)} EH/s`, '해시레이트']} />
+                  <Area type="monotone" dataKey="v" stroke="#f7931a" strokeWidth={1.8} fill="url(#hashGrad)" isAnimationActive={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
           <div style={{ color: '#9aa7b5', fontSize: 10.5, lineHeight: 1.6, marginTop: 8 }}>
             난이도 {d.network.difficultyT ?? '—'}T · 해시레이트는 네트워크 보안의 척도입니다. <b>가격이 빠져도 해시레이트가 오르면 &ldquo;네트워크는 더 튼튼해지는 중&rdquo;</b> — 코인의 펀더멘탈.
           </div>
@@ -221,11 +235,11 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
 
         {/* ⑤ 글로벌 유동성(M2) vs 비트코인 */}
         {d.macro.points.length >= 3 && (
-          <Panel title="⑤ 글로벌 유동성(M2) vs 비트코인" sub="100 기준 정규화 · 최근 약 1년">
+          <Panel title="⑤ 글로벌 유동성(M2) vs 비트코인" sub="100 기준 정규화 · 약 3년">
             <div style={{ height: 200 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={d.macro.points} margin={{ top: 6, right: 10, left: -14, bottom: 0 }}>
-                  <XAxis dataKey="date" tick={{ fill: '#7f93a8', fontSize: 9.5 }} tickFormatter={(m: string) => m.slice(2)} axisLine={{ stroke: BORDER }} tickLine={false} />
+                  <XAxis dataKey="date" tick={{ fill: '#7f93a8', fontSize: 9.5 }} tickFormatter={(m: string) => m.slice(2)} minTickGap={44} axisLine={{ stroke: BORDER }} tickLine={false} />
                   <YAxis tick={{ fill: '#7f93a8', fontSize: 9.5 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
                   <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }} />
                   <Legend wrapperStyle={{ fontSize: 10 }} />

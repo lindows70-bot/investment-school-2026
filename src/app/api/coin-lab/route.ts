@@ -68,7 +68,7 @@ async function cg<T = unknown>(path: string): Promise<T | null> {
 const num = (v: unknown): number | null => (typeof v === 'number' && isFinite(v) ? v : null)
 
 export async function GET(req: Request) {
-  const cacheKey = 'coin-lab-v4'   // v4: 10년 장기 차트 + 반감기 마커
+  const cacheKey = 'coin-lab-v5'   // v5: M2 오버레이 3년 확장(Yahoo BTC 월봉)
   const cached = await getCache<CoinLabResult>(cacheKey, 3600_000)   // 1h
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -149,20 +149,20 @@ export async function GET(req: Request) {
   const spark = hseries.filter((_, i) => i % step === 0 || i === hseries.length - 1).map(v => Math.round(v))
   const trend: 'up' | 'down' | 'flat' = hseries.length >= 2 ? (hseries[hseries.length - 1] > hseries[0] * 1.02 ? 'up' : hseries[hseries.length - 1] < hseries[0] * 0.98 ? 'down' : 'flat') : 'flat'
 
-  // ── 거시 유동성(M2) vs BTC 오버레이(월별, 100 정규화) ────────────
+  // ── 거시 유동성(M2) vs BTC 오버레이(월별, 100 정규화) — 약 3년(M2는 연 ~3% 성장이라 단기론 평평) ──
   const m2obs = (m2j?.observations ?? []).map(o => ({ date: o.date.slice(0, 7), v: parseFloat(o.value) })).filter(o => isFinite(o.v)).reverse()
-  // BTC 월별 종가: 300일 일봉을 월말로 다운샘플(M2 36개월과 겹치는 최근 구간만)
+  // BTC 월별 종가: Yahoo 10년 주봉(longPts)을 월말 값으로 다운샘플 → M2 37개월 전 구간과 겹침
   const btcMonthly = new Map<string, number>()
-  for (const [t, p] of (chart?.prices ?? [])) btcMonthly.set(new Date(t).toISOString().slice(0, 7), p)   // 같은 달은 마지막값으로 덮어씀
-  // 두 시리즈가 모두 존재하는 교집합 월만(BTC 일봉 300일 ≈ 최근 ~10개월). 첫 공통월을 100 기준으로 양쪽 정규화
-  const common = m2obs.slice(-13).filter(o => btcMonthly.has(o.date))
+  for (const p of longPts) btcMonthly.set(p.date.slice(0, 7), p.price)   // 같은 달은 마지막값으로 덮어씀
+  // M2 전체(약 37개월) 중 BTC가 있는 달. 첫 공통월을 100 기준으로 양쪽 정규화 → 3년이라 M2 상승·BTC 변동이 모두 보임
+  const common = m2obs.filter(o => btcMonthly.has(o.date))
   const m2Base = common[0]?.v, btcBase = common.length ? btcMonthly.get(common[0].date) : undefined
   const macroPoints = common.map(o => ({
     date: o.date,
     m2: m2Base ? Math.round((o.v / m2Base) * 1000) / 10 : null,
     btc: btcBase ? Math.round((btcMonthly.get(o.date)! / btcBase) * 1000) / 10 : null,
   }))
-  const macroNote = '비트코인은 이익을 내지 않는 자산이라, 시중 통화량(M2)·금리 같은 글로벌 유동성에 가장 민감하게 반응합니다 — 돈이 풀리면 디지털 금처럼 먼저 오르고, 죄면 먼저 빠집니다.'
+  const macroNote = '비트코인은 이익을 내지 않는 자산이라, 시중 통화량(M2)·금리 같은 글로벌 유동성에 민감하게 반응합니다 — M2는 완만히 우상향(연 ~3%), 비트코인은 그 위에서 훨씬 크게 출렁입니다. 돈이 풀리면 먼저 오르고 죄면 먼저 빠지는 &lsquo;고베타 유동성 자산&rsquo;.'
 
   // ── 처방(국면×리스크 사이징 — 매수 지시 아님) ──────────────────
   let tone: 'accumulate' | 'caution' | 'neutral' = 'neutral'
