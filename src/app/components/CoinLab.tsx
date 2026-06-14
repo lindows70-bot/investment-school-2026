@@ -279,18 +279,18 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
           return { bg: `${c}1f`, c, t: v.toFixed(2) }
         }
         const series = d.correlation!.series ?? []
-        // 비트코인 vs (나스닥/금) 정규화 오버레이 — 히트맵 숫자를 눈으로 확인
+        // 비트코인 vs (나스닥/금) 정규화 오버레이 — 로그 스케일(5년 기하급수 대응), 한 줄 2개
         const Overlay = ({ label, dataKey, color, corr }: { label: string; dataKey: 'nasdaq' | 'gold'; color: string; corr: number | null }) => (
-          <div style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 9, padding: '8px 10px' }}>
+          <div style={{ flex: '1 1 320px', minWidth: 280, background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 9, padding: '8px 10px' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 2 }}>
-              <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 11 }}>{label}</span>
+              <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 11.5 }}>{label}</span>
               {corr != null && <span style={{ marginLeft: 'auto', color: Math.abs(corr) >= 0.6 ? '#f87171' : Math.abs(corr) >= 0.35 ? '#fbbf24' : '#4ade80', fontWeight: 800, fontSize: 11, fontFamily: 'monospace' }}>상관 {corr.toFixed(2)}</span>}
             </div>
-            <div style={{ height: 92 }}>
+            <div style={{ height: 170 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={series} margin={{ top: 4, right: 4, left: -22, bottom: 0 }}>
-                  <XAxis dataKey="date" tick={{ fill: '#7f93a8', fontSize: 8 }} tickFormatter={(s: string) => s.slice(5)} minTickGap={40} axisLine={{ stroke: BORDER }} tickLine={false} />
-                  <YAxis tick={{ fill: '#7f93a8', fontSize: 8 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={30} />
+                <LineChart data={series} margin={{ top: 4, right: 6, left: -16, bottom: 0 }}>
+                  <XAxis dataKey="date" tick={{ fill: '#7f93a8', fontSize: 8.5 }} tickFormatter={(s: string) => s.slice(0, 4)} minTickGap={44} axisLine={{ stroke: BORDER }} tickLine={false} />
+                  <YAxis scale="log" tick={{ fill: '#7f93a8', fontSize: 8.5 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={34} tickFormatter={(v: number) => `${v}`} />
                   <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 10.5 }}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     formatter={(v: any, n: any) => [`${v}`, n === 'btc' ? '비트코인' : label.split(' vs ')[1]]} />
@@ -305,44 +305,42 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
           <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
               <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>⑥ 상관관계 히트맵 — 비트코인 vs 증시·금</span>
-              <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>일별 수익률 6개월 · 1.0=완전 동조 · {d.correlation!.window}</span>
+              <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>1.0=완전 동조 · {d.correlation!.window}</span>
             </div>
-            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-              {/* 좌: 히트맵 */}
-              <div style={{ flex: '0 1 auto' }}>
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ borderCollapse: 'separate', borderSpacing: 3, fontSize: 11, fontFamily: 'monospace' }}>
-                    <thead>
-                      <tr>
-                        <th />
-                        {labels.map(l => <th key={l} style={{ color: '#8a9aaa', fontWeight: 700, fontSize: 10, padding: '2px 6px', minWidth: 52 }}>{l}</th>)}
+            {/* 히트맵(상단) */}
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ borderCollapse: 'separate', borderSpacing: 3, fontSize: 11, fontFamily: 'monospace' }}>
+                  <thead>
+                    <tr>
+                      <th />
+                      {labels.map(l => <th key={l} style={{ color: '#8a9aaa', fontWeight: 700, fontSize: 10, padding: '2px 6px', minWidth: 52 }}>{l}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {matrix.map((row, i) => (
+                      <tr key={labels[i]}>
+                        <td style={{ color: '#8a9aaa', fontWeight: 700, fontSize: 10, padding: '2px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>{labels[i]}</td>
+                        {row.map((v, j) => { const s = cell(v, i === j); return <td key={j} style={{ background: s.bg, color: s.c, fontWeight: 800, textAlign: 'center', padding: '7px 6px', borderRadius: 6 }}>{s.t}</td> })}
                       </tr>
-                    </thead>
-                    <tbody>
-                      {matrix.map((row, i) => (
-                        <tr key={labels[i]}>
-                          <td style={{ color: '#8a9aaa', fontWeight: 700, fontSize: 10, padding: '2px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>{labels[i]}</td>
-                          {row.map((v, j) => { const s = cell(v, i === j); return <td key={j} style={{ background: s.bg, color: s.c, fontWeight: 800, textAlign: 'center', padding: '7px 6px', borderRadius: 6 }}>{s.t}</td> })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div style={{ display: 'flex', gap: 10, marginTop: 8, fontSize: 9, color: '#6e7f8f', flexWrap: 'wrap' }}>
-                  <span><span style={{ color: '#f87171' }}>■</span> 0.6↑ 강한 동조</span>
-                  <span><span style={{ color: '#fbbf24' }}>■</span> 0.35~0.6 보통</span>
-                  <span><span style={{ color: '#4ade80' }}>■</span> 0.35↓ 약함</span>
-                </div>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              {/* 우: 정규화 오버레이 비교 차트(100 기준) */}
-              {series.length > 3 && (
-                <div style={{ flex: '1 1 340px', minWidth: 280, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <Overlay label="비트코인 vs 나스닥" dataKey="nasdaq" color="#60a5fa" corr={matrix[0]?.[1] ?? null} />
-                  <Overlay label="비트코인 vs 금" dataKey="gold" color="#fbbf24" corr={matrix[0]?.[3] ?? null} />
-                </div>
-              )}
+              <div style={{ display: 'flex', gap: 12, fontSize: 9.5, color: '#6e7f8f', flexWrap: 'wrap' }}>
+                <span><span style={{ color: '#f87171' }}>■</span> 0.6↑ 강한 동조</span>
+                <span><span style={{ color: '#fbbf24' }}>■</span> 0.35~0.6 보통</span>
+                <span><span style={{ color: '#4ade80' }}>■</span> 0.35↓ 약함(분산)</span>
+              </div>
             </div>
-            <div style={{ color: '#9aa7b5', fontSize: 10.5, lineHeight: 1.6, marginTop: 8 }}>{d.correlation!.note} <span style={{ color: '#6e7f8f' }}>(우측 차트: 모두 시작점 100 기준 정규화 — 주황=비트코인)</span></div>
+            {/* 비교 차트(한 줄 2개, 로그 스케일·100 기준) */}
+            {series.length > 3 && (
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <Overlay label="비트코인 vs 나스닥" dataKey="nasdaq" color="#60a5fa" corr={matrix[0]?.[1] ?? null} />
+                <Overlay label="비트코인 vs 금" dataKey="gold" color="#fbbf24" corr={matrix[0]?.[3] ?? null} />
+              </div>
+            )}
+            <div style={{ color: '#9aa7b5', fontSize: 10.5, lineHeight: 1.6, marginTop: 8 }}>{d.correlation!.note} <span style={{ color: '#6e7f8f' }}>(비교 차트: 시작점 100 기준 정규화·로그 스케일 — 주황=비트코인)</span></div>
           </div>
         )
       })()}

@@ -69,11 +69,11 @@ async function cg<T = unknown>(path: string): Promise<T | null> {
 }
 const num = (v: unknown): number | null => (typeof v === 'number' && isFinite(v) ? v : null)
 
-// Yahoo 일별 종가(상관관계용) — 6개월
+// Yahoo 일별 종가(상관관계용) — 5년
 async function yahooDaily(symbol: string): Promise<Map<string, number>> {
   for (const host of ['query1', 'query2']) {
     try {
-      const r = await fetch(`https://${host}.finance.yahoo.com/v8/finance/chart/${symbol}?range=6mo&interval=1d`, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(12_000) })
+      const r = await fetch(`https://${host}.finance.yahoo.com/v8/finance/chart/${symbol}?range=5y&interval=1d`, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(12_000) })
       if (!r.ok) continue
       const j = await r.json()
       const res = j?.chart?.result?.[0]
@@ -107,17 +107,17 @@ async function buildCorrelation(): Promise<CoinLabResult['correlation']> {
   // 정규화 시계열(100 기준) — 오버레이 비교 차트용. 격일 다운샘플
   const norm = (mi: number) => { const base = maps[mi].get(common[0])!; return (d: string) => Math.round((maps[mi].get(d)! / base) * 1000) / 10 }
   const nBtc = norm(0), nNas = norm(1), nGold = norm(3)
-  const series = common.filter((_, i) => i % 2 === 0 || i === common.length - 1).map(d => ({ date: d, btc: nBtc(d), nasdaq: nNas(d), gold: nGold(d) }))
+  const series = common.filter((_, i) => i % 7 === 0 || i === common.length - 1).map(d => ({ date: d, btc: nBtc(d), nasdaq: nNas(d), gold: nGold(d) }))   // 주간 다운샘플(~5년)
   return {
     labels: syms.map(s => s[0]), matrix,
-    window: `${common[0]} ~ ${common[common.length - 1]} (일별)`,
+    window: `${common[0]} ~ ${common[common.length - 1]} (5년·일별 수익률)`,
     note: '1.0에 가까울수록 같이 움직임. 비트코인이 나스닥(기술주)과 상관이 높고 금과는 낮다면, 코인은 &lsquo;디지털 금&rsquo;보다 &lsquo;고위험 기술주&rsquo;처럼 유동성·위험선호에 반응한다는 뜻입니다.',
     series,
   }
 }
 
 export async function GET(req: Request) {
-  const cacheKey = 'coin-lab-v9'   // v9: 상관관계 + 정규화 오버레이 비교 차트(BTC vs 나스닥/금)
+  const cacheKey = 'coin-lab-v10'   // v10: 상관관계·오버레이 5년 확장
   const cached = await getCache<CoinLabResult>(cacheKey, 3600_000)   // 1h
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
