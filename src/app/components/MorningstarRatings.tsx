@@ -68,7 +68,7 @@ export default function MorningstarRatings() {
 
       {unrated.length > 0 && (
         <div style={{ marginTop: 10, paddingTop: 9, borderTop: `1px solid ${BORDER}` }}>
-          <div style={{ color: '#8a9aaa', fontSize: 10.5, marginBottom: 6 }}>⚠️ 공정가치(DCF) 산정 보류 — 적자·현금흐름 음수·데이터 부족(별점 대신 해자만 표시)</div>
+          <div style={{ color: '#8a9aaa', fontSize: 10.5, marginBottom: 6 }}>⚠️ 공정가치(DCF) 산정 보류 — 적자·현금흐름 음수·데이터 부족, 또는 <b style={{ color: '#fbbf24' }}>기저효과</b>(작년 이익 붕괴 후 폭증 → 공정가치 과대 착시)</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {unrated.map(e => <Row key={e.ticker} e={e} open={open === e.ticker} onToggle={() => setOpen(open === e.ticker ? null : e.ticker)} />)}
           </div>
@@ -76,7 +76,7 @@ export default function MorningstarRatings() {
       )}
 
       <div style={{ marginTop: 11, color: '#6e7f8f', fontSize: 9.5, lineHeight: 1.5 }}>
-        ※ 모닝스타 공개 방법론(해자·공정가치·불확실성·자본배분)을 우리 DCF·해자 엔진으로 재현한 교육용입니다 — 모닝스타 공식 등급·적정가가 아닙니다. 공정가치=버핏식 보수적 DCF(현재 FCF·성장률 상한 35%)라 메가트렌드 성장주는 비싸게 나올 수 있습니다. 투자 추천 아님.
+        ※ 모닝스타 공개 방법론(해자·공정가치·불확실성·자본배분)을 우리 DCF·해자 엔진으로 재현한 교육용입니다 — 모닝스타 공식 등급·적정가가 아닙니다. 공정가치=버핏식 보수적 DCF(현재 FCF·성장률 상한 35%)라 메가트렌드 성장주는 비싸게 나올 수 있습니다. <b style={{ color: '#9aa7b5' }}>경기순환주(에너지·반도체 등)는 현재 이익 기준 DCF라 사이클 위치에 따라 공정가치가 크게 왜곡될 수 있어 별점을 참고로만 보세요.</b> 투자 추천 아님.
       </div>
     </div>
   )
@@ -89,6 +89,7 @@ function Row({ e, open, onToggle }: { e: RatingEntry; open: boolean; onToggle: (
       <button onClick={onToggle} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap', background: 'transparent', border: 'none', cursor: 'pointer', padding: '9px 12px', textAlign: 'left' }}>
         <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 12.5, minWidth: 54 }}>{e.market === 'KR' ? (e.name || e.ticker).slice(0, 8) : e.ticker}</span>
         {e.stars != null ? <Stars n={e.stars} /> : <span style={{ color: '#8599ae', fontSize: 11 }}>별점 보류</span>}
+        {e.baseEffect && <span title="작년 이익 붕괴 후 폭증(+100%↑)으로 DCF 성장률이 부풀려져 공정가치가 과대평가됨 → 저평가 별점은 착시일 수 있어 보류합니다." style={{ background: 'rgba(251,191,36,0.14)', color: '#fbbf24', border: '1px solid #fbbf2455', borderRadius: 5, padding: '1px 7px', fontSize: 9.5, fontWeight: 700 }}>⚠️ 기저효과</span>}
         <span style={{ background: `${moatColor(e.moatWidth)}1f`, color: moatColor(e.moatWidth), border: `1px solid ${moatColor(e.moatWidth)}55`, borderRadius: 5, padding: '1px 7px', fontSize: 9.5, fontWeight: 700 }}>🏰 {MOAT_KO[e.moatWidth]}</span>
         {disc != null && (
           <span style={{ color: disc >= 0 ? '#4ade80' : '#f87171', fontWeight: 800, fontSize: 11.5, fontFamily: 'monospace' }}>

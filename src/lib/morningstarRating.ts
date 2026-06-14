@@ -14,15 +14,17 @@ export interface StarInputs {
   roe:        number | null   // 소수(0.18=18%)
   netDebtPos: boolean | null  // 순부채>0(빚>현금)이면 true
   category:   string          // 린치 6대 분류
+  growth:     number | null   // 이익성장률 소수(2.14=+214%) — 기저효과(>100%) 가드용
 }
 
 export interface StarResult {
-  stars:       number | null  // 1~5(0.5 단위), null=DCF 불가로 가격평가 보류
+  stars:       number | null  // 1~5(0.5 단위), null=DCF 불가/기저효과로 가격평가 보류
   uncertainty: Uncertainty
   moatWidth:   MoatWidth
   moatTrend:   MoatTrend
   stewardship: Stewardship
   discountPct: number | null  // 공정가치 대비 할인(+)/할증(-) % = 안전마진
+  baseEffect:  boolean        // ⚠️ 기저효과(이익 폭증 +100%↑)로 공정가치 과대 → 저평가 별점 신뢰 불가
 }
 
 /**
@@ -64,6 +66,9 @@ export function computeStarRating(i: StarInputs): StarResult {
   const moatTrend = moatTrendOf(i.moatVerdict)
   const stewardship = stewardshipOf(i.roe, i.netDebtPos)
   const discountPct = i.pFv != null && i.pFv > 0 ? +((1 - i.pFv) * 100).toFixed(1) : null
+  // ⚠️ 기저효과(작년 이익 붕괴 후 폭증 +100%↑) — DCF 성장률이 부풀려져 공정가치 과대 → '저평가' 별점 착시.
+  //    진단 탭 린치 Matrix의 기저효과 판정(growth>100%)과 동일 기준(제2원칙).
+  const baseEffect = i.growth != null && i.growth > 1.0
 
   let stars: number | null = null
   if (i.pFv != null && i.pFv > 0) {
@@ -75,8 +80,10 @@ export function computeStarRating(i: StarInputs): StarResult {
     else stars = 1
     // 해자 훼손(breach)은 별 0.5 차감(가격이 싸도 무너지는 성은 신중) — 하한 1
     if (i.moatVerdict === 'breach' && stars > 1) stars -= 0.5
+    // 기저효과 + '저평가' 방향 → 공정가치 과대 착시라 별점 신뢰 불가 → 보류(고평가 방향은 보수적이라 유지)
+    if (baseEffect && discountPct != null && discountPct > 0) stars = null
   }
-  return { stars, uncertainty, moatWidth: i.moatWidth, moatTrend, stewardship, discountPct }
+  return { stars, uncertainty, moatWidth: i.moatWidth, moatTrend, stewardship, discountPct, baseEffect }
 }
 
 export const UNCERTAINTY_KO: Record<Uncertainty, string> = {
