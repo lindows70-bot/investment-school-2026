@@ -145,24 +145,6 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
           </div>
         </Panel>
 
-        {/* ④ 네트워크 건강 */}
-        <Panel title="④ 네트워크 건강(온체인)" sub="비트코인 = 기업 아닌 네트워크">
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-            <span style={{ color: '#e2e8f0', fontWeight: 900, fontSize: 22, fontFamily: 'monospace' }}>{d.network.hashrateEH ?? '—'}</span>
-            <span style={{ color: '#8a9aaa', fontSize: 11 }}>EH/s 해시레이트</span>
-            <span style={{ color: d.network.trend === 'up' ? '#22c55e' : d.network.trend === 'down' ? '#ef4444' : '#94a3b8', fontSize: 12, fontWeight: 700 }}>
-              {d.network.trend === 'up' ? '▲ 강화' : d.network.trend === 'down' ? '▼ 약화' : '— 유지'}
-            </span>
-          </div>
-          {d.network.spark.length > 1 && (() => {
-            const W = 300, H = 40, mn = Math.min(...d.network.spark), mx = Math.max(...d.network.spark), rg = mx - mn || 1
-            const pts = d.network.spark.map((v, i) => `${(i / (d.network.spark.length - 1)) * W},${H - 2 - ((v - mn) / rg) * (H - 4)}`).join(' ')
-            return <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ height: 40, marginTop: 6 }}><polyline points={pts} fill="none" stroke="#f7931a" strokeWidth={1.6} /></svg>
-          })()}
-          <div style={{ color: '#9aa7b5', fontSize: 10.5, lineHeight: 1.6, marginTop: 6 }}>
-            난이도 {d.network.difficultyT ?? '—'}T · 해시레이트는 네트워크 보안의 척도입니다. <b>가격이 빠져도 해시레이트가 오르면 &ldquo;네트워크는 더 튼튼해지는 중&rdquo;</b> — 코인의 펀더멘탈.
-          </div>
-        </Panel>
       </div>
 
       {/* 📈 10년 장기 가격 × 반감기 사이클 */}
@@ -174,7 +156,7 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
           </div>
           <div style={{ height: 300 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={d.longChart.points} margin={{ top: 8, right: 12, left: 2, bottom: 0 }}>
+              <LineChart data={d.longChart.points} margin={{ top: 18, right: 14, left: 2, bottom: 0 }}>
                 <XAxis dataKey="date" tick={{ fill: '#7f93a8', fontSize: 9.5 }} tickFormatter={(s: string) => s.slice(0, 4)} minTickGap={48} axisLine={{ stroke: BORDER }} tickLine={false} />
                 <YAxis scale="log" domain={['auto', 'auto']} tick={{ fill: '#7f93a8', fontSize: 9.5 }} axisLine={false} tickLine={false} width={50}
                   tickFormatter={(v: number) => v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${v}`} ticks={[100, 1000, 10000, 100000]} />
@@ -184,7 +166,7 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
                 {d.longChart.halvings.map(h => (
                   <ReferenceLine key={h.date} x={d.longChart.points.reduce((best, p) => Math.abs(new Date(p.date).getTime() - new Date(h.date).getTime()) < Math.abs(new Date(best).getTime() - new Date(h.date).getTime()) ? p.date : best, d.longChart.points[0].date)}
                     stroke="#f7931a" strokeDasharray="4 3" strokeWidth={1.2}
-                    label={{ value: `⛏️ ${h.date.slice(0, 4)} 반감기`, fill: '#f7931a', fontSize: 9, position: 'top' }} />
+                    label={{ value: `⛏️${h.date.slice(0, 4)}`, fill: '#f7931a', fontSize: 9.5, fontWeight: 700, position: 'insideTop' }} />
                 ))}
                 <Line type="monotone" dataKey="price" name="BTC" stroke="#f7931a" strokeWidth={1.8} dot={false} isAnimationActive={false} />
               </LineChart>
@@ -216,24 +198,46 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
         </div>
       )}
 
-      {/* ⑤ 거시 유동성(M2) vs BTC */}
-      {d.macro.points.length >= 3 && (
-        <Panel title="⑤ 글로벌 유동성(M2) vs 비트코인" sub="100 기준 정규화 · 최근 약 1년">
-          <div style={{ height: 200 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={d.macro.points} margin={{ top: 6, right: 10, left: -14, bottom: 0 }}>
-                <XAxis dataKey="date" tick={{ fill: '#7f93a8', fontSize: 9.5 }} tickFormatter={(m: string) => m.slice(2)} axisLine={{ stroke: BORDER }} tickLine={false} />
-                <YAxis tick={{ fill: '#7f93a8', fontSize: 9.5 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
-                <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }} />
-                <Legend wrapperStyle={{ fontSize: 10 }} />
-                <Line name="미국 M2 통화량" dataKey="m2" stroke="#22d3ee" strokeWidth={1.8} dot={false} connectNulls />
-                <Line name="비트코인" dataKey="btc" stroke="#f7931a" strokeWidth={2.2} dot={false} connectNulls />
-              </LineChart>
-            </ResponsiveContainer>
+      {/* ④ 네트워크 + ⑤ M2 — 2단 배치(풀폭 가로 늘어짐 해소) */}
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        {/* ④ 네트워크 건강 */}
+        <Panel title="④ 네트워크 건강(온체인)" sub="비트코인 = 기업 아닌 네트워크">
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ color: '#e2e8f0', fontWeight: 900, fontSize: 22, fontFamily: 'monospace' }}>{d.network.hashrateEH ?? '—'}</span>
+            <span style={{ color: '#8a9aaa', fontSize: 11 }}>EH/s 해시레이트</span>
+            <span style={{ color: d.network.trend === 'up' ? '#22c55e' : d.network.trend === 'down' ? '#ef4444' : '#94a3b8', fontSize: 12, fontWeight: 700 }}>
+              {d.network.trend === 'up' ? '▲ 강화' : d.network.trend === 'down' ? '▼ 약화' : '— 유지'}
+            </span>
           </div>
-          <div style={{ color: '#9aa7b5', fontSize: 10.5, lineHeight: 1.6, marginTop: 6 }}>{d.macro.note}</div>
+          {d.network.spark.length > 1 && (() => {
+            const W = 300, H = 56, mn = Math.min(...d.network.spark), mx = Math.max(...d.network.spark), rg = mx - mn || 1
+            const pts = d.network.spark.map((v, i) => `${(i / (d.network.spark.length - 1)) * W},${H - 2 - ((v - mn) / rg) * (H - 4)}`).join(' ')
+            return <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ height: 70, marginTop: 8 }}><polyline points={pts} fill="none" stroke="#f7931a" strokeWidth={1.6} /></svg>
+          })()}
+          <div style={{ color: '#9aa7b5', fontSize: 10.5, lineHeight: 1.6, marginTop: 8 }}>
+            난이도 {d.network.difficultyT ?? '—'}T · 해시레이트는 네트워크 보안의 척도입니다. <b>가격이 빠져도 해시레이트가 오르면 &ldquo;네트워크는 더 튼튼해지는 중&rdquo;</b> — 코인의 펀더멘탈.
+          </div>
         </Panel>
-      )}
+
+        {/* ⑤ 글로벌 유동성(M2) vs 비트코인 */}
+        {d.macro.points.length >= 3 && (
+          <Panel title="⑤ 글로벌 유동성(M2) vs 비트코인" sub="100 기준 정규화 · 최근 약 1년">
+            <div style={{ height: 200 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={d.macro.points} margin={{ top: 6, right: 10, left: -14, bottom: 0 }}>
+                  <XAxis dataKey="date" tick={{ fill: '#7f93a8', fontSize: 9.5 }} tickFormatter={(m: string) => m.slice(2)} axisLine={{ stroke: BORDER }} tickLine={false} />
+                  <YAxis tick={{ fill: '#7f93a8', fontSize: 9.5 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
+                  <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }} />
+                  <Legend wrapperStyle={{ fontSize: 10 }} />
+                  <Line name="미국 M2 통화량" dataKey="m2" stroke="#22d3ee" strokeWidth={1.8} dot={false} connectNulls />
+                  <Line name="비트코인" dataKey="btc" stroke="#f7931a" strokeWidth={2.2} dot={false} connectNulls />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ color: '#9aa7b5', fontSize: 10.5, lineHeight: 1.6, marginTop: 6 }}>{d.macro.note}</div>
+          </Panel>
+        )}
+      </div>
 
       {/* ⑥ 김치 프리미엄 */}
       {d.price.kimchiPct != null && (
