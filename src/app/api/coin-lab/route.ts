@@ -20,7 +20,7 @@ export interface CoinLabResult {
   macro: { points: { date: string; m2: number | null; btc: number | null }[]; note: string }   // 100 기준 정규화 오버레이
   longChart: { points: { date: string; price: number }[]; halvings: { date: string; label: string }[] }   // 10년 가격 + 반감기 마커
   supply: { circulatingM: number; maxM: number; pct: number } | null   // 유통량/최대발행(희석 리스크)
-  correlation: { labels: string[]; matrix: (number | null)[][]; window: string; note: string } | null   // BTC vs 증시·금 상관계수
+  correlation: { labels: string[]; matrix: (number | null)[][]; window: string; note: string; series: { date: string; btc: number; nasdaq: number; gold: number }[] } | null   // BTC vs 증시·금 상관계수 + 정규화 시계열
   prescription: { regime: string; tone: 'accumulate' | 'caution' | 'neutral'; text: string }
   guardrailNote: string
   asOf: string
@@ -104,15 +104,20 @@ async function buildCorrelation(): Promise<CoinLabResult['correlation']> {
   // 일별 수익률
   const rets = maps.map(m => common.slice(1).map((d, i) => m.get(d)! / m.get(common[i])! - 1))
   const matrix = rets.map(a => rets.map(b => pearson(a, b)))
+  // 정규화 시계열(100 기준) — 오버레이 비교 차트용. 격일 다운샘플
+  const norm = (mi: number) => { const base = maps[mi].get(common[0])!; return (d: string) => Math.round((maps[mi].get(d)! / base) * 1000) / 10 }
+  const nBtc = norm(0), nNas = norm(1), nGold = norm(3)
+  const series = common.filter((_, i) => i % 2 === 0 || i === common.length - 1).map(d => ({ date: d, btc: nBtc(d), nasdaq: nNas(d), gold: nGold(d) }))
   return {
     labels: syms.map(s => s[0]), matrix,
     window: `${common[0]} ~ ${common[common.length - 1]} (일별)`,
     note: '1.0에 가까울수록 같이 움직임. 비트코인이 나스닥(기술주)과 상관이 높고 금과는 낮다면, 코인은 &lsquo;디지털 금&rsquo;보다 &lsquo;고위험 기술주&rsquo;처럼 유동성·위험선호에 반응한다는 뜻입니다.',
+    series,
   }
 }
 
 export async function GET(req: Request) {
-  const cacheKey = 'coin-lab-v8'   // v8: BTC vs 증시·금 상관관계 히트맵
+  const cacheKey = 'coin-lab-v9'   // v9: 상관관계 + 정규화 오버레이 비교 차트(BTC vs 나스닥/금)
   const cached = await getCache<CoinLabResult>(cacheKey, 3600_000)   // 1h
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
