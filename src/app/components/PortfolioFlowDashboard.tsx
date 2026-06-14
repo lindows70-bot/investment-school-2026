@@ -155,7 +155,7 @@ export default function PortfolioFlowDashboard() {
       {/* 린치식 4분면 매트릭스 */}
       <div style={{ background: CARD, borderRadius: 12, padding: '14px 16px', border: `1px solid ${BORDER}` }}>
         <div style={{ color: '#94a3b8', fontWeight: 700, fontSize: 13, marginBottom: 4 }}>🧭 피터 린치 수급 매트릭스</div>
-        <div style={{ color: '#7f93a8', fontSize: 11, marginBottom: 12 }}>펀더멘탈(저PEG·흑자) × 수급(유입/이탈)으로 내 종목 자동 배치</div>
+        <div style={{ color: '#7f93a8', fontSize: 11, marginBottom: 12 }}>펀더멘탈(저PEG·흑자) × 수급(유입/이탈)으로 내 종목 자동 배치 · <span style={{ color: '#22c55e' }}>🟢</span> = 스마트머니 유입·임박(위 동행지수 {data.inflowCount}개와 동일)</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           {(['LEADER', 'PEARL', 'CROWDED', 'REVIEW'] as Quadrant[]).map(q => {
             const cfg = QUAD[q]
@@ -174,8 +174,11 @@ export default function PortfolioFlowDashboard() {
                     const fs = 11.5 + Math.min(w * 0.28, 9)        // 11.5 ~ 20.5
                     const fw = w >= 15 ? 800 : w >= 7 ? 700 : 600
                     const alpha = w >= 20 ? '40' : w >= 10 ? '2a' : w >= 4 ? '18' : '0e'
+                    // 🟢 동행지수에 포함되는 '유입·임박' 종목 표식 (inflowCount와 동일 기준 — 6개가 딱 떨어짐)
+                    const inflow = e.status === 'INFLOW' || e.momentum >= 40
                     return (
-                      <span key={e.ticker} title={`비중 ${w}%`} style={{ background: `${cfg.color}${alpha}`, color: '#e2e8f0', border: `1px solid ${cfg.color}${w >= 7 ? '77' : '33'}`, borderRadius: 7, padding: '3px 9px', fontSize: fs, fontWeight: fw, lineHeight: 1.4 }}>
+                      <span key={e.ticker} title={`비중 ${w}%${inflow ? ' · 🟢 스마트머니 유입·임박(동행지수 포함)' : ''}`} style={{ background: `${cfg.color}${alpha}`, color: '#e2e8f0', border: `1px solid ${cfg.color}${w >= 7 ? '77' : '33'}`, borderRadius: 7, padding: '3px 9px', fontSize: fs, fontWeight: fw, lineHeight: 1.4 }}>
+                        {inflow && <span style={{ color: '#22c55e', marginRight: 4 }}>🟢</span>}
                         {dnm(e)}<span style={{ color: cfg.color, fontWeight: 800, marginLeft: 5 }}>{w}%</span>
                         {e.peg != null ? <span style={{ color: '#9aa7b4', fontWeight: 400, fontSize: 10.5 }}> · PEG {e.peg.toFixed(2)}</span> : null}
                       </span>
