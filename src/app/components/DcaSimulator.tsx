@@ -69,8 +69,12 @@ export default function DcaSimulator({ points }: { points: { date: string; price
       </div>
 
       <div style={{ marginTop: 10, background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 9, padding: '9px 12px', color: '#dbe3ec', fontSize: 11, lineHeight: 1.7 }}>
-        🎓 <b style={{ color: '#4ade80' }}>적립 vs 일시불</b> — {r.startYr}부터 정기 적립 시 <b>{r.dcaRet >= 0 ? '+' : ''}{r.dcaRet}%</b>, 같은 돈을 시작 시점에 한 번에 넣었다면 <b>{r.lumpRet >= 0 ? '+' : ''}{r.lumpRet}%</b>.
-        {' '}타이밍을 맞히려 애쓰기보다 <b>변동성을 평균 매입가로 흡수하며 꾸준히 모으는 것</b>이 코인처럼 출렁이는 자산에서 심리적으로도, 결과적으로도 유리했습니다. (저점에 한 번에 넣는 건 사후엔 쉬워 보여도 실시간엔 거의 불가능합니다.)
+        🎓 <b style={{ color: '#4ade80' }}>적립 vs 일시불</b> — {r.startYr}부터 정기 적립 시 <b>{r.dcaRet >= 0 ? '+' : ''}{r.dcaRet}%</b>, 같은 돈을 시작 시점에 한 번에 넣었다면 <b>{r.lumpRet >= 0 ? '+' : ''}{r.lumpRet}%</b>.{' '}
+        {r.lumpRet > r.dcaRet + 5
+          ? <>이 구간은 <b>일시불이 더 높습니다 — 시작점이 마침 저점이었기 때문</b>입니다. 하지만 &lsquo;그때가 바닥&rsquo;이란 건 <b>사후에만</b> 압니다. 적립은 저점을 못 맞혀도 변동성을 평균 매입가로 흡수해 <b>타이밍 리스크와 심리적 부담을 없애</b> 줍니다 — 꾸준함의 진짜 가치는 &lsquo;최고 수익&rsquo;이 아니라 &lsquo;실패하지 않는 지속&rsquo;에 있습니다.</>
+          : r.dcaRet > r.lumpRet + 5
+          ? <>이 구간은 <b>적립이 일시불보다도 높았습니다</b> — 고점 부근에서 시작했어도 하락 때 더 많이 사들여(평균 매입가 ${r.avgCostUsd.toLocaleString()}) 변동성을 오히려 수익으로 바꿨습니다. 타이밍을 못 맞혀도 꾸준함이 이깁니다.</>
+          : <>둘이 비슷합니다. 핵심은 수익률 우열이 아니라, 적립은 <b>저점을 못 맞혀도 변동성을 평균가로 흡수</b>해 타이밍 리스크와 심리적 부담을 없앤다는 점입니다.</>}
       </div>
       <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 5 }}>※ 10년 주봉(약 2주 간격) 종가 기준 · 수수료·세금 미반영 · 과거 성과가 미래를 보장하지 않음 · 교육용.</div>
     </div>

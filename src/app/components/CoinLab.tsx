@@ -267,7 +267,52 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
         )}
       </div>
 
-      {/* ⑥ 김치 프리미엄 */}
+      {/* ⑥ 상관관계 히트맵 — BTC vs 나스닥·S&P500·금 */}
+      {d.correlation && d.correlation.matrix.length > 0 && (() => {
+        const { labels, matrix } = d.correlation!
+        // 상관계수 색 — 높을수록 위험자산 동조(주황/빨강), 낮을수록 분산 효과(초록)
+        const cell = (v: number | null, self: boolean) => {
+          if (self) return { bg: '#1e293b', c: '#64748b', t: '—' }
+          if (v == null) return { bg: '#0f1117', c: '#64748b', t: '—' }
+          const a = Math.abs(v)
+          const c = a >= 0.6 ? '#f87171' : a >= 0.35 ? '#fbbf24' : '#4ade80'
+          return { bg: `${c}1f`, c, t: v.toFixed(2) }
+        }
+        return (
+          <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+              <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>⑥ 상관관계 히트맵 — 비트코인 vs 증시·금</span>
+              <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>일별 수익률 6개월 · 1.0=완전 동조 · {d.correlation!.window}</span>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ borderCollapse: 'separate', borderSpacing: 3, fontSize: 11, fontFamily: 'monospace' }}>
+                <thead>
+                  <tr>
+                    <th />
+                    {labels.map(l => <th key={l} style={{ color: '#8a9aaa', fontWeight: 700, fontSize: 10, padding: '2px 6px', minWidth: 56 }}>{l}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {matrix.map((row, i) => (
+                    <tr key={labels[i]}>
+                      <td style={{ color: '#8a9aaa', fontWeight: 700, fontSize: 10, padding: '2px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>{labels[i]}</td>
+                      {row.map((v, j) => { const s = cell(v, i === j); return <td key={j} style={{ background: s.bg, color: s.c, fontWeight: 800, textAlign: 'center', padding: '7px 6px', borderRadius: 6 }}>{s.t}</td> })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 9.5, color: '#6e7f8f' }}>
+              <span><span style={{ color: '#f87171' }}>■</span> 0.6↑ 강한 동조</span>
+              <span><span style={{ color: '#fbbf24' }}>■</span> 0.35~0.6 보통</span>
+              <span><span style={{ color: '#4ade80' }}>■</span> 0.35↓ 약함(분산)</span>
+            </div>
+            <div style={{ color: '#9aa7b5', fontSize: 10.5, lineHeight: 1.6, marginTop: 6 }}>{d.correlation!.note}</div>
+          </div>
+        )
+      })()}
+
+      {/* ⑦ 김치 프리미엄 */}
       {d.price.kimchiPct != null && (
         <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '12px 15px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 15 }}>🇰🇷</span>

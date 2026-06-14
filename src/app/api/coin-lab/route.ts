@@ -20,6 +20,7 @@ export interface CoinLabResult {
   macro: { points: { date: string; m2: number | null; btc: number | null }[]; note: string }   // 100 기준 정규화 오버레이
   longChart: { points: { date: string; price: number }[]; halvings: { date: string; label: string }[] }   // 10년 가격 + 반감기 마커
   supply: { circulatingM: number; maxM: number; pct: number } | null   // 유통량/최대발행(희석 리스크)
+  correlation: { labels: string[]; matrix: (number | null)[][]; window: string; note: string } | null   // BTC vs 증시·금 상관계수
   prescription: { regime: string; tone: 'accumulate' | 'caution' | 'neutral'; text: string }
   guardrailNote: string
   asOf: string
@@ -68,8 +69,50 @@ async function cg<T = unknown>(path: string): Promise<T | null> {
 }
 const num = (v: unknown): number | null => (typeof v === 'number' && isFinite(v) ? v : null)
 
+// Yahoo 일별 종가(상관관계용) — 6개월
+async function yahooDaily(symbol: string): Promise<Map<string, number>> {
+  for (const host of ['query1', 'query2']) {
+    try {
+      const r = await fetch(`https://${host}.finance.yahoo.com/v8/finance/chart/${symbol}?range=6mo&interval=1d`, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(12_000) })
+      if (!r.ok) continue
+      const j = await r.json()
+      const res = j?.chart?.result?.[0]
+      const ts: number[] = res?.timestamp ?? []
+      const cl: (number | null)[] = res?.indicators?.quote?.[0]?.close ?? []
+      const m = new Map<string, number>()
+      for (let i = 0; i < ts.length; i++) { const c = cl[i]; if (c != null && isFinite(c) && c > 0) m.set(new Date(ts[i] * 1000).toISOString().slice(0, 10), c) }
+      if (m.size > 30) return m
+    } catch { /* 다음 host */ }
+  }
+  return new Map()
+}
+// 피어슨 상관계수(일별 수익률 기준)
+function pearson(a: number[], b: number[]): number | null {
+  const n = Math.min(a.length, b.length); if (n < 10) return null
+  const ma = a.reduce((s, v) => s + v, 0) / n, mb = b.reduce((s, v) => s + v, 0) / n
+  let cov = 0, va = 0, vb = 0
+  for (let i = 0; i < n; i++) { const da = a[i] - ma, db = b[i] - mb; cov += da * db; va += da * da; vb += db * db }
+  const d = Math.sqrt(va * vb); return d > 0 ? Math.round((cov / d) * 100) / 100 : null
+}
+// BTC·나스닥(QQQ)·S&P500(SPY)·금(GLD) 6개월 일별 수익률 상관 매트릭스
+async function buildCorrelation(): Promise<CoinLabResult['correlation']> {
+  const syms: [string, string][] = [['비트코인', 'BTC-USD'], ['나스닥', 'QQQ'], ['S&P500', 'SPY'], ['금', 'GLD']]
+  const maps = await Promise.all(syms.map(([, s]) => yahooDaily(s)))
+  // 공통 거래일(증시 기준 — 모든 자산에 종가 존재)
+  const common = Array.from(maps[0].keys()).filter(d => maps.every(m => m.has(d))).sort()
+  if (common.length < 20) return null
+  // 일별 수익률
+  const rets = maps.map(m => common.slice(1).map((d, i) => m.get(d)! / m.get(common[i])! - 1))
+  const matrix = rets.map(a => rets.map(b => pearson(a, b)))
+  return {
+    labels: syms.map(s => s[0]), matrix,
+    window: `${common[0]} ~ ${common[common.length - 1]} (일별)`,
+    note: '1.0에 가까울수록 같이 움직임. 비트코인이 나스닥(기술주)과 상관이 높고 금과는 낮다면, 코인은 &lsquo;디지털 금&rsquo;보다 &lsquo;고위험 기술주&rsquo;처럼 유동성·위험선호에 반응한다는 뜻입니다.',
+  }
+}
+
 export async function GET(req: Request) {
-  const cacheKey = 'coin-lab-v7'   // v7: 비트코인 유통량(희석 리스크) 추가
+  const cacheKey = 'coin-lab-v8'   // v8: BTC vs 증시·금 상관관계 히트맵
   const cached = await getCache<CoinLabResult>(cacheKey, 3600_000)   // 1h
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -81,12 +124,13 @@ export async function GET(req: Request) {
   try { const ex = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) }); if (ex.ok) { const j = await ex.json(); if (typeof j.rate === 'number' && j.rate > 0) usdKrw = j.rate } } catch { /* 폴백 */ }
 
   // ── CoinGecko 외 소스: 병렬(서로 다른 호스트라 충돌 없음) ──────────
-  const [fngR, hashR, upbitR, m2R, longR] = await Promise.allSettled([
+  const [fngR, hashR, upbitR, m2R, longR, corrR] = await Promise.allSettled([
     fetch('https://api.alternative.me/fng/?limit=2', { signal: AbortSignal.timeout(10_000) }).then(r => r.json()),
     fetch('https://mempool.space/api/v1/mining/hashrate/3m', { signal: AbortSignal.timeout(12_000) }).then(r => r.json()),
     fetch('https://api.upbit.com/v1/ticker?markets=KRW-BTC', { signal: AbortSignal.timeout(10_000) }).then(r => r.json()),
     FRED ? fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=M2SL&api_key=${FRED}&file_type=json&sort_order=desc&limit=37`, { signal: AbortSignal.timeout(10_000) }).then(r => r.json()) : Promise.resolve(null),
     btcLongPrices(),
+    buildCorrelation(),
   ])
   const val = <T,>(r: PromiseSettledResult<T>): T | null => (r.status === 'fulfilled' ? r.value : null)
   const fng = val(fngR) as { data?: { value: string; value_classification: string }[] } | null
@@ -94,6 +138,7 @@ export async function GET(req: Request) {
   const upbit = val(upbitR) as { trade_price: number }[] | null
   const m2j = val(m2R) as { observations?: { date: string; value: string }[] } | null
   const longPts = (val(longR) as { date: string; price: number }[] | null) ?? []
+  const correlation = val(corrR) as CoinLabResult['correlation']
 
   // ── CoinGecko: 반드시 순차(무료 API 버스트 429 회피) ──────────────
   const global = await cg<{ data?: Record<string, unknown> }>('/global')
@@ -190,6 +235,7 @@ export async function GET(req: Request) {
     macro: { points: macroPoints, note: macroNote },
     longChart: { points: longPts, halvings: longPts.length ? HALVINGS.filter(h => h.date >= longPts[0].date) : HALVINGS },
     supply,
+    correlation,
     prescription: { regime, tone, text },
     guardrailNote,
     asOf: new Date().toISOString(),
