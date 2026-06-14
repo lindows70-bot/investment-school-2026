@@ -19,6 +19,10 @@ function CoinChart({ c }: { c: AltCoin }) {
   const col = SYM_COLOR[c.symbol] ?? '#a78bfa'
   const dv = DIV_META[c.divergence]
   const hasNet = c.points.some(p => p.net != null)
+  // 월별 첫 주 1개만 X축 라벨(주간 포인트라 같은 달 중복 방지)
+  const monthTicks: string[] = []
+  const seenMonth = new Set<string>()
+  for (const p of c.points) { const m = p.date.slice(0, 7); if (!seenMonth.has(m)) { seenMonth.add(m); monthTicks.push(p.date) } }
   return (
     <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
@@ -36,7 +40,7 @@ function CoinChart({ c }: { c: AltCoin }) {
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={c.points} margin={{ top: 6, right: 6, left: -14, bottom: 0 }}>
             <CartesianGrid strokeDasharray="2 4" stroke="#1a2035" vertical={false} />
-            <XAxis dataKey="date" tick={{ fill: '#7f93a8', fontSize: 9 }} tickFormatter={fmtYm} minTickGap={36} axisLine={{ stroke: BORDER }} tickLine={false} />
+            <XAxis dataKey="date" ticks={monthTicks} tick={{ fill: '#7f93a8', fontSize: 9 }} tickFormatter={fmtYm} axisLine={{ stroke: BORDER }} tickLine={false} />
             <YAxis yAxisId="p" tick={{ fill: '#7f93a8', fontSize: 9 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={44} tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v / 1000)}k` : `${v}`} />
             <YAxis yAxisId="n" orientation="right" tick={{ fill: '#7f93a8', fontSize: 9 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={40} tickFormatter={(v: number) => `${v}B`} />
             <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }} labelStyle={{ color: '#8a9aaa' }}
