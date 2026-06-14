@@ -1,7 +1,7 @@
 'use client'
 // 🪙 코인 랩 — 비트코인 독립 분석(사이클·심리·온체인·유동성 + 김치프리미엄 + 국면×리스크 처방)
 import { useState, useEffect } from 'react'
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend } from 'recharts'
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, ReferenceLine } from 'recharts'
 import type { CoinLabResult } from '@/app/api/coin-lab/route'
 import AltcoinNetworkChart from '@/app/components/AltcoinNetworkChart'
 
@@ -29,6 +29,7 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
   const [d, setD] = useState<CoinLabResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<'btc' | 'alt'>('btc')   // 비트코인(디지털 금) ↔ 알트코인(네트워크 자산) 분리
+  const [eduOpen, setEduOpen] = useState(false)            // 🎓 반감기란? 교육 아코디언
 
   useEffect(() => {
     let alive = true
@@ -163,6 +164,57 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
           </div>
         </Panel>
       </div>
+
+      {/* 📈 10년 장기 가격 × 반감기 사이클 */}
+      {d.longChart && d.longChart.points.length > 20 && (
+        <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+            <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>📈 비트코인 10년 차트 × 반감기 사이클</span>
+            <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>로그 스케일 · 세로 점선 = 반감기(공급 충격) · 약 4년 주기</span>
+          </div>
+          <div style={{ height: 300 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={d.longChart.points} margin={{ top: 8, right: 12, left: 2, bottom: 0 }}>
+                <XAxis dataKey="date" tick={{ fill: '#7f93a8', fontSize: 9.5 }} tickFormatter={(s: string) => s.slice(0, 4)} minTickGap={48} axisLine={{ stroke: BORDER }} tickLine={false} />
+                <YAxis scale="log" domain={['auto', 'auto']} tick={{ fill: '#7f93a8', fontSize: 9.5 }} axisLine={false} tickLine={false} width={50}
+                  tickFormatter={(v: number) => v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${v}`} ticks={[100, 1000, 10000, 100000]} />
+                <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }} labelStyle={{ color: '#8a9aaa' }}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  formatter={(v: any) => [`$${Number(v).toLocaleString()}`, 'BTC']} />
+                {d.longChart.halvings.map(h => (
+                  <ReferenceLine key={h.date} x={d.longChart.points.reduce((best, p) => Math.abs(new Date(p.date).getTime() - new Date(h.date).getTime()) < Math.abs(new Date(best).getTime() - new Date(h.date).getTime()) ? p.date : best, d.longChart.points[0].date)}
+                    stroke="#f7931a" strokeDasharray="4 3" strokeWidth={1.2}
+                    label={{ value: `⛏️ ${h.date.slice(0, 4)} 반감기`, fill: '#f7931a', fontSize: 9, position: 'top' }} />
+                ))}
+                <Line type="monotone" dataKey="price" name="BTC" stroke="#f7931a" strokeWidth={1.8} dot={false} isAnimationActive={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          {/* 🎓 반감기란? 교육 아코디언 */}
+          <button onClick={() => setEduOpen(o => !o)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, background: 'transparent', border: 'none', cursor: 'pointer', padding: '8px 0 4px', textAlign: 'left' }}>
+            <span style={{ color: '#f7931a', fontWeight: 800, fontSize: 12 }}>🎓 비트코인 반감기(Halving)란?</span>
+            <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>왜 4년마다 시장이 요동치고, 왜 &lsquo;디지털 금&rsquo;이라 불리나</span>
+            <span style={{ marginLeft: 'auto', color: '#8a9aaa', fontSize: 11 }}>{eduOpen ? '▲ 접기' : '▼ 펼치기'}</span>
+          </button>
+          {eduOpen && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+              {[
+                ['① 21만 블록마다 채굴 보상 절반', '비트코인은 약 10분마다 한 블록이 생기고, 채굴자에게 새 BTC를 보상으로 줍니다. 이 보상이 21만 블록(약 4년)마다 정확히 절반으로 줄어듭니다 — 50→25→12.5→6.25→3.125 BTC. 즉 신규 공급(인플레이션)이 4년마다 반으로 꺾입니다.'],
+                ['② 공급 충격 → 역사적 강세 패턴', '수요가 같아도 신규 공급이 절반이 되면 희소성이 커집니다. 과거 3번의 반감기(2012·2016·2020) 모두 이후 12~18개월에 걸쳐 큰 강세장이 왔습니다(위 차트의 세로 점선 직후 구간). 단, 과거가 미래를 보장하지는 않습니다.'],
+                ['③ 희소성 경제학 — 디지털 금', '금이 가치 저장 수단인 이유는 매년 채굴량이 한정돼 희소하기 때문입니다. 비트코인은 총 발행량이 2,100만 개로 코드에 못박혀 있고, 반감기로 신규 공급이 계속 줄어 결국 0에 수렴합니다 — 그래서 인플레이션 헤지 &lsquo;디지털 금&rsquo;으로 불립니다.'],
+              ].map(([t, b]) => (
+                <div key={t} style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 9, padding: '9px 12px' }}>
+                  <div style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 11.5, marginBottom: 3 }}>{t}</div>
+                  <div style={{ color: '#aab6c4', fontSize: 11, lineHeight: 1.65 }}>{b}</div>
+                </div>
+              ))}
+              <div style={{ background: 'rgba(247,147,26,0.07)', border: '1px solid rgba(247,147,26,0.3)', borderRadius: 9, padding: '9px 12px', color: '#dbe3ec', fontSize: 11, lineHeight: 1.7 }}>
+                🎓 <b style={{ color: '#f7931a' }}>최일 쌤의 한마디</b> — 위 차트를 로그 스케일로 보면, 변동성에 가려 보이지 않던 &lsquo;반감기마다 한 계단 올라서는&rsquo; 장기 추세가 드러납니다. 단기 캔들에 휩쓸리지 말고, 지금이 4년 사이클의 어디인지(패널 ①)를 먼저 보세요.
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ⑤ 거시 유동성(M2) vs BTC */}
       {d.macro.points.length >= 3 && (

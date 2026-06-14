@@ -18,9 +18,38 @@ export interface CoinLabResult {
   market: { totalMcapUsdT: number | null; stablecoinPct: number | null; top: { symbol: string; name: string; price: number; ch24: number | null; ch7: number | null; mcapB: number }[] }
   network: { hashrateEH: number | null; difficultyT: number | null; trend: 'up' | 'down' | 'flat'; spark: number[] }
   macro: { points: { date: string; m2: number | null; btc: number | null }[]; note: string }   // 100 기준 정규화 오버레이
+  longChart: { points: { date: string; price: number }[]; halvings: { date: string; label: string }[] }   // 10년 가격 + 반감기 마커
   prescription: { regime: string; tone: 'accumulate' | 'caution' | 'neutral'; text: string }
   guardrailNote: string
   asOf: string
+}
+
+// 비트코인 반감기(채굴보상 절반 — 약 4년/21만 블록 주기). 차트 세로선 마커용
+const HALVINGS: { date: string; label: string }[] = [
+  { date: '2012-11-28', label: '1차 반감기 (50→25 BTC)' },
+  { date: '2016-07-09', label: '2차 반감기 (25→12.5 BTC)' },
+  { date: '2020-05-11', label: '3차 반감기 (12.5→6.25 BTC)' },
+  { date: '2024-04-20', label: '4차 반감기 (6.25→3.125 BTC)' },
+]
+// Yahoo Finance BTC-USD 10년 주봉(무료) — CoinGecko 무료는 365일 초과 401이라 장기 차트는 Yahoo 사용
+async function btcLongPrices(): Promise<{ date: string; price: number }[]> {
+  for (const host of ['query1', 'query2']) {
+    try {
+      const r = await fetch(`https://${host}.finance.yahoo.com/v8/finance/chart/BTC-USD?range=10y&interval=1wk`, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(12_000) })
+      if (!r.ok) continue
+      const j = await r.json()
+      const res = j?.chart?.result?.[0]
+      const ts: number[] = res?.timestamp ?? []
+      const cl: (number | null)[] = res?.indicators?.quote?.[0]?.close ?? []
+      const out: { date: string; price: number }[] = []
+      for (let i = 0; i < ts.length; i += 2) {   // 격주 다운샘플(~260p)
+        const c = cl[i]
+        if (c != null && isFinite(c) && c > 0) out.push({ date: new Date(ts[i] * 1000).toISOString().slice(0, 10), price: Math.round(c) })
+      }
+      if (out.length > 20) return out
+    } catch { /* 다음 host */ }
+  }
+  return []
 }
 
 // CoinGecko 무료 API — 브라우저형 UA 필수(기본 fetch UA는 종종 차단), 429 시 1회 재시도. 절대 동시 버스트 금지
@@ -39,7 +68,7 @@ async function cg<T = unknown>(path: string): Promise<T | null> {
 const num = (v: unknown): number | null => (typeof v === 'number' && isFinite(v) ? v : null)
 
 export async function GET(req: Request) {
-  const cacheKey = 'coin-lab-v3'   // v3: M2vsBTC 교집합 정규화(BTC 라인 누락 수정)
+  const cacheKey = 'coin-lab-v4'   // v4: 10년 장기 차트 + 반감기 마커
   const cached = await getCache<CoinLabResult>(cacheKey, 3600_000)   // 1h
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -51,17 +80,19 @@ export async function GET(req: Request) {
   try { const ex = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) }); if (ex.ok) { const j = await ex.json(); if (typeof j.rate === 'number' && j.rate > 0) usdKrw = j.rate } } catch { /* 폴백 */ }
 
   // ── CoinGecko 외 소스: 병렬(서로 다른 호스트라 충돌 없음) ──────────
-  const [fngR, hashR, upbitR, m2R] = await Promise.allSettled([
+  const [fngR, hashR, upbitR, m2R, longR] = await Promise.allSettled([
     fetch('https://api.alternative.me/fng/?limit=2', { signal: AbortSignal.timeout(10_000) }).then(r => r.json()),
     fetch('https://mempool.space/api/v1/mining/hashrate/3m', { signal: AbortSignal.timeout(12_000) }).then(r => r.json()),
     fetch('https://api.upbit.com/v1/ticker?markets=KRW-BTC', { signal: AbortSignal.timeout(10_000) }).then(r => r.json()),
     FRED ? fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=M2SL&api_key=${FRED}&file_type=json&sort_order=desc&limit=37`, { signal: AbortSignal.timeout(10_000) }).then(r => r.json()) : Promise.resolve(null),
+    btcLongPrices(),
   ])
   const val = <T,>(r: PromiseSettledResult<T>): T | null => (r.status === 'fulfilled' ? r.value : null)
   const fng = val(fngR) as { data?: { value: string; value_classification: string }[] } | null
   const hash = val(hashR) as { currentHashrate?: number; currentDifficulty?: number; hashrates?: { avgHashrate: number }[] } | null
   const upbit = val(upbitR) as { trade_price: number }[] | null
   const m2j = val(m2R) as { observations?: { date: string; value: string }[] } | null
+  const longPts = (val(longR) as { date: string; price: number }[] | null) ?? []
 
   // ── CoinGecko: 반드시 순차(무료 API 버스트 429 회피) ──────────────
   const global = await cg<{ data?: Record<string, unknown> }>('/global')
@@ -152,6 +183,7 @@ export async function GET(req: Request) {
     market: { totalMcapUsdT, stablecoinPct, top },
     network: { hashrateEH, difficultyT, trend, spark },
     macro: { points: macroPoints, note: macroNote },
+    longChart: { points: longPts, halvings: longPts.length ? HALVINGS.filter(h => h.date >= longPts[0].date) : HALVINGS },
     prescription: { regime, tone, text },
     guardrailNote,
     asOf: new Date().toISOString(),
