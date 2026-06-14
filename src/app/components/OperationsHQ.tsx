@@ -5,6 +5,7 @@ import type { SeasonNavResult } from '@/app/api/season-navigator/route'
 import type { HqBriefing } from '@/app/api/hq-briefing/route'
 import PortfolioXray from '@/app/components/PortfolioXray'
 import LynchClassificationMatrix from '@/app/components/LynchClassificationMatrix'
+import MorningstarRatings from '@/app/components/MorningstarRatings'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 
@@ -143,6 +144,9 @@ export default function OperationsHQ() {
 
       {/* 🧬 피터 린치 7대 분류 Matrix & 함정 레이더 — 진단 해상도 보강(주식 미보유면 자동 숨김) */}
       <LynchClassificationMatrix />
+
+      {/* 🌟 모닝스타식 스타 등급 — 공정가치(DCF)·해자·불확실성·자본배분 종합(진단 캡스톤) */}
+      <MorningstarRatings />
 
       {/* 🔬 ETF 속살 투시 — 보유 ETF를 분해해 실질 노출도(진단 보강). ETF 미보유면 자동 숨김 */}
       <PortfolioXray />
