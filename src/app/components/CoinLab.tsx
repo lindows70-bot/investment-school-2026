@@ -235,16 +235,19 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
 
         {/* ⑤ 글로벌 유동성(M2) vs 비트코인 */}
         {d.macro.points.length >= 3 && (
-          <Panel title="⑤ 글로벌 유동성(M2) vs 비트코인" sub="100 기준 정규화 · 약 3년">
+          <Panel title="⑤ 글로벌 유동성(M2) vs 비트코인" sub="좌축 M2(파랑) · 우축 BTC(주황) · 약 3년">
             <div style={{ height: 200 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={d.macro.points} margin={{ top: 6, right: 10, left: -14, bottom: 0 }}>
+                <LineChart data={d.macro.points} margin={{ top: 6, right: 4, left: 4, bottom: 0 }}>
                   <XAxis dataKey="date" tick={{ fill: '#7f93a8', fontSize: 9.5 }} tickFormatter={(m: string) => m.slice(2)} minTickGap={44} axisLine={{ stroke: BORDER }} tickLine={false} />
-                  <YAxis tick={{ fill: '#7f93a8', fontSize: 9.5 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
-                  <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }} />
+                  <YAxis yAxisId="m2" tick={{ fill: '#22d3ee', fontSize: 9 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={42} tickFormatter={(v: number) => `$${(v / 1000).toFixed(1)}T`} />
+                  <YAxis yAxisId="btc" orientation="right" tick={{ fill: '#f7931a', fontSize: 9 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={40} tickFormatter={(v: number) => v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${v}`} />
+                  <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={(v: any, name: any) => name === '미국 M2 통화량' ? [`$${(v / 1000).toFixed(2)}T`, name] : [`$${Number(v).toLocaleString()}`, name]} />
                   <Legend wrapperStyle={{ fontSize: 10 }} />
-                  <Line name="미국 M2 통화량" dataKey="m2" stroke="#22d3ee" strokeWidth={1.8} dot={false} connectNulls />
-                  <Line name="비트코인" dataKey="btc" stroke="#f7931a" strokeWidth={2.2} dot={false} connectNulls />
+                  <Line yAxisId="m2" name="미국 M2 통화량" dataKey="m2" stroke="#22d3ee" strokeWidth={1.8} dot={false} connectNulls />
+                  <Line yAxisId="btc" name="비트코인" dataKey="btc" stroke="#f7931a" strokeWidth={2.2} dot={false} connectNulls />
                 </LineChart>
               </ResponsiveContainer>
             </div>

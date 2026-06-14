@@ -68,7 +68,7 @@ async function cg<T = unknown>(path: string): Promise<T | null> {
 const num = (v: unknown): number | null => (typeof v === 'number' && isFinite(v) ? v : null)
 
 export async function GET(req: Request) {
-  const cacheKey = 'coin-lab-v5'   // v5: M2 오버레이 3년 확장(Yahoo BTC 월봉)
+  const cacheKey = 'coin-lab-v6'   // v6: M2 vs BTC 좌/우 별도축(원본값) — M2 변화 가시화
   const cached = await getCache<CoinLabResult>(cacheKey, 3600_000)   // 1h
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -155,14 +155,14 @@ export async function GET(req: Request) {
   const btcMonthly = new Map<string, number>()
   for (const p of longPts) btcMonthly.set(p.date.slice(0, 7), p.price)   // 같은 달은 마지막값으로 덮어씀
   // M2 전체(약 37개월) 중 BTC가 있는 달. 첫 공통월을 100 기준으로 양쪽 정규화 → 3년이라 M2 상승·BTC 변동이 모두 보임
+  // 좌/우 별도 축으로 각자 스케일 — 원본값 제공(M2 = FRED M2SL $10억, BTC = 가격 $). 정규화 단일축은 BTC 스윙에 M2가 묻힘
   const common = m2obs.filter(o => btcMonthly.has(o.date))
-  const m2Base = common[0]?.v, btcBase = common.length ? btcMonthly.get(common[0].date) : undefined
   const macroPoints = common.map(o => ({
     date: o.date,
-    m2: m2Base ? Math.round((o.v / m2Base) * 1000) / 10 : null,
-    btc: btcBase ? Math.round((btcMonthly.get(o.date)! / btcBase) * 1000) / 10 : null,
+    m2: Math.round(o.v),                          // 미국 M2 통화량($10억 단위, ≈21000 = $21T)
+    btc: Math.round(btcMonthly.get(o.date)!),     // 비트코인 가격($)
   }))
-  const macroNote = '비트코인은 이익을 내지 않는 자산이라, 시중 통화량(M2)·금리 같은 글로벌 유동성에 민감하게 반응합니다 — M2는 완만히 우상향(연 ~3%), 비트코인은 그 위에서 훨씬 크게 출렁입니다. 돈이 풀리면 먼저 오르고 죄면 먼저 빠지는 &lsquo;고베타 유동성 자산&rsquo;.'
+  const macroNote = '좌축 = 미국 M2 통화량 · 우축 = 비트코인 가격(각자 스케일). M2는 완만히 우상향(연 ~3%)하고, 비트코인은 그 유동성 위에서 훨씬 크게 출렁입니다 — 돈이 풀리면 먼저 오르고 죄면 먼저 빠지는 &lsquo;고베타 유동성 자산&rsquo;.'
 
   // ── 처방(국면×리스크 사이징 — 매수 지시 아님) ──────────────────
   let tone: 'accumulate' | 'caution' | 'neutral' = 'neutral'
