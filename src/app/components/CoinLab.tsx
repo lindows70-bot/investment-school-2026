@@ -5,6 +5,7 @@ import { ResponsiveContainer, LineChart, Line, AreaChart, Area, XAxis, YAxis, To
 import type { CoinLabResult } from '@/app/api/coin-lab/route'
 import AltcoinNetworkChart, { SupplyBar } from '@/app/components/AltcoinNetworkChart'
 import DcaSimulator from '@/app/components/DcaSimulator'
+import RegulatoryRadar from '@/app/components/RegulatoryRadar'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 const fmtUsd = (n: number | null) => n == null ? '—' : `$${Math.round(n).toLocaleString()}`
@@ -82,6 +83,9 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
           </div>
         )}
       </div>
+
+      {/* 🏛️ 규제 레이더 — 양쪽 뷰 공통(법안은 코인 전체에 영향) */}
+      <RegulatoryRadar />
 
       {/* 🔷 알트코인 뷰 */}
       {view === 'alt' && <AltcoinNetworkChart />}
