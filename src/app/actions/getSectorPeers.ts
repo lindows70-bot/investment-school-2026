@@ -26,6 +26,7 @@ export interface PeerMetric {
   opMargin:  number | null    // 영업이익률 %
   debtRatio: number | null    // 부채/시총 %
   mcapUsd:   number | null    // USD 통일 시가총액 (체급 비교용 · 대략 환산)
+  psr:       number | null    // 주가매출비율 P/S — 적자기업 밸류 척도(절대 임계 X, 동종 중앙값 대비 상대 판정)
   isTarget:  boolean
 }
 
@@ -36,6 +37,7 @@ export interface SectorPeerResult {
   sameIndCount:   number       // 동일 업종 경쟁사 수
   peers:     PeerMetric[]      // 대상 종목 포함, 가성비순(PEG↑) 정렬
   bestValue: string | null     // 가장 싸고 탄탄한 종목 티커
+  psrMedian: number | null     // 동종 피어 PSR 중앙값 — 상대 판정 기준(절대 임계 X)
   verdict:   'hold_best' | 'consider_rotate' | 'neutral' | 'early_stage'
   rivalTicker: string | null   // 대상보다 더 싸고 탄탄한 '동일업종' 경쟁사(있으면)
   lynchComment: string
@@ -143,7 +145,8 @@ async function fetchMetric(yf: any, symbol: string, isTarget: boolean, base?: st
     const mcapUsd = mc != null ? Math.round(currency === 'KRW' ? mc / USDKRW_APPROX : mc) : null
     const name = String(pr.shortName || pr.longName || symbol).replace(/\.(KS|KQ)$/i, '')
     const industry = ap.industry ? String(ap.industry) : null
-    return { ticker: symbol.replace(/\.(KS|KQ)$/i, ''), name, industry, sameInd: false, peg, pegBaseEffect, opMargin, debtRatio, mcapUsd, isTarget }
+    const psr = num(sd.priceToSalesTrailing12Months)
+    return { ticker: symbol.replace(/\.(KS|KQ)$/i, ''), name, industry, sameInd: false, peg, pegBaseEffect, opMargin, debtRatio, mcapUsd, psr, isTarget }
   } catch { return null }
 }
 
@@ -152,7 +155,7 @@ export async function getSectorPeers(input: { ticker: string; name?: string; mar
   const market = input.market
   const asOf = new Date().toISOString()
   const empty = (status: SectorPeerResult['status'], message?: string): SectorPeerResult => ({
-    ticker, source: 'curated', targetIndustry: null, sameIndCount: 0, peers: [], bestValue: null, verdict: 'neutral', rivalTicker: null, lynchComment: '', status, message, asOf,
+    ticker, source: 'curated', targetIndustry: null, sameIndCount: 0, peers: [], bestValue: null, psrMedian: null, verdict: 'neutral', rivalTicker: null, lynchComment: '', status, message, asOf,
   })
 
   // 개별 주식만 (백스톱)
@@ -231,6 +234,10 @@ export async function getSectorPeers(input: { ticker: string; name?: string; mar
     const sameIndSorted = sameIndPeers.concat(target).filter(p => p.peg != null && p.peg > 0).sort((a, b) => (a.peg! - b.peg!))
     const bestValue = sameIndSorted[0]?.ticker ?? null
 
+    // 동종 PSR 중앙값 — 절대 임계 대신 '동일업종 대비' 상대 판정 기준(산업마다 PSR 정상치 다름)
+    const psrVals = sameIndPeers.concat(target).map(p => p.psr).filter((v): v is number => v != null && v > 0).sort((a, b) => a - b)
+    const psrMedian = psrVals.length >= 2 ? +(psrVals.length % 2 ? psrVals[(psrVals.length - 1) / 2] : (psrVals[psrVals.length / 2 - 1] + psrVals[psrVals.length / 2]) / 2).toFixed(2) : null
+
     // ★ 초기(이익 없는) 기업: PEG 없음 + 영업적자 → PEG·이익률 비교 무의미
     const earlyStage = (target.peg == null || target.peg <= 0) && (target.opMargin == null || target.opMargin < 0)
     const profitablePeers = sameIndPeers.filter(p => p.opMargin != null && p.opMargin > 0)
@@ -254,7 +261,7 @@ export async function getSectorPeers(input: { ticker: string; name?: string; mar
         ? `좋은 선택이야! ${target.name}은 같은 업종 경쟁사 중 PEG가 가장 낮아(가장 저평가). 린치가 말한 "업종 내 가장 싸고 탄탄한 기업"에 가깝지. 영업이익률·부채도 1등인지 같이 확인해.`
         : `${target.name}은 같은 업종 경쟁사와 비교해 가성비가 평범한 편이야. 이 표에서 '더 싸면서 더 잘 버는' 동일업종 기업이 없는지 직접 비교해봐.`
 
-    const result: SectorPeerResult = { ticker, source, targetIndustry, sameIndCount, peers, bestValue, verdict, rivalTicker: rival?.ticker ?? null, lynchComment, status: 'ok', asOf }
+    const result: SectorPeerResult = { ticker, source, targetIndustry, sameIndCount, peers, bestValue, psrMedian, verdict, rivalTicker: rival?.ticker ?? null, lynchComment, status: 'ok', asOf }
     CACHE.set(ticker, { data: result, expiresAt: Date.now() + CACHE_TTL })
     return result
   } catch (e) {

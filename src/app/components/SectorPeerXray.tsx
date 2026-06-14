@@ -85,6 +85,7 @@ export default function SectorPeerXray({ ticker, name, market }: Props) {
               <th style={{ textAlign: 'left', fontWeight: 700, padding: '0 0 8px' }}>종목</th>
               <th style={{ fontWeight: 700, padding: '0 0 8px' }}>체급(시총)</th>
               <th style={{ fontWeight: 700, padding: '0 0 8px' }}>PEG ↓싸다</th>
+              <th style={{ fontWeight: 700, padding: '0 0 8px' }} title="주가매출비율(P/S) — 적자기업도 매출 대비 밸류를 보는 척도. 동종 중앙값 대비 색칠(절대 임계 아님)">PSR ↓싸다</th>
               <th style={{ fontWeight: 700, padding: '0 0 8px' }}>영업이익률 ↑탄탄</th>
               <th style={{ fontWeight: 700, padding: '0 0 8px' }}>부채/시총 ↓안전</th>
             </tr>
@@ -120,6 +121,11 @@ export default function SectorPeerXray({ ticker, name, market }: Props) {
                       </span>
                     )}
                   </td>
+                  <td style={{ textAlign: 'right', fontWeight: 800, padding: '9px 4px',
+                    color: p.psr == null ? C.textLow
+                      : data.psrMedian != null && p.psr < data.psrMedian * 0.85 ? C.green
+                      : data.psrMedian != null && p.psr > data.psrMedian * 1.15 ? C.red
+                      : C.textSub }}>{p.psr != null ? `${p.psr.toFixed(1)}×` : '—'}</td>
                   <td style={{ textAlign: 'right', fontWeight: 800, color: marginColor(p.opMargin), padding: '9px 4px' }}>{p.opMargin != null ? `${p.opMargin}%` : '—'}</td>
                   <td style={{ textAlign: 'right', fontWeight: 700, color: p.debtRatio == null ? C.textLow : p.debtRatio > 50 ? C.red : C.textSub, padding: '9px 4px' }}>{p.debtRatio != null ? (p.debtRatio > 300 ? '>300%' : `${p.debtRatio}%`) : '—'}</td>
                 </tr>
@@ -135,7 +141,7 @@ export default function SectorPeerXray({ ticker, name, market }: Props) {
       </div>
 
       <div style={{ marginTop: 12, fontSize: 9.5, color: C.textLow, lineHeight: 1.6 }}>
-        ⚔️ 체급(시총)=USD로 통일해 글로벌 1등과 체급 비교(원화는 대략 환산) · PEG=낮을수록 저평가 · 영업이익률=높을수록 가격결정력(해자) · 부채/시총=낮을수록 안전(자동차·은행은 금융자회사 부채 포함되어 높게 나옴, 300%↑는 생략) · ⚠️기저효과 보정=이익 붕괴 후 회복으로 성장률이 100%↑ 튄 종목은 원시 PEG가 0에 수렴(저평가 착시) → 내년 예상 성장 기준으로 정상화(린치의 경기순환주 함정 경고).
+        ⚔️ 체급(시총)=USD로 통일해 글로벌 1등과 체급 비교(원화는 대략 환산) · PEG=낮을수록 저평가 · PSR=주가매출비율(매출 대비 밸류, 적자기업도 평가 가능){data.psrMedian != null ? ` · 동종 중앙값 ${data.psrMedian.toFixed(1)}× 대비 15%↓ 초록(저평가)·15%↑ 빨강(고평가)` : ''}(절대 임계 아님 — 산업마다 정상 PSR이 달라 같은 업종끼리만 비교) · 영업이익률=높을수록 가격결정력(해자) · 부채/시총=낮을수록 안전(자동차·은행은 금융자회사 부채 포함되어 높게 나옴, 300%↑는 생략) · ⚠️기저효과 보정=이익 붕괴 후 회복으로 성장률이 100%↑ 튄 종목은 원시 PEG가 0에 수렴(저평가 착시) → 내년 예상 성장 기준으로 정상화(린치의 경기순환주 함정 경고).
         {data.source === 'curated'
           ? ' 글로벌 GICS 동종업계 대표기업 기준(美·韓 통합 · 비율 지표라 환율 무관) · 교육용 참고.'
           : ' Yahoo 동종업계 추천 기준 · 교육용 참고.'}
