@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend } from 'recharts'
 import type { CoinLabResult } from '@/app/api/coin-lab/route'
+import AltcoinNetworkChart from '@/app/components/AltcoinNetworkChart'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 const fmtUsd = (n: number | null) => n == null ? '—' : `$${Math.round(n).toLocaleString()}`
@@ -27,6 +28,7 @@ function Panel({ title, sub, children }: { title: string; sub?: string; children
 export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
   const [d, setD] = useState<CoinLabResult | null>(null)
   const [loading, setLoading] = useState(true)
+  const [view, setView] = useState<'btc' | 'alt'>('btc')   // 비트코인(디지털 금) ↔ 알트코인(네트워크 자산) 분리
 
   useEffect(() => {
     let alive = true
@@ -49,11 +51,21 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
       <div style={{ background: 'linear-gradient(135deg,rgba(247,147,26,0.12),rgba(168,85,247,0.06))', border: '1px solid rgba(247,147,26,0.35)', borderRadius: 12, padding: '14px 18px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 20 }}>🪙</span>
-          <span style={{ color: '#f7931a', fontWeight: 800, fontSize: 16 }}>코인 랩 — 비트코인 분석</span>
+          <span style={{ color: '#f7931a', fontWeight: 800, fontSize: 16 }}>코인 랩</span>
           <span style={{ color: '#8a9aaa', fontSize: 12 }}>이익(EPS)이 없는 자산 — 사이클·심리·네트워크·유동성으로 본다</span>
-          <span style={{ marginLeft: 'auto', color: '#cbd5e1', fontFamily: 'monospace', fontSize: 13 }}>
-            BTC {fmtUsd(d.price.usd)} {d.price.krw != null && <span style={{ color: '#8a9aaa' }}>· {fmtKrw(d.price.krw)}</span>}
-          </span>
+          {view === 'btc' && (
+            <span style={{ marginLeft: 'auto', color: '#cbd5e1', fontFamily: 'monospace', fontSize: 13 }}>
+              BTC {fmtUsd(d.price.usd)} {d.price.krw != null && <span style={{ color: '#8a9aaa' }}>· {fmtKrw(d.price.krw)}</span>}
+            </span>
+          )}
+        </div>
+        {/* ₿ 비트코인(디지털 금) ↔ 🔷 알트코인(네트워크 자산) — 성격이 다른 자산이라 분리 */}
+        <div style={{ display: 'inline-flex', gap: 4, background: '#0f1117', padding: 4, borderRadius: 9, border: `1px solid ${BORDER}`, marginTop: 10 }}>
+          {([['btc', '₿ 비트코인', '#f7931a'], ['alt', '🔷 알트코인 (ETH·SOL·XRP)', '#627eea']] as const).map(([k, label, c]) => (
+            <button key={k} type="button" onClick={() => setView(k)}
+              style={{ padding: '5px 13px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 11.5, fontWeight: 700,
+                background: view === k ? '#1e293b' : 'transparent', color: view === k ? c : '#8599ae' }}>{label}</button>
+          ))}
         </div>
       </div>
 
@@ -69,6 +81,10 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
         )}
       </div>
 
+      {/* 🔷 알트코인 뷰 */}
+      {view === 'alt' && <AltcoinNetworkChart />}
+
+      {view === 'btc' && (<>
       {/* 🎓 국면×리스크 처방 */}
       <div style={{ background: `${toneColor}12`, border: `1px solid ${toneColor}44`, borderRadius: 12, padding: '12px 15px' }}>
         <div style={{ color: toneColor, fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>🤖 자비스 크립토 처방 — {d.prescription.regime}</div>
@@ -184,6 +200,7 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
       <div style={{ color: '#6e7f8f', fontSize: 10, lineHeight: 1.6 }}>
         ※ 데이터: CoinGecko·alternative.me(공포탐욕)·mempool.space(해시레이트)·업비트(KRW)·FRED(M2) — 전부 무료 공개 API · 1h 캐시 · 메이어 멀티플은 유료 MVRV의 무료 대체 지표 · 비트코인은 주식과 달리 EPS·PER이 없어 사이클·심리·네트워크로 분석합니다 · 교육용이며 투자 추천이 아닙니다.
       </div>
+      </>)}
     </div>
   )
 }
