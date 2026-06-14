@@ -128,7 +128,7 @@ async function fetchPriceContext(ticker: string, market: string): Promise<PriceC
 
 export interface QuantSatellite {
   ticker: string; name: string; market: string; sector: string
-  combined: number; peg: number | null; roePct: number | null; epsRevision: string | null; supplyScore: number
+  combined: number; peg: number | null; psr: number | null; roePct: number | null; epsRevision: string | null; supplyScore: number
   axes: SatelliteAxes
   passCount: number              // 3축 중 pass 수(3=최정예, 2=정예)
   weightPct: number              // 총투자금 대비 비중 %
@@ -152,7 +152,7 @@ export interface QuantBuilderResult {
 
 /** 빌드 본체 — GET과 copy(POST)가 공유. base=요청 origin, cookie=인증 전달용 */
 export async function buildQuantPlan(base: string, cookie: string): Promise<QuantBuilderResult | null> {
-  const cacheKey = `quant-builder-v3:${kstDate()}`   // v3: 52주 위치 + 스파크라인(priceCtx)
+  const cacheKey = `quant-builder-v4:${kstDate()}`   // v4: PSR 필드 추가
   const cached = await getCache<QuantBuilderResult>(cacheKey, 12 * 3600_000)
   if (cached && !cached.warming) return cached
 
@@ -184,7 +184,7 @@ export async function buildQuantPlan(base: string, cookie: string): Promise<Quan
   const csum = picked.reduce((s, j) => s + j.it.combined, 0) || 1
   const satellites: QuantSatellite[] = picked.map(j => ({
     ticker: j.it.ticker, name: j.it.name, market: j.it.market, sector: j.it.sector,
-    combined: j.it.combined, peg: j.it.peg,
+    combined: j.it.combined, peg: j.it.peg, psr: j.it.psr ?? null,
     roePct: j.it.roe != null ? Math.round(j.it.roe * 1000) / 10 : null,
     epsRevision: j.it.epsRevision, supplyScore: j.it.supplyScore,
     axes: j.axes, passCount: j.passCount,

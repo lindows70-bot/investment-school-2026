@@ -27,6 +27,7 @@ export interface UnifiedRecoItem {
   ticker: string; name: string; market: string; sector: string; lynchCategory: string
   seasonScore: number; fundScore: number; supplyScore: number; combined: number
   peg: number | null; opMargin: number | null
+  psr: number | null               // 💵 주가매출비율 P/S — 적자기업·성장주 밸류 척도
   roe: number | null               // 🏰 버핏 퀄리티 — 자기자본이익률(소수)
   epsRevision: string | null       // 📈 Fwd EPS 추정 모멘텀 up/down/mixed
   suggestWeight: number            // 💰 권장 편입 비중(%) — 통합점수·국면 배율 반영
@@ -82,7 +83,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v10:${user.id}:${kstDate()}:${fp}`   // v10: 기저효과 PEG 가드(배지)
+  const cacheKey = `unified-reco-v11:${user.id}:${kstDate()}:${fp}`   // v11: PSR 필드 추가
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -245,7 +246,7 @@ export async function GET(req: Request) {
       return {
         ticker: t.p.s.ticker, name: t.p.s.name, market: t.p.s.market, sector: t.p.s.sector ?? '—', lynchCategory: t.p.s.lynchCategory as string,
         seasonScore: t.p.seasonScore, fundScore: t.p.fundScore, supplyScore: t.supplyScore, combined: t.combined,
-        peg, opMargin: t.p.s.opMargin, roe, epsRevision, suggestWeight, suggestWon,
+        peg, opMargin: t.p.s.opMargin, psr: cf?.psr ?? null, roe, epsRevision, suggestWeight, suggestWon,
         seasonFavored: t.p.favored, supplyProxy: t.supplyProxy, supplyKnown: t.supplyKnown, badges,
       }
     }))

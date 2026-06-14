@@ -224,6 +224,9 @@ export default function QuantBuilderLab() {
                     </b>
                   </span>
                 ))}
+                <span style={{ marginRight: 14 }} title="주가매출비율(P/S) — 적자기업·고성장주는 PER/PEG가 무의미할 때 '매출 대비 밸류'를 본다. 동종 업종끼리 비교해야 의미가 있다(산업마다 정상치 다름).">
+                  💵 매출배수: <b style={{ color: s.psr != null ? '#cbd5e1' : '#6e7f8f' }}>{s.psr != null ? `PSR ${s.psr.toFixed(1)}배` : 'PSR 자료없음'}</b>
+                </span>
                 {s.badges.length > 0 && <div style={{ marginTop: 3 }}>{s.badges.map(b => <span key={b} style={{ marginRight: 8, color: '#8a9aaa' }}>{b}</span>)}</div>}
               </div>
             )}
