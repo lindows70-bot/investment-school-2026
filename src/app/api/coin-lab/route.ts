@@ -19,6 +19,7 @@ export interface CoinLabResult {
   network: { hashrateEH: number | null; difficultyT: number | null; trend: 'up' | 'down' | 'flat'; spark: number[] }
   macro: { points: { date: string; m2: number | null; btc: number | null }[]; note: string }   // 100 기준 정규화 오버레이
   longChart: { points: { date: string; price: number }[]; halvings: { date: string; label: string }[] }   // 10년 가격 + 반감기 마커
+  supply: { circulatingM: number; maxM: number; pct: number } | null   // 유통량/최대발행(희석 리스크)
   prescription: { regime: string; tone: 'accumulate' | 'caution' | 'neutral'; text: string }
   guardrailNote: string
   asOf: string
@@ -68,7 +69,7 @@ async function cg<T = unknown>(path: string): Promise<T | null> {
 const num = (v: unknown): number | null => (typeof v === 'number' && isFinite(v) ? v : null)
 
 export async function GET(req: Request) {
-  const cacheKey = 'coin-lab-v6'   // v6: M2 vs BTC 좌/우 별도축(원본값) — M2 변화 가시화
+  const cacheKey = 'coin-lab-v7'   // v7: 비트코인 유통량(희석 리스크) 추가
   const cached = await getCache<CoinLabResult>(cacheKey, 3600_000)   // 1h
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -140,6 +141,10 @@ export async function GET(req: Request) {
   }))
   const stableMcap = (markets ?? []).filter(m => STABLES.has(String(m.symbol).toUpperCase())).reduce((s, m) => s + (num(m.market_cap) ?? 0), 0)
   const stablecoinPct = totalMcapUsd && stableMcap > 0 ? Math.round((stableMcap / totalMcapUsd) * 1000) / 10 : null
+  // 비트코인 유통량/최대발행 — 희석(언락) 리스크
+  const btcM = markets?.find(m => String(m.symbol).toLowerCase() === 'btc') as { circulating_supply?: number; max_supply?: number } | undefined
+  const btcCirc = num(btcM?.circulating_supply), btcMax = num(btcM?.max_supply)
+  const supply = btcCirc != null && btcMax != null ? { circulatingM: Math.round(btcCirc / 1e6 * 10) / 10, maxM: Math.round(btcMax / 1e6 * 10) / 10, pct: Math.round((btcCirc / btcMax) * 1000) / 10 } : null
 
   // ── 네트워크(해시레이트) ────────────────────────────────────────
   const hashrateEH = num(hash?.currentHashrate) != null ? Math.round(hash!.currentHashrate! / 1e18) : null
@@ -184,6 +189,7 @@ export async function GET(req: Request) {
     network: { hashrateEH, difficultyT, trend, spark },
     macro: { points: macroPoints, note: macroNote },
     longChart: { points: longPts, halvings: longPts.length ? HALVINGS.filter(h => h.date >= longPts[0].date) : HALVINGS },
+    supply,
     prescription: { regime, tone, text },
     guardrailNote,
     asOf: new Date().toISOString(),

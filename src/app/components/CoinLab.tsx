@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { ResponsiveContainer, LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, Legend, ReferenceLine } from 'recharts'
 import type { CoinLabResult } from '@/app/api/coin-lab/route'
-import AltcoinNetworkChart from '@/app/components/AltcoinNetworkChart'
+import AltcoinNetworkChart, { SupplyBar } from '@/app/components/AltcoinNetworkChart'
+import DcaSimulator from '@/app/components/DcaSimulator'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 const fmtUsd = (n: number | null) => n == null ? '—' : `$${Math.round(n).toLocaleString()}`
@@ -143,6 +144,13 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
               </div>
             ))}
           </div>
+          {/* 🔓 비트코인 유통량 — 희석 리스크(반감기·2,100만 상한과 연결) */}
+          {d.supply && (
+            <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${BORDER}` }}>
+              <SupplyBar pct={d.supply.pct} note="최대 발행량 대비 유통률" />
+              <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 4, lineHeight: 1.5 }}>BTC {d.supply.circulatingM}M / 최대 {d.supply.maxM}M — 신규 공급은 반감기로 계속 줄어 결국 2,100만 개에서 멈춥니다(언락 덤핑 리스크 없음).</div>
+            </div>
+          )}
         </Panel>
 
       </div>
@@ -197,6 +205,9 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
           )}
         </div>
       )}
+
+      {/* 💧 적립식(DCA) 시뮬레이터 — 10년 주봉 재사용 */}
+      {d.longChart && d.longChart.points.length > 20 && <DcaSimulator points={d.longChart.points} />}
 
       {/* ④ 네트워크 + ⑤ M2 — 2단 배치(풀폭 가로 늘어짐 해소) */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>

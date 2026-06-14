@@ -17,6 +17,23 @@ const fmtP = (n: number) => n >= 100 ? `$${Math.round(n).toLocaleString()}` : `$
 // 네트워크 지표 단위 표기 — K=활성주소(천), M=일일수수료(백만$)
 const fmtNet = (v: number, unit: string) => unit === 'M' ? `$${v}M` : `${v}${unit}`
 
+// 🔓 유통량 게이지 — 유통률 낮으면 미유통 물량(언락) 대기 = 가격 희석 리스크
+export function SupplyBar({ pct, note }: { pct: number | null; note: string }) {
+  if (pct == null) return <div style={{ color: '#8a9aaa', fontSize: 10, lineHeight: 1.5 }}>🔓 유통량: <b style={{ color: '#94a3b8' }}>발행 상한 없음</b> — {note.replace('발행 상한 없음(하드캡 X) — ', '')}</div>
+  const col = pct >= 90 ? '#22c55e' : pct >= 70 ? '#fbbf24' : '#ef4444'
+  const tag = pct >= 90 ? '희석 리스크 낮음' : pct >= 70 ? '일부 미유통' : `미유통 ${Math.round(100 - pct)}% 대기 — 희석 주의`
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10 }}>
+      <span style={{ color: '#8a9aaa', whiteSpace: 'nowrap' }}>🔓 유통률</span>
+      <span style={{ position: 'relative', flex: 1, height: 6, background: '#0f1117', borderRadius: 3, overflow: 'hidden', minWidth: 80 }}>
+        <span style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${pct}%`, background: col, borderRadius: 3 }} />
+      </span>
+      <span style={{ color: col, fontWeight: 800, fontFamily: 'monospace' }}>{pct}%</span>
+      <span style={{ color: col, whiteSpace: 'nowrap' }}>{tag}</span>
+    </div>
+  )
+}
+
 function CoinChart({ c }: { c: AltCoin }) {
   const col = SYM_COLOR[c.symbol] ?? '#a78bfa'
   const dv = DIV_META[c.divergence]
@@ -38,6 +55,9 @@ function CoinChart({ c }: { c: AltCoin }) {
         3년 가격 <b style={{ color: (c.priceChgPct ?? 0) >= 0 ? '#22c55e' : '#ef4444' }}>{c.priceChgPct != null ? `${c.priceChgPct >= 0 ? '+' : ''}${c.priceChgPct}%` : '—'}</b>
         {' · '}{c.netLabel} <b style={{ color: (c.netChgPct ?? 0) >= 0 ? '#22c55e' : '#ef4444' }}>{c.netChgPct != null ? `${c.netChgPct >= 0 ? '+' : ''}${c.netChgPct}%` : '—'}</b>
       </div>
+      {/* 🔓 유통량 게이지 — 언락/희석 리스크 */}
+      <SupplyBar pct={c.supplyPct} note={c.supplyNote} />
+      <div style={{ height: 6 }} />
       <div style={{ height: 200 }}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={c.points} margin={{ top: 6, right: 6, left: -14, bottom: 0 }}>

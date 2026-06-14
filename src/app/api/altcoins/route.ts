@@ -22,8 +22,25 @@ export interface AltCoin {
   price: number | null; priceChgPct: number | null; netChgPct: number | null
   points: AltPoint[]
   divergence: 'hype' | 'healthy' | 'value' | 'neutral'
+  supplyPct: number | null; supplyNote: string   // 유통량/최대발행(희석 리스크). 하드캡 없으면 null
   jarvisTip: string
   desc: string
+}
+
+// CoinGecko markets 1회로 ETH·SOL·XRP 유통량/최대발행 — 희석(언락) 리스크
+async function fetchSupply(): Promise<Record<string, { pct: number | null; note: string }>> {
+  const out: Record<string, { pct: number | null; note: string }> = {}
+  try {
+    const r = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum,solana,ripple', { signal: AbortSignal.timeout(12_000), headers: { accept: 'application/json', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0' } })
+    if (!r.ok) return out
+    const arr = await r.json() as { id: string; circulating_supply?: number; max_supply?: number | null }[]
+    for (const m of arr) {
+      const circ = m.circulating_supply, max = m.max_supply
+      if (circ && max) out[m.id] = { pct: Math.round((circ / max) * 1000) / 10, note: `최대 발행량 대비 유통률` }
+      else out[m.id] = { pct: null, note: '발행 상한 없음(하드캡 X) — 유통량 대부분 이미 풀림' }
+    }
+  } catch { /* graceful */ }
+  return out
 }
 export interface AltcoinsResult { coins: AltCoin[]; asOf: string }
 
@@ -69,14 +86,14 @@ const NET_SCALE: Record<NetSource, number> = { dau: 1e3, fees: 1e6 }
 const pctChg = (a: number, b: number) => (a > 0 ? Math.round(((b / a) - 1) * 1000) / 10 : 0)
 
 export async function GET() {
-  const cacheKey = 'altcoins-v3'   // v3: 가격 3년치(Yahoo 주봉) + DAU/수수료 3년 확장
+  const cacheKey = 'altcoins-v4'   // v4: 유통량(희석 리스크) 추가
   const cached = await getCache<AltcoinsResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
-  // 가격(Yahoo 3년 주봉) + 네트워크 지표(CoinMetrics DAU / DefiLlama 수수료) 병렬 — 호스트 모두 달라 충돌 없음
-  const [ethPx, solPx, xrpPx, ethDau, xrpDau, solFees] = await Promise.all([
+  // 가격(Yahoo 3년 주봉) + 네트워크 지표(CoinMetrics DAU / DefiLlama 수수료) + 유통량(CoinGecko) 병렬 — 호스트 모두 달라 충돌 없음
+  const [ethPx, solPx, xrpPx, ethDau, xrpDau, solFees, supply] = await Promise.all([
     yahooWeekly('ETH-USD'), yahooWeekly('SOL-USD'), yahooWeekly('XRP-USD'),
-    cmDau('eth'), cmDau('xrp'), llamaFees('solana'),
+    cmDau('eth'), cmDau('xrp'), llamaFees('solana'), fetchSupply(),
   ])
   const pxMaps: Record<string, { date: string; price: number }[]> = { ethereum: ethPx, solana: solPx, ripple: xrpPx }
   const netMaps: Record<string, Map<string, number>> = { ethereum: ethDau, ripple: xrpDau, solana: solFees }
@@ -85,7 +102,7 @@ export async function GET() {
   for (const c of COINS) {
     const weekly = pxMaps[c.id] ?? []
     if (weekly.length < 10) {
-      coins.push({ id: c.id, symbol: c.symbol, name: c.name, tagline: c.tagline, netLabel: c.netLabel, netUnit: c.netUnit, price: null, priceChgPct: null, netChgPct: null, points: [], divergence: 'neutral', jarvisTip: '데이터 일시 수집 실패 — 잠시 후 다시 확인하세요.', desc: c.desc })
+      coins.push({ id: c.id, symbol: c.symbol, name: c.name, tagline: c.tagline, netLabel: c.netLabel, netUnit: c.netUnit, price: null, priceChgPct: null, netChgPct: null, points: [], divergence: 'neutral', supplyPct: supply[c.id]?.pct ?? null, supplyNote: supply[c.id]?.note ?? '', jarvisTip: '데이터 일시 수집 실패 — 잠시 후 다시 확인하세요.', desc: c.desc })
       continue
     }
     const netMap = netMaps[c.id] ?? new Map<string, number>()
@@ -122,7 +139,8 @@ export async function GET() {
       : divergence === 'value' ? `🔍 ${c.name} 가격은 ${priceChgPct}%로 빠졌지만 ${netName}은 ${netChgPct}% 늘었습니다 — 실사용 대비 가격이 눌린 디커플링 구간(역사적으로 관심 가치).`
       : `${c.name} 가격(${priceChgPct ?? '—'}%)과 ${netName}(${netChgPct ?? '—'}%)에 뚜렷한 괴리는 없습니다. 가격 캔들보다 네트워크 실사용 추세를 함께 보세요.`
 
-    coins.push({ id: c.id, symbol: c.symbol, name: c.name, tagline: c.tagline, netLabel: c.netLabel, netUnit: c.netUnit, price, priceChgPct, netChgPct, points, divergence, jarvisTip, desc: c.desc })
+    const sup = supply[c.id]
+    coins.push({ id: c.id, symbol: c.symbol, name: c.name, tagline: c.tagline, netLabel: c.netLabel, netUnit: c.netUnit, price, priceChgPct, netChgPct, points, divergence, supplyPct: sup?.pct ?? null, supplyNote: sup?.note ?? '', jarvisTip, desc: c.desc })
   }
 
   const result: AltcoinsResult = { coins, asOf: new Date().toISOString() }
