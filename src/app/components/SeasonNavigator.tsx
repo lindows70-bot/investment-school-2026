@@ -217,7 +217,7 @@ export default function SeasonNavigator() {
         </div>
 
         <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 7 }}>
-          {data.perHolding.slice(0, 12).map(h => {
+          {data.perHolding.map(h => {
             const fc = h.fit >= 0.7 ? '#22c55e' : h.fit >= 0.5 ? '#f59e0b' : '#ef4444'
             const verdict = h.fit >= 0.7 ? '유리' : h.fit >= 0.5 ? '중립' : '불리'
             return (
@@ -236,6 +236,9 @@ export default function SeasonNavigator() {
             )
           })}
           {data.perHolding.length === 0 && <div style={{ color: '#8a9aaa', fontSize: 11 }}>보유한 개별 주식이 없습니다.</div>}
+        </div>
+        <div style={{ color: '#6e7f8f', fontSize: 9.5, lineHeight: 1.5, marginTop: 7 }}>
+          ※ 보유 주식·ETF 전부 표시 · 계절은 섹터 기반이라 <b>암호화폐·원자재(금·은)는 판정 대상이 아니라 제외</b>되며, 구성종목을 분해할 수 없는 ETF(레버리지·비주식 등)도 빠집니다.
         </div>
       </div>
 
