@@ -280,10 +280,13 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
         }
         const series = d.correlation!.series ?? []
         // 비트코인 vs (나스닥/금) 정규화 오버레이 — 로그 스케일(5년 기하급수 대응), 한 줄 2개
-        const Overlay = ({ label, dataKey, color, corr }: { label: string; dataKey: 'nasdaq' | 'gold'; color: string; corr: number | null }) => (
+        const dot = (c: string) => <span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: c, marginRight: 4, verticalAlign: 'middle' }} />
+        const Overlay = ({ other, dataKey, color, corr }: { other: string; dataKey: 'nasdaq' | 'gold'; color: string; corr: number | null }) => (
           <div style={{ flex: '1 1 320px', minWidth: 280, background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 9, padding: '8px 10px' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 2 }}>
-              <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 11.5 }}>{label}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11.5, fontWeight: 700 }}>{dot('#f7931a')}<span style={{ color: '#f7931a' }}>비트코인</span></span>
+              <span style={{ color: '#8a9aaa', fontSize: 11 }}>vs</span>
+              <span style={{ fontSize: 11.5, fontWeight: 700 }}>{dot(color)}<span style={{ color }}>{other}</span></span>
               {corr != null && <span style={{ marginLeft: 'auto', color: Math.abs(corr) >= 0.6 ? '#f87171' : Math.abs(corr) >= 0.35 ? '#fbbf24' : '#4ade80', fontWeight: 800, fontSize: 11, fontFamily: 'monospace' }}>상관 {corr.toFixed(2)}</span>}
             </div>
             <div style={{ height: 170 }}>
@@ -293,7 +296,7 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
                   <YAxis scale="log" tick={{ fill: '#7f93a8', fontSize: 8.5 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={34} tickFormatter={(v: number) => `${v}`} />
                   <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 10.5 }}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    formatter={(v: any, n: any) => [`${v}`, n === 'btc' ? '비트코인' : label.split(' vs ')[1]]} />
+                    formatter={(v: any, n: any) => [`${v}`, n === 'btc' ? '비트코인' : other]} />
                   <Line type="monotone" dataKey="btc" name="btc" stroke="#f7931a" strokeWidth={1.8} dot={false} isAnimationActive={false} />
                   <Line type="monotone" dataKey={dataKey} name={dataKey} stroke={color} strokeWidth={1.6} dot={false} isAnimationActive={false} />
                 </LineChart>
@@ -336,8 +339,8 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
             {/* 비교 차트(한 줄 2개, 로그 스케일·100 기준) */}
             {series.length > 3 && (
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                <Overlay label="비트코인 vs 나스닥" dataKey="nasdaq" color="#60a5fa" corr={matrix[0]?.[1] ?? null} />
-                <Overlay label="비트코인 vs 금" dataKey="gold" color="#fbbf24" corr={matrix[0]?.[3] ?? null} />
+                <Overlay other="나스닥" dataKey="nasdaq" color="#60a5fa" corr={matrix[0]?.[1] ?? null} />
+                <Overlay other="금" dataKey="gold" color="#fbbf24" corr={matrix[0]?.[3] ?? null} />
               </div>
             )}
             <div style={{ color: '#9aa7b5', fontSize: 10.5, lineHeight: 1.6, marginTop: 8 }}>{d.correlation!.note} <span style={{ color: '#6e7f8f' }}>(비교 차트: 시작점 100 기준 정규화·로그 스케일 — 주황=비트코인)</span></div>
