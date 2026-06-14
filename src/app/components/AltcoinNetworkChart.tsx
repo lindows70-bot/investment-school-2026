@@ -14,6 +14,8 @@ const DIV_META: Record<AltCoin['divergence'], { c: string; label: string }> = {
 }
 const fmtYm = (d: string) => `${d.slice(2, 4)}.${d.slice(5, 7)}`
 const fmtP = (n: number) => n >= 100 ? `$${Math.round(n).toLocaleString()}` : `$${n}`
+// 네트워크 지표 단위 표기 — K=활성주소(천), M=일일수수료(백만$)
+const fmtNet = (v: number, unit: string) => unit === 'M' ? `$${v}M` : `${v}${unit}`
 
 function CoinChart({ c }: { c: AltCoin }) {
   const col = SYM_COLOR[c.symbol] ?? '#a78bfa'
@@ -42,10 +44,10 @@ function CoinChart({ c }: { c: AltCoin }) {
             <CartesianGrid strokeDasharray="2 4" stroke="#1a2035" vertical={false} />
             <XAxis dataKey="date" ticks={monthTicks} tick={{ fill: '#7f93a8', fontSize: 9 }} tickFormatter={fmtYm} axisLine={{ stroke: BORDER }} tickLine={false} />
             <YAxis yAxisId="p" tick={{ fill: '#7f93a8', fontSize: 9 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={44} tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v / 1000)}k` : `${v}`} />
-            <YAxis yAxisId="n" orientation="right" tick={{ fill: '#7f93a8', fontSize: 9 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={40} tickFormatter={(v: number) => `${v}B`} />
+            <YAxis yAxisId="n" orientation="right" tick={{ fill: '#7f93a8', fontSize: 9 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={44} tickFormatter={(v: number) => fmtNet(v, c.netUnit)} />
             <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }} labelStyle={{ color: '#8a9aaa' }}
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              formatter={(v: any, name: any) => name === '가격' ? [fmtP(v), '가격'] : [`$${v}B`, c.netLabel]} />
+              formatter={(v: any, name: any) => name === '가격' ? [fmtP(v), '가격'] : [fmtNet(v, c.netUnit), c.netLabel]} />
             <Legend wrapperStyle={{ fontSize: 10 }} />
             {hasNet && <Area yAxisId="n" type="monotone" dataKey="net" name={c.netLabel} stroke={`${col}88`} fill={`${col}1f`} strokeWidth={1.4} connectNulls isAnimationActive={false} />}
             <Line yAxisId="p" type="monotone" dataKey="price" name="가격" stroke={col} strokeWidth={2.2} dot={false} isAnimationActive={false} />
@@ -80,14 +82,14 @@ export default function AltcoinNetworkChart() {
       <div style={{ background: 'linear-gradient(135deg,rgba(98,126,234,0.12),rgba(20,241,149,0.05))', border: '1px solid rgba(98,126,234,0.35)', borderRadius: 12, padding: '12px 16px' }}>
         <span style={{ color: '#a5b4fc', fontWeight: 800, fontSize: 14 }}>🔷 메이저 알트코인 — 가격 vs 네트워크 펀더멘탈</span>
         <div style={{ color: '#aab6c4', fontSize: 11.5, lineHeight: 1.6, marginTop: 4 }}>
-          알트코인은 캔들(가격)만 보면 투기로 흐릅니다. 주가 뒤에 숨은 <b>네트워크의 실적</b>(이더리움·솔라나=예치자본 TVL, 리플=거래량)을 겹쳐 봐야 펀더멘탈이 보입니다 — 코인판 피터 린치.
+          알트코인은 캔들(가격)만 보면 투기로 흐릅니다. 주가 뒤에 숨은 <b>네트워크 실사용</b>(이더리움·리플=활성주소 DAU, 솔라나=일일 수수료)을 겹쳐 봐야 펀더멘탈이 보입니다 — 코인판 피터 린치.
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {d.coins.map(c => <CoinChart key={c.id} c={c} />)}
       </div>
       <div style={{ color: '#6e7f8f', fontSize: 10, lineHeight: 1.6 }}>
-        ※ 가격·거래량 = CoinGecko · 예치자본(TVL) = DefiLlama — 전부 무료 공개 API · 12h 캐시 · 솔라나는 무료 DAU 이력이 없어 TVL로 네트워크 활성도를 대체 측정 · 교육용이며 투자 추천이 아닙니다.
+        ※ 가격 = CoinGecko · 활성주소(DAU) = CoinMetrics 커뮤니티 · 일일 수수료 = DefiLlama — 전부 무료·무키 공개 API · 12h 캐시 · 솔라나 DAU는 무료 미제공이라 실사용량 동행 지표인 일일 수수료로 대체 · 교육용이며 투자 추천이 아닙니다.
       </div>
     </div>
   )
