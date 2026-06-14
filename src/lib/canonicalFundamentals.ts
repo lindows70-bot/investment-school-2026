@@ -18,8 +18,9 @@ export interface CanonicalFundamentals {
   opMargin: number | null   // 영업이익률 소수(-0.24=-24%) — PEG null 적자기업 브레이크용
   roe:      number | null   // ROE 소수(-0.81=-81%)
   fcf:      number | null   // 잉여현금흐름 (음수=현금 소진)
+  psr:      number | null   // 주가매출비율 P/S — 적자기업·성장주 밸류 척도(상대 비교용)
 }
-const EMPTY: CanonicalFundamentals = { peg: null, pe: null, growth: null, sector: null, opMargin: null, roe: null, fcf: null }
+const EMPTY: CanonicalFundamentals = { peg: null, pe: null, growth: null, sector: null, opMargin: null, roe: null, fcf: null, psr: null }
 const TTL = 6 * 3600_000
 
 /** 티커('NVDA' / '000660' / '000660.KS')를 (코드, market)으로 정규화 */
@@ -54,7 +55,8 @@ export async function getCanonicalFundamentals(ticker: string, market?: string, 
     const opMargin = num(f.operatingMargins)
     const roe = num(f.returnOnEquity)
     const fcf = num(f.freeCashflow)
-    const result: CanonicalFundamentals = { peg, pe, growth, sector, opMargin, roe, fcf }
+    const psr = num(f.psr)
+    const result: CanonicalFundamentals = { peg, pe, growth, sector, opMargin, roe, fcf, psr }
     // 유효 데이터일 때만 캐시(실패값 캐싱 방지)
     if (peg != null || pe != null || opMargin != null) await setCache(cacheKey, result)
     return result

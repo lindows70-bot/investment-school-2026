@@ -40,6 +40,7 @@ export interface Fundamentals {
   returnOnEquity?:    number | null   // ROE (0.15 = 15%)
   grossMargins?:      number | null   // 매출총이익률 (0.40 = 40%)
   operatingMargins?:  number | null   // 영업이익률 (0.20 = 20%, 음수=영업적자)
+  psr?:               number | null   // 주가매출비율 P/S (시총÷TTM매출) — 적자기업·성장주 밸류 척도
 }
 
 export interface StockData {

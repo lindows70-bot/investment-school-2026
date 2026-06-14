@@ -127,10 +127,12 @@ interface DcfData {
   returnOnEquity:    number | null
   grossMargins:      number | null
   operatingMargins:  number | null
+  psr:               number | null   // 주가매출비율 P/S (Yahoo priceToSalesTrailing12Months)
 }
 const DCF_EMPTY: DcfData = {
   freeCashflow: null, sharesOutstanding: null, totalDebt: null,
   totalCash: null, returnOnEquity: null, grossMargins: null, operatingMargins: null,
+  psr: null,
 }
 
 async function fetchDcfFromYahoo(ticker: string, market: Market): Promise<DcfData> {
@@ -139,12 +141,20 @@ async function fetchDcfFromYahoo(ticker: string, market: Market): Promise<DcfDat
       const { default: YahooFinance } = await import('yahoo-finance2')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const yf = new (YahooFinance as any)({ suppressNotices: ['yahooSurvey'] })
-      const s = await yf.quoteSummary(yfTicker, { modules: ['financialData', 'defaultKeyStatistics'] })
+      const s = await yf.quoteSummary(yfTicker, { modules: ['financialData', 'defaultKeyStatistics', 'summaryDetail'] })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const fd: any = s?.financialData ?? {}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const ks: any = s?.defaultKeyStatistics ?? {}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sd: any = s?.summaryDetail ?? {}
       const pick = (v: unknown) => typeof v === 'number' && isFinite(v) ? v : null
+      // PSR: Yahoo 직접값(priceToSalesTrailing12Months) 우선 — Yahoo 자체 시총·매출이라 단위 일관.
+      // 직접값 없으면 Yahoo 시총÷매출 역산(둘 다 Yahoo라 통화·단위 일치)
+      const psrDirect = pick(sd.priceToSalesTrailing12Months)
+      const yMc = pick(sd.marketCap), yRev = pick(fd.totalRevenue)
+      const psr = psrDirect != null ? +psrDirect.toFixed(2)
+        : (yMc != null && yRev != null && yRev > 0 ? +(yMc / yRev).toFixed(2) : null)
       return {
         freeCashflow:      pick(fd.freeCashflow),
         sharesOutstanding: pick(ks.sharesOutstanding),
@@ -153,6 +163,7 @@ async function fetchDcfFromYahoo(ticker: string, market: Market): Promise<DcfDat
         returnOnEquity:    pick(fd.returnOnEquity),
         grossMargins:      pick(fd.grossMargins),
         operatingMargins:  pick(fd.operatingMargins),
+        psr,
       }
     } catch {
       return DCF_EMPTY
@@ -801,6 +812,7 @@ async function krInfo(ticker: string): Promise<StockInfo> {
       returnOnEquity:    dcf.returnOnEquity,
       grossMargins:      dcf.grossMargins,
       operatingMargins:  dcf.operatingMargins,
+      psr: dcf.psr,
     },
     source: 'live',
   }
@@ -953,6 +965,7 @@ async function usInfo(ticker: string): Promise<StockInfo> {
         returnOnEquity:    usDcf.returnOnEquity,
         grossMargins:      usDcf.grossMargins,
         operatingMargins:  usDcf.operatingMargins,
+        psr: usDcf.psr,
       },
       // ── FMP 배런스시트 → 순현금 자동 계산 ──────────────────
       hasCash: isEtf ? null : await fetchNetCashUS(t),
@@ -1002,6 +1015,11 @@ async function usInfo(ticker: string): Promise<StockInfo> {
     const dcfRoe    = pickN(sData?.financialData?.returnOnEquity)
     const dcfGm     = pickN(sData?.financialData?.grossMargins)
     const dcfOm     = pickN(sData?.financialData?.operatingMargins)
+    // PSR: Yahoo 직접값 우선, 없으면 시총÷매출 역산
+    const psrDirect = pickN(sData?.summaryDetail?.priceToSalesTrailing12Months)
+    const dcfRev    = pickN(sData?.financialData?.totalRevenue)
+    const psrY = psrDirect != null ? +psrDirect.toFixed(2)
+      : (mcRaw != null && dcfRev != null && dcfRev > 0 ? +(mcRaw / dcfRev).toFixed(2) : null)
 
     // PEG: Yahoo 직접값 → 재계산 순서
     let finalPeg: number | 'N/A' = 'N/A'
@@ -1037,6 +1055,7 @@ async function usInfo(ticker: string): Promise<StockInfo> {
         returnOnEquity:    dcfRoe,
         grossMargins:      dcfGm,
         operatingMargins:  dcfOm,
+        psr: psrY,
       },
       hasCash: isEtfY ? null : await fetchNetCashUS(t),
       source: 'live',
