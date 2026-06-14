@@ -13,6 +13,7 @@
 import { useState, useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { getAssetType } from '@/lib/assetClassifier'
+import { calcDCF, deriveDcfInputs } from '@/lib/buffettDcf'
 
 // ── Props 타입 ────────────────────────────────────────────────────────────────
 interface Investment {
@@ -101,54 +102,7 @@ function InfoTip({ id }: { id: keyof typeof TOOLTIPS }) {
   )
 }
 
-// ── DCF 연산 엔진 ─────────────────────────────────────────────────────────────
-interface DCFResult {
-  rows:              { year: number; fcf: number; pv: number; cumPv: number }[]
-  pvSum:             number
-  terminalValue:     number
-  tvPV:              number
-  enterpriseValue:   number
-  equityValue:       number
-  intrinsicPerShare: number
-  safetyMargin:      number
-}
-
-/**
- * DCF 연산 — 모든 금액은 원시 통화값(KR=원, US=USD), shares=주 단위
- * 통화 변환 없이 직접 계산하여 내재가치/주가 자동으로 현재가와 같은 통화 단위가 됨
- */
-function calcDCF(
-  fcf0: number, g: number, r: number, gp: number,
-  netDebt: number, shares: number, curPrice: number,
-): DCFResult {
-  const gR = g / 100, rR = r / 100, gpR = gp / 100
-  const rows: DCFResult['rows'] = []
-  let pvSum = 0, prevFcf = fcf0
-
-  for (let yr = 1; yr <= 5; yr++) {
-    const fcf = prevFcf * (1 + gR)
-    const pv  = fcf / Math.pow(1 + rR, yr)
-    pvSum    += pv
-    rows.push({ year: yr, fcf, pv, cumPv: pvSum })
-    prevFcf = fcf
-  }
-
-  const fcf5 = rows[4].fcf
-  const terminalValue = rR > gpR
-    ? (fcf5 * (1 + gpR)) / (rR - gpR)
-    : fcf5 * 25
-
-  const tvPV             = terminalValue / Math.pow(1 + rR, 5)
-  const enterpriseValue  = pvSum + tvPV
-  const equityValue      = enterpriseValue - netDebt
-  // 원시 통화 기준: 주주가치(원시통화) ÷ 유통주식수(주) = 주당 내재가치(통화/주)
-  const intrinsicPerShare = shares > 0 ? equityValue / shares : 0
-  const safetyMargin = intrinsicPerShare > 0
-    ? ((intrinsicPerShare - curPrice) / intrinsicPerShare) * 100
-    : -999
-
-  return { rows, pvSum, terminalValue, tvPV, enterpriseValue, equityValue, intrinsicPerShare, safetyMargin }
-}
+// ── DCF 연산 엔진은 @/lib/buffettDcf 로 추출(SSOT — 모닝스타 등급과 공유) ──
 
 // ── 반원형 안전마진 게이지 ────────────────────────────────────────────────────
 function SafetyGauge({ margin }: { margin: number }) {
@@ -503,63 +457,10 @@ export default function BuffettAnalysisPanel({
 
   // ── 자동 DCF 입력값 산출 (원시 통화 기준, 슬라이더 없이 100% 자동) ──────────
   // 우선순위: Yahoo 실데이터 → 추정 → 카테고리 기본값
-  const auto = useMemo(() => {
-    const isKr = selected?.market === 'KR' || selected?.currency === 'KRW'
-    const cat  = selected?.lynch_category ?? 'na'
-    const mc   = (typeof fund.marketCap === 'number' && fund.marketCap > 0) ? fund.marketCap : null
-    const pe   = (typeof fund.pe === 'number' && fund.pe > 0) ? fund.pe : null
-
-    // ① 유통주식수 (주) — Yahoo 실데이터 우선 → 시총/현재가 폴백
-    let shares: number | null = (fund.sharesOutstanding && fund.sharesOutstanding > 0) ? fund.sharesOutstanding : null
-    let sharesSrc: 'real' | 'est' | 'none' = shares ? 'real' : 'none'
-    if (!shares && mc && currentPrice > 0) { shares = mc / currentPrice; sharesSrc = 'est' }
-
-    // ② 잉여현금흐름 (원시 통화) — Yahoo 실데이터 우선 → 순이익(시총/PER)×0.85 추정
-    //    ★ 고PER 보정: 회생주·흑자전환 초기 기업은 현재 이익이 비정상적으로 작아
-    //      PER이 폭등(85배 등)함. 시총/PER로 FCF 추정 시 과소평가 → DCF 왜곡.
-    //      PER 40 초과 시 카테고리별 '정상화 PER'로 보정하여 미래 정상 현금흐름 추정.
-    // FCF 추정 가능 여부는 '순이익 흑자(PER>0)'에 달림 — 적자 기업은 아래 dcfUnavailable에서 차단
-    // 흑자 기업이 일시적으로 FCF 음수(보험사·대규모 투자)인 경우는 시총/PER로 정상 FCF를 추정
-    let fcf0: number | null = (fund.freeCashflow && fund.freeCashflow > 0) ? fund.freeCashflow : null
-    let fcfSrc: 'real' | 'est' | 'none' = fcf0 ? 'real' : 'none'
-    let fcfNormalized = false
-    if (!fcf0 && mc && pe) {
-      const catNormalPE: Record<string, number> = {
-        fast_grower: 28, stalwart: 18, slow_grower: 13, cyclical: 12, turnaround: 18, asset_play: 12, na: 18,
-      }
-      const effPE = pe > 40 ? (catNormalPE[cat] ?? 18) : pe
-      fcfNormalized = pe > 40
-      fcf0 = (mc / effPE) * 0.85
-      fcfSrc = 'est'
-    }
-
-    // ③ 순부채 (원시 통화) — totalDebt − totalCash → hasCash/0 폴백
-    let netDebt = 0
-    let netDebtSrc: 'real' | 'est' = 'est'
-    if (fund.totalDebt != null && fund.totalCash != null) {
-      netDebt = fund.totalDebt - fund.totalCash
-      netDebtSrc = 'real'
-    }
-
-    // ④ 성장률 (%) — earningsGrowth 실데이터 → 린치 카테고리 기본값
-    let g = 8
-    let gSrc: 'real' | 'est' = 'est'
-    const eg = fund.earningsGrowth
-    if (eg != null && isFinite(eg) && eg !== 0) {
-      const pct = Math.abs(eg) < 5 ? eg * 100 : eg
-      g = Math.max(-5, Math.min(35, parseFloat(pct.toFixed(1))))
-      gSrc = 'real'
-    } else {
-      const catG: Record<string, number> = { fast_grower:20, stalwart:10, cyclical:8, slow_grower:4, turnaround:12, asset_play:5 }
-      g = catG[selected?.lynch_category ?? 'na'] ?? 8
-    }
-
-    // ⑤ 할인율 (자동) — KR 9% / US 8.5% (시장 요구수익률 기준값)
-    const r = isKr ? 9 : 8.5
-
-    const ok = !!(fcf0 && fcf0 > 0 && shares && shares > 0)
-    return { isKr, cat, mc, pe, shares, sharesSrc, fcf0, fcfSrc, fcfNormalized, netDebt, netDebtSrc, g, gSrc, r, gp: 2.5, ok }
-  }, [fund, selected, currentPrice])
+  const auto = useMemo(() => deriveDcfInputs(fund, {
+    market: selected?.market, currency: selected?.currency,
+    lynchCategory: selected?.lynch_category, currentPrice,
+  }), [fund, selected, currentPrice])
 
   // 표시용 변수 (기존 UI 변수명 호환 유지)
   const g = auto.g, r = auto.r
