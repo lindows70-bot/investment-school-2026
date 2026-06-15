@@ -1801,7 +1801,7 @@ Coinglass(순유입/유출)·TheBlock(누적 거래량) 차트를 무료·무키
 - **`/api/btc-etf`**(공개·24h 캐시): ② **누적 거래량** = Yahoo 현물 ETF 10종(IBIT·FBTC·BITB·ARKB·BTCO·EZBC·BRRR·HODL·BTCW·GBTC) 일별 거래대금(volume×close) 합산·누적. **2024-01-10 출범부터**(GBTC는 그 전 폐쇄형 신탁이라 제외 — TheBlock '현물 ETF' 정의 정합). 검증 **$2.04t = TheBlock $2t 일치** / ① **순유입/유출** = Farside Investors 공개 테이블 파싱(Total 열=일별 순유입 $M, 괄호=유출) + 출범 이후 누적($53.7B) + BTC가격
 - **`BtcEtfFlows.tsx`**: ① ComposedChart(🟢유입/🔴유출 막대 + 우축 BTC가격선) ② AreaChart(누적 거래량). 코인 랩 ₿비트코인 뷰
 - ⚠️ **Farside Cloudflare 403 → node:https 우회(SEC EDGAR 교훈 재현)**: undici fetch는 TLS 지문으로 403 차단, curl·node:https는 200. `httpGet`(node:https) 헬퍼로 우회. **이 패턴(undici 막히면 node:https)을 외부 스크래핑 표준으로**
-- ⚠️ **정직한 한계(사용자 합의)**: 전체 2년 일별 flow는 무료론 불가(Farside 무료 페이지=최근 ~2주 일별만, Coinglass/SoSoValue 전체 이력은 유료 키) → ①은 최근 일별+누적 stat, ②는 전체 이력. 누적 거래량은 Yahoo volume 기반이라 TheBlock과 미세 차이 가능
+- ⭐ **flow 전체 이력 확장(2026-06-15, v4)**: 메인 `/btc/`는 최근 2주뿐이지만 **`farside.co.uk/bitcoin-etf-flow-all-data/` 페이지가 전체 624일(2024-01-11~현재) 일별 flow를 무료·무키로** 제공(node:https 200, 737KB) — 조사로 발견. flow 소스를 all-data로 교체 → ①도 **2024 출범~현재 전체**(2주→2.4년). BTC 가격선 range 5y로 전 구간 매칭. 누적 순유입은 전체 일별 직접 합산($53.7B, Total행 스크랩보다 견고). **CoinGlass/Apify는 무료 키 발급 필요 → Farside all-data(무키)가 Zero Cost 부합**. 교훈: 무료 소스도 "요약 페이지(2주) vs 전체 데이터 페이지(2년)"가 따로 있을 수 있으니 끝까지 탐색
 - 조사 교훈: TheBlock이 "SOURCE: YAHOO FINANCE" 명시 → 누적 거래량은 우리 기존 무키 소스로 재현 가능했음. flow는 공시(창출/환매)라 별도 소스(Farside) 필요
 
 ## 🌟 종목 투자 프로필 카드 (2026-06-15) — 리서치 페이지 상단 캡스톤
