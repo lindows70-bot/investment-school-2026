@@ -109,6 +109,23 @@ export default function StockProfileCard({ ticker, name, market }: { ticker: str
         </div>
       </div>
 
+      {/* 💡 관점 충돌 융합 띠 — 린치 PEG(성장가치) vs 버핏 DCF(절대가치)가 반대 신호일 때 교육 (기저효과 PEG는 신뢰 불가라 제외) */}
+      {(() => {
+        if (d.baseEffect || d.peg == null || d.peg <= 0 || d.discountPct == null) return null
+        const dcfExpensive = d.discountPct < 0, dcfCheap = d.discountPct >= 10
+        const pegCheap = d.peg <= 1.0, pegExpensive = d.peg > 2.2
+        let msg: string | null = null
+        if (dcfExpensive && pegCheap) msg = `린치 PEG(${d.peg})로는 성장 대비 저평가지만, 버핏식 보수 DCF로는 ${Math.abs(d.discountPct).toFixed(0)}% 고평가입니다 — 고성장을 어디까지 신뢰하느냐의 관점 차이. PEG는 미래 성장을 인정하고, DCF는 성장률을 35%로 깎아 보수적으로 봅니다. 두 관점을 함께 보고 판단하세요.`
+        else if (dcfCheap && pegExpensive) msg = `버핏식 DCF로는 ${d.discountPct.toFixed(0)}% 저평가지만, 린치 PEG(${d.peg})로는 성장 대비 고평가입니다 — 현재 현금흐름은 싸 보여도 성장 둔화가 우려된다는 신호. 성장률이 꺾이지 않는지 확인하세요.`
+        if (!msg) return null
+        return (
+          <div style={{ marginTop: 12, background: 'rgba(96,165,250,0.07)', border: '1px solid rgba(96,165,250,0.3)', borderRadius: 10, padding: '10px 13px' }}>
+            <div style={{ color: '#93c5fd', fontWeight: 800, fontSize: 11, marginBottom: 3 }}>💡 성장가치(린치 PEG) vs 절대가치(버핏 DCF)</div>
+            <div style={{ color: '#cbd5e1', fontSize: 11.5, lineHeight: 1.65 }}>{msg}</div>
+          </div>
+        )
+      })()}
+
       {/* ③ 상대 PSR 비교 — 종목 vs 동종 중앙값 */}
       {d.psr != null && (
         <div style={{ marginTop: 12, background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '12px 14px' }}>

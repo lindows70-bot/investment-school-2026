@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   // 개별 주식 전용(ETF·코인·원자재는 해자·공정가치 개념 부적합 — getAssetType SSOT)
   if (getAssetType(ticker, '', market) !== 'STOCK') return NextResponse.json({ error: 'unsupported' }, { status: 200 })
 
-  const cacheKey = `stock-profile-v1:${ticker.toUpperCase()}:${market}:${kstDate()}`
+  const cacheKey = `stock-profile-v2:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v2: peg 노출(관점 충돌 융합 띠)
   const cached = await getCache<unknown>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

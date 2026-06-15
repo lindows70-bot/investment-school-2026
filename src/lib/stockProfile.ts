@@ -11,6 +11,7 @@ export interface StockProfile extends StarResult {
   fairValue: number | null
   currentPrice: number | null
   dcfOk: boolean
+  peg: number | null            // 린치 PEG(성장 대비 가격) — 별점(절대 공정가치)과의 관점 차이 설명용
   psr: number | null            // 이 종목 P/S
   psrMedian: number | null      // 동종 피어 PSR 중앙값(상대 비교 기준)
   sectorLabel: string | null    // 업종(피어 비교 라벨)
@@ -66,7 +67,7 @@ export async function buildStockProfile(ticker: string, market: 'KR' | 'US', bas
   return {
     ...star, ticker: ticker.toUpperCase(), name, market: mkt, currency,
     fairValue: fairValue != null ? +fairValue.toFixed(2) : null,
-    currentPrice, dcfOk,
+    currentPrice, dcfOk, peg: peg != null ? +peg.toFixed(2) : null,
     psr: targetPsr != null ? +targetPsr.toFixed(2) : null,
     psrMedian: psrMedian != null ? +psrMedian.toFixed(2) : null,
     sectorLabel, peerCount: Math.max(0, peerCount),
