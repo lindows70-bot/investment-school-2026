@@ -1,6 +1,6 @@
 # 2026 투자학교 포트폴리오 앱
 
-> **최종 업데이트**: 2026-06-15 — 🌟 종목 투자 프로필 카드(리서치 상단: 해자·스타등급·상대PSR 3초 요약) + 🧭 AI 본부장 상황 인지형 처방 + 🌟 모닝스타식 스타 등급 + 💵 PSR 전 화면
+> **최종 업데이트**: 2026-06-15 — 🏦 BTC 현물 ETF 순유입/유출(Farside)+누적 거래량(Yahoo·TheBlock 재현) + 🌟 종목 투자 프로필 카드 + 🧭 AI 본부장 상황 인지형 처방 + 🌟 모닝스타식 스타 등급
 
 ## 프로젝트 개요
 
@@ -1794,6 +1794,15 @@ X-Ray가 BP(PEG 0.01)를 CVX보다 '더 싸고 탄탄한 1등'으로 추천 — 
 - **M2 vs BTC 이중축**: 단일 100정규화 축은 BTC 스윙(+180%)에 M2(+9.8%)가 평평한 직선으로 묻힘 → **좌축 M2($T)·우축 BTC($) 각자 스케일**로 M2 완만한 우상향 가시화. 교훈: 스케일 차 큰 두 시계열은 정규화보다 **이중축**
 - **④ 네트워크**: 조잡한 SVG 스파크라인 → Recharts 영역 차트. ④+⑤를 2단 배치(풀폭 가로 늘어짐 해소)
 - ⚠️ CoinGecko 다수 호출은 순차(버스트 429), 부분실패는 캐시 박제 금지(핵심 키 성공 조건부 setCache) — coin-lab 초판서 학습
+
+## 🏦 비트코인 현물 ETF — 순유입/유출 + 누적 거래량 (2026-06-15) — 코인 랩
+
+Coinglass(순유입/유출)·TheBlock(누적 거래량) 차트를 무료·무키로 재현. 데이터 소스 실측 조사 후 구현.
+- **`/api/btc-etf`**(공개·24h 캐시): ② **누적 거래량** = Yahoo 현물 ETF 10종(IBIT·FBTC·BITB·ARKB·BTCO·EZBC·BRRR·HODL·BTCW·GBTC) 일별 거래대금(volume×close) 합산·누적. **2024-01-10 출범부터**(GBTC는 그 전 폐쇄형 신탁이라 제외 — TheBlock '현물 ETF' 정의 정합). 검증 **$2.04t = TheBlock $2t 일치** / ① **순유입/유출** = Farside Investors 공개 테이블 파싱(Total 열=일별 순유입 $M, 괄호=유출) + 출범 이후 누적($53.7B) + BTC가격
+- **`BtcEtfFlows.tsx`**: ① ComposedChart(🟢유입/🔴유출 막대 + 우축 BTC가격선) ② AreaChart(누적 거래량). 코인 랩 ₿비트코인 뷰
+- ⚠️ **Farside Cloudflare 403 → node:https 우회(SEC EDGAR 교훈 재현)**: undici fetch는 TLS 지문으로 403 차단, curl·node:https는 200. `httpGet`(node:https) 헬퍼로 우회. **이 패턴(undici 막히면 node:https)을 외부 스크래핑 표준으로**
+- ⚠️ **정직한 한계(사용자 합의)**: 전체 2년 일별 flow는 무료론 불가(Farside 무료 페이지=최근 ~2주 일별만, Coinglass/SoSoValue 전체 이력은 유료 키) → ①은 최근 일별+누적 stat, ②는 전체 이력. 누적 거래량은 Yahoo volume 기반이라 TheBlock과 미세 차이 가능
+- 조사 교훈: TheBlock이 "SOURCE: YAHOO FINANCE" 명시 → 누적 거래량은 우리 기존 무키 소스로 재현 가능했음. flow는 공시(창출/환매)라 별도 소스(Farside) 필요
 
 ## 🌟 종목 투자 프로필 카드 (2026-06-15) — 리서치 페이지 상단 캡스톤
 
