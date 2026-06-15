@@ -59,6 +59,20 @@ export default function OperationsHQ() {
               <span style={{ color: '#a5b4fc', fontWeight: 800, fontSize: 12 }}>AI 본부장 종합 브리핑</span>
               {brief.model && <span style={{ marginLeft: 'auto', color: '#6e7f8f', fontSize: 9.5 }}>Gemini</span>}
             </div>
+            {/* 🧭 리스크 체크 — 상황 인지형 처방의 핵심(규제·고평가·해자·기저효과) 상단 굵게 */}
+            {(brief.riskChecks?.length ?? 0) > 0 && (
+              <div style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '8px 11px', marginBottom: 9 }}>
+                <div style={{ color: '#fca5a5', fontWeight: 800, fontSize: 11, marginBottom: 4 }}>🧭 리스크 체크</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {brief.riskChecks.map((r, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'baseline', fontSize: 11.5, lineHeight: 1.55 }}>
+                      <span style={{ flexShrink: 0 }}>{r.level === 'red' ? '🔴' : '🟡'}</span>
+                      <span style={{ color: r.level === 'red' ? '#fca5a5' : '#fcd34d', fontWeight: 600 }}>{r.text}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div style={{ color: '#dbe3ec', fontSize: 12.5, lineHeight: 1.7 }}>{brief.briefing}</div>
             {((brief.sells?.length ?? 0) > 0 || (brief.trim?.length ?? 0) > 0 || brief.buys.length > 0) && (
               <div style={{ display: 'flex', gap: 14, marginTop: 8, flexWrap: 'wrap', fontSize: 11, alignItems: 'center' }}>

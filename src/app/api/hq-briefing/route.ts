@@ -2,12 +2,16 @@
 // season-navigator(진단·매도신호) + unified-reco(매수)의 캐시된 결과를 합쳐 Gemini가 한 편의 운용 지시로 작성
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdmin } from '@supabase/supabase-js'
+import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { callGeminiJSON } from '@/lib/gemini'
 import type { SeasonNavResult } from '@/app/api/season-navigator/route'
 import type { UnifiedRecoResult } from '@/app/api/unified-reco/route'
 import type { RebalanceResult } from '@/app/api/ai-rebalance/route'
 import type { DualMandateResult } from '@/app/api/fed-dual-mandate/route'
+import type { MorningstarResult } from '@/app/api/morningstar-rating/route'
+import type { RegulationResult } from '@/app/api/crypto-regulation/route'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -23,6 +27,7 @@ export interface HqBriefing {
   sellBudget: number
   buys: { name: string; sector: string; market: string; combined: number; seasonScore: number; fundScore: number; supplyScore: number }[]
   policyTilt: { tilt: 'dovish' | 'hawkish' | 'neutral'; label: string; note: string } | null   // 연준 기조(참고) — 계절 SSOT 불변
+  riskChecks: { kind: 'regulation' | 'valuation' | 'moat' | 'baseEffect'; level: 'red' | 'amber'; text: string }[]   // 상황 인지 리스크 레이어(결정론적)
   model: string | null
 }
 
@@ -35,7 +40,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `hq-briefing-v6:${user.id}:${kstDate()}:${fp}`   // v6: 연준 기조 라벨 상대화(rateDir 합류 — 완화 단정 금지)
+  const cacheKey = `hq-briefing-v7:${user.id}:${kstDate()}:${fp}`   // v7: 상황 인지 리스크 레이어(모닝스타·규제)
   const cached = await getCache<HqBriefing>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -47,13 +52,23 @@ export async function GET(req: Request) {
       if (!r.ok) return null; const j = await r.json(); return j.error ? null : j as T
     } catch { return null }
   }
-  const [season, unified, rebal, fed, regime] = await Promise.all([
+  const [season, unified, rebal, fed, regime, morning, reg] = await Promise.all([
     fetchAuthed<SeasonNavResult>('/api/season-navigator'),
     fetchAuthed<UnifiedRecoResult>('/api/unified-reco'),
     fetchAuthed<RebalanceResult>('/api/ai-rebalance', 35_000),   // 손익 기준 매도(4분면) — 무거우니 타임아웃 길게
     fetchAuthed<DualMandateResult>('/api/fed-dual-mandate'),     // 연준 양대책무(고용+워시 절사평균) — 참고 맥락
     fetchAuthed<{ rateDir?: 'cut' | 'hold' | 'hike' }>('/api/macro-regime', 10_000),  // 시장 금리 방향(SSOT) — 기조 라벨 상대화용
+    fetchAuthed<MorningstarResult>('/api/morningstar-rating', 35_000),  // 🌟 종목별 해자·공정가치·기저효과(리스크 레이어)
+    fetchAuthed<RegulationResult>('/api/crypto-regulation', 10_000),    // 🏛️ 코인 규제 기후(코인 보유 시에만 적용)
   ])
+
+  // 코인 보유 여부(규제 리스크 스코핑용) — 주식 종목별 규제 DB는 없으므로 규제는 코인 자산에만 적용(정직)
+  let hasCrypto = false
+  try {
+    const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
+    const { data: hold } = await admin.from('investments').select('ticker,name,market').eq('user_id', user.id)
+    hasCrypto = (hold ?? []).some(h => getAssetType(h.ticker, h.name ?? '', h.market ?? 'US') === 'CRYPTO')
+  } catch { /* graceful */ }
 
   const seasonLabel = season?.marketSeasons?.us.label ?? season?.label ?? '—'
   const alignmentScore = season?.alignmentScore ?? 0
@@ -93,6 +108,31 @@ export async function GET(req: Request) {
     policyTilt = { tilt, label, note }
   }
 
+  // ── 🧭 상황 인지 리스크 레이어(결정론적 — AI 판단 아님) ──
+  // 규제(코인)·고평가(공정가치 대비)·해자 약함·기저효과를 코드로 산출 → 프롬프트 컨텍스트로 주입.
+  const msNm = (e: { market: string; name: string; ticker: string }) => e.market === 'KR' ? (e.name || e.ticker).slice(0, 8) : e.ticker
+  const msEntries = morning?.entries ?? []
+  const overvalued = msEntries.filter(e => e.stars != null && e.stars <= 2 && (e.discountPct ?? 0) < 0)
+  const moatNone = msEntries.filter(e => e.moatWidth === 'none')
+  const baseEff = msEntries.filter(e => e.baseEffect)
+  const riskChecks: HqBriefing['riskChecks'] = []
+  if (hasCrypto && reg && reg.climate !== 'green') {
+    riskChecks.push({ kind: 'regulation', level: reg.climate === 'red' ? 'red' : 'amber',
+      text: `코인 자산 규제 기후 ${reg.climate === 'red' ? '🔴 위험' : '🟡 주의'} — ${reg.climateText || '법안 동향 변동 중'}. 코인 보유분 신규 확대는 코인 랩 규제 레이더 확인 후로 미루세요.` })
+  }
+  if (overvalued.length) {
+    riskChecks.push({ kind: 'valuation', level: 'amber',
+      text: `공정가치 대비 고평가(★1~2): ${overvalued.slice(0, 4).map(e => `${msNm(e)}(★${e.stars})`).join(', ')} — 추격 매수 자제, 분할 익절을 고려하세요.` })
+  }
+  if (moatNone.length) {
+    riskChecks.push({ kind: 'moat', level: 'amber',
+      text: `경제적 해자 약함(없음): ${moatNone.slice(0, 4).map(msNm).join(', ')} — 지속 가능한 수익이 아닐 수 있어 비중을 낮게(예: 3% 이하) 유지하세요.` })
+  }
+  if (baseEff.length) {
+    riskChecks.push({ kind: 'baseEffect', level: 'amber',
+      text: `기저효과 주의: ${baseEff.slice(0, 4).map(msNm).join(', ')} — 일시적 이익 폭증으로 '저평가'가 착시일 수 있으니 공정가치 신호를 과신 마세요.` })
+  }
+
   // ── AI 본부장 브리핑(Gemini) ──
   const sellTxt = sells.length
     ? sells.map(s => `${s.name}(${ACTION_KO[s.action] ?? s.action}·손익 ${s.pnlPct != null ? (s.pnlPct > 0 ? '+' : '') + s.pnlPct + '%' : '—'}·회수 ${s.releaseWeight}%${s.reason ? `·${s.reason}` : ''})`).join(', ')
@@ -109,8 +149,10 @@ export async function GET(req: Request) {
 [통합 추천 상위 매수 후보(계절×가치×수급 3축)]
 ${buyTxt || '없음'}
 [연준 정책 기조(참고 맥락·계절판정 대체 아님)] ${policyTilt ? `${policyTilt.label} — ${policyTilt.note}` : '데이터 없음'}
+[🧭 리스크 체크(반드시 처방에 반영 — 우리 엔진이 산출한 사실)] ${riskChecks.length ? '\n' + riskChecks.map(r => `· ${r.text}`).join('\n') : '특이 리스크 없음'}
 
 [작성 규칙]
+- ⭐ 위 [리스크 체크]를 처방에 반드시 녹여라(상황 인지형 처방): ① 규제 🔴 자산은 ROE·성장이 좋아도 신규 매수를 '대기'로 권하고 그 이유를 명시 ② 공정가치 대비 고평가·기저효과 종목은 추격 매수 자제·분할 익절 톤 ③ 해자 없음 종목은 비중 제한 권고. 단, 리스크 체크에 없는 내용을 지어내지는 마라.
 - 4~5문장, 한국어. ① 지금 국면과 내 포폴 정합 상태 ② 손익 기준 매도 신호가 있으면 무엇을 왜(손절=손실+thesis붕괴 / 익절=수익+고평가), 없으면 "급히 팔 종목은 없음" ③ 매도/회수 자금(${sellBudget}%)으로 통합 1~2위 종목을 왜 담을지(3축 근거 + 매도↔매수 연결) ④ 연준 기조 한 줄(예: "헤드라인 물가는 높지만 워시가 보는 기조물가는 ${policyTilt && fed ? fed.trimmedPce.latest + '%' : '낮은 수준'}이라 연준이 시장 기대보다 비둘기적일 수 있다")을 매수 톤 보조 근거로만 가볍게 언급 ⑤ "분할로 신중히" 톤.
 - ⚠️ 연준 기조는 어디까지나 '참고'다. 계절/국면 판정(${seasonLabel})을 뒤집거나 매크로 결론을 바꾸지 마라. 금리 방향 힌트로 매수 종목 성격(성장주 vs 가치주) 코멘트에만 가볍게 쓰라.
 - ⚠️ 비둘기 기조라도 '금리 인하 예상'·'완화 국면' 같은 절대적 표현 금지 — 시장은 동결/인상을 반영 중일 수 있다. 반드시 '시장 기대보다 덜 매파적일 수 있다' 같은 상대적 표현만 쓰라.
@@ -128,11 +170,12 @@ ${buyTxt || '없음'}
     briefing = `현재 ${seasonLabel} 국면이며 내 포트폴리오의 계절 정합도는 ${alignmentScore}점입니다. ` +
       (s0 ? `${s0.name}은(는) ${ACTION_KO[s0.action] ?? ''} 신호(손익 ${s0.pnlPct ?? '—'}%${s0.reason ? `·${s0.reason}` : ''})로 비중 ${s0.releaseWeight}% 회수를 검토하세요. ` : `급히 팔아야 할 손익 신호는 없습니다. `) +
       (top ? `회수/신규 자금으로 통합 1위 ${top.name}(${top.sector}·통합 ${top.combined}점: 계절 ${top.seasonScore}·가치 ${top.fundScore}·수급 ${top.supplyScore})을 분할로 신중히 편입을 검토하세요. ` : '') +
+      (riskChecks.length ? `⚠️ 리스크 체크: ${riskChecks.map(r => r.text).join(' / ')} ` : '') +
       (policyTilt ? `참고로 연준 기조는 ${policyTilt.label}입니다(${policyTilt.note}). ` : '') +
       `자세한 매도 진단은 아래 ② 리밸런싱 패널을 함께 확인하세요. ※ 교육용 시뮬레이션이며 자동 체결은 하지 않습니다.`
   }
 
-  const result: HqBriefing = { briefing, seasonLabel, alignmentScore, trim, sells, sellBudget, buys, policyTilt, model }
+  const result: HqBriefing = { briefing, seasonLabel, alignmentScore, trim, sells, sellBudget, buys, policyTilt, riskChecks, model }
   // 매수 후보가 비었으면(통합추천 콜드/타임아웃) 캐시하지 않음 → 다음 로드에서 통합추천 워밍 후 재생성
   if (buys.length > 0) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
