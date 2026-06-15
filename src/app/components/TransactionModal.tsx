@@ -111,8 +111,8 @@ export default function TransactionModal({
     classifyAsset(investment.ticker, investment.name, investment.market)
   )
   // 매수 모드: 거래 후 최종 평단가 (역산 기준)
-  // 매도 모드: 실제 매도 체결가
-  const [priceInput,   setPriceInput]   = useState<string>('')
+  // 매도 모드: 실제 매도 체결가 — 진입 시 현재가 자동 채움(버튼 즉시 활성)
+  const [priceInput,   setPriceInput]   = useState<string>(initialMode === 'sell' && currentPrice && currentPrice > 0 ? String(currentPrice) : '')
   const [quantity,     setQuantity]     = useState<string>('1')
   const [date,         setDate]         = useState<string>(today)
   const [memo,         setMemo]         = useState<string>('')
@@ -146,6 +146,12 @@ export default function TransactionModal({
     })()
     return () => { cancelled = true }
   }, [investment.ticker, investment.market, investment.lynch_category])
+
+  // 매도 모드로 전환 시 체결가가 비어 있으면 현재가로 자동 채움 → 매도 버튼 즉시 활성
+  useEffect(() => {
+    if (mode === 'sell' && !priceInput && currentPrice && currentPrice > 0) setPriceInput(String(currentPrice))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, currentPrice])
 
   const qtyNum      = Math.max(0, parseFloat(quantity)   || 0)
   const priceNum    = Math.max(0, parseFloat(priceInput) || 0)
@@ -533,12 +539,21 @@ export default function TransactionModal({
 
             {/* 수량 */}
             <div>
-              <label style={labelStyle}>
-                {mode === 'buy' ? '추가 매수 수량' : '매도 수량'}
+              <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>{mode === 'buy' ? '추가 매수 수량' : '매도 수량'}</span>
                 {mode === 'sell' && (
-                  <span style={{ marginLeft: 6, color: '#3b82f6', fontWeight: 400, textTransform: 'none' }}>
-                    (최대 {investment.quantity}주)
-                  </span>
+                  <>
+                    <span style={{ color: '#3b82f6', fontWeight: 400, textTransform: 'none' }}>
+                      (최대 {investment.quantity}주)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setQuantity(String(investment.quantity))}
+                      style={{ marginLeft: 'auto', background: qtyNum >= investment.quantity ? 'linear-gradient(135deg,#1d4ed8,#3b82f6)' : '#0a0e1a', boxShadow: qtyNum >= investment.quantity ? 'none' : SHO, border: 'none', borderRadius: 7, color: qtyNum >= investment.quantity ? '#fff' : '#8b92b8', fontSize: 11, fontWeight: 700, padding: '4px 12px', cursor: 'pointer', textTransform: 'none', letterSpacing: 0 }}
+                    >
+                      전량매도
+                    </button>
+                  </>
                 )}
               </label>
               <input
