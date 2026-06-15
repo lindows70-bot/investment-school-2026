@@ -35,7 +35,7 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `morningstar-rating-v2:${user.id}:${kstDate()}:${fp}`   // v2: 기저효과 가드
+  const cacheKey = `morningstar-rating-v3:${user.id}:${kstDate()}:${fp}`   // v3: 기저효과 기준 isPegBaseEffect 통일(peg<0.3 AND g>100%)
   const cached = await getCache<MorningstarResult>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -99,8 +99,9 @@ export async function GET(req: Request) {
         // 성장률을 소수로 정규화(Yahoo는 0.18=18%, 일부는 18=18%로 옴) → 기저효과(>100%) 판정용
         const egRaw = typeof fund.earningsGrowth === 'number' ? fund.earningsGrowth : null
         const growth = egRaw == null ? null : (Math.abs(egRaw) < 5 ? egRaw : egRaw / 100)
+        const pegN = typeof fund.peg === 'number' && isFinite(fund.peg) ? fund.peg : null
 
-        const star = computeStarRating({ pFv, moatWidth, moatVerdict, opMargin, roe, netDebtPos, category: s.lynch_category ?? 'na', growth })
+        const star = computeStarRating({ pFv, moatWidth, moatVerdict, opMargin, roe, netDebtPos, category: s.lynch_category ?? 'na', growth, peg: pegN })
         const e: RatingEntry = {
           ...star, ticker: s.ticker.toUpperCase(), name, market, currency,
           fairValue: fairValue != null ? +fairValue.toFixed(2) : null,

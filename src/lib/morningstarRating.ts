@@ -14,7 +14,8 @@ export interface StarInputs {
   roe:        number | null   // 소수(0.18=18%)
   netDebtPos: boolean | null  // 순부채>0(빚>현금)이면 true
   category:   string          // 린치 6대 분류
-  growth:     number | null   // 이익성장률 소수(2.14=+214%) — 기저효과(>100%) 가드용
+  growth:     number | null   // 이익성장률 소수(2.14=+214%) — 기저효과 판정용
+  peg:        number | null   // PEG — 기저효과 판정(canonicalFundamentals.isPegBaseEffect와 동일 기준)
 }
 
 export interface StarResult {
@@ -66,9 +67,11 @@ export function computeStarRating(i: StarInputs): StarResult {
   const moatTrend = moatTrendOf(i.moatVerdict)
   const stewardship = stewardshipOf(i.roe, i.netDebtPos)
   const discountPct = i.pFv != null && i.pFv > 0 ? +((1 - i.pFv) * 100).toFixed(1) : null
-  // ⚠️ 기저효과(작년 이익 붕괴 후 폭증 +100%↑) — DCF 성장률이 부풀려져 공정가치 과대 → '저평가' 별점 착시.
-  //    진단 탭 린치 Matrix의 기저효과 판정(growth>100%)과 동일 기준(제2원칙).
-  const baseEffect = i.growth != null && i.growth > 1.0
+  // ⚠️ 기저효과(작년 이익 붕괴 후 폭증) — DCF 성장률이 부풀려져 공정가치 과대 → '저평가' 별점 착시.
+  //    canonicalFundamentals.isPegBaseEffect와 동일 공식(peg<0.3 AND growth>100%) — 함정레이더·PSR·섹터피어와
+  //    같은 기준이어야 화면 간 모순이 없다(제2원칙). 단순 growth>100%만 쓰면 PLTR(peg 0.57)처럼 진짜 고성장주를
+  //    오분류해 화면마다 다르게 표시됨. (server-only 모듈 import 회피 위해 공식만 인라인)
+  const baseEffect = i.peg != null && i.peg > 0 && i.peg < 0.3 && i.growth != null && i.growth > 1.0
 
   let stars: number | null = null
   if (i.pFv != null && i.pFv > 0) {

@@ -40,7 +40,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `hq-briefing-v7:${user.id}:${kstDate()}:${fp}`   // v7: 상황 인지 리스크 레이어(모닝스타·규제)
+  const cacheKey = `hq-briefing-v8:${user.id}:${kstDate()}:${fp}`   // v8: 모닝스타 기저효과 기준 통일(isPegBaseEffect) 반영
   const cached = await getCache<HqBriefing>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
