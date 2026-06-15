@@ -38,7 +38,7 @@ export default function BtcEtfFlows() {
       <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
           <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13.5 }}>🏦 현물 ETF 순유입/유출</span>
-          <span style={{ color: '#8a9aaa', fontSize: 11 }}>최근 {d.flowWindowDays}거래일 · Farside</span>
+          <span style={{ color: '#8a9aaa', fontSize: 11 }}>{d.flowWindowDays > 30 ? '2024 출범~현재' : `최근 ${d.flowWindowDays}거래일`} · Farside</span>
           {d.flowCumulative != null && (
             <span style={{ marginLeft: 'auto', color: d.flowCumulative >= 0 ? '#4ade80' : '#f87171', fontWeight: 800, fontSize: 12 }}>
               출범 이후 누적 순유입 {fmtM(d.flowCumulative)}
@@ -51,7 +51,7 @@ export default function BtcEtfFlows() {
         {flowHasData ? (
           <ResponsiveContainer width="100%" height={210}>
             <ComposedChart data={d.flow} margin={{ top: 6, right: 8, left: 4, bottom: 2 }}>
-              <XAxis dataKey="date" tickFormatter={mmdd} tick={{ fill: '#8599ae', fontSize: 10 }} />
+              <XAxis dataKey="date" tickFormatter={d.flowWindowDays > 30 ? (v: string) => v.slice(0, 7) : mmdd} tick={{ fill: '#8599ae', fontSize: 10 }} minTickGap={d.flowWindowDays > 30 ? 48 : 8} />
               <YAxis yAxisId="flow" tick={{ fill: '#8599ae', fontSize: 10 }} tickFormatter={(v: number) => `${v}M`} width={48} />
               <YAxis yAxisId="px" orientation="right" domain={['auto', 'auto']} tick={{ fill: '#fbbf24', fontSize: 10 }} tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`} width={42} />
               <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 12 }}
