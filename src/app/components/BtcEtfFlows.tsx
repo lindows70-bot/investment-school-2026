@@ -97,7 +97,7 @@ export default function BtcEtfFlows() {
       </div>
 
       <div style={{ color: '#6e7f8f', fontSize: 9.5, lineHeight: 1.5 }}>
-        ※ 순유입/유출=Farside Investors 공개 데이터(현물 BTC ETF 순창출/환매, 무료 페이지라 최근 일별만) · 누적 거래량=Yahoo Finance 현물 ETF {10}종 거래대금 합산(TheBlock과 동일 출처) · 교육용, 투자 추천 아님.
+        ※ 순유입/유출=Farside Investors 공개 데이터(현물 BTC ETF 순창출/환매, 2024 출범~현재 전체 일별) · 누적 거래량=Yahoo Finance 현물 ETF 10종 거래대금 합산(TheBlock과 동일 출처) · 교육용, 투자 추천 아님.
       </div>
     </div>
   )
