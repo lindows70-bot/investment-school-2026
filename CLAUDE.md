@@ -1802,6 +1802,7 @@ X-Ray가 BP(PEG 0.01)를 CVX보다 '더 싸고 탄탄한 1등'으로 추천 — 
 - **`riskChecks` 결정론적 산출**(4종): 🔴/🟡 규제(코인) · 공정가치 대비 고평가(모닝스타 ★1~2) · 해자 없음(moatWidth none) · 기저효과(baseEffect). morningstar-rating 결과에서 추출 → 프롬프트 `[리스크 체크]`로 주입 + 가드(규제🔴=신규 매수 '대기' 명시 / 해자없음=비중 3%↓ 권고 / 고평가·기저효과=추격 자제·분할 익절). 결정론적 폴백에도 포함
 - **`HqBriefing.riskChecks`** + OperationsHQ 브리핑 카드 **상단에 🧭 리스크 체크 섹션 굵게**(제미나이 요청). hq-briefing이 morningstar-rating·crypto-regulation 추가 합성(둘 다 35s/10s 타임아웃·graceful — 콜드 타임아웃 시 해당 리스크만 생략). 캐시 v6→v7
 - 원칙: "리스크 체크에 없는 내용 지어내지 마라"(할루시네이션 가드) · 계절/국면 SSOT 불변 · 자동체결 금지
+- ⚠️ **기저효과 기준 통일(검증서 발견·수정, morningstar v2→v3·hq-briefing v7→v8)**: 모닝스타 별점·리스크체크가 기저효과를 `growth>100%`만으로 판정했으나, 함정레이더·PSR·섹터피어는 `isPegBaseEffect`(**peg<0.3 AND growth>100%**) 사용 → **PLTR(peg 0.57·growth 251%)**이 모닝스타에선 기저효과, 함정레이더에선 아님으로 **화면 간 모순**(제2원칙 위반). 모닝스타도 동일 공식으로 통일(StarInputs에 peg 추가) → PLTR은 전 화면 '기저효과 아님(단순 고평가)', GEV(0.22)·SK하이닉스(0.09)·인텔리안테크(0.21)는 전 화면 일치. 교훈: **새 기능에 기저효과/밸류 가드를 넣을 땐 반드시 기존 SSOT 공식(`isPegBaseEffect`)을 그대로 써야 한다 — 비슷하지만 다른 임계(growth만 vs peg+growth)는 제2원칙을 깬다**(client 컴포넌트가 쓰는 lib이라 server-only canonical import 대신 동일 공식 인라인)
 
 ## 🌟 모닝스타식 스타 등급 (2026-06-15) — 운용 본부 진단 캡스톤
 
