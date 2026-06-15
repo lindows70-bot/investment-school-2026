@@ -6,6 +6,7 @@ import type { CoinLabResult } from '@/app/api/coin-lab/route'
 import AltcoinNetworkChart, { SupplyBar } from '@/app/components/AltcoinNetworkChart'
 import DcaSimulator from '@/app/components/DcaSimulator'
 import RegulatoryRadar from '@/app/components/RegulatoryRadar'
+import BtcEtfFlows from '@/app/components/BtcEtfFlows'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 const fmtUsd = (n: number | null) => n == null ? '—' : `$${Math.round(n).toLocaleString()}`
@@ -212,6 +213,9 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
 
       {/* 💧 적립식(DCA) 시뮬레이터 — 10년 주봉 재사용 */}
       {d.longChart && d.longChart.points.length > 20 && <DcaSimulator points={d.longChart.points} />}
+
+      {/* 🏦 현물 ETF 순유입/유출 + 누적 거래량 — 제도권 자금(연료) */}
+      <BtcEtfFlows />
 
       {/* ④ 네트워크 + ⑤ M2 — 2단 배치(풀폭 가로 늘어짐 해소) */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
