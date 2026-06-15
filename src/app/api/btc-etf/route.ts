@@ -103,7 +103,7 @@ async function farsideFlow(): Promise<{ flow: { date: string; net: number }[]; c
 }
 
 export async function GET() {
-  const cacheKey = `btc-etf-v2:${kstDate()}`   // v2: Farside node:https 우회 + Yahoo range 5y
+  const cacheKey = `btc-etf-v3:${kstDate()}`   // v3: 누적거래량 2024-01 출범부터 필터(GBTC 신탁기 제외)
   const cached = await getCache<BtcEtfResult>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
