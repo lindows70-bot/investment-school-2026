@@ -12,6 +12,7 @@ import PairTradingMonitor from '@/app/components/PairTradingMonitor'
 import ShadowTracker13F from '@/app/components/ShadowTracker13F'
 import MoatBreachDetector from '@/app/components/MoatBreachDetector'
 import MoneyFlowRadar    from '@/app/components/MoneyFlowRadar'
+import StockProfileCard  from '@/app/components/StockProfileCard'
 import { getAssetType } from '@/lib/assetClassifier'
 import type { Candle } from '@/app/components/CandleChart'
 
@@ -549,6 +550,15 @@ export default function ResearchPage() {
 
       {/* ★ ETF·코인·원자재 → 개별주식 전용 분석 차단 안내 (1회) */}
       {!loading && stockInfo && priceData && !isStock && NonStockNotice}
+
+      {/* 🌟 투자 프로필 — 해자·스타등급(공정가치)·상대 PSR 3초 요약(분석 캡스톤·상단) */}
+      {!loading && stockInfo && priceData && isStock && (
+        <StockProfileCard
+          ticker={stockInfo.ticker}
+          name={stockInfo.name}
+          market={stockInfo.market}
+        />
+      )}
 
       {/* 🕵️ CEO의 장바구니 (비밀병기 5단계) — 내부자 장내매수 자동 시그널 */}
       {!loading && stockInfo && priceData && isStock && (
