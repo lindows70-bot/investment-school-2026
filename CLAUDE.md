@@ -1799,9 +1799,9 @@ X-Ray가 BP(PEG 0.01)를 CVX보다 '더 싸고 탄탄한 1등'으로 추천 — 
 ## 🎯 알파 헌터 — 가치·가격 괴리 탐지 (2026-06-15) — 자산&모니터링 신규 탭
 
 "가치(이익)는 오르는데 주가는 안 따라가는 곳"이 알파(저평가 기회), "주가만 펌핑된 곳"이 거품. 제미나이 설계를 우리 데이터·교훈에 맞게 구현.
-- **`/api/alpha-hunter`**(auth·fp 캐시 24h·신규 수집 0): 대상=내 보유 STOCK ∪ 추천 유니버스(`macro-screened-universe:v3` 캐시 점수 상위60). 종목별 **가치축=이익성장률(canonical.growth SSOT)** + **가격축=1년 주가수익률(stock-price-history 연평균 YoY 재사용·KR/US 처리)**. 괴리=성장률−주가수익률, ±20%p↑ 신호
+- **`/api/alpha-hunter`**(auth·fp 캐시 v2 24h): 대상=내 보유 STOCK ∪ 추천 유니버스(`macro-screened-universe:v3` 캐시 점수 상위60). 종목별 **가치축=이익성장률(canonical.growth SSOT)** + **가격축=Yahoo 주봉 1년 실제 수익률(현재가 vs 12개월 전, KR .KS→.KQ 폴백)**. 괴리=성장률−주가수익률, ±20%p↑ 신호
 - **분류**: 🟢alpha(괴리≥+20=저평가) / 🔴bubble(≤−20=거품) / 🟡caution(기저효과) / 〰️fair
-- ⚠️ **기저효과 가드(제미나이 놓친 치명점)**: PLTR(+252%)·GEV처럼 작년 이익 붕괴 후 회복은 '가짜 성장'이라 그대로면 "강력 매수 알파"로 오분류 → **isPegBaseEffect(SSOT)로 거른 뒤 🟡caution**(알파 제외). PLTR 사태 재발 방지
+- ⚠️ **기저효과 가드(검증서 2건 수정)**: ① **PLTR(peg 0.6·이익+251%)이 알파 1등(+250%p) 오분류** — `isPegBaseEffect`는 peg<0.3 게이트라 PLTR 못 잡음. 알파헌터는 **성장률이 직접 가치축**이라 `isPegBaseEffect OR growth>100%`(일회성 폭증=가짜 성장)로 확장 → PLTR/GEV 🟡caution(알파 제외). ⚠️ 모닝스타(공정가치 축, isPegBaseEffect만)와 기준이 다른 건 **축이 달라서 정당**(알파헌터=성장률 직접, 모닝스타=DCF 35%클램핑 후) — 둘 다 'PLTR 저평가 아님'으로 결론 일관. ② **가격축이 stock-price-history 연평균 YoY**(2026 반년 평균 섞여 INTU −44% 왜곡)→ **Yahoo 실제 1년**(INTU −62.9% 정확)으로 교체. + Y축 극단 기저효과(1692%) 압축 → domain cap(allowDataOverflow)
 - **`AlphaHunter.tsx`**: ScatterChart(X=주가수익률 Y=이익성장률·4분면·좌상=저평가/우하=거품, 보유=흰 테두리) + 🟢알파/🔴거품 리스트. 제미나이의 '우하단=저평가' 방향 오류 정정(X=가격 Y=가치면 좌상이 저평가)
 - 제미나이 'QuantBuilderLab 탭'은 부적합(빌더는 백지 설계) → **자산&모니터링 신규 탭**. 검증: 401 가드·타입·lint 통과
 
