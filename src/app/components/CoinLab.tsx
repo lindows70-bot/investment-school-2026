@@ -39,10 +39,13 @@ function withMa200(points: { date: string; price: number }[]): { date: string; p
   const med = deltas[Math.floor(deltas.length / 2)] || 7
   const win = Math.max(2, Math.round(1400 / med))   // 200주 = 1400일
   let sum = 0
+  // 초기 200주 미만 구간은 '있는 데이터만큼 평균'(expanding) → 선이 차트 처음부터 그려짐.
+  // 200주가 쌓이면 정식 200주 고정 윈도우로 수렴(Yahoo BTC가 2014~라 그 이전은 원천 불가)
   return points.map((p, i) => {
     sum += p.price
     if (i >= win) sum -= points[i - win].price
-    return { ...p, ma200: i >= win - 1 ? Math.round(sum / win) : null }
+    const count = Math.min(i + 1, win)
+    return { ...p, ma200: Math.round(sum / count) }
   })
 }
 
