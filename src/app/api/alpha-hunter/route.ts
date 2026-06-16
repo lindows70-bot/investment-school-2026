@@ -33,18 +33,21 @@ export interface AlphaHunterResult {
 
 const ALPHA_TH = 20   // 괴리 ±20%p 이상이면 의미있는 신호
 
-// 1년 주가 수익률 — stock-price-history(연평균, KR/US 처리·캐시) 재사용. 최신년/직전년
-async function priceReturnYoY(base: string, ticker: string, market: 'KR' | 'US'): Promise<number | null> {
-  try {
-    const r = await fetch(`${base}/api/stock-price-history?ticker=${encodeURIComponent(ticker)}&market=${market}`, { signal: AbortSignal.timeout(15_000) })
-    if (!r.ok) return null
-    const j = await r.json()
-    const yp: Record<string, number> = j?.yearPrices ?? {}
-    const yrs = Object.keys(yp).filter(y => yp[y] > 0).sort()
-    if (yrs.length < 2) return null
-    const last = yp[yrs[yrs.length - 1]], prev = yp[yrs[yrs.length - 2]]
-    return prev > 0 ? Math.round((last / prev - 1) * 1000) / 10 : null
-  } catch { return null }
+// 진짜 1년 주가 수익률 — Yahoo 주봉 1년(현재가 vs 12개월 전). KR은 .KS→.KQ 폴백.
+// (연평균 YoY는 2026 반년 평균이 섞여 INTU -44% 등 왜곡 → 실제 시작/끝 종가 비교로 교체)
+async function price1yReturn(ticker: string, market: 'KR' | 'US'): Promise<number | null> {
+  const code = ticker.replace(/\.(KS|KQ)$/i, '')
+  const syms = market === 'KR' ? [`${code}.KS`, `${code}.KQ`] : [code]
+  for (const s of syms) {
+    try {
+      const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${s}?range=1y&interval=1wk`, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(12_000) })
+      if (!r.ok) continue
+      const res = (await r.json())?.chart?.result?.[0]
+      const cl: number[] = (res?.indicators?.quote?.[0]?.close ?? []).filter((x: unknown): x is number => typeof x === 'number' && x > 0)
+      if (cl.length >= 2) return Math.round((cl[cl.length - 1] / cl[0] - 1) * 1000) / 10
+    } catch { /* 다음 심볼 */ }
+  }
+  return null
 }
 
 export async function GET(req: Request) {
@@ -53,7 +56,7 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `alpha-hunter-v1:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `alpha-hunter-v2:${user.id}:${kstDate()}:${fp}`   // v2: 실제 1년수익률(Yahoo) + 기저효과 growth>100% 포함
   const cached = await getCache<AlphaHunterResult>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -80,12 +83,14 @@ export async function GET(req: Request) {
       try {
         const [cf, pr] = await Promise.all([
           getCanonicalFundamentals(t.ticker, t.market, base),
-          priceReturnYoY(base, t.ticker, t.market),
+          price1yReturn(t.ticker, t.market),
         ])
         if (cf.growth == null || pr == null) return null   // 가치 또는 가격 축 없으면 제외
         const growthPct = Math.round(cf.growth * 1000) / 10
         const divergence = Math.round((growthPct - pr) * 10) / 10
-        const baseEffect = isPegBaseEffect(cf.peg, cf.growth)
+        // 기저효과 = 저PEG 착시(isPegBaseEffect) OR 이익 +100%↑(일회성 폭증·4년 지속 불가 = 가짜 성장).
+        // 알파헌터는 성장률이 직접 가치 축이라, PLTR(peg 0.6이라 isPegBaseEffect는 놓침)처럼 +251% 폭증도 걸러야 함.
+        const baseEffect = isPegBaseEffect(cf.peg, cf.growth) || cf.growth > 1.0
         const zone: AlphaZone = baseEffect ? 'caution'
           : divergence >= ALPHA_TH ? 'alpha'
           : divergence <= -ALPHA_TH ? 'bubble' : 'fair'

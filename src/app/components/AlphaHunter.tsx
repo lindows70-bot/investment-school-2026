@@ -57,8 +57,9 @@ export default function AlphaHunter() {
           <ScatterChart margin={{ top: 10, right: 16, bottom: 24, left: 6 }}>
             <XAxis type="number" dataKey="priceReturn" name="주가수익률" unit="%" tick={{ fill: '#8599ae', fontSize: 10 }}
               domain={['dataMin - 10', 'dataMax + 10']} label={{ value: '1년 주가 수익률 →', position: 'insideBottom', offset: -12, fill: '#8599ae', fontSize: 10.5 }} />
-            <YAxis type="number" dataKey="growthPct" name="이익성장률" unit="%" tick={{ fill: '#8599ae', fontSize: 10 }}
-              domain={['dataMin - 10', 'dataMax + 10']} label={{ value: '이익 성장률 ↑', angle: -90, position: 'insideLeft', fill: '#8599ae', fontSize: 10.5 }} width={44} />
+            <YAxis type="number" dataKey="growthPct" name="이익성장률" unit="%" tick={{ fill: '#8599ae', fontSize: 10 }} allowDataOverflow
+              domain={[(min: number) => Math.max(Math.floor(min - 10), -110), (max: number) => Math.min(Math.ceil(max + 10), 320)]}
+              label={{ value: '이익 성장률 ↑', angle: -90, position: 'insideLeft', fill: '#8599ae', fontSize: 10.5 }} width={44} />
             <ZAxis range={[60, 60]} />
             <ReferenceLine x={0} stroke="#475569" strokeDasharray="3 3" />
             <ReferenceLine y={0} stroke="#475569" strokeDasharray="3 3" />
