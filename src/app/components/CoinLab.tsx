@@ -28,6 +28,24 @@ function Panel({ title, sub, children }: { title: string; sub?: string; children
   )
 }
 
+// 200주 이동평균(약 4년) — 역사적 강력 지지선. ⚠️ longChart 포인트는 실측 격주(14일) 간격이라
+// 200주=100포인트. 간격을 자동 감지해 200주(1400일) 윈도우 포인트 수를 산출(주봉/격주 어느 쪽이 와도 정확).
+function withMa200(points: { date: string; price: number }[]): { date: string; price: number; ma200: number | null }[] {
+  const n = points.length
+  if (n < 4) return points.map(p => ({ ...p, ma200: null }))
+  const deltas: number[] = []
+  for (let i = 1; i < n; i++) deltas.push((new Date(points[i].date).getTime() - new Date(points[i - 1].date).getTime()) / 86_400_000)
+  deltas.sort((a, b) => a - b)
+  const med = deltas[Math.floor(deltas.length / 2)] || 7
+  const win = Math.max(2, Math.round(1400 / med))   // 200주 = 1400일
+  let sum = 0
+  return points.map((p, i) => {
+    sum += p.price
+    if (i >= win) sum -= points[i - win].price
+    return { ...p, ma200: i >= win - 1 ? Math.round(sum / win) : null }
+  })
+}
+
 export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
   const [d, setD] = useState<CoinLabResult | null>(null)
   const [loading, setLoading] = useState(true)
@@ -48,6 +66,7 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
 
   const toneColor = d.prescription.tone === 'accumulate' ? '#22c55e' : d.prescription.tone === 'caution' ? '#ef4444' : '#fbbf24'
   const overWeight = myCryptoPct != null && myCryptoPct > 5
+  const longData = d.longChart ? withMa200(d.longChart.points) : []
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -165,23 +184,24 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
         <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
             <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>📈 비트코인 10년 차트 × 반감기 사이클</span>
-            <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>로그 스케일 · 세로 점선 = 반감기(공급 충격) · 약 4년 주기</span>
+            <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>로그 스케일 · 세로 점선 = 반감기(공급 충격) · <span style={{ color: '#60a5fa' }}>파란선 = 200주 이동평균(약 4년 지지선)</span></span>
           </div>
           <div style={{ height: 300 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={d.longChart.points} margin={{ top: 18, right: 14, left: 2, bottom: 0 }}>
+              <LineChart data={longData} margin={{ top: 18, right: 14, left: 2, bottom: 0 }}>
                 <XAxis dataKey="date" tick={{ fill: '#7f93a8', fontSize: 9.5 }} tickFormatter={(s: string) => s.slice(0, 4)} minTickGap={48} axisLine={{ stroke: BORDER }} tickLine={false} />
                 <YAxis scale="log" domain={['auto', 'auto']} tick={{ fill: '#7f93a8', fontSize: 9.5 }} axisLine={false} tickLine={false} width={50}
                   tickFormatter={(v: number) => v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${v}`} ticks={[100, 1000, 10000, 100000]} />
                 <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }} labelStyle={{ color: '#8a9aaa' }}
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(v: any) => [`$${Number(v).toLocaleString()}`, 'BTC']} />
+                  formatter={(v: any, n: any) => [`$${Number(v).toLocaleString()}`, n === 'ma200' ? '200주 이평' : 'BTC']} />
                 {d.longChart.halvings.map(h => (
                   <ReferenceLine key={h.date} x={d.longChart.points.reduce((best, p) => Math.abs(new Date(p.date).getTime() - new Date(h.date).getTime()) < Math.abs(new Date(best).getTime() - new Date(h.date).getTime()) ? p.date : best, d.longChart.points[0].date)}
                     stroke="#f7931a" strokeDasharray="4 3" strokeWidth={1.2}
                     label={{ value: `⛏️${h.date.slice(0, 4)}`, fill: '#f7931a', fontSize: 9.5, fontWeight: 700, position: 'insideTop' }} />
                 ))}
                 <Line type="monotone" dataKey="price" name="BTC" stroke="#f7931a" strokeWidth={1.8} dot={false} isAnimationActive={false} />
+                <Line type="monotone" dataKey="ma200" name="ma200" stroke="#60a5fa" strokeWidth={1.6} dot={false} connectNulls isAnimationActive={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
