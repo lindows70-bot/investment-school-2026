@@ -33,6 +33,7 @@ import QuantBuilderLab            from '@/app/components/QuantBuilderLab'
 import MarketCatalystBanner       from '@/app/components/MarketCatalystBanner'
 import PortfolioTimeMachine       from '@/app/components/PortfolioTimeMachine'
 import CoinLab                     from '@/app/components/CoinLab'
+import AlphaHunter                 from '@/app/components/AlphaHunter'
 import PortfolioFlowDashboard     from '@/app/components/PortfolioFlowDashboard'
 import MarketFlowKr               from '@/app/components/MarketFlowKr'
 import PortfolioRecoKr            from '@/app/components/PortfolioRecoKr'
@@ -656,7 +657,7 @@ export default function DashboardPage() {
   }>>({})
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter'>('live')
   const [flowView, setFlowView] = useState<'mine' | 'market' | 'reco' | 'unified'>('mine')
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
@@ -1308,6 +1309,7 @@ export default function DashboardPage() {
               { key: 'correlation',  icon: '📐', label: '상관관계 매트릭스',  desc: '종목 간 동조화 · 분산 진단' },
               { key: 'newscatalyst',icon: '📰', label: '뉴스 촉매 레이더',   desc: '보유 종목 뉴스 → 3단계 신호' },
               { key: 'rebalance',   icon: '🤖', label: 'AI 리밸런싱',        desc: '손익 반영 익절/손절 교체매매' },
+              { key: 'alphahunter', icon: '🎯', label: '알파 헌터',          desc: '가치·가격 괴리 탐지(저평가/거품)' },
               { key: 'quantbuilder',icon: '🛰️', label: 'AI 1억 퀀트 빌더',   desc: '코어-새틀라이트 백지 설계' },
               { key: 'moneyflow',   icon: '📡', label: '수급 레이더',        desc: '내 종목 스마트머니 유입/이탈' },
               { key: 'earnings',    icon: '📋', label: '어닝 터미널',        desc: 'G 리비전 · PEG 알럿' },
@@ -3009,6 +3011,13 @@ export default function DashboardPage() {
       <div id="tab-coinlab" style={{ display: dashTab==='coinlab' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         <ErrorBoundary label="코인 랩">
           <CoinLab myCryptoPct={myCryptoPct} />
+        </ErrorBoundary>
+      </div>
+
+      {/* ── 🎯 알파 헌터 탭 (가치·가격 괴리 탐지) ── */}
+      <div id="tab-alphahunter" style={{ display: dashTab==='alphahunter' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="알파 헌터">
+          {dashTab==='alphahunter' && <AlphaHunter />}
         </ErrorBoundary>
       </div>
 
