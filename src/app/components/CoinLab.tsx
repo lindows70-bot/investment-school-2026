@@ -196,6 +196,10 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
             <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>📈 비트코인 10년 차트 × 반감기 사이클</span>
             <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>로그 스케일(반로그 ½decade 눈금) · 세로 점선 = 반감기 · <span style={{ color: '#60a5fa' }}>파란선 = 200주 이동평균</span></span>
           </div>
+          {/* 📐 로그 축 교육 — '왜 중간이 $50k가 아니라 $10k인가' 오해 방지 */}
+          <div style={{ background: 'rgba(96,165,250,0.07)', border: '1px solid rgba(96,165,250,0.25)', borderRadius: 8, padding: '7px 11px', marginBottom: 8, color: '#aab6c4', fontSize: 10.5, lineHeight: 1.6 }}>
+            📐 <b style={{ color: '#93c5fd' }}>로그(log) 축</b> — 한 칸이 <b>10배</b>를 뜻합니다($1k→$10k와 $10k→$100k가 같은 거리라 중간값이 $50k가 아니라 <b>$10k</b>). 비트코인은 10년간 약 250배 움직여, 선형 축이면 2016~2020 구간이 바닥에 깔려 안 보입니다 — 그래서 <b>변동성 큰 장기 자산은 로그가 표준</b>(TheBlock·트레이딩뷰도 동일).
+          </div>
           <div style={{ height: 460 }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={longData} margin={{ top: 18, right: 14, left: 2, bottom: 0 }}>
