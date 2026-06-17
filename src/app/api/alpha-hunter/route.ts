@@ -13,7 +13,7 @@ export const maxDuration = 120
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
-export type AlphaZone = 'alpha' | 'bubble' | 'fair' | 'caution'
+export type AlphaZone = 'alpha' | 'knife' | 'bubble' | 'fair' | 'caution'
 export interface AlphaPoint {
   ticker: string; name: string; market: 'KR' | 'US'; held: boolean
   growthPct: number          // 이익 성장률 %(가치 축)
@@ -31,7 +31,8 @@ export interface AlphaHunterResult {
   asOf: string
 }
 
-const ALPHA_TH = 20   // 괴리 ±20%p 이상이면 의미있는 신호
+const ALPHA_TH = 20    // 괴리 ±20%p 이상이면 의미있는 신호
+const KNIFE_TH = -35   // 1년 주가 -35%↓ 급락이면 '떨어지는 칼날' 경계(저평가 단정 금지)
 
 // 진짜 1년 주가 수익률 — Yahoo 주봉 1년(현재가 vs 12개월 전). KR은 .KS→.KQ 폴백.
 // (연평균 YoY는 2026 반년 평균이 섞여 INTU -44% 등 왜곡 → 실제 시작/끝 종가 비교로 교체)
@@ -56,7 +57,7 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `alpha-hunter-v2:${user.id}:${kstDate()}:${fp}`   // v2: 실제 1년수익률(Yahoo) + 기저효과 growth>100% 포함
+  const cacheKey = `alpha-hunter-v3:${user.id}:${kstDate()}:${fp}`   // v3: 떨어지는 칼날(급락 -35%↓) 분리
   const cached = await getCache<AlphaHunterResult>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -91,8 +92,10 @@ export async function GET(req: Request) {
         // 기저효과 = 저PEG 착시(isPegBaseEffect) OR 이익 +100%↑(일회성 폭증·4년 지속 불가 = 가짜 성장).
         // 알파헌터는 성장률이 직접 가치 축이라, PLTR(peg 0.6이라 isPegBaseEffect는 놓침)처럼 +251% 폭증도 걸러야 함.
         const baseEffect = isPegBaseEffect(cf.peg, cf.growth) || cf.growth > 1.0
+        // 🔪 떨어지는 칼날 — 괴리상 '저평가'지만 주가가 1년 -35%↓ 급락 중이면 시장이 아는 악재/미래 둔화 가능.
+        //    "싸 보여도 이유가 있다" — 묻지마 저평가로 단정 말고 thesis 확인 경계로 분리.
         const zone: AlphaZone = baseEffect ? 'caution'
-          : divergence >= ALPHA_TH ? 'alpha'
+          : divergence >= ALPHA_TH ? (pr <= KNIFE_TH ? 'knife' : 'alpha')
           : divergence <= -ALPHA_TH ? 'bubble' : 'fair'
         return { ticker: t.ticker.toUpperCase(), name: t.name, market: t.market, held: t.held, growthPct, priceReturn: pr, divergence, zone, baseEffect, peg: cf.peg }
       } catch { return null }
@@ -100,7 +103,9 @@ export async function GET(req: Request) {
     for (const r of rs) if (r) points.push(r)
   }
 
-  const alpha = points.filter(p => p.zone === 'alpha').sort((a, b) => b.divergence - a.divergence)
+  // 알파 리스트 = 진짜 저평가(alpha) + 떨어지는 칼날(knife). 단 alpha를 위로, knife는 경계라 아래로 정렬
+  const alpha = points.filter(p => p.zone === 'alpha' || p.zone === 'knife')
+    .sort((a, b) => (a.zone === b.zone ? b.divergence - a.divergence : a.zone === 'alpha' ? -1 : 1))
   const bubble = points.filter(p => p.zone === 'bubble').sort((a, b) => a.divergence - b.divergence)
 
   const result: AlphaHunterResult = { points, alpha, bubble, heldCount: held.length, asOf: new Date().toISOString() }
