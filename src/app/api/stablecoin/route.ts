@@ -25,6 +25,7 @@ export interface StablecoinResult {
   mcapChange30d: number | null      // 30일 시총 증감 %(유동성 방향)
   coins: StableCoin[]
   byMech: { mechanism: string; ko: string; risk: StableRisk; mcap: number; share: number }[]
+  chains: { name: string; mcap: number; share: number }[]   // 체인별 분포(어느 생태계로 달러가 흐르나)
   depegAlerts: StableCoin[]
   asOf: string
 }
@@ -32,19 +33,21 @@ export interface StablecoinResult {
 const num = (v: unknown): number | null => (typeof v === 'number' && isFinite(v) ? v : null)
 
 export async function GET() {
-  const cacheKey = `stablecoin-v4:${kstDate()}`   // v4: 스테이블 도미넌스(코인판 현금 비중)
+  const cacheKey = `stablecoin-v5:${kstDate()}`   // v5: 체인별 분포(이더리움·트론·솔라나)
   const cached = await getCache<StablecoinResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   const H = { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' }
-  let assets: Record<string, unknown>[] = [], chart: Record<string, unknown>[] = []
+  let assets: Record<string, unknown>[] = [], chart: Record<string, unknown>[] = [], chainsRaw: Record<string, unknown>[] = []
   try {
-    const [a, c] = await Promise.all([
+    const [a, c, ch] = await Promise.all([
       fetch('https://stablecoins.llama.fi/stablecoins?includePrices=true', { headers: H, signal: AbortSignal.timeout(15_000) }).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('https://stablecoins.llama.fi/stablecoincharts/all', { headers: H, signal: AbortSignal.timeout(15_000) }).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('https://stablecoins.llama.fi/stablecoinchains', { headers: H, signal: AbortSignal.timeout(15_000) }).then(r => r.ok ? r.json() : null).catch(() => null),
     ])
     assets = a?.peggedAssets ?? []
     chart = Array.isArray(c) ? c : []
+    chainsRaw = Array.isArray(ch) ? ch : []
   } catch { /* graceful */ }
   if (!assets.length) return NextResponse.json({ error: 'no_data' }, { status: 200 })
 
@@ -99,7 +102,17 @@ export async function GET() {
   let mcapChange30d: number | null = null
   if (series.length > 30) { const a = series[series.length - 31].mcap, b = series[series.length - 1].mcap; if (a > 0) mcapChange30d = +((b / a - 1) * 100).toFixed(1) }
 
-  const result: StablecoinResult = { totalMcap, cryptoMcap, dominance, dominanceZone, mcapSeries, mcapChange30d, coins: topCoins, byMech, depegAlerts, asOf: new Date().toISOString() }
+  // 체인별 분포 — 어느 생태계로 달러가 흐르나(이더리움·트론 양대 + 솔라나 부상)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const chMcap = (c: any) => num(c?.totalCirculatingUSD?.peggedUSD) ?? 0
+  const chainTotal = chainsRaw.reduce((s, c) => s + chMcap(c), 0)
+  const chains = chainsRaw
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((c: any) => ({ name: String(c.name ?? '?'), mcap: chMcap(c) }))
+    .filter(c => c.mcap > 0).sort((a, b) => b.mcap - a.mcap).slice(0, 7)
+    .map(c => ({ ...c, share: chainTotal ? +(c.mcap / chainTotal * 100).toFixed(1) : 0 }))
+
+  const result: StablecoinResult = { totalMcap, cryptoMcap, dominance, dominanceZone, mcapSeries, mcapChange30d, coins: topCoins, byMech, chains, depegAlerts, asOf: new Date().toISOString() }
   if (totalMcap > 0) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

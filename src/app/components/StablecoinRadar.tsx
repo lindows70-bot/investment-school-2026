@@ -158,6 +158,37 @@ export default function StablecoinRadar() {
         </div>
       </div>
 
+      {/* ⛓️ 체인별 분포 — 어느 생태계로 달러가 흐르나 */}
+      {d.chains && d.chains.length > 0 && (() => {
+        const CHC = ['#627eea', '#ef4444', '#14f195', '#f3ba2f', '#06b6d4', '#a78bfa', '#64748b']
+        return (
+          <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 3, flexWrap: 'wrap' }}>
+              <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13.5 }}>⛓️ 체인별 분포</span>
+              <span style={{ color: '#8a9aaa', fontSize: 11 }}>스테이블코인(달러)이 어느 생태계에 있나</span>
+            </div>
+            <div style={{ color: '#7f93a8', fontSize: 11, marginBottom: 9, lineHeight: 1.5 }}>
+              달러가 모인 체인이 곧 거래·디파이가 활발한 생태계 — <b style={{ color: '#aab6c4' }}>자금이 어디로 이동하는지</b>(예: 솔라나 부상)를 읽는 단서.
+            </div>
+            {/* 누적 바 */}
+            <div style={{ display: 'flex', height: 14, borderRadius: 5, overflow: 'hidden', marginBottom: 8 }}>
+              {d.chains.map((c, i) => <div key={c.name} style={{ width: `${c.share}%`, background: CHC[i % CHC.length] }} title={`${c.name} ${c.share}%`} />)}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {d.chains.map((c, i) => (
+                <div key={c.name} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5 }}>
+                  <span style={{ width: 9, height: 9, borderRadius: '50%', background: CHC[i % CHC.length], display: 'inline-block' }} />
+                  <span style={{ color: '#e2e8f0', fontWeight: 600, minWidth: 110 }}>{c.name}</span>
+                  <span style={{ marginLeft: 'auto', color: '#8a9aaa', fontFamily: 'monospace' }}>{fmtB(c.mcap)}</span>
+                  <span style={{ color: '#cbd5e1', fontWeight: 700, fontFamily: 'monospace', minWidth: 44, textAlign: 'right' }}>{c.share}%</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 7, lineHeight: 1.5 }}>이더리움·트론이 양대 축(USDT는 트론에서 송금·USDC는 이더리움 중심) · 신생 체인(솔라나·Base) 비중 증가 = 그쪽으로 자금·활동이 이동 중이라는 신호.</div>
+          </div>
+        )
+      })()}
+
       {/* ③ 디페깅 스트레스 시뮬레이터 */}
       <DepegSimulator />
 

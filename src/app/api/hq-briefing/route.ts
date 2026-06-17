@@ -12,6 +12,7 @@ import type { RebalanceResult } from '@/app/api/ai-rebalance/route'
 import type { DualMandateResult } from '@/app/api/fed-dual-mandate/route'
 import type { MorningstarResult } from '@/app/api/morningstar-rating/route'
 import type { RegulationResult } from '@/app/api/crypto-regulation/route'
+import type { StablecoinResult } from '@/app/api/stablecoin/route'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -27,7 +28,7 @@ export interface HqBriefing {
   sellBudget: number
   buys: { name: string; sector: string; market: string; combined: number; seasonScore: number; fundScore: number; supplyScore: number }[]
   policyTilt: { tilt: 'dovish' | 'hawkish' | 'neutral'; label: string; note: string } | null   // 연준 기조(참고) — 계절 SSOT 불변
-  riskChecks: { kind: 'regulation' | 'valuation' | 'moat' | 'baseEffect'; level: 'red' | 'amber'; text: string }[]   // 상황 인지 리스크 레이어(결정론적)
+  riskChecks: { kind: 'regulation' | 'valuation' | 'moat' | 'baseEffect' | 'liquidity'; level: 'red' | 'amber'; text: string }[]   // 상황 인지 리스크 레이어(결정론적)
   model: string | null
 }
 
@@ -40,7 +41,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `hq-briefing-v8:${user.id}:${kstDate()}:${fp}`   // v8: 모닝스타 기저효과 기준 통일(isPegBaseEffect) 반영
+  const cacheKey = `hq-briefing-v9:${user.id}:${kstDate()}:${fp}`   // v9: 암호 유동성 경색(스테이블 시총) 리스크 추가
   const cached = await getCache<HqBriefing>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -52,7 +53,7 @@ export async function GET(req: Request) {
       if (!r.ok) return null; const j = await r.json(); return j.error ? null : j as T
     } catch { return null }
   }
-  const [season, unified, rebal, fed, regime, morning, reg] = await Promise.all([
+  const [season, unified, rebal, fed, regime, morning, reg, stable] = await Promise.all([
     fetchAuthed<SeasonNavResult>('/api/season-navigator'),
     fetchAuthed<UnifiedRecoResult>('/api/unified-reco'),
     fetchAuthed<RebalanceResult>('/api/ai-rebalance', 35_000),   // 손익 기준 매도(4분면) — 무거우니 타임아웃 길게
@@ -60,6 +61,7 @@ export async function GET(req: Request) {
     fetchAuthed<{ rateDir?: 'cut' | 'hold' | 'hike' }>('/api/macro-regime', 10_000),  // 시장 금리 방향(SSOT) — 기조 라벨 상대화용
     fetchAuthed<MorningstarResult>('/api/morningstar-rating', 35_000),  // 🌟 종목별 해자·공정가치·기저효과(리스크 레이어)
     fetchAuthed<RegulationResult>('/api/crypto-regulation', 10_000),    // 🏛️ 코인 규제 기후(코인 보유 시에만 적용)
+    fetchAuthed<StablecoinResult>('/api/stablecoin', 12_000),           // 💧 암호시장 유동성(스테이블 시총 추이) — 코인 보유 시 유동성 경색 경고
   ])
 
   // 코인 보유 여부(규제 리스크 스코핑용) — 주식 종목별 규제 DB는 없으므로 규제는 코인 자산에만 적용(정직)
@@ -131,6 +133,11 @@ export async function GET(req: Request) {
   if (baseEff.length) {
     riskChecks.push({ kind: 'baseEffect', level: 'amber',
       text: `기저효과 주의: ${baseEff.slice(0, 4).map(msNm).join(', ')} — 일시적 이익 폭증으로 '저평가'가 착시일 수 있으니 공정가치 신호를 과신 마세요.` })
+  }
+  // 💧 암호 유동성 경색 — 코인 보유 + 스테이블코인 시총 30일 -3%↓ 급감(매수 대기 자금이 빠지는 중)
+  if (hasCrypto && stable && stable.mcapChange30d != null && stable.mcapChange30d <= -3) {
+    riskChecks.push({ kind: 'liquidity', level: stable.mcapChange30d <= -6 ? 'red' : 'amber',
+      text: `암호 유동성 경색 — 스테이블코인(매수 대기 자금) 시총이 30일간 ${stable.mcapChange30d}% 감소 중. 코인 시장에서 현금이 빠지는 국면이니 코인 보유분의 방어력(비중 축소·분할)을 점검하세요.` })
   }
 
   // ── AI 본부장 브리핑(Gemini) ──
