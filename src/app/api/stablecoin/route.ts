@@ -15,8 +15,12 @@ const MECH: Record<string, { ko: string; risk: StableRisk }> = {
 }
 
 export interface StableCoin { symbol: string; name: string; mcap: number; share: number; price: number | null; depegPct: number | null; mechanism: string; mechKo: string; risk: StableRisk }
+export type DomZone = 'high' | 'mid' | 'low'
 export interface StablecoinResult {
   totalMcap: number
+  cryptoMcap: number | null         // 전체 암호 시총(CoinGecko global)
+  dominance: number | null          // 스테이블 도미넌스 % = 코인판 '현금 비중'
+  dominanceZone: DomZone | null     // high=대기현금많음(공포/바닥) / low=현금소진(과열) / mid
   mcapSeries: { date: string; mcap: number }[]
   mcapChange30d: number | null      // 30일 시총 증감 %(유동성 방향)
   coins: StableCoin[]
@@ -28,7 +32,7 @@ export interface StablecoinResult {
 const num = (v: unknown): number | null => (typeof v === 'number' && isFinite(v) ? v : null)
 
 export async function GET() {
-  const cacheKey = `stablecoin-v3:${kstDate()}`   // v3: 페그경보 하방($1↓)만(yield형 +이탈 제외)
+  const cacheKey = `stablecoin-v4:${kstDate()}`   // v4: 스테이블 도미넌스(코인판 현금 비중)
   const cached = await getCache<StablecoinResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -50,6 +54,18 @@ export async function GET() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mcapOf = (s: any) => num(s?.circulating?.peggedUSD) ?? 0
   const totalMcap = usd.reduce((sum, s) => sum + mcapOf(s), 0)
+
+  // 스테이블 도미넌스 = 스테이블 시총 ÷ 전체 암호 시총 = 코인판 '현금 비중'(CoinGecko global)
+  let cryptoMcap: number | null = null, dominance: number | null = null, dominanceZone: DomZone | null = null
+  try {
+    const g = await fetch('https://api.coingecko.com/api/v3/global', { headers: H, signal: AbortSignal.timeout(12_000) }).then(r => r.ok ? r.json() : null).catch(() => null)
+    const cm = num(g?.data?.total_market_cap?.usd)
+    if (cm && cm > 0 && totalMcap > 0) {
+      cryptoMcap = cm
+      dominance = +(totalMcap / cm * 100).toFixed(1)
+      dominanceZone = dominance >= 12 ? 'high' : dominance <= 6 ? 'low' : 'mid'   // 높음=대기현금↑(공포/바닥) / 낮음=현금소진(과열)
+    }
+  } catch { /* graceful */ }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const coins: StableCoin[] = usd.map((s: any) => {
@@ -83,7 +99,7 @@ export async function GET() {
   let mcapChange30d: number | null = null
   if (series.length > 30) { const a = series[series.length - 31].mcap, b = series[series.length - 1].mcap; if (a > 0) mcapChange30d = +((b / a - 1) * 100).toFixed(1) }
 
-  const result: StablecoinResult = { totalMcap, mcapSeries, mcapChange30d, coins: topCoins, byMech, depegAlerts, asOf: new Date().toISOString() }
+  const result: StablecoinResult = { totalMcap, cryptoMcap, dominance, dominanceZone, mcapSeries, mcapChange30d, coins: topCoins, byMech, depegAlerts, asOf: new Date().toISOString() }
   if (totalMcap > 0) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

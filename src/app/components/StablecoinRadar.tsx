@@ -69,6 +69,41 @@ export default function StablecoinRadar() {
         </ResponsiveContainer>
       </div>
 
+      {/* 🪙 스테이블코인 도미넌스 — 코인판 현금 비중 */}
+      {d.dominance != null && (() => {
+        const z = d.dominanceZone
+        const zc = z === 'high' ? '#22c55e' : z === 'low' ? '#ef4444' : '#fbbf24'
+        const zlabel = z === 'high' ? '🟢 대기 현금 풍부 (공포·바닥 가능)' : z === 'low' ? '🔴 현금 거의 소진 (과열·리스크온 정점 가능)' : '🟡 중립'
+        const zdesc = z === 'high'
+          ? '스테이블코인(현금)이 시장에 많이 쌓여 있습니다 — 투자자들이 위험을 줄이고 대기 중. 역사적으로 공포·바닥 구간에서 높아지며, 이 현금이 다시 코인으로 들어오면 강세 연료가 됩니다.'
+          : z === 'low'
+          ? '현금이 대부분 코인에 들어가 있습니다 — 추가 매수 여력이 적은 과열 신호일 수 있습니다. 조정 시 받쳐줄 현금이 부족합니다.'
+          : '현금 비중이 중간 수준입니다.'
+        // 게이지 위치: 5~16% 범위로 매핑
+        const pos = Math.max(0, Math.min(100, ((d.dominance - 5) / 11) * 100))
+        return (
+          <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+              <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13.5 }}>🪙 스테이블코인 도미넌스</span>
+              <span style={{ color: '#8a9aaa', fontSize: 11 }}>= 스테이블 시총 ÷ 전체 암호 시총 = 코인판 &lsquo;현금 비중&rsquo;</span>
+              <span style={{ marginLeft: 'auto', color: zc, fontWeight: 900, fontSize: 18, fontFamily: 'monospace' }}>{d.dominance}%</span>
+            </div>
+            {/* 게이지 바: 좌=현금소진(과열) ↔ 우=현금풍부(공포) */}
+            <div style={{ position: 'relative', height: 12, background: 'linear-gradient(90deg,#ef4444,#fbbf24,#22c55e)', borderRadius: 6, opacity: 0.85, marginBottom: 4 }}>
+              <div style={{ position: 'absolute', left: `${pos}%`, top: -3, transform: 'translateX(-50%)', width: 4, height: 18, background: '#e2e8f0', borderRadius: 2, boxShadow: '0 0 4px #000' }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9.5, color: '#6e7f8f', marginBottom: 8 }}>
+              <span>5% 현금소진(과열)</span><span>~10% 중립</span><span>16% 현금풍부(공포)</span>
+            </div>
+            <div style={{ background: `${zc}12`, border: `1px solid ${zc}33`, borderRadius: 8, padding: '8px 12px' }}>
+              <div style={{ color: zc, fontWeight: 800, fontSize: 12, marginBottom: 2 }}>{zlabel}</div>
+              <div style={{ color: '#cbd5e1', fontSize: 11, lineHeight: 1.6 }}>{zdesc}</div>
+            </div>
+            <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 6 }}>※ 주식의 &lsquo;현금 비중·칵테일 파티 지수&rsquo;와 같은 역발상 지표 — 전체 암호 시총 {d.cryptoMcap != null ? fmtB(d.cryptoMcap) : '—'} 기준. 절대 매매 신호 아님(교육용).</div>
+          </div>
+        )
+      })()}
+
       {/* ② 페그·종류 모니터 */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         {/* 종류별 위험도 */}
