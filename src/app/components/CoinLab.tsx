@@ -8,6 +8,7 @@ import DcaSimulator from '@/app/components/DcaSimulator'
 import RegulatoryRadar from '@/app/components/RegulatoryRadar'
 import BtcEtfFlows from '@/app/components/BtcEtfFlows'
 import StablecoinRadar from '@/app/components/StablecoinRadar'
+import AltSeasonIndex from '@/app/components/AltSeasonIndex'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 const fmtUsd = (n: number | null) => n == null ? '—' : `$${Math.round(n).toLocaleString()}`
@@ -184,6 +185,9 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
         </Panel>
 
       </div>
+
+      {/* 🌊 알트시즌 인덱스 — BTC 도미넌스 기반 시장 국면(추가 fetch 0) */}
+      <AltSeasonIndex btcDom={d.sentiment.btcDom} ethDom={d.sentiment.ethDom} />
 
       {/* 📈 10년 장기 가격 × 반감기 사이클 */}
       {d.longChart && d.longChart.points.length > 20 && (

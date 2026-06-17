@@ -171,6 +171,8 @@ export default function StablecoinRadar() {
 // ③ 디페깅 스트레스 시뮬레이터 — 법정담보 vs 알고리즘 붕괴 메커니즘 체감(데이터 무관·순수 교육)
 function DepegSimulator() {
   const [shock, setShock] = useState(20)   // 시장 신뢰 충격(매도 압력) %
+  const [amount, setAmount] = useState(1000)   // 내 투자금(만원) — 손실 체감용
+  const fmtMan = (won: number) => won >= 1e8 ? `${(won / 1e8).toFixed(2)}억` : `${Math.round(won).toLocaleString('ko-KR')}만`
 
   const sim = useMemo(() => {
     // 법정담보: 담보(현금·국채)로 1:1 상환 → 충격의 일부만 일시 반영, 빠르게 회복. 60% 충격까진 0.97 사수
@@ -185,27 +187,41 @@ function DepegSimulator() {
     }
   }, [shock])
 
-  const Bar = ({ label, price, color, note }: { label: string; price: number; color: string; note: string }) => (
+  const Bar = ({ label, price, color, note }: { label: string; price: number; color: string; note: string }) => {
+    const remainWon = amount * 1e4 * price
+    const lossPct = Math.round((1 - price) * 100)
+    return (
     <div style={{ flex: '1 1 200px', background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 9, padding: '11px 13px' }}>
       <div style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 12, marginBottom: 6 }}>{label}</div>
       <div style={{ position: 'relative', height: 12, background: '#1e293b', borderRadius: 6, marginBottom: 5 }}>
         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.min(100, price * 100)}%`, background: color, borderRadius: 6, transition: 'width 0.2s' }} />
-        <span style={{ position: 'absolute', right: 6, top: -1, fontSize: 9.5, color: '#8599ae' }}>$1.00 목표</span>
       </div>
-      <div style={{ color: price >= 0.97 ? '#4ade80' : price >= 0.9 ? '#fbbf24' : '#f87171', fontWeight: 900, fontSize: 18, fontFamily: 'monospace' }}>${price.toFixed(3)}</div>
-      <div style={{ color: '#8a9aaa', fontSize: 10, lineHeight: 1.5, marginTop: 3 }}>{note}</div>
+      <div style={{ color: price >= 0.97 ? '#4ade80' : price >= 0.9 ? '#fbbf24' : '#f87171', fontWeight: 900, fontSize: 18, fontFamily: 'monospace' }}>${price.toFixed(3)} <span style={{ fontSize: 11, color: '#8a9aaa' }}>(페그 −{lossPct}%)</span></div>
+      {/* 💸 내 자산 손실 체감 */}
+      <div style={{ marginTop: 5, fontSize: 11 }}>
+        <span style={{ color: '#8a9aaa' }}>내 {fmtMan(amount * 1e4)}원 → </span>
+        <b style={{ color: price >= 0.97 ? '#4ade80' : price >= 0.5 ? '#fbbf24' : '#f87171' }}>{fmtMan(remainWon)}원 남음</b>
+        {lossPct > 0 && <span style={{ color: '#f87171' }}> (−{fmtMan(amount * 1e4 - remainWon)}원)</span>}
+      </div>
+      <div style={{ color: '#8a9aaa', fontSize: 10, lineHeight: 1.5, marginTop: 4 }}>{note}</div>
     </div>
-  )
+  )}
 
   return (
     <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
       <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13, marginBottom: 3 }}>📉 디페깅 스트레스 시뮬레이터</div>
-      <div style={{ color: '#7f93a8', fontSize: 11, marginBottom: 11, lineHeight: 1.5 }}>시장 신뢰 충격(대량 매도)을 키워보세요 — 같은 충격에도 <b style={{ color: '#22c55e' }}>법정담보</b>는 버티고 <b style={{ color: '#ef4444' }}>알고리즘</b>은 어느 순간 붕괴합니다.</div>
+      <div style={{ color: '#7f93a8', fontSize: 11, marginBottom: 11, lineHeight: 1.5 }}>시장 신뢰 충격(대량 매도)을 키워보세요 — 같은 충격에도 <b style={{ color: '#22c55e' }}>법정담보</b>는 버티고 <b style={{ color: '#ef4444' }}>알고리즘</b>은 어느 순간 붕괴합니다. <b style={{ color: '#aab6c4' }}>내 투자금</b>을 넣으면 손실이 얼마인지 직접 보입니다.</div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
         <span style={{ color: '#8a9aaa', fontSize: 11, minWidth: 90 }}>신뢰 충격(매도)</span>
         <input type="range" min={0} max={100} value={shock} onChange={e => setShock(Number(e.target.value))} style={{ flex: 1, accentColor: '#ef4444' }} />
         <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 14, fontFamily: 'monospace', minWidth: 44, textAlign: 'right' }}>{shock}%</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+        <span style={{ color: '#8a9aaa', fontSize: 11, minWidth: 90 }}>내 투자금</span>
+        <input value={amount} onChange={e => setAmount(Math.max(1, Number(e.target.value.replace(/[^0-9]/g, '')) || 1))}
+          style={{ width: 70, background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 6, padding: '4px 8px', color: '#e2e8f0', fontSize: 12.5, fontWeight: 800, fontFamily: 'monospace', textAlign: 'right' }} />
+        <span style={{ color: '#e2e8f0', fontSize: 12, fontWeight: 700 }}>만원</span>
       </div>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
