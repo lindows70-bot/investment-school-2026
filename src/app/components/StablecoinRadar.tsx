@@ -103,14 +103,18 @@ export default function StablecoinRadar() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {d.coins.slice(0, 7).map(c => {
               const dev = c.depegPct ?? 0
-              const alert = Math.abs(dev) >= 0.5
+              // +2%↑ 지속 초과 = 이자 누적형(yield, 의도적 $1 초과) — 페그 깨진 게 아니라 정상. 경보(빨강) 아님
+              const isYield = dev > 2
+              const alert = !isYield && Math.abs(dev) >= 0.5   // 진짜 페그 이탈만 빨강
               return (
-                <div key={c.symbol} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#0f1117', border: `1px solid ${alert ? '#ef444455' : BORDER}`, borderRadius: 8, padding: '6px 11px' }}>
+                <div key={c.symbol} title={isYield ? '이자 누적형(yield-bearing) — $1 초과가 설계상 정상(고정 페그 코인 아님)' : undefined}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#0f1117', border: `1px solid ${alert ? '#ef444455' : BORDER}`, borderRadius: 8, padding: '6px 11px' }}>
                   <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 12, minWidth: 52 }}>{c.symbol}</span>
                   <span style={{ width: 7, height: 7, borderRadius: '50%', background: RISK[c.risk].c, display: 'inline-block' }} title={c.mechKo} />
+                  {isYield && <span style={{ color: '#a78bfa', fontSize: 9, fontWeight: 700 }}>이자형</span>}
                   <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>{fmtB(c.mcap)} · {c.share}%</span>
                   <span style={{ marginLeft: 'auto', color: '#cbd5e1', fontSize: 11, fontFamily: 'monospace' }}>${c.price != null ? c.price.toFixed(4) : '—'}</span>
-                  <span style={{ color: alert ? '#f87171' : '#6e7f8f', fontSize: 10.5, fontWeight: 700, fontFamily: 'monospace', minWidth: 48, textAlign: 'right' }}>{dev >= 0 ? '+' : ''}{dev}%</span>
+                  <span style={{ color: alert ? '#f87171' : isYield ? '#a78bfa' : '#6e7f8f', fontSize: 10.5, fontWeight: 700, fontFamily: 'monospace', minWidth: 48, textAlign: 'right' }}>{dev >= 0 ? '+' : ''}{dev}%</span>
                 </div>
               )
             })}
