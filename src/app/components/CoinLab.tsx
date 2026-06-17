@@ -194,14 +194,14 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
         <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
             <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>📈 비트코인 10년 차트 × 반감기 사이클</span>
-            <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>로그 스케일 · 세로 점선 = 반감기(공급 충격) · <span style={{ color: '#60a5fa' }}>파란선 = 200주 이동평균(약 4년 지지선)</span></span>
+            <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>로그 스케일(반로그 ½decade 눈금) · 세로 점선 = 반감기 · <span style={{ color: '#60a5fa' }}>파란선 = 200주 이동평균</span></span>
           </div>
-          <div style={{ height: 300 }}>
+          <div style={{ height: 460 }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={longData} margin={{ top: 18, right: 14, left: 2, bottom: 0 }}>
                 <XAxis dataKey="date" tick={{ fill: '#7f93a8', fontSize: 9.5 }} tickFormatter={(s: string) => s.slice(0, 4)} minTickGap={48} axisLine={{ stroke: BORDER }} tickLine={false} />
                 <YAxis scale="log" domain={['auto', 'auto']} tick={{ fill: '#7f93a8', fontSize: 9.5 }} axisLine={false} tickLine={false} width={50}
-                  tickFormatter={(v: number) => v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${v}`} ticks={[100, 1000, 10000, 100000]} />
+                  tickFormatter={(v: number) => v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${v}`} ticks={[300, 1000, 3000, 10000, 30000, 100000]} />
                 <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }} labelStyle={{ color: '#8a9aaa' }}
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   formatter={(v: any, n: any) => [`$${Number(v).toLocaleString()}`, n === 'ma200' ? '200주 이평' : 'BTC']} />

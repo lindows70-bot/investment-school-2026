@@ -13,6 +13,7 @@ const COINS: { id: string; symbol: string; name: string; tagline: string; source
   { id: 'ethereum', symbol: 'ETH', name: '이더리움', tagline: '스마트계약 플랫폼',  source: 'dau',  key: 'eth',     netLabel: '활성주소(DAU)', netUnit: 'K', desc: '네트워크를 실제 쓰는 지갑 수 — 가격이 올라도 활성주소가 줄면 유틸리티 없는 거품(Hype) 의심.' },
   { id: 'solana',   symbol: 'SOL', name: '솔라나', tagline: '고속 스마트계약 체인', source: 'fees', key: 'solana',  netLabel: '일일 수수료', netUnit: 'M', desc: '네트워크에서 매일 발생하는 수수료 — 트랜잭션마다 내므로 실제 사용량(DAU)과 동행. 가격↑인데 수수료 정체면 거품 의심.' },
   { id: 'ripple',   symbol: 'XRP', name: '리플', tagline: '국경간 결제 브릿지',    source: 'dau',  key: 'xrp',     netLabel: '활성주소(DAU)', netUnit: 'K', desc: '국경 간 결제망 — 실제 송금에 쓰인 활성 지갑 수로 가격 뒤의 유틸리티를 본다.' },
+  { id: 'tron',     symbol: 'TRX', name: '트론', tagline: '스테이블코인 송금 허브', source: 'dau',  key: 'trx',     netLabel: '활성주소(DAU)', netUnit: 'M', desc: 'USDT가 가장 많이 송금되는 체인 — 활성주소(실사용)가 단연 최대. 가격이 활성 사용을 따라가는지, 아니면 따로 노는지 본다.' },
 ]
 
 export interface AltPoint { date: string; price: number; net: number | null }
@@ -31,7 +32,7 @@ export interface AltCoin {
 async function fetchSupply(): Promise<Record<string, { pct: number | null; note: string }>> {
   const out: Record<string, { pct: number | null; note: string }> = {}
   try {
-    const r = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum,solana,ripple', { signal: AbortSignal.timeout(12_000), headers: { accept: 'application/json', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0' } })
+    const r = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum,solana,ripple,tron', { signal: AbortSignal.timeout(12_000), headers: { accept: 'application/json', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0' } })
     if (!r.ok) return out
     const arr = await r.json() as { id: string; circulating_supply?: number; max_supply?: number | null }[]
     for (const m of arr) {
@@ -81,22 +82,22 @@ async function llamaFees(slug: string): Promise<Map<string, number>> {
   } catch { return new Map() }
 }
 // 네트워크 지표를 코인별 표시단위로 스케일(DAU→천 주소 K, 수수료→백만$ M)
-const NET_SCALE: Record<NetSource, number> = { dau: 1e3, fees: 1e6 }
+const NET_SCALE: Record<string, number> = { K: 1e3, M: 1e6 }   // 표시 단위 기준(TRON DAU는 수백만이라 'M')
 
 const pctChg = (a: number, b: number) => (a > 0 ? Math.round(((b / a) - 1) * 1000) / 10 : 0)
 
 export async function GET() {
-  const cacheKey = 'altcoins-v4'   // v4: 유통량(희석 리스크) 추가
+  const cacheKey = 'altcoins-v5'   // v5: 트론(TRX) 추가 — 스테이블코인 송금 허브
   const cached = await getCache<AltcoinsResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // 가격(Yahoo 3년 주봉) + 네트워크 지표(CoinMetrics DAU / DefiLlama 수수료) + 유통량(CoinGecko) 병렬 — 호스트 모두 달라 충돌 없음
-  const [ethPx, solPx, xrpPx, ethDau, xrpDau, solFees, supply] = await Promise.all([
-    yahooWeekly('ETH-USD'), yahooWeekly('SOL-USD'), yahooWeekly('XRP-USD'),
-    cmDau('eth'), cmDau('xrp'), llamaFees('solana'), fetchSupply(),
+  const [ethPx, solPx, xrpPx, trxPx, ethDau, xrpDau, trxDau, solFees, supply] = await Promise.all([
+    yahooWeekly('ETH-USD'), yahooWeekly('SOL-USD'), yahooWeekly('XRP-USD'), yahooWeekly('TRX-USD'),
+    cmDau('eth'), cmDau('xrp'), cmDau('trx'), llamaFees('solana'), fetchSupply(),
   ])
-  const pxMaps: Record<string, { date: string; price: number }[]> = { ethereum: ethPx, solana: solPx, ripple: xrpPx }
-  const netMaps: Record<string, Map<string, number>> = { ethereum: ethDau, ripple: xrpDau, solana: solFees }
+  const pxMaps: Record<string, { date: string; price: number }[]> = { ethereum: ethPx, solana: solPx, ripple: xrpPx, tron: trxPx }
+  const netMaps: Record<string, Map<string, number>> = { ethereum: ethDau, ripple: xrpDau, tron: trxDau, solana: solFees }
 
   const coins: AltCoin[] = []
   for (const c of COINS) {
@@ -106,7 +107,7 @@ export async function GET() {
       continue
     }
     const netMap = netMaps[c.id] ?? new Map<string, number>()
-    const scale = NET_SCALE[c.source]
+    const scale = NET_SCALE[c.netUnit] ?? 1e3
     // 주봉 날짜에 가장 가까운 네트워크 값(일별 DAU/수수료) — ±4일 내 탐색
     const netAt = (d: string): number | null => {
       const base = new Date(d).getTime()

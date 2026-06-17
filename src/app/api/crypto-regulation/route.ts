@@ -57,16 +57,17 @@ const SCHEMA = {
 }
 
 export async function GET() {
-  const cacheKey = `crypto-regulation-v1:${kstDate()}`
+  const cacheKey = `crypto-regulation-v2:${kstDate()}`   // v2: GENIUS Act 시행 전용 쿼리 + 통과법 포함 지시
   const cached = await getCache<RegulationResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
-  const [enReg, enBill, koReg] = await Promise.all([
+  const [enReg, enBill, enGenius, koReg] = await Promise.all([
     googleNews('crypto regulation OR SEC crypto OR stablecoin law when:45d', 10, 'en'),
-    googleNews('CLARITY Act OR GENIUS Act OR digital asset bill Congress when:60d', 8, 'en'),
-    googleNews('가상자산 규제 법안 OR 클래리티 법안 OR 스테이블코인 규제 when:45d', 8, 'ko'),
+    googleNews('CLARITY Act OR digital asset market structure bill Congress when:90d', 7, 'en'),
+    googleNews('GENIUS Act stablecoin implementation OR Treasury OCC when:120d', 6, 'en'),  // 작년 통과·시행 핵심 스테이블코인 법
+    googleNews('가상자산 규제 법안 OR 클래리티 법안 OR 스테이블코인 지니어스법 when:60d', 7, 'ko'),
   ])
-  const headlines = Array.from(new Set([...enBill, ...enReg, ...koReg])).slice(0, 26)
+  const headlines = Array.from(new Set([...enBill, ...enGenius, ...enReg, ...koReg])).slice(0, 28)
   if (headlines.length === 0) return NextResponse.json({ error: 'no_news' }, { status: 200 })
 
   const prompt = `너는 투자학교의 AI 규제 분석관이다. 아래 실제 뉴스 헤드라인을 근거로, 지금 암호화폐 시장에 중요한 '규제/법안' 이슈를 신호등으로 정리하라.
@@ -79,7 +80,7 @@ ${headlines.map((h, i) => `${i + 1}. ${h}`).join('\n')}
 - bills: 시장에 영향이 큰 순서로 최대 5개. 각 항목:
   · title: 법안/규제명(한국어, 예: 클래리티 법안(CLARITY Act), 스테이블코인 규제(GENIUS Act))
   · impact: 'green'(제도권 편입·유동성 유입 호재) / 'yellow'(논의 중·불확실) / 'red'(규제 강화·유동성 차단 악재)
-  · status: 계류/상원 통과/하원 표결/시행/소송 등 헤드라인 근거 상태
+  · status: 계류/상원 통과/하원 표결/시행/소송 등 헤드라인 근거 상태. ⭐ GENIUS Act(스테이블코인 법)처럼 이미 통과·시행된 핵심 법도 시행·이행(implementation) 헤드라인이 있으면 status='시행'으로 반드시 포함하라(통과됐다고 빼지 말 것 — 시행 세부가 시장에 영향).
   · summary: "이 법이 시장 유동성을 막을지 열지" 관점의 투자자용 1줄(한국어)
   · assets: 직접 관련 코인 배열(예: ["BTC","ETH","SOL","XRP","스테이블코인"]). 전체 시장이면 ["전체"]
 - climate: 전반 규제 기후 신호등(green/yellow/red), climateText: 한 줄 요약(한국어).
