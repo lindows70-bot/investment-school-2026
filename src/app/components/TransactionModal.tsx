@@ -121,9 +121,12 @@ export default function TransactionModal({
   const [priceLoading, setPriceLoading] = useState(false)
 
   // ── 📸 자동 스냅샷 (블랙박스) — 매매 시점의 핵심 지표 자동 보존 ──────────────
+  // 📸 거래 시점 다신호 스냅샷(펀더멘탈+수급+계절+FOMC) — 적중률 채점용. peg/growth/category는 인라인 표시 겸용
   const [snapshot, setSnapshot] = useState<{ peg: number | null; growth: number | null; category: string | null }>({
     peg: null, growth: null, category: investment.lynch_category,
   })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [fullSnap, setFullSnap] = useState<any | null>(null)
   const [snapLoading, setSnapLoading] = useState(true)
 
   useEffect(() => {
@@ -131,21 +134,37 @@ export default function TransactionModal({
     ;(async () => {
       setSnapLoading(true)
       try {
-        const r = await fetch(`/api/stock-info?ticker=${encodeURIComponent(investment.ticker)}&market=${investment.market}`)
+        const r = await fetch(`/api/decision-snapshot?ticker=${encodeURIComponent(investment.ticker)}&market=${investment.market}&name=${encodeURIComponent(investment.name ?? '')}`)
         if (r.ok) {
-          const d = await r.json()
-          const f = d?.fundamentals ?? {}
-          const peg = typeof f.peg === 'number' && isFinite(f.peg) && f.peg > 0 ? f.peg : null
-          const egRaw = typeof f.earningsGrowth === 'number' && isFinite(f.earningsGrowth) ? f.earningsGrowth : null
-          // earningsGrowth: 0.35(소수) → 35%, 이미 % 단위면 그대로
-          const growth = egRaw != null && egRaw !== 0 ? (Math.abs(egRaw) < 5 ? egRaw * 100 : egRaw) : null
-          if (!cancelled) setSnapshot({ peg, growth, category: investment.lynch_category })
+          const s = await r.json()
+          if (!cancelled) {
+            setFullSnap(s)
+            setSnapshot({ peg: s.peg ?? null, growth: s.growth ?? null, category: s.category ?? investment.lynch_category })
+          }
         }
       } catch { /* 스냅샷 실패해도 거래는 진행 */ }
       finally { if (!cancelled) setSnapLoading(false) }
     })()
     return () => { cancelled = true }
-  }, [investment.ticker, investment.market, investment.lynch_category])
+  }, [investment.ticker, investment.market, investment.name, investment.lynch_category])
+
+  // snapshot_data 빌더 — 기존 키(peg·growth_rate·category) 유지(TimeMachineNote 호환) + 다신호 확장
+  const buildSnapshotData = (priceAtRecord: number) => ({
+    peg:             fullSnap?.peg ?? snapshot.peg,
+    growth_rate:     fullSnap?.growth ?? snapshot.growth,
+    category:        fullSnap?.category ?? snapshot.category,
+    price_at_record: priceAtRecord,
+    recorded_at:     new Date().toISOString(),
+    // 다신호 확장(적중률 채점)
+    opMargin:        fullSnap?.opMargin ?? null,
+    sector:          fullSnap?.sector ?? null,
+    flow:            fullSnap?.flow ?? null,
+    mfi:             fullSnap?.mfi ?? null,
+    seasonTag:       fullSnap?.seasonTag ?? null,
+    season:          fullSnap?.season ?? null,
+    fomcStance:      fullSnap?.fomcStance ?? null,
+    rateDir:         fullSnap?.rateDir ?? null,
+  })
 
   // 매도 모드로 전환 시 체결가가 비어 있으면 현재가로 자동 채움 → 매도 버튼 즉시 활성
   useEffect(() => {
@@ -285,14 +304,8 @@ export default function TransactionModal({
           fee:              0,
           memo:             memo || null,
           transaction_date: date,
-          // ★ 📸 자동 스냅샷 — 매수 시점의 핵심 지표 블랙박스 보존
-          snapshot_data: {
-            peg:            snapshot.peg,
-            growth_rate:    snapshot.growth,
-            category:       snapshot.category,
-            price_at_record: execPrice,
-            recorded_at:    new Date().toISOString(),
-          },
+          // ★ 📸 자동 스냅샷 — 매수 시점의 다신호(펀더멘탈+수급+계절+FOMC) 블랙박스 보존
+          snapshot_data: buildSnapshotData(execPrice),
         })
 
         // 2) 보유 종목 업데이트 — 새 수량 + 새 평단가 + 자산 포지션
@@ -326,14 +339,8 @@ export default function TransactionModal({
           avg_cost_basis:   investment.purchase_price,
           memo:             memo || null,
           transaction_date: date,
-          // ★ 📸 자동 스냅샷 — 매도 시점의 핵심 지표 블랙박스 보존
-          snapshot_data: {
-            peg:            snapshot.peg,
-            growth_rate:    snapshot.growth,
-            category:       snapshot.category,
-            price_at_record: priceNum,
-            recorded_at:    new Date().toISOString(),
-          },
+          // ★ 📸 자동 스냅샷 — 매도 시점의 다신호 블랙박스 보존
+          snapshot_data: buildSnapshotData(priceNum),
         })
 
         // 2) 보유 종목 업데이트

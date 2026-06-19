@@ -211,6 +211,20 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
 
     const normalizedTicker = ticker.trim().toUpperCase()
 
+    // 📸 거래 시점 다신호 스냅샷(펀더멘탈+수급+계절+FOMC) 1회 수집 — 각 insert에 가격만 붙여 박제
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let sigSnap: any = null
+    try {
+      const sr = await fetch(`/api/decision-snapshot?ticker=${encodeURIComponent(normalizedTicker)}&market=${market}&name=${encodeURIComponent(finalName)}`)
+      if (sr.ok) sigSnap = await sr.json()
+    } catch { /* 스냅샷 실패해도 거래는 진행 */ }
+    const mkSnap = (price: number) => sigSnap ? {
+      peg: sigSnap.peg, growth_rate: sigSnap.growth, category: sigSnap.category,
+      price_at_record: price, recorded_at: new Date().toISOString(),
+      opMargin: sigSnap.opMargin, sector: sigSnap.sector, flow: sigSnap.flow, mfi: sigSnap.mfi,
+      seasonTag: sigSnap.seasonTag, season: sigSnap.season, fomcStance: sigSnap.fomcStance, rateDir: sigSnap.rateDir,
+    } : null
+
     // ── 추가 모드: 중복 티커 → DCA 추가매수 처리 ──────────────────
     if (!isEdit) {
       const { data: existing } = await supabase
@@ -254,6 +268,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
             fee:              0,
             memo:             `DCA 추가매수`,
             transaction_date: purchaseDate,
+            snapshot_data:    mkSnap(newPrice),
           })
         } catch { /* ignore */ }
 
@@ -312,6 +327,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
             avg_cost_basis:   txType === 'sell' ? oldPrice : null,
             memo:             txType === 'buy' ? '수정: 추가매수 반영' : '수정: 일부매도 반영',
             transaction_date: purchaseDate,
+            snapshot_data:    mkSnap(newPrice),
           })
           console.log(`[Modal] 거래내역 자동 기록 완료: ${normalizedTicker} ${txType} ${absQty}주`)
         } catch (txErr) {
@@ -355,6 +371,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
             fee:              0,
             memo:             `최초 매수`,
             transaction_date: purchaseDate,
+            snapshot_data:    mkSnap(parseFloat(purchasePrice)),
           })
         } catch { /* ignore */ }
 

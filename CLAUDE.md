@@ -1934,6 +1934,15 @@ Coinglass(순유입/유출)·TheBlock(누적 거래량) 차트를 무료·무키
 - **`FomcDecoder.tsx`**: 신호등 헤더 + 결정 + 의장↔시장 갭 + 발언 인용·해석 + 매크로 방향 + 자산칩
 - 검증(2026-06-19): 직전 Jun '26(2일 전)·동결 3.50~3.75%·매파·인상 시사 / rateDir=hike·phase=peak_rate·CPI 4.3%와 일관
 
+## 🎯 의사결정 저널 + 적중률 (2026-06-19) — 투자기록 탭(진단→판단품질 피드백 루프)
+
+앱이 '진단'은 넘치는데 "내 판단이 맞았나"를 닫는 루프가 전무 → 거래 시점 신호를 박제하고 나중 채점.
+- **기존 `snapshot_data`(snapshot 메커니즘은 2026-05-31부터 PEG·성장·분류만) 확장** — 별도 컬럼 X. (사용자가 추가한 `signal_snapshot` 컬럼은 불필요했음 — 기존 snapshot_data 사용)
+- **`/api/decision-snapshot`**(공개·종목신호만): 매수/매도 시점 SSOT 신호를 한 번에 박제 — 펀더멘탈(`canonicalFundamentals`)+수급(`getMoneyFlow`)+계절([`lib/currentSeason`](src/lib/currentSeason.ts) 공용 분리)+FOMC(`/api/fomc-decoder`)+영문GICS(yahoo). 전부 기존 SSOT/캐시 재사용
+- **5개 기록 지점 연결**: TransactionModal(매수·매도) + AddInvestmentModal(최초·DCA·수정). 기존 키(`peg·growth_rate·category`) 유지로 TimeMachineNote 호환
+- **`DecisionCalibration.tsx`**(투자기록 → 🎯 의사결정 적중률 탭): 기존 거래+priceMap만으로 매수 결정 채점(신규 API 0). 전체 적중률 + 신호 차원별(밸류·수급·계절·FOMC) 버킷 승률 + 강점/약점 자동 도출
+  - ⚠️ **빈 {} 스냅샷 오염 차단**: AddInvestmentModal 과거 초기매수는 `snapshot_data={}`(truthy)라 단순 보유승률로 오염시킴 → `hasSignal`(peg/flow/seasonTag/fomcStance 중 하나라도 non-null)인 매수만 채점. 검증: 기존 118매수 중 신호 0·빈{} 114 → 정직하게 빈 상태, 오늘 매수부터 집계
+
 ---
 
 ## 배포
