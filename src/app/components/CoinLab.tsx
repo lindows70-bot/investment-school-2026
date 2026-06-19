@@ -9,6 +9,7 @@ import RegulatoryRadar from '@/app/components/RegulatoryRadar'
 import BtcEtfFlows from '@/app/components/BtcEtfFlows'
 import StablecoinRadar from '@/app/components/StablecoinRadar'
 import AltSeasonIndex from '@/app/components/AltSeasonIndex'
+import CryptoStocksPanel from '@/app/components/CryptoStocksPanel'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 const fmtUsd = (n: number | null) => n == null ? '—' : `$${Math.round(n).toLocaleString()}`
@@ -54,7 +55,7 @@ function withMa200(points: { date: string; price: number }[]): { date: string; p
 export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
   const [d, setD] = useState<CoinLabResult | null>(null)
   const [loading, setLoading] = useState(true)
-  const [view, setView] = useState<'btc' | 'alt' | 'stable'>('btc')   // 비트코인 ↔ 알트코인 ↔ 스테이블코인
+  const [view, setView] = useState<'btc' | 'alt' | 'stable' | 'stocks'>('btc')   // 비트코인 ↔ 알트코인 ↔ 스테이블코인 ↔ 코인관련주식
   const [eduOpen, setEduOpen] = useState(false)            // 🎓 반감기란? 교육 아코디언
 
   useEffect(() => {
@@ -89,7 +90,7 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
         </div>
         {/* ₿ 비트코인(디지털 금) ↔ 🔷 알트코인(네트워크 자산) — 성격이 다른 자산이라 분리 */}
         <div style={{ display: 'inline-flex', gap: 4, background: '#0f1117', padding: 4, borderRadius: 9, border: `1px solid ${BORDER}`, marginTop: 10 }}>
-          {([['btc', '₿ 비트코인', '#f7931a'], ['alt', '🔷 알트코인 (ETH·SOL·XRP)', '#627eea'], ['stable', '💵 스테이블코인', '#26a17b']] as const).map(([k, label, c]) => (
+          {([['btc', '₿ 비트코인', '#f7931a'], ['alt', '🔷 알트코인 (ETH·SOL·XRP)', '#627eea'], ['stable', '💵 스테이블코인', '#26a17b'], ['stocks', '🏢 코인 관련 주식', '#f59e0b']] as const).map(([k, label, c]) => (
             <button key={k} type="button" onClick={() => setView(k)}
               style={{ padding: '5px 13px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 11.5, fontWeight: 700,
                 background: view === k ? '#1e293b' : 'transparent', color: view === k ? c : '#8599ae' }}>{label}</button>
@@ -116,6 +117,8 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
       {view === 'alt' && <AltcoinNetworkChart />}
 
       {view === 'stable' && <StablecoinRadar />}
+
+      {view === 'stocks' && <CryptoStocksPanel />}
 
       {view === 'btc' && (<>
       {/* 🎓 국면×리스크 처방 */}
