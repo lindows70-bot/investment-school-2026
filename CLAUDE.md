@@ -1912,6 +1912,18 @@ Coinglass(순유입/유출)·TheBlock(누적 거래량) 차트를 무료·무키
   - ⚠️ **막대 라벨 위치(recharts 3.8 규약)**: `y`=값쪽 끝(음수면 막대 바닥), `height`=base−value(음수면 음수), **0선=`y+height`**(양·음 공통). 라벨은 `(value≥0 ? y : y+height) − 6` = 항상 0선/꼭대기 위 → 막대 안·X축 글자와 안 겹침. Y축은 규모 따라 억/조 자동 전환
 - 검증(2026-06-19): 외국인 3개월 −7,912억(지속 순매도)을 개인 +4,543억이 받아냄 · 코스닥도 정상
 
+## 📡 내 종목 수급 3축 확장 (2026-06-19) — 계절×펀더멘탈×수급
+
+'내 종목 수급'(PortfolioFlowDashboard)은 펀더멘탈×수급 2축이라 통합추천(3축)과 헷갈린다는 피드백 → **계절(방향) 축 추가**.
+- **`/api/portfolio-flow`**: 통합추천과 동일 SSOT 경로(`fetchMacroData`+OECD CLI→`seasonOf`)로 US·KR 현재 계절 산출(전부 캐시). 종목별 `holdingFit`로 계절 적합도 0~100 → `favored(≥75)/neutral/unfavored(≤50)`
+  - ⚠️ **섹터는 영문 GICS 필수**: `cf.sector`(SSOT)는 한국어 세분류("오일·가스 탐사", "반도체")+KR은 null이라 영문 우대섹터('Energy'…)와 매칭 불가 → `yahoo-finance2 assetProfile.sector`(30일 캐시, KR `.KS`→`.KQ` 폴백)로 별도 수집(통합추천과 동일 소스)
+  - ⚠️ **린치 분류 투입**: `lynchCategory`를 안 넘기면 stalwart 폴백(최저 55점)이라 `불리(≤50)`가 수학적으로 못 뜸 → `classifyLynchMece(null, cf.growth, gics)`로 산출해 투입(추가 fetch 0). 이제 가을(스태그) 기술주=35점→불리 정상 표시
+- **`PortfolioFlowDashboard.tsx`**: 🌦️ 지금 계절 카드(US/KR 계절+유리/불리 종목명) · 보드/매트릭스에 계절 배지(🌱유리/⚠️불리)
+- **이중계상 버그 수정(SSOT)**: 유입·임박 판정 = `status==='INFLOW' || momentum≥40`인데 CROWDED(이탈) 종목도 momentum 높으면 유입에 잡혀 한 종목이 🟢🔴 동시 표시 → [`src/lib/flowShared.ts`](src/lib/flowShared.ts) `isInflowNear`(CROWDED 제외) 단일 판정으로 통일(클라/서버 공용 — server route에서 함수 import 시 next/headers 번들 유입 빌드에러 차단). 매트릭스에 🔴(이탈·과열) 표식 추가
+- **헤더·브리핑 정합성**: 개수만 있고 종목명 없던 문제 → 유입·임박/이탈·과열/계절유리 **종목명 노출**. 브리핑이 이탈 종목을 '수급 잠잠'으로 오기술하던 모순 → status 기준 재구성(유입·임박 우선 → 진짜 잠잠만 잠잠 → 이탈 별도 경고) + 조사 은/는 자동 처리
+- 동행지수 50% 옆 무라벨 선 = 일별 추이 스파크라인 → 라벨 부착
+- 검증(2026-06-19): 38%=3/8 · 유입 3(GEV·NVDA·인텔리안)·이탈 1(SK하이닉스)·계절유리 3(GEV·SPCX·COP) 전부 일치
+
 ---
 
 ## 배포

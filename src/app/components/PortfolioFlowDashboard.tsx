@@ -2,6 +2,7 @@
 // 📡 포트폴리오 수급 레이더 — 내 보유종목 전체의 스마트머니 유입/이탈을 한눈에(동행지수+쌍끌이/과밀 보드+4분면)
 import { useState, useEffect } from 'react'
 import type { PortfolioFlowResult, FlowEntry, Quadrant } from '@/app/api/portfolio-flow/route'
+import { isInflowNear } from '@/lib/flowShared'
 import type { FlowStatus } from '@/lib/moneyFlow'
 
 const CARD = '#161b25', BORDER = '#1e293b'
@@ -19,6 +20,18 @@ const QUAD: Record<Quadrant, { label: string; emoji: string; color: string; desc
   REVIEW:  { label: '재검토 필요',   emoji: '🔍', color: '#8a9aaa', desc: '펀더멘탈·수급 모두 약함', empty: '재검토 종목 없음 ✓' },
 }
 const dnm = (e: FlowEntry) => (e.market === 'KR' ? (e.name || e.ticker).slice(0, 10) : e.ticker.toUpperCase())
+
+// 🌦️ 계절 적합 태그 — 현재 매크로 계절에 종목이 유리한지(섹터×린치 fit)
+const SEASON_TAG: Record<FlowEntry['seasonTag'], { label: string; color: string; icon: string }> = {
+  favored:   { label: '계절 유리', color: '#22c55e', icon: '🌱' },
+  neutral:   { label: '계절 중립', color: '#8a9aaa', icon: '➖' },
+  unfavored: { label: '계절 불리', color: '#f59e0b', icon: '⚠️' },
+}
+function SeasonChip({ tag, mini }: { tag: FlowEntry['seasonTag']; mini?: boolean }) {
+  const c = SEASON_TAG[tag]
+  if (mini) return <span title={c.label} style={{ fontSize: 10 }}>{c.icon}</span>
+  return <span style={{ background: `${c.color}1a`, color: c.color, border: `1px solid ${c.color}55`, borderRadius: 999, padding: '0 7px', fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>{c.icon} {c.label}</span>
+}
 
 function StatusChip({ s }: { s: FlowStatus }) {
   if (s === 'UNSUPPORTED') return null
@@ -58,6 +71,7 @@ function Row({ e, near }: { e: FlowEntry; near?: boolean }) {
         ? <span style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid #f59e0b55', borderRadius: 999, padding: '0 7px', fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>🔜 임박</span>
         : <StatusChip s={e.status} />}
       {e.peg != null && <span style={{ color: '#3b82f6', fontSize: 11 }}>PEG {e.peg.toFixed(2)}</span>}
+      <SeasonChip tag={e.seasonTag} />
       <span style={{ marginLeft: 'auto', color: '#8a9aaa', fontSize: 11, whiteSpace: 'nowrap' }}>{e.flowText}</span>
     </div>
   )
@@ -90,8 +104,21 @@ export default function PortfolioFlowDashboard() {
   const leaders = byQuad('LEADER')
   const crowded = byQuad('CROWDED')
   // 우선순위가 비면: 저평가 대기 중 수급이 막 살아나는(모멘텀≥40) 종목 = '곧 1순위 될 후보'
-  const nearPriority = leaders.length ? [] : byQuad('PEARL').filter(e => e.momentum >= 40).sort((a, b) => b.momentum - a.momentum).slice(0, 2)
+  const nearPriority = leaders.length ? [] : byQuad('PEARL').filter(e => isInflowNear(e)).sort((a, b) => b.momentum - a.momentum).slice(0, 3)
   const rate = data.smartMoneyRate
+
+  // 🌦️ 계절 축 집계 — 내 종목이 현재 매크로 계절에 얼마나 유리한가
+  const favoredList = data.entries.filter(e => e.seasonTag === 'favored').sort((a, b) => b.weight - a.weight)
+  const unfavoredList = data.entries.filter(e => e.seasonTag === 'unfavored').sort((a, b) => b.weight - a.weight)
+  const favoredCnt = favoredList.length
+  const unfavoredCnt = unfavoredList.length
+  const hasKr = data.entries.some(e => e.market === 'KR')
+  const hasUs = data.entries.some(e => e.market === 'US')
+
+  // 동행지수 카운트와 1:1 매칭되는 실제 종목 리스트(헤더에 이름 노출 — "몇 개"만으론 못 찾던 문제)
+  const inflowList = data.entries.filter(isInflowNear).sort((a, b) => b.weight - a.weight)
+  const crowdedList = data.entries.filter(e => e.status === 'CROWDED').sort((a, b) => b.weight - a.weight)
+  const nameList = (arr: FlowEntry[]) => arr.map(dnm).join('·')
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -115,18 +142,42 @@ export default function PortfolioFlowDashboard() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ color: rate >= 50 ? '#22c55e' : rate >= 25 ? '#f59e0b' : '#8a9aaa', fontWeight: 900, fontSize: 28, fontFamily: 'monospace', minWidth: 64 }}>{rate}%</span>
-          <Sparkline data={data.history ?? []} />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+            <Sparkline data={data.history ?? []} />
+            <span style={{ color: '#6e7f8f', fontSize: 9 }}>동행지수 {(data.history?.length ?? 0) >= 2 ? '일별 추이' : '추이 누적 중'}</span>
+          </div>
           <div style={{ flex: 1 }}>
             <div style={{ height: 14, background: '#0f1117', borderRadius: 7, overflow: 'hidden' }}>
               <div style={{ width: `${rate}%`, height: '100%', background: `linear-gradient(90deg,#22c55e,#34d399)`, borderRadius: 7, transition: 'width .4s' }} />
             </div>
-            <div style={{ color: '#aab6c4', fontSize: 12, marginTop: 6 }}>
-              내 {data.total}개 종목 중 <b style={{ color: '#22c55e' }}>{data.inflowCount}개</b>에 스마트머니 유입·임박
-              {data.crowdedCount > 0 && <> · <b style={{ color: '#ef4444' }}>{data.crowdedCount}개</b>는 이탈·과열 경보</>}
+            <div style={{ color: '#aab6c4', fontSize: 12, marginTop: 6, lineHeight: 1.6 }}>
+              내 {data.total}개 종목 중 <b style={{ color: '#22c55e' }}>{data.inflowCount}개</b> 유입·임박
+              {inflowList.length > 0 && <span style={{ color: '#86efac' }}> ({nameList(inflowList)})</span>}
+              {data.crowdedCount > 0 && <>
+                {' · '}<b style={{ color: '#ef4444' }}>{data.crowdedCount}개</b> 이탈·과열
+                {crowdedList.length > 0 && <span style={{ color: '#fca5a5' }}> ({nameList(crowdedList)})</span>}
+              </>}
             </div>
           </div>
         </div>
       </div>
+
+      {/* 🌦️ 계절 컨텍스트 — 3축(계절×펀더멘탈×수급) 중 '방향' 축 */}
+      {data.season && (
+        <div style={{ background: CARD, borderRadius: 12, padding: '13px 16px', border: '1px solid rgba(96,165,250,0.28)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+            <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 13 }}>🌦️ 지금 계절 (매크로 방향)</span>
+            {hasUs && <span style={{ background: 'rgba(96,165,250,0.12)', color: '#93c5fd', border: '1px solid rgba(96,165,250,0.4)', borderRadius: 8, padding: '2px 9px', fontSize: 11, fontWeight: 700 }}>🇺🇸 {data.season.us.seasonKo}</span>}
+            {hasKr && <span style={{ background: 'rgba(96,165,250,0.12)', color: '#93c5fd', border: '1px solid rgba(96,165,250,0.4)', borderRadius: 8, padding: '2px 9px', fontSize: 11, fontWeight: 700 }}>🇰🇷 {data.season.kr.seasonKo}</span>}
+            <span style={{ marginLeft: 'auto', color: '#7f93a8', fontSize: 11 }}>
+              내 종목 중 <b style={{ color: '#22c55e' }}>{favoredCnt}개</b> 계절 유리{favoredCnt > 0 && <span style={{ color: '#86efac' }}> ({nameList(favoredList)})</span>}{unfavoredCnt > 0 && <> · <b style={{ color: '#f59e0b' }}>{unfavoredCnt}개</b> 불리<span style={{ color: '#fcd34d' }}> ({nameList(unfavoredList)})</span></>}
+            </span>
+          </div>
+          <div style={{ color: '#9aa7b4', fontSize: 11, lineHeight: 1.6 }}>
+            이 탭은 <b style={{ color: '#cbd5e1' }}>계절(방향) × 펀더멘탈(가치) × 수급(연료)</b> 3축으로 내 종목을 봅니다. 우대 섹터({(hasUs ? data.season.us : data.season.kr).favored.slice(0, 3).join('·')} 등)에 속하면 <span style={{ color: '#22c55e' }}>🌱 계절 유리</span>입니다.
+          </div>
+        </div>
+      )}
 
       {/* 쌍끌이 / 과밀 2단 보드 */}
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
@@ -155,7 +206,7 @@ export default function PortfolioFlowDashboard() {
       {/* 린치식 4분면 매트릭스 */}
       <div style={{ background: CARD, borderRadius: 12, padding: '14px 16px', border: `1px solid ${BORDER}` }}>
         <div style={{ color: '#94a3b8', fontWeight: 700, fontSize: 13, marginBottom: 4 }}>🧭 피터 린치 수급 매트릭스</div>
-        <div style={{ color: '#7f93a8', fontSize: 11, marginBottom: 12 }}>펀더멘탈(저PEG·흑자) × 수급(유입/이탈)으로 내 종목 자동 배치 · <span style={{ color: '#22c55e' }}>🟢</span> = 스마트머니 유입·임박(위 동행지수 {data.inflowCount}개와 동일)</div>
+        <div style={{ color: '#7f93a8', fontSize: 11, marginBottom: 12 }}>펀더멘탈(저PEG·흑자) × 수급(유입/이탈)으로 내 종목 자동 배치 · <span style={{ color: '#22c55e' }}>🟢</span> 유입·임박({data.inflowCount}개) · <span>🔴</span> 이탈·과열({data.crowdedCount}개) · <span style={{ color: '#22c55e' }}>🌱</span>계절 유리/<span style={{ color: '#f59e0b' }}>⚠️</span>불리</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           {(['LEADER', 'PEARL', 'CROWDED', 'REVIEW'] as Quadrant[]).map(q => {
             const cfg = QUAD[q]
@@ -174,13 +225,16 @@ export default function PortfolioFlowDashboard() {
                     const fs = 11.5 + Math.min(w * 0.28, 9)        // 11.5 ~ 20.5
                     const fw = w >= 15 ? 800 : w >= 7 ? 700 : 600
                     const alpha = w >= 20 ? '40' : w >= 10 ? '2a' : w >= 4 ? '18' : '0e'
-                    // 🟢 동행지수에 포함되는 '유입·임박' 종목 표식 (inflowCount와 동일 기준 — 6개가 딱 떨어짐)
-                    const inflow = e.status === 'INFLOW' || e.momentum >= 40
+                    // 🟢 유입·임박(동행지수 포함) / 🔴 수급 이탈·과열 — 저평가 박스에 섞여도 표식으로 식별
+                    const crowdedSig = e.status === 'CROWDED'
+                    const inflow = isInflowNear(e)   // CROWDED는 제외(같은 칩에 🟢🔴 동시 표시 방지)
                     return (
-                      <span key={e.ticker} title={`비중 ${w}%${inflow ? ' · 🟢 스마트머니 유입·임박(동행지수 포함)' : ''}`} style={{ background: `${cfg.color}${alpha}`, color: '#e2e8f0', border: `1px solid ${cfg.color}${w >= 7 ? '77' : '33'}`, borderRadius: 7, padding: '3px 9px', fontSize: fs, fontWeight: fw, lineHeight: 1.4 }}>
+                      <span key={e.ticker} title={`비중 ${w}%${inflow ? ' · 🟢 스마트머니 유입·임박(동행지수 포함)' : ''}${crowdedSig ? ' · 🔴 수급 이탈·과열 경보' : ''}`} style={{ background: `${cfg.color}${alpha}`, color: '#e2e8f0', border: `1px solid ${cfg.color}${w >= 7 ? '77' : '33'}`, borderRadius: 7, padding: '3px 9px', fontSize: fs, fontWeight: fw, lineHeight: 1.4 }}>
                         {inflow && <span style={{ color: '#22c55e', marginRight: 4 }}>🟢</span>}
+                        {crowdedSig && <span style={{ marginRight: 4 }}>🔴</span>}
                         {dnm(e)}<span style={{ color: cfg.color, fontWeight: 800, marginLeft: 5 }}>{w}%</span>
                         {e.peg != null ? <span style={{ color: '#9aa7b4', fontWeight: 400, fontSize: 10.5 }}> · PEG {e.peg.toFixed(2)}</span> : null}
+                        {e.seasonTag !== 'neutral' && <span style={{ marginLeft: 4 }}><SeasonChip tag={e.seasonTag} mini /></span>}
                       </span>
                     )
                   }) : (
