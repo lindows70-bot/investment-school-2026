@@ -20,6 +20,7 @@ import CocktailPartyGauge         from '@/app/components/CocktailPartyGauge'
 import MacroWeather               from '@/app/components/MacroWeather'
 import DualMandateDashboard       from '@/app/components/DualMandateDashboard'
 import FedChartsBoard             from '@/app/components/FedChartsBoard'
+import FomcDecoder                from '@/app/components/FomcDecoder'
 import NpsPortfolio               from '@/app/components/NpsPortfolio'
 import JarvisMorningBriefing      from '@/app/components/JarvisMorningBriefing'
 import SchoolIndexDashboard       from '@/app/components/SchoolIndexDashboard'
@@ -3150,6 +3151,9 @@ export default function DashboardPage() {
 
       {/* ── 거시경제 Fed Watch 탭 ── */}
       <div id="tab-macro" style={{ display: dashTab==='macro' ? 'flex' : 'none', flexDirection:'column', gap:20 }}>
+        <ErrorBoundary label="FOMC 디코더">
+          <FomcDecoder />
+        </ErrorBoundary>
         <ErrorBoundary label="매크로 날씨예보">
           <MacroWeather investments={investments} />
         </ErrorBoundary>

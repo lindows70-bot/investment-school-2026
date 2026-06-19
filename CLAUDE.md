@@ -1924,6 +1924,16 @@ Coinglass(순유입/유출)·TheBlock(누적 거래량) 차트를 무료·무키
 - 동행지수 50% 옆 무라벨 선 = 일별 추이 스파크라인 → 라벨 부착
 - 검증(2026-06-19): 38%=3/8 · 유입 3(GEV·NVDA·인텔리안)·이탈 1(SK하이닉스)·계절유리 3(GEV·SPCX·COP) 전부 일치
 
+## 🏛️ FOMC 디코더 (2026-06-19) — 거시경제(Fed Watch) 탭 최상단
+
+차트·확률 위주였던 Fed Watch 탭에 "방금 회의가 무슨 말을 했고 그래서 돈이 어디로"라는 **서사형 해석**이 통째로 비어 있던 문제 → 직전 FOMC 해석 카드 신설.
+- **`/api/fomc-decoder`**(공개·6h 캐시): [`lib/fomcSchedule.ts`](src/lib/fomcSchedule.ts)(fedwatch와 공용 SSOT)로 직전 회의 결정론 앵커 → Google News RSS(성명서·점도표·기자회견, 실제 뉴스) → Gemini 구조화 해석. 환각가드(헤드라인 근거만·창작 금지). 의장은 앱 설정대로 '워시 의장' 프레이밍(실제 뉴스 근거 + 가공)
+  - 산출: decision(금리결정)·stance(매파/중립/비둘기 신호등)·chairRemarks(발언+해석)·macroDirection·assetImplication(주식·채권·달러·코인)
+  - ⚠️ route 파일은 `GET` 등 정해진 export만 허용 → FOMC 일정을 route에서 export하면 빌드에러. `lib/fomcSchedule.ts`로 분리
+- **🆚 의장 기조 vs 시장(FF선물) 갭** — 핵심 정합성 장치. 금리방향 신호가 2계통(① `rateDir` FF선물 정량 SSOT=macro-regime·4계절·통합추천·hq-briefing이 사용 / ② FOMC 디코더 stance 뉴스·AI)으로 분리돼 어긋나면 탭 간 모순 발생. 디코더가 `macro-regime`의 `rateDir`을 재사용해 의장 stance와 대조 → aligned(🤝)/partial(↔️)/diverge(⚡) 표시. 정량 SSOT는 오염 없이 대조만. 검증: 매파↔인상=🤝일치
+- **`FomcDecoder.tsx`**: 신호등 헤더 + 결정 + 의장↔시장 갭 + 발언 인용·해석 + 매크로 방향 + 자산칩
+- 검증(2026-06-19): 직전 Jun '26(2일 전)·동결 3.50~3.75%·매파·인상 시사 / rateDir=hike·phase=peak_rate·CPI 4.3%와 일관
+
 ---
 
 ## 배포

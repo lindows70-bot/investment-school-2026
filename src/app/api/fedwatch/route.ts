@@ -16,6 +16,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { FOMC_SCHEDULE } from '@/lib/fomcSchedule'   // FOMC 일정 공용 SSOT(fomc-decoder와 공유)
 
 // ── FF Futures 월 코드 (CME 표준)
 const MONTH_CODE: Record<number, string> = {
@@ -28,23 +29,6 @@ function futuresTicker(year: number, month: number): string {
 function nextMonthInfo(year: number, month: number): { year: number; month: number } {
   return month === 12 ? { year: year + 1, month: 1 } : { year, month: month + 1 }
 }
-
-// ── FOMC 일정 (2026년 하반기 ~ 2027년 상반기)
-interface FomcMeeting {
-  label:      string
-  month:      number
-  year:       number
-  date:       string
-}
-
-const FOMC_SCHEDULE: FomcMeeting[] = [
-  { label: "Jun '26", month: 6,  year: 2026, date: '2026-06-17' },
-  { label: "Jul '26", month: 7,  year: 2026, date: '2026-07-29' },
-  { label: "Sep '26", month: 9,  year: 2026, date: '2026-09-16' },
-  { label: "Oct '26", month: 10, year: 2026, date: '2026-10-28' },
-  { label: "Dec '26", month: 12, year: 2026, date: '2026-12-09' },
-  { label: "Jan '27", month: 1,  year: 2027, date: '2027-01-27' },
-]
 
 // ── Yahoo Finance v8 Chart API 가격 조회
 async function fetchPrice(ticker: string): Promise<number | null> {
