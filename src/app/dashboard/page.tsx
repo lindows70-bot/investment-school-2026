@@ -21,6 +21,7 @@ import MacroWeather               from '@/app/components/MacroWeather'
 import DualMandateDashboard       from '@/app/components/DualMandateDashboard'
 import FedChartsBoard             from '@/app/components/FedChartsBoard'
 import FomcDecoder                from '@/app/components/FomcDecoder'
+import RegimeTripwire             from '@/app/components/RegimeTripwire'
 import NpsPortfolio               from '@/app/components/NpsPortfolio'
 import JarvisMorningBriefing      from '@/app/components/JarvisMorningBriefing'
 import SchoolIndexDashboard       from '@/app/components/SchoolIndexDashboard'
@@ -3153,6 +3154,9 @@ export default function DashboardPage() {
       <div id="tab-macro" style={{ display: dashTab==='macro' ? 'flex' : 'none', flexDirection:'column', gap:20 }}>
         <ErrorBoundary label="FOMC 디코더">
           <FomcDecoder />
+        </ErrorBoundary>
+        <ErrorBoundary label="국면 전환 트립와이어">
+          <RegimeTripwire />
         </ErrorBoundary>
         <ErrorBoundary label="매크로 날씨예보">
           <MacroWeather investments={investments} />

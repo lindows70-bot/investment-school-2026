@@ -1943,6 +1943,15 @@ Coinglass(순유입/유출)·TheBlock(누적 거래량) 차트를 무료·무키
 - **`DecisionCalibration.tsx`**(투자기록 → 🎯 의사결정 적중률 탭): 기존 거래+priceMap만으로 매수 결정 채점(신규 API 0). 전체 적중률 + 신호 차원별(밸류·수급·계절·FOMC) 버킷 승률 + 강점/약점 자동 도출
   - ⚠️ **빈 {} 스냅샷 오염 차단**: AddInvestmentModal 과거 초기매수는 `snapshot_data={}`(truthy)라 단순 보유승률로 오염시킴 → `hasSignal`(peg/flow/seasonTag/fomcStance 중 하나라도 non-null)인 매수만 채점. 검증: 기존 118매수 중 신호 0·빈{} 114 → 정직하게 빈 상태, 오늘 매수부터 집계
 
+## 🔔 국면 전환 트립와이어 (2026-06-19) — 거시경제(Fed Watch) 탭, FOMC 디코더 직하
+
+계절·금리가 '뒤집힐 때' 내 포트의 어떤 종목이 유↔불리로 바뀌는지 능동 경고 — FOMC→계절→포트 닫힌 루프(FOMC 디코더의 완성).
+- **`/api/regime-tripwire`**(auth): `getCurrentSeason`(공용) + 전역 국면 이력(`regime-history-v1` 캐시) 비교로 전환 감지. 계절 quadrant가 실제 바뀐 지점만 전환으로 집계(rateDir만 변한 건 제외)
+  - 보유종목을 **이전 quad vs 현재 quad로 각각 `holdingFit` 채점** → favored↔unfavored flip 감지(불리해진 것 우선 정렬). 추가 fetch는 캐시된 canonicalFundamentals+gicsSector뿐
+  - 전환 없으면 "안정 N일째 + 현재 유리/불리 개수 + 다음 FOMC D-day"
+- **`RegimeTripwire.tsx`**: 전환 시 ⚠️불리해진/🌱유리해진 종목 칩(from→to), 안정 시 현황. Fed Watch 탭 FOMC 디코더 바로 아래
+- 첫 로드는 이력이 비어 baseline 설정(안정 표시), 실제 계절 전환부터 flip 경고 작동
+
 ---
 
 ## 배포
