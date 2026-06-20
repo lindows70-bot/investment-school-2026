@@ -1,0 +1,9 @@
+echo "🔍 push 전 검증: tsc + next lint (Vercel 빌드 실패 사전 차단)…"
+npm run check || {
+  echo ""
+  echo "❌ 검증 실패 — 위 tsc/lint 에러를 고친 뒤 다시 push 하세요."
+  echo "   (이 에러는 Vercel 프로덕션 빌드도 동일하게 실패시켜 배포가 막힙니다.)"
+  echo "   급할 때만 우회: git push --no-verify"
+  exit 1
+}
+echo "✅ 검증 통과 — push 진행"
