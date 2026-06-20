@@ -12,6 +12,7 @@ import PairTradingMonitor from '@/app/components/PairTradingMonitor'
 import ShadowTracker13F from '@/app/components/ShadowTracker13F'
 import MoatBreachDetector from '@/app/components/MoatBreachDetector'
 import MoneyFlowRadar    from '@/app/components/MoneyFlowRadar'
+import ReverseDcf        from '@/app/components/ReverseDcf'
 import StockProfileCard  from '@/app/components/StockProfileCard'
 import { getAssetType } from '@/lib/assetClassifier'
 import type { Candle } from '@/app/components/CandleChart'
@@ -572,6 +573,15 @@ export default function ResearchPage() {
       {/* 💰 스마트머니 수급 레이더 — 외국인/기관/개인 돈의 유입·이탈(KR) */}
       {!loading && stockInfo && priceData && isStock && (
         <MoneyFlowRadar
+          ticker={stockInfo.ticker}
+          name={stockInfo.name}
+          market={stockInfo.market}
+        />
+      )}
+
+      {/* 🔮 역-DCF 기대치 투자 — 주가에 시장이 심은 내재 성장 기대 vs 실제 */}
+      {!loading && stockInfo && priceData && isStock && (
+        <ReverseDcf
           ticker={stockInfo.ticker}
           name={stockInfo.name}
           market={stockInfo.market}

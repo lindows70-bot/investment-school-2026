@@ -1952,6 +1952,14 @@ Coinglass(순유입/유출)·TheBlock(누적 거래량) 차트를 무료·무키
 - **`RegimeTripwire.tsx`**: 전환 시 ⚠️불리해진/🌱유리해진 종목 칩(from→to), 안정 시 현황. Fed Watch 탭 FOMC 디코더 바로 아래
 - 첫 로드는 이력이 비어 baseline 설정(안정 표시), 실제 계절 전환부터 flip 경고 작동
 
+## 🔮 역-DCF 기대치 투자 (2026-06-19) — 리서치 페이지(종목 상세)
+
+기존 PEG·DCF가 '싸다/비싸다'면, 이건 **현재 주가에 시장이 심어둔 내재 성장 기대를 역산**해 '그게 현실적인가'로 매수를 반증 가능한 베팅으로(Mauboussin·expectations investing).
+- **`/api/reverse-dcf`**(공개·종목신호): `canonicalFundamentals`(PE·성장률) 재사용, 닫힌형 역산 `g = (PE/termPE·(1+r)^N)^(1/N) − 1`. 가정 투명공개(요구수익 9%·10년·종착 PER 15)
+  - ⚠️ **가드 2종(필수)**: ① 절대난이도 — 내재기대 >20%면 '10년 지속 극소수'라 실제 무관하게 demanding ② 기저효과 — 실제성장 >60%는 작년 저점 회복 스파이크라 비교 비신뢰(PEG 함정 일반화). 이 가드 없으면 PLTR(PE144·실제성장251%)이 conservative로 오판
+  - 검증: PLTR demanding(내재36.7%), COP demanding(역성장 중 성장 선반영), GOOGL conservative(내재15.7%<실제28.5%), NVDA/SK하이닉스 fair(기저효과 보류)
+- **`ReverseDcf.tsx`**: 내재기대 vs 실제성장 게이지 + verdict(🔥과도/⚖️합리/🌱보수) + 가정 공개. 리서치 종목 상세(MoneyFlowRadar 다음)
+
 ---
 
 ## 배포
