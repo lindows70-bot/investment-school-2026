@@ -38,6 +38,7 @@ export default function AiRebalancePanel() {
   const [data, setData] = useState<RebalanceResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showDetail, setShowDetail] = useState(false)   // 상세 진단 접기(기본 숨김) — 처방전 우선
 
   const load = useCallback(async (force = false) => {
     setLoading(true); setError(null)
@@ -107,14 +108,18 @@ export default function AiRebalancePanel() {
       {/* 🎯 코어-새틀라이트 처방전 (히어로) — 자산군·캡·3액션 */}
       {data.coreSatellite && <CoreSatelliteHero cs={data.coreSatellite} portfolioValue={data.portfolioValue ?? 0} />}
 
-      {/* 📋 상세 진단 구분선 */}
+      {/* 📋 상세 진단 — 접기 토글(기본 숨김). 처방전 우선, 근거는 펼쳐서 확인 */}
       {data.coreSatellite && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '4px 0' }}>
+        <button onClick={() => setShowDetail(v => !v)}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0', padding: '8px 4px', background: 'transparent', border: 'none', cursor: 'pointer', width: '100%' }}>
           <div style={{ flex: 1, height: 1, background: BORDER }} />
-          <span style={{ color: '#64748b', fontSize: 11, fontWeight: 700 }}>📋 상세 진단 (개별 종목·분산·내러티브)</span>
+          <span style={{ color: '#94a3b8', fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap' }}>{showDetail ? '▲ 상세 진단 접기' : '▼ 상세 진단 펼치기 (개별 종목·분산·내러티브·경고)'}</span>
           <div style={{ flex: 1, height: 1, background: BORDER }} />
-        </div>
+        </button>
       )}
+
+      {/* ── 상세 진단(접힘 가능) ── 코어-새틀라이트가 없으면(레거시) 항상 표시 */}
+      {(!data.coreSatellite || showDetail) && (<>
 
       {/* 📊 포트폴리오 전 → 후 도넛 (글 읽기 전에 그림으로 결론 한눈에) */}
       {data.sellBudget > 0 && (
@@ -306,6 +311,8 @@ export default function AiRebalancePanel() {
           </div>
         </div>
       )}
+
+      </>)}{/* ── 상세 진단 접힘 블록 끝 ── */}
 
       <div style={{ textAlign: 'right', color: '#4b5563', fontSize: 11 }}>
         분석 기준: {new Date(data.generatedAt).toLocaleString('ko-KR')} · 24h 캐시 · 교육용 시뮬레이션이며 투자 추천이 아닙니다
