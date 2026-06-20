@@ -219,7 +219,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v16:${user.id}:${today}:${fp}`   // v16: 코어-새틀라이트 5분류 자산군+캡+3액션
+  const cacheKey = `ai-rebalance-v17:${user.id}:${today}:${fp}`   // v17: 자산군 MV 버그(50개한도·크립토 통화) 수정
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -454,16 +454,23 @@ const ROLE_GROUP: Record<AssetRole, string> = {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], buys: BuyCandidate[], sats: SatelliteCandidate[], zombies: { ticker: string; name: string; market: string }[], base: string, usdKrw: number): Promise<CoreSatelliteView> {
-  // ① 전 자산 가치평가(원화) — 비중은 '전체 포트' 기준
-  let prices: Record<string, number> = {}
-  try {
-    const pr = await fetch(`${base}/api/stock-price`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rows.map(h => ({ ticker: h.ticker, market: h.market ?? 'US' }))), signal: AbortSignal.timeout(30_000) })
-    if (pr.ok) { const arr = await pr.json() as Array<{ ticker: string; currentPrice: number }>; prices = Object.fromEntries(arr.map(d => [d.ticker.toUpperCase(), d.currentPrice])) }
-  } catch { /* graceful */ }
-  const toKrw = (m: string | null) => (m === 'KR' ? 1 : usdKrw)
+  // ① 전 자산 가치평가(원화) — ⚠️ stock-price POST는 최대 50개 → 40개씩 청크. 통화는 API의 currency 필드 사용
+  //    (버그 수정: 크립토는 Upbit 원화 기준인데 market 기반으로 ×usdKrw하면 1380배 폭증 → currency==='KRW'면 ×1)
+  const priceMap = new Map<string, { price: number; krw: boolean }>()
+  for (let i = 0; i < rows.length; i += 40) {
+    try {
+      const chunk = rows.slice(i, i + 40)
+      const pr = await fetch(`${base}/api/stock-price`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(chunk.map(h => ({ ticker: h.ticker, market: h.market ?? 'US' }))), signal: AbortSignal.timeout(30_000) })
+      if (pr.ok) {
+        const arr = await pr.json() as Array<{ ticker: string; currentPrice: number; currency: string }>
+        for (const d of arr) priceMap.set(String(d.ticker).toUpperCase(), { price: Number(d.currentPrice) || 0, krw: d.currency === 'KRW' })
+      }
+    } catch { /* graceful — 해당 청크 0 */ }
+  }
   const items = rows.map(h => {
     const role = classifyAssetRole(h.ticker, h.name ?? '', h.market ?? 'US').role
-    const mv = (prices[h.ticker.toUpperCase()] ?? 0) * (Number(h.quantity) || 0) * toKrw(h.market ?? 'US')
+    const pm = priceMap.get(h.ticker.toUpperCase())
+    const mv = (pm?.price ?? 0) * (Number(h.quantity) || 0) * (pm?.krw ? 1 : usdKrw)   // currency 기반 원화 환산
     return { ticker: h.ticker, name: h.name ?? h.ticker, market: (h.market === 'KR' ? 'KR' : 'US') as 'KR' | 'US', role, mv }
   })
   const total = items.reduce((s, i) => s + i.mv, 0) || 1
