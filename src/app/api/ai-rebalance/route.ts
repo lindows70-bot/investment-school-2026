@@ -17,6 +17,19 @@ import { isPegBaseEffect } from '@/lib/canonicalFundamentals'
 import { getSector } from '@/lib/schoolIndex'
 import { screenSatellite, type SatelliteScore } from '@/lib/satelliteScreener'
 import type { UnifiedRecoResult } from '@/app/api/unified-reco/route'   // ③통합매수와 동일 SSOT(제2원칙)
+import { classifyAssetRole, type AssetRole } from '@/lib/portfolioRole'   // P2: 코어-새틀라이트 5분류 SSOT
+import { getCurrentSeason } from '@/lib/currentSeason'
+
+// 코어 목표 밴드(40~70%) — 위험 계절·매파일수록 코어(지수+채권) ↑
+function coreTargetBand(usQuad: string, rateDir: string): { min: number; max: number; text: string } {
+  const base: Record<string, number> = { recession: 68, stagflation: 64, shoulder: 58, inflation: 50, goldilocks: 45 }
+  let center = base[usQuad] ?? 55
+  if (rateDir === 'hike') center += 4   // 매파 긴축 = 방어적
+  else if (rateDir === 'cut') center -= 4
+  center = Math.max(42, Math.min(68, center))
+  const seasonKo: Record<string, string> = { recession: '겨울(침체)', stagflation: '가을(스태그)', shoulder: '간절기', inflation: '여름(인플레)', goldilocks: '봄(골디락스)' }
+  return { min: Math.max(40, center - 5), max: Math.min(70, center + 5), text: `${seasonKo[usQuad] ?? usQuad}·금리 ${rateDir === 'hike' ? '인상' : rateDir === 'cut' ? '인하' : '동결'} 국면` }
+}
 
 // 피터 린치 황금비율(권장 분류 비중 %) — PortfolioBalanceRadar와 동일 SSOT
 const IDEAL_RATIOS: Record<string, number> = {
@@ -117,6 +130,28 @@ export interface RebalanceResult {
   narrative:      string         // Gemini 종합 플랜 내러티브
   generatedAt:    string
   fromCache:      boolean
+  // ── P2: 코어-새틀라이트 5분류 자산군 분석(전 자산 기준) ──
+  coreSatellite?: CoreSatelliteView
+}
+
+// ═══ 코어-새틀라이트 자산군 분석 ═══════════════════════════════════════════════
+export interface AssetGroupRow { role: string; label: string; group: string; pct: number; tickers: string[] }
+export interface ActionItem {
+  ticker: string; name: string; market: 'KR' | 'US'
+  weightPct: number          // 전체 포트 대비 비중
+  trimPct?: number           // 줄일 것: 권장 축소 %p
+  reason: string             // 강력한 단일 이유
+  tag: string                // 근거 엔진 태그(레버리지·알트·캡초과·역DCF·수급·좀비 등)
+}
+export interface BuyIdea { ticker: string; name: string; market: string; role: string; targetPct: number; reason: string; tag: string }
+export interface CoreSatelliteView {
+  groups: AssetGroupRow[]              // 5분류+차단 현재 비중(전 자산)
+  corePct: number; coreTargetMin: number; coreTargetMax: number; coreTargetText: string
+  btcPct: number; ghostPct: number; capPct: number   // 캡(10%) 대비
+  drop: ActionItem[]                   // 🗑️ 버릴 것
+  trim: ActionItem[]                   // ✂️ 줄일 것
+  add: BuyIdea[]                       // 🛒 보강할 것
+  guide: string                        // 조언형 실행 가이드
 }
 
 function admin() {
@@ -184,7 +219,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v15:${user.id}:${today}:${fp}`   // v15: MECE 분류 SSOT + pegSuspect(기저효과) 가드
+  const cacheKey = `ai-rebalance-v16:${user.id}:${today}:${fp}`   // v16: 코어-새틀라이트 5분류 자산군+캡+3액션
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -393,12 +428,122 @@ export async function GET(req: Request) {
 
   const narrative = await buildNarrative(diagnoses, buyCandidates, sellBudget, diversification, cyclicalTrap, hypePremium, zombieRisk, regimeNote)
 
+  // ═══ P2: 코어-새틀라이트 5분류 자산군 분석(전 자산 기준) ═══════════════════════
+  let coreSatellite: CoreSatelliteView | undefined
+  try {
+    coreSatellite = await buildCoreSatellite(rows ?? [], diagnoses, buyCandidates, satelliteCandidates, zombieHoldings, base, usdKrw)
+  } catch (e) { console.warn('[coreSatellite]', (e as Error).message) }
+
   const result: RebalanceResult = {
     holdings: diagnoses, buyCandidates, sellBudget, diversification, cyclicalTrap, hypePremium, zombieRisk, satelliteCandidates, portfolioValue: Math.round(totalMv),
-    narrative, generatedAt: new Date().toISOString(), fromCache: false,
+    narrative, generatedAt: new Date().toISOString(), fromCache: false, coreSatellite,
   }
   await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
+}
+
+// ═══ P2: 코어-새틀라이트 자산군 + 캡 + 3액션 ═══════════════════════════════════
+const CAP = 10   // BTC·유령 각 캡 10%
+const ROLE_LABEL: Record<AssetRole, string> = {
+  CORE_INDEX: '코어·인덱스', CORE_BOND: '코어·채권', SATELLITE_BTC: '새틀라이트·BTC',
+  SATELLITE_GHOST: '새틀라이트·유령', SATELLITE_GENERAL: '새틀라이트·일반', BLOCKED: '정책 부적합',
+}
+const ROLE_GROUP: Record<AssetRole, string> = {
+  CORE_INDEX: 'CORE', CORE_BOND: 'CORE', SATELLITE_BTC: 'SATELLITE', SATELLITE_GHOST: 'SATELLITE', SATELLITE_GENERAL: 'SATELLITE', BLOCKED: 'BLOCKED',
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], buys: BuyCandidate[], sats: SatelliteCandidate[], zombies: { ticker: string; name: string; market: string }[], base: string, usdKrw: number): Promise<CoreSatelliteView> {
+  // ① 전 자산 가치평가(원화) — 비중은 '전체 포트' 기준
+  let prices: Record<string, number> = {}
+  try {
+    const pr = await fetch(`${base}/api/stock-price`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rows.map(h => ({ ticker: h.ticker, market: h.market ?? 'US' }))), signal: AbortSignal.timeout(30_000) })
+    if (pr.ok) { const arr = await pr.json() as Array<{ ticker: string; currentPrice: number }>; prices = Object.fromEntries(arr.map(d => [d.ticker.toUpperCase(), d.currentPrice])) }
+  } catch { /* graceful */ }
+  const toKrw = (m: string | null) => (m === 'KR' ? 1 : usdKrw)
+  const items = rows.map(h => {
+    const role = classifyAssetRole(h.ticker, h.name ?? '', h.market ?? 'US').role
+    const mv = (prices[h.ticker.toUpperCase()] ?? 0) * (Number(h.quantity) || 0) * toKrw(h.market ?? 'US')
+    return { ticker: h.ticker, name: h.name ?? h.ticker, market: (h.market === 'KR' ? 'KR' : 'US') as 'KR' | 'US', role, mv }
+  })
+  const total = items.reduce((s, i) => s + i.mv, 0) || 1
+  const pctOf = (mv: number) => Math.round((mv / total) * 1000) / 10
+
+  // ② 5분류 집계
+  const byRole = new Map<AssetRole, { pct: number; tickers: string[] }>()
+  for (const it of items) {
+    const g = byRole.get(it.role) ?? { pct: 0, tickers: [] }
+    g.pct += pctOf(it.mv); g.tickers.push(it.ticker); byRole.set(it.role, g)
+  }
+  const roles: AssetRole[] = ['CORE_INDEX', 'CORE_BOND', 'SATELLITE_BTC', 'SATELLITE_GHOST', 'SATELLITE_GENERAL', 'BLOCKED']
+  const groups: AssetGroupRow[] = roles.filter(r => byRole.has(r)).map(r => ({ role: r, label: ROLE_LABEL[r], group: ROLE_GROUP[r], pct: Math.round((byRole.get(r)!.pct) * 10) / 10, tickers: byRole.get(r)!.tickers }))
+  const corePct = Math.round(((byRole.get('CORE_INDEX')?.pct ?? 0) + (byRole.get('CORE_BOND')?.pct ?? 0)) * 10) / 10
+  const btcPct = Math.round((byRole.get('SATELLITE_BTC')?.pct ?? 0) * 10) / 10
+  const ghostPct = Math.round((byRole.get('SATELLITE_GHOST')?.pct ?? 0) * 10) / 10
+
+  // ③ 코어 동적 밴드(4계절·금리)
+  let band = { min: 50, max: 60, text: '국면 분석 보류' }
+  try { const s = await getCurrentSeason(base); band = coreTargetBand(s.usQuad, s.rateDir) } catch { /* 폴백 */ }
+
+  const mvByTicker = new Map(items.map(i => [i.ticker.toUpperCase(), i]))
+
+  // ④ 🗑️ 버릴 것 — 정책 차단 + 손절 + 좀비
+  const drop: ActionItem[] = []
+  const dropSeen = new Set<string>()
+  for (const it of items) {
+    if (it.role === 'BLOCKED') {
+      const r = classifyAssetRole(it.ticker, it.name, it.market).reason
+      drop.push({ ticker: it.ticker, name: it.name, market: it.market, weightPct: pctOf(it.mv), reason: r, tag: '정책 차단' })
+      dropSeen.add(it.ticker.toUpperCase())
+    }
+  }
+  for (const d of diagnoses) {
+    const k = d.ticker.toUpperCase()
+    if (dropSeen.has(k)) continue
+    if (d.action === 'CUT_LOSS') { drop.push({ ticker: d.ticker, name: d.name, market: (d.market === 'KR' ? 'KR' : 'US'), weightPct: pctOf(mvByTicker.get(k)?.mv ?? 0), reason: d.sellReasons.join('·') || '손실 중 + 펀더멘탈 붕괴', tag: '손절' }); dropSeen.add(k) }
+  }
+  for (const z of zombies) {
+    const k = z.ticker.toUpperCase(); if (dropSeen.has(k)) continue
+    drop.push({ ticker: z.ticker, name: z.name, market: (z.market === 'KR' ? 'KR' : 'US'), weightPct: pctOf(mvByTicker.get(k)?.mv ?? 0), reason: '영업이익으로 이자도 못 갚는 좀비(이자보상배율<1.5) — 구조적 위험', tag: '좀비' }); dropSeen.add(k)
+  }
+
+  // ⑤ ✂️ 줄일 것 — 캡 초과(BTC/유령) + 코어 과다 + 익절
+  const trim: ActionItem[] = []
+  if (btcPct > CAP) {
+    const btc = items.find(i => i.role === 'SATELLITE_BTC')
+    if (btc) trim.push({ ticker: btc.ticker, name: btc.name, market: btc.market, weightPct: btcPct, trimPct: Math.round((btcPct - CAP) * 10) / 10, reason: `비트코인이 캡 ${CAP}%를 ${Math.round((btcPct - CAP) * 10) / 10}%p 초과 — 초과분 코어/일반으로 기계적 환원`, tag: '캡 초과' })
+  }
+  if (ghostPct > CAP) {
+    const gs = items.filter(i => i.role === 'SATELLITE_GHOST').sort((a, b) => b.mv - a.mv)[0]
+    if (gs) trim.push({ ticker: gs.ticker, name: gs.name, market: gs.market, weightPct: ghostPct, trimPct: Math.round((ghostPct - CAP) * 10) / 10, reason: `유령/10배거가 캡 ${CAP}%를 초과 — 초과분 환원(고위험 영역 통제)`, tag: '캡 초과' })
+  }
+  for (const d of diagnoses) {
+    if (d.action === 'TAKE_PROFIT' && d.releaseWeight >= 0.1 && !dropSeen.has(d.ticker.toUpperCase())) {
+      trim.push({ ticker: d.ticker, name: d.name, market: (d.market === 'KR' ? 'KR' : 'US'), weightPct: pctOf(mvByTicker.get(d.ticker.toUpperCase())?.mv ?? 0), trimPct: d.releaseWeight, reason: d.sellReasons.join('·') || '수익 중 + 고평가 — 분할 익절', tag: '익절' })
+    } else if (d.trimWeight >= 0.1 && !dropSeen.has(d.ticker.toUpperCase()) && d.action !== 'TAKE_PROFIT') {
+      trim.push({ ticker: d.ticker, name: d.name, market: (d.market === 'KR' ? 'KR' : 'US'), weightPct: pctOf(mvByTicker.get(d.ticker.toUpperCase())?.mv ?? 0), trimPct: d.trimWeight, reason: d.sellReasons.join('·') || '분류 비중 과다 — 분산 위해 일부 축소', tag: '집중 축소' })
+    }
+  }
+
+  // ⑥ 🛒 보강할 것 — 통합3축 매수 + 캡 미달(BTC/유령) + 코어 밴드 미달
+  const add: BuyIdea[] = []
+  if (corePct < band.min) add.push({ ticker: 'CORE', name: '코어 보강(지수 ETF/채권)', market: 'KR', role: 'CORE_INDEX', targetPct: Math.round((band.min - corePct) * 10) / 10, reason: `현재 코어 ${corePct}% < 목표 하한 ${band.min}%(${band.text}) — 시장 베타·방어를 위해 광의 지수/채권 보강`, tag: '코어 밴드' })
+  if (btcPct < CAP - 1) add.push({ ticker: 'BTC', name: '비트코인', market: 'US', role: 'SATELLITE_BTC', targetPct: Math.round((CAP - btcPct) * 10) / 10, reason: `전략 암호 캡 ${CAP}% 미달(현재 ${btcPct}%) — 분산·비상관 자산으로 비트코인 보강`, tag: 'BTC 캡 미달' })
+  if (ghostPct < CAP - 1 && sats.length > 0) {
+    const s = sats[0]
+    add.push({ ticker: s.ticker, name: s.name, market: s.market, role: 'SATELLITE_GHOST', targetPct: Math.round(Math.min(CAP - ghostPct, s.allocWeight || 3) * 10) / 10, reason: `유령 캡 ${CAP}% 미달(현재 ${ghostPct}%) — 발굴주: ${s.reason}`, tag: '유령 발굴' })
+  }
+  for (const b of buys.slice(0, 4)) add.push({ ticker: b.ticker, name: b.name, market: b.market, role: 'SATELLITE_GENERAL', targetPct: b.allocWeight, reason: b.reason, tag: `통합점수 ${b.aiScore}` })
+
+  // ⑦ 조언형 실행 가이드(체결 X)
+  const dropName = drop[0]?.name, addName = add.find(a => a.ticker !== 'CORE' && a.ticker !== 'BTC')?.name ?? add[0]?.name
+  const guide = `유휴 현금을 먼저 쓰고, 부족하면 ${dropName ? `'${dropName}' 등 정리 대상의 매도 대금` : '비중 축소 자산의 매도 대금'}으로 ${addName ? `'${addName}' 등` : '보강 대상'}을 매수하세요. ⚠️ 실제 체결은 직접 진행 — 본 가이드는 순서·금액 제안까지입니다(국내 T+2 등 결제일 고려).`
+
+  return {
+    groups, corePct, coreTargetMin: band.min, coreTargetMax: band.max, coreTargetText: band.text,
+    btcPct, ghostPct, capPct: CAP,
+    drop: drop.sort((a, b) => b.weightPct - a.weightPct), trim, add, guide,
+  }
 }
 
 // ── 분산 진단: 분류 Before→After + 섹터 집중도 ────────────────────────────────
