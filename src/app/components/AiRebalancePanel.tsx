@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import type { RebalanceResult, HoldingDiagnosis, RebalanceAction, DiversificationView } from '@/app/api/ai-rebalance/route'
 import MoneyFlowBadge from '@/app/components/MoneyFlowBadge'
+import CoreSatelliteHero from '@/app/components/CoreSatelliteHero'
 
 const BG = '#0f1117', CARD = '#161b25', BORDER = '#1e293b'
 
@@ -102,6 +103,18 @@ export default function AiRebalancePanel() {
           <button onClick={() => load(true)} style={{ padding: '6px 14px', background: '#1e293b', color: '#94a3b8', border: `1px solid ${BORDER}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>🔄 새로고침</button>
         </div>
       </div>
+
+      {/* 🎯 코어-새틀라이트 처방전 (히어로) — 자산군·캡·3액션 */}
+      {data.coreSatellite && <CoreSatelliteHero cs={data.coreSatellite} portfolioValue={data.portfolioValue ?? 0} />}
+
+      {/* 📋 상세 진단 구분선 */}
+      {data.coreSatellite && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '4px 0' }}>
+          <div style={{ flex: 1, height: 1, background: BORDER }} />
+          <span style={{ color: '#64748b', fontSize: 11, fontWeight: 700 }}>📋 상세 진단 (개별 종목·분산·내러티브)</span>
+          <div style={{ flex: 1, height: 1, background: BORDER }} />
+        </div>
+      )}
 
       {/* 📊 포트폴리오 전 → 후 도넛 (글 읽기 전에 그림으로 결론 한눈에) */}
       {data.sellBudget > 0 && (
