@@ -19,7 +19,6 @@ const C = {
   text: '#f1f5f9', textSub: '#94a3b8', textLow: '#8599ae',
 }
 const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
-const ALLOC_COLORS: Record<string, string> = { '해외주식': C.cyan, '국내채권': C.blue, '대체투자': C.purple, '국내주식': C.green, '해외채권': C.gold }
 
 const won = (n: number) => n >= 1e12 ? `₩${(n / 1e12).toFixed(2)}조` : n >= 1e8 ? `₩${Math.round(n / 1e8).toLocaleString()}억` : `₩${Math.round(n / 1e4).toLocaleString()}만`
 const usd = (n: number) => n >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(0)}M` : `$${Math.round(n / 1e3)}K`
@@ -59,26 +58,9 @@ export default function NpsPortfolio() {
 
   return Wrap(
     <>
-      {/* ① 자산배분 개요 */}
-      {SectionTitle('📊', '자산배분 개요', '전체 기금 · 공시 기준 참고치')}
-      <div style={{ marginBottom: 6 }}>
-        <div style={{ display: 'flex', height: 18, borderRadius: 6, overflow: 'hidden', marginBottom: 7 }}>
-          {data.allocation.map(a => (
-            <div key={a.name} title={`${a.name} ${a.pct}%`} style={{ width: `${a.pct}%`, background: ALLOC_COLORS[a.name] || C.textLow }} />
-          ))}
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px' }}>
-          {data.allocation.map(a => (
-            <span key={a.name} style={{ fontSize: 10.5, color: C.textSub, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 8, height: 8, borderRadius: 2, background: ALLOC_COLORS[a.name] || C.textLow }} />
-              {a.name} <b style={{ color: C.text, fontFamily: 'monospace' }}>{a.pct}%</b>
-            </span>
-          ))}
-        </div>
-      </div>
-      <div style={{ fontSize: 9.5, color: C.textLow, marginBottom: 16, lineHeight: 1.5 }}>※ 채권·대체투자는 개별 종목이 의무공시되지 않아 비중(집계)만 표시됩니다.</div>
+      {/* 자산배분 막대 제거 — NPS 자산군 비중은 무료 실시간 API가 없어 하드코딩이 불가피했으므로 삭제. 라이브 데이터만 표시 */}
 
-      {/* ② 국내주식 Top 10 */}
+      {/* ① 국내주식 Top 10 */}
       {SectionTitle('🇰🇷', '국내주식 Top 10', `5%+ ${data.domCount}종목 · 추적 ${won(data.domTotalValue)} · DART`)}
       <div style={{ overflowX: 'auto', marginBottom: 18 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 420 }}>
@@ -145,7 +127,7 @@ export default function NpsPortfolio() {
         </div>
       </div>
       <div style={{ fontSize: 9.5, color: C.textLow, lineHeight: 1.6 }}>
-        🏛️ 국내주식=DART 대량보유(5%룰) · 해외주식=SEC 13F-HR(미국 의무공시) · 자산배분 비중=국민연금 공시 기준 참고치 · 평가액=보유수×현재가 · 교육용 참고이며 투자 추천이 아닙니다.
+        🏛️ 국내주식=DART 대량보유(5%룰) · 해외주식=SEC 13F-HR(미국 의무공시) · 평가액=보유수×현재가 · 모두 공시 기반 실시간 데이터 · 교육용 참고이며 투자 추천이 아닙니다.
       </div>
     </>,
     `${C.cyan}55`

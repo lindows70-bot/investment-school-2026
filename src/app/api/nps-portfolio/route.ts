@@ -4,16 +4,15 @@
  * 🏛️ 국민연금 자산현황 대시보드 (거인의 장바구니)
  *
  * 대한민국 최대 큰손 '국민연금공단(NPS)'의 자산을 한 화면에:
- *  ① 자산배분 개요   — 주식/채권/대체 자산군 비중 (전체 기금)
- *  ② 🇰🇷 국내주식 Top — DART 대량보유(5%룰) 종목·지분율·공시後 주가
- *  ③ 🇺🇸 해외주식 Top — NPS의 SEC 13F-HR(미국 의무공시) 보유종목·평가액
+ *  ① 🇰🇷 국내주식 Top — DART 대량보유(5%룰) 종목·지분율·공시後 주가
+ *  ② 🇺🇸 해외주식 Top — NPS의 SEC 13F-HR(미국 의무공시) 보유종목·평가액
  *
  * ── 데이터 가용성(검증) ──
- *  · 국내주식 = DART majorstock(5%룰) — 개별 종목·지분율 공시 ✅
- *  · 해외주식 = SEC 13F-HR (NPS CIK 0001608046, 분기 의무공시) — 562종목 $131.7B ✅
- *  · 채권·대체투자 = 개별 종목 의무공시 제도 없음 → '자산군 비중(집계)'만 표시 ⚠️
+ *  · 국내주식 = DART majorstock(5%룰) — 개별 종목·지분율 공시 ✅ 라이브
+ *  · 해외주식 = SEC 13F-HR (NPS CIK 0001608046, 분기 의무공시) ✅ 라이브
+ *  · 자산배분 비중 = NPS 무료 실시간 API 없음(월간 PDF·~2개월 지연) → 하드코딩 대신 제거 ⚠️
  *
- * ⚠️ 정직성: '공시後 주가'는 NPS 실제 수익률 아님(매입단가 미공개). 자산배분 비중은 공시 기준 참고치.
+ * ⚠️ 정직성: '공시後 주가'는 NPS 실제 수익률 아님(매입단가 미공개).
  *
  * 설계: 국내 크롤(대형주~70) ∥ 해외 13F 동시 수집, 24h 인메모리 캐시(force-dynamic).
  */
@@ -29,7 +28,6 @@ export const revalidate = 0
 export const maxDuration = 60
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
-export interface NpsAsset { name: string; pct: number }
 export interface NpsDomStock {
   ticker: string; name: string; stakePct: number; stakeChg: number | null
   shares: number; value: number; disclDate: string; sinceDisclPct: number | null
@@ -37,7 +35,6 @@ export interface NpsDomStock {
 export interface NpsOvsStock { name: string; value: number; weight: number }
 export interface NpsDashboardResult {
   status:      'ok' | 'error'
-  allocation:  NpsAsset[]
   domestic:    NpsDomStock[]
   overseas:    NpsOvsStock[]
   domTotalValue: number     // KRW (추적 종목 합)
@@ -50,14 +47,7 @@ export interface NpsDashboardResult {
   message?:    string
 }
 
-// ── 자산배분 (국민연금 공시 기준 참고치 — 채권·대체는 개별종목 비공개라 집계만) ──────
-const ALLOCATION: NpsAsset[] = [
-  { name: '해외주식', pct: 34 },
-  { name: '국내채권', pct: 28 },
-  { name: '대체투자', pct: 16 },
-  { name: '국내주식', pct: 14 },
-  { name: '해외채권', pct: 8 },
-]
+// ⚠️ 자산배분 비중은 NPS 무료 실시간 API가 없어(월간 PDF·~2개월 지연) 하드코딩 대신 제거. 라이브 데이터만 표시.
 
 // ════ 국내주식 (DART majorstock) ════════════════════════════════════════════════
 const UNIVERSE: string[] = [
@@ -199,10 +189,10 @@ export async function GET() {
   try {
     const [domestic, ovs] = await Promise.all([buildDomestic(), buildOverseas().catch(() => ({ top: [], total: 0, count: 0, asOf: '' }))])
     if (!domestic.length && !ovs.top.length) {
-      return NextResponse.json({ status: 'error', allocation: ALLOCATION, domestic: [], overseas: [], domTotalValue: 0, domCount: 0, ovsTotalValue: 0, ovsCount: 0, ovsAsOf: '', scanned: UNIVERSE.length, asOf: new Date().toISOString(), message: '국민연금 보유 데이터를 불러오지 못했습니다.' } as NpsDashboardResult)
+      return NextResponse.json({ status: 'error', domestic: [], overseas: [], domTotalValue: 0, domCount: 0, ovsTotalValue: 0, ovsCount: 0, ovsAsOf: '', scanned: UNIVERSE.length, asOf: new Date().toISOString(), message: '국민연금 보유 데이터를 불러오지 못했습니다.' } as NpsDashboardResult)
     }
     const result: NpsDashboardResult = {
-      status: 'ok', allocation: ALLOCATION,
+      status: 'ok',
       domestic: domestic.slice(0, 10),
       overseas: ovs.top,
       domTotalValue: domestic.reduce((s, h) => s + h.value, 0),
@@ -215,6 +205,6 @@ export async function GET() {
     return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     console.warn('[nps-portfolio]', (e as Error).message)
-    return NextResponse.json({ status: 'error', allocation: ALLOCATION, domestic: [], overseas: [], domTotalValue: 0, domCount: 0, ovsTotalValue: 0, ovsCount: 0, ovsAsOf: '', scanned: UNIVERSE.length, asOf: new Date().toISOString(), message: '국민연금 자산현황 수집 중 오류가 발생했습니다.' } as NpsDashboardResult)
+    return NextResponse.json({ status: 'error', domestic: [], overseas: [], domTotalValue: 0, domCount: 0, ovsTotalValue: 0, ovsCount: 0, ovsAsOf: '', scanned: UNIVERSE.length, asOf: new Date().toISOString(), message: '국민연금 자산현황 수집 중 오류가 발생했습니다.' } as NpsDashboardResult)
   }
 }

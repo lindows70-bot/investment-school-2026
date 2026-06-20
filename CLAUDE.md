@@ -1960,6 +1960,12 @@ Coinglass(순유입/유출)·TheBlock(누적 거래량) 차트를 무료·무키
   - 학생 보유 63종목 전수 검증(2026-06-19): ETF·가상티커 36개 전부 unknown(계산불가) graceful · 개별주 verdict 타당(AAPL/TXN/OXY demanding·GOOGL/현대차 conservative·삼성생명 fair·기저효과 KR주 unknown)
 - **`ReverseDcf.tsx`**: 내재기대 vs 실제성장 게이지 + verdict(🔥과도/⚖️합리/🌱보수) + 가정 공개. 리서치 종목 상세(MoneyFlowRadar 다음)
 
+## 🏛️ 국민연금 자산현황 — 하드코딩 자산배분 제거 (2026-06-19)
+
+검증 결과: Top10 보유종목(국내 DART majorstock 5%룰 + 해외 SEC 13F-HR)은 **전부 라이브**(24h 캐시·cron 없음·이벤트/분기 갱신). 단 **자산배분 막대(해외34/국내채28/대체16/국내주14/해외채8)만 하드코딩 상수**였음.
+- NPS 자산군 비중은 **무료 실시간 API 없음**(월간 PDF·~2개월 지연 / 기금운용본부 JS렌더 / 뉴스 RSS 없음) → 직접 확인 후 **하드코딩 제거**(라이브만 표시). `ALLOCATION` 상수·`allocation` 필드·UI 막대·`ALLOC_COLORS` 모두 삭제
+- 참고: 국내 `UNIVERSE`(70종목)는 값이 아닌 **DART 스캔 대상 코드 리스트**(NPS 5%↑ 보유 탐색용)라 하드코딩 아님. 공시後 주가 큰 수치(SK하이닉스 +1572%)는 fchart·global-top10 시총과 일치하는 **소스 충실 반영**(앱 버그 아님)
+
 ---
 
 ## 배포
