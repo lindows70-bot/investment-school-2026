@@ -63,7 +63,7 @@ export async function GET(req: Request) {
       ? `실제 성장(${actualGrowth}%)은 작년 저점 회복 기저효과라 비교 기준으로 못 씁니다. 핵심은 ${impliedGrowth}%를 10년 지속할 수 있느냐인데, 이 수준은 대부분 기업이 못 버팁니다.`
       : `현 주가가 정당화되려면 연 ${impliedGrowth}% 성장이 10년 이어져야 합니다${actualGrowth != null ? `(실제 ${actualGrowth}%)` : ''}. 기대가 식으면 하락 위험이 큽니다.`
   } else if (baseEffect) {
-    verdict = 'fair'
+    verdict = 'unknown'   // 기저효과라 '합리적'이라 단정 불가 — 배지도 '판단 보류'로
     headline = `시장 내재 기대 ${impliedGrowth}% — 실제 ${actualGrowth}%는 기저효과(비교 보류)`
     detail = `실제 성장률이 작년 저점 회복으로 비정상적으로 높아, 내재 기대(${impliedGrowth}%)와의 직접 비교는 무의미합니다. ${impliedGrowth}%가 정상화 이후에도 가능한지로 판단하세요.`
   } else if (actualGrowth == null) {
