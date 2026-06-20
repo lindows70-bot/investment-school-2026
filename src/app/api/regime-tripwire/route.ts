@@ -33,6 +33,8 @@ export interface RegimeTripwireResult {
   transition: RegimeTransition | null   // 최근 전환(없으면 안정)
   flips: RegimeFlip[]         // 전환으로 유↔불리 바뀐 보유종목
   favoredNow: number; unfavoredNow: number
+  favoredList: { ticker: string; name: string; market: 'KR' | 'US' }[]    // 현재 계절 유리 보유종목
+  unfavoredList: { ticker: string; name: string; market: 'KR' | 'US' }[]  // 현재 계절 불리 보유종목
   nextFomc: string | null
   asOf: string
 }
@@ -94,6 +96,8 @@ export async function GET(req: Request) {
   const stocks = (rows ?? []).filter(r => getAssetType(r.ticker, r.name ?? '', r.market ?? 'US') === 'STOCK')
 
   const flips: RegimeFlip[] = []
+  const favoredList: { ticker: string; name: string; market: 'KR' | 'US' }[] = []
+  const unfavoredList: { ticker: string; name: string; market: 'KR' | 'US' }[] = []
   let favoredNow = 0, unfavoredNow = 0
   for (let i = 0; i < stocks.length; i += 5) {
     const batch = stocks.slice(i, i + 5)
@@ -114,9 +118,13 @@ export async function GET(req: Request) {
           flip = { ticker: s.ticker, name: s.name ?? s.ticker, market, from: fromTag, to: toTag, direction: rank(toTag) > rank(fromTag) ? 'up' : 'down' }
         }
       }
-      return { toTag, flip }
+      return { ticker: s.ticker, name: s.name ?? s.ticker, market, toTag, flip }
     }))
-    for (const r of res) { if (r.toTag === 'favored') favoredNow++; else if (r.toTag === 'unfavored') unfavoredNow++; if (r.flip) flips.push(r.flip) }
+    for (const r of res) {
+      if (r.toTag === 'favored') { favoredNow++; favoredList.push({ ticker: r.ticker, name: r.name, market: r.market }) }
+      else if (r.toTag === 'unfavored') { unfavoredNow++; unfavoredList.push({ ticker: r.ticker, name: r.name, market: r.market }) }
+      if (r.flip) flips.push(r.flip)
+    }
   }
   // 불리해진 것 먼저(경고 우선)
   flips.sort((a, b) => (a.direction === b.direction ? 0 : a.direction === 'down' ? -1 : 1))
@@ -126,7 +134,7 @@ export async function GET(req: Request) {
   const result: RegimeTripwireResult = {
     usQuad: cur.usQuad, krQuad: cur.krQuad,
     usSeasonKo: SEASON_META[cur.usQuad].seasonKo, krSeasonKo: SEASON_META[cur.krQuad].seasonKo,
-    stableDays, transition, flips, favoredNow, unfavoredNow, nextFomc,
+    stableDays, transition, flips, favoredNow, unfavoredNow, favoredList, unfavoredList, nextFomc,
     asOf: new Date().toISOString(),
   }
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })

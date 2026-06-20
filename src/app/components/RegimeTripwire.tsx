@@ -5,6 +5,7 @@ import type { RegimeTripwireResult, RegimeFlip } from '@/app/api/regime-tripwire
 
 const CARD = '#161b25', BORDER = '#1e293b'
 const dnm = (f: RegimeFlip) => f.market === 'KR' ? (f.name || f.ticker).slice(0, 10) : f.ticker.toUpperCase()
+const nm = (s: { ticker: string; name: string; market: 'KR' | 'US' }) => s.market === 'KR' ? (s.name || s.ticker).slice(0, 10) : s.ticker.toUpperCase()
 
 export default function RegimeTripwire() {
   const [d, setD] = useState<RegimeTripwireResult | null>(null)
@@ -40,7 +41,7 @@ export default function RegimeTripwire() {
         <span style={{ marginLeft: 'auto', color: '#7f93a8', fontSize: 11 }}>
           {hasTransition
             ? <b style={{ color: accent }}>⚡ {d.transition!.daysSince}일 전 국면 전환</b>
-            : <>✅ 국면 안정 · {d.stableDays}일째 유지{d.nextFomc ? ` · 다음 FOMC ${d.nextFomc}` : ''}</>}
+            : <>✅ {d.stableDays >= 1 ? `국면 안정 · ${d.stableDays}일째 유지` : '국면 감시 시작'}{d.nextFomc ? ` · 다음 FOMC ${d.nextFomc}` : ''}</>}
         </span>
       </div>
 
@@ -69,8 +70,16 @@ export default function RegimeTripwire() {
       )}
 
       {!hasTransition && (
-        <div style={{ color: '#9aa7b4', fontSize: 11, marginTop: 6, lineHeight: 1.6 }}>
-          현재 계절 기준 내 종목 <b style={{ color: '#22c55e' }}>{d.favoredNow}개 유리</b>{d.unfavoredNow > 0 && <> · <b style={{ color: '#f59e0b' }}>{d.unfavoredNow}개 불리</b></>}. 국면이 바뀌면 어떤 종목이 뒤집히는지 여기서 즉시 경고합니다.
+        <div style={{ marginTop: 7, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ color: '#22c55e', fontSize: 11, fontWeight: 700 }}>🌱 계절 유리 {d.favoredNow}</span>
+            {d.favoredList.map(s => <span key={s.ticker} style={{ background: '#0f1117', color: '#86efac', border: '1px solid #22c55e44', borderRadius: 7, padding: '2px 9px', fontSize: 11.5, fontWeight: 700 }}>{nm(s)}</span>)}
+            {d.unfavoredNow > 0 && <>
+              <span style={{ color: '#f59e0b', fontSize: 11, fontWeight: 700, marginLeft: 4 }}>⚠️ 불리 {d.unfavoredNow}</span>
+              {d.unfavoredList.map(s => <span key={s.ticker} style={{ background: '#0f1117', color: '#fcd34d', border: '1px solid #f59e0b44', borderRadius: 7, padding: '2px 9px', fontSize: 11.5, fontWeight: 700 }}>{nm(s)}</span>)}
+            </>}
+          </div>
+          <div style={{ color: '#9aa7b4', fontSize: 10.5, lineHeight: 1.6 }}>국면이 바뀌면 어떤 종목이 유↔불리로 뒤집히는지 여기서 즉시 경고합니다.</div>
         </div>
       )}
     </div>
