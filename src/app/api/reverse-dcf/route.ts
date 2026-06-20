@@ -50,7 +50,6 @@ export async function GET(req: Request) {
   //        ② 기저효과: 실제 성장 60%↑는 작년 저점 회복 스파이크라 비교 기준으로 비신뢰(PEG 함정의 일반화)
   const HARD = 20, SPIKE = 60
   const baseEffect = actualGrowth != null && actualGrowth > SPIKE
-  const actualReliable = actualGrowth != null && !baseEffect
 
   if (impliedGrowth == null) {
     headline = 'EPS(이익)가 없어 역-DCF 계산 불가'

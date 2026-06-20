@@ -8,7 +8,6 @@ interface Tx { ticker: string; name: string; type: 'buy' | 'sell'; price: number
 
 const CARD = '#1b1e2e', SHO = '7px 7px 18px #0e1020, -4px -4px 12px #282c44'
 
-type Bucket = { key: string; label: string }
 // 신호 차원 정의 — 스냅샷 필드에서 거래를 버킷으로 분류
 const DIMS: { dim: string; icon: string; of: (s: any) => string | null }[] = [   // eslint-disable-line @typescript-eslint/no-explicit-any
   { dim: '밸류에이션 (PEG)', icon: '💰', of: s => s?.peg == null ? null : s.peg < 1 ? '저PEG (<1·저평가)' : '고PEG (≥1)' },
@@ -61,7 +60,7 @@ export default function DecisionCalibration({ transactions, priceMap }: { transa
       <div style={{ fontSize: 15, fontWeight: 800, color: '#dde4f0', marginBottom: 8 }}>신호가 박제된 매수가 아직 없습니다</div>
       <div style={{ fontSize: 12.5, color: '#8b92b8', lineHeight: 1.8, maxWidth: 480, margin: '0 auto' }}>
         이제부터 종목을 매수하면 그 순간의 <b style={{ color: '#a5b4fc' }}>PEG·수급·계절·FOMC 신호</b>가 자동 박제됩니다.<br />
-        거래가 쌓이면 "어떤 신호에서 산 결정이 맞았나"를 적중률로 채점해 드립니다.
+        거래가 쌓이면 &quot;어떤 신호에서 산 결정이 맞았나&quot;를 적중률로 채점해 드립니다.
         <br /><span style={{ fontSize: 11, color: '#9aa0b8' }}>※ 다신호 스냅샷 도입(2026-06-19) <b>이후 매수</b>부터 집계됩니다. 과거 거래는 신호가 기록돼 있지 않아(단순 보유 승률과 구분) 제외됩니다.</span>
       </div>
     </div>
@@ -115,7 +114,7 @@ export default function DecisionCalibration({ transactions, priceMap }: { transa
       ))}
 
       <div style={{ color: '#6e7f8f', fontSize: 10, lineHeight: 1.6 }}>
-        ※ 매수 시점 신호 스냅샷 × 현재가로 채점 — 표본이 적을수록(특히 2~3건) 통계적 신뢰도는 낮습니다. 운과 실력을 분리해 '내 의사결정 패턴'을 보는 교육용 지표입니다.
+        ※ 매수 시점 신호 스냅샷 × 현재가로 채점 — 표본이 적을수록(특히 2~3건) 통계적 신뢰도는 낮습니다. 운과 실력을 분리해 &apos;내 의사결정 패턴&apos;을 보는 교육용 지표입니다.
       </div>
     </div>
   )

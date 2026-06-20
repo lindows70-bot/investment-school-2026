@@ -1,4 +1,5 @@
 'use client'
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // 코인 관련 주식 패널 — BTC 베타(레버리지)와 본업 가치로 코인주식을 평가하는 교육 시각화
 import { useState, useEffect } from 'react'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, ReferenceLine } from 'recharts'
@@ -107,8 +108,8 @@ export default function CryptoStocksPanel() {
       {/* 교육 설명 */}
       <div style={{ background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 10, padding: '10px 14px', color: '#fde68a', fontSize: 11.5, lineHeight: 1.7 }}>
         🏢 <b>코인 관련 주식 평가 프레임</b> — 두 가지 질문으로 봅니다.
-        <br />① <b>BTC 베타</b>: "이 주식이 BTC 1% 오를 때 몇 % 움직이나?" — 베타 2.0 = BTC의 2배 레버리지.
-        <br />② <b>본업 가치</b>: "BTC를 빼면 뭘로 돈 버나?" — 거래소 수수료 / 채굴 스프레드 / 스테이블 이자 / 리테일 플랫폼.
+        <br />① <b>BTC 베타</b>: &quot;이 주식이 BTC 1% 오를 때 몇 % 움직이나?&quot; — 베타 2.0 = BTC의 2배 레버리지.
+        <br />② <b>본업 가치</b>: &quot;BTC를 빼면 뭘로 돈 버나?&quot; — 거래소 수수료 / 채굴 스프레드 / 스테이블 이자 / 리테일 플랫폼.
         <br /><span style={{ color: '#fbbf24', fontSize: 10.5 }}>※ 1년 주봉 수익률 기준. 단기 급등락 구간엔 베타가 왜곡될 수 있어 장기 추세 참고용으로만 쓰세요.</span>
       </div>
 
@@ -187,7 +188,7 @@ export default function CryptoStocksPanel() {
 
       {/* 비즈니스 모델 설명 */}
       <div style={{ background: CARD, borderRadius: 10, border: `1px solid ${BORDER}`, padding: '11px 14px' }}>
-        <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 12, marginBottom: 8 }}>🔍 비즈니스 모델 — "BTC를 빼면 뭘로 돈 버나"</div>
+        <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 12, marginBottom: 8 }}>🔍 비즈니스 모델 — &quot;BTC를 빼면 뭘로 돈 버나&quot;</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           {d.stocks.map(s => (
             <div key={s.symbol} style={{ display: 'flex', gap: 8 }}>

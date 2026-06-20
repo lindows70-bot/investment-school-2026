@@ -1,7 +1,8 @@
 'use client'
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // 🏛️ 코스피/코스닥 투자자별 매매동향 — 개인·외국인·기관 일별 순매수 + 외국인 누적 타임라인(네이버페이 스타일)
 import { useState, useEffect } from 'react'
-import { ResponsiveContainer, BarChart, Bar, ComposedChart, Area, Line, XAxis, YAxis, Tooltip, ReferenceLine, Cell as RCell } from 'recharts'
+import { ResponsiveContainer, BarChart, Bar, ComposedChart, Area, XAxis, YAxis, Tooltip, ReferenceLine, Cell as RCell } from 'recharts'
 import type { MarketInvestorResult, InvestorRow } from '@/app/api/market-investor-trend/route'
 
 const CARD = '#161b25', BORDER = '#1e293b'
