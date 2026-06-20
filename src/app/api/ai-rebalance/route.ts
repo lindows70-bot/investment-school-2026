@@ -19,6 +19,8 @@ import { screenSatellite, type SatelliteScore } from '@/lib/satelliteScreener'
 import type { UnifiedRecoResult } from '@/app/api/unified-reco/route'   // ③통합매수와 동일 SSOT(제2원칙)
 import { classifyAssetRole, type AssetRole } from '@/lib/portfolioRole'   // P2: 코어-새틀라이트 5분류 SSOT
 import { getCurrentSeason } from '@/lib/currentSeason'
+import { holdingFit } from '@/lib/seasonNavigator'   // 보강: 계절 적합도(불리 종목 트림)
+import { getMoneyFlow } from '@/lib/moneyFlow'        // 보강: 수급 이탈(CROWDED) 트림
 
 // 코어 목표 밴드(40~70%) — 위험 계절·매파일수록 코어(지수+채권) ↑
 function coreTargetBand(usQuad: string, rateDir: string): { min: number; max: number; text: string } {
@@ -219,7 +221,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v17:${user.id}:${today}:${fp}`   // v17: 자산군 MV 버그(50개한도·크립토 통화) 수정
+  const cacheKey = `ai-rebalance-v18:${user.id}:${today}:${fp}`   // v18: 3액션 이유 강화(역DCF·수급·계절 주입)
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -431,7 +433,7 @@ export async function GET(req: Request) {
   // ═══ P2: 코어-새틀라이트 5분류 자산군 분석(전 자산 기준) ═══════════════════════
   let coreSatellite: CoreSatelliteView | undefined
   try {
-    coreSatellite = await buildCoreSatellite(rows ?? [], diagnoses, buyCandidates, satelliteCandidates, zombieHoldings, base, usdKrw)
+    coreSatellite = await buildCoreSatellite(rows ?? [], diagnoses, buyCandidates, satelliteCandidates, zombieHoldings, secByTicker, base, usdKrw)
   } catch (e) { console.warn('[coreSatellite]', (e as Error).message) }
 
   const result: RebalanceResult = {
@@ -453,7 +455,7 @@ const ROLE_GROUP: Record<AssetRole, string> = {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], buys: BuyCandidate[], sats: SatelliteCandidate[], zombies: { ticker: string; name: string; market: string }[], base: string, usdKrw: number): Promise<CoreSatelliteView> {
+async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], buys: BuyCandidate[], sats: SatelliteCandidate[], zombies: { ticker: string; name: string; market: string }[], secByTicker: Record<string, string>, base: string, usdKrw: number): Promise<CoreSatelliteView> {
   // ① 전 자산 가치평가(원화) — ⚠️ stock-price POST는 최대 50개 → 40개씩 청크. 통화는 API의 currency 필드 사용
   //    (버그 수정: 크립토는 Upbit 원화 기준인데 market 기반으로 ×usdKrw하면 1380배 폭증 → currency==='KRW'면 ×1)
   const priceMap = new Map<string, { price: number; krw: boolean }>()
@@ -490,9 +492,34 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
 
   // ③ 코어 동적 밴드(4계절·금리)
   let band = { min: 50, max: 60, text: '국면 분석 보류' }
-  try { const s = await getCurrentSeason(base); band = coreTargetBand(s.usQuad, s.rateDir) } catch { /* 폴백 */ }
+  let season: Awaited<ReturnType<typeof getCurrentSeason>> | null = null
+  try { season = await getCurrentSeason(base); band = coreTargetBand(season.usQuad, season.rateDir) } catch { /* 폴백 */ }
 
   const mvByTicker = new Map(items.map(i => [i.ticker.toUpperCase(), i]))
+
+  // ③' 보강: 종목별 매도측 신호 수집(역-DCF·수급·계절) — 보유 진단 종목 한정·캐시 재사용
+  const sig = new Map<string, { dcf?: string; flow?: string; seasonTag?: string }>()
+  await Promise.all(diagnoses.map(async d => {
+    const k = d.ticker.toUpperCase(); const mk = (d.market === 'KR' ? 'KR' : 'US') as 'KR' | 'US'; const o: { dcf?: string; flow?: string; seasonTag?: string } = {}
+    try { const r = await fetch(`${base}/api/reverse-dcf?ticker=${encodeURIComponent(d.ticker)}&market=${mk}`, { signal: AbortSignal.timeout(10_000) }); if (r.ok) o.dcf = (await r.json())?.verdict } catch { /* graceful */ }
+    try { const mf = await getMoneyFlow(d.ticker, mk, d.name, base); o.flow = mf?.status } catch { /* graceful */ }
+    if (season) {
+      const quad = mk === 'KR' ? season.krQuad : season.usQuad
+      const sec = secByTicker[k]
+      const fit = holdingFit({ ticker: '', weight: 0, lynchCategory: (d.lynchCategory as never) ?? null, sector: sec }, quad)
+      o.seasonTag = fit >= 0.75 ? 'favored' : fit <= 0.5 ? 'unfavored' : 'neutral'
+    }
+    sig.set(k, o)
+  }))
+  // 신호 → 한국어 사유 조각(매도측 위험만)
+  const sellSignalText = (k: string): string[] => {
+    const o = sig.get(k); if (!o) return []
+    const out: string[] = []
+    if (o.dcf === 'demanding') out.push('역-DCF 기대과도🔥(주가가 실제보다 높은 성장 선반영)')
+    if (o.flow === 'CROWDED') out.push('수급 이탈·과열(외인·기관 매도 우위)')
+    if (o.seasonTag === 'unfavored') out.push('현재 계절 역풍(불리 섹터)')
+    return out
+  }
 
   // ④ 🗑️ 버릴 것 — 정책 차단 + 손절 + 좀비
   const drop: ActionItem[] = []
@@ -530,6 +557,23 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
     } else if (d.trimWeight >= 0.1 && !dropSeen.has(d.ticker.toUpperCase()) && d.action !== 'TAKE_PROFIT') {
       trim.push({ ticker: d.ticker, name: d.name, market: (d.market === 'KR' ? 'KR' : 'US'), weightPct: pctOf(mvByTicker.get(d.ticker.toUpperCase())?.mv ?? 0), trimPct: d.trimWeight, reason: d.sellReasons.join('·') || '분류 비중 과다 — 분산 위해 일부 축소', tag: '집중 축소' })
     }
+  }
+  // ⑤' 신호 기반 트림 — 역DCF 기대과도·수급 이탈·계절 역풍(이미 정리/축소 대상 아닌 종목, 비중 큰 순)
+  const trimSeen = new Set(trim.map(t => t.ticker.toUpperCase()))
+  for (const d of [...diagnoses].sort((a, b) => (pctOf(mvByTicker.get(b.ticker.toUpperCase())?.mv ?? 0)) - (pctOf(mvByTicker.get(a.ticker.toUpperCase())?.mv ?? 0)))) {
+    const k = d.ticker.toUpperCase()
+    if (dropSeen.has(k) || trimSeen.has(k)) continue
+    const sigs = sellSignalText(k)
+    if (sigs.length === 0) continue
+    const w = pctOf(mvByTicker.get(k)?.mv ?? 0)
+    if (w < 1) continue   // 비중 1% 미만은 노이즈
+    trim.push({ ticker: d.ticker, name: d.name, market: (d.market === 'KR' ? 'KR' : 'US'), weightPct: w, trimPct: Math.round(Math.min(w * 0.3, 4) * 10) / 10, reason: sigs.join(' · '), tag: sig.get(k)?.dcf === 'demanding' ? '고평가' : sig.get(k)?.flow === 'CROWDED' ? '수급 이탈' : '계절 역풍' })
+    trimSeen.add(k)
+  }
+  // 기존 drop·trim 이유에 종목 신호 보강(중복 방지)
+  for (const a of [...drop, ...trim]) {
+    const extra = sellSignalText(a.ticker.toUpperCase()).filter(s => !a.reason.includes(s.slice(0, 6)))
+    if (extra.length) a.reason = `${a.reason} · ${extra.join(' · ')}`
   }
 
   // ⑥ 🛒 보강할 것 — 통합3축 매수 + 캡 미달(BTC/유령) + 코어 밴드 미달
