@@ -55,6 +55,11 @@ export async function GET(req: Request) {
   if (impliedGrowth == null) {
     headline = 'EPS(이익)가 없어 역-DCF 계산 불가'
     detail = '적자·이익 미상 종목은 PER 기반 역산이 어렵습니다. PSR·매출 성장으로 따로 봐야 합니다.'
+  } else if (impliedGrowth < 1) {
+    // 초저PER(<~6.5) — 은/원자재 트러스트 등 자산형이나 딥밸류·특수. 역-DCF는 성장형 사고틀이라 부적합
+    verdict = 'unknown'
+    headline = `PER ${pe != null ? Math.round(pe * 10) / 10 : pe}로 매우 낮아 역-DCF 성장 역산이 부적합합니다`
+    detail = '은·원자재 트러스트 같은 자산형이거나 딥밸류·특수 상황입니다. 성장이 아니라 PBR·자산가치(NAV)로 평가해야 합니다.'
   } else if (impliedGrowth > HARD) {
     // 내재 기대가 절대적으로 높음 — 실제가 무엇이든 '10년 지속'이 매우 어려움
     verdict = 'demanding'
