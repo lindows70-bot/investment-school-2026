@@ -56,7 +56,7 @@ function Row({ e, maxMc }: { e: TopEntry; maxMc: number }) {
 }
 
 function SidePanel({ flag, title, list, maxMc }: { flag: string; title: string; list: TopEntry[]; maxMc: number }) {
-  const total = list.reduce((s, e) => s + e.marketCapKrw, 0)
+  const total = list.reduce((s, e) => s + Number(e.marketCapKrw || 0), 0)   // Number 강제(문자열 시총 방어)
   return (
     <div style={{ flex: '1 1 340px', display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>

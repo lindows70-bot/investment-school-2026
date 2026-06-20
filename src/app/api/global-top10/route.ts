@@ -68,6 +68,7 @@ const LYNCH_US: Record<string, { lynchLabel: string; sector: string }> = {
   'AMD': { lynchLabel: '빠른성장주', sector: '반도체' },
   'ASML': { lynchLabel: '빠른성장주', sector: '반도체장비' },
   'TSM': { lynchLabel: '경기순환주', sector: '반도체 파운드리' },
+  'SPCX': { lynchLabel: '빠른성장주', sector: '우주항공/위성' },   // SpaceX — 2026 상장, 시총 $2T+ 진입
   'CRM': { lynchLabel: '빠른성장주', sector: '클라우드SaaS' },
   'NKE': { lynchLabel: '대형우량주', sector: '스포츠의류' },
   'GE':  { lynchLabel: '대형우량주', sector: '산업/항공' },
@@ -93,9 +94,9 @@ async function fetchKrTop10(usdKrw: number): Promise<TopEntry[]> {
       const flucRaw = s.fluctuationsRatio ? parseFloat(s.fluctuationsRatio) : null
       const chgAmt = parseFloat(s.compareToPreviousClosePrice?.replace(/,/g, '') || '0')
       const changePct = flucRaw ?? (close > 0 ? Math.round((chgAmt / (close - chgAmt)) * 1000) / 10 : null)
-      // marketValueRaw = 원(원화 그대로). marketValue 문자열(억 단위 짐작)→ 보조 폴백
-      const marketCapKrw = s.marketValueRaw
-        ?? parseFloat(String(s.marketValue).replace(/,/g, '') || '0') * 1e6
+      // marketValueRaw = 원(원화 그대로) — ★ JSON에서 문자열로 옴 → Number 강제(안 하면 합계 reduce가 문자열 연결돼 e+131 오버플로)
+      const rawMc = s.marketValueRaw != null ? Number(s.marketValueRaw) : parseFloat(String(s.marketValue).replace(/,/g, '') || '0') * 1e6
+      const marketCapKrw = isFinite(rawMc) && rawMc > 0 ? rawMc : 0
       entries.push({ rank: entries.length + 1, ticker: s.itemCode, name: s.stockName, market: 'KR', marketCapKrw, marketCapUsd: marketCapKrw / usdKrw, changePct, ...meta })
     }
     return entries
@@ -130,7 +131,7 @@ async function fetchUsTop10(usdKrw: number): Promise<TopEntry[]> {
 
 export async function GET(req: Request) {
   const forceRefresh = new URL(req.url).searchParams.get('refresh') === '1'
-  const cacheKey = `global-top10-v1:${kstDate()}`
+  const cacheKey = `global-top10-v2:${kstDate()}`   // v2: KR 시총 숫자화(e+131 버그 수정) + SPCX 추가
   if (!forceRefresh) {
     const cached = await getCache<GlobalTop10Result>(cacheKey, 12 * 3600_000)
     if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
