@@ -52,6 +52,7 @@ function ActionCard({ icon, title, color, count, children }: { icon: string; tit
 
 export default function CoreSatelliteHero({ cs, portfolioValue }: { cs: CoreSatelliteView; portfolioValue: number }) {
   const coreOk = cs.corePct >= cs.coreTargetMin && cs.corePct <= cs.coreTargetMax
+  const pv = cs.totalValue > 0 ? cs.totalValue : portfolioValue   // 전 자산 총액 우선(원화 환산 정확도)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* 자산군 구성 */}
@@ -95,7 +96,7 @@ export default function CoreSatelliteHero({ cs, portfolioValue }: { cs: CoreSate
             <div key={a.ticker} style={{ background: '#0f1117', borderRadius: 8, padding: '8px 10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                 <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 12 }}>{dnm(a.market, a.name, a.ticker)}</span>
-                <span style={{ color: '#64748b', fontSize: 10, fontFamily: 'monospace' }}>{a.weightPct}%{wonTag(a.weightPct, portfolioValue)}</span>
+                <span style={{ color: '#64748b', fontSize: 10, fontFamily: 'monospace' }}>{a.weightPct}%{wonTag(a.weightPct, pv)}</span>
                 <span style={{ marginLeft: 'auto' }}><Tag t={a.tag} color="#ef4444" /></span>
               </div>
               <div style={{ color: '#9aa7b4', fontSize: 11, lineHeight: 1.5 }}>{a.reason}</div>
@@ -108,7 +109,7 @@ export default function CoreSatelliteHero({ cs, portfolioValue }: { cs: CoreSate
             <div key={a.ticker} style={{ background: '#0f1117', borderRadius: 8, padding: '8px 10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                 <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 12 }}>{dnm(a.market, a.name, a.ticker)}</span>
-                {a.trimPct != null && <span style={{ color: '#f59e0b', fontSize: 10.5, fontWeight: 800, fontFamily: 'monospace' }}>−{a.trimPct}%p{wonTag(a.trimPct, portfolioValue)}</span>}
+                {a.trimPct != null && <span style={{ color: '#f59e0b', fontSize: 10.5, fontWeight: 800, fontFamily: 'monospace' }}>−{a.trimPct}%p{wonTag(a.trimPct, pv)}</span>}
                 <span style={{ marginLeft: 'auto' }}><Tag t={a.tag} color="#f59e0b" /></span>
               </div>
               <div style={{ color: '#9aa7b4', fontSize: 11, lineHeight: 1.5 }}>{a.reason}</div>
@@ -121,7 +122,7 @@ export default function CoreSatelliteHero({ cs, portfolioValue }: { cs: CoreSate
             <div key={`${a.ticker}-${i}`} style={{ background: '#0f1117', borderRadius: 8, padding: '8px 10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                 <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 12 }}>{dnm(a.market, a.name, a.ticker)}</span>
-                {a.targetPct > 0 && <span style={{ color: '#22c55e', fontSize: 10.5, fontWeight: 800, fontFamily: 'monospace' }}>+{a.targetPct}%{wonTag(a.targetPct, portfolioValue)}</span>}
+                {a.targetPct > 0 && <span style={{ color: '#22c55e', fontSize: 10.5, fontWeight: 800, fontFamily: 'monospace' }}>+{a.targetPct}%{wonTag(a.targetPct, pv)}</span>}
                 <span style={{ marginLeft: 'auto' }}><Tag t={a.tag} color="#22c55e" /></span>
               </div>
               <div style={{ color: '#9aa7b4', fontSize: 11, lineHeight: 1.5 }}>{a.reason}</div>

@@ -148,6 +148,7 @@ export interface ActionItem {
 export interface BuyIdea { ticker: string; name: string; market: string; role: string; targetPct: number; reason: string; tag: string }
 export interface CoreSatelliteView {
   groups: AssetGroupRow[]              // 5분류+차단 현재 비중(전 자산)
+  totalValue: number                   // 전 자산 원화 총액(원화 환산 정확도용 — 주식만 아닌 ETF·크립토 포함)
   corePct: number; coreTargetMin: number; coreTargetMax: number; coreTargetText: string
   btcPct: number; ghostPct: number; capPct: number   // 캡(10%) 대비
   drop: ActionItem[]                   // 🗑️ 버릴 것
@@ -221,7 +222,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v18:${user.id}:${today}:${fp}`   // v18: 3액션 이유 강화(역DCF·수급·계절 주입)
+  const cacheKey = `ai-rebalance-v19:${user.id}:${today}:${fp}`   // v19: 원화 환산 전 자산 총액 기준 정정
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -591,7 +592,7 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
   const guide = `유휴 현금을 먼저 쓰고, 부족하면 ${dropName ? `'${dropName}' 등 정리 대상의 매도 대금` : '비중 축소 자산의 매도 대금'}으로 ${addName ? `'${addName}' 등` : '보강 대상'}을 매수하세요. ⚠️ 실제 체결은 직접 진행 — 본 가이드는 순서·금액 제안까지입니다(국내 T+2 등 결제일 고려).`
 
   return {
-    groups, corePct, coreTargetMin: band.min, coreTargetMax: band.max, coreTargetText: band.text,
+    groups, totalValue: Math.round(total), corePct, coreTargetMin: band.min, coreTargetMax: band.max, coreTargetText: band.text,
     btcPct, ghostPct, capPct: CAP,
     drop: drop.sort((a, b) => b.weightPct - a.weightPct), trim, add, guide,
   }
