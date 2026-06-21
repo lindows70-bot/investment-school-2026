@@ -41,7 +41,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `hq-briefing-v9:${user.id}:${kstDate()}:${fp}`   // v9: 암호 유동성 경색(스테이블 시총) 리스크 추가
+  const cacheKey = `hq-briefing-v10:${user.id}:${kstDate()}:${fp}`   // v10: 정책기조를 FOMC 디코더 stance에 일치(매파↔비둘기 모순 차단)
   const cached = await getCache<HqBriefing>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -53,7 +53,7 @@ export async function GET(req: Request) {
       if (!r.ok) return null; const j = await r.json(); return j.error ? null : j as T
     } catch { return null }
   }
-  const [season, unified, rebal, fed, regime, morning, reg, stable] = await Promise.all([
+  const [season, unified, rebal, fed, regime, morning, reg, stable, fomc] = await Promise.all([
     fetchAuthed<SeasonNavResult>('/api/season-navigator'),
     fetchAuthed<UnifiedRecoResult>('/api/unified-reco'),
     fetchAuthed<RebalanceResult>('/api/ai-rebalance', 35_000),   // 손익 기준 매도(4분면) — 무거우니 타임아웃 길게
@@ -62,6 +62,7 @@ export async function GET(req: Request) {
     fetchAuthed<MorningstarResult>('/api/morningstar-rating', 35_000),  // 🌟 종목별 해자·공정가치·기저효과(리스크 레이어)
     fetchAuthed<RegulationResult>('/api/crypto-regulation', 10_000),    // 🏛️ 코인 규제 기후(코인 보유 시에만 적용)
     fetchAuthed<StablecoinResult>('/api/stablecoin', 12_000),           // 💧 암호시장 유동성(스테이블 시총 추이) — 코인 보유 시 유동성 경색 경고
+    fetchAuthed<{ stance?: 'hawkish' | 'neutral' | 'dovish'; decision?: string }>('/api/fomc-decoder', 12_000),  // 🏛️ 직전 FOMC 실제 결정/기조 — 정책 라벨 SSOT(FOMC 디코더와 모순 방지)
   ])
 
   // 코인 보유 여부(규제 리스크 스코핑용) — 주식 종목별 규제 DB는 없으므로 규제는 코인 자산에만 적용(정직)
@@ -92,12 +93,19 @@ export async function GET(req: Request) {
   let policyTilt: HqBriefing['policyTilt'] = null
   if (fed) {
     const rateDir = regime?.rateDir ?? 'hold'
-    const dovish = fed.noiseGap >= 0.8 || fed.laborStatus === 'cooling'   // 헤드라인 노이즈↑(기조<목표 근접) 또는 고용 둔화
-    const hawkish = fed.laborStatus === 'hot' || (fed.trimmedPce.latest > 2.5 && fed.noiseGap < 0.8)  // 고용 과열 또는 기조물가 끈적
-    const tilt = dovish && !hawkish ? 'dovish' : hawkish && !dovish ? 'hawkish' : 'neutral'
+    const pceDovish = fed.noiseGap >= 0.8 || fed.laborStatus === 'cooling'   // 헤드라인 노이즈↑(기조<목표 근접) 또는 고용 둔화
+    const pceHawkish = fed.laborStatus === 'hot' || (fed.trimmedPce.latest > 2.5 && fed.noiseGap < 0.8)  // 고용 과열 또는 기조물가 끈적
+    // ⚠️ 모순 방지(중요): 직전 FOMC 실제 결정(FOMC 디코더 stance)이 PCE 추론보다 우선. FOMC가 매파면 '비둘기 여지' 단정 금지.
+    //    (FOMC 디코더가 '매파'인데 본부장이 '비둘기 여지'라 하면 거시경제 탭과 정면 모순)
+    const fomcStance = fomc?.stance ?? null
+    let tilt: 'dovish' | 'hawkish' | 'neutral'
+    if (fomcStance === 'hawkish') tilt = 'hawkish'        // 실제 FOMC 매파 → 매파 확정(PCE 비둘기 추론은 note에서 '단, 강도 제한적'으로만)
+    else if (fomcStance === 'dovish') tilt = 'dovish'
+    else tilt = pceDovish && !pceHawkish ? 'dovish' : pceHawkish && !pceDovish ? 'hawkish' : 'neutral'   // FOMC 중립/미상 → PCE 추론
+    const softer = tilt === 'hawkish' && pceDovish && fed.trimmedPce.latest <= 2.5   // 매파지만 기조물가는 낮음(긴축 강도 제한 가능)
     const label = tilt === 'dovish'
       ? (rateDir === 'cut' && fed.trimmedPce.latest <= 2.0 ? '비둘기 우위(완화 쪽)' : '시장 대비 비둘기 여지')
-      : tilt === 'hawkish' ? '매파 우위(긴축 유지)' : '중립(데이터 의존)'
+      : tilt === 'hawkish' ? (fomcStance === 'hawkish' ? '매파(FOMC 인상 시사)' : '매파 우위(긴축 유지)') : '중립(데이터 의존)'
     const mktTxt = rateDir === 'hike' ? '시장(FF선물)은 인상 쪽을 반영 중' : rateDir === 'cut' ? '시장은 인하를 반영 중' : '시장은 동결을 반영 중'
     const note = `고용 ${fed.laborStatus === 'hot' ? '과열' : fed.laborStatus === 'cooling' ? '둔화' : '균형(연착륙)'}, ` +
       `워시 기조물가(절사평균) ${fed.trimmedPce.latest}% vs 헤드라인 ${fed.headlinePce}%(노이즈 ${fed.noiseGap}%p) · ${mktTxt}` +
@@ -105,7 +113,9 @@ export async function GET(req: Request) {
         ? (rateDir === 'cut'
             ? ' → 헤드라인이 부풀어 연준이 시장 기대보다 인하에 더 적극적일 수 있음(성장·기술주에 우호적 가능성).'
             : ' → 기조물가가 시장의 긴축 베팅만큼 단단하지 않아, 연준이 시장 기대보다 덜 매파적일 수 있음(절대적 완화 신호 아님 — 금리 인하 단정 금지).')
-        : tilt === 'hawkish' ? ' → 기조물가/고용이 단단해 고금리 장기화 가능성(가치·현금흐름주 상대 우위).'
+        : tilt === 'hawkish' ? (softer
+            ? ` → 직전 FOMC가 매파(인상 시사)라 고금리 장기화 우세(가치·현금흐름주 상대 우위). 단, 워시 기조물가(${fed.trimmedPce.latest}%)가 낮아 추가 긴축 강도는 제한적일 수 있음.`
+            : ' → 기조물가/고용·직전 FOMC가 단단해 고금리 장기화 가능성(가치·현금흐름주 상대 우위).')
           : ' → 어느 쪽도 단정 어려움, 분할·신중 접근.')
     policyTilt = { tilt, label, note }
   }
@@ -160,7 +170,7 @@ ${buyTxt || '없음'}
 
 [작성 규칙]
 - ⭐ 위 [리스크 체크]를 처방에 반드시 녹여라(상황 인지형 처방): ① 규제 🔴 자산은 ROE·성장이 좋아도 신규 매수를 '대기'로 권하고 그 이유를 명시 ② 공정가치 대비 고평가·기저효과 종목은 추격 매수 자제·분할 익절 톤 ③ 해자 없음 종목은 비중 제한 권고. 단, 리스크 체크에 없는 내용을 지어내지는 마라.
-- 4~5문장, 한국어. ① 지금 국면과 내 포폴 정합 상태 ② 손익 기준 매도 신호가 있으면 무엇을 왜(손절=손실+thesis붕괴 / 익절=수익+고평가), 없으면 "급히 팔 종목은 없음" ③ 매도/회수 자금(${sellBudget}%)으로 통합 1~2위 종목을 왜 담을지(3축 근거 + 매도↔매수 연결) ④ 연준 기조 한 줄(예: "헤드라인 물가는 높지만 워시가 보는 기조물가는 ${policyTilt && fed ? fed.trimmedPce.latest + '%' : '낮은 수준'}이라 연준이 시장 기대보다 비둘기적일 수 있다")을 매수 톤 보조 근거로만 가볍게 언급 ⑤ "분할로 신중히" 톤.
+- 4~5문장, 한국어. ① 지금 국면과 내 포폴 정합 상태 ② 손익 기준 매도 신호가 있으면 무엇을 왜(손절=손실+thesis붕괴 / 익절=수익+고평가), 없으면 "급히 팔 종목은 없음" ③ 매도/회수 자금(${sellBudget}%)으로 통합 1~2위 종목을 왜 담을지(3축 근거 + 매도↔매수 연결) ④ 연준 기조 한 줄 — ⚠️ 반드시 위 [연준 기조] 라벨(${policyTilt ? policyTilt.label : '중립'})과 일치시켜라(거시경제 탭 FOMC 디코더와 모순 금지). 매파면 "고금리 장기화", 비둘기면 "시장보다 덜 매파적" 톤으로 매수 종목 성격 보조 근거로만 가볍게 언급 ⑤ "분할로 신중히" 톤.
 - ⚠️ 연준 기조는 어디까지나 '참고'다. 계절/국면 판정(${seasonLabel})을 뒤집거나 매크로 결론을 바꾸지 마라. 금리 방향 힌트로 매수 종목 성격(성장주 vs 가치주) 코멘트에만 가볍게 쓰라.
 - ⚠️ 비둘기 기조라도 '금리 인하 예상'·'완화 국면' 같은 절대적 표현 금지 — 시장은 동결/인상을 반영 중일 수 있다. 반드시 '시장 기대보다 덜 매파적일 수 있다' 같은 상대적 표현만 쓰라.
 - ⛔ 자동매매·체결 지시 금지(제안까지). 단정적 수익 예측·가짜 숫자 금지. 손실 깊은 종목 저점매도 강요 금지(thesis 멀쩡하면 보유).
