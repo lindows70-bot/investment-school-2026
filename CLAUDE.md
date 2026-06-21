@@ -1995,7 +1995,7 @@ Coinglass(순유입/유출)·TheBlock(누적 거래량) 차트를 무료·무키
 
 ## 배포
 
-- **프로덕션**: https://investment-school-portfolio.vercel.app
+- **프로덕션**: https://investment-school-2026.vercel.app
 - **Region**: icn1 (Seoul)
 - **GitHub**: https://github.com/lindows70-bot/investment-school-2026
 - **Vercel 프로젝트**: lindows70-bots-projects/investment-school-portfolio
