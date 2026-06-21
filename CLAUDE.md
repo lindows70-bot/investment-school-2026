@@ -1966,6 +1966,17 @@ Coinglass(순유입/유출)·TheBlock(누적 거래량) 차트를 무료·무키
 - NPS 자산군 비중은 **무료 실시간 API 없음**(월간 PDF·~2개월 지연 / 기금운용본부 JS렌더 / 뉴스 RSS 없음) → 직접 확인 후 **하드코딩 제거**(라이브만 표시). `ALLOCATION` 상수·`allocation` 필드·UI 막대·`ALLOC_COLORS` 모두 삭제
 - 참고: 국내 `UNIVERSE`(70종목)는 값이 아닌 **DART 스캔 대상 코드 리스트**(NPS 5%↑ 보유 탐색용)라 하드코딩 아님. 공시後 주가 큰 수치(SK하이닉스 +1572%)는 fchart·global-top10 시총과 일치하는 **소스 충실 반영**(앱 버그 아님)
 
+## 🤖 AI 리밸런싱 대개편 — 코어-새틀라이트 의사결정 시스템 (2026-06-21)
+
+"진단 대시보드"였던 AI 리밸런싱을 **코어-새틀라이트 처방전**으로 전면 개편(제미나이 멀티에셋 기획 + 현실 보정). 기존 per-stock 진단·unified-reco·satellite·내러티브는 보존하고 그 위에 자산군 레이어 추가.
+- **`lib/portfolioRole.ts`**(SSOT): 전 보유를 5분류+BLOCKED MECE 매핑 — `CORE_INDEX`(광의지수만)·`CORE_BOND`·`SATELLITE_BTC`·`SATELLITE_GHOST`·`SATELLITE_GENERAL`(섹터/테마ETF·개별주·원자재)·`BLOCKED`(레버리지·비BTC알트). 검증: ETH·XRP·TSLL·AGQ 차단. ⚠️ 섹터/테마 ETF는 코어 아님(새틀라이트 프록시)
+- **`ai-rebalance` `buildCoreSatellite`**: 전 자산 비중 + **코어 동적밴드 40~70%**(4계절·금리, `coreTargetBand`) + **캡 10%**(BTC·유령 초과/미달) + **3액션**(🗑️버릴·✂️줄일·🛒보강) + 조언형 가이드
+  - 3액션 이유에 이번 세션 기술 총동원: 역-DCF(기대과도🔥)·수급(이탈 CROWDED)·계절(불리 holdingFit)을 매도측에 주입(보유종목 한정 캐시 재사용)
+  - 🔧 모순 가드: 역DCF/수급/계절 신호 뜬 종목은 jarvis '사수(DEFEND)'에서 KEEP 강등(PLTR PEG착시 사수↔줄일 충돌 차단)
+- **`CoreSatelliteHero.tsx`**: 자산군 바 + 코어밴드/캡 게이지 + 3액션 카드(강력한 단일 이유·태그). `AiRebalancePanel`에 히어로 우선 배치 + 기존 상세진단은 토글로 접음(복잡함 해소)
+- ⚠️ **버그픽스 핵심**: ① 자산군 MV — `stock-price` POST 50개 한도 초과(63종목)→40개 청크, 크립토는 Upbit 원화라 market기반 ×usdKrw하면 1380배 폭증→`currency` 필드로 환산(99.4% 정책부적합 오류 수정) ② 원화환산 전 자산 totalValue 기준
+- 캐시 v15→v20. 실행은 조언까지(자동 체결 X). 계절↔분산 충돌(여름=경기순환 우대 vs 린치 분산)은 양쪽 정보 표시로 사용자 판단에 위임
+
 ---
 
 ## 배포
