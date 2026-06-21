@@ -305,7 +305,7 @@ export default function AiRebalancePanel() {
       {data.portfolioValue > 0 && (data.sellBudget > 0) && (
         <div style={{ background: '#141720', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '12px 16px' }}>
           <div style={{ color: '#94a3b8', fontSize: 12, lineHeight: 1.7 }}>
-            🧾 <b style={{ color: '#cbd5e1' }}>실행 가이드</b> — 위 비율 옆의 <b>≈₩금액</b>은 내 포트폴리오(약 {wonTotal(data.portfolioValue)}) 기준 환산액입니다.
+            🧾 <b style={{ color: '#cbd5e1' }}>실행 가이드</b> — 위 비율 옆의 <b>≈₩금액</b>은 내 보유주식 <b>현재 시가</b>(약 {wonTotal(data.portfolioValue)}) 기준 환산액입니다(③통합매수의 금액은 매입원가 기준이라 다를 수 있습니다).
             이 금액만큼 <b>본인 증권계좌에서 직접</b> 매도·매수하시면 됩니다.
             <br /><span style={{ color: '#6b7280', fontSize: 11 }}>※ 이 앱은 교육용이라 자동 주문·일괄 거래를 실행하지 않습니다. 실제 매매는 학생 본인이 판단·집행합니다.</span>
           </div>
