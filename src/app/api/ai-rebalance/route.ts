@@ -222,7 +222,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v20:${user.id}:${today}:${fp}`   // v20: 사수↔줄일 모순 제거(매도신호 시 DEFEND 강등)
+  const cacheKey = `ai-rebalance-v21:${user.id}:${today}:${fp}`   // v21: 모멘텀 4축·칼날 제외 매수후보 상속
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -386,7 +386,7 @@ export async function GET(req: Request) {
       buyCandidates = ranked.map(it => ({
         ticker: it.ticker, name: it.name, market: it.market, lynchCategory: it.lynchCategory,
         peg: it.peg, aiScore: it.combined, sector: it.sector,
-        reason: it.badges.slice(0, 3).join(' · ') || `통합 ${it.combined}점(계절·가치·수급)`,
+        reason: it.badges.slice(0, 3).join(' · ') || `통합 ${it.combined}점(계절·가치·수급·모멘텀)`,
         // 회수 예산(coreBudget)을 통합점수 비례로 배분 — 어떤 종목을 살지는 ③과 동일, 얼마나는 회수액 기준
         allocWeight: coreBudget > 0 ? Math.round((coreBudget * (it.combined / csum)) * 10) / 10 : 0,
       }))

@@ -1,11 +1,11 @@
 'use client'
-// 🎯 통합 3축 추천 UI — 계절(방향)×펀더멘탈(가치)×수급(연료) 융합 + 투명 소점수
+// 🎯 통합 4축 추천 UI — 계절(방향)×펀더멘탈(가치)×수급(연료)×모멘텀(Fwd EPS·주가추세) 융합 + 투명 소점수
 import { useState, useEffect } from 'react'
 import type { UnifiedRecoResult, UnifiedRecoItem } from '@/app/api/unified-reco/route'
 import InvestorTimeline from '@/app/components/InvestorTimeline'
 
 const CARD = '#161b25', BORDER = '#1e293b'
-const AX = { season: '#f59e0b', fund: '#22c55e', supply: '#60a5fa' }  // 계절/펀더멘탈/수급 축 색
+const AX = { season: '#f59e0b', fund: '#22c55e', supply: '#60a5fa', momentum: '#a78bfa' }  // 계절/펀더멘탈/수급/모멘텀 축 색
 const fmtWon = (w: number) => w >= 1e8 ? `${(w / 1e8).toFixed(1)}억원` : `${Math.round(w / 1e4)}만원`
 
 function MiniBar({ label, score, color, unknown }: { label: string; score: number; color: string; unknown?: boolean }) {
@@ -40,11 +40,12 @@ function Item({ it }: { it: UnifiedRecoItem }) {
           <span style={{ color: '#8a9aaa', fontSize: 10 }}>통합</span>
         </span>
       </div>
-      {/* 투명 3축 */}
+      {/* 투명 4축 — 계절·가치·수급·모멘텀(Fwd EPS·주가추세) */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
         <MiniBar label="🌦️ 계절" score={it.seasonScore} color={AX.season} />
         <MiniBar label="💎 가치" score={it.fundScore} color={AX.fund} />
         <MiniBar label={it.supplyProxy ? '💰 수급*' : '💰 수급'} score={it.supplyScore} color={AX.supply} unknown={!it.supplyKnown} />
+        <MiniBar label="📈 모멘텀" score={it.momentumScore} color={AX.momentum} />
       </div>
       {/* 💰 권장 편입 금액 + 배지 */}
       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 6, alignItems: 'center' }}>
@@ -85,7 +86,7 @@ export default function UnifiedReco() {
     return () => { alive = false; window.removeEventListener('portfolio-updated', load) }
   }, [])
 
-  if (loading) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa' }}>🎯 계절·펀더멘탈·수급 3축을 융합해 통합 추천을 계산 중입니다…</div>
+  if (loading) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa' }}>🎯 계절·펀더멘탈·수급·모멘텀 4축을 융합해 통합 추천을 계산 중입니다…</div>
   if (!data) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa' }}>통합 추천 데이터를 불러오지 못했습니다.</div>
   if (data.warming || data.items.length === 0) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa' }}>🎯 추천 유니버스를 준비 중입니다. 거시경제 AI 추천 탭을 한 번 열어 데이터를 적재한 뒤 다시 시도해 주세요.</div>
 

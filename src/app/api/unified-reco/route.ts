@@ -21,11 +21,15 @@ const code6 = (t: string) => t.replace(/\.(KS|KQ)$/i, '').replace(/\D/g, '').pad
 const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
 
 // 축 가중치 — 방향(펀더멘탈)이 가장 무겁게(앱 철학: 수급은 연료, 방향은 펀더멘탈)
-const W = { season: 0.25, fund: 0.40, supply: 0.35 }
+// 📈 모멘텀(Fwd EPS·가격추세)을 4번째 가중축으로 — "가장 중요" 철학 반영(펀더와 공동 최고)
+const W = { season: 0.20, fund: 0.30, supply: 0.20, momentum: 0.30 }
 
 export interface UnifiedRecoItem {
   ticker: string; name: string; market: string; sector: string; lynchCategory: string
-  seasonScore: number; fundScore: number; supplyScore: number; combined: number
+  seasonScore: number; fundScore: number; supplyScore: number; momentumScore: number; combined: number
+  fwdEpsDir: 'accel' | 'flat' | 'decline' | 'unknown'   // 📈 Fwd EPS 사이클 방향
+  priceTrend: 'up' | 'side' | 'down' | 'unknown'        // 📉 최근 주가 추세
+  fwdGrowthPct: number | null; priceVs200: number | null
   peg: number | null; opMargin: number | null
   psr: number | null               // 💵 주가매출비율 P/S — 적자기업·성장주 밸류 척도
   roe: number | null               // 🏰 버핏 퀄리티 — 자기자본이익률(소수)
@@ -83,12 +87,12 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v11:${user.id}:${kstDate()}:${fp}`   // v11: PSR 필드 추가
+  const cacheKey = `unified-reco-v12:${user.id}:${kstDate()}:${fp}`   // v12: 모멘텀 4번째 축 + 칼날 제외
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // base 유니버스 — macro-ai-picks가 적재한 전체 채점 캐시(없으면 빈 결과 graceful)
-  const screened = await getCache<ScreenedStock[]>('macro-screened-universe:v3', 8 * 24 * 3600_000)
+  const screened = await getCache<ScreenedStock[]>('macro-screened-universe:v4', 8 * 24 * 3600_000)
   if (!screened || screened.length === 0) {
     return NextResponse.json({ weights: W, usSeason: null, krSeason: null, items: [], asOf: new Date().toISOString(), warming: true }, { headers: { 'Cache-Control': 'no-store' } })
   }
@@ -138,7 +142,7 @@ export async function GET(req: Request) {
   const portfolioKrw = (rows ?? []).reduce((s, r) => s + (r.purchase_price ?? 0) * (r.quantity ?? 0) * (r.currency === 'USD' ? usdKrw : 1), 0)
 
   // ③ 계절+펀더멘탈 즉시 채점(전체) → US는 상위만 수급 fetch
-  type Pre = { s: ScreenedStock; quad: Quadrant; seasonScore: number; fundScore: number; isKr: boolean; favored: boolean }
+  type Pre = { s: ScreenedStock; quad: Quadrant; seasonScore: number; fundScore: number; momentumScore: number; knife: boolean; isKr: boolean; favored: boolean }
   const pre: Pre[] = screened
     .filter(s => !held.has(s.market === 'KR' ? code6(s.ticker) : s.ticker.toUpperCase()))
     .map(s => {
@@ -147,11 +151,11 @@ export async function GET(req: Request) {
       const h: Holding = { ticker: s.ticker, weight: 0, lynchCategory: s.lynchCategory as Holding['lynchCategory'], sector: s.sector ?? undefined }
       const seasonScore = clamp(holdingFit(h, quad) * 100)
       const favored = s.sector != null && SEASON_META[quad].favored.includes(s.sector)
-      return { s, quad, seasonScore, fundScore: fundOf(s.score), isKr, favored }
+      return { s, quad, seasonScore, fundScore: fundOf(s.score), momentumScore: s.momentumScore ?? 50, knife: s.knife ?? false, isKr, favored }
     })
 
-  // US 수급 fetch 대상 — 계절+펀더멘탈 상위 25만(성능 바운드)
-  const usPre = pre.filter(p => !p.isKr).sort((a, b) => (b.fundScore * 0.6 + b.seasonScore * 0.4) - (a.fundScore * 0.6 + a.seasonScore * 0.4)).slice(0, 25)
+  // US 수급 fetch 대상 — 계절+펀더+모멘텀 상위 25만(성능 바운드)
+  const usPre = pre.filter(p => !p.isKr).sort((a, b) => (b.fundScore * 0.45 + b.seasonScore * 0.25 + b.momentumScore * 0.3) - (a.fundScore * 0.45 + a.seasonScore * 0.25 + a.momentumScore * 0.3)).slice(0, 25)
   const usFlowMap = new Map<string, Awaited<ReturnType<typeof getMoneyFlow>>>()
   for (let i = 0; i < usPre.length; i += 5) {
     const batch = usPre.slice(i, i + 5)
@@ -182,7 +186,13 @@ export async function GET(req: Request) {
     }
     if (p.favored) badges.push('🌦️ 계절 우대 섹터')
     if (p.s.peg != null && p.s.peg > 0 && p.s.peg < 1) badges.push('💎 저PEG')
-    const combined = clamp(p.seasonScore * W.season + p.fundScore * W.fund + supplyScore * W.supply)
+    // 📈 모멘텀 배지(Fwd EPS·가격추세)
+    if (p.s.fwdEpsDir === 'accel') badges.push('📈 이익 가속(상승 사이클)')
+    else if (p.s.fwdEpsDir === 'decline') badges.push('📉 이익 역성장(하강 사이클)')
+    if (p.s.priceTrend === 'up') badges.push('🚀 주가 상승추세')
+    else if (p.s.priceTrend === 'down') badges.push('🔻 주가 하락추세')
+    if (p.knife) badges.push('🔪 급락 추세(falling knife)')
+    const combined = clamp(p.seasonScore * W.season + p.fundScore * W.fund + supplyScore * W.supply + p.momentumScore * W.momentum)
     return { p, supplyScore, supplyKnown, supplyProxy, badges, combined }
   })
 
@@ -193,6 +203,7 @@ export async function GET(req: Request) {
   let top: typeof ranked = []
   for (const t of ranked) {
     if (t.combined < QUALITY_FLOOR) continue
+    if (t.p.knife) continue   // 🔪 급락 추세 종목은 매수 추천 제외(떨어지는 칼날)
     const sec = t.p.s.sector ?? '—'
     const c = secCount.get(sec) ?? 0
     if (c >= SECTOR_CAP) continue   // 한 섹터 과밀 방지
@@ -206,7 +217,7 @@ export async function GET(req: Request) {
     const krAdd: typeof ranked = []
     for (const t of ranked) {
       if (krAdd.length >= MIN_KR - krInTop) break
-      if (!t.p.isKr || t.combined < QUALITY_FLOOR || inTop.has(t.p.s.ticker)) continue
+      if (!t.p.isKr || t.combined < QUALITY_FLOOR || t.p.knife || inTop.has(t.p.s.ticker)) continue
       const sec = t.p.s.sector ?? '—'
       if ((secCount.get(sec) ?? 0) >= SECTOR_CAP) continue
       secCount.set(sec, (secCount.get(sec) ?? 0) + 1); krAdd.push(t)
@@ -217,7 +228,7 @@ export async function GET(req: Request) {
       top = top.filter(t => !dropSet.has(t.p.s.ticker)).concat(krAdd).sort((a, b) => b.combined - a.combined)
     }
   }
-  const selectionRule = `통합 ${QUALITY_FLOOR}점 이상 · 섹터당 최대 ${SECTOR_CAP}종(분산) · 한국 최소 ${MIN_KR}종 보장 · 최대 ${MAX_ITEMS}종`
+  const selectionRule = `통합 ${QUALITY_FLOOR}점 이상 · 🔪 급락 추세(falling knife) 제외 · 섹터당 최대 ${SECTOR_CAP}종(분산) · 한국 최소 ${MIN_KR}종 보장 · 최대 ${MAX_ITEMS}종`
 
   // ⑥ 최종 12종 심화 검증 — canonical PEG(제2원칙) + 🛡️버핏 DCF 안전마진 + 📈Fwd EPS 모멘텀 (배치 4)
   const items: UnifiedRecoItem[] = []
@@ -245,7 +256,8 @@ export async function GET(req: Request) {
       const suggestWon = Math.round(portfolioKrw * suggestWeight / 100)
       return {
         ticker: t.p.s.ticker, name: t.p.s.name, market: t.p.s.market, sector: t.p.s.sector ?? '—', lynchCategory: t.p.s.lynchCategory as string,
-        seasonScore: t.p.seasonScore, fundScore: t.p.fundScore, supplyScore: t.supplyScore, combined: t.combined,
+        seasonScore: t.p.seasonScore, fundScore: t.p.fundScore, supplyScore: t.supplyScore, momentumScore: t.p.momentumScore, combined: t.combined,
+        fwdEpsDir: t.p.s.fwdEpsDir, priceTrend: t.p.s.priceTrend, fwdGrowthPct: t.p.s.fwdGrowthPct ?? null, priceVs200: t.p.s.priceVs200 ?? null,
         peg, opMargin: t.p.s.opMargin, psr: cf?.psr ?? null, roe, epsRevision, suggestWeight, suggestWon,
         seasonFavored: t.p.favored, supplyProxy: t.supplyProxy, supplyKnown: t.supplyKnown, badges,
       }

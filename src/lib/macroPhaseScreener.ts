@@ -56,6 +56,22 @@ export interface ScreenedStock {
   currency:     'USD' | 'KRW'
   score:        number          // 퀀트 최종 점수 (높을수록 선호)
   flags:        string[]        // 경고 플래그 (탈락 아님, LLM 컨텍스트)
+  // 📈 모멘텀 SSOT (Fwd EPS 성장 + 최근 주가 추세) — 사이클 방향
+  momentumScore: number         // 0~100 (Fwd EPS 0.6 + 가격추세 0.4)
+  fwdEpsDir:    'accel' | 'flat' | 'decline' | 'unknown'
+  priceTrend:   'up' | 'side' | 'down' | 'unknown'
+  knife:        boolean         // 최근 급락 + 하락추세 = 떨어지는 칼날(매수 추천 제외)
+  fwdGrowthPct: number | null   // Fwd EPS 성장률(%)
+  priceVs200:   number | null   // 현재가/200일선 − 1 (%)
+}
+
+export interface MomentumSignal {
+  momentumScore: number
+  fwdEpsDir: 'accel' | 'flat' | 'decline' | 'unknown'
+  priceTrend: 'up' | 'side' | 'down' | 'unknown'
+  knife: boolean
+  fwdGrowthPct: number | null
+  priceVs200: number | null
 }
 
 // ── 스크리닝 유니버스 ──────────────────────────────────────────────────────────
@@ -391,6 +407,52 @@ export async function fetchMacroData(selfBase?: string): Promise<MacroData> {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function numf(v: any): number | null { if (v == null) return null; const n = typeof v === 'object' && 'raw' in v ? v.raw : v; const f = typeof n === 'number' ? n : parseFloat(n); return isFinite(f) ? f : null }
 
+// 📈 모멘텀 SSOT — Fwd EPS 성장 방향 + 최근 주가 추세(50/200일선·52주). Yahoo 모듈 재사용(추가 fetch 0)
+//   철학: 같은 경기순환주라도 이익이 '오르는'(반도체 AI) vs '내리는'(에너지 유가급락) 사이클을 가른다.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function computeMomentum(ks: any, fd: any, sd: any, price: number | null, etTrend: any[]): MomentumSignal {
+  // ① Fwd EPS 방향 — EPS 리비전(애널리스트가 차기연도 추정치를 올리나/내리나)이 진짜 모멘텀.
+  //    ⚠️ forwardEps/trailing 절대비율은 기저효과(저점 회복 기대 선반영)로 왜곡되므로 사용 안 함.
+  const ny = (etTrend ?? []).find(t => t?.period === '+1y') ?? (etTrend ?? []).find(t => t?.period === '0y')
+  const cur = numf(ny?.epsTrend?.current), ago30 = numf(ny?.epsTrend?.['30daysAgo'])
+  let revision: 'up' | 'down' | 'flat' | null = null
+  if (cur != null && ago30 != null && ago30 > 0) {
+    const chg = (cur - ago30) / Math.abs(ago30)
+    revision = chg > 0.005 ? 'up' : chg < -0.005 ? 'down' : 'flat'
+  }
+  const tg = numf(fd?.earningsGrowth) != null ? (fd.earningsGrowth as number) * 100 : null   // 후행 이익성장(사이클 방향)
+  const fwdEps = numf(ks?.forwardEps), trailEps = numf(ks?.trailingEps)
+  const fwdGrowthPct = (fwdEps != null && trailEps != null && trailEps > 0) ? Math.round(((fwdEps / trailEps) - 1) * 1000) / 10 : null
+  let fwdScore = 0.5, fwdEpsDir: MomentumSignal['fwdEpsDir'] = 'unknown'
+  if (revision === 'up') { fwdScore = 0.85; fwdEpsDir = 'accel' }
+  else if (revision === 'down') { fwdScore = 0.20; fwdEpsDir = 'decline' }
+  else if (tg != null) {
+    if (tg >= 15) { fwdScore = 0.75; fwdEpsDir = 'accel' }
+    else if (tg <= -10) { fwdScore = 0.30; fwdEpsDir = 'decline' }
+    else { fwdScore = 0.50; fwdEpsDir = 'flat' }
+  }
+  // ⚠️ 후행 이익이 깊은 역성장(≤−10%)이면 리비전 상향은 '회복 기대'일 뿐 → 한 단계 눌러 과신 차단(COP 유가케이스)
+  if (revision === 'up' && tg != null && tg <= -10) { fwdScore = 0.55; fwdEpsDir = 'flat' }
+
+  // ② 가격 추세 — 50일선·200일선 정렬 + 52주 위치
+  const ma50 = numf(sd?.fiftyDayAverage), ma200 = numf(sd?.twoHundredDayAverage)
+  const w52 = numf(ks?.['52WeekChange']) ?? numf(sd?.fiftyTwoWeekChange)
+  const lo = numf(sd?.fiftyTwoWeekLow)
+  let priceScore = 0.5, priceTrend: MomentumSignal['priceTrend'] = 'unknown', priceVs200: number | null = null
+  if (price != null && ma200 != null && ma200 > 0) priceVs200 = Math.round(((price / ma200) - 1) * 1000) / 10
+  if (price != null && ma50 != null && ma200 != null) {
+    const above50 = price >= ma50, above200 = price >= ma200, ma50Up = ma50 >= ma200
+    if (above50 && above200 && ma50Up) { priceScore = 1.0; priceTrend = 'up' }        // 정배열 상승
+    else if (!above200 && !ma50Up) { priceScore = 0.15; priceTrend = 'down' }         // 200일선·정배열 모두 깨짐(하락)
+    else { priceScore = 0.5; priceTrend = 'side' }                                     // 눌림목/횡보(COP: 200일선 위·정배열 유지)
+  }
+  // ③ 떨어지는 칼날 — 하락추세 + 200일선 8%+ 하회 + (52주 하락 또는 52주 저점 15% 이내). 눌림목은 칼날 아님
+  const nearLow = (price != null && lo != null && lo > 0) ? (price <= lo * 1.15) : false
+  const knife = priceTrend === 'down' && priceVs200 != null && priceVs200 <= -8 && ((w52 != null && w52 < 0) || nearLow)
+  const momentumScore = Math.round((fwdScore * 0.6 + priceScore * 0.4) * 100)   // Fwd EPS 가중↑(가장 중요)
+  return { momentumScore, fwdEpsDir, priceTrend, knife, fwdGrowthPct, priceVs200 }
+}
+
 async function screenOne(
   ticker: string, market: 'US' | 'KR', lynch: LynchCategory, name: string, phase: MacroPhase
 ): Promise<ScreenedStock | null> {
@@ -399,7 +461,7 @@ async function screenOne(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const yf = new (YF as any)({ suppressNotices: ['yahooSurvey'] })
     const sym = market === 'KR' ? `${ticker.replace(/\D/g, '')}.KS` : ticker
-    const q = await yf.quoteSummary(sym, { modules: ['defaultKeyStatistics', 'financialData', 'summaryDetail', 'price', 'assetProfile'] })
+    const q = await yf.quoteSummary(sym, { modules: ['defaultKeyStatistics', 'financialData', 'summaryDetail', 'price', 'assetProfile', 'earningsTrend'] })
     const ks = q?.defaultKeyStatistics ?? {}, fd = q?.financialData ?? {}, sd = q?.summaryDetail ?? {}, pr = q?.price ?? {}
     const peg = numf(ks.pegRatio)
     const opMargin = numf(fd.operatingMargins) != null ? Math.round((fd.operatingMargins as number) * 1000) / 10 : null
@@ -426,7 +488,12 @@ async function screenOne(
     const fcfScore = fcfPositive ? 1.0 : 0.3
     const score = Math.round((lynchW * 0.35 + pegScore * 0.35 + marginScore * 0.2 + fcfScore * 0.1) * 1000) / 1000
 
-    return { ticker, name, market, sector, lynchCategory: lynch, peg, opMargin, fcfPositive, price, currency, score, flags }
+    // 📈 모멘텀(Fwd EPS·가격추세) — 추가 fetch 0, 별도 축으로 노출(downstream 4축 채점·칼날 제외)
+    const mom = computeMomentum(ks, fd, sd, price, q?.earningsTrend?.trend ?? [])
+    if (mom.fwdEpsDir === 'decline') flags.push('이익 역성장(하강 사이클)')
+    if (mom.knife) flags.push('주가 급락 추세(falling knife)')
+
+    return { ticker, name, market, sector, lynchCategory: lynch, peg, opMargin, fcfPositive, price, currency, score, flags, ...mom }
   } catch { return null }
 }
 
