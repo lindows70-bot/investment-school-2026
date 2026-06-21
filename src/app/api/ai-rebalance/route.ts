@@ -222,7 +222,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v19:${user.id}:${today}:${fp}`   // v19: 원화 환산 전 자산 총액 기준 정정
+  const cacheKey = `ai-rebalance-v20:${user.id}:${today}:${fp}`   // v20: 사수↔줄일 모순 제거(매도신호 시 DEFEND 강등)
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -520,6 +520,12 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
     if (o.flow === 'CROWDED') out.push('수급 이탈·과열(외인·기관 매도 우위)')
     if (o.seasonTag === 'unfavored') out.push('현재 계절 역풍(불리 섹터)')
     return out
+  }
+  // 🔧 모순 제거 — 매도 신호(역DCF/수급/계절)가 뜬 종목은 '사수(DEFEND)'에서 강등(KEEP).
+  //    PLTR처럼 PEG는 낮아 보이나(기저효과) 역-DCF가 기대과도로 잡는 종목이 '사수'+'줄일것'에 동시 노출되던 모순 차단.
+  for (const d of diagnoses) {
+    const sigs = sellSignalText(d.ticker.toUpperCase())
+    if (d.action === 'DEFEND' && sigs.length > 0) { d.action = 'KEEP'; d.sellReasons = [...d.sellReasons, ...sigs] }
   }
 
   // ④ 🗑️ 버릴 것 — 정책 차단 + 손절 + 좀비
