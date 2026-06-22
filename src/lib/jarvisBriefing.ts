@@ -16,6 +16,7 @@
 import { getCache, setCache } from '@/lib/appCache'
 import { callGeminiJSON } from '@/lib/gemini'
 import { getCanonicalPeg, isPegBaseEffect } from '@/lib/canonicalFundamentals'
+import { priceTrendKnife } from '@/lib/macroPhaseScreener'   // 📉 가격추세·칼날 SSOT(통합추천과 동일 정의)
 import { getInsiderSignal } from '@/app/actions/getInsiderSignal'
 import { getSectorPeers } from '@/app/actions/getSectorPeers'
 
@@ -38,6 +39,8 @@ export interface SignalMetrics {
   revenueGrowth:  number | null   // 매출 성장률(Yahoo 소수, 0.36=36%) — 적자 하이퍼그로스 포착
   earningsGrowth: number | null   // 이익 성장률(소수, 1.0=+100%) — 기저효과 저PEG 가드(isPegBaseEffect)용
   analystCount:   number | null   // 애널리스트 커버 수(Yahoo) — 언더커버리지 판별(US용, KR은 Naver 별도)
+  priceTrend:     'up' | 'side' | 'down' | 'unknown'   // 📉 최근 주가 추세(50/200일선) — 위성 칼날 가드
+  knife:          boolean         // 🔪 떨어지는 칼날(급락+하락추세) — 매수 추천 제외
   currency:       string | null
 }
 export interface SignalDecision { type: SignalType; reasons: string[] }
@@ -63,7 +66,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
   const tk = ticker.trim().toUpperCase()
   // v4: PEG를 app_cache(canon-fund) 직접 읽기로 변경 — selfBase 의존성 제거
   //     selfBase가 undefined여도 canon-fund 캐시에서 SSOT PEG를 가져옴
-  const cacheKey = `jarvis-metrics-v8:${tk}:${market}:${kstDate()}`   // v8: 이익성장률 추가(기저효과 가드)
+  const cacheKey = `jarvis-metrics-v9:${tk}:${market}:${kstDate()}`   // v9: 가격추세·칼날 추가(위성 가드)
   const cached = await getCache<SignalMetrics>(cacheKey, 12 * 3600_000)
   if (cached) return cached
 
@@ -132,6 +135,9 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
     } catch { /* 추세/이자보상 없으면 기본값 */ }
 
     const marketCap = num(q.summaryDetail?.marketCap) ?? num(pr.marketCap)
+    // 📉 가격추세·떨어지는 칼날(SSOT 공유) — 추가 fetch 0(이미 받은 summaryDetail·defaultKeyStatistics·price 재사용)
+    const curPrice = num(pr.regularMarketPrice) ?? num(q.summaryDetail?.regularMarketPrice)
+    const { priceTrend, knife } = priceTrendKnife(q.defaultKeyStatistics, q.summaryDetail, curPrice)
     const revenueGrowth = num(fd.revenueGrowth)
     // 이익성장률 — canon-fund SSOT 우선(KR은 Naver 기반), 폴백 Yahoo. PEG와 같은 출처여야 기저효과 판정 정합
     const earningsGrowth = (canonFund?.growth ?? null) != null ? canonFund!.growth : num(fd.earningsGrowth)
@@ -145,6 +151,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
       peg, opMargin, opMargin2qDown,
       fcf, fcfNegative: fcf != null && fcf < 0,
       roe, interestCoverage, marketCap, revenueGrowth, earningsGrowth, analystCount,
+      priceTrend, knife,
       currency: pr.currency ? String(pr.currency) : null,
     }
     await setCache(cacheKey, m)

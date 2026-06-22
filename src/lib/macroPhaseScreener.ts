@@ -434,23 +434,31 @@ function computeMomentum(ks: any, fd: any, sd: any, price: number | null, etTren
   // ⚠️ 후행 이익이 깊은 역성장(≤−10%)이면 리비전 상향은 '회복 기대'일 뿐 → 한 단계 눌러 과신 차단(COP 유가케이스)
   if (revision === 'up' && tg != null && tg <= -10) { fwdScore = 0.55; fwdEpsDir = 'flat' }
 
-  // ② 가격 추세 — 50일선·200일선 정렬 + 52주 위치
+  // ② 가격 추세 + ③ 떨어지는 칼날 — 공유 SSOT(위성 스크리너도 동일 정의 사용)
+  const { priceTrend, knife, priceVs200 } = priceTrendKnife(ks, sd, price)
+  const priceScore = priceTrend === 'up' ? 1.0 : priceTrend === 'down' ? 0.15 : 0.5
+  const momentumScore = Math.round((fwdScore * 0.6 + priceScore * 0.4) * 100)   // Fwd EPS 가중↑(가장 중요)
+  return { momentumScore, fwdEpsDir, priceTrend, knife, fwdGrowthPct, priceVs200 }
+}
+
+// 📉 가격추세·떨어지는 칼날 SSOT — 50/200일선 정렬 + 52주 위치. 통합추천(computeMomentum)·위성 스크리너 공용
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function priceTrendKnife(ks: any, sd: any, price: number | null): { priceTrend: MomentumSignal['priceTrend']; knife: boolean; priceVs200: number | null } {
   const ma50 = numf(sd?.fiftyDayAverage), ma200 = numf(sd?.twoHundredDayAverage)
   const w52 = numf(ks?.['52WeekChange']) ?? numf(sd?.fiftyTwoWeekChange)
   const lo = numf(sd?.fiftyTwoWeekLow)
-  let priceScore = 0.5, priceTrend: MomentumSignal['priceTrend'] = 'unknown', priceVs200: number | null = null
+  let priceTrend: MomentumSignal['priceTrend'] = 'unknown', priceVs200: number | null = null
   if (price != null && ma200 != null && ma200 > 0) priceVs200 = Math.round(((price / ma200) - 1) * 1000) / 10
   if (price != null && ma50 != null && ma200 != null) {
     const above50 = price >= ma50, above200 = price >= ma200, ma50Up = ma50 >= ma200
-    if (above50 && above200 && ma50Up) { priceScore = 1.0; priceTrend = 'up' }        // 정배열 상승
-    else if (!above200 && !ma50Up) { priceScore = 0.15; priceTrend = 'down' }         // 200일선·정배열 모두 깨짐(하락)
-    else { priceScore = 0.5; priceTrend = 'side' }                                     // 눌림목/횡보(COP: 200일선 위·정배열 유지)
+    if (above50 && above200 && ma50Up) priceTrend = 'up'        // 정배열 상승
+    else if (!above200 && !ma50Up) priceTrend = 'down'          // 200일선·정배열 모두 깨짐(하락)
+    else priceTrend = 'side'                                     // 눌림목/횡보(200일선 위·정배열 유지)
   }
-  // ③ 떨어지는 칼날 — 하락추세 + 200일선 8%+ 하회 + (52주 하락 또는 52주 저점 15% 이내). 눌림목은 칼날 아님
+  // 떨어지는 칼날 — 하락추세 + 200일선 8%+ 하회 + (52주 하락 또는 52주 저점 15% 이내). 눌림목은 칼날 아님
   const nearLow = (price != null && lo != null && lo > 0) ? (price <= lo * 1.15) : false
   const knife = priceTrend === 'down' && priceVs200 != null && priceVs200 <= -8 && ((w52 != null && w52 < 0) || nearLow)
-  const momentumScore = Math.round((fwdScore * 0.6 + priceScore * 0.4) * 100)   // Fwd EPS 가중↑(가장 중요)
-  return { momentumScore, fwdEpsDir, priceTrend, knife, fwdGrowthPct, priceVs200 }
+  return { priceTrend, knife, priceVs200 }
 }
 
 async function screenOne(

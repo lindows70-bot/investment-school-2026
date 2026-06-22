@@ -2,7 +2,7 @@
 import { getCache, setCache } from '@/lib/appCache'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
 
-export const SAT_SCORE_KEY = 'satellite-scores-v1'   // 위성 100종목 점수 — 크론이 매일 적재
+export const SAT_SCORE_KEY = 'satellite-scores-v2'   // 위성 100종목 점수 — 크론이 매일 적재 (v2: 칼날 가드)
 
 // 채점 결과(편입 비중 제외). 리밸런서 SatelliteCandidate = SatelliteScore & { allocWeight }
 export interface SatelliteScore {
@@ -14,6 +14,7 @@ export interface SatelliteScore {
   peg:          number | null
   tenScore:     number
   reason:       string
+  knife:        boolean        // 🔪 떨어지는 칼날(급락+하락추세) — 매수 추천 제외
 }
 
 // 중소형 10배거 잠재 풀(100종목) — 코어(대형주)와 별개. 큐레이션 후보 풀(제1원칙: 분석값은 실데이터)
@@ -141,13 +142,15 @@ async function scoreSatellitePool(pool: typeof SATELLITE_UNIVERSE, base: string)
         if (growthPct != null) sc += growthPct >= 30 ? 35 : growthPct >= 18 ? 18 : 0
         if (m.peg != null && m.peg > 0) sc += m.peg < 0.5 ? 25 : m.peg < 1.0 ? 14 : 0
         if (zombie) sc = Math.min(sc, 30)   // 좀비는 위성에서도 강등(파산 위험)
+        if (m.knife) sc = Math.min(sc, 25)   // 🔪 떨어지는 칼날은 위성에서도 강등(추천 제외는 선별부에서)
         const reason = [
           mcUsd != null ? `시총 $${(mcUsd / 1e9).toFixed(1)}B` : null,
           growthPct != null ? `매출성장 ${growthPct.toFixed(0)}%` : null,
           m.peg != null && m.peg > 0 ? `PEG ${m.peg.toFixed(2)}` : null,
           zombie ? '⚠️좀비위험' : null,
+          m.knife ? '🔪급락추세' : null,
         ].filter(Boolean).join(' · ')
-        return { ticker: s.ticker, name: s.name, market: s.market, marketCapUsd: mcUsd, growthPct, peg: m.peg, tenScore: sc, reason }
+        return { ticker: s.ticker, name: s.name, market: s.market, marketCapUsd: mcUsd, growthPct, peg: m.peg, tenScore: sc, reason, knife: m.knife }
       } catch { return null }
     }))
     for (const r of rs) if (r) scored.push(r)
@@ -168,5 +171,6 @@ export async function screenSatellite(base: string, heldSet: Set<string>, maxPic
     scored = (await scoreSatellitePool(SATELLITE_UNIVERSE.slice(0, 30), base)).sort((a, b) => b.tenScore - a.tenScore)
     if (scored.length) await setCache(SAT_SCORE_KEY, scored)
   }
-  return scored.filter(s => !heldSet.has(s.ticker.toUpperCase())).slice(0, maxPick)
+  // 🔪 떨어지는 칼날 제외(통합추천과 동일 철학) + 보유 제외
+  return scored.filter(s => !s.knife && !heldSet.has(s.ticker.toUpperCase())).slice(0, maxPick)
 }

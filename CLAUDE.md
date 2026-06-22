@@ -1992,6 +1992,9 @@ Coinglass(순유입/유출)·TheBlock(누적 거래량) 차트를 무료·무키
 - **AI 리밸런싱**: 매수후보가 unified-reco에서 와서 모멘텀·칼날 제외 **자동 상속**. 캐시 ai-rebalance v20→v21
 - ⚠️ **실데이터 검산(2026-06-22)**: 같은 경기순환주 — **반도체 NVDA·SK하이닉스 momentum 91**(리비전 상향·정배열 상승) vs **에너지 COP·XOM·CVX 53**(후행 −20~−45%·눌림목, 칼날 아님). 30% 가중이라 에너지가 반도체보다 통합점수에서 크게 밀림 → "주가 빠지는데 1순위 추천" 문제 해소. COP의 펀더 약점(역-DCF demanding)은 별도 가치축이 잡음
 - 교훈: **Fwd EPS '성장률'이 아니라 '리비전 방향'을 봐야 한다** — forwardEps 절대값은 경기순환주 저점에서 회복 기대로 부풀어(기저효과) 하강 사이클을 상승으로 오판한다(역-DCF·PEG 기저효과 가드와 같은 원리)
+- ⚠️ **EPS 방향 배지 모순 가드(2026-06-22)**: 모멘텀 `📈 이익 가속`(earningsTrend 컨센서스 값 변화)과 기존 `📉 이익추정 하향`(getAnalystSignal 애널수)이 한 카드에 동시 표시되던 제2원칙 위반(Qualcomm) → 모멘텀이 EPS 방향 SSOT이므로 **애널 배지는 모멘텀 방향과 어긋날 때 숨김**(일치 시 보강 정보로 유지). UnifiedReco 헤더도 "세 축→네 축"·가중치에 모멘텀 30% 추가. unified-reco v12→v13
+- ⚠️ **위성(10배거) 칼날 가드 보강(2026-06-22)**: 가격추세·칼날 판정을 `priceTrendKnife`(SSOT)로 추출 → 통합추천(`computeMomentum`)·위성(`buildSignalMetrics`)이 **동일 정의** 공유. `SignalMetrics`에 `priceTrend·knife` 추가(추가 fetch 0 — 이미 받는 summaryDetail·defaultKeyStatistics·price 재사용, jarvis-metrics v8→v9). `satelliteScreener`가 칼날을 강등(점수≤25)+`🔪급락추세` 사유+**선별에서 제외**(SAT_SCORE_KEY v1→v2). 위성도 매출성장(Fwd 프록시)에 더해 급락주 차단. ai-rebalance v22→v23
+- 교훈: **칼날(급락+하락추세) 정의는 한 SSOT(`priceTrendKnife`)로** — 통합추천만 막고 위성은 안 막으면 같은 종목이 한 곳선 제외·다른 곳선 추천되는 모순(반복 패턴)
 
 ## 배포
 
