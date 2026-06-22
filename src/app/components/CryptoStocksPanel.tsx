@@ -48,6 +48,13 @@ export default function CryptoStocksPanel() {
   const [d, setD] = useState<CryptoStocksResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeStock, setActiveStock] = useState<string | null>(null)
+  const [hidden, setHidden] = useState<Set<string>>(new Set())   // 범례 클릭으로 라인 켜고 끄기
+  const toggleLine = (key: string) => setHidden(prev => {
+    const n = new Set(prev)
+    if (n.has(key)) n.delete(key)
+    else n.add(key)
+    return n
+  })
 
   useEffect(() => {
     let alive = true
@@ -133,9 +140,9 @@ export default function CryptoStocksPanel() {
       <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '13px 15px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
           <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>📈 1년 수익률 오버레이</span>
-          <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>첫 주=100 기준 정규화 · <b style={{ color: '#a8b5c2' }}>로그 스케일</b>(극단 변동성 종목이 차트를 독점하지 않게) · 점선=원금 100 · 오른쪽 수치=1년 누적수익률 · 클릭 시 해설</span>
+          <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>첫 주=100 정규화 · <b style={{ color: '#a8b5c2' }}>로그 스케일</b> · 점선=BTC·ETH 벤치마크 · 오른쪽 수치=1년 누적수익률 · <b style={{ color: '#fbbf24' }}>범례 클릭으로 라인 켜고 끄기</b>(겹쳐 보일 땐 끄고 비교)</span>
         </div>
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height={340}>
           <LineChart data={chartData} margin={{ top: 4, right: 56, bottom: 0, left: -10 }}>
             <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#64748b' }} tickFormatter={d => d.slice(5)} interval={7} />
             <YAxis scale="log" domain={yDomain} ticks={logTicks} allowDataOverflow tick={{ fontSize: 9, fill: '#64748b' }} tickFormatter={v => `${v}`} />
@@ -145,13 +152,13 @@ export default function CryptoStocksPanel() {
               labelFormatter={l => l as string}
             />
             <ReferenceLine y={100} stroke="#334155" strokeDasharray="3 3" />
-            <Line dataKey="BTC" stroke="#f7931a" strokeWidth={2} strokeDasharray="4 2" connectNulls
+            <Line dataKey="BTC" stroke="#f7931a" strokeWidth={2} strokeDasharray="4 2" connectNulls hide={hidden.has('BTC')}
               dot={(props: any) => {
                 if (props.index !== endIdx.BTC) return <g key={props.index} />
                 const r = Math.round(props.value - 100)
                 return <text key={props.index} x={props.cx + 5} y={props.cy + 3 + (labelDy.BTC ?? 0)} fill="#f7931a" fontSize={9.5} fontFamily="monospace" fontWeight={700}>{r > 0 ? '+' : ''}{r}%</text>
               }} />
-            <Line dataKey="ETH" stroke="#627eea" strokeWidth={2} strokeDasharray="4 2" connectNulls
+            <Line dataKey="ETH" stroke="#627eea" strokeWidth={2} strokeDasharray="4 2" connectNulls hide={hidden.has('ETH')}
               dot={(props: any) => {
                 if (props.index !== endIdx.ETH) return <g key={props.index} />
                 const r = Math.round(props.value - 100)
@@ -161,14 +168,16 @@ export default function CryptoStocksPanel() {
               <Line key={s.symbol} dataKey={s.symbol} stroke={s.color}
                 strokeWidth={activeStock === s.symbol ? 3 : 1.5}
                 strokeOpacity={activeStock && activeStock !== s.symbol ? 0.3 : 1}
-                connectNulls
+                connectNulls hide={hidden.has(s.symbol)}
                 dot={(props: any) => {
                   if (props.index !== endIdx[s.symbol]) return <g key={props.index} />
                   const r = Math.round(props.value - 100)
                   return <text key={props.index} x={props.cx + 5} y={props.cy + 3 + (labelDy[s.symbol] ?? 0)} fill={s.color} fontSize={9.5} fontFamily="monospace" fontWeight={700}>{r > 0 ? '+' : ''}{r}%</text>
                 }} />
             ))}
-            <Legend wrapperStyle={{ fontSize: 10.5 }} />
+            <Legend wrapperStyle={{ fontSize: 10.5, cursor: 'pointer' }}
+              onClick={(o: any) => toggleLine(String(o?.dataKey ?? o?.value))}
+              formatter={(value: string) => <span style={{ color: hidden.has(value) ? '#475569' : '#cbd5e1', textDecoration: hidden.has(value) ? 'line-through' : 'none' }}>{value}</span>} />
           </LineChart>
         </ResponsiveContainer>
       </div>
