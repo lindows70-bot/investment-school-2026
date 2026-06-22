@@ -7,13 +7,13 @@ import type { CryptoStocksResult } from '@/app/api/crypto-stocks/route'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 
-function BetaGauge({ beta, color }: { beta: number | null; color: string }) {
+function BetaGauge({ beta, color, label = 'BTC 베타' }: { beta: number | null; color: string; label?: string }) {
   if (beta == null) return <span style={{ color: '#8a9aaa', fontSize: 12 }}>—</span>
   const pct = Math.min(Math.max((beta / 3) * 100, 0), 100)
   return (
     <div style={{ marginTop: 4 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-        <span style={{ color: '#8a9aaa', fontSize: 10 }}>BTC 베타</span>
+        <span style={{ color: '#8a9aaa', fontSize: 10 }}>{label}</span>
         <span style={{ color, fontWeight: 800, fontSize: 13, fontFamily: 'monospace' }}>{beta}</span>
       </div>
       <div style={{ background: '#1e293b', borderRadius: 4, height: 6, overflow: 'hidden' }}>
@@ -69,16 +69,19 @@ export default function CryptoStocksPanel() {
     </div>
   )
 
-  // 오버레이 차트: 모든 종목 + BTC 정규화 데이터를 날짜 기준 병합
+  // 오버레이 차트: 모든 종목 + BTC·ETH 벤치마크 정규화 데이터를 날짜 기준 병합
   const dateSet = new Set<string>()
   d.btcPoints.forEach(p => dateSet.add(p.date))
+  d.ethPoints.forEach(p => dateSet.add(p.date))
   d.stocks.forEach(s => s.points.forEach(p => dateSet.add(p.date)))
   const dates = Array.from(dateSet).sort()
   const btcMap = new Map(d.btcPoints.map(p => [p.date, p.norm]))
+  const ethMap = new Map(d.ethPoints.map(p => [p.date, p.norm]))
   const stockMaps = d.stocks.map(s => new Map(s.points.map(p => [p.date, p.norm])))
   const chartData = dates.map(date => {
     const row: Record<string, number | string> = { date }
     row['BTC'] = btcMap.get(date) ?? NaN
+    row['ETH'] = ethMap.get(date) ?? NaN
     d.stocks.forEach((s, i) => { row[s.symbol] = stockMaps[i].get(date) ?? NaN })
     return row
   })
@@ -91,12 +94,12 @@ export default function CryptoStocksPanel() {
     }
     return -1
   }
-  const endIdx: Record<string, number> = { BTC: lastIdx('BTC') }
+  const endIdx: Record<string, number> = { BTC: lastIdx('BTC'), ETH: lastIdx('ETH') }
   d.stocks.forEach(s => { endIdx[s.symbol] = lastIdx(s.symbol) })
 
   // 📊 로그 스케일 — BMNR(연중 30배 급등) 같은 극단 변동성이 Y축을 독점해 나머지가 바닥에 깔리는 문제 해결
   //    정규화 지수(첫주=100)는 항상 양수라 로그 적용 가능. 같은 '비율 변화'가 같은 '세로 거리'로 보여 비교가 공정해짐
-  const allNorm = [...d.btcPoints.map(p => p.norm), ...d.stocks.flatMap(s => s.points.map(p => p.norm))].filter(v => v > 0)
+  const allNorm = [...d.btcPoints.map(p => p.norm), ...d.ethPoints.map(p => p.norm), ...d.stocks.flatMap(s => s.points.map(p => p.norm))].filter(v => v > 0)
   const minN = allNorm.length ? Math.min(...allNorm) : 50
   const maxN = allNorm.length ? Math.max(...allNorm) : 200
   const logTicks = [3, 10, 30, 100, 300, 1000, 3000, 10000].filter(t => t >= minN * 0.85 && t <= maxN * 1.15)
@@ -104,6 +107,7 @@ export default function CryptoStocksPanel() {
 
   // 끝값이 가까운 라벨끼리 세로로 겹치지 않게 dy 오프셋 — 로그축이라 '비율(로그 거리)'로 근접 판정
   const endVals = [{ key: 'BTC', v: d.btcPoints[d.btcPoints.length - 1]?.norm ?? 0 },
+    { key: 'ETH', v: d.ethPoints[d.ethPoints.length - 1]?.norm ?? 0 },
     ...d.stocks.map(s => ({ key: s.symbol, v: s.points[s.points.length - 1]?.norm ?? 0 }))]
     .sort((a, b) => b.v - a.v)   // 값 큰 순(화면 위→아래)
   const labelDy: Record<string, number> = {}
@@ -119,10 +123,10 @@ export default function CryptoStocksPanel() {
       {/* 교육 설명 */}
       <div style={{ background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 10, padding: '10px 14px', color: '#fde68a', fontSize: 11.5, lineHeight: 1.7 }}>
         🏢 <b>코인 관련 주식 평가 프레임</b> — 두 가지 질문으로 봅니다.
-        <br />① <b>BTC 베타</b>: &quot;이 주식이 BTC 1% 오를 때 몇 % 움직이나?&quot; — 베타 2.0 = BTC의 2배 레버리지.
-        <br />② <b>본업 가치</b>: &quot;BTC를 빼면 뭘로 돈 버나?&quot; — 거래소 수수료 / 채굴 스프레드 / 스테이블 이자 / 리테일 플랫폼.
+        <br />① <b>코인 베타</b>: &quot;기준 코인이 1% 오를 때 몇 % 움직이나?&quot; — 베타 2.0 = 2배 레버리지. <span style={{ color: '#fbbf24' }}>기준 코인은 사업에 맞춤 — BTC 트레저리·거래소는 <b>BTC</b>, ETH 트레저리(비트마인)는 <b>ETH</b>.</span>
+        <br />② <b>본업 가치</b>: &quot;코인을 빼면 뭘로 돈 버나?&quot; — 거래소 수수료 / 채굴 스프레드 / 스테이블 이자 / 리테일 플랫폼.
         <br />③ <b>매매 타이밍</b>: 카드의 추세(🟢상승/🟡횡보/🔴하락)와 52주 위치로 추격·눌림·바닥을 가늠 — 떨어지는 칼날은 추격 금물.
-        <br /><span style={{ color: '#fbbf24', fontSize: 10.5 }}>※ 1년 주봉 수익률 기준. 단기 급등락 구간엔 베타가 왜곡될 수 있어 장기 추세 참고용으로만 쓰세요.</span>
+        <br /><span style={{ color: '#fbbf24', fontSize: 10.5 }}>※ 1년 주봉 수익률 기준 · 차트의 점선=BTC·ETH 벤치마크. 단기 급등락 구간엔 베타가 왜곡될 수 있어 장기 추세 참고용으로만 쓰세요.</span>
       </div>
 
       {/* 정규화 오버레이 차트 */}
@@ -141,11 +145,17 @@ export default function CryptoStocksPanel() {
               labelFormatter={l => l as string}
             />
             <ReferenceLine y={100} stroke="#334155" strokeDasharray="3 3" />
-            <Line dataKey="BTC" stroke="#f7931a" strokeWidth={2} connectNulls
+            <Line dataKey="BTC" stroke="#f7931a" strokeWidth={2} strokeDasharray="4 2" connectNulls
               dot={(props: any) => {
                 if (props.index !== endIdx.BTC) return <g key={props.index} />
                 const r = Math.round(props.value - 100)
                 return <text key={props.index} x={props.cx + 5} y={props.cy + 3 + (labelDy.BTC ?? 0)} fill="#f7931a" fontSize={9.5} fontFamily="monospace" fontWeight={700}>{r > 0 ? '+' : ''}{r}%</text>
+              }} />
+            <Line dataKey="ETH" stroke="#627eea" strokeWidth={2} strokeDasharray="4 2" connectNulls
+              dot={(props: any) => {
+                if (props.index !== endIdx.ETH) return <g key={props.index} />
+                const r = Math.round(props.value - 100)
+                return <text key={props.index} x={props.cx + 5} y={props.cy + 3 + (labelDy.ETH ?? 0)} fill="#627eea" fontSize={9.5} fontFamily="monospace" fontWeight={700}>{r > 0 ? '+' : ''}{r}%</text>
               }} />
             {d.stocks.map(s => (
               <Line key={s.symbol} dataKey={s.symbol} stroke={s.color}
@@ -175,14 +185,14 @@ export default function CryptoStocksPanel() {
               <span style={{ color: '#94a3b8', fontSize: 10 }}>{s.tagline}</span>
             </div>
             <div style={{ color: '#cbd5e1', fontWeight: 700, fontSize: 11.5, marginBottom: 6 }}>{s.name}</div>
-            <BetaGauge beta={s.btcBeta} color={s.color} />
+            <BetaGauge beta={s.beta} color={s.color} label={`${s.benchmark} 베타`} />
             <div style={{ marginTop: 7, borderTop: `1px solid ${BORDER}`, paddingTop: 6 }}>
               <ReturnBadge val={s.return1y} label="1년 수익률" />
-              <ReturnBadge val={d.btcReturn1y} label="BTC 1년" />
-              {s.btcCorr != null && (
+              <ReturnBadge val={s.benchmarkReturn1y} label={`${s.benchmark} 1년`} />
+              {s.corr != null && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                  <span style={{ color: '#8a9aaa', fontSize: 11 }}>BTC 상관</span>
-                  <span style={{ color: '#94a3b8', fontSize: 11, fontFamily: 'monospace' }}>{s.btcCorr}</span>
+                  <span style={{ color: '#8a9aaa', fontSize: 11 }}>{s.benchmark} 상관{Math.abs(s.corr) < 0.3 ? ' ⚠️' : ''}</span>
+                  <span style={{ color: Math.abs(s.corr) < 0.3 ? '#f59e0b' : '#94a3b8', fontSize: 11, fontFamily: 'monospace' }} title={Math.abs(s.corr) < 0.3 ? '상관 낮음 — 베타 신뢰도 낮음(주가가 코인과 따로 움직임)' : ''}>{s.corr}</span>
                 </div>
               )}
             </div>
@@ -232,7 +242,7 @@ export default function CryptoStocksPanel() {
       </div>
 
       <div style={{ color: '#6e7f8f', fontSize: 10, lineHeight: 1.6 }}>
-        ※ 데이터: Yahoo Finance(1년 주봉, 무료) · 베타 = Cov(종목수익률, BTC수익률) / Var(BTC수익률) · 6h 캐시 · 교육용이며 투자 추천이 아닙니다.
+        ※ 데이터: Yahoo Finance(1년 주봉, 무료) · 베타 = Cov(종목수익률, 기준코인수익률) / Var(기준코인수익률) · 기준코인: BTC(트레저리·거래소)·ETH(이더리움 트레저리) · 6h 캐시 · 교육용이며 투자 추천이 아닙니다.
       </div>
     </div>
   )

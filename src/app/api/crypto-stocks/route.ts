@@ -12,8 +12,10 @@ export interface CryptoStock {
   tagline: string
   model: string        // 비즈니스 모델(한 줄)
   color: string
-  btcBeta: number | null      // BTC 베타: 1.0=BTC와 동일 움직임, 2.0=2배 레버리지
-  btcCorr: number | null      // BTC 상관계수(-1~1)
+  benchmark: 'BTC' | 'ETH'    // 베타 기준 코인(BTC 트레저리/거래소=BTC, ETH 트레저리=ETH)
+  beta: number | null         // 벤치마크 베타: 1.0=동일 움직임, 2.0=2배 레버리지
+  corr: number | null         // 벤치마크 상관계수(-1~1)
+  benchmarkReturn1y: number | null   // 벤치마크 코인 1년 수익률(%)
   return1y: number | null     // 1년 수익률(%)
   currentPrice: number | null
   points: { date: string; norm: number }[]   // 정규화 가격(첫주=100 기준)
@@ -28,14 +30,16 @@ export interface CryptoStocksResult {
   stocks: CryptoStock[]
   btcReturn1y: number | null
   btcPoints: { date: string; norm: number }[]
+  ethReturn1y: number | null
+  ethPoints: { date: string; norm: number }[]
   asOf: string
 }
 
-const STOCKS: { symbol: string; name: string; tagline: string; model: string; color: string }[] = [
+const STOCKS: { symbol: string; name: string; tagline: string; model: string; color: string; benchmark?: 'BTC' | 'ETH' }[] = [
   { symbol: 'MSTR', name: '마이크로스트래티지', tagline: 'BTC 트레저리 컴퍼니', color: '#f59e0b',
     model: 'BTC를 직접 대규모 보유하는 기업 — 사실상 레버리지 BTC ETF. BTC가 1% 오르면 이 주식은 더 크게 반응한다.' },
-  { symbol: 'BMNR', name: '비트마인', tagline: 'ETH 트레저리 컴퍼니', color: '#818cf8',
-    model: 'ETH를 대규모 보유하는 기업(톰 리 회장) — 이더리움판 마이크로스트래티지. ETH 가격에 강한 레버리지, 변동성 매우 큼.' },
+  { symbol: 'BMNR', name: '비트마인', tagline: 'ETH 트레저리 컴퍼니', color: '#818cf8', benchmark: 'ETH',
+    model: 'ETH를 대규모 보유하는 기업(톰 리 회장) — 이더리움판 마이크로스트래티지. ETH 가격에 강한 레버리지, 변동성 매우 큼. (베타는 ETH 기준)' },
   { symbol: 'COIN', name: '코인베이스', tagline: '미국 1위 코인 거래소', color: '#3b82f6',
     model: '거래 수수료 + 스테이킹 수익 — BTC 가격↑ → 거래량↑ → 수수료 수익↑. 규제 환경에 민감.' },
   { symbol: 'BLSH', name: 'Bullish', tagline: '기관용 코인 거래소(2025 상장)', color: '#14b8a6',
@@ -108,35 +112,36 @@ function normalize(prices: { date: string; price: number }[]): { date: string; n
 }
 
 export async function GET() {
-  const cacheKey = 'crypto-stocks-v2'   // v2: 비트마인·Bullish 추가 + 타이밍(추세·52주)
+  const cacheKey = 'crypto-stocks-v3'   // v3: 종목별 벤치마크(ETH 트레저리=ETH 베타) + ETH 오버레이
   const cached = await getCache<CryptoStocksResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
-  const [btcRaw, ...stockRaws] = await Promise.all([
+  const [btcRaw, ethRaw, ...stockRaws] = await Promise.all([
     yahooWeekly('BTC-USD'),
+    yahooWeekly('ETH-USD'),
     ...STOCKS.map(s => yahooWeekly(s.symbol)),
   ])
 
-  const btcPrices = btcRaw.map(p => p.price)
-  const btcReturn1y = btcPrices.length >= 2
-    ? Math.round((btcPrices[btcPrices.length - 1] / btcPrices[0] - 1) * 1000) / 10
-    : null
-  const btcPoints = normalize(btcRaw)
+  const ret1y = (raw: { price: number }[]) => raw.length >= 2 ? Math.round((raw[raw.length - 1].price / raw[0].price - 1) * 1000) / 10 : null
+  const btcReturn1y = ret1y(btcRaw), ethReturn1y = ret1y(ethRaw)
+  const btcPoints = normalize(btcRaw), ethPoints = normalize(ethRaw)
+  const btcMap = new Map(btcRaw.map(p => [p.date, p.price]))
+  const ethMap = new Map(ethRaw.map(p => [p.date, p.price]))
 
   const stocks: CryptoStock[] = STOCKS.map((meta, idx) => {
+    const bench = meta.benchmark ?? 'BTC'
+    const benchMap = bench === 'ETH' ? ethMap : btcMap
+    const benchReturn1y = bench === 'ETH' ? ethReturn1y : btcReturn1y
     const raw = stockRaws[idx]
     if (raw.length < 10) {
-      return { ...meta, btcBeta: null, btcCorr: null, return1y: null, currentPrice: null, points: [], betaZone: 'mid' as const, trend: 'unknown' as const, pct52w: null, timingTip: '데이터 일시 수집 실패.', jarvisTip: '데이터 일시 수집 실패.' }
+      return { ...meta, benchmark: bench, beta: null, corr: null, benchmarkReturn1y: benchReturn1y, return1y: null, currentPrice: null, points: [], betaZone: 'mid' as const, trend: 'unknown' as const, pct52w: null, timingTip: '데이터 일시 수집 실패.', jarvisTip: '데이터 일시 수집 실패.' }
     }
     const prices = raw.map(p => p.price)
-    // 날짜 정렬: BTC와 stock의 겹치는 주만 사용
-    const btcMap = new Map(btcRaw.map(p => [p.date, p.price]))
-    const paired = raw.filter(p => btcMap.has(p.date))
-    const pairedBtc = paired.map(p => btcMap.get(p.date)!)
-    const { beta, corr } = calcBeta(paired.map(p => p.price), pairedBtc)
-    const return1y = prices.length >= 2
-      ? Math.round((prices[prices.length - 1] / prices[0] - 1) * 1000) / 10
-      : null
+    // 날짜 정렬: 벤치마크 코인(BTC 또는 ETH)과 stock의 겹치는 주만 사용
+    const paired = raw.filter(p => benchMap.has(p.date))
+    const pairedBench = paired.map(p => benchMap.get(p.date)!)
+    const { beta, corr } = calcBeta(paired.map(p => p.price), pairedBench)
+    const return1y = ret1y(raw)
 
     const betaZone: CryptoStock['betaZone'] =
       beta == null ? 'mid'
@@ -145,16 +150,18 @@ export async function GET() {
       : beta >= 0.7 ? 'mid'
       : 'low'
 
-    const btcLabel = btcReturn1y != null ? `BTC ${btcReturn1y > 0 ? '+' : ''}${btcReturn1y}%` : 'BTC'
+    const benchLabel = benchReturn1y != null ? `${bench} ${benchReturn1y > 0 ? '+' : ''}${benchReturn1y}%` : bench
     const stockLabel = return1y != null ? `${return1y > 0 ? '+' : ''}${return1y}%` : '—'
-    const alpha = return1y != null && btcReturn1y != null ? Math.round((return1y - btcReturn1y) * 10) / 10 : null
+    const alpha = return1y != null && benchReturn1y != null ? Math.round((return1y - benchReturn1y) * 10) / 10 : null
 
+    const lowCorr = corr != null && Math.abs(corr) < 0.3   // 상관 낮으면 베타는 통계적으로 신뢰도↓(노이즈)
     const jarvisTip =
       beta == null ? `${meta.name} 가격 데이터를 일시적으로 가져오지 못했습니다.`
-      : beta >= 1.5 ? `⚡ BTC 베타 ${beta} — ${btcLabel}인데 이 주식은 ${stockLabel}로 움직임. BTC의 고베타 레버리지 포지션이다.`
-      : beta >= 0.7 ? `📊 BTC 베타 ${beta} — BTC 수익률(${btcLabel})과 비슷한 궤적. ${alpha != null ? `초과수익(알파) ${alpha > 0 ? '+' : ''}${alpha}%.` : ''}`
-      : beta >= 0 ? `🧩 BTC 베타 ${beta} — BTC보다 낮은 민감도. 코인보다 본업(${meta.tagline}) 가치가 더 반영되는 구조.`
-      : `🔄 BTC 베타 ${beta}(음수) — 해석 주의: 집계 기간 중 BTC와 역방향 구간 존재. 더 긴 기간으로 재검토 권장.`
+      : lowCorr ? `🌀 ${bench} 베타 ${beta}지만 상관 ${corr}로 매우 낮음 — 주가가 ${bench} 주간 등락과 따로 논다(자체 증자·보유 확대·내러티브가 주도). 베타 수치는 참고만 하고, ${meta.tagline} 고유 변동성으로 해석하라.`
+      : beta >= 1.5 ? `⚡ ${bench} 베타 ${beta} — ${benchLabel}인데 이 주식은 ${stockLabel}로 움직임. ${bench}의 고베타 레버리지 포지션이다.`
+      : beta >= 0.7 ? `📊 ${bench} 베타 ${beta} — ${bench} 수익률(${benchLabel})과 비슷한 궤적. ${alpha != null ? `초과수익(알파) ${alpha > 0 ? '+' : ''}${alpha}%.` : ''}`
+      : beta >= 0 ? `🧩 ${bench} 베타 ${beta} — ${bench}보다 낮은 민감도. 코인보다 본업(${meta.tagline}) 가치가 더 반영되는 구조.`
+      : `🔄 ${bench} 베타 ${beta}(음수) — 해석 주의: 집계 기간 중 ${bench}와 역방향 구간 존재. 더 긴 기간으로 재검토 권장.`
 
     // 📉 매수/매도 타이밍 — 추세 + 52주 위치 결합
     const { trend, pct52w } = priceTiming(prices)
@@ -168,8 +175,10 @@ export async function GET() {
 
     return {
       ...meta,
-      btcBeta: beta,
-      btcCorr: corr,
+      benchmark: bench,
+      beta,
+      corr,
+      benchmarkReturn1y: benchReturn1y,
       return1y,
       currentPrice: Math.round(prices[prices.length - 1] * 100) / 100,
       points: normalize(raw),
@@ -181,7 +190,7 @@ export async function GET() {
     }
   })
 
-  const result: CryptoStocksResult = { stocks, btcReturn1y, btcPoints, asOf: new Date().toISOString() }
+  const result: CryptoStocksResult = { stocks, btcReturn1y, btcPoints, ethReturn1y, ethPoints, asOf: new Date().toISOString() }
   if (stocks.some(s => s.points.length > 0)) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }
