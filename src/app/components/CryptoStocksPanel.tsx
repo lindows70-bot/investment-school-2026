@@ -39,6 +39,11 @@ function ReturnBadge({ val, label }: { val: number | null; label: string }) {
   )
 }
 
+const TREND: Record<string, { t: string; c: string }> = {
+  up: { t: '🟢 상승추세', c: '#22c55e' }, side: { t: '🟡 횡보', c: '#f59e0b' },
+  down: { t: '🔴 하락추세', c: '#ef4444' }, unknown: { t: '— 데이터부족', c: '#64748b' },
+}
+
 export default function CryptoStocksPanel() {
   const [d, setD] = useState<CryptoStocksResult | null>(null)
   const [loading, setLoading] = useState(true)
@@ -99,9 +104,7 @@ export default function CryptoStocksPanel() {
     else labelDy[e.key] = 0
   })
 
-  const selectedTip = activeStock
-    ? d.stocks.find(s => s.symbol === activeStock)?.jarvisTip
-    : null
+  const selected = activeStock ? d.stocks.find(s => s.symbol === activeStock) : null
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -110,6 +113,7 @@ export default function CryptoStocksPanel() {
         🏢 <b>코인 관련 주식 평가 프레임</b> — 두 가지 질문으로 봅니다.
         <br />① <b>BTC 베타</b>: &quot;이 주식이 BTC 1% 오를 때 몇 % 움직이나?&quot; — 베타 2.0 = BTC의 2배 레버리지.
         <br />② <b>본업 가치</b>: &quot;BTC를 빼면 뭘로 돈 버나?&quot; — 거래소 수수료 / 채굴 스프레드 / 스테이블 이자 / 리테일 플랫폼.
+        <br />③ <b>매매 타이밍</b>: 카드의 추세(🟢상승/🟡횡보/🔴하락)와 52주 위치로 추격·눌림·바닥을 가늠 — 떨어지는 칼날은 추격 금물.
         <br /><span style={{ color: '#fbbf24', fontSize: 10.5 }}>※ 1년 주봉 수익률 기준. 단기 급등락 구간엔 베타가 왜곡될 수 있어 장기 추세 참고용으로만 쓰세요.</span>
       </div>
 
@@ -174,15 +178,35 @@ export default function CryptoStocksPanel() {
                 </div>
               )}
             </div>
+            {/* 📉 매매 타이밍 — 추세 + 52주 위치 */}
+            <div style={{ marginTop: 7, borderTop: `1px solid ${BORDER}`, paddingTop: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <span style={{ color: '#8a9aaa', fontSize: 10 }}>매매 타이밍</span>
+                <span style={{ color: TREND[s.trend].c, fontWeight: 800, fontSize: 10.5 }}>{TREND[s.trend].t}</span>
+              </div>
+              {s.pct52w != null && (
+                <>
+                  <div style={{ position: 'relative', height: 6, background: '#0f1117', borderRadius: 4 }}>
+                    <div style={{ position: 'absolute', left: `${s.pct52w}%`, top: -1, bottom: -1, width: 3, background: TREND[s.trend].c, transform: 'translateX(-50%)', borderRadius: 2 }} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 1 }}>
+                    <span style={{ color: '#475569', fontSize: 9 }}>52주 저점</span>
+                    <span style={{ color: '#94a3b8', fontSize: 9, fontFamily: 'monospace' }}>{s.pct52w}%</span>
+                    <span style={{ color: '#475569', fontSize: 9 }}>고점</span>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         ))}
       </div>
 
-      {/* 자비스 해설 (종목 선택 시) */}
-      {selectedTip && (
+      {/* 자비스 해설 (종목 선택 시) — 베타 + 매매 타이밍 */}
+      {selected && (
         <div style={{ background: 'rgba(96,165,250,0.07)', border: '1px solid rgba(96,165,250,0.25)', borderRadius: 10, padding: '10px 14px', color: '#bfdbfe', fontSize: 12, lineHeight: 1.7 }}>
-          🤖 <b>자비스 해설 — {activeStock}</b>
-          <br />{selectedTip}
+          🤖 <b>자비스 해설 — {selected.name}({activeStock})</b>
+          <br />{selected.jarvisTip}
+          <br /><span style={{ color: '#fde68a' }}>⏱️ {selected.timingTip}</span>
         </div>
       )}
 
