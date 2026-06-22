@@ -96,12 +96,12 @@ export default function UnifiedReco() {
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'linear-gradient(135deg,rgba(245,158,11,0.10),rgba(96,165,250,0.06))', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12, padding: '12px 16px' }}>
         <span style={{ fontSize: 18 }}>🎯</span>
         <div>
-          <div style={{ color: '#f59e0b', fontWeight: 800, fontSize: 12, marginBottom: 3 }}>통합 추천 — 계절 × 펀더멘탈 × 수급 융합</div>
+          <div style={{ color: '#f59e0b', fontWeight: 800, fontSize: 12, marginBottom: 3 }}>통합 추천 — 계절 × 가치 × 수급 × 모멘텀 융합</div>
           <div style={{ color: '#aab6c4', fontSize: 12, lineHeight: 1.6 }}>
-            4계절(매크로 방향)·가치(저PEG·마진·FCF)·수급(스마트머니)을 <b>하나의 점수</b>로 합칩니다. 세 축이 모두 높은 종목이 최상위 — 왜 추천됐는지 소점수로 투명하게 보여줍니다.
+            4계절(매크로 방향)·가치(저PEG·마진·FCF)·수급(스마트머니)·모멘텀(Fwd EPS·주가추세)을 <b>하나의 점수</b>로 합칩니다. 네 축이 모두 높은 종목이 최상위 — 왜 추천됐는지 소점수로 투명하게 보여줍니다.
           </div>
           <div style={{ color: '#7f93a8', fontSize: 11, marginTop: 4 }}>
-            통합 = 🌦️ 계절 {Math.round(data.weights.season * 100)}% + 💎 가치 {Math.round(data.weights.fund * 100)}% + 💰 수급 {Math.round(data.weights.supply * 100)}%
+            통합 = 🌦️ 계절 {Math.round(data.weights.season * 100)}% + 💎 가치 {Math.round(data.weights.fund * 100)}% + 💰 수급 {Math.round(data.weights.supply * 100)}% + 📈 모멘텀 {Math.round(data.weights.momentum * 100)}%
             {data.usSeason && <> · 🇺🇸 {data.usSeason.label.split(' ')[0]} · 🇰🇷 {data.krSeason.label.split(' ')[0]}</>}
           </div>
           {data.selectionRule && <div style={{ color: '#8a9aaa', fontSize: 10.5, marginTop: 3 }}>📋 선별 기준: {data.selectionRule} → 총 <b style={{ color: '#cbd5e1' }}>{data.items.length}종</b></div>}
