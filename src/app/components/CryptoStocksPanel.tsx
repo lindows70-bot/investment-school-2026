@@ -94,13 +94,21 @@ export default function CryptoStocksPanel() {
   const endIdx: Record<string, number> = { BTC: lastIdx('BTC') }
   d.stocks.forEach(s => { endIdx[s.symbol] = lastIdx(s.symbol) })
 
-  // 끝값이 가까운 라벨끼리 세로로 겹치지 않게 dy 오프셋 — 화면 y는 값이 클수록 위쪽
+  // 📊 로그 스케일 — BMNR(연중 30배 급등) 같은 극단 변동성이 Y축을 독점해 나머지가 바닥에 깔리는 문제 해결
+  //    정규화 지수(첫주=100)는 항상 양수라 로그 적용 가능. 같은 '비율 변화'가 같은 '세로 거리'로 보여 비교가 공정해짐
+  const allNorm = [...d.btcPoints.map(p => p.norm), ...d.stocks.flatMap(s => s.points.map(p => p.norm))].filter(v => v > 0)
+  const minN = allNorm.length ? Math.min(...allNorm) : 50
+  const maxN = allNorm.length ? Math.max(...allNorm) : 200
+  const logTicks = [3, 10, 30, 100, 300, 1000, 3000, 10000].filter(t => t >= minN * 0.85 && t <= maxN * 1.15)
+  const yDomain: [number, number] = [Math.max(1, minN * 0.9), maxN * 1.1]
+
+  // 끝값이 가까운 라벨끼리 세로로 겹치지 않게 dy 오프셋 — 로그축이라 '비율(로그 거리)'로 근접 판정
   const endVals = [{ key: 'BTC', v: d.btcPoints[d.btcPoints.length - 1]?.norm ?? 0 },
     ...d.stocks.map(s => ({ key: s.symbol, v: s.points[s.points.length - 1]?.norm ?? 0 }))]
     .sort((a, b) => b.v - a.v)   // 값 큰 순(화면 위→아래)
   const labelDy: Record<string, number> = {}
   endVals.forEach((e, i) => {
-    if (i > 0 && Math.abs(e.v - endVals[i - 1].v) < 6) labelDy[e.key] = (labelDy[endVals[i - 1].key] ?? 0) + 11
+    if (i > 0 && Math.abs(Math.log(e.v || 1) - Math.log(endVals[i - 1].v || 1)) < 0.07) labelDy[e.key] = (labelDy[endVals[i - 1].key] ?? 0) + 11
     else labelDy[e.key] = 0
   })
 
@@ -121,12 +129,12 @@ export default function CryptoStocksPanel() {
       <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '13px 15px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
           <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>📈 1년 수익률 오버레이</span>
-          <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>첫 주=100 기준 정규화(점선=원금 100) · 오른쪽 수치=1년 누적수익률 · 종목 클릭 시 자비스 해설</span>
+          <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>첫 주=100 기준 정규화 · <b style={{ color: '#a8b5c2' }}>로그 스케일</b>(극단 변동성 종목이 차트를 독점하지 않게) · 점선=원금 100 · 오른쪽 수치=1년 누적수익률 · 클릭 시 해설</span>
         </div>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={chartData} margin={{ top: 4, right: 56, bottom: 0, left: -10 }}>
             <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#64748b' }} tickFormatter={d => d.slice(5)} interval={7} />
-            <YAxis tick={{ fontSize: 9, fill: '#64748b' }} tickFormatter={v => `${v}`} domain={['auto', 'auto']} />
+            <YAxis scale="log" domain={yDomain} ticks={logTicks} allowDataOverflow tick={{ fontSize: 9, fill: '#64748b' }} tickFormatter={v => `${v}`} />
             <Tooltip
               contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, fontSize: 10.5, padding: '6px 10px' }}
               formatter={((v: number, name: string) => [`${v - 100 > 0 ? '+' : ''}${(v - 100).toFixed(1)}%`, name]) as any}
