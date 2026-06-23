@@ -2040,6 +2040,15 @@ KB금융(은행)이 AI 리밸런싱·본부장 브리핑·투자 프로필에서
 - 검증(실DB 전수): KB금융 old=ETF→new=주식 **복구**, 실제 ETF(TIGER·KODEX·PLUS·SOL·ACE·1Q 등 15종) 전부 ETF 유지, 다른 주식 오분류 0
 - 교훈: **종목 분류는 getAssetType(SSOT) 단일 기준으로 — 이름 부분일치 브랜드 휴리스틱은 'KB금융'↔'KBSTAR' 같은 접두어 충돌을 일으킨다**(풀 브랜드명+시장 한정 필수)
 
+## 🔒 토스증권 Open API — 데이터 경계 원칙 (2026-06-24)
+
+토스 키는 **선생님 개인 계정**용. 시세는 공용 OK, **개인 계좌정보(잔고·보유·주문)는 학생에게 절대 노출 금지**. 코드로 강제(설계상 차단).
+- **2종 데이터 분리**: ① 🌐 시세·종목 조회(개인정보 아님)=학생 공용 허용 / ② 🔒 개인 계좌(잔고·보유·주문내역)=소유자 본인 세션만
+- **소유자 게이트 `src/lib/tossOwner.ts`**(`assertTossOwner`): 로그인 사용자 email === `TOSS_OWNER_EMAIL`(env)일 때만 ok. **fail-closed**(소유자 이메일 미설정 시 아무도 통과 못 함 — 실수로 전체 공개 방지). 모든 개인계좌 라우트는 이 게이트 필수, 미통과 403
+- **금지**: 개인 계좌 데이터를 ① 공유 캐시 키(user 무관)에 저장 ② 학생 노출 컴포넌트/집계(school-league·school-index 등)에 포함 ③ `NEXT_PUBLIC_` 노출 — 셋 다 금지. 개인 데이터는 소유자 user_id 스코프 + 게이트 뒤에서만
+- **실행 경계(재확인)**: 시세/잔고 **조회**는 AI·앱 가능 / 실제 **주문 체결**(실거래)은 `TOSS_TRADING_ENABLED` 게이트 + 사람 확인 뒤에만(자동매매 금지)
+- env: `TOSS_API_KEY`·`TOSS_SECRET_KEY`(서버 전용 시크릿)·`TOSS_TRADING_ENABLED`(기본 false)·`TOSS_OWNER_EMAIL`(개인계좌 소유자). 전부 .env.local + Vercel Production만, NEXT_PUBLIC_ 금지
+
 ## 배포
 
 - **프로덕션**: https://investment-school-2026.vercel.app
