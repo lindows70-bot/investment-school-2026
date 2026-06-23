@@ -171,12 +171,15 @@ function AnalysisContent() {
   const lynchPieData = lynchGroups.map(g=>({ name:g.label, value:g.count, color:g.color }))
 
   // ── ETF 판별 함수 (pegAnalysis 보다 먼저 선언 필수) ──────────────
+  // ⚠️ 정확한 ETF 브랜드명만(바 'KB'는 KB금융·KB손해보험 은행을, 'NH'는 NH투자증권을, '파워'는 파워로직스를,
+  //    'MASTER'는 Mastercard를 ETF로 오분류함) → KBSTAR·HANARO 등 풀 브랜드명 + KR 시장 한정으로 오매칭 차단.
+  //    1차 방어는 getAssetType(SSOT)이고, 이건 SSOT가 놓친 KR ETF만 잡는 보조 휴리스틱.
   const ETF_BRANDS_LIST = [
-    'TIGER','KODEX','ACE','PLUS','KBSTAR','HANARO','ARIRANG','SOL','RISE',
-    '1Q','KB','NH','SMART','MASTER','FOCUS','파워','히어로즈','WON','ETF',
+    'TIGER','KODEX','ACE','PLUS','KBSTAR','HANARO','ARIRANG','RISE','SOL','WON',
+    '1Q','SMART','히어로즈','KOSEF','TIMEFOLIO','마이티',
   ]
   const isEtf = (inv: Investment) =>
-    ETF_BRANDS_LIST.some(b => inv.name.toUpperCase().includes(b)) ||
+    (inv.market === 'KR' && ETF_BRANDS_LIST.some(b => inv.name.toUpperCase().includes(b))) ||
     (fundMap[inv.ticker.toUpperCase()]?.isEtf === true)
 
   // ── PEG 분석 데이터 ─────────────────────────────────────────────

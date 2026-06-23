@@ -2031,6 +2031,15 @@ KB금융(은행)이 AI 리밸런싱·본부장 브리핑·투자 프로필에서
 - 캐시: jarvis-metrics v12·morningstar-rating v3→v4·hq-briefing v10→v11·stock-profile v2→v3·ai-rebalance v26. 검증: KB금융 ✅매수적합(81)·해자 moderate·자본배분 standard·좀비 제거 / NVDA(비금융)는 영향 없음(exemplary 유지)
 - 교훈: **금융주는 일반 기업 재무 지표가 통째로 안 맞는다 — 이자보상배율·총마진·순부채는 전부 금융 가드 필요**(섹터 감지 1곳에서 isFinancial 산출 → 전 지표 일괄 적용)
 
+## 🐛 워렌버핏 탭 KB금융 누락 — ETF 브랜드 오매칭 (2026-06-23)
+
+분석 페이지(`analysis/page.tsx`) 워렌버핏 그리드에서 KB금융(은행)이 빠지던 버그. 피터린치 탭엔 나오는데 버핏엔 안 나옴.
+- **원인**: `isEtf` 헬퍼의 `ETF_BRANDS_LIST`에 바 `'KB'`(KB자산운용 ETF 잡으려던 것)가 있어 **"KB금융".includes('KB')=true** → 은행이 ETF로 오분류 → 버핏 그리드(`buffettStocksOnly = assetType==='stock'`)에서 제외. getAssetType(SSOT)은 STOCK으로 맞게 판정했으나 이 느슨한 브랜드 휴리스틱이 덮어씀
+- **같은 류 잠재버그**: `'NH'`(NH투자증권)·`'파워'`(파워로직스)·`'MASTER'`(Mastercard US)·`'FOCUS'`·`'WON'` 등 바 토큰이 종목명 부분일치로 오분류
+- **수정**: ① 풀 브랜드명만(`'KB'`→`'KBSTAR'`, 'NH'·'파워'·'MASTER'·'FOCUS'·'ETF' 제거, KOSEF·TIMEFOLIO·마이티 추가) ② **KR 시장 한정**(`inv.market==='KR' && ...`)으로 US 종목명 오매칭(Mastercard→MASTER) 원천 차단. 1차 방어는 getAssetType, 이건 SSOT가 놓친 KR ETF만 잡는 보조
+- 검증(실DB 전수): KB금융 old=ETF→new=주식 **복구**, 실제 ETF(TIGER·KODEX·PLUS·SOL·ACE·1Q 등 15종) 전부 ETF 유지, 다른 주식 오분류 0
+- 교훈: **종목 분류는 getAssetType(SSOT) 단일 기준으로 — 이름 부분일치 브랜드 휴리스틱은 'KB금융'↔'KBSTAR' 같은 접두어 충돌을 일으킨다**(풀 브랜드명+시장 한정 필수)
+
 ## 배포
 
 - **프로덕션**: https://investment-school-2026.vercel.app
