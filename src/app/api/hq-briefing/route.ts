@@ -41,7 +41,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `hq-briefing-v10:${user.id}:${kstDate()}:${fp}`   // v10: 정책기조를 FOMC 디코더 stance에 일치(매파↔비둘기 모순 차단)
+  const cacheKey = `hq-briefing-v11:${user.id}:${kstDate()}:${fp}`   // v10: 정책기조를 FOMC 디코더 stance에 일치(매파↔비둘기 모순 차단)
   const cached = await getCache<HqBriefing>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

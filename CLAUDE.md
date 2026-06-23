@@ -2021,6 +2021,16 @@ Coinglass(순유입/유출)·TheBlock(누적 거래량) 차트를 무료·무키
 - ⚠️ **검증 중 발견·수정 — 금융주 좀비 오판(중요)**: KB금융(은행)이 **이자보상배율 0.0 → 좀비 → 부적합** 오판. 은행·보험은 이자비용이 영업의 핵심(예금이자)이라 이자보상배율이 구조적으로 무의미 → `buildSignalMetrics`에서 **금융 섹터(financ|bank|insurance|capital market|asset manage)는 interestCoverage=null** 처리(좀비 오판 차단). **SSOT 수정이라 리서치·리밸런싱·브리핑 동시 교정**. 검증: KB금융 좀비 제거 후 ✅매수적합(81, 저PEG0.43·계절우대·수급유입·이익가속) / JPM도 좀비 false / TEM(진짜 적자)은 좀비 유지. jarvis-metrics v11→v12, ai-rebalance v25→v26
 - 검증(2026-06-23): PLTR ⛔(43·역DCF과도+하락추세+칼날)·COP ⚖️(60)·JPM ⚖️(64·금융가드)·TEM ⛔(0·진짜좀비+적자) — 유형별 판정 정확
 
+## 🏦 금융주 오진단 전면 수정 (2026-06-23) — 좀비·해자·자본배분 3종
+
+KB금융(은행)이 AI 리밸런싱·본부장 브리핑·투자 프로필에서 **3가지 잘못된 진단**을 받던 것을 전부 SSOT에서 교정. 은행·보험은 일반 기업 지표(이자보상배율·총마진·순부채)가 구조적으로 무의미하기 때문.
+- **🧟 좀비(이자보상배율)** — 은행은 이자비용=영업 핵심(예금 이자)이라 이자보상배율이 0 수렴 → `buildSignalMetrics`에서 금융주 `interestCoverage=null`(2026-06-22 선반영). AI 리밸런싱 버릴것·하이프·브리핑 동시 교정
+- **🏰 해자(총마진)** — 은행은 '총마진' 개념이 없어 `getMoatBreach`가 'none'(해자 없음) 오판 → **ROE 기반 프록시**로 전환(ROE≥15 wide·≥8 moderate·≥4 narrow). 예금 기반·전환비용·규제 라이선스가 실질 해자. `MoatResult.isFinancial` 노출. 검증: KB금융 none→moderate·JPM→wide
+- **💼 자본배분(stewardship)** — 은행은 예금이 'totalDebt'로 잡혀 순부채>0 → 'poor'(미흡) 오판 → `morningstar-rating`·`stockProfile`이 `moat.isFinancial`이면 `netDebtPos=null`(ROE만으로 평가). 검증: KB금융 poor→standard·JPM standard
+- **감지**: `getMoatBreach`가 `assetProfile.sector/industry`에서 `/financ|bank|insurance|capital market|asset manage/i` → `isFinancial` 단일 판정, 다운스트림이 재사용(제2원칙)
+- 캐시: jarvis-metrics v12·morningstar-rating v3→v4·hq-briefing v10→v11·stock-profile v2→v3·ai-rebalance v26. 검증: KB금융 ✅매수적합(81)·해자 moderate·자본배분 standard·좀비 제거 / NVDA(비금융)는 영향 없음(exemplary 유지)
+- 교훈: **금융주는 일반 기업 재무 지표가 통째로 안 맞는다 — 이자보상배율·총마진·순부채는 전부 금융 가드 필요**(섹터 감지 1곳에서 isFinancial 산출 → 전 지표 일괄 적용)
+
 ## 배포
 
 - **프로덕션**: https://investment-school-2026.vercel.app

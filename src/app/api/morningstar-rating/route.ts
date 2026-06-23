@@ -35,7 +35,7 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `morningstar-rating-v3:${user.id}:${kstDate()}:${fp}`   // v3: 기저효과 기준 isPegBaseEffect 통일(peg<0.3 AND g>100%)
+  const cacheKey = `morningstar-rating-v4:${user.id}:${kstDate()}:${fp}`   // v3: 기저효과 기준 isPegBaseEffect 통일(peg<0.3 AND g>100%)
   const cached = await getCache<MorningstarResult>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -95,7 +95,8 @@ export async function GET(req: Request) {
         const opMargin = typeof fund.operatingMargins === 'number' ? fund.operatingMargins : null
         const roe = typeof fund.returnOnEquity === 'number' ? fund.returnOnEquity
           : (typeof moat?.roe === 'number' ? moat.roe / 100 : null)
-        const netDebtPos = (fund.totalDebt != null && fund.totalCash != null) ? (fund.totalDebt - fund.totalCash) > 0 : null
+        // 🏦 금융주는 예금이 '부채'로 잡혀 순부채가 무의미 → null(자본배분 평가에서 ROE만 보게). 좀비·해자와 동일 철학
+        const netDebtPos = moat?.isFinancial ? null : ((fund.totalDebt != null && fund.totalCash != null) ? (fund.totalDebt - fund.totalCash) > 0 : null)
         // 성장률을 소수로 정규화(Yahoo는 0.18=18%, 일부는 18=18%로 옴) → 기저효과(>100%) 판정용
         const egRaw = typeof fund.earningsGrowth === 'number' ? fund.earningsGrowth : null
         const growth = egRaw == null ? null : (Math.abs(egRaw) < 5 ? egRaw : egRaw / 100)

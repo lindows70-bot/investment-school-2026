@@ -52,7 +52,8 @@ export async function buildStockProfile(ticker: string, market: 'KR' | 'US', bas
   const moatVerdict = moat?.verdict ?? 'early'
   const opMargin = num(fund.operatingMargins)
   const roe = num(fund.returnOnEquity) ?? (typeof moat?.roe === 'number' ? moat.roe / 100 : null)
-  const netDebtPos = (fund.totalDebt != null && fund.totalCash != null) ? (fund.totalDebt - fund.totalCash) > 0 : null
+  // 🏦 금융주는 예금이 '부채'로 잡혀 순부채 무의미 → null(자본배분 ROE만). 좀비·해자와 동일 가드
+  const netDebtPos = moat?.isFinancial ? null : ((fund.totalDebt != null && fund.totalCash != null) ? (fund.totalDebt - fund.totalCash) > 0 : null)
   const peg = num(fund.peg)
   const growth = norm(num(fund.earningsGrowth))
 
