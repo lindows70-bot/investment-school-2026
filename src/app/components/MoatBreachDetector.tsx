@@ -77,7 +77,9 @@ export default function MoatBreachDetector({ ticker, name, market }: Props) {
         <span style={{ fontSize: 14, fontWeight: 900, color: accent }}>{v.emoji} {v.label}</span>
         {!insufficient && data.verdict !== 'early' && (
           <span style={{ fontSize: 11, color: C.textLow }}>
-            · {WIDTH_LABEL[data.moatWidth]} · 총마진 정점比 {data.erosionPct != null && data.erosionPct > 0 ? `-${data.erosionPct}%` : '유지'}
+            {data.isFinancial
+              ? `· ${WIDTH_LABEL[data.moatWidth]} · ROE 기반 평가(금융주)`
+              : `· ${WIDTH_LABEL[data.moatWidth]} · 총마진 정점比 ${data.erosionPct != null && data.erosionPct > 0 ? `-${data.erosionPct}%` : '유지'}`}
           </span>
         )}
       </div>
@@ -113,7 +115,7 @@ export default function MoatBreachDetector({ ticker, name, market }: Props) {
           {/* 핵심 지표 */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 14 }}>
             {[
-              { k: '현재 총마진', val: data.grossNow != null ? `${data.grossNow.toFixed(1)}%` : '—', c: data.grossNow != null && data.grossNow >= 40 ? C.green : data.grossNow != null && data.grossNow >= 25 ? C.blue : C.gold },
+              { k: data.isFinancial ? '총마진(금융 N/A)' : '현재 총마진', val: data.grossNow != null ? `${data.grossNow.toFixed(1)}%` : '—', c: data.grossNow != null && data.grossNow >= 40 ? C.green : data.grossNow != null && data.grossNow >= 25 ? C.blue : C.gold },
               { k: '영업이익률', val: data.opNow != null ? `${data.opNow.toFixed(1)}%` : '—', c: data.opNow != null && data.opNow >= 20 ? C.green : data.opNow != null && data.opNow >= 0 ? C.blue : C.red },
               { k: 'ROE', val: data.roe != null ? `${data.roe.toFixed(1)}%` : '—', c: data.roe != null && data.roe >= 15 ? C.green : data.roe != null && data.roe >= 0 ? C.blue : C.red },
             ].map(m => (

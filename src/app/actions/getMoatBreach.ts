@@ -182,7 +182,8 @@ export async function getMoatBreach(input: { ticker: string; name: string; marke
       const mw: MoatResult['moatWidth'] = roe == null ? 'narrow' : roe >= 15 ? 'wide' : roe >= 8 ? 'moderate' : roe >= 4 ? 'narrow' : 'none'
       const vd: MoatResult['verdict'] = roe != null && roe < 0 ? 'breach' : roe != null && roe < 4 ? 'hairline' : 'intact'
       const res: MoatResult = {
-        ...base, status: 'ok', years, grossNow: ttmGross, grossPeak: ttmGross, opNow: ttmOp, roe,
+        // 🏦 총마진은 금융주에서 무의미 → null('—'로 표시, '0.0%' 오표시 방지). 해자는 ROE로 평가
+        ...base, status: 'ok', years: [], grossNow: null, grossPeak: null, opNow: ttmOp, roe,
         revGrowthYoY: null, erosionPct: 0, moatWidth: mw, verdict: vd, isFinancial: true,
         lynchComment: `🏦 금융주(은행·보험)는 총마진으로 해자를 재기 어렵습니다 — 대신 ROE${roe != null ? ` ${roe}%` : ''}로 평가했습니다. 예금 기반·전환비용·규제 라이선스가 실질 해자라, 자기자본을 꾸준히 굴리는 ROE가 해자의 척도입니다.`,
       }
