@@ -2011,6 +2011,16 @@ Coinglass(순유입/유출)·TheBlock(누적 거래량) 차트를 무료·무키
 - 캐시: jarvis-metrics v9→v10, ai-rebalance v23→v24. 검산(2026-06-22): CAT 재고+10%/매출+22%·SK하이닉스 +10%/+198%·KO −7%/+12% 전부 정상, NVDA +128%/+85%는 가드로 제외
 - ⚠️ **위성 기저효과 PEG 가드(2026-06-22)**: 화면 검증서 발견 — AFRM(유령 발굴)이 **PEG 0.02**(흑자전환 직후 착시)로 +25점 인플레. 원인 = `buildSignalMetrics`가 canon-fund 캐시 콜드 시 `PE/(성장×100)` 폴백으로 아티팩트 생성(canonical은 0.73). 통합추천(코어)엔 `isPegBaseEffect` 가드가 있는데 **위성엔 없던 불일치**. → satelliteScreener에 `pegSuspect = isPegBaseEffect(peg, earningsGrowth) || peg<0.1`(데이터 아티팩트 하한 보강 — 흑자전환은 이익성장 불안정해 isPegBaseEffect만으론 누락) 추가 → 착시 저PEG는 +25 보너스 제외 + `⚠️PEG 기저효과` 배지. SAT_SCORE_KEY v2→v3, ai-rebalance v24→v25. 교훈: **기저효과 가드는 전 스크리너(코어·위성)에 동일 적용해야 — 한쪽만 막으면 같은 착시가 다른 경로로 샌다**
 
+## 🎯 종목 리서치 종합 매수 판정 (2026-06-23) — AI 리밸런싱 근거 총망라
+
+리서치 페이지엔 신호 카드가 많지만 **"그래서 이 종목 매수해도 되나?"를 한눈에 판별하는 종합 결론이 없던** 빈틈을, AI 리밸런싱과 **동일한 4축+리스크 엔진**으로 합성한 판정 카드로 채움. 리서치 페이지 최상단(투자 프로필 위).
+- **빠진 것 보충**: 리서치엔 수급·역DCF·내부자·좀비·해자·PSR·어닝은 있었으나 **모멘텀(Fwd EPS 방향)·재고적체·계절 적합·종합 판정**이 없었음 → 전부 추가
+- **`buildSignalMetrics` 모멘텀 SSOT 확장**: `computeMomentum`을 export하고, buildSignalMetrics가 earningsTrend 모듈 추가해 **momentumScore·fwdEpsDir 노출**(priceTrendKnife→computeMomentum로 교체, 통합추천과 동일 정의). 리서치·리밸런싱·브리핑·위성이 같은 모멘텀 SSOT 공유. jarvis-metrics v10→v12
+- **`/api/research-verdict`**(공개·종목신호·`research-verdict-v2:TICKER:MKT:DATE` 6h): buildSignalMetrics + getCurrentSeason+holdingFit(계절) + reverse-dcf + getMoneyFlow를 합성 → **4축(계절20·가치30·수급20·모멘텀30) − 리스크 감점(칼날·좀비·재고·하이프)** → `verdict`(✅매수적합/⚖️신중/⛔부적합) + score + 찬성/주의 근거 리스트 + 한 줄 결론. **신규 판정기 0개**(전부 기존 SSOT 재사용·제2원칙)
+- **`ResearchVerdict.tsx`**: 판정 배지+점수, 4축 미니바, 👍매수근거/⚠️주의 2열, "상세는 아래 카드 참조" 안내
+- ⚠️ **검증 중 발견·수정 — 금융주 좀비 오판(중요)**: KB금융(은행)이 **이자보상배율 0.0 → 좀비 → 부적합** 오판. 은행·보험은 이자비용이 영업의 핵심(예금이자)이라 이자보상배율이 구조적으로 무의미 → `buildSignalMetrics`에서 **금융 섹터(financ|bank|insurance|capital market|asset manage)는 interestCoverage=null** 처리(좀비 오판 차단). **SSOT 수정이라 리서치·리밸런싱·브리핑 동시 교정**. 검증: KB금융 좀비 제거 후 ✅매수적합(81, 저PEG0.43·계절우대·수급유입·이익가속) / JPM도 좀비 false / TEM(진짜 적자)은 좀비 유지. jarvis-metrics v11→v12, ai-rebalance v25→v26
+- 검증(2026-06-23): PLTR ⛔(43·역DCF과도+하락추세+칼날)·COP ⚖️(60)·JPM ⚖️(64·금융가드)·TEM ⛔(0·진짜좀비+적자) — 유형별 판정 정확
+
 ## 배포
 
 - **프로덕션**: https://investment-school-2026.vercel.app

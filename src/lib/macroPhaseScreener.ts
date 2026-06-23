@@ -410,7 +410,7 @@ function numf(v: any): number | null { if (v == null) return null; const n = typ
 // 📈 모멘텀 SSOT — Fwd EPS 성장 방향 + 최근 주가 추세(50/200일선·52주). Yahoo 모듈 재사용(추가 fetch 0)
 //   철학: 같은 경기순환주라도 이익이 '오르는'(반도체 AI) vs '내리는'(에너지 유가급락) 사이클을 가른다.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function computeMomentum(ks: any, fd: any, sd: any, price: number | null, etTrend: any[]): MomentumSignal {
+export function computeMomentum(ks: any, fd: any, sd: any, price: number | null, etTrend: any[]): MomentumSignal {
   // ① Fwd EPS 방향 — EPS 리비전(애널리스트가 차기연도 추정치를 올리나/내리나)이 진짜 모멘텀.
   //    ⚠️ forwardEps/trailing 절대비율은 기저효과(저점 회복 기대 선반영)로 왜곡되므로 사용 안 함.
   const ny = (etTrend ?? []).find(t => t?.period === '+1y') ?? (etTrend ?? []).find(t => t?.period === '0y')

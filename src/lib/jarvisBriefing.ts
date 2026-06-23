@@ -16,7 +16,7 @@
 import { getCache, setCache } from '@/lib/appCache'
 import { callGeminiJSON } from '@/lib/gemini'
 import { getCanonicalPeg, isPegBaseEffect } from '@/lib/canonicalFundamentals'
-import { priceTrendKnife } from '@/lib/macroPhaseScreener'   // 📉 가격추세·칼날 SSOT(통합추천과 동일 정의)
+import { computeMomentum, type MomentumSignal } from '@/lib/macroPhaseScreener'   // 📈 모멘텀 SSOT(통합추천과 동일 정의: Fwd EPS 방향+가격추세+칼날)
 import { getInsiderSignal } from '@/app/actions/getInsiderSignal'
 import { getSectorPeers } from '@/app/actions/getSectorPeers'
 
@@ -41,6 +41,8 @@ export interface SignalMetrics {
   analystCount:   number | null   // 애널리스트 커버 수(Yahoo) — 언더커버리지 판별(US용, KR은 Naver 별도)
   priceTrend:     'up' | 'side' | 'down' | 'unknown'   // 📉 최근 주가 추세(50/200일선) — 위성 칼날 가드
   knife:          boolean         // 🔪 떨어지는 칼날(급락+하락추세) — 매수 추천 제외
+  momentumScore:  number          // 📈 모멘텀 점수(Fwd EPS 리비전 0.6 + 가격추세 0.4)
+  fwdEpsDir:      'accel' | 'flat' | 'decline' | 'unknown'   // Fwd EPS 사이클 방향
   inventoryBuildup: boolean       // 📦 재고 적체(재고증가율 > 매출증가율) — 경기순환 수요 둔화 선행 신호
   invGapPct:      number | null   // 재고증가율 − 매출증가율 (%p, YoY)
   currency:       string | null
@@ -68,7 +70,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
   const tk = ticker.trim().toUpperCase()
   // v4: PEG를 app_cache(canon-fund) 직접 읽기로 변경 — selfBase 의존성 제거
   //     selfBase가 undefined여도 canon-fund 캐시에서 SSOT PEG를 가져옴
-  const cacheKey = `jarvis-metrics-v10:${tk}:${market}:${kstDate()}`   // v10: 재고 적체(경기순환 고점 선행) 추가
+  const cacheKey = `jarvis-metrics-v12:${tk}:${market}:${kstDate()}`   // v12: 금융주 이자보상배율 null(좀비 오판 방지)
   const cached = await getCache<SignalMetrics>(cacheKey, 12 * 3600_000)
   if (cached) return cached
 
@@ -83,7 +85,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
     let sym = tries[0]
     for (const s of tries) {
       try {
-        const r = await yf.quoteSummary(s, { modules: ['defaultKeyStatistics', 'financialData', 'summaryDetail', 'assetProfile', 'price'] })
+        const r = await yf.quoteSummary(s, { modules: ['defaultKeyStatistics', 'financialData', 'summaryDetail', 'assetProfile', 'price', 'earningsTrend'] })
         if (r) { q = r; sym = s; if (r?.assetProfile?.industry) break }
       } catch { /* 다음 심볼 */ }
     }
@@ -141,7 +143,8 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
     const marketCap = num(q.summaryDetail?.marketCap) ?? num(pr.marketCap)
     // 📉 가격추세·떨어지는 칼날(SSOT 공유) — 추가 fetch 0(이미 받은 summaryDetail·defaultKeyStatistics·price 재사용)
     const curPrice = num(pr.regularMarketPrice) ?? num(q.summaryDetail?.regularMarketPrice)
-    const { priceTrend, knife } = priceTrendKnife(q.defaultKeyStatistics, q.summaryDetail, curPrice)
+    const mom: MomentumSignal = computeMomentum(q.defaultKeyStatistics, q.financialData, q.summaryDetail, curPrice, q.earningsTrend?.trend ?? [])
+    const { priceTrend, knife, momentumScore, fwdEpsDir } = mom
 
     // 📦 재고 적체(경기순환 고점 선행) — 재고증가율(YoY) > 매출증가율(YoY)이면 수요 둔화 신호.
     //    후행 PER/PEG가 '이익 폭증=저PER'로 속이는 사이클 고점을 재고가 선행해서 경고(린치 경기순환 함정).
@@ -167,6 +170,8 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
     const earningsGrowth = (canonFund?.growth ?? null) != null ? canonFund!.growth : num(fd.earningsGrowth)
     const analystCount = num(fd.numberOfAnalystOpinions)
 
+    // 🏦 금융주(은행·보험)는 이자비용이 영업의 핵심(예금 이자)이라 이자보상배율이 구조적으로 무의미 → 좀비 오판 방지(null 처리)
+    const isFinancial = /financ|bank|insurance|capital market|asset manage/i.test(String(ap.sector ?? '') + ' ' + String(ap.industry ?? ''))
     const m: SignalMetrics = {
       ticker: tk, name: name || String(pr.shortName || tk),
       market: market || 'US',
@@ -174,8 +179,8 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
       industry: ap.industry ? String(ap.industry) : null,
       peg, opMargin, opMargin2qDown,
       fcf, fcfNegative: fcf != null && fcf < 0,
-      roe, interestCoverage, marketCap, revenueGrowth, earningsGrowth, analystCount,
-      priceTrend, knife, inventoryBuildup, invGapPct,
+      roe, interestCoverage: isFinancial ? null : interestCoverage, marketCap, revenueGrowth, earningsGrowth, analystCount,
+      priceTrend, knife, momentumScore, fwdEpsDir, inventoryBuildup, invGapPct,
       currency: pr.currency ? String(pr.currency) : null,
     }
     await setCache(cacheKey, m)
