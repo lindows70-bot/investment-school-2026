@@ -15,6 +15,7 @@ import ReverseDcf        from '@/app/components/ReverseDcf'
 import StockProfileCard  from '@/app/components/StockProfileCard'
 import ResearchVerdictCard from '@/app/components/ResearchVerdict'
 import LynchAutoPanel     from '@/app/components/LynchAutoPanel'
+import ChoiValuationPanel from '@/app/components/ChoiValuationPanel'
 import { getAssetType } from '@/lib/assetClassifier'
 import type { Candle } from '@/app/components/CandleChart'
 
@@ -592,12 +593,9 @@ export default function ResearchPage() {
         <InsiderReceipt ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
       </>))}
 
-      {/* ── 🧭 최일 가치분석 탭 (2단계: /valuation 전체 추출 예정) ── */}
-      {activeTab === 'choi' && (!stockInfo ? GuruEmptyNotice : (
-        <div style={{ background: N, boxShadow: SHO, borderRadius: 14, padding: '24px', textAlign: 'center', color: '#8b92b8', fontSize: 13, lineHeight: 1.8 }}>
-          🧭 <b style={{ color: '#fbbf24' }}>최일 가치분석</b>(적정주가·PER밴드·텐배거)은 다음 단계에서 이 탭에 전체 탑재됩니다.<br/>
-          지금은 <b style={{ color: '#fbbf24' }}>사이드바 → 최일 가치분석</b> 메뉴에서 <b>{stockInfo.name}</b>을(를) 조회하세요.
-        </div>
+      {/* ── 🧭 최일 가치분석 탭 (/valuation 전체 추출 — embedded 자동조회) ── */}
+      {activeTab === 'choi' && (!stockInfo ? GuruEmptyNotice : !isStock ? NonStockNotice : (
+        <ChoiValuationPanel ticker={stockInfo.ticker} market={stockInfo.market === 'KR' ? 'KR' : 'US'} embedded />
       ))}
     </div>
   )

@@ -2059,6 +2059,12 @@ KB금융(은행)이 AI 리밸런싱·본부장 브리핑·투자 프로필에서
 - 구조: 차트 탭은 `{activeTab==='chart' && (<>...</>)}`, 그루 탭은 검색된 `stockInfo`를 공유해 단일종목 컴포넌트 재배치(검색 미실행 시 `GuruEmptyNotice`). 비주식은 `NonStockNotice`
 - ⚠️ **2단계 예정**: 최일 가치분석 전체 추출(`/valuation`·리서치 탭 둘 다 사용) + 검색바를 탭 상단 공유로 이동
 
+### 2단계 — 최일 가치분석 전체 추출(2026-06-24)
+- **`ChoiValuationPanel.tsx`**(신규, 1,460줄): `/valuation` 페이지를 **파일 복사 후 컴포넌트화**(재타이핑 0). 시그니처 `ValuationPage()`→`ChoiValuationPanel({ ticker, market, embedded })`, `startAnalysis(tkArg?, mkArg?)` 인자 추가, `embedded && ticker` 시 입력 없이 자동조회 useEffect, `embedded`면 헤더·입력부 숨김·패딩 제거
+- **`/valuation/page.tsx`**: 얇은 래퍼(`<ChoiValuationPanel />`)로 교체 — 입력 UI 포함 전체 그대로(동작 무변경)
+- **리서치 🧭 탭**: `<ChoiValuationPanel ticker market embedded />` — 검색종목 자동 분석. **SSOT**(메뉴·탭 동일 컴포넌트)
+- ⚠️ 함정: `onClick={startAnalysis}`는 인자 추가 후 이벤트를 ticker로 넘겨 크래시 → `onClick={() => startAnalysis()}` 수정
+
 ## 배포
 
 - **프로덕션**: https://investment-school-2026.vercel.app
