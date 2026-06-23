@@ -1,8 +1,9 @@
 // 위성(10배거) 100종목 풀 + 라이트 채점 — 크론이 미리 계산해 캐시, 리밸런싱은 캐시만 읽음
 import { getCache, setCache } from '@/lib/appCache'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
+import { isPegBaseEffect } from '@/lib/canonicalFundamentals'   // 기저효과 PEG 가드(코어와 동일 SSOT)
 
-export const SAT_SCORE_KEY = 'satellite-scores-v2'   // 위성 100종목 점수 — 크론이 매일 적재 (v2: 칼날 가드)
+export const SAT_SCORE_KEY = 'satellite-scores-v3'   // 위성 100종목 점수 — 크론이 매일 적재 (v3: 기저효과 PEG 가드)
 
 // 채점 결과(편입 비중 제외). 리밸런서 SatelliteCandidate = SatelliteScore & { allocWeight }
 export interface SatelliteScore {
@@ -136,17 +137,20 @@ async function scoreSatellitePool(pool: typeof SATELLITE_UNIVERSE, base: string)
         const growthPct = m.revenueGrowth != null ? Math.round(m.revenueGrowth * 1000) / 10 : null
         const icr = m.interestCoverage
         const zombie = icr != null && icr < 1.5
+        // ⚠️ 기저효과 PEG 가드(코어와 동일 SSOT·제2원칙) — 흑자전환 직후 착시 저PEG(AFRM 0.02류)는 점수에 반영 금지.
+        //    isPegBaseEffect(peg<0.3 & 이익성장>100%) + PEG<0.1 데이터 아티팩트 하한(흑자전환은 이익성장이 불안정해 보강)
+        const pegSuspect = isPegBaseEffect(m.peg, m.earningsGrowth) || (m.peg != null && m.peg > 0 && m.peg < 0.1)
         // 라이트 점수: 시총룸(40) + 성장(35) + 저PEG(25), 좀비면 강한 감점
         let sc = 0
         if (mcUsd != null) sc += mcUsd < 10e9 ? 40 : mcUsd < 50e9 ? 22 : 0
         if (growthPct != null) sc += growthPct >= 30 ? 35 : growthPct >= 18 ? 18 : 0
-        if (m.peg != null && m.peg > 0) sc += m.peg < 0.5 ? 25 : m.peg < 1.0 ? 14 : 0
+        if (m.peg != null && m.peg > 0 && !pegSuspect) sc += m.peg < 0.5 ? 25 : m.peg < 1.0 ? 14 : 0   // 착시 저PEG는 보너스 제외
         if (zombie) sc = Math.min(sc, 30)   // 좀비는 위성에서도 강등(파산 위험)
         if (m.knife) sc = Math.min(sc, 25)   // 🔪 떨어지는 칼날은 위성에서도 강등(추천 제외는 선별부에서)
         const reason = [
           mcUsd != null ? `시총 $${(mcUsd / 1e9).toFixed(1)}B` : null,
           growthPct != null ? `매출성장 ${growthPct.toFixed(0)}%` : null,
-          m.peg != null && m.peg > 0 ? `PEG ${m.peg.toFixed(2)}` : null,
+          m.peg != null && m.peg > 0 ? (pegSuspect ? `⚠️PEG ${m.peg.toFixed(2)} 기저효과` : `PEG ${m.peg.toFixed(2)}`) : null,
           zombie ? '⚠️좀비위험' : null,
           m.knife ? '🔪급락추세' : null,
         ].filter(Boolean).join(' · ')

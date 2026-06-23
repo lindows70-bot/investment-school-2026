@@ -2009,6 +2009,7 @@ Coinglass(순유입/유출)·TheBlock(누적 거래량) 차트를 무료·무키
 - **📉 보유 종목 추세/칼날 매도(비대칭 해소)**: 모멘텀(주가추세·칼날)을 매수 후보엔 넣었는데 **보유 매도 진단엔 빠져 있던 비대칭** 해소 — `buildSignalMetrics`가 이미 가진 `priceTrend·knife` 재사용. `evaluateSignal` SELL에 **🔪칼날(50·200일선 정배열 붕괴)** 추가(winner=익절/sound loser=경고만, 저점매도 강요 안 함), ai-rebalance 줄일것에 **단순 하락추세(추세 이탈)** 소프트 트림 사유 추가
 - ❌ **제외**: 제미나이 '제품 가격 스프레드(D램 고정가·신조선가)' = 무료 실시간 API 없음(제1원칙 위반) → 재고 회전율이 같은 사이클-고점 신호를 무료로 대체. 내부자 '매수'는 이미 수급 반영(이중계상 방지)
 - 캐시: jarvis-metrics v9→v10, ai-rebalance v23→v24. 검산(2026-06-22): CAT 재고+10%/매출+22%·SK하이닉스 +10%/+198%·KO −7%/+12% 전부 정상, NVDA +128%/+85%는 가드로 제외
+- ⚠️ **위성 기저효과 PEG 가드(2026-06-22)**: 화면 검증서 발견 — AFRM(유령 발굴)이 **PEG 0.02**(흑자전환 직후 착시)로 +25점 인플레. 원인 = `buildSignalMetrics`가 canon-fund 캐시 콜드 시 `PE/(성장×100)` 폴백으로 아티팩트 생성(canonical은 0.73). 통합추천(코어)엔 `isPegBaseEffect` 가드가 있는데 **위성엔 없던 불일치**. → satelliteScreener에 `pegSuspect = isPegBaseEffect(peg, earningsGrowth) || peg<0.1`(데이터 아티팩트 하한 보강 — 흑자전환은 이익성장 불안정해 isPegBaseEffect만으론 누락) 추가 → 착시 저PEG는 +25 보너스 제외 + `⚠️PEG 기저효과` 배지. SAT_SCORE_KEY v2→v3, ai-rebalance v24→v25. 교훈: **기저효과 가드는 전 스크리너(코어·위성)에 동일 적용해야 — 한쪽만 막으면 같은 착시가 다른 경로로 샌다**
 
 ## 배포
 
