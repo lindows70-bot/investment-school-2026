@@ -41,6 +41,8 @@ export interface SignalMetrics {
   analystCount:   number | null   // 애널리스트 커버 수(Yahoo) — 언더커버리지 판별(US용, KR은 Naver 별도)
   priceTrend:     'up' | 'side' | 'down' | 'unknown'   // 📉 최근 주가 추세(50/200일선) — 위성 칼날 가드
   knife:          boolean         // 🔪 떨어지는 칼날(급락+하락추세) — 매수 추천 제외
+  inventoryBuildup: boolean       // 📦 재고 적체(재고증가율 > 매출증가율) — 경기순환 수요 둔화 선행 신호
+  invGapPct:      number | null   // 재고증가율 − 매출증가율 (%p, YoY)
   currency:       string | null
 }
 export interface SignalDecision { type: SignalType; reasons: string[] }
@@ -66,7 +68,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
   const tk = ticker.trim().toUpperCase()
   // v4: PEG를 app_cache(canon-fund) 직접 읽기로 변경 — selfBase 의존성 제거
   //     selfBase가 undefined여도 canon-fund 캐시에서 SSOT PEG를 가져옴
-  const cacheKey = `jarvis-metrics-v9:${tk}:${market}:${kstDate()}`   // v9: 가격추세·칼날 추가(위성 가드)
+  const cacheKey = `jarvis-metrics-v10:${tk}:${market}:${kstDate()}`   // v10: 재고 적체(경기순환 고점 선행) 추가
   const cached = await getCache<SignalMetrics>(cacheKey, 12 * 3600_000)
   if (cached) return cached
 
@@ -115,6 +117,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
     // 분기 영업이익률 추세 → 2분기 연속 하락 + 이자보상배율(영업이익/이자비용) — 같은 FTS 응답 재사용(추가 fetch 0)
     let opMargin2qDown = false
     let interestCoverage: number | null = null
+    let revQ: { t: number; rev: number }[] = []   // 재고 적체 계산용 분기 매출(외부 스코프로 hoist)
     try {
       const fts = await yf.fundamentalsTimeSeries(sym, { period1: '2021-01-01', type: 'quarterly', module: 'financials' })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -122,6 +125,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
       const rows = arr
         .map(r => ({ t: (r.date instanceof Date ? r.date : new Date(r.date)).getTime(), oi: num(r.operatingIncome), rev: num(r.totalRevenue), intExp: num(r.interestExpense) }))
         .sort((a, b) => a.t - b.t)
+      revQ = rows.filter(r => r.rev != null).map(r => ({ t: r.t, rev: r.rev as number }))
       const margins = rows.filter(r => r.rev != null && (r.rev as number) > 0 && r.oi != null).map(r => (r.oi as number) / (r.rev as number))
       if (margins.length >= 3) {
         const [a, b, c] = margins.slice(-3)
@@ -138,6 +142,26 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
     // 📉 가격추세·떨어지는 칼날(SSOT 공유) — 추가 fetch 0(이미 받은 summaryDetail·defaultKeyStatistics·price 재사용)
     const curPrice = num(pr.regularMarketPrice) ?? num(q.summaryDetail?.regularMarketPrice)
     const { priceTrend, knife } = priceTrendKnife(q.defaultKeyStatistics, q.summaryDetail, curPrice)
+
+    // 📦 재고 적체(경기순환 고점 선행) — 재고증가율(YoY) > 매출증가율(YoY)이면 수요 둔화 신호.
+    //    후행 PER/PEG가 '이익 폭증=저PER'로 속이는 사이클 고점을 재고가 선행해서 경고(린치 경기순환 함정).
+    let inventoryBuildup = false, invGapPct: number | null = null
+    try {
+      const bs = await yf.fundamentalsTimeSeries(sym, { period1: '2022-01-01', type: 'quarterly', module: 'balance-sheet' })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const barr: any[] = Array.isArray(bs) ? bs : (bs?.timeSeries ?? [])
+      const inv = barr.map(r => ({ t: (r.date instanceof Date ? r.date : new Date(r.date)).getTime(), v: num(r.inventory) }))
+        .filter(r => r.v != null).sort((a, b) => a.t - b.t)
+      const revRows = revQ.slice().sort((a, b) => a.t - b.t)   // 재무 FTS(매출) 재사용
+      if (inv.length >= 5 && revRows.length >= 5) {
+        const invG = (inv[inv.length - 1].v as number) / (inv[inv.length - 5].v as number) - 1
+        const revG = revRows[revRows.length - 1].rev / revRows[revRows.length - 5].rev - 1
+        invGapPct = Math.round((invG - revG) * 1000) / 10
+        // 재고 5%+ 증가 & 매출보다 15%p+ 빠름 & 매출 저성장(<20%) — 매출 고성장 램프업(NVDA 블랙웰 비축)은 제외, '매출 안 느는데 재고만 쌓임'만 포착
+        inventoryBuildup = invG > 0.05 && (invG - revG) >= 0.15 && revG < 0.20
+      }
+    } catch { /* 재고 데이터 없으면 신호 없음 */ }
+
     const revenueGrowth = num(fd.revenueGrowth)
     // 이익성장률 — canon-fund SSOT 우선(KR은 Naver 기반), 폴백 Yahoo. PEG와 같은 출처여야 기저효과 판정 정합
     const earningsGrowth = (canonFund?.growth ?? null) != null ? canonFund!.growth : num(fd.earningsGrowth)
@@ -151,7 +175,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
       peg, opMargin, opMargin2qDown,
       fcf, fcfNegative: fcf != null && fcf < 0,
       roe, interestCoverage, marketCap, revenueGrowth, earningsGrowth, analystCount,
-      priceTrend, knife,
+      priceTrend, knife, inventoryBuildup, invGapPct,
       currency: pr.currency ? String(pr.currency) : null,
     }
     await setCache(cacheKey, m)
@@ -176,6 +200,8 @@ export function evaluateSignal(m: SignalMetrics, lynchCategory: string | null, i
   if (m.peg != null && m.peg > 2.2) sell.push(`PEG ${m.peg.toFixed(2)} — 성장 대비 고평가(기준 2.2 초과)`)
   if (m.opMargin2qDown) sell.push('영업이익률이 2분기 연속 하락 — 수익성 둔화 신호')
   if (m.fcfNegative) sell.push('잉여현금흐름(FCF) 적자 — 현금 창출력 악화')
+  if (m.inventoryBuildup) sell.push(`📦 재고 적체 — 재고 증가가 매출 증가보다 ${m.invGapPct}%p 빠름(경기순환 수요 둔화 선행 신호)`)
+  if (m.knife) sell.push('🔪 주가 급락·추세 이탈 — 50·200일선 정배열 붕괴(떨어지는 칼날)')
   if (sell.length) return { type: 'SELL', reasons: sell }
 
   // BUY — 우량/고성장 저평가 또는 내부자 매집

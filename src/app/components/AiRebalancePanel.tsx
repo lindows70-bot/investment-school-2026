@@ -141,9 +141,10 @@ export default function AiRebalancePanel() {
             🔁 시클리컬 가치함정 주의 — 경기순환주 {data.cyclicalTrap.weight}% 집중
           </div>
           <div style={{ color: '#fdba74', fontSize: 12.5, lineHeight: 1.7 }}>
-            <b>{data.cyclicalTrap.tickers.map(t => `${t.market === 'KR' ? (t.name || t.ticker).slice(0, 10) : t.ticker}(PEG ${t.peg})`).join(', ')}</b>는 PEG가 낮아 저평가처럼 보입니다.
-            하지만 <b>경기순환주(반도체 등)는 이익이 정점일 때 PER이 가장 낮아 보이는 &lsquo;가치 함정&rsquo;</b>일 수 있습니다(피터 린치).
-            저PEG만 보고 &lsquo;사수&rsquo;로 안심하지 말고, ① 영업이익률이 역사적 고점인지 ② 마진이 꺾이기 시작했는지를 함께 확인하세요. 사이클 고점에서의 저PER은 매수가 아니라 매도 신호일 수 있습니다.
+            <b>{data.cyclicalTrap.tickers.map(t => `${t.market === 'KR' ? (t.name || t.ticker).slice(0, 10) : t.ticker}(${t.invGap != null ? `📦재고+${t.invGap}%p` : `PEG ${t.peg}`})`).join(', ')}</b>가 사이클 고점 함정 의심 신호입니다.
+            <b>경기순환주(반도체·에너지 등)는 이익이 정점일 때 PER이 가장 낮아 보이는 &lsquo;가치 함정&rsquo;</b>(피터 린치)인데,
+            특히 <b>📦 재고 적체(재고증가율 &gt; 매출증가율)</b>는 후행 PER이 못 잡는 <b>수요 둔화의 선행 신호</b>입니다 — 이익이 폭증 중이어도 재고가 쌓이면 사이클이 꺾이는 초입일 수 있어요.
+            저PEG만 보고 &lsquo;사수&rsquo;로 안심하지 말고, 재고·마진 추세를 함께 보고 분할 익절을 고려하세요.
           </div>
         </div>
       )}

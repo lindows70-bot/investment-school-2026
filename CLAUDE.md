@@ -2002,6 +2002,14 @@ Coinglass(순유입/유출)·TheBlock(누적 거래량) 차트를 무료·무키
 - ⚠️ **위성(10배거) 칼날 가드 보강(2026-06-22)**: 가격추세·칼날 판정을 `priceTrendKnife`(SSOT)로 추출 → 통합추천(`computeMomentum`)·위성(`buildSignalMetrics`)이 **동일 정의** 공유. `SignalMetrics`에 `priceTrend·knife` 추가(추가 fetch 0 — 이미 받는 summaryDetail·defaultKeyStatistics·price 재사용, jarvis-metrics v8→v9). `satelliteScreener`가 칼날을 강등(점수≤25)+`🔪급락추세` 사유+**선별에서 제외**(SAT_SCORE_KEY v1→v2). 위성도 매출성장(Fwd 프록시)에 더해 급락주 차단. ai-rebalance v22→v23
 - 교훈: **칼날(급락+하락추세) 정의는 한 SSOT(`priceTrendKnife`)로** — 통합추천만 막고 위성은 안 막으면 같은 종목이 한 곳선 제외·다른 곳선 추천되는 모순(반복 패턴)
 
+## 📦 AI 리밸런싱 보강 — 재고 적체(사이클 고점 선행) + 보유 추세/칼날 매도 (2026-06-22)
+
+제미나이 '현장의 촉(catalyst)' 아이디어를 비판적으로 수용 — 이미 있는 것(내부자 매수=수급 연동·어닝 sentiment=Jarvis)은 재구축 안 하고, **진짜 빈틈 2개**만 보강. "최고 수익률"엔 사이클 고점 회피 + 손실 빨리 자르기가 핵심.
+- **📦 재고 회전율(경기순환 고점 선행)**: 후행 PER/PEG가 '이익 폭증=저PER'로 속이는 사이클 고점을, **재고증가율 > 매출증가율**(YoY)로 선행 포착. `buildSignalMetrics`에 balance-sheet FTS(`inventory`) 1콜 추가(재무 FTS 매출 재사용) → `inventoryBuildup`·`invGapPct`. **가드**: `재고+5%↑ & 매출보다 15%p+ 빠름 & 매출 저성장(<20%)` — ⚠️매출 고성장 램프업(NVDA 블랙웰 비축 재고+128%/매출+85%)은 **제외**(검산서 false-positive 발견·보정), '매출 안 느는데 재고만 쌓임'만 포착. `evaluateSignal` SELL 룰 + `CyclicalTrap`(함정 레이더에 📦재고+N%p 배지) 반영. 경기순환 winner가 재고 적체면 → 분할 익절(사이클 꺾이기 전 차익실현)
+- **📉 보유 종목 추세/칼날 매도(비대칭 해소)**: 모멘텀(주가추세·칼날)을 매수 후보엔 넣었는데 **보유 매도 진단엔 빠져 있던 비대칭** 해소 — `buildSignalMetrics`가 이미 가진 `priceTrend·knife` 재사용. `evaluateSignal` SELL에 **🔪칼날(50·200일선 정배열 붕괴)** 추가(winner=익절/sound loser=경고만, 저점매도 강요 안 함), ai-rebalance 줄일것에 **단순 하락추세(추세 이탈)** 소프트 트림 사유 추가
+- ❌ **제외**: 제미나이 '제품 가격 스프레드(D램 고정가·신조선가)' = 무료 실시간 API 없음(제1원칙 위반) → 재고 회전율이 같은 사이클-고점 신호를 무료로 대체. 내부자 '매수'는 이미 수급 반영(이중계상 방지)
+- 캐시: jarvis-metrics v9→v10, ai-rebalance v23→v24. 검산(2026-06-22): CAT 재고+10%/매출+22%·SK하이닉스 +10%/+198%·KO −7%/+12% 전부 정상, NVDA +128%/+85%는 가드로 제외
+
 ## 배포
 
 - **프로덕션**: https://investment-school-2026.vercel.app

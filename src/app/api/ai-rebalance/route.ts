@@ -65,6 +65,9 @@ export interface HoldingDiagnosis {
   pegSuspect:    boolean         // ⚠️ 기저효과 저PEG 의심(isPegBaseEffect SSOT) — UI에서 PEG를 호재로 표기 금지
   opMargin:      number | null   // 영업이익률 % (음수=영업적자=실체 없음 → 하이프 판별)
   interestCoverage: number | null  // 이자보상배율 (<1.5=좀비 위험, 무차입은 null)
+  priceTrend:    'up' | 'side' | 'down' | 'unknown'   // 📉 주가 추세(보유 매도 신호)
+  inventoryBuildup: boolean        // 📦 재고 적체(경기순환 고점 선행)
+  invGapPct:     number | null     // 재고증가율 − 매출증가율(%p)
   breakEvenRise: number | null   // 손실 종목: 본전까지 필요 상승률 % (확정 수학)
   releaseWeight: number          // 이 종목에서 회수할 총 비중 %(신호 회수 + 집중 트림)
   trimWeight:    number          // Phase 3: 과집중 분류 분산 목적 축소 비중 %(releaseWeight에 포함)
@@ -102,7 +105,7 @@ export interface DiversificationView {
 // 시클리컬 가치함정 경고 — 피터 린치 영구 원리(경기순환주는 이익 정점에서 PER 최저=함정)
 export interface CyclicalTrap {
   weight:  number    // 경기순환주 총 비중 %
-  tickers: { ticker: string; name: string; market: string; peg: number | null }[]  // 저PEG 경기순환주(함정 의심)
+  tickers: { ticker: string; name: string; market: string; peg: number | null; invGap: number | null }[]  // 저PEG 또는 재고적체 경기순환주(함정 의심)
 }
 // 하이프 프리미엄 경고 — 버핏/린치 영구 원리(이익이라는 실체 없이 내러티브로 프리미엄 = 거품)
 export interface HypePremium {
@@ -222,7 +225,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v23:${user.id}:${today}:${fp}`   // v23: 위성 칼날 가드 제외
+  const cacheKey = `ai-rebalance-v24:${user.id}:${today}:${fp}`   // v24: 재고적체+보유 추세/칼날 매도신호
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -285,6 +288,9 @@ export async function GET(req: Request) {
       let pegSuspect = false
       let opMargin: number | null = null
       let interestCoverage: number | null = null
+      let priceTrend: HoldingDiagnosis['priceTrend'] = 'unknown'
+      let inventoryBuildup = false
+      let invGapPct: number | null = null
       // MECE 분류 SSOT — lynch-matrix(진단 탭)와 동일 분류기(제2원칙). DB 지정 > 펀더멘탈 자동
       let lynchCategory: string | null = v.lynch_category ?? null
       try {
@@ -294,6 +300,9 @@ export async function GET(req: Request) {
           pegSuspect = isPegBaseEffect(m.peg, m.earningsGrowth)
           opMargin = m.opMargin
           interestCoverage = m.interestCoverage
+          priceTrend = m.priceTrend
+          inventoryBuildup = m.inventoryBuildup
+          invGapPct = m.invGapPct
           const mece = classifyLynchMece(v.lynch_category ?? null, m.earningsGrowth, m.sector).cat
           lynchCategory = mece === 'na' ? null : mece   // 'na'는 기존처럼 미분류(null) — 황금비율 트림 대상 제외
           const decision = evaluateSignal(m, lynchCategory, false)
@@ -314,7 +323,7 @@ export async function GET(req: Request) {
       return {
         ticker: v.ticker, name: v.name ?? v.ticker, market: v.market ?? 'US',
         lynchCategory, weight, pnlPct: v.pnlPct,
-        action, sellReasons, peg, pegSuspect, opMargin, interestCoverage, breakEvenRise: breakEvenRiseOf(v.pnlPct), releaseWeight, trimWeight: 0,
+        action, sellReasons, peg, pegSuspect, opMargin, interestCoverage, priceTrend, inventoryBuildup, invGapPct, breakEvenRise: breakEvenRiseOf(v.pnlPct), releaseWeight, trimWeight: 0,
       } as HoldingDiagnosis
     }))
     diagnoses.push(...rs)
@@ -327,12 +336,14 @@ export async function GET(req: Request) {
   // 🔁 시클리컬 가치함정 — 경기순환주 비중 高 + 저PEG(저평가처럼 보임)면 '이익 정점 함정' 경고
   //    (피터 린치 영구 원리: 경기순환주는 이익이 정점일 때 PER이 가장 낮아 보임 → 저PEG≠저평가)
   const cyclicalWeight = Math.round((curCat['cyclical'] ?? 0) * 10) / 10
-  const lowPegCyclicals = diagnoses
-    .filter(d => d.lynchCategory === 'cyclical' && d.peg != null && d.peg > 0 && d.peg < 0.8 && d.weight > 0.5)
-    .map(d => ({ ticker: d.ticker, name: d.name, market: d.market, peg: d.peg }))
+  //  📦 재고 적체(선행) OR 저PEG(후행 착시) 경기순환주 = 사이클 고점 함정 의심
+  const trapCyclicals = diagnoses
+    .filter(d => d.lynchCategory === 'cyclical' && d.weight > 0.5 &&
+      ((d.peg != null && d.peg > 0 && d.peg < 0.8) || d.inventoryBuildup))
+    .map(d => ({ ticker: d.ticker, name: d.name, market: d.market, peg: d.peg, invGap: d.inventoryBuildup ? d.invGapPct : null }))
   const cyclicalTrap: CyclicalTrap | null =
-    cyclicalWeight >= 40 && lowPegCyclicals.length > 0
-      ? { weight: cyclicalWeight, tickers: lowPegCyclicals }
+    cyclicalWeight >= 40 && trapCyclicals.length > 0
+      ? { weight: cyclicalWeight, tickers: trapCyclicals }
       : null
 
   // 💭 하이프 프리미엄 — 영업적자(이익이라는 실체 없음) 종목을 내러티브 의존 거품 위험으로 경고
@@ -499,11 +510,12 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
   const mvByTicker = new Map(items.map(i => [i.ticker.toUpperCase(), i]))
 
   // ③' 보강: 종목별 매도측 신호 수집(역-DCF·수급·계절) — 보유 진단 종목 한정·캐시 재사용
-  const sig = new Map<string, { dcf?: string; flow?: string; seasonTag?: string }>()
+  const sig = new Map<string, { dcf?: string; flow?: string; seasonTag?: string; trend?: string }>()
   await Promise.all(diagnoses.map(async d => {
-    const k = d.ticker.toUpperCase(); const mk = (d.market === 'KR' ? 'KR' : 'US') as 'KR' | 'US'; const o: { dcf?: string; flow?: string; seasonTag?: string } = {}
+    const k = d.ticker.toUpperCase(); const mk = (d.market === 'KR' ? 'KR' : 'US') as 'KR' | 'US'; const o: { dcf?: string; flow?: string; seasonTag?: string; trend?: string } = {}
     try { const r = await fetch(`${base}/api/reverse-dcf?ticker=${encodeURIComponent(d.ticker)}&market=${mk}`, { signal: AbortSignal.timeout(10_000) }); if (r.ok) o.dcf = (await r.json())?.verdict } catch { /* graceful */ }
     try { const mf = await getMoneyFlow(d.ticker, mk, d.name, base); o.flow = mf?.status } catch { /* graceful */ }
+    o.trend = d.priceTrend   // 보유 진단에서 캡처한 주가 추세(추가 fetch 0)
     if (season) {
       const quad = mk === 'KR' ? season.krQuad : season.usQuad
       const sec = secByTicker[k]
@@ -518,6 +530,7 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
     const out: string[] = []
     if (o.dcf === 'demanding') out.push('역-DCF 기대과도🔥(주가가 실제보다 높은 성장 선반영)')
     if (o.flow === 'CROWDED') out.push('수급 이탈·과열(외인·기관 매도 우위)')
+    if (o.trend === 'down') out.push('주가 하락추세(50·200일선 이탈 — 추세 이탈)')
     if (o.seasonTag === 'unfavored') out.push('현재 계절 역풍(불리 섹터)')
     return out
   }
