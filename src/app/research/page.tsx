@@ -2,7 +2,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import FullCandleChart from '@/app/components/FullCandleChart'
-import LynchWizard    from '@/app/components/LynchWizard'
 import JarvisInsight   from '@/app/components/JarvisInsight'
 import InsiderReceipt   from '@/app/components/InsiderReceipt'
 import NoiseCanceller   from '@/app/components/NoiseCanceller'
@@ -15,6 +14,7 @@ import MoneyFlowRadar    from '@/app/components/MoneyFlowRadar'
 import ReverseDcf        from '@/app/components/ReverseDcf'
 import StockProfileCard  from '@/app/components/StockProfileCard'
 import ResearchVerdictCard from '@/app/components/ResearchVerdict'
+import LynchAutoPanel     from '@/app/components/LynchAutoPanel'
 import { getAssetType } from '@/lib/assetClassifier'
 import type { Candle } from '@/app/components/CandleChart'
 
@@ -23,7 +23,7 @@ const SHO = '7px 7px 18px #0e1020, -4px -4px 12px #282c44'
 const SHI = 'inset 4px 4px 10px #0e1020, inset -3px -3px 8px #282c44'
 
 // 탭: 'chart' = 차트 리서치 | 'wizard' = 피터린치 진단
-type ResearchTab = 'chart' | 'wizard'
+type ResearchTab = 'chart' | 'lynch' | 'buffett' | 'choi'
 
 type Market = 'US' | 'KR' | 'CRYPTO'
 type TimeFrame = '1D' | '1W' | '1M' | '1Y'
@@ -231,6 +231,13 @@ export default function ResearchPage() {
       </div>
     </div>
   )
+  // 그루 탭에서 아직 종목을 조회하지 않았을 때 안내
+  const GuruEmptyNotice = (
+    <div style={{ background: N, boxShadow: SHO, borderRadius: 14, padding: '24px', textAlign: 'center', color: '#8b92b8', fontSize: 13, lineHeight: 1.8 }}>
+      🔎 먼저 <b style={{ color: '#fbbf24' }}>📈 차트 리서치</b> 탭에서 종목을 조회하세요.<br/>
+      조회한 종목이 이 탭의 그루 분석에 자동으로 적용됩니다.
+    </div>
+  )
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
@@ -239,8 +246,10 @@ export default function ResearchPage() {
       {/* ── 탭 네비게이션 ───────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 6, borderBottom: `1px solid #4a5070`, paddingBottom: 0 }}>
         {([
-          { key: 'chart',  label: '📈 차트 리서치',     desc: '실시간 캔들 + 핵심 지표' },
-          { key: 'wizard', label: '🔬 피터린치 진단',   desc: '3단계 인터랙티브 분류 위저드' },
+          { key: 'chart',   label: '📈 차트 리서치',   desc: '캔들 + 핵심지표 + 종합 판정' },
+          { key: 'lynch',   label: '🔍 피터린치 분석', desc: '6대 분류·PEG·이익선 자동' },
+          { key: 'buffett', label: '🏰 워렌버핏 분석', desc: '공정가치·해자·안전마진' },
+          { key: 'choi',    label: '🧭 최일 가치분석', desc: '적정주가·PER밴드(준비 중)' },
         ] as { key: ResearchTab; label: string; desc: string }[]).map(({ key, label, desc }) => (
           <button
             key={key}
@@ -261,21 +270,7 @@ export default function ResearchPage() {
         ))}
       </div>
 
-      {/* ── 피터린치 진단 위저드 탭 ───────────────────────────── */}
-      {activeTab === 'wizard' && (
-        stockInfo && !isStock ? NonStockNotice : (
-          <LynchWizard
-            autoTicker={stockInfo?.ticker ?? query ?? null}
-            autoName={stockInfo?.name           ?? null}
-            autoPer={stockInfo?.per             ?? null}
-            autoEpsGrowth={stockInfo?.epsGrowth ?? null}
-            autoHasCash={stockInfo?.hasCash     ?? null}
-            autoMarket={stockInfo?.market       ?? null}
-          />
-        )
-      )}
-
-      {/* ── 차트 리서치 탭 (기존 UI 전체) ────────────────────── */}
+      {/* ── 차트 리서치 탭 ────────────────────── */}
       {activeTab === 'chart' && (<>
 
       {/* Search bar */}
@@ -553,130 +548,57 @@ export default function ResearchPage() {
       {/* ★ ETF·코인·원자재 → 개별주식 전용 분석 차단 안내 (1회) */}
       {!loading && stockInfo && priceData && !isStock && NonStockNotice}
 
-      {/* 🎯 종합 매수 판정 — AI 리밸런싱 4축(계절·가치·수급·모멘텀)+리스크 합성 "이 종목 매수해도 되나?" */}
+      {/* 🎯 종합 매수 판정 — 4축(계절·가치·수급·모멘텀)+리스크 "이 종목 매수해도 되나?"(차트 탭의 전체 평가) */}
       {!loading && stockInfo && priceData && isStock && (
-        <ResearchVerdictCard
-          ticker={stockInfo.ticker}
-          name={stockInfo.name}
-          market={stockInfo.market}
-        />
+        <ResearchVerdictCard ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
       )}
 
-      {/* 🌟 투자 프로필 — 해자·스타등급(공정가치)·상대 PSR 3초 요약(분석 캡스톤·상단) */}
+      {/* 💰 시장 시그널 — 수급·페어·13F (차트 탭) */}
       {!loading && stockInfo && priceData && isStock && (
-        <StockProfileCard
-          ticker={stockInfo.ticker}
-          name={stockInfo.name}
-          market={stockInfo.market}
-        />
+        <MoneyFlowRadar ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
       )}
-
-      {/* 🕵️ CEO의 장바구니 (비밀병기 5단계) — 내부자 장내매수 자동 시그널 */}
       {!loading && stockInfo && priceData && isStock && (
-        <InsiderReceipt
-          ticker={stockInfo.ticker}
-          name={stockInfo.name}
-          market={stockInfo.market}
-        />
+        <PairTradingMonitor ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
       )}
-
-      {/* 💰 스마트머니 수급 레이더 — 외국인/기관/개인 돈의 유입·이탈(KR) */}
       {!loading && stockInfo && priceData && isStock && (
-        <MoneyFlowRadar
-          ticker={stockInfo.ticker}
-          name={stockInfo.name}
-          market={stockInfo.market}
-        />
-      )}
-
-      {/* 🔮 역-DCF 기대치 투자 — 주가에 시장이 심은 내재 성장 기대 vs 실제 */}
-      {!loading && stockInfo && priceData && isStock && (
-        <ReverseDcf
-          ticker={stockInfo.ticker}
-          name={stockInfo.name}
-          market={stockInfo.market}
-        />
-      )}
-
-      {/* 🤖 Jarvis 어닝콜 애널리스트 (비밀병기 4단계) — 종목 상세 하단 자동 분석 */}
-      {!loading && stockInfo && priceData && isStock && (
-        <JarvisInsight
-          ticker={stockInfo.ticker}
-          name={stockInfo.name}
-          market={stockInfo.market}
-          facts={{
-            per:        stockInfo.per,
-            peg:        stockInfo.peg,
-            eps:        stockInfo.eps,
-            epsGrowth:  stockInfo.epsGrowth,
-            forwardEps: stockInfo.forwardEps,
-            lynchLabel: stockInfo.lynchLabel,
-            marketCap:  stockInfo.marketCap,
-            currency:   stockInfo.currency,
-          }}
-        />
-      )}
-
-      {/* 🎧 노이즈 캔슬러 (비밀병기 7단계) — 애널리스트 소음 제거 + 실적 리비전 신호 */}
-      {!loading && stockInfo && priceData && isStock && (
-        <NoiseCanceller
-          ticker={stockInfo.ticker}
-          name={stockInfo.name}
-          market={stockInfo.market}
-        />
-      )}
-
-      {/* ⏳ 좀비 생존 타이머 (킬러 기능 8단계) — 현금 런웨이 + 유상증자 희석 경보 */}
-      {!loading && stockInfo && priceData && isStock && (
-        <CashRunwayTimer
-          ticker={stockInfo.ticker}
-          name={stockInfo.name}
-          currency={stockInfo.currency}
-          freeCashflow={stockInfo.freeCashflow}
-          totalCash={stockInfo.totalCash}
-          sharesOutstanding={stockInfo.sharesOutstanding}
-          returnOnEquity={stockInfo.returnOnEquity}
-          operatingMargins={stockInfo.operatingMargins}
-        />
-      )}
-
-      {/* ⚔️ 섹터 피어 X-Ray (킬러 기능 9단계) — 동종업계 상대평가 */}
-      {!loading && stockInfo && priceData && isStock && (
-        <SectorPeerXray
-          ticker={stockInfo.ticker}
-          name={stockInfo.name}
-          market={stockInfo.market}
-        />
-      )}
-
-      {/* 📊 글로벌 페어-트레이딩 시그널 — 글로벌 1등 대비 상대가치 z-score */}
-      {!loading && stockInfo && priceData && isStock && (
-        <PairTradingMonitor
-          ticker={stockInfo.ticker}
-          name={stockInfo.name}
-          market={stockInfo.market}
-        />
-      )}
-
-      {/* 🐳 슈퍼 클론 (킬러 기능 10단계) — 전설적 투자자 13F 포트폴리오 추적 */}
-      {!loading && stockInfo && priceData && isStock && (
-        <ShadowTracker13F
-          ticker={stockInfo.ticker}
-          name={stockInfo.name}
-          market={stockInfo.market}
-        />
-      )}
-
-      {/* 🏰 해자 붕괴 경보기 (킬러 기능 11단계, 마지막) — 총마진 추세로 가격결정력 점검 */}
-      {!loading && stockInfo && priceData && isStock && (
-        <MoatBreachDetector
-          ticker={stockInfo.ticker}
-          name={stockInfo.name}
-          market={stockInfo.market}
-        />
+        <ShadowTracker13F ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
       )}
 
       </>)} {/* activeTab === 'chart' 닫기 */}
+
+      {/* ── 🔍 피터린치 분석 탭 (한 페이지 자동) ─────────────────── */}
+      {activeTab === 'lynch' && (!stockInfo ? GuruEmptyNotice : !isStock ? NonStockNotice : (<>
+        <LynchAutoPanel
+          ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market}
+          per={stockInfo.per} peg={stockInfo.peg} eps={stockInfo.eps} epsGrowth={stockInfo.epsGrowth}
+          currentPrice={priceData?.currentPrice ?? null} currency={stockInfo.currency}
+          lynchCategory={stockInfo.lynchCategory} lynchLabel={stockInfo.lynchLabel}
+        />
+        <JarvisInsight ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market}
+          facts={{ per: stockInfo.per, peg: stockInfo.peg, eps: stockInfo.eps, epsGrowth: stockInfo.epsGrowth,
+            forwardEps: stockInfo.forwardEps, lynchLabel: stockInfo.lynchLabel, marketCap: stockInfo.marketCap, currency: stockInfo.currency }} />
+        <NoiseCanceller ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
+      </>))}
+
+      {/* ── 🏰 워렌버핏 분석 탭 ──────────────────────────────────── */}
+      {activeTab === 'buffett' && (!stockInfo ? GuruEmptyNotice : !isStock ? NonStockNotice : (<>
+        <StockProfileCard ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
+        <MoatBreachDetector ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
+        <ReverseDcf ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
+        <CashRunwayTimer ticker={stockInfo.ticker} name={stockInfo.name} currency={stockInfo.currency}
+          freeCashflow={stockInfo.freeCashflow} totalCash={stockInfo.totalCash} sharesOutstanding={stockInfo.sharesOutstanding}
+          returnOnEquity={stockInfo.returnOnEquity} operatingMargins={stockInfo.operatingMargins} />
+        <SectorPeerXray ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
+        <InsiderReceipt ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
+      </>))}
+
+      {/* ── 🧭 최일 가치분석 탭 (2단계: /valuation 전체 추출 예정) ── */}
+      {activeTab === 'choi' && (!stockInfo ? GuruEmptyNotice : (
+        <div style={{ background: N, boxShadow: SHO, borderRadius: 14, padding: '24px', textAlign: 'center', color: '#8b92b8', fontSize: 13, lineHeight: 1.8 }}>
+          🧭 <b style={{ color: '#fbbf24' }}>최일 가치분석</b>(적정주가·PER밴드·텐배거)은 다음 단계에서 이 탭에 전체 탑재됩니다.<br/>
+          지금은 <b style={{ color: '#fbbf24' }}>사이드바 → 최일 가치분석</b> 메뉴에서 <b>{stockInfo.name}</b>을(를) 조회하세요.
+        </div>
+      ))}
     </div>
   )
 }

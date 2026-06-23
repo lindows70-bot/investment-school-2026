@@ -2049,6 +2049,16 @@ KB금융(은행)이 AI 리밸런싱·본부장 브리핑·투자 프로필에서
 - **실행 경계(재확인)**: 시세/잔고 **조회**는 AI·앱 가능 / 실제 **주문 체결**(실거래)은 `TOSS_TRADING_ENABLED` 게이트 + 사람 확인 뒤에만(자동매매 금지)
 - env: `TOSS_API_KEY`·`TOSS_SECRET_KEY`(서버 전용 시크릿)·`TOSS_TRADING_ENABLED`(기본 false)·`TOSS_OWNER_EMAIL`(개인계좌 소유자). 전부 .env.local + Vercel Production만, NEXT_PUBLIC_ 금지
 
+## 🔬 종목 리서치 그루별 탭 개편 (2026-06-24) — 1단계
+
+검색 종목 1개를 **종합 평가 + 그루별(린치/버핏/최일) 분석**으로 나눠 보는 탭 구조로 개편. 기존 [차트 리서치][피터린치 진단(3단계 위저드)] → **[📈 차트 리서치][🔍 피터린치 분석][🏰 워렌버핏 분석][🧭 최일 가치분석]**.
+- **📈 차트 리서치**: 캔들+핵심지표+체크포인트 + 🎯 종합 매수 판정(전체 평가) + 시장 시그널(수급·페어·13F)
+- **🔍 피터린치 분석**: **위저드 제거 → 한 페이지 자동 분석**(`LynchAutoPanel` 신규: 6대 분류·PEG 해석[기저효과 가드]·이익선 EPS×적정PER 이격·종합 의견) + 어닝콜(JarvisInsight)+노이즈캔슬러
+- **🏰 워렌버핏 분석**: StockProfileCard(스타·공정가치·해자)+해자경보기+역DCF+좀비타이머+섹터피어+내부자(스킨인더게임)
+- **🧭 최일 가치분석**: 2단계 placeholder(`/valuation` 1,460줄을 `ChoiValuationPanel`로 추출 예정 — SSOT 재사용)
+- 구조: 차트 탭은 `{activeTab==='chart' && (<>...</>)}`, 그루 탭은 검색된 `stockInfo`를 공유해 단일종목 컴포넌트 재배치(검색 미실행 시 `GuruEmptyNotice`). 비주식은 `NonStockNotice`
+- ⚠️ **2단계 예정**: 최일 가치분석 전체 추출(`/valuation`·리서치 탭 둘 다 사용) + 검색바를 탭 상단 공유로 이동
+
 ## 배포
 
 - **프로덕션**: https://investment-school-2026.vercel.app
