@@ -35,7 +35,7 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `morningstar-rating-v4:${user.id}:${kstDate()}:${fp}`   // v3: 기저효과 기준 isPegBaseEffect 통일(peg<0.3 AND g>100%)
+  const cacheKey = `morningstar-rating-v5:${user.id}:${kstDate()}:${fp}`   // v3: 기저효과 기준 isPegBaseEffect 통일(peg<0.3 AND g>100%)
   const cached = await getCache<MorningstarResult>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

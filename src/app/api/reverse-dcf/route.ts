@@ -3,6 +3,7 @@
 // Zero Cost: canonicalFundamentals(PE·성장률) 재사용. 종목 신호만(유저데이터 X). 닫힌형 수식(반복 없음).
 import { NextResponse } from 'next/server'
 import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
+import { isHoldingCompany } from '@/lib/assetClassifier'   // 🏢 지주사는 NAV·SOTP로 평가(역-DCF 부적합)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 20
@@ -50,8 +51,14 @@ export async function GET(req: Request) {
   //        ② 기저효과: 실제 성장 60%↑는 작년 저점 회복 스파이크라 비교 기준으로 비신뢰(PEG 함정의 일반화)
   const HARD = 20, SPIKE = 60
   const baseEffect = actualGrowth != null && actualGrowth > SPIKE
+  const holding = isHoldingCompany(ticker)
 
-  if (impliedGrowth == null) {
+  if (holding) {
+    // 🏢 지주사 — 자회사 지분법이익 구조라 PER/성장 역산이 왜곡(자회사 호황 시 EPS 급등→저PER 착시). NAV·SOTP로 평가
+    verdict = 'unknown'
+    headline = '지주사는 역-DCF(성장 역산) 대상이 아닙니다 — NAV·SOTP로 평가'
+    detail = '지주사는 보유 자회사 지분 가치의 합(NAV·SOTP)에 지주 할인을 적용해 평가합니다. PER·PEG·성장 역산은 자회사 실적이 지분법으로 들어오는 구조라 왜곡됩니다(예: 자회사 호황 시 EPS 급등→저PER·기저효과 착시).'
+  } else if (impliedGrowth == null) {
     headline = 'EPS(이익)가 없어 역-DCF 계산 불가'
     detail = '적자·이익 미상 종목은 PER 기반 역산이 어렵습니다. PSR·매출 성장으로 따로 봐야 합니다.'
   } else if (impliedGrowth < 1) {

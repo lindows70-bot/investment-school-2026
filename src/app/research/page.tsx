@@ -579,6 +579,7 @@ export default function ResearchPage() {
           facts={{ per: stockInfo.per, peg: stockInfo.peg, eps: stockInfo.eps, epsGrowth: stockInfo.epsGrowth,
             forwardEps: stockInfo.forwardEps, lynchLabel: stockInfo.lynchLabel, marketCap: stockInfo.marketCap, currency: stockInfo.currency }} />
         <NoiseCanceller ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
+        <SectorPeerXray ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
       </>))}
 
       {/* ── 🏰 워렌버핏 분석 탭 ──────────────────────────────────── */}
@@ -589,7 +590,6 @@ export default function ResearchPage() {
         <CashRunwayTimer ticker={stockInfo.ticker} name={stockInfo.name} currency={stockInfo.currency}
           freeCashflow={stockInfo.freeCashflow} totalCash={stockInfo.totalCash} sharesOutstanding={stockInfo.sharesOutstanding}
           returnOnEquity={stockInfo.returnOnEquity} operatingMargins={stockInfo.operatingMargins} />
-        <SectorPeerXray ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
         <InsiderReceipt ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
       </>))}
 

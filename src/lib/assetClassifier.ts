@@ -219,3 +219,28 @@ export function getAssetClassification(
     ...META[assetType],
   }
 }
+
+// 🏢 지주사(holding company) 감지 — 자회사 지분법이익 구조라 총마진·PER·PEG 표준 프레임이 부적합(NAV·SOTP로 평가).
+//    Yahoo industry가 제각각(SK스퀘어=Semiconductors·LG=Consumer Electronics·삼성물산=건설)이라 큐레이션 티커 + 이름 키워드 + Conglomerates 혼합.
+const KR_HOLDING_TICKERS = new Set([
+  '402340', // SK스퀘어
+  '034730', // SK(주)
+  '003550', // LG(주)
+  '028260', // 삼성물산
+  '267250', // HD현대
+  '078930', // GS(주)
+  '001040', // CJ(주)
+  '000150', // 두산
+  '000880', // 한화
+  '006260', // LS
+  '004800', // 효성
+  '002020', // 코오롱
+  '180640', // 한진칼
+])
+export function isHoldingCompany(ticker?: string | null, name?: string | null, industry?: string | null): boolean {
+  const code = (ticker ?? '').replace(/\.(KS|KQ)$/i, '').replace(/\D/g, '').slice(-6)
+  if (code && KR_HOLDING_TICKERS.has(code)) return true
+  if (/지주|홀딩스|홀딩|holdings?/i.test(name ?? '')) return true
+  if (/conglomerate/i.test(industry ?? '')) return true
+  return false
+}

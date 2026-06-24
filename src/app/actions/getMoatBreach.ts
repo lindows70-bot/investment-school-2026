@@ -22,6 +22,7 @@
  *    안 줌(매출만) → fundamentalsTimeSeries(module:'financials')가 정답.
  *    비율(마진·ROE)은 통화무관 → KR↔US 환율 변환 불필요.
  */
+import { isHoldingCompany } from '@/lib/assetClassifier'   // 🏢 지주사(총마진·PER 무의미 → NAV·ROE 평가)
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 export interface MoatYear {
@@ -166,7 +167,7 @@ export async function getMoatBreach(input: { ticker: string; name: string; marke
     let roe: number | null = null
     let ttmGross: number | null = null
     let ttmOp: number | null = null
-    let isFinancial = false
+    let isFinancial = false, isHolding = false
     try {
       const q = await yf.quoteSummary(usedSym, { modules: ['financialData', 'assetProfile'] })
       const fd = q?.financialData ?? {}
@@ -174,18 +175,21 @@ export async function getMoatBreach(input: { ticker: string; name: string; marke
       ttmGross = num(fd.grossMargins); if (ttmGross != null) ttmGross = Math.round(ttmGross * 1000) / 10
       ttmOp = num(fd.operatingMargins); if (ttmOp != null) ttmOp = Math.round(ttmOp * 1000) / 10
       isFinancial = /financ|bank|insurance|capital market|asset manage/i.test(String(q?.assetProfile?.sector ?? '') + ' ' + String(q?.assetProfile?.industry ?? ''))
+      isHolding = isHoldingCompany(ticker, name, q?.assetProfile?.industry)
     } catch { /* 마진 스냅샷 없어도 진행 */ }
 
-    // 🏦 금융주(은행·보험)는 '총마진'으로 해자를 잴 수 없음(예금 이자=원가 구조) → ROE 기반 프록시로 평가.
-    //    예금 기반·전환비용·규제 라이선스가 실질 해자. '해자 없음' 오판(본부장 리스크 체크·모닝스타) 방지.
-    if (isFinancial) {
+    // 🏦 금융주(예금 이자=원가)·🏢 지주사(자회사 지분법이익=원가 없음)는 '총마진'으로 해자를 잴 수 없음 → ROE 기반 프록시.
+    //    '해자 없음'·'총마진 96%' 오표시(본부장 리스크 체크·모닝스타) 방지. 금융=예금/규제, 지주사=자회사 포트폴리오가 실질 해자.
+    if (isFinancial || isHolding) {
       const mw: MoatResult['moatWidth'] = roe == null ? 'narrow' : roe >= 15 ? 'wide' : roe >= 8 ? 'moderate' : roe >= 4 ? 'narrow' : 'none'
       const vd: MoatResult['verdict'] = roe != null && roe < 0 ? 'breach' : roe != null && roe < 4 ? 'hairline' : 'intact'
       const res: MoatResult = {
-        // 🏦 총마진은 금융주에서 무의미 → null('—'로 표시, '0.0%' 오표시 방지). 해자는 ROE로 평가
+        // 총마진은 금융주·지주사에서 무의미 → null('—'로 표시, '0.0%·96%' 오표시 방지). 해자는 ROE로 평가
         ...base, status: 'ok', years: [], grossNow: null, grossPeak: null, opNow: ttmOp, roe,
         revGrowthYoY: null, erosionPct: 0, moatWidth: mw, verdict: vd, isFinancial: true,
-        lynchComment: `🏦 금융주(은행·보험)는 총마진으로 해자를 재기 어렵습니다 — 대신 ROE${roe != null ? ` ${roe}%` : ''}로 평가했습니다. 예금 기반·전환비용·규제 라이선스가 실질 해자라, 자기자본을 꾸준히 굴리는 ROE가 해자의 척도입니다.`,
+        lynchComment: isHolding
+          ? `🏢 지주사는 총마진·PER로 해자를 재기 어렵습니다 — 자회사 지분법이익 구조라 총마진이 비정상적으로 높게(매출원가 거의 없음) 잡힙니다. 실질 해자는 보유 자회사 포트폴리오의 경쟁력이며, 가치는 NAV·SOTP(자회사 가치 합산)로 평가합니다. 참고로 ROE${roe != null ? ` ${roe}%` : ''}.`
+          : `🏦 금융주(은행·보험)는 총마진으로 해자를 재기 어렵습니다 — 대신 ROE${roe != null ? ` ${roe}%` : ''}로 평가했습니다. 예금 기반·전환비용·규제 라이선스가 실질 해자라, 자기자본을 꾸준히 굴리는 ROE가 해자의 척도입니다.`,
       }
       CACHE.set(cacheKey, { data: res, exp: Date.now() + TTL })
       return res
