@@ -12,6 +12,7 @@
 
 import { useState, useEffect } from 'react'
 import { getSectorPeers, type SectorPeerResult } from '@/app/actions/getSectorPeers'
+import { isHoldingCompany } from '@/lib/assetClassifier'   // 🏢 지주사 — 섹터 비교 부적합(NAV 평가)
 
 interface Props { ticker: string; name: string; market: string }
 
@@ -58,6 +59,7 @@ export default function SectorPeerXray({ ticker, name, market }: Props) {
   if (!data) return null
   if (data.status !== 'ok') return Wrap(<div style={{ fontSize: 12.5, color: C.textSub, lineHeight: 1.6 }}>⚔️ {data.message || '비교 데이터를 불러오지 못했습니다.'}</div>)
 
+  const holding = isHoldingCompany(ticker, name)   // 🏢 지주사 — 섹터(자회사 업종) 비교 부적합
   const early = data.verdict === 'early_stage'
   const noPeerInd = !early && data.sameIndCount === 0
   const vColor = early ? '#a78bfa' : noPeerInd ? C.textLow : data.verdict === 'consider_rotate' ? C.gold : data.verdict === 'hold_best' ? C.green : C.blue
@@ -67,6 +69,12 @@ export default function SectorPeerXray({ ticker, name, market }: Props) {
 
   return Wrap(
     <>
+      {/* 🏢 지주사 캐비엇 — 섹터(자회사 업종) 비교 부적합 */}
+      {holding && (
+        <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.35)', marginBottom: 12, color: '#ddd6fe', fontSize: 11.5, lineHeight: 1.6 }}>
+          🏢 <b>지주사</b>는 동종(섹터) 비교가 부적합합니다 — Yahoo가 섹터를 <b>자회사 업종</b>(예: SK스퀘어→반도체)으로 분류해 칩메이커 등과 섞입니다. 영업이익률·PSR도 매출원가 거의 없는 구조라 왜곡되니, 가치는 <b>NAV·SOTP(자회사 가치 합산)</b>로 평가하세요.
+        </div>
+      )}
       {/* 판정 배너 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 15px', borderRadius: 12, background: `${vColor}14`, border: `1px solid ${vColor}44`, marginBottom: 14, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 14, fontWeight: 900, color: vColor }}>{vLabel}</span>

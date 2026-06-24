@@ -1,5 +1,6 @@
 'use client'
 // 🌟 종목 투자 프로필 카드 — 해자·스타등급(공정가치)·상대 PSR 3초 요약(리서치 상단 캡스톤)
+import { isHoldingCompany } from '@/lib/assetClassifier'   // 🏢 지주사 — PSR·동종 비교 부적합(NAV 평가)
 import { useState, useEffect } from 'react'
 import type { StockProfile } from '@/lib/stockProfile'
 import { UNCERTAINTY_KO, MOAT_KO, TREND_KO, STEWARD_KO } from '@/lib/morningstarRating'
@@ -45,6 +46,7 @@ export default function StockProfileCard({ ticker, name, market }: { ticker: str
   if (!d) return null
 
   const disc = d.discountPct
+  const holding = isHoldingCompany(ticker, name)   // 🏢 지주사 — PSR·동종(섹터) 비교 부적합(매출이 작고 자회사 지분법이익)
   const psrRatio = (d.psr != null && d.psrMedian != null && d.psrMedian > 0) ? d.psr / d.psrMedian : null
   // 상대 PSR 막대 폭(중앙값=50% 기준, 2배=100%)
   const psrBar = (v: number | null) => v == null ? 0 : Math.min(100, (v / ((d.psrMedian ?? v) * 2)) * 100)
@@ -131,18 +133,21 @@ export default function StockProfileCard({ ticker, name, market }: { ticker: str
         <div style={{ marginTop: 12, background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '12px 14px' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 9 }}>
             <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>상대 밸류 — 매출 대비 가격(PSR){d.sectorLabel ? ` · ${d.sectorLabel}` : ''}</span>
-            {psrRatio != null && (
+            {!holding && psrRatio != null && (
               <span style={{ marginLeft: 'auto', color: psrRatio <= 0.85 ? '#4ade80' : psrRatio >= 1.15 ? '#f87171' : '#94a3b8', fontWeight: 800, fontSize: 11.5 }}>
                 {psrRatio <= 0.85 ? `동종 대비 ${Math.round((1 - psrRatio) * 100)}% 저평가` : psrRatio >= 1.15 ? `동종 대비 ${Math.round((psrRatio - 1) * 100)}% 고평가` : '동종과 비슷'}
               </span>
             )}
+            {holding && <span style={{ marginLeft: 'auto', color: '#a78bfa', fontWeight: 800, fontSize: 11 }}>🏢 지주사 — 비교 부적합</span>}
           </div>
           <PsrBar label={`${name.slice(0, 10)} (이 종목)`} v={d.psr} pct={psrBar(d.psr)} color="#60a5fa" />
           {d.psrMedian != null
             ? <PsrBar label={`동종 피어 중앙값${d.peerCount ? ` (${d.peerCount}종)` : ''}`} v={d.psrMedian} pct={psrBar(d.psrMedian)} color="#8599ae" />
             : <div style={{ color: '#6e7f8f', fontSize: 10, marginTop: 4 }}>동종 피어 PSR 데이터가 부족해 절대값만 표시(상대 비교 보류).</div>}
-          <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 7, lineHeight: 1.5 }}>
-            PSR=시총÷매출 · 산업마다 정상치가 달라 <b style={{ color: '#8a9aaa' }}>같은 업종끼리만</b> 비교(절대 임계 아님) · 적자기업도 매출 대비 밸류를 볼 수 있는 척도.
+          <div style={{ color: holding ? '#c4b5fd' : '#6e7f8f', fontSize: 9.5, marginTop: 7, lineHeight: 1.5 }}>
+            {holding
+              ? '🏢 지주사는 매출이 작고 자회사 지분법이익 구조라 PSR·동종(섹터) 비교가 부적합합니다 — 보유 자회사 가치 합산(NAV·SOTP)으로 평가하세요. (Yahoo가 섹터를 자회사 업종으로 분류해 칩메이커 등과 섞여 보일 수 있음)'
+              : <>PSR=시총÷매출 · 산업마다 정상치가 달라 <b style={{ color: '#8a9aaa' }}>같은 업종끼리만</b> 비교(절대 임계 아님) · 적자기업도 매출 대비 밸류를 볼 수 있는 척도.</>}
           </div>
         </div>
       )}
