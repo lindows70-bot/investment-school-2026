@@ -1,6 +1,7 @@
 'use client'
 // 🔍 피터린치 자동 분석 — 검색 종목 1개를 6대 분류·PEG 해석·이익선 이격·종합 판정으로 자동 분석(위저드 없음)
 import { LYNCH_CATEGORY_KR } from '@/lib/lynchAnalysis'
+import { isHoldingCompany } from '@/lib/assetClassifier'   // 🏢 지주사 — EPS·PEG·이익선 왜곡(자회사 지분법이익)
 
 const CARD = '#161b25', BORDER = '#1e293b'
 
@@ -24,6 +25,8 @@ export default function LynchAutoPanel(p: LynchAutoProps) {
 
   // 기저효과 가드(SSOT 철학) — 작년 이익 붕괴 후 회복으로 PEG가 0에 수렴한 착시
   const pegSuspect = peg != null && peg > 0 && peg < 0.3 && g != null && g > 100
+  // 🏢 지주사 — EPS가 자회사 지분법이익(예: SK스퀘어→SK하이닉스)에 휘둘려 PEG·이익선 비교가 왜곡 → NAV·SOTP로 평가
+  const holding = isHoldingCompany(p.ticker, p.name)
 
   // PEG 해석
   const pegView = peg == null ? { label: 'PEG 데이터 없음', color: '#8a9aaa', desc: '성장률·PER 데이터가 부족합니다.' }
@@ -41,14 +44,17 @@ export default function LynchAutoPanel(p: LynchAutoProps) {
   const price = p.currentPrice ?? null
   const fairPrice = eps != null && eps > 0 ? eps * fairMult : null
   const gapPct = fairPrice != null && price != null && price > 0 ? Math.round((price / fairPrice - 1) * 1000) / 10 : null
-  const lineView = fairPrice == null ? null
+  const lineView = holding ? { color: '#a78bfa', t: '🏢 지주사 — EPS 기반 이익선 비교 부적합(자회사 지분법이익이 EPS를 왜곡). NAV·SOTP로 평가' }
+    : fairPrice == null ? null
     : gapPct == null ? null
     : gapPct <= -20 ? { color: '#22c55e', t: `이익선 대비 ${Math.abs(gapPct)}% 아래 — 저평가(매수 영역)` }
     : gapPct >= 20 ? { color: '#ef4444', t: `이익선 대비 +${gapPct}% 위 — 고평가(차익 영역)` }
     : { color: '#60a5fa', t: `이익선 ±${Math.abs(gapPct)}% — 적정 부근` }
 
   // 린치 종합 한 줄
-  const summary = pegSuspect
+  const summary = holding
+    ? '🏢 지주사예요 — EPS·PEG·이익선이 자회사(예: SK스퀘어→SK하이닉스) 실적에 휘둘려 왜곡됩니다. 보유 자회사 가치 합산(NAV·SOTP)에 지주 할인을 적용해 평가하세요.'
+    : pegSuspect
     ? '경기순환·턴어라운드 기저효과로 저PEG가 착시일 수 있어요 — 이익이 정점인지부터 확인하세요(린치의 경기순환 함정).'
     : peg != null && peg <= 1.0 && (cat === 'fast_grower' || cat === 'stalwart')
     ? '린치가 좋아할 자리 — 우량·고성장이 성장 대비 저평가(PEG ≤ 1.0). 단, 이익 성장이 꺾이지 않는지 추적하세요.'
@@ -81,7 +87,9 @@ export default function LynchAutoPanel(p: LynchAutoProps) {
           <div style={{ color: '#9aa7b4', fontSize: 10.5, marginTop: 3, lineHeight: 1.5 }}>{pegView.desc}</div>
         </Box>
         <Box title="📈 이익선(EPS×적정PER) 이격">
-          {fairPrice != null && lineView ? (
+          {holding ? (
+            <div style={{ color: lineView!.color, fontWeight: 700, fontSize: 11.5, lineHeight: 1.55 }}>{lineView!.t}</div>
+          ) : fairPrice != null && lineView ? (
             <>
               <div style={{ color: lineView.color, fontWeight: 800, fontSize: 13.5 }}>{lineView.t}</div>
               <div style={{ color: '#9aa7b4', fontSize: 10.5, marginTop: 3, fontFamily: 'monospace' }}>이익선 {fmtPrice(fairPrice)} (EPS×{fairMult.toFixed(0)}) {price != null ? `· 현재 ${fmtPrice(price)}` : ''}</div>
