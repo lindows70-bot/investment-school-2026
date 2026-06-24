@@ -47,6 +47,7 @@ export interface MoatResult {
   verdict:      'intact' | 'hairline' | 'breach' | 'early'
   lynchComment: string
   isFinancial?: boolean   // 🏦 금융주(총마진·순부채 기반 지표 무의미) — 다운스트림(자본배분 등) 가드용
+  isHolding?:   boolean   // 🏢 지주사(자회사 지분법이익) — 라벨/문구 구분용(isFinancial=true와 함께 set)
   message?:     string
 }
 
@@ -186,7 +187,7 @@ export async function getMoatBreach(input: { ticker: string; name: string; marke
       const res: MoatResult = {
         // 총마진은 금융주·지주사에서 무의미 → null('—'로 표시, '0.0%·96%' 오표시 방지). 해자는 ROE로 평가
         ...base, status: 'ok', years: [], grossNow: null, grossPeak: null, opNow: ttmOp, roe,
-        revGrowthYoY: null, erosionPct: 0, moatWidth: mw, verdict: vd, isFinancial: true,
+        revGrowthYoY: null, erosionPct: 0, moatWidth: mw, verdict: vd, isFinancial: true, isHolding,
         lynchComment: isHolding
           ? `🏢 지주사는 총마진·PER로 해자를 재기 어렵습니다 — 자회사 지분법이익 구조라 총마진이 비정상적으로 높게(매출원가 거의 없음) 잡힙니다. 실질 해자는 보유 자회사 포트폴리오의 경쟁력이며, 가치는 NAV·SOTP(자회사 가치 합산)로 평가합니다. 참고로 ROE${roe != null ? ` ${roe}%` : ''}.`
           : `🏦 금융주(은행·보험)는 총마진으로 해자를 재기 어렵습니다 — 대신 ROE${roe != null ? ` ${roe}%` : ''}로 평가했습니다. 예금 기반·전환비용·규제 라이선스가 실질 해자라, 자기자본을 꾸준히 굴리는 ROE가 해자의 척도입니다.`,
