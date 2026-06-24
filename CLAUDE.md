@@ -2073,7 +2073,8 @@ KB금융(은행)이 AI 리밸런싱·본부장 브리핑·투자 프로필에서
   - `getMoatBreach`: 지주사도 총마진 null('96%' 오표시 차단)+ROE 기반 해자, 멘트 "자회사 포트폴리오가 실질 해자·NAV/SOTP 평가"(금융주 분기 확장, isFinancial=true 공유→자본배분 netDebt 가드도 적용)
   - `reverse-dcf`: 지주사면 "역-DCF 부적합 — NAV·SOTP로 평가, 자회사 호황 시 EPS 급등→저PER 착시" 우선 분기
   - 캐시: stock-profile v3→v4·morningstar v4→v5 (reverse-dcf는 무캐시=즉시)
-- 검증: SK스퀘어(402340) PER 5.5·PEG 0.04·총마진 96%가 기존엔 칩메이커처럼 보였으나, 지주사로 인식돼 NAV 평가 안내. ⚠️ 섹터피어는 여전히 Yahoo industry(Semiconductors) 기준 비교(지주사 동종 비교는 향후)
+- 검증: SK스퀘어(402340) PER 5.5·PEG 0.04·총마진 96%가 기존엔 칩메이커처럼 보였으나, 지주사로 인식돼 NAV 평가 안내
+- ✅ **전 기능 일관 완성(2026-06-24)**: 역-DCF·해자(총마진 N/A·ROE)·자본배분(netDebt 무시)·**피터린치 이익선(LynchAutoPanel: EPS 왜곡→NAV)**·**PSR 상대밸류(StockProfileCard: 비교 부적합)**·**섹터피어 X-Ray(SectorPeerXray: 캐비엇 배너)** 전부 지주사를 NAV·SOTP로 일관 안내(제2원칙). 검증: isHoldingCompany가 SK스퀘어·SK·LG·삼성물산·농심홀딩스(홀딩스 키워드)=지주사, 삼성전자·SK하이닉스·Apple=일반으로 정확 분별
 - 교훈: **금융주·지주사처럼 '매출원가/표준 PER'이 구조적으로 안 맞는 업종은 isX 감지 1곳 → 총마진·순부채·역DCF 일괄 가드**(특수 업종 패턴)
 
 ## 배포
