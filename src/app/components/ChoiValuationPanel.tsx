@@ -22,6 +22,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { isFinancialCompany, isHoldingCompany } from '@/lib/assetClassifier' // 🏦 금융주·🏢 지주사 — PER·PEG·PSR 표준 프레임 부적합(P/B·내재가치·NAV로 평가)
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as RTooltip, ResponsiveContainer, Legend, ReferenceLine, ReferenceDot,
@@ -878,6 +879,22 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
         </div>
       )}
 
+      {/* 🏦 금융주·🏢 지주사 캐비엇 — PER·PEG·PSR(매출배수)이 구조적으로 부적합 */}
+      {hasData && rawData && (() => {
+        const fin = isFinancialCompany(rawData.ticker, rawData.companyName)
+        const hold = !fin && isHoldingCompany(rawData.ticker, rawData.companyName)
+        if (!fin && !hold) return null
+        return (
+          <div style={{ marginBottom: 16, padding: '13px 16px', borderRadius: 12, background: 'rgba(56,189,248,0.07)', border: '1px solid rgba(56,189,248,0.3)', fontSize: 12.5, lineHeight: 1.7, color: '#bae6fd' }}>
+            {fin ? (
+              <>🏦 <b>금융주(보험·은행) 주의</b> — 아래 PER·PEG·매출 기반(PSR) 적정주가는 <b>이 종목엔 구조적으로 부적합</b>합니다. 보험사 EPS는 투자손익·준비금 적립에 휘둘려 PER이 부풀고(삼성생명 PER 31배지만 <b>PBR 0.45 = 자본의 절반 가격</b>), 매출은 수입보험료라 PSR을 곱할 성질이 아닙니다. <b>실제 가치는 P/B·ROE·내재가치(EV)</b>로 판단하세요 — 워렌버핏 탭(공정가치·해자)을 함께 보세요.</>
+            ) : (
+              <>🏢 <b>지주사 주의</b> — PER·PEG·매출 기반(PSR) 적정주가는 부적합합니다. 지주사 EPS는 자회사 지분법이익에 휘둘리고 총마진이 왜곡됩니다. <b>보유 자회사 가치 합산(NAV·SOTP)에 지주 할인</b>을 적용해 평가하세요.</>
+            )}
+          </div>
+        )
+      })()}
+
       {/* ═══ [3단] 8개년 재무 테이블 ══════════════════════════════════════ */}
       {hasData && yearKeys.length > 0 && (
         <div style={cs({ padding: '20px 24px', marginBottom: 16, overflowX: 'auto' })}>
@@ -1456,6 +1473,13 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
                 총점 <strong style={{ color:scoreData.verdict.color }}>{scoreData.pts}점</strong>으로{' '}
                 <strong style={{ color:scoreData.verdict.color }}>{scoreData.verdict.text}</strong>.
               </div>
+              {rawData && (isFinancialCompany(rawData.ticker, rawData.companyName) || isHoldingCompany(rawData.ticker, rawData.companyName)) && (
+                <div style={{ marginTop:10, padding:'10px 14px', background:'rgba(56,189,248,0.07)', border:'1px solid rgba(56,189,248,0.3)', borderRadius:8, fontSize:12, color:'#bae6fd', lineHeight:1.7 }}>
+                  {isFinancialCompany(rawData.ticker, rawData.companyName)
+                    ? '🏦 단, 이 종목은 금융주(보험·은행)라 위 PER·PEG 기반 점수는 신뢰 제한입니다 — 보험사는 P/B·ROE·내재가치(EV)로 평가하세요(PBR 0.5 수준이면 PER상 고평가여도 자본 대비 저평가).'
+                    : '🏢 단, 이 종목은 지주사라 위 PER·PEG·PSR 기반 점수는 신뢰 제한입니다 — NAV·SOTP(자회사 가치 합산)에 지주 할인을 적용해 평가하세요.'}
+                </div>
+              )}
             </div>
           </div>
         </div>
