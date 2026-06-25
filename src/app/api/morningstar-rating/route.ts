@@ -102,7 +102,7 @@ export async function GET(req: Request) {
         const growth = egRaw == null ? null : (Math.abs(egRaw) < 5 ? egRaw : egRaw / 100)
         const pegN = typeof fund.peg === 'number' && isFinite(fund.peg) ? fund.peg : null
 
-        const star = computeStarRating({ pFv, moatWidth, moatVerdict, opMargin, roe, netDebtPos, category: s.lynch_category ?? 'na', growth, peg: pegN })
+        const star = computeStarRating({ pFv, moatWidth, moatVerdict, opMargin, roe, netDebtPos, category: s.lynch_category ?? 'na', growth, peg: pegN, isFinancial: !!moat?.isFinancial })
         const e: RatingEntry = {
           ...star, ticker: s.ticker.toUpperCase(), name, market, currency,
           fairValue: fairValue != null ? +fairValue.toFixed(2) : null,

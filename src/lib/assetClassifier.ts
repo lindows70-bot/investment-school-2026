@@ -240,7 +240,8 @@ const KR_HOLDING_TICKERS = new Set([
 export function isHoldingCompany(ticker?: string | null, name?: string | null, industry?: string | null): boolean {
   const code = (ticker ?? '').replace(/\.(KS|KQ)$/i, '').replace(/\D/g, '').slice(-6)
   if (code && KR_HOLDING_TICKERS.has(code)) return true
-  if (/지주|홀딩스|홀딩|holdings?/i.test(name ?? '')) return true
+  // ⚠️ 영문 "Holdings"는 미국 운영회사 법인명에 흔함(Vertiv Holdings 등 — 데이터센터 전력회사지 지주사 아님) → 한글 지주/홀딩스만 신뢰
+  if (/지주|홀딩스|홀딩/.test(name ?? '')) return true
   if (/conglomerate/i.test(industry ?? '')) return true
   return false
 }

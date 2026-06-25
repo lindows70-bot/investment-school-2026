@@ -57,7 +57,7 @@ export async function buildStockProfile(ticker: string, market: 'KR' | 'US', bas
   const peg = num(fund.peg)
   const growth = norm(num(fund.earningsGrowth))
 
-  const star = computeStarRating({ pFv, moatWidth, moatVerdict, opMargin, roe, netDebtPos, category, growth, peg })
+  const star = computeStarRating({ pFv, moatWidth, moatVerdict, opMargin, roe, netDebtPos, category, growth, peg, isFinancial: !!moat?.isFinancial })
 
   // 상대 PSR — 섹터피어 X-Ray SSOT(동종 중앙값) 재사용
   const targetPsr = num(fund.psr) ?? (peers?.peers?.find((p: { isTarget: boolean; psr: number | null }) => p.isTarget)?.psr ?? null)

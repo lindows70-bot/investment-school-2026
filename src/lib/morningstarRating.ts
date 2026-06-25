@@ -16,6 +16,7 @@ export interface StarInputs {
   category:   string          // 린치 6대 분류
   growth:     number | null   // 이익성장률 소수(2.14=+214%) — 기저효과 판정용
   peg:        number | null   // PEG — 기저효과 판정(canonicalFundamentals.isPegBaseEffect와 동일 기준)
+  isFinancial?: boolean       // 🏦 금융주(보험·은행) — 자본이 거대해 ROE가 구조적으로 낮음 → 자본배분 임계 완화
 }
 
 export interface StarResult {
@@ -55,8 +56,14 @@ function moatTrendOf(verdict: StarInputs['moatVerdict']): MoatTrend {
   return 'stable'   // early
 }
 
-function stewardshipOf(roe: number | null, netDebtPos: boolean | null): Stewardship {
+function stewardshipOf(roe: number | null, netDebtPos: boolean | null, isFinancial?: boolean): Stewardship {
   if (roe == null) return 'standard'
+  // 🏦 보험·은행은 자본이 거대해 ROE가 구조적으로 낮음(삼성생명 5.3%) → '미흡' 임계를 완화(자본배분 의사결정 문제 아님)
+  if (isFinancial) {
+    if (roe >= 0.12) return 'exemplary'
+    if (roe < 0.03) return 'poor'
+    return 'standard'
+  }
   if (roe >= 0.20 && netDebtPos !== true) return 'exemplary'   // 고ROE + 과도한 빚 없음
   if (roe < 0.08 || (roe < 0.12 && netDebtPos === true)) return 'poor'
   return 'standard'
@@ -65,7 +72,7 @@ function stewardshipOf(roe: number | null, netDebtPos: boolean | null): Stewards
 export function computeStarRating(i: StarInputs): StarResult {
   const uncertainty = uncertaintyOf(i.moatWidth, i.opMargin, i.category)
   const moatTrend = moatTrendOf(i.moatVerdict)
-  const stewardship = stewardshipOf(i.roe, i.netDebtPos)
+  const stewardship = stewardshipOf(i.roe, i.netDebtPos, i.isFinancial)
   const discountPct = i.pFv != null && i.pFv > 0 ? +((1 - i.pFv) * 100).toFixed(1) : null
   // ⚠️ 기저효과(작년 이익 붕괴 후 폭증) — DCF 성장률이 부풀려져 공정가치 과대 → '저평가' 별점 착시.
   //    canonicalFundamentals.isPegBaseEffect와 동일 공식(peg<0.3 AND growth>100%) — 함정레이더·PSR·섹터피어와
