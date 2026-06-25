@@ -244,3 +244,11 @@ export function isHoldingCompany(ticker?: string | null, name?: string | null, i
   if (/conglomerate/i.test(industry ?? '')) return true
   return false
 }
+
+// 🏦 금융주(은행·보험·증권) 감지 — EPS가 투자손익·대손충당에 휘둘려 이익선(EPS×PER)·PEG가 왜곡(보험은 특히 P/B·내재가치(EV)로 평가).
+//    server측 getMoatBreach는 Yahoo industry로 isFinancial을 산출하지만, client(LynchAutoPanel)는 industry가 없어 이름 키워드로 보강.
+export function isFinancialCompany(ticker?: string | null, name?: string | null, industry?: string | null): boolean {
+  if (/생명|화재|해상|손해|손보|금융|은행|증권|캐피탈|카드|저축은행|보험|지주\s*금융/i.test(name ?? '')) return true
+  if (/financ|\bbank\b|insurance|capital market|asset manage|securities|life insurance/i.test(industry ?? '')) return true
+  return false
+}
