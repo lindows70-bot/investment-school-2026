@@ -1,7 +1,8 @@
-// 🟢 토스증권 Open API 공용 시세 클라이언트 — KR 현재가를 네이버 폴백용으로 조회(서버 전용, 시세=학생 공용 허용)
+// 🟢 토스증권 Open API 클라이언트 토대 — 검증 완료(로컬 IP에서 토큰·시세 정상). 향후 '고정 IP 실거래 러너'의 기반.
+//    ⚠️ 토스 Open API는 IP 허용목록 필수(실거래 게이트웨이) → Vercel 서버리스(랜덤 egress IP)에서는 403 'IP not allowed'.
+//       따라서 학생 웹앱(Vercel) 시세 경로엔 연결하지 않음(네이버 무료 소스 유지). 고정 IP 환경(선생님 PC·VPS)에서만 호출 가능.
+//    인증: OAuth2 Client Credentials(POST /oauth2/token). 시세: GET /api/v1/prices?symbols=005930 → result[].lastPrice(평문 6자리).
 //    ⚠️ 시세·종목 조회만(개인정보 아님). 계좌·보유·주문(개인계좌)은 절대 여기서 다루지 않음(tossOwner 게이트 별도).
-//    인증: OAuth2 Client Credentials(POST /oauth2/token). 시세: GET /api/v1/prices?symbols=005930 → result[].lastPrice
-//    키(TOSS_API_KEY·TOSS_SECRET_KEY)는 서버 전용 시크릿. 없으면 graceful null(=네이버 기존 동작 무변경).
 
 const BASE = 'https://openapi.tossinvest.com'
 

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTossKrPrice } from '@/lib/tossQuote'   // 🟢 KR 시세 네이버 폴백(토스 공식 API)
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type Market    = 'US' | 'KR' | 'CRYPTO'
@@ -323,26 +322,12 @@ async function naverFundamentals(code: string): Promise<Fundamentals> {
   }
 }
 
-/** KR 현재가 — 네이버 1순위, 실패(봇차단·장애) 시 토스 공식 시세로 폴백(시세 신뢰도 보강). 키 없으면 토스 미동작 */
-async function krQuoteWithFallback(code: string) {
-  try {
-    return await naverQuote(code)
-  } catch (err) {
-    const tossPx = await getTossKrPrice(code)
-    if (tossPx != null) {
-      console.warn(`[fetchKrStock] 네이버 시세 실패 → 토스 폴백 사용 (${code}, ₩${tossPx})`)
-      return { name: code, closePrice: tossPx, change: 0, changePct: 0 }
-    }
-    throw err   // 토스도 불가 → 기존 에러 전파(캐시 폴백 로직으로)
-  }
-}
-
 /** KR 전체 조회 (네이버 증권) */
 async function fetchKrStock(ticker: string): Promise<StockData> {
   const code = ticker.replace(/\.(KS|KQ)$/i, '')   // 혹시 .KS/.KQ가 붙어 오면 제거
 
   const [quoteRes, chartResults, ohlcResults, fund] = await Promise.all([
-    krQuoteWithFallback(code),
+    naverQuote(code),
     Promise.allSettled([
       naverChart(code, '1D'),
       naverChart(code, '1W'),
