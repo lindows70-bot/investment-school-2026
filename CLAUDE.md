@@ -1,6 +1,7 @@
 # 2026 투자학교 포트폴리오 앱
 
-> **최종 업데이트**: 2026-06-22 — 📈 모멘텀(Fwd EPS 리비전+주가추세) 4번째 가중축 + 급락주(falling knife) 매수 제외(통합추천·AI 리밸런싱·위성 공통 `priceTrendKnife` SSOT) + 🏢 코인 관련 주식 보강(비트마인·Bullish 추가 7종목, 종목별 코인 베타[ETH/BTC]·저상관 신뢰도 가드·매매 타이밍[추세·52주]·로그 스케일 오버레이)
+> **최종 업데이트**: 2026-06-25 — 🏦 금융주 가드 전 그루탭 확장(피터린치 이익선·최일 PER/PEG/PSR) + 보유종목 42종 전수검증(VRT 지주사 오탐·삼성생명 자본배분 임계 완화)
+> 이전(2026-06-22): 📈 모멘텀(Fwd EPS 리비전+주가추세) 4번째 가중축 + 급락주(falling knife) 매수 제외(통합추천·AI 리밸런싱·위성 공통 `priceTrendKnife` SSOT) + 🏢 코인 관련 주식 보강(비트마인·Bullish 추가 7종목, 종목별 코인 베타[ETH/BTC]·저상관 신뢰도 가드·매매 타이밍[추세·52주]·로그 스케일 오버레이)
 > 이전(2026-06-15): 🌊 알트시즌 인덱스(BTC.D 시장국면) + 💵 스테이블코인 레이더(유동성·페그·디페깅 시뮬·도미넌스) + 🎯 알파 헌터(가치·가격 괴리) + 🏦 BTC 현물 ETF
 
 ## 프로젝트 개요
@@ -2076,6 +2077,21 @@ KB금융(은행)이 AI 리밸런싱·본부장 브리핑·투자 프로필에서
 - 검증: SK스퀘어(402340) PER 5.5·PEG 0.04·총마진 96%가 기존엔 칩메이커처럼 보였으나, 지주사로 인식돼 NAV 평가 안내
 - ✅ **전 기능 일관 완성(2026-06-24)**: 역-DCF·해자(총마진 N/A·ROE)·자본배분(netDebt 무시)·**피터린치 이익선(LynchAutoPanel: EPS 왜곡→NAV)**·**PSR 상대밸류(StockProfileCard: 비교 부적합)**·**섹터피어 X-Ray(SectorPeerXray: 캐비엇 배너)** 전부 지주사를 NAV·SOTP로 일관 안내(제2원칙). 검증: isHoldingCompany가 SK스퀘어·SK·LG·삼성물산·농심홀딩스(홀딩스 키워드)=지주사, 삼성전자·SK하이닉스·Apple=일반으로 정확 분별
 - 교훈: **금융주·지주사처럼 '매출원가/표준 PER'이 구조적으로 안 맞는 업종은 isX 감지 1곳 → 총마진·순부채·역DCF 일괄 가드**(특수 업종 패턴)
+
+## 🏦 금융주 가드 전 그루탭 확장 (2026-06-25)
+
+리서치 그루별 탭(피터린치·워렌버핏·최일)에서 **삼성생명(보험)**이 탭마다 정반대 판정(피터린치 이익선 +135% 고평가 ↔ 워렌버핏 78% 저평가 ★5)을 내던 제2원칙 위반 해소. 보험사 EPS는 투자손익·준비금에 휘둘려 PER·이익선이 왜곡(삼성생명 PER 31배지만 **PBR 0.45=자본 절반 가격**), 실제 가치는 P/B·ROE·내재가치(EV)로 평가해야 함.
+- **`assetClassifier.isFinancialCompany(ticker, name, industry)`**(신규): 이름 키워드(생명·화재·손해·금융·은행·증권·캐피탈·카드·보험) + Yahoo industry(financ|bank|insurance|capital market|asset manage). 지주사 가드와 동일 패턴. client(industry 없음)는 이름으로 보강
+- **LynchAutoPanel(피터린치 이익선)**: 금융주면 "🏦 EPS 이익선 비교 부적합 → P/B·ROE·내재가치(EV)로 평가"로 전환(고평가 단정 제거). `special = holding || financial`
+- **ChoiValuationPanel(최일 가치분석)**: 상단 캐비엇 배너 + 종합판단 카드 주석 — PER·PEG·매출기반(PSR) 적정주가가 보험사·지주사엔 부적합 안내(점수 로직 무변경, 안내만). 보험사 "매출"은 수입보험료라 PSR 곱할 성질 아님
+- 검증: 삼성생명·KB금융·삼성화재·미래에셋증권=🏦금융 / 삼성전자·SK하이닉스·Apple=일반 / SK스퀘어=🏢지주(오탐 0)
+
+## 🔍 보유종목 42종 전수검증 (2026-06-25)
+
+학생 보유 개별주식 42종(고유 66종목 중 STOCK)을 프로덕션 API 3종(stock-profile·research-verdict·reverse-dcf)으로 전수 호출 → **크래시·에러 0건**. 발견·수정 2건:
+- **VERTIV(VRT) 지주사 오탐**: 영문 "Vertiv **Holdings**"가 `isHoldingCompany`의 영문 `holdings?` 키워드에 걸려 지주사 오판 → 미국 운영회사 법인명에 "Holdings"가 흔하므로 **영문 holdings 키워드 제거**(한글 지주/홀딩스 + 큐레이션 KR 티커 + Conglomerates industry만 신뢰). 두산·SK스퀘어 등 진짜 지주사는 유지
+- **삼성생명 자본배분 "미흡"(stewardship poor)**: 보험사는 자본이 거대해 ROE가 구조적으로 낮음(5.3%)인데 `stewardshipOf`의 `roe<0.08→poor`에 걸림 → `StarInputs.isFinancial` 추가, 금융주는 poor 임계를 **ROE<3%로 완화**(stockProfile·morningstar-rating 동시 적용, `moat.isFinancial` 재사용). 검증: stewardship poor→standard
+- 교훈: **특수업종 감지 키워드는 영문 일반명사("Holdings")로 넓히면 미국 운영회사를 오탐 — 한글/큐레이션 티커 기준이 안전**. 자본배분(ROE) 임계도 금융주는 별도 완화 필요(섹터 구조적 저ROE)
 
 ## 배포
 
