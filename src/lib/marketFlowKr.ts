@@ -5,10 +5,19 @@ import { getCanonicalFundamentals, isPegBaseEffect } from '@/lib/canonicalFundam
 
 export type Period = 'd1' | 'd5' | 'd20'
 
+// 코스닥(KOSDAQ) 코드 집합 — 네이버 stockExchangeType.code 라이브 검증(2026-06-26) 후 고정(시장 분류는 정적 참조 데이터). 그 외 풀=코스피
+const KOSDAQ_SET = new Set([
+  '240810','357780','403870','058470','095340','039030','348210','222800','064760',
+  '196170','145020','214150','247540','263750','293490','112040','277810','108860',
+])
+export const krMarketOf = (code6: string): 'KOSPI' | 'KOSDAQ' =>
+  KOSDAQ_SET.has(code6.replace(/\D/g, '').slice(-6)) ? 'KOSDAQ' : 'KOSPI'
+
 export interface MarketFlowEntry {
   ticker:    string
   name:      string
   sector:    string
+  market:    'KOSPI' | 'KOSDAQ'   // 코스피/코스닥(외국인·기관 종목별 시장 필터용)
   close:     number
   changePct: number | null   // 당일 등락률 %
   foreign:   Record<Period, number>   // 외국인 누적 순매수 대금(₩) — 1/5/20일
@@ -116,7 +125,7 @@ function entryOf(p: { t: string; n: string; s: string }, rows: { foreignerPureBu
   const changePct = prevClose > 0 ? Math.round(((close - prevClose) / prevClose) * 1000) / 10 : null
   const closes = rows.slice(0, 20).map(r => num(r.closePrice)).filter(c => c > 0).reverse()   // 오래된→최신
   return {
-    ticker: p.t, name: p.n, sector: p.s, close, changePct, dualStreak: streak, peg: null, closes,
+    ticker: p.t, name: p.n, sector: p.s, market: krMarketOf(p.t), close, changePct, dualStreak: streak, peg: null, closes,
     foreign:    { d1: cumAmt('foreignerPureBuyQuant', 1),    d5: cumAmt('foreignerPureBuyQuant', 5),    d20: cumAmt('foreignerPureBuyQuant', 20) },
     organ:      { d1: cumAmt('organPureBuyQuant', 1),        d5: cumAmt('organPureBuyQuant', 5),        d20: cumAmt('organPureBuyQuant', 20) },
     individual: { d1: cumAmt('individualPureBuyQuant', 1),   d5: cumAmt('individualPureBuyQuant', 5),   d20: cumAmt('individualPureBuyQuant', 20) },

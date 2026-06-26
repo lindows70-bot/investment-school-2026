@@ -93,6 +93,38 @@ export default function NpsPortfolio() {
         </table>
       </div>
 
+      {/* ②  국민연금 매집/축소 종목 (DART 5%룰 지분 변동) */}
+      {(() => {
+        const chg = data.domestic.filter(h => h.stakeChg != null && h.stakeChg !== 0)
+        const buy = chg.filter(h => (h.stakeChg as number) > 0).sort((a, b) => (b.stakeChg as number) - (a.stakeChg as number)).slice(0, 6)
+        const sell = chg.filter(h => (h.stakeChg as number) < 0).sort((a, b) => (a.stakeChg as number) - (b.stakeChg as number)).slice(0, 6)
+        if (!buy.length && !sell.length) return null
+        const Col = (title: string, color: string, items: typeof buy, up: boolean) => (
+          <div style={{ flex: '1 1 220px', minWidth: 200 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color, marginBottom: 6 }}>{title}</div>
+            {items.length ? items.map(h => (
+              <div key={h.ticker} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', background: C.card2, borderRadius: 7, marginBottom: 4, border: `1px solid ${C.border}` }}>
+                <span style={{ flex: 1, fontSize: 11.5, fontWeight: 700, color: C.text }}>{h.name.length > 10 ? h.name.slice(0, 9) + '…' : h.name}</span>
+                <span style={{ fontSize: 11, fontWeight: 800, color, fontFamily: 'monospace' }}>{up ? '▲' : '▼'}{Math.abs(h.stakeChg as number).toFixed(2)}%p</span>
+                <span style={{ fontSize: 9.5, color: C.textLow, fontFamily: 'monospace' }}>지분 {h.stakePct.toFixed(1)}%</span>
+              </div>
+            )) : <div style={{ fontSize: 11, color: C.textLow, padding: '6px 0' }}>해당 종목 없음</div>}
+          </div>
+        )
+        return (
+          <div style={{ marginBottom: 18 }}>
+            {SectionTitle('🎯', '국민연금이 담는·던지는 종목', 'DART 5%룰 지분 변동 · 5%+ 보유 종목 한정')}
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              {Col('📈 지분 확대 (매집)', C.green, buy, true)}
+              {Col('📉 지분 축소 (매도)', C.red, sell, false)}
+            </div>
+            <div style={{ fontSize: 9.5, color: C.textLow, marginTop: 8, lineHeight: 1.6 }}>
+              ※ 최근 <b>5%룰 공시 기준 누적 지분변동</b>(일별 매매 아님). 5% 이상 보유 종목만 공시되며 시점이 지연될 수 있어, 최근 일별 매매(예: 단기 순매도)와 방향이 다를 수 있습니다. 일별 시장 수급은 &lsquo;투자자별 매매동향&rsquo; 탭의 연기금 추세 참조.
+            </div>
+          </div>
+        )
+      })()}
+
       {/* ③ 해외주식 Top 10 */}
       {data.overseas.length > 0 && (
         <>

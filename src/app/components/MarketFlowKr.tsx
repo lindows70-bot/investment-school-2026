@@ -42,6 +42,7 @@ function Row({ e, rank, amt, prices, open }: { e: MarketFlowEntry; rank: number;
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <span style={{ color: '#e2e8f0', fontWeight: 700 }}>{e.name}</span>
+          <span style={{ background: e.market === 'KOSDAQ' ? 'rgba(167,139,250,0.14)' : 'rgba(96,165,250,0.12)', color: e.market === 'KOSDAQ' ? '#a78bfa' : '#60a5fa', borderRadius: 5, padding: '0 5px', fontSize: 9.5, fontWeight: 700 }}>{e.market === 'KOSDAQ' ? '코스닥' : '코스피'}</span>
           <span style={{ color: '#8a9aaa', fontSize: 11 }}>{e.sector}</span>
           {cheap && <span style={{ background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid #3b82f655', borderRadius: 6, padding: '0 6px', fontSize: 10, fontWeight: 700 }}>💎 저평가 PEG {e.peg!.toFixed(2)}</span>}
           {e.peg != null && e.peg > 0 && e.pegSuspect && <span title="이익 붕괴 후 회복(성장률 100%↑)으로 PEG가 0에 수렴하는 착시 — 경기순환주 저PEG 함정" style={{ background: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid #f59e0b44', borderRadius: 6, padding: '0 6px', fontSize: 10, fontWeight: 700 }}>⚠️ PEG {e.peg!.toFixed(2)} 기저효과</span>}
@@ -65,6 +66,7 @@ export default function MarketFlowKr() {
   const [period, setPeriod] = useState<Period>('d1')
   const [intraday, setIntraday] = useState<Record<string, number[]>>({})   // 1Day 인트라데이(표시 행만)
   const [openTicker, setOpenTicker] = useState<string | null>(null)        // 행 클릭 → 일별 매매동향 타임라인 펼침
+  const [mkt, setMkt] = useState<'ALL' | 'KOSPI' | 'KOSDAQ'>('ALL')        // 코스피/코스닥 필터
 
   useEffect(() => {
     let alive = true
@@ -91,11 +93,12 @@ export default function MarketFlowKr() {
   if (loading) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa' }}>🌐 시장 수급 랭킹을 집계 중입니다…</div>
   if (!data || !data.poolSize) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa' }}>시장 수급 데이터를 불러오지 못했습니다. 장 마감 후 다시 확인해 주세요.</div>
 
-  // 클라이언트 랭킹 — 선택한 주체(외인/기관) × 기간(1/5/20)
+  // 클라이언트 랭킹 — 선택한 주체(외인/기관) × 기간(1/5/20) × 시장(코스피/코스닥)
   const amtOf = (e: MarketFlowEntry) => (view === 'organ' ? e.organ[period] : e.foreign[period])
+  const pool = data.entries.filter(e => mkt === 'ALL' || e.market === mkt)
   const list: MarketFlowEntry[] = view === 'dual'
-    ? data.entries.filter(e => e.dualStreak >= 2).sort((a, b) => b.dualStreak - a.dualStreak || (b.foreign.d1 + b.organ.d1) - (a.foreign.d1 + a.organ.d1)).slice(0, 12)
-    : [...data.entries].sort((a, b) => amtOf(b) - amtOf(a)).filter(e => amtOf(e) > 0).slice(0, 12)
+    ? pool.filter(e => e.dualStreak >= 2).sort((a, b) => b.dualStreak - a.dualStreak || (b.foreign.d1 + b.organ.d1) - (a.foreign.d1 + a.organ.d1)).slice(0, 12)
+    : [...pool].sort((a, b) => amtOf(b) - amtOf(a)).filter(e => amtOf(e) > 0).slice(0, 12)
 
   const TABS: { key: View; label: string; color: string }[] = [
     { key: 'foreign', label: '🟢 외국인 순매수', color: '#22c55e' },
@@ -118,7 +121,7 @@ export default function MarketFlowKr() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 18 }}>🌐</span>
         <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 16 }}>국내 시장 수급 랭킹</span>
-        <span style={{ marginLeft: 'auto', color: '#7f93a8', fontSize: 11 }}>주요 코스피 {data.poolSize}종목 · 외인·기관이 담는 종목</span>
+        <span style={{ marginLeft: 'auto', color: '#7f93a8', fontSize: 11 }}>주요 코스피·코스닥 {data.poolSize}종목 · 외인·기관이 담는 종목</span>
       </div>
       <div style={{ color: '#7f93a8', fontSize: 11, marginBottom: 12 }}>지금 메이저 돈이 어디로 쏠리나 — 새로운 주도주 발굴용. 저PEG면 💎 표시(리밸런싱 위성 후보 힌트)</div>
 
@@ -130,6 +133,19 @@ export default function MarketFlowKr() {
               background: view === t.key ? `${t.color}22` : '#0f1117', color: view === t.key ? t.color : '#8a9aaa',
               border: `1px solid ${view === t.key ? `${t.color}66` : BORDER}` }}>
             {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 시장 필터 (코스피/코스닥) */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12, alignItems: 'center' }}>
+        <span style={{ color: '#7f93a8', fontSize: 10.5, marginRight: 2 }}>시장</span>
+        {([['ALL', '전체'], ['KOSPI', '코스피'], ['KOSDAQ', '코스닥']] as const).map(([k, lab]) => (
+          <button key={k} onClick={() => setMkt(k)}
+            style={{ padding: '3px 11px', borderRadius: 999, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+              background: mkt === k ? 'rgba(167,139,250,0.18)' : '#0f1117', color: mkt === k ? '#a78bfa' : '#7f93a8',
+              border: `1px solid ${mkt === k ? '#a78bfa66' : BORDER}` }}>
+            {lab}
           </button>
         ))}
       </div>
