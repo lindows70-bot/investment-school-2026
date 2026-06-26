@@ -32,9 +32,9 @@ function MiniChart({ prices }: { prices: number[] }) {
   )
 }
 
-function Row({ e, rank, amt, prices, open }: { e: MarketFlowEntry; rank: number; amt: number; prices: number[]; open?: boolean }) {
-  const up = (e.changePct ?? 0) > 0
-  const chgCol = e.changePct == null ? '#8a9aaa' : up ? '#22c55e' : '#ef4444'
+function Row({ e, rank, amt, prices, open, chg }: { e: MarketFlowEntry; rank: number; amt: number; prices: number[]; open?: boolean; chg: number | null }) {
+  const up = (chg ?? 0) > 0
+  const chgCol = chg == null ? '#8a9aaa' : up ? '#22c55e' : '#ef4444'
   const cheap = e.peg != null && e.peg > 0 && e.peg < 1.0 && !e.pegSuspect   // ⚠️ 기저효과 의심은 💎 박탈
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', background: '#0f1117', borderRadius: 8, fontSize: 13 }}>
@@ -52,7 +52,7 @@ function Row({ e, rank, amt, prices, open }: { e: MarketFlowEntry; rank: number;
       <MiniChart prices={prices} />
       <span style={{ width: 84, textAlign: 'right', color: amt >= 0 ? '#e2e8f0' : '#f87171', fontWeight: 800, fontFamily: 'monospace' }}>{won(amt)}</span>
       <span style={{ width: 64, textAlign: 'right', color: chgCol, fontWeight: 700, fontFamily: 'monospace', fontSize: 12 }}>
-        {e.changePct == null ? '—' : `${up ? '▲' : '▼'}${Math.abs(e.changePct)}%`}
+        {chg == null ? '—' : `${up ? '▲' : '▼'}${Math.abs(chg)}%`}
       </span>
       <span style={{ width: 12, textAlign: 'center', color: '#64748b', fontSize: 9, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
     </div>
@@ -115,6 +115,16 @@ export default function MarketFlowKr() {
     return e.closes.slice(-w)
   }
   const chartLabel = view === 'dual' ? '1주' : period === 'd1' ? '1Day' : period === 'd5' ? '1주' : '1개월'
+  // 등락률 — 선택 기간에 맞춤(1일=당일, 5일/20일=기간 주가변화). closes(오래된→최신) 재사용(추가 fetch 0)
+  const periodChg = (e: MarketFlowEntry): number | null => {
+    if (view === 'dual' || period === 'd1') return e.changePct
+    const c = e.closes
+    if (!c || c.length < 2) return e.changePct
+    const back = period === 'd5' ? 5 : 20
+    const past = c[Math.max(0, c.length - 1 - back)], now = c[c.length - 1]
+    return past > 0 ? Math.round(((now - past) / past) * 1000) / 10 : e.changePct
+  }
+  const chgLabel = view === 'dual' || period === 'd1' ? '등락률' : `${PERIODS.find(p => p.key === period)!.label} 등락`
 
   return (
     <div style={{ background: CARD, borderRadius: 12, padding: '16px 18px', border: `1px solid ${BORDER}` }}>
@@ -170,7 +180,7 @@ export default function MarketFlowKr() {
         <span style={{ flex: 1 }}>종목 (섹터)</span>
         <span style={{ width: 84, textAlign: 'center' }}>주가 ({chartLabel})</span>
         <span style={{ width: 84, textAlign: 'right' }}>{view === 'dual' ? '순매수 대금' : `순매수 (${PERIODS.find(p => p.key === period)!.label})`}</span>
-        <span style={{ width: 64, textAlign: 'right' }}>등락률</span>
+        <span style={{ width: 64, textAlign: 'right' }}>{chgLabel}</span>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -178,7 +188,7 @@ export default function MarketFlowKr() {
           const isOpen = openTicker === e.ticker
           return (
             <div key={e.ticker}>
-              <Row e={e} rank={i} amt={view === 'dual' ? (e.foreign.d1 + e.organ.d1) : amtOf(e)} prices={pricesFor(e)} open={isOpen} />
+              <Row e={e} rank={i} amt={view === 'dual' ? (e.foreign.d1 + e.organ.d1) : amtOf(e)} prices={pricesFor(e)} open={isOpen} chg={periodChg(e)} />
               {/* 명시적 타임라인 버튼 — 행 아래에 항상 노출 */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '3px 4px 0' }}>
                 <button
