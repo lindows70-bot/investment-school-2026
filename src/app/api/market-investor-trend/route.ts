@@ -23,7 +23,8 @@ export interface MarketInvestorResult {
   market: 'KOSPI' | 'KOSDAQ'
   rows: InvestorRow[]           // 최신 → 과거
   foreignCumSeries: { date: string; cum: number }[]   // 외국인 누적 순매수(과거→최신, 타임라인 차트용)
-  cum: { personal: number; foreign: number; institution: number }   // 기간 누적
+  pensionCumSeries: { date: string; cum: number }[]   // 🏛️ 연기금(국민연금 주력) 누적 순매수
+  cum: { personal: number; foreign: number; institution: number; pension: number }   // 기간 누적
   asOf: string
 }
 
@@ -77,7 +78,7 @@ async function fetchMarket(sosok: '01' | '02', pages: number): Promise<InvestorR
 
 export async function GET(req: Request) {
   const market = new URL(req.url).searchParams.get('market') === 'KOSDAQ' ? 'KOSDAQ' : 'KOSPI'
-  const cacheKey = `mkt-investor-v2:${market}:${kstDate()}`   // v2: 70거래일(3개월 집계)
+  const cacheKey = `mkt-investor-v3:${market}:${kstDate()}`   // v3: 연기금 누적 추세(pensionCumSeries) 추가
   const cached = await getCache<MarketInvestorResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -88,14 +89,18 @@ export async function GET(req: Request) {
   const chrono = [...rows].reverse()
   let acc = 0
   const foreignCumSeries = chrono.map(r => { acc += r.foreign; return { date: r.date, cum: Math.round(acc) } })
+  // 🏛️ 연기금(국민연금 주력) 누적 순매수 추세
+  let accP = 0
+  const pensionCumSeries = chrono.map(r => { accP += r.pension; return { date: r.date, cum: Math.round(accP) } })
 
   const cum = {
     personal: Math.round(rows.reduce((s, r) => s + r.personal, 0)),
     foreign: Math.round(rows.reduce((s, r) => s + r.foreign, 0)),
     institution: Math.round(rows.reduce((s, r) => s + r.institution, 0)),
+    pension: Math.round(rows.reduce((s, r) => s + r.pension, 0)),
   }
 
-  const result: MarketInvestorResult = { market, rows, foreignCumSeries, cum, asOf: new Date().toISOString() }
+  const result: MarketInvestorResult = { market, rows, foreignCumSeries, pensionCumSeries, cum, asOf: new Date().toISOString() }
   await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

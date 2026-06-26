@@ -122,6 +122,52 @@ export default function MarketInvestorTrend() {
           </ResponsiveContainer>
         </div>
 
+        {/* ②-A 🏛️ 국민연금(연기금) 누적 순매수 추세 — 코스피 큰손 수급 */}
+        {d.pensionCumSeries && d.pensionCumSeries.length > 0 && (() => {
+          const recent5 = d.rows.slice(0, 5).reduce((s, r) => s + r.pension, 0)
+          const recent20 = d.rows.slice(0, 20).reduce((s, r) => s + r.pension, 0)
+          return (
+            <div style={{ background: CARD, borderRadius: 12, border: '1px solid rgba(167,139,250,0.35)', padding: '13px 15px' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                <span style={{ color: '#a78bfa', fontWeight: 800, fontSize: 13 }}>🏛️ 국민연금(연기금) 누적 순매수 추세</span>
+                <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>코스피 큰손 · 우상향=매집/우하향=매도</span>
+                <span style={{ marginLeft: 'auto', color: sgnColor(d.cum.pension), fontWeight: 800, fontSize: 13, fontFamily: 'monospace' }}>
+                  {d.rows.length}일 누적 {fmtEok(d.cum.pension)}
+                </span>
+              </div>
+              {/* 최근 5일/20일 요약 칩 */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+                {([['최근 5일', recent5], ['최근 20일', recent20]] as const).map(([lab, v]) => (
+                  <span key={lab} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#0f1117', border: `1px solid ${sgnColor(v)}44`, borderRadius: 8, padding: '3px 9px', fontSize: 11 }}>
+                    <span style={{ color: '#cbd5e1', fontWeight: 700 }}>{lab}</span>
+                    <span style={{ color: sgnColor(v), fontWeight: 800, fontFamily: 'monospace' }}>{fmtEok(v)}</span>
+                    <span style={{ color: '#7f93a8', fontSize: 10 }}>{v > 0 ? '순매수' : v < 0 ? '순매도' : '중립'}</span>
+                  </span>
+                ))}
+              </div>
+              <ResponsiveContainer width="100%" height={200}>
+                <ComposedChart data={d.pensionCumSeries} margin={{ top: 8, right: 10, bottom: 0, left: -6 }}>
+                  <defs>
+                    <linearGradient id="pcum" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="#a78bfa" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#64748b' }} tickFormatter={s => s.slice(5)} interval={Math.max(0, Math.floor(d.pensionCumSeries.length / 8))} />
+                  <YAxis tick={{ fontSize: 9, fill: '#64748b' }} tickFormatter={v => `${(v / 10000).toFixed(1)}조`} />
+                  <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, fontSize: 11, padding: '6px 10px' }}
+                    formatter={((v: number) => [fmtEok(v), '연기금 누적']) as any} labelFormatter={l => l as string} />
+                  <ReferenceLine y={0} stroke="#475569" strokeDasharray="3 3" />
+                  <Area dataKey="cum" stroke="#a78bfa" strokeWidth={2} fill="url(#pcum)" dot={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+              <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 6, lineHeight: 1.6 }}>
+                ※ &lsquo;연기금등&rsquo; = 국민연금(NPS) 주력 + 사학·공무원·우정사업 연기금 합산(국민연금이 압도적 비중). 종목별 국민연금 매매는 글로벌 시총 Top10 탭의 🏛️ 국민연금 대시보드(DART 5%룰) 참조.
+              </div>
+            </div>
+          )
+        })()}
+
         {/* ② 외국인 누적 순매수 타임라인 — 핵심 */}
         <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '13px 15px' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
