@@ -27,6 +27,20 @@ export interface MarketFlowEntry {
   peg:        number | null  // 저PEG 뱃지용(상위 종목만 채움)
   pegSuspect?: boolean       // ⚠️ 기저효과 의심(이익 붕괴 후 회복 G>100% → PEG 0 수렴 착시) — 저PEG 뱃지·추천 점수에서 제외
   closes:     number[]       // 최근 20일 일별 종가(오래된→최신) — 1주/1개월 스파크라인용(추가 fetch 0)
+  trendSpeed: number[]       // 🌡️ 추세속도(MA10 이격도 %) 최근 5거래일(최신→과거) — 부호=방향·크기=강도·5일변화=가속/둔화
+}
+
+// 🌡️ 추세속도 = MA10 이격도(%). closes(오래된→최신)에서 최근 days거래일 값을 최신→과거 순으로 반환(데이터 부족 시 [])
+function computeTrendSpeed(closes: number[], ma = 10, days = 5): number[] {
+  const n = closes.length
+  if (n < ma + 1) return []
+  const out: number[] = []
+  for (let i = n - 1; i >= n - days && i >= ma - 1; i--) {
+    const win = closes.slice(i - ma + 1, i + 1)
+    const avg = win.reduce((s, v) => s + v, 0) / ma
+    out.push(avg > 0 ? Math.round(((closes[i] - avg) / avg) * 1000) / 10 : 0)
+  }
+  return out   // 최신 → 과거
 }
 
 export interface MarketFlowKrResult {
@@ -34,6 +48,7 @@ export interface MarketFlowKrResult {
   asOf:     string              // 계산 시각(벽시계)
   dataDate: string              // 데이터 최신 거래일(YYYY-MM-DD) — 신선도 판정 SSOT(네이버 발행 지연 셀프힐용)
   poolSize: number
+  recentDates: string[]         // 🌡️ 추세맵 컬럼용 최근 5거래일(YYYYMMDD, 최신→과거)
 }
 
 /** 신선도 프로브 — 대표 종목(삼성전자) 트렌드의 최신 거래일(YYYY-MM-DD). 캐시 셀프힐 판정용(1 fetch) */
@@ -126,6 +141,7 @@ function entryOf(p: { t: string; n: string; s: string }, rows: { foreignerPureBu
   const closes = rows.slice(0, 20).map(r => num(r.closePrice)).filter(c => c > 0).reverse()   // 오래된→최신
   return {
     ticker: p.t, name: p.n, sector: p.s, market: krMarketOf(p.t), close, changePct, dualStreak: streak, peg: null, closes,
+    trendSpeed: computeTrendSpeed(closes),
     foreign:    { d1: cumAmt('foreignerPureBuyQuant', 1),    d5: cumAmt('foreignerPureBuyQuant', 5),    d20: cumAmt('foreignerPureBuyQuant', 20) },
     organ:      { d1: cumAmt('organPureBuyQuant', 1),        d5: cumAmt('organPureBuyQuant', 5),        d20: cumAmt('organPureBuyQuant', 20) },
     individual: { d1: cumAmt('individualPureBuyQuant', 1),   d5: cumAmt('individualPureBuyQuant', 5),   d20: cumAmt('individualPureBuyQuant', 20) },
@@ -140,13 +156,18 @@ export async function computeMarketFlowKr(base?: string): Promise<MarketFlowKrRe
 
   const entries: MarketFlowEntry[] = []
   let newestBiz = ''   // 풀 전체에서 가장 최신 거래일(YYYYMMDD) — dataDate 산출용
+  let recentDates: string[] = []   // 🌡️ 추세맵 컬럼(최근 5거래일, 최신→과거) — 대표 종목에서 1회 캡처
   for (let i = 0; i < pool.length; i += 6) {
     const batch = pool.slice(i, i + 6)
     const rs = await Promise.all(batch.map(async p => {
-      try { const rows = await fetchKrTrend(p.t); return { entry: entryOf(p, rows), biz: rows[0]?.bizdate ?? '' } }
-      catch { return { entry: null, biz: '' } }
+      try { const rows = await fetchKrTrend(p.t); return { entry: entryOf(p, rows), biz: rows[0]?.bizdate ?? '', dates: rows.slice(0, 5).map(r => r.bizdate ?? '').filter(Boolean) } }
+      catch { return { entry: null, biz: '', dates: [] as string[] } }
     }))
-    for (const r of rs) if (r.entry) { entries.push(r.entry); if (r.biz > newestBiz) newestBiz = r.biz }
+    for (const r of rs) if (r.entry) {
+      entries.push(r.entry)
+      if (r.biz > newestBiz) newestBiz = r.biz
+      if (recentDates.length < 5 && r.dates.length >= 5) recentDates = r.dates   // 거래 캘린더는 전 종목 공통
+    }
   }
   const dataDate = newestBiz.length >= 8 ? `${newestBiz.slice(0, 4)}-${newestBiz.slice(4, 6)}-${newestBiz.slice(6, 8)}` : ''
 
@@ -166,5 +187,5 @@ export async function computeMarketFlowKr(base?: string): Promise<MarketFlowKrRe
     } catch { /* graceful */ }
   }))
 
-  return { entries, asOf: new Date().toISOString(), dataDate, poolSize: entries.length }
+  return { entries, asOf: new Date().toISOString(), dataDate, poolSize: entries.length, recentDates }
 }
