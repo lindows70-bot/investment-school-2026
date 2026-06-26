@@ -26,12 +26,12 @@ export interface MarketFlowEntry {
   dualStreak: number         // 외인+기관 동시 순매수 연속일수(0=오늘 미해당)
   peg:        number | null  // 저PEG 뱃지용(상위 종목만 채움)
   pegSuspect?: boolean       // ⚠️ 기저효과 의심(이익 붕괴 후 회복 G>100% → PEG 0 수렴 착시) — 저PEG 뱃지·추천 점수에서 제외
-  closes:     number[]       // 최근 20일 일별 종가(오래된→최신) — 1주/1개월 스파크라인용(추가 fetch 0)
-  trendSpeed: number[]       // 🌡️ 추세속도(MA10 이격도 %) 최근 5거래일(최신→과거) — 부호=방향·크기=강도·5일변화=가속/둔화
+  closes:     number[]       // 최근 30일 일별 종가(오래된→최신) — 스파크라인 + MA20 추세속도용(추가 fetch 0)
+  trendSpeed: number[]       // 🌡️ 추세속도(MA20 이격도 %) 최근 5거래일(최신→과거) — 부호=방향·크기=강도·5일변화=가속/둔화
 }
 
-// 🌡️ 추세속도 = MA10 이격도(%). closes(오래된→최신)에서 최근 days거래일 값을 최신→과거 순으로 반환(데이터 부족 시 [])
-function computeTrendSpeed(closes: number[], ma = 10, days = 5): number[] {
+// 🌡️ 추세속도 = MA20 이격도(%). closes(오래된→최신)에서 최근 days거래일 값을 최신→과거 순으로 반환(데이터 부족 시 [])
+function computeTrendSpeed(closes: number[], ma = 20, days = 5): number[] {
   const n = closes.length
   if (n < ma + 1) return []
   const out: number[] = []
@@ -138,7 +138,7 @@ function entryOf(p: { t: string; n: string; s: string }, rows: { foreignerPureBu
   for (const r of rows) { if (num(r.foreignerPureBuyQuant) > 0 && num(r.organPureBuyQuant) > 0) streak++; else break }
   const prevClose = rows[1] ? num(rows[1].closePrice) : 0
   const changePct = prevClose > 0 ? Math.round(((close - prevClose) / prevClose) * 1000) / 10 : null
-  const closes = rows.slice(0, 20).map(r => num(r.closePrice)).filter(c => c > 0).reverse()   // 오래된→최신
+  const closes = rows.slice(0, 30).map(r => num(r.closePrice)).filter(c => c > 0).reverse()   // 오래된→최신(MA20 추세속도용 30개)
   return {
     ticker: p.t, name: p.n, sector: p.s, market: krMarketOf(p.t), close, changePct, dualStreak: streak, peg: null, closes,
     trendSpeed: computeTrendSpeed(closes),
