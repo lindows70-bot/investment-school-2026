@@ -208,19 +208,21 @@ export default function MarketInvestorTrend() {
             <span style={{ color: '#7f93a8', fontSize: 10 }}>← {d.rows.length}일 누적</span>
           </div>
           {/* 헤더 */}
-          <div style={{ display: 'grid', gridTemplateColumns: '64px 1fr 1fr 1fr', gap: 8, padding: '0 2px 6px', fontSize: 10.5, color: '#7f93a8', borderBottom: `1px solid ${BORDER}` }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '56px 1fr 1fr 1fr 1fr', gap: 8, padding: '0 2px 6px', fontSize: 10.5, color: '#7f93a8', borderBottom: `1px solid ${BORDER}` }}>
             <span>날짜</span>
             <span style={{ textAlign: 'right' }}>개인</span>
             <span style={{ textAlign: 'right', color: '#f59e0b' }}>외국인</span>
             <span style={{ textAlign: 'right' }}>기관</span>
+            <span style={{ textAlign: 'right', color: '#a78bfa' }}>연기금</span>
           </div>
           <div style={{ maxHeight: 340, overflowY: 'auto' }}>
             {d.rows.map(r => (
-              <div key={r.date} style={{ display: 'grid', gridTemplateColumns: '64px 1fr 1fr 1fr', gap: 8, padding: '7px 2px', alignItems: 'center', borderBottom: '1px solid #131922' }}>
+              <div key={r.date} style={{ display: 'grid', gridTemplateColumns: '56px 1fr 1fr 1fr 1fr', gap: 8, padding: '7px 2px', alignItems: 'center', borderBottom: '1px solid #131922' }}>
                 <span style={{ color: '#aab6c4', fontSize: 11, fontFamily: 'monospace' }}>{r.date.slice(5)}</span>
                 <TableCell v={r.personal} />
                 <TableCell v={r.foreign} highlight />
                 <TableCell v={r.institution} />
+                <TableCell v={r.pension} />
               </div>
             ))}
           </div>
