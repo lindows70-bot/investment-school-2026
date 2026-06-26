@@ -165,8 +165,8 @@ export async function computeMarketFlowKr(base?: string): Promise<MarketFlowKrRe
     }))
     for (const r of rs) if (r.entry) {
       entries.push(r.entry)
-      if (r.biz > newestBiz) newestBiz = r.biz
-      if (recentDates.length < 5 && r.dates.length >= 5) recentDates = r.dates   // 거래 캘린더는 전 종목 공통
+      // 🌡️ recentDates는 '가장 신선한' 종목 기준(per-stock 트렌드 신선도가 종목마다 달라 첫 종목이 묵으면 라벨이 묵는 버그 방지)
+      if (r.biz > newestBiz) { newestBiz = r.biz; if (r.dates.length >= 5) recentDates = r.dates }
     }
   }
   const dataDate = newestBiz.length >= 8 ? `${newestBiz.slice(0, 4)}-${newestBiz.slice(4, 6)}-${newestBiz.slice(6, 8)}` : ''

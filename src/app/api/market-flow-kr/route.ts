@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
-const CACHE_KEY = () => `market-flow-kr-v7:${kstDate()}`   // v7: trendSpeed(추세속도)·recentDates 추가
+const CACHE_KEY = () => `market-flow-kr-v8:${kstDate()}`   // v8: recentDates를 newestBiz 종목 기준으로(신선도 버그 수정)
 
 export async function GET(req: Request) {
   const cached = await getCache<MarketFlowKrResult>(CACHE_KEY(), 24 * 3600_000)
