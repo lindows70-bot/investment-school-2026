@@ -26,19 +26,21 @@ export interface MarketFlowEntry {
   dualStreak: number         // 외인+기관 동시 순매수 연속일수(0=오늘 미해당)
   peg:        number | null  // 저PEG 뱃지용(상위 종목만 채움)
   pegSuspect?: boolean       // ⚠️ 기저효과 의심(이익 붕괴 후 회복 G>100% → PEG 0 수렴 착시) — 저PEG 뱃지·추천 점수에서 제외
-  closes:     number[]       // 최근 30일 일별 종가(오래된→최신) — 스파크라인 + MA20 추세속도용(추가 fetch 0)
-  trendSpeed: number[]       // 🌡️ 추세속도(MA20 이격도 %) 최근 5거래일(최신→과거) — 부호=방향·크기=강도·5일변화=가속/둔화
+  closes:     number[]       // 최근 30일 일별 종가(오래된→최신) — 스파크라인 + MA10 추세속도용(추가 fetch 0)
+  trendSpeed: number[]       // 🌡️ 추세속도(MA10 이격도 %, ±15 상한) 최근 5거래일(최신→과거) — 부호=방향·크기=강도·5일변화=가속/둔화
 }
 
-// 🌡️ 추세속도 = MA20 이격도(%). closes(오래된→최신)에서 최근 days거래일 값을 최신→과거 순으로 반환(데이터 부족 시 [])
-function computeTrendSpeed(closes: number[], ma = 20, days = 5): number[] {
+// 🌡️ 추세속도 = MA10 이격도(%), ±15%로 상한(급등주 baseline 이격 폭증 방지·원본 톤). closes(오래된→최신) 최근 days거래일을 최신→과거로 반환
+const TS_CAP = 15
+function computeTrendSpeed(closes: number[], ma = 10, days = 5): number[] {
   const n = closes.length
   if (n < ma + 1) return []
   const out: number[] = []
   for (let i = n - 1; i >= n - days && i >= ma - 1; i--) {
     const win = closes.slice(i - ma + 1, i + 1)
     const avg = win.reduce((s, v) => s + v, 0) / ma
-    out.push(avg > 0 ? Math.round(((closes[i] - avg) / avg) * 1000) / 10 : 0)
+    const v = avg > 0 ? Math.round(((closes[i] - avg) / avg) * 1000) / 10 : 0
+    out.push(Math.max(-TS_CAP, Math.min(TS_CAP, v)))   // ±15 상한(이상치 saturation)
   }
   return out   // 최신 → 과거
 }
