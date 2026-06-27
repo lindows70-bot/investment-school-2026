@@ -170,10 +170,10 @@ async function naverBasic(code: string) {
  */
 async function naverChart(code: string, tf: TimeFrame): Promise<PricePoint[]> {
   const tfMap: Record<TimeFrame, { timeframe: string; count: number }> = {
-    '1D': { timeframe: 'day',   count: 35 },   // 최근 35 거래일
-    '1W': { timeframe: 'week',  count: 26 },   // 최근 26 주
-    '1M': { timeframe: 'month', count: 24 },   // 최근 24 개월
-    '1Y': { timeframe: 'month', count: 60 },   // 최근 60 개월(5년) → 1Y 근사
+    '1D': { timeframe: 'day',   count: 60 },    // 최근 60 거래일(~3개월)
+    '1W': { timeframe: 'week',  count: 60 },    // 최근 60 주(~14개월)
+    '1M': { timeframe: 'month', count: 60 },    // 최근 60 개월(5년)
+    '1Y': { timeframe: 'month', count: 120 },   // 최근 120 개월(10년) → 1Y 최장
   }
   const { timeframe, count } = tfMap[tf]
 
@@ -213,17 +213,17 @@ async function naverChart(code: string, tf: TimeFrame): Promise<PricePoint[]> {
 
 /** KR OHLC 캔들 데이터 (네이버 차트 XML → Candle[]) */
 async function naverOhlcChart(code: string, tf: TimeFrame): Promise<Candle[]> {
-  // ★ 탭별 서로 다른 timeframe 사용 — 동일해 보이던 버그 수정
-  //   1D : day   × 30  → 최근 30 거래일 일봉 (약 1.5개월)
-  //   1W : week  × 26  → 최근 26 주봉  (약 6개월)
-  //   1M : month × 24  → 최근 24 월봉  (약 2년)
-  //   1Y : month × 60  → 최근 60 월봉  (약 5년)
+  // ★ 탭별 서로 다른 timeframe — 전 탭 ~60캔들로 통일(증권사 차트처럼 촘촘)
+  //   1D : day   × 60  → 일봉 60 (약 3개월)
+  //   1W : week  × 60  → 주봉 60 (약 14개월)
+  //   1M : month × 60  → 월봉 60 (5년)
+  //   1Y : month × 120 → 월봉 120 (10년, 최장)
   // naverChart(라인차트)와 동일한 timeframe 구분 정책 사용
   const tfMap: Record<TimeFrame, { timeframe: string; count: number }> = {
-    '1D': { timeframe: 'day',   count: 30 },
-    '1W': { timeframe: 'week',  count: 26 },
-    '1M': { timeframe: 'month', count: 24 },
-    '1Y': { timeframe: 'month', count: 60 },
+    '1D': { timeframe: 'day',   count: 60 },
+    '1W': { timeframe: 'week',  count: 60 },
+    '1M': { timeframe: 'month', count: 60 },
+    '1Y': { timeframe: 'month', count: 120 },
   }
   const { timeframe, count } = tfMap[tf]
   const url = `https://fchart.stock.naver.com/sise.nhn?symbol=${code}&timeframe=${timeframe}&count=${count}&requestType=0`
@@ -388,10 +388,11 @@ const YF_HEADERS: HeadersInit = {
 
 // KR(네이버)과 동일한 캔들 입도 정책 — 1D=일봉 / 1W=주봉 / 1M·1Y=월봉. 두 시장 차트 일관성(제2원칙).
 const YF_RANGE: Record<TimeFrame, { range: string; interval: string; take: number }> = {
-  '1D': { range: '3mo', interval: '1d',  take: 30 },   // 일봉 최근 30거래일 (KR과 동일)
-  '1W': { range: '6mo', interval: '1wk', take: 26 },   // 주봉 26
-  '1M': { range: '2y',  interval: '1mo', take: 24 },   // 월봉 24 (약 2년)
-  '1Y': { range: '5y',  interval: '1mo', take: 60 },   // 월봉 60 (약 5년)
+  // 증권사 차트처럼 전 탭 ~60캔들로 통일(촘촘하게). 1Y만 120(최장·차별화)
+  '1D': { range: '6mo', interval: '1d',  take: 60 },   // 일봉 60 (약 3개월)
+  '1W': { range: '2y',  interval: '1wk', take: 60 },   // 주봉 60 (약 14개월)
+  '1M': { range: '6y',  interval: '1mo', take: 60 },   // 월봉 60 (약 5년)
+  '1Y': { range: 'max', interval: '1mo', take: 120 },  // 월봉 120 (약 10년)
 }
 
 // v8 chart: query1 → query2 순서로 fallback (v7/v10은 401 차단)
