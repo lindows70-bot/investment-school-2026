@@ -23,6 +23,7 @@ const AISEMI_SUB: Record<string, SubMeta> = {
   foundry: { label: '파운드리',       emoji: '🏭', color: '#f59e0b', desc: '첨단 미세공정 위탁생산' },
   equip:   { label: '장비',           emoji: '🔧', color: '#34d399', desc: 'EUV·증착·본딩·검사 장비' },
   infra:   { label: '네트워킹·인프라', emoji: '🌐', color: '#ec4899', desc: '데이터센터 연결·전력·쿨링' },
+  material: { label: '신소재·기판·패키징', emoji: '🔬', color: '#60a5fa', desc: 'FC-BGA 기판·첨단 패키징·소재' },
 }
 const AISEMI_STOCKS: SectorStock[] = [
   // 🧠 설계
@@ -54,11 +55,22 @@ const AISEMI_STOCKS: SectorStock[] = [
   { ticker: 'CRDO', name: 'Credo',         market: 'US', sub: 'infra', tags: ['AEC 케이블'],         purePlay: true,  note: '액티브 전기 케이블(AI 연결)' },
   { ticker: 'ALAB', name: 'Astera Labs',   market: 'US', sub: 'infra', tags: ['커넥티비티'],         purePlay: true,  note: 'AI 서버 커넥티비티 칩' },
   { ticker: 'VRT',  name: 'Vertiv',        market: 'US', sub: 'infra', tags: ['전력·쿨링'],          purePlay: false, note: 'AI 데이터센터 전력·냉각(반도체 아님)' },
+  // 🔬 신소재·기판·패키징 (차세대 확장)
+  { ticker: '011070', name: 'LG이노텍',     market: 'KR', sub: 'material', tags: ['FC-BGA 기판', '카메라'], purePlay: false, note: '플립칩 기판(AI 칩 패키징) 성장 — 단 매출 대부분 애플 카메라' },
+  { ticker: '009150', name: '삼성전기',     market: 'KR', sub: 'material', tags: ['FC-BGA', 'MLCC'],   purePlay: false, note: '서버용 FC-BGA·고용량 MLCC(다각화)' },
+  { ticker: '353200', name: '대덕전자',     market: 'KR', sub: 'material', tags: ['FC-BGA 기판'],      purePlay: true,  note: 'AI 가속기용 FC-BGA 기판' },
+  { ticker: '014680', name: '한솔케미칼',   market: 'KR', sub: 'material', tags: ['HBM 소재'],         purePlay: true,  note: 'HBM·반도체 소재(과산화수소·QD)' },
+  { ticker: '005290', name: '동진쎄미켐',   market: 'KR', sub: 'material', tags: ['EUV 포토레지스트'],  purePlay: true,  note: 'EUV 포토레지스트 국산화' },
+  { ticker: 'AMKR', name: 'Amkor',          market: 'US', sub: 'material', tags: ['첨단 패키징'],       purePlay: true,  note: 'OSAT 첨단 패키징(2.5D)' },
+  { ticker: 'ASX',  name: 'ASE Technology', market: 'US', sub: 'material', tags: ['OSAT 패키징'],       purePlay: true,  note: '세계 1위 OSAT 후공정' },
+  { ticker: 'GLW',  name: 'Corning',        market: 'US', sub: 'material', tags: ['유리기판·광섬유'],   purePlay: false, note: '차세대 유리기판·광섬유(다각화)' },
+  { ticker: '4062', name: 'Ibiden',         market: 'JP', yahoo: '4062.T', sub: 'material', tags: ['ABF 기판'], purePlay: true, note: 'ABF 기판 1위(엔비디아·인텔 공급)' },
+  { ticker: 'ENTG', name: 'Entegris',       market: 'US', sub: 'material', tags: ['반도체 소재'],       purePlay: true,  note: '첨단 소재·정밀화학·필터' },
 ]
 
 const AISEMI_CONFIG: SectorConfig = {
-  key: 'ai-semi', label: 'AI 반도체 인텔리전스', emoji: '🧠',
-  tagline: 'AI 붐의 ‘곡괭이와 삽’ — GPU→HBM→파운드리→장비→인프라 밸류체인. 실적 있는 종목 多라 모멘텀+밸류체인 위치를 함께 봅니다. 교육용.',
+  key: 'ai-semi', label: '차세대 AI 반도체 & 신소재 인텔리전스', emoji: '🧠',
+  tagline: 'AI 붐의 ‘곡괭이와 삽’ — GPU→HBM→파운드리→장비→인프라→신소재·기판·패키징 밸류체인. 칩 성능 한계를 소재·패키징(FC-BGA·유리기판)이 돌파. 실적 있는 종목 多라 모멘텀+밸류체인 위치를 함께 봅니다. 교육용.',
   anchor: 'NVDA', tagHeader: '역할', subMeta: AISEMI_SUB,
   stocks: AISEMI_STOCKS, overlayTickers: ['NVDA', 'AMD', 'AVGO', '000660', 'TSM'],
 }

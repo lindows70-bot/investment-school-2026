@@ -1348,7 +1348,7 @@ export default function DashboardPage() {
             id: 'sectors', icon: '🧬', label: '테마·섹터 분석',
             items: [
               { key: 'quantum', icon: '🛰️', label: '양자컴퓨팅',  desc: '큐비트·양자보안·정책촉매·Pre-IPO' },
-              { key: 'aisemi',  icon: '🧠', label: 'AI 반도체',   desc: 'GPU·HBM·파운드리·장비·인프라 밸류체인' },
+              { key: 'aisemi',  icon: '🧠', label: '차세대 AI 반도체 & 신소재', desc: 'GPU·HBM·파운드리·장비·인프라·신소재/기판' },
               { key: 'power',   icon: '⚡', label: 'AI 전력망 & 원전', desc: '전력기기·SMR·전선·발전 밸류체인' },
               { key: 'physai',  icon: '🦾', label: '피지컬 AI',     desc: '휴머노이드·자율주행·로봇·구동' },
               { key: 'aibio',   icon: '🧬', label: 'AI 바이오',     desc: 'AI 신약·진단·유전체·빅파마' },
