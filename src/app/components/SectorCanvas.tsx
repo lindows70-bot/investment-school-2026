@@ -61,6 +61,7 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
   const stocks = pureOnly ? d.stocks.filter(s => s.purePlay) : d.stocks
   const maxBeta = Math.max(2, ...d.stocks.map(s => s.beta ?? 0))
   const tc = d.themeChart
+  const subMap: Record<string, { label: string; emoji: string; color: string }> = Object.fromEntries(d.subsectors.map(s => [s.key, { label: s.label, emoji: s.emoji, color: s.color }]))
 
   return Wrap(
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -162,9 +163,10 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
         </div>
         <div style={{ color: '#7f93a8', fontSize: 10, marginBottom: 8, lineHeight: 1.6 }}>📊 <b style={{ color: '#cbd5e1' }}>베타</b> = {d.anchor} 대비 <b>움직임 폭</b>(1.0=같은 폭·0.1=거의 안 따라감) · <b style={{ color: '#cbd5e1' }}>상관(동행도)</b> = <b>방향 일치도</b>(1=완전 동행·노랑=따로 놂) · ⚠️ 비퓨어+저베타 = ‘무늬만’</div>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 740 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 840 }}>
             <thead><tr style={{ color: '#7f93a8', fontSize: 10 }}>
               <th style={{ textAlign: 'left', fontWeight: 700, padding: '0 6px 7px' }}>종목</th>
+              <th style={{ textAlign: 'center', fontWeight: 700, padding: '0 6px 7px', width: 96 }}>소테마</th>
               <th style={{ textAlign: 'center', fontWeight: 700, padding: '0 6px 7px', width: 140 }}>주가 (1년·주봉)</th>
               <th style={{ textAlign: 'center', fontWeight: 700, padding: '0 6px 7px' }}>{d.tagHeader}</th>
               <th style={{ textAlign: 'right', fontWeight: 700, padding: '0 6px 7px', width: 56 }}>1주</th>
@@ -173,7 +175,7 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
               <th title={`${d.anchor}가 1% 움직일 때 이 종목이 평균 몇 % 움직이나 — 테마 레버리지 폭`} style={{ textAlign: 'left', fontWeight: 700, padding: '0 6px 7px', width: 120, cursor: 'help' }}>베타(움직임 폭) ⓘ</th>
               <th title="방향이 얼마나 같이 가나(-1~+1). 노랑=저상관(테마와 따로 놂)" style={{ textAlign: 'right', fontWeight: 700, padding: '0 6px 7px', width: 64, cursor: 'help' }}>상관(동행도) ⓘ</th>
             </tr></thead>
-            <tbody>{stocks.map(s => <Row key={s.ticker} s={s} maxBeta={maxBeta} anchor={d.anchor} />)}</tbody>
+            <tbody>{stocks.map(s => <Row key={s.ticker} s={s} maxBeta={maxBeta} anchor={d.anchor} subMap={subMap} />)}</tbody>
           </table>
         </div>
       </div>
@@ -215,9 +217,10 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
   )
 }
 
-function Row({ s, maxBeta, anchor }: { s: SectorStockOut; maxBeta: number; anchor: string }) {
+function Row({ s, maxBeta, anchor, subMap }: { s: SectorStockOut; maxBeta: number; anchor: string; subMap: Record<string, { label: string; emoji: string; color: string }> }) {
   const fake = !s.purePlay && (s.beta == null || s.beta < 0.5)
   const betaW = s.beta != null ? Math.min(100, Math.max(4, (s.beta / maxBeta) * 100)) : 0
+  const sm = subMap[s.sub]
   return (
     <tr style={{ borderTop: `1px solid ${BORDER}` }}>
       <td style={{ padding: '7px 6px' }}>
@@ -233,6 +236,9 @@ function Row({ s, maxBeta, anchor }: { s: SectorStockOut; maxBeta: number; ancho
           {fake && <span title="대형주 + 테마 연동 낮음(베타<0.5)" style={{ background: 'rgba(245,158,11,0.12)', color: '#fbbf24', borderRadius: 4, padding: '0 5px', fontSize: 8.5, fontWeight: 700 }}>⚠️무늬만</span>}
         </div>
         <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 1 }}>{s.note}</div>
+      </td>
+      <td style={{ padding: '7px 6px', textAlign: 'center' }}>
+        {sm && <span style={{ display: 'inline-block', background: `${sm.color}1f`, color: sm.color, border: `1px solid ${sm.color}44`, borderRadius: 6, padding: '2px 7px', fontSize: 9.5, fontWeight: 700, whiteSpace: 'nowrap' }}>{sm.emoji} {sm.label}</span>}
       </td>
       <td style={{ padding: '7px 6px' }}><div style={{ display: 'flex', justifyContent: 'center' }}><MiniChart prices={s.spark} /></div></td>
       <td style={{ textAlign: 'center', padding: '7px 6px', fontSize: 9.5, color: '#9aa7b4' }}>{s.tags.join('·') || '—'}</td>
