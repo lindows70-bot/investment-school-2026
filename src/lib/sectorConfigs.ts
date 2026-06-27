@@ -131,6 +131,7 @@ const PHYS_STOCKS: SectorStock[] = [
   { ticker: 'CGNX', name: 'Cognex',         market: 'US', sub: 'vision', tags: ['머신비전'],   purePlay: true,  note: '머신비전 1위' },
   { ticker: 'OUST', name: 'Ouster',         market: 'US', sub: 'vision', tags: ['라이다'],     purePlay: true,  note: '디지털 라이다 센서' },
   { ticker: 'AMBA', name: 'Ambarella',      market: 'US', sub: 'vision', tags: ['엣지 AI 비전칩'], purePlay: true, note: '엣지 AI 영상처리 SoC' },
+  { ticker: '011070', name: 'LG이노텍',     market: 'KR', sub: 'vision', tags: ['카메라모듈', 'ToF·3D센싱'], purePlay: false, note: '로봇·차량용 카메라·센싱 광학(단 매출 대부분 애플 폰 카메라)' },
   { ticker: '6324', name: '하모닉드라이브', market: 'JP', yahoo: '6324.T', sub: 'motion', tags: ['정밀 감속기'], purePlay: true, note: '휴머노이드 핵심 정밀 감속기 1위' },
   { ticker: '6268', name: '나브테스코',     market: 'JP', yahoo: '6268.T', sub: 'motion', tags: ['감속기'],     purePlay: true,  note: '산업로봇 감속기' },
   { ticker: '6481', name: 'THK',           market: 'JP', yahoo: '6481.T', sub: 'motion', tags: ['LM 가이드·액추에이터'], purePlay: true, note: '직선운동 가이드·액추에이터' },
