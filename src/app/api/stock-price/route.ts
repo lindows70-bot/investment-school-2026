@@ -173,7 +173,7 @@ async function naverChart(code: string, tf: TimeFrame): Promise<PricePoint[]> {
     '1D': { timeframe: 'day',   count: 60 },    // 최근 60 거래일(~3개월)
     '1W': { timeframe: 'week',  count: 60 },    // 최근 60 주(~14개월)
     '1M': { timeframe: 'month', count: 60 },    // 최근 60 개월(5년)
-    '1Y': { timeframe: 'month', count: 120 },   // 최근 120 개월(10년) → 1Y 최장
+    '1Y': { timeframe: 'month', count: 180 },   // 월봉 180 → 분기 다운샘플 60 (15년)
   }
   const { timeframe, count } = tfMap[tf]
 
@@ -208,22 +208,47 @@ async function naverChart(code: string, tf: TimeFrame): Promise<PricePoint[]> {
     if (isFinite(t)) points.push({ t, v: close })
   }
 
+  // 1Y: 월봉 → 분기 다운샘플(매 3번째 점) 후 최근 60개 — 캔들(분기봉)과 동일 기간
+  if (tf === '1Y') {
+    const q = points.filter((_, i) => (points.length - 1 - i) % 3 === 0)
+    return q.slice(-60)
+  }
   return points
+}
+
+/** 월봉 Candle[] → 분기봉 Candle[] (네이버는 분기봉 미지원 → 3개월 묶음 집계).
+ *  같은 분기(연도+분기)끼리 시가=첫달 시가·종가=막달 종가·고저=구간 최대/최소·거래량=합. */
+function toQuarterlyCandles(monthly: Candle[]): Candle[] {
+  const sorted = [...monthly].sort((a, b) => a.date.localeCompare(b.date))
+  const groups = new Map<string, Candle[]>()
+  for (const c of sorted) {
+    const y = c.date.slice(0, 4), q = Math.floor((parseInt(c.date.slice(5, 7)) - 1) / 3) + 1
+    const key = `${y}Q${q}`
+    ;(groups.get(key) ?? groups.set(key, []).get(key)!).push(c)
+  }
+  return Array.from(groups.values()).map(g => ({
+    date:   g[0].date,
+    open:   g[0].open,
+    high:   Math.max(...g.map(c => c.high)),
+    low:    Math.min(...g.map(c => c.low)),
+    close:  g[g.length - 1].close,
+    volume: g.reduce((s, c) => s + c.volume, 0),
+  }))
 }
 
 /** KR OHLC 캔들 데이터 (네이버 차트 XML → Candle[]) */
 async function naverOhlcChart(code: string, tf: TimeFrame): Promise<Candle[]> {
-  // ★ 탭별 서로 다른 timeframe — 전 탭 ~60캔들로 통일(증권사 차트처럼 촘촘)
-  //   1D : day   × 60  → 일봉 60 (약 3개월)
-  //   1W : week  × 60  → 주봉 60 (약 14개월)
-  //   1M : month × 60  → 월봉 60 (5년)
-  //   1Y : month × 120 → 월봉 120 (10년, 최장)
+  // ★ 탭별 서로 다른 timeframe — 전 탭 60캔들로 통일(증권사 차트처럼 촘촘)
+  //   1D : day   × 60   → 일봉 60 (약 3개월)
+  //   1W : week  × 60   → 주봉 60 (약 14개월)
+  //   1M : month × 60   → 월봉 60 (5년)
+  //   1Y : month × 180 → 분기봉으로 집계 후 60 (약 15년) — 1M과 차별화
   // naverChart(라인차트)와 동일한 timeframe 구분 정책 사용
   const tfMap: Record<TimeFrame, { timeframe: string; count: number }> = {
     '1D': { timeframe: 'day',   count: 60 },
     '1W': { timeframe: 'week',  count: 60 },
     '1M': { timeframe: 'month', count: 60 },
-    '1Y': { timeframe: 'month', count: 120 },
+    '1Y': { timeframe: 'month', count: 180 },
   }
   const { timeframe, count } = tfMap[tf]
   const url = `https://fchart.stock.naver.com/sise.nhn?symbol=${code}&timeframe=${timeframe}&count=${count}&requestType=0`
@@ -255,6 +280,8 @@ async function naverOhlcChart(code: string, tf: TimeFrame): Promise<Candle[]> {
         volume: isFinite(volume) ? volume : 0,
       })
     }
+    // 1Y: 월봉 → 분기봉 집계 후 최근 60개
+    if (tf === '1Y') return toQuarterlyCandles(candles).slice(-60)
     return candles
   } catch { return [] }
 }
@@ -392,7 +419,8 @@ const YF_RANGE: Record<TimeFrame, { range: string; interval: string; take: numbe
   '1D': { range: '6mo', interval: '1d',  take: 60 },   // 일봉 60 (약 3개월)
   '1W': { range: '2y',  interval: '1wk', take: 60 },   // 주봉 60 (약 14개월)
   '1M': { range: '6y',  interval: '1mo', take: 60 },   // 월봉 60 (약 5년)
-  '1Y': { range: 'max', interval: '1mo', take: 120 },  // 월봉 120 (약 10년)
+  // 1Y: 야후 3mo 간격이 종목마다 불규칙 → 월봉(max)을 받아 직접 분기 집계(아래) 후 60개
+  '1Y': { range: 'max', interval: '1mo', take: 60 },   // 분기봉 60 (약 15년) — 1M과 차별화
 }
 
 // v8 chart: query1 → query2 순서로 fallback (v7/v10은 401 차단)
@@ -425,6 +453,11 @@ async function yfChart(ticker: string, tf: TimeFrame): Promise<PricePoint[]> {
     const v = closes[i]
     if (v != null && isFinite(v)) points.push({ t: timestamps[i] * 1000, v })
   }
+  // 1Y: 월봉 → 분기 다운샘플(매 3번째) 후 60개 — 캔들(분기봉)과 동일 기간
+  if (tf === '1Y') {
+    const qp = points.filter((_, i) => (points.length - 1 - i) % 3 === 0)
+    return qp.slice(-60)
+  }
   return points.slice(-take)   // 최근 N개만 (KR과 동일 개수)
 }
 
@@ -447,7 +480,7 @@ async function yfOhlcChart(ticker: string, tf: TimeFrame): Promise<Candle[]> {
     const closes:  (number|null)[] = q.close  ?? []
     const volumes: (number|null)[] = q.volume ?? []
 
-    return ts
+    const candles: Candle[] = ts
       .map((t, i) => {
         const close = closes[i]
         if (close == null || !isFinite(close) || close <= 0) return null
@@ -462,7 +495,9 @@ async function yfOhlcChart(ticker: string, tf: TimeFrame): Promise<Candle[]> {
         } as Candle
       })
       .filter((c): c is Candle => c !== null)
-      .slice(-take)   // 최근 N개만 (KR과 동일 개수)
+    // 1Y: 월봉 → 분기봉 집계 후 최근 60개 (KR과 동일 방식)
+    if (tf === '1Y') return toQuarterlyCandles(candles).slice(-60)
+    return candles.slice(-take)   // 최근 N개만 (KR과 동일 개수)
   } catch { return [] }
 }
 
