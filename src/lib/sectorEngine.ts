@@ -110,7 +110,7 @@ export interface SectorStockOut {
   govAwardUsdM?: number; note: string
   ret1w: number | null; ret1m: number | null; ret1y: number | null
   beta: number | null; corr: number | null
-  earningsTs: number | null; spark: number[]
+  earningsTs: number | null; spark: number[]; weeks: number   // 주봉 개수(신규상장 판별)
 }
 export interface SectorSubOut { key: string; label: string; emoji: string; color: string; desc: string; count: number; ret1w: number | null; ret1m: number | null; ret1y: number | null }
 export interface SectorThemeChart { len: number; theme: number[]; mdd: number; fromPeak: number; overlay: { ticker: string; name: string; norm: number[] }[] }
@@ -135,7 +135,7 @@ export async function computeSector(cfg: SectorConfig): Promise<SectorResult> {
       ticker: s.ticker, name: s.name, market: s.market, sub: s.sub, tags: s.tags ?? [], purePlay: s.purePlay,
       govAwardUsdM: s.govAwardUsdM, note: s.note,
       ret1w: retPct(w, 1), ret1m: retPct(w, 4), ret1y: retPct(w, 52),
-      beta, corr, earningsTs: earnings.get(s.ticker) ?? null, spark: w.slice(-30).map(v => Math.round(v * 100) / 100),
+      beta, corr, earningsTs: earnings.get(s.ticker) ?? null, spark: w.slice(-30).map(v => Math.round(v * 100) / 100), weeks: w.length,
     }
   })
 

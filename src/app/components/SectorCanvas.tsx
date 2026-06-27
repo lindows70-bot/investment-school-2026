@@ -218,7 +218,8 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
 }
 
 function Row({ s, maxBeta, anchor, subMap }: { s: SectorStockOut; maxBeta: number; anchor: string; subMap: Record<string, { label: string; emoji: string; color: string }> }) {
-  const fake = !s.purePlay && (s.beta == null || s.beta < 0.5)
+  const isNew = s.weeks < 52 && s.ret1y == null   // 상장 1년 미만 → 1년수익률·베타 빈칸
+  const fake = !isNew && !s.purePlay && (s.beta == null || s.beta < 0.5)
   const betaW = s.beta != null ? Math.min(100, Math.max(4, (s.beta / maxBeta) * 100)) : 0
   const sm = subMap[s.sub]
   return (
@@ -234,6 +235,7 @@ function Row({ s, maxBeta, anchor, subMap }: { s: SectorStockOut; maxBeta: numbe
             : <span style={{ background: 'rgba(148,163,184,0.12)', color: '#94a3b8', borderRadius: 4, padding: '0 5px', fontSize: 8.5, fontWeight: 700 }}>대형주</span>}
           {s.govAwardUsdM && <span style={{ background: 'rgba(52,211,153,0.1)', color: '#34d399', borderRadius: 4, padding: '0 5px', fontSize: 8.5, fontWeight: 700 }}>🇺🇸${usdM(s.govAwardUsdM)}</span>}
           {fake && <span title="대형주 + 테마 연동 낮음(베타<0.5)" style={{ background: 'rgba(245,158,11,0.12)', color: '#fbbf24', borderRadius: 4, padding: '0 5px', fontSize: 8.5, fontWeight: 700 }}>⚠️무늬만</span>}
+          {isNew && <span title={`상장한 지 ${s.weeks}주 — 1년 수익률·베타는 데이터가 1년 쌓여야 계산됩니다`} style={{ background: 'rgba(56,189,248,0.14)', color: '#38bdf8', borderRadius: 4, padding: '0 5px', fontSize: 8.5, fontWeight: 700 }}>🆕 신규상장 {s.weeks}주차</span>}
         </div>
         <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 1 }}>{s.note}</div>
       </td>
