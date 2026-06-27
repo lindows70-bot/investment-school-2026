@@ -17,6 +17,28 @@ function Ret({ v, w = 56 }: { v: number | null; w?: number }) {
   return <span style={{ width: w, textAlign: 'right', color: pctCol(v), fontWeight: 800, fontFamily: 'monospace', fontSize: 12 }}>{fmtPct(v)}</span>
 }
 
+// 미니 주가 차트(최근 주봉) — 실제 종가로 부드러운 영역 라인. 상승=초록/하락=빨강
+function MiniChart({ prices, w = 130, h = 30 }: { prices: number[]; w?: number; h?: number }) {
+  if (!prices || prices.length < 2) return <div style={{ width: w, height: h }} />
+  const P = 2, min = Math.min(...prices), max = Math.max(...prices), rng = max - min || 1
+  const xs = prices.map((_, i) => P + (i / (prices.length - 1)) * (w - 2 * P))
+  const ys = prices.map(p => P + (1 - (p - min) / rng) * (h - 2 * P))
+  const line = xs.map((x, i) => `${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ')
+  const area = `${P},${h - P} ${line} ${(w - P).toFixed(1)},${h - P}`
+  const up = prices[prices.length - 1] >= prices[0]
+  const col = up ? UP : DN, gid = `qg${up ? 'u' : 'd'}`
+  return (
+    <svg width={w} height={h} style={{ display: 'block' }}>
+      <defs><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor={col} stopOpacity={0.28} /><stop offset="100%" stopColor={col} stopOpacity={0.02} />
+      </linearGradient></defs>
+      <polygon points={area} fill={`url(#${gid})`} />
+      <polyline points={line} fill="none" stroke={col} strokeWidth={1.4} strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={xs[xs.length - 1]} cy={ys[ys.length - 1]} r={1.8} fill={col} />
+    </svg>
+  )
+}
+
 export default function QuantumSectorCanvas() {
   const [d, setD] = useState<QuantumSectorResult | null>(null)
   const [loading, setLoading] = useState(true)
@@ -168,9 +190,10 @@ export default function QuantumSectorCanvas() {
         </div>
         <div style={{ color: '#7f93a8', fontSize: 10, marginBottom: 8 }}>베타↑ = 테마에 더 레버리지(IONQ 1배 기준) · 상관↓ = 테마와 따로 노는 종목 · ⚠️ 비퓨어+저베타 = &lsquo;무늬만 양자&rsquo;</div>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 600 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 740 }}>
             <thead><tr style={{ color: '#7f93a8', fontSize: 10 }}>
               <th style={{ textAlign: 'left', fontWeight: 700, padding: '0 6px 7px' }}>종목</th>
+              <th style={{ textAlign: 'center', fontWeight: 700, padding: '0 6px 7px', width: 140 }}>주가 (1년·주봉)</th>
               <th style={{ textAlign: 'center', fontWeight: 700, padding: '0 6px 7px' }}>모달리티</th>
               <th style={{ textAlign: 'right', fontWeight: 700, padding: '0 6px 7px', width: 56 }}>1주</th>
               <th style={{ textAlign: 'right', fontWeight: 700, padding: '0 6px 7px', width: 56 }}>1개월</th>
@@ -248,6 +271,7 @@ function StockRow({ s, maxBeta, anchor }: { s: QStockOut; maxBeta: number; ancho
         </div>
         <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 1 }}>{s.note}</div>
       </td>
+      <td style={{ padding: '7px 6px' }}><div style={{ display: 'flex', justifyContent: 'center' }}><MiniChart prices={s.spark} /></div></td>
       <td style={{ textAlign: 'center', padding: '7px 6px', fontSize: 9.5, color: '#9aa7b4' }}>{s.modality.join('·') || '—'}</td>
       <td style={{ padding: '7px 6px' }}><Ret v={s.ret1w} /></td>
       <td style={{ padding: '7px 6px' }}><Ret v={s.ret1m} /></td>

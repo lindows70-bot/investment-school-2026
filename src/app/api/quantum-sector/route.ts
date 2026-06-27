@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
-const CACHE_KEY = () => `quantum-sector-v4:${kstDate()}`   // v4: 실적발표 D-day(Yahoo 어닝 일정)
+const CACHE_KEY = () => `quantum-sector-v5:${kstDate()}`   // v5: 어닝 quoteSummary 수정 + 미니차트 spark
 
 // US 주봉 종가(오래된→최신) — Yahoo v8
 async function fetchUsWeekly(ticker: string): Promise<number[]> {
@@ -46,7 +46,7 @@ async function fetchKrWeekly(code: string): Promise<number[]> {
 // 해외(yahoo 심볼)는 Yahoo, KR은 네이버, 그 외(US)는 Yahoo(티커)
 const fetchWeekly = (s: QuantumStock) => s.yahoo ? fetchUsWeekly(s.yahoo) : s.market === 'KR' ? fetchKrWeekly(s.ticker) : fetchUsWeekly(s.ticker)
 
-// 📅 다음 실적발표일(ms) — Yahoo 어닝 일정(yahoo-finance2). KR(네이버)은 미지원 → null
+// 📅 다음 실적발표일(ms) — Yahoo quoteSummary calendarEvents(앱 검증 방식). KR(네이버)은 미지원 → null
 async function fetchEarnings(): Promise<Map<string, number>> {
   const out = new Map<string, number>()
   try {
@@ -54,17 +54,15 @@ async function fetchEarnings(): Promise<Map<string, number>> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const yf = new (YF as any)({ suppressNotices: ['yahooSurvey'] })
     const items = QUANTUM.filter(s => s.market !== 'KR')   // Yahoo 조회 가능 종목
-    const symbols = items.map(s => s.yahoo ?? s.ticker)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const q = await yf.quote(symbols, { validateResult: false } as any).catch(() => [])
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const arr: any[] = Array.isArray(q) ? q : q ? [q] : []
-    items.forEach((s, i) => {
-      const r = arr.find(x => x?.symbol === symbols[i]) ?? arr[i]
-      const d = r?.earningsTimestampStart ?? r?.earningsTimestamp
-      const ms = d ? new Date(d).getTime() : NaN
-      if (isFinite(ms)) out.set(s.ticker, ms)
-    })
+    await Promise.all(items.map(async s => {
+      try {
+        const qs = await yf.quoteSummary(s.yahoo ?? s.ticker, { modules: ['calendarEvents'] }, { validateResult: false })
+        const ed = qs?.calendarEvents?.earnings?.earningsDate
+        const d = Array.isArray(ed) && ed.length ? ed[0] : null
+        const ms = d ? new Date(d).getTime() : NaN
+        if (isFinite(ms)) out.set(s.ticker, ms)
+      } catch { /* skip 종목별 */ }
+    }))
   } catch { /* graceful */ }
   return out
 }
@@ -96,6 +94,7 @@ export interface QStockOut {
   ret1w: number | null; ret1m: number | null; ret1y: number | null
   beta: number | null; corr: number | null
   earningsTs: number | null   // 📅 다음 실적발표일(ms) — Yahoo, KR은 null
+  spark: number[]             // 최근 ~30 주봉 종가(미니 차트용)
 }
 export interface QThemeChart {
   len: number; theme: number[]; mdd: number; fromPeak: number
@@ -138,6 +137,7 @@ export async function GET() {
       ret1w: retPct(w, 1), ret1m: retPct(w, 4), ret1y: retPct(w, 52),
       beta, corr,
       earningsTs: earnings.get(s.ticker) ?? null,
+      spark: w.slice(-30).map(v => Math.round(v * 100) / 100),
     }
   })
 
