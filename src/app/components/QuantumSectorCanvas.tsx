@@ -116,6 +116,46 @@ export default function QuantumSectorCanvas() {
         )
       })()}
 
+      {/* ②-B 실적 발표 D-day (임박순) */}
+      {(() => {
+        const now = Date.now(), DAY = 86400000
+        const list = d.stocks
+          .filter(s => s.earningsTs != null && s.earningsTs > now - 2 * DAY)
+          .sort((a, b) => (a.earningsTs as number) - (b.earningsTs as number))
+          .slice(0, 12)
+        if (!list.length) return null
+        return (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+              <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>📅 실적 발표 D-day</span>
+              <span style={{ color: '#7f93a8', fontSize: 10 }}>양자주는 실적 전후 변동성 극대 — 임박순 · D-7 이내 강조</span>
+            </div>
+            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+              {list.map(s => {
+                const dd = Math.ceil(((s.earningsTs as number) - now) / DAY)
+                const urgent = dd <= 7
+                const date = new Date(s.earningsTs as number)
+                const md = `${date.getMonth() + 1}/${date.getDate()}`
+                return (
+                  <div key={s.ticker} style={{ background: '#0f1117', borderRadius: 9, border: `1px solid ${urgent ? '#f59e0b66' : BORDER}`, padding: '7px 11px', minWidth: 96 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 12 }}>{s.ticker}</span>
+                      {s.purePlay && <span style={{ color: '#34d399', fontSize: 8 }}>퓨어</span>}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 1 }}>
+                      <span style={{ color: urgent ? '#fbbf24' : '#a78bfa', fontWeight: 800, fontSize: 13, fontFamily: 'monospace' }}>{dd <= 0 ? '오늘·발표' : `D-${dd}`}</span>
+                      <span style={{ color: '#7f93a8', fontSize: 9.5, fontFamily: 'monospace' }}>{md}</span>
+                    </div>
+                    <div style={{ fontSize: 9, color: pctCol(s.ret1w), fontFamily: 'monospace', marginTop: 1 }}>1주 {fmtPct(s.ret1w)}</div>
+                  </div>
+                )
+              })}
+            </div>
+            <div style={{ color: '#6e7f8f', fontSize: 9, marginTop: 6 }}>※ Yahoo 추정 실적일(US·해외) · 변동될 수 있음 · KR은 미제공.</div>
+          </div>
+        )
+      })()}
+
       {/* ② 대장주 베타·상관 + 퓨어플레이 토글 */}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>

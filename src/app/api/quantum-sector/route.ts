@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
-const CACHE_KEY = () => `quantum-sector-v3:${kstDate()}`   // v3: Yahoo 주봉 중복 트레일링 바 제거(1주 수익률 0% 버그)
+const CACHE_KEY = () => `quantum-sector-v4:${kstDate()}`   // v4: 실적발표 D-day(Yahoo 어닝 일정)
 
 // US 주봉 종가(오래된→최신) — Yahoo v8
 async function fetchUsWeekly(ticker: string): Promise<number[]> {
@@ -46,6 +46,29 @@ async function fetchKrWeekly(code: string): Promise<number[]> {
 // 해외(yahoo 심볼)는 Yahoo, KR은 네이버, 그 외(US)는 Yahoo(티커)
 const fetchWeekly = (s: QuantumStock) => s.yahoo ? fetchUsWeekly(s.yahoo) : s.market === 'KR' ? fetchKrWeekly(s.ticker) : fetchUsWeekly(s.ticker)
 
+// 📅 다음 실적발표일(ms) — Yahoo 어닝 일정(yahoo-finance2). KR(네이버)은 미지원 → null
+async function fetchEarnings(): Promise<Map<string, number>> {
+  const out = new Map<string, number>()
+  try {
+    const { default: YF } = await import('yahoo-finance2')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const yf = new (YF as any)({ suppressNotices: ['yahooSurvey'] })
+    const items = QUANTUM.filter(s => s.market !== 'KR')   // Yahoo 조회 가능 종목
+    const symbols = items.map(s => s.yahoo ?? s.ticker)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const q = await yf.quote(symbols, { validateResult: false } as any).catch(() => [])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const arr: any[] = Array.isArray(q) ? q : q ? [q] : []
+    items.forEach((s, i) => {
+      const r = arr.find(x => x?.symbol === symbols[i]) ?? arr[i]
+      const d = r?.earningsTimestampStart ?? r?.earningsTimestamp
+      const ms = d ? new Date(d).getTime() : NaN
+      if (isFinite(ms)) out.set(s.ticker, ms)
+    })
+  } catch { /* graceful */ }
+  return out
+}
+
 // 수익률(%) — w(오래된→최신), back주 전 대비
 const retPct = (w: number[], back: number): number | null => {
   if (w.length < back + 1) return null
@@ -72,6 +95,7 @@ export interface QStockOut {
   govAwardUsdM?: number; note: string
   ret1w: number | null; ret1m: number | null; ret1y: number | null
   beta: number | null; corr: number | null
+  earningsTs: number | null   // 📅 다음 실적발표일(ms) — Yahoo, KR은 null
 }
 export interface QThemeChart {
   len: number; theme: number[]; mdd: number; fromPeak: number
@@ -97,9 +121,12 @@ export async function GET() {
   const cached = await getCache<QuantumSectorResult>(CACHE_KEY(), 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
-  // 주봉 동시 수집(앵커 포함)
+  // 주봉 + 실적일 동시 수집(앵커 포함)
   const series = new Map<string, number[]>()
-  await Promise.all(QUANTUM.map(async s => { series.set(s.ticker, await fetchWeekly(s)) }))
+  const [, earnings] = await Promise.all([
+    Promise.all(QUANTUM.map(async s => { series.set(s.ticker, await fetchWeekly(s)) })),
+    fetchEarnings(),
+  ])
   const anchorW = series.get(QUANTUM_ANCHOR) ?? []
 
   const stocks: QStockOut[] = QUANTUM.map(s => {
@@ -110,6 +137,7 @@ export async function GET() {
       govAwardUsdM: s.govAwardUsdM, note: s.note,
       ret1w: retPct(w, 1), ret1m: retPct(w, 4), ret1y: retPct(w, 52),
       beta, corr,
+      earningsTs: earnings.get(s.ticker) ?? null,
     }
   })
 
