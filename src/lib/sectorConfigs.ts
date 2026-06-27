@@ -186,11 +186,59 @@ const BIO_CONFIG: SectorConfig = {
   stocks: BIO_STOCKS, overlayTickers: ['TEM', 'RXRX', 'LLY', '196170', '328130'],
 }
 
+// ── 우주항공 & 방산 (Aerospace & Defense) ─────────────────────────────────────
+const DEF_SUB: Record<string, SubMeta> = {
+  prime:   { label: '방산 프라임',     emoji: '🛡️', color: '#a78bfa', desc: '전투기·미사일·함정 (대장 테마)' },
+  space:   { label: '우주·발사·위성',  emoji: '🚀', color: '#22d3ee', desc: '발사체·위성·달탐사(적자 꿈주 多)' },
+  deftech: { label: '방산 AI·드론',    emoji: '🤖', color: '#f59e0b', desc: '국방 AI·무인기·드론' },
+  aero:    { label: '항공·엔진·부품',  emoji: '✈️', color: '#34d399', desc: '항공 엔진·정밀부품·MRO' },
+  kdef:    { label: 'K-방산',          emoji: '🇰🇷', color: '#ec4899', desc: '한국 방산 수출 호황' },
+}
+const DEF_STOCKS: SectorStock[] = [
+  // 🛡️ 방산 프라임
+  { ticker: 'RTX',  name: 'RTX(레이시온)',  market: 'US', sub: 'prime', tags: ['미사일·방공·엔진'], purePlay: true,  note: '미사일·방공+항공엔진(테마 대장주)' },
+  { ticker: 'LMT',  name: 'Lockheed Martin', market: 'US', sub: 'prime', tags: ['F-35·미사일'],     purePlay: true,  note: 'F-35 전투기·미사일 1위' },
+  { ticker: 'NOC',  name: 'Northrop Grumman', market: 'US', sub: 'prime', tags: ['폭격기·우주'],    purePlay: true,  note: 'B-21 폭격기·우주·핵' },
+  { ticker: 'GD',   name: 'General Dynamics', market: 'US', sub: 'prime', tags: ['잠수함·전차'],    purePlay: true,  note: '핵잠수함·전차·걸프스트림' },
+  { ticker: 'BA',   name: 'Boeing',         market: 'US', sub: 'prime', tags: ['항공기·방산'],      purePlay: false, note: '민항기+방산(상업 항공 부진)' },
+  // 🚀 우주·발사·위성
+  { ticker: 'RKLB', name: 'Rocket Lab',     market: 'US', sub: 'space', tags: ['소형 발사체'],     purePlay: true,  note: '소형 로켓·위성(스페이스X 대항마)' },
+  { ticker: 'ASTS', name: 'AST SpaceMobile', market: 'US', sub: 'space', tags: ['위성통신'],       purePlay: true,  note: '위성-스마트폰 직접 통신(적자 꿈주)' },
+  { ticker: 'LUNR', name: 'Intuitive Machines', market: 'US', sub: 'space', tags: ['달 착륙선'],   purePlay: true,  note: '민간 달 착륙(NASA 계약)' },
+  { ticker: 'RDW',  name: 'Redwire',        market: 'US', sub: 'space', tags: ['우주 인프라'],      purePlay: true,  note: '우주 제조·구조물' },
+  { ticker: 'PL',   name: 'Planet Labs',    market: 'US', sub: 'space', tags: ['지구관측 위성'],    purePlay: true,  note: '위성 영상·지구관측 데이터' },
+  // 🤖 방산 AI·드론
+  { ticker: 'PLTR', name: 'Palantir',       market: 'US', sub: 'deftech', tags: ['국방 AI SW'],    purePlay: false, note: '국방 AI 데이터 분석(상업 비중도 큼)' },
+  { ticker: 'AVAV', name: 'AeroVironment',  market: 'US', sub: 'deftech', tags: ['군용 드론'],     purePlay: true,  note: '군용 무인기·자폭드론(스위치블레이드)' },
+  { ticker: 'KTOS', name: 'Kratos',         market: 'US', sub: 'deftech', tags: ['무인기·표적기'], purePlay: true,  note: '무인 전투기·표적 드론' },
+  { ticker: 'RCAT', name: 'Red Cat',        market: 'US', sub: 'deftech', tags: ['군용 드론'],     purePlay: true,  note: '군용 소형 드론(적자 꿈주)' },
+  // ✈️ 항공·엔진·부품
+  { ticker: 'GE',   name: 'GE Aerospace',   market: 'US', sub: 'aero', tags: ['항공 엔진'],        purePlay: true,  note: '세계 1위 항공 엔진(LEAP)' },
+  { ticker: 'HWM',  name: 'Howmet',         market: 'US', sub: 'aero', tags: ['엔진 부품'],        purePlay: true,  note: '항공 엔진 정밀 부품·합금' },
+  { ticker: 'TDG',  name: 'TransDigm',      market: 'US', sub: 'aero', tags: ['항공 부품'],        purePlay: true,  note: '항공 부품 독점·고마진' },
+  { ticker: 'HEI',  name: 'Heico',          market: 'US', sub: 'aero', tags: ['항공 부품·MRO'],    purePlay: true,  note: '항공 부품·정비(MRO)' },
+  { ticker: 'SAF',  name: 'Safran',         market: 'EU', yahoo: 'SAF.PA', sub: 'aero', tags: ['항공 엔진'], purePlay: true, note: 'CFM 엔진(GE 합작)·랜딩기어' },
+  { ticker: 'RR',   name: 'Rolls-Royce',    market: 'EU', yahoo: 'RR.L', sub: 'aero', tags: ['항공 엔진'],  purePlay: true,  note: '와이드바디 항공 엔진' },
+  // 🇰🇷 K-방산
+  { ticker: '012450', name: '한화에어로스페이스', market: 'KR', sub: 'kdef', tags: ['자주포·우주발사체'], purePlay: true, note: 'K9 자주포·누리호 엔진(수출 호황)' },
+  { ticker: '047810', name: '한국항공우주(KAI)', market: 'KR', sub: 'kdef', tags: ['전투기·발사체'], purePlay: true, note: 'FA-50 경전투기·우주발사체' },
+  { ticker: '079550', name: 'LIG넥스원',    market: 'KR', sub: 'kdef', tags: ['유도미사일'],       purePlay: true,  note: '천궁·현궁 유도미사일(중동 수출)' },
+  { ticker: '064350', name: '현대로템',     market: 'KR', sub: 'kdef', tags: ['전차·철도'],        purePlay: false, note: 'K2 전차+철도차량(다각화)' },
+  { ticker: '272210', name: '한화시스템',   market: 'KR', sub: 'kdef', tags: ['방산전자·위성'],    purePlay: true,  note: '레이더·방산 전자·위성통신' },
+]
+const DEF_CONFIG: SectorConfig = {
+  key: 'defense', label: '우주항공 & 방산 인텔리전스', emoji: '🚀',
+  tagline: '지정학 긴장 + 우주 상업화 + 국방 AI 3대 축. 프라임(안정 실적)·우주SPAC(적자 꿈주)·K방산(수출 호황)이 양극단 공존 — 모멘텀·하위테마 위치를 함께 봅니다. 교육용.',
+  anchor: 'RTX', tagHeader: '역할', subMeta: DEF_SUB,
+  stocks: DEF_STOCKS, overlayTickers: ['RTX', 'LMT', 'RKLB', 'PLTR', '012450'],
+}
+
 export const SECTORS: Record<string, SectorConfig> = {
   quantum: QUANTUM_CONFIG,
   'ai-semi': AISEMI_CONFIG,
   power: POWER_CONFIG,
   'phys-ai': PHYS_CONFIG,
   'ai-bio': BIO_CONFIG,
+  defense: DEF_CONFIG,
 }
 export const SECTOR_LIST = Object.values(SECTORS).map(s => ({ key: s.key, label: s.label, emoji: s.emoji }))

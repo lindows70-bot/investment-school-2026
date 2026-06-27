@@ -661,7 +661,7 @@ export default function DashboardPage() {
   }>>({})
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'quantum' | 'aisemi' | 'power' | 'physai' | 'aibio'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'quantum' | 'aisemi' | 'power' | 'physai' | 'aibio' | 'defense'>('live')
   const [flowView, setFlowView] = useState<'mine' | 'market' | 'investor' | 'reco' | 'unified'>('mine')
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
@@ -1352,6 +1352,7 @@ export default function DashboardPage() {
               { key: 'power',   icon: '⚡', label: 'AI 전력망 & 원전', desc: '전력기기·SMR·전선·발전 밸류체인' },
               { key: 'physai',  icon: '🦾', label: '피지컬 AI',     desc: '휴머노이드·자율주행·로봇·구동' },
               { key: 'aibio',   icon: '🧬', label: 'AI 바이오',     desc: 'AI 신약·진단·유전체·빅파마' },
+              { key: 'defense', icon: '🚀', label: '우주항공 & 방산', desc: '방산프라임·우주·국방AI·항공엔진·K방산' },
             ],
           },
           {
@@ -3052,6 +3053,11 @@ export default function DashboardPage() {
       <div id="tab-aibio" style={{ display: dashTab==='aibio' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         <ErrorBoundary label="AI 바이오 섹터">
           {dashTab==='aibio' && <SectorCanvas sectorKey="ai-bio" />}
+        </ErrorBoundary>
+      </div>
+      <div id="tab-defense" style={{ display: dashTab==='defense' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="우주항공 & 방산 섹터">
+          {dashTab==='defense' && <SectorCanvas sectorKey="defense" />}
         </ErrorBoundary>
       </div>
 
