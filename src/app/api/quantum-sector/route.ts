@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
-const CACHE_KEY = () => `quantum-sector-v2:${kstDate()}`   // v2: 해외 라이브 + 테마지수·MDD·오버레이
+const CACHE_KEY = () => `quantum-sector-v3:${kstDate()}`   // v3: Yahoo 주봉 중복 트레일링 바 제거(1주 수익률 0% 버그)
 
 // US 주봉 종가(오래된→최신) — Yahoo v8
 async function fetchUsWeekly(ticker: string): Promise<number[]> {
@@ -18,7 +18,11 @@ async function fetchUsWeekly(ticker: string): Promise<number[]> {
     if (!r.ok) return []
     const j = await r.json()
     const q = j?.chart?.result?.[0]?.indicators?.quote?.[0]?.close
-    return Array.isArray(q) ? q.filter((c: number | null): c is number => typeof c === 'number' && c > 0) : []
+    const cl = Array.isArray(q) ? q.filter((c: number | null): c is number => typeof c === 'number' && c > 0) : []
+    // ⚠️ Yahoo 주봉은 '진행 중인 현재 주' 바를 직전 완성주와 동일 종가로 중복시킴 → 1주 수익률 0% 버그.
+    //    트레일링 중복 1개 제거(완성주 기준으로 정렬). KR 네이버는 이 아티팩트 없음.
+    if (cl.length >= 2 && cl[cl.length - 1] === cl[cl.length - 2]) cl.pop()
+    return cl
   } catch { return [] }
 }
 
