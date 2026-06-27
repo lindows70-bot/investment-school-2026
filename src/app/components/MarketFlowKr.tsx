@@ -272,7 +272,7 @@ export default function MarketFlowKr() {
                     <td style={{ color: '#8a9aaa', padding: '6px 6px', fontWeight: 700 }}>{i + 1}</td>
                     <td style={{ padding: '6px 6px', fontFamily: 'inherit' }}>
                       <span style={{ fontWeight: 700, color: '#e2e8f0' }}>{e.name.length > 9 ? e.name.slice(0, 8) + '…' : e.name}</span>
-                      <span style={{ background: e.market === 'KOSDAQ' ? 'rgba(167,139,250,0.14)' : 'rgba(96,165,250,0.12)', color: e.market === 'KOSDAQ' ? '#a78bfa' : '#60a5fa', borderRadius: 4, padding: '0 4px', fontSize: 8.5, fontWeight: 700, marginLeft: 4 }}>{e.market === 'KOSDAQ' ? '코닥' : '코스피'}</span>
+                      <span style={{ background: e.market === 'KOSDAQ' ? 'rgba(167,139,250,0.14)' : 'rgba(96,165,250,0.12)', color: e.market === 'KOSDAQ' ? '#a78bfa' : '#60a5fa', borderRadius: 4, padding: '0 4px', fontSize: 8.5, fontWeight: 700, marginLeft: 4 }}>{e.market === 'KOSDAQ' ? '코스닥' : '코스피'}</span>
                     </td>
                     {dateCols.map((_, j) => {
                       const v = ts[j]
