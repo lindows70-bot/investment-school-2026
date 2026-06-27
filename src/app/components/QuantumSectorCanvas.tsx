@@ -188,7 +188,9 @@ export default function QuantumSectorCanvas() {
             {pureOnly ? '✓ 퓨어플레이만' : '전체 종목'}
           </button>
         </div>
-        <div style={{ color: '#7f93a8', fontSize: 10, marginBottom: 8 }}>베타↑ = 테마에 더 레버리지(IONQ 1배 기준) · 상관↓ = 테마와 따로 노는 종목 · ⚠️ 비퓨어+저베타 = &lsquo;무늬만 양자&rsquo;</div>
+        <div style={{ color: '#7f93a8', fontSize: 10, marginBottom: 8, lineHeight: 1.6 }}>
+          📊 <b style={{ color: '#cbd5e1' }}>베타</b> = IONQ 대비 <b>움직임 폭</b>(IONQ 1% 오를 때 몇 % 오르나 · 1.0=같은 폭·0.1=거의 안 따라감) · <b style={{ color: '#cbd5e1' }}>상관(동행도)</b> = <b>방향 일치도</b>(1=완전 동행·0=무관·노랑=따로 놂) · ⚠️ 비퓨어+저베타 = &lsquo;무늬만 양자&rsquo;
+        </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 740 }}>
             <thead><tr style={{ color: '#7f93a8', fontSize: 10 }}>
@@ -198,8 +200,8 @@ export default function QuantumSectorCanvas() {
               <th style={{ textAlign: 'right', fontWeight: 700, padding: '0 6px 7px', width: 56 }}>1주</th>
               <th style={{ textAlign: 'right', fontWeight: 700, padding: '0 6px 7px', width: 56 }}>1개월</th>
               <th style={{ textAlign: 'right', fontWeight: 700, padding: '0 6px 7px', width: 56 }}>1년</th>
-              <th style={{ textAlign: 'left', fontWeight: 700, padding: '0 6px 7px', width: 120 }}>베타(테마연동)</th>
-              <th style={{ textAlign: 'right', fontWeight: 700, padding: '0 6px 7px', width: 44 }}>상관</th>
+              <th title="IONQ(대장주)가 1% 움직일 때 이 종목이 평균 몇 % 움직이나 — 테마 레버리지 폭. 1.0=같은 폭, 0.1=거의 안 따라감, -0.0=무관" style={{ textAlign: 'left', fontWeight: 700, padding: '0 6px 7px', width: 120, cursor: 'help' }}>베타(움직임 폭) ⓘ</th>
+              <th title="방향이 얼마나 같이 가나(-1~+1). 1=완전 동행, 0=무관, 음수=반대로. 노랑=저상관(양자 테마와 따로 놂)" style={{ textAlign: 'right', fontWeight: 700, padding: '0 6px 7px', width: 64, cursor: 'help' }}>상관(동행도) ⓘ</th>
             </tr></thead>
             <tbody>
               {stocks.map(s => <StockRow key={s.ticker} s={s} maxBeta={maxBeta} anchor={d.anchor} />)}
