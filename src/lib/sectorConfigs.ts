@@ -202,6 +202,7 @@ const DEF_STOCKS: SectorStock[] = [
   { ticker: 'GD',   name: 'General Dynamics', market: 'US', sub: 'prime', tags: ['잠수함·전차'],    purePlay: true,  note: '핵잠수함·전차·걸프스트림' },
   { ticker: 'BA',   name: 'Boeing',         market: 'US', sub: 'prime', tags: ['항공기·방산'],      purePlay: false, note: '민항기+방산(상업 항공 부진)' },
   // 🚀 우주·발사·위성
+  { ticker: 'SPCX', name: 'SpaceX',         market: 'US', sub: 'space', tags: ['발사체·스타링크'], purePlay: true,  note: '우주 발사·스타링크 절대강자(2026.6 상장, 우주 대장주)' },
   { ticker: 'RKLB', name: 'Rocket Lab',     market: 'US', sub: 'space', tags: ['소형 발사체'],     purePlay: true,  note: '소형 로켓·위성(스페이스X 대항마)' },
   { ticker: 'ASTS', name: 'AST SpaceMobile', market: 'US', sub: 'space', tags: ['위성통신'],       purePlay: true,  note: '위성-스마트폰 직접 통신(적자 꿈주)' },
   { ticker: 'LUNR', name: 'Intuitive Machines', market: 'US', sub: 'space', tags: ['달 착륙선'],   purePlay: true,  note: '민간 달 착륙(NASA 계약)' },
@@ -230,7 +231,7 @@ const DEF_CONFIG: SectorConfig = {
   key: 'defense', label: '우주항공 & 방산 인텔리전스', emoji: '🚀',
   tagline: '지정학 긴장 + 우주 상업화 + 국방 AI 3대 축. 프라임(안정 실적)·우주SPAC(적자 꿈주)·K방산(수출 호황)이 양극단 공존 — 모멘텀·하위테마 위치를 함께 봅니다. 교육용.',
   anchor: 'RTX', tagHeader: '역할', subMeta: DEF_SUB,
-  stocks: DEF_STOCKS, overlayTickers: ['RTX', 'LMT', 'RKLB', 'PLTR', '012450'],
+  stocks: DEF_STOCKS, overlayTickers: ['RTX', 'LMT', 'SPCX', 'PLTR', '012450'],
 }
 
 export const SECTORS: Record<string, SectorConfig> = {
