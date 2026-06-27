@@ -46,6 +46,7 @@ import LynchEarningsLineTracer    from '@/app/components/LynchEarningsLineTracer
 import GuidanceRevisionRadar      from '@/app/components/GuidanceRevisionRadar'
 import DividendExplorer           from '@/app/components/DividendExplorer'
 import MacroAiTerminal            from '@/app/components/MacroAiTerminal'
+import QuantumSectorCanvas        from '@/app/components/QuantumSectorCanvas'
 import ErrorBoundary              from '@/app/components/ErrorBoundary'
 import ChangePasswordBanner  from '@/app/components/ChangePasswordBanner'
 import LynchSellSignalPanel  from '@/app/components/LynchSellSignalPanel'
@@ -660,7 +661,7 @@ export default function DashboardPage() {
   }>>({})
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'quantum'>('live')
   const [flowView, setFlowView] = useState<'mine' | 'market' | 'investor' | 'reco' | 'unified'>('mine')
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
@@ -1341,6 +1342,7 @@ export default function DashboardPage() {
               { key: 'macro',  icon: '🏛️', label: '거시경제 (Fed Watch)', desc: '금리 · 인플레이션 · QT' },
               { key: 'coinlab',icon: '🪙', label: '코인 랩 (비트코인)',    desc: '사이클·심리·온체인·유동성 — 독립 엔진' },
               { key: 'season', icon: '🧭', label: '4계절 내비게이터',     desc: '성장×물가 2×2 · 내 포폴 계절 정합성' },
+              { key: 'quantum', icon: '🛰️', label: '양자 테마 인텔리전스', desc: '양자컴퓨팅 섹터·테마동조화·정책촉매' },
             ],
           },
           {
@@ -3014,6 +3016,13 @@ export default function DashboardPage() {
       <div id="tab-coinlab" style={{ display: dashTab==='coinlab' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         <ErrorBoundary label="코인 랩">
           <CoinLab myCryptoPct={myCryptoPct} />
+        </ErrorBoundary>
+      </div>
+
+      {/* ── 🛰️ 양자 테마 인텔리전스 탭 ── */}
+      <div id="tab-quantum" style={{ display: dashTab==='quantum' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="양자 테마 인텔리전스">
+          {dashTab==='quantum' && <QuantumSectorCanvas />}
         </ErrorBoundary>
       </div>
 
