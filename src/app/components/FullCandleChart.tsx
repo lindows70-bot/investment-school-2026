@@ -50,6 +50,12 @@ export default function FullCandleChart({
   const padB = 26
   const plotW = W - padL - padR
   const plotH = H - padT - padB
+  // ── 거래량 영역(하단 분리) — 토스식 캔들+거래량 ──
+  const volH    = Math.round(plotH * 0.20)   // 하단 20%는 거래량 막대
+  const volGap  = 6
+  const priceH  = plotH - volH - volGap      // 가격 캔들 영역(상단)
+  const volTop  = padT + priceH + volGap
+  const volBase = H - padB                   // 거래량 막대 바닥(=X축선)
 
   // ── 가격 범위 — 오직 캔들 데이터만 기준 (avgPrice 완전 제외)
   // 평단가 때문에 캔들이 납작해지는 것을 방지: Y축은 항상 주가 데이터에만 맞춤
@@ -65,11 +71,15 @@ export default function FullCandleChart({
   // ── 좌표 변환 ─────────────────────────────────────────────
   const n    = data.length
   const step = plotW / n
-  const cw   = n <= 30 ? Math.min(step * 0.7, 12)
-             : n <= 80 ? Math.max(1.5, step * 0.65)
-             : Math.max(1, step * 0.6)
+  const cw   = n <= 30 ? Math.min(step * 0.82, 16)
+             : n <= 80 ? Math.max(2, step * 0.78)
+             : Math.max(1.2, step * 0.72)
   const toX  = (i: number) => padL + i * step + step / 2
-  const toY  = (p: number) => padT + ((yMax - p) / yRange) * plotH
+  const toY  = (p: number) => padT + ((yMax - p) / yRange) * priceH   // 가격은 상단 영역에만 매핑
+
+  // ── 거래량 스케일 ──
+  const maxVol = Math.max(1, ...data.map(d => d.volume || 0))
+  const volBarH = (v: number) => (Math.max(0, v) / maxVol) * volH
 
   // ── 포맷 헬퍼 ─────────────────────────────────────────────
   const isKrw = currency === 'KRW'
@@ -111,7 +121,7 @@ export default function FullCandleChart({
   const avgY    = hasAvg ? toY(avgPrice!) : 0
   // ★ 가시 범위 체크: avgY 가 plot 영역(padT ~ padT+plotH) 안에 있을 때만 렌더링
   //   범위 밖이면 스케일을 깨뜨리지 않고 조용히 숨김 (자연스러운 클리핑)
-  const avgInView = hasAvg && avgY >= padT - 2 && avgY <= padT + plotH + 2
+  const avgInView = hasAvg && avgY >= padT - 2 && avgY <= padT + priceH + 2
   // 현재가 기준 수익률 (가시 여부와 무관하게 계산 — 툴팁에도 사용)
   const avgGap  = hasAvg
     ? ((lastCandle.close - avgPrice!) / avgPrice!) * 100
@@ -270,16 +280,25 @@ export default function FullCandleChart({
                   stroke={color} strokeWidth={0.7} strokeDasharray="3 3" strokeOpacity={0.4}/>
               )}
               <line x1={x} y1={toY(c.high)} x2={x} y2={bodyT}
-                stroke={color} strokeWidth={1.2}/>
+                stroke={color} strokeWidth={1}/>
               <rect
                 x={x - cw / 2} y={bodyT}
                 width={cw} height={bodyH}
-                fill={isUp ? color : 'transparent'}
-                stroke={color} strokeWidth={1.2}
+                fill={color}
+                stroke={color} strokeWidth={0.6}
                 rx={0.5}
               />
               <line x1={x} y1={bodyB} x2={x} y2={toY(c.low)}
-                stroke={color} strokeWidth={1.2}/>
+                stroke={color} strokeWidth={1}/>
+              {/* 거래량 막대 */}
+              {c.volume > 0 && (
+                <rect
+                  x={x - cw / 2} y={volBase - volBarH(c.volume)}
+                  width={cw} height={volBarH(c.volume)}
+                  fill={color} fillOpacity={hovered ? 0.85 : 0.45}
+                  rx={0.5}
+                />
+              )}
             </g>
           )
         })}
@@ -349,6 +368,10 @@ export default function FullCandleChart({
               fill="#3d4155" fontSize={9.5}>{fmtY(t)}</text>
           )
         })}
+
+        {/* ── 가격/거래량 구분선 ── */}
+        <line x1={padL} y1={volTop} x2={W - padR} y2={volTop}
+          stroke="#1e2140" strokeWidth={1}/>
 
         {/* ── X축 라인 ── */}
         <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB}
