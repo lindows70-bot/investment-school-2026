@@ -1,5 +1,5 @@
 // 🛰️ 양자컴퓨팅 테마 유니버스 SSOT — 종목 분류·모달리티·퓨어플레이·정책·Pre-IPO (정적 큐레이션 = 분류 메타라 하드코딩 허용)
-// 가격·수익률·베타 등 '값'은 /api/quantum-sector가 라이브 산출. 이 파일은 '분류·사실' 메타만.
+// 가격·수익률·베타 등 '값'은 /api/sector(sectorEngine)가 라이브 산출. 이 파일은 '분류·사실' 메타만(sectorConfigs가 어댑터).
 // 티커는 2026-06 production stock-price API로 전수 검증(US+KR 라이브 확인).
 
 export type QSub = 'hw' | 'sec' | 'equip'
