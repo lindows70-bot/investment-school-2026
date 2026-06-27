@@ -5,10 +5,14 @@
 export type QSub = 'hw' | 'sec' | 'equip'
 export type Modality = '이온트랩' | '초전도' | '중성원자' | '광학' | '실리콘스핀' | '어닐링' | 'PQC'
 
+export type QMarket = 'US' | 'KR' | 'JP' | 'EU' | 'CN' | 'CA'
+export const QMARKET_FLAG: Record<QMarket, string> = { US: '🇺🇸', KR: '🇰🇷', JP: '🇯🇵', EU: '🇪🇺', CN: '🇨🇳', CA: '🇨🇦' }
+
 export interface QuantumStock {
   ticker: string
   name: string
-  market: 'US' | 'KR'
+  market: QMarket
+  yahoo?: string            // 해외(비 US·KR)는 Yahoo 심볼로 주봉 조회(.T/.PA/.L/.SS/.V)
   sub: QSub                 // 서브섹터: 하드웨어/보안·통신/장비
   modality: Modality[]      // 채택 기술 방식
   purePlay: boolean         // 양자 순수주(매출·정체성 100% 양자) — false=대형주(양자 비중 미미)
@@ -45,6 +49,13 @@ export const QUANTUM: QuantumStock[] = [
   { ticker: 'SKYT', name: 'SkyWater',        market: 'US', sub: 'equip', modality: [],            purePlay: false, note: '양자칩 파운드리(미정부 PsiQuantum 파트너)' },
   { ticker: 'IFNNY', name: 'Infineon(ADR)',  market: 'US', sub: 'equip', modality: ['이온트랩'],   purePlay: false, note: '이온트랩 칩 제조(Quantinuum 파트너)' },
   { ticker: 'GFS',  name: 'GlobalFoundries', market: 'US', sub: 'equip', modality: ['광학'],       purePlay: false, govAwardUsdM: 375, note: 'PsiQuantum 광양자칩 파운드리' },
+  // 🌏 해외(Yahoo 주봉) — JP·EU·CN·CA
+  { ticker: '6702',  name: '후지쯔',          market: 'JP', yahoo: '6702.T',   sub: 'hw',    modality: ['초전도'], purePlay: false, note: '초전도 양자컴퓨터(이화학연구소 협업·양자 비중 일부)' },
+  { ticker: '6965',  name: '하마마츠포토닉스',  market: 'JP', yahoo: '6965.T',   sub: 'equip', modality: ['광학'],   purePlay: false, note: '광양자 핵심 광부품·광검출기' },
+  { ticker: 'HO',    name: 'Thales',         market: 'EU', yahoo: 'HO.PA',    sub: 'sec',   modality: ['PQC'],    purePlay: false, note: '양자센싱·PQC 방산(양자 비중 일부)' },
+  { ticker: 'OXIG',  name: 'Oxford Instruments', market: 'EU', yahoo: 'OXIG.L', sub: 'equip', modality: [],        purePlay: false, note: '극저온(희석냉동기) 양자 인프라 1위' },
+  { ticker: '688027', name: '국순양자(QuantumCTek)', market: 'CN', yahoo: '688027.SS', sub: 'sec', modality: ['PQC'], purePlay: true, note: '중국 양자통신·QKD 1위' },
+  { ticker: 'QNC',   name: 'Quantum eMotion', market: 'CA', yahoo: 'QNC.V',   sub: 'sec',   modality: ['PQC'],    purePlay: true,  note: '양자난수발생(QRNG) 보안' },
 ]
 
 export const QUANTUM_ANCHOR = 'IONQ'   // 테마 대장주(베타·상관 기준)

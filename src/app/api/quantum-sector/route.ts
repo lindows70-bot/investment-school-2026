@@ -2,13 +2,13 @@
 // Zero Cost: US=Yahoo 주봉 / KR=네이버 fchart 주봉(추가 키 없음) · 공개 6h 캐시 · 수익률은 비율이라 환율 무관
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
-import { QUANTUM, QUANTUM_ANCHOR, QSUB_META, QUANTUM_POLICY, QUANTUM_PREIPO, type QSub } from '@/lib/quantumUniverse'
+import { QUANTUM, QUANTUM_ANCHOR, QSUB_META, QUANTUM_POLICY, QUANTUM_PREIPO, type QSub, type QMarket, type QuantumStock } from '@/lib/quantumUniverse'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
-const CACHE_KEY = () => `quantum-sector-v1:${kstDate()}`
+const CACHE_KEY = () => `quantum-sector-v2:${kstDate()}`   // v2: 해외 라이브 + 테마지수·MDD·오버레이
 
 // US 주봉 종가(오래된→최신) — Yahoo v8
 async function fetchUsWeekly(ticker: string): Promise<number[]> {
@@ -39,7 +39,8 @@ async function fetchKrWeekly(code: string): Promise<number[]> {
   } catch { return [] }
 }
 
-const fetchWeekly = (t: string, mkt: 'US' | 'KR') => mkt === 'US' ? fetchUsWeekly(t) : fetchKrWeekly(t)
+// 해외(yahoo 심볼)는 Yahoo, KR은 네이버, 그 외(US)는 Yahoo(티커)
+const fetchWeekly = (s: QuantumStock) => s.yahoo ? fetchUsWeekly(s.yahoo) : s.market === 'KR' ? fetchKrWeekly(s.ticker) : fetchUsWeekly(s.ticker)
 
 // 수익률(%) — w(오래된→최신), back주 전 대비
 const retPct = (w: number[], back: number): number | null => {
@@ -63,16 +64,21 @@ function betaCorr(stockW: number[], anchorW: number[]): { beta: number | null; c
 }
 
 export interface QStockOut {
-  ticker: string; name: string; market: 'US' | 'KR'; sub: QSub; modality: string[]; purePlay: boolean
+  ticker: string; name: string; market: QMarket; sub: QSub; modality: string[]; purePlay: boolean
   govAwardUsdM?: number; note: string
   ret1w: number | null; ret1m: number | null; ret1y: number | null
   beta: number | null; corr: number | null
+}
+export interface QThemeChart {
+  len: number; theme: number[]; mdd: number; fromPeak: number
+  overlay: { ticker: string; name: string; norm: number[] }[]
 }
 export interface QSubOut { key: QSub; label: string; emoji: string; color: string; desc: string; count: number; ret1w: number | null; ret1m: number | null; ret1y: number | null }
 export interface QuantumSectorResult {
   anchor: string
   stocks: QStockOut[]
   subsectors: QSubOut[]
+  themeChart: QThemeChart | null
   policy: typeof QUANTUM_POLICY
   preIpo: typeof QUANTUM_PREIPO
   asOf: string
@@ -89,7 +95,7 @@ export async function GET() {
 
   // 주봉 동시 수집(앵커 포함)
   const series = new Map<string, number[]>()
-  await Promise.all(QUANTUM.map(async s => { series.set(s.ticker, await fetchWeekly(s.ticker, s.market)) }))
+  await Promise.all(QUANTUM.map(async s => { series.set(s.ticker, await fetchWeekly(s)) }))
   const anchorW = series.get(QUANTUM_ANCHOR) ?? []
 
   const stocks: QStockOut[] = QUANTUM.map(s => {
@@ -111,8 +117,30 @@ export async function GET() {
     }
   })
 
+  // ── 테마 지수 + 낙폭(MDD) + 모멘텀 오버레이 (퓨어플레이 동일가중, 최근 N주봉 rebase 100) ──
+  const N = 78
+  const norm = (w: number[]): number[] | null => {
+    if (w.length < N) return null
+    const win = w.slice(w.length - N), base = win[0]
+    return base > 0 ? win.map(c => Math.round((c / base) * 1000) / 10) : null
+  }
+  const pureNorms = QUANTUM.filter(s => s.purePlay).map(s => norm(series.get(s.ticker) ?? [])).filter((x): x is number[] => x != null)
+  let themeChart: QThemeChart | null = null
+  if (pureNorms.length >= 3) {
+    const theme: number[] = []
+    for (let t = 0; t < N; t++) theme.push(Math.round((pureNorms.reduce((a, ns) => a + ns[t], 0) / pureNorms.length) * 10) / 10)
+    let peak = -Infinity, mdd = 0
+    for (const v of theme) { if (v > peak) peak = v; const dd = v / peak - 1; if (dd < mdd) mdd = dd }
+    const fromPeak = Math.round((theme[theme.length - 1] / Math.max(...theme) - 1) * 1000) / 10
+    const overlay = ['IONQ', 'QBTS', 'RGTI', 'QUBT', '046970'].map(tk => {
+      const ns = norm(series.get(tk) ?? []); const s = QUANTUM.find(x => x.ticker === tk)
+      return ns ? { ticker: tk, name: s?.name ?? tk, norm: ns } : null
+    }).filter((x): x is { ticker: string; name: string; norm: number[] } => x != null)
+    themeChart = { len: N, theme, mdd: Math.round(mdd * 1000) / 10, fromPeak, overlay }
+  }
+
   const result: QuantumSectorResult = {
-    anchor: QUANTUM_ANCHOR, stocks, subsectors, policy: QUANTUM_POLICY, preIpo: QUANTUM_PREIPO, asOf: new Date().toISOString(),
+    anchor: QUANTUM_ANCHOR, stocks, subsectors, themeChart, policy: QUANTUM_POLICY, preIpo: QUANTUM_PREIPO, asOf: new Date().toISOString(),
   }
   // 핵심(앵커 시계열) 성공 시에만 캐시(부분실패 박제 방지)
   if (anchorW.length > 10) await setCache(CACHE_KEY(), result)

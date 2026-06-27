@@ -1,7 +1,12 @@
 'use client'
-// 🛰️ 양자 테마 인텔리전스 — 서브섹터 히트맵 + 대장주(IONQ) 베타·상관 + 퓨어플레이 토글 + 정책/Pre-IPO
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// 🛰️ 양자 테마 인텔리전스 — 서브섹터 히트맵 + 테마지수·MDD + 대장주(IONQ) 베타·상관 + 퓨어플레이 토글 + 정책/Pre-IPO
 import { useState, useEffect } from 'react'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import type { QuantumSectorResult, QStockOut } from '@/app/api/quantum-sector/route'
+import { QMARKET_FLAG } from '@/lib/quantumUniverse'
+
+const LINE_COLORS: Record<string, string> = { theme: '#fbbf24', IONQ: '#a78bfa', QBTS: '#22d3ee', RGTI: '#34d399', QUBT: '#f59e0b', '046970': '#ec4899' }
 
 const CARD = '#161b25', BORDER = '#1e293b'
 const UP = '#34d399', DN = '#f87171'   // 수익률: 초록=+ / 빨강=−
@@ -68,6 +73,48 @@ export default function QuantumSectorCanvas() {
           </div>
         ))}
       </div>
+
+      {/* ②-A 테마 지수 + 낙폭(MDD) + 모멘텀 오버레이 */}
+      {d.themeChart && (() => {
+        const tc = d.themeChart
+        const data = Array.from({ length: tc.len }, (_, i) => {
+          const row: Record<string, number> = { i, theme: tc.theme[i] }
+          for (const o of tc.overlay) row[o.ticker] = o.norm[i]
+          return row
+        })
+        const tipFmt = ((v: any, n: string): [string, string] => [`${v}`, n === 'theme' ? '테마지수' : n]) as any
+        return (
+          <div style={{ background: '#0f1117', borderRadius: 12, border: `1px solid ${BORDER}`, padding: '13px 15px' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 2, flexWrap: 'wrap' }}>
+              <span style={{ color: '#fbbf24', fontWeight: 800, fontSize: 13 }}>📈 양자 테마 지수 &amp; 모멘텀</span>
+              <span style={{ color: '#7f93a8', fontSize: 10 }}>퓨어플레이 동일가중 · 최근 {tc.len}주봉 · 로그스케일(시작=100)</span>
+              <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+                <span style={{ color: pctCol(tc.fromPeak), fontWeight: 800, fontSize: 12, fontFamily: 'monospace' }}>고점대비 {fmtPct(tc.fromPeak)}</span>
+                <span style={{ color: '#f87171', fontWeight: 800, fontSize: 12, fontFamily: 'monospace' }}>MDD {tc.mdd}%</span>
+              </span>
+            </div>
+            <div style={{ color: '#6e7f8f', fontSize: 9.5, marginBottom: 6 }}>금색=테마 지수 · 색선=대장주 5종(IONQ·QBTS·RGTI·QUBT·우리로). 이익 없는 테마라 −70% 드로다운은 정상.</div>
+            <ResponsiveContainer width="100%" height={230}>
+              <LineChart data={data} margin={{ top: 6, right: 10, bottom: 0, left: -6 }}>
+                <XAxis dataKey="i" tick={{ fontSize: 9, fill: '#64748b' }} tickFormatter={v => `${tc.len - v}주전`} interval={Math.floor(tc.len / 6)} />
+                <YAxis scale="log" domain={['auto', 'auto']} tick={{ fontSize: 9, fill: '#64748b' }} tickFormatter={v => `${v}`} width={40} />
+                <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, fontSize: 11, padding: '6px 10px' }}
+                  formatter={tipFmt} labelFormatter={(l => `${tc.len - (l as number)}주 전`)} />
+                <ReferenceLine y={100} stroke="#475569" strokeDasharray="3 3" />
+                {tc.overlay.map(o => <Line key={o.ticker} type="monotone" dataKey={o.ticker} stroke={LINE_COLORS[o.ticker] ?? '#64748b'} strokeWidth={1.3} dot={false} opacity={0.75} />)}
+                <Line type="monotone" dataKey="theme" stroke={LINE_COLORS.theme} strokeWidth={2.6} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
+              {[['theme', '테마지수'], ...tc.overlay.map(o => [o.ticker, o.name] as [string, string])].map(([k, lab]) => (
+                <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, color: '#9aa7b4' }}>
+                  <span style={{ width: 10, height: 3, background: LINE_COLORS[k] ?? '#64748b', borderRadius: 2 }} />{lab}
+                </span>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ② 대장주 베타·상관 + 퓨어플레이 토글 */}
       <div>
@@ -149,6 +196,7 @@ function StockRow({ s, maxBeta, anchor }: { s: QStockOut; maxBeta: number; ancho
     <tr style={{ borderTop: `1px solid ${BORDER}` }}>
       <td style={{ padding: '7px 6px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11 }}>{QMARKET_FLAG[s.market]}</span>
           <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 12.5 }}>{s.name}</span>
           <span style={{ color: '#7f93a8', fontSize: 9.5 }}>{s.ticker}</span>
           {s.ticker === anchor && <span style={{ background: 'rgba(167,139,250,0.2)', color: '#a78bfa', borderRadius: 4, padding: '0 5px', fontSize: 8.5, fontWeight: 700 }}>대장주</span>}
