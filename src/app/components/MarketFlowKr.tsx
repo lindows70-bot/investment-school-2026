@@ -252,13 +252,19 @@ export default function MarketFlowKr() {
       {heat && (
         <div style={{ overflowX: 'auto' }}>
           <div style={{ color: '#7f93a8', fontSize: 10.5, marginBottom: 8, lineHeight: 1.6 }}>
-            {TABS.find(t => t.key === view)!.label} 종목의 <b style={{ color: '#cbd5e1' }}>추세속도(MA10 이격도 %, ±15 상한)</b> 최근 5거래일 — 🔴빨강=상승추세·🔵파랑=하락추세, 짙을수록 강함. 5일 흐름으로 <b style={{ color: '#cbd5e1' }}>가속/둔화/전환</b>을 봅니다.
+            <b style={{ color: '#cbd5e1' }}>[{view === 'dual' ? '쌍끌이' : PERIODS.find(p => p.key === period)!.label}] {TABS.find(t => t.key === view)!.label} 상위 종목</b> · 📅 <b style={{ color: '#cbd5e1' }}>기간 토글 = 순매수 랭킹 기준</b>(어느 기간에 많이 샀나)일 뿐, 오른쪽 <b style={{ color: '#cbd5e1' }}>추세속도 컬럼은 항상 최근 5거래일 고정</b>(MA10 이격도 %, ±15). 🔴상승·🔵하락, 짙을수록 강함, 5일 흐름으로 <b style={{ color: '#cbd5e1' }}>가속/둔화/전환</b>.
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11.5, minWidth: 540 }}>
             <thead>
               <tr style={{ color: '#7f93a8', fontSize: 10 }}>
                 <th style={{ textAlign: 'left', fontWeight: 700, padding: '0 6px 7px', width: 20 }}>#</th>
                 <th style={{ textAlign: 'left', fontWeight: 700, padding: '0 6px 7px' }}>종목</th>
+                <th colSpan={dateCols.length} style={{ textAlign: 'center', fontWeight: 700, padding: '0 2px 2px', color: '#a78bfa', fontSize: 9 }}>추세속도 — 항상 최근 5거래일(순매수 기간과 무관)</th>
+                <th style={{ width: 96 }}></th>
+              </tr>
+              <tr style={{ color: '#7f93a8', fontSize: 10 }}>
+                <th style={{ padding: '0 6px 7px', width: 20 }}></th>
+                <th style={{ padding: '0 6px 7px' }}></th>
                 {dateCols.map((d, j) => <th key={j} style={{ textAlign: 'center', fontWeight: 700, padding: '0 2px 7px', width: 52 }}>{mmdd(d) || (j === 0 ? '당일' : `-${j}일`)}</th>)}
                 <th style={{ textAlign: 'right', fontWeight: 700, padding: '0 6px 7px', width: 96 }}>추세</th>
               </tr>
