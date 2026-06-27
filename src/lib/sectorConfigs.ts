@@ -110,9 +110,74 @@ const POWER_CONFIG: SectorConfig = {
   stocks: POWER_STOCKS, overlayTickers: ['GEV', 'VST', 'OKLO', 'CEG', '034020'],
 }
 
+// ── 피지컬 AI (Physical AI) ───────────────────────────────────────────────────
+const PHYS_SUB: Record<string, SubMeta> = {
+  humanoid: { label: '휴머노이드·로봇', emoji: '🤖', color: '#a78bfa', desc: '휴머노이드·협동/산업로봇 (대장 테마)' },
+  auto:     { label: '자율주행',       emoji: '🚗', color: '#22d3ee', desc: 'FSD·ADAS·로보택시' },
+  vision:   { label: '비전·센서·엣지', emoji: '👁️', color: '#f59e0b', desc: '머신비전·라이다·엣지 AI 칩' },
+  motion:   { label: '구동·정밀부품',  emoji: '⚙️', color: '#34d399', desc: '감속기·액추에이터·정밀구동' },
+  medbot:   { label: '의료·서비스 로봇', emoji: '🩺', color: '#ec4899', desc: '수술·배송 로봇' },
+}
+const PHYS_STOCKS: SectorStock[] = [
+  { ticker: 'TSLA', name: 'Tesla',          market: 'US', sub: 'humanoid', tags: ['휴머노이드(옵티머스)', 'FSD'], purePlay: false, note: '옵티머스 휴머노이드(단 EV 비중 큼)' },
+  { ticker: '277810', name: '레인보우로보틱스', market: 'KR', sub: 'humanoid', tags: ['휴머노이드'], purePlay: true, note: '국내 휴머노이드·협동로봇(삼성 지분)' },
+  { ticker: '454910', name: '두산로보틱스', market: 'KR', sub: 'humanoid', tags: ['협동로봇'],   purePlay: true,  note: '협동로봇(코봇)' },
+  { ticker: '056080', name: '유진로봇',     market: 'KR', sub: 'humanoid', tags: ['자율주행 로봇'], purePlay: true, note: '자율주행 물류·청소 로봇' },
+  { ticker: 'FANUY', name: 'Fanuc(ADR)',    market: 'US', sub: 'humanoid', tags: ['산업로봇'],   purePlay: true,  note: '세계 1위 산업용 로봇·CNC' },
+  { ticker: '6506', name: '야스카와전기',   market: 'JP', yahoo: '6506.T', sub: 'humanoid', tags: ['산업로봇·서보'], purePlay: true, note: '서보모터·산업로봇' },
+  { ticker: 'MBLY', name: 'Mobileye',       market: 'US', sub: 'auto', tags: ['ADAS·자율주행'], purePlay: true,  note: '자율주행 비전 칩·소프트웨어' },
+  { ticker: 'PONY', name: 'Pony.ai',        market: 'US', sub: 'auto', tags: ['로보택시'],     purePlay: true,  note: '중국 로보택시' },
+  { ticker: 'AUR',  name: 'Aurora',         market: 'US', sub: 'auto', tags: ['자율주행 트럭'], purePlay: true,  note: '자율주행 트럭(적자 꿈주)' },
+  { ticker: 'CGNX', name: 'Cognex',         market: 'US', sub: 'vision', tags: ['머신비전'],   purePlay: true,  note: '머신비전 1위' },
+  { ticker: 'OUST', name: 'Ouster',         market: 'US', sub: 'vision', tags: ['라이다'],     purePlay: true,  note: '디지털 라이다 센서' },
+  { ticker: 'AMBA', name: 'Ambarella',      market: 'US', sub: 'vision', tags: ['엣지 AI 비전칩'], purePlay: true, note: '엣지 AI 영상처리 SoC' },
+  { ticker: '6324', name: '하모닉드라이브', market: 'JP', yahoo: '6324.T', sub: 'motion', tags: ['정밀 감속기'], purePlay: true, note: '휴머노이드 핵심 정밀 감속기 1위' },
+  { ticker: '6268', name: '나브테스코',     market: 'JP', yahoo: '6268.T', sub: 'motion', tags: ['감속기'],     purePlay: true,  note: '산업로봇 감속기' },
+  { ticker: '6481', name: 'THK',           market: 'JP', yahoo: '6481.T', sub: 'motion', tags: ['LM 가이드·액추에이터'], purePlay: true, note: '직선운동 가이드·액추에이터' },
+  { ticker: 'ISRG', name: 'Intuitive Surgical', market: 'US', sub: 'medbot', tags: ['수술로봇'], purePlay: true, note: '다빈치 수술로봇 독점' },
+  { ticker: 'SERV', name: 'Serve Robotics', market: 'US', sub: 'medbot', tags: ['배송로봇'],    purePlay: true,  note: '자율 배송 로봇(엔비디아 투자)' },
+]
+const PHYS_CONFIG: SectorConfig = {
+  key: 'phys-ai', label: '피지컬 AI 인텔리전스', emoji: '🦾',
+  tagline: 'AI가 몸을 얻는다 — 휴머노이드·자율주행·로봇. 소프트웨어 AI 다음 메가테마. 적자 꿈주(Aurora·Serve) 多 → 모멘텀·밸류체인(두뇌→눈→관절)으로 봅니다. 교육용.',
+  anchor: 'TSLA', tagHeader: '역할', subMeta: PHYS_SUB,
+  stocks: PHYS_STOCKS, overlayTickers: ['TSLA', 'ISRG', 'MBLY', '277810', 'FANUY'],
+}
+
+// ── AI 바이오 (AI Bio) ────────────────────────────────────────────────────────
+const BIO_SUB: Record<string, SubMeta> = {
+  discovery: { label: 'AI 신약개발',   emoji: '🧬', color: '#a78bfa', desc: 'AI로 후보물질 발굴·설계 (대장 테마)' },
+  dx:        { label: 'AI 진단·데이터', emoji: '🩺', color: '#22d3ee', desc: 'AI 영상진단·정밀의료 데이터' },
+  genomics:  { label: '유전체·툴',     emoji: '🧪', color: '#f59e0b', desc: '시퀀싱·연구 장비' },
+  pharma:    { label: '빅파마·K바이오', emoji: '💊', color: '#ec4899', desc: 'GLP-1·전통 신약(AI 도입)' },
+}
+const BIO_STOCKS: SectorStock[] = [
+  { ticker: 'TEM',  name: 'Tempus AI',      market: 'US', sub: 'dx',        tags: ['AI 정밀의료 데이터'], purePlay: true,  note: 'AI 진단·임상 데이터 플랫폼(테마 대장주)' },
+  { ticker: 'RXRX', name: 'Recursion',      market: 'US', sub: 'discovery', tags: ['AI 신약'],      purePlay: true,  note: 'AI 신약 발굴 플랫폼(엔비디아 투자)' },
+  { ticker: 'SDGR', name: 'Schrödinger',    market: 'US', sub: 'discovery', tags: ['분자 시뮬'],    purePlay: true,  note: '물리기반 분자 설계 SW' },
+  { ticker: 'ABCL', name: 'AbCellera',      market: 'US', sub: 'discovery', tags: ['AI 항체발굴'],  purePlay: true,  note: 'AI 항체 신약 발굴' },
+  { ticker: 'GH',   name: 'Guardant Health', market: 'US', sub: 'dx',       tags: ['액체생검'],    purePlay: true,  note: 'AI 액체생검 암 진단' },
+  { ticker: 'NTRA', name: 'Natera',         market: 'US', sub: 'dx',        tags: ['유전자 진단'],  purePlay: true,  note: 'cfDNA 정밀 진단' },
+  { ticker: '328130', name: '루닛',         market: 'KR', sub: 'dx',        tags: ['AI 영상진단'],  purePlay: true,  note: 'AI 의료영상 진단(국내 대표)' },
+  { ticker: 'ILMN', name: 'Illumina',       market: 'US', sub: 'genomics',  tags: ['시퀀싱'],      purePlay: false, note: '유전체 시퀀싱 1위(AI는 일부)' },
+  { ticker: 'TXG',  name: '10x Genomics',   market: 'US', sub: 'genomics',  tags: ['단일세포 분석'], purePlay: false, note: '단일세포 유전체 툴' },
+  { ticker: 'LLY',  name: 'Eli Lilly',      market: 'US', sub: 'pharma',    tags: ['GLP-1'],       purePlay: false, note: '비만치료제 1위(AI 신약은 일부)' },
+  { ticker: 'NVO',  name: 'Novo Nordisk',   market: 'US', sub: 'pharma',    tags: ['GLP-1'],       purePlay: false, note: '오젬픽·위고비(다각화)' },
+  { ticker: '196170', name: '알테오젠',     market: 'KR', sub: 'pharma',    tags: ['SC제형 플랫폼'], purePlay: false, note: '바이오 플랫폼(AI-native 아님)' },
+  { ticker: '145020', name: '휴젤',         market: 'KR', sub: 'pharma',    tags: ['보툴리눔'],     purePlay: false, note: '톡신·필러(AI 무관)' },
+]
+const BIO_CONFIG: SectorConfig = {
+  key: 'ai-bio', label: 'AI 바이오 인텔리전스', emoji: '🧬',
+  tagline: 'AI가 신약·진단을 가속 — 후보물질 발굴·AI 영상진단·정밀의료. AI-native(Tempus·Recursion)와 전통 바이오(빅파마·K바이오)를 베타로 구분. 임상 실패 리스크 多, 교육용.',
+  anchor: 'TEM', tagHeader: '역할', subMeta: BIO_SUB,
+  stocks: BIO_STOCKS, overlayTickers: ['TEM', 'RXRX', 'LLY', '196170', '328130'],
+}
+
 export const SECTORS: Record<string, SectorConfig> = {
   quantum: QUANTUM_CONFIG,
   'ai-semi': AISEMI_CONFIG,
   power: POWER_CONFIG,
+  'phys-ai': PHYS_CONFIG,
+  'ai-bio': BIO_CONFIG,
 }
 export const SECTOR_LIST = Object.values(SECTORS).map(s => ({ key: s.key, label: s.label, emoji: s.emoji }))
