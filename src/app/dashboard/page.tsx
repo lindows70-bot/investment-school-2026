@@ -661,7 +661,7 @@ export default function DashboardPage() {
   }>>({})
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'quantum' | 'aisemi'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'quantum' | 'aisemi' | 'power'>('live')
   const [flowView, setFlowView] = useState<'mine' | 'market' | 'investor' | 'reco' | 'unified'>('mine')
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
@@ -1349,6 +1349,7 @@ export default function DashboardPage() {
             items: [
               { key: 'quantum', icon: '🛰️', label: '양자컴퓨팅',  desc: '큐비트·양자보안·정책촉매·Pre-IPO' },
               { key: 'aisemi',  icon: '🧠', label: 'AI 반도체',   desc: 'GPU·HBM·파운드리·장비·인프라 밸류체인' },
+              { key: 'power',   icon: '⚡', label: 'AI 전력망 & 원전', desc: '전력기기·SMR·전선·발전 밸류체인' },
             ],
           },
           {
@@ -3034,6 +3035,11 @@ export default function DashboardPage() {
       <div id="tab-aisemi" style={{ display: dashTab==='aisemi' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         <ErrorBoundary label="AI 반도체 섹터">
           {dashTab==='aisemi' && <SectorCanvas sectorKey="ai-semi" />}
+        </ErrorBoundary>
+      </div>
+      <div id="tab-power" style={{ display: dashTab==='power' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="AI 전력망 & 원전 섹터">
+          {dashTab==='power' && <SectorCanvas sectorKey="power" />}
         </ErrorBoundary>
       </div>
 

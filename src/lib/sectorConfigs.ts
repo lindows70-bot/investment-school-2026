@@ -63,8 +63,56 @@ const AISEMI_CONFIG: SectorConfig = {
   stocks: AISEMI_STOCKS, overlayTickers: ['NVDA', 'AMD', 'AVGO', '000660', 'TSM'],
 }
 
+// ── AI 전력망 & 원전(SMR) ─────────────────────────────────────────────────────
+const POWER_SUB: Record<string, SubMeta> = {
+  grid:    { label: '전력기기·그리드',   emoji: '⚡', color: '#f59e0b', desc: '변압기·차단기·송배전 (대장 테마)' },
+  nuclear: { label: '원전·SMR',          emoji: '☢️', color: '#34d399', desc: '소형모듈원전·우라늄·원전 운영' },
+  cable:   { label: '전선·케이블',       emoji: '🔌', color: '#22d3ee', desc: '초고압 전선·해저케이블' },
+  dcpower: { label: '데이터센터 전력·발전', emoji: '🔋', color: '#ec4899', desc: '온사이트 발전·전력·쿨링' },
+}
+const POWER_STOCKS: SectorStock[] = [
+  // ⚡ 전력기기·그리드
+  { ticker: 'GEV',  name: 'GE Vernova',     market: 'US', sub: 'grid', tags: ['전력기기', '가스터빈'], purePlay: true, note: 'AI 전력 인프라 대장(그리드+가스+원전)' },
+  { ticker: 'ETN',  name: 'Eaton',          market: 'US', sub: 'grid', tags: ['전력관리'],          purePlay: true,  note: '데이터센터 전력관리 핵심' },
+  { ticker: 'PWR',  name: 'Quanta Services', market: 'US', sub: 'grid', tags: ['송배전 건설'],      purePlay: true,  note: '전력망 구축·EPC 1위' },
+  { ticker: 'POWL', name: 'Powell',         market: 'US', sub: 'grid', tags: ['배전반'],            purePlay: true,  note: '전력 배전 시스템(데이터센터 수혜)' },
+  { ticker: 'HUBB', name: 'Hubbell',        market: 'US', sub: 'grid', tags: ['전력부품'],          purePlay: true,  note: '전력 송배전 부품' },
+  { ticker: '010120', name: 'LS ELECTRIC',  market: 'KR', sub: 'grid', tags: ['전력기기'],          purePlay: true,  note: '국내 전력기기·초고압 변압기' },
+  { ticker: '267260', name: 'HD현대일렉트릭', market: 'KR', sub: 'grid', tags: ['변압기'],          purePlay: true,  note: '초고압 변압기 수출 호황' },
+  { ticker: '298040', name: '효성중공업',    market: 'KR', sub: 'grid', tags: ['변압기'],            purePlay: true,  note: '변압기·STATCOM' },
+  { ticker: 'SIE',  name: 'Siemens',        market: 'EU', yahoo: 'SIE.DE', sub: 'grid', tags: ['전력·자동화'], purePlay: false, note: '거대 복합기업(전력 비중 일부)' },
+  { ticker: 'SU',   name: 'Schneider Electric', market: 'EU', yahoo: 'SU.PA', sub: 'grid', tags: ['전력관리'], purePlay: true, note: '데이터센터 전력관리(유럽)' },
+  // ☢️ 원전·SMR
+  { ticker: 'OKLO', name: 'Oklo',           market: 'US', sub: 'nuclear', tags: ['SMR'],            purePlay: true,  note: '차세대 SMR(샘 올트먼 후원·적자 꿈주)' },
+  { ticker: 'SMR',  name: 'NuScale Power',  market: 'US', sub: 'nuclear', tags: ['SMR'],            purePlay: true,  note: 'SMR 설계 인증 선두' },
+  { ticker: 'NNE',  name: 'Nano Nuclear',   market: 'US', sub: 'nuclear', tags: ['초소형원전'],     purePlay: true,  note: '마이크로 원자로(초기 단계)' },
+  { ticker: 'LEU',  name: 'Centrus Energy', market: 'US', sub: 'nuclear', tags: ['농축우라늄'],     purePlay: true,  note: 'HALEU 우라늄 농축(SMR 연료)' },
+  { ticker: 'CEG',  name: 'Constellation',  market: 'US', sub: 'nuclear', tags: ['원전 운영'],      purePlay: true,  note: '미 최대 원전 운영(MS 데이터센터 계약)' },
+  { ticker: 'VST',  name: 'Vistra',         market: 'US', sub: 'nuclear', tags: ['원전·발전'],      purePlay: true,  note: '원전+가스 발전(AI 전력 수혜)' },
+  { ticker: 'TLN',  name: 'Talen Energy',   market: 'US', sub: 'nuclear', tags: ['원전'],           purePlay: true,  note: '원전(아마존 데이터센터 직결)' },
+  { ticker: '034020', name: '두산에너빌리티', market: 'KR', sub: 'nuclear', tags: ['SMR 주조'],      purePlay: true,  note: 'SMR 주단조·원전 기자재' },
+  { ticker: '052690', name: '한전기술',      market: 'KR', sub: 'nuclear', tags: ['원전 설계'],      purePlay: true,  note: '원전 설계 엔지니어링' },
+  // 🔌 전선·케이블
+  { ticker: '001440', name: '대한전선',      market: 'KR', sub: 'cable', tags: ['초고압 전선'],      purePlay: true,  note: '초고압·해저 전선' },
+  { ticker: '103590', name: '일진전기',      market: 'KR', sub: 'cable', tags: ['전선·중전기'],      purePlay: true,  note: '전선·변압기' },
+  { ticker: 'PRY',  name: 'Prysmian',       market: 'EU', yahoo: 'PRY.MI', sub: 'cable', tags: ['해저케이블'], purePlay: true, note: '세계 1위 전선·해저케이블' },
+  { ticker: 'NEX',  name: 'Nexans',         market: 'EU', yahoo: 'NEX.PA', sub: 'cable', tags: ['케이블'],     purePlay: true,  note: '전력 케이블(유럽)' },
+  // 🔋 데이터센터 전력·발전
+  { ticker: 'VRT',  name: 'Vertiv',         market: 'US', sub: 'dcpower', tags: ['전력·쿨링'],       purePlay: true,  note: 'AI 데이터센터 전력·냉각 핵심' },
+  { ticker: 'BE',   name: 'Bloom Energy',   market: 'US', sub: 'dcpower', tags: ['연료전지'],        purePlay: true,  note: '온사이트 연료전지 발전' },
+  { ticker: 'NRG',  name: 'NRG Energy',     market: 'US', sub: 'dcpower', tags: ['발전·소매'],       purePlay: false, note: '발전+전력 소매(다각화)' },
+  { ticker: 'GNRC', name: 'Generac',        market: 'US', sub: 'dcpower', tags: ['백업 발전'],       purePlay: false, note: '백업 발전기(주거 비중 큼)' },
+]
+const POWER_CONFIG: SectorConfig = {
+  key: 'power', label: 'AI 전력망 & 원전 인텔리전스', emoji: '⚡',
+  tagline: 'AI 데이터센터 전력 폭증 → 전력망·원전(SMR) 르네상스. 전력기기·원전·전선·발전 밸류체인. 일부는 유틸리티(저성장)·일부는 SMR(적자 꿈주)로 양극단 공존 — 모멘텀+밸류체인 위치를 함께 봅니다. 교육용.',
+  anchor: 'GEV', tagHeader: '역할', subMeta: POWER_SUB,
+  stocks: POWER_STOCKS, overlayTickers: ['GEV', 'VST', 'OKLO', 'CEG', '034020'],
+}
+
 export const SECTORS: Record<string, SectorConfig> = {
   quantum: QUANTUM_CONFIG,
   'ai-semi': AISEMI_CONFIG,
+  power: POWER_CONFIG,
 }
 export const SECTOR_LIST = Object.values(SECTORS).map(s => ({ key: s.key, label: s.label, emoji: s.emoji }))
