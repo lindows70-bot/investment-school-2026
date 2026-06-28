@@ -36,6 +36,7 @@ const AISEMI_STOCKS: SectorStock[] = [
   { ticker: '000660', name: 'SK하이닉스',  market: 'KR', sub: 'memory', tags: ['HBM'],              purePlay: true,  note: 'HBM 1위 — AI 메모리 핵심' },
   { ticker: '005930', name: '삼성전자',    market: 'KR', sub: 'memory', tags: ['HBM', '파운드리'],  purePlay: false, note: 'HBM·파운드리(단 폰·가전 비중 커 AI 비중 희석)' },
   { ticker: 'MU',   name: 'Micron',        market: 'US', sub: 'memory', tags: ['HBM'],              purePlay: true,  note: 'HBM 3사 중 하나' },
+  { ticker: 'SNDK', name: 'SanDisk',       market: 'US', sub: 'memory', tags: ['NAND 플래시'],       purePlay: true,  note: 'NAND 플래시 메모리 전문(2025 WD 분사)' },
   // 🏭 파운드리
   { ticker: 'TSM',  name: 'TSMC',          market: 'US', sub: 'foundry', tags: ['파운드리', 'CoWoS'], purePlay: true, note: 'AI 칩 위탁생산 독점적 1위' },
   { ticker: 'INTC', name: 'Intel',         market: 'US', sub: 'foundry', tags: ['파운드리', 'CPU'],  purePlay: false, note: 'IFS 파운드리 재건 중(다각화·부진)' },
@@ -55,6 +56,7 @@ const AISEMI_STOCKS: SectorStock[] = [
   { ticker: 'CRDO', name: 'Credo',         market: 'US', sub: 'infra', tags: ['AEC 케이블'],         purePlay: true,  note: '액티브 전기 케이블(AI 연결)' },
   { ticker: 'ALAB', name: 'Astera Labs',   market: 'US', sub: 'infra', tags: ['커넥티비티'],         purePlay: true,  note: 'AI 서버 커넥티비티 칩' },
   { ticker: 'VRT',  name: 'Vertiv',        market: 'US', sub: 'infra', tags: ['전력·쿨링'],          purePlay: false, note: 'AI 데이터센터 전력·냉각(반도체 아님)' },
+  { ticker: 'VICR', name: 'Vicor',         market: 'US', sub: 'infra', tags: ['고밀도 전력모듈'],     purePlay: true,  note: 'AI GPU 전원공급 고밀도 전력변환 모듈(PoP)' },
   // 🔬 신소재·기판·패키징 (차세대 확장)
   { ticker: '011070', name: 'LG이노텍',     market: 'KR', sub: 'material', tags: ['FC-BGA 기판', '카메라'], purePlay: false, note: '플립칩 기판(AI 칩 패키징) 성장 — 단 매출 대부분 애플 카메라' },
   { ticker: '009150', name: '삼성전기',     market: 'KR', sub: 'material', tags: ['FC-BGA', 'MLCC'],   purePlay: false, note: '서버용 FC-BGA·고용량 MLCC(다각화)' },
