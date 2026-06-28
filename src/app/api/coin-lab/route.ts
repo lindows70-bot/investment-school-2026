@@ -19,6 +19,12 @@ export interface CoinLabResult {
   network: { hashrateEH: number | null; difficultyT: number | null; trend: 'up' | 'down' | 'flat'; spark: number[] }
   macro: { points: { date: string; m2: number | null; btc: number | null }[]; note: string }   // 100 기준 정규화 오버레이
   longChart: { points: { date: string; price: number }[]; halvings: { date: string; label: string }[] }   // 10년 가격 + 반감기 마커
+  rainbow: {   // 비트코인 레인보우 차트 — 로그 회귀 9밴드(Fire Sale~Maximum Bubble)
+    points: Record<string, number | string>[]   // { date, price, b0..b8(밴드 상단 가격) }
+    bands: { label: string; color: string }[]    // 9개, 바닥(저평가)→천장(과열)
+    current: { index: number; label: string; color: string; mult: number } | null   // 현재 위치 + 공정가 대비 배수
+    fit: { a: number; b: number; sigma: number }
+  } | null
   supply: { circulatingM: number; maxM: number; pct: number } | null   // 유통량/최대발행(희석 리스크)
   correlation: { labels: string[]; matrix: (number | null)[][]; window: string; note: string; series: { date: string; btc: number; nasdaq: number; gold: number }[] } | null   // BTC vs 증시·금 상관계수 + 정규화 시계열
   prescription: { regime: string; tone: 'accumulate' | 'caution' | 'neutral'; text: string }
@@ -52,6 +58,47 @@ async function btcLongPrices(): Promise<{ date: string; price: number }[]> {
     } catch { /* 다음 host */ }
   }
   return []
+}
+
+// 비트코인 레인보우 차트 9밴드(저평가 바닥 → 과열 천장). 로그 회귀선 위/아래 σ 배수로 색대 구성
+const RAINBOW_BANDS: { label: string; color: string }[] = [
+  { label: '파이어세일 (역사적 바닥)',   color: '#1e4d8c' },  // b0
+  { label: '매수 BUY!',                  color: '#2f7fd1' },  // b1
+  { label: '축적 Accumulate',            color: '#1fb6c9' },  // b2
+  { label: '아직 저렴 Still cheap',       color: '#43c46b' },  // b3
+  { label: 'HODL!',                       color: '#b6d72e' },  // b4
+  { label: '버블인가? Is this a bubble?', color: '#f4c220' },  // b5
+  { label: 'FOMO 가열',                   color: '#f59425' },  // b6
+  { label: '매도 SELL!',                  color: '#ef6c1a' },  // b7
+  { label: '최대 버블 영역',              color: '#e0382f' },  // b8
+]
+// 로그 회귀(log10 price = a·ln(genesis 이후 일수) + b) + 잔차 σ로 밴드 생성. Yahoo 10년 실데이터로 자체 적합(하드코딩 계수 없음)
+function buildRainbow(pts: { date: string; price: number }[]): CoinLabResult['rainbow'] {
+  if (!pts || pts.length < 40) return null
+  const GEN = Date.UTC(2009, 0, 3) / 86_400_000   // 제네시스 블록일(일 단위)
+  const rows = pts.map(p => {
+    const days = Date.parse(p.date) / 86_400_000 - GEN
+    return { date: p.date, price: p.price, lx: Math.log(days), ly: Math.log10(p.price) }
+  }).filter(r => isFinite(r.lx) && isFinite(r.ly) && r.price > 0)
+  const n = rows.length
+  if (n < 40) return null
+  let sx = 0, sy = 0, sxx = 0, sxy = 0
+  for (const r of rows) { sx += r.lx; sy += r.ly; sxx += r.lx * r.lx; sxy += r.lx * r.ly }
+  const a = (n * sxy - sx * sy) / (n * sxx - sx * sx)
+  const b = (sy - a * sx) / n
+  let ss = 0; for (const r of rows) { const f = a * r.lx + b; ss += (r.ly - f) ** 2 }
+  const sigma = Math.sqrt(ss / n) || 0.2
+  const K = [-1.8, -1.25, -0.75, -0.28, 0.18, 0.62, 1.08, 1.6, 2.3]   // 9밴드 상단 z레벨(σ 배수)
+  const points: Record<string, number | string>[] = rows.map(r => {
+    const f = a * r.lx + b
+    const o: Record<string, number | string> = { date: r.date, price: r.price }
+    K.forEach((k, i) => { o['b' + i] = Math.round(10 ** (f + k * sigma)) })
+    return o
+  })
+  const last = rows[n - 1]; const fl = a * last.lx + b; const z = (last.ly - fl) / sigma
+  let idx = K.filter(k => z >= k).length; if (idx > 8) idx = 8
+  const mult = Math.round(10 ** (last.ly - fl) * 100) / 100   // 현재가 ÷ 회귀선(공정가) 배수
+  return { points, bands: RAINBOW_BANDS, current: { index: idx, label: RAINBOW_BANDS[idx].label, color: RAINBOW_BANDS[idx].color, mult }, fit: { a: Math.round(a * 1e4) / 1e4, b: Math.round(b * 1e4) / 1e4, sigma: Math.round(sigma * 1e4) / 1e4 } }
 }
 
 // CoinGecko 무료 API — 브라우저형 UA 필수(기본 fetch UA는 종종 차단), 429 시 1회 재시도. 절대 동시 버스트 금지
@@ -117,7 +164,7 @@ async function buildCorrelation(): Promise<CoinLabResult['correlation']> {
 }
 
 export async function GET(req: Request) {
-  const cacheKey = 'coin-lab-v10'   // v10: 상관관계·오버레이 5년 확장
+  const cacheKey = 'coin-lab-v11'   // v11: 레인보우 차트(로그 회귀 9밴드) 추가
   const cached = await getCache<CoinLabResult>(cacheKey, 3600_000)   // 1h
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -239,6 +286,7 @@ export async function GET(req: Request) {
     network: { hashrateEH, difficultyT, trend, spark },
     macro: { points: macroPoints, note: macroNote },
     longChart: { points: longPts, halvings: longPts.length ? HALVINGS.filter(h => h.date >= longPts[0].date) : HALVINGS },
+    rainbow: buildRainbow(longPts),
     supply,
     correlation,
     prescription: { regime, tone, text },

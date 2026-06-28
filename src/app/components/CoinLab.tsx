@@ -10,6 +10,7 @@ import BtcEtfFlows from '@/app/components/BtcEtfFlows'
 import StablecoinRadar from '@/app/components/StablecoinRadar'
 import AltSeasonIndex from '@/app/components/AltSeasonIndex'
 import CryptoStocksPanel from '@/app/components/CryptoStocksPanel'
+import BtcRainbowChart from '@/app/components/BtcRainbowChart'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 const fmtUsd = (n: number | null) => n == null ? '—' : `$${Math.round(n).toLocaleString()}`
@@ -247,6 +248,9 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
           )}
         </div>
       )}
+
+      {/* 🌈 비트코인 레인보우 차트 — 로그 회귀 9밴드 */}
+      {d.rainbow && <BtcRainbowChart rainbow={d.rainbow} />}
 
       {/* 💧 적립식(DCA) 시뮬레이터 — 10년 주봉 재사용 */}
       {d.longChart && d.longChart.points.length > 20 && <DcaSimulator points={d.longChart.points} />}
