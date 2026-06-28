@@ -661,7 +661,7 @@ export default function DashboardPage() {
   }>>({})
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'quantum' | 'aisemi' | 'power' | 'physai' | 'aibio' | 'defense' | 'financials'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'quantum' | 'aisemi' | 'power' | 'physai' | 'aibio' | 'defense' | 'financials' | 'energy' | 'materials' | 'industrials' | 'discretionary' | 'staples' | 'healthcare' | 'infotech' | 'communication' | 'utilities' | 'realestate'>('live')
   const [flowView, setFlowView] = useState<'mine' | 'market' | 'investor' | 'reco' | 'unified'>('mine')
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
@@ -1358,7 +1358,17 @@ export default function DashboardPage() {
           {
             id: 'gics', icon: '🏛️', label: 'GICS 전통 산업 섹터',
             items: [
-              { key: 'financials', icon: '💰', label: '금융', desc: '은행·보험·증권·카드 (GICS 11섹터)' },
+              { key: 'energy',        icon: '⚡', label: '에너지',        desc: '통합·E&P·서비스·정유' },
+              { key: 'materials',     icon: '🧱', label: '소재',          desc: '화학·금속·광물·건자재' },
+              { key: 'industrials',   icon: '🏗️', label: '산업재',        desc: '기계·항공/방산·운송·전기장비' },
+              { key: 'discretionary', icon: '🛒', label: '자유소비재',    desc: '이커머스·자동차·의류·여행' },
+              { key: 'staples',       icon: '🥫', label: '필수소비재',    desc: '음식료·생활용품·유통·담배' },
+              { key: 'healthcare',    icon: '💊', label: '헬스케어',      desc: '제약·바이오·의료기기·서비스' },
+              { key: 'financials',    icon: '💰', label: '금융',          desc: '은행·보험·증권·카드' },
+              { key: 'infotech',      icon: '💻', label: '정보기술(IT)',  desc: 'SW·반도체·하드웨어' },
+              { key: 'communication', icon: '📡', label: '커뮤니케이션',  desc: '인터넷·미디어/엔터·통신' },
+              { key: 'utilities',     icon: '🔌', label: '유틸리티',      desc: '전력·가스·수도' },
+              { key: 'realestate',    icon: '🏢', label: '부동산(리츠)',  desc: '데이터센터·물류·리테일·주거' },
             ],
           },
           {
@@ -3066,10 +3076,40 @@ export default function DashboardPage() {
           {dashTab==='defense' && <SectorCanvas sectorKey="defense" />}
         </ErrorBoundary>
       </div>
+      <div id="tab-energy" style={{ display: dashTab==='energy' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="에너지 섹터">{dashTab==='energy' && <SectorCanvas sectorKey="energy" />}</ErrorBoundary>
+      </div>
+      <div id="tab-materials" style={{ display: dashTab==='materials' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="소재 섹터">{dashTab==='materials' && <SectorCanvas sectorKey="materials" />}</ErrorBoundary>
+      </div>
+      <div id="tab-industrials" style={{ display: dashTab==='industrials' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="산업재 섹터">{dashTab==='industrials' && <SectorCanvas sectorKey="industrials" />}</ErrorBoundary>
+      </div>
+      <div id="tab-discretionary" style={{ display: dashTab==='discretionary' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="자유소비재 섹터">{dashTab==='discretionary' && <SectorCanvas sectorKey="discretionary" />}</ErrorBoundary>
+      </div>
+      <div id="tab-staples" style={{ display: dashTab==='staples' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="필수소비재 섹터">{dashTab==='staples' && <SectorCanvas sectorKey="staples" />}</ErrorBoundary>
+      </div>
+      <div id="tab-healthcare" style={{ display: dashTab==='healthcare' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="헬스케어 섹터">{dashTab==='healthcare' && <SectorCanvas sectorKey="healthcare" />}</ErrorBoundary>
+      </div>
       <div id="tab-financials" style={{ display: dashTab==='financials' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         <ErrorBoundary label="금융 섹터">
           {dashTab==='financials' && <SectorCanvas sectorKey="financials" />}
         </ErrorBoundary>
+      </div>
+      <div id="tab-infotech" style={{ display: dashTab==='infotech' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="정보기술 섹터">{dashTab==='infotech' && <SectorCanvas sectorKey="infotech" />}</ErrorBoundary>
+      </div>
+      <div id="tab-communication" style={{ display: dashTab==='communication' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="커뮤니케이션 섹터">{dashTab==='communication' && <SectorCanvas sectorKey="communication" />}</ErrorBoundary>
+      </div>
+      <div id="tab-utilities" style={{ display: dashTab==='utilities' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="유틸리티 섹터">{dashTab==='utilities' && <SectorCanvas sectorKey="utilities" />}</ErrorBoundary>
+      </div>
+      <div id="tab-realestate" style={{ display: dashTab==='realestate' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="부동산 섹터">{dashTab==='realestate' && <SectorCanvas sectorKey="realestate" />}</ErrorBoundary>
       </div>
 
       {/* ── 🎯 알파 헌터 탭 (가치·가격 괴리 탐지) ── */}

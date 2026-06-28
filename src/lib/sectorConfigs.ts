@@ -281,6 +281,284 @@ const FIN_CONFIG: SectorConfig = {
   stocks: FIN_STOCKS, overlayTickers: ['JPM', 'BAC', 'GS', 'V', '105560'],
 }
 
+// ── ⚡ 에너지 (Energy) ─────────────────────────────────────────────────────────
+const ENERGY_SUB: Record<string, SubMeta> = {
+  integrated: { label: '통합 에너지', emoji: '🛢️', color: '#60a5fa', desc: '탐사~정유 수직계열 (대형)' },
+  ep:         { label: 'E&P 탐사·생산', emoji: '⛏️', color: '#f59e0b', desc: '상류 원유·가스 생산' },
+  service:    { label: '서비스·장비', emoji: '🔧', color: '#34d399', desc: '시추·유전 서비스' },
+  refine:     { label: '정유·미드스트림', emoji: '🏭', color: '#ec4899', desc: '정제·파이프라인·저장' },
+}
+const ENERGY_STOCKS: SectorStock[] = [
+  { ticker: 'XOM', name: 'ExxonMobil',  market: 'US', sub: 'integrated', tags: ['통합'],   purePlay: true,  note: '미 최대 통합 에너지(대장주)' },
+  { ticker: 'CVX', name: 'Chevron',     market: 'US', sub: 'integrated', tags: ['통합'],   purePlay: true,  note: '미 2위 통합 에너지' },
+  { ticker: 'SHEL', name: 'Shell',      market: 'US', sub: 'integrated', tags: ['통합'],   purePlay: true,  note: '유럽 통합 메이저' },
+  { ticker: '096770', name: 'SK이노베이션', market: 'KR', sub: 'integrated', tags: ['정유·배터리'], purePlay: false, note: '국내 정유+배터리(다각화)' },
+  { ticker: 'COP', name: 'ConocoPhillips', market: 'US', sub: 'ep', tags: ['E&P'],         purePlay: true,  note: '미 최대 순수 E&P' },
+  { ticker: 'EOG', name: 'EOG Resources', market: 'US', sub: 'ep', tags: ['셰일'],         purePlay: true,  note: '셰일 E&P 효율 1위' },
+  { ticker: 'OXY', name: 'Occidental',  market: 'US', sub: 'ep', tags: ['E&P'],            purePlay: true,  note: '버핏 보유 E&P' },
+  { ticker: 'DVN', name: 'Devon Energy', market: 'US', sub: 'ep', tags: ['셰일'],          purePlay: true,  note: '셰일 가스·원유' },
+  { ticker: 'SLB', name: 'Schlumberger', market: 'US', sub: 'service', tags: ['유전서비스'], purePlay: true, note: '세계 1위 유전 서비스' },
+  { ticker: 'HAL', name: 'Halliburton', market: 'US', sub: 'service', tags: ['시추'],       purePlay: true,  note: '유전 서비스·시추' },
+  { ticker: 'MPC', name: 'Marathon Petroleum', market: 'US', sub: 'refine', tags: ['정유'], purePlay: true,  note: '미 대형 정유' },
+  { ticker: 'PSX', name: 'Phillips 66', market: 'US', sub: 'refine', tags: ['정유'],        purePlay: true,  note: '정유·화학·미드스트림' },
+  { ticker: 'KMI', name: 'Kinder Morgan', market: 'US', sub: 'refine', tags: ['파이프라인'], purePlay: true,  note: '북미 최대 미드스트림' },
+  { ticker: '010950', name: 'S-Oil',    market: 'KR', sub: 'refine', tags: ['정유'],        purePlay: true,  note: '국내 정유사' },
+]
+const ENERGY_CONFIG: SectorConfig = {
+  key: 'energy', label: '에너지', emoji: '⚡',
+  tagline: 'GICS 에너지 — 유가에 이익이 좌우되는 대표 경기순환주. 통합 메이저·E&P(상류)·유전서비스·정유/미드스트림 밸류체인. ⚠️ 저PER이 정점 신호일 수 있는 시클리컬 함정 주의. 모멘텀·유가 사이클로 봅니다. 교육용.',
+  anchor: 'XOM', tagHeader: '업종', subMeta: ENERGY_SUB,
+  stocks: ENERGY_STOCKS, overlayTickers: ['XOM', 'CVX', 'COP', 'SLB', '010950'],
+}
+
+// ── 🧱 소재 (Materials) ────────────────────────────────────────────────────────
+const MAT_SUB: Record<string, SubMeta> = {
+  chemical: { label: '화학·산업가스', emoji: '⚗️', color: '#60a5fa', desc: '기초·정밀화학·산업가스 (대형)' },
+  metal:    { label: '철강·비철금속', emoji: '🔩', color: '#f59e0b', desc: '철강·구리·알루미늄' },
+  mining:   { label: '광물·귀금속',   emoji: '⛰️', color: '#34d399', desc: '금·동·리튬 채굴' },
+  build:    { label: '건축자재·도료', emoji: '🧱', color: '#ec4899', desc: '시멘트·도료·포장재' },
+}
+const MAT_STOCKS: SectorStock[] = [
+  { ticker: 'LIN', name: 'Linde',       market: 'US', sub: 'chemical', tags: ['산업가스'], purePlay: true,  note: '세계 1위 산업용 가스(대장주)' },
+  { ticker: 'APD', name: 'Air Products', market: 'US', sub: 'chemical', tags: ['산업가스'], purePlay: true, note: '산업가스·수소' },
+  { ticker: 'DOW', name: 'Dow',         market: 'US', sub: 'chemical', tags: ['기초화학'], purePlay: true,  note: '기초 화학 소재' },
+  { ticker: 'DD',  name: 'DuPont',      market: 'US', sub: 'chemical', tags: ['정밀화학'], purePlay: true,  note: '정밀·전자소재 화학' },
+  { ticker: '051910', name: 'LG화학',   market: 'KR', sub: 'chemical', tags: ['화학·배터리소재'], purePlay: false, note: '석유화학+배터리 소재(다각화)' },
+  { ticker: '011170', name: '롯데케미칼', market: 'KR', sub: 'chemical', tags: ['석유화학'], purePlay: true, note: '국내 석유화학' },
+  { ticker: '011780', name: '금호석유',  market: 'KR', sub: 'chemical', tags: ['합성고무'], purePlay: true,  note: '합성고무·정밀화학' },
+  { ticker: 'NUE', name: 'Nucor',       market: 'US', sub: 'metal', tags: ['철강'],        purePlay: true,  note: '미 최대 전기로 철강' },
+  { ticker: 'FCX', name: 'Freeport',    market: 'US', sub: 'metal', tags: ['구리'],        purePlay: true,  note: '세계적 구리 광산' },
+  { ticker: '005490', name: 'POSCO홀딩스', market: 'KR', sub: 'metal', tags: ['철강·리튬'], purePlay: false, note: '국내 1위 철강+2차전지 소재' },
+  { ticker: '010130', name: '고려아연',  market: 'KR', sub: 'metal', tags: ['비철금속'],   purePlay: true,  note: '아연·연 제련 1위' },
+  { ticker: 'NEM', name: 'Newmont',     market: 'US', sub: 'mining', tags: ['금'],         purePlay: true,  note: '세계 최대 금광' },
+  { ticker: 'SHW', name: 'Sherwin-Williams', market: 'US', sub: 'build', tags: ['도료'],   purePlay: true,  note: '미 1위 페인트·도료' },
+  { ticker: 'ECL', name: 'Ecolab',      market: 'US', sub: 'build', tags: ['위생화학'],    purePlay: true,  note: '물·위생 특수화학' },
+]
+const MAT_CONFIG: SectorConfig = {
+  key: 'materials', label: '소재', emoji: '🧱',
+  tagline: 'GICS 소재 — 화학·금속·광물·건축자재. 경기 초입에 강한 시클리컬. 원자재 가격·중국 수요에 민감. ⚠️ 철강·화학은 이익 정점에서 저PER 함정 주의. 모멘텀·원자재 사이클로 봅니다. 교육용.',
+  anchor: 'LIN', tagHeader: '업종', subMeta: MAT_SUB,
+  stocks: MAT_STOCKS, overlayTickers: ['LIN', 'APD', 'NUE', '005490', 'SHW'],
+}
+
+// ── 🏗️ 산업재 (Industrials) ────────────────────────────────────────────────────
+const IND_SUB: Record<string, SubMeta> = {
+  machinery: { label: '기계·중장비',   emoji: '⚙️', color: '#60a5fa', desc: '건설·농기계·산업기계 (대형)' },
+  aero:      { label: '항공·방산',     emoji: '✈️', color: '#f59e0b', desc: '항공기·엔진·방산' },
+  transport: { label: '운송·물류',     emoji: '🚚', color: '#34d399', desc: '철도·항공화물·택배' },
+  electrical: { label: '전기장비·복합', emoji: '🔌', color: '#ec4899', desc: '전력관리·자동화·복합기업' },
+}
+const IND_STOCKS: SectorStock[] = [
+  { ticker: 'CAT', name: 'Caterpillar', market: 'US', sub: 'machinery', tags: ['중장비'], purePlay: true,  note: '세계 1위 건설중장비(대장주)' },
+  { ticker: 'DE',  name: 'Deere',       market: 'US', sub: 'machinery', tags: ['농기계'], purePlay: true,  note: '농기계 1위' },
+  { ticker: '034020', name: '두산에너빌리티', market: 'KR', sub: 'machinery', tags: ['발전기자재·SMR'], purePlay: true, note: '발전 기자재·원전(테마 중복)' },
+  { ticker: 'GE',  name: 'GE Aerospace', market: 'US', sub: 'aero', tags: ['항공엔진'],   purePlay: true,  note: '세계 1위 항공 엔진' },
+  { ticker: 'RTX', name: 'RTX',         market: 'US', sub: 'aero', tags: ['방산·엔진'],    purePlay: true,  note: '방산+항공엔진(방산테마 중복)' },
+  { ticker: 'BA',  name: 'Boeing',      market: 'US', sub: 'aero', tags: ['항공기'],       purePlay: false, note: '민항기+방산' },
+  { ticker: '012450', name: '한화에어로스페이스', market: 'KR', sub: 'aero', tags: ['방산'], purePlay: true, note: 'K방산 대표(방산테마 중복)' },
+  { ticker: 'UNP', name: 'Union Pacific', market: 'US', sub: 'transport', tags: ['철도'],  purePlay: true,  note: '미 최대 화물 철도' },
+  { ticker: 'UPS', name: 'UPS',         market: 'US', sub: 'transport', tags: ['택배'],    purePlay: true,  note: '글로벌 물류·택배' },
+  { ticker: 'HON', name: 'Honeywell',   market: 'US', sub: 'electrical', tags: ['복합'],   purePlay: true,  note: '항공·자동화 복합기업' },
+  { ticker: 'ETN', name: 'Eaton',       market: 'US', sub: 'electrical', tags: ['전력관리'], purePlay: true, note: '전력관리(전력망 테마 중복)' },
+  { ticker: 'MMM', name: '3M',          market: 'US', sub: 'electrical', tags: ['복합소재'], purePlay: false, note: '다각화 복합기업' },
+  { ticker: '329180', name: 'HD현대중공업', market: 'KR', sub: 'machinery', tags: ['조선'], purePlay: true,  note: '국내 조선 빅3' },
+]
+const IND_CONFIG: SectorConfig = {
+  key: 'industrials', label: '산업재', emoji: '🏗️',
+  tagline: 'GICS 산업재 — 기계·항공/방산·운송·전기장비. 경기 회복·인프라 투자 수혜. ⚠️ 일부 종목은 AI 전력망·방산 테마와 겹침(같은 종목이 GICS와 테마 양쪽에 — 분류 차이 학습). 모멘텀·경기 사이클로 봅니다. 교육용.',
+  anchor: 'CAT', tagHeader: '업종', subMeta: IND_SUB,
+  stocks: IND_STOCKS, overlayTickers: ['CAT', 'GE', 'HON', '012450', 'UNP'],
+}
+
+// ── 🛒 자유소비재 (Consumer Discretionary) ────────────────────────────────────
+const DISC_SUB: Record<string, SubMeta> = {
+  retail:  { label: '소매·이커머스', emoji: '🛍️', color: '#60a5fa', desc: '이커머스·대형 소매 (대형)' },
+  auto:    { label: '자동차',        emoji: '🚗', color: '#f59e0b', desc: '완성차·부품' },
+  apparel: { label: '의류·명품',     emoji: '👟', color: '#34d399', desc: '스포츠·패션·럭셔리' },
+  leisure: { label: '여행·외식',     emoji: '🍔', color: '#ec4899', desc: '호텔·여행·레스토랑' },
+}
+const DISC_STOCKS: SectorStock[] = [
+  { ticker: 'AMZN', name: 'Amazon',     market: 'US', sub: 'retail', tags: ['이커머스'],  purePlay: false, note: '이커머스+클라우드(대장주)' },
+  { ticker: 'HD',  name: 'Home Depot',  market: 'US', sub: 'retail', tags: ['홈임프로브'], purePlay: true,  note: '미 1위 주택건자재 소매' },
+  { ticker: 'LOW', name: "Lowe's",      market: 'US', sub: 'retail', tags: ['홈임프로브'], purePlay: true,  note: '주택 리모델링 소매' },
+  { ticker: 'TSLA', name: 'Tesla',      market: 'US', sub: 'auto', tags: ['EV'],          purePlay: false, note: 'EV 대장(피지컬AI 테마 중복)' },
+  { ticker: '005380', name: '현대차',    market: 'KR', sub: 'auto', tags: ['완성차'],      purePlay: true,  note: '국내 1위 완성차' },
+  { ticker: '000270', name: '기아',      market: 'KR', sub: 'auto', tags: ['완성차'],      purePlay: true,  note: '국내 2위 완성차' },
+  { ticker: 'GM',  name: 'General Motors', market: 'US', sub: 'auto', tags: ['완성차'],    purePlay: true,  note: '미 완성차' },
+  { ticker: 'NKE', name: 'Nike',        market: 'US', sub: 'apparel', tags: ['스포츠'],    purePlay: true,  note: '글로벌 스포츠웨어 1위' },
+  { ticker: 'LULU', name: 'Lululemon',  market: 'US', sub: 'apparel', tags: ['애슬레저'],  purePlay: true,  note: '프리미엄 애슬레저' },
+  { ticker: 'MCD', name: "McDonald's",  market: 'US', sub: 'leisure', tags: ['외식'],      purePlay: true,  note: '글로벌 패스트푸드 1위' },
+  { ticker: 'SBUX', name: 'Starbucks',  market: 'US', sub: 'leisure', tags: ['커피'],      purePlay: true,  note: '글로벌 커피 체인' },
+  { ticker: 'BKNG', name: 'Booking',    market: 'US', sub: 'leisure', tags: ['여행예약'],  purePlay: true,  note: '글로벌 여행 예약 1위' },
+  { ticker: '008770', name: '호텔신라',  market: 'KR', sub: 'leisure', tags: ['면세·호텔'], purePlay: true,  note: '국내 면세·호텔' },
+]
+const DISC_CONFIG: SectorConfig = {
+  key: 'discretionary', label: '자유소비재', emoji: '🛒',
+  tagline: 'GICS 자유소비재(경기소비재) — 이커머스·자동차·의류·여행/외식. 경기 좋을 때 지갑을 여는 소비. 금리·고용에 민감. ⚠️ 테슬라 등은 AI 테마와 겹침. 모멘텀·소비 사이클로 봅니다. 교육용.',
+  anchor: 'AMZN', tagHeader: '업종', subMeta: DISC_SUB,
+  stocks: DISC_STOCKS, overlayTickers: ['AMZN', 'HD', '005380', 'NKE', 'MCD'],
+}
+
+// ── 🥫 필수소비재 (Consumer Staples) ──────────────────────────────────────────
+const STAP_SUB: Record<string, SubMeta> = {
+  retail:  { label: '필수 유통',     emoji: '🏪', color: '#60a5fa', desc: '대형마트·창고형 (방어)' },
+  food:    { label: '음식료·음료',   emoji: '🥤', color: '#f59e0b', desc: '식품·음료 제조' },
+  house:   { label: '생활용품',      emoji: '🧴', color: '#34d399', desc: 'household·퍼스널케어' },
+  tobacco: { label: '담배',          emoji: '🚬', color: '#ec4899', desc: '담배·고배당' },
+}
+const STAP_STOCKS: SectorStock[] = [
+  { ticker: 'COST', name: 'Costco',     market: 'US', sub: 'retail', tags: ['창고형'],     purePlay: true,  note: '창고형 유통 1위(대장주)' },
+  { ticker: 'WMT', name: 'Walmart',     market: 'US', sub: 'retail', tags: ['대형마트'],   purePlay: true,  note: '미 최대 유통' },
+  { ticker: 'KO',  name: 'Coca-Cola',   market: 'US', sub: 'food', tags: ['음료'],         purePlay: true,  note: '글로벌 음료 1위(버핏)' },
+  { ticker: 'PEP', name: 'PepsiCo',     market: 'US', sub: 'food', tags: ['음료·스낵'],    purePlay: true,  note: '음료+스낵' },
+  { ticker: 'MDLZ', name: 'Mondelez',   market: 'US', sub: 'food', tags: ['제과'],         purePlay: true,  note: '글로벌 제과(오레오)' },
+  { ticker: '097950', name: 'CJ제일제당', market: 'KR', sub: 'food', tags: ['식품'],        purePlay: true,  note: '국내 1위 종합식품' },
+  { ticker: '271560', name: '오리온',    market: 'KR', sub: 'food', tags: ['제과'],         purePlay: true,  note: '국내 제과(중국 비중)' },
+  { ticker: 'PG',  name: 'P&G',         market: 'US', sub: 'house', tags: ['생활용품'],     purePlay: true,  note: '글로벌 생활용품 1위' },
+  { ticker: 'CL',  name: 'Colgate',     market: 'US', sub: 'house', tags: ['퍼스널케어'],   purePlay: true,  note: '구강·생활용품' },
+  { ticker: '051900', name: 'LG생활건강', market: 'KR', sub: 'house', tags: ['화장품·생활'], purePlay: true,  note: '국내 화장품·생활용품' },
+  { ticker: '090430', name: '아모레퍼시픽', market: 'KR', sub: 'house', tags: ['화장품'],    purePlay: true,  note: 'K뷰티 대표' },
+  { ticker: 'PM',  name: 'Philip Morris', market: 'US', sub: 'tobacco', tags: ['담배'],     purePlay: true,  note: '글로벌 담배(IQOS)' },
+  { ticker: '033780', name: 'KT&G',     market: 'KR', sub: 'tobacco', tags: ['담배·홍삼'],  purePlay: true,  note: '국내 담배+홍삼(고배당)' },
+]
+const STAP_CONFIG: SectorConfig = {
+  key: 'staples', label: '필수소비재', emoji: '🥫',
+  tagline: 'GICS 필수소비재 — 식품·음료·생활용품·담배·필수유통. 경기와 무관하게 사는 방어주(저베타·고배당). 불황·인플레 국면에 강함. 안정 실적 기반 — ROE·배당으로 봅니다. 교육용.',
+  anchor: 'COST', tagHeader: '업종', subMeta: STAP_SUB,
+  stocks: STAP_STOCKS, overlayTickers: ['COST', 'WMT', 'KO', 'PG', '033780'],
+}
+
+// ── 💊 헬스케어 (Health Care) ──────────────────────────────────────────────────
+const HLTH_SUB: Record<string, SubMeta> = {
+  pharma:  { label: '제약', emoji: '💊', color: '#60a5fa', desc: '빅파마·신약 (대형)' },
+  biotech: { label: '바이오', emoji: '🧬', color: '#f59e0b', desc: '바이오·유전자 치료' },
+  device:  { label: '의료기기', emoji: '🩺', color: '#34d399', desc: '진단·수술·의료장비' },
+  payer:   { label: '의료서비스·보험', emoji: '🏥', color: '#ec4899', desc: '의료보험·병원·유통' },
+}
+const HLTH_STOCKS: SectorStock[] = [
+  { ticker: 'LLY', name: 'Eli Lilly',   market: 'US', sub: 'pharma', tags: ['GLP-1'],      purePlay: true,  note: '비만치료제 1위(대장주)' },
+  { ticker: 'JNJ', name: 'J&J',         market: 'US', sub: 'pharma', tags: ['제약·기기'],  purePlay: true,  note: '제약+의료기기 복합' },
+  { ticker: 'MRK', name: 'Merck',       market: 'US', sub: 'pharma', tags: ['항암'],       purePlay: true,  note: '키트루다 항암제' },
+  { ticker: 'NVO', name: 'Novo Nordisk', market: 'US', sub: 'pharma', tags: ['GLP-1'],     purePlay: true,  note: '오젬픽·위고비' },
+  { ticker: 'AMGN', name: 'Amgen',      market: 'US', sub: 'biotech', tags: ['바이오'],    purePlay: true,  note: '대형 바이오' },
+  { ticker: 'VRTX', name: 'Vertex',     market: 'US', sub: 'biotech', tags: ['희귀질환'],  purePlay: true,  note: '낭포성섬유증 독점' },
+  { ticker: '207940', name: '삼성바이오로직스', market: 'KR', sub: 'biotech', tags: ['CDMO'], purePlay: true, note: '바이오 위탁생산 1위' },
+  { ticker: '068270', name: '셀트리온',  market: 'KR', sub: 'biotech', tags: ['바이오시밀러'], purePlay: true, note: '바이오시밀러 대표' },
+  { ticker: 'ISRG', name: 'Intuitive Surgical', market: 'US', sub: 'device', tags: ['수술로봇'], purePlay: true, note: '다빈치 수술로봇(피지컬AI 중복)' },
+  { ticker: 'ABT', name: 'Abbott',      market: 'US', sub: 'device', tags: ['진단·기기'],  purePlay: true,  note: '진단·의료기기' },
+  { ticker: 'MDT', name: 'Medtronic',   market: 'US', sub: 'device', tags: ['의료기기'],   purePlay: true,  note: '세계 1위 의료기기' },
+  { ticker: 'UNH', name: 'UnitedHealth', market: 'US', sub: 'payer', tags: ['의료보험'],   purePlay: true,  note: '미 최대 의료보험' },
+]
+const HLTH_CONFIG: SectorConfig = {
+  key: 'healthcare', label: '헬스케어', emoji: '💊',
+  tagline: 'GICS 헬스케어 — 제약·바이오·의료기기·의료서비스. 고령화 구조적 성장 + 경기방어. 빅파마(안정)와 바이오(임상 리스크) 양극단. ⚠️ 임상 실패 변동성. 모멘텀·파이프라인으로 봅니다. 교육용.',
+  anchor: 'LLY', tagHeader: '업종', subMeta: HLTH_SUB,
+  stocks: HLTH_STOCKS, overlayTickers: ['LLY', 'JNJ', 'MRK', '207940', 'UNH'],
+}
+
+// ── 💻 정보기술 (Information Technology) ───────────────────────────────────────
+const IT_SUB: Record<string, SubMeta> = {
+  software: { label: '소프트웨어', emoji: '🖥️', color: '#60a5fa', desc: 'OS·클라우드·SaaS (대형)' },
+  semi:     { label: '반도체', emoji: '🔲', color: '#f59e0b', desc: '설계·메모리·파운드리' },
+  hardware: { label: '하드웨어·기기', emoji: '📱', color: '#34d399', desc: '디바이스·서버·부품' },
+}
+const IT_STOCKS: SectorStock[] = [
+  { ticker: 'MSFT', name: 'Microsoft',  market: 'US', sub: 'software', tags: ['클라우드·OS'], purePlay: true, note: 'SW·클라우드 1위(대장주)' },
+  { ticker: 'ORCL', name: 'Oracle',     market: 'US', sub: 'software', tags: ['DB·클라우드'], purePlay: true, note: 'DB·엔터프라이즈 클라우드' },
+  { ticker: 'CRM', name: 'Salesforce',  market: 'US', sub: 'software', tags: ['SaaS·CRM'],   purePlay: true,  note: 'CRM SaaS 1위' },
+  { ticker: 'ADBE', name: 'Adobe',      market: 'US', sub: 'software', tags: ['크리에이티브'], purePlay: true, note: '크리에이티브 SW' },
+  { ticker: 'NVDA', name: 'NVIDIA',     market: 'US', sub: 'semi', tags: ['GPU'],            purePlay: true,  note: 'AI 가속기(AI반도체 테마 중복)' },
+  { ticker: 'AVGO', name: 'Broadcom',   market: 'US', sub: 'semi', tags: ['ASIC·네트워크'],  purePlay: true,  note: '맞춤 ASIC·네트워크 칩' },
+  { ticker: 'AMD', name: 'AMD',         market: 'US', sub: 'semi', tags: ['CPU·GPU'],        purePlay: true,  note: 'CPU·AI GPU' },
+  { ticker: '000660', name: 'SK하이닉스', market: 'KR', sub: 'semi', tags: ['HBM'],          purePlay: true,  note: 'HBM 1위(AI반도체 테마 중복)' },
+  { ticker: 'AAPL', name: 'Apple',      market: 'US', sub: 'hardware', tags: ['스마트폰'],    purePlay: true,  note: '아이폰·디바이스 생태계' },
+  { ticker: 'DELL', name: 'Dell',       market: 'US', sub: 'hardware', tags: ['서버·PC'],     purePlay: true,  note: 'AI 서버·PC' },
+  { ticker: '005930', name: '삼성전자',  market: 'KR', sub: 'semi', tags: ['반도체·폰'],      purePlay: false, note: '메모리+폰+가전(다각화)' },
+]
+const IT_CONFIG: SectorConfig = {
+  key: 'infotech', label: '정보기술(IT)', emoji: '💻',
+  tagline: 'GICS 정보기술 — 소프트웨어·반도체·하드웨어. 시장을 이끄는 최대 섹터(성장 주도). ⚠️ NVDA·SK하이닉스 등은 AI반도체 테마와 겹침 — 같은 종목이 표준 분류(IT)와 현대 테마 양쪽에 있는 걸 비교. 모멘텀·실적으로 봅니다. 교육용.',
+  anchor: 'MSFT', tagHeader: '업종', subMeta: IT_SUB,
+  stocks: IT_STOCKS, overlayTickers: ['MSFT', 'NVDA', 'AVGO', '000660', 'AAPL'],
+}
+
+// ── 📡 커뮤니케이션 서비스 (Communication Services) ───────────────────────────
+const COMM_SUB: Record<string, SubMeta> = {
+  internet: { label: '인터넷·플랫폼', emoji: '🌐', color: '#60a5fa', desc: '검색·SNS·포털 (대형)' },
+  media:    { label: '미디어·엔터', emoji: '🎬', color: '#f59e0b', desc: 'OTT·콘텐츠·게임' },
+  telecom:  { label: '통신', emoji: '📶', color: '#34d399', desc: '이동통신·고배당 방어' },
+}
+const COMM_STOCKS: SectorStock[] = [
+  { ticker: 'GOOGL', name: 'Alphabet',  market: 'US', sub: 'internet', tags: ['검색·AI'],  purePlay: true,  note: '검색·유튜브·클라우드(대장주)' },
+  { ticker: 'META', name: 'Meta',       market: 'US', sub: 'internet', tags: ['SNS'],       purePlay: true,  note: '페북·인스타 광고' },
+  { ticker: '035420', name: 'NAVER',    market: 'KR', sub: 'internet', tags: ['포털·커머스'], purePlay: true, note: '국내 검색·커머스 1위' },
+  { ticker: '035720', name: '카카오',    market: 'KR', sub: 'internet', tags: ['메신저·플랫폼'], purePlay: true, note: '국내 메신저 플랫폼' },
+  { ticker: 'NFLX', name: 'Netflix',    market: 'US', sub: 'media', tags: ['OTT'],          purePlay: true,  note: '글로벌 OTT 1위' },
+  { ticker: 'DIS', name: 'Disney',      market: 'US', sub: 'media', tags: ['콘텐츠'],       purePlay: true,  note: '콘텐츠·테마파크' },
+  { ticker: '259960', name: '크래프톤',  market: 'KR', sub: 'media', tags: ['게임'],         purePlay: true,  note: '배틀그라운드 게임' },
+  { ticker: '352820', name: '하이브',    market: 'KR', sub: 'media', tags: ['엔터'],         purePlay: true,  note: 'K팝 엔터(BTS)' },
+  { ticker: 'TMUS', name: 'T-Mobile',   market: 'US', sub: 'telecom', tags: ['이동통신'],   purePlay: true,  note: '미 이동통신' },
+  { ticker: 'VZ',  name: 'Verizon',     market: 'US', sub: 'telecom', tags: ['통신·고배당'], purePlay: true,  note: '미 통신(고배당)' },
+  { ticker: '017670', name: 'SK텔레콤',  market: 'KR', sub: 'telecom', tags: ['통신·AI'],   purePlay: true,  note: '국내 1위 통신(고배당)' },
+  { ticker: '030200', name: 'KT',       market: 'KR', sub: 'telecom', tags: ['통신'],       purePlay: true,  note: '국내 유무선 통신' },
+]
+const COMM_CONFIG: SectorConfig = {
+  key: 'communication', label: '커뮤니케이션', emoji: '📡',
+  tagline: 'GICS 커뮤니케이션 서비스 — 인터넷 플랫폼·미디어/엔터·통신. 광고 성장주(GOOGL·META)와 고배당 통신 방어주가 한 섹터에 공존(양극단). 모멘텀·광고 사이클·배당으로 봅니다. 교육용.',
+  anchor: 'GOOGL', tagHeader: '업종', subMeta: COMM_SUB,
+  stocks: COMM_STOCKS, overlayTickers: ['GOOGL', 'META', 'NFLX', '035420', '017670'],
+}
+
+// ── 🔌 유틸리티 (Utilities) ────────────────────────────────────────────────────
+const UTIL_SUB: Record<string, SubMeta> = {
+  electric: { label: '전력', emoji: '💡', color: '#60a5fa', desc: '전기 발전·송배전 (대형)' },
+  multi:    { label: '복합·가스', emoji: '🔥', color: '#f59e0b', desc: '전기+가스 복합' },
+  water:    { label: '수도·신재생', emoji: '💧', color: '#34d399', desc: '수도·재생에너지' },
+}
+const UTIL_STOCKS: SectorStock[] = [
+  { ticker: 'NEE', name: 'NextEra',     market: 'US', sub: 'electric', tags: ['전력·재생'], purePlay: true,  note: '미 최대 전력+재생에너지(대장주)' },
+  { ticker: 'DUK', name: 'Duke Energy', market: 'US', sub: 'electric', tags: ['전력'],      purePlay: true,  note: '미 대형 전력' },
+  { ticker: 'SO',  name: 'Southern Co', market: 'US', sub: 'electric', tags: ['전력'],      purePlay: true,  note: '미 남부 전력' },
+  { ticker: 'AEP', name: 'American Electric', market: 'US', sub: 'electric', tags: ['송배전'], purePlay: true, note: '대형 송배전 전력' },
+  { ticker: '015760', name: '한국전력',  market: 'KR', sub: 'electric', tags: ['전력'],      purePlay: true,  note: '국내 전력 독점(규제)' },
+  { ticker: 'D',   name: 'Dominion',    market: 'US', sub: 'multi', tags: ['전기·가스'],    purePlay: true,  note: '전기+가스 복합 유틸' },
+  { ticker: 'SRE', name: 'Sempra',      market: 'US', sub: 'multi', tags: ['가스·전력'],    purePlay: true,  note: '가스·전력·LNG' },
+  { ticker: '036460', name: '한국가스공사', market: 'KR', sub: 'multi', tags: ['가스'],      purePlay: true,  note: '국내 천연가스 독점' },
+  { ticker: 'AWK', name: 'American Water', market: 'US', sub: 'water', tags: ['수도'],       purePlay: true,  note: '미 최대 상수도' },
+]
+const UTIL_CONFIG: SectorConfig = {
+  key: 'utilities', label: '유틸리티', emoji: '🔌',
+  tagline: 'GICS 유틸리티 — 전력·가스·수도. 규제 기반 안정 현금흐름·고배당의 대표 방어주(저베타). 금리에 민감(채권 대용). ⚠️ AI 데이터센터 전력 수요로 재평가 중. 배당·금리로 봅니다. 교육용.',
+  anchor: 'NEE', tagHeader: '업종', subMeta: UTIL_SUB,
+  stocks: UTIL_STOCKS, overlayTickers: ['NEE', 'DUK', 'SO', '015760', 'D'],
+}
+
+// ── 🏢 부동산 (Real Estate / REITs) ────────────────────────────────────────────
+const RE_SUB: Record<string, SubMeta> = {
+  infra:   { label: '인프라·데이터센터', emoji: '📡', color: '#60a5fa', desc: '통신타워·데이터센터 (대형)' },
+  logi:    { label: '물류·산업', emoji: '🏭', color: '#f59e0b', desc: '물류창고·산업용' },
+  retail:  { label: '리테일·주거', emoji: '🏬', color: '#34d399', desc: '쇼핑몰·임대주택' },
+  health:  { label: '헬스케어·기타', emoji: '🏥', color: '#ec4899', desc: '요양시설·특수 리츠' },
+}
+const RE_STOCKS: SectorStock[] = [
+  { ticker: 'AMT', name: 'American Tower', market: 'US', sub: 'infra', tags: ['통신타워'],  purePlay: true,  note: '세계 1위 통신타워 리츠(대장주)' },
+  { ticker: 'EQIX', name: 'Equinix',    market: 'US', sub: 'infra', tags: ['데이터센터'],  purePlay: true,  note: '글로벌 데이터센터 리츠(AI 수혜)' },
+  { ticker: 'DLR', name: 'Digital Realty', market: 'US', sub: 'infra', tags: ['데이터센터'], purePlay: true, note: '데이터센터 리츠' },
+  { ticker: 'PLD', name: 'Prologis',    market: 'US', sub: 'logi', tags: ['물류창고'],      purePlay: true,  note: '세계 1위 물류 리츠' },
+  { ticker: 'O',   name: 'Realty Income', market: 'US', sub: 'retail', tags: ['월배당'],     purePlay: true,  note: '월배당 리테일 리츠' },
+  { ticker: 'SPG', name: 'Simon Property', market: 'US', sub: 'retail', tags: ['쇼핑몰'],    purePlay: true,  note: '미 최대 쇼핑몰 리츠' },
+  { ticker: 'AVB', name: 'AvalonBay',   market: 'US', sub: 'retail', tags: ['임대주택'],     purePlay: true,  note: '임대 아파트 리츠' },
+  { ticker: 'WELL', name: 'Welltower',  market: 'US', sub: 'health', tags: ['요양시설'],     purePlay: true,  note: '고령자 주거·요양 리츠' },
+  { ticker: '395400', name: 'SK리츠',    market: 'KR', sub: 'health', tags: ['오피스·인프라'], purePlay: true, note: '국내 대형 리츠' },
+  { ticker: '330590', name: '롯데리츠',  market: 'KR', sub: 'retail', tags: ['리테일'],      purePlay: true,  note: '국내 리테일 리츠' },
+]
+const RE_CONFIG: SectorConfig = {
+  key: 'realestate', label: '부동산(리츠)', emoji: '🏢',
+  tagline: 'GICS 부동산 — 리츠(REITs). 임대 현금흐름·배당 중심, 금리에 가장 민감(금리↑=할인율↑로 약세). ⚠️ 데이터센터·물류 리츠는 AI·이커머스 구조적 성장. 배당수익률·금리로 봅니다. 교육용.',
+  anchor: 'PLD', tagHeader: '업종', subMeta: RE_SUB,
+  stocks: RE_STOCKS, overlayTickers: ['AMT', 'EQIX', 'PLD', 'O', 'WELL'],
+}
+
 export const SECTORS: Record<string, SectorConfig> = {
   quantum: QUANTUM_CONFIG,
   'ai-semi': AISEMI_CONFIG,
@@ -288,6 +566,17 @@ export const SECTORS: Record<string, SectorConfig> = {
   'phys-ai': PHYS_CONFIG,
   'ai-bio': BIO_CONFIG,
   defense: DEF_CONFIG,
+  // 🏛️ GICS 11 전통 산업 섹터
+  energy: ENERGY_CONFIG,
+  materials: MAT_CONFIG,
+  industrials: IND_CONFIG,
+  discretionary: DISC_CONFIG,
+  staples: STAP_CONFIG,
+  healthcare: HLTH_CONFIG,
   financials: FIN_CONFIG,
+  infotech: IT_CONFIG,
+  communication: COMM_CONFIG,
+  utilities: UTIL_CONFIG,
+  realestate: RE_CONFIG,
 }
 export const SECTOR_LIST = Object.values(SECTORS).map(s => ({ key: s.key, label: s.label, emoji: s.emoji }))
