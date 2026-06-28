@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import { getCurrentSeason } from '@/lib/currentSeason'
 import { SEASON_META, type Quadrant } from '@/lib/seasonNavigator'
+import { SECTORS } from '@/lib/sectorConfigs'
 import { getCache, setCache } from '@/lib/appCache'
 
 export const dynamic = 'force-dynamic'
@@ -96,7 +97,7 @@ function buildValidation(sectors: SectorRet[]) {
 
 export async function GET(req: Request) {
   const base = new URL(req.url).origin
-  const cacheKey = 'season-sector-v1'
+  const cacheKey = 'season-sector-v2'   // v2: 키명 정정(unfavAvg) + KR 유틸리티 테마지수 추가
   const cached = await getCache<SeasonSectorResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -113,11 +114,25 @@ export async function GET(req: Request) {
 
   // KR: 10 ETF 병렬(네이버)
   const krRaw = await Promise.all(KR_ETF.map(e => naverCloses(e.code)))
-  const krSectors: SectorRet[] = KR_ETF.map((e, i) => ({
+  const krSectorsRaw: SectorRet[] = KR_ETF.map((e, i) => ({
     gics: e.gics, ko: e.ko, ref: e.proxy,
     ret1m: retPct(krRaw[i], 21), ret3m: retPct(krRaw[i], 63),
     fit: classify(e.gics, krMeta.favored, krMeta.unfavored),
-  })).sort((a, b) => (b.ret3m ?? -999) - (a.ret3m ?? -999))
+  }))
+  // KR 유틸리티: 깨끗한 ETF 없음 → 🏛️GICS 섹터 차트와 동일한 '테마지수'(config 구성종목 동일가중 수익률)로 대체
+  const utilCodes = (SECTORS['utilities']?.stocks ?? []).filter(s => s.market === 'KR').map(s => s.ticker)
+  if (utilCodes.length) {
+    const utilRaw = await Promise.all(utilCodes.map(c => naverCloses(c)))
+    const themeRet = (n: number) => {
+      const rs = utilRaw.map(c => retPct(c, n)).filter((x): x is number => x != null)
+      return rs.length ? Math.round((rs.reduce((s, x) => s + x, 0) / rs.length) * 10) / 10 : null
+    }
+    krSectorsRaw.push({
+      gics: 'Utilities', ko: '유틸리티', ref: `테마지수(${utilCodes.length}종 동일가중)`,
+      ret1m: themeRet(21), ret3m: themeRet(63), fit: classify('Utilities', krMeta.favored, krMeta.unfavored),
+    })
+  }
+  const krSectors = krSectorsRaw.sort((a, b) => (b.ret3m ?? -999) - (a.ret3m ?? -999))
 
   const result: SeasonSectorResult = {
     us: { quad: season.usQuad, seasonKo: usMeta.seasonKo, favored: usMeta.favored, unfavored: usMeta.unfavored, sectors: usSectors, validation: buildValidation(usSectors) },
