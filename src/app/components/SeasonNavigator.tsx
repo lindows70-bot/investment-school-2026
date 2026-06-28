@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import type { SeasonNavResult } from '@/app/api/season-navigator/route'
 import SeasonSectorScoreboard from '@/app/components/SeasonSectorScoreboard'
+import EconomicWaveSimulator from '@/app/components/EconomicWaveSimulator'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 
@@ -257,6 +258,9 @@ export default function SeasonNavigator() {
 
       {/* 🍂 이번 계절 × GICS 섹터 실제 성적표 — '유리 섹터가 실제로 오르나' 검증 */}
       <SeasonSectorScoreboard />
+
+      {/* 🌊 경제 파동 중첩 시뮬레이터 — 괴리(계절 vs 현실)의 근본을 키친·주글라르·콘드라티예프로 설명 */}
+      <EconomicWaveSimulator />
 
       {/* 🛒 이 계절 우대 섹터 매수 후보 — 유니버스에서 우대 섹터만 추려 우리 퀀트 점수로 정렬 */}
       {data.buyCandidates && data.buyCandidates.length > 0 && (
