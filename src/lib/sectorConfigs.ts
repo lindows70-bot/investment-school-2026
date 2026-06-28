@@ -236,6 +236,51 @@ const DEF_CONFIG: SectorConfig = {
   stocks: DEF_STOCKS, overlayTickers: ['RTX', 'LMT', 'SPCX', 'PLTR', '012450'],
 }
 
+// ── 💰 금융 (Financials) — GICS 11섹터 中 첫 전통 산업 섹터 ──────────────────
+const FIN_SUB: Record<string, SubMeta> = {
+  bank:      { label: '은행·금융지주', emoji: '🏦', color: '#60a5fa', desc: '예대마진(NIM)·금리 수혜 (섹터 핵심)' },
+  insurance: { label: '보험',          emoji: '🛡️', color: '#34d399', desc: '생명·손해보험 — 운용수익·금리 민감' },
+  broker:    { label: '증권·자산운용',  emoji: '📈', color: '#f59e0b', desc: '브로커리지·IB·자산운용 수수료' },
+  payment:   { label: '카드·결제',      emoji: '💳', color: '#ec4899', desc: '카드·결제 네트워크·캐피탈' },
+}
+const FIN_STOCKS: SectorStock[] = [
+  // 🏦 은행·금융지주
+  { ticker: 'JPM',  name: 'JPMorgan',       market: 'US', sub: 'bank', tags: ['글로벌 1위 은행'], purePlay: true,  note: '미 최대 은행·IB(섹터 대장주)' },
+  { ticker: 'BAC',  name: 'Bank of America', market: 'US', sub: 'bank', tags: ['상업은행'],       purePlay: true,  note: '미 2위 소매·상업은행' },
+  { ticker: 'WFC',  name: 'Wells Fargo',     market: 'US', sub: 'bank', tags: ['소매은행'],       purePlay: true,  note: '미 대형 소매은행' },
+  { ticker: '055550', name: '신한지주',      market: 'KR', sub: 'bank', tags: ['금융지주'],       purePlay: true,  note: '국내 대표 금융지주' },
+  { ticker: '105560', name: 'KB금융',        market: 'KR', sub: 'bank', tags: ['금융지주'],       purePlay: true,  note: '국내 최대 금융지주(리딩뱅크)' },
+  { ticker: '086790', name: '하나금융지주',   market: 'KR', sub: 'bank', tags: ['금융지주'],       purePlay: true,  note: '국내 대형 금융지주' },
+  { ticker: '316140', name: '우리금융지주',   market: 'KR', sub: 'bank', tags: ['금융지주'],       purePlay: true,  note: '국내 금융지주(은행 비중 큼)' },
+  // 🛡️ 보험
+  { ticker: '032830', name: '삼성생명',      market: 'KR', sub: 'insurance', tags: ['생명보험'],   purePlay: true,  note: '국내 1위 생명보험(자산운용)' },
+  { ticker: '000810', name: '삼성화재',      market: 'KR', sub: 'insurance', tags: ['손해보험'],   purePlay: true,  note: '국내 1위 손해보험' },
+  { ticker: '138040', name: '메리츠금융지주', market: 'KR', sub: 'insurance', tags: ['보험·금융'], purePlay: true,  note: '보험 중심 금융지주(고ROE)' },
+  { ticker: 'BRK-B', name: 'Berkshire',      market: 'US', sub: 'insurance', tags: ['보험·복합'], purePlay: false, note: '버핏 보험+복합기업(투자지주)' },
+  { ticker: 'PGR',  name: 'Progressive',     market: 'US', sub: 'insurance', tags: ['자동차보험'], purePlay: true,  note: '미 자동차보험 강자' },
+  { ticker: 'CB',   name: 'Chubb',           market: 'US', sub: 'insurance', tags: ['손해보험'],   purePlay: true,  note: '글로벌 손해보험' },
+  { ticker: 'MET',  name: 'MetLife',         market: 'US', sub: 'insurance', tags: ['생명보험'],   purePlay: true,  note: '미 대형 생명보험' },
+  // 📈 증권·자산운용
+  { ticker: 'GS',   name: 'Goldman Sachs',   market: 'US', sub: 'broker', tags: ['IB'],           purePlay: true,  note: '글로벌 투자은행 1위' },
+  { ticker: 'MS',   name: 'Morgan Stanley',  market: 'US', sub: 'broker', tags: ['IB·WM'],        purePlay: true,  note: 'IB+자산관리' },
+  { ticker: 'SCHW', name: 'Charles Schwab',  market: 'US', sub: 'broker', tags: ['브로커리지'],   purePlay: true,  note: '미 최대 리테일 브로커' },
+  { ticker: 'BLK',  name: 'BlackRock',       market: 'US', sub: 'broker', tags: ['자산운용'],     purePlay: true,  note: '세계 1위 자산운용(ETF iShares)' },
+  { ticker: '006800', name: '미래에셋증권',   market: 'KR', sub: 'broker', tags: ['증권'],         purePlay: true,  note: '국내 대형 증권사' },
+  { ticker: '071050', name: '한국금융지주',   market: 'KR', sub: 'broker', tags: ['증권지주'],     purePlay: true,  note: '한국투자증권 지주' },
+  { ticker: '039490', name: '키움증권',      market: 'KR', sub: 'broker', tags: ['리테일 증권'],   purePlay: true,  note: '리테일 브로커리지 1위' },
+  // 💳 카드·결제
+  { ticker: 'V',    name: 'Visa',            market: 'US', sub: 'payment', tags: ['결제 네트워크'], purePlay: true, note: '글로벌 결제 네트워크 1위' },
+  { ticker: 'MA',   name: 'Mastercard',      market: 'US', sub: 'payment', tags: ['결제 네트워크'], purePlay: true, note: '글로벌 결제 네트워크 2위' },
+  { ticker: 'AXP',  name: 'American Express', market: 'US', sub: 'payment', tags: ['카드·결제'],    purePlay: true, note: '프리미엄 카드(버핏 보유)' },
+  { ticker: '029780', name: '삼성카드',      market: 'KR', sub: 'payment', tags: ['카드'],         purePlay: true,  note: '국내 카드사' },
+]
+const FIN_CONFIG: SectorConfig = {
+  key: 'financials', label: '금융 (은행·보험·증권)', emoji: '💰',
+  tagline: 'GICS 11섹터 中 금융 — ‘꿈의 테마’와 달리 실적·자본이 탄탄한 전통 가치주. 은행(NIM·금리 수혜)·보험(운용수익)·증권(거래대금)·카드(결제). ⚠️ PER·총마진·이자보상배율 등 일반 지표가 구조적으로 부적합 → ROE·PBR·내재가치(EV)로 본다. 모멘텀·업종 내 상대강도로 봅니다. 교육용.',
+  anchor: 'JPM', tagHeader: '업종', subMeta: FIN_SUB,
+  stocks: FIN_STOCKS, overlayTickers: ['JPM', 'BAC', 'GS', 'V', '105560'],
+}
+
 export const SECTORS: Record<string, SectorConfig> = {
   quantum: QUANTUM_CONFIG,
   'ai-semi': AISEMI_CONFIG,
@@ -243,5 +288,6 @@ export const SECTORS: Record<string, SectorConfig> = {
   'phys-ai': PHYS_CONFIG,
   'ai-bio': BIO_CONFIG,
   defense: DEF_CONFIG,
+  financials: FIN_CONFIG,
 }
 export const SECTOR_LIST = Object.values(SECTORS).map(s => ({ key: s.key, label: s.label, emoji: s.emoji }))
