@@ -18,6 +18,13 @@ export default function BtcRainbowChart({ rainbow }: { rainbow: NonNullable<Coin
   const yMax = Math.max(...highs, ...prices) * 1.08
   const ticks = [100, 300, 1000, 3000, 10000, 30000, 100000, 300000, 1000000].filter(t => t >= yMin && t <= yMax)
 
+  // X축: 연도당 첫 포인트만 눈금으로(격주 데이터의 연도 중복 표시 방지)
+  const yearTicks: string[] = (() => {
+    const seen = new Set<string>(); const out: string[] = []
+    for (const p of points) { const y = String(p.date).slice(0, 4); if (!seen.has(y)) { seen.add(y); out.push(String(p.date)) } }
+    return out
+  })()
+
   // 현재 위치 해석
   const mult = current?.mult ?? 1
   const valuationText = mult >= 1
@@ -45,7 +52,7 @@ export default function BtcRainbowChart({ rainbow }: { rainbow: NonNullable<Coin
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={points} margin={{ top: 12, right: 14, left: 2, bottom: 0 }}>
             <XAxis dataKey="date" tick={{ fill: '#7f93a8', fontSize: 9.5 }} tickFormatter={(s: string) => String(s).slice(0, 4)}
-              minTickGap={48} axisLine={{ stroke: BORDER }} tickLine={false} />
+              ticks={yearTicks} axisLine={{ stroke: BORDER }} tickLine={false} />
             <YAxis scale="log" domain={[yMin, yMax]} ticks={ticks} allowDataOverflow tick={{ fill: '#7f93a8', fontSize: 9.5 }}
               axisLine={false} tickLine={false} width={52}
               tickFormatter={(v: number) => v >= 1000000 ? `$${v / 1e6}M` : v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${v}`} />
