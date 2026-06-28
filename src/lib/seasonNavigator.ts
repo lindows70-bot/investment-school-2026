@@ -66,6 +66,7 @@ export interface SeasonMeta {
   cashHint: string      // 권장 현금 비중(조언 텍스트 — 점수 항 아님)
   guide: string         // 행동 가이드(최일 페르소나)
   favored: string[]     // 우대 GICS 섹터(Yahoo 표기)
+  unfavored: string[]   // 불리 GICS 섹터(섹터 로테이션 클락 — 교육용 표준 경향)
 }
 
 export const SEASON_META: Record<Quadrant, SeasonMeta> = {
@@ -74,30 +75,35 @@ export const SEASON_META: Record<Quadrant, SeasonMeta> = {
     cashHint: '권장 현금 10~20% — 유동성이 도는 국면이라 현금을 줄이고 주식을 가동할 시기입니다.',
     guide: '유동성이 돌고 물가가 안정된 최적 국면입니다. 저PEG 성장주와 바닥을 다진 우량주를 사들일 타이밍입니다.',
     favored: ['Technology', 'Consumer Cyclical', 'Financial Services'],
+    unfavored: ['Utilities', 'Consumer Defensive', 'Energy'],   // 방어·실물은 위험선호 국면에 뒤처짐
   },
   inflation: {
     quadrant: 'inflation', seasonKo: '☀️ 여름 (호황기)', icon: '☀️', label: '인플레이션 (성장↑·물가↑)',
     cashHint: '권장 현금 0~10% — 이익이 정점을 향하는 공격적 구간입니다.',
     guide: '경기가 확장하며 물가도 오르는 국면입니다. 시클리컬(소재·산업재)과 에너지로 인플레이션을 올라타세요.',
     favored: ['Energy', 'Basic Materials', 'Industrials'],
+    unfavored: ['Technology', 'Consumer Cyclical', 'Real Estate'],   // 고듀레이션 성장·금리민감은 인플레에 취약
   },
   stagflation: {
     quadrant: 'stagflation', seasonKo: '🍁 가을 (후퇴기)', icon: '🍁', label: '스태그플레이션 (성장↓·물가↑)',
     cashHint: '권장 현금 40~50% — 위험 자산을 줄이고 현금을 확보할 국면입니다.',
     guide: '성장은 둔화되는데 물가는 높은 가장 까다로운 국면입니다. 이익 체력 없는 종목은 과감히 줄이고 에너지·실물 자산주 위주로 압축하세요.',
     favored: ['Energy', 'Utilities', 'Consumer Defensive'],
+    unfavored: ['Technology', 'Consumer Cyclical', 'Financial Services'],   // 성장·금융은 스태그플레이션에 가장 약함
   },
   recession: {
     quadrant: 'recession', seasonKo: '❄️ 겨울 (침체기)', icon: '❄️', label: '리세션 (성장↓·물가↓)',
     cashHint: '권장 현금 30~40% — 방어적 포지션을 유지할 국면입니다.',
     guide: '디플레이션성 침체 국면입니다. 배당이 높고 변동성이 낮은 통신·유틸리티·필수소비재 대형 방어주로 압축하세요.',
     favored: ['Utilities', 'Consumer Defensive', 'Communication Services', 'Healthcare'],
+    unfavored: ['Energy', 'Basic Materials', 'Industrials', 'Financial Services'],   // 경기민감·금융은 침체에 가장 타격
   },
   shoulder: {
     quadrant: 'shoulder', seasonKo: '🌗 간절기 (전환 경계)', icon: '🌗', label: '간절기 (지표 상충)',
     cashHint: '권장 현금 30% 내외 — 방향이 불명확하니 보수적으로 운용하세요.',
     guide: '성장·물가 지표가 서로 충돌해 계절이 명확히 갈리지 않는 전환 구간입니다. 신규 베팅을 줄이고 다음 신호를 기다리세요.',
     favored: ['Consumer Defensive', 'Healthcare'],
+    unfavored: [],   // 전환 구간 — 명확한 불리 섹터 단정 보류
   },
 }
 

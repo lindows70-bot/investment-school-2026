@@ -2,6 +2,7 @@
 // 🧭 4계절 매크로 내비게이터 UI — 2×2 휠 + 보유 계절 정합성 게이지 + 장단기 역전 경보
 import { useState, useEffect } from 'react'
 import type { SeasonNavResult } from '@/app/api/season-navigator/route'
+import SeasonSectorScoreboard from '@/app/components/SeasonSectorScoreboard'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 
@@ -253,6 +254,9 @@ export default function SeasonNavigator() {
           💵 {data.cashHint}
         </div>
       </div>
+
+      {/* 🍂 이번 계절 × GICS 섹터 실제 성적표 — '유리 섹터가 실제로 오르나' 검증 */}
+      <SeasonSectorScoreboard />
 
       {/* 🛒 이 계절 우대 섹터 매수 후보 — 유니버스에서 우대 섹터만 추려 우리 퀀트 점수로 정렬 */}
       {data.buyCandidates && data.buyCandidates.length > 0 && (
