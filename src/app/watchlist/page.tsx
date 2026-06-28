@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import FullCandleChart from '@/app/components/FullCandleChart'
+import MoneyFlowRadar from '@/app/components/MoneyFlowRadar'
+import { getAssetType } from '@/lib/assetClassifier'
 import type { Candle } from '@/app/components/CandleChart'
 
 const N   = '#1b1e2e'
@@ -324,6 +326,11 @@ export default function WatchlistPage() {
                   </div>
                 )}
               </div>
+              {getAssetType(item.ticker, item.name, item.market) === 'STOCK' && (
+                <div style={{ marginTop:10 }}>
+                  <MoneyFlowRadar ticker={item.ticker} name={item.name} market={item.market} />
+                </div>
+              )}
             </div>
 
           </div>

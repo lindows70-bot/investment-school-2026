@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client'
 import AddInvestmentModal from '@/app/components/AddInvestmentModal'
 import TransactionModal from '@/app/components/TransactionModal'
 import FullCandleChart from '@/app/components/FullCandleChart'
+import MoneyFlowRadar from '@/app/components/MoneyFlowRadar'
 import { type Candle } from '@/app/components/CandleChart'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -782,6 +783,11 @@ export default function AssetsPage() {
                       </div>
                     )}
                   </div>
+                  {!isNA && (
+                    <div style={{ marginTop:10 }}>
+                      <MoneyFlowRadar ticker={inv.ticker} name={inv.name} market={inv.market} />
+                    </div>
+                  )}
                 </div>
               </div>
             )
