@@ -70,7 +70,9 @@ export default function SeasonSectorScoreboard() {
           const c = FIT_COLOR[s.fit]
           return (
             <div key={s.gics} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
-              <span style={{ width: 78, flexShrink: 0, color: '#cdd6e3', fontWeight: 700, textAlign: 'right' }}>{s.ko}</span>
+              <span style={{ width: 78, flexShrink: 0, color: '#cdd6e3', fontWeight: 700, textAlign: 'right' }}>
+                {s.ko}{s.breakout && <span title="계절상 불리한데 수익률 상위 — 매크로 역풍 돌파(구조적 테마/실적)"> 🔥</span>}{s.laggard && <span title="계절상 유리한데 수익률 하위 — 순풍에도 부진"> ❄️</span>}
+              </span>
               <span style={{ width: 40, flexShrink: 0, fontSize: 9.5 }}>{FIT_LABEL[s.fit].split(' ')[0]}</span>
               {/* 중앙 0선 막대 */}
               <div style={{ flex: 1, position: 'relative', height: 18, background: 'rgba(255,255,255,0.03)', borderRadius: 4 }}>
@@ -96,6 +98,9 @@ export default function SeasonSectorScoreboard() {
         <span>⚪ 중립</span>
         <span>🔴 이번 계절 <b style={{ color: '#f87171' }}>불리</b></span>
         <span style={{ color: '#6e7f8f' }}>· 막대 = 3개월 수익률(섹터 ETF)</span>
+      </div>
+      <div style={{ fontSize: 10, color: '#8599ae', marginTop: 4 }}>
+        🔥 <b style={{ color: '#fbbf24' }}>역풍 돌파</b> = 계절상 불리한데 수익률 상위(구조적 테마·실적이 매크로를 이김) · ❄️ <b style={{ color: '#93c5fd' }}>순풍 무력</b> = 유리한데 부진
       </div>
       <div style={{ color: '#7f93a8', fontSize: 10, lineHeight: 1.6, marginTop: 8 }}>
         ⚠️ 1~3개월은 단기라 노이즈가 큽니다 — <b>계절 이론은 &lsquo;평균적 경향&rsquo;</b>이지 매달 맞는 게 아닙니다. 유리 섹터가 빠지거나 불리 섹터가 오르면 <b>국면 전환의 힌트</b>일 수도 있습니다.

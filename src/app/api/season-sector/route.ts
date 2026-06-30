@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
 type Fit = 'favored' | 'neutral' | 'unfavored'
-interface SectorRet { gics: string; ko: string; ref: string; ret1m: number | null; ret3m: number | null; fit: Fit }
+interface SectorRet { gics: string; ko: string; ref: string; ret1m: number | null; ret3m: number | null; fit: Fit; breakout: boolean; laggard: boolean }
 interface MarketBlock {
   quad: Quadrant; seasonKo: string; favored: string[]; unfavored: string[]
   sectors: SectorRet[]
@@ -86,6 +86,15 @@ function avg(xs: (number | null)[]): number | null {
   const v = xs.filter((x): x is number => x != null); if (!v.length) return null
   return Math.round((v.reduce((s, x) => s + x, 0) / v.length) * 10) / 10
 }
+// 🔥 역풍 돌파(불리인데 수익률 상위2·플러스) / ❄️ 순풍 무력(유리인데 하위2·마이너스) — 서술적 표시(점수 영향 없음)
+function markFlags(sorted: SectorRet[]): SectorRet[] {
+  const n = sorted.length
+  sorted.forEach((s, i) => {
+    s.breakout = s.fit === 'unfavored' && i < 2 && (s.ret3m ?? 0) > 0
+    s.laggard = s.fit === 'favored' && i >= n - 2 && (s.ret3m ?? 0) < 0
+  })
+  return sorted
+}
 function buildValidation(sectors: SectorRet[]) {
   const fav = sectors.filter(s => s.fit === 'favored'), unf = sectors.filter(s => s.fit === 'unfavored')
   const favAvg3m = avg(fav.map(s => s.ret3m)), unfAvg3m = avg(unf.map(s => s.ret3m))
@@ -97,7 +106,7 @@ function buildValidation(sectors: SectorRet[]) {
 
 export async function GET(req: Request) {
   const base = new URL(req.url).origin
-  const cacheKey = 'season-sector-v2'   // v2: 키명 정정(unfavAvg) + KR 유틸리티 테마지수 추가
+  const cacheKey = 'season-sector-v3'   // v3: 🔥역풍돌파/❄️순풍무력 플래그 추가
   const cached = await getCache<SeasonSectorResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -106,18 +115,18 @@ export async function GET(req: Request) {
 
   // US: 11 ETF 병렬
   const usCloses = await Promise.all(US_ETF.map(e => yahooCloses(e.etf)))
-  const usSectors: SectorRet[] = US_ETF.map((e, i) => ({
+  const usSectors: SectorRet[] = markFlags(US_ETF.map((e, i) => ({
     gics: e.gics, ko: e.ko, ref: e.etf,
     ret1m: retPct(usCloses[i], 21), ret3m: retPct(usCloses[i], 63),
-    fit: classify(e.gics, usMeta.favored, usMeta.unfavored),
-  })).sort((a, b) => (b.ret3m ?? -999) - (a.ret3m ?? -999))
+    fit: classify(e.gics, usMeta.favored, usMeta.unfavored), breakout: false, laggard: false,
+  })).sort((a, b) => (b.ret3m ?? -999) - (a.ret3m ?? -999)))
 
   // KR: 10 ETF 병렬(네이버)
   const krRaw = await Promise.all(KR_ETF.map(e => naverCloses(e.code)))
   const krSectorsRaw: SectorRet[] = KR_ETF.map((e, i) => ({
     gics: e.gics, ko: e.ko, ref: e.proxy,
     ret1m: retPct(krRaw[i], 21), ret3m: retPct(krRaw[i], 63),
-    fit: classify(e.gics, krMeta.favored, krMeta.unfavored),
+    fit: classify(e.gics, krMeta.favored, krMeta.unfavored), breakout: false, laggard: false,
   }))
   // KR 유틸리티: 깨끗한 ETF 없음 → 🏛️GICS 섹터 차트와 동일한 '테마지수'(config 구성종목 동일가중 수익률)로 대체
   const utilCodes = (SECTORS['utilities']?.stocks ?? []).filter(s => s.market === 'KR').map(s => s.ticker)
@@ -129,10 +138,10 @@ export async function GET(req: Request) {
     }
     krSectorsRaw.push({
       gics: 'Utilities', ko: '유틸리티', ref: `테마지수(${utilCodes.length}종 동일가중)`,
-      ret1m: themeRet(21), ret3m: themeRet(63), fit: classify('Utilities', krMeta.favored, krMeta.unfavored),
+      ret1m: themeRet(21), ret3m: themeRet(63), fit: classify('Utilities', krMeta.favored, krMeta.unfavored), breakout: false, laggard: false,
     })
   }
-  const krSectors = krSectorsRaw.sort((a, b) => (b.ret3m ?? -999) - (a.ret3m ?? -999))
+  const krSectors = markFlags(krSectorsRaw.sort((a, b) => (b.ret3m ?? -999) - (a.ret3m ?? -999)))
 
   const result: SeasonSectorResult = {
     us: { quad: season.usQuad, seasonKo: usMeta.seasonKo, favored: usMeta.favored, unfavored: usMeta.unfavored, sectors: usSectors, validation: buildValidation(usSectors) },
