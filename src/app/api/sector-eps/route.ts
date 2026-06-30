@@ -34,11 +34,13 @@ export async function GET(req: Request) {
   const leaders = await Promise.all(picked.map(async s => {
     try {
       const sig = await getAnalystSignal({ ticker: s.ticker, name: s.name, market: s.market })
-      const dir = (sig.revisionSignal ?? 'na') as 'up' | 'down' | 'mixed' | 'na'
+      let dir = (sig.revisionSignal ?? 'na') as 'up' | 'down' | 'mixed' | 'na'
+      let up30 = sig.revUp30 ?? null, down30 = sig.revDown30 ?? null
+      // ▲0/▼0(리비전 카운트 없음)은 '혼조'가 아니라 '데이터 없음' — MSFT처럼 Yahoo가 카운트를 안 주는 경우
+      if ((up30 ?? 0) === 0 && (down30 ?? 0) === 0) { dir = 'na'; up30 = null; down30 = null }
       return {
-        ticker: s.ticker, name: s.name, dir,
-        up30: sig.revUp30 ?? null, down30: sig.revDown30 ?? null,
-        note: market === 'KR' && sig.revisionSignal == null ? '국내는 EPS 리비전 무료 데이터 없음(컨센서스만)' : undefined,
+        ticker: s.ticker, name: s.name, dir, up30, down30,
+        note: market === 'KR' && dir === 'na' ? '국내는 EPS 리비전 무료 데이터 없음(컨센서스만)' : undefined,
       }
     } catch {
       return { ticker: s.ticker, name: s.name, dir: 'na' as const, up30: null, down30: null }
