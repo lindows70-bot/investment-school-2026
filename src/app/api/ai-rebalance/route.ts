@@ -137,6 +137,8 @@ export interface RebalanceResult {
   fromCache:      boolean
   // ── P2: 코어-새틀라이트 5분류 자산군 분석(전 자산 기준) ──
   coreSatellite?: CoreSatelliteView
+  // 🌊 증거 기반 매크로 오버라이드 진단(계절 신뢰도 낮음+CapEx 급증 시 계절 가중 하향 고지)
+  waveOverride?: { active: boolean; note: string } | null
 }
 
 // ═══ 코어-새틀라이트 자산군 분석 ═══════════════════════════════════════════════
@@ -225,7 +227,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v26:${user.id}:${today}:${fp}`   // v26: 금융주 좀비 오판 방지(이자보상배율 null)
+  const cacheKey = `ai-rebalance-v27:${user.id}:${today}:${fp}`   // v27: 증거 기반 매크로 오버라이드(계절 신뢰도↓+CapEx surge 시 계절 가중 하향·🌊배지)
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -440,6 +442,19 @@ export async function GET(req: Request) {
     }
   } catch { /* graceful */ }
 
+  // ⑦-b 증거 기반 매크로 오버라이드 진단 — 계절 신뢰도 낮음(diverge)+CapEx 급증(surge) 시 계절 가중을 낮추고 실적·CapEx 증거 종목 중심으로 추천을 조정했음을 정직하게 고지
+  let waveOverride: RebalanceResult['waveOverride'] = null
+  try {
+    const ss = await getCache<{ us: { validation: { verdict: string } }; kr: { validation: { verdict: string } } }>('season-sector-v3', 6 * 3600_000)
+    const cap = await getCache<{ verdict: string; latestYoY: number | null }>('juglar-capex-v1', 24 * 3600_000)
+    const diverge = ss?.us?.validation?.verdict === 'diverge' || ss?.kr?.validation?.verdict === 'diverge'
+    if (diverge && cap?.verdict === 'surge') {
+      const note = `현재 계절 이론 신뢰도 낮음(섹터 성적표 괴리) + 빅테크 CapEx +${cap.latestYoY}% 급증. 단순 4계절 가이드를 그대로 따르지 않고, 계절 가중을 낮춰 'Fwd EPS 이익 가속 + CapEx 수혜' 증거가 있는 종목(🌊) 중심으로 매수 후보를 조정했습니다. 단, 증거 없는 무늬만 테마·역성장·급락주는 그대로 제외됩니다.`
+      waveOverride = { active: true, note }
+      regimeNote = `${regimeNote ?? ''} ${note}`.trim()
+    }
+  } catch { /* graceful */ }
+
   const narrative = await buildNarrative(diagnoses, buyCandidates, sellBudget, diversification, cyclicalTrap, hypePremium, zombieRisk, regimeNote)
 
   // ═══ P2: 코어-새틀라이트 5분류 자산군 분석(전 자산 기준) ═══════════════════════
@@ -450,7 +465,7 @@ export async function GET(req: Request) {
 
   const result: RebalanceResult = {
     holdings: diagnoses, buyCandidates, sellBudget, diversification, cyclicalTrap, hypePremium, zombieRisk, satelliteCandidates, portfolioValue: Math.round(totalMv),
-    narrative, generatedAt: new Date().toISOString(), fromCache: false, coreSatellite,
+    narrative, generatedAt: new Date().toISOString(), fromCache: false, coreSatellite, waveOverride,
   }
   await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })

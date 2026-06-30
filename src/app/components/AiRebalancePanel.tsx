@@ -84,6 +84,13 @@ export default function AiRebalancePanel() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* 🌊 증거 기반 매크로 오버라이드 진단 배너 */}
+      {data.waveOverride?.active && (
+        <div style={{ background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.4)', borderRadius: 12, padding: '12px 16px' }}>
+          <div style={{ color: '#7dd3fc', fontWeight: 800, fontSize: 13.5, marginBottom: 4 }}>🌊 매크로 역풍 오버라이드 작동 중</div>
+          <div style={{ color: '#cbd5e1', fontSize: 12, lineHeight: 1.65 }}>{data.waveOverride.note}</div>
+        </div>
+      )}
       {/* 헤더 */}
       <div style={{ background: CARD, borderRadius: 12, padding: '16px 20px', border: `1px solid ${BORDER}` }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>

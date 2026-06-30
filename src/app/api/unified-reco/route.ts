@@ -87,7 +87,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v13:${user.id}:${kstDate()}:${fp}`   // v13: 모멘텀 4축·칼날 제외 + 추정리비전 배지 모순 가드
+  const cacheKey = `unified-reco-v14:${user.id}:${kstDate()}:${fp}`   // v14: 증거 기반 매크로 오버라이드(diverge+CapEx surge+EPS가속 시 계절불리 기술주 적합도 복구)
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -141,17 +141,35 @@ export async function GET(req: Request) {
   try { const ex = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) }); if (ex.ok) { const j = await ex.json(); if (typeof j.rate === 'number' && j.rate > 0) usdKrw = j.rate } } catch { /* 폴백 */ }
   const portfolioKrw = (rows ?? []).reduce((s, r) => s + (r.purchase_price ?? 0) * (r.quantity ?? 0) * (r.currency === 'USD' ? usdKrw : 1), 0)
 
+  // ★ 증거 기반 매크로 오버라이드 게이트 — 계절 신뢰도 낮음(섹터 성적표 diverge) + 빅테크 CapEx 급증(주글라르 surge)일 때만,
+  //   계절 불리 기술주의 적합도를 'Fwd EPS 가속' 증거가 있을 때만 복구. 무늬만 AI·역성장·증거없음은 복구 안 함(반-하이프).
+  const ssCache = await getCache<{ us: { validation: { verdict: string } }; kr: { validation: { verdict: string } } }>('season-sector-v3', 6 * 3600_000)
+  const capCache = await getCache<{ verdict: string; latestYoY: number | null }>('juglar-capex-v1', 24 * 3600_000)
+  const usDiverge = ssCache?.us?.validation?.verdict === 'diverge'
+  const krDiverge = ssCache?.kr?.validation?.verdict === 'diverge'
+  const capexSurge = capCache?.verdict === 'surge'
+  const capexFrac = (capCache?.latestYoY ?? 0) / 100
+  const mSig = (d: ScreenedStock['fwdEpsDir']) => d === 'accel' ? 1 : d === 'flat' ? 0.5 : 0
+  //   복구 공식(제미나이): adjFit = fit + 0.5·min(1,ΔCapEx/0.5)·M_sig — 계절 불리(fit<0.5)·수혜섹터(Technology)만
+  function adjustedSeason(rawFit01: number, s: ScreenedStock, diverge: boolean): { score: number; overridden: boolean } {
+    if (!diverge || !capexSurge || rawFit01 >= 0.5 || s.sector !== 'Technology') return { score: clamp(rawFit01 * 100), overridden: false }
+    const m = mSig(s.fwdEpsDir)
+    if (m <= 0) return { score: clamp(rawFit01 * 100), overridden: false }   // 이익 가속 증거 없으면 복구 안 함
+    const boost = 0.5 * Math.min(1, capexFrac / 0.5) * m
+    return { score: clamp(Math.min(1, rawFit01 + boost) * 100), overridden: true }
+  }
+
   // ③ 계절+펀더멘탈 즉시 채점(전체) → US는 상위만 수급 fetch
-  type Pre = { s: ScreenedStock; quad: Quadrant; seasonScore: number; fundScore: number; momentumScore: number; knife: boolean; isKr: boolean; favored: boolean }
+  type Pre = { s: ScreenedStock; quad: Quadrant; seasonScore: number; fundScore: number; momentumScore: number; knife: boolean; isKr: boolean; favored: boolean; waveOverride: boolean }
   const pre: Pre[] = screened
     .filter(s => !held.has(s.market === 'KR' ? code6(s.ticker) : s.ticker.toUpperCase()))
     .map(s => {
       const isKr = s.market === 'KR'
       const quad = isKr ? krQuad : usQuad
       const h: Holding = { ticker: s.ticker, weight: 0, lynchCategory: s.lynchCategory as Holding['lynchCategory'], sector: s.sector ?? undefined }
-      const seasonScore = clamp(holdingFit(h, quad) * 100)
+      const { score: seasonScore, overridden: waveOverride } = adjustedSeason(holdingFit(h, quad), s, isKr ? krDiverge : usDiverge)
       const favored = s.sector != null && SEASON_META[quad].favored.includes(s.sector)
-      return { s, quad, seasonScore, fundScore: fundOf(s.score), momentumScore: s.momentumScore ?? 50, knife: s.knife ?? false, isKr, favored }
+      return { s, quad, seasonScore, fundScore: fundOf(s.score), momentumScore: s.momentumScore ?? 50, knife: s.knife ?? false, isKr, favored, waveOverride }
     })
 
   // US 수급 fetch 대상 — 계절+펀더+모멘텀 상위 25만(성능 바운드)
@@ -192,6 +210,7 @@ export async function GET(req: Request) {
     if (p.s.priceTrend === 'up') badges.push('🚀 주가 상승추세')
     else if (p.s.priceTrend === 'down') badges.push('🔻 주가 하락추세')
     if (p.knife) badges.push('🔪 급락 추세(falling knife)')
+    if (p.waveOverride) badges.push('🌊 CapEx 수혜(매크로 역풍 돌파)')
     const combined = clamp(p.seasonScore * W.season + p.fundScore * W.fund + supplyScore * W.supply + p.momentumScore * W.momentum)
     return { p, supplyScore, supplyKnown, supplyProxy, badges, combined }
   })
