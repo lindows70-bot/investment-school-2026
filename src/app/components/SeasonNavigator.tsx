@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import type { SeasonNavResult } from '@/app/api/season-navigator/route'
 import SeasonSectorScoreboard from '@/app/components/SeasonSectorScoreboard'
 import EconomicWaveSimulator from '@/app/components/EconomicWaveSimulator'
+import JuglarCapexTracker from '@/app/components/JuglarCapexTracker'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 
@@ -261,6 +262,9 @@ export default function SeasonNavigator() {
 
       {/* 🌊 경제 파동 중첩 시뮬레이터 — 괴리(계절 vs 현실)의 근본을 키친·주글라르·콘드라티예프로 설명 */}
       <EconomicWaveSimulator />
+
+      {/* 🏭 주글라르 파동 실데이터 — 빅테크 CAPEX 추적기 */}
+      <JuglarCapexTracker />
 
       {/* 🛒 이 계절 우대 섹터 매수 후보 — 유니버스에서 우대 섹터만 추려 우리 퀀트 점수로 정렬 */}
       {data.buyCandidates && data.buyCandidates.length > 0 && (

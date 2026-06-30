@@ -2,6 +2,7 @@
 // 4계절 × GICS 섹터 실제 성적표 — '유리 섹터가 실제로 오르나'를 섹터 ETF 수익률로 검증(US/KR)
 import { useState, useEffect } from 'react'
 import type { SeasonSectorResult } from '@/app/api/season-sector/route'
+import type { SectorEpsResult } from '@/app/api/sector-eps/route'
 
 const CARD = '#12151c', BORDER = '#252a36'
 const FIT_COLOR = { favored: '#34d399', neutral: '#8599ae', unfavored: '#f87171' } as const
@@ -11,11 +12,26 @@ export default function SeasonSectorScoreboard() {
   const [data, setData] = useState<SeasonSectorResult | null>(null)
   const [err, setErr] = useState(false)
   const [mkt, setMkt] = useState<'us' | 'kr'>('us')
+  const [openGics, setOpenGics] = useState<string | null>(null)   // 펼친 섹터(대장주 EPS)
+  const [eps, setEps] = useState<Record<string, SectorEpsResult | 'loading'>>({})
 
   useEffect(() => {
     fetch('/api/season-sector', { cache: 'no-store' })
       .then(r => r.json()).then(setData).catch(() => setErr(true))
   }, [])
+
+  // 섹터 클릭 → 대장주 Fwd EPS 토글(시장+섹터별 1회 fetch 캐시)
+  const toggleSector = (gics: string) => {
+    if (openGics === gics) { setOpenGics(null); return }
+    setOpenGics(gics)
+    const ck = `${mkt}:${gics}`
+    if (!eps[ck]) {
+      setEps(p => ({ ...p, [ck]: 'loading' }))
+      fetch(`/api/sector-eps?gics=${encodeURIComponent(gics)}&market=${mkt}`, { cache: 'no-store' })
+        .then(r => r.json()).then((d: SectorEpsResult) => setEps(p => ({ ...p, [ck]: d })))
+        .catch(() => setEps(p => ({ ...p, [ck]: { leaders: [] } })))
+    }
+  }
 
   if (err) return null
   if (!data) return (
@@ -37,11 +53,11 @@ export default function SeasonSectorScoreboard() {
     <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
         <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>🍂 이번 계절 × GICS 섹터 실제 성적표</span>
-        <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>섹터 ETF 최근 수익률(3개월 순) · 유리=초록 / 불리=빨강 막대</span>
+        <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>섹터 ETF 최근 수익률(3개월 순) · 유리=초록 / 불리=빨강 · <b style={{ color: '#93c5fd' }}>행 클릭 → 대장주 Fwd EPS</b></span>
         {/* US/KR 토글 */}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
           {(['us', 'kr'] as const).map(k => (
-            <button key={k} onClick={() => setMkt(k)} style={{
+            <button key={k} onClick={() => { setMkt(k); setOpenGics(null) }} style={{
               padding: '3px 11px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700,
               background: mkt === k ? '#1e293b' : 'transparent', color: mkt === k ? '#e2e8f0' : '#8599ae' }}>
               {k === 'us' ? '🇺🇸 미국' : '🇰🇷 한국'}
@@ -68,25 +84,56 @@ export default function SeasonSectorScoreboard() {
           const r = s.ret3m ?? 0
           const w = Math.min(48, Math.abs(r) / maxAbs * 48)   // 중앙 기준 좌우 최대 48%
           const c = FIT_COLOR[s.fit]
+          const isOpen = openGics === s.gics
+          const epsData = eps[`${mkt}:${s.gics}`]
           return (
-            <div key={s.gics} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
-              <span style={{ width: 78, flexShrink: 0, color: '#cdd6e3', fontWeight: 700, textAlign: 'right' }}>
-                {s.ko}{s.breakout && <span title="계절상 불리한데 수익률 상위 — 매크로 역풍 돌파(구조적 테마/실적)"> 🔥</span>}{s.laggard && <span title="계절상 유리한데 수익률 하위 — 순풍에도 부진"> ❄️</span>}
-              </span>
-              <span style={{ width: 40, flexShrink: 0, fontSize: 9.5 }}>{FIT_LABEL[s.fit].split(' ')[0]}</span>
-              {/* 중앙 0선 막대 */}
-              <div style={{ flex: 1, position: 'relative', height: 18, background: 'rgba(255,255,255,0.03)', borderRadius: 4 }}>
-                <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 1, background: '#3a4152' }} />
-                {s.ret3m != null && (
-                  <div style={{ position: 'absolute', top: 3, bottom: 3, borderRadius: 3, background: c,
-                    ...(r >= 0 ? { left: '50%', width: `${w}%` } : { right: '50%', width: `${w}%` }) }} />
-                )}
+            <div key={s.gics}>
+              <div onClick={() => toggleSector(s.gics)} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, cursor: 'pointer', borderRadius: 4, padding: '1px 2px', background: isOpen ? 'rgba(255,255,255,0.04)' : 'transparent' }}>
+                <span style={{ width: 78, flexShrink: 0, color: '#cdd6e3', fontWeight: 700, textAlign: 'right' }}>
+                  {s.ko}{s.breakout && <span title="계절상 불리한데 수익률 상위 — 매크로 역풍 돌파(구조적 테마/실적)"> 🔥</span>}{s.laggard && <span title="계절상 유리한데 수익률 하위 — 순풍에도 부진"> ❄️</span>}
+                </span>
+                <span style={{ width: 40, flexShrink: 0, fontSize: 9.5 }}>{FIT_LABEL[s.fit].split(' ')[0]}</span>
+                {/* 중앙 0선 막대 */}
+                <div style={{ flex: 1, position: 'relative', height: 18, background: 'rgba(255,255,255,0.03)', borderRadius: 4 }}>
+                  <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 1, background: '#3a4152' }} />
+                  {s.ret3m != null && (
+                    <div style={{ position: 'absolute', top: 3, bottom: 3, borderRadius: 3, background: c,
+                      ...(r >= 0 ? { left: '50%', width: `${w}%` } : { right: '50%', width: `${w}%` }) }} />
+                  )}
+                </div>
+                <span style={{ width: 100, flexShrink: 0, textAlign: 'right', color: '#8a9aaa', fontSize: 10 }}>
+                  <b style={{ color: r >= 0 ? '#34d399' : '#f87171', fontSize: 11 }}>{s.ret3m != null ? `${r > 0 ? '+' : ''}${r}%` : '—'}</b>
+                  <span style={{ color: '#6e7f8f' }}> 3M</span>
+                  {s.ret1m != null && <span style={{ marginLeft: 5, color: '#7f93a8' }}>{s.ret1m > 0 ? '+' : ''}{s.ret1m}% 1M</span>}
+                  <span style={{ marginLeft: 4, color: '#6e7f8f' }}>{isOpen ? '▴' : '▾'}</span>
+                </span>
               </div>
-              <span style={{ width: 92, flexShrink: 0, textAlign: 'right', color: '#8a9aaa', fontSize: 10 }}>
-                <b style={{ color: r >= 0 ? '#34d399' : '#f87171', fontSize: 11 }}>{s.ret3m != null ? `${r > 0 ? '+' : ''}${r}%` : '—'}</b>
-                <span style={{ color: '#6e7f8f' }}> 3M</span>
-                {s.ret1m != null && <span style={{ marginLeft: 5, color: '#7f93a8' }}>{s.ret1m > 0 ? '+' : ''}{s.ret1m}% 1M</span>}
-              </span>
+              {/* 대장주 Fwd EPS 리비전 펼침 */}
+              {isOpen && (
+                <div style={{ margin: '4px 0 8px 86px', padding: '8px 10px', background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+                  <div style={{ color: '#8a9aaa', fontSize: 10, marginBottom: 5 }}>📊 대장주 12개월 선행 EPS 컨센서스 추세 — <b>실적이 뒷받침되는 상승인지</b> 확인</div>
+                  {epsData === 'loading' || epsData === undefined ? (
+                    <div style={{ color: '#7f93a8', fontSize: 11 }}>분석 중…</div>
+                  ) : epsData.leaders.length === 0 ? (
+                    <div style={{ color: '#7f93a8', fontSize: 11 }}>대장주 데이터 없음</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {epsData.leaders.map(l => {
+                        const dc = l.dir === 'up' ? '#34d399' : l.dir === 'down' ? '#f87171' : l.dir === 'mixed' ? '#fbbf24' : '#8599ae'
+                        const dt = l.dir === 'up' ? '🟢 상향(실적 뒷받침)' : l.dir === 'down' ? '🔴 하향(둔화)' : l.dir === 'mixed' ? '🟡 혼조' : '— 데이터 없음'
+                        return (
+                          <div key={l.ticker} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
+                            <span style={{ width: 130, flexShrink: 0, color: '#cdd6e3' }}>{l.name} <span style={{ color: '#6e7f8f', fontSize: 9.5 }}>{l.ticker}</span></span>
+                            <span style={{ color: dc, fontWeight: 700 }}>{dt}</span>
+                            {(l.up30 != null || l.down30 != null) && <span style={{ color: '#7f93a8', fontSize: 10 }}>▲{l.up30 ?? 0} / ▼{l.down30 ?? 0} (30일)</span>}
+                            {l.note && <span style={{ color: '#6e7f8f', fontSize: 9.5 }}>{l.note}</span>}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )
         })}
