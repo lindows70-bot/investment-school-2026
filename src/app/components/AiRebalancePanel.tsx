@@ -84,10 +84,17 @@ export default function AiRebalancePanel() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* 🌊 증거 기반 매크로 오버라이드 진단 배너 */}
-      {data.waveOverride?.active && (
-        <div style={{ background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.4)', borderRadius: 12, padding: '12px 16px' }}>
-          <div style={{ color: '#7dd3fc', fontWeight: 800, fontSize: 13.5, marginBottom: 4 }}>🌊 매크로 역풍 오버라이드 작동 중</div>
+      {/* 🌊 증거 기반 매크로 오버라이드 진단 배너 — 실제 발동(active)이면 청록, 게이트만 활성이면 회색 '대기' */}
+      {data.waveOverride && (
+        <div style={{
+          background: data.waveOverride.active ? 'rgba(56,189,248,0.08)' : 'rgba(148,163,184,0.06)',
+          border: `1px solid ${data.waveOverride.active ? 'rgba(56,189,248,0.4)' : 'rgba(148,163,184,0.28)'}`,
+          borderRadius: 12, padding: '12px 16px' }}>
+          <div style={{ color: data.waveOverride.active ? '#7dd3fc' : '#94a3b8', fontWeight: 800, fontSize: 13.5, marginBottom: 4 }}>
+            {data.waveOverride.active
+              ? `🌊 매크로 역풍 오버라이드 작동 — ${data.waveOverride.boosted.join('·')} 계절 페널티 복구`
+              : '🌊 매크로 오버라이드 대기 (게이트 활성·현재 발동 대상 없음)'}
+          </div>
           <div style={{ color: '#cbd5e1', fontSize: 12, lineHeight: 1.65 }}>{data.waveOverride.note}</div>
         </div>
       )}

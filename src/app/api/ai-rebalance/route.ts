@@ -137,8 +137,8 @@ export interface RebalanceResult {
   fromCache:      boolean
   // ── P2: 코어-새틀라이트 5분류 자산군 분석(전 자산 기준) ──
   coreSatellite?: CoreSatelliteView
-  // 🌊 증거 기반 매크로 오버라이드 진단(계절 신뢰도 낮음+CapEx 급증 시 계절 가중 하향 고지)
-  waveOverride?: { active: boolean; note: string } | null
+  // 🌊 증거 기반 매크로 오버라이드 진단. active = 실제 발동(계절 페널티 복구된 후보 ≥1) / boosted = 그 종목들
+  waveOverride?: { active: boolean; boosted: string[]; note: string } | null
 }
 
 // ═══ 코어-새틀라이트 자산군 분석 ═══════════════════════════════════════════════
@@ -227,7 +227,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v27:${user.id}:${today}:${fp}`   // v27: 증거 기반 매크로 오버라이드(계절 신뢰도↓+CapEx surge 시 계절 가중 하향·🌊배지)
+  const cacheKey = `ai-rebalance-v28:${user.id}:${today}:${fp}`   // v28: 🌊배너 정직화(실제 발동 종목 있을 때만 '작동', 없으면 '대기' 고지)
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -389,10 +389,12 @@ export async function GET(req: Request) {
   //    기존엔 macro-ai-picks 별도 엔진 + 갭/섹터 재랭킹을 써 ①③과 종목이 달라지는 불일치가 있었음.
   //    → unified-reco가 이미 보유제외·섹터분산(SECTOR_CAP)·통합 3축 채점을 수행하므로 그 상위를 그대로 채택.
   let buyCandidates: BuyCandidate[] = []
+  let waveBoostedNames: string[] = []   // 🌊 계절 페널티가 실제로 복구된 추천 종목(정직한 배너용)
   try {
     const ur = await fetch(`${base}/api/unified-reco`, { headers: { cookie }, signal: AbortSignal.timeout(40_000) })
     if (ur.ok) {
       const ud = await ur.json() as UnifiedRecoResult
+      waveBoostedNames = (ud.items ?? []).filter(it => it.badges.includes('🌊 CapEx 수혜(매크로 역풍 돌파)')).map(it => it.name)
       // 통합점수 상위 4종(코어) — 순서·종목을 ③통합매수와 동일하게. (이미 미보유로 필터됨, 안전망으로 재확인)
       const ranked = (ud.items ?? []).filter(it => !heldSet.has(it.ticker.toUpperCase())).slice(0, 4)
       const csum = ranked.reduce((s, it) => s + it.combined, 0) || 1
@@ -449,9 +451,16 @@ export async function GET(req: Request) {
     const cap = await getCache<{ verdict: string; latestYoY: number | null }>('juglar-capex-v1', 24 * 3600_000)
     const diverge = ss?.us?.validation?.verdict === 'diverge' || ss?.kr?.validation?.verdict === 'diverge'
     if (diverge && cap?.verdict === 'surge') {
-      const note = `현재 계절 이론 신뢰도 낮음(섹터 성적표 괴리) + 빅테크 CapEx +${cap.latestYoY}% 급증. 단순 4계절 가이드를 그대로 따르지 않고, 계절 가중을 낮춰 'Fwd EPS 이익 가속 + CapEx 수혜' 증거가 있는 종목(🌊) 중심으로 매수 후보를 조정했습니다. 단, 증거 없는 무늬만 테마·역성장·급락주는 그대로 제외됩니다.`
-      waveOverride = { active: true, note }
-      regimeNote = `${regimeNote ?? ''} ${note}`.trim()
+      if (waveBoostedNames.length > 0) {
+        // 실제 발동 — 계절 페널티가 복구된 종목이 추천에 있음
+        const note = `계절 이론 신뢰도 낮음(섹터 성적표 괴리) + 빅테크 CapEx +${cap.latestYoY}% 급증. 계절상 불리하지만 'Fwd EPS 이익 가속 + CapEx 수혜' 증거가 확실한 ${waveBoostedNames.join('·')}의 계절 페널티를 복구해 추천에 반영했습니다. 증거 없는 무늬만 테마·역성장·급락주는 그대로 제외됩니다.`
+        waveOverride = { active: true, boosted: waveBoostedNames, note }
+      } else {
+        // 게이트는 활성이나 발동 대상 없음 — 정직하게 대기 상태로 고지(반도체=경기순환이라 여름 이미 우대)
+        const note = `계절 신뢰도 낮음(괴리) + CapEx +${cap.latestYoY}% 급증으로 오버라이드 게이트는 활성이지만, 현재 매수 후보 중 발동 대상은 없습니다 — AI 주력(반도체 등)은 이 앱에서 '경기순환주'로 분류돼 여름에 이미 계절 우대(적합도 0.75)를 받아 계절이 밀어내지 않기 때문입니다. (오버라이드는 순수 성장 기술주가 계절에 강하게 눌리는 다른 국면을 위한 안전장치로 대기 중)`
+        waveOverride = { active: false, boosted: [], note }
+      }
+      regimeNote = `${regimeNote ?? ''} ${waveOverride.note}`.trim()
     }
   } catch { /* graceful */ }
 
