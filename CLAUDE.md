@@ -2271,6 +2271,15 @@ KB금융(은행)이 AI 리밸런싱·본부장 브리핑·투자 프로필에서
 - **📊 `/api/sector-eps`**(섹터 행 클릭 시): GICS Yahoo명→🏛️섹터 config 키 매핑 → 해당 시장 대장주(overlayTickers 우선 3) → **`getAnalystSignal` 재사용**(12M Fwd EPS 리비전 up/down/mixed). '섹터가 실적 뒷받침 상승인지 테마 펌핑인지' 교차검증. `SeasonSectorScoreboard`에 행 클릭 펼침. 검증: 기술 클릭 → **NVIDIA ▲41/▼2 상향**·Broadcom ▲28/▼10 상향(= 🔥역풍돌파가 실적 근거임을 입증) / 에너지 → XOM·CVX·COP 상향. KR은 리비전 무료데이터 없어 na.
   - ⚠️ **MSFT ▲0/▼0 보정**: Yahoo가 일부 종목(MSFT) 리비전 카운트를 0/0으로 줘 `getAnalystSignal`이 'mixed(혼조)'로 분류 → 오해 소지. **표시단(route)에서만** `up30·down30 모두 0이면 dir='na'(데이터 없음)` 보정(SSOT `getAnalystSignal`은 불변). 교훈: 0/0 리비전은 '혼조'가 아니라 '데이터 없음'.
 
+## 🏷️ GICS 테마·섹터 배지 — AI 리밸런싱·퀀트빌더 공통 (2026-07-01)
+
+추천/탈락 종목이 어느 섹터인지 한눈에 보이도록 두 탭에 공통 배지 신설.
+- **`lib/gicsSectorMeta.ts`**(SSOT): Yahoo GICS 11섹터명 → 한글·아이콘·색(🏛️GICS 섹터 탭과 동일 아이콘 체계: ⚡🧱🏗️🛒🥫💊💰💻📡🔌🏢). **`components/SectorBadge.tsx`**: 공용 배지(size sm/xs).
+- **`satelliteScreener.SatelliteScore`에 `sector` 추가**: `buildSignalMetrics`가 이미 fetch하는 `assetProfile.sector` 재사용(추가 비용 0). `SAT_SCORE_KEY` v3→v4.
+- **`ai-rebalance.ActionItem`·`BuyIdea`에 `sector` 추가**: 버릴것·줄일것·보강할것·위성후보 전부 `secByTicker`(이미 계산됨)·`SatelliteScore.sector`로 채움(추가 fetch 0). 캐시 v30→v31.
+- 적용처: `AiRebalancePanel`(코어 편입 후보·위성 후보) · `CoreSatelliteHero`(버릴/줄일/보강 3섹션) · `QuantBuilderLab`(위성 처방전 행, unified-reco `item.sector` 재사용).
+- 효과: 같은 섹터가 여러 곳(예: Technology 과다)에 몰려 있으면 학생이 배지 색만 보고 즉시 인지 — 이전엔 텍스트로만 표시되거나(리밸런싱 코어) 아예 없던(위성·버릴/줄일/보강) 곳에 시각화 추가.
+
 ## 🐛 AI 리밸런싱 검증 수정 3종 (2026-07-01)
 
 화면 검증(사용자 스크린샷)으로 발견·수정:
