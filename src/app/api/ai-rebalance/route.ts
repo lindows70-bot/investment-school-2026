@@ -227,7 +227,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v28:${user.id}:${today}:${fp}`   // v28: 🌊배너 정직화(실제 발동 종목 있을 때만 '작동', 없으면 '대기' 고지)
+  const cacheKey = `ai-rebalance-v29:${user.id}:${today}:${fp}`   // v29: 기저효과 저PEG 가치 인플레 가드 반영(unified-reco v15)
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)

@@ -87,7 +87,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v14:${user.id}:${kstDate()}:${fp}`   // v14: 증거 기반 매크로 오버라이드(diverge+CapEx surge+EPS가속 시 계절불리 기술주 적합도 복구)
+  const cacheKey = `unified-reco-v15:${user.id}:${kstDate()}:${fp}`   // v15: 기저효과 저PEG 가치 인플레 가드(가치 상한 68 후 통합 재계산)
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -262,21 +262,28 @@ export async function GET(req: Request) {
       const roe = cf?.roe ?? null
       const epsRevision = analyst?.revisionSignal ?? null
       let badges = [...t.badges]
+      let fundScore = t.p.fundScore
+      let combined = t.combined
       // ⚠️ 기저효과 가드(SSOT 공통 판정) — 착시 저PEG(이익 붕괴 후 회복 G>100%)는 💎 뱃지 박탈 + 경고 배지
+      //   + 가치 점수 과신 방지: 신뢰 불가한 저PEG가 가치를 인플레하므로 가치를 중립 상한(68=마진·FCF 기반만)으로 캡 후 통합 재계산
       if (isPegBaseEffect(peg, cf?.growth ?? null)) {
         badges = badges.filter(b => b !== '💎 저PEG')
         badges.push('⚠️ 저PEG 기저효과 의심')
+        if (fundScore > 68) {
+          fundScore = 68
+          combined = clamp(t.p.seasonScore * W.season + fundScore * W.fund + t.supplyScore * W.supply + t.p.momentumScore * W.momentum)
+        }
       }
       if (roe != null && roe >= 0.20) badges.push(`🏰 고ROE ${Math.round(roe * 100)}%`)   // 버핏 퀄리티(자본효율)
       // 📈 애널리스트 추정 리비전 — 모멘텀(SSOT EPS 방향)과 어긋날 땐 숨김(제2원칙: '이익 가속+추정 하향' 모순 차단)
       if (epsRevision === 'up' && t.p.s.fwdEpsDir !== 'decline') badges.push('📈 이익추정 상향')
       else if (epsRevision === 'down' && t.p.s.fwdEpsDir !== 'accel') badges.push('📉 이익추정 하향')
       // 💰 권장 편입 비중 — 통합점수 티어(2.5/2/1.5%) × 국면 배율, 포트폴리오 기준 ₩
-      const suggestWeight = Math.round((t.combined >= 85 ? 2.5 : t.combined >= 78 ? 2.0 : 1.5) * regimeMult * 10) / 10
+      const suggestWeight = Math.round((combined >= 85 ? 2.5 : combined >= 78 ? 2.0 : 1.5) * regimeMult * 10) / 10
       const suggestWon = Math.round(portfolioKrw * suggestWeight / 100)
       return {
         ticker: t.p.s.ticker, name: t.p.s.name, market: t.p.s.market, sector: t.p.s.sector ?? '—', lynchCategory: t.p.s.lynchCategory as string,
-        seasonScore: t.p.seasonScore, fundScore: t.p.fundScore, supplyScore: t.supplyScore, momentumScore: t.p.momentumScore, combined: t.combined,
+        seasonScore: t.p.seasonScore, fundScore, supplyScore: t.supplyScore, momentumScore: t.p.momentumScore, combined,
         fwdEpsDir: t.p.s.fwdEpsDir, priceTrend: t.p.s.priceTrend, fwdGrowthPct: t.p.s.fwdGrowthPct ?? null, priceVs200: t.p.s.priceVs200 ?? null,
         peg, opMargin: t.p.s.opMargin, psr: cf?.psr ?? null, roe, epsRevision, suggestWeight, suggestWon,
         seasonFavored: t.p.favored, supplyProxy: t.supplyProxy, supplyKnown: t.supplyKnown, badges,

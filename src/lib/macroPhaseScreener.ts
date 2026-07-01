@@ -14,6 +14,7 @@
  */
 
 import { getCache, setCache } from '@/lib/appCache'
+import { isPegBaseEffect } from '@/lib/canonicalFundamentals'
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 export type MacroPhase =
@@ -491,7 +492,10 @@ async function screenOne(
 
     // 퀀트 점수 계산
     const lynchW = LYNCH_MACRO_WEIGHTS[phase][lynch]
-    const pegScore = peg != null && peg > 0 ? Math.max(0, 1.5 - peg * 0.3) : 0.5  // PEG 낮을수록 ↑
+    // PEG 낮을수록 ↑ (상한 1.0 — 과거엔 미캡이라 PEG 0.03 등이 1.49로 가치를 인플레). ⚠️ 기저효과(착시 저PEG)면 중립(0.5)
+    const earnGrowth = numf(fd.earningsGrowth)   // 소수(1.0=+100%) — isPegBaseEffect 규약과 동일 단위
+    const pegScore = isPegBaseEffect(peg, earnGrowth) ? 0.5
+      : (peg != null && peg > 0 ? Math.min(1.0, Math.max(0, 1.5 - peg * 0.3)) : 0.5)
     const marginScore = opMargin != null ? Math.min(1, Math.max(0, opMargin / 40)) : 0.3
     const fcfScore = fcfPositive ? 1.0 : 0.3
     const score = Math.round((lynchW * 0.35 + pegScore * 0.35 + marginScore * 0.2 + fcfScore * 0.1) * 1000) / 1000
