@@ -18,6 +18,7 @@ export const GICS_SECTOR_META: Record<string, SectorMeta> = {
 
 /** GICS 섹터명(또는 null/미상) → 표시 메타. 매핑 밖 값은 회색 중립 배지로 graceful. */
 export function sectorMeta(raw: string | null | undefined): SectorMeta | null {
-  if (!raw || raw === '—' || raw === '-') return null
+  // '기타' = getSector()의 조회실패/비주식(크립토 등) 폴백값 — 오분류 배지를 보여주느니 숨기는 게 정직
+  if (!raw || raw === '—' || raw === '-' || raw === '기타') return null
   return GICS_SECTOR_META[raw] ?? { ko: raw, icon: '📦', color: '#8599ae' }
 }
