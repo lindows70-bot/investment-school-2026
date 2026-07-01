@@ -149,8 +149,9 @@ export interface ActionItem {
   trimPct?: number           // 줄일 것: 권장 축소 %p
   reason: string             // 강력한 단일 이유
   tag: string                // 근거 엔진 태그(레버리지·알트·캡초과·역DCF·수급·좀비 등)
+  sector?: string | null     // GICS 섹터(테마·섹터 배지용 — secByTicker 재사용, 추가 비용 0)
 }
-export interface BuyIdea { ticker: string; name: string; market: string; role: string; targetPct: number; reason: string; tag: string }
+export interface BuyIdea { ticker: string; name: string; market: string; role: string; targetPct: number; reason: string; tag: string; sector?: string | null }
 export interface CoreSatelliteView {
   groups: AssetGroupRow[]              // 5분류+차단 현재 비중(전 자산)
   totalValue: number                   // 전 자산 원화 총액(원화 환산 정확도용 — 주식만 아닌 ETF·크립토 포함)
@@ -227,7 +228,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v30:${user.id}:${today}:${fp}`   // v30: 분산 내러티브 정직화(집중도 실제 미개선 시 과장 금지) + 기저효과 가드(v15)
+  const cacheKey = `ai-rebalance-v31:${user.id}:${today}:${fp}`   // v31: 버릴것/줄일것/보강할것/위성후보 GICS 섹터 배지 추가(secByTicker·SatelliteScore.sector 재사용)
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -571,18 +572,18 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
   for (const it of items) {
     if (it.role === 'BLOCKED') {
       const r = classifyAssetRole(it.ticker, it.name, it.market).reason
-      drop.push({ ticker: it.ticker, name: it.name, market: it.market, weightPct: pctOf(it.mv), reason: r, tag: '정책 차단' })
+      drop.push({ ticker: it.ticker, name: it.name, market: it.market, weightPct: pctOf(it.mv), reason: r, tag: '정책 차단', sector: secByTicker[it.ticker.toUpperCase()] ?? null })
       dropSeen.add(it.ticker.toUpperCase())
     }
   }
   for (const d of diagnoses) {
     const k = d.ticker.toUpperCase()
     if (dropSeen.has(k)) continue
-    if (d.action === 'CUT_LOSS') { drop.push({ ticker: d.ticker, name: d.name, market: (d.market === 'KR' ? 'KR' : 'US'), weightPct: pctOf(mvByTicker.get(k)?.mv ?? 0), reason: d.sellReasons.join('·') || '손실 중 + 펀더멘탈 붕괴', tag: '손절' }); dropSeen.add(k) }
+    if (d.action === 'CUT_LOSS') { drop.push({ ticker: d.ticker, name: d.name, market: (d.market === 'KR' ? 'KR' : 'US'), weightPct: pctOf(mvByTicker.get(k)?.mv ?? 0), reason: d.sellReasons.join('·') || '손실 중 + 펀더멘탈 붕괴', tag: '손절', sector: secByTicker[k] ?? null }); dropSeen.add(k) }
   }
   for (const z of zombies) {
     const k = z.ticker.toUpperCase(); if (dropSeen.has(k)) continue
-    drop.push({ ticker: z.ticker, name: z.name, market: (z.market === 'KR' ? 'KR' : 'US'), weightPct: pctOf(mvByTicker.get(k)?.mv ?? 0), reason: '영업이익으로 이자도 못 갚는 좀비(이자보상배율<1.5) — 구조적 위험', tag: '좀비' }); dropSeen.add(k)
+    drop.push({ ticker: z.ticker, name: z.name, market: (z.market === 'KR' ? 'KR' : 'US'), weightPct: pctOf(mvByTicker.get(k)?.mv ?? 0), reason: '영업이익으로 이자도 못 갚는 좀비(이자보상배율<1.5) — 구조적 위험', tag: '좀비', sector: secByTicker[k] ?? null }); dropSeen.add(k)
   }
 
   // ⑤ ✂️ 줄일 것 — 캡 초과(BTC/유령) + 코어 과다 + 익절
@@ -593,13 +594,13 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
   }
   if (ghostPct > CAP) {
     const gs = items.filter(i => i.role === 'SATELLITE_GHOST').sort((a, b) => b.mv - a.mv)[0]
-    if (gs) trim.push({ ticker: gs.ticker, name: gs.name, market: gs.market, weightPct: ghostPct, trimPct: Math.round((ghostPct - CAP) * 10) / 10, reason: `유령/10배거가 캡 ${CAP}%를 초과 — 초과분 환원(고위험 영역 통제)`, tag: '캡 초과' })
+    if (gs) trim.push({ ticker: gs.ticker, name: gs.name, market: gs.market, weightPct: ghostPct, trimPct: Math.round((ghostPct - CAP) * 10) / 10, reason: `유령/10배거가 캡 ${CAP}%를 초과 — 초과분 환원(고위험 영역 통제)`, tag: '캡 초과', sector: secByTicker[gs.ticker.toUpperCase()] ?? null })
   }
   for (const d of diagnoses) {
     if (d.action === 'TAKE_PROFIT' && d.releaseWeight >= 0.1 && !dropSeen.has(d.ticker.toUpperCase())) {
-      trim.push({ ticker: d.ticker, name: d.name, market: (d.market === 'KR' ? 'KR' : 'US'), weightPct: pctOf(mvByTicker.get(d.ticker.toUpperCase())?.mv ?? 0), trimPct: d.releaseWeight, reason: d.sellReasons.join('·') || '수익 중 + 고평가 — 분할 익절', tag: '익절' })
+      trim.push({ ticker: d.ticker, name: d.name, market: (d.market === 'KR' ? 'KR' : 'US'), weightPct: pctOf(mvByTicker.get(d.ticker.toUpperCase())?.mv ?? 0), trimPct: d.releaseWeight, reason: d.sellReasons.join('·') || '수익 중 + 고평가 — 분할 익절', tag: '익절', sector: secByTicker[d.ticker.toUpperCase()] ?? null })
     } else if (d.trimWeight >= 0.1 && !dropSeen.has(d.ticker.toUpperCase()) && d.action !== 'TAKE_PROFIT') {
-      trim.push({ ticker: d.ticker, name: d.name, market: (d.market === 'KR' ? 'KR' : 'US'), weightPct: pctOf(mvByTicker.get(d.ticker.toUpperCase())?.mv ?? 0), trimPct: d.trimWeight, reason: d.sellReasons.join('·') || '분류 비중 과다 — 분산 위해 일부 축소', tag: '집중 축소' })
+      trim.push({ ticker: d.ticker, name: d.name, market: (d.market === 'KR' ? 'KR' : 'US'), weightPct: pctOf(mvByTicker.get(d.ticker.toUpperCase())?.mv ?? 0), trimPct: d.trimWeight, reason: d.sellReasons.join('·') || '분류 비중 과다 — 분산 위해 일부 축소', tag: '집중 축소', sector: secByTicker[d.ticker.toUpperCase()] ?? null })
     }
   }
   // ⑤' 신호 기반 트림 — 역DCF 기대과도·수급 이탈·계절 역풍(이미 정리/축소 대상 아닌 종목, 비중 큰 순)
@@ -611,7 +612,7 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
     if (sigs.length === 0) continue
     const w = pctOf(mvByTicker.get(k)?.mv ?? 0)
     if (w < 1) continue   // 비중 1% 미만은 노이즈
-    trim.push({ ticker: d.ticker, name: d.name, market: (d.market === 'KR' ? 'KR' : 'US'), weightPct: w, trimPct: Math.round(Math.min(w * 0.3, 4) * 10) / 10, reason: sigs.join(' · '), tag: sig.get(k)?.dcf === 'demanding' ? '고평가' : sig.get(k)?.flow === 'CROWDED' ? '수급 이탈' : '계절 역풍' })
+    trim.push({ ticker: d.ticker, name: d.name, market: (d.market === 'KR' ? 'KR' : 'US'), weightPct: w, trimPct: Math.round(Math.min(w * 0.3, 4) * 10) / 10, reason: sigs.join(' · '), tag: sig.get(k)?.dcf === 'demanding' ? '고평가' : sig.get(k)?.flow === 'CROWDED' ? '수급 이탈' : '계절 역풍', sector: secByTicker[k] ?? null })
     trimSeen.add(k)
   }
   // 기존 drop·trim 이유에 종목 신호 보강(중복 방지)
@@ -626,9 +627,9 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
   if (btcPct < CAP - 1) add.push({ ticker: 'BTC', name: '비트코인', market: 'US', role: 'SATELLITE_BTC', targetPct: Math.round((CAP - btcPct) * 10) / 10, reason: `전략 암호 캡 ${CAP}% 미달(현재 ${btcPct}%) — 분산·비상관 자산으로 비트코인 보강`, tag: 'BTC 캡 미달' })
   if (ghostPct < CAP - 1 && sats.length > 0) {
     const s = sats[0]
-    add.push({ ticker: s.ticker, name: s.name, market: s.market, role: 'SATELLITE_GHOST', targetPct: Math.round(Math.min(CAP - ghostPct, s.allocWeight || 3) * 10) / 10, reason: `유령 캡 ${CAP}% 미달(현재 ${ghostPct}%) — 발굴주: ${s.reason}`, tag: '유령 발굴' })
+    add.push({ ticker: s.ticker, name: s.name, market: s.market, role: 'SATELLITE_GHOST', targetPct: Math.round(Math.min(CAP - ghostPct, s.allocWeight || 3) * 10) / 10, reason: `유령 캡 ${CAP}% 미달(현재 ${ghostPct}%) — 발굴주: ${s.reason}`, tag: '유령 발굴', sector: s.sector ?? null })
   }
-  for (const b of buys.slice(0, 4)) add.push({ ticker: b.ticker, name: b.name, market: b.market, role: 'SATELLITE_GENERAL', targetPct: b.allocWeight, reason: b.reason, tag: `통합점수 ${b.aiScore}` })
+  for (const b of buys.slice(0, 4)) add.push({ ticker: b.ticker, name: b.name, market: b.market, role: 'SATELLITE_GENERAL', targetPct: b.allocWeight, reason: b.reason, tag: `통합점수 ${b.aiScore}`, sector: b.sector ?? null })
 
   // ⑦ 조언형 실행 가이드(체결 X)
   const dropName = drop[0]?.name, addName = add.find(a => a.ticker !== 'CORE' && a.ticker !== 'BTC')?.name ?? add[0]?.name

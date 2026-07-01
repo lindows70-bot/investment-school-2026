@@ -5,6 +5,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import type { RebalanceResult, HoldingDiagnosis, RebalanceAction, DiversificationView } from '@/app/api/ai-rebalance/route'
 import MoneyFlowBadge from '@/app/components/MoneyFlowBadge'
 import CoreSatelliteHero from '@/app/components/CoreSatelliteHero'
+import SectorBadge from '@/app/components/SectorBadge'
 
 const BG = '#0f1117', CARD = '#161b25', BORDER = '#1e293b'
 
@@ -239,7 +240,7 @@ export default function AiRebalancePanel() {
                   <MoneyFlowBadge ticker={b.ticker} name={b.name} market={b.market} />
                   <span style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e', borderRadius: 6, padding: '1px 8px', fontSize: 11, fontWeight: 600 }}>AI {b.aiScore}점</span>
                   {b.peg != null && <span style={{ color: '#3b82f6', fontSize: 11 }}>PEG {b.peg.toFixed(2)}</span>}
-                  <span style={{ color: '#8599ae', fontSize: 11 }}>{b.sector}</span>
+                  <SectorBadge sector={b.sector} />
                   <span style={{ color: '#22c55e', fontSize: 12, fontWeight: 700, marginLeft: 'auto' }}>+{b.allocWeight}% <span style={{ fontWeight: 400, fontSize: 11 }}>{wonAmount(b.allocWeight, data.portfolioValue)}</span></span>
                 </div>
                 {b.reason && <div style={{ marginTop: 6, color: '#aab6c4', fontSize: 12, lineHeight: 1.5 }}>{b.reason}</div>}
@@ -261,6 +262,7 @@ export default function AiRebalancePanel() {
                   <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 14 }}>{s.market === 'KR' ? (s.name || s.ticker).slice(0, 12) : `${s.name} (${s.ticker.toUpperCase()})`}</span>
                   <MoneyFlowBadge ticker={s.ticker} name={s.name} market={s.market} />
                   <span style={{ background: 'rgba(168,85,247,0.12)', color: '#c084fc', borderRadius: 6, padding: '1px 8px', fontSize: 11, fontWeight: 600 }} title="시총·성장·저PEG 라이트 스크리닝 점수(헌터 탭의 7대 기준 점수와 다름)">성장스크리닝 {s.tenScore}</span>
+                  <SectorBadge sector={s.sector} />
                   {s.marketCapUsd != null && <span style={{ color: '#8599ae', fontSize: 11 }}>시총 ${(s.marketCapUsd / 1e9).toFixed(1)}B</span>}
                   <span style={{ color: '#c084fc', fontSize: 12, fontWeight: 700, marginLeft: 'auto' }}>+{s.allocWeight}% <span style={{ fontWeight: 400, fontSize: 11 }}>{wonAmount(s.allocWeight, data.portfolioValue)}</span></span>
                 </div>

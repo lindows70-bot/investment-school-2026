@@ -3,7 +3,7 @@ import { getCache, setCache } from '@/lib/appCache'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
 import { isPegBaseEffect } from '@/lib/canonicalFundamentals'   // 기저효과 PEG 가드(코어와 동일 SSOT)
 
-export const SAT_SCORE_KEY = 'satellite-scores-v3'   // 위성 100종목 점수 — 크론이 매일 적재 (v3: 기저효과 PEG 가드)
+export const SAT_SCORE_KEY = 'satellite-scores-v4'   // 위성 100종목 점수 — 크론이 매일 적재 (v4: sector 필드 추가·섹터 배지용)
 
 // 채점 결과(편입 비중 제외). 리밸런서 SatelliteCandidate = SatelliteScore & { allocWeight }
 export interface SatelliteScore {
@@ -16,6 +16,7 @@ export interface SatelliteScore {
   tenScore:     number
   reason:       string
   knife:        boolean        // 🔪 떨어지는 칼날(급락+하락추세) — 매수 추천 제외
+  sector:       string | null  // GICS 섹터(Yahoo 표기) — buildSignalMetrics가 이미 fetch(추가 비용 0), 테마/섹터 배지용
 }
 
 // 중소형 10배거 잠재 풀(100종목) — 코어(대형주)와 별개. 큐레이션 후보 풀(제1원칙: 분석값은 실데이터)
@@ -154,7 +155,7 @@ async function scoreSatellitePool(pool: typeof SATELLITE_UNIVERSE, base: string)
           zombie ? '⚠️좀비위험' : null,
           m.knife ? '🔪급락추세' : null,
         ].filter(Boolean).join(' · ')
-        return { ticker: s.ticker, name: s.name, market: s.market, marketCapUsd: mcUsd, growthPct, peg: m.peg, tenScore: sc, reason, knife: m.knife }
+        return { ticker: s.ticker, name: s.name, market: s.market, marketCapUsd: mcUsd, growthPct, peg: m.peg, tenScore: sc, reason, knife: m.knife, sector: m.sector }
       } catch { return null }
     }))
     for (const r of rs) if (r) scored.push(r)

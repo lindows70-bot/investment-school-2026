@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
 import type { QuantBuilderResult, QuantSatellite, AxisStatus, PriceContext } from '@/lib/quantBuilder'
+import SectorBadge from '@/app/components/SectorBadge'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 
@@ -215,6 +216,7 @@ export default function QuantBuilderLab() {
               <span style={{ background: 'rgba(167,139,250,0.12)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.4)', borderRadius: 5, padding: '1px 7px', fontSize: 9.5, fontWeight: 800 }}>SAT</span>
               <span>{s.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
               <span style={{ color: '#e2e8f0', fontWeight: 700 }}>{s.name}</span>
+              <SectorBadge sector={s.sector} size="xs" />
               {s.priceCtx && <ChaseBadge posPct={s.priceCtx.posPct} />}
               {AXIS_META.map(a => (
                 <span key={a.key} title={a.label} style={{ color: axisColor(s.axes[a.key]), fontSize: 10, fontWeight: 800 }}>{a.icon}{axisMark(s.axes[a.key])}</span>
