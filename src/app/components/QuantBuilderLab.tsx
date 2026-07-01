@@ -27,6 +27,20 @@ const fmtWon = (n: number) => n >= 1e8 ? `${Math.round(n / 1e7) / 10}억` : n >=
 // 52주 위치 해설 — 학생용 직관 라벨(낮을수록 바닥권 = 싸게 사는 것, 높을수록 추격 매수 주의)
 const posLabel = (p: number) => p <= 25 ? { t: '바닥권', c: '#4ade80' } : p <= 50 ? { t: '중하단', c: '#a3e635' } : p <= 75 ? { t: '중상단', c: '#fbbf24' } : p <= 92 ? { t: '고점권', c: '#fb923c' } : { t: '신고가권', c: '#f87171' }
 
+// 🔺 추격 매수 주의 배지 — 52주 신고가권(>92%)·고점권(76~92%) 종목을 종목명 옆에 눈에 띄게(교육: 고점 추격 경계)
+function ChaseBadge({ posPct }: { posPct: number }) {
+  if (posPct <= 75) return null
+  const hot = posPct > 92
+  return (
+    <span title={`52주 밴드 ${posPct}% — ${hot ? '신고가권: 고점 추격 매수 주의' : '고점권: 추격 주의'}`}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 2, borderRadius: 5, padding: '0px 5px', fontSize: 9, fontWeight: 800, whiteSpace: 'nowrap',
+        background: hot ? 'rgba(248,113,113,0.16)' : 'rgba(251,146,60,0.12)', color: hot ? '#f87171' : '#fb923c',
+        border: `1px solid ${hot ? '#f8717166' : '#fb923c55'}` }}>
+      🔺{hot ? '신고가 추격주의' : '고점'}
+    </span>
+  )
+}
+
 // 📈 1년 주봉 스파크라인(SVG polyline) — 라이브러리 없이 가볍게
 function Spark({ ctx }: { ctx: PriceContext }) {
   const W = 110, H = 26
@@ -183,6 +197,7 @@ export default function QuantBuilderLab() {
             <span>{c.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
             <span style={{ color: '#e2e8f0', fontWeight: 700 }}>{c.ticker}</span>
             <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>{c.name} · {c.role}</span>
+            {c.priceCtx && <ChaseBadge posPct={c.priceCtx.posPct} />}
             {c.priceCtx && (
               <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
                 <Spark ctx={c.priceCtx} />
@@ -200,6 +215,7 @@ export default function QuantBuilderLab() {
               <span style={{ background: 'rgba(167,139,250,0.12)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.4)', borderRadius: 5, padding: '1px 7px', fontSize: 9.5, fontWeight: 800 }}>SAT</span>
               <span>{s.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
               <span style={{ color: '#e2e8f0', fontWeight: 700 }}>{s.name}</span>
+              {s.priceCtx && <ChaseBadge posPct={s.priceCtx.posPct} />}
               {AXIS_META.map(a => (
                 <span key={a.key} title={a.label} style={{ color: axisColor(s.axes[a.key]), fontSize: 10, fontWeight: 800 }}>{a.icon}{axisMark(s.axes[a.key])}</span>
               ))}
