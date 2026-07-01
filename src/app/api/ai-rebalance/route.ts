@@ -227,7 +227,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v29:${user.id}:${today}:${fp}`   // v29: 기저효과 저PEG 가치 인플레 가드 반영(unified-reco v15)
+  const cacheKey = `ai-rebalance-v30:${user.id}:${today}:${fp}`   // v30: 분산 내러티브 정직화(집중도 실제 미개선 시 과장 금지) + 기저효과 가드(v15)
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -698,8 +698,12 @@ async function buildNarrative(holdings: HoldingDiagnosis[], buys: BuyCandidate[]
     .map(h => `- ${h.name}(${h.ticker}): 비중 ${h.weight}%, 손익 ${h.pnlPct != null ? `${h.pnlPct > 0 ? '+' : ''}${h.pnlPct}%` : '자료없음'}, ${ACTION_KO[h.action]}${h.trimWeight >= 0.1 ? `+분산트림 ${h.trimWeight}%` : ''}${h.breakEvenRise != null ? `, 본전까지 +${h.breakEvenRise}% 필요` : ''}, 사유: ${h.sellReasons.join('·') || '—'}`)
     .join('\n')
   const buyLines = buys.map(b => `- ${b.name}(${b.ticker}): AI점수 ${b.aiScore}, PEG ${b.peg ?? '—'}, 섹터 ${b.sector}, 제안 ${b.allocWeight}%, ${b.reason}`).join('\n')
+  const concDelta = div ? Math.round((div.topSectorBefore - div.topSectorAfter) * 10) / 10 : 0
+  const concImproved = concDelta >= 1   // 최대 섹터 집중도가 1%p+ 실제로 줄었나
   const divLine = div
-    ? `최대 단일 섹터 비중 ${div.topSectorBefore}%→${div.topSectorAfter}% (낮을수록 분산 양호). 분류 편중: ${div.categories.filter(c => c.before > c.ideal + 10).map(c => `${c.label} ${c.before}%(권장 ${c.ideal}%)`).join(', ') || '없음'}`
+    ? `최대 단일 섹터 비중 ${div.topSectorBefore}%→${div.topSectorAfter}% (낮을수록 분산 양호). ${concImproved
+        ? `→ 집중도 ${concDelta}%p 감소(개선).`
+        : `→ ⚠️ 집중도가 거의 안 줄었다(개선 아님). 이번 리밸런싱이 '편중 구조를 개선/해소했다'고 말하지 말 것 — 최대 섹터의 핵심 대형주가 깊은 손실·최저PEG 보호로 트림 대상에서 빠져 회수 예산이 작기 때문이다. 정직하게 '핵심 대형주 보호로 이번엔 소폭만 조정됐고, 집중 해소는 학생이 해당 대형주를 직접 판단해야 한다'는 취지로 서술하라.`} 분류 편중: ${div.categories.filter(c => c.before > c.ideal + 10).map(c => `${c.label} ${c.before}%(권장 ${c.ideal}%)`).join(', ') || '없음'}`
     : ''
   const trapLine = trap
     ? `⚠️경기순환주(반도체 등)가 ${trap.weight}%로 집중. ${trap.tickers.map(t => `${t.name} PEG ${t.peg}`).join(', ')}처럼 PEG가 낮아 저평가로 보이지만, 경기순환주는 이익이 정점일 때 PER이 가장 낮아 보이는 '가치 함정'일 수 있다(피터 린치 원리). 저PEG만 보고 안심하지 말 것.`
@@ -740,7 +744,7 @@ ${buyLines || '없음'}
 - 손실 회피 심리를 헤아려라: 익절은 축하의 톤, 손절은 "기회비용·전략적 후퇴"로 위로하되 강요 아닌 '고려' 권유.
 - 본전까지 필요 상승률은 확정된 수학이니 그대로 활용해 설득하라(예: "−15%면 본전까지 +17.6%가 필요한데 회복 동력이 없다").
 - [시장 매크로 맥락]이 '자료없음'이 아니면, 신규 매수 비중을 어느 정도로 가져갈지에 참고할 한 문장을 코칭에 자연스럽게 녹여라(예: "현재 금리 고점기이니 신규 편입은 분할로 신중하게 접근" 식). 단정적 예측이나 매수/매도 지시가 아니라 '참고할 시장 맥락'으로만 다뤄라.
-- [분산 상태]가 있으면 섹터·분류 편중을 한 문장으로 짚고, 이 리밸런싱이 분산을 어떻게 개선하는지 설명하라.
+- [분산 상태]가 있으면 섹터·분류 편중을 한 문장으로 짚어라. 단, [분산 상태]에 명시된 집중도 변화(개선/미개선)를 그대로만 서술하라 — 최대 섹터 집중도가 실제로 줄지 않았으면 절대 '편중 구조를 개선/해소했다'고 과장하지 말고, 명시된 대로 '핵심 대형주 보호로 소폭만 조정됐다'는 취지로 정직하게 서술하라.
 - [시클리컬 함정]이 '해당 없음'이 아니면, 저PEG 경기순환주를 무조건 저평가로 믿지 말라는 린치의 '가치 함정' 경고를 한 문장으로 꼭 포함하라.
 - [하이프 프리미엄]이 '해당 없음'이 아니면, 이익 실체 없이 스토리로 프리미엄 받는 거품 위험을 한 문장으로 짚되 일방적 매도가 아닌 비중 관리·해자 확인으로 안내하라.
 - [좀비 위험]이 '해당 없음'이 아니면, 이자도 못 갚는 구조적 약체임을 한 문장으로 경고하라.
@@ -757,5 +761,10 @@ ${buyLines || '없음'}
   const cut = holdings.filter(h => h.action === 'CUT_LOSS').length
   const tp = holdings.filter(h => h.action === 'TAKE_PROFIT').length
   const macroSuffix = regimeNote ? ` 참고로 ${regimeNote.split('.')[0]}이니 신규 편입은 분할로 신중하게 접근하세요.` : ''
-  return `현재 포트폴리오에서 익절 대상 ${tp}종목, 손절 검토 ${cut}종목이 포착됐습니다. 회수 가능한 ${sellBudget}%를 AI 추천 저평가 종목으로 재배분하면 분산이 개선됩니다. 손실 종목 중 단순 고평가뿐인 종목은 저점 매도를 피하고 보유를 권합니다.${macroSuffix} ※ 교육용 시뮬레이션이며 투자 추천이 아닙니다.`
+  const divSuffix = div
+    ? (concImproved
+        ? ` 회수 가능한 ${sellBudget}%를 AI 추천 저평가 종목으로 재배분하면 섹터 집중도(${div.topSectorBefore}%→${div.topSectorAfter}%)가 낮아져 분산이 개선됩니다.`
+        : ` 다만 최대 섹터 집중(${div.topSectorAfter}%)은 핵심 대형주가 손실·최저PEG 보호로 트림에서 빠져 회수 예산이 ${sellBudget}%뿐이라 이번엔 소폭만 조정됩니다 — 집중 해소는 해당 대형주를 직접 판단하셔야 합니다.`)
+    : ''
+  return `현재 포트폴리오에서 익절 대상 ${tp}종목, 손절 검토 ${cut}종목이 포착됐습니다.${divSuffix} 손실 종목 중 단순 고평가뿐인 종목은 저점 매도를 피하고 보유를 권합니다.${macroSuffix} ※ 교육용 시뮬레이션이며 투자 추천이 아닙니다.`
 }
