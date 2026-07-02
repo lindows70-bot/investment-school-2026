@@ -279,14 +279,14 @@ function AwBacktest({ years, cagr, worst }: { years: { year: string; awPct: numb
       </div>
       <div style={{ height: 200 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 6, right: 12, left: -8, bottom: 0 }}>
+          <LineChart data={data} margin={{ top: 20, right: 12, left: -8, bottom: 0 }}>
             <XAxis dataKey="year" tick={{ fill: '#7f93a8', fontSize: 9.5 }} minTickGap={30} axisLine={{ stroke: BORDER }} tickLine={false} />
             <YAxis tick={{ fill: '#7f93a8', fontSize: 9.5 }} axisLine={false} tickLine={false} width={34} tickFormatter={(v: number) => `${v}x`} />
             <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }}
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               formatter={(v: any, n: any) => [`${v}x`, n === 'AW' ? '전천후' : 'S&P500']} />
-            <ReferenceLine x="2008" stroke="#f8717166" strokeDasharray="3 3" label={{ value: '2008', fill: '#f87171', fontSize: 9, position: 'top' }} />
-            <ReferenceLine x="2022" stroke="#f8717166" strokeDasharray="3 3" label={{ value: '2022', fill: '#f87171', fontSize: 9, position: 'top' }} />
+            <ReferenceLine x="2008" stroke="#f87171aa" strokeDasharray="3 3" label={{ value: '2008 위기', fill: '#fca5a5', fontSize: 10, fontWeight: 700, position: 'top', dy: -4 }} />
+            <ReferenceLine x="2022" stroke="#f87171aa" strokeDasharray="3 3" label={{ value: '2022 쇼크', fill: '#fca5a5', fontSize: 10, fontWeight: 700, position: 'top', dy: -4 }} />
             <Line type="monotone" dataKey="AW" stroke="#4ade80" strokeWidth={2.2} dot={false} isAnimationActive={false} />
             <Line type="monotone" dataKey="SPY" stroke="#8599ae" strokeWidth={1.6} dot={false} isAnimationActive={false} />
           </LineChart>
