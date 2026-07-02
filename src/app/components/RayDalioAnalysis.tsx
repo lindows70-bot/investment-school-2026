@@ -142,25 +142,43 @@ export default function RayDalioAnalysis() {
 
           {/* 제국 수명 곡선 — 창업·부흥(초록)→평화·번영 정점(골드)→쇠퇴·혼란(빨강) */}
           <div style={{ background: '#0f1117', borderRadius: 10, border: `1px solid ${BORDER}`, padding: '8px 6px', marginBottom: 10 }}>
-            <svg viewBox="0 0 1000 300" style={{ width: '100%', height: 'auto', display: 'block' }}>
+            <svg viewBox="0 0 1000 330" style={{ width: '100%', height: 'auto', display: 'block' }}>
+              <defs>
+                <linearGradient id="dalioArea" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={GOLD} stopOpacity="0.20" />
+                  <stop offset="100%" stopColor={GOLD} stopOpacity="0" />
+                </linearGradient>
+                <linearGradient id="dalioCurve" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#4ade80" />
+                  <stop offset="42%" stopColor="#fbbf24" />
+                  <stop offset="58%" stopColor="#fbbf24" />
+                  <stop offset="100%" stopColor="#f87171" />
+                </linearGradient>
+              </defs>
               {/* 가이드선 */}
-              <line x1="40" y1="70" x2="960" y2="70" stroke={BORDER} strokeDasharray="6 6" />
-              <line x1="40" y1="262" x2="960" y2="262" stroke={BORDER} strokeDasharray="6 6" />
-              {/* 곡선 3색 구간 */}
-              <path d="M 60 262 C 200 262 220 200 300 168" fill="none" stroke="#4ade80" strokeWidth="6" strokeLinecap="round" />
-              <path d="M 300 168 C 380 132 430 72 500 72 C 580 72 622 108 690 138" fill="none" stroke="#fbbf24" strokeWidth="6" strokeLinecap="round" />
-              <path d="M 690 138 C 772 168 812 262 940 262" fill="none" stroke="#f87171" strokeWidth="6" strokeLinecap="round" />
-              {/* 노드 */}
-              <circle cx="185" cy="243" r="7" fill="#4ade80" stroke="#0f1117" strokeWidth="3" />
-              <text x="185" y="222" fill="#4ade80" fontSize="15" fontWeight="700" textAnchor="middle">1. 창업 &amp; 부흥기</text>
+              <line x1="40" y1="72" x2="960" y2="72" stroke={BORDER} strokeDasharray="6 6" />
+              <line x1="40" y1="278" x2="960" y2="278" stroke={BORDER} strokeDasharray="6 6" />
+              {/* 면적 채움(입체감) */}
+              <path d="M 60 278 C 220 278 240 205 320 170 C 400 135 440 72 500 72 C 560 72 600 110 680 142 C 770 176 800 278 940 278 L 940 296 L 60 296 Z" fill="url(#dalioArea)" />
+              {/* 곡선(그라디언트 스트로크 + 3색 하이라이트) */}
+              <path d="M 60 278 C 220 278 240 205 320 170 C 400 135 440 72 500 72 C 560 72 600 110 680 142 C 770 176 800 278 940 278" fill="none" stroke="url(#dalioCurve)" strokeWidth="6.5" strokeLinecap="round" />
+              {/* 노드 점 */}
+              <circle cx="220" cy="237" r="7" fill="#4ade80" stroke="#0f1117" strokeWidth="3" />
               <circle cx="500" cy="72" r="7" fill="#fbbf24" stroke="#0f1117" strokeWidth="3" />
-              <text x="500" y="52" fill="#fbbf24" fontSize="15" fontWeight="700" textAnchor="middle">2. 평화 &amp; 번영기 (정점)</text>
-              <circle cx="858" cy="243" r="7" fill="#f87171" stroke="#0f1117" strokeWidth="3" />
-              <text x="858" y="222" fill="#f87171" fontSize="15" fontWeight="700" textAnchor="middle">3. 쇠퇴 &amp; 혼란기</text>
-              {/* 미국 현재 추정 위치 — 정점~쇠퇴 사이 */}
-              <circle cx="690" cy="138" r="9" fill="#fff" stroke="#f87171" strokeWidth="3" />
-              <text x="712" y="133" fill="#fff" fontSize="15" fontWeight="800">US 미국 (추정 위치)</text>
-              <text x="712" y="154" fill="#f87171" fontSize="12" fontWeight="600">빈부격차·내부 분열 심화</text>
+              <circle cx="791" cy="223" r="7" fill="#f87171" stroke="#0f1117" strokeWidth="3" />
+              {/* 미국 현재 위치 — 펄스 */}
+              <circle cx="680" cy="142" r="9" fill="#fff" stroke="#f87171" strokeWidth="3">
+                <animate attributeName="r" values="8.5;12;8.5" dur="1.8s" repeatCount="indefinite" />
+                <animate attributeName="stroke-opacity" values="1;0.4;1" dur="1.8s" repeatCount="indefinite" />
+              </circle>
+              {/* 라벨(외곽선으로 곡선 위에서도 선명) */}
+              <g style={{ paintOrder: 'stroke' }} stroke="#0f1117" strokeWidth="4.5" strokeLinejoin="round">
+                <text x="220" y="212" fill="#4ade80" fontSize="15" fontWeight="800" textAnchor="middle">1. 창업 &amp; 부흥기</text>
+                <text x="500" y="50" fill="#fbbf24" fontSize="15.5" fontWeight="800" textAnchor="middle">2. 평화 &amp; 번영기 (정점)</text>
+                <text x="855" y="238" fill="#f87171" fontSize="15" fontWeight="800" textAnchor="middle">3. 쇠퇴 &amp; 혼란기</text>
+                <text x="680" y="108" fill="#ffffff" fontSize="15.5" fontWeight="800" textAnchor="middle">US 미국 (추정 위치)</text>
+                <text x="680" y="127" fill="#fca5a5" fontSize="12" fontWeight="700" textAnchor="middle">빈부격차·내부 분열 심화</text>
+              </g>
             </svg>
           </div>
 
