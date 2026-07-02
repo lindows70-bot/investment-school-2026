@@ -133,7 +133,7 @@ export async function GET(req: Request) {
   const annMap: Record<string, Record<string, number>> = {}; Object.keys(AW).forEach((t, i) => { annMap[t] = ann[i] })
   const years: AllWeatherYear[] = []
   const allYears = Array.from(new Set(Object.values(annMap).flatMap(m => Object.keys(m)))).sort()
-  let awGrowth = 1, spyGrowth = 1
+  let awGrowth = 1
   for (let i = 1; i < allYears.length; i++) {
     const y = allYears[i], py = allYears[i - 1]
     let awRet = 0, ok = true
@@ -141,7 +141,7 @@ export async function GET(req: Request) {
     const spyCur = annMap.SPY[y], spyPrev = annMap.SPY[py]
     if (!ok || spyCur == null || spyPrev == null) continue
     const spyRet = spyCur / spyPrev - 1
-    awGrowth *= 1 + awRet; spyGrowth *= 1 + spyRet
+    awGrowth *= 1 + awRet
     years.push({ year: y, awPct: Math.round(awRet * 1000) / 10, spyPct: Math.round(spyRet * 1000) / 10 })
   }
   const n = years.length
