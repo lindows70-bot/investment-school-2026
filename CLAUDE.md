@@ -1060,7 +1060,7 @@ npx vercel --prod --yes  # Vercel 프로덕션 배포 (원격 빌드 — 로컬 
 
 **주의**:
 - `npm run dev` 는 `scripts/dev.js`로 포트3000 종료 → `.next` 삭제 → 3초 대기 → 시작 (캐시 충돌 근본 차단)
-- **로컬에서 `npm run build` 절대 금지** → dev 서버의 `.next`를 덮어써 흰 화면·"dev 재시작 필요" 유발. 가벼운 검증은 `npm run check`, JSX/SWC strict 빌드 검증이 필요하면 **`npm run check:build`**(next.config `distDir`가 env `NEXT_DIST_DIR=.next-build`를 읽어 분리 폴더로 빌드 → dev 무손상). `.next-build`는 .gitignore 등록됨
+- **로컬에서 `npm run build` 절대 금지** → dev 서버의 `.next`를 덮어써 흰 화면·"dev 재시작 필요" 유발. 가벼운 검증은 `npm run check`, JSX/SWC strict 빌드 검증이 필요하면 **`npm run check:build`**(next.config `distDir`가 env `NEXT_DIST_DIR=.next-build`를 읽어 분리 폴더로 빌드 → dev 무손상). `.next-build`는 .gitignore + **.vercelignore** 둘 다 등록됨(안 그러면 476MB 산출물이 Vercel 업로드돼 100MB 초과 배포 실패)
 - 배포는 항상 `npx vercel --prod --yes` (Vercel 원격 빌드)
 
 ---
