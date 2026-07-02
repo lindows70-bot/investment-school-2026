@@ -1051,15 +1051,16 @@ GEMINI_API_KEY=...       # 🤖 Jarvis 어닝콜 애널리스트 (Gemini 2.5 Fla
 ```bash
 npm run dev         # ★ 안전 시작 (scripts/dev.js: 포트종료+.next삭제+3초대기+fork)
 npm run dev:quick   # 빠른 시작 (.next 정리 없이 next dev 직접)
-npm run build       # 프로덕션 빌드
+npm run build       # 프로덕션 빌드 (⚠️ dev의 .next 덮어씀 — 로컬 실행 금지)
 npm run check       # ★ 타입체크 + lint (로컬 검증용 — .next 안 건드림)
+npm run check:build # ★ strict 빌드 검증 — .next-build 로 분리(dev의 .next 무손상, 재시작 불필요)
 npm run lint        # ESLint
 npx vercel --prod --yes  # Vercel 프로덕션 배포 (원격 빌드 — 로컬 .next 무관)
 ```
 
 **주의**:
 - `npm run dev` 는 `scripts/dev.js`로 포트3000 종료 → `.next` 삭제 → 3초 대기 → 시작 (캐시 충돌 근본 차단)
-- **로컬에서 `npm run build` 지양** → dev 서버의 `.next`를 덮어써 흰 화면 유발. 검증은 `npm run check` 사용
+- **로컬에서 `npm run build` 절대 금지** → dev 서버의 `.next`를 덮어써 흰 화면·"dev 재시작 필요" 유발. 가벼운 검증은 `npm run check`, JSX/SWC strict 빌드 검증이 필요하면 **`npm run check:build`**(next.config `distDir`가 env `NEXT_DIST_DIR=.next-build`를 읽어 분리 폴더로 빌드 → dev 무손상). `.next-build`는 .gitignore 등록됨
 - 배포는 항상 `npx vercel --prod --yes` (Vercel 원격 빌드)
 
 ---

@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
 
+  // 빌드 출력 폴더 — 기본 .next. 로컬 strict 빌드 검증 시 NEXT_DIST_DIR=.next-build 로 분리해
+  // 실행 중인 dev 서버의 .next 를 덮어쓰지 않게 한다(흰 화면·재시작 방지). `npm run check:build` 사용.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
+
   // yahoo-finance2 를 번들링하지 않고 Node.js 런타임에서 직접 사용 (Vercel 포함)
   // Next.js 14: experimental.serverComponentsExternalPackages
   experimental: {
