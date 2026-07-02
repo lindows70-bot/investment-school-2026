@@ -6,6 +6,7 @@ import SeasonSectorScoreboard from '@/app/components/SeasonSectorScoreboard'
 import EconomicWaveSimulator from '@/app/components/EconomicWaveSimulator'
 import JuglarCapexTracker from '@/app/components/JuglarCapexTracker'
 import CandlePatternRisk from '@/app/components/CandlePatternRisk'
+import ElliottWaveEducation from '@/app/components/ElliottWaveEducation'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 
@@ -269,6 +270,9 @@ export default function SeasonNavigator() {
 
       {/* 🕯️ 주간 캔들 리스크 신호 — 장악형 패턴(객관적 계산, 엘리어트 파동 대체) */}
       <CandlePatternRisk />
+
+      {/* 🌊 엘리어트 파동 교육 — 개념도 + 실차트 객관적 스윙(ZigZag) 오버레이 */}
+      <ElliottWaveEducation />
 
       {/* 🛒 이 계절 우대 섹터 매수 후보 — 유니버스에서 우대 섹터만 추려 우리 퀀트 점수로 정렬 */}
       {data.buyCandidates && data.buyCandidates.length > 0 && (
