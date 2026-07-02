@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import type { GlobalCycleResult, CycleCountry, CyclePhase } from '@/app/api/global-cycle/route'
 
-const CARD = '#12151c', BORDER = '#252a36', GOLD = '#d4af7a'
+const CARD = '#12151c', BORDER = '#252a36'
 const PHASE_COLOR: Record<CyclePhase, string> = { early: '#4ade80', mid: '#60a5fa', late: '#fbbf24', recession: '#f87171' }
 const PHASE_KO: Record<CyclePhase, string> = { early: '회복', mid: '확장', late: '후기', recession: '수축' }
 
@@ -17,9 +17,9 @@ function curveY(x: number): number {
 }
 const X0 = 60, X1 = 950
 const px = (x: number) => X0 + (x / 100) * (X1 - X0)
-function curvePath(): string {
+function curvePath(from = 0, to = 100): string {
   const pts: string[] = []
-  for (let x = 0; x <= 100; x += 2) pts.push(`${px(x).toFixed(1)} ${curveY(x).toFixed(1)}`)
+  for (let x = from; x <= to; x += 1) pts.push(`${px(x).toFixed(1)} ${curveY(x).toFixed(1)}`)
   return 'M ' + pts.join(' L ')
 }
 
@@ -32,15 +32,26 @@ export default function GlobalBusinessCycle() {
     fetch('/api/global-cycle', { cache: 'no-store' }).then(r => r.json()).then(x => (x?.countries?.length ? setD(x) : setErr(true))).catch(() => setErr(true))
   }, [])
 
-  // 같은 자리 겹침 방지: curveX 근접 국가는 위로 계단식 오프셋
+  // 겹침 방지: 국면 밴드 안에서 혼잡하면 가로로 균등 분산(순서는 curveX 순 유지 = 정직한 상대 위치)
   const placed = useMemo(() => {
     if (!d) return []
-    const sorted = [...d.countries].sort((a, b) => a.curveX - b.curveX)
-    const out: (CycleCountry & { yOff: number })[] = []
-    for (const c of sorted) {
-      const near = out.filter(o => Math.abs(o.curveX - c.curveX) < 6)
-      out.push({ ...c, yOff: near.length * 34 })
+    const bands: Record<CyclePhase, [number, number]> = { early: [0, 25], mid: [25, 50], late: [50, 75], recession: [75, 100] }
+    const out: (CycleCountry & { dispX: number; labelUp: boolean })[] = []
+    for (const ph of ['early', 'mid', 'late', 'recession'] as CyclePhase[]) {
+      const members = d.countries.filter(c => c.phase === ph).sort((a, b) => a.curveX - b.curveX)
+      const [a, b] = bands[ph]
+      const span = b - a - 5, minGap = 6
+      members.forEach((c, i) => {
+        // 혼잡하면 균등 분산, 여유 있으면 원위치 근접 유지(최소 간격만 보장)
+        const dispX = members.length * minGap > span
+          ? a + 2.5 + (members.length === 1 ? span / 2 : (i / (members.length - 1)) * span)
+          : c.curveX
+        out.push({ ...c, dispX, labelUp: i % 2 === 0 })
+      })
     }
+    // 전체 재스캔: 밴드 경계 넘어 인접한 버블 최소 간격 보정
+    out.sort((x, y) => x.dispX - y.dispX)
+    for (let i = 1; i < out.length; i++) if (out[i].dispX - out[i - 1].dispX < 4.5) out[i].dispX = out[i - 1].dispX + 4.5
     return out
   }, [d])
 
@@ -64,42 +75,36 @@ export default function GlobalBusinessCycle() {
           <span style={{ color: '#f87171', fontSize: 10 }}>높음</span>
         </div>
 
-        {/* ── S-곡선 + 국가 버블 ── */}
+        {/* ── S-곡선 + 국가 버블 (피델리티 원본 스타일: 상단 국면 헤더 + 중립 곡선 + 수축 빨강 꼬리) ── */}
         <div style={{ background: '#0f1117', borderRadius: 10, border: `1px solid ${BORDER}`, padding: '6px 4px', marginBottom: 10 }}>
           <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
-            <defs>
-              <linearGradient id="gcCurve" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="#4ade80" /><stop offset="30%" stopColor="#60a5fa" />
-                <stop offset="55%" stopColor="#fbbf24" /><stop offset="100%" stopColor="#f87171" />
-              </linearGradient>
-              <linearGradient id="gcArea" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={GOLD} stopOpacity="0.14" /><stop offset="100%" stopColor={GOLD} stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            {/* 국면 배경 밴드 */}
+            {/* 상단 국면 헤더 탭(원본 Early/Mid/Late/Recession 헤더) + 옅은 배경 밴드 */}
             {([['early', 0, 25], ['mid', 25, 50], ['late', 50, 75], ['recession', 75, 100]] as [CyclePhase, number, number][]).map(([ph, a, b]) => (
               <g key={ph}>
-                <rect x={px(a)} y={30} width={px(b) - px(a)} height={H - 46} fill={PHASE_COLOR[ph]} opacity="0.045" />
-                {a > 0 && <line x1={px(a)} y1={30} x2={px(a)} y2={H - 16} stroke={BORDER} strokeDasharray="4 5" />}
-                <text x={(px(a) + px(b)) / 2} y={H - 24} fill={PHASE_COLOR[ph]} fontSize="13" fontWeight="800" textAnchor="middle" opacity="0.9">{PHASE_KO[ph]}</text>
+                <rect x={px(a) + 2} y={8} width={px(b) - px(a) - 4} height={24} rx={6} fill={PHASE_COLOR[ph]} opacity="0.13" />
+                <text x={(px(a) + px(b)) / 2} y={25} fill={PHASE_COLOR[ph]} fontSize="13.5" fontWeight="800" textAnchor="middle">{PHASE_KO[ph]}</text>
+                <rect x={px(a)} y={38} width={px(b) - px(a)} height={H - 58} fill={PHASE_COLOR[ph]} opacity="0.03" />
+                {a > 0 && <line x1={px(a)} y1={38} x2={px(a)} y2={H - 20} stroke={BORDER} strokeDasharray="4 5" />}
               </g>
             ))}
-            {/* 면적 + 곡선 */}
-            <path d={`${curvePath()} L ${px(100)} ${BOT + 14} L ${px(0)} ${BOT + 14} Z`} fill="url(#gcArea)" />
-            <path d={curvePath()} fill="none" stroke="url(#gcCurve)" strokeWidth="5.5" strokeLinecap="round" />
-            {/* 국가 버블 */}
+            {/* 곡선: 회복~후기 = 중립 회색, 수축 꼬리만 빨강(원본과 동일한 문법) */}
+            <path d={curvePath(0, 75)} fill="none" stroke="#5e6b7d" strokeWidth="4.5" strokeLinecap="round" />
+            <path d={curvePath(75, 100)} fill="none" stroke="#f87171" strokeWidth="4.5" strokeLinecap="round" />
+            {/* 좌측 축 설명(원본의 Economic Growth) */}
+            <text x={X0 - 38} y={curveY(0) - 8} fill="#7f93a8" fontSize="11" fontWeight="600">경기 ↑</text>
+            {/* 국가 버블 — 곡선 위 솔리드 원 + 위/아래 교차 라벨 */}
             {placed.map(c => {
-              const cx = px(c.curveX), cy = curveY(c.curveX) - c.yOff
+              const cx = px(c.dispX), cy = curveY(c.dispX)
               const active = c.code === sel
+              const ly = c.labelUp ? cy - 26 : cy + 36
               return (
                 <g key={c.code} onClick={() => setSel(c.code)} style={{ cursor: 'pointer' }}>
-                  {c.yOff > 0 && <line x1={cx} y1={curveY(c.curveX)} x2={cx} y2={cy + 12} stroke={PHASE_COLOR[c.phase]} strokeWidth="1" opacity="0.4" />}
-                  <circle cx={cx} cy={cy} r={active ? 15 : 12} fill={`${PHASE_COLOR[c.phase]}2e`} stroke={PHASE_COLOR[c.phase]} strokeWidth={active ? 3 : 1.8}>
-                    {active && <animate attributeName="r" values="14;17;14" dur="1.8s" repeatCount="indefinite" />}
+                  <circle cx={cx} cy={cy} r={active ? 16 : 13} fill={PHASE_COLOR[c.phase]} fillOpacity={active ? 1 : 0.82} stroke={active ? '#fff' : '#0f1117'} strokeWidth={active ? 2.5 : 2}>
+                    {active && <animate attributeName="r" values="15;18;15" dur="1.8s" repeatCount="indefinite" />}
                   </circle>
-                  <text x={cx} y={cy + 5} fontSize="14" textAnchor="middle">{c.flag}</text>
+                  <text x={cx} y={cy + 5.5} fontSize={active ? 15 : 13} textAnchor="middle">{c.flag}</text>
                   <g style={{ paintOrder: 'stroke' }} stroke="#0f1117" strokeWidth="4" strokeLinejoin="round">
-                    <text x={cx} y={cy - (active ? 21 : 18)} fill={active ? '#fff' : PHASE_COLOR[c.phase]} fontSize={active ? 13 : 11.5} fontWeight="800" textAnchor="middle">{c.ko}</text>
+                    <text x={cx} y={ly} fill={active ? '#fff' : '#cdd6e3'} fontSize={active ? 13.5 : 11.5} fontWeight="800" textAnchor="middle">{c.ko}</text>
                   </g>
                 </g>
               )
