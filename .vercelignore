@@ -1,0 +1,2 @@
+# 로컬 strict 빌드 검증 산출물(npm run check:build) — Vercel 원격 빌드와 무관, 업로드 금지(100MB 초과 방지)
+.next-build
