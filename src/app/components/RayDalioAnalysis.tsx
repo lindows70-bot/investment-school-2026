@@ -321,6 +321,11 @@ function WorldPower({ wp }: { wp: NonNullable<DalioCycleResult['worldPower']> })
 function AwBacktest({ years, cagr, worst }: { years: { year: string; awPct: number; spyPct: number }[]; cagr: number; worst: { year: string; pct: number } | null }) {
   let aw = 1, spy = 1
   const data = years.map(y => { aw *= 1 + y.awPct / 100; spy *= 1 + y.spyPct / 100; return { year: y.year, AW: Math.round(aw * 100) / 100, SPY: Math.round(spy * 100) / 100 } })
+  // Y축을 실제 데이터 범위에 맞춰 좁혀 상하 진폭을 키운다(0~8x 고정 시 절반이 빈 공간이라 선이 눌림)
+  const vals = data.flatMap(d => [d.AW, d.SPY])
+  const yLo = Math.min(1, Math.floor(Math.min(...vals) * 10) / 10)   // 최저점(2009 딥) 살짝 아래
+  const yHi = Math.ceil(Math.max(...vals) * 2) / 2                   // 최고점 위 0.5 단위 올림
+  const yTicks = Array.from({ length: Math.floor(yHi) }, (_, i) => i + 1)
   return (
     <div>
       {/* 범례 — 두 선이 뭔지 명시 */}
@@ -339,11 +344,11 @@ function AwBacktest({ years, cagr, worst }: { years: { year: string; awPct: numb
         {worst && <span style={{ color: '#f87171' }}>전천후 최악의 해 {worst.year} <b>{worst.pct}%</b></span>}
         <span style={{ color: '#8a9aaa' }}>세로축 = $1이 {years.length}년간 몇 배로(누적)</span>
       </div>
-      <div style={{ height: 200 }}>
+      <div style={{ height: 240 }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 20, right: 12, left: -8, bottom: 0 }}>
             <XAxis dataKey="year" tick={{ fill: '#7f93a8', fontSize: 9.5 }} minTickGap={30} axisLine={{ stroke: BORDER }} tickLine={false} />
-            <YAxis tick={{ fill: '#7f93a8', fontSize: 9.5 }} axisLine={false} tickLine={false} width={34} tickFormatter={(v: number) => `${v}x`} />
+            <YAxis domain={[yLo, yHi]} ticks={yTicks} allowDataOverflow tick={{ fill: '#7f93a8', fontSize: 9.5 }} axisLine={false} tickLine={false} width={34} tickFormatter={(v: number) => `${v}x`} />
             <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }}
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               formatter={(v: any, n: any) => [`${v}x`, n === 'AW' ? '전천후' : 'S&P500']} />
