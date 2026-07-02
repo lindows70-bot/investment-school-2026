@@ -63,17 +63,24 @@ async function naverWeekly(code: string): Promise<{ date: string; o: number; c: 
 }
 
 export async function GET() {
-  const cacheKey = 'candle-pattern-v1'
+  const cacheKey = 'candle-pattern-v2'   // v2: 주 분절 조각(월말·분기 경계) 완결주 오인 수정 — 이번 주 월요일 이후 봉 전부 제거
   const cached = await getCache<CandlePatternResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
+  // ⚠️ 이번 주(진행 중) 봉 제거 — Yahoo는 월말·분기 경계에서 현재 주를 두 조각(예: 06-29+07-01)으로
+  //    쪼개기도 해서 '마지막 1개만 제거'로는 부족(조각이 완결주로 오인돼 신호 조기 해제). 이번 주 월요일
+  //    이후 날짜의 봉을 전부 걸러 진짜 완결주만 남긴다(네이버는 주 마지막 거래일 라벨이라 같은 기준으로 안전).
+  const now = new Date()
+  const monday = new Date(now); monday.setUTCDate(now.getUTCDate() - ((now.getUTCDay() + 6) % 7)); monday.setUTCHours(0, 0, 0, 0)
+  const mondayStr = monday.toISOString().slice(0, 10)
+
   const anchors: AnchorResult[] = []
   for (const a of ANCHORS) {
-    const bars = a.market === 'KR' ? await naverWeekly(a.ticker) : await yahooWeekly(a.ticker)
-    if (bars.length < 3) continue
-    // ⚠️ 마지막 봉은 진행 중인(미완결) 이번 주 — 완결된 최근 2개 주봉(n-3, n-2)만 사용(중복/왜곡 방지)
+    const raw = a.market === 'KR' ? await naverWeekly(a.ticker) : await yahooWeekly(a.ticker)
+    const bars = raw.filter(b => b.date < mondayStr)   // 완결주만
+    if (bars.length < 2) continue
     const n = bars.length
-    const prev = bars[n - 3], cur = bars[n - 2]
+    const prev = bars[n - 2], cur = bars[n - 1]
     anchors.push({
       label: a.label, ticker: a.ticker, market: a.market, weekOf: cur.date,
       pattern: detect(prev.o, prev.c, cur.o, cur.c),
