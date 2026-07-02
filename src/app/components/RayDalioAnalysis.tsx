@@ -7,8 +7,15 @@ import type { DalioCycleResult } from '@/app/api/dalio-cycle/route'
 
 const CARD = '#12151c', BORDER = '#252a36', GOLD = '#d4af7a'
 
-// 부채 사이클 6단계
-const STAGES = ['초기\n(정상 확장)', '버블\n(후기)', '정점\n(긴축 압력)', '불황\n(디플레)', '아름다운\n디레버리징', '정상화']
+// 부채 사이클 6단계 (카드형)
+const STAGE_CARDS = [
+  { title: '초기 정상 확장', desc: '생산적 대출 위주' },
+  { title: '버블 국면', desc: '자기강화적 신용 투기' },
+  { title: '정점 도달', desc: '역사적 긴축·고금리' },
+  { title: '불황(디플레이션)', desc: '디폴트·자산가치 붕괴' },
+  { title: '아름다운 디레버리징', desc: '양적완화 + 부채조정' },
+  { title: '정상화 회복', desc: '안정화·점진적 재팽창' },
+]
 const LEAN_COLOR: Record<string, string> = { early: '#4ade80', late: '#f87171', stimulus: '#60a5fa', neutral: '#8599ae' }
 const BUBBLE_COLOR: Record<string, string> = { hot: '#f87171', warm: '#fbbf24', cool: '#4ade80', link: '#8599ae' }
 const SEASON_KO: Record<string, string> = { goldilocks: '골디락스(봄)', inflation: '인플레이션(여름)', stagflation: '스태그플레이션(가을)', recession: '리세션(겨울)', shoulder: '간절기', unknown: '—' }
@@ -59,17 +66,19 @@ export default function RayDalioAnalysis() {
           <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 14 }}>① 부채 사이클 — 『금융 위기 템플릿』</div>
           <div style={{ color: '#8a9aaa', fontSize: 11, marginBottom: 10 }}>신용의 팽창→붕괴→회복 6단계. 실데이터로 현재 위치를 추정합니다(단정 아님).</div>
 
-          {/* 6단계 아크 */}
-          <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', background: '#0f1117', borderRadius: 10, padding: '14px 10px 8px', marginBottom: 10 }}>
-            {STAGES.map((s, i) => (
-              <div key={i} style={{ flex: 1, textAlign: 'center', position: 'relative' }}>
-                <div style={{ width: 14, height: 14, borderRadius: '50%', margin: '0 auto 5px',
-                  background: i === d.debt.stageIndex ? GOLD : '#2a3242', border: i === d.debt.stageIndex ? `2px solid #fff` : 'none',
-                  boxShadow: i === d.debt.stageIndex ? `0 0 12px ${GOLD}` : 'none' }} />
-                <div style={{ color: i === d.debt.stageIndex ? GOLD : '#7f93a8', fontSize: 9.5, fontWeight: i === d.debt.stageIndex ? 800 : 500, whiteSpace: 'pre-line', lineHeight: 1.2 }}>{s}</div>
-                {i === d.debt.stageIndex && <div style={{ color: GOLD, fontSize: 9, marginTop: 2 }}>📍 현재 추정</div>}
-              </div>
-            ))}
+          {/* 6단계 카드 — 현재 추정 단계 골드 하이라이트 */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(128px, 1fr))', gap: 7, marginBottom: 10 }}>
+            {STAGE_CARDS.map((s, i) => {
+              const cur = i === d.debt.stageIndex
+              return (
+                <div key={i} style={{ background: cur ? `${GOLD}16` : '#0f1117', border: `1px solid ${cur ? GOLD : BORDER}`, borderRadius: 10, padding: '10px 9px', textAlign: 'center', boxShadow: cur ? `0 0 16px ${GOLD}3a` : 'none' }}>
+                  <div style={{ color: cur ? GOLD : '#7f93a8', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.3 }}>{i + 1}단계</div>
+                  <div style={{ color: cur ? GOLD : '#cdd6e3', fontWeight: 800, fontSize: 12, marginTop: 3 }}>{s.title}</div>
+                  <div style={{ color: '#8a9aaa', fontSize: 9.5, lineHeight: 1.4, marginTop: 4 }}>{s.desc}</div>
+                  {cur && <div style={{ marginTop: 7, background: GOLD, color: '#0f1117', fontWeight: 800, fontSize: 9, borderRadius: 20, padding: '2px 8px', display: 'inline-block' }}>📍 현재 미국 추정 위치</div>}
+                </div>
+              )
+            })}
           </div>
           <div style={{ background: `${GOLD}14`, border: `1px solid ${GOLD}44`, borderRadius: 9, padding: '8px 12px', marginBottom: 10 }}>
             <span style={{ color: GOLD, fontWeight: 800, fontSize: 13 }}>📍 {d.debt.stageLabel}</span>
@@ -131,19 +140,43 @@ export default function RayDalioAnalysis() {
           <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 14 }}>② 빅 사이클 — 『변화하는 세계질서』</div>
           <div style={{ color: '#8a9aaa', fontSize: 11, marginBottom: 10 }}>제국의 흥망성쇠(수백 년 주기). 지정학은 실시간 데이터가 없어 이 섹션은 교육 중심입니다.</div>
 
-          {/* 제국 수명 곡선 */}
-          <svg viewBox="0 0 600 150" style={{ width: '100%', height: 'auto', display: 'block', marginBottom: 10 }}>
-            <path d="M 20 130 Q 150 130 220 60 T 400 40 Q 480 45 580 120" fill="none" stroke={GOLD} strokeWidth="2.5" />
-            {[['창업·부흥', 120, 60, '#4ade80'], ['평화·번영 (정점)', 400, 40, '#fbbf24'], ['쇠퇴·혼란', 540, 110, '#f87171']].map(([l, x, y, c]) => (
-              <g key={l as string}>
-                <circle cx={x as number} cy={y as number} r="5" fill={c as string} />
-                <text x={x as number} y={(y as number) - 10} fill="#e2e8f0" fontSize="11" fontWeight="700" textAnchor="middle">{l}</text>
-              </g>
+          {/* 제국 수명 곡선 — 창업·부흥(초록)→평화·번영 정점(골드)→쇠퇴·혼란(빨강) */}
+          <div style={{ background: '#0f1117', borderRadius: 10, border: `1px solid ${BORDER}`, padding: '8px 6px', marginBottom: 10 }}>
+            <svg viewBox="0 0 1000 300" style={{ width: '100%', height: 'auto', display: 'block' }}>
+              {/* 가이드선 */}
+              <line x1="40" y1="70" x2="960" y2="70" stroke={BORDER} strokeDasharray="6 6" />
+              <line x1="40" y1="262" x2="960" y2="262" stroke={BORDER} strokeDasharray="6 6" />
+              {/* 곡선 3색 구간 */}
+              <path d="M 60 262 C 200 262 220 200 300 168" fill="none" stroke="#4ade80" strokeWidth="6" strokeLinecap="round" />
+              <path d="M 300 168 C 380 132 430 72 500 72 C 580 72 622 108 690 138" fill="none" stroke="#fbbf24" strokeWidth="6" strokeLinecap="round" />
+              <path d="M 690 138 C 772 168 812 262 940 262" fill="none" stroke="#f87171" strokeWidth="6" strokeLinecap="round" />
+              {/* 노드 */}
+              <circle cx="185" cy="243" r="7" fill="#4ade80" stroke="#0f1117" strokeWidth="3" />
+              <text x="185" y="222" fill="#4ade80" fontSize="15" fontWeight="700" textAnchor="middle">1. 창업 &amp; 부흥기</text>
+              <circle cx="500" cy="72" r="7" fill="#fbbf24" stroke="#0f1117" strokeWidth="3" />
+              <text x="500" y="52" fill="#fbbf24" fontSize="15" fontWeight="700" textAnchor="middle">2. 평화 &amp; 번영기 (정점)</text>
+              <circle cx="858" cy="243" r="7" fill="#f87171" stroke="#0f1117" strokeWidth="3" />
+              <text x="858" y="222" fill="#f87171" fontSize="15" fontWeight="700" textAnchor="middle">3. 쇠퇴 &amp; 혼란기</text>
+              {/* 미국 현재 추정 위치 — 정점~쇠퇴 사이 */}
+              <circle cx="690" cy="138" r="9" fill="#fff" stroke="#f87171" strokeWidth="3" />
+              <text x="712" y="133" fill="#fff" fontSize="15" fontWeight="800">US 미국 (추정 위치)</text>
+              <text x="712" y="154" fill="#f87171" fontSize="12" fontWeight="600">빈부격차·내부 분열 심화</text>
+            </svg>
+          </div>
+
+          {/* 3 국면 설명 카드 */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8, marginBottom: 10 }}>
+            {[
+              ['1. 창업 & 부흥기', '새로운 혁신·강력한 리더십·제도적 평화 아래 부채 부담이 적고 생산성이 급증하는 도약 단계.', '#4ade80'],
+              ['2. 평화 & 번영기 (정점)', '기축통화 권력을 쥐고 소비가 늘며 번영하지만, 과도한 소비성 부채·인건비 상승이 내포되기 시작.', '#fbbf24'],
+              ['3. 쇠퇴 & 혼란기', '통화 살포에 따른 화폐가치 하락, 내부 빈부격차發 극단주의, 신흥 패권국과의 마찰이 가중.', '#f87171'],
+            ].map(([t, desc, c]) => (
+              <div key={t as string} style={{ background: `${c}14`, border: `1px solid ${c}44`, borderRadius: 9, padding: '10px 12px' }}>
+                <div style={{ color: c as string, fontWeight: 800, fontSize: 12 }}>{t}</div>
+                <div style={{ color: '#aab6c4', fontSize: 10.5, lineHeight: 1.55, marginTop: 4 }}>{desc}</div>
+              </div>
             ))}
-            {/* 미국 현재 위치 표시(정점~쇠퇴 사이 — 교육용 정성 표시) */}
-            <circle cx="455" cy="55" r="6" fill="none" stroke="#fff" strokeWidth="2" />
-            <text x="455" y="80" fill="#fff" fontSize="10" fontWeight="800" textAnchor="middle">🇺🇸 미국(추정)</text>
-          </svg>
+          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 8, marginBottom: 10 }}>
             {[
