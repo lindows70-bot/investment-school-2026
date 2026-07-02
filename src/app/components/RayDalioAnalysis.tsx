@@ -323,10 +323,21 @@ function AwBacktest({ years, cagr, worst }: { years: { year: string; awPct: numb
   const data = years.map(y => { aw *= 1 + y.awPct / 100; spy *= 1 + y.spyPct / 100; return { year: y.year, AW: Math.round(aw * 100) / 100, SPY: Math.round(spy * 100) / 100 } })
   return (
     <div>
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 6, fontSize: 11 }}>
-        <span style={{ color: '#4ade80' }}>■ 전천후 CAGR <b>{cagr}%/년</b></span>
-        {worst && <span style={{ color: '#f87171' }}>최악의 해 {worst.year} <b>{worst.pct}%</b></span>}
-        <span style={{ color: '#8a9aaa' }}>$1이 {years.length}년간 몇 배로(누적)</span>
+      {/* 범례 — 두 선이 뭔지 명시 */}
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center', marginBottom: 5, fontSize: 11 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 18, height: 3, background: '#4ade80', borderRadius: 2, flexShrink: 0 }} />
+          <span style={{ color: '#cdd6e3' }}><b style={{ color: '#4ade80' }}>전천후</b> <span style={{ color: '#8a9aaa' }}>(주식30·장기채40·중기채15·금7.5·원자재7.5)</span></span>
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 18, height: 3, background: '#8599ae', borderRadius: 2, flexShrink: 0 }} />
+          <span style={{ color: '#cdd6e3' }}><b style={{ color: '#a8b5c2' }}>S&amp;P500</b> <span style={{ color: '#8a9aaa' }}>(미국 주식 100%)</span></span>
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 6, fontSize: 10.5 }}>
+        <span style={{ color: '#4ade80' }}>전천후 CAGR <b>{cagr}%/년</b></span>
+        {worst && <span style={{ color: '#f87171' }}>전천후 최악의 해 {worst.year} <b>{worst.pct}%</b></span>}
+        <span style={{ color: '#8a9aaa' }}>세로축 = $1이 {years.length}년간 몇 배로(누적)</span>
       </div>
       <div style={{ height: 200 }}>
         <ResponsiveContainer width="100%" height="100%">
