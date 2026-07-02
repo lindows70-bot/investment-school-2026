@@ -27,6 +27,7 @@ import JarvisMorningBriefing      from '@/app/components/JarvisMorningBriefing'
 import SchoolIndexDashboard       from '@/app/components/SchoolIndexDashboard'
 import GlobalTop10                from '@/app/components/GlobalTop10'
 import SeasonNavigator            from '@/app/components/SeasonNavigator'
+import RayDalioAnalysis           from '@/app/components/RayDalioAnalysis'
 import UnifiedReco                 from '@/app/components/UnifiedReco'
 import OperationsHQ                 from '@/app/components/OperationsHQ'
 import NewsCatalystRadar          from '@/app/components/NewsCatalystRadar'
@@ -661,7 +662,7 @@ export default function DashboardPage() {
   }>>({})
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'quantum' | 'aisemi' | 'power' | 'physai' | 'aibio' | 'defense' | 'financials' | 'energy' | 'materials' | 'industrials' | 'discretionary' | 'staples' | 'healthcare' | 'infotech' | 'communication' | 'utilities' | 'realestate'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'dalio' | 'quantum' | 'aisemi' | 'power' | 'physai' | 'aibio' | 'defense' | 'financials' | 'energy' | 'materials' | 'industrials' | 'discretionary' | 'staples' | 'healthcare' | 'infotech' | 'communication' | 'utilities' | 'realestate'>('live')
   const [flowView, setFlowView] = useState<'mine' | 'market' | 'investor' | 'reco' | 'unified'>('mine')
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
@@ -1342,6 +1343,7 @@ export default function DashboardPage() {
               { key: 'macro',  icon: '🏛️', label: '거시경제 (Fed Watch)', desc: '금리 · 인플레이션 · QT' },
               { key: 'coinlab',icon: '🪙', label: '코인 랩 (비트코인)',    desc: '사이클·심리·온체인·유동성 — 독립 엔진' },
               { key: 'season', icon: '🧭', label: '4계절 내비게이터',     desc: '성장×물가 2×2 · 내 포폴 계절 정합성' },
+              { key: 'dalio',  icon: '🌊', label: '레이 달리오 (매크로 사이클)', desc: '부채 사이클·빅 사이클·전천후 — 실데이터 진단' },
             ],
           },
           {
@@ -3035,6 +3037,11 @@ export default function DashboardPage() {
       <div id="tab-season" style={{ display: dashTab==='season' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         <ErrorBoundary label="4계절 내비게이터">
           <SeasonNavigator />
+        </ErrorBoundary>
+      </div>
+      <div id="tab-dalio" style={{ display: dashTab==='dalio' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="레이 달리오 매크로 사이클">
+          {dashTab==='dalio' && <RayDalioAnalysis />}
         </ErrorBoundary>
       </div>
 
