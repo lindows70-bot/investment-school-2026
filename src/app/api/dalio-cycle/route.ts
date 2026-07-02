@@ -18,6 +18,10 @@ export interface DalioCycleResult {
     stageIndex: number; stageLabel: string; stageNote: string
   }
   bubble: { score: number; level: '냉각' | '중립' | '주의' | '과열'; factors: BubbleFactor[] }
+  worldPower: {
+    metrics: { label: string; us: number; cn: number; year: string; disp: 'money' | 'pct' | 'pop'; note: string; leader: 'US' | 'CN' }[]
+    reserve: { usd: number; cny: number; source: string }
+  } | null
   history: { metric: string; now: number; y2008: number; y2020: number; unit: string }[]
   allWeather: { usSeason: string; years: AllWeatherYear[]; cagr: number; worstYear: { year: string; pct: number } | null; note: string }
   asOf: string
@@ -55,9 +59,33 @@ async function yahooAnnual(ticker: string): Promise<Record<string, number>> {
   return {}
 }
 
+// ② 빅 사이클 — 제국 국력지표 US vs 중국 (World Bank 공개 실데이터, 무료·무키). 브릿지워터 독점 점수 대신 실측만.
+const WB = [
+  { id: 'NY.GDP.MKTP.CD', label: '명목 GDP', disp: 'money' as const, note: '경제 규모 — 국력의 바탕' },
+  { id: 'NE.EXP.GNFS.CD', label: '수출(재화+서비스)', disp: 'money' as const, note: '무역·공급망 장악력' },
+  { id: 'MS.MIL.XPND.CD', label: '국방비', disp: 'money' as const, note: '기득 질서를 지키는 힘' },
+  { id: 'GB.XPD.RSDV.GD.ZS', label: 'R&D 투자(GDP 대비)', disp: 'pct' as const, note: '혁신 = 미래 생산성' },
+  { id: 'SP.POP.TOTL', label: '인구', disp: 'pop' as const, note: '노동력·내수 잠재력' },
+]
+async function worldBank(id: string): Promise<{ us: number; cn: number; year: string } | null> {
+  try {
+    const r = await fetch(`https://api.worldbank.org/v2/country/USA;CHN/indicator/${id}?format=json&mrv=1&per_page=2`, { signal: AbortSignal.timeout(10_000) })
+    if (!r.ok) return null
+    const j = await r.json()
+    const rows: { country: { value: string }; date: string; value: number | null }[] = j?.[1] ?? []
+    let us: number | null = null, cn: number | null = null, year = ''
+    for (const row of rows) {
+      if (row.value == null) continue
+      if (row.country.value.includes('United States')) { us = row.value; year = row.date }
+      else if (row.country.value.includes('China')) { cn = row.value; if (!year) year = row.date }
+    }
+    return us != null && cn != null ? { us, cn, year } : null
+  } catch { return null }
+}
+
 export async function GET(req: Request) {
   const base = new URL(req.url).origin
-  const cacheKey = 'dalio-cycle-v1'
+  const cacheKey = 'dalio-cycle-v2'   // v2: 빅 사이클 US vs 중국 국력지표(World Bank 실데이터) 추가 — 스키마 변경
   const cached = await getCache<DalioCycleResult>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -120,6 +148,15 @@ export async function GET(req: Request) {
     return { score, level, factors }
   })()
 
+  // ── ② 빅 사이클: 제국 국력지표 US vs 중국 (World Bank 실데이터) ──
+  const wbRaw = await Promise.all(WB.map(m => worldBank(m.id)))
+  const wbMetrics = WB.map((m, i) => {
+    const d = wbRaw[i]; if (!d) return null
+    return { label: m.label, us: d.us, cn: d.cn, year: d.year, disp: m.disp, note: m.note, leader: (d.us >= d.cn ? 'US' : 'CN') as 'US' | 'CN' }
+  }).filter((x): x is NonNullable<typeof x> => x != null)
+  // 기축통화 비중은 무료 실시간 API 부재 → IMF COFER 공개 통계(출처·시점 명시). 달리오 "최후의 특권" 포인트.
+  const worldPower = wbMetrics.length ? { metrics: wbMetrics, reserve: { usd: 57.8, cny: 2.2, source: 'IMF COFER 2024' } } : null
+
   // ── 역사 오버레이(현재 vs 2008 vs 2020) ──
   const history = [
     { metric: '총부채 / GDP', now: Math.round(debtGdp), y2008: Math.round(atOrBefore(debtGdpS, '2008') ?? 0), y2020: Math.round(atOrBefore(debtGdpS, '2020') ?? 0), unit: '%' },
@@ -156,7 +193,7 @@ export async function GET(req: Request) {
 
   const result: DalioCycleResult = {
     debt: { debtGdp: Math.round(debtGdp * 10) / 10, debtGdpTrend, dsr: Math.round(dsr * 10) / 10, realRate: Math.round(realRate * 10) / 10, fedBsTrend, yieldCurve: Math.round(yieldCurve * 100) / 100, m2Yoy: m2Yoy != null ? Math.round(m2Yoy * 10) / 10 : null, signals, stageIndex, stageLabel, stageNote },
-    bubble, history, allWeather, asOf: new Date().toISOString(),
+    bubble, worldPower, history, allWeather, asOf: new Date().toISOString(),
   }
   if (debtGdp > 0) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })

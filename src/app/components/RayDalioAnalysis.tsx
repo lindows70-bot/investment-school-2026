@@ -46,8 +46,16 @@ export default function RayDalioAnalysis() {
       {!d && !err && <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: 16, color: '#8a9aaa', fontSize: 13 }}>실데이터로 달리오 사이클을 진단 중입니다…</div>}
 
       {d && <>
+        {/* 섹션 퀵내비 */}
+        <div style={{ position: 'sticky', top: 0, zIndex: 5, display: 'flex', gap: 6, flexWrap: 'wrap', background: 'rgba(10,13,20,0.85)', backdropFilter: 'blur(6px)', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '7px 9px' }}>
+          {[['dalio-debt', '① 부채 사이클'], ['dalio-big', '② 빅 사이클'], ['dalio-aw', '③ All Weather']].map(([id, lb]) => (
+            <button key={id} onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              style={{ background: 'rgba(212,175,122,0.1)', color: GOLD, border: `1px solid ${GOLD}44`, borderRadius: 7, padding: '4px 11px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{lb}</button>
+          ))}
+        </div>
+
         {/* ── ① 부채 사이클 ── */}
-        <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
+        <div id="dalio-debt" style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px', scrollMarginTop: 52 }}>
           <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 14 }}>① 부채 사이클 — 『금융 위기 템플릿』</div>
           <div style={{ color: '#8a9aaa', fontSize: 11, marginBottom: 10 }}>신용의 팽창→붕괴→회복 6단계. 실데이터로 현재 위치를 추정합니다(단정 아님).</div>
 
@@ -119,7 +127,7 @@ export default function RayDalioAnalysis() {
         </div>
 
         {/* ── ② 빅 사이클(교육) ── */}
-        <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
+        <div id="dalio-big" style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px', scrollMarginTop: 52 }}>
           <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 14 }}>② 빅 사이클 — 『변화하는 세계질서』</div>
           <div style={{ color: '#8a9aaa', fontSize: 11, marginBottom: 10 }}>제국의 흥망성쇠(수백 년 주기). 지정학은 실시간 데이터가 없어 이 섹션은 교육 중심입니다.</div>
 
@@ -150,17 +158,11 @@ export default function RayDalioAnalysis() {
             ))}
           </div>
 
-          <div style={{ color: '#cdd6e3', fontSize: 11, fontWeight: 600, marginBottom: 4 }}>제국 경쟁력 8대 지표 (달리오)</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {['🎓 교육', '💡 혁신·기술', '⚔️ 군사력', '🚢 무역량', '🏭 경제 산출', '🏦 금융 중심', '💵 기축통화', '🏛️ 거버넌스'].map(x => (
-              <span key={x} style={{ background: 'rgba(212,175,122,0.1)', color: GOLD, border: `1px solid ${GOLD}44`, borderRadius: 6, padding: '3px 9px', fontSize: 10.5, fontWeight: 600 }}>{x}</span>
-            ))}
-          </div>
-          <div style={{ color: '#7f93a8', fontSize: 10, marginTop: 8, lineHeight: 1.5 }}>⚠️ 이 8대 지표의 국가별 실시간 점수는 브릿지워터 독자 데이터라 공개 실데이터가 없습니다 — 개념 교육으로만 제공합니다. 실앵커(미국 vs 중국 GDP·기축통화 점유율)는 향후 발표치 기준으로 보강 가능.</div>
+          {d.worldPower && <WorldPower wp={d.worldPower} />}
         </div>
 
         {/* ── ③ All Weather ── */}
-        <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
+        <div id="dalio-aw" style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px', scrollMarginTop: 52 }}>
           <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 14 }}>③ 전천후(All Weather) 포트폴리오 — 실전 적용</div>
           <div style={{ color: '#8a9aaa', fontSize: 11, marginBottom: 10 }}>달리오: &ldquo;미래는 모른다. 어떤 계절이 와도 견디는 균형을 짜라.&rdquo;</div>
 
@@ -208,6 +210,58 @@ export default function RayDalioAnalysis() {
           </div>
         </div>
       </>}
+    </div>
+  )
+}
+
+// ② 빅 사이클 — 제국 국력지표 US vs 중국 (World Bank 실데이터 막대)
+const fmtPower = (v: number, disp: 'money' | 'pct' | 'pop') =>
+  disp === 'pct' ? `${v.toFixed(1)}%` : disp === 'pop' ? `${(v / 1e8).toFixed(1)}억` : v >= 1e12 ? `$${(v / 1e12).toFixed(1)}T` : `$${(v / 1e9).toFixed(0)}B`
+
+function WorldPower({ wp }: { wp: NonNullable<DalioCycleResult['worldPower']> }) {
+  return (
+    <div>
+      <div style={{ color: '#cdd6e3', fontSize: 11.5, fontWeight: 700, marginBottom: 2 }}>제국 국력지표 — 🇺🇸 미국 vs 🇨🇳 중국 (실데이터)</div>
+      <div style={{ color: '#7f93a8', fontSize: 10, marginBottom: 8 }}>World Bank 공개 통계(무료). 브릿지워터 독점 점수가 아니라 실측 지표로 패권 격차를 봅니다.</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+        {wp.metrics.map(m => {
+          const mx = Math.max(m.us, m.cn) || 1
+          return (
+            <div key={m.label}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, marginBottom: 3 }}>
+                <span style={{ color: '#cdd6e3', fontWeight: 600 }}>{m.label} <span style={{ color: '#6e7f8f', fontSize: 9 }}>({m.year}) · {m.note}</span></span>
+              </div>
+              {[['🇺🇸 미국', m.us, '#60a5fa'], ['🇨🇳 중국', m.cn, '#f87171']].map(([lb, v, c]) => (
+                <div key={lb as string} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                  <span style={{ width: 52, fontSize: 10, color: '#9aa7b5' }}>{lb}</span>
+                  <div style={{ flex: 1, background: '#0f1117', borderRadius: 4, height: 15, overflow: 'hidden' }}>
+                    <div style={{ width: `${((v as number) / mx) * 100}%`, height: '100%', background: c as string, borderRadius: 4, minWidth: 2 }} />
+                  </div>
+                  <span style={{ width: 62, textAlign: 'right', fontSize: 10.5, fontWeight: 700, color: '#e2e8f0', fontFamily: 'monospace' }}>{fmtPower(v as number, m.disp)}</span>
+                </div>
+              ))}
+            </div>
+          )
+        })}
+      </div>
+      {/* 기축통화 — 달리오 "최후의 특권" */}
+      <div style={{ background: `${GOLD}12`, border: `1px solid ${GOLD}40`, borderRadius: 9, padding: '9px 12px', marginTop: 10 }}>
+        <div style={{ color: GOLD, fontWeight: 800, fontSize: 11.5 }}>💵 기축통화 비중 — 달리오의 &ldquo;최후의 특권&rdquo;</div>
+        <div style={{ display: 'flex', gap: 12, marginTop: 6, marginBottom: 5 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 10, color: '#9aa7b5', marginBottom: 2 }}>🇺🇸 달러(USD)</div>
+            <div style={{ background: '#0f1117', borderRadius: 4, height: 15 }}><div style={{ width: `${wp.reserve.usd}%`, height: '100%', background: '#60a5fa', borderRadius: 4 }} /></div>
+            <div style={{ color: '#60a5fa', fontWeight: 800, fontSize: 13, marginTop: 2 }}>{wp.reserve.usd}%</div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 10, color: '#9aa7b5', marginBottom: 2 }}>🇨🇳 위안(CNY)</div>
+            <div style={{ background: '#0f1117', borderRadius: 4, height: 15 }}><div style={{ width: `${wp.reserve.cny}%`, height: '100%', background: '#f87171', borderRadius: 4, minWidth: 2 }} /></div>
+            <div style={{ color: '#f87171', fontWeight: 800, fontSize: 13, marginTop: 2 }}>{wp.reserve.cny}%</div>
+          </div>
+        </div>
+        <div style={{ color: '#aab6c4', fontSize: 10, lineHeight: 1.5 }}>달러 패권은 제국이 쇠퇴해도 가장 마지막까지 유지되는 특권입니다. 위안화는 아직 3% 미만 — 경제·군사 격차가 좁혀져도 기축통화는 별개의 신뢰 게임. <span style={{ color: '#7f93a8' }}>출처: {wp.reserve.source}</span></div>
+      </div>
+      <div style={{ color: '#7f93a8', fontSize: 10, marginTop: 8, lineHeight: 1.5 }}>💡 GDP·국방비는 미국 우위, <b style={{ color: '#cdd6e3' }}>수출·인구는 중국 우위</b> — 달리오가 말한 &ldquo;외부 질서 사이클(기존 패권 vs 신흥 도전)&rdquo;이 실데이터로 드러납니다. R&D 비중은 미래 국력의 선행지표.</div>
     </div>
   )
 }
