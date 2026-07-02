@@ -190,7 +190,7 @@ export default function RayDalioAnalysis() {
             <div style={{ color: '#cdd6e3', fontSize: 11.5, fontWeight: 700, marginBottom: 6 }}>전천후 자산 배분(리스크 패리티)</div>
             <div style={{ display: 'flex', height: 22, borderRadius: 5, overflow: 'hidden', marginBottom: 6 }}>
               {[['주식', 30, '#4ade80'], ['장기채', 40, '#60a5fa'], ['중기채', 15, '#22d3ee'], ['금', 7.5, '#fbbf24'], ['원자재', 7.5, '#fb923c']].map(([l, w, c]) => (
-                <div key={l as string} title={`${l} ${w}%`} style={{ width: `${w}%`, background: c as string, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8.5, color: '#0f1117', fontWeight: 800 }}>{(w as number) >= 10 ? `${l} ${w}%` : ''}</div>
+                <div key={l as string} title={`${l} ${w}%`} style={{ width: `${w}%`, background: c as string, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8.5, color: '#0f1117', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', padding: '0 1px' }}>{`${l} ${w}%`}</div>
               ))}
             </div>
             <div style={{ color: '#9aa7b5', fontSize: 10.5, lineHeight: 1.5 }}>💡 <b style={{ color: '#93c5fd' }}>핵심 = 리스크 패리티</b>: 채권 55%는 <b>금액</b>이 크지만 변동성이 작아 <b>위험 기여도</b>는 주식과 비슷해집니다. &ldquo;금액이 아니라 위험을 똑같이 나눈다&rdquo;가 전천후의 발명입니다.</div>
