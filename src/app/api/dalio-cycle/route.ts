@@ -69,23 +69,27 @@ const WB = [
 ]
 async function worldBank(id: string): Promise<{ us: number; cn: number; year: string } | null> {
   try {
-    const r = await fetch(`https://api.worldbank.org/v2/country/USA;CHN/indicator/${id}?format=json&mrv=1&per_page=2`, { signal: AbortSignal.timeout(10_000) })
+    // mrv=5로 최근 5개 관측 → 두 국가 모두 값 있는 가장 최근 '공통 연도'로 공정 비교(최신값이 한쪽만 null인 경우 방어, 예: 미 수출 2025 null)
+    const r = await fetch(`https://api.worldbank.org/v2/country/USA;CHN/indicator/${id}?format=json&mrv=5&per_page=12`, { signal: AbortSignal.timeout(10_000) })
     if (!r.ok) return null
     const j = await r.json()
     const rows: { country: { value: string }; date: string; value: number | null }[] = j?.[1] ?? []
-    let us: number | null = null, cn: number | null = null, year = ''
+    const us: Record<string, number> = {}, cn: Record<string, number> = {}
     for (const row of rows) {
       if (row.value == null) continue
-      if (row.country.value.includes('United States')) { us = row.value; year = row.date }
-      else if (row.country.value.includes('China')) { cn = row.value; if (!year) year = row.date }
+      if (row.country.value.includes('United States')) us[row.date] = row.value
+      else if (row.country.value.includes('China')) cn[row.date] = row.value
     }
-    return us != null && cn != null ? { us, cn, year } : null
+    const common = Object.keys(us).filter(y => y in cn).sort()
+    if (!common.length) return null
+    const year = common[common.length - 1]
+    return { us: us[year], cn: cn[year], year }
   } catch { return null }
 }
 
 export async function GET(req: Request) {
   const base = new URL(req.url).origin
-  const cacheKey = 'dalio-cycle-v2'   // v2: 빅 사이클 US vs 중국 국력지표(World Bank 실데이터) 추가 — 스키마 변경
+  const cacheKey = 'dalio-cycle-v3'   // v3: World Bank 공통 연도 비교(미 수출 최신값 null 방어) — v2가 4지표만 캐시한 것 무효화
   const cached = await getCache<DalioCycleResult>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
