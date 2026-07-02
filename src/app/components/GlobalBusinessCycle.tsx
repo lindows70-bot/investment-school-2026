@@ -59,9 +59,12 @@ export default function GlobalBusinessCycle() {
 
   return (
     <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
-      <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 14 }}>🌐 글로벌 비즈니스 사이클 — 국가별 경기 위치</div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 14 }}>🌐 글로벌 비즈니스 사이클 — 국가별 경기 위치</span>
+        {d?.countries[0] && <span style={{ background: 'rgba(212,175,122,0.12)', color: '#d4af7a', border: '1px solid rgba(212,175,122,0.35)', borderRadius: 6, padding: '2px 9px', fontSize: 11, fontWeight: 800 }}>📅 데이터 기준 {d.countries[0].asOfMonth}</span>}
+      </div>
       <div style={{ color: '#8a9aaa', fontSize: 11, marginBottom: 10 }}>
-        피델리티 프레임워크를 <b style={{ color: '#cdd6e3' }}>OECD 경기선행지수(CLI) 실데이터</b>로 재현 — 레벨(100 기준)×3개월 모멘텀 자동 판정(독점 배치 모사 아님).
+        피델리티 프레임워크를 <b style={{ color: '#cdd6e3' }}>OECD 경기선행지수(CLI) 실데이터</b>로 재현 — 레벨(100 기준)×3개월 모멘텀 자동 판정. 국가 위치는 매달 CLI 발표에 따라 <b style={{ color: '#cdd6e3' }}>자동으로 이동</b>합니다(과거 피델리티 이미지와 다른 건 시점 차이).
       </div>
 
       {err && <div style={{ color: '#8a9aaa', fontSize: 13, padding: 12 }}>데이터를 불러오지 못했습니다.</div>}
