@@ -105,7 +105,7 @@ export default function ShortInterestRadar() {
       {kr && kr.holdings.length > 0 && (
         <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-            <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>🇰🇷 한국 보유종목 공매도 — 거래 비중·순보유잔고</span>
+            <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>🇰🇷 내 한국 종목 공매도 — 잔고·모멘텀·거래 비중</span>
             <span style={{ background: 'rgba(212,175,122,0.12)', color: '#d4af7a', border: '1px solid rgba(212,175,122,0.35)', borderRadius: 6, padding: '2px 9px', fontSize: 11, fontWeight: 800 }}>📅 기준 {kr.date}</span>
           </div>
           <div style={{ color: '#8a9aaa', fontSize: 10.5, marginTop: 2, marginBottom: 8 }}>
