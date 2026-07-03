@@ -1,7 +1,7 @@
 'use client'
 // 🚨 개인 빚투 레이더 — 신용잔고·고객예탁금 실데이터 추이 + 빚투 비율 백분위 경보 + 역발상 교육(시뮬레이터 없음)
 import { useState, useEffect, useMemo } from 'react'
-import { ResponsiveContainer, ComposedChart, Line, Area, XAxis, YAxis, Tooltip, ReferenceDot } from 'recharts'
+import { ResponsiveContainer, ComposedChart, Line, Area, Bar, XAxis, YAxis, Tooltip, ReferenceDot } from 'recharts'
 import type { LeverageRadarResult } from '@/app/api/leverage-radar/route'
 
 const CARD = '#12151c', BORDER = '#252a36'
@@ -101,6 +101,54 @@ export default function LeverageRadar() {
             </ResponsiveContainer>
           </div>
         </div>
+
+        {/* 🆕 반대매매(강제청산) 실측 — 금융투자협회 */}
+        {d.misu && (
+          <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+              <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>💥 반대매매(강제청산) 실측 — 미수금 대비 반대매매</span>
+              <span style={{ background: d.misu.current.forcedPct >= 10 ? '#f8717122' : '#4ade8018', color: d.misu.current.forcedPct >= 10 ? '#f87171' : '#4ade80', borderRadius: 6, padding: '2px 9px', fontSize: 11, fontWeight: 800 }}>
+                오늘 비중 {d.misu.current.forcedPct}% (백분위 {d.misu.current.forcedPctPercentile}%)
+              </span>
+            </div>
+            <div style={{ color: '#8a9aaa', fontSize: 10.5, marginTop: 2, marginBottom: 8 }}>
+              미수금 = 돈 없이 외상(T+2)으로 산 주식 대금. 못 갚으면 다음날 아침 <b style={{ color: '#cdd6e3' }}>시가 하한가로 강제 처분(반대매매)</b> — 급락장 투매의 연료. 데이터: 금융투자협회 일별 공표.
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
+              {[
+                ['위탁매매 미수금', `${(d.misu.current.misu / 1e4).toFixed(2)}조`, '#e2e8f0'],
+                ['오늘 반대매매', `${d.misu.current.forced}억`, d.misu.current.forced > 500 ? '#f87171' : '#e2e8f0'],
+                ['역대 최악(교육 앵커)', `${d.misu.peak.date} ${d.misu.peak.forced.toLocaleString()}억 (${d.misu.peak.forcedPct}%)`, '#f87171'],
+              ].map(([k, v, c]) => (
+                <div key={k as string} style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 9, padding: '8px 14px' }}>
+                  <div style={{ color: '#7f93a8', fontSize: 10 }}>{k}</div>
+                  <div style={{ color: c as string, fontWeight: 800, fontSize: 14 }}>{v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 14, fontSize: 10.5, marginBottom: 4 }}>
+              <span style={{ color: '#f87171' }}>■ 반대매매금액(억, 좌)</span>
+              <span style={{ color: '#fbbf24' }}>— 미수금 대비 비중(%, 우)</span>
+            </div>
+            <div style={{ height: 190 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={d.misu.series.map(s => ({ date: s.date.slice(2), 반대매매: s.forced, 비중: s.forcedPct }))} margin={{ top: 6, right: 4, left: -6, bottom: 0 }}>
+                  <XAxis dataKey="date" tick={{ fill: '#7f93a8', fontSize: 9 }} minTickGap={60} axisLine={{ stroke: BORDER }} tickLine={false} />
+                  <YAxis yAxisId="a" tick={{ fill: '#f87171', fontSize: 9.5 }} axisLine={false} tickLine={false} width={40} tickFormatter={(v: number) => `${v}억`} />
+                  <YAxis yAxisId="p" orientation="right" tick={{ fill: '#fbbf24', fontSize: 9.5 }} axisLine={false} tickLine={false} width={34} tickFormatter={(v: number) => `${v}%`} />
+                  <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={(v: any, n: any) => [n === '반대매매' ? `${v}억` : `${v}%`, n]} />
+                  <Bar yAxisId="a" dataKey="반대매매" fill="#f87171" opacity={0.75} isAnimationActive={false} />
+                  <Line yAxisId="p" type="monotone" dataKey="비중" stroke="#fbbf24" strokeWidth={1.4} dot={false} isAnimationActive={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ color: '#7f93a8', fontSize: 10, marginTop: 6, lineHeight: 1.5 }}>
+              💡 스파이크가 솟는 날 = 급락 다음날 아침 강제청산 폭탄. 역대 최악 {d.misu.peak.date}(비중 {d.misu.peak.forcedPct}%)은 테마주 급락 사태 당시 — 빚투가 시장 전체 투매로 번진 실증 사례입니다.
+            </div>
+          </div>
+        )}
 
         {/* 교육 — 양방향 해석 */}
         <div style={{ background: 'rgba(212,175,122,0.06)', border: '1px solid rgba(212,175,122,0.33)', borderRadius: 12, padding: '12px 16px' }}>

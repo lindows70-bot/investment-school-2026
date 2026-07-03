@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 40
 
 export interface LeverageDay { date: string; deposit: number; margin: number; ratio: number }   // 억원, ratio %
+export interface MisuDay { date: string; misu: number; forced: number; forcedPct: number }      // 미수금(억)·반대매매(억)·비중(%)
 export interface LeverageRadarResult {
   series: LeverageDay[]           // 과거→최신
   current: {
@@ -18,6 +19,11 @@ export interface LeverageRadarResult {
   }
   peak: { date: string; margin: number }    // 이력 내 신용잔고 최고
   trough: { date: string; margin: number }  // 이력 내 최저(반대매매 청산 국면 교육용)
+  misu: {                                    // 🆕 위탁매매 미수금·반대매매(금융투자협회 FreeSIS 실데이터)
+    series: MisuDay[]
+    current: MisuDay & { forcedPctPercentile: number }
+    peak: MisuDay                            // 반대매매 비중 최대일(2023-10 영풍제지 사태 등 극단 교육 앵커)
+  } | null
   asOf: string
 }
 
@@ -46,12 +52,40 @@ async function fetchPage(page: number): Promise<{ date: string; deposit: number;
 
 const pct = (arr: number[], v: number) => Math.round((arr.filter(x => x <= v).length / arr.length) * 100)
 
+// 금융투자협회 FreeSIS — 투자자예탁금·위탁매매 미수금·반대매매 (무인증 JSON POST, 단위 천원 → 억원 환산)
+// 검증: TMPV5 미수금·TMPV6 반대매매금액·TMPV7 비중(%). 2023-10-20 비중 54.9% = 당시 '역대 최고' 보도와 정확 일치.
+async function fetchKofiaMisu(): Promise<MisuDay[]> {
+  try {
+    const end = new Date(), start = new Date(); start.setFullYear(end.getFullYear() - 3)
+    const fmt = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, '')
+    const r = await fetch('https://freesis.kofia.or.kr/meta/getMetaDataList.do', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' },
+      body: JSON.stringify({ dmSearch: { tmpV40: '1000', tmpV41: '1', tmpV1: 'D', tmpV45: fmt(start), tmpV46: fmt(end), OBJ_NM: 'STATSCU0100000060BO' } }),
+      signal: AbortSignal.timeout(15_000),
+    })
+    if (!r.ok) return []
+    const j = await r.json()
+    const rows: { TMPV1: string; TMPV5: number; TMPV6: number; TMPV7: number }[] = j?.ds1 ?? []
+    return rows
+      .filter(x => x?.TMPV1 && isFinite(x.TMPV5) && isFinite(x.TMPV6))
+      .map(x => ({
+        date: `${x.TMPV1.slice(0, 4)}-${x.TMPV1.slice(4, 6)}-${x.TMPV1.slice(6, 8)}`,
+        misu: Math.round(x.TMPV5 / 1e5),          // 천원 → 억원
+        forced: Math.round(x.TMPV6 / 1e5),
+        forcedPct: Math.round(x.TMPV7 * 10) / 10,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date))
+  } catch { return [] }
+}
+
 export async function GET() {
-  const cacheKey = 'leverage-radar-v1'
+  const cacheKey = 'leverage-radar-v2'   // v2: KOFIA 미수금·반대매매 추가 — 스키마 변경
   const cached = await getCache<LeverageRadarResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
-  // 40페이지 ≈ 3년+ 일별 이력(동시성 8 청크)
+  // 40페이지 ≈ 3년+ 일별 이력(동시성 8 청크) — KOFIA 미수금은 병렬 시작
+  const misuPromise = fetchKofiaMisu()
   const PAGES = 40, CHUNK = 8
   const rows: { date: string; deposit: number; margin: number }[] = []
   for (let i = 1; i <= PAGES; i += CHUNK) {
@@ -79,11 +113,21 @@ export async function GET() {
   const peakDay = series.reduce((w, s) => (s.margin > w.margin ? s : w), series[0])
   const troughDay = series.reduce((w, s) => (s.margin < w.margin ? s : w), series[0])
 
+  // 미수금·반대매매 (실패 시 null — graceful)
+  const misuSeries = await misuPromise
+  let misu: LeverageRadarResult['misu'] = null
+  if (misuSeries.length > 100) {
+    const mc = misuSeries[misuSeries.length - 1]
+    const misuPeak = misuSeries.reduce((w, s) => (s.forcedPct > w.forcedPct ? s : w), misuSeries[0])
+    misu = { series: misuSeries, current: { ...mc, forcedPctPercentile: pct(misuSeries.map(s => s.forcedPct), mc.forcedPct) }, peak: misuPeak }
+  }
+
   const result: LeverageRadarResult = {
     series,
     current: { date: cur.date, deposit: cur.deposit, margin: cur.margin, ratio: cur.ratio, ratioPercentile, marginPercentile, margin20dChgPct, level },
     peak: { date: peakDay.date, margin: peakDay.margin },
     trough: { date: troughDay.date, margin: troughDay.margin },
+    misu,
     asOf: new Date().toISOString(),
   }
   await setCache(cacheKey, result)
