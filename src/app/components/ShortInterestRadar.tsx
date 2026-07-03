@@ -2,7 +2,16 @@
 // 📉 공매도 레이더 — 보유 US 종목 공매도 잔고·커버일수·유통비중(Yahoo 실데이터) + KR 3대 지표 교육(무료 소스 부재 정직 고지)
 import { useState, useEffect } from 'react'
 import type { ShortInterestResult, ShortEntry } from '@/app/api/short-interest/route'
-import type { KrShortResult } from '@/app/api/kr-short/route'
+import type { KrShortResult, KrShortSignal } from '@/app/api/kr-short/route'
+
+const KR_SIG: Record<KrShortSignal, { ko: string; color: string; tip: string }> = {
+  heavy: { ko: '🔴 숏 과다', color: '#f87171', tip: '순보유잔고가 상장주식 3% 이상 — 하락 베팅이 크게 누적(악재 취약, 호재 시 숏스퀴즈 연료)' },
+  rising: { ko: '🟠 숏 증가', color: '#fb923c', tip: '잔고가 20거래일 새 +20% 이상 급증 — 세력이 하락 베팅을 강화 중' },
+  covering: { ko: '🔵 숏커버링', color: '#60a5fa', tip: '잔고가 20거래일 새 −20% 이상 급감 — 공매도 세력이 되사서 갚는 중(상승 압력 가능)' },
+  spike: { ko: '🟡 당일 집중', color: '#fbbf24', tip: '오늘 거래의 10% 이상이 공매도 — 단기 하락 베팅 집중일' },
+  calm: { ko: '🟢 평온', color: '#4ade80', tip: '공매도 압력이 낮은 상태' },
+}
+const fmtKrQty = (n: number) => (n >= 1e8 ? `${(n / 1e8).toFixed(1)}억주` : n >= 1e4 ? `${(n / 1e4).toFixed(0)}만주` : `${n.toLocaleString()}주`)
 
 const CARD = '#12151c', BORDER = '#252a36'
 const SIG: Record<ShortEntry['signal'], { ko: string; color: string; tip: string }> = {
@@ -107,27 +116,35 @@ export default function ShortInterestRadar() {
               <thead>
                 <tr style={{ color: '#7f93a8', fontSize: 10, textAlign: 'right' }}>
                   <th style={{ textAlign: 'left', padding: '4px 6px' }}>종목</th>
-                  <th style={{ padding: '4px 6px' }}>당일 공매도 비중</th>
-                  <th style={{ padding: '4px 6px' }}>순보유잔고(상장주식 대비)</th>
+                  <th style={{ padding: '4px 6px' }}>공매도 잔고</th>
+                  <th style={{ padding: '4px 6px' }}>잔고 20일 변화</th>
+                  <th style={{ padding: '4px 6px' }}>상장주식 대비</th>
+                  <th style={{ padding: '4px 6px' }}>당일 거래 비중</th>
                   <th style={{ textAlign: 'left', padding: '4px 10px' }}>60일 비중 추이</th>
+                  <th style={{ textAlign: 'left', padding: '4px 6px' }}>신호</th>
                 </tr>
               </thead>
               <tbody>
                 {[...kr.holdings].sort((a, b) => (b.balance?.pct ?? 0) - (a.balance?.pct ?? 0)).map(h => {
                   const last = h.series[h.series.length - 1]
+                  const chg = h.balance?.chg20d ?? null
+                  const s = KR_SIG[h.signal ?? 'calm']
                   return (
-                    <tr key={h.ticker} style={{ borderTop: `1px solid ${BORDER}` }}>
+                    <tr key={h.ticker} style={{ borderTop: `1px solid ${BORDER}` }} title={s.tip}>
                       <td style={{ padding: '6px 6px', color: '#e2e8f0', fontWeight: 700 }}>{h.name} <span style={{ color: '#7f93a8', fontSize: 9.5 }}>{h.ticker}</span></td>
-                      <td style={{ padding: '6px 6px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: (last?.ratio ?? 0) >= 10 ? '#f87171' : (last?.ratio ?? 0) >= 5 ? '#fbbf24' : '#9aa7b5' }}>{last ? `${last.ratio}%` : '—'}</td>
+                      <td style={{ padding: '6px 6px', textAlign: 'right', fontFamily: 'monospace', color: '#cdd6e3' }}>{h.balance ? fmtKrQty(h.balance.qty) : '—'}</td>
+                      <td style={{ padding: '6px 6px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: chg == null ? '#9aa7b5' : chg >= 20 ? '#fb923c' : chg <= -20 ? '#60a5fa' : '#9aa7b5' }}>{chg != null ? `${chg > 0 ? '+' : ''}${chg}%` : '—'}</td>
                       <td style={{ padding: '6px 6px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: (h.balance?.pct ?? 0) >= 3 ? '#f87171' : (h.balance?.pct ?? 0) >= 1 ? '#fbbf24' : '#9aa7b5' }}>{h.balance ? `${h.balance.pct}%` : '—'}</td>
+                      <td style={{ padding: '6px 6px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: (last?.ratio ?? 0) >= 10 ? '#f87171' : (last?.ratio ?? 0) >= 5 ? '#fbbf24' : '#9aa7b5' }}>{last ? `${last.ratio}%` : '—'}</td>
                       <td style={{ padding: '4px 10px' }}><RatioSpark series={h.series} /></td>
+                      <td style={{ padding: '6px 6px' }}><span style={{ color: s.color, fontWeight: 800, fontSize: 10.5, whiteSpace: 'nowrap' }}>{s.ko}</span></td>
                     </tr>
                   )
                 })}
               </tbody>
             </table>
           </div>
-          <div style={{ color: '#7f93a8', fontSize: 10, marginTop: 6 }}>색 기준: 비중 10%↑🔴/5%↑🟡 · 잔고 3%↑🔴/1%↑🟡. 잔고 급감+호재 = 숏커버링 급등 가능(양방향).</div>
+          <div style={{ color: '#7f93a8', fontSize: 10, marginTop: 6 }}>신호(결정론): 🔴잔고 3%↑ · 🟠잔고 20일 +20%↑ · 🔵잔고 20일 −20%↓(숏커버링 진행 = 상승 압력 가능) · 🟡당일 비중 10%↑ · 행에 마우스 올리면 해석. 미국판과 동일한 양방향 프레임.</div>
         </div>
       )}
 

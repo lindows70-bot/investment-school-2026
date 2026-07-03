@@ -80,18 +80,22 @@ def main():
                       for idx, row in v.iterrows()]
         except Exception:
             series = []
-        bal = None
+        bal, bal_series = None, []
         try:
             b = stock.get_shorting_balance_by_date(start, day, t)
             if len(b):
-                last = b.iloc[-1]
-                bal = {'date': b.index[-1].strftime('%Y-%m-%d'), 'qty': int(last['공매도잔고']),
-                       'pct': round(float(last['비중']), 2)}
+                bal_series = [{'date': idx.strftime('%Y-%m-%d'), 'qty': int(row['공매도잔고']),
+                               'pct': round(float(row['비중']), 2)} for idx, row in b.iterrows()][-60:]
+                last = bal_series[-1]
+                # 잔고 모멘텀: 20거래일 전 대비 수량 변화율(%) — 미국판 '전월비'와 동급
+                prev = bal_series[-21]['qty'] if len(bal_series) > 20 else None
+                chg = round((last['qty'] - prev) / prev * 100, 1) if prev else None
+                bal = {'date': last['date'], 'qty': last['qty'], 'pct': last['pct'], 'chg20d': chg}
         except Exception:
             pass
         if series or bal:
-            holdings.append({'ticker': t, 'name': name, 'series': series[-60:], 'balance': bal})
-        print(' -', t, name, f'추이 {len(series)}일', f"잔고 {bal['pct']}%" if bal else '잔고없음')
+            holdings.append({'ticker': t, 'name': name, 'series': series[-60:], 'balance': bal, 'balSeries': bal_series})
+        print(' -', t, name, f'추이 {len(series)}일', f"잔고 {bal['pct']}% ({bal['chg20d']}%/20일)" if bal else '잔고없음')
 
     payload = {'date': f'{day[:4]}-{day[4:6]}-{day[6:]}', 'marketTop': market_top, 'holdings': holdings,
                'asOf': datetime.datetime.now().isoformat()}
