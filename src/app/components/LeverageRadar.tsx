@@ -108,7 +108,7 @@ export default function LeverageRadar() {
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
               <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>💥 반대매매(강제청산) 실측 — 미수금 대비 반대매매</span>
               <span style={{ background: d.misu.current.forcedPct >= 10 ? '#f8717122' : '#4ade8018', color: d.misu.current.forcedPct >= 10 ? '#f87171' : '#4ade80', borderRadius: 6, padding: '2px 9px', fontSize: 11, fontWeight: 800 }}>
-                오늘 비중 {d.misu.current.forcedPct}% (백분위 {d.misu.current.forcedPctPercentile}%)
+                {d.misu.current.date.slice(5)} 비중 {d.misu.current.forcedPct}% (백분위 {d.misu.current.forcedPctPercentile}%)
               </span>
             </div>
             <div style={{ color: '#8a9aaa', fontSize: 10.5, marginTop: 2, marginBottom: 8 }}>
@@ -134,7 +134,7 @@ export default function LeverageRadar() {
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={d.misu.series.map(s => ({ date: s.date.slice(2), 반대매매: s.forced, 비중: s.forcedPct }))} margin={{ top: 6, right: 4, left: -6, bottom: 0 }}>
                   <XAxis dataKey="date" tick={{ fill: '#7f93a8', fontSize: 9 }} minTickGap={60} axisLine={{ stroke: BORDER }} tickLine={false} />
-                  <YAxis yAxisId="a" tick={{ fill: '#f87171', fontSize: 9.5 }} axisLine={false} tickLine={false} width={40} tickFormatter={(v: number) => `${v}억`} />
+                  <YAxis yAxisId="a" tick={{ fill: '#f87171', fontSize: 9.5 }} axisLine={false} tickLine={false} width={52} tickFormatter={(v: number) => `${v.toLocaleString()}억`} />
                   <YAxis yAxisId="p" orientation="right" tick={{ fill: '#fbbf24', fontSize: 9.5 }} axisLine={false} tickLine={false} width={34} tickFormatter={(v: number) => `${v}%`} />
                   <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
