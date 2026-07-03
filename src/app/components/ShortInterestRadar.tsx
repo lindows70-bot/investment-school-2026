@@ -128,12 +128,17 @@ export default function ShortInterestRadar() {
                 {[...kr.holdings].sort((a, b) => (b.balance?.pct ?? 0) - (a.balance?.pct ?? 0)).map(h => {
                   const last = h.series[h.series.length - 1]
                   const chg = h.balance?.chg20d ?? null
+                  const pct = h.balance?.pct ?? 0
                   const s = KR_SIG[h.signal ?? 'calm']
+                  // 잔고가 미미(pct<0.3%)하면 변화율은 극소 분모發 착시(기저효과) → 경고색 안 씀·회색 처리(신호 게이트와 일치)
+                  const material = pct >= 0.3
+                  const chgColor = chg == null ? '#9aa7b5' : !material ? '#6e7f8f' : chg >= 20 ? '#fb923c' : chg <= -20 ? '#60a5fa' : '#9aa7b5'
+                  const baseEffect = chg != null && !material && Math.abs(chg) >= 100
                   return (
                     <tr key={h.ticker} style={{ borderTop: `1px solid ${BORDER}` }} title={s.tip}>
                       <td style={{ padding: '6px 6px', color: '#e2e8f0', fontWeight: 700 }}>{h.name} <span style={{ color: '#7f93a8', fontSize: 9.5 }}>{h.ticker}</span></td>
                       <td style={{ padding: '6px 6px', textAlign: 'right', fontFamily: 'monospace', color: '#cdd6e3' }}>{h.balance ? fmtKrQty(h.balance.qty) : '—'}</td>
-                      <td style={{ padding: '6px 6px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: chg == null ? '#9aa7b5' : chg >= 20 ? '#fb923c' : chg <= -20 ? '#60a5fa' : '#9aa7b5' }}>{chg != null ? `${chg > 0 ? '+' : ''}${chg}%` : '—'}</td>
+                      <td style={{ padding: '6px 6px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: chgColor }} title={baseEffect ? '잔고가 극소(상장주식 0.3% 미만)라 변화율은 기저효과 — 참고만' : undefined}>{chg != null ? `${chg > 0 ? '+' : ''}${chg}%${baseEffect ? '*' : ''}` : '—'}</td>
                       <td style={{ padding: '6px 6px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: (h.balance?.pct ?? 0) >= 3 ? '#f87171' : (h.balance?.pct ?? 0) >= 1 ? '#fbbf24' : '#9aa7b5' }}>{h.balance ? `${h.balance.pct}%` : '—'}</td>
                       <td style={{ padding: '6px 6px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: (last?.ratio ?? 0) >= 10 ? '#f87171' : (last?.ratio ?? 0) >= 5 ? '#fbbf24' : '#9aa7b5' }}>{last ? `${last.ratio}%` : '—'}</td>
                       <td style={{ padding: '4px 10px' }}><RatioSpark series={h.series} /></td>
@@ -144,7 +149,7 @@ export default function ShortInterestRadar() {
               </tbody>
             </table>
           </div>
-          <div style={{ color: '#7f93a8', fontSize: 10, marginTop: 6 }}>신호(결정론): 🔴잔고 3%↑ · 🟠잔고 20일 +20%↑ · 🔵잔고 20일 −20%↓(숏커버링 진행 = 상승 압력 가능) · 🟡당일 비중 10%↑ · 행에 마우스 올리면 해석. 미국판과 동일한 양방향 프레임.</div>
+          <div style={{ color: '#7f93a8', fontSize: 10, marginTop: 6 }}>신호(결정론): 🔴잔고 3%↑ · 🟠잔고 20일 +20%↑ · 🔵잔고 20일 −20%↓(숏커버링 진행 = 상승 압력 가능) · 🟡당일 비중 10%↑ · 행에 마우스 올리면 해석. 미국판과 동일한 양방향 프레임. <span style={{ color: '#6e7f8f' }}>* 잔고가 상장주식 0.3% 미만이면 변화율은 극소 분모發 기저효과라 참고만(회색 처리).</span></div>
         </div>
       )}
 
