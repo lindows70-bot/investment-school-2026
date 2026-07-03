@@ -30,6 +30,7 @@ import SeasonNavigator            from '@/app/components/SeasonNavigator'
 import RayDalioAnalysis           from '@/app/components/RayDalioAnalysis'
 import GlobalBusinessCycle        from '@/app/components/GlobalBusinessCycle'
 import LeverageRadar              from '@/app/components/LeverageRadar'
+import ShortInterestRadar         from '@/app/components/ShortInterestRadar'
 import UnifiedReco                 from '@/app/components/UnifiedReco'
 import OperationsHQ                 from '@/app/components/OperationsHQ'
 import NewsCatalystRadar          from '@/app/components/NewsCatalystRadar'
@@ -3207,7 +3208,7 @@ export default function DashboardPage() {
           ))}
         </div>
         <ErrorBoundary label="수급 레이더">
-          {flowView==='mine' ? <PortfolioFlowDashboard /> : flowView==='market' ? <MarketFlowKr /> : flowView==='investor' ? <MarketInvestorTrend /> : flowView==='reco' ? <PortfolioRecoKr /> : flowView==='leverage' ? <LeverageRadar /> : <UnifiedReco />}
+          {flowView==='mine' ? <PortfolioFlowDashboard /> : flowView==='market' ? <MarketFlowKr /> : flowView==='investor' ? <MarketInvestorTrend /> : flowView==='reco' ? <PortfolioRecoKr /> : flowView==='leverage' ? <><LeverageRadar /><ShortInterestRadar /></> : <UnifiedReco />}
         </ErrorBoundary>
       </div>
 
