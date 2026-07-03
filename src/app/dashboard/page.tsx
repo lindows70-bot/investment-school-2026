@@ -29,6 +29,7 @@ import GlobalTop10                from '@/app/components/GlobalTop10'
 import SeasonNavigator            from '@/app/components/SeasonNavigator'
 import RayDalioAnalysis           from '@/app/components/RayDalioAnalysis'
 import GlobalBusinessCycle        from '@/app/components/GlobalBusinessCycle'
+import LeverageRadar              from '@/app/components/LeverageRadar'
 import UnifiedReco                 from '@/app/components/UnifiedReco'
 import OperationsHQ                 from '@/app/components/OperationsHQ'
 import NewsCatalystRadar          from '@/app/components/NewsCatalystRadar'
@@ -664,7 +665,7 @@ export default function DashboardPage() {
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
   const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'dalio' | 'globalcycle' | 'quantum' | 'aisemi' | 'power' | 'physai' | 'aibio' | 'defense' | 'financials' | 'energy' | 'materials' | 'industrials' | 'discretionary' | 'staples' | 'healthcare' | 'infotech' | 'communication' | 'utilities' | 'realestate'>('live')
-  const [flowView, setFlowView] = useState<'mine' | 'market' | 'investor' | 'reco' | 'unified'>('mine')
+  const [flowView, setFlowView] = useState<'mine' | 'market' | 'investor' | 'reco' | 'unified' | 'leverage'>('mine')
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
   // ── AI 멘토 탭: MENTOR_STOCKS 제거 후 컴포넌트에 빈 배열 전달 ──
@@ -3195,6 +3196,7 @@ export default function DashboardPage() {
             ['investor','🏛️ 투자자별 매매동향','#f59e0b'],
             ['reco','🎯 맞춤 추천 (국내)','#f59e0b'],
             ['unified','🎯 통합 추천','#f59e0b'],
+            ['leverage','🚨 빚투 경보','#ef4444'],
           ] as const).map(([k,label,col]) => (
             <button key={k} onClick={()=>setFlowView(k)}
               style={{ padding:'7px 16px', borderRadius:999, fontSize:13, fontWeight:700, cursor:'pointer',
@@ -3205,7 +3207,7 @@ export default function DashboardPage() {
           ))}
         </div>
         <ErrorBoundary label="수급 레이더">
-          {flowView==='mine' ? <PortfolioFlowDashboard /> : flowView==='market' ? <MarketFlowKr /> : flowView==='investor' ? <MarketInvestorTrend /> : flowView==='reco' ? <PortfolioRecoKr /> : <UnifiedReco />}
+          {flowView==='mine' ? <PortfolioFlowDashboard /> : flowView==='market' ? <MarketFlowKr /> : flowView==='investor' ? <MarketInvestorTrend /> : flowView==='reco' ? <PortfolioRecoKr /> : flowView==='leverage' ? <LeverageRadar /> : <UnifiedReco />}
         </ErrorBoundary>
       </div>
 
