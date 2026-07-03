@@ -49,10 +49,9 @@ export default function GlobalBusinessCycle() {
         out.push({ ...c, dispX, labelUp: i % 2 === 0 })
       })
     }
-    // 전체 재스캔: 밴드 경계 넘어 인접한 버블 최소 간격 보정
-    out.sort((x, y) => x.dispX - y.dispX)
-    for (let i = 1; i < out.length; i++) if (out[i].dispX - out[i - 1].dispX < 4.5) out[i].dispX = out[i - 1].dispX + 4.5
-    return out
+    // ⚠️ 밴드 경계를 넘는 전역 간격 보정 금지 — 후기 8개국이 밀려 수축 밴드에 침범(판정≠표시)했던 버그.
+    //   밴드 내 균등 분산이면 충분(버블 약간 겹침은 피델리티 원본도 동일).
+    return out.sort((x, y) => x.dispX - y.dispX)
   }, [d])
 
   const cur = d?.countries.find(c => c.code === sel) ?? null
