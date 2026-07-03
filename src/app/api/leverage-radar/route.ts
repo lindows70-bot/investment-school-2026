@@ -59,7 +59,7 @@ export async function GET() {
     batch.forEach(b => rows.push(...b))
   }
   const byDate = new Map(rows.map(r => [r.date, r]))
-  const series: LeverageDay[] = [...byDate.values()]
+  const series: LeverageDay[] = Array.from(byDate.values())
     .sort((a, b) => a.date.localeCompare(b.date))
     .map(r => ({ ...r, ratio: Math.round((r.margin / r.deposit) * 1000) / 10 }))
 
