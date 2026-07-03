@@ -57,17 +57,24 @@ async function fredSeries(series: string): Promise<{ date: string; v: number }[]
   } catch { return [] }
 }
 
-// 국면 판정: CLI 레벨(100 기준) × 3개월 모멘텀 2×2 (4계절 내비게이터 성장축과 동일 철학)
+// 국면 판정: CLI 레벨(100 기준) × 3개월 모멘텀 + ⭐과열(overheat) 규칙.
+// 피델리티 AART 공개 방법론의 Late 정의 = "성장이 플러스여도 잠재 수준을 크게 초과(과열)하면 후기".
+// 초기 버전은 모멘텀 부호만 봐서 CLI 102+ 과열국(한국·브라질·멕시코·인도)을 mid로 오분류 → v2에서 과열 임계(102) 추가.
+const OVERHEAT = 102
 function judge(cli: number, momentum: number): { phase: CyclePhase; curveX: number } {
   const clamp = (t: number) => Math.max(0.06, Math.min(0.94, t))   // 구간 경계에 딱 붙지 않게
   if (cli < 100 && momentum > 0) return { phase: 'early', curveX: 0 + clamp((cli - 96) / 4) * 25 }          // 100에 가까울수록 회복 후반
-  if (cli >= 100 && momentum > 0) return { phase: 'mid', curveX: 25 + clamp((cli - 100) / 3) * 25 }          // 100 위로 갈수록 확장 심화
-  if (cli >= 100) return { phase: 'late', curveX: 50 + clamp(1 - (cli - 100) / 3) * 25 }                     // 100으로 내려올수록 후기 심화
+  if (cli >= OVERHEAT) {
+    // 과열 후기: 아직 상승이어도 정점 직후 구간(50~62)에 배치, 과열 깊이(102 초과분)로 심화
+    return { phase: 'late', curveX: 50 + clamp((cli - OVERHEAT) / 2) * 12 }
+  }
+  if (cli >= 100 && momentum > 0) return { phase: 'mid', curveX: 25 + clamp((cli - 100) / 2) * 25 }          // 100 위로 갈수록 확장 심화
+  if (cli >= 100) return { phase: 'late', curveX: 62 + clamp(1 - (cli - 100) / 2) * 13 }                     // 감속 후기: 과열군보다 뒤(62~75)
   return { phase: 'recession', curveX: 75 + clamp((100 - cli) / 3) * 25 }                                    // 100 아래로 깊을수록 수축 심화
 }
 
 export async function GET() {
-  const cacheKey = 'global-cycle-v1'
+  const cacheKey = 'global-cycle-v2'   // v2: 과열(CLI>102=late) 규칙 추가 — 판정 변경이라 v1 캐시 무효화
   const cached = await getCache<GlobalCycleResult>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

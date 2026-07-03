@@ -64,7 +64,7 @@ export default function GlobalBusinessCycle() {
         {d?.countries[0] && <span style={{ background: 'rgba(212,175,122,0.12)', color: '#d4af7a', border: '1px solid rgba(212,175,122,0.35)', borderRadius: 6, padding: '2px 9px', fontSize: 11, fontWeight: 800 }}>📅 데이터 기준 {d.countries[0].asOfMonth}</span>}
       </div>
       <div style={{ color: '#8a9aaa', fontSize: 11, marginBottom: 10 }}>
-        피델리티 프레임워크를 <b style={{ color: '#cdd6e3' }}>OECD 경기선행지수(CLI) 실데이터</b>로 재현 — 레벨(100 기준)×3개월 모멘텀 자동 판정. 국가 위치는 매달 CLI 발표에 따라 <b style={{ color: '#cdd6e3' }}>자동으로 이동</b>합니다(과거 피델리티 이미지와 다른 건 시점 차이).
+        피델리티 프레임워크를 <b style={{ color: '#cdd6e3' }}>OECD 경기선행지수(CLI) 실데이터</b>로 재현 — 레벨(100 기준)×모멘텀 + <b style={{ color: '#cdd6e3' }}>과열 규칙</b>(CLI 102↑ = 잠재 초과 가열 → 후기, 피델리티 공개 방법론의 Late 정의) 자동 판정. 매달 CLI 발표에 따라 자동 갱신.
       </div>
 
       {err && <div style={{ color: '#8a9aaa', fontSize: 13, padding: 12 }}>데이터를 불러오지 못했습니다.</div>}
@@ -154,7 +154,7 @@ export default function GlobalBusinessCycle() {
         </div>
 
         <div style={{ color: '#7f93a8', fontSize: 10, marginTop: 10, lineHeight: 1.55 }}>
-          ⚠️ OECD CLI(진폭조정)는 발표 시차 ~1개월 — 피델리티 공식 배치와 다를 수 있습니다(우리는 공개 실데이터 자동 판정). 이 사이클은 <b>성장 축</b>만 봅니다 — 물가까지 합친 판정은 🧭 4계절 내비게이터(성장×물가) 참조. 국면별 유리 자산은 역사적 <b>경향</b>이지 매매 지시가 아닙니다.
+          ⚠️ OECD CLI(진폭조정)는 발표 시차 ~1개월. 피델리티 공식(분기)은 독자 지표(고용·신용·이익·재고)를 병용해 일부 국가(특히 유로존 경계 케이스)가 다를 수 있습니다 — 우리는 공개 실데이터 자동 판정(2026 Q2 기준 13개국 중 9개국 일치 검증). 이 사이클은 <b>성장 축</b>만 봅니다 — 물가까지 합친 판정은 🧭 4계절 내비게이터(성장×물가) 참조. 국면별 유리 자산은 역사적 <b>경향</b>이지 매매 지시가 아닙니다.
         </div>
       </>}
     </div>
