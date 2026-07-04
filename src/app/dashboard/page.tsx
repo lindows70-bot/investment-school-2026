@@ -27,6 +27,7 @@ import BlackRockTracker           from '@/app/components/BlackRockTracker'
 import JarvisMorningBriefing      from '@/app/components/JarvisMorningBriefing'
 import SchoolIndexDashboard       from '@/app/components/SchoolIndexDashboard'
 import GlobalTop10                from '@/app/components/GlobalTop10'
+import H1Champions                from '@/app/components/H1Champions'
 import SeasonNavigator            from '@/app/components/SeasonNavigator'
 import RayDalioAnalysis           from '@/app/components/RayDalioAnalysis'
 import GlobalBusinessCycle        from '@/app/components/GlobalBusinessCycle'
@@ -668,7 +669,7 @@ export default function DashboardPage() {
   }>>({})
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'dalio' | 'globalcycle' | 'ipocycle' | 'crisis' | 'quantum' | 'aisemi' | 'power' | 'physai' | 'aibio' | 'defense' | 'financials' | 'energy' | 'materials' | 'industrials' | 'discretionary' | 'staples' | 'healthcare' | 'infotech' | 'communication' | 'utilities' | 'realestate'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'dalio' | 'globalcycle' | 'ipocycle' | 'crisis' | 'champions' | 'quantum' | 'aisemi' | 'power' | 'physai' | 'aibio' | 'defense' | 'financials' | 'energy' | 'materials' | 'industrials' | 'discretionary' | 'staples' | 'healthcare' | 'infotech' | 'communication' | 'utilities' | 'realestate'>('live')
   const [flowView, setFlowView] = useState<'mine' | 'market' | 'investor' | 'reco' | 'unified' | 'leverage'>('mine')
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
@@ -1339,6 +1340,7 @@ export default function DashboardPage() {
           {
             id: 'research', icon: '💡', label: '종목 리서치',
             items: [
+              { key: 'champions', icon: '🏆', label: '상반기 수익률 챔피언십', desc: '4대 시장 Top10 + FOMO 계산기 + 비교차트' },
               { key: 'globaltop10', icon: '🌍', label: '글로벌 시총 Top 10',  desc: '미국 vs 한국 시총 거인 + 국민연금·블랙록' },
               { key: 'macroai',  icon: '🌐', label: '거시경제 AI 추천',       desc: '매크로 × 린치 × Gemini 종합 추천' },
               { key: 'tenbagger',icon: '🚀', label: '10배거 헌터',           desc: '린치 10루타 7대 기준 종목 검증' },
@@ -3037,6 +3039,11 @@ export default function DashboardPage() {
       </div>  {/* 유령 종목 탭 끝 */}
 
       {/* ── 🌍 글로벌 시총 Top 10 탭 ── */}
+      <div id="tab-champions" style={{ display: dashTab==='champions' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="상반기 수익률 챔피언십">
+          {dashTab==='champions' && <H1Champions />}
+        </ErrorBoundary>
+      </div>
       <div id="tab-globaltop10" style={{ display: dashTab==='globaltop10' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         <ErrorBoundary label="글로벌 시총 Top 10">
           <GlobalTop10 />
