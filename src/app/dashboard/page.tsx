@@ -30,6 +30,7 @@ import GlobalTop10                from '@/app/components/GlobalTop10'
 import SeasonNavigator            from '@/app/components/SeasonNavigator'
 import RayDalioAnalysis           from '@/app/components/RayDalioAnalysis'
 import GlobalBusinessCycle        from '@/app/components/GlobalBusinessCycle'
+import IpoHypeCycle               from '@/app/components/IpoHypeCycle'
 import LeverageRadar              from '@/app/components/LeverageRadar'
 import ShortInterestRadar         from '@/app/components/ShortInterestRadar'
 import UnifiedReco                 from '@/app/components/UnifiedReco'
@@ -666,7 +667,7 @@ export default function DashboardPage() {
   }>>({})
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'dalio' | 'globalcycle' | 'quantum' | 'aisemi' | 'power' | 'physai' | 'aibio' | 'defense' | 'financials' | 'energy' | 'materials' | 'industrials' | 'discretionary' | 'staples' | 'healthcare' | 'infotech' | 'communication' | 'utilities' | 'realestate'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'dalio' | 'globalcycle' | 'ipocycle' | 'quantum' | 'aisemi' | 'power' | 'physai' | 'aibio' | 'defense' | 'financials' | 'energy' | 'materials' | 'industrials' | 'discretionary' | 'staples' | 'healthcare' | 'infotech' | 'communication' | 'utilities' | 'realestate'>('live')
   const [flowView, setFlowView] = useState<'mine' | 'market' | 'investor' | 'reco' | 'unified' | 'leverage'>('mine')
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
@@ -1349,6 +1350,7 @@ export default function DashboardPage() {
               { key: 'season', icon: '🧭', label: '4계절 내비게이터',     desc: '성장×물가 2×2 · 내 포폴 계절 정합성' },
               { key: 'dalio',  icon: '🌊', label: '레이 달리오 (매크로 사이클)', desc: '부채 사이클·빅 사이클·전천후 — 실데이터 진단' },
               { key: 'globalcycle', icon: '🌐', label: '글로벌 비즈니스 사이클', desc: '피델리티식 13개국 경기 위치 — OECD CLI 실데이터' },
+              { key: 'ipocycle', icon: '🚀', label: 'IPO 하이프 사이클', desc: '신규 상장주 6단계 수명주기 — 실제 상장주 자동 매핑' },
             ],
           },
           {
@@ -3056,6 +3058,11 @@ export default function DashboardPage() {
       <div id="tab-globalcycle" style={{ display: dashTab==='globalcycle' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         <ErrorBoundary label="글로벌 비즈니스 사이클">
           {dashTab==='globalcycle' && <GlobalBusinessCycle />}
+        </ErrorBoundary>
+      </div>
+      <div id="tab-ipocycle" style={{ display: dashTab==='ipocycle' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="IPO 하이프 사이클">
+          {dashTab==='ipocycle' && <IpoHypeCycle />}
         </ErrorBoundary>
       </div>
 
