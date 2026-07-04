@@ -1,7 +1,7 @@
 'use client'
 // 🏆 2026 상반기 수익률 챔피언십 — 4시장 Top10 랭킹보드 + FOMO 계산기 + 누적수익 차트 + 4지수/대장주 비교
 import { useState, useEffect } from 'react'
-import { ResponsiveContainer, AreaChart, Area, LineChart, Line, XAxis, YAxis, Tooltip } from 'recharts'
+import { ResponsiveContainer, AreaChart, Area, LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine } from 'recharts'
 import type { H1ChampResult, ChampStock } from '@/app/api/h1-champions/route'
 
 const CARD = '#12151c', BORDER = '#252a36', GOLD = '#d4af7a'
@@ -131,11 +131,12 @@ export default function H1Champions() {
                   </div>
                   <div style={{ height: 110, marginTop: 4 }}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={data} margin={{ top: 6, right: 6, left: -18, bottom: 0 }}>
+                      <LineChart data={data} margin={{ top: 6, right: 6, left: 4, bottom: 0 }}>
                         <XAxis dataKey="d" tick={{ fill: '#7f93a8', fontSize: 8 }} minTickGap={40} axisLine={{ stroke: BORDER }} tickLine={false} />
-                        <YAxis tick={{ fill: '#7f93a8', fontSize: 8 }} axisLine={false} tickLine={false} width={30} tickFormatter={(v: number) => `${v}`} />
+                        <YAxis hide domain={['dataMin', 'dataMax']} />
                         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                        <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 10.5 }} formatter={(v: any) => [`${v >= 0 ? '+' : ''}${v}%`, '']} />
+                        <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 10.5 }} formatter={(v: any) => [`${v >= 0 ? '+' : ''}${v}%`, '누적']} labelFormatter={(l: string) => l} />
+                        <ReferenceLine y={0} stroke="#3a4150" strokeDasharray="3 3" />
                         <Line type="monotone" dataKey="v" stroke={MK_META[m].color} strokeWidth={1.8} dot={false} isAnimationActive={false} />
                       </LineChart>
                     </ResponsiveContainer>
