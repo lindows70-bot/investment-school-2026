@@ -30,7 +30,12 @@ const UNIVERSE: { ticker: string; name: string; ipo: string }[] = [
   { ticker: 'SNOW', name: '스노우플레이크', ipo: '2020-09-16' },
   { ticker: 'DASH', name: '도어대시', ipo: '2020-12-09' },
   { ticker: 'RKLB', name: '로켓랩', ipo: '2021-08-25' },
-  { ticker: 'CRWV', name: '코어위브', ipo: '2025-03-28' },
+  { ticker: 'ALAB', name: '아스테라랩스', ipo: '2024-03-20' },
+  { ticker: 'TEM', name: '템퍼스AI', ipo: '2024-06-14' },
+  { ticker: 'CART', name: '인스타카트', ipo: '2023-09-19' },
+  { ticker: 'BIRK', name: '버켄스탁', ipo: '2023-10-11' },
+  { ticker: 'LUNR', name: '인튜이티브머신', ipo: '2024-02-09' },
+  { ticker: 'HIMS', name: '힘스앤허스', ipo: '2021-01-21' },
 ]
 
 async function weekly(ticker: string): Promise<{ ts: number; c: number }[]> {
@@ -51,16 +56,18 @@ async function weekly(ticker: string): Promise<{ ts: number; c: number }[]> {
 function judge(mo: number, ipoP: number, peak: number, trough: number, cur: number): { phase: Phase; curveX: number } {
   const dd = (cur - peak) / peak            // peak 대비(음수)
   const up = (cur - trough) / trough        // trough 대비(양수)
-  const mult = cur / ipoP
+  const mult = cur / ipoP                   // 상장가 대비 배수(핵심 게이트)
   let phase: Phase
-  if (mo > 24 && mult >= 3 && dd > -0.5) phase = 'uptrend'        // 졸업: 수년째 3배+ 입증
-  else if (dd >= -0.08) phase = mo <= 3 ? 'hype' : 'uptrend'      // 전고점 근처 회복
-  else if (mo <= 3 && dd > -0.35) phase = 'hype'                  // 갓 상장 광기
-  else if (dd <= -0.45 && up < 0.15) phase = 'pain'              // 깊은 낙폭·바닥권
-  else if (up >= 0.30) phase = 'recovery'                        // 바닥서 크게 반등
-  else if (up >= 0.12) phase = 'smart'                          // 바닥 탈출 초기 매집
-  else if (dd <= -0.18) phase = 'reality'                      // 하이프 후 붕괴
-  else phase = mo <= 6 ? 'hype' : 'smart'
+  // ⭐ 상장가 배수로 게이팅: '저점 대비 반등'만으로 recovery 오판 금지(RIVN 0.14배인데 +116% 반등 = 여전히 폭락 → 매집)
+  if (mult >= 2.5 && dd > -0.45) phase = 'uptrend'                   // 졸업: 상장가 2.5배+ & 고점권 유지
+  else if (dd >= -0.12) phase = mo <= 4 ? 'hype' : 'uptrend'         // 전고점 근처
+  else if (mo <= 4 && mult > 1.2 && dd > -0.30) phase = 'hype'        // 갓 상장 광기(상장가 위·미붕괴)
+  else if (mo <= 12 && dd <= -0.30 && up < 0.25) phase = 'reality'    // 락업/실적 붕괴 초입(1년 내)
+  else if ((dd <= -0.50 || mult < 0.55) && up < 0.25) phase = 'pain'  // 깊은 낙폭·상장가 절반↓·바닥권
+  else if (mult >= 1.0 && up >= 0.25 && dd > -0.45) phase = 'recovery' // 상장가 회복 + 반등 + 고점권 접근
+  else if (up >= 0.15) phase = 'smart'                              // 바닥 탈출·아직 상장가 이하(매집)
+  else if (dd <= -0.20) phase = 'reality'
+  else phase = 'smart'
   // 곡선 x(0~100): 6국면을 구간에 매핑
   const band: Record<Phase, [number, number]> = { hype: [3, 15], reality: [17, 30], pain: [33, 50], smart: [53, 66], recovery: [69, 84], uptrend: [87, 98] }
   const [a, b] = band[phase]
@@ -75,7 +82,7 @@ function judge(mo: number, ipoP: number, peak: number, trough: number, cur: numb
 }
 
 export async function GET() {
-  const cacheKey = 'ipo-cycle-v1'
+  const cacheKey = 'ipo-cycle-v2'   // v2: 상장가 배수 게이트(RIVN·RBLX 오판 수정) + 유니버스 확장
   const cached = await getCache<IpoCycleResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
