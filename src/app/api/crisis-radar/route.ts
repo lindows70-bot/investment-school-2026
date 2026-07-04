@@ -13,6 +13,7 @@ export interface CrisisMetric {
   value: number | null; unit: string
   mean: number; norm: string        // 역사적 평균/적정
   signal: Signal; note: string
+  alertText: string                 // 종합 표용 경고 문구
   explain: string                   // 🎓 학생용 쉬운 설명
   gauge: { min: number; max: number; t1: number; t2: number; invert: boolean }   // 반원 게이지 범위·임계
   series: { date: string; v: number }[]           // 역사 시계열(미니차트)
@@ -69,7 +70,7 @@ async function multplSeries(path: string): Promise<{ date: string; v: number }[]
 }
 
 export async function GET() {
-  const cacheKey = 'crisis-radar-v4'   // v4: 지표별 역사 시계열(CAPE·PER·ERP multpl 테이블) + 학생용 설명(카드 개편)
+  const cacheKey = 'crisis-radar-v5'   // v5: 종합 표용 alertText + PE 선행/후행 차이 명시
   const cached = await getCache<CrisisRadarResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -98,6 +99,7 @@ export async function GET() {
     signal: cape == null ? 'caution' : cape >= 30 ? 'danger' : cape >= 22 ? 'caution' : 'safe',
     note: cape == null ? '데이터 조회 실패' : cape >= 30 ? `역사상 상위권 — 장기 실질수익률이 낮았던 구간(현재 ${cape}배)` : '장기 이익 대비 밸류에이션 부담 낮음',
     explain: '노벨상 수상자 실러 교수가 만든 지표. 주가를 최근 1년이 아닌 **10년 평균 이익**으로 나눕니다(일시적 호황 이익에 안 속으려고). 현재 41.6배 = 이익 1달러를 얻으려 41.6달러를 내는 셈. 역사평균 17배의 약 2.4배로, 이 수준에선 향후 10년 주식 수익률이 역사적으로 낮았습니다.',
+    alertText: cape != null && cape >= 30 ? '매우 위험 (역사상 상위권·평균 2배+)' : '보통',
     gauge: { min: 5, max: 45, t1: 22, t2: 30, invert: false },
     series: capeSer,
     history: [{ label: '2000 닷컴', value: 44 }, { label: '2007 금융위기 전', value: 27 }, { label: '역사평균', value: 17 }],
@@ -114,6 +116,7 @@ export async function GET() {
     signal: buffett == null ? 'caution' : buffett >= 150 ? 'danger' : buffett >= 120 ? 'caution' : 'safe',
     note: buffett == null ? '데이터 조회 실패' : buffett >= 150 ? `경제 규모 대비 과도한 거품 — 버핏이 "150%↑는 불장난" 경고한 구간(현재 ${buffett}%)` : '경제 규모 대비 밸류에이션 정상권',
     explain: '워런 버핏이 "가장 좋은 단일 밸류에이션 지표"라 극찬. 나라 전체 주식 시가총액을 **GDP(경제가 1년에 버는 돈)** 로 나눕니다. 경제가 버는 것보다 주식값이 얼마나 부풀었나. 100%=경제와 균형, 현재 218%=경제 규모의 2배 넘게 부풀음. 닷컴(163%)·금융위기(121%)·팬데믹(129%) 모든 고점을 이미 넘었습니다.',
+    alertText: buffett != null && buffett >= 150 ? '극도의 과열 (역대 최고권)' : '보통',
     gauge: { min: 50, max: 230, t1: 120, t2: 150, invert: false },
     series: buffettSer,
     history: [{ label: '2000 닷컴', value: buffettAt('2000-03-31') }, { label: '2008 위기 전', value: buffettAt('2007-09-30') }, { label: '2020 팬데믹', value: buffettAt('2020-03-31') }],
@@ -124,8 +127,9 @@ export async function GET() {
     key: 'pe', label: 'S&P 500 PER (후행)', icon: '💰', measure: '주가 vs 최근 12개월 실적',
     value: pe, unit: '배', mean: 16, norm: '역사평균 ≈ 16배',
     signal: pe == null ? 'caution' : pe >= 25 ? 'danger' : pe >= 20 ? 'caution' : 'safe',
-    note: pe == null ? '데이터 조회 실패' : `현재 ${pe}배 — ⚠️ 선행 PER(향후 12개월, ~20배 추정)은 유료 컨센서스라 무료로 정확 계산 불가 → 후행 PER로 대체. 방향성은 동일(고평가).`,
-    explain: '가장 유명한 밸류에이션 지표. 주가를 **최근 1년 순이익**으로 나눕니다. 이익 1달러에 몇 달러를 내는가. 현재 32배 = 이익 1달러당 32달러(역사평균 16배의 2배). ⚠️ 뉴스의 "선행 PER 20배"는 향후 1년 예상이익 기준인데 유료 컨센서스라 무료 계산 불가 → 여기선 실제 확정 이익 기준 후행 PER을 씁니다(더 보수적·정직).',
+    note: pe == null ? '데이터 조회 실패' : `현재 후행 ${pe}배(위험) — 뉴스·구글의 "선행 PER ~20배(주의)"와 다른 이유: 우리는 실제 확정이익(후행), 구글은 미래 예상이익(선행)을 씀. 격차 ${eyield != null ? Math.round((pe / 20 - 1) * 100) : 60}%는 시장이 향후 이익 급성장을 기대(AI 선반영)한다는 뜻. 선행 EPS는 유료 컨센서스라 무료 계산 불가 → 더 보수적인 후행 채택.`,
+    explain: '가장 유명한 밸류에이션 지표. 주가를 **최근 1년 순이익**으로 나눕니다. 이익 1달러에 몇 달러를 내는가. 현재 32배 = 이익 1달러당 32달러(역사평균 16배의 2배). ⚠️ 뉴스의 "선행 PER 20배(주의)"는 향후 1년 *예상* 이익 기준 — 우리는 *확정* 이익 기준 후행 PER(32배·위험)을 씁니다. 둘 다 맞지만 후행이 더 보수적·정직(유료 선행 컨센서스 회피).',
+    alertText: pe != null && pe >= 25 ? '고평가 (후행 확정이익·평균 2배 / 선행 기준은 주의)' : '보통',
     gauge: { min: 8, max: 35, t1: 20, t2: 25, invert: false },
     series: peSer,
   })
@@ -139,6 +143,7 @@ export async function GET() {
     signal: erp == null ? 'caution' : erp < 1 ? 'danger' : erp < 3 ? 'caution' : 'safe',
     note: erp == null ? '데이터 조회 실패' : erp < 1 ? `어닝일드 ${eyield}% vs 국채 ${y10}% → 프리미엄 ${erp}%p. 채권 대비 주식 메리트 역사적 최저(위험 감수 이유 급감)` : '채권 대비 주식이 합리적 보상 제공',
     explain: '"위험한 주식을 살 추가 보상"을 잰다. 주식 기대수익(이익÷주가 = 어닝일드)에서 **안전한 10년 국채 금리**를 뺍니다. 높을수록 주식이 매력적, 낮을수록 위험. 현재 −1.4%p = 주식 기대수익이 안전한 국채보다도 낮음 → 굳이 주식 위험을 감수할 이유가 역대급으로 적다는 신호(그리드 구간).',
+    alertText: erp != null && erp < 1 ? '위험 (채권 대비 메리트 급감·역사적 최저)' : '보통',
     gauge: { min: -3, max: 8, t1: 3, t2: 1, invert: true },   // 낮을수록 위험(반전)
     series: erpSer,
   })

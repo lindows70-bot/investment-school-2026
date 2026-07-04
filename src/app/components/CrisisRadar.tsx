@@ -47,6 +47,39 @@ export default function CrisisRadar() {
         </div>
       )}
 
+      {/* 종합 평가 표 */}
+      {d && (
+        <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
+          <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13, marginBottom: 8 }}>📋 종합 평가 — 4대 지표 한 표로</div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11.5, minWidth: 560 }}>
+              <thead>
+                <tr style={{ color: '#7f93a8', fontSize: 10, textAlign: 'left' }}>
+                  <th style={{ padding: '4px 8px' }}>지표명</th><th style={{ padding: '4px 8px' }}>측정 대상</th>
+                  <th style={{ padding: '4px 8px', textAlign: 'right' }}>역사적 평균</th><th style={{ padding: '4px 8px', textAlign: 'right' }}>현재 수준</th>
+                  <th style={{ padding: '4px 8px' }}>시장 경고 신호</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.metrics.map(m => {
+                  const s = SIG[m.signal]
+                  return (
+                    <tr key={m.key} style={{ borderTop: `1px solid ${BORDER}` }}>
+                      <td style={{ padding: '8px', color: '#e2e8f0', fontWeight: 700 }}>{m.icon} {m.label}</td>
+                      <td style={{ padding: '8px', color: '#9aa7b5', fontSize: 10.5 }}>{m.measure}</td>
+                      <td style={{ padding: '8px', textAlign: 'right', color: '#9aa7b5', fontFamily: 'monospace' }}>{m.mean}{m.unit}</td>
+                      <td style={{ padding: '8px', textAlign: 'right', color: s.color, fontWeight: 800, fontSize: 13, fontFamily: 'monospace' }}>{m.value != null ? `${m.value}${m.unit}` : '—'}</td>
+                      <td style={{ padding: '8px', color: s.color, fontWeight: 700, fontSize: 11 }}>{s.dot} {m.alertText}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ color: '#7f93a8', fontSize: 9.5, marginTop: 6 }}>💡 선행 PER(뉴스 ~20배)은 미래 예상이익 기준 &lsquo;주의&rsquo;, 우리 후행 PER(32배)은 확정이익 기준 &lsquo;위험&rsquo; — 둘 다 맞고, 우리가 더 보수적(선행은 유료 데이터).</div>
+        </div>
+      )}
+
       {/* 지표별 상세 카드 */}
       {d && d.metrics.map(m => <MetricCard key={m.key} m={m} />)}
 
