@@ -40,13 +40,14 @@ async function multpl(path: string): Promise<number | null> {
     const r = await fetch(`https://www.multpl.com/${path}`, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10_000) })
     if (!r.ok) return null
     const t = await r.text()
-    const m = t.match(/Current[^0-9]*([0-9]+\.[0-9]+)/i)
+    // ⚠️ "Current X is 41.60, a change of ..." 구문에 정확히 앵커(페이지 앞쪽 다른 'Current' 오매칭 방지 — Vercel fetch서 1.5 오추출 버그)
+    const m = t.match(/is\s+([0-9]+\.[0-9]+)\s*%?\s*,\s*a change/i) || t.match(/\bis\s+([0-9]+\.[0-9]+)/i)
     return m ? parseFloat(m[1]) : null
   } catch { return null }
 }
 
 export async function GET() {
-  const cacheKey = 'crisis-radar-v1'
+  const cacheKey = 'crisis-radar-v2'   // v2: multpl 스크랩 정규식 수정(CAPE·PER·어닝일드 1.5 오추출 → 'is VALUE, a change' 앵커)
   const cached = await getCache<CrisisRadarResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
