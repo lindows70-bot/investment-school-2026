@@ -13,10 +13,12 @@ export interface CrisisMetric {
   value: number | null; unit: string
   mean: number; norm: string        // 역사적 평균/적정
   signal: Signal; note: string
+  gauge: { min: number; max: number; t1: number; t2: number; invert: boolean }   // 반원 게이지 범위·임계
   history?: { label: string; value: number }[]   // 과거 위기 대비(실측 가능한 지표만)
 }
 export interface CrisisRadarResult {
   metrics: CrisisMetric[]
+  buffettSeries: { date: string; v: number }[]   // 버핏지표 1995~현재 실측(FRED)
   alertLevel: Signal; dangerCount: number; summary: string
   asOf: string
 }
@@ -47,7 +49,7 @@ async function multpl(path: string): Promise<number | null> {
 }
 
 export async function GET() {
-  const cacheKey = 'crisis-radar-v2'   // v2: multpl 스크랩 정규식 수정(CAPE·PER·어닝일드 1.5 오추출 → 'is VALUE, a change' 앵커)
+  const cacheKey = 'crisis-radar-v3'   // v3: 버핏 시계열 + 게이지 범위 추가(차트·게이지 시각화)
   const cached = await getCache<CrisisRadarResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -66,6 +68,7 @@ export async function GET() {
     value: cape, unit: '배', mean: 17, norm: '역사평균 ≈ 17배',
     signal: cape == null ? 'caution' : cape >= 30 ? 'danger' : cape >= 22 ? 'caution' : 'safe',
     note: cape == null ? '데이터 조회 실패' : cape >= 30 ? `역사상 상위권 — 장기 실질수익률이 낮았던 구간(현재 ${cape}배)` : '장기 이익 대비 밸류에이션 부담 낮음',
+    gauge: { min: 5, max: 45, t1: 22, t2: 30, invert: false },
     history: [{ label: '2000 닷컴', value: 44 }, { label: '2007 금융위기 전', value: 27 }, { label: '역사평균', value: 17 }],
   })
 
@@ -79,6 +82,7 @@ export async function GET() {
     value: buffett, unit: '%', mean: 110, norm: '적정 ≈ 100~120% · 150%↑ 심각',
     signal: buffett == null ? 'caution' : buffett >= 150 ? 'danger' : buffett >= 120 ? 'caution' : 'safe',
     note: buffett == null ? '데이터 조회 실패' : buffett >= 150 ? `경제 규모 대비 과도한 거품 — 버핏이 "150%↑는 불장난" 경고한 구간(현재 ${buffett}%)` : '경제 규모 대비 밸류에이션 정상권',
+    gauge: { min: 50, max: 230, t1: 120, t2: 150, invert: false },
     history: [{ label: '2000 닷컴', value: buffettAt('2000-03-31') }, { label: '2008 위기 전', value: buffettAt('2007-09-30') }, { label: '2020 팬데믹', value: buffettAt('2020-03-31') }],
   })
 
@@ -88,6 +92,7 @@ export async function GET() {
     value: pe, unit: '배', mean: 16, norm: '역사평균 ≈ 16배',
     signal: pe == null ? 'caution' : pe >= 25 ? 'danger' : pe >= 20 ? 'caution' : 'safe',
     note: pe == null ? '데이터 조회 실패' : `현재 ${pe}배 — ⚠️ 선행 PER(향후 12개월, ~20배 추정)은 유료 컨센서스라 무료로 정확 계산 불가 → 후행 PER로 대체. 방향성은 동일(고평가).`,
+    gauge: { min: 8, max: 35, t1: 20, t2: 25, invert: false },
   })
 
   // ④ 위험 프리미엄(ERP) = 어닝일드 − 10년물
@@ -98,6 +103,7 @@ export async function GET() {
     value: erp, unit: '%p', mean: 4.5, norm: '역사평균 ≈ 4~5%p',
     signal: erp == null ? 'caution' : erp < 1 ? 'danger' : erp < 3 ? 'caution' : 'safe',
     note: erp == null ? '데이터 조회 실패' : erp < 1 ? `어닝일드 ${eyield}% vs 국채 ${y10}% → 프리미엄 ${erp}%p. 채권 대비 주식 메리트 역사적 최저(위험 감수 이유 급감)` : '채권 대비 주식이 합리적 보상 제공',
+    gauge: { min: -3, max: 8, t1: 3, t2: 1, invert: true },   // 낮을수록 위험(반전)
   })
 
   const dangerCount = metrics.filter(m => m.signal === 'danger').length
@@ -109,7 +115,13 @@ export async function GET() {
     ? `🟡 주의 — 일부 지표가 과열권. 무리한 레버리지·추격매수를 자제하고 현금 비중을 점검할 국면입니다.`
     : `🟢 안정 — 시장 전반 밸류에이션이 관리 가능한 범위입니다.`
 
-  const result: CrisisRadarResult = { metrics, alertLevel, dangerCount, summary, asOf: new Date().toISOString() }
+  // 버핏지표 1995~현재 실측 시계열(분기) — GDP 기준일마다 시총 atOrBefore로 비율
+  const buffettSeries = gdp.map(g => {
+    const e = atOrBefore(equities, g.date)
+    return e != null ? { date: g.date.slice(0, 7), v: Math.round((e / 1e6) / (g.v / 1e3) * 1000) / 10 } : null
+  }).filter((x): x is { date: string; v: number } => x != null)
+
+  const result: CrisisRadarResult = { metrics, buffettSeries, alertLevel, dangerCount, summary, asOf: new Date().toISOString() }
   if (metrics.some(m => m.value != null)) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }
