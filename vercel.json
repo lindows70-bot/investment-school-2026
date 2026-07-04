@@ -31,7 +31,8 @@
     "src/app/api/macro-ai-picks/route.ts":       { "maxDuration": 120 },
     "src/app/api/cron/satellite-scores/route.ts":{ "maxDuration": 120 },
     "src/app/api/market-flow-kr/route.ts":       { "maxDuration": 120 },
-    "src/app/api/cron/market-flow-kr/route.ts":  { "maxDuration": 120 }
+    "src/app/api/cron/market-flow-kr/route.ts":  { "maxDuration": 120 },
+    "src/app/api/blackrock/route.ts":            { "maxDuration": 120 }
   },
 
   "crons": [
@@ -41,7 +42,8 @@
     { "path": "/api/cron/morning-briefing", "schedule": "0 20 * * *" },
     { "path": "/api/macro-ai-picks?refresh=1", "schedule": "0 19 * * 1" },
     { "path": "/api/cron/satellite-scores", "schedule": "30 18 * * *" },
-    { "path": "/api/cron/market-flow-kr", "schedule": "0 11 * * 1-5" }
+    { "path": "/api/cron/market-flow-kr", "schedule": "0 11 * * 1-5" },
+    { "path": "/api/blackrock?refresh=1", "schedule": "0 21 * * 1" }
   ],
 
   "headers": [

@@ -162,10 +162,14 @@ async function fetchQuarter(acc: string): Promise<Map<string, { name: string; sh
   return agg
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const cacheKey = 'blackrock-13f-v2'   // v2: &amp; 디코드 + ETF 단어경계 + 섹터맵 확장(NETFLIX/J&J/Micron 오분류 수정)
-  const cached = await getCache<BlackRockResult>(cacheKey, 30 * 24 * 3600_000)
-  if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
+  // ?refresh=1 = 캐시 우회 강제 재파싱(주 1회 cron 워밍용 — 새 분기 13F를 캐시 만료 전 미리 갱신)
+  const refresh = new URL(req.url).searchParams.get('refresh') === '1'
+  if (!refresh) {
+    const cached = await getCache<BlackRockResult>(cacheKey, 30 * 24 * 3600_000)
+    if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
+  }
 
   const qs = await latestTwo()
   if (qs.length < 1) return NextResponse.json({ error: 'SEC 13F 조회 실패' }, { status: 502 })
