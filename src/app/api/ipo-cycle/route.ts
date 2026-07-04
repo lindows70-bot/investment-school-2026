@@ -36,12 +36,17 @@ const UNIVERSE: { ticker: string; name: string; ipo: string }[] = [
   { ticker: 'BIRK', name: '버켄스탁', ipo: '2023-10-11' },
   { ticker: 'LUNR', name: '인튜이티브머신', ipo: '2024-02-09' },
   { ticker: 'HIMS', name: '힘스앤허스', ipo: '2021-01-21' },
+  { ticker: 'SPCX', name: '스페이스X', ipo: '2026-06-08' },   // period1/period2로 정확 slice → 옛 SPAC ETF 오염 회피
+  { ticker: 'CRCL', name: '서클(Circle)', ipo: '2025-06-05' },
+  { ticker: 'CRWV', name: '코어위브', ipo: '2025-03-28' },
 ]
 
-async function weekly(ticker: string): Promise<{ ts: number; c: number }[]> {
+// ⭐ 상장일~현재로 정확히 잘라 받는다(period1/period2) — range=max는 옛 동명 티커(SPCX 옛 SPAC ETF 등) 이력을 섞음.
+async function weekly(ticker: string, ipoTs: number): Promise<{ ts: number; c: number }[]> {
+  const p1 = Math.floor(ipoTs) - 7 * 86400, p2 = Math.floor(Date.now() / 1000)
   for (const host of ['query1', 'query2']) {
     try {
-      const r = await fetch(`https://${host}.finance.yahoo.com/v8/finance/chart/${ticker}?range=max&interval=1wk`, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10_000) })
+      const r = await fetch(`https://${host}.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${p1}&period2=${p2}&interval=1wk`, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10_000) })
       if (!r.ok) continue
       const j = await r.json(); const res = j?.chart?.result?.[0]
       const ts: number[] = res?.timestamp ?? []; const cl: (number | null)[] = res?.indicators?.quote?.[0]?.close ?? []
@@ -59,9 +64,9 @@ function judge(mo: number, ipoP: number, peak: number, trough: number, cur: numb
   const mult = cur / ipoP                   // 상장가 대비 배수(핵심 게이트)
   let phase: Phase
   // ⭐ 상장가 배수로 게이팅: '저점 대비 반등'만으로 recovery 오판 금지(RIVN 0.14배인데 +116% 반등 = 여전히 폭락 → 매집)
-  if (mult >= 2.5 && dd > -0.45) phase = 'uptrend'                   // 졸업: 상장가 2.5배+ & 고점권 유지
-  else if (dd >= -0.12) phase = mo <= 4 ? 'hype' : 'uptrend'         // 전고점 근처
-  else if (mo <= 4 && mult > 1.2 && dd > -0.30) phase = 'hype'        // 갓 상장 광기(상장가 위·미붕괴)
+  if (mo <= 5 && dd > -0.35) phase = 'hype'                          // 갓 상장(5개월 내)·미붕괴 = 광기(신선도 최우선)
+  else if (mult >= 2.5 && dd > -0.45) phase = 'uptrend'              // 졸업: 상장가 2.5배+ & 고점권 유지
+  else if (dd >= -0.12) phase = 'uptrend'                            // 전고점 근처
   else if (mo <= 12 && dd <= -0.30 && up < 0.25) phase = 'reality'    // 락업/실적 붕괴 초입(1년 내)
   else if ((dd <= -0.50 || mult < 0.55) && up < 0.25) phase = 'pain'  // 깊은 낙폭·상장가 절반↓·바닥권
   else if (mult >= 1.0 && up >= 0.25 && dd > -0.45) phase = 'recovery' // 상장가 회복 + 반등 + 고점권 접근
@@ -82,17 +87,17 @@ function judge(mo: number, ipoP: number, peak: number, trough: number, cur: numb
 }
 
 export async function GET() {
-  const cacheKey = 'ipo-cycle-v2'   // v2: 상장가 배수 게이트(RIVN·RBLX 오판 수정) + 유니버스 확장
+  const cacheKey = 'ipo-cycle-v3'   // v3: period1/period2 정확 slice(SPCX·CRCL 오염 회피)로 SpaceX·Circle·CoreWeave 편입, HYPE 신선도 우선
   const cached = await getCache<IpoCycleResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   const stocks: IpoStock[] = []
   const results = await Promise.all(UNIVERSE.map(async u => {
-    const rows = await weekly(u.ticker)
-    if (rows.length < 4) return null
     const ipoTs = new Date(u.ipo).getTime() / 1000
-    const after = rows.filter(x => x.ts >= ipoTs - 7 * 86400)
-    if (after.length < 4) return null
+    const rows = await weekly(u.ticker, ipoTs)
+    if (rows.length < 3) return null
+    const after = rows.filter(x => x.ts >= ipoTs - 10 * 86400)
+    if (after.length < 3) return null
     const mo = Math.round((Date.now() / 1000 - ipoTs) / (30.4 * 86400))
     const weeksSince = Math.round((Date.now() / 1000 - ipoTs) / (7 * 86400))
     // ⚠️ 티커 재사용 오염 가드: 상장 후 주봉수가 경과주보다 40%+ 많으면 옛 동명 티커 데이터 → 제외

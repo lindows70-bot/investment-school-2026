@@ -15,12 +15,21 @@ const PH: Record<Phase, { ko: string; en: string; color: string; desc: string; a
 const PHASE_ORDER: Phase[] = ['hype', 'reality', 'pain', 'smart', 'recovery', 'uptrend']
 
 // 하이프 곡선: 초반 급등(hype 봉우리)→폭락→바닥(pain)→완만 회복→우상향 돌파
-const W = 1000, H = 300
-const X0 = 50, X1 = 955
+const W = 1000, H = 336
+const X0 = 62, X1 = 955
+// X축 타임 테이블(원본 이미지) — curveX 구간 → 상장 후 경과 시간 라벨
+const TIME_BANDS: { from: number; to: number; time: string; phase: string; color: string }[] = [
+  { from: 0, to: 16, time: '1–3개월', phase: 'HYPE', color: '#f87171' },
+  { from: 16, to: 31, time: '3–9개월', phase: 'REALITY', color: '#fb923c' },
+  { from: 31, to: 51, time: '9–18개월', phase: 'PAIN', color: '#a855f7' },
+  { from: 51, to: 67, time: '12–24개월', phase: 'SMART MONEY', color: '#60a5fa' },
+  { from: 67, to: 85, time: '2–3년', phase: 'RECOVERY', color: '#4ade80' },
+  { from: 85, to: 100, time: '3년+', phase: 'UPTREND', color: '#22d3ee' },
+]
 const px = (x: number) => X0 + (x / 100) * (X1 - X0)
 function cy(x: number): number {
   // 구간별 y(위=낮은 값). 원본 이미지 형태 근사: 봉우리(x~9)→저점(x~42)→우상향 돌파(x~98)
-  const top = 40, mid = 175, bottom = 250, high = 30
+  const top = 38, mid = 168, bottom = 242, high = 28
   if (x <= 9) return bottom - (bottom - top) * Math.sin((x / 9) * Math.PI / 2)          // 급등
   if (x <= 42) return top + (bottom - top) * Math.sin(((x - 9) / 33) * Math.PI / 2)     // 폭락→바닥
   if (x <= 66) return bottom - (bottom - mid) * ((x - 42) / 24)                          // 완만 회복
@@ -78,6 +87,10 @@ export default function IpoHypeCycle() {
                 <stop offset="80%" stopColor="#4ade80" /><stop offset="100%" stopColor="#22d3ee" />
               </linearGradient>
             </defs>
+            {/* Y축(PRICE) */}
+            <line x1={X0 - 8} y1={22} x2={X0 - 8} y2={264} stroke="#3a4150" strokeWidth="1" />
+            <polygon points={`${X0 - 8},18 ${X0 - 11},26 ${X0 - 5},26`} fill="#7f93a8" />
+            <text x={X0 - 14} y={150} fill="#9aa7b5" fontSize="11" fontWeight="700" textAnchor="middle" transform={`rotate(-90 ${X0 - 20} 150)`}>PRICE 주가</text>
             {/* 국면 라벨(상단) */}
             {PHASE_ORDER.map(ph => {
               const band: Record<Phase, [number, number]> = { hype: [3, 15], reality: [17, 30], pain: [33, 50], smart: [53, 66], recovery: [69, 84], uptrend: [87, 98] }
@@ -101,9 +114,21 @@ export default function IpoHypeCycle() {
                 </g>
               )
             })}
-            {/* 축 라벨 */}
-            <text x={px(1)} y={H - 6} fill="#7f93a8" fontSize="10">← 상장(IPO)</text>
-            <text x={px(99)} y={H - 6} fill="#7f93a8" fontSize="10" textAnchor="end">시간 3년+ →</text>
+            {/* X축(TIME 타임 테이블) — 원본 이미지처럼 */}
+            <line x1={X0 - 8} y1={272} x2={X1 + 3} y2={272} stroke="#3a4150" strokeWidth="1" />
+            <polygon points={`${X1 + 3},272 ${X1 - 5},269 ${X1 - 5},275`} fill="#7f93a8" />
+            <text x={X0 - 10} y={286} fill="#7f93a8" fontSize="10" fontWeight="700">IPO</text>
+            <text x={X1 + 2} y={286} fill="#9aa7b5" fontSize="10" fontWeight="700" textAnchor="end">TIME 시간 →</text>
+            {TIME_BANDS.map((b, i) => {
+              const cx = px((b.from + b.to) / 2)
+              return (
+                <g key={i}>
+                  {i > 0 && <line x1={px(b.from)} y1={272} x2={px(b.from)} y2={278} stroke="#3a4150" strokeWidth="1" />}
+                  <text x={cx} y={300} fill="#cdd6e3" fontSize="10.5" fontWeight="700" textAnchor="middle">{b.time}</text>
+                  <text x={cx} y={314} fill={b.color} fontSize="9.5" fontWeight="700" textAnchor="middle" opacity="0.85">{b.phase}</text>
+                </g>
+              )
+            })}
           </svg>
         </div>
 
