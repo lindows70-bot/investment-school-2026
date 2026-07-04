@@ -87,10 +87,36 @@ const MEGA: { m: string; ticker: string; sector: string }[] = [
   { m: 'THERMO FISHER', ticker: 'TMO', sector: '헬스케어' }, { m: 'ABBOTT', ticker: 'ABT', sector: '헬스케어' },
   { m: 'DANAHER', ticker: 'DHR', sector: '헬스케어' }, { m: 'TEXAS INSTRUMENTS', ticker: 'TXN', sector: 'IT' },
   { m: 'PHILIP MORRIS', ticker: 'PM', sector: '필수소비재' }, { m: 'BOEING', ticker: 'BA', sector: '산업재' },
+  // 확장(섹터 정확도 — 기타 축소)
+  { m: 'MICRON', ticker: 'MU', sector: 'IT' }, { m: 'ADOBE', ticker: 'ADBE', sector: 'IT' },
+  { m: 'SERVICENOW', ticker: 'NOW', sector: 'IT' }, { m: 'APPLIED MAT', ticker: 'AMAT', sector: 'IT' },
+  { m: 'LAM RESEARCH', ticker: 'LRCX', sector: 'IT' }, { m: 'ANALOG DEVICES', ticker: 'ADI', sector: 'IT' },
+  { m: 'INTUIT', ticker: 'INTU', sector: 'IT' }, { m: 'SNOWFLAKE', ticker: 'SNOW', sector: 'IT' },
+  { m: 'PALO ALTO', ticker: 'PANW', sector: 'IT' }, { m: 'CROWDSTRIKE', ticker: 'CRWD', sector: 'IT' },
+  { m: 'WESTERN DIGITAL', ticker: 'WDC', sector: 'IT' }, { m: 'SANDISK', ticker: 'SNDK', sector: 'IT' },
+  { m: 'VERTIV', ticker: 'VRT', sector: '산업재' }, { m: 'HONEYWELL', ticker: 'HON', sector: '산업재' },
+  { m: 'LOCKHEED', ticker: 'LMT', sector: '산업재' }, { m: 'RAYTHEON', ticker: 'RTX', sector: '산업재' },
+  { m: 'RTX', ticker: 'RTX', sector: '산업재' }, { m: 'UNION PACIFIC', ticker: 'UNP', sector: '산업재' },
+  { m: 'DEERE', ticker: 'DE', sector: '산업재' }, { m: 'COMCAST', ticker: 'CMCSA', sector: '커뮤니케이션' },
+  { m: 'WALT DISNEY', ticker: 'DIS', sector: '커뮤니케이션' }, { m: 'VERIZON', ticker: 'VZ', sector: '커뮤니케이션' },
+  { m: 'PFIZER', ticker: 'PFE', sector: '헬스케어' }, { m: 'AMGEN', ticker: 'AMGN', sector: '헬스케어' },
+  { m: 'BRISTOL', ticker: 'BMY', sector: '헬스케어' }, { m: 'MEDTRONIC', ticker: 'MDT', sector: '헬스케어' },
+  { m: 'GILEAD', ticker: 'GILD', sector: '헬스케어' }, { m: 'INTUITIVE SURG', ticker: 'ISRG', sector: '헬스케어' },
+  { m: 'BOSTON SCIENTIFIC', ticker: 'BSX', sector: '헬스케어' }, { m: 'STRYKER', ticker: 'SYK', sector: '헬스케어' },
+  { m: 'NIKE', ticker: 'NKE', sector: '자유소비재' }, { m: 'STARBUCKS', ticker: 'SBUX', sector: '자유소비재' },
+  { m: 'BOOKING', ticker: 'BKNG', sector: '자유소비재' }, { m: 'DOORDASH', ticker: 'DASH', sector: '자유소비재' },
+  { m: 'CITIGROUP', ticker: 'C', sector: '금융' }, { m: 'BLACKROCK', ticker: 'BLK', sector: '금융' },
+  { m: 'SCHWAB', ticker: 'SCHW', sector: '금융' }, { m: 'BLACKSTONE', ticker: 'BX', sector: '금융' },
+  { m: 'S&P GLOBAL', ticker: 'SPGI', sector: '금융' }, { m: 'PROGRESSIVE', ticker: 'PGR', sector: '금융' },
+  { m: 'CONOCOPHILLIPS', ticker: 'COP', sector: '에너지' }, { m: 'MONDELEZ', ticker: 'MDLZ', sector: '필수소비재' },
+  { m: 'CHUBB', ticker: 'CB', sector: '금융' },
 ]
+// SEC XML 엔티티 디코드(&amp; 등) — 표시·매칭 전 필수(J&J·JPM·S&P 오분류 방지)
+const deHtml = (s: string) => s.replace(/&amp;/g, '&').replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
 function enrich(name: string): { ticker: string | null; sector: string; isEtf: boolean } {
   const up = name.toUpperCase()
-  if (/ISHARES|ETF|TRUST/.test(up) && !/BERKSHIRE/.test(up)) return { ticker: null, sector: 'ETF(자체)', isEtf: true }
+  // ⚠️ \bETF\b — "NETFLIX"의 'ETF' 부분문자열 오매칭 방지. 자체 ETF/신탁은 ISHARES·SPDR·TR·TRUST
+  if ((/ISHARES|SPDR|\bETF\b|\bTRUST\b|\bTR\b/.test(up)) && !/BERKSHIRE/.test(up)) return { ticker: null, sector: 'ETF(자체)', isEtf: true }
   const hit = MEGA.find(x => up.includes(x.m))
   return hit ? { ticker: hit.ticker, sector: hit.sector, isEtf: false } : { ticker: null, sector: '기타', isEtf: false }
 }
@@ -125,7 +151,7 @@ async function fetchQuarter(acc: string): Promise<Map<string, { name: string; sh
   const doc = await secGet(dir + '/' + xmlName, isInfoTable)
   if (doc.status !== 200) return agg
   for (const b of doc.text.split(/<infoTable>/i).slice(1)) {
-    const name = pick(b, 'nameOfIssuer'); if (!name) continue
+    const name = deHtml(pick(b, 'nameOfIssuer')); if (!name) continue
     const sh = parseInt(pick(b, 'sshPrnamt').replace(/[^0-9]/g, ''), 10) || 0
     const val = parseInt(pick(b, 'value').replace(/[^0-9]/g, ''), 10) || 0
     if (sh <= 0) continue
@@ -137,7 +163,7 @@ async function fetchQuarter(acc: string): Promise<Map<string, { name: string; sh
 }
 
 export async function GET() {
-  const cacheKey = 'blackrock-13f-v1'
+  const cacheKey = 'blackrock-13f-v2'   // v2: &amp; 디코드 + ETF 단어경계 + 섹터맵 확장(NETFLIX/J&J/Micron 오분류 수정)
   const cached = await getCache<BlackRockResult>(cacheKey, 30 * 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
