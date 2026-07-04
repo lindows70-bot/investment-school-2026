@@ -83,7 +83,7 @@ export default function H1Champions() {
                   <AreaChart data={sel.series.map(p => ({ d: p.d, ret: Math.round((p.c / sel.series[0].c - 1) * 1000) / 10 }))} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
                     <defs><linearGradient id="champG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#4ade80" stopOpacity="0.3" /><stop offset="100%" stopColor="#4ade80" stopOpacity="0" /></linearGradient></defs>
                     <XAxis dataKey="d" tick={{ fill: '#7f93a8', fontSize: 8.5 }} minTickGap={40} axisLine={{ stroke: BORDER }} tickLine={false} />
-                    <YAxis tick={{ fill: '#7f93a8', fontSize: 8.5 }} axisLine={false} tickLine={false} width={38} tickFormatter={(v: number) => `${v}%`} />
+                    <YAxis domain={[0, 'auto']} tick={{ fill: '#7f93a8', fontSize: 8.5 }} axisLine={false} tickLine={false} width={38} tickFormatter={(v: number) => `${v}%`} />
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }} formatter={(v: any) => [`+${v}%`, '누적수익']} />
                     <Area type="monotone" dataKey="ret" stroke="#4ade80" strokeWidth={2} fill="url(#champG)" isAnimationActive={false} />
