@@ -77,7 +77,7 @@ async function multplSeries(path: string): Promise<{ date: string; v: number }[]
 }
 
 export async function GET() {
-  const cacheKey = 'crisis-radar-v6'   // v6: 선행 PER FactSet PDF 실측(권위 원천) — 후행 대체 폐기
+  const cacheKey = 'crisis-radar-v7'   // v7: 선행 PER 로컬 러너 app_cache 경유(Vercel PDF 직접 폐기)
   const cached = await getCache<CrisisRadarResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
