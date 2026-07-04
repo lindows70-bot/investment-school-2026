@@ -135,7 +135,7 @@ export default function H1Champions() {
                         <XAxis dataKey="d" tick={{ fill: '#7f93a8', fontSize: 8 }} minTickGap={40} axisLine={{ stroke: BORDER }} tickLine={false} />
                         <YAxis hide domain={['dataMin', 'dataMax']} />
                         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                        <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 10.5 }} formatter={(v: any) => [`${v >= 0 ? '+' : ''}${v}%`, '누적']} labelFormatter={(l: string) => l} />
+                        <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 10.5 }} formatter={(v: any) => [`${v >= 0 ? '+' : ''}${v}%`, '누적']} />
                         <ReferenceLine y={0} stroke="#3a4150" strokeDasharray="3 3" />
                         <Line type="monotone" dataKey="v" stroke={MK_META[m].color} strokeWidth={1.8} dot={false} isAnimationActive={false} />
                       </LineChart>
