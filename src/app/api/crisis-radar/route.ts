@@ -49,37 +49,11 @@ async function multpl(path: string): Promise<number | null> {
     return m ? parseFloat(m[1]) : null
   } catch { return null }
 }
-// FactSet Earnings Insight 주간 PDF에서 S&P500 선행 12개월 PER 실측(권위 원천, 무료 공개).
-// URL: EarningsInsight_MMDDYY.pdf (금요일 발행). 최근 금요일부터 역행하며 첫 200 응답 파싱.
-async function factsetForward(): Promise<{ fwd: number; avg5: number | null; avg10: number | null; date: string } | null> {
-  const fridays: { url: string; ymd: string }[] = []
-  const d = new Date()
-  while (d.getUTCDay() !== 5) d.setUTCDate(d.getUTCDate() - 1)   // 최근 금요일
-  for (let i = 0; i < 5; i++) {
-    const mm = String(d.getUTCMonth() + 1).padStart(2, '0'), dd = String(d.getUTCDate()).padStart(2, '0'), yy = String(d.getUTCFullYear()).slice(2)
-    fridays.push({ url: `https://advantage.factset.com/hubfs/Website/Resources%20Section/Research%20Desk/Earnings%20Insight/EarningsInsight_${mm}${dd}${yy}.pdf`, ymd: `${d.getUTCFullYear()}-${mm}-${dd}` })
-    d.setUTCDate(d.getUTCDate() - 7)
-  }
-  try {
-    const { PDFParse } = await import('pdf-parse')
-    for (const f of fridays) {
-      try {
-        const r = await fetch(f.url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(15_000) })
-        if (!r.ok) continue
-        const buf = Buffer.from(await r.arrayBuffer())
-        if (buf.length < 100_000) continue
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const res = await new (PDFParse as any)({ data: buf }).getText()
-        const t: string = res.text
-        const fwd = t.match(/forward 12-month P\/E ratio for the S&P 500 is\s+([0-9]+\.[0-9]+)/i)
-        if (!fwd) continue
-        const a5 = t.match(/5-year average(?:\s*of)?\s*\(?([0-9]+\.[0-9]+)/i)
-        const a10 = t.match(/10-year average(?:\s*of)?\s*\(?([0-9]+\.[0-9]+)/i)
-        return { fwd: parseFloat(fwd[1]), avg5: a5 ? parseFloat(a5[1]) : null, avg10: a10 ? parseFloat(a10[1]) : null, date: f.ymd }
-      } catch { /* 다음 금요일 */ }
-    }
-  } catch { /* pdf-parse 로드 실패 */ }
-  return null
+// FactSet 선행 12개월 PER — 로컬 러너(scripts/factset-forward.mjs)가 주간 PDF 파싱 후 app_cache에 적재한 값을 읽음.
+// ⚠️ Vercel 서버는 FactSet CDN이 데이터센터 IP 차단으로 직접 파싱 불가 → 선생님 PC 러너 경유(KRX·토스 러너와 동일 보안·경로).
+interface FactsetFwd { fwd: number; avg5: number | null; avg10: number | null; trailing?: number | null; date: string }
+async function factsetForward(): Promise<FactsetFwd | null> {
+  return await getCache<FactsetFwd>('factset-forward-pe', 30 * 24 * 3600_000)   // 러너 적재분(주간 갱신, 30일 유효)
 }
 
 const MON: Record<string, string> = { Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06', Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12' }
