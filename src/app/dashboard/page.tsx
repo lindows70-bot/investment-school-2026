@@ -23,6 +23,7 @@ import FedChartsBoard             from '@/app/components/FedChartsBoard'
 import FomcDecoder                from '@/app/components/FomcDecoder'
 import RegimeTripwire             from '@/app/components/RegimeTripwire'
 import NpsPortfolio               from '@/app/components/NpsPortfolio'
+import BlackRockTracker           from '@/app/components/BlackRockTracker'
 import JarvisMorningBriefing      from '@/app/components/JarvisMorningBriefing'
 import SchoolIndexDashboard       from '@/app/components/SchoolIndexDashboard'
 import GlobalTop10                from '@/app/components/GlobalTop10'
@@ -3034,6 +3035,10 @@ export default function DashboardPage() {
         {/* 🏛️ 국민연금 자산현황 — '시총 거인 기업' 옆에 '거인 투자자의 장바구니'를 나란히(거시경제 탭에서 이관) */}
         <ErrorBoundary label="국민연금 포트폴리오">
           <NpsPortfolio />
+        </ErrorBoundary>
+        {/* 🏛️ 블랙록 — 세계 1위 운용사(거인 테마 확장) */}
+        <ErrorBoundary label="블랙록 트래커">
+          <BlackRockTracker />
         </ErrorBoundary>
       </div>
 
