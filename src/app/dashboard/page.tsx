@@ -1337,22 +1337,27 @@ export default function DashboardPage() {
             ],
           },
           {
-            id: 'research', icon: '💡', label: '투자 리서치',
+            id: 'research', icon: '💡', label: '종목 리서치',
             items: [
-              { key: 'globaltop10', icon: '🌍', label: '글로벌 시총 Top 10',  desc: '미국 vs 한국 시총 거인 체급 비교' },
+              { key: 'globaltop10', icon: '🌍', label: '글로벌 시총 Top 10',  desc: '미국 vs 한국 시총 거인 + 국민연금·블랙록' },
               { key: 'macroai',  icon: '🌐', label: '거시경제 AI 추천',       desc: '매크로 × 린치 × Gemini 종합 추천' },
               { key: 'tenbagger',icon: '🚀', label: '10배거 헌터',           desc: '린치 10루타 7대 기준 종목 검증' },
               { key: 'mentor',   icon: '🤖', label: 'AI 멘토 족집게',       desc: '마스터 진단 레포트' },
               { key: 'guidance', icon: '📡', label: '가이던스 모멘텀 레이더', desc: 'EPS 컨센서스 기울기 스캐닝' },
               { key: 'schoolflow', icon: '🏫', label: '학교 13F 인덱스',  desc: '집단지성 동일가중 인덱스' },
               { key: 'ghost',  icon: '👻', label: '유령 종목 추적기',     desc: '기관 소외 × 내부자 매수' },
+            ],
+          },
+          {
+            id: 'macrocycle', icon: '🌐', label: '매크로·사이클·위기',
+            items: [
+              { key: 'crisis', icon: '🚨', label: '글로벌 위기 감지 레이더', desc: 'CAPE·버핏·선행PER·위험프리미엄 4대 버블 Alert' },
               { key: 'macro',  icon: '🏛️', label: '거시경제 (Fed Watch)', desc: '금리 · 인플레이션 · QT' },
-              { key: 'coinlab',icon: '🪙', label: '코인 랩 (비트코인)',    desc: '사이클·심리·온체인·유동성 — 독립 엔진' },
               { key: 'season', icon: '🧭', label: '4계절 내비게이터',     desc: '성장×물가 2×2 · 내 포폴 계절 정합성' },
               { key: 'dalio',  icon: '🌊', label: '레이 달리오 (매크로 사이클)', desc: '부채 사이클·빅 사이클·전천후 — 실데이터 진단' },
               { key: 'globalcycle', icon: '🌐', label: '글로벌 비즈니스 사이클', desc: '피델리티식 13개국 경기 위치 — OECD CLI 실데이터' },
               { key: 'ipocycle', icon: '🚀', label: 'IPO 하이프 사이클', desc: '신규 상장주 6단계 수명주기 — 실제 상장주 자동 매핑' },
-              { key: 'crisis', icon: '🚨', label: '글로벌 위기 감지 레이더', desc: 'CAPE·버핏·PER·위험프리미엄 4대 버블 지표 실시간 Alert' },
+              { key: 'coinlab',icon: '🪙', label: '코인 랩 (비트코인)',    desc: '사이클·심리·온체인·유동성 — 독립 엔진' },
             ],
           },
           {
