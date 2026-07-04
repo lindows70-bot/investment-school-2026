@@ -2381,6 +2381,17 @@ KB금융(은행)이 AI 리밸런싱·본부장 브리핑·투자 프로필에서
 - ⭐ **작업 스케줄러 자동화**: `KRX-Short-Runner`(매일 20:00, 장마감 후) 등록 — `schtasks //Create ... cmd /c python scripts\krx-short-runner.py >> scripts\logs\krx-short.log`. PC 절전 시 다음 실행에서 최신 거래일 자동 보정(러너 내장). 로그로 성공 확인
 - ⚠️ **검증 방법론**: 저장 캐시가 아니라 **KRX 재조회로 독립 검산**(원익IPS 404,583주·−28.8% 등 소수점 일치) — 파이프라인 오염 여부까지 확인. 시장 Top 저유동성 왜곡은 공매도 1만주↑ 필터 + 캐비엇
 
+## 🏛️ 블랙록(BlackRock) 포트폴리오 트래커 (2026-07-04) — 글로벌 시총 Top10 탭
+
+세계 1위 운용사 블랙록(래리 핑크·$12조 AUM)의 SEC 13F를 트래킹. 국민연금 트래커와 같은 '거인' 테마. 설계 `docs/blackrock-tracker/plan.md`.
+- ⚠️ **핵심 함정 — "블랙록 = 시장 그 자체"**: 실측 결과 13F Top이 정확히 시총 순서(NVDA 5.88·AAPL 5.08·GOOGL 4.07·MSFT 3.84%·iShares TR 2.82%). iShares 인덱스가 시장 시총가중 복제 → "무엇을 보유하나"는 인사이트 0. **진짜 신호 = 분기별 변화(QoQ)·집중도·"패시브 지배" 교육**
+- **`/api/blackrock`**(공개·`blackrock-13f-v2` 30일 캐시·maxDuration 120): **BlackRock, Inc. CIK 0002012383**(구 법인 1364742·1086364 등 2017·2024 종료·통합 — 전문검색으로 현재 본체 확정). 2분기(2026-Q1·2025-Q4) 13F 파싱(각 23MB·5만행) → nps-portfolio·shadow-13f 인프라 재사용(Node https·닫는태그 무결성). ① Top20 ② QoQ 델타(늘림/줄임/신규/청산, shadow-13f 델타 로직) ③ 섹터 집중도(Top100)
+- **`BlackRockTracker.tsx`**: INTRO(시장복제 캐비엇)+Top20(시총순=복제 교육)+분기 스마트머니 무브+섹터 도넛+"13F(보유) vs 하우스뷰(전망)" 교육
+- ⚠️ **발행사명 정제 버그(검증서 수정, v1→v2)**: ① SEC XML `&amp;` 미디코드로 "JOHNSON &amp; JOHNSON"·"S&P GLOBAL"이 맵 매칭 실패→기타 → `deHtml` 디코드 ② **"NETFLIX"의 'ETF' 부분문자열**이 ETF 정규식에 오매칭→넷플릭스가 ETF(자체) → `\bETF\b` 단어경계 ③ 섹터맵 42→85종목 확장 → 기타 22.9%→9.9%. 검증: J&J→헬스케어·NFLX→커뮤니케이션·MU→IT 정정, IT 37.2% 편중 선명
+- ⭐ **cron 워밍**: `/api/blackrock?refresh=1` 주1회(월 21:00 UTC) — 30일 캐시라 그냥 호출론 재파싱 안 함 → refresh 파라미터로 캐시 우회 강제 재파싱(macro-ai-picks 패턴), 새 분기 13F를 캐시 만료 전 미리 갱신. 학생은 30일 캐시로 즉시 응답
+- 검증(라이브): Top 비중 SEC 원본 소수점 일치 · $5.72T·4,558종목 · QoQ 늘림(XOM·반도체장비)/줄임(Intuit·Snowflake) · 45일지연·iShares포함·롱온리 정직 캐비엇
+- 교훈: **대형 13F 파싱(46MB)은 30일 캐시+주1회 refresh 워밍** / **부분문자열 매칭은 단어경계 필수**(NETFLIX⊃ETF) / **SEC XML 엔티티 디코드 필수**(&amp;)
+
 ## 배포
 
 - **프로덕션**: https://investment-school-2026.vercel.app
