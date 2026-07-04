@@ -26,6 +26,7 @@
     "lightweight-charts": "^5.2.0",
     "lucide-react": "^1.14.0",
     "next": "14.2.35",
+    "pdf-parse": "^2.4.5",
     "react": "^18",
     "react-dom": "^18",
     "react-simple-maps": "^3.0.0",

@@ -95,8 +95,9 @@ export default function CrisisRadar() {
 // 지표별 상세 카드 — 헤더(값·신호) + 역사 미니차트 + 쉬운 설명 + 과거위기 칩
 function MetricCard({ m }: { m: CrisisMetric }) {
   const s = SIG[m.signal]
-  const dangerY = m.gauge.invert ? m.gauge.t2 : m.gauge.t2   // 위험 임계선
-  const meanY = m.mean
+  // 선행 PER 카드는 값=선행(20)이나 차트는 후행 30년 → 차트 기준선은 후행 규격(평균16·위험25)
+  const dangerY = m.key === 'pe' ? 25 : m.gauge.t2
+  const meanY = m.key === 'pe' ? 16 : m.mean
   const last = m.series.length ? m.series[m.series.length - 1] : null
   const mk = (ym: string) => { const f = m.series.filter(x => x.date <= ym); return f.length ? f[f.length - 1] : null }
   const crises = m.key === 'erp' ? [] : [['2000-03', '2000', '#f87171'], ['2007-09', '2008', '#fb923c'], ['2020-03', '2020', '#a855f7']] as const
@@ -111,6 +112,7 @@ function MetricCard({ m }: { m: CrisisMetric }) {
       </div>
 
       {/* 역사 미니차트 */}
+      {m.key === 'pe' && <div style={{ color: '#7f93a8', fontSize: 9.5, marginTop: 6 }}>📉 아래 차트는 <b style={{ color: '#9aa7b5' }}>후행 PER 30년 추이</b>(선행 PER 장기 시계열은 무료 미제공) — 2008년 스파이크는 이익 급감으로 PER이 역설적으로 치솟은 것</div>}
       {m.series.length > 8 && (
         <div style={{ height: 150, marginTop: 8 }}>
           <ResponsiveContainer width="100%" height="100%">

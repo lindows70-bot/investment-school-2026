@@ -8,7 +8,7 @@ const nextConfig = {
   // yahoo-finance2 를 번들링하지 않고 Node.js 런타임에서 직접 사용 (Vercel 포함)
   // Next.js 14: experimental.serverComponentsExternalPackages
   experimental: {
-    serverComponentsExternalPackages: ['yahoo-finance2'],
+    serverComponentsExternalPackages: ['yahoo-finance2', 'pdf-parse'],
   },
 
   // 외부 이미지 허용 도메인 (필요 시 추가)

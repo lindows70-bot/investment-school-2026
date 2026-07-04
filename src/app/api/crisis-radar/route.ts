@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 30
+export const maxDuration = 60
 
 export type Signal = 'safe' | 'caution' | 'danger'
 export interface CrisisMetric {
@@ -49,6 +49,39 @@ async function multpl(path: string): Promise<number | null> {
     return m ? parseFloat(m[1]) : null
   } catch { return null }
 }
+// FactSet Earnings Insight 주간 PDF에서 S&P500 선행 12개월 PER 실측(권위 원천, 무료 공개).
+// URL: EarningsInsight_MMDDYY.pdf (금요일 발행). 최근 금요일부터 역행하며 첫 200 응답 파싱.
+async function factsetForward(): Promise<{ fwd: number; avg5: number | null; avg10: number | null; date: string } | null> {
+  const fridays: { url: string; ymd: string }[] = []
+  const d = new Date()
+  while (d.getUTCDay() !== 5) d.setUTCDate(d.getUTCDate() - 1)   // 최근 금요일
+  for (let i = 0; i < 5; i++) {
+    const mm = String(d.getUTCMonth() + 1).padStart(2, '0'), dd = String(d.getUTCDate()).padStart(2, '0'), yy = String(d.getUTCFullYear()).slice(2)
+    fridays.push({ url: `https://advantage.factset.com/hubfs/Website/Resources%20Section/Research%20Desk/Earnings%20Insight/EarningsInsight_${mm}${dd}${yy}.pdf`, ymd: `${d.getUTCFullYear()}-${mm}-${dd}` })
+    d.setUTCDate(d.getUTCDate() - 7)
+  }
+  try {
+    const { PDFParse } = await import('pdf-parse')
+    for (const f of fridays) {
+      try {
+        const r = await fetch(f.url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(15_000) })
+        if (!r.ok) continue
+        const buf = Buffer.from(await r.arrayBuffer())
+        if (buf.length < 100_000) continue
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const res = await new (PDFParse as any)({ data: buf }).getText()
+        const t: string = res.text
+        const fwd = t.match(/forward 12-month P\/E ratio for the S&P 500 is\s+([0-9]+\.[0-9]+)/i)
+        if (!fwd) continue
+        const a5 = t.match(/5-year average(?:\s*of)?\s*\(?([0-9]+\.[0-9]+)/i)
+        const a10 = t.match(/10-year average(?:\s*of)?\s*\(?([0-9]+\.[0-9]+)/i)
+        return { fwd: parseFloat(fwd[1]), avg5: a5 ? parseFloat(a5[1]) : null, avg10: a10 ? parseFloat(a10[1]) : null, date: f.ymd }
+      } catch { /* 다음 금요일 */ }
+    }
+  } catch { /* pdf-parse 로드 실패 */ }
+  return null
+}
+
 const MON: Record<string, string> = { Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06', Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12' }
 // multpl 월별 테이블 → {date:'YYYY-MM', v} 오름차순(30년·분기 다운샘플). 셀: <td>Jul 2, 2026</td><td> &#x2002; 41.60 </td>
 async function multplSeries(path: string): Promise<{ date: string; v: number }[]> {
@@ -70,11 +103,11 @@ async function multplSeries(path: string): Promise<{ date: string; v: number }[]
 }
 
 export async function GET() {
-  const cacheKey = 'crisis-radar-v5'   // v5: 종합 표용 alertText + PE 선행/후행 차이 명시
+  const cacheKey = 'crisis-radar-v6'   // v6: 선행 PER FactSet PDF 실측(권위 원천) — 후행 대체 폐기
   const cached = await getCache<CrisisRadarResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
-  const [cape, pe, eyield, equities, gdp, dgs10, capeSer, peSer, eySer, gs10Ser] = await Promise.all([
+  const [cape, pe, eyield, equities, gdp, dgs10, capeSer, peSer, eySer, gs10Ser, fwd] = await Promise.all([
     multpl('shiller-pe'), multpl('s-p-500-pe-ratio'), multpl('s-p-500-earnings-yield'),
     fred('NCBEILQ027S', '&observation_start=1995-01-01'),   // 비금융 법인 주식 시가총액($M, 분기)
     fred('GDP', '&observation_start=1995-01-01'),            // 명목 GDP($B, 분기)
@@ -83,6 +116,7 @@ export async function GET() {
     multplSeries('s-p-500-pe-ratio/table/by-month'),        // PER 역사
     multplSeries('s-p-500-earnings-yield/table/by-month'),  // 어닝일드 역사(ERP용)
     fred('GS10', '&observation_start=1995-01-01&frequency=m'),   // 10년물 월별(ERP 역사용)
+    factsetForward(),                                  // 🆕 S&P500 선행 12개월 PER(FactSet 실측)
   ])
   // 버핏 시계열(분기): GDP 기준일마다 시총 atOrBefore
   const buffettSer = gdp.map(g => { const e = atOrBefore(equities, g.date); return e != null ? { date: g.date.slice(0, 7), v: Math.round((e / 1e6) / (g.v / 1e3) * 1000) / 10 } : null }).filter((x): x is { date: string; v: number } => x != null)
@@ -124,14 +158,20 @@ export async function GET() {
 
   // ③ S&P 500 PER (후행 — 선행PER은 유료 컨센서스라 후행으로 대체·명시)
   metrics.push({
-    key: 'pe', label: 'S&P 500 PER (후행)', icon: '💰', measure: '주가 vs 최근 12개월 실적',
-    value: pe, unit: '배', mean: 16, norm: '역사평균 ≈ 16배',
-    signal: pe == null ? 'caution' : pe >= 25 ? 'danger' : pe >= 20 ? 'caution' : 'safe',
-    note: pe == null ? '데이터 조회 실패' : `현재 후행 ${pe}배(위험) — 뉴스·구글의 "선행 PER ~20배(주의)"와 다른 이유: 우리는 실제 확정이익(후행), 구글은 미래 예상이익(선행)을 씀. 격차 ${eyield != null ? Math.round((pe / 20 - 1) * 100) : 60}%는 시장이 향후 이익 급성장을 기대(AI 선반영)한다는 뜻. 선행 EPS는 유료 컨센서스라 무료 계산 불가 → 더 보수적인 후행 채택.`,
-    explain: '가장 유명한 밸류에이션 지표. 주가를 **최근 1년 순이익**으로 나눕니다. 이익 1달러에 몇 달러를 내는가. 현재 32배 = 이익 1달러당 32달러(역사평균 16배의 2배). ⚠️ 뉴스의 "선행 PER 20배(주의)"는 향후 1년 *예상* 이익 기준 — 우리는 *확정* 이익 기준 후행 PER(32배·위험)을 씁니다. 둘 다 맞지만 후행이 더 보수적·정직(유료 선행 컨센서스 회피).',
-    alertText: pe != null && pe >= 25 ? '고평가 (후행 확정이익·평균 2배 / 선행 기준은 주의)' : '보통',
-    gauge: { min: 8, max: 35, t1: 20, t2: 25, invert: false },
-    series: peSer,
+    key: 'pe', label: 'S&P 500 선행 PER', icon: '💰', measure: '주가 vs 향후 12개월 예상이익',
+    value: fwd ? fwd.fwd : pe, unit: '배',
+    mean: fwd?.avg10 ?? 18, norm: fwd ? `FactSet 5년평균 ${fwd.avg5}·10년평균 ${fwd.avg10}` : '역사평균 ≈ 16~18배',
+    // 선행 PER 임계(FactSet 기준): <18 안전 / 18~22 주의 / 22↑ 위험
+    signal: (() => { const v = fwd ? fwd.fwd : pe; return v == null ? 'caution' : v >= 22 ? 'danger' : v >= 18 ? 'caution' : 'safe' })(),
+    note: fwd
+      ? `선행 ${fwd.fwd}배(FactSet ${fwd.date} 실측) — 향후 1년 예상이익 기준. 5년평균 ${fwd.avg5}·10년평균 ${fwd.avg10}보다 높아 '주의'. 참고: 후행(확정이익) PER은 ${pe ?? '—'}배로 더 비쌈(성장 기대가 큰 만큼 선행이 낮게 나옴).`
+      : (pe == null ? '데이터 조회 실패' : `FactSet 선행 PER 일시 조회 실패 → 후행 ${pe}배로 대체 표시(더 보수적).`),
+    explain: fwd
+      ? `주가를 **향후 1년 예상이익**으로 나눈 값(월가 애널리스트 컨센서스). 뉴스에서 가장 많이 인용하는 밸류에이션. 현재 ${fwd.fwd}배 = FactSet(권위 원천)의 매주 발표치. 5년평균 ${fwd.avg5}배보다 조금 높아 '주의'. 후행 PER(확정이익 기준 ${pe}배)보다 낮은 건, 시장이 앞으로 이익이 크게 늘 것으로 기대(AI 등)하기 때문입니다.`
+      : `주가를 향후 1년 예상이익으로 나눈 값. FactSet 주간 발표치를 실측하나 일시 실패 시 후행 PER로 대체합니다.`,
+    alertText: (() => { const v = fwd ? fwd.fwd : pe; return v != null && v >= 22 ? '고평가 (예상이익 기준)' : v != null && v >= 18 ? '주의 (5년평균 상회·실적 기대 선반영)' : '보통' })(),
+    gauge: { min: 10, max: 30, t1: 18, t2: 22, invert: false },
+    series: peSer,   // 차트는 후행 PER 30년(선행 장기 시계열은 무료 미제공) — 카드에 라벨 명시
   })
 
   // ④ 위험 프리미엄(ERP) = 어닝일드 − 10년물
