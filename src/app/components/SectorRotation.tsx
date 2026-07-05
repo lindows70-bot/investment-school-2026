@@ -81,9 +81,29 @@ export default function SectorRotation() {
             {/* 축 */}
             <text x={cx + halfW - 4} y={cy + 14} textAnchor="end" fontSize={9.5} fill="#8599ae">상대강도 →</text>
             <text x={cx + 5} y={cy - halfH + 10} fontSize={9.5} fill="#8599ae">모멘텀 ↑</text>
-            {/* 시계방향 화살표 */}
-            <path d={`M ${cx + 150} ${cy - 150} A 150 150 0 0 1 ${cx + 150} ${cy + 150}`} fill="none" stroke="#8599ae" strokeWidth={1} strokeDasharray="4 4" opacity={0.4} />
-            <path d={`M ${cx + 150} ${cy + 150} l -7 -8 l 11 1 z`} fill="#8599ae" opacity={0.5} />
+            {/* 시계방향 순환 화살표 — 4개 모서리(태동→주도→과열→이탈) */}
+            {(() => {
+              const A = '#7f8ea0', op = 0.45, m = 40, o = 15   // 색·투명도·화살길이·모서리 여백
+              const R = cx + halfW - o, L = cx - halfW + o, T = cy - halfH + o, B = cy + halfH - o
+              const arrow = (path: string, hx: number, hy: number, pts: string) => (
+                <g opacity={op}>
+                  <path d={path} fill="none" stroke={A} strokeWidth={1.4} strokeLinecap="round" />
+                  <path d={`M ${hx} ${hy} ${pts} z`} fill={A} />
+                </g>
+              )
+              return (
+                <>
+                  {/* 상단: 태동→주도 (오른쪽으로) */}
+                  {arrow(`M ${cx - m} ${T} Q ${cx} ${T - 8} ${cx + m} ${T}`, cx + m, T, `l -6 -4 l 1 8`)}
+                  {/* 우측: 주도→과열 (아래로) */}
+                  {arrow(`M ${R} ${cy - m} Q ${R + 8} ${cy} ${R} ${cy + m}`, R, cy + m, `l -4 -6 l 8 1`)}
+                  {/* 하단: 과열→이탈 (왼쪽으로) */}
+                  {arrow(`M ${cx + m} ${B} Q ${cx} ${B + 8} ${cx - m} ${B}`, cx - m, B, `l 6 -4 l -1 8`)}
+                  {/* 좌측: 이탈→태동 (위로) */}
+                  {arrow(`M ${L} ${cy + m} Q ${L - 8} ${cy} ${L} ${cy - m}`, L, cy - m, `l -4 6 l 8 -1`)}
+                </>
+              )
+            })()}
             {/* 섹터 점 + 겹침방지 라벨 */}
             {laid.map(({ it, x, y, ly, side }) => {
               const c = QC[it.quadrant], on = sel === it.key
