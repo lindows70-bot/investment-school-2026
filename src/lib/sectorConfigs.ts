@@ -303,6 +303,11 @@ const ENERGY_STOCKS: SectorStock[] = [
   { ticker: 'PSX', name: 'Phillips 66', market: 'US', sub: 'refine', tags: ['정유'],        purePlay: true,  note: '정유·화학·미드스트림' },
   { ticker: 'KMI', name: 'Kinder Morgan', market: 'US', sub: 'refine', tags: ['파이프라인'], purePlay: true,  note: '북미 최대 미드스트림' },
   { ticker: '010950', name: 'S-Oil',    market: 'KR', sub: 'refine', tags: ['정유'],        purePlay: true,  note: '국내 정유사' },
+  // 🆕 3:3 보강
+  { ticker: '078930', name: 'GS',       market: 'KR', sub: 'integrated', tags: ['정유·유통'], purePlay: false, note: 'GS칼텍스(정유) 지주' },
+  { ticker: '267250', name: 'HD현대',   market: 'KR', sub: 'integrated', tags: ['정유·조선'], purePlay: false, note: 'HD현대오일뱅크(정유) 지주' },
+  { ticker: 'BKR',  name: 'Baker Hughes', market: 'US', sub: 'service', tags: ['유전서비스'], purePlay: true, note: '유전 서비스·장비 빅3' },
+  { ticker: '018670', name: 'SK가스',   market: 'KR', sub: 'ep', tags: ['LPG·가스'],        purePlay: true,  note: 'LPG 수입·유통(국내 상류 E&P 부재 → 가스로 대체)' },
 ]
 const ENERGY_CONFIG: SectorConfig = {
   key: 'energy', label: '에너지', emoji: '⚡',
@@ -333,6 +338,14 @@ const MAT_STOCKS: SectorStock[] = [
   { ticker: 'NEM', name: 'Newmont',     market: 'US', sub: 'mining', tags: ['금'],         purePlay: true,  note: '세계 최대 금광' },
   { ticker: 'SHW', name: 'Sherwin-Williams', market: 'US', sub: 'build', tags: ['도료'],   purePlay: true,  note: '미 1위 페인트·도료' },
   { ticker: 'ECL', name: 'Ecolab',      market: 'US', sub: 'build', tags: ['위생화학'],    purePlay: true,  note: '물·위생 특수화학' },
+  // 🆕 3:3 보강
+  { ticker: '004020', name: '현대제철', market: 'KR', sub: 'metal', tags: ['철강'],        purePlay: true,  note: '국내 2위 철강(자동차강판)' },
+  { ticker: '103140', name: '풍산',     market: 'KR', sub: 'metal', tags: ['구리·비철'],   purePlay: true,  note: '동·신동·방산 소재' },
+  { ticker: 'VMC',  name: 'Vulcan Materials', market: 'US', sub: 'build', tags: ['골재'],  purePlay: true,  note: '미 1위 건설 골재' },
+  { ticker: 'MLM',  name: 'Martin Marietta', market: 'US', sub: 'build', tags: ['골재'],   purePlay: true,  note: '건설 골재·시멘트' },
+  { ticker: '300720', name: '한일시멘트', market: 'KR', sub: 'build', tags: ['시멘트'],     purePlay: true,  note: '국내 시멘트' },
+  { ticker: '038500', name: '삼표시멘트', market: 'KR', sub: 'build', tags: ['시멘트'],     purePlay: true,  note: '국내 시멘트' },
+  { ticker: '183190', name: '아세아시멘트', market: 'KR', sub: 'build', tags: ['시멘트'],   purePlay: true,  note: '국내 시멘트' },
 ]
 const MAT_CONFIG: SectorConfig = {
   key: 'materials', label: '소재', emoji: '🧱',
@@ -362,6 +375,19 @@ const IND_STOCKS: SectorStock[] = [
   { ticker: 'ETN', name: 'Eaton',       market: 'US', sub: 'electrical', tags: ['전력관리'], purePlay: true, note: '전력관리(전력망 테마 중복)' },
   { ticker: 'MMM', name: '3M',          market: 'US', sub: 'electrical', tags: ['복합소재'], purePlay: false, note: '다각화 복합기업' },
   { ticker: '329180', name: 'HD현대중공업', market: 'KR', sub: 'machinery', tags: ['조선'], purePlay: true,  note: '국내 조선 빅3' },
+  // 🆕 3:3 보강
+  { ticker: 'IR',   name: 'Ingersoll Rand', market: 'US', sub: 'machinery', tags: ['산업기계'], purePlay: true, note: '유체·압축 산업기계' },
+  { ticker: '267270', name: 'HD현대건설기계', market: 'KR', sub: 'machinery', tags: ['건설기계'], purePlay: true, note: '굴착기 등 건설기계' },
+  { ticker: '241560', name: '두산밥캣', market: 'KR', sub: 'machinery', tags: ['소형건설기계'], purePlay: true, note: '북미 소형건설장비 강자' },
+  { ticker: '079550', name: 'LIG넥스원', market: 'KR', sub: 'aero', tags: ['방산·미사일'], purePlay: true, note: '유도무기 등 K방산' },
+  { ticker: '047810', name: '한국항공우주', market: 'KR', sub: 'aero', tags: ['항공기·KAI'], purePlay: true, note: '국내 항공기 제조(KAI)' },
+  { ticker: 'FDX',  name: 'FedEx',       market: 'US', sub: 'transport', tags: ['특송·물류'], purePlay: true, note: '글로벌 특송 물류' },
+  { ticker: '011200', name: 'HMM',      market: 'KR', sub: 'transport', tags: ['해운'],     purePlay: true,  note: '국내 1위 컨테이너 해운' },
+  { ticker: '003490', name: '대한항공', market: 'KR', sub: 'transport', tags: ['항공'],     purePlay: true,  note: '국내 1위 항공(화물·여객)' },
+  { ticker: '000120', name: 'CJ대한통운', market: 'KR', sub: 'transport', tags: ['택배·물류'], purePlay: true, note: '국내 1위 택배·물류' },
+  { ticker: '010120', name: 'LS ELECTRIC', market: 'KR', sub: 'electrical', tags: ['전력기기'], purePlay: true, note: '전력기기·자동화(전력망 테마 중복)' },
+  { ticker: '267260', name: 'HD현대일렉트릭', market: 'KR', sub: 'electrical', tags: ['변압기'], purePlay: true, note: '변압기 등 전력기기(수출 호황)' },
+  { ticker: '298040', name: '효성중공업', market: 'KR', sub: 'electrical', tags: ['변압기·중전기'], purePlay: true, note: '초고압 변압기·중전기' },
 ]
 const IND_CONFIG: SectorConfig = {
   key: 'industrials', label: '산업재', emoji: '🏗️',
@@ -391,6 +417,14 @@ const DISC_STOCKS: SectorStock[] = [
   { ticker: 'SBUX', name: 'Starbucks',  market: 'US', sub: 'leisure', tags: ['커피'],      purePlay: true,  note: '글로벌 커피 체인' },
   { ticker: 'BKNG', name: 'Booking',    market: 'US', sub: 'leisure', tags: ['여행예약'],  purePlay: true,  note: '글로벌 여행 예약 1위' },
   { ticker: '008770', name: '호텔신라',  market: 'KR', sub: 'leisure', tags: ['면세·호텔'], purePlay: true,  note: '국내 면세·호텔' },
+  // 🆕 3:3 보강
+  { ticker: 'F',    name: 'Ford',       market: 'US', sub: 'auto', tags: ['완성차'],       purePlay: true,  note: '미 완성차(픽업·EV)' },
+  { ticker: '012330', name: '현대모비스', market: 'KR', sub: 'auto', tags: ['자동차부품'], purePlay: true,  note: '국내 1위 자동차 부품·모듈' },
+  { ticker: 'DECK', name: 'Deckers',    market: 'US', sub: 'apparel', tags: ['신발'],       purePlay: true,  note: '호카·어그(프리미엄 신발)' },
+  { ticker: '105630', name: '한세실업', market: 'KR', sub: 'apparel', tags: ['OEM 의류'],   purePlay: true,  note: '글로벌 의류 OEM' },
+  { ticker: '111770', name: '영원무역', market: 'KR', sub: 'apparel', tags: ['아웃도어 OEM'], purePlay: true, note: '노스페이스 등 OEM·브랜드' },
+  { ticker: '035250', name: '강원랜드', market: 'KR', sub: 'leisure', tags: ['카지노·리조트'], purePlay: true, note: '국내 유일 내국인 카지노' },
+  { ticker: '039130', name: '하나투어', market: 'KR', sub: 'leisure', tags: ['여행'],       purePlay: true,  note: '국내 1위 여행사' },
 ]
 const DISC_CONFIG: SectorConfig = {
   key: 'discretionary', label: '자유소비재', emoji: '🛒',
@@ -420,6 +454,15 @@ const STAP_STOCKS: SectorStock[] = [
   { ticker: '090430', name: '아모레퍼시픽', market: 'KR', sub: 'house', tags: ['화장품'],    purePlay: true,  note: 'K뷰티 대표' },
   { ticker: 'PM',  name: 'Philip Morris', market: 'US', sub: 'tobacco', tags: ['담배'],     purePlay: true,  note: '글로벌 담배(IQOS)' },
   { ticker: '033780', name: 'KT&G',     market: 'KR', sub: 'tobacco', tags: ['담배·홍삼'],  purePlay: true,  note: '국내 담배+홍삼(고배당)' },
+  // 🆕 3:3 보강
+  { ticker: 'TGT',  name: 'Target',     market: 'US', sub: 'retail', tags: ['대형마트'],    purePlay: true,  note: '미 대형 종합소매' },
+  { ticker: '139480', name: '이마트',   market: 'KR', sub: 'retail', tags: ['대형마트'],    purePlay: true,  note: '국내 1위 대형마트' },
+  { ticker: '282330', name: 'BGF리테일', market: 'KR', sub: 'retail', tags: ['편의점 CU'],  purePlay: true,  note: '편의점 CU 운영' },
+  { ticker: '007070', name: 'GS리테일', market: 'KR', sub: 'retail', tags: ['편의점 GS25'], purePlay: true,  note: '편의점 GS25·수퍼' },
+  { ticker: '003230', name: '삼양식품', market: 'KR', sub: 'food', tags: ['라면·불닭'],     purePlay: true,  note: '불닭 수출 급성장' },
+  { ticker: '004370', name: '농심',     market: 'KR', sub: 'food', tags: ['라면'],          purePlay: true,  note: '국내 1위 라면(신라면)' },
+  { ticker: 'MO',   name: 'Altria',     market: 'US', sub: 'tobacco', tags: ['담배·고배당'], purePlay: true,  note: '미 담배(말보로·고배당)' },
+  { ticker: '278470', name: '에이피알', market: 'KR', sub: 'house', tags: ['뷰티·디바이스'], purePlay: true,  note: '뷰티 디바이스·화장품(고성장)' },
 ]
 const STAP_CONFIG: SectorConfig = {
   key: 'staples', label: '필수소비재', emoji: '🥫',
@@ -448,6 +491,17 @@ const HLTH_STOCKS: SectorStock[] = [
   { ticker: 'ABT', name: 'Abbott',      market: 'US', sub: 'device', tags: ['진단·기기'],  purePlay: true,  note: '진단·의료기기' },
   { ticker: 'MDT', name: 'Medtronic',   market: 'US', sub: 'device', tags: ['의료기기'],   purePlay: true,  note: '세계 1위 의료기기' },
   { ticker: 'UNH', name: 'UnitedHealth', market: 'US', sub: 'payer', tags: ['의료보험'],   purePlay: true,  note: '미 최대 의료보험' },
+  // 🆕 3:3 보강
+  { ticker: '000100', name: '유한양행', market: 'KR', sub: 'pharma', tags: ['제약·항암'],   purePlay: true,  note: '렉라자 등 국내 제약 대표' },
+  { ticker: '128940', name: '한미약품', market: 'KR', sub: 'pharma', tags: ['신약·기술수출'], purePlay: true, note: '신약 R&D·기술수출' },
+  { ticker: '069620', name: '대웅제약', market: 'KR', sub: 'pharma', tags: ['제약'],        purePlay: true,  note: '국내 제약(나보타 등)' },
+  { ticker: 'REGN', name: 'Regeneron',  market: 'US', sub: 'biotech', tags: ['바이오'],     purePlay: true,  note: '대형 바이오(아일리아)' },
+  { ticker: '196170', name: '알테오젠', market: 'KR', sub: 'biotech', tags: ['제형·플랫폼'], purePlay: true, note: 'SC 제형 변환 기술수출' },
+  { ticker: '214150', name: '클래시스', market: 'KR', sub: 'device', tags: ['미용의료기기'], purePlay: true, note: '미용 의료기기(슈링크)' },
+  { ticker: '145020', name: '휴젤',     market: 'KR', sub: 'device', tags: ['보톡스·필러'], purePlay: true,  note: '보툴리눔 톡신·필러' },
+  { ticker: '145720', name: '덴티움',   market: 'KR', sub: 'device', tags: ['임플란트'],    purePlay: true,  note: '치과 임플란트' },
+  { ticker: 'CI',   name: 'Cigna',      market: 'US', sub: 'payer', tags: ['의료보험'],     purePlay: true,  note: '미 대형 의료보험·PBM' },
+  { ticker: 'ELV',  name: 'Elevance',   market: 'US', sub: 'payer', tags: ['의료보험'],     purePlay: true,  note: '미 대형 의료보험' },
 ]
 const HLTH_CONFIG: SectorConfig = {
   key: 'healthcare', label: '헬스케어', emoji: '💊',
@@ -474,6 +528,14 @@ const IT_STOCKS: SectorStock[] = [
   { ticker: 'AAPL', name: 'Apple',      market: 'US', sub: 'hardware', tags: ['스마트폰'],    purePlay: true,  note: '아이폰·디바이스 생태계' },
   { ticker: 'DELL', name: 'Dell',       market: 'US', sub: 'hardware', tags: ['서버·PC'],     purePlay: true,  note: 'AI 서버·PC' },
   { ticker: '005930', name: '삼성전자',  market: 'KR', sub: 'semi', tags: ['반도체·폰'],      purePlay: false, note: '메모리+폰+가전(다각화)' },
+  // 🆕 3:3 보강
+  { ticker: '042700', name: '한미반도체', market: 'KR', sub: 'semi', tags: ['HBM 본더'],     purePlay: true,  note: 'HBM TC본더(AI반도체 테마 중복)' },
+  { ticker: '012510', name: '더존비즈온', market: 'KR', sub: 'software', tags: ['ERP·클라우드'], purePlay: true, note: '국내 ERP·기업용 SW' },
+  { ticker: '053800', name: '안랩',      market: 'KR', sub: 'software', tags: ['보안 SW'],   purePlay: true,  note: '국내 보안 소프트웨어' },
+  { ticker: '030520', name: '한글과컴퓨터', market: 'KR', sub: 'software', tags: ['오피스 SW'], purePlay: true, note: '국내 오피스 SW·AI' },
+  { ticker: '009150', name: '삼성전기',  market: 'KR', sub: 'hardware', tags: ['MLCC·기판'], purePlay: true,  note: 'MLCC·FC-BGA 기판' },
+  { ticker: '011070', name: 'LG이노텍',  market: 'KR', sub: 'hardware', tags: ['카메라·기판'], purePlay: true, note: '카메라모듈·FC-BGA' },
+  { ticker: '353200', name: '대덕전자',  market: 'KR', sub: 'hardware', tags: ['PCB·기판'],  purePlay: true,  note: 'AI 가속기용 FC-BGA 기판' },
 ]
 const IT_CONFIG: SectorConfig = {
   key: 'infotech', label: '정보기술(IT)', emoji: '💻',
@@ -501,6 +563,11 @@ const COMM_STOCKS: SectorStock[] = [
   { ticker: 'VZ',  name: 'Verizon',     market: 'US', sub: 'telecom', tags: ['통신·고배당'], purePlay: true,  note: '미 통신(고배당)' },
   { ticker: '017670', name: 'SK텔레콤',  market: 'KR', sub: 'telecom', tags: ['통신·AI'],   purePlay: true,  note: '국내 1위 통신(고배당)' },
   { ticker: '030200', name: 'KT',       market: 'KR', sub: 'telecom', tags: ['통신'],       purePlay: true,  note: '국내 유무선 통신' },
+  // 🆕 3:3 보강
+  { ticker: 'EA',   name: 'Electronic Arts', market: 'US', sub: 'media', tags: ['게임'],    purePlay: true,  note: '글로벌 게임 퍼블리셔(FIFA)' },
+  { ticker: '036570', name: '엔씨소프트', market: 'KR', sub: 'media', tags: ['게임'],       purePlay: true,  note: '리니지 등 MMORPG' },
+  { ticker: 'T',    name: 'AT&T',       market: 'US', sub: 'telecom', tags: ['통신·고배당'], purePlay: true,  note: '미 통신(고배당)' },
+  { ticker: '032640', name: 'LG유플러스', market: 'KR', sub: 'telecom', tags: ['통신'],     purePlay: true,  note: '국내 3위 이동통신' },
 ]
 const COMM_CONFIG: SectorConfig = {
   key: 'communication', label: '커뮤니케이션', emoji: '📡',
@@ -525,6 +592,12 @@ const UTIL_STOCKS: SectorStock[] = [
   { ticker: 'SRE', name: 'Sempra',      market: 'US', sub: 'multi', tags: ['가스·전력'],    purePlay: true,  note: '가스·전력·LNG' },
   { ticker: '036460', name: '한국가스공사', market: 'KR', sub: 'multi', tags: ['가스'],      purePlay: true,  note: '국내 천연가스 독점' },
   { ticker: 'AWK', name: 'American Water', market: 'US', sub: 'water', tags: ['수도'],       purePlay: true,  note: '미 최대 상수도' },
+  // 🆕 3:3 보강
+  { ticker: '052690', name: '한전기술', market: 'KR', sub: 'electric', tags: ['원전 설계'], purePlay: true,  note: '원전·발전 설계(한전 자회사)' },
+  { ticker: '051600', name: '한전KPS',  market: 'KR', sub: 'electric', tags: ['발전 정비'], purePlay: true,  note: '발전설비 정비(한전 자회사)' },
+  { ticker: 'ATO',  name: 'Atmos Energy', market: 'US', sub: 'multi', tags: ['가스'],       purePlay: true,  note: '미 천연가스 유틸리티' },
+  { ticker: '017390', name: '서울가스', market: 'KR', sub: 'multi', tags: ['도시가스'],     purePlay: true,  note: '수도권 도시가스 공급' },
+  { ticker: 'WTRG', name: 'Essential Utilities', market: 'US', sub: 'water', tags: ['수도·가스'], purePlay: true, note: '미 상수도·가스 유틸리티' },
 ]
 const UTIL_CONFIG: SectorConfig = {
   key: 'utilities', label: '유틸리티', emoji: '🔌',
@@ -551,6 +624,10 @@ const RE_STOCKS: SectorStock[] = [
   { ticker: 'WELL', name: 'Welltower',  market: 'US', sub: 'health', tags: ['요양시설'],     purePlay: true,  note: '고령자 주거·요양 리츠' },
   { ticker: '395400', name: 'SK리츠',    market: 'KR', sub: 'health', tags: ['오피스·인프라'], purePlay: true, note: '국내 대형 리츠' },
   { ticker: '330590', name: '롯데리츠',  market: 'KR', sub: 'retail', tags: ['리테일'],      purePlay: true,  note: '국내 리테일 리츠' },
+  // 🆕 3:3 보강
+  { ticker: 'VTR',  name: 'Ventas',      market: 'US', sub: 'health', tags: ['요양시설'],    purePlay: true,  note: '고령자 주거·요양 리츠' },
+  { ticker: 'EGP',  name: 'EastGroup',   market: 'US', sub: 'logi', tags: ['물류창고'],      purePlay: true,  note: '물류·산업용 리츠' },
+  { ticker: '293940', name: '신한알파리츠', market: 'KR', sub: 'retail', tags: ['오피스'],   purePlay: true,  note: '국내 오피스·리테일 리츠' },
 ]
 const RE_CONFIG: SectorConfig = {
   key: 'realestate', label: '부동산(리츠)', emoji: '🏢',
