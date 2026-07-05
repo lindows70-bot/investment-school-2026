@@ -25,6 +25,7 @@ export interface ResearchVerdict {
   fwdEpsDir: 'accel' | 'flat' | 'decline' | 'unknown'
   priceTrend: 'up' | 'side' | 'down' | 'unknown'
   peg: number | null; pegSuspect: boolean; dcfVerdict: string | null; flowStatus: string | null
+  roic: number | null; roe: number | null; roeInflated: boolean   // ⚙️ 자본효율(ROIC=투하자본이익률) + ROE 부풀림 경고
   knife: boolean; zombie: boolean; hype: boolean; inventoryBuildup: boolean; invGapPct: number | null
   pros: string[]; cons: string[]
   oneLiner: string
@@ -41,7 +42,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ unsupported: true, reason: '개별 주식 전용 판정입니다(ETF·코인·원자재 제외).' }, { headers: { 'Cache-Control': 'no-store' } })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || url.origin
-  const cacheKey = `research-verdict-v2:${ticker.toUpperCase()}:${market}:${kstDate()}`
+  const cacheKey = `research-verdict-v3:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v3: ROIC·roeInflated 근거 추가
   const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -120,7 +121,10 @@ export async function GET(req: Request) {
   if (m.inventoryBuildup) cons.push(`📦 재고 적체(재고가 매출보다 ${m.invGapPct}%p 빠름 — 경기순환 수요 둔화 선행)`)
   if (zombie) cons.push(`🧟 좀비 위험(이자보상배율 ${m.interestCoverage?.toFixed(1)}<1.5)`)
   if (hype) cons.push(`💭 영업적자(이익 실체 없음 — 내러티브 의존)`)
-  if (m.roe != null && m.roe >= 20) pros.push(`🏰 고ROE ${Math.round(m.roe)}%(버핏 퀄리티)`)
+  // ⚙️ 자본효율 — ROIC(투하자본이익률) 우선(빚까지 반영한 진짜 효율). 없으면 ROE 폴백
+  if (m.roic != null && m.roic >= 15) pros.push(`⚙️ 고ROIC ${Math.round(m.roic)}%(투하자본 효율 우수 — 복리 기계)`)
+  else if (m.roic == null && m.roe != null && m.roe >= 20) pros.push(`🏰 고ROE ${Math.round(m.roe)}%(버핏 퀄리티)`)
+  if (m.roeInflated) cons.push(`⚙️ ROE ${Math.round(m.roe ?? 0)}%는 부채로 부풀린 효율(진짜 ROIC ${Math.round(m.roic ?? 0)}% — 자기자본만의 착시)`)
 
   const oneLiner =
     verdict === 'avoid' ? `${m.knife ? '추세가 무너진' : '재무가 취약한'} 구간 — 지금은 매수보다 ${m.knife ? '바닥 확인' : '리스크 점검'}이 먼저.`
@@ -132,6 +136,7 @@ export async function GET(req: Request) {
     axes: { season: seasonScore, value, supply, momentum },
     seasonLabel, seasonFit, fwdEpsDir: m.fwdEpsDir, priceTrend: m.priceTrend,
     peg: m.peg, pegSuspect, dcfVerdict: dcf, flowStatus: flow,
+    roic: m.roic, roe: m.roe, roeInflated: m.roeInflated,
     knife: m.knife, zombie, hype, inventoryBuildup: m.inventoryBuildup, invGapPct: m.invGapPct,
     pros, cons, oneLiner, asOf: new Date().toISOString(),
   }

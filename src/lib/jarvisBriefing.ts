@@ -34,6 +34,8 @@ export interface SignalMetrics {
   fcf:            number | null
   fcfNegative:    boolean
   roe:            number | null   // %
+  roic:           number | null   // 투하자본이익률 = NOPAT(EBIT×0.79) ÷ (총부채+자기자본−현금) %. 부채까지 반영한 진짜 자본효율(ROE는 자기자본만). 금융주는 null(구조적 무의미)
+  roeInflated:    boolean         // ROE는 높은데 ROIC가 낮음 = 빚으로 부풀린 가짜 효율(AT&T류). roe≥15 & roic<12 & 갭≥8%p
   interestCoverage: number | null  // 이자보상배율(영업이익/이자비용) — <1=좀비(이자도 못 갚음). 무차입은 null
   marketCap:      number | null   // 시가총액(종목 통화 — US=USD, KR=KRW) — 10배거 시총 룸 판별
   revenueGrowth:  number | null   // 매출 성장률(Yahoo 소수, 0.36=36%) — 적자 하이퍼그로스 포착
@@ -70,7 +72,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
   const tk = ticker.trim().toUpperCase()
   // v4: PEG를 app_cache(canon-fund) 직접 읽기로 변경 — selfBase 의존성 제거
   //     selfBase가 undefined여도 canon-fund 캐시에서 SSOT PEG를 가져옴
-  const cacheKey = `jarvis-metrics-v12:${tk}:${market}:${kstDate()}`   // v12: 금융주 이자보상배율 null(좀비 오판 방지)
+  const cacheKey = `jarvis-metrics-v13:${tk}:${market}:${kstDate()}`   // v13: ROIC(투하자본이익률)·roeInflated(빚으로 부풀린 ROE) 추가
   const cached = await getCache<SignalMetrics>(cacheKey, 12 * 3600_000)
   if (cached) return cached
 
@@ -119,6 +121,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
     // 분기 영업이익률 추세 → 2분기 연속 하락 + 이자보상배율(영업이익/이자비용) — 같은 FTS 응답 재사용(추가 fetch 0)
     let opMargin2qDown = false
     let interestCoverage: number | null = null
+    let ebitTtm: number | null = null   // 최근 4분기 영업이익 합(=EBIT TTM) — ROIC 분자용(외부 스코프 hoist)
     let revQ: { t: number; rev: number }[] = []   // 재고 적체 계산용 분기 매출(외부 스코프로 hoist)
     try {
       const fts = await yf.fundamentalsTimeSeries(sym, { period1: '2021-01-01', type: 'quarterly', module: 'financials' })
@@ -138,6 +141,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
       const sumOi = last4.reduce((s, r) => s + (r.oi ?? 0), 0)
       const sumInt = last4.reduce((s, r) => s + Math.abs(r.intExp ?? 0), 0)
       if (sumInt > 0) interestCoverage = Math.round((sumOi / sumInt) * 10) / 10
+      if (last4.length >= 4 && last4.every(r => r.oi != null)) ebitTtm = sumOi   // 4분기 온전할 때만(TTM 정합)
     } catch { /* 추세/이자보상 없으면 기본값 */ }
 
     const marketCap = num(q.summaryDetail?.marketCap) ?? num(pr.marketCap)
@@ -149,10 +153,14 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
     // 📦 재고 적체(경기순환 고점 선행) — 재고증가율(YoY) > 매출증가율(YoY)이면 수요 둔화 신호.
     //    후행 PER/PEG가 '이익 폭증=저PER'로 속이는 사이클 고점을 재고가 선행해서 경고(린치 경기순환 함정).
     let inventoryBuildup = false, invGapPct: number | null = null
+    let equity: number | null = null   // 자기자본(최신 분기) — ROIC 분모용
     try {
       const bs = await yf.fundamentalsTimeSeries(sym, { period1: '2022-01-01', type: 'quarterly', module: 'balance-sheet' })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const barr: any[] = Array.isArray(bs) ? bs : (bs?.timeSeries ?? [])
+      const eqRows = barr.map(r => ({ t: (r.date instanceof Date ? r.date : new Date(r.date)).getTime(), v: num(r.stockholdersEquity) }))
+        .filter(r => r.v != null && (r.v as number) > 0).sort((a, b) => a.t - b.t)
+      if (eqRows.length) equity = eqRows[eqRows.length - 1].v   // 최신 분기 자기자본
       const inv = barr.map(r => ({ t: (r.date instanceof Date ? r.date : new Date(r.date)).getTime(), v: num(r.inventory) }))
         .filter(r => r.v != null).sort((a, b) => a.t - b.t)
       const revRows = revQ.slice().sort((a, b) => a.t - b.t)   // 재무 FTS(매출) 재사용
@@ -172,6 +180,19 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
 
     // 🏦 금융주(은행·보험)는 이자비용이 영업의 핵심(예금 이자)이라 이자보상배율이 구조적으로 무의미 → 좀비 오판 방지(null 처리)
     const isFinancial = /financ|bank|insurance|capital market|asset manage/i.test(String(ap.sector ?? '') + ' ' + String(ap.industry ?? ''))
+
+    // ⚙️ ROIC = NOPAT(EBIT×0.79, 세율 21% 가정) ÷ 투하자본(총부채+자기자본−현금). ROE와 달리 '빚으로 굴린 자본'까지 분모에 넣어 진짜 효율 측정.
+    //    금융주는 부채=원재료라 투하자본 개념 부적합 → null(이자보상배율·좀비 가드와 동일 철학)
+    let roic: number | null = null
+    let roeInflated = false
+    if (!isFinancial && ebitTtm != null && equity != null) {
+      const debt = num(fd.totalDebt) ?? 0
+      const cash = num(fd.totalCash) ?? 0
+      const investedCapital = debt + equity - cash
+      if (investedCapital > 0) roic = Math.round((ebitTtm * 0.79 / investedCapital) * 1000) / 10
+    }
+    // ROE는 높은데 ROIC가 낮음 = 빚으로 부풀린 가짜 효율(AT&T ROE 18%/ROIC 8%). roe≥15 & roic<12 & 갭≥8%p
+    if (roe != null && roic != null && roe >= 15 && roic < 12 && (roe - roic) >= 8) roeInflated = true
     const m: SignalMetrics = {
       ticker: tk, name: name || String(pr.shortName || tk),
       market: market || 'US',
@@ -179,7 +200,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
       industry: ap.industry ? String(ap.industry) : null,
       peg, opMargin, opMargin2qDown,
       fcf, fcfNegative: fcf != null && fcf < 0,
-      roe, interestCoverage: isFinancial ? null : interestCoverage, marketCap, revenueGrowth, earningsGrowth, analystCount,
+      roe, roic, roeInflated, interestCoverage: isFinancial ? null : interestCoverage, marketCap, revenueGrowth, earningsGrowth, analystCount,
       priceTrend, knife, momentumScore, fwdEpsDir, inventoryBuildup, invGapPct,
       currency: pr.currency ? String(pr.currency) : null,
     }
