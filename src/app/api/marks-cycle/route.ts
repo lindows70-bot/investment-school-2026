@@ -7,7 +7,7 @@ export const maxDuration = 60
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 
-const clamp = (n: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n))
+const clamp = (n: number, lo = 0, hi = 100) => Math.round(Math.max(lo, Math.min(hi, n)))   // 정수 반올림(표시 깔끔)
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 export interface MarksAxis {
@@ -58,7 +58,7 @@ async function pull(base: string, path: string): Promise<{ ok: boolean } & Recor
 
 export async function GET(req: Request) {
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-  const cacheKey = `marks-cycle-v1:${kstDate()}`
+  const cacheKey = `marks-cycle-v2:${kstDate()}`   // v2: 축 온도 정수 반올림
   const cached = await getCache<MarksCycleResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
