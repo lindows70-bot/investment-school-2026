@@ -124,7 +124,7 @@ export default function CoreSatelliteHero({ cs, portfolioValue }: { cs: CoreSate
           {cs.add.map((a: BuyIdea, i: number) => (
             <div key={`${a.ticker}-${i}`} style={{ background: '#0f1117', borderRadius: 8, padding: '8px 10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 12 }}>{dnm(a.market, a.name, a.ticker)}</span>
+                <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 12 }}>{a.ticker === 'CORE' || a.ticker === 'BTC' ? a.name : dnm(a.market, a.name, a.ticker)}</span>
                 <SectorBadge sector={a.sector} size="xs" />
                 {a.targetPct > 0 && <span style={{ color: '#22c55e', fontSize: 10.5, fontWeight: 800, fontFamily: 'monospace' }}>+{a.targetPct}%{wonTag(a.targetPct, pv)}</span>}
                 <span style={{ marginLeft: 'auto' }}><Tag t={a.tag} color="#22c55e" /></span>
