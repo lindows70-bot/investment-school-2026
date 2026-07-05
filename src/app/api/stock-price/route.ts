@@ -13,6 +13,19 @@ export interface Candle {
   low:    number
   close:  number
   volume: number
+  ma?:    number | null   // 224일 이동평균(1D 일봉에만 채움 — 워밍업 부족·신규상장주는 null)
+}
+
+/** 224일(또는 지정 period) 단순이동평균을 각 캔들에 붙이고 최근 display개만 반환.
+ *  워밍업(period 미만) 구간은 null. 롤링 윈도우는 '개수'가 아니라 실제 일봉 기준(신규상장주 graceful). */
+function withMa(candles: Candle[], period: number, display: number): Candle[] {
+  const out = candles.map((c, i) => {
+    if (i < period - 1) return { ...c, ma: null }
+    let sum = 0
+    for (let j = i - period + 1; j <= i; j++) sum += candles[j].close
+    return { ...c, ma: Math.round((sum / period) * 100) / 100 }
+  })
+  return out.slice(-display)
 }
 
 export interface Fundamentals {
@@ -225,7 +238,7 @@ async function naverOhlcChart(code: string, tf: TimeFrame): Promise<Candle[]> {
   //   1Y : month × 120 → 월봉 120 (10년, 증권사 '월' 장기 뷰). 어린 종목은 가용 전체.
   // naverChart(라인차트)와 동일한 timeframe 구분 정책 사용
   const tfMap: Record<TimeFrame, { timeframe: string; count: number }> = {
-    '1D': { timeframe: 'day',   count: 60 },
+    '1D': { timeframe: 'day',   count: 290 },   // 60 표시 + 224일선 워밍업(224일)
     '1W': { timeframe: 'week',  count: 60 },
     '1M': { timeframe: 'month', count: 60 },
     '1Y': { timeframe: 'month', count: 120 },
@@ -260,7 +273,8 @@ async function naverOhlcChart(code: string, tf: TimeFrame): Promise<Candle[]> {
         volume: isFinite(volume) ? volume : 0,
       })
     }
-    return candles
+    // 1D 일봉에만 224일선 부착(최근 60개 표시). 그 외 타임프레임은 224일 개념 부적합 → 미부착
+    return tf === '1D' ? withMa(candles, 224, 60) : candles
   } catch { return [] }
 }
 
@@ -438,7 +452,9 @@ async function yfChart(ticker: string, tf: TimeFrame): Promise<PricePoint[]> {
 /** US OHLC 캔들 데이터 (Yahoo Finance v8 → Candle[]) */
 async function yfOhlcChart(ticker: string, tf: TimeFrame): Promise<Candle[]> {
   // KR과 동일 입도 정책(일/주/월봉) — 라인차트(yfChart)와 같은 YF_RANGE 사용(SSOT)
-  const { range, interval, take } = YF_RANGE[tf]
+  // ⚠️ 1D는 224일선 워밍업(224 거래일) 위해 range를 2y로 확장(표시는 최근 60개, YF_RANGE 1D=6mo로는 부족)
+  const base = YF_RANGE[tf]
+  const { range, interval, take } = tf === '1D' ? { range: '2y', interval: '1d', take: 60 } : base
   try {
     const res = await yfChartFetch(ticker, `range=${range}&interval=${interval}&includePrePost=false`)
     if (!res || !res.ok) return []
@@ -469,7 +485,8 @@ async function yfOhlcChart(ticker: string, tf: TimeFrame): Promise<Candle[]> {
         } as Candle
       })
       .filter((c): c is Candle => c !== null)
-    return candles.slice(-take)   // 최근 N개만 (KR과 동일 개수)
+    // 1D 일봉에만 224일선 부착(최근 60개 표시). 그 외는 미부착.
+    return tf === '1D' ? withMa(candles, 224, take) : candles.slice(-take)
   } catch { return [] }
 }
 
