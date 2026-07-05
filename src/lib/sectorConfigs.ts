@@ -346,6 +346,9 @@ const MAT_STOCKS: SectorStock[] = [
   { ticker: '300720', name: '한일시멘트', market: 'KR', sub: 'build', tags: ['시멘트'],     purePlay: true,  note: '국내 시멘트' },
   { ticker: '038500', name: '삼표시멘트', market: 'KR', sub: 'build', tags: ['시멘트'],     purePlay: true,  note: '국내 시멘트' },
   { ticker: '183190', name: '아세아시멘트', market: 'KR', sub: 'build', tags: ['시멘트'],   purePlay: true,  note: '국내 시멘트' },
+  { ticker: 'STLD', name: 'Steel Dynamics', market: 'US', sub: 'metal', tags: ['철강'],     purePlay: true,  note: '미 전기로 철강' },
+  { ticker: 'WPM',  name: 'Wheaton',     market: 'US', sub: 'mining', tags: ['귀금속 스트리밍'], purePlay: true, note: '금·은 스트리밍(로열티)' },
+  { ticker: 'SCCO', name: 'Southern Copper', market: 'US', sub: 'mining', tags: ['구리광산'], purePlay: true, note: '세계적 구리 광산(국내 광산 부재)' },
 ]
 const MAT_CONFIG: SectorConfig = {
   key: 'materials', label: '소재', emoji: '🧱',
@@ -425,6 +428,10 @@ const DISC_STOCKS: SectorStock[] = [
   { ticker: '111770', name: '영원무역', market: 'KR', sub: 'apparel', tags: ['아웃도어 OEM'], purePlay: true, note: '노스페이스 등 OEM·브랜드' },
   { ticker: '035250', name: '강원랜드', market: 'KR', sub: 'leisure', tags: ['카지노·리조트'], purePlay: true, note: '국내 유일 내국인 카지노' },
   { ticker: '039130', name: '하나투어', market: 'KR', sub: 'leisure', tags: ['여행'],       purePlay: true,  note: '국내 1위 여행사' },
+  { ticker: '023530', name: '롯데쇼핑', market: 'KR', sub: 'retail', tags: ['백화점·마트'], purePlay: true,  note: '롯데 백화점·마트' },
+  { ticker: '069960', name: '현대백화점', market: 'KR', sub: 'retail', tags: ['백화점'],     purePlay: true,  note: '국내 백화점' },
+  { ticker: '004170', name: '신세계',   market: 'KR', sub: 'retail', tags: ['백화점·면세'], purePlay: true,  note: '신세계 백화점·면세' },
+  { ticker: '081660', name: '미스토홀딩스', market: 'KR', sub: 'apparel', tags: ['신발·패션'], purePlay: true, note: '휠라 등 패션(구 휠라홀딩스)' },
 ]
 const DISC_CONFIG: SectorConfig = {
   key: 'discretionary', label: '자유소비재', emoji: '🛒',
@@ -463,6 +470,8 @@ const STAP_STOCKS: SectorStock[] = [
   { ticker: '004370', name: '농심',     market: 'KR', sub: 'food', tags: ['라면'],          purePlay: true,  note: '국내 1위 라면(신라면)' },
   { ticker: 'MO',   name: 'Altria',     market: 'US', sub: 'tobacco', tags: ['담배·고배당'], purePlay: true,  note: '미 담배(말보로·고배당)' },
   { ticker: '278470', name: '에이피알', market: 'KR', sub: 'house', tags: ['뷰티·디바이스'], purePlay: true,  note: '뷰티 디바이스·화장품(고성장)' },
+  { ticker: 'KMB',  name: 'Kimberly-Clark', market: 'US', sub: 'house', tags: ['생활용품'], purePlay: true,  note: '기저귀·티슈(크리넥스)' },
+  { ticker: 'BTI',  name: 'British American Tobacco', market: 'US', sub: 'tobacco', tags: ['담배'], purePlay: true, note: '글로벌 담배(국내는 KT&G 1사)' },
 ]
 const STAP_CONFIG: SectorConfig = {
   key: 'staples', label: '필수소비재', emoji: '🥫',
@@ -536,6 +545,7 @@ const IT_STOCKS: SectorStock[] = [
   { ticker: '009150', name: '삼성전기',  market: 'KR', sub: 'hardware', tags: ['MLCC·기판'], purePlay: true,  note: 'MLCC·FC-BGA 기판' },
   { ticker: '011070', name: 'LG이노텍',  market: 'KR', sub: 'hardware', tags: ['카메라·기판'], purePlay: true, note: '카메라모듈·FC-BGA' },
   { ticker: '353200', name: '대덕전자',  market: 'KR', sub: 'hardware', tags: ['PCB·기판'],  purePlay: true,  note: 'AI 가속기용 FC-BGA 기판' },
+  { ticker: 'SMCI', name: 'Super Micro', market: 'US', sub: 'hardware', tags: ['AI 서버'],   purePlay: true,  note: 'AI 서버·랙 시스템' },
 ]
 const IT_CONFIG: SectorConfig = {
   key: 'infotech', label: '정보기술(IT)', emoji: '💻',
@@ -568,6 +578,7 @@ const COMM_STOCKS: SectorStock[] = [
   { ticker: '036570', name: '엔씨소프트', market: 'KR', sub: 'media', tags: ['게임'],       purePlay: true,  note: '리니지 등 MMORPG' },
   { ticker: 'T',    name: 'AT&T',       market: 'US', sub: 'telecom', tags: ['통신·고배당'], purePlay: true,  note: '미 통신(고배당)' },
   { ticker: '032640', name: 'LG유플러스', market: 'KR', sub: 'telecom', tags: ['통신'],     purePlay: true,  note: '국내 3위 이동통신' },
+  { ticker: 'PINS', name: 'Pinterest',  market: 'US', sub: 'internet', tags: ['SNS·이미지'], purePlay: true, note: '이미지 기반 SNS 광고(국내 플랫폼은 NAVER·카카오 2사)' },
 ]
 const COMM_CONFIG: SectorConfig = {
   key: 'communication', label: '커뮤니케이션', emoji: '📡',
@@ -598,6 +609,8 @@ const UTIL_STOCKS: SectorStock[] = [
   { ticker: 'ATO',  name: 'Atmos Energy', market: 'US', sub: 'multi', tags: ['가스'],       purePlay: true,  note: '미 천연가스 유틸리티' },
   { ticker: '017390', name: '서울가스', market: 'KR', sub: 'multi', tags: ['도시가스'],     purePlay: true,  note: '수도권 도시가스 공급' },
   { ticker: 'WTRG', name: 'Essential Utilities', market: 'US', sub: 'water', tags: ['수도·가스'], purePlay: true, note: '미 상수도·가스 유틸리티' },
+  { ticker: '004690', name: '삼천리',   market: 'KR', sub: 'multi', tags: ['도시가스'],     purePlay: true,  note: '수도권 도시가스·집단에너지' },
+  { ticker: 'AWR',  name: 'American States Water', market: 'US', sub: 'water', tags: ['수도'], purePlay: true, note: '미 상수도(국내 수도는 국영 비상장)' },
 ]
 const UTIL_CONFIG: SectorConfig = {
   key: 'utilities', label: '유틸리티', emoji: '🔌',
@@ -628,6 +641,8 @@ const RE_STOCKS: SectorStock[] = [
   { ticker: 'VTR',  name: 'Ventas',      market: 'US', sub: 'health', tags: ['요양시설'],    purePlay: true,  note: '고령자 주거·요양 리츠' },
   { ticker: 'EGP',  name: 'EastGroup',   market: 'US', sub: 'logi', tags: ['물류창고'],      purePlay: true,  note: '물류·산업용 리츠' },
   { ticker: '293940', name: '신한알파리츠', market: 'KR', sub: 'retail', tags: ['오피스'],   purePlay: true,  note: '국내 오피스·리테일 리츠' },
+  { ticker: 'OHI',  name: 'Omega Healthcare', market: 'US', sub: 'health', tags: ['요양시설'], purePlay: true, note: '요양시설 리츠(국내 헬스 리츠는 SK리츠 등 소수)' },
+  { ticker: '348950', name: '제이알글로벌리츠', market: 'KR', sub: 'retail', tags: ['해외오피스'], purePlay: true, note: '해외 오피스 리츠' },
 ]
 const RE_CONFIG: SectorConfig = {
   key: 'realestate', label: '부동산(리츠)', emoji: '🏢',
