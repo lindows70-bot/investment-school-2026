@@ -18,8 +18,6 @@ type TimeFrame = '1D' | '1W' | '1M' | '1Y'
 
 // 평단가 선 색상 — 눈에 잘 띄는 애시드 그린
 const AVG_COLOR = '#deff9a'
-// 224일 이동평균선 색상 — 캔들(빨강/파랑)과 구분되는 시안
-const MA_COLOR = '#22d3ee'
 
 interface Props {
   data:       Candle[]
@@ -61,10 +59,7 @@ export default function FullCandleChart({
 
   // ── 가격 범위 — 오직 캔들 데이터만 기준 (avgPrice 완전 제외)
   // 평단가 때문에 캔들이 납작해지는 것을 방지: Y축은 항상 주가 데이터에만 맞춤
-  // 224일선(있으면) — 선이 캔들 범위 밖(강한 추세)이어도 보이도록 Y도메인에 포함
-  const maVals = data.map(d => d.ma).filter((v): v is number => v != null && v > 0)
-  const hasMa  = maVals.length >= 2
-  const prices = [...data.flatMap(d => [d.high, d.low]), ...maVals]
+  const prices = data.flatMap(d => [d.high, d.low])
   const minP  = Math.min(...prices)
   const maxP  = Math.max(...prices)
   const range = maxP - minP || minP * 0.02 || 1
@@ -307,34 +302,6 @@ export default function FullCandleChart({
             </g>
           )
         })}
-
-        {/* ── 224일 이동평균선 (1D 일봉에만 채워짐) ── */}
-        {hasMa && (() => {
-          const pts = data
-            .map((d, i) => (d.ma != null && d.ma > 0 ? `${toX(i)},${toY(d.ma)}` : null))
-            .filter((p): p is string => p !== null)
-            .join(' ')
-          const lastMa = [...data].reverse().find(d => d.ma != null && d.ma > 0)?.ma
-          return (
-            <g style={{ pointerEvents: 'none' }}>
-              <polyline points={pts} fill="none" stroke={MA_COLOR} strokeWidth={1.6} strokeOpacity={0.9} strokeLinejoin="round" />
-              {/* 범례 칩 (좌상단) */}
-              <rect x={padL + 2} y={padT - 16} width={54} height={13} rx={3} fill={`${MA_COLOR}18`} stroke={MA_COLOR} strokeWidth={0.7} opacity={0.9} />
-              <line x1={padL + 6} y1={padT - 9.5} x2={padL + 16} y2={padT - 9.5} stroke={MA_COLOR} strokeWidth={1.6} />
-              <text x={padL + 19} y={padT - 6.5} fill={MA_COLOR} fontSize={8} fontWeight={700}>224일선</text>
-              {/* 우측 값 태그 */}
-              {lastMa != null && (() => {
-                const my = toY(lastMa); const lbl = fmtY(lastMa); const tw = Math.max(38, lbl.length * 5.4 + 8)
-                return (
-                  <g>
-                    <rect x={W - padR + 1} y={my - 6.5} width={tw} height={13} fill="transparent" stroke={MA_COLOR} strokeWidth={0.8} rx={2} opacity={0.75} />
-                    <text x={W - padR + 1 + tw / 2} y={my + 3} textAnchor="middle" fill={MA_COLOR} fontSize={7.5} fontWeight={600}>{lbl}</text>
-                  </g>
-                )
-              })()}
-            </g>
-          )
-        })()}
 
         {/* ── 고가 마커 ── */}
         {(() => {

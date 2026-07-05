@@ -7,7 +7,6 @@ export interface Candle {
   low:    number
   close:  number
   volume: number
-  ma?:    number | null   // 224일 이동평균(1D 일봉에만)
 }
 
 interface Props {
