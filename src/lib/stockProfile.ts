@@ -3,6 +3,7 @@
 // ⚠️ 별점은 포트폴리오 모닝스타와 동일 공식·동일 카테고리(lynch-classify DB우선)를 써야 같은 종목 별점이 화면마다 일치(제2원칙)
 import { calcDCF, deriveDcfInputs } from '@/lib/buffettDcf'
 import { computeStarRating, type StarResult } from '@/lib/morningstarRating'
+import { buildSignalMetrics } from '@/lib/jarvisBriefing'
 import { getMoatBreach } from '@/app/actions/getMoatBreach'
 import { getSectorPeers } from '@/app/actions/getSectorPeers'
 
@@ -23,12 +24,13 @@ const norm = (eg: number | null) => eg == null ? null : (Math.abs(eg) < 5 ? eg :
 
 export async function buildStockProfile(ticker: string, market: 'KR' | 'US', base: string): Promise<StockProfile | null> {
   const mkt = market
-  const [si, sp, cls, moat, peers] = await Promise.all([
+  const [si, sp, cls, moat, peers, sm] = await Promise.all([
     fetch(`${base}/api/stock-info?ticker=${encodeURIComponent(ticker)}&market=${mkt}`, { signal: AbortSignal.timeout(20_000) }).then(r => r.ok ? r.json() : null).catch(() => null),
     fetch(`${base}/api/stock-price?ticker=${encodeURIComponent(ticker)}&market=${mkt}`, { signal: AbortSignal.timeout(20_000) }).then(r => r.ok ? r.json() : null).catch(() => null),
     fetch(`${base}/api/lynch-classify?ticker=${encodeURIComponent(ticker)}&market=${mkt}`, { signal: AbortSignal.timeout(15_000) }).then(r => r.ok ? r.json() : null).catch(() => null),
     getMoatBreach({ ticker, name: ticker, market: mkt }).catch(() => null),
     getSectorPeers({ ticker, market: mkt }).catch(() => null),
+    buildSignalMetrics(ticker, mkt, ticker, base).catch(() => null),   // ⚙️ ROIC(자본배분 판정 — morningstar-rating과 동일 SSOT)
   ])
   if (!si) return null
 
@@ -57,7 +59,7 @@ export async function buildStockProfile(ticker: string, market: 'KR' | 'US', bas
   const peg = num(fund.peg)
   const growth = norm(num(fund.earningsGrowth))
 
-  const star = computeStarRating({ pFv, moatWidth, moatVerdict, opMargin, roe, netDebtPos, category, growth, peg, isFinancial: !!moat?.isFinancial })
+  const star = computeStarRating({ pFv, moatWidth, moatVerdict, opMargin, roe, roic: sm?.roic ?? null, roeInflated: sm?.roeInflated ?? false, netDebtPos, category, growth, peg, isFinancial: !!moat?.isFinancial })
 
   // 상대 PSR — 섹터피어 X-Ray SSOT(동종 중앙값) 재사용
   const targetPsr = num(fund.psr) ?? (peers?.peers?.find((p: { isTarget: boolean; psr: number | null }) => p.isTarget)?.psr ?? null)

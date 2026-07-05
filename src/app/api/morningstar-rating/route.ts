@@ -8,6 +8,7 @@ import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { getMoatBreach } from '@/app/actions/getMoatBreach'
 import { calcDCF, deriveDcfInputs } from '@/lib/buffettDcf'
 import { computeStarRating, type StarResult } from '@/lib/morningstarRating'
+import { buildSignalMetrics } from '@/lib/jarvisBriefing'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -35,7 +36,7 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `morningstar-rating-v5:${user.id}:${kstDate()}:${fp}`   // v3: 기저효과 기준 isPegBaseEffect 통일(peg<0.3 AND g>100%)
+  const cacheKey = `morningstar-rating-v6:${user.id}:${kstDate()}:${fp}`   // v6: 자본배분(stewardship) ROIC 1순위·ROE 부풀림 강등
   const cached = await getCache<MorningstarResult>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -72,9 +73,10 @@ export async function GET(req: Request) {
       const market = (s.market === 'KR' ? 'KR' : 'US') as 'KR' | 'US'
       const name = s.name ?? s.ticker
       try {
-        const [siRes, moat] = await Promise.all([
+        const [siRes, moat, sm] = await Promise.all([
           fetch(`${selfBase}/api/stock-info?ticker=${encodeURIComponent(s.ticker)}&market=${market}`, { signal: AbortSignal.timeout(20_000) }).then(r => r.ok ? r.json() : null).catch(() => null),
           getMoatBreach({ ticker: s.ticker, name, market }).catch(() => null),
+          buildSignalMetrics(s.ticker, market, name, selfBase).catch(() => null),   // ⚙️ ROIC(자본배분 판정 1순위)
         ])
         const fund = siRes?.fundamentals ?? {}
         const currentPrice = priceMap.get(s.ticker.toUpperCase()) ?? null
@@ -102,7 +104,7 @@ export async function GET(req: Request) {
         const growth = egRaw == null ? null : (Math.abs(egRaw) < 5 ? egRaw : egRaw / 100)
         const pegN = typeof fund.peg === 'number' && isFinite(fund.peg) ? fund.peg : null
 
-        const star = computeStarRating({ pFv, moatWidth, moatVerdict, opMargin, roe, netDebtPos, category: s.lynch_category ?? 'na', growth, peg: pegN, isFinancial: !!moat?.isFinancial })
+        const star = computeStarRating({ pFv, moatWidth, moatVerdict, opMargin, roe, roic: sm?.roic ?? null, roeInflated: sm?.roeInflated ?? false, netDebtPos, category: s.lynch_category ?? 'na', growth, peg: pegN, isFinancial: !!moat?.isFinancial })
         const e: RatingEntry = {
           ...star, ticker: s.ticker.toUpperCase(), name, market, currency,
           fairValue: fairValue != null ? +fairValue.toFixed(2) : null,

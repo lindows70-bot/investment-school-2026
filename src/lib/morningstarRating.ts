@@ -12,6 +12,8 @@ export interface StarInputs {
   moatVerdict:'intact' | 'hairline' | 'breach' | 'early'
   opMargin:   number | null   // 영업이익률 소수(-0.24=-24%)
   roe:        number | null   // 소수(0.18=18%)
+  roic:       number | null   // ⚙️ 투하자본이익률(%, 15=15%) — 빚까지 반영한 진짜 자본효율. 자본배분 판정 1순위(ROE보다 정확)
+  roeInflated:boolean         // ⚙️ ROE가 부채로 부풀려진 가짜 효율 → 자본배분 강등
   netDebtPos: boolean | null  // 순부채>0(빚>현금)이면 true
   category:   string          // 린치 6대 분류
   growth:     number | null   // 이익성장률 소수(2.14=+214%) — 기저효과 판정용
@@ -56,15 +58,23 @@ function moatTrendOf(verdict: StarInputs['moatVerdict']): MoatTrend {
   return 'stable'   // early
 }
 
-function stewardshipOf(roe: number | null, netDebtPos: boolean | null, isFinancial?: boolean): Stewardship {
-  if (roe == null) return 'standard'
-  // 🏦 보험·은행은 자본이 거대해 ROE가 구조적으로 낮음(삼성생명 5.3%) → '미흡' 임계를 완화(자본배분 의사결정 문제 아님)
+function stewardshipOf(roe: number | null, netDebtPos: boolean | null, isFinancial: boolean | undefined, roic: number | null, roeInflated: boolean): Stewardship {
+  // 🏦 보험·은행은 자본이 거대해 ROE가 구조적으로 낮음(삼성생명 5.3%) + ROIC 개념 부적합 → ROE로만 판정(완화)
   if (isFinancial) {
+    if (roe == null) return 'standard'
     if (roe >= 0.12) return 'exemplary'
     if (roe < 0.03) return 'poor'
     return 'standard'
   }
-  if (roe >= 0.20 && netDebtPos !== true) return 'exemplary'   // 고ROE + 과도한 빚 없음
+  // ⚙️ ROIC(투하자본이익률) 1순위 — 빚까지 반영한 진짜 자본배분 효율. AT&T처럼 ROE만 높은 착시를 걸러냄
+  if (roic != null) {
+    if (roic >= 15 && !roeInflated) return 'exemplary'   // 복리 기계(빚 없이 고효율)
+    if (roic < 7 || roeInflated) return 'poor'            // 진짜 효율 낮음 or 빚으로 부풀린 ROE
+    return 'standard'
+  }
+  // ROIC 없을 때만 ROE 폴백(기존 로직)
+  if (roe == null) return 'standard'
+  if (roe >= 0.20 && netDebtPos !== true) return 'exemplary'
   if (roe < 0.08 || (roe < 0.12 && netDebtPos === true)) return 'poor'
   return 'standard'
 }
@@ -72,7 +82,7 @@ function stewardshipOf(roe: number | null, netDebtPos: boolean | null, isFinanci
 export function computeStarRating(i: StarInputs): StarResult {
   const uncertainty = uncertaintyOf(i.moatWidth, i.opMargin, i.category)
   const moatTrend = moatTrendOf(i.moatVerdict)
-  const stewardship = stewardshipOf(i.roe, i.netDebtPos, i.isFinancial)
+  const stewardship = stewardshipOf(i.roe, i.netDebtPos, i.isFinancial, i.roic, i.roeInflated)
   const discountPct = i.pFv != null && i.pFv > 0 ? +((1 - i.pFv) * 100).toFixed(1) : null
   // ⚠️ 기저효과(작년 이익 붕괴 후 폭증) — DCF 성장률이 부풀려져 공정가치 과대 → '저평가' 별점 착시.
   //    canonicalFundamentals.isPegBaseEffect와 동일 공식(peg<0.3 AND growth>100%) — 함정레이더·PSR·섹터피어와
