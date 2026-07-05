@@ -41,7 +41,9 @@ export default function PermanentLossRadar() {
     <div key={e.ticker} style={{ background: '#0f1117', borderRadius: 8, padding: '9px 11px', borderLeft: `3px solid ${e.category === 'permanent' ? '#ef4444' : '#22c55e'}` }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 12.5 }}>{e.market === 'KR' ? e.name.slice(0, 12) : e.ticker}</span>
-        {e.priceTrend === 'down' && <span style={{ fontSize: 9.5, color: '#f59e0b', fontWeight: 700 }}>🔻 하락 중</span>}
+        {e.knife
+          ? <span style={{ fontSize: 9.5, color: '#f59e0b', fontWeight: 700, background: '#3a2a12', borderRadius: 4, padding: '1px 5px' }}>🔪 급락(추세 붕괴)</span>
+          : e.priceTrend === 'down' && <span style={{ fontSize: 9.5, color: '#f59e0b', fontWeight: 700 }}>🔻 하락 중</span>}
       </div>
       {e.reasons.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 5 }}>

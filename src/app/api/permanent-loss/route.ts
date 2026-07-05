@@ -19,6 +19,7 @@ export interface LossEntry {
   category: 'permanent' | 'volatility'   // 🔴 영구손실 위험 / 🟢 단순 변동성
   reasons: string[]                       // 영구손실 신호(있으면) — 왜 잘라야 하는지
   priceTrend: 'up' | 'side' | 'down' | 'unknown'
+  knife: boolean                          // 🔪 떨어지는 칼날(급락+추세붕괴) — 변동성이어도 무지성 견디기 금물
   note: string                            // 막스식 한 줄 처방
 }
 export interface PermanentLossResult {
@@ -33,7 +34,7 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `permanent-loss-v1:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `permanent-loss-v2:${user.id}:${kstDate()}:${fp}`   // v2: 칼날(knife) 분리 — 무지성 '견뎌라' 오조언 방지
   const cached = await getCache<PermanentLossResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -71,10 +72,12 @@ export async function GET(req: Request) {
       const category: LossEntry['category'] = reasons.length > 0 ? 'permanent' : 'volatility'
       const note = category === 'permanent'
         ? 'thesis(투자 논거)가 훼손 중 — 손절 기준을 명확히. 물타기 금물.'
-        : (m.priceTrend === 'down'
-            ? '펀더멘탈은 멀쩡한데 주가만 하락 — 무서워서 팔면 손실을 확정한다. 변동성은 견디는 것.'
-            : '영구손실 신호 없음 — 단기 등락은 리스크가 아니라 노이즈.')
-      return { ticker: s.ticker.toUpperCase(), name, market, category, reasons, priceTrend: m.priceTrend, note }
+        : (m.knife
+            ? '🔪 급락·추세 붕괴 — 펀더멘탈 신호는 멀쩡하나 시장이 악재를 선반영 중일 수 있음. thesis 재점검 후 판단(무지성 견디기·물타기 금물).'
+            : m.priceTrend === 'down'
+              ? '펀더멘탈은 멀쩡한데 주가만 하락 — 무서워서 팔면 손실을 확정한다. 변동성은 견디는 것.'
+              : '영구손실 신호 없음 — 단기 등락은 리스크가 아니라 노이즈.')
+      return { ticker: s.ticker.toUpperCase(), name, market, category, reasons, priceTrend: m.priceTrend, knife: m.knife, note }
     }))
     entries.push(...part.filter((x): x is LossEntry => x != null))
   }
