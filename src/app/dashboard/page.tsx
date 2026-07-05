@@ -56,6 +56,7 @@ import GuidanceRevisionRadar      from '@/app/components/GuidanceRevisionRadar'
 import DividendExplorer           from '@/app/components/DividendExplorer'
 import MacroAiTerminal            from '@/app/components/MacroAiTerminal'
 import SectorCanvas               from '@/app/components/SectorCanvas'
+import SectorRotation             from '@/app/components/SectorRotation'
 import ErrorBoundary              from '@/app/components/ErrorBoundary'
 import ChangePasswordBanner  from '@/app/components/ChangePasswordBanner'
 import LynchSellSignalPanel  from '@/app/components/LynchSellSignalPanel'
@@ -670,7 +671,7 @@ export default function DashboardPage() {
   }>>({})
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'dalio' | 'marks' | 'globalcycle' | 'ipocycle' | 'crisis' | 'champions' | 'quantum' | 'aisemi' | 'power' | 'physai' | 'aibio' | 'defense' | 'financials' | 'energy' | 'materials' | 'industrials' | 'discretionary' | 'staples' | 'healthcare' | 'infotech' | 'communication' | 'utilities' | 'realestate'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'dalio' | 'marks' | 'globalcycle' | 'ipocycle' | 'crisis' | 'champions' | 'rotation' | 'quantum' | 'aisemi' | 'power' | 'physai' | 'aibio' | 'defense' | 'financials' | 'energy' | 'materials' | 'industrials' | 'discretionary' | 'staples' | 'healthcare' | 'infotech' | 'communication' | 'utilities' | 'realestate'>('live')
   const [flowView, setFlowView] = useState<'mine' | 'market' | 'investor' | 'reco' | 'unified' | 'leverage'>('mine')
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
@@ -1367,6 +1368,7 @@ export default function DashboardPage() {
           {
             id: 'sectors', icon: '🧬', label: '테마·섹터 분석',
             items: [
+              { key: 'rotation', icon: '🧭', label: '섹터 로테이션 시계', desc: '17섹터 자금 순환 — 주도/과열/이탈/태동 4국면' },
               { key: 'quantum', icon: '🛰️', label: '양자컴퓨팅',  desc: '큐비트·양자보안·정책촉매·Pre-IPO' },
               { key: 'aisemi',  icon: '🧠', label: '차세대 AI 반도체 & 신소재', desc: 'GPU·HBM·파운드리·장비·인프라·신소재/기판' },
               { key: 'power',   icon: '⚡', label: 'AI 전력망 & 원전', desc: '전력기기·SMR·전선·발전 밸류체인' },
@@ -3099,6 +3101,12 @@ export default function DashboardPage() {
         </ErrorBoundary>
       </div>
 
+      {/* ── 🧭 섹터 로테이션 시계 ── */}
+      <div id="tab-rotation" style={{ display: dashTab==='rotation' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="섹터 로테이션 시계">
+          {dashTab==='rotation' && <SectorRotation />}
+        </ErrorBoundary>
+      </div>
       {/* ── 🧬 테마·섹터 분석 탭 (양자 / AI 반도체) ── */}
       <div id="tab-quantum" style={{ display: dashTab==='quantum' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         <ErrorBoundary label="양자컴퓨팅 섹터">
