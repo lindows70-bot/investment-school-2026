@@ -9,6 +9,7 @@ import { growthFromCli, inflationFromRegime, seasonOf, holdingFit, SEASON_META, 
 import { computeMarketFlowKr, type MarketFlowKrResult, type MarketFlowEntry } from '@/lib/marketFlowKr'
 import { getMoneyFlow } from '@/lib/moneyFlow'
 import { getCanonicalFundamentals, isPegBaseEffect } from '@/lib/canonicalFundamentals'
+import { buildSignalMetrics } from '@/lib/jarvisBriefing'
 import { getAnalystSignal } from '@/app/actions/getAnalystSignal'
 import { fetchMacroData, detectMacroPhase, type ScreenedStock } from '@/lib/macroPhaseScreener'
 // ⚠️ 버핏 DCF는 원시 FCF 변동성(예: TXN 팹 capex)으로 비현실적 값(-2637%) 발생 → 신뢰 가능한 ROE(버핏 핵심)로 대체
@@ -33,6 +34,8 @@ export interface UnifiedRecoItem {
   peg: number | null; opMargin: number | null
   psr: number | null               // 💵 주가매출비율 P/S — 적자기업·성장주 밸류 척도
   roe: number | null               // 🏰 버핏 퀄리티 — 자기자본이익률(소수)
+  roic: number | null              // ⚙️ 투하자본이익률(%) — 빚까지 반영한 진짜 자본효율(복리 기계 판별)
+  roeInflated: boolean             // ⚙️ ROE가 부채로 부풀려진 가짜 효율(진짜 ROIC는 낮음)
   epsRevision: string | null       // 📈 Fwd EPS 추정 모멘텀 up/down/mixed
   suggestWeight: number            // 💰 권장 편입 비중(%) — 통합점수·국면 배율 반영
   suggestWon: number               // 💰 권장 편입 금액(₩) — 포트폴리오 기준
@@ -87,7 +90,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v15:${user.id}:${kstDate()}:${fp}`   // v15: 기저효과 저PEG 가치 인플레 가드(가치 상한 68 후 통합 재계산)
+  const cacheKey = `unified-reco-v16:${user.id}:${kstDate()}:${fp}`   // v16: ROIC 배지+점수 틸트(복리 기계 가점·ROE 부풀림 감점 → 비중 반영)
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -254,12 +257,15 @@ export async function GET(req: Request) {
   for (let i = 0; i < top.length; i += 4) {
     const batch = top.slice(i, i + 4)
     const part = await Promise.all(batch.map(async t => {
-      const [cf, analyst] = await Promise.all([
+      const [cf, analyst, sm] = await Promise.all([
         getCanonicalFundamentals(t.p.s.ticker, t.p.s.market, base).catch(() => null),
         getAnalystSignal({ ticker: t.p.s.ticker, name: t.p.s.name, market: t.p.s.market }).catch(() => null),
+        buildSignalMetrics(t.p.s.ticker, t.p.s.market, t.p.s.name, base).catch(() => null),   // ⚙️ ROIC(캐시 재사용)
       ])
       const peg = cf?.peg ?? t.p.s.peg
       const roe = cf?.roe ?? null
+      const roic = sm?.roic ?? null
+      const roeInflated = sm?.roeInflated ?? false
       const epsRevision = analyst?.revisionSignal ?? null
       let badges = [...t.badges]
       let fundScore = t.p.fundScore
@@ -274,7 +280,12 @@ export async function GET(req: Request) {
           combined = clamp(t.p.seasonScore * W.season + fundScore * W.fund + t.supplyScore * W.supply + t.p.momentumScore * W.momentum)
         }
       }
-      if (roe != null && roe >= 0.20) badges.push(`🏰 고ROE ${Math.round(roe * 100)}%`)   // 버핏 퀄리티(자본효율)
+      // ⚙️ 자본효율 — ROIC(투하자본이익률) 우선. 없으면 ROE 폴백. + 점수(→비중) 반영: 복리 기계는 가점, 빚으로 부풀린 ROE는 감점
+      if (roic != null && roic >= 15) badges.push(`⚙️ 고ROIC ${Math.round(roic)}%`)          // 복리 기계(빚까지 반영한 진짜 효율)
+      else if (roic == null && roe != null && roe >= 0.20) badges.push(`🏰 고ROE ${Math.round(roe * 100)}%`)   // ROIC 없을 때만 ROE 폴백
+      if (roeInflated) badges.push(`⚙️ ROE 부풀림(진짜 ROIC ${Math.round(roic ?? 0)}%)`)     // 부채로 부풀린 가짜 효율 경고
+      const qualityTilt = (roic != null && roic >= 20 ? 3 : roic != null && roic >= 15 ? 1.5 : 0) - (roeInflated ? 6 : 0)
+      if (qualityTilt !== 0) combined = clamp(combined + qualityTilt)
       // 📈 애널리스트 추정 리비전 — 모멘텀(SSOT EPS 방향)과 어긋날 땐 숨김(제2원칙: '이익 가속+추정 하향' 모순 차단)
       if (epsRevision === 'up' && t.p.s.fwdEpsDir !== 'decline') badges.push('📈 이익추정 상향')
       else if (epsRevision === 'down' && t.p.s.fwdEpsDir !== 'accel') badges.push('📉 이익추정 하향')
@@ -285,7 +296,7 @@ export async function GET(req: Request) {
         ticker: t.p.s.ticker, name: t.p.s.name, market: t.p.s.market, sector: t.p.s.sector ?? '—', lynchCategory: t.p.s.lynchCategory as string,
         seasonScore: t.p.seasonScore, fundScore, supplyScore: t.supplyScore, momentumScore: t.p.momentumScore, combined,
         fwdEpsDir: t.p.s.fwdEpsDir, priceTrend: t.p.s.priceTrend, fwdGrowthPct: t.p.s.fwdGrowthPct ?? null, priceVs200: t.p.s.priceVs200 ?? null,
-        peg, opMargin: t.p.s.opMargin, psr: cf?.psr ?? null, roe, epsRevision, suggestWeight, suggestWon,
+        peg, opMargin: t.p.s.opMargin, psr: cf?.psr ?? null, roe, roic, roeInflated, epsRevision, suggestWeight, suggestWon,
         seasonFavored: t.p.favored, supplyProxy: t.supplyProxy, supplyKnown: t.supplyKnown, badges,
       }
     }))
