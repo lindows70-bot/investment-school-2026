@@ -31,6 +31,7 @@ import H1Champions                from '@/app/components/H1Champions'
 import SeasonNavigator            from '@/app/components/SeasonNavigator'
 import RayDalioAnalysis           from '@/app/components/RayDalioAnalysis'
 import GlobalBusinessCycle        from '@/app/components/GlobalBusinessCycle'
+import MarksCycle                 from '@/app/components/MarksCycle'
 import IpoHypeCycle               from '@/app/components/IpoHypeCycle'
 import CrisisRadar                from '@/app/components/CrisisRadar'
 import LeverageRadar              from '@/app/components/LeverageRadar'
@@ -669,7 +670,7 @@ export default function DashboardPage() {
   }>>({})
   const [dividendLoading, setDividendLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
-  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'dalio' | 'globalcycle' | 'ipocycle' | 'crisis' | 'champions' | 'quantum' | 'aisemi' | 'power' | 'physai' | 'aibio' | 'defense' | 'financials' | 'energy' | 'materials' | 'industrials' | 'discretionary' | 'staples' | 'healthcare' | 'infotech' | 'communication' | 'utilities' | 'realestate'>('live')
+  const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'dalio' | 'marks' | 'globalcycle' | 'ipocycle' | 'crisis' | 'champions' | 'quantum' | 'aisemi' | 'power' | 'physai' | 'aibio' | 'defense' | 'financials' | 'energy' | 'materials' | 'industrials' | 'discretionary' | 'staples' | 'healthcare' | 'infotech' | 'communication' | 'utilities' | 'realestate'>('live')
   const [flowView, setFlowView] = useState<'mine' | 'market' | 'investor' | 'reco' | 'unified' | 'leverage'>('mine')
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
@@ -1357,6 +1358,7 @@ export default function DashboardPage() {
               { key: 'macro',  icon: '🏛️', label: '거시경제 (Fed Watch)', desc: '금리 · 인플레이션 · QT' },
               { key: 'season', icon: '🧭', label: '4계절 내비게이터',     desc: '성장×물가 2×2 · 내 포폴 계절 정합성' },
               { key: 'dalio',  icon: '🌊', label: '레이 달리오 (매크로 사이클)', desc: '부채 사이클·빅 사이클·전천후 — 실데이터 진단' },
+              { key: 'marks',  icon: '🕰️', label: '하워드 막스 (사이클 시계추)', desc: '심리·밸류·레버리지·신용 4축 탐욕↔공포 + 역발상 스탠스' },
               { key: 'globalcycle', icon: '🌐', label: '글로벌 비즈니스 사이클', desc: '피델리티식 13개국 경기 위치 — OECD CLI 실데이터' },
               { key: 'ipocycle', icon: '🚀', label: 'IPO 하이프 사이클', desc: '신규 상장주 6단계 수명주기 — 실제 상장주 자동 매핑' },
               { key: 'coinlab',icon: '🪙', label: '코인 랩 (비트코인)',    desc: '사이클·심리·온체인·유동성 — 독립 엔진' },
@@ -3067,6 +3069,11 @@ export default function DashboardPage() {
       <div id="tab-dalio" style={{ display: dashTab==='dalio' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         <ErrorBoundary label="레이 달리오 매크로 사이클">
           {dashTab==='dalio' && <RayDalioAnalysis />}
+        </ErrorBoundary>
+      </div>
+      <div id="tab-marks" style={{ display: dashTab==='marks' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        <ErrorBoundary label="하워드 막스 사이클 시계추">
+          {dashTab==='marks' && <MarksCycle />}
         </ErrorBoundary>
       </div>
       <div id="tab-globalcycle" style={{ display: dashTab==='globalcycle' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
