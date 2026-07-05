@@ -2435,6 +2435,13 @@ KB금융(은행)이 AI 리밸런싱·본부장 브리핑·투자 프로필에서
 - ⚠️ **미착수(정직)**: 10배거 헌터(시총·성장 중심이라 ROIC 부차) · FCF의 OCF−CAPEX 분해 화면(사용자 확정: Yahoo `freeCashflow` 완성값 유지)
 - **검증(라이브)**: research-verdict T inflated✅·NVDA 복리기계·KO 우수 / stock-profile 자본배분 **T=미흡(ROE 18%→ROIC 8% 강등)·NVDA/KO=우수** — 독립 probe(7종목 US+KR)와 소수점 일치. 교훈: **ROE≫ROIC 갭 = 부채로 굴린 가짜 효율**(대표님이 걸러내려던 바로 그것)
 
+## 🐛 AI 리밸런싱 자산군 0% 붕괴 — 가격 스로틀 시 원가 폴백 (2026-07-05)
+
+증상: AI 리밸런싱 화면의 **자산군 구성(코어-새틀라이트)·전 분류 비중·최대 섹터 비중이 전부 0%**, PLTR 손익도 "본전 +—%"(콜드 캐시 첫 실행 12:09 AM 스크린샷).
+- **원인**: ai-rebalance가 `unified-reco` 자기호출(라인 395)을 buildCoreSatellite 가격 배치(라인 502)보다 **먼저** 실행 — ROIC 도입으로 통합추천 최종 12종에 buildSignalMetrics(+FTS 24콜)를 붙인 게 **콜드 스타트 Yahoo 부하를 키워**, 이어지는 stock-price 배치가 429 스로틀 → 가격 전멸 → `mv=price×수량=0` → `total||1`로 전 비중 0%. 진단 pnl(—)도 같은 원인(가격 실패).
+- **근본 수정(앱 공통 '원가 폴백' 원칙)**: `buildCoreSatellite` MV 계산에 **라이브 가격 실패 시 원가(매입가×수량) 폴백** 추가 → 스로틀이 나든 말든 `total>0` 보장, 0% 붕괴 원천 불가. ⚠️ 크립토(업비트 KRW) 원가를 market 기준으로 ×1380 하는 통화 버그 방지 위해 investments `select`에 **`currency` 추가**(라이브 경로와 동일 환산). 캐시 ai-rebalance v31→v32(0% 박제 캐시 무효화)
+- 교훈: **자기호출 체인(A→B)에서 A가 외부 API 부하를 키우면 B의 같은 호스트 호출이 스로틀될 수 있다** — 표시 지표(비중·MV)는 라이브 실패에 대비해 **항상 원가 폴백**을 둘 것(pnl·평가액이 화면에서 0/—로 붕괴하면 학생 신뢰 상실). ROIC 자체는 유지(캐시 warm되면 부하 소멸)
+
 ## 배포
 
 - **프로덕션**: https://investment-school-2026.vercel.app
