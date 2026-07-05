@@ -228,7 +228,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v31:${user.id}:${today}:${fp}`   // v31: 버릴것/줄일것/보강할것/위성후보 GICS 섹터 배지 추가(secByTicker·SatelliteScore.sector 재사용)
+  const cacheKey = `ai-rebalance-v32:${user.id}:${today}:${fp}`   // v32: 자산군 MV 원가 폴백(가격 스로틀 시 0% 붕괴 방지)+currency 정확 환산
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -238,7 +238,7 @@ export async function GET(req: Request) {
   // ① 보유 종목 (STOCK만)
   const db = admin()
   const { data: rows } = await db.from('investments')
-    .select('ticker,name,market,quantity,purchase_price,lynch_category')
+    .select('ticker,name,market,quantity,purchase_price,currency,lynch_category')
     .eq('user_id', user.id)
   const holds = (rows ?? []).filter(h => getAssetType(h.ticker, h.name ?? '', h.market ?? 'US') === 'STOCK')
   if (holds.length === 0) {
@@ -509,7 +509,15 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
   const items = rows.map(h => {
     const role = classifyAssetRole(h.ticker, h.name ?? '', h.market ?? 'US').role
     const pm = priceMap.get(h.ticker.toUpperCase())
-    const mv = (pm?.price ?? 0) * (Number(h.quantity) || 0) * (pm?.krw ? 1 : usdKrw)   // currency 기반 원화 환산
+    const qty = Number(h.quantity) || 0
+    let mv: number
+    if (pm && pm.price > 0) {
+      mv = pm.price * qty * (pm.krw ? 1 : usdKrw)   // ① 라이브 가격 × 수량 × currency 원화 환산
+    } else {
+      // ② 라이브 가격 실패(Yahoo 스로틀 등) → 원가(매입가×수량) 폴백 — 앱 공통 원칙. 통화는 investment.currency 우선, 없으면 market
+      const isKrw = h.currency ? h.currency === 'KRW' : (h.market === 'KR')
+      mv = (Number(h.purchase_price) || 0) * qty * (isKrw ? 1 : usdKrw)
+    }
     return { ticker: h.ticker, name: h.name ?? h.ticker, market: (h.market === 'KR' ? 'KR' : 'US') as 'KR' | 'US', role, mv }
   })
   const total = items.reduce((s, i) => s + i.mv, 0) || 1
