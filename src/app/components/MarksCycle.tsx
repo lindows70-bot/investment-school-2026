@@ -78,6 +78,19 @@ export default function MarksCycle() {
         </div>
       </div>
 
+      {/* 🩸 강제 매도자 역발상 매수 창 */}
+      {(() => {
+        const oc = data.opportunity.level === 'strong' ? '#22c55e' : data.opportunity.level === 'fear' ? '#14b8a6' : data.opportunity.level === 'forced' ? '#f59e0b' : '#4b5563'
+        const active = data.opportunity.level !== 'none'
+        return (
+          <div style={{ background: active ? `${oc}14` : '#0f1117', border: `1.5px solid ${oc}${active ? '66' : '33'}`, borderRadius: 12, padding: '12px 16px' }}>
+            <div style={{ fontSize: 13.5, fontWeight: 800, color: oc }}>{data.opportunity.label}</div>
+            <div style={{ fontSize: 11.5, color: '#cbd5e1', marginTop: 4, lineHeight: 1.55 }}>{data.opportunity.msg}</div>
+            <div style={{ fontSize: 10, color: '#6e7f8f', marginTop: 6 }}>막스: 안전마진은 남들이 <b style={{ color: '#94a3b8' }}>팔 수밖에 없을 때</b> 생긴다 — 단 &lsquo;싼 데는 이유가 있다&rsquo;(칼날)와 구분.</div>
+          </div>
+        )
+      })()}
+
       {/* 4축 분해 */}
       <div style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 12, padding: '14px 16px' }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0', marginBottom: 10 }}>🔍 무엇이 시계추를 움직이나 — 4축 분해</div>

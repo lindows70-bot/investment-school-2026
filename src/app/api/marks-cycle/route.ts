@@ -24,6 +24,7 @@ export interface MarksCycleResult {
   zone: Zone
   zoneLabel: string; stance: string; stanceIcon: string; stanceMsg: string
   secondLevel: { first: string; second: string }   // 2차적 사고 대비
+  opportunity: { level: 'strong' | 'fear' | 'forced' | 'none'; label: string; msg: string }   // 🩸 강제 매도자 역발상 매수 창
   axes: MarksAxis[]
   usedAxes: number; asOf: string
 }
@@ -58,7 +59,7 @@ async function pull(base: string, path: string): Promise<{ ok: boolean } & Recor
 
 export async function GET(req: Request) {
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-  const cacheKey = `marks-cycle-v2:${kstDate()}`   // v2: 축 온도 정수 반올림
+  const cacheKey = `marks-cycle-v3:${kstDate()}`   // v3: 강제 매도자 역발상 매수 창(opportunity)
   const cached = await getCache<MarksCycleResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -108,10 +109,23 @@ export async function GET(req: Request) {
   const wSum = used.reduce((s, a) => s + W[a.key], 0)
   const temp = Math.round(used.reduce((s, a) => s + (a.temp as number) * W[a.key], 0) / wSum)
   const z = zoneOf(temp)
+
+  // 🩸 강제 매도자 역발상 매수 창(막스 4번째 기둥: 남들이 팔 수밖에 없을 때 안전마진이 생긴다)
+  //    시장 공포(온도<42) + 강제 청산 스파이크(반대매매 비중 역사 상단) 조합. 단 칼날 제외는 개별 종목단에서.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const forcedPct = typeof (lev as any)?.misu?.current?.forcedPctPercentile === 'number' ? (lev as any).misu.current.forcedPctPercentile as number : null
+  const fear = temp < 42
+  const forced = forcedPct != null && forcedPct >= 60
+  const opportunity: MarksCycleResult['opportunity'] =
+    fear && forced ? { level: 'strong', label: '🩸 강한 역발상 매수 창', msg: '시장 공포 + 강제 청산(반대매매) 동시 — 남들이 팔 수밖에 없을 때 안전마진이 최대. 단 🔪떨어지는 칼날은 제외하고 thesis 멀쩡한 우량주만 분할 매수.' }
+    : fear ? { level: 'fear', label: '🌊 공포 확산 — 안전마진 관찰', msg: '심리가 공포로 기울었다 — 우량주가 싸지는지 알파헌터·수급 소외주로 관찰(추격 금지·분할).' }
+    : forced ? { level: 'forced', label: '⚠️ 강제청산(반대매매) 스파이크', msg: `반대매매 비중이 역사 상단(백분위 ${Math.round(forcedPct as number)}%) — 빚투 청산에 낙폭과대된 우량주 선별 기회(칼날 주의).` }
+    : { level: 'none', label: '기회 창 닫힘', msg: '현재는 극단적 저가매수(강제 매도자) 신호가 약함 — 개별 종목 안전마진 우선.' }
+
   const result: MarksCycleResult = {
     temp, pendulum: (temp - 50) * 2, zone: z.zone, zoneLabel: z.label,
     stance: z.stance, stanceIcon: z.icon, stanceMsg: z.msg,
-    secondLevel: secondLevelOf(z.zone), axes, usedAxes: used.length, asOf: new Date().toISOString(),
+    secondLevel: secondLevelOf(z.zone), opportunity, axes, usedAxes: used.length, asOf: new Date().toISOString(),
   }
   // 과반(2+) 성공 시에만 캐시(부분실패 박제 방지)
   if (used.length >= 2) await setCache(cacheKey, result)
