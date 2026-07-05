@@ -63,18 +63,57 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
   const tc = d.themeChart
   const subMap: Record<string, { label: string; emoji: string; color: string }> = Object.fromEntries(d.subsectors.map(s => [s.key, { label: s.label, emoji: s.emoji, color: s.color }]))
 
+  // 💰 소섹터 자금 순환 — 로테이션 시계와 동일 로직(상대강도×모멘텀)을 소섹터에 적용(제2원칙)
+  type SQ = 'leading' | 'weakening' | 'lagging' | 'improving'
+  const SQI: Record<SQ, string> = { leading: '🌱', weakening: '🔥', lagging: '🍂', improving: '❄️' }
+  const SQC: Record<SQ, string> = { leading: '#22c55e', weakening: '#f59e0b', lagging: '#94a3b8', improving: '#38bdf8' }
+  const SQN: Record<SQ, string> = { leading: '주도', weakening: '과열', lagging: '이탈', improving: '태동' }
+  const sv = d.subsectors.filter(s => s.ret1m != null && s.ret1w != null)
+  const smM = sv.length ? sv.reduce((a, s) => a + (s.ret1m as number), 0) / sv.length : 0
+  const smW = sv.length ? sv.reduce((a, s) => a + (s.ret1w as number), 0) / sv.length : 0
+  const smScore: Record<string, { q: SQ; score: number }> = {}
+  if (sv.length >= 2) d.subsectors.forEach(s => {
+    if (s.ret1m == null || s.ret1w == null) return
+    const rs = s.ret1m - smM, mom = s.ret1w - smW
+    smScore[s.key] = { q: rs > 0 && mom > 0 ? 'leading' : rs > 0 ? 'weakening' : mom > 0 ? 'improving' : 'lagging', score: Math.round((0.6 * rs + 0.4 * mom) * 10) / 10 }
+  })
+  const smRanked = Object.entries(smScore).sort((a, b) => b[1].score - a[1].score)
+  const smTop = smRanked[0]?.[0], smBot = smRanked.length > 1 ? smRanked[smRanked.length - 1][0] : undefined
+  const subByKey = Object.fromEntries(d.subsectors.map(s => [s.key, s]))
+
   return Wrap(
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* ① 서브섹터 히트맵 */}
+      {/* 💰 소섹터 자금 순환 요약 배너 — 섹터 안에서 지금 돈 몰리는 소섹터 vs 빠지는 소섹터 */}
+      {smTop && (
+        <div style={{ background: 'linear-gradient(135deg,#131a17,#0d1017)', border: `1px solid ${BORDER}`, borderRadius: 12, padding: '10px 14px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 12, fontWeight: 800, color: '#f1f5f9' }}>💰 이 섹터 안 자금 흐름</span>
+          {(() => { const t = subByKey[smTop]; const rising = (t?.ret1w ?? 0) > 0; return (
+            <span style={{ fontSize: 11.5, color: '#cbd5e1' }}>
+              🔥 <b style={{ color: '#22c55e' }}>돈 몰림{rising ? '·상승' : ''}</b>: {t?.emoji} {t?.label} <span style={{ color: pctCol(t?.ret1w ?? null), fontFamily: 'monospace', fontWeight: 700 }}>(1주 {fmtPct(t?.ret1w ?? null)})</span>
+            </span>
+          )})()}
+          {smBot && smBot !== smTop && (() => { const b = subByKey[smBot]; return (
+            <span style={{ fontSize: 11.5, color: '#cbd5e1' }}>
+              🧊 <b style={{ color: '#94a3b8' }}>소외·이탈</b>: {b?.emoji} {b?.label} <span style={{ color: pctCol(b?.ret1w ?? null), fontFamily: 'monospace', fontWeight: 700 }}>(1주 {fmtPct(b?.ret1w ?? null)})</span>
+            </span>
+          )})()}
+          <span style={{ fontSize: 10, color: '#6e7f8f', marginLeft: 'auto' }}>상대강도(1M)+모멘텀(1W) — 로테이션 시계와 동일 기준</span>
+        </div>
+      )}
+
+      {/* ① 서브섹터 히트맵 (자금 순환 순 정렬 + 국면 배지) */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        {d.subsectors.map(s => (
-          <div key={s.key} style={{ flex: '1 1 190px', minWidth: 175, background: '#0f1117', borderRadius: 12, border: `1px solid ${s.color}44`, padding: '12px 14px' }}>
+        {[...d.subsectors].sort((a, b) => (smScore[b.key]?.score ?? -999) - (smScore[a.key]?.score ?? -999)).map(s => {
+          const sm = smScore[s.key]; const isTop = s.key === smTop && sm && sm.score > 0
+          return (
+          <div key={s.key} style={{ flex: '1 1 190px', minWidth: 175, background: '#0f1117', borderRadius: 12, border: `1.5px solid ${isTop ? '#22c55e88' : s.color + '44'}`, padding: '12px 14px', boxShadow: isTop ? '0 0 0 1px #22c55e33' : 'none' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
               <span style={{ fontSize: 15 }}>{s.emoji}</span>
               <span style={{ color: s.color, fontWeight: 800, fontSize: 13 }}>{s.label}</span>
+              {sm && <span style={{ fontSize: 9.5, fontWeight: 700, color: SQC[sm.q], background: SQC[sm.q] + '22', borderRadius: 4, padding: '1px 5px' }}>{SQI[sm.q]}{SQN[sm.q]}</span>}
               <span style={{ marginLeft: 'auto', color: '#7f93a8', fontSize: 10 }}>{s.count}종목</span>
             </div>
-            <div style={{ color: '#7f93a8', fontSize: 9.5, marginBottom: 8 }}>{s.desc}</div>
+            <div style={{ color: '#7f93a8', fontSize: 9.5, marginBottom: 8 }}>{isTop ? '🔥 지금 이 섹터에서 돈이 가장 몰리는 소섹터' : s.desc}</div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               {([['1주', s.ret1w], ['1개월', s.ret1m], ['1년', s.ret1y]] as const).map(([lab, v]) => (
                 <div key={lab} style={{ textAlign: 'center', flex: 1 }}>
@@ -84,7 +123,7 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
               ))}
             </div>
           </div>
-        ))}
+        )})}
       </div>
 
       {/* ② 테마 지수 + MDD + 오버레이 */}
