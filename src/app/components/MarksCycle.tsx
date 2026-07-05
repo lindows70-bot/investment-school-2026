@@ -2,6 +2,7 @@
 // 🕰️ 하워드 막스 마켓 사이클 시계추 UI — 4축 탐욕↔공포 종합 진자 + 스탠스 다이얼 + 2차적 사고 박스
 import { useEffect, useState } from 'react'
 import type { MarksCycleResult, MarksAxis } from '@/app/api/marks-cycle/route'
+import PermanentLossRadar from '@/app/components/PermanentLossRadar'
 
 const BORDER = '#2a2f3a'
 // 구간별 색(역발상): 탐욕=빨강(경계) ↔ 공포=초록(기회)
@@ -128,6 +129,9 @@ export default function MarksCycle() {
         리스크의 진짜 정의 = 가격 변동성이 아니라 <b>영구적 원금 손실</b> — 무서워서 투매하면 손실을 확정한다.
         · 레이 달리오 페이지(부채 사이클 메커니즘)와 상호보완(막스=군중 심리 시계추).
       </div>
+
+      {/* 🛡️ 리스크 재정의 — 내 종목 변동성 vs 영구손실 */}
+      <PermanentLossRadar />
     </div>
   )
 }
