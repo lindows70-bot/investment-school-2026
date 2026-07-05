@@ -2456,6 +2456,14 @@ KB금융(은행)이 AI 리밸런싱·본부장 브리핑·투자 프로필에서
   - ✅ **SPCX 검증(오탐 아님)**: 스페이스X 영업적자+좀비 분류를 실측 확인 — SPCX=`Space Exploration Technologies`(EQUITY·NasdaqGS·Aerospace) 실데이터, 영업이익률 −41.6%·신규상장 2분기라 이자 커버리지 음수 = 진짜 pre-profit 상태(오염 아님, 정직한 경고)
 - ✅ **D. 강제 매도자 역발상 매수 창(2026-07-05)**: marks-cycle에 `opportunity` 추가(캐시 v2→v3) — 시장 공포(온도<42) + 강제청산 스파이크(leverage-radar `misu.forcedPctPercentile≥60`) 조합 → 🩸강한창/🌊공포/⚠️강제청산/닫힘 4단계 배너. 막스 4번째 기둥(남들이 팔 수밖에 없을 때 안전마진). 🔪칼날 제외·알파헌터 연결. 검증(라이브): 온도60(공포아님)+반대매매 81% → 'forced'(divergence 정확 포착)
 
+## 📉 224일 이동평균선 — 자산관리·리서치·관심종목 차트 (2026-07-05)
+
+세 화면 공용 `FullCandleChart`에 224일선(장기 추세) 추가. 224일선은 **일봉 개념**이라 **1D 뷰에만** 부착(주/월봉엔 미부착).
+- **`stock-price` OHLC**: 1D일 때 워밍업(224거래일)까지 받아 **서버에서 224-SMA 계산 후 캔들에 `ma` 부착**, 표시는 최근 60개. KR `naverOhlcChart` count 60→**290**, US `yfOhlcChart` 1D range 6mo→**2y**(YF_RANGE SSOT는 불변, 1D만 로컬 오버라이드). `withMa(candles,224,60)` 헬퍼(워밍업 미만·신규상장주는 `ma=null` graceful). `Candle`에 `ma?:number|null` 추가(route+CandleChart 타입 동기화)
+- **`FullCandleChart`**: `ma` 값을 **Y도메인에 포함**(강한 추세로 MA가 캔들 범위 밖이어도 선이 보이게 — 평단가와 달리 포함) + 시안(#22d3ee) 폴리라인 + 좌상단 '224일선' 범례 칩 + 우측 값 태그
+- ⚠️ **트레이드오프**: 급등주(삼성전자 close 309k vs 224MA 165k)는 MA가 한참 아래라 Y도메인 확장으로 캔들이 다소 눌림 — 대신 '현재가가 장기평균 대비 얼마나 위'인지 정직하게 드러남(추세 강도 정보). 배제하면 선이 클리핑돼 안 보임 → 표시 우선 채택
+- 검증(라이브): NVDA close 194.83/224MA 189.49·삼성전자 309,500/164,642 · 1D ma 60/60·1W·1M ma 0 ✓ · 롤링 윈도우는 '개수' 아닌 '일봉 기준'(BTC 200주선 교훈 준수)
+
 ## 배포
 
 - **프로덕션**: https://investment-school-2026.vercel.app
