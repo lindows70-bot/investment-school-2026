@@ -6,6 +6,8 @@ import SectorCanvas from '@/app/components/SectorCanvas'
 
 const BORDER = '#2a2f3a'
 const QC: Record<Quadrant, string> = { leading: '#22c55e', weakening: '#ef4444', lagging: '#94a3b8', improving: '#38bdf8' }
+const QI: Record<Quadrant, string> = { leading: '🌱', weakening: '🔥', lagging: '🍂', improving: '❄️' }
+const QN: Record<Quadrant, string> = { leading: '주도', weakening: '과열', lagging: '이탈', improving: '태동' }
 // 풀 라벨(키별 고정) — 잘림 없이 전체 표기
 const FULL: Record<string, string> = {
   energy: '에너지', materials: '소재', industrials: '산업재', discretionary: '자유소비재', staples: '필수소비재',
@@ -108,7 +110,7 @@ export default function SectorRotation() {
           <div style={{ height: 10 }} />
           <Rank title="❄️ 이탈 Top (돈 빠짐)" color="#94a3b8" items={data.outflow} onSel={setSel} sel={sel} />
           <div style={{ fontSize: 10, color: '#6e7f8f', marginTop: 10, borderTop: `1px solid ${BORDER}`, paddingTop: 8, lineHeight: 1.5 }}>
-            쏠림 점수 = 상대강도(1M) 0.6 + 모멘텀(1W) 0.4. 17섹터 평균 대비 %p. 가격 상대강도 기준(수급의 결과=가격).
+            쏠림 점수 = 상대강도(1M) 0.6 + 모멘텀(1W) 0.4. 17섹터 평균 대비 %p. 가격 상대강도 기준(수급의 결과=가격). 옆 사분면 배지로 국면 확인 — ❄️태동은 아직 약하나 모멘텀이 돌기 시작(순점수 낮아도 이탈과 결이 다름).
           </div>
         </div>
       </div>
@@ -138,6 +140,7 @@ function Rank({ title, color, items, onSel, sel }: { title: string; color: strin
         <div key={it.key} onClick={() => onSel(it.key)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: '4px 6px', borderRadius: 6, background: sel === it.key ? '#1b2230' : 'transparent', marginBottom: 2 }}>
           <span style={{ color: '#6e7f8f', fontSize: 10, width: 12 }}>{i + 1}</span>
           <span style={{ color: '#e2e8f0', fontSize: 12, fontWeight: 600, flex: 1 }}>{it.emoji} {it.label.replace(/\s*\(.*\)/, '')}</span>
+          <span style={{ fontSize: 9.5, color: QC[it.quadrant], fontWeight: 700, marginRight: 2 }}>{QI[it.quadrant]}{QN[it.quadrant]}</span>
           <span style={{ color, fontSize: 11, fontWeight: 800, fontFamily: 'monospace' }}>{it.score >= 0 ? '+' : ''}{it.score}</span>
         </div>
       )) : <div style={{ fontSize: 10.5, color: '#6e7f8f', padding: '4px 6px' }}>해당 없음</div>}
