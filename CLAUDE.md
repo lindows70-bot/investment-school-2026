@@ -2423,6 +2423,15 @@ KB금융(은행)이 AI 리밸런싱·본부장 브리핑·투자 프로필에서
 - ⛔ 린다 라쉬케 ADX/SMA 모드(제미나이 제안)는 거부 — 앱의 반-기술적분석 철학. 대신 "이미 급등 종목 추격 위험" 캐비엇으로 IPO 하이프 사이클 연계
 - ⚠️ **빌드 함정 재발**: `Tooltip labelFormatter` 타입 에러 + **`;` 구분자로 check:build 실패를 무시하고 배포**(Vercel 빌드 실패) → 교훈: 빌드→커밋→배포는 반드시 **`&&` 체이닝**(`;` 아님)으로 실패 시 중단. check:build EXIT 확인 필수
 
+## ⚙️ ROIC(투하자본이익률) SSOT + 빚으로 부풀린 ROE 경고 (2026-07-05)
+
+대표님 통찰: "기업은 ROIC가 높을수록 좋다 / 본업으로 번 돈(OCF)−투자한 돈(CAPEX)=FCF." 제미나이 답변을 **코드 실측으로 검증** — FCF 주장은 사실이나(좀비타이머·버핏DCF·CUT_LOSS·배당함정 전부 `freeCashflow` 사용 확인) **ROIC는 코드에 문자 그대로 0건**이었고, 제미나이의 "ROE+순부채 가드=사실상 ROIC"는 **과장**(ROE는 분모가 자기자본뿐이라 빚으로 부풀린 효율을 못 거름).
+- **진짜 ROIC 도입**: `buildSignalMetrics`(지표 SSOT)에 `roic = NOPAT(EBIT×0.79, 세율21%) ÷ 투하자본(총부채+자기자본−현금)` + `roeInflated`(ROE는 높은데 ROIC 낮음 = 부채 부풀림). **추가 fetch 0** — EBIT는 이미 받는 financials FTS 4분기 영업이익 합(`ebitTtm`), 자기자본은 이미 받는 balance-sheet FTS `stockholdersEquity` 추출, 총부채·현금은 `financialData`. 금융주는 null(부채=원재료라 무의미, 이자보상배율·좀비 가드와 동일 철학). cacheKey jarvis-metrics v12→v13
+- **roeInflated 판정**: `roe≥15 & roic<12 & (roe−roic)≥8%p` — AT&T(ROE 18%/ROIC 8%·부채 $160B)만 잡고 NVDA(114%/83%·무차입)·KO(43%/19%·ROIC 자체 우수)는 제외
+- **노출**: 종목 리서치 🎯 종합 매수 판정(research-verdict v2→v3) — 고ROIC≥15%=⚙️'복리 기계' 찬성(ROE보다 우선, 없으면 ROE 폴백) / roeInflated=⚙️'부채로 부풀린 효율(진짜 ROIC N%)' 주의. pros/cons 기존 렌더라 컴포넌트 무수정
+- ⚠️ **범위(정직)**: 데이터는 buildSignalMetrics SSOT라 이를 쓰는 전 기능(리서치·브리핑·리밸런싱·10배거·위성)에 자동 전파. **화면 노출은 종합 매수 판정만** — unified-reco 🏰고ROE 배지는 `canonicalFundamentals`(canon-fund) 경로라 ROIC 미포함(stock-info·canonical까지 확장은 후속 과제). **FCF의 OCF−CAPEX 분해 화면은 미구현**(사용자 확정: Yahoo `freeCashflow` 완성값 그대로 유지)
+- **검증(라이브)**: T roic 7.8/roe 18.4/inflated✅ · NVDA 83/114/복리기계 · KO 19/43/우수 — 독립 probe(7종목 US+KR)와 소수점 일치. 교훈: **ROE≫ROIC 갭 = 부채로 굴린 가짜 효율**(대표님이 걸러내려던 바로 그것)
+
 ## 배포
 
 - **프로덕션**: https://investment-school-2026.vercel.app
