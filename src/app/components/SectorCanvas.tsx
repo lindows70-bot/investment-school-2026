@@ -116,7 +116,7 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
             return (
               <span style={{ fontSize: 11.5, color: '#cbd5e1' }}>
                 {smTopIsSell
-                  ? <><b style={{ color: '#f59e0b' }}>⚠️ 매수 적격 소섹터 없음</b> — 쏠림 1위 {t?.emoji}{t?.label}도 <b style={{ color: '#f59e0b' }}>과열(익절 구간)</b></>
+                  ? <><b style={{ color: '#f59e0b' }}>⚠️ 매수 적격 소섹터 없음</b> — 쏠림 1위 {t?.emoji}{t?.label}도 <b style={{ color: '#f59e0b' }}>{(t?.ret1y ?? 0) > 0 ? '과열(익절 구간)' : '약세(비중 축소 구간)'}</b></>
                   : <><b style={{ color: '#eab308' }}>⏳ 매수 적격 소섹터 없음</b> — 상대 강세는 있으나 주간 상승·추세 미확인, 반등 확인 후</>}
               </span>
             )
@@ -168,13 +168,17 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
                   </div>
                 </div>
               )
-              if (sell) return (
-                // ⚠️ 매도·익절 — 주황 강조 박스(보유자 관점 최우선 신호)
+              if (sell) {
+                // 연간 수익 여부로 분기: 1년>0=익절(이익 있음) / 1년≤0=비중 축소·손절(이익 없음)
+                const profit = (s.ret1y ?? 0) > 0
+                const etfTxt = etf ? ` (관련 ETF: ${[etf.us?.t, etf.kr?.name].filter(Boolean).join('·')})` : ''
+                return (
                 <div style={{ marginTop: 8, background: '#7c2d1222', border: '1.5px solid #f59e0b77', borderRadius: 8, padding: '7px 9px' }}>
-                  <div style={{ fontSize: 10.5, fontWeight: 800, color: '#fbbf24' }}>⚠️ 매도·익절 신호 — 돈 빠지기 시작(모멘텀 반전)</div>
-                  <div style={{ fontSize: 9.5, color: '#d6bfa3', marginTop: 3 }}>강세였으나 최근 페이스 꺾임 — 보유 중이면 분할 익절 검토{etf ? ` (보유 ETF: ${[etf.us?.t, etf.kr?.name].filter(Boolean).join('·')})` : ''}</div>
+                  <div style={{ fontSize: 10.5, fontWeight: 800, color: '#fbbf24' }}>{profit ? '⚠️ 매도·익절 신호 — 돈 빠지기 시작(모멘텀 반전)' : '⚠️ 비중 축소 신호 — 약세 지속·모멘텀 반전'}</div>
+                  <div style={{ fontSize: 9.5, color: '#d6bfa3', marginTop: 3 }}>{profit ? '강세였으나 최근 페이스 꺾임 — 보유 중이면 분할 익절 검토' : '이익 없이 약세 지속 — 보유 시 반등 때 축소·손절 검토'}{etfTxt}</div>
                 </div>
-              )
+                )
+              }
               return (
                 <div style={{ marginTop: 8, paddingTop: 7, borderTop: `1px solid ${BORDER}` }}>
                   <div style={{ fontSize: 9.5, fontWeight: 700, color: wait ? '#eab308' : '#94a3b8' }}>
