@@ -81,10 +81,11 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
   const smRanked = Object.entries(smScore).sort((a, b) => b[1].score - a[1].score)
   const smTop = smRanked[0]?.[0], smBot = smRanked.length > 1 ? smRanked[smRanked.length - 1][0] : undefined
   const subByKey = Object.fromEntries(d.subsectors.map(s => [s.key, s]))
-  // 매수 적격 = 상대강세(주도·태동) + 실제 상승(⭐보수 게이트: 1주 AND 1개월 둘 다 양수 — 칼날·일시반등 이중 차단)
+  // 매수 적격 = 상대강세(주도·태동) + 주간 상승(1주>0=돈 몰려 오름) + 추세 유지(1개월 OR 1년 양수)
+  //   ⭐ 대세 상승(1년+) 중 월간 눌림목이라도 주간 반등이면 매수, 1주·1개월·1년 다 꺾인 하락추세(칼날)만 제외
   const isBuy = (key: string) => {
     const q = smScore[key]?.q, s = subByKey[key]
-    return (q === 'leading' || q === 'improving') && (s?.ret1w ?? 0) > 0 && (s?.ret1m ?? 0) > 0
+    return (q === 'leading' || q === 'improving') && (s?.ret1w ?? 0) > 0 && ((s?.ret1m ?? 0) > 0 || (s?.ret1y ?? 0) > 0)
   }
   // 배너 주인공 = '매수 적격 중 쏠림 1위'(카드 신호와 반드시 일치 — 과열 1위를 돈몰림으로 광고하던 모순 차단)
   const smBuyTop = smRanked.find(([k]) => isBuy(k))?.[0]
@@ -116,7 +117,7 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
               <span style={{ fontSize: 11.5, color: '#cbd5e1' }}>
                 {smTopIsSell
                   ? <><b style={{ color: '#f59e0b' }}>⚠️ 매수 적격 소섹터 없음</b> — 쏠림 1위 {t?.emoji}{t?.label}도 <b style={{ color: '#f59e0b' }}>과열(익절 구간)</b></>
-                  : <><b style={{ color: '#eab308' }}>⏳ 매수 적격 소섹터 없음</b> — 상대 강세는 있으나 실제 상승(1주+1개월) 미확인, 반등 확인 후</>}
+                  : <><b style={{ color: '#eab308' }}>⏳ 매수 적격 소섹터 없음</b> — 상대 강세는 있으나 주간 상승·추세 미확인, 반등 확인 후</>}
               </span>
             )
           })()}
@@ -177,7 +178,7 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
               return (
                 <div style={{ marginTop: 8, paddingTop: 7, borderTop: `1px solid ${BORDER}` }}>
                   <div style={{ fontSize: 9.5, fontWeight: 700, color: wait ? '#eab308' : '#94a3b8' }}>
-                    {wait ? '⏳ 상대 강세이나 실제 상승(1주+1개월) 미확인 — 반등 확인 후 진입' : buy ? '📈 자금 유입·상승 — ETF 없음, 개별종목(아래 표) 참고' : '🔻 이탈 — 신규 진입 자제'}
+                    {wait ? '⏳ 상대 강세이나 주간 상승·추세 미확인 — 반등 확인 후 진입' : buy ? '📈 자금 유입·상승 — ETF 없음, 개별종목(아래 표) 참고' : '🔻 이탈 — 신규 진입 자제'}
                   </div>
                   {etf && <div style={{ fontSize: 9.5, color: '#6e7f8f', marginTop: 3 }}>관련 ETF: {[etf.us && `🇺🇸${etf.us.t}`, etf.kr && `🇰🇷${etf.kr.name}`].filter(Boolean).join(' · ')}</div>}
                 </div>
