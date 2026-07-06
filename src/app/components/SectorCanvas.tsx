@@ -81,6 +81,14 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
   const smRanked = Object.entries(smScore).sort((a, b) => b[1].score - a[1].score)
   const smTop = smRanked[0]?.[0], smBot = smRanked.length > 1 ? smRanked[smRanked.length - 1][0] : undefined
   const subByKey = Object.fromEntries(d.subsectors.map(s => [s.key, s]))
+  // 매수 적격 = 상대강세(주도·태동) + 실제 상승(⭐보수 게이트: 1주 AND 1개월 둘 다 양수 — 칼날·일시반등 이중 차단)
+  const isBuy = (key: string) => {
+    const q = smScore[key]?.q, s = subByKey[key]
+    return (q === 'leading' || q === 'improving') && (s?.ret1w ?? 0) > 0 && (s?.ret1m ?? 0) > 0
+  }
+  // 배너 주인공 = '매수 적격 중 쏠림 1위'(카드 신호와 반드시 일치 — 과열 1위를 돈몰림으로 광고하던 모순 차단)
+  const smBuyTop = smRanked.find(([k]) => isBuy(k))?.[0]
+  const smTopIsSell = !smBuyTop && smScore[smTop ?? '']?.q === 'weakening'
 
   return Wrap(
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -88,12 +96,30 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
       {smTop && (
         <div style={{ background: 'linear-gradient(135deg,#131a17,#0d1017)', border: `1px solid ${BORDER}`, borderRadius: 12, padding: '10px 14px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 12, fontWeight: 800, color: '#f1f5f9' }}>💰 이 섹터 안 자금 흐름</span>
-          {(() => { const t = subByKey[smTop]; const rising = (t?.ret1m ?? 0) > 0; const e = etfFor(sectorKey, smTop); return (
-            <span style={{ fontSize: 11.5, color: '#cbd5e1' }}>
-              {rising ? '🔥 ' : '💪 '}<b style={{ color: rising ? '#22c55e' : '#eab308' }}>{rising ? '돈 몰림·상승' : '상대 강세(아직 하락)'}</b>: {t?.emoji} {t?.label} <span style={{ color: pctCol(t?.ret1m ?? null), fontFamily: 'monospace', fontWeight: 700 }}>(1개월 {fmtPct(t?.ret1m ?? null)})</span>
-              {e && rising && <span style={{ color: '#22c55e', marginLeft: 4 }}>→ ETF {e.us?.t ?? ''}{e.us && e.kr ? '·' : ''}{e.kr?.t ?? ''}</span>}
-            </span>
-          )})()}
+          {(() => {
+            // ① 매수 적격 1위가 있으면 그게 주인공(카드 신호와 100% 일치)
+            if (smBuyTop) {
+              const t = subByKey[smBuyTop]; const e = etfFor(sectorKey, smBuyTop)
+              return (
+                <span style={{ fontSize: 11.5, color: '#cbd5e1', display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  🔥 <b style={{ color: '#22c55e' }}>돈 몰림·상승</b>: {t?.emoji} {t?.label} <span style={{ color: pctCol(t?.ret1m ?? null), fontFamily: 'monospace', fontWeight: 700 }}>(1주 {fmtPct(t?.ret1w ?? null)} · 1개월 {fmtPct(t?.ret1m ?? null)})</span>
+                  {e && <span style={{ display: 'inline-flex', gap: 5 }}>
+                    {e.us && <b style={{ background: '#14532d', color: '#4ade80', border: '1px solid #22c55e66', borderRadius: 5, padding: '1px 7px', fontSize: 10.5 }}>🇺🇸 {e.us.t}</b>}
+                    {e.kr && <b style={{ background: '#14532d', color: '#4ade80', border: '1px solid #22c55e66', borderRadius: 5, padding: '1px 7px', fontSize: 10.5 }}>🇰🇷 {e.kr.t}</b>}
+                  </span>}
+                </span>
+              )
+            }
+            // ② 매수 적격이 없으면 — 쏠림 1위의 실제 국면대로 정직하게(과열=매도경계 / 그 외=보류)
+            const t = subByKey[smTop!]
+            return (
+              <span style={{ fontSize: 11.5, color: '#cbd5e1' }}>
+                {smTopIsSell
+                  ? <><b style={{ color: '#f59e0b' }}>⚠️ 매수 적격 소섹터 없음</b> — 쏠림 1위 {t?.emoji}{t?.label}도 <b style={{ color: '#f59e0b' }}>과열(익절 구간)</b></>
+                  : <><b style={{ color: '#eab308' }}>⏳ 매수 적격 소섹터 없음</b> — 상대 강세는 있으나 실제 상승(1주+1개월) 미확인, 반등 확인 후</>}
+              </span>
+            )
+          })()}
           {smBot && smBot !== smTop && (() => { const b = subByKey[smBot]; return (
             <span style={{ fontSize: 11.5, color: '#cbd5e1' }}>
               🧊 <b style={{ color: '#94a3b8' }}>소외·이탈</b>: {b?.emoji} {b?.label} <span style={{ color: pctCol(b?.ret1w ?? null), fontFamily: 'monospace', fontWeight: 700 }}>(1주 {fmtPct(b?.ret1w ?? null)})</span>
@@ -106,7 +132,7 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
       {/* ① 서브섹터 히트맵 (자금 순환 순 정렬 + 국면 배지) */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         {[...d.subsectors].sort((a, b) => (smScore[b.key]?.score ?? -999) - (smScore[a.key]?.score ?? -999)).map(s => {
-          const sm = smScore[s.key]; const isTop = s.key === smTop && sm && sm.score > 0
+          const sm = smScore[s.key]; const isTop = s.key === smBuyTop   // 초록 강조 = '매수 적격 1위'만(과열 1위에 초록 두르던 모순 차단)
           return (
           <div key={s.key} style={{ flex: '1 1 190px', minWidth: 175, background: '#0f1117', borderRadius: 12, border: `1.5px solid ${isTop ? '#22c55e88' : s.color + '44'}`, padding: '12px 14px', boxShadow: isTop ? '0 0 0 1px #22c55e33' : 'none' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
@@ -115,7 +141,7 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
               {sm && <span style={{ fontSize: 9.5, fontWeight: 700, color: SQC[sm.q], background: SQC[sm.q] + '22', borderRadius: 4, padding: '1px 5px' }}>{SQI[sm.q]}{SQN[sm.q]}</span>}
               <span style={{ marginLeft: 'auto', color: '#7f93a8', fontSize: 10 }}>{s.count}종목</span>
             </div>
-            <div style={{ color: '#7f93a8', fontSize: 9.5, marginBottom: 8 }}>{isTop ? '🔥 지금 이 섹터에서 돈이 가장 몰리는 소섹터' : s.desc}</div>
+            <div style={{ color: isTop ? '#4ade80' : '#7f93a8', fontSize: 9.5, marginBottom: 8, fontWeight: isTop ? 700 : 400 }}>{isTop ? '🔥 지금 돈이 몰리며 실제로 오르는 소섹터' : s.desc}</div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               {([['1주', s.ret1w], ['1개월', s.ret1m], ['1년', s.ret1y]] as const).map(([lab, v]) => (
                 <div key={lab} style={{ textAlign: 'center', flex: 1 }}>
@@ -124,28 +150,36 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
                 </div>
               ))}
             </div>
-            {/* 💰 액션 — ETF 매수 제안 / 매도 신호 (상대강도 + 실제 상승 둘 다 볼 것) */}
+            {/* 💰 액션 — ETF 매수 제안 / 매도 신호. ⭐보수 게이트: 매수 = 상대강세 AND 1주>0 AND 1개월>0 */}
             {sm && (() => {
               const etf = etfFor(sectorKey, s.key)
-              const strong = sm.q === 'leading' || sm.q === 'improving'   // 사분면상 상대강세
-              const rising = (s.ret1m ?? 0) > 0                            // 실제 상승(1개월 절대)
+              const strong = sm.q === 'leading' || sm.q === 'improving'
+              const buy = isBuy(s.key)
+              const wait = strong && !buy        // 상대강세지만 1주·1개월 중 하나라도 음수 → 보류(칼날·일시반등 방지)
               const sell = sm.q === 'weakening'
-              const buy = strong && rising      // 돈 몰림 + 실제 상승만 매수
-              const wait = strong && !rising     // 상대강세지만 아직 하락 → 보류(칼날 방지)
-              const aCol = buy ? '#22c55e' : sell ? '#f59e0b' : wait ? '#eab308' : '#94a3b8'
-              const aTxt = buy ? '📈 자금 유입·상승 — ETF 분할매수 관심'
-                : wait ? '⏳ 상대 강세이나 아직 하락 — 반등 확인 후 진입'
-                : sell ? '⚠️ 매도·익절 신호 — 돈 빠지기 시작'
-                : '🔻 이탈 — 신규 진입 자제'
+              if (buy && etf) return (
+                // 📈 매수 — 초록 강조 박스 + ETF 배지(미국+한국)
+                <div style={{ marginTop: 8, background: '#14532d33', border: '1px solid #22c55e55', borderRadius: 8, padding: '7px 9px' }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: '#4ade80' }}>📈 자금 유입·상승 — 추천 ETF 분할매수 관심</div>
+                  <div style={{ marginTop: 5, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {etf.us && <span style={{ background: '#14532d', border: '1px solid #22c55e66', borderRadius: 6, padding: '2px 8px', fontSize: 10.5 }}>🇺🇸 <b style={{ color: '#4ade80' }}>{etf.us.t}</b> <span style={{ color: '#86efac' }}>{etf.us.name}</span></span>}
+                    {etf.kr && <span style={{ background: '#14532d', border: '1px solid #22c55e66', borderRadius: 6, padding: '2px 8px', fontSize: 10.5 }}>🇰🇷 <b style={{ color: '#4ade80' }}>{etf.kr.t}</b> <span style={{ color: '#86efac' }}>{etf.kr.name}</span></span>}
+                  </div>
+                </div>
+              )
+              if (sell) return (
+                // ⚠️ 매도·익절 — 주황 강조 박스(보유자 관점 최우선 신호)
+                <div style={{ marginTop: 8, background: '#7c2d1222', border: '1.5px solid #f59e0b77', borderRadius: 8, padding: '7px 9px' }}>
+                  <div style={{ fontSize: 10.5, fontWeight: 800, color: '#fbbf24' }}>⚠️ 매도·익절 신호 — 돈 빠지기 시작(모멘텀 반전)</div>
+                  <div style={{ fontSize: 9.5, color: '#d6bfa3', marginTop: 3 }}>강세였으나 최근 페이스 꺾임 — 보유 중이면 분할 익절 검토{etf ? ` (보유 ETF: ${[etf.us?.t, etf.kr?.t].filter(Boolean).join('·')})` : ''}</div>
+                </div>
+              )
               return (
                 <div style={{ marginTop: 8, paddingTop: 7, borderTop: `1px solid ${BORDER}` }}>
-                  <div style={{ fontSize: 9.5, fontWeight: 700, color: aCol }}>{aTxt}</div>
-                  {etf ? (
-                    <div style={{ fontSize: 10, color: '#cbd5e1', marginTop: 3, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      {etf.us && <span>🇺🇸 <b>{etf.us.t}</b> <span style={{ color: '#7f93a8' }}>{etf.us.name}</span></span>}
-                      {etf.kr && <span>🇰🇷 <b>{etf.kr.t}</b> <span style={{ color: '#7f93a8' }}>{etf.kr.name}</span></span>}
-                    </div>
-                  ) : <div style={{ fontSize: 9.5, color: '#6e7f8f', marginTop: 3 }}>대표 ETF 없음 — 개별종목(아래 표) 참고</div>}
+                  <div style={{ fontSize: 9.5, fontWeight: 700, color: wait ? '#eab308' : '#94a3b8' }}>
+                    {wait ? '⏳ 상대 강세이나 실제 상승(1주+1개월) 미확인 — 반등 확인 후 진입' : buy ? '📈 자금 유입·상승 — ETF 없음, 개별종목(아래 표) 참고' : '🔻 이탈 — 신규 진입 자제'}
+                  </div>
+                  {etf && <div style={{ fontSize: 9.5, color: '#6e7f8f', marginTop: 3 }}>관련 ETF: {[etf.us && `🇺🇸${etf.us.t}`, etf.kr && `🇰🇷${etf.kr.t}`].filter(Boolean).join(' · ')}</div>}
                 </div>
               )
             })()}
