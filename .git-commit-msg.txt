@@ -1,0 +1,7 @@
+레이 달리오 빅 사이클에 US vs 중국 국력지표 실데이터 추가
+
+- /api/dalio-cycle v1→v2: World Bank 무료·무키 API로 명목GDP·수출·국방비·R&D·인구 US vs 중국 실측 + IMF COFER 기축통화 비중(공개통계)
+- RayDalioAnalysis: 가짜 8대 배지 → 실데이터 막대 + 기축통화 골드 콜아웃 + 섹션 sticky 퀵내비
+- 제미나이 설계안 중 ③(실데이터 국력지표)만 채택, 창작 점수(88/78)는 거부(제1원칙)
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
