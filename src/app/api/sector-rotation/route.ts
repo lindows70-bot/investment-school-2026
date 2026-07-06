@@ -77,7 +77,7 @@ const avg = (arr: (number | null | undefined)[]): number | null => {
 
 export async function GET(req: Request) {
   void req
-  const cacheKey = `sector-rotation-v7:${kstDate()}`   // v7: in-process computeSector(옛 배포 self-fetch로 hi52 유실 버그 수정)
+  const cacheKey = `sector-rotation-v8:${kstDate()}`   // v8: 신고가 국면 다양성 보장(과열·태동 케이스 포함)
   const cached = await getCache<RotationResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -162,13 +162,16 @@ export async function GET(req: Request) {
   // 신고가는 소섹터 국면 신뢰도 순(주도>태동>과열>이탈), 같은 국면이면 최고가 근접도 순
   const HQ: Record<SubQ, number> = { leading: 0, improving: 1, weakening: 2, lagging: 3 }
   highs.sort((a, b) => HQ[a.q] - HQ[b.q] || b.hi52 - a.hi52)
+  // ⭐ 국면 대조가 항상 보이게 — 주도(신뢰)는 10개로 캡, 과열/태동/이탈(교육적 '주의' 케이스)은 전부 포함
+  const hByQ = (q: SubQ) => highs.filter(h => h.q === q)
+  const highsFinal = [...hByQ('leading').slice(0, 10), ...hByQ('improving'), ...hByQ('weakening'), ...hByQ('lagging')].slice(0, 18)
 
   const result: RotationResult = {
     items,
     inflow: items.filter(i => i.score > 0).slice(0, 3),
     outflow: [...items].filter(i => i.score < 0).sort((a, b) => a.score - b.score).slice(0, 3),
     buys: buys.slice(0, 10), sells: sells.slice(0, 10),
-    highs: highs.slice(0, 16),
+    highs: highsFinal,
     mean1w: Math.round(mean1w * 10) / 10, mean1m: Math.round(mean1m * 10) / 10,
     used: secs.length, asOf: new Date().toISOString(),
   }
