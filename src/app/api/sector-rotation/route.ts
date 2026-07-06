@@ -6,7 +6,23 @@ export const maxDuration = 300
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { scoreSubFlow, type SubQ } from '@/lib/subFlow'
-import { etfFor } from '@/lib/sectorConfigs'
+import { etfFor, SECTORS } from '@/lib/sectorConfigs'
+import { computeSector, type SectorResult } from '@/lib/sectorEngine'
+
+// /api/sector와 동일한 캐시 키 — in-process 호출이 HTTP 라우트와 캐시를 공유(제2원칙)
+const fpTk = (tickers: string[]) => { let h = 0; for (const c of tickers.join(',')) h = (h * 31 + c.charCodeAt(0)) | 0; return (h >>> 0).toString(36) }
+async function loadSector(key: string): Promise<SectorResult | null> {
+  const cfg = SECTORS[key]; if (!cfg) return null
+  const ck = `sector-v3:${key}:${cfg.stocks.length}:${fpTk(cfg.stocks.map(s => s.ticker))}:${kstDate()}`
+  const cached = await getCache<SectorResult>(ck, 6 * 3600_000)
+  if (cached) return cached
+  try {
+    const result = await computeSector(cfg)
+    const anchorOk = result.stocks.find(s => s.ticker === cfg.anchor)?.spark?.length
+    if (anchorOk && anchorOk > 10) await setCache(ck, result)
+    return result
+  } catch { return null }
+}
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
@@ -60,26 +76,23 @@ const avg = (arr: (number | null | undefined)[]): number | null => {
 }
 
 export async function GET(req: Request) {
-  const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-  const cacheKey = `sector-rotation-v6dbg:${kstDate()}`   // v6: 디버그
+  void req
+  const cacheKey = `sector-rotation-v7:${kstDate()}`   // v7: in-process computeSector(옛 배포 self-fetch로 hi52 유실 버그 수정)
   const cached = await getCache<RotationResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   const all = [...GICS.map(k => ['gics', k] as const), ...THEME.map(k => ['theme', k] as const)]
   const raw = await Promise.all(all.map(async ([group, key]) => {
     try {
-      const r = await fetch(`${base}/api/sector?key=${key}`, { signal: AbortSignal.timeout(45_000) })
-      if (!r.ok) return null
-      const d = await r.json()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const stocks: any[] = Array.isArray(d?.stocks) ? d.stocks : []
+      const d = await loadSector(key)   // ⭐ in-process 호출(HTTP self-fetch 제거) — hi52 등 최신 필드 보장
+      if (!d) return null
+      const stocks = Array.isArray(d.stocks) ? d.stocks : []
       if (!stocks.length) return null
       // 섹터 평균수익률(동일가중). 1y는 신규상장(weeks<52) 제외로 왜곡 방지
       const ret1w = avg(stocks.map(s => s.ret1w))
       const ret1m = avg(stocks.map(s => s.ret1m))
       const ret1y = avg(stocks.filter(s => (s.weeks ?? 0) >= 52).map(s => s.ret1y))
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const subsectors: any[] = Array.isArray(d?.subsectors) ? d.subsectors : []
+      const subsectors = Array.isArray(d.subsectors) ? d.subsectors : []
       return { group, key, label: String(d.label ?? key).replace(/ 인텔리전스| 테마 인텔리전스$/, ''), emoji: String(d.emoji ?? '📊'), ret1w, ret1m, ret1y, count: stocks.length, subsectors, stocks }
     } catch { return null }
   }))
@@ -156,8 +169,6 @@ export async function GET(req: Request) {
     outflow: [...items].filter(i => i.score < 0).sort((a, b) => a.score - b.score).slice(0, 3),
     buys: buys.slice(0, 10), sells: sells.slice(0, 10),
     highs: highs.slice(0, 16),
-    // @ts-expect-error 임시 디버그
-    _dbg: { totalStocks: secs.reduce((n, x) => n + (x.stocks?.length ?? 0), 0), withHi52: secs.reduce((n, x) => n + (x.stocks?.filter((s: { hi52?: number }) => typeof s.hi52 === 'number').length ?? 0), 0), hi98: secs.reduce((n, x) => n + (x.stocks?.filter((s: { hi52?: number }) => (s.hi52 ?? 0) >= 98).length ?? 0), 0), sample: secs[0]?.stocks?.[0] ? { name: secs[0].stocks[0].name, hi52: secs[0].stocks[0].hi52, keys: Object.keys(secs[0].stocks[0]) } : null },
     mean1w: Math.round(mean1w * 10) / 10, mean1m: Math.round(mean1m * 10) / 10,
     used: secs.length, asOf: new Date().toISOString(),
   }
