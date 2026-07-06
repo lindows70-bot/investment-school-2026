@@ -105,7 +105,7 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
                   🔥 <b style={{ color: '#22c55e' }}>돈 몰림·상승</b>: {t?.emoji} {t?.label} <span style={{ color: pctCol(t?.ret1m ?? null), fontFamily: 'monospace', fontWeight: 700 }}>(1주 {fmtPct(t?.ret1w ?? null)} · 1개월 {fmtPct(t?.ret1m ?? null)})</span>
                   {e && <span style={{ display: 'inline-flex', gap: 5 }}>
                     {e.us && <b style={{ background: '#14532d', color: '#4ade80', border: '1px solid #22c55e66', borderRadius: 5, padding: '1px 7px', fontSize: 10.5 }}>🇺🇸 {e.us.t}</b>}
-                    {e.kr && <b style={{ background: '#14532d', color: '#4ade80', border: '1px solid #22c55e66', borderRadius: 5, padding: '1px 7px', fontSize: 10.5 }}>🇰🇷 {e.kr.t}</b>}
+                    {e.kr && <b style={{ background: '#14532d', color: '#4ade80', border: '1px solid #22c55e66', borderRadius: 5, padding: '1px 7px', fontSize: 10.5 }}>🇰🇷 {e.kr.name}</b>}
                   </span>}
                 </span>
               )
@@ -163,7 +163,7 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
                   <div style={{ fontSize: 10, fontWeight: 800, color: '#4ade80' }}>📈 자금 유입·상승 — 추천 ETF 분할매수 관심</div>
                   <div style={{ marginTop: 5, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {etf.us && <span style={{ background: '#14532d', border: '1px solid #22c55e66', borderRadius: 6, padding: '2px 8px', fontSize: 10.5 }}>🇺🇸 <b style={{ color: '#4ade80' }}>{etf.us.t}</b> <span style={{ color: '#86efac' }}>{etf.us.name}</span></span>}
-                    {etf.kr && <span style={{ background: '#14532d', border: '1px solid #22c55e66', borderRadius: 6, padding: '2px 8px', fontSize: 10.5 }}>🇰🇷 <b style={{ color: '#4ade80' }}>{etf.kr.t}</b> <span style={{ color: '#86efac' }}>{etf.kr.name}</span></span>}
+                    {etf.kr && <span style={{ background: '#14532d', border: '1px solid #22c55e66', borderRadius: 6, padding: '2px 8px', fontSize: 10.5 }}>🇰🇷 <b style={{ color: '#4ade80' }}>{etf.kr.name}</b></span>}
                   </div>
                 </div>
               )
@@ -171,7 +171,7 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
                 // ⚠️ 매도·익절 — 주황 강조 박스(보유자 관점 최우선 신호)
                 <div style={{ marginTop: 8, background: '#7c2d1222', border: '1.5px solid #f59e0b77', borderRadius: 8, padding: '7px 9px' }}>
                   <div style={{ fontSize: 10.5, fontWeight: 800, color: '#fbbf24' }}>⚠️ 매도·익절 신호 — 돈 빠지기 시작(모멘텀 반전)</div>
-                  <div style={{ fontSize: 9.5, color: '#d6bfa3', marginTop: 3 }}>강세였으나 최근 페이스 꺾임 — 보유 중이면 분할 익절 검토{etf ? ` (보유 ETF: ${[etf.us?.t, etf.kr?.t].filter(Boolean).join('·')})` : ''}</div>
+                  <div style={{ fontSize: 9.5, color: '#d6bfa3', marginTop: 3 }}>강세였으나 최근 페이스 꺾임 — 보유 중이면 분할 익절 검토{etf ? ` (보유 ETF: ${[etf.us?.t, etf.kr?.name].filter(Boolean).join('·')})` : ''}</div>
                 </div>
               )
               return (
@@ -179,7 +179,7 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
                   <div style={{ fontSize: 9.5, fontWeight: 700, color: wait ? '#eab308' : '#94a3b8' }}>
                     {wait ? '⏳ 상대 강세이나 실제 상승(1주+1개월) 미확인 — 반등 확인 후 진입' : buy ? '📈 자금 유입·상승 — ETF 없음, 개별종목(아래 표) 참고' : '🔻 이탈 — 신규 진입 자제'}
                   </div>
-                  {etf && <div style={{ fontSize: 9.5, color: '#6e7f8f', marginTop: 3 }}>관련 ETF: {[etf.us && `🇺🇸${etf.us.t}`, etf.kr && `🇰🇷${etf.kr.t}`].filter(Boolean).join(' · ')}</div>}
+                  {etf && <div style={{ fontSize: 9.5, color: '#6e7f8f', marginTop: 3 }}>관련 ETF: {[etf.us && `🇺🇸${etf.us.t}`, etf.kr && `🇰🇷${etf.kr.name}`].filter(Boolean).join(' · ')}</div>}
                 </div>
               )
             })()}
