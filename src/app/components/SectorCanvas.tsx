@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import type { SectorResult, SectorStockOut } from '@/lib/sectorEngine'
 import { QMARKET_FLAG } from '@/lib/quantumUniverse'
+import { etfFor } from '@/lib/sectorConfigs'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 const UP = '#34d399', DN = '#f87171'
@@ -87,9 +88,10 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
       {smTop && (
         <div style={{ background: 'linear-gradient(135deg,#131a17,#0d1017)', border: `1px solid ${BORDER}`, borderRadius: 12, padding: '10px 14px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 12, fontWeight: 800, color: '#f1f5f9' }}>💰 이 섹터 안 자금 흐름</span>
-          {(() => { const t = subByKey[smTop]; const rising = (t?.ret1w ?? 0) > 0; return (
+          {(() => { const t = subByKey[smTop]; const rising = (t?.ret1w ?? 0) > 0; const e = etfFor(sectorKey, smTop); return (
             <span style={{ fontSize: 11.5, color: '#cbd5e1' }}>
               🔥 <b style={{ color: '#22c55e' }}>돈 몰림{rising ? '·상승' : ''}</b>: {t?.emoji} {t?.label} <span style={{ color: pctCol(t?.ret1w ?? null), fontFamily: 'monospace', fontWeight: 700 }}>(1주 {fmtPct(t?.ret1w ?? null)})</span>
+              {e && <span style={{ color: '#22c55e', marginLeft: 4 }}>→ ETF {e.us?.t ?? ''}{e.us && e.kr ? '·' : ''}{e.kr?.t ?? ''}</span>}
             </span>
           )})()}
           {smBot && smBot !== smTop && (() => { const b = subByKey[smBot]; return (
@@ -122,6 +124,25 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
                 </div>
               ))}
             </div>
+            {/* 💰 액션 — ETF 매수 제안 / 매도 신호 */}
+            {sm && (() => {
+              const etf = etfFor(sectorKey, s.key)
+              const buy = sm.q === 'leading' || sm.q === 'improving'
+              const sell = sm.q === 'weakening'
+              const aCol = buy ? '#22c55e' : sell ? '#f59e0b' : '#94a3b8'
+              const aTxt = buy ? '📈 자금 유입 — ETF 분할매수 관심' : sell ? '⚠️ 매도·익절 신호 — 돈 빠지기 시작' : '🔻 이탈 — 신규 진입 자제'
+              return (
+                <div style={{ marginTop: 8, paddingTop: 7, borderTop: `1px solid ${BORDER}` }}>
+                  <div style={{ fontSize: 9.5, fontWeight: 700, color: aCol }}>{aTxt}</div>
+                  {etf ? (
+                    <div style={{ fontSize: 10, color: '#cbd5e1', marginTop: 3, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {etf.us && <span>🇺🇸 <b>{etf.us.t}</b> <span style={{ color: '#7f93a8' }}>{etf.us.name}</span></span>}
+                      {etf.kr && <span>🇰🇷 <b>{etf.kr.t}</b> <span style={{ color: '#7f93a8' }}>{etf.kr.name}</span></span>}
+                    </div>
+                  ) : <div style={{ fontSize: 9.5, color: '#6e7f8f', marginTop: 3 }}>대표 ETF 없음 — 개별종목(아래 표) 참고</div>}
+                </div>
+              )
+            })()}
           </div>
         )})}
       </div>

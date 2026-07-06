@@ -672,3 +672,69 @@ export const SECTORS: Record<string, SectorConfig> = {
   realestate: RE_CONFIG,
 }
 export const SECTOR_LIST = Object.values(SECTORS).map(s => ({ key: s.key, label: s.label, emoji: s.emoji }))
+
+// 💰 소섹터 대표 ETF — 돈 몰리는 소섹터를 개별주 대신 ETF로 태우기 위한 매핑(전수 실측 검증됨).
+//    조회: `${sectorKey}:${subKey}` 우선 → 없으면 `${sectorKey}` 섹터 폴백. 없으면 개별종목 참고(정직).
+export interface SectorEtf { us?: { t: string; name: string }; kr?: { t: string; name: string } }
+export const SECTOR_ETF: Record<string, SectorEtf> = {
+  // 금융
+  'financials:bank':      { us: { t: 'KBWB', name: 'KBW 은행' },       kr: { t: '091170', name: 'KODEX 은행' } },
+  'financials:insurance': { us: { t: 'KIE',  name: 'SPDR 보험' },      kr: { t: '140700', name: 'KODEX 보험' } },
+  'financials:broker':    { us: { t: 'IAI',  name: 'iShares 증권' },   kr: { t: '102970', name: 'KODEX 증권' } },
+  'financials:payment':   { us: { t: 'IPAY', name: 'Amplify 결제' } },
+  // 에너지
+  'energy:integrated': { us: { t: 'XLE', name: '에너지 섹터' }, kr: { t: '117460', name: 'KODEX 에너지화학' } },
+  'energy:ep':         { us: { t: 'XOP', name: 'SPDR E&P' } },
+  'energy:service':    { us: { t: 'OIH', name: 'VanEck 유전서비스' } },
+  'energy:refine':     { us: { t: 'XLE', name: '에너지 섹터' } },
+  // 소재
+  'materials:chemical': { us: { t: 'XLB', name: '소재 섹터' }, kr: { t: '117460', name: 'KODEX 에너지화학' } },
+  'materials:metal':    { us: { t: 'SLX', name: 'VanEck 철강' }, kr: { t: '117680', name: 'KODEX 철강' } },
+  'materials:mining':   { us: { t: 'GDX', name: 'VanEck 금광' } },
+  'materials:build':    { us: { t: 'XLB', name: '소재 섹터' }, kr: { t: '117700', name: 'KODEX 건설' } },
+  // 산업재
+  'industrials:machinery':  { us: { t: 'XLI', name: '산업재 섹터' } },
+  'industrials:aero':       { us: { t: 'ITA', name: 'iShares 방산' }, kr: { t: '449450', name: 'PLUS K방산' } },
+  'industrials:transport':  { us: { t: 'IYT', name: 'iShares 운송' } },
+  'industrials:electrical': { us: { t: 'GRID', name: 'First Trust 전력망' } },
+  // 자유소비재
+  'discretionary:retail': { us: { t: 'XRT',  name: 'SPDR 소매' } },
+  'discretionary:auto':   { us: { t: 'CARZ', name: 'First Trust 자동차' }, kr: { t: '091180', name: 'KODEX 자동차' } },
+  // 필수소비재
+  'staples:retail': { us: { t: 'XLP', name: '필수소비 섹터' } },
+  'staples:food':   { us: { t: 'XLP', name: '필수소비 섹터' } },
+  'staples:house':  { us: { t: 'XLP', name: '필수소비 섹터' } },
+  // 헬스케어
+  'healthcare:pharma':  { us: { t: 'PPH', name: 'VanEck 제약' }, kr: { t: '266420', name: 'KODEX 헬스케어' } },
+  'healthcare:biotech': { us: { t: 'XBI', name: 'SPDR 바이오' }, kr: { t: '244580', name: 'KODEX 바이오' } },
+  'healthcare:device':  { us: { t: 'IHI', name: 'iShares 의료기기' } },
+  'healthcare:payer':   { us: { t: 'IHF', name: 'iShares 의료서비스' } },
+  // IT
+  'infotech:software': { us: { t: 'IGV',  name: 'iShares SW' } },
+  'infotech:semi':     { us: { t: 'SOXX', name: 'iShares 반도체' }, kr: { t: '091160', name: 'KODEX 반도체' } },
+  'infotech:hardware': { us: { t: 'SMH',  name: 'VanEck 반도체' }, kr: { t: '139260', name: 'TIGER 200 IT' } },
+  // 커뮤니케이션
+  'communication:internet': { us: { t: 'FDN', name: 'First Trust 인터넷' } },
+  'communication:media':    { us: { t: 'XLC', name: '커뮤니 섹터' }, kr: { t: '266360', name: 'KODEX K콘텐츠' } },
+  'communication:telecom':  { us: { t: 'XLC', name: '커뮤니 섹터' } },
+  // 유틸리티
+  'utilities:electric': { us: { t: 'XLU', name: '유틸리티 섹터' } },
+  'utilities:multi':    { us: { t: 'XLU', name: '유틸리티 섹터' } },
+  'utilities:water':    { us: { t: 'PHO', name: 'Invesco 수도' } },
+  // 부동산
+  'realestate:infra':  { us: { t: 'SRVR', name: 'Pacer 데이터센터' }, kr: { t: '329200', name: 'TIGER 리츠' } },
+  'realestate:logi':   { us: { t: 'INDS', name: 'Pacer 산업물류' } },
+  'realestate:retail': { kr: { t: '329200', name: 'TIGER 리츠' } },
+  // 테마 (섹터 폴백 + 일부 소섹터 override)
+  quantum:  { us: { t: 'QTUM', name: 'Defiance 양자' } },
+  'ai-semi': { us: { t: 'SOXX', name: 'iShares 반도체' }, kr: { t: '091160', name: 'KODEX 반도체' } },
+  power:    { us: { t: 'GRID', name: 'First Trust 전력망' } },
+  'power:nuclear': { us: { t: 'NLR', name: 'VanEck 원전' } },
+  'phys-ai': { us: { t: 'BOTZ', name: 'Global X 로봇' } },
+  'phys-ai:auto': { us: { t: 'CARZ', name: 'First Trust 자동차' }, kr: { t: '091180', name: 'KODEX 자동차' } },
+  'ai-bio': { us: { t: 'ARKG', name: 'ARK 게놈' } },
+  defense:  { us: { t: 'ITA', name: 'iShares 방산' }, kr: { t: '449450', name: 'PLUS K방산' } },
+  'defense:space': { us: { t: 'UFO', name: 'Procure 우주' } },
+}
+export const etfFor = (sectorKey: string, subKey: string): SectorEtf | null =>
+  SECTOR_ETF[`${sectorKey}:${subKey}`] ?? SECTOR_ETF[sectorKey] ?? null
