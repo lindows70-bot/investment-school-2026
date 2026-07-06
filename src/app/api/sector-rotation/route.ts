@@ -33,10 +33,19 @@ export interface SubPick {
   profit: boolean                          // 매도 시: 1년>0=익절 / ≤0=비중축소
   etfUs?: string; etfUsName?: string; etfKr?: string   // 대표 ETF(미국 티커·한국 종목명)
 }
+// 🔥 52주 신고가 종목 × 소섹터 국면 — "최고가는 다 같은 최고가가 아니다"(주도=섹터 강세·신뢰 / 태동=약한 무리 속 대장·품질 / 과열=모멘텀 식음·추격주의)
+export interface HighStock {
+  ticker: string; name: string; market: string
+  sectorKey: string; sectorLabel: string; sectorEmoji: string
+  subLabel: string; subEmoji: string; q: SubQ   // 소섹터 국면
+  hi52: number                                  // 52주 최고가 대비 위치(100=신고가)
+  ret1w: number | null; ret1y: number | null
+}
 export interface RotationResult {
   items: RotationItem[]
   inflow: RotationItem[]; outflow: RotationItem[]   // 🔥유입 Top / ❄️이탈 Top
   buys: SubPick[]; sells: SubPick[]                 // 🎯 소섹터 매수 랭킹 / ⚠️ 매도·익절 신호
+  highs: HighStock[]                               // 🔥 52주 신고가 × 소섹터 국면
   mean1w: number; mean1m: number
   used: number; asOf: string
 }
@@ -52,7 +61,7 @@ const avg = (arr: (number | null | undefined)[]): number | null => {
 
 export async function GET(req: Request) {
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-  const cacheKey = `sector-rotation-v2:${kstDate()}`   // v2: 소섹터 통합 매수/매도 랭킹(buys/sells) 추가
+  const cacheKey = `sector-rotation-v3:${kstDate()}`   // v3: 52주 신고가×소섹터 국면(highs) 추가
   const cached = await getCache<RotationResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -71,7 +80,7 @@ export async function GET(req: Request) {
       const ret1y = avg(stocks.filter(s => (s.weeks ?? 0) >= 52).map(s => s.ret1y))
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const subsectors: any[] = Array.isArray(d?.subsectors) ? d.subsectors : []
-      return { group, key, label: String(d.label ?? key).replace(/ 인텔리전스| 테마 인텔리전스$/, ''), emoji: String(d.emoji ?? '📊'), ret1w, ret1m, ret1y, count: stocks.length, subsectors }
+      return { group, key, label: String(d.label ?? key).replace(/ 인텔리전스| 테마 인텔리전스$/, ''), emoji: String(d.emoji ?? '📊'), ret1w, ret1m, ret1y, count: stocks.length, subsectors, stocks }
     } catch { return null }
   }))
   const secs = raw.filter((x): x is NonNullable<typeof x> => x != null && x.ret1m != null && x.ret1w != null)
@@ -96,10 +105,27 @@ export async function GET(req: Request) {
 
   // 🎯 소섹터 통합 랭킹 — 각 섹터의 소섹터를 드릴다운 카드와 동일 SSOT(scoreSubFlow)로 판정 후 전체 합산 랭킹
   const secScoreByKey = Object.fromEntries(items.map(i => [i.key, i.score]))
-  const buys: SubPick[] = [], sells: SubPick[] = []
+  const buys: SubPick[] = [], sells: SubPick[] = [], highs: HighStock[] = []
+  const HI_NEAR = 98   // 52주 최고가의 98%+ = '신고가 근접/갱신'(주봉 기준)
   for (const x of secs) {
     const sf = scoreSubFlow(x.subsectors)
     const it = items.find(i => i.key === x.key); if (!it) continue
+    // 🔥 52주 신고가 종목 스캔 — 각 종목의 소섹터 국면(sf)을 결합
+    const subMetaByKey = Object.fromEntries(x.subsectors.map(s => [s.key, s]))
+    for (const st of x.stocks) {
+      if (typeof st.hi52 !== 'number' || st.hi52 < HI_NEAR) continue
+      if ((st.weeks ?? 0) < 20) continue   // 신규상장(주봉 부족)은 '신고가' 의미 약함 → 제외
+      const o = sf[st.sub]; const sm = subMetaByKey[st.sub]
+      if (!o || !sm) continue
+      highs.push({
+        ticker: String(st.ticker), name: String(st.name ?? st.ticker), market: String(st.market ?? ''),
+        sectorKey: x.key, sectorLabel: it.label.replace(/\s*\(.*\)/, ''), sectorEmoji: it.emoji,
+        subLabel: String(sm.label ?? st.sub), subEmoji: String(sm.emoji ?? ''), q: o.q,
+        hi52: Math.round(st.hi52 * 10) / 10,
+        ret1w: st.ret1w != null ? Math.round(st.ret1w * 10) / 10 : null,
+        ret1y: st.ret1y != null ? Math.round(st.ret1y * 10) / 10 : null,
+      })
+    }
     for (const s of x.subsectors) {
       const o = sf[s.key]; if (!o) continue
       if (!o.buy && !o.sell) continue
@@ -120,12 +146,16 @@ export async function GET(req: Request) {
   }
   buys.sort((a, b) => b.total - a.total)
   sells.sort((a, b) => a.total - b.total)   // 매도는 자금 이탈이 심한(점수 낮은) 순
+  // 신고가는 소섹터 국면 신뢰도 순(주도>태동>과열>이탈), 같은 국면이면 최고가 근접도 순
+  const HQ: Record<SubQ, number> = { leading: 0, improving: 1, weakening: 2, lagging: 3 }
+  highs.sort((a, b) => HQ[a.q] - HQ[b.q] || b.hi52 - a.hi52)
 
   const result: RotationResult = {
     items,
     inflow: items.filter(i => i.score > 0).slice(0, 3),
     outflow: [...items].filter(i => i.score < 0).sort((a, b) => a.score - b.score).slice(0, 3),
     buys: buys.slice(0, 10), sells: sells.slice(0, 10),
+    highs: highs.slice(0, 16),
     mean1w: Math.round(mean1w * 10) / 10, mean1m: Math.round(mean1m * 10) / 10,
     used: secs.length, asOf: new Date().toISOString(),
   }

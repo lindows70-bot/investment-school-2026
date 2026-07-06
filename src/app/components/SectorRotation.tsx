@@ -184,6 +184,30 @@ export default function SectorRotation() {
         </div>
       ) : null}
 
+      {/* 🔥 52주 신고가 × 소섹터 국면 — "최고가는 다 같은 최고가가 아니다" */}
+      {data.highs?.length ? (
+        <div style={{ background: 'linear-gradient(135deg,#1a1524,#0d1017)', border: '1px solid #a855f744', borderRadius: 12, padding: '14px 16px' }}>
+          <div style={{ fontSize: 13.5, fontWeight: 800, color: '#c4b5fd' }}>🔥 오늘의 52주 신고가 × 소섹터 국면 — 최고가는 다 같은 최고가가 아니다</div>
+          <div style={{ fontSize: 10, color: '#7f93a8', margin: '3px 0 10px' }}>
+            같은 &lsquo;신고가&rsquo;라도 소섹터가 <b style={{ color: QC.leading }}>🌱주도</b>면 섹터 전체 강세(신뢰↑) · <b style={{ color: QC.improving }}>❄️태동</b>이면 약한 무리 속 대장(품질 프리미엄) · <b style={{ color: QC.weakening }}>🔥과열</b>이면 모멘텀 식는 중(추격 주의) · 주봉 기준 52주 최고가의 98%+ 종목
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {data.highs.map(h => (
+              <div key={h.sectorKey + h.ticker} onClick={() => setSel(h.sectorKey)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 7, background: '#0f1117', border: `1px solid ${QC[h.q]}33`, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 9, fontWeight: 800, color: QC[h.q], background: QC[h.q] + '22', borderRadius: 4, padding: '2px 6px', minWidth: 42, textAlign: 'center' }}>{QI[h.q]}{QN[h.q]}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: '#f1f5f9' }}>{h.name}</span>
+                <span style={{ fontSize: 10.5, color: '#8599ae' }}>{h.sectorEmoji}{FULL[h.sectorKey] ?? h.sectorLabel} › {h.subEmoji}{h.subLabel}</span>
+                <span style={{ marginLeft: 'auto', fontSize: 10.5, fontFamily: 'monospace', color: '#8599ae' }}>1년 <b style={{ color: pcol(h.ret1y) }}>{pfmt(h.ret1y)}</b></span>
+                <span style={{ fontSize: 10, fontWeight: 800, color: h.q === 'leading' ? '#4ade80' : h.q === 'weakening' ? '#fbbf24' : '#c4b5fd' }}>
+                  {h.q === 'leading' ? '섹터 강세·신뢰' : h.q === 'improving' ? '약한 무리 속 대장' : h.q === 'weakening' ? '추격 주의' : '나홀로 반등'}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 10, color: '#6e7f8f', marginTop: 8, lineHeight: 1.5 }}>👆 종목 줄을 클릭하면 해당 섹터 드릴다운이 열립니다 · 신고가 자체가 매수 신호는 아니며, 소섹터 국면으로 &lsquo;초입 vs 막차&rsquo;를 가늠하는 교육용 지표.</div>
+        </div>
+      ) : null}
+
       {/* 드릴다운 */}
       {sel ? (
         <div style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 12, padding: '10px 12px' }}>

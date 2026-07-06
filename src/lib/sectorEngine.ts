@@ -111,6 +111,7 @@ export interface SectorStockOut {
   ret1w: number | null; ret1m: number | null; ret1y: number | null
   beta: number | null; corr: number | null
   earningsTs: number | null; spark: number[]; weeks: number   // 주봉 개수(신규상장 판별)
+  hi52: number | null   // 현재가 ÷ 최근 52주 최고가 × 100 (100=신고가) — 52주 미만이면 상장 후 전체 기준
 }
 export interface SectorSubOut { key: string; label: string; emoji: string; color: string; desc: string; count: number; ret1w: number | null; ret1m: number | null; ret1y: number | null }
 export interface SectorThemeChart { len: number; theme: number[]; mdd: number; fromPeak: number; overlay: { ticker: string; name: string; norm: number[] }[] }
@@ -136,6 +137,7 @@ export async function computeSector(cfg: SectorConfig): Promise<SectorResult> {
       govAwardUsdM: s.govAwardUsdM, note: s.note,
       ret1w: retPct(w, 1), ret1m: retPct(w, 4), ret1y: retPct(w, 52),
       beta, corr, earningsTs: earnings.get(s.ticker) ?? null, spark: w.slice(-30).map(v => Math.round(v * 100) / 100), weeks: w.length,
+      hi52: (() => { if (w.length < 2) return null; const hi = Math.max(...w.slice(-52)), now = w[w.length - 1]; return hi > 0 ? Math.round((now / hi) * 1000) / 10 : null })(),
     }
   })
 

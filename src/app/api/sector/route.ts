@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   const cfg = SECTORS[key]
   if (!cfg) return NextResponse.json({ error: 'unknown_sector' }, { status: 400 })
 
-  const cacheKey = `sector-v2:${key}:${cfg.stocks.length}:${fp(cfg.stocks.map(s => s.ticker))}:${kstDate()}`
+  const cacheKey = `sector-v3:${key}:${cfg.stocks.length}:${fp(cfg.stocks.map(s => s.ticker))}:${kstDate()}`   // v3: hi52(52주 신고가 위치) 필드 추가
   const cached = await getCache<SectorResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
