@@ -88,10 +88,10 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
       {smTop && (
         <div style={{ background: 'linear-gradient(135deg,#131a17,#0d1017)', border: `1px solid ${BORDER}`, borderRadius: 12, padding: '10px 14px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 12, fontWeight: 800, color: '#f1f5f9' }}>💰 이 섹터 안 자금 흐름</span>
-          {(() => { const t = subByKey[smTop]; const rising = (t?.ret1w ?? 0) > 0; const e = etfFor(sectorKey, smTop); return (
+          {(() => { const t = subByKey[smTop]; const rising = (t?.ret1m ?? 0) > 0; const e = etfFor(sectorKey, smTop); return (
             <span style={{ fontSize: 11.5, color: '#cbd5e1' }}>
-              🔥 <b style={{ color: '#22c55e' }}>돈 몰림{rising ? '·상승' : ''}</b>: {t?.emoji} {t?.label} <span style={{ color: pctCol(t?.ret1w ?? null), fontFamily: 'monospace', fontWeight: 700 }}>(1주 {fmtPct(t?.ret1w ?? null)})</span>
-              {e && <span style={{ color: '#22c55e', marginLeft: 4 }}>→ ETF {e.us?.t ?? ''}{e.us && e.kr ? '·' : ''}{e.kr?.t ?? ''}</span>}
+              {rising ? '🔥 ' : '💪 '}<b style={{ color: rising ? '#22c55e' : '#eab308' }}>{rising ? '돈 몰림·상승' : '상대 강세(아직 하락)'}</b>: {t?.emoji} {t?.label} <span style={{ color: pctCol(t?.ret1m ?? null), fontFamily: 'monospace', fontWeight: 700 }}>(1개월 {fmtPct(t?.ret1m ?? null)})</span>
+              {e && rising && <span style={{ color: '#22c55e', marginLeft: 4 }}>→ ETF {e.us?.t ?? ''}{e.us && e.kr ? '·' : ''}{e.kr?.t ?? ''}</span>}
             </span>
           )})()}
           {smBot && smBot !== smTop && (() => { const b = subByKey[smBot]; return (
@@ -124,13 +124,19 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
                 </div>
               ))}
             </div>
-            {/* 💰 액션 — ETF 매수 제안 / 매도 신호 */}
+            {/* 💰 액션 — ETF 매수 제안 / 매도 신호 (상대강도 + 실제 상승 둘 다 볼 것) */}
             {sm && (() => {
               const etf = etfFor(sectorKey, s.key)
-              const buy = sm.q === 'leading' || sm.q === 'improving'
+              const strong = sm.q === 'leading' || sm.q === 'improving'   // 사분면상 상대강세
+              const rising = (s.ret1m ?? 0) > 0                            // 실제 상승(1개월 절대)
               const sell = sm.q === 'weakening'
-              const aCol = buy ? '#22c55e' : sell ? '#f59e0b' : '#94a3b8'
-              const aTxt = buy ? '📈 자금 유입 — ETF 분할매수 관심' : sell ? '⚠️ 매도·익절 신호 — 돈 빠지기 시작' : '🔻 이탈 — 신규 진입 자제'
+              const buy = strong && rising      // 돈 몰림 + 실제 상승만 매수
+              const wait = strong && !rising     // 상대강세지만 아직 하락 → 보류(칼날 방지)
+              const aCol = buy ? '#22c55e' : sell ? '#f59e0b' : wait ? '#eab308' : '#94a3b8'
+              const aTxt = buy ? '📈 자금 유입·상승 — ETF 분할매수 관심'
+                : wait ? '⏳ 상대 강세이나 아직 하락 — 반등 확인 후 진입'
+                : sell ? '⚠️ 매도·익절 신호 — 돈 빠지기 시작'
+                : '🔻 이탈 — 신규 진입 자제'
               return (
                 <div style={{ marginTop: 8, paddingTop: 7, borderTop: `1px solid ${BORDER}` }}>
                   <div style={{ fontSize: 9.5, fontWeight: 700, color: aCol }}>{aTxt}</div>
