@@ -61,7 +61,7 @@ const avg = (arr: (number | null | undefined)[]): number | null => {
 
 export async function GET(req: Request) {
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-  const cacheKey = `sector-rotation-v3:${kstDate()}`   // v3: 52주 신고가×소섹터 국면(highs) 추가
+  const cacheKey = `sector-rotation-v4:${kstDate()}`   // v4: 콜드 캐스케이드로 highs 비던 캐시 무효화(섹터 캐시 워밍 후)
   const cached = await getCache<RotationResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
