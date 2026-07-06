@@ -6,6 +6,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceL
 import type { SectorResult, SectorStockOut } from '@/lib/sectorEngine'
 import { QMARKET_FLAG } from '@/lib/quantumUniverse'
 import { etfFor } from '@/lib/sectorConfigs'
+import { scoreSubFlow, type SubQ } from '@/lib/subFlow'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 const UP = '#34d399', DN = '#f87171'
@@ -64,29 +65,15 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
   const tc = d.themeChart
   const subMap: Record<string, { label: string; emoji: string; color: string }> = Object.fromEntries(d.subsectors.map(s => [s.key, { label: s.label, emoji: s.emoji, color: s.color }]))
 
-  // 💰 소섹터 자금 순환 — 로테이션 시계와 동일 로직(상대강도×모멘텀)을 소섹터에 적용(제2원칙)
-  type SQ = 'leading' | 'weakening' | 'lagging' | 'improving'
-  const SQI: Record<SQ, string> = { leading: '🌱', weakening: '🔥', lagging: '🍂', improving: '❄️' }
-  const SQC: Record<SQ, string> = { leading: '#22c55e', weakening: '#f59e0b', lagging: '#94a3b8', improving: '#38bdf8' }
-  const SQN: Record<SQ, string> = { leading: '주도', weakening: '과열', lagging: '이탈', improving: '태동' }
-  const sv = d.subsectors.filter(s => s.ret1m != null && s.ret1w != null)
-  const smM = sv.length ? sv.reduce((a, s) => a + (s.ret1m as number), 0) / sv.length : 0
-  const smW = sv.length ? sv.reduce((a, s) => a + (s.ret1w as number), 0) / sv.length : 0
-  const smScore: Record<string, { q: SQ; score: number }> = {}
-  if (sv.length >= 2) d.subsectors.forEach(s => {
-    if (s.ret1m == null || s.ret1w == null) return
-    const rs = s.ret1m - smM, mom = s.ret1w - smW
-    smScore[s.key] = { q: rs > 0 && mom > 0 ? 'leading' : rs > 0 ? 'weakening' : mom > 0 ? 'improving' : 'lagging', score: Math.round((0.6 * rs + 0.4 * mom) * 10) / 10 }
-  })
+  // 💰 소섹터 자금 순환 — 로테이션 시계와 동일 로직(상대강도×모멘텀)을 소섹터에 적용(SSOT: lib/subFlow, 제2원칙)
+  const SQI: Record<SubQ, string> = { leading: '🌱', weakening: '🔥', lagging: '🍂', improving: '❄️' }
+  const SQC: Record<SubQ, string> = { leading: '#22c55e', weakening: '#f59e0b', lagging: '#94a3b8', improving: '#38bdf8' }
+  const SQN: Record<SubQ, string> = { leading: '주도', weakening: '과열', lagging: '이탈', improving: '태동' }
+  const smScore = scoreSubFlow(d.subsectors)
   const smRanked = Object.entries(smScore).sort((a, b) => b[1].score - a[1].score)
   const smTop = smRanked[0]?.[0]
   const subByKey = Object.fromEntries(d.subsectors.map(s => [s.key, s]))
-  // 매수 적격 = 상대강세(주도·태동) + 주간 상승(1주>0=돈 몰려 오름) + 추세 유지(1개월 OR 1년 양수)
-  //   ⭐ 대세 상승(1년+) 중 월간 눌림목이라도 주간 반등이면 매수, 1주·1개월·1년 다 꺾인 하락추세(칼날)만 제외
-  const isBuy = (key: string) => {
-    const q = smScore[key]?.q, s = subByKey[key]
-    return (q === 'leading' || q === 'improving') && (s?.ret1w ?? 0) > 0 && ((s?.ret1m ?? 0) > 0 || (s?.ret1y ?? 0) > 0)
-  }
+  const isBuy = (key: string) => smScore[key]?.buy ?? false
   // 배너 주인공 = '매수 적격 중 쏠림 1위'(카드 신호와 반드시 일치 — 과열 1위를 돈몰림으로 광고하던 모순 차단)
   const smBuyTop = smRanked.find(([k]) => isBuy(k))?.[0]
   const smTopIsSell = !smBuyTop && smScore[smTop ?? '']?.q === 'weakening'

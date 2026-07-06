@@ -5,6 +5,9 @@ import type { RotationResult, RotationItem, Quadrant } from '@/app/api/sector-ro
 import SectorCanvas from '@/app/components/SectorCanvas'
 
 const BORDER = '#2a2f3a'
+const pcol = (v: number | null) => v == null ? '#8a9aaa' : v > 0 ? '#34d399' : v < 0 ? '#f87171' : '#8a9aaa'
+const pfmt = (v: number | null) => v == null ? '—' : `${v > 0 ? '+' : ''}${v}%`
+const it2 = (emoji: string, label: string) => `${emoji}${label}`
 const QC: Record<Quadrant, string> = { leading: '#22c55e', weakening: '#ef4444', lagging: '#94a3b8', improving: '#38bdf8' }
 const QI: Record<Quadrant, string> = { leading: '🌱', weakening: '🔥', lagging: '🍂', improving: '❄️' }
 const QN: Record<Quadrant, string> = { leading: '주도', weakening: '과열', lagging: '이탈', improving: '태동' }
@@ -134,6 +137,47 @@ export default function SectorRotation() {
           </div>
         </div>
       </div>
+
+      {/* 🎯 소섹터 통합 실전 랭킹 — 매수 후보 vs 매도·익절 (드릴다운 카드와 동일 SSOT) */}
+      {(data.buys?.length || data.sells?.length) ? (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
+          {/* 매수 후보 */}
+          <div style={{ flex: '1.2 1 340px', background: 'linear-gradient(135deg,#10241a,#0d1017)', border: '1px solid #22c55e44', borderRadius: 12, padding: '14px 16px' }}>
+            <div style={{ fontSize: 13.5, fontWeight: 800, color: '#4ade80' }}>🎯 실전 매수 후보 랭킹 — 돈 몰리며 실제로 오르는 소섹터</div>
+            <div style={{ fontSize: 10, color: '#7f93a8', margin: '3px 0 10px' }}>매수 게이트(상대강세+주간상승+추세유지) 통과 소섹터만 · 점수 = 섹터 쏠림 + 소섹터 쏠림(이중 자금 쏠림)</div>
+            {data.buys?.length ? data.buys.map((p, i) => (
+              <div key={p.sectorKey + p.subKey} onClick={() => setSel(p.sectorKey)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, background: i === 0 ? '#14532d33' : 'transparent', border: i === 0 ? '1px solid #22c55e44' : '1px solid transparent', marginBottom: 3, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: i < 3 ? 14 : 10, width: 22, textAlign: 'center', color: '#8599ae', fontWeight: 700 }}>{['🥇', '🥈', '🥉'][i] ?? i + 1}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0' }}>
+                  <span style={{ color: '#8599ae', fontWeight: 500 }}>{it2(p.sectorEmoji, FULL[p.sectorKey] ?? p.sectorLabel)} › </span>{p.subEmoji}{p.subLabel}
+                </span>
+                <span style={{ fontSize: 9, fontWeight: 700, color: QC[p.q], background: QC[p.q] + '22', borderRadius: 4, padding: '1px 5px' }}>{QI[p.q]}{QN[p.q]}</span>
+                <span style={{ fontSize: 10.5, fontFamily: 'monospace', color: '#8599ae' }}>1주 <b style={{ color: pcol(p.ret1w) }}>{pfmt(p.ret1w)}</b> · 1년 <b style={{ color: pcol(p.ret1y) }}>{pfmt(p.ret1y)}</b></span>
+                <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 5, alignItems: 'center' }}>
+                  {p.etfUs && <b style={{ background: '#14532d', color: '#4ade80', border: '1px solid #22c55e55', borderRadius: 5, padding: '1px 7px', fontSize: 10 }}>🇺🇸 {p.etfUs}</b>}
+                  {p.etfKr && <b style={{ background: '#14532d', color: '#4ade80', border: '1px solid #22c55e55', borderRadius: 5, padding: '1px 7px', fontSize: 10 }}>🇰🇷 {p.etfKr}</b>}
+                  <b style={{ color: '#4ade80', fontSize: 11, fontFamily: 'monospace' }}>+{p.total}</b>
+                </span>
+              </div>
+            )) : <div style={{ fontSize: 11, color: '#8599ae', padding: '6px 8px' }}>⏳ 지금은 매수 게이트를 통과한 소섹터가 없습니다 — 반등 확인 후.</div>}
+          </div>
+          {/* 매도·익절 신호 */}
+          <div style={{ flex: '1 1 300px', background: 'linear-gradient(135deg,#241710,#0d1017)', border: '1px solid #f59e0b44', borderRadius: 12, padding: '14px 16px' }}>
+            <div style={{ fontSize: 13.5, fontWeight: 800, color: '#fbbf24' }}>⚠️ 매도·익절 신호 — 돈 빠지기 시작한 소섹터</div>
+            <div style={{ fontSize: 10, color: '#7f93a8', margin: '3px 0 10px' }}>과열(강했으나 모멘텀 반전) 소섹터 · 이탈 심한 순 · 1년+ = 익절 / 1년− = 비중 축소</div>
+            {data.sells?.length ? data.sells.map((p, i) => (
+              <div key={p.sectorKey + p.subKey} onClick={() => setSel(p.sectorKey)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, marginBottom: 3, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 10, width: 16, textAlign: 'center', color: '#8599ae', fontWeight: 700 }}>{i + 1}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0' }}>
+                  <span style={{ color: '#8599ae', fontWeight: 500 }}>{it2(p.sectorEmoji, FULL[p.sectorKey] ?? p.sectorLabel)} › </span>{p.subEmoji}{p.subLabel}
+                </span>
+                <span style={{ fontSize: 9, fontWeight: 800, color: p.profit ? '#fbbf24' : '#f87171', background: (p.profit ? '#f59e0b' : '#ef4444') + '22', borderRadius: 4, padding: '1px 6px' }}>{p.profit ? '💰 분할 익절' : '✂️ 비중 축소'}</span>
+                <span style={{ marginLeft: 'auto', fontSize: 10.5, fontFamily: 'monospace', color: '#8599ae' }}>1주 <b style={{ color: pcol(p.ret1w) }}>{pfmt(p.ret1w)}</b> · 1년 <b style={{ color: pcol(p.ret1y) }}>{pfmt(p.ret1y)}</b>{p.etfUs || p.etfKr ? <span style={{ color: '#a78b6d' }}> · {[p.etfUs, p.etfKr].filter(Boolean).join('·')}</span> : null}</span>
+              </div>
+            )) : <div style={{ fontSize: 11, color: '#8599ae', padding: '6px 8px' }}>현재 매도 신호 소섹터 없음.</div>}
+          </div>
+        </div>
+      ) : null}
 
       {/* 드릴다운 */}
       {sel ? (
