@@ -61,6 +61,7 @@ const AISEMI_STOCKS: SectorStock[] = [
   { ticker: '011070', name: 'LG이노텍',     market: 'KR', sub: 'material', tags: ['FC-BGA 기판', '카메라'], purePlay: false, note: '플립칩 기판(AI 칩 패키징) 성장 — 단 매출 대부분 애플 카메라' },
   { ticker: '009150', name: '삼성전기',     market: 'KR', sub: 'material', tags: ['FC-BGA', 'MLCC'],   purePlay: false, note: '서버용 FC-BGA·고용량 MLCC(다각화)' },
   { ticker: '353200', name: '대덕전자',     market: 'KR', sub: 'material', tags: ['FC-BGA 기판'],      purePlay: true,  note: 'AI 가속기용 FC-BGA 기판' },
+  { ticker: '007660', name: '이수페타시스', market: 'KR', sub: 'material', tags: ['MLB 고다층 PCB'],    purePlay: true,  note: 'AI 가속기·스위치용 고다층 기판(MLB) — 엔비디아·구글 공급' },
   { ticker: '014680', name: '한솔케미칼',   market: 'KR', sub: 'material', tags: ['HBM 소재'],         purePlay: true,  note: 'HBM·반도체 소재(과산화수소·QD)' },
   { ticker: '005290', name: '동진쎄미켐',   market: 'KR', sub: 'material', tags: ['EUV 포토레지스트'],  purePlay: true,  note: 'EUV 포토레지스트 국산화' },
   { ticker: 'AMKR', name: 'Amkor',          market: 'US', sub: 'material', tags: ['첨단 패키징'],       purePlay: true,  note: 'OSAT 첨단 패키징(2.5D)' },
@@ -545,6 +546,7 @@ const IT_STOCKS: SectorStock[] = [
   { ticker: '009150', name: '삼성전기',  market: 'KR', sub: 'hardware', tags: ['MLCC·기판'], purePlay: true,  note: 'MLCC·FC-BGA 기판' },
   { ticker: '011070', name: 'LG이노텍',  market: 'KR', sub: 'hardware', tags: ['카메라·기판'], purePlay: true, note: '카메라모듈·FC-BGA' },
   { ticker: '353200', name: '대덕전자',  market: 'KR', sub: 'hardware', tags: ['PCB·기판'],  purePlay: true,  note: 'AI 가속기용 FC-BGA 기판' },
+  { ticker: '007660', name: '이수페타시스', market: 'KR', sub: 'hardware', tags: ['MLB 고다층 PCB'], purePlay: true, note: 'AI 가속기·스위치용 고다층 기판(MLB) — 엔비디아·구글 공급' },
   { ticker: 'SMCI', name: 'Super Micro', market: 'US', sub: 'hardware', tags: ['AI 서버'],   purePlay: true,  note: 'AI 서버·랙 시스템' },
 ]
 const IT_CONFIG: SectorConfig = {
