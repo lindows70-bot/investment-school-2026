@@ -25,7 +25,12 @@ export default function SectorRotation() {
 
   useEffect(() => {
     fetch('/api/sector-rotation').then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(j)))
-      .then(j => j.error ? setErr(j.error) : setData(j))
+      .then(j => {
+        if (j.error) return setErr(j.error)
+        setData(j)
+        // 기본으로 자금 유입 1순위 섹터 드릴다운을 펼쳐 보여줌(학생이 클릭할 줄 몰라도 상세가 보이게)
+        setSel(prev => prev ?? (j.inflow?.[0]?.key ?? j.items?.[0]?.key ?? null))
+      })
       .catch(j => setErr(j?.error || '로테이션 데이터를 불러오지 못했습니다. 섹터 탭을 몇 개 방문하면 캐시가 채워집니다.'))
   }, [])
 
@@ -144,7 +149,7 @@ export default function SectorRotation() {
           {/* 매수 후보 */}
           <div style={{ flex: '1.2 1 340px', background: 'linear-gradient(135deg,#10241a,#0d1017)', border: '1px solid #22c55e44', borderRadius: 12, padding: '14px 16px' }}>
             <div style={{ fontSize: 13.5, fontWeight: 800, color: '#4ade80' }}>🎯 실전 매수 후보 랭킹 — 돈 몰리며 실제로 오르는 소섹터</div>
-            <div style={{ fontSize: 10, color: '#7f93a8', margin: '3px 0 10px' }}>매수 게이트(상대강세+주간상승+추세유지) 통과 소섹터만 · 점수 = 섹터 쏠림 + 소섹터 쏠림(이중 자금 쏠림)</div>
+            <div style={{ fontSize: 10, color: '#7f93a8', margin: '3px 0 10px' }}>매수 게이트(상대강세+주간상승+추세유지) 통과 소섹터만 · 오른쪽 <b style={{ color: '#a8b5c2' }}>+N점 = 쏠림 점수</b>(섹터 쏠림+소섹터 쏠림, 평균 대비 %p — 수익률 아님) · <b style={{ color: '#a8b5c2' }}>줄을 클릭하면 아래에 상세가 펼쳐집니다</b></div>
             {data.buys?.length ? data.buys.map((p, i) => (
               <div key={p.sectorKey + p.subKey} onClick={() => setSel(p.sectorKey)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, background: i === 0 ? '#14532d33' : 'transparent', border: i === 0 ? '1px solid #22c55e44' : '1px solid transparent', marginBottom: 3, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: i < 3 ? 14 : 10, width: 22, textAlign: 'center', color: '#8599ae', fontWeight: 700 }}>{['🥇', '🥈', '🥉'][i] ?? i + 1}</span>
@@ -156,7 +161,7 @@ export default function SectorRotation() {
                 <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 5, alignItems: 'center' }}>
                   {p.etfUs && <b style={{ background: '#14532d', color: '#4ade80', border: '1px solid #22c55e55', borderRadius: 5, padding: '1px 7px', fontSize: 10 }}>🇺🇸 {p.etfUs}</b>}
                   {p.etfKr && <b style={{ background: '#14532d', color: '#4ade80', border: '1px solid #22c55e55', borderRadius: 5, padding: '1px 7px', fontSize: 10 }}>🇰🇷 {p.etfKr}</b>}
-                  <b style={{ color: '#4ade80', fontSize: 11, fontFamily: 'monospace' }}>+{p.total}</b>
+                  <b style={{ color: '#4ade80', fontSize: 11, fontFamily: 'monospace' }}>+{p.total}점</b>
                 </span>
               </div>
             )) : <div style={{ fontSize: 11, color: '#8599ae', padding: '6px 8px' }}>⏳ 지금은 매수 게이트를 통과한 소섹터가 없습니다 — 반등 확인 후.</div>}
@@ -182,7 +187,11 @@ export default function SectorRotation() {
       {/* 드릴다운 */}
       {sel ? (
         <div style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 12, padding: '10px 12px' }}>
-          <div style={{ fontSize: 11, color: '#8599ae', marginBottom: 6 }}>🔎 드릴다운 — 소섹터 카드 + 미국·한국 대표종목</div>
+          <div style={{ fontSize: 11, color: '#8599ae', marginBottom: 6, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span>🔎 <b style={{ color: '#cbd5e1' }}>{FULL[sel] ?? sel} 드릴다운</b> — 소섹터 카드 + 미국·한국 대표종목</span>
+            {data.inflow?.[0]?.key === sel && <span style={{ fontSize: 9.5, fontWeight: 800, color: '#4ade80', background: '#14532d55', border: '1px solid #22c55e44', borderRadius: 5, padding: '1px 7px' }}>🔥 자금 유입 1위 — 기본 표시</span>}
+            <span style={{ marginLeft: 'auto', color: '#6e7f8f' }}>👆 다른 섹터가 궁금하면 위 시계의 점이나 랭킹 줄을 클릭하세요</span>
+          </div>
           <SectorCanvas sectorKey={sel} />
         </div>
       ) : (
