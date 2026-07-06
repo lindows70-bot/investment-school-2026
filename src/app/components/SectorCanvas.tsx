@@ -79,7 +79,7 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
     smScore[s.key] = { q: rs > 0 && mom > 0 ? 'leading' : rs > 0 ? 'weakening' : mom > 0 ? 'improving' : 'lagging', score: Math.round((0.6 * rs + 0.4 * mom) * 10) / 10 }
   })
   const smRanked = Object.entries(smScore).sort((a, b) => b[1].score - a[1].score)
-  const smTop = smRanked[0]?.[0], smBot = smRanked.length > 1 ? smRanked[smRanked.length - 1][0] : undefined
+  const smTop = smRanked[0]?.[0]
   const subByKey = Object.fromEntries(d.subsectors.map(s => [s.key, s]))
   // 매수 적격 = 상대강세(주도·태동) + 주간 상승(1주>0=돈 몰려 오름) + 추세 유지(1개월 OR 1년 양수)
   //   ⭐ 대세 상승(1년+) 중 월간 눌림목이라도 주간 반등이면 매수, 1주·1개월·1년 다 꺾인 하락추세(칼날)만 제외
@@ -90,6 +90,9 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
   // 배너 주인공 = '매수 적격 중 쏠림 1위'(카드 신호와 반드시 일치 — 과열 1위를 돈몰림으로 광고하던 모순 차단)
   const smBuyTop = smRanked.find(([k]) => isBuy(k))?.[0]
   const smTopIsSell = !smBuyTop && smScore[smTop ?? '']?.q === 'weakening'
+  // 소외·이탈 주인공 = 쏠림 최하위 중 '매수 적격 아닌' 소섹터(돈 몰리는 매수 리더를 소외로 오표기하는 모순 차단)
+  //   예: 자동차가 1주+·1개월−면 상대강도(1개월) 꼴찌라 점수 최하위지만, 태동+주간 상승 매수 리더라 소외 아님
+  const smBotOut = [...smRanked].reverse().find(([k]) => k !== smTop && k !== smBuyTop && !isBuy(k))?.[0]
 
   return Wrap(
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -121,7 +124,7 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
               </span>
             )
           })()}
-          {smBot && smBot !== smTop && (() => { const b = subByKey[smBot]; return (
+          {smBotOut && (() => { const b = subByKey[smBotOut]; return (
             <span style={{ fontSize: 11.5, color: '#cbd5e1' }}>
               🧊 <b style={{ color: '#94a3b8' }}>소외·이탈</b>: {b?.emoji} {b?.label} <span style={{ color: pctCol(b?.ret1w ?? null), fontFamily: 'monospace', fontWeight: 700 }}>(1주 {fmtPct(b?.ret1w ?? null)})</span>
             </span>
