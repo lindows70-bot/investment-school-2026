@@ -24,7 +24,9 @@ function niceStep(range: number, ticks: number) {
   return mult * mag
 }
 
-const FORWARD = 26   // 일목균형표 선행스팬 투영 봉수
+// 일목균형표 선행스팬 투영 봉수 — 구름이 있으면(52봉+) 26봉 정투영, 신규상장(52봉 미만·구름 없음)은
+// 빈 여백만 커지므로 소폭으로 축소(캔들이 화면을 꽉 채우게)
+const forwardBars = (n: number) => n >= 52 ? 26 : Math.min(6, Math.max(2, Math.round(n * 0.15)))
 
 interface DispBar {
   idx: number; isFuture: boolean; date: string | null
@@ -59,11 +61,12 @@ function buildSeries(data: TechCandle[]): { disp: DispBar[]; N: number; L: numbe
   const spanAbase = data.map((_, i) => { const t = hl(9, i), k = hl(26, i); return t != null && k != null ? (t + k) / 2 : null })
   const spanBbase = data.map((_, i) => hl(52, i))
 
-  const L = N + FORWARD
+  const FWD = forwardBars(N)
+  const L = N + FWD
   const disp: DispBar[] = []
   for (let j = 0; j < L; j++) {
     const real = j < N ? data[j] : null
-    const src = j - FORWARD   // 26봉 전 값을 현재 위치로 = 미래로 밀린 구름
+    const src = j - 26   // 선행스팬은 항상 26봉 미래 투영(정의) — src∈[0,N) 일 때만 구름값 존재
     disp.push({
       idx: j, isFuture: j >= N, date: real?.date ?? null,
       open: real?.open ?? null, high: real?.high ?? null, low: real?.low ?? null, close: real?.close ?? null,
