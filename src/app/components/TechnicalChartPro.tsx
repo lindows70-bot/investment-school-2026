@@ -102,6 +102,16 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
 
   const { disp, N, L } = useMemo(() => buildSeries(data), [data])
 
+  // 🛡️ ATR 변동성 손절 참고선 = 현재가 − 2×ATR(14) — 종목 고유 변동폭 반영(신호 판독기와 동일 SSOT 계산)
+  //    (pMin/pMax 도메인 계산보다 먼저 선언되어야 함)
+  const atrStop = useMemo(() => {
+    const atrArr = calcATR(data)
+    const atr = atrArr[atrArr.length - 1], last = data[data.length - 1]?.close
+    if (atr == null || last == null) return null
+    const stop = last - 2 * atr
+    return stop > 0 ? stop : null
+  }, [data])
+
   /* ── 좌표계 ── */
   const W = 980
   const padL = 12, padR = 70, padT = 16
@@ -147,15 +157,6 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
     const mfi = calcMFI(data)
     const adx = calcADX(data)
     return { macd, signal, hist, rsi, k, d, cci, mfi, adx }
-  }, [data])
-
-  // 🛡️ ATR 변동성 손절 참고선 = 현재가 − 2×ATR(14) — 종목 고유 변동폭 반영(신호 판독기와 동일 SSOT 계산)
-  const atrStop = useMemo(() => {
-    const atrArr = calcATR(data)
-    const atr = atrArr[atrArr.length - 1], last = data[data.length - 1]?.close
-    if (atr == null || last == null) return null
-    const stop = last - 2 * atr
-    return stop > 0 ? stop : null
   }, [data])
 
   // 서브패널 y도메인: RSI·스토캐스틱·MFI=0~100 고정 / ADX=0~60 / MACD·CCI=데이터 기반 대칭
