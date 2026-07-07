@@ -19,6 +19,7 @@ const ANALYSIS_NAV = [
 
 const RESEARCH_NAV = [
   { href: '/research',   icon: '🔭', label: '종목 리서치' },
+  { href: '/tech-chart', icon: '📉', label: '기술적 차트' },
   { href: '/watchlist',  icon: '⭐', label: '관심종목' },
 ]
 
