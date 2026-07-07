@@ -2,6 +2,7 @@
 // 🎯 코어-새틀라이트 처방전 히어로 — 자산군 구성·코어밴드·캡 게이지 + 버릴/줄일/보강 3액션
 import type { CoreSatelliteView, ActionItem, BuyIdea } from '@/app/api/ai-rebalance/route'
 import SectorBadge from '@/app/components/SectorBadge'
+import TimingBadge from '@/app/components/TimingBadge'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 const ROLE_COLOR: Record<string, string> = {
@@ -130,6 +131,7 @@ export default function CoreSatelliteHero({ cs, portfolioValue }: { cs: CoreSate
                 <span style={{ marginLeft: 'auto' }}><Tag t={a.tag} color="#22c55e" /></span>
               </div>
               <div style={{ color: '#9aa7b4', fontSize: 11, lineHeight: 1.5 }}>{a.reason}</div>
+              {a.timing && <div style={{ marginTop: 4 }}><TimingBadge t={a.timing} market={a.market} compact /></div>}
             </div>
           ))}
         </ActionCard>

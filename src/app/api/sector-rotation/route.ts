@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { scoreSubFlow, type SubQ } from '@/lib/subFlow'
 import { etfFor, SECTORS } from '@/lib/sectorConfigs'
+import { getEntryTimings, type EntryTiming } from '@/lib/entryTiming'
 import { computeSector, type SectorResult } from '@/lib/sectorEngine'
 
 // /api/sector와 동일한 캐시 키 — in-process 호출이 HTTP 라우트와 캐시를 공유(제2원칙)
@@ -48,6 +49,8 @@ export interface SubPick {
   total: number                            // 랭킹 점수(섹터+소섹터 쏠림 합)
   profit: boolean                          // 매도 시: 1년>0=익절 / ≤0=비중축소
   etfUs?: string; etfUsName?: string; etfKr?: string   // 대표 ETF(미국 티커·한국 종목명)
+  etfKrT?: string                          // 한국 ETF 티커(타점 계산용)
+  etfTiming?: EntryTiming | null           // 🚦 대표 ETF 타점 신호등(US 우선, 없으면 KR) — 수급+타점 이중 확인
 }
 // 🔥 52주 신고가 종목 × 소섹터 국면 — "최고가는 다 같은 최고가가 아니다"(주도=섹터 강세·신뢰 / 태동=약한 무리 속 대장·품질 / 과열=모멘텀 식음·추격주의)
 export interface HighStock {
@@ -77,7 +80,7 @@ const avg = (arr: (number | null | undefined)[]): number | null => {
 
 export async function GET(req: Request) {
   void req
-  const cacheKey = `sector-rotation-v8:${kstDate()}`   // v8: 신고가 국면 다양성 보장(과열·태동 케이스 포함)
+  const cacheKey = `sector-rotation-v9:${kstDate()}`   // v9: 🚦 매수 랭킹 대표 ETF 타점 신호등(etfTiming)
   const cached = await getCache<RotationResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -152,7 +155,7 @@ export async function GET(req: Request) {
         ret1y: s.ret1y != null ? Math.round(s.ret1y * 10) / 10 : null,
         total: Math.round(((secScoreByKey[x.key] ?? 0) + o.score) * 10) / 10,
         profit: o.profit,
-        etfUs: e?.us?.t, etfUsName: e?.us?.name, etfKr: e?.kr?.name,
+        etfUs: e?.us?.t, etfUsName: e?.us?.name, etfKr: e?.kr?.name, etfKrT: e?.kr?.t,
       }
       if (o.buy) buys.push(pick); else sells.push(pick)
     }
@@ -166,11 +169,23 @@ export async function GET(req: Request) {
   const hByQ = (q: SubQ) => highs.filter(h => h.q === q)
   const highsFinal = [...hByQ('leading').slice(0, 10), ...hByQ('improving'), ...hByQ('weakening'), ...hByQ('lagging')].slice(0, 18)
 
+  // 🚦 매수 랭킹 대표 ETF 타점 신호등 — "돈이 몰리고(수급) + ETF가 구름 위(타점)" 이중 확인. US ETF 우선, 없으면 KR
+  const buysTop = buys.slice(0, 10)
+  try {
+    const etfReq = new Map<string, { ticker: string; market: 'KR' | 'US' }>()
+    for (const b of buysTop) {
+      if (b.etfUs) etfReq.set(`${b.etfUs}:US`, { ticker: b.etfUs, market: 'US' })
+      else if (b.etfKrT) etfReq.set(`${b.etfKrT}:KR`, { ticker: b.etfKrT, market: 'KR' })
+    }
+    const tmap = await getEntryTimings(Array.from(etfReq.values()), 4)
+    for (const b of buysTop) b.etfTiming = b.etfUs ? (tmap.get(`${b.etfUs}:US`) ?? null) : b.etfKrT ? (tmap.get(`${b.etfKrT}:KR`) ?? null) : null
+  } catch { /* graceful */ }
+
   const result: RotationResult = {
     items,
     inflow: items.filter(i => i.score > 0).slice(0, 3),
     outflow: [...items].filter(i => i.score < 0).sort((a, b) => a.score - b.score).slice(0, 3),
-    buys: buys.slice(0, 10), sells: sells.slice(0, 10),
+    buys: buysTop, sells: sells.slice(0, 10),
     highs: highsFinal,
     mean1w: Math.round(mean1w * 10) / 10, mean1m: Math.round(mean1m * 10) / 10,
     used: secs.length, asOf: new Date().toISOString(),

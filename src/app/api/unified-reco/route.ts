@@ -12,6 +12,7 @@ import { getCanonicalFundamentals, isPegBaseEffect } from '@/lib/canonicalFundam
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
 import { getAnalystSignal } from '@/app/actions/getAnalystSignal'
 import { fetchMacroData, detectMacroPhase, type ScreenedStock } from '@/lib/macroPhaseScreener'
+import { getEntryTimings, type EntryTiming } from '@/lib/entryTiming'
 // ⚠️ 버핏 DCF는 원시 FCF 변동성(예: TXN 팹 capex)으로 비현실적 값(-2637%) 발생 → 신뢰 가능한 ROE(버핏 핵심)로 대체
 
 export const dynamic = 'force-dynamic'
@@ -41,6 +42,7 @@ export interface UnifiedRecoItem {
   suggestWon: number               // 💰 권장 편입 금액(₩) — 포트폴리오 기준
   seasonFavored: boolean; supplyProxy: boolean; supplyKnown: boolean
   badges: string[]
+  timing: EntryTiming | null       // 🚦 타점 신호등(EMA112·224+구름+ATR) — 점수 미반영, WHEN 정보만(신생·부족 시 null)
 }
 export interface UnifiedRecoResult {
   weights: typeof W
@@ -90,7 +92,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v16:${user.id}:${kstDate()}:${fp}`   // v16: ROIC 배지+점수 틸트(복리 기계 가점·ROE 부풀림 감점 → 비중 반영)
+  const cacheKey = `unified-reco-v17:${user.id}:${kstDate()}:${fp}`   // v17: 🚦 타점 신호등(timing) — 점수 미반영 WHEN 레이어
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -298,11 +300,18 @@ export async function GET(req: Request) {
         fwdEpsDir: t.p.s.fwdEpsDir, priceTrend: t.p.s.priceTrend, fwdGrowthPct: t.p.s.fwdGrowthPct ?? null, priceVs200: t.p.s.priceVs200 ?? null,
         peg, opMargin: t.p.s.opMargin, psr: cf?.psr ?? null, roe, roic, roeInflated, epsRevision, suggestWeight, suggestWon,
         seasonFavored: t.p.favored, supplyProxy: t.supplyProxy, supplyKnown: t.supplyKnown, badges,
+        timing: null,   // 🚦 최종 선정 후 일괄 부착
       }
     }))
     items.push(...part)
   }
   items.sort((a, b) => b.combined - a.combined)
+
+  // 🚦 타점 신호등 부착(최종 선정 후 — 점수·선정·정렬 절대 불변, WHEN 정보 레이어만)
+  try {
+    const tmap = await getEntryTimings(items.map(i => ({ ticker: i.ticker, market: (i.market === 'KR' ? 'KR' : 'US') as 'KR' | 'US' })), 4)
+    for (const it of items) it.timing = tmap.get(`${it.ticker}:${it.market === 'KR' ? 'KR' : 'US'}`) ?? null
+  } catch { /* graceful — 배지만 생략 */ }
 
   const result: UnifiedRecoResult = {
     weights: W,

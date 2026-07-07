@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { RotationResult, RotationItem, Quadrant } from '@/app/api/sector-rotation/route'
 import SectorCanvas from '@/app/components/SectorCanvas'
+import TimingBadge from '@/app/components/TimingBadge'
 
 const BORDER = '#2a2f3a'
 const pcol = (v: number | null) => v == null ? '#8a9aaa' : v > 0 ? '#34d399' : v < 0 ? '#f87171' : '#8a9aaa'
@@ -149,7 +150,7 @@ export default function SectorRotation() {
           {/* 매수 후보 */}
           <div style={{ flex: '1.2 1 340px', background: 'linear-gradient(135deg,#10241a,#0d1017)', border: '1px solid #22c55e44', borderRadius: 12, padding: '14px 16px' }}>
             <div style={{ fontSize: 13.5, fontWeight: 800, color: '#4ade80' }}>🎯 실전 매수 후보 랭킹 — 돈 몰리며 실제로 오르는 소섹터</div>
-            <div style={{ fontSize: 10, color: '#7f93a8', margin: '3px 0 10px' }}>매수 게이트(상대강세+주간상승+추세유지) 통과 소섹터만 · 오른쪽 <b style={{ color: '#a8b5c2' }}>+N점 = 쏠림 점수</b>(섹터 쏠림+소섹터 쏠림, 평균 대비 %p — 수익률 아님) · <b style={{ color: '#a8b5c2' }}>줄을 클릭하면 아래에 상세가 펼쳐집니다</b></div>
+            <div style={{ fontSize: 10, color: '#7f93a8', margin: '3px 0 10px' }}>매수 게이트(상대강세+주간상승+추세유지) 통과 소섹터만 · 오른쪽 <b style={{ color: '#a8b5c2' }}>+N점 = 쏠림 점수</b>(섹터 쏠림+소섹터 쏠림, 평균 대비 %p — 수익률 아님) · <b style={{ color: '#a8b5c2' }}>🚦 = 대표 ETF 타점</b>(EMA112·224+일목 구름 — 돈이 몰려도 진입 타이밍은 별도 확인) · <b style={{ color: '#a8b5c2' }}>줄 클릭 시 상세</b></div>
             {data.buys?.length ? data.buys.map((p, i) => (
               <div key={p.sectorKey + p.subKey} onClick={() => setSel(p.sectorKey)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, background: i === 0 ? '#14532d33' : 'transparent', border: i === 0 ? '1px solid #22c55e44' : '1px solid transparent', marginBottom: 3, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: i < 3 ? 14 : 10, width: 22, textAlign: 'center', color: '#8599ae', fontWeight: 700 }}>{['🥇', '🥈', '🥉'][i] ?? i + 1}</span>
@@ -161,6 +162,7 @@ export default function SectorRotation() {
                 <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 5, alignItems: 'center' }}>
                   {p.etfUs && <b style={{ background: '#14532d', color: '#4ade80', border: '1px solid #22c55e55', borderRadius: 5, padding: '1px 7px', fontSize: 10 }}>🇺🇸 {p.etfUs}</b>}
                   {p.etfKr && <b style={{ background: '#14532d', color: '#4ade80', border: '1px solid #22c55e55', borderRadius: 5, padding: '1px 7px', fontSize: 10 }}>🇰🇷 {p.etfKr}</b>}
+                  {p.etfTiming && <TimingBadge t={p.etfTiming} compact />}
                   <b style={{ color: '#4ade80', fontSize: 11, fontFamily: 'monospace' }}>+{p.total}점</b>
                 </span>
               </div>

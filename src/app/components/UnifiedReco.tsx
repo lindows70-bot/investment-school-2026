@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import type { UnifiedRecoResult, UnifiedRecoItem } from '@/app/api/unified-reco/route'
 import InvestorTimeline from '@/app/components/InvestorTimeline'
+import TimingBadge from '@/app/components/TimingBadge'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 const AX = { season: '#f59e0b', fund: '#22c55e', supply: '#60a5fa', momentum: '#a78bfa' }  // 계절/펀더멘탈/수급/모멘텀 축 색
@@ -58,6 +59,8 @@ function Item({ it }: { it: UnifiedRecoItem }) {
         )}
         {it.badges.map(b => <span key={b} style={{ background: 'rgba(148,163,184,0.1)', color: '#cbd5e1', border: `1px solid ${BORDER}`, borderRadius: 6, padding: '1px 7px', fontSize: 10 }}>{b}</span>)}
       </div>
+      {/* 🚦 타점 신호등(WHEN 레이어) — 점수·순위와 무관, 진입 타이밍+ATR 손절 참고 */}
+      {it.timing && <div style={{ marginBottom: 6 }}><TimingBadge t={it.timing} market={it.market} /></div>}
       {it.market === 'KR' && (
         <button onClick={() => setOpen(o => !o)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 7, fontSize: 10.5, fontWeight: 700, cursor: 'pointer', background: open ? 'rgba(99,102,241,0.18)' : 'rgba(99,102,241,0.08)', color: open ? '#a5b4fc' : '#818cf8', border: `1px solid ${open ? '#818cf866' : '#818cf833'}` }}>
           📅 {open ? '매매동향 접기' : '최근 20일 매매동향'}

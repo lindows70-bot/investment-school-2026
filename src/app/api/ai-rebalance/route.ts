@@ -17,6 +17,7 @@ import { isPegBaseEffect } from '@/lib/canonicalFundamentals'
 import { getSector } from '@/lib/schoolIndex'
 import { screenSatellite, type SatelliteScore } from '@/lib/satelliteScreener'
 import type { UnifiedRecoResult } from '@/app/api/unified-reco/route'   // ③통합매수와 동일 SSOT(제2원칙)
+import { getEntryTimings, type EntryTiming } from '@/lib/entryTiming'   // 🚦 타점 신호등(WHEN 레이어 — 판정·점수 불변)
 import { classifyAssetRole, type AssetRole } from '@/lib/portfolioRole'   // P2: 코어-새틀라이트 5분류 SSOT
 import { getCurrentSeason } from '@/lib/currentSeason'
 import { holdingFit } from '@/lib/seasonNavigator'   // 보강: 계절 적합도(불리 종목 트림)
@@ -81,6 +82,7 @@ export interface BuyCandidate {
   peg:           number | null
   aiScore:       number
   reason:        string          // macroFit/fundamental 요약
+  timing?:       EntryTiming | null   // 🚦 타점 신호등(unified-reco 상속)
   allocWeight:   number          // 제안 편입 비중 %
   sector:        string          // GICS 섹터(분산 진단용)
 }
@@ -151,7 +153,7 @@ export interface ActionItem {
   tag: string                // 근거 엔진 태그(레버리지·알트·캡초과·역DCF·수급·좀비 등)
   sector?: string | null     // GICS 섹터(테마·섹터 배지용 — secByTicker 재사용, 추가 비용 0)
 }
-export interface BuyIdea { ticker: string; name: string; market: string; role: string; targetPct: number; reason: string; tag: string; sector?: string | null }
+export interface BuyIdea { ticker: string; name: string; market: string; role: string; targetPct: number; reason: string; tag: string; sector?: string | null; timing?: EntryTiming | null }
 export interface CoreSatelliteView {
   groups: AssetGroupRow[]              // 5분류+차단 현재 비중(전 자산)
   totalValue: number                   // 전 자산 원화 총액(원화 환산 정확도용 — 주식만 아닌 ETF·크립토 포함)
@@ -228,7 +230,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v32:${user.id}:${today}:${fp}`   // v32: 자산군 MV 원가 폴백(가격 스로틀 시 0% 붕괴 방지)+currency 정확 환산
+  const cacheKey = `ai-rebalance-v33:${user.id}:${today}:${fp}`   // v33: 🚦 타점 신호등(매수 카드)+최후 방어선 붕괴 경고(매도측 근거 병기)
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -401,7 +403,7 @@ export async function GET(req: Request) {
       const csum = ranked.reduce((s, it) => s + it.combined, 0) || 1
       buyCandidates = ranked.map(it => ({
         ticker: it.ticker, name: it.name, market: it.market, lynchCategory: it.lynchCategory,
-        peg: it.peg, aiScore: it.combined, sector: it.sector,
+        peg: it.peg, aiScore: it.combined, sector: it.sector, timing: it.timing ?? null,
         reason: it.badges.slice(0, 3).join(' · ') || `통합 ${it.combined}점(계절·가치·수급·모멘텀)`,
         // 회수 예산(coreBudget)을 통합점수 비례로 배분 — 어떤 종목을 살지는 ③과 동일, 얼마나는 회수액 기준
         allocWeight: coreBudget > 0 ? Math.round((coreBudget * (it.combined / csum)) * 10) / 10 : 0,
@@ -637,7 +639,21 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
     const s = sats[0]
     add.push({ ticker: s.ticker, name: s.name, market: s.market, role: 'SATELLITE_GHOST', targetPct: Math.round(Math.min(CAP - ghostPct, s.allocWeight || 3) * 10) / 10, reason: `유령 캡 ${CAP}% 미달(현재 ${ghostPct}%) — 발굴주: ${s.reason}`, tag: '유령 발굴', sector: s.sector ?? null })
   }
-  for (const b of buys.slice(0, 4)) add.push({ ticker: b.ticker, name: b.name, market: b.market, role: 'SATELLITE_GENERAL', targetPct: b.allocWeight, reason: b.reason, tag: `통합점수 ${b.aiScore}`, sector: b.sector ?? null })
+  for (const b of buys.slice(0, 4)) add.push({ ticker: b.ticker, name: b.name, market: b.market, role: 'SATELLITE_GENERAL', targetPct: b.allocWeight, reason: b.reason, tag: `통합점수 ${b.aiScore}`, sector: b.sector ?? null, timing: b.timing ?? null })
+
+  // 🚦 최후 방어선 경고(역배열+구름 이탈) — 매도측 근거 '병기'(판정은 절대 안 뒤집음 — 일방적 매도 강요 금지 원칙)
+  //    + 매수측(add)엔 타점 신호등 부착. 전부 기술차트와 동일 SSOT(entryTiming) — tech-chart 캐시 공유·추가 판정기 0
+  try {
+    const uniq = new Map<string, { ticker: string; market: 'KR' | 'US' }>()
+    for (const it of [...drop, ...trim]) if (it.market === 'KR' || it.market === 'US') uniq.set(`${it.ticker}:${it.market}`, { ticker: it.ticker, market: it.market })
+    for (const a of add) if ((a.market === 'KR' || a.market === 'US') && a.ticker !== 'CORE' && a.ticker !== 'BTC' && !a.timing) uniq.set(`${a.ticker}:${a.market}`, { ticker: a.ticker, market: a.market as 'KR' | 'US' })
+    const tmap = await getEntryTimings(Array.from(uniq.values()), 4)
+    for (const it of [...drop, ...trim]) {
+      const t = tmap.get(`${it.ticker}:${it.market}`)
+      if (t?.trendBreak) it.reason += ' · 🚨 최후 방어선 붕괴(EMA 역배열+구름 이탈 — 장기 추세까지 꺾임)'
+    }
+    for (const a of add) if (!a.timing) a.timing = tmap.get(`${a.ticker}:${a.market}`) ?? null
+  } catch { /* graceful — 경고·배지만 생략 */ }
 
   // ⑦ 조언형 실행 가이드(체결 X)
   const dropName = drop[0]?.name, addName = add.find(a => a.ticker !== 'CORE' && a.ticker !== 'BTC')?.name ?? add[0]?.name
