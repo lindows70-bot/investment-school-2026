@@ -134,6 +134,7 @@ export interface QuantSatellite {
   weightPct: number              // 총투자금 대비 비중 %
   badges: string[]
   priceCtx: PriceContext | null  // 📈 52주 위치 + 스파크라인(수집 실패 시 null — 정직)
+  timing?: import('@/lib/entryTiming').EntryTiming | null   // 🚦 타점 신호등(unified-reco 상속 — 점수 미반영 WHEN 레이어)
 }
 export interface QuantBuilderResult {
   quadrant: Quadrant
@@ -152,7 +153,7 @@ export interface QuantBuilderResult {
 
 /** 빌드 본체 — GET과 copy(POST)가 공유. base=요청 origin, cookie=인증 전달용 */
 export async function buildQuantPlan(base: string, cookie: string): Promise<QuantBuilderResult | null> {
-  const cacheKey = `quant-builder-v4:${kstDate()}`   // v4: PSR 필드 추가
+  const cacheKey = `quant-builder-v5:${kstDate()}`   // v5: 🚦 타점 신호등(timing) 상속
   const cached = await getCache<QuantBuilderResult>(cacheKey, 12 * 3600_000)
   if (cached && !cached.warming) return cached
 
@@ -184,7 +185,7 @@ export async function buildQuantPlan(base: string, cookie: string): Promise<Quan
   const csum = picked.reduce((s, j) => s + j.it.combined, 0) || 1
   const satellites: QuantSatellite[] = picked.map(j => ({
     ticker: j.it.ticker, name: j.it.name, market: j.it.market, sector: j.it.sector,
-    combined: j.it.combined, peg: j.it.peg, psr: j.it.psr ?? null,
+    combined: j.it.combined, peg: j.it.peg, psr: j.it.psr ?? null, timing: j.it.timing ?? null,
     roePct: j.it.roe != null ? Math.round(j.it.roe * 1000) / 10 : null,
     epsRevision: j.it.epsRevision, supplyScore: j.it.supplyScore,
     axes: j.axes, passCount: j.passCount,

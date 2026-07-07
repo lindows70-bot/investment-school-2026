@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
 import type { QuantBuilderResult, QuantSatellite, AxisStatus, PriceContext } from '@/lib/quantBuilder'
 import SectorBadge from '@/app/components/SectorBadge'
+import TimingBadge from '@/app/components/TimingBadge'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 
@@ -246,6 +247,7 @@ export default function QuantBuilderLab() {
                   💵 매출배수: <b style={{ color: s.psr != null ? '#cbd5e1' : '#6e7f8f' }}>{s.psr != null ? `PSR ${s.psr.toFixed(1)}배` : 'PSR 자료없음'}</b>
                 </span>
                 {s.badges.length > 0 && <div style={{ marginTop: 3 }}>{s.badges.map(b => <span key={b} style={{ marginRight: 8, color: '#8a9aaa' }}>{b}</span>)}</div>}
+                {s.timing && <div style={{ marginTop: 4 }}><TimingBadge t={s.timing} market={s.market} compact /></div>}
               </div>
             )}
           </div>
