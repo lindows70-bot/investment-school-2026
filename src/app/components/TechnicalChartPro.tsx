@@ -9,7 +9,7 @@ const C = {
   text: '#E2E8F0', textLow: '#7C8BA1',
   up: '#F0475B', down: '#3B82F6',                    // 한국식: 양봉 빨강 / 음봉 파랑
   ema112: '#FBBF24', ema224: '#F97316',
-  cloudUp: 'rgba(34,197,94,0.16)', cloudDown: 'rgba(240,71,91,0.15)',
+  cloudUp: 'rgba(34,197,94,0.38)', cloudDown: 'rgba(240,71,91,0.34)',   // 어두운 배경에서 또렷하게(0.16→0.38)
   spanA: '#22C55E', spanB: '#F0475B', gold: '#E9C46A',
   future: 'rgba(148,163,184,0.05)',
 }
@@ -85,10 +85,13 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
   const [hover, setHover] = useState<{ j: number; px: number; py: number } | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
 
-  // 통화 포맷: KR=정수 원 / US=소수 2자리 달러
-  const fmt = useCallback((n: number | null | undefined) =>
-    n == null ? '-' : market === 'KR' ? Math.round(n).toLocaleString()
-      : n.toLocaleString(undefined, { minimumFractionDigits: n < 10 ? 3 : 2, maximumFractionDigits: n < 10 ? 3 : 2 }), [market])
+  // 통화 포맷: KR=정수 원 / US=소수 2자리 달러 (+0 정규화 — Y축 '-0.000' 음의 0 방지)
+  const fmt = useCallback((raw: number | null | undefined) => {
+    if (raw == null) return '-'
+    const n = Object.is(raw, -0) || Math.abs(raw) < 1e-9 ? 0 : raw
+    return market === 'KR' ? Math.round(n).toLocaleString()
+      : n.toLocaleString(undefined, { minimumFractionDigits: Math.abs(n) < 10 ? 3 : 2, maximumFractionDigits: Math.abs(n) < 10 ? 3 : 2 })
+  }, [market])
   const fmtVol = (v: number | null) => v == null ? '-' : v >= 1e8 ? `${(v / 1e8).toFixed(1)}억` : v >= 1e4 ? `${(v / 1e4).toFixed(1)}만` : String(Math.round(v))
 
   const { disp, N, L } = useMemo(() => buildSeries(data), [data])
@@ -125,7 +128,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
   const yV = (v: number) => volBot - (v / volMax) * volH
 
   /* ── 선(폴리라인) path ── */
-  const linePath = useCallback((key: 'ema112' | 'ema224') => {
+  const linePath = useCallback((key: 'ema112' | 'ema224' | 'senkouA' | 'senkouB') => {
     let d = '', pen = false
     for (const p of disp) {
       const v = p[key]
@@ -233,8 +236,14 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
               <text x={W - padR + 6} y={yP(v) + 3.5} fontSize={10.5} fontWeight={700} fill={C.textLow}>{fmt(v)}</text>
             </g>
           ))}
-          {/* 구름대 */}
+          {/* 구름대 + 선행스팬 경계선(증권사식 — 구름 윤곽 또렷하게) */}
           {cloudPolys.map((p, i) => <polygon key={'cl' + i} points={p.pts} fill={p.up ? C.cloudUp : C.cloudDown} />)}
+          {showCloud && (
+            <g fill="none" opacity={0.75}>
+              <path d={linePath('senkouA')} stroke={C.spanA} strokeWidth={1.1} />
+              <path d={linePath('senkouB')} stroke={C.spanB} strokeWidth={1.1} />
+            </g>
+          )}
           {/* 오늘 경계선 */}
           <line x1={xc(N) - step / 2} x2={xc(N) - step / 2} y1={priceTop} y2={priceBot} stroke={C.axis} strokeWidth={1} strokeDasharray="3 3" />
           {/* 캔들 */}
