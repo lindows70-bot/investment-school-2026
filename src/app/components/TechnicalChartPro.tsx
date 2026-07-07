@@ -337,12 +337,12 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
               <text x={padL + 6} y={yP(avgPrice) + 2.5} fontSize={10} fontWeight={800} fill={C.bg}>평단 {fmt(avgPrice)}</text>
             </g>
           )}
-          {/* 🛡️ ATR 변동성 손절 참고선(현재가 − 2×ATR) — 평단 라벨과 겹치지 않게 오른쪽 배치 */}
+          {/* 🛡️ ATR 변동성 손절 참고선(현재가 − 2×ATR) — 라벨은 Y축 영역(우측 여백)에만 표시해 차트를 가리지 않음 */}
           {atrStop != null && (
             <g>
               <line x1={padL} x2={W - padR} y1={yP(atrStop)} y2={yP(atrStop)} stroke="#a78bfa" strokeWidth={1.2} strokeDasharray="7 4" opacity={0.85} />
-              <rect x={W - padR - 118} y={yP(atrStop) - 9} width={118} height={16} rx={3} fill="#a78bfa" />
-              <text x={W - padR - 112} y={yP(atrStop) + 2.5} fontSize={10} fontWeight={800} fill={C.bg}>🛡 ATR손절 {fmt(atrStop)}</text>
+              <rect x={W - padR} y={yP(atrStop) - 8} width={padR} height={16} rx={2} fill="#a78bfa" />
+              <text x={W - padR + 4} y={yP(atrStop) + 3} fontSize={9.5} fontWeight={800} fill={C.bg}>🛡{fmt(atrStop)}</text>
             </g>
           )}
           {/* 거래량 */}
