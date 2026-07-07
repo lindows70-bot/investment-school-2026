@@ -3,7 +3,7 @@
 // + 모멘텀 서브패널(MACD·RSI·스토캐스틱·CCI 탭 선택) + 십자선·툴팁
 import { useState, useMemo, useRef, useCallback } from 'react'
 import type { TechCandle } from '@/app/api/tech-chart/route'
-import { calcMACD, calcRSI, calcStoch, calcCCI } from '@/lib/techSignals'
+import { calcMACD, calcRSI, calcStoch, calcCCI, calcMFI, calcADX } from '@/lib/techSignals'
 
 /* ── 팔레트 (네이비/틸/골드) ── */
 const C = {
@@ -87,7 +87,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
   const [showEMA, setShowEMA] = useState(true)
   const [showCloud, setShowCloud] = useState(true)
   const [showVolume, setShowVolume] = useState(true)
-  const [ind, setInd] = useState<'MACD' | 'RSI' | 'STOCH' | 'CCI' | null>('MACD')   // 모멘텀 서브패널(하나만 선택 — 화면 간결)
+  const [ind, setInd] = useState<'MACD' | 'RSI' | 'STOCH' | 'CCI' | 'MFI' | 'ADX' | null>('MACD')   // 모멘텀 서브패널(하나만 선택 — 화면 간결)
   const [hover, setHover] = useState<{ j: number; px: number; py: number } | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
 
@@ -143,12 +143,15 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
     const rsi = calcRSI(close)
     const { k, d } = calcStoch(data)
     const cci = calcCCI(data)
-    return { macd, signal, hist, rsi, k, d, cci }
+    const mfi = calcMFI(data)
+    const adx = calcADX(data)
+    return { macd, signal, hist, rsi, k, d, cci, mfi, adx }
   }, [data])
 
-  // 서브패널 y도메인: RSI·스토캐스틱=0~100 고정 / MACD·CCI=데이터 기반 대칭
+  // 서브패널 y도메인: RSI·스토캐스틱·MFI=0~100 고정 / ADX=0~60 / MACD·CCI=데이터 기반 대칭
   const indDom = useMemo((): [number, number] => {
-    if (ind === 'RSI' || ind === 'STOCH') return [0, 100]
+    if (ind === 'RSI' || ind === 'STOCH' || ind === 'MFI') return [0, 100]
+    if (ind === 'ADX') return [0, 60]
     const arrs = ind === 'MACD' ? [mom.macd, mom.signal, mom.hist] : [mom.cci]
     let m = ind === 'CCI' ? 150 : 0
     for (const a of arrs) for (const v of a) if (v != null && Math.abs(v) > m) m = Math.abs(v)
@@ -259,7 +262,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
         {toggle(showVolume, '거래량', C.gold, setShowVolume)}
         {/* 모멘텀 서브패널 탭(하나만) */}
         <span style={{ display: 'inline-flex', border: `1px solid ${C.axis}`, borderRadius: 7, overflow: 'hidden', marginLeft: 4 }}>
-          {(['MACD', 'RSI', 'STOCH', 'CCI'] as const).map(t => (
+          {(['MACD', 'RSI', 'STOCH', 'CCI', 'MFI', 'ADX'] as const).map(t => (
             <button key={t} onClick={() => setInd(v => v === t ? null : t)} style={{
               padding: '4px 9px', fontSize: 10.5, fontWeight: 800, cursor: 'pointer', border: 'none',
               background: ind === t ? '#7c3aed' : 'transparent', color: ind === t ? '#fff' : C.textLow,
@@ -343,7 +346,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
               <g>
                 <line x1={padL} x2={W - padR} y1={indTop - 7} y2={indTop - 7} stroke={C.grid} strokeWidth={1} />
                 <text x={padL + 2} y={indTop + 11} fontSize={10} fontWeight={700} fill="#a78bfa">
-                  {ind === 'MACD' ? 'MACD (12·26·9)' : ind === 'RSI' ? 'RSI (14)' : ind === 'STOCH' ? '스토캐스틱 (14·3)' : 'CCI (20)'}
+                  {ind === 'MACD' ? 'MACD (12·26·9)' : ind === 'RSI' ? 'RSI (14)' : ind === 'STOCH' ? '스토캐스틱 (14·3)' : ind === 'CCI' ? 'CCI (20)' : ind === 'MFI' ? 'MFI (14) — 거래량 가중 수급' : 'ADX (14) — 추세 강도'}
                 </text>
                 {ind === 'MACD' && (<>
                   {refLine(0, '0')}
@@ -370,6 +373,17 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
                 {ind === 'CCI' && (<>
                   {refLine(100, '+100', C.up)}{refLine(0, '0')}{refLine(-100, '-100', C.down)}
                   <path d={indPath(mom.cci)} fill="none" stroke="#a78bfa" strokeWidth={1.6} />
+                </>)}
+                {ind === 'MFI' && (<>
+                  <rect x={padL} y={yI(100)} width={plotW} height={yI(80) - yI(100)} fill={C.up} opacity={0.07} />
+                  <rect x={padL} y={yI(20)} width={plotW} height={yI(0) - yI(20)} fill={C.down} opacity={0.07} />
+                  {refLine(80, '80 과열', C.up)}{refLine(20, '20 소외', C.down)}
+                  <path d={indPath(mom.mfi)} fill="none" stroke="#34d399" strokeWidth={1.6} />
+                </>)}
+                {ind === 'ADX' && (<>
+                  <rect x={padL} y={yI(20)} width={plotW} height={yI(0) - yI(20)} fill="#94a3b8" opacity={0.08} />
+                  {refLine(25, '25 추세장', C.up)}{refLine(20, '20 박스권', '#94a3b8')}
+                  <path d={indPath(mom.adx)} fill="none" stroke="#38bdf8" strokeWidth={1.6} />
                 </>)}
               </g>
             )
@@ -424,6 +438,8 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
                   {ind === 'RSI' && <span style={{ color: '#a78bfa' }}>RSI {f1(mom.rsi[j])}</span>}
                   {ind === 'STOCH' && <><span style={{ color: '#22d3ee' }}>%K {f1(mom.k[j])}</span><span style={{ color: '#f97316' }}>%D {f1(mom.d[j])}</span></>}
                   {ind === 'CCI' && <span style={{ color: '#a78bfa' }}>CCI {f1(mom.cci[j])}</span>}
+                  {ind === 'MFI' && <span style={{ color: '#34d399' }}>MFI {f1(mom.mfi[j])}</span>}
+                  {ind === 'ADX' && <span style={{ color: '#38bdf8' }}>ADX {f1(mom.adx[j])}</span>}
                 </div>
               )
             })()}

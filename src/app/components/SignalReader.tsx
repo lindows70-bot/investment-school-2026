@@ -63,6 +63,15 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   const fundGood = pegGood && !opLoss                              // FCF적자여도 흑자면 정합 가능(caveat 병기)
   const fcfCaveat = fcfNeg && !opLoss                              // 흑자인데 FCF만 적자 = 투자/금융 구조 주석
 
+  /* ── 고신뢰 보조축(MFI 거래량·ADX 추세강도) — 제미나이 추천 중 채택분 ── */
+  // MFI(거래량 가중): 매수 이벤트가 거래량을 동반하나? <45=무늬만 반등 의심 / ≥55=돈이 실림
+  const volNote = sig.mfi == null ? ''
+    : sig.mfi >= 55 ? ` 💪 MFI ${sig.mfi} — 거래량(돈)이 실린 움직임이라 신뢰도가 높습니다.`
+    : sig.mfi < 45 ? ` 📉 단, MFI ${sig.mfi} — 거래량이 빈약한 '무늬만 반등'일 수 있어 확인 필요.`
+    : ''
+  // ADX(추세 강도): <20=박스권(오실레이터 신호 남발 구간) / ≥25=진짜 추세장
+  const adxTrend = sig.adx != null && sig.adx >= 25, adxRange = sig.adx != null && sig.adx < 20
+
   /* ── 판정(우선순위 결정론) ── */
   const fcfNote = fcfCaveat ? ' (단, FCF는 적자 — 투자 확대·캡티브 금융 구조일 수 있어 현금흐름은 별도 점검)' : ''
   type V = { icon: string; title: string; body: string; col: string; bg: string }
@@ -78,7 +87,7 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   })
   if (buyEvts.length && fundGood) verdicts.push({
     icon: '🟢', title: '신호 정합 (Value + Momentum)', col: '#4ade80', bg: '#14532d22',
-    body: `싼 가격(PEG ${f?.peg?.toFixed(2)}) + 건전한 펀더멘탈 위에 ${buyEvts[0]}가 확인됐습니다. 가치와 모멘텀이 같은 방향 — 분할 매수 검토 구간(단, 수급·계절 화면도 함께 확인)${fcfNote}.`,
+    body: `싼 가격(PEG ${f?.peg?.toFixed(2)}) + 건전한 펀더멘탈 위에 ${buyEvts[0]}가 확인됐습니다. 가치와 모멘텀이 같은 방향 — 분할 매수 검토 구간(단, 수급·계절 화면도 함께 확인)${fcfNote}.${volNote}`,
   })
   if (sig.rsiZone === 'overbought' && fundGood) verdicts.push({
     icon: '⏳', title: '조기 청산 주의 — 텐배거는 과매수에서 놉니다', col: '#eab308', bg: '#42200622',
@@ -91,9 +100,17 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   if (!verdicts.length) verdicts.push(
     f == null && fund !== 'loading'
       ? { icon: 'ℹ️', title: '펀더멘탈 데이터 없음 — 기술신호만 참고', col: '#8599ae', bg: 'transparent', body: 'ETF·신생 종목은 PEG·FCF 크로스체크가 불가합니다. 아래 교과서 신호는 참고만 하고, 지수·테마 ETF는 섹터 로테이션 화면의 자금 흐름과 함께 판단하세요.' }
-      : { icon: '〰️', title: '뚜렷한 모멘텀 이벤트 없음', col: '#8599ae', bg: 'transparent', body: `최근 5봉 내 교과서적 매수/매도 크로스가 없습니다. 횡보 구간에서 오실레이터 신호를 억지로 따라가면 수수료로 자산이 녹는 휩쏘(Whipsaw)에 빠집니다 — 신호가 명확해질 때까지 기다리는 것도 전략.` }
+      : { icon: '〰️', title: '뚜렷한 모멘텀 이벤트 없음', col: '#8599ae', bg: 'transparent', body: `최근 5봉 내 교과서적 매수/매도 크로스가 없습니다.${adxRange ? ` ADX ${sig.adx}로 추세가 죽은 박스권이 정량 확인됨 — 이 구간에서 오실레이터 신호를 억지로 따라가면 수수료로 자산이 녹는 휩쏘(Whipsaw)에 빠집니다.` : ' 횡보 구간에서 오실레이터 신호를 억지로 따라가면 수수료로 자산이 녹는 휩쏘(Whipsaw)에 빠집니다.'} 신호가 명확해질 때까지 기다리는 것도 전략.` }
   )
   const v = verdicts[0]
+  // ADX 추세장 보강: 이벤트 있는 판정에 추세 강도 근거 병기
+  if (adxTrend && (buyEvts.length || sellEvts.length) && v.icon !== '〰️' && v.icon !== 'ℹ️')
+    v.body += ` 📐 ADX ${sig.adx} — 박스권이 아닌 진짜 추세장이라 신호 신뢰도가 뒷받침됩니다.`
+
+  // 🛡️ ATR 변동성 손절 참고선(제미나이 추천 채택) — 종목 고유 변동폭 기반 수학적 손절선(일률 % 아님)
+  const price = candles[candles.length - 1]?.close
+  const atrStop = sig.atr != null && price != null ? price - 2 * sig.atr : null
+  const fmtP = (n: number) => market === 'KR' ? `₩${Math.round(n).toLocaleString()}` : `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
 
   const chip = (label: string, val: string, col: string) => (
     <span style={{ fontSize: 10.5, background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 6, padding: '3px 8px' }}>
@@ -113,6 +130,8 @@ export default function SignalReader({ ticker, market, candles, tf }: {
         {chip('MACD', sig.macdAbove == null ? '-' : sig.macdAbove ? '시그널 위▲' : '시그널 아래▼', sig.macdAbove ? '#4ade80' : '#f87171')}
         {chip('RSI', sig.rsi == null ? '-' : String(sig.rsi), sig.rsiZone === 'overbought' ? '#f87171' : sig.rsiZone === 'oversold' ? '#38bdf8' : '#e2e8f0')}
         {chip('CCI', sig.cci == null ? '-' : String(sig.cci), (sig.cci ?? 0) > 100 ? '#4ade80' : (sig.cci ?? 0) < -100 ? '#f87171' : '#e2e8f0')}
+        {sig.mfi != null && chip('MFI 수급', String(sig.mfi), sig.mfi > 80 ? '#f87171' : sig.mfi < 20 ? '#38bdf8' : sig.mfi >= 55 ? '#4ade80' : '#e2e8f0')}
+        {sig.adx != null && chip('ADX 추세', `${sig.adx} ${adxTrend ? '추세장' : adxRange ? '박스권' : '중간'}`, adxTrend ? '#4ade80' : adxRange ? '#94a3b8' : '#e2e8f0')}
         {f?.peg != null && chip('PEG', f.peg.toFixed(2), f.peg <= 1 ? '#4ade80' : f.peg > 2.2 ? '#f87171' : '#e2e8f0')}
         {f && chip('FCF', f.fcf == null ? '-' : f.fcf >= 0 ? '흑자' : '적자', (f.fcf ?? 0) >= 0 ? '#4ade80' : '#f87171')}
         {fund === 'loading' && <span style={{ fontSize: 10.5, color: '#7f93a8' }}>펀더멘탈 확인 중…</span>}
@@ -128,6 +147,15 @@ export default function SignalReader({ ticker, market, candles, tf }: {
           </div>
         )}
       </div>
+
+      {/* 🛡️ ATR 변동성 손절 참고선 */}
+      {atrStop != null && atrStop > 0 && (
+        <div style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 9, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 11 }}>
+          <span style={{ fontWeight: 800, color: '#c4b5fd' }}>🛡️ ATR 변동성 손절 참고선</span>
+          <span style={{ color: '#e2e8f0', fontFamily: 'monospace', fontWeight: 800 }}>{fmtP(atrStop)}</span>
+          <span style={{ color: '#7f93a8' }}>= 현재가 − 2×ATR({sig.atr}) · 종목 고유 변동폭 반영 — 일률적 −N% 손절 대신, 정상 등락에 털리지 않는 수학적 하한</span>
+        </div>
+      )}
 
       {/* 3대 함정 교육 */}
       <div>
