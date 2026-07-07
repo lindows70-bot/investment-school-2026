@@ -3,7 +3,7 @@
 // + 모멘텀 서브패널(MACD·RSI·스토캐스틱·CCI 탭 선택) + 십자선·툴팁
 import { useState, useMemo, useRef, useCallback } from 'react'
 import type { TechCandle } from '@/app/api/tech-chart/route'
-import { calcMACD, calcRSI, calcStoch, calcCCI, calcMFI, calcADX } from '@/lib/techSignals'
+import { calcMACD, calcRSI, calcStoch, calcCCI, calcMFI, calcADX, calcATR } from '@/lib/techSignals'
 
 /* ── 팔레트 (네이비/틸/골드) ── */
 const C = {
@@ -128,9 +128,10 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
       if (showCloud) { push(d.senkouA); push(d.senkouB) }
     })
     if (avgPrice != null) push(avgPrice)
+    if (atrStop != null) push(atrStop)
     const pad = (hi - lo) * 0.06 || 1
     return { pMin: lo - pad, pMax: hi + pad }
-  }, [disp, showEMA, showCloud, avgPrice])
+  }, [disp, showEMA, showCloud, avgPrice, atrStop])
 
   const yP = useCallback((v: number) => priceTop + ((pMax - v) / (pMax - pMin)) * priceH, [pMax, pMin, priceTop])
   const volMax = useMemo(() => Math.max(...disp.map(d => d.volume || 0), 1), [disp])
@@ -146,6 +147,15 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
     const mfi = calcMFI(data)
     const adx = calcADX(data)
     return { macd, signal, hist, rsi, k, d, cci, mfi, adx }
+  }, [data])
+
+  // 🛡️ ATR 변동성 손절 참고선 = 현재가 − 2×ATR(14) — 종목 고유 변동폭 반영(신호 판독기와 동일 SSOT 계산)
+  const atrStop = useMemo(() => {
+    const atrArr = calcATR(data)
+    const atr = atrArr[atrArr.length - 1], last = data[data.length - 1]?.close
+    if (atr == null || last == null) return null
+    const stop = last - 2 * atr
+    return stop > 0 ? stop : null
   }, [data])
 
   // 서브패널 y도메인: RSI·스토캐스틱·MFI=0~100 고정 / ADX=0~60 / MACD·CCI=데이터 기반 대칭
@@ -326,6 +336,14 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
               <text x={padL + 6} y={yP(avgPrice) + 2.5} fontSize={10} fontWeight={800} fill={C.bg}>평단 {fmt(avgPrice)}</text>
             </g>
           )}
+          {/* 🛡️ ATR 변동성 손절 참고선(현재가 − 2×ATR) — 평단 라벨과 겹치지 않게 오른쪽 배치 */}
+          {atrStop != null && (
+            <g>
+              <line x1={padL} x2={W - padR} y1={yP(atrStop)} y2={yP(atrStop)} stroke="#a78bfa" strokeWidth={1.2} strokeDasharray="7 4" opacity={0.85} />
+              <rect x={W - padR - 118} y={yP(atrStop) - 9} width={118} height={16} rx={3} fill="#a78bfa" />
+              <text x={W - padR - 112} y={yP(atrStop) + 2.5} fontSize={10} fontWeight={800} fill={C.bg}>🛡 ATR손절 {fmt(atrStop)}</text>
+            </g>
+          )}
           {/* 거래량 */}
           {showVolume && disp.map(d => {
             if (d.volume == null || d.close == null || d.open == null) return null
@@ -458,6 +476,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 14, height: 10, background: C.cloudDown, border: `1px solid ${C.spanB}` }} /><span style={{ color: C.textLow }}>음운(선행A&lt;B·저항)</span></span>
         </>)}
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, borderTop: `2px dashed ${C.gold}` }} /><span style={{ color: C.textLow }}>평단가(보유 시)</span></span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, borderTop: `2px dashed #a78bfa` }} /><span style={{ color: C.textLow }}>🛡 ATR 손절 참고선(현재가−2×ATR)</span></span>
       </div>
 
       {/* 교육 해설 */}
