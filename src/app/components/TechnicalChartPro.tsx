@@ -1,7 +1,9 @@
 'use client'
-// 증권사식 기술적 분석 차트 — 한국식 캔들(양봉 빨강/음봉 파랑) + EMA(112·224) + 일목균형표 구름대(26봉 선행) + 거래량 + 십자선·툴팁
+// 증권사식 기술적 분석 차트 — 한국식 캔들(양봉 빨강/음봉 파랑) + EMA(112·224) + 일목균형표 구름대(26봉 선행) + 거래량
+// + 모멘텀 서브패널(MACD·RSI·스토캐스틱·CCI 탭 선택) + 십자선·툴팁
 import { useState, useMemo, useRef, useCallback } from 'react'
 import type { TechCandle } from '@/app/api/tech-chart/route'
+import { calcMACD, calcRSI, calcStoch, calcCCI } from '@/lib/techSignals'
 
 /* ── 팔레트 (네이비/틸/골드) ── */
 const C = {
@@ -85,6 +87,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
   const [showEMA, setShowEMA] = useState(true)
   const [showCloud, setShowCloud] = useState(true)
   const [showVolume, setShowVolume] = useState(true)
+  const [ind, setInd] = useState<'MACD' | 'RSI' | 'STOCH' | 'CCI' | null>('MACD')   // 모멘텀 서브패널(하나만 선택 — 화면 간결)
   const [hover, setHover] = useState<{ j: number; px: number; py: number } | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
 
@@ -100,13 +103,16 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
   const { disp, N, L } = useMemo(() => buildSeries(data), [data])
 
   /* ── 좌표계 ── */
-  const W = 980, H = 560
+  const W = 980
   const padL = 12, padR = 70, padT = 16
   const priceH = 356, volGap = 14
   const volH = showVolume ? 116 : 0
+  const indH = ind ? 122 : 0                       // 모멘텀 서브패널 높이
   const plotW = W - padL - padR
   const priceTop = padT, priceBot = priceTop + priceH
   const volTop = priceBot + volGap, volBot = volTop + volH
+  const indTop = volBot + (ind ? 14 : 0), indBot = indTop + indH
+  const H = indBot + 30                            // 날짜축 여백 포함(패널 유무 따라 동적)
 
   const step = plotW / L
   const cw = Math.max(Math.min(step * 0.7, 13), 0.9)
@@ -129,6 +135,38 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
   const yP = useCallback((v: number) => priceTop + ((pMax - v) / (pMax - pMin)) * priceH, [pMax, pMin, priceTop])
   const volMax = useMemo(() => Math.max(...disp.map(d => d.volume || 0), 1), [disp])
   const yV = (v: number) => volBot - (v / volMax) * volH
+
+  /* ── 모멘텀 지표(SSOT: lib/techSignals) — 실봉(N개)에만 값 존재 ── */
+  const mom = useMemo(() => {
+    const close = data.map(d => d.close)
+    const { macd, signal, hist } = calcMACD(close)
+    const rsi = calcRSI(close)
+    const { k, d } = calcStoch(data)
+    const cci = calcCCI(data)
+    return { macd, signal, hist, rsi, k, d, cci }
+  }, [data])
+
+  // 서브패널 y도메인: RSI·스토캐스틱=0~100 고정 / MACD·CCI=데이터 기반 대칭
+  const indDom = useMemo((): [number, number] => {
+    if (ind === 'RSI' || ind === 'STOCH') return [0, 100]
+    const arrs = ind === 'MACD' ? [mom.macd, mom.signal, mom.hist] : [mom.cci]
+    let m = ind === 'CCI' ? 150 : 0
+    for (const a of arrs) for (const v of a) if (v != null && Math.abs(v) > m) m = Math.abs(v)
+    return [-m * 1.08, m * 1.08]
+  }, [ind, mom])
+  const yI = useCallback((v: number) => indTop + ((indDom[1] - v) / (indDom[1] - indDom[0])) * indH, [indDom, indTop, indH])
+
+  // 지표 배열 → 폴리라인 path (실봉 인덱스만)
+  const indPath = useCallback((arr: (number | null)[]) => {
+    let d = '', pen = false
+    for (let j = 0; j < N; j++) {
+      const v = arr[j]
+      if (v == null) { pen = false; continue }
+      d += (pen ? ' L' : 'M') + xc(j).toFixed(1) + ',' + yI(v).toFixed(1)
+      pen = true
+    }
+    return d
+  }, [N, xc, yI])
 
   /* ── 선(폴리라인) path ── */
   const linePath = useCallback((key: 'ema112' | 'ema224' | 'senkouA' | 'senkouB') => {
@@ -219,6 +257,15 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
         {toggle(showEMA, '지수이평선', C.ema224, setShowEMA)}
         {toggle(showCloud, '구름대', C.spanA, setShowCloud)}
         {toggle(showVolume, '거래량', C.gold, setShowVolume)}
+        {/* 모멘텀 서브패널 탭(하나만) */}
+        <span style={{ display: 'inline-flex', border: `1px solid ${C.axis}`, borderRadius: 7, overflow: 'hidden', marginLeft: 4 }}>
+          {(['MACD', 'RSI', 'STOCH', 'CCI'] as const).map(t => (
+            <button key={t} onClick={() => setInd(v => v === t ? null : t)} style={{
+              padding: '4px 9px', fontSize: 10.5, fontWeight: 800, cursor: 'pointer', border: 'none',
+              background: ind === t ? '#7c3aed' : 'transparent', color: ind === t ? '#fff' : C.textLow,
+            }}>{t === 'STOCH' ? 'Stoch' : t}</button>
+          ))}
+        </span>
         <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 8, flexWrap: 'wrap' }}>
           {aligned && <span style={{ fontSize: 10.5, fontWeight: 800, color: aligned === 'up' ? '#4ade80' : '#f87171', background: aligned === 'up' ? '#14532d44' : '#7f1d1d44', borderRadius: 5, padding: '2px 8px' }}>
             {aligned === 'up' ? '📈 EMA 정배열(112>224)' : '📉 EMA 역배열(112<224)'}</span>}
@@ -283,6 +330,51 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
               fill={d.close >= d.open ? C.up : C.down} opacity={0.55} />
           })}
           {showVolume && <text x={padL + 2} y={volTop + 11} fontSize={10} fontWeight={700} fill={C.textLow}>거래량</text>}
+
+          {/* 모멘텀 서브패널 */}
+          {ind && (() => {
+            const refLine = (v: number, label: string, col = C.axis) => (
+              <g key={'rl' + v}>
+                <line x1={padL} x2={W - padR} y1={yI(v)} y2={yI(v)} stroke={col} strokeWidth={0.8} strokeDasharray="3 3" opacity={0.7} />
+                <text x={W - padR + 6} y={yI(v) + 3.5} fontSize={9.5} fontWeight={700} fill={C.textLow}>{label}</text>
+              </g>
+            )
+            return (
+              <g>
+                <line x1={padL} x2={W - padR} y1={indTop - 7} y2={indTop - 7} stroke={C.grid} strokeWidth={1} />
+                <text x={padL + 2} y={indTop + 11} fontSize={10} fontWeight={700} fill="#a78bfa">
+                  {ind === 'MACD' ? 'MACD (12·26·9)' : ind === 'RSI' ? 'RSI (14)' : ind === 'STOCH' ? '스토캐스틱 (14·3)' : 'CCI (20)'}
+                </text>
+                {ind === 'MACD' && (<>
+                  {refLine(0, '0')}
+                  {mom.hist.map((h, j) => h == null ? null : (
+                    <rect key={'h' + j} x={xc(j) - cw / 2} y={Math.min(yI(0), yI(h))} width={cw} height={Math.max(Math.abs(yI(h) - yI(0)), 0.5)}
+                      fill={h >= 0 ? C.up : C.down} opacity={0.45} />
+                  ))}
+                  <path d={indPath(mom.macd)} fill="none" stroke="#22d3ee" strokeWidth={1.5} />
+                  <path d={indPath(mom.signal)} fill="none" stroke="#f97316" strokeWidth={1.4} />
+                </>)}
+                {ind === 'RSI' && (<>
+                  <rect x={padL} y={yI(100)} width={plotW} height={yI(70) - yI(100)} fill={C.up} opacity={0.07} />
+                  <rect x={padL} y={yI(30)} width={plotW} height={yI(0) - yI(30)} fill={C.down} opacity={0.07} />
+                  {refLine(70, '70', C.up)}{refLine(50, '50')}{refLine(30, '30', C.down)}
+                  <path d={indPath(mom.rsi)} fill="none" stroke="#a78bfa" strokeWidth={1.6} />
+                </>)}
+                {ind === 'STOCH' && (<>
+                  <rect x={padL} y={yI(100)} width={plotW} height={yI(80) - yI(100)} fill={C.up} opacity={0.07} />
+                  <rect x={padL} y={yI(20)} width={plotW} height={yI(0) - yI(20)} fill={C.down} opacity={0.07} />
+                  {refLine(80, '80', C.up)}{refLine(20, '20', C.down)}
+                  <path d={indPath(mom.k)} fill="none" stroke="#22d3ee" strokeWidth={1.5} />
+                  <path d={indPath(mom.d)} fill="none" stroke="#f97316" strokeWidth={1.4} />
+                </>)}
+                {ind === 'CCI' && (<>
+                  {refLine(100, '+100', C.up)}{refLine(0, '0')}{refLine(-100, '-100', C.down)}
+                  <path d={indPath(mom.cci)} fill="none" stroke="#a78bfa" strokeWidth={1.6} />
+                </>)}
+              </g>
+            )
+          })()}
+
           {/* 날짜축 */}
           {dateTicks.map((t, i) => (
             <text key={'dt' + i} x={xc(t.j)} y={H - 8} fontSize={10} fontWeight={600} fill={C.textLow}
@@ -291,7 +383,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
           {/* 십자선 */}
           {H0?.close != null && hover && (
             <g pointerEvents="none">
-              <line x1={xc(hover.j)} x2={xc(hover.j)} y1={priceTop} y2={showVolume ? volBot : priceBot} stroke={C.axis} strokeWidth={1} strokeDasharray="2 3" />
+              <line x1={xc(hover.j)} x2={xc(hover.j)} y1={priceTop} y2={ind ? indBot : showVolume ? volBot : priceBot} stroke={C.axis} strokeWidth={1} strokeDasharray="2 3" />
               <line x1={padL} x2={W - padR} y1={yP(H0.close)} y2={yP(H0.close)} stroke={C.axis} strokeWidth={1} strokeDasharray="2 3" />
               <rect x={W - padR} y={yP(H0.close) - 8} width={padR} height={16} rx={2} fill={C.axis} />
               <text x={W - padR + 5} y={yP(H0.close) + 3} fontSize={10} fontWeight={800} fill={C.text}>{fmt(H0.close)}</text>
@@ -324,6 +416,17 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
                 <span style={{ color: C.ema224 }}>EMA224 {fmt(H0.ema224)}</span>
               </div>
             )}
+            {ind && hover && (() => {
+              const j = hover.j, f1 = (v: number | null | undefined) => v == null ? '-' : v.toFixed(ind === 'MACD' ? 2 : 1)
+              return (
+                <div style={{ marginTop: 6, paddingTop: 6, borderTop: `1px solid ${C.grid}`, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                  {ind === 'MACD' && <><span style={{ color: '#22d3ee' }}>MACD {f1(mom.macd[j])}</span><span style={{ color: '#f97316' }}>Signal {f1(mom.signal[j])}</span></>}
+                  {ind === 'RSI' && <span style={{ color: '#a78bfa' }}>RSI {f1(mom.rsi[j])}</span>}
+                  {ind === 'STOCH' && <><span style={{ color: '#22d3ee' }}>%K {f1(mom.k[j])}</span><span style={{ color: '#f97316' }}>%D {f1(mom.d[j])}</span></>}
+                  {ind === 'CCI' && <span style={{ color: '#a78bfa' }}>CCI {f1(mom.cci[j])}</span>}
+                </div>
+              )
+            })()}
           </div>
         )}
       </div>

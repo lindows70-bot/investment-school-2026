@@ -1,9 +1,10 @@
 'use client'
-// 📉 기술적 차트 전용 화면 — 증권사식 캔들+EMA(112·224)+일목균형표 구름대. 내 포트 종목 칩 + 자유 검색 + 일/주/월봉
+// 📉 기술적 차트 전용 화면 — 증권사식 캔들+EMA(112·224)+일목균형표 구름대+모멘텀. 내 포트 종목 칩 + 자유 검색 + 일/주/월봉
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { getAssetType } from '@/lib/assetClassifier'
 import TechnicalChartPro from '@/app/components/TechnicalChartPro'
+import SignalReader from '@/app/components/SignalReader'
 import type { TechCandle } from '@/app/api/tech-chart/route'
 
 interface Holding { ticker: string; name: string; market: 'KR' | 'US'; avgPrice: number | null }
@@ -152,7 +153,10 @@ export default function TechChartPage() {
       ) : err ? (
         <div style={{ color: '#f87171', fontSize: 13, textAlign: 'center', padding: '40px 0' }}>⚠️ {err}</div>
       ) : candles && sel ? (
-        <TechnicalChartPro data={candles} market={sel.market} avgPrice={sel.avgPrice} />
+        <>
+          <TechnicalChartPro data={candles} market={sel.market} avgPrice={sel.avgPrice} />
+          <SignalReader ticker={sel.ticker} market={sel.market} candles={candles} tf={tf} />
+        </>
       ) : (
         <div style={{ color: '#8599ae', fontSize: 13, textAlign: 'center', padding: '60px 0' }}>
           👆 내 포트 종목을 클릭하거나 티커를 검색하면 증권사식 기술 차트가 표시됩니다.
