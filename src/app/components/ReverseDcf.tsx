@@ -50,8 +50,8 @@ export default function ReverseDcf({ ticker, name, market }: { ticker: string; n
         <div style={{ background: '#0f1117', borderRadius: 10, padding: '12px 14px' }}>
           {/* 내재 기대 */}
           <Row label="📈 시장 내재 기대" val={d.impliedGrowth} pos={impPos} color={v.color} scale={SCALE} />
-          {/* 실제 성장 */}
-          {d.actualGrowth != null && <div style={{ marginTop: 9 }}><Row label="🏭 실제 성장(최근)" val={d.actualGrowth} pos={actPos} color="#60a5fa" scale={SCALE} /></div>}
+          {/* 실제/예상 성장 */}
+          {d.actualGrowth != null && <div style={{ marginTop: 9 }}><Row label={d.growthSource === 'peg' ? '🎯 예상 성장(PEG 내재)' : '🏭 실제 성장(최근)'} val={d.actualGrowth} pos={actPos} color="#60a5fa" scale={SCALE} /></div>}
         </div>
       )}
 

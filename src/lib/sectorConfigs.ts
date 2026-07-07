@@ -498,6 +498,7 @@ const HLTH_STOCKS: SectorStock[] = [
   { ticker: '207940', name: '삼성바이오로직스', market: 'KR', sub: 'biotech', tags: ['CDMO'], purePlay: true, note: '바이오 위탁생산 1위' },
   { ticker: '068270', name: '셀트리온',  market: 'KR', sub: 'biotech', tags: ['바이오시밀러'], purePlay: true, note: '바이오시밀러 대표' },
   { ticker: 'ISRG', name: 'Intuitive Surgical', market: 'US', sub: 'device', tags: ['수술로봇'], purePlay: true, note: '다빈치 수술로봇(피지컬AI 중복)' },
+  { ticker: 'ILMN', name: 'Illumina',   market: 'US', sub: 'device', tags: ['유전체 시퀀싱'], purePlay: true, note: '유전체 시퀀싱 장비 1위(AI바이오 테마 중복)' },
   { ticker: 'ABT', name: 'Abbott',      market: 'US', sub: 'device', tags: ['진단·기기'],  purePlay: true,  note: '진단·의료기기' },
   { ticker: 'MDT', name: 'Medtronic',   market: 'US', sub: 'device', tags: ['의료기기'],   purePlay: true,  note: '세계 1위 의료기기' },
   { ticker: 'UNH', name: 'UnitedHealth', market: 'US', sub: 'payer', tags: ['의료보험'],   purePlay: true,  note: '미 최대 의료보험' },

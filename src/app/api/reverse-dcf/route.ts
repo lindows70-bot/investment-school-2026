@@ -17,6 +17,7 @@ export interface ReverseDcfResult {
   pe: number | null
   impliedGrowth: number | null   // 시장이 가격에 심은 연 EPS 성장 기대(%)
   actualGrowth: number | null    // 실제 최근/예상 성장(%)
+  growthSource: 'actual' | 'peg' | null   // actual=최근 EPS성장 / peg=PEG 내재 예상성장
   gap: number | null             // implied − actual (%p)
   verdict: DcfVerdict
   headline: string
@@ -34,7 +35,15 @@ export async function GET(req: Request) {
 
   const cf = await getCanonicalFundamentals(ticker, market, base).catch(() => null)
   const pe = cf?.pe ?? null
-  const actualGrowth = cf?.growth != null ? Math.round(cf.growth * 1000) / 10 : null   // %
+  let actualGrowth = cf?.growth != null ? Math.round(cf.growth * 1000) / 10 : null   // %
+  let growthSource: 'actual' | 'peg' | null = actualGrowth != null ? 'actual' : null
+  // 🔄 폴백: 최근 EPS 성장(earningsGrowth)이 없어도 PEG가 있으면 PEG 내재 성장(=PE/PEG=애널 예상)으로 비교 가능
+  //    (일루미나 등 EPS 이력 불안정 종목 — 두 번째 막대가 안 나오던 문제)
+  if (actualGrowth == null && cf?.peg != null && cf.peg > 0 && pe != null && pe > 0) {
+    const g = pe / cf.peg   // PEG = PE ÷ 성장(%) → 성장(%) = PE ÷ PEG
+    if (isFinite(g) && g > 0 && g < 200) { actualGrowth = Math.round(g * 10) / 10; growthSource = 'peg' }
+  }
+  const GL = growthSource === 'peg' ? 'PEG 내재 예상' : '실제'   // 본문 표기(출처에 맞게)
 
   // 닫힌형 역산: P = EPS₀·(1+g)^N·termPE/(1+r)^N  →  g = (PE/termPE · (1+r)^N)^(1/N) − 1
   //  "이 PER을 주고 r 수익을 내려면, 10년 뒤 PER 15배로 수렴한다 가정 시 필요한 연 EPS 성장률"
@@ -86,25 +95,25 @@ export async function GET(req: Request) {
     const overshoot = impliedGrowth - actualGrowth
     if (actualGrowth <= 0) {
       verdict = impliedGrowth > 5 ? 'demanding' : 'fair'
-      headline = `시장은 연 ${impliedGrowth}% 성장을 가정하나, 최근 이익은 ${actualGrowth}%로 역성장`
+      headline = `시장은 연 ${impliedGrowth}% 성장을 가정하나, ${GL} 이익은 ${actualGrowth}%로 역성장`
       detail = `현 주가는 이익 반등을 선반영했습니다. 반등이 ${impliedGrowth}%에 못 미치면 주가 정당성이 약해집니다(경기순환주면 저점 가능성도 함께 보세요).`
     } else if (overshoot > Math.max(actualGrowth * 0.5, 5)) {
       verdict = 'demanding'
-      headline = `시장 기대 ${impliedGrowth}% ≫ 실제 ${actualGrowth}% — 기대가 과도(스토리 의존)`
-      detail = `현 주가가 정당화되려면 실제(${actualGrowth}%)보다 높은 ${impliedGrowth}% 성장이 10년 지속돼야 합니다. 실제 수준으로 수렴하면 하락 위험.`
+      headline = `시장 기대 ${impliedGrowth}% ≫ ${GL} ${actualGrowth}% — 기대가 과도(스토리 의존)`
+      detail = `현 주가가 정당화되려면 ${GL}(${actualGrowth}%)보다 높은 ${impliedGrowth}% 성장이 10년 지속돼야 합니다. ${GL} 수준으로 수렴하면 하락 위험.`
     } else if (overshoot < -3) {
       verdict = 'conservative'
-      headline = `시장 기대 ${impliedGrowth}% < 실제 ${actualGrowth}% — 기대가 보수적(저평가 여지)`
-      detail = `시장은 실제 성장(${actualGrowth}%)보다 낮은 ${impliedGrowth}%만 반영 중입니다. 성장이 유지되면 재평가 여지가 있습니다.`
+      headline = `시장 기대 ${impliedGrowth}% < ${GL} ${actualGrowth}% — 기대가 보수적(저평가 여지)`
+      detail = `시장은 ${GL} 성장(${actualGrowth}%)보다 낮은 ${impliedGrowth}%만 반영 중입니다. 성장이 유지되면 재평가 여지가 있습니다.`
     } else {
       verdict = 'fair'
-      headline = `시장 기대 ${impliedGrowth}% ≈ 실제 ${actualGrowth}% — 합리적 구간`
-      detail = `내재 성장 기대(${impliedGrowth}%)가 실제(${actualGrowth}%)와 비슷합니다. 가격이 펀더멘탈에 부합합니다.`
+      headline = `시장 기대 ${impliedGrowth}% ≈ ${GL} ${actualGrowth}% — 합리적 구간`
+      detail = `내재 성장 기대(${impliedGrowth}%)가 ${GL}(${actualGrowth}%)와 비슷합니다. 가격이 펀더멘탈에 부합합니다.`
     }
   }
 
   const result: ReverseDcfResult = {
-    ticker: ticker.toUpperCase(), pe, impliedGrowth, actualGrowth, gap, verdict, headline, detail,
+    ticker: ticker.toUpperCase(), pe, impliedGrowth, actualGrowth, growthSource, gap, verdict, headline, detail,
     assumptions: { r: R, years: N, termPe: TERM_PE }, asOf: new Date().toISOString(),
   }
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
