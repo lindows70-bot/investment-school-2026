@@ -53,32 +53,36 @@ export default function SignalReader({ ticker, market, candles, tf }: {
 
   /* ── 펀더멘탈 크로스체크(전부 stock-info SSOT) ── */
   const f = fund === 'loading' || fund == null ? null : fund
-  const opLoss = f?.opMargin != null && f.opMargin < -0.10          // 영업적자(−10%↓)
-  const fcfNeg = f?.fcf != null && f.fcf < 0
-  const pegBase = f?.peg != null && f.peg < 0.3 && f?.growth != null && f.growth > 1.0   // 기저효과(SSOT 공식)
+  const opLoss = f?.opMargin != null && f.opMargin < -0.10          // 영업적자(−10%↓) = 진짜 부실(강한 danger)
+  const fcfNeg = f?.fcf != null && f.fcf < 0                        // FCF적자 = 흑자기업이면 capex·캡티브금융일 뿐(약한 caveat) — 좀비가드 철학
+  const pegBase = f?.peg != null && f.peg < 0.3 && f?.growth != null && f.growth > 1.0   // 기저효과(isPegBaseEffect SSOT 공식) = 가짜 저PEG
   const pegHigh = f?.peg != null && f.peg > 2.2                     // Jarvis SELL 기준과 동일(제2원칙)
-  const pegGood = f?.peg != null && f.peg <= 1.0 && !pegBase
-  const fundBad = opLoss || fcfNeg || pegHigh
-  const fundGood = pegGood && !fcfNeg && !opLoss
+  const pegGood = f?.peg != null && f.peg <= 1.0 && !pegBase        // 진짜 저평가(기저효과 제외)
+  // 🚨 가짜 반등 트리거 = 영업적자 / 고평가 / 기저효과 저PEG (FCF적자 단독은 제외 — 흑자기업 capex 오탐 방지)
+  const fundBad = opLoss || pegHigh || pegBase
+  const fundGood = pegGood && !opLoss                              // FCF적자여도 흑자면 정합 가능(caveat 병기)
+  const fcfCaveat = fcfNeg && !opLoss                              // 흑자인데 FCF만 적자 = 투자/금융 구조 주석
 
   /* ── 판정(우선순위 결정론) ── */
+  const fcfNote = fcfCaveat ? ' (단, FCF는 적자 — 투자 확대·캡티브 금융 구조일 수 있어 현금흐름은 별도 점검)' : ''
   type V = { icon: string; title: string; body: string; col: string; bg: string }
   const verdicts: V[] = []
-  if (sig.rsiZone === 'oversold' && (opLoss || fcfNeg)) verdicts.push({
+  // 🔪 떨어지는 칼날 = 과매도 + '영업적자'(진짜 부실). FCF적자 단독은 흑자기업 오탐이라 제외
+  if (sig.rsiZone === 'oversold' && opLoss) verdicts.push({
     icon: '🔪', title: '떨어지는 칼날 — 과매도 ≠ 저평가', col: '#f87171', bg: '#7f1d1d22',
-    body: `RSI ${sig.rsi}로 과매도지만 ${opLoss ? '영업적자' : 'FCF 적자'} 기업입니다. 펀더멘탈이 무너진 종목의 과매도는 '싸다'가 아니라 '이유가 있다'는 뜻 — 상장폐지·영구손실 위험. 기술 반등 신호가 떠도 추격 금지.`,
+    body: `RSI ${sig.rsi}로 과매도지만 영업적자(영업이익률 ${f && f.opMargin != null ? (f.opMargin * 100).toFixed(0) : '?'}%) 기업입니다. 펀더멘탈이 무너진 종목의 과매도는 '싸다'가 아니라 '이유가 있다'는 뜻 — 영구손실 위험. 기술 반등 신호가 떠도 추격 금지.`,
   })
-  if (buyEvts.length && fundBad && !(sig.rsiZone === 'oversold' && (opLoss || fcfNeg))) verdicts.push({
+  if (buyEvts.length && fundBad && !(sig.rsiZone === 'oversold' && opLoss)) verdicts.push({
     icon: '🚨', title: '가짜 반등 경보 (Technical Trap)', col: '#fb923c', bg: '#7c2d1222',
-    body: `${buyEvts[0]} — 교과서적 매수 신호이나, ${opLoss ? '영업적자' : fcfNeg ? 'FCF 적자' : `PEG ${f?.peg?.toFixed(2)}(고평가)`} 상태입니다. 펀더멘탈 근거 없는 기술 반등은 단기 되돌림일 확률이 높음 — 추격 매수 자제.`,
+    body: `${buyEvts[0]} — 교과서적 매수 신호이나, ${opLoss ? '영업적자' : pegHigh ? `PEG ${f?.peg?.toFixed(2)}로 고평가` : `PEG ${f?.peg?.toFixed(2)}는 기저효과(이익 저점 회복·성장 ${f && f.growth != null ? (f.growth * 100).toFixed(0) : ''}%)라 진짜 싼 게 아님`} 상태입니다. 펀더멘탈 근거 없는 기술 반등은 단기 되돌림일 확률이 높음 — 추격 매수 자제.`,
   })
   if (buyEvts.length && fundGood) verdicts.push({
     icon: '🟢', title: '신호 정합 (Value + Momentum)', col: '#4ade80', bg: '#14532d22',
-    body: `싼 가격(PEG ${f?.peg?.toFixed(2)}) + 건전한 펀더멘탈 위에 ${buyEvts[0]}가 확인됐습니다. 가치와 모멘텀이 같은 방향 — 분할 매수 검토 구간(단, 수급·계절 화면도 함께 확인).`,
+    body: `싼 가격(PEG ${f?.peg?.toFixed(2)}) + 건전한 펀더멘탈 위에 ${buyEvts[0]}가 확인됐습니다. 가치와 모멘텀이 같은 방향 — 분할 매수 검토 구간(단, 수급·계절 화면도 함께 확인)${fcfNote}.`,
   })
   if (sig.rsiZone === 'overbought' && fundGood) verdicts.push({
     icon: '⏳', title: '조기 청산 주의 — 텐배거는 과매수에서 놉니다', col: '#eab308', bg: '#42200622',
-    body: `RSI ${sig.rsi} 과매수지만 PEG ${f?.peg?.toFixed(2)}로 여전히 쌉니다. 위대한 성장주는 상승 초입부터 수개월간 과매수에 머뭅니다(피터 린치) — 과매수만 보고 파는 건 최고의 주식을 초기에 놓치는 실수.`,
+    body: `RSI ${sig.rsi} 과매수지만 PEG ${f?.peg?.toFixed(2)}로 여전히 쌉니다. 위대한 성장주는 상승 초입부터 수개월간 과매수에 머뭅니다(피터 린치) — 과매수만 보고 파는 건 최고의 주식을 초기에 놓치는 실수${fcfNote}.`,
   })
   if (sellEvts.length && !fundGood && !verdicts.length) verdicts.push({
     icon: '⚠️', title: '교과서 매도 신호 — 모멘텀 반전', col: '#fbbf24', bg: '#42200622',
