@@ -39,23 +39,31 @@ export default function SectorRotation() {
   if (!data) return <div style={{ padding: 24, color: '#8599ae', textAlign: 'center', fontSize: 13 }}>🧭 섹터 자금 순환 계산 중… (17개 섹터 집계)</div>
 
   // ── 시계 좌표 (파워 스케일링으로 중앙 뭉침을 펼침, halfW 축소로 라벨 여백 확보) ──
-  const cx = 250, cy = 245, halfW = 172, halfH = 205
+  const cx = 250, cy = 248, halfW = 172, halfH = 212
   const maxRs = Math.max(1, ...data.items.map(i => Math.abs(i.rs)))
   const maxMom = Math.max(1, ...data.items.map(i => Math.abs(i.mom)))
   const spread = (v: number, max: number) => (v >= 0 ? 1 : -1) * Math.pow(Math.min(Math.abs(v) / max, 1), 0.5)
   const px = (rs: number) => cx + spread(rs, maxRs) * halfW * 0.92
   const py = (mom: number) => cy - spread(mom, maxMom) * halfH * 0.92
 
-  // 라벨 겹침 방지(declutter): 점 위치는 그대로, 라벨 y만 같은 쪽끼리 최소 간격 확보
+  // 라벨 겹침 방지(declutter, 2-pass): 점은 그대로, 라벨 y만 같은 쪽끼리 최소 간격 GAP 확보 + 양방향 분산
+  const GAP = 15
+  const minY = cy - halfH + 18, maxY = cy + halfH - 18   // 코너 사분면 라벨(주도·태동·과열·이탈) 영역 회피
   const laid = data.items.map(it => {
     const x = px(it.rs), y = py(it.mom)
     return { it, x, y, ly: y, side: (x > cx ? 'r' : 'l') as 'r' | 'l' }
   })
   for (const side of ['l', 'r'] as const) {
     const grp = laid.filter(d => d.side === side).sort((a, b) => a.ly - b.ly)
-    for (let i = 1; i < grp.length; i++) if (grp[i].ly - grp[i - 1].ly < 13) grp[i].ly = grp[i - 1].ly + 13
-    const overflow = grp.length ? Math.max(0, grp[grp.length - 1].ly - (cy + halfH - 4)) : 0
-    if (overflow > 0) for (const d of grp) d.ly -= overflow
+    // ① 위→아래 훑으며 최소 간격 확보(아래로 밀기)
+    for (let i = 1; i < grp.length; i++) if (grp[i].ly < grp[i - 1].ly + GAP) grp[i].ly = grp[i - 1].ly + GAP
+    // ② 아래→위 훑으며 하단 경계(maxY) 넘치면 위로 되밀기(클러스터가 아래로만 쏠리지 않게 양방향 분산)
+    for (let i = grp.length - 1; i >= 0; i--) {
+      const bound = i === grp.length - 1 ? maxY : grp[i + 1].ly - GAP
+      if (grp[i].ly > bound) grp[i].ly = bound
+    }
+    // ③ 상단 경계 클램프
+    for (const d of grp) if (d.ly < minY) d.ly = minY
   }
 
   return (
@@ -72,7 +80,7 @@ export default function SectorRotation() {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
         {/* 시계 */}
         <div style={{ flex: '1 1 480px', background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 12, padding: 8 }}>
-          <svg viewBox="0 0 500 470" style={{ width: '100%' }}>
+          <svg viewBox="0 0 500 486" style={{ width: '100%' }}>
             {/* 사분면 배경 */}
             <g opacity={0.12}>
               <rect x={cx - halfW} y={cy - halfH} width={halfW} height={halfH} fill={QC.improving} />
@@ -113,16 +121,19 @@ export default function SectorRotation() {
                 </>
               )
             })()}
-            {/* 섹터 점 + 겹침방지 라벨 */}
+            {/* 섹터 점 + 겹침방지 라벨(다크 헤일로로 배경 위에서도 또렷) */}
             {laid.map(({ it, x, y, ly, side }) => {
               const c = QC[it.quadrant], on = sel === it.key
-              const lx = side === 'r' ? x + 8 : x - 8
+              const lx = side === 'r' ? x + 9 : x - 9
               return (
                 <g key={it.key} onClick={() => setSel(it.key)} style={{ cursor: 'pointer' }}>
-                  {Math.abs(ly - y) > 4 && <line x1={x} y1={y} x2={lx} y2={ly} stroke={c} strokeWidth={0.5} opacity={0.3} />}
+                  {Math.abs(ly - y) > 3 && <line x1={x} y1={y} x2={lx} y2={ly} stroke={c} strokeWidth={0.6} opacity={0.38} />}
                   <circle cx={x} cy={y} r={on ? 6 : 4.5} fill={c} stroke={on ? '#fff' : c} strokeWidth={on ? 1.5 : 0} />
                   {it.group === 'theme' && <circle cx={x} cy={y} r={on ? 9 : 7.5} fill="none" stroke={c} strokeWidth={0.9} opacity={0.55} />}
-                  <text x={lx} y={ly + 3} textAnchor={side === 'r' ? 'start' : 'end'} fontSize={7.2} fontWeight={on ? 800 : 600} fill={on ? '#fff' : '#c3cdd9'}>{it.emoji}{FULL[it.key] ?? it.label}</text>
+                  <text x={lx} y={ly + 3} textAnchor={side === 'r' ? 'start' : 'end'} fontSize={7.6} fontWeight={on ? 800 : 600}
+                    fill={on ? '#fff' : '#d3dbe6'} stroke="#0d1017" strokeWidth={2.2} paintOrder="stroke" strokeLinejoin="round">
+                    {it.emoji}{FULL[it.key] ?? it.label}
+                  </text>
                 </g>
               )
             })}
