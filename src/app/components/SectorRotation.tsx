@@ -58,7 +58,8 @@ export default function SectorRotation() {
     let side: 'r' | 'l' = x > cx ? 'r' : 'l'
     if (side === 'l' && x - 12 - w < cx - halfW + 4) side = 'r'
     if (side === 'r' && x + 12 + w > cx + halfW - 4) side = 'l'
-    return { it, x, y, ly: y, side, lbl, w }
+    const pxl = side === 'r' ? Math.min(x + 11, cx + halfW - 4 - w) : Math.max(x - 11 - w, cx - halfW + 4)
+    return { it, x, y, ly: y, side, lbl, w, pxl }
   })
   for (const side of ['l', 'r'] as const) {
     const grp = laid.filter(d => d.side === side).sort((a, b) => a.ly - b.ly)
@@ -68,6 +69,19 @@ export default function SectorRotation() {
       if (grp[i].ly > bound) grp[i].ly = bound
     }
     for (const d of grp) if (d.ly < minY) d.ly = minY
+  }
+  // ③ 전역 충돌 해소 — 좌·우 그룹이 달라도(플립) 필이 '가로로' 겹치면 세로로 밀기(우주방산↔AI반도체 겹침 케이스)
+  const xOverlap = (a: typeof laid[0], b: typeof laid[0]) => a.pxl < b.pxl + b.w + 6 && b.pxl < a.pxl + a.w + 6
+  for (let pass = 0; pass < 2; pass++) {
+    const all = [...laid].sort((a, b) => a.ly - b.ly)
+    for (let i = 1; i < all.length; i++) for (let j = 0; j < i; j++)
+      if (all[i].ly - all[j].ly < GAP && xOverlap(all[i], all[j])) all[i].ly = all[j].ly + GAP
+    // 하단 초과분은 위로 되밀기(가로 겹침 체인만)
+    const rev = [...laid].sort((a, b) => b.ly - a.ly)
+    for (const d of rev) if (d.ly > maxY) d.ly = maxY
+    for (let i = 1; i < rev.length; i++) for (let j = 0; j < i; j++)
+      if (rev[j].ly - rev[i].ly < GAP && xOverlap(rev[i], rev[j])) rev[i].ly = rev[j].ly - GAP
+    for (const d of laid) if (d.ly < minY) d.ly = minY
   }
 
   return (
@@ -107,11 +121,17 @@ export default function SectorRotation() {
               <rect x={cx - halfW} y={cy} width={halfW} height={halfH} fill="url(#gLag)" />
               <rect x={cx - halfW} y={cy - halfH} width={halfW * 2} height={halfH * 2} rx={14} fill="none" stroke="#2a3242" strokeWidth={1.2} />
             </g>
-            {/* 축(중앙 십자 — 점선으로 존재감 낮춤) */}
+            {/* 축(중앙 십자 — 점선으로 존재감 낮춤). 축 제목·방향은 프레임 '밖'에 배치(필과 절대 안 겹침) */}
             <line x1={cx - halfW + 8} y1={cy} x2={cx + halfW - 8} y2={cy} stroke="#334155" strokeWidth={0.8} strokeDasharray="3 4" />
             <line x1={cx} y1={cy - halfH + 8} x2={cx} y2={cy + halfH - 8} stroke="#334155" strokeWidth={0.8} strokeDasharray="3 4" />
-            <text x={cx + halfW - 8} y={cy - 6} textAnchor="end" fontSize={9} fill="#7f93a8" fontWeight={600}>상대강도 →</text>
-            <text x={cx + 7} y={cy - halfH + 21} fontSize={9} fill="#7f93a8" fontWeight={600}>모멘텀 ↑</text>
+            {/* Y축(왼쪽 밖): 모멘텀 = 평균 대비 1주 수익률 — 위로 갈수록 가속 */}
+            <text x={cx - halfW - 40} y={cy} fontSize={10} fill="#8599ae" fontWeight={700} textAnchor="middle" transform={`rotate(-90 ${cx - halfW - 40} ${cy})`}>모멘텀 (1주 페이스)</text>
+            <text x={cx - halfW - 22} y={cy - halfH + 42} fontSize={10.5} fill="#4ade80" fontWeight={800} textAnchor="middle">▲ 가속</text>
+            <text x={cx - halfW - 22} y={cy + halfH - 36} fontSize={10.5} fill="#94a3b8" fontWeight={800} textAnchor="middle">▼ 둔화</text>
+            {/* X축(아래 밖): 상대강도 = 17섹터 평균 대비 1개월 수익률 — 오른쪽일수록 강함(돈 몰림) */}
+            <text x={cx - halfW + 4} y={cy + halfH + 18} fontSize={10.5} fill="#94a3b8" fontWeight={800}>◀ 약함</text>
+            <text x={cx} y={cy + halfH + 18} fontSize={10} fill="#8599ae" fontWeight={700} textAnchor="middle">상대강도 (17섹터 평균 대비 1개월 수익률)</text>
+            <text x={cx + halfW - 4} y={cy + halfH + 18} fontSize={10.5} fill="#4ade80" fontWeight={800} textAnchor="end">강함 ▶</text>
 
             {/* 시계방향 순환 화살표(모서리 S커브) */}
             {(() => {
@@ -132,9 +152,8 @@ export default function SectorRotation() {
             })()}
 
             {/* 리더 라인(점→필) — 필 아래 레이어 */}
-            {laid.map(({ it, x, y, ly, side, w }) => {
+            {laid.map(({ it, x, y, ly, side, w, pxl }) => {
               const c = QC[it.quadrant]
-              const pxl = side === 'r' ? Math.min(x + 11, cx + halfW - 4 - w) : Math.max(x - 11 - w, cx - halfW + 4)
               const edgeX = side === 'r' ? pxl : pxl + w
               return Math.abs(ly - y) > 3 || Math.abs(edgeX - x) > 14
                 ? <path key={'ld' + it.key} d={`M ${x} ${y} L ${x} ${ly} L ${edgeX} ${ly}`} fill="none" stroke={c} strokeWidth={0.7} opacity={0.35} />
@@ -154,9 +173,8 @@ export default function SectorRotation() {
             })}
 
             {/* 라벨 필(pill) — 다크 캡슐 + 국면색 테두리(겹침 원천 차단) */}
-            {laid.map(({ it, x, ly, side, lbl, w }) => {
+            {laid.map(({ it, ly, lbl, w, pxl }) => {
               const c = QC[it.quadrant], on = sel === it.key
-              const pxl = side === 'r' ? Math.min(x + 11, cx + halfW - 4 - w) : Math.max(x - 11 - w, cx - halfW + 4)
               return (
                 <g key={'pill' + it.key} onClick={() => setSel(it.key)} style={{ cursor: 'pointer' }}>
                   <rect x={pxl} y={ly - PH / 2} width={w} height={PH} rx={PH / 2} fill={on ? c : '#0d1017'} fillOpacity={on ? 0.95 : 0.88} stroke={c} strokeWidth={on ? 1.4 : 0.9} strokeOpacity={on ? 1 : 0.6} />
@@ -179,7 +197,7 @@ export default function SectorRotation() {
             })}
           </svg>
           <div style={{ fontSize: 10, color: '#6e7f8f', padding: '0 8px 6px', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <span>◯ 테두리 = 테마 섹터</span><span>중앙=평균 · 우=강함 · 상=가속</span><span>점 클릭 → 드릴다운</span>
+            <span>◌ 점선 링 = 테마 섹터</span><span><b style={{ color: '#a8b5c2' }}>오른쪽·위로 갈수록 좋음</b>(평균보다 많이 오르고 + 최근 가속)</span><span>점·라벨 클릭 → 드릴다운</span>
           </div>
         </div>
 
