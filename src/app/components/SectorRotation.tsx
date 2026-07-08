@@ -38,31 +38,35 @@ export default function SectorRotation() {
   if (err) return <div style={{ padding: 24, color: '#8599ae', textAlign: 'center', fontSize: 13 }}>⚠️ {err}</div>
   if (!data) return <div style={{ padding: 24, color: '#8599ae', textAlign: 'center', fontSize: 13 }}>🧭 섹터 자금 순환 계산 중… (17개 섹터 집계)</div>
 
-  // ── 시계 좌표 (파워 스케일링으로 중앙 뭉침을 펼침, halfW 축소로 라벨 여백 확보) ──
-  const cx = 250, cy = 248, halfW = 172, halfH = 212
+  // ── 시계 좌표 (파워 스케일링으로 중앙 뭉침을 펼침) ──
+  const cx = 260, cy = 252, halfW = 184, halfH = 214
   const maxRs = Math.max(1, ...data.items.map(i => Math.abs(i.rs)))
   const maxMom = Math.max(1, ...data.items.map(i => Math.abs(i.mom)))
   const spread = (v: number, max: number) => (v >= 0 ? 1 : -1) * Math.pow(Math.min(Math.abs(v) / max, 1), 0.5)
-  const px = (rs: number) => cx + spread(rs, maxRs) * halfW * 0.92
-  const py = (mom: number) => cy - spread(mom, maxMom) * halfH * 0.92
+  const px = (rs: number) => cx + spread(rs, maxRs) * halfW * 0.9
+  const py = (mom: number) => cy - spread(mom, maxMom) * halfH * 0.9
 
-  // 라벨 겹침 방지(declutter, 2-pass): 점은 그대로, 라벨 y만 같은 쪽끼리 최소 간격 GAP 확보 + 양방향 분산
-  const GAP = 15
-  const minY = cy - halfH + 18, maxY = cy + halfH - 18   // 코너 사분면 라벨(주도·태동·과열·이탈) 영역 회피
+  // ── 라벨 필(pill) 배치 — 폭 추정 + 좌우 자동 플립 + 세로 2-pass 분산(겹침 원천 차단) ──
+  const labelOf = (it: RotationItem) => `${it.emoji} ${FULL[it.key] ?? it.label.replace(/\s*\(.*\)/, '')}`
+  const pillW = (s: string) => 14 + Array.from(s).reduce((a, ch) => a + (/[가-힣]/.test(ch) ? 8.4 : /[ ·]/.test(ch) ? 3.4 : /[A-Za-z0-9]/.test(ch) ? 5.2 : 10), 0)
+  const PH = 16, GAP = PH + 3                       // 필 높이·최소 세로 간격
+  const minY = cy - halfH + 34, maxY = cy + halfH - 34   // 코너 사분면 칩 영역 회피
   const laid = data.items.map(it => {
     const x = px(it.rs), y = py(it.mom)
-    return { it, x, y, ly: y, side: (x > cx ? 'r' : 'l') as 'r' | 'l' }
+    const lbl = labelOf(it), w = pillW(lbl)
+    // 바깥쪽 우선 배치 + 경계 넘치면 안쪽으로 플립
+    let side: 'r' | 'l' = x > cx ? 'r' : 'l'
+    if (side === 'l' && x - 12 - w < cx - halfW + 4) side = 'r'
+    if (side === 'r' && x + 12 + w > cx + halfW - 4) side = 'l'
+    return { it, x, y, ly: y, side, lbl, w }
   })
   for (const side of ['l', 'r'] as const) {
     const grp = laid.filter(d => d.side === side).sort((a, b) => a.ly - b.ly)
-    // ① 위→아래 훑으며 최소 간격 확보(아래로 밀기)
-    for (let i = 1; i < grp.length; i++) if (grp[i].ly < grp[i - 1].ly + GAP) grp[i].ly = grp[i - 1].ly + GAP
-    // ② 아래→위 훑으며 하단 경계(maxY) 넘치면 위로 되밀기(클러스터가 아래로만 쏠리지 않게 양방향 분산)
-    for (let i = grp.length - 1; i >= 0; i--) {
+    for (let i = 1; i < grp.length; i++) if (grp[i].ly < grp[i - 1].ly + GAP) grp[i].ly = grp[i - 1].ly + GAP   // ① 아래로 밀기
+    for (let i = grp.length - 1; i >= 0; i--) {                                                                  // ② 위로 되밀기(양방향 분산)
       const bound = i === grp.length - 1 ? maxY : grp[i + 1].ly - GAP
       if (grp[i].ly > bound) grp[i].ly = bound
     }
-    // ③ 상단 경계 클램프
     for (const d of grp) if (d.ly < minY) d.ly = minY
   }
 
@@ -80,60 +84,96 @@ export default function SectorRotation() {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
         {/* 시계 */}
         <div style={{ flex: '1 1 480px', background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 12, padding: 8 }}>
-          <svg viewBox="0 0 500 486" style={{ width: '100%' }}>
-            {/* 사분면 배경 */}
-            <g opacity={0.12}>
-              <rect x={cx - halfW} y={cy - halfH} width={halfW} height={halfH} fill={QC.improving} />
-              <rect x={cx} y={cy - halfH} width={halfW} height={halfH} fill={QC.leading} />
-              <rect x={cx - halfW} y={cy} width={halfW} height={halfH} fill={QC.lagging} />
-              <rect x={cx} y={cy} width={halfW} height={halfH} fill={QC.weakening} />
+          <svg viewBox="0 0 520 500" style={{ width: '100%' }}>
+            <defs>
+              {/* 사분면 코너 라디얼 틴트 — 각 국면 색이 코너에서 은은히 번짐 */}
+              {([['gLead', QC.leading, 1, 0], ['gImp', QC.improving, 0, 0], ['gWeak', QC.weakening, 1, 1], ['gLag', QC.lagging, 0, 1]] as const).map(([id, col, fx, fy]) => (
+                <radialGradient key={id} id={id} cx={fx} cy={fy} r={1.15}>
+                  <stop offset="0%" stopColor={col} stopOpacity={0.22} />
+                  <stop offset="55%" stopColor={col} stopOpacity={0.08} />
+                  <stop offset="100%" stopColor={col} stopOpacity={0.02} />
+                </radialGradient>
+              ))}
+              <filter id="dotGlow" x="-80%" y="-80%" width="260%" height="260%">
+                <feGaussianBlur stdDeviation="2.6" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+              </filter>
+            </defs>
+
+            {/* 사분면 배경(라운드 외곽 + 코너 틴트) */}
+            <g>
+              <rect x={cx} y={cy - halfH} width={halfW} height={halfH} fill="url(#gLead)" />
+              <rect x={cx - halfW} y={cy - halfH} width={halfW} height={halfH} fill="url(#gImp)" />
+              <rect x={cx} y={cy} width={halfW} height={halfH} fill="url(#gWeak)" />
+              <rect x={cx - halfW} y={cy} width={halfW} height={halfH} fill="url(#gLag)" />
+              <rect x={cx - halfW} y={cy - halfH} width={halfW * 2} height={halfH * 2} rx={14} fill="none" stroke="#2a3242" strokeWidth={1.2} />
             </g>
-            <line x1={cx - halfW} y1={cy} x2={cx + halfW} y2={cy} stroke={BORDER} strokeWidth={1} />
-            <line x1={cx} y1={cy - halfH} x2={cx} y2={cy + halfH} stroke={BORDER} strokeWidth={1} />
-            {/* 사분면 라벨 */}
-            <text x={cx + halfW - 6} y={cy - halfH + 16} textAnchor="end" fontSize={12} fontWeight={800} fill={QC.leading}>🌱 주도</text>
-            <text x={cx - halfW + 6} y={cy - halfH + 16} fontSize={12} fontWeight={800} fill={QC.improving}>❄️ 태동</text>
-            <text x={cx + halfW - 6} y={cy + halfH - 8} textAnchor="end" fontSize={12} fontWeight={800} fill={QC.weakening}>🔥 과열</text>
-            <text x={cx - halfW + 6} y={cy + halfH - 8} fontSize={12} fontWeight={800} fill={QC.lagging}>🍂 이탈</text>
-            {/* 축 */}
-            <text x={cx + halfW - 4} y={cy + 14} textAnchor="end" fontSize={9.5} fill="#8599ae">상대강도 →</text>
-            <text x={cx + 5} y={cy - halfH + 10} fontSize={9.5} fill="#8599ae">모멘텀 ↑</text>
-            {/* 시계방향 순환 화살표 — 4개 모서리(태동→주도→과열→이탈) */}
+            {/* 축(중앙 십자 — 점선으로 존재감 낮춤) */}
+            <line x1={cx - halfW + 8} y1={cy} x2={cx + halfW - 8} y2={cy} stroke="#334155" strokeWidth={0.8} strokeDasharray="3 4" />
+            <line x1={cx} y1={cy - halfH + 8} x2={cx} y2={cy + halfH - 8} stroke="#334155" strokeWidth={0.8} strokeDasharray="3 4" />
+            <text x={cx + halfW - 8} y={cy - 6} textAnchor="end" fontSize={9} fill="#7f93a8" fontWeight={600}>상대강도 →</text>
+            <text x={cx + 7} y={cy - halfH + 21} fontSize={9} fill="#7f93a8" fontWeight={600}>모멘텀 ↑</text>
+
+            {/* 시계방향 순환 화살표(모서리 S커브) */}
             {(() => {
-              const A = '#7f8ea0', op = 0.45, m = 40, o = 15   // 색·투명도·화살길이·모서리 여백
+              const A = '#66748a', op = 0.5, m = 42, o = 13
               const R = cx + halfW - o, L = cx - halfW + o, T = cy - halfH + o, B = cy + halfH - o
               const arrow = (path: string, hx: number, hy: number, pts: string) => (
                 <g opacity={op}>
-                  <path d={path} fill="none" stroke={A} strokeWidth={1.4} strokeLinecap="round" />
+                  <path d={path} fill="none" stroke={A} strokeWidth={1.3} strokeLinecap="round" strokeDasharray="1 4" />
                   <path d={`M ${hx} ${hy} ${pts} z`} fill={A} />
                 </g>
               )
-              return (
-                <>
-                  {/* 상단: 태동→주도 (오른쪽으로) */}
-                  {arrow(`M ${cx - m} ${T} Q ${cx} ${T - 8} ${cx + m} ${T}`, cx + m, T, `l -6 -4 l 1 8`)}
-                  {/* 우측: 주도→과열 (아래로) */}
-                  {arrow(`M ${R} ${cy - m} Q ${R + 8} ${cy} ${R} ${cy + m}`, R, cy + m, `l -4 -6 l 8 1`)}
-                  {/* 하단: 과열→이탈 (왼쪽으로) */}
-                  {arrow(`M ${cx + m} ${B} Q ${cx} ${B + 8} ${cx - m} ${B}`, cx - m, B, `l 6 -4 l -1 8`)}
-                  {/* 좌측: 이탈→태동 (위로) */}
-                  {arrow(`M ${L} ${cy + m} Q ${L - 8} ${cy} ${L} ${cy - m}`, L, cy - m, `l -4 6 l 8 -1`)}
-                </>
-              )
+              return (<>
+                {arrow(`M ${cx - m} ${T} Q ${cx} ${T - 7} ${cx + m} ${T}`, cx + m, T, `l -6 -4 l 1 8`)}
+                {arrow(`M ${R} ${cy - m} Q ${R + 7} ${cy} ${R} ${cy + m}`, R, cy + m, `l -4 -6 l 8 1`)}
+                {arrow(`M ${cx + m} ${B} Q ${cx} ${B + 7} ${cx - m} ${B}`, cx - m, B, `l 6 -4 l -1 8`)}
+                {arrow(`M ${L} ${cy + m} Q ${L - 7} ${cy} ${L} ${cy - m}`, L, cy - m, `l -4 6 l 8 -1`)}
+              </>)
             })()}
-            {/* 섹터 점 + 겹침방지 라벨(다크 헤일로로 배경 위에서도 또렷) */}
-            {laid.map(({ it, x, y, ly, side }) => {
+
+            {/* 리더 라인(점→필) — 필 아래 레이어 */}
+            {laid.map(({ it, x, y, ly, side, w }) => {
+              const c = QC[it.quadrant]
+              const pxl = side === 'r' ? Math.min(x + 11, cx + halfW - 4 - w) : Math.max(x - 11 - w, cx - halfW + 4)
+              const edgeX = side === 'r' ? pxl : pxl + w
+              return Math.abs(ly - y) > 3 || Math.abs(edgeX - x) > 14
+                ? <path key={'ld' + it.key} d={`M ${x} ${y} L ${x} ${ly} L ${edgeX} ${ly}`} fill="none" stroke={c} strokeWidth={0.7} opacity={0.35} />
+                : null
+            })}
+
+            {/* 섹터 점(글로우) */}
+            {laid.map(({ it, x, y }) => {
               const c = QC[it.quadrant], on = sel === it.key
-              const lx = side === 'r' ? x + 9 : x - 9
               return (
-                <g key={it.key} onClick={() => setSel(it.key)} style={{ cursor: 'pointer' }}>
-                  {Math.abs(ly - y) > 3 && <line x1={x} y1={y} x2={lx} y2={ly} stroke={c} strokeWidth={0.6} opacity={0.38} />}
-                  <circle cx={x} cy={y} r={on ? 6 : 4.5} fill={c} stroke={on ? '#fff' : c} strokeWidth={on ? 1.5 : 0} />
-                  {it.group === 'theme' && <circle cx={x} cy={y} r={on ? 9 : 7.5} fill="none" stroke={c} strokeWidth={0.9} opacity={0.55} />}
-                  <text x={lx} y={ly + 3} textAnchor={side === 'r' ? 'start' : 'end'} fontSize={7.6} fontWeight={on ? 800 : 600}
-                    fill={on ? '#fff' : '#d3dbe6'} stroke="#0d1017" strokeWidth={2.2} paintOrder="stroke" strokeLinejoin="round">
-                    {it.emoji}{FULL[it.key] ?? it.label}
-                  </text>
+                <g key={'dot' + it.key} onClick={() => setSel(it.key)} style={{ cursor: 'pointer' }}>
+                  {on && <circle cx={x} cy={y} r={11} fill={c} opacity={0.22} />}
+                  <circle cx={x} cy={y} r={on ? 5.5 : 4.5} fill={c} stroke="#0d1017" strokeWidth={1.3} filter="url(#dotGlow)" />
+                  {it.group === 'theme' && <circle cx={x} cy={y} r={on ? 9.5 : 8} fill="none" stroke={c} strokeWidth={0.9} strokeDasharray="2.5 2" opacity={0.7} />}
+                </g>
+              )
+            })}
+
+            {/* 라벨 필(pill) — 다크 캡슐 + 국면색 테두리(겹침 원천 차단) */}
+            {laid.map(({ it, x, ly, side, lbl, w }) => {
+              const c = QC[it.quadrant], on = sel === it.key
+              const pxl = side === 'r' ? Math.min(x + 11, cx + halfW - 4 - w) : Math.max(x - 11 - w, cx - halfW + 4)
+              return (
+                <g key={'pill' + it.key} onClick={() => setSel(it.key)} style={{ cursor: 'pointer' }}>
+                  <rect x={pxl} y={ly - PH / 2} width={w} height={PH} rx={PH / 2} fill={on ? c : '#0d1017'} fillOpacity={on ? 0.95 : 0.88} stroke={c} strokeWidth={on ? 1.4 : 0.9} strokeOpacity={on ? 1 : 0.6} />
+                  <text x={pxl + w / 2} y={ly + 3.2} textAnchor="middle" fontSize={8.4} fontWeight={on ? 800 : 650} fill={on ? '#0d1017' : '#dbe3ee'}>{lbl}</text>
+                </g>
+              )
+            })}
+
+            {/* 코너 사분면 칩(맨 위 레이어 — 절대 가려지지 않음) */}
+            {([['🌱 주도', QC.leading, cx + halfW - 10, cy - halfH + 10, 'end', 0], ['❄️ 태동', QC.improving, cx - halfW + 10, cy - halfH + 10, 'start', 0],
+               ['🔥 과열', QC.weakening, cx + halfW - 10, cy + halfH - 10, 'end', 1], ['🍂 이탈', QC.lagging, cx - halfW + 10, cy + halfH - 10, 'start', 1]] as const).map(([t, c, tx, ty, anch, bot]) => {
+              const w2 = 58, rx0 = anch === 'end' ? tx - w2 : tx
+              const ry0 = bot ? ty - 18 : ty
+              return (
+                <g key={t}>
+                  <rect x={rx0} y={ry0} width={w2} height={18} rx={9} fill="#0d1017" fillOpacity={0.9} stroke={c} strokeWidth={1} strokeOpacity={0.7} />
+                  <text x={rx0 + w2 / 2} y={ry0 + 12.5} textAnchor="middle" fontSize={10} fontWeight={800} fill={c}>{t}</text>
                 </g>
               )
             })}
