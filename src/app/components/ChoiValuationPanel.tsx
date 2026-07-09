@@ -149,8 +149,8 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
   // PER 사용자 조정
   const [perInput, setPerInput] = useState('')
 
-  // 20년 시뮬 로그 스케일 토글
-  const [logScale, setLogScale] = useState(false)
+  // 20년 시뮬 로그 스케일 토글 — 기본 ON(복리 곡선을 직선으로 펴 기울기=성장속도, 선형은 지수폭발로 10배선이 바닥에 깔림)
+  const [logScale, setLogScale] = useState(true)
 
   // ── Supabase 보유 종목 로드 ───────────────────────────────────────────────
   useEffect(() => {
@@ -549,12 +549,14 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
     const gS = Math.min(cagrData.short.eps ?? 15, SIM_MAX)
     const gA = Math.min(analysis?.cagrEps  ?? gL,  SIM_MAX)
 
+    // ⭐ Y값 = 배수(현재 EPS=1×) — 원시 EPS(수억 단위)는 축이 읽히지 않음. 종목 무관 '1×→10×' 공통 언어로 통일
+    void base   // 배수 전환으로 base 자체는 미사용(양수 확인용 가드만 위에서 수행)
     return Array.from({ length: 21 }, (_, y) => ({
       year:     y,
-      보수적:   +(base * Math.pow(1.08,          y)).toFixed(4),
-      단기CAGR: hasS ? +(base * Math.pow(1 + gS / 100, y)).toFixed(4) : undefined,
-      장기CAGR: hasL ? +(base * Math.pow(1 + gL / 100, y)).toFixed(4) : undefined,
-      애널추정:  +(base * Math.pow(1 + gA / 100, y)).toFixed(4),
+      보수적:   +Math.pow(1.08,          y).toFixed(3),
+      단기CAGR: hasS ? +Math.pow(1 + gS / 100, y).toFixed(3) : undefined,
+      장기CAGR: hasL ? +Math.pow(1 + gL / 100, y).toFixed(3) : undefined,
+      애널추정:  +Math.pow(1 + gA / 100, y).toFixed(3),
     }))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawData, eps, cagrData, analysis, yearKeys])
@@ -607,13 +609,17 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
     // 보수적 (+8% 고정)
     const conservCross = findCrossYear(8)
 
+    const gAna = analysis?.cagrEps ?? null   // 애널 추정 성장률(적정주가 계산에 쓰는 값과 동일 — 제2원칙)
     return {
       target,
       보수적:   conservCross,
       단기CAGR: findCrossYear(gShort),
       장기CAGR: findCrossYear(gLong),
+      애널추정: gAna != null ? findCrossYear(gAna) : null,
+      rates: { 보수적: 8, 단기: cagrData.short.eps, 장기: cagrData.long.eps, 애널: gAna },   // 🏁 레이스 트랙 표시용 실제 성장률
     }
-  }, [simData, cagrData])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simData, cagrData, analysis])
 
   // tenBaggerYrs 는 더 이상 사용하지 않는다.
   // 헤더 텍스트는 tenBaggerPoints.장기CAGR?.year 를 직접 참조한다.
@@ -1227,20 +1233,8 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
           {/* 헤더 + 로그 스케일 토글 */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>🔭 20년 미래 EPS 시뮬레이션</div>
-              {/* ★ 헤더 텍스트 — tenBaggerPoints 에서 직접 참조 (차트 마커와 동일 소스) */}
-              {(tenBaggerPoints?.장기CAGR || tenBaggerPoints?.단기CAGR) && (
-                <div style={{ fontSize: 12, color: T.gld, lineHeight: 1.7 }}>
-                  ⭐ 텐배거(10배) 도달 예상
-                  {tenBaggerPoints.장기CAGR && (
-                    <span> &nbsp;·&nbsp; 장기 CAGR 기준 약 <strong>{tenBaggerPoints.장기CAGR.year}년</strong> 후</span>
-                  )}
-                  {tenBaggerPoints.단기CAGR &&
-                   tenBaggerPoints.단기CAGR.year !== tenBaggerPoints.장기CAGR?.year && (
-                    <span> &nbsp;·&nbsp; 단기 CAGR 기준 약 <strong>{tenBaggerPoints.단기CAGR.year}년</strong> 후</span>
-                  )}
-                </div>
-              )}
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>🔭 텐배거(10배) 레이스 — 이익이 지금 속도면 몇 년 뒤 10배?</div>
+              <div style={{ fontSize: 11, color: T.mut }}>이익(EPS)이 각 성장률로 복리 성장한다고 가정 — 결론은 아래 레이스 트랙 한 줄씩(짧을수록 빠름)</div>
             </div>
             {/* 로그 스케일 토글 */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -1264,10 +1258,49 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
             </div>
           </div>
 
+          {/* 🏁 텐배거 레이스 트랙 — 시나리오별 '몇 년 뒤 10배' 결론을 한 줄씩(차트보다 먼저, 결론 우선) */}
+          {tenBaggerPoints && (() => {
+            const R = tenBaggerPoints.rates
+            const rows = [
+              { name: '장기 성장 지속', rate: R.장기, cross: tenBaggerPoints.장기CAGR, color: T.grn },
+              { name: '최근 1년 속도', rate: R.단기, cross: tenBaggerPoints.단기CAGR, color: T.dn },
+              { name: '애널리스트 추정', rate: R.애널, cross: tenBaggerPoints.애널추정, color: T.up },
+              { name: '보수적(연 8%)', rate: R.보수적, cross: tenBaggerPoints.보수적, color: '#8a9aaa' },
+            ]
+            return (
+              <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 7 }}>
+                {rows.map(r => {
+                  const unknown = r.rate == null
+                  const noGrow = !unknown && (r.rate as number) <= 0
+                  const pct = r.cross ? (r.cross.year / 20) * 100 : 100
+                  return (
+                    <div key={r.name} style={{ display: 'grid', gridTemplateColumns: '150px 1fr 150px', alignItems: 'center', gap: 10, fontSize: 11.5 }}>
+                      <div style={{ color: T.sub, fontWeight: 700 }}>
+                        {r.name}
+                        <span style={{ color: T.mut, fontWeight: 400, marginLeft: 5 }}>{unknown ? '' : `연 ${(r.rate as number) >= 100 ? Math.round(r.rate as number) : (r.rate as number).toFixed(1)}%`}</span>
+                      </div>
+                      <div style={{ position: 'relative', height: 14, background: '#1c2434', borderRadius: 7, overflow: 'hidden' }}>
+                        {!unknown && !noGrow && (
+                          <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${pct}%`, borderRadius: 7,
+                            background: r.cross ? `linear-gradient(90deg, ${r.color}55, ${r.color})` : `repeating-linear-gradient(45deg, #2a2d3a, #2a2d3a 6px, #232634 6px, #232634 12px)` }} />
+                        )}
+                        {r.cross && <span style={{ position: 'absolute', left: `calc(${pct}% - 7px)`, top: -1, fontSize: 12 }}>🏁</span>}
+                      </div>
+                      <div style={{ fontWeight: 800, color: r.cross ? r.color : T.mut }}>
+                        {unknown ? '산출 불가(실적 부족)' : noGrow ? '역성장 — 도달 불가' : r.cross ? `약 ${r.cross.year}년 뒤 10배 🏆` : '20년+ 걸림'}
+                      </div>
+                    </div>
+                  )
+                })}
+                <div style={{ fontSize: 10, color: T.mut, marginTop: 2 }}>트랙 전체 = 20년 · 🏁 = 10배 도달 시점 · 빗금 = 20년 안에 못 감 · 성장률이 계속 유지된다는 가정(교육용)</div>
+              </div>
+            )
+          })()}
+
           {/* 로그 스케일 안내 */}
           {logScale && (
             <div style={{ marginBottom: 10, padding: '6px 12px', background: `${T.dn}15`, border: `1px solid ${T.dn}33`, borderRadius: 6, fontSize: 11, color: T.sub }}>
-              📐 로그 스케일 ON — Y축이 배수 단위로 표시됩니다. 저성장 라인도 명확하게 비교할 수 있습니다.
+              📐 로그 스케일 ON — 복리 곡선이 직선이 되어 기울기=성장 속도로 읽을 수 있습니다.
             </div>
           )}
 
@@ -1280,20 +1313,18 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
                 domain={logScale ? ['auto', 'auto'] : undefined}
                 tick={{ fill:T.mut, fontSize:10 }} axisLine={false} tickLine={false}
                 tickFormatter={(v: number) =>
-                  logScale
-                    ? (v >= 1e8 ? `${(v/1e8).toFixed(0)}억` : v >= 1e4 ? `${(v/1e4).toFixed(0)}만` : String(Math.round(v)))
-                    : String(Math.round(v))
+                  v >= 1e4 ? `${(v / 1e4).toFixed(0)}만×` : `${v >= 10 ? Math.round(v).toLocaleString() : v}×`
                 }
               />
               <RTooltip
                 contentStyle={{ background:T.card, border:`1px solid ${T.bd}`, borderRadius:8, fontSize:12 }}
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                formatter={(v: any) => [(v as number).toFixed(2), '']}
+                formatter={(v: any) => [`${(v as number).toFixed(1)}×`, '']}
               />
               <Legend wrapperStyle={{ fontSize: 11 }}/>
 
-              {/* ── 10배 기준선 (선형 스케일에서만) ── */}
-              {!logScale && tenBaggerPoints && (
+              {/* ── 10배 기준선 (배수 축이라 로그·선형 모두 y=10에 정확히 위치) ── */}
+              {tenBaggerPoints && (
                 <ReferenceLine
                   y={tenBaggerPoints.target}
                   stroke={T.gld} strokeDasharray="5 3" strokeOpacity={0.6}
