@@ -107,6 +107,7 @@ export default function UnifiedReco() {
           <div style={{ color: '#f59e0b', fontWeight: 800, fontSize: 12, marginBottom: 3 }}>통합 추천 — 계절 × 가치 × 수급 × 모멘텀 융합</div>
           <div style={{ color: '#aab6c4', fontSize: 12, lineHeight: 1.6 }}>
             4계절(매크로 방향)·가치(저PEG·마진·FCF)·수급(스마트머니)·모멘텀(Fwd EPS·주가추세)을 <b>하나의 점수</b>로 합칩니다. 네 축이 모두 높은 종목이 최상위 — 왜 추천됐는지 소점수로 투명하게 보여줍니다.
+            여기에 🧭 <b>섹터 로테이션 시계 국면</b>을 소폭 가점·감점(주도 +4 ~ 이탈 −3)으로 반영 — 돈이 도는 섹터의 종목이 동점권에서 앞섭니다.
           </div>
           <div style={{ color: '#7f93a8', fontSize: 11, marginTop: 4 }}>
             통합 = 🌦️ 계절 {Math.round(data.weights.season * 100)}% + 💎 가치 {Math.round(data.weights.fund * 100)}% + 💰 수급 {Math.round(data.weights.supply * 100)}% + 📈 모멘텀 {Math.round(data.weights.momentum * 100)}%

@@ -13,6 +13,7 @@ import { buildSignalMetrics } from '@/lib/jarvisBriefing'
 import { getAnalystSignal } from '@/app/actions/getAnalystSignal'
 import { fetchMacroData, detectMacroPhase, type ScreenedStock } from '@/lib/macroPhaseScreener'
 import { getEntryTimings, type EntryTiming } from '@/lib/entryTiming'
+import type { RotationResult, Quadrant as RotQuad } from '@/app/api/sector-rotation/route'
 // ⚠️ 버핏 DCF는 원시 FCF 변동성(예: TXN 팹 capex)으로 비현실적 값(-2637%) 발생 → 신뢰 가능한 ROE(버핏 핵심)로 대체
 
 export const dynamic = 'force-dynamic'
@@ -43,6 +44,8 @@ export interface UnifiedRecoItem {
   seasonFavored: boolean; supplyProxy: boolean; supplyKnown: boolean
   badges: string[]
   timing: EntryTiming | null       // 🚦 타점 신호등(EMA112·224+구름+ATR) — 점수 미반영, WHEN 정보만(신생·부족 시 null)
+  rotationQuad: 'leading' | 'weakening' | 'lagging' | 'improving' | null   // 🧭 섹터 로테이션 국면(GICS 11만)
+  rotationTilt: number             // 🧭 로테이션 틸트(주도 +4·태동 +2·과열 −1·이탈 −3, 미집계 0) — combined에 이미 반영됨
 }
 export interface UnifiedRecoResult {
   weights: typeof W
@@ -92,7 +95,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v18:${user.id}:${kstDate()}:${fp}`   // v18: timing에 price·cloudTop·atr 추가(📋 매매 플랜 카드용)
+  const cacheKey = `unified-reco-v19:${user.id}:${kstDate()}:${fp}`   // v19: 🧭 섹터 로테이션 틸트(±4)·rotationQuad 필드 추가
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -155,6 +158,31 @@ export async function GET(req: Request) {
   const capexSurge = capCache?.verdict === 'surge'
   const capexFrac = (capCache?.latestYoY ?? 0) / 100
   const mSig = (d: ScreenedStock['fwdEpsDir']) => d === 'accel' ? 1 : d === 'flat' ? 0.5 : 0
+
+  // ★ 🧭 섹터 로테이션 틸트 — 로테이션 시계(RRG 17섹터)의 국면을 제한된 가점·감점으로 반영(qualityTilt와 동일 패턴).
+  //   5번째 가중축이 아닌 이유: 섹터 국면은 rs/mom 부호로 며칠 만에 뒤집혀 축으로 넣으면 추천 리스트 휩쏘 + 4축 희석.
+  //   틸트는 ±4 바운드 — "WHAT은 펀더멘탈" 우선순위 유지, 동점권에서만 주도/이탈 섹터를 가름. 캐시 읽기만(콜드면 틸트 0 graceful).
+  let rotQuadBySector: Map<string, { q: RotQuad; score: number }> | null = null
+  for (let d = 0; d < 3 && !rotQuadBySector; d++) {
+    const dt = new Date(Date.now() + 9 * 3600_000 - d * 86_400_000).toISOString().slice(0, 10)
+    const rot = await getCache<RotationResult>(`sector-rotation-v9:${dt}`, 3 * 24 * 3600_000)
+    if (rot?.items?.length) rotQuadBySector = new Map(rot.items.map(i => [i.key, { q: i.quadrant, score: i.score }]))
+  }
+  // Yahoo GICS 섹터명 → 로테이션 시계 키(GICS 11만 — 테마 6은 종목 중복 소속이라 매핑 제외)
+  const SECTOR_TO_ROT: Record<string, string> = {
+    'Technology': 'infotech', 'Financial Services': 'financials', 'Healthcare': 'healthcare',
+    'Consumer Cyclical': 'discretionary', 'Consumer Defensive': 'staples', 'Energy': 'energy',
+    'Industrials': 'industrials', 'Basic Materials': 'materials', 'Communication Services': 'communication',
+    'Utilities': 'utilities', 'Real Estate': 'realestate',
+  }
+  const ROT_TILT: Record<RotQuad, number> = { leading: 4, improving: 2, weakening: -1, lagging: -3 }
+  const ROT_LABEL: Record<RotQuad, string> = { leading: '🌱 주도 섹터(자금 유입)', improving: '❄️ 태동 섹터(회전 초입)', weakening: '🔥 과열 섹터(모멘텀 둔화)', lagging: '🍂 이탈 섹터(자금 유출)' }
+  const rotationOf = (sector: string | null): { q: RotQuad; tilt: number } | null => {
+    if (!rotQuadBySector || !sector) return null
+    const key = SECTOR_TO_ROT[sector]; if (!key) return null
+    const r = rotQuadBySector.get(key); if (!r) return null
+    return { q: r.q, tilt: ROT_TILT[r.q] }
+  }
   //   복구 공식(제미나이): adjFit = fit + 0.5·min(1,ΔCapEx/0.5)·M_sig — 계절 불리(fit<0.5)·수혜섹터(Technology)만
   function adjustedSeason(rawFit01: number, s: ScreenedStock, diverge: boolean): { score: number; overridden: boolean } {
     if (!diverge || !capexSurge || rawFit01 >= 0.5 || s.sector !== 'Technology') return { score: clamp(rawFit01 * 100), overridden: false }
@@ -216,8 +244,12 @@ export async function GET(req: Request) {
     else if (p.s.priceTrend === 'down') badges.push('🔻 주가 하락추세')
     if (p.knife) badges.push('🔪 급락 추세(falling knife)')
     if (p.waveOverride) badges.push('🌊 CapEx 수혜(매크로 역풍 돌파)')
-    const combined = clamp(p.seasonScore * W.season + p.fundScore * W.fund + supplyScore * W.supply + p.momentumScore * W.momentum)
-    return { p, supplyScore, supplyKnown, supplyProxy, badges, combined }
+    // 🧭 섹터 로테이션 틸트(±4 바운드) — 선정 전 반영: 주도/태동 섹터 종목이 동점권에서 앞서고, 이탈 섹터는 뒤로
+    const rot = rotationOf(p.s.sector)
+    if (rot) badges.push(`🧭 ${ROT_LABEL[rot.q]}`)
+    const rotTilt = rot?.tilt ?? 0
+    const combined = clamp(p.seasonScore * W.season + p.fundScore * W.fund + supplyScore * W.supply + p.momentumScore * W.momentum + rotTilt)
+    return { p, supplyScore, supplyKnown, supplyProxy, badges, combined, rotQuad: rot?.q ?? null, rotTilt }
   })
 
   // ⑤ 원칙적 선별 — ① 품질 바닥 통합 65↑ ② 섹터당 최대 4(분산) ③ 최대 12종 ④ 한국 최소 3종 보장(국내 학생용)
@@ -252,7 +284,7 @@ export async function GET(req: Request) {
       top = top.filter(t => !dropSet.has(t.p.s.ticker)).concat(krAdd).sort((a, b) => b.combined - a.combined)
     }
   }
-  const selectionRule = `통합 ${QUALITY_FLOOR}점 이상 · 🔪 급락 추세(falling knife) 제외 · 섹터당 최대 ${SECTOR_CAP}종(분산) · 한국 최소 ${MIN_KR}종 보장 · 최대 ${MAX_ITEMS}종`
+  const selectionRule = `통합 ${QUALITY_FLOOR}점 이상 · 🔪 급락 추세(falling knife) 제외 · 섹터당 최대 ${SECTOR_CAP}종(분산) · 한국 최소 ${MIN_KR}종 보장 · 최대 ${MAX_ITEMS}종${rotQuadBySector ? ' · 🧭 로테이션 틸트(주도 +4·태동 +2·과열 −1·이탈 −3)' : ''}`
 
   // ⑥ 최종 12종 심화 검증 — canonical PEG(제2원칙) + 🛡️버핏 DCF 안전마진 + 📈Fwd EPS 모멘텀 (배치 4)
   const items: UnifiedRecoItem[] = []
@@ -279,7 +311,7 @@ export async function GET(req: Request) {
         badges.push('⚠️ 저PEG 기저효과 의심')
         if (fundScore > 68) {
           fundScore = 68
-          combined = clamp(t.p.seasonScore * W.season + fundScore * W.fund + t.supplyScore * W.supply + t.p.momentumScore * W.momentum)
+          combined = clamp(t.p.seasonScore * W.season + fundScore * W.fund + t.supplyScore * W.supply + t.p.momentumScore * W.momentum + t.rotTilt)
         }
       }
       // ⚙️ 자본효율 — ROIC(투하자본이익률) 우선. 없으면 ROE 폴백. + 점수(→비중) 반영: 복리 기계는 가점, 빚으로 부풀린 ROE는 감점
@@ -301,6 +333,7 @@ export async function GET(req: Request) {
         peg, opMargin: t.p.s.opMargin, psr: cf?.psr ?? null, roe, roic, roeInflated, epsRevision, suggestWeight, suggestWon,
         seasonFavored: t.p.favored, supplyProxy: t.supplyProxy, supplyKnown: t.supplyKnown, badges,
         timing: null,   // 🚦 최종 선정 후 일괄 부착
+        rotationQuad: t.rotQuad, rotationTilt: t.rotTilt,
       }
     }))
     items.push(...part)
