@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 const NAV = [
+  { href: '/briefing',  icon: '🎯', label: '오늘의 매매 브리핑' },
   { href: '/dashboard', icon: '📊', label: '대시보드' },
   { href: '/assets',    icon: '💼', label: '자산 관리' },
   { href: '/history',   icon: '📋', label: '투자 기록' },
