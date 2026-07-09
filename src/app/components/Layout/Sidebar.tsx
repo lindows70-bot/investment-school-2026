@@ -4,33 +4,60 @@ import { useState, useEffect, Suspense } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-const NAV = [
-  { href: '/briefing',  icon: '🎯', label: '오늘의 매매 브리핑' },
-  { href: '/dashboard', icon: '📊', label: '대시보드' },
-  { href: '/assets',    icon: '💼', label: '자산 관리' },
-  { href: '/history',   icon: '📋', label: '투자 기록' },
-  { href: '/analysis',  icon: '📈', label: '투자 분석' },
+// ── 용도 기반 5그룹 — "매일 보는 것"이 맨 위, 나머지는 사전(레퍼런스) ──
+interface NavItem { href: string; icon: string; label: string }
+interface NavGroup { title: string; color: string; items: NavItem[] }
+const GROUPS: NavGroup[] = [
+  {
+    title: '📌 매일', color: '#10b981',
+    items: [
+      { href: '/briefing',  icon: '🎯', label: '오늘의 매매 브리핑' },
+      { href: '/dashboard', icon: '📊', label: '대시보드' },
+    ],
+  },
+  {
+    title: '💼 내 자산', color: '#3b82f6',
+    items: [
+      { href: '/assets',  icon: '💼', label: '자산 관리' },
+      { href: '/history', icon: '📋', label: '투자 기록' },
+    ],
+  },
+  {
+    title: '🔍 종목 확인', color: '#fbbf24',
+    items: [
+      { href: '/research',             icon: '🔭', label: '종목 리서치' },
+      { href: '/tech-chart',           icon: '📉', label: '기술적 차트' },
+      { href: '/watchlist',            icon: '⭐', label: '관심종목' },
+      { href: '/analysis?tab=lynch',   icon: '🔍', label: '피터린치 분석' },
+      { href: '/analysis?tab=buffett', icon: '🛡️', label: '워렌버핏 분석' },
+      { href: '/valuation',            icon: '📊', label: '최일 가치분석' },
+    ],
+  },
+  {
+    title: '🌍 시장 탐구', color: '#a78bfa',
+    items: [
+      { href: '/dashboard?tab=rotation',            icon: '🧭', label: '섹터 로테이션 시계' },
+      { href: '/dashboard?tab=moneyflow&view=unified', icon: '💰', label: '수급·통합추천' },
+      { href: '/dashboard?tab=rebalance',           icon: '🤖', label: 'AI 리밸런싱' },
+      { href: '/macro-hub',                         icon: '🌐', label: 'Macro Hub' },
+    ],
+  },
+  {
+    title: '🎓 교육·학교', color: '#818cf8',
+    items: [
+      { href: '/investment-academy', icon: '🎓', label: 'Investment Academy' },
+      { href: '/master-strategy',    icon: '🏹', label: 'Master Strategy' },
+      { href: '/school-lounge',      icon: '💬', label: 'School Lounge' },
+      { href: '/school-league',      icon: '🏆', label: 'School League' },
+    ],
+  },
 ]
 
-const ANALYSIS_NAV = [
-  { href: '/analysis?tab=lynch',   icon: '🔍', label: '피터린치 분석' },
-  { href: '/analysis?tab=buffett', icon: '🛡️', label: '워렌버핏 분석' },
-  { href: '/valuation',            icon: '📊', label: '최일 가치분석' },
-]
-
-const RESEARCH_NAV = [
-  { href: '/research',   icon: '🔭', label: '종목 리서치' },
-  { href: '/tech-chart', icon: '📉', label: '기술적 차트' },
-  { href: '/watchlist',  icon: '⭐', label: '관심종목' },
-]
-
-const SCHOOL_NAV = [
-  { href: '/master-strategy',    icon: '🏹', label: 'Master Strategy' },
-  { href: '/investment-academy', icon: '🎓', label: 'Investment Academy' },
-  { href: '/school-lounge',      icon: '💬', label: 'School Lounge' },
-  { href: '/macro-hub',          icon: '🌐', label: 'Macro Hub' },
-  { href: '/school-league',      icon: '🏆', label: 'School League' },
-]
+// 그룹 색상 → 활성/호버 스타일용 rgba
+const rgba = (hex: string, a: number) => {
+  const n = parseInt(hex.slice(1), 16)
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`
+}
 
 function SidebarInner() {
   const pathname = usePathname()
@@ -156,116 +183,52 @@ function SidebarInner() {
 
       <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.2), transparent)', margin: '0 12px' }}/>
 
-      {/* ── 메인 메뉴 ─────────────────────────────────────── */}
+      {/* ── 메인 메뉴 — 용도 기반 5그룹(📌매일이 맨 위, 나머지는 사전) ───────── */}
       <nav style={{ padding: '14px 10px', flex: 1 }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: '#7a8fa3', letterSpacing: '0.12em', padding: '0 10px 10px', textTransform: 'uppercase' as const }}>
-          MAIN MENU
-        </div>
-
-        {NAV.map(({ href, icon, label }) => {
-          const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
-          return (
-            <a key={href} href={href} style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              padding: '10px 12px', borderRadius: 10, textDecoration: 'none',
-              color:      active ? '#f1f5f9' : '#8a9aaa',
-              background: active ? 'rgba(37,99,235,0.2)' : 'transparent',
-              borderLeft: `3px solid ${active ? '#10b981' : 'transparent'}`,
-              fontSize: 14, fontWeight: active ? 700 : 400,
-              transition: 'all 0.12s', marginBottom: 3,
-              boxShadow: active ? 'inset 0 0 0 1px rgba(37,99,235,0.15)' : 'none',
-            }}
-              onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLAnchorElement).style.color = '#d1d5db' } }}
-              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; (e.currentTarget as HTMLAnchorElement).style.color = '#8a9aaa' } }}
-            >
-              <span style={{ fontSize: 17, lineHeight: 1, minWidth: 20, textAlign: 'center' as const }}>{icon}</span>
-              {label}
-            </a>
-          )
-        })}
-
-        {/* ── 분석 도구 ── */}
-        <div style={{ height: 1, background: '#1f2937', margin: '12px 4px 12px' }}/>
-        <div style={{ fontSize: 10, fontWeight: 700, color: '#7a8fa3', letterSpacing: '0.12em', padding: '0 10px 10px', textTransform: 'uppercase' as const }}>
-          ANALYSIS TOOL
-        </div>
-
-        {ANALYSIS_NAV.map(({ href, icon, label }) => {
-          // searchParams에서 tab 값을 읽어 정확히 판별
-          const active = isAnalysis && (
-            (href.includes('lynch')   && currentTab === 'lynch')   ||
-            (href.includes('buffett') && currentTab === 'buffett')
-          )
-          return (
-            <a key={href} href={href} style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              padding: '10px 12px', borderRadius: 10, textDecoration: 'none',
-              color:      active ? '#f1f5f9' : '#8a9aaa',
-              background: active ? 'rgba(124,58,237,0.18)' : 'transparent',
-              borderLeft: `3px solid ${active ? '#a78bfa' : 'transparent'}`,
-              fontSize: 14, fontWeight: active ? 700 : 400,
-              transition: 'all 0.12s', marginBottom: 3,
-            }}
-              onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(167,139,250,0.08)'; (e.currentTarget as HTMLAnchorElement).style.color = '#c4b5fd' } }}
-              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; (e.currentTarget as HTMLAnchorElement).style.color = '#8a9aaa' } }}
-            >
-              <span style={{ fontSize: 17, lineHeight: 1, minWidth: 20, textAlign: 'center' as const }}>{icon}</span>
-              {label}
-            </a>
-          )
-        })}
-
-        {/* ── 리서치 도구 ── */}
-        <div style={{ height: 1, background: '#1f2937', margin: '12px 4px 12px' }}/>
-        <div style={{ fontSize: 10, fontWeight: 700, color: '#7a8fa3', letterSpacing: '0.12em', padding: '0 10px 10px', textTransform: 'uppercase' as const }}>
-          RESEARCH
-        </div>
-        {RESEARCH_NAV.map(({ href, icon, label }) => {
-          const active = pathname.startsWith(href)
-          return (
-            <a key={href} href={href} style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              padding: '10px 12px', borderRadius: 10, textDecoration: 'none',
-              color:      active ? '#f1f5f9' : '#8a9aaa',
-              background: active ? 'rgba(251,191,36,0.12)' : 'transparent',
-              borderLeft: `3px solid ${active ? '#fbbf24' : 'transparent'}`,
-              fontSize: 14, fontWeight: active ? 700 : 400,
-              transition: 'all 0.12s', marginBottom: 3,
-            }}
-              onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(251,191,36,0.07)'; (e.currentTarget as HTMLAnchorElement).style.color = '#fde68a' } }}
-              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; (e.currentTarget as HTMLAnchorElement).style.color = '#8a9aaa' } }}
-            >
-              <span style={{ fontSize: 17, lineHeight: 1, minWidth: 20, textAlign: 'center' as const }}>{icon}</span>
-              {label}
-            </a>
-          )
-        })}
-
-        {/* ── SCHOOL 섹션 ── */}
-        <div style={{ height: 1, background: '#1f2937', margin: '12px 4px 12px' }}/>
-        <div style={{ fontSize: 10, fontWeight: 700, color: '#7a8fa3', letterSpacing: '0.12em', padding: '0 10px 10px', textTransform: 'uppercase' as const }}>
-          SCHOOL
-        </div>
-        {SCHOOL_NAV.map(({ href, icon, label }) => {
-          const active = pathname.startsWith(href)
-          return (
-            <a key={href} href={href} style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              padding: '10px 12px', borderRadius: 10, textDecoration: 'none',
-              color:      active ? '#f1f5f9' : '#8a9aaa',
-              background: active ? 'rgba(99,102,241,0.15)' : 'transparent',
-              borderLeft: `3px solid ${active ? '#818cf8' : 'transparent'}`,
-              fontSize: 14, fontWeight: active ? 700 : 400,
-              transition: 'all 0.12s', marginBottom: 3,
-            }}
-              onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(99,102,241,0.07)'; (e.currentTarget as HTMLAnchorElement).style.color = '#a5b4fc' } }}
-              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; (e.currentTarget as HTMLAnchorElement).style.color = '#8a9aaa' } }}
-            >
-              <span style={{ fontSize: 17, lineHeight: 1, minWidth: 20, textAlign: 'center' as const }}>{icon}</span>
-              {label}
-            </a>
-          )
-        })}
+        {GROUPS.map((g, gi) => (
+          <div key={g.title}>
+            {gi > 0 && <div style={{ height: 1, background: '#1f2937', margin: '12px 4px 12px' }} />}
+            <div style={{ fontSize: 10.5, fontWeight: 800, color: g.color, letterSpacing: '0.08em', padding: '0 10px 9px', opacity: 0.9 }}>
+              {g.title}
+            </div>
+            {g.items.map(({ href, icon, label }) => {
+              // active 판정 — 쿼리 딥링크(?tab=, ?view=)는 쿼리까지 정확 일치, 일반 경로는 startsWith
+              const [hPath, hQuery] = href.split('?')
+              let active: boolean
+              if (hQuery) {
+                const hq = new URLSearchParams(hQuery)
+                active = pathname === hPath && Array.from(hq.entries()).every(([k, v]) => searchParams.get(k) === v)
+              } else if (hPath === '/dashboard') {
+                active = pathname === '/dashboard' && !searchParams.get('tab')
+              } else if (hPath === '/analysis') {
+                active = isAnalysis && !searchParams.get('tab')
+              } else {
+                active = pathname === hPath || pathname.startsWith(hPath + '/')
+              }
+              // /analysis?tab= 계열 특수 판별(기본 탭 lynch)
+              if (hPath === '/analysis' && hQuery) {
+                active = isAnalysis && currentTab === new URLSearchParams(hQuery).get('tab')
+              }
+              return (
+                <a key={href} href={href} style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '9px 12px', borderRadius: 10, textDecoration: 'none',
+                  color:      active ? '#f1f5f9' : '#8a9aaa',
+                  background: active ? rgba(g.color, 0.16) : 'transparent',
+                  borderLeft: `3px solid ${active ? g.color : 'transparent'}`,
+                  fontSize: 13.5, fontWeight: active ? 700 : 400,
+                  transition: 'all 0.12s', marginBottom: 2,
+                }}
+                  onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = rgba(g.color, 0.07); (e.currentTarget as HTMLAnchorElement).style.color = '#d1d5db' } }}
+                  onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; (e.currentTarget as HTMLAnchorElement).style.color = '#8a9aaa' } }}
+                >
+                  <span style={{ fontSize: 16, lineHeight: 1, minWidth: 20, textAlign: 'center' as const }}>{icon}</span>
+                  {label}
+                </a>
+              )
+            })}
+          </div>
+        ))}
 
         {/* Teacher 전용 관리자 */}
         {isTeacher && (
