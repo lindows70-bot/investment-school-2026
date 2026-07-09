@@ -97,7 +97,7 @@ export default function BriefingPage() {
       </Sec>
 
       {/* ③ 담을 것 */}
-      <Sec no="③" title="담을 것" sub="통합추천 Top 5 — 4축 점수 + 🚦타점 + 📋플랜" link="/dashboard?tab=moneyflow" linkLabel="통합추천 전체(12종)">
+      <Sec no="③" title="담을 것" sub="통합추천 Top 5 — 4축 점수 + 🚦타점 + 📋플랜" link="/dashboard?tab=moneyflow&view=unified" linkLabel="통합추천 전체(12종)">
         {reco.loading ? <Skel h={160} /> : buys.length ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {buys.map(it => (

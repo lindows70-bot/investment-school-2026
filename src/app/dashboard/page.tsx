@@ -674,11 +674,15 @@ export default function DashboardPage() {
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
   const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'dalio' | 'marks' | 'globalcycle' | 'ipocycle' | 'crisis' | 'champions' | 'rotation' | 'quantum' | 'aisemi' | 'power' | 'physai' | 'aibio' | 'defense' | 'financials' | 'energy' | 'materials' | 'industrials' | 'discretionary' | 'staples' | 'healthcare' | 'infotech' | 'communication' | 'utilities' | 'realestate'>('live')
 
-  // 🎯 딥링크(?tab=) — 매매 브리핑 등 외부에서 특정 탭으로 바로 진입(허용 목록만)
+  // 🎯 딥링크(?tab=&view=) — 매매 브리핑 등 외부에서 특정 탭(+수급레이더 서브탭)으로 바로 진입(허용 목록만)
   useEffect(() => {
-    const t = new URLSearchParams(window.location.search).get('tab')
+    const sp = new URLSearchParams(window.location.search)
+    const t = sp.get('tab')
     const ALLOW = new Set(['rebalance', 'moneyflow', 'rotation', 'marks', 'season', 'quantbuilder'])
     if (t && ALLOW.has(t)) setDashTab(t as 'rebalance')
+    const v = sp.get('view')
+    const FLOW = new Set(['mine', 'market', 'investor', 'reco', 'unified', 'leverage'])
+    if (t === 'moneyflow' && v && FLOW.has(v)) setFlowView(v as 'unified')
   }, [])
   const [flowView, setFlowView] = useState<'mine' | 'market' | 'investor' | 'reco' | 'unified' | 'leverage'>('mine')
   const [openGroup, setOpenGroup] = useState<string | null>(null)
