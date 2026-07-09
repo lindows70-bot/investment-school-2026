@@ -149,8 +149,7 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
   // PER 사용자 조정
   const [perInput, setPerInput] = useState('')
 
-  // 20년 시뮬 로그 스케일 토글 — 기본 ON(복리 곡선을 직선으로 펴 기울기=성장속도, 선형은 지수폭발로 10배선이 바닥에 깔림)
-  const [logScale, setLogScale] = useState(true)
+  // 20년 시뮬은 로그 축 전용 — 선형은 복리+배수 축에서 수학적으로 항상 바닥에 깔려 무의미(토글 제거, 2026-07-09)
 
   // ── Supabase 보유 종목 로드 ───────────────────────────────────────────────
   useEffect(() => {
@@ -1230,32 +1229,10 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
       {/* ═══ [6단] 20년 EPS 시뮬레이션 ═══════════════════════════════════ */}
       {hasData && simData.length > 0 && (
         <div style={cs({ padding: '20px 24px', marginBottom: 16 })}>
-          {/* 헤더 + 로그 스케일 토글 */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>🔭 텐배거(10배) 레이스 — 이익이 지금 속도면 몇 년 뒤 10배?</div>
-              <div style={{ fontSize: 11, color: T.mut }}>이익(EPS)이 각 성장률로 복리 성장한다고 가정 — 결론은 아래 레이스 트랙 한 줄씩(짧을수록 빠름)</div>
-            </div>
-            {/* 로그 스케일 토글 */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              <span style={{ fontSize: 11, color: T.mut }}>로그 스케일</span>
-              <button
-                onClick={() => setLogScale(prev => !prev)}
-                style={{
-                  position: 'relative', width: 40, height: 22, borderRadius: 11, border: 'none',
-                  background: logScale ? T.dn : T.bd,
-                  cursor: 'pointer', transition: 'background 0.2s',
-                  flexShrink: 0,
-                }}
-                title={logScale ? '선형 스케일로 전환' : '로그 스케일로 전환 (저성장 라인 가시성 개선)'}
-              >
-                <span style={{
-                  position: 'absolute', top: 3, width: 16, height: 16, borderRadius: '50%',
-                  background: T.txt, transition: 'left 0.2s',
-                  left: logScale ? 21 : 3,
-                }}/>
-              </button>
-            </div>
+          {/* 헤더 — 로그 전용(선형은 복리+배수 축에서 수학적으로 항상 바닥에 깔려 무의미 → 토글 제거) */}
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>🔭 텐배거(10배) 레이스 — 이익이 지금 속도면 몇 년 뒤 10배?</div>
+            <div style={{ fontSize: 11, color: T.mut }}>이익(EPS)이 각 성장률로 복리 성장한다고 가정 — 결론은 아래 레이스 트랙 한 줄씩(짧을수록 빠름)</div>
           </div>
 
           {/* 🏁 텐배거 레이스 트랙 — 시나리오별 '몇 년 뒤 10배' 결론을 한 줄씩(차트보다 먼저, 결론 우선) */}
@@ -1297,20 +1274,18 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
             )
           })()}
 
-          {/* 로그 스케일 안내 */}
-          {logScale && (
-            <div style={{ marginBottom: 10, padding: '6px 12px', background: `${T.dn}15`, border: `1px solid ${T.dn}33`, borderRadius: 6, fontSize: 11, color: T.sub }}>
-              📐 로그 스케일 ON — 복리 곡선이 직선이 되어 기울기=성장 속도로 읽을 수 있습니다.
-            </div>
-          )}
+          {/* 로그 축 안내(고정) */}
+          <div style={{ marginBottom: 10, padding: '6px 12px', background: `${T.dn}15`, border: `1px solid ${T.dn}33`, borderRadius: 6, fontSize: 11, color: T.sub }}>
+            📐 로그 축 — 복리 곡선이 직선이 되어 <b>기울기 = 성장 속도</b>로 읽습니다. 10배 기준선(금색)과 만나는 지점이 텐배거 도달 시점.
+          </div>
 
           <ResponsiveContainer width="100%" height={320}>
             <LineChart data={simData} margin={{ top:36, right:20, bottom:0, left:10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={T.bd} vertical={false}/>
               <XAxis dataKey="year" tick={{ fill:T.mut, fontSize:10 }} axisLine={false} tickLine={false} tickFormatter={v => `${v}년`}/>
               <YAxis
-                scale={logScale ? 'log' : 'auto'}
-                domain={logScale ? ['auto', 'auto'] : undefined}
+                scale="log"
+                domain={['auto', 'auto']}
                 tick={{ fill:T.mut, fontSize:10 }} axisLine={false} tickLine={false}
                 tickFormatter={(v: number) =>
                   v >= 1e4 ? `${(v / 1e4).toFixed(0)}만×` : `${v >= 10 ? Math.round(v).toLocaleString() : v}×`
