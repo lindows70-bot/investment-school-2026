@@ -64,7 +64,10 @@ export default function TradePlanCard({ market, timing, portfolioKrw }: {
               <span style={{ color: '#7f93a8' }}>주당 리스크</span>
               <span style={{ color: '#e2e8f0', fontFamily: 'monospace' }}>진입 {fmtP(t.price)} − 🛡손절 {fmtP(t.atrStop)} = <b>{fmtP(perShareRisk)}</b></span>
               <span style={{ color: '#7f93a8' }}>매수 가능 수량</span>
-              <span style={{ color: '#4ade80', fontFamily: 'monospace', fontWeight: 800 }}>{qty.toLocaleString()}주 (≈{fmtW(totalKrw)}, 포트의 {Math.round(totalKrw / portfolioKrw * 1000) / 10}%)</span>
+              <span style={{ color: '#4ade80', fontFamily: 'monospace', fontWeight: 800 }}>
+                {qty.toLocaleString()}주 (≈{fmtW(totalKrw)}, 포트의 {Math.round(totalKrw / portfolioKrw * 1000) / 10}%)
+                {totalKrw / portfolioKrw > 0.15 && <span style={{ color: '#fb923c', fontFamily: 'inherit', fontWeight: 700, fontSize: 10 }}> ⚠️ 명목 비중 큼 — 갭 하락 시 손절선을 건너뛰어 손실이 계산보다 커질 수 있음. 한 종목 15% 이내 상한 권장</span>}
+              </span>
               <span style={{ color: '#7f93a8' }}>익절 참고선</span>
               <span style={{ color: '#fbbf24', fontFamily: 'monospace' }}>2R {fmtP(r2)} · 3R {fmtP(r3)} <span style={{ color: '#7f93a8', fontFamily: 'inherit' }}>(손절폭의 2·3배 — 손익비 1:2 이상만 노린다)</span></span>
             </div>
