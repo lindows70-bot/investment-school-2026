@@ -72,6 +72,19 @@ export default function MarksCycle() {
           <div style={{ fontSize: 12, color: '#8599ae', fontWeight: 700 }}>막스식 투자 스탠스</div>
           <div style={{ fontSize: 22, fontWeight: 800, color, margin: '4px 0 8px' }}>{data.stanceIcon} {data.stance}</div>
           <div style={{ fontSize: 12.5, color: '#cbd5e1', lineHeight: 1.6 }}>{data.stanceMsg}</div>
+          {/* 💰 온도 → 권장 현금 밴드(결정론) — 시계추 위치를 '현금 비중'이라는 행동으로 번역 */}
+          {(() => {
+            const t = data.temp
+            const band = t >= 75 ? ['30~40%', '극단 낙관 — 두둑한 현금이 곧 옵션'] : t >= 58 ? ['20~30%', '낙관 우위 — 조정 대비 실탄 확보']
+              : t >= 42 ? ['15~25%', '균형 — 표준 현금 쿠션'] : t >= 25 ? ['10~20%', '비관 우위 — 기회에 투입 시작'] : ['10~15%', '극단 공포 — 현금을 공격적으로 투입할 때']
+            return (
+              <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: '#131722', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '6px 10px' }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: '#c4b5fd' }}>💰 권장 현금 밴드</span>
+                <b style={{ color: '#e2e8f0', fontSize: 13, fontFamily: 'monospace' }}>{band[0]}</b>
+                <span style={{ fontSize: 10, color: '#8599ae' }}>{band[1]} · 온도 {t} 기준 가이드(강제 아님)</span>
+              </div>
+            )
+          })()}
           <div style={{ fontSize: 10.5, color: '#6e7f8f', marginTop: 10, borderTop: `1px solid ${BORDER}`, paddingTop: 8 }}>
             ⚖️ 막스: <i>&ldquo;고점에선 안 잃는 게, 저점에선 과감함이 이긴다.&rdquo;</i> — 사이클 위치에 따라 공격/방어의 무게를 바꿔라.
           </div>

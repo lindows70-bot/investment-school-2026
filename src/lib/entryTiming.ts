@@ -13,6 +13,9 @@ export interface EntryTiming {
   cloud: 'above' | 'in' | 'below'
   atrStop: number | null // 현재가 − 2×ATR(14)
   trendBreak: boolean    // 역배열 + 구름 아래 = 최후 방어선 붕괴(보유 종목 경고용)
+  price: number          // 최근 종가(매매 플랜 계산용)
+  cloudTop: number       // 현재 봉 위치의 구름 상단(분할 매수 기준선)
+  atr: number | null     // ATR(14) 원값
 }
 
 const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length
@@ -49,17 +52,23 @@ export function timingFromCandles(D: TechCandle[]): EntryTiming | null {
   const atr = atrArr[atrArr.length - 1]
   const atrStop = atr != null && price - 2 * atr > 0 ? Math.round((price - 2 * atr) * 100) / 100 : null
 
+  const cloudTop = Math.round(Math.max(spanA, spanB) * 100) / 100
+  const base = {
+    aligned, cloud, atrStop,
+    price: Math.round(price * 100) / 100, cloudTop,
+    atr: atr != null ? Math.round(atr * 100) / 100 : null,
+  }
   // 🚦 신호등(결정론): 🟢 정배열+구름 위 / 🔴 역배열+구름 아래 / 🟡 그 외(구름 속·눌림·전환기)
   if (aligned && cloud === 'above') return {
-    light: 'green', aligned, cloud, atrStop, trendBreak: false,
+    ...base, light: 'green', trendBreak: false,
     label: '🟢 진입 적기', guide: '정배열+구름 위 — 추세·매물대 둘 다 확인, 계획 비중대로 분할 진입',
   }
   if (!aligned && cloud === 'below') return {
-    light: 'red', aligned, cloud, atrStop, trendBreak: true,
+    ...base, light: 'red', trendBreak: true,
     label: '🔴 진입 유예', guide: '역배열+구름 아래 — 재무가 좋아도 추세 바닥(기회비용 주의), 반등·돌파 확인까지 관망',
   }
   return {
-    light: 'yellow', aligned, cloud, atrStop, trendBreak: false,
+    ...base, light: 'yellow', trendBreak: false,
     label: cloud === 'in' ? '🟡 매물대 소화 중' : aligned ? '🟡 눌림목·대기' : '🟡 전환 시도',
     guide: '절반만 진입, 나머지는 구름 상단 돌파(매물 소화) 확인 후',
   }

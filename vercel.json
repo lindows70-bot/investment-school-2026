@@ -43,7 +43,8 @@
     { "path": "/api/macro-ai-picks?refresh=1", "schedule": "0 19 * * 1" },
     { "path": "/api/cron/satellite-scores", "schedule": "30 18 * * *" },
     { "path": "/api/cron/market-flow-kr", "schedule": "0 11 * * 1-5" },
-    { "path": "/api/blackrock?refresh=1", "schedule": "0 21 * * 1" }
+    { "path": "/api/blackrock?refresh=1", "schedule": "0 21 * * 1" },
+    { "path": "/api/cron/timing-watch", "schedule": "30 23 * * *" }
   ],
 
   "headers": [

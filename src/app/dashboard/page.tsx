@@ -42,6 +42,7 @@ import NewsCatalystRadar          from '@/app/components/NewsCatalystRadar'
 import AiRebalancePanel           from '@/app/components/AiRebalancePanel'
 import QuantBuilderLab            from '@/app/components/QuantBuilderLab'
 import MarketCatalystBanner       from '@/app/components/MarketCatalystBanner'
+import TimingWatchBanner          from '@/app/components/TimingWatchBanner'
 import PortfolioTimeMachine       from '@/app/components/PortfolioTimeMachine'
 import CoinLab                     from '@/app/components/CoinLab'
 import AlphaHunter                 from '@/app/components/AlphaHunter'
@@ -1557,6 +1558,11 @@ export default function DashboardPage() {
       {/* 🔥 오늘 시장의 눈 — 마켓 카탈리스트(메가 뉴스 + 수급 블랙홀). 데이터 없으면 자동 숨김 */}
       <ErrorBoundary label="마켓 카탈리스트">
         <MarketCatalystBanner />
+      </ErrorBoundary>
+
+      {/* 🔔 내 종목 타점 전환(어제 대비 🟢돌파/🔴이탈) — 변화 없으면 자동 숨김 */}
+      <ErrorBoundary label="타점 전환 알림">
+        <TimingWatchBanner />
       </ErrorBoundary>
 
       {/* 🤖 Jarvis 모닝 포트폴리오 처방전 (2단계) — 아침에 가장 먼저 보는 AI 비서 브리핑 */}
