@@ -250,7 +250,7 @@ export default function ResearchPage() {
           { key: 'chart',   label: '📈 차트 리서치',   desc: '캔들 + 핵심지표 + 종합 판정' },
           { key: 'lynch',   label: '🔍 피터린치 분석', desc: '6대 분류·PEG·이익선 자동' },
           { key: 'buffett', label: '🏰 워렌버핏 분석', desc: '공정가치·해자·안전마진' },
-          { key: 'choi',    label: '🧭 최일 가치분석', desc: '8개년 재무·CAGR·적정주가 시나리오' },
+          { key: 'choi',    label: '🧭 최일 가치분석', desc: '8개년 재무·CAGR·적정주가·PER밴드' },
         ] as { key: ResearchTab; label: string; desc: string }[]).map(({ key, label, desc }) => (
           <button
             key={key}

@@ -23,6 +23,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { isFinancialCompany, isHoldingCompany } from '@/lib/assetClassifier' // 🏦 금융주·🏢 지주사 — PER·PEG·PSR 표준 프레임 부적합(P/B·내재가치·NAV로 평가)
+import PerBandChart from '@/app/components/PerBandChart' // 📊 증권사식 PER 밴드(역사적 배수 구간)
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as RTooltip, ResponsiveContainer, Legend, ReferenceLine, ReferenceDot,
@@ -1212,6 +1213,9 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
           </div>
         </div>
       )}
+
+      {/* ═══ [5.5단] PER 밴드 — 역사적 배수 구간(증권사식) ═══════════════ */}
+      {hasData && rawData && <PerBandChart ticker={rawData.ticker} market={market} />}
 
       {/* ═══ [6단] 20년 EPS 시뮬레이션 ═══════════════════════════════════ */}
       {hasData && simData.length > 0 && (
