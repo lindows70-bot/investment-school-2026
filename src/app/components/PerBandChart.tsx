@@ -3,6 +3,7 @@
 // "지금 주가가 역사적으로 싼 밴드인가 비싼 밴드인가"를 보여줌. 데이터는 기존 /api/lynch-earnings-tracer 재사용(제2원칙·신규 백엔드 0)
 import { useState, useEffect } from 'react'
 import { ComposedChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
+import { isFinancialCompany, isHoldingCompany } from '@/lib/assetClassifier'   // 🏦 금융주·🏢 지주사 — PER 왜곡이라 밴드 판정 부적합
 import type { TracerResult } from '@/app/api/lynch-earnings-tracer/route'
 
 const BORDER = '#1e293b'
@@ -69,6 +70,11 @@ export default function PerBandChart({ ticker, market }: { ticker: string; marke
     rows.push(r)
   }
 
+  // 🏦 금융주·🏢 지주사 — PER 자체가 왜곡(투자손익·준비금/지분법이익)이라 밴드 '판정'은 부적합 → 차트는 참고로 두되 판정 배너 교체
+  const special = isFinancialCompany(data.ticker, data.name) ? '금융주(보험·은행)' : isHoldingCompany(data.ticker, data.name) ? '지주사' : null
+  // ⚠️ 턴어라운드 왜곡 — 이익이 미미하던 연도의 극단 PER(수백 배)이 표본에 섞이면 상단 밴드가 배수가 아닌 '이익 부재'의 흔적
+  const wideBand = qs[0] > 0 && qs[4] / qs[0] > 8
+
   // 현재 주가의 밴드 위치 판정(현재 PER vs 분위수)
   const curPer = data.currentPrice != null && data.currentEps != null && data.currentEps > 0
     ? data.currentPrice / data.currentEps : null
@@ -86,10 +92,26 @@ export default function PerBandChart({ ticker, market }: { ticker: string; marke
         흰 선(주가)이 <b style={{ color: '#93c5fd' }}>아래 밴드</b>에 있으면 역사적으로 싼 배수, <b style={{ color: '#fca5a5' }}>위 밴드</b>면 비싼 배수로 거래 중.
       </div>
 
-      {zone && curPer != null && (
+      {special ? (
+        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid #fbbf2444', borderRadius: 9, padding: '9px 13px', marginBottom: 12, fontSize: 11.5, lineHeight: 1.55 }}>
+          <b style={{ color: '#fbbf24' }}>🏦 {special} — 밴드는 참고만</b>
+          <span style={{ color: '#aab6c4' }}> · {special === '금융주(보험·은행)'
+            ? '보험·은행 EPS는 투자손익·준비금 적립에 휘둘려 PER 밴드 판정이 부적합합니다. 실제 가치는 P/B·ROE·내재가치(EV)로 평가하세요.'
+            : '지주사 EPS는 자회사 지분법이익에 휘둘려 PER 밴드 판정이 부적합합니다. NAV·SOTP(자회사 가치 합산)로 평가하세요.'}
+          {curPer != null && <> (현재 PER {curPer.toFixed(1)}배)</>}</span>
+        </div>
+      ) : zone && curPer != null && (
         <div style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${zone.color}44`, borderRadius: 9, padding: '9px 13px', marginBottom: 12, fontSize: 11.5, lineHeight: 1.55 }}>
           <b style={{ color: zone.color }}>현재 PER {curPer.toFixed(1)}배 → {zone.label}</b>
           <span style={{ color: '#aab6c4' }}> · {zone.desc}</span>
+          {curPer > 100 && <span style={{ color: '#fb923c' }}> · ⚠️ PER 100배+ — 이익이 아직 미미해 배수 해석 자체가 무의미한 구간(스토리 프리미엄), 밴드보다 이익 성장 실현 여부가 관건</span>}
+        </div>
+      )}
+
+      {wideBand && !special && (
+        <div style={{ background: 'rgba(251,146,60,0.06)', border: '1px solid #fb923c44', borderRadius: 9, padding: '8px 13px', marginBottom: 12, fontSize: 11, lineHeight: 1.55, color: '#fdba74' }}>
+          ⚠️ <b>밴드 폭 {Math.round(qs[4] / qs[0])}배 — 턴어라운드 왜곡 주의</b>
+          <span style={{ color: '#aab6c4' }}> · 이익이 거의 없던 연도의 극단 PER(최고 {qs[4].toFixed(0)}배)이 표본에 섞여 있습니다. 이런 해의 고PER은 &lsquo;비싸게 거래됐다&rsquo;가 아니라 &lsquo;이익이 없었다&rsquo;는 뜻 — 상단 밴드는 신뢰하지 말고 하단·중앙 위주로 참고하세요.</span>
         </div>
       )}
 
