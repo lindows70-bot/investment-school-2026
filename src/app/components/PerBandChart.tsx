@@ -111,7 +111,7 @@ export default function PerBandChart({ ticker, market }: { ticker: string; marke
       {wideBand && !special && (
         <div style={{ background: 'rgba(251,146,60,0.06)', border: '1px solid #fb923c44', borderRadius: 9, padding: '8px 13px', marginBottom: 12, fontSize: 11, lineHeight: 1.55, color: '#fdba74' }}>
           ⚠️ <b>밴드 폭 {Math.round(qs[4] / qs[0])}배 — 턴어라운드 왜곡 주의</b>
-          <span style={{ color: '#aab6c4' }}> · 이익이 거의 없던 연도의 극단 PER(최고 {qs[4].toFixed(0)}배)이 표본에 섞여 있습니다. 이런 해의 고PER은 &lsquo;비싸게 거래됐다&rsquo;가 아니라 &lsquo;이익이 없었다&rsquo;는 뜻 — 상단 밴드는 신뢰하지 말고 하단·중앙 위주로 참고하세요.</span>
+          <span style={{ color: '#aab6c4' }}> · 이익이 거의 없던 연도의 극단 PER(최고 {qs[4].toFixed(0)}배)이 표본에 섞여 있습니다. 이런 해의 고PER은 &lsquo;비싸게 거래됐다&rsquo;가 아니라 &lsquo;이익이 없었다&rsquo;는 뜻 — 신뢰 낮은 <b>왜곡 상단 밴드는 차트에서 생략</b>하고 하단·중앙 위주로 표시합니다.</span>
         </div>
       )}
 
@@ -128,8 +128,11 @@ export default function PerBandChart({ ticker, market }: { ticker: string; marke
           />
           <Legend wrapperStyle={{ fontSize: 10.5 }} />
           {qs.map((q, i) => (
-            <Line key={i} type="monotone" dataKey={`b${i}`} name={`${BAND_NAMES[i]} ${q.toFixed(1)}x`}
-              stroke={BAND_COLORS[i]} strokeWidth={1.2} strokeDasharray="5 3" dot={false} connectNulls />
+            // ⚠️ 턴어라운드 왜곡 밴드(최저의 8배 초과)는 차트에서 생략 — Y축이 왜곡 밴드에 지배돼 주가·하단 밴드가 안 보이는 것 방지
+            (!wideBand || q <= qs[0] * 8) && (
+              <Line key={i} type="monotone" dataKey={`b${i}`} name={`${BAND_NAMES[i]} ${q.toFixed(1)}x`}
+                stroke={BAND_COLORS[i]} strokeWidth={1.2} strokeDasharray="5 3" dot={false} connectNulls />
+            )
           ))}
           <Line type="monotone" dataKey="price" name="연평균 주가" stroke="#f1f5f9" strokeWidth={2.4}
             dot={{ r: 3, fill: '#f1f5f9' }} connectNulls />

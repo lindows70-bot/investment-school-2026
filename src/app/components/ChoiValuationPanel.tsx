@@ -541,6 +541,10 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
     // 시뮬레이션 성장률은 최대 60% 캡 (과거 단기 급등이 20년 복리로 이어지면 수조단위가 됨)
     // 실제 계산된 CAGR은 [4단] CAGR 테이블에 표시하고, 차트는 의미 있는 범위로 제한
     const SIM_MAX = 60
+    // ⚠️ CAGR 산출 불가(확정 실적 부족)면 해당 시나리오 라인 자체를 생략 — 폴백(10/15%)으로 선을 그리면
+    //    도달불가 판정(폴백 0%)과 모순되는 화면이 나옴(제2원칙: 같은 null은 같은 해석)
+    const hasL = cagrData.long.eps != null
+    const hasS = cagrData.short.eps != null
     const gL = Math.min(cagrData.long.eps  ?? 10, SIM_MAX)
     const gS = Math.min(cagrData.short.eps ?? 15, SIM_MAX)
     const gA = Math.min(analysis?.cagrEps  ?? gL,  SIM_MAX)
@@ -548,8 +552,8 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
     return Array.from({ length: 21 }, (_, y) => ({
       year:     y,
       보수적:   +(base * Math.pow(1.08,          y)).toFixed(4),
-      단기CAGR: +(base * Math.pow(1 + gS / 100, y)).toFixed(4),
-      장기CAGR: +(base * Math.pow(1 + gL / 100, y)).toFixed(4),
+      단기CAGR: hasS ? +(base * Math.pow(1 + gS / 100, y)).toFixed(4) : undefined,
+      장기CAGR: hasL ? +(base * Math.pow(1 + gL / 100, y)).toFixed(4) : undefined,
       애널추정:  +(base * Math.pow(1 + gA / 100, y)).toFixed(4),
     }))
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1297,10 +1301,10 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
                 />
               )}
 
-              {/* ── 시나리오 라인 ── */}
+              {/* ── 시나리오 라인 (CAGR 산출 불가 시나리오는 라인·범례 생략 — 폴백 그리기 금지) ── */}
               <Line type="monotone" dataKey="보수적"   stroke="#8a9aaa" strokeWidth={1.5} dot={false}/>
-              <Line type="monotone" dataKey="단기CAGR" stroke={T.dn}    strokeWidth={2}   dot={false}/>
-              <Line type="monotone" dataKey="장기CAGR" stroke={T.grn}   strokeWidth={2.5} dot={false}/>
+              {cagrData?.short.eps != null && <Line type="monotone" dataKey="단기CAGR" stroke={T.dn}    strokeWidth={2}   dot={false}/>}
+              {cagrData?.long.eps  != null && <Line type="monotone" dataKey="장기CAGR" stroke={T.grn}   strokeWidth={2.5} dot={false}/>}
               <Line type="monotone" dataKey="애널추정"  stroke={T.up}    strokeWidth={2}   dot={false} strokeDasharray="5 3"/>
 
               {/* ── 10배거 도달 마커 (말풍선 라벨) ── */}
@@ -1374,15 +1378,25 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
 
           {/* ── 20년 내 미도달 시나리오 안내 ── */}
           {tenBaggerPoints && (() => {
-            const unmet: string[] = []
-            if (!tenBaggerPoints.보수적)   unmet.push('보수적 (+8%)')
-            if (!tenBaggerPoints.장기CAGR) unmet.push(`장기 CAGR (${cagrData?.long.eps?.toFixed(1) ?? '?'}%)`)
-            if (!tenBaggerPoints.단기CAGR) unmet.push(`단기 CAGR (${cagrData?.short.eps?.toFixed(1) ?? '?'}%)`)
-            if (unmet.length === 0) return null
+            // ⚠️ '도달 불가(성장률은 아는데 20년 내 미달)'와 'CAGR 산출 불가(확정 실적 부족 — 판정 자체 불가)'를 분리
+            //    산출 불가를 도달 불가에 섞으면 차트(라인 생략)와 모순되는 '(?%) 도달 불가' 표기가 나옴
+            const unmet: string[] = [], unknown: string[] = []
+            if (!tenBaggerPoints.보수적) unmet.push('보수적 (+8%)')
+            if (cagrData?.long.eps == null) unknown.push('장기 CAGR')
+            else if (!tenBaggerPoints.장기CAGR) unmet.push(`장기 CAGR (${cagrData.long.eps.toFixed(1)}%)`)
+            if (cagrData?.short.eps == null) unknown.push('단기 CAGR')
+            else if (!tenBaggerPoints.단기CAGR) unmet.push(`단기 CAGR (${cagrData.short.eps.toFixed(1)}%)`)
+            if (unmet.length === 0 && unknown.length === 0) return null
             return (
               <div style={{ marginTop: 10, padding: '8px 14px', background: `${T.mut}15`, border: `1px solid ${T.bd}`, borderRadius: 8, fontSize: 11, color: T.mut }}>
-                📊 <strong style={{ color: T.sub }}>20년 내 10배 도달 불가 시나리오</strong>:{' '}
-                {unmet.join(' / ')} — 장기적 복리 성장이 더 필요합니다.
+                {unmet.length > 0 && (<>
+                  📊 <strong style={{ color: T.sub }}>20년 내 10배 도달 불가 시나리오</strong>:{' '}
+                  {unmet.join(' / ')} — 장기적 복리 성장이 더 필요합니다.
+                </>)}
+                {unknown.length > 0 && (<>
+                  {unmet.length > 0 && <br/>}
+                  📉 <strong style={{ color: T.sub }}>CAGR 산출 불가</strong>: {unknown.join(' · ')} — 확정 실적이 부족해 시나리오에서 제외했습니다(차트 라인도 생략).
+                </>)}
               </div>
             )
           })()}
