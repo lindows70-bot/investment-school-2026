@@ -74,15 +74,27 @@ export default function TradePlanCard({ market, timing, portfolioKrw }: {
           <div style={{ marginBottom: 6 }}>
             <b style={{ color: '#c4b5fd', fontSize: 10.5 }}>📐 분할 진입 플랜 ({t.label})</b>
             <div style={{ color: '#aab6c4', marginTop: 3 }}>
-              {t.light === 'green' && (<>
-                ① 지금 <b>1/3</b>({Math.floor(qty / 3).toLocaleString()}주) → ② 눌림 시 구름 상단 <b style={{ fontFamily: 'monospace' }}>{fmtP(t.cloudTop)}</b> 부근 1/3 → ③ 반등 확인 후 나머지. 셋 다 🛡{fmtP(t.atrStop)} 이탈 시 계획대로 정리.
-              </>)}
-              {t.light === 'yellow' && (<>
-                ① 지금 <b>절반</b>({Math.floor(qty / 2).toLocaleString()}주)까지만 → ② 구름 상단 <b style={{ fontFamily: 'monospace' }}>{fmtP(t.cloudTop)}</b> <b>돌파 확인 후</b> 나머지 절반. 돌파 실패·🛡손절 이탈 시 1차분도 정리.
-              </>)}
-              {t.light === 'red' && (<>
-                ⛔ 지금은 진입 유예 구간입니다. 굳이 담고 싶다면 구름 상단 <b style={{ fontFamily: 'monospace' }}>{fmtP(t.cloudTop)}</b> 돌파를 확인한 뒤 위 수량의 절반부터.
-              </>)}
+              {qty <= 0 ? (<>
+                ⚠️ 이 리스크 예산으로는 1주도 담을 수 없습니다(주당 리스크가 큼) — 리스크 %를 올리거나, 이 종목은 소수점 매매·관망을 검토하세요.
+              </>) : qty <= 3 ? (<>
+                수량이 {qty}주라 3분할은 무의미 — <b>1주씩 나눠</b> 진입하고, 전량 🛡{fmtP(t.atrStop)} 이탈 시 계획대로 정리.
+                {t.light === 'yellow' && <> 2번째 주부터는 구름 상단 <b style={{ fontFamily: 'monospace' }}>{fmtP(t.cloudTop)}</b> 돌파 확인 후.</>}
+              </>) : (() => {
+                // 급등주는 구름 상단이 손절선보다 아래일 수 있음 → 눌림 기준은 '손절선 위'로 클램프(손절 아래서 사라는 모순 차단)
+                const dip = Math.max(t.cloudTop, t.atrStop)
+                const dipLabel = t.cloudTop >= t.atrStop ? '구름 상단' : '손절 참고선 위 되돌림'
+                return (<>
+                  {t.light === 'green' && (<>
+                    ① 지금 <b>1/3</b>({Math.floor(qty / 3).toLocaleString()}주) → ② 눌림 시 {dipLabel} <b style={{ fontFamily: 'monospace' }}>{fmtP(dip)}</b> 부근 1/3 → ③ 반등 확인 후 나머지. 셋 다 🛡{fmtP(t.atrStop)} 이탈 시 계획대로 정리.
+                  </>)}
+                  {t.light === 'yellow' && (<>
+                    ① 지금 <b>절반</b>({Math.floor(qty / 2).toLocaleString()}주)까지만 → ② 구름 상단 <b style={{ fontFamily: 'monospace' }}>{fmtP(t.cloudTop)}</b> <b>돌파 확인 후</b> 나머지 절반. 돌파 실패·🛡손절 이탈 시 1차분도 정리.
+                  </>)}
+                  {t.light === 'red' && (<>
+                    ⛔ 지금은 진입 유예 구간입니다. 굳이 담고 싶다면 구름 상단 <b style={{ fontFamily: 'monospace' }}>{fmtP(t.cloudTop)}</b> 돌파를 확인한 뒤 위 수량의 절반부터.
+                  </>)}
+                </>)
+              })()}
             </div>
           </div>
 
