@@ -70,7 +70,11 @@ export default function TechChartPage() {
       const r = await fetch(`/api/tech-chart?ticker=${encodeURIComponent(h.ticker)}&market=${h.market}&tf=${useTf}`)
       const j = await r.json()
       if (j.error) { setErr(j.error); setCandles(null) }
-      else setCandles(j.candles)
+      else {
+        setCandles(j.candles)
+        // KR은 티커로 검색하면 이름이 티커와 같음 → API가 해석한 종목명으로 헤더 갱신
+        if (j.name && j.name !== h.name) setSel({ ...h, name: j.name })
+      }
     } catch { setErr('시세를 불러오지 못했습니다.'); setCandles(null) }
     setLoading(false)
   }, [tf])

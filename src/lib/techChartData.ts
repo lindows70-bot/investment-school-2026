@@ -65,6 +65,22 @@ async function usCandles(ticker: string, tf: TechTf): Promise<TechCandle[]> {
   } catch { return [] }
 }
 
+/** KR 종목명 해석 — 네이버 모바일 basic API(stockName). 7일 캐시(이름은 거의 안 바뀜) */
+export async function getKrName(code: string): Promise<string | null> {
+  const key = `kr-name-v1:${code}`
+  const cached = await getCache<{ name: string }>(key, 7 * 24 * 3600_000)
+  if (cached?.name) return cached.name
+  try {
+    const r = await fetch(`https://m.stock.naver.com/api/stock/${code}/basic`,
+      { headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://m.stock.naver.com/' }, signal: AbortSignal.timeout(8_000) })
+    if (!r.ok) return null
+    const j = await r.json()
+    const name: string | null = j?.stockName ?? j?.itemName ?? null
+    if (name) { await setCache(key, { name }); return name }
+    return null
+  } catch { return null }
+}
+
 /** 캐시 공유 getter — tech-chart 라우트와 동일 키(tech-chart-v1) */
 export async function getTechCandles(ticker: string, market: 'KR' | 'US', tf: TechTf = 'D'): Promise<TechCandle[]> {
   const cacheKey = `tech-chart-v1:${ticker.toUpperCase()}:${market}:${tf}:${kstDate()}`
