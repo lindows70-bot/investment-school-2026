@@ -17,6 +17,7 @@ export default function SignalReader({ ticker, market, candles, tf }: {
 }) {
   const [fund, setFund] = useState<Fund | null | 'loading'>('loading')
   const [eduOpen, setEduOpen] = useState(false)
+  const [journeyOpen, setJourneyOpen] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -175,6 +176,33 @@ export default function SignalReader({ ticker, market, candles, tf }: {
             <div style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, padding: 10 }}>
               <b style={{ color: '#e2e8f0' }}>③ 조기 청산 (RSI&gt;70)</b><br />
               텐배거는 상승 초입부터 과매수에서 몇 달을 놉니다. 성장이 유효한데 과매수만 보고 팔면 인생 주식을 초기에 놓칩니다(피터 린치).
+            </div>
+          </div>
+        )}
+      </div>
+      {/* 🗺️ 추세의 여정 × 신호등 — SNS 'Journey of a Trend' 6단계를 우리 신호등 언어로 번역 */}
+      <div>
+        <button onClick={() => setJourneyOpen(o => !o)} style={{ background: 'transparent', border: 'none', color: '#8599ae', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}>
+          🗺️ 추세의 여정 — 혼돈에서 추세까지, 신호등은 지금 어디를 보고 있나 {journeyOpen ? '▲' : '▼'}
+        </button>
+        {journeyOpen && (
+          <div style={{ marginTop: 8, fontSize: 10.5, color: '#8599ae', lineHeight: 1.65 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))', gap: 8 }}>
+              <div style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, padding: 10 }}>
+                <b style={{ color: '#eab308' }}>①② 혼돈·매물대 축적 = 🟡 매물대 소화 중</b><br />
+                방향 없는 등락과 박스권 — 가격이 <b>구름 속</b>에 있는 구간. 이때 모멘텀 신호는 휩쏘 남발(위 함정①). 신호등이 🟡인 이유: 아직 이야기가 시작되지 않았기 때문.
+              </div>
+              <div style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, padding: 10 }}>
+                <b style={{ color: '#4ade80' }}>③④ 속임수 하락 → 구조 돌파 = 🟢 전환</b><br />
+                박스 하단을 살짝 깨서 개미를 털어낸 뒤(속임수) 강한 돌파가 나옵니다. <b>구름 상단 돌파 + 정배열</b>이 확인될 때 신호등이 🟢으로 — 돌파를 &lsquo;확인 후&rsquo; 타는 이유(속임수 차단).
+              </div>
+              <div style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, padding: 10 }}>
+                <b style={{ color: '#60a5fa' }}>⑤⑥ 추세 진행 = 🟢 유지, 붕괴 = 🔴</b><br />
+                고점·저점을 높이며 달리는 구간 — 정배열+구름 위가 유지되는 동안 추세를 존중. <b>역배열+구름 아래</b>로 무너지면 🔴 최후 방어선 붕괴(리밸런싱 매도 근거와 동일 신호).
+              </div>
+            </div>
+            <div style={{ marginTop: 6, color: '#7f93a8' }}>
+              💡 핵심: 시장을 예측할 필요 없이 <b style={{ color: '#cbd5e1' }}>지금 어느 단계인지</b>만 읽으면 됩니다 — 그게 신호등이 하는 일. 단, &lsquo;유동성 스윕&rsquo; 같은 세부 해석은 분석가마다 달라 이 앱은 객관 판정(EMA·구름)만 씁니다. WHAT(종목 선정)은 여전히 펀더멘탈.
             </div>
           </div>
         )}

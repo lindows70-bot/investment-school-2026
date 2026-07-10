@@ -38,6 +38,7 @@ export interface SignalMetrics {
   roeInflated:    boolean         // ROE는 높은데 ROIC가 낮음 = 빚으로 부풀린 가짜 효율(AT&T류). roe≥15 & roic<12 & 갭≥8%p
   interestCoverage: number | null  // 이자보상배율(영업이익/이자비용) — <1=좀비(이자도 못 갚음). 무차입은 null
   marketCap:      number | null   // 시가총액(종목 통화 — US=USD, KR=KRW) — 10배거 시총 룸 판별
+  equity:         number | null   // 자기자본(최신 분기, 종목 통화) — 밸류 삼각형(PBR=시총/자본)·ROIC 분모
   revenueGrowth:  number | null   // 매출 성장률(Yahoo 소수, 0.36=36%) — 적자 하이퍼그로스 포착
   earningsGrowth: number | null   // 이익 성장률(소수, 1.0=+100%) — 기저효과 저PEG 가드(isPegBaseEffect)용
   analystCount:   number | null   // 애널리스트 커버 수(Yahoo) — 언더커버리지 판별(US용, KR은 Naver 별도)
@@ -72,7 +73,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
   const tk = ticker.trim().toUpperCase()
   // v4: PEG를 app_cache(canon-fund) 직접 읽기로 변경 — selfBase 의존성 제거
   //     selfBase가 undefined여도 canon-fund 캐시에서 SSOT PEG를 가져옴
-  const cacheKey = `jarvis-metrics-v13:${tk}:${market}:${kstDate()}`   // v13: ROIC(투하자본이익률)·roeInflated(빚으로 부풀린 ROE) 추가
+  const cacheKey = `jarvis-metrics-v14:${tk}:${market}:${kstDate()}`   // v14: equity 노출(밸류 삼각형 PBR용)
   const cached = await getCache<SignalMetrics>(cacheKey, 12 * 3600_000)
   if (cached) return cached
 
@@ -200,7 +201,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
       industry: ap.industry ? String(ap.industry) : null,
       peg, opMargin, opMargin2qDown,
       fcf, fcfNegative: fcf != null && fcf < 0,
-      roe, roic, roeInflated, interestCoverage: isFinancial ? null : interestCoverage, marketCap, revenueGrowth, earningsGrowth, analystCount,
+      roe, roic, roeInflated, interestCoverage: isFinancial ? null : interestCoverage, marketCap, equity, revenueGrowth, earningsGrowth, analystCount,
       priceTrend, knife, momentumScore, fwdEpsDir, inventoryBuildup, invGapPct,
       currency: pr.currency ? String(pr.currency) : null,
     }

@@ -13,6 +13,7 @@ import MoatBreachDetector from '@/app/components/MoatBreachDetector'
 import MoneyFlowRadar    from '@/app/components/MoneyFlowRadar'
 import ReverseDcf        from '@/app/components/ReverseDcf'
 import StockProfileCard  from '@/app/components/StockProfileCard'
+import ValueTriangle      from '@/app/components/ValueTriangle'
 import ResearchVerdictCard from '@/app/components/ResearchVerdict'
 import LynchAutoPanel     from '@/app/components/LynchAutoPanel'
 import ChoiValuationPanel from '@/app/components/ChoiValuationPanel'
@@ -585,6 +586,7 @@ export default function ResearchPage() {
       {/* ── 🏰 워렌버핏 분석 탭 ──────────────────────────────────── */}
       {activeTab === 'buffett' && (!stockInfo ? GuruEmptyNotice : !isStock ? NonStockNotice : (<>
         <StockProfileCard ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
+        <ValueTriangle ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
         <MoatBreachDetector ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
         <ReverseDcf ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
         <CashRunwayTimer ticker={stockInfo.ticker} name={stockInfo.name} currency={stockInfo.currency}
