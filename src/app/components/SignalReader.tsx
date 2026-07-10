@@ -3,7 +3,7 @@
 // 교차검증해 '가짜 반등/신호 정합/조기 청산 주의/떨어지는 칼날'을 결정론적으로 판정(AI 미사용·환각 0).
 // 기술신호는 이 화면 전용 — 통합추천·리밸런싱 점수에는 절대 미반영(앱의 펀더멘탈 우선 원칙).
 import { useState, useEffect, useMemo } from 'react'
-import { readSignals } from '@/lib/techSignals'
+import { readSignals, detectLiquidity } from '@/lib/techSignals'
 import type { TechCandle } from '@/app/api/tech-chart/route'
 
 const BORDER = '#1e293b'
@@ -71,6 +71,11 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   const sig = useMemo(() => candles.length >= 30 ? readSignals(candles) : null, [candles])
   // 🗺️ 추세의 여정 현재 단계 — 일봉에서만 판정(EMA112·224+구름은 일봉 기준 SSOT)
   const jStage = useMemo(() => tf === 'D' ? journeyStage(candles) : null, [candles, tf])
+  // 💧 최근 10봉 내 유동성 스윕(차트 오버레이와 동일 SSOT) — 판정 로직엔 미반영, 정보 표시만
+  const liqSweeps = useMemo(() => {
+    const N = candles.length
+    return detectLiquidity(candles).filter(l => l.swept && l.endIdx != null && l.endIdx >= N - 10)
+  }, [candles])
 
   if (!sig) return null
 
@@ -190,6 +195,20 @@ export default function SignalReader({ ticker, market, candles, tf }: {
           <span style={{ color: '#7f93a8' }}>= 현재가 − 2×ATR({sig.atr}) · 종목 고유 변동폭 반영 — 일률적 −N% 손절 대신, 정상 등락에 털리지 않는 수학적 하한</span>
         </div>
       )}
+
+      {/* 💧 유동성 스윕 이벤트(최근 10봉) — 여정 ③ '속임수 하락'의 실측. 판정에 미반영(정보만) */}
+      {liqSweeps.length > 0 && (() => {
+        const sw = liqSweeps[liqSweeps.length - 1]
+        const ago = candles.length - 1 - (sw.endIdx as number)
+        return (
+          <div style={{ background: '#0f1117', border: '1px solid #2dd4bf44', borderRadius: 9, padding: '8px 12px', fontSize: 11, lineHeight: 1.6 }}>
+            <b style={{ color: '#2dd4bf' }}>💧 유동성 스윕 감지({ago === 0 ? '오늘' : `${ago}봉 전`})</b>
+            <span style={{ color: '#aab6c4' }}> — {sw.type === 'low'
+              ? <>전저점 {fmtP(sw.price)}을 꼬리로 관통했다가 종가는 위에서 회복{sw.volBoost ? ' + 거래량 급증' : ''} — 여정 ③ &lsquo;속임수 하락(개미 털기)&rsquo; 패턴. 단독 매수 신호 아님 — 구름·추세(신호등)와 함께 확인.</>
+              : <>전고점 {fmtP(sw.price)}을 위꼬리로 찔렀다가 종가는 아래 마감{sw.volBoost ? ' + 거래량 급증' : ''} — 고점 돌파 유인(매수측 유동성 소진) 주의.</>}</span>
+          </div>
+        )
+      })()}
 
       {/* 3대 함정 교육 — 상시 펼침(사용자 요청) */}
       <div>

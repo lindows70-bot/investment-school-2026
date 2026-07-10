@@ -227,3 +227,56 @@ export function readSignals(data: Ohlc[], look = 5): TechRead {
     atr: atrNow != null ? Math.round(atrNow * 100) / 100 : null,
   }
 }
+
+/* ── 💧 유동성 풀·스윕 탐지(결정론) — "전 고점·전 저점 = 손절 주문이 몰린 유동성"이라는 SMC 개념의 객관 버전.
+   스윙 피벗(좌우 pivot봉 대비 극값)으로 유동성 레벨을 잡고,
+   · 매도측(전저점) 스윕 = 꼬리(low)가 레벨을 관통했는데 종가는 위에서 마감(개미 털기 후 회복)
+   · 매수측(전고점) 스윕 = 고가가 레벨을 관통했는데 종가는 아래(위꼬리 유인)
+   종가가 레벨을 넘겨 마감하면 레벨 소멸(진짜 돌파/붕괴 — 스윕 아님). 거래량 델타는 무료 데이터 부재 → 거래량 1.5×평균 급증 여부로 근사(volBoost).
+   차트 오버레이·신호 판독기 공유 SSOT. 점수·추천 미반영(교육·차트 전용). ── */
+export interface LiqLevel {
+  idx: number            // 스윙 피벗 봉 인덱스
+  price: number          // 레벨 가격(스윙 low/high)
+  type: 'low' | 'high'   // low=매도측 유동성(전저점) / high=매수측(전고점)
+  endIdx: number | null  // 레벨 소멸 봉(스윕 or 종가 돌파). null=아직 살아있음
+  swept: boolean         // 스윕으로 소멸했는가(true) vs 종가 돌파로 소멸(false)
+  volBoost: boolean      // 스윕 봉 거래량이 20봉 평균의 1.5배 이상
+}
+export function detectLiquidity(data: Ohlc[], pivot = 5): LiqLevel[] {
+  const N = data.length
+  if (N < pivot * 2 + 10) return []
+  const vol20 = (i: number) => {
+    let s = 0, n = 0
+    for (let j = Math.max(0, i - 20); j < i; j++) { s += data[j].volume ?? 0; n++ }
+    return n ? s / n : 0
+  }
+  const levels: LiqLevel[] = []
+  // 피벗 확정(idx+pivot 봉에서 확정) → 이후 봉을 순회하며 스윕/소멸 판정
+  for (let i = pivot; i < N - pivot; i++) {
+    const isLow = data.slice(i - pivot, i + pivot + 1).every((d, k) => k === pivot || d.low >= data[i].low)
+    const isHigh = data.slice(i - pivot, i + pivot + 1).every((d, k) => k === pivot || d.high <= data[i].high)
+    if (isLow) levels.push({ idx: i, price: data[i].low, type: 'low', endIdx: null, swept: false, volBoost: false })
+    if (isHigh) levels.push({ idx: i, price: data[i].high, type: 'high', endIdx: null, swept: false, volBoost: false })
+  }
+  for (const lv of levels) {
+    for (let k = lv.idx + pivot + 1; k < N; k++) {
+      const d = data[k]
+      if (lv.type === 'low') {
+        if (d.close < lv.price) { lv.endIdx = k; break }                       // 종가 붕괴 — 스윕 아님
+        if (d.low < lv.price && d.close > lv.price) {                          // 💧 꼬리 관통 + 종가 회복 = 스윕
+          lv.endIdx = k; lv.swept = true
+          lv.volBoost = (d.volume ?? 0) > vol20(k) * 1.5
+          break
+        }
+      } else {
+        if (d.close > lv.price) { lv.endIdx = k; break }                       // 종가 돌파 — 스윕 아님
+        if (d.high > lv.price && d.close < lv.price) {                         // 위꼬리 유인 스윕
+          lv.endIdx = k; lv.swept = true
+          lv.volBoost = (d.volume ?? 0) > vol20(k) * 1.5
+          break
+        }
+      }
+    }
+  }
+  return levels
+}

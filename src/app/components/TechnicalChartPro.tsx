@@ -3,7 +3,7 @@
 // + 모멘텀 서브패널(MACD·RSI·스토캐스틱·CCI 탭 선택) + 십자선·툴팁
 import { useState, useMemo, useRef, useCallback } from 'react'
 import type { TechCandle } from '@/app/api/tech-chart/route'
-import { calcMACD, calcRSI, calcStoch, calcCCI, calcMFI, calcADX, calcATR } from '@/lib/techSignals'
+import { calcMACD, calcRSI, calcStoch, calcCCI, calcMFI, calcADX, calcATR, detectLiquidity } from '@/lib/techSignals'
 
 /* ── 팔레트 (네이비/틸/골드) ── */
 const C = {
@@ -87,6 +87,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
   const [showEMA, setShowEMA] = useState(true)
   const [showCloud, setShowCloud] = useState(true)
   const [showVolume, setShowVolume] = useState(true)
+  const [showLiq, setShowLiq] = useState(true)   // 💧 유동성 레벨(전 고점·저점) + 스윕 마커
   const [ind, setInd] = useState<'MACD' | 'RSI' | 'STOCH' | 'CCI' | 'MFI' | 'ADX' | null>('MACD')   // 모멘텀 서브패널(하나만 선택 — 화면 간결)
   const [hover, setHover] = useState<{ j: number; px: number; py: number } | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
@@ -146,6 +147,14 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
   const yP = useCallback((v: number) => priceTop + ((pMax - v) / (pMax - pMin)) * priceH, [pMax, pMin, priceTop])
   const volMax = useMemo(() => Math.max(...disp.map(d => d.volume || 0), 1), [disp])
   const yV = (v: number) => volBot - (v / volMax) * volH
+
+  /* ── 💧 유동성 레벨·스윕(SSOT: detectLiquidity) — 표시 대상: 살아있는 레벨(최근 3개씩) + 최근 60봉 내 스윕 ── */
+  const liq = useMemo(() => {
+    const all = detectLiquidity(data)
+    const alive = (t: 'low' | 'high') => all.filter(l => l.type === t && l.endIdx == null).slice(-3)
+    const sweeps = all.filter(l => l.swept && l.endIdx != null && l.endIdx >= data.length - 60)
+    return { levels: [...alive('low'), ...alive('high')], sweeps }
+  }, [data])
 
   /* ── 모멘텀 지표(SSOT: lib/techSignals) — 실봉(N개)에만 값 존재 ── */
   const mom = useMemo(() => {
@@ -271,6 +280,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
         {toggle(showEMA, '지수이평선', C.ema224, setShowEMA)}
         {toggle(showCloud, '구름대', C.spanA, setShowCloud)}
         {toggle(showVolume, '거래량', C.gold, setShowVolume)}
+        {toggle(showLiq, '💧유동성', '#2dd4bf', setShowLiq)}
         {/* 모멘텀 서브패널 탭(하나만) */}
         <span style={{ display: 'inline-flex', border: `1px solid ${C.axis}`, borderRadius: 7, overflow: 'hidden', marginLeft: 4 }}>
           {(['MACD', 'RSI', 'STOCH', 'CCI', 'MFI', 'ADX'] as const).map(t => (
@@ -345,6 +355,29 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
               <text x={W - padR + 4} y={yP(atrStop) + 3} fontSize={9.5} fontWeight={800} fill={C.bg}>🛡{fmt(atrStop)}</text>
             </g>
           )}
+          {/* 💧 유동성 레벨(살아있는 전 고점·저점) + 스윕 마커 — 점수·추천 미반영, 차트 전용 */}
+          {showLiq && liq.levels.map((lv, i) => (
+            <g key={'lq' + i} opacity={0.9}>
+              <line x1={xc(lv.idx)} x2={xc(N - 1)} y1={yP(lv.price)} y2={yP(lv.price)}
+                stroke={lv.type === 'low' ? '#2dd4bf' : '#fb923c'} strokeWidth={1} strokeDasharray="2 4" />
+              <text x={Math.min(xc(lv.idx) + 4, W - padR - 78)} y={yP(lv.price) + (lv.type === 'low' ? 11 : -4)}
+                fontSize={9} fontWeight={800} fill={lv.type === 'low' ? '#2dd4bf' : '#fb923c'}>
+                {lv.type === 'low' ? '유동성(전저점)' : '유동성(전고점)'}
+              </text>
+            </g>
+          ))}
+          {showLiq && liq.sweeps.map((sw, i) => (
+            <g key={'sw' + i}>
+              <line x1={xc(sw.idx)} x2={xc(sw.endIdx!)} y1={yP(sw.price)} y2={yP(sw.price)}
+                stroke={sw.type === 'low' ? '#2dd4bf' : '#fb923c'} strokeWidth={1} strokeDasharray="2 4" opacity={0.45} />
+              <text x={xc(sw.endIdx!)} y={yP(sw.price) + (sw.type === 'low' ? 16 : -8)} fontSize={12} textAnchor="middle">💧</text>
+              <text x={xc(sw.endIdx!)} y={yP(sw.price) + (sw.type === 'low' ? 27 : -19)} fontSize={8.5} fontWeight={800}
+                textAnchor="middle" fill={sw.type === 'low' ? '#2dd4bf' : '#fb923c'}>
+                스윕{sw.volBoost ? '·거래량↑' : ''}
+              </text>
+            </g>
+          ))}
+
           {/* 거래량 */}
           {showVolume && disp.map(d => {
             if (d.volume == null || d.close == null || d.open == null) return null
