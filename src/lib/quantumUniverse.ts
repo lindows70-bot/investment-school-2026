@@ -5,8 +5,8 @@
 export type QSub = 'hw' | 'sec' | 'equip'
 export type Modality = '이온트랩' | '초전도' | '중성원자' | '광학' | '실리콘스핀' | '어닐링' | 'PQC'
 
-export type QMarket = 'US' | 'KR' | 'JP' | 'EU' | 'CN' | 'CA'
-export const QMARKET_FLAG: Record<QMarket, string> = { US: '🇺🇸', KR: '🇰🇷', JP: '🇯🇵', EU: '🇪🇺', CN: '🇨🇳', CA: '🇨🇦' }
+export type QMarket = 'US' | 'KR' | 'JP' | 'EU' | 'CN' | 'CA' | 'HK'
+export const QMARKET_FLAG: Record<QMarket, string> = { US: '🇺🇸', KR: '🇰🇷', JP: '🇯🇵', EU: '🇪🇺', CN: '🇨🇳', CA: '🇨🇦', HK: '🇭🇰' }
 
 export interface QuantumStock {
   ticker: string

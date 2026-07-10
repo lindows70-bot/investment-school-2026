@@ -18,7 +18,7 @@ const QUANTUM_CONFIG: SectorConfig = {
 
 // ── AI 반도체 ─────────────────────────────────────────────────────────────────
 const AISEMI_SUB: Record<string, SubMeta> = {
-  design:  { label: 'AI 가속기·설계', emoji: '🧠', color: '#a78bfa', desc: 'GPU·ASIC·IP (대장 테마)' },
+  design:  { label: 'AI 가속기·설계', emoji: '🧠', color: '#a78bfa', desc: 'GPU·ASIC·IP·EDA (대장 테마)' },
   memory:  { label: 'HBM·메모리',     emoji: '💾', color: '#22d3ee', desc: '고대역폭메모리 — AI의 병목' },
   foundry: { label: '파운드리',       emoji: '🏭', color: '#f59e0b', desc: '첨단 미세공정 위탁생산' },
   equip:   { label: '장비',           emoji: '🔧', color: '#34d399', desc: 'EUV·증착·본딩·검사 장비' },
@@ -32,6 +32,8 @@ const AISEMI_STOCKS: SectorStock[] = [
   { ticker: 'AVGO', name: 'Broadcom',      market: 'US', sub: 'design', tags: ['ASIC', '네트워킹'], purePlay: true,  note: '맞춤형 AI ASIC(구글 TPU 등) + 네트워크' },
   { ticker: 'MRVL', name: 'Marvell',       market: 'US', sub: 'design', tags: ['ASIC', '광인터커넥트'], purePlay: true, note: '커스텀 AI 실리콘·옵틱스' },
   { ticker: 'ARM',  name: 'Arm Holdings',  market: 'US', sub: 'design', tags: ['IP'],               purePlay: true,  note: 'AI 칩 설계 IP 코어 라이선스' },
+  { ticker: 'CDNS', name: 'Cadence',       market: 'US', sub: 'design', tags: ['EDA'],              purePlay: true,  note: '칩 설계 소프트웨어(EDA) 양강 — 모든 AI 칩의 설계 도구' },
+  { ticker: 'SNPS', name: 'Synopsys',      market: 'US', sub: 'design', tags: ['EDA', 'IP'],        purePlay: true,  note: 'EDA 양강 + 설계 IP — HBM·AI 칩 설계 필수 인프라' },
   // 💾 메모리
   { ticker: '000660', name: 'SK하이닉스',  market: 'KR', sub: 'memory', tags: ['HBM'],              purePlay: true,  note: 'HBM 1위 — AI 메모리 핵심' },
   { ticker: '005930', name: '삼성전자',    market: 'KR', sub: 'memory', tags: ['HBM', '파운드리'],  purePlay: false, note: 'HBM·파운드리(단 폰·가전 비중 커 AI 비중 희석)' },
@@ -51,6 +53,14 @@ const AISEMI_STOCKS: SectorStock[] = [
   { ticker: '240810', name: '원익IPS',     market: 'KR', sub: 'equip', tags: ['증착'],              purePlay: true,  note: '반도체 증착 장비' },
   { ticker: '403870', name: 'HPSP',        market: 'KR', sub: 'equip', tags: ['고압어닐링'],        purePlay: true,  note: '고압수소 어닐링 독점' },
   { ticker: '036930', name: '주성엔지니어링', market: 'KR', sub: 'equip', tags: ['증착(ALD)'],      purePlay: true,  note: 'ALD 증착 장비' },
+  // 🔧 HBM 밸류체인 보강(2026-07 — 본딩·스태킹/씨닝·다이싱·CMP. 티커 전수 실측 검증)
+  { ticker: 'KLIC', name: 'Kulicke & Soffa', market: 'US', sub: 'equip', tags: ['본더'],            purePlay: true,  note: 'HBM 본딩·스태킹 장비(와이어·TC본더)' },
+  { ticker: '0522', name: 'ASMPT',          market: 'HK', yahoo: '0522.HK', sub: 'equip', tags: ['TC본더'], purePlay: true, note: 'HBM TC본더 글로벌 강자(한미반도체 경쟁)' },
+  { ticker: '6590', name: '시바우라메카트로닉스', market: 'JP', yahoo: '6590.T', sub: 'equip', tags: ['본딩·세정'], purePlay: true, note: 'HBM 본딩·웨이퍼 세정 장비(일본)' },
+  { ticker: '6146', name: 'Disco',          market: 'JP', yahoo: '6146.T', sub: 'equip', tags: ['다이싱·그라인딩'], purePlay: true, note: '웨이퍼 절단·연마(씨닝) 세계 1위 — HBM 적층의 관문' },
+  { ticker: '7729', name: '도쿄세이미츠',   market: 'JP', yahoo: '7729.T', sub: 'equip', tags: ['프로버·다이싱'], purePlay: true, note: '웨이퍼 프로버·다이싱(일본)' },
+  { ticker: '6361', name: 'Ebara',          market: 'JP', yahoo: '6361.T', sub: 'equip', tags: ['CMP 장비'], purePlay: false, note: 'CMP 연마 장비(단 펌프 등 다각화)' },
+  { ticker: 'ACMR', name: 'ACM Research',   market: 'US', sub: 'equip', tags: ['세정'],             purePlay: true,  note: '웨이퍼 세정 장비(중국 팹 노출 큼)' },
   // 🌐 인프라
   { ticker: 'ANET', name: 'Arista Networks', market: 'US', sub: 'infra', tags: ['데이터센터 스위치'], purePlay: true, note: 'AI 데이터센터 고속 네트워킹' },
   { ticker: 'CRDO', name: 'Credo',         market: 'US', sub: 'infra', tags: ['AEC 케이블'],         purePlay: true,  note: '액티브 전기 케이블(AI 연결)' },
@@ -69,6 +79,10 @@ const AISEMI_STOCKS: SectorStock[] = [
   { ticker: 'GLW',  name: 'Corning',        market: 'US', sub: 'material', tags: ['유리기판·광섬유'],   purePlay: false, note: '차세대 유리기판·광섬유(다각화)' },
   { ticker: '4062', name: 'Ibiden',         market: 'JP', yahoo: '4062.T', sub: 'material', tags: ['ABF 기판'], purePlay: true, note: 'ABF 기판 1위(엔비디아·인텔 공급)' },
   { ticker: 'ENTG', name: 'Entegris',       market: 'US', sub: 'material', tags: ['반도체 소재'],       purePlay: true,  note: '첨단 소재·정밀화학·필터' },
+  // 🔬 HBM 습식 소재 보강(2026-07 — CMP 슬러리·패드는 사이클과 무관한 반복 매출 '소모품')
+  { ticker: '4004', name: 'Resonac',        market: 'JP', yahoo: '4004.T', sub: 'material', tags: ['CMP 슬러리', 'HBM 소재'], purePlay: false, note: 'HBM용 접착필름(NCF)·CMP 슬러리(구 쇼와덴코 — 화학 다각화)' },
+  { ticker: '3104', name: 'Fujibo',         market: 'JP', yahoo: '3104.T', sub: 'material', tags: ['CMP 패드'], purePlay: true, note: 'CMP 연마 패드(소모품 — 반복 매출)' },
+  { ticker: '011790', name: 'SKC',          market: 'KR', sub: 'material', tags: ['유리기판', '동박'],   purePlay: false, note: '반도체 유리기판(앱솔릭스)·동박(이차전지 다각화)' },
 ]
 
 const AISEMI_CONFIG: SectorConfig = {
