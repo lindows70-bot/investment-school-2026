@@ -535,6 +535,11 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
         </>)}
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, borderTop: `2px dashed ${C.gold}` }} /><span style={{ color: C.textLow }}>평단가(보유 시)</span></span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, borderTop: `2px dashed #a78bfa` }} /><span style={{ color: C.textLow }}>🛡 ATR 손절 참고선(현재가−2×ATR)</span></span>
+        {showLiq && (<>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, borderTop: `2px dotted #2dd4bf` }} /><span style={{ color: C.textLow }}>유동성(전저점 — 손절 대기 구간)</span></span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, borderTop: `2px dotted #fb923c` }} /><span style={{ color: C.textLow }}>유동성(전고점 — 익절·돌파주문 대기)</span></span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ color: C.textLow }}>💧 스윕(꼬리로 털고 종가 회복)</span></span>
+        </>)}
       </div>
 
       {/* 교육 해설 */}
@@ -553,6 +558,17 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
             구름이 두꺼울수록 지지·저항이 견고합니다. 구름은 26봉 앞에 그려져 미래 지지대를 예고하고, 양운→음운 전환은 추세 약화 신호입니다.
           </p>
         </div>
+        {showLiq && (
+          <div style={{ backgroundColor: C.panel, border: `1px solid ${C.grid}`, borderRadius: 12, padding: 12 }}>
+            <div style={{ fontWeight: 700, color: '#2dd4bf', marginBottom: 4 }}>💧 유동성 레벨·스윕 읽는 법</div>
+            <p style={{ lineHeight: 1.6, color: C.textLow, margin: 0 }}>
+              <b style={{ color: '#2dd4bf' }}>전저점(틸 점선)</b> 아래엔 보유자들의 손절 주문이, <b style={{ color: '#fb923c' }}>전고점(주황 점선)</b> 위엔 익절·추격매수 주문이
+              몰려 있습니다 — 이 &lsquo;주문 뭉치&rsquo;가 유동성입니다. 큰손은 물량을 싸게 모으려고 전저점을 일부러 살짝 깨서 개미 손절을 받아낸 뒤 올립니다.
+              <b style={{ color: C.text }}> 💧스윕 = 꼬리로 레벨을 뚫었는데 종가는 회복</b> — 전형적인 &lsquo;개미 털기&rsquo; 흔적입니다(여정 ③).
+              반대로 <b style={{ color: C.text }}>종가까지 깨면 스윕이 아니라 진짜 이탈</b>이니 구분하세요. 스윕 단독은 매수 신호가 아니며 구름·추세와 함께 봐야 합니다.
+            </p>
+          </div>
+        )}
       </div>
       <div style={{ fontSize: 10.5, color: C.textLow, padding: '0 4px' }}>
         ⚠️ 기술적 지표는 보조 도구입니다 — 이 앱의 가치판단(밸류·수급·계절·거시)과 함께 보세요. 예측이 아닌 현재 추세 위치이며, 교육용·투자 추천 아님.
