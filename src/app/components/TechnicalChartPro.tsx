@@ -355,28 +355,52 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
               <text x={W - padR + 4} y={yP(atrStop) + 3} fontSize={9.5} fontWeight={800} fill={C.bg}>🛡{fmt(atrStop)}</text>
             </g>
           )}
-          {/* 💧 유동성 레벨(살아있는 전 고점·저점) + 스윕 마커 — 점수·추천 미반영, 차트 전용 */}
-          {showLiq && liq.levels.map((lv, i) => (
-            <g key={'lq' + i} opacity={0.9}>
-              <line x1={xc(lv.idx)} x2={xc(N - 1)} y1={yP(lv.price)} y2={yP(lv.price)}
-                stroke={lv.type === 'low' ? '#2dd4bf' : '#fb923c'} strokeWidth={1} strokeDasharray="2 4" />
-              <text x={Math.min(xc(lv.idx) + 4, W - padR - 78)} y={yP(lv.price) + (lv.type === 'low' ? 11 : -4)}
-                fontSize={9} fontWeight={800} fill={lv.type === 'low' ? '#2dd4bf' : '#fb923c'}>
-                {lv.type === 'low' ? '유동성(전저점)' : '유동성(전고점)'}
-              </text>
-            </g>
-          ))}
-          {showLiq && liq.sweeps.map((sw, i) => (
-            <g key={'sw' + i}>
-              <line x1={xc(sw.idx)} x2={xc(sw.endIdx!)} y1={yP(sw.price)} y2={yP(sw.price)}
-                stroke={sw.type === 'low' ? '#2dd4bf' : '#fb923c'} strokeWidth={1} strokeDasharray="2 4" opacity={0.45} />
-              <text x={xc(sw.endIdx!)} y={yP(sw.price) + (sw.type === 'low' ? 16 : -8)} fontSize={12} textAnchor="middle">💧</text>
-              <text x={xc(sw.endIdx!)} y={yP(sw.price) + (sw.type === 'low' ? 27 : -19)} fontSize={8.5} fontWeight={800}
-                textAnchor="middle" fill={sw.type === 'low' ? '#2dd4bf' : '#fb923c'}>
-                스윕{sw.volBoost ? '·거래량↑' : ''}
-              </text>
-            </g>
-          ))}
+          {/* 💧 유동성 레벨(살아있는 전 고점·저점) + 스윕 마커 — 점수·추천 미반영, 차트 전용.
+              라벨 declutter: 비슷한 가격대 레벨이 겹치면 선은 다 긋되 텍스트는 Y축 12px 내 근접 시 생략(평단·ATR 라벨과도 충돌 회피) */}
+          {showLiq && (() => {
+            const usedY: number[] = []
+            if (avgPrice != null) usedY.push(yP(avgPrice))
+            if (atrStop != null) usedY.push(yP(atrStop))
+            const canLabel = (y: number) => {
+              if (usedY.some(u => Math.abs(u - y) < 12)) return false
+              usedY.push(y); return true
+            }
+            return (<>
+              {liq.levels.map((lv, i) => {
+                const y = yP(lv.price)
+                const label = canLabel(y)
+                return (
+                  <g key={'lq' + i} opacity={0.9}>
+                    <line x1={xc(lv.idx)} x2={xc(N - 1)} y1={y} y2={y}
+                      stroke={lv.type === 'low' ? '#2dd4bf' : '#fb923c'} strokeWidth={1} strokeDasharray="2 4" />
+                    {label && (
+                      <text x={Math.min(xc(lv.idx) + 4, W - padR - 78)} y={y + (lv.type === 'low' ? 11 : -4)}
+                        fontSize={9} fontWeight={800} fill={lv.type === 'low' ? '#2dd4bf' : '#fb923c'}>
+                        {lv.type === 'low' ? '유동성(전저점)' : '유동성(전고점)'}
+                      </text>
+                    )}
+                  </g>
+                )
+              })}
+              {liq.sweeps.map((sw, i) => {
+                const y = yP(sw.price)
+                const label = canLabel(y + (sw.type === 'low' ? 22 : -14))   // 스윕 텍스트 위치 기준으로 충돌 검사
+                return (
+                  <g key={'sw' + i}>
+                    <line x1={xc(sw.idx)} x2={xc(sw.endIdx!)} y1={y} y2={y}
+                      stroke={sw.type === 'low' ? '#2dd4bf' : '#fb923c'} strokeWidth={1} strokeDasharray="2 4" opacity={0.45} />
+                    <text x={xc(sw.endIdx!)} y={y + (sw.type === 'low' ? 16 : -8)} fontSize={12} textAnchor="middle">💧</text>
+                    {label && (
+                      <text x={xc(sw.endIdx!)} y={y + (sw.type === 'low' ? 27 : -19)} fontSize={8.5} fontWeight={800}
+                        textAnchor="middle" fill={sw.type === 'low' ? '#2dd4bf' : '#fb923c'}>
+                        스윕{sw.volBoost ? '·거래량↑' : ''}
+                      </text>
+                    )}
+                  </g>
+                )
+              })}
+            </>)
+          })()}
 
           {/* 거래량 */}
           {showVolume && disp.map(d => {
