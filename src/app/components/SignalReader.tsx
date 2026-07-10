@@ -12,14 +12,17 @@ interface Fund { peg: number | null; fcf: number | null; opMargin: number | null
 
 const toNum = (v: unknown): number | null => typeof v === 'number' && isFinite(v) ? v : null
 
-/* ── 🗺️ 추세의 여정 현재 단계 판정(순수 계산 — entryTiming SSOT와 동일 공식: EMA112·224 + 일목 구름 26봉 선행) ── */
-type JStage = { card: 0 | 1 | 2; label: string; color: string; note: string }
+/* ── 🗺️ 추세의 여정 현재 단계 판정(순수 계산 — entryTiming SSOT와 동일 공식: EMA112·224 + 일목 구름 26봉 선행)
+   251봉↑ = 정식(EMA112·224 정배열) / 130~250봉 = 약식(신생 — EMA224 미확보, 구름+EMA112로 판정. 기술차트의 강등 규칙과 동일) ── */
+type JStage = { card: 0 | 1 | 2; label: string; color: string; note: string; approx: boolean }
 function journeyStage(D: TechCandle[]): JStage | null {
   const N = D.length
-  if (N < 251) return null   // EMA224 + 구름(26선행) 판정에 필요한 최소 봉수 미달(신규상장 등) — 정직 생략
+  if (N < 130) return null   // 구름(78봉)+EMA112(112봉) 최소 요건 미달 — 정직 생략
+  const approx = N < 251     // EMA224 미확보 → 약식(구름 + 가격 vs EMA112)
   const c = D.map(x => x.close)
   const ema = (p: number) => { const k = 2 / (p + 1); let v = c.slice(0, p).reduce((s, x) => s + x, 0) / p; for (let i = p; i < N; i++) v = c[i] * k + v * (1 - k); return v }
-  const aligned = ema(112) > ema(224)
+  // 정식 = EMA112>224 정배열 / 약식 = 가격이 EMA112 위(장기추세 생존 프록시)
+  const aligned = approx ? c[N - 1] > ema(112) : ema(112) > ema(224)
   const hl = (p: number, i: number) => { let hi = -Infinity, lo = Infinity; for (let j = i - p + 1; j <= i; j++) { if (D[j].high > hi) hi = D[j].high; if (D[j].low < lo) lo = D[j].low } return (hi + lo) / 2 }
   const cloudAt = (idx: number): 'above' | 'in' | 'below' => {
     const j = idx - 26
@@ -28,16 +31,17 @@ function journeyStage(D: TechCandle[]): JStage | null {
     return c[idx] > top ? 'above' : c[idx] < bot ? 'below' : 'in'
   }
   const cur = cloudAt(N - 1)
-  if (cur === 'in') return { card: 0, label: '①② 혼돈·매물대 소화 구간', color: '#eab308', note: '가격이 구름 속 — 아직 방향이 정해지지 않았습니다. 돌파 확인 전 관망 구간.' }
+  const A = approx   // 라벨에 약식 여부 반영
+  if (cur === 'in') return { card: 0, label: '①② 혼돈·매물대 소화 구간', color: '#eab308', note: '가격이 구름 속 — 아직 방향이 정해지지 않았습니다. 돌파 확인 전 관망 구간.', approx: A }
   if (cur === 'above') {
-    if (!aligned) return { card: 1, label: '③④ 전환 시도 중(구름 위·역배열)', color: '#eab308', note: '구름은 넘었지만 장기 이평이 아직 역배열 — 진짜 돌파(④)의 확증 대기.' }
+    if (!aligned) return { card: 1, label: '③④ 전환 시도 중(구름 위·추세 미확증)', color: '#eab308', note: A ? '구름은 넘었지만 가격이 EMA112 아래 — 진짜 돌파(④)의 확증 대기.' : '구름은 넘었지만 장기 이평이 아직 역배열 — 진짜 돌파(④)의 확증 대기.', approx: A }
     let recent = false
     for (let k = 1; k <= 12; k++) if (cloudAt(N - 1 - k) !== 'above') { recent = true; break }
-    if (recent) return { card: 1, label: '③④ 구조 돌파 직후', color: '#4ade80', note: '최근 12봉 내 구름 상단을 돌파하고 정배열 확인 — 여정의 전환점을 막 지났습니다.' }
-    return { card: 2, label: '⑤⑥ 추세 진행 중', color: '#4ade80', note: '정배열+구름 위 유지 — 추세를 존중하며 따라가는 구간.' }
+    if (recent) return { card: 1, label: '③④ 구조 돌파 직후', color: '#4ade80', note: '최근 12봉 내 구름 상단 돌파 — 여정의 전환점을 막 지났습니다.', approx: A }
+    return { card: 2, label: '⑤⑥ 추세 진행 중', color: '#4ade80', note: A ? '구름 위 + EMA112 위 유지 — 추세를 존중하며 따라가는 구간.' : '정배열+구름 위 유지 — 추세를 존중하며 따라가는 구간.', approx: A }
   }
-  if (aligned) return { card: 1, label: '④ 문 앞 — 구름 아래 눌림', color: '#eab308', note: '장기 추세(정배열)는 살아있지만 가격이 구름 아래로 눌림 — 재돌파(④) 확인 후가 안전.' }
-  return { card: 2, label: '⑤⑥의 역주행 — 추세 붕괴', color: '#f87171', note: '역배열+구름 아래 = 최후 방어선 붕괴. 여정을 거꾸로 내려가는 중 — 신규 진입 유예.' }
+  if (aligned) return { card: 1, label: '④ 문 앞 — 구름 아래 눌림', color: '#eab308', note: A ? '가격이 EMA112 위라 추세는 살아있지만 구름 아래로 눌림 — 재돌파(④) 확인 후가 안전.' : '장기 추세(정배열)는 살아있지만 가격이 구름 아래로 눌림 — 재돌파(④) 확인 후가 안전.', approx: A }
+  return { card: 2, label: '⑤⑥의 역주행 — 추세 이탈', color: '#f87171', note: A ? '구름 아래 + EMA112 아래 — 여정을 거꾸로 내려가는 중, 신규 진입 유예.' : '역배열+구름 아래 = 최후 방어선 붕괴. 여정을 거꾸로 내려가는 중 — 신규 진입 유예.', approx: A }
 }
 
 export default function SignalReader({ ticker, market, candles, tf }: {
@@ -221,10 +225,11 @@ export default function SignalReader({ ticker, market, candles, tf }: {
               <div style={{ marginBottom: 8, padding: '8px 12px', background: `${jStage.color}12`, border: `1px solid ${jStage.color}55`, borderRadius: 8 }}>
                 <b style={{ color: jStage.color, fontSize: 11.5 }}>📍 이 종목의 현재 위치: {jStage.label}</b>
                 <span style={{ color: '#aab6c4' }}> · {jStage.note}</span>
+                {jStage.approx && <span style={{ color: '#fbbf24', fontSize: 10 }}> · ⚠️ 약식 판정 — 신생 종목이라 EMA224 미확보, 구름+EMA112 기준(기술차트 강등 규칙과 동일)</span>}
               </div>
             ) : (
               <div style={{ marginBottom: 8, padding: '7px 11px', background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, color: '#8a9aaa' }}>
-                📍 위치 판정 생략 — 상장 후 데이터가 짧아(일봉 251개 미만) EMA224·구름 판정이 불가합니다(신규상장 등).
+                📍 위치 판정 생략 — 상장 후 데이터가 짧아(일봉 130개 미만) 구름·이평 판정이 불가합니다(신규상장 등).
               </div>
             )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))', gap: 8 }}>
