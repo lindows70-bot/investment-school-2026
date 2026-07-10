@@ -16,8 +16,7 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   ticker: string; market: 'KR' | 'US'; candles: TechCandle[]; tf: 'D' | 'W' | 'M'
 }) {
   const [fund, setFund] = useState<Fund | null | 'loading'>('loading')
-  const [eduOpen, setEduOpen] = useState(false)
-  const [journeyOpen, setJourneyOpen] = useState(false)
+  // 교육 섹션(3대 함정·추세의 여정)은 상시 펼침 — 아코디언 상태 제거(2026-07-10 사용자 요청)
 
   useEffect(() => {
     let alive = true
@@ -158,13 +157,10 @@ export default function SignalReader({ ticker, market, candles, tf }: {
         </div>
       )}
 
-      {/* 3대 함정 교육 */}
+      {/* 3대 함정 교육 — 상시 펼침(사용자 요청) */}
       <div>
-        <button onClick={() => setEduOpen(o => !o)} style={{ background: 'transparent', border: 'none', color: '#8599ae', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}>
-          🎓 모멘텀 지표의 3대 함정 {eduOpen ? '▲' : '▼'}
-        </button>
-        {eduOpen && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))', gap: 8, marginTop: 8, fontSize: 10.5, color: '#8599ae', lineHeight: 1.6 }}>
+        <div style={{ color: '#cbd5e1', fontSize: 11.5, fontWeight: 800 }}>🎓 모멘텀 지표의 3대 함정</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))', gap: 8, marginTop: 8, fontSize: 10.5, color: '#8599ae', lineHeight: 1.6 }}>
             <div style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, padding: 10 }}>
               <b style={{ color: '#e2e8f0' }}>① 횡보장 휩쏘(Whipsaw)</b><br />
               추세 없는 박스권에서 스토캐스틱·CCI는 매수·매도 신호를 남발합니다. 신호마다 따라가면 수수료·슬리피지로 자산이 야금야금 녹는 음의 복리.
@@ -178,15 +174,11 @@ export default function SignalReader({ ticker, market, candles, tf }: {
               텐배거는 상승 초입부터 과매수에서 몇 달을 놉니다. 성장이 유효한데 과매수만 보고 팔면 인생 주식을 초기에 놓칩니다(피터 린치).
             </div>
           </div>
-        )}
       </div>
-      {/* 🗺️ 추세의 여정 × 신호등 — SNS 'Journey of a Trend' 6단계를 우리 신호등 언어로 번역 */}
+      {/* 🗺️ 추세의 여정 × 신호등 — 상시 펼침(사용자 요청). SNS 'Journey of a Trend' 6단계를 우리 신호등 언어로 번역 */}
       <div>
-        <button onClick={() => setJourneyOpen(o => !o)} style={{ background: 'transparent', border: 'none', color: '#8599ae', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}>
-          🗺️ 추세의 여정 — 혼돈에서 추세까지, 신호등은 지금 어디를 보고 있나 {journeyOpen ? '▲' : '▼'}
-        </button>
-        {journeyOpen && (
-          <div style={{ marginTop: 8, fontSize: 10.5, color: '#8599ae', lineHeight: 1.65 }}>
+        <div style={{ color: '#cbd5e1', fontSize: 11.5, fontWeight: 800 }}>🗺️ 추세의 여정 — 혼돈에서 추세까지, 신호등은 지금 어디를 보고 있나</div>
+        <div style={{ marginTop: 8, fontSize: 10.5, color: '#8599ae', lineHeight: 1.65 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))', gap: 8 }}>
               <div style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, padding: 10 }}>
                 <b style={{ color: '#eab308' }}>①② 혼돈·매물대 축적 = 🟡 매물대 소화 중</b><br />
@@ -205,7 +197,6 @@ export default function SignalReader({ ticker, market, candles, tf }: {
               💡 핵심: 시장을 예측할 필요 없이 <b style={{ color: '#cbd5e1' }}>지금 어느 단계인지</b>만 읽으면 됩니다 — 그게 신호등이 하는 일. 단, &lsquo;유동성 스윕&rsquo; 같은 세부 해석은 분석가마다 달라 이 앱은 객관 판정(EMA·구름)만 씁니다. WHAT(종목 선정)은 여전히 펀더멘탈.
             </div>
           </div>
-        )}
       </div>
       <div style={{ fontSize: 10, color: '#8a9aaa' }}>
         ⚠️ 기술신호는 이 화면 전용 보조 지표 — 앱의 추천·리밸런싱 점수에는 반영되지 않습니다. 판정 기준: PEG SSOT(stock-info)·영업적자 −10%·PEG 2.2(Jarvis 매도 기준과 동일). 교육용, 투자 추천 아님.
