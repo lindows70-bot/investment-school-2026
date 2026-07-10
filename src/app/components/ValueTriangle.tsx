@@ -6,20 +6,21 @@ import type { ValueTriangle as VT } from '@/app/api/value-triangle/route'
 
 const BORDER = '#1e293b'
 
-export default function ValueTriangle({ ticker, market, name }: { ticker: string; market: string; name?: string }) {
+export default function ValueTriangle({ ticker, market, name, per }: { ticker: string; market: string; name?: string; per?: number | null }) {
   const [d, setD] = useState<VT | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let alive = true
     setLoading(true); setD(null)
-    fetch(`/api/value-triangle?ticker=${encodeURIComponent(ticker)}&market=${market}&name=${encodeURIComponent(name ?? '')}`)
+    // per = 화면 상단과 동일한 stock-info PER(제2원칙 앵커) — 순이익·ROE를 여기서 도출해 항등식이 정확히 닫힘
+    fetch(`/api/value-triangle?ticker=${encodeURIComponent(ticker)}&market=${market}&name=${encodeURIComponent(name ?? '')}${per != null && per > 0 ? `&per=${per}` : ''}`)
       .then(r => r.ok ? r.json() : null)
       .then(j => { if (alive) setD(j?.pbr != null || j?.roe != null ? j : null) })
       .catch(() => { if (alive) setD(null) })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
-  }, [ticker, market, name])
+  }, [ticker, market, name, per])
 
   if (loading) return (
     <div style={{ background: '#141824', border: `1px solid ${BORDER}`, borderRadius: 12, padding: '18px 22px', marginBottom: 16, color: '#8599ae', fontSize: 12 }}>
@@ -93,7 +94,7 @@ export default function ValueTriangle({ ticker, market, name }: { ticker: string
       </div>
 
       <div style={{ color: '#8a9aaa', fontSize: 10, marginTop: 8, lineHeight: 1.6 }}>
-        💡 자본=최신 분기, 순이익=ROE×자본(TTM 근사) — 세 비율이 항등식으로 정확히 맞물리게 같은 출처에서 도출. 시가총액은 Yahoo 기준(KR 일부 종목 오차 가능). 교육용.
+        💡 PER = 화면 상단 지표와 동일(stock-info 기준) · 자본 = 최신 분기 · 순이익·ROE = 시총·PER·자본에서 도출 — 세 비율이 항등식으로 정확히 맞물리게 한 기준으로 계산(도출 ROE는 평균자본 기준 공시 ROE와 다를 수 있음). 시가총액은 Yahoo 기준(KR 일부 오차 가능). 교육용.
       </div>
     </div>
   )

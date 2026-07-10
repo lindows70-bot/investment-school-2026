@@ -31,18 +31,29 @@ export async function GET(req: Request) {
   const m = await buildSignalMetrics(ticker, market, name, base)
   if (!m) return NextResponse.json({ error: '지표를 불러오지 못했습니다.' }, { status: 404 })
 
-  // 세 꼭짓점을 일관 산출: 순이익 = ROE(소수) × 자본 → PER·PBR·ROE가 항등식으로 정확히 닫힘(교육 목적)
+  // 세 꼭짓점을 일관 산출 — ⭐ PER 앵커(제2원칙): PER은 앱에서 가장 많이 노출되는 지표라 화면 상단(stock-info)과 반드시 일치해야 함.
+  //   순이익 = 시총 ÷ PER(stock-info) → ROE = 순이익 ÷ 자본(도출값). Yahoo ROE(평균자본 기준)로 도출하면 PER이 화면과 어긋남(NVDA 22 vs 45 사건).
+  //   PER 미제공(적자 등) 시에만 Yahoo ROE 폴백.
+  const perIn = parseFloat(sp.get('per') ?? '')
   const mcap = m.marketCap, equity = m.equity
-  const roeFrac = m.roe != null ? m.roe / 100 : null
-  const netIncome = equity != null && roeFrac != null ? equity * roeFrac : null
   const pbr = mcap != null && equity != null && equity > 0 ? Math.round((mcap / equity) * 100) / 100 : null
-  const per = mcap != null && netIncome != null && netIncome > 0 ? Math.round((mcap / netIncome) * 10) / 10 : null
+  let per: number | null = null, netIncome: number | null = null, roeOut: number | null = null
+  if (isFinite(perIn) && perIn > 0 && mcap != null && equity != null && equity > 0) {
+    per = Math.round(perIn * 10) / 10
+    netIncome = mcap / perIn
+    roeOut = Math.round((netIncome / equity) * 1000) / 10
+  } else if (m.roe != null && equity != null && mcap != null && equity > 0) {
+    // 폴백: Yahoo ROE 기준 도출(PER 미제공 종목)
+    netIncome = equity * m.roe / 100
+    per = netIncome > 0 ? Math.round((mcap / netIncome) * 10) / 10 : null
+    roeOut = m.roe
+  }
   const isFinancial = /financ|bank|insurance|capital market|asset manage/i.test(`${m.sector ?? ''} ${m.industry ?? ''}`)
 
   const result: ValueTriangle = {
     ticker, name: m.name, market, currency: m.currency,
     marketCap: mcap, equity, netIncome: netIncome != null ? Math.round(netIncome) : null,
-    pbr, per, roe: m.roe, isFinancial,
+    pbr, per, roe: roeOut, isFinancial,
   }
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

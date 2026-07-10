@@ -586,7 +586,7 @@ export default function ResearchPage() {
       {/* ── 🏰 워렌버핏 분석 탭 ──────────────────────────────────── */}
       {activeTab === 'buffett' && (!stockInfo ? GuruEmptyNotice : !isStock ? NonStockNotice : (<>
         <StockProfileCard ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
-        <ValueTriangle ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
+        <ValueTriangle ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} per={stockInfo.per} />
         <MoatBreachDetector ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
         <ReverseDcf ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
         <CashRunwayTimer ticker={stockInfo.ticker} name={stockInfo.name} currency={stockInfo.currency}
