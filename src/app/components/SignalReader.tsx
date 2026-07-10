@@ -12,6 +12,34 @@ interface Fund { peg: number | null; fcf: number | null; opMargin: number | null
 
 const toNum = (v: unknown): number | null => typeof v === 'number' && isFinite(v) ? v : null
 
+/* ── 🗺️ 추세의 여정 현재 단계 판정(순수 계산 — entryTiming SSOT와 동일 공식: EMA112·224 + 일목 구름 26봉 선행) ── */
+type JStage = { card: 0 | 1 | 2; label: string; color: string; note: string }
+function journeyStage(D: TechCandle[]): JStage | null {
+  const N = D.length
+  if (N < 251) return null   // EMA224 + 구름(26선행) 판정에 필요한 최소 봉수 미달(신규상장 등) — 정직 생략
+  const c = D.map(x => x.close)
+  const ema = (p: number) => { const k = 2 / (p + 1); let v = c.slice(0, p).reduce((s, x) => s + x, 0) / p; for (let i = p; i < N; i++) v = c[i] * k + v * (1 - k); return v }
+  const aligned = ema(112) > ema(224)
+  const hl = (p: number, i: number) => { let hi = -Infinity, lo = Infinity; for (let j = i - p + 1; j <= i; j++) { if (D[j].high > hi) hi = D[j].high; if (D[j].low < lo) lo = D[j].low } return (hi + lo) / 2 }
+  const cloudAt = (idx: number): 'above' | 'in' | 'below' => {
+    const j = idx - 26
+    const spanA = (hl(9, j) + hl(26, j)) / 2, spanB = hl(52, j)
+    const top = Math.max(spanA, spanB), bot = Math.min(spanA, spanB)
+    return c[idx] > top ? 'above' : c[idx] < bot ? 'below' : 'in'
+  }
+  const cur = cloudAt(N - 1)
+  if (cur === 'in') return { card: 0, label: '①② 혼돈·매물대 소화 구간', color: '#eab308', note: '가격이 구름 속 — 아직 방향이 정해지지 않았습니다. 돌파 확인 전 관망 구간.' }
+  if (cur === 'above') {
+    if (!aligned) return { card: 1, label: '③④ 전환 시도 중(구름 위·역배열)', color: '#eab308', note: '구름은 넘었지만 장기 이평이 아직 역배열 — 진짜 돌파(④)의 확증 대기.' }
+    let recent = false
+    for (let k = 1; k <= 12; k++) if (cloudAt(N - 1 - k) !== 'above') { recent = true; break }
+    if (recent) return { card: 1, label: '③④ 구조 돌파 직후', color: '#4ade80', note: '최근 12봉 내 구름 상단을 돌파하고 정배열 확인 — 여정의 전환점을 막 지났습니다.' }
+    return { card: 2, label: '⑤⑥ 추세 진행 중', color: '#4ade80', note: '정배열+구름 위 유지 — 추세를 존중하며 따라가는 구간.' }
+  }
+  if (aligned) return { card: 1, label: '④ 문 앞 — 구름 아래 눌림', color: '#eab308', note: '장기 추세(정배열)는 살아있지만 가격이 구름 아래로 눌림 — 재돌파(④) 확인 후가 안전.' }
+  return { card: 2, label: '⑤⑥의 역주행 — 추세 붕괴', color: '#f87171', note: '역배열+구름 아래 = 최후 방어선 붕괴. 여정을 거꾸로 내려가는 중 — 신규 진입 유예.' }
+}
+
 export default function SignalReader({ ticker, market, candles, tf }: {
   ticker: string; market: 'KR' | 'US'; candles: TechCandle[]; tf: 'D' | 'W' | 'M'
 }) {
@@ -37,6 +65,8 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   }, [ticker, market])
 
   const sig = useMemo(() => candles.length >= 30 ? readSignals(candles) : null, [candles])
+  // 🗺️ 추세의 여정 현재 단계 — 일봉에서만 판정(EMA112·224+구름은 일봉 기준 SSOT)
+  const jStage = useMemo(() => tf === 'D' ? journeyStage(candles) : null, [candles, tf])
 
   if (!sig) return null
 
@@ -175,23 +205,43 @@ export default function SignalReader({ ticker, market, candles, tf }: {
             </div>
           </div>
       </div>
-      {/* 🗺️ 추세의 여정 × 신호등 — 상시 펼침(사용자 요청). SNS 'Journey of a Trend' 6단계를 우리 신호등 언어로 번역 */}
+      {/* 🗺️ 추세의 여정 × 신호등 — 상시 펼침 + 현재 종목의 단계 자동 판정(📍) */}
       <div>
-        <div style={{ color: '#cbd5e1', fontSize: 11.5, fontWeight: 800 }}>🗺️ 추세의 여정 — 혼돈에서 추세까지, 신호등은 지금 어디를 보고 있나</div>
+        <div style={{ color: '#cbd5e1', fontSize: 11.5, fontWeight: 800 }}>🗺️ 추세의 여정 — 이 종목은 지금 어디인가</div>
+        <div style={{ marginTop: 4, fontSize: 10, color: '#8a9aaa' }}>
+          ①~⑥ = 추세가 태어나서 자라는 6단계: ①혼돈(방향 없음) → ②매물대 축적(박스권) → ③속임수 하락(개미 털기) → ④구조 돌파 → ⑤추세 진행 → ⑥추세 추종
+        </div>
         <div style={{ marginTop: 8, fontSize: 10.5, color: '#8599ae', lineHeight: 1.65 }}>
+            {/* 📍 현재 위치 판정 배너 — EMA112·224+구름(타점 신호등과 동일 공식) */}
+            {tf !== 'D' ? (
+              <div style={{ marginBottom: 8, padding: '7px 11px', background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, color: '#8a9aaa' }}>
+                📍 현재 위치 판정은 <b style={{ color: '#cbd5e1' }}>일봉 기준</b>입니다 — 일봉 탭에서 확인하세요.
+              </div>
+            ) : jStage ? (
+              <div style={{ marginBottom: 8, padding: '8px 12px', background: `${jStage.color}12`, border: `1px solid ${jStage.color}55`, borderRadius: 8 }}>
+                <b style={{ color: jStage.color, fontSize: 11.5 }}>📍 이 종목의 현재 위치: {jStage.label}</b>
+                <span style={{ color: '#aab6c4' }}> · {jStage.note}</span>
+              </div>
+            ) : (
+              <div style={{ marginBottom: 8, padding: '7px 11px', background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, color: '#8a9aaa' }}>
+                📍 위치 판정 생략 — 상장 후 데이터가 짧아(일봉 251개 미만) EMA224·구름 판정이 불가합니다(신규상장 등).
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))', gap: 8 }}>
-              <div style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, padding: 10 }}>
-                <b style={{ color: '#eab308' }}>①② 혼돈·매물대 축적 = 🟡 매물대 소화 중</b><br />
-                방향 없는 등락과 박스권 — 가격이 <b>구름 속</b>에 있는 구간. 이때 모멘텀 신호는 휩쏘 남발(위 함정①). 신호등이 🟡인 이유: 아직 이야기가 시작되지 않았기 때문.
-              </div>
-              <div style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, padding: 10 }}>
-                <b style={{ color: '#4ade80' }}>③④ 속임수 하락 → 구조 돌파 = 🟢 전환</b><br />
-                박스 하단을 살짝 깨서 개미를 털어낸 뒤(속임수) 강한 돌파가 나옵니다. <b>구름 상단 돌파 + 정배열</b>이 확인될 때 신호등이 🟢으로 — 돌파를 &lsquo;확인 후&rsquo; 타는 이유(속임수 차단).
-              </div>
-              <div style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, padding: 10 }}>
-                <b style={{ color: '#60a5fa' }}>⑤⑥ 추세 진행 = 🟢 유지, 붕괴 = 🔴</b><br />
-                고점·저점을 높이며 달리는 구간 — 정배열+구름 위가 유지되는 동안 추세를 존중. <b>역배열+구름 아래</b>로 무너지면 🔴 최후 방어선 붕괴(리밸런싱 매도 근거와 동일 신호).
-              </div>
+              {[
+                { title: '①② 혼돈·매물대 축적 = 🟡 매물대 소화 중', tc: '#eab308', body: <>방향 없는 등락과 박스권 — 가격이 <b>구름 속</b>에 있는 구간. 이때 모멘텀 신호는 휩쏘 남발(위 함정①). 신호등이 🟡인 이유: 아직 이야기가 시작되지 않았기 때문.</> },
+                { title: '③④ 속임수 하락 → 구조 돌파 = 🟢 전환', tc: '#4ade80', body: <>박스 하단을 살짝 깨서 개미를 털어낸 뒤(속임수) 강한 돌파가 나옵니다. <b>구름 상단 돌파 + 정배열</b>이 확인될 때 신호등이 🟢으로 — 돌파를 &lsquo;확인 후&rsquo; 타는 이유(속임수 차단).</> },
+                { title: '⑤⑥ 추세 진행 = 🟢 유지, 붕괴 = 🔴', tc: '#60a5fa', body: <>고점·저점을 높이며 달리는 구간 — 정배열+구름 위가 유지되는 동안 추세를 존중. <b>역배열+구름 아래</b>로 무너지면 🔴 최후 방어선 붕괴(리밸런싱 매도 근거와 동일 신호).</> },
+              ].map((cd, i) => {
+                const here = tf === 'D' && jStage?.card === i
+                return (
+                  <div key={i} style={{ background: here ? `${jStage!.color}0d` : '#0f1117', border: `1px solid ${here ? jStage!.color : BORDER}`, borderRadius: 8, padding: 10, position: 'relative' }}>
+                    {here && <span style={{ position: 'absolute', top: -9, right: 10, background: jStage!.color, color: '#0d1017', fontSize: 9.5, fontWeight: 900, borderRadius: 6, padding: '1px 7px' }}>📍 지금 여기</span>}
+                    <b style={{ color: cd.tc }}>{cd.title}</b><br />
+                    {cd.body}
+                  </div>
+                )
+              })}
             </div>
             <div style={{ marginTop: 6, color: '#7f93a8' }}>
               💡 핵심: 시장을 예측할 필요 없이 <b style={{ color: '#cbd5e1' }}>지금 어느 단계인지</b>만 읽으면 됩니다 — 그게 신호등이 하는 일. 단, &lsquo;유동성 스윕&rsquo; 같은 세부 해석은 분석가마다 달라 이 앱은 객관 판정(EMA·구름)만 씁니다. WHAT(종목 선정)은 여전히 펀더멘탈.
