@@ -75,7 +75,7 @@ export default function MorningstarRatings() {
         </div>
       )}
 
-      <div style={{ marginTop: 11, color: '#6e7f8f', fontSize: 9.5, lineHeight: 1.5 }}>
+      <div style={{ marginTop: 11, color: '#8a9aaa', fontSize: 9.5, lineHeight: 1.5 }}>
         ※ 모닝스타 공개 방법론(해자·공정가치·불확실성·자본배분)을 우리 DCF·해자 엔진으로 재현한 교육용입니다 — 모닝스타 공식 등급·적정가가 아닙니다. 공정가치=버핏식 보수적 DCF(현재 FCF·성장률 상한 35%)라 메가트렌드 성장주는 비싸게 나올 수 있습니다. <b style={{ color: '#9aa7b5' }}>경기순환주(에너지·반도체 등)는 현재 이익 기준 DCF라 사이클 위치에 따라 공정가치가 크게 왜곡될 수 있어 별점을 참고로만 보세요.</b> 투자 추천 아님.
       </div>
     </div>

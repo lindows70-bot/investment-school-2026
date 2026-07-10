@@ -91,7 +91,7 @@ export default function ResearchVerdictCard({ ticker, market, name }: { ticker: 
           </div>
         </div>
 
-        <div style={{ color: '#6e7f8f', fontSize: 10, lineHeight: 1.6 }}>
+        <div style={{ color: '#8a9aaa', fontSize: 10, lineHeight: 1.6 }}>
           ※ AI 리밸런싱과 동일한 4축(계절·가치·수급·모멘텀)+리스크 엔진으로 합성한 교육용 판정입니다. 상세 근거는 아래 각 카드(역-DCF·수급·내부자·해자·섹터피어 등)에서 확인하세요. 투자 추천이 아닙니다.
         </div>
       </div>

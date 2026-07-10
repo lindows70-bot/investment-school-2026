@@ -89,7 +89,7 @@ export default function AlphaHunter() {
               <span style={{ width: 9, height: 9, borderRadius: '50%', background: v.c, display: 'inline-block' }} />{v.label.replace(/^[^ ]+ /, '')}
             </span>
           ))}
-          <span style={{ color: '#6e7f8f' }}>· 테두리=내 보유</span>
+          <span style={{ color: '#8a9aaa' }}>· 테두리=내 보유</span>
         </div>
       </div>
 
@@ -99,7 +99,7 @@ export default function AlphaHunter() {
         <AlphaList title="🔴 거품 경계 (분할 익절·추격 자제)" items={d.bubble} color="#ef4444" empty="현재 뚜렷한 거품 종목 없음 ✓" />
       </div>
 
-      <div style={{ color: '#6e7f8f', fontSize: 9.5, lineHeight: 1.5 }}>
+      <div style={{ color: '#8a9aaa', fontSize: 9.5, lineHeight: 1.5 }}>
         ※ 가치 축=이익 성장률(canonical SSOT) · 가격 축=Yahoo 1년 실제 수익률 · 괴리=성장률−주가수익률(±20%p↑ 신호). ⚠️ <b style={{ color: '#fbbf24' }}>기저효과</b>(이익 +100%↑ 일회성)는 가짜 성장이라 제외(노란). 🔪 <b style={{ color: '#fb923c' }}>떨어지는 칼날</b>(주가 −35%↓ 급락)은 &lsquo;싸 보여도 이유가 있다&rsquo; — 저평가로 단정 말고 thesis 확인. 괴리는 평균회귀 보장 안 함 · 교육용, 투자 추천 아님.
       </div>
     </div>

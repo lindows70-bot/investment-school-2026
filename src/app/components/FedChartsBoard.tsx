@@ -140,7 +140,7 @@ export default function FedChartsBoard() {
         )}
       </div>
 
-      <div style={{ color: '#6e7f8f', fontSize: 10, lineHeight: 1.6 }}>
+      <div style={{ color: '#8a9aaa', fontSize: 10, lineHeight: 1.6 }}>
         ※ FRED 공식 데이터(CPIAUCSL·CPILFESL·PCEPILFE·PCETRIM12M159SFRBDAL·PPIFIS·PAYEMS·UNRATE·DFEDTARU) · 12h 캐시 · 일별 기준금리는 월말 값으로 다운샘플링 · 컨센서스(예측치) 비교는 무료 신뢰 데이터가 없어 정직하게 제외 · 참고 시각화이며 계절/국면 판정(SSOT)을 바꾸지 않습니다 · 교육용.
       </div>
     </div>

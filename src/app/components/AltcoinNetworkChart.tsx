@@ -77,7 +77,7 @@ function CoinChart({ c }: { c: AltCoin }) {
       <div style={{ marginTop: 8, background: `${dv.c}10`, border: `1px solid ${dv.c}33`, borderRadius: 8, padding: '8px 11px', color: '#dbe3ec', fontSize: 11, lineHeight: 1.65 }}>
         🤖 <b style={{ color: dv.c }}>자비스 한줄 처방</b> — {c.jarvisTip}
       </div>
-      <div style={{ color: '#6e7f8f', fontSize: 9.5, lineHeight: 1.5, marginTop: 5 }}>{c.desc}</div>
+      <div style={{ color: '#8a9aaa', fontSize: 9.5, lineHeight: 1.5, marginTop: 5 }}>{c.desc}</div>
     </div>
   )
 }
@@ -108,7 +108,7 @@ export default function AltcoinNetworkChart() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {d.coins.map(c => <CoinChart key={c.id} c={c} />)}
       </div>
-      <div style={{ color: '#6e7f8f', fontSize: 10, lineHeight: 1.6 }}>
+      <div style={{ color: '#8a9aaa', fontSize: 10, lineHeight: 1.6 }}>
         ※ 가격 = CoinGecko · 활성주소(DAU) = CoinMetrics 커뮤니티 · 일일 수수료 = DefiLlama — 전부 무료·무키 공개 API · 12h 캐시 · 솔라나 DAU는 무료 미제공이라 실사용량 동행 지표인 일일 수수료로 대체 · 교육용이며 투자 추천이 아닙니다.
       </div>
     </div>

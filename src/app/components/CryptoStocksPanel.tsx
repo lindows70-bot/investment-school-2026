@@ -250,7 +250,7 @@ export default function CryptoStocksPanel() {
         </div>
       </div>
 
-      <div style={{ color: '#6e7f8f', fontSize: 10, lineHeight: 1.6 }}>
+      <div style={{ color: '#8a9aaa', fontSize: 10, lineHeight: 1.6 }}>
         ※ 데이터: Yahoo Finance(1년 주봉, 무료) · 베타 = Cov(종목수익률, 기준코인수익률) / Var(기준코인수익률) · 기준코인: BTC(트레저리·거래소)·ETH(이더리움 트레저리) · 6h 캐시 · 교육용이며 투자 추천이 아닙니다.
       </div>
     </div>

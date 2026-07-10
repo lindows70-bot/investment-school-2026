@@ -57,7 +57,7 @@ export default function OperationsHQ() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
               <span style={{ fontSize: 14 }}>🎖️</span>
               <span style={{ color: '#a5b4fc', fontWeight: 800, fontSize: 12 }}>AI 본부장 종합 브리핑</span>
-              {brief.model && <span style={{ marginLeft: 'auto', color: '#6e7f8f', fontSize: 9.5 }}>Gemini</span>}
+              {brief.model && <span style={{ marginLeft: 'auto', color: '#8a9aaa', fontSize: 9.5 }}>Gemini</span>}
             </div>
             {/* 🧭 리스크 체크 — 상황 인지형 처방의 핵심(규제·고평가·해자·기저효과) 상단 굵게 */}
             {(brief.riskChecks?.length ?? 0) > 0 && (

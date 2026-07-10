@@ -36,8 +36,8 @@ export default function TimingWatchBanner() {
         )
       })}
       {changes.length > 6 && <span style={{ fontSize: 10, color: '#7f93a8' }}>외 {changes.length - 6}건</span>}
-      <span style={{ fontSize: 9.5, color: '#6e7f8f' }}>어제 대비 EMA112·224+구름 국면 변화 · 기술적 차트에서 확인</span>
-      <button onClick={() => setDismissed(true)} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: '#6e7f8f', cursor: 'pointer', fontSize: 13 }}>✕</button>
+      <span style={{ fontSize: 11, color: '#a8b5c2' }}>어제 대비 EMA112·224+구름 국면 변화 · 기술적 차트에서 확인</span>
+      <button onClick={() => setDismissed(true)} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: '#8a9aaa', cursor: 'pointer', fontSize: 13 }}>✕</button>
     </div>
   )
 }

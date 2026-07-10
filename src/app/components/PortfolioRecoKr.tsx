@@ -145,7 +145,7 @@ export default function PortfolioRecoKr() {
             외인·기관 일별 수급 공시가 있는 <b>한국 주식만</b> 대상입니다(미국 종목은 &lsquo;통합 추천&rsquo; 탭에서). PEG 저평가 + 외인·기관 쌍끌이 + <b>개인 이탈</b> 삼박자가 맞는 종목을 추천 점수 순으로 제시합니다.
             {data.portfolioKrw > 0 && <span style={{ color: '#8a9aaa' }}> 총 포트폴리오 {(data.portfolioKrw/1e4).toFixed(0)}만원 기준 ₩ 가이드 포함.</span>}
           </div>
-          {data.heldSectors.length > 0 && <div style={{ color: '#6e7f8f', fontSize: 11, marginTop: 4 }}>보유 섹터: {data.heldSectors.join(' · ')}</div>}
+          {data.heldSectors.length > 0 && <div style={{ color: '#8a9aaa', fontSize: 11, marginTop: 4 }}>보유 섹터: {data.heldSectors.join(' · ')}</div>}
         </div>
       </div>
 
@@ -181,7 +181,7 @@ export default function PortfolioRecoKr() {
         </div>
       )}
 
-      <div style={{ color: '#6e7f8f', fontSize: 10.5, lineHeight: 1.6 }}>
+      <div style={{ color: '#8a9aaa', fontSize: 10.5, lineHeight: 1.6 }}>
         ※ 추천 점수(0~100) = PEG 가치(35) + 수급 강도(40) + 개인 이탈 보너스(15) + 섹터 갭 보너스(10) · ₩ 가이드 = 포트폴리오 원가의 2%(신규)/1%(추가) × 매크로 국면 배율. 수급 훼손 경보는 펀더멘탈과 무관하게 &ldquo;메이저 자금의 선행 이탈&rdquo;만 포착하는 별도 신호입니다(리밸런싱의 손익 기준 매도 진단을 보완). 수급은 연료일 뿐 방향은 펀더멘탈이 결정합니다 — 교육용 시뮬레이션이며 투자 추천이 아닙니다.
       </div>
     </div>

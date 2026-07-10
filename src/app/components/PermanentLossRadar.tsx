@@ -61,18 +61,18 @@ export default function PermanentLossRadar() {
         <div style={{ flex: '1 1 260px' }}>
           <div style={{ fontSize: 12.5, fontWeight: 800, color: '#ef4444', marginBottom: 7 }}>🔴 잘라야 할 영구손실 <span style={{ color: '#8599ae', fontWeight: 600 }}>({permanent.length})</span></div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-            {permanent.length ? permanent.map(Card) : <div style={{ fontSize: 11, color: '#6e7f8f', padding: '8px 0' }}>✓ thesis 훼손 종목 없음 — 펀더멘탈 기준 영구손실 위험 신호 없음.</div>}
+            {permanent.length ? permanent.map(Card) : <div style={{ fontSize: 11, color: '#8a9aaa', padding: '8px 0' }}>✓ thesis 훼손 종목 없음 — 펀더멘탈 기준 영구손실 위험 신호 없음.</div>}
           </div>
         </div>
         {/* 견뎌야 할 변동성 */}
         <div style={{ flex: '1 1 260px' }}>
           <div style={{ fontSize: 12.5, fontWeight: 800, color: '#22c55e', marginBottom: 7 }}>🟢 견뎌야 할 변동성 <span style={{ color: '#8599ae', fontWeight: 600 }}>({volatility.length})</span></div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-            {volatility.length ? volatility.map(Card) : <div style={{ fontSize: 11, color: '#6e7f8f', padding: '8px 0' }}>해당 종목 없음.</div>}
+            {volatility.length ? volatility.map(Card) : <div style={{ fontSize: 11, color: '#8a9aaa', padding: '8px 0' }}>해당 종목 없음.</div>}
           </div>
         </div>
       </div>
-      <div style={{ fontSize: 10, color: '#6e7f8f', marginTop: 10 }}>
+      <div style={{ fontSize: 10, color: '#8a9aaa', marginTop: 10 }}>
         영구손실 신호 = 적자·FCF적자·좀비·해자붕괴·ROE부풀림·재고적체(펀더멘탈 훼손). 이 신호가 없으면 하락은 변동성(노이즈)이지 리스크가 아니다. · 교육용, 투자 추천 아님.
       </div>
     </Wrap>

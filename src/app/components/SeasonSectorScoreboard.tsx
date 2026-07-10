@@ -103,9 +103,9 @@ export default function SeasonSectorScoreboard() {
                 </div>
                 <span style={{ width: 100, flexShrink: 0, textAlign: 'right', color: '#8a9aaa', fontSize: 10 }}>
                   <b style={{ color: r >= 0 ? '#34d399' : '#f87171', fontSize: 11 }}>{s.ret3m != null ? `${r > 0 ? '+' : ''}${r}%` : '—'}</b>
-                  <span style={{ color: '#6e7f8f' }}> 3M</span>
+                  <span style={{ color: '#8a9aaa' }}> 3M</span>
                   {s.ret1m != null && <span style={{ marginLeft: 5, color: '#7f93a8' }}>{s.ret1m > 0 ? '+' : ''}{s.ret1m}% 1M</span>}
-                  <span style={{ marginLeft: 4, color: '#6e7f8f' }}>{isOpen ? '▴' : '▾'}</span>
+                  <span style={{ marginLeft: 4, color: '#8a9aaa' }}>{isOpen ? '▴' : '▾'}</span>
                 </span>
               </div>
               {/* 대장주 Fwd EPS 리비전 펼침 */}
@@ -123,10 +123,10 @@ export default function SeasonSectorScoreboard() {
                         const dt = l.dir === 'up' ? '🟢 상향(실적 뒷받침)' : l.dir === 'down' ? '🔴 하향(둔화)' : l.dir === 'mixed' ? '🟡 혼조' : '— 데이터 없음'
                         return (
                           <div key={l.ticker} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
-                            <span style={{ width: 130, flexShrink: 0, color: '#cdd6e3' }}>{l.name} <span style={{ color: '#6e7f8f', fontSize: 9.5 }}>{l.ticker}</span></span>
+                            <span style={{ width: 130, flexShrink: 0, color: '#cdd6e3' }}>{l.name} <span style={{ color: '#8a9aaa', fontSize: 9.5 }}>{l.ticker}</span></span>
                             <span style={{ color: dc, fontWeight: 700 }}>{dt}</span>
                             {(l.up30 != null || l.down30 != null) && <span style={{ color: '#7f93a8', fontSize: 10 }}>▲{l.up30 ?? 0} / ▼{l.down30 ?? 0} (30일)</span>}
-                            {l.note && <span style={{ color: '#6e7f8f', fontSize: 9.5 }}>{l.note}</span>}
+                            {l.note && <span style={{ color: '#8a9aaa', fontSize: 9.5 }}>{l.note}</span>}
                           </div>
                         )
                       })}
@@ -144,7 +144,7 @@ export default function SeasonSectorScoreboard() {
         <span>🟢 이번 계절 <b style={{ color: '#34d399' }}>유리</b></span>
         <span>⚪ 중립</span>
         <span>🔴 이번 계절 <b style={{ color: '#f87171' }}>불리</b></span>
-        <span style={{ color: '#6e7f8f' }}>· 막대 = 3개월 수익률(섹터 ETF)</span>
+        <span style={{ color: '#8a9aaa' }}>· 막대 = 3개월 수익률(섹터 ETF)</span>
       </div>
       <div style={{ fontSize: 10, color: '#8599ae', marginTop: 4 }}>
         🔥 <b style={{ color: '#fbbf24' }}>역풍 돌파</b> = 계절상 불리한데 수익률 상위(구조적 테마·실적이 매크로를 이김) · ❄️ <b style={{ color: '#93c5fd' }}>순풍 무력</b> = 유리한데 부진

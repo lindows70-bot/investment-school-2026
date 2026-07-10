@@ -242,7 +242,7 @@ export default function SeasonNavigator() {
           })}
           {data.perHolding.length === 0 && <div style={{ color: '#8a9aaa', fontSize: 11 }}>보유한 개별 주식이 없습니다.</div>}
         </div>
-        <div style={{ color: '#6e7f8f', fontSize: 9.5, lineHeight: 1.5, marginTop: 7 }}>
+        <div style={{ color: '#8a9aaa', fontSize: 9.5, lineHeight: 1.5, marginTop: 7 }}>
           ※ 보유 주식·ETF 전부 표시 · 계절은 섹터 기반이라 <b>암호화폐·원자재(금·은)는 판정 대상이 아니라 제외</b>되며, 구성종목을 분해할 수 없는 ETF(레버리지·비주식 등)도 빠집니다.
         </div>
       </div>

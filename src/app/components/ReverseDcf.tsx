@@ -57,7 +57,7 @@ export default function ReverseDcf({ ticker, name, market }: { ticker: string; n
 
       <div style={{ color: '#aab6c4', fontSize: 11.5, lineHeight: 1.7 }}>{d.detail}</div>
 
-      <div style={{ color: '#6e7f8f', fontSize: 9.5, lineHeight: 1.6 }}>
+      <div style={{ color: '#8a9aaa', fontSize: 9.5, lineHeight: 1.6 }}>
         ※ 가정: 요구수익률 {Math.round(d.assumptions.r * 100)}% · 고성장 {d.assumptions.years}년 · 종착 PER {d.assumptions.termPe}배(시장 평균). PER {d.pe ?? '—'}에서 역산. 가정이 바뀌면 내재 기대도 달라지는 교육용 사고틀이며 투자 추천이 아닙니다.
       </div>
     </div>

@@ -7,7 +7,7 @@ import { UNCERTAINTY_KO, MOAT_KO, TREND_KO, STEWARD_KO } from '@/lib/morningstar
 
 const CARD = '#161b25', BORDER = '#1e293b'
 const starColor = (n: number) => n >= 4 ? '#4ade80' : n >= 3 ? '#fbbf24' : '#f87171'
-const moatColor = (w: string) => w === 'wide' ? '#fbbf24' : w === 'moderate' ? '#60a5fa' : w === 'narrow' ? '#a8b5c2' : '#6e7f8f'
+const moatColor = (w: string) => w === 'wide' ? '#fbbf24' : w === 'moderate' ? '#60a5fa' : w === 'narrow' ? '#a8b5c2' : '#8a9aaa'
 const trendColor = (t: string) => t === 'positive' ? '#4ade80' : t === 'negative' ? '#f87171' : '#94a3b8'
 
 function Stars({ n }: { n: number }) {
@@ -143,8 +143,8 @@ export default function StockProfileCard({ ticker, name, market }: { ticker: str
           <PsrBar label={`${name.slice(0, 10)} (이 종목)`} v={d.psr} pct={psrBar(d.psr)} color="#60a5fa" />
           {d.psrMedian != null
             ? <PsrBar label={`동종 피어 중앙값${d.peerCount ? ` (${d.peerCount}종)` : ''}`} v={d.psrMedian} pct={psrBar(d.psrMedian)} color="#8599ae" />
-            : <div style={{ color: '#6e7f8f', fontSize: 10, marginTop: 4 }}>동종 피어 PSR 데이터가 부족해 절대값만 표시(상대 비교 보류).</div>}
-          <div style={{ color: holding ? '#c4b5fd' : '#6e7f8f', fontSize: 9.5, marginTop: 7, lineHeight: 1.5 }}>
+            : <div style={{ color: '#8a9aaa', fontSize: 10, marginTop: 4 }}>동종 피어 PSR 데이터가 부족해 절대값만 표시(상대 비교 보류).</div>}
+          <div style={{ color: holding ? '#c4b5fd' : '#8a9aaa', fontSize: 9.5, marginTop: 7, lineHeight: 1.5 }}>
             {holding
               ? '🏢 지주사는 매출이 작고 자회사 지분법이익 구조라 PSR·동종(섹터) 비교가 부적합합니다 — 보유 자회사 가치 합산(NAV·SOTP)으로 평가하세요. (Yahoo가 섹터를 자회사 업종으로 분류해 칩메이커 등과 섞여 보일 수 있음)'
               : <>PSR=시총÷매출 · 산업마다 정상치가 달라 <b style={{ color: '#8a9aaa' }}>같은 업종끼리만</b> 비교(절대 임계 아님) · 적자기업도 매출 대비 밸류를 볼 수 있는 척도.</>}
@@ -152,7 +152,7 @@ export default function StockProfileCard({ ticker, name, market }: { ticker: str
         </div>
       )}
 
-      <div style={{ marginTop: 11, color: '#6e7f8f', fontSize: 9.5, lineHeight: 1.5 }}>
+      <div style={{ marginTop: 11, color: '#8a9aaa', fontSize: 9.5, lineHeight: 1.5 }}>
         ※ 아래 ⚔️섹터 피어 X-Ray·🏰해자 경보기에서 상세 분석을 볼 수 있습니다. 별점=공정가치(버핏식 보수적 DCF) 대비 가격이며 &lsquo;타이밍&rsquo; 보장이 아닙니다 · 모닝스타 공개 방법론을 우리 엔진으로 재현한 교육용 · 투자 추천 아님.
       </div>
     </div>
@@ -166,7 +166,7 @@ function Kv({ k, v, c, sub }: { k: string; v: string; c?: string; sub?: string }
         <span style={{ color: '#8a9aaa' }}>{k}</span>
         <span style={{ color: c ?? '#cbd5e1', fontWeight: 700 }}>{v}</span>
       </div>
-      {sub && <div style={{ color: '#6e7f8f', fontSize: 9 }}>{sub}</div>}
+      {sub && <div style={{ color: '#8a9aaa', fontSize: 9 }}>{sub}</div>}
     </div>
   )
 }

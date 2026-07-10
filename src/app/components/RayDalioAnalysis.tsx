@@ -280,7 +280,7 @@ function WorldPower({ wp }: { wp: NonNullable<DalioCycleResult['worldPower']> })
           return (
             <div key={m.label}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, marginBottom: 3 }}>
-                <span style={{ color: '#cdd6e3', fontWeight: 600 }}>{m.label} <span style={{ color: '#6e7f8f', fontSize: 9 }}>({m.year}) · {m.note}</span></span>
+                <span style={{ color: '#cdd6e3', fontWeight: 600 }}>{m.label} <span style={{ color: '#8a9aaa', fontSize: 9 }}>({m.year}) · {m.note}</span></span>
               </div>
               {[['🇺🇸 미국', m.us, '#60a5fa'], ['🇨🇳 중국', m.cn, '#f87171']].map(([lb, v, c]) => (
                 <div key={lb as string} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>

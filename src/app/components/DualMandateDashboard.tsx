@@ -18,7 +18,7 @@ function Stat({ label, value, sub, hint }: { label: string; value: string; sub?:
       <div style={{ color: '#8a9aaa', fontSize: 10.5 }}>{label}</div>
       <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 17, fontFamily: 'monospace' }}>{value}</div>
       {sub && <div style={{ color: '#9aa7b5', fontSize: 10 }}>{sub}</div>}
-      {hint && <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 1 }}>{hint}</div>}
+      {hint && <div style={{ color: '#8a9aaa', fontSize: 9.5, marginTop: 1 }}>{hint}</div>}
     </div>
   )
 }
@@ -128,7 +128,7 @@ export default function DualMandateDashboard() {
         </div>
       )}
 
-      <div style={{ color: '#6e7f8f', fontSize: 10, lineHeight: 1.6 }}>
+      <div style={{ color: '#8a9aaa', fontSize: 10, lineHeight: 1.6 }}>
         ※ FRED 실시간(PAYEMS·UNRATE·ICSA·JTSJOL·SAHMREALTIME·PCETRIM12M159SFRBDAL) · 12h 캐시 · 이 지표는 참고 맥락이며 계절/국면 판정(거시경제 대시보드 SSOT)을 바꾸지 않습니다 · 교육용이며 투자 추천이 아닙니다.
       </div>
     </div>

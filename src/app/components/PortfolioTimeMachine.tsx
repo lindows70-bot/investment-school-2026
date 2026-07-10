@@ -128,7 +128,7 @@ export default function PortfolioTimeMachine() {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 formatter={(v: any, name: any) => [`${fmtMan(v)}원`, String(name)]} />
               <Legend wrapperStyle={{ fontSize: 10, paddingTop: 6 }} formatter={(val) => <span style={{ color: '#8a9aaa' }}>{val}</span>} />
-              <ReferenceLine y={d.startCapital} stroke="#2d3a50" strokeDasharray="4 2" label={{ value: '원금', position: 'insideLeft', fill: '#6e7f8f', fontSize: 9 }} />
+              <ReferenceLine y={d.startCapital} stroke="#2d3a50" strokeDasharray="4 2" label={{ value: '원금', position: 'insideLeft', fill: '#8a9aaa', fontSize: 9 }} />
               {LINES.map(l => active[l.key] && (cards.some(c => c.k === l.key)) && (
                 <Line key={l.key} type="monotone" dataKey={l.key} name={l.name} stroke={l.color}
                   strokeWidth={l.width} strokeDasharray={'dash' in l && l.dash ? '5 3' : undefined}
@@ -146,7 +146,7 @@ export default function PortfolioTimeMachine() {
         </div>
       </div>
 
-      <div style={{ padding: '0 20px 16px', color: '#6e7f8f', fontSize: 10, lineHeight: 1.6 }}>
+      <div style={{ padding: '0 20px 16px', color: '#8a9aaa', fontSize: 10, lineHeight: 1.6 }}>
         ※ {d.coverage} · 연도별 실제 평균가(Yahoo·Naver) 기준 · {d.benchLabel} · <b>{d.source === 'quant' ? '오늘 기준으로 선정된 추천 종목을 과거에 보유했다고 가정' : '현재 보유 종목을 과거에 그대로 보유했다고 가정'}</b>(생존편향·후견편파 존재 — 과거 성과가 미래를 보장하지 않음{d.source === 'quant' ? ', 추천은 현재 시점 선정이라 편파가 특히 큼' : ''}) · 매매·세금·배당 재투자 미반영 · 교육용 시뮬레이션이며 투자 추천이 아닙니다.
       </div>
     </div>

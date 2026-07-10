@@ -161,7 +161,7 @@ export default function MarketInvestorTrend() {
                   <Area dataKey="cum" stroke="#a78bfa" strokeWidth={2} fill="url(#pcum)" dot={false} />
                 </ComposedChart>
               </ResponsiveContainer>
-              <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 6, lineHeight: 1.6 }}>
+              <div style={{ color: '#8a9aaa', fontSize: 9.5, marginTop: 6, lineHeight: 1.6 }}>
                 ※ &lsquo;연기금등&rsquo; = 국민연금(NPS) 주력 + 사학·공무원·우정사업 연기금 합산(국민연금이 압도적 비중). 종목별 국민연금 매매는 글로벌 시총 Top10 탭의 🏛️ 국민연금 대시보드(DART 5%룰) 참조.
               </div>
             </div>
@@ -226,7 +226,7 @@ export default function MarketInvestorTrend() {
               </div>
             ))}
           </div>
-          <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 8, lineHeight: 1.6 }}>
+          <div style={{ color: '#8a9aaa', fontSize: 9.5, marginTop: 8, lineHeight: 1.6 }}>
             ※ 데이터: 네이버 금융 일별 투자자 매매동향(무료) · 단위 억원 · 개인+외국인+기관+기타법인 = 0(시장 순매수 합) · 6h 캐시 · 교육용.
           </div>
         </div>

@@ -135,12 +135,12 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
           <div style={{ position: 'relative', height: 9, background: '#0f1117', borderRadius: 5, overflow: 'hidden', border: `1px solid ${BORDER}`, margin: '8px 0' }}>
             <div style={{ width: `${d.cycle.cyclePct}%`, height: '100%', background: 'linear-gradient(90deg,#22c55e,#fbbf24,#ef4444)' }} />
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#6e7f8f' }}><span>반감기</span><span>다음 반감기(~4년)</span></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#8a9aaa' }}><span>반감기</span><span>다음 반감기(~4년)</span></div>
           <div style={{ color: '#9aa7b5', fontSize: 10.5, lineHeight: 1.6, marginTop: 8 }}>{d.cycle.phaseDesc}</div>
           {d.price.mayer != null && (
             <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${BORDER}`, fontSize: 11, color: '#aab6c4' }}>
               📐 <b>메이어 멀티플 {d.price.mayer}</b> (가격÷200일 이평 {fmtUsd(d.price.ma200)}) — <span style={{ color: d.price.mayer > 2.4 ? '#ef4444' : d.price.mayer < 1 ? '#22c55e' : '#fbbf24' }}>{d.price.mayer > 2.4 ? '과열(>2.4)' : d.price.mayer < 1 ? '저평가(<1.0)' : '중립'}</span>
-              <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 2 }}>※ 유료 MVRV 대신 무료 계산 가능한 메이어 멀티플로 거품도 측정</div>
+              <div style={{ color: '#8a9aaa', fontSize: 9.5, marginTop: 2 }}>※ 유료 MVRV 대신 무료 계산 가능한 메이어 멀티플로 거품도 측정</div>
             </div>
           )}
         </Panel>
@@ -151,13 +151,13 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
             <div style={{ textAlign: 'center' }}>
               <div style={{ color: fngColor(d.sentiment.fng), fontWeight: 900, fontSize: 30, fontFamily: 'monospace', lineHeight: 1 }}>{d.sentiment.fng ?? '—'}</div>
               <div style={{ color: fngColor(d.sentiment.fng), fontWeight: 800, fontSize: 12 }}>{fngKo(d.sentiment.fng)}</div>
-              <div style={{ color: '#6e7f8f', fontSize: 9.5 }}>어제 {d.sentiment.fngYesterday ?? '—'}</div>
+              <div style={{ color: '#8a9aaa', fontSize: 9.5 }}>어제 {d.sentiment.fngYesterday ?? '—'}</div>
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ position: 'relative', height: 8, borderRadius: 4, background: 'linear-gradient(90deg,#22c55e,#a3e635,#fbbf24,#fb923c,#ef4444)' }}>
                 {d.sentiment.fng != null && <div style={{ position: 'absolute', left: `calc(${d.sentiment.fng}% - 2px)`, top: -3, width: 4, height: 14, background: '#fff', borderRadius: 2 }} />}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#6e7f8f', marginTop: 3 }}><span>0 극공포</span><span>극탐욕 100</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#8a9aaa', marginTop: 3 }}><span>0 극공포</span><span>극탐욕 100</span></div>
               <div style={{ marginTop: 8, fontSize: 11, color: '#aab6c4', lineHeight: 1.5 }}>
                 BTC 도미넌스 <b style={{ color: '#f7931a' }}>{d.sentiment.btcDom ?? '—'}%</b> · ETH <b style={{ color: '#60a5fa' }}>{d.sentiment.ethDom ?? '—'}%</b>
               </div>
@@ -171,11 +171,11 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {d.market.top.slice(0, 6).map((c, i) => (
               <div key={c.symbol} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, padding: '2px 0', borderTop: i > 0 ? `1px solid ${BORDER}` : 'none' }}>
-                <span style={{ color: '#6e7f8f', width: 14 }}>{i + 1}</span>
+                <span style={{ color: '#8a9aaa', width: 14 }}>{i + 1}</span>
                 <span style={{ color: '#e2e8f0', fontWeight: 700, width: 48 }}>{c.symbol}</span>
                 <span style={{ color: '#8a9aaa', fontFamily: 'monospace' }}>{c.price >= 1 ? `$${c.price.toLocaleString()}` : `$${c.price}`}</span>
                 <span style={{ marginLeft: 'auto', color: (c.ch24 ?? 0) >= 0 ? '#22c55e' : '#ef4444', fontFamily: 'monospace' }}>{c.ch24 != null ? `${c.ch24 >= 0 ? '+' : ''}${c.ch24.toFixed(1)}%` : '—'}</span>
-                <span style={{ color: '#6e7f8f', fontSize: 9.5, width: 56, textAlign: 'right' }}>${c.mcapB}B</span>
+                <span style={{ color: '#8a9aaa', fontSize: 9.5, width: 56, textAlign: 'right' }}>${c.mcapB}B</span>
               </div>
             ))}
           </div>
@@ -183,7 +183,7 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
           {d.supply && (
             <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${BORDER}` }}>
               <SupplyBar pct={d.supply.pct} note="최대 발행량 대비 유통률" />
-              <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 4, lineHeight: 1.5 }}>BTC {d.supply.circulatingM}M / 최대 {d.supply.maxM}M — 신규 공급은 반감기로 계속 줄어 결국 2,100만 개에서 멈춥니다(언락 덤핑 리스크 없음).</div>
+              <div style={{ color: '#8a9aaa', fontSize: 9.5, marginTop: 4, lineHeight: 1.5 }}>BTC {d.supply.circulatingM}M / 최대 {d.supply.maxM}M — 신규 공급은 반감기로 계속 줄어 결국 2,100만 개에서 멈춥니다(언락 덤핑 리스크 없음).</div>
             </div>
           )}
         </Panel>
@@ -379,7 +379,7 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
                   </tbody>
                 </table>
               </div>
-              <div style={{ display: 'flex', gap: 12, fontSize: 9.5, color: '#6e7f8f', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 12, fontSize: 9.5, color: '#8a9aaa', flexWrap: 'wrap' }}>
                 <span><span style={{ color: '#f87171' }}>■</span> 0.6↑ 강한 동조</span>
                 <span><span style={{ color: '#fbbf24' }}>■</span> 0.35~0.6 보통</span>
                 <span><span style={{ color: '#4ade80' }}>■</span> 0.35↓ 약함(분산)</span>
@@ -392,7 +392,7 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
                 <Overlay other="금" dataKey="gold" color="#fbbf24" corr={matrix[0]?.[3] ?? null} />
               </div>
             )}
-            <div style={{ color: '#9aa7b5', fontSize: 10.5, lineHeight: 1.6, marginTop: 8 }}>{d.correlation!.note} <span style={{ color: '#6e7f8f' }}>(비교 차트: 시작점 100 기준 정규화·로그 스케일 — 주황=비트코인)</span></div>
+            <div style={{ color: '#9aa7b5', fontSize: 10.5, lineHeight: 1.6, marginTop: 8 }}>{d.correlation!.note} <span style={{ color: '#8a9aaa' }}>(비교 차트: 시작점 100 기준 정규화·로그 스케일 — 주황=비트코인)</span></div>
           </div>
         )
       })()}
@@ -411,7 +411,7 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
         </div>
       )}
 
-      <div style={{ color: '#6e7f8f', fontSize: 10, lineHeight: 1.6 }}>
+      <div style={{ color: '#8a9aaa', fontSize: 10, lineHeight: 1.6 }}>
         ※ 데이터: CoinGecko·alternative.me(공포탐욕)·mempool.space(해시레이트)·업비트(KRW)·FRED(M2) — 전부 무료 공개 API · 1h 캐시 · 메이어 멀티플은 유료 MVRV의 무료 대체 지표 · 비트코인은 주식과 달리 EPS·PER이 없어 사이클·심리·네트워크로 분석합니다 · 교육용이며 투자 추천이 아닙니다.
       </div>
       </>)}

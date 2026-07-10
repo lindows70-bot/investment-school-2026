@@ -45,7 +45,7 @@ export default function MarketCatalystBanner() {
             {c.tickers.slice(0, 4).map(t => (
               <span key={t} style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 5, padding: '1px 7px', color: '#93c5fd', fontSize: 9.5, fontWeight: 700 }}>{t}</span>
             ))}
-            <span style={{ color: '#6e7f8f', fontSize: 10 }}>{open === i ? '▲' : '▼'}</span>
+            <span style={{ color: '#8a9aaa', fontSize: 10 }}>{open === i ? '▲' : '▼'}</span>
           </button>
           {open === i && (
             <div style={{ padding: '0 0 9px 22px' }}>
@@ -74,7 +74,7 @@ export default function MarketCatalystBanner() {
         </div>
       )}
 
-      <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 7, lineHeight: 1.5 }}>
+      <div style={{ color: '#8a9aaa', fontSize: 9.5, marginTop: 7, lineHeight: 1.5 }}>
         ※ 뉴스는 Google News 실시간 헤드라인 요약(Gemini·헤드라인에 있는 사건만), 수급은 Yahoo 트렌딩 거래량·KR 쌍끌이 실측 · 3h 캐시 · 핫하다고 사라는 뜻이 아닙니다 — 진단 탭 함정 레이더부터 확인하세요 · 교육용.
       </div>
       </>)}

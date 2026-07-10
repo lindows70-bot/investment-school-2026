@@ -107,7 +107,7 @@ export default function LynchAutoPanel(p: LynchAutoProps) {
       <div style={{ background: 'rgba(167,139,250,0.07)', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 10, padding: '10px 13px', color: '#ddd6fe', fontSize: 12, lineHeight: 1.65 }}>
         🧭 <b>린치의 종합 의견</b> — {summary}
       </div>
-      <div style={{ color: '#6e7f8f', fontSize: 9.5, lineHeight: 1.6 }}>
+      <div style={{ color: '#8a9aaa', fontSize: 9.5, lineHeight: 1.6 }}>
         ※ PEG·이익선은 흑자·성장 측정 가능한 종목에 유효. 적자·혁신성장주는 매출(P/S)·해자로 보완하세요. 교육용이며 투자 추천이 아닙니다.
       </div>
     </div>

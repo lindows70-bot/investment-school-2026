@@ -101,7 +101,7 @@ export default function TradePlanCard({ market, timing, portfolioKrw }: {
             </div>
           </div>
 
-          <div style={{ color: '#6e7f8f', fontSize: 9.5, borderTop: `1px solid ${BORDER}`, paddingTop: 6 }}>
+          <div style={{ color: '#8a9aaa', fontSize: 9.5, borderTop: `1px solid ${BORDER}`, paddingTop: 6 }}>
             💡 수량을 리스크에서 역산하면 변동성 큰 종목은 자동으로 적게 담게 됩니다(매매 단위 리스크 패리티). 1%룰 = 10번 연속 틀려도 −10%로 생존. 가격은 최근 종가 기준·자동 주문 없음·교육용.
           </div>
         </div>

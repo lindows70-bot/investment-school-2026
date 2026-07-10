@@ -179,7 +179,7 @@ export default function SignalReader({ ticker, market, candles, tf }: {
           </div>
         )}
       </div>
-      <div style={{ fontSize: 10, color: '#6e7f8f' }}>
+      <div style={{ fontSize: 10, color: '#8a9aaa' }}>
         ⚠️ 기술신호는 이 화면 전용 보조 지표 — 앱의 추천·리밸런싱 점수에는 반영되지 않습니다. 판정 기준: PEG SSOT(stock-info)·영업적자 −10%·PEG 2.2(Jarvis 매도 기준과 동일). 교육용, 투자 추천 아님.
       </div>
     </div>

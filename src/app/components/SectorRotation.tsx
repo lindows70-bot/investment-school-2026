@@ -196,7 +196,7 @@ export default function SectorRotation() {
               )
             })}
           </svg>
-          <div style={{ fontSize: 10, color: '#6e7f8f', padding: '0 8px 6px', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 10, color: '#8a9aaa', padding: '0 8px 6px', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <span>◌ 점선 링 = 테마 섹터</span><span><b style={{ color: '#a8b5c2' }}>오른쪽·위로 갈수록 좋음</b>(평균보다 많이 오르고 + 최근 가속)</span><span>점·라벨 클릭 → 드릴다운</span>
           </div>
         </div>
@@ -207,7 +207,7 @@ export default function SectorRotation() {
           <Rank title="🔥 유입 Top (돈 몰림)" color="#22c55e" items={data.inflow} onSel={setSel} sel={sel} />
           <div style={{ height: 10 }} />
           <Rank title="❄️ 이탈 Top (돈 빠짐)" color="#94a3b8" items={data.outflow} onSel={setSel} sel={sel} />
-          <div style={{ fontSize: 10, color: '#6e7f8f', marginTop: 10, borderTop: `1px solid ${BORDER}`, paddingTop: 8, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 10, color: '#8a9aaa', marginTop: 10, borderTop: `1px solid ${BORDER}`, paddingTop: 8, lineHeight: 1.5 }}>
             쏠림 점수 = 상대강도(1M) 0.6 + 모멘텀(1W) 0.4. 17섹터 평균 대비 %p. 가격 상대강도 기준(수급의 결과=가격). 옆 사분면 배지로 국면 확인 — ❄️태동은 아직 약하나 모멘텀이 돌기 시작(순점수 낮아도 이탈과 결이 다름).
           </div>
         </div>
@@ -275,7 +275,7 @@ export default function SectorRotation() {
               </div>
             ))}
           </div>
-          <div style={{ fontSize: 10, color: '#6e7f8f', marginTop: 8, lineHeight: 1.5 }}>👆 종목 줄을 클릭하면 해당 섹터 드릴다운이 열립니다 · 신고가 자체가 매수 신호는 아니며, 소섹터 국면으로 &lsquo;초입 vs 막차&rsquo;를 가늠하는 교육용 지표.</div>
+          <div style={{ fontSize: 10, color: '#8a9aaa', marginTop: 8, lineHeight: 1.5 }}>👆 종목 줄을 클릭하면 해당 섹터 드릴다운이 열립니다 · 신고가 자체가 매수 신호는 아니며, 소섹터 국면으로 &lsquo;초입 vs 막차&rsquo;를 가늠하는 교육용 지표.</div>
         </div>
       ) : null}
 
@@ -285,7 +285,7 @@ export default function SectorRotation() {
           <div style={{ fontSize: 11, color: '#8599ae', marginBottom: 6, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <span>🔎 <b style={{ color: '#cbd5e1' }}>{FULL[sel] ?? sel} 드릴다운</b> — 소섹터 카드 + 미국·한국 대표종목</span>
             {data.inflow?.[0]?.key === sel && <span style={{ fontSize: 9.5, fontWeight: 800, color: '#4ade80', background: '#14532d55', border: '1px solid #22c55e44', borderRadius: 5, padding: '1px 7px' }}>🔥 자금 유입 1위 — 기본 표시</span>}
-            <span style={{ marginLeft: 'auto', color: '#6e7f8f' }}>👆 다른 섹터가 궁금하면 위 시계의 점이나 랭킹 줄을 클릭하세요</span>
+            <span style={{ marginLeft: 'auto', color: '#8a9aaa' }}>👆 다른 섹터가 궁금하면 위 시계의 점이나 랭킹 줄을 클릭하세요</span>
           </div>
           <SectorCanvas sectorKey={sel} />
         </div>
@@ -293,7 +293,7 @@ export default function SectorRotation() {
         <div style={{ fontSize: 11.5, color: '#8599ae', textAlign: 'center', padding: '10px 0' }}>👆 시계의 섹터 점이나 랭킹을 클릭하면 소섹터·대표종목이 여기 펼쳐집니다.</div>
       )}
 
-      <div style={{ fontSize: 10.5, color: '#6e7f8f', lineHeight: 1.6, padding: '0 4px' }}>
+      <div style={{ fontSize: 10.5, color: '#8a9aaa', lineHeight: 1.6, padding: '0 4px' }}>
         ⚠️ 🌱주도(강+가속)·🔥과열(강했으나 둔화·차익경계)·🍂이탈(약+둔화)·❄️태동(약했으나 가속·역발상 매집징후) — 막스 시계추와 같은 철학(과열은 경계, 소외+반등은 기회). 예측 아닌 현재 위치. 섹터 수익률은 섹터 탭과 동일(제2원칙). 교육용, 투자 추천 아님.
       </div>
     </div>
@@ -306,12 +306,12 @@ function Rank({ title, color, items, onSel, sel }: { title: string; color: strin
       <div style={{ fontSize: 11.5, fontWeight: 700, color, marginBottom: 5 }}>{title}</div>
       {items.length ? items.map((it, i) => (
         <div key={it.key} onClick={() => onSel(it.key)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: '4px 6px', borderRadius: 6, background: sel === it.key ? '#1b2230' : 'transparent', marginBottom: 2 }}>
-          <span style={{ color: '#6e7f8f', fontSize: 10, width: 12 }}>{i + 1}</span>
+          <span style={{ color: '#8a9aaa', fontSize: 10, width: 12 }}>{i + 1}</span>
           <span style={{ color: '#e2e8f0', fontSize: 12, fontWeight: 600, flex: 1 }}>{it.emoji} {it.label.replace(/\s*\(.*\)/, '')}</span>
           <span style={{ fontSize: 9.5, color: QC[it.quadrant], fontWeight: 700, marginRight: 2 }}>{QI[it.quadrant]}{QN[it.quadrant]}</span>
           <span style={{ color, fontSize: 11, fontWeight: 800, fontFamily: 'monospace' }}>{it.score >= 0 ? '+' : ''}{it.score}</span>
         </div>
-      )) : <div style={{ fontSize: 10.5, color: '#6e7f8f', padding: '4px 6px' }}>해당 없음</div>}
+      )) : <div style={{ fontSize: 10.5, color: '#8a9aaa', padding: '4px 6px' }}>해당 없음</div>}
     </div>
   )
 }

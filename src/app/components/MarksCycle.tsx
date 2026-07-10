@@ -85,7 +85,7 @@ export default function MarksCycle() {
               </div>
             )
           })()}
-          <div style={{ fontSize: 10.5, color: '#6e7f8f', marginTop: 10, borderTop: `1px solid ${BORDER}`, paddingTop: 8 }}>
+          <div style={{ fontSize: 10.5, color: '#8a9aaa', marginTop: 10, borderTop: `1px solid ${BORDER}`, paddingTop: 8 }}>
             ⚖️ 막스: <i>&ldquo;고점에선 안 잃는 게, 저점에선 과감함이 이긴다.&rdquo;</i> — 사이클 위치에 따라 공격/방어의 무게를 바꿔라.
           </div>
         </div>
@@ -99,7 +99,7 @@ export default function MarksCycle() {
           <div style={{ background: active ? `${oc}14` : '#0f1117', border: `1.5px solid ${oc}${active ? '66' : '33'}`, borderRadius: 12, padding: '12px 16px' }}>
             <div style={{ fontSize: 13.5, fontWeight: 800, color: oc }}>{data.opportunity.label}</div>
             <div style={{ fontSize: 11.5, color: '#cbd5e1', marginTop: 4, lineHeight: 1.55 }}>{data.opportunity.msg}</div>
-            <div style={{ fontSize: 10, color: '#6e7f8f', marginTop: 6 }}>막스: 안전마진은 남들이 <b style={{ color: '#94a3b8' }}>팔 수밖에 없을 때</b> 생긴다 — 단 &lsquo;싼 데는 이유가 있다&rsquo;(칼날)와 구분.</div>
+            <div style={{ fontSize: 10, color: '#8a9aaa', marginTop: 6 }}>막스: 안전마진은 남들이 <b style={{ color: '#94a3b8' }}>팔 수밖에 없을 때</b> 생긴다 — 단 &lsquo;싼 데는 이유가 있다&rsquo;(칼날)와 구분.</div>
           </div>
         )
       })()}
@@ -112,7 +112,7 @@ export default function MarksCycle() {
             <div key={a.key}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, marginBottom: 3 }}>
                 <span style={{ color: '#cbd5e1', fontWeight: 600 }}>{a.icon} {a.label}</span>
-                <span style={{ color: a.temp == null ? '#6e7f8f' : (a.temp >= 58 ? '#ef4444' : a.temp <= 42 ? '#22c55e' : '#94a3b8'), fontWeight: 700, fontFamily: 'monospace' }}>
+                <span style={{ color: a.temp == null ? '#8a9aaa' : (a.temp >= 58 ? '#ef4444' : a.temp <= 42 ? '#22c55e' : '#94a3b8'), fontWeight: 700, fontFamily: 'monospace' }}>
                   {a.temp == null ? '—' : `${a.temp}`}
                 </span>
               </div>
@@ -125,7 +125,7 @@ export default function MarksCycle() {
             </div>
           ))}
         </div>
-        <div style={{ fontSize: 10, color: '#6e7f8f', marginTop: 10 }}>
+        <div style={{ fontSize: 10, color: '#8a9aaa', marginTop: 10 }}>
           각 축 0~100 탐욕 온도(빨강=탐욕/과열, 초록=공포/침체, 세로선=균형). 가중: 심리 30·밸류 30·레버리지 20·신용 20{data.usedAxes < 4 ? ` · ${4 - data.usedAxes}개 축 데이터 실패(가중 재정규화)` : ''}.
         </div>
       </div>
@@ -143,13 +143,13 @@ export default function MarksCycle() {
             <div style={{ fontSize: 12.5, color: '#e2e8f0', lineHeight: 1.5 }}>{data.secondLevel.second}</div>
           </div>
         </div>
-        <div style={{ fontSize: 10.5, color: '#6e7f8f', marginTop: 8 }}>
+        <div style={{ fontSize: 10.5, color: '#8a9aaa', marginTop: 8 }}>
           → 개별 종목의 &lsquo;그 기대가 이미 가격에 반영됐나&rsquo;는 리서치의 <b style={{ color: '#94a3b8' }}>역-DCF(내재기대)</b>·<b style={{ color: '#94a3b8' }}>노이즈 캔슬러(쏠림)</b>로 확인.
         </div>
       </div>
 
       {/* 정직 캐비엇 */}
-      <div style={{ fontSize: 10.5, color: '#6e7f8f', lineHeight: 1.6, padding: '0 4px' }}>
+      <div style={{ fontSize: 10.5, color: '#8a9aaa', lineHeight: 1.6, padding: '0 4px' }}>
         ⚠️ 막스 원칙: <b>&ldquo;사이클은 알아도 타이밍은 모른다.&rdquo;</b> 이 시계추는 미래를 예측하지 않고 <b>현재 위치</b>만 읽는다.
         극단일수록 신호가 강하고, 균형 구간에선 개별 종목 판단이 우선. 부실채권·사모펀드 같은 막스의 실제 무대는 학생 투자 대상이 아니라 <b>원리</b>(안전마진·역발상)만 차용.
         리스크의 진짜 정의 = 가격 변동성이 아니라 <b>영구적 원금 손실</b> — 무서워서 투매하면 손실을 확정한다.

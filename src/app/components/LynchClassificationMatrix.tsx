@@ -113,7 +113,7 @@ export default function LynchClassificationMatrix() {
                   <span style={{ color: '#8a9aaa', fontSize: 10 }}>{c.items.length}종목</span>
                   {c.items.some(x => x.trap) && <span style={{ color: '#f87171', fontSize: 10 }}>⚠️</span>}
                   <span style={{ marginLeft: 'auto', color: col, fontWeight: 800, fontSize: 12, fontFamily: 'monospace' }}>{c.weightPct}%</span>
-                  <span style={{ color: '#6e7f8f', fontSize: 9 }}>{open ? '▲' : '▼'}</span>
+                  <span style={{ color: '#8a9aaa', fontSize: 9 }}>{open ? '▲' : '▼'}</span>
                 </button>
                 {open && (
                   <div style={{ margin: '4px 0 2px', padding: '7px 10px', background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8 }}>
@@ -123,7 +123,7 @@ export default function LynchClassificationMatrix() {
                         <span>{it.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
                         <span style={{ color: '#cbd5e1', fontWeight: 600 }}>{it.name}</span>
                         {it.trap && <span style={{ color: '#f87171', fontWeight: 700 }}>⚠️ 기저효과</span>}
-                        {it.source === 'user' && <span style={{ color: '#6e7f8f', fontSize: 9 }}>내 지정</span>}
+                        {it.source === 'user' && <span style={{ color: '#8a9aaa', fontSize: 9 }}>내 지정</span>}
                         <span style={{ marginLeft: 'auto', color: '#8a9aaa' }}>PEG {it.peg ?? '—'} · 성장 {it.growthPct != null ? `${it.growthPct > 0 ? '+' : ''}${it.growthPct}%` : '—'}</span>
                         <span style={{ color: '#e2e8f0', fontWeight: 700, fontFamily: 'monospace' }}>{it.weightPct}%</span>
                       </div>
@@ -136,7 +136,7 @@ export default function LynchClassificationMatrix() {
         </div>
       </div>
 
-      <div style={{ color: '#6e7f8f', fontSize: 10, lineHeight: 1.6, marginTop: 8 }}>
+      <div style={{ color: '#8a9aaa', fontSize: 10, lineHeight: 1.6, marginTop: 8 }}>
         ※ 분류 우선순위: 내가 지정한 카테고리 &gt; 펀더멘탈 자동 분류(성장률·섹터) · 한 종목은 단 1개 카테고리에만 속합니다(MECE) ·
         함정 레이더는 섹터 피어 X-Ray와 동일한 기저효과 기준(PEG&lt;0.3 & 성장+100%↑)을 사용합니다 · 교육용.
       </div>

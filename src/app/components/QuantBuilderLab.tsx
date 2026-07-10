@@ -155,7 +155,7 @@ export default function QuantBuilderLab() {
               <div style={{ position: 'absolute', left: '50%', top: '88%', transform: 'translate(-50%,-50%)', color: '#8a9aaa', fontSize: 11 }}>3축을 모두 통과한 위성이 아직 없습니다(데이터 수집 중)</div>
             )}
           </div>
-          <div style={{ color: '#6e7f8f', fontSize: 9.5, display: 'flex', gap: 12 }}>
+          <div style={{ color: '#8a9aaa', fontSize: 9.5, display: 'flex', gap: 12 }}>
             <span><span style={{ color: '#4ade80' }}>●</span> 3축 전부 통과(최정예)</span>
             <span><span style={{ color: '#a78bfa' }}>●</span> 2축 통과+무탈락(정예)</span>
             <span>위성 클릭 → 상세</span>
@@ -244,7 +244,7 @@ export default function QuantBuilderLab() {
                   </span>
                 ))}
                 <span style={{ marginRight: 14 }} title="주가매출비율(P/S) — 적자기업·고성장주는 PER/PEG가 무의미할 때 '매출 대비 밸류'를 본다. 동종 업종끼리 비교해야 의미가 있다(산업마다 정상치 다름).">
-                  💵 매출배수: <b style={{ color: s.psr != null ? '#cbd5e1' : '#6e7f8f' }}>{s.psr != null ? `PSR ${s.psr.toFixed(1)}배` : 'PSR 자료없음'}</b>
+                  💵 매출배수: <b style={{ color: s.psr != null ? '#cbd5e1' : '#8a9aaa' }}>{s.psr != null ? `PSR ${s.psr.toFixed(1)}배` : 'PSR 자료없음'}</b>
                 </span>
                 {s.badges.length > 0 && <div style={{ marginTop: 3 }}>{s.badges.map(b => <span key={b} style={{ marginRight: 8, color: '#8a9aaa' }}>{b}</span>)}</div>}
                 {s.timing && <div style={{ marginTop: 4 }}><TimingBadge t={s.timing} market={s.market} compact /></div>}
@@ -266,7 +266,7 @@ export default function QuantBuilderLab() {
         </div>
       </div>
 
-      <div style={{ color: '#6e7f8f', fontSize: 10, lineHeight: 1.6 }}>
+      <div style={{ color: '#8a9aaa', fontSize: 10, lineHeight: 1.6 }}>
         ※ 실제 매매 연동은 하지 않으며, 이 추천안은 내 실제 계좌에 저장되지 않습니다(혼재 없음) — 성과는 타임머신 탭에서 별도 백테스트 · 위성 점수는 통합추천(③)과 동일한 SSOT(계절×가치×수급 + 기저효과 가드) · Core 배분은 4계절 국면 연동 교육용 룰 ·
         📈 스파크라인=최근 1년 주봉, 📍 52주 게이지=현재가가 52주 밴드의 어디인지(0%=최저, 100%=최고 — 바닥권일수록 싸게 사는 것, 신고가권은 추격 매수 주의) · 12h 캐시 · 교육용이며 투자 추천이 아닙니다.
       </div>

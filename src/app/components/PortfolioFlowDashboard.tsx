@@ -144,7 +144,7 @@ export default function PortfolioFlowDashboard() {
           <span style={{ color: rate >= 50 ? '#22c55e' : rate >= 25 ? '#f59e0b' : '#8a9aaa', fontWeight: 900, fontSize: 28, fontFamily: 'monospace', minWidth: 64 }}>{rate}%</span>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
             <Sparkline data={data.history ?? []} />
-            <span style={{ color: '#6e7f8f', fontSize: 9 }}>동행지수 {(data.history?.length ?? 0) >= 2 ? '일별 추이' : '추이 누적 중'}</span>
+            <span style={{ color: '#8a9aaa', fontSize: 9 }}>동행지수 {(data.history?.length ?? 0) >= 2 ? '일별 추이' : '추이 누적 중'}</span>
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ height: 14, background: '#0f1117', borderRadius: 7, overflow: 'hidden' }}>

@@ -116,7 +116,7 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
               🧊 <b style={{ color: '#94a3b8' }}>소외·이탈</b>: {b?.emoji} {b?.label} <span style={{ color: pctCol(b?.ret1w ?? null), fontFamily: 'monospace', fontWeight: 700 }}>(1주 {fmtPct(b?.ret1w ?? null)})</span>
             </span>
           )})()}
-          <span style={{ fontSize: 10, color: '#6e7f8f', marginLeft: 'auto' }}>상대강도(1M)+모멘텀(1W) — 로테이션 시계와 동일 기준</span>
+          <span style={{ fontSize: 10, color: '#8a9aaa', marginLeft: 'auto' }}>상대강도(1M)+모멘텀(1W) — 로테이션 시계와 동일 기준</span>
         </div>
       )}
 
@@ -174,7 +174,7 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
                   <div style={{ fontSize: 9.5, fontWeight: 700, color: wait ? '#eab308' : '#94a3b8' }}>
                     {wait ? '⏳ 상대 강세이나 주간 상승·추세 미확인 — 반등 확인 후 진입' : buy ? '📈 자금 유입·상승 — ETF 없음, 개별종목(아래 표) 참고' : '🔻 이탈 — 신규 진입 자제'}
                   </div>
-                  {etf && <div style={{ fontSize: 9.5, color: '#6e7f8f', marginTop: 3 }}>관련 ETF: {[etf.us && `🇺🇸${etf.us.t}`, etf.kr && `🇰🇷${etf.kr.name}`].filter(Boolean).join(' · ')}</div>}
+                  {etf && <div style={{ fontSize: 9.5, color: '#8a9aaa', marginTop: 3 }}>관련 ETF: {[etf.us && `🇺🇸${etf.us.t}`, etf.kr && `🇰🇷${etf.kr.name}`].filter(Boolean).join(' · ')}</div>}
                 </div>
               )
             })()}
@@ -245,7 +245,7 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
                 )
               })}
             </div>
-            <div style={{ color: '#6e7f8f', fontSize: 9, marginTop: 6 }}>※ Yahoo 추정 실적일(US·해외) · 변동될 수 있음 · KR은 미제공.</div>
+            <div style={{ color: '#8a9aaa', fontSize: 9, marginTop: 6 }}>※ Yahoo 추정 실적일(US·해외) · 변동될 수 있음 · KR은 미제공.</div>
           </div>
         )
       })()}
@@ -305,7 +305,7 @@ export default function SectorCanvas({ sectorKey }: { sectorKey: string }) {
         </div>
       )}
 
-      <div style={{ color: '#6e7f8f', fontSize: 9.5, lineHeight: 1.6 }}>
+      <div style={{ color: '#8a9aaa', fontSize: 9.5, lineHeight: 1.6 }}>
         ※ 수익률·베타=주봉(US/해외 Yahoo·KR 네이버) · 서브섹터=동일가중(테마 폭 측정) · 미니차트=실제 주봉 종가 · 비상장/정책=공개자료 큐레이션 · 교육용이며 투자 추천이 아닙니다.
       </div>
     </div>
@@ -332,7 +332,7 @@ function Row({ s, maxBeta, anchor, subMap }: { s: SectorStockOut; maxBeta: numbe
           {fake && <span title="대형주 + 테마 연동 낮음(베타<0.5)" style={{ background: 'rgba(245,158,11,0.12)', color: '#fbbf24', borderRadius: 4, padding: '0 5px', fontSize: 8.5, fontWeight: 700 }}>⚠️무늬만</span>}
           {isNew && <span title={`상장한 지 ${s.weeks}주 — 1년 수익률·베타는 데이터가 1년 쌓여야 계산됩니다`} style={{ background: 'rgba(56,189,248,0.14)', color: '#38bdf8', borderRadius: 4, padding: '0 5px', fontSize: 8.5, fontWeight: 700 }}>🆕 신규상장 {s.weeks}주차</span>}
         </div>
-        <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 1 }}>{s.note}</div>
+        <div style={{ color: '#8a9aaa', fontSize: 9.5, marginTop: 1 }}>{s.note}</div>
       </td>
       <td style={{ padding: '7px 6px', textAlign: 'center' }}>
         {sm && <span style={{ display: 'inline-block', background: `${sm.color}1f`, color: sm.color, border: `1px solid ${sm.color}44`, borderRadius: 6, padding: '2px 7px', fontSize: 9.5, fontWeight: 700, whiteSpace: 'nowrap' }}>{sm.emoji} {sm.label}</span>}

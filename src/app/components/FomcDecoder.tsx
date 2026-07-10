@@ -110,7 +110,7 @@ export default function FomcDecoder() {
         </div>
       )}
 
-      <div style={{ color: '#6e7f8f', fontSize: 9.5, lineHeight: 1.6 }}>
+      <div style={{ color: '#8a9aaa', fontSize: 9.5, lineHeight: 1.6 }}>
         ※ 실제 FOMC 성명서·기자회견 뉴스(Google News)를 AI가 해석 — 발언은 헤드라인 근거이며 정확한 원문은 연준 공식 발표로 확인하세요. 교육용이며 투자 추천이 아닙니다.
       </div>
     </div>

@@ -92,14 +92,14 @@ export default function StablecoinRadar() {
             <div style={{ position: 'relative', height: 12, background: 'linear-gradient(90deg,#ef4444,#fbbf24,#22c55e)', borderRadius: 6, opacity: 0.85, marginBottom: 4 }}>
               <div style={{ position: 'absolute', left: `${pos}%`, top: -3, transform: 'translateX(-50%)', width: 4, height: 18, background: '#e2e8f0', borderRadius: 2, boxShadow: '0 0 4px #000' }} />
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9.5, color: '#6e7f8f', marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9.5, color: '#8a9aaa', marginBottom: 8 }}>
               <span>5% 현금소진(과열)</span><span>~10% 중립</span><span>16% 현금풍부(공포)</span>
             </div>
             <div style={{ background: `${zc}12`, border: `1px solid ${zc}33`, borderRadius: 8, padding: '8px 12px' }}>
               <div style={{ color: zc, fontWeight: 800, fontSize: 12, marginBottom: 2 }}>{zlabel}</div>
               <div style={{ color: '#cbd5e1', fontSize: 11, lineHeight: 1.6 }}>{zdesc}</div>
             </div>
-            <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 6 }}>※ 주식의 &lsquo;현금 비중·칵테일 파티 지수&rsquo;와 같은 역발상 지표 — 전체 암호 시총 {d.cryptoMcap != null ? fmtB(d.cryptoMcap) : '—'} 기준. 절대 매매 신호 아님(교육용).</div>
+            <div style={{ color: '#8a9aaa', fontSize: 9.5, marginTop: 6 }}>※ 주식의 &lsquo;현금 비중·칵테일 파티 지수&rsquo;와 같은 역발상 지표 — 전체 암호 시총 {d.cryptoMcap != null ? fmtB(d.cryptoMcap) : '—'} 기준. 절대 매매 신호 아님(교육용).</div>
           </div>
         )
       })()}
@@ -123,7 +123,7 @@ export default function StablecoinRadar() {
               </div>
             </div>
           ))}
-          <div style={{ color: '#6e7f8f', fontSize: 9.5, lineHeight: 1.5, marginTop: 4 }}>
+          <div style={{ color: '#8a9aaa', fontSize: 9.5, lineHeight: 1.5, marginTop: 4 }}>
             법정담보(USDT·USDC)=현금·국채 보유 → 상대 안전 · 알고리즘(무담보)=코드로 페그 유지 → <b style={{ color: '#f87171' }}>테라(UST) 붕괴의 주범</b>. 알고리즘 비중이 0%에 가까운 건 시장이 위험을 학습한 결과.
           </div>
         </div>
@@ -149,12 +149,12 @@ export default function StablecoinRadar() {
                   {isYield && <span style={{ color: '#a78bfa', fontSize: 9, fontWeight: 700 }}>이자형</span>}
                   <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>{fmtB(c.mcap)} · {c.share}%</span>
                   <span style={{ marginLeft: 'auto', color: '#cbd5e1', fontSize: 11, fontFamily: 'monospace' }}>${c.price != null ? c.price.toFixed(4) : '—'}</span>
-                  <span style={{ color: alert ? '#f87171' : isYield ? '#a78bfa' : '#6e7f8f', fontSize: 10.5, fontWeight: 700, fontFamily: 'monospace', minWidth: 48, textAlign: 'right' }}>{dev >= 0 ? '+' : ''}{dev}%</span>
+                  <span style={{ color: alert ? '#f87171' : isYield ? '#a78bfa' : '#8a9aaa', fontSize: 10.5, fontWeight: 700, fontFamily: 'monospace', minWidth: 48, textAlign: 'right' }}>{dev >= 0 ? '+' : ''}{dev}%</span>
                 </div>
               )
             })}
           </div>
-          <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 6 }}>상위 2종(USDT·USDC) 점유율 {concentration.toFixed(0)}% — 소수 집중도 자체가 시스템 리스크(한 곳 흔들리면 전체 충격).</div>
+          <div style={{ color: '#8a9aaa', fontSize: 9.5, marginTop: 6 }}>상위 2종(USDT·USDC) 점유율 {concentration.toFixed(0)}% — 소수 집중도 자체가 시스템 리스크(한 곳 흔들리면 전체 충격).</div>
         </div>
       </div>
 
@@ -184,7 +184,7 @@ export default function StablecoinRadar() {
                 </div>
               ))}
             </div>
-            <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 7, lineHeight: 1.5 }}>이더리움·트론이 양대 축(USDT는 트론에서 송금·USDC는 이더리움 중심) · 신생 체인(솔라나·Base) 비중 증가 = 그쪽으로 자금·활동이 이동 중이라는 신호.</div>
+            <div style={{ color: '#8a9aaa', fontSize: 9.5, marginTop: 7, lineHeight: 1.5 }}>이더리움·트론이 양대 축(USDT는 트론에서 송금·USDC는 이더리움 중심) · 신생 체인(솔라나·Base) 비중 증가 = 그쪽으로 자금·활동이 이동 중이라는 신호.</div>
           </div>
         )
       })()}
@@ -192,7 +192,7 @@ export default function StablecoinRadar() {
       {/* ③ 디페깅 스트레스 시뮬레이터 */}
       <DepegSimulator />
 
-      <div style={{ color: '#6e7f8f', fontSize: 9.5, lineHeight: 1.5 }}>
+      <div style={{ color: '#8a9aaa', fontSize: 9.5, lineHeight: 1.5 }}>
         ※ 데이터=DefiLlama 스테이블코인(무료·무키, USD 페그 기준) · 6h 캐시 · 담보 상세 구성(국채 vs 현금 %)은 분기 공시(attestation)라 종류·페그로 대체 · 교육용, 투자 추천 아님.
       </div>
     </div>

@@ -27,7 +27,7 @@ export default function AltSeasonIndex({ btcDom, ethDom }: { btcDom: number | nu
       <div style={{ position: 'relative', height: 12, background: 'linear-gradient(90deg,#f7931a,#fbbf24,#627eea)', borderRadius: 6, opacity: 0.85, marginBottom: 4 }}>
         <div style={{ position: 'absolute', left: `${score}%`, top: -3, transform: 'translateX(-50%)', width: 4, height: 18, background: '#e2e8f0', borderRadius: 2, boxShadow: '0 0 4px #000' }} />
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9.5, color: '#6e7f8f', marginBottom: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9.5, color: '#8a9aaa', marginBottom: 10 }}>
         <span>0 ₿ 비트코인 우위</span><span>50 중립</span><span>알트 시즌 100</span>
       </div>
 
@@ -47,7 +47,7 @@ export default function AltSeasonIndex({ btcDom, ethDom }: { btcDom: number | nu
         <div style={{ color: zc, fontWeight: 800, fontSize: 12, marginBottom: 2 }}>{label}</div>
         <div style={{ color: '#cbd5e1', fontSize: 11, lineHeight: 1.6 }}>{desc}</div>
       </div>
-      <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 6, lineHeight: 1.5 }}>
+      <div style={{ color: '#8a9aaa', fontSize: 9.5, marginTop: 6, lineHeight: 1.5 }}>
         ※ BTC 도미넌스↑ = 자금이 비트코인으로 집중(안전 선호) / ↓ = 알트코인으로 분산(위험 선호). 지수=100−BTC.D · 추세가 핵심이니 며칠 흐름을 함께 보세요 · 절대 매매 신호 아님(교육용).
       </div>
     </div>

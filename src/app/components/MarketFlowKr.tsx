@@ -301,7 +301,7 @@ export default function MarketFlowKr() {
         </div>
       )}
 
-      <div style={{ color: '#6e7f8f', fontSize: 10, marginTop: 10, lineHeight: 1.5 }}>
+      <div style={{ color: '#8a9aaa', fontSize: 10, marginTop: 10, lineHeight: 1.5 }}>
         {heat
           ? '※ 추세속도 = (종가−10일 이동평균)/이동평균×100(이격도, ±15% 상한) · 부호=추세방향·크기=강도·5일변화=가속/둔화 · 머니디자인式 추세속도의 교육용 근사(독자지표와 공식 다름) · 투자 추천 아님.'
           : '※ 순매수 대금 = 일별 순매수 수량×종가 누적 추정치(1/5/20일) · 주요 코스피 유니버스 기준(전 종목 아님, ETF 제외) · 매일 장 마감 후 갱신. 교육용 시뮬레이션이며 투자 추천이 아닙니다.'}

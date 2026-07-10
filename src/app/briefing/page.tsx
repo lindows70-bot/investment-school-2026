@@ -163,7 +163,7 @@ export default function BriefingPage() {
         )}
       </Sec>
 
-      <div style={{ fontSize: 10.5, color: '#6e7f8f', lineHeight: 1.6, padding: '0 4px' }}>
+      <div style={{ fontSize: 10.5, color: '#8a9aaa', lineHeight: 1.6, padding: '0 4px' }}>
         ⚠️ 모든 수치는 각 상세 화면과 동일한 SSOT(제2원칙) — 이 페이지는 요약 뷰입니다. 교육용 시뮬레이션이며 투자 추천이 아닙니다. 자동 주문 없음.
       </div>
     </div>

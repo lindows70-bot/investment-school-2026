@@ -116,7 +116,7 @@ export default function GlobalTop10() {
         </div>
       )}
 
-      <div style={{ color: '#6e7f8f', fontSize: 10, lineHeight: 1.6 }}>
+      <div style={{ color: '#8a9aaa', fontSize: 10, lineHeight: 1.6 }}>
         ※ 시총 = 당일 종가 기준 추정치 · 바 길이 = 미국·한국 통합 상대 규모 · 린치 분류는 교육용 · 12h 캐시 · 교육 시뮬레이션이며 투자 추천 아님
       </div>
     </div>

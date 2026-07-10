@@ -113,7 +113,7 @@ export default function DecisionCalibration({ transactions, priceMap }: { transa
         </div>
       ))}
 
-      <div style={{ color: '#6e7f8f', fontSize: 10, lineHeight: 1.6 }}>
+      <div style={{ color: '#8a9aaa', fontSize: 10, lineHeight: 1.6 }}>
         ※ 매수 시점 신호 스냅샷 × 현재가로 채점 — 표본이 적을수록(특히 2~3건) 통계적 신뢰도는 낮습니다. 운과 실력을 분리해 &apos;내 의사결정 패턴&apos;을 보는 교육용 지표입니다.
       </div>
     </div>

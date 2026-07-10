@@ -76,7 +76,7 @@ export default function DcaSimulator({ points }: { points: { date: string; price
           ? <>이 구간은 <b>적립이 일시불보다도 높았습니다</b> — 고점 부근에서 시작했어도 하락 때 더 많이 사들여(평균 매입가 ${r.avgCostUsd.toLocaleString()}) 변동성을 오히려 수익으로 바꿨습니다. 타이밍을 못 맞혀도 꾸준함이 이깁니다.</>
           : <>둘이 비슷합니다. 핵심은 수익률 우열이 아니라, 적립은 <b>저점을 못 맞혀도 변동성을 평균가로 흡수</b>해 타이밍 리스크와 심리적 부담을 없앤다는 점입니다.</>}
       </div>
-      <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 5 }}>※ 10년 주봉(약 2주 간격) 종가 기준 · 수수료·세금 미반영 · 과거 성과가 미래를 보장하지 않음 · 교육용.</div>
+      <div style={{ color: '#8a9aaa', fontSize: 9.5, marginTop: 5 }}>※ 10년 주봉(약 2주 간격) 종가 기준 · 수수료·세금 미반영 · 과거 성과가 미래를 보장하지 않음 · 교육용.</div>
     </div>
   )
 }

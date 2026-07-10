@@ -139,7 +139,7 @@ export default function PerBandChart({ ticker, market }: { ticker: string; marke
         </ComposedChart>
       </ResponsiveContainer>
 
-      <div style={{ color: '#6e7f8f', fontSize: 10, marginTop: 8, lineHeight: 1.6 }}>
+      <div style={{ color: '#8a9aaa', fontSize: 10, marginTop: 8, lineHeight: 1.6 }}>
         💡 밴드 = 확정 연도 실제 PER {pers.length}개 표본의 분위수(표본이 적어 통계가 아닌 <b>역사적 참고 구간</b>). 주가는 연평균(일별 고저 아님)·마지막 구간은 최신 EPS 평행 연장+현재가.
         적자 연도는 밴드 공백. 경기순환주는 이익 정점에서 PER이 가장 낮아 보이는 <b>저PER 함정</b> 주의 — 밴드 하단이 곧 매수 신호는 아닙니다. 금융주·지주사는 PER 밴드 자체가 부적합(P/B·NAV로).
       </div>

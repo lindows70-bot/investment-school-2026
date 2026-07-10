@@ -88,7 +88,7 @@ export default function InvestorTimeline({ ticker, name }: { ticker: string; nam
           )
         })}
       </div>
-      <div style={{ color: '#6e7f8f', fontSize: 9.5, marginTop: 6 }}>※ 대금 = 일별 순매수 수량×종가 추정 · 막대 길이 = 당일 순매수 규모(초록=매수/빨강=매도). 교육용.</div>
+      <div style={{ color: '#8a9aaa', fontSize: 9.5, marginTop: 6 }}>※ 대금 = 일별 순매수 수량×종가 추정 · 막대 길이 = 당일 순매수 규모(초록=매수/빨강=매도). 교육용.</div>
     </div>
   )
 }

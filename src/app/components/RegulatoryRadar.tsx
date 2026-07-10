@@ -53,7 +53,7 @@ export default function RegulatoryRadar() {
               </div>
             )
           })}
-          <div style={{ color: '#6e7f8f', fontSize: 9.5, lineHeight: 1.5 }}>
+          <div style={{ color: '#8a9aaa', fontSize: 9.5, lineHeight: 1.5 }}>
             🟢 제도권 편입·유동성 유입 / 🟡 논의 중·불확실 / 🔴 규제 강화·유동성 차단 · Google News 실시간 헤드라인을 Gemini가 신호등 분류(헤드라인에 있는 사건만) · 6h 캐시 · 법률 자문이 아닌 교육용 요약입니다.
           </div>
         </div>
