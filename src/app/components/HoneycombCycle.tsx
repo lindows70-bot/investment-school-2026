@@ -86,8 +86,7 @@ export default function HoneycombCycle() {
           const vIdx = (ph: HcPhase) => ORDER.indexOf(ph)
           // 지역 칩: 꼭짓점 바깥 방향으로 스택
           const byPhase = new Map<HcPhase, string[]>()
-          for (const r of d.regions) { if (r.name === '전국') continue; const a = byPhase.get(r.phase) ?? []; a.push(r.name); byPhase.set(r.phase, a) }
-          const nat = d.regions.find(r => r.name === '전국')
+          for (const r of d.regions) { const a = byPhase.get(r.phase) ?? []; if (r.name === '전국') a.unshift('🇰🇷전국'); else a.push(r.name); byPhase.set(r.phase, a) }
           // 선택 지역 궤적: 월별 국면 → 꼭짓점 경로(연속 중복 제거, 진행도에 따라 안쪽→바깥 반경 오프셋으로 시간 구분)
           const path: { ph: HcPhase; ym: string }[] = []
           if (selRegion) for (const t of selRegion.trail) {
@@ -119,16 +118,20 @@ export default function HoneycombCycle() {
                   <g key={'v' + ph}>
                     <circle cx={x} cy={y} r={13} fill={PH[ph].color} fillOpacity={0.22} stroke={PH[ph].color} strokeWidth={isSelHere ? 2.4 : 1.4} />
                     <text x={x} y={y + 4} textAnchor="middle" fill={PH[ph].color} fontSize={12} fontWeight={900}>{ph}</text>
-                    <text x={outX} y={outY - (names.length ? (Math.ceil(names.length / 3) - 1) * 6 : 0)} textAnchor="middle" fill={PH[ph].color} fontSize={11.5} fontWeight={900}>{PH[ph].name}</text>
-                    {/* 지역명 — 3개씩 줄바꿈, 선택 지역 강조 */}
-                    {Array.from({ length: Math.ceil(names.length / 3) }, (_, row) => (
-                      <text key={'r' + row} x={outX} y={outY + 14 + row * 13} textAnchor="middle" fontSize={10.5}>
-                        {names.slice(row * 3, row * 3 + 3).map((nm, k) => (
-                          <tspan key={nm} fill={nm === sel ? '#f1f5f9' : '#aab6c4'} fontWeight={nm === sel ? 900 : 600} onClick={() => setSel(nm)} style={{ cursor: 'pointer' }}>{k > 0 ? ' · ' : ''}{nm}</tspan>
+                    {(() => {
+                      const dir = outY < cy ? -1 : 1   // 위쪽 꼭짓점은 위로, 아래쪽은 아래로 스택(원·변과 겹침 방지)
+                      const rows = Math.ceil(names.length / 3)
+                      return (<>
+                        <text x={outX} y={outY} textAnchor="middle" fill={PH[ph].color} fontSize={11.5} fontWeight={900}>{PH[ph].name}</text>
+                        {Array.from({ length: rows }, (_, row) => (
+                          <text key={'r' + row} x={outX} y={outY + dir * (15 + row * 13)} textAnchor="middle" fontSize={10.5}>
+                            {names.slice(row * 3, row * 3 + 3).map((nm, k) => (
+                              <tspan key={nm} fill={nm === sel || nm === '🇰🇷전국' ? '#f1f5f9' : '#aab6c4'} fontWeight={nm === sel || nm === '🇰🇷전국' ? 900 : 600} onClick={() => nm !== '🇰🇷전국' && setSel(nm)} style={{ cursor: nm === '🇰🇷전국' ? 'default' : 'pointer' }}>{k > 0 ? ' · ' : ''}{nm}</tspan>
+                            ))}
+                          </text>
                         ))}
-                      </text>
-                    ))}
-                    {nat && nat.phase === ph && <text x={x} y={y - 20} textAnchor="middle" fill="#f1f5f9" fontSize={10.5} fontWeight={900}>🇰🇷 전국</text>}
+                      </>)
+                    })()}
                   </g>
                 )
               })}
@@ -143,7 +146,7 @@ export default function HoneycombCycle() {
                     return (
                       <g key={'tp' + k}>
                         <circle cx={p.x} cy={p.y} r={isLast ? 7 : 3.5} fill={isLast ? PH[s.ph].color : '#cbd5e1'} stroke={isLast ? '#f1f5f9' : 'none'} strokeWidth={2} />
-                        <text x={p.x} y={p.y - (isLast ? 12 : 7)} textAnchor="middle" fill={isLast ? '#f1f5f9' : '#8a9aaa'} fontSize={isLast ? 10.5 : 8.5} fontWeight={isLast ? 900 : 600}>{isLast ? `${sel} 현재` : s.ym.slice(2)}</text>
+                        <text x={p.x + (isLast ? (p.x < cx ? 12 : -12) : 0)} y={p.y + (isLast ? 18 : -7)} textAnchor="middle" fill={isLast ? '#f1f5f9' : '#8a9aaa'} fontSize={isLast ? 10.5 : 8.5} fontWeight={isLast ? 900 : 600}>{isLast ? `${sel} 현재` : s.ym.slice(2)}</text>
                       </g>
                     )
                   })}
@@ -159,7 +162,7 @@ export default function HoneycombCycle() {
       <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
         <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>📍 정밀 지도 — 실제 수치 좌표(가격×거래량)</div>
         <div style={{ color: '#8a9aaa', fontSize: 11, margin: '3px 0 6px', lineHeight: 1.55 }}>
-          위 벌집 시계의 실제 수치 버전 — 가로 = 거래량(최근 3개월, 전년동기비 %) · 세로 = 가격(3개월 변화 %). 흰 선 = 선택 지역 최근 12개월 궤적. 지역 점 클릭으로 선택.
+          위 벌집 시계의 실제 수치 버전 — 가로 = 거래량(최근 3개월, 전년동기비 %) · 세로 = 가격(3개월 변화 %). 지역 점 클릭으로 선택(궤적은 위 벌집 시계에서).
         </div>
         <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%' }}>
           {zones.map((z, i) => (
@@ -175,18 +178,7 @@ export default function HoneycombCycle() {
           <line x1={padL} x2={W - padR} y1={Y(0)} y2={Y(0)} stroke="#3a4358" strokeWidth={1} />
           <text x={W - padR} y={Y(0) - 6} textAnchor="end" fill="#8a9aaa" fontSize={10}>거래량 YoY(%) →</text>
           <text x={X(0) + 6} y={padT + 10} fill="#8a9aaa" fontSize={10}>가격 3개월(%) ↑</text>
-          {/* 선택 지역 궤적(최근 24개월) */}
-          {selRegion && selRegion.trail.length > 1 && (()=>{ const tr = selRegion.trail.slice(-12); return (
-            <g>
-              <polyline points={tr.map(t => `${X(Math.max(-xMax, Math.min(xMax, t.v))).toFixed(1)},${Y(Math.max(-yMax, Math.min(yMax, t.p))).toFixed(1)}`).join(' ')}
-                fill="none" stroke="#f1f5f9" strokeWidth={1.4} strokeOpacity={0.55} />
-              {tr.map((t, i) => i % 4 === 0 && (
-                <text key={i} x={X(Math.max(-xMax, Math.min(xMax, t.v)))} y={Y(Math.max(-yMax, Math.min(yMax, t.p))) - 5}
-                  textAnchor="middle" fill="#cbd5e1" fontSize={8.5} opacity={0.8}>{t.ym.slice(2)}</text>
-              ))}
-            </g>
-          )})()}
-          {/* 지역 점 */}
+          {/* 지역 점 — 궤적은 위 육각형 벌집 시계가 담당(클램핑 아티팩트 방지 위해 산점도에선 미표시) */}
           {pts.map(r => {
             const x = X(Math.max(-xMax, Math.min(xMax, r.volYoY!))), y = Y(Math.max(-yMax, Math.min(yMax, r.priceChg3m!)))
             const isSel = r.name === sel, isNat = r.name === '전국'
