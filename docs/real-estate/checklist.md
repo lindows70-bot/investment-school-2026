@@ -6,9 +6,9 @@
 - [x] data.go.kr 실거래가 — 키 빈 값 확인(발급 필요)
 - [x] R-ONE — 서버 정상·키 필요
 - [x] KB kbland 비공식 — 경로 미발견(보류)
-- [ ] 🔑 사용자: ECOS 실키 발급 (ecos.bok.or.kr — 즉시)
-- [ ] 🔑 사용자: data.go.kr 키 발급 + 아파트 매매/전월세 실거래 활용신청
-- [ ] 🔑 사용자: R-ONE 키 신청
+- [x] 🔑 ECOS 실키 발급·검증 ✅ (2026년 최신 KB지수 수신)
+- [x] 🔑 data.go.kr 키+활용신청 2건 승인·검증 ✅ (개포주공7단지 29.8억·전월세 보증금 7억 실데이터)
+- [ ] 🔑 R-ONE 키 발급됨 — .env.local `R_ONE_API_KEY=` 저장 후 검증 대기
 
 ## Phase 1 — 🏠 시장 대시보드 (ECOS 실키 후)
 - [ ] `/api/re-market` — ECOS 6종 수집(12h 캐시)
