@@ -17,7 +17,7 @@ function colorOf(p: number | null, min: number, max: number): string {
   return '#dc2626'
 }
 
-export default function SeoulAptMap({ lawd, onSelect }: { lawd: string; onSelect: (lawd: string) => void }) {
+export default function SeoulAptMap({ lawd, onSelect, refreshKey }: { lawd: string; onSelect: (lawd: string) => void; refreshKey?: string }) {
   const [data, setData] = useState<GuSummary[] | null>(null)
   const [hover, setHover] = useState<GuSummary | null>(null)
 
@@ -27,7 +27,7 @@ export default function SeoulAptMap({ lawd, onSelect }: { lawd: string; onSelect
       .then(j => { if (alive && j.regions) setData(j.regions) })
       .catch(() => { /* graceful — 지도 색만 비활성 */ })
     return () => { alive = false }
-  }, [lawd])   // 구 수집 완료 후 재조회 → 방금 본 구가 색칠됨
+  }, [refreshKey])   // ⚠️ lawd(수집 시작 전)가 아니라 수집 '완료' 시점(asOf)에 재조회해야 방금 본 구가 색칠됨
 
   const byName = new Map((data ?? []).map(g => [g.name, g]))
   const vals = (data ?? []).map(g => g.pyeong).filter((v): v is number => v != null)
