@@ -1,6 +1,7 @@
 'use client'
 // 🏠 부동산 인텔리전스 — 독립 섹션(주식·코인에 이은 포트폴리오 3번째 축). Phase 1 = 시장 대시보드
 import ReMarketDashboard from '@/app/components/ReMarketDashboard'
+import ReDeepGauges from '@/app/components/ReDeepGauges'
 
 export default function RealEstatePage() {
   return (
@@ -13,6 +14,7 @@ export default function RealEstatePage() {
         </div>
       </div>
       <ReMarketDashboard />
+      <ReDeepGauges />
     </div>
   )
 }
