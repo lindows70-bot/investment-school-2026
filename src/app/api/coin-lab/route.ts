@@ -112,7 +112,8 @@ function buildCycleNav(weekly: { date: string; price: number }[]): CycleNav | nu
       const row = rows.get(m) ?? { m }
       ;(row as Record<string, number>)[keys[ci]] = v
       rows.set(m, row)
-      if (v > peakMult) { peakMult = v; peakMonth = m }
+      // 정점은 36개월 이내로 한정 — 다음 반감기 직전 랠리(2020사이클의 2024-03)는 '이 사이클의 정점' 서사가 아님(교육 정합)
+      if (v > peakMult && m <= 36) { peakMult = v; peakMonth = m }
     }
     peaks.push({ cycle: starts[ci].slice(0, 4), peakMult: Math.round(peakMult / 100 * 10) / 10, peakMonth: Math.round(peakMonth) })
   }
@@ -231,7 +232,7 @@ async function buildCorrelation(): Promise<CoinLabResult['correlation']> {
 }
 
 export async function GET(req: Request) {
-  const cacheKey = 'coin-lab-v12'   // v12: 🔄 4년 사이클 내비게이터(국면+오버레이) 추가
+  const cacheKey = 'coin-lab-v13'   // v13: 사이클 정점 36개월 이내 한정(다음 반감기 직전 랠리 제외)
   const cached = await getCache<CoinLabResult>(cacheKey, 3600_000)   // 1h
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
