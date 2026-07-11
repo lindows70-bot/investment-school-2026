@@ -1,7 +1,6 @@
 'use client'
 // 🏙️ 2040 서울도시기본계획 교육 페이지 — 최상위 법정계획의 중심지 체계·7대 목표를 투자 학습 관점으로(정책 참조 데이터 큐레이션 · 출처: 서울시 urban.seoul.go.kr)
 import Link from 'next/link'
-import SeoulPlanMap from '@/app/components/SeoulPlanMap'
 
 const CARD = '#141824', BORDER = '#1e293b'
 
@@ -64,9 +63,6 @@ export default function Plan2040Page() {
         <div style={{ color: '#8a9aaa', fontSize: 10, marginTop: 6 }}>출처: 서울특별시 도시계획포털(urban.seoul.go.kr) — 2040 서울도시기본계획 공식 도면</div>
       </div>
 
-      {/* 인터랙티브 지도(클릭 내비게이션) */}
-      <SeoulPlanMap />
-
       {/* 중심지 체계 */}
       <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
         <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>🎯 중심지 체계 — 3도심 · 7광역중심 · 12지역중심</div>
@@ -98,7 +94,7 @@ export default function Plan2040Page() {
       {/* 4대 주제도(원본 도면) */}
       <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
         <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13, marginBottom: 10 }}>📐 4대 공간계획 도면 — 중심지·교통·산업·녹지 축</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(340px,1fr))', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
           {THEME_MAPS.map(m => (
             <div key={m.title} style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '11px 13px' }}>
               <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 12 }}>{m.title}</div>
