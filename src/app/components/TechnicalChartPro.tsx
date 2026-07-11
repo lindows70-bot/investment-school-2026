@@ -425,7 +425,8 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
                   {ind === 'MACD' ? 'MACD (12·26·9)' : ind === 'RSI' ? 'RSI (14)' : ind === 'STOCH' ? '스토캐스틱 (14·3)' : ind === 'CCI' ? 'CCI (20)' : ind === 'MFI' ? 'MFI (14) — 거래량 가중 수급' : 'ADX (14) — 추세 강도'}
                 </text>
                 {ind === 'MACD' && (<>
-                  {refLine(0, '0')}
+                  {/* 라쉬케: 영선(0)이 추세 전환의 진짜 기준선 — 영선 아래 골든크로스→영선 돌파가 확정 신호 */}
+                  {refLine(0, '0 영선', '#f0abfc')}
                   {mom.hist.map((h, j) => h == null ? null : (
                     <rect key={'h' + j} x={xc(j) - cw / 2} y={Math.min(yI(0), yI(h))} width={cw} height={Math.max(Math.abs(yI(h) - yI(0)), 0.5)}
                       fill={h >= 0 ? C.up : C.down} opacity={0.45} />
@@ -436,7 +437,8 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
                 {ind === 'RSI' && (<>
                   <rect x={padL} y={yI(100)} width={plotW} height={yI(70) - yI(100)} fill={C.up} opacity={0.07} />
                   <rect x={padL} y={yI(30)} width={plotW} height={yI(0) - yI(30)} fill={C.down} opacity={0.07} />
-                  {refLine(70, '70', C.up)}{refLine(50, '50')}{refLine(30, '30', C.down)}
+                  {/* 라쉬케: 50선 돌파 = 매수세 장악(30/70보다 중요) */}
+                  {refLine(70, '70', C.up)}{refLine(50, '50 라쉬케선', '#f0abfc')}{refLine(30, '30', C.down)}
                   <path d={indPath(mom.rsi)} fill="none" stroke="#a78bfa" strokeWidth={1.6} />
                 </>)}
                 {ind === 'STOCH' && (<>

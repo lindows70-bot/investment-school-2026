@@ -3,7 +3,7 @@
 // 교차검증해 '가짜 반등/신호 정합/조기 청산 주의/떨어지는 칼날'을 결정론적으로 판정(AI 미사용·환각 0).
 // 기술신호는 이 화면 전용 — 통합추천·리밸런싱 점수에는 절대 미반영(앱의 펀더멘탈 우선 원칙).
 import { useState, useEffect, useMemo } from 'react'
-import { readSignals, detectLiquidity } from '@/lib/techSignals'
+import { readSignals, detectLiquidity, readRaschke } from '@/lib/techSignals'
 import type { TechCandle } from '@/app/api/tech-chart/route'
 
 const BORDER = '#1e293b'
@@ -69,6 +69,8 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   }, [ticker, market])
 
   const sig = useMemo(() => candles.length >= 30 ? readSignals(candles) : null, [candles])
+  // 🎼 린다 라쉬케 3박자(MACD 방향×RSI 50 에너지×거래량) + 연쇄 단계 — techSignals SSOT
+  const rk = useMemo(() => candles.length >= 60 ? readRaschke(candles) : null, [candles])
   // 🗺️ 추세의 여정 현재 단계 — 일봉에서만 판정(EMA112·224+구름은 일봉 기준 SSOT)
   const jStage = useMemo(() => tf === 'D' ? journeyStage(candles) : null, [candles, tf])
   // 💧 최근 10봉 내 유동성 스윕(차트 오버레이와 동일 SSOT) — 판정 로직엔 미반영, 정보 표시만
@@ -206,6 +208,75 @@ export default function SignalReader({ ticker, market, candles, tf }: {
             <span style={{ color: '#aab6c4' }}> — {sw.type === 'low'
               ? <>전저점 {fmtP(sw.price)}을 꼬리로 관통했다가 종가는 위에서 회복{sw.volBoost ? ' + 거래량 급증' : ''} — 여정 ③ &lsquo;속임수 하락(개미 털기)&rsquo; 패턴. 단독 매수 신호 아님 — 구름·추세(신호등)와 함께 확인.</>
               : <>전고점 {fmtP(sw.price)}을 위꼬리로 찔렀다가 종가는 아래 마감{sw.volBoost ? ' + 거래량 급증' : ''} — 고점 돌파 유인(매수측 유동성 소진) 주의.</>}</span>
+          </div>
+        )
+      })()}
+
+      {/* 🎼 린다 라쉬케 3박자 판독 — MACD(방향)×RSI 50선(에너지)×거래량(연료) + 연쇄 단계 */}
+      {rk && (() => {
+        const check = (ok: boolean | null, on: string, off: string, na = '데이터 없음') => ok == null
+          ? <span style={{ color: '#7f93a8' }}>◻ {na}</span>
+          : ok ? <span style={{ color: '#4ade80' }}>✅ {on}</span> : <span style={{ color: '#7f93a8' }}>◻ {off}</span>
+        const macdOk = (rk.macdGoldenBelowZero != null || rk.macdZeroBreak != null) && (rk.histRising || rk.macdAboveZero)
+        const rsiOk = rk.rsiAbove50 === true && rk.rsi50Break != null
+        const stages = ['대기', 'CCI 신호탄', 'RSI 50 돌파', 'MACD 영선 돌파', '첫 눌림목(최적 타점)']
+        const sellOn = rk.bearDivergence != null || rk.exitCross
+        return (
+          <div style={{ background: '#0f1117', border: `1px solid ${rk.buyCount >= 3 ? '#4ade8055' : sellOn ? '#f8717155' : BORDER}`, borderRadius: 10, padding: '10px 13px', fontSize: 11, lineHeight: 1.6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <b style={{ color: '#f0abfc', fontSize: 12 }}>🎼 린다 라쉬케 3박자 — 방향×에너지×연료</b>
+              <span style={{ fontSize: 10, color: '#7f93a8' }}>MACD=핸들(방향) · RSI 50선=엔진(에너지) · 거래량=연료 — 셋이 동시에 맞을 때만 진짜</span>
+            </div>
+            {/* 매수 3박자 체크 */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 7 }}>
+              <span>{check(macdOk,
+                rk.macdZeroBreak != null ? `MACD 방향 — 영선 돌파(${rk.macdZeroBreak}봉 전)${rk.histRising ? '·히스토 확대' : ''}` : `MACD 방향 — 영선 아래 골든크로스(${rk.macdGoldenBelowZero}봉 전)`,
+                'MACD 방향 — 전환 신호 없음')}</span>
+              <span>{check(rsiOk, `RSI 에너지 — 50선 돌파(${rk.rsi50Break}봉 전)·매수세 장악`, rk.rsiAbove50 ? 'RSI 50 위(돌파는 5봉+ 경과)' : 'RSI 에너지 — 50 아래(매도세 우위)')}</span>
+              <span>{check(rk.volBoost, '거래량 — 신호봉 1.5배+ 폭발(진짜 자금)', '거래량 — 평균 수준(확신 부족)', '거래량 데이터 없음')}</span>
+            </div>
+            {/* 연쇄 단계 진행바 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 8, flexWrap: 'wrap' }}>
+              <span style={{ color: '#7f93a8', fontSize: 10 }}>연쇄:</span>
+              {stages.slice(1).map((s, i) => {
+                const n = i + 1
+                const active = rk.stage === n, passed = rk.stage > n
+                return (
+                  <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{
+                      fontSize: 10, fontWeight: active ? 900 : 600, borderRadius: 6, padding: '2px 8px',
+                      background: active ? '#f0abfc' : passed ? '#f0abfc33' : '#161d2b',
+                      color: active ? '#0d1017' : passed ? '#f0abfc' : '#7f93a8',
+                      border: `1px solid ${active || passed ? '#f0abfc66' : BORDER}`,
+                    }}>{n}. {s}{active ? ' 📍' : ''}</span>
+                    {n < 4 && <span style={{ color: '#334155', fontSize: 9 }}>▶</span>}
+                  </span>
+                )
+              })}
+              {rk.stage === 0 && <span style={{ color: '#7f93a8', fontSize: 10 }}>— 아직 연쇄 시작 전(관망)</span>}
+            </div>
+            {/* 종합 해석 */}
+            <div style={{ marginTop: 7, color: '#aab6c4' }}>
+              {rk.stage === 4 ? <><b style={{ color: '#4ade80' }}>📍 첫 번째 눌림목</b> — 라쉬케가 꼽는 가장 안전한 진입 자리(영선 돌파 후 첫 숨 고르기). 3박자 {rk.buyCount}/3 충족{rk.buyCount < 3 ? ' — 미충족 박자를 확인 후 분할 접근' : ''}. 손절은 위 ATR 참고선.</>
+              : rk.buyCount >= 3 ? <><b style={{ color: '#4ade80' }}>3박자 완성(3/3)</b> — 방향·에너지·연료가 동시에 맞았습니다. 단 지금이 아니라 <b>첫 눌림목을 기다리는 것</b>이 라쉬케式(추격 대신 되돌림 진입).</>
+              : rk.stage >= 2 ? <>연쇄 {rk.stage}단계 진행 중(3박자 {rk.buyCount}/3) — {rk.stage === 2 ? 'RSI가 50을 넘어 에너지가 붙었고, MACD 영선 돌파(추세 확정)를 기다리는 구간.' : 'MACD가 영선을 넘어 추세가 확정 — 첫 눌림목(숨 고르기)이 오면 최적 타점.'}</>
+              : rk.stage === 1 ? <>CCI가 바닥권(−100)을 탈출한 선행 신호탄 단계 — 성급한 진입 대신 RSI 50 돌파로 에너지가 붙는지 확인.</>
+              : <>매수 연쇄 신호 없음 — 라쉬케式으로는 관망 구간입니다.</>}
+            </div>
+            {/* 매도 신호 */}
+            {sellOn && (
+              <div style={{ marginTop: 7, padding: '7px 10px', background: '#7f1d1d22', border: '1px solid #f8717144', borderRadius: 8 }}>
+                <b style={{ color: '#f87171' }}>🔻 라쉬케 매도 신호</b>
+                <span style={{ color: '#fca5a5' }}>
+                  {rk.bearDivergence && <> — 하락 다이버전스: 주가 고점은 {fmtP(rk.bearDivergence.prevHi)}→{fmtP(rk.bearDivergence.priceHi)}로 높아졌는데 RSI 고점은 {rk.bearDivergence.rsiAtPrev}→{rk.bearDivergence.rsiAtHi}로 낮아짐(에너지 소진 — 추세 종료 경고)</>}
+                  {rk.exitCross && <>{rk.bearDivergence ? ' + ' : ' — '}MACD 데드크로스 + RSI 70 하향이탈 동시 발생(교과서 익절 시점)</>}
+                  . 보유 중이면 분할 익절 검토 — 단 이 앱의 가치판단(고평가 여부)과 함께.
+                </span>
+              </div>
+            )}
+            <div style={{ marginTop: 6, fontSize: 9.5, color: '#7f93a8' }}>
+              🎓 라쉬케式 핵심: 골든크로스 하나가 아니라 <b style={{ color: '#cbd5e1' }}>지표들이 연쇄로 같은 방향을 가리키는 순간</b>을 기다리고, 돌파 추격 대신 <b style={{ color: '#cbd5e1' }}>첫 눌림목</b>에 진입. 홀리그레일(ADX 추세 + 되돌림)은 위 ADX 칩·타점 신호등의 눌림목 판정이 같은 철학. 판정은 전부 결정론(주관 0)·점수 미반영.
+            </div>
           </div>
         )
       })()}

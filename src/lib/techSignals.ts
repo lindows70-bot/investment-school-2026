@@ -228,6 +228,151 @@ export function readSignals(data: Ohlc[], look = 5): TechRead {
   }
 }
 
+/* ── 🎼 린다 라쉬케式 3박자 판독(결정론) — MACD(방향)×RSI(에너지)×거래량(연료)의 시너지.
+   핵심 규칙(영상 분석 기반): ① MACD 영선(0) 아래 바닥권 골든크로스 → 영선 강한 돌파 = 추세 전환 확정
+   ② RSI는 30/70이 아니라 '50선 돌파'가 에너지 우위의 신호 ③ 신호 봉에 평균 1.5배+ 거래량 동반 시 진짜.
+   연쇄: CCI(선행 신호탄, −100 탈출) → RSI 50 돌파 → MACD 영선 돌파 → '첫 번째 눌림목'이 최적 진입.
+   매도: 하락 다이버전스(가격 고점↑ vs RSI 고점↓) 또는 데드크로스+RSI 70 하향이탈.
+   ⛔ 점수·추천 미반영(기술차트 화면 전용) · 전부 결정론(주관 0) · 홀리그레일의 ADX 필터는 기존 adx 재사용. ── */
+export interface RaschkeRead {
+  // 매수 3박자
+  macdGoldenBelowZero: number | null   // 영선 아래에서 골든크로스 발생(barsAgo, 최근 15봉)
+  macdZeroBreak: number | null         // MACD 영선 상향 돌파(barsAgo, 최근 15봉)
+  macdAboveZero: boolean               // 현재 MACD > 0
+  histRising: boolean                  // 히스토그램 최근 3봉 연속 확대(에너지 증가)
+  rsi50Break: number | null            // RSI 50 상향 돌파(barsAgo, 최근 10봉)
+  rsiAbove50: boolean | null           // 현재 RSI > 50(매수세 장악)
+  volBoost: boolean | null             // 최근 매수신호 봉 거래량 ≥ 1.5×20봉 평균(null=거래량 데이터 없음)
+  buyCount: number                     // 3박자 충족 수(0~3): MACD방향·RSI에너지·거래량
+  // 연쇄 단계: 0=대기 / 1=CCI 신호탄 / 2=RSI 50 돌파 / 3=MACD 영선 돌파 / 4=첫 눌림목(최적 타점)
+  stage: 0 | 1 | 2 | 3 | 4
+  cciSignal: number | null             // CCI −100 상향 탈출(barsAgo, 최근 15봉) — 선행 신호탄
+  pullback: boolean                    // 영선 돌파 후 첫 눌림목(히스토 2봉 축소 + MACD>0 유지 + 고점 대비 2~8% 되돌림)
+  // 매도 신호
+  bearDivergence: { priceHi: number; prevHi: number; rsiAtHi: number; rsiAtPrev: number } | null   // 하락 다이버전스
+  exitCross: boolean                   // MACD 데드크로스 + RSI 70 하향이탈 동시(최근 5봉)
+}
+
+export function readRaschke(data: Ohlc[]): RaschkeRead | null {
+  const N = data.length
+  if (N < 60) return null
+  const close = data.map(d => d.close)
+  const { macd, signal, hist } = calcMACD(close)
+  const rsiA = calcRSI(close)
+  const cciA = calcCCI(data)
+
+  const levelUp =(a: (number | null)[], level: number, look: number): number | null => {
+    for (let ago = 0; ago < look; ago++) {
+      const i = N - 1 - ago
+      if (i < 1) break
+      const p = a[i - 1], c = a[i]
+      if (p == null || c == null) continue
+      if (p <= level && c > level) return ago
+    }
+    return null
+  }
+  const levelDn = (a: (number | null)[], level: number, look: number): number | null => {
+    for (let ago = 0; ago < look; ago++) {
+      const i = N - 1 - ago
+      if (i < 1) break
+      const p = a[i - 1], c = a[i]
+      if (p == null || c == null) continue
+      if (p >= level && c < level) return ago
+    }
+    return null
+  }
+
+  // ① MACD 방향: 영선 아래 골든크로스(바닥권 전환 시도) → 영선 돌파(추세 확정)
+  let goldenBelowZero: number | null = null
+  for (let ago = 0; ago < 15; ago++) {
+    const i = N - 1 - ago
+    if (i < 1) break
+    const m0 = macd[i - 1], s0 = signal[i - 1], m1 = macd[i], s1 = signal[i]
+    if (m0 == null || s0 == null || m1 == null || s1 == null) continue
+    if (m0 <= s0 && m1 > s1 && m1 < 0) { goldenBelowZero = ago; break }   // 골든크로스가 영선 아래에서
+  }
+  const zeroBreak = levelUp(macd, 0, 15)
+  const macdNow = macd[N - 1], histNow = hist[N - 1]
+  const macdAboveZero = macdNow != null && macdNow > 0
+  const histRising = hist[N - 1] != null && hist[N - 2] != null && hist[N - 3] != null &&
+    (hist[N - 1] as number) > (hist[N - 2] as number) && (hist[N - 2] as number) > (hist[N - 3] as number)
+
+  // ② RSI 에너지: 50선 돌파(30/70보다 중요 — 매수세 장악 신호)
+  const rsi50Break = levelUp(rsiA, 50, 10)
+  const rsiNow = rsiA[N - 1]
+  const rsiAbove50 = rsiNow != null ? rsiNow > 50 : null
+
+  // ③ 거래량: 가장 최근 매수신호 봉의 거래량 ≥ 1.5×20봉 평균
+  const hasVol = data.some(d => (d.volume ?? 0) > 0)
+  let volBoost: boolean | null = null
+  if (hasVol) {
+    const sigAgo = [goldenBelowZero, zeroBreak, rsi50Break].filter((x): x is number => x != null)
+    if (sigAgo.length) {
+      const i = N - 1 - Math.min(...sigAgo)
+      let s = 0, n = 0
+      for (let j = Math.max(0, i - 20); j < i; j++) { s += data[j].volume ?? 0; n++ }
+      volBoost = n > 0 && (data[i].volume ?? 0) > (s / n) * 1.5
+    } else volBoost = false
+  }
+
+  // 연쇄 단계 판정(CCI → RSI 50 → MACD 영선 → 첫 눌림목)
+  const cciSignal = levelUp(cciA, -100, 15)   // 바닥권(−100 아래) 탈출 = 선행 신호탄
+  // 첫 눌림목: 영선 돌파 이력(최근 20봉) + MACD>0 유지 + 히스토그램 2봉 연속 축소(숨 고르기) + 최근 10봉 고점 대비 2~8% 되돌림
+  let pullback = false
+  const zeroBreak20 = levelUp(macd, 0, 20)
+  if (zeroBreak20 != null && macdAboveZero && histNow != null &&
+      hist[N - 2] != null && hist[N - 3] != null &&
+      (hist[N - 1] as number) < (hist[N - 2] as number) && (hist[N - 2] as number) < (hist[N - 3] as number)) {
+    let hi10 = -Infinity
+    for (let j = N - 10; j < N; j++) if (data[j].high > hi10) hi10 = data[j].high
+    const dd = (hi10 - close[N - 1]) / hi10
+    pullback = dd >= 0.02 && dd <= 0.08
+  }
+  const stage: RaschkeRead['stage'] =
+    pullback ? 4
+    : (zeroBreak != null && macdAboveZero) ? 3
+    : (rsi50Break != null && rsiAbove50 === true) ? 2
+    : cciSignal != null ? 1
+    : 0
+
+  // 매수 3박자 충족 수
+  const macdOk = (goldenBelowZero != null || zeroBreak != null) && (histRising || macdAboveZero)
+  const rsiOk = rsiAbove50 === true && rsi50Break != null
+  const buyCount = (macdOk ? 1 : 0) + (rsiOk ? 1 : 0) + (volBoost === true ? 1 : 0)
+
+  // 매도 ①: 하락 다이버전스 — 최근 60봉 스윙 고점(좌우 5봉) 2개 비교: 가격 고점↑ & RSI 고점↓
+  let bearDivergence: RaschkeRead['bearDivergence'] = null
+  const pivots: number[] = []
+  for (let i = Math.max(5, N - 60); i < N - 5; i++) {
+    let isHigh = true
+    for (let j = i - 5; j <= i + 5; j++) { if (j !== i && data[j].high > data[i].high) { isHigh = false; break } }
+    if (isHigh) pivots.push(i)
+  }
+  if (pivots.length >= 2) {
+    const p1 = pivots[pivots.length - 2], p2 = pivots[pivots.length - 1]
+    const r1 = rsiA[p1], r2 = rsiA[p2]
+    if (r1 != null && r2 != null && data[p2].high > data[p1].high && r2 < r1 - 2 && r1 > 60)
+      bearDivergence = { priceHi: data[p2].high, prevHi: data[p1].high, rsiAtHi: Math.round(r2 * 10) / 10, rsiAtPrev: Math.round(r1 * 10) / 10 }
+  }
+  // 매도 ②: MACD 데드크로스 + RSI 70 하향이탈 동시(각 최근 5봉)
+  const deadAgo = (() => {
+    for (let ago = 0; ago < 5; ago++) {
+      const i = N - 1 - ago
+      if (i < 1) break
+      const m0 = macd[i - 1], s0 = signal[i - 1], m1 = macd[i], s1 = signal[i]
+      if (m0 == null || s0 == null || m1 == null || s1 == null) continue
+      if (m0 >= s0 && m1 < s1) return ago
+    }
+    return null
+  })()
+  const exitCross = deadAgo != null && levelDn(rsiA, 70, 5) != null
+
+  return {
+    macdGoldenBelowZero: goldenBelowZero, macdZeroBreak: zeroBreak, macdAboveZero, histRising,
+    rsi50Break, rsiAbove50, volBoost, buyCount, stage, cciSignal, pullback, bearDivergence, exitCross,
+  }
+}
+
 /* ── 💧 유동성 풀·스윕 탐지(결정론) — "전 고점·전 저점 = 손절 주문이 몰린 유동성"이라는 SMC 개념의 객관 버전.
    스윙 피벗(좌우 pivot봉 대비 극값)으로 유동성 레벨을 잡고,
    · 매도측(전저점) 스윕 = 꼬리(low)가 레벨을 관통했는데 종가는 위에서 마감(개미 털기 후 회복)
