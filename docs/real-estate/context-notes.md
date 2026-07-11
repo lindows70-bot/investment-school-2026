@@ -32,6 +32,12 @@
 - **공동주택 단지목록(AptListService3)**: 404 — 키 발급 후 정확 명칭 재실측
 - **법원경매**: 사이트 접근 200이나 JS/POST 구조 — 낙찰가율은 후순위 보류
 
+### 2026-07-11 키 검증 2차
+
+- **ECOS 실키 ✅ 완벽 작동** — KB 매매지수 2026년 최신 수신(2026-01=100 재기준 확인). Phase 1 준비 완료
+- **data.go.kr 키 401**: 키는 저장됨(64자·디코딩형) — 401 Unauthorized는 **해당 API 활용신청 누락/미반영**이 전형 원인. 사용자 확인 필요: data.go.kr 마이페이지 → 활용신청 현황에 `아파트 매매 실거래가 상세 자료`(RTMSDataSvcAptTradeDev)·`아파트 전월세 실거래가 자료`(RTMSDataSvcAptRent)가 승인 상태인지(자동승인이나 반영에 수분~1시간 걸릴 수 있음). 구 molit 엔드포인트(openapi.molit.go.kr)는 ECONNREFUSED = 완전 폐쇄
+- **R-ONE "접속 안 됨" 원인**: 옛 도메인 r-one.co.kr은 죽음(타임아웃). **정식 주소 = https://www.reb.or.kr/r-one/** (살아있음·200, 2026-02 'HOUSTAT' 개편 흔적). 인증키 신청 경로 실측: `/r-one/portal/openapi/openApiActKeyPage.do` (Open API → 인증키 발급내역 메뉴)
+
 ### 실측 교훈
 
 - **한은 ECOS가 부동산 통계 허브** — KB·부동산원 지수를 재배포해서 개별 기관 API 없이도 핵심 시계열 확보. "소스별로 따로 뚫기 전에 통계 재배포 허브(ECOS·FRED)부터 확인하라"
