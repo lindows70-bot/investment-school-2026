@@ -29,7 +29,8 @@ export async function GET() {
   try {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL, svc = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (url && svc) {
-      const db = createClient(url, svc, { auth: { autoRefreshToken: false, persistSession: false } })
+      // ⚠️ Next.js가 라우트 내 GET fetch를 Data Cache로 박제(첫 실행 시점 응답 고정) → no-store 강제
+      const db = createClient(url, svc, { auth: { autoRefreshToken: false, persistSession: false }, global: { fetch: (u: RequestInfo | URL, o?: RequestInit) => fetch(u, { ...o, cache: 'no-store' }) } })
       const keys = seoul.flatMap(r => yms.map(ym => `rtms-trade-v2:${r.lawd}:${ym}`))
       const { data } = await db.from('app_cache').select('key, payload').in('key', keys)
       for (const row of data ?? []) if (Array.isArray(row.payload)) byKey.set(row.key as string, row.payload as AptDeal[])
