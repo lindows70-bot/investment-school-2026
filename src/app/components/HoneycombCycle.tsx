@@ -13,6 +13,13 @@ const PH: Record<HcPhase, { name: string; color: string; desc: string }> = {
   6: { name: '⑥ 회복 진입', color: '#2dd4bf', desc: '가격↓ · 거래↑ — 싸지자 거래가 살아남(바닥 탐색)' },
   1: { name: '① 회복기', color: '#4ade80', desc: '가격 보합 · 거래↑ — 반등 준비' },
 }
+// 국면 재판정(궤적용 — API judge와 동일 공식: 가격 ±0.3% 밴드 × 거래 YoY 부호)
+const judgePhase = (p: number, v: number): HcPhase => {
+  const pd = p > 0.3 ? 'up' : p < -0.3 ? 'down' : 'flat'
+  if (pd === 'up') return v >= 0 ? 2 : 3
+  if (pd === 'down') return v >= 0 ? 6 : 5
+  return v >= 0 ? 1 : 4
+}
 
 export default function HoneycombCycle() {
   const [d, setD] = useState<HoneycombResult | null>(null)
@@ -47,7 +54,7 @@ export default function HoneycombCycle() {
   // 라벨 declutter(점 위 지역명)
   const placed: { x: number; y: number }[] = []
   const canLabel = (x: number, y: number) => {
-    if (placed.some(p => Math.abs(p.x - x) < 44 && Math.abs(p.y - y) < 13)) return false
+    if (placed.some(p => Math.abs(p.x - x) < 50 && Math.abs(p.y - y) < 16)) return false
     placed.push({ x, y }); return true
   }
 
@@ -63,12 +70,96 @@ export default function HoneycombCycle() {
         ))}
       </div>
 
+      {/* 🐝 육각형 벌집 시계 — 고전 벌집모형 다이어그램(국면 꼭짓점 + 지역 배치 + 선택 지역 궤적) */}
+      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
+        <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>🐝 벌집 시계 — 육각형 위의 현재 위치</div>
+        <div style={{ color: '#8a9aaa', fontSize: 11, margin: '3px 0 6px', lineHeight: 1.55 }}>
+          고전 벌집모형 그대로 — 시장은 육각형을 <b style={{ color: '#cbd5e1' }}>시계방향</b>(②호황→③침체진입→④침체→⑤불황→⑥회복진입→①회복)으로 돕니다.
+          각 꼭짓점에 현재 그 국면인 지역을 배치했고, 흰 궤적은 선택 지역({sel})이 최근 24개월간 벌집을 돌아온 길입니다.
+        </div>
+        {(() => {
+          const HW = 760, HH = 460, cx = HW / 2, cy = HH / 2 + 4, R = 158
+          // 시계방향 배치: ②호황(12시) → ③(2시) → ④(4시) → ⑤(6시) → ⑥(8시) → ①(10시)
+          const ORDER: HcPhase[] = [2, 3, 4, 5, 6, 1]
+          const vx = (i: number) => cx + R * Math.sin((i * 60) * Math.PI / 180)
+          const vy = (i: number) => cy - R * Math.cos((i * 60) * Math.PI / 180)
+          const vIdx = (ph: HcPhase) => ORDER.indexOf(ph)
+          // 지역 칩: 꼭짓점 바깥 방향으로 스택
+          const byPhase = new Map<HcPhase, string[]>()
+          for (const r of d.regions) { if (r.name === '전국') continue; const a = byPhase.get(r.phase) ?? []; a.push(r.name); byPhase.set(r.phase, a) }
+          const nat = d.regions.find(r => r.name === '전국')
+          // 선택 지역 궤적: 월별 국면 → 꼭짓점 경로(연속 중복 제거, 진행도에 따라 안쪽→바깥 반경 오프셋으로 시간 구분)
+          const path: { ph: HcPhase; ym: string }[] = []
+          if (selRegion) for (const t of selRegion.trail) {
+            const ph = judgePhase(t.p, t.v)
+            if (!path.length || path[path.length - 1].ph !== ph) path.push({ ph, ym: t.ym })
+          }
+          const trailPt = (ph: HcPhase, k: number, n: number) => {
+            const i = vIdx(ph), f = 0.52 + 0.34 * (n <= 1 ? 1 : k / (n - 1))   // 과거=안쪽, 최신=꼭짓점 근처
+            return { x: cx + R * f * Math.sin(i * 60 * Math.PI / 180), y: cy - R * f * Math.cos(i * 60 * Math.PI / 180) }
+          }
+          return (
+            <svg viewBox={`0 0 ${HW} ${HH}`} style={{ width: '100%' }}>
+              {/* 육각형 몸체 + 시계방향 화살표 */}
+              <polygon points={ORDER.map((_, i) => `${vx(i)},${vy(i)}`).join(' ')} fill="rgba(255,255,255,0.02)" stroke="#3a4358" strokeWidth={1.4} />
+              {ORDER.map((_, i) => {
+                const j = (i + 1) % 6
+                const mx = (vx(i) + vx(j)) / 2, my = (vy(i) + vy(j)) / 2
+                const ang = Math.atan2(vy(j) - vy(i), vx(j) - vx(i)) * 180 / Math.PI
+                return <text key={'ar' + i} x={mx} y={my + 4} textAnchor="middle" fill="#8a9aaa" fontSize={13} transform={`rotate(${ang} ${mx} ${my})`}>▶</text>
+              })}
+              {/* 꼭짓점(국면) + 지역 칩 */}
+              {ORDER.map((ph, i) => {
+                const x = vx(i), y = vy(i)
+                const outX = cx + (R + 34) * Math.sin(i * 60 * Math.PI / 180)
+                const outY = cy - (R + 34) * Math.cos(i * 60 * Math.PI / 180)
+                const names = byPhase.get(ph) ?? []
+                const isSelHere = selRegion && selRegion.phase === ph
+                return (
+                  <g key={'v' + ph}>
+                    <circle cx={x} cy={y} r={13} fill={PH[ph].color} fillOpacity={0.22} stroke={PH[ph].color} strokeWidth={isSelHere ? 2.4 : 1.4} />
+                    <text x={x} y={y + 4} textAnchor="middle" fill={PH[ph].color} fontSize={12} fontWeight={900}>{ph}</text>
+                    <text x={outX} y={outY - (names.length ? (Math.ceil(names.length / 3) - 1) * 6 : 0)} textAnchor="middle" fill={PH[ph].color} fontSize={11.5} fontWeight={900}>{PH[ph].name}</text>
+                    {/* 지역명 — 3개씩 줄바꿈, 선택 지역 강조 */}
+                    {Array.from({ length: Math.ceil(names.length / 3) }, (_, row) => (
+                      <text key={'r' + row} x={outX} y={outY + 14 + row * 13} textAnchor="middle" fontSize={10.5}>
+                        {names.slice(row * 3, row * 3 + 3).map((nm, k) => (
+                          <tspan key={nm} fill={nm === sel ? '#f1f5f9' : '#aab6c4'} fontWeight={nm === sel ? 900 : 600} onClick={() => setSel(nm)} style={{ cursor: 'pointer' }}>{k > 0 ? ' · ' : ''}{nm}</tspan>
+                        ))}
+                      </text>
+                    ))}
+                    {nat && nat.phase === ph && <text x={x} y={y - 20} textAnchor="middle" fill="#f1f5f9" fontSize={10.5} fontWeight={900}>🇰🇷 전국</text>}
+                  </g>
+                )
+              })}
+              {/* 선택 지역 궤적 — 안쪽(과거)→꼭짓점(최신) */}
+              {path.length > 1 && (
+                <g>
+                  <polyline points={path.map((s, k) => { const p = trailPt(s.ph, k, path.length); return `${p.x.toFixed(1)},${p.y.toFixed(1)}` }).join(' ')}
+                    fill="none" stroke="#f1f5f9" strokeWidth={1.6} strokeOpacity={0.6} strokeDasharray="4 3" />
+                  {path.map((s, k) => {
+                    const p = trailPt(s.ph, k, path.length)
+                    const isLast = k === path.length - 1
+                    return (
+                      <g key={'tp' + k}>
+                        <circle cx={p.x} cy={p.y} r={isLast ? 7 : 3.5} fill={isLast ? PH[s.ph].color : '#cbd5e1'} stroke={isLast ? '#f1f5f9' : 'none'} strokeWidth={2} />
+                        <text x={p.x} y={p.y - (isLast ? 12 : 7)} textAnchor="middle" fill={isLast ? '#f1f5f9' : '#8a9aaa'} fontSize={isLast ? 10.5 : 8.5} fontWeight={isLast ? 900 : 600}>{isLast ? `${sel} 현재` : s.ym.slice(2)}</text>
+                      </g>
+                    )
+                  })}
+                </g>
+              )}
+              <text x={cx} y={cy + 4} textAnchor="middle" fill="#5a6578" fontSize={11} fontWeight={700}>시계방향 순환</text>
+            </svg>
+          )
+        })()}
+      </div>
+
       {/* 산점도 + 선택 지역 궤적 */}
       <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
-        <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>🐝 벌집순환 지도 — 17개 시도의 현재 국면</div>
+        <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>📍 정밀 지도 — 실제 수치 좌표(가격×거래량)</div>
         <div style={{ color: '#8a9aaa', fontSize: 11, margin: '3px 0 6px', lineHeight: 1.55 }}>
-          가로 = 거래량(최근 3개월, 전년동기비 %) · 세로 = 가격(3개월 변화 %). 고전 벌집모형은 시장이 ②호황 → ③침체진입 → ④침체 → ⑤불황 → ⑥회복진입 → ①회복 순으로 <b style={{ color: '#cbd5e1' }}>시계방향</b> 순환한다고 봅니다.
-          지역 클릭 시 아래 24개월 궤적이 바뀝니다.
+          위 벌집 시계의 실제 수치 버전 — 가로 = 거래량(최근 3개월, 전년동기비 %) · 세로 = 가격(3개월 변화 %). 흰 선 = 선택 지역 최근 12개월 궤적. 지역 점 클릭으로 선택.
         </div>
         <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%' }}>
           {zones.map((z, i) => (
@@ -85,16 +176,16 @@ export default function HoneycombCycle() {
           <text x={W - padR} y={Y(0) - 6} textAnchor="end" fill="#8a9aaa" fontSize={10}>거래량 YoY(%) →</text>
           <text x={X(0) + 6} y={padT + 10} fill="#8a9aaa" fontSize={10}>가격 3개월(%) ↑</text>
           {/* 선택 지역 궤적(최근 24개월) */}
-          {selRegion && selRegion.trail.length > 1 && (
+          {selRegion && selRegion.trail.length > 1 && (()=>{ const tr = selRegion.trail.slice(-12); return (
             <g>
-              <polyline points={selRegion.trail.map(t => `${X(Math.max(-xMax, Math.min(xMax, t.v))).toFixed(1)},${Y(Math.max(-yMax, Math.min(yMax, t.p))).toFixed(1)}`).join(' ')}
+              <polyline points={tr.map(t => `${X(Math.max(-xMax, Math.min(xMax, t.v))).toFixed(1)},${Y(Math.max(-yMax, Math.min(yMax, t.p))).toFixed(1)}`).join(' ')}
                 fill="none" stroke="#f1f5f9" strokeWidth={1.4} strokeOpacity={0.55} />
-              {selRegion.trail.map((t, i) => i % 6 === 0 && (
+              {tr.map((t, i) => i % 4 === 0 && (
                 <text key={i} x={X(Math.max(-xMax, Math.min(xMax, t.v)))} y={Y(Math.max(-yMax, Math.min(yMax, t.p))) - 5}
                   textAnchor="middle" fill="#cbd5e1" fontSize={8.5} opacity={0.8}>{t.ym.slice(2)}</text>
               ))}
             </g>
-          )}
+          )})()}
           {/* 지역 점 */}
           {pts.map(r => {
             const x = X(Math.max(-xMax, Math.min(xMax, r.volYoY!))), y = Y(Math.max(-yMax, Math.min(yMax, r.priceChg3m!)))
