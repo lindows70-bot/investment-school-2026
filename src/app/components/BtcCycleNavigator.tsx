@@ -12,8 +12,6 @@ const BANDS = [
   { from: 24, to: 36, name: '제1 상승기 (1st Bull)', short: '제1 상승기', color: '#4ade80', years: '2016 · 2020 · 2024 · 2028', desc: '반감기 해 — 공급 충격 반영 시작' },
   { from: 36, to: 48, name: '제2 상승기 (2nd Bull)', short: '제2 상승기', color: '#fbbf24', years: '2017 · 2021 · 2025 · 2029', desc: '과거 고점은 모두 이 구간' },
 ]
-// 반감기 기준 연차(yearIdx: 0=1상승·1=2상승·2=침체·3=준비) → 포스터 밴드 인덱스
-const YEARIDX_TO_BAND: Record<number, number> = { 2: 0, 3: 1, 0: 2, 1: 3 }
 const LINES = [
   { key: 'c2014', name: '2014~17 사이클', color: '#8a9aaa', dash: '5 3', w: 1.2 },
   { key: 'c2018', name: '2018~21 사이클', color: '#60a5fa', dash: '5 3', w: 1.2 },
@@ -22,13 +20,14 @@ const LINES = [
 ]
 
 export default function BtcCycleNavigator({ nav }: { nav: CycleNav }) {
-  const bandIdx = YEARIDX_TO_BAND[nav.yearIdx] ?? 0
+  // 국면 판정 = 차트 밴드와 동일 기준(침체 연도 1/1 이후 개월 ÷ 12) — 판정과 그림이 항상 일치(제2원칙)
+  const bandIdx = Math.min(3, Math.floor(nav.mNow / 12))
   const cur = BANDS[bandIdx]
   return (
     <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
         <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>🔄 4년 사이클 내비게이터 — 과거 각본 위의 현재 위치</span>
-        <span style={{ color: '#8a9aaa', fontSize: 11 }}>침체기 시작(2026-04) 후 {nav.mNow}개월 · 4차 반감기 후 {nav.daysSince}일 · 다음 반감기(예상) D-{nav.nextDDay}</span>
+        <span style={{ color: '#8a9aaa', fontSize: 11 }}>침체 연도(2026) 시작 후 {nav.mNow}개월 · 4차 반감기 후 {nav.daysSince}일 · 다음 반감기(예상) D-{nav.nextDDay}</span>
       </div>
 
       {/* 4국면 필 — 원본 순서(침체→준비→1상승→2상승), 현재 국면 하이라이트 */}
@@ -55,8 +54,8 @@ export default function BtcCycleNavigator({ nav }: { nav: CycleNav }) {
       <ResponsiveContainer width="100%" height={320}>
         <LineChart data={nav.overlay} margin={{ top: 20, right: 14, left: 6, bottom: 0 }}>
           {BANDS.map(b => (
-            <ReferenceArea key={b.short} x1={b.from} x2={b.to} fill={b.color} fillOpacity={0.07}
-              label={{ value: b.short, position: 'insideTop', fill: b.color, fontSize: 10.5, fontWeight: 800 }} />
+            <ReferenceArea key={b.short} x1={b.from} x2={b.to} fill={b.color} fillOpacity={0.18} stroke={b.color} strokeOpacity={0.35} strokeDasharray="3 3"
+              label={{ value: b.short, position: 'insideTop', fill: b.color, fontSize: 11.5, fontWeight: 900 }} />
           ))}
           <CartesianGrid stroke="#1c2434" strokeDasharray="3 3" />
           <XAxis dataKey="m" type="number" domain={[0, 48]} ticks={[0, 6, 12, 18, 24, 30, 36, 42, 48]}
@@ -80,7 +79,8 @@ export default function BtcCycleNavigator({ nav }: { nav: CycleNav }) {
       </ResponsiveContainer>
 
       <div style={{ color: '#8a9aaa', fontSize: 10.5, marginTop: 6, lineHeight: 1.65 }}>
-        {nav.peaks.filter(p => !p.cycle.startsWith('2026')).map(p => `⭐ ${p.cycle} 사이클 정점: 침체기 시작 후 ${p.peakMonth}개월(제2 상승기) · ${p.peakMult}×`).join('  /  ')}
+        {nav.peaks.filter(p => !p.cycle.startsWith('2026')).map(p => `⭐ ${p.cycle} 사이클 정점: 침체 연도 시작 후 ${p.peakMonth}개월 · ${p.peakMult}×`).join('  /  ')}
+        <span> · ⓘ 2014 사이클 선은 데이터가 2014-09부터(야후 한계) — 앞부분 일부 공백</span>
         <br />⚠️ <b style={{ color: '#cbd5e1' }}>표본이 4개뿐</b>(현재 사이클은 막 시작) — 통계가 아닌 역사적 참고입니다. 현물 ETF 시대엔 기관 자금이 반감기와 무관하게 움직여 &lsquo;사이클이 짧아지거나 사라진다&rsquo;는 반론도 유력합니다.
         과거 각본은 미래를 보장하지 않으며, 이 도구는 매수 신호가 아니라 <b style={{ color: '#cbd5e1' }}>위치 관측</b>용입니다(코인 비중 ≤5% 가드 유지).
       </div>

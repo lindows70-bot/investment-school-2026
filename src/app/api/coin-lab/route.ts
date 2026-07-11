@@ -96,8 +96,9 @@ async function btcMaxWeekly(): Promise<{ date: string; price: number }[]> {
 }
 function buildCycleNav(weekly: { date: string; price: number }[]): CycleNav | null {
   if (weekly.length < 100) return null
-  // 원본 포스터 정렬: 각 사이클을 '침체기 시작(반감기+약 2년)'부터 4년 창으로 — 2014·2018·2022·2026 행
-  const bearStarts = ['2014-11-28', '2018-07-09', '2022-05-11', '2026-04-20']
+  // 원본 포스터 정렬: 달력 연도 기준 — 침체 연도(2014·2018·2022·2026) 1월 1일부터 4년 창.
+  // 실제 역사와도 정합(고점 2017-12·2021-11 직후 침체 시작) — '반감기+2년' 근사는 침체 시작을 4~6개월 늦게 잡아 폐기
+  const bearStarts = ['2014-01-01', '2018-01-01', '2022-01-01', '2026-01-01']
   const keys = ['c2014', 'c2018', 'c2022', 'c2026'] as const
   const rows = new Map<number, { m: number; c2014?: number; c2018?: number; c2022?: number; c2026?: number }>()
   const peaks: CycleNav['peaks'] = []
@@ -235,7 +236,7 @@ async function buildCorrelation(): Promise<CoinLabResult['correlation']> {
 }
 
 export async function GET(req: Request) {
-  const cacheKey = 'coin-lab-v14'   // v14: 사이클 내비 원본 포스터 정렬(침체기 시작·4사이클·4색 밴드)
+  const cacheKey = 'coin-lab-v15'   // v15: 사이클 정렬을 달력 연도(침체 연도 1/1)로 — 실제 고점(2017-12·2021-11) 직후 침체와 정합
   const cached = await getCache<CoinLabResult>(cacheKey, 3600_000)   // 1h
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
