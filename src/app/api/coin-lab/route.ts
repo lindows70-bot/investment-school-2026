@@ -61,14 +61,15 @@ async function btcLongPrices(): Promise<{ date: string; price: number }[]> {
   return []
 }
 
-// 🔄 4년 사이클 내비게이터 — 반감기 기준 4국면(제1상승→제2상승→침체→상승준비) + 과거 사이클 오버레이(반감기=100 정규화)
-//    표본 3개(2016·2020·2024 사이클)뿐이라 통계가 아닌 역사적 참고 — ETF 시대 사이클 단축/소멸 반론도 UI에 명시
+// 🔄 4년 사이클 내비게이터 — 원본 포스터 방식: '침체기 시작' 기준 정렬(침체→상승준비→제1상승→제2상승 4색 밴드)
+//    사이클 4개(2014·2018·2022·2026 시작 — 반감기+2년) 오버레이. 표본 4개뿐 = 통계 아닌 역사적 참고(ETF 시대 반론 명시)
 export interface CycleNav {
-  daysSince: number; yearIdx: number                    // 반감기 후 경과일 · 사이클 연차(0~3)
+  daysSince: number; yearIdx: number                    // 반감기 후 경과일 · 사이클 연차(0~3, 반감기 기준)
+  mNow: number                                          // 침체기 시작(2026-04) 후 경과 개월 — 차트 현재 위치
   phaseName: string; phaseYears: string[]               // 현재 국면명 · 국면별 과거 연도(4개)
   nextHalving: string; nextDDay: number                 // 다음 반감기(예상) D-day
-  overlay: { m: number; c2016?: number; c2020?: number; c2024?: number }[]   // x=반감기 후 개월, y=반감기가=100 지수
-  peaks: { cycle: string; peakMult: number; peakMonth: number }[]            // 과거 사이클 정점(배수·개월)
+  overlay: { m: number; c2014?: number; c2018?: number; c2022?: number; c2026?: number }[]   // x=침체기 시작 후 개월, y=시작가=100
+  peaks: { cycle: string; peakMult: number; peakMonth: number }[]            // 사이클별 정점(시작가 대비 배수·개월)
 }
 const CYCLE_PHASES = ['제1 상승기', '제2 상승기(정점)', '침체기(Bear)', '상승 준비기(승부구간)']
 const CYCLE_PHASE_YEARS = [
@@ -95,15 +96,16 @@ async function btcMaxWeekly(): Promise<{ date: string; price: number }[]> {
 }
 function buildCycleNav(weekly: { date: string; price: number }[]): CycleNav | null {
   if (weekly.length < 100) return null
-  const starts = ['2016-07-09', '2020-05-11', '2024-04-20']
-  const keys = ['c2016', 'c2020', 'c2024'] as const
-  const rows = new Map<number, { m: number; c2016?: number; c2020?: number; c2024?: number }>()
+  // 원본 포스터 정렬: 각 사이클을 '침체기 시작(반감기+약 2년)'부터 4년 창으로 — 2014·2018·2022·2026 행
+  const bearStarts = ['2014-11-28', '2018-07-09', '2022-05-11', '2026-04-20']
+  const keys = ['c2014', 'c2018', 'c2022', 'c2026'] as const
+  const rows = new Map<number, { m: number; c2014?: number; c2018?: number; c2022?: number; c2026?: number }>()
   const peaks: CycleNav['peaks'] = []
-  for (let ci = 0; ci < starts.length; ci++) {
-    const h = new Date(starts[ci]).getTime()
-    const end = ci < starts.length - 1 ? new Date(starts[ci + 1]).getTime() : Date.now()
+  for (let ci = 0; ci < bearStarts.length; ci++) {
+    const h = new Date(bearStarts[ci]).getTime()
+    const end = Math.min(ci < bearStarts.length - 1 ? new Date(bearStarts[ci + 1]).getTime() : Infinity, h + 1461 * 86400_000, Date.now())
     const pts = weekly.filter(p => { const t = new Date(p.date).getTime(); return t >= h && t <= end })
-    if (pts.length < 10) continue
+    if (pts.length < 4) continue
     const base = pts[0].price
     let peakMult = 0, peakMonth = 0
     for (const p of pts) {
@@ -112,16 +114,17 @@ function buildCycleNav(weekly: { date: string; price: number }[]): CycleNav | nu
       const row = rows.get(m) ?? { m }
       ;(row as Record<string, number>)[keys[ci]] = v
       rows.set(m, row)
-      // 정점은 36개월 이내로 한정 — 다음 반감기 직전 랠리(2020사이클의 2024-03)는 '이 사이클의 정점' 서사가 아님(교육 정합)
-      if (v > peakMult && m <= 36) { peakMult = v; peakMonth = m }
+      if (v > peakMult) { peakMult = v; peakMonth = m }   // 창이 다음 침체기 시작에서 끝나 정점=제2상승기 안(별도 캡 불필요)
     }
-    peaks.push({ cycle: starts[ci].slice(0, 4), peakMult: Math.round(peakMult / 100 * 10) / 10, peakMonth: Math.round(peakMonth) })
+    peaks.push({ cycle: `${bearStarts[ci].slice(0, 4)}~`, peakMult: Math.round(peakMult / 100 * 10) / 10, peakMonth: Math.round(peakMonth) })
   }
-  const daysSince = Math.floor((Date.now() - new Date(starts[2]).getTime()) / 86400_000)
+  const HALV = '2024-04-20'
+  const daysSince = Math.floor((Date.now() - new Date(HALV).getTime()) / 86400_000)
   const yearIdx = Math.min(3, Math.floor(daysSince / 365.25))
-  const nextH = new Date(new Date(starts[2]).getTime() + 1461 * 86400_000)
+  const mNow = Math.max(0, Math.round(((Date.now() - new Date(bearStarts[3]).getTime()) / 86400_000 / 30.44) * 2) / 2)
+  const nextH = new Date(new Date(HALV).getTime() + 1461 * 86400_000)
   return {
-    daysSince, yearIdx, phaseName: CYCLE_PHASES[yearIdx], phaseYears: CYCLE_PHASE_YEARS,
+    daysSince, yearIdx, mNow, phaseName: CYCLE_PHASES[yearIdx], phaseYears: CYCLE_PHASE_YEARS,
     nextHalving: nextH.toISOString().slice(0, 10), nextDDay: Math.max(0, Math.ceil((nextH.getTime() - Date.now()) / 86400_000)),
     overlay: Array.from(rows.values()).sort((a, b) => a.m - b.m),
     peaks,
@@ -232,7 +235,7 @@ async function buildCorrelation(): Promise<CoinLabResult['correlation']> {
 }
 
 export async function GET(req: Request) {
-  const cacheKey = 'coin-lab-v13'   // v13: 사이클 정점 36개월 이내 한정(다음 반감기 직전 랠리 제외)
+  const cacheKey = 'coin-lab-v14'   // v14: 사이클 내비 원본 포스터 정렬(침체기 시작·4사이클·4색 밴드)
   const cached = await getCache<CoinLabResult>(cacheKey, 3600_000)   // 1h
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
