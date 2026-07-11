@@ -29,6 +29,7 @@ export interface CoinLabResult {
   correlation: { labels: string[]; matrix: (number | null)[][]; window: string; note: string; series: { date: string; btc: number; nasdaq: number; gold: number }[] } | null   // BTC vs 증시·금 상관계수 + 정규화 시계열
   prescription: { regime: string; tone: 'accumulate' | 'caution' | 'neutral'; text: string }
   guardrailNote: string
+  cycleNav?: CycleNav | null   // 🔄 4년 사이클 내비게이터(국면 + 과거 사이클 오버레이)
   asOf: string
 }
 
@@ -58,6 +59,72 @@ async function btcLongPrices(): Promise<{ date: string; price: number }[]> {
     } catch { /* 다음 host */ }
   }
   return []
+}
+
+// 🔄 4년 사이클 내비게이터 — 반감기 기준 4국면(제1상승→제2상승→침체→상승준비) + 과거 사이클 오버레이(반감기=100 정규화)
+//    표본 3개(2016·2020·2024 사이클)뿐이라 통계가 아닌 역사적 참고 — ETF 시대 사이클 단축/소멸 반론도 UI에 명시
+export interface CycleNav {
+  daysSince: number; yearIdx: number                    // 반감기 후 경과일 · 사이클 연차(0~3)
+  phaseName: string; phaseYears: string[]               // 현재 국면명 · 국면별 과거 연도(4개)
+  nextHalving: string; nextDDay: number                 // 다음 반감기(예상) D-day
+  overlay: { m: number; c2016?: number; c2020?: number; c2024?: number }[]   // x=반감기 후 개월, y=반감기가=100 지수
+  peaks: { cycle: string; peakMult: number; peakMonth: number }[]            // 과거 사이클 정점(배수·개월)
+}
+const CYCLE_PHASES = ['제1 상승기', '제2 상승기(정점)', '침체기(Bear)', '상승 준비기(승부구간)']
+const CYCLE_PHASE_YEARS = [
+  '2016 · 2020 · 2024', '2017 · 2021 · 2025', '2018 · 2022 · 2026', '2019 · 2023 · 2027',
+]
+async function btcMaxWeekly(): Promise<{ date: string; price: number }[]> {
+  for (const host of ['query1', 'query2']) {
+    try {
+      const r = await fetch(`https://${host}.finance.yahoo.com/v8/finance/chart/BTC-USD?range=max&interval=1wk`, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(12_000) })
+      if (!r.ok) continue
+      const j = await r.json()
+      const res = j?.chart?.result?.[0]
+      const ts: number[] = res?.timestamp ?? []
+      const cl: (number | null)[] = res?.indicators?.quote?.[0]?.close ?? []
+      const out: { date: string; price: number }[] = []
+      for (let i = 0; i < ts.length; i++) {
+        const c = cl[i]
+        if (c != null && isFinite(c) && c > 0) out.push({ date: new Date(ts[i] * 1000).toISOString().slice(0, 10), price: c })
+      }
+      if (out.length > 100) return out
+    } catch { /* 다음 host */ }
+  }
+  return []
+}
+function buildCycleNav(weekly: { date: string; price: number }[]): CycleNav | null {
+  if (weekly.length < 100) return null
+  const starts = ['2016-07-09', '2020-05-11', '2024-04-20']
+  const keys = ['c2016', 'c2020', 'c2024'] as const
+  const rows = new Map<number, { m: number; c2016?: number; c2020?: number; c2024?: number }>()
+  const peaks: CycleNav['peaks'] = []
+  for (let ci = 0; ci < starts.length; ci++) {
+    const h = new Date(starts[ci]).getTime()
+    const end = ci < starts.length - 1 ? new Date(starts[ci + 1]).getTime() : Date.now()
+    const pts = weekly.filter(p => { const t = new Date(p.date).getTime(); return t >= h && t <= end })
+    if (pts.length < 10) continue
+    const base = pts[0].price
+    let peakMult = 0, peakMonth = 0
+    for (const p of pts) {
+      const m = Math.round(((new Date(p.date).getTime() - h) / 86400_000 / 30.44) * 2) / 2   // 0.5개월 버킷
+      const v = Math.round((p.price / base) * 1000) / 10
+      const row = rows.get(m) ?? { m }
+      ;(row as Record<string, number>)[keys[ci]] = v
+      rows.set(m, row)
+      if (v > peakMult) { peakMult = v; peakMonth = m }
+    }
+    peaks.push({ cycle: starts[ci].slice(0, 4), peakMult: Math.round(peakMult / 100 * 10) / 10, peakMonth: Math.round(peakMonth) })
+  }
+  const daysSince = Math.floor((Date.now() - new Date(starts[2]).getTime()) / 86400_000)
+  const yearIdx = Math.min(3, Math.floor(daysSince / 365.25))
+  const nextH = new Date(new Date(starts[2]).getTime() + 1461 * 86400_000)
+  return {
+    daysSince, yearIdx, phaseName: CYCLE_PHASES[yearIdx], phaseYears: CYCLE_PHASE_YEARS,
+    nextHalving: nextH.toISOString().slice(0, 10), nextDDay: Math.max(0, Math.ceil((nextH.getTime() - Date.now()) / 86400_000)),
+    overlay: Array.from(rows.values()).sort((a, b) => a.m - b.m),
+    peaks,
+  }
 }
 
 // 비트코인 레인보우 차트 9밴드(저평가 바닥 → 과열 천장). 로그 회귀선 위/아래 σ 배수로 색대 구성
@@ -164,7 +231,7 @@ async function buildCorrelation(): Promise<CoinLabResult['correlation']> {
 }
 
 export async function GET(req: Request) {
-  const cacheKey = 'coin-lab-v11'   // v11: 레인보우 차트(로그 회귀 9밴드) 추가
+  const cacheKey = 'coin-lab-v12'   // v12: 🔄 4년 사이클 내비게이터(국면+오버레이) 추가
   const cached = await getCache<CoinLabResult>(cacheKey, 3600_000)   // 1h
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -176,13 +243,14 @@ export async function GET(req: Request) {
   try { const ex = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) }); if (ex.ok) { const j = await ex.json(); if (typeof j.rate === 'number' && j.rate > 0) usdKrw = j.rate } } catch { /* 폴백 */ }
 
   // ── CoinGecko 외 소스: 병렬(서로 다른 호스트라 충돌 없음) ──────────
-  const [fngR, hashR, upbitR, m2R, longR, corrR] = await Promise.allSettled([
+  const [fngR, hashR, upbitR, m2R, longR, corrR, maxR] = await Promise.allSettled([
     fetch('https://api.alternative.me/fng/?limit=2', { signal: AbortSignal.timeout(10_000) }).then(r => r.json()),
     fetch('https://mempool.space/api/v1/mining/hashrate/3m', { signal: AbortSignal.timeout(12_000) }).then(r => r.json()),
     fetch('https://api.upbit.com/v1/ticker?markets=KRW-BTC', { signal: AbortSignal.timeout(10_000) }).then(r => r.json()),
     FRED ? fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=M2SL&api_key=${FRED}&file_type=json&sort_order=desc&limit=37`, { signal: AbortSignal.timeout(10_000) }).then(r => r.json()) : Promise.resolve(null),
     btcLongPrices(),
     buildCorrelation(),
+    btcMaxWeekly(),   // 🔄 사이클 오버레이용(range=max — 2016 사이클 시작점 포함)
   ])
   const val = <T,>(r: PromiseSettledResult<T>): T | null => (r.status === 'fulfilled' ? r.value : null)
   const fng = val(fngR) as { data?: { value: string; value_classification: string }[] } | null
@@ -191,6 +259,7 @@ export async function GET(req: Request) {
   const m2j = val(m2R) as { observations?: { date: string; value: string }[] } | null
   const longPts = (val(longR) as { date: string; price: number }[] | null) ?? []
   const correlation = val(corrR) as CoinLabResult['correlation']
+  const cycleNav = buildCycleNav((val(maxR) as { date: string; price: number }[] | null) ?? [])
 
   // ── CoinGecko: 반드시 순차(무료 API 버스트 429 회피) ──────────────
   const global = await cg<{ data?: Record<string, unknown> }>('/global')
@@ -291,6 +360,7 @@ export async function GET(req: Request) {
     correlation,
     prescription: { regime, tone, text },
     guardrailNote,
+    cycleNav,
     asOf: new Date().toISOString(),
   }
   // CoinGecko 핵심(가격+도미넌스)까지 살아야 캐시 — 부분 실패(429 등) 결과를 1h 박제하지 않음
