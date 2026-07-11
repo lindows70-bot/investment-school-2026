@@ -53,9 +53,10 @@ export default function BtcCycleNavigator({ nav }: { nav: CycleNav }) {
       {/* 사이클 오버레이 — 침체기 시작=100 정규화·로그축 + 원본식 4색 국면 밴드 */}
       <ResponsiveContainer width="100%" height={320}>
         <LineChart data={nav.overlay} margin={{ top: 20, right: 14, left: 6, bottom: 0 }}>
-          {BANDS.map(b => (
+          {BANDS.map((b, i) => (
+            // 침체기(i=0) 라벨은 왼쪽 정렬 — 밴드 중앙(≈6개월)이 '◀ 현재' 세로선(6.5개월)과 겹쳐 가려지는 문제 회피
             <ReferenceArea key={b.short} x1={b.from} x2={b.to} fill={b.color} fillOpacity={0.18} stroke={b.color} strokeOpacity={0.35} strokeDasharray="3 3"
-              label={{ value: b.short, position: 'insideTop', fill: b.color, fontSize: 11.5, fontWeight: 900 }} />
+              label={{ value: b.short, position: i === 0 ? 'insideTopLeft' : 'insideTop', fill: b.color, fontSize: 11.5, fontWeight: 900 }} />
           ))}
           <CartesianGrid stroke="#1c2434" strokeDasharray="3 3" />
           <XAxis dataKey="m" type="number" domain={[0, 48]} ticks={[0, 6, 12, 18, 24, 30, 36, 42, 48]}
