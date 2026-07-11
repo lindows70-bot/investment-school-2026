@@ -33,10 +33,10 @@ export async function GET(req: Request) {
       if (debug && !deals) {
         // getCache가 에러를 삼키므로 직접 조회로 원인 노출
         try {
-          const { createClient } = await import('@supabase/supabase-js')
-          const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
-          const { data, error } = await db.from('app_cache').select('payload, updated_at').eq('key', `rtms-trade-v2:${r.lawd}:${ym}`).maybeSingle()
-          dbg.push(`${r.lawd}:${ym} raw err=${error ? `${error.code}:${error.message}` : '-'} payload=${data?.payload ? (Array.isArray(data.payload) ? data.payload.length : typeof data.payload) : 'none'}`)
+          const u = process.env.NEXT_PUBLIC_SUPABASE_URL!, k = process.env.SUPABASE_SERVICE_ROLE_KEY!
+          const res = await fetch(`${u}/rest/v1/app_cache?key=eq.${encodeURIComponent(`rtms-trade-v2:${r.lawd}:${ym}`)}&select=payload,updated_at`, { headers: { apikey: k, Authorization: `Bearer ${k}` } })
+          const txt = await res.text()
+          dbg.push(`${r.lawd}:${ym} rest=${res.status} len=${txt.length} head=${txt.slice(0, 80).replace(/\s+/g, ' ')}`)
         } catch (e) { dbg.push(`${r.lawd}:${ym} probe-throw ${String(e).slice(0, 120)}`) }
       }
       if (debug) dbg.push(`${r.lawd}:${ym} ${deals ? deals.length : 'null'}`)
