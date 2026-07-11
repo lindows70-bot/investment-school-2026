@@ -1,8 +1,9 @@
 // 🗺️ 서울 자치구 지도 요약 API — 캐시에 이미 수집된 실거래만으로 구별 평당가 히트맵(외부 API 콜 0 — data.go.kr 일 1,000콜 한도 보호)
+// ⚠️ 키별 getCache 75회 병렬은 서버리스에서 일부가 조용히 실패(강남만 성공) → 단일 in() 일괄 조회로 설계
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
-import { getCache } from '@/lib/appCache'
+import { createClient } from '@supabase/supabase-js'
 import { LAWD_REGIONS, type AptDeal } from '@/lib/rtms'
 
 export interface GuSummary {
@@ -14,9 +15,7 @@ export interface GuSummary {
 
 const med = (a: number[]) => { const s = [...a].sort((x, y) => x - y); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2 }
 
-export async function GET(req: Request) {
-  const debug = new URL(req.url).searchParams.get('debug') === '1'
-  const dbg: string[] = []
+export async function GET() {
   const now = new Date(Date.now() + 9 * 3600_000)
   const yms: string[] = []
   for (let k = 0; k < 3; k++) {
@@ -24,28 +23,30 @@ export async function GET(req: Request) {
     yms.push(`${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}`)
   }
   const seoul = LAWD_REGIONS.filter(r => r.sido === '서울')
-  const out: GuSummary[] = await Promise.all(seoul.map(async r => {
+
+  // 필요한 키 75개를 한 번에 조회(graceful — 실패 시 전 구 미수집 표시)
+  const byKey = new Map<string, AptDeal[]>()
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL, svc = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (url && svc) {
+      const db = createClient(url, svc, { auth: { autoRefreshToken: false, persistSession: false } })
+      const keys = seoul.flatMap(r => yms.map(ym => `rtms-trade-v2:${r.lawd}:${ym}`))
+      const { data } = await db.from('app_cache').select('key, payload').in('key', keys)
+      for (const row of data ?? []) if (Array.isArray(row.payload)) byKey.set(row.key as string, row.payload as AptDeal[])
+    }
+  } catch { /* graceful */ }
+
+  const out: GuSummary[] = seoul.map(r => {
     const perArea: number[] = []
     let cached = false
     for (const ym of yms) {
-      // 과거월 캐시 TTL(30일)보다 넉넉히 — 지도는 있는 캐시를 최대한 활용(재수집 안 함)
-      const deals = await getCache<AptDeal[]>(`rtms-trade-v2:${r.lawd}:${ym}`, 45 * 86400_000).catch(e => { if (debug) dbg.push(`${r.lawd}:${ym} ERR ${e}`); return null })
-      if (debug && !deals) {
-        // getCache가 에러를 삼키므로 직접 조회로 원인 노출
-        try {
-          const u = process.env.NEXT_PUBLIC_SUPABASE_URL!, k = process.env.SUPABASE_SERVICE_ROLE_KEY!
-          const res = await fetch(`${u}/rest/v1/app_cache?key=eq.${encodeURIComponent(`rtms-trade-v2:${r.lawd}:${ym}`)}&select=payload,updated_at`, { headers: { apikey: k, Authorization: `Bearer ${k}` } })
-          const txt = await res.text()
-          dbg.push(`${r.lawd}:${ym} rest=${res.status} len=${txt.length} head=${txt.slice(0, 80).replace(/\s+/g, ' ')}`)
-        } catch (e) { dbg.push(`${r.lawd}:${ym} probe-throw ${String(e).slice(0, 120)}`) }
-      }
-      if (debug) dbg.push(`${r.lawd}:${ym} ${deals ? deals.length : 'null'}`)
+      const deals = byKey.get(`rtms-trade-v2:${r.lawd}:${ym}`)
       if (!deals) continue
       cached = true
       for (const d of deals) if (d.price && d.area) perArea.push(d.price / d.area)
     }
     const pyeong = perArea.length >= 5 ? Math.round(med(perArea) * 3.3058 / 10000 * 100) / 100 : null
     return { lawd: r.lawd, name: r.name, pyeong, count: perArea.length, cached }
-  }))
-  return NextResponse.json({ regions: out, asOf: new Date().toISOString(), ...(debug ? { dbg } : {}) }, { headers: { 'Cache-Control': 'no-store' } })
+  })
+  return NextResponse.json({ regions: out, asOf: new Date().toISOString() }, { headers: { 'Cache-Control': 'no-store' } })
 }
