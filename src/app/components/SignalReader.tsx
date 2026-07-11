@@ -227,13 +227,19 @@ export default function SignalReader({ ticker, market, candles, tf }: {
               <b style={{ color: '#f0abfc', fontSize: 12 }}>🎼 린다 라쉬케 3박자 — 방향×에너지×연료</b>
               <span style={{ fontSize: 10, color: '#7f93a8' }}>MACD=핸들(방향) · RSI 50선=엔진(에너지) · 거래량=연료 — 셋이 동시에 맞을 때만 진짜</span>
             </div>
-            {/* 매수 3박자 체크 */}
+            {/* 매수 체크 — 눌림목(stage4)은 '추세 확립' 관점(established), 그 외는 '갓 발생한 크로스' 관점(fresh). 시간창이 달라 섞으면 0/3 모순 */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 7 }}>
-              <span>{check(macdOk,
-                rk.macdZeroBreak != null ? `MACD 방향 — 영선 돌파(${rk.macdZeroBreak}봉 전)${rk.histRising ? '·히스토 확대' : ''}` : `MACD 방향 — 영선 아래 골든크로스(${rk.macdGoldenBelowZero}봉 전)`,
-                'MACD 방향 — 전환 신호 없음')}</span>
-              <span>{check(rsiOk, `RSI 에너지 — 50선 돌파(${rk.rsi50Break}봉 전)·매수세 장악`, rk.rsiAbove50 ? 'RSI 50 위(돌파는 5봉+ 경과)' : 'RSI 에너지 — 50 아래(매도세 우위)')}</span>
-              <span>{check(rk.volBoost, '거래량 — 신호봉 1.5배+ 폭발(진짜 자금)', '거래량 — 평균 수준(확신 부족)', '거래량 데이터 없음')}</span>
+              {rk.stage === 4 ? (<>
+                <span>{check(rk.macdAboveZero, 'MACD 방향 — 영선 위 유지(추세 확립)', 'MACD — 영선 아래(추세 약화)')}</span>
+                <span>{check(rk.rsiAbove50, `RSI 에너지 — ${sig.rsi} (50 위 유지)`, 'RSI — 50 아래(에너지 소진)')}</span>
+                <span>{check(rk.pullback, `눌림 — 고점 대비 ${rk.pullbackPct}% 되돌림(숨 고르기)`, '눌림 아님')}</span>
+              </>) : (<>
+                <span>{check(macdOk,
+                  rk.macdZeroBreak != null ? `MACD 방향 — 영선 돌파(${rk.macdZeroBreak}봉 전)${rk.histRising ? '·히스토 확대' : ''}` : rk.macdGoldenBelowZero != null ? `MACD 방향 — 영선 아래 골든크로스(${rk.macdGoldenBelowZero}봉 전)` : 'MACD 방향 — 전환 신호 있음',
+                  'MACD 방향 — 갓 나온 전환 신호 없음')}</span>
+                <span>{check(rsiOk, `RSI 에너지 — 50선 돌파(${rk.rsi50Break}봉 전)·매수세 장악`, rk.rsiAbove50 ? 'RSI 50 위(돌파는 10봉+ 경과)' : 'RSI 에너지 — 50 아래(매도세 우위)')}</span>
+                <span>{check(rk.volBoost, '거래량 — 신호봉 1.5배+ 폭발(진짜 자금)', '거래량 — 평균 수준(확신 부족)', '거래량 데이터 없음')}</span>
+              </>)}
             </div>
             {/* 연쇄 단계 진행바 */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 8, flexWrap: 'wrap' }}>
@@ -257,7 +263,9 @@ export default function SignalReader({ ticker, market, candles, tf }: {
             </div>
             {/* 종합 해석 */}
             <div style={{ marginTop: 7, color: '#aab6c4' }}>
-              {rk.stage === 4 ? <><b style={{ color: '#4ade80' }}>📍 첫 번째 눌림목</b> — 라쉬케가 꼽는 가장 안전한 진입 자리(영선 돌파 후 첫 숨 고르기). 3박자 {rk.buyCount}/3 충족{rk.buyCount < 3 ? ' — 미충족 박자를 확인 후 분할 접근' : ''}. 손절은 위 ATR 참고선.</>
+              {rk.stage === 4 ? (rk.parabolicRun
+                ? <><b style={{ color: '#fb923c' }}>⚠️ 눌림목이나 직전 상승이 급등(수직)</b> — 영선 돌파 후 첫 되돌림(추세 확립: MACD 양수·RSI {sig.rsi})이지만, 직전 상승이 EMA20에서 25%+ 벌어진 수직 급등이었습니다. 라쉬케 눌림목(홀리그레일)은 <b>완만·건강한 추세</b>를 전제 — 수직 급등 뒤 첫 눌림목은 함정(추가 하락)일 수 있어 반등·거래량 확인 후 소액 접근. 손절은 위 ATR 참고선.</>
+                : <><b style={{ color: '#4ade80' }}>📍 첫 번째 눌림목</b> — 라쉬케가 꼽는 안전한 진입 자리. 추세 확립(MACD 양수·RSI {sig.rsi}) 상태에서 고점 대비 {rk.pullbackPct}% 되돌림(숨 고르기). 돌파는 이미 지났으므로 &lsquo;갓 나온 크로스&rsquo; 3박자가 아니라 <b>추세 유지 3요소</b>로 확인. 손절은 위 ATR 참고선.</>)
               : rk.buyCount >= 3 ? <><b style={{ color: '#4ade80' }}>3박자 완성(3/3)</b> — 방향·에너지·연료가 동시에 맞았습니다. 단 지금이 아니라 <b>첫 눌림목을 기다리는 것</b>이 라쉬케式(추격 대신 되돌림 진입).</>
               : rk.stage >= 2 ? <>연쇄 {rk.stage}단계 진행 중(3박자 {rk.buyCount}/3) — {rk.stage === 2 ? 'RSI가 50을 넘어 에너지가 붙었고, MACD 영선 돌파(추세 확정)를 기다리는 구간.' : 'MACD가 영선을 넘어 추세가 확정 — 첫 눌림목(숨 고르기)이 오면 최적 타점.'}</>
               : rk.stage === 1 ? <>CCI가 바닥권(−100)을 탈출한 선행 신호탄 단계 — 성급한 진입 대신 RSI 50 돌파로 에너지가 붙는지 확인.</>

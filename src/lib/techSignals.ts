@@ -247,7 +247,9 @@ export interface RaschkeRead {
   // 연쇄 단계: 0=대기 / 1=CCI 신호탄 / 2=RSI 50 돌파 / 3=MACD 영선 돌파 / 4=첫 눌림목(최적 타점)
   stage: 0 | 1 | 2 | 3 | 4
   cciSignal: number | null             // CCI −100 상향 탈출(barsAgo, 최근 15봉) — 선행 신호탄
-  pullback: boolean                    // 영선 돌파 후 첫 눌림목(히스토 2봉 축소 + MACD>0 유지 + 고점 대비 2~8% 되돌림)
+  pullback: boolean                    // 영선 돌파 후 첫 눌림목(추세 확립: MACD>0·RSI>50 + 히스토 2봉 축소 + 고점 대비 2~8% 되돌림)
+  pullbackPct: number | null           // 눌림목의 10봉 고점 대비 되돌림 %(양수)
+  parabolicRun: boolean                // 직전 상승이 급등(수직) — 첫 눌림목이 함정일 수 있음(EMA20 대비 25%+ 이격 이력)
   // 매도 신호
   bearDivergence: { priceHi: number; prevHi: number; rsiAtHi: number; rsiAtPrev: number } | null   // 하락 다이버전스
   exitCross: boolean                   // MACD 데드크로스 + RSI 70 하향이탈 동시(최근 5봉)
@@ -317,16 +319,26 @@ export function readRaschke(data: Ohlc[]): RaschkeRead | null {
 
   // 연쇄 단계 판정(CCI → RSI 50 → MACD 영선 → 첫 눌림목)
   const cciSignal = levelUp(cciA, -100, 15)   // 바닥권(−100 아래) 탈출 = 선행 신호탄
-  // 첫 눌림목: 영선 돌파 이력(최근 20봉) + MACD>0 유지 + 히스토그램 2봉 연속 축소(숨 고르기) + 최근 10봉 고점 대비 2~8% 되돌림
+  // 첫 눌림목: 추세 확립(영선 돌파 20봉 이력 + MACD>0 + RSI>50 = 에너지 유지) + 히스토 2봉 축소(숨 고르기) + 10봉 고점 대비 2~8% 되돌림
+  // ⚠️ RSI>50 게이트 필수 — 눌림목에 RSI가 50 아래로 빠지면 '에너지 소진'이라 라쉬케 진입 자리 아님(3박자와의 0/3 모순 해소의 핵심)
   let pullback = false
+  let pullbackPct: number | null = null
   const zeroBreak20 = levelUp(macd, 0, 20)
-  if (zeroBreak20 != null && macdAboveZero && histNow != null &&
+  if (zeroBreak20 != null && macdAboveZero && rsiAbove50 === true && histNow != null &&
       hist[N - 2] != null && hist[N - 3] != null &&
       (hist[N - 1] as number) < (hist[N - 2] as number) && (hist[N - 2] as number) < (hist[N - 3] as number)) {
     let hi10 = -Infinity
     for (let j = N - 10; j < N; j++) if (data[j].high > hi10) hi10 = data[j].high
     const dd = (hi10 - close[N - 1]) / hi10
     pullback = dd >= 0.02 && dd <= 0.08
+    if (pullback) pullbackPct = Math.round(dd * 1000) / 10
+  }
+  // 급등(수직) 감지: 직전 30봉 내 종가가 EMA20 대비 25%+ 이격된 적이 있으면 '첫 눌림목도 함정' 경고(홀리그레일은 '건강한 추세' 전제)
+  const ema20 = emaArr(close, 20)
+  let parabolicRun = false
+  for (let j = Math.max(20, N - 30); j < N; j++) {
+    const e = ema20[j]
+    if (e != null && (close[j] - e) / e > 0.25) { parabolicRun = true; break }
   }
   const stage: RaschkeRead['stage'] =
     pullback ? 4
@@ -369,7 +381,7 @@ export function readRaschke(data: Ohlc[]): RaschkeRead | null {
 
   return {
     macdGoldenBelowZero: goldenBelowZero, macdZeroBreak: zeroBreak, macdAboveZero, histRising,
-    rsi50Break, rsiAbove50, volBoost, buyCount, stage, cciSignal, pullback, bearDivergence, exitCross,
+    rsi50Break, rsiAbove50, volBoost, buyCount, stage, cciSignal, pullback, pullbackPct, parabolicRun, bearDivergence, exitCross,
   }
 }
 
