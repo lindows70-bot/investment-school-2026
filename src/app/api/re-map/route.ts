@@ -14,7 +14,9 @@ export interface GuSummary {
 
 const med = (a: number[]) => { const s = [...a].sort((x, y) => x - y); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const debug = new URL(req.url).searchParams.get('debug') === '1'
+  const dbg: string[] = []
   const now = new Date(Date.now() + 9 * 3600_000)
   const yms: string[] = []
   for (let k = 0; k < 3; k++) {
@@ -27,7 +29,8 @@ export async function GET() {
     let cached = false
     for (const ym of yms) {
       // 과거월 캐시 TTL(30일)보다 넉넉히 — 지도는 있는 캐시를 최대한 활용(재수집 안 함)
-      const deals = await getCache<AptDeal[]>(`rtms-trade-v2:${r.lawd}:${ym}`, 45 * 86400_000).catch(() => null)
+      const deals = await getCache<AptDeal[]>(`rtms-trade-v2:${r.lawd}:${ym}`, 45 * 86400_000).catch(e => { if (debug) dbg.push(`${r.lawd}:${ym} ERR ${e}`); return null })
+      if (debug) dbg.push(`${r.lawd}:${ym} ${deals ? deals.length : 'null'}`)
       if (!deals) continue
       cached = true
       for (const d of deals) if (d.price && d.area) perArea.push(d.price / d.area)
@@ -35,5 +38,5 @@ export async function GET() {
     const pyeong = perArea.length >= 5 ? Math.round(med(perArea) * 3.3058 / 10000 * 100) / 100 : null
     return { lawd: r.lawd, name: r.name, pyeong, count: perArea.length, cached }
   }))
-  return NextResponse.json({ regions: out, asOf: new Date().toISOString() }, { headers: { 'Cache-Control': 'no-store' } })
+  return NextResponse.json({ regions: out, asOf: new Date().toISOString(), ...(debug ? { dbg } : {}) }, { headers: { 'Cache-Control': 'no-store' } })
 }
