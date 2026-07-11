@@ -46,6 +46,7 @@ const GROUPS: NavGroup[] = [
     title: '🏠 부동산', color: '#fb923c',
     items: [
       { href: '/real-estate', icon: '🏠', label: '부동산 시장 대시보드' },
+      { href: '/real-estate/honeycomb', icon: '🐝', label: '벌집순환모형(지역 사이클)' },
     ],
   },
   {
@@ -204,8 +205,9 @@ function SidebarInner() {
               if (hQuery) {
                 const hq = new URLSearchParams(hQuery)
                 active = pathname === hPath && Array.from(hq.entries()).every(([k, v]) => searchParams.get(k) === v)
-              } else if (hPath === '/dashboard') {
-                active = pathname === '/dashboard' && !searchParams.get('tab')
+              } else if (hPath === '/dashboard' || hPath === '/real-estate') {
+                // 하위 경로(딥링크·서브페이지)가 있는 허브는 정확 일치만 — 자식 항목과 이중 하이라이트 방지
+                active = pathname === hPath && !searchParams.get('tab')
               } else if (hPath === '/analysis') {
                 active = isAnalysis && !searchParams.get('tab')
               } else {
