@@ -5,7 +5,7 @@ export const maxDuration = 120
 
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
-import { roneSeries, RONE_PRICE_TBL, RONE_PRICE_CLS, RONE_VOL_TBL, RONE_VOL_CLS } from '@/lib/rone'
+import { roneSeries, RONE_PRICE_TBL, RONE_PRICE_CLS, RONE_VOL_TBL, RONE_VOL_CLS, RONE_VOL_ITM } from '@/lib/rone'
 
 export type HcPhase = 1 | 2 | 3 | 4 | 5 | 6
 export interface HcRegion {
@@ -36,7 +36,7 @@ function judge(p: number, v: number): HcPhase {
 const ymNow = () => { const d = new Date(Date.now() + 9 * 3600_000); return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}` }
 
 export async function GET() {
-  const cacheKey = 're-honeycomb-v1'
+  const cacheKey = 're-honeycomb-v2'   // v2: 거래량 ITM 필터(동(호)수 100001 — 면적 행이 덮어쓰던 오염 수정)
   const cached = await getCache<HoneycombResult>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -51,7 +51,7 @@ export async function GET() {
       if (!name) break
       const [price, vol] = await Promise.all([
         roneSeries(RONE_PRICE_TBL, RONE_PRICE_CLS[name], '202201', END),
-        roneSeries(RONE_VOL_TBL, RONE_VOL_CLS[name], '202101', END),
+        roneSeries(RONE_VOL_TBL, RONE_VOL_CLS[name], '202101', END, RONE_VOL_ITM),   // 동(호)수만(면적 행 오염 차단)
       ])
       if (price.length < 6 || vol.length < 15) continue
       const pMap = new Map(price.map(x => [x.time, x.value]))

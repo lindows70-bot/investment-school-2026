@@ -3,8 +3,9 @@
 
 export interface RoneRow { time: string; value: number; cls: string }
 
-/** 통계표 데이터 조회 — CLS_ID(지역)·기간 필터. DTACYCLE_CD=MM(월) */
-export async function roneSeries(statblId: string, clsId: string | number, start: string, end: string, pSize = 200): Promise<RoneRow[]> {
+/** 통계표 데이터 조회 — CLS_ID(지역)·기간 필터. DTACYCLE_CD=MM(월).
+ *  ⚠️ itmId: 거래현황 테이블은 월별로 '동(호)수'(100001)와 '면적'(100002) 두 행이 섞여 옴 — 미필터 시 면적이 호수를 덮어쓰는 오염(실측 발견) */
+export async function roneSeries(statblId: string, clsId: string | number, start: string, end: string, itmId?: string, pSize = 300): Promise<RoneRow[]> {
   const key = process.env.R_ONE_API_KEY
   if (!key) return []
   try {
@@ -14,6 +15,7 @@ export async function roneSeries(statblId: string, clsId: string | number, start
     const j = await r.json()
     const rows = j?.SttsApiTblData?.[1]?.row ?? []
     return rows
+      .filter((x: { ITM_ID?: number | string }) => itmId == null || String(x.ITM_ID) === itmId)
       .map((x: { WRTTIME_IDTFR_ID: string; DTA_VAL: number | string; CLS_NM: string }) => ({
         time: String(x.WRTTIME_IDTFR_ID), value: typeof x.DTA_VAL === 'number' ? x.DTA_VAL : parseFloat(String(x.DTA_VAL)), cls: String(x.CLS_NM).trim(),
       }))
@@ -21,6 +23,9 @@ export async function roneSeries(statblId: string, clsId: string | number, start
       .sort((a: RoneRow, b: RoneRow) => a.time.localeCompare(b.time))
   } catch { return [] }
 }
+
+/** 거래현황 '동(호)수' 항목 ID(실측) */
+export const RONE_VOL_ITM = '100001'
 
 /** (월) 매매가격지수_아파트 A_2024_00045 — 시도 CLS 코드(실측) */
 export const RONE_PRICE_TBL = 'A_2024_00045'
