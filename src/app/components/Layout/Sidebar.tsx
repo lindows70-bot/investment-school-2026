@@ -43,6 +43,12 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
+    title: '🏠 부동산', color: '#fb923c',
+    items: [
+      { href: '/real-estate', icon: '🏠', label: '부동산 시장 대시보드' },
+    ],
+  },
+  {
     title: '🎓 교육·학교', color: '#818cf8',
     items: [
       { href: '/investment-academy', icon: '🎓', label: 'Investment Academy' },
