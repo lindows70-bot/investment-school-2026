@@ -1,6 +1,7 @@
 'use client'
 // 🏙️ 2040 서울도시기본계획 교육 페이지 — 최상위 법정계획의 중심지 체계·7대 목표를 투자 학습 관점으로(정책 참조 데이터 큐레이션 · 출처: 서울시 urban.seoul.go.kr)
 import Link from 'next/link'
+import SeoulPlanMap from '@/app/components/SeoulPlanMap'
 
 const CARD = '#141824', BORDER = '#1e293b'
 
@@ -44,6 +45,9 @@ export default function Plan2040Page() {
           부동산 투자에서 개별 단지의 가격(미시)만큼 중요한 것이 <b style={{ color: '#fb923c' }}>도시가 어디에 돈과 인프라를 심는가(거시)</b>입니다.
         </div>
       </div>
+
+      {/* 공간구조 지도 */}
+      <SeoulPlanMap />
 
       {/* 중심지 체계 */}
       <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
