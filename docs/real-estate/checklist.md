@@ -8,7 +8,7 @@
 - [x] KB kbland 비공식 — 경로 미발견(보류)
 - [x] 🔑 ECOS 실키 발급·검증 ✅ (2026년 최신 KB지수 수신)
 - [x] 🔑 data.go.kr 키+활용신청 2건 승인·검증 ✅ (개포주공7단지 29.8억·전월세 보증금 7억 실데이터)
-- [ ] 🔑 R-ONE 키 발급됨 — .env.local `R_ONE_API_KEY=` 저장 후 검증 대기
+- [x] 🔑 R-ONE 키 검증 ✅ (심리지수 실데이터·핵심 테이블 ID 8종 발견 — context-notes)
 
 ## Phase 1 — 🏠 시장 대시보드 (ECOS 실키 후)
 - [ ] `/api/re-market` — ECOS 6종 수집(12h 캐시)
