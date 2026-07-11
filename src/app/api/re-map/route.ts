@@ -35,8 +35,8 @@ export async function GET(req: Request) {
         try {
           const { createClient } = await import('@supabase/supabase-js')
           const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
-          const { data, error } = await db.from('app_cache').select('updated_at').eq('key', `rtms-trade-v2:${r.lawd}:${ym}`).maybeSingle()
-          dbg.push(`${r.lawd}:${ym} raw err=${error?.message ?? '-'} updated=${data?.updated_at ?? 'norow'}`)
+          const { data, error } = await db.from('app_cache').select('payload, updated_at').eq('key', `rtms-trade-v2:${r.lawd}:${ym}`).maybeSingle()
+          dbg.push(`${r.lawd}:${ym} raw err=${error ? `${error.code}:${error.message}` : '-'} payload=${data?.payload ? (Array.isArray(data.payload) ? data.payload.length : typeof data.payload) : 'none'}`)
         } catch (e) { dbg.push(`${r.lawd}:${ym} probe-throw ${String(e).slice(0, 120)}`) }
       }
       if (debug) dbg.push(`${r.lawd}:${ym} ${deals ? deals.length : 'null'}`)
