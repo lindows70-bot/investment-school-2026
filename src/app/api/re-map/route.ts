@@ -30,6 +30,15 @@ export async function GET(req: Request) {
     for (const ym of yms) {
       // 과거월 캐시 TTL(30일)보다 넉넉히 — 지도는 있는 캐시를 최대한 활용(재수집 안 함)
       const deals = await getCache<AptDeal[]>(`rtms-trade-v2:${r.lawd}:${ym}`, 45 * 86400_000).catch(e => { if (debug) dbg.push(`${r.lawd}:${ym} ERR ${e}`); return null })
+      if (debug && !deals) {
+        // getCache가 에러를 삼키므로 직접 조회로 원인 노출
+        try {
+          const { createClient } = await import('@supabase/supabase-js')
+          const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
+          const { data, error } = await db.from('app_cache').select('updated_at').eq('key', `rtms-trade-v2:${r.lawd}:${ym}`).maybeSingle()
+          dbg.push(`${r.lawd}:${ym} raw err=${error?.message ?? '-'} updated=${data?.updated_at ?? 'norow'}`)
+        } catch (e) { dbg.push(`${r.lawd}:${ym} probe-throw ${String(e).slice(0, 120)}`) }
+      }
       if (debug) dbg.push(`${r.lawd}:${ym} ${deals ? deals.length : 'null'}`)
       if (!deals) continue
       cached = true
