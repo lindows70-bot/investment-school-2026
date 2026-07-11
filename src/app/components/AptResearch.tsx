@@ -4,6 +4,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { ComposedChart, Line, Scatter, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { LAWD_REGIONS } from '@/lib/rtms'
+import SeoulAptMap from '@/app/components/SeoulAptMap'
 import type { AptResearchResult } from '@/app/api/re-apt/route'
 
 const CARD = '#141824', BORDER = '#1e293b'
@@ -56,6 +57,8 @@ export default function AptResearch() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* 서울 자치구 히트맵 — 구 클릭 = 지역 선택 */}
+      <SeoulAptMap lawd={lawd} onSelect={l => { setLawd(l); setApt(''); setAptInput(''); setArea(null) }} />
       {/* 지역 선택 */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
         <select value={lawd} onChange={e => { setLawd(e.target.value); setApt(''); setArea(null) }}
