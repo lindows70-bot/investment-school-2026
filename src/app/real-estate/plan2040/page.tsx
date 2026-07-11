@@ -22,15 +22,23 @@ const REGIONAL = [
 ]
 const LOCAL = ['동대문', '망우', '미아', '성수', '신촌', '마포·공덕', '연신내·불광', '목동', '봉천', '사당·이수', '수서·문정', '천호·길동']
 
-// 7대 목표(서울시 공식 페이지 원문 기반) + 투자 관점 번역
+// 7대 목표(서울시 공식 페이지 원문 기반) + 투자 관점 번역 + 공식 일러스트(urban.seoul.go.kr)
 const GOALS = [
-  { icon: '🚶', title: '보행일상권 조성', official: '걸어서 누리는 다양한 일상', invest: '도보 생활권 안에 일자리·여가·상업이 갖춰진 동네 = 실수요가 선호하는 입지 조건' },
-  { icon: '🌊', title: '수변공간 재편', official: '수변 공간의 잠재력 발굴', invest: '한강·지천 수변 열린 공간 — 수변 접근성이 좋은 단지의 재평가 여지' },
-  { icon: '🚇', title: '기반시설 입체화', official: '새로운 도시공간 창출', invest: '지상철도 지하화·차량기지 입체화 — 단절됐던 주변 지역의 장기 개선 재료' },
-  { icon: '🏙️', title: '중심지 기능 혁신', official: '미래성장거점 육성·연계', invest: '3도심·7광역중심 = 일자리·인프라 집중축 — 주택 수요의 구조적 배후' },
-  { icon: '🛸', title: '미래교통 기반시설', official: '기술발전에 선제적 대응', invest: 'GTX·자율주행 인프라 — 교통 결절점의 접근성 프리미엄 변화' },
-  { icon: '🌱', title: '탄소중립 안전도시', official: '미래위기에 준비', invest: '노후 주거지 정비(재건축·리모델링)와 맞물리는 축' },
-  { icon: '📐', title: '도시계획 대전환', official: '도시의 다양한 모습 구현', invest: '경직된 높이 규제 유연화(35층 룰 폐지) — 정비사업 사업성에 직접 영향' },
+  { icon: '🚶', title: '보행일상권 조성', official: '걸어서 누리는 다양한 일상', invest: '도보 생활권 안에 일자리·여가·상업이 갖춰진 동네 = 실수요가 선호하는 입지 조건', img: '/plan2040/goal1.png' },
+  { icon: '🌊', title: '수변공간 재편', official: '수변 공간의 잠재력 발굴', invest: '한강·지천 수변 열린 공간 — 수변 접근성이 좋은 단지의 재평가 여지', img: '/plan2040/goal2.png' },
+  { icon: '🚇', title: '기반시설 입체화', official: '새로운 도시공간 창출', invest: '지상철도 지하화·차량기지 입체화 — 단절됐던 주변 지역의 장기 개선 재료', img: '/plan2040/goal3.png' },
+  { icon: '🏙️', title: '중심지 기능 혁신', official: '미래성장거점 육성·연계', invest: '3도심·7광역중심 = 일자리·인프라 집중축 — 주택 수요의 구조적 배후', img: '/plan2040/goal4.png' },
+  { icon: '🛸', title: '미래교통 기반시설', official: '기술발전에 선제적 대응', invest: 'GTX·자율주행 인프라 — 교통 결절점의 접근성 프리미엄 변화', img: '/plan2040/goal5.png' },
+  { icon: '🌱', title: '탄소중립 안전도시', official: '미래위기에 준비', invest: '노후 주거지 정비(재건축·리모델링)와 맞물리는 축', img: '/plan2040/goal6.png' },
+  { icon: '📐', title: '도시계획 대전환', official: '도시의 다양한 모습 구현', invest: '경직된 높이 규제 유연화(35층 룰 폐지) — 정비사업 사업성에 직접 영향', img: '/plan2040/goal7.png' },
+]
+
+// 4대 주제도(서울시 공식 도면 — 정적 이미지, 정책 변경 시 갱신)
+const THEME_MAPS = [
+  { src: '/plan2040/centers.png', title: '🎯 중심지 체계', desc: '3도심·7광역중심·12지역중심의 중심지 체계 유지 및 기능 고도화' },
+  { src: '/plan2040/transport.png', title: '🚄 광역교통축', desc: '광역철도망(GTX)과 중심지 체계를 연계하여 서울 대도시권 실현' },
+  { src: '/plan2040/industry.png', title: '🏭 산업·경제축', desc: '4대 혁신축 — 국제경제(금융·핀테크)·감성문화(미디어)·청년첨단(바이오·ICT)·미래융합(AI·로봇·MICE)' },
+  { src: '/plan2040/green.png', title: '🌳 공원·녹지·수변축', desc: '한강·남북녹지축 중심 도심 녹지 회복, 수변 중심의 도시공간 재편' },
 ]
 
 export default function Plan2040Page() {
@@ -46,7 +54,16 @@ export default function Plan2040Page() {
         </div>
       </div>
 
-      {/* 공간구조 지도 */}
+      {/* 원본 종합 공간구조도(서울시 공식 도면) */}
+      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
+        <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>🗺️ 2040 서울 공간구조 종합도 — 서울시 공식 도면</div>
+        <div style={{ color: '#8a9aaa', fontSize: 11, margin: '3px 0 10px' }}>중심지(🔴3도심·🔵7광역·🟡12지역) + 광역교통축(빨강 실선·GTX) + 수변축(파랑) + 남북녹지축(초록)이 한 장에.</div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/plan2040/map-master.png" alt="2040 서울 공간구조 종합도" style={{ width: '100%', height: 'auto', borderRadius: 10, background: '#fff' }} />
+        <div style={{ color: '#8a9aaa', fontSize: 10, marginTop: 6 }}>출처: 서울특별시 도시계획포털(urban.seoul.go.kr) — 2040 서울도시기본계획 공식 도면</div>
+      </div>
+
+      {/* 인터랙티브 지도(클릭 내비게이션) */}
       <SeoulPlanMap />
 
       {/* 중심지 체계 */}
@@ -77,12 +94,30 @@ export default function Plan2040Page() {
         </div>
       </div>
 
+      {/* 4대 주제도(원본 도면) */}
+      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
+        <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13, marginBottom: 10 }}>📐 4대 공간계획 도면 — 중심지·교통·산업·녹지 축</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(340px,1fr))', gap: 12 }}>
+          {THEME_MAPS.map(m => (
+            <div key={m.title} style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '11px 13px' }}>
+              <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 12 }}>{m.title}</div>
+              <div style={{ color: '#8a9aaa', fontSize: 10.5, margin: '3px 0 8px', lineHeight: 1.5 }}>{m.desc}</div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={m.src} alt={m.title} style={{ width: '100%', height: 'auto', borderRadius: 8, background: '#fff', padding: 6, boxSizing: 'border-box' }} />
+            </div>
+          ))}
+        </div>
+        <div style={{ color: '#8a9aaa', fontSize: 10, marginTop: 8 }}>출처: 서울특별시 도시계획포털 공식 도면 · 계획은 방향이며 개별 사업은 변경·지연될 수 있음(교육용).</div>
+      </div>
+
       {/* 7대 목표 */}
       <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
         <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13, marginBottom: 10 }}>📋 7대 핵심 목표 — 공식 문구와 투자 관점 번역</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 8 }}>
           {GOALS.map(g => (
             <div key={g.title} style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '11px 13px' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={g.img} alt={g.title} style={{ width: '100%', height: 96, objectFit: 'contain', borderRadius: 8, background: '#fff', padding: 4, boxSizing: 'border-box', marginBottom: 8 }} />
               <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 12 }}>{g.icon} {g.title} <span style={{ color: '#8a9aaa', fontWeight: 400, fontSize: 10.5 }}>— {g.official}</span></div>
               <div style={{ color: '#a8b5c2', fontSize: 10.5, marginTop: 4, lineHeight: 1.55 }}>💡 {g.invest}</div>
             </div>
