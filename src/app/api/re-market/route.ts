@@ -41,7 +41,7 @@ async function fredSeries(id: string, start: string): Promise<{ date: string; va
 }
 
 export async function GET() {
-  const cacheKey = 're-market-v1'
+  const cacheKey = 're-market-v2'   // v2: 전세 항목코드 P63AC→P64AC 교정
   const cached = await getCache<ReMarketResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -52,7 +52,7 @@ export async function GET() {
     ecosSeries('121Y006', 'M', START, END, 'BECBLA0302'), // 주담대(신규취급)
     ecosSeries('901Y062', 'M', START, END, 'P63AC'),      // KB 아파트 매매(전국)
     ecosSeries('901Y062', 'M', START, END, 'P63ACA'),     // KB 아파트 매매(서울)
-    ecosSeries('901Y063', 'M', START, END, 'P63AC'),      // KB 아파트 전세(전국)
+    ecosSeries('901Y063', 'M', START, END, 'P64AC'),      // KB 아파트 전세(전국) — ⚠️ 전세는 P64 계열(매매 P63과 다름, 실측)
     ecosSeries('901Y089', 'M', START, END, '100'),        // 실거래가격지수 전국
     ecosSeries('901Y089', 'M', START, END, '200'),        // 서울
     ecosSeries('901Y089', 'M', START, END, '300'),        // 수도권
