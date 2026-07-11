@@ -61,8 +61,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: '실거래 데이터가 없습니다 — 지역 코드를 확인하거나 잠시 후 재시도.' }, { status: 503, headers: { 'Cache-Control': 'no-store' } })
 
   // 단지 랭킹(매매 거래 수 기준 상위 40)
+  // ⚠️ 그룹 키 = '법정동 + 단지명' — 같은 이름 아파트가 동마다 존재(송파 '대림': 오금동/문정동 등이 섞이면 13억·24억이 한 차트에)
+  const keyOf = (d: AptDeal) => `${d.dong} ${d.aptNm}`.trim()
   const byApt = new Map<string, AptDeal[]>()
-  for (const d of trades) { const a = byApt.get(d.aptNm) ?? []; a.push(d); byApt.set(d.aptNm, a) }
+  for (const d of trades) { const k = keyOf(d); const a = byApt.get(k) ?? []; a.push(d); byApt.set(k, a) }
   const complexes: AptComplex[] = Array.from(byApt.entries()).map(([name, ds]) => {
     const last = ds.reduce((b, x) => (x.ym + String(x.day).padStart(2, '0')) > (b.ym + String(b.day).padStart(2, '0')) ? x : b)
     return { name, dealCount: ds.length, lastPrice: eok(last.price!), lastYm: `${last.ym.slice(0, 4)}-${last.ym.slice(4)}`, buildYear: last.buildYear }
@@ -73,7 +75,7 @@ export async function GET(req: Request) {
   let selected: AptResearchResult['selected'] = null
   if (selName) {
     const selTrades = byApt.get(selName) ?? []
-    const selRents = rents.filter(d => d.aptNm === selName && (d.monthlyRent ?? 0) === 0)   // 전세만(월세 제외 — v1 정직 한정)
+    const selRents = rents.filter(d => keyOf(d) === selName && (d.monthlyRent ?? 0) === 0)   // 전세만(월세 제외 — v1 정직 한정)
     // 면적대(반올림 ㎡) 거래 많은 순
     const areaCnt = new Map<number, number>()
     for (const d of selTrades) { const a = Math.round(d.area); areaCnt.set(a, (areaCnt.get(a) ?? 0) + 1) }

@@ -3,7 +3,7 @@
 import { getCache, setCache } from '@/lib/appCache'
 
 export interface AptDeal {
-  aptNm: string; ym: string; day: number
+  aptNm: string; dong: string; ym: string; day: number   // dong=법정동(umdNm) — 같은 이름 아파트가 동마다 존재(송파 '대림' 사건)
   price: number | null      // 매매가(만원) — 매매만
   deposit: number | null    // 보증금(만원) — 전월세만
   monthlyRent: number | null // 월세(만원) — 0이면 전세
@@ -39,7 +39,7 @@ async function fetchRtmsXml(service: string, op: string, lawd: string, ym: strin
 export async function rtmsTradeMonth(lawd: string, ym: string): Promise<AptDeal[]> {
   const nowYm = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 7).replace('-', '')
   const ttl = ym < nowYm ? 30 * 86400_000 : 6 * 3600_000
-  const ck = `rtms-trade-v1:${lawd}:${ym}`
+  const ck = `rtms-trade-v2:${lawd}:${ym}`
   const cached = await getCache<AptDeal[]>(ck, ttl)
   if (cached) return cached
   const xml = await fetchRtmsXml('RTMSDataSvcAptTradeDev', 'getRTMSDataSvcAptTradeDev', lawd, ym)
@@ -52,7 +52,7 @@ export async function rtmsTradeMonth(lawd: string, ym: string): Promise<AptDeal[
     const price = num(tag(it, 'dealAmount'))
     if (!area || !price) continue
     deals.push({
-      aptNm: tag(it, 'aptNm') ?? '?', ym, day: num(tag(it, 'dealDay')) ?? 1,
+      aptNm: tag(it, 'aptNm') ?? '?', dong: tag(it, 'umdNm') ?? '', ym, day: num(tag(it, 'dealDay')) ?? 1,
       price, deposit: null, monthlyRent: null, area,
       floor: num(tag(it, 'floor')), buildYear: num(tag(it, 'buildYear')),
     })
@@ -65,7 +65,7 @@ export async function rtmsTradeMonth(lawd: string, ym: string): Promise<AptDeal[
 export async function rtmsRentMonth(lawd: string, ym: string): Promise<AptDeal[]> {
   const nowYm = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 7).replace('-', '')
   const ttl = ym < nowYm ? 30 * 86400_000 : 6 * 3600_000
-  const ck = `rtms-rent-v1:${lawd}:${ym}`
+  const ck = `rtms-rent-v2:${lawd}:${ym}`
   const cached = await getCache<AptDeal[]>(ck, ttl)
   if (cached) return cached
   const xml = await fetchRtmsXml('RTMSDataSvcAptRent', 'getRTMSDataSvcAptRent', lawd, ym)
@@ -77,7 +77,7 @@ export async function rtmsRentMonth(lawd: string, ym: string): Promise<AptDeal[]
     const deposit = num(tag(it, 'deposit'))
     if (!area || deposit == null) continue
     deals.push({
-      aptNm: tag(it, 'aptNm') ?? '?', ym, day: num(tag(it, 'dealDay')) ?? 1,
+      aptNm: tag(it, 'aptNm') ?? '?', dong: tag(it, 'umdNm') ?? '', ym, day: num(tag(it, 'dealDay')) ?? 1,
       price: null, deposit, monthlyRent: num(tag(it, 'monthlyRent')) ?? 0, area,
       floor: num(tag(it, 'floor')), buildYear: num(tag(it, 'buildYear')),
     })
