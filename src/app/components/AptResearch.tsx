@@ -11,6 +11,7 @@ const CARD = '#141824', BORDER = '#1e293b'
 export default function AptResearch() {
   const [lawd, setLawd] = useState('11680')
   const [apt, setApt] = useState('')
+  const [aptInput, setAptInput] = useState('')
   const [area, setArea] = useState<number | null>(null)
   const [d, setD] = useState<AptResearchResult | null>(null)
   const [loading, setLoading] = useState(true)
@@ -65,6 +66,12 @@ export default function AptResearch() {
             </optgroup>
           ))}
         </select>
+        {/* 단지 검색 — Top40 밖 단지(예: '오금동 대림')도 부분일치 조회 */}
+        <form onSubmit={e => { e.preventDefault(); const q = aptInput.trim(); if (q) { setApt(q); setArea(null) } }} style={{ display: 'flex', gap: 6 }}>
+          <input value={aptInput} onChange={e => setAptInput(e.target.value)} placeholder="단지 검색 (예: 오금동 대림)"
+            style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 9, padding: '9px 12px', color: '#e2e8f0', fontSize: 13, width: 190 }} />
+          <button type="submit" style={{ background: '#fb923c', border: 'none', borderRadius: 9, padding: '9px 14px', color: '#0d1017', fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}>🔍 검색</button>
+        </form>
         <span style={{ color: '#8a9aaa', fontSize: 11 }}>최근 24개월 실거래(국토부 신고 기준·호가 아님) · 첫 로드는 수집에 ~30초</span>
       </div>
 
@@ -87,6 +94,12 @@ export default function AptResearch() {
                   border: `1px solid ${sel?.name === c.name ? '#fb923c' : BORDER}`,
                 }}>{c.name} <span style={{ opacity: 0.7 }}>{c.dealCount}건</span></button>
               ))}
+              {sel && !d.complexes.some(c => c.name === sel.name) && (
+                <button style={{
+                  padding: '5px 11px', borderRadius: 16, fontSize: 11.5, fontWeight: 700, cursor: 'default',
+                  background: '#fb923c', color: '#0d1017', border: '1px solid #fb923c',
+                }}>🔍 {sel.name} <span style={{ opacity: 0.7 }}>검색</span></button>
+              )}
             </div>
           </div>
 

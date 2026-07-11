@@ -70,8 +70,18 @@ export async function GET(req: Request) {
     return { name, dealCount: ds.length, lastPrice: eok(last.price!), lastYm: `${last.ym.slice(0, 4)}-${last.ym.slice(4)}`, buildYear: last.buildYear }
   }).sort((a, b) => b.dealCount - a.dealCount).slice(0, 40)
 
-  // 선택 단지(미지정 시 1위)
-  const selName = aptQ && byApt.has(aptQ) ? aptQ : complexes[0]?.name
+  // 선택 단지(미지정 시 1위) — 정확 일치 → 부분 일치(거래 많은 순) 순으로 해석('오금동 대림'·'대림' 검색 지원)
+  let selName = complexes[0]?.name
+  if (aptQ) {
+    if (byApt.has(aptQ)) selName = aptQ
+    else {
+      const q = aptQ.replace(/\s+/g, '')
+      const hits = Array.from(byApt.entries())
+        .filter(([k]) => k.replace(/\s+/g, '').includes(q))
+        .sort((a, b) => b[1].length - a[1].length)
+      if (hits.length) selName = hits[0][0]
+    }
+  }
   let selected: AptResearchResult['selected'] = null
   if (selName) {
     const selTrades = byApt.get(selName) ?? []
