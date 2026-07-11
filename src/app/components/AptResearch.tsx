@@ -155,8 +155,9 @@ export default function AptResearch() {
                       // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       formatter={(vv: any, name: any) => [`${vv}억`, name]} />
                     <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Scatter data={dots} dataKey="saleDot" name="매매 실거래" fill="#f87171" fillOpacity={0.55} shape="circle" />
-                    <Scatter data={dots} dataKey="jeonseDot" name="전세 실거래" fill="#4ade80" fillOpacity={0.5} shape="circle" />
+                    {/* 산점은 별도 data 배열이라 공유 툴팁이 다른 달 거래를 끌어옴 → 툴팁 제외(개별 거래는 하단 카드) */}
+                    <Scatter data={dots} dataKey="saleDot" name="매매 실거래" fill="#f87171" fillOpacity={0.55} shape="circle" tooltipType="none" />
+                    <Scatter data={dots} dataKey="jeonseDot" name="전세 실거래" fill="#4ade80" fillOpacity={0.5} shape="circle" tooltipType="none" />
                     <Line type="monotone" dataKey="sale" name="매매 월 중위" stroke="#f1f5f9" strokeWidth={2} dot={false} connectNulls />
                     <Line type="monotone" dataKey="jeonse" name="전세 월 중위" stroke="#2dd4bf" strokeWidth={1.6} dot={false} connectNulls />
                   </ComposedChart>
