@@ -67,12 +67,14 @@ export default function ReDeepGauges() {
             <ComposedChart data={d.bubble.series} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke="#1c2434" strokeDasharray="3 3" />
               <XAxis dataKey="t" tick={{ fill: '#8a9aaa', fontSize: 9.5 }} interval={Math.floor(d.bubble.series.length / 8)} />
-              <YAxis tick={{ fill: '#8a9aaa', fontSize: 10 }} width={42} domain={['auto', 'auto']} />
+              <YAxis yAxisId="idx" tick={{ fill: '#8a9aaa', fontSize: 10 }} width={42} domain={['auto', 'auto']} />
+              {/* 괴리(%)는 스케일이 달라(−70~+50 vs 100~600) 우측 별도 축 — 좌축에 겹치면 0 근처 띠로 눌림(화면검증) */}
+              <YAxis yAxisId="gap" orientation="right" tick={{ fill: '#f87171', fontSize: 10 }} width={40} domain={['auto', 'auto']} tickFormatter={(v: number) => `${v}%`} />
               <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }} labelStyle={{ color: '#cbd5e1' }} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Area type="monotone" dataKey="gap" name="괴리(%)" fill="#f8717122" stroke="none" />
-              <Line type="monotone" dataKey="sale" name="매매지수(재기준)" stroke="#f1f5f9" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="fund" name="근본가치(전세÷금리)" stroke="#2dd4bf" strokeWidth={1.8} dot={false} />
+              <Area yAxisId="gap" type="monotone" dataKey="gap" name="괴리(%, 우축)" fill="#f8717126" stroke="#f8717188" strokeWidth={1} />
+              <Line yAxisId="idx" type="monotone" dataKey="sale" name="매매지수(재기준)" stroke="#f1f5f9" strokeWidth={2} dot={false} />
+              <Line yAxisId="idx" type="monotone" dataKey="fund" name="근본가치(전세÷금리)" stroke="#2dd4bf" strokeWidth={1.8} dot={false} />
             </ComposedChart>
           </ResponsiveContainer>
           <div style={{ color: '#8a9aaa', fontSize: 10.5, marginTop: 6, lineHeight: 1.6 }}>

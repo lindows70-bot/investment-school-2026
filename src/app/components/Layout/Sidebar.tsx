@@ -48,6 +48,7 @@ const GROUPS: NavGroup[] = [
       { href: '/real-estate', icon: '🏠', label: '부동산 시장 대시보드' },
       { href: '/real-estate/honeycomb', icon: '🐝', label: '벌집순환모형(지역 사이클)' },
       { href: '/real-estate/apt', icon: '🔍', label: '아파트 단지 리서치' },
+      { href: '/real-estate/plan2040', icon: '🏙️', label: '2040 서울플랜' },
     ],
   },
   {

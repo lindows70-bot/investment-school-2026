@@ -9,8 +9,8 @@ import type { AptResearchResult } from '@/app/api/re-apt/route'
 
 const CARD = '#141824', BORDER = '#1e293b'
 
-export default function AptResearch() {
-  const [lawd, setLawd] = useState('11680')
+export default function AptResearch({ initialLawd }: { initialLawd?: string } = {}) {
+  const [lawd, setLawd] = useState(initialLawd && LAWD_REGIONS.some(r => r.lawd === initialLawd) ? initialLawd : '11680')
   const [apt, setApt] = useState('')
   const [aptInput, setAptInput] = useState('')
   const [area, setArea] = useState<number | null>(null)

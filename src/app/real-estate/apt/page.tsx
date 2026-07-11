@@ -1,6 +1,13 @@
 'use client'
-// 🔍 아파트 단지 리서치 — 부동산 Phase 3(실거래 추이 + 밸류 3축: 전세가율·고점대비·지역 국면)
+// 🔍 아파트 단지 리서치 — 부동산 Phase 3(실거래 추이 + 밸류 3축: 전세가율·고점대비·지역 국면). ?lawd= 딥링크 지원(2040 서울플랜 중심지 연결)
+import { Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import AptResearch from '@/app/components/AptResearch'
+
+function AptResearchWithParams() {
+  const sp = useSearchParams()
+  return <AptResearch initialLawd={sp.get('lawd') ?? undefined} />
+}
 
 export default function AptResearchPage() {
   return (
@@ -12,7 +19,9 @@ export default function AptResearchPage() {
           국토교통부 실거래가 공개시스템 실데이터.
         </div>
       </div>
-      <AptResearch />
+      <Suspense fallback={<div style={{ color: '#8a9aaa', fontSize: 12 }}>로딩…</div>}>
+        <AptResearchWithParams />
+      </Suspense>
     </div>
   )
 }
