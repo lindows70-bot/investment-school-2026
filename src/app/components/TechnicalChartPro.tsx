@@ -416,28 +416,34 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
               { idx: raschke.macdZero, n: 3, s: 3, label: 'MACD 영선 돌파', color: '#4ade80' },
               { idx: raschke.pullback, n: 4, s: 4, label: '첫 눌림목(최적 타점)', color: '#f0abfc' },
             ].filter((m): m is { idx: number; n: number; s: number; label: string; color: string } => m.idx != null && m.idx >= 0 && m.idx < N)
+            // 실제 위치 충돌 감지 — 겹칠 때만 아래로 밀어냄(블라인드 사다리가 가격 상승 구간서 수렴하는 결함 방지)
+            const placed: { x: number; y: number }[] = []
+            const laid = marks.map(m => {
+              const x = xc(m.idx), yLow = yP(data[m.idx].low)
+              const here = raschke.stage === m.s
+              const r = here ? 8.5 : 6
+              let y = yLow + 16
+              let g = 0
+              while (placed.some(p => Math.abs(p.x - x) < 16 && Math.abs(p.y - y) < 15) && g++ < 8) y += 14
+              placed.push({ x, y })
+              return { ...m, x, y, r, yLow, here }
+            })
             return (<>
-              {marks.map((m, k) => {
-                const x = xc(m.idx), yLow = yP(data[m.idx].low)
-                const here = raschke.stage === m.s
-                const r = here ? 8.5 : 6.5
-                const my = yLow + 18 + k * 15   // 각 봉 아래 + 연쇄 순서대로 한 칸씩 사다리(가로 밀집 겹침 방지)
-                return (
-                  <g key={'rk' + m.n}>
-                    <line x1={x} x2={x} y1={yLow + 2} y2={my - r} stroke={m.color} strokeWidth={1} strokeDasharray="2 3" opacity={0.55} />
-                    {here && <circle cx={x} cy={my} r={r + 3} fill="none" stroke={m.color} strokeWidth={1.5} opacity={0.5} />}
-                    <circle cx={x} cy={my} r={r} fill={m.color} stroke="#0F172A" strokeWidth={1.5} />
-                    <text x={x} y={my + 3.3} fontSize={here ? 10.5 : 9} fontWeight={900} textAnchor="middle" fill="#0F172A">{m.n}</text>
-                    {here && (() => {
-                      const leftSide = x > W - padR - 90   // 우측 끝이면 라벨을 왼쪽으로
-                      return (
-                        <text x={leftSide ? x - r - 4 : x + r + 4} y={my + 3.3} fontSize={9} fontWeight={800}
-                          fill={m.color} textAnchor={leftSide ? 'end' : 'start'}>📍{m.label}</text>
-                      )
-                    })()}
-                  </g>
-                )
-              })}
+              {laid.map(m => (
+                <g key={'rk' + m.n}>
+                  <line x1={m.x} x2={m.x} y1={m.yLow + 2} y2={m.y - m.r} stroke={m.color} strokeWidth={1} strokeDasharray="2 3" opacity={0.5} />
+                  {m.here && <circle cx={m.x} cy={m.y} r={m.r + 3} fill="none" stroke={m.color} strokeWidth={1.5} opacity={0.5} />}
+                  <circle cx={m.x} cy={m.y} r={m.r} fill={m.color} stroke="#0F172A" strokeWidth={1.5} />
+                  <text x={m.x} y={m.y + 3.2} fontSize={m.here ? 10.5 : 8.5} fontWeight={900} textAnchor="middle" fill="#0F172A">{m.n}</text>
+                  {m.here && (() => {
+                    const leftSide = m.x > W - padR - 100   // 우측 끝이면 라벨을 왼쪽으로
+                    return (
+                      <text x={leftSide ? m.x - m.r - 4 : m.x + m.r + 4} y={m.y + 3.2} fontSize={9} fontWeight={800}
+                        fill={m.color} textAnchor={leftSide ? 'end' : 'start'}>📍{m.label}</text>
+                    )
+                  })()}
+                </g>
+              ))}
             </>)
           })()}
 
