@@ -29,12 +29,28 @@ export default function TimingBadge({ t, market, compact = false }: { t: EntryTi
       rkChip = { label: m[rk.stage], c: rk.stage === 3 ? '#4ade80' : rk.stage === 0 ? '#8599ae' : '#eab308' }
     }
   }
+  // 🎼 행동 가치 있는 라쉬케만 겉면에 1줄 설명(펼침 불필요) — 첫 눌림목·미확립 종목의 연쇄 단계. green '추세 진행중'은 칩만(줄 생략)
+  let rkLine: string | null = null
+  if (rk) {
+    if (rk.stage === 4) rkLine = rk.parabolicRun
+      ? '🎼 첫 눌림목이나 직전 급등(수직) — 첫 눌림목도 함정 가능, 반등·거래량 확인 후 소액.'
+      : `🎼 첫 눌림목 = 추세 확립 후 고점 대비 ${rk.pullbackPct}% 되돌림, ${t.light === 'green' ? '추가 진입(불타기)' : '1차 진입'} 적기.`
+    else if (t.light !== 'green') {
+      const gm: Record<number, string> = {
+        1: '🎼 CCI 신호탄(선행) — 성급한 진입보다 RSI50 돌파(에너지) 먼저 확인.',
+        2: '🎼 RSI50 돌파(에너지 장악) — MACD 영선 돌파(추세 확정)까지 기다리면 확률↑.',
+        3: '🎼 MACD 영선 돌파(추세 확정) — 첫 눌림목(숨 고르기) 오면 그때가 최적 진입.',
+      }
+      rkLine = gm[rk.stage] ?? null
+    }
+  }
   return (
     <div style={{ background: s.bg, border: `1px solid ${s.bd}`, borderRadius: 8, padding: '6px 10px', fontSize: 10.5, lineHeight: 1.55 }}>
       <b style={{ color: s.c }}>{t.label}</b>
       {rkChip && <span title="라쉬케 모멘텀 연쇄 — 상세는 매매 플랜에서" style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 800, color: rkChip.c, background: `${rkChip.c}18`, border: `1px solid ${rkChip.c}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{rkChip.label}</span>}
       <span style={{ color: '#aab6c4' }}> — {t.guide}</span>
       {t.atrStop != null && <span style={{ color: '#c4b5fd' }}> · 🛡 손절 참고 {fmtStop(t.atrStop)}</span>}
+      {rkLine && <div style={{ color: '#f0abfc', marginTop: 3, fontSize: 10 }}>{rkLine}</div>}
     </div>
   )
 }
