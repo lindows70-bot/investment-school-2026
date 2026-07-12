@@ -1571,7 +1571,7 @@ export default function DashboardPage() {
         <MarketCatalystBanner />
       </ErrorBoundary>
 
-      {/* 🔔 내 종목 타점 전환(어제 대비 🟢돌파/🔴이탈) — 변화 없으면 자동 숨김 */}
+      {/* 🔔 오늘의 타점 신호(어제 대비 매수/매도 전환 — 신호등·라쉬케·스퀴즈·매물평단·섹터이탈) — 변화 없으면 자동 숨김 */}
       <ErrorBoundary label="타점 전환 알림">
         <TimingWatchBanner />
       </ErrorBoundary>
