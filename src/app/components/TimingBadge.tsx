@@ -18,9 +18,21 @@ export default function TimingBadge({ t, market, compact = false }: { t: EntryTi
       {t.label}
     </span>
   )
+  // 🎼 라쉬케 칩 — 모든 카드에 노출(발견성). 단 문구·색은 상태별 정직하게: 첫눌림목=최적타점 / green 추세확립='추세 진행중'(muted, 중복 주장 안 함) / 미확립=연쇄 단계
+  const rk = t.raschke
+  let rkChip: { label: string; c: string } | null = null
+  if (rk) {
+    if (rk.stage === 4) rkChip = { label: rk.parabolicRun ? '🎼 첫 눌림목(급등 주의)' : '🎼 첫 눌림목(타점)', c: rk.parabolicRun ? '#fb923c' : '#4ade80' }
+    else if (t.light === 'green') rkChip = { label: '🎼 추세 진행중', c: '#8599ae' }   // 이미 상승 추세 — 연쇄 트리거 불필요(관망 아님)
+    else {
+      const m: Record<number, string> = { 0: '🎼 연쇄 대기', 1: '🎼 CCI 신호탄', 2: '🎼 RSI50 돌파', 3: '🎼 영선 돌파' }
+      rkChip = { label: m[rk.stage], c: rk.stage === 3 ? '#4ade80' : rk.stage === 0 ? '#8599ae' : '#eab308' }
+    }
+  }
   return (
     <div style={{ background: s.bg, border: `1px solid ${s.bd}`, borderRadius: 8, padding: '6px 10px', fontSize: 10.5, lineHeight: 1.55 }}>
       <b style={{ color: s.c }}>{t.label}</b>
+      {rkChip && <span title="라쉬케 모멘텀 연쇄 — 상세는 매매 플랜에서" style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 800, color: rkChip.c, background: `${rkChip.c}18`, border: `1px solid ${rkChip.c}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{rkChip.label}</span>}
       <span style={{ color: '#aab6c4' }}> — {t.guide}</span>
       {t.atrStop != null && <span style={{ color: '#c4b5fd' }}> · 🛡 손절 참고 {fmtStop(t.atrStop)}</span>}
     </div>
