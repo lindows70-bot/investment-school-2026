@@ -13,6 +13,7 @@ import MoatBreachDetector from '@/app/components/MoatBreachDetector'
 import MoneyFlowRadar    from '@/app/components/MoneyFlowRadar'
 import ReverseDcf        from '@/app/components/ReverseDcf'
 import StockProfileCard  from '@/app/components/StockProfileCard'
+import FcfQualityCard    from '@/app/components/FcfQualityCard'
 import ValueTriangle      from '@/app/components/ValueTriangle'
 import ResearchVerdictCard from '@/app/components/ResearchVerdict'
 import LynchAutoPanel     from '@/app/components/LynchAutoPanel'
@@ -589,6 +590,7 @@ export default function ResearchPage() {
         <ValueTriangle ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} per={stockInfo.per} />
         <MoatBreachDetector ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
         <ReverseDcf ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
+        <FcfQualityCard ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
         <CashRunwayTimer ticker={stockInfo.ticker} name={stockInfo.name} currency={stockInfo.currency}
           freeCashflow={stockInfo.freeCashflow} totalCash={stockInfo.totalCash} sharesOutstanding={stockInfo.sharesOutstanding}
           returnOnEquity={stockInfo.returnOnEquity} operatingMargins={stockInfo.operatingMargins} />
@@ -596,9 +598,10 @@ export default function ResearchPage() {
       </>))}
 
       {/* ── 🧭 최일 가치분석 탭 (/valuation 전체 추출 — embedded 자동조회) ── */}
-      {activeTab === 'choi' && (!stockInfo ? GuruEmptyNotice : !isStock ? NonStockNotice : (
+      {activeTab === 'choi' && (!stockInfo ? GuruEmptyNotice : !isStock ? NonStockNotice : (<>
+        <FcfQualityCard ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
         <ChoiValuationPanel ticker={stockInfo.ticker} market={stockInfo.market === 'KR' ? 'KR' : 'US'} embedded />
-      ))}
+      </>))}
     </div>
   )
 }
