@@ -686,20 +686,23 @@ export interface Fvg {
   lo: number    // 갭 하단
   hi: number    // 갭 상단
 }
-export function detectFVG(data: Ohlc[], lookback = 140, max = 6): Fvg[] {
+export function detectFVG(data: Ohlc[], lookback = 140, max = 4, minPct = 0.3): Fvg[] {
   const N = data.length
   if (N < 5) return []
   const start = Math.max(1, N - lookback)
   const out: Fvg[] = []
+  const tooSmall = (lo: number, hi: number) => (hi - lo) / ((hi + lo) / 2) * 100 < minPct  // 갭 폭 < minPct% = 초소형 노이즈
   for (let i = start; i < N - 1; i++) {
     const a = data[i - 1], c = data[i + 1]
     if (c.low > a.high) {                 // 상승 FVG
       const lo = a.high, hi = c.low
+      if (tooSmall(lo, hi)) continue
       let filled = false
       for (let j = i + 2; j < N; j++) { if (data[j].low <= lo) { filled = true; break } }  // 이후 저가가 갭 하단까지 되돌리면 완전 되메움
       if (!filled) out.push({ type: 'bull', idx: i, lo, hi })
     } else if (a.low > c.high) {          // 하락 FVG
       const lo = c.high, hi = a.low
+      if (tooSmall(lo, hi)) continue
       let filled = false
       for (let j = i + 2; j < N; j++) { if (data[j].high >= hi) { filled = true; break } }
       if (!filled) out.push({ type: 'bear', idx: i, lo, hi })

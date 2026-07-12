@@ -482,19 +482,25 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
 
           {/* 📦 FVG(공정가치 갭) — 3봉 불균형으로 생긴 미충족 빈 공간(자석처럼 되메워지는 눌림 지지/저항 후보).
               상승 갭=라임(지지)·하락 갭=빨강(저항). 갭 형성 봉부터 우측 끝까지 반투명 존 + 좌측 라벨. 점수·추천 미반영, 차트·교육 전용 */}
-          {showFvg && fvg.map((g, i) => {
-            const yT = yP(g.hi), yB = yP(g.lo)
-            const x0 = xc(g.idx), xR = W - padR
-            const col = g.type === 'bull' ? '#a3e635' : '#f87171'
-            return (
-              <g key={'fvg' + i}>
-                <rect x={x0} y={yT} width={Math.max(2, xR - x0)} height={Math.max(1.5, yB - yT)} fill={col} opacity={0.12} />
-                <line x1={x0} x2={xR} y1={yT} y2={yT} stroke={col} strokeWidth={0.7} strokeDasharray="3 3" opacity={0.55} />
-                <line x1={x0} x2={xR} y1={yB} y2={yB} stroke={col} strokeWidth={0.7} strokeDasharray="3 3" opacity={0.55} />
-                <text x={x0 + 3} y={(yT + yB) / 2 + 3} fontSize={8.5} fontWeight={800} fill={col} opacity={0.9}>📦{g.type === 'bull' ? '갭↑' : '갭↓'}</text>
-              </g>
-            )
-          })}
+          {showFvg && (() => {
+            const usedY: number[] = []   // 라벨 declutter — 12px 내 근접 시 텍스트 생략(박스·선은 유지)
+            return fvg.map((g, i) => {
+              const yT = yP(g.hi), yB = yP(g.lo)
+              const x0 = xc(g.idx), xR = W - padR
+              const col = g.type === 'bull' ? '#a3e635' : '#f87171'
+              const yc = (yT + yB) / 2
+              const showLabel = !usedY.some(u => Math.abs(u - yc) < 12)
+              if (showLabel) usedY.push(yc)
+              return (
+                <g key={'fvg' + i}>
+                  <rect x={x0} y={yT} width={Math.max(2, xR - x0)} height={Math.max(1.5, yB - yT)} fill={col} opacity={0.12} />
+                  <line x1={x0} x2={xR} y1={yT} y2={yT} stroke={col} strokeWidth={0.7} strokeDasharray="3 3" opacity={0.55} />
+                  <line x1={x0} x2={xR} y1={yB} y2={yB} stroke={col} strokeWidth={0.7} strokeDasharray="3 3" opacity={0.55} />
+                  {showLabel && <text x={x0 + 3} y={yc + 3} fontSize={8.5} fontWeight={800} fill={col} opacity={0.9}>📦{g.type === 'bull' ? '갭↑' : '갭↓'}</text>}
+                </g>
+              )
+            })
+          })()}
 
           {/* 💧 유동성 레벨(살아있는 전 고점·저점) + 스윕 마커 — 점수·추천 미반영, 차트 전용.
               라벨 declutter: 비슷한 가격대 레벨이 겹치면 선은 다 긋되 텍스트는 Y축 12px 내 근접 시 생략(평단·ATR 라벨과도 충돌 회피) */}
