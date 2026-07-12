@@ -2673,6 +2673,15 @@ KB금융(은행)이 AI 리밸런싱·본부장 브리핑·투자 프로필에서
 - **`TechnicalChartPro`**: 📦FVG 토글(갭 있을 때만 노출·기본 OFF) + **'💰 매물·평단' 렌즈에 편입**(LensCfg에 fvg 추가, applyLens/curCfg/activeLens 동기화) + 반투명 존 박스(상승=라임 #a3e635 지지·하락=빨강 저항, 갭 형성 봉→우측 끝) + 범례 + 교육 카드("자석처럼 되메워지는 빈틈, 매물대·유동성 스윕과 겹치면 신뢰↑, 단독 매수 신호 아닌 되돌림 타점 후보").
 - ⛔ 점수·추천 절대 미반영(차트·교육 전용). 검증: 합성 데이터 3종(상승 갭·하락 갭·되메움 제외[]) 불변식 통과 — 상승/하락 정확 탐지, 되메운 갭 제외 확인. ⭐ **가독성 3종 정리(2026-07-12, NVDA 화면검증)**: 매물·평단 렌즈 5중 오버레이로 우측 밀집 → ①갭 라벨 12px 내 근접 시 텍스트 생략(박스·선 유지, 유동성 라벨 패턴) ②`minPct=0.3` 초소형 갭(폭<0.3%) 제외(노이즈 컷) ③반환 max 6→4개. NVDA prod 501봉 재검증: 6→4개, 초소형(07-08 0.28%) 제외, 잔여 4개 폭 0.90~3.16%·bull 2/bear 2(현재가 아래 지지·위 저항).
 
+## 📊 매물·평단(VWAP·POC·FVG·스퀴즈) 매수/매도 실사용 적용 (2026-07-12)
+
+신규 기술지표(⚓Anchored VWAP·📊매물대POC·📦FVG·🔥TTM스퀴즈)를 라쉬케 적용 패턴 그대로 실제 매수/매도에. **신호등(추세)·라쉬케(모멘텀)가 못 보는 '매물/평단' 축**이라 중복 없음(SuperTrend는 신호등 중복이라 시각만 유지·제외).
+- **`entryTiming.ts` `SupplyLite`(SSOT·추가 fetch 0)**: 같은 일봉 D에서 `computeAnchoredVWAP`+`computePOC`+`detectFVG`+`computeTTMSqueeze` 산출 → aboveVwap/vwapDistPct·abovePoc/pocDistPct·supportStrong(둘 다 위)·supportWeak(둘 다 아래)·overExtended(VWAP +15%↑ 과대이격)·fvgBuy(현재가 아래 상승 갭=되돌림 매수 존)·fvgSell(현재가 위 하락 갭=저항)·squeeze. `timingFromCandles`가 base에 supply 부착 → unified-reco·ai-rebalance·quant-builder·sector-rotation **자동 상속**.
+- **매수(통합추천 매매 플랜 카드 `TradePlanCard`)**: 라쉬케 아래 '📊 매물·평단 지지' 섹션 — 지지 탄탄/약함/혼조 + ⚓기관평단·📊매물대 위아래·이격% + 📦되돌림 매수 존(FVG 지정가 후보) + 🔥스퀴즈 압축/분출.
+- **매도(AI 리밸런싱 익절)**: `ai-rebalance` route가 익절(TAKE_PROFIT) 종목 reason에 ⚓기관평단 +N% 과대이격·📦머리 위 저항 갭(+N%) 병기(라쉬케 하락 다이버전스와 함께, 판정 불변·일방적 매도 강요 아님). 캐시 v34→v35.
+- **발견성**: `TimingBadge` 풀 변형에 📊 지지 탄탄(cyan)/약함(orange) 칩(혼조는 생략). unified-reco 캐시 v23→v24.
+- ⛔ **점수·선정·정렬 절대 불변**(배지·근거만). 검증: NVDA supply가 차트와 일치(POC 186.85 동일·VWAP 204.53·되돌림 매수 존 189.66~195.74·저항 갭 203.77~206.5), 5종목 FVG 독립 재계산 불변식 통과.
+
 ## 📊 매물대 중심선(POC) 오버레이 (2026-07-12) — 기술차트 + 신호 판독기
 
 유튜브('수익 연구소' PnD채널=돈치안+볼륨프로파일 영상, yt-dlp 자막 전문 분석) 검토 → **1개만 선별 채택**. 유동성 헌팅 논리=💧스윕 기구현·"눌림목 후 재돌파"=라쉬케/신호등 기구현·돈치안=전고저 레벨과 중복·'태미지 승률70%' 서사와 지표 코드 복제는 거부(LuxAlgo 원칙) → 진짜 갭은 **볼륨 프로파일 POC**뿐.
