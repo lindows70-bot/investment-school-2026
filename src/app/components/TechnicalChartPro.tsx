@@ -385,10 +385,20 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
                       opacity={isPoc ? 0.75 : b.inVA ? 0.35 : 0.18} />
                   )
                 })}
-                {/* POC 수평 점선 + 좌측 라벨(단독 지지/저항 기준선) */}
+                {/* POC 수평 점선 + 좌측 라벨. 평단 배너와 가까우면 라벨만 세로로 밀어냄(선은 실제 위치 유지) */}
                 <line x1={padL} x2={xR} y1={y0} y2={y0} stroke="#38bdf8" strokeWidth={1.2} strokeDasharray="8 4" opacity={0.8} />
-                <rect x={padL} y={y0 - 9} width={128} height={16} rx={3} fill="#0c4a6e" stroke="#38bdf8" strokeWidth={0.8} />
-                <text x={padL + 5} y={y0 + 3} fontSize={9.5} fontWeight={800} fill="#7dd3fc">📊 매물대 {fmt(poc.poc)}</text>
+                {(() => {
+                  let ly = y0
+                  if (avgPrice != null) {
+                    const ya = yP(avgPrice)
+                    if (Math.abs(ya - y0) < 17) ly = y0 <= ya ? ya - 17 : ya + 17   // 평단 위면 위로, 아래면 아래로
+                  }
+                  return (<>
+                    {ly !== y0 && <line x1={padL + 4} x2={padL + 4} y1={y0} y2={ly} stroke="#38bdf8" strokeWidth={0.8} opacity={0.5} />}
+                    <rect x={padL} y={ly - 9} width={128} height={16} rx={3} fill="#0c4a6e" stroke="#38bdf8" strokeWidth={0.8} />
+                    <text x={padL + 5} y={ly + 3} fontSize={9.5} fontWeight={800} fill="#7dd3fc">📊 매물대 {fmt(poc.poc)}</text>
+                  </>)
+                })()}
               </g>
             )
           })()}
