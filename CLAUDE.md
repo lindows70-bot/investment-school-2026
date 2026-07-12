@@ -2754,6 +2754,16 @@ KB금융(은행)이 AI 리밸런싱·본부장 브리핑·투자 프로필에서
 
 ---
 
+
+## 🔔 오늘의 타점 신호 워처 확장 (2026-07-13) — 종목 타점 전환(#4) + 섹터 자금 이탈(#3)
+
+기존 '타점 전환 워처'(신호등 EMA·구름만)를 신규 기술지표까지 스캔하는 '오늘의 매수/매도 신호'로 승격. 매일 08:30 KST 크론.
+- **#4 종목 타점 전환**(`cron/timing-watch`): entryTiming SSOT에서 신호등+🎼라쉬케(첫눈림목·하락다이버전스)+🔥스퀴즈(분출)+📊매물평단(지지 전환) 압축 상태(SigState) 스냅 → 전일 대비 전환만 diff. 매수=진입적기 돌파·첫눈림목 도달·스퀴즈 상방분출·지지 전환 / 매도=최후방어선 붕괴·하락다이버전스·지지 상실·스퀴즈 하방분출. 종목당 최우선 전환 1개(매도 우선). 추가 fetch 0.
+- **#3 섹터 자금 이탈**: 보유 종목 GICS 섹터(`getSector` 7일 캐시) → 로테이션 캐시 국면 매핑. 주도/태동 → 과열/이탈 전환 시 🍂 '섹터 자금 이탈' 매도알림(익절·비중축소 검토, 신규 매수는 유입 섹터 ETF 우선). 로테이션 캐시 있을 때만 동시성5. 메모리 'etf-first-sell-signal' 선호 충족.
+- **`TimingWatchBanner`·브리핑 ① 오늘 신호**: 매수/매도 그룹 분리 칩(하루 1회 등장, 변화 없으면 렌더 0). ⛔ 알림만·자동주문 없음.
+- ⚠️ **버그 2종 수정**: ① 첫 확장 시 예 v1 스냅(TimingLight 문자열)과 신규 SigState를 diff → `p.bearDiv`=undefined라 전 종목 '하락 다이버전스' 오탐 → 캐시 키 **v2 분리**(첫 실행=깨끗한 베이스라인)+객체 타입 방어. ② **appCache no-store 전역 수정(중요)**: baseline이 DB엔 있는데 getCache가 None — **Next Data Cache가 supabase GET을 박제**(부동산 히트맵에 이어 재발). `appCache.admin()` 클라이언트 fetch에 `cache:'no-store'` 강제 → 모든 getCache/setCache가 항상 라이브(신선도는 updated_at TTL 자체 판정). 교훈: **App Router에서 app_cache 조회가 '옆/빈 응답에 고정'되면 Next Data Cache부터 의심 — 이제 전역 차단.**
+- 검증(prod): scanned 67·resolved 63, 베이스라인에 6개 신호 차원(light·rkStage·bearDiv·sqFired·support·sectorQuad) 적재 확인, 섹터 국면 40/67(improving 25·lagging 10·weakening 1·leading 4). 첫 실행=베이스라인(오탐 0), 알림은 익일 크론부터.
+
 ## 배포
 
 - **프로덕션**: https://investment-school-2026.vercel.app
