@@ -203,7 +203,7 @@ function SidebarInner() {
                 <span style={{ fontSize: 10.5, color: 'rgba(245,230,200,0.82)' }}>(1+r)<sup style={{ fontSize: 7.5 }}>t</sup></span>
               </span>
             </div>
-            <div style={{ marginTop: 5, fontSize: 8.5, color: 'rgba(212,175,55,0.6)', letterSpacing: '0.04em', textAlign: 'center', fontStyle: 'italic' }}>
+            <div style={{ marginTop: 6, fontSize: 9.5, fontWeight: 500, color: 'rgba(240,220,170,0.92)', letterSpacing: '0.02em', textAlign: 'center', lineHeight: 1.4 }}>
               돈의 시간가치 × 위험을 반영한 현재가치
             </div>
           </div>
