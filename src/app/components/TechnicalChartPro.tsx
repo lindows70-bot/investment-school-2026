@@ -365,16 +365,30 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
               <text x={W - padR + 4} y={yP(atrStop) + 3} fontSize={9.5} fontWeight={800} fill={C.bg}>🛡{fmt(atrStop)}</text>
             </g>
           )}
-          {/* 📊 매물대 중심선(POC) + 가치영역(70%) — 최근 120봉 최대 거래 가격대. 위=수익권 다수(지지)/아래=손실권(저항) */}
+          {/* 📊 매물대(볼륨 프로파일) — 차트 우측에 '세워놓은 거래량' 가로 막대(원본식). 최근 120봉 가격대별 거래량 히스토그램.
+              막대 = 우측 끝에서 좌측으로 거래량 비례(최대 폭 MAXW). POC 구간=진한 하이라이트, 가치영역(70%)=중간, 밖=흐림 */}
           {showPoc && poc && (() => {
-            const y = yP(poc.poc)
-            const yVaH = yP(Math.min(poc.vaHigh, pMax)), yVaL = yP(Math.max(poc.vaLow, pMin))
+            const MAXW = 110                       // 최대 막대 폭(px)
+            const xR = W - padR                    // 우측 앵커(가격축 직전)
+            const y0 = yP(poc.poc)
             return (
               <g>
-                <rect x={padL} y={yVaH} width={plotW} height={Math.max(0, yVaL - yVaH)} fill="#38bdf8" opacity={0.05} />
-                <line x1={padL} x2={W - padR} y1={y} y2={y} stroke="#38bdf8" strokeWidth={1.3} strokeDasharray="8 4" opacity={0.85} />
-                <rect x={padL} y={y - 9} width={128} height={16} rx={3} fill="#0c4a6e" stroke="#38bdf8" strokeWidth={0.8} />
-                <text x={padL + 5} y={y + 3} fontSize={9.5} fontWeight={800} fill="#7dd3fc">📊 매물대 {fmt(poc.poc)}</text>
+                {poc.profile.map((b, i) => {
+                  if (b.frac <= 0.01) return null
+                  const yT = yP(Math.min(b.hi, pMax)), yB = yP(Math.max(b.lo, pMin))
+                  const h = Math.max(1, yB - yT - 0.6)   // 구간 간 미세 간격
+                  const isPoc = b.lo <= poc.poc && poc.poc <= b.hi
+                  const wpx = Math.max(2, b.frac * MAXW)
+                  return (
+                    <rect key={'vp' + i} x={xR - wpx} y={yT} width={wpx} height={h}
+                      fill={isPoc ? '#38bdf8' : b.inVA ? '#38bdf8' : '#475569'}
+                      opacity={isPoc ? 0.75 : b.inVA ? 0.35 : 0.18} />
+                  )
+                })}
+                {/* POC 수평 점선 + 좌측 라벨(단독 지지/저항 기준선) */}
+                <line x1={padL} x2={xR} y1={y0} y2={y0} stroke="#38bdf8" strokeWidth={1.2} strokeDasharray="8 4" opacity={0.8} />
+                <rect x={padL} y={y0 - 9} width={128} height={16} rx={3} fill="#0c4a6e" stroke="#38bdf8" strokeWidth={0.8} />
+                <text x={padL + 5} y={y0 + 3} fontSize={9.5} fontWeight={800} fill="#7dd3fc">📊 매물대 {fmt(poc.poc)}</text>
               </g>
             )
           })()}
@@ -616,7 +630,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
         {showPoc && poc && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <span style={{ width: 16, borderTop: '2px dashed #38bdf8' }} />
-            <span style={{ color: C.textLow }}>📊 매물대 중심선(POC — 최근 120봉 최대 거래 가격대) · 하늘색 음영=가치영역(거래 70%)</span>
+            <span style={{ color: C.textLow }}>📊 매물대 — 우측 가로 막대=가격대별 거래량(진한 파랑=POC·중간=가치영역 70%·흐림=밖), 점선=매물대 중심선</span>
             <span style={{ fontSize: 9.5, fontWeight: 800, color: poc.above ? '#4ade80' : '#fb923c', background: poc.above ? '#14532d33' : '#7c2d1233', border: `1px solid ${poc.above ? '#22c55e55' : '#fb923c55'}`, borderRadius: 5, padding: '1px 6px' }}>
               현재 매물대 {poc.above ? '위(+' : '아래('}{poc.distPct}%) — {poc.above ? '수익권 다수·지지 기대' : '손실권 다수·저항 주의'}
             </span>
@@ -658,7 +672,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
               최근 120봉에서 <b style={{ color: '#38bdf8' }}>가장 많은 거래가 일어난 가격대</b>입니다(거래량 가중 — 시간 가중인 일목 구름과 상호보완).
               가격이 <b style={{ color: '#4ade80' }}>POC 위</b>면 그 물량을 산 대다수가 수익권이라 눌림 시 <b style={{ color: C.text }}>지지</b>로,
               <b style={{ color: '#fb923c' }}> POC 아래</b>면 대다수가 손실권(본전 매도 대기)이라 반등 시 <b style={{ color: C.text }}>저항</b>으로 작용하기 쉽습니다.
-              하늘색 음영은 거래 70%가 몰린 가치영역 — 이 안은 매물 소화 구간, 벗어나면 추세 구간입니다. 단독 매매 신호가 아니라 구름·신호등과 함께 보세요.
+              차트 우측의 가로 막대는 가격대별 거래량(세워놓은 거래량)이며, 막대가 긴 구간일수록 매물이 두껍습니다 — 진한 파랑=매물대 중심(POC), 중간 톤=가치영역(거래 70%, 매물 소화 구간). 단독 매매 신호가 아니라 구름·신호등과 함께 보세요.
             </p>
           </div>
         )}

@@ -450,6 +450,7 @@ export interface PocRead {
   vaHigh: number          // 가치영역 상단(거래량 70% 구간)
   vaLow: number           // 가치영역 하단
   sharePct: number        // POC 구간이 전체 거래량에서 차지하는 비중(%) — 매물대 집중도
+  profile: { lo: number; hi: number; frac: number; inVA: boolean }[]   // 📊 가격대별 거래량 히스토그램(frac=최대 구간 대비 0~1) — 차트 우측 가로 막대용
 }
 export function computePOC(data: Ohlc[], lookback = 120, bins = 40): PocRead | null {
   const N = data.length
@@ -483,13 +484,24 @@ export function computePOC(data: Ohlc[], lookback = 120, bins = 40): PocRead | n
     if (uv >= dv) { acc += uv; up++ } else { acc += dv; dn-- }
   }
   const close = data[N - 1].close
+  const vaHi = lo + Math.min(bins, up) * w
+  const vaLo = lo + Math.max(0, dn + 1) * w
+  const maxV = hist[pb]
+  // 📊 가격대별 히스토그램(차트 우측 '세워놓은 거래량' 막대) — frac=POC 구간 대비 비율
+  const profile = hist.map((v, b) => ({
+    lo: Math.round((lo + b * w) * 100) / 100,
+    hi: Math.round((lo + (b + 1) * w) * 100) / 100,
+    frac: maxV > 0 ? Math.round(v / maxV * 1000) / 1000 : 0,
+    inVA: lo + (b + 0.5) * w >= vaLo && lo + (b + 0.5) * w <= vaHi,
+  }))
   return {
     poc: Math.round(poc * 100) / 100,
     above: close >= poc,
     distPct: Math.round((close - poc) / poc * 1000) / 10,
-    vaHigh: Math.round((lo + Math.min(bins, up) * w) * 100) / 100,
-    vaLow: Math.round((lo + Math.max(0, dn + 1) * w) * 100) / 100,
+    vaHigh: Math.round(vaHi * 100) / 100,
+    vaLow: Math.round(vaLo * 100) / 100,
     sharePct: Math.round(hist[pb] / total * 1000) / 10,
+    profile,
   }
 }
 
