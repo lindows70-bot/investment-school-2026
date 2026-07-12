@@ -230,7 +230,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v33:${user.id}:${today}:${fp}`   // v33: 🚦 타점 신호등(매수 카드)+최후 방어선 붕괴 경고(매도측 근거 병기)
+  const cacheKey = `ai-rebalance-v34:${user.id}:${today}:${fp}`   // v34: 🎼 라쉬케 하락 다이버전스 조기 익절 경보(익절 카드 근거 병기)
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -651,6 +651,9 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
     for (const it of [...drop, ...trim]) {
       const t = tmap.get(`${it.ticker}:${it.market}`)
       if (t?.trendBreak) it.reason += ' · 🚨 최후 방어선 붕괴(EMA 역배열+구름 이탈 — 장기 추세까지 꺾임)'
+      // 🎼 라쉬케 하락 다이버전스 = 신고가권 에너지 소진(최후 방어선 붕괴보다 이른 경보). 익절 종목에만 '조기 익절 타이밍' 근거 병기
+      if (it.tag === '익절' && t?.raschke?.bearDiv)
+        it.reason += ` · 🎼 라쉬케 하락 다이버전스(주가 신고점↑ vs RSI ${t.raschke.divRsiPrev}→${t.raschke.divRsiHi}↓ — 상승 에너지 소진, 분할 익절 조기 타이밍)`
     }
     for (const a of add) if (!a.timing) a.timing = tmap.get(`${a.ticker}:${a.market}`) ?? null
   } catch { /* graceful — 경고·배지만 생략 */ }

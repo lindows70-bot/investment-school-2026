@@ -2,9 +2,18 @@
 // EMA112·224 정배열 + 일목 구름 위치 + ATR 손절선을 결정론 판정(기술차트 화면과 동일 계산).
 // ⛔ 원칙: 추천 '점수·선정·정렬'에는 절대 미반영 — 카드에 배지(정보)로만 표시. 자동매매 없음.
 import { getTechCandles, type TechCandle } from '@/lib/techChartData'
-import { calcATR } from '@/lib/techSignals'
+import { calcATR, readRaschke } from '@/lib/techSignals'
 
 export type TimingLight = 'green' | 'yellow' | 'red'
+/** 🎼 라쉬케 요약(카드용 lite) — 같은 캔들에서 추가 fetch 0. 매수=연쇄 stage/첫눌림목, 매도=하락 다이버전스 조기경보 */
+export interface RaschkeLite {
+  stage: 0 | 1 | 2 | 3 | 4        // 0 대기 · 1 CCI 신호탄 · 2 RSI50 돌파 · 3 MACD 영선 · 4 첫 눌림목(최적 타점)
+  pullback: boolean               // 첫 눌림목(추세 확립 + 되돌림)
+  pullbackPct: number | null
+  parabolicRun: boolean           // 급등(수직) 이력 — 첫 눌림목 함정 경고
+  bearDiv: boolean                // 하락 다이버전스(신고가권 에너지 소진)
+  divPrevHi: number | null; divPriceHi: number | null; divRsiPrev: number | null; divRsiHi: number | null
+}
 export interface EntryTiming {
   light: TimingLight
   label: string          // 배지 문구
@@ -16,6 +25,7 @@ export interface EntryTiming {
   price: number          // 최근 종가(매매 플랜 계산용)
   cloudTop: number       // 현재 봉 위치의 구름 상단(분할 매수 기준선)
   atr: number | null     // ATR(14) 원값
+  raschke?: RaschkeLite | null  // 🎼 라쉬케 연쇄/다이버전스(같은 캔들·추가 fetch 0)
 }
 
 const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length
@@ -53,8 +63,16 @@ export function timingFromCandles(D: TechCandle[]): EntryTiming | null {
   const atrStop = atr != null && price - 2 * atr > 0 ? Math.round((price - 2 * atr) * 100) / 100 : null
 
   const cloudTop = Math.round(Math.max(spanA, spanB) * 100) / 100
+  // 🎼 라쉬케(같은 캔들·추가 fetch 0) — lite 요약. 224봉 이상이라 항상 산출 가능
+  const rk = readRaschke(D)
+  const raschke: RaschkeLite | null = rk ? {
+    stage: rk.stage, pullback: rk.pullback, pullbackPct: rk.pullbackPct, parabolicRun: rk.parabolicRun,
+    bearDiv: rk.bearDivergence != null,
+    divPrevHi: rk.bearDivergence?.prevHi ?? null, divPriceHi: rk.bearDivergence?.priceHi ?? null,
+    divRsiPrev: rk.bearDivergence?.rsiAtPrev ?? null, divRsiHi: rk.bearDivergence?.rsiAtHi ?? null,
+  } : null
   const base = {
-    aligned, cloud, atrStop,
+    aligned, cloud, atrStop, raschke,
     price: Math.round(price * 100) / 100, cloudTop,
     atr: atr != null ? Math.round(atr * 100) / 100 : null,
   }
