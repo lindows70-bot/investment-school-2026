@@ -147,9 +147,10 @@ export default function TradePlanCard({ market, timing, portfolioKrw }: {
           {/* 📊 매물·평단 지지 — 신호등(추세)·라쉬케(모멘텀)가 못 보는 '매물/평단' 축. 지지 확인 + 되돌림 매수 존(지정가 후보) + 변동성 */}
           {t.supply && (t.supply.vwap != null || t.supply.poc != null) && (() => {
             const s = t.supply
-            const strong = s.supportStrong, weak = s.supportWeak
-            const col = strong ? '#38bdf8' : weak ? '#fb923c' : '#94a3b8'
-            const head = strong ? '지지 탄탄' : weak ? '지지 약함' : '혼조'
+            // ⚠️ 둘 다 위여도 '크게 위(과대이격)'면 지지선이 멀어 '눌림 지지 확보'가 아님 → overExtended로 분기
+            const strong = s.supportStrong && !s.overExtended, extended = s.supportStrong && s.overExtended, weak = s.supportWeak
+            const col = strong ? '#38bdf8' : extended ? '#f59e0b' : weak ? '#fb923c' : '#94a3b8'
+            const head = strong ? '지지 탄탄' : extended ? '과대이격(지지선 멀다)' : weak ? '지지 약함' : '혼조'
             return (
               <div style={{ background: `${col}0d`, border: `1px solid ${col}44`, borderRadius: 8, padding: '7px 10px', marginBottom: 6, fontSize: 10.5, lineHeight: 1.55 }}>
                 <b style={{ color: '#38bdf8' }}>📊 매물·평단</b> <span style={{ color: col, fontWeight: 800 }}>{head}</span>
@@ -157,7 +158,8 @@ export default function TradePlanCard({ market, timing, portfolioKrw }: {
                   {' — '}
                   {s.vwap != null && <>⚓기관평단 {s.aboveVwap ? '위' : '아래'}({s.vwapDistPct! >= 0 ? '+' : ''}{s.vwapDistPct}%)</>}
                   {s.poc != null && <> · 📊매물대 {s.abovePoc ? '위(지지)' : '아래(저항)'}({s.pocDistPct! >= 0 ? '+' : ''}{s.pocDistPct}%)</>}
-                  {strong && <>. 앵커 이후 매수자·거래 대다수가 현재가 아래 = <b style={{ color: '#7dd3fc' }}>눌림 지지 확보</b>.</>}
+                  {strong && <>. 앵커 이후 매수자·거래 대다수가 현재가 아래 = <b style={{ color: '#7dd3fc' }}>눌림 지지 확보(지지선 가까움)</b>.</>}
+                  {extended && <>. 추세는 강하나 평단·매물대가 <b style={{ color: '#fbbf24' }}>크게 아래 = 지지선 멀다</b> — 되돌림 시 낙폭 클 수 있어 추격보다 되돌림·분할 진입.</>}
                   {weak && <>. 평단·매물 대다수가 위 = <b style={{ color: '#fdba74' }}>지지 얇음, 되돌림 리스크</b> — 반등·매물 소화 확인 후.</>}
                 </span>
                 {s.fvgBuyHi != null && (
