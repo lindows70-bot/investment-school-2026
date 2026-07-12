@@ -21,7 +21,12 @@ function admin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) return null
-  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
+  // ⚠️ Next.js Data Cache가 supabase GET fetch를 '박제'해 캐시 조회가 옛(빈) 응답에 고정되는 버그 방지(부동산 히트맵·타점 워처에서 확인).
+  //    캐시 조회는 항상 라이브여야 함(신선도는 updated_at TTL로 자체 판정) → no-store 강제.
+  return createClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: { fetch: (u, o) => fetch(u as RequestInfo, { ...o, cache: 'no-store' }) },
+  })
 }
 
 /** 캐시 조회 — maxAgeMs 이내 신선하면 payload, 아니면 null (테이블 없어도 null) */
