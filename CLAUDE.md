@@ -2764,6 +2764,14 @@ KB금융(은행)이 AI 리밸런싱·본부장 브리핑·투자 프로필에서
 - ⚠️ **버그 2종 수정**: ① 첫 확장 시 예 v1 스냅(TimingLight 문자열)과 신규 SigState를 diff → `p.bearDiv`=undefined라 전 종목 '하락 다이버전스' 오탐 → 캐시 키 **v2 분리**(첫 실행=깨끗한 베이스라인)+객체 타입 방어. ② **appCache no-store 전역 수정(중요)**: baseline이 DB엔 있는데 getCache가 None — **Next Data Cache가 supabase GET을 박제**(부동산 히트맵에 이어 재발). `appCache.admin()` 클라이언트 fetch에 `cache:'no-store'` 강제 → 모든 getCache/setCache가 항상 라이브(신선도는 updated_at TTL 자체 판정). 교훈: **App Router에서 app_cache 조회가 '옆/빈 응답에 고정'되면 Next Data Cache부터 의심 — 이제 전역 차단.**
 - 검증(prod): scanned 67·resolved 63, 베이스라인에 6개 신호 차원(light·rkStage·bearDiv·sqFired·support·sectorQuad) 적재 확인, 섹터 국면 40/67(improving 25·lagging 10·weakening 1·leading 4). 첫 실행=베이스라인(오탐 0), 알림은 익일 크론부터.
 
+
+## ⬛ 관망(횡보) 필터 (2026-07-13) — VPF 유튜브 기법 분석 → 알맹이만 채택
+
+'VPF(브압 압력 필터)' 유튜브(트레이딩 센세, 자막 yt-dlp 분석) 검토. 핵심 = VWAP 돌파/이탈/리테스트(이미 구현) + '회색 지대=횡보엔 진입 자제'. ⛔ 거부: ① 150만→270억 하이프 서사(지어냄) ② VPF 자작 Pine Script 비공개(구독 미끼)라 복제 불가·검증 불가 ③ OHLCV로 진짜 매수/매도 델타는 불가능(틱·호가 필요, 영상도 근사일 뿐 — MFI가 우리 정직한 근사). → **알맹이(횡보 회피)만 공개 지표 ADX로 재현.**
+- **`entryTiming.supply`에 `choppy`(ADX<20=추세 없음)·`adx` 추가**(같은 캔들·추가 fetch 0). 매물·평단 최우선 상태 '⬛ 관망(횡보)' — 매수 카드(TradePlanCard)·TimingBadge 칩. "가짜 돌파 잦아 손실 최다 구간, 방향 확정 전 신규 진입 자제".
+- ⚠️ **green 신호등 자기모순 차단**: green(정배열+구름위=구조적 상승추세)은 '느린 상승'이지 '방향 없는 횡보'가 아님 → **관망은 신호등 yellow·red(구조 미확립)일 때만** 표시(라쉬케 green 처리와 동일 원칙). 검증: NVDA(yellow·ADX17)=관망 표시 / GS·KO·XLU(green·ADX 11~18)=제외 / IBB(ADX39)=추세강해 제외. unified-reco v24→v25. ⛔ 점수·선정 불변(배지만).
+- 교훈: 유튜브 '비밀 지표'는 대부분 하이프+비공개 미끼 — 공식은 못 봐도 자막으로 알맹이는 완전 분석되며, 진짜 가치(횡보 회피)만 공개 표준(ADX)으로 재현하면 충분.
+
 ## 배포
 
 - **프로덕션**: https://investment-school-2026.vercel.app
