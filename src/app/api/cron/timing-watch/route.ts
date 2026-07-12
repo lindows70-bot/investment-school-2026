@@ -74,14 +74,15 @@ export async function GET(req: Request) {
     names[key] = it.name
   }
 
-  // 전일 스냅과 비교 → 전환 감지(같은 날 재실행이면 비교 스킵·스냅만 갱신)
-  const prev = await getCache<WatchSnap>('timing-watch-latest', 7 * 86400_000)
+  // 전일 스냅과 비교 → 전환 감지(같은 날 재실행이면 비교 스킵·스냅만 갱신).
+  // ⚠️ v2: 신규 SigState 포맷 — 옛 v1(TimingLight 문자열) 스냅과 diff하면 undefined 필드가 '신규 전환'으로 오탐되므로 키 분리(첫 실행=깨끗한 베이스라인)
+  const prev = await getCache<WatchSnap>('timing-watch-latest-v2', 7 * 86400_000)
   const today = kstDate()
   const sigs: WatchSig[] = []
   if (prev && prev.date !== today) {
     for (const key of Object.keys(snap)) {
       const p = prev.snap[key], c = snap[key]
-      if (!p || !c) continue
+      if (!p || !c || typeof p !== 'object') continue   // 옛 포맷·결손 방어
       const d = diffSig(p, c)
       if (!d) continue
       const [ticker, market] = key.split(':')
@@ -89,9 +90,9 @@ export async function GET(req: Request) {
     }
     // 🔴 매도·경계 먼저(방어), 🟢 매수 다음
     sigs.sort((a, b) => (a.kind === 'sell' ? 0 : 1) - (b.kind === 'sell' ? 0 : 1))
-    await setCache('timing-watch-changes', { asOf: new Date().toISOString(), prevDate: prev.date, scanned: list.length, sigs } satisfies WatchResult)
+    await setCache('timing-watch-changes-v2', { asOf: new Date().toISOString(), prevDate: prev.date, scanned: list.length, sigs } satisfies WatchResult)
   }
-  await setCache('timing-watch-latest', { date: today, snap, names } satisfies WatchSnap)
+  await setCache('timing-watch-latest-v2', { date: today, snap, names } satisfies WatchSnap)
 
   return NextResponse.json({
     ok: true, scanned: list.length, resolved: Object.values(snap).filter(v => v.light != null).length,

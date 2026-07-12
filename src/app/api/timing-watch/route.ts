@@ -13,7 +13,7 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'auth required' }, { status: 401 })
 
-  const cached = await getCache<WatchResult>('timing-watch-changes', 2 * 86400_000)
+  const cached = await getCache<WatchResult>('timing-watch-changes-v2', 2 * 86400_000)
   if (!cached?.sigs?.length) return NextResponse.json({ asOf: cached?.asOf ?? null, sigs: [] as WatchSig[] }, { headers: { 'Cache-Control': 'no-store' } })
 
   // 내 보유 종목만(개인화 — kr-short와 동일 패턴)
