@@ -144,6 +144,36 @@ export default function TradePlanCard({ market, timing, portfolioKrw }: {
             )
           })()}
 
+          {/* 📊 매물·평단 지지 — 신호등(추세)·라쉬케(모멘텀)가 못 보는 '매물/평단' 축. 지지 확인 + 되돌림 매수 존(지정가 후보) + 변동성 */}
+          {t.supply && (t.supply.vwap != null || t.supply.poc != null) && (() => {
+            const s = t.supply
+            const strong = s.supportStrong, weak = s.supportWeak
+            const col = strong ? '#38bdf8' : weak ? '#fb923c' : '#94a3b8'
+            const head = strong ? '지지 탄탄' : weak ? '지지 약함' : '혼조'
+            return (
+              <div style={{ background: `${col}0d`, border: `1px solid ${col}44`, borderRadius: 8, padding: '7px 10px', marginBottom: 6, fontSize: 10.5, lineHeight: 1.55 }}>
+                <b style={{ color: '#38bdf8' }}>📊 매물·평단</b> <span style={{ color: col, fontWeight: 800 }}>{head}</span>
+                <span style={{ color: '#aab6c4' }}>
+                  {' — '}
+                  {s.vwap != null && <>⚓기관평단 {s.aboveVwap ? '위' : '아래'}({s.vwapDistPct! >= 0 ? '+' : ''}{s.vwapDistPct}%)</>}
+                  {s.poc != null && <> · 📊매물대 {s.abovePoc ? '위(지지)' : '아래(저항)'}({s.pocDistPct! >= 0 ? '+' : ''}{s.pocDistPct}%)</>}
+                  {strong && <>. 앵커 이후 매수자·거래 대다수가 현재가 아래 = <b style={{ color: '#7dd3fc' }}>눌림 지지 확보</b>.</>}
+                  {weak && <>. 평단·매물 대다수가 위 = <b style={{ color: '#fdba74' }}>지지 얇음, 되돌림 리스크</b> — 반등·매물 소화 확인 후.</>}
+                </span>
+                {s.fvgBuyHi != null && (
+                  <div style={{ color: '#a3e635', marginTop: 3 }}>
+                    📦 되돌림 매수 존(공정가치 갭): <b style={{ fontFamily: 'monospace' }}>{fmtP(s.fvgBuyLo!)}~{fmtP(s.fvgBuyHi)}</b> ({s.fvgBuyDistPct}%) — 눌림 시 이 구간 지정가 분할이 손익비 유리.
+                  </div>
+                )}
+                {(s.squeezeOn || s.squeezeFired) && (
+                  <div style={{ color: '#f59e0b', marginTop: 3 }}>
+                    🔥 {s.squeezeFired === 'up' ? '변동성 상방 분출 — 돌파 초입(과한 추격은 금물)' : s.squeezeFired === 'down' ? '변동성 하방 분출 — 매수 보류' : '변동성 응축(스퀴즈) — 큰 움직임 임박, 방향 분출 대기'}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+
           <div style={{ color: '#8a9aaa', fontSize: 9.5, borderTop: `1px solid ${BORDER}`, paddingTop: 6 }}>
             💡 수량을 리스크에서 역산하면 변동성 큰 종목은 자동으로 적게 담게 됩니다(매매 단위 리스크 패리티). 1%룰 = 10번 연속 틀려도 −10%로 생존. 가격은 최근 종가 기준·자동 주문 없음·교육용.
           </div>

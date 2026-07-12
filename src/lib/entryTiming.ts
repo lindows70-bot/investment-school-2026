@@ -2,9 +2,22 @@
 // EMA112·224 정배열 + 일목 구름 위치 + ATR 손절선을 결정론 판정(기술차트 화면과 동일 계산).
 // ⛔ 원칙: 추천 '점수·선정·정렬'에는 절대 미반영 — 카드에 배지(정보)로만 표시. 자동매매 없음.
 import { getTechCandles, type TechCandle } from '@/lib/techChartData'
-import { calcATR, readRaschke } from '@/lib/techSignals'
+import { calcATR, readRaschke, computeAnchoredVWAP, computePOC, computeTTMSqueeze, detectFVG } from '@/lib/techSignals'
 
 export type TimingLight = 'green' | 'yellow' | 'red'
+/** 📊 매물·평단 지지 요약(카드용 lite) — 같은 캔들에서 추가 fetch 0.
+ *  신호등(추세)·라쉬케(모멘텀)가 못 보는 '매물/평단' 축: 기관평단(VWAP)·매물대(POC)·되돌림 갭(FVG)·변동성(스퀴즈).
+ *  매수=지지 확인+되돌림 매수 존, 매도=과대이격+머리 위 저항 갭. ⛔ 점수·선정 미반영(배지만). */
+export interface SupplyLite {
+  vwap: number | null; aboveVwap: boolean; vwapDistPct: number | null      // ⚓ 기관 평균단가(앵커 이후 매수자 평단)
+  poc: number | null; abovePoc: boolean; pocDistPct: number | null          // 📊 매물대 중심선(최대 거래 가격대)
+  supportStrong: boolean       // VWAP·POC 둘 다 위 = 지지 탄탄
+  supportWeak: boolean         // 둘 다 아래 = 지지 약함
+  overExtended: boolean        // 기관평단 대비 +15%↑ 과대이격(되돌림·익절 리스크)
+  fvgBuyLo: number | null; fvgBuyHi: number | null; fvgBuyDistPct: number | null   // 현재가 아래 가장 가까운 상승 갭(되돌림 매수 존)
+  fvgSellLo: number | null; fvgSellHi: number | null; fvgSellDistPct: number | null // 현재가 위 가장 가까운 하락 갭(저항·익절 타겟)
+  squeezeOn: boolean; squeezeFired: 'up' | 'down' | null    // 🔥 TTM 스퀴즈 압축/분출(변동성 돌파 타이밍)
+}
 /** 🎼 라쉬케 요약(카드용 lite) — 같은 캔들에서 추가 fetch 0. 매수=연쇄 stage/첫눌림목, 매도=하락 다이버전스 조기경보 */
 export interface RaschkeLite {
   stage: 0 | 1 | 2 | 3 | 4        // 0 대기 · 1 CCI 신호탄 · 2 RSI50 돌파 · 3 MACD 영선 · 4 첫 눌림목(최적 타점)
@@ -26,6 +39,7 @@ export interface EntryTiming {
   cloudTop: number       // 현재 봉 위치의 구름 상단(분할 매수 기준선)
   atr: number | null     // ATR(14) 원값
   raschke?: RaschkeLite | null  // 🎼 라쉬케 연쇄/다이버전스(같은 캔들·추가 fetch 0)
+  supply?: SupplyLite | null    // 📊 매물·평단 지지(VWAP·POC·FVG·스퀴즈, 같은 캔들·추가 fetch 0)
 }
 
 const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length
@@ -71,8 +85,23 @@ export function timingFromCandles(D: TechCandle[]): EntryTiming | null {
     divPrevHi: rk.bearDivergence?.prevHi ?? null, divPriceHi: rk.bearDivergence?.priceHi ?? null,
     divRsiPrev: rk.bearDivergence?.rsiAtPrev ?? null, divRsiHi: rk.bearDivergence?.rsiAtHi ?? null,
   } : null
+  // 📊 매물·평단(같은 캔들·추가 fetch 0) — VWAP·POC·FVG·스퀴즈
+  const avwap = computeAnchoredVWAP(D), pocR = computePOC(D), sq = computeTTMSqueeze(D), gaps = detectFVG(D)
+  const bg = gaps.filter(g => g.type === 'bull' && g.hi <= price).sort((a, b) => b.hi - a.hi)[0]   // 현재가 아래 가장 가까운 상승 갭
+  const sg = gaps.filter(g => g.type === 'bear' && g.lo >= price).sort((a, b) => a.lo - b.lo)[0]   // 현재가 위 가장 가까운 하락 갭
+  const pct = (v: number) => Math.round((v - price) / price * 1000) / 10
+  const supply: SupplyLite = {
+    vwap: avwap?.vwap ?? null, aboveVwap: !!avwap?.above, vwapDistPct: avwap?.distPct ?? null,
+    poc: pocR?.poc ?? null, abovePoc: !!pocR?.above, pocDistPct: pocR?.distPct ?? null,
+    supportStrong: !!(avwap?.above && pocR?.above),
+    supportWeak: !!(avwap && !avwap.above && pocR && !pocR.above),
+    overExtended: !!(avwap && avwap.distPct >= 15),
+    fvgBuyLo: bg?.lo ?? null, fvgBuyHi: bg?.hi ?? null, fvgBuyDistPct: bg ? pct(bg.hi) : null,
+    fvgSellLo: sg?.lo ?? null, fvgSellHi: sg?.hi ?? null, fvgSellDistPct: sg ? pct(sg.lo) : null,
+    squeezeOn: !!sq?.on, squeezeFired: sq?.fired ?? null,
+  }
   const base = {
-    aligned, cloud, atrStop, raschke,
+    aligned, cloud, atrStop, raschke, supply,
     price: Math.round(price * 100) / 100, cloudTop,
     atr: atr != null ? Math.round(atr * 100) / 100 : null,
   }

@@ -44,10 +44,18 @@ export default function TimingBadge({ t, market, compact = false }: { t: EntryTi
       rkLine = gm[rk.stage] ?? null
     }
   }
+  // 📊 매물·평단 지지 칩 — 신호등(추세)·라쉬케(모멘텀)와 다른 '매물/평단' 축. 행동 가치 있는 것만(탄탄/약함), 혼조는 생략
+  const sp = t.supply
+  let spChip: { label: string; c: string; tip: string } | null = null
+  if (sp && (sp.vwap != null || sp.poc != null)) {
+    if (sp.supportStrong) spChip = { label: '📊 지지 탄탄', c: '#38bdf8', tip: '기관평단(VWAP)·매물대(POC) 둘 다 아래 = 눌림 지지 확보' }
+    else if (sp.supportWeak) spChip = { label: '📊 지지 약함', c: '#fb923c', tip: '평단·매물 대다수가 위 = 지지 얇음, 되돌림 리스크' }
+  }
   return (
     <div style={{ background: s.bg, border: `1px solid ${s.bd}`, borderRadius: 8, padding: '6px 10px', fontSize: 10.5, lineHeight: 1.55 }}>
       <b style={{ color: s.c }}>{t.label}</b>
       {rkChip && <span title="라쉬케 모멘텀 연쇄 — 상세는 매매 플랜에서" style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 800, color: rkChip.c, background: `${rkChip.c}18`, border: `1px solid ${rkChip.c}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{rkChip.label}</span>}
+      {spChip && <span title={spChip.tip} style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 800, color: spChip.c, background: `${spChip.c}18`, border: `1px solid ${spChip.c}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{spChip.label}</span>}
       <span style={{ color: '#aab6c4' }}> — {t.guide}</span>
       {t.atrStop != null && <span style={{ color: '#c4b5fd' }}> · 🛡 손절 참고 {fmtStop(t.atrStop)}</span>}
       {rkLine && <div style={{ color: '#f0abfc', marginTop: 3, fontSize: 10 }}>{rkLine}</div>}

@@ -230,7 +230,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v34:${user.id}:${today}:${fp}`   // v34: 🎼 라쉬케 하락 다이버전스 조기 익절 경보(익절 카드 근거 병기)
+  const cacheKey = `ai-rebalance-v35:${user.id}:${today}:${fp}`   // v35: 📊 매물·평단(VWAP 과대이격·저항 갭) 익절 근거 병기
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -654,6 +654,13 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
       // 🎼 라쉬케 하락 다이버전스 = 신고가권 에너지 소진(최후 방어선 붕괴보다 이른 경보). 익절 종목에만 '조기 익절 타이밍' 근거 병기
       if (it.tag === '익절' && t?.raschke?.bearDiv)
         it.reason += ` · 🎼 라쉬케 하락 다이버전스(주가 신고점↑ vs RSI ${t.raschke.divRsiPrev}→${t.raschke.divRsiHi}↓ — 상승 에너지 소진, 분할 익절 조기 타이밍)`
+      // 📊 매물·평단 과열(익절 보강) — 기관평단 과대이격·머리 위 저항 갭. 익절 종목에만 근거 병기(판정 불변·일방적 매도 강요 아님)
+      if (it.tag === '익절' && t?.supply) {
+        if (t.supply.overExtended && t.supply.vwapDistPct != null)
+          it.reason += ` · ⚓ 기관평단(VWAP) 대비 +${t.supply.vwapDistPct}% 과대이격(되돌림 리스크 — 분할 익절 근거)`
+        if (t.supply.fvgSellDistPct != null)
+          it.reason += ` · 📦 머리 위 저항 갭(+${t.supply.fvgSellDistPct}% — 상단 저항대)`
+      }
     }
     for (const a of add) if (!a.timing) a.timing = tmap.get(`${a.ticker}:${a.market}`) ?? null
   } catch { /* graceful — 경고·배지만 생략 */ }
