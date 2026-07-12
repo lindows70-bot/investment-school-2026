@@ -34,6 +34,8 @@ export interface UnifiedRecoItem {
   priceTrend: 'up' | 'side' | 'down' | 'unknown'        // 📉 최근 주가 추세
   fwdGrowthPct: number | null; priceVs200: number | null
   peg: number | null; opMargin: number | null
+  fcfYield: number | null          // 💵 FCF 수익률(FCF/시총 %) — 주가 대비 현금창출력(버블·하락장 방어력)
+  qualityGap: boolean              // ⚠️ 이익-현금 괴리(영업흑자인데 FCF 적자) = 이익의 질 의심
   psr: number | null               // 💵 주가매출비율 P/S — 적자기업·성장주 밸류 척도
   roe: number | null               // 🏰 버핏 퀄리티 — 자기자본이익률(소수)
   roic: number | null              // ⚙️ 투하자본이익률(%) — 빚까지 반영한 진짜 자본효율(복리 기계 판별)
@@ -95,12 +97,12 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v20:${user.id}:${kstDate()}:${fp}`   // v20: 🎼 타점 신호등에 라쉬케 연쇄/첫눌림목 lite 부착(매매 플랜 카드용)
+  const cacheKey = `unified-reco-v21:${user.id}:${kstDate()}:${fp}`   // v21: 💵 FCF 수익률 등급제·이익-현금 괴리 배지·버블/하락장 국면 방어 틸트
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // base 유니버스 — macro-ai-picks가 적재한 전체 채점 캐시(없으면 빈 결과 graceful)
-  const screened = await getCache<ScreenedStock[]>('macro-screened-universe:v4', 8 * 24 * 3600_000)
+  const screened = await getCache<ScreenedStock[]>('macro-screened-universe:v5', 8 * 24 * 3600_000)
   if (!screened || screened.length === 0) {
     return NextResponse.json({ weights: W, usSeason: null, krSeason: null, items: [], asOf: new Date().toISOString(), warming: true }, { headers: { 'Cache-Control': 'no-store' } })
   }
@@ -157,6 +159,11 @@ export async function GET(req: Request) {
   const krDiverge = ssCache?.kr?.validation?.verdict === 'diverge'
   const capexSurge = capCache?.verdict === 'surge'
   const capexFrac = (capCache?.latestYoY ?? 0) / 100
+
+  // 💵 하락장·버블 국면 FCF 방어 틸트 — 막스 시계추 온도(과열≥65 OR 공포≤32)일 때만 현금창출력 가중(getCache 읽기만·콜드면 off)
+  const marksCache = await getCache<{ temp: number }>(`marks-cycle-v3:${kstDate()}`, 12 * 3600_000)
+  const marketTemp = marksCache?.temp ?? null   // 0~100 탐욕온도(높음=과열/버블·낮음=공포/하락)
+  const fcfDefensive = marketTemp != null && (marketTemp >= 65 || marketTemp <= 32)   // "버블·하락장엔 현금이 왕" 국면
   const mSig = (d: ScreenedStock['fwdEpsDir']) => d === 'accel' ? 1 : d === 'flat' ? 0.5 : 0
 
   // ★ 🧭 섹터 로테이션 틸트 — 로테이션 시계(RRG 17섹터)의 국면을 제한된 가점·감점으로 반영(qualityTilt와 동일 패턴).
@@ -320,6 +327,15 @@ export async function GET(req: Request) {
       if (roeInflated) badges.push(`⚙️ ROE 부풀림(진짜 ROIC ${Math.round(roic ?? 0)}%)`)     // 부채로 부풀린 가짜 효율 경고
       const qualityTilt = (roic != null && roic >= 20 ? 3 : roic != null && roic >= 15 ? 1.5 : 0) - (roeInflated ? 6 : 0)
       if (qualityTilt !== 0) combined = clamp(combined + qualityTilt)
+      // 💵 FCF — 이익-현금 괴리 경보(항상) + FCF 수익률 배지 + 버블·하락장 국면 방어 틸트(과열·공포 국면에서만 가점/감점)
+      const fy = t.p.s.fcfYield
+      if (t.p.s.qualityGap) badges.push('⚠️ 이익-현금 괴리(영업흑자·영업현금 적자)')
+      else if (fy != null && fy >= 5) badges.push(`💵 FCF수익률 ${fy}%`)
+      const fcfTilt = fcfDefensive ? (t.p.s.qualityGap ? -5 : fy != null && fy >= 5 ? 3 : fy != null && fy >= 3 ? 1.5 : fy != null && fy < 0 ? -2 : 0) : 0
+      if (fcfTilt !== 0) {
+        combined = clamp(combined + fcfTilt)
+        if (fcfTilt > 0) badges.push('🛟 현금창출력 방어 가중(국면)')
+      }
       // 📈 애널리스트 추정 리비전 — 모멘텀(SSOT EPS 방향)과 어긋날 땐 숨김(제2원칙: '이익 가속+추정 하향' 모순 차단)
       if (epsRevision === 'up' && t.p.s.fwdEpsDir !== 'decline') badges.push('📈 이익추정 상향')
       else if (epsRevision === 'down' && t.p.s.fwdEpsDir !== 'accel') badges.push('📉 이익추정 하향')
@@ -330,7 +346,7 @@ export async function GET(req: Request) {
         ticker: t.p.s.ticker, name: t.p.s.name, market: t.p.s.market, sector: t.p.s.sector ?? '—', lynchCategory: t.p.s.lynchCategory as string,
         seasonScore: t.p.seasonScore, fundScore, supplyScore: t.supplyScore, momentumScore: t.p.momentumScore, combined,
         fwdEpsDir: t.p.s.fwdEpsDir, priceTrend: t.p.s.priceTrend, fwdGrowthPct: t.p.s.fwdGrowthPct ?? null, priceVs200: t.p.s.priceVs200 ?? null,
-        peg, opMargin: t.p.s.opMargin, psr: cf?.psr ?? null, roe, roic, roeInflated, epsRevision, suggestWeight, suggestWon,
+        peg, opMargin: t.p.s.opMargin, fcfYield: t.p.s.fcfYield ?? null, qualityGap: t.p.s.qualityGap ?? false, psr: cf?.psr ?? null, roe, roic, roeInflated, epsRevision, suggestWeight, suggestWon,
         seasonFavored: t.p.favored, supplyProxy: t.supplyProxy, supplyKnown: t.supplyKnown, badges,
         timing: null,   // 🚦 최종 선정 후 일괄 부착
         rotationQuad: t.rotQuad, rotationTilt: t.rotTilt,
