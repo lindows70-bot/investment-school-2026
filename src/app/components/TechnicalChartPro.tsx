@@ -30,6 +30,18 @@ function niceStep(range: number, ticks: number) {
 // 빈 여백만 커지므로 소폭으로 축소(캔들이 화면을 꽉 채우게)
 const forwardBars = (n: number) => n >= 52 ? 26 : Math.min(6, Math.max(2, Math.round(n * 0.15)))
 
+// 🔎 분석 렌즈 — 목적별로 관련 지표만 묶어서 ON, 나머지는 OFF(클러터 해소). 한 번에 하나의 관점으로 집중
+type SubInd = 'MACD' | 'RSI' | 'STOCH' | 'CCI' | 'MFI' | 'ADX' | 'SQUEEZE' | null
+interface LensCfg { ema: boolean; cloud: boolean; vol: boolean; liq: boolean; rk: boolean; poc: boolean; vwap: boolean; st: boolean; ind: SubInd }
+const LENSES: { key: string; label: string; color: string; desc: string; cfg: LensCfg }[] = [
+  { key: 'core', label: '⭐ 핵심', color: '#d4af37', desc: '추세 뼈대(EMA·구름)+매물대+MACD', cfg: { ema: true, cloud: true, vol: true, liq: false, rk: false, poc: true, vwap: false, st: false, ind: 'MACD' } },
+  { key: 'trend', label: '📈 추세·타점', color: '#34d399', desc: 'EMA·구름·SuperTrend·라쉬케·MACD', cfg: { ema: true, cloud: true, vol: false, liq: false, rk: true, poc: false, vwap: false, st: true, ind: 'MACD' } },
+  { key: 'supply', label: '💰 매물·평단', color: '#38bdf8', desc: '매물대·기관평단(VWAP)·유동성·MFI', cfg: { ema: false, cloud: false, vol: true, liq: true, rk: false, poc: true, vwap: true, st: false, ind: 'MFI' } },
+  { key: 'vol', label: '🔥 변동성 돌파', color: '#f59e0b', desc: 'TTM 스퀴즈·VWAP·SuperTrend(신규 3종)', cfg: { ema: false, cloud: false, vol: true, liq: false, rk: false, poc: false, vwap: true, st: true, ind: 'SQUEEZE' } },
+  { key: 'momentum', label: '⚡ 모멘텀', color: '#f0abfc', desc: 'EMA·라쉬케·RSI(에너지·진입)', cfg: { ema: true, cloud: false, vol: false, liq: false, rk: true, poc: false, vwap: false, st: false, ind: 'RSI' } },
+  { key: 'all', label: '🔬 전체', color: '#94a3b8', desc: '모든 지표(고급)', cfg: { ema: true, cloud: true, vol: true, liq: true, rk: true, poc: true, vwap: true, st: true, ind: 'MACD' } },
+]
+
 interface DispBar {
   idx: number; isFuture: boolean; date: string | null
   open: number | null; high: number | null; low: number | null; close: number | null; volume: number | null
@@ -88,7 +100,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
   const [showCloud, setShowCloud] = useState(true)
   const [showVolume, setShowVolume] = useState(true)
   const [showLiq, setShowLiq] = useState(false)   // 💧 유동성 레벨 — 기본 OFF(화면 정리, 필요 시 토글)
-  const [showRaschke, setShowRaschke] = useState(true)   // 🎼 라쉬케 연쇄 4단계 마커
+  const [showRaschke, setShowRaschke] = useState(false)   // 🎼 라쉬케 연쇄 4단계 마커 — 기본 OFF(⭐핵심 렌즈에서 시작, '추세·타점'/'모멘텀' 렌즈로 켬)
   const [showPoc, setShowPoc] = useState(true)   // 📊 매물대 중심선(POC) + 가치영역
   const [showVwap, setShowVwap] = useState(false)   // ⚓ Anchored VWAP(기관 평균단가)
   const [showST, setShowST] = useState(false)   // 🛡️ SuperTrend(시각 트레일링 라인)
@@ -279,6 +291,14 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
     ? last.close > Math.max(cloudAt.senkouA, cloudAt.senkouB) ? 'above' : last.close < Math.min(cloudAt.senkouA, cloudAt.senkouB) ? 'below' : 'in'
     : null
 
+  // 🔎 렌즈 적용 — 관련 지표만 ON, 나머지 OFF / 현재 상태와 일치하는 렌즈 하이라이트
+  const applyLens = (c: LensCfg) => {
+    setShowEMA(c.ema); setShowCloud(c.cloud); setShowVolume(c.vol); setShowLiq(c.liq)
+    setShowRaschke(c.rk); setShowPoc(c.poc); setShowVwap(c.vwap); setShowST(c.st); setInd(c.ind)
+  }
+  const curCfg: LensCfg = { ema: showEMA, cloud: showCloud, vol: showVolume, liq: showLiq, rk: showRaschke, poc: showPoc, vwap: showVwap, st: showST, ind }
+  const activeLens = LENSES.find(l => (Object.keys(l.cfg) as (keyof LensCfg)[]).every(k => l.cfg[k] === curCfg[k]))?.key ?? null
+
   const toggle = (on: boolean, label: string, color: string, set: (f: (v: boolean) => boolean) => void) => (
     <button onClick={() => set(v => !v)} style={{
       padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', transition: 'all .15s',
@@ -290,7 +310,22 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
 
   return (
     <div style={{ backgroundColor: C.bg, border: `1px solid ${C.grid}`, borderRadius: 16, padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* 툴바 + 상태 요약 */}
+      {/* 🔎 분석 렌즈 — 목적별 지표 묶음(하나 누르면 관련만 ON·나머지 OFF) */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 7 }}>
+        <span style={{ fontSize: 11, fontWeight: 800, color: C.textLow, marginRight: 2 }}>🔎 렌즈</span>
+        {LENSES.map(l => {
+          const on = activeLens === l.key
+          return (
+            <button key={l.key} onClick={() => applyLens(l.cfg)} title={l.desc} style={{
+              padding: '4px 11px', borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: 'pointer', transition: 'all .15s',
+              background: on ? l.color : `${l.color}18`, color: on ? C.bg : l.color, border: `1px solid ${on ? l.color : l.color + '55'}`,
+              boxShadow: on ? `0 0 10px ${l.color}55` : 'none',
+            }}>{l.label}</button>
+          )
+        })}
+        <span style={{ fontSize: 9.5, color: '#7f93a8', marginLeft: 2 }}>{activeLens ? LENSES.find(l => l.key === activeLens)?.desc : '사용자 지정(세부 토글로 조정됨)'}</span>
+      </div>
+      {/* 세부 토글(개별 지표 미세 조정) */}
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
         {toggle(showEMA, '지수이평선', C.ema224, setShowEMA)}
         {toggle(showCloud, '구름대', C.spanA, setShowCloud)}
