@@ -173,6 +173,41 @@ function SidebarInner() {
             </div>
           </div>
 
+          {/* ── 💵 시그니처 — DCF 철학(미래 현금흐름을 현재가치로 할인) ── */}
+          <div style={{ marginTop: 13, paddingTop: 12, borderTop: '1px solid rgba(212,175,55,0.18)' }}>
+            <div style={{
+              fontSize: 10.5, fontWeight: 600, lineHeight: 1.55, letterSpacing: '0.01em',
+              color: 'rgba(245,230,200,0.88)', fontFamily: '"Georgia","Times New Roman",serif',
+            }}>
+              미래에 벌어들일 현금흐름을{' '}
+              <span style={{
+                fontWeight: 800, fontStyle: 'italic',
+                background: 'linear-gradient(135deg,#f5e6c8 0%,#d4af37 60%,#fffbe6 100%)',
+                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+              }}>할인한다</span>
+            </div>
+            {/* 공식 — PV = Σ FCFₜ / (1+r)ᵗ (실제 분수 표기) */}
+            <div style={{
+              marginTop: 8, padding: '7px 10px', borderRadius: 9,
+              background: 'rgba(0,0,0,0.28)', border: '1px solid rgba(212,175,55,0.22)',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+              fontFamily: '"Cambria Math","Georgia",serif', userSelect: 'none' as const,
+            }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: '#d4af37', fontStyle: 'italic' }}>PV</span>
+              <span style={{ fontSize: 12, color: 'rgba(245,230,200,0.6)' }}>=</span>
+              <span style={{ fontSize: 17, fontWeight: 700, color: '#d4af37', lineHeight: 1, marginRight: 1 }}>Σ</span>
+              <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.05 }}>
+                <span style={{ fontSize: 11, color: '#f5e6c8', fontWeight: 700 }}>FCF<sub style={{ fontSize: 7.5 }}>t</sub></span>
+                <span style={{ height: 1, width: '100%', minWidth: 46, background: 'rgba(212,175,55,0.55)', margin: '1.5px 0' }} />
+                <span style={{ fontSize: 10.5, color: 'rgba(245,230,200,0.82)' }}>(1+r)<sup style={{ fontSize: 7.5 }}>t</sup></span>
+              </span>
+            </div>
+            <div style={{ marginTop: 5, fontSize: 8.5, color: 'rgba(212,175,55,0.6)', letterSpacing: '0.04em', textAlign: 'center', fontStyle: 'italic' }}>
+              돈의 시간가치 × 위험을 반영한 현재가치
+            </div>
+          </div>
+
           {/* 교사 배지 */}
           {isTeacher && (
             <div style={{
