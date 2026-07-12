@@ -505,6 +505,122 @@ export function computePOC(data: Ohlc[], lookback = 120, bins = 40): PocRead | n
   }
 }
 
+/* ── 🔥 TTM Squeeze(John Carter) — 볼린저밴드가 켈트너 채널 안으로 수축=변동성 응축(ON), 밖으로 튀어나오면 폭발(Fired).
+   "시장은 80% 횡보·20% 추세" — 응축은 폭발 전야. 방향은 모멘텀(선형회귀)으로. 차트·판독기 전용, 점수 미반영. 추가 fetch 0. ── */
+export interface SqueezeRead {
+  on: boolean              // 현재 스퀴즈 ON(BB⊂KC 압축)
+  barsOn: number           // 연속 압축 봉수
+  fired: 'up' | 'down' | null   // 직전봉 ON→현재 OFF 해제 순간(모멘텀 부호로 방향)
+  momDir: 'up' | 'down'    // 현재 모멘텀 부호
+  momRising: boolean       // 모멘텀 절대값 확대(가속)
+  onArr: (boolean | null)[]   // 봉별 스퀴즈 ON(차트 점)
+  momArr: (number | null)[]   // 봉별 모멘텀(차트 히스토그램)
+}
+export function computeTTMSqueeze(data: Ohlc[], n = 20, bbMult = 2, kcMult = 1.5): SqueezeRead | null {
+  const N = data.length
+  if (N < n + 5) return null
+  const close = data.map(d => d.close)
+  const atr = calcATR(data, n)
+  const ema = emaArr(close, n)
+  const onArr: (boolean | null)[] = new Array(N).fill(null)
+  const momArr: (number | null)[] = new Array(N).fill(null)
+  for (let i = n - 1; i < N; i++) {
+    // SMA·표준편차(볼린저)
+    let sum = 0; for (let j = 0; j < n; j++) sum += close[i - j]
+    const sma = sum / n
+    let vs = 0; for (let j = 0; j < n; j++) vs += (close[i - j] - sma) ** 2
+    const sd = Math.sqrt(vs / n)
+    const bbW = 2 * bbMult * sd
+    const e = ema[i], a = atr[i]
+    if (e == null || a == null) continue
+    const kcW = 2 * kcMult * a
+    onArr[i] = bbW < kcW   // BB가 KC 안으로 = 압축
+    // 모멘텀: close − avg(도치안중간값, sma) 를 n봉 선형회귀 기울기로(TTM 표준 근사)
+    let hh = -Infinity, ll = Infinity
+    for (let j = 0; j < n; j++) { if (data[i - j].high > hh) hh = data[i - j].high; if (data[i - j].low < ll) ll = data[i - j].low }
+    const base = ((hh + ll) / 2 + sma) / 2
+    // 최근 n봉의 (close−base) 시퀀스에 선형회귀 → 마지막 값 추세(간이: 최소제곱 기울기×(n-1)/2 + 절편 근사 = 현재 편차)
+    const ys: number[] = []
+    for (let j = n - 1; j >= 0; j--) ys.push(close[i - j] - base)   // 최근 n봉 (close−base) — base는 현재 i 기준 고정(방향·부호 동일)
+    // 선형회귀 예측값(마지막 시점)
+    const m = ys.length
+    let sx = 0, sy = 0, sxy = 0, sxx = 0
+    for (let x = 0; x < m; x++) { sx += x; sy += ys[x]; sxy += x * ys[x]; sxx += x * x }
+    const slope = (m * sxy - sx * sy) / (m * sxx - sx * sx || 1)
+    const intercept = (sy - slope * sx) / m
+    momArr[i] = Math.round((intercept + slope * (m - 1)) * 100) / 100
+  }
+  const on = onArr[N - 1] === true
+  let barsOn = 0
+  for (let i = N - 1; i >= 0 && onArr[i] === true; i--) barsOn++
+  const momNow = momArr[N - 1] ?? 0, momPrev = momArr[N - 2] ?? 0
+  const fired: SqueezeRead['fired'] = (onArr[N - 2] === true && onArr[N - 1] === false) ? (momNow >= 0 ? 'up' : 'down') : null
+  return { on, barsOn, fired, momDir: momNow >= 0 ? 'up' : 'down', momRising: Math.abs(momNow) > Math.abs(momPrev), onArr, momArr }
+}
+
+/* ── ⚓ Anchored VWAP — 직전 주요 스윙 저점(현 상승의 바닥)에서 앵커한 누적 거래량가중 평균단가 = '그 저점 이후 산 모두의 평균단가'.
+   위=매집 우위(대다수 수익권·지지) / 아래=열위(저항). 매물대(POC)와 상호보완. 브라이언 섀넌. 차트·판독기 전용. ── */
+export interface AvwapRead {
+  vwap: number
+  anchorIdx: number        // 앵커 봉(주요 스윙 저점)
+  above: boolean
+  distPct: number
+  line: (number | null)[]  // 앵커 이후 봉별 AVWAP
+}
+export function computeAnchoredVWAP(data: Ohlc[], lookback = 160): AvwapRead | null {
+  const N = data.length
+  if (N < 30) return null
+  if (!data.some(d => (d.volume ?? 0) > 0)) return null
+  // 앵커 = 최근 lookback봉 중 최저가 봉(현 상승의 바닥) = 심리적으로 가장 의미있는 앵커
+  const from = Math.max(0, N - lookback)
+  let anchorIdx = from, lo = Infinity
+  for (let i = from; i < N; i++) if (data[i].low < lo) { lo = data[i].low; anchorIdx = i }
+  const line: (number | null)[] = new Array(N).fill(null)
+  let cumPV = 0, cumV = 0
+  for (let i = anchorIdx; i < N; i++) {
+    const tp = (data[i].high + data[i].low + data[i].close) / 3
+    const v = data[i].volume ?? 0
+    cumPV += tp * v; cumV += v
+    line[i] = cumV > 0 ? Math.round(cumPV / cumV * 100) / 100 : null
+  }
+  const vwap = line[N - 1]
+  if (vwap == null) return null
+  const close = data[N - 1].close
+  return {
+    vwap, anchorIdx,
+    above: close >= vwap, distPct: Math.round((close - vwap) / vwap * 1000) / 10, line,
+  }
+}
+
+/* ── 🛡️ SuperTrend(ATR 트레일링) — 시각적 추세 가드라인(원본 요청: 알림 없음·차트 전용).
+   상승=지지선 캔들 아래 / 하락=저항선 캔들 위. 우리 신호등·라쉬케가 신호 SSOT이므로 여긴 시각 라인만. ── */
+export interface SuperTrendRead {
+  line: (number | null)[]
+  dir: (1 | -1 | null)[]   // 1=상승(지지) / −1=하락(저항)
+  curDir: 1 | -1
+}
+export function computeSuperTrend(data: Ohlc[], n = 10, mult = 3): SuperTrendRead | null {
+  const N = data.length
+  if (N < n + 2) return null
+  const atr = calcATR(data, n)
+  const line: (number | null)[] = new Array(N).fill(null)
+  const dir: (1 | -1 | null)[] = new Array(N).fill(null)
+  let fUp = 0, fLo = 0, trend: 1 | -1 = 1
+  for (let i = n; i < N; i++) {
+    const a = atr[i]; if (a == null) continue
+    const hl2 = (data[i].high + data[i].low) / 2
+    const bUp = hl2 + mult * a, bLo = hl2 - mult * a
+    // 트레일링 락(밴드 후퇴 방지)
+    fUp = (i > n && (bUp < fUp || data[i - 1].close > fUp)) ? bUp : (i === n ? bUp : fUp)
+    fLo = (i > n && (bLo > fLo || data[i - 1].close < fLo)) ? bLo : (i === n ? bLo : fLo)
+    if (data[i].close > fUp) trend = 1
+    else if (data[i].close < fLo) trend = -1
+    dir[i] = trend
+    line[i] = trend === 1 ? Math.round(fLo * 100) / 100 : Math.round(fUp * 100) / 100
+  }
+  return { line, dir, curDir: trend }
+}
+
 /* ── 💧 유동성 풀·스윕 탐지(결정론) — "전 고점·전 저점 = 손절 주문이 몰린 유동성"이라는 SMC 개념의 객관 버전.
    스윙 피벗(좌우 pivot봉 대비 극값)으로 유동성 레벨을 잡고,
    · 매도측(전저점) 스윕 = 꼬리(low)가 레벨을 관통했는데 종가는 위에서 마감(개미 털기 후 회복)

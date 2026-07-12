@@ -3,7 +3,7 @@
 // 교차검증해 '가짜 반등/신호 정합/조기 청산 주의/떨어지는 칼날'을 결정론적으로 판정(AI 미사용·환각 0).
 // 기술신호는 이 화면 전용 — 통합추천·리밸런싱 점수에는 절대 미반영(앱의 펀더멘탈 우선 원칙).
 import { useState, useEffect, useMemo } from 'react'
-import { readSignals, detectLiquidity, readRaschke, computePOC } from '@/lib/techSignals'
+import { readSignals, detectLiquidity, readRaschke, computePOC, computeTTMSqueeze, computeAnchoredVWAP } from '@/lib/techSignals'
 import type { TechCandle } from '@/app/api/tech-chart/route'
 
 const BORDER = '#1e293b'
@@ -75,6 +75,9 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   const jStage = useMemo(() => tf === 'D' ? journeyStage(candles) : null, [candles, tf])
   // 📊 매물대 중심선(POC) — 차트 오버레이와 동일 SSOT. 판정 로직 미반영(정보만)
   const poc = useMemo(() => candles.length >= 30 ? computePOC(candles) : null, [candles])
+  // 🔥 TTM Squeeze / ⚓ Anchored VWAP — 차트 오버레이와 동일 SSOT. 판정 로직 미반영(정보만)
+  const squeeze = useMemo(() => candles.length >= 30 ? computeTTMSqueeze(candles) : null, [candles])
+  const avwap = useMemo(() => candles.length >= 30 ? computeAnchoredVWAP(candles) : null, [candles])
   // 💧 최근 10봉 내 유동성 스윕(차트 오버레이와 동일 SSOT) — 판정 로직엔 미반영, 정보 표시만
   const liqSweeps = useMemo(() => {
     const N = candles.length
@@ -223,6 +226,42 @@ export default function SignalReader({ ticker, market, candles, tf }: {
             ? ' — 최근 120봉 최대 거래 가격대 위 = 그 물량을 산 대다수가 수익권(눌림 시 지지 기대). '
             : ' — 최대 거래 가격대 아래 = 대다수가 손실권(반등 시 본전 매도 저항 주의). '}
             가치영역(거래 70%) {fmtP(poc.vaLow)}~{fmtP(poc.vaHigh)}. 단독 신호 아님 — 구름·신호등과 함께.</span>
+        </div>
+      )}
+
+      {/* ⚓ Anchored VWAP — 직전 스윙 저점 이후 기관 평균단가. 판정 미반영(정보만) */}
+      {avwap && (
+        <div style={{ background: '#0f1117', border: `1px solid ${avwap.above ? '#22c55e44' : '#fb923c44'}`, borderRadius: 9, padding: '8px 12px', fontSize: 11, lineHeight: 1.6 }}>
+          <b style={{ color: '#f472b6' }}>⚓ 기관 평균단가(VWAP) {fmtP(avwap.vwap)}</b>
+          <span style={{ color: avwap.above ? '#4ade80' : '#fb923c', fontWeight: 800 }}> — 현재가 {avwap.above ? `위(+${avwap.distPct}%)` : `아래(${avwap.distPct}%)`}</span>
+          <span style={{ color: '#aab6c4' }}>{avwap.above
+            ? ' — 직전 바닥 이후 산 대다수가 수익권 = 매집 우위(지지). VWAP 이탈 시 경계.'
+            : ' — 직전 바닥 이후 산 대다수가 손실권 = 매도 압력 우위(저항). VWAP 회복이 반등 관문.'}</span>
+        </div>
+      )}
+
+      {/* 🔥 TTM Squeeze — 변동성 응축→폭발. 판정 미반영(정보만) */}
+      {squeeze && (squeeze.on || squeeze.fired) && (
+        <div style={{ background: '#0f1117', border: `1px solid ${squeeze.on ? '#f59e0b44' : squeeze.fired === 'up' ? '#22c55e44' : '#ef444444'}`, borderRadius: 9, padding: '8px 12px', fontSize: 11, lineHeight: 1.6 }}>
+          {squeeze.on ? (<>
+            <b style={{ color: '#f59e0b' }}>🔥 변동성 응축(스퀴즈 ON · {squeeze.barsOn}봉째)</b>
+            <span style={{ color: '#aab6c4' }}> — 볼린저밴드가 켈트너 채널 안으로 압축 = 에너지 충전 중. 곧 큰 방향 분출 임박 — <b style={{ color: '#cbd5e1' }}>성급한 매매 대신 분출 방향 대기</b>(방향은 모멘텀·신호등으로).</span>
+          </>) : (
+            <><b style={{ color: squeeze.fired === 'up' ? '#4ade80' : '#f87171' }}>💥 스퀴즈 {squeeze.fired === 'up' ? '상방' : '하방'} 분출</b>
+            <span style={{ color: '#aab6c4' }}> — 응축된 변동성이 {squeeze.fired === 'up' ? '위로' : '아래로'} 튀었습니다. {squeeze.fired === 'up' ? '추세·거래량 확인 후 분할 진입 검토.' : '지지 붕괴 위험 — 신규 진입 자제·비중 점검.'}</span></>
+          )}
+        </div>
+      )}
+
+      {/* 🎯 스마트 알림 체인 — 가치 게이트(펀더) × 변동성/타이밍(기술). 판정 미반영·교육 안내(강제 아님) */}
+      {squeeze?.fired === 'up' && f && (
+        <div style={{ background: fundGood ? 'rgba(34,197,94,0.08)' : 'rgba(148,163,184,0.06)', border: `1px solid ${fundGood ? '#22c55e55' : '#475569'}`, borderRadius: 9, padding: '9px 12px', fontSize: 11, lineHeight: 1.6 }}>
+          <b style={{ color: fundGood ? '#4ade80' : '#94a3b8' }}>🎯 스마트 알림 체인</b>
+          {fundGood ? (
+            <span style={{ color: '#cbd5e1' }}> — <b style={{ color: '#4ade80' }}>가치 게이트 통과</b>(저평가·수익성 OK) <b>+</b> <b style={{ color: '#4ade80' }}>변동성 상방 분출</b>{avwap?.above ? ' + 기관 평균단가 위' : ''} → <b style={{ color: '#e2e8f0' }}>분할 진입 검토 타이밍</b>. 우량주의 저위험 진입 구간(추격 대신 분할·손절선 병행).</span>
+          ) : (
+            <span style={{ color: '#aab6c4' }}> — 변동성은 상방 분출했지만 <b style={{ color: '#fb923c' }}>가치 게이트 미통과</b>(고평가·부실 소지). 기술 신호만으로 추격 매수 자제 — WHAT(선정)은 펀더멘탈이 먼저입니다.</span>
+          )}
         </div>
       )}
 
