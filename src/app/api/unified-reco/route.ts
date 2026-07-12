@@ -97,7 +97,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v22:${user.id}:${kstDate()}:${fp}`   // v21: 💵 FCF 수익률 등급제·이익-현금 괴리 배지·버블/하락장 국면 방어 틸트
+  const cacheKey = `unified-reco-v23:${user.id}:${kstDate()}:${fp}`   // v21: 💵 FCF 수익률 등급제·이익-현금 괴리 배지·버블/하락장 국면 방어 틸트
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -329,8 +329,11 @@ export async function GET(req: Request) {
       if (qualityTilt !== 0) combined = clamp(combined + qualityTilt)
       // 💵 FCF — 이익-현금 괴리 경보(항상) + FCF 수익률 배지 + 버블·하락장 국면 방어 틸트(과열·공포 국면에서만 가점/감점)
       const fy = t.p.s.fcfYield
+      // 💵 FCF 수익률 배지 — 점수 반영이 화면에 드러나게: 우수(≥5%)·양호(3~5%)는 초록 톤, 낮음(<1%=현금 대비 비쌈)은 경고 톤
       if (t.p.s.qualityGap) badges.push('⚠️ 이익-현금 괴리(영업흑자·영업현금 적자)')
-      else if (fy != null && fy >= 5) badges.push(`💵 FCF수익률 ${fy}%`)
+      else if (fy != null && fy >= 5) badges.push(`💵 FCF수익률 ${fy}%(우수)`)
+      else if (fy != null && fy >= 3) badges.push(`💵 FCF수익률 ${fy}%`)
+      else if (fy != null && fy < 1) badges.push(`💵 FCF수익률 ${fy}%↓(현금 대비 고평가)`)
       const fcfTilt = fcfDefensive ? (t.p.s.qualityGap ? -5 : fy != null && fy >= 5 ? 3 : fy != null && fy >= 3 ? 1.5 : fy != null && fy < 0 ? -2 : 0) : 0
       if (fcfTilt !== 0) {
         combined = clamp(combined + fcfTilt)
