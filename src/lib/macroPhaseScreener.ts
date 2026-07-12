@@ -15,6 +15,7 @@
 
 import { getCache, setCache } from '@/lib/appCache'
 import { isPegBaseEffect } from '@/lib/canonicalFundamentals'
+import { isFinancialCompany } from '@/lib/assetClassifier'
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 export type MacroPhase =
@@ -480,12 +481,14 @@ async function screenOne(
     const ocf = numf(fd.operatingCashflow)   // 영업현금흐름 — 이익의 질(현금 전환) 척도
     const fcfPositive = fcf != null ? fcf > 0 : true   // 모를 때 긍정 가정
     const marketCap = numf(sd.marketCap) ?? numf(pr.marketCap)
+    // 🏦 금융 가드 — 은행·보험·증권은 OCF/FCF가 예금·대출·트레이딩·보험 float으로 출렁여 '이익의 질' 신호가 무의미(이자보상배율·총마진 가드와 동일). FCF 지표 중립 처리
+    const isFin = isFinancialCompany(ticker, name, String(q?.assetProfile?.industry || '')) || /financ|bank|insurance/i.test(String(q?.assetProfile?.sector || ''))
     // 💵 FCF 수익률(FCF/시총) — 부호만 보던 것을 '주가 대비 현금창출력'으로.
     // ⚠️ 이익-현금 괴리 = 영업흑자인데 '영업현금흐름(OCF)'까지 마이너스 = 이익이 현금으로 안 들어옴(분식·버블 조기경보).
     //    FCF만 마이너스(OCF는 흑자)는 CAPEX 성장 투자일 수 있어 괴리 아님(재고적체 가드가 NVDA 램프업 제외한 것과 동일 철학).
-    const fcfYield = (fcf != null && marketCap != null && marketCap > 0) ? Math.round(fcf / marketCap * 1000) / 10 : null
-    const qualityGap = opMargin != null && opMargin > 0 && ocf != null && ocf < 0
-    const fcfNegOcfOk = fcf != null && fcf < 0 && ocf != null && ocf > 0   // FCF만 적자·OCF 흑자 = CAPEX 성장(좀비 아님)
+    const fcfYield = (!isFin && fcf != null && marketCap != null && marketCap > 0) ? Math.round(fcf / marketCap * 1000) / 10 : null
+    const qualityGap = !isFin && opMargin != null && opMargin > 0 && ocf != null && ocf < 0
+    const fcfNegOcfOk = !isFin && fcf != null && fcf < 0 && ocf != null && ocf > 0   // FCF만 적자·OCF 흑자 = CAPEX 성장(좀비 아님)
     const price = numf(pr.regularMarketPrice) ?? numf(sd.regularMarketPrice)
     const currency = market === 'KR' ? 'KRW' as const : 'USD' as const
     const sector = String(q?.assetProfile?.sector || q?.price?.sector || '—')   // ★ price.sector는 빈값 → assetProfile 우선(섹터 필터·LLM 정확도)
@@ -511,7 +514,8 @@ async function screenOne(
       : (peg != null && peg > 0 ? Math.min(1.0, Math.max(0, 1.5 - peg * 0.3)) : 0.5)
     const marginScore = opMargin != null ? Math.min(1, Math.max(0, opMargin / 40)) : 0.3
     // 💵 FCF 점수 — 부호만 → FCF 수익률 등급제. 괴리(OCF 적자)=최저, FCF적자는 OCF 흑자(성장 CAPEX)면 완화·OCF도 적자면 최저
-    const fcfScore = qualityGap ? 0.15
+    const fcfScore = isFin ? 0.6                                   // 🏦 금융주는 FCF 무의미 → 중립(FCF로 가감 안 함)
+      : qualityGap ? 0.15
       : fcfYield != null && fcfYield >= 0 ? (fcfYield >= 5 ? 1.0 : fcfYield >= 3 ? 0.85 : fcfYield >= 1 ? 0.65 : 0.45)
       : fcfNegOcfOk ? 0.4                                          // 영업현금 흑자인데 CAPEX로 FCF 적자 = 완화(좀비 아님)
       : (fcf != null ? (fcf > 0 ? 0.7 : 0.2) : 0.6)               // FCF·OCF 다 적자=0.2 / 시총만 없으면 부호 / 아예 모르면 0.6
