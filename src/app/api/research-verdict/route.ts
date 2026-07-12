@@ -135,7 +135,9 @@ export async function GET(req: Request) {
 
   const oneLiner =
     verdict === 'avoid' ? `${m.knife ? '추세가 무너진' : '재무가 취약한'} 구간 — 지금은 매수보다 ${m.knife ? '바닥 확인' : '리스크 점검'}이 먼저.`
-    : verdict === 'buy' ? `4축(계절·가치·수급·모멘텀)이 받쳐주고 결격 리스크가 없는 매수 적합 구간.`
+    : verdict === 'buy' ? (choppy
+        ? `펀더멘탈(계절·가치·수급·모멘텀)은 매수 적합이나, 지금은 추세 없는 횡보(ADX ${adx}) — 방향(돌파·이탈) 확정 후 진입 권장(WHAT은 좋음, WHEN은 대기).`
+        : `4축(계절·가치·수급·모멘텀)이 받쳐주고 결격 리스크가 없는 매수 적합 구간.`)
     : `장점과 주의가 공존 — 아래 찬성/주의 근거를 보고 분할·관망으로 신중 접근.`
 
   const result: ResearchVerdict = {
