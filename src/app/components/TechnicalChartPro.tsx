@@ -87,7 +87,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
   const [showEMA, setShowEMA] = useState(true)
   const [showCloud, setShowCloud] = useState(true)
   const [showVolume, setShowVolume] = useState(true)
-  const [showLiq, setShowLiq] = useState(true)   // 💧 유동성 레벨(전 고점·저점) + 스윕 마커
+  const [showLiq, setShowLiq] = useState(false)   // 💧 유동성 레벨 — 기본 OFF(화면 정리, 필요 시 토글)
   const [showRaschke, setShowRaschke] = useState(true)   // 🎼 라쉬케 연쇄 4단계 마커
   const [ind, setInd] = useState<'MACD' | 'RSI' | 'STOCH' | 'CCI' | 'MFI' | 'ADX' | null>('MACD')   // 모멘텀 서브패널(하나만 선택 — 화면 간결)
   const [hover, setHover] = useState<{ j: number; px: number; py: number } | null>(null)
@@ -407,30 +407,34 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
             </>)
           })()}
 
-          {/* 🎼 라쉬케 연쇄 4단계 마커 — CCI 신호탄 → RSI50 돌파 → MACD 영선 돌파 → 첫 눌림목(최적 타점). 현재 단계 📍 강조 */}
+          {/* 🎼 라쉬케 연쇄 4단계 마커 — CCI 신호탄 → RSI50 돌파 → MACD 영선 돌파 → 첫 눌림목(최적 타점).
+              500봉이라 봉 간격 ~2px → 며칠 차 마커가 가로로 붙음 → 봉 아래 '세로 사다리'로 분리. 텍스트는 현재 단계(📍)만(범례가 ①②③④ 설명) */}
           {showRaschke && raschke && (() => {
             const marks = [
               { idx: raschke.cci, n: 1, s: 1, label: 'CCI 신호탄', color: '#eab308' },
               { idx: raschke.rsi50, n: 2, s: 2, label: 'RSI50 돌파', color: '#22d3ee' },
-              { idx: raschke.macdZero, n: 3, s: 3, label: '영선 돌파', color: '#4ade80' },
-              { idx: raschke.pullback, n: 4, s: 4, label: '첫 눌림목', color: '#f0abfc' },
+              { idx: raschke.macdZero, n: 3, s: 3, label: 'MACD 영선 돌파', color: '#4ade80' },
+              { idx: raschke.pullback, n: 4, s: 4, label: '첫 눌림목(최적 타점)', color: '#f0abfc' },
             ].filter((m): m is { idx: number; n: number; s: number; label: string; color: string } => m.idx != null && m.idx >= 0 && m.idx < N)
             return (<>
-              {marks.map(m => {
-                const d = data[m.idx]
-                const yLow = yP(d.low), x = xc(m.idx)
+              {marks.map((m, k) => {
+                const x = xc(m.idx), yLow = yP(data[m.idx].low)
                 const here = raschke.stage === m.s
-                const r = here ? 9 : 7
-                const my = yLow + 20   // 봉 아래에 마커
+                const r = here ? 8.5 : 6.5
+                const my = yLow + 18 + k * 15   // 각 봉 아래 + 연쇄 순서대로 한 칸씩 사다리(가로 밀집 겹침 방지)
                 return (
                   <g key={'rk' + m.n}>
-                    <line x1={x} x2={x} y1={yLow + 2} y2={my - r} stroke={m.color} strokeWidth={1} strokeDasharray="2 3" opacity={0.7} />
+                    <line x1={x} x2={x} y1={yLow + 2} y2={my - r} stroke={m.color} strokeWidth={1} strokeDasharray="2 3" opacity={0.55} />
                     {here && <circle cx={x} cy={my} r={r + 3} fill="none" stroke={m.color} strokeWidth={1.5} opacity={0.5} />}
                     <circle cx={x} cy={my} r={r} fill={m.color} stroke="#0F172A" strokeWidth={1.5} />
-                    <text x={x} y={my + 3.5} fontSize={here ? 11 : 9.5} fontWeight={900} textAnchor="middle" fill="#0F172A">{m.n}</text>
-                    <text x={x} y={my + r + 10} fontSize={8.5} fontWeight={800} textAnchor="middle" fill={m.color}>
-                      {here ? '📍' : ''}{m.label}
-                    </text>
+                    <text x={x} y={my + 3.3} fontSize={here ? 10.5 : 9} fontWeight={900} textAnchor="middle" fill="#0F172A">{m.n}</text>
+                    {here && (() => {
+                      const leftSide = x > W - padR - 90   // 우측 끝이면 라벨을 왼쪽으로
+                      return (
+                        <text x={leftSide ? x - r - 4 : x + r + 4} y={my + 3.3} fontSize={9} fontWeight={800}
+                          fill={m.color} textAnchor={leftSide ? 'end' : 'start'}>📍{m.label}</text>
+                      )
+                    })()}
                   </g>
                 )
               })}
