@@ -438,6 +438,61 @@ export function raschkeSequenceMarks(data: Ohlc[], lookback = 90): RaschkeMarks 
   return { cci, rsi50, macdZero, pullback, stage: stage as RaschkeMarks['stage'] }
 }
 
+/* ── 📊 매물대 중심선(POC — Point of Control, 볼륨 프로파일 표준 개념) ──
+   최근 lookback봉의 가격×거래량 히스토그램에서 '가장 많은 거래가 일어난 가격대'를 결정론 산출.
+   가격이 POC 위 = 시장 참여자 대다수 수익권(매물대가 지지) / 아래 = 대다수 손실권(매물대가 저항).
+   일목 구름(시간가중 매물대)과 상호보완(POC=거래량가중). 각 봉의 거래량을 고~저 범위에 균등 분배(표준 근사).
+   차트·판독기 전용 — 점수·추천 절대 미반영. 추가 fetch 0(기존 캔들 재사용). ── */
+export interface PocRead {
+  poc: number             // 최대 거래 가격대(구간 중앙값)
+  above: boolean          // 현재 종가가 POC 위인가(수익권 다수=지지)
+  distPct: number         // (종가−POC)/POC ×100 (%)
+  vaHigh: number          // 가치영역 상단(거래량 70% 구간)
+  vaLow: number           // 가치영역 하단
+  sharePct: number        // POC 구간이 전체 거래량에서 차지하는 비중(%) — 매물대 집중도
+}
+export function computePOC(data: Ohlc[], lookback = 120, bins = 40): PocRead | null {
+  const N = data.length
+  if (N < 30) return null
+  const from = Math.max(0, N - lookback)
+  const slice = data.slice(from)
+  if (!slice.some(d => (d.volume ?? 0) > 0)) return null   // 무거래량 데이터(일부 지수) 정직 생략
+  let lo = Infinity, hi = -Infinity
+  for (const d of slice) { if (d.low < lo) lo = d.low; if (d.high > hi) hi = d.high }
+  if (!(hi > lo)) return null
+  const w = (hi - lo) / bins
+  const hist = new Array<number>(bins).fill(0)
+  for (const d of slice) {
+    const v = d.volume ?? 0
+    if (v <= 0) continue
+    // 봉의 거래량을 고~저에 걸친 구간들에 균등 분배(표준 볼륨 프로파일 근사)
+    const b0 = Math.min(bins - 1, Math.max(0, Math.floor((d.low - lo) / w)))
+    const b1 = Math.min(bins - 1, Math.max(0, Math.floor((d.high - lo) / w)))
+    const span = b1 - b0 + 1
+    for (let b = b0; b <= b1; b++) hist[b] += v / span
+  }
+  const total = hist.reduce((s, x) => s + x, 0)
+  if (total <= 0) return null
+  let pb = 0
+  for (let b = 1; b < bins; b++) if (hist[b] > hist[pb]) pb = b
+  const poc = lo + (pb + 0.5) * w
+  // 가치영역(Value Area 70%) — POC에서 양옆으로 큰 쪽부터 누적 70%까지 확장(표준 방식)
+  let acc = hist[pb], up = pb + 1, dn = pb - 1
+  while (acc < total * 0.7 && (up < bins || dn >= 0)) {
+    const uv = up < bins ? hist[up] : -1, dv = dn >= 0 ? hist[dn] : -1
+    if (uv >= dv) { acc += uv; up++ } else { acc += dv; dn-- }
+  }
+  const close = data[N - 1].close
+  return {
+    poc: Math.round(poc * 100) / 100,
+    above: close >= poc,
+    distPct: Math.round((close - poc) / poc * 1000) / 10,
+    vaHigh: Math.round((lo + Math.min(bins, up) * w) * 100) / 100,
+    vaLow: Math.round((lo + Math.max(0, dn + 1) * w) * 100) / 100,
+    sharePct: Math.round(hist[pb] / total * 1000) / 10,
+  }
+}
+
 /* ── 💧 유동성 풀·스윕 탐지(결정론) — "전 고점·전 저점 = 손절 주문이 몰린 유동성"이라는 SMC 개념의 객관 버전.
    스윙 피벗(좌우 pivot봉 대비 극값)으로 유동성 레벨을 잡고,
    · 매도측(전저점) 스윕 = 꼬리(low)가 레벨을 관통했는데 종가는 위에서 마감(개미 털기 후 회복)

@@ -3,7 +3,7 @@
 // 교차검증해 '가짜 반등/신호 정합/조기 청산 주의/떨어지는 칼날'을 결정론적으로 판정(AI 미사용·환각 0).
 // 기술신호는 이 화면 전용 — 통합추천·리밸런싱 점수에는 절대 미반영(앱의 펀더멘탈 우선 원칙).
 import { useState, useEffect, useMemo } from 'react'
-import { readSignals, detectLiquidity, readRaschke } from '@/lib/techSignals'
+import { readSignals, detectLiquidity, readRaschke, computePOC } from '@/lib/techSignals'
 import type { TechCandle } from '@/app/api/tech-chart/route'
 
 const BORDER = '#1e293b'
@@ -73,6 +73,8 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   const rk = useMemo(() => candles.length >= 60 ? readRaschke(candles) : null, [candles])
   // 🗺️ 추세의 여정 현재 단계 — 일봉에서만 판정(EMA112·224+구름은 일봉 기준 SSOT)
   const jStage = useMemo(() => tf === 'D' ? journeyStage(candles) : null, [candles, tf])
+  // 📊 매물대 중심선(POC) — 차트 오버레이와 동일 SSOT. 판정 로직 미반영(정보만)
+  const poc = useMemo(() => candles.length >= 30 ? computePOC(candles) : null, [candles])
   // 💧 최근 10봉 내 유동성 스윕(차트 오버레이와 동일 SSOT) — 판정 로직엔 미반영, 정보 표시만
   const liqSweeps = useMemo(() => {
     const N = candles.length
@@ -211,6 +213,18 @@ export default function SignalReader({ ticker, market, candles, tf }: {
           </div>
         )
       })()}
+
+      {/* 📊 매물대(POC) 위치 — 위=수익권 다수(지지)/아래=손실권(저항). 판정 미반영(정보만) */}
+      {poc && (
+        <div style={{ background: '#0f1117', border: `1px solid ${poc.above ? '#22c55e44' : '#fb923c44'}`, borderRadius: 9, padding: '8px 12px', fontSize: 11, lineHeight: 1.6 }}>
+          <b style={{ color: '#38bdf8' }}>📊 매물대 중심선 {fmtP(poc.poc)}</b>
+          <span style={{ color: poc.above ? '#4ade80' : '#fb923c', fontWeight: 800 }}> — 현재가는 매물대 {poc.above ? `위(+${poc.distPct}%)` : `아래(${poc.distPct}%)`}</span>
+          <span style={{ color: '#aab6c4' }}>{poc.above
+            ? ' — 최근 120봉 최대 거래 가격대 위 = 그 물량을 산 대다수가 수익권(눌림 시 지지 기대). '
+            : ' — 최대 거래 가격대 아래 = 대다수가 손실권(반등 시 본전 매도 저항 주의). '}
+            가치영역(거래 70%) {fmtP(poc.vaLow)}~{fmtP(poc.vaHigh)}. 단독 신호 아님 — 구름·신호등과 함께.</span>
+        </div>
+      )}
 
       {/* 🎼 린다 라쉬케 3박자 판독 — MACD(방향)×RSI 50선(에너지)×거래량(연료) + 연쇄 단계 */}
       {rk && (() => {

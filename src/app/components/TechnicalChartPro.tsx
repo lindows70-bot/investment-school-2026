@@ -3,7 +3,7 @@
 // + 모멘텀 서브패널(MACD·RSI·스토캐스틱·CCI 탭 선택) + 십자선·툴팁
 import { useState, useMemo, useRef, useCallback } from 'react'
 import type { TechCandle } from '@/app/api/tech-chart/route'
-import { calcMACD, calcRSI, calcStoch, calcCCI, calcMFI, calcADX, calcATR, detectLiquidity, raschkeSequenceMarks } from '@/lib/techSignals'
+import { calcMACD, calcRSI, calcStoch, calcCCI, calcMFI, calcADX, calcATR, detectLiquidity, raschkeSequenceMarks, computePOC } from '@/lib/techSignals'
 
 /* ── 팔레트 (네이비/틸/골드) ── */
 const C = {
@@ -89,6 +89,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
   const [showVolume, setShowVolume] = useState(true)
   const [showLiq, setShowLiq] = useState(false)   // 💧 유동성 레벨 — 기본 OFF(화면 정리, 필요 시 토글)
   const [showRaschke, setShowRaschke] = useState(true)   // 🎼 라쉬케 연쇄 4단계 마커
+  const [showPoc, setShowPoc] = useState(true)   // 📊 매물대 중심선(POC) + 가치영역
   const [ind, setInd] = useState<'MACD' | 'RSI' | 'STOCH' | 'CCI' | 'MFI' | 'ADX' | null>('MACD')   // 모멘텀 서브패널(하나만 선택 — 화면 간결)
   const [hover, setHover] = useState<{ j: number; px: number; py: number } | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
@@ -159,6 +160,9 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
 
   /* ── 🎼 라쉬케 연쇄 4단계 마커(SSOT: raschkeSequenceMarks) — 판독기 연쇄 진행바가 차트 어디서 일어났는지 봉 위치로 ── */
   const raschke = useMemo(() => raschkeSequenceMarks(data), [data])
+
+  /* ── 📊 매물대 중심선(POC, SSOT: computePOC) — 최근 120봉 가격×거래량 최대 거래 가격대 + 가치영역(70%) ── */
+  const poc = useMemo(() => computePOC(data), [data])
 
   /* ── 모멘텀 지표(SSOT: lib/techSignals) — 실봉(N개)에만 값 존재 ── */
   const mom = useMemo(() => {
@@ -286,6 +290,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
         {toggle(showVolume, '거래량', C.gold, setShowVolume)}
         {toggle(showLiq, '💧유동성', '#2dd4bf', setShowLiq)}
         {toggle(showRaschke, '🎼라쉬케', '#f0abfc', setShowRaschke)}
+        {poc && toggle(showPoc, '📊매물대', '#38bdf8', setShowPoc)}
         {/* 모멘텀 서브패널 탭(하나만) */}
         <span style={{ display: 'inline-flex', border: `1px solid ${C.axis}`, borderRadius: 7, overflow: 'hidden', marginLeft: 4 }}>
           {(['MACD', 'RSI', 'STOCH', 'CCI', 'MFI', 'ADX'] as const).map(t => (
@@ -360,6 +365,20 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
               <text x={W - padR + 4} y={yP(atrStop) + 3} fontSize={9.5} fontWeight={800} fill={C.bg}>🛡{fmt(atrStop)}</text>
             </g>
           )}
+          {/* 📊 매물대 중심선(POC) + 가치영역(70%) — 최근 120봉 최대 거래 가격대. 위=수익권 다수(지지)/아래=손실권(저항) */}
+          {showPoc && poc && (() => {
+            const y = yP(poc.poc)
+            const yVaH = yP(Math.min(poc.vaHigh, pMax)), yVaL = yP(Math.max(poc.vaLow, pMin))
+            return (
+              <g>
+                <rect x={padL} y={yVaH} width={plotW} height={Math.max(0, yVaL - yVaH)} fill="#38bdf8" opacity={0.05} />
+                <line x1={padL} x2={W - padR} y1={y} y2={y} stroke="#38bdf8" strokeWidth={1.3} strokeDasharray="8 4" opacity={0.85} />
+                <rect x={padL} y={y - 9} width={128} height={16} rx={3} fill="#0c4a6e" stroke="#38bdf8" strokeWidth={0.8} />
+                <text x={padL + 5} y={y + 3} fontSize={9.5} fontWeight={800} fill="#7dd3fc">📊 매물대 {fmt(poc.poc)}</text>
+              </g>
+            )
+          })()}
+
           {/* 💧 유동성 레벨(살아있는 전 고점·저점) + 스윕 마커 — 점수·추천 미반영, 차트 전용.
               라벨 declutter: 비슷한 가격대 레벨이 겹치면 선은 다 긋되 텍스트는 Y축 12px 내 근접 시 생략(평단·ATR 라벨과도 충돌 회피) */}
           {showLiq && (() => {
@@ -594,6 +613,15 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
             <span>(📍=현재 단계, 봉 아래 번호핀)</span>
           </span>
         )}
+        {showPoc && poc && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 16, borderTop: '2px dashed #38bdf8' }} />
+            <span style={{ color: C.textLow }}>📊 매물대 중심선(POC — 최근 120봉 최대 거래 가격대) · 하늘색 음영=가치영역(거래 70%)</span>
+            <span style={{ fontSize: 9.5, fontWeight: 800, color: poc.above ? '#4ade80' : '#fb923c', background: poc.above ? '#14532d33' : '#7c2d1233', border: `1px solid ${poc.above ? '#22c55e55' : '#fb923c55'}`, borderRadius: 5, padding: '1px 6px' }}>
+              현재 매물대 {poc.above ? '위(+' : '아래('}{poc.distPct}%) — {poc.above ? '수익권 다수·지지 기대' : '손실권 다수·저항 주의'}
+            </span>
+          </span>
+        )}
       </div>
 
       {/* 교육 해설 */}
@@ -620,6 +648,17 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
               몰려 있습니다 — 이 &lsquo;주문 뭉치&rsquo;가 유동성입니다. 큰손은 물량을 싸게 모으려고 전저점을 일부러 살짝 깨서 개미 손절을 받아낸 뒤 올립니다.
               <b style={{ color: C.text }}> 💧스윕 = 꼬리로 레벨을 뚫었는데 종가는 회복</b> — 전형적인 &lsquo;개미 털기&rsquo; 흔적입니다(여정 ③).
               반대로 <b style={{ color: C.text }}>종가까지 깨면 스윕이 아니라 진짜 이탈</b>이니 구분하세요. 스윕 단독은 매수 신호가 아니며 구름·추세와 함께 봐야 합니다.
+            </p>
+          </div>
+        )}
+        {showPoc && poc && (
+          <div style={{ backgroundColor: C.panel, border: `1px solid ${C.grid}`, borderRadius: 12, padding: 12 }}>
+            <div style={{ fontWeight: 700, color: '#38bdf8', marginBottom: 4 }}>📊 매물대 중심선(POC) 읽는 법</div>
+            <p style={{ lineHeight: 1.6, color: C.textLow, margin: 0 }}>
+              최근 120봉에서 <b style={{ color: '#38bdf8' }}>가장 많은 거래가 일어난 가격대</b>입니다(거래량 가중 — 시간 가중인 일목 구름과 상호보완).
+              가격이 <b style={{ color: '#4ade80' }}>POC 위</b>면 그 물량을 산 대다수가 수익권이라 눌림 시 <b style={{ color: C.text }}>지지</b>로,
+              <b style={{ color: '#fb923c' }}> POC 아래</b>면 대다수가 손실권(본전 매도 대기)이라 반등 시 <b style={{ color: C.text }}>저항</b>으로 작용하기 쉽습니다.
+              하늘색 음영은 거래 70%가 몰린 가치영역 — 이 안은 매물 소화 구간, 벗어나면 추세 구간입니다. 단독 매매 신호가 아니라 구름·신호등과 함께 보세요.
             </p>
           </div>
         )}
