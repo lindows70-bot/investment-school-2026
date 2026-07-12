@@ -12,6 +12,7 @@ import { classifyLynchMece } from '@/lib/lynchAnalysis'
 import { getCurrentSeason } from '@/lib/currentSeason'
 import { holdingFit, SEASON_META, type Quadrant, type Holding } from '@/lib/seasonNavigator'
 import { getMoneyFlow } from '@/lib/moneyFlow'
+import { getEntryTiming } from '@/lib/entryTiming'
 
 const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
@@ -27,6 +28,7 @@ export interface ResearchVerdict {
   peg: number | null; pegSuspect: boolean; dcfVerdict: string | null; flowStatus: string | null
   roic: number | null; roe: number | null; roeInflated: boolean   // ⚙️ 자본효율(ROIC=투하자본이익률) + ROE 부풀림 경고
   knife: boolean; zombie: boolean; hype: boolean; inventoryBuildup: boolean; invGapPct: number | null
+  choppy: boolean; adx: number | null   // ⬛ 관망(횡보·ADX<20, 구조 미확립 시) — 가짜 돌파 잦은 구간
   pros: string[]; cons: string[]
   oneLiner: string
   asOf: string
@@ -42,20 +44,24 @@ export async function GET(req: Request) {
     return NextResponse.json({ unsupported: true, reason: '개별 주식 전용 판정입니다(ETF·코인·원자재 제외).' }, { headers: { 'Cache-Control': 'no-store' } })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || url.origin
-  const cacheKey = `research-verdict-v3:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v3: ROIC·roeInflated 근거 추가
+  const cacheKey = `research-verdict-v4:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v4: ⬛ 관망(횡보·ADX) 타이밍 근거 추가
   const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   const m = await buildSignalMetrics(ticker, market, name, base)
   if (!m) return NextResponse.json({ unsupported: true, reason: '재무 데이터를 가져오지 못했습니다.' }, { headers: { 'Cache-Control': 'no-store' } })
 
-  // ── 병렬 보조 신호: 계절 · 역-DCF · 수급 ──
-  const [season, dcf, flow] = await Promise.all([
+  // ── 병렬 보조 신호: 계절 · 역-DCF · 수급 · 타점(관망) ──
+  const [season, dcf, flow, timing] = await Promise.all([
     getCurrentSeason(base).catch(() => null),
     fetch(`${base}/api/reverse-dcf?ticker=${encodeURIComponent(ticker)}&market=${market}`, { signal: AbortSignal.timeout(10_000) })
       .then(r => r.ok ? r.json() : null).then(j => j?.verdict ?? null).catch(() => null),
     getMoneyFlow(ticker, market, name, base).then(f => f?.status ?? null).catch(() => null),
+    getEntryTiming(ticker, market).catch(() => null),
   ])
+  // ⬛ 관망(횡보) — ADX<20 추세 없음 + 신호등 미확립(green=구조적 상승은 제외, 자기모순 차단). 영상 '회색 지대'
+  const choppy = !!(timing?.supply?.choppy && timing.light !== 'green')
+  const adx = timing?.supply?.adx ?? null
 
   const lynchCategory = classifyLynchMece(null, m.earningsGrowth, m.sector).cat
   const lc = lynchCategory === 'na' ? null : lynchCategory
@@ -125,6 +131,7 @@ export async function GET(req: Request) {
   if (m.roic != null && m.roic >= 15) pros.push(`⚙️ 고ROIC ${Math.round(m.roic)}%(투하자본 효율 우수 — 복리 기계)`)
   else if (m.roic == null && m.roe != null && m.roe >= 20) pros.push(`🏰 고ROE ${Math.round(m.roe)}%(버핏 퀄리티)`)
   if (m.roeInflated) cons.push(`⚙️ ROE ${Math.round(m.roe ?? 0)}%는 부채로 부풀린 효율(진짜 ROIC ${Math.round(m.roic ?? 0)}% — 자기자본만의 착시)`)
+  if (choppy) cons.push(`⬛ 관망(횡보·ADX ${adx}) — 추세 미형성, 가짜 돌파 잦아 방향(돌파·이탈) 확정 전 신규 진입 자제`)
 
   const oneLiner =
     verdict === 'avoid' ? `${m.knife ? '추세가 무너진' : '재무가 취약한'} 구간 — 지금은 매수보다 ${m.knife ? '바닥 확인' : '리스크 점검'}이 먼저.`
@@ -138,6 +145,7 @@ export async function GET(req: Request) {
     peg: m.peg, pegSuspect, dcfVerdict: dcf, flowStatus: flow,
     roic: m.roic, roe: m.roe, roeInflated: m.roeInflated,
     knife: m.knife, zombie, hype, inventoryBuildup: m.inventoryBuildup, invGapPct: m.invGapPct,
+    choppy, adx,
     pros, cons, oneLiner, asOf: new Date().toISOString(),
   }
   await setCache(cacheKey, result)
