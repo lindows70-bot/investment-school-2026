@@ -101,22 +101,45 @@ export default function TradePlanCard({ market, timing, portfolioKrw }: {
             </div>
           </div>
 
-          {/* 🎼 라쉬케 연쇄 — '지금이 방아쇠 당길 순간인가'(신호등=구조, 라쉬케=모멘텀 연쇄 트리거) */}
+          {/* 🎼 라쉬케 연쇄 — '지금이 방아쇠 당길 순간인가'. ⚠️ 연쇄(0→4)는 '바닥 반전 시퀀스' 탐지라
+              이미 상승 추세 종목(신호등 🟢)은 stage 낮아도 '관망'이 아님 → 신호등 상태로 프레임 분기(자기모순 차단) */}
           {t.raschke && (() => {
             const rk = t.raschke
+            // 첫 눌림목(stage4)은 어느 국면이든 최적 타점 — 공통 처리
+            if (rk.stage === 4) {
+              const g = rk.parabolicRun
+                ? '되돌림이나 직전이 수직 급등 — 첫 눌림목도 함정일 수 있어 반등·거래량 확인 후 소액.'
+                : `추세 확립 + 고점 대비 ${rk.pullbackPct}% 되돌림 — 라쉬케가 꼽는 ${t.light === 'green' ? '추가 진입(불타기)' : '1차 진입'} 적기.`
+              const c = rk.parabolicRun ? '#fb923c' : '#4ade80'
+              return (
+                <div style={{ background: `${c}0d`, border: `1px solid ${c}44`, borderRadius: 8, padding: '7px 10px', marginBottom: 6, fontSize: 10.5, lineHeight: 1.55 }}>
+                  <b style={{ color: '#f0abfc' }}>🎼 라쉬케</b> <span style={{ color: c, fontWeight: 800 }}>📍 첫 눌림목(최적 타점)</span>
+                  <span style={{ color: '#aab6c4' }}> — {g}</span>
+                </div>
+              )
+            }
+            // 🟢 이미 상승 추세(정배열+구름 위): 연쇄 트리거는 바닥 반전용이라 여기선 불필요 — '관망' 아님
+            if (t.light === 'green') {
+              return (
+                <div style={{ background: '#4ade8009', border: '1px solid #4ade8033', borderRadius: 8, padding: '7px 10px', marginBottom: 6, fontSize: 10.5, lineHeight: 1.55 }}>
+                  <b style={{ color: '#f0abfc' }}>🎼 라쉬케</b> <span style={{ color: '#8599ae', fontWeight: 700 }}>추세 이미 진행 중</span>
+                  <span style={{ color: '#aab6c4' }}> — 연쇄(바닥→돌파) 트리거는 반전용이라 여기선 불필요합니다. 위 신호등대로 진입하되, <b>첫 눌림목(숨 고르기)</b>이 오면 그때가 추가 진입 최적.</span>
+                </div>
+              )
+            }
+            // 🟡🔴 아직 추세 미확립(바닥·전환 국면): 연쇄 stage가 진짜 유용 — where in the turn
             const stageMap: Record<number, { t: string; c: string; g: string }> = {
-              0: { t: '연쇄 시작 전(대기)', c: '#8599ae', g: '모멘텀 전환 신호 없음 — 서두르지 말고 관망.' },
+              0: { t: '연쇄 시작 전', c: '#8599ae', g: '모멘텀 전환 신호 아직 없음 — 서두르지 말고 관망.' },
               1: { t: 'CCI 신호탄(선행)', c: '#eab308', g: '바닥권 탈출 신호탄 — 성급한 1차 진입보다 RSI 50 돌파(에너지)를 먼저 확인.' },
               2: { t: 'RSI 50 돌파(에너지)', c: '#eab308', g: '매수세가 붙는 중 — MACD 영선 돌파(추세 확정)까지 기다리면 확률↑.' },
               3: { t: 'MACD 영선 돌파(추세 확정)', c: '#4ade80', g: '추세 확정 — 첫 눌림목(숨 고르기)이 오면 그때가 최적 1차 진입.' },
-              4: { t: '📍 첫 눌림목(최적 타점)', c: '#4ade80', g: rk.parabolicRun ? '되돌림이나 직전이 수직 급등 — 첫 눌림목도 함정일 수 있어 반등·거래량 확인 후 소액.' : `추세 확립 + 고점 대비 ${rk.pullbackPct}% 되돌림 — 라쉬케가 꼽는 1차 진입 적기.` },
             }
             const s = stageMap[rk.stage]
             return (
               <div style={{ background: `${s.c}0d`, border: `1px solid ${s.c}44`, borderRadius: 8, padding: '7px 10px', marginBottom: 6, fontSize: 10.5, lineHeight: 1.55 }}>
                 <b style={{ color: '#f0abfc' }}>🎼 라쉬케 연쇄</b> <span style={{ color: s.c, fontWeight: 800 }}>{s.t}</span>
                 <span style={{ color: '#aab6c4' }}> — {s.g}</span>
-                <div style={{ color: '#7f93a8', fontSize: 9.5, marginTop: 2 }}>※ 위 신호등(구조)과 별개 축 — 신호등=추세 구조, 라쉬케=모멘텀이 도는 순간. 둘 다 초록일 때가 가장 강합니다.</div>
+                <div style={{ color: '#7f93a8', fontSize: 9.5, marginTop: 2 }}>※ 신호등=추세 구조, 라쉬케=모멘텀이 바닥에서 도는 순간(둘 다 초록일 때 최강).</div>
               </div>
             )
           })()}
