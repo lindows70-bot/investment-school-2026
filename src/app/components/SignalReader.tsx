@@ -334,13 +334,18 @@ export default function SignalReader({ ticker, market, candles, tf }: {
               {[
                 { title: '①② 혼돈·매물대 축적 = 🟡 매물대 소화 중', tc: '#eab308', body: <>방향 없는 등락과 박스권 — 가격이 <b>구름 속</b>에 있는 구간. 이때 모멘텀 신호는 휩쏘 남발(위 함정①). 신호등이 🟡인 이유: 아직 이야기가 시작되지 않았기 때문.</> },
                 { title: '③④ 속임수 하락 → 구조 돌파 = 🟢 전환', tc: '#4ade80', body: <>박스 하단을 살짝 깨서 개미를 털어낸 뒤(속임수) 강한 돌파가 나옵니다. <b>구름 상단 돌파 + 정배열</b>이 확인될 때 신호등이 🟢으로 — 돌파를 &lsquo;확인 후&rsquo; 타는 이유(속임수 차단).</> },
-                { title: '⑤⑥ 추세 진행 = 🟢 유지, 붕괴 = 🔴', tc: '#60a5fa', body: <>고점·저점을 높이며 달리는 구간 — 정배열+구름 위가 유지되는 동안 추세를 존중. <b>역배열+구름 아래</b>로 무너지면 🔴 최후 방어선 붕괴(리밸런싱 매도 근거와 동일 신호).</> },
+                { title: '⑤⑥ 추세 성숙기 — 유지(🟢) 또는 붕괴(🔴)', tc: '#60a5fa', body: <>둘 중 하나의 상태입니다. <b style={{ color: '#4ade80' }}>🟢 진행(유지)</b> = 고점·저점을 높이며 달리고 정배열+구름 위 유지 → 추세 존중. <b style={{ color: '#f87171' }}>🔴 붕괴(역주행)</b> = 역배열+구름 아래로 무너짐 = 최후 방어선 붕괴(리밸런싱 매도 근거와 동일 신호). 지금 이 종목이 둘 중 어디인지는 위 &lsquo;지금 여기&rsquo; 배지가 알려줍니다.</> },
               ].map((cd, i) => {
                 const here = tf === 'D' && jStage?.card === i
+                // 이 카드가 현재 위치면, jStage.color로 유지(초록)/붕괴(빨강)/중립(노랑) 실제 상태를 명확히 해소
+                const resolved = here && i === 2
+                  ? (jStage!.color === '#f87171' ? { t: '🔴 지금은 붕괴(역주행) 상태', c: '#f87171' } : { t: '🟢 지금은 진행(유지) 상태', c: '#4ade80' })
+                  : null
                 return (
                   <div key={i} style={{ background: here ? `${jStage!.color}0d` : '#0f1117', border: `1px solid ${here ? jStage!.color : BORDER}`, borderRadius: 8, padding: 10, position: 'relative' }}>
                     {here && <span style={{ position: 'absolute', top: -9, right: 10, background: jStage!.color, color: '#0d1017', fontSize: 9.5, fontWeight: 900, borderRadius: 6, padding: '1px 7px' }}>📍 지금 여기</span>}
                     <b style={{ color: cd.tc }}>{cd.title}</b><br />
+                    {resolved && <div style={{ margin: '4px 0', fontSize: 11, fontWeight: 800, color: resolved.c }}>{resolved.t}</div>}
                     {cd.body}
                   </div>
                 )
