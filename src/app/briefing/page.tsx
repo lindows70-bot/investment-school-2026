@@ -6,7 +6,7 @@ import TimingBadge from '@/app/components/TimingBadge'
 import TradePlanCard from '@/app/components/TradePlanCard'
 import type { UnifiedRecoResult } from '@/app/api/unified-reco/route'
 import type { RotationResult } from '@/app/api/sector-rotation/route'
-import type { WatchChange } from '@/app/api/cron/timing-watch/route'
+import type { WatchSig } from '@/app/api/cron/timing-watch/route'
 
 const CARD = '#12151f', BORDER = '#1e293b'
 
@@ -38,12 +38,9 @@ const Sec = ({ no, title, sub, link, linkLabel, children }: { no: string; title:
 )
 const Skel = ({ h = 60 }: { h?: number }) => <div style={{ height: h, background: '#171b26', borderRadius: 8, animation: 'pulse 1.5s infinite' }} />
 
-const WL: Record<string, { c: string; t: string }> = {
-  green: { c: '#4ade80', t: '돌파!' }, red: { c: '#f87171', t: '이탈 경계' }, yellow: { c: '#eab308', t: '대기 전환' },
-}
 
 export default function BriefingPage() {
-  const watch = useFetch<{ changes: WatchChange[] }>('/api/timing-watch')
+  const watch = useFetch<{ sigs: WatchSig[] }>('/api/timing-watch')
   const reb = useFetch<any>('/api/ai-rebalance')
   const reco = useFetch<UnifiedRecoResult>('/api/unified-reco')
   const rot = useFetch<RotationResult>('/api/sector-rotation')
@@ -67,15 +64,18 @@ export default function BriefingPage() {
       </div>
 
       {/* ① 오늘 신호 */}
-      <Sec no="①" title="오늘 신호" sub="어제 대비 타점 전환(🟢돌파/🔴이탈) — 내 보유 종목만">
-        {watch.loading ? <Skel h={36} /> : watch.d?.changes?.length ? (
+      <Sec no="①" title="오늘 신호" sub="어제 대비 매수/매도 타점 전환(신호등·라쉬케·스퀴즈·매물평단) — 내 보유 종목만">
+        {watch.loading ? <Skel h={36} /> : watch.d?.sigs?.length ? (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {watch.d.changes.map(c => (
-              <span key={c.ticker + c.market} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#0f1117', border: `1px solid ${WL[c.to]?.c ?? '#334155'}55`, borderRadius: 7, padding: '4px 10px', fontSize: 11.5 }}>
-                <b style={{ color: '#e2e8f0' }}>{c.market === 'KR' ? '🇰🇷' : '🇺🇸'} {c.name}</b>
-                <b style={{ color: WL[c.to]?.c }}>{WL[c.to]?.t}</b>
-              </span>
-            ))}
+            {watch.d.sigs.map((s, i) => {
+              const c = s.kind === 'sell' ? '#f87171' : '#4ade80'
+              return (
+                <span key={s.ticker + s.market + i} title={s.detail} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#0f1117', border: `1px solid ${c}55`, borderRadius: 7, padding: '4px 10px', fontSize: 11.5 }}>
+                  <b style={{ color: '#e2e8f0' }}>{s.market === 'KR' ? '🇰🇷' : '🇺🇸'} {s.name}</b>
+                  <b style={{ color: c }}>{s.icon} {s.label}</b>
+                </span>
+              )
+            })}
           </div>
         ) : <div style={{ fontSize: 12, color: '#7f93a8' }}>오늘은 보유 종목의 타점 전환이 없습니다 — 조용한 날엔 아무것도 안 하는 것도 실력.</div>}
       </Sec>
