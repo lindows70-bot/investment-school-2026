@@ -45,7 +45,7 @@ export interface SeasonNavResult {
   yieldCurveInverted: boolean
   yieldCurve: number | null
   // 🛒 이 계절 우대 섹터 매수 후보(공유 스크리너 캐시 재사용 · 보유 종목 제외)
-  buyCandidates: { ticker: string; name: string; market: string; sector: string; lynchCategory: string; peg: number | null; opMargin: number | null; fcfPositive: boolean; score: number }[]
+  buyCandidates: { ticker: string; name: string; market: string; sector: string; lynchCategory: string; peg: number | null; opMargin: number | null; fcfPositive: boolean; fcfYield: number | null; qualityGap: boolean; score: number }[]
   asOf: string
 }
 
@@ -92,7 +92,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `season-navigator-v8:${user.id}:${kstDate()}:${fp}`   // v8: ETF Look-through 정합성 반영
+  const cacheKey = `season-navigator-v9:${user.id}:${kstDate()}:${fp}`   // v8: ETF Look-through 정합성 반영
   const cached = await getCache<SeasonNavResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -194,7 +194,7 @@ export async function GET(req: Request) {
     .slice(0, 8)
     .map(s => ({
       ticker: s.ticker, name: s.name, market: s.market as string, sector: s.sector ?? '—', lynchCategory: s.lynchCategory as string,
-      peg: s.peg, opMargin: s.opMargin, fcfPositive: s.fcfPositive, score: scaleScore(s.score),
+      peg: s.peg, opMargin: s.opMargin, fcfPositive: s.fcfPositive, fcfYield: s.fcfYield, qualityGap: s.qualityGap, score: scaleScore(s.score),
     }))
 
   const result: SeasonNavResult = {

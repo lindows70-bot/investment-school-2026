@@ -9,6 +9,13 @@ import CandlePatternRisk from '@/app/components/CandlePatternRisk'
 import ElliottWaveEducation from '@/app/components/ElliottWaveEducation'
 
 const CARD = '#161b25', BORDER = '#1e293b'
+// 🛒 매수 후보 테이블 — 퀀트 4축(린치·PEG·영업이익률·FCF) 노출용 그리드·린치 분류 축약 라벨
+const COLS = 'minmax(92px,1.3fr) 1fr 44px 42px 50px 52px 36px'
+const LYNCH_SHORT: Record<string, { t: string; c: string }> = {
+  slow_grower: { t: '저성장', c: '#94a3b8' }, stalwart: { t: '우량', c: '#60a5fa' },
+  fast_grower: { t: '고성장', c: '#4ade80' }, cyclical: { t: '순환', c: '#fb923c' },
+  turnaround: { t: '회생', c: '#f87171' }, asset_play: { t: '자산', c: '#c084fc' },
+}
 
 // 2×2 상세 다이어그램 (원본 책 배치 그대로: 가로=성장, 세로=물가)
 //   좌상 인플레 · 우상 스태그 · 좌하 골디락스 · 우하 리세션
@@ -281,29 +288,38 @@ export default function SeasonNavigator() {
           <div style={{ color: '#aab6c4', fontSize: 11.5, lineHeight: 1.5, marginBottom: 10 }}>
             지금 계절({data.seasonKo.replace(/^.. /, '')})에 유리한 섹터의 종목을 우리 유니버스(100+)에서 추려, <b>퀀트 점수</b>(린치가중 35% + PEG 35% + 영업이익률 20% + FCF 10%)순으로 보여줍니다. 이미 보유한 종목은 제외했습니다.
           </div>
-          {/* 헤더 */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(120px,1.5fr) 1.2fr 48px 56px 40px', gap: 8, alignItems: 'center', padding: '0 2px 5px', borderBottom: `1px solid ${BORDER}`, color: '#8a9aaa', fontSize: 10 }}>
-            <span>종목</span><span>섹터</span><span style={{ textAlign: 'right' }}>PEG</span><span style={{ textAlign: 'right' }}>영업익률</span><span style={{ textAlign: 'right' }}>점수</span>
+          {/* 헤더 — 퀀트 4축(린치·PEG·영업이익률·FCF)을 다 노출 */}
+          <div style={{ display: 'grid', gridTemplateColumns: COLS, gap: 8, alignItems: 'center', padding: '0 2px 5px', borderBottom: `1px solid ${BORDER}`, color: '#8a9aaa', fontSize: 10 }}>
+            <span>종목</span><span>섹터</span><span style={{ textAlign: 'center' }}>린치</span><span style={{ textAlign: 'right' }}>PEG</span><span style={{ textAlign: 'right' }}>영업익률</span><span style={{ textAlign: 'right' }}>FCF수익</span><span style={{ textAlign: 'right' }}>점수</span>
           </div>
           <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
             {data.buyCandidates.map(c => {
               const sc = c.score >= 85 ? '#22c55e' : c.score >= 65 ? '#f59e0b' : '#8a9aaa'
+              const ly = LYNCH_SHORT[c.lynchCategory] ?? { t: '—', c: '#8a9aaa' }
+              // 💵 FCF 셀 — 괴리(빨강)/우수(초록)/고평가(주황)/금융·미제공(—)
+              const fcf = c.qualityGap ? { t: '괴리', col: '#f87171' }
+                : c.fcfYield == null ? { t: '—', col: '#64748b' }
+                : c.fcfYield >= 5 ? { t: `${c.fcfYield}%`, col: '#22c55e' }
+                : c.fcfYield >= 1 ? { t: `${c.fcfYield}%`, col: '#cbd5e1' }
+                : { t: `${c.fcfYield}%↓`, col: '#fb923c' }
               return (
-                <div key={c.ticker} style={{ display: 'grid', gridTemplateColumns: 'minmax(120px,1.5fr) 1.2fr 48px 56px 40px', gap: 8, alignItems: 'center', fontSize: 11.5 }}>
+                <div key={c.ticker} style={{ display: 'grid', gridTemplateColumns: COLS, gap: 8, alignItems: 'center', fontSize: 11.5 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden' }}>
                     <span style={{ fontSize: 10 }}>{c.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
                     <span style={{ color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
                   </span>
                   <span style={{ color: '#8a9aaa', fontSize: 10.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.sector}</span>
+                  <span style={{ textAlign: 'center' }}><span style={{ color: ly.c, background: `${ly.c}1a`, border: `1px solid ${ly.c}44`, borderRadius: 4, padding: '1px 4px', fontSize: 9.5, fontWeight: 700 }}>{ly.t}</span></span>
                   <span style={{ color: c.peg != null && c.peg > 0 && c.peg < 1 ? '#22c55e' : '#cbd5e1', fontFamily: 'monospace', fontSize: 10.5, textAlign: 'right' }}>{c.peg != null ? c.peg.toFixed(2) : '—'}</span>
                   <span style={{ color: '#cbd5e1', fontFamily: 'monospace', fontSize: 10.5, textAlign: 'right' }}>{c.opMargin != null ? `${c.opMargin}%` : '—'}</span>
+                  <span style={{ color: fcf.col, fontFamily: 'monospace', fontSize: 10.5, textAlign: 'right' }}>{fcf.t}</span>
                   <span style={{ color: sc, fontWeight: 800, fontSize: 12.5, fontFamily: 'monospace', textAlign: 'right' }}>{c.score}</span>
                 </div>
               )
             })}
           </div>
           <div style={{ color: '#9aa7b5', fontSize: 10, marginTop: 8, lineHeight: 1.5 }}>
-            ※ 점수는 &ldquo;이 계절+현재 국면에 얼마나 맞는 펀더멘탈인가&rdquo;이며 주가 예측이 아닙니다. 저PEG는 초록 표시. 위성/소형주는 별도 10배거 헌터에서 검증하세요.
+            ※ 점수 = 린치가중 35% + PEG 35% + 영업이익률 20% + FCF 10%. 저PEG·고FCF수익률(≥5%)은 초록, FCF 현금 대비 고평가(&lt;1%)는 주황↓, 이익-현금 괴리는 빨강. 🏦금융주는 FCF 무의미(—). 주가 예측 아님 · 위성/소형주는 10배거 헌터에서 검증.
           </div>
         </div>
       )}
