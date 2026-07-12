@@ -385,6 +385,59 @@ export function readRaschke(data: Ohlc[]): RaschkeRead | null {
   }
 }
 
+/* ── 🎼 라쉬케 연쇄 4단계 봉 위치 탐지 — 판독기가 보여주는 CCI 신호탄→RSI50 돌파→MACD 영선 돌파→첫 눌림목이
+   *차트 어디서* 일어났는지 마커로 찍기 위한 봉 인덱스. readRaschke의 barsAgo는 10~15봉 단창이라
+   성숙한 눌림목에선 옛 이벤트를 못 잡음 → 여기선 lookback(기본 90봉) 앵커 탐색으로 연쇄 스토리를 복원.
+   차트 전용(점수·추천 미반영). ── */
+export interface RaschkeMarks {
+  cci: number | null       // CCI −100 상향 탈출 봉(선행 신호탄)
+  rsi50: number | null     // RSI 50 상향 돌파 봉(에너지 장악)
+  macdZero: number | null  // MACD 영선 상향 돌파 봉(추세 확정)
+  pullback: number | null  // 첫 눌림목 봉(최적 타점)
+  stage: 0 | 1 | 2 | 3 | 4
+}
+export function raschkeSequenceMarks(data: Ohlc[], lookback = 90): RaschkeMarks | null {
+  const N = data.length
+  if (N < 60) return null
+  const close = data.map(d => d.close)
+  const { macd, hist } = calcMACD(close)
+  const rsiA = calcRSI(close)
+  const cciA = calcCCI(data)
+  const from = Math.max(1, N - lookback)
+  const rk = readRaschke(data)
+  const stage = rk?.stage ?? 0
+  // 가장 최근 상향 돌파 봉 — 단 recencyWin봉 이내만 인정(옛 완료 연쇄를 현재 연쇄로 오인하지 않게)
+  const recentUp = (a: (number | null)[], level: number, recencyWin: number): number | null => {
+    for (let i = N - 1; i >= Math.max(from, N - recencyWin); i--) {
+      const p = a[i - 1], c = a[i]
+      if (p == null || c == null) continue
+      if (p <= level && c > level) return i
+    }
+    return null
+  }
+  // ⚠️ 각 이벤트는 독립적으로 '최근' 창에서 탐색 + stage로 게이트 → 현재 진행 중인 연쇄만 표시(과거 완료 연쇄 억제).
+  //    영선 돌파는 눌림목이 20봉까지 있으니 40봉, CCI·RSI50은 판독기 창(15/10)보다 넉넉히 30봉.
+  const cci = stage >= 1 ? recentUp(cciA, -100, 30) : null
+  const rsi50 = stage >= 2 ? recentUp(rsiA, 50, 30) : null
+  const macdZero = stage >= 3 ? recentUp(macd, 0, 40) : null
+  // 첫 눌림목(stage 4): 영선 돌파 이후 첫 '추세 확립 + 되돌림'(readRaschke pullback과 동일 게이트). 앵커 없으면 최근 40봉에서 탐색
+  let pullback: number | null = null
+  if (stage >= 4) {
+    const anchor = (recentUp(macd, 0, 40) ?? N - 30)
+    for (let i = Math.max(anchor + 2, N - 40); i <= N - 1; i++) {
+      if (macd[i] == null || (macd[i] as number) <= 0) continue
+      if (rsiA[i] == null || (rsiA[i] as number) <= 50) continue
+      if (hist[i] == null || hist[i - 1] == null || hist[i - 2] == null) continue
+      if (!((hist[i] as number) < (hist[i - 1] as number) && (hist[i - 1] as number) < (hist[i - 2] as number))) continue
+      let hi10 = -Infinity
+      for (let j = Math.max(0, i - 9); j <= i; j++) if (data[j].high > hi10) hi10 = data[j].high
+      const dd = (hi10 - close[i]) / hi10
+      if (dd >= 0.02 && dd <= 0.08) { pullback = i; break }
+    }
+  }
+  return { cci, rsi50, macdZero, pullback, stage: stage as RaschkeMarks['stage'] }
+}
+
 /* ── 💧 유동성 풀·스윕 탐지(결정론) — "전 고점·전 저점 = 손절 주문이 몰린 유동성"이라는 SMC 개념의 객관 버전.
    스윙 피벗(좌우 pivot봉 대비 극값)으로 유동성 레벨을 잡고,
    · 매도측(전저점) 스윕 = 꼬리(low)가 레벨을 관통했는데 종가는 위에서 마감(개미 털기 후 회복)

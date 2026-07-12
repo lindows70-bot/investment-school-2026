@@ -3,7 +3,7 @@
 // + 모멘텀 서브패널(MACD·RSI·스토캐스틱·CCI 탭 선택) + 십자선·툴팁
 import { useState, useMemo, useRef, useCallback } from 'react'
 import type { TechCandle } from '@/app/api/tech-chart/route'
-import { calcMACD, calcRSI, calcStoch, calcCCI, calcMFI, calcADX, calcATR, detectLiquidity } from '@/lib/techSignals'
+import { calcMACD, calcRSI, calcStoch, calcCCI, calcMFI, calcADX, calcATR, detectLiquidity, raschkeSequenceMarks } from '@/lib/techSignals'
 
 /* ── 팔레트 (네이비/틸/골드) ── */
 const C = {
@@ -88,6 +88,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
   const [showCloud, setShowCloud] = useState(true)
   const [showVolume, setShowVolume] = useState(true)
   const [showLiq, setShowLiq] = useState(true)   // 💧 유동성 레벨(전 고점·저점) + 스윕 마커
+  const [showRaschke, setShowRaschke] = useState(true)   // 🎼 라쉬케 연쇄 4단계 마커
   const [ind, setInd] = useState<'MACD' | 'RSI' | 'STOCH' | 'CCI' | 'MFI' | 'ADX' | null>('MACD')   // 모멘텀 서브패널(하나만 선택 — 화면 간결)
   const [hover, setHover] = useState<{ j: number; px: number; py: number } | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
@@ -155,6 +156,9 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
     const sweeps = all.filter(l => l.swept && l.endIdx != null && l.endIdx >= data.length - 60)
     return { levels: [...alive('low'), ...alive('high')], sweeps }
   }, [data])
+
+  /* ── 🎼 라쉬케 연쇄 4단계 마커(SSOT: raschkeSequenceMarks) — 판독기 연쇄 진행바가 차트 어디서 일어났는지 봉 위치로 ── */
+  const raschke = useMemo(() => raschkeSequenceMarks(data), [data])
 
   /* ── 모멘텀 지표(SSOT: lib/techSignals) — 실봉(N개)에만 값 존재 ── */
   const mom = useMemo(() => {
@@ -281,6 +285,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
         {toggle(showCloud, '구름대', C.spanA, setShowCloud)}
         {toggle(showVolume, '거래량', C.gold, setShowVolume)}
         {toggle(showLiq, '💧유동성', '#2dd4bf', setShowLiq)}
+        {toggle(showRaschke, '🎼라쉬케', '#f0abfc', setShowRaschke)}
         {/* 모멘텀 서브패널 탭(하나만) */}
         <span style={{ display: 'inline-flex', border: `1px solid ${C.axis}`, borderRadius: 7, overflow: 'hidden', marginLeft: 4 }}>
           {(['MACD', 'RSI', 'STOCH', 'CCI', 'MFI', 'ADX'] as const).map(t => (
@@ -396,6 +401,36 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
                         스윕{sw.volBoost ? '·거래량↑' : ''}
                       </text>
                     )}
+                  </g>
+                )
+              })}
+            </>)
+          })()}
+
+          {/* 🎼 라쉬케 연쇄 4단계 마커 — CCI 신호탄 → RSI50 돌파 → MACD 영선 돌파 → 첫 눌림목(최적 타점). 현재 단계 📍 강조 */}
+          {showRaschke && raschke && (() => {
+            const marks = [
+              { idx: raschke.cci, n: 1, s: 1, label: 'CCI 신호탄', color: '#eab308' },
+              { idx: raschke.rsi50, n: 2, s: 2, label: 'RSI50 돌파', color: '#22d3ee' },
+              { idx: raschke.macdZero, n: 3, s: 3, label: '영선 돌파', color: '#4ade80' },
+              { idx: raschke.pullback, n: 4, s: 4, label: '첫 눌림목', color: '#f0abfc' },
+            ].filter((m): m is { idx: number; n: number; s: number; label: string; color: string } => m.idx != null && m.idx >= 0 && m.idx < N)
+            return (<>
+              {marks.map(m => {
+                const d = data[m.idx]
+                const yLow = yP(d.low), x = xc(m.idx)
+                const here = raschke.stage === m.s
+                const r = here ? 9 : 7
+                const my = yLow + 20   // 봉 아래에 마커
+                return (
+                  <g key={'rk' + m.n}>
+                    <line x1={x} x2={x} y1={yLow + 2} y2={my - r} stroke={m.color} strokeWidth={1} strokeDasharray="2 3" opacity={0.7} />
+                    {here && <circle cx={x} cy={my} r={r + 3} fill="none" stroke={m.color} strokeWidth={1.5} opacity={0.5} />}
+                    <circle cx={x} cy={my} r={r} fill={m.color} stroke="#0F172A" strokeWidth={1.5} />
+                    <text x={x} y={my + 3.5} fontSize={here ? 11 : 9.5} fontWeight={900} textAnchor="middle" fill="#0F172A">{m.n}</text>
+                    <text x={x} y={my + r + 10} fontSize={8.5} fontWeight={800} textAnchor="middle" fill={m.color}>
+                      {here ? '📍' : ''}{m.label}
+                    </text>
                   </g>
                 )
               })}
@@ -542,6 +577,13 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, borderTop: `2px dotted #fb923c` }} /><span style={{ color: C.textLow }}>유동성(전고점 — 익절·돌파주문 대기)</span></span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ color: C.textLow }}>💧 스윕(꼬리로 털고 종가 회복)</span></span>
         </>)}
+        {showRaschke && raschke && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: C.textLow }}>
+            <span style={{ color: '#f0abfc', fontWeight: 800 }}>🎼 라쉬케 연쇄</span>
+            <b style={{ color: '#eab308' }}>①CCI</b>→<b style={{ color: '#22d3ee' }}>②RSI50</b>→<b style={{ color: '#4ade80' }}>③영선</b>→<b style={{ color: '#f0abfc' }}>④첫눌림목</b>
+            <span>(📍=현재 단계, 봉 아래 번호핀)</span>
+          </span>
+        )}
       </div>
 
       {/* 교육 해설 */}
