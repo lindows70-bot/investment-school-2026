@@ -183,6 +183,19 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
   const avwap = useMemo(() => computeAnchoredVWAP(data), [data])
   const superT = useMemo(() => computeSuperTrend(data), [data])
 
+  // 🏷️ 좌측 가격 기준선 라벨(평단·매물대·VWAP) — 가격이 가까우면 세로로 밀어 겹침 방지(선은 실제 위치·라벨은 스택)
+  const priceLabels = useMemo(() => {
+    type L = { key: string; price: number; line: string; bg: string; textCol: string; text: string }
+    const items: L[] = []
+    if (avgPrice != null) items.push({ key: 'avg', price: avgPrice, line: C.gold, bg: C.gold, textCol: C.bg, text: `평단 ${fmt(avgPrice)}` })
+    if (showPoc && poc) items.push({ key: 'poc', price: poc.poc, line: '#38bdf8', bg: '#0c4a6e', textCol: '#7dd3fc', text: `📊 매물대 ${fmt(poc.poc)}` })
+    if (showVwap && avwap) items.push({ key: 'vwap', price: avwap.vwap, line: '#f472b6', bg: '#831843', textCol: '#fbcfe8', text: `⚓ VWAP ${fmt(avwap.vwap)}` })
+    const withY = items.map(it => ({ ...it, ty: yP(it.price), ly: yP(it.price) })).sort((a, b) => a.ty - b.ty)
+    let last = -Infinity
+    for (const it of withY) { if (it.ly < last + 17) it.ly = last + 17; last = it.ly }
+    return withY
+  }, [avgPrice, showPoc, poc, showVwap, avwap, yP, fmt])
+
   /* ── 모멘텀 지표(SSOT: lib/techSignals) — 실봉(N개)에만 값 존재 ── */
   const mom = useMemo(() => {
     const close = data.map(d => d.close)
@@ -399,11 +412,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
           )}
           {/* 평단가 가이드선(실보유 시에만) */}
           {avgPrice != null && (
-            <g>
-              <line x1={padL} x2={W - padR} y1={yP(avgPrice)} y2={yP(avgPrice)} stroke={C.gold} strokeWidth={1.2} strokeDasharray="5 3" />
-              <rect x={padL} y={yP(avgPrice) - 9} width={96} height={16} rx={3} fill={C.gold} />
-              <text x={padL + 6} y={yP(avgPrice) + 2.5} fontSize={10} fontWeight={800} fill={C.bg}>평단 {fmt(avgPrice)}</text>
-            </g>
+            <line x1={padL} x2={W - padR} y1={yP(avgPrice)} y2={yP(avgPrice)} stroke={C.gold} strokeWidth={1.2} strokeDasharray="5 3" />
           )}
           {/* 🛡️ ATR 변동성 손절 참고선(현재가 − 2×ATR) — 라벨은 Y축 영역(우측 여백)에만 표시해 차트를 가리지 않음 */}
           {atrStop != null && (
@@ -433,20 +442,8 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
                       opacity={isPoc ? 0.75 : b.inVA ? 0.35 : 0.18} />
                   )
                 })}
-                {/* POC 수평 점선 + 좌측 라벨. 평단 배너와 가까우면 라벨만 세로로 밀어냄(선은 실제 위치 유지) */}
+                {/* POC 수평 점선(라벨은 좌측 통합 스택 priceLabels에서 렌더 — 평단·VWAP와 세로로 안 겹치게) */}
                 <line x1={padL} x2={xR} y1={y0} y2={y0} stroke="#38bdf8" strokeWidth={1.2} strokeDasharray="8 4" opacity={0.8} />
-                {(() => {
-                  let ly = y0
-                  if (avgPrice != null) {
-                    const ya = yP(avgPrice)
-                    if (Math.abs(ya - y0) < 17) ly = y0 <= ya ? ya - 17 : ya + 17   // 평단 위면 위로, 아래면 아래로
-                  }
-                  return (<>
-                    {ly !== y0 && <line x1={padL + 4} x2={padL + 4} y1={y0} y2={ly} stroke="#38bdf8" strokeWidth={0.8} opacity={0.5} />}
-                    <rect x={padL} y={ly - 9} width={128} height={16} rx={3} fill="#0c4a6e" stroke="#38bdf8" strokeWidth={0.8} />
-                    <text x={padL + 5} y={ly + 3} fontSize={9.5} fontWeight={800} fill="#7dd3fc">📊 매물대 {fmt(poc.poc)}</text>
-                  </>)
-                })()}
               </g>
             )
           })()}
@@ -470,14 +467,12 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
           {showVwap && avwap && (() => {
             let d = '', pen = false
             for (let j = 0; j < N; j++) { const v = avwap.line[j]; if (v == null) { pen = false; continue } d += (pen ? ' L' : 'M') + xc(j).toFixed(1) + ',' + yP(v).toFixed(1); pen = true }
-            const yv = yP(avwap.vwap)
             return (
               <g>
                 <path d={d} fill="none" stroke="#f472b6" strokeWidth={1.7} opacity={0.9} />
                 <circle cx={xc(avwap.anchorIdx)} cy={yP(data[avwap.anchorIdx].low)} r={3.5} fill="#f472b6" stroke={C.bg} strokeWidth={1} />
                 <text x={xc(avwap.anchorIdx)} y={yP(data[avwap.anchorIdx].low) + 13} fontSize={8} fontWeight={800} fill="#f472b6" textAnchor="middle">⚓</text>
-                <rect x={W - padR - 96} y={yv - 8} width={96} height={15} rx={2} fill="#831843" stroke="#f472b6" strokeWidth={0.7} />
-                <text x={W - padR - 92} y={yv + 3} fontSize={9} fontWeight={800} fill="#fbcfe8">⚓VWAP {fmt(avwap.vwap)}</text>
+                {/* ⚓VWAP 값 라벨은 좌측 통합 스택(priceLabels)에서 렌더 — 캔들·다른 라벨과 안 겹치게 */}
               </g>
             )
           })()}
@@ -568,6 +563,18 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
               ))}
             </>)
           })()}
+
+          {/* 🏷️ 좌측 가격 기준선 라벨 스택(평단·매물대·VWAP) — 가격이 가까우면 세로로 밀어 안 겹치게, 선은 실제 위치로 연결. 캔들·다른 지표 위에 렌더 */}
+          {priceLabels.map(it => {
+            const w = 16 + it.text.length * 7
+            return (
+              <g key={'pl-' + it.key}>
+                {Math.abs(it.ly - it.ty) > 1 && <line x1={padL + 4} x2={padL + 4} y1={it.ty} y2={it.ly} stroke={it.line} strokeWidth={0.8} opacity={0.5} />}
+                <rect x={padL} y={it.ly - 8} width={w} height={16} rx={3} fill={it.bg} stroke={it.key === 'avg' ? 'none' : it.line} strokeWidth={0.7} />
+                <text x={padL + 5} y={it.ly + 3} fontSize={9.5} fontWeight={800} fill={it.textCol}>{it.text}</text>
+              </g>
+            )
+          })}
 
           {/* 거래량 */}
           {showVolume && disp.map(d => {
