@@ -48,7 +48,8 @@ export default function TimingBadge({ t, market, compact = false }: { t: EntryTi
   const sp = t.supply
   let spChip: { label: string; c: string; tip: string } | null = null
   if (sp && (sp.vwap != null || sp.poc != null)) {
-    if (sp.supportStrong && !sp.overExtended) spChip = { label: '📊 지지 탄탄', c: '#38bdf8', tip: '기관평단(VWAP)·매물대(POC) 둘 다 가까운 아래 = 눌림 지지 확보' }
+    if (sp.choppy && t.light !== 'green') spChip = { label: '⬛ 관망(횡보)', c: '#94a3b8', tip: `추세 없는 횡보(ADX ${sp.adx}) — 가짜 돌파 잦아 손실 최다 구간, 방향 확정 전 신규 진입 자제` }
+    else if (sp.supportStrong && !sp.overExtended) spChip = { label: '📊 지지 탄탄', c: '#38bdf8', tip: '기관평단(VWAP)·매물대(POC) 둘 다 가까운 아래 = 눌림 지지 확보' }
     else if (sp.supportStrong && sp.overExtended) spChip = { label: '📊 과대이격', c: '#f59e0b', tip: '평단·매물대가 크게 아래 = 지지선 멀다, 되돌림 낙폭 큼(추격 주의)' }
     else if (sp.supportWeak) spChip = { label: '📊 지지 약함', c: '#fb923c', tip: '평단·매물 대다수가 위 = 지지 얇음, 되돌림 리스크' }
   }

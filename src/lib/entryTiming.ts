@@ -2,7 +2,7 @@
 // EMA112·224 정배열 + 일목 구름 위치 + ATR 손절선을 결정론 판정(기술차트 화면과 동일 계산).
 // ⛔ 원칙: 추천 '점수·선정·정렬'에는 절대 미반영 — 카드에 배지(정보)로만 표시. 자동매매 없음.
 import { getTechCandles, type TechCandle } from '@/lib/techChartData'
-import { calcATR, readRaschke, computeAnchoredVWAP, computePOC, computeTTMSqueeze, detectFVG } from '@/lib/techSignals'
+import { calcATR, calcADX, readRaschke, computeAnchoredVWAP, computePOC, computeTTMSqueeze, detectFVG } from '@/lib/techSignals'
 
 export type TimingLight = 'green' | 'yellow' | 'red'
 /** 📊 매물·평단 지지 요약(카드용 lite) — 같은 캔들에서 추가 fetch 0.
@@ -14,6 +14,7 @@ export interface SupplyLite {
   supportStrong: boolean       // VWAP·POC 둘 다 위 = 지지 탄탄
   supportWeak: boolean         // 둘 다 아래 = 지지 약함
   overExtended: boolean        // 기관평단 대비 +15%↑ 과대이격(되돌림·익절 리스크)
+  choppy: boolean; adx: number | null   // ⬛ 관망(횡보) = ADX<20 추세 없음 — 영상의 '회색 지대'(가짜 돌파 잦은 매매 자제 구간)
   fvgBuyLo: number | null; fvgBuyHi: number | null; fvgBuyDistPct: number | null   // 현재가 아래 가장 가까운 상승 갭(되돌림 매수 존)
   fvgSellLo: number | null; fvgSellHi: number | null; fvgSellDistPct: number | null // 현재가 위 가장 가까운 하락 갭(저항·익절 타겟)
   squeezeOn: boolean; squeezeFired: 'up' | 'down' | null    // 🔥 TTM 스퀴즈 압축/분출(변동성 돌파 타이밍)
@@ -85,8 +86,9 @@ export function timingFromCandles(D: TechCandle[]): EntryTiming | null {
     divPrevHi: rk.bearDivergence?.prevHi ?? null, divPriceHi: rk.bearDivergence?.priceHi ?? null,
     divRsiPrev: rk.bearDivergence?.rsiAtPrev ?? null, divRsiHi: rk.bearDivergence?.rsiAtHi ?? null,
   } : null
-  // 📊 매물·평단(같은 캔들·추가 fetch 0) — VWAP·POC·FVG·스퀴즈
+  // 📊 매물·평단(같은 캔들·추가 fetch 0) — VWAP·POC·FVG·스퀴즈·ADX(관망)
   const avwap = computeAnchoredVWAP(D), pocR = computePOC(D), sq = computeTTMSqueeze(D), gaps = detectFVG(D)
+  const adxArr = calcADX(D); const adx = adxArr[adxArr.length - 1]
   const bg = gaps.filter(g => g.type === 'bull' && g.hi <= price).sort((a, b) => b.hi - a.hi)[0]   // 현재가 아래 가장 가까운 상승 갭
   const sg = gaps.filter(g => g.type === 'bear' && g.lo >= price).sort((a, b) => a.lo - b.lo)[0]   // 현재가 위 가장 가까운 하락 갭
   const pct = (v: number) => Math.round((v - price) / price * 1000) / 10
@@ -96,6 +98,7 @@ export function timingFromCandles(D: TechCandle[]): EntryTiming | null {
     supportStrong: !!(avwap?.above && pocR?.above),
     supportWeak: !!(avwap && !avwap.above && pocR && !pocR.above),
     overExtended: !!(avwap && avwap.distPct >= 15),
+    choppy: adx != null && adx < 20, adx: adx != null ? Math.round(adx) : null,
     fvgBuyLo: bg?.lo ?? null, fvgBuyHi: bg?.hi ?? null, fvgBuyDistPct: bg ? pct(bg.hi) : null,
     fvgSellLo: sg?.lo ?? null, fvgSellHi: sg?.hi ?? null, fvgSellDistPct: sg ? pct(sg.lo) : null,
     squeezeOn: !!sq?.on, squeezeFired: sq?.fired ?? null,

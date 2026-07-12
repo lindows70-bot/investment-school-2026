@@ -97,7 +97,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v24:${user.id}:${kstDate()}:${fp}`   // v24: 📊 매물·평단(VWAP·POC·FVG·스퀴즈) supply 필드 → 매매 플랜 카드
+  const cacheKey = `unified-reco-v25:${user.id}:${kstDate()}:${fp}`   // v25: ⬛ 관망(횡보·ADX<20) supply 필드 추가 — 영상 '회색 지대'(가짜 돌파 회피)
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
