@@ -3,7 +3,7 @@
 // + 모멘텀 서브패널(MACD·RSI·스토캐스틱·CCI 탭 선택) + 십자선·툴팁
 import { useState, useMemo, useRef, useCallback } from 'react'
 import type { TechCandle } from '@/app/api/tech-chart/route'
-import { calcMACD, calcRSI, calcStoch, calcCCI, calcMFI, calcADX, calcATR, detectLiquidity, raschkeSequenceMarks, computePOC, computeTTMSqueeze, computeAnchoredVWAP, computeSuperTrend } from '@/lib/techSignals'
+import { calcMACD, calcRSI, calcStoch, calcCCI, calcMFI, calcADX, calcATR, detectLiquidity, raschkeSequenceMarks, computePOC, computeTTMSqueeze, computeAnchoredVWAP, computeSuperTrend, detectFVG } from '@/lib/techSignals'
 
 /* ── 팔레트 (네이비/틸/골드) ── */
 const C = {
@@ -32,14 +32,14 @@ const forwardBars = (n: number) => n >= 52 ? 26 : Math.min(6, Math.max(2, Math.r
 
 // 🔎 분석 렌즈 — 목적별로 관련 지표만 묶어서 ON, 나머지는 OFF(클러터 해소). 한 번에 하나의 관점으로 집중
 type SubInd = 'MACD' | 'RSI' | 'STOCH' | 'CCI' | 'MFI' | 'ADX' | 'SQUEEZE' | null
-interface LensCfg { ema: boolean; cloud: boolean; vol: boolean; liq: boolean; rk: boolean; poc: boolean; vwap: boolean; st: boolean; ind: SubInd }
+interface LensCfg { ema: boolean; cloud: boolean; vol: boolean; liq: boolean; rk: boolean; poc: boolean; vwap: boolean; st: boolean; fvg: boolean; ind: SubInd }
 const LENSES: { key: string; label: string; color: string; desc: string; cfg: LensCfg }[] = [
-  { key: 'core', label: '⭐ 핵심', color: '#d4af37', desc: '추세 뼈대(EMA·구름)+매물대+MACD', cfg: { ema: true, cloud: true, vol: true, liq: false, rk: false, poc: true, vwap: false, st: false, ind: 'MACD' } },
-  { key: 'trend', label: '📈 추세·타점', color: '#34d399', desc: 'EMA·구름·SuperTrend·라쉬케·MACD', cfg: { ema: true, cloud: true, vol: false, liq: false, rk: true, poc: false, vwap: false, st: true, ind: 'MACD' } },
-  { key: 'supply', label: '💰 매물·평단', color: '#38bdf8', desc: '매물대·기관평단(VWAP)·유동성·MFI', cfg: { ema: false, cloud: false, vol: true, liq: true, rk: false, poc: true, vwap: true, st: false, ind: 'MFI' } },
-  { key: 'vol', label: '🔥 변동성 돌파', color: '#f59e0b', desc: 'TTM 스퀴즈·VWAP·SuperTrend(신규 3종)', cfg: { ema: false, cloud: false, vol: true, liq: false, rk: false, poc: false, vwap: true, st: true, ind: 'SQUEEZE' } },
-  { key: 'momentum', label: '⚡ 모멘텀', color: '#f0abfc', desc: 'EMA·라쉬케·RSI(에너지·진입)', cfg: { ema: true, cloud: false, vol: false, liq: false, rk: true, poc: false, vwap: false, st: false, ind: 'RSI' } },
-  { key: 'all', label: '🔬 전체', color: '#94a3b8', desc: '모든 지표(고급)', cfg: { ema: true, cloud: true, vol: true, liq: true, rk: true, poc: true, vwap: true, st: true, ind: 'MACD' } },
+  { key: 'core', label: '⭐ 핵심', color: '#d4af37', desc: '추세 뼈대(EMA·구름)+매물대+MACD', cfg: { ema: true, cloud: true, vol: true, liq: false, rk: false, poc: true, vwap: false, st: false, fvg: false, ind: 'MACD' } },
+  { key: 'trend', label: '📈 추세·타점', color: '#34d399', desc: 'EMA·구름·SuperTrend·라쉬케·MACD', cfg: { ema: true, cloud: true, vol: false, liq: false, rk: true, poc: false, vwap: false, st: true, fvg: false, ind: 'MACD' } },
+  { key: 'supply', label: '💰 매물·평단', color: '#38bdf8', desc: '매물대·기관평단(VWAP)·유동성·공정가치갭(FVG)·MFI', cfg: { ema: false, cloud: false, vol: true, liq: true, rk: false, poc: true, vwap: true, st: false, fvg: true, ind: 'MFI' } },
+  { key: 'vol', label: '🔥 변동성 돌파', color: '#f59e0b', desc: 'TTM 스퀴즈·VWAP·SuperTrend(신규 3종)', cfg: { ema: false, cloud: false, vol: true, liq: false, rk: false, poc: false, vwap: true, st: true, fvg: false, ind: 'SQUEEZE' } },
+  { key: 'momentum', label: '⚡ 모멘텀', color: '#f0abfc', desc: 'EMA·라쉬케·RSI(에너지·진입)', cfg: { ema: true, cloud: false, vol: false, liq: false, rk: true, poc: false, vwap: false, st: false, fvg: false, ind: 'RSI' } },
+  { key: 'all', label: '🔬 전체', color: '#94a3b8', desc: '모든 지표(고급)', cfg: { ema: true, cloud: true, vol: true, liq: true, rk: true, poc: true, vwap: true, st: true, fvg: true, ind: 'MACD' } },
 ]
 
 interface DispBar {
@@ -104,6 +104,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
   const [showPoc, setShowPoc] = useState(true)   // 📊 매물대 중심선(POC) + 가치영역
   const [showVwap, setShowVwap] = useState(false)   // ⚓ Anchored VWAP(기관 평균단가)
   const [showST, setShowST] = useState(false)   // 🛡️ SuperTrend(시각 트레일링 라인)
+  const [showFvg, setShowFvg] = useState(false)   // 📦 FVG(공정가치 갭) — 기본 OFF('매물·평단' 렌즈에서 켬)
   const [ind, setInd] = useState<'MACD' | 'RSI' | 'STOCH' | 'CCI' | 'MFI' | 'ADX' | 'SQUEEZE' | null>('MACD')   // 모멘텀 서브패널(하나만 선택 — 화면 간결)
   const [hover, setHover] = useState<{ j: number; px: number; py: number } | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
@@ -182,6 +183,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
   const squeeze = useMemo(() => computeTTMSqueeze(data), [data])
   const avwap = useMemo(() => computeAnchoredVWAP(data), [data])
   const superT = useMemo(() => computeSuperTrend(data), [data])
+  const fvg = useMemo(() => detectFVG(data), [data])
 
   // 🏷️ 좌측 가격 기준선 라벨(평단·매물대·VWAP) — 가격이 가까우면 세로로 밀어 겹침 방지(선은 실제 위치·라벨은 스택)
   const priceLabels = useMemo(() => {
@@ -307,9 +309,9 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
   // 🔎 렌즈 적용 — 관련 지표만 ON, 나머지 OFF / 현재 상태와 일치하는 렌즈 하이라이트
   const applyLens = (c: LensCfg) => {
     setShowEMA(c.ema); setShowCloud(c.cloud); setShowVolume(c.vol); setShowLiq(c.liq)
-    setShowRaschke(c.rk); setShowPoc(c.poc); setShowVwap(c.vwap); setShowST(c.st); setInd(c.ind)
+    setShowRaschke(c.rk); setShowPoc(c.poc); setShowVwap(c.vwap); setShowST(c.st); setShowFvg(c.fvg); setInd(c.ind)
   }
-  const curCfg: LensCfg = { ema: showEMA, cloud: showCloud, vol: showVolume, liq: showLiq, rk: showRaschke, poc: showPoc, vwap: showVwap, st: showST, ind }
+  const curCfg: LensCfg = { ema: showEMA, cloud: showCloud, vol: showVolume, liq: showLiq, rk: showRaschke, poc: showPoc, vwap: showVwap, st: showST, fvg: showFvg, ind }
   const activeLens = LENSES.find(l => (Object.keys(l.cfg) as (keyof LensCfg)[]).every(k => l.cfg[k] === curCfg[k]))?.key ?? null
 
   const toggle = (on: boolean, label: string, color: string, set: (f: (v: boolean) => boolean) => void) => (
@@ -348,6 +350,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
         {poc && toggle(showPoc, '📊매물대', '#38bdf8', setShowPoc)}
         {avwap && toggle(showVwap, '⚓VWAP', '#f472b6', setShowVwap)}
         {superT && toggle(showST, '🛡️추세선', '#34d399', setShowST)}
+        {fvg.length > 0 && toggle(showFvg, '📦FVG', '#a3e635', setShowFvg)}
         {/* 모멘텀 서브패널 탭(하나만) */}
         <span style={{ display: 'inline-flex', border: `1px solid ${C.axis}`, borderRadius: 7, overflow: 'hidden', marginLeft: 4 }}>
           {(['MACD', 'RSI', 'STOCH', 'CCI', 'MFI', 'ADX', 'SQUEEZE'] as const).map(t => (
@@ -476,6 +479,22 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
               </g>
             )
           })()}
+
+          {/* 📦 FVG(공정가치 갭) — 3봉 불균형으로 생긴 미충족 빈 공간(자석처럼 되메워지는 눌림 지지/저항 후보).
+              상승 갭=라임(지지)·하락 갭=빨강(저항). 갭 형성 봉부터 우측 끝까지 반투명 존 + 좌측 라벨. 점수·추천 미반영, 차트·교육 전용 */}
+          {showFvg && fvg.map((g, i) => {
+            const yT = yP(g.hi), yB = yP(g.lo)
+            const x0 = xc(g.idx), xR = W - padR
+            const col = g.type === 'bull' ? '#a3e635' : '#f87171'
+            return (
+              <g key={'fvg' + i}>
+                <rect x={x0} y={yT} width={Math.max(2, xR - x0)} height={Math.max(1.5, yB - yT)} fill={col} opacity={0.12} />
+                <line x1={x0} x2={xR} y1={yT} y2={yT} stroke={col} strokeWidth={0.7} strokeDasharray="3 3" opacity={0.55} />
+                <line x1={x0} x2={xR} y1={yB} y2={yB} stroke={col} strokeWidth={0.7} strokeDasharray="3 3" opacity={0.55} />
+                <text x={x0 + 3} y={(yT + yB) / 2 + 3} fontSize={8.5} fontWeight={800} fill={col} opacity={0.9}>📦{g.type === 'bull' ? '갭↑' : '갭↓'}</text>
+              </g>
+            )
+          })}
 
           {/* 💧 유동성 레벨(살아있는 전 고점·저점) + 스윕 마커 — 점수·추천 미반영, 차트 전용.
               라벨 declutter: 비슷한 가격대 레벨이 겹치면 선은 다 긋되 텍스트는 Y축 12px 내 근접 시 생략(평단·ATR 라벨과도 충돌 회피) */}
@@ -760,6 +779,12 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
             <span style={{ color: C.textLow }}>🛡️ SuperTrend — 시각 트레일링 라인(초록=지지/빨강=저항). 이 선 깨질 때까지 홀드 훈련용(알림 없음)</span>
           </span>
         )}
+        {showFvg && fvg.length > 0 && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 16, height: 10, background: 'rgba(163,230,53,0.2)', border: '1px dashed #a3e635' }} />
+            <span style={{ color: C.textLow }}>📦 FVG(공정가치 갭) — 미충족 빈 공간(라임=지지·빨강=저항), 되메움 되돌림 타점 후보</span>
+          </span>
+        )}
       </div>
 
       {/* 교육 해설 */}
@@ -814,6 +839,14 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
             <p style={{ lineHeight: 1.6, color: C.textLow, margin: 0 }}>
               직전 <b style={{ color: '#f472b6' }}>주요 스윙 저점(⚓)</b> 이후의 <b style={{ color: C.text }}>거래량가중 평균단가</b> = 그 바닥 이후 매수한 모두의 평균 매입가입니다.
               현재가가 <b style={{ color: '#4ade80' }}>VWAP 위</b>면 대다수가 수익권 = <b style={{ color: C.text }}>매집 우위·지지</b>, <b style={{ color: '#fb923c' }}>아래</b>면 손실권 = <b style={{ color: C.text }}>본전 매도 압력·저항</b>. 매물대(POC)가 &lsquo;가격대별 매물&rsquo;이라면 VWAP는 &lsquo;특정 사건 이후 시간 흐름의 평균단가&rsquo;라 상호보완입니다. 이탈/회복이 실전 매수·매도의 관문.
+            </p>
+          </div>
+        )}
+        {showFvg && fvg.length > 0 && (
+          <div style={{ backgroundColor: C.panel, border: `1px solid ${C.grid}`, borderRadius: 12, padding: 12 }}>
+            <div style={{ fontWeight: 700, color: '#a3e635', marginBottom: 4 }}>📦 FVG(공정가치 갭) 읽는 법 — 되메워지는 빈 공간</div>
+            <p style={{ lineHeight: 1.6, color: C.textLow, margin: 0 }}>
+              급격한 분출로 <b style={{ color: C.text }}>세 봉 사이에 거래 없이 비어버린 가격대</b>입니다(가운데 봉 앞뒤 봉의 고저가 서로 안 겹침 = 불균형). 시장은 이 빈틈을 <b style={{ color: C.text }}>자석처럼 되메우는 경향</b>이 있어, <b style={{ color: '#a3e635' }}>상승 갭(라임)</b>은 눌림 시 <b style={{ color: C.text }}>지지</b>, <b style={{ color: '#f87171' }}>하락 갭(빨강)</b>은 반등 시 <b style={{ color: C.text }}>저항</b> 후보가 됩니다. 매물대(POC)·유동성 스윕과 겹치는 갭일수록 신뢰도↑. 단독 매수 신호가 아니라 <b style={{ color: C.text }}>&lsquo;어디서 되돌림을 기다릴까&rsquo;의 타점 후보</b>이며, 되메우면 사라집니다. 순수 산수(리페인팅 없음)·교육용.
             </p>
           </div>
         )}

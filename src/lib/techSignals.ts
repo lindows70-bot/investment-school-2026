@@ -673,3 +673,37 @@ export function detectLiquidity(data: Ohlc[], pivot = 5): LiqLevel[] {
   }
   return levels
 }
+
+/* ── 📦 FVG(공정가치 갭·Fair Value Gap) 탐지(결정론) — SMC 개념 중 가장 객관적인 부분.
+   3봉 불균형: 급격한 분출로 캔들 사이에 비어버린 가격 공간. "자석처럼 되메워지는 경향" → 눌림목 지지/저항 후보.
+   · 상승 갭(bull): i-1봉 고가 < i+1봉 저가 → 빈 공간 [i-1.high, i+1.low]
+   · 하락 갭(bear): i-1봉 저가 > i+1봉 고가 → 빈 공간 [i+1.high, i-1.low]
+   되메움(mitigation): 이후 가격이 갭을 완전히 관통하면 소멸 → 아직 안 메운(unfilled) 갭만 반환.
+   순수 산수(리페인팅·주관 0). 차트 오버레이·교육 전용, 점수·추천 미반영(제2원칙 기술신호 원칙). ── */
+export interface Fvg {
+  type: 'bull' | 'bear'
+  idx: number   // 가운데 봉(갭 형성 봉) 인덱스
+  lo: number    // 갭 하단
+  hi: number    // 갭 상단
+}
+export function detectFVG(data: Ohlc[], lookback = 140, max = 6): Fvg[] {
+  const N = data.length
+  if (N < 5) return []
+  const start = Math.max(1, N - lookback)
+  const out: Fvg[] = []
+  for (let i = start; i < N - 1; i++) {
+    const a = data[i - 1], c = data[i + 1]
+    if (c.low > a.high) {                 // 상승 FVG
+      const lo = a.high, hi = c.low
+      let filled = false
+      for (let j = i + 2; j < N; j++) { if (data[j].low <= lo) { filled = true; break } }  // 이후 저가가 갭 하단까지 되돌리면 완전 되메움
+      if (!filled) out.push({ type: 'bull', idx: i, lo, hi })
+    } else if (a.low > c.high) {          // 하락 FVG
+      const lo = c.high, hi = a.low
+      let filled = false
+      for (let j = i + 2; j < N; j++) { if (data[j].high >= hi) { filled = true; break } }
+      if (!filled) out.push({ type: 'bear', idx: i, lo, hi })
+    }
+  }
+  return out.slice(-max)   // 가장 최근 미충족 갭 위주(클러터 방지)
+}
