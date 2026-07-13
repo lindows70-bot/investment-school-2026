@@ -77,22 +77,32 @@ function judgeKr(f: FlowActor, o: FlowActor, ind: FlowActor, foreignHold: number
 } {
   const badges: string[] = []
   const dualBuy = f.net20 > 0 && o.net20 > 0
+  const dualSell = f.net20 < 0 && o.net20 < 0
   const majorsNet = f.net20 + o.net20
   // 한 주체 단독이라도 메이저(외인+기관) 합산 순매수 + 개인 순매도 = 메이저가 개인 물량을 받아내는 유입 구조(외국인 단독 압도 매수 포착)
   const soloMajorBuy = !dualBuy && majorsNet > 0 && ind.net20 < 0 && (f.net20 > 0 || o.net20 > 0)
+  // 개미 독박 = 스마트머니(외인+기관) 합산 순매도를 개인이 받아냄 = 하락 압력(수급은 개미와 반대로 해석). 고점 무관
   const antBag  = ind.net20 > 0 && majorsNet < 0
   const neglected = foreignHold != null && foreignHold < 12
   if (dualBuy) badges.push('👥 쌍끌이 매수')
   else if (soloMajorBuy) badges.push(f.net20 >= o.net20 ? '🌍 외국인 매집' : '🏛️ 기관 매집')
+  if (dualSell && antBag) badges.push('📉 외인·기관 동반 매도')
   if (antBag) badges.push('🚨 개미 독박')
   if (neglected) badges.push('🏛️ 기관 소외주')
 
   // 우선순위: 위험(과열) → 유입 → 소외 → 중립
-  if (nearHigh && antBag) {
+  if (antBag) {
+    // 스마트머니(외인+기관) 합산 순매도를 개인이 받아냄 = 분산(distribution)·하락 압력. 고점 부근이면 더 강함
+    const leadSell = f.net20 <= o.net20 ? '외국인' : '기관'
+    const who = dualSell
+      ? '외국인과 기관이 동반 순매도로 물량을 줄이고, 그 물량을 개인이 받아내고 있습니다.'
+      : `${leadSell}이 대량 순매도로 이탈하고 개인이 받아내는 중입니다(반대편 메이저는 일부 매수).`
     return {
       status: 'CROWDED', badges,
-      lynchComment: '주가는 고점 부근인데 외국인·기관은 조용히 물량을 줄이고 개인만 추격 매수로 받아내는 구간입니다. 린치가 경고한 "군중 과열"의 전형입니다.',
-      actionGuide: '메이저 수급이 돌아서는지 확인 전까지 추격 매수는 자제하고 관망하세요. 좋은 실적도 수급이 빠지면 단기 변동성이 큽니다.',
+      lynchComment: (nearHigh ? '주가는 고점 부근인데 ' : '') + who + ' 수급은 개미와 반대로 봅니다 — 스마트머니 이탈은 하락 압력이 쌓이는 신호입니다.',
+      actionGuide: nearHigh
+        ? '고점 부근 + 메이저 이탈이라 추격 매수는 특히 위험합니다. 보유 중이면 분할 축소·손절선 점검, 신규 진입은 외인·기관 순매수 전환 확인 후.'
+        : '메이저 수급이 순매수로 돌아설 때까지 신규 매수·추격은 자제하세요. 좋은 실적도 스마트머니가 빠지면 단기 변동성이 큽니다.',
     }
   }
   if (dualBuy && ind.net20 < 0) {
@@ -258,7 +268,7 @@ export async function getMoneyFlow(ticker: string, market: 'KR' | 'US', name: st
   const code6 = (ticker.match(/\d{6}/)?.[0]) ?? ''
   if (!code6) return { ...base, status: 'UNSUPPORTED', note: '종목 코드를 확인할 수 없습니다.' }
 
-  const cacheKey = `money-flow-v6:${code6}:KR:${kstDate()}`   // v6: 외국인 단독 압도 매수도 유입(soloMajorBuy) 판정
+  const cacheKey = `money-flow-v7:${code6}:KR:${kstDate()}`   // v7: 외인+기관 이탈+개미독박=하락신호(CROWDED, 고점 무관)
   const cached = await getCache<MoneyFlowResult>(cacheKey, 24 * 3600_000)
   if (cached) return cached
 

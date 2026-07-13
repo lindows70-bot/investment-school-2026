@@ -7,7 +7,7 @@ const CARD = '#161b25', BORDER = '#1e293b'
 
 const STATUS_CFG: Record<FlowStatus, { label: string; color: string; emoji: string }> = {
   INFLOW:      { label: '스마트머니 유입', color: '#22c55e', emoji: '🟢' },
-  CROWDED:     { label: '개미 독박·과열', color: '#ef4444', emoji: '🔴' },
+  CROWDED:     { label: '개미 독박·이탈', color: '#ef4444', emoji: '🔴' },
   NEGLECTED:   { label: '기관 소외주',     color: '#f59e0b', emoji: '🟡' },
   NEUTRAL:     { label: '수급 중립',       color: '#8a9aaa', emoji: '⚪' },
   UNSUPPORTED: { label: '준비 중',         color: '#6b7280', emoji: '—' },
