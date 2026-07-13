@@ -43,7 +43,7 @@ export default function SupplyFlowChart({ ticker, market, name }: { ticker: stri
     let alive = true
     setState('load'); setTl(null); setCandles([])
     Promise.all([
-      fetch(`/api/money-flow/timeline?ticker=${encodeURIComponent(ticker)}&name=${encodeURIComponent(name ?? ticker)}&days=60`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null),
+      fetch(`/api/money-flow/timeline?ticker=${encodeURIComponent(ticker)}&name=${encodeURIComponent(name ?? ticker)}&days=250`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null),
       fetch(`/api/tech-chart?ticker=${encodeURIComponent(ticker)}&market=KR&tf=D`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
     ]).then(([j, tc]) => {
       if (!alive) return

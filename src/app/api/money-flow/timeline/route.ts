@@ -34,13 +34,13 @@ export async function GET(req: Request) {
   if (!code) return NextResponse.json({ error: 'KR ticker required' }, { status: 400 })
   if (getAssetType(ticker, name, 'KR') !== 'STOCK') return NextResponse.json({ error: '개별 주식 전용' }, { status: 400 })
 
-  const days = Math.min(60, Math.max(5, parseInt(sp.get('days') ?? '20', 10) || 20))
+  const days = Math.min(260, Math.max(5, parseInt(sp.get('days') ?? '20', 10) || 20))
   const cacheKey = `mf-timeline-v1:${code}:${days}:${kstDate()}`
   const cached = await getCache<TimelineResult>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   try {
-    const raw = await fetchKrTrend(code)
+    const raw = await fetchKrTrend(code, Math.ceil(days / 60))
     if (raw.length < 2) return NextResponse.json({ error: '데이터 없음' }, { status: 404 })
     const slice = raw.slice(0, days)
     const rows: TimelineRow[] = slice.map((r, i) => {

@@ -50,14 +50,30 @@ export interface TrendRow { bizdate: string; foreignerPureBuyQuant: string; fore
 export const trendNum = num   // 시장 수급 랭킹(marketFlowKr)에서 재사용
 
 // KR 일별 수급 추이(최대 60거래일) — m.stock.naver.com (JSON)
-export async function fetchKrTrend(code6: string): Promise<TrendRow[]> {
-  const r = await fetch(`https://m.stock.naver.com/api/stock/${code6}/trend?pageSize=60`, {
-    headers: { 'User-Agent': NAVER_UA, Referer: 'https://m.stock.naver.com/' },
-    signal: AbortSignal.timeout(12_000),
-  })
-  if (!r.ok) return []
-  const j = await r.json()
-  return Array.isArray(j) ? (j as TrendRow[]) : []
+// pages>1이면 bizdate 커서로 과거 60일씩 이어받음(pageSize는 네이버가 60 상한). 기본 1페이지=기존 동작 불변
+export async function fetchKrTrend(code6: string, pages = 1): Promise<TrendRow[]> {
+  const out: TrendRow[] = []
+  let cursor = ''
+  for (let p = 0; p < pages; p++) {
+    const url = `https://m.stock.naver.com/api/stock/${code6}/trend?pageSize=60${cursor ? `&bizdate=${cursor}` : ''}`
+    let rows: TrendRow[] = []
+    try {
+      const r = await fetch(url, {
+        headers: { 'User-Agent': NAVER_UA, Referer: 'https://m.stock.naver.com/' },
+        signal: AbortSignal.timeout(12_000),
+      })
+      if (!r.ok) break
+      const j = await r.json()
+      if (!Array.isArray(j)) break
+      rows = j as TrendRow[]
+    } catch { break }
+    if (rows.length === 0) break
+    out.push(...rows)
+    if (rows.length < 60) break
+    cursor = rows[rows.length - 1].bizdate   // 이 페이지 최저일 → 다음 페이지는 그 이전(중복 없음)
+  }
+  const seen = new Set<string>()
+  return out.filter(r => (seen.has(r.bizdate) ? false : (seen.add(r.bizdate), true)))
 }
 
 function actorOf(rows: TrendRow[], key: 'foreignerPureBuyQuant' | 'organPureBuyQuant' | 'individualPureBuyQuant'): FlowActor {
