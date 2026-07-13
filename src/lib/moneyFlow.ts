@@ -77,9 +77,13 @@ function judgeKr(f: FlowActor, o: FlowActor, ind: FlowActor, foreignHold: number
 } {
   const badges: string[] = []
   const dualBuy = f.net20 > 0 && o.net20 > 0
-  const antBag  = ind.net20 > 0 && (f.net20 + o.net20) < 0
+  const majorsNet = f.net20 + o.net20
+  // 한 주체 단독이라도 메이저(외인+기관) 합산 순매수 + 개인 순매도 = 메이저가 개인 물량을 받아내는 유입 구조(외국인 단독 압도 매수 포착)
+  const soloMajorBuy = !dualBuy && majorsNet > 0 && ind.net20 < 0 && (f.net20 > 0 || o.net20 > 0)
+  const antBag  = ind.net20 > 0 && majorsNet < 0
   const neglected = foreignHold != null && foreignHold < 12
   if (dualBuy) badges.push('👥 쌍끌이 매수')
+  else if (soloMajorBuy) badges.push(f.net20 >= o.net20 ? '🌍 외국인 매집' : '🏛️ 기관 매집')
   if (antBag) badges.push('🚨 개미 독박')
   if (neglected) badges.push('🏛️ 기관 소외주')
 
@@ -96,6 +100,14 @@ function judgeKr(f: FlowActor, o: FlowActor, ind: FlowActor, foreignHold: number
       status: 'INFLOW', badges,
       lynchComment: '최근 20일 외국인과 기관이 개인의 물량을 받아내며 동반 매집 중입니다. 수급의 신뢰도가 높은 구간입니다.',
       actionGuide: '펀더멘탈(PEG·이익)이 받쳐준다면 분할 매수 관점에서 참고하세요. 다만 수급은 연료일 뿐, 방향은 실적이 결정합니다.',
+    }
+  }
+  if (soloMajorBuy) {
+    const leader = f.net20 >= o.net20 ? '외국인' : '기관'
+    return {
+      status: 'INFLOW', badges,
+      lynchComment: `최근 20일 ${leader}이 다른 매도 물량(반대편 메이저·개인)을 홀로 받아내며 순매집 중입니다(외인+기관 합산 순매수 우위). 한 주체의 강한 확신이 담긴 수급입니다.`,
+      actionGuide: `펀더멘탈(PEG·이익)이 받쳐준다면 참고하세요. 단 ${leader} 한 주체가 주도라 그 주체가 돌아서면 되돌림이 빠를 수 있어, 쌍끌이(동반 매집)보다 신뢰도는 한 단계 낮게 봅니다.`,
     }
   }
   if (neglected) {
@@ -246,7 +258,7 @@ export async function getMoneyFlow(ticker: string, market: 'KR' | 'US', name: st
   const code6 = (ticker.match(/\d{6}/)?.[0]) ?? ''
   if (!code6) return { ...base, status: 'UNSUPPORTED', note: '종목 코드를 확인할 수 없습니다.' }
 
-  const cacheKey = `money-flow-v5:${code6}:KR:${kstDate()}`   // v4: shadow-13f OXY 매칭 수정 반영
+  const cacheKey = `money-flow-v6:${code6}:KR:${kstDate()}`   // v6: 외국인 단독 압도 매수도 유입(soloMajorBuy) 판정
   const cached = await getCache<MoneyFlowResult>(cacheKey, 24 * 3600_000)
   if (cached) return cached
 
