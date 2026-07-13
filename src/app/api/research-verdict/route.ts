@@ -44,7 +44,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ unsupported: true, reason: '개별 주식 전용 판정입니다(ETF·코인·원자재 제외).' }, { headers: { 'Cache-Control': 'no-store' } })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || url.origin
-  const cacheKey = `research-verdict-v4:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v4: ⬛ 관망(횡보·ADX) 타이밍 근거 추가
+  const cacheKey = `research-verdict-v5:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v5: 관망 문구 '추세 강도 약함'으로 리워딩(상승추세·영선돌파와 모순 해소)
   const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -131,12 +131,12 @@ export async function GET(req: Request) {
   if (m.roic != null && m.roic >= 15) pros.push(`⚙️ 고ROIC ${Math.round(m.roic)}%(투하자본 효율 우수 — 복리 기계)`)
   else if (m.roic == null && m.roe != null && m.roe >= 20) pros.push(`🏰 고ROE ${Math.round(m.roe)}%(버핏 퀄리티)`)
   if (m.roeInflated) cons.push(`⚙️ ROE ${Math.round(m.roe ?? 0)}%는 부채로 부풀린 효율(진짜 ROIC ${Math.round(m.roic ?? 0)}% — 자기자본만의 착시)`)
-  if (choppy) cons.push(`⬛ 관망(횡보·ADX ${adx}) — 추세 미형성, 가짜 돌파 잦아 방향(돌파·이탈) 확정 전 신규 진입 자제`)
+  if (choppy) cons.push(`⬛ 추세 강도 약함(ADX ${adx}) — 방향 확신 낮아 돌파 신호도 가짜(휩쏘)일 수 있음, 방향 확정 후 진입(추격 자제)`)
 
   const oneLiner =
     verdict === 'avoid' ? `${m.knife ? '추세가 무너진' : '재무가 취약한'} 구간 — 지금은 매수보다 ${m.knife ? '바닥 확인' : '리스크 점검'}이 먼저.`
     : verdict === 'buy' ? (choppy
-        ? `펀더멘탈(계절·가치·수급·모멘텀)은 매수 적합이나, 지금은 추세 없는 횡보(ADX ${adx}) — 방향(돌파·이탈) 확정 후 진입 권장(WHAT은 좋음, WHEN은 대기).`
+        ? `펀더멘탈(계절·가치·수급·모멘텀)은 매수 적합이나, 추세 강도가 약함(ADX ${adx}) — 돌파 신호도 가짜일 수 있어 방향 확정 후 진입 권장(WHAT은 좋음, WHEN은 확인).`
         : `4축(계절·가치·수급·모멘텀)이 받쳐주고 결격 리스크가 없는 매수 적합 구간.`)
     : `장점과 주의가 공존 — 아래 찬성/주의 근거를 보고 분할·관망으로 신중 접근.`
 

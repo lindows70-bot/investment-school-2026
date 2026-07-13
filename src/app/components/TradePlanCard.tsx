@@ -153,7 +153,7 @@ export default function TradePlanCard({ market, timing, portfolioKrw }: {
             const chop = s.choppy && t.light !== 'green'
             const strong = !chop && s.supportStrong && !s.overExtended, extended = !chop && s.supportStrong && s.overExtended, weak = !chop && s.supportWeak
             const col = chop ? '#94a3b8' : strong ? '#38bdf8' : extended ? '#f59e0b' : weak ? '#fb923c' : '#94a3b8'
-            const head = chop ? '관망(횡보)' : strong ? '지지 탄탄' : extended ? '과대이격(지지선 멀다)' : weak ? '지지 약함' : '혼조'
+            const head = chop ? '관망(추세 약함)' : strong ? '지지 탄탄' : extended ? '과대이격(지지선 멀다)' : weak ? '지지 약함' : '혼조'
             return (
               <div style={{ background: `${col}0d`, border: `1px solid ${col}44`, borderRadius: 8, padding: '7px 10px', marginBottom: 6, fontSize: 10.5, lineHeight: 1.55 }}>
                 <b style={{ color: '#38bdf8' }}>📊 매물·평단</b> <span style={{ color: col, fontWeight: 800 }}>{head}</span>
@@ -161,7 +161,7 @@ export default function TradePlanCard({ market, timing, portfolioKrw }: {
                   {' — '}
                   {s.vwap != null && <>⚓기관평단 {s.aboveVwap ? '위' : '아래'}({s.vwapDistPct! >= 0 ? '+' : ''}{s.vwapDistPct}%)</>}
                   {s.poc != null && <> · 📊매물대 {s.abovePoc ? '위(지지)' : '아래(저항)'}({s.pocDistPct! >= 0 ? '+' : ''}{s.pocDistPct}%)</>}
-                  {chop && <>. <b style={{ color: '#cbd5e1' }}>추세 없는 횡보 구간(ADX {s.adx})</b> — 가짜 돌파가 잦아 손실이 가장 많이 나는 자리. 방향(돌파·이탈) 확정 전까지 <b style={{ color: '#e2e8f0' }}>신규 진입 자제</b>.</>}
+                  {chop && <>. <b style={{ color: '#cbd5e1' }}>추세 강도 약함(ADX {s.adx})</b> — 방향 확신이 낮아 돌파 신호가 나와도 <b style={{ color: '#e2e8f0' }}>가짜 돌파(휩쏘)</b>일 수 있는 자리. 방향 확정 후 진입(추격 자제).</>}
                   {strong && <>. 앵커 이후 매수자·거래 대다수가 현재가 아래 = <b style={{ color: '#7dd3fc' }}>눌림 지지 확보(지지선 가까움)</b>.</>}
                   {extended && <>. 추세는 강하나 평단·매물대가 <b style={{ color: '#fbbf24' }}>크게 아래 = 지지선 멀다</b> — 되돌림 시 낙폭 클 수 있어 추격보다 되돌림·분할 진입.</>}
                   {weak && <>. 평단·매물 대다수가 위 = <b style={{ color: '#fdba74' }}>지지 얇음, 되돌림 리스크</b> — 반등·매물 소화 확인 후.</>}
