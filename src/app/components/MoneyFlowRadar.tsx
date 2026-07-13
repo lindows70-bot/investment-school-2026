@@ -64,12 +64,12 @@ function UsBody({ us }: { us: UsFlow }) {
       )}
       {/* 내부자 · 13F 칩 */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-        <span style={{ background: us.insiderBuyers > 0 ? 'rgba(34,197,94,0.12)' : '#0f1117', color: us.insiderBuyers > 0 ? '#34d399' : '#8a9aaa', border: `1px solid ${us.insiderBuyers > 0 ? '#22c55e44' : '#1e293b'}`, borderRadius: 8, padding: '4px 11px', fontSize: 12, fontWeight: 600 }}>
-          {us.insiderBuyers > 0 ? `🕵️ 내부자 ${us.insiderBuyers}명 장내매수${us.insiderCluster ? ' 🔥' : ''}` : '🕵️ 내부자 매수 없음'}
+        <span title="EDGAR Form 4의 공개시장 매수(코드 P) — 린치가 말한 '내부자가 사는 이유는 하나'인 진짜 매수 신호" style={{ background: us.insiderBuyers > 0 ? 'rgba(34,197,94,0.12)' : '#0f1117', color: us.insiderBuyers > 0 ? '#34d399' : '#8a9aaa', border: `1px solid ${us.insiderBuyers > 0 ? '#22c55e44' : '#1e293b'}`, borderRadius: 8, padding: '4px 11px', fontSize: 12, fontWeight: 600 }}>
+          {us.insiderBuyers > 0 ? `🕵️ 90일 장내매수 ${us.insiderBuyers}명${us.insiderCluster ? ' 🔥' : ''}` : '🕵️ 90일 장내매수 없음'}
         </span>
-        {us.insiderNetPct != null && Math.abs(us.insiderNetPct) >= 5 && (
-          <span style={{ background: us.insiderNetPct > 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)', color: us.insiderNetPct > 0 ? '#34d399' : '#f87171', border: `1px solid ${us.insiderNetPct > 0 ? '#22c55e44' : '#ef444444'}`, borderRadius: 8, padding: '4px 11px', fontSize: 12, fontWeight: 600 }}>
-            📊 내부자 6개월 {us.insiderNetPct > 0 ? '순매수 우위' : '순매도 우위'}
+        {us.insiderNetPct != null && Math.abs(us.insiderNetPct) >= 10 && (
+          <span title="Yahoo 내부자 6개월 순 지분변동 — 그랜트·옵션행사·매도까지 합산한 순증감(장내매수와 다름)" style={{ background: us.insiderNetPct > 0 ? 'rgba(96,165,250,0.12)' : 'rgba(239,68,68,0.12)', color: us.insiderNetPct > 0 ? '#60a5fa' : '#f87171', border: `1px solid ${us.insiderNetPct > 0 ? '#3b82f644' : '#ef444444'}`, borderRadius: 8, padding: '4px 11px', fontSize: 12, fontWeight: 600 }}>
+            📊 내부자 지분 6개월 {us.insiderNetPct > 0 ? '순증(그랜트 포함)' : '순감'}
           </span>
         )}
         <span style={{ background: us.giantHolders > 0 ? 'rgba(59,130,246,0.12)' : '#0f1117', color: us.giantHolders > 0 ? '#60a5fa' : '#8a9aaa', border: `1px solid ${us.giantHolders > 0 ? '#3b82f644' : '#1e293b'}`, borderRadius: 8, padding: '4px 11px', fontSize: 12, fontWeight: 600 }}>

@@ -272,7 +272,7 @@ function judgeUs(us: UsFlow, nearHigh: boolean): { status: FlowStatus; badges: s
     if (instAccum) parts.push(`Top 기관 ${us.instAdders}곳이 분기 지분 확대(기관 보유 ${us.instPct ?? '—'}%)`)
     return {
       status: 'INFLOW', badges,
-      lynchComment: `${parts.join(', ')}했고, 자금흐름(MFI ${us.mfi})도 과열 구간이 아닙니다. 스마트머니가 들어오는 자리입니다.${us.insiderNetPct != null && us.insiderNetPct > 5 ? ` 내부자 순매매도 순매수(+${us.insiderNetPct}) 우위.` : ''}`,
+      lynchComment: `${parts.join(', ')}했고, 자금흐름(MFI ${us.mfi})도 과열 구간이 아닙니다. 스마트머니가 들어오는 자리입니다.${us.insiderNetPct != null && us.insiderNetPct > 10 ? ` (내부자 6개월 지분도 순증 — 단 그랜트·행사 포함이라 장내매수와는 구분).` : ''}`,
       actionGuide: '펀더멘탈이 받쳐준다면 분할 매수 관점에서 참고하세요. 기관·내부자 수급은 강하나, 방향은 결국 실적이 결정합니다.',
     }
   }
@@ -297,7 +297,7 @@ function judgeUs(us: UsFlow, nearHigh: boolean): { status: FlowStatus; badges: s
 }
 
 async function getUsFlow(ticker: string, name: string, base: MoneyFlowResult, selfBase?: string): Promise<MoneyFlowResult> {
-  const cacheKey = `money-flow-v6:${ticker.toUpperCase()}:US:${kstDate()}`
+  const cacheKey = `money-flow-v7:${ticker.toUpperCase()}:US:${kstDate()}`
   const cached = await getCache<MoneyFlowResult>(cacheKey, 24 * 3600_000)
   if (cached) return cached
   try {
