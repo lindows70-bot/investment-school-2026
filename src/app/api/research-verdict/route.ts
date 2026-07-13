@@ -45,7 +45,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ unsupported: true, reason: '개별 주식 전용 판정입니다(ETF·코인·원자재 제외).' }, { headers: { 'Cache-Control': 'no-store' } })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || url.origin
-  const cacheKey = `research-verdict-v6:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v6: 🚦 타점 신호등+라쉬케+매물·평단(timing) 응답 추가 → 기술 타이밍 배지
+  const cacheKey = `research-verdict-v7:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v6: 🚦 타점 신호등+라쉬케+매물·평단(timing) 응답 추가 → 기술 타이밍 배지
   const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -118,8 +118,9 @@ export async function GET(req: Request) {
   if (m.peg != null && m.peg > 2.2) cons.push(`💲 고PEG ${m.peg.toFixed(2)}(성장 대비 고평가)`)
   if (dcf === 'conservative') pros.push('🔮 역-DCF: 시장 기대 보수적(저평가 여지)')
   else if (dcf === 'demanding') cons.push('🔮 역-DCF: 기대 과도(주가가 높은 성장 선반영)')
-  if (flow === 'INFLOW') pros.push('💰 스마트머니 유입(외인·기관 매집)')
-  else if (flow === 'CROWDED') cons.push('💰 수급 과열·이탈(매물 부담)')
+  // ⚠️ 미국은 외국인/기관/개인 일별 구분이 없음(한국거래소만 공시) → US는 '기관·내부자', KR만 '외인·기관'
+  if (flow === 'INFLOW') pros.push(market === 'KR' ? '💰 스마트머니 유입(외인·기관 매집)' : '💰 스마트머니 유입(기관·내부자 매집)')
+  else if (flow === 'CROWDED') cons.push(market === 'KR' ? '💰 수급 과열·이탈(외인·기관 매도, 매물 부담)' : '💰 수급 과열(기관 순감소·MFI 과매수, 매물 부담)')
   if (m.fwdEpsDir === 'accel') pros.push('📈 이익 가속(Fwd EPS 상향 — 상승 사이클)')
   else if (m.fwdEpsDir === 'decline') cons.push('📉 이익 역성장(Fwd EPS 하향 — 하강 사이클)')
   if (m.priceTrend === 'up') pros.push('🚀 주가 상승추세(50·200일선 정배열)')

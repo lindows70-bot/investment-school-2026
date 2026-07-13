@@ -230,7 +230,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v35:${user.id}:${today}:${fp}`   // v35: 📊 매물·평단(VWAP 과대이격·저항 갭) 익절 근거 병기
+  const cacheKey = `ai-rebalance-v36:${user.id}:${today}:${fp}`   // v36: US CROWDED 사유 시장별(외인→기관) + 📊 매물·평단 익절 근거
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -545,9 +545,9 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
   const mvByTicker = new Map(items.map(i => [i.ticker.toUpperCase(), i]))
 
   // ③' 보강: 종목별 매도측 신호 수집(역-DCF·수급·계절) — 보유 진단 종목 한정·캐시 재사용
-  const sig = new Map<string, { dcf?: string; flow?: string; seasonTag?: string; trend?: string }>()
+  const sig = new Map<string, { dcf?: string; flow?: string; seasonTag?: string; trend?: string; market?: 'KR' | 'US' }>()
   await Promise.all(diagnoses.map(async d => {
-    const k = d.ticker.toUpperCase(); const mk = (d.market === 'KR' ? 'KR' : 'US') as 'KR' | 'US'; const o: { dcf?: string; flow?: string; seasonTag?: string; trend?: string } = {}
+    const k = d.ticker.toUpperCase(); const mk = (d.market === 'KR' ? 'KR' : 'US') as 'KR' | 'US'; const o: { dcf?: string; flow?: string; seasonTag?: string; trend?: string; market?: 'KR' | 'US' } = { market: mk }
     try { const r = await fetch(`${base}/api/reverse-dcf?ticker=${encodeURIComponent(d.ticker)}&market=${mk}`, { signal: AbortSignal.timeout(10_000) }); if (r.ok) o.dcf = (await r.json())?.verdict } catch { /* graceful */ }
     try { const mf = await getMoneyFlow(d.ticker, mk, d.name, base); o.flow = mf?.status } catch { /* graceful */ }
     o.trend = d.priceTrend   // 보유 진단에서 캡처한 주가 추세(추가 fetch 0)
@@ -564,7 +564,7 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
     const o = sig.get(k); if (!o) return []
     const out: string[] = []
     if (o.dcf === 'demanding') out.push('역-DCF 기대과도🔥(주가가 실제보다 높은 성장 선반영)')
-    if (o.flow === 'CROWDED') out.push('수급 이탈·과열(외인·기관 매도 우위)')
+    if (o.flow === 'CROWDED') out.push(o.market === 'KR' ? '수급 이탈·과열(외인·기관 매도 우위)' : '수급 과열(기관 순감소·MFI 과매수)')
     if (o.trend === 'down') out.push('주가 하락추세(50·200일선 이탈 — 추세 이탈)')
     if (o.seasonTag === 'unfavored') out.push('현재 계절 역풍(불리 섹터)')
     return out

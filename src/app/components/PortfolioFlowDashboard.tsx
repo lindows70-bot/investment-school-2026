@@ -140,7 +140,7 @@ export default function PortfolioFlowDashboard() {
           <div>
             <div style={{ color: '#f87171', fontWeight: 900, fontSize: 12.5, marginBottom: 3 }}>스마트머니 이탈 경고 — 내 보유 {crowdedList.length}종목</div>
             <div style={{ color: '#fecaca', fontSize: 12, lineHeight: 1.65 }}>
-              <b style={{ color: '#fca5a5' }}>{crowdedList.slice(0, 6).map(e => e.name).join(' · ')}{crowdedList.length > 6 ? ` 외 ${crowdedList.length - 6}종목` : ''}</b> — 외국인·기관이 순매도로 빠져나가고 그 물량을 개인이 받아내는 구조입니다(하락 압력 누적, SK하이닉스형).
+              <b style={{ color: '#fca5a5' }}>{crowdedList.slice(0, 6).map(e => e.name).join(' · ')}{crowdedList.length > 6 ? ` 외 ${crowdedList.length - 6}종목` : ''}</b> — 스마트머니(한국: 외국인·기관 / 미국: 기관·큰손)가 순매도·지분 축소로 빠져나가는 종목입니다(하락 압력 누적, SK하이닉스형).
               수급은 개미와 반대로 봅니다. <b style={{ color: '#fecaca' }}>종목 리서치의 📈 수급 차트</b>로 이탈 추세를 확인하고 비중·손절선을 점검하세요.
             </div>
           </div>
