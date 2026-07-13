@@ -53,8 +53,8 @@ export default function SupplyFlowChart({ ticker, market, name }: { ticker: stri
     return () => { alive = false }
   }, [ticker, market, name, isKr])
 
-  const { chart, smartTotal, recent5Smart, priceChg, pMin, pMax } = useMemo(() => {
-    if (!tl?.rows?.length) return { chart: [] as Row[], smartTotal: 0, recent5Smart: 0, priceChg: 0, pMin: 0, pMax: 0 }
+  const { chart, smartTotal, recent5Smart, priceChg, pMin, pMax, scale } = useMemo(() => {
+    if (!tl?.rows?.length) return { chart: [] as Row[], smartTotal: 0, recent5Smart: 0, priceChg: 0, pMin: 0, pMax: 0, scale: 0 }
     const cMap = new Map<string, Candle>()
     for (const k of candles) cMap.set(k.date, k)
     const chron = [...tl.rows].reverse()   // 과거→현재
@@ -71,7 +71,8 @@ export default function SupplyFlowChart({ ticker, market, name }: { ticker: stri
     const priceChg = chart.length > 1 && chart[0].c > 0 ? Math.round(((last.c - chart[0].c) / chart[0].c) * 1000) / 10 : 0
     let pMin = Infinity, pMax = -Infinity
     for (const r of chart) { if (r.l < pMin) pMin = r.l; if (r.h > pMax) pMax = r.h }
-    return { chart, smartTotal, recent5Smart, priceChg, pMin: pMin * 0.985, pMax: pMax * 1.015 }
+    const scale = Math.max(Math.abs(last?.fCum ?? 0), Math.abs(last?.oCum ?? 0), Math.abs(last?.iCum ?? 0))
+    return { chart, smartTotal, recent5Smart, priceChg, pMin: pMin * 0.985, pMax: pMax * 1.015, scale }
   }, [tl, candles])
 
   if (state === 'none') return null
@@ -82,26 +83,30 @@ export default function SupplyFlowChart({ ticker, market, name }: { ticker: stri
   )
   if (!tl) return null
 
-  const V = smartTotal < 0 && recent5Smart < 0
+  // 혼조 = 외인↔기관이 서로 상쇄해 합산이 개별 규모 대비 미미할 때만(1년 누적이 뚜렷하면 방향 인정 — 레이더와 정합)
+  const nearZero = scale > 0 && Math.abs(smartTotal) / scale < 0.2
+  const V = nearZero
+    ? { key: 'mixed', label: '⚪ 수급 혼조', color: '#8a9aaa', bg: 'rgba(138,154,170,0.08)', bd: BORDER }
+    : smartTotal < 0 && recent5Smart < 0
     ? { key: 'exit', label: '🚨 스마트머니 지속 이탈', color: '#ef4444', bg: 'rgba(239,68,68,0.10)', bd: 'rgba(239,68,68,0.4)' }
     : smartTotal < 0
     ? { key: 'weak', label: '⚠️ 스마트머니 이탈 우위', color: '#f59e0b', bg: 'rgba(245,158,11,0.10)', bd: 'rgba(245,158,11,0.4)' }
-    : recent5Smart > 0
-    ? { key: 'accum', label: '🟢 스마트머니 매집', color: '#22c55e', bg: 'rgba(34,197,94,0.10)', bd: 'rgba(34,197,94,0.4)' }
-    : { key: 'mixed', label: '⚪ 수급 혼조', color: '#8a9aaa', bg: 'rgba(138,154,170,0.08)', bd: BORDER }
+    : { key: 'accum', label: '🟢 스마트머니 매집', color: '#22c55e', bg: 'rgba(34,197,94,0.10)', bd: 'rgba(34,197,94,0.4)' }
   const msg = V.key === 'exit'
     ? `최근 ${tl.days}거래일 외국인+기관이 합산 ${eok(smartTotal)} 순매도(최근 5일도 이탈 지속) — 개인이 물량을 받아내는 SK하이닉스형 분산 구조입니다. 스마트머니 이탈은 하락 압력이 누적되는 신호(수급은 개미와 반대로 해석).`
     : V.key === 'weak'
     ? `최근 ${tl.days}거래일 외국인+기관 합산 ${eok(smartTotal)} 순매도 우위 — 다만 최근 5일은 소폭 유입 전환. 메이저 수급 방향을 더 지켜보세요.`
     : V.key === 'accum'
-    ? `최근 ${tl.days}거래일 외국인+기관이 합산 ${eok(smartTotal)} 순매수로 매집 중입니다. 스마트머니가 들어오는 구간(수급은 연료, 방향은 실적).`
-    : `외국인+기관 합산 ${eok(smartTotal)}로 뚜렷한 방향이 없습니다. 수급보다 펀더멘탈 신호를 중심으로 보세요.`
+    ? (recent5Smart > 0
+      ? `최근 ${tl.days}거래일 외국인+기관이 합산 ${eok(smartTotal)} 순매수로 매집 중입니다(최근 5일도 유입 지속). 스마트머니가 들어오는 구간(수급은 연료, 방향은 실적).`
+      : `최근 ${tl.days}거래일 외국인+기관이 합산 ${eok(smartTotal)} 순매수로 매집 우위입니다 — 다만 최근 5일은 소폭 주춤(기관 차익 매도). 개인이 물량을 넘기는 큰 흐름은 유입.`)
+    : `외국인+기관 합산 ${eok(smartTotal)}로 외국인·기관이 서로 상쇄돼 뚜렷한 방향이 없습니다. 수급보다 펀더멘탈 신호를 중심으로 보세요.`
 
   return (
     <div style={{ background: CARD, borderRadius: 14, border: `1px solid ${V.bd}`, overflow: 'hidden' }}>
       <div style={{ background: V.bg, padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 14, fontWeight: 800, color: '#e2e8f0' }}>📈 수급 차트</span>
-        <span style={{ fontSize: 11, color: '#8a9aaa' }}>{tl.name} · 캔들 주가 + 외국인·기관·개인 누적 순매수</span>
+        <span style={{ fontSize: 11, color: '#8a9aaa' }}>{name || tl.name} · 캔들 주가 + 외국인·기관·개인 누적 순매수</span>
         <span style={{ marginLeft: 'auto', background: V.color + '22', color: V.color, border: `1px solid ${V.bd}`, borderRadius: 999, padding: '3px 12px', fontWeight: 800, fontSize: 12 }}>{V.label}</span>
       </div>
 
