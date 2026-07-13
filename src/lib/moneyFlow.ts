@@ -15,6 +15,13 @@ export interface UsFlow {
   giantHolders:   number          // 13F 전설 거인 보유 수(청산 제외)
   giantTrend:     'add' | 'cut' | 'mixed' | 'none'
   giantKnown:     boolean         // 13F 조회 성공 여부(false=집계중, '미보유'와 구분)
+  // 🆕 전체 기관 보유(Yahoo 13F 집계 — 9인 거장보다 넓은 스마트머니, 분기·45일 지연)
+  instPct:        number | null   // 기관 보유 비중 %
+  instCount:      number | null   // 보유 기관 수
+  instTrend:      'accum' | 'distrib' | 'mixed' | 'flat' | null  // Top 기관 분기 순증감
+  instAdders:     number          // Top 기관 중 지분 확대 수
+  instCutters:    number          // Top 기관 중 지분 축소 수
+  insiderNetPct:  number | null   // 내부자 순매매 성향(6개월, +=순매수)
 }
 
 export interface FlowActor {
@@ -207,51 +214,100 @@ async function fetch13F(ticker: string, name: string, selfBase?: string): Promis
   } catch { return { holders: 0, trend: 'none', ok: false } }
 }
 
+// 🆕 전체 기관 보유(Yahoo quoteSummary — 무료·무키). 13F 집계라 분기·45일 지연이지만 9인 거장보다 넓은 스마트머니
+type InstFlow = Pick<UsFlow, 'instPct' | 'instCount' | 'instTrend' | 'instAdders' | 'instCutters' | 'insiderNetPct'>
+async function fetchUsInstitutional(ticker: string): Promise<InstFlow> {
+  const empty: InstFlow = { instPct: null, instCount: null, instTrend: null, instAdders: 0, instCutters: 0, insiderNetPct: null }
+  try {
+    const { default: YF } = await import('yahoo-finance2')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const yf = new (YF as any)({ suppressNotices: ['yahooSurvey'] })
+    const q = await yf.quoteSummary(ticker.toUpperCase(), { modules: ['majorHoldersBreakdown', 'institutionOwnership', 'netSharePurchaseActivity'] })
+    const raw = (v: unknown): number | null => typeof v === 'number' ? v : (v && typeof (v as { raw?: number }).raw === 'number' ? (v as { raw: number }).raw : null)
+    const mh = q?.majorHoldersBreakdown ?? {}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const list: any[] = q?.institutionOwnership?.ownershipList ?? []
+    const ns = q?.netSharePurchaseActivity ?? {}
+    const ip = raw(mh.institutionsPercentHeld)
+    const instPct = ip == null ? null : Math.round(ip * 1000) / 10
+    const instCount = raw(mh.institutionsCount)
+    // Top 기관 분기 지분 증감 — 신규편입/청산 아티팩트(|Δ|≥50%)·미세 패시브 드리프트(<3%) 제외한 '의미있는' 변동만.
+    // 마진 3 이상일 때만 방향 인정(패시브 인덱스펀드가 대부분이라 웬만하면 혼조 = 과신호 방지)
+    let adders = 0, cutters = 0, counted = 0
+    for (const h of list) {
+      const pc = raw(h?.pctChange)
+      if (pc == null || Math.abs(pc) >= 0.5) continue
+      counted++
+      if (pc > 0.03) adders++
+      else if (pc < -0.03) cutters++
+    }
+    const instTrend: UsFlow['instTrend'] = counted < 3 ? null
+      : adders - cutters >= 3 ? 'accum' : cutters - adders >= 3 ? 'distrib' : 'mixed'
+    const inp = raw(ns.netPercentInsiderShares)
+    const insiderNetPct = inp == null ? null : Math.round(inp * 1000) / 10
+    return { instPct, instCount: instCount == null ? null : Math.round(instCount), instTrend, instAdders: adders, instCutters: cutters, insiderNetPct }
+  } catch { return empty }
+}
+
 function judgeUs(us: UsFlow, nearHigh: boolean): { status: FlowStatus; badges: string[]; lynchComment: string; actionGuide: string } {
   const badges: string[] = []
   if (us.insiderCluster) badges.push('🔥 내부자 클러스터')
   else if (us.insiderBuyers > 0) badges.push('🕵️ 내부자 매수')
-  // 추적 거인은 9인뿐 → 보유는 양(+)의 신호로만. 0(미매칭 가능)을 '소외'로 단정하지 않음
+  // 🆕 전체 기관 보유·분기 순증감(9인 거장보다 넓은 스마트머니)
+  if (us.instPct != null) badges.push(`🏛️ 기관 ${us.instPct}% 보유`)
+  if (us.instTrend === 'accum') badges.push(`📈 기관 순매집(분기 ${us.instAdders}↑)`)
+  else if (us.instTrend === 'distrib') badges.push(`📉 기관 순감소(분기 ${us.instCutters}↓)`)
   if (us.giantHolders > 0) badges.push(`🐳 거인 ${us.giantHolders}인 보유`)
   if (us.mfi != null && us.mfi < 20) badges.push('⚡ 자금흐름 과매도')
   if (us.mfi != null && us.mfi > 80) badges.push('🌡️ 자금흐름 과매수')
 
   const insiderBuy = us.insiderBuyers > 0
-  // 🟢 유입: 내부자 매수 + 자금흐름이 과열(>70) 아님 → 린치가 좋아하는 자리
-  if (insiderBuy && us.mfi != null && us.mfi < 70) {
+  const notHot = us.mfi != null && us.mfi < 70
+  const instAccum = us.instTrend === 'accum'
+  const instDistrib = us.instTrend === 'distrib'
+  // 🟢 유입: (내부자 매수 또는 기관 분기 순매집) + 자금흐름이 과열(>70) 아님
+  if ((insiderBuy || instAccum) && notHot) {
+    const parts: string[] = []
+    if (insiderBuy) parts.push(`내부자 ${us.insiderBuyers}명이 장내매수${us.insiderCluster ? '(클러스터)' : ''}`)
+    if (instAccum) parts.push(`Top 기관 ${us.instAdders}곳이 분기 지분 확대(기관 보유 ${us.instPct ?? '—'}%)`)
     return {
       status: 'INFLOW', badges,
-      lynchComment: `최근 90일 내부자 ${us.insiderBuyers}명이 자기 돈으로 장내매수${us.insiderCluster ? '(클러스터)' : ''}했고, 자금흐름(MFI ${us.mfi})도 과열 구간이 아닙니다. 린치가 말한 "내부자가 사는 데는 이유가 하나"입니다.`,
-      actionGuide: '펀더멘탈이 받쳐준다면 분할 매수 관점에서 참고하세요. 내부자 매수는 강력하나, 방향은 결국 실적이 결정합니다.',
+      lynchComment: `${parts.join(', ')}했고, 자금흐름(MFI ${us.mfi})도 과열 구간이 아닙니다. 스마트머니가 들어오는 자리입니다.${us.insiderNetPct != null && us.insiderNetPct > 5 ? ` 내부자 순매매도 순매수(+${us.insiderNetPct}) 우위.` : ''}`,
+      actionGuide: '펀더멘탈이 받쳐준다면 분할 매수 관점에서 참고하세요. 기관·내부자 수급은 강하나, 방향은 결국 실적이 결정합니다.',
     }
   }
-  // 🔴 과열: 신고가 + MFI 과매수
-  if (nearHigh && us.mfi != null && us.mfi > 80) {
+  // 🔴 과열/분산: 신고가+MFI 과매수, 또는 기관이 분기 순감소로 물량 축소
+  if ((nearHigh && us.mfi != null && us.mfi > 80) || (instDistrib && nearHigh)) {
     return {
       status: 'CROWDED', badges,
-      lynchComment: `주가는 고점 부근이고 자금흐름지수(MFI ${us.mfi})가 과매수권입니다. 단기 과열로 변동성이 커질 수 있는 구간입니다.`,
-      actionGuide: '추격 매수보다 자금흐름이 식는지 관망하세요. 좋은 기업도 과열 구간 진입은 손실 회피에 불리합니다.',
+      lynchComment: instDistrib
+        ? `주가는 고점 부근인데 Top 기관 ${us.instCutters}곳이 분기 지분을 줄였습니다(기관 보유 ${us.instPct ?? '—'}%). 스마트머니가 발을 빼는 신호일 수 있습니다.`
+        : `주가는 고점 부근이고 자금흐름지수(MFI ${us.mfi})가 과매수권입니다. 단기 과열로 변동성이 커질 수 있는 구간입니다.`,
+      actionGuide: '추격 매수보다 자금흐름·기관 동향이 식는지 관망하세요. 좋은 기업도 과열 구간 진입은 손실 회피에 불리합니다.',
     }
   }
   // US 소외 판정은 제거 — 추적 거인 9인뿐이라 0이 흔하고 매칭 미스 가능(거짓 '소외주' 방지)
+  const instNote = us.instTrend === 'accum' ? ' 다만 Top 기관은 분기 순매집 중입니다.'
+    : us.instTrend === 'distrib' ? ' Top 기관은 분기 지분을 소폭 줄였습니다.' : ''
   return {
     status: 'NEUTRAL', badges,
-    lynchComment: `뚜렷한 스마트머니 신호는 약합니다(MFI ${us.mfi ?? '—'}, 내부자 매수 ${us.insiderBuyers}명). 수급보다 펀더멘탈 중심으로 판단할 구간입니다.`,
+    lynchComment: `뚜렷한 스마트머니 신호는 약합니다(MFI ${us.mfi ?? '—'}, 내부자 매수 ${us.insiderBuyers}명${us.instPct != null ? `, 기관 보유 ${us.instPct}%` : ''}).${instNote} 수급보다 펀더멘탈 중심으로 판단할 구간입니다.`,
     actionGuide: '수급 프록시는 중립입니다. PEG·이익 추세 등 본질 지표를 우선 보세요.',
   }
 }
 
 async function getUsFlow(ticker: string, name: string, base: MoneyFlowResult, selfBase?: string): Promise<MoneyFlowResult> {
-  const cacheKey = `money-flow-v5:${ticker.toUpperCase()}:US:${kstDate()}`
+  const cacheKey = `money-flow-v6:${ticker.toUpperCase()}:US:${kstDate()}`
   const cached = await getCache<MoneyFlowResult>(cacheKey, 24 * 3600_000)
   if (cached) return cached
   try {
-    const [mfiRes, insider, f13] = await Promise.all([
+    const [mfiRes, insider, f13, inst] = await Promise.all([
       computeUsMfi(ticker),
       getInsiderSignal({ ticker, market: 'US', name }).catch(() => null),
       fetch13F(ticker, name, selfBase),
+      fetchUsInstitutional(ticker),
     ])
-    if (mfiRes.mfi == null && !insider?.hasBuys && f13.holders === 0) {
+    if (mfiRes.mfi == null && !insider?.hasBuys && f13.holders === 0 && inst.instPct == null) {
       return { ...base, status: 'UNSUPPORTED', note: '미국 수급 프록시 데이터를 불러오지 못했습니다.' }
     }
     const us: UsFlow = {
@@ -263,6 +319,7 @@ async function getUsFlow(ticker: string, name: string, base: MoneyFlowResult, se
       giantHolders: f13.holders,
       giantTrend: f13.trend,
       giantKnown: f13.ok,
+      ...inst,
     }
     const j = judgeUs(us, mfiRes.nearHigh)
     const result: MoneyFlowResult = { ...base, us, nearHigh: mfiRes.nearHigh, asOf: new Date().toISOString(), ...j }
