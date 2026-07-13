@@ -11,6 +11,7 @@ import PairTradingMonitor from '@/app/components/PairTradingMonitor'
 import ShadowTracker13F from '@/app/components/ShadowTracker13F'
 import MoatBreachDetector from '@/app/components/MoatBreachDetector'
 import MoneyFlowRadar    from '@/app/components/MoneyFlowRadar'
+import SupplyFlowChart   from '@/app/components/SupplyFlowChart'
 import ReverseDcf        from '@/app/components/ReverseDcf'
 import StockProfileCard  from '@/app/components/StockProfileCard'
 import FcfQualityCard    from '@/app/components/FcfQualityCard'
@@ -559,6 +560,10 @@ export default function ResearchPage() {
       {/* 💰 시장 시그널 — 수급·페어·13F (차트 탭) */}
       {!loading && stockInfo && priceData && isStock && (
         <MoneyFlowRadar ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
+      )}
+      {/* 📈 수급 차트 — 외국인·기관·개인 누적 순매수 vs 주가(KR 개별주식). US·데이터부족은 자동 숨김 */}
+      {!loading && stockInfo && priceData && isStock && (
+        <SupplyFlowChart ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
       )}
       {!loading && stockInfo && priceData && isStock && (
         <PairTradingMonitor ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
