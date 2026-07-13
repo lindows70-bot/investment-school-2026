@@ -25,6 +25,7 @@ export interface MarksCycleResult {
   zoneLabel: string; stance: string; stanceIcon: string; stanceMsg: string
   secondLevel: { first: string; second: string }   // 2차적 사고 대비
   opportunity: { level: 'strong' | 'fear' | 'forced' | 'none'; label: string; msg: string }   // 🩸 강제 매도자 역발상 매수 창
+  requiredMos: number            // 🎯 시계추 조정 요구 안전마진 % — 탐욕일수록↑(공정가치 대비 더 싸야 매수). 막스: 사이클에 공격/방어 무게 조정
   axes: MarksAxis[]
   usedAxes: number; asOf: string
 }
@@ -59,7 +60,7 @@ async function pull(base: string, path: string): Promise<{ ok: boolean } & Recor
 
 export async function GET(req: Request) {
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-  const cacheKey = `marks-cycle-v3:${kstDate()}`   // v3: 강제 매도자 역발상 매수 창(opportunity)
+  const cacheKey = `marks-cycle-v4:${kstDate()}`   // v4: 🎯 시계추 조정 요구 안전마진(requiredMos)
   const cached = await getCache<MarksCycleResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -122,10 +123,12 @@ export async function GET(req: Request) {
     : forced ? { level: 'forced', label: '⚠️ 강제청산(반대매매) 스파이크', msg: `반대매매 비중이 역사 상단(백분위 ${Math.round(forcedPct as number)}%) — 빚투 청산에 낙폭과대된 우량주 선별 기회(칼날 주의).` }
     : { level: 'none', label: '기회 창 닫힘', msg: '현재는 극단적 저가매수(강제 매도자) 신호가 약함 — 개별 종목 안전마진 우선.' }
 
+  // 🎯 시계추 조정 요구 안전마진(막스: 사이클에 공격/방어 무게 조정). 기본 20% × (1 + 시계추/50), 시계추=temp−50(−50~+50). [5,40] 클램프
+  const requiredMos = Math.max(5, Math.min(40, Math.round(20 * (1 + (temp - 50) / 50))))
   const result: MarksCycleResult = {
     temp, pendulum: (temp - 50) * 2, zone: z.zone, zoneLabel: z.label,
     stance: z.stance, stanceIcon: z.icon, stanceMsg: z.msg,
-    secondLevel: secondLevelOf(z.zone), opportunity, axes, usedAxes: used.length, asOf: new Date().toISOString(),
+    secondLevel: secondLevelOf(z.zone), opportunity, requiredMos, axes, usedAxes: used.length, asOf: new Date().toISOString(),
   }
   // 과반(2+) 성공 시에만 캐시(부분실패 박제 방지)
   if (used.length >= 2) await setCache(cacheKey, result)

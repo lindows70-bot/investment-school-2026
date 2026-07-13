@@ -155,6 +155,9 @@ export default function BriefingPage() {
             {temp != null && (<>
               <span style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 7, padding: '5px 11px' }}>🕰️ 탐욕 온도 <b style={{ color: temp >= 58 ? '#f87171' : temp <= 42 ? '#4ade80' : '#e2e8f0', fontFamily: 'monospace' }}>{temp}</b> · <b style={{ color: '#cbd5e1' }}>{marks.d.stance}</b></span>
               <span style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 7, padding: '5px 11px' }}>💰 권장 현금 <b style={{ color: '#c4b5fd', fontFamily: 'monospace' }}>{cash}</b></span>
+              {typeof marks.d.requiredMos === 'number' && (
+                <span title="탐욕일수록 더 큰 할인을 요구 — 신규 매수는 공정가치 대비 이만큼 싼 가격에서만(모닝스타 별점 할인율과 비교)" style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 7, padding: '5px 11px' }}>🎯 요구 안전마진 <b style={{ color: temp >= 58 ? '#f87171' : temp <= 42 ? '#4ade80' : '#fbbf24', fontFamily: 'monospace' }}>{marks.d.requiredMos}%</b></span>
+              )}
             </>)}
             {reco.d && (
               <span style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 7, padding: '5px 11px' }}>🌦️ 계절 🇺🇸 <b style={{ color: '#cbd5e1' }}>{reco.d.usSeason.label}</b> · 🇰🇷 <b style={{ color: '#cbd5e1' }}>{reco.d.krSeason.label}</b></span>

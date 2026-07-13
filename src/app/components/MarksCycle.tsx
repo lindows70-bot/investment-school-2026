@@ -85,6 +85,26 @@ export default function MarksCycle() {
               </div>
             )
           })()}
+          {/* 🎯 시계추 조정 요구 안전마진 — 정성 '안전마진 확보'를 정량 %로. 탐욕일수록 더 싸야 매수(막스) */}
+          {typeof data.requiredMos === 'number' && (
+            <div style={{ marginTop: 8, background: '#131722', border: `1px solid ${data.temp >= 58 ? '#ef444455' : data.temp <= 42 ? '#22c55e55' : BORDER}`, borderRadius: 8, padding: '7px 11px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: '#fbbf24' }}>🎯 시계추 조정 요구 안전마진</span>
+                <b style={{ color: data.temp >= 58 ? '#f87171' : data.temp <= 42 ? '#4ade80' : '#e2e8f0', fontSize: 15, fontFamily: 'monospace' }}>{data.requiredMos}%</b>
+                <span style={{ fontSize: 10, color: '#8599ae' }}>기본 20% × (1 + 시계추/50)</span>
+              </div>
+              <div style={{ fontSize: 10.5, color: '#a8b5c2', marginTop: 4, lineHeight: 1.55 }}>
+                {data.temp >= 58
+                  ? `지금은 ${data.zoneLabel} 국면 — 하방 지뢰가 많아 요구 안전마진을 높입니다. 신규 매수는 공정가치 대비 최소 ${data.requiredMos}% 싼 가격에서만(추격 자제).`
+                  : data.temp <= 42
+                  ? `지금은 ${data.zoneLabel} 국면 — 위험이 이미 가격에 반영돼 요구 안전마진을 낮춥니다. 공정가치 대비 ${data.requiredMos}%만 할인돼도 적극 매집 허용.`
+                  : `균형 국면 — 표준 안전마진 ${data.requiredMos}%. 공정가치 대비 이만큼 할인된 가격을 매수 기준으로.`}
+              </div>
+              <div style={{ fontSize: 9.5, color: '#7f93a8', marginTop: 3 }}>
+                → 종목별 공정가치 대비 할인율은 <b style={{ color: '#94a3b8' }}>종목 리서치 · 워렌버핏 탭의 모닝스타 별점</b>에서 확인 — 그 할인이 위 요구치보다 크면 진입 신호.
+              </div>
+            </div>
+          )}
           <div style={{ fontSize: 10.5, color: '#8a9aaa', marginTop: 10, borderTop: `1px solid ${BORDER}`, paddingTop: 8 }}>
             ⚖️ 막스: <i>&ldquo;고점에선 안 잃는 게, 저점에선 과감함이 이긴다.&rdquo;</i> — 사이클 위치에 따라 공격/방어의 무게를 바꿔라.
           </div>
