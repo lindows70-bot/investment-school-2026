@@ -12,12 +12,24 @@ export default function TimingBadge({ t, market, compact = false }: { t: EntryTi
   if (!t) return null
   const s = COL[t.light]
   const fmtStop = (n: number) => market === 'KR' ? `₩${Math.round(n).toLocaleString()}` : `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-  if (compact) return (
-    <span title={`${t.guide}${t.atrStop != null ? ` · 🛡ATR손절 ${fmtStop(t.atrStop)}` : ''}`}
-      style={{ fontSize: 9.5, fontWeight: 800, color: s.c, background: s.bg, border: `1px solid ${s.bd}`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>
-      {t.label}
-    </span>
-  )
+  if (compact) {
+    const lightChip = (
+      <span title={`${t.guide}${t.atrStop != null ? ` · 🛡ATR손절 ${fmtStop(t.atrStop)}` : ''}`}
+        style={{ fontSize: 9.5, fontWeight: 800, color: s.c, background: s.bg, border: `1px solid ${s.bd}`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>
+        {t.label}
+      </span>
+    )
+    // ⬛ 관망(추세 강도 약함·ADX<20) — 신호등 미확립(green 아님)일 때만. 돈 몰려도 ETF 추세 약하면 가짜 돌파 주의
+    const chop = !!(t.supply?.choppy && t.light !== 'green')
+    if (!chop) return lightChip
+    return (
+      <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+        {lightChip}
+        <span title={`추세 강도 약함(ADX ${t.supply!.adx}) — 방향 확신 낮아 돌파도 가짜(휩쏘) 가능, 방향 확정 후 진입`}
+          style={{ fontSize: 9.5, fontWeight: 800, color: '#94a3b8', background: '#94a3b818', border: '1px solid #94a3b855', borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>⬛관망</span>
+      </span>
+    )
+  }
   // 🎼 라쉬케 칩 — 모든 카드에 노출(발견성). 단 문구·색은 상태별 정직하게: 첫눌림목=최적타점 / green 추세확립='추세 진행중'(muted, 중복 주장 안 함) / 미확립=연쇄 단계
   const rk = t.raschke
   let rkChip: { label: string; c: string } | null = null
