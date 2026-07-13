@@ -2798,6 +2798,16 @@ KB금융(은행)이 AI 리밸런싱·본부장 브리핑·투자 프로필에서
 - **② 🚨 포트 스마트머니 이탈 경고**(`PortfolioFlowDashboard` 상단): `status===CROWDED`(외인+기관 이탈+개미독박, getMoneyFlow SSOT) 보유 종목을 **4분면(저평가=PEARL)에 가려지던 것까지 status 기준 전용 빨강 배너**로 부각 — "SK하이닉스형, 개인이 받아내는 분산 구조, 비중·손절선 점검". crowdedList 재사용(비용 0).
 - 검증(라이브): **SK하이닉스 외인+기관 60일 −44.7조·최근5일도 이탈·주가 +62.4% → 🚨지속이탈**(스마트머니 빠지는데 개미가 올린 divergence 정확 포착) / 파두 +4,910억·+15.9% → 🟢매집. 전부 timeline/getMoneyFlow SSOT 재사용, 신규 수집 0.
 
+
+## 🏛️ 미국 수급 레이더 정교화 — 전체 기관 보유·분기 순증감 (2026-07-13)
+
+사용자 질문("한국은 외인/기관/개미 일별 수급을 잘 가져오는데 미국은 MFI 프록시뿐인가? 구글이 준 FMP 방법론으로 더 정교화 가능?") → **조사·검증 후 정직 결론 + Yahoo 무료 격상**.
+- **정직한 구조적 결론**: 미국은 **투자자 유형별 일별 순매수를 아예 공시하지 않음**(한국거래소가 모든 주문을 외인/기관/개인 태깅해 일별 공시하는 건 한국·대만 등 극소수 시장 특성). 유료든 무료든 어떤 API도 미국 일별 3주체 수급 불가 — 데이터 자체가 없음.
+- **구글/FMP 방법론 실측 검증**: ① 제시 코드 URL이 `financialmodelingprep.com{ticker}`로 **경로 누락=실행 불가** ② FMP 기관 엔드포인트는 **유료**(앱 키로 전부 `Limit Reach`, 무료 250/일도 재무로 소진) ③ 결국 FMP가 주는 건 **13F(분기)+내부자 = 우리가 이미 SEC EDGAR로 무료로 쓰는 그 데이터**. 더 정교한 게 아니라 같은 데이터 유료 재판매.
+- **진짜 무료 격상(Yahoo `quoteSummary`, 이미 쓰는 라이브러리·무키)**: `majorHoldersBreakdown`(기관 보유%·기관 수)+`institutionOwnership`(Top 기관 QoQ pctChange)+`netSharePurchaseActivity`(내부자 6개월 순매매). `moneyFlow.ts` `fetchUsInstitutional` 추가, `UsFlow`에 instPct/instCount/instTrend/instAdders/instCutters/insiderNetPct. cache US v5→v6.
+- ⚠️ **Top10 QoQ 방향 과신호 차단(검증서 발견)**: 초판은 미세 변동(0.05%)까지 세어 **전 종목 accum**(패시브 인덱스펀드+신규편입 100% 아티팩트 탓). → **|Δ|≥50% 아티팩트 제외 + 3%↑ 의미변동만 + margin≥3**일 때만 방향 인정 → 대부분 혼조(과신호 0), 명확한 매집만 포착. 검증(라이브): AAPL 65.7%·혼조·NEUTRAL / **TSLA 44.9%·순매집4↑1↓·내부자+76 → INFLOW** / NVDA 70.8%·혼조 / **BA 75.4%·순매집·INFLOW** / PLTR·INTC 혼조·NEUTRAL.
+- `judgeUs`: (내부자 매수 OR 기관 분기 순매집)+MFI<70 → 🟢유입 / 기관 순감소+고점 → 🔴과열. `MoneyFlowRadar` US에 🏛️기관 보유% 게이지+분기 순증감+내부자 순매매 칩. **여전히 분기·45일 지연 한계는 푸터에 정직 명시**(한국식 일별 추적은 미국 원천 불가).
+
 ## 배포
 
 - **프로덕션**: https://investment-school-2026.vercel.app
