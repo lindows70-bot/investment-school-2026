@@ -272,7 +272,7 @@ function judgeUs(us: UsFlow, nearHigh: boolean): { status: FlowStatus; badges: s
     if (instAccum) parts.push(`Top 기관 ${us.instAdders}곳이 분기 지분 확대(기관 보유 ${us.instPct ?? '—'}%)`)
     return {
       status: 'INFLOW', badges,
-      lynchComment: `${parts.join(', ')}했고, 자금흐름(MFI ${us.mfi})도 과열 구간이 아닙니다. 스마트머니가 들어오는 자리입니다.${us.insiderNetPct != null && us.insiderNetPct > 10 ? ` (내부자 6개월 지분도 순증 — 단 그랜트·행사 포함이라 장내매수와는 구분).` : ''}`,
+      lynchComment: `${parts.join(', ')}했고, 자금흐름(MFI ${us.mfi})도 과열 구간이 아닙니다. 스마트머니가 들어오는 자리입니다.${us.insiderNetPct != null && us.insiderNetPct > 10 && us.insiderNetPct <= 100 ? ` (내부자 6개월 지분도 순증 — 단 그랜트·행사 포함이라 장내매수와는 구분).` : ''}`,
       actionGuide: '펀더멘탈이 받쳐준다면 분할 매수 관점에서 참고하세요. 기관·내부자 수급은 강하나, 방향은 결국 실적이 결정합니다.',
     }
   }
