@@ -2,6 +2,7 @@
 // 🎯 종목 리서치 종합 매수 판정 — 4축(계절·가치·수급·모멘텀)+리스크를 합성해 매수/신중/부적합 한눈에
 import { useState, useEffect } from 'react'
 import type { ResearchVerdict } from '@/app/api/research-verdict/route'
+import TimingBadge from '@/app/components/TimingBadge'
 
 const CARD = '#161b25', BORDER = '#1e293b'
 const AX = { season: '#f59e0b', value: '#22c55e', supply: '#60a5fa', momentum: '#a78bfa' }
@@ -75,6 +76,14 @@ export default function ResearchVerdictCard({ ticker, market, name }: { ticker: 
           <Bar label="📈 모멘텀" score={d.axes.momentum} color={AX.momentum} />
         </div>
 
+        {/* 🚦 기술적 타이밍 (WHEN) — AI 리밸런싱·통합추천과 동일한 신호등+라쉬케+매물·평단(SSOT). 224봉 미만이면 자동 생략 */}
+        {d.timing && (
+          <div>
+            <div style={{ color: '#8a9aaa', fontSize: 10.5, fontWeight: 700, marginBottom: 5 }}>🚦 기술적 타이밍 <span style={{ color: '#64748b', fontWeight: 400 }}>— 언제 살까(WHEN). 점수엔 미반영, 진입 타점만</span></div>
+            <TimingBadge t={d.timing} market={d.market} />
+          </div>
+        )}
+
         {/* 찬성 / 주의 2열 */}
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 260px', minWidth: 240, background: '#0f1117', borderRadius: 10, border: '1px solid rgba(34,197,94,0.25)', padding: '10px 12px' }}>
@@ -92,7 +101,7 @@ export default function ResearchVerdictCard({ ticker, market, name }: { ticker: 
         </div>
 
         <div style={{ color: '#8a9aaa', fontSize: 10, lineHeight: 1.6 }}>
-          ※ AI 리밸런싱과 동일한 4축(계절·가치·수급·모멘텀)+리스크 엔진으로 합성한 교육용 판정입니다. 상세 근거는 아래 각 카드(역-DCF·수급·내부자·해자·섹터피어 등)에서 확인하세요. 투자 추천이 아닙니다.
+          ※ AI 리밸런싱과 동일한 4축(계절·가치·수급·모멘텀)+리스크 엔진으로 합성한 교육용 판정입니다(WHAT=무엇을 살까). 🚦 기술적 타이밍은 언제 살까(WHEN)를 보는 별도 레이어로, 점수엔 반영되지 않습니다. 상세 근거는 아래 각 카드(역-DCF·수급·내부자·해자·섹터피어 등)에서 확인하세요. 투자 추천이 아닙니다.
         </div>
       </div>
     </div>
