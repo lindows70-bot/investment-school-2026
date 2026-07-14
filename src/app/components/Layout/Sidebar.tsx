@@ -12,6 +12,7 @@ const GROUPS: NavGroup[] = [
     title: '📌 매일', color: '#10b981',
     items: [
       { href: '/briefing',  icon: '🎯', label: '오늘의 매매 브리핑' },
+      { href: '/win-lose',  icon: '⚔️', label: '승패 해부실' },
       { href: '/dashboard', icon: '📊', label: '대시보드' },
     ],
   },

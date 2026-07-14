@@ -172,7 +172,7 @@ export async function GET(req: Request) {
   let rotQuadBySector: Map<string, { q: RotQuad; score: number }> | null = null
   for (let d = 0; d < 3 && !rotQuadBySector; d++) {
     const dt = new Date(Date.now() + 9 * 3600_000 - d * 86_400_000).toISOString().slice(0, 10)
-    const rot = await getCache<RotationResult>(`sector-rotation-v9:${dt}`, 3 * 24 * 3600_000)
+    const rot = await getCache<RotationResult>(`sector-rotation-v11:${dt}`, 3 * 24 * 3600_000)
     if (rot?.items?.length) rotQuadBySector = new Map(rot.items.map(i => [i.key, { q: i.quadrant, score: i.score }]))
   }
   // Yahoo GICS 섹터명 → 로테이션 시계 키(GICS 11만 — 테마 6은 종목 중복 소속이라 매핑 제외)

@@ -88,7 +88,7 @@ export async function GET(req: Request) {
   }
 
   // 🍂 섹터 국면(#3) — 로테이션 캐시(오늘)가 있을 때만. 보유 종목 GICS 섹터(getSector 7일 캐시·대부분 히트) → 로테이션 국면 매핑
-  const rot = await getCache<RotationResult>(`sector-rotation-v9:${kstDate()}`, 12 * 3600_000)
+  const rot = await getCache<RotationResult>(`sector-rotation-v11:${kstDate()}`, 12 * 3600_000)
   if (rot?.items?.length) {
     const quadByKey: Record<string, RotQuad> = {}
     for (const it of rot.items) quadByKey[it.key] = it.quadrant as RotQuad

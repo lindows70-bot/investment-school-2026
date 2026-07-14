@@ -7,6 +7,7 @@ import TradePlanCard from '@/app/components/TradePlanCard'
 import type { UnifiedRecoResult } from '@/app/api/unified-reco/route'
 import type { RotationResult } from '@/app/api/sector-rotation/route'
 import type { WatchSig } from '@/app/api/cron/timing-watch/route'
+import { type WLApi, splitGroups, factorStats, buildLesson, WL_PERIOD_LABEL } from '@/lib/winLose'
 
 const CARD = '#12151f', BORDER = '#1e293b'
 
@@ -45,6 +46,7 @@ export default function BriefingPage() {
   const reco = useFetch<UnifiedRecoResult>('/api/unified-reco')
   const rot = useFetch<RotationResult>('/api/sector-rotation')
   const marks = useFetch<any>('/api/marks-cycle')
+  const wl = useFetch<WLApi>('/api/win-lose')
 
   const cs = reb.d?.coreSatellite
   const sells = cs ? [...(cs.drop ?? []).map((x: any) => ({ ...x, kind: '버릴 것', kc: '#f87171' })), ...(cs.trim ?? []).map((x: any) => ({ ...x, kind: '줄일 것', kc: '#fbbf24' }))].slice(0, 4) : []
@@ -146,6 +148,29 @@ export default function BriefingPage() {
             )}
           </div>
         ) : <div style={{ fontSize: 12, color: '#7f93a8' }}>로테이션 데이터 로드 실패.</div>}
+      </Sec>
+
+      {/* ④½ ⚔️ 승패 해부 — 지금 장에서 뭐가 통하나(시장의 채점 기준) */}
+      <Sec no="⚔️" title="승패 해부" sub="지금 장에서 오르는 종목 vs 떨어지는 종목 — 무엇이 갈랐나" link="/win-lose" linkLabel="해부실 상세">
+        {wl.loading ? <Skel h={48} /> : wl.d?.rows?.length ? (() => {
+          const { win, lose } = splitGroups(wl.d.rows, '1m')
+          if (win.length < 3 || lose.length < 3) return <div style={{ fontSize: 12, color: '#7f93a8' }}>표본 부족 — 해부실에서 기간을 바꿔 보세요.</div>
+          const lesson = buildLesson(factorStats(win, lose), WL_PERIOD_LABEL['1m'])
+          return (
+            <div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 7, fontSize: 12 }}>
+                <span style={{ background: '#0d2818', border: '1px solid #22c55e44', borderRadius: 7, padding: '4px 10px' }}>🔺 오르는 <b style={{ color: '#4ade80', fontFamily: 'monospace' }}>{win.length}</b></span>
+                <span style={{ background: '#2a0f12', border: '1px solid #ef444444', borderRadius: 7, padding: '4px 10px' }}>🔻 떨어지는 <b style={{ color: '#f87171', fontFamily: 'monospace' }}>{lose.length}</b></span>
+                {lesson.top.map(s => (
+                  <span key={s.key} style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 7, padding: '4px 10px', fontSize: 11 }}>
+                    {s.icon} {s.label.replace(/\(.*\)/, '').trim()} <b style={{ color: '#4ade80', fontFamily: 'monospace' }}>{s.winDisp}</b><span style={{ color: '#7f93a8' }}> vs </span><b style={{ color: '#f87171', fontFamily: 'monospace' }}>{s.loseDisp}</b>
+                  </span>
+                ))}
+              </div>
+              <div style={{ fontSize: 12, color: '#cbd5e1', lineHeight: 1.55 }}>🎓 {lesson.text}</div>
+            </div>
+          )
+        })() : <div style={{ fontSize: 12, color: '#7f93a8' }}>승패 데이터 준비 중(매일 08:50 자동 계산).</div>}
       </Sec>
 
       {/* ⑤ 오늘의 스탠스 */}
