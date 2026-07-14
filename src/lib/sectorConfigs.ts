@@ -848,9 +848,11 @@ export const SECTOR_ETF: Record<string, SectorEtf> = {
   'utilities:multi':    { us: { t: 'XLU', name: '유틸리티 섹터' } },
   'utilities:water':    { us: { t: 'PHO', name: 'Invesco 수도' } },
   // 부동산
+  'realestate':        { us: { t: 'VNQ', name: 'Vanguard 부동산' }, kr: { t: '329200', name: 'TIGER 리츠' } },   // 섹터 폴백(헬스케어·기타 등 소섹터별 전용 ETF 없을 때)
   'realestate:infra':  { us: { t: 'SRVR', name: 'Pacer 데이터센터' }, kr: { t: '329200', name: 'TIGER 리츠' } },
   'realestate:logi':   { us: { t: 'INDS', name: 'Pacer 산업물류' } },
   'realestate:retail': { kr: { t: '329200', name: 'TIGER 리츠' } },
+  'realestate:health': { us: { t: 'VNQ', name: 'Vanguard 부동산' } },   // 헬스케어 리츠 전용 유동 ETF 없음 → 광의 REIT ETF
   // 테마 (섹터 폴백 + 일부 소섹터 override)
   quantum:  { us: { t: 'QTUM', name: 'Defiance 양자' } },
   'ai-semi': { us: { t: 'SOXX', name: 'iShares 반도체' }, kr: { t: '091160', name: 'KODEX 반도체' } },

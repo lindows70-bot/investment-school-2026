@@ -231,6 +231,7 @@ export default function SectorRotation() {
                 <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 5, alignItems: 'center' }}>
                   {p.etfUs && <b style={{ background: '#14532d', color: '#4ade80', border: '1px solid #22c55e55', borderRadius: 5, padding: '1px 7px', fontSize: 10 }}>🇺🇸 {p.etfUs}</b>}
                   {p.etfKr && <b style={{ background: '#14532d', color: '#4ade80', border: '1px solid #22c55e55', borderRadius: 5, padding: '1px 7px', fontSize: 10 }}>🇰🇷 {p.etfKr}</b>}
+                  {!p.etfUs && !p.etfKr && <span style={{ color: '#8599ae', fontSize: 10, fontStyle: 'italic' }}>📌 개별종목 참고</span>}
                   {p.etfTiming && <TimingBadge t={p.etfTiming} compact />}
                   <b style={{ color: '#4ade80', fontSize: 11, fontFamily: 'monospace' }}>+{p.total}점</b>
                 </span>
