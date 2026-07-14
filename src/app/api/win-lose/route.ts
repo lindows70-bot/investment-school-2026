@@ -11,6 +11,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getCache, setCache } from '@/lib/appCache'
 import { getAssetType } from '@/lib/assetClassifier'
 import { SECTORS, SECTOR_ETF } from '@/lib/sectorConfigs'
+import { GICS_SECTOR_META } from '@/lib/gicsSectorMeta'
 import type { ScreenedStock } from '@/lib/macroPhaseScreener'
 import type { WLRow, WLSchoolRow, WLApi, WLQuad, WLTrend, WLFwd } from '@/lib/winLose'
 
@@ -98,7 +99,7 @@ function trendFromCloses(c: number[]): WLTrend {
 }
 
 export async function GET() {
-  const cacheKey = `win-lose-v2:${kstDate()}`   // v2: 🏫 school(학교 보유 승패 보드 — ETF·코인 포함) 추가
+  const cacheKey = `win-lose-v3:${kstDate()}`   // v3: 소섹터 폴백 체인에 GICS 대섹터 추가('주식' 표기 최소화)
   const cached = await getCache<WLApi>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -188,9 +189,12 @@ export async function GET() {
     const k = normKey(h.market, h.ticker)
     const px = pxMap.get(k)
     const s = h.market !== 'CRYPTO' ? byKey.get(k) ?? null : null
+    // 라벨 폴백 체인: 소섹터(테마 우선) → GICS 대섹터(스크리너 sector) → null('주식'/'ETF' 표기)
+    const gics = s?.sector ? GICS_SECTOR_META[s.sector] : null
     const sub = h.market === 'CRYPTO'
       ? { label: '암호화폐', emoji: '🪙', color: '#f59e0b', sector: '코인' }
-      : (h.assetType === 'STOCK' ? stockSub.get(k) : etfSub.get(k)) ?? null
+      : (h.assetType === 'STOCK' ? stockSub.get(k) : etfSub.get(k))
+        ?? (gics ? { label: gics.ko, emoji: gics.icon, color: gics.color, sector: 'GICS' } : null)
     school.push({
       ticker: h.market === 'KR' ? code6(h.ticker) : h.ticker.toUpperCase(),
       name: h.name, market: h.market, assetType: h.assetType,
