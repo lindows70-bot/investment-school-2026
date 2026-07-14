@@ -21,13 +21,22 @@ export interface WLRow {
   knife: boolean
 }
 
-export interface WLApi { rows: WLRow[]; asOf: string; total: number; rotJoined: number }
+// 🏫 우리 포트 승패 보드 행 — 학생 전체 보유(주식+ETF+코인) 합집합. 보유자·인원수는 절대 미포함(개인 식별 차단).
+export interface WLSchoolRow {
+  ticker: string; name: string; market: 'US' | 'KR' | 'CRYPTO'
+  assetType: 'STOCK' | 'ETF' | 'CRYPTO' | 'COMMODITY'
+  ret1w: number | null; ret1m: number | null; ret3m: number | null
+  pos52: number | null; trend: WLTrend
+  sub: { label: string; emoji: string; color: string; sector: string } | null   // 소섹터 라벨(테마 우선 → GICS → ETF 역매핑)
+}
+
+export interface WLApi { rows: WLRow[]; school: WLSchoolRow[]; asOf: string; total: number; rotJoined: number }
 
 // 기간별 승/패 임계(%) — 짧은 기간일수록 좁게
 export const WL_THRESH: Record<WLPeriod, number> = { '1w': 1.5, '1m': 3, '3m': 5 }
 export const WL_PERIOD_LABEL: Record<WLPeriod, string> = { '1w': '최근 1주', '1m': '최근 1개월', '3m': '최근 3개월' }
 
-export const retOf = (r: WLRow, p: WLPeriod): number | null => (p === '1w' ? r.ret1w : p === '1m' ? r.ret1m : r.ret3m)
+export const retOf = (r: Pick<WLRow, 'ret1w' | 'ret1m' | 'ret3m'>, p: WLPeriod): number | null => (p === '1w' ? r.ret1w : p === '1m' ? r.ret1m : r.ret3m)
 
 export function splitGroups(rows: WLRow[], p: WLPeriod): { win: WLRow[]; mid: WLRow[]; lose: WLRow[] } {
   const th = WL_THRESH[p]

@@ -44,7 +44,7 @@ export default function WinLosePage() {
   const { win, mid, lose } = useMemo(() => splitGroups(rows, period), [rows, period])
   const stats = useMemo(() => factorStats(win, lose), [win, lose])
   const lesson = useMemo(() => buildLesson(stats, WL_PERIOD_LABEL[period]), [stats, period])
-  const isMine = (r: WLRow) => mine.has(`${r.market}:${r.ticker.toUpperCase()}`)
+  const isMine = (r: { market: string; ticker: string }) => mine.has(`${r.market}:${r.ticker.toUpperCase()}`)
   const th = WL_THRESH[period]
 
   // 섹터 전장 지도 데이터 — 섹터별 승/패 종목, 로테이션 국면 순 정렬
@@ -100,6 +100,51 @@ export default function WinLosePage() {
           </>
         )}
       </div>
+
+      {/* ── 🏫 우리 포트 승패 — 학생 전체 보유(주식+ETF+코인) ────── */}
+      {data && (data.school?.length ?? 0) > 0 && (() => {
+        const sch = data.school
+        const up = sch.filter(r => (retOf(r, period) ?? 0) > 0 && retOf(r, period) != null).sort((a, b) => retOf(b, period)! - retOf(a, period)!)
+        const dn = sch.filter(r => (retOf(r, period) ?? 0) < 0).sort((a, b) => retOf(a, period)! - retOf(b, period)!)
+        const na = sch.filter(r => retOf(r, period) == null)
+        const Row = ({ r, i }: { r: (typeof sch)[number]; i: number }) => (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, background: '#0f1117', borderRadius: 7, padding: '4px 9px', border: isMine(r) ? '1px solid #f1f5f955' : '1px solid transparent' }}>
+            <span style={{ color: '#7f93a8', fontFamily: 'monospace', width: 16, fontSize: 10 }}>{i + 1}</span>
+            <b style={{ color: '#e2e8f0', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{isMine(r) && '⭐'}{r.name}</b>
+            {r.sub
+              ? <span style={{ fontSize: 9, fontWeight: 700, color: r.sub.color, background: r.sub.color + '16', borderRadius: 4, padding: '1px 6px', whiteSpace: 'nowrap' }}>{r.sub.emoji}{r.sub.label}</span>
+              : <span style={{ fontSize: 9, fontWeight: 700, color: '#8599ae', background: '#8599ae16', borderRadius: 4, padding: '1px 6px' }}>{r.assetType === 'ETF' ? '📦 ETF' : r.assetType === 'COMMODITY' ? '🥇 원자재' : '주식'}</span>}
+            <span style={{ fontSize: 9, color: '#7f93a8' }}>{r.market === 'CRYPTO' ? '🪙' : r.market}</span>
+            <span style={{ fontSize: 9.5 }}>{r.trend === 'up' ? '📈' : r.trend === 'down' ? '📉' : '〰️'}</span>
+            <b style={{ color: retColor(retOf(r, period)), fontFamily: 'monospace', fontSize: 11.5, minWidth: 52, textAlign: 'right' }}>{fmt1(retOf(r, period))}</b>
+          </div>
+        )
+        return (
+          <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+              <b style={{ fontSize: 14, color: '#f1f5f9' }}>🏫 우리 포트 승패</b>
+              <span style={{ fontSize: 10.5, color: '#7f93a8' }}>학생 전체 보유(주식+ETF+코인 {sch.length}종) — {WL_PERIOD_LABEL[period]} 기준 · 보유자 표시 없음 · ⭐ = 내 보유 · 📈정배열 📉역배열</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))', gap: 14, marginTop: 10 }}>
+              <div>
+                <b style={{ fontSize: 12, color: '#4ade80' }}>🔺 오르는 {up.length}종</b>
+                <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {up.map((r, i) => <Row key={r.market + r.ticker} r={r} i={i} />)}
+                  {up.length === 0 && <span style={{ fontSize: 11, color: '#7f93a8' }}>오르는 보유 종목이 없습니다.</span>}
+                </div>
+              </div>
+              <div>
+                <b style={{ fontSize: 12, color: '#f87171' }}>🔻 내리는 {dn.length}종</b>
+                <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {dn.map((r, i) => <Row key={r.market + r.ticker} r={r} i={i} />)}
+                  {dn.length === 0 && <span style={{ fontSize: 11, color: '#7f93a8' }}>내리는 보유 종목이 없습니다.</span>}
+                </div>
+              </div>
+            </div>
+            {na.length > 0 && <div style={{ fontSize: 9.5, color: '#7f93a8', marginTop: 8 }}>※ 시세 집계불가 {na.length}종({na.map(r => r.name).slice(0, 6).join('·')}{na.length > 6 ? ' 외' : ''}) — 신규상장·비상장 데이터 한계(정직 표기)</div>}
+          </div>
+        )
+      })()}
 
       {data && win.length >= 3 && lose.length >= 3 && (
         <>
