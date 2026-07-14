@@ -119,7 +119,10 @@ export function buildLesson(stats: FactorStat[], periodLabel: string): WLLesson 
   const flat = sorted.filter(s => s.gap < 12)
   const circ = ['①', '②', '③']
   const topTxt = top.map((s, i) => `${circ[i]} ${s.label.replace(/\(.*\)/, '').trim()}(격차 ${Math.round(s.gap)})`).join(' ')
-  const flatTxt = flat.length ? ` 반면 ${flat.map(s => s.label.replace(/\(.*\)/, '').trim()).join('·')}${flat.length > 1 ? '은(는)' : '은(는)'} 승패를 거의 가르지 못했습니다.` : ''
+  // 조사 은/는 — 마지막 단어 받침 자동 판별(앱 josa 패턴)
+  const eunNeun = (w: string) => { const c = w.charCodeAt(w.length - 1); return c >= 0xac00 && c <= 0xd7a3 ? ((c - 0xac00) % 28 > 0 ? '은' : '는') : '은(는)' }
+  const flatList = flat.map(s => s.label.replace(/\(.*\)/, '').trim())
+  const flatTxt = flat.length ? ` 반면 ${flatList.join('·')}${eunNeun(flatList[flatList.length - 1])} 승패를 거의 가르지 못했습니다.` : ''
   const text = top.length
     ? `${periodLabel} 기준, 승패를 가른 건 ${topTxt}였습니다.${flatTxt}`
     : `${periodLabel} 기준, 뚜렷하게 승패를 가른 단일 요인이 없습니다 — 종목별 개별 재료 장세입니다.`

@@ -155,7 +155,7 @@ export default function WinLosePage() {
                 )
                 return (
                   <div key={b.sector} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#0f1117', borderRadius: 9, padding: '7px 11px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 11.5, fontWeight: 800, color: meta?.color ?? '#cbd5e1', minWidth: 110 }}>{meta?.icon} {meta?.ko ?? b.sector}</span>
+                    <span style={{ fontSize: 11.5, fontWeight: 800, color: meta?.color ?? '#8599ae', minWidth: 110 }}>{meta ? `${meta.icon} ${meta.ko}` : '📦 섹터 미분류'}</span>
                     {qm && <span style={{ fontSize: 9.5, fontWeight: 800, color: qm.color, background: qm.color + '18', borderRadius: 4, padding: '1px 6px' }}>{qm.icon}{qm.label}</span>}
                     <div style={{ width: 90, height: 8, background: '#2a0f12', borderRadius: 4, overflow: 'hidden' }} title={`승률 ${Math.round(b.winRate)}%`}>
                       <div style={{ width: `${b.winRate}%`, height: '100%', background: '#22c55e' }} />
