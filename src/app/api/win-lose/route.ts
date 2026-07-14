@@ -12,6 +12,8 @@ import { getCache, setCache } from '@/lib/appCache'
 import { getAssetType } from '@/lib/assetClassifier'
 import { SECTORS, SECTOR_ETF } from '@/lib/sectorConfigs'
 import { GICS_SECTOR_META } from '@/lib/gicsSectorMeta'
+import { classifyAssetRole } from '@/lib/portfolioRole'
+import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
 import type { ScreenedStock } from '@/lib/macroPhaseScreener'
 import type { WLRow, WLSchoolRow, WLApi, WLQuad, WLTrend, WLFwd } from '@/lib/winLose'
 
@@ -53,6 +55,41 @@ function buildSubMaps(): { stockSub: Map<string, SubLabel>; etfSub: Map<string, 
     if (v.kr && !etfSub.has(`KR:${v.kr.t}`)) etfSub.set(`KR:${v.kr.t}`, label)
   }
   return { stockSub, etfSub }
+}
+
+// ── 최종 라벨 폴백 3종 ────────────────────────────────────────────
+// ETF: portfolioRole(SSOT) — 광의지수/채권/레버리지/테마 구분
+function etfRoleLabel(ticker: string, name: string, market: string): SubLabel {
+  const r = classifyAssetRole(ticker, name, market)
+  if (r.role === 'CORE_INDEX') return { label: '광의지수 ETF', emoji: '📈', color: '#60a5fa', sector: 'ROLE' }
+  if (r.role === 'CORE_BOND') return { label: '채권 ETF', emoji: '📜', color: '#94a3b8', sector: 'ROLE' }
+  if (r.role === 'BLOCKED') return { label: '레버리지·고위험', emoji: '⚠️', color: '#f87171', sector: 'ROLE' }
+  return { label: '테마·기타 ETF', emoji: '📦', color: '#8599ae', sector: 'ROLE' }
+}
+// KR 주식: 네이버 업종코드→업종명 맵(목록 페이지 1콜·EUC-KR·7일 캐시) — Yahoo가 섹터를 안 주는 코스닥주 커버
+async function naverUpjongMap(): Promise<Map<string, string>> {
+  const cached = await getCache<Record<string, string>>('naver-upjong-map-v1', 7 * 24 * 3600_000)
+  if (cached) return new Map(Object.entries(cached))
+  try {
+    const r = await fetch('https://finance.naver.com/sise/sise_group.naver?type=upjong', { headers: { 'User-Agent': 'Mozilla/5.0' } })
+    const html = new TextDecoder('euc-kr').decode(Buffer.from(await r.arrayBuffer()))
+    const m = Array.from(html.matchAll(/no=(\d+)"[^>]*>([^<]+)</g))
+    if (m.length < 30) return new Map()
+    const obj: Record<string, string> = {}
+    for (const x of m) obj[x[1]] = x[2].trim()
+    await setCache('naver-upjong-map-v1', obj)
+    return new Map(Object.entries(obj))
+  } catch { return new Map() }
+}
+const NAVER_UA = { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148', Referer: 'https://m.stock.naver.com/' }
+async function krIndustryOf(code: string, upjong: Map<string, string>): Promise<string | null> {
+  try {
+    const r = await fetch(`https://m.stock.naver.com/api/stock/${code}/integration`, { headers: NAVER_UA })
+    if (!r.ok) return null
+    const j = await r.json()
+    const ic = j?.industryCode != null ? String(j.industryCode) : null
+    return ic ? upjong.get(ic) ?? null : null
+  } catch { return null }
 }
 
 // Supabase service-role — Next Data Cache 박제 방지 no-store 강제(appCache 교훈)
@@ -98,8 +135,9 @@ function trendFromCloses(c: number[]): WLTrend {
   return 'side'
 }
 
-export async function GET() {
-  const cacheKey = `win-lose-v3:${kstDate()}`   // v3: 소섹터 폴백 체인에 GICS 대섹터 추가('주식' 표기 최소화)
+export async function GET(req: Request) {
+  const origin = new URL(req.url).origin
+  const cacheKey = `win-lose-v4:${kstDate()}`   // v4: 라벨 폴백 완성 — 주식=canonical 업종(네이버)·ETF=portfolioRole(지수/채권/레버리지)
   const cached = await getCache<WLApi>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -189,12 +227,13 @@ export async function GET() {
     const k = normKey(h.market, h.ticker)
     const px = pxMap.get(k)
     const s = h.market !== 'CRYPTO' ? byKey.get(k) ?? null : null
-    // 라벨 폴백 체인: 소섹터(테마 우선) → GICS 대섹터(스크리너 sector) → null('주식'/'ETF' 표기)
+    // 라벨 폴백 체인: 소섹터(테마 우선) → GICS 대섹터(스크리너 sector) → ETF는 portfolioRole → 주식은 아래 후처리(업종)
     const gics = s?.sector ? GICS_SECTOR_META[s.sector] : null
     const sub = h.market === 'CRYPTO'
       ? { label: '암호화폐', emoji: '🪙', color: '#f59e0b', sector: '코인' }
       : (h.assetType === 'STOCK' ? stockSub.get(k) : etfSub.get(k))
         ?? (gics ? { label: gics.ko, emoji: gics.icon, color: gics.color, sector: 'GICS' } : null)
+        ?? (h.assetType === 'ETF' ? etfRoleLabel(h.ticker, h.name, h.market) : null)
     school.push({
       ticker: h.market === 'KR' ? code6(h.ticker) : h.ticker.toUpperCase(),
       name: h.name, market: h.market, assetType: h.assetType,
@@ -204,6 +243,22 @@ export async function GET() {
       sub,
     })
   }
+  // 남은 무라벨 주식 최종 폴백 — US=canonical 업종(한글·canon-fund 공유 캐시) / KR=네이버 업종(industryCode→업종명). 소수라 부담 0
+  const bare = school.filter(r => !r.sub && r.assetType === 'STOCK')
+  if (bare.length) {
+    const upjong = await naverUpjongMap()
+    for (let i = 0; i < bare.length; i += 6) {
+      await Promise.all(bare.slice(i, i + 6).map(async (r) => {
+        try {
+          const label = r.market === 'KR'
+            ? await krIndustryOf(r.ticker, upjong)
+            : ((await getCanonicalFundamentals(r.ticker, r.market, origin))?.sector ?? null)
+          if (label && label !== '기타') r.sub = { label, emoji: '🏷️', color: '#94a3b8', sector: '업종' }
+        } catch { /* 라벨 없이 유지(정직) */ }
+      }))
+    }
+  }
+
   school.sort((a, b) => (b.ret1m ?? -999) - (a.ret1m ?? -999))
 
   const result: WLApi = {
