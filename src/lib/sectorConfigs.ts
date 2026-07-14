@@ -83,6 +83,10 @@ const AISEMI_STOCKS: SectorStock[] = [
   { ticker: '4004', name: 'Resonac',        market: 'JP', yahoo: '4004.T', sub: 'material', tags: ['CMP 슬러리', 'HBM 소재'], purePlay: false, note: 'HBM용 접착필름(NCF)·CMP 슬러리(구 쇼와덴코 — 화학 다각화)' },
   { ticker: '3104', name: 'Fujibo',         market: 'JP', yahoo: '3104.T', sub: 'material', tags: ['CMP 패드'], purePlay: true, note: 'CMP 연마 패드(소모품 — 반복 매출)' },
   { ticker: '011790', name: 'SKC',          market: 'KR', sub: 'material', tags: ['유리기판', '동박'],   purePlay: false, note: '반도체 유리기판(앱솔릭스)·동박(이차전지 다각화)' },
+  { ticker:'UMC', name:'United Microelectronics Corpora', market:'US', sub:'foundry', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'CIEN', name:'Ciena', market:'US', sub:'infra', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'LITE', name:'Lumentum Holdings', market:'US', sub:'infra', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'WDC', name:'Western Digital', market:'US', sub:'memory', tags:[], purePlay:true, note:'대표주 확대 편입' },
 ]
 
 const AISEMI_CONFIG: SectorConfig = {
@@ -131,6 +135,10 @@ const POWER_STOCKS: SectorStock[] = [
   { ticker: 'BE',   name: 'Bloom Energy',   market: 'US', sub: 'dcpower', tags: ['연료전지'],        purePlay: true,  note: '온사이트 연료전지 발전' },
   { ticker: 'NRG',  name: 'NRG Energy',     market: 'US', sub: 'dcpower', tags: ['발전·소매'],       purePlay: false, note: '발전+전력 소매(다각화)' },
   { ticker: 'GNRC', name: 'Generac',        market: 'US', sub: 'dcpower', tags: ['백업 발전'],       purePlay: false, note: '백업 발전기(주거 비중 큼)' },
+  { ticker:'112610', name:'씨에스윈드', market:'KR', sub:'grid', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'051600', name:'한전KPS', market:'KR', sub:'nuclear', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'FLNC', name:'Fluence Energy', market:'US', sub:'dcpower', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'STEM', name:'Stem', market:'US', sub:'dcpower', tags:[], purePlay:true, note:'대표주 확대 편입' },
 ]
 const POWER_CONFIG: SectorConfig = {
   key: 'power', label: 'AI 전력망 & 원전 인텔리전스', emoji: '⚡',
@@ -166,6 +174,8 @@ const PHYS_STOCKS: SectorStock[] = [
   { ticker: '6481', name: 'THK',           market: 'JP', yahoo: '6481.T', sub: 'motion', tags: ['LM 가이드·액추에이터'], purePlay: true, note: '직선운동 가이드·액추에이터' },
   { ticker: 'ISRG', name: 'Intuitive Surgical', market: 'US', sub: 'medbot', tags: ['수술로봇'], purePlay: true, note: '다빈치 수술로봇 독점' },
   { ticker: 'SERV', name: 'Serve Robotics', market: 'US', sub: 'medbot', tags: ['배송로봇'],    purePlay: true,  note: '자율 배송 로봇(엔비디아 투자)' },
+  { ticker:'SYM', name:'Symbotic', market:'US', sub:'humanoid', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'MBLY', name:'Mobileye Global', market:'US', sub:'auto', tags:[], purePlay:true, note:'대표주 확대 편입' },
 ]
 const PHYS_CONFIG: SectorConfig = {
   key: 'phys-ai', label: '피지컬 AI 인텔리전스', emoji: '🦾',
@@ -195,6 +205,10 @@ const BIO_STOCKS: SectorStock[] = [
   { ticker: 'NVO',  name: 'Novo Nordisk',   market: 'US', sub: 'pharma',    tags: ['GLP-1'],       purePlay: false, note: '오젬픽·위고비(다각화)' },
   { ticker: '196170', name: '알테오젠',     market: 'KR', sub: 'pharma',    tags: ['SC제형 플랫폼'], purePlay: false, note: '바이오 플랫폼(AI-native 아님)' },
   { ticker: '145020', name: '휴젤',         market: 'KR', sub: 'pharma',    tags: ['보툴리눔'],     purePlay: false, note: '톡신·필러(AI 무관)' },
+  { ticker:'CRSP', name:'CRISPR Therapeutics AG', market:'US', sub:'discovery', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'NTLA', name:'Intellia Therapeutics', market:'US', sub:'discovery', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'PACB', name:'Pacific Biosciences of Californ', market:'US', sub:'genomics', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'BNTX', name:'BioNTech SE', market:'US', sub:'pharma', tags:[], purePlay:true, note:'대표주 확대 편입' },
 ]
 const BIO_CONFIG: SectorConfig = {
   key: 'ai-bio', label: 'AI 바이오 인텔리전스', emoji: '🧬',
@@ -243,6 +257,7 @@ const DEF_STOCKS: SectorStock[] = [
   { ticker: '079550', name: 'LIG넥스원',    market: 'KR', sub: 'kdef', tags: ['유도미사일'],       purePlay: true,  note: '천궁·현궁 유도미사일(중동 수출)' },
   { ticker: '064350', name: '현대로템',     market: 'KR', sub: 'kdef', tags: ['전차·철도'],        purePlay: false, note: 'K2 전차+철도차량(다각화)' },
   { ticker: '272210', name: '한화시스템',   market: 'KR', sub: 'kdef', tags: ['방산전자·위성'],    purePlay: true,  note: '레이더·방산 전자·위성통신' },
+  { ticker:'CW', name:'Curtiss-Wright', market:'US', sub:'deftech', tags:[], purePlay:true, note:'대표주 확대 편입' },
 ]
 const DEF_CONFIG: SectorConfig = {
   key: 'defense', label: '우주항공 & 방산 인텔리전스', emoji: '🚀',
@@ -288,6 +303,18 @@ const FIN_STOCKS: SectorStock[] = [
   { ticker: 'MA',   name: 'Mastercard',      market: 'US', sub: 'payment', tags: ['결제 네트워크'], purePlay: true, note: '글로벌 결제 네트워크 2위' },
   { ticker: 'AXP',  name: 'American Express', market: 'US', sub: 'payment', tags: ['카드·결제'],    purePlay: true, note: '프리미엄 카드(버핏 보유)' },
   { ticker: '029780', name: '삼성카드',      market: 'KR', sub: 'payment', tags: ['카드'],         purePlay: true,  note: '국내 카드사' },
+  { ticker:'C', name:'Citigroup', market:'US', sub:'bank', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'USB', name:'U.S. Bancorp', market:'US', sub:'bank', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'024110', name:'기업은행', market:'KR', sub:'bank', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'139130', name:'iM금융지주', market:'KR', sub:'bank', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'TRV', name:'The Travelers Companies', market:'US', sub:'insurance', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'ALL', name:'Allstate Corporation (The)', market:'US', sub:'insurance', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'001450', name:'현대해상', market:'KR', sub:'insurance', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'005830', name:'DB손해보험', market:'KR', sub:'insurance', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'RJF', name:'Raymond James Financial', market:'US', sub:'broker', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'016360', name:'삼성증권', market:'KR', sub:'broker', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'005940', name:'NH투자증권', market:'KR', sub:'broker', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'PYPL', name:'PayPal Holdings', market:'US', sub:'payment', tags:[], purePlay:true, note:'대표주 확대 편입' },
 ]
 const FIN_CONFIG: SectorConfig = {
   key: 'financials', label: '금융 (은행·보험·증권)', emoji: '💰',
@@ -323,6 +350,14 @@ const ENERGY_STOCKS: SectorStock[] = [
   { ticker: '267250', name: 'HD현대',   market: 'KR', sub: 'integrated', tags: ['정유·조선'], purePlay: false, note: 'HD현대오일뱅크(정유) 지주' },
   { ticker: 'BKR',  name: 'Baker Hughes', market: 'US', sub: 'service', tags: ['유전서비스'], purePlay: true, note: '유전 서비스·장비 빅3' },
   { ticker: '018670', name: 'SK가스',   market: 'KR', sub: 'ep', tags: ['LPG·가스'],        purePlay: true,  note: 'LPG 수입·유통(국내 상류 E&P 부재 → 가스로 대체)' },
+  { ticker:'BP', name:'BP p.l.c.', market:'US', sub:'integrated', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'TTE', name:'TotalEnergies SE', market:'US', sub:'integrated', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'FANG', name:'Diamondback Energy', market:'US', sub:'ep', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'APA', name:'APA', market:'US', sub:'ep', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'NOV', name:'NOV', market:'US', sub:'service', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'FTI', name:'TechnipFMC', market:'US', sub:'service', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'VLO', name:'Valero Energy', market:'US', sub:'refine', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'PBF', name:'PBF Energy', market:'US', sub:'refine', tags:[], purePlay:true, note:'대표주 확대 편입' },
 ]
 const ENERGY_CONFIG: SectorConfig = {
   key: 'energy', label: '에너지', emoji: '⚡',
@@ -364,6 +399,16 @@ const MAT_STOCKS: SectorStock[] = [
   { ticker: 'STLD', name: 'Steel Dynamics', market: 'US', sub: 'metal', tags: ['철강'],     purePlay: true,  note: '미 전기로 철강' },
   { ticker: 'WPM',  name: 'Wheaton',     market: 'US', sub: 'mining', tags: ['귀금속 스트리밍'], purePlay: true, note: '금·은 스트리밍(로열티)' },
   { ticker: 'SCCO', name: 'Southern Copper', market: 'US', sub: 'mining', tags: ['구리광산'], purePlay: true, note: '세계적 구리 광산(국내 광산 부재)' },
+  { ticker:'PPG', name:'PPG Industries', market:'US', sub:'chemical', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'EMN', name:'Eastman Chemical', market:'US', sub:'chemical', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'285130', name:'SK케미칼', market:'KR', sub:'chemical', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'120110', name:'코오롱인더', market:'KR', sub:'chemical', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'CLF', name:'Cleveland-Cliffs', market:'US', sub:'metal', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'RS', name:'Reliance', market:'US', sub:'metal', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'AA', name:'Alcoa', market:'US', sub:'mining', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'TECK', name:'Teck Resources', market:'US', sub:'mining', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'MAS', name:'Masco', market:'US', sub:'build', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'BLDR', name:'Builders FirstSource', market:'US', sub:'build', tags:[], purePlay:true, note:'대표주 확대 편입' },
 ]
 const MAT_CONFIG: SectorConfig = {
   key: 'materials', label: '소재', emoji: '🧱',
@@ -406,6 +451,15 @@ const IND_STOCKS: SectorStock[] = [
   { ticker: '010120', name: 'LS ELECTRIC', market: 'KR', sub: 'electrical', tags: ['전력기기'], purePlay: true, note: '전력기기·자동화(전력망 테마 중복)' },
   { ticker: '267260', name: 'HD현대일렉트릭', market: 'KR', sub: 'electrical', tags: ['변압기'], purePlay: true, note: '변압기 등 전력기기(수출 호황)' },
   { ticker: '298040', name: '효성중공업', market: 'KR', sub: 'electrical', tags: ['변압기·중전기'], purePlay: true, note: '초고압 변압기·중전기' },
+  { ticker:'CMI', name:'Cummins', market:'US', sub:'machinery', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'PH', name:'Parker-Hannifin', market:'US', sub:'machinery', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'LHX', name:'L3Harris Technologies', market:'US', sub:'aero', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'HII', name:'Huntington Ingalls Industries', market:'US', sub:'aero', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'NSC', name:'Norfolk Southern', market:'US', sub:'transport', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'CSX', name:'CSX', market:'US', sub:'transport', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'086280', name:'현대글로비스', market:'KR', sub:'transport', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'EMR', name:'Emerson Electric', market:'US', sub:'electrical', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'ROK', name:'Rockwell Automation', market:'US', sub:'electrical', tags:[], purePlay:true, note:'대표주 확대 편입' },
 ]
 const IND_CONFIG: SectorConfig = {
   key: 'industrials', label: '산업재', emoji: '🏗️',
@@ -447,6 +501,18 @@ const DISC_STOCKS: SectorStock[] = [
   { ticker: '069960', name: '현대백화점', market: 'KR', sub: 'retail', tags: ['백화점'],     purePlay: true,  note: '국내 백화점' },
   { ticker: '004170', name: '신세계',   market: 'KR', sub: 'retail', tags: ['백화점·면세'], purePlay: true,  note: '신세계 백화점·면세' },
   { ticker: '081660', name: '미스토홀딩스', market: 'KR', sub: 'apparel', tags: ['신발·패션'], purePlay: true, note: '휠라 등 패션(구 휠라홀딩스)' },
+  { ticker:'TJX', name:'TJX Companies', market:'US', sub:'retail', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'ROST', name:'Ross Stores', market:'US', sub:'retail', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'057050', name:'현대홈쇼핑', market:'KR', sub:'retail', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'APTV', name:'Aptiv', market:'US', sub:'auto', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'RIVN', name:'Rivian Automotive', market:'US', sub:'auto', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'204320', name:'HL만도', market:'KR', sub:'auto', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'RL', name:'Ralph Lauren', market:'US', sub:'apparel', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'TPR', name:'Tapestry', market:'US', sub:'apparel', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'020000', name:'한섬', market:'KR', sub:'apparel', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'CMG', name:'Chipotle Mexican Grill', market:'US', sub:'leisure', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'MAR', name:'Marriott International', market:'US', sub:'leisure', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'034230', name:'파라다이스', market:'KR', sub:'leisure', tags:[], purePlay:true, note:'대표주 확대 편입' },
 ]
 const DISC_CONFIG: SectorConfig = {
   key: 'discretionary', label: '자유소비재', emoji: '🛒',
@@ -487,6 +553,14 @@ const STAP_STOCKS: SectorStock[] = [
   { ticker: '278470', name: '에이피알', market: 'KR', sub: 'house', tags: ['뷰티·디바이스'], purePlay: true,  note: '뷰티 디바이스·화장품(고성장)' },
   { ticker: 'KMB',  name: 'Kimberly-Clark', market: 'US', sub: 'house', tags: ['생활용품'], purePlay: true,  note: '기저귀·티슈(크리넥스)' },
   { ticker: 'BTI',  name: 'British American Tobacco', market: 'US', sub: 'tobacco', tags: ['담배'], purePlay: true, note: '글로벌 담배(국내는 KT&G 1사)' },
+  { ticker:'KR', name:'Kroger Company (The)', market:'US', sub:'retail', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'DG', name:'Dollar General', market:'US', sub:'retail', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'004170', name:'신세계', market:'KR', sub:'retail', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'GIS', name:'General Mills', market:'US', sub:'food', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'HSY', name:'The Hershey', market:'US', sub:'food', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'CLX', name:'Clorox Company (The)', market:'US', sub:'house', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'CHD', name:'Church & Dwight Company', market:'US', sub:'house', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'161890', name:'한국콜마', market:'KR', sub:'house', tags:[], purePlay:true, note:'대표주 확대 편입' },
 ]
 const STAP_CONFIG: SectorConfig = {
   key: 'staples', label: '필수소비재', emoji: '🥫',
@@ -527,6 +601,16 @@ const HLTH_STOCKS: SectorStock[] = [
   { ticker: '145720', name: '덴티움',   market: 'KR', sub: 'device', tags: ['임플란트'],    purePlay: true,  note: '치과 임플란트' },
   { ticker: 'CI',   name: 'Cigna',      market: 'US', sub: 'payer', tags: ['의료보험'],     purePlay: true,  note: '미 대형 의료보험·PBM' },
   { ticker: 'ELV',  name: 'Elevance',   market: 'US', sub: 'payer', tags: ['의료보험'],     purePlay: true,  note: '미 대형 의료보험' },
+  { ticker:'PFE', name:'Pfizer', market:'US', sub:'pharma', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'ABBV', name:'AbbVie', market:'US', sub:'pharma', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'302440', name:'SK바이오사이언스', market:'KR', sub:'pharma', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'GILD', name:'Gilead Sciences', market:'US', sub:'biotech', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'MRNA', name:'Moderna', market:'US', sub:'biotech', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'141080', name:'리가켐바이오', market:'KR', sub:'biotech', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'SYK', name:'Stryker', market:'US', sub:'device', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'BSX', name:'Boston Scientific', market:'US', sub:'device', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'HUM', name:'Humana', market:'US', sub:'payer', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'CVS', name:'CVS Health', market:'US', sub:'payer', tags:[], purePlay:true, note:'대표주 확대 편입' },
 ]
 const HLTH_CONFIG: SectorConfig = {
   key: 'healthcare', label: '헬스케어', emoji: '💊',
@@ -563,6 +647,13 @@ const IT_STOCKS: SectorStock[] = [
   { ticker: '353200', name: '대덕전자',  market: 'KR', sub: 'hardware', tags: ['PCB·기판'],  purePlay: true,  note: 'AI 가속기용 FC-BGA 기판' },
   { ticker: '007660', name: '이수페타시스', market: 'KR', sub: 'hardware', tags: ['MLB 고다층 PCB'], purePlay: true, note: 'AI 가속기·스위치용 고다층 기판(MLB) — 엔비디아·구글 공급' },
   { ticker: 'SMCI', name: 'Super Micro', market: 'US', sub: 'hardware', tags: ['AI 서버'],   purePlay: true,  note: 'AI 서버·랙 시스템' },
+  { ticker:'NOW', name:'ServiceNow', market:'US', sub:'software', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'PANW', name:'Palo Alto Networks', market:'US', sub:'software', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'018260', name:'삼성에스디에스', market:'KR', sub:'software', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'QCOM', name:'QUALCOMM Incorporated', market:'US', sub:'semi', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'TXN', name:'Texas Instruments Incorporated', market:'US', sub:'semi', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'000990', name:'DB하이텍', market:'KR', sub:'semi', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'HPQ', name:'HP', market:'US', sub:'hardware', tags:[], purePlay:true, note:'대표주 확대 편입' },
 ]
 const IT_CONFIG: SectorConfig = {
   key: 'infotech', label: '정보기술(IT)', emoji: '💻',
@@ -596,6 +687,12 @@ const COMM_STOCKS: SectorStock[] = [
   { ticker: 'T',    name: 'AT&T',       market: 'US', sub: 'telecom', tags: ['통신·고배당'], purePlay: true,  note: '미 통신(고배당)' },
   { ticker: '032640', name: 'LG유플러스', market: 'KR', sub: 'telecom', tags: ['통신'],     purePlay: true,  note: '국내 3위 이동통신' },
   { ticker: 'PINS', name: 'Pinterest',  market: 'US', sub: 'internet', tags: ['SNS·이미지'], purePlay: true, note: '이미지 기반 SNS 광고(국내 플랫폼은 NAVER·카카오 2사)' },
+  { ticker:'SNAP', name:'Snap', market:'US', sub:'internet', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'SPOT', name:'Spotify Technology', market:'US', sub:'internet', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'WBD', name:'Warner Bros. Discovery', market:'US', sub:'media', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'TTWO', name:'Take-Two Interactive Software', market:'US', sub:'media', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'251270', name:'넷마블', market:'KR', sub:'media', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'CHTR', name:'Charter Communications', market:'US', sub:'telecom', tags:[], purePlay:true, note:'대표주 확대 편입' },
 ]
 const COMM_CONFIG: SectorConfig = {
   key: 'communication', label: '커뮤니케이션', emoji: '📡',
@@ -628,6 +725,11 @@ const UTIL_STOCKS: SectorStock[] = [
   { ticker: 'WTRG', name: 'Essential Utilities', market: 'US', sub: 'water', tags: ['수도·가스'], purePlay: true, note: '미 상수도·가스 유틸리티' },
   { ticker: '004690', name: '삼천리',   market: 'KR', sub: 'multi', tags: ['도시가스'],     purePlay: true,  note: '수도권 도시가스·집단에너지' },
   { ticker: 'AWR',  name: 'American States Water', market: 'US', sub: 'water', tags: ['수도'], purePlay: true, note: '미 상수도(국내 수도는 국영 비상장)' },
+  { ticker:'EXC', name:'Exelon', market:'US', sub:'electric', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'XEL', name:'Xcel Energy', market:'US', sub:'electric', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'PEG', name:'Public Service Enterprise', market:'US', sub:'multi', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'ED', name:'Consolidated Edison', market:'US', sub:'multi', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'CWT', name:'California Water Service', market:'US', sub:'water', tags:[], purePlay:true, note:'대표주 확대 편입' },
 ]
 const UTIL_CONFIG: SectorConfig = {
   key: 'utilities', label: '유틸리티', emoji: '🔌',
@@ -660,6 +762,13 @@ const RE_STOCKS: SectorStock[] = [
   { ticker: '293940', name: '신한알파리츠', market: 'KR', sub: 'retail', tags: ['오피스'],   purePlay: true,  note: '국내 오피스·리테일 리츠' },
   { ticker: 'OHI',  name: 'Omega Healthcare', market: 'US', sub: 'health', tags: ['요양시설'], purePlay: true, note: '요양시설 리츠(국내 헬스 리츠는 SK리츠 등 소수)' },
   { ticker: '348950', name: '제이알글로벌리츠', market: 'KR', sub: 'retail', tags: ['해외오피스'], purePlay: true, note: '해외 오피스 리츠' },
+  { ticker:'CCI', name:'Crown Castle', market:'US', sub:'infra', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'SBAC', name:'SBA Communications', market:'US', sub:'infra', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'REXR', name:'Rexford Industrial Realty', market:'US', sub:'logi', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'FR', name:'First Industrial Realty Trust', market:'US', sub:'logi', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'VICI', name:'VICI Properties', market:'US', sub:'retail', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'KIM', name:'Kimco Realty Corporation (HC)', market:'US', sub:'retail', tags:[], purePlay:true, note:'대표주 확대 편입' },
+  { ticker:'DOC', name:'Healthpeak Properties', market:'US', sub:'health', tags:[], purePlay:true, note:'대표주 확대 편입' },
 ]
 const RE_CONFIG: SectorConfig = {
   key: 'realestate', label: '부동산(리츠)', emoji: '🏢',

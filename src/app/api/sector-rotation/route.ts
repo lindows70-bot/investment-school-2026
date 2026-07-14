@@ -80,7 +80,7 @@ const avg = (arr: (number | null | undefined)[]): number | null => {
 
 export async function GET(req: Request) {
   void req
-  const cacheKey = `sector-rotation-v9:${kstDate()}`   // v9: 🚦 매수 랭킹 대표 ETF 타점 신호등(etfTiming)
+  const cacheKey = `sector-rotation-v10:${kstDate()}`   // v9: 🚦 매수 랭킹 대표 ETF 타점 신호등(etfTiming)
   const cached = await getCache<RotationResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
