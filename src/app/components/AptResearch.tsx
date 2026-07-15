@@ -85,6 +85,11 @@ export default function AptResearch({ initialLawd }: { initialLawd?: string } = 
         <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: '#f87171', fontSize: 12 }}>⚠️ {err}</div>
       ) : d && (
         <>
+          {d.queryMiss && (
+            <div style={{ background: '#2a1c0e', border: '1px solid #b45309', borderRadius: 10, padding: '9px 14px', fontSize: 11.5, color: '#fdba74' }}>
+              ⚠️ &lsquo;{apt}&rsquo; 실거래를 최근 24개월에서 찾지 못했습니다(재건축 멸실·표기 차이 가능) — 거래 1위 단지를 대신 표시합니다.
+            </div>
+          )}
           {/* 단지 랭킹 */}
           <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '14px 18px' }}>
             <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13, marginBottom: 8 }}>

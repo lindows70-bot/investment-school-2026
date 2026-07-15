@@ -29,6 +29,7 @@ export interface AptResearchResult {
       mortgageRate: number | null                           // 주담대(참고)
     }
   } | null
+  queryMiss?: boolean   // 검색 단지 실거래 미발견 → 1위 폴백 고지
   asOf: string
 }
 
@@ -75,6 +76,7 @@ export async function GET(req: Request) {
 
   // 선택 단지(미지정 시 1위) — 정확 일치 → 부분 일치(거래 많은 순) 순으로 해석('오금동 대림'·'대림' 검색 지원)
   let selName = complexes[0]?.name
+  let queryMiss = false   // 검색어가 있는데 실거래 미발견(재건축 멸실·표기 차이) → 1위 폴백을 정직하게 고지
   if (aptQ) {
     if (byApt.has(aptQ)) selName = aptQ
     else {
@@ -85,6 +87,7 @@ export async function GET(req: Request) {
         .filter(h => h.score > 0)
         .sort((a, b) => b.score - a.score || b.n - a.n)
       if (hits.length) selName = hits[0].k
+      else queryMiss = true
     }
   }
   let selected: AptResearchResult['selected'] = null
@@ -152,7 +155,7 @@ export async function GET(req: Request) {
   }
 
   const result: AptResearchResult = {
-    lawd, sido: LAWD_SIDO[lawd.slice(0, 2)] ?? '', months: MONTHS, complexes, selected, asOf: new Date().toISOString(),
+    lawd, sido: LAWD_SIDO[lawd.slice(0, 2)] ?? '', months: MONTHS, complexes, selected, queryMiss, asOf: new Date().toISOString(),
   }
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

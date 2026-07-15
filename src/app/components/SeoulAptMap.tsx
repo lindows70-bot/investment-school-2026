@@ -82,12 +82,12 @@ export default function SeoulAptMap({ lawd, onSelect, onSelectApt, refreshKey }:
               return (
                 <Marker key={`${p.dong}-${p.name}`} coordinates={[p.lng, p.lat]}>
                   <g style={{ cursor: 'pointer' }}
-                    onClick={() => onSelectApt?.(`${p.dong} ${p.name.replace(/아파트$/, '')}`)}
+                    onClick={() => onSelectApt?.(p.query)}
                     onMouseEnter={() => setPinHover(p)}
                     onMouseLeave={() => setPinHover(null)}>
                     <circle r={r} fill="#f8fafc" fillOpacity={0.92} stroke="#0d1017" strokeWidth={1} />
                     <circle r={Math.max(1.2, r - 2.2)} fill="#fb923c" />
-                    <title>{p.name} · {p.hh != null ? `${p.hh.toLocaleString()}세대` : '세대수 —'}{p.aprv ? ` · ${p.aprv} 준공` : ''}</title>
+                    <title>{p.name} · {p.hh != null ? `${p.hh.toLocaleString()}세대` : '세대수 —'}{p.aprv ? ` · ${p.aprv} 준공` : ''}{p.deals > 0 ? ` · 최근 1년 ${p.deals}건` : ''}</title>
                   </g>
                 </Marker>
               )
