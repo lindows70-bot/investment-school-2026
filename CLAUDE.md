@@ -2899,6 +2899,16 @@ KB금융(은행)이 AI 리밸런싱·본부장 브리핑·투자 프로필에서
 - ⚠️ **빌드 함정 재발(교훈 재확인)**: `grep | head; npm run check:build | tail && git commit && deploy` — **파이프가 exit 코드를 가려**(tail이 성공하면 통과) TS2802 실패 빌드가 커밋·배포까지 흘러감. 검증 명령은 `npm run check:build > log 2>&1 && echo OK` 처럼 **파이프 없이 exit를 직접 && 체이닝**할 것. (TS2802 = `for..of Map` — `Array.from(map.entries())`, 반복 3회째)
 
 
+## 🎨 디자인 토큰 SSOT 통합 — src/lib/theme.ts (2026-07-16)
+
+"기능 90% 완성 → 디자인 고도화" 1단계. 파일마다 흩어진 hex 색상을 단일 출처로 통합(기능·픽셀 무변경 — 리디자인 토대).
+- **`src/lib/theme.ts`(신설)**: `TK` 객체 = 앱 전체 색상 SSOT — 배경·보더 24종(bg0~bg10·card·border·grid·line·flat) + 텍스트 램프(slate100~600 + **sub~sub15** = 가독성 패스 산물 유사 그레이, 리디자인 시 수렴 후보) + 액센트 39종(Tailwind 표준명 red400·green400 등 + neonLime·btcOrange). **JS 상수라 Recharts·lightweight-charts(캔버스)·SVG 전부 호환**(CSS 변수는 SVG 속성·캔버스에서 깨져 기각).
+- **코드모드 일괄 치환**: 상위 82색(전체 6,839곳 중 91%)을 **161파일 6,430곳** 자동 치환 — ①JSX 속성 `stroke="#hex"`→`{TK.x}` ②정확일치 `'#hex'`→`TK.x` ③혼합 문자열 `'1px solid #hex'`→백틱 `${TK.x}`(알파 접미 `#hex55`→`${TK.x}55` 포함) ④기존 백틱 내 hex ⑤import 자동 삽입. 잔여 645곳 = 10회 미만 롱테일(추후 화면별 리디자인 때 정리).
+- ⚠️ **코드모드 함정 2건(빌드가 포착·수정)**: ① DOM 스타일 무공백 대입 `el.style.color='#hex'`를 JSX 속성으로 오인해 `={TK.x}` 중괄호 래핑(2파일) — 사전 grep에서 `color` 키워드를 제외한 실수, 정정 패스로 해소 ② **`as const` 금지** — TK가 리터럴 타입이 되면 기본 파라미터(`border = TK.line1`)의 추론이 그 리터럴로 좁아져 호출부 타입 에러(8파일). string으로 넓혀 해소.
+- **검증**: check·check:build 통과(exit 직접 체이닝) + 프로덕션 렌더 색상 실측 — 인라인 스타일 계산값(rgb)이 토큰 hex와 7종 전수 일치(#7f93a8·#0f1117·#f87171·#e2e8f0·#4ade80·#8a9aaa·#8599ae), 콘솔 에러 0, Recharts 렌더 정상. **런타임 값이 동일 hex 문자열이라 픽셀 불변이 구조적으로 보장**.
+- **효과**: 이후 리디자인은 theme.ts 값만 바꾸면 전 화면 반영. 다음 단계 = 화면별 디자인 개선(sub2~15 그레이 수렴·카드 스타일 통일 등). ⚠️ tailwind.config.ts ink/zinc 토큰은 별도 시스템(클래스용) — theme.ts와 함께 관리.
+
+
 ## 배포
 
 - **프로덕션**: https://investment-school-2026.vercel.app
