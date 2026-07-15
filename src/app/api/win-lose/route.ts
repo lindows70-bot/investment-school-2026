@@ -43,7 +43,7 @@ function upjongToGics(u: string | null): string | null {
     [/부동산|리츠/, 'Real Estate'],
     [/음료|식품|담배|화장품|가정용품|개인용품/, 'Consumer Defensive'],
     [/자동차|호텔|레저|레스토랑|섬유|의류|신발|호화품|백화점|판매|소매|교육|내구소비재|가구/, 'Consumer Cyclical'],
-    [/조선|기계|복합기업|건설|건축|우주항공|국방|방산|운송|항공|해운|철도|전기장비|상업서비스|무역|물류/, 'Industrials'],
+    [/조선|기계|복합기업|건설|건축|우주항공|국방|방산|운송|항공|해운|철도|전기장비|전기제품|상업서비스|무역|물류/, 'Industrials'],
   ]
   for (const [re, sec] of RULES) if (re.test(t)) return sec
   return null
@@ -158,7 +158,7 @@ function trendFromCloses(c: number[]): WLTrend {
 
 export async function GET(req: Request) {
   const origin = new URL(req.url).origin
-  const cacheKey = `win-lose-v6:${kstDate()}`   // v6: 섹터 미분류 패치 — 스크리너 '—' 섹터 null 정규화 + KR 네이버 업종→GICS / US assetProfile 보강
+  const cacheKey = `win-lose-v7:${kstDate()}`   // v7: 섹터 미분류 패치 완성 — '—' 정규화 + KR 네이버 업종→GICS(전기제품=2차전지 포함) / US assetProfile
   const cached = await getCache<WLApi>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
