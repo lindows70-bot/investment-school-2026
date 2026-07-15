@@ -71,6 +71,9 @@ export const TK = {
   lime400: '#a3e635',
   neonLime: '#deff9a',   // 대시보드 시그니처 네온 라임
   btcOrange: '#f7931a',  // 비트코인 공식 오렌지
+
+  // ── 🪙 골드 코인('내 보유' 3D 시각 언어 — 승패 해부실에서 시작) ──
+  coinLight: '#ffe9a3', coinDark: '#a3690b', coinEdge: '#7c4f06', coinText: '#5c3a04',
 }
 // ⚠️ as const 금지 — 리터럴 타입이 되면 기본 파라미터(border = TK.line1 등) 추론이 그 리터럴로 좁아져 호출부가 깨짐
 

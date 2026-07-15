@@ -2,7 +2,7 @@
 // ⚔️ 승패 해부실 — "지금 장에서 오르는 종목 vs 떨어지는 종목은 뭐가 다른가"를 매일 자동 해부하는 교육 화면.
 //   ①스코어보드+오늘의 교훈 ②대전표(나비 바) ③섹터 전장 지도 ④산점도 ⑤승패 Top8 ⑥캐비엇.
 //   관측이지 추천 아님(점수·추천 미반영) · 전부 기존 SSOT 재사용 · 내 보유 하이라이트는 본인 RLS 조회로만.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { ScatterChart, Scatter, XAxis, YAxis, ZAxis, Tooltip, ReferenceLine, ResponsiveContainer, Cell } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
 import { sectorMeta } from '@/lib/gicsSectorMeta'
@@ -21,6 +21,25 @@ const QUAD_META: Record<WLQuad, { icon: string; label: string; color: string; or
 }
 const fmt1 = (n: number | null) => (n == null ? '—' : `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`)
 const retColor = (n: number | null) => (n == null ? TK.sub3 : n > 0 ? TK.green400 : n < 0 ? TK.red400 : TK.slate200)
+
+// 🪙 내 보유 시각 언어(3D) — 금화 배지 + 뉴모피즘 융기(행이 보드에서 떠오름·호버 시 상승). 우리 포트·Top8·산점도·전장 지도 공통 골드.
+const Coin = ({ size = 14 }: { size?: number }) => (
+  <span style={{
+    width: size, height: size, minWidth: size, borderRadius: '50%',
+    background: `radial-gradient(circle at 32% 28%, ${TK.coinLight}, ${TK.amber400} 45%, ${TK.coinDark})`,
+    boxShadow: `inset 0 ${-size * 0.11}px 2px ${TK.coinEdge}, 0 1px 2px rgba(0,0,0,.5)`,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: size * 0.57, color: TK.coinText, fontWeight: 800, lineHeight: 1, flexShrink: 0,
+  }} title="내 보유">₩</span>
+)
+const MINE_ROW: CSSProperties = {
+  background: `linear-gradient(145deg, ${TK.bg8}, ${TK.bg4})`,
+  border: 'none', borderLeft: `3px solid ${TK.amber400}`, borderRadius: '0 8px 8px 0',
+  boxShadow: `4px 5px 12px ${TK.bg0}, -2px -2px 7px ${TK.line2}`,
+}
+const MINE_CSS = `
+.wl-mine{transition:transform .18s ease, box-shadow .18s ease}
+.wl-mine:hover{transform:translateY(-2px);box-shadow:6px 8px 16px ${TK.bg0}, -3px -3px 9px ${TK.line2}, 0 0 10px ${TK.amber400}38}`
 
 export default function WinLosePage() {
   const [data, setData] = useState<WLApi | null>(null)
@@ -69,6 +88,7 @@ export default function WinLosePage() {
 
   return (
     <div style={{ padding: '18px 20px', maxWidth: 1180, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <style>{MINE_CSS}</style>
       {/* ── 헤더: 스코어보드 + 기간 토글 ───────────────────────── */}
       <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -109,9 +129,11 @@ export default function WinLosePage() {
         const dn = sch.filter(r => (retOf(r, period) ?? 0) < 0).sort((a, b) => retOf(a, period)! - retOf(b, period)!)
         const na = sch.filter(r => retOf(r, period) == null)
         const Row = ({ r, i }: { r: (typeof sch)[number]; i: number }) => (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, background: TK.bg3, borderRadius: 7, padding: '4px 9px', border: isMine(r) ? `1px solid ${TK.slate100}55` : '1px solid transparent' }}>
+          <div className={isMine(r) ? 'wl-mine' : undefined}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, background: TK.bg3, borderRadius: 7, padding: '4px 9px', border: '1px solid transparent', ...(isMine(r) ? MINE_ROW : {}) }}>
             <span style={{ color: TK.sub2, fontFamily: 'monospace', width: 16, fontSize: 10 }}>{i + 1}</span>
-            <b style={{ color: TK.slate200, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{isMine(r) && '⭐'}{r.name}</b>
+            {isMine(r) && <Coin />}
+            <b style={{ color: isMine(r) ? TK.slate100 : TK.slate200, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</b>
             {r.sub
               ? <span style={{ fontSize: 9, fontWeight: 700, color: r.sub.color, background: r.sub.color + '16', borderRadius: 4, padding: '1px 6px', whiteSpace: 'nowrap' }}>{r.sub.emoji}{r.sub.label}</span>
               : <span style={{ fontSize: 9, fontWeight: 700, color: TK.sub3, background: `${TK.sub3}16`, borderRadius: 4, padding: '1px 6px' }}>{r.assetType === 'ETF' ? '📦 ETF' : r.assetType === 'COMMODITY' ? '🥇 원자재' : '주식'}</span>}
@@ -124,7 +146,9 @@ export default function WinLosePage() {
           <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
               <b style={{ fontSize: 14, color: TK.slate100 }}>🏫 우리 포트 승패</b>
-              <span style={{ fontSize: 10.5, color: TK.sub2 }}>학생 전체 보유(주식+ETF+코인 {sch.length}종) — {WL_PERIOD_LABEL[period]} 기준 · 보유자 표시 없음 · ⭐ = 내 보유 · 📈정배열 📉역배열</span>
+              <span style={{ fontSize: 10.5, color: TK.sub2, display: 'inline-flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                학생 전체 보유(주식+ETF+코인 {sch.length}종) — {WL_PERIOD_LABEL[period]} 기준 · 보유자 표시 없음 · <Coin size={11} /> = 내 보유 · 📈정배열 📉역배열
+              </span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))', gap: 14, marginTop: 10 }}>
               <div>
@@ -193,7 +217,8 @@ export default function WinLosePage() {
                     {arr.slice(0, 5).map(r => (
                       <span key={r.ticker} title={`${r.name} ${fmt1(retOf(r, period))}`} style={{
                         fontSize: 9.5, fontWeight: 700, color, background: bg, borderRadius: 4, padding: '1px 6px',
-                        border: isMine(r) ? `1px solid ${TK.slate100}` : '1px solid transparent',
+                        border: isMine(r) ? `1px solid ${TK.amber400}` : '1px solid transparent',
+                        boxShadow: isMine(r) ? `0 0 5px ${TK.amber400}30` : undefined,
                       }}>{r.name.length > 8 ? r.name.slice(0, 8) : r.name}</span>
                     ))}
                     {arr.length > 5 && <span style={{ fontSize: 9.5, color: TK.sub2 }}>+{arr.length - 5}</span>}
@@ -217,7 +242,7 @@ export default function WinLosePage() {
           {/* ── 🎯 산점도: 52주 위치 × 수익률 ───────────────────── */}
           <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
             <b style={{ fontSize: 14, color: TK.slate100 }}>🎯 52주 위치 × {WL_PERIOD_LABEL[period]} 수익률</b>
-            <span style={{ fontSize: 10.5, color: TK.sub2, marginLeft: 8 }}>색 = 추세(🟢정배열·⚪혼조·🔴역배열) · 흰 테두리 = 내 보유 · 우상단 = 신고가권에서 계속 오르는 승자 구역</span>
+            <span style={{ fontSize: 10.5, color: TK.sub2, marginLeft: 8 }}>색 = 추세(🟢정배열·⚪혼조·🔴역배열) · 골드 테두리 = 내 보유 · 우상단 = 신고가권에서 계속 오르는 승자 구역</span>
             <div style={{ height: 330, marginTop: 8 }}>
               <ResponsiveContainer>
                 <ScatterChart margin={{ top: 10, right: 16, bottom: 6, left: -14 }}>
@@ -241,7 +266,7 @@ export default function WinLosePage() {
                     {scatterData.map((d, i) => (
                       <Cell key={i}
                         fill={d.r.trend === 'up' ? TK.green500 : d.r.trend === 'down' ? TK.red500 : TK.slate500}
-                        stroke={isMine(d.r) ? TK.slate100 : 'none'} strokeWidth={isMine(d.r) ? 1.6 : 0} fillOpacity={0.75} />
+                        stroke={isMine(d.r) ? TK.amber400 : 'none'} strokeWidth={isMine(d.r) ? 1.8 : 0} fillOpacity={0.75} />
                     ))}
                   </Scatter>
                 </ScatterChart>
@@ -256,9 +281,11 @@ export default function WinLosePage() {
                 <b style={{ fontSize: 13.5, color }}>{title}</b>
                 <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
                   {arr.map((r, i) => (
-                    <div key={r.ticker} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, background: TK.bg3, borderRadius: 7, padding: '5px 9px', border: isMine(r) ? `1px solid ${TK.slate100}55` : '1px solid transparent' }}>
+                    <div key={r.ticker} className={isMine(r) ? 'wl-mine' : undefined}
+                      style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, background: TK.bg3, borderRadius: 7, padding: '5px 9px', border: '1px solid transparent', ...(isMine(r) ? MINE_ROW : {}) }}>
                       <span style={{ color: TK.sub2, fontFamily: 'monospace', width: 14 }}>{i + 1}</span>
-                      <b style={{ color: TK.slate200, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{isMine(r) && '⭐'}{r.name}</b>
+                      {isMine(r) && <Coin />}
+                      <b style={{ color: isMine(r) ? TK.slate100 : TK.slate200, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</b>
                       <span style={{ fontSize: 9, color: TK.sub2 }}>{r.market}</span>
                       {r.sector && <span style={{ fontSize: 9 }}>{sectorMeta(r.sector)?.icon}</span>}
                       <span style={{ fontSize: 9.5, color: r.trend === 'up' ? TK.green400 : r.trend === 'down' ? TK.red400 : TK.sub3 }}>{r.trend === 'up' ? '📈정배열' : r.trend === 'down' ? '📉역배열' : '〰️혼조'}</span>
