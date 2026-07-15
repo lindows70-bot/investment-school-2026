@@ -28,6 +28,27 @@ const SECTOR_TO_ROT: Record<string, string> = {
   'Industrials': 'industrials', 'Basic Materials': 'materials', 'Communication Services': 'communication',
   'Utilities': 'utilities', 'Real Estate': 'realestate',
 }
+// 네이버 업종명 → Yahoo GICS 11 영문 섹터(키워드 매칭) — 전장 지도 sector-null 패치 전용(Yahoo가 섹터 안 주는 코스닥주 커버)
+function upjongToGics(u: string | null): string | null {
+  if (!u) return null
+  const t = u.replace(/\s/g, '')
+  const RULES: [RegExp, string][] = [
+    [/반도체|디스플레이|전자장비|컴퓨터|소프트웨어|IT서비스|통신장비|핸드셋|사무용전자/, 'Technology'],
+    [/게임|엔터테인먼트|미디어|방송|광고|출판|통신서비스/, 'Communication Services'],
+    [/은행|증권|보험|카드|창업투자|금융|자산운용/, 'Financial Services'],
+    [/제약|생물공학|바이오|건강관리|생명과학|의료/, 'Healthcare'],
+    [/유틸리티|수도|전력생산/, 'Utilities'],
+    [/석유|가스|에너지장비/, 'Energy'],
+    [/화학|금속|광물|종이|목재|포장재/, 'Basic Materials'],
+    [/부동산|리츠/, 'Real Estate'],
+    [/음료|식품|담배|화장품|가정용품|개인용품/, 'Consumer Defensive'],
+    [/자동차|호텔|레저|레스토랑|섬유|의류|신발|호화품|백화점|판매|소매|교육|내구소비재|가구/, 'Consumer Cyclical'],
+    [/조선|기계|복합기업|건설|건축|우주항공|국방|방산|운송|항공|해운|철도|전기장비|상업서비스|무역|물류/, 'Industrials'],
+  ]
+  for (const [re, sec] of RULES) if (re.test(t)) return sec
+  return null
+}
+
 type RotLite = { items?: { key: string; quadrant: WLQuad; score: number }[] }
 type SubLabel = { label: string; emoji: string; color: string; sector: string }
 
@@ -137,7 +158,7 @@ function trendFromCloses(c: number[]): WLTrend {
 
 export async function GET(req: Request) {
   const origin = new URL(req.url).origin
-  const cacheKey = `win-lose-v4:${kstDate()}`   // v4: 라벨 폴백 완성 — 주식=canonical 업종(네이버)·ETF=portfolioRole(지수/채권/레버리지)
+  const cacheKey = `win-lose-v5:${kstDate()}`   // v5: 전장 지도 섹터 미분류 패치 — sector-null 행에 KR 네이버 업종→GICS / US assetProfile 보강
   const cached = await getCache<WLApi>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -218,6 +239,27 @@ export async function GET(req: Request) {
       rotQuad: rot?.q ?? null, rotScore: rot?.score ?? null,
       knife: s?.knife ?? false,
     })
+  }
+
+  // ⑥½ 섹터 미분류 패치 — Yahoo가 섹터 안 주는 코스닥주·유니버스 밖 보유 주식의 sector-null 행 보강.
+  //     KR=네이버 업종(industryCode→업종명)→GICS 키워드 매핑 / US=Yahoo assetProfile 직접(소수라 부담 0). 실패 시 미분류 유지(정직).
+  const noSec = rows.filter(r => !r.sector)
+  if (noSec.length) {
+    const upjong = noSec.some(r => r.market === 'KR') ? await naverUpjongMap() : new Map<string, string>()
+    for (let i = 0; i < noSec.length; i += 6) {
+      await Promise.all(noSec.slice(i, i + 6).map(async (r) => {
+        try {
+          const sec = r.market === 'KR'
+            ? upjongToGics(await krIndustryOf(r.ticker, upjong))
+            : ((await yf.quoteSummary(r.ticker, { modules: ['assetProfile'] }))?.assetProfile?.sector ?? null)
+          if (!sec) return
+          r.sector = sec
+          const rot = rotBySector ? rotBySector.get(SECTOR_TO_ROT[sec] ?? '') ?? null : null
+          r.rotQuad = rot?.q ?? null
+          r.rotScore = rot?.score ?? null
+        } catch { /* 미분류 유지 */ }
+      }))
+    }
   }
 
   // ⑦ 🏫 학교 보유 승패 보드(주식+ETF+코인 전부) — 소섹터 라벨 역매핑
