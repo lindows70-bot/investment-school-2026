@@ -46,7 +46,8 @@
     { "path": "/api/cron/market-flow-kr", "schedule": "0 11 * * 1-5" },
     { "path": "/api/blackrock?refresh=1", "schedule": "0 21 * * 1" },
     { "path": "/api/cron/timing-watch", "schedule": "30 23 * * *" },
-    { "path": "/api/win-lose", "schedule": "50 23 * * *" }
+    { "path": "/api/win-lose", "schedule": "50 23 * * *" },
+    { "path": "/api/re-honeycomb", "schedule": "30 20 * * *" }
   ],
 
   "headers": [
