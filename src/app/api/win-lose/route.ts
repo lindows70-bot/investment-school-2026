@@ -158,7 +158,7 @@ function trendFromCloses(c: number[]): WLTrend {
 
 export async function GET(req: Request) {
   const origin = new URL(req.url).origin
-  const cacheKey = `win-lose-v5:${kstDate()}`   // v5: 전장 지도 섹터 미분류 패치 — sector-null 행에 KR 네이버 업종→GICS / US assetProfile 보강
+  const cacheKey = `win-lose-v6:${kstDate()}`   // v6: 섹터 미분류 패치 — 스크리너 '—' 섹터 null 정규화 + KR 네이버 업종→GICS / US assetProfile 보강
   const cached = await getCache<WLApi>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -227,7 +227,8 @@ export async function GET(req: Request) {
     const px = pxMap.get(normKey(m.market, m.ticker))
     if (!px || px.ret1m == null) continue
     const s = m.s
-    const sector = s?.sector ?? null
+    // 스크리너는 섹터 미상을 null이 아닌 '—'/'기타'로도 저장 — 유효 GICS 11만 인정, 나머지는 null로 정규화해 ⑥½ 패치 대상에 포함
+    const sector = s?.sector && SECTOR_TO_ROT[s.sector] ? s.sector : null
     const rot = sector && rotBySector ? rotBySector.get(SECTOR_TO_ROT[sector] ?? '') ?? null : null
     rows.push({
       ticker: m.market === 'KR' ? code6(m.ticker) : m.ticker.toUpperCase(),
