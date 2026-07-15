@@ -46,7 +46,7 @@ export async function GET(req: Request) {
       pins = master.map(m => {
         const mn = norm(m.name)
         let best: { k: string; n: number } | null = null
-        for (const [k, n] of dealCnt) {
+        for (const [k, n] of Array.from(dealCnt.entries())) {
           const sp = k.indexOf(' ')
           const dong = k.slice(0, sp), nm = norm(k.slice(sp + 1))
           if (dong !== m.dong || !nm || !(mn.includes(nm) || nm.includes(mn))) continue
