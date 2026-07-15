@@ -13,11 +13,12 @@
 
 import { useState } from 'react'
 import type { Candle } from './CandleChart'
+import { TK } from '@/lib/theme'
 
 type TimeFrame = '1D' | '1W' | '1M' | '1Y'
 
 // 평단가 선 색상 — 눈에 잘 띄는 애시드 그린
-const AVG_COLOR = '#deff9a'
+const AVG_COLOR = TK.neonLime
 
 interface Props {
   data:       Candle[]
@@ -28,7 +29,7 @@ interface Props {
   height?:    number
 }
 
-const N   = '#1b1e2e'
+const N   = TK.bg8
 
 export default function FullCandleChart({
   data, currency, timeframe, prevClose, avgPrice, height: heightProp = 300,
@@ -36,7 +37,7 @@ export default function FullCandleChart({
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
 
   if (!data?.length) return (
-    <div style={{ height: heightProp, display:'flex', alignItems:'center', justifyContent:'center', color:'#9aa0b8', fontSize:13 }}>
+    <div style={{ height: heightProp, display:'flex', alignItems:'center', justifyContent:'center', color:TK.sub4, fontSize:13 }}>
       캔들 데이터 없음
     </div>
   )
@@ -114,7 +115,7 @@ export default function FullCandleChart({
   const maxIdx     = data.reduce((mi, c, i) => c.high > data[mi].high ? i : mi, 0)
   const minIdx     = data.reduce((mi, c, i) => c.low  < data[mi].low  ? i : mi, 0)
   const lastCandle = data[n - 1]
-  const lastColor  = lastCandle.close >= lastCandle.open ? '#ef4444' : '#3b82f6'
+  const lastColor  = lastCandle.close >= lastCandle.open ? TK.red500 : TK.blue500
 
   // ── 평단가 관련 계산 ──────────────────────────────────────
   const hasAvg  = avgPrice != null && avgPrice > 0
@@ -144,7 +145,7 @@ export default function FullCandleChart({
         {yTicks.map((t, i) => (
           <line key={i}
             x1={padL} y1={toY(t)} x2={W - padR} y2={toY(t)}
-            stroke="#1e2140" strokeWidth={1}
+            stroke={TK.bg9} strokeWidth={1}
           />
         ))}
 
@@ -181,7 +182,7 @@ export default function FullCandleChart({
               const tagX = W - padR + 1
               const gapPct = avgGap!
               const gapStr = `${gapPct >= 0 ? '+' : ''}${gapPct.toFixed(1)}%`
-              const gapColor = gapPct >= 0 ? '#4ade80' : '#f87171'
+              const gapColor = gapPct >= 0 ? TK.green400 : TK.red400
               return (
                 <g>
                   {/* 평단가 태그 */}
@@ -230,11 +231,11 @@ export default function FullCandleChart({
             <line
               x1={padL} y1={toY(prevClose)}
               x2={W - padR} y2={toY(prevClose)}
-              stroke={lastCandle.close >= prevClose ? '#f87171' : '#60a5fa'}
+              stroke={lastCandle.close >= prevClose ? TK.red400 : TK.blue400}
               strokeWidth={0.9} strokeDasharray="5 4" strokeOpacity={0.55}
             />
             {(() => {
-              const pColor = lastCandle.close >= prevClose ? '#f87171' : '#60a5fa'
+              const pColor = lastCandle.close >= prevClose ? TK.red400 : TK.blue400
               const lbl = fmtY(prevClose)
               const tw  = Math.max(38, lbl.length * 5.4 + 8)
               const py  = toY(prevClose)
@@ -256,7 +257,7 @@ export default function FullCandleChart({
         {data.map((c, i) => {
           const x      = toX(i)
           const isUp   = c.close >= c.open
-          const color  = isUp ? '#ef4444' : '#3b82f6'
+          const color  = isUp ? TK.red500 : TK.blue500
           const bodyT  = toY(Math.max(c.open, c.close))
           const bodyB  = toY(Math.min(c.open, c.close))
           const bodyH  = Math.max(1, bodyB - bodyT)
@@ -311,9 +312,9 @@ export default function FullCandleChart({
           const anchor = maxIdx > n * 0.7 ? 'end' : 'start'
           return (
             <g>
-              <circle cx={hx} cy={hy - 7} r={3} fill="#fbbf24" stroke={N} strokeWidth={1.2}/>
+              <circle cx={hx} cy={hy - 7} r={3} fill={TK.amber400} stroke={N} strokeWidth={1.2}/>
               <text x={lblX} y={hy - 10} textAnchor={anchor}
-                fill="#fbbf24" fontSize={8} fontWeight={700}>{lbl}</text>
+                fill={TK.amber400} fontSize={8} fontWeight={700}>{lbl}</text>
             </g>
           )
         })()}
@@ -326,9 +327,9 @@ export default function FullCandleChart({
           const anchor = minIdx > n * 0.7 ? 'end' : 'start'
           return (
             <g>
-              <circle cx={lx} cy={ly + 7} r={3} fill="#a78bfa" stroke={N} strokeWidth={1.2}/>
+              <circle cx={lx} cy={ly + 7} r={3} fill={TK.violet400} stroke={N} strokeWidth={1.2}/>
               <text x={lblX} y={ly + 18} textAnchor={anchor}
-                fill="#a78bfa" fontSize={8} fontWeight={700}>{lbl}</text>
+                fill={TK.violet400} fontSize={8} fontWeight={700}>{lbl}</text>
             </g>
           )
         })()}
@@ -371,11 +372,11 @@ export default function FullCandleChart({
 
         {/* ── 가격/거래량 구분선 ── */}
         <line x1={padL} y1={volTop} x2={W - padR} y2={volTop}
-          stroke="#1e2140" strokeWidth={1}/>
+          stroke={TK.bg9} strokeWidth={1}/>
 
         {/* ── X축 라인 ── */}
         <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB}
-          stroke="#4a5070" strokeWidth={1}/>
+          stroke={TK.line4} strokeWidth={1}/>
 
         {/* ── X축 라벨 (하단) ── */}
         {xIdxs.map(idx => (
@@ -405,13 +406,13 @@ export default function FullCandleChart({
             <g style={{ pointerEvents:'none' }}>
               <rect x={tipX} y={tipY} width={tipW} height={tipH}
                 fill="#141728"
-                stroke={isUp ? '#ef4444' : '#3b82f6'}
+                stroke={isUp ? TK.red500 : TK.blue500}
                 strokeWidth={0.8} rx={9} opacity={0.97}/>
-              <text x={tipX + 8} y={tipY + 13} fill="#8a9aaa" fontSize={8.5}>{fmtDate(c.date)}</text>
+              <text x={tipX + 8} y={tipY + 13} fill={TK.sub} fontSize={8.5}>{fmtDate(c.date)}</text>
               {([['시가',c.open],['고가',c.high],['저가',c.low],['종가',c.close]] as [string,number][])
                 .map(([lbl,val], i) => (
                   <text key={i} x={tipX + 8} y={tipY + 27 + i * 14}
-                    fill={lbl === '종가' ? (isUp ? '#f87171' : '#60a5fa') : '#a8b5c2'}
+                    fill={lbl === '종가' ? (isUp ? TK.red400 : TK.blue400) : TK.sub9}
                     fontSize={10} fontWeight={lbl === '종가' ? 700 : 400}>
                     {lbl}: {fmtY(val)}
                   </text>
@@ -419,7 +420,7 @@ export default function FullCandleChart({
               }
               {prevClose != null && prevClose > 0 && (
                 <text x={tipX + 8} y={tipY + 83}
-                  fill={diff >= 0 ? '#f87171' : '#60a5fa'} fontSize={9} fontWeight={600}>
+                  fill={diff >= 0 ? TK.red400 : TK.blue400} fontSize={9} fontWeight={600}>
                   {diff >= 0 ? '+' : ''}{fmtY(diff)} ({pct >= 0 ? '+' : ''}{pct.toFixed(2)}%)
                 </text>
               )}

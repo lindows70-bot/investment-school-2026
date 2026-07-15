@@ -2,23 +2,24 @@
 // 🏛️ 연준 양대책무 대시보드 — 고용 안정(4지표+삼의 법칙) + 물가 안정(워시 의장 절사평균 PCE)
 import { useState, useEffect } from 'react'
 import type { DualMandateResult } from '@/app/api/fed-dual-mandate/route'
+import { TK } from '@/lib/theme'
 
-const CARD = '#161b25', BORDER = '#1e293b'
+const CARD = TK.bg6, BORDER = TK.border
 const fmtK = (n: number) => `${(n / 1000).toFixed(0)}K`
 // ⚠️ 라벨 주의: '골디락스'는 4계절 투자법(성장↑·물가↓ 사분면)과 충돌 → 고용 신호등은 '균형(연착륙)'으로 통일
 const LABOR = {
-  hot: { c: '#f87171', icon: '🔴', label: '과열 (인플레 위험)' },
-  balanced: { c: '#4ade80', icon: '🟢', label: '균형 (연착륙)' },
-  cooling: { c: '#60a5fa', icon: '🔵', label: '냉각 (침체 경고)' },
+  hot: { c: TK.red400, icon: '🔴', label: '과열 (인플레 위험)' },
+  balanced: { c: TK.green400, icon: '🟢', label: '균형 (연착륙)' },
+  cooling: { c: TK.blue400, icon: '🔵', label: '냉각 (침체 경고)' },
 }
 
 function Stat({ label, value, sub, hint }: { label: string; value: string; sub?: string; hint?: string }) {
   return (
-    <div style={{ flex: '1 1 120px', background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 9, padding: '9px 12px' }}>
-      <div style={{ color: '#8a9aaa', fontSize: 10.5 }}>{label}</div>
-      <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 17, fontFamily: 'monospace' }}>{value}</div>
-      {sub && <div style={{ color: '#9aa7b5', fontSize: 10 }}>{sub}</div>}
-      {hint && <div style={{ color: '#8a9aaa', fontSize: 9.5, marginTop: 1 }}>{hint}</div>}
+    <div style={{ flex: '1 1 120px', background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 9, padding: '9px 12px' }}>
+      <div style={{ color: TK.sub, fontSize: 10.5 }}>{label}</div>
+      <div style={{ color: TK.slate200, fontWeight: 800, fontSize: 17, fontFamily: 'monospace' }}>{value}</div>
+      {sub && <div style={{ color: TK.sub8, fontSize: 10 }}>{sub}</div>}
+      {hint && <div style={{ color: TK.sub, fontSize: 9.5, marginTop: 1 }}>{hint}</div>}
     </div>
   )
 }
@@ -35,7 +36,7 @@ export default function DualMandateDashboard() {
     return () => { alive = false }
   }, [])
 
-  if (loading) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa' }}>🏛️ 연준 양대책무(고용·물가) 지표를 불러오는 중…</div>
+  if (loading) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: TK.sub }}>🏛️ 연준 양대책무(고용·물가) 지표를 불러오는 중…</div>
   if (!d) return null
 
   const ls = LABOR[d.laborStatus]
@@ -53,21 +54,21 @@ export default function DualMandateDashboard() {
       <div style={{ background: 'linear-gradient(135deg,rgba(96,165,250,0.10),rgba(245,158,11,0.06))', border: '1px solid rgba(96,165,250,0.3)', borderRadius: 12, padding: '12px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 16 }}>🏛️</span>
-          <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 14 }}>연준 양대책무 (Dual Mandate)</span>
-          <span style={{ color: '#8a9aaa', fontSize: 11 }}>💼 고용 안정 + 🎯 물가 안정 — 두 축이 금리를 움직입니다</span>
+          <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 14 }}>연준 양대책무 (Dual Mandate)</span>
+          <span style={{ color: TK.sub, fontSize: 11 }}>💼 고용 안정 + 🎯 물가 안정 — 두 축이 금리를 움직입니다</span>
         </div>
       </div>
 
       {/* 💼 고용 안정 */}
       <div style={{ background: CARD, borderRadius: 12, padding: '14px 16px', border: `1px solid ${BORDER}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
-          <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>💼 고용 시장 냉온 점검</span>
+          <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 13 }}>💼 고용 시장 냉온 점검</span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: `${ls.c}1a`, border: `1px solid ${ls.c}55`, borderRadius: 999, padding: '3px 11px' }}>
             <span style={{ fontSize: 11 }}>{ls.icon}</span>
             <span style={{ color: ls.c, fontWeight: 800, fontSize: 11.5 }}>{ls.label}</span>
           </span>
         </div>
-        <div style={{ color: '#aab6c4', fontSize: 11.5, lineHeight: 1.6, marginBottom: 10 }}>{d.laborNote}</div>
+        <div style={{ color: TK.sub5, fontSize: 11.5, lineHeight: 1.6, marginBottom: 10 }}>{d.laborNote}</div>
         {/* 4지표 */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
           {/* ⚠️ momK는 이미 천명(K) 단위(172=+172K) — fmtK(÷1000)를 쓰면 0K로 보이는 버그(+0K 사건의 진범). 그대로 +NK 표기 */}
@@ -77,18 +78,18 @@ export default function DualMandateDashboard() {
           <Stat label="구인배율(JOLTs)" value={`${d.jobRatio.ratio}`} sub="구인÷실업자" hint={d.jobRatio.ratio >= 1.5 ? '과열' : d.jobRatio.ratio < 1.0 ? '냉각' : '균형'} />
         </div>
         {/* ⚠️ 삼의 법칙 게이지 */}
-        <div style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 9, padding: '10px 13px' }}>
+        <div style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 9, padding: '10px 13px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
-            <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 12 }}>⚠️ 삼의 법칙(Sahm Rule) 침체 게이지</span>
-            <span style={{ color: d.sahm.value >= 0.5 ? '#f87171' : '#4ade80', fontWeight: 800, fontSize: 13, fontFamily: 'monospace' }}>{d.sahm.value}%p</span>
+            <span style={{ color: TK.slate200, fontWeight: 700, fontSize: 12 }}>⚠️ 삼의 법칙(Sahm Rule) 침체 게이지</span>
+            <span style={{ color: d.sahm.value >= 0.5 ? TK.red400 : TK.green400, fontWeight: 800, fontSize: 13, fontFamily: 'monospace' }}>{d.sahm.value}%p</span>
           </div>
-          <div style={{ position: 'relative', height: 10, background: '#1e293b', borderRadius: 5, overflow: 'visible' }}>
-            <div style={{ width: `${sahmPct}%`, height: '100%', background: d.sahm.value >= 0.5 ? '#f87171' : '#4ade80', borderRadius: 5 }} />
-            <div style={{ position: 'absolute', left: `${sahmThreshold}%`, top: -3, bottom: -3, width: 2, background: '#f87171' }} />
-            <span style={{ position: 'absolute', left: `${sahmThreshold}%`, top: -16, transform: 'translateX(-50%)', color: '#f87171', fontSize: 9, whiteSpace: 'nowrap' }}>침체 0.5</span>
+          <div style={{ position: 'relative', height: 10, background: TK.border, borderRadius: 5, overflow: 'visible' }}>
+            <div style={{ width: `${sahmPct}%`, height: '100%', background: d.sahm.value >= 0.5 ? TK.red400 : TK.green400, borderRadius: 5 }} />
+            <div style={{ position: 'absolute', left: `${sahmThreshold}%`, top: -3, bottom: -3, width: 2, background: TK.red400 }} />
+            <span style={{ position: 'absolute', left: `${sahmThreshold}%`, top: -16, transform: 'translateX(-50%)', color: TK.red400, fontSize: 9, whiteSpace: 'nowrap' }}>침체 0.5</span>
           </div>
-          <div style={{ color: '#9aa7b5', fontSize: 10.5, marginTop: 7, lineHeight: 1.5 }}>
-            실업률 3개월 평균이 12개월 최저 대비 0.5%p 오르면 침체 진입(역사적 적중률 100%). 현재 임계까지 <b style={{ color: d.sahm.gap > 0.2 ? '#4ade80' : '#fbbf24' }}>{d.sahm.gap}%p</b> 여유.
+          <div style={{ color: TK.sub8, fontSize: 10.5, marginTop: 7, lineHeight: 1.5 }}>
+            실업률 3개월 평균이 12개월 최저 대비 0.5%p 오르면 침체 진입(역사적 적중률 100%). 현재 임계까지 <b style={{ color: d.sahm.gap > 0.2 ? TK.green400 : TK.amber400 }}>{d.sahm.gap}%p</b> 여유.
           </div>
         </div>
       </div>
@@ -96,39 +97,39 @@ export default function DualMandateDashboard() {
       {/* 🎯 물가 안정 — 워시 의장의 절사평균 나침반 */}
       <div style={{ background: CARD, borderRadius: 12, padding: '14px 16px', border: `1px solid ${BORDER}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-          <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>🎯 케빈 워시의 나침반 — 절사평균 PCE</span>
-          <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>달라스 연준 · 노이즈 제거한 기조 물가</span>
+          <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 13 }}>🎯 케빈 워시의 나침반 — 절사평균 PCE</span>
+          <span style={{ color: TK.sub, fontSize: 10.5 }}>달라스 연준 · 노이즈 제거한 기조 물가</span>
         </div>
-        <div style={{ color: '#aab6c4', fontSize: 11.5, lineHeight: 1.6, marginBottom: 12 }}>{d.warshNote}</div>
+        <div style={{ color: TK.sub5, fontSize: 11.5, lineHeight: 1.6, marginBottom: 12 }}>{d.warshNote}</div>
         {/* 노이즈 필터 비교 게이지 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          {[['헤드라인 PCE (노이즈 큼)', d.headlinePce, headPct, '#fb923c'], ['절사평균 PCE (워시 픽·기조)', d.trimmedPce.latest, trimPct, '#22d3ee']].map(([label, val, pct, col]) => (
+          {[['헤드라인 PCE (노이즈 큼)', d.headlinePce, headPct, TK.orange400], ['절사평균 PCE (워시 픽·기조)', d.trimmedPce.latest, trimPct, TK.cyan400]].map(([label, val, pct, col]) => (
             <div key={label as string}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, marginBottom: 2 }}>
-                <span style={{ color: '#8a9aaa' }}>{label as string}</span>
+                <span style={{ color: TK.sub }}>{label as string}</span>
                 <span style={{ color: col as string, fontWeight: 800, fontFamily: 'monospace' }}>{val as number}%</span>
               </div>
-              <div style={{ position: 'relative', height: 8, background: '#0f1117', borderRadius: 4, overflow: 'visible' }}>
+              <div style={{ position: 'relative', height: 8, background: TK.bg3, borderRadius: 4, overflow: 'visible' }}>
                 <div style={{ width: `${pct as number}%`, height: '100%', background: col as string, borderRadius: 4 }} />
-                <div style={{ position: 'absolute', left: `${targetPct}%`, top: -2, bottom: -2, width: 2, background: '#94a3b8' }} />
+                <div style={{ position: 'absolute', left: `${targetPct}%`, top: -2, bottom: -2, width: 2, background: TK.slate400 }} />
               </div>
             </div>
           ))}
         </div>
-        <div style={{ color: '#9aa7b5', fontSize: 10.5, marginTop: 8, lineHeight: 1.5 }}>
-          회색선 = 연준 목표 2.0% · 두 라인의 차이 <b style={{ color: '#22d3ee' }}>{d.noiseGap}%p</b>가 클수록 헤드라인이 일시 충격으로 부풀어 있다는 뜻(유가·중고차·보험료 등). 워시 의장은 칼로 잘라낸 <b>절사평균</b>을 최우선 가이드로 봅니다.
+        <div style={{ color: TK.sub8, fontSize: 10.5, marginTop: 8, lineHeight: 1.5 }}>
+          회색선 = 연준 목표 2.0% · 두 라인의 차이 <b style={{ color: TK.cyan400 }}>{d.noiseGap}%p</b>가 클수록 헤드라인이 일시 충격으로 부풀어 있다는 뜻(유가·중고차·보험료 등). 워시 의장은 칼로 잘라낸 <b>절사평균</b>을 최우선 가이드로 봅니다.
         </div>
       </div>
 
       {/* 🎓 최일 쌤의 통합 진단 — 고용×물가 융합 해석(전부 동적 계산, 숫자 박제 없음) */}
       {d.integratedTip && (
         <div style={{ background: 'linear-gradient(135deg,rgba(245,158,11,0.08),rgba(34,211,238,0.05))', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 12, padding: '12px 15px' }}>
-          <div style={{ color: '#fbbf24', fontWeight: 800, fontSize: 12, marginBottom: 5 }}>🎓 최일 쌤의 통합 진단 — 두 책무를 함께 읽는 법</div>
-          <div style={{ color: '#dbe3ec', fontSize: 11.5, lineHeight: 1.75 }}>{d.integratedTip}</div>
+          <div style={{ color: TK.amber400, fontWeight: 800, fontSize: 12, marginBottom: 5 }}>🎓 최일 쌤의 통합 진단 — 두 책무를 함께 읽는 법</div>
+          <div style={{ color: TK.sub15, fontSize: 11.5, lineHeight: 1.75 }}>{d.integratedTip}</div>
         </div>
       )}
 
-      <div style={{ color: '#8a9aaa', fontSize: 10, lineHeight: 1.6 }}>
+      <div style={{ color: TK.sub, fontSize: 10, lineHeight: 1.6 }}>
         ※ FRED 실시간(PAYEMS·UNRATE·ICSA·JTSJOL·SAHMREALTIME·PCETRIM12M159SFRBDAL) · 12h 캐시 · 이 지표는 참고 맥락이며 계절/국면 판정(거시경제 대시보드 SSOT)을 바꾸지 않습니다 · 교육용이며 투자 추천이 아닙니다.
       </div>
     </div>

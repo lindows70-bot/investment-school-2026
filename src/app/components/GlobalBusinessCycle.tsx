@@ -2,9 +2,10 @@
 // 🌐 피델리티식 글로벌 비즈니스 사이클 — OECD CLI 실데이터 S-곡선 + 국가 버블 + 클릭 상세 + 국면 성적표
 import { useState, useEffect, useMemo } from 'react'
 import type { GlobalCycleResult, CycleCountry, CyclePhase } from '@/app/api/global-cycle/route'
+import { TK } from '@/lib/theme'
 
-const CARD = '#12151c', BORDER = '#252a36'
-const PHASE_COLOR: Record<CyclePhase, string> = { early: '#4ade80', mid: '#60a5fa', late: '#fbbf24', recession: '#f87171' }
+const CARD = TK.bg4, BORDER = TK.line3
+const PHASE_COLOR: Record<CyclePhase, string> = { early: TK.green400, mid: TK.blue400, late: TK.amber400, recession: TK.red400 }
 const PHASE_KO: Record<CyclePhase, string> = { early: '회복', mid: '확장', late: '후기', recession: '수축' }
 
 // S-곡선: x(0~100) → y. 정점을 x=45(확장 중후반)에 둔 비대칭 힐 — 상승 완만·하강 가파름(경기 사이클 모양)
@@ -59,26 +60,26 @@ export default function GlobalBusinessCycle() {
   return (
     <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-        <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 14 }}>🌐 글로벌 비즈니스 사이클 — 국가별 경기 위치</span>
+        <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 14 }}>🌐 글로벌 비즈니스 사이클 — 국가별 경기 위치</span>
         {d?.countries[0] && <span style={{ background: 'rgba(212,175,122,0.12)', color: '#d4af7a', border: '1px solid rgba(212,175,122,0.35)', borderRadius: 6, padding: '2px 9px', fontSize: 11, fontWeight: 800 }}>📅 데이터 기준 {d.countries[0].asOfMonth}</span>}
       </div>
-      <div style={{ color: '#8a9aaa', fontSize: 11, marginBottom: 10 }}>
-        피델리티 프레임워크를 <b style={{ color: '#cdd6e3' }}>OECD 경기선행지수(CLI) 실데이터</b>로 재현 — 레벨(100 기준)×모멘텀 + <b style={{ color: '#cdd6e3' }}>과열 규칙</b>(CLI 102↑ = 잠재 초과 가열 → 후기, 피델리티 공개 방법론의 Late 정의) 자동 판정. 매달 CLI 발표에 따라 자동 갱신.
+      <div style={{ color: TK.sub, fontSize: 11, marginBottom: 10 }}>
+        피델리티 프레임워크를 <b style={{ color: TK.sub11 }}>OECD 경기선행지수(CLI) 실데이터</b>로 재현 — 레벨(100 기준)×모멘텀 + <b style={{ color: TK.sub11 }}>과열 규칙</b>(CLI 102↑ = 잠재 초과 가열 → 후기, 피델리티 공개 방법론의 Late 정의) 자동 판정. 매달 CLI 발표에 따라 자동 갱신.
       </div>
 
-      {err && <div style={{ color: '#8a9aaa', fontSize: 13, padding: 12 }}>데이터를 불러오지 못했습니다.</div>}
-      {!d && !err && <div style={{ color: '#8a9aaa', fontSize: 13, padding: 12 }}>13개국 경기선행지수를 분석 중입니다…</div>}
+      {err && <div style={{ color: TK.sub, fontSize: 13, padding: 12 }}>데이터를 불러오지 못했습니다.</div>}
+      {!d && !err && <div style={{ color: TK.sub, fontSize: 13, padding: 12 }}>13개국 경기선행지수를 분석 중입니다…</div>}
 
       {d && <>
         {/* 인플레이션 압력 안내 바(피델리티 원본 요소 — 사이클 후반일수록 물가 압력↑ 교육) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-          <span style={{ color: '#7f93a8', fontSize: 10 }}>물가·금리 압력</span>
-          <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'linear-gradient(90deg, #4ade8033, #fbbf2477, #f87171bb)' }} />
-          <span style={{ color: '#f87171', fontSize: 10 }}>높음</span>
+          <span style={{ color: TK.sub2, fontSize: 10 }}>물가·금리 압력</span>
+          <div style={{ flex: 1, height: 6, borderRadius: 3, background: `linear-gradient(90deg, ${TK.green400}33, ${TK.amber400}77, ${TK.red400}bb)` }} />
+          <span style={{ color: TK.red400, fontSize: 10 }}>높음</span>
         </div>
 
         {/* ── S-곡선 + 국가 버블 (피델리티 원본 스타일: 상단 국면 헤더 + 중립 곡선 + 수축 빨강 꼬리) ── */}
-        <div style={{ background: '#0f1117', borderRadius: 10, border: `1px solid ${BORDER}`, padding: '6px 4px', marginBottom: 10 }}>
+        <div style={{ background: TK.bg3, borderRadius: 10, border: `1px solid ${BORDER}`, padding: '6px 4px', marginBottom: 10 }}>
           <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
             {/* 상단 국면 헤더 탭(원본 Early/Mid/Late/Recession 헤더) + 옅은 배경 밴드 */}
             {([['early', 0, 25], ['mid', 25, 50], ['late', 50, 75], ['recession', 75, 100]] as [CyclePhase, number, number][]).map(([ph, a, b]) => (
@@ -91,9 +92,9 @@ export default function GlobalBusinessCycle() {
             ))}
             {/* 곡선: 회복~후기 = 중립 회색, 수축 꼬리만 빨강(원본과 동일한 문법) */}
             <path d={curvePath(0, 75)} fill="none" stroke="#5e6b7d" strokeWidth="4.5" strokeLinecap="round" />
-            <path d={curvePath(75, 100)} fill="none" stroke="#f87171" strokeWidth="4.5" strokeLinecap="round" />
+            <path d={curvePath(75, 100)} fill="none" stroke={TK.red400} strokeWidth="4.5" strokeLinecap="round" />
             {/* 좌측 축 설명(원본의 Economic Growth) */}
-            <text x={X0 - 38} y={curveY(0) - 8} fill="#7f93a8" fontSize="11" fontWeight="600">경기 ↑</text>
+            <text x={X0 - 38} y={curveY(0) - 8} fill={TK.sub2} fontSize="11" fontWeight="600">경기 ↑</text>
             {/* 국가 버블 — 곡선 위 솔리드 원 + 위/아래 교차 라벨 */}
             {placed.map(c => {
               const cx = px(c.dispX), cy = curveY(c.dispX)
@@ -101,12 +102,12 @@ export default function GlobalBusinessCycle() {
               const ly = c.labelUp ? cy - 26 : cy + 36
               return (
                 <g key={c.code} onClick={() => setSel(c.code)} style={{ cursor: 'pointer' }}>
-                  <circle cx={cx} cy={cy} r={active ? 16 : 13} fill={PHASE_COLOR[c.phase]} fillOpacity={active ? 1 : 0.82} stroke={active ? '#fff' : '#0f1117'} strokeWidth={active ? 2.5 : 2}>
+                  <circle cx={cx} cy={cy} r={active ? 16 : 13} fill={PHASE_COLOR[c.phase]} fillOpacity={active ? 1 : 0.82} stroke={active ? '#fff' : TK.bg3} strokeWidth={active ? 2.5 : 2}>
                     {active && <animate attributeName="r" values="15;18;15" dur="1.8s" repeatCount="indefinite" />}
                   </circle>
                   <text x={cx} y={cy + 5.5} fontSize={active ? 15 : 13} textAnchor="middle">{c.flag}</text>
-                  <g style={{ paintOrder: 'stroke' }} stroke="#0f1117" strokeWidth="4" strokeLinejoin="round">
-                    <text x={cx} y={ly} fill={active ? '#fff' : '#cdd6e3'} fontSize={active ? 13.5 : 11.5} fontWeight="800" textAnchor="middle">{c.ko}</text>
+                  <g style={{ paintOrder: 'stroke' }} stroke={TK.bg3} strokeWidth="4" strokeLinejoin="round">
+                    <text x={cx} y={ly} fill={active ? '#fff' : TK.sub11} fontSize={active ? 13.5 : 11.5} fontWeight="800" textAnchor="middle">{c.ko}</text>
                   </g>
                 </g>
               )
@@ -118,17 +119,17 @@ export default function GlobalBusinessCycle() {
         {cur && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, background: `${PHASE_COLOR[cur.phase]}0e`, border: `1px solid ${PHASE_COLOR[cur.phase]}44`, borderRadius: 10, padding: '11px 14px', marginBottom: 10, alignItems: 'center' }}>
             <div style={{ minWidth: 150 }}>
-              <div style={{ fontSize: 17, fontWeight: 900, color: '#e2e8f0' }}>{cur.flag} {cur.ko}</div>
+              <div style={{ fontSize: 17, fontWeight: 900, color: TK.slate200 }}>{cur.flag} {cur.ko}</div>
               <div style={{ color: PHASE_COLOR[cur.phase], fontWeight: 800, fontSize: 13 }}>{PHASE_KO[cur.phase]} 국면</div>
             </div>
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-              <div><div style={{ color: '#7f93a8', fontSize: 10 }}>경기선행지수(CLI)</div><div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 14, fontFamily: 'monospace' }}>{cur.cli}</div></div>
-              <div><div style={{ color: '#7f93a8', fontSize: 10 }}>3개월 모멘텀</div><div style={{ color: cur.momentum > 0 ? '#4ade80' : '#f87171', fontWeight: 800, fontSize: 14, fontFamily: 'monospace' }}>{cur.momentum > 0 ? '+' : ''}{cur.momentum}</div></div>
-              <div><div style={{ color: '#7f93a8', fontSize: 10 }}>기준월</div><div style={{ color: '#cdd6e3', fontWeight: 700, fontSize: 12 }}>{cur.asOfMonth}</div></div>
+              <div><div style={{ color: TK.sub2, fontSize: 10 }}>경기선행지수(CLI)</div><div style={{ color: TK.slate200, fontWeight: 800, fontSize: 14, fontFamily: 'monospace' }}>{cur.cli}</div></div>
+              <div><div style={{ color: TK.sub2, fontSize: 10 }}>3개월 모멘텀</div><div style={{ color: cur.momentum > 0 ? TK.green400 : TK.red400, fontWeight: 800, fontSize: 14, fontFamily: 'monospace' }}>{cur.momentum > 0 ? '+' : ''}{cur.momentum}</div></div>
+              <div><div style={{ color: TK.sub2, fontSize: 10 }}>기준월</div><div style={{ color: TK.sub11, fontWeight: 700, fontSize: 12 }}>{cur.asOfMonth}</div></div>
             </div>
             {/* CLI 24개월 스파크라인 */}
             <Spark values={cur.spark} color={PHASE_COLOR[cur.phase]} />
-            <div style={{ flexBasis: '100%', color: '#aab6c4', fontSize: 11, lineHeight: 1.55 }}>
+            <div style={{ flexBasis: '100%', color: TK.sub5, fontSize: 11, lineHeight: 1.55 }}>
               {d.phaseGuide.find(g => g.phase === cur.phase)?.note} <b style={{ color: PHASE_COLOR[cur.phase] }}>유리 경향: {d.phaseGuide.find(g => g.phase === cur.phase)?.favored}</b>
             </div>
           </div>
@@ -139,12 +140,12 @@ export default function GlobalBusinessCycle() {
           {d.phaseGuide.map(g => {
             const members = d.countries.filter(c => c.phase === g.phase)
             return (
-              <div key={g.phase} style={{ background: '#0f1117', borderRadius: 9, border: `1px solid ${PHASE_COLOR[g.phase]}44`, borderTop: `2px solid ${PHASE_COLOR[g.phase]}`, padding: '9px 11px' }}>
+              <div key={g.phase} style={{ background: TK.bg3, borderRadius: 9, border: `1px solid ${PHASE_COLOR[g.phase]}44`, borderTop: `2px solid ${PHASE_COLOR[g.phase]}`, padding: '9px 11px' }}>
                 <div style={{ color: PHASE_COLOR[g.phase], fontWeight: 800, fontSize: 12 }}>{g.ko}</div>
-                <div style={{ color: '#9aa7b5', fontSize: 10.5, marginTop: 3 }}>유리: {g.favored}</div>
+                <div style={{ color: TK.sub8, fontSize: 10.5, marginTop: 3 }}>유리: {g.favored}</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
                   {members.length ? members.map(m => (
-                    <button key={m.code} onClick={() => setSel(m.code)} style={{ background: `${PHASE_COLOR[g.phase]}18`, color: '#cdd6e3', border: `1px solid ${PHASE_COLOR[g.phase]}33`, borderRadius: 6, padding: '2px 7px', fontSize: 10.5, cursor: 'pointer' }}>{m.flag} {m.ko}</button>
+                    <button key={m.code} onClick={() => setSel(m.code)} style={{ background: `${PHASE_COLOR[g.phase]}18`, color: TK.sub11, border: `1px solid ${PHASE_COLOR[g.phase]}33`, borderRadius: 6, padding: '2px 7px', fontSize: 10.5, cursor: 'pointer' }}>{m.flag} {m.ko}</button>
                   )) : <span style={{ color: '#5a6b7c', fontSize: 10.5 }}>해당 국가 없음</span>}
                 </div>
               </div>
@@ -152,7 +153,7 @@ export default function GlobalBusinessCycle() {
           })}
         </div>
 
-        <div style={{ color: '#7f93a8', fontSize: 10, marginTop: 10, lineHeight: 1.55 }}>
+        <div style={{ color: TK.sub2, fontSize: 10, marginTop: 10, lineHeight: 1.55 }}>
           ⚠️ OECD CLI(진폭조정)는 발표 시차 ~1개월. 피델리티 공식(분기)은 독자 지표(고용·신용·이익·재고)를 병용해 일부 국가(특히 유로존 경계 케이스)가 다를 수 있습니다 — 우리는 공개 실데이터 자동 판정(2026 Q2 기준 13개국 중 9개국 일치 검증). 이 사이클은 <b>성장 축</b>만 봅니다 — 물가까지 합친 판정은 🧭 4계절 내비게이터(성장×물가) 참조. 국면별 유리 자산은 역사적 <b>경향</b>이지 매매 지시가 아닙니다.
         </div>
       </>}

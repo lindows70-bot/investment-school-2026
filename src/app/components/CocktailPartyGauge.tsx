@@ -11,6 +11,7 @@
 
 import { useState, useEffect } from 'react'
 import { LineChart, Line, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
+import { TK } from '@/lib/theme'
 
 interface PartyData {
   partyScore: number
@@ -29,18 +30,18 @@ interface PartyData {
 }
 
 const C = {
-  card: '#111827', card2: '#0d1420', border: '#1e293b',
-  text: '#f1f5f9', sub: '#94a3b8', low: '#8599ae',
+  card: TK.gray900, card2: '#0d1420', border: TK.border,
+  text: TK.slate100, sub: TK.slate400, low: TK.sub3,
 }
 
 // 점수 → 색상 (status 경계와 통일: 25/45/56/76)
 // 낮을수록 공포=기회=파랑/초록, 높을수록 탐욕=위험=빨강
 function scoreColor(s: number): string {
-  if (s < 25) return '#3b82f6'   // 극공포 — 파랑(기회)
-  if (s < 45) return '#10b981'   // 공포 — 초록(매수)
-  if (s < 56) return '#fbbf24'   // 중립 — 골드
-  if (s < 76) return '#fb923c'   // 탐욕 — 주황(주의)
-  return '#ef4444'               // 극탐욕 — 빨강(위험)
+  if (s < 25) return TK.blue500   // 극공포 — 파랑(기회)
+  if (s < 45) return TK.emerald500   // 공포 — 초록(매수)
+  if (s < 56) return TK.amber400   // 중립 — 골드
+  if (s < 76) return TK.orange400   // 탐욕 — 주황(주의)
+  return TK.red500               // 극탐욕 — 빨강(위험)
 }
 
 // ── 반원형 게이지 (CNN 원본 스타일: 구간 라벨 + 현재 구간 강조 + 바늘) ────────
@@ -62,11 +63,11 @@ function SemiGauge({ score }: { score: number }) {
 
   // 5구간 (경계 25/45/56/76 — status·scoreColor 통일)
   const segs = [
-    { from: 0,  to: 25,  c: '#3b82f6', label: '극공포' },
-    { from: 25, to: 45,  c: '#10b981', label: '공포' },
-    { from: 45, to: 56,  c: '#fbbf24', label: '중립' },
-    { from: 56, to: 76,  c: '#fb923c', label: '탐욕' },
-    { from: 76, to: 100, c: '#ef4444', label: '극탐욕' },
+    { from: 0,  to: 25,  c: TK.blue500, label: '극공포' },
+    { from: 25, to: 45,  c: TK.emerald500, label: '공포' },
+    { from: 45, to: 56,  c: TK.amber400, label: '중립' },
+    { from: 56, to: 76,  c: TK.orange400, label: '탐욕' },
+    { from: 76, to: 100, c: TK.red500, label: '극탐욕' },
   ]
   const currentSeg = segs.find(s => clamp >= s.from && clamp < s.to) ?? segs[segs.length - 1]
   const needle = pt(clamp, r * 0.92)
@@ -89,7 +90,7 @@ function SemiGauge({ score }: { score: number }) {
       {/* 구간 경계 눈금 */}
       {[25, 45, 56, 76].map(mark => {
         const p1 = pt(mark, r - 11), p2 = pt(mark, r + 5)
-        return <line key={mark} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="#0a0e1a" strokeWidth={2} />
+        return <line key={mark} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={TK.bg0} strokeWidth={2} />
       })}
       {/* 구간 라벨 (호 바깥) — 현재 구간만 강조 */}
       {segs.map(seg => {
@@ -98,16 +99,16 @@ function SemiGauge({ score }: { score: number }) {
         const isCur = seg === currentSeg
         return (
           <text key={seg.label} x={lp.x} y={lp.y} fontSize={isCur ? 10 : 8.5}
-            fontWeight={isCur ? 800 : 600} fill={isCur ? seg.c : '#8599ae'}
+            fontWeight={isCur ? 800 : 600} fill={isCur ? seg.c : TK.sub3}
             textAnchor="middle" dominantBaseline="middle">
             {seg.label}
           </text>
         )
       })}
       {/* 바늘 (현재 위치) */}
-      <line x1={cx} y1={cy} x2={needle.x} y2={needle.y} stroke="#f1f5f9" strokeWidth={3.5} strokeLinecap="round"
+      <line x1={cx} y1={cy} x2={needle.x} y2={needle.y} stroke={TK.slate100} strokeWidth={3.5} strokeLinecap="round"
         style={{ transition: 'all 0.8s ease' }} />
-      <circle cx={cx} cy={cy} r={9} fill="#1b1e2e" stroke="#f1f5f9" strokeWidth={2.5} />
+      <circle cx={cx} cy={cy} r={9} fill={TK.bg8} stroke={TK.slate100} strokeWidth={2.5} />
       <circle cx={cx} cy={cy} r={4} fill={color} />
       {/* 0 / 100 눈금 */}
       <text x={cx - r} y={cy + 16} fontSize={9} fill={C.low} textAnchor="middle">0</text>
@@ -122,9 +123,9 @@ function VixTip({ active, payload }: any) {
   if (!active || !payload?.length) return null
   const d = payload[0]?.payload
   return (
-    <div style={{ background: '#1f2937', border: '1px solid #7a8fa3', borderRadius: 6, padding: '4px 8px', fontSize: 10 }}>
-      <span style={{ color: '#94a3b8' }}>{d?.date} </span>
-      <span style={{ color: '#fbbf24', fontWeight: 700 }}>VIX {d?.vix?.toFixed(1)}</span>
+    <div style={{ background: TK.gray800, border: `1px solid ${TK.sub6}`, borderRadius: 6, padding: '4px 8px', fontSize: 10 }}>
+      <span style={{ color: TK.slate400 }}>{d?.date} </span>
+      <span style={{ color: TK.amber400, fontWeight: 700 }}>VIX {d?.vix?.toFixed(1)}</span>
     </div>
   )
 }
@@ -160,7 +161,7 @@ export default function CocktailPartyGauge() {
 
   return (
     <div style={{
-      background: 'linear-gradient(135deg, #0a0e1a 0%, #111827 100%)',
+      background: `linear-gradient(135deg, ${TK.bg0} 0%, ${TK.gray900} 100%)`,
       border: `1px solid ${color}44`, borderRadius: 14, padding: '20px 22px',
       boxShadow: `0 0 30px ${color}11`,
       fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
@@ -226,7 +227,7 @@ export default function CocktailPartyGauge() {
                   {v ?? '—'}
                 </div>
                 {diff != null && (
-                  <div style={{ fontSize: 9, color: diff > 0 ? '#f87171' : diff < 0 ? '#60a5fa' : C.low, marginTop: 1 }}>
+                  <div style={{ fontSize: 9, color: diff > 0 ? TK.red400 : diff < 0 ? TK.blue400 : C.low, marginTop: 1 }}>
                     {diff > 0 ? '▲' : diff < 0 ? '▼' : '−'} {Math.abs(diff)}
                   </div>
                 )}
@@ -254,11 +255,11 @@ export default function CocktailPartyGauge() {
                     tick={{ fontSize: 9, fill: C.low }} axisLine={false} tickLine={false} />
                   <Tooltip content={<VixTip />} />
                   {/* 공포 임계선 (VIX 20·30) */}
-                  <ReferenceLine y={20} stroke="#fb923c" strokeDasharray="3 3" strokeOpacity={0.5}
-                    label={{ value: '경계 20', position: 'insideTopRight', fontSize: 8, fill: '#fb923c' }} />
-                  <ReferenceLine y={30} stroke="#ef4444" strokeDasharray="3 3" strokeOpacity={0.5}
-                    label={{ value: '공포 30', position: 'insideTopRight', fontSize: 8, fill: '#ef4444' }} />
-                  <Line type="monotone" dataKey="vix" stroke="#fbbf24" strokeWidth={1.8} dot={false}
+                  <ReferenceLine y={20} stroke={TK.orange400} strokeDasharray="3 3" strokeOpacity={0.5}
+                    label={{ value: '경계 20', position: 'insideTopRight', fontSize: 8, fill: TK.orange400 }} />
+                  <ReferenceLine y={30} stroke={TK.red500} strokeDasharray="3 3" strokeOpacity={0.5}
+                    label={{ value: '공포 30', position: 'insideTopRight', fontSize: 8, fill: TK.red500 }} />
+                  <Line type="monotone" dataKey="vix" stroke={TK.amber400} strokeWidth={1.8} dot={false}
                     isAnimationActive={true} animationDuration={700} />
                 </LineChart>
               </ResponsiveContainer>
@@ -279,14 +280,14 @@ export default function CocktailPartyGauge() {
               {data.momentum}%
             </span>
           </div>
-          <div style={{ height: 7, background: '#1e293b', borderRadius: 999, overflow: 'hidden' }}>
+          <div style={{ height: 7, background: TK.border, borderRadius: 999, overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${data.momentum}%`, background: scoreColor(data.momentum), borderRadius: 999, transition: 'width 0.6s' }} />
           </div>
           <div style={{ fontSize: 9, color: C.low, marginTop: 8, lineHeight: 1.5 }}>고점 근처 = 파티 활기<br/>저점 = 파티 끝</div>
         </div>
       </div>
 
-      <div style={{ marginTop: 12, fontSize: 9, color: '#7a8fa3', lineHeight: 1.6 }}>
+      <div style={{ marginTop: 12, fontSize: 9, color: TK.sub6, lineHeight: 1.6 }}>
         {data.source === 'cnn'
           ? '* CNN 공포-탐욕 지수(7개 지표 종합)를 사용합니다. 매시간 자동 갱신 · 투자 참고용이며 매매 권유가 아닙니다.'
           : '* CNN 데이터 일시 불가 → VIX·S&P500 자체 계산으로 대체 표시 중입니다. 투자 참고용입니다.'}

@@ -5,10 +5,11 @@ import { useState, useEffect } from 'react'
 import { ComposedChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { isFinancialCompany, isHoldingCompany } from '@/lib/assetClassifier'   // 🏦 금융주·🏢 지주사 — PER 왜곡이라 밴드 판정 부적합
 import type { TracerResult } from '@/app/api/lynch-earnings-tracer/route'
+import { TK } from '@/lib/theme'
 
-const BORDER = '#1e293b'
+const BORDER = TK.border
 // 밴드 5선: 최저(파랑=역사적 바닥) → 최고(빨강=역사적 천장)
-const BAND_COLORS = ['#3b82f6', '#22c55e', '#eab308', '#fb923c', '#ef4444']
+const BAND_COLORS = [TK.blue500, TK.green500, TK.yellow500, TK.orange400, TK.red500]
 const BAND_NAMES = ['최저', '25%', '중앙', '75%', '최고']
 
 const quantile = (sorted: number[], q: number): number => {
@@ -37,7 +38,7 @@ export default function PerBandChart({ ticker, market }: { ticker: string; marke
   }, [ticker, market])
 
   if (loading) return (
-    <div style={{ background: '#141824', border: `1px solid ${BORDER}`, borderRadius: 12, padding: '20px 24px', marginBottom: 16, color: '#8599ae', fontSize: 12 }}>
+    <div style={{ background: TK.card, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '20px 24px', marginBottom: 16, color: TK.sub3, fontSize: 12 }}>
       📊 PER 밴드 계산 중… (역사적 연평균 주가 × EPS 수집)
     </div>
   )
@@ -49,8 +50,8 @@ export default function PerBandChart({ ticker, market }: { ticker: string; marke
   // 역사적 PER 표본(흑자 연도만) → 분위수 5선
   const pers = data.points.map(p => p.actualPer).filter((v): v is number => v != null && v > 0).sort((a, b) => a - b)
   if (pers.length < 3) return (
-    <div style={{ background: '#141824', border: `1px solid ${BORDER}`, borderRadius: 12, padding: '16px 24px', marginBottom: 16, color: '#8599ae', fontSize: 11.5, lineHeight: 1.6 }}>
-      📊 <b style={{ color: '#cbd5e1' }}>PER 밴드</b> — 역사적 흑자 연도 PER 표본이 {pers.length}개뿐이라 밴드를 그릴 수 없습니다(최소 3개년 필요). 적자·신생·데이터 부족 종목은 정직하게 생략합니다.
+    <div style={{ background: TK.card, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '16px 24px', marginBottom: 16, color: TK.sub3, fontSize: 11.5, lineHeight: 1.6 }}>
+      📊 <b style={{ color: TK.slate300 }}>PER 밴드</b> — 역사적 흑자 연도 PER 표본이 {pers.length}개뿐이라 밴드를 그릴 수 없습니다(최소 3개년 필요). 적자·신생·데이터 부족 종목은 정직하게 생략합니다.
     </div>
   )
   const qs = [quantile(pers, 0), quantile(pers, 0.25), quantile(pers, 0.5), quantile(pers, 0.75), quantile(pers, 1)]
@@ -79,23 +80,23 @@ export default function PerBandChart({ ticker, market }: { ticker: string; marke
   const curPer = data.currentPrice != null && data.currentEps != null && data.currentEps > 0
     ? data.currentPrice / data.currentEps : null
   const zone = curPer == null ? null
-    : curPer <= qs[1] ? { label: '역사적 저평가권(하단 밴드)', color: '#4ade80', desc: '과거 이 종목이 가장 싸게 거래되던 배수 구간 — 단, 싼 데는 이유가 있는지(이익 정점·업황) 확인' }
-    : curPer <= qs[2] ? { label: '중앙 아래(평균보다 싼 구간)', color: '#86efac', desc: '역사적 평균 배수보다 낮게 거래 중' }
-    : curPer <= qs[3] ? { label: '중앙 위(평균보다 비싼 구간)', color: '#fbbf24', desc: '역사적 평균 배수보다 높게 거래 중 — 성장 가속이 뒷받침되는지 확인' }
-    : { label: '역사적 고평가권(상단 밴드)', color: '#f87171', desc: '과거 가장 비싸게 거래되던 배수 구간 — 추격 매수 주의, 이익이 따라와야 정당화' }
+    : curPer <= qs[1] ? { label: '역사적 저평가권(하단 밴드)', color: TK.green400, desc: '과거 이 종목이 가장 싸게 거래되던 배수 구간 — 단, 싼 데는 이유가 있는지(이익 정점·업황) 확인' }
+    : curPer <= qs[2] ? { label: '중앙 아래(평균보다 싼 구간)', color: TK.green300, desc: '역사적 평균 배수보다 낮게 거래 중' }
+    : curPer <= qs[3] ? { label: '중앙 위(평균보다 비싼 구간)', color: TK.amber400, desc: '역사적 평균 배수보다 높게 거래 중 — 성장 가속이 뒷받침되는지 확인' }
+    : { label: '역사적 고평가권(상단 밴드)', color: TK.red400, desc: '과거 가장 비싸게 거래되던 배수 구간 — 추격 매수 주의, 이익이 따라와야 정당화' }
 
   return (
-    <div style={{ background: '#141824', border: `1px solid ${BORDER}`, borderRadius: 12, padding: '20px 24px', marginBottom: 16 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0', marginBottom: 4 }}>📊 PER 밴드 — 역사적 배수 구간 위의 주가</div>
-      <div style={{ fontSize: 11, color: '#8599ae', marginBottom: 12, lineHeight: 1.6 }}>
+    <div style={{ background: TK.card, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '20px 24px', marginBottom: 16 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: TK.slate200, marginBottom: 4 }}>📊 PER 밴드 — 역사적 배수 구간 위의 주가</div>
+      <div style={{ fontSize: 11, color: TK.sub3, marginBottom: 12, lineHeight: 1.6 }}>
         과거 {pers.length}개년 실제 PER의 분위수(최저 {qs[0].toFixed(1)}배 ~ 중앙 {qs[2].toFixed(1)}배 ~ 최고 {qs[4].toFixed(1)}배) × 각 연도 EPS = 밴드.
-        흰 선(주가)이 <b style={{ color: '#93c5fd' }}>아래 밴드</b>에 있으면 역사적으로 싼 배수, <b style={{ color: '#fca5a5' }}>위 밴드</b>면 비싼 배수로 거래 중.
+        흰 선(주가)이 <b style={{ color: TK.blue300 }}>아래 밴드</b>에 있으면 역사적으로 싼 배수, <b style={{ color: TK.red300 }}>위 밴드</b>면 비싼 배수로 거래 중.
       </div>
 
       {special ? (
-        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid #fbbf2444', borderRadius: 9, padding: '9px 13px', marginBottom: 12, fontSize: 11.5, lineHeight: 1.55 }}>
-          <b style={{ color: '#fbbf24' }}>🏦 {special} — 밴드는 참고만</b>
-          <span style={{ color: '#aab6c4' }}> · {special === '금융주(보험·은행)'
+        <div style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${TK.amber400}44`, borderRadius: 9, padding: '9px 13px', marginBottom: 12, fontSize: 11.5, lineHeight: 1.55 }}>
+          <b style={{ color: TK.amber400 }}>🏦 {special} — 밴드는 참고만</b>
+          <span style={{ color: TK.sub5 }}> · {special === '금융주(보험·은행)'
             ? '보험·은행 EPS는 투자손익·준비금 적립에 휘둘려 PER 밴드 판정이 부적합합니다. 실제 가치는 P/B·ROE·내재가치(EV)로 평가하세요.'
             : '지주사 EPS는 자회사 지분법이익에 휘둘려 PER 밴드 판정이 부적합합니다. NAV·SOTP(자회사 가치 합산)로 평가하세요.'}
           {curPer != null && <> (현재 PER {curPer.toFixed(1)}배)</>}</span>
@@ -103,26 +104,26 @@ export default function PerBandChart({ ticker, market }: { ticker: string; marke
       ) : zone && curPer != null && (
         <div style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${zone.color}44`, borderRadius: 9, padding: '9px 13px', marginBottom: 12, fontSize: 11.5, lineHeight: 1.55 }}>
           <b style={{ color: zone.color }}>현재 PER {curPer.toFixed(1)}배 → {zone.label}</b>
-          <span style={{ color: '#aab6c4' }}> · {zone.desc}</span>
-          {curPer > 100 && <span style={{ color: '#fb923c' }}> · ⚠️ PER 100배+ — 이익이 아직 미미해 배수 해석 자체가 무의미한 구간(스토리 프리미엄), 밴드보다 이익 성장 실현 여부가 관건</span>}
+          <span style={{ color: TK.sub5 }}> · {zone.desc}</span>
+          {curPer > 100 && <span style={{ color: TK.orange400 }}> · ⚠️ PER 100배+ — 이익이 아직 미미해 배수 해석 자체가 무의미한 구간(스토리 프리미엄), 밴드보다 이익 성장 실현 여부가 관건</span>}
         </div>
       )}
 
       {wideBand && !special && (
-        <div style={{ background: 'rgba(251,146,60,0.06)', border: '1px solid #fb923c44', borderRadius: 9, padding: '8px 13px', marginBottom: 12, fontSize: 11, lineHeight: 1.55, color: '#fdba74' }}>
+        <div style={{ background: 'rgba(251,146,60,0.06)', border: `1px solid ${TK.orange400}44`, borderRadius: 9, padding: '8px 13px', marginBottom: 12, fontSize: 11, lineHeight: 1.55, color: '#fdba74' }}>
           ⚠️ <b>밴드 폭 {Math.round(qs[4] / qs[0])}배 — 턴어라운드 왜곡 주의</b>
-          <span style={{ color: '#aab6c4' }}> · 이익이 거의 없던 연도의 극단 PER(최고 {qs[4].toFixed(0)}배)이 표본에 섞여 있습니다. 이런 해의 고PER은 &lsquo;비싸게 거래됐다&rsquo;가 아니라 &lsquo;이익이 없었다&rsquo;는 뜻 — 신뢰 낮은 <b>왜곡 상단 밴드는 차트에서 생략</b>하고 하단·중앙 위주로 표시합니다.</span>
+          <span style={{ color: TK.sub5 }}> · 이익이 거의 없던 연도의 극단 PER(최고 {qs[4].toFixed(0)}배)이 표본에 섞여 있습니다. 이런 해의 고PER은 &lsquo;비싸게 거래됐다&rsquo;가 아니라 &lsquo;이익이 없었다&rsquo;는 뜻 — 신뢰 낮은 <b>왜곡 상단 밴드는 차트에서 생략</b>하고 하단·중앙 위주로 표시합니다.</span>
         </div>
       )}
 
       <ResponsiveContainer width="100%" height={300}>
         <ComposedChart data={rows} margin={{ top: 6, right: 12, left: 8, bottom: 0 }}>
-          <CartesianGrid stroke="#1c2434" strokeDasharray="3 3" />
-          <XAxis dataKey="year" tick={{ fill: '#8599ae', fontSize: 11 }} />
-          <YAxis tick={{ fill: '#8599ae', fontSize: 10.5 }} tickFormatter={v => cur === 'KRW' ? `${Math.round((v as number) / 1000).toLocaleString()}천` : `$${v}`} width={56} domain={['auto', 'auto']} />
+          <CartesianGrid stroke={TK.grid} strokeDasharray="3 3" />
+          <XAxis dataKey="year" tick={{ fill: TK.sub3, fontSize: 11 }} />
+          <YAxis tick={{ fill: TK.sub3, fontSize: 10.5 }} tickFormatter={v => cur === 'KRW' ? `${Math.round((v as number) / 1000).toLocaleString()}천` : `$${v}`} width={56} domain={['auto', 'auto']} />
           <Tooltip
-            contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }}
-            labelStyle={{ color: '#cbd5e1' }}
+            contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }}
+            labelStyle={{ color: TK.slate300 }}
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             formatter={(v: any, name: any) => [fmtP(v as number), name]}
           />
@@ -134,12 +135,12 @@ export default function PerBandChart({ ticker, market }: { ticker: string; marke
                 stroke={BAND_COLORS[i]} strokeWidth={1.2} strokeDasharray="5 3" dot={false} connectNulls />
             )
           ))}
-          <Line type="monotone" dataKey="price" name="연평균 주가" stroke="#f1f5f9" strokeWidth={2.4}
-            dot={{ r: 3, fill: '#f1f5f9' }} connectNulls />
+          <Line type="monotone" dataKey="price" name="연평균 주가" stroke={TK.slate100} strokeWidth={2.4}
+            dot={{ r: 3, fill: TK.slate100 }} connectNulls />
         </ComposedChart>
       </ResponsiveContainer>
 
-      <div style={{ color: '#8a9aaa', fontSize: 10, marginTop: 8, lineHeight: 1.6 }}>
+      <div style={{ color: TK.sub, fontSize: 10, marginTop: 8, lineHeight: 1.6 }}>
         💡 밴드 = 확정 연도 실제 PER {pers.length}개 표본의 분위수(표본이 적어 통계가 아닌 <b>역사적 참고 구간</b>). 주가는 연평균(일별 고저 아님)·마지막 구간은 최신 EPS 평행 연장+현재가.
         적자 연도는 밴드 공백. 경기순환주는 이익 정점에서 PER이 가장 낮아 보이는 <b>저PER 함정</b> 주의 — 밴드 하단이 곧 매수 신호는 아닙니다. 금융주·지주사는 PER 밴드 자체가 부적합(P/B·NAV로).
       </div>

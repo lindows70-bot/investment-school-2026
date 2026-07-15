@@ -2,11 +2,12 @@
 // 🎯 의사결정 적중률 — 매수 시점 다신호 스냅샷 × 현재가로 '어떤 신호에서 산 결정이 맞았나'를 채점(calibration)
 //  진단을 넘어 '내 판단 품질'을 데이터로. 신규 fetch 0(기존 거래+priceMap 재사용).
 import { useMemo } from 'react'
+import { TK } from '@/lib/theme'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface Tx { ticker: string; name: string; type: 'buy' | 'sell'; price: number; snapshot_data?: any }
 
-const CARD = '#1b1e2e', SHO = '7px 7px 18px #0e1020, -4px -4px 12px #282c44'
+const CARD = TK.bg8, SHO = `7px 7px 18px ${TK.bg2}, -4px -4px 12px ${TK.line2}`
 
 // 신호 차원 정의 — 스냅샷 필드에서 거래를 버킷으로 분류
 const DIMS: { dim: string; icon: string; of: (s: any) => string | null }[] = [   // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -57,16 +58,16 @@ export default function DecisionCalibration({ transactions, priceMap }: { transa
   if (n === 0) return (
     <div style={{ background: CARD, boxShadow: SHO, borderRadius: 14, padding: '40px 24px', textAlign: 'center' }}>
       <div style={{ fontSize: 34, marginBottom: 10 }}>🎯</div>
-      <div style={{ fontSize: 15, fontWeight: 800, color: '#dde4f0', marginBottom: 8 }}>신호가 박제된 매수가 아직 없습니다</div>
-      <div style={{ fontSize: 12.5, color: '#8b92b8', lineHeight: 1.8, maxWidth: 480, margin: '0 auto' }}>
-        이제부터 종목을 매수하면 그 순간의 <b style={{ color: '#a5b4fc' }}>PEG·수급·계절·FOMC 신호</b>가 자동 박제됩니다.<br />
+      <div style={{ fontSize: 15, fontWeight: 800, color: TK.sub12, marginBottom: 8 }}>신호가 박제된 매수가 아직 없습니다</div>
+      <div style={{ fontSize: 12.5, color: TK.sub14, lineHeight: 1.8, maxWidth: 480, margin: '0 auto' }}>
+        이제부터 종목을 매수하면 그 순간의 <b style={{ color: TK.indigo300 }}>PEG·수급·계절·FOMC 신호</b>가 자동 박제됩니다.<br />
         거래가 쌓이면 &quot;어떤 신호에서 산 결정이 맞았나&quot;를 적중률로 채점해 드립니다.
-        <br /><span style={{ fontSize: 11, color: '#9aa0b8' }}>※ 다신호 스냅샷 도입(2026-06-19) <b>이후 매수</b>부터 집계됩니다. 과거 거래는 신호가 기록돼 있지 않아(단순 보유 승률과 구분) 제외됩니다.</span>
+        <br /><span style={{ fontSize: 11, color: TK.sub4 }}>※ 다신호 스냅샷 도입(2026-06-19) <b>이후 매수</b>부터 집계됩니다. 과거 거래는 신호가 기록돼 있지 않아(단순 보유 승률과 구분) 제외됩니다.</span>
       </div>
     </div>
   )
 
-  const wColor = (w: number) => w >= 60 ? '#34d399' : w >= 40 ? '#fbbf24' : '#f87171'
+  const wColor = (w: number) => w >= 60 ? TK.emerald400 : w >= 40 ? TK.amber400 : TK.red400
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -74,20 +75,20 @@ export default function DecisionCalibration({ transactions, priceMap }: { transa
       {overall && (
         <div style={{ background: CARD, boxShadow: SHO, borderRadius: 14, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
           <div>
-            <div style={{ color: '#9aa0b8', fontSize: 11, marginBottom: 2 }}>내 매수 결정 적중률 ({overall.n}건)</div>
+            <div style={{ color: TK.sub4, fontSize: 11, marginBottom: 2 }}>내 매수 결정 적중률 ({overall.n}건)</div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
               <span style={{ color: wColor(Math.round(overall.win / overall.n * 100)), fontWeight: 900, fontSize: 30, fontFamily: 'monospace' }}>{Math.round(overall.win / overall.n * 100)}%</span>
-              <span style={{ color: '#8b92b8', fontSize: 12 }}>{overall.win}/{overall.n} 수익 · 평균 <b style={{ color: overall.avg >= 0 ? '#34d399' : '#f87171' }}>{overall.avg >= 0 ? '+' : ''}{Math.round(overall.avg * 1000) / 10}%</b></span>
+              <span style={{ color: TK.sub14, fontSize: 12 }}>{overall.win}/{overall.n} 수익 · 평균 <b style={{ color: overall.avg >= 0 ? TK.emerald400 : TK.red400 }}>{overall.avg >= 0 ? '+' : ''}{Math.round(overall.avg * 1000) / 10}%</b></span>
             </div>
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            {best && <div style={{ background: '#0e2a1e', border: '1px solid #34d39955', borderRadius: 10, padding: '7px 12px' }}>
-              <div style={{ color: '#34d399', fontSize: 10, fontWeight: 700 }}>💪 내 강점</div>
-              <div style={{ color: '#dde4f0', fontSize: 12, fontWeight: 700 }}>{best.label} <span style={{ color: '#34d399' }}>{best.winRate}%</span></div>
+            {best && <div style={{ background: '#0e2a1e', border: `1px solid ${TK.emerald400}55`, borderRadius: 10, padding: '7px 12px' }}>
+              <div style={{ color: TK.emerald400, fontSize: 10, fontWeight: 700 }}>💪 내 강점</div>
+              <div style={{ color: TK.sub12, fontSize: 12, fontWeight: 700 }}>{best.label} <span style={{ color: TK.emerald400 }}>{best.winRate}%</span></div>
             </div>}
-            {worst && <div style={{ background: '#2a0e14', border: '1px solid #f8717155', borderRadius: 10, padding: '7px 12px' }}>
-              <div style={{ color: '#f87171', fontSize: 10, fontWeight: 700 }}>⚠️ 내 약점</div>
-              <div style={{ color: '#dde4f0', fontSize: 12, fontWeight: 700 }}>{worst.label} <span style={{ color: '#f87171' }}>{worst.winRate}%</span></div>
+            {worst && <div style={{ background: '#2a0e14', border: `1px solid ${TK.red400}55`, borderRadius: 10, padding: '7px 12px' }}>
+              <div style={{ color: TK.red400, fontSize: 10, fontWeight: 700 }}>⚠️ 내 약점</div>
+              <div style={{ color: TK.sub12, fontSize: 12, fontWeight: 700 }}>{worst.label} <span style={{ color: TK.red400 }}>{worst.winRate}%</span></div>
             </div>}
           </div>
         </div>
@@ -96,24 +97,24 @@ export default function DecisionCalibration({ transactions, priceMap }: { transa
       {/* 차원별 적중률 */}
       {rows.map(r => (
         <div key={r.dim} style={{ background: CARD, boxShadow: SHO, borderRadius: 14, padding: '13px 18px' }}>
-          <div style={{ color: '#dde4f0', fontWeight: 800, fontSize: 13, marginBottom: 10 }}>{r.icon} {r.dim}</div>
+          <div style={{ color: TK.sub12, fontWeight: 800, fontSize: 13, marginBottom: 10 }}>{r.icon} {r.dim}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             {r.buckets.map(b => (
               <div key={b.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ color: '#c4cae0', fontSize: 12, minWidth: 130 }}>{b.label}</span>
-                <span style={{ color: '#8b92b8', fontSize: 10.5, minWidth: 32 }}>{b.n}건</span>
-                <div style={{ flex: 1, height: 14, background: '#0e1020', borderRadius: 7, overflow: 'hidden', minWidth: 80 }}>
+                <span style={{ color: TK.sub14, fontSize: 10.5, minWidth: 32 }}>{b.n}건</span>
+                <div style={{ flex: 1, height: 14, background: TK.bg2, borderRadius: 7, overflow: 'hidden', minWidth: 80 }}>
                   <div style={{ width: `${b.winRate}%`, height: '100%', background: wColor(b.winRate), borderRadius: 7 }} />
                 </div>
                 <span style={{ color: wColor(b.winRate), fontWeight: 800, fontSize: 12, fontFamily: 'monospace', minWidth: 38, textAlign: 'right' }}>{b.winRate}%</span>
-                <span style={{ color: b.avgRet >= 0 ? '#34d399' : '#f87171', fontSize: 11, fontFamily: 'monospace', minWidth: 50, textAlign: 'right' }}>{b.avgRet >= 0 ? '+' : ''}{b.avgRet}%</span>
+                <span style={{ color: b.avgRet >= 0 ? TK.emerald400 : TK.red400, fontSize: 11, fontFamily: 'monospace', minWidth: 50, textAlign: 'right' }}>{b.avgRet >= 0 ? '+' : ''}{b.avgRet}%</span>
               </div>
             ))}
           </div>
         </div>
       ))}
 
-      <div style={{ color: '#8a9aaa', fontSize: 10, lineHeight: 1.6 }}>
+      <div style={{ color: TK.sub, fontSize: 10, lineHeight: 1.6 }}>
         ※ 매수 시점 신호 스냅샷 × 현재가로 채점 — 표본이 적을수록(특히 2~3건) 통계적 신뢰도는 낮습니다. 운과 실력을 분리해 &apos;내 의사결정 패턴&apos;을 보는 교육용 지표입니다.
       </div>
     </div>

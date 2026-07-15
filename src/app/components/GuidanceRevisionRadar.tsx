@@ -13,16 +13,17 @@
 
 import { useState, useEffect } from 'react'
 import type { GuidanceRadarResult, GuidanceItem, MomentumSignal } from '@/app/api/guidance-radar/route'
+import { TK } from '@/lib/theme'
 
 // ── 색상 토큰 ─────────────────────────────────────────────────────────────────
 const C = {
-  card: '#1a1d27', card2: '#141720', border: '#2a2d3a',
-  text: '#f1f5f9', textSub: '#b0bec8', textLow: '#8a9db5',
-  green: '#4ade80', red: '#f87171', gold: '#f59e0b', cyan: '#22d3ee',
-  pink: '#f472b6', orange: '#fb923c', purple: '#a78bfa',
-  accel: '#4ade80',   // 상향 가속
-  decel: '#fb923c',   // 가이던스 축소
-  neutral: '#60a5fa', // 중립
+  card: TK.bg7, card2: TK.bg5, border: TK.line1,
+  text: TK.slate100, textSub: '#b0bec8', textLow: '#8a9db5',
+  green: TK.green400, red: TK.red400, gold: TK.amber500, cyan: TK.cyan400,
+  pink: TK.pink400, orange: TK.orange400, purple: TK.violet400,
+  accel: TK.green400,   // 상향 가속
+  decel: TK.orange400,   // 가이던스 축소
+  neutral: TK.blue400, // 중립
 }
 const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
 
@@ -153,7 +154,7 @@ export default function GuidanceRevisionRadar() {
   if (error) return (
     <div style={{ padding: '18px 20px', borderRadius: 14, background: C.card, border: `1px solid ${C.border}`, fontFamily: FONT }}>
       {Header}
-      <div style={{ padding: '16px', borderRadius: 10, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.35)', color: '#fca5a5', fontSize: 13 }}>
+      <div style={{ padding: '16px', borderRadius: 10, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.35)', color: TK.red300, fontSize: 13 }}>
         ⚠️ {error}
       </div>
     </div>

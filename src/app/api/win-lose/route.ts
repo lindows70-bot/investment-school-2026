@@ -16,6 +16,7 @@ import { classifyAssetRole } from '@/lib/portfolioRole'
 import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
 import type { ScreenedStock } from '@/lib/macroPhaseScreener'
 import type { WLRow, WLSchoolRow, WLApi, WLQuad, WLTrend, WLFwd } from '@/lib/winLose'
+import { TK } from '@/lib/theme'
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 const code6 = (t: string) => t.replace(/\.(KS|KQ)$/i, '')
@@ -63,7 +64,7 @@ function buildSubMaps(): { stockSub: Map<string, SubLabel>; etfSub: Map<string, 
       const k = normKey(st.market, st.ticker)
       if (stockSub.has(k)) continue
       const m = cfg.subMeta[st.sub]
-      stockSub.set(k, { label: m?.label ?? st.sub, emoji: m?.emoji ?? cfg.emoji, color: m?.color ?? '#8599ae', sector: cfg.label })
+      stockSub.set(k, { label: m?.label ?? st.sub, emoji: m?.emoji ?? cfg.emoji, color: m?.color ?? TK.sub3, sector: cfg.label })
     }
   }
   const etfSub = new Map<string, SubLabel>()
@@ -71,7 +72,7 @@ function buildSubMaps(): { stockSub: Map<string, SubLabel>; etfSub: Map<string, 
     const [secKey, subKey] = key.split(':')
     const cfg = SECTORS[secKey]
     const m = subKey && cfg ? cfg.subMeta[subKey] : null
-    const label: SubLabel = { label: m?.label ?? cfg?.label ?? key, emoji: m?.emoji ?? cfg?.emoji ?? '📦', color: m?.color ?? '#8599ae', sector: cfg?.label ?? '' }
+    const label: SubLabel = { label: m?.label ?? cfg?.label ?? key, emoji: m?.emoji ?? cfg?.emoji ?? '📦', color: m?.color ?? TK.sub3, sector: cfg?.label ?? '' }
     if (v.us && !etfSub.has(`US:${v.us.t}`)) etfSub.set(`US:${v.us.t}`, label)
     if (v.kr && !etfSub.has(`KR:${v.kr.t}`)) etfSub.set(`KR:${v.kr.t}`, label)
   }
@@ -82,10 +83,10 @@ function buildSubMaps(): { stockSub: Map<string, SubLabel>; etfSub: Map<string, 
 // ETF: portfolioRole(SSOT) — 광의지수/채권/레버리지/테마 구분
 function etfRoleLabel(ticker: string, name: string, market: string): SubLabel {
   const r = classifyAssetRole(ticker, name, market)
-  if (r.role === 'CORE_INDEX') return { label: '광의지수 ETF', emoji: '📈', color: '#60a5fa', sector: 'ROLE' }
-  if (r.role === 'CORE_BOND') return { label: '채권 ETF', emoji: '📜', color: '#94a3b8', sector: 'ROLE' }
-  if (r.role === 'BLOCKED') return { label: '레버리지·고위험', emoji: '⚠️', color: '#f87171', sector: 'ROLE' }
-  return { label: '테마·기타 ETF', emoji: '📦', color: '#8599ae', sector: 'ROLE' }
+  if (r.role === 'CORE_INDEX') return { label: '광의지수 ETF', emoji: '📈', color: TK.blue400, sector: 'ROLE' }
+  if (r.role === 'CORE_BOND') return { label: '채권 ETF', emoji: '📜', color: TK.slate400, sector: 'ROLE' }
+  if (r.role === 'BLOCKED') return { label: '레버리지·고위험', emoji: '⚠️', color: TK.red400, sector: 'ROLE' }
+  return { label: '테마·기타 ETF', emoji: '📦', color: TK.sub3, sector: 'ROLE' }
 }
 // KR 주식: 네이버 업종코드→업종명 맵(목록 페이지 1콜·EUC-KR·7일 캐시) — Yahoo가 섹터를 안 주는 코스닥주 커버
 async function naverUpjongMap(): Promise<Map<string, string>> {
@@ -273,7 +274,7 @@ export async function GET(req: Request) {
     // 라벨 폴백 체인: 소섹터(테마 우선) → GICS 대섹터(스크리너 sector) → ETF는 portfolioRole → 주식은 아래 후처리(업종)
     const gics = s?.sector ? GICS_SECTOR_META[s.sector] : null
     const sub = h.market === 'CRYPTO'
-      ? { label: '암호화폐', emoji: '🪙', color: '#f59e0b', sector: '코인' }
+      ? { label: '암호화폐', emoji: '🪙', color: TK.amber500, sector: '코인' }
       : (h.assetType === 'STOCK' ? stockSub.get(k) : etfSub.get(k))
         ?? (gics ? { label: gics.ko, emoji: gics.icon, color: gics.color, sector: 'GICS' } : null)
         ?? (h.assetType === 'ETF' ? etfRoleLabel(h.ticker, h.name, h.market) : null)
@@ -296,7 +297,7 @@ export async function GET(req: Request) {
           const label = r.market === 'KR'
             ? await krIndustryOf(r.ticker, upjong)
             : ((await getCanonicalFundamentals(r.ticker, r.market, origin))?.sector ?? null)
-          if (label && label !== '기타') r.sub = { label, emoji: '🏷️', color: '#94a3b8', sector: '업종' }
+          if (label && label !== '기타') r.sub = { label, emoji: '🏷️', color: TK.slate400, sector: '업종' }
         } catch { /* 라벨 없이 유지(정직) */ }
       }))
     }

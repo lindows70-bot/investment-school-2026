@@ -3,18 +3,19 @@
 import { useState, useEffect } from 'react'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
 import type { LynchMatrixResult } from '@/app/api/lynch-matrix/route'
+import { TK } from '@/lib/theme'
 
-const CARD = '#161b25', BORDER = '#1e293b'
+const CARD = TK.bg6, BORDER = TK.border
 
 // 카테고리별 고정 색(7대) — 어느 화면에서든 동일 색 = 동일 카테고리
 const CAT_COLOR: Record<string, string> = {
-  fast_grower: '#4ade80',   // 고성장주 — 초록
-  stalwart:    '#60a5fa',   // 대형우량주 — 파랑
-  slow_grower: '#94a3b8',   // 저성장주 — 회색
-  cyclical:    '#fb923c',   // 경기순환주 — 주황
-  turnaround:  '#a78bfa',   // 턴어라운드주 — 보라
-  asset_play:  '#fbbf24',   // 자산주 — 노랑
-  na:          '#475569',   // 미분류 — 어두운 회색
+  fast_grower: TK.green400,   // 고성장주 — 초록
+  stalwart:    TK.blue400,   // 대형우량주 — 파랑
+  slow_grower: TK.slate400,   // 저성장주 — 회색
+  cyclical:    TK.orange400,   // 경기순환주 — 주황
+  turnaround:  TK.violet400,   // 턴어라운드주 — 보라
+  asset_play:  TK.amber400,   // 자산주 — 노랑
+  na:          TK.slate600,   // 미분류 — 어두운 회색
 }
 const CAT_DESC: Record<string, string> = {
   fast_grower: '이익 20%+ 성장 — 린치의 10루타 후보. 단, PEG 2 초과면 비싸게 산 것',
@@ -45,7 +46,7 @@ export default function LynchClassificationMatrix() {
     return () => { alive = false; window.removeEventListener('portfolio-updated', load) }
   }, [])
 
-  if (loading) return <div style={{ background: CARD, borderRadius: 12, padding: '14px 16px', border: `1px solid ${BORDER}`, color: '#8a9aaa', fontSize: 12 }}>🧬 피터 린치 분류 매트릭스를 그리는 중…</div>
+  if (loading) return <div style={{ background: CARD, borderRadius: 12, padding: '14px 16px', border: `1px solid ${BORDER}`, color: TK.sub, fontSize: 12 }}>🧬 피터 린치 분류 매트릭스를 그리는 중…</div>
   if (!d || d.totalStocks === 0) return null   // 주식 미보유면 자동 숨김
 
   const pieData = d.categories.map(c => ({ name: c.label, key: c.key, value: c.weightPct }))
@@ -53,27 +54,27 @@ export default function LynchClassificationMatrix() {
   return (
     <div style={{ background: CARD, borderRadius: 12, padding: '14px 16px', border: `1px solid ${BORDER}` }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-        <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>🧬 피터 린치 7대 분류 Matrix</span>
-        <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>한 종목 = 단 하나의 정체성(상호배타 분류) · 주식 {d.totalStocks}종목</span>
+        <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 13 }}>🧬 피터 린치 7대 분류 Matrix</span>
+        <span style={{ color: TK.sub, fontSize: 10.5 }}>한 종목 = 단 하나의 정체성(상호배타 분류) · 주식 {d.totalStocks}종목</span>
       </div>
 
       {/* ⚠️ 함정 레이더 — 기저효과 저PEG(린치의 경기순환주 경고). 해당 없으면 미표시 */}
       {d.traps.length > 0 && (
-        <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid #ef444455', borderRadius: 9, padding: '9px 12px', marginBottom: 10 }}>
-          <div style={{ color: '#fca5a5', fontWeight: 800, fontSize: 11.5, marginBottom: 5 }}>🚨 함정 레이더 — 린치의 경고: 고점 매수 위험 (기저효과 저PEG)</div>
+        <div style={{ background: 'rgba(239,68,68,0.08)', border: `1px solid ${TK.red500}55`, borderRadius: 9, padding: '9px 12px', marginBottom: 10 }}>
+          <div style={{ color: TK.red300, fontWeight: 800, fontSize: 11.5, marginBottom: 5 }}>🚨 함정 레이더 — 린치의 경고: 고점 매수 위험 (기저효과 저PEG)</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {d.traps.map(t => (
               <button key={t.ticker} onClick={() => setOpenTrap(o => o === t.ticker ? null : t.ticker)}
-                style={{ background: '#0f1117', border: '1px solid #ef444466', borderRadius: 6, padding: '3px 9px', fontSize: 10.5, color: '#fca5a5', cursor: 'pointer', fontWeight: 700 }}>
-                ⚠️ {t.name} <span style={{ color: '#8a9aaa', fontWeight: 400 }}>{t.categoryLabel} · PEG {t.peg ?? '—'} · 성장 +{t.growthPct}%</span>
+                style={{ background: TK.bg3, border: `1px solid ${TK.red500}66`, borderRadius: 6, padding: '3px 9px', fontSize: 10.5, color: TK.red300, cursor: 'pointer', fontWeight: 700 }}>
+                ⚠️ {t.name} <span style={{ color: TK.sub, fontWeight: 400 }}>{t.categoryLabel} · PEG {t.peg ?? '—'} · 성장 +{t.growthPct}%</span>
               </button>
             ))}
           </div>
           {openTrap && (() => {
             const t = d.traps.find(x => x.ticker === openTrap)
             return t ? (
-              <div style={{ marginTop: 8, background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '9px 12px', color: '#dbe3ec', fontSize: 11, lineHeight: 1.7 }}>
-                🎓 <b style={{ color: '#fbbf24' }}>왜 이 낮은 PEG를 믿으면 안 되나요?</b> — {t.reason}
+              <div style={{ marginTop: 8, background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '9px 12px', color: TK.sub15, fontSize: 11, lineHeight: 1.7 }}>
+                🎓 <b style={{ color: TK.amber400 }}>왜 이 낮은 PEG를 믿으면 안 되나요?</b> — {t.reason}
               </div>
             ) : null
           })()}
@@ -87,45 +88,45 @@ export default function LynchClassificationMatrix() {
             <PieChart>
               <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={52} outerRadius={80} paddingAngle={2} strokeWidth={0}
                 onClick={(_: unknown, idx: number) => { const k = pieData[idx]?.key; if (k) setOpenCat(o => o === k ? null : k) }}>
-                {pieData.map(p => <Cell key={p.key} fill={CAT_COLOR[p.key] ?? '#475569'} cursor="pointer" />)}
+                {pieData.map(p => <Cell key={p.key} fill={CAT_COLOR[p.key] ?? TK.slate600} cursor="pointer" />)}
               </Pie>
-              <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }} formatter={v => `${v}%`} />
+              <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }} formatter={v => `${v}%`} />
             </PieChart>
           </ResponsiveContainer>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-            <span style={{ color: '#8a9aaa', fontSize: 9.5 }}>최대 비중</span>
-            <span style={{ color: CAT_COLOR[d.categories[0]?.key] ?? '#e2e8f0', fontWeight: 800, fontSize: 12 }}>{d.categories[0]?.label}</span>
-            <span style={{ color: '#e2e8f0', fontWeight: 900, fontSize: 15, fontFamily: 'monospace' }}>{d.categories[0]?.weightPct}%</span>
+            <span style={{ color: TK.sub, fontSize: 9.5 }}>최대 비중</span>
+            <span style={{ color: CAT_COLOR[d.categories[0]?.key] ?? TK.slate200, fontWeight: 800, fontSize: 12 }}>{d.categories[0]?.label}</span>
+            <span style={{ color: TK.slate200, fontWeight: 900, fontSize: 15, fontFamily: 'monospace' }}>{d.categories[0]?.weightPct}%</span>
           </div>
         </div>
 
         {/* 카테고리 분포표 — 클릭 시 종목 리스트 펼침 */}
         <div style={{ flex: '1 1 280px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
           {d.categories.map(c => {
-            const col = CAT_COLOR[c.key] ?? '#475569'
+            const col = CAT_COLOR[c.key] ?? TK.slate600
             const open = openCat === c.key
             return (
               <div key={c.key}>
                 <button onClick={() => setOpenCat(o => o === c.key ? null : c.key)}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, background: open ? `${col}14` : '#0f1117', border: `1px solid ${open ? col + '66' : BORDER}`, borderRadius: 8, padding: '6px 10px', cursor: 'pointer', textAlign: 'left' }}>
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, background: open ? `${col}14` : TK.bg3, border: `1px solid ${open ? col + '66' : BORDER}`, borderRadius: 8, padding: '6px 10px', cursor: 'pointer', textAlign: 'left' }}>
                   <span style={{ width: 9, height: 9, borderRadius: 2, background: col, flexShrink: 0 }} />
-                  <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 11.5 }}>{c.label}</span>
-                  <span style={{ color: '#8a9aaa', fontSize: 10 }}>{c.items.length}종목</span>
-                  {c.items.some(x => x.trap) && <span style={{ color: '#f87171', fontSize: 10 }}>⚠️</span>}
+                  <span style={{ color: TK.slate200, fontWeight: 700, fontSize: 11.5 }}>{c.label}</span>
+                  <span style={{ color: TK.sub, fontSize: 10 }}>{c.items.length}종목</span>
+                  {c.items.some(x => x.trap) && <span style={{ color: TK.red400, fontSize: 10 }}>⚠️</span>}
                   <span style={{ marginLeft: 'auto', color: col, fontWeight: 800, fontSize: 12, fontFamily: 'monospace' }}>{c.weightPct}%</span>
-                  <span style={{ color: '#8a9aaa', fontSize: 9 }}>{open ? '▲' : '▼'}</span>
+                  <span style={{ color: TK.sub, fontSize: 9 }}>{open ? '▲' : '▼'}</span>
                 </button>
                 {open && (
-                  <div style={{ margin: '4px 0 2px', padding: '7px 10px', background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8 }}>
-                    <div style={{ color: '#9aa7b5', fontSize: 10, lineHeight: 1.55, marginBottom: 6 }}>{CAT_DESC[c.key]}</div>
+                  <div style={{ margin: '4px 0 2px', padding: '7px 10px', background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+                    <div style={{ color: TK.sub8, fontSize: 10, lineHeight: 1.55, marginBottom: 6 }}>{CAT_DESC[c.key]}</div>
                     {c.items.map(it => (
                       <div key={it.ticker} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '3px 0', fontSize: 10.5, borderTop: `1px solid ${BORDER}` }}>
                         <span>{it.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
-                        <span style={{ color: '#cbd5e1', fontWeight: 600 }}>{it.name}</span>
-                        {it.trap && <span style={{ color: '#f87171', fontWeight: 700 }}>⚠️ 기저효과</span>}
-                        {it.source === 'user' && <span style={{ color: '#8a9aaa', fontSize: 9 }}>내 지정</span>}
-                        <span style={{ marginLeft: 'auto', color: '#8a9aaa' }}>PEG {it.peg ?? '—'} · 성장 {it.growthPct != null ? `${it.growthPct > 0 ? '+' : ''}${it.growthPct}%` : '—'}</span>
-                        <span style={{ color: '#e2e8f0', fontWeight: 700, fontFamily: 'monospace' }}>{it.weightPct}%</span>
+                        <span style={{ color: TK.slate300, fontWeight: 600 }}>{it.name}</span>
+                        {it.trap && <span style={{ color: TK.red400, fontWeight: 700 }}>⚠️ 기저효과</span>}
+                        {it.source === 'user' && <span style={{ color: TK.sub, fontSize: 9 }}>내 지정</span>}
+                        <span style={{ marginLeft: 'auto', color: TK.sub }}>PEG {it.peg ?? '—'} · 성장 {it.growthPct != null ? `${it.growthPct > 0 ? '+' : ''}${it.growthPct}%` : '—'}</span>
+                        <span style={{ color: TK.slate200, fontWeight: 700, fontFamily: 'monospace' }}>{it.weightPct}%</span>
                       </div>
                     ))}
                   </div>
@@ -136,7 +137,7 @@ export default function LynchClassificationMatrix() {
         </div>
       </div>
 
-      <div style={{ color: '#8a9aaa', fontSize: 10, lineHeight: 1.6, marginTop: 8 }}>
+      <div style={{ color: TK.sub, fontSize: 10, lineHeight: 1.6, marginTop: 8 }}>
         ※ 분류 우선순위: 내가 지정한 카테고리 &gt; 펀더멘탈 자동 분류(성장률·섹터) · 한 종목은 단 1개 카테고리에만 속합니다(MECE) ·
         함정 레이더는 섹터 피어 X-Ray와 동일한 기저효과 기준(PEG&lt;0.3 & 성장+100%↑)을 사용합니다 · 교육용.
       </div>

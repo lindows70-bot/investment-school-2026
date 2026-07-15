@@ -31,22 +31,22 @@ import {
 //  DESIGN SYSTEM
 // ═══════════════════════════════════════════════════════════════
 const C = {
-  bg:      '#020617',
+  bg:      TK.slate950,
   surface: '#06101f',
   card:    '#0a1929',
   cardHi:  '#0d2137',
   border:  '#0f2a45',
-  neon:    '#deff9a',
-  blue:    '#38bdf8',
-  indigo:  '#818cf8',
-  gold:    '#fbbf24',
-  red:     '#f87171',
-  orange:  '#fb923c',
-  green:   '#4ade80',
+  neon:    TK.neonLime,
+  blue:    TK.sky400,
+  indigo:  TK.indigo400,
+  gold:    TK.amber400,
+  red:     TK.red400,
+  orange:  TK.orange400,
+  green:   TK.green400,
   muted:   '#7fa0be',   // was '#1e3a5c' (1.65:1 ❌) → 6.97:1 ✅
-  text:    '#e2e8f0',
-  sub:     '#7f93a8',
-  dim:     '#1e293b',
+  text:    TK.slate200,
+  sub:     TK.sub2,
+  dim:     TK.border,
 } as const
 
 const GEO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'
@@ -208,7 +208,7 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
               padding:'6px 12px', borderRadius:8, border:'none', cursor:'pointer',
               fontSize:11, fontWeight:700, whiteSpace:'nowrap' as const,
               background: ind===i.key ? C.neon : 'transparent',
-              color:      ind===i.key ? '#020617' : C.sub,
+              color:      ind===i.key ? TK.slate950 : C.sub,
               transition: 'all 0.18s',
             }}>{i.label}</button>
           ))}
@@ -257,12 +257,12 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
                     const isHov  = hovered === gid
                     return (
                       <Geography key={geo.rsmKey} geography={geo}
-                        fill={isHov ? '#e2e8f0' : col}
+                        fill={isHov ? TK.slate200 : col}
                         stroke="#0a1929"
                         strokeWidth={0.35}
                         style={{
                           default:{ outline:'none', transition:'fill 0.22s ease' },
-                          hover:  { outline:'none', fill: active ? '#e2e8f0' : '#0d1f35', cursor: active ? 'pointer' : 'default' },
+                          hover:  { outline:'none', fill: active ? TK.slate200 : '#0d1f35', cursor: active ? 'pointer' : 'default' },
                           pressed:{ outline:'none' },
                         }}
                         onMouseEnter={(e:React.MouseEvent<SVGPathElement>) => {
@@ -298,7 +298,7 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
                     {/* 외곽 글로우 링 */}
                     <circle r={6} fill="none" stroke={col} strokeWidth={1.5} opacity={0.6}/>
                     {/* 중심 점 */}
-                    <circle r={3} fill={col} stroke="#020617" strokeWidth={1}/>
+                    <circle r={3} fill={col} stroke={TK.slate950} strokeWidth={1}/>
                     {/* 국가명 라벨 */}
                     <text
                       y={-10}
@@ -311,9 +311,9 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
                         letterSpacing: '0.03em',
                         pointerEvents: 'none',
                         // 텍스트 외곽선으로 가독성 확보
-                        textShadow: '0 0 3px #020617',
+                        textShadow: `0 0 3px ${TK.slate950}`,
                         paintOrder: 'stroke',
-                        stroke: '#020617',
+                        stroke: TK.slate950,
                         strokeWidth: 2.5,
                         strokeLinejoin: 'round' as const,
                       } as React.CSSProperties}
@@ -332,7 +332,7 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
                           fontVariantNumeric: 'tabular-nums',
                           pointerEvents: 'none',
                           paintOrder: 'stroke',
-                          stroke: '#020617',
+                          stroke: TK.slate950,
                           strokeWidth: 2,
                         } as React.CSSProperties}
                       >
@@ -692,7 +692,7 @@ function CompareChart({ api, loading }: { api: MacroApi | null; loading: boolean
               padding:'5px 12px', borderRadius:6, border:'none', cursor:'pointer',
               fontSize:11, fontWeight:700,
               background: window_===w ? C.neon : 'transparent',
-              color:      window_===w ? '#020617' : C.sub,
+              color:      window_===w ? TK.slate950 : C.sub,
               transition:'all 0.18s',
             }}>{w}개월</button>
           ))}
@@ -739,7 +739,7 @@ function CompareChart({ api, loading }: { api: MacroApi | null; loading: boolean
       {/* ─ 인사이트 ─ */}
       <div style={{ margin:'12px 16px 16px', background:`${C.neon}08`, border:`1px solid ${C.neon}1e`, borderRadius:10, padding:'12px 16px' }}>
         <div style={{ fontSize:11, fontWeight:700, color:C.neon, marginBottom:6 }}>📚 투자 인사이트</div>
-        <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.7 }}>{insights[preset]}</div>
+        <div style={{ fontSize:12, color:TK.slate400, lineHeight:1.7 }}>{insights[preset]}</div>
       </div>
     </div>
   )
@@ -750,6 +750,7 @@ function CompareChart({ api, loading }: { api: MacroApi | null; loading: boolean
 // ═══════════════════════════════════════════════════════════════
 import BondSimulator from '@/app/components/BondSimulator'
 import StressTest    from '@/app/components/StressTest'
+import { TK } from '@/lib/theme'
 
 export default function MacroHubPage() {
   const [api,         setApi]         = useState<MacroApi | null>(null)

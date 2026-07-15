@@ -1,4 +1,5 @@
 'use client'
+import { TK } from '@/lib/theme'
 
 /**
  * ⏳ CashRunwayTimer — 좀비 생존 타이머 (킬러 기능 8단계)
@@ -24,9 +25,9 @@ interface Props {
 }
 
 const C = {
-  card: '#1a1d27', card2: '#141720', border: '#2a2d3a',
-  gold: '#f59e0b', green: '#4ade80', red: '#f87171', blue: '#60a5fa', orange: '#fb923c',
-  text: '#f1f5f9', textSub: '#94a3b8', textLow: '#8599ae',
+  card: TK.bg7, card2: TK.bg5, border: TK.line1,
+  gold: TK.amber500, green: TK.green400, red: TK.red400, blue: TK.blue400, orange: TK.orange400,
+  text: TK.slate100, textSub: TK.slate400, textLow: TK.sub3,
 }
 const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
 
@@ -148,7 +149,7 @@ export default function CashRunwayTimer({ name, currency = 'USD', freeCashflow, 
 
       {/* 린치 코멘트 */}
       <div style={{ padding: '12px 14px', borderRadius: 10, background: C.card2, borderLeft: `3px solid ${level.c}` }}>
-        <div style={{ fontSize: 12.5, color: '#cbd5e1', lineHeight: 1.75, fontStyle: 'italic' }}>
+        <div style={{ fontSize: 12.5, color: TK.slate300, lineHeight: 1.75, fontStyle: 'italic' }}>
           &ldquo;{dilutionRisk
             ? `주의해! ${name}은 ${lossOrUnknown} 지금 속도라면 ${runwayTxt} 뒤 금고가 텅 비어. 곧 유상증자로 네 지분을 희석할 확률이 높아 — 회생 스토리가 그 전에 현실이 되는지가 관건이야.`
             : `${name}은 ${lossOrUnknown} 현재 현금으로 ${runwayTxt} 버틸 수 있어. 적자·현금소진 기업은 '시간과의 싸움'이야 — 흑자 전환이 이 타이머보다 먼저 오는지 분기마다 확인해.`}&rdquo;

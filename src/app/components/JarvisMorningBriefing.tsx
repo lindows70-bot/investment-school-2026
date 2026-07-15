@@ -11,6 +11,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
+import { TK } from '@/lib/theme'
 
 interface Rec { ticker: string; name: string; reason: string; peg: number | null; opMargin: number | null }
 interface Briefing {
@@ -24,9 +25,9 @@ interface Briefing {
 }
 
 const C = {
-  card: '#1a1d27', card2: '#141720', border: '#2a2d3a',
-  gold: '#f59e0b', green: '#4ade80', red: '#f87171', blue: '#60a5fa', cyan: '#22d3ee', purple: '#a78bfa',
-  text: '#f1f5f9', textSub: '#94a3b8', textLow: '#8599ae',
+  card: TK.bg7, card2: TK.bg5, border: TK.line1,
+  gold: TK.amber500, green: TK.green400, red: TK.red400, blue: TK.blue400, cyan: TK.cyan400, purple: TK.violet400,
+  text: TK.slate100, textSub: TK.slate400, textLow: TK.sub3,
 }
 const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
 const SIG: Record<'SELL' | 'BUY', { label: string; emoji: string; color: string }> = {
@@ -162,7 +163,7 @@ export default function JarvisMorningBriefing() {
                   <span style={{ fontSize: 10, color: C.textLow, fontFamily: 'monospace' }}>{b.ticker}</span>
                 </div>
                 {b.briefing_title && <div style={{ fontSize: 12.5, fontWeight: 800, color: s.color, marginBottom: 4 }}>{b.briefing_title}</div>}
-                <div style={{ fontSize: 12.5, color: '#cbd5e1', lineHeight: 1.7 }}>{b.briefing_content}</div>
+                <div style={{ fontSize: 12.5, color: TK.slate300, lineHeight: 1.7 }}>{b.briefing_content}</div>
                 {b.recommendations && b.recommendations.length > 0 && (
                   <div style={{ marginTop: 9, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
                     <span style={{ fontSize: 10, color: C.textLow }}>같은 업종 대안</span>

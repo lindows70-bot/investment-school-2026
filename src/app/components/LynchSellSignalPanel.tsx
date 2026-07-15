@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 // SSOT: 자산 분류는 assetClassifier에서만 (컴포넌트 내 인라인 감지 금지)
 import { getAssetClassification, type AssetType } from '@/lib/assetClassifier'
+import { TK } from '@/lib/theme'
 
 // ────────────────────────────────────────────────────────────
 // 타입 정의
@@ -58,34 +59,34 @@ interface StockSignal {
 // 컬러 & 카테고리 메타데이터
 // ────────────────────────────────────────────────────────────
 const C = {
-  bg:      '#020617',
-  surface: '#0f172a',
-  card:    '#1e293b',
+  bg:      TK.slate950,
+  surface: TK.slate900,
+  card:    TK.border,
   cardHi:  '#263348',
-  border:  '#7a8fa3',
-  textHi:  '#f1f5f9',
-  textMid: '#94a3b8',
-  textLow: '#7f93a8',
-  red:     '#f87171',
-  yellow:  '#fbbf24',
-  green:   '#4ade80',
-  blue:    '#60a5fa',
+  border:  TK.sub6,
+  textHi:  TK.slate100,
+  textMid: TK.slate400,
+  textLow: TK.sub2,
+  red:     TK.red400,
+  yellow:  TK.amber400,
+  green:   TK.green400,
+  blue:    TK.blue400,
 }
 
 const STATUS_META = {
-  danger:        { label:'매도 검토',   color:'#f87171', bg:'rgba(239,68,68,0.12)',   border:'rgba(239,68,68,0.30)'   },
-  caution:       { label:'비중 축소 고민', color:'#fbbf24', bg:'rgba(245,158,11,0.12)', border:'rgba(245,158,11,0.30)' },
-  safe:          { label:'보유 유지',   color:'#4ade80', bg:'rgba(34,197,94,0.12)',  border:'rgba(34,197,94,0.30)'  },
-  unclassified:  { label:'데이터 부족', color:'#7f93a8', bg:'rgba(100,116,139,0.10)', border:'rgba(100,116,139,0.25)' },
+  danger:        { label:'매도 검토',   color:TK.red400, bg:'rgba(239,68,68,0.12)',   border:'rgba(239,68,68,0.30)'   },
+  caution:       { label:'비중 축소 고민', color:TK.amber400, bg:'rgba(245,158,11,0.12)', border:'rgba(245,158,11,0.30)' },
+  safe:          { label:'보유 유지',   color:TK.green400, bg:'rgba(34,197,94,0.12)',  border:'rgba(34,197,94,0.30)'  },
+  unclassified:  { label:'데이터 부족', color:TK.sub2, bg:'rgba(100,116,139,0.10)', border:'rgba(100,116,139,0.25)' },
 }
 
 const CAT_META: Record<string, { icon: string; label: string; color: string; bg: string; border: string }> = {
-  '고성장주':    { icon:'🚀', label:'고성장주',    color:'#f87171', bg:'rgba(239,68,68,0.10)',   border:'rgba(239,68,68,0.25)'   },
-  '대형우량주':  { icon:'🛡️', label:'대형우량주',  color:'#60a5fa', bg:'rgba(59,130,246,0.10)',  border:'rgba(59,130,246,0.25)'  },
-  '저성장주':    { icon:'🐢', label:'저성장주',    color:'#4ade80', bg:'rgba(34,197,94,0.10)',   border:'rgba(34,197,94,0.25)'   },
-  '경기순환주':  { icon:'🔄', label:'경기순환주',  color:'#c084fc', bg:'rgba(168,85,247,0.10)',  border:'rgba(168,85,247,0.25)'  },
-  '자산주':      { icon:'💎', label:'자산주',      color:'#fbbf24', bg:'rgba(245,158,11,0.10)',  border:'rgba(245,158,11,0.25)'  },
-  '턴어라운드주':{ icon:'🔥', label:'턴어라운드주',color:'#fb923c', bg:'rgba(251,146,60,0.10)',  border:'rgba(251,146,60,0.25)'  },
+  '고성장주':    { icon:'🚀', label:'고성장주',    color:TK.red400, bg:'rgba(239,68,68,0.10)',   border:'rgba(239,68,68,0.25)'   },
+  '대형우량주':  { icon:'🛡️', label:'대형우량주',  color:TK.blue400, bg:'rgba(59,130,246,0.10)',  border:'rgba(59,130,246,0.25)'  },
+  '저성장주':    { icon:'🐢', label:'저성장주',    color:TK.green400, bg:'rgba(34,197,94,0.10)',   border:'rgba(34,197,94,0.25)'   },
+  '경기순환주':  { icon:'🔄', label:'경기순환주',  color:TK.purple400, bg:'rgba(168,85,247,0.10)',  border:'rgba(168,85,247,0.25)'  },
+  '자산주':      { icon:'💎', label:'자산주',      color:TK.amber400, bg:'rgba(245,158,11,0.10)',  border:'rgba(245,158,11,0.25)'  },
+  '턴어라운드주':{ icon:'🔥', label:'턴어라운드주',color:TK.orange400, bg:'rgba(251,146,60,0.10)',  border:'rgba(251,146,60,0.25)'  },
 }
 
 // DB 영어 키 → 한국어
@@ -680,8 +681,8 @@ function NonEquitySignalCard({ raw }: { raw: AnyRecord }) {
   const clf    = getAssetClassification(ticker, name, market)
 
   const typeColor  =
-    clf.assetType === 'CRYPTO'    ? '#c084fc' :
-    clf.assetType === 'COMMODITY' ? '#fbbf24' : '#60a5fa'
+    clf.assetType === 'CRYPTO'    ? TK.purple400 :
+    clf.assetType === 'COMMODITY' ? TK.amber400 : TK.blue400
   const typeBg     =
     clf.assetType === 'CRYPTO'    ? 'rgba(192,132,252,0.08)' :
     clf.assetType === 'COMMODITY' ? 'rgba(251,191,36,0.08)'  : 'rgba(59,130,246,0.08)'
@@ -692,7 +693,7 @@ function NonEquitySignalCard({ raw }: { raw: AnyRecord }) {
   return (
     <div style={{
       padding: '12px 16px', borderRadius: 12, opacity: 0.72,
-      background: `linear-gradient(135deg, #1e293b, ${typeBg})`,
+      background: `linear-gradient(135deg, ${TK.border}, ${typeBg})`,
       border: `1px dashed ${typeBorder}`,
       display: 'flex', alignItems: 'center', gap: 12,
     }}>
@@ -710,17 +711,17 @@ function NonEquitySignalCard({ raw }: { raw: AnyRecord }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
           <span style={{
             fontSize: 9, padding: '1px 6px', borderRadius: 3,
-            background: 'rgba(96,165,250,0.12)', color: '#60a5fa',
+            background: 'rgba(96,165,250,0.12)', color: TK.blue400,
             fontFamily: 'monospace', fontWeight: 900,
           }}>{ticker}</span>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#f1f5f9' }}>{name}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: TK.slate100 }}>{name}</span>
           <span style={{
             fontSize: 9, padding: '2px 8px', borderRadius: 20,
             background: typeBg, color: typeColor, border: `1px solid ${typeBorder}`,
             fontWeight: 800,
           }}>{clf.badgeIcon} {clf.badgeLabel}</span>
         </div>
-        <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.65 }}>
+        <div style={{ fontSize: 11, color: TK.slate400, lineHeight: 1.65 }}>
           {clf.lynchGuidance}
         </div>
       </div>
@@ -729,7 +730,7 @@ function NonEquitySignalCard({ raw }: { raw: AnyRecord }) {
       <div style={{ flexShrink: 0 }}>
         <div style={{
           fontSize: 9, padding: '3px 9px', borderRadius: 20, whiteSpace: 'nowrap',
-          background: 'rgba(100,116,139,0.12)', color: '#7f93a8',
+          background: 'rgba(100,116,139,0.12)', color: TK.sub2,
           border: '1px dashed rgba(100,116,139,0.3)', fontWeight: 700,
         }}>
           🚫 시그널 분석 제외

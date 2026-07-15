@@ -3,13 +3,14 @@
 import { useState, useEffect, Suspense } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { TK } from '@/lib/theme'
 
 // ── 용도 기반 5그룹 — "매일 보는 것"이 맨 위, 나머지는 사전(레퍼런스) ──
 interface NavItem { href: string; icon: string; label: string }
 interface NavGroup { title: string; color: string; items: NavItem[] }
 const GROUPS: NavGroup[] = [
   {
-    title: '📌 매일', color: '#10b981',
+    title: '📌 매일', color: TK.emerald500,
     items: [
       { href: '/briefing',  icon: '🎯', label: '오늘의 매매 브리핑' },
       { href: '/win-lose',  icon: '⚔️', label: '승패 해부실' },
@@ -17,14 +18,14 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: '💼 내 자산', color: '#3b82f6',
+    title: '💼 내 자산', color: TK.blue500,
     items: [
       { href: '/assets',  icon: '💼', label: '자산 관리' },
       { href: '/history', icon: '📋', label: '투자 기록' },
     ],
   },
   {
-    title: '🔍 종목 확인', color: '#fbbf24',
+    title: '🔍 종목 확인', color: TK.amber400,
     items: [
       { href: '/research',             icon: '🔭', label: '종목 리서치' },
       { href: '/tech-chart',           icon: '📉', label: '기술적 차트' },
@@ -35,7 +36,7 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: '🌍 시장 탐구', color: '#a78bfa',
+    title: '🌍 시장 탐구', color: TK.violet400,
     items: [
       { href: '/dashboard?tab=rotation',            icon: '🧭', label: '섹터 로테이션 시계' },
       { href: '/dashboard?tab=moneyflow&view=unified', icon: '💰', label: '수급·통합추천' },
@@ -44,7 +45,7 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: '🏠 부동산', color: '#fb923c',
+    title: '🏠 부동산', color: TK.orange400,
     items: [
       { href: '/real-estate', icon: '🏠', label: '부동산 시장 대시보드' },
       { href: '/real-estate/honeycomb', icon: '🐝', label: '벌집순환모형(지역 사이클)' },
@@ -53,7 +54,7 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: '🎓 교육·학교', color: '#818cf8',
+    title: '🎓 교육·학교', color: TK.indigo400,
     items: [
       { href: '/investment-academy', icon: '🎓', label: 'Investment Academy' },
       { href: '/master-strategy',    icon: '🏹', label: 'Master Strategy' },
@@ -103,8 +104,8 @@ function SidebarInner() {
   return (
     <aside style={{
       width: 260, flexShrink: 0,
-      background: 'linear-gradient(180deg, #0d1117 0%, #111827 100%)',
-      borderRight: '1px solid #1f2937',
+      background: `linear-gradient(180deg, #0d1117 0%, ${TK.gray900} 100%)`,
+      borderRight: `1px solid ${TK.gray800}`,
       display: 'flex', flexDirection: 'column',
       height: '100%', overflowY: 'auto',
       fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
@@ -220,7 +221,7 @@ function SidebarInner() {
               borderRadius: 8,
             }}>
               <span style={{ fontSize: 12 }}>🏫</span>
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#fb923c', letterSpacing: '0.05em' }}>교장선생님모드</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: TK.orange400, letterSpacing: '0.05em' }}>교장선생님모드</span>
             </div>
           )}
         </div>
@@ -232,7 +233,7 @@ function SidebarInner() {
       <nav style={{ padding: '14px 10px', flex: 1 }}>
         {GROUPS.map((g, gi) => (
           <div key={g.title}>
-            {gi > 0 && <div style={{ height: 1, background: '#1f2937', margin: '12px 4px 12px' }} />}
+            {gi > 0 && <div style={{ height: 1, background: TK.gray800, margin: '12px 4px 12px' }} />}
             <div style={{ fontSize: 10.5, fontWeight: 800, color: g.color, letterSpacing: '0.08em', padding: '0 10px 9px', opacity: 0.9 }}>
               {g.title}
             </div>
@@ -259,14 +260,14 @@ function SidebarInner() {
                 <a key={href} href={href} style={{
                   display: 'flex', alignItems: 'center', gap: 12,
                   padding: '9px 12px', borderRadius: 10, textDecoration: 'none',
-                  color:      active ? '#f1f5f9' : '#8a9aaa',
+                  color:      active ? TK.slate100 : TK.sub,
                   background: active ? rgba(g.color, 0.16) : 'transparent',
                   borderLeft: `3px solid ${active ? g.color : 'transparent'}`,
                   fontSize: 13.5, fontWeight: active ? 700 : 400,
                   transition: 'all 0.12s', marginBottom: 2,
                 }}
                   onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = rgba(g.color, 0.07); (e.currentTarget as HTMLAnchorElement).style.color = '#d1d5db' } }}
-                  onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; (e.currentTarget as HTMLAnchorElement).style.color = '#8a9aaa' } }}
+                  onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; (e.currentTarget as HTMLAnchorElement).style.color = TK.sub } }}
                 >
                   <span style={{ fontSize: 16, lineHeight: 1, minWidth: 20, textAlign: 'center' as const }}>{icon}</span>
                   {label}
@@ -279,16 +280,16 @@ function SidebarInner() {
         {/* Teacher 전용 관리자 */}
         {isTeacher && (
           <>
-            <div style={{ height: 1, background: '#1f2937', margin: '12px 4px 12px' }}/>
-            <div style={{ fontSize: 10, fontWeight: 700, color: '#7a8fa3', letterSpacing: '0.12em', padding: '0 10px 10px', textTransform: 'uppercase' as const }}>
+            <div style={{ height: 1, background: TK.gray800, margin: '12px 4px 12px' }}/>
+            <div style={{ fontSize: 10, fontWeight: 700, color: TK.sub6, letterSpacing: '0.12em', padding: '0 10px 10px', textTransform: 'uppercase' as const }}>
               ADMIN
             </div>
             <a href="/admin" style={{
               display: 'flex', alignItems: 'center', gap: 12,
               padding: '10px 12px', borderRadius: 10, textDecoration: 'none',
-              color:      pathname === '/admin' ? '#f1f5f9' : '#8a9aaa',
+              color:      pathname === '/admin' ? TK.slate100 : TK.sub,
               background: pathname === '/admin' ? 'rgba(251,146,60,0.15)' : 'transparent',
-              borderLeft: `3px solid ${pathname === '/admin' ? '#fb923c' : 'transparent'}`,
+              borderLeft: `3px solid ${pathname === '/admin' ? TK.orange400 : 'transparent'}`,
               fontSize: 14, fontWeight: pathname === '/admin' ? 700 : 400,
               transition: 'all 0.12s',
             }}>
@@ -300,16 +301,16 @@ function SidebarInner() {
       </nav>
 
       {/* ── 사용자 프로필 ─────────────────────────────────── */}
-      <div style={{ borderTop: '1px solid #1f2937', padding: '14px 16px' }}>
+      <div style={{ borderTop: `1px solid ${TK.gray800}`, padding: '14px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-          <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#2563eb,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: '#fff', flexShrink: 0, boxShadow: '0 0 10px rgba(37,99,235,0.35)' }}>
+          <div style={{ width: 36, height: 36, borderRadius: '50%', background: `linear-gradient(135deg,${TK.blue600},#7c3aed)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: '#fff', flexShrink: 0, boxShadow: '0 0 10px rgba(37,99,235,0.35)' }}>
             {avatarChar}
           </div>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: 13, color: '#f1f5f9', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div style={{ fontSize: 13, color: TK.slate100, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {displayName ?? email?.split('@')[0] ?? '—'}
             </div>
-            <div style={{ fontSize: 10, color: '#8a96a8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
+            <div style={{ fontSize: 10, color: TK.sub7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
               {email}
             </div>
           </div>
@@ -318,9 +319,9 @@ function SidebarInner() {
         {!confirming ? (
           <button
             onClick={() => setConfirming(true)}
-            style={{ width: '100%', padding: '8px', borderRadius: 8, background: 'transparent', border: '1px solid #1f2937', color: '#8a9aaa', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.15s' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.1)'; (e.currentTarget as HTMLButtonElement).style.color = '#f87171'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(239,68,68,0.3)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = '#8a9aaa'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#1f2937' }}
+            style={{ width: '100%', padding: '8px', borderRadius: 8, background: 'transparent', border: `1px solid ${TK.gray800}`, color: TK.sub, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.15s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.1)'; (e.currentTarget as HTMLButtonElement).style.color = TK.red400; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(239,68,68,0.3)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = TK.sub; (e.currentTarget as HTMLButtonElement).style.borderColor = TK.gray800 }}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
@@ -329,10 +330,10 @@ function SidebarInner() {
           </button>
         ) : (
           <div>
-            <div style={{ fontSize: 11, color: '#a8b5c2', textAlign: 'center' as const, marginBottom: 6 }}>정말 로그아웃?</div>
+            <div style={{ fontSize: 11, color: TK.sub9, textAlign: 'center' as const, marginBottom: 6 }}>정말 로그아웃?</div>
             <div style={{ display: 'flex', gap: 6 }}>
-              <button onClick={() => setConfirming(false)} style={{ flex: 1, padding: '7px', borderRadius: 7, background: '#1f2937', border: 'none', color: '#a8b5c2', fontSize: 12, cursor: 'pointer' }}>취소</button>
-              <button onClick={handleLogout} style={{ flex: 1, padding: '7px', borderRadius: 7, background: '#dc2626', border: 'none', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>나가기</button>
+              <button onClick={() => setConfirming(false)} style={{ flex: 1, padding: '7px', borderRadius: 7, background: TK.gray800, border: 'none', color: TK.sub9, fontSize: 12, cursor: 'pointer' }}>취소</button>
+              <button onClick={handleLogout} style={{ flex: 1, padding: '7px', borderRadius: 7, background: TK.red600, border: 'none', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>나가기</button>
             </div>
           </div>
         )}

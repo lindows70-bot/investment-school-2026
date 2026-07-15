@@ -21,6 +21,7 @@ import {
 } from 'recharts'
 import { getAssetType } from '@/lib/assetClassifier'
 import { safeNumber, LYNCH_CATEGORY_KR } from '@/lib/lynchAnalysis'
+import { TK } from '@/lib/theme'
 
 // ── 타입
 interface PortfolioInvestment {
@@ -213,9 +214,9 @@ function SharesTip({ active, payload }: any) {
   if (!active || !payload?.length) return null
   const d = payload[0]?.payload
   return (
-    <div style={{ background: '#0f172a', border: '1px solid #2a2d3a', borderRadius: 5, padding: '3px 7px', fontSize: 10 }}>
-      <span style={{ color: '#94a3b8' }}>{d?.year}: </span>
-      <span style={{ color: '#60a5fa', fontWeight: 700 }}>{d?.shares?.toFixed(1)}</span>
+    <div style={{ background: TK.slate900, border: `1px solid ${TK.line1}`, borderRadius: 5, padding: '3px 7px', fontSize: 10 }}>
+      <span style={{ color: TK.slate400 }}>{d?.year}: </span>
+      <span style={{ color: TK.blue400, fontWeight: 700 }}>{d?.shares?.toFixed(1)}</span>
     </div>
   )
 }
@@ -228,8 +229,8 @@ export default function ShareholderYieldTerminal({
 }: ShareholderYieldProps) {
 
   const C = {
-    card: '#1a1d27', border: '#2a2d3a', grid: '#1e2140',
-    text: '#94a3b8', textHi: '#f1f5f9', textLow: '#8599ae',
+    card: TK.bg7, border: TK.line1, grid: TK.bg9,
+    text: TK.slate400, textHi: TK.slate100, textLow: TK.sub3,
   }
 
   // ① 개별 주식만 필터링 (SSOT)
@@ -279,12 +280,12 @@ export default function ShareholderYieldTerminal({
     // 뱃지 판정
     const badge = (() => {
       if (metrics.buybackYield > 0.3 && trend === 'decreasing') {
-        return { icon: '🟢', label: '자사주 소각', color: '#4ade80', bg: 'rgba(74,222,128,0.08)', border: 'rgba(74,222,128,0.3)' }
+        return { icon: '🟢', label: '자사주 소각', color: TK.green400, bg: 'rgba(74,222,128,0.08)', border: 'rgba(74,222,128,0.3)' }
       }
       if (trend === 'increasing' || metrics.buybackYield < -0.5) {
-        return { icon: '🔴', label: '주주가치 희석', color: '#f87171', bg: 'rgba(248,113,113,0.08)', border: 'rgba(248,113,113,0.3)' }
+        return { icon: '🔴', label: '주주가치 희석', color: TK.red400, bg: 'rgba(248,113,113,0.08)', border: 'rgba(248,113,113,0.3)' }
       }
-      return { icon: '⚪', label: '변동 없음', color: '#7f93a8', bg: 'transparent', border: 'rgba(100,116,139,0.2)' }
+      return { icon: '⚪', label: '변동 없음', color: TK.sub2, bg: 'transparent', border: 'rgba(100,116,139,0.2)' }
     })()
 
     return { inv, price, isKrStock, divYield, metrics, totalYield, trend, catKr, badge }
@@ -326,7 +327,7 @@ export default function ShareholderYieldTerminal({
             <span style={{ fontSize: 15, fontWeight: 900, color: C.textHi }}>
               주주환원율(Shareholder Yield) 터미널
             </span>
-            <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'rgba(52,211,153,0.12)', color: '#34d399', fontWeight: 700 }}>
+            <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'rgba(52,211,153,0.12)', color: TK.emerald400, fontWeight: 700 }}>
               LIVE
             </span>
           </div>
@@ -338,9 +339,9 @@ export default function ShareholderYieldTerminal({
         {/* 요약 KPI */}
         <div style={{ display: 'flex', gap: 12 }}>
           {[
-            { label: '포트폴리오 평균 환원율', val: `${summary.avgTotal.toFixed(1)}%`, color: '#60a5fa' },
-            { label: '🟢 자사주 소각',          val: `${summary.buybacks}개`,           color: '#4ade80' },
-            { label: '🔴 주주가치 희석',         val: `${summary.dilutions}개`,          color: '#f87171' },
+            { label: '포트폴리오 평균 환원율', val: `${summary.avgTotal.toFixed(1)}%`, color: TK.blue400 },
+            { label: '🟢 자사주 소각',          val: `${summary.buybacks}개`,           color: TK.green400 },
+            { label: '🔴 주주가치 희석',         val: `${summary.dilutions}개`,          color: TK.red400 },
           ].map(k => (
             <div key={k.label} style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 18, fontWeight: 900, color: k.color, fontFamily: 'monospace' }}>{k.val}</div>
@@ -380,7 +381,7 @@ export default function ShareholderYieldTerminal({
                   <div style={{ fontSize: 9, color: C.textLow, fontFamily: 'monospace', marginTop: 2 }}>
                     {row.inv.ticker}
                     {row.metrics.dataSource === 'estimated' && (
-                      <span style={{ marginLeft: 4, color: '#8599ae' }}>(추정)</span>
+                      <span style={{ marginLeft: 4, color: TK.sub3 }}>(추정)</span>
                     )}
                   </div>
                 </td>
@@ -393,7 +394,7 @@ export default function ShareholderYieldTerminal({
                 </td>
 
                 {/* 현재가 — priceMap 실데이터, 미로드 시 purchase_price 폴백 */}
-                <td style={{ padding: '10px 12px', textAlign: 'center', fontFamily: 'monospace', color: '#60a5fa', fontWeight: 700 }}>
+                <td style={{ padding: '10px 12px', textAlign: 'center', fontFamily: 'monospace', color: TK.blue400, fontWeight: 700 }}>
                   {fmtPrice(row.price, row.isKrStock)}
                 </td>
 
@@ -401,7 +402,7 @@ export default function ShareholderYieldTerminal({
                 <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                   <span style={{
                     fontFamily: 'monospace', fontWeight: 700, fontSize: 13,
-                    color: row.divYield > 2 ? '#4ade80' : row.divYield > 0 ? '#fbbf24' : C.textLow,
+                    color: row.divYield > 2 ? TK.green400 : row.divYield > 0 ? TK.amber400 : C.textLow,
                   }}>
                     {row.divYield > 0 ? `${row.divYield.toFixed(2)}%` : '—'}
                   </span>
@@ -411,9 +412,9 @@ export default function ShareholderYieldTerminal({
                 <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                   <span style={{
                     fontFamily: 'monospace', fontWeight: 700, fontSize: 13,
-                    color: row.metrics.buybackYield > 1 ? '#34d399'
-                         : row.metrics.buybackYield > 0 ? '#60a5fa'
-                         : '#f87171',
+                    color: row.metrics.buybackYield > 1 ? TK.emerald400
+                         : row.metrics.buybackYield > 0 ? TK.blue400
+                         : TK.red400,
                   }}>
                     {row.metrics.buybackYield >= 0 ? '+' : ''}{row.metrics.buybackYield.toFixed(1)}%
                   </span>
@@ -424,19 +425,19 @@ export default function ShareholderYieldTerminal({
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
                     <span style={{
                       fontFamily: 'monospace', fontWeight: 900, fontSize: 15,
-                      color: row.totalYield > 4 ? '#4ade80'
-                           : row.totalYield > 2 ? '#fbbf24'
-                           : row.totalYield > 0 ? '#60a5fa'
-                           : '#f87171',
+                      color: row.totalYield > 4 ? TK.green400
+                           : row.totalYield > 2 ? TK.amber400
+                           : row.totalYield > 0 ? TK.blue400
+                           : TK.red400,
                     }}>
                       {row.totalYield >= 0 ? '+' : ''}{row.totalYield.toFixed(1)}%
                     </span>
                     {/* 미니 바 */}
-                    <div style={{ width: 60, height: 4, background: '#1e293b', borderRadius: 2, overflow: 'hidden' }}>
+                    <div style={{ width: 60, height: 4, background: TK.border, borderRadius: 2, overflow: 'hidden' }}>
                       <div style={{
                         height: '100%', borderRadius: 2,
                         width: `${Math.min(100, Math.max(0, row.totalYield * 10))}%`,
-                        background: row.totalYield > 4 ? '#4ade80' : row.totalYield > 2 ? '#fbbf24' : '#60a5fa',
+                        background: row.totalYield > 4 ? TK.green400 : row.totalYield > 2 ? TK.amber400 : TK.blue400,
                       }} />
                     </div>
                   </div>
@@ -452,8 +453,8 @@ export default function ShareholderYieldTerminal({
                           <Tooltip content={<SharesTip />} />
                           <Line
                             type="monotone" dataKey="shares"
-                            stroke={row.trend === 'decreasing' ? '#4ade80' : row.trend === 'increasing' ? '#f87171' : '#7f93a8'}
-                            strokeWidth={2} dot={{ r: 2.5, strokeWidth: 0, fill: row.trend === 'decreasing' ? '#4ade80' : row.trend === 'increasing' ? '#f87171' : '#7f93a8' }}
+                            stroke={row.trend === 'decreasing' ? TK.green400 : row.trend === 'increasing' ? TK.red400 : TK.sub2}
+                            strokeWidth={2} dot={{ r: 2.5, strokeWidth: 0, fill: row.trend === 'decreasing' ? TK.green400 : row.trend === 'increasing' ? TK.red400 : TK.sub2 }}
                             isAnimationActive={false}
                           />
                         </LineChart>
@@ -465,7 +466,7 @@ export default function ShareholderYieldTerminal({
                       const last  = row.metrics.sharesHistory[row.metrics.sharesHistory.length - 1]?.shares ?? 100
                       const diff  = last - first
                       return (
-                        <span style={{ fontSize: 9, fontFamily: 'monospace', color: diff < 0 ? '#4ade80' : diff > 0 ? '#f87171' : '#7f93a8' }}>
+                        <span style={{ fontSize: 9, fontFamily: 'monospace', color: diff < 0 ? TK.green400 : diff > 0 ? TK.red400 : TK.sub2 }}>
                           {diff > 0 ? '+' : ''}{diff.toFixed(1)}%
                         </span>
                       )
@@ -499,17 +500,17 @@ export default function ShareholderYieldTerminal({
         display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8,
       }}>
         <div>
-          <span style={{ color: '#34d399', fontWeight: 700 }}>💡 총 주주환원율이란?</span><br />
+          <span style={{ color: TK.emerald400, fontWeight: 700 }}>💡 총 주주환원율이란?</span><br />
           배당금으로 직접 돌려주는 배당수익률 +
           자사주를 사들여 주식가치를 높이는 자사주 매입률의 합계입니다.
         </div>
         <div>
-          <span style={{ color: '#4ade80', fontWeight: 700 }}>🟢 자사주 소각이 좋은 이유</span><br />
+          <span style={{ color: TK.green400, fontWeight: 700 }}>🟢 자사주 소각이 좋은 이유</span><br />
           발행주식수가 줄어들면 주당 이익(EPS)이 올라가
           주가 상승 압력이 생깁니다. 워렌 버핏이 강조하는 지표입니다.
         </div>
         <div>
-          <span style={{ color: '#f87171', fontWeight: 700 }}>🔴 주주가치 희석 주의</span><br />
+          <span style={{ color: TK.red400, fontWeight: 700 }}>🔴 주주가치 희석 주의</span><br />
           스톡옵션·유상증자로 주식수가 늘면 기존 주주의 지분가치가
           낮아집니다. 성장주 초기에는 불가피하지만 지속 여부를 모니터링해야 합니다.
         </div>

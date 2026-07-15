@@ -16,6 +16,7 @@ import {
   ResponsiveContainer, Tooltip, Legend,
 } from 'recharts'
 import { getAssetType } from '@/lib/assetClassifier'
+import { TK } from '@/lib/theme'
 
 // ── 타입 (기존 DB 스키마 기준) ────────────────────────────────────────────────
 interface Investment {
@@ -54,12 +55,12 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 // 카테고리별 색상 (하단 범례·종목 칩과 통일)
 const CATEGORY_COLORS: Record<string, string> = {
-  stalwart:    '#60a5fa',
-  fast_grower: '#34d399',
-  cyclical:    '#fb923c',
-  turnaround:  '#f87171',
-  asset_play:  '#c084fc',
-  slow_grower: '#a8b5c2',
+  stalwart:    TK.blue400,
+  fast_grower: TK.emerald400,
+  cyclical:    TK.orange400,
+  turnaround:  TK.red400,
+  asset_play:  TK.purple400,
+  slow_grower: TK.sub9,
 }
 
 interface CatStock { ticker: string; name: string; value: number; weight: number }
@@ -118,18 +119,18 @@ export default function PortfolioBalanceRadar({ investments, usdKrw = 1350 }: Pr
     const top = sorted[0]
 
     if (top.subject === '빠른 성장주' && top.myRatio > 50)
-      return { icon: '💡', color: '#fbbf24', text: '빠른 성장주 비중이 매우 높습니다. 공격적 알파 창출엔 좋지만 하락장 방어력이 약할 수 있으니, 대형 우량주 비중 확대를 고려해 보세요.' }
+      return { icon: '💡', color: TK.amber400, text: '빠른 성장주 비중이 매우 높습니다. 공격적 알파 창출엔 좋지만 하락장 방어력이 약할 수 있으니, 대형 우량주 비중 확대를 고려해 보세요.' }
     if (top.subject === '경기 순환주' && top.myRatio > 40)
-      return { icon: '⚠️', color: '#fb923c', text: '경기 순환주 비중이 높습니다. 산업 사이클 고점에서 매도 타이밍을 놓치지 않도록 각별한 주의가 필요합니다.' }
+      return { icon: '⚠️', color: TK.orange400, text: '경기 순환주 비중이 높습니다. 산업 사이클 고점에서 매도 타이밍을 놓치지 않도록 각별한 주의가 필요합니다.' }
     if (top.subject === '저성장주' && top.myRatio > 20)
-      return { icon: '🐢', color: '#a8b5c2', text: '저성장주 비중이 꽤 높습니다. 고배당 목적이 아니라면 포트폴리오 전체의 성장 활력이 떨어질 수 있습니다.' }
+      return { icon: '🐢', color: TK.sub9, text: '저성장주 비중이 꽤 높습니다. 고배당 목적이 아니라면 포트폴리오 전체의 성장 활력이 떨어질 수 있습니다.' }
     if (top.subject === '회생주' && top.myRatio > 25)
-      return { icon: '🔥', color: '#f87171', text: '회생주 비중이 높습니다. 하이리스크 구간이므로 흑자전환 여부와 재무 건전성을 반드시 확인하세요.' }
-    return { icon: '✅', color: '#4ade80', text: '훌륭합니다! 린치의 권장 비율과 유사한 안정적인 밸런스를 유지하고 있습니다.' }
+      return { icon: '🔥', color: TK.red400, text: '회생주 비중이 높습니다. 하이리스크 구간이므로 흑자전환 여부와 재무 건전성을 반드시 확인하세요.' }
+    return { icon: '✅', color: TK.green400, text: '훌륭합니다! 린치의 권장 비율과 유사한 안정적인 밸런스를 유지하고 있습니다.' }
   }, [chartData])
 
   const C = {
-    card: '#111827', border: '#1f2937', text: '#f1f5f9', sub: '#94a3b8', low: '#8599ae',
+    card: TK.gray900, border: TK.gray800, text: TK.slate100, sub: TK.slate400, low: TK.sub3,
   }
 
   // ── 빈 상태 ────────────────────────────────────────────────────────────────
@@ -163,7 +164,7 @@ export default function PortfolioBalanceRadar({ investments, usdKrw = 1350 }: Pr
       {/* ── 헤더 ── */}
       <div style={{
         padding: '16px 20px', borderRadius: 14,
-        background: 'linear-gradient(135deg, #0a0e1a 0%, #111827 100%)',
+        background: `linear-gradient(135deg, ${TK.bg0} 0%, ${TK.gray900} 100%)`,
         border: '1px solid rgba(16,185,129,0.25)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -172,7 +173,7 @@ export default function PortfolioBalanceRadar({ investments, usdKrw = 1350 }: Pr
             피터 린치 포트폴리오 황금비율 로드맵
           </span>
           <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20,
-            background: 'rgba(16,185,129,0.12)', color: '#10b981', fontWeight: 700 }}>
+            background: 'rgba(16,185,129,0.12)', color: TK.emerald500, fontWeight: 700 }}>
             SECRET
           </span>
         </div>
@@ -188,21 +189,21 @@ export default function PortfolioBalanceRadar({ investments, usdKrw = 1350 }: Pr
           <div style={{ height: 300 }}>
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
-                <PolarGrid stroke="#7a8fa3" />
-                <PolarAngleAxis dataKey="subject" tick={{ fill: '#a8b5c2', fontSize: 11 }} />
+                <PolarGrid stroke={TK.sub6} />
+                <PolarAngleAxis dataKey="subject" tick={{ fill: TK.sub9, fontSize: 11 }} />
                 {/* ★ domain [0,100] 고정: 100% 몰빵 종목도 꼭짓점이 차트 밖으로 잘리지 않음 */}
                 <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12 }}
+                  contentStyle={{ backgroundColor: TK.gray800, border: 'none', borderRadius: 8, color: '#fff', fontSize: 12 }}
                   itemStyle={{ color: '#e5e7eb' }}
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   formatter={((v: any) => `${v}%`) as any}
                 />
                 <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
                 <Radar name="린치 권장 비중 (%)" dataKey="idealRatio"
-                  stroke="#8a96a8" fill="#8a96a8" fillOpacity={0.3} isAnimationActive={false} />
+                  stroke={TK.sub7} fill={TK.sub7} fillOpacity={0.3} isAnimationActive={false} />
                 <Radar name="내 포트폴리오 (%)" dataKey="myRatio"
-                  stroke="#10b981" fill="#10b981" fillOpacity={0.55} isAnimationActive={false} />
+                  stroke={TK.emerald500} fill={TK.emerald500} fillOpacity={0.55} isAnimationActive={false} />
               </RadarChart>
             </ResponsiveContainer>
           </div>
@@ -217,7 +218,7 @@ export default function PortfolioBalanceRadar({ investments, usdKrw = 1350 }: Pr
           {chartData.map(d => {
             const diff = parseFloat((d.myRatio - d.idealRatio).toFixed(1))
             const over = diff > 5, under = diff < -5
-            const barColor = over ? '#f87171' : under ? '#60a5fa' : '#10b981'
+            const barColor = over ? TK.red400 : under ? TK.blue400 : TK.emerald500
             return (
               <div key={d.subject}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
@@ -228,21 +229,21 @@ export default function PortfolioBalanceRadar({ investments, usdKrw = 1350 }: Pr
                   </span>
                 </div>
                 {/* 비중 바: 0~100% 스케일 (권장 회색 마커 + 내 비중 컬러) */}
-                <div style={{ position: 'relative', height: 6, background: '#1e293b', borderRadius: 999, overflow: 'visible' }}>
+                <div style={{ position: 'relative', height: 6, background: TK.border, borderRadius: 999, overflow: 'visible' }}>
                   <div style={{ position: 'absolute', left: 0, top: 0, height: '100%',
                     width: `${Math.min(100, d.myRatio)}%`, background: barColor, borderRadius: 999,
                     transition: 'width 0.5s ease' }} />
                   {/* 권장 비중 마커 */}
                   <div style={{ position: 'absolute', top: -2, height: 10, width: 2,
-                    left: `${Math.min(100, d.idealRatio)}%`, background: '#a8b5c2' }} />
+                    left: `${Math.min(100, d.idealRatio)}%`, background: TK.sub9 }} />
                 </div>
               </div>
             )
           })}
           <div style={{ marginTop: 4, fontSize: 9, color: C.low, display: 'flex', gap: 10 }}>
-            <span><span style={{ color: '#f87171' }}>■</span> 과다(+5%p)</span>
-            <span><span style={{ color: '#60a5fa' }}>■</span> 부족(-5%p)</span>
-            <span><span style={{ color: '#a8b5c2' }}>|</span> 권장선</span>
+            <span><span style={{ color: TK.red400 }}>■</span> 과다(+5%p)</span>
+            <span><span style={{ color: TK.blue400 }}>■</span> 부족(-5%p)</span>
+            <span><span style={{ color: TK.sub9 }}>|</span> 권장선</span>
           </div>
         </div>
       </div>
@@ -272,12 +273,12 @@ export default function PortfolioBalanceRadar({ investments, usdKrw = 1350 }: Pr
         fontSize: 10, color: C.low, lineHeight: 1.7,
         display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px,1fr))', gap: 8,
       }}>
-        <div><strong style={{ color: '#60a5fa' }}>대형우량주 35%</strong> — 안전판·하방 경직성</div>
-        <div><strong style={{ color: '#34d399' }}>빠른성장주 30%</strong> — 알파 창출 핵심</div>
-        <div><strong style={{ color: '#fb923c' }}>경기순환주 20%</strong> — 사이클 타이밍</div>
-        <div><strong style={{ color: '#f87171' }}>회생주 10%</strong> — 하이리스크 하이리턴</div>
-        <div><strong style={{ color: '#c084fc' }}>자산보유주 5%</strong> — 숨겨진 가치</div>
-        <div><strong style={{ color: '#a8b5c2' }}>저성장주 0%</strong> — 고배당 외 비권장</div>
+        <div><strong style={{ color: TK.blue400 }}>대형우량주 35%</strong> — 안전판·하방 경직성</div>
+        <div><strong style={{ color: TK.emerald400 }}>빠른성장주 30%</strong> — 알파 창출 핵심</div>
+        <div><strong style={{ color: TK.orange400 }}>경기순환주 20%</strong> — 사이클 타이밍</div>
+        <div><strong style={{ color: TK.red400 }}>회생주 10%</strong> — 하이리스크 하이리턴</div>
+        <div><strong style={{ color: TK.purple400 }}>자산보유주 5%</strong> — 숨겨진 가치</div>
+        <div><strong style={{ color: TK.sub9 }}>저성장주 0%</strong> — 고배당 외 비권장</div>
       </div>
 
       {/* ── 6대 분류별 내 보유 종목 (어떤 종목이 어디에 속하는지) ── */}

@@ -20,30 +20,31 @@ import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList,
 } from 'recharts'
+import { TK } from '@/lib/theme'
 
 // ═══════════════════════════════════════════════════════════════
 //  DESIGN SYSTEM
 // ═══════════════════════════════════════════════════════════════
 const D = {
-  bg:      '#020617',
+  bg:      TK.slate950,
   surface: '#06101f',
   card:    '#0a1929',
   cardHi:  '#0d2137',
   border:  '#0f2a45',
   borderHi:'#1a3a5c',
-  neon:    '#deff9a',
-  neonDim: '#deff9a33',
-  neonGlow:'#deff9a18',
-  blue:    '#38bdf8',
-  blueDim: '#38bdf822',
-  indigo:  '#818cf8',
-  gold:    '#fbbf24',
-  red:     '#f87171',
-  green:   '#4ade80',
+  neon:    TK.neonLime,
+  neonDim: `${TK.neonLime}33`,
+  neonGlow:`${TK.neonLime}18`,
+  blue:    TK.sky400,
+  blueDim: `${TK.sky400}22`,
+  indigo:  TK.indigo400,
+  gold:    TK.amber400,
+  red:     TK.red400,
+  green:   TK.green400,
   muted:   '#1e3a5c',
-  text:    '#e2e8f0',
-  textSub: '#7f93a8',
-  textDim: '#7a8fa3',
+  text:    TK.slate200,
+  textSub: TK.sub2,
+  textDim: TK.sub6,
 } as const
 
 // ═══════════════════════════════════════════════════════════════
@@ -80,8 +81,8 @@ const DEFAULT_CONFIG: StrategyConfig = {
 }
 
 const SECTOR_PALETTE = [
-  D.blue, D.neon, '#fb923c', D.indigo, D.gold, D.textSub,
-  '#f472b6', '#34d399', '#a78bfa', '#60a5fa',
+  D.blue, D.neon, TK.orange400, D.indigo, D.gold, D.textSub,
+  TK.pink400, TK.emerald400, TK.violet400, TK.blue400,
 ]
 
 const TOTAL_SLIDES  = 5
@@ -216,7 +217,7 @@ function Slide2_Philosophy({
 
   const cols = [
     {
-      key: 'Core', pct: corePct, color: '#3b82f6',
+      key: 'Core', pct: corePct, color: TK.blue500,
       items: coreStocks.filter(s => s.trim()),
     },
     {
@@ -279,7 +280,7 @@ function Slide2_Philosophy({
 // ═══════════════════════════════════════════════════════════════
 function Slide3_Capital({ corePct, satPct }: { corePct:number; satPct:number }) {
   const donutA = [
-    { name:'Core',      value:corePct, color:'#3b82f6' },
+    { name:'Core',      value:corePct, color:TK.blue500 },
     { name:'Satellite', value:satPct,  color:D.neon    },
   ]
   const donutB = [
@@ -287,7 +288,7 @@ function Slide3_Capital({ corePct, satPct }: { corePct:number; satPct:number }) 
     { name:'해외 ETF',   value:28, color:D.neon    },
     { name:'국내 개별주', value:24, color:D.indigo  },
     { name:'해외 개별주', value:11, color:D.gold    },
-    { name:'코인·대체',  value: 6, color:'#fb923c' },
+    { name:'코인·대체',  value: 6, color:TK.orange400 },
   ]
   const RADIAN = Math.PI / 180
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -312,7 +313,7 @@ function Slide3_Capital({ corePct, satPct }: { corePct:number; satPct:number }) 
       <motion.div variants={fadeUp}
         style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, flex:1, minHeight:0 }}>
         {[
-          { title:'CORE vs SATELLITE', data:donutA, border:'#3b82f6' },
+          { title:'CORE vs SATELLITE', data:donutA, border:TK.blue500 },
           { title:'자산군 비중',        data:donutB, border:D.neon     },
         ].map(chart => (
           <div key={chart.title} style={{ background:D.cardHi, border:`1px solid ${chart.border}18`,
@@ -805,7 +806,7 @@ function AdminModal({
             <Label t="자산 배분 비율 (%)" />
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
               {[
-                { label:'Core', val:corePct, set:setCorePct, color:'#3b82f6' },
+                { label:'Core', val:corePct, set:setCorePct, color:TK.blue500 },
                 { label:'Satellite', val:satPct, set:setSatPct, color:D.neon },
               ].map(f => (
                 <div key={f.label}>
@@ -885,7 +886,7 @@ function AdminModal({
 
           {/* ── 추천 종목 입력 ── */}
           {[
-            { label:'추천 코어(Core) 종목',      stocks:coreStocks,  setStocks:setCoreStocks,  color:'#3b82f6' },
+            { label:'추천 코어(Core) 종목',      stocks:coreStocks,  setStocks:setCoreStocks,  color:TK.blue500 },
             { label:'추천 새틀라이트(Sat.) 종목', stocks:satStocks,   setStocks:setSatStocks,   color:D.neon    },
           ].map(({ label, stocks, setStocks, color }) => (
             <div key={label}>

@@ -2,8 +2,9 @@
 // 🗺️ 2040 서울플랜 중심지 공간 지도 — 25개구 경계 위에 3도심·7광역중심·12지역중심 마커(서울시 도시계획포털 공간구조도 재현). 마커 클릭 = 단지 리서치
 import { useRouter } from 'next/navigation'
 import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps'
+import { TK } from '@/lib/theme'
 
-const BORDER = '#1e293b'
+const BORDER = TK.border
 
 // 중심지 좌표(경도, 위도) — 서울시 2040 공간구조도 기준 근사 배치(정적 정책 참조 데이터). lawd=단지 리서치 딥링크
 const CORE3 = [
@@ -32,12 +33,12 @@ const LOCAL12 = [
 export default function SeoulPlanMap() {
   const router = useRouter()
   return (
-    <div style={{ background: '#141824', border: `1px solid ${BORDER}`, borderRadius: 14, padding: '14px 18px' }}>
-      <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>🗺️ 서울 공간구조도 — 중심지 배치</div>
-      <div style={{ color: '#8a9aaa', fontSize: 11, margin: '3px 0 8px', lineHeight: 1.5 }}>
+    <div style={{ background: TK.card, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '14px 18px' }}>
+      <div style={{ color: TK.slate200, fontWeight: 800, fontSize: 13 }}>🗺️ 서울 공간구조도 — 중심지 배치</div>
+      <div style={{ color: TK.sub, fontSize: 11, margin: '3px 0 8px', lineHeight: 1.5 }}>
         서울시 2040 공간구조도 재현 — 🔴 3도심 · 🔵 7광역중심 · ⚪ 12지역중심이 어디에 배치됐는지 한눈에. 마커 클릭 = 해당 지역 단지 리서치로 이동.
       </div>
-      <div style={{ background: '#0d1017', borderRadius: 10, overflow: 'hidden' }}>
+      <div style={{ background: TK.bg1, borderRadius: 10, overflow: 'hidden' }}>
         <ComposableMap projection="geoMercator" projectionConfig={{ center: [126.99, 37.558], scale: 62000 }}
           style={{ width: '100%', height: 'auto' }} width={880} height={520}>
           <Geographies geography="/geo/seoul-gu.json">
@@ -45,7 +46,7 @@ export default function SeoulPlanMap() {
               <Geography key={geo.rsmKey} geography={geo}
                 style={{
                   default: { fill: '#161d2b', stroke: '#334155', strokeWidth: 0.7, outline: 'none' },
-                  hover: { fill: '#1c2740', stroke: '#475569', strokeWidth: 0.7, outline: 'none' },
+                  hover: { fill: '#1c2740', stroke: TK.slate600, strokeWidth: 0.7, outline: 'none' },
                   pressed: { fill: '#1c2740', outline: 'none' },
                 }} />
             ))}
@@ -53,16 +54,16 @@ export default function SeoulPlanMap() {
           {/* 12지역중심 — 작은 점 */}
           {LOCAL12.map(c => (
             <Marker key={c.name} coordinates={[c.lng, c.lat]}>
-              <circle r={3.5} fill="#cbd5e1" stroke="#0d1017" strokeWidth={0.8} />
-              <text textAnchor="middle" y={-6} style={{ fontSize: 8.5, fill: '#94a3b8', fontWeight: 600 }}>{c.name}</text>
+              <circle r={3.5} fill={TK.slate300} stroke={TK.bg1} strokeWidth={0.8} />
+              <text textAnchor="middle" y={-6} style={{ fontSize: 8.5, fill: TK.slate400, fontWeight: 600 }}>{c.name}</text>
             </Marker>
           ))}
           {/* 7광역중심 — 파랑 */}
           {REGION7.map(c => (
             <Marker key={c.name} coordinates={[c.lng, c.lat]}>
               <g onClick={() => router.push(`/real-estate/apt?lawd=${c.lawd}`)} style={{ cursor: 'pointer' }}>
-                <circle r={6} fill="#3b82f6" stroke="#0d1017" strokeWidth={1.2} />
-                <text textAnchor="middle" y={-9} style={{ fontSize: 10, fill: '#93c5fd', fontWeight: 800 }}>{c.name}</text>
+                <circle r={6} fill={TK.blue500} stroke={TK.bg1} strokeWidth={1.2} />
+                <text textAnchor="middle" y={-9} style={{ fontSize: 10, fill: TK.blue300, fontWeight: 800 }}>{c.name}</text>
               </g>
             </Marker>
           ))}
@@ -70,17 +71,17 @@ export default function SeoulPlanMap() {
           {CORE3.map(c => (
             <Marker key={c.name} coordinates={[c.lng, c.lat]}>
               <g onClick={() => router.push(`/real-estate/apt?lawd=${c.lawd}`)} style={{ cursor: 'pointer' }}>
-                <circle r={10} fill="#ef4444" stroke="#fff" strokeWidth={1.5} opacity={0.92} />
-                <text textAnchor="middle" y={-14} style={{ fontSize: 12.5, fill: '#fca5a5', fontWeight: 900, paintOrder: 'stroke', stroke: '#0d1017', strokeWidth: 3 }}>{c.name}</text>
+                <circle r={10} fill={TK.red500} stroke="#fff" strokeWidth={1.5} opacity={0.92} />
+                <text textAnchor="middle" y={-14} style={{ fontSize: 12.5, fill: TK.red300, fontWeight: 900, paintOrder: 'stroke', stroke: TK.bg1, strokeWidth: 3 }}>{c.name}</text>
               </g>
             </Marker>
           ))}
         </ComposableMap>
       </div>
-      <div style={{ display: 'flex', gap: 14, marginTop: 8, fontSize: 10.5, color: '#8a9aaa', flexWrap: 'wrap' }}>
-        <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 5, background: '#ef4444', marginRight: 4, verticalAlign: 'middle' }} />3도심(국제 중심)</span>
-        <span><span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 5, background: '#3b82f6', marginRight: 4, verticalAlign: 'middle' }} />7광역중심</span>
-        <span><span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: 4, background: '#cbd5e1', marginRight: 4, verticalAlign: 'middle' }} />12지역중심</span>
+      <div style={{ display: 'flex', gap: 14, marginTop: 8, fontSize: 10.5, color: TK.sub, flexWrap: 'wrap' }}>
+        <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 5, background: TK.red500, marginRight: 4, verticalAlign: 'middle' }} />3도심(국제 중심)</span>
+        <span><span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 5, background: TK.blue500, marginRight: 4, verticalAlign: 'middle' }} />7광역중심</span>
+        <span><span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: 4, background: TK.slate300, marginRight: 4, verticalAlign: 'middle' }} />12지역중심</span>
         <span style={{ color: '#6b7686' }}>· 좌표는 공간구조도 기준 근사 배치(교육용)</span>
       </div>
     </div>

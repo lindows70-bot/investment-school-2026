@@ -1,3 +1,4 @@
+import { TK } from '@/lib/theme'
 // 🛰️ 양자컴퓨팅 테마 유니버스 SSOT — 종목 분류·모달리티·퓨어플레이·정책·Pre-IPO (정적 큐레이션 = 분류 메타라 하드코딩 허용)
 // 가격·수익률·베타 등 '값'은 /api/sector(sectorEngine)가 라이브 산출. 이 파일은 '분류·사실' 메타만(sectorConfigs가 어댑터).
 // 티커는 2026-06 production stock-price API로 전수 검증(US+KR 라이브 확인).
@@ -21,9 +22,9 @@ export interface QuantumStock {
 }
 
 export const QSUB_META: Record<QSub, { label: string; emoji: string; color: string; desc: string }> = {
-  hw:    { label: '양자 하드웨어',   emoji: '🖥️', color: '#a78bfa', desc: '큐비트 칩·시스템 (대장 테마)' },
-  sec:   { label: '양자 보안·통신',  emoji: '🔐', color: '#22d3ee', desc: '양자내성암호(PQC)·QKD·양자통신' },
-  equip: { label: '핵심 장비·부품',  emoji: '🔧', color: '#f59e0b', desc: '계측·극저온·파운드리·광부품' },
+  hw:    { label: '양자 하드웨어',   emoji: '🖥️', color: TK.violet400, desc: '큐비트 칩·시스템 (대장 테마)' },
+  sec:   { label: '양자 보안·통신',  emoji: '🔐', color: TK.cyan400, desc: '양자내성암호(PQC)·QKD·양자통신' },
+  equip: { label: '핵심 장비·부품',  emoji: '🔧', color: TK.amber500, desc: '계측·극저온·파운드리·광부품' },
 }
 
 // ── 상장 유니버스 (US+KR 라이브) ──────────────────────────────────────────────

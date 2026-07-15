@@ -12,6 +12,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { TK } from '@/lib/theme'
 
 interface Investment { ticker: string; name?: string; lynch_category?: string | null }
 interface Props { investments?: Investment[] }
@@ -32,9 +33,9 @@ interface WeatherData {
 }
 
 const C = {
-  card: '#1a1d27', card2: '#141720', border: '#2a2d3a',
-  gold: '#f59e0b', green: '#4ade80', red: '#f87171', blue: '#60a5fa',
-  text: '#f1f5f9', textSub: '#94a3b8', textLow: '#8599ae',
+  card: TK.bg7, card2: TK.bg5, border: TK.line1,
+  gold: TK.amber500, green: TK.green400, red: TK.red400, blue: TK.blue400,
+  text: TK.slate100, textSub: TK.slate400, textLow: TK.sub3,
 }
 const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
 

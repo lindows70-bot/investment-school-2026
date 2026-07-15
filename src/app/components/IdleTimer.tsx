@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { TK } from '@/lib/theme'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const IDLE_MS   = 30 * 60 * 1000   // 30분 비활동 → 자동 로그아웃
@@ -130,7 +131,7 @@ export default function IdleTimer() {
         fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
       }}>
         <div style={{
-          background: '#141414', border: '1px solid #2a2a2a',
+          background: '#141414', border: `1px solid ${TK.flat1}`,
           borderRadius: 18, padding: '32px 28px',
           width: '100%', maxWidth: 380, textAlign: 'center',
           boxShadow: '0 24px 64px rgba(0,0,0,0.8)',
@@ -147,10 +148,10 @@ export default function IdleTimer() {
             ⏱
           </div>
 
-          <h3 style={{ fontSize: 17, fontWeight: 700, color: '#f1f5f9', margin: '0 0 8px', letterSpacing: '-0.3px' }}>
+          <h3 style={{ fontSize: 17, fontWeight: 700, color: TK.slate100, margin: '0 0 8px', letterSpacing: '-0.3px' }}>
             자동 로그아웃 예정
           </h3>
-          <p style={{ fontSize: 13, color: '#7f93a8', margin: '0 0 24px', lineHeight: 1.6 }}>
+          <p style={{ fontSize: 13, color: TK.sub2, margin: '0 0 24px', lineHeight: 1.6 }}>
             30분 동안 활동이 없어 곧 자동 로그아웃됩니다.<br/>
             계속 사용하시려면 아래 버튼을 눌러주세요.
           </p>
@@ -158,7 +159,7 @@ export default function IdleTimer() {
           {/* Countdown */}
           <div style={{
             fontSize: 40, fontWeight: 800, letterSpacing: '-1px',
-            color: remaining < 60_000 ? '#ef4444' : '#fb923c',
+            color: remaining < 60_000 ? TK.red500 : TK.orange400,
             fontVariantNumeric: 'tabular-nums',
             margin: '0 0 28px',
             transition: 'color 0.3s',
@@ -167,11 +168,11 @@ export default function IdleTimer() {
           </div>
 
           {/* Progress bar */}
-          <div style={{ height: 3, background: '#1e1e1e', borderRadius: 99, overflow: 'hidden', marginBottom: 24 }}>
+          <div style={{ height: 3, background: TK.flat2, borderRadius: 99, overflow: 'hidden', marginBottom: 24 }}>
             <div style={{
               height: '100%',
               width: `${(remaining / WARN_MS) * 100}%`,
-              background: remaining < 60_000 ? '#ef4444' : '#fb923c',
+              background: remaining < 60_000 ? TK.red500 : TK.orange400,
               borderRadius: 99,
               transition: 'width 0.9s linear, background 0.3s',
             }}/>
@@ -183,12 +184,12 @@ export default function IdleTimer() {
               onClick={doLogout}
               style={{
                 flex: 1, padding: '11px', borderRadius: 10,
-                border: '1px solid #2a2a2a', background: 'transparent',
-                color: '#7f93a8', fontSize: 14, cursor: 'pointer',
+                border: `1px solid ${TK.flat1}`, background: 'transparent',
+                color: TK.sub2, fontSize: 14, cursor: 'pointer',
                 transition: 'background 0.15s, color 0.15s',
               }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#1e1e1e'; (e.currentTarget as HTMLButtonElement).style.color = '#f1f5f9' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = '#7f93a8' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = TK.flat2; (e.currentTarget as HTMLButtonElement).style.color = TK.slate100 }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = TK.sub2 }}
             >
               지금 로그아웃
             </button>
@@ -197,7 +198,7 @@ export default function IdleTimer() {
               style={{
                 flex: 1, padding: '11px', borderRadius: 10,
                 border: 'none',
-                background: 'linear-gradient(135deg,#2563eb,#1d4ed8)',
+                background: `linear-gradient(135deg,${TK.blue600},${TK.blue700})`,
                 color: '#fff', fontSize: 14, fontWeight: 600,
                 cursor: 'pointer', transition: 'opacity 0.15s',
                 boxShadow: '0 0 20px rgba(37,99,235,0.3)',

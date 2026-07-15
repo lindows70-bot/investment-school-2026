@@ -11,6 +11,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, LayoutDashboard } from 'lucide-react'
 import LynchLineTerminal from './LynchLineTerminal'
 import { type StudentPortfolio } from './UniversalLynchLineTerminal'
+import { TK } from '@/lib/theme'
 
 export default function DashboardContainer() {
   const [portfolioData, setPortfolioData] = useState<StudentPortfolio>({})
@@ -42,7 +43,7 @@ export default function DashboardContainer() {
   // ── 초기 로딩
   if (loading) return (
     <div className="w-full h-96 flex flex-col items-center justify-center bg-zinc-950 text-zinc-400 font-sans">
-      <RefreshCw className="w-6 h-6 animate-spin mb-2 text-[#deff9a]" />
+      <RefreshCw className={`w-6 h-6 animate-spin mb-2 text-[${TK.neonLime}]`} />
       <p className="text-xs">실시간 시장 데이터를 동기화 중입니다…</p>
     </div>
   )
@@ -53,7 +54,7 @@ export default function DashboardContainer() {
       {/* ── 상단 요약 바 */}
       <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
         <div className="flex items-center gap-2">
-          <LayoutDashboard className="w-5 h-5 text-[#deff9a]" />
+          <LayoutDashboard className={`w-5 h-5 text-[${TK.neonLime}]`} />
           <h2 className="text-lg font-bold">통합 투자 정보 터미널</h2>
         </div>
         <div className="flex items-center gap-3">
@@ -63,7 +64,7 @@ export default function DashboardContainer() {
           <span className="text-[11px] text-zinc-500 font-mono">
             마지막 동기화: {lastUpdated || '—'}
           </span>
-          <div className="w-1.5 h-1.5 rounded-full bg-[#deff9a] animate-pulse" />
+          <div className={`w-1.5 h-1.5 rounded-full bg-[${TK.neonLime}] animate-pulse`} />
         </div>
       </div>
 

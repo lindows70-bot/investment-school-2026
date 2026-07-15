@@ -15,12 +15,13 @@
 
 import { useState, useEffect } from 'react'
 import type { CorrelationResult } from '@/app/api/correlation-matrix/route'
+import { TK } from '@/lib/theme'
 
 // ── 색상 토큰 ─────────────────────────────────────────────────────────────────
 const C = {
-  card: '#1a1d27', card2: '#141720', border: '#2a2d3a',
-  text: '#f1f5f9', textSub: '#b0bec8', textLow: '#8599ae',
-  green: '#4ade80', red: '#f87171', gold: '#f59e0b', cyan: '#22d3ee',
+  card: TK.bg7, card2: TK.bg5, border: TK.line1,
+  text: TK.slate100, textSub: '#b0bec8', textLow: TK.sub3,
+  green: TK.green400, red: TK.red400, gold: TK.amber500, cyan: TK.cyan400,
 }
 const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
 
@@ -28,19 +29,19 @@ const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
 function corrColor(r: number | null, isDiag: boolean): { bg: string; text: string } {
   if (isDiag)        return { bg: '#2d3145', text: '#8a90b0' }
   if (r === null)    return { bg: '#1e2235', text: '#556080' }
-  if (r >=  0.7)     return { bg: '#7f1d1d', text: '#fca5a5' }   // 강한 양의 상관 → 짙은 빨강
+  if (r >=  0.7)     return { bg: '#7f1d1d', text: TK.red300 }   // 강한 양의 상관 → 짙은 빨강
   if (r >=  0.5)     return { bg: '#78350f', text: '#fcd34d' }   // 중강 → 짙은 주황
-  if (r >=  0.3)     return { bg: '#3d2b07', text: '#fbbf24' }   // 중약 → 옅은 주황
-  if (r >=  0.1)     return { bg: '#172232', text: '#93c5fd' }   // 낮음 → 청색
-  if (r >= -0.1)     return { bg: '#0f2818', text: '#6ee7b7' }   // 무상관 → 옅은 에메랄드
-  return               { bg: '#064e3b', text: '#34d399' }        // 음의 상관 → 짙은 에메랄드
+  if (r >=  0.3)     return { bg: '#3d2b07', text: TK.amber400 }   // 중약 → 옅은 주황
+  if (r >=  0.1)     return { bg: '#172232', text: TK.blue300 }   // 낮음 → 청색
+  if (r >= -0.1)     return { bg: '#0f2818', text: TK.emerald300 }   // 무상관 → 옅은 에메랄드
+  return               { bg: '#064e3b', text: TK.emerald400 }        // 음의 상관 → 짙은 에메랄드
 }
 
 // ── 평균 상관계수 등급 ────────────────────────────────────────────────────────
 function avgGrade(avg: number): { label: string; color: string; icon: string } {
-  if (avg >= 0.7) return { label: '과도한 동조화 (리스크 高)', color: '#f87171', icon: '🚨' }
-  if (avg >= 0.4) return { label: '중간 분산',                  color: '#fbbf24', icon: '⚠️' }
-  return               { label: '우수한 분산',                  color: '#4ade80', icon: '✅' }
+  if (avg >= 0.7) return { label: '과도한 동조화 (리스크 高)', color: TK.red400, icon: '🚨' }
+  if (avg >= 0.4) return { label: '중간 분산',                  color: TK.amber400, icon: '⚠️' }
+  return               { label: '우수한 분산',                  color: TK.green400, icon: '✅' }
 }
 
 // ── 종목 쌍 추출 (매트릭스에서 직접 계산 — 추가 비용 0) ──────────────────────
@@ -92,7 +93,7 @@ function Skeleton({ n }: { n: number }) {
                 {Array.from({ length: size + 1 }).map((__, ci) => (
                   <td key={ci} style={{ width: 48, height: 38, padding: 3 }}>
                     <div style={{ height: '100%', borderRadius: 6, background: '#1e2235', position: 'relative', overflow: 'hidden' }}>
-                      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,transparent,#2a2d3a55,transparent)', animation: 'cmShimmer 1.4s infinite' }} />
+                      <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(90deg,transparent,${TK.line1}55,transparent)`, animation: 'cmShimmer 1.4s infinite' }} />
                     </div>
                   </td>
                 ))}
@@ -132,7 +133,7 @@ export default function CorrelationMatrix() {
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
       <span style={{ fontSize: 18 }}>📐</span>
       <span style={{ fontSize: 15, fontWeight: 900, color: C.text }}>포트폴리오 상관관계 매트릭스</span>
-      <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: '#1e293b', color: C.cyan, fontWeight: 700 }}>60일 · 피어슨 r</span>
+      <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: TK.border, color: C.cyan, fontWeight: 700 }}>60일 · 피어슨 r</span>
       {data && (
         <span style={{ fontSize: 10, color: C.textLow, marginLeft: 'auto' }}>
           {data.tickers.length}종목 · 평균 {data.dataPoints}거래일 · {data.asOf.slice(0, 10)}
@@ -219,7 +220,7 @@ export default function CorrelationMatrix() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{
                     fontSize: 11.5, fontWeight: 800, fontFamily: 'monospace',
-                    color: p.r >= 0.7 ? '#fca5a5' : '#fcd34d', minWidth: 34,
+                    color: p.r >= 0.7 ? TK.red300 : '#fcd34d', minWidth: 34,
                   }}>{p.r.toFixed(2)}</span>
                   <span style={{ fontSize: 11.5, color: C.textSub }}>
                     {nm(p.a)} <span style={{ color: C.textLow }}>×</span> {nm(p.b)}
@@ -256,7 +257,7 @@ export default function CorrelationMatrix() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{
                     fontSize: 11.5, fontWeight: 800, fontFamily: 'monospace',
-                    color: p.r < 0 ? '#34d399' : '#6ee7b7', minWidth: 34,
+                    color: p.r < 0 ? TK.emerald400 : TK.emerald300, minWidth: 34,
                   }}>{p.r.toFixed(2)}</span>
                   <span style={{ fontSize: 11.5, color: C.textSub }}>
                     {nm(p.a)} <span style={{ color: C.textLow }}>×</span> {nm(p.b)}
@@ -280,9 +281,9 @@ export default function CorrelationMatrix() {
       <div style={{ padding: '11px 13px', borderRadius: 11, background: C.card2, border: `1px solid ${C.border}` }}>
         <div style={{ fontSize: 11.5, fontWeight: 800, color: C.cyan, marginBottom: 7 }}>🎓 매트릭스 읽는 법</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11, color: C.textSub, lineHeight: 1.5 }}>
-          <div><b style={{ color: '#fca5a5' }}>+0.7 이상</b> — 한 몸처럼 움직임. 분산 효과 거의 없음.</div>
-          <div><b style={{ color: '#6ee7b7' }}>0.0 ~ +0.3</b> — 제 갈 길 가는 종목들. 분산에 좋음.</div>
-          <div><b style={{ color: '#34d399' }}>음수(−)</b> — 한쪽이 빠질 때 다른 쪽이 올라주는 방어막.</div>
+          <div><b style={{ color: TK.red300 }}>+0.7 이상</b> — 한 몸처럼 움직임. 분산 효과 거의 없음.</div>
+          <div><b style={{ color: TK.emerald300 }}>0.0 ~ +0.3</b> — 제 갈 길 가는 종목들. 분산에 좋음.</div>
+          <div><b style={{ color: TK.emerald400 }}>음수(−)</b> — 한쪽이 빠질 때 다른 쪽이 올라주는 방어막.</div>
         </div>
       </div>
     </div>
@@ -347,7 +348,7 @@ export default function CorrelationMatrix() {
                       {isHovered && !isDiag && (
                         <div style={{
                           position: 'absolute', bottom: '110%', left: '50%', transform: 'translateX(-50%)',
-                          background: '#0a0e1a', border: `1px solid ${C.border}`, borderRadius: 8,
+                          background: TK.bg0, border: `1px solid ${C.border}`, borderRadius: 8,
                           padding: '6px 10px', fontSize: 10.5, whiteSpace: 'nowrap', zIndex: 100,
                           color: C.text, boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
                           fontFamily: FONT, fontWeight: 400,
@@ -368,11 +369,11 @@ export default function CorrelationMatrix() {
       {/* ── 범례 ── */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginBottom: 16, fontSize: 10.5 }}>
         {[
-          { bg: '#7f1d1d', text: '#fca5a5', label: 'r ≥ 0.7 · 과도한 동조화' },
+          { bg: '#7f1d1d', text: TK.red300, label: 'r ≥ 0.7 · 과도한 동조화' },
           { bg: '#78350f', text: '#fcd34d', label: '0.5 ≤ r < 0.7' },
-          { bg: '#3d2b07', text: '#fbbf24', label: '0.3 ≤ r < 0.5' },
-          { bg: '#172232', text: '#93c5fd', label: '0.1 ≤ r < 0.3' },
-          { bg: '#064e3b', text: '#34d399', label: 'r < 0.1 · 우수한 분산' },
+          { bg: '#3d2b07', text: TK.amber400, label: '0.3 ≤ r < 0.5' },
+          { bg: '#172232', text: TK.blue300, label: '0.1 ≤ r < 0.3' },
+          { bg: '#064e3b', text: TK.emerald400, label: 'r < 0.1 · 우수한 분산' },
           { bg: '#2d3145', text: '#8a90b0', label: '대각선(자기 자신)' },
         ].map(l => (
           <span key={l.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
@@ -401,15 +402,15 @@ export default function CorrelationMatrix() {
           background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.35)',
           marginBottom: 12,
         }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: '#f87171', marginBottom: 6 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: TK.red400, marginBottom: 6 }}>
             ⚠️ 가짜 분산투자 경고
           </div>
-          <div style={{ fontSize: 12.5, color: '#fca5a5', lineHeight: 1.7 }}>
+          <div style={{ fontSize: 12.5, color: TK.red300, lineHeight: 1.7 }}>
             보유 종목 간 동조화가 너무 심해 시장 충격 시 동반 폭락 위험이 있습니다.
             상관계수가 높은 종목들은 사실상 한 종목을 나눠 가진 것과 같아 — 진정한 분산은 서로 다른 방향으로 움직이는 종목들의 조합입니다.
             다른 섹터(예: 기술주↔소비재·유틸리티)나 자산군 다각화를 검토해보세요.
           </div>
-          <div style={{ marginTop: 8, fontSize: 11.5, color: '#f87171', fontStyle: 'italic' }}>
+          <div style={{ marginTop: 8, fontSize: 11.5, color: TK.red400, fontStyle: 'italic' }}>
             &ldquo;분산투자의 역설 — 상관관계 높은 10개 종목은 1개 종목보다 덜 안전하다.&rdquo; — 피터 린치
           </div>
         </div>

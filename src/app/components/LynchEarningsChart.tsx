@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 // SSOT: 자산 분류는 assetClassifier에서만 — 컴포넌트 내 인라인 파싱 금지
 import { getAssetType } from '@/lib/assetClassifier'
+import { TK } from '@/lib/theme'
 
 // ────────────────────────────────────────────────────────────
 // 타입 정의
@@ -59,18 +60,18 @@ type PerModel = 'growth' | 'avg5y' | 'fixed15'
 // 컬러 시스템
 // ────────────────────────────────────────────────────────────
 const C = {
-  bg:      '#020617',
-  surface: '#0f172a',
-  card:    '#1e293b',
+  bg:      TK.slate950,
+  surface: TK.slate900,
+  card:    TK.border,
   cardHi:  '#263348',
-  border:  '#7a8fa3',
-  textHi:  '#f1f5f9',
-  textMid: '#94a3b8',
-  textLow: '#7f93a8',
-  price:   '#60a5fa',
-  fair:    '#f59e0b',
-  under:   '#10b981',
-  over:    '#f87171',
+  border:  TK.sub6,
+  textHi:  TK.slate100,
+  textMid: TK.slate400,
+  textLow: TK.sub2,
+  price:   TK.blue400,
+  fair:    TK.amber500,
+  under:   TK.emerald500,
+  over:    TK.red400,
 }
 
 const MODEL_LABELS: Record<PerModel, string> = {
@@ -136,7 +137,7 @@ function NoAnalysisCard({ name, ticker, reason }: { name: string; ticker: string
         alignItems:'center', justifyContent:'center',
         background:'rgba(251,191,36,0.12)', border:'2px solid rgba(251,191,36,0.3)',
       }}>
-        <AlertTriangle size={26} color="#fbbf24" />
+        <AlertTriangle size={26} color={TK.amber400} />
       </div>
 
       {/* 종목명 */}
@@ -145,7 +146,7 @@ function NoAnalysisCard({ name, ticker, reason }: { name: string; ticker: string
           {name}
           <span style={{
             marginLeft:8, fontSize:11, padding:'2px 8px', borderRadius:4,
-            background:'rgba(96,165,250,0.15)', color:'#60a5fa',
+            background:'rgba(96,165,250,0.15)', color:TK.blue400,
             fontFamily:'monospace', fontWeight:700,
           }}>
             {ticker}
@@ -153,7 +154,7 @@ function NoAnalysisCard({ name, ticker, reason }: { name: string; ticker: string
         </div>
         <div style={{
           display:'inline-block', fontSize:10, padding:'2px 10px', borderRadius:20,
-          background:'rgba(251,191,36,0.12)', color:'#fbbf24', marginTop:4,
+          background:'rgba(251,191,36,0.12)', color:TK.amber400, marginTop:4,
         }}>
           피터 린치 분석 제한 종목
         </div>
@@ -204,7 +205,7 @@ function ChartTooltip({ active, payload, label, currency }: any) {
 
   return (
     <div style={{
-      background:'#0f172a', border:`1px solid ${C.border}`, borderRadius:10,
+      background:TK.slate900, border:`1px solid ${C.border}`, borderRadius:10,
       padding:'12px 16px', fontSize:12, minWidth:220, zIndex:50,
       boxShadow:'0 8px 24px rgba(0,0,0,0.5)',
     }}>
@@ -213,7 +214,7 @@ function ChartTooltip({ active, payload, label, currency }: any) {
         {isDeficit && (
           <span style={{
             marginLeft:8, fontSize:10, padding:'2px 6px', borderRadius:4,
-            background:'rgba(248,113,113,0.15)', color:'#f87171', fontWeight:700,
+            background:'rgba(248,113,113,0.15)', color:TK.red400, fontWeight:700,
           }}>
             📉 적자 구간
           </span>
@@ -231,7 +232,7 @@ function ChartTooltip({ active, payload, label, currency }: any) {
         <div style={{ display:'flex', justifyContent:'space-between', gap:20 }}>
           <span style={{ color:C.textMid }}>연간 EPS</span>
           <span style={{
-            color: isDeficit ? '#f87171' : C.textHi,
+            color: isDeficit ? TK.red400 : C.textHi,
             fontFamily:'monospace',
           }}>
             {fmtEps(ttmEps, cur)}
@@ -241,7 +242,7 @@ function ChartTooltip({ active, payload, label, currency }: any) {
         <div style={{ display:'flex', justifyContent:'space-between', gap:20 }}>
           <span style={{ color:C.textMid }}>린치 적정가치</span>
           <span style={{
-            color: isDeficit ? '#f87171' : C.fair,
+            color: isDeficit ? TK.red400 : C.fair,
             fontWeight:700, fontFamily:'monospace',
           }}>
             {isDeficit ? '계산 불가 (적자)' : (fairValue != null ? fmtPrice(fairValue, cur) : '—')}
@@ -789,7 +790,7 @@ export default function LynchEarningsChart(props: any) {
             display:'flex', alignItems:'flex-start', gap:10,
           }}>
             <span style={{ fontSize:15, flexShrink:0 }}>📉</span>
-            <div style={{ fontSize:11, color:'#fca5a5', lineHeight:1.7 }}>
+            <div style={{ fontSize:11, color:TK.red300, lineHeight:1.7 }}>
               <strong>EPS 적자 구간 포함</strong>
               {' '}· {chartData.filter(d => d.isDeficit).map(d => d.year).join(', ')}년은 적자로
               인해 린치 적정가치를 계산할 수 없습니다. 해당 구간은 <strong>이익선이 바닥(0)으로
@@ -809,8 +810,8 @@ export default function LynchEarningsChart(props: any) {
             <div style={{ fontSize:11, color:'#fcd34d', lineHeight:1.7 }}>
               <strong>측정 성장률 {rawGrowthRate}% → 50% 캡 적용</strong>
               {' '}· 턴어라운드 또는 일시적 급등 종목으로 이익성장률 모델의 신뢰도가 낮습니다.
-              {' '}<span style={{ color:'#94a3b8' }}>
-                더 안정적인 분석을 위해 <strong style={{ color:'#fbbf24' }}>5년 평균 PER</strong> 또는 <strong style={{ color:'#fbbf24' }}>고정 PER 15배</strong> 모델을 권장합니다.
+              {' '}<span style={{ color:TK.slate400 }}>
+                더 안정적인 분석을 위해 <strong style={{ color:TK.amber400 }}>5년 평균 PER</strong> 또는 <strong style={{ color:TK.amber400 }}>고정 PER 15배</strong> 모델을 권장합니다.
               </span>
             </div>
           </div>
@@ -859,12 +860,12 @@ export default function LynchEarningsChart(props: any) {
                 <ComposedChart data={chartData} margin={{ top:10, right:20, bottom:4, left:10 }}>
                   <defs>
                     <linearGradient id="lc-underGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%"   stopColor="#10b981" stopOpacity={0.28} />
-                      <stop offset="100%" stopColor="#10b981" stopOpacity={0.04} />
+                      <stop offset="0%"   stopColor={TK.emerald500} stopOpacity={0.28} />
+                      <stop offset="100%" stopColor={TK.emerald500} stopOpacity={0.04} />
                     </linearGradient>
                     <linearGradient id="lc-overGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%"   stopColor="#f87171" stopOpacity={0.20} />
-                      <stop offset="100%" stopColor="#f87171" stopOpacity={0.03} />
+                      <stop offset="0%"   stopColor={TK.red400} stopOpacity={0.20} />
+                      <stop offset="100%" stopColor={TK.red400} stopOpacity={0.03} />
                     </linearGradient>
                     <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
                   </defs>

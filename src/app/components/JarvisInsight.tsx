@@ -13,6 +13,7 @@
 
 import { useState, useEffect } from 'react'
 import { getEarningsInsight, type JarvisInsight, type JarvisFacts } from '@/app/actions/getEarningsInsight'
+import { TK } from '@/lib/theme'
 
 interface Props {
   ticker: string
@@ -23,24 +24,24 @@ interface Props {
 
 // ── 색상 토큰 (LynchValuationEngine과 동일 팔레트 + AI 액센트) ────────────────
 const C = {
-  card:    '#1a1d27',
-  card2:   '#141720',
-  border:  '#2a2d3a',
-  gold:    '#f59e0b',
-  green:   '#4ade80',
-  red:     '#f87171',
-  blue:    '#60a5fa',
-  cyan:    '#22d3ee',   // Jarvis(AI) 액센트
-  text:    '#f1f5f9',
-  textSub: '#94a3b8',
-  textLow: '#8599ae',
+  card:    TK.bg7,
+  card2:   TK.bg5,
+  border:  TK.line1,
+  gold:    TK.amber500,
+  green:   TK.green400,
+  red:     TK.red400,
+  blue:    TK.blue400,
+  cyan:    TK.cyan400,   // Jarvis(AI) 액센트
+  text:    TK.slate100,
+  textSub: TK.slate400,
+  textLow: TK.sub3,
 }
 const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
 
 // 감성 점수(0~100) → 색/라벨 (높을수록 긍정)
 function sentiment(score: number): { color: string; label: string; emoji: string } {
   if (score < 35) return { color: C.red,    label: '부정적',     emoji: '🌧' }
-  if (score < 50) return { color: '#fb923c', label: '신중',       emoji: '⛅' }
+  if (score < 50) return { color: TK.orange400, label: '신중',       emoji: '⛅' }
   if (score < 65) return { color: C.gold,    label: '중립~긍정',  emoji: '🌤' }
   if (score < 80) return { color: C.green,   label: '긍정적',     emoji: '☀️' }
   return { color: C.cyan, label: '매우 긍정적', emoji: '🚀' }
@@ -199,7 +200,7 @@ export default function JarvisInsight({ ticker, name, market, facts }: Props) {
             <span style={{ fontSize: 13.5, fontWeight: 800, color: C.text }}>{sec.title}</span>
             <span style={{ fontSize: 10.5, color: C.textLow }}>· {sec.hint}</span>
           </div>
-          <div style={{ fontSize: 13, color: '#cbd5e1', lineHeight: 1.75 }}>
+          <div style={{ fontSize: 13, color: TK.slate300, lineHeight: 1.75 }}>
             {data[sec.key] || '관련 정보를 충분히 확보하지 못했어요.'}
           </div>
         </div>

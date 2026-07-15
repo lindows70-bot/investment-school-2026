@@ -2,46 +2,47 @@
 // 포트폴리오 뉴스 촉매 레이더 — 보유 종목별 뉴스 이벤트를 3단계로 분류해 표시
 import { useState, useEffect, useCallback } from 'react'
 import type { NewsCatalystResult, TickerCatalyst, CatalystStatus, RiskLevel, ValuationTier, NewsCategory, NewsTone } from '@/app/api/news-catalyst/route'
+import { TK } from '@/lib/theme'
 
 // ── 스타일 상수 ───────────────────────────────────────────────────────────────
-const BG    = '#0f1117'
-const CARD  = '#161b25'
-const BORDER = '#1e293b'
+const BG    = TK.bg3
+const CARD  = TK.bg6
+const BORDER = TK.border
 
 const STATUS_CONFIG: Record<CatalystStatus, { color: string; bg: string; icon: string; label: string; pulse?: boolean }> = {
-  RE_EVALUATE: { color: '#ef4444', bg: 'rgba(239,68,68,0.1)',  icon: '🔴', label: '재검토 필요', pulse: true },
-  OBSERVE:     { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', icon: '🟡', label: '관찰 중' },
-  HOLD_STRONG: { color: '#22c55e', bg: 'rgba(34,197,94,0.1)',  icon: '🟢', label: '견고 보유' },
+  RE_EVALUATE: { color: TK.red500, bg: 'rgba(239,68,68,0.1)',  icon: '🔴', label: '재검토 필요', pulse: true },
+  OBSERVE:     { color: TK.amber500, bg: 'rgba(245,158,11,0.1)', icon: '🟡', label: '관찰 중' },
+  HOLD_STRONG: { color: TK.green500, bg: 'rgba(34,197,94,0.1)',  icon: '🟢', label: '견고 보유' },
 }
 
 const RISK_CONFIG: Record<RiskLevel, { color: string; label: string }> = {
-  HIGH:   { color: '#ef4444', label: '고위험' },
-  MEDIUM: { color: '#f59e0b', label: '중위험' },
-  LOW:    { color: '#22c55e', label: '저위험' },
+  HIGH:   { color: TK.red500, label: '고위험' },
+  MEDIUM: { color: TK.amber500, label: '중위험' },
+  LOW:    { color: TK.green500, label: '저위험' },
 }
 
 // 뉴스 유형(색깔) 칩 — 계약/실적/협약 등을 한눈에
 const NEWS_CAT_CONFIG: Record<NewsCategory, { color: string; icon: string; label: string }> = {
-  계약수주:   { color: '#22c55e', icon: '📝', label: '계약·수주' },
-  실적:       { color: '#3b82f6', icon: '📊', label: '실적' },
+  계약수주:   { color: TK.green500, icon: '📝', label: '계약·수주' },
+  실적:       { color: TK.blue500, icon: '📊', label: '실적' },
   협약제휴:   { color: '#06b6d4', icon: '🤝', label: '협약·제휴' },
-  신제품기술: { color: '#a855f7', icon: '🔬', label: '신제품·기술' },
-  규제소송:   { color: '#ef4444', icon: '⚖️', label: '규제·소송' },
-  인사지배구조:{ color: '#f59e0b', icon: '👔', label: '인사·지배구조' },
-  시장수급:   { color: '#8599ae', icon: '📈', label: '시장·수급' },
+  신제품기술: { color: TK.purple500, icon: '🔬', label: '신제품·기술' },
+  규제소송:   { color: TK.red500, icon: '⚖️', label: '규제·소송' },
+  인사지배구조:{ color: TK.amber500, icon: '👔', label: '인사·지배구조' },
+  시장수급:   { color: TK.sub3, icon: '📈', label: '시장·수급' },
 }
 const TONE_MARK: Record<NewsTone, { mark: string; color: string }> = {
-  POSITIVE: { mark: '▲ 호재', color: '#22c55e' },
-  NEGATIVE: { mark: '▼ 악재', color: '#ef4444' },
-  NEUTRAL:  { mark: '· 중립', color: '#8599ae' },
+  POSITIVE: { mark: '▲ 호재', color: TK.green500 },
+  NEGATIVE: { mark: '▼ 악재', color: TK.red500 },
+  NEUTRAL:  { mark: '· 중립', color: TK.sub3 },
 }
 
 // 가격 축(밸류에이션) 배지 — PEG/수익성에서 결정론적 산출(Jarvis 매도 기준과 일치)
 const VALUATION_CONFIG: Record<ValuationTier, { color: string; bg: string; label: string } | null> = {
-  LOSS:      { color: '#ef4444', bg: 'rgba(239,68,68,0.12)',  label: '영업적자' },
-  EXPENSIVE: { color: '#f87171', bg: 'rgba(248,113,113,0.1)', label: '밸류 부담' },
-  CHEAP:     { color: '#34d399', bg: 'rgba(52,211,153,0.1)',  label: '가격 매력' },
-  FAIR:      { color: '#94a3b8', bg: 'rgba(148,163,184,0.08)', label: '적정가' },
+  LOSS:      { color: TK.red500, bg: 'rgba(239,68,68,0.12)',  label: '영업적자' },
+  EXPENSIVE: { color: TK.red400, bg: 'rgba(248,113,113,0.1)', label: '밸류 부담' },
+  CHEAP:     { color: TK.emerald400, bg: 'rgba(52,211,153,0.1)',  label: '가격 매력' },
+  FAIR:      { color: TK.slate400, bg: 'rgba(148,163,184,0.08)', label: '적정가' },
   UNKNOWN:   null,
 }
 
@@ -53,15 +54,15 @@ function fusionVerdict(c: TickerCatalyst): { color: string; bg: string; text: st
   const pegStr = c.peg != null ? `PEG ${c.peg.toFixed(2)}` : ''
   // 적자기업 — 뉴스가 좋아도 가장 강한 브레이크 (현금 소진 본질)
   if (loss && c.catalystStatus === 'RE_EVALUATE')
-    return { color: '#ef4444', bg: 'rgba(239,68,68,0.14)', text: `🚨 영업적자 + 사업 악재 — 손절 기준을 명확히, 비중 축소 우선` }
+    return { color: TK.red500, bg: 'rgba(239,68,68,0.14)', text: `🚨 영업적자 + 사업 악재 — 손절 기준을 명확히, 비중 축소 우선` }
   if (loss)
-    return { color: '#ef4444', bg: 'rgba(239,68,68,0.12)', text: `⚠️ 영업적자 기업 — 뉴스 호재여도 '진주' 아님. 흑자 전환·현금 런웨이 먼저 확인, 추격매수 금물` }
+    return { color: TK.red500, bg: 'rgba(239,68,68,0.12)', text: `⚠️ 영업적자 기업 — 뉴스 호재여도 '진주' 아님. 흑자 전환·현금 런웨이 먼저 확인, 추격매수 금물` }
   if (c.catalystStatus === 'RE_EVALUATE' && exp)
-    return { color: '#ef4444', bg: 'rgba(239,68,68,0.12)', text: `🚨 고평가(${pegStr}) + 사업 악재 — 비중 축소·매도 우선 검토` }
+    return { color: TK.red500, bg: 'rgba(239,68,68,0.12)', text: `🚨 고평가(${pegStr}) + 사업 악재 — 비중 축소·매도 우선 검토` }
   if (c.catalystStatus !== 'RE_EVALUATE' && exp)
-    return { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', text: `⚖️ 좋은 사업 · 비싼 가격(${pegStr}) — 보유는 OK, 신규 추격매수 자제·분할 익절 검토` }
+    return { color: TK.amber500, bg: 'rgba(245,158,11,0.12)', text: `⚖️ 좋은 사업 · 비싼 가격(${pegStr}) — 보유는 OK, 신규 추격매수 자제·분할 익절 검토` }
   if (c.catalystStatus === 'HOLD_STRONG' && cheap)
-    return { color: '#22c55e', bg: 'rgba(34,197,94,0.12)', text: `🟢 견고한 사업 · 합리적 가격(${pegStr}) — 린치가 좋아할 자리` }
+    return { color: TK.green500, bg: 'rgba(34,197,94,0.12)', text: `🟢 견고한 사업 · 합리적 가격(${pegStr}) — 린치가 좋아할 자리` }
   return null
 }
 
@@ -90,25 +91,25 @@ export default function NewsCatalystRadar() {
   if (loading) return (
     <div style={{ background: BG, borderRadius: 12, padding: '40px 24px', textAlign: 'center' }}>
       <div style={{ fontSize: 32, marginBottom: 12 }}>📡</div>
-      <div style={{ color: '#7f93a8', fontSize: 14, lineHeight: 1.6 }}>
+      <div style={{ color: TK.sub2, fontSize: 14, lineHeight: 1.6 }}>
         보유 종목 뉴스를 분석 중입니다...<br />
-        <span style={{ color: '#6b7280', fontSize: 12 }}>종목 수에 따라 15~30초 소요될 수 있습니다</span>
+        <span style={{ color: TK.gray500, fontSize: 12 }}>종목 수에 따라 15~30초 소요될 수 있습니다</span>
       </div>
     </div>
   )
 
   // ── 에러 ──
   if (error) return (
-    <div style={{ background: BG, borderRadius: 12, padding: 24, color: '#ef4444', textAlign: 'center' }}>
+    <div style={{ background: BG, borderRadius: 12, padding: 24, color: TK.red500, textAlign: 'center' }}>
       {error}
-      <button onClick={load} style={{ display: 'block', margin: '12px auto 0', padding: '6px 16px', background: '#1e293b', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
+      <button onClick={load} style={{ display: 'block', margin: '12px auto 0', padding: '6px 16px', background: TK.border, color: TK.slate200, border: '1px solid #334155', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
         재시도
       </button>
     </div>
   )
 
   if (!data || data.catalysts.length === 0) return (
-    <div style={{ background: BG, borderRadius: 12, padding: '40px 24px', textAlign: 'center', color: '#7f93a8' }}>
+    <div style={{ background: BG, borderRadius: 12, padding: '40px 24px', textAlign: 'center', color: TK.sub2 }}>
       <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
       보유 개별주식이 없습니다. 종목을 추가하면 뉴스 분석이 시작됩니다.
     </div>
@@ -130,10 +131,10 @@ export default function NewsCatalystRadar() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 20 }}>📰</span>
-              <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 16 }}>포트폴리오 뉴스 촉매 레이더</span>
+              <span style={{ color: TK.slate200, fontWeight: 700, fontSize: 16 }}>포트폴리오 뉴스 촉매 레이더</span>
               {data.reEvaluateCount > 0 && (
                 <span style={{
-                  background: 'rgba(239,68,68,0.15)', color: '#ef4444',
+                  background: 'rgba(239,68,68,0.15)', color: TK.red500,
                   border: '1px solid rgba(239,68,68,0.3)', borderRadius: 12,
                   padding: '2px 10px', fontSize: 12, fontWeight: 600,
                   animation: 'pulse 2s infinite',
@@ -142,14 +143,14 @@ export default function NewsCatalystRadar() {
                 </span>
               )}
             </div>
-            <div style={{ color: '#7f93a8', fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>
+            <div style={{ color: TK.sub2, fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>
               피터 린치 시각: 뉴스 소음은 걸러내고 투자 thesis에 영향 주는 신호만<br />
-              <span style={{ color: '#6b7280' }}>※ <b style={{ color: '#8599ae' }}>사업 축</b>(뉴스 견고/관찰/재검토)과 <b style={{ color: '#8599ae' }}>가격 축</b>(💲PEG 밸류에이션)은 별개 — 좋은 기업도 비싸면 추격은 신중히</span>
+              <span style={{ color: TK.gray500 }}>※ <b style={{ color: TK.sub3 }}>사업 축</b>(뉴스 견고/관찰/재검토)과 <b style={{ color: TK.sub3 }}>가격 축</b>(💲PEG 밸류에이션)은 별개 — 좋은 기업도 비싸면 추격은 신중히</span>
             </div>
           </div>
           <button
             onClick={load}
-            style={{ padding: '6px 14px', background: '#1e293b', color: '#94a3b8', border: `1px solid ${BORDER}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}
+            style={{ padding: '6px 14px', background: TK.border, color: TK.slate400, border: `1px solid ${BORDER}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}
           >
             🔄 새로고침
           </button>
@@ -160,7 +161,7 @@ export default function NewsCatalystRadar() {
           {(['ALL', 'RE_EVALUATE', 'OBSERVE', 'HOLD_STRONG'] as const).map(s => {
             const cnt = s === 'ALL' ? data.catalysts.length : counts[s]
             const cfg = s === 'ALL'
-              ? { color: '#94a3b8', bg: '#1e293b', icon: '📊', label: '전체' }
+              ? { color: TK.slate400, bg: TK.border, icon: '📊', label: '전체' }
               : STATUS_CONFIG[s]
             const isActive = filter === s
             return (
@@ -171,7 +172,7 @@ export default function NewsCatalystRadar() {
                   padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 13,
                   border: `1px solid ${isActive ? cfg.color : BORDER}`,
                   background: isActive ? cfg.bg : 'transparent',
-                  color: isActive ? cfg.color : '#7f93a8',
+                  color: isActive ? cfg.color : TK.sub2,
                   fontWeight: isActive ? 600 : 400,
                   transition: 'all 0.15s',
                 }}
@@ -185,7 +186,7 @@ export default function NewsCatalystRadar() {
 
       {/* ── 카드 목록 ── */}
       {filtered.length === 0 ? (
-        <div style={{ background: CARD, borderRadius: 12, padding: '32px 24px', textAlign: 'center', color: '#7f93a8', border: `1px solid ${BORDER}` }}>
+        <div style={{ background: CARD, borderRadius: 12, padding: '32px 24px', textAlign: 'center', color: TK.sub2, border: `1px solid ${BORDER}` }}>
           해당 상태의 종목이 없습니다.
         </div>
       ) : (
@@ -225,11 +226,11 @@ export default function NewsCatalystRadar() {
                   {/* 메인 정보 */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      <span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 14 }}>
+                      <span style={{ color: TK.slate200, fontWeight: 600, fontSize: 14 }}>
                         {c.ticker}
                       </span>
                       {c.name && c.name !== c.ticker && (
-                        <span style={{ color: '#7f93a8', fontSize: 12 }}>{c.name}</span>
+                        <span style={{ color: TK.sub2, fontSize: 12 }}>{c.name}</span>
                       )}
                       <span style={{
                         background: cfg.bg, color: cfg.color,
@@ -272,7 +273,7 @@ export default function NewsCatalystRadar() {
                         {fusion.text}
                       </div>
                     )}
-                    <div style={{ color: '#94a3b8', fontSize: 13, marginTop: 6, lineHeight: 1.5 }}>
+                    <div style={{ color: TK.slate400, fontSize: 13, marginTop: 6, lineHeight: 1.5 }}>
                       {c.keyFact}
                     </div>
 
@@ -280,7 +281,7 @@ export default function NewsCatalystRadar() {
                     {c.newsItems && c.newsItems.length > 0 && (
                       <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
                         {c.newsItems.map((ni, idx) => {
-                          const cat = NEWS_CAT_CONFIG[ni.category] ?? { color: '#8599ae', icon: '•', label: ni.category }
+                          const cat = NEWS_CAT_CONFIG[ni.category] ?? { color: TK.sub3, icon: '•', label: ni.category }
                           const tone = TONE_MARK[ni.tone] ?? TONE_MARK.NEUTRAL
                           return (
                             <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 7 }}>
@@ -292,7 +293,7 @@ export default function NewsCatalystRadar() {
                               }}>
                                 {cat.icon} {cat.label}
                               </span>
-                              <span style={{ fontSize: 12, color: '#aab6c4', lineHeight: 1.45 }}>
+                              <span style={{ fontSize: 12, color: TK.sub5, lineHeight: 1.45 }}>
                                 {ni.summary}
                                 <span style={{ color: tone.color, fontSize: 10.5, marginLeft: 5, fontWeight: 600 }}>{tone.mark}</span>
                               </span>
@@ -304,7 +305,7 @@ export default function NewsCatalystRadar() {
 
                     {c.relevantMetric && c.relevantMetric !== '—' && (
                       <div style={{ marginTop: 6 }}>
-                        <span style={{ color: '#f59e0b', fontSize: 11, background: 'rgba(245,158,11,0.08)', borderRadius: 4, padding: '1px 6px' }}>
+                        <span style={{ color: TK.amber500, fontSize: 11, background: 'rgba(245,158,11,0.08)', borderRadius: 4, padding: '1px 6px' }}>
                           📊 {c.relevantMetric}
                         </span>
                       </div>
@@ -328,7 +329,7 @@ export default function NewsCatalystRadar() {
                       <div style={{ color: cfg.color, fontSize: 11, fontWeight: 600, marginBottom: 4 }}>
                         🎯 피터 린치 행동 가이드
                       </div>
-                      <div style={{ color: '#cbd5e1', fontSize: 13, lineHeight: 1.6 }}>
+                      <div style={{ color: TK.slate300, fontSize: 13, lineHeight: 1.6 }}>
                         {c.actionGuide}
                       </div>
                     </div>
@@ -336,14 +337,14 @@ export default function NewsCatalystRadar() {
                     {/* 뉴스 헤드라인 */}
                     {c.headlines.length > 0 && (
                       <div style={{ marginTop: 12 }}>
-                        <div style={{ color: '#7f93a8', fontSize: 11, fontWeight: 600, marginBottom: 6 }}>
+                        <div style={{ color: TK.sub2, fontSize: 11, fontWeight: 600, marginBottom: 6 }}>
                           📰 분석 근거 뉴스
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                           {c.headlines.map((h, i) => (
                             <div key={i} style={{
-                              color: '#8a9aaa', fontSize: 12, lineHeight: 1.4,
-                              paddingLeft: 12, borderLeft: '2px solid #1e293b',
+                              color: TK.sub, fontSize: 12, lineHeight: 1.4,
+                              paddingLeft: 12, borderLeft: `2px solid ${TK.border}`,
                             }}>
                               {h}
                             </div>

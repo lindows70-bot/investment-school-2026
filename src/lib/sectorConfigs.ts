@@ -1,6 +1,7 @@
 // 🧬 테마·섹터 분석 설정 레지스트리 — 섹터별 유니버스+서브섹터+앵커. 엔진(computeSector)이 공통 처리.
 import type { SectorConfig, SectorStock, SubMeta } from '@/lib/sectorEngine'
 import { QUANTUM, QSUB_META, QUANTUM_POLICY, QUANTUM_PREIPO, QUANTUM_ANCHOR } from '@/lib/quantumUniverse'
+import { TK } from '@/lib/theme'
 
 // 양자: 기존 quantumUniverse 데이터를 SectorStock으로 어댑터(modality→tags)
 const QUANTUM_STOCKS: SectorStock[] = QUANTUM.map(s => ({
@@ -18,12 +19,12 @@ const QUANTUM_CONFIG: SectorConfig = {
 
 // ── AI 반도체 ─────────────────────────────────────────────────────────────────
 const AISEMI_SUB: Record<string, SubMeta> = {
-  design:  { label: 'AI 가속기·설계', emoji: '🧠', color: '#a78bfa', desc: 'GPU·ASIC·IP·EDA (대장 테마)' },
-  memory:  { label: 'HBM·메모리',     emoji: '💾', color: '#22d3ee', desc: '고대역폭메모리 — AI의 병목' },
-  foundry: { label: '파운드리',       emoji: '🏭', color: '#f59e0b', desc: '첨단 미세공정 위탁생산' },
-  equip:   { label: '장비',           emoji: '🔧', color: '#34d399', desc: 'EUV·증착·본딩·검사 장비' },
-  infra:   { label: '네트워킹·인프라', emoji: '🌐', color: '#ec4899', desc: '데이터센터 연결·전력·쿨링' },
-  material: { label: '신소재·기판·패키징', emoji: '🔬', color: '#60a5fa', desc: 'FC-BGA 기판·첨단 패키징·소재' },
+  design:  { label: 'AI 가속기·설계', emoji: '🧠', color: TK.violet400, desc: 'GPU·ASIC·IP·EDA (대장 테마)' },
+  memory:  { label: 'HBM·메모리',     emoji: '💾', color: TK.cyan400, desc: '고대역폭메모리 — AI의 병목' },
+  foundry: { label: '파운드리',       emoji: '🏭', color: TK.amber500, desc: '첨단 미세공정 위탁생산' },
+  equip:   { label: '장비',           emoji: '🔧', color: TK.emerald400, desc: 'EUV·증착·본딩·검사 장비' },
+  infra:   { label: '네트워킹·인프라', emoji: '🌐', color: TK.pink500, desc: '데이터센터 연결·전력·쿨링' },
+  material: { label: '신소재·기판·패키징', emoji: '🔬', color: TK.blue400, desc: 'FC-BGA 기판·첨단 패키징·소재' },
 }
 const AISEMI_STOCKS: SectorStock[] = [
   // 🧠 설계
@@ -98,10 +99,10 @@ const AISEMI_CONFIG: SectorConfig = {
 
 // ── AI 전력망 & 원전(SMR) ─────────────────────────────────────────────────────
 const POWER_SUB: Record<string, SubMeta> = {
-  grid:    { label: '전력기기·그리드',   emoji: '⚡', color: '#f59e0b', desc: '변압기·차단기·송배전 (대장 테마)' },
-  nuclear: { label: '원전·SMR',          emoji: '☢️', color: '#34d399', desc: '소형모듈원전·우라늄·원전 운영' },
-  cable:   { label: '전선·케이블',       emoji: '🔌', color: '#22d3ee', desc: '초고압 전선·해저케이블' },
-  dcpower: { label: '데이터센터 전력·발전', emoji: '🔋', color: '#ec4899', desc: '온사이트 발전·전력·쿨링' },
+  grid:    { label: '전력기기·그리드',   emoji: '⚡', color: TK.amber500, desc: '변압기·차단기·송배전 (대장 테마)' },
+  nuclear: { label: '원전·SMR',          emoji: '☢️', color: TK.emerald400, desc: '소형모듈원전·우라늄·원전 운영' },
+  cable:   { label: '전선·케이블',       emoji: '🔌', color: TK.cyan400, desc: '초고압 전선·해저케이블' },
+  dcpower: { label: '데이터센터 전력·발전', emoji: '🔋', color: TK.pink500, desc: '온사이트 발전·전력·쿨링' },
 }
 const POWER_STOCKS: SectorStock[] = [
   // ⚡ 전력기기·그리드
@@ -149,11 +150,11 @@ const POWER_CONFIG: SectorConfig = {
 
 // ── 피지컬 AI (Physical AI) ───────────────────────────────────────────────────
 const PHYS_SUB: Record<string, SubMeta> = {
-  humanoid: { label: '휴머노이드·로봇', emoji: '🤖', color: '#a78bfa', desc: '휴머노이드·협동/산업로봇 (대장 테마)' },
-  auto:     { label: '자율주행',       emoji: '🚗', color: '#22d3ee', desc: 'FSD·ADAS·로보택시' },
-  vision:   { label: '비전·센서·엣지', emoji: '👁️', color: '#f59e0b', desc: '머신비전·라이다·엣지 AI 칩' },
-  motion:   { label: '구동·정밀부품',  emoji: '⚙️', color: '#34d399', desc: '감속기·액추에이터·정밀구동' },
-  medbot:   { label: '의료·서비스 로봇', emoji: '🩺', color: '#ec4899', desc: '수술·배송 로봇' },
+  humanoid: { label: '휴머노이드·로봇', emoji: '🤖', color: TK.violet400, desc: '휴머노이드·협동/산업로봇 (대장 테마)' },
+  auto:     { label: '자율주행',       emoji: '🚗', color: TK.cyan400, desc: 'FSD·ADAS·로보택시' },
+  vision:   { label: '비전·센서·엣지', emoji: '👁️', color: TK.amber500, desc: '머신비전·라이다·엣지 AI 칩' },
+  motion:   { label: '구동·정밀부품',  emoji: '⚙️', color: TK.emerald400, desc: '감속기·액추에이터·정밀구동' },
+  medbot:   { label: '의료·서비스 로봇', emoji: '🩺', color: TK.pink500, desc: '수술·배송 로봇' },
 }
 const PHYS_STOCKS: SectorStock[] = [
   { ticker: 'TSLA', name: 'Tesla',          market: 'US', sub: 'humanoid', tags: ['휴머노이드(옵티머스)', 'FSD'], purePlay: false, note: '옵티머스 휴머노이드(단 EV 비중 큼)' },
@@ -186,10 +187,10 @@ const PHYS_CONFIG: SectorConfig = {
 
 // ── AI 바이오 (AI Bio) ────────────────────────────────────────────────────────
 const BIO_SUB: Record<string, SubMeta> = {
-  discovery: { label: 'AI 신약개발',   emoji: '🧬', color: '#a78bfa', desc: 'AI로 후보물질 발굴·설계 (대장 테마)' },
-  dx:        { label: 'AI 진단·데이터', emoji: '🩺', color: '#22d3ee', desc: 'AI 영상진단·정밀의료 데이터' },
-  genomics:  { label: '유전체·툴',     emoji: '🧪', color: '#f59e0b', desc: '시퀀싱·연구 장비' },
-  pharma:    { label: '빅파마·K바이오', emoji: '💊', color: '#ec4899', desc: 'GLP-1·전통 신약(AI 도입)' },
+  discovery: { label: 'AI 신약개발',   emoji: '🧬', color: TK.violet400, desc: 'AI로 후보물질 발굴·설계 (대장 테마)' },
+  dx:        { label: 'AI 진단·데이터', emoji: '🩺', color: TK.cyan400, desc: 'AI 영상진단·정밀의료 데이터' },
+  genomics:  { label: '유전체·툴',     emoji: '🧪', color: TK.amber500, desc: '시퀀싱·연구 장비' },
+  pharma:    { label: '빅파마·K바이오', emoji: '💊', color: TK.pink500, desc: 'GLP-1·전통 신약(AI 도입)' },
 }
 const BIO_STOCKS: SectorStock[] = [
   { ticker: 'TEM',  name: 'Tempus AI',      market: 'US', sub: 'dx',        tags: ['AI 정밀의료 데이터'], purePlay: true,  note: 'AI 진단·임상 데이터 플랫폼(테마 대장주)' },
@@ -219,11 +220,11 @@ const BIO_CONFIG: SectorConfig = {
 
 // ── 우주항공 & 방산 (Aerospace & Defense) ─────────────────────────────────────
 const DEF_SUB: Record<string, SubMeta> = {
-  prime:   { label: '방산 프라임',     emoji: '🛡️', color: '#a78bfa', desc: '전투기·미사일·함정 (대장 테마)' },
-  space:   { label: '우주·발사·위성',  emoji: '🚀', color: '#22d3ee', desc: '발사체·위성·달탐사(적자 꿈주 多)' },
-  deftech: { label: '방산 AI·드론',    emoji: '🤖', color: '#f59e0b', desc: '국방 AI·무인기·드론' },
-  aero:    { label: '항공·엔진·부품',  emoji: '✈️', color: '#34d399', desc: '항공 엔진·정밀부품·MRO' },
-  kdef:    { label: 'K-방산',          emoji: '🇰🇷', color: '#ec4899', desc: '한국 방산 수출 호황' },
+  prime:   { label: '방산 프라임',     emoji: '🛡️', color: TK.violet400, desc: '전투기·미사일·함정 (대장 테마)' },
+  space:   { label: '우주·발사·위성',  emoji: '🚀', color: TK.cyan400, desc: '발사체·위성·달탐사(적자 꿈주 多)' },
+  deftech: { label: '방산 AI·드론',    emoji: '🤖', color: TK.amber500, desc: '국방 AI·무인기·드론' },
+  aero:    { label: '항공·엔진·부품',  emoji: '✈️', color: TK.emerald400, desc: '항공 엔진·정밀부품·MRO' },
+  kdef:    { label: 'K-방산',          emoji: '🇰🇷', color: TK.pink500, desc: '한국 방산 수출 호황' },
 }
 const DEF_STOCKS: SectorStock[] = [
   // 🛡️ 방산 프라임
@@ -268,10 +269,10 @@ const DEF_CONFIG: SectorConfig = {
 
 // ── 💰 금융 (Financials) — GICS 11섹터 中 첫 전통 산업 섹터 ──────────────────
 const FIN_SUB: Record<string, SubMeta> = {
-  bank:      { label: '은행·금융지주', emoji: '🏦', color: '#60a5fa', desc: '예대마진(NIM)·금리 수혜 (섹터 핵심)' },
-  insurance: { label: '보험',          emoji: '🛡️', color: '#34d399', desc: '생명·손해보험 — 운용수익·금리 민감' },
-  broker:    { label: '증권·자산운용',  emoji: '📈', color: '#f59e0b', desc: '브로커리지·IB·자산운용 수수료' },
-  payment:   { label: '카드·결제',      emoji: '💳', color: '#ec4899', desc: '카드·결제 네트워크·캐피탈' },
+  bank:      { label: '은행·금융지주', emoji: '🏦', color: TK.blue400, desc: '예대마진(NIM)·금리 수혜 (섹터 핵심)' },
+  insurance: { label: '보험',          emoji: '🛡️', color: TK.emerald400, desc: '생명·손해보험 — 운용수익·금리 민감' },
+  broker:    { label: '증권·자산운용',  emoji: '📈', color: TK.amber500, desc: '브로커리지·IB·자산운용 수수료' },
+  payment:   { label: '카드·결제',      emoji: '💳', color: TK.pink500, desc: '카드·결제 네트워크·캐피탈' },
 }
 const FIN_STOCKS: SectorStock[] = [
   // 🏦 은행·금융지주
@@ -325,10 +326,10 @@ const FIN_CONFIG: SectorConfig = {
 
 // ── ⚡ 에너지 (Energy) ─────────────────────────────────────────────────────────
 const ENERGY_SUB: Record<string, SubMeta> = {
-  integrated: { label: '통합 에너지', emoji: '🛢️', color: '#60a5fa', desc: '탐사~정유 수직계열 (대형)' },
-  ep:         { label: 'E&P 탐사·생산', emoji: '⛏️', color: '#f59e0b', desc: '상류 원유·가스 생산' },
-  service:    { label: '서비스·장비', emoji: '🔧', color: '#34d399', desc: '시추·유전 서비스' },
-  refine:     { label: '정유·미드스트림', emoji: '🏭', color: '#ec4899', desc: '정제·파이프라인·저장' },
+  integrated: { label: '통합 에너지', emoji: '🛢️', color: TK.blue400, desc: '탐사~정유 수직계열 (대형)' },
+  ep:         { label: 'E&P 탐사·생산', emoji: '⛏️', color: TK.amber500, desc: '상류 원유·가스 생산' },
+  service:    { label: '서비스·장비', emoji: '🔧', color: TK.emerald400, desc: '시추·유전 서비스' },
+  refine:     { label: '정유·미드스트림', emoji: '🏭', color: TK.pink500, desc: '정제·파이프라인·저장' },
 }
 const ENERGY_STOCKS: SectorStock[] = [
   { ticker: 'XOM', name: 'ExxonMobil',  market: 'US', sub: 'integrated', tags: ['통합'],   purePlay: true,  note: '미 최대 통합 에너지(대장주)' },
@@ -368,10 +369,10 @@ const ENERGY_CONFIG: SectorConfig = {
 
 // ── 🧱 소재 (Materials) ────────────────────────────────────────────────────────
 const MAT_SUB: Record<string, SubMeta> = {
-  chemical: { label: '화학·산업가스', emoji: '⚗️', color: '#60a5fa', desc: '기초·정밀화학·산업가스 (대형)' },
-  metal:    { label: '철강·비철금속', emoji: '🔩', color: '#f59e0b', desc: '철강·구리·알루미늄' },
-  mining:   { label: '광물·귀금속',   emoji: '⛰️', color: '#34d399', desc: '금·동·리튬 채굴' },
-  build:    { label: '건축자재·도료', emoji: '🧱', color: '#ec4899', desc: '시멘트·도료·포장재' },
+  chemical: { label: '화학·산업가스', emoji: '⚗️', color: TK.blue400, desc: '기초·정밀화학·산업가스 (대형)' },
+  metal:    { label: '철강·비철금속', emoji: '🔩', color: TK.amber500, desc: '철강·구리·알루미늄' },
+  mining:   { label: '광물·귀금속',   emoji: '⛰️', color: TK.emerald400, desc: '금·동·리튬 채굴' },
+  build:    { label: '건축자재·도료', emoji: '🧱', color: TK.pink500, desc: '시멘트·도료·포장재' },
 }
 const MAT_STOCKS: SectorStock[] = [
   { ticker: 'LIN', name: 'Linde',       market: 'US', sub: 'chemical', tags: ['산업가스'], purePlay: true,  note: '세계 1위 산업용 가스(대장주)' },
@@ -419,10 +420,10 @@ const MAT_CONFIG: SectorConfig = {
 
 // ── 🏗️ 산업재 (Industrials) ────────────────────────────────────────────────────
 const IND_SUB: Record<string, SubMeta> = {
-  machinery: { label: '기계·중장비',   emoji: '⚙️', color: '#60a5fa', desc: '건설·농기계·산업기계 (대형)' },
-  aero:      { label: '항공·방산',     emoji: '✈️', color: '#f59e0b', desc: '항공기·엔진·방산' },
-  transport: { label: '운송·물류',     emoji: '🚚', color: '#34d399', desc: '철도·항공화물·택배' },
-  electrical: { label: '전기장비·복합', emoji: '🔌', color: '#ec4899', desc: '전력관리·자동화·복합기업' },
+  machinery: { label: '기계·중장비',   emoji: '⚙️', color: TK.blue400, desc: '건설·농기계·산업기계 (대형)' },
+  aero:      { label: '항공·방산',     emoji: '✈️', color: TK.amber500, desc: '항공기·엔진·방산' },
+  transport: { label: '운송·물류',     emoji: '🚚', color: TK.emerald400, desc: '철도·항공화물·택배' },
+  electrical: { label: '전기장비·복합', emoji: '🔌', color: TK.pink500, desc: '전력관리·자동화·복합기업' },
 }
 const IND_STOCKS: SectorStock[] = [
   { ticker: 'CAT', name: 'Caterpillar', market: 'US', sub: 'machinery', tags: ['중장비'], purePlay: true,  note: '세계 1위 건설중장비(대장주)' },
@@ -470,10 +471,10 @@ const IND_CONFIG: SectorConfig = {
 
 // ── 🛒 자유소비재 (Consumer Discretionary) ────────────────────────────────────
 const DISC_SUB: Record<string, SubMeta> = {
-  retail:  { label: '소매·이커머스', emoji: '🛍️', color: '#60a5fa', desc: '이커머스·대형 소매 (대형)' },
-  auto:    { label: '자동차',        emoji: '🚗', color: '#f59e0b', desc: '완성차·부품' },
-  apparel: { label: '의류·명품',     emoji: '👟', color: '#34d399', desc: '스포츠·패션·럭셔리' },
-  leisure: { label: '여행·외식',     emoji: '🍔', color: '#ec4899', desc: '호텔·여행·레스토랑' },
+  retail:  { label: '소매·이커머스', emoji: '🛍️', color: TK.blue400, desc: '이커머스·대형 소매 (대형)' },
+  auto:    { label: '자동차',        emoji: '🚗', color: TK.amber500, desc: '완성차·부품' },
+  apparel: { label: '의류·명품',     emoji: '👟', color: TK.emerald400, desc: '스포츠·패션·럭셔리' },
+  leisure: { label: '여행·외식',     emoji: '🍔', color: TK.pink500, desc: '호텔·여행·레스토랑' },
 }
 const DISC_STOCKS: SectorStock[] = [
   { ticker: 'AMZN', name: 'Amazon',     market: 'US', sub: 'retail', tags: ['이커머스'],  purePlay: false, note: '이커머스+클라우드(대장주)' },
@@ -523,10 +524,10 @@ const DISC_CONFIG: SectorConfig = {
 
 // ── 🥫 필수소비재 (Consumer Staples) ──────────────────────────────────────────
 const STAP_SUB: Record<string, SubMeta> = {
-  retail:  { label: '필수 유통',     emoji: '🏪', color: '#60a5fa', desc: '대형마트·창고형 (방어)' },
-  food:    { label: '음식료·음료',   emoji: '🥤', color: '#f59e0b', desc: '식품·음료 제조' },
-  house:   { label: '생활용품',      emoji: '🧴', color: '#34d399', desc: 'household·퍼스널케어' },
-  tobacco: { label: '담배',          emoji: '🚬', color: '#ec4899', desc: '담배·고배당' },
+  retail:  { label: '필수 유통',     emoji: '🏪', color: TK.blue400, desc: '대형마트·창고형 (방어)' },
+  food:    { label: '음식료·음료',   emoji: '🥤', color: TK.amber500, desc: '식품·음료 제조' },
+  house:   { label: '생활용품',      emoji: '🧴', color: TK.emerald400, desc: 'household·퍼스널케어' },
+  tobacco: { label: '담배',          emoji: '🚬', color: TK.pink500, desc: '담배·고배당' },
 }
 const STAP_STOCKS: SectorStock[] = [
   { ticker: 'COST', name: 'Costco',     market: 'US', sub: 'retail', tags: ['창고형'],     purePlay: true,  note: '창고형 유통 1위(대장주)' },
@@ -571,10 +572,10 @@ const STAP_CONFIG: SectorConfig = {
 
 // ── 💊 헬스케어 (Health Care) ──────────────────────────────────────────────────
 const HLTH_SUB: Record<string, SubMeta> = {
-  pharma:  { label: '제약', emoji: '💊', color: '#60a5fa', desc: '빅파마·신약 (대형)' },
-  biotech: { label: '바이오', emoji: '🧬', color: '#f59e0b', desc: '바이오·유전자 치료' },
-  device:  { label: '의료기기', emoji: '🩺', color: '#34d399', desc: '진단·수술·의료장비' },
-  payer:   { label: '의료서비스·보험', emoji: '🏥', color: '#ec4899', desc: '의료보험·병원·유통' },
+  pharma:  { label: '제약', emoji: '💊', color: TK.blue400, desc: '빅파마·신약 (대형)' },
+  biotech: { label: '바이오', emoji: '🧬', color: TK.amber500, desc: '바이오·유전자 치료' },
+  device:  { label: '의료기기', emoji: '🩺', color: TK.emerald400, desc: '진단·수술·의료장비' },
+  payer:   { label: '의료서비스·보험', emoji: '🏥', color: TK.pink500, desc: '의료보험·병원·유통' },
 }
 const HLTH_STOCKS: SectorStock[] = [
   { ticker: 'LLY', name: 'Eli Lilly',   market: 'US', sub: 'pharma', tags: ['GLP-1'],      purePlay: true,  note: '비만치료제 1위(대장주)' },
@@ -621,9 +622,9 @@ const HLTH_CONFIG: SectorConfig = {
 
 // ── 💻 정보기술 (Information Technology) ───────────────────────────────────────
 const IT_SUB: Record<string, SubMeta> = {
-  software: { label: '소프트웨어', emoji: '🖥️', color: '#60a5fa', desc: 'OS·클라우드·SaaS (대형)' },
-  semi:     { label: '반도체', emoji: '🔲', color: '#f59e0b', desc: '설계·메모리·파운드리' },
-  hardware: { label: '하드웨어·기기', emoji: '📱', color: '#34d399', desc: '디바이스·서버·부품' },
+  software: { label: '소프트웨어', emoji: '🖥️', color: TK.blue400, desc: 'OS·클라우드·SaaS (대형)' },
+  semi:     { label: '반도체', emoji: '🔲', color: TK.amber500, desc: '설계·메모리·파운드리' },
+  hardware: { label: '하드웨어·기기', emoji: '📱', color: TK.emerald400, desc: '디바이스·서버·부품' },
 }
 const IT_STOCKS: SectorStock[] = [
   { ticker: 'MSFT', name: 'Microsoft',  market: 'US', sub: 'software', tags: ['클라우드·OS'], purePlay: true, note: 'SW·클라우드 1위(대장주)' },
@@ -664,9 +665,9 @@ const IT_CONFIG: SectorConfig = {
 
 // ── 📡 커뮤니케이션 서비스 (Communication Services) ───────────────────────────
 const COMM_SUB: Record<string, SubMeta> = {
-  internet: { label: '인터넷·플랫폼', emoji: '🌐', color: '#60a5fa', desc: '검색·SNS·포털 (대형)' },
-  media:    { label: '미디어·엔터', emoji: '🎬', color: '#f59e0b', desc: 'OTT·콘텐츠·게임' },
-  telecom:  { label: '통신', emoji: '📶', color: '#34d399', desc: '이동통신·고배당 방어' },
+  internet: { label: '인터넷·플랫폼', emoji: '🌐', color: TK.blue400, desc: '검색·SNS·포털 (대형)' },
+  media:    { label: '미디어·엔터', emoji: '🎬', color: TK.amber500, desc: 'OTT·콘텐츠·게임' },
+  telecom:  { label: '통신', emoji: '📶', color: TK.emerald400, desc: '이동통신·고배당 방어' },
 }
 const COMM_STOCKS: SectorStock[] = [
   { ticker: 'GOOGL', name: 'Alphabet',  market: 'US', sub: 'internet', tags: ['검색·AI'],  purePlay: true,  note: '검색·유튜브·클라우드(대장주)' },
@@ -703,9 +704,9 @@ const COMM_CONFIG: SectorConfig = {
 
 // ── 🔌 유틸리티 (Utilities) ────────────────────────────────────────────────────
 const UTIL_SUB: Record<string, SubMeta> = {
-  electric: { label: '전력', emoji: '💡', color: '#60a5fa', desc: '전기 발전·송배전 (대형)' },
-  multi:    { label: '복합·가스', emoji: '🔥', color: '#f59e0b', desc: '전기+가스 복합' },
-  water:    { label: '수도·신재생', emoji: '💧', color: '#34d399', desc: '수도·재생에너지' },
+  electric: { label: '전력', emoji: '💡', color: TK.blue400, desc: '전기 발전·송배전 (대형)' },
+  multi:    { label: '복합·가스', emoji: '🔥', color: TK.amber500, desc: '전기+가스 복합' },
+  water:    { label: '수도·신재생', emoji: '💧', color: TK.emerald400, desc: '수도·재생에너지' },
 }
 const UTIL_STOCKS: SectorStock[] = [
   { ticker: 'NEE', name: 'NextEra',     market: 'US', sub: 'electric', tags: ['전력·재생'], purePlay: true,  note: '미 최대 전력+재생에너지(대장주)' },
@@ -740,10 +741,10 @@ const UTIL_CONFIG: SectorConfig = {
 
 // ── 🏢 부동산 (Real Estate / REITs) ────────────────────────────────────────────
 const RE_SUB: Record<string, SubMeta> = {
-  infra:   { label: '인프라·데이터센터', emoji: '📡', color: '#60a5fa', desc: '통신타워·데이터센터 (대형)' },
-  logi:    { label: '물류·산업', emoji: '🏭', color: '#f59e0b', desc: '물류창고·산업용' },
-  retail:  { label: '리테일·주거', emoji: '🏬', color: '#34d399', desc: '쇼핑몰·임대주택' },
-  health:  { label: '헬스케어·기타', emoji: '🏥', color: '#ec4899', desc: '요양시설·특수 리츠' },
+  infra:   { label: '인프라·데이터센터', emoji: '📡', color: TK.blue400, desc: '통신타워·데이터센터 (대형)' },
+  logi:    { label: '물류·산업', emoji: '🏭', color: TK.amber500, desc: '물류창고·산업용' },
+  retail:  { label: '리테일·주거', emoji: '🏬', color: TK.emerald400, desc: '쇼핑몰·임대주택' },
+  health:  { label: '헬스케어·기타', emoji: '🏥', color: TK.pink500, desc: '요양시설·특수 리츠' },
 }
 const RE_STOCKS: SectorStock[] = [
   { ticker: 'AMT', name: 'American Tower', market: 'US', sub: 'infra', tags: ['통신타워'],  purePlay: true,  note: '세계 1위 통신타워 리츠(대장주)' },

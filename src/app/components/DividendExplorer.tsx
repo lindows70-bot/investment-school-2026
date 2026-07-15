@@ -13,23 +13,24 @@
 
 import { useState, useCallback } from 'react'
 import type { DividendProfile } from '@/app/api/dividend-explorer/route'
+import { TK } from '@/lib/theme'
 
 // ── 색상 (기존 프로젝트 다크 테마 계승) ──────────────────────────────────────
 const C = {
-  bg:      '#020617',
-  surface: '#0f172a',
-  card:    '#1a1d27',
-  card2:   '#141720',
-  border:  '#2a2d3a',
-  text:    '#f1f5f9',
+  bg:      TK.slate950,
+  surface: TK.slate900,
+  card:    TK.bg7,
+  card2:   TK.bg5,
+  border:  TK.line1,
+  text:    TK.slate100,
   textSub: '#b0bec8',
   textLow: '#8a9db5',
-  green:   '#4ade80',
-  red:     '#f87171',
-  gold:    '#f59e0b',
-  orange:  '#fb923c',
-  cyan:    '#22d3ee',
-  pink:    '#f472b6',
+  green:   TK.green400,
+  red:     TK.red400,
+  gold:    TK.amber500,
+  orange:  TK.orange400,
+  cyan:    TK.cyan400,
+  pink:    TK.pink400,
 }
 const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
 
@@ -266,7 +267,7 @@ export default function DividendExplorer() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: FONT }}>
 
       {/* ── 헤더 ── */}
-      <div style={{ padding: '16px 20px', borderRadius: 14, background: `linear-gradient(135deg,#0a0e1a,${C.card})`, border: `1px solid #1e3050` }}>
+      <div style={{ padding: '16px 20px', borderRadius: 14, background: `linear-gradient(135deg,${TK.bg0},${C.card})`, border: `1px solid #1e3050` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
           <span style={{ fontSize: 18 }}>💰</span>
           <span style={{ fontSize: 15, fontWeight: 900, color: C.text }}>글로벌 배당 익스플로러</span>

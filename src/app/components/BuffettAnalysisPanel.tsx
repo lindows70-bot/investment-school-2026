@@ -14,6 +14,7 @@ import { useState, useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { getAssetType } from '@/lib/assetClassifier'
 import { calcDCF, deriveDcfInputs } from '@/lib/buffettDcf'
+import { TK } from '@/lib/theme'
 
 // ── Props 타입 ────────────────────────────────────────────────────────────────
 interface Investment {
@@ -50,21 +51,21 @@ export interface BuffettAnalysisPanelProps {
 
 // ── 디자인 토큰 ──────────────────────────────────────────────────────────────
 const C = {
-  bg:       '#0a0e1a',
-  card:     '#111827',
+  bg:       TK.bg0,
+  card:     TK.gray900,
   card2:    '#0d1420',
   card3:    '#141928',
-  border:   '#1e293b',
-  green:    '#10b981',
+  border:   TK.border,
+  green:    TK.emerald500,
   greenDim: 'rgba(16,185,129,0.08)',
-  gold:     '#f59e0b',
+  gold:     TK.amber500,
   goldDim:  'rgba(245,158,11,0.10)',
-  red:      '#ef4444',
+  red:      TK.red500,
   redDim:   'rgba(239,68,68,0.08)',
-  blue:     '#60a5fa',
-  text:     '#f1f5f9',
-  sub:      '#94a3b8',
-  low:      '#8599ae',
+  blue:     TK.blue400,
+  text:     TK.slate100,
+  sub:      TK.slate400,
+  low:      TK.sub3,
 }
 
 // ── 툴팁 컴포넌트 ─────────────────────────────────────────────────────────────
@@ -90,7 +91,7 @@ function InfoTip({ id }: { id: keyof typeof TOOLTIPS }) {
         <span style={{
           position: 'absolute', bottom: '120%', left: '50%', transform: 'translateX(-50%)',
           width: 220, padding: '8px 10px', borderRadius: 8, zIndex: 999,
-          background: '#1e293b', border: `1px solid ${C.border}`,
+          background: TK.border, border: `1px solid ${C.border}`,
           boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
           fontSize: 11, color: C.sub, lineHeight: 1.6, fontWeight: 400,
           whiteSpace: 'normal',
@@ -130,7 +131,7 @@ function SafetyGauge({ margin }: { margin: number }) {
     <div style={{ textAlign: 'center' }}>
       <svg width="180" height="106" viewBox="0 0 180 106" style={{ overflow: 'visible' }}>
         {/* 배경 */}
-        <path d={arc} fill="none" stroke="#1e293b" strokeWidth={16} strokeLinecap="round" />
+        <path d={arc} fill="none" stroke={TK.border} strokeWidth={16} strokeLinecap="round" />
         {/* 구간별 색상 */}
         <path d={arc} fill="none" stroke={C.red}   strokeWidth={16} strokeOpacity={0.2} strokeLinecap="round"
           strokeDasharray={`${d0} ${perimeter}`} strokeDashoffset={0} />
@@ -227,7 +228,7 @@ function InsightCard({ selected, fund, safetyMargin, g }: {
     lynch: '피터 린치는 현재의 폭발적인 이익 성장세(PEG)를 높게 평가합니다. 사이클 저점에서 매수해 고점에 매도하는 전략이 핵심이며, PBR이 역사적 바닥에 있을 때가 진짜 기회입니다.',
     buffett: '워렌 버핏의 DCF 모델은 매년 들어가는 막대한 설비 투자 비용과 과거 불황기 적자 기록을 5개년 평균에 반영하여 내재가치를 보수적으로 계산합니다. 버핏이 반도체 주식을 잘 사지 않는 이유입니다.',
     takeaway: '두 거장의 시각을 비교하며 본인의 투자 기간(단기 사이클 vs 장기 복리)을 명확히 설정해 보세요.',
-    color: '#f59e0b',
+    color: TK.amber500,
     borderColor: 'rgba(245,158,11,0.35)',
     bg: 'rgba(245,158,11,0.06)',
   })
@@ -239,7 +240,7 @@ function InsightCard({ selected, fund, safetyMargin, g }: {
     lynch: '피터 린치는 회생주에서 가장 큰 수익을 냈습니다. "망하지 않을 것"이라는 확신과 흑자전환 시점 포착이 핵심 — 부채비율과 이자보상배율을 먼저 확인하세요.',
     buffett: 'DCF 모델은 안정적인 현금흐름을 전제합니다. 회생주는 FCF가 음수이거나 불안정하므로, 슬라이더의 성장률을 매우 보수적으로 설정해야 신뢰할 수 있는 내재가치가 나옵니다.',
     takeaway: '린치 분석 탭에서 부채비율·이자보상배율·흑자전환 배지를 먼저 확인한 뒤 DCF를 보조 지표로 활용하세요.',
-    color: '#fb923c',
+    color: TK.orange400,
     borderColor: 'rgba(251,146,60,0.35)',
     bg: 'rgba(251,146,60,0.06)',
   })
@@ -266,7 +267,7 @@ function InsightCard({ selected, fund, safetyMargin, g }: {
         ? `버핏의 DCF는 "영원히 지속 불가능한 고성장"을 신뢰하지 않습니다. 그래서 ${eg!.toFixed(0)}% 같은 폭발적 성장도 보수적으로 깎아 평가합니다. 핵심 질문은 "10년 후에도 이 경쟁 우위가 유지되는가?"입니다.`
         : `버핏의 DCF는 현재 FCF 기준으로 미래를 계산합니다. 현재 FCF가 낮은 고성장·흑자전환 초기 기업은 DCF로 저평가 신호가 잘 나오지 않습니다. 버핏이 말한 "10년 후에도 경쟁 우위가 유지되는가?"를 먼저 답하세요.`,
       takeaway: '성장주·회생주는 DCF보다 PEG + 경제적 해자(MOAT) 체크리스트를 우선 적용하는 것이 더 정확합니다.',
-      color: '#60a5fa',
+      color: TK.blue400,
       borderColor: 'rgba(96,165,250,0.35)',
       bg: 'rgba(96,165,250,0.06)',
     })
@@ -279,7 +280,7 @@ function InsightCard({ selected, fund, safetyMargin, g }: {
     lynch: '린치는 "주가가 반토막 나도 흔들리지 않을 확신이 없다면 사지 마라"고 경고했습니다. 적자 기업은 흑자전환 시점이 핵심 — 턴어라운드 스토리가 설득력 있는지 확인하세요.',
     buffett: '버핏은 이익을 내지 못하는 기업에는 거의 투자하지 않습니다. 현재 FCF가 음수라면 DCF 슬라이더의 FCF₀를 미래 예상치로 조정해야 의미 있는 분석이 가능합니다.',
     takeaway: '적자 기업은 린치 밸류에이션 탭의 "회생주" 프레임워크를 먼저 적용하세요.',
-    color: '#f87171',
+    color: TK.red400,
     borderColor: 'rgba(248,113,113,0.35)',
     bg: 'rgba(248,113,113,0.06)',
   })
@@ -291,7 +292,7 @@ function InsightCard({ selected, fund, safetyMargin, g }: {
     lynch: '피터 린치도 "훌륭한 우량 기업은 항상 비싸 보인다"고 했습니다. 시장이 미래 가치를 미리 반영하여 PER이 높게 형성되므로, 성장의 지속 가능성을 확인하는 것이 핵심입니다.',
     buffett: '버핏의 DCF는 현재 FCF와 보수적 성장률만 반영하는 "안전 하한선"입니다. 시장의 성장 기대를 담지 못하므로, 좋은 기업이라도 DCF로는 비싸게 나옵니다. 버핏은 이런 주식을 워치리스트에 담고 적정가를 기다립니다.',
     takeaway: 'DCF 고평가 = 즉시 매도가 아닙니다. 경제적 해자가 튼튼하면 주가 조정 시 분할 매수를 고려하세요.',
-    color: '#c084fc',
+    color: TK.purple400,
     borderColor: 'rgba(192,132,252,0.35)',
     bg: 'rgba(192,132,252,0.06)',
   })
@@ -325,7 +326,7 @@ function InsightCard({ selected, fund, safetyMargin, g }: {
           {/* 본문 */}
           <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
             {/* 배경 설명 */}
-            <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.8 }}>
+            <div style={{ fontSize: 12, color: TK.slate400, lineHeight: 1.8 }}>
               {card.body}
             </div>
 
@@ -338,9 +339,9 @@ function InsightCard({ selected, fund, safetyMargin, g }: {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                   <span style={{ fontSize: 14 }}>📈</span>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: '#fbbf24' }}>피터 린치의 시각</span>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: TK.amber400 }}>피터 린치의 시각</span>
                 </div>
-                <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.7 }}>
+                <div style={{ fontSize: 11, color: TK.slate400, lineHeight: 1.7 }}>
                   {card.lynch}
                 </div>
               </div>
@@ -352,9 +353,9 @@ function InsightCard({ selected, fund, safetyMargin, g }: {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                   <span style={{ fontSize: 14 }}>🛡️</span>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: '#10b981' }}>워렌 버핏의 시각</span>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: TK.emerald500 }}>워렌 버핏의 시각</span>
                 </div>
-                <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.7 }}>
+                <div style={{ fontSize: 11, color: TK.slate400, lineHeight: 1.7 }}>
                   {card.buffett}
                 </div>
               </div>
@@ -670,7 +671,7 @@ export default function BuffettAnalysisPanel({
           </div>
           <div style={{ fontSize: 11, color: '#a7f3d0', lineHeight: 1.6 }}>
             성장률↑ → 내재가치↑ &nbsp;|&nbsp; 할인율↑ → 내재가치↓ &nbsp;—&nbsp;
-            슬라이더를 조정하며 <strong style={{ color: '#6ee7b7' }}>가치평가의 수학적 원리</strong>를 체험하세요
+            슬라이더를 조정하며 <strong style={{ color: TK.emerald300 }}>가치평가의 수학적 원리</strong>를 체험하세요
           </div>
         </div>
 
@@ -704,7 +705,7 @@ export default function BuffettAnalysisPanel({
             fontSize: 9, color: C.low, lineHeight: 1.5, maxWidth: 280, textAlign: 'right',
           }}>
             {excludedCount > 0 && (
-              <span style={{ color: '#7a8fa3', marginRight: 4 }}>
+              <span style={{ color: TK.sub6, marginRight: 4 }}>
                 ({excludedCount}개 ETF·코인·원자재 제외됨)
               </span>
             )}
@@ -946,7 +947,7 @@ export default function BuffettAnalysisPanel({
             <div style={{ height: 150 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }} barGap={2}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={TK.border} vertical={false} />
                   <XAxis dataKey="year" tick={{ fill: C.low, fontSize: 9 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: C.low, fontSize: 9 }} axisLine={false} tickLine={false}
                     tickFormatter={v => v >= 10000 ? `${(v/10000).toFixed(0)}만` : `${v.toFixed(0)}`} width={44} />
@@ -1260,12 +1261,12 @@ export default function BuffettAnalysisPanel({
       <style>{`
         input[type=range]::-webkit-slider-thumb {
           -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
-          background:#10b981; border:2px solid #0a0e1a; cursor:pointer;
+          background:${TK.emerald500}; border:2px solid ${TK.bg0}; cursor:pointer;
           box-shadow:0 0 4px rgba(16,185,129,0.5);
         }
         input[type=range]::-moz-range-thumb {
           width:14px; height:14px; border-radius:50%;
-          background:#10b981; border:2px solid #0a0e1a; cursor:pointer;
+          background:${TK.emerald500}; border:2px solid ${TK.bg0}; cursor:pointer;
         }
       `}</style>
     </div>

@@ -12,13 +12,14 @@
 
 import { useState, useEffect } from 'react'
 import { getMoatBreach, type MoatResult } from '@/app/actions/getMoatBreach'
+import { TK } from '@/lib/theme'
 
 interface Props { ticker: string; name: string; market: string }
 
 const C = {
-  card: '#1a1d27', card2: '#141720', border: '#2a2d3a',
-  gold: '#f59e0b', green: '#4ade80', red: '#f87171', blue: '#60a5fa', cyan: '#22d3ee', purple: '#a78bfa',
-  text: '#f1f5f9', textSub: '#94a3b8', textLow: '#8599ae',
+  card: TK.bg7, card2: TK.bg5, border: TK.line1,
+  gold: TK.amber500, green: TK.green400, red: TK.red400, blue: TK.blue400, cyan: TK.cyan400, purple: TK.violet400,
+  text: TK.slate100, textSub: TK.slate400, textLow: TK.sub3,
 }
 const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
 
@@ -137,7 +138,7 @@ export default function MoatBreachDetector({ ticker, name, market }: Props) {
 
       {/* 코멘트 */}
       <div style={{ padding: '12px 14px', borderRadius: 10, background: C.card2, borderLeft: `3px solid ${accent}` }}>
-        <div style={{ fontSize: 12.5, color: '#cbd5e1', lineHeight: 1.75, fontStyle: 'italic' }}>&ldquo;{data.lynchComment}&rdquo;</div>
+        <div style={{ fontSize: 12.5, color: TK.slate300, lineHeight: 1.75, fontStyle: 'italic' }}>&ldquo;{data.lynchComment}&rdquo;</div>
       </div>
 
       <div style={{ marginTop: 12, fontSize: 9.5, color: C.textLow, lineHeight: 1.6 }}>

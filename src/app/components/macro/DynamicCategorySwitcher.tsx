@@ -12,6 +12,7 @@ import {
   RefreshCw, TrendingUp, Anchor, Activity,
   LifeBuoy, Zap, AlertCircle,
 } from 'lucide-react'
+import { TK } from '@/lib/theme'
 
 // ── 재무 입력 타입
 export interface StockFundamental {
@@ -40,7 +41,7 @@ interface LynchCategory {
 // ── Supabase DB 영문 키 → LynchCategory 매핑 (DB 우선 사용 테이블)
 // DB에 저장된 값이 있으면 알고리즘 대신 이 값을 최우선으로 사용합니다.
 const DB_CATEGORY_MAP: Record<string, LynchCategory> = {
-  fast_grower:  { id: 'fast',      name: '고성장주',    icon: Zap,       color: 'text-[#deff9a]', bg: 'bg-[#deff9a]',     desc: '연 20% 이상의 이익 성장을 구가하는 공격적 확장기' },
+  fast_grower:  { id: 'fast',      name: '고성장주',    icon: Zap,       color: `text-[${TK.neonLime}]`, bg: `bg-[${TK.neonLime}]`,     desc: '연 20% 이상의 이익 성장을 구가하는 공격적 확장기' },
   stalwart:     { id: 'stalwart',  name: '대형우량주',  icon: Anchor,    color: 'text-emerald-400', bg: 'bg-emerald-400',   desc: '안정적인 시장 점유율과 꾸준한 이익 성장' },
   slow_grower:  { id: 'slow',      name: '저성장주',    icon: TrendingUp, color: 'text-zinc-400',  bg: 'bg-zinc-400',      desc: '성장은 정체되었으나 높은 배당 수익률 제공' },
   cyclical:     { id: 'cyclical',  name: '경기순환주',  icon: RefreshCw, color: 'text-blue-400',   bg: 'bg-blue-400',      desc: '산업 사이클과 매크로 지표에 수익이 연동됨' },
@@ -69,7 +70,7 @@ function classifyLynch(stock: StockFundamental): LynchCategory {
   // 3. 고성장주: 경기순환 해당 없을 때만
   if (epsGrowth >= 20 || revenueGrowth >= 25) return {
     id: 'fast', name: '고성장주', icon: Zap,
-    color: 'text-[#deff9a]', bg: 'bg-[#deff9a]',
+    color: `text-[${TK.neonLime}]`, bg: `bg-[${TK.neonLime}]`,
     desc: '연 20% 이상의 이익 성장을 구가하는 공격적 확장기',
   }
   if (epsGrowth >= 10 && epsGrowth < 20) return {
@@ -137,15 +138,15 @@ export default function DynamicCategorySwitcher({ stocksFundamentalData }: Props
       <div className="flex items-center justify-between mb-8 pb-4 border-b border-zinc-800">
         <div>
           <h3 className="text-xl font-bold flex items-center gap-2">
-            <RefreshCw className="w-5 h-5 text-[#deff9a]" />
+            <RefreshCw className={`w-5 h-5 text-[${TK.neonLime}]`} />
             동적 카테고리 스위처{' '}
-            <span className="text-[#deff9a]">Phase 2</span>
+            <span className={`text-[${TK.neonLime}]`}>Phase 2</span>
           </h3>
           <p className="text-xs text-zinc-400 mt-1">
             실시간 재무 DNA 분석을 통해 피터 린치의 6대 카테고리를 자동 판정합니다.
           </p>
         </div>
-        <div className="px-3 py-1 bg-[#deff9a]/10 border border-[#deff9a]/30 rounded-full text-[10px] text-[#deff9a] font-bold uppercase tracking-widest">
+        <div className={`px-3 py-1 bg-[${TK.neonLime}]/10 border border-[${TK.neonLime}]/30 rounded-full text-[10px] text-[${TK.neonLime}] font-bold uppercase tracking-widest`}>
           Live AI Analysis
         </div>
       </div>
@@ -162,10 +163,10 @@ export default function DynamicCategorySwitcher({ stocksFundamentalData }: Props
           return (
             <div
               key={stock.ticker}
-              className="group p-5 bg-zinc-950 border border-zinc-900 rounded-2xl hover:border-[#deff9a]/50 transition-all duration-300"
+              className={`group p-5 bg-zinc-950 border border-zinc-900 rounded-2xl hover:border-[${TK.neonLime}]/50 transition-all duration-300`}
             >
               <div className="flex justify-between items-start mb-4">
-                <div className="p-3 bg-zinc-900 rounded-xl group-hover:bg-[#deff9a]/10 transition-colors">
+                <div className={`p-3 bg-zinc-900 rounded-xl group-hover:bg-[${TK.neonLime}]/10 transition-colors`}>
                   <IconComp className={`w-6 h-6 ${cat.color}`} />
                 </div>
                 <div className="text-right">
@@ -178,7 +179,7 @@ export default function DynamicCategorySwitcher({ stocksFundamentalData }: Props
               <div className="space-y-3 mb-5">
                 <div className="flex justify-between text-xs">
                   <span className="text-zinc-500">EPS 성장률</span>
-                  <span className={stock.epsGrowth > 20 ? 'text-[#deff9a]' : 'text-zinc-300'}>
+                  <span className={stock.epsGrowth > 20 ? `text-[${TK.neonLime}]` : 'text-zinc-300'}>
                     {stock.epsGrowth}%
                   </span>
                 </div>
@@ -220,7 +221,7 @@ export default function DynamicCategorySwitcher({ stocksFundamentalData }: Props
 
       {/* AI 코칭 요약 */}
       <div className="mt-8 p-4 bg-zinc-900/50 rounded-xl border border-zinc-800">
-        <h4 className="text-xs font-bold text-[#deff9a] mb-2 flex items-center gap-2">
+        <h4 className={`text-xs font-bold text-[${TK.neonLime}] mb-2 flex items-center gap-2`}>
           <Activity className="w-4 h-4" />
           투자학교 AI 엔진의 현재 코칭
         </h4>

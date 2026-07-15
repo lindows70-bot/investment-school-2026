@@ -18,30 +18,31 @@ import {
   ZAxis, ReferenceLine, Tooltip,
 } from 'recharts'
 import { BarChart2 } from 'lucide-react'
+import { TK } from '@/lib/theme'
 
 // ── 다크모드 컬러 시스템 ─────────────────────────────────────
 const C = {
-  bg:     '#020617',
-  surface:'#0f172a',
-  card:   '#1e293b',
+  bg:     TK.slate950,
+  surface:TK.slate900,
+  card:   TK.border,
   cardHi: '#263348',
-  border: '#7a8fa3',
-  textHi: '#f1f5f9',
-  textMid:'#94a3b8',
-  textLow:'#7f93a8',
-  green:  '#4ade80',
-  red:    '#f87171',
-  amber:  '#fbbf24',
+  border: TK.sub6,
+  textHi: TK.slate100,
+  textMid:TK.slate400,
+  textLow:TK.sub2,
+  green:  TK.green400,
+  red:    TK.red400,
+  amber:  TK.amber400,
 }
 
 // ── 피터린치 6대 분류 마스터 ─────────────────────────────────
 const LYNCH_CATS = [
-  { id:'고성장주',    icon:'🚀', accent:'#f87171', bg:'rgba(239,68,68,0.10)',  border:'rgba(239,68,68,0.22)',  desc:'연 20~25% 고성장' },
-  { id:'대형우량주',  icon:'🛡️', accent:'#60a5fa', bg:'rgba(59,130,246,0.10)', border:'rgba(59,130,246,0.22)', desc:'안정적 성장의 대기업' },
-  { id:'저성장주',    icon:'🐢', accent:'#4ade80', bg:'rgba(34,197,94,0.10)',  border:'rgba(34,197,94,0.22)',  desc:'성장은 느리나 높은 배당' },
-  { id:'경기순환주',  icon:'🔄', accent:'#c084fc', bg:'rgba(168,85,247,0.10)', border:'rgba(168,85,247,0.22)', desc:'경기 흐름을 타는 업종' },
-  { id:'자산주',      icon:'💎', accent:'#fbbf24', bg:'rgba(245,158,11,0.10)', border:'rgba(245,158,11,0.22)', desc:'숨겨진 자산 가치 기업' },
-  { id:'턴어라운드주',icon:'🔥', accent:'#fb923c', bg:'rgba(251,146,60,0.10)', border:'rgba(251,146,60,0.22)', desc:'회생 가능성이 높은 기업' },
+  { id:'고성장주',    icon:'🚀', accent:TK.red400, bg:'rgba(239,68,68,0.10)',  border:'rgba(239,68,68,0.22)',  desc:'연 20~25% 고성장' },
+  { id:'대형우량주',  icon:'🛡️', accent:TK.blue400, bg:'rgba(59,130,246,0.10)', border:'rgba(59,130,246,0.22)', desc:'안정적 성장의 대기업' },
+  { id:'저성장주',    icon:'🐢', accent:TK.green400, bg:'rgba(34,197,94,0.10)',  border:'rgba(34,197,94,0.22)',  desc:'성장은 느리나 높은 배당' },
+  { id:'경기순환주',  icon:'🔄', accent:TK.purple400, bg:'rgba(168,85,247,0.10)', border:'rgba(168,85,247,0.22)', desc:'경기 흐름을 타는 업종' },
+  { id:'자산주',      icon:'💎', accent:TK.amber400, bg:'rgba(245,158,11,0.10)', border:'rgba(245,158,11,0.22)', desc:'숨겨진 자산 가치 기업' },
+  { id:'턴어라운드주',icon:'🔥', accent:TK.orange400, bg:'rgba(251,146,60,0.10)', border:'rgba(251,146,60,0.22)', desc:'회생 가능성이 높은 기업' },
 ]
 
 // DB 영어 키 → 한국어 매핑
@@ -61,11 +62,11 @@ function CustomTooltip({ active, payload }: any) {
   const d = payload[0].payload
   return (
     <div style={{
-      background:'#0f172a', border:'1px solid #7a8fa3', borderRadius:10,
+      background:TK.slate900, border:`1px solid ${TK.sub6}`, borderRadius:10,
       padding:'10px 14px', fontSize:12, minWidth:190, zIndex:50,
       boxShadow:'0 8px 24px rgba(0,0,0,0.5)',
     }}>
-      <div style={{ fontWeight:800, color:'#fbbf24', marginBottom:6 }}>
+      <div style={{ fontWeight:800, color:TK.amber400, marginBottom:6 }}>
         {d.name}
         <span style={{ fontWeight:400, color:C.textLow, fontSize:10, marginLeft:6 }}>({d.ticker})</span>
       </div>
@@ -250,7 +251,7 @@ export default function AIPortfolioDashboard(props: any) {
         <div style={{
           padding:'10px 14px', borderRadius:9, fontSize:11,
           background:'rgba(251,191,36,0.09)', border:'1px solid rgba(251,191,36,0.3)',
-          color:'#fbbf24', display:'flex', alignItems:'center', gap:7,
+          color:TK.amber400, display:'flex', alignItems:'center', gap:7,
         }}>
           <span>⏳</span>
           종목 분류 데이터를 불러오는 중입니다. 피터 린치 자동 분류가 완료되면 6대 유형이 표시됩니다.
@@ -359,7 +360,7 @@ export default function AIPortfolioDashboard(props: any) {
           { label:'총 등록 종목', value:`${stocks.length}개`, color:C.textHi },
           { label:'분류 완료',    value:`${stocks.filter(s => s.lynchType !== '해당없음').length}개`, color:C.green },
           { label:'분류 대기',    value:`${unclassified.length}개`, color:C.amber },
-          { label:'PEG 분석 가능',value:`${chartData.length}개`,   color:'#818cf8' },
+          { label:'PEG 분석 가능',value:`${chartData.length}개`,   color:TK.indigo400 },
         ].map(item => (
           <div key={item.label} style={{
             padding:'10px 12px', borderRadius:10, textAlign:'center',
@@ -412,7 +413,7 @@ export default function AIPortfolioDashboard(props: any) {
                     const isLoss  = payload.per <= 0   // 적자 기업 (PE 없음)
                     const isUnder = !isLoss && (payload.peg ?? 0) <= 1.0
                     // 적자=주황 점선 / 저평가=초록 / 고평가=빨강
-                    const col = isLoss ? '#fb923c' : isUnder ? C.green : C.red
+                    const col = isLoss ? TK.orange400 : isUnder ? C.green : C.red
                     const label = payload.name.length > 9 ? payload.name.slice(0, 8) + '…' : payload.name
                     return (
                       <g style={{ cursor:'pointer' }}>
@@ -458,7 +459,7 @@ export default function AIPortfolioDashboard(props: any) {
               <div style={{ width:10, height:10, borderRadius:'50%', background:C.red }} /> 고평가 유의 (PEG &gt; 1.0)
             </div>
             <div style={{ display:'flex', alignItems:'center', gap:5 }}>
-              <div style={{ width:10, height:10, borderRadius:'50%', background:'none', border:'1.5px dashed #fb923c' }} /> 적자 기업 (PE 없음)
+              <div style={{ width:10, height:10, borderRadius:'50%', background:'none', border:`1.5px dashed ${TK.orange400}` }} /> 적자 기업 (PE 없음)
             </div>
           </div>
         )}
@@ -474,7 +475,7 @@ export default function AIPortfolioDashboard(props: any) {
           {aiInsights ? (
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
               <div style={{ display:'flex', gap:12, padding:'13px 14px', borderRadius:10, background:'rgba(74,222,128,0.08)', border:'1px solid rgba(74,222,128,0.25)' }}>
-                <div style={{ padding:'4px 8px', borderRadius:6, background:'#10b981', color:'#fff', fontSize:9, fontWeight:900, letterSpacing:'0.05em', flexShrink:0, height:'fit-content' }}>
+                <div style={{ padding:'4px 8px', borderRadius:6, background:TK.emerald500, color:'#fff', fontSize:9, fontWeight:900, letterSpacing:'0.05em', flexShrink:0, height:'fit-content' }}>
                   BUY CHANCE
                 </div>
                 <div>
@@ -490,7 +491,7 @@ export default function AIPortfolioDashboard(props: any) {
                 </div>
               </div>
               <div style={{ display:'flex', gap:12, padding:'13px 14px', borderRadius:10, background:'rgba(251,191,36,0.08)', border:'1px solid rgba(251,191,36,0.25)' }}>
-                <div style={{ padding:'4px 8px', borderRadius:6, background:'#f59e0b', color:'#fff', fontSize:9, fontWeight:900, letterSpacing:'0.05em', flexShrink:0, height:'fit-content' }}>
+                <div style={{ padding:'4px 8px', borderRadius:6, background:TK.amber500, color:'#fff', fontSize:9, fontWeight:900, letterSpacing:'0.05em', flexShrink:0, height:'fit-content' }}>
                   WATCH LIST
                 </div>
                 <div>

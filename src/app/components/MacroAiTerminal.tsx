@@ -15,20 +15,21 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { MacroAiResult, AiRecommendation } from '@/app/api/macro-ai-picks/route'
+import { TK } from '@/lib/theme'
 
 const C = {
-  bg:      '#020617',
+  bg:      TK.slate950,
   card:    '#0d1a2d',
   card2:   '#0a1322',
   border:  '#1e3050',
-  text:    '#f1f5f9',
+  text:    TK.slate100,
   textSub: '#b0bec8',
   textLow: '#8a9db5',
-  gold:    '#f59e0b',
-  green:   '#4ade80',
-  red:     '#f87171',
-  cyan:    '#22d3ee',
-  purple:  '#a78bfa',
+  gold:    TK.amber500,
+  green:   TK.green400,
+  red:     TK.red400,
+  cyan:    TK.cyan400,
+  purple:  TK.violet400,
 }
 const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
 const MONO = 'ui-monospace,SFMono-Regular,Menlo,Consolas,monospace'
@@ -72,7 +73,7 @@ function PegGauge({ peg }: { peg: number | null }) {
   return (
     <div>
       <div style={{ fontSize: 11, color: C.textLow, marginBottom: 3 }}>PEG {peg.toFixed(2)}</div>
-      <div style={{ height: 5, borderRadius: 3, background: '#1e293b', overflow: 'hidden', width: 80 }}>
+      <div style={{ height: 5, borderRadius: 3, background: TK.border, overflow: 'hidden', width: 80 }}>
         <div style={{ height: '100%', width: `${w}%`, background: color, borderRadius: 3 }} />
       </div>
     </div>
@@ -133,7 +134,7 @@ function RecommCard({ rec, rank, isHeld }: { rec: AiRecommendation; rank: number
       }}>
         {/* 신규 추천 배지 + 순위 */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, flexShrink: 0 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: rank === 0 ? C.gold : rank === 1 ? '#94a3b8' : '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900, color: '#000' }}>
+          <div style={{ width: 28, height: 28, borderRadius: 8, background: rank === 0 ? C.gold : rank === 1 ? TK.slate400 : TK.amber700, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900, color: '#000' }}>
             {rank + 1}
           </div>
           <span style={{ fontSize: 8.5, color: C.green, fontWeight: 700, whiteSpace: 'nowrap' }}>🆕 신규</span>
@@ -255,7 +256,7 @@ export default function MacroAiTerminal() {
 
       {loading && <div style={{ padding: '18px 20px', borderRadius: 14, background: C.card, border: `1px solid ${C.border}` }}><Skeleton /></div>}
       {error && !loading && (
-        <div style={{ padding: '20px', borderRadius: 12, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.35)', color: '#fca5a5', fontSize: 13 }}>⚠️ {error}</div>
+        <div style={{ padding: '20px', borderRadius: 12, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.35)', color: TK.red300, fontSize: 13 }}>⚠️ {error}</div>
       )}
 
       {!loading && data && (

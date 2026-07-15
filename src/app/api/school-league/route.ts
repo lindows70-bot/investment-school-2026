@@ -14,6 +14,7 @@ export const revalidate = 0
 import { NextResponse }                    from 'next/server'
 import { createClient as createAdmin }     from '@supabase/supabase-js'
 import { classifyAsset }                   from '@/lib/classifyAsset'
+import { TK } from '@/lib/theme'
 
 // ── 서비스 롤 클라이언트 (전체 사용자 데이터 조회) ──────────────
 function adminClient() {
@@ -88,8 +89,8 @@ function calcLynchDist(
 
 // ── 아바타 색상 팔레트 (결정론적 할당) ──────────────────────────
 const AVATAR_COLORS = [
-  '#38bdf8', '#c084fc', '#4ade80', '#fb923c',
-  '#f87171', '#fbbf24', '#818cf8', '#34d399',
+  TK.sky400, TK.purple400, TK.green400, TK.orange400,
+  TK.red400, TK.amber400, TK.indigo400, TK.emerald400,
 ]
 function avatarColor(index: number): string {
   return AVATAR_COLORS[index % AVATAR_COLORS.length]
@@ -106,8 +107,8 @@ function userTypeFromCore(core: number): string {
 
 // ── 종목 색상 팔레트 ─────────────────────────────────────────────
 const TICKER_COLORS = [
-  '#a3e635','#38bdf8','#60a5fa','#4ade80','#f59e0b',
-  '#fb923c','#c084fc','#f87171','#818cf8','#34d399',
+  TK.lime400,TK.sky400,TK.blue400,TK.green400,TK.amber500,
+  TK.orange400,TK.purple400,TK.red400,TK.indigo400,TK.emerald400,
 ]
 
 // ── 인라인 마이그레이션 헬퍼 ─────────────────────────────────────

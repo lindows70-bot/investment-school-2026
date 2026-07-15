@@ -18,6 +18,7 @@ import {
 } from 'recharts'
 import { Target, Info, AlertTriangle } from 'lucide-react'
 import { STOCK_DATA, type StockData } from './LynchLineChart'
+import { TK } from '@/lib/theme'
 
 // ── 타입
 export type StudentPortfolio = Record<string, StockData>
@@ -36,7 +37,7 @@ interface Props {
 
 // ── 카테고리 배지 색상
 const CATEGORY_COLOR: Record<string, string> = {
-  '고성장주':    'text-[#deff9a] bg-[#deff9a]/10 border-[#deff9a]/30',
+  '고성장주':    `text-[${TK.neonLime}] bg-[${TK.neonLime}]/10 border-[${TK.neonLime}]/30`,
   '턴어라운드주': 'text-orange-400 bg-orange-400/10 border-orange-400/30',
   '대형우량주':  'text-emerald-400 bg-emerald-400/10 border-emerald-400/30',
   '경기순환주':  'text-blue-400 bg-blue-400/10 border-blue-400/30',
@@ -52,7 +53,7 @@ function ChartTooltip({ active, payload, label, currencySign }: any) {
       background: '#000', border: '1px solid #333', borderRadius: 8,
       padding: '10px 14px', fontSize: 12, minWidth: 190,
     }}>
-      <div style={{ color: '#7f93a8', fontWeight: 700, marginBottom: 6 }}>{label}</div>
+      <div style={{ color: TK.sub2, fontWeight: 700, marginBottom: 6 }}>{label}</div>
       {payload
         .filter((p: { name: string }) => p.name !== '__mirror__')
         .map((p: { name: string; value: number; color: string }, i: number) => (
@@ -149,10 +150,10 @@ export default function UniversalLynchLineTerminal({ studentPortfolio, macroFact
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 pb-6 border-b border-zinc-800">
         <div>
           <div className="flex items-center gap-2">
-            <Target className="w-5 h-5 text-[#deff9a]" />
+            <Target className={`w-5 h-5 text-[${TK.neonLime}]`} />
             <h3 className="text-xl font-bold tracking-tight">
               실시간 린치 라인 터미널{' '}
-              <span className="text-[#deff9a]">Phase 3 (Universal)</span>
+              <span className={`text-[${TK.neonLime}]`}>Phase 3 (Universal)</span>
             </h3>
           </div>
           <p className="text-xs text-zinc-400 mt-1">
@@ -167,7 +168,7 @@ export default function UniversalLynchLineTerminal({ studentPortfolio, macroFact
               onClick={() => setSelectedTicker(ticker)}
               className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
                 selectedTicker === ticker
-                  ? 'bg-[#deff9a] text-black'
+                  ? `bg-[${TK.neonLime}] text-black`
                   : 'text-zinc-500 hover:text-zinc-300'
               }`}
             >
@@ -195,7 +196,7 @@ export default function UniversalLynchLineTerminal({ studentPortfolio, macroFact
           <div className="text-[10px] text-zinc-500 uppercase font-bold mb-1">
             적정 가치 ({currentStock.multiple ?? 15}배)
           </div>
-          <div className="text-2xl font-mono font-bold text-[#deff9a]">
+          <div className={`text-2xl font-mono font-bold text-[${TK.neonLime}]`}>
             {sign}{latest.lynch.toLocaleString()}
           </div>
         </div>
@@ -219,8 +220,8 @@ export default function UniversalLynchLineTerminal({ studentPortfolio, macroFact
           >
             <defs>
               <linearGradient id="univGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.25} />
-                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}    />
+                <stop offset="5%"  stopColor={TK.blue500} stopOpacity={0.25} />
+                <stop offset="95%" stopColor={TK.blue500} stopOpacity={0}    />
               </linearGradient>
             </defs>
 
@@ -251,17 +252,17 @@ export default function UniversalLynchLineTerminal({ studentPortfolio, macroFact
             <Line yAxisId="main"
               name="Lynch Line (본질가치)"
               type="monotone" dataKey="lynch"
-              stroke="#deff9a" strokeWidth={3}
-              dot={{ r: 4, fill: '#deff9a', stroke: '#000', strokeWidth: 1.5 }}
+              stroke={TK.neonLime} strokeWidth={3}
+              dot={{ r: 4, fill: TK.neonLime, stroke: '#000', strokeWidth: 1.5 }}
               activeDot={{ r: 6 }}
             />
             {/* 주가 + 영역 */}
             <Area yAxisId="main"
               name="Stock Price (현재가)"
               type="monotone" dataKey="price"
-              stroke="#3b82f6" strokeWidth={3}
+              stroke={TK.blue500} strokeWidth={3}
               fill="url(#univGrad)" fillOpacity={1}
-              dot={{ r: 3, fill: '#3b82f6', stroke: '#000', strokeWidth: 1 }}
+              dot={{ r: 3, fill: TK.blue500, stroke: '#000', strokeWidth: 1 }}
             />
 
             {/* ★ 우측 Y축 tick 강제 렌더링 더미 */}
@@ -280,7 +281,7 @@ export default function UniversalLynchLineTerminal({ studentPortfolio, macroFact
       <div className="flex gap-4 p-4 bg-zinc-900 border border-zinc-800 rounded-xl">
         <div className="p-2 bg-zinc-800 rounded-lg flex-shrink-0 self-start">
           {isUnder
-            ? <Info className="w-5 h-5 text-[#deff9a]" />
+            ? <Info className={`w-5 h-5 text-[${TK.neonLime}]`} />
             : <AlertTriangle className="w-5 h-5 text-rose-400" />
           }
         </div>

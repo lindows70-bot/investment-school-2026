@@ -5,8 +5,9 @@
 import { useState, useEffect } from 'react'
 import { ResponsiveContainer, ComposedChart, Line, XAxis, YAxis, Tooltip, ReferenceDot } from 'recharts'
 import type { ElliottEduResult } from '@/app/api/elliott-wave-edu/route'
+import { TK } from '@/lib/theme'
 
-const CARD = '#12151c', BORDER = '#252a36'
+const CARD = TK.bg4, BORDER = TK.line3
 
 // ── ① 이상적 개념도(정적 SVG) — 5파 상승(1-2-3-4-5) + 3파 조정(A-B-C) ──────────
 function IdealWaveDiagram() {
@@ -19,19 +20,19 @@ function IdealWaveDiagram() {
   return (
     <svg viewBox="0 0 600 220" style={{ width: '100%', height: 'auto', display: 'block' }}>
       <line x1="10" y1="200" x2="595" y2="200" stroke="#3a4152" strokeWidth="1" />
-      <path d={path} fill="none" stroke="#93c5fd" strokeWidth="2.5" />
+      <path d={path} fill="none" stroke={TK.blue300} strokeWidth="2.5" />
       {/* 임펄스 구간(1~5) 음영 강조선 */}
-      <path d={pts.slice(0, 6).map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' ')} fill="none" stroke="#4ade80" strokeWidth="3.5" opacity="0.55" />
+      <path d={pts.slice(0, 6).map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' ')} fill="none" stroke={TK.green400} strokeWidth="3.5" opacity="0.55" />
       {/* 조정 구간(A~C) 강조선 */}
-      <path d={pts.slice(5).map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' ')} fill="none" stroke="#f87171" strokeWidth="3.5" opacity="0.55" />
+      <path d={pts.slice(5).map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' ')} fill="none" stroke={TK.red400} strokeWidth="3.5" opacity="0.55" />
       {pts.slice(1).map(([x, y, label], i) => (
         <g key={i}>
-          <circle cx={x} cy={y} r="4" fill={i < 5 ? '#4ade80' : '#f87171'} />
-          <text x={x} y={y - 10} fill="#e2e8f0" fontSize="13" fontWeight="800" textAnchor="middle">{label}</text>
+          <circle cx={x} cy={y} r="4" fill={i < 5 ? TK.green400 : TK.red400} />
+          <text x={x} y={y - 10} fill={TK.slate200} fontSize="13" fontWeight="800" textAnchor="middle">{label}</text>
         </g>
       ))}
-      <text x="165" y="215" fill="#4ade80" fontSize="11" fontWeight="700" textAnchor="middle">임펄스(추세) 5파: 1-2-3-4-5</text>
-      <text x="530" y="215" fill="#f87171" fontSize="11" fontWeight="700" textAnchor="middle">조정 3파: A-B-C</text>
+      <text x="165" y="215" fill={TK.green400} fontSize="11" fontWeight="700" textAnchor="middle">임펄스(추세) 5파: 1-2-3-4-5</text>
+      <text x="530" y="215" fill={TK.red400} fontSize="11" fontWeight="700" textAnchor="middle">조정 3파: A-B-C</text>
     </svg>
   )
 }
@@ -54,25 +55,25 @@ export default function ElliottWaveEducation() {
   return (
     <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-        <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>🌊 엘리어트 파동, 개념부터 실전 차트까지</span>
-        <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>교육용 — 실제 파동 번호는 단정하지 않습니다</span>
+        <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 13 }}>🌊 엘리어트 파동, 개념부터 실전 차트까지</span>
+        <span style={{ color: TK.sub, fontSize: 10.5 }}>교육용 — 실제 파동 번호는 단정하지 않습니다</span>
       </div>
 
       {/* ① 개념도 */}
-      <div style={{ background: '#0f1117', borderRadius: 10, border: `1px solid ${BORDER}`, padding: '10px 14px', marginTop: 8 }}>
-        <div style={{ color: '#9aa7b5', fontSize: 11, marginBottom: 4 }}>① 이상적 개념도 — 추세 5파 + 조정 3파(교과서 예시, 실데이터 아님)</div>
+      <div style={{ background: TK.bg3, borderRadius: 10, border: `1px solid ${BORDER}`, padding: '10px 14px', marginTop: 8 }}>
+        <div style={{ color: TK.sub8, fontSize: 11, marginBottom: 4 }}>① 이상적 개념도 — 추세 5파 + 조정 3파(교과서 예시, 실데이터 아님)</div>
         <IdealWaveDiagram />
       </div>
 
       {/* ② 실제 차트 */}
       <div style={{ marginTop: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-          <span style={{ color: '#9aa7b5', fontSize: 11 }}>② 실제 주봉에 객관적 스윙(ZigZag {data?.zigzagPct ?? 8}%) 표시 — &lsquo;파동을 세는 방식&rsquo;의 예시일 뿐</span>
+          <span style={{ color: TK.sub8, fontSize: 11 }}>② 실제 주봉에 객관적 스윙(ZigZag {data?.zigzagPct ?? 8}%) 표시 — &lsquo;파동을 세는 방식&rsquo;의 예시일 뿐</span>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
             {(['US', 'KR'] as const).map(k => (
               <button key={k} onClick={() => setMkt(k)} style={{
                 padding: '3px 11px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700,
-                background: mkt === k ? '#1e293b' : 'transparent', color: mkt === k ? '#e2e8f0' : '#8599ae' }}>
+                background: mkt === k ? TK.border : 'transparent', color: mkt === k ? TK.slate200 : TK.sub3 }}>
                 {k === 'US' ? '🇺🇸 나스닥100' : '🇰🇷 코스피200'}
               </button>
             ))}
@@ -80,19 +81,19 @@ export default function ElliottWaveEducation() {
         </div>
 
         {err ? (
-          <div style={{ color: '#8a9aaa', fontSize: 12, padding: 12 }}>데이터를 불러오지 못했습니다.</div>
+          <div style={{ color: TK.sub, fontSize: 12, padding: 12 }}>데이터를 불러오지 못했습니다.</div>
         ) : !data ? (
-          <div style={{ color: '#8a9aaa', fontSize: 12, padding: 12 }}>차트를 계산 중입니다…</div>
+          <div style={{ color: TK.sub, fontSize: 12, padding: 12 }}>차트를 계산 중입니다…</div>
         ) : (
           <>
             {/* 현재 위치 요약 */}
             <div style={{ background: data.current.direction === 'up' ? 'rgba(74,222,128,0.08)' : 'rgba(248,113,113,0.08)',
               border: `1px solid ${data.current.direction === 'up' ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)'}`,
               borderRadius: 9, padding: '8px 12px', marginBottom: 8 }}>
-              <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 12.5 }}>📍 현재 위치</span>
-              <span style={{ color: '#aab6c4', fontSize: 12, marginLeft: 8 }}>
+              <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 12.5 }}>📍 현재 위치</span>
+              <span style={{ color: TK.sub5, fontSize: 12, marginLeft: 8 }}>
                 마지막 확정 스윙(#{confirmed[confirmed.length - 1]?.seq ?? '—'}, {confirmed[confirmed.length - 1]?.type === 'high' ? '고점' : '저점'}, {confirmed[confirmed.length - 1]?.date}) 이후
-                <b style={{ color: data.current.direction === 'up' ? '#4ade80' : '#f87171' }}> {data.current.sincePivotPct > 0 ? '+' : ''}{data.current.sincePivotPct}%</b>
+                <b style={{ color: data.current.direction === 'up' ? TK.green400 : TK.red400 }}> {data.current.sincePivotPct > 0 ? '+' : ''}{data.current.sincePivotPct}%</b>
                 {pending && <span> · {pending.type === 'high' ? '고점 갱신 중(진행)' : '저점 갱신 중(진행)'}, 아직 {data.zigzagPct}% 반전 미확정</span>}
               </span>
             </div>
@@ -100,20 +101,20 @@ export default function ElliottWaveEducation() {
             <div style={{ height: 260 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={data.points} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
-                  <XAxis dataKey="date" tick={{ fill: '#7f93a8', fontSize: 9.5 }} tickFormatter={(s: string) => s.slice(0, 7)} minTickGap={56} axisLine={{ stroke: BORDER }} tickLine={false} />
-                  <YAxis domain={['auto', 'auto']} tick={{ fill: '#7f93a8', fontSize: 9.5 }} axisLine={false} tickLine={false} width={54}
+                  <XAxis dataKey="date" tick={{ fill: TK.sub2, fontSize: 9.5 }} tickFormatter={(s: string) => s.slice(0, 7)} minTickGap={56} axisLine={{ stroke: BORDER }} tickLine={false} />
+                  <YAxis domain={['auto', 'auto']} tick={{ fill: TK.sub2, fontSize: 9.5 }} axisLine={false} tickLine={false} width={54}
                     tickFormatter={(v: number) => data.market === 'KR' ? `${Math.round(v / 1000)}k` : `$${Math.round(v)}`} />
-                  <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }}
+                  <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     formatter={(v: any) => [data.market === 'KR' ? `₩${Number(v).toLocaleString()}` : `$${Number(v).toFixed(1)}`, data.label]} />
-                  <Line type="monotone" dataKey="price" stroke="#93c5fd" strokeWidth={1.6} dot={false} isAnimationActive={false} />
+                  <Line type="monotone" dataKey="price" stroke={TK.blue300} strokeWidth={1.6} dot={false} isAnimationActive={false} />
                   {confirmed.map(s => (
-                    <ReferenceDot key={s.seq} x={s.date} y={s.price} r={5} fill={s.type === 'high' ? '#4ade80' : '#f87171'} stroke="#0f1117" strokeWidth={1.5}
-                      label={{ value: String(s.seq), position: s.type === 'high' ? 'top' : 'bottom', fill: '#e2e8f0', fontSize: 10, fontWeight: 800 }} />
+                    <ReferenceDot key={s.seq} x={s.date} y={s.price} r={5} fill={s.type === 'high' ? TK.green400 : TK.red400} stroke={TK.bg3} strokeWidth={1.5}
+                      label={{ value: String(s.seq), position: s.type === 'high' ? 'top' : 'bottom', fill: TK.slate200, fontSize: 10, fontWeight: 800 }} />
                   ))}
                   {pending && (
-                    <ReferenceDot x={pending.date} y={pending.price} r={5} fill="none" stroke={pending.type === 'high' ? '#4ade80' : '#f87171'} strokeWidth={2}
-                      label={{ value: `${pending.seq}?`, position: pending.type === 'high' ? 'top' : 'bottom', fill: '#8a9aaa', fontSize: 10, fontWeight: 800 }} />
+                    <ReferenceDot x={pending.date} y={pending.price} r={5} fill="none" stroke={pending.type === 'high' ? TK.green400 : TK.red400} strokeWidth={2}
+                      label={{ value: `${pending.seq}?`, position: pending.type === 'high' ? 'top' : 'bottom', fill: TK.sub, fontSize: 10, fontWeight: 800 }} />
                   )}
                 </ComposedChart>
               </ResponsiveContainer>
@@ -123,14 +124,14 @@ export default function ElliottWaveEducation() {
       </div>
 
       <button onClick={() => setEduOpen(o => !o)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, background: 'transparent', border: 'none', cursor: 'pointer', padding: '10px 0 2px', textAlign: 'left' }}>
-        <span style={{ color: '#f7931a', fontWeight: 800, fontSize: 12 }}>🎓 엘리어트 파동이란? (그리고 왜 번호를 단정하지 않는가)</span>
-        <span style={{ marginLeft: 'auto', color: '#8a9aaa', fontSize: 11 }}>{eduOpen ? '▲ 접기' : '▼ 펼치기'}</span>
+        <span style={{ color: TK.btcOrange, fontWeight: 800, fontSize: 12 }}>🎓 엘리어트 파동이란? (그리고 왜 번호를 단정하지 않는가)</span>
+        <span style={{ marginLeft: 'auto', color: TK.sub, fontSize: 11 }}>{eduOpen ? '▲ 접기' : '▼ 펼치기'}</span>
       </button>
       {eduOpen && (
-        <div style={{ color: '#aab6c4', fontSize: 11, lineHeight: 1.65, marginTop: 6, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div>📐 <b style={{ color: '#93c5fd' }}>기본 구조</b> — 랄프 엘리엇이 제시한 이론으로, 시장은 <b style={{ color: '#4ade80' }}>추세 방향 5파(1-2-3-4-5)</b> 후 <b style={{ color: '#f87171' }}>반대 방향 조정 3파(A-B-C)</b>로 움직이는 패턴이 반복된다고 봅니다. 3파는 보통 가장 강한 상승, 2·4파는 조정(되돌림)입니다.</div>
-          <div>⚠️ <b style={{ color: '#f59e0b' }}>왜 이 앱은 번호를 단정하지 않나</b> — 실제 차트에서 &lsquo;지금이 몇 파동인가&rsquo;는 분석가마다 다르게 셀 수 있는 <b>주관적</b> 판단입니다(같은 차트를 보고도 3파라는 사람, 5파라는 사람이 갈립니다). 이 앱은 하드코딩·주관 개입을 배제하는 원칙이라, 위 실제 차트의 번호는 <b>공식 엘리어트 카운트가 아니라</b> 객관적 알고리즘(ZigZag {data?.zigzagPct ?? 8}% 임계)이 찾은 <b>스윙(고점/저점) 순번</b>입니다 — &lsquo;파동을 세는 방식&rsquo;의 개념을 보여줄 뿐입니다.</div>
-          <div>🧭 <b style={{ color: '#8a9aaa' }}>활용법</b> — 개념도(①)로 큰 그림을 이해하고, 실제 차트(②)에서 &lsquo;고점→저점→고점&rsquo;이 어떻게 반복되며 추세를 이루는지 관찰하세요. 정밀한 매수·매도 신호가 아니라, 시장이 파동처럼 오르내린다는 시각적 직관을 기르는 교육 도구입니다.</div>
+        <div style={{ color: TK.sub5, fontSize: 11, lineHeight: 1.65, marginTop: 6, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div>📐 <b style={{ color: TK.blue300 }}>기본 구조</b> — 랄프 엘리엇이 제시한 이론으로, 시장은 <b style={{ color: TK.green400 }}>추세 방향 5파(1-2-3-4-5)</b> 후 <b style={{ color: TK.red400 }}>반대 방향 조정 3파(A-B-C)</b>로 움직이는 패턴이 반복된다고 봅니다. 3파는 보통 가장 강한 상승, 2·4파는 조정(되돌림)입니다.</div>
+          <div>⚠️ <b style={{ color: TK.amber500 }}>왜 이 앱은 번호를 단정하지 않나</b> — 실제 차트에서 &lsquo;지금이 몇 파동인가&rsquo;는 분석가마다 다르게 셀 수 있는 <b>주관적</b> 판단입니다(같은 차트를 보고도 3파라는 사람, 5파라는 사람이 갈립니다). 이 앱은 하드코딩·주관 개입을 배제하는 원칙이라, 위 실제 차트의 번호는 <b>공식 엘리어트 카운트가 아니라</b> 객관적 알고리즘(ZigZag {data?.zigzagPct ?? 8}% 임계)이 찾은 <b>스윙(고점/저점) 순번</b>입니다 — &lsquo;파동을 세는 방식&rsquo;의 개념을 보여줄 뿐입니다.</div>
+          <div>🧭 <b style={{ color: TK.sub }}>활용법</b> — 개념도(①)로 큰 그림을 이해하고, 실제 차트(②)에서 &lsquo;고점→저점→고점&rsquo;이 어떻게 반복되며 추세를 이루는지 관찰하세요. 정밀한 매수·매도 신호가 아니라, 시장이 파동처럼 오르내린다는 시각적 직관을 기르는 교육 도구입니다.</div>
         </div>
       )}
     </div>

@@ -67,6 +67,7 @@ import MacroTerminalDashboard                                from '@/app/compone
 import LynchGhostStockPanel  from '@/app/components/LynchGhostStockPanel'
 // SSOT: 자산 유형 분류는 assetClassifier에서만
 import { getAssetType }          from '@/lib/assetClassifier'
+import { TK } from '@/lib/theme'
 // ※ LynchInventorySentinel — 재고 센티넬 기능 제거됨 (API 한계로 폐기)
 // import LynchInventorySentinel from '@/app/components/LynchInventorySentinel'
 
@@ -110,15 +111,15 @@ interface LivePrice {
 const USD_KRW = 1_350
 
 const LYNCH_META: Record<string, { label: string; color: string }> = {
-  slow_grower: { label: '저성장주', color: '#a8b5c2' },
-  stalwart:    { label: '대형 우량주',   color: '#60a5fa' },
-  fast_grower: { label: '빠른 성장주',   color: '#34d399' },
-  cyclical:    { label: '경기 순환주',   color: '#fb923c' },
-  turnaround:  { label: '회생 기업주',   color: '#f87171' },
-  asset_play:  { label: '자산 보유주',   color: '#c084fc' },
-  na:          { label: 'N/A',           color: '#7a8fa3' },
+  slow_grower: { label: '저성장주', color: TK.sub9 },
+  stalwart:    { label: '대형 우량주',   color: TK.blue400 },
+  fast_grower: { label: '빠른 성장주',   color: TK.emerald400 },
+  cyclical:    { label: '경기 순환주',   color: TK.orange400 },
+  turnaround:  { label: '회생 기업주',   color: TK.red400 },
+  asset_play:  { label: '자산 보유주',   color: TK.purple400 },
+  na:          { label: 'N/A',           color: TK.sub6 },
 }
-const MKT_COLOR: Record<Market, string> = { US:'#34d399', KR:'#60a5fa', CRYPTO:'#fb923c' }
+const MKT_COLOR: Record<Market, string> = { US:TK.emerald400, KR:TK.blue400, CRYPTO:TK.orange400 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const toKrw = (inv: Investment, price?: number) => {
@@ -140,7 +141,7 @@ const fmtPct = (n: number|null|undefined) => {
 
 // ─── Treemap custom content ───────────────────────────────────────────────────
 const getHeatmapColor = (r: number) =>
-  r >= 10 ? '#dc2626' : r >= 0 ? '#ef4444' : r >= -10 ? '#3b82f6' : '#1d4ed8'
+  r >= 10 ? TK.red600 : r >= 0 ? TK.red500 : r >= -10 ? TK.blue500 : TK.blue700
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomTreemapContent = (props: any) => {
@@ -194,7 +195,7 @@ const CustomTreemapContent = (props: any) => {
       <rect
         x={x + 1} y={y + 1}
         width={width - 2} height={height - 2}
-        fill={bgColor} stroke="#0f1117" strokeWidth={2}
+        fill={bgColor} stroke={TK.bg3} strokeWidth={2}
         style={{ cursor: 'pointer' }}
       />
 
@@ -262,12 +263,12 @@ const CustomTreemapContent = (props: any) => {
 // ─── Mini sparkline for table ─────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const MiniChart = ({ data }: { data: PricePoint[] }) => {
-  if (!data?.length) return <span style={{ color:'#7a8fa3', fontSize:11 }}>—</span>
+  if (!data?.length) return <span style={{ color:TK.sub6, fontSize:11 }}>—</span>
   const dir = data[data.length-1].v > data[0].v
   return (
     <ResponsiveContainer width={60} height={24}>
       <LineChart data={data}>
-        <Line type="monotone" dataKey="v" stroke={dir?'#ef4444':'#3b82f6'} strokeWidth={1.5} dot={false} isAnimationActive={false}/>
+        <Line type="monotone" dataKey="v" stroke={dir?TK.red500:TK.blue500} strokeWidth={1.5} dot={false} isAnimationActive={false}/>
         <YAxis domain={['auto','auto']} hide/>
       </LineChart>
     </ResponsiveContainer>
@@ -279,8 +280,8 @@ const MiniChart = ({ data }: { data: PricePoint[] }) => {
 const DarkTip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
-    <div style={{ background:'#1a1d27', border:'1px solid #2a2d3a', borderRadius:8, padding:'8px 12px', fontSize:12, color:'#f1f5f9' }}>
-      {label && <div style={{ color:'#8a96a8', marginBottom:4, fontSize:11 }}>{label}</div>}
+    <div style={{ background:TK.bg7, border:`1px solid ${TK.line1}`, borderRadius:8, padding:'8px 12px', fontSize:12, color:TK.slate100 }}>
+      {label && <div style={{ color:TK.sub7, marginBottom:4, fontSize:11 }}>{label}</div>}
       {payload.map((p: { name: string; value: number; color: string }, i: number) => (
         <div key={i} style={{ color: p.color }}>{p.name}: {typeof p.value === 'number' ? fmtKrw(p.value) : p.value}</div>
       ))}
@@ -290,14 +291,14 @@ const DarkTip = ({ active, payload, label }: any) => {
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
 const Empty = ({ msg = '종목을 추가하면 차트가 표시됩니다' }) => (
-  <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100%', color:'#7a8fa3', fontSize:13, minHeight:100 }}>
+  <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100%', color:TK.sub6, fontSize:13, minHeight:100 }}>
     {msg}
   </div>
 )
 
 // ─── Card wrapper ─────────────────────────────────────────────────────────────
 const Card = ({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) => (
-  <div style={{ background:'#1a1d27', border:'0.5px solid #2a2d3a', borderRadius:12, ...style }}>
+  <div style={{ background:TK.bg7, border:`0.5px solid ${TK.line1}`, borderRadius:12, ...style }}>
     {children}
   </div>
 )
@@ -307,7 +308,7 @@ const Card = ({ children, style = {} }: { children: React.ReactNode; style?: Rea
 
 // (백테스트 하드코딩 데이터 제거 — 내 실보유 종목 실데이터는 PortfolioTimeMachine/api/portfolio-backtest로 이관, 제1원칙)
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
-  <div style={{ fontSize:12, fontWeight:700, color:'#a8b5c2', padding:'14px 18px 0', letterSpacing:'0.04em', textTransform:'uppercase' as const }}>
+  <div style={{ fontSize:12, fontWeight:700, color:TK.sub9, padding:'14px 18px 0', letterSpacing:'0.04em', textTransform:'uppercase' as const }}>
     {children}
   </div>
 )
@@ -356,8 +357,8 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore }: RebalanceWidgetPr
   const displaySat  = simulated ? targetSat  : satPct
 
   // 바 색상
-  const CORE_CLR = '#38bdf8'
-  const SAT_CLR  = '#fb923c'
+  const CORE_CLR = TK.sky400
+  const SAT_CLR  = TK.orange400
   const WARN_CLR = '#f97316'
 
   return (
@@ -381,7 +382,7 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore }: RebalanceWidgetPr
           <div style={{ fontSize: 13, fontWeight: 800, color: WARN_CLR, marginBottom: 2 }}>
             리밸런싱 필요 — {coreIsOver ? 'Core 과잉' : 'Satellite 과잉'} ({absGap.toFixed(1)}%p 편차)
           </div>
-          <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.4 }}>
+          <div style={{ fontSize: 11, color: TK.slate400, lineHeight: 1.4 }}>
             목표 {targetCore}/{targetSat} vs 현재 {Math.round(corePct)}/{Math.round(satPct)} —&nbsp;
             {coreIsOver
               ? `Satellite 자산이 ${absGap.toFixed(1)}%p 소외됨`
@@ -433,15 +434,15 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore }: RebalanceWidgetPr
 
           {/* ── 좌측: 비중 비교 바 그래프 ────────────────────────── */}
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#7f93a8', textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: TK.sub2, textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: 14 }}>
               비중 비교
             </div>
 
             {/* 목표 비중 바 */}
             <div style={{ marginBottom: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <span style={{ fontSize: 11, color: '#7f93a8', fontWeight: 600 }}>목표 비중</span>
-                <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                <span style={{ fontSize: 11, color: TK.sub2, fontWeight: 600 }}>목표 비중</span>
+                <span style={{ fontSize: 11, color: TK.slate400 }}>
                   Core {targetCore}% / Sat {targetSat}%
                 </span>
               </div>
@@ -469,10 +470,10 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore }: RebalanceWidgetPr
             {/* 현재 비중 바 (시뮬레이션 시 애니메이션) */}
             <div style={{ marginBottom: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <span style={{ fontSize: 11, color: '#7f93a8', fontWeight: 600 }}>
-                  현재 비중 {simulated && <span style={{ color: '#4ade80', marginLeft: 4 }}>→ 조정 완료 ✓</span>}
+                <span style={{ fontSize: 11, color: TK.sub2, fontWeight: 600 }}>
+                  현재 비중 {simulated && <span style={{ color: TK.green400, marginLeft: 4 }}>→ 조정 완료 ✓</span>}
                 </span>
-                <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                <span style={{ fontSize: 11, color: TK.slate400 }}>
                   Core {Math.round(displayCore)}% / Sat {Math.round(displaySat)}%
                 </span>
               </div>
@@ -511,10 +512,10 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore }: RebalanceWidgetPr
               }}>
                 <span style={{ fontSize: 18 }}>{coreIsOver ? '📊' : '📉'}</span>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: '#f87171' }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: TK.red400 }}>
                     {coreIsOver ? `Core +${absGap.toFixed(1)}%p 쏠림` : `Satellite +${absGap.toFixed(1)}%p 쏠림`}
                   </div>
-                  <div style={{ fontSize: 10, color: '#7f93a8', marginTop: 1 }}>
+                  <div style={{ fontSize: 10, color: TK.sub2, marginTop: 1 }}>
                     목표 대비 {absGap.toFixed(1)}%p 이탈
                   </div>
                 </div>
@@ -531,7 +532,7 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore }: RebalanceWidgetPr
                 border:     '1px solid rgba(74,222,128,0.2)',
               }}>
                 <span style={{ fontSize: 18 }}>✅</span>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#4ade80' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: TK.green400 }}>
                   목표 비중 달성 시뮬레이션 완료
                 </div>
               </div>
@@ -540,7 +541,7 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore }: RebalanceWidgetPr
 
           {/* ── 우측: 매매 처방전 ─────────────────────────────────── */}
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#7f93a8', textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: TK.sub2, textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: 14 }}>
               매매 처방전
             </div>
 
@@ -558,7 +559,7 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore }: RebalanceWidgetPr
                   : '📌 과잉 Satellite 일부 수익 확정 권장'}
               </div>
               {/* 처방 내용 */}
-              <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.7 }}>
+              <div style={{ fontSize: 12, color: TK.slate400, lineHeight: 1.7 }}>
                 {coreIsOver ? (
                   <>
                     비대해진 <span style={{ color: CORE_CLR, fontWeight: 700 }}>Core(채권·ETF)</span> 자산을 일부 매도(수익 확정)하고,
@@ -581,18 +582,18 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore }: RebalanceWidgetPr
               padding:      '10px 14px',
               borderRadius: 8,
               background:   '#1e2330',
-              border:       '1px solid #2a2d3a',
+              border:       `1px solid ${TK.line1}`,
               marginBottom: 14,
             }}>
               <div>
-                <div style={{ fontSize: 10, color: '#8a96a8', textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: 3 }}>
+                <div style={{ fontSize: 10, color: TK.sub7, textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: 3 }}>
                   가상 이동 필요 금액
                 </div>
-                <div style={{ fontSize: 22, fontWeight: 900, color: '#f1f5f9', fontVariantNumeric: 'tabular-nums' }}>
+                <div style={{ fontSize: 22, fontWeight: 900, color: TK.slate100, fontVariantNumeric: 'tabular-nums' }}>
                   {fmtKrw(adjustKrw)}
                 </div>
               </div>
-              <div style={{ textAlign: 'right', fontSize: 10, color: '#7a8fa3', lineHeight: 1.6 }}>
+              <div style={{ textAlign: 'right', fontSize: 10, color: TK.sub6, lineHeight: 1.6 }}>
                 <div>{coreIsOver ? 'Core → Satellite' : 'Satellite → Core'}</div>
                 <div>전체 자산의 {absGap.toFixed(1)}%</div>
               </div>
@@ -632,7 +633,7 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore }: RebalanceWidgetPr
                   border:       '1px solid rgba(74,222,128,0.3)',
                   cursor:       'pointer',
                   background:   'rgba(74,222,128,0.08)',
-                  color:        '#4ade80',
+                  color:        TK.green400,
                   fontSize:     13,
                   fontWeight:   700,
                   transition:   'all 0.2s',
@@ -641,7 +642,7 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore }: RebalanceWidgetPr
                 🔄 초기 상태로 되돌리기
               </button>
             )}
-            <div style={{ fontSize: 10, color: '#7a8fa3', textAlign: 'center', marginTop: 6 }}>
+            <div style={{ fontSize: 10, color: TK.sub6, textAlign: 'center', marginTop: 6 }}>
               * 가상 시뮬레이션 — 실제 매매와 무관합니다
             </div>
           </div>
@@ -1056,7 +1057,7 @@ export default function DashboardPage() {
     return { maxIdx, minIdx }
   }, [activeData, activeKey])
 
-  const NEON   = '#deff9a'
+  const NEON   = TK.neonLime
   const trendGradId = 'trendGradNeon'
 
   // ── Market donut data ──────────────────────────────────────────
@@ -1069,7 +1070,7 @@ export default function DashboardPage() {
     const counts: Record<string,number> = {}
     investments.forEach(i => { const k = i.lynch_category ?? 'na'; counts[k] = (counts[k]??0)+1 })
     return Object.entries(counts).map(([k,v]) => ({
-      name: LYNCH_META[k]?.label ?? k, value: v, color: LYNCH_META[k]?.color ?? '#7a8fa3'
+      name: LYNCH_META[k]?.label ?? k, value: v, color: LYNCH_META[k]?.color ?? TK.sub6
     }))
   }, [investments])
 
@@ -1293,14 +1294,14 @@ export default function DashboardPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [investments, pricedInvs, priceMap, totalRet])
 
-  const alertBorder: Record<string, string> = { success:'#16a34a', warning:'#dc2626', info:'#2563eb' }
+  const alertBorder: Record<string, string> = { success:'#16a34a', warning:TK.red600, info:TK.blue600 }
   const alertBg:     Record<string, string> = { success:'rgba(22,163,74,0.08)', warning:'rgba(220,38,38,0.08)', info:'rgba(37,99,235,0.08)' }
   const alertIcon:   Record<string, string> = { success:'✅', warning:'⚠️', info:'ℹ️' }
 
   if (loading) return (
     <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
       {[90, 300, 260, 300].map((h,i) => (
-        <div key={i} style={{ height:h, background:'#1a1d27', borderRadius:12, animation:'pulse 1.5s infinite' }}/>
+        <div key={i} style={{ height:h, background:TK.bg7, borderRadius:12, animation:'pulse 1.5s infinite' }}/>
       ))}
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}`}</style>
     </div>
@@ -1419,14 +1420,14 @@ export default function DashboardPage() {
           g.items.some(it => it.key === dashTab)
         )?.id ?? null
 
-        const GOLD   = '#f59e0b'
-        const BORDER = '#1e293b'
+        const GOLD   = TK.amber500
+        const BORDER = TK.border
 
         return (
           <div
             style={{ position: 'relative', display: 'flex', gap: 4,
-              background: '#0a0e1a', padding: '4px 6px',
-              borderRadius: 12, border: '1px solid #1e293b',
+              background: TK.bg0, padding: '4px 6px',
+              borderRadius: 12, border: `1px solid ${TK.border}`,
               alignSelf: 'flex-start', zIndex: 50,
             }}
             // 바깥 클릭 시 드롭다운 닫기
@@ -1447,14 +1448,14 @@ export default function DashboardPage() {
                       display: 'flex', alignItems: 'center', gap: 6,
                       padding: '8px 14px', borderRadius: 8, border: 'none',
                       cursor: 'pointer', transition: 'all 0.15s',
-                      background: isOpen || isActive ? '#1e293b' : 'transparent',
+                      background: isOpen || isActive ? TK.border : 'transparent',
                       position: 'relative',
                     }}
                   >
                     <span style={{ fontSize: 14 }}>{group.icon}</span>
                     <span style={{
                       fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap',
-                      color: isActive ? GOLD : isOpen ? '#f1f5f9' : '#7f93a8',
+                      color: isActive ? GOLD : isOpen ? TK.slate100 : TK.sub2,
                       transition: 'color 0.15s',
                     }}>
                       {group.label}
@@ -1462,7 +1463,7 @@ export default function DashboardPage() {
                     {/* 드롭다운 화살표 */}
                     <svg
                       width="10" height="10" viewBox="0 0 24 24" fill="none"
-                      stroke={isActive ? GOLD : '#8599ae'} strokeWidth="2.5"
+                      stroke={isActive ? GOLD : TK.sub3} strokeWidth="2.5"
                       strokeLinecap="round" strokeLinejoin="round"
                       style={{ transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
                     >
@@ -1483,7 +1484,7 @@ export default function DashboardPage() {
                   <div style={{
                     position: 'absolute', top: 'calc(100% + 6px)', left: 0,
                     minWidth: 220,
-                    background: '#0f1117',
+                    background: TK.bg3,
                     border: `1px solid ${BORDER}`,
                     borderRadius: 10,
                     boxShadow: '0 12px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)',
@@ -1500,7 +1501,7 @@ export default function DashboardPage() {
                       padding: '8px 14px 6px',
                       borderBottom: `1px solid ${BORDER}`,
                       fontSize: 9, fontWeight: 800, letterSpacing: '0.1em',
-                      color: '#7a8fa3', textTransform: 'uppercase' as const,
+                      color: TK.sub6, textTransform: 'uppercase' as const,
                     }}>
                       {group.icon} {group.label}
                     </div>
@@ -1518,14 +1519,14 @@ export default function DashboardPage() {
                             alignItems: 'flex-start', gap: 1,
                             width: '100%', padding: '9px 14px',
                             border: 'none', cursor: 'pointer',
-                            borderTop: idx > 0 ? `1px solid #111827` : 'none',
+                            borderTop: idx > 0 ? `1px solid ${TK.gray900}` : 'none',
                             background: isItemActive
                               ? 'rgba(245,158,11,0.08)'
                               : 'transparent',
                             transition: 'background 0.12s',
                           }}
                           onMouseEnter={e => {
-                            if (!isItemActive) (e.currentTarget as HTMLButtonElement).style.background = '#1e293b'
+                            if (!isItemActive) (e.currentTarget as HTMLButtonElement).style.background = TK.border
                           }}
                           onMouseLeave={e => {
                             if (!isItemActive) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
@@ -1535,7 +1536,7 @@ export default function DashboardPage() {
                             <span style={{ fontSize: 13 }}>{item.icon}</span>
                             <span style={{
                               fontSize: 12, fontWeight: 700,
-                              color: isItemActive ? GOLD : '#cbd5e1',
+                              color: isItemActive ? GOLD : TK.slate300,
                             }}>
                               {item.label}
                             </span>
@@ -1549,7 +1550,7 @@ export default function DashboardPage() {
                               </span>
                             )}
                           </div>
-                          <span style={{ fontSize: 10, color: '#7a8fa3', marginLeft: 20 }}>
+                          <span style={{ fontSize: 10, color: TK.sub6, marginLeft: 20 }}>
                             {item.desc}
                           </span>
                         </button>
@@ -1602,7 +1603,7 @@ export default function DashboardPage() {
             zIndex:1001,
             width: 'min(400px, 90vw)',
             maxHeight:'80vh',
-            background:'#0f1117',
+            background:TK.bg3,
             border:'1px solid #1e2a40',
             borderRadius:16,
             boxShadow:'0 24px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(52,211,153,0.1)',
@@ -1618,7 +1619,7 @@ export default function DashboardPage() {
               flexShrink:0,
             }}>
               <div>
-                <div style={{ fontSize:11, fontWeight:700, color:'#34d399', letterSpacing:'0.12em', textTransform:'uppercase' as const }}>
+                <div style={{ fontSize:11, fontWeight:700, color:TK.emerald400, letterSpacing:'0.12em', textTransform:'uppercase' as const }}>
                   💰 종목별 배당금 상세
                 </div>
                 <div style={{ fontSize:10, color:'#374168', marginTop:3 }}>
@@ -1630,7 +1631,7 @@ export default function DashboardPage() {
                 style={{
                   width:28, height:28, borderRadius:8,
                   background:'#1a2235', border:'1px solid #252f47',
-                  color:'#8a9aaa', cursor:'pointer', fontSize:14,
+                  color:TK.sub, cursor:'pointer', fontSize:14,
                   display:'flex', alignItems:'center', justifyContent:'center',
                   flexShrink:0,
                 }}
@@ -1664,7 +1665,7 @@ export default function DashboardPage() {
                   <div key={d.id} style={{
                     display:'flex', alignItems:'center', justifyContent:'space-between',
                     padding:'11px 20px',
-                    borderBottom: i < arr.length - 1 ? '1px solid #111827' : 'none',
+                    borderBottom: i < arr.length - 1 ? `1px solid ${TK.gray900}` : 'none',
                     transition:'background 0.1s',
                   }}
                     onMouseEnter={e=>(e.currentTarget.style.background='rgba(255,255,255,0.03)')}
@@ -1672,10 +1673,10 @@ export default function DashboardPage() {
                   >
                     <div style={{ display:'flex', alignItems:'center', gap:10, minWidth:0 }}>
                       {/* 색상 dot */}
-                      <div style={{ width:7, height:7, borderRadius:'50%', background:'#34d399', flexShrink:0, boxShadow:'0 0 6px rgba(52,211,153,0.5)' }}/>
+                      <div style={{ width:7, height:7, borderRadius:'50%', background:TK.emerald400, flexShrink:0, boxShadow:'0 0 6px rgba(52,211,153,0.5)' }}/>
                       <div style={{ minWidth:0 }}>
                         <div style={{
-                          fontSize:13, fontWeight:600, color:'#dde4f0',
+                          fontSize:13, fontWeight:600, color:TK.sub12,
                           overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' as const,
                           maxWidth:200,
                         }}>
@@ -1687,7 +1688,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div style={{ textAlign:'right' as const, flexShrink:0, marginLeft:12 }}>
-                      <div style={{ fontSize:14, fontWeight:800, color:'#34d399', fontVariantNumeric:'tabular-nums' }}>
+                      <div style={{ fontSize:14, fontWeight:800, color:TK.emerald400, fontVariantNumeric:'tabular-nums' }}>
                         {fmtKrw(Math.round(d.monthlyAmt))}
                       </div>
                       <div style={{ fontSize:10, color:'#374168', marginTop:2 }}>/ 월</div>
@@ -1706,7 +1707,7 @@ export default function DashboardPage() {
               flexShrink:0,
             }}>
               <div>
-                <div style={{ fontSize:9, color:'#9aa0b8', fontWeight:700, letterSpacing:'0.1em' }}>TOTAL / 월</div>
+                <div style={{ fontSize:9, color:TK.sub4, fontWeight:700, letterSpacing:'0.1em' }}>TOTAL / 월</div>
                 <div style={{ fontSize:10, color:'#374168', marginTop:2 }}>
                   연 {fmtKrw(Math.round(
                     investments.reduce((sum, inv) => {
@@ -1725,7 +1726,7 @@ export default function DashboardPage() {
                   ))} 예상
                 </div>
               </div>
-              <div style={{ fontSize:22, fontWeight:900, color:'#34d399', fontVariantNumeric:'tabular-nums', letterSpacing:'-0.5px' }}>
+              <div style={{ fontSize:22, fontWeight:900, color:TK.emerald400, fontVariantNumeric:'tabular-nums', letterSpacing:'-0.5px' }}>
                 {fmtKrw(Math.round(
                   investments.reduce((sum, inv) => {
                     const key  = inv.ticker.toUpperCase()
@@ -1826,47 +1827,47 @@ export default function DashboardPage() {
         const dividendStockCount = dividendDetails.length
 
         // ── 9 카드 정의 ──────────────────────────────────────────
-        const N   = '#1b1e2e'
-        const SHO = '7px 7px 18px #0e1020, -4px -4px 12px #282c44'
+        const N   = TK.bg8
+        const SHO = `7px 7px 18px ${TK.bg2}, -4px -4px 12px ${TK.line2}`
 
         const cards = [
           {
-            label: '총 자산 가치', accent: '#e2e8f0',
+            label: '총 자산 가치', accent: TK.slate200,
             main:  pricedInvs.length ? fmtKrw(totalCurrKrw) : fmtKrw(totalCostKrw),
             sub:   pricedInvs.length ? '현재가 기준' : '매수가 기준',
           },
           {
-            label: '평가 손익', accent: (totalRet??0) >= 0 ? '#f87171' : '#60a5fa',
+            label: '평가 손익', accent: (totalRet??0) >= 0 ? TK.red400 : TK.blue400,
             main:  totalPnL !== 0 ? fmtKrw(totalPnL) : '—',
             sub:   totalRet != null ? `${(totalRet??0) >= 0 ? '+' : ''}${(totalRet??0).toFixed(2)}%` : undefined,
           },
           {
-            label: '수익률', accent: (totalRet??0) >= 0 ? '#f87171' : '#60a5fa',
+            label: '수익률', accent: (totalRet??0) >= 0 ? TK.red400 : TK.blue400,
             main:  totalRet != null ? `${(totalRet??0) >= 0 ? '+' : ''}${(totalRet??0).toFixed(2)}%` : '—',
             sub:   totalPnL !== 0 ? fmtKrw(totalPnL) : undefined,
           },
           {
-            label: '보유 종목', accent: '#60a5fa',
+            label: '보유 종목', accent: TK.blue400,
             main:  `${investments.length}개`,
             sub:   pricedInvs.length ? `수익 ${winCount} · 손실 ${lossCount}` : undefined,
           },
           {
-            label: 'USD/KRW', accent: '#34d399',
+            label: 'USD/KRW', accent: TK.emerald400,
             main:  `₩${Math.round(usdKrw).toLocaleString('ko-KR')}`,
             sub:   rateSource,
           },
           {
-            label: '코인 비중', accent: '#fb923c',
+            label: '코인 비중', accent: TK.orange400,
             main:  pricedInvs.length ? `${cryptoPct.toFixed(1)}%` : '—',
             sub:   cryptoVal > 0 ? fmtKrw(cryptoVal) : '코인 없음',
           },
           {
-            label: '최고 수익', accent: '#f87171',
+            label: '최고 수익', accent: TK.red400,
             main:  best ? `+${best.ret.toFixed(1)}%` : '—',
             sub:   best ? shorten(best.inv.name) : undefined,
           },
           {
-            label: '최저 수익', accent: '#60a5fa',
+            label: '최저 수익', accent: TK.blue400,
             main:  worst ? `${worst.ret.toFixed(1)}%` : '—',
             sub:   worst ? shorten(worst.inv.name) : undefined,
           },
@@ -1882,7 +1883,7 @@ export default function DashboardPage() {
               : monthlyDividend > 0
                 ? `배당 종목 ${dividendStockCount}개 · 연 ${fmtKrw(Math.round(monthlyDividend * 12))}`
                 : '배당 종목 없음',
-            accent: '#34d399',
+            accent: TK.emerald400,
           },
         ]
 
@@ -1897,13 +1898,13 @@ export default function DashboardPage() {
                   borderLeft: `3px solid ${accent}`,
                   position: 'relative' as const,
                 }}>
-                  <div style={{ fontSize:8, fontWeight:700, color:'#9aa0b8', textTransform:'uppercase' as const, letterSpacing:'0.1em', marginBottom:6 }}>
+                  <div style={{ fontSize:8, fontWeight:700, color:TK.sub4, textTransform:'uppercase' as const, letterSpacing:'0.1em', marginBottom:6 }}>
                     {label}
                   </div>
                   <div style={{ fontSize:20, fontWeight:800, color:accent, fontVariantNumeric:'tabular-nums', letterSpacing:'-0.4px', lineHeight:1.1 }}>
                     {main}
                   </div>
-                  {sub && <div style={{ fontSize:10, color:'#9aa0b8', marginTop:4 }}>{sub}</div>}
+                  {sub && <div style={{ fontSize:10, color:TK.sub4, marginTop:4 }}>{sub}</div>}
 
                   {/* 배당 카드 전용: 상세보기 버튼 */}
                   {isDivCard && !dividendLoading && monthlyDividend > 0 && (
@@ -1912,8 +1913,8 @@ export default function DashboardPage() {
                       style={{
                         marginTop:7, padding:'3px 10px',
                         background:'transparent',
-                        border:`1px solid ${showDivDetail ? '#34d399' : '#4a5c7a'}`,
-                        borderRadius:5, color: showDivDetail ? '#34d399' : '#8a94b0',
+                        border:`1px solid ${showDivDetail ? TK.emerald400 : '#4a5c7a'}`,
+                        borderRadius:5, color: showDivDetail ? TK.emerald400 : '#8a94b0',
                         fontSize:9, fontWeight:600, cursor:'pointer',
                         letterSpacing:'0.04em', transition:'all 0.15s',
                       }}
@@ -1955,9 +1956,9 @@ export default function DashboardPage() {
 
         /* ── 뉴모피즘 v2 토큰 ─────────────────────────────────────
            핵심: 섹션·카드 동일 배경색 → 그림자만으로 깊이 표현     */
-        const N   = '#1b1e2e'   // 공통 배경 (섹션 = 카드 = 패널)
-        const SHO = '7px 7px 18px #0e1020, -4px -4px 12px #282c44'   // 볼록(raised)
-        const SHI = 'inset 4px 4px 10px #0e1020, inset -3px -3px 8px #282c44'  // 오목(inset)
+        const N   = TK.bg8   // 공통 배경 (섹션 = 카드 = 패널)
+        const SHO = `7px 7px 18px ${TK.bg2}, -4px -4px 12px ${TK.line2}`   // 볼록(raised)
+        const SHI = `inset 4px 4px 10px ${TK.bg2}, inset -3px -3px 8px ${TK.line2}`  // 오목(inset)
 
         return (
           <div style={{
@@ -1972,8 +1973,8 @@ export default function DashboardPage() {
 
               {/* 섹션 레이블 */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 3, height: 12, borderRadius: 2, background: 'linear-gradient(180deg,#6366f1,#3b82f6)' }}/>
-                <span style={{ fontSize: 9, fontWeight: 800, color: '#9aa0b8', letterSpacing: '0.14em', textTransform: 'uppercase' as const }}>
+                <div style={{ width: 3, height: 12, borderRadius: 2, background: `linear-gradient(180deg,#6366f1,${TK.blue500})` }}/>
+                <span style={{ fontSize: 9, fontWeight: 800, color: TK.sub4, letterSpacing: '0.14em', textTransform: 'uppercase' as const }}>
                   Global Market Indices
                 </span>
               </div>
@@ -1985,8 +1986,8 @@ export default function DashboardPage() {
                     ))
                   : indices.map(idx => {
                       const up       = idx.isUp
-                      const C        = up ? '#ef4444' : '#3b82f6'
-                      const Cs       = up ? '#f87171' : '#60a5fa'
+                      const C        = up ? TK.red500 : TK.blue500
+                      const Cs       = up ? TK.red400 : TK.blue400
                       // ← 방어 코드: chartData/open/high/low 없어도 크래시 없음
                       const chart    = Array.isArray(idx.chartData) ? idx.chartData : []
                       const hasChart = chart.length > 1
@@ -2013,7 +2014,7 @@ export default function DashboardPage() {
                           {/* ① 헤더 */}
                           <div style={{ padding: '11px 13px 9px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-                              <span style={{ fontSize: 9, fontWeight: 700, color: '#9aa0b8', letterSpacing: '0.07em', textTransform: 'uppercase' as const }}>
+                              <span style={{ fontSize: 9, fontWeight: 700, color: TK.sub4, letterSpacing: '0.07em', textTransform: 'uppercase' as const }}>
                                 {idx.name}
                               </span>
                               <span style={{
@@ -2028,7 +2029,7 @@ export default function DashboardPage() {
 
                             {/* 지수값 */}
                             <div style={{
-                              fontSize: 22, fontWeight: 800, color: '#dde4f0',
+                              fontSize: 22, fontWeight: 800, color: TK.sub12,
                               fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.5px', lineHeight: 1.1,
                               marginBottom: 4,
                             }}>
@@ -2039,10 +2040,10 @@ export default function DashboardPage() {
                             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                               <span style={{ fontSize: 11, fontWeight: 700, color: Cs, fontVariantNumeric: 'tabular-nums' }}>
                                 {up ? '+' : ''}{fmtIdx(idx.change, idx.currency)}
-                                <span style={{ fontSize: 8, color: '#7a8599', marginLeft: 3, fontWeight: 400 }}>{idx.currency}</span>
+                                <span style={{ fontSize: 8, color: TK.sub10, marginLeft: 3, fontWeight: 400 }}>{idx.currency}</span>
                               </span>
                               <span style={{ width: 1, height: 9, background: '#8088a8', flexShrink: 0 }}/>
-                              <span style={{ fontSize: 9, color: '#7a8599' }}>
+                              <span style={{ fontSize: 9, color: TK.sub10 }}>
                                 시가 <span style={{ color: '#525678' }}>{fmtIdx(idxOpen, idx.currency)}</span>
                               </span>
                             </div>
@@ -2078,9 +2079,9 @@ export default function DashboardPage() {
                               {([['시가', idxOpen], ['고가', idxHigh], ['저가', idxLow]] as [string, number][]).map(([lbl, val], i) => (
                                 <div key={lbl} style={{
                                   flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-                                  borderLeft: i > 0 ? '1px solid #4a5070' : 'none',
+                                  borderLeft: i > 0 ? `1px solid ${TK.line4}` : 'none',
                                 }}>
-                                  <span style={{ fontSize: 8, color: '#7a8599', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>{lbl}</span>
+                                  <span style={{ fontSize: 8, color: TK.sub10, textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>{lbl}</span>
                                   <span style={{ fontSize: 12, fontWeight: 700, color: '#5a5f7a', fontVariantNumeric: 'tabular-nums' }}>
                                     {fmtIdx(val, idx.currency)}
                                   </span>
@@ -2090,11 +2091,11 @@ export default function DashboardPage() {
                           )}
 
                           {/* ③ Day Range 푸터 */}
-                          <div style={{ padding: '7px 13px 11px', borderTop: '1px solid #1e2140' }}>
+                          <div style={{ padding: '7px 13px 11px', borderTop: `1px solid ${TK.bg9}` }}>
                             {hasRange ? (
                               <>
                                 {/* 섹션 레이블 */}
-                                <div style={{ fontSize: 8, fontWeight: 700, color: '#7a8599', letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: 6 }}>
+                                <div style={{ fontSize: 8, fontWeight: 700, color: TK.sub10, letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: 6 }}>
                                   Day Range
                                 </div>
 
@@ -2102,8 +2103,8 @@ export default function DashboardPage() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                   {/* 저가 */}
                                   <div style={{ textAlign: 'right' as const, flexShrink: 0, minWidth: 0 }}>
-                                    <div style={{ fontSize: 7, color: '#3b82f6', fontWeight: 700, letterSpacing: '0.06em' }}>저가</div>
-                                    <div style={{ fontSize: 9, color: '#60a5fa', fontVariantNumeric: 'tabular-nums', fontWeight: 600, whiteSpace: 'nowrap' as const }}>
+                                    <div style={{ fontSize: 7, color: TK.blue500, fontWeight: 700, letterSpacing: '0.06em' }}>저가</div>
+                                    <div style={{ fontSize: 9, color: TK.blue400, fontVariantNumeric: 'tabular-nums', fontWeight: 600, whiteSpace: 'nowrap' as const }}>
                                       {fmtIdx(idxLow, idx.currency)}
                                     </div>
                                   </div>
@@ -2113,7 +2114,7 @@ export default function DashboardPage() {
                                     {/* 트랙 배경 */}
                                     <div style={{
                                       height: 6, borderRadius: 3,
-                                      background: '#0a0e1a',
+                                      background: TK.bg0,
                                       boxShadow: SHI,
                                       position: 'relative', overflow: 'visible',
                                     }}>
@@ -2153,8 +2154,8 @@ export default function DashboardPage() {
 
                                   {/* 고가 */}
                                   <div style={{ textAlign: 'left' as const, flexShrink: 0, minWidth: 0 }}>
-                                    <div style={{ fontSize: 7, color: '#ef4444', fontWeight: 700, letterSpacing: '0.06em' }}>고가</div>
-                                    <div style={{ fontSize: 9, color: '#f87171', fontVariantNumeric: 'tabular-nums', fontWeight: 600, whiteSpace: 'nowrap' as const }}>
+                                    <div style={{ fontSize: 7, color: TK.red500, fontWeight: 700, letterSpacing: '0.06em' }}>고가</div>
+                                    <div style={{ fontSize: 9, color: TK.red400, fontVariantNumeric: 'tabular-nums', fontWeight: 600, whiteSpace: 'nowrap' as const }}>
                                       {fmtIdx(idxHigh, idx.currency)}
                                     </div>
                                   </div>
@@ -2168,7 +2169,7 @@ export default function DashboardPage() {
                               <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                                 {([['시가', idxOpen], ['고가', idxHigh], ['저가', idxLow]] as [string,number][]).map(([lbl,val]) => (
                                   <div key={lbl}>
-                                    <div style={{ fontSize: 7, color: '#7a8599', textTransform: 'uppercase' as const, letterSpacing: '0.07em' }}>{lbl}</div>
+                                    <div style={{ fontSize: 7, color: TK.sub10, textTransform: 'uppercase' as const, letterSpacing: '0.07em' }}>{lbl}</div>
                                     <div style={{ fontSize: 9, color: '#525678', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{fmtIdx(val, idx.currency)}</div>
                                   </div>
                                 ))}
@@ -2187,8 +2188,8 @@ export default function DashboardPage() {
 
               {/* 섹션 레이블 */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 3, height: 12, borderRadius: 2, background: 'linear-gradient(180deg,#a855f7,#6366f1)' }}/>
-                <span style={{ fontSize: 9, fontWeight: 800, color: '#9aa0b8', letterSpacing: '0.14em', textTransform: 'uppercase' as const }}>
+                <div style={{ width: 3, height: 12, borderRadius: 2, background: `linear-gradient(180deg,${TK.purple500},#6366f1)` }}/>
+                <span style={{ fontSize: 9, fontWeight: 800, color: TK.sub4, letterSpacing: '0.14em', textTransform: 'uppercase' as const }}>
                   Today&apos;s Market
                 </span>
               </div>
@@ -2201,34 +2202,34 @@ export default function DashboardPage() {
 
                 {/* A. 지수 방향 */}
                 <div>
-                  <div style={{ fontSize: 8, fontWeight: 800, color: '#7a8599', letterSpacing: '0.12em', textTransform: 'uppercase' as const, marginBottom: 9 }}>
+                  <div style={{ fontSize: 8, fontWeight: 800, color: TK.sub10, letterSpacing: '0.12em', textTransform: 'uppercase' as const, marginBottom: 9 }}>
                     Market Direction
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 7 }}>
-                    <span style={{ fontSize: 22, fontWeight: 900, color: '#ef4444', letterSpacing: '-1px', lineHeight: 1 }}>{upCount}</span>
-                    <span style={{ fontSize: 11, color: '#7a8599', margin: '0 5px', fontWeight: 700 }}>/</span>
-                    <span style={{ fontSize: 22, fontWeight: 900, color: '#3b82f6', letterSpacing: '-1px', lineHeight: 1 }}>{downCount}</span>
-                    <span style={{ fontSize: 9, color: '#9aa0b8', marginLeft: 8, lineHeight: 1.3 }}>
+                    <span style={{ fontSize: 22, fontWeight: 900, color: TK.red500, letterSpacing: '-1px', lineHeight: 1 }}>{upCount}</span>
+                    <span style={{ fontSize: 11, color: TK.sub10, margin: '0 5px', fontWeight: 700 }}>/</span>
+                    <span style={{ fontSize: 22, fontWeight: 900, color: TK.blue500, letterSpacing: '-1px', lineHeight: 1 }}>{downCount}</span>
+                    <span style={{ fontSize: 9, color: TK.sub4, marginLeft: 8, lineHeight: 1.3 }}>
                       상승<br/>하락
                     </span>
                   </div>
                   {/* inset 프로그레스 바 */}
                   <div style={{
                     height: 7, borderRadius: 4,
-                    boxShadow: SHI, background: '#0a0e1a',
+                    boxShadow: SHI, background: TK.bg0,
                     overflow: 'hidden', position: 'relative',
                   }}>
-                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,#3b82f628,#3b82f640)' }}/>
+                    <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(90deg,${TK.blue500}28,${TK.blue500}40)` }}/>
                     <div style={{
                       position: 'absolute', left: 0, top: 0, bottom: 0,
                       width: indices.length > 0 ? `${(upCount / indices.length) * 100}%` : '0%',
-                      background: 'linear-gradient(90deg,#dc2626,#f87171)',
+                      background: `linear-gradient(90deg,${TK.red600},${TK.red400})`,
                       transition: 'width 1.4s cubic-bezier(.4,0,.2,1)',
                     }}/>
                   </div>
                   <div style={{
                     fontSize: 10, fontWeight: 700, marginTop: 7, textAlign: 'center' as const,
-                    color: allUp ? '#f87171' : majority ? '#f87171' : downCount > upCount ? '#60a5fa' : '#525678',
+                    color: allUp ? TK.red400 : majority ? TK.red400 : downCount > upCount ? TK.blue400 : '#525678',
                   }}>
                     {indices.length === 0 ? '—'
                       : allUp ? '📈 전 지수 상승'
@@ -2239,11 +2240,11 @@ export default function DashboardPage() {
                 </div>
 
                 {/* 구분선 */}
-                <div style={{ height: 1, boxShadow: 'inset 0 1px 2px #0e1020', background: '#0e1020' }}/>
+                <div style={{ height: 1, boxShadow: `inset 0 1px 2px ${TK.bg2}`, background: TK.bg2 }}/>
 
                 {/* B. 시장 현황 */}
                 <div>
-                  <div style={{ fontSize: 8, fontWeight: 800, color: '#7a8599', letterSpacing: '0.12em', textTransform: 'uppercase' as const, marginBottom: 9 }}>
+                  <div style={{ fontSize: 8, fontWeight: 800, color: TK.sub10, letterSpacing: '0.12em', textTransform: 'uppercase' as const, marginBottom: 9 }}>
                     Market Hours
                   </div>
                   {([
@@ -2256,21 +2257,21 @@ export default function DashboardPage() {
                       padding: '7px 10px', borderRadius: 10,
                       background: N,
                       boxShadow: m.isOpen
-                        ? '4px 4px 10px #0e1020, -2px -2px 7px #282c44, inset 0 0 0 1px #22c55e22'
+                        ? `4px 4px 10px ${TK.bg2}, -2px -2px 7px ${TK.line2}, inset 0 0 0 1px ${TK.green500}22`
                         : SHI,
                     }}>
                       <span style={{ fontSize: 14, lineHeight: 1, flexShrink: 0 }}>{m.flag}</span>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: m.isOpen ? '#86efac' : '#8a90b0', width: 30, letterSpacing: '0.04em' }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: m.isOpen ? TK.green300 : '#8a90b0', width: 30, letterSpacing: '0.04em' }}>
                         {m.name}
                       </span>
                       <div style={{
                         width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-                        background: m.isOpen ? '#22c55e' : '#4a5070',
-                        boxShadow: m.isOpen ? '0 0 8px #22c55e, 0 0 3px #4ade80' : 'none',
+                        background: m.isOpen ? TK.green500 : TK.line4,
+                        boxShadow: m.isOpen ? `0 0 8px ${TK.green500}, 0 0 3px ${TK.green400}` : 'none',
                       }}/>
                       <span style={{
                         fontSize: 9, fontWeight: 800, marginLeft: 'auto' as const,
-                        color: m.isOpen ? '#4ade80' : '#8088a8',
+                        color: m.isOpen ? TK.green400 : '#8088a8',
                         letterSpacing: '0.04em',
                       }}>
                         {m.isOpen ? 'OPEN' : 'CLOSED'}
@@ -2283,11 +2284,11 @@ export default function DashboardPage() {
                 </div>
 
                 {/* 구분선 */}
-                <div style={{ height: 1, boxShadow: 'inset 0 1px 2px #0e1020', background: '#0e1020' }}/>
+                <div style={{ height: 1, boxShadow: `inset 0 1px 2px ${TK.bg2}`, background: TK.bg2 }}/>
 
                 {/* C. 오늘 내 포트폴리오 */}
                 <div>
-                  <div style={{ fontSize: 8, fontWeight: 800, color: '#7a8599', letterSpacing: '0.12em', textTransform: 'uppercase' as const, marginBottom: 9 }}>
+                  <div style={{ fontSize: 8, fontWeight: 800, color: TK.sub10, letterSpacing: '0.12em', textTransform: 'uppercase' as const, marginBottom: 9 }}>
                     My Portfolio Today
                   </div>
                   <div style={{ borderRadius: 10, background: N, boxShadow: SHI, padding: '11px 12px' }}>
@@ -2296,21 +2297,21 @@ export default function DashboardPage() {
                         <div style={{
                           fontSize: 20, fontWeight: 900,
                           fontVariantNumeric: 'tabular-nums', lineHeight: 1.15,
-                          color: todayPnL.amount >= 0 ? '#f87171' : '#60a5fa',
+                          color: todayPnL.amount >= 0 ? TK.red400 : TK.blue400,
                           letterSpacing: '-0.4px',
                         }}>
                           {todayPnL.amount >= 0 ? '+' : ''}{fmtKrw(todayPnL.amount)}
                         </div>
                         <div style={{
                           fontSize: 11, fontVariantNumeric: 'tabular-nums', marginTop: 4,
-                          color: todayPnL.pct >= 0 ? '#f87171' : '#60a5fa', fontWeight: 600,
+                          color: todayPnL.pct >= 0 ? TK.red400 : TK.blue400, fontWeight: 600,
                         }}>
                           {todayPnL.pct >= 0 ? '+' : ''}{todayPnL.pct.toFixed(2)}%
-                          <span style={{ color: '#7a8599', marginLeft: 5, fontWeight: 400 }}>금일 등락</span>
+                          <span style={{ color: TK.sub10, marginLeft: 5, fontWeight: 400 }}>금일 등락</span>
                         </div>
                       </>
                     ) : (
-                      <div style={{ fontSize: 11, color: '#7a8599' }}>
+                      <div style={{ fontSize: 11, color: TK.sub10 }}>
                         {pricedInvs.length > 0 ? '보합' : '로딩 중…'}
                       </div>
                     )}
@@ -2341,8 +2342,8 @@ export default function DashboardPage() {
           )}
           {/* 히트맵 범례 */}
           <div style={{ display:'flex', gap:16, marginTop:10, flexWrap:'wrap' }}>
-            {[['#dc2626','+10% 이상'],['#ef4444','0~+10%'],['#7a8fa3','보합'],['#3b82f6','0~-10%'],['#1d4ed8','-10% 이하']].map(([c,l]) => (
-              <span key={l} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:'#8a9aaa' }}>
+            {[[TK.red600,'+10% 이상'],[TK.red500,'0~+10%'],[TK.sub6,'보합'],[TK.blue500,'0~-10%'],[TK.blue700,'-10% 이하']].map(([c,l]) => (
+              <span key={l} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:TK.sub }}>
                 <span style={{ width:10, height:10, borderRadius:2, background:c, display:'inline-block', flexShrink:0 }}/>
                 {l}
               </span>
@@ -2358,17 +2359,17 @@ export default function DashboardPage() {
         <Card>
           {/* 헤더: 타이틀 + 토글 */}
           <div style={{ padding:'14px 18px 0', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8 }}>
-            <div style={{ fontSize:11, fontWeight:700, color:'#8a9aaa', textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>
+            <div style={{ fontSize:11, fontWeight:700, color:TK.sub, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>
               자산 총액 변화 (최근 30일)
             </div>
             {/* 세그먼트 토글 */}
-            <div style={{ display:'flex', background:'#0a0e1a', borderRadius:8, padding:2, gap:2 }}>
+            <div style={{ display:'flex', background:TK.bg0, borderRadius:8, padding:2, gap:2 }}>
               {(['amount','pct'] as const).map(mode => (
                 <button key={mode} onClick={() => setTrendMode(mode)} style={{
                   padding:'4px 12px', borderRadius:6, border:'none', cursor:'pointer',
                   fontSize:10, fontWeight:700, letterSpacing:'0.04em',
                   background: trendMode === mode ? NEON : 'transparent',
-                  color:       trendMode === mode ? '#0a0a0a' : '#8a96a8',
+                  color:       trendMode === mode ? '#0a0a0a' : TK.sub7,
                   transition:'all 0.18s',
                 }}>
                   {mode === 'amount' ? '₩ 금액' : '% 수익률'}
@@ -2382,12 +2383,12 @@ export default function DashboardPage() {
             {totalRet != null && (
               <>
                 <div>
-                  <div style={{ fontSize:9, color:'#8a96a8', textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>30일 수익률</div>
-                  <div style={{ fontSize:15, fontWeight:800, color:(totalRet??0)>=0?'#ef4444':'#3b82f6', fontVariantNumeric:'tabular-nums' }}>{fmtPct(totalRet)}</div>
+                  <div style={{ fontSize:9, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>30일 수익률</div>
+                  <div style={{ fontSize:15, fontWeight:800, color:(totalRet??0)>=0?TK.red500:TK.blue500, fontVariantNumeric:'tabular-nums' }}>{fmtPct(totalRet)}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize:9, color:'#8a96a8', textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>평가 손익</div>
-                  <div style={{ fontSize:15, fontWeight:800, color:totalPnL>=0?'#ef4444':'#3b82f6', fontVariantNumeric:'tabular-nums' }}>{fmtKrw(totalPnL)}</div>
+                  <div style={{ fontSize:9, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>평가 손익</div>
+                  <div style={{ fontSize:15, fontWeight:800, color:totalPnL>=0?TK.red500:TK.blue500, fontVariantNumeric:'tabular-nums' }}>{fmtKrw(totalPnL)}</div>
                 </div>
                 {trendData.length >= 2 && (() => {
                   const { maxIdx, minIdx } = trendMinMaxIdx
@@ -2397,7 +2398,7 @@ export default function DashboardPage() {
                     <>
                       {maxVal != null && (
                         <div>
-                          <div style={{ fontSize:9, color:'#8a96a8', textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>30일 최고</div>
+                          <div style={{ fontSize:9, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>30일 최고</div>
                           <div style={{ fontSize:15, fontWeight:800, color:NEON, fontVariantNumeric:'tabular-nums' }}>
                             {trendMode==='amount' ? fmtKrw(maxVal) : `+${maxVal.toFixed(2)}%`}
                           </div>
@@ -2405,8 +2406,8 @@ export default function DashboardPage() {
                       )}
                       {minVal != null && (
                         <div>
-                          <div style={{ fontSize:9, color:'#8a96a8', textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>30일 최저</div>
-                          <div style={{ fontSize:15, fontWeight:800, color:'#8a9aaa', fontVariantNumeric:'tabular-nums' }}>
+                          <div style={{ fontSize:9, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>30일 최저</div>
+                          <div style={{ fontSize:15, fontWeight:800, color:TK.sub, fontVariantNumeric:'tabular-nums' }}>
                             {trendMode==='amount' ? fmtKrw(minVal) : `${minVal.toFixed(2)}%`}
                           </div>
                         </div>
@@ -2433,12 +2434,12 @@ export default function DashboardPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#1a1e30" vertical={false}/>
                   <XAxis
                     dataKey="date"
-                    tick={{ fill:'#7a8fa3', fontSize:9 }}
+                    tick={{ fill:TK.sub6, fontSize:9 }}
                     axisLine={false} tickLine={false}
                     interval="preserveStartEnd"
                   />
                   <YAxis
-                    tick={{ fill:'#7a8fa3', fontSize:9 }}
+                    tick={{ fill:TK.sub6, fontSize:9 }}
                     axisLine={false} tickLine={false}
                     width={48}
                     domain={[
@@ -2460,12 +2461,12 @@ export default function DashboardPage() {
                       const val = payload[0]?.value as number
                       return (
                         <div style={{
-                          background:'#0f1117', border:'1px solid #1e2a40',
+                          background:TK.bg3, border:'1px solid #1e2a40',
                           borderRadius:10, padding:'10px 14px',
                           boxShadow:'0 8px 32px rgba(0,0,0,0.6)',
                           minWidth:130,
                         }}>
-                          <div style={{ fontSize:10, color:'#8a96a8', marginBottom:6, fontWeight:600 }}>{label}</div>
+                          <div style={{ fontSize:10, color:TK.sub7, marginBottom:6, fontWeight:600 }}>{label}</div>
                           <div style={{ fontSize:14, fontWeight:800, color:NEON, fontVariantNumeric:'tabular-nums' }}>
                             {trendMode === 'pct'
                               ? `${val > 0 ? '+' : ''}${val.toFixed(2)}%`
@@ -2475,7 +2476,7 @@ export default function DashboardPage() {
                             }
                           </div>
                           {trendMode === 'pct' && (
-                            <div style={{ fontSize:10, color:'#7a8fa3', marginTop:3 }}>
+                            <div style={{ fontSize:10, color:TK.sub6, marginTop:3 }}>
                               {val >= 0 ? '▲' : '▼'} 기준일 대비
                             </div>
                           )}
@@ -2502,7 +2503,7 @@ export default function DashboardPage() {
                       if (index === maxIdx) {
                         return (
                           <g key={`max-${index}`}>
-                            <circle cx={cx} cy={cy} r={5} fill={NEON} stroke="#0f1117" strokeWidth={2}/>
+                            <circle cx={cx} cy={cy} r={5} fill={NEON} stroke={TK.bg3} strokeWidth={2}/>
                             <text x={cx} y={cy - 12} textAnchor="middle" fontSize={9} fontWeight={700} fill={NEON}>최고</text>
                           </g>
                         )
@@ -2510,14 +2511,14 @@ export default function DashboardPage() {
                       if (index === minIdx) {
                         return (
                           <g key={`min-${index}`}>
-                            <circle cx={cx} cy={cy} r={5} fill="#8a9aaa" stroke="#0f1117" strokeWidth={2}/>
-                            <text x={cx} y={cy + 18} textAnchor="middle" fontSize={9} fontWeight={700} fill="#8a9aaa">최저</text>
+                            <circle cx={cx} cy={cy} r={5} fill={TK.sub} stroke={TK.bg3} strokeWidth={2}/>
+                            <text x={cx} y={cy + 18} textAnchor="middle" fontSize={9} fontWeight={700} fill={TK.sub}>최저</text>
                           </g>
                         )
                       }
                       return <g key={`dot-${index}`}/>
                     }}
-                    activeDot={{ r:5, fill:NEON, stroke:'#0f1117', strokeWidth:2 }}
+                    activeDot={{ r:5, fill:NEON, stroke:TK.bg3, strokeWidth:2 }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -2529,7 +2530,7 @@ export default function DashboardPage() {
         <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
           {/* 시장별 */}
           <Card style={{ flex:1, padding:'14px 16px' }}>
-            <div style={{ fontSize:11, fontWeight:700, color:'#8a9aaa', marginBottom:10, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>시장별 비중</div>
+            <div style={{ fontSize:11, fontWeight:700, color:TK.sub, marginBottom:10, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>시장별 비중</div>
             {mktData.length === 0 ? <Empty/> : (
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                 <ResponsiveContainer width={90} height={90}>
@@ -2544,7 +2545,7 @@ export default function DashboardPage() {
                     <div key={d.name} style={{ display:'flex', alignItems:'center', gap:6 }}>
                       <span style={{ width:8,height:8,borderRadius:'50%',background:d.color,flexShrink:0 }}/>
                       <span style={{ fontSize:11, color:d.color, fontWeight:600 }}>{d.name}</span>
-                      <span style={{ fontSize:11, color:'#8a96a8', marginLeft:'auto' }}>{d.value}종</span>
+                      <span style={{ fontSize:11, color:TK.sub7, marginLeft:'auto' }}>{d.value}종</span>
                     </div>
                   ))}
                 </div>
@@ -2554,9 +2555,9 @@ export default function DashboardPage() {
 
           {/* 린치 분류 */}
           <Card style={{ flex:1, padding:'14px 16px' }}>
-            <div style={{ fontSize:11, fontWeight:700, color:'#8a9aaa', marginBottom:10, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>
+            <div style={{ fontSize:11, fontWeight:700, color:TK.sub, marginBottom:10, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>
               피터 린치 분류
-              <span style={{ float:'right', color:'#7a8fa3' }}>{investments.length}종목</span>
+              <span style={{ float:'right', color:TK.sub6 }}>{investments.length}종목</span>
             </div>
             {lynchData.filter(d=>d.name!=='N/A').length === 0 ? <Empty/> : (
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
@@ -2568,7 +2569,7 @@ export default function DashboardPage() {
                       </Pie>
                     </PieChart>
                   </ResponsiveContainer>
-                  <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', fontSize:11, fontWeight:800, color:'#f1f5f9', pointerEvents:'none' }}>
+                  <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', fontSize:11, fontWeight:800, color:TK.slate100, pointerEvents:'none' }}>
                     {investments.length}
                   </div>
                 </div>
@@ -2576,8 +2577,8 @@ export default function DashboardPage() {
                   {lynchData.slice(0,5).map(d => (
                     <div key={d.name} style={{ display:'flex', alignItems:'center', gap:5 }}>
                       <span style={{ width:7,height:7,borderRadius:'50%',background:d.color,flexShrink:0 }}/>
-                      <span style={{ fontSize:9,color:'#8a9aaa',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1 }}>{d.name}</span>
-                      <span style={{ fontSize:10,color:'#8a96a8',flexShrink:0 }}>{d.value}</span>
+                      <span style={{ fontSize:9,color:TK.sub,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1 }}>{d.name}</span>
+                      <span style={{ fontSize:10,color:TK.sub7,flexShrink:0 }}>{d.value}</span>
                     </div>
                   ))}
                 </div>
@@ -2592,21 +2593,21 @@ export default function DashboardPage() {
         {/* 헤더 */}
         <div style={{ padding:'14px 20px 6px', display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:8 }}>
           <div>
-            <div style={{ fontSize:12, fontWeight:700, color:'#a8b5c2', letterSpacing:'0.04em', textTransform:'uppercase' as const }}>
+            <div style={{ fontSize:12, fontWeight:700, color:TK.sub9, letterSpacing:'0.04em', textTransform:'uppercase' as const }}>
               📊 월별 평가손익 (매수월 기준)
             </div>
-            <div style={{ fontSize:11, color:'#7a8fa3', marginTop:3 }}>
+            <div style={{ fontSize:11, color:TK.sub6, marginTop:3 }}>
               Core · Satellite 분리 누적 손익 + 추이선
             </div>
           </div>
           {/* 범례 */}
           <div style={{ display:'flex', gap:12, flexShrink:0, alignItems:'center' }}>
             {[
-              { color:'#deff9a', label:'Core (ETF·우량주)', dash:false },
-              { color:'#38bdf8', label:'Satellite (성장·테마)', dash:false },
-              { color:'#818cf8', label:'누적 추이', dash:true },
+              { color:TK.neonLime, label:'Core (ETF·우량주)', dash:false },
+              { color:TK.sky400, label:'Satellite (성장·테마)', dash:false },
+              { color:TK.indigo400, label:'누적 추이', dash:true },
             ].map(({ color, label, dash }) => (
-              <span key={label} style={{ display:'flex', alignItems:'center', gap:5, fontSize:10, color:'#8a9aaa' }}>
+              <span key={label} style={{ display:'flex', alignItems:'center', gap:5, fontSize:10, color:TK.sub }}>
                 {dash
                   ? <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke={color} strokeWidth="2" strokeDasharray="4 2"/></svg>
                   : <span style={{ width:10, height:10, borderRadius:3, background:color, display:'inline-block', opacity:0.85 }}/>
@@ -2626,23 +2627,23 @@ export default function DashboardPage() {
                 <defs>
                   {/* Core 수익 그라데이션 */}
                   <linearGradient id="coreProfit" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%"   stopColor="#deff9a" stopOpacity={0.95}/>
-                    <stop offset="100%" stopColor="#deff9a" stopOpacity={0.55}/>
+                    <stop offset="0%"   stopColor={TK.neonLime} stopOpacity={0.95}/>
+                    <stop offset="100%" stopColor={TK.neonLime} stopOpacity={0.55}/>
                   </linearGradient>
                   {/* Core 손실 그라데이션 */}
                   <linearGradient id="coreLoss" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%"   stopColor="#f87171" stopOpacity={0.90}/>
-                    <stop offset="100%" stopColor="#f87171" stopOpacity={0.50}/>
+                    <stop offset="0%"   stopColor={TK.red400} stopOpacity={0.90}/>
+                    <stop offset="100%" stopColor={TK.red400} stopOpacity={0.50}/>
                   </linearGradient>
                   {/* Sat 수익 그라데이션 */}
                   <linearGradient id="satProfit" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%"   stopColor="#38bdf8" stopOpacity={0.95}/>
-                    <stop offset="100%" stopColor="#38bdf8" stopOpacity={0.55}/>
+                    <stop offset="0%"   stopColor={TK.sky400} stopOpacity={0.95}/>
+                    <stop offset="100%" stopColor={TK.sky400} stopOpacity={0.55}/>
                   </linearGradient>
                   {/* Sat 손실 그라데이션 */}
                   <linearGradient id="satLoss" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%"   stopColor="#fb923c" stopOpacity={0.90}/>
-                    <stop offset="100%" stopColor="#fb923c" stopOpacity={0.50}/>
+                    <stop offset="0%"   stopColor={TK.orange400} stopOpacity={0.90}/>
+                    <stop offset="100%" stopColor={TK.orange400} stopOpacity={0.50}/>
                   </linearGradient>
                 </defs>
 
@@ -2650,19 +2651,19 @@ export default function DashboardPage() {
 
                 <XAxis
                   dataKey="label"
-                  tick={{ fill:'#8a96a8', fontSize:10, fontWeight:500 }}
+                  tick={{ fill:TK.sub7, fontSize:10, fontWeight:500 }}
                   axisLine={{ stroke:'#1e2a3a' }} tickLine={false}
                 />
                 <YAxis
                   yAxisId="bar"
-                  tick={{ fill:'#8a96a8', fontSize:9 }}
+                  tick={{ fill:TK.sub7, fontSize:9 }}
                   axisLine={false} tickLine={false} width={52}
                   tickFormatter={v => v === 0 ? '0' : v >= 1e8 ? `${(v/1e8).toFixed(1)}억` : v >= 1e4 ? `${(v/1e4).toFixed(0)}만` : Math.abs(v) >= 1e4 ? `-${(Math.abs(v)/1e4).toFixed(0)}만` : `${(v/1e4).toFixed(0)}만`}
                 />
                 <YAxis
                   yAxisId="line"
                   orientation="right"
-                  tick={{ fill:'#7a8fa3', fontSize:9 }}
+                  tick={{ fill:TK.sub6, fontSize:9 }}
                   axisLine={false} tickLine={false} width={52}
                   tickFormatter={v => v === 0 ? '0' : v >= 1e8 ? `${(v/1e8).toFixed(1)}억` : v >= 1e4 ? `${(v/1e4).toFixed(0)}만` : `${v}`}
                 />
@@ -2685,23 +2686,23 @@ export default function DashboardPage() {
                   }
                   return (
                     <div style={{
-                      background:'#0f1117', border:'1px solid #1e2a40',
+                      background:TK.bg3, border:'1px solid #1e2a40',
                       borderRadius:12, padding:'12px 16px',
                       boxShadow:'0 8px 32px rgba(0,0,0,0.6)',
                       minWidth:200, fontSize:12,
                     }}>
                       {/* 헤더 */}
                       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10, paddingBottom:8, borderBottom:'1px solid #1e2a40' }}>
-                        <span style={{ fontWeight:700, color:'#dde4f0', fontSize:13 }}>{d.label}</span>
-                        <span style={{ fontSize:10, color:'#8a96a8' }}>{d.count}개 종목</span>
+                        <span style={{ fontWeight:700, color:TK.sub12, fontSize:13 }}>{d.label}</span>
+                        <span style={{ fontSize:10, color:TK.sub7 }}>{d.count}개 종목</span>
                       </div>
                       {/* Core / Satellite 분리 */}
                       {[
-                        { label:'Core', value: d.corePnl, color: d.corePnl >= 0 ? '#deff9a' : '#f87171' },
-                        { label:'Satellite', value: d.satPnl, color: d.satPnl >= 0 ? '#38bdf8' : '#fb923c' },
+                        { label:'Core', value: d.corePnl, color: d.corePnl >= 0 ? TK.neonLime : TK.red400 },
+                        { label:'Satellite', value: d.satPnl, color: d.satPnl >= 0 ? TK.sky400 : TK.orange400 },
                       ].map(({ label, value, color }) => (
                         <div key={label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:5 }}>
-                          <span style={{ fontSize:11, color:'#8a9aaa', display:'flex', alignItems:'center', gap:5 }}>
+                          <span style={{ fontSize:11, color:TK.sub, display:'flex', alignItems:'center', gap:5 }}>
                             <span style={{ width:7, height:7, borderRadius:2, background:color, display:'inline-block' }}/>
                             {label}
                           </span>
@@ -2712,20 +2713,20 @@ export default function DashboardPage() {
                       ))}
                       {/* 합계 */}
                       <div style={{ marginTop:8, paddingTop:8, borderTop:'1px solid #1e2a40', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                        <span style={{ fontSize:11, color:'#8a9aaa', fontWeight:600 }}>합계</span>
+                        <span style={{ fontSize:11, color:TK.sub, fontWeight:600 }}>합계</span>
                         <div style={{ textAlign:'right' as const }}>
-                          <div style={{ fontWeight:900, color: d.isUp ? '#deff9a' : '#f87171', fontSize:15, fontVariantNumeric:'tabular-nums' }}>
+                          <div style={{ fontWeight:900, color: d.isUp ? TK.neonLime : TK.red400, fontSize:15, fontVariantNumeric:'tabular-nums' }}>
                             {fmtAmt(d.totalPnl)}
                           </div>
-                          <div style={{ fontSize:10, color:'#8a96a8', marginTop:1 }}>
+                          <div style={{ fontSize:10, color:TK.sub7, marginTop:1 }}>
                             {d.pnlPct >= 0 ? '+' : ''}{d.pnlPct}%
                           </div>
                         </div>
                       </div>
                       {/* 누적 */}
                       <div style={{ marginTop:6, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                        <span style={{ fontSize:10, color:'#7a8fa3' }}>누적 손익</span>
-                        <span style={{ fontSize:11, fontWeight:700, color:'#818cf8', fontVariantNumeric:'tabular-nums' }}>
+                        <span style={{ fontSize:10, color:TK.sub6 }}>누적 손익</span>
+                        <span style={{ fontSize:11, fontWeight:700, color:TK.indigo400, fontVariantNumeric:'tabular-nums' }}>
                           {fmtAmt(d.cumulative)}
                         </span>
                       </div>
@@ -2758,7 +2759,7 @@ export default function DashboardPage() {
                     position="top"
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     formatter={(v: any) => `${v >= 0 ? '+' : ''}${v}%`}
-                    style={{ fontSize:10, fontWeight:700, fill:'#8a9aaa' }}
+                    style={{ fontSize:10, fontWeight:700, fill:TK.sub }}
                   />
                 </Bar>
 
@@ -2768,11 +2769,11 @@ export default function DashboardPage() {
                   type="monotone"
                   dataKey="cumulative"
                   name="누적 손익"
-                  stroke="#818cf8"
+                  stroke={TK.indigo400}
                   strokeWidth={2}
                   strokeDasharray="5 3"
-                  dot={{ r:3, fill:'#818cf8', stroke:'#0f1117', strokeWidth:1.5 }}
-                  activeDot={{ r:5, fill:'#818cf8', stroke:'#0f1117', strokeWidth:2 }}
+                  dot={{ r:3, fill:TK.indigo400, stroke:TK.bg3, strokeWidth:1.5 }}
+                  activeDot={{ r:5, fill:TK.indigo400, stroke:TK.bg3, strokeWidth:2 }}
                   isAnimationActive={true}
                   animationDuration={800}
                 />
@@ -2798,28 +2799,28 @@ export default function DashboardPage() {
           <div style={{ overflowX:'auto', padding:'10px 0 16px' }}>
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
               <thead>
-                <tr style={{ borderBottom:'1px solid #1f2937' }}>
+                <tr style={{ borderBottom:`1px solid ${TK.gray800}` }}>
                   {/* ★ '자산분류' 컬럼 추가 — RebalanceWidget 색상과 동기화 */}
                   {['자산명','시장','자산분류','매수수량','매수단가','현재가','수익률','7일 추이'].map(h => (
-                    <th key={h} style={{ padding:'6px 14px', textAlign:'left', fontSize:9, fontWeight:700, color:'#8a96a8', textTransform:'uppercase', letterSpacing:'0.07em', whiteSpace:'nowrap' }}>{h}</th>
+                    <th key={h} style={{ padding:'6px 14px', textAlign:'left', fontSize:9, fontWeight:700, color:TK.sub7, textTransform:'uppercase', letterSpacing:'0.07em', whiteSpace:'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {investments.length === 0 ? (
-                  <tr><td colSpan={6} style={{ padding:'32px 14px', textAlign:'center', color:'#7a8fa3', fontSize:13 }}>
+                  <tr><td colSpan={6} style={{ padding:'32px 14px', textAlign:'center', color:TK.sub6, fontSize:13 }}>
                     자산관리 페이지에서 종목을 추가해주세요
                   </td></tr>
                 ) : investments.map((inv, idx) => {
                   const lv  = live(inv)
                   const ret = lv ? ((lv.currentPrice - inv.purchase_price) / inv.purchase_price) * 100 : null
-                  const rc  = ret == null ? '#8a9aaa' : ret >= 0 ? '#ef4444' : '#3b82f6'
+                  const rc  = ret == null ? TK.sub : ret >= 0 ? TK.red500 : TK.blue500
                   const w7  = lv?.charts?.['1W'] ?? []
                   return (
-                    <tr key={inv.id} className="hover-row" style={{ borderTop:'1px solid #1f2937', background:idx%2===0?'transparent':'rgba(13,17,23,0.3)' }}>
+                    <tr key={inv.id} className="hover-row" style={{ borderTop:`1px solid ${TK.gray800}`, background:idx%2===0?'transparent':'rgba(13,17,23,0.3)' }}>
                       <td style={{ padding:'9px 14px' }}>
-                        <div style={{ fontWeight:600, color:'#f1f5f9' }}>{inv.name}</div>
-                        <div style={{ fontSize:10, color:'#8a96a8', fontFamily:'monospace', marginTop:1 }}>{inv.ticker}</div>
+                        <div style={{ fontWeight:600, color:TK.slate100 }}>{inv.name}</div>
+                        <div style={{ fontSize:10, color:TK.sub7, fontFamily:'monospace', marginTop:1 }}>{inv.ticker}</div>
                       </td>
                       <td style={{ padding:'9px 14px' }}>
                         <span style={{ fontSize:9,fontWeight:700,color:MKT_COLOR[inv.market],border:`1px solid ${MKT_COLOR[inv.market]}44`,borderRadius:4,padding:'1px 4px' }}>{inv.market}</span>
@@ -2841,7 +2842,7 @@ export default function DashboardPage() {
                               whiteSpace:    'nowrap',
                               // Core: #38bdf8 계열 (리밸런싱 바와 동일)
                               // Satellite: #fb923c 계열 (리밸런싱 바와 동일)
-                              color:      isCore ? '#38bdf8'                : '#fb923c',
+                              color:      isCore ? TK.sky400                : TK.orange400,
                               background: isCore ? 'rgba(56,189,248,0.10)' : 'rgba(251,146,60,0.10)',
                               border:     isCore ? '1px solid rgba(56,189,248,0.22)' : '1px solid rgba(251,146,60,0.22)',
                             }}>
@@ -2851,13 +2852,13 @@ export default function DashboardPage() {
                         })()}
                       </td>
                       {/* ★ 매수수량 셀 */}
-                      <td style={{ padding:'9px 14px', color:'#60a5fa', fontVariantNumeric:'tabular-nums', fontWeight:600, whiteSpace:'nowrap' }}>
+                      <td style={{ padding:'9px 14px', color:TK.blue400, fontVariantNumeric:'tabular-nums', fontWeight:600, whiteSpace:'nowrap' }}>
                         {inv.quantity.toLocaleString('ko-KR')}주
                       </td>
-                      <td style={{ padding:'9px 14px', color:'#8a9aaa', fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap' }}>
+                      <td style={{ padding:'9px 14px', color:TK.sub, fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap' }}>
                         {inv.currency==='KRW' ? `₩${Math.round(inv.purchase_price).toLocaleString()}` : `$${inv.purchase_price.toFixed(2)}`}
                       </td>
-                      <td style={{ padding:'9px 14px', color:'#cbd5e1', fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap' }}>
+                      <td style={{ padding:'9px 14px', color:TK.slate300, fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap' }}>
                         {lv ? (inv.currency==='KRW' ? `₩${Math.round(lv.currentPrice).toLocaleString()}` : `$${lv.currentPrice.toFixed(2)}`) : '—'}
                       </td>
                       <td style={{ padding:'9px 14px', whiteSpace:'nowrap' }}>
@@ -2865,7 +2866,7 @@ export default function DashboardPage() {
                           <span style={{ fontSize:13,fontWeight:800,color:rc,fontVariantNumeric:'tabular-nums' }}>
                             {(ret??0)>=0?'+':''}{safeFixed(ret,2)}%
                           </span>
-                        ) : <span style={{ color:'#7a8fa3' }}>—</span>}
+                        ) : <span style={{ color:TK.sub6 }}>—</span>}
                       </td>
                       <td style={{ padding:'5px 14px' }}>
                         <MiniChart data={w7}/>
@@ -2876,15 +2877,15 @@ export default function DashboardPage() {
 
                 {/* 합계 행 */}
                 {investments.length > 0 && (
-                  <tr style={{ borderTop:'2px solid #7a8fa3', background:'#0d1117' }}>
+                  <tr style={{ borderTop:`2px solid ${TK.sub6}`, background:'#0d1117' }}>
                     {/* ★ 자산분류 컬럼 추가로 colSpan 4→5 */}
-                    <td colSpan={5} style={{ padding:'9px 14px', fontWeight:700, color:'#f1f5f9', fontSize:12 }}>합계 ({investments.length}종목)</td>
-                    <td style={{ padding:'9px 14px', fontWeight:700, color:'#f1f5f9', fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap' }}>
+                    <td colSpan={5} style={{ padding:'9px 14px', fontWeight:700, color:TK.slate100, fontSize:12 }}>합계 ({investments.length}종목)</td>
+                    <td style={{ padding:'9px 14px', fontWeight:700, color:TK.slate100, fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap' }}>
                       {pricedInvs.length ? fmtKrw(totalCurrKrw) : '—'}
                     </td>
                     <td style={{ padding:'9px 14px' }}>
                       {totalRet != null && (
-                        <span style={{ fontSize:13,fontWeight:800,color:totalRet>=0?'#ef4444':'#3b82f6',fontVariantNumeric:'tabular-nums' }}>
+                        <span style={{ fontSize:13,fontWeight:800,color:totalRet>=0?TK.red500:TK.blue500,fontVariantNumeric:'tabular-nums' }}>
                           {fmtPct(totalRet)}
                         </span>
                       )}
@@ -3233,12 +3234,12 @@ export default function DashboardPage() {
           <OperationsHQ />
         </ErrorBoundary>
         {/* ② 매도·리밸런싱 */}
-        <div style={{ color:'#818cf8', fontWeight:800, fontSize:13, marginTop:4 }}>② 매도 · 리밸런싱 — 손익 반영 교체매매</div>
+        <div style={{ color:TK.indigo400, fontWeight:800, fontSize:13, marginTop:4 }}>② 매도 · 리밸런싱 — 손익 반영 교체매매</div>
         <ErrorBoundary label="AI 리밸런싱">
           <AiRebalancePanel />
         </ErrorBoundary>
         {/* ③ 통합 매수 처방 — 계절×가치×수급 3축 */}
-        <div style={{ color:'#818cf8', fontWeight:800, fontSize:13, marginTop:4 }}>③ 통합 매수 처방 — 계절 × 가치 × 수급 3축</div>
+        <div style={{ color:TK.indigo400, fontWeight:800, fontSize:13, marginTop:4 }}>③ 통합 매수 처방 — 계절 × 가치 × 수급 3축</div>
         <ErrorBoundary label="통합 매수 처방">
           <UnifiedReco />
         </ErrorBoundary>
@@ -3255,17 +3256,17 @@ export default function DashboardPage() {
       <div id="tab-moneyflow" style={{ display: dashTab==='moneyflow' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
           {([
-            ['mine','📡 내 종목 수급','#22c55e'],
-            ['market','🌐 시장 수급 랭킹','#22c55e'],
-            ['investor','🏛️ 투자자별 매매동향','#f59e0b'],
-            ['reco','🎯 맞춤 추천 (국내)','#f59e0b'],
-            ['unified','🎯 통합 추천','#f59e0b'],
-            ['leverage','🚨 빚투 경보','#ef4444'],
+            ['mine','📡 내 종목 수급',TK.green500],
+            ['market','🌐 시장 수급 랭킹',TK.green500],
+            ['investor','🏛️ 투자자별 매매동향',TK.amber500],
+            ['reco','🎯 맞춤 추천 (국내)',TK.amber500],
+            ['unified','🎯 통합 추천',TK.amber500],
+            ['leverage','🚨 빚투 경보',TK.red500],
           ] as const).map(([k,label,col]) => (
             <button key={k} onClick={()=>setFlowView(k)}
               style={{ padding:'7px 16px', borderRadius:999, fontSize:13, fontWeight:700, cursor:'pointer',
-                background: flowView===k ? `${col}22` : '#161b25', color: flowView===k ? col : '#8a9aaa',
-                border:`1px solid ${flowView===k ? `${col}66` : '#1e293b'}` }}>
+                background: flowView===k ? `${col}22` : TK.bg6, color: flowView===k ? col : TK.sub,
+                border:`1px solid ${flowView===k ? `${col}66` : TK.border}` }}>
               {label}
             </button>
           ))}

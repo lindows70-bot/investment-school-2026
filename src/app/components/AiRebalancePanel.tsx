@@ -6,18 +6,19 @@ import type { RebalanceResult, HoldingDiagnosis, RebalanceAction, Diversificatio
 import MoneyFlowBadge from '@/app/components/MoneyFlowBadge'
 import CoreSatelliteHero from '@/app/components/CoreSatelliteHero'
 import SectorBadge from '@/app/components/SectorBadge'
+import { TK } from '@/lib/theme'
 
-const BG = '#0f1117', CARD = '#161b25', BORDER = '#1e293b'
+const BG = TK.bg3, CARD = TK.bg6, BORDER = TK.border
 
 const ACTION_CFG: Record<RebalanceAction, { color: string; bg: string; icon: string; label: string }> = {
-  TAKE_PROFIT: { color: '#22c55e', bg: 'rgba(34,197,94,0.1)',  icon: '🏆', label: '분할 익절' },
-  CUT_LOSS:    { color: '#ef4444', bg: 'rgba(239,68,68,0.1)',  icon: '⚔️', label: '손절 검토' },
-  HOLD_DIP:    { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', icon: '🛡️', label: '보류(저점매도 방지)' },
-  DEFEND:      { color: '#3b82f6', bg: 'rgba(59,130,246,0.1)', icon: '🚀', label: '사수(저평가)' },
-  KEEP:        { color: '#8599ae', bg: 'rgba(133,153,174,0.08)', icon: '·', label: '유지' },
+  TAKE_PROFIT: { color: TK.green500, bg: 'rgba(34,197,94,0.1)',  icon: '🏆', label: '분할 익절' },
+  CUT_LOSS:    { color: TK.red500, bg: 'rgba(239,68,68,0.1)',  icon: '⚔️', label: '손절 검토' },
+  HOLD_DIP:    { color: TK.amber500, bg: 'rgba(245,158,11,0.1)', icon: '🛡️', label: '보류(저점매도 방지)' },
+  DEFEND:      { color: TK.blue500, bg: 'rgba(59,130,246,0.1)', icon: '🚀', label: '사수(저평가)' },
+  KEEP:        { color: TK.sub3, bg: 'rgba(133,153,174,0.08)', icon: '·', label: '유지' },
 }
 
-function pnlColor(p: number | null) { return p == null ? '#8599ae' : p > 0 ? '#22c55e' : p < 0 ? '#ef4444' : '#8599ae' }
+function pnlColor(p: number | null) { return p == null ? TK.sub3 : p > 0 ? TK.green500 : p < 0 ? TK.red500 : TK.sub3 }
 function pnlStr(p: number | null) { return p == null ? '—' : `${p > 0 ? '+' : ''}${p}%` }
 // 국내(KR)는 한국 종목명, 해외는 티커 표시
 function disp(market: string, name: string, ticker: string) {
@@ -56,20 +57,20 @@ export default function AiRebalancePanel() {
   if (loading) return (
     <div style={{ background: BG, borderRadius: 12, padding: '40px 24px', textAlign: 'center' }}>
       <div style={{ fontSize: 32, marginBottom: 12 }}>🤖</div>
-      <div style={{ color: '#7f93a8', fontSize: 14, lineHeight: 1.6 }}>
+      <div style={{ color: TK.sub2, fontSize: 14, lineHeight: 1.6 }}>
         포트폴리오 손익과 매도 신호를 분석 중입니다...<br />
-        <span style={{ color: '#6b7280', fontSize: 12 }}>종목 수에 따라 20~40초 소요될 수 있습니다</span>
+        <span style={{ color: TK.gray500, fontSize: 12 }}>종목 수에 따라 20~40초 소요될 수 있습니다</span>
       </div>
     </div>
   )
   if (error) return (
-    <div style={{ background: BG, borderRadius: 12, padding: 24, color: '#ef4444', textAlign: 'center' }}>
+    <div style={{ background: BG, borderRadius: 12, padding: 24, color: TK.red500, textAlign: 'center' }}>
       {error}
-      <button onClick={() => load()} style={{ display: 'block', margin: '12px auto 0', padding: '6px 16px', background: '#1e293b', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>재시도</button>
+      <button onClick={() => load()} style={{ display: 'block', margin: '12px auto 0', padding: '6px 16px', background: TK.border, color: TK.slate200, border: '1px solid #334155', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>재시도</button>
     </div>
   )
   if (!data || data.holdings.length === 0) return (
-    <div style={{ background: BG, borderRadius: 12, padding: '40px 24px', textAlign: 'center', color: '#7f93a8' }}>
+    <div style={{ background: BG, borderRadius: 12, padding: '40px 24px', textAlign: 'center', color: TK.sub2 }}>
       <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
       {data?.narrative ?? '분석할 보유 종목이 없습니다.'}
     </div>
@@ -91,12 +92,12 @@ export default function AiRebalancePanel() {
           background: data.waveOverride.active ? 'rgba(56,189,248,0.08)' : 'rgba(148,163,184,0.06)',
           border: `1px solid ${data.waveOverride.active ? 'rgba(56,189,248,0.4)' : 'rgba(148,163,184,0.28)'}`,
           borderRadius: 12, padding: '12px 16px' }}>
-          <div style={{ color: data.waveOverride.active ? '#7dd3fc' : '#94a3b8', fontWeight: 800, fontSize: 13.5, marginBottom: 4 }}>
+          <div style={{ color: data.waveOverride.active ? '#7dd3fc' : TK.slate400, fontWeight: 800, fontSize: 13.5, marginBottom: 4 }}>
             {data.waveOverride.active
               ? `🌊 매크로 역풍 오버라이드 작동 — ${data.waveOverride.boosted.join('·')} 계절 페널티 복구`
               : '🌊 매크로 오버라이드 대기 (게이트 활성·현재 발동 대상 없음)'}
           </div>
-          <div style={{ color: '#cbd5e1', fontSize: 12, lineHeight: 1.65 }}>{data.waveOverride.note}</div>
+          <div style={{ color: TK.slate300, fontSize: 12, lineHeight: 1.65 }}>{data.waveOverride.note}</div>
         </div>
       )}
       {/* 헤더 */}
@@ -105,18 +106,18 @@ export default function AiRebalancePanel() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 20 }}>🤖</span>
-              <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 16 }}>AI 포트폴리오 리밸런싱</span>
+              <span style={{ color: TK.slate200, fontWeight: 700, fontSize: 16 }}>AI 포트폴리오 리밸런싱</span>
               {data.sellBudget > 0 && (
-                <span style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12, padding: '2px 10px', fontSize: 12, fontWeight: 600 }}>
+                <span style={{ background: 'rgba(245,158,11,0.15)', color: TK.amber500, border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12, padding: '2px 10px', fontSize: 12, fontWeight: 600 }}>
                   재배분 예산 {data.sellBudget}%
                 </span>
               )}
             </div>
-            <div style={{ color: '#7f93a8', fontSize: 12, marginTop: 4 }}>
+            <div style={{ color: TK.sub2, fontSize: 12, marginTop: 4 }}>
               내 실제 수익률을 반영한 교체매매 — 익절/손절/보류를 구분합니다
             </div>
           </div>
-          <button onClick={() => load(true)} style={{ padding: '6px 14px', background: '#1e293b', color: '#94a3b8', border: `1px solid ${BORDER}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>🔄 새로고침</button>
+          <button onClick={() => load(true)} style={{ padding: '6px 14px', background: TK.border, color: TK.slate400, border: `1px solid ${BORDER}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>🔄 새로고침</button>
         </div>
       </div>
 
@@ -128,7 +129,7 @@ export default function AiRebalancePanel() {
         <button onClick={() => setShowDetail(v => !v)}
           style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0', padding: '8px 4px', background: 'transparent', border: 'none', cursor: 'pointer', width: '100%' }}>
           <div style={{ flex: 1, height: 1, background: BORDER }} />
-          <span style={{ color: '#94a3b8', fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap' }}>{showDetail ? '▲ 상세 진단 접기' : '▼ 상세 진단 펼치기 (개별 종목·분산·내러티브·경고)'}</span>
+          <span style={{ color: TK.slate400, fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap' }}>{showDetail ? '▲ 상세 진단 접기' : '▼ 상세 진단 펼치기 (개별 종목·분산·내러티브·경고)'}</span>
           <div style={{ flex: 1, height: 1, background: BORDER }} />
         </button>
       )}
@@ -144,15 +145,15 @@ export default function AiRebalancePanel() {
       {/* AI 코칭 내러티브 */}
       {data.narrative && (
         <div style={{ background: 'linear-gradient(135deg,rgba(59,130,246,0.08),rgba(34,197,94,0.05))', border: '1px solid rgba(59,130,246,0.25)', borderRadius: 12, padding: '14px 18px' }}>
-          <div style={{ color: '#60a5fa', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>💬 AI 자산관리 비서</div>
-          <div style={{ color: '#cbd5e1', fontSize: 13.5, lineHeight: 1.7 }}>{data.narrative}</div>
+          <div style={{ color: TK.blue400, fontSize: 12, fontWeight: 700, marginBottom: 6 }}>💬 AI 자산관리 비서</div>
+          <div style={{ color: TK.slate300, fontSize: 13.5, lineHeight: 1.7 }}>{data.narrative}</div>
         </div>
       )}
 
       {/* 🔁 시클리컬 가치함정 경고 (피터 린치 영구 원리) */}
       {data.cyclicalTrap && (
         <div style={{ background: 'rgba(251,146,60,0.08)', border: '1px solid rgba(251,146,60,0.35)', borderRadius: 12, padding: '14px 18px' }}>
-          <div style={{ color: '#fb923c', fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
+          <div style={{ color: TK.orange400, fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
             🔁 시클리컬 가치함정 주의 — 경기순환주 {data.cyclicalTrap.weight}% 집중
           </div>
           <div style={{ color: '#fdba74', fontSize: 12.5, lineHeight: 1.7 }}>
@@ -167,7 +168,7 @@ export default function AiRebalancePanel() {
       {/* 💭 하이프 프리미엄 경고 (실체=이익 없이 내러티브로 프리미엄 = 거품) */}
       {data.hypePremium && (
         <div style={{ background: 'rgba(168,85,247,0.08)', border: '1px solid rgba(168,85,247,0.35)', borderRadius: 12, padding: '14px 18px' }}>
-          <div style={{ color: '#c084fc', fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
+          <div style={{ color: TK.purple400, fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
             💭 하이프 프리미엄 주의 — 영업적자 종목 {data.hypePremium.weight}% 보유
           </div>
           <div style={{ color: '#d8b4fe', fontSize: 12.5, lineHeight: 1.7 }}>
@@ -181,10 +182,10 @@ export default function AiRebalancePanel() {
       {/* 🧟 좀비 기업 경고 (영업이익으로 이자도 못 갚음 — 이자보상배율<1.5) */}
       {data.zombieRisk && (
         <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 12, padding: '14px 18px' }}>
-          <div style={{ color: '#f87171', fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
+          <div style={{ color: TK.red400, fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
             🧟 좀비 기업 경고 — 이자도 못 갚는 종목 {data.zombieRisk.weight}% 보유
           </div>
-          <div style={{ color: '#fca5a5', fontSize: 12.5, lineHeight: 1.7 }}>
+          <div style={{ color: TK.red300, fontSize: 12.5, lineHeight: 1.7 }}>
             <b>{data.zombieRisk.tickers.map(t => `${t.market === 'KR' ? (t.name || t.ticker).slice(0, 10) : t.ticker}(이자보상배율 ${t.interestCoverage}배)`).join(', ')}</b>는 영업이익으로 이자비용도 충분히 못 갚습니다(이자보상배율 1.5 미만).
             흑자 여부와 별개로 <b>빚을 감당 못 하는 구조적 약체</b>로, 금리·업황이 악화되면 파산 위험이 큽니다. 부채가 줄거나 이익이 회복되는지 확인하고 비중을 관리하세요.
           </div>
@@ -209,15 +210,15 @@ export default function AiRebalancePanel() {
             {trimList.map(h => (
               <div key={h.ticker} style={{ background: CARD, borderRadius: 10, border: '1px solid rgba(168,85,247,0.35)', padding: '12px 16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span style={{ color: '#c084fc', fontSize: 11 }}>✂️ 축소</span>
-                  <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 14 }}>{h.market === 'KR' ? (h.name || h.ticker).slice(0, 12) : `${h.name} (${h.ticker})`}</span>
+                  <span style={{ color: TK.purple400, fontSize: 11 }}>✂️ 축소</span>
+                  <span style={{ color: TK.slate200, fontWeight: 700, fontSize: 14 }}>{h.market === 'KR' ? (h.name || h.ticker).slice(0, 12) : `${h.name} (${h.ticker})`}</span>
                   <MoneyFlowBadge ticker={h.ticker} name={h.name} market={h.market} />
                   <span style={{ color: pnlColor(h.pnlPct), fontSize: 13, fontWeight: 700 }}>{pnlStr(h.pnlPct)}</span>
-                  <span style={{ color: '#6b7280', fontSize: 11 }}>비중 {h.weight}% → <b style={{ color: '#c084fc' }}>−{h.trimWeight}%</b> 축소 <span style={{ color: '#c084fc' }}>{wonAmount(h.trimWeight, data.portfolioValue)}</span></span>
-                  {h.peg != null && <span style={{ color: '#3b82f6', fontSize: 11 }}>PEG {h.peg.toFixed(2)}</span>}
+                  <span style={{ color: TK.gray500, fontSize: 11 }}>비중 {h.weight}% → <b style={{ color: TK.purple400 }}>−{h.trimWeight}%</b> 축소 <span style={{ color: TK.purple400 }}>{wonAmount(h.trimWeight, data.portfolioValue)}</span></span>
+                  {h.peg != null && <span style={{ color: TK.blue500, fontSize: 11 }}>PEG {h.peg.toFixed(2)}</span>}
                 </div>
                 {h.sellReasons.length > 0 && (
-                  <div style={{ marginTop: 6, color: '#aab6c4', fontSize: 12, lineHeight: 1.5 }}>
+                  <div style={{ marginTop: 6, color: TK.sub5, fontSize: 12, lineHeight: 1.5 }}>
                     {h.sellReasons.map((r, i) => <div key={i}>· {r}</div>)}
                   </div>
                 )}
@@ -235,15 +236,15 @@ export default function AiRebalancePanel() {
             {data.buyCandidates.filter(b => b.allocWeight > 0).map(b => (
               <div key={b.ticker} style={{ background: CARD, borderRadius: 10, border: '1px solid rgba(34,197,94,0.3)', padding: '12px 16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span style={{ color: '#22c55e', fontSize: 11 }}>🎯 편입</span>
-                  <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 14 }}>{b.market === 'KR' ? (b.name || b.ticker).slice(0, 12) : `${b.name} (${b.ticker})`}</span>
+                  <span style={{ color: TK.green500, fontSize: 11 }}>🎯 편입</span>
+                  <span style={{ color: TK.slate200, fontWeight: 700, fontSize: 14 }}>{b.market === 'KR' ? (b.name || b.ticker).slice(0, 12) : `${b.name} (${b.ticker})`}</span>
                   <MoneyFlowBadge ticker={b.ticker} name={b.name} market={b.market} />
-                  <span style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e', borderRadius: 6, padding: '1px 8px', fontSize: 11, fontWeight: 600 }}>AI {b.aiScore}점</span>
-                  {b.peg != null && <span style={{ color: '#3b82f6', fontSize: 11 }}>PEG {b.peg.toFixed(2)}</span>}
+                  <span style={{ background: 'rgba(34,197,94,0.1)', color: TK.green500, borderRadius: 6, padding: '1px 8px', fontSize: 11, fontWeight: 600 }}>AI {b.aiScore}점</span>
+                  {b.peg != null && <span style={{ color: TK.blue500, fontSize: 11 }}>PEG {b.peg.toFixed(2)}</span>}
                   <SectorBadge sector={b.sector} />
-                  <span style={{ color: '#22c55e', fontSize: 12, fontWeight: 700, marginLeft: 'auto' }}>+{b.allocWeight}% <span style={{ fontWeight: 400, fontSize: 11 }}>{wonAmount(b.allocWeight, data.portfolioValue)}</span></span>
+                  <span style={{ color: TK.green500, fontSize: 12, fontWeight: 700, marginLeft: 'auto' }}>+{b.allocWeight}% <span style={{ fontWeight: 400, fontSize: 11 }}>{wonAmount(b.allocWeight, data.portfolioValue)}</span></span>
                 </div>
-                {b.reason && <div style={{ marginTop: 6, color: '#aab6c4', fontSize: 12, lineHeight: 1.5 }}>{b.reason}</div>}
+                {b.reason && <div style={{ marginTop: 6, color: TK.sub5, fontSize: 12, lineHeight: 1.5 }}>{b.reason}</div>}
               </div>
             ))}
           </div>
@@ -258,15 +259,15 @@ export default function AiRebalancePanel() {
             {data.satelliteCandidates.map(s => (
               <div key={s.ticker} style={{ background: CARD, borderRadius: 10, border: '1px solid rgba(168,85,247,0.35)', padding: '12px 16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span style={{ color: '#c084fc', fontSize: 11 }}>🚀 위성</span>
-                  <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 14 }}>{s.market === 'KR' ? (s.name || s.ticker).slice(0, 12) : `${s.name} (${s.ticker.toUpperCase()})`}</span>
+                  <span style={{ color: TK.purple400, fontSize: 11 }}>🚀 위성</span>
+                  <span style={{ color: TK.slate200, fontWeight: 700, fontSize: 14 }}>{s.market === 'KR' ? (s.name || s.ticker).slice(0, 12) : `${s.name} (${s.ticker.toUpperCase()})`}</span>
                   <MoneyFlowBadge ticker={s.ticker} name={s.name} market={s.market} />
-                  <span style={{ background: 'rgba(168,85,247,0.12)', color: '#c084fc', borderRadius: 6, padding: '1px 8px', fontSize: 11, fontWeight: 600 }} title="시총·성장·저PEG 라이트 스크리닝 점수(헌터 탭의 7대 기준 점수와 다름)">성장스크리닝 {s.tenScore}</span>
+                  <span style={{ background: 'rgba(168,85,247,0.12)', color: TK.purple400, borderRadius: 6, padding: '1px 8px', fontSize: 11, fontWeight: 600 }} title="시총·성장·저PEG 라이트 스크리닝 점수(헌터 탭의 7대 기준 점수와 다름)">성장스크리닝 {s.tenScore}</span>
                   <SectorBadge sector={s.sector} />
-                  {s.marketCapUsd != null && <span style={{ color: '#8599ae', fontSize: 11 }}>시총 ${(s.marketCapUsd / 1e9).toFixed(1)}B</span>}
-                  <span style={{ color: '#c084fc', fontSize: 12, fontWeight: 700, marginLeft: 'auto' }}>+{s.allocWeight}% <span style={{ fontWeight: 400, fontSize: 11 }}>{wonAmount(s.allocWeight, data.portfolioValue)}</span></span>
+                  {s.marketCapUsd != null && <span style={{ color: TK.sub3, fontSize: 11 }}>시총 ${(s.marketCapUsd / 1e9).toFixed(1)}B</span>}
+                  <span style={{ color: TK.purple400, fontSize: 12, fontWeight: 700, marginLeft: 'auto' }}>+{s.allocWeight}% <span style={{ fontWeight: 400, fontSize: 11 }}>{wonAmount(s.allocWeight, data.portfolioValue)}</span></span>
                 </div>
-                {s.reason && <div style={{ marginTop: 6, color: '#aab6c4', fontSize: 12, lineHeight: 1.5 }}>{s.reason}</div>}
+                {s.reason && <div style={{ marginTop: 6, color: TK.sub5, fontSize: 12, lineHeight: 1.5 }}>{s.reason}</div>}
               </div>
             ))}
           </div>
@@ -283,9 +284,9 @@ export default function AiRebalancePanel() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {holdDips.map(h => (
               <div key={h.ticker} style={{ background: CARD, border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '8px 12px' }}>
-                <span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13 }}>{disp(h.market, h.name, h.ticker)}</span>
+                <span style={{ color: TK.slate200, fontWeight: 600, fontSize: 13 }}>{disp(h.market, h.name, h.ticker)}</span>
                 <span style={{ color: pnlColor(h.pnlPct), fontSize: 12, marginLeft: 8, fontWeight: 600 }}>{pnlStr(h.pnlPct)}</span>
-                <span style={{ color: '#f59e0b', fontSize: 11, marginLeft: 8 }}>
+                <span style={{ color: TK.amber500, fontSize: 11, marginLeft: 8 }}>
                   본전까지 +{h.breakEvenRise ?? '—'}% · 저점매도 금물
                 </span>
               </div>
@@ -301,12 +302,12 @@ export default function AiRebalancePanel() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {defends.map(h => (
               <div key={h.ticker} style={{ background: CARD, border: '1px solid rgba(59,130,246,0.3)', borderRadius: 8, padding: '8px 12px' }}>
-                <span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13 }}>{disp(h.market, h.name, h.ticker)}</span>
+                <span style={{ color: TK.slate200, fontWeight: 600, fontSize: 13 }}>{disp(h.market, h.name, h.ticker)}</span>
                 <span style={{ color: pnlColor(h.pnlPct), fontSize: 12, marginLeft: 8, fontWeight: 600 }}>{pnlStr(h.pnlPct)}</span>
                 {/* ⚠️ 기저효과 의심 PEG는 호재(파란색)로 표기 금지 — 진단 탭 함정 레이더와 동일 기준(제2원칙) */}
                 {h.peg != null && (h.pegSuspect
-                  ? <span title="작년 이익 붕괴 후 회복(기저효과)으로 PEG가 낮아 보이는 착시일 수 있습니다 — 저평가 근거로 쓰지 마세요" style={{ color: '#f87171', fontSize: 11, marginLeft: 8, fontWeight: 700 }}>⚠️ PEG {h.peg.toFixed(2)} 기저효과</span>
-                  : <span style={{ color: '#3b82f6', fontSize: 11, marginLeft: 8 }}>PEG {h.peg.toFixed(2)}</span>)}
+                  ? <span title="작년 이익 붕괴 후 회복(기저효과)으로 PEG가 낮아 보이는 착시일 수 있습니다 — 저평가 근거로 쓰지 마세요" style={{ color: TK.red400, fontSize: 11, marginLeft: 8, fontWeight: 700 }}>⚠️ PEG {h.peg.toFixed(2)} 기저효과</span>
+                  : <span style={{ color: TK.blue500, fontSize: 11, marginLeft: 8 }}>PEG {h.peg.toFixed(2)}</span>)}
               </div>
             ))}
           </div>
@@ -320,11 +321,11 @@ export default function AiRebalancePanel() {
 
       {/* 실행 가이드 안내 (자동매매 없음 — 직접 실행) */}
       {data.portfolioValue > 0 && (data.sellBudget > 0) && (
-        <div style={{ background: '#141720', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '12px 16px' }}>
-          <div style={{ color: '#94a3b8', fontSize: 12, lineHeight: 1.7 }}>
-            🧾 <b style={{ color: '#cbd5e1' }}>실행 가이드</b> — 위 비율 옆의 <b>≈₩금액</b>은 내 보유주식 <b>현재 시가</b>(약 {wonTotal(data.portfolioValue)}) 기준 환산액입니다(③통합매수의 금액은 매입원가 기준이라 다를 수 있습니다).
+        <div style={{ background: TK.bg5, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '12px 16px' }}>
+          <div style={{ color: TK.slate400, fontSize: 12, lineHeight: 1.7 }}>
+            🧾 <b style={{ color: TK.slate300 }}>실행 가이드</b> — 위 비율 옆의 <b>≈₩금액</b>은 내 보유주식 <b>현재 시가</b>(약 {wonTotal(data.portfolioValue)}) 기준 환산액입니다(③통합매수의 금액은 매입원가 기준이라 다를 수 있습니다).
             이 금액만큼 <b>본인 증권계좌에서 직접</b> 매도·매수하시면 됩니다.
-            <br /><span style={{ color: '#6b7280', fontSize: 11 }}>※ 이 앱은 교육용이라 자동 주문·일괄 거래를 실행하지 않습니다. 실제 매매는 학생 본인이 판단·집행합니다.</span>
+            <br /><span style={{ color: TK.gray500, fontSize: 11 }}>※ 이 앱은 교육용이라 자동 주문·일괄 거래를 실행하지 않습니다. 실제 매매는 학생 본인이 판단·집행합니다.</span>
           </div>
         </div>
       )}
@@ -352,12 +353,12 @@ function DiversificationSection({ d }: { d: DiversificationView }) {
 
         {/* 섹터 집중도 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ color: '#94a3b8', fontSize: 12 }}>최대 단일 섹터 비중</span>
-          <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 14 }}>{d.topSectorBefore}%</span>
-          <span style={{ color: '#6b7280' }}>→</span>
-          <span style={{ color: secImproved ? '#22c55e' : '#e2e8f0', fontWeight: 700, fontSize: 14 }}>{d.topSectorAfter}%</span>
-          {secImproved && <span style={{ color: '#22c55e', fontSize: 11, fontWeight: 600 }}>✓ 집중도 완화</span>}
-          {d.sectorsBefore[0] && <span style={{ color: '#6b7280', fontSize: 11 }}>({d.sectorsBefore[0].sector})</span>}
+          <span style={{ color: TK.slate400, fontSize: 12 }}>최대 단일 섹터 비중</span>
+          <span style={{ color: TK.slate200, fontWeight: 700, fontSize: 14 }}>{d.topSectorBefore}%</span>
+          <span style={{ color: TK.gray500 }}>→</span>
+          <span style={{ color: secImproved ? TK.green500 : TK.slate200, fontWeight: 700, fontSize: 14 }}>{d.topSectorAfter}%</span>
+          {secImproved && <span style={{ color: TK.green500, fontSize: 11, fontWeight: 600 }}>✓ 집중도 완화</span>}
+          {d.sectorsBefore[0] && <span style={{ color: TK.gray500, fontSize: 11 }}>({d.sectorsBefore[0].sector})</span>}
         </div>
 
         {/* 분류별 Before→After 바 (황금비율 마커) */}
@@ -365,23 +366,23 @@ function DiversificationSection({ d }: { d: DiversificationView }) {
           {cats.map(c => (
             <div key={c.key}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 3 }}>
-                <span style={{ color: '#94a3b8' }}>{c.label}</span>
-                <span style={{ color: '#6b7280' }}>
-                  <span style={{ color: '#8599ae' }}>{c.before}%</span> → <span style={{ color: c.after >= c.before ? '#60a5fa' : '#8599ae', fontWeight: 600 }}>{c.after}%</span>
+                <span style={{ color: TK.slate400 }}>{c.label}</span>
+                <span style={{ color: TK.gray500 }}>
+                  <span style={{ color: TK.sub3 }}>{c.before}%</span> → <span style={{ color: c.after >= c.before ? TK.blue400 : TK.sub3, fontWeight: 600 }}>{c.after}%</span>
                   <span style={{ color: '#4b6380', marginLeft: 6 }}>권장 {c.ideal}%</span>
                 </span>
               </div>
               {/* 바: after(파랑) 위에 before(회색 외곽) + 권장 마커 */}
-              <div style={{ position: 'relative', height: 8, background: '#0f1117', borderRadius: 4, overflow: 'visible' }}>
-                <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${(c.after / maxV) * 100}%`, background: '#3b82f6', borderRadius: 4, transition: 'width 0.4s' }} />
+              <div style={{ position: 'relative', height: 8, background: TK.bg3, borderRadius: 4, overflow: 'visible' }}>
+                <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${(c.after / maxV) * 100}%`, background: TK.blue500, borderRadius: 4, transition: 'width 0.4s' }} />
                 {/* 권장선 마커 */}
-                <div style={{ position: 'absolute', left: `${(c.ideal / maxV) * 100}%`, top: -2, height: 12, width: 2, background: '#a8b5c2' }} title={`권장 ${c.ideal}%`} />
+                <div style={{ position: 'absolute', left: `${(c.ideal / maxV) * 100}%`, top: -2, height: 12, width: 2, background: TK.sub9 }} title={`권장 ${c.ideal}%`} />
               </div>
             </div>
           ))}
         </div>
-        <div style={{ fontSize: 10.5, color: '#6b7280', lineHeight: 1.5 }}>
-          파란 막대 = 리밸런싱 후 비중 · <span style={{ color: '#a8b5c2' }}>|</span> = 린치 황금비율 권장선. 권장선에 가까울수록 균형 잡힌 포트폴리오입니다.
+        <div style={{ fontSize: 10.5, color: TK.gray500, lineHeight: 1.5 }}>
+          파란 막대 = 리밸런싱 후 비중 · <span style={{ color: TK.sub9 }}>|</span> = 린치 황금비율 권장선. 권장선에 가까울수록 균형 잡힌 포트폴리오입니다.
         </div>
       </div>
     </div>
@@ -391,13 +392,13 @@ function DiversificationSection({ d }: { d: DiversificationView }) {
 // ── 📊 포트폴리오 전 → 후 도넛 (변화를 색깔로 한눈에) ─────────────────────────
 type PosType = 'keep' | 'sell' | 'core' | 'satellite' | 'etc'
 const POS_COLOR: Record<PosType, string> = {
-  keep: '#3b82f6', sell: '#ef4444', core: '#22c55e', satellite: '#a855f7', etc: '#475569',
+  keep: TK.blue500, sell: TK.red500, core: TK.green500, satellite: TK.purple500, etc: TK.slate600,
 }
 type SellKind = 'tp' | 'cut' | 'trim'   // 익절(절반)·손절(전량)·분산축소
 const SELL_TAG: Record<SellKind, { label: string; color: string }> = {
-  tp:   { label: '익절·절반', color: '#f59e0b' },
-  cut:  { label: '손절·전량', color: '#ef4444' },
-  trim: { label: '분산·축소', color: '#60a5fa' },
+  tp:   { label: '익절·절반', color: TK.amber500 },
+  cut:  { label: '손절·전량', color: TK.red500 },
+  trim: { label: '분산·축소', color: TK.blue400 },
 }
 interface Pos { name: string; value: number; type: PosType; change?: number; kind?: SellKind }   // change=회수/편입 실제 비중(±)
 
@@ -445,24 +446,24 @@ function BeforeAfterDonuts({ data }: { data: RebalanceResult }) {
     const kept = rows.filter(p => !priority.includes(p.type)).sort((a, b) => b.value - a.value)
     return (
     <div style={{ flex: '1 1 240px', minWidth: 220 }}>
-      <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>{title}</div>
+      <div style={{ textAlign: 'center', color: TK.slate400, fontSize: 12, fontWeight: 700, marginBottom: 4 }}>{title}</div>
       <div style={{ position: 'relative', height: 190 }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie data={rows} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={1} stroke="#0f1117" strokeWidth={2}>
+            <Pie data={rows} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={1} stroke={TK.bg3} strokeWidth={2}>
               {rows.map((p, i) => <Cell key={i} fill={POS_COLOR[p.type]} />)}
             </Pie>
           </PieChart>
         </ResponsiveContainer>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-          <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 18 }}>{count}</div>
-          <div style={{ color: '#6b7280', fontSize: 10 }}>종목</div>
+          <div style={{ color: TK.slate200, fontWeight: 800, fontSize: 18 }}>{count}</div>
+          <div style={{ color: TK.gray500, fontSize: 10 }}>종목</div>
         </div>
       </div>
       {/* 변화 항목(매도/신규) 전부 표시 */}
       {changed.length > 0 && (
         <div style={{ marginTop: 6 }}>
-          <div style={{ color: priority[0] === 'sell' ? '#f87171' : '#34d399', fontSize: 10, fontWeight: 700, marginBottom: 2 }}>{changeLabel}</div>
+          <div style={{ color: priority[0] === 'sell' ? TK.red400 : TK.emerald400, fontSize: 10, fontWeight: 700, marginBottom: 2 }}>{changeLabel}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {changed.map((p, i) => {
               const isSell = p.type === 'sell'
@@ -471,27 +472,27 @@ function BeforeAfterDonuts({ data }: { data: RebalanceResult }) {
               return (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5 }}>
                 <span style={{ width: 8, height: 8, borderRadius: 2, background: POS_COLOR[p.type], flexShrink: 0 }} />
-                <span style={{ color: '#cbd5e1', flex: '0 1 auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                <span style={{ color: TK.slate300, flex: '0 1 auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
                 {tag && <span style={{ color: tag.color, border: `1px solid ${tag.color}55`, borderRadius: 4, padding: '0 4px', fontSize: 9, fontWeight: 600, flexShrink: 0 }}>{tag.label}</span>}
-                <span style={{ marginLeft: 'auto', color: isSell ? '#f87171' : '#34d399', fontWeight: 700, flexShrink: 0 }}>{isSell ? '−' : '+'}{amt}%</span>
+                <span style={{ marginLeft: 'auto', color: isSell ? TK.red400 : TK.emerald400, fontWeight: 700, flexShrink: 0 }}>{isSell ? '−' : '+'}{amt}%</span>
               </div>
             )})}
           </div>
           {priority[0] === 'sell' && changed.some(p => p.kind === 'tp') && (
             <div style={{ color: '#7f8b99', fontSize: 9.5, lineHeight: 1.5, marginTop: 4 }}>
-              💡 <b style={{ color: '#f59e0b' }}>익절·절반</b>=수익 중이지만 고평가라 보유의 50%만 실현(나머지 절반은 추세 유지). · <b style={{ color: '#ef4444' }}>손절·전량</b>=손실+투자근거 붕괴라 전량 정리.
+              💡 <b style={{ color: TK.amber500 }}>익절·절반</b>=수익 중이지만 고평가라 보유의 50%만 실현(나머지 절반은 추세 유지). · <b style={{ color: TK.red500 }}>손절·전량</b>=손실+투자근거 붕괴라 전량 정리.
             </div>
           )}
         </div>
       )}
       {/* 유지 종목 상위 4 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: changed.length > 0 ? 6 : 4 }}>
-        {changed.length > 0 && <div style={{ color: '#6b7280', fontSize: 10, fontWeight: 700, marginBottom: 2 }}>유지(상위)</div>}
+        {changed.length > 0 && <div style={{ color: TK.gray500, fontSize: 10, fontWeight: 700, marginBottom: 2 }}>유지(상위)</div>}
         {kept.slice(0, 4).map((p, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5 }}>
             <span style={{ width: 8, height: 8, borderRadius: 2, background: POS_COLOR[p.type], flexShrink: 0 }} />
-            <span style={{ color: '#aab6c4', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-            <span style={{ color: '#7f93a8', fontWeight: 600 }}>{p.value}%</span>
+            <span style={{ color: TK.sub5, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+            <span style={{ color: TK.sub2, fontWeight: 600 }}>{p.value}%</span>
           </div>
         ))}
       </div>
@@ -500,10 +501,10 @@ function BeforeAfterDonuts({ data }: { data: RebalanceResult }) {
 
   return (
     <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '16px 18px' }}>
-      <div style={{ color: '#e2e8f0', fontSize: 14, fontWeight: 700, marginBottom: 10 }}>📊 포트폴리오 변화 — 한눈에 보기</div>
+      <div style={{ color: TK.slate200, fontSize: 14, fontWeight: 700, marginBottom: 10 }}>📊 포트폴리오 변화 — 한눈에 보기</div>
       <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <Donut title="리밸런싱 전 (현재)" rows={before} count={beforeCount} priority={['sell']} changeLabel="🔴 매도·축소 (회수 %)" />
-        <div style={{ alignSelf: 'center', color: '#6b7280', fontSize: 22, padding: '0 4px' }}>→</div>
+        <div style={{ alignSelf: 'center', color: TK.gray500, fontSize: 22, padding: '0 4px' }}>→</div>
         <Donut title="리밸런싱 후 (제안)" rows={after} count={afterCount} priority={['core', 'satellite']} changeLabel="🟢 신규 편입 (편입 %)" />
       </div>
       {/* 색깔 범례 */}
@@ -511,7 +512,7 @@ function BeforeAfterDonuts({ data }: { data: RebalanceResult }) {
         {([['keep', '유지'], ['sell', '매도·축소'], ['core', '신규(코어)'], ['satellite', '위성(10배거)']] as [PosType, string][]).map(([t, label]) => (
           <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
             <span style={{ width: 11, height: 11, borderRadius: 3, background: POS_COLOR[t] }} />
-            <span style={{ color: '#8a9aaa' }}>{label}</span>
+            <span style={{ color: TK.sub }}>{label}</span>
           </span>
         ))}
       </div>
@@ -522,8 +523,8 @@ function BeforeAfterDonuts({ data }: { data: RebalanceResult }) {
 function SectionTitle({ icon, text, sub }: { icon: string; text: string; sub?: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
-      <span style={{ color: '#e2e8f0', fontSize: 14, fontWeight: 700 }}>{icon} {text}</span>
-      {sub && <span style={{ color: '#6b7280', fontSize: 11 }}>{sub}</span>}
+      <span style={{ color: TK.slate200, fontSize: 14, fontWeight: 700 }}>{icon} {text}</span>
+      {sub && <span style={{ color: TK.gray500, fontSize: 11 }}>{sub}</span>}
     </div>
   )
 }
@@ -534,24 +535,24 @@ function SwapCard({ h, pv }: { h: HoldingDiagnosis; pv: number }) {
     <div style={{ background: CARD, borderRadius: 10, border: `1px solid ${cfg.color}40`, padding: '14px 16px' }}>
       {/* 매도 종목 라인 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <span style={{ color: '#94a3b8', fontSize: 11 }}>매도</span>
-        <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 14 }}>{h.name} ({h.ticker})</span>
+        <span style={{ color: TK.slate400, fontSize: 11 }}>매도</span>
+        <span style={{ color: TK.slate200, fontWeight: 700, fontSize: 14 }}>{h.name} ({h.ticker})</span>
         <MoneyFlowBadge ticker={h.ticker} name={h.name} market={h.market} />
         <span style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}40`, borderRadius: 6, padding: '1px 8px', fontSize: 11, fontWeight: 600 }}>{cfg.icon} {cfg.label}</span>
         <span style={{ color: pnlColor(h.pnlPct), fontSize: 13, fontWeight: 700 }}>{pnlStr(h.pnlPct)}</span>
-        <span style={{ color: '#6b7280', fontSize: 11 }}>비중 {h.weight}% → 회수 {h.releaseWeight}% <span style={{ color: '#94a3b8' }}>{wonAmount(h.releaseWeight, pv)}</span></span>
+        <span style={{ color: TK.gray500, fontSize: 11 }}>비중 {h.weight}% → 회수 {h.releaseWeight}% <span style={{ color: TK.slate400 }}>{wonAmount(h.releaseWeight, pv)}</span></span>
       </div>
 
       {/* 매도 사유 */}
       {h.sellReasons.length > 0 && (
-        <div style={{ marginTop: 6, color: '#aab6c4', fontSize: 12, lineHeight: 1.5 }}>
+        <div style={{ marginTop: 6, color: TK.sub5, fontSize: 12, lineHeight: 1.5 }}>
           {h.sellReasons.map((r, i) => <div key={i}>· {r}</div>)}
         </div>
       )}
 
       {/* 손절 시 본전 상승률(기회비용) */}
       {h.action === 'CUT_LOSS' && h.breakEvenRise != null && (
-        <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', fontSize: 12, color: '#fca5a5', lineHeight: 1.5 }}>
+        <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', fontSize: 12, color: TK.red300, lineHeight: 1.5 }}>
           ⏳ 본전까지 <b>+{h.breakEvenRise}%</b> 필요 — 회복 동력이 없는 종목에 묶여 기다리는 기회비용을 점검하세요
         </div>
       )}

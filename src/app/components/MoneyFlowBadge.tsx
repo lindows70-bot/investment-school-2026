@@ -2,12 +2,13 @@
 // 💰 수급 배지 — 리밸런서 매도/매수 카드에 클라이언트 lazy로 수급 신호를 한 칩으로 부착. 탭하면 상세 펼침
 import { useState, useEffect } from 'react'
 import type { MoneyFlowResult, FlowStatus } from '@/lib/moneyFlow'
+import { TK } from '@/lib/theme'
 
 const CFG: Record<Exclude<FlowStatus, 'UNSUPPORTED'>, { label: string; color: string; emoji: string }> = {
-  INFLOW:    { label: '수급 유입',     color: '#22c55e', emoji: '🟢' },
-  CROWDED:   { label: '수급 이탈·과열', color: '#ef4444', emoji: '🔴' },
-  NEGLECTED: { label: '기관 소외',     color: '#f59e0b', emoji: '🟡' },
-  NEUTRAL:   { label: '수급 중립',     color: '#8a9aaa', emoji: '⚪' },
+  INFLOW:    { label: '수급 유입',     color: TK.green500, emoji: '🟢' },
+  CROWDED:   { label: '수급 이탈·과열', color: TK.red500, emoji: '🔴' },
+  NEGLECTED: { label: '기관 소외',     color: TK.amber500, emoji: '🟡' },
+  NEUTRAL:   { label: '수급 중립',     color: TK.sub, emoji: '⚪' },
 }
 
 export default function MoneyFlowBadge({ ticker, name, market }: { ticker: string; name: string; market: string }) {
@@ -25,7 +26,7 @@ export default function MoneyFlowBadge({ ticker, name, market }: { ticker: strin
     return () => { alive = false }
   }, [ticker, name, market])
 
-  if (!done) return <span style={{ color: '#475569', fontSize: 10.5 }}>· 수급…</span>
+  if (!done) return <span style={{ color: TK.slate600, fontSize: 10.5 }}>· 수급…</span>
   if (!data || data.status === 'UNSUPPORTED') return null
   const c = CFG[data.status]
 
@@ -45,7 +46,7 @@ export default function MoneyFlowBadge({ ticker, name, market }: { ticker: strin
       </button>
       {open && (
         <div style={{ flexBasis: '100%', width: '100%', marginTop: 6, background: `${c.color}0d`, border: `1px solid ${c.color}33`, borderRadius: 8, padding: '9px 12px' }}>
-          <div style={{ color: '#cbd5e1', fontSize: 11.5, lineHeight: 1.6 }}>{data.lynchComment}</div>
+          <div style={{ color: TK.slate300, fontSize: 11.5, lineHeight: 1.6 }}>{data.lynchComment}</div>
           <div style={{ color: c.color, fontSize: 11.5, fontWeight: 600, lineHeight: 1.55, marginTop: 5 }}>🧭 {data.actionGuide}</div>
         </div>
       )}

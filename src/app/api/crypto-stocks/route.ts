@@ -2,6 +2,7 @@
 // Zero Cost: Yahoo Finance 1년 주봉(무료·무키) · 서버에서 BTC 베타·상관 계산 · 6h 캐시
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
+import { TK } from '@/lib/theme'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -36,17 +37,17 @@ export interface CryptoStocksResult {
 }
 
 const STOCKS: { symbol: string; name: string; tagline: string; model: string; color: string; benchmark?: 'BTC' | 'ETH' }[] = [
-  { symbol: 'MSTR', name: '마이크로스트래티지', tagline: 'BTC 트레저리 컴퍼니', color: '#f59e0b',
+  { symbol: 'MSTR', name: '마이크로스트래티지', tagline: 'BTC 트레저리 컴퍼니', color: TK.amber500,
     model: 'BTC를 직접 대규모 보유하는 기업 — 사실상 레버리지 BTC ETF. BTC가 1% 오르면 이 주식은 더 크게 반응한다.' },
-  { symbol: 'BMNR', name: '비트마인', tagline: 'ETH 트레저리 컴퍼니', color: '#a855f7', benchmark: 'ETH',
+  { symbol: 'BMNR', name: '비트마인', tagline: 'ETH 트레저리 컴퍼니', color: TK.purple500, benchmark: 'ETH',
     model: 'ETH를 대규모 보유하는 기업(톰 리 회장) — 이더리움판 마이크로스트래티지. ETH 가격에 강한 레버리지, 변동성 매우 큼. (베타는 ETH 기준)' },
-  { symbol: 'COIN', name: '코인베이스', tagline: '미국 1위 코인 거래소', color: '#3b82f6',
+  { symbol: 'COIN', name: '코인베이스', tagline: '미국 1위 코인 거래소', color: TK.blue500,
     model: '거래 수수료 + 스테이킹 수익 — BTC 가격↑ → 거래량↑ → 수수료 수익↑. 규제 환경에 민감.' },
-  { symbol: 'BLSH', name: 'Bullish', tagline: '기관용 코인 거래소(2025 상장)', color: '#ec4899',
+  { symbol: 'BLSH', name: 'Bullish', tagline: '기관용 코인 거래소(2025 상장)', color: TK.pink500,
     model: '기관 대상 현물·파생 거래소(피터 틸 투자, 코인데스크 소유) — 거래량·기관 자금 유입에 연동. 신규 상장주라 변동성 큼.' },
-  { symbol: 'MARA', name: '마라홀딩스', tagline: 'BTC 채굴 기업', color: '#ef4444',
+  { symbol: 'MARA', name: '마라홀딩스', tagline: 'BTC 채굴 기업', color: TK.red500,
     model: '채굴한 BTC를 팔거나 보유 — 수익은 (BTC 가격 − 채굴원가) 스프레드. BTC 급등기에 지렛대 효과 극대화.' },
-  { symbol: 'HOOD', name: '로빈후드', tagline: '주식·코인 MZ 거래 플랫폼', color: '#22c55e',
+  { symbol: 'HOOD', name: '로빈후드', tagline: '주식·코인 MZ 거래 플랫폼', color: TK.green500,
     model: '코인 거래 수수료 비중 높음 — 암호화폐 붐 수혜주. 주식+코인 양쪽에 분산된 사업 구조.' },
   { symbol: 'CRCL', name: '서클', tagline: 'USDC 스테이블코인 발행사', color: '#06b6d4',
     model: 'USDC 발행 담보(미국채) 이자수익이 주 수입 — 금리↑=수익↑, 스테이블코인 규제(GENIUS Act)에 직결.' },

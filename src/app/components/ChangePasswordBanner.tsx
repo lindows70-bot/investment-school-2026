@@ -9,6 +9,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { TK } from '@/lib/theme'
 
 // 임시 비밀번호 패턴 감지: localStorage에 플래그 저장
 const TEMP_PW_FLAG = 'needs_pw_change'
@@ -67,26 +68,26 @@ export default function ChangePasswordBanner() {
         <div style={{ fontSize: 24, flexShrink: 0 }}>🔐</div>
 
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: '#fbbf24', marginBottom: 4 }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: TK.amber400, marginBottom: 4 }}>
             임시 비밀번호로 로그인되었습니다 — 지금 바로 새 비밀번호로 변경해주세요!
           </div>
-          <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 14, lineHeight: 1.6 }}>
+          <div style={{ fontSize: 12, color: TK.slate400, marginBottom: 14, lineHeight: 1.6 }}>
             보안을 위해 임시 비밀번호를 반드시 변경해야 합니다.
-            새 비밀번호는 <strong style={{ color: '#fbbf24' }}>6자 이상</strong>이면 됩니다.
+            새 비밀번호는 <strong style={{ color: TK.amber400 }}>6자 이상</strong>이면 됩니다.
           </div>
 
           {status === 'success' ? (
             <div style={{
               padding: '10px 14px', borderRadius: 8,
               background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)',
-              fontSize: 13, color: '#4ade80', fontWeight: 700,
+              fontSize: 13, color: TK.green400, fontWeight: 700,
             }}>
               ✅ {msg}
             </div>
           ) : (
             <form onSubmit={handleChange} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
               <div style={{ flex: 1, minWidth: 160 }}>
-                <div style={{ fontSize: 10, color: '#7f93a8', marginBottom: 4 }}>새 비밀번호</div>
+                <div style={{ fontSize: 10, color: TK.sub2, marginBottom: 4 }}>새 비밀번호</div>
                 <input
                   type="password"
                   value={newPw}
@@ -97,12 +98,12 @@ export default function ChangePasswordBanner() {
                   style={{
                     width: '100%', padding: '9px 12px', borderRadius: 8,
                     background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(234,179,8,0.35)',
-                    color: '#f1f5f9', fontSize: 13, outline: 'none', boxSizing: 'border-box',
+                    color: TK.slate100, fontSize: 13, outline: 'none', boxSizing: 'border-box',
                   }}
                 />
               </div>
               <div style={{ flex: 1, minWidth: 160 }}>
-                <div style={{ fontSize: 10, color: '#7f93a8', marginBottom: 4 }}>비밀번호 확인</div>
+                <div style={{ fontSize: 10, color: TK.sub2, marginBottom: 4 }}>비밀번호 확인</div>
                 <input
                   type="password"
                   value={confirm}
@@ -112,7 +113,7 @@ export default function ChangePasswordBanner() {
                   style={{
                     width: '100%', padding: '9px 12px', borderRadius: 8,
                     background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(234,179,8,0.35)',
-                    color: '#f1f5f9', fontSize: 13, outline: 'none', boxSizing: 'border-box',
+                    color: TK.slate100, fontSize: 13, outline: 'none', boxSizing: 'border-box',
                   }}
                 />
               </div>
@@ -125,7 +126,7 @@ export default function ChangePasswordBanner() {
                     padding: '9px 18px', borderRadius: 8, border: 'none',
                     background: status === 'loading'
                       ? 'rgba(234,179,8,0.3)'
-                      : 'linear-gradient(135deg, #d97706, #b45309)',
+                      : `linear-gradient(135deg, #d97706, ${TK.amber700})`,
                     color: '#fff', fontSize: 13, fontWeight: 700,
                     cursor: status === 'loading' ? 'default' : 'pointer',
                     whiteSpace: 'nowrap',
@@ -138,7 +139,7 @@ export default function ChangePasswordBanner() {
           )}
 
           {status === 'error' && (
-            <div style={{ marginTop: 8, fontSize: 12, color: '#f87171' }}>⚠ {msg}</div>
+            <div style={{ marginTop: 8, fontSize: 12, color: TK.red400 }}>⚠ {msg}</div>
           )}
         </div>
 
@@ -147,7 +148,7 @@ export default function ChangePasswordBanner() {
           onClick={() => setShow(false)}
           title="나중에 변경"
           style={{
-            background: 'none', border: 'none', color: '#8599ae',
+            background: 'none', border: 'none', color: TK.sub3,
             fontSize: 18, cursor: 'pointer', flexShrink: 0, paddingTop: 2,
           }}
         >×</button>

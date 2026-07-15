@@ -20,24 +20,25 @@ import {
   Tooltip, Legend, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
 import type { TracerResult, TracerPoint } from '@/app/api/lynch-earnings-tracer/route'
+import { TK } from '@/lib/theme'
 
 // ── 색상 토큰 ─────────────────────────────────────────────────────────────────
 const C = {
-  bg:      '#0a0e1a',
+  bg:      TK.bg0,
   card:    '#131929',
   card2:   '#0d1420',
   border:  '#1e3050',
-  text:    '#f1f5f9',
+  text:    TK.slate100,
   textSub: '#b0bec8',
   textLow: '#8a9db5',
   price:   '#7dd3fc',      // 슬레이트 블루 — 실제 주가
-  lynch:   '#f59e0b',      // 골드 — 린치 기본선 (EPS×15)
-  median:  '#a78bfa',      // 보라 — 중앙값 PE선
-  under:   '#10b981',      // 에메랄드 — 저평가 음영
-  over:    '#ef4444',      // 빨강 — 고평가 음영
-  gold:    '#f59e0b',
-  green:   '#4ade80',
-  red:     '#f87171',
+  lynch:   TK.amber500,      // 골드 — 린치 기본선 (EPS×15)
+  median:  TK.violet400,      // 보라 — 중앙값 PE선
+  under:   TK.emerald500,      // 에메랄드 — 저평가 음영
+  over:    TK.red500,      // 빨강 — 고평가 음영
+  gold:    TK.amber500,
+  green:   TK.green400,
+  red:     TK.red400,
 }
 const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
 
@@ -67,7 +68,7 @@ function CustomTooltip({ active, payload, label, currency }: any) {
       {d.medianLine != null && <div style={{ color: C.median, marginBottom: 3 }}>📊 중앙값 PE선: {fmtPrice(d.medianLine, currency)}</div>}
       {d.actualPer != null && <div style={{ color: C.textSub, marginBottom: 3 }}>PER: {d.actualPer.toFixed(1)}×</div>}
       {d.gap15 != null && (
-        <div style={{ marginTop: 6, padding: '4px 8px', borderRadius: 6, background: d.gap15 > 0 ? '#ef444422' : '#10b98122' }}>
+        <div style={{ marginTop: 6, padding: '4px 8px', borderRadius: 6, background: d.gap15 > 0 ? `${TK.red500}22` : `${TK.emerald500}22` }}>
           <span style={{ color: d.gap15 > 0 ? C.red : C.green, fontWeight: 800 }}>
             {d.gap15 > 0 ? '▲ 고평가' : '▼ 저평가'}: {fmtGap(d.gap15)}
           </span>
@@ -192,7 +193,7 @@ export default function LynchEarningsLineTracer() {
 
         {/* 에러 */}
         {error && !loading && (
-          <div style={{ padding: '20px', borderRadius: 10, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.35)', color: '#fca5a5', fontSize: 13, lineHeight: 1.7 }}>
+          <div style={{ padding: '20px', borderRadius: 10, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.35)', color: TK.red300, fontSize: 13, lineHeight: 1.7 }}>
             ⚠️ {error}
           </div>
         )}
@@ -204,14 +205,14 @@ export default function LynchEarningsLineTracer() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 16, fontWeight: 900, color: C.text }}>{data.name}</span>
               <span style={{ fontSize: 11, color: C.textLow, fontFamily: 'monospace' }}>{data.ticker} · {data.market}</span>
-              <span style={{ fontSize: 10.5, padding: '2px 8px', borderRadius: 99, background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.35)', fontWeight: 700 }}>적자</span>
+              <span style={{ fontSize: 10.5, padding: '2px 8px', borderRadius: 99, background: 'rgba(239,68,68,0.15)', color: TK.red400, border: '1px solid rgba(239,68,68,0.35)', fontWeight: 700 }}>적자</span>
             </div>
-            <div style={{ padding: '18px 20px', borderRadius: 12, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5', fontSize: 13, lineHeight: 1.75 }}>
+            <div style={{ padding: '18px 20px', borderRadius: 12, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.3)', color: TK.red300, fontSize: 13, lineHeight: 1.75 }}>
               <div style={{ fontWeight: 800, marginBottom: 6, fontSize: 14 }}>🚫 린치 이익선 분석 불가</div>
               <b>{data.name}</b>은(는) 최근 EPS가 마이너스(적자)이므로 린치의 이익선을 그릴 수 없습니다.
               이익이 없을 때 EPS×15는 의미가 없어지기 때문입니다.<br/>
               <br/>
-              대신 <b style={{ color: '#fbbf24' }}>버핏의 DCF 분석기</b>나 <b style={{ color: '#f59e0b' }}>Jarvis 모닝 처방전</b>을 참고하세요.
+              대신 <b style={{ color: TK.amber400 }}>버핏의 DCF 분석기</b>나 <b style={{ color: TK.amber500 }}>Jarvis 모닝 처방전</b>을 참고하세요.
               적자 기업은 &ldquo;매출 성장률과 현금 런웨이(생존 기간)&rdquo;가 핵심 지표입니다.
             </div>
           </>
@@ -364,8 +365,8 @@ export default function LynchEarningsLineTracer() {
 
             {/* ── 린치 코멘트 ── */}
             {data.currentGap15 != null && (
-              <div style={{ padding: '12px 16px', borderRadius: 10, background: C.card2, borderLeft: `3px solid ${data.currentGap15 < -20 ? C.green : data.currentGap15 > 30 ? C.red : '#3b82f6'}` }}>
-                <div style={{ fontSize: 12.5, color: '#cbd5e1', lineHeight: 1.75, fontStyle: 'italic' }}>
+              <div style={{ padding: '12px 16px', borderRadius: 10, background: C.card2, borderLeft: `3px solid ${data.currentGap15 < -20 ? C.green : data.currentGap15 > 30 ? C.red : TK.blue500}` }}>
+                <div style={{ fontSize: 12.5, color: TK.slate300, lineHeight: 1.75, fontStyle: 'italic' }}>
                   {data.currentGap15 < -20
                     ? `🟢 ${data.name}의 주가가 린치 이익선보다 ${Math.abs(data.currentGap15).toFixed(0)}% 낮게 거래되고 있어. 이익이 뒷받침하는데 주가가 덜 반영된 상태야 — 시장이 아직 이 이익 성장을 제대로 평가하지 못한 거일 수 있어. 물론 "왜 싸지?"를 반드시 확인해야 해.`
                     : data.currentGap15 > 30

@@ -3,9 +3,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, Legend } from 'recharts'
 import type { TimelineResult } from '@/app/api/money-flow/timeline/route'
+import { TK } from '@/lib/theme'
 
-const CARD = '#161b25', BORDER = '#1e293b'
-const C = { foreign: '#22c55e', organ: '#60a5fa', individual: '#8a9aaa', up: '#F0475B', down: '#3B82F6' }   // 한국식: 양봉 빨강·음봉 파랑
+const CARD = TK.bg6, BORDER = TK.border
+const C = { foreign: TK.green500, organ: TK.blue400, individual: TK.sub, up: '#F0475B', down: TK.blue500 }   // 한국식: 양봉 빨강·음봉 파랑
 const eok = (v: number) => Math.abs(v) >= 10000 ? `${(v / 10000).toFixed(1)}조` : `${Math.round(v).toLocaleString()}억`
 
 interface Candle { date: string; open: number; high: number; low: number; close: number }
@@ -77,7 +78,7 @@ export default function SupplyFlowChart({ ticker, market, name }: { ticker: stri
 
   if (state === 'none') return null
   if (state === 'load') return (
-    <div style={{ background: CARD, borderRadius: 14, border: `1px solid ${BORDER}`, padding: 18, color: '#8a9aaa', fontSize: 12.5 }}>
+    <div style={{ background: CARD, borderRadius: 14, border: `1px solid ${BORDER}`, padding: 18, color: TK.sub, fontSize: 12.5 }}>
       📈 수급 차트 — 캔들 주가 + 외국인·기관·개인 누적 순매수를 불러오는 중…
     </div>
   )
@@ -86,12 +87,12 @@ export default function SupplyFlowChart({ ticker, market, name }: { ticker: stri
   // 혼조 = 외인↔기관이 서로 상쇄해 합산이 개별 규모 대비 미미할 때만(1년 누적이 뚜렷하면 방향 인정 — 레이더와 정합)
   const nearZero = scale > 0 && Math.abs(smartTotal) / scale < 0.2
   const V = nearZero
-    ? { key: 'mixed', label: '⚪ 수급 혼조', color: '#8a9aaa', bg: 'rgba(138,154,170,0.08)', bd: BORDER }
+    ? { key: 'mixed', label: '⚪ 수급 혼조', color: TK.sub, bg: 'rgba(138,154,170,0.08)', bd: BORDER }
     : smartTotal < 0 && recent5Smart < 0
-    ? { key: 'exit', label: '🚨 스마트머니 지속 이탈', color: '#ef4444', bg: 'rgba(239,68,68,0.10)', bd: 'rgba(239,68,68,0.4)' }
+    ? { key: 'exit', label: '🚨 스마트머니 지속 이탈', color: TK.red500, bg: 'rgba(239,68,68,0.10)', bd: 'rgba(239,68,68,0.4)' }
     : smartTotal < 0
-    ? { key: 'weak', label: '⚠️ 스마트머니 이탈 우위', color: '#f59e0b', bg: 'rgba(245,158,11,0.10)', bd: 'rgba(245,158,11,0.4)' }
-    : { key: 'accum', label: '🟢 스마트머니 매집', color: '#22c55e', bg: 'rgba(34,197,94,0.10)', bd: 'rgba(34,197,94,0.4)' }
+    ? { key: 'weak', label: '⚠️ 스마트머니 이탈 우위', color: TK.amber500, bg: 'rgba(245,158,11,0.10)', bd: 'rgba(245,158,11,0.4)' }
+    : { key: 'accum', label: '🟢 스마트머니 매집', color: TK.green500, bg: 'rgba(34,197,94,0.10)', bd: 'rgba(34,197,94,0.4)' }
   const msg = V.key === 'exit'
     ? `최근 ${tl.days}거래일 외국인+기관이 합산 ${eok(smartTotal)} 순매도(최근 5일도 이탈 지속) — 개인이 물량을 받아내는 SK하이닉스형 분산 구조입니다. 스마트머니 이탈은 하락 압력이 누적되는 신호(수급은 개미와 반대로 해석).`
     : V.key === 'weak'
@@ -105,26 +106,26 @@ export default function SupplyFlowChart({ ticker, market, name }: { ticker: stri
   return (
     <div style={{ background: CARD, borderRadius: 14, border: `1px solid ${V.bd}`, overflow: 'hidden' }}>
       <div style={{ background: V.bg, padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 14, fontWeight: 800, color: '#e2e8f0' }}>📈 수급 차트</span>
-        <span style={{ fontSize: 11, color: '#8a9aaa' }}>{name || tl.name} · 캔들 주가 + 외국인·기관·개인 누적 순매수</span>
+        <span style={{ fontSize: 14, fontWeight: 800, color: TK.slate200 }}>📈 수급 차트</span>
+        <span style={{ fontSize: 11, color: TK.sub }}>{name || tl.name} · 캔들 주가 + 외국인·기관·개인 누적 순매수</span>
         <span style={{ marginLeft: 'auto', background: V.color + '22', color: V.color, border: `1px solid ${V.bd}`, borderRadius: 999, padding: '3px 12px', fontWeight: 800, fontSize: 12 }}>{V.label}</span>
       </div>
 
       <div style={{ padding: '12px 14px' }}>
-        <div style={{ color: '#cbd5e1', fontSize: 11.5, lineHeight: 1.6, marginBottom: 10 }}>
-          {msg} <span style={{ color: '#8a9aaa' }}>같은 기간 주가 {priceChg >= 0 ? '+' : ''}{priceChg}%.</span>
+        <div style={{ color: TK.slate300, fontSize: 11.5, lineHeight: 1.6, marginBottom: 10 }}>
+          {msg} <span style={{ color: TK.sub }}>같은 기간 주가 {priceChg >= 0 ? '+' : ''}{priceChg}%.</span>
         </div>
 
         <ResponsiveContainer width="100%" height={300}>
           <ComposedChart data={chart} margin={{ top: 6, right: 4, bottom: 0, left: -8 }}>
-            <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="d" tick={{ fontSize: 9.5, fill: '#7f93a8' }} interval="preserveStartEnd" minTickGap={28} />
-            <YAxis yAxisId="flow" tick={{ fontSize: 9.5, fill: '#7f93a8' }} tickFormatter={(v: number) => eok(v)} width={46} />
-            <YAxis yAxisId="price" orientation="right" domain={[pMin, pMax]} tick={{ fontSize: 9.5, fill: '#a8b5c2' }} tickFormatter={(v: number) => v >= 10000 ? `${Math.round(v / 1000).toLocaleString()}천` : v.toLocaleString()} width={48} />
-            <ReferenceLine yAxisId="flow" y={0} stroke="#475569" strokeWidth={1} />
+            <CartesianGrid stroke={TK.border} strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="d" tick={{ fontSize: 9.5, fill: TK.sub2 }} interval="preserveStartEnd" minTickGap={28} />
+            <YAxis yAxisId="flow" tick={{ fontSize: 9.5, fill: TK.sub2 }} tickFormatter={(v: number) => eok(v)} width={46} />
+            <YAxis yAxisId="price" orientation="right" domain={[pMin, pMax]} tick={{ fontSize: 9.5, fill: TK.sub9 }} tickFormatter={(v: number) => v >= 10000 ? `${Math.round(v / 1000).toLocaleString()}천` : v.toLocaleString()} width={48} />
+            <ReferenceLine yAxisId="flow" y={0} stroke={TK.slate600} strokeWidth={1} />
             <Tooltip
-              contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }}
-              labelStyle={{ color: '#cbd5e1' }}
+              contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }}
+              labelStyle={{ color: TK.slate300 }}
               formatter={(val, key) => {
                 const m: Record<string, string> = { fCum: '🌍 외국인 누적', oCum: '🏛️ 기관 누적', iCum: '👤 개인 누적', range: '주가(고·저)' }
                 const k = String(key)
@@ -143,7 +144,7 @@ export default function SupplyFlowChart({ ticker, market, name }: { ticker: stri
           </ComposedChart>
         </ResponsiveContainer>
 
-        <div style={{ color: '#8a9aaa', fontSize: 10, lineHeight: 1.6, marginTop: 8 }}>
+        <div style={{ color: TK.sub, fontSize: 10, lineHeight: 1.6, marginTop: 8 }}>
           🕯️ 캔들=실제 주가(한국식 <span style={{ color: C.up }}>양봉 빨강</span>/<span style={{ color: C.down }}>음봉 파랑</span>·우축). 🌍외국인·🏛️기관 누적선(좌축)이 <b style={{ color: '#bbf7d0' }}>우상향(매집)</b>이면 유입, <b style={{ color: '#fecaca' }}>우하향(이탈)</b>이면 물량을 개인(👤)이 받는 분산 구조입니다.
           캔들과 함께 보면 &lsquo;누가 주가를 끌어올리고/눌렀나&rsquo;가 보입니다. 대금=순매수 수량×종가 추정·최근 {tl.days}거래일·교육용(투자 추천 아님).
         </div>

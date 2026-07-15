@@ -18,6 +18,7 @@
 import { useState, useMemo } from 'react'
 import { getAssetType } from '@/lib/assetClassifier'
 import { safeNumber, LYNCH_CATEGORY_KR } from '@/lib/lynchAnalysis'
+import { TK } from '@/lib/theme'
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
 interface PortfolioInvestment {
@@ -254,18 +255,18 @@ function getValuationMetrics(
 
 // ── 디자인 토큰 ──────────────────────────────────────────────────────────────
 const C = {
-  bg:      '#0f1117',
-  card:    '#1a1d27',
-  card2:   '#141720',
-  border:  '#2a2d3a',
-  gold:    '#f59e0b',
+  bg:      TK.bg3,
+  card:    TK.bg7,
+  card2:   TK.bg5,
+  border:  TK.line1,
+  gold:    TK.amber500,
   goldDim: 'rgba(245,158,11,0.15)',
-  green:   '#4ade80',
-  red:     '#f87171',
-  blue:    '#60a5fa',
-  text:    '#f1f5f9',
-  textSub: '#94a3b8',
-  textLow: '#8599ae',
+  green:   TK.green400,
+  red:     TK.red400,
+  blue:    TK.blue400,
+  text:    TK.slate100,
+  textSub: TK.slate400,
+  textLow: TK.sub3,
 }
 
 // ── 공통 UI 조각 ─────────────────────────────────────────────────────────────
@@ -374,7 +375,7 @@ function FastGrowerPanel({ m, name }: { m: ValuationMetrics; name: string }) {
   const pegPct  = peg != null ? Math.min(100, (peg / 2) * 100) : 0
   const pegColor = peg == null ? C.textLow
     : peg <= 0.5 ? C.green
-    : peg <= 1.0 ? '#34d399'
+    : peg <= 1.0 ? TK.emerald400
     : peg <= 1.5 ? C.gold
     : C.red
 
@@ -412,7 +413,7 @@ function FastGrowerPanel({ m, name }: { m: ValuationMetrics; name: string }) {
         <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 10, gap: 8, flexWrap: 'wrap' }}>
           {[
             { range: '≤ 0.5', label: '초저평가', color: C.green },
-            { range: '0.5~1.0', label: '저평가 (매수)', color: '#34d399' },
+            { range: '0.5~1.0', label: '저평가 (매수)', color: TK.emerald400 },
             { range: '1.0~1.5', label: '적정 (보유)', color: C.gold },
             { range: '≥ 1.5', label: '고평가 (주의)', color: C.red },
           ].map(z => (
@@ -847,8 +848,8 @@ export default function LynchValuationEngine({
 
   // 카테고리별 색상
   const catColor: Record<string, string> = {
-    fast_grower: '#34d399', stalwart: '#60a5fa', cyclical: '#fb923c',
-    slow_grower: '#a8b5c2', turnaround: '#f87171', asset_play: '#c084fc', na: '#7a8fa3',
+    fast_grower: TK.emerald400, stalwart: TK.blue400, cyclical: TK.orange400,
+    slow_grower: TK.sub9, turnaround: TK.red400, asset_play: TK.purple400, na: TK.sub6,
   }
   const cc = catColor[catKey] ?? C.textSub
 
@@ -930,7 +931,7 @@ export default function LynchValuationEngine({
             <div style={{ fontSize: 11, color: C.textLow, fontFamily: 'monospace', marginTop: 2 }}>
               {selected.ticker} · {selected.market}
               {metrics?.dataSource === 'estimated' && (
-                <span style={{ marginLeft: 8, color: '#8599ae' }}>(추정 데이터)</span>
+                <span style={{ marginLeft: 8, color: TK.sub3 }}>(추정 데이터)</span>
               )}
             </div>
           </div>

@@ -12,11 +12,12 @@
 
 import { useState, useEffect } from 'react'
 import type { NpsDashboardResult } from '@/app/api/nps-portfolio/route'
+import { TK } from '@/lib/theme'
 
 const C = {
-  card: '#1a1d27', card2: '#141720', border: '#2a2d3a',
-  gold: '#f59e0b', green: '#4ade80', red: '#f87171', blue: '#60a5fa', cyan: '#22d3ee', purple: '#a78bfa', pink: '#f472b6',
-  text: '#f1f5f9', textSub: '#94a3b8', textLow: '#8599ae',
+  card: TK.bg7, card2: TK.bg5, border: TK.line1,
+  gold: TK.amber500, green: TK.green400, red: TK.red400, blue: TK.blue400, cyan: TK.cyan400, purple: TK.violet400, pink: TK.pink400,
+  text: TK.slate100, textSub: TK.slate400, textLow: TK.sub3,
 }
 const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
 
@@ -154,7 +155,7 @@ export default function NpsPortfolio() {
 
       {/* 정직성 안내 */}
       <div style={{ padding: '10px 13px', borderRadius: 10, background: C.card2, borderLeft: `3px solid ${C.gold}`, marginBottom: 10 }}>
-        <div style={{ fontSize: 11, color: '#cbd5e1', lineHeight: 1.7 }}>
+        <div style={{ fontSize: 11, color: TK.slate300, lineHeight: 1.7 }}>
           ⚠️ <b>&lsquo;공시後 주가&rsquo;는 국민연금의 실제 수익률이 아닙니다.</b> 국민연금은 종목별 매입단가를 공개하지 않아 정확한 수익률은 계산할 수 없어, <b>마지막 지분 신고일 이후 주가 변화</b>를 참고용으로 보여줍니다.
         </div>
       </div>

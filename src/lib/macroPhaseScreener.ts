@@ -16,6 +16,7 @@
 import { getCache, setCache } from '@/lib/appCache'
 import { isPegBaseEffect } from '@/lib/canonicalFundamentals'
 import { isFinancialCompany } from '@/lib/assetClassifier'
+import { TK } from '@/lib/theme'
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 export type MacroPhase =
@@ -621,22 +622,22 @@ export function detectMacroPhase(d: MacroData): MacroPhaseResult {
   const { fedRate, cpiYoY, yieldCurve, hySpread, rateDir } = d
   // 1) 스태그플레이션: 고물가 + HY 스프레드 급등
   if (cpiYoY > 5 && hySpread > 5)
-    return { phase:'stagflation', label:'스태그플레이션 우려', color:'#f87171', icon:'🔥', description:'고물가·저성장 복합 위기 — 현금 흐름 우량주·실물 자산주 선호' }
+    return { phase:'stagflation', label:'스태그플레이션 우려', color:TK.red400, icon:'🔥', description:'고물가·저성장 복합 위기 — 현금 흐름 우량주·실물 자산주 선호' }
   // 2) 경기침체 위험: 장단기 금리 깊게 역전
   if (yieldCurve < -0.4)
-    return { phase:'recession_risk', label:'경기침체 위험 신호', color:'#f87171', icon:'⚠️', description:'장단기 금리 역전 — 방어적 대형 우량주·배당주 선호' }
+    return { phase:'recession_risk', label:'경기침체 위험 신호', color:TK.red400, icon:'⚠️', description:'장단기 금리 역전 — 방어적 대형 우량주·배당주 선호' }
   // 3) 스태그플레이션 전조: 높은 물가
   if (cpiYoY > 4.5)
-    return { phase:'stagflation', label:'인플레 압박 국면', color:'#fb923c', icon:'📈', description:'물가 압박 지속 — 가격 결정력 보유 기업(해자 넓은 대형주) 선호' }
+    return { phase:'stagflation', label:'인플레 압박 국면', color:TK.orange400, icon:'📈', description:'물가 압박 지속 — 가격 결정력 보유 기업(해자 넓은 대형주) 선호' }
   // 4) 저금리 유동성
   if (fedRate <= 2)
-    return { phase:'easy_money', label:'유동성 장세', color:'#22d3ee', icon:'💧', description:'저금리 풍부한 유동성 — 성장주·혁신 기업 강세 국면' }
+    return { phase:'easy_money', label:'유동성 장세', color:TK.cyan400, icon:'💧', description:'저금리 풍부한 유동성 — 성장주·혁신 기업 강세 국면' }
   // 5) 금리 인하 초입: FedWatch가 '실제 인하 컨센서스'일 때만 (정적 레벨만으로 단정 금지)
   if (rateDir === 'cut' && fedRate > 2 && cpiYoY < 5 && yieldCurve >= 0)
-    return { phase:'rate_cut_early', label:'금리 인하 초입', color:'#4ade80', icon:'✂️', description:'FF선물이 인하 사이클 진입을 반영 — 성장주·기술주 리레이팅 기대, 선별적 접근' }
+    return { phase:'rate_cut_early', label:'금리 인하 초입', color:TK.green400, icon:'✂️', description:'FF선물이 인하 사이클 진입을 반영 — 성장주·기술주 리레이팅 기대, 선별적 접근' }
   // 6) 금리 고점·동결: FedWatch가 동결/소폭 인상을 반영(현재 국면). '인하'로 오표기하지 않음
   return {
-    phase:'peak_rate', label:'금리 고점·동결', color:'#f59e0b', icon:'🏔️',
+    phase:'peak_rate', label:'금리 고점·동결', color:TK.amber500, icon:'🏔️',
     description: rateDir === 'hike'
       ? '시장은 당분간 동결~소폭 인상을 기대 — 이자수익 금융주·FCF 우량주 선호 (점도표상 장기 인하 경로는 참고)'
       : '시장은 당분간 금리 동결을 기대 — 이자수익 금융주·FCF 우량주 선호 (점도표상 장기 인하 경로는 참고)',

@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import SidebarLayout from '@/app/components/Layout/SidebarLayout'
 import IdleTimer from '@/app/components/IdleTimer'
+import { TK } from '@/lib/theme'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' })
 
@@ -17,7 +18,7 @@ export const viewport: Viewport = { themeColor: '#080B11' }
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" className={`${inter.variable} dark`} suppressHydrationWarning>
-      <body style={{ margin: 0, padding: 0, background: '#0a0a0a', color: '#f1f5f9' }}>
+      <body style={{ margin: 0, padding: 0, background: '#0a0a0a', color: TK.slate100 }}>
         <SidebarLayout>
           {children}
         </SidebarLayout>

@@ -14,23 +14,24 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, ReferenceLine, Legend,
 } from 'recharts'
+import { TK } from '@/lib/theme'
 
 // ── 디자인 토큰 ──────────────────────────────────────────────────────────────
 const C = {
-  bg:      '#0a0e1a',
-  card:    '#111827',
+  bg:      TK.bg0,
+  card:    TK.gray900,
   card2:   '#0f1623',
-  border:  '#1e293b',
-  gold:    '#f59e0b',
+  border:  TK.border,
+  gold:    TK.amber500,
   goldDim: 'rgba(245,158,11,0.10)',
-  red:     '#ef4444',
+  red:     TK.red500,
   redDim:  'rgba(239,68,68,0.08)',
-  green:   '#22c55e',
+  green:   TK.green500,
   greenDim:'rgba(34,197,94,0.08)',
-  blue:    '#60a5fa',
-  text:    '#f1f5f9',
-  textSub: '#94a3b8',
-  textLow: '#8599ae',
+  blue:    TK.blue400,
+  text:    TK.slate100,
+  textSub: TK.slate400,
+  textLow: TK.sub3,
 }
 
 // ── 툴팁 ──────────────────────────────────────────────────────────────────────
@@ -71,7 +72,7 @@ function Slider({ label, value, min, max, step, unit, onChange, color = C.gold }
           onChange={e => onChange(Number(e.target.value))}
           style={{
             width: '100%', height: 6, appearance: 'none',
-            background: `linear-gradient(to right, ${color} 0%, ${color} ${((value - min) / (max - min)) * 100}%, #1e293b ${((value - min) / (max - min)) * 100}%, #1e293b 100%)`,
+            background: `linear-gradient(to right, ${color} 0%, ${color} ${((value - min) / (max - min)) * 100}%, ${TK.border} ${((value - min) / (max - min)) * 100}%, ${TK.border} 100%)`,
             borderRadius: 3, cursor: 'pointer', outline: 'none',
           }}
         />
@@ -87,9 +88,9 @@ function Slider({ label, value, min, max, step, unit, onChange, color = C.gold }
 type ScenarioType = 'sideways' | 'bull' | 'bear'
 
 const SCENARIOS: { id: ScenarioType; icon: string; label: string; desc: string; color: string }[] = [
-  { id: 'sideways', icon: '↔', label: '횡보장의 덫', desc: '+X%와 -X% 교대 반복',    color: '#f59e0b' },
-  { id: 'bull',     icon: '↑',  label: '일방적 폭등장', desc: '매일 +X%씩 연속 상승', color: '#22c55e' },
-  { id: 'bear',     icon: '↓',  label: '일방적 폭락장', desc: '매일 -X%씩 연속 하락', color: '#ef4444' },
+  { id: 'sideways', icon: '↔', label: '횡보장의 덫', desc: '+X%와 -X% 교대 반복',    color: TK.amber500 },
+  { id: 'bull',     icon: '↑',  label: '일방적 폭등장', desc: '매일 +X%씩 연속 상승', color: TK.green500 },
+  { id: 'bear',     icon: '↓',  label: '일방적 폭락장', desc: '매일 -X%씩 연속 하락', color: TK.red500 },
 ]
 
 // ── 핵심 시뮬레이션 수식 ─────────────────────────────────────────────────────
@@ -221,7 +222,7 @@ export default function LeverageRiskSimulator() {
       {/* ── 헤더 ──────────────────────────────────────────────────────────── */}
       <div style={{
         padding: '16px 20px', borderRadius: 14,
-        background: 'linear-gradient(135deg, #0a0e1a 0%, #111827 100%)',
+        background: `linear-gradient(135deg, ${TK.bg0} 0%, ${TK.gray900} 100%)`,
         border: '1px solid rgba(239,68,68,0.3)',
         boxShadow: '0 0 40px rgba(239,68,68,0.05)',
       }}>
@@ -400,7 +401,7 @@ export default function LeverageRiskSimulator() {
             <div style={{ height: 260 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={sim.data} margin={{ top: 5, right: 14, bottom: 18, left: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={TK.border} />
                   <XAxis
                     dataKey="day" tick={{ fill: C.textLow, fontSize: 9 }}
                     label={{ value: '경과 일수', position: 'insideBottom', offset: -10, fill: C.textLow, fontSize: 9 }}
@@ -488,7 +489,7 @@ export default function LeverageRiskSimulator() {
                     ₩{item.val.toFixed(2)}
                   </div>
                   {/* 시각적 게이지 바 */}
-                  <div style={{ height: 6, borderRadius: 999, background: '#1e293b', overflow: 'hidden' }}>
+                  <div style={{ height: 6, borderRadius: 999, background: TK.border, overflow: 'hidden' }}>
                     <div style={{
                       height: '100%', borderRadius: 999,
                       width: `${gaugePct}%`,
@@ -701,13 +702,13 @@ export default function LeverageRiskSimulator() {
         @keyframes fadeIn { from { opacity:0; transform:translateY(-4px) } to { opacity:1; transform:translateY(0) } }
         input[type=range]::-webkit-slider-thumb {
           -webkit-appearance: none; width: 16px; height: 16px;
-          border-radius: 50%; background: #f59e0b;
-          border: 2px solid #0a0e1a; cursor: pointer;
+          border-radius: 50%; background: ${TK.amber500};
+          border: 2px solid ${TK.bg0}; cursor: pointer;
           box-shadow: 0 0 6px rgba(245,158,11,0.5);
         }
         input[type=range]::-moz-range-thumb {
           width: 16px; height: 16px; border-radius: 50%;
-          background: #f59e0b; border: 2px solid #0a0e1a; cursor: pointer;
+          background: ${TK.amber500}; border: 2px solid ${TK.bg0}; cursor: pointer;
         }
       `}</style>
     </div>

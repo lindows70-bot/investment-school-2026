@@ -7,14 +7,15 @@ import EconomicWaveSimulator from '@/app/components/EconomicWaveSimulator'
 import JuglarCapexTracker from '@/app/components/JuglarCapexTracker'
 import CandlePatternRisk from '@/app/components/CandlePatternRisk'
 import ElliottWaveEducation from '@/app/components/ElliottWaveEducation'
+import { TK } from '@/lib/theme'
 
-const CARD = '#161b25', BORDER = '#1e293b'
+const CARD = TK.bg6, BORDER = TK.border
 // 🛒 매수 후보 테이블 — 퀀트 4축(린치·PEG·영업이익률·FCF) 노출용 그리드·린치 분류 축약 라벨
 const COLS = 'minmax(92px,1.3fr) 1fr 44px 42px 50px 52px 36px'
 const LYNCH_SHORT: Record<string, { t: string; c: string }> = {
-  slow_grower: { t: '저성장', c: '#94a3b8' }, stalwart: { t: '우량', c: '#60a5fa' },
-  fast_grower: { t: '고성장', c: '#4ade80' }, cyclical: { t: '순환', c: '#fb923c' },
-  turnaround: { t: '회생', c: '#f87171' }, asset_play: { t: '자산', c: '#c084fc' },
+  slow_grower: { t: '저성장', c: TK.slate400 }, stalwart: { t: '우량', c: TK.blue400 },
+  fast_grower: { t: '고성장', c: TK.green400 }, cyclical: { t: '순환', c: TK.orange400 },
+  turnaround: { t: '회생', c: TK.red400 }, asset_play: { t: '자산', c: TK.purple400 },
 }
 
 // 2×2 상세 다이어그램 (원본 책 배치 그대로: 가로=성장, 세로=물가)
@@ -52,20 +53,20 @@ const QUADRANT_INFO: Record<string, QInfo> = {
 }
 const WHEEL_ORDER = ['inflation', 'stagflation', 'goldilocks', 'recession']  // 다이어그램 배치순
 const Q_COLOR: Record<string, string> = {
-  goldilocks: '#22c55e', inflation: '#f59e0b', stagflation: '#ef4444', recession: '#3b82f6', shoulder: '#8a9aaa',
+  goldilocks: TK.green500, inflation: TK.amber500, stagflation: TK.red500, recession: TK.blue500, shoulder: TK.sub,
 }
 
 function Gauge({ score }: { score: number }) {
-  const col = score >= 70 ? '#22c55e' : score >= 45 ? '#f59e0b' : '#ef4444'
+  const col = score >= 70 ? TK.green500 : score >= 45 ? TK.amber500 : TK.red500
   const label = score >= 70 ? '계절에 잘 맞는 포트폴리오' : score >= 45 ? '부분적으로 맞음' : '계절과 어긋남 — 점검 권장'
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
         <span style={{ color: col, fontWeight: 900, fontSize: 30, fontFamily: 'monospace' }}>{score}</span>
-        <span style={{ color: '#8a9aaa', fontSize: 12 }}>/ 100점</span>
+        <span style={{ color: TK.sub, fontSize: 12 }}>/ 100점</span>
         <span style={{ marginLeft: 'auto', color: col, fontSize: 12, fontWeight: 700 }}>{label}</span>
       </div>
-      <div style={{ height: 8, background: '#0f1117', borderRadius: 5, overflow: 'hidden', border: `1px solid ${BORDER}` }}>
+      <div style={{ height: 8, background: TK.bg3, borderRadius: 5, overflow: 'hidden', border: `1px solid ${BORDER}` }}>
         <div style={{ width: `${score}%`, height: '100%', background: col, transition: 'width .4s' }} />
       </div>
     </div>
@@ -90,10 +91,10 @@ export default function SeasonNavigator() {
     return () => { alive = false; window.removeEventListener('portfolio-updated', load) }
   }, [])
 
-  if (loading) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa' }}>🧭 현재 시장의 계절과 내 포트폴리오 정합성을 계산 중입니다…</div>
-  if (!data) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa' }}>4계절 데이터를 불러오지 못했습니다.</div>
+  if (loading) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: TK.sub }}>🧭 현재 시장의 계절과 내 포트폴리오 정합성을 계산 중입니다…</div>
+  if (!data) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: TK.sub }}>4계절 데이터를 불러오지 못했습니다.</div>
 
-  const accent = Q_COLOR[data.quadrant] ?? '#8a9aaa'
+  const accent = Q_COLOR[data.quadrant] ?? TK.sub
   const growthTxt = `${data.growth.cli.toFixed(1)} ${data.growth.dir === 'up' ? '▲ 상승' : '▼ 하강'}${data.growth.aboveTrend ? ' · 추세 상회' : ' · 추세 하회'}`
   // 물가축은 'CPI 사실' 위주로 표기 — 금리 방향(rateDir) 직역은 국면 SSOT 라벨과 충돌하므로 제외
   const infTxt = `CPI ${data.inflation.cpiYoY.toFixed(1)}% · ${data.inflation.hot ? '고물가 압력' : '물가 안정'}`
@@ -105,7 +106,7 @@ export default function SeasonNavigator() {
         <span style={{ fontSize: 18 }}>🧭</span>
         <div>
           <div style={{ color: accent, fontWeight: 800, fontSize: 12, marginBottom: 2 }}>4계절 매크로 내비게이터 — 최일 『4계절 투자법』</div>
-          <div style={{ color: '#aab6c4', fontSize: 12, lineHeight: 1.6 }}>
+          <div style={{ color: TK.sub5, fontSize: 12, lineHeight: 1.6 }}>
             성장(OECD 경기선행지수)과 물가(CPI·금리)의 2×2로 지금이 어느 계절인지 판정하고, 내 포트폴리오가 그 계절에 맞게 짜였는지 점수로 보여줍니다.
           </div>
         </div>
@@ -113,9 +114,9 @@ export default function SeasonNavigator() {
 
       {/* ⚠️ 장단기 금리 역전 조기 경보 */}
       {data.yieldCurveInverted && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid #ef444466', borderRadius: 10, padding: '10px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(239,68,68,0.1)', border: `1px solid ${TK.red500}66`, borderRadius: 10, padding: '10px 14px' }}>
           <span style={{ fontSize: 16 }}>⚠️</span>
-          <div style={{ color: '#fca5a5', fontSize: 12, lineHeight: 1.5 }}>
+          <div style={{ color: TK.red300, fontSize: 12, lineHeight: 1.5 }}>
             <b>장단기 금리 역전 감지</b> (10년−2년 {data.yieldCurve?.toFixed(2)}%p). 역사적으로 경기 침체에 선행한 신호입니다 — 위험 자산 비중 축소를 신중히 검토하세요.
           </div>
         </div>
@@ -124,9 +125,9 @@ export default function SeasonNavigator() {
       {/* 2×2 상세 다이어그램 (전체 폭 · 원본 책 배치) */}
       <div style={{ background: CARD, borderRadius: 12, padding: 16, border: `1px solid ${BORDER}` }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-          <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 14 }}>{data.icon} 현재 계절: {data.seasonKo}</span>
+          <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 14 }}>{data.icon} 현재 계절: {data.seasonKo}</span>
           <span style={{ color: accent, fontSize: 12, fontWeight: 700 }}>{data.label}</span>
-          <span style={{ marginLeft: 'auto', color: '#9aa7b5', fontSize: 10.5 }}>최일 4계절 — 성장×물가 4분면</span>
+          <span style={{ marginLeft: 'auto', color: TK.sub8, fontSize: 10.5 }}>최일 4계절 — 성장×물가 4분면</span>
         </div>
 
         {/* 🌏 시장별 현재 계절 — 성장축(CLI)이 갈리면 국장/미장 계절 분리 */}
@@ -134,18 +135,18 @@ export default function SeasonNavigator() {
           const us = data.marketSeasons.us, kr = data.marketSeasons.kr
           const diverge = us.quadrant !== kr.quadrant
           const Badge = ({ flag, m }: { flag: string; m: typeof us }) => (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0f1117', border: `1px solid ${Q_COLOR[m.quadrant]}55`, borderRadius: 8, padding: '5px 10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: TK.bg3, border: `1px solid ${Q_COLOR[m.quadrant]}55`, borderRadius: 8, padding: '5px 10px' }}>
               <span style={{ fontSize: 13 }}>{flag}</span>
-              <span style={{ color: '#cbd5e1', fontSize: 11, fontWeight: 700 }}>{m.icon} {m.seasonKo.replace(/^.. /, '')}</span>
-              <span style={{ color: '#7f93a8', fontSize: 10, fontFamily: 'monospace' }}>CLI {m.cli.toFixed(1)} {m.dir === 'up' ? '▲' : '▼'}</span>
+              <span style={{ color: TK.slate300, fontSize: 11, fontWeight: 700 }}>{m.icon} {m.seasonKo.replace(/^.. /, '')}</span>
+              <span style={{ color: TK.sub2, fontSize: 10, fontFamily: 'monospace' }}>CLI {m.cli.toFixed(1)} {m.dir === 'up' ? '▲' : '▼'}</span>
             </div>
           )
           return (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-              <span style={{ color: '#8a9aaa', fontSize: 11, fontWeight: 700 }}>🌏 시장별 계절</span>
+              <span style={{ color: TK.sub, fontSize: 11, fontWeight: 700 }}>🌏 시장별 계절</span>
               <Badge flag="🇺🇸" m={us} />
               <Badge flag="🇰🇷" m={kr} />
-              <span style={{ color: diverge ? '#f59e0b' : '#9aa7b5', fontSize: 10.5 }}>
+              <span style={{ color: diverge ? TK.amber500 : TK.sub8, fontSize: 10.5 }}>
                 {diverge ? '⚠️ 두 시장의 경기 국면이 갈립니다 — 종목별로 해당 시장 계절로 채점' : '두 시장 경기 국면 동조 · 물가축은 글로벌 공통'}
               </span>
             </div>
@@ -153,7 +154,7 @@ export default function SeasonNavigator() {
         })()}
 
         {/* 세로축(물가) 상단 라벨 */}
-        <div style={{ textAlign: 'center', color: '#a8b5c2', fontSize: 11, fontWeight: 700, marginBottom: 5 }}>▲ 물가 높음 (고물가)</div>
+        <div style={{ textAlign: 'center', color: TK.sub9, fontSize: 11, fontWeight: 700, marginBottom: 5 }}>▲ 물가 높음 (고물가)</div>
         {/* 그리드 */}
         <div style={{ display: 'flex', alignItems: 'stretch', gap: 6 }}>
           <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -162,19 +163,19 @@ export default function SeasonNavigator() {
               const active = q === data.quadrant
               const c = Q_COLOR[q]
               return (
-                <div key={q} style={{ background: active ? `${c}1f` : '#0f1117', border: `1.5px solid ${active ? c : BORDER}`, borderRadius: 10, padding: '12px 13px', opacity: active ? 1 : 0.7, boxShadow: active ? `0 0 18px ${c}55` : 'none' }}>
+                <div key={q} style={{ background: active ? `${c}1f` : TK.bg3, border: `1.5px solid ${active ? c : BORDER}`, borderRadius: 10, padding: '12px 13px', opacity: active ? 1 : 0.7, boxShadow: active ? `0 0 18px ${c}55` : 'none' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                     <span style={{ fontSize: 17 }}>{info.icon}</span>
-                    <span style={{ color: active ? c : '#cbd5e1', fontWeight: 800, fontSize: 13 }}>{info.ko}</span>
-                    <span style={{ color: '#8a9aaa', fontSize: 10 }}>{info.season}</span>
+                    <span style={{ color: active ? c : TK.slate300, fontWeight: 800, fontSize: 13 }}>{info.ko}</span>
+                    <span style={{ color: TK.sub, fontSize: 10 }}>{info.season}</span>
                     {active && <span style={{ marginLeft: 'auto', background: c, color: '#0b0e15', fontWeight: 800, fontSize: 9, borderRadius: 5, padding: '1px 7px' }}>현재</span>}
                   </div>
-                  <div style={{ color: '#7f93a8', fontSize: 10, fontFamily: 'monospace', marginBottom: 5 }}>{info.axis}</div>
-                  <div style={{ color: '#aab6c4', fontSize: 11, lineHeight: 1.5, marginBottom: 7 }}>{info.summary}</div>
+                  <div style={{ color: TK.sub2, fontSize: 10, fontFamily: 'monospace', marginBottom: 5 }}>{info.axis}</div>
+                  <div style={{ color: TK.sub5, fontSize: 11, lineHeight: 1.5, marginBottom: 7 }}>{info.summary}</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    <div style={{ fontSize: 10.5, lineHeight: 1.4 }}><span style={{ color: '#86efac', fontWeight: 700 }}>🟢 유리 </span><span style={{ color: '#cbd5e1' }}>{info.good}</span></div>
-                    <div style={{ fontSize: 10.5, lineHeight: 1.4 }}><span style={{ color: '#fca5a5', fontWeight: 700 }}>🔴 불리 </span><span style={{ color: '#cbd5e1' }}>{info.bad}</span></div>
-                    <div style={{ fontSize: 10, color: '#9aa7b5', marginTop: 3 }}>📖 {info.textbook}</div>
+                    <div style={{ fontSize: 10.5, lineHeight: 1.4 }}><span style={{ color: TK.green300, fontWeight: 700 }}>🟢 유리 </span><span style={{ color: TK.slate300 }}>{info.good}</span></div>
+                    <div style={{ fontSize: 10.5, lineHeight: 1.4 }}><span style={{ color: TK.red300, fontWeight: 700 }}>🔴 불리 </span><span style={{ color: TK.slate300 }}>{info.bad}</span></div>
+                    <div style={{ fontSize: 10, color: TK.sub8, marginTop: 3 }}>📖 {info.textbook}</div>
                   </div>
                 </div>
               )
@@ -183,45 +184,45 @@ export default function SeasonNavigator() {
         </div>
         {/* 가로축(성장) 좌우 라벨 — 세로 회전 대신 명확한 가로 표기 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, padding: '0 2px' }}>
-          <span style={{ color: '#a8b5c2', fontSize: 11, fontWeight: 700 }}>◀ 왼쪽 = 고성장 (경기 확장)</span>
-          <span style={{ color: '#a8b5c2', fontSize: 11, fontWeight: 700 }}>오른쪽 = 저성장 (경기 둔화) ▶</span>
+          <span style={{ color: TK.sub9, fontSize: 11, fontWeight: 700 }}>◀ 왼쪽 = 고성장 (경기 확장)</span>
+          <span style={{ color: TK.sub9, fontSize: 11, fontWeight: 700 }}>오른쪽 = 저성장 (경기 둔화) ▶</span>
         </div>
         {/* 세로축(물가) 하단 라벨 */}
-        <div style={{ textAlign: 'center', color: '#a8b5c2', fontSize: 11, fontWeight: 700, marginTop: 5 }}>▼ 물가 낮음 (저물가)</div>
+        <div style={{ textAlign: 'center', color: TK.sub9, fontSize: 11, fontWeight: 700, marginTop: 5 }}>▼ 물가 낮음 (저물가)</div>
 
         {/* 축 진단(투명성) */}
         <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${BORDER}`, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
-            <span style={{ color: '#8a9aaa' }}>📈 성장축 (OECD CLI)</span>
-            <span style={{ color: '#cbd5e1', fontFamily: 'monospace' }}>{growthTxt}</span>
+            <span style={{ color: TK.sub }}>📈 성장축 (OECD CLI)</span>
+            <span style={{ color: TK.slate300, fontFamily: 'monospace' }}>{growthTxt}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
-            <span style={{ color: '#8a9aaa' }}>🔥 물가축</span>
-            <span style={{ color: '#cbd5e1', fontFamily: 'monospace' }}>{infTxt}</span>
+            <span style={{ color: TK.sub }}>🔥 물가축</span>
+            <span style={{ color: TK.slate300, fontFamily: 'monospace' }}>{infTxt}</span>
           </div>
-          <div style={{ color: '#9aa7b5', fontSize: 10.5, marginLeft: 'auto' }}>국면 SSOT: {data.regimeLabel}</div>
+          <div style={{ color: TK.sub8, fontSize: 10.5, marginLeft: 'auto' }}>국면 SSOT: {data.regimeLabel}</div>
         </div>
       </div>
 
       {/* 정합성 점수 + 종목별 적합도 (전체 폭) */}
       <div style={{ background: CARD, borderRadius: 12, padding: 16, border: `1px solid ${BORDER}` }}>
-        <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13, marginBottom: 2 }}>⚖️ 내 포트폴리오 계절 정합성</div>
-        <div style={{ color: '#aab6c4', fontSize: 11.5, lineHeight: 1.5, marginBottom: 10 }}>
+        <div style={{ color: TK.slate200, fontWeight: 800, fontSize: 13, marginBottom: 2 }}>⚖️ 내 포트폴리오 계절 정합성</div>
+        <div style={{ color: TK.sub5, fontSize: 11.5, lineHeight: 1.5, marginBottom: 10 }}>
           지금 계절({data.icon} {data.seasonKo.replace(/^.. /, '')})에 내 보유 종목이 각각 얼마나 잘 맞는지 보여줍니다. 비중 큰 종목이 잘 맞을수록 점수가 올라갑니다.
         </div>
         <Gauge score={data.alignmentScore} />
 
         {/* 범례 — 막대 색의 의미 */}
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 12, marginBottom: 8, fontSize: 10.5 }}>
-          <span style={{ color: '#8a9aaa' }}>막대 = 계절 적합도:</span>
-          <span style={{ color: '#22c55e', fontWeight: 700 }}>🟢 유리 (이 계절에 강함)</span>
-          <span style={{ color: '#f59e0b', fontWeight: 700 }}>🟠 중립 (보통)</span>
-          <span style={{ color: '#ef4444', fontWeight: 700 }}>🔴 불리 (점검 권장)</span>
-          <span style={{ color: '#8a9aaa', marginLeft: 'auto' }}>% = 내 포트폴리오 비중</span>
+          <span style={{ color: TK.sub }}>막대 = 계절 적합도:</span>
+          <span style={{ color: TK.green500, fontWeight: 700 }}>🟢 유리 (이 계절에 강함)</span>
+          <span style={{ color: TK.amber500, fontWeight: 700 }}>🟠 중립 (보통)</span>
+          <span style={{ color: TK.red500, fontWeight: 700 }}>🔴 불리 (점검 권장)</span>
+          <span style={{ color: TK.sub, marginLeft: 'auto' }}>% = 내 포트폴리오 비중</span>
         </div>
 
         {/* 헤더 행 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(120px,1.4fr) 56px 1fr 52px', gap: 8, alignItems: 'center', padding: '0 2px 5px', borderBottom: `1px solid ${BORDER}`, color: '#8a9aaa', fontSize: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(120px,1.4fr) 56px 1fr 52px', gap: 8, alignItems: 'center', padding: '0 2px 5px', borderBottom: `1px solid ${BORDER}`, color: TK.sub, fontSize: 10 }}>
           <span>종목</span>
           <span style={{ textAlign: 'right' }}>내 비중</span>
           <span>이 계절 적합도</span>
@@ -230,26 +231,26 @@ export default function SeasonNavigator() {
 
         <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 7 }}>
           {data.perHolding.map(h => {
-            const fc = h.fit >= 0.7 ? '#22c55e' : h.fit >= 0.5 ? '#f59e0b' : '#ef4444'
+            const fc = h.fit >= 0.7 ? TK.green500 : h.fit >= 0.5 ? TK.amber500 : TK.red500
             const verdict = h.fit >= 0.7 ? '유리' : h.fit >= 0.5 ? '중립' : '불리'
             return (
               <div key={h.ticker} style={{ display: 'grid', gridTemplateColumns: 'minmax(120px,1.4fr) 56px 1fr 52px', gap: 8, alignItems: 'center', fontSize: 11.5 }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden' }}>
                   <span style={{ fontSize: 10 }}>{h.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
-                  <span style={{ color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</span>
-                  {h.isEtf && <span style={{ background: 'rgba(34,211,238,0.12)', color: '#22d3ee', border: '1px solid #22d3ee44', borderRadius: 5, padding: '0 5px', fontSize: 9, fontWeight: 700, flexShrink: 0 }}>📦 ETF</span>}
+                  <span style={{ color: TK.slate200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</span>
+                  {h.isEtf && <span style={{ background: 'rgba(34,211,238,0.12)', color: TK.cyan400, border: `1px solid ${TK.cyan400}44`, borderRadius: 5, padding: '0 5px', fontSize: 9, fontWeight: 700, flexShrink: 0 }}>📦 ETF</span>}
                 </span>
-                <span style={{ color: '#cbd5e1', fontFamily: 'monospace', fontSize: 11, textAlign: 'right' }}>{h.weight}%</span>
-                <div style={{ height: 8, background: '#0f1117', borderRadius: 4, overflow: 'hidden', border: `1px solid ${BORDER}` }}>
+                <span style={{ color: TK.slate300, fontFamily: 'monospace', fontSize: 11, textAlign: 'right' }}>{h.weight}%</span>
+                <div style={{ height: 8, background: TK.bg3, borderRadius: 4, overflow: 'hidden', border: `1px solid ${BORDER}` }}>
                   <div style={{ width: `${Math.round(h.fit * 100)}%`, height: '100%', background: fc }} />
                 </div>
                 <span style={{ color: fc, fontWeight: 700, fontSize: 11, textAlign: 'right' }}>{verdict}</span>
               </div>
             )
           })}
-          {data.perHolding.length === 0 && <div style={{ color: '#8a9aaa', fontSize: 11 }}>보유한 개별 주식이 없습니다.</div>}
+          {data.perHolding.length === 0 && <div style={{ color: TK.sub, fontSize: 11 }}>보유한 개별 주식이 없습니다.</div>}
         </div>
-        <div style={{ color: '#8a9aaa', fontSize: 9.5, lineHeight: 1.5, marginTop: 7 }}>
+        <div style={{ color: TK.sub, fontSize: 9.5, lineHeight: 1.5, marginTop: 7 }}>
           ※ 보유 주식·ETF 전부 표시 · 계절은 섹터 기반이라 <b>암호화폐·원자재(금·은)는 판정 대상이 아니라 제외</b>되며, 구성종목을 분해할 수 없는 ETF(레버리지·비주식 등)도 빠집니다.
         </div>
       </div>
@@ -257,7 +258,7 @@ export default function SeasonNavigator() {
       {/* 행동 가이드 + 현금 조언 */}
       <div style={{ background: CARD, borderRadius: 12, padding: '14px 16px', border: `1px solid ${accent}33` }}>
         <div style={{ color: accent, fontWeight: 800, fontSize: 12, marginBottom: 6 }}>📋 {data.seasonKo} 행동 가이드</div>
-        <div style={{ color: '#aab6c4', fontSize: 12, lineHeight: 1.6, marginBottom: 8 }}>{data.guide}</div>
+        <div style={{ color: TK.sub5, fontSize: 12, lineHeight: 1.6, marginBottom: 8 }}>{data.guide}</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
           {data.favored.map(s => <span key={s} style={{ background: `${accent}14`, color: accent, border: `1px solid ${accent}44`, borderRadius: 6, padding: '2px 8px', fontSize: 10.5, fontWeight: 700 }}>우대 {s}</span>)}
         </div>
@@ -284,47 +285,47 @@ export default function SeasonNavigator() {
       {/* 🛒 이 계절 우대 섹터 매수 후보 — 유니버스에서 우대 섹터만 추려 우리 퀀트 점수로 정렬 */}
       {data.buyCandidates && data.buyCandidates.length > 0 && (
         <div style={{ background: CARD, borderRadius: 12, padding: 16, border: `1px solid ${BORDER}` }}>
-          <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13, marginBottom: 2 }}>🛒 이 계절 매수 후보 — {data.favored.join(' · ')}</div>
-          <div style={{ color: '#aab6c4', fontSize: 11.5, lineHeight: 1.5, marginBottom: 10 }}>
+          <div style={{ color: TK.slate200, fontWeight: 800, fontSize: 13, marginBottom: 2 }}>🛒 이 계절 매수 후보 — {data.favored.join(' · ')}</div>
+          <div style={{ color: TK.sub5, fontSize: 11.5, lineHeight: 1.5, marginBottom: 10 }}>
             지금 계절({data.seasonKo.replace(/^.. /, '')})에 유리한 섹터의 종목을 우리 유니버스(100+)에서 추려, <b>퀀트 점수</b>(린치가중 35% + PEG 35% + 영업이익률 20% + FCF 10%)순으로 보여줍니다. 이미 보유한 종목은 제외했습니다.
           </div>
           {/* 헤더 — 퀀트 4축(린치·PEG·영업이익률·FCF)을 다 노출 */}
-          <div style={{ display: 'grid', gridTemplateColumns: COLS, gap: 8, alignItems: 'center', padding: '0 2px 5px', borderBottom: `1px solid ${BORDER}`, color: '#8a9aaa', fontSize: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: COLS, gap: 8, alignItems: 'center', padding: '0 2px 5px', borderBottom: `1px solid ${BORDER}`, color: TK.sub, fontSize: 10 }}>
             <span>종목</span><span>섹터</span><span style={{ textAlign: 'center' }}>린치</span><span style={{ textAlign: 'right' }}>PEG</span><span style={{ textAlign: 'right' }}>영업익률</span><span style={{ textAlign: 'right' }}>FCF수익</span><span style={{ textAlign: 'right' }}>점수</span>
           </div>
           <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
             {data.buyCandidates.map(c => {
-              const sc = c.score >= 85 ? '#22c55e' : c.score >= 65 ? '#f59e0b' : '#8a9aaa'
-              const ly = LYNCH_SHORT[c.lynchCategory] ?? { t: '—', c: '#8a9aaa' }
+              const sc = c.score >= 85 ? TK.green500 : c.score >= 65 ? TK.amber500 : TK.sub
+              const ly = LYNCH_SHORT[c.lynchCategory] ?? { t: '—', c: TK.sub }
               // 💵 FCF 셀 — 괴리(빨강)/우수(초록)/고평가(주황)/금융·미제공(—)
-              const fcf = c.qualityGap ? { t: '괴리', col: '#f87171' }
-                : c.fcfYield == null ? { t: '—', col: '#64748b' }
-                : c.fcfYield >= 5 ? { t: `${c.fcfYield}%`, col: '#22c55e' }
-                : c.fcfYield >= 1 ? { t: `${c.fcfYield}%`, col: '#cbd5e1' }
-                : { t: `${c.fcfYield}%↓`, col: '#fb923c' }
+              const fcf = c.qualityGap ? { t: '괴리', col: TK.red400 }
+                : c.fcfYield == null ? { t: '—', col: TK.slate500 }
+                : c.fcfYield >= 5 ? { t: `${c.fcfYield}%`, col: TK.green500 }
+                : c.fcfYield >= 1 ? { t: `${c.fcfYield}%`, col: TK.slate300 }
+                : { t: `${c.fcfYield}%↓`, col: TK.orange400 }
               return (
                 <div key={c.ticker} style={{ display: 'grid', gridTemplateColumns: COLS, gap: 8, alignItems: 'center', fontSize: 11.5 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden' }}>
                     <span style={{ fontSize: 10 }}>{c.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
-                    <span style={{ color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                    <span style={{ color: TK.slate200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
                   </span>
-                  <span style={{ color: '#8a9aaa', fontSize: 10.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.sector}</span>
+                  <span style={{ color: TK.sub, fontSize: 10.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.sector}</span>
                   <span style={{ textAlign: 'center' }}><span style={{ color: ly.c, background: `${ly.c}1a`, border: `1px solid ${ly.c}44`, borderRadius: 4, padding: '1px 4px', fontSize: 9.5, fontWeight: 700 }}>{ly.t}</span></span>
-                  <span style={{ color: c.peg != null && c.peg > 0 && c.peg < 1 ? '#22c55e' : '#cbd5e1', fontFamily: 'monospace', fontSize: 10.5, textAlign: 'right' }}>{c.peg != null ? c.peg.toFixed(2) : '—'}</span>
-                  <span style={{ color: '#cbd5e1', fontFamily: 'monospace', fontSize: 10.5, textAlign: 'right' }}>{c.opMargin != null ? `${c.opMargin}%` : '—'}</span>
+                  <span style={{ color: c.peg != null && c.peg > 0 && c.peg < 1 ? TK.green500 : TK.slate300, fontFamily: 'monospace', fontSize: 10.5, textAlign: 'right' }}>{c.peg != null ? c.peg.toFixed(2) : '—'}</span>
+                  <span style={{ color: TK.slate300, fontFamily: 'monospace', fontSize: 10.5, textAlign: 'right' }}>{c.opMargin != null ? `${c.opMargin}%` : '—'}</span>
                   <span style={{ color: fcf.col, fontFamily: 'monospace', fontSize: 10.5, textAlign: 'right' }}>{fcf.t}</span>
                   <span style={{ color: sc, fontWeight: 800, fontSize: 12.5, fontFamily: 'monospace', textAlign: 'right' }}>{c.score}</span>
                 </div>
               )
             })}
           </div>
-          <div style={{ color: '#9aa7b5', fontSize: 10, marginTop: 8, lineHeight: 1.5 }}>
+          <div style={{ color: TK.sub8, fontSize: 10, marginTop: 8, lineHeight: 1.5 }}>
             ※ 점수 = 린치가중 35% + PEG 35% + 영업이익률 20% + FCF 10%. 저PEG·고FCF수익률(≥5%)은 초록, FCF 현금 대비 고평가(&lt;1%)는 주황↓, 이익-현금 괴리는 빨강. 🏦금융주는 FCF 무의미(—). 주가 예측 아님 · 위성/소형주는 10배거 헌터에서 검증.
           </div>
         </div>
       )}
 
-      <div style={{ color: '#9aa7b5', fontSize: 10.5, lineHeight: 1.6 }}>
+      <div style={{ color: TK.sub8, fontSize: 10.5, lineHeight: 1.6 }}>
         ※ 계절 = 성장(OECD 경기선행지수)×물가(CPI·금리) 2×2 사분면 · 매크로 결론은 거시경제 대시보드와 동일한 macro-regime SSOT를 따릅니다. 시장별 계절은 성장축에 미국·한국 각각의 CLI를 쓰되, 물가축은 글로벌 공통(한국 CPI는 무료 신선 데이터 부재로 글로벌 기준 사용)입니다. 현금 비중은 앱이 추적하지 않으므로 권장치는 직접 확인하세요. 교육용 시뮬레이션이며 투자 추천이 아닙니다.
       </div>
     </div>

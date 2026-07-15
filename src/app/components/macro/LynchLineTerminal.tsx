@@ -22,6 +22,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { Target, AlertTriangle } from 'lucide-react'
+import { TK } from '@/lib/theme'
 
 // ── 타입
 export interface LynchHistoryPoint {
@@ -223,9 +224,9 @@ export default function LynchLineTerminal({
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 pb-6 border-b border-zinc-800">
         <div>
           <div className="flex items-center gap-2">
-            <Target className="w-4 h-4 text-[#deff9a]" />
+            <Target className={`w-4 h-4 text-[${TK.neonLime}]`} />
             <h3 className="text-base font-bold">
-              실시간 린치 라인 터미널 <span className="text-[#deff9a]">Phase 3</span>
+              실시간 린치 라인 터미널 <span className={`text-[${TK.neonLime}]`}>Phase 3</span>
             </h3>
             {/* EPS 모드 배지 (API 정보 우선, 없으면 라이브 여부) */}
             {ctx.badgeText ? (
@@ -237,7 +238,7 @@ export default function LynchLineTerminal({
                 {ctx.badgeText}
               </span>
             ) : ctx.isLiveOverride ? (
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#deff9a]/10 text-[#deff9a] border border-[#deff9a]/30">
+              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded bg-[${TK.neonLime}]/10 text-[${TK.neonLime}] border border-[${TK.neonLime}]/30`}>
                 🔴 Absolute Sync
               </span>
             ) : null}
@@ -253,7 +254,7 @@ export default function LynchLineTerminal({
               onClick={() => setSelectedTicker(ticker)}
               className={`px-3 py-1 text-xs font-bold rounded transition-all ${
                 selectedTicker === ticker
-                  ? 'bg-[#deff9a] text-black'
+                  ? `bg-[${TK.neonLime}] text-black`
                   : 'text-zinc-500 hover:text-zinc-300'
               }`}
             >
@@ -284,7 +285,7 @@ export default function LynchLineTerminal({
               </span>
             )})
           </div>
-          <div className="text-xl font-mono font-bold text-[#deff9a]">
+          <div className={`text-xl font-mono font-bold text-[${TK.neonLime}]`}>
             {ctx.unit}{ctx.intrinsicValue.toLocaleString()}
           </div>
         </div>
@@ -319,8 +320,8 @@ export default function LynchLineTerminal({
           >
             <defs>
               <linearGradient id="absGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.20} />
-                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}    />
+                <stop offset="5%"  stopColor={TK.blue500} stopOpacity={0.20} />
+                <stop offset="95%" stopColor={TK.blue500} stopOpacity={0}    />
               </linearGradient>
             </defs>
 
@@ -353,16 +354,16 @@ export default function LynchLineTerminal({
             <Line yAxisId="left"
               name="Lynch Line (본질가치)"
               type="monotone" dataKey="lynch"
-              stroke="#deff9a" strokeWidth={2.5}
-              dot={{ r: 4, fill: '#deff9a', stroke: '#000', strokeWidth: 1 }}
+              stroke={TK.neonLime} strokeWidth={2.5}
+              dot={{ r: 4, fill: TK.neonLime, stroke: '#000', strokeWidth: 1 }}
               activeDot={{ r: 5 }}
             />
             <Area yAxisId="left"
               name="Stock Price (현재가)"
               type="monotone" dataKey="price"
-              stroke="#3b82f6" strokeWidth={2.5}
+              stroke={TK.blue500} strokeWidth={2.5}
               fill="url(#absGrad)" fillOpacity={1}
-              dot={{ r: 2.5, fill: '#3b82f6', stroke: '#000', strokeWidth: 1 }}
+              dot={{ r: 2.5, fill: TK.blue500, stroke: '#000', strokeWidth: 1 }}
             />
 
             {/* ★ 우측 Y축 tick 강제 렌더링 더미 */}
@@ -383,7 +384,7 @@ export default function LynchLineTerminal({
           ctx.epsMode === 'forward'  ? 'bg-amber-500/5 border-amber-500/20' :
           ctx.epsMode === 'revenue'  ? 'bg-blue-500/5 border-blue-500/20' :
           ctx.epsMode === 'loss'     ? 'bg-zinc-800/30 border-zinc-700/30' :
-          'bg-[#deff9a]/5 border-[#deff9a]/15'
+          `bg-[${TK.neonLime}]/5 border-[${TK.neonLime}]/15`
         }`}>
           <span className="text-base flex-shrink-0">
             {ctx.epsMode === 'forward' ? '🔄' :
@@ -394,7 +395,7 @@ export default function LynchLineTerminal({
             <span className={`font-bold mr-1 ${
               ctx.epsMode === 'forward' ? 'text-amber-400' :
               ctx.epsMode === 'revenue' ? 'text-blue-400'  :
-              ctx.epsMode === 'loss'    ? 'text-zinc-400'  : 'text-[#deff9a]'
+              ctx.epsMode === 'loss'    ? 'text-zinc-400'  : `text-[${TK.neonLime}]`
             }`}>[{ctx.badgeText ?? 'Lynch 분석'}]</span>
             {ctx.description}
             {/* revenue 모드: 핵심 지표 추가 */}

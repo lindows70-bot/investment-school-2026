@@ -1,8 +1,9 @@
 'use client'
 // 🏙️ 2040 서울도시기본계획 교육 페이지 — 최상위 법정계획의 중심지 체계·7대 목표를 투자 학습 관점으로(정책 참조 데이터 큐레이션 · 출처: 서울시 urban.seoul.go.kr)
 import Link from 'next/link'
+import { TK } from '@/lib/theme'
 
-const CARD = '#141824', BORDER = '#1e293b'
+const CARD = TK.card, BORDER = TK.border
 
 // 중심지 체계(2040 서울도시기본계획 공식) — 정적 정책 참조 데이터(발표 시 갱신). lawd = 단지 리서치 딥링크
 const CORES = [
@@ -45,90 +46,90 @@ export default function Plan2040Page() {
   return (
     <div style={{ padding: '20px 22px', maxWidth: 1180, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* 헤더 */}
-      <div style={{ background: 'linear-gradient(135deg,#1a1410,#0d1017)', border: '1px solid #fb923c44', borderRadius: 12, padding: '16px 18px' }}>
-        <div style={{ fontSize: 17, fontWeight: 800, color: '#f1f5f9' }}>🏙️ 2040 서울도시기본계획 — 서울의 20년 밑그림</div>
-        <div style={{ fontSize: 12, color: '#8a9aaa', marginTop: 4, lineHeight: 1.6 }}>
-          서울시 도시계획 분야의 <b style={{ color: '#fb923c' }}>최상위 법정계획</b> — 향후 20년 서울이 나아갈 방향.
-          미래상: <b style={{ color: '#e2e8f0' }}>&ldquo;살기 좋은 나의 서울, 세계 속에 모두의 서울&rdquo;</b>.
-          부동산 투자에서 개별 단지의 가격(미시)만큼 중요한 것이 <b style={{ color: '#fb923c' }}>도시가 어디에 돈과 인프라를 심는가(거시)</b>입니다.
+      <div style={{ background: `linear-gradient(135deg,#1a1410,${TK.bg1})`, border: `1px solid ${TK.orange400}44`, borderRadius: 12, padding: '16px 18px' }}>
+        <div style={{ fontSize: 17, fontWeight: 800, color: TK.slate100 }}>🏙️ 2040 서울도시기본계획 — 서울의 20년 밑그림</div>
+        <div style={{ fontSize: 12, color: TK.sub, marginTop: 4, lineHeight: 1.6 }}>
+          서울시 도시계획 분야의 <b style={{ color: TK.orange400 }}>최상위 법정계획</b> — 향후 20년 서울이 나아갈 방향.
+          미래상: <b style={{ color: TK.slate200 }}>&ldquo;살기 좋은 나의 서울, 세계 속에 모두의 서울&rdquo;</b>.
+          부동산 투자에서 개별 단지의 가격(미시)만큼 중요한 것이 <b style={{ color: TK.orange400 }}>도시가 어디에 돈과 인프라를 심는가(거시)</b>입니다.
         </div>
       </div>
 
       {/* 원본 종합 공간구조도(서울시 공식 도면) */}
       <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
-        <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>🗺️ 2040 서울 공간구조 종합도 — 서울시 공식 도면</div>
-        <div style={{ color: '#8a9aaa', fontSize: 11, margin: '3px 0 10px' }}>중심지(🔴3도심·🔵7광역·🟡12지역) + 광역교통축(빨강 실선·GTX) + 수변축(파랑) + 남북녹지축(초록)이 한 장에.</div>
+        <div style={{ color: TK.slate200, fontWeight: 800, fontSize: 13 }}>🗺️ 2040 서울 공간구조 종합도 — 서울시 공식 도면</div>
+        <div style={{ color: TK.sub, fontSize: 11, margin: '3px 0 10px' }}>중심지(🔴3도심·🔵7광역·🟡12지역) + 광역교통축(빨강 실선·GTX) + 수변축(파랑) + 남북녹지축(초록)이 한 장에.</div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/plan2040/map-master.png" alt="2040 서울 공간구조 종합도" style={{ width: '100%', height: 'auto', borderRadius: 10, background: '#fff' }} />
-        <div style={{ color: '#8a9aaa', fontSize: 10, marginTop: 6 }}>출처: 서울특별시 도시계획포털(urban.seoul.go.kr) — 2040 서울도시기본계획 공식 도면</div>
+        <div style={{ color: TK.sub, fontSize: 10, marginTop: 6 }}>출처: 서울특별시 도시계획포털(urban.seoul.go.kr) — 2040 서울도시기본계획 공식 도면</div>
       </div>
 
       {/* 중심지 체계 */}
       <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
-        <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>🎯 중심지 체계 — 3도심 · 7광역중심 · 12지역중심</div>
-        <div style={{ color: '#8a9aaa', fontSize: 11, margin: '3px 0 12px' }}>일자리·교통·상업이 계획적으로 집중되는 축. 카드 클릭 = 해당 지역 단지 리서치로 이동.</div>
+        <div style={{ color: TK.slate200, fontWeight: 800, fontSize: 13 }}>🎯 중심지 체계 — 3도심 · 7광역중심 · 12지역중심</div>
+        <div style={{ color: TK.sub, fontSize: 11, margin: '3px 0 12px' }}>일자리·교통·상업이 계획적으로 집중되는 축. 카드 클릭 = 해당 지역 단지 리서치로 이동.</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
           {CORES.map(c => (
-            <Link key={c.name} href={`/real-estate/apt?lawd=${c.lawd}`} style={{ flex: '1 1 240px', textDecoration: 'none', background: '#0f1117', border: '1px solid #fb923c55', borderRadius: 10, padding: '12px 14px' }}>
-              <div style={{ color: '#fb923c', fontWeight: 900, fontSize: 14 }}>🏛️ {c.name} <span style={{ color: '#8a9aaa', fontWeight: 400, fontSize: 10.5 }}>{c.gu}</span></div>
-              <div style={{ color: '#e2e8f0', fontSize: 11.5, fontWeight: 700, marginTop: 3 }}>{c.role}</div>
-              <div style={{ color: '#8a9aaa', fontSize: 10.5, marginTop: 3, lineHeight: 1.5 }}>{c.desc}</div>
+            <Link key={c.name} href={`/real-estate/apt?lawd=${c.lawd}`} style={{ flex: '1 1 240px', textDecoration: 'none', background: TK.bg3, border: `1px solid ${TK.orange400}55`, borderRadius: 10, padding: '12px 14px' }}>
+              <div style={{ color: TK.orange400, fontWeight: 900, fontSize: 14 }}>🏛️ {c.name} <span style={{ color: TK.sub, fontWeight: 400, fontSize: 10.5 }}>{c.gu}</span></div>
+              <div style={{ color: TK.slate200, fontSize: 11.5, fontWeight: 700, marginTop: 3 }}>{c.role}</div>
+              <div style={{ color: TK.sub, fontSize: 10.5, marginTop: 3, lineHeight: 1.5 }}>{c.desc}</div>
             </Link>
           ))}
         </div>
-        <div style={{ color: '#a8b5c2', fontSize: 11, fontWeight: 700, margin: '12px 0 6px' }}>7광역중심</div>
+        <div style={{ color: TK.sub9, fontSize: 11, fontWeight: 700, margin: '12px 0 6px' }}>7광역중심</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {REGIONAL.map(r => (
-            <Link key={r.name} href={`/real-estate/apt?lawd=${r.lawd}`} style={{ textDecoration: 'none', background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 9, padding: '7px 12px' }}>
-              <span style={{ color: '#60a5fa', fontWeight: 800, fontSize: 11.5 }}>{r.name}</span>
-              <span style={{ color: '#8a9aaa', fontSize: 10 }}> {r.gu} — {r.note}</span>
+            <Link key={r.name} href={`/real-estate/apt?lawd=${r.lawd}`} style={{ textDecoration: 'none', background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 9, padding: '7px 12px' }}>
+              <span style={{ color: TK.blue400, fontWeight: 800, fontSize: 11.5 }}>{r.name}</span>
+              <span style={{ color: TK.sub, fontSize: 10 }}> {r.gu} — {r.note}</span>
             </Link>
           ))}
         </div>
-        <div style={{ color: '#a8b5c2', fontSize: 11, fontWeight: 700, margin: '12px 0 6px' }}>12지역중심</div>
+        <div style={{ color: TK.sub9, fontSize: 11, fontWeight: 700, margin: '12px 0 6px' }}>12지역중심</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-          {LOCAL.map(n => <span key={n} style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '4px 10px', fontSize: 10.5, color: '#cbd5e1' }}>{n}</span>)}
+          {LOCAL.map(n => <span key={n} style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '4px 10px', fontSize: 10.5, color: TK.slate300 }}>{n}</span>)}
         </div>
       </div>
 
       {/* 4대 주제도(원본 도면) */}
       <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
-        <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13, marginBottom: 10 }}>📐 4대 공간계획 도면 — 중심지·교통·산업·녹지 축</div>
+        <div style={{ color: TK.slate200, fontWeight: 800, fontSize: 13, marginBottom: 10 }}>📐 4대 공간계획 도면 — 중심지·교통·산업·녹지 축</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
           {THEME_MAPS.map(m => (
-            <div key={m.title} style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '11px 13px' }}>
-              <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 12 }}>{m.title}</div>
-              <div style={{ color: '#8a9aaa', fontSize: 10.5, margin: '3px 0 8px', lineHeight: 1.5 }}>{m.desc}</div>
+            <div key={m.title} style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '11px 13px' }}>
+              <div style={{ color: TK.slate200, fontWeight: 800, fontSize: 12 }}>{m.title}</div>
+              <div style={{ color: TK.sub, fontSize: 10.5, margin: '3px 0 8px', lineHeight: 1.5 }}>{m.desc}</div>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={m.src} alt={m.title} style={{ width: '100%', height: 'auto', borderRadius: 8, background: '#fff', padding: 6, boxSizing: 'border-box' }} />
             </div>
           ))}
         </div>
-        <div style={{ color: '#8a9aaa', fontSize: 10, marginTop: 8 }}>출처: 서울특별시 도시계획포털 공식 도면 · 계획은 방향이며 개별 사업은 변경·지연될 수 있음(교육용).</div>
+        <div style={{ color: TK.sub, fontSize: 10, marginTop: 8 }}>출처: 서울특별시 도시계획포털 공식 도면 · 계획은 방향이며 개별 사업은 변경·지연될 수 있음(교육용).</div>
       </div>
 
       {/* 7대 목표 */}
       <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
-        <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13, marginBottom: 10 }}>📋 7대 핵심 목표 — 공식 문구와 투자 관점 번역</div>
+        <div style={{ color: TK.slate200, fontWeight: 800, fontSize: 13, marginBottom: 10 }}>📋 7대 핵심 목표 — 공식 문구와 투자 관점 번역</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 8 }}>
           {GOALS.map(g => (
-            <div key={g.title} style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '11px 13px' }}>
+            <div key={g.title} style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '11px 13px' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={g.img} alt={g.title} style={{ width: '100%', height: 96, objectFit: 'contain', borderRadius: 8, background: '#fff', padding: 4, boxSizing: 'border-box', marginBottom: 8 }} />
-              <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 12 }}>{g.icon} {g.title} <span style={{ color: '#8a9aaa', fontWeight: 400, fontSize: 10.5 }}>— {g.official}</span></div>
-              <div style={{ color: '#a8b5c2', fontSize: 10.5, marginTop: 4, lineHeight: 1.55 }}>💡 {g.invest}</div>
+              <div style={{ color: TK.slate200, fontWeight: 800, fontSize: 12 }}>{g.icon} {g.title} <span style={{ color: TK.sub, fontWeight: 400, fontSize: 10.5 }}>— {g.official}</span></div>
+              <div style={{ color: TK.sub9, fontSize: 10.5, marginTop: 4, lineHeight: 1.55 }}>💡 {g.invest}</div>
             </div>
           ))}
         </div>
       </div>
 
       {/* 투자 교육 + 정직 캐비엇 */}
-      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '14px 18px', fontSize: 11, color: '#a8b5c2', lineHeight: 1.7 }}>
-        <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 12.5, marginBottom: 6 }}>🎓 도시기본계획을 투자에 어떻게 쓰나</div>
-        도시기본계획은 <b style={{ color: '#e2e8f0' }}>&lsquo;어디에 수요가 만들어질 것인가&rsquo;의 20년 지도</b>입니다 — 중심지로 지정된 곳에 일자리·교통(GTX 결절)·인프라 예산이 집중되고, 주택 수요는 일자리를 따라갑니다.
-        다만 세 가지를 기억하세요: ① <b style={{ color: '#fb923c' }}>기본계획은 방향이지 확정 사업이 아님</b> — 개별 사업(지하화·정비구역)은 수년~수십 년 걸리고 무산·변경될 수 있습니다.
-        ② 계획은 이미 가격에 상당 부분 <b style={{ color: '#fb923c' }}>선반영</b>됩니다(발표 시점이 아니라 착공·진척이 재료). ③ 거시 계획(입지)과 미시 검증(<Link href="/real-estate/apt" style={{ color: '#60a5fa' }}>실거래·전세가율</Link>·<Link href="/real-estate/honeycomb" style={{ color: '#60a5fa' }}>벌집 국면</Link>)을 반드시 함께 보세요 — 좋은 입지도 사이클 상투에 사면 오래 고생합니다.
-        <div style={{ marginTop: 8, color: '#8a9aaa', fontSize: 10 }}>출처: 서울특별시 도시계획포털(urban.seoul.go.kr) 2040 서울도시기본계획 · 중심지 체계는 공식 발표 기준 큐레이션(정책 변경 시 갱신 필요) · 교육용 — 특정 지역 매수 추천 아님.</div>
+      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '14px 18px', fontSize: 11, color: TK.sub9, lineHeight: 1.7 }}>
+        <div style={{ color: TK.slate200, fontWeight: 800, fontSize: 12.5, marginBottom: 6 }}>🎓 도시기본계획을 투자에 어떻게 쓰나</div>
+        도시기본계획은 <b style={{ color: TK.slate200 }}>&lsquo;어디에 수요가 만들어질 것인가&rsquo;의 20년 지도</b>입니다 — 중심지로 지정된 곳에 일자리·교통(GTX 결절)·인프라 예산이 집중되고, 주택 수요는 일자리를 따라갑니다.
+        다만 세 가지를 기억하세요: ① <b style={{ color: TK.orange400 }}>기본계획은 방향이지 확정 사업이 아님</b> — 개별 사업(지하화·정비구역)은 수년~수십 년 걸리고 무산·변경될 수 있습니다.
+        ② 계획은 이미 가격에 상당 부분 <b style={{ color: TK.orange400 }}>선반영</b>됩니다(발표 시점이 아니라 착공·진척이 재료). ③ 거시 계획(입지)과 미시 검증(<Link href="/real-estate/apt" style={{ color: TK.blue400 }}>실거래·전세가율</Link>·<Link href="/real-estate/honeycomb" style={{ color: TK.blue400 }}>벌집 국면</Link>)을 반드시 함께 보세요 — 좋은 입지도 사이클 상투에 사면 오래 고생합니다.
+        <div style={{ marginTop: 8, color: TK.sub, fontSize: 10 }}>출처: 서울특별시 도시계획포털(urban.seoul.go.kr) 2040 서울도시기본계획 · 중심지 체계는 공식 발표 기준 큐레이션(정책 변경 시 갱신 필요) · 교육용 — 특정 지역 매수 추천 아님.</div>
       </div>
     </div>
   )

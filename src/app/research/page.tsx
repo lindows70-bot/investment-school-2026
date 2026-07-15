@@ -21,10 +21,11 @@ import LynchAutoPanel     from '@/app/components/LynchAutoPanel'
 import ChoiValuationPanel from '@/app/components/ChoiValuationPanel'
 import { getAssetType } from '@/lib/assetClassifier'
 import type { Candle } from '@/app/components/CandleChart'
+import { TK } from '@/lib/theme'
 
-const N   = '#1b1e2e'
-const SHO = '7px 7px 18px #0e1020, -4px -4px 12px #282c44'
-const SHI = 'inset 4px 4px 10px #0e1020, inset -3px -3px 8px #282c44'
+const N   = TK.bg8
+const SHO = `7px 7px 18px ${TK.bg2}, -4px -4px 12px ${TK.line2}`
+const SHI = `inset 4px 4px 10px ${TK.bg2}, inset -3px -3px 8px ${TK.line2}`
 
 // 탭: 'chart' = 차트 리서치 | 'wizard' = 피터린치 진단
 type ResearchTab = 'chart' | 'lynch' | 'buffett' | 'choi'
@@ -225,11 +226,11 @@ export default function ResearchPage() {
   const NonStockNotice = (
     <div style={{ background: N, boxShadow: SHO, borderRadius: 14, padding: '20px 24px', textAlign: 'center' }}>
       <div style={{ fontSize: 26, marginBottom: 6 }}>🚫</div>
-      <div style={{ fontSize: 14, fontWeight: 800, color: '#dde4f0', marginBottom: 6 }}>
+      <div style={{ fontSize: 14, fontWeight: 800, color: TK.sub12, marginBottom: 6 }}>
         개별 주식 전용 분석입니다
       </div>
-      <div style={{ fontSize: 12, color: '#8b92b8', lineHeight: 1.7 }}>
-        <b style={{ color: '#fbbf24' }}>{stockInfo?.name || query}</b>은(는) <b>{assetType ? (NON_STOCK_KR[assetType] ?? assetType) : '비주식'}</b>이라
+      <div style={{ fontSize: 12, color: TK.sub14, lineHeight: 1.7 }}>
+        <b style={{ color: TK.amber400 }}>{stockInfo?.name || query}</b>은(는) <b>{assetType ? (NON_STOCK_KR[assetType] ?? assetType) : '비주식'}</b>이라
         피터 린치 6대 분류·내부자 매수·어닝콜·애널리스트 분석 대상이 아닙니다.<br/>
         (ETF·코인·원자재는 발행 기업·내부자·EPS가 없어 개별 기업 분석이 불가능합니다.)
       </div>
@@ -237,8 +238,8 @@ export default function ResearchPage() {
   )
   // 그루 탭에서 아직 종목을 조회하지 않았을 때 안내
   const GuruEmptyNotice = (
-    <div style={{ background: N, boxShadow: SHO, borderRadius: 14, padding: '24px', textAlign: 'center', color: '#8b92b8', fontSize: 13, lineHeight: 1.8 }}>
-      🔎 먼저 <b style={{ color: '#fbbf24' }}>📈 차트 리서치</b> 탭에서 종목을 조회하세요.<br/>
+    <div style={{ background: N, boxShadow: SHO, borderRadius: 14, padding: '24px', textAlign: 'center', color: TK.sub14, fontSize: 13, lineHeight: 1.8 }}>
+      🔎 먼저 <b style={{ color: TK.amber400 }}>📈 차트 리서치</b> 탭에서 종목을 조회하세요.<br/>
       조회한 종목이 이 탭의 그루 분석에 자동으로 적용됩니다.
     </div>
   )
@@ -248,7 +249,7 @@ export default function ResearchPage() {
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}`}</style>
 
       {/* ── 탭 네비게이션 ───────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 6, borderBottom: `1px solid #4a5070`, paddingBottom: 0 }}>
+      <div style={{ display: 'flex', gap: 6, borderBottom: `1px solid ${TK.line4}`, paddingBottom: 0 }}>
         {([
           { key: 'chart',   label: '📈 차트 리서치',   desc: '캔들 + 핵심지표 + 종합 판정' },
           { key: 'lynch',   label: '🔍 피터린치 분석', desc: '6대 분류·PEG·이익선 자동' },
@@ -261,13 +262,13 @@ export default function ResearchPage() {
             style={{
               padding: '10px 18px 12px', border: 'none', cursor: 'pointer',
               background: 'transparent', fontSize: 13, fontWeight: 700,
-              color:       activeTab === key ? '#fbbf24' : '#9aa0b8',
-              borderBottom: `3px solid ${activeTab === key ? '#fbbf24' : 'transparent'}`,
+              color:       activeTab === key ? TK.amber400 : TK.sub4,
+              borderBottom: `3px solid ${activeTab === key ? TK.amber400 : 'transparent'}`,
               transition: 'all 0.18s',
             }}
           >
             <div>{label}</div>
-            <div style={{ fontSize: 9, fontWeight: 400, color: activeTab === key ? '#92400e' : '#7a8599', marginTop: 1 }}>
+            <div style={{ fontSize: 9, fontWeight: 400, color: activeTab === key ? TK.amber800 : TK.sub10, marginTop: 1 }}>
               {desc}
             </div>
           </button>
@@ -288,7 +289,7 @@ export default function ResearchPage() {
             placeholder="티커 입력 (예: AAPL, 005930, BTC)"
             style={{
               flex: 1, padding: '12px 16px', borderRadius: 10, border: 'none',
-              background: '#0a0e1a', boxShadow: SHI, color: '#dde4f0',
+              background: TK.bg0, boxShadow: SHI, color: TK.sub12,
               fontSize: 16, fontWeight: 600, outline: 'none', letterSpacing: '0.04em',
               fontFamily: 'monospace',
             }}
@@ -296,8 +297,8 @@ export default function ResearchPage() {
           <button onClick={() => handleSearch()}
             style={{
               padding: '12px 24px', borderRadius: 10, border: 'none', cursor: 'pointer',
-              background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
-              color: '#1b1e2e', fontSize: 14, fontWeight: 800, letterSpacing: '0.05em',
+              background: `linear-gradient(135deg, ${TK.amber400}, ${TK.amber500})`,
+              color: TK.bg8, fontSize: 14, fontWeight: 800, letterSpacing: '0.05em',
               boxShadow: '0 4px 12px rgba(251,191,36,0.3)',
               opacity: loading ? 0.7 : 1,
             }}>
@@ -306,7 +307,7 @@ export default function ResearchPage() {
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-          <span style={{ fontSize: 10, color: '#9aa0b8', marginRight: 4, fontWeight: 700, letterSpacing: '0.08em' }}>빠른 조회:</span>
+          <span style={{ fontSize: 10, color: TK.sub4, marginRight: 4, fontWeight: 700, letterSpacing: '0.08em' }}>빠른 조회:</span>
           {[
             { t: 'AAPL',   label: 'AAPL · Apple' },
             { t: 'NVDA',   label: 'NVDA · NVIDIA' },
@@ -317,12 +318,12 @@ export default function ResearchPage() {
           ].map(({ t, label }) => (
             <button key={t} onClick={() => handleSearch(t)}
               style={{
-                padding: '4px 10px', borderRadius: 6, border: '1px solid #4a5070',
-                background: 'transparent', color: '#8a9aaa', fontSize: 11, cursor: 'pointer',
+                padding: '4px 10px', borderRadius: 6, border: `1px solid ${TK.line4}`,
+                background: 'transparent', color: TK.sub, fontSize: 11, cursor: 'pointer',
                 transition: 'all 0.15s',
               }}
-              onMouseEnter={e => { (e.currentTarget).style.borderColor = '#fbbf24'; (e.currentTarget).style.color = '#fbbf24' }}
-              onMouseLeave={e => { (e.currentTarget).style.borderColor = '#4a5070'; (e.currentTarget).style.color = '#8a9aaa' }}
+              onMouseEnter={e => { (e.currentTarget).style.borderColor = TK.amber400; (e.currentTarget).style.color = TK.amber400 }}
+              onMouseLeave={e => { (e.currentTarget).style.borderColor = TK.line4; (e.currentTarget).style.color = TK.sub }}
             >{label}</button>
           ))}
         </div>
@@ -330,7 +331,7 @@ export default function ResearchPage() {
 
       {/* Error */}
       {error && (
-        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 12, padding: '16px 20px', color: '#f87171', fontSize: 14 }}>
+        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 12, padding: '16px 20px', color: TK.red400, fontSize: 14 }}>
           ⚠️ {error}
         </div>
       )}
@@ -352,25 +353,25 @@ export default function ResearchPage() {
             <div style={{ padding: '20px 24px 16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#9aa0b8', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: TK.sub4, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
                     {stockInfo?.market === 'KR' ? 'KR Stock' : stockInfo?.market === 'CRYPTO' ? 'Crypto' : 'US Stock'}
                   </div>
-                  <div style={{ fontSize: 28, fontWeight: 900, color: '#dde4f0', letterSpacing: '-0.5px', lineHeight: 1.1 }}>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: TK.sub12, letterSpacing: '-0.5px', lineHeight: 1.1 }}>
                     {stockInfo?.name ?? query}
                   </div>
-                  <div style={{ fontSize: 13, color: '#9aa0b8', marginTop: 4, fontFamily: 'monospace' }}>{query}</div>
+                  <div style={{ fontSize: 13, color: TK.sub4, marginTop: 4, fontFamily: 'monospace' }}>{query}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   {priceData && (
                     <>
-                      <div style={{ fontSize: 32, fontWeight: 900, color: '#dde4f0', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.5px' }}>
+                      <div style={{ fontSize: 32, fontWeight: 900, color: TK.sub12, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.5px' }}>
                         {stockInfo?.currency === 'KRW' ? '₩' : '$'}{priceData.currentPrice.toLocaleString(stockInfo?.currency === 'KRW' ? 'ko-KR' : 'en-US', { maximumFractionDigits: 2 })}
                       </div>
                       <div style={{
                         display: 'inline-flex', alignItems: 'center', gap: 4,
                         padding: '4px 12px', borderRadius: 20, marginTop: 6,
                         background: priceData.changePct >= 0 ? 'rgba(239,68,68,0.15)' : 'rgba(59,130,246,0.15)',
-                        color: priceData.changePct >= 0 ? '#f87171' : '#60a5fa',
+                        color: priceData.changePct >= 0 ? TK.red400 : TK.blue400,
                         fontSize: 14, fontWeight: 700,
                       }}>
                         {priceData.changePct >= 0 ? '▲' : '▼'} {Math.abs(priceData.changePct).toFixed(2)}%
@@ -388,9 +389,9 @@ export default function ResearchPage() {
                   <button key={tf} onClick={() => setTimeframe(tf)}
                     style={{
                       padding: '5px 14px', borderRadius: 20, border: 'none', cursor: 'pointer',
-                      background: timeframe === tf ? '#fbbf24' : '#0a0e1a',
+                      background: timeframe === tf ? TK.amber400 : TK.bg0,
                       boxShadow: timeframe === tf ? '0 2px 8px rgba(251,191,36,0.3)' : SHI,
-                      color: timeframe === tf ? '#1b1e2e' : '#8a9aaa',
+                      color: timeframe === tf ? TK.bg8 : TK.sub,
                       fontSize: 12, fontWeight: 700, transition: 'all 0.15s',
                     }}>{tf}</button>
                 ))}
@@ -418,7 +419,7 @@ export default function ResearchPage() {
 
               // OHLC 없는 경우 → 빈 상태
               return (
-                <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9aa0b8', fontSize: 13 }}>
+                <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', color: TK.sub4, fontSize: 13 }}>
                   {!priceData ? '종목을 조회해주세요' : '캔들 데이터 없음'}
                 </div>
               )
@@ -429,8 +430,8 @@ export default function ResearchPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ background: N, boxShadow: SHO, borderRadius: 14, padding: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <span style={{ fontSize: 11, fontWeight: 800, color: '#9aa0b8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>핵심 지표</span>
-                <span style={{ fontSize: 11, color: '#7a8599' }}>{new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: TK.sub4, textTransform: 'uppercase', letterSpacing: '0.1em' }}>핵심 지표</span>
+                <span style={{ fontSize: 11, color: TK.sub10 }}>{new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 {stockInfo && [
@@ -441,16 +442,16 @@ export default function ResearchPage() {
                   { label: 'Forward EPS', value: stockInfo.forwardEps != null ? (stockInfo.currency === 'KRW' ? `₩${Math.round(stockInfo.forwardEps).toLocaleString()}` : `$${stockInfo.forwardEps.toFixed(2)}`) : '—' },
                   { label: 'PEG',         value: stockInfo.peg != null ? stockInfo.peg.toFixed(2) : '—' },
                 ].map(({ label, value }) => (
-                  <div key={label} style={{ background: '#0a0e1a', boxShadow: SHI, borderRadius: 9, padding: '10px 12px' }}>
-                    <div style={{ fontSize: 9, color: '#9aa0b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>{label}</div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: '#dde4f0', fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+                  <div key={label} style={{ background: TK.bg0, boxShadow: SHI, borderRadius: 9, padding: '10px 12px' }}>
+                    <div style={{ fontSize: 9, color: TK.sub4, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>{label}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: TK.sub12, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
                   </div>
                 ))}
               </div>
               {stockInfo?.marketCap != null && (
-                <div style={{ marginTop: 8, background: '#0a0e1a', boxShadow: SHI, borderRadius: 9, padding: '10px 12px' }}>
-                  <div style={{ fontSize: 9, color: '#9aa0b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>시가총액</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#dde4f0' }}>
+                <div style={{ marginTop: 8, background: TK.bg0, boxShadow: SHI, borderRadius: 9, padding: '10px 12px' }}>
+                  <div style={{ fontSize: 9, color: TK.sub4, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>시가총액</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: TK.sub12 }}>
                     {stockInfo.marketCap >= 1e12
                       ? `${(stockInfo.marketCap / 1e12).toFixed(2)}T`
                       : stockInfo.marketCap >= 1e9
@@ -471,9 +472,9 @@ export default function ResearchPage() {
                   ? 'rgba(251,191,36,0.15)'
                   : wlSuccess
                   ? 'rgba(34,197,94,0.2)'
-                  : 'linear-gradient(135deg,#92400e,#b45309)',
+                  : `linear-gradient(135deg,${TK.amber800},${TK.amber700})`,
                 boxShadow: isInWatchlist ? SHI : SHO,
-                color: isInWatchlist ? '#fbbf24' : wlSuccess ? '#4ade80' : '#fde68a',
+                color: isInWatchlist ? TK.amber400 : wlSuccess ? TK.green400 : '#fde68a',
                 fontSize: 13, fontWeight: 800, letterSpacing: '0.05em',
                 transition: 'all 0.2s',
               }}>
@@ -487,16 +488,16 @@ export default function ResearchPage() {
       {!loading && stockInfo && priceData && (
         <div style={{ background: N, boxShadow: SHO, borderRadius: 14, padding: '16px 20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <span style={{ fontSize: 11, fontWeight: 800, color: '#9aa0b8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>🎯 리서치 체크포인트</span>
-            <span style={{ fontSize: 10, color: '#7a8599' }}>자동 요약</span>
+            <span style={{ fontSize: 11, fontWeight: 800, color: TK.sub4, textTransform: 'uppercase', letterSpacing: '0.1em' }}>🎯 리서치 체크포인트</span>
+            <span style={{ fontSize: 10, color: TK.sub10 }}>자동 요약</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 10 }}>
 
             {/* 피터린치 분류 */}
-            <div style={{ background: '#0a0e1a', boxShadow: SHI, borderRadius: 10, padding: '12px 14px', borderLeft: '3px solid #a78bfa' }}>
-              <div style={{ fontSize: 9, color: '#9aa0b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>피터린치 분류</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#a78bfa' }}>{stockInfo.lynchLabel ?? '분석 불가'}</div>
-              <div style={{ fontSize: 10, color: '#7a8599', marginTop: 4 }}>
+            <div style={{ background: TK.bg0, boxShadow: SHI, borderRadius: 10, padding: '12px 14px', borderLeft: `3px solid ${TK.violet400}` }}>
+              <div style={{ fontSize: 9, color: TK.sub4, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>피터린치 분류</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: TK.violet400 }}>{stockInfo.lynchLabel ?? '분석 불가'}</div>
+              <div style={{ fontSize: 10, color: TK.sub10, marginTop: 4 }}>
                 {stockInfo.lynchCategory === 'fast_grower' ? '연 20%+ 고성장. 미래 가치 선반영.' :
                  stockInfo.lynchCategory === 'stalwart'    ? '연 10~12% 안정 성장. 대형 우량주.' :
                  stockInfo.lynchCategory === 'slow_grower' ? '저성장. 배당 중심 투자.' :
@@ -508,13 +509,13 @@ export default function ResearchPage() {
             </div>
 
             {/* PEG 해석 */}
-            <div style={{ background: '#0a0e1a', boxShadow: SHI, borderRadius: 10, padding: '12px 14px',
-              borderLeft: `3px solid ${stockInfo.peg != null ? (stockInfo.peg <= 1 ? '#10b981' : stockInfo.peg <= 2 ? '#60a5fa' : '#f87171') : '#7a8599'}` }}>
-              <div style={{ fontSize: 9, color: '#9aa0b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>PEG 해석</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: stockInfo.peg != null ? (stockInfo.peg <= 1 ? '#10b981' : stockInfo.peg <= 2 ? '#60a5fa' : '#f87171') : '#7a8599' }}>
+            <div style={{ background: TK.bg0, boxShadow: SHI, borderRadius: 10, padding: '12px 14px',
+              borderLeft: `3px solid ${stockInfo.peg != null ? (stockInfo.peg <= 1 ? TK.emerald500 : stockInfo.peg <= 2 ? TK.blue400 : TK.red400) : TK.sub10}` }}>
+              <div style={{ fontSize: 9, color: TK.sub4, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>PEG 해석</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: stockInfo.peg != null ? (stockInfo.peg <= 1 ? TK.emerald500 : stockInfo.peg <= 2 ? TK.blue400 : TK.red400) : TK.sub10 }}>
                 {stockInfo.peg != null ? stockInfo.peg.toFixed(2) : '—'}
               </div>
-              <div style={{ fontSize: 10, color: '#7a8599', marginTop: 4 }}>
+              <div style={{ fontSize: 10, color: TK.sub10, marginTop: 4 }}>
                 {stockInfo.peg == null ? 'PEG 데이터 없음' :
                  stockInfo.peg <= 1 ? '✅ 강력 매수 구간. 성장 대비 저평가.' :
                  stockInfo.peg <= 2 ? '🔵 적정 가격 수준.' :
@@ -523,26 +524,26 @@ export default function ResearchPage() {
             </div>
 
             {/* 기간 수익률 */}
-            <div style={{ background: '#0a0e1a', boxShadow: SHI, borderRadius: 10, padding: '12px 14px',
-              borderLeft: `3px solid ${priceData.changePct >= 0 ? '#ef4444' : '#3b82f6'}` }}>
-              <div style={{ fontSize: 9, color: '#9aa0b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>당일 수익률</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: priceData.changePct >= 0 ? '#f87171' : '#60a5fa' }}>
+            <div style={{ background: TK.bg0, boxShadow: SHI, borderRadius: 10, padding: '12px 14px',
+              borderLeft: `3px solid ${priceData.changePct >= 0 ? TK.red500 : TK.blue500}` }}>
+              <div style={{ fontSize: 9, color: TK.sub4, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>당일 수익률</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: priceData.changePct >= 0 ? TK.red400 : TK.blue400 }}>
                 {priceData.changePct >= 0 ? '+' : ''}{priceData.changePct.toFixed(2)}%
               </div>
-              <div style={{ fontSize: 10, color: '#7a8599', marginTop: 4 }}>
+              <div style={{ fontSize: 10, color: TK.sub10, marginTop: 4 }}>
                 전일 대비 {priceData.change >= 0 ? '+' : ''}{stockInfo.currency === 'KRW' ? `₩${Math.round(priceData.change).toLocaleString()}` : `$${priceData.change.toFixed(2)}`}
               </div>
             </div>
 
             {/* Forward EPS */}
-            <div style={{ background: '#0a0e1a', boxShadow: SHI, borderRadius: 10, padding: '12px 14px', borderLeft: '3px solid #34d399' }}>
-              <div style={{ fontSize: 9, color: '#9aa0b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>Forward EPS</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#34d399' }}>
+            <div style={{ background: TK.bg0, boxShadow: SHI, borderRadius: 10, padding: '12px 14px', borderLeft: `3px solid ${TK.emerald400}` }}>
+              <div style={{ fontSize: 9, color: TK.sub4, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>Forward EPS</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: TK.emerald400 }}>
                 {stockInfo.forwardEps != null
                   ? (stockInfo.currency === 'KRW' ? `₩${Math.round(stockInfo.forwardEps).toLocaleString()}` : `$${stockInfo.forwardEps.toFixed(2)}`)
                   : '—'}
               </div>
-              <div style={{ fontSize: 10, color: '#7a8599', marginTop: 4 }}>애널리스트 예상 이익 기준 EPS</div>
+              <div style={{ fontSize: 10, color: TK.sub10, marginTop: 4 }}>애널리스트 예상 이익 기준 EPS</div>
             </div>
 
           </div>

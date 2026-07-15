@@ -23,6 +23,7 @@ import {
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { calcFairMultiple, safeNumber, LYNCH_CATEGORY_KR } from '@/lib/lynchAnalysis'
 import { getAssetType } from '@/lib/assetClassifier'
+import { TK } from '@/lib/theme'
 
 // ── 타입
 interface PortfolioItem {
@@ -122,36 +123,36 @@ function calcAlert(
   if (originalG >= 20 && currentG < 12) return {
     type: 'downgrade', icon: '🟡', label: '체질 변화 경고',
     desc: `G ${originalG.toFixed(0)}% → ${currentG.toFixed(0)}% — 고성장주가 중·저성장으로 카테고리 다운그레이드됨`,
-    color: '#fbbf24', bg: 'rgba(251,191,36,0.08)', border: 'rgba(251,191,36,0.3)',
+    color: TK.amber400, bg: 'rgba(251,191,36,0.08)', border: 'rgba(251,191,36,0.3)',
   }
   // ② 🟢 매수 적기: PEG ≤ 0.5 — 성장 대비 명백한 저평가
   if (revisedPeg > 0 && revisedPeg <= 0.5) return {
     type: 'buy', icon: '🟢', label: '매수 적기',
     desc: `PEG ${revisedPeg.toFixed(2)} ≤ 0.5 — 성장률 대비 저평가 메리트 발생`,
-    color: '#4ade80', bg: 'rgba(74,222,128,0.08)', border: 'rgba(74,222,128,0.3)',
+    color: TK.green400, bg: 'rgba(74,222,128,0.08)', border: 'rgba(74,222,128,0.3)',
   }
   // ③ 🔴 매도 고려: PEG ≥ 1.5 — 성장 대비 고평가
   if (revisedPeg >= 1.5) return {
     type: 'sell', icon: '🔴', label: '매도 고려',
     desc: `PEG ${revisedPeg.toFixed(2)} ≥ 1.5 — 성장률 둔화 또는 밸류에이션 과열 리스크`,
-    color: '#f87171', bg: 'rgba(248,113,113,0.08)', border: 'rgba(248,113,113,0.3)',
+    color: TK.red400, bg: 'rgba(248,113,113,0.08)', border: 'rgba(248,113,113,0.3)',
   }
   // ④ ⚡ 경계 근접: PEG가 기준선 ±0.1 이내
   if (revisedPeg > 0.40 && revisedPeg <= 0.60) return {
     type: 'hold', icon: '⚡', label: '매수 경계',
     desc: `PEG ${revisedPeg.toFixed(2)} — 매수 적기(0.5) 경계 근접. 추가 G 상향 리비전 시 매수 시그널 전환`,
-    color: '#34d399', bg: 'rgba(52,211,153,0.05)', border: 'rgba(52,211,153,0.2)',
+    color: TK.emerald400, bg: 'rgba(52,211,153,0.05)', border: 'rgba(52,211,153,0.2)',
   }
   if (revisedPeg >= 1.40 && revisedPeg < 1.60) return {
     type: 'hold', icon: '⚡', label: '매도 경계',
     desc: `PEG ${revisedPeg.toFixed(2)} — 매도 고려(1.5) 경계 근접. G 하향 리비전 시 즉시 매도 검토`,
-    color: '#fb923c', bg: 'rgba(251,146,60,0.05)', border: 'rgba(251,146,60,0.2)',
+    color: TK.orange400, bg: 'rgba(251,146,60,0.05)', border: 'rgba(251,146,60,0.2)',
   }
   // ⑤ ⚪ 합리적 보유: 0.6 ≤ PEG < 1.4 — 적정 구간
   return {
     type: 'hold', icon: '⚪', label: '합리적 보유',
     desc: `PEG ${revisedPeg > 0 ? revisedPeg.toFixed(2) : '—'} — 0.5~1.5 적정 범위. 현재 포지션 유지 권고`,
-    color: '#7f93a8', bg: 'transparent', border: 'rgba(100,116,139,0.25)',
+    color: TK.sub2, bg: 'transparent', border: 'rgba(100,116,139,0.25)',
   }
 }
 
@@ -177,12 +178,12 @@ function Sparkline({ data, color }: { data: { g: number }[]; color: string }) {
           stroke={color} strokeWidth={2}
           fill={`url(#${gradId})`} fillOpacity={1}
           dot={false}
-          activeDot={{ r: 3, fill: color, stroke: '#0f172a', strokeWidth: 1.5 }}
+          activeDot={{ r: 3, fill: color, stroke: TK.slate900, strokeWidth: 1.5 }}
           isAnimationActive={false}
         />
         <Tooltip
-          contentStyle={{ background: '#0f172a', border: '1px solid #2a2d3a', borderRadius: 4, padding: '2px 6px', fontSize: 10 }}
-          itemStyle={{ color: '#fbbf24', fontWeight: 700 }}
+          contentStyle={{ background: TK.slate900, border: `1px solid ${TK.line1}`, borderRadius: 4, padding: '2px 6px', fontSize: 10 }}
+          itemStyle={{ color: TK.amber400, fontWeight: 700 }}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           formatter={(v: any) => [`${v}%`, 'G']}
           labelFormatter={() => ''}
@@ -198,7 +199,7 @@ function BubbleDot(props: any) {
   const { cx, cy, payload } = props
   if (cx == null || cy == null) return null
   const alert  = payload?.alert as Alert | undefined
-  const color  = alert?.color ?? '#60a5fa'
+  const color  = alert?.color ?? TK.blue400
   const r      = 22   // 균등한 버블 크기
   const hasPeg = payload?.hasPeg !== false
   const gLabel = payload?.gLabel ?? ''
@@ -211,7 +212,7 @@ function BubbleDot(props: any) {
       {/* 메인 버블 — PEG 없는 종목은 점선 테두리 */}
       <circle cx={cx} cy={cy} r={r}
         fill={hasPeg ? color : `${color}40`}
-        stroke={hasPeg ? '#0f172a' : color}
+        stroke={hasPeg ? TK.slate900 : color}
         strokeWidth={hasPeg ? 1.5 : 1.5}
         strokeDasharray={hasPeg ? 'none' : '3 2'}
         opacity={hasPeg ? 0.9 : 0.6}
@@ -232,7 +233,7 @@ function BubbleDot(props: any) {
       {!hasPeg && (
         <text x={cx} y={cy + r + 10}
           textAnchor="middle"
-          fill="#8599ae" fontSize={7}>
+          fill={TK.sub3} fontSize={7}>
           PE—
         </text>
       )}
@@ -412,8 +413,8 @@ export default function EarningsAlertTerminal({
   }), [tableData])
 
   const C = {
-    card: '#1a1d27', border: '#2a2d3a', grid: '#1e2140',
-    text: '#94a3b8', textHi: '#f1f5f9', textLow: '#8599ae',
+    card: TK.bg7, border: TK.line1, grid: TK.bg9,
+    text: TK.slate400, textHi: TK.slate100, textLow: TK.sub3,
   }
 
   // ── Empty State: 개별 주식이 하나도 없을 때
@@ -424,14 +425,14 @@ export default function EarningsAlertTerminal({
       background: C.card, border: `1px dashed ${C.border}`,
       borderRadius: 14, textAlign: 'center',
     }}>
-      <AlertTriangle size={36} color="#8599ae" />
+      <AlertTriangle size={36} color={TK.sub3} />
       <div>
         <div style={{ fontSize: 15, fontWeight: 700, color: C.textHi, marginBottom: 8 }}>
           린치 PEG 분석 적용 불가
         </div>
         <div style={{ fontSize: 13, color: C.text, lineHeight: 1.8, maxWidth: 420 }}>
           현재 포트폴리오에{' '}
-          <span style={{ color: '#60a5fa', fontWeight: 700 }}>
+          <span style={{ color: TK.blue400, fontWeight: 700 }}>
             린치 분석을 적용할 수 있는 개별 주식 자산이 없습니다.
           </span>
           <br />
@@ -444,7 +445,7 @@ export default function EarningsAlertTerminal({
         <div style={{
           marginTop: 16, padding: '10px 16px', borderRadius: 8,
           background: 'rgba(96,165,250,0.07)', border: '1px solid rgba(96,165,250,0.2)',
-          fontSize: 11, color: '#60a5fa',
+          fontSize: 11, color: TK.blue400,
         }}>
           💡 자산관리 탭에서 NVDA, 삼성전자 등 개별 주식을 추가하면 바로 분석이 시작됩니다.
         </div>
@@ -469,7 +470,7 @@ export default function EarningsAlertTerminal({
             </span>
             <span style={{
               fontSize: 10, padding: '2px 8px', borderRadius: 20,
-              background: 'rgba(96,165,250,0.12)', color: '#60a5fa', fontWeight: 700,
+              background: 'rgba(96,165,250,0.12)', color: TK.blue400, fontWeight: 700,
             }}>
               EARNINGS ALERT
             </span>
@@ -482,9 +483,9 @@ export default function EarningsAlertTerminal({
         {/* 알럿 집계 */}
         <div style={{ display: 'flex', gap: 10 }}>
           {[
-            { icon: '🟢', label: '매수 적기', count: alertCounts.buy,       color: '#4ade80' },
-            { icon: '🔴', label: '매도 고려', count: alertCounts.sell,      color: '#f87171' },
-            { icon: '🟡', label: '체질 변화', count: alertCounts.downgrade, color: '#fbbf24' },
+            { icon: '🟢', label: '매수 적기', count: alertCounts.buy,       color: TK.green400 },
+            { icon: '🔴', label: '매도 고려', count: alertCounts.sell,      color: TK.red400 },
+            { icon: '🟡', label: '체질 변화', count: alertCounts.downgrade, color: TK.amber400 },
           ].map(a => (
             <div key={a.label} style={{
               padding: '6px 12px', borderRadius: 8, textAlign: 'center',
@@ -542,7 +543,7 @@ export default function EarningsAlertTerminal({
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
                       <span style={{
                         fontSize: 13, fontWeight: 900, fontFamily: 'monospace',
-                        color: row.currentG >= 20 ? '#4ade80' : row.currentG >= 10 ? '#fbbf24' : '#f87171',
+                        color: row.currentG >= 20 ? TK.green400 : row.currentG >= 10 ? TK.amber400 : TK.red400,
                       }}>
                         {row.currentG.toFixed(1)}%
                       </span>
@@ -556,7 +557,7 @@ export default function EarningsAlertTerminal({
                       {gOverrides[row.ticker] !== undefined && (
                         <button
                           onClick={() => setGOverrides(prev => { const n = { ...prev }; delete n[row.ticker]; return n })}
-                          style={{ fontSize: 8, color: '#7a8fa3', background: 'none', border: 'none', cursor: 'pointer' }}
+                          style={{ fontSize: 8, color: TK.sub6, background: 'none', border: 'none', cursor: 'pointer' }}
                         >
                           초기화
                         </button>
@@ -571,9 +572,9 @@ export default function EarningsAlertTerminal({
                   <td style={{ padding: '8px', textAlign: 'center' }}>
                     <span style={{
                       fontFamily: 'monospace', fontWeight: 700, fontSize: 13,
-                      color: row.revisedPeg <= 0.5 ? '#4ade80'
-                           : row.revisedPeg >= 1.5 ? '#f87171'
-                           : '#fbbf24',
+                      color: row.revisedPeg <= 0.5 ? TK.green400
+                           : row.revisedPeg >= 1.5 ? TK.red400
+                           : TK.amber400,
                     }}>
                       {row.revisedPeg > 0 ? row.revisedPeg.toFixed(2) : '—'}
                     </span>
@@ -635,14 +636,14 @@ export default function EarningsAlertTerminal({
               <ZAxis dataKey="z" range={[1600, 1600]} />
 
               {/* PEG 가이드라인 */}
-              <ReferenceLine y={0.5} stroke="#4ade80" strokeDasharray="5 3" strokeWidth={1.2} strokeOpacity={0.6}
-                label={{ value: 'PEG=0.5 (저평가)', position: 'insideTopLeft', fill: '#4ade80', fontSize: 8 }}
+              <ReferenceLine y={0.5} stroke={TK.green400} strokeDasharray="5 3" strokeWidth={1.2} strokeOpacity={0.6}
+                label={{ value: 'PEG=0.5 (저평가)', position: 'insideTopLeft', fill: TK.green400, fontSize: 8 }}
               />
-              <ReferenceLine y={1.0} stroke="#60a5fa" strokeDasharray="5 3" strokeWidth={1} strokeOpacity={0.5}
-                label={{ value: 'PEG=1.0', position: 'insideTopLeft', fill: '#60a5fa', fontSize: 8 }}
+              <ReferenceLine y={1.0} stroke={TK.blue400} strokeDasharray="5 3" strokeWidth={1} strokeOpacity={0.5}
+                label={{ value: 'PEG=1.0', position: 'insideTopLeft', fill: TK.blue400, fontSize: 8 }}
               />
-              <ReferenceLine y={1.5} stroke="#f87171" strokeDasharray="5 3" strokeWidth={1.2} strokeOpacity={0.6}
-                label={{ value: 'PEG=1.5 (고평가)', position: 'insideTopLeft', fill: '#f87171', fontSize: 8 }}
+              <ReferenceLine y={1.5} stroke={TK.red400} strokeDasharray="5 3" strokeWidth={1.2} strokeOpacity={0.6}
+                label={{ value: 'PEG=1.5 (고평가)', position: 'insideTopLeft', fill: TK.red400, fontSize: 8 }}
               />
 
               <Scatter
@@ -656,10 +657,10 @@ export default function EarningsAlertTerminal({
           {/* 범례 */}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 6, fontSize: 9, color: C.textLow }}>
             {[
-              { color: '#4ade80', label: '🟢 매수 적기 (PEG≤0.5)' },
-              { color: '#f87171', label: '🔴 매도 고려 (PEG≥1.5)' },
-              { color: '#fbbf24', label: '🟡 체질 변화' },
-              { color: '#60a5fa', label: '⚪ 관찰 중' },
+              { color: TK.green400, label: '🟢 매수 적기 (PEG≤0.5)' },
+              { color: TK.red400, label: '🔴 매도 고려 (PEG≥1.5)' },
+              { color: TK.amber400, label: '🟡 체질 변화' },
+              { color: TK.blue400, label: '⚪ 관찰 중' },
             ].map(l => (
               <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                 <div style={{ width: 7, height: 7, borderRadius: '50%', background: l.color }} />
@@ -722,24 +723,24 @@ export default function EarningsAlertTerminal({
         padding: '12px 16px', borderRadius: 10,
         background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.15)',
       }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: TK.amber500, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
           <RefreshCw size={12} /> 피터 린치 PEG 원칙 — G 리비전의 투자 의미
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8, fontSize: 10, color: C.text, lineHeight: 1.7 }}>
           <div>
-            <span style={{ color: '#4ade80', fontWeight: 700 }}>🟢 PEG ≤ 0.5:</span> 이익성장 대비 주가가 지나치게 저렴.
+            <span style={{ color: TK.green400, fontWeight: 700 }}>🟢 PEG ≤ 0.5:</span> 이익성장 대비 주가가 지나치게 저렴.
             성장률 상향 리비전 시 가장 강력한 매수 신호.
           </div>
           <div>
-            <span style={{ color: '#60a5fa', fontWeight: 700 }}>🔵 PEG = 1.0:</span> 이익성장률과 주가가 균형. 린치의 &quot;공정가치&quot;.
+            <span style={{ color: TK.blue400, fontWeight: 700 }}>🔵 PEG = 1.0:</span> 이익성장률과 주가가 균형. 린치의 &quot;공정가치&quot;.
             PEG = 1이면 성장 대비 적정 가격.
           </div>
           <div>
-            <span style={{ color: '#fbbf24', fontWeight: 700 }}>🟡 G 꺾임:</span> 고성장(≥20%)이 중저성장(&lt;10%)으로 하락.
+            <span style={{ color: TK.amber400, fontWeight: 700 }}>🟡 G 꺾임:</span> 고성장(≥20%)이 중저성장(&lt;10%)으로 하락.
             린치는 &quot;성장 스토리가 끝난 주식은 즉시 팔아라&quot;고 경고.
           </div>
           <div>
-            <span style={{ color: '#f87171', fontWeight: 700 }}>🔴 PEG ≥ 1.5:</span> 성장 대비 고평가. 성장률 하향 리비전 시
+            <span style={{ color: TK.red400, fontWeight: 700 }}>🔴 PEG ≥ 1.5:</span> 성장 대비 고평가. 성장률 하향 리비전 시
             밸류에이션 수축 → 주가 하락 위험 증가.
           </div>
         </div>

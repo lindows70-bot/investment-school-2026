@@ -15,6 +15,7 @@
  */
 
 import React from 'react'
+import { TK } from '@/lib/theme'
 
 interface Props {
   children:    React.ReactNode
@@ -64,10 +65,10 @@ export default class ErrorBoundary extends React.Component<Props, State> {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 22 }}>⚠️</span>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: '#f87171' }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: TK.red400 }}>
                 {this.props.label ? `[${this.props.label}] ` : ''}컴포넌트 렌더링 오류
               </div>
-              <div style={{ fontSize: 11, color: '#7f93a8', marginTop: 2 }}>
+              <div style={{ fontSize: 11, color: TK.sub2, marginTop: 2 }}>
                 이 화면만 오류가 발생했습니다. 다른 탭은 정상 작동합니다.
               </div>
             </div>
@@ -77,8 +78,8 @@ export default class ErrorBoundary extends React.Component<Props, State> {
           {this.state.error && (
             <div style={{
               padding: '10px 14px', borderRadius: 8,
-              background: '#0f1117', border: '1px solid #2a2d3a',
-              fontFamily: 'monospace', fontSize: 11, color: '#94a3b8',
+              background: TK.bg3, border: `1px solid ${TK.line1}`,
+              fontFamily: 'monospace', fontSize: 11, color: TK.slate400,
               overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
             }}>
               {this.state.error.message}
@@ -92,7 +93,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
               alignSelf: 'flex-start',
               padding: '8px 18px', borderRadius: 8,
               border: '1px solid rgba(239,68,68,0.3)',
-              background: 'rgba(239,68,68,0.1)', color: '#f87171',
+              background: 'rgba(239,68,68,0.1)', color: TK.red400,
               fontSize: 12, fontWeight: 700, cursor: 'pointer',
             }}
           >

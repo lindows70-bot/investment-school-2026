@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation'
 import Sidebar from './Sidebar'
 import TopHeader from './TopHeader'
+import { TK } from '@/lib/theme'
 
 // 사이드바 레이아웃을 적용하지 않는 경로
 const NO_LAYOUT = ['/login', '/signup']
@@ -26,7 +27,7 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
         }
         ::-webkit-scrollbar { width: 5px; height: 5px }
         ::-webkit-scrollbar-track { background: #0a0a0a }
-        ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 99px }
+        ::-webkit-scrollbar-thumb { background: ${TK.gray800}; border-radius: 99px }
       `}</style>
 
       <div style={{
@@ -46,7 +47,7 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
           <TopHeader />
           <main
             className="main-content"
-            style={{ flex: 1, overflowY: 'auto', padding: '28px 28px 60px', color: '#f1f5f9' }}
+            style={{ flex: 1, overflowY: 'auto', padding: '28px 28px 60px', color: TK.slate100 }}
           >
             {children}
           </main>
@@ -56,7 +57,7 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
       {/* ── 모바일 하단 탭바 ── */}
       <nav className="bottom-tabs" style={{
         position: 'fixed', bottom: 0, left: 0, right: 0,
-        background: '#111827', borderTop: '1px solid #1f2937',
+        background: TK.gray900, borderTop: `1px solid ${TK.gray800}`,
         display: 'flex', zIndex: 100,
         fontFamily: '-apple-system,sans-serif',
       }}>
@@ -71,7 +72,7 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
             <a key={href} href={href} style={{
               flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
               padding: '10px 0 12px', gap: 3, textDecoration: 'none',
-              color: active ? '#3b82f6' : '#8a96a8',
+              color: active ? TK.blue500 : TK.sub7,
               fontSize: 10, fontWeight: active ? 600 : 400,
             }}>
               <span style={{ fontSize: 20 }}>{icon}</span>

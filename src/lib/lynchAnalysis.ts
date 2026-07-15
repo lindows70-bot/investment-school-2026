@@ -1,3 +1,4 @@
+import { TK } from '@/lib/theme'
 /**
  * lynchAnalysis.ts — 피터 린치 분석 SSOT (Single Source of Truth)
  *
@@ -384,7 +385,7 @@ export function analyzeEpsMode(
       lyncLine: Math.round(cleanEps * multiple),
       isLoss: false,
       badgeText:   '실제 EPS',
-      badgeColor:  'text-[#deff9a] bg-[#deff9a]/10 border-[#deff9a]/30',
+      badgeColor:  `text-[${TK.neonLime}] bg-[${TK.neonLime}]/10 border-[${TK.neonLime}]/30`,
       description: `실제 연간 EPS(${isKr ? '₩' : '$'}${cleanEps.toFixed(isKr ? 0 : 2)}) × ${multiple}배 멀티플로 적정가치 산출`,
     }
   }

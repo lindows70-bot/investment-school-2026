@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { TK } from '@/lib/theme'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Tab = 'login' | 'signup'
@@ -46,7 +47,7 @@ const S = {
     width: 52,
     height: 52,
     borderRadius: 16,
-    background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
+    background: `linear-gradient(135deg, ${TK.blue600} 0%, #7c3aed 100%)`,
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -56,20 +57,20 @@ const S = {
   logoTitle: {
     fontSize: 22,
     fontWeight: 700,
-    color: '#f1f5f9',
+    color: TK.slate100,
     letterSpacing: '-0.5px',
     margin: 0,
   },
   logoSub: {
     fontSize: 13,
-    color: '#7f93a8',
+    color: TK.sub2,
     marginTop: 4,
   },
 
   // ── Card ──
   card: {
     background: '#1a1a1a',
-    border: '1px solid #2a2a2a',
+    border: `1px solid ${TK.flat1}`,
     borderRadius: 16,
     padding: '32px 28px',
     boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
@@ -94,7 +95,7 @@ const S = {
     fontWeight: 500,
     transition: 'all 0.18s ease',
     background: active ? '#1a1a1a' : 'transparent',
-    color: active ? '#f1f5f9' : '#7f93a8',
+    color: active ? TK.slate100 : TK.sub2,
     boxShadow: active ? '0 1px 4px rgba(0,0,0,0.4)' : 'none',
   }),
 
@@ -104,7 +105,7 @@ const S = {
     display: 'block',
     fontSize: 12,
     fontWeight: 500,
-    color: '#94a3b8',
+    color: TK.slate400,
     marginBottom: 6,
     letterSpacing: '0.02em',
     textTransform: 'uppercase' as const,
@@ -115,7 +116,7 @@ const S = {
     left: 12,
     top: '50%',
     transform: 'translateY(-50%)',
-    color: '#8599ae',
+    color: TK.sub3,
     pointerEvents: 'none' as const,
     lineHeight: 1,
   },
@@ -123,9 +124,9 @@ const S = {
     width: '100%',
     padding: '11px 12px 11px 36px',
     background: '#111',
-    border: '1px solid #2a2a2a',
+    border: `1px solid ${TK.flat1}`,
     borderRadius: 8,
-    color: '#f1f5f9',
+    color: TK.slate100,
     fontSize: 14,
     outline: 'none',
     boxSizing: 'border-box' as const,
@@ -138,7 +139,7 @@ const S = {
     border: '1px solid rgba(239,68,68,0.3)',
     borderRadius: 8,
     padding: '10px 12px',
-    color: '#f87171',
+    color: TK.red400,
     fontSize: 13,
     marginBottom: 16,
   },
@@ -147,7 +148,7 @@ const S = {
     border: '1px solid rgba(16,185,129,0.3)',
     borderRadius: 8,
     padding: '10px 12px',
-    color: '#34d399',
+    color: TK.emerald400,
     fontSize: 13,
     marginBottom: 16,
   },
@@ -158,7 +159,7 @@ const S = {
     padding: '12px',
     background: loading
       ? '#1d3a7a'
-      : 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+      : `linear-gradient(135deg, ${TK.blue600} 0%, ${TK.blue700} 100%)`,
     border: 'none',
     borderRadius: 8,
     color: '#fff',
@@ -179,11 +180,11 @@ const S = {
   footerText: {
     textAlign: 'center' as const,
     fontSize: 13,
-    color: '#8599ae',
+    color: TK.sub3,
     marginTop: 20,
   },
   footerLink: {
-    color: '#60a5fa',
+    color: TK.blue400,
     cursor: 'pointer',
     background: 'none',
     border: 'none',
@@ -194,7 +195,7 @@ const S = {
   },
 
   divider: {
-    borderColor: '#2a2a2a',
+    borderColor: TK.flat1,
     margin: '20px 0',
   },
 }
@@ -352,7 +353,7 @@ function LoginContent() {
   // ── Input focus border style ──────────────────────────────
   const inputStyle = (name: string): React.CSSProperties => ({
     ...S.input,
-    borderColor: focused === name ? '#2563eb' : '#2a2a2a',
+    borderColor: focused === name ? TK.blue600 : TK.flat1,
     boxShadow: focused === name ? '0 0 0 3px rgba(37,99,235,0.15)' : 'none',
   })
 
@@ -503,10 +504,10 @@ function LoginContent() {
               <div>
                 <div style={{ textAlign: 'center', marginBottom: 24 }}>
                   <div style={{ fontSize: 36, marginBottom: 8 }}>🔑</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: '#f1f5f9', marginBottom: 6 }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: TK.slate100, marginBottom: 6 }}>
                     새 비밀번호 설정
                   </div>
-                  <div style={{ fontSize: 13, color: '#7f93a8', lineHeight: 1.6 }}>
+                  <div style={{ fontSize: 13, color: TK.sub2, lineHeight: 1.6 }}>
                     새로 사용할 비밀번호를 입력해주세요.<br />
                     6자 이상이어야 합니다.
                   </div>
@@ -547,7 +548,7 @@ function LoginContent() {
                         width: '100%', padding: '12px',
                         background: newPwStatus === 'loading'
                           ? 'rgba(37,99,235,0.5)'
-                          : 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                          : `linear-gradient(135deg, ${TK.blue600} 0%, ${TK.blue700} 100%)`,
                         border: 'none', borderRadius: 8, color: '#fff',
                         fontSize: 14, fontWeight: 600, cursor: newPwStatus === 'loading' ? 'default' : 'pointer',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -561,7 +562,7 @@ function LoginContent() {
 
                 <button
                   onClick={() => { setIsRecoveryMode(false); setNewPassword(''); setNewPwStatus('idle'); setNewPwMsg('') }}
-                  style={{ width: '100%', marginTop: 14, background: 'none', border: 'none', color: '#8599ae', fontSize: 13, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}
+                  style={{ width: '100%', marginTop: 14, background: 'none', border: 'none', color: TK.sub3, fontSize: 13, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}
                 >
                   취소하고 로그인으로 돌아가기
                 </button>
@@ -622,7 +623,7 @@ function LoginContent() {
                   <button
                     type="button"
                     onClick={() => { setShowForgot(true); setForgotEmail(email); setForgotStatus('idle'); setForgotMsg('') }}
-                    style={{ background: 'none', border: 'none', color: '#8599ae', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}
+                    style={{ background: 'none', border: 'none', color: TK.sub3, fontSize: 12, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}
                   >
                     비밀번호를 잊으셨나요?
                   </button>
@@ -632,12 +633,12 @@ function LoginContent() {
               {/* ── 비밀번호 찾기 모달 ── */}
               {showForgot && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-                  <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 14, padding: '28px 24px', width: '100%', maxWidth: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.7)' }}>
+                  <div style={{ background: '#1a1a1a', border: `1px solid ${TK.flat1}`, borderRadius: 14, padding: '28px 24px', width: '100%', maxWidth: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.7)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>🔑 비밀번호 재설정</h3>
-                      <button onClick={() => setShowForgot(false)} style={{ background: 'none', border: 'none', color: '#7f93a8', fontSize: 20, cursor: 'pointer' }}>×</button>
+                      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: TK.slate100 }}>🔑 비밀번호 재설정</h3>
+                      <button onClick={() => setShowForgot(false)} style={{ background: 'none', border: 'none', color: TK.sub2, fontSize: 20, cursor: 'pointer' }}>×</button>
                     </div>
-                    <p style={{ fontSize: 13, color: '#94a3b8', marginTop: 0, marginBottom: 18, lineHeight: 1.6 }}>
+                    <p style={{ fontSize: 13, color: TK.slate400, marginTop: 0, marginBottom: 18, lineHeight: 1.6 }}>
                       가입한 이메일 주소를 입력하면 비밀번호 재설정 링크를 보내드립니다.
                     </p>
                     {forgotStatus === 'error'   && <div style={{ ...S.errorBox,   marginBottom: 14 }}>⚠ {forgotMsg}</div>}
@@ -651,7 +652,7 @@ function LoginContent() {
                             <input
                               type="email" required value={forgotEmail}
                               onChange={e => setForgotEmail(e.target.value)}
-                              style={{ ...S.input, borderColor: '#2a2a2a' }}
+                              style={{ ...S.input, borderColor: TK.flat1 }}
                               placeholder="가입한 이메일 입력"
                               autoComplete="email"
                             />
@@ -708,7 +709,7 @@ function LoginContent() {
                 </div>
 
                 <div style={S.fieldWrap}>
-                  <label style={S.label}>비밀번호 <span style={{ color: '#8599ae', fontWeight: 400 }}>(6자 이상)</span></label>
+                  <label style={S.label}>비밀번호 <span style={{ color: TK.sub3, fontWeight: 400 }}>(6자 이상)</span></label>
                   <div style={S.inputWrap}>
                     <span style={S.inputIcon}><LockIcon /></span>
                     <input
@@ -729,10 +730,10 @@ function LoginContent() {
                   <div style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6,
                     padding: '6px 12px', background: '#111',
-                    border: '1px solid #2a2a2a', borderRadius: 8,
-                    color: '#60a5fa', fontSize: 13,
+                    border: `1px solid ${TK.flat1}`, borderRadius: 8,
+                    color: TK.blue400, fontSize: 13,
                   }}>
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3b82f6', display: 'inline-block' }} />
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: TK.blue500, display: 'inline-block' }} />
                     학생 (Student)
                   </div>
                 </div>
@@ -760,7 +761,7 @@ function LoginContent() {
           </div>
 
           {/* Bottom caption */}
-          <p style={{ textAlign: 'center', color: '#7a8fa3', fontSize: 12, marginTop: 20 }}>
+          <p style={{ textAlign: 'center', color: TK.sub6, fontSize: 12, marginTop: 20 }}>
             © 2026 투자학교 · 모든 투자의 책임은 본인에게 있습니다
           </p>
         </div>

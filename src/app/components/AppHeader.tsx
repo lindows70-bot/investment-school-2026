@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { TK } from '@/lib/theme'
 
 interface Props {
   /** 페이지 제목 (로고 옆 표시) */
@@ -62,7 +63,7 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
   return (
     <nav style={{
       background: '#111',
-      borderBottom: '1px solid #1e1e1e',
+      borderBottom: `1px solid ${TK.flat2}`,
       position: 'sticky',
       top: 0,
       zIndex: 50,
@@ -95,14 +96,14 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
 
           {title && (
             <>
-              <span style={{ color: '#2a2a2a', fontSize: 16 }}>/</span>
-              <span style={{ fontSize: 13, color: '#7f93a8', fontWeight: 500 }}>{title}</span>
+              <span style={{ color: TK.flat1, fontSize: 16 }}>/</span>
+              <span style={{ fontSize: 13, color: TK.sub2, fontWeight: 500 }}>{title}</span>
             </>
           )}
 
           {isTeacher && (
             <span style={{
-              fontSize: 10, fontWeight: 700, color: '#fb923c',
+              fontSize: 10, fontWeight: 700, color: TK.orange400,
               background: 'rgba(251,146,60,0.12)',
               border: '1px solid rgba(251,146,60,0.3)',
               borderRadius: 99, padding: '2px 8px',
@@ -146,7 +147,7 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
               href="/dashboard"
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
-                background: '#7a8fa3',
+                background: TK.sub6,
                 color: '#ffffff',
                 padding: '6px 14px',
                 borderRadius: 8,
@@ -166,7 +167,7 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
           {/* 이메일 (md 이상에서만 표시) */}
           {email && (
             <span style={{
-              fontSize: 12, color: '#8599ae',
+              fontSize: 12, color: TK.sub3,
               maxWidth: 200, overflow: 'hidden',
               textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               display: 'none',
@@ -184,9 +185,9 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '5px 10px 5px 5px',
-                background: menuOpen ? '#1e1e1e' : 'transparent',
+                background: menuOpen ? TK.flat2 : 'transparent',
                 border: '1px solid',
-                borderColor: menuOpen ? '#2a2a2a' : 'transparent',
+                borderColor: menuOpen ? TK.flat1 : 'transparent',
                 borderRadius: 99,
                 cursor: 'pointer',
                 transition: 'all 0.15s',
@@ -207,7 +208,7 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
               {/* Avatar circle */}
               <div style={{
                 width: 28, height: 28, borderRadius: '50%',
-                background: 'linear-gradient(135deg,#1d4ed8,#6d28d9)',
+                background: `linear-gradient(135deg,${TK.blue700},#6d28d9)`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 11, fontWeight: 800, color: '#fff', flexShrink: 0,
               }}>
@@ -215,7 +216,7 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
               </div>
 
               {/* Email short */}
-              <span style={{ fontSize: 12, color: '#7f93a8', maxWidth: 140,
+              <span style={{ fontSize: 12, color: TK.sub2, maxWidth: 140,
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                 className="header-email"
               >
@@ -224,7 +225,7 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
 
               {/* Chevron */}
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-                stroke="#8599ae" strokeWidth="2.5" strokeLinecap="round"
+                stroke={TK.sub3} strokeWidth="2.5" strokeLinecap="round"
                 style={{ transition: 'transform 0.15s', transform: menuOpen ? 'rotate(180deg)' : 'none' }}>
                 <path d="m6 9 6 6 6-6"/>
               </svg>
@@ -240,7 +241,7 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
                 />
                 <div style={{
                   position: 'absolute', right: 0, top: 'calc(100% + 8px)',
-                  background: '#1a1a1a', border: '1px solid #2a2a2a',
+                  background: '#1a1a1a', border: `1px solid ${TK.flat1}`,
                   borderRadius: 12, padding: '6px',
                   minWidth: 220, zIndex: 50,
                   boxShadow: '0 16px 40px rgba(0,0,0,0.6)',
@@ -254,18 +255,18 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{
                         width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-                        background: 'linear-gradient(135deg,#1d4ed8,#6d28d9)',
+                        background: `linear-gradient(135deg,${TK.blue700},#6d28d9)`,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontSize: 14, fontWeight: 800, color: '#fff',
                       }}>
                         {avatarChar}
                       </div>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9' }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: TK.slate100 }}>
                           {email?.split('@')[0]}
                         </div>
                         <div style={{
-                          fontSize: 11, color: '#8599ae',
+                          fontSize: 11, color: TK.sub3,
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                           maxWidth: 150,
                         }}>
@@ -287,17 +288,17 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
                         width: '100%', display: 'flex', alignItems: 'center', gap: 10,
                         padding: '9px 12px', borderRadius: 8,
                         background: 'transparent', border: 'none',
-                        color: '#94a3b8', fontSize: 13, cursor: 'pointer',
+                        color: TK.slate400, fontSize: 13, cursor: 'pointer',
                         textAlign: 'left',
                         transition: 'background 0.1s, color 0.1s',
                       }}
                       onMouseEnter={e => {
                         (e.currentTarget as HTMLButtonElement).style.background = '#222'
-                        ;(e.currentTarget as HTMLButtonElement).style.color = '#f1f5f9'
+                        ;(e.currentTarget as HTMLButtonElement).style.color = TK.slate100
                       }}
                       onMouseLeave={e => {
                         (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
-                        ;(e.currentTarget as HTMLButtonElement).style.color = '#94a3b8'
+                        ;(e.currentTarget as HTMLButtonElement).style.color = TK.slate400
                       }}
                     >
                       <span>{icon}</span>{label}
@@ -314,7 +315,7 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
                       width: '100%', display: 'flex', alignItems: 'center', gap: 10,
                       padding: '9px 12px', borderRadius: 8,
                       background: 'transparent', border: 'none',
-                      color: '#f87171', fontSize: 13, cursor: loggingOut ? 'not-allowed' : 'pointer',
+                      color: TK.red400, fontSize: 13, cursor: loggingOut ? 'not-allowed' : 'pointer',
                       textAlign: 'left',
                       opacity: loggingOut ? 0.6 : 1,
                       transition: 'background 0.1s',
@@ -374,7 +375,7 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
           onClick={e => { if (e.target === e.currentTarget) setConfirmOpen(false) }}
         >
           <div style={{
-            background: '#141414', border: '1px solid #2a2a2a',
+            background: '#141414', border: `1px solid ${TK.flat1}`,
             borderRadius: 18, padding: '32px 28px',
             width: '100%', maxWidth: 360, textAlign: 'center',
             boxShadow: '0 24px 64px rgba(0,0,0,0.8)',
@@ -387,20 +388,20 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-                stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                stroke={TK.red400} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
                 <polyline points="16 17 21 12 16 7"/>
                 <line x1="21" y1="12" x2="9" y2="12"/>
               </svg>
             </div>
 
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9', margin: '0 0 8px', letterSpacing: '-0.3px' }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: TK.slate100, margin: '0 0 8px', letterSpacing: '-0.3px' }}>
               로그아웃 하시겠습니까?
             </h3>
-            <p style={{ fontSize: 13, color: '#7f93a8', margin: '0 0 6px', lineHeight: 1.6 }}>
+            <p style={{ fontSize: 13, color: TK.sub2, margin: '0 0 6px', lineHeight: 1.6 }}>
               {email}
             </p>
-            <p style={{ fontSize: 12, color: '#7a8fa3', margin: '0 0 26px' }}>
+            <p style={{ fontSize: 12, color: TK.sub6, margin: '0 0 26px' }}>
               모든 기기에서 세션이 종료됩니다.
             </p>
 
@@ -409,12 +410,12 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
                 onClick={() => setConfirmOpen(false)}
                 style={{
                   flex: 1, padding: '11px', borderRadius: 10,
-                  border: '1px solid #2a2a2a', background: 'transparent',
-                  color: '#94a3b8', fontSize: 14, cursor: 'pointer',
+                  border: `1px solid ${TK.flat1}`, background: 'transparent',
+                  color: TK.slate400, fontSize: 14, cursor: 'pointer',
                   transition: 'background 0.15s, color 0.15s',
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#1e1e1e'; (e.currentTarget as HTMLButtonElement).style.color = '#f1f5f9' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = '#94a3b8' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = TK.flat2; (e.currentTarget as HTMLButtonElement).style.color = TK.slate100 }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = TK.slate400 }}
               >
                 취소
               </button>
@@ -423,7 +424,7 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
                 style={{
                   flex: 1, padding: '11px', borderRadius: 10,
                   border: 'none',
-                  background: 'linear-gradient(135deg,#dc2626,#b91c1c)',
+                  background: `linear-gradient(135deg,${TK.red600},#b91c1c)`,
                   color: '#fff', fontSize: 14, fontWeight: 600,
                   cursor: 'pointer', transition: 'opacity 0.15s',
                 }}

@@ -3,8 +3,9 @@
 //    실데이터로 자동 채움(Zero-Input·제1원칙). 데이터는 buildSignalMetrics SSOT 재사용(신규 판정기 0)
 import { useState, useEffect } from 'react'
 import type { ValueTriangle as VT } from '@/app/api/value-triangle/route'
+import { TK } from '@/lib/theme'
 
-const BORDER = '#1e293b'
+const BORDER = TK.border
 
 export default function ValueTriangle({ ticker, market, name, per }: { ticker: string; market: string; name?: string; per?: number | null }) {
   const [d, setD] = useState<VT | null>(null)
@@ -23,7 +24,7 @@ export default function ValueTriangle({ ticker, market, name, per }: { ticker: s
   }, [ticker, market, name, per])
 
   if (loading) return (
-    <div style={{ background: '#141824', border: `1px solid ${BORDER}`, borderRadius: 12, padding: '18px 22px', marginBottom: 16, color: '#8599ae', fontSize: 12 }}>
+    <div style={{ background: TK.card, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '18px 22px', marginBottom: 16, color: TK.sub3, fontSize: 12 }}>
       🔺 밸류 삼각형 계산 중…
     </div>
   )
@@ -41,24 +42,24 @@ export default function ValueTriangle({ ticker, market, name, per }: { ticker: s
   const top = { x: W / 2, y: 34 }, bl = { x: 84, y: H - 36 }, br = { x: W - 84, y: H - 36 }
 
   return (
-    <div style={{ background: '#141824', border: `1px solid ${BORDER}`, borderRadius: 12, padding: '18px 22px', marginBottom: 16 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0', marginBottom: 3 }}>🔺 밸류 삼각형 — 1분 주가 계산</div>
-      <div style={{ fontSize: 11, color: '#8a9aaa', marginBottom: 10, lineHeight: 1.6 }}>
-        세 꼭짓점(시가총액·자본·순이익)을 알면 세 변(PBR·PER·ROE)이 자동으로 나옵니다 — <b style={{ color: '#fbbf24' }}>PBR = PER × ROE</b> 항등식.
+    <div style={{ background: TK.card, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '18px 22px', marginBottom: 16 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: TK.slate200, marginBottom: 3 }}>🔺 밸류 삼각형 — 1분 주가 계산</div>
+      <div style={{ fontSize: 11, color: TK.sub, marginBottom: 10, lineHeight: 1.6 }}>
+        세 꼭짓점(시가총액·자본·순이익)을 알면 세 변(PBR·PER·ROE)이 자동으로 나옵니다 — <b style={{ color: TK.amber400 }}>PBR = PER × ROE</b> 항등식.
         둘만 알아도 나머지 하나가 계산되는 구조.
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center' }}>
         <svg viewBox={`0 0 ${W} ${H}`} style={{ flex: '1 1 320px', maxWidth: 520 }}>
           {/* 변 3개 */}
-          <line x1={top.x} y1={top.y} x2={bl.x} y2={bl.y} stroke="#3b82f6" strokeWidth={2} opacity={0.75} />
-          <line x1={top.x} y1={top.y} x2={br.x} y2={br.y} stroke="#f87171" strokeWidth={2} opacity={0.75} />
-          <line x1={bl.x} y1={bl.y} x2={br.x} y2={br.y} stroke="#4ade80" strokeWidth={2} opacity={0.75} />
+          <line x1={top.x} y1={top.y} x2={bl.x} y2={bl.y} stroke={TK.blue500} strokeWidth={2} opacity={0.75} />
+          <line x1={top.x} y1={top.y} x2={br.x} y2={br.y} stroke={TK.red400} strokeWidth={2} opacity={0.75} />
+          <line x1={bl.x} y1={bl.y} x2={br.x} y2={br.y} stroke={TK.green400} strokeWidth={2} opacity={0.75} />
           {/* 변 라벨 — PBR(좌)·PER(우)·ROE(하) */}
           <g fontWeight={800} fontSize={14} textAnchor="middle">
-            <text x={(top.x + bl.x) / 2 - 34} y={(top.y + bl.y) / 2} fill="#60a5fa">PBR {d.pbr ?? '—'}</text>
-            <text x={(top.x + br.x) / 2 + 36} y={(top.y + br.y) / 2} fill="#f87171">PER {d.per ?? '—'}</text>
-            <text x={W / 2} y={bl.y + 26} fill="#4ade80">ROE {d.roe != null ? `${d.roe.toFixed(1)}%` : '—'}</text>
+            <text x={(top.x + bl.x) / 2 - 34} y={(top.y + bl.y) / 2} fill={TK.blue400}>PBR {d.pbr ?? '—'}</text>
+            <text x={(top.x + br.x) / 2 + 36} y={(top.y + br.y) / 2} fill={TK.red400}>PER {d.per ?? '—'}</text>
+            <text x={W / 2} y={bl.y + 26} fill={TK.green400}>ROE {d.roe != null ? `${d.roe.toFixed(1)}%` : '—'}</text>
           </g>
           {/* 꼭짓점 3개 */}
           {[
@@ -67,33 +68,33 @@ export default function ValueTriangle({ ticker, market, name, per }: { ticker: s
             { p: br, t1: '당기순이익', t2: d.netIncome != null ? fmtBig(d.netIncome) : '—', dy: 0 },
           ].map((v, i) => (
             <g key={i} textAnchor="middle">
-              <circle cx={v.p.x} cy={v.p.y} r={5} fill="#e2e8f0" />
-              <text x={v.p.x} y={v.p.y + (i === 0 ? -20 : 20)} fill="#e2e8f0" fontSize={12.5} fontWeight={800}>{v.t1}</text>
-              <text x={v.p.x} y={v.p.y + (i === 0 ? -6 : 34)} fill="#fbbf24" fontSize={13} fontWeight={800} fontFamily="monospace">{v.t2}</text>
+              <circle cx={v.p.x} cy={v.p.y} r={5} fill={TK.slate200} />
+              <text x={v.p.x} y={v.p.y + (i === 0 ? -20 : 20)} fill={TK.slate200} fontSize={12.5} fontWeight={800}>{v.t1}</text>
+              <text x={v.p.x} y={v.p.y + (i === 0 ? -6 : 34)} fill={TK.amber400} fontSize={13} fontWeight={800} fontFamily="monospace">{v.t2}</text>
             </g>
           ))}
         </svg>
 
-        <div style={{ flex: '1 1 220px', fontSize: 11.5, lineHeight: 1.75, color: '#aab6c4' }}>
+        <div style={{ flex: '1 1 220px', fontSize: 11.5, lineHeight: 1.75, color: TK.sub5 }}>
           <div style={{ marginBottom: 6 }}>
-            <b style={{ color: '#60a5fa' }}>PBR</b> = 시가총액 ÷ 자본 <span style={{ color: '#8a9aaa' }}>(1 미만 = 자본보다 싸게 거래)</span><br />
-            <b style={{ color: '#f87171' }}>PER</b> = 시가총액 ÷ 순이익 <span style={{ color: '#8a9aaa' }}>(이익 몇 년치 가격인가)</span><br />
-            <b style={{ color: '#4ade80' }}>ROE</b> = 순이익 ÷ 자본 <span style={{ color: '#8a9aaa' }}>(자본을 굴리는 효율)</span>
+            <b style={{ color: TK.blue400 }}>PBR</b> = 시가총액 ÷ 자본 <span style={{ color: TK.sub }}>(1 미만 = 자본보다 싸게 거래)</span><br />
+            <b style={{ color: TK.red400 }}>PER</b> = 시가총액 ÷ 순이익 <span style={{ color: TK.sub }}>(이익 몇 년치 가격인가)</span><br />
+            <b style={{ color: TK.green400 }}>ROE</b> = 순이익 ÷ 자본 <span style={{ color: TK.sub }}>(자본을 굴리는 효율)</span>
           </div>
           {identity && (
-            <div style={{ background: 'rgba(251,191,36,0.07)', border: '1px solid #fbbf2433', borderRadius: 8, padding: '7px 11px', fontFamily: 'monospace', fontSize: 11.5, color: '#fbbf24' }}>
+            <div style={{ background: 'rgba(251,191,36,0.07)', border: `1px solid ${TK.amber400}33`, borderRadius: 8, padding: '7px 11px', fontFamily: 'monospace', fontSize: 11.5, color: TK.amber400 }}>
               검산: {d.per} × {(d.roe! / 100).toFixed(3)} = {(d.per! * d.roe! / 100).toFixed(2)} ≈ PBR {d.pbr}
             </div>
           )}
           {d.isFinancial && (
-            <div style={{ marginTop: 6, color: '#fbbf24', fontSize: 11 }}>
+            <div style={{ marginTop: 6, color: TK.amber400, fontSize: 11 }}>
               🏦 금융주(보험·은행) — PER 꼭짓점은 왜곡(투자손익·준비금), 이 삼각형에선 <b>PBR 변(자본 대비 가격)</b>이 진짜 평가축입니다.
             </div>
           )}
         </div>
       </div>
 
-      <div style={{ color: '#8a9aaa', fontSize: 10, marginTop: 8, lineHeight: 1.6 }}>
+      <div style={{ color: TK.sub, fontSize: 10, marginTop: 8, lineHeight: 1.6 }}>
         💡 PER = 화면 상단 지표와 동일(stock-info 기준) · 자본 = 최신 분기 · 순이익·ROE = 시총·PER·자본에서 도출 — 세 비율이 항등식으로 정확히 맞물리게 한 기준으로 계산(도출 ROE는 평균자본 기준 공시 ROE와 다를 수 있음). 시가총액은 Yahoo 기준(KR 일부 오차 가능). 교육용.
       </div>
     </div>

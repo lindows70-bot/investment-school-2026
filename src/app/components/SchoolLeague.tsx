@@ -27,26 +27,27 @@ import {
   ChevronUp, ChevronDown, Minus, Loader2, AlertCircle,
 } from 'lucide-react'
 import type { TrendingStock, SchoolLeagueData } from '@/app/api/school-league/route'
+import { TK } from '@/lib/theme'
 
 // ── 디자인 토큰 ──────────────────────────────────────────────────
 const C = {
-  bg:      '#020617',
-  surface: '#0f172a',
-  card:    '#1e293b',
+  bg:      TK.slate950,
+  surface: TK.slate900,
+  card:    TK.border,
   cardHi:  '#263348',
-  border:  '#7a8fa3',
-  textHi:  '#f1f5f9',
-  textMid: '#94a3b8',
-  textLow: '#7f93a8',
+  border:  TK.sub6,
+  textHi:  TK.slate100,
+  textMid: TK.slate400,
+  textLow: TK.sub2,
   // 대시보드·리밸런싱 위젯과 통일
-  core:    '#38bdf8',
-  sat:     '#fb923c',
-  green:   '#4ade80',
-  red:     '#f87171',
-  amber:   '#fbbf24',
-  purple:  '#c084fc',
-  gold:    '#f59e0b',
-  silver:  '#94a3b8',
+  core:    TK.sky400,
+  sat:     TK.orange400,
+  green:   TK.green400,
+  red:     TK.red400,
+  amber:   TK.amber400,
+  purple:  TK.purple400,
+  gold:    TK.amber500,
+  silver:  TK.slate400,
   bronze:  '#d97706',
 }
 
@@ -183,7 +184,7 @@ function Tab({
         padding: '6px 14px', borderRadius: 8, border: 'none',
         cursor: 'pointer', fontSize: 12, fontWeight: 700,
         background:  active ? C.amber   : 'transparent',
-        color:       active ? '#020617' : C.textLow,
+        color:       active ? TK.slate950 : C.textLow,
         boxShadow:   active ? `0 2px 8px ${C.amber}44` : 'none',
         transition:  'all 0.18s',
       }}
@@ -503,7 +504,7 @@ export default function SchoolLeague() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{
             width: 42, height: 42, borderRadius: 12,
-            background: 'linear-gradient(135deg,#f59e0b22,#fb923c22)',
+            background: `linear-gradient(135deg,${TK.amber500}22,${TK.orange400}22)`,
             border: `1px solid ${C.amber}44`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
@@ -1100,7 +1101,7 @@ export default function SchoolLeague() {
                     padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
                     fontSize: 10, fontWeight: 700,
                     background: cashUnit === u ? C.amber : C.surface,
-                    color:      cashUnit === u ? '#020617' : C.textLow,
+                    color:      cashUnit === u ? TK.slate950 : C.textLow,
                     transition: 'all 0.15s',
                   }}>{u}</button>
                 ))}
@@ -1412,17 +1413,17 @@ export default function SchoolLeague() {
       ══════════════════════════════════════════════════════════ */}
       {data && (() => {
         const LYNCH_META = [
-          { key:'fast_grower'  as const, label:'고성장주',    eng:'Fast Growers',  color:'#a3e635', icon:'🚀',
+          { key:'fast_grower'  as const, label:'고성장주',    eng:'Fast Growers',  color:TK.lime400, icon:'🚀',
             desc:'연 20%+ 이익 성장 — 핵심: 스토리 유효성 점검' },
-          { key:'stalwart'     as const, label:'대형우량주',  eng:'Stalwarts',     color:'#38bdf8', icon:'🛡️',
+          { key:'stalwart'     as const, label:'대형우량주',  eng:'Stalwarts',     color:TK.sky400, icon:'🛡️',
             desc:'안정적 10~12% 성장 — 핵심: 과도한 고평가 진입 주의' },
-          { key:'slow_grower'  as const, label:'저성장주',    eng:'Slow Growers',  color:'#94a3b8', icon:'🐢',
+          { key:'slow_grower'  as const, label:'저성장주',    eng:'Slow Growers',  color:TK.slate400, icon:'🐢',
             desc:'저성장·고배당 — 핵심: 배당 지속성 및 다각화 동향 점검' },
-          { key:'cyclical'     as const, label:'경기순환주',  eng:'Cyclicals',     color:'#fb923c', icon:'🔄',
+          { key:'cyclical'     as const, label:'경기순환주',  eng:'Cyclicals',     color:TK.orange400, icon:'🔄',
             desc:'경기 사이클 추종 — 핵심: 재고·수주 사이클 고점 포착' },
-          { key:'asset_play'   as const, label:'자산주',      eng:'Asset Plays',   color:'#c084fc', icon:'💎',
+          { key:'asset_play'   as const, label:'자산주',      eng:'Asset Plays',   color:TK.purple400, icon:'💎',
             desc:'숨겨진 자산 가치 — 핵심: 자산 인식 트리거 발생 시 매도' },
-          { key:'turnaround'   as const, label:'턴어라운드주',eng:'Turnarounds',   color:'#f87171', icon:'🔥',
+          { key:'turnaround'   as const, label:'턴어라운드주',eng:'Turnarounds',   color:TK.red400, icon:'🔥',
             desc:'회생 기업 — 핵심: 흑자 전환 2~3분기 확인 후 차익 실현' },
         ]
 

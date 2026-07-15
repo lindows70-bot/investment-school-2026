@@ -25,6 +25,7 @@ import {
   safeNumber,
   LYNCH_CATEGORY_KR,
 } from '@/lib/lynchAnalysis'
+import { TK } from '@/lib/theme'
 
 const toMacroFactor = (r: number) => parseFloat((1 + r * -0.3).toFixed(4))
 
@@ -270,7 +271,7 @@ export default function MacroTerminalDashboard({
       {/* 공유 상태 배너 */}
       <div className="flex items-center justify-between px-5 py-3 bg-zinc-950 border border-zinc-800 rounded-xl">
         <div className="flex items-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-[#deff9a] animate-pulse" />
+          <div className={`w-2 h-2 rounded-full bg-[${TK.neonLime}] animate-pulse`} />
           <span className="text-xs font-bold text-zinc-300">매크로 터미널 LIVE</span>
           <span className="text-[10px] text-zinc-500">
             포트폴리오 {stressData.length}개 개별 종목 · SSOT 분석 엔진
@@ -299,7 +300,7 @@ export default function MacroTerminalDashboard({
       {epsLoading && !Object.keys(lynchTerminalData).length ? (
         <div className="w-full p-8 bg-black border border-zinc-800 rounded-xl font-sans">
           <div className="flex flex-col items-center gap-3 text-zinc-500">
-            <Activity className="w-6 h-6 text-[#deff9a] animate-pulse" />
+            <Activity className={`w-6 h-6 text-[${TK.neonLime}] animate-pulse`} />
             <div className="text-sm">DART / FMP에서 EPS 이력 수집 중…</div>
             <div className="text-xs text-zinc-600">
               {individualStocks.length}개 종목 · Yahoo Finance + FMP (US) · Naver + DART (KR)

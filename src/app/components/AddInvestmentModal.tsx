@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { bustServerCache } from '@/lib/bustCache'
 import { classifyAsset } from '@/lib/classifyAsset'
+import { TK } from '@/lib/theme'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Market   = 'US' | 'KR' | 'CRYPTO'
@@ -47,7 +48,7 @@ const S = {
     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
   },
   modal: {
-    background: '#141414', border: '1px solid #2a2a2a',
+    background: '#141414', border: `1px solid ${TK.flat1}`,
     borderRadius: 18, width: '100%', maxWidth: 500,
     maxHeight: '88vh', overflowY: 'auto' as const,
     boxShadow: '0 24px 64px rgba(0,0,0,0.75)',
@@ -57,21 +58,21 @@ const S = {
   body:    { padding: '20px 24px 28px' },
   section: { marginBottom: 16 },
   label:   {
-    display: 'block', fontSize: 11, fontWeight: 600, color: '#7f93a8',
+    display: 'block', fontSize: 11, fontWeight: 600, color: TK.sub2,
     marginBottom: 6, letterSpacing: '0.07em', textTransform: 'uppercase' as const,
   },
   input: {
     width: '100%', boxSizing: 'border-box' as const,
-    padding: '10px 12px', background: '#1e1e1e',
-    border: '1px solid #2a2a2a', borderRadius: 9,
-    color: '#f1f5f9', fontSize: 14, outline: 'none',
+    padding: '10px 12px', background: TK.flat2,
+    border: `1px solid ${TK.flat1}`, borderRadius: 9,
+    color: TK.slate100, fontSize: 14, outline: 'none',
     transition: 'border-color 0.15s, box-shadow 0.15s',
   },
-  hint:    { fontSize: 11, color: '#8599ae', marginTop: 6, lineHeight: 1.5 },
-  divider: { border: 'none', borderTop: '1px solid #1e1e1e', margin: '18px 0' },
+  hint:    { fontSize: 11, color: TK.sub3, marginTop: 6, lineHeight: 1.5 },
+  divider: { border: 'none', borderTop: `1px solid ${TK.flat2}`, margin: '18px 0' },
   errBox:  {
     background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-    borderRadius: 8, padding: '10px 12px', color: '#f87171', fontSize: 13, marginBottom: 14,
+    borderRadius: 8, padding: '10px 12px', color: TK.red400, fontSize: 13, marginBottom: 14,
   },
 }
 
@@ -189,7 +190,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
 
   const iStyle = (id: string): React.CSSProperties => ({
     ...S.input,
-    ...(focused === id ? { borderColor: '#2563eb', boxShadow: '0 0 0 3px rgba(37,99,235,0.15)' } : {}),
+    ...(focused === id ? { borderColor: TK.blue600, boxShadow: '0 0 0 3px rgba(37,99,235,0.15)' } : {}),
   })
   const bind = (id: string) => ({ onFocus: () => setFocused(id), onBlur: () => setFocused(null) })
 
@@ -420,7 +421,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
         @keyframes slideUp { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
         .modal-scroll::-webkit-scrollbar       { width: 4px }
         .modal-scroll::-webkit-scrollbar-track { background: transparent }
-        .modal-scroll::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 99px }
+        .modal-scroll::-webkit-scrollbar-thumb { background: ${TK.flat1}; border-radius: 99px }
         input[type=date]::-webkit-calendar-picker-indicator { filter: invert(0.4) }
       `}</style>
 
@@ -430,10 +431,10 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
           {/* ── Header ── */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 0' }}>
             <div>
-              <h2 style={{ fontSize: 17, fontWeight: 700, color: '#f1f5f9', letterSpacing: '-0.3px', margin: 0 }}>
+              <h2 style={{ fontSize: 17, fontWeight: 700, color: TK.slate100, letterSpacing: '-0.3px', margin: 0 }}>
                 {isEdit ? '종목 수정' : dcaHint ? '📊 DCA 추가매수' : '종목 추가'}
               </h2>
-              <p style={{ fontSize: 12, color: '#8599ae', marginTop: 3 }}>
+              <p style={{ fontSize: 12, color: TK.sub3, marginTop: 3 }}>
                 {isEdit
                   ? `${initial!.ticker} · ${initial!.name}`
                   : dcaHint
@@ -442,9 +443,9 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
               </p>
             </div>
             <button onClick={onClose}
-              style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: '#1e1e1e', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7f93a8', flexShrink: 0 }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#2a2a2a' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#1e1e1e' }}>
+              style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: TK.flat2, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: TK.sub2, flexShrink: 0 }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = TK.flat1 }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = TK.flat2 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <path d="M18 6 6 18M6 6l12 12"/>
               </svg>
@@ -466,9 +467,9 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
                         style={{
                           padding: '10px 8px', borderRadius: 9, border: '1px solid', cursor: 'pointer',
                           transition: 'all 0.15s', textAlign: 'center' as const,
-                          background:  active ? 'rgba(37,99,235,0.15)' : '#1e1e1e',
-                          borderColor: active ? '#2563eb' : '#2a2a2a',
-                          color:       active ? '#60a5fa' : '#7f93a8',
+                          background:  active ? 'rgba(37,99,235,0.15)' : TK.flat2,
+                          borderColor: active ? TK.blue600 : TK.flat1,
+                          color:       active ? TK.blue400 : TK.sub2,
                         }}>
                         <div style={{ fontSize: 18, marginBottom: 3 }}>{m.flag}</div>
                         <div style={{ fontSize: 11, fontWeight: 600 }}>{m.id}</div>
@@ -494,37 +495,37 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
                     autoCapitalize="characters" autoComplete="off" spellCheck={false}
                   />
                   <div style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
-                    {nameStatus === 'loading' && <Spin size={13} color="#8599ae"/>}
+                    {nameStatus === 'loading' && <Spin size={13} color={TK.sub3}/>}
                     {nameStatus === 'found' && lookedUpName && (
-                      <span style={{ fontSize: 11, color: '#34d399', background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', borderRadius: 5, padding: '2px 7px', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontSize: 11, color: TK.emerald400, background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', borderRadius: 5, padding: '2px 7px', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         ✓ {lookedUpName}
                       </span>
                     )}
-                    {nameStatus === 'error' && <span style={{ fontSize: 11, color: '#f87171' }}>조회 실패</span>}
+                    {nameStatus === 'error' && <span style={{ fontSize: 11, color: TK.red400 }}>조회 실패</span>}
                   </div>
                 </div>
 
                 {/* 시장별 안내 */}
                 {market === 'KR' && (
                   <div style={S.hint}>
-                    네이버 증권 기준 <strong style={{ color: '#f1f5f9' }}>6자리 종목 코드</strong>를 입력하세요.
+                    네이버 증권 기준 <strong style={{ color: TK.slate100 }}>6자리 종목 코드</strong>를 입력하세요.
                     <br/>
-                    KOSPI 삼성전자 → <code style={{ background: '#1e1e1e', padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>005930</code>
+                    KOSPI 삼성전자 → <code style={{ background: TK.flat2, padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>005930</code>
                     &nbsp;·&nbsp;
-                    KOSDAQ 카카오게임즈 → <code style={{ background: '#1e1e1e', padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>293490</code>
+                    KOSDAQ 카카오게임즈 → <code style={{ background: TK.flat2, padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>293490</code>
                   </div>
                 )}
                 {market === 'CRYPTO' && (
                   <div style={S.hint}>
-                    <strong style={{ color: '#f1f5f9' }}>업비트 원화(KRW)</strong> 기준 티커를 입력하세요.
+                    <strong style={{ color: TK.slate100 }}>업비트 원화(KRW)</strong> 기준 티커를 입력하세요.
                     <br/>
-                    예: <code style={{ background: '#1e1e1e', padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>BTC</code>
+                    예: <code style={{ background: TK.flat2, padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>BTC</code>
                     {' '}·{' '}
-                    <code style={{ background: '#1e1e1e', padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>ETH</code>
+                    <code style={{ background: TK.flat2, padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>ETH</code>
                     {' '}·{' '}
-                    <code style={{ background: '#1e1e1e', padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>XRP</code>
+                    <code style={{ background: TK.flat2, padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>XRP</code>
                     {' '}·{' '}
-                    <code style={{ background: '#1e1e1e', padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>SOL</code>
+                    <code style={{ background: TK.flat2, padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>SOL</code>
                   </div>
                 )}
               </div>
@@ -533,7 +534,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
               <div style={S.section}>
                 <label style={S.label}>
                   종목명
-                  {nameStatus === 'loading' && <span style={{ marginLeft: 6 }}><Spin size={10} color="#8599ae"/></span>}
+                  {nameStatus === 'loading' && <span style={{ marginLeft: 6 }}><Spin size={10} color={TK.sub3}/></span>}
                 </label>
                 <input
                   style={iStyle('name')} {...bind('name')}
@@ -546,7 +547,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
                   }
                 />
                 {nameStatus === 'error' && (
-                  <p style={{ ...S.hint, color: '#f87171' }}>⚠ 종목을 찾지 못했습니다. 직접 입력해주세요.</p>
+                  <p style={{ ...S.hint, color: TK.red400 }}>⚠ 종목을 찾지 못했습니다. 직접 입력해주세요.</p>
                 )}
               </div>
 
@@ -577,8 +578,8 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
               {/* 총 매수금액 미리보기 */}
               {purchasePrice && quantity && parseFloat(purchasePrice) > 0 && parseFloat(quantity) > 0 && (
                 <div style={{ background: '#1a1a1a', border: '1px solid #222', borderRadius: 8, padding: '9px 14px', display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, color: '#8599ae' }}>이번 거래금액</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8', fontVariantNumeric: 'tabular-nums' }}>
+                  <span style={{ fontSize: 12, color: TK.sub3 }}>이번 거래금액</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: TK.slate400, fontVariantNumeric: 'tabular-nums' }}>
                     {currency === 'KRW' ? '₩' : '$'}
                     {(parseFloat(purchasePrice) * parseFloat(quantity)).toLocaleString(
                       currency === 'KRW' ? 'ko-KR' : 'en-US',
@@ -591,14 +592,14 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
               {/* DCA 추가매수 미리보기 배너 */}
               {dcaHint && !isEdit && (
                 <div style={{ background:'rgba(99,102,241,0.1)', border:'1px solid rgba(99,102,241,0.35)', borderRadius:9, padding:'11px 14px', marginBottom:8 }}>
-                  <div style={{ fontSize:11, fontWeight:800, color:'#818cf8', marginBottom:6, letterSpacing:'0.05em' }}>
+                  <div style={{ fontSize:11, fontWeight:800, color:TK.indigo400, marginBottom:6, letterSpacing:'0.05em' }}>
                     📊 DCA 추가매수 감지
                   </div>
-                  <div style={{ fontSize:12, color:'#7f93a8', lineHeight:1.7 }}>
+                  <div style={{ fontSize:12, color:TK.sub2, lineHeight:1.7 }}>
                     현재 보유:{' '}
-                    <strong style={{ color:'#94a3b8' }}>{dcaHint.qty}주</strong>
+                    <strong style={{ color:TK.slate400 }}>{dcaHint.qty}주</strong>
                     {' × '}
-                    <strong style={{ color:'#94a3b8', fontVariantNumeric:'tabular-nums' }}>
+                    <strong style={{ color:TK.slate400, fontVariantNumeric:'tabular-nums' }}>
                       {currency==='KRW' ? '₩' : '$'}{dcaHint.price.toLocaleString(currency==='KRW'?'ko-KR':'en-US')}
                     </strong>
                     {' '}(현재 평단)
@@ -613,9 +614,9 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
                         <>
                           <br/>
                           추가 후 →{' '}
-                          <strong style={{ color:'#a5b4fc' }}>{newQty}주</strong>
+                          <strong style={{ color:TK.indigo300 }}>{newQty}주</strong>
                           , 새 평단{' '}
-                          <strong style={{ color:'#a5b4fc', fontVariantNumeric:'tabular-nums' }}>{sym}{fmt(newAvg)}</strong>
+                          <strong style={{ color:TK.indigo300, fontVariantNumeric:'tabular-nums' }}>{sym}{fmt(newAvg)}</strong>
                         </>
                       )
                     })()}
@@ -643,7 +644,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
                     {autoClassified && !manualOverride && (
                       <span style={{
                         fontSize:9, fontWeight:700, padding:'2px 7px', borderRadius:4,
-                        background:'rgba(56,189,248,0.12)', color:'#38bdf8',
+                        background:'rgba(56,189,248,0.12)', color:TK.sky400,
                         border:'1px solid rgba(56,189,248,0.3)',
                       }}>
                         ⚡ 자동 분류
@@ -652,7 +653,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
                     {manualOverride && (
                       <span style={{
                         fontSize:9, fontWeight:700, padding:'2px 7px', borderRadius:4,
-                        background:'rgba(251,191,36,0.12)', color:'#fbbf24',
+                        background:'rgba(251,191,36,0.12)', color:TK.amber400,
                         border:'1px solid rgba(251,191,36,0.3)',
                       }}>
                         ✏️ 수동 설정
@@ -675,8 +676,8 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
                       }}
                       style={{
                         fontSize:9, padding:'2px 8px', borderRadius:4,
-                        border:'1px solid #2a2a2a', background:'#181818',
-                        color:'#8a9aaa', cursor:'pointer',
+                        border:`1px solid ${TK.flat1}`, background:'#181818',
+                        color:TK.sub, cursor:'pointer',
                       }}>
                       {manualOverride ? '🔄 자동으로' : '✏️ 수동 변경'}
                     </button>
@@ -696,22 +697,22 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
                       style={{
                         flex:1, padding:'10px 8px', borderRadius:9, border:'none', cursor:'pointer',
                         textAlign:'center' as const, transition:'all 0.15s',
-                        background: assetRole === role ? '#1e1e1e' : '#181818',
+                        background: assetRole === role ? TK.flat2 : '#181818',
                         boxShadow:  assetRole === role
-                          ? '0 0 0 2px ' + (role==='CORE'?'#34d399':'#fbbf24')
-                          : '0 0 0 1px #2a2a2a',
+                          ? '0 0 0 2px ' + (role==='CORE'?TK.emerald400:TK.amber400)
+                          : `0 0 0 1px ${TK.flat1}`,
                         // 수동 오버라이드 아닐 때 선택 안 된 버튼 흐릿하게
                         opacity: !manualOverride && assetRole !== role ? 0.5 : 1,
                       }}>
                       <div style={{ fontSize:18, marginBottom:3 }}>{icon}</div>
-                      <div style={{ fontSize:11, fontWeight:700, color: assetRole===role ? (role==='CORE'?'#34d399':'#fbbf24') : '#8a9aaa', marginBottom:2 }}>{label}</div>
-                      <div style={{ fontSize:9, color:'#8a96a8', lineHeight:1.4 }}>{desc}</div>
+                      <div style={{ fontSize:11, fontWeight:700, color: assetRole===role ? (role==='CORE'?TK.emerald400:TK.amber400) : TK.sub, marginBottom:2 }}>{label}</div>
+                      <div style={{ fontSize:9, color:TK.sub7, lineHeight:1.4 }}>{desc}</div>
                     </button>
                   ))}
                 </div>
                 {/* 자동 분류 근거 안내 */}
                 {autoClassified && !manualOverride && (
-                  <div style={{ fontSize:10, color:'#8a96a8', marginTop:6, paddingLeft:2 }}>
+                  <div style={{ fontSize:10, color:TK.sub7, marginTop:6, paddingLeft:2 }}>
                     {assetRole === 'CORE'
                       ? '✅ 지수형 ETF · 채권으로 코어 자동 분류됨'
                       : '✅ 개별종목 · 테마 ETF · 암호화폐로 새틀라이트 자동 분류됨'}
@@ -726,26 +727,26 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
               <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
                 {isEdit && (
                   <button type="button" onClick={handleDelete} disabled={deleting}
-                    style={{ padding: '11px 16px', borderRadius: 9, border: '1px solid rgba(239,68,68,0.4)', background: 'transparent', color: '#f87171', fontSize: 14, cursor: 'pointer' }}
+                    style={{ padding: '11px 16px', borderRadius: 9, border: '1px solid rgba(239,68,68,0.4)', background: 'transparent', color: TK.red400, fontSize: 14, cursor: 'pointer' }}
                     onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.1)' }}
                     onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}>
                     {deleting ? <Spin/> : confirmDel ? '확인 삭제' : '삭제'}
                   </button>
                 )}
                 <button type="button" onClick={onClose}
-                  style={{ padding: '11px 20px', borderRadius: 9, border: '1px solid #2a2a2a', background: 'transparent', color: '#94a3b8', fontSize: 14, cursor: 'pointer' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#1e1e1e' }}
+                  style={{ padding: '11px 20px', borderRadius: 9, border: `1px solid ${TK.flat1}`, background: 'transparent', color: TK.slate400, fontSize: 14, cursor: 'pointer' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = TK.flat2 }}
                   onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}>
                   취소
                 </button>
                 <button type="submit" disabled={saving}
-                  style={{ flex: 1, padding: '11px', borderRadius: 9, border: 'none', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: '#fff', fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  style={{ flex: 1, padding: '11px', borderRadius: 9, border: 'none', background: `linear-gradient(135deg,${TK.blue600},${TK.blue700})`, color: '#fff', fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                   {saving ? <><Spin color="#fff"/> 저장 중…</> : isEdit ? '수정 완료' : dcaHint ? '📊 DCA 추가매수' : '종목 추가'}
                 </button>
               </div>
 
               {confirmDel && (
-                <p style={{ fontSize: 12, color: '#f87171', textAlign: 'center' as const, marginTop: 10 }}>
+                <p style={{ fontSize: 12, color: TK.red400, textAlign: 'center' as const, marginTop: 10 }}>
                   한 번 더 누르면 영구 삭제됩니다
                 </p>
               )}

@@ -13,19 +13,20 @@ import {
 } from 'recharts'
 import { type InflationPoint } from '@/lib/fredApi'
 import { FED_TARGET } from './macroData'
+import { TK } from '@/lib/theme'
 
 // ── 색상
 const C = {
   headline: '#FF6B6B',   // 붉은색 — Headline PCE
   core:     '#FFC107',   // 골드/옐로우 — Core PCE (연준 최우선 지표)
-  rate:     '#60a5fa',   // 파랑 점선 — EFFR
-  target:   '#4ade80',   // 녹색 기준선 — Fed 목표 2%
-  grid:     '#1e2140',
-  card:     '#1a1d27',
-  border:   '#2a2d3a',
-  text:     '#94a3b8',
-  textHi:   '#f1f5f9',
-  textLow:  '#8599ae',
+  rate:     TK.blue400,   // 파랑 점선 — EFFR
+  target:   TK.green400,   // 녹색 기준선 — Fed 목표 2%
+  grid:     TK.bg9,
+  card:     TK.bg7,
+  border:   TK.line1,
+  text:     TK.slate400,
+  textHi:   TK.slate100,
+  textLow:  TK.sub3,
 }
 
 export interface InflationChartProps {
@@ -45,15 +46,15 @@ export function getInflationBadge(data: InflationPoint[]): {
   const spread = parseFloat((latest.fedRate - latest.corePCE).toFixed(2))
   if (spread > 1.0) return {
     text: `제약적 통화정책 유지 — 기준금리가 Core PCE를 +${spread}%p 상회`,
-    color: '#f87171', bg: 'rgba(248,113,113,0.07)', border: 'rgba(248,113,113,0.25)',
+    color: TK.red400, bg: 'rgba(248,113,113,0.07)', border: 'rgba(248,113,113,0.25)',
   }
   if (spread > 0) return {
     text: `완만한 긴축 구간 — 기준금리가 Core PCE를 +${spread}%p 소폭 상회`,
-    color: '#fb923c', bg: 'rgba(251,146,60,0.07)', border: 'rgba(251,146,60,0.25)',
+    color: TK.orange400, bg: 'rgba(251,146,60,0.07)', border: 'rgba(251,146,60,0.25)',
   }
   return {
     text: `완화 구간 진입 — 기준금리(${latest.fedRate}%)가 Core PCE(${latest.corePCE}%) 하회`,
-    color: '#4ade80', bg: 'rgba(74,222,128,0.07)', border: 'rgba(74,222,128,0.25)',
+    color: TK.green400, bg: 'rgba(74,222,128,0.07)', border: 'rgba(74,222,128,0.25)',
   }
 }
 
@@ -62,15 +63,15 @@ function Skeleton() {
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: '18px 20px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        <div style={{ width: 28, height: 28, borderRadius: 6, background: '#1e2535', animation: 'pulse 1.5s infinite' }} />
+        <div style={{ width: 28, height: 28, borderRadius: 6, background: TK.bg10, animation: 'pulse 1.5s infinite' }} />
         <div style={{ flex: 1 }}>
-          <div style={{ height: 14, width: 260, background: '#1e2535', borderRadius: 4, marginBottom: 6, animation: 'pulse 1.5s infinite' }} />
-          <div style={{ height: 24, width: 380, background: '#1e2535', borderRadius: 6, animation: 'pulse 1.5s infinite' }} />
+          <div style={{ height: 14, width: 260, background: TK.bg10, borderRadius: 4, marginBottom: 6, animation: 'pulse 1.5s infinite' }} />
+          <div style={{ height: 24, width: 380, background: TK.bg10, borderRadius: 6, animation: 'pulse 1.5s infinite' }} />
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
           {[0, 1, 2].map(i => (
             <div key={i} style={{ textAlign: 'center' }}>
-              <div style={{ height: 24, width: 60, background: '#1e2535', borderRadius: 4, marginBottom: 4, animation: 'pulse 1.5s infinite' }} />
+              <div style={{ height: 24, width: 60, background: TK.bg10, borderRadius: 4, marginBottom: 4, animation: 'pulse 1.5s infinite' }} />
               <div style={{ height: 10, width: 60, background: '#141c28', borderRadius: 3, animation: 'pulse 1.5s infinite' }} />
             </div>
           ))}
@@ -83,7 +84,7 @@ function Skeleton() {
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 24, marginBottom: 8 }}>📡</div>
           <div style={{ fontSize: 12, color: C.textLow }}>FRED API 데이터 수신 중…</div>
-          <div style={{ fontSize: 11, color: '#7a8fa3', marginTop: 4 }}>Headline PCE · Core PCE · EFFR</div>
+          <div style={{ fontSize: 11, color: TK.sub6, marginTop: 4 }}>Headline PCE · Core PCE · EFFR</div>
         </div>
       </div>
     </div>
@@ -97,11 +98,11 @@ function CustomTooltip({ active, payload, label }: any) {
   const p: InflationPoint | undefined = payload[0]?.payload
   return (
     <div style={{
-      background: '#0f172a', border: `1px solid ${C.border}`,
+      background: TK.slate900, border: `1px solid ${C.border}`,
       borderRadius: 10, padding: '10px 14px', fontSize: 12,
       boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
     }}>
-      <div style={{ color: '#7f93a8', marginBottom: 6, fontSize: 11, fontWeight: 700 }}>{label}</div>
+      <div style={{ color: TK.sub2, marginBottom: 6, fontSize: 11, fontWeight: 700 }}>{label}</div>
       {payload.map((item: { name: string; value: number; color: string }, i: number) => (
         <div key={i} style={{ color: item.color, marginBottom: 3 }}>
           {item.name}: <strong style={{ fontFamily: 'monospace' }}>{item.value.toFixed(2)}%</strong>
@@ -110,7 +111,7 @@ function CustomTooltip({ active, payload, label }: any) {
       {p && (
         <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 6, paddingTop: 6, fontSize: 10, color: C.textLow }}>
           실질 스프레드:{' '}
-          <span style={{ fontWeight: 700, fontFamily: 'monospace', color: p.fedRate - p.corePCE >= 0 ? '#f87171' : '#4ade80' }}>
+          <span style={{ fontWeight: 700, fontFamily: 'monospace', color: p.fedRate - p.corePCE >= 0 ? TK.red400 : TK.green400 }}>
             {p.fedRate - p.corePCE >= 0 ? '+' : ''}{(p.fedRate - p.corePCE).toFixed(2)}%p
           </span>
         </div>
@@ -148,12 +149,12 @@ export default function InflationChart({ data, loading, error, isMock, lastUpdat
             <span style={{ fontSize: 16 }}>📊</span>
             <span style={{ fontSize: 14, fontWeight: 800, color: C.textHi }}>인플레이션 & 금리 네비게이터</span>
             {isMock ? (
-              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'rgba(251,191,36,0.12)', color: '#fbbf24', fontWeight: 700 }}>MOCK DATA</span>
+              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'rgba(251,191,36,0.12)', color: TK.amber400, fontWeight: 700 }}>MOCK DATA</span>
             ) : (
-              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'rgba(74,222,128,0.12)', color: '#4ade80', fontWeight: 700 }}>🟢 LIVE · FRED</span>
+              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'rgba(74,222,128,0.12)', color: TK.green400, fontWeight: 700 }}>🟢 LIVE · FRED</span>
             )}
             {lastUpdated && !isMock && (
-              <span style={{ fontSize: 9, color: '#7a8fa3' }}>업데이트: {lastUpdated}</span>
+              <span style={{ fontSize: 9, color: TK.sub6 }}>업데이트: {lastUpdated}</span>
             )}
           </div>
           <div style={{
@@ -177,7 +178,7 @@ export default function InflationChart({ data, loading, error, isMock, lastUpdat
                 <div style={{ fontSize: 20, fontWeight: 900, color: item.color, fontFamily: 'monospace', lineHeight: 1.1 }}>
                   {item.val.toFixed(2)}%
                 </div>
-                <div style={{ fontSize: 9, color: '#8599ae', marginTop: 2 }}>{item.label}</div>
+                <div style={{ fontSize: 9, color: TK.sub3, marginTop: 2 }}>{item.label}</div>
               </div>
             ))}
           </div>
@@ -189,7 +190,7 @@ export default function InflationChart({ data, loading, error, isMock, lastUpdat
           marginBottom: 10, padding: '6px 12px', borderRadius: 6,
           background: isMock ? 'rgba(251,191,36,0.07)' : 'rgba(248,113,113,0.07)',
           border: `1px solid ${isMock ? 'rgba(251,191,36,0.25)' : 'rgba(248,113,113,0.25)'}`,
-          fontSize: 11, color: isMock ? '#fcd34d' : '#f87171',
+          fontSize: 11, color: isMock ? '#fcd34d' : TK.red400,
           display: 'flex', alignItems: 'center', gap: 6,
         }}>
           {isMock ? '⚠️' : '🔴'} {error}
@@ -231,15 +232,15 @@ export default function InflationChart({ data, loading, error, isMock, lastUpdat
           />
           <Line yAxisId="left" type="monotone" dataKey="headlinePCE" name="Headline PCE"
             stroke={C.headline} strokeWidth={2.2} dot={false}
-            activeDot={{ r: 5, fill: C.headline, stroke: '#0f172a', strokeWidth: 2 }}
+            activeDot={{ r: 5, fill: C.headline, stroke: TK.slate900, strokeWidth: 2 }}
           />
           <Line yAxisId="left" type="monotone" dataKey="corePCE" name="Core PCE"
             stroke={C.core} strokeWidth={2.2} dot={false}
-            activeDot={{ r: 5, fill: C.core, stroke: '#0f172a', strokeWidth: 2 }}
+            activeDot={{ r: 5, fill: C.core, stroke: TK.slate900, strokeWidth: 2 }}
           />
           <Line yAxisId="left" type="monotone" dataKey="fedRate" name="연방기금금리(EFFR)"
             stroke={C.rate} strokeWidth={2.5} dot={false} strokeDasharray="8 3"
-            activeDot={{ r: 5, fill: C.rate, stroke: '#0f172a', strokeWidth: 2 }}
+            activeDot={{ r: 5, fill: C.rate, stroke: TK.slate900, strokeWidth: 2 }}
           />
           {/* ★ 우측 Y축 tick 강제 렌더링용 더미 Line
               Recharts는 데이터가 바인딩된 YAxis만 tick을 렌더링함
@@ -265,10 +266,10 @@ export default function InflationChart({ data, loading, error, isMock, lastUpdat
         ].map(item => (
           <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <div style={{ width: 14, height: 2, background: item.color, borderRadius: 2 }} />
-            <span style={{ fontSize: 10, color: '#7a8fa3' }}>{item.text}</span>
+            <span style={{ fontSize: 10, color: TK.sub6 }}>{item.text}</span>
           </div>
         ))}
-        <div style={{ marginLeft: 'auto', fontSize: 10, color: '#1e293b' }}>
+        <div style={{ marginLeft: 'auto', fontSize: 10, color: TK.border }}>
           {isMock ? '데이터: Mock' : '출처: FRED, St. Louis Fed'}
         </div>
       </div>

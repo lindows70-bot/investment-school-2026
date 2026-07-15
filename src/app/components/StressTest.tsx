@@ -22,25 +22,26 @@ import {
   Shield, TrendingDown, Clock, AlertTriangle,
   BookOpen, Zap, Activity,
 } from 'lucide-react'
+import { TK } from '@/lib/theme'
 
 // ── 컬러 시스템 ───────────────────────────────────────────────
 const C = {
-  bg:      '#020617',
-  surface: '#0f172a',
-  card:    '#1e293b',
+  bg:      TK.slate950,
+  surface: TK.slate900,
+  card:    TK.border,
   cardHi:  '#263348',
-  border:  '#7a8fa3',
-  textHi:  '#f1f5f9',
-  textMid: '#94a3b8',
-  textLow: '#7f93a8',
-  blue:    '#38bdf8',
+  border:  TK.sub6,
+  textHi:  TK.slate100,
+  textMid: TK.slate400,
+  textLow: TK.sub2,
+  blue:    TK.sky400,
   cyan:    '#06b6d4',
-  neon:    '#a3e635',
-  orange:  '#fb923c',
-  red:     '#f87171',
-  amber:   '#fbbf24',
-  green:   '#4ade80',
-  purple:  '#c084fc',
+  neon:    TK.lime400,
+  orange:  TK.orange400,
+  red:     TK.red400,
+  amber:   TK.amber400,
+  green:   TK.green400,
+  purple:  TK.purple400,
 }
 
 // ── 시나리오 타입 ─────────────────────────────────────────────

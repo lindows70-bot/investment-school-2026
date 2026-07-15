@@ -16,24 +16,25 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, ReferenceLine,
 } from 'recharts'
+import { TK } from '@/lib/theme'
 
 // ── 디자인 토큰 ──────────────────────────────────────────────────────────────
 const C = {
-  bg:       '#0a0e1a',
-  card:     '#111827',
+  bg:       TK.bg0,
+  card:     TK.gray900,
   card2:    '#0d1420',
   card3:    '#141928',
-  border:   '#1e293b',
-  gold:     '#f59e0b',
+  border:   TK.border,
+  gold:     TK.amber500,
   goldDim:  'rgba(245,158,11,0.10)',
-  green:    '#10b981',
+  green:    TK.emerald500,
   greenDim: 'rgba(16,185,129,0.08)',
-  red:      '#ef4444',
+  red:      TK.red500,
   redDim:   'rgba(239,68,68,0.08)',
-  blue:     '#60a5fa',
-  text:     '#f1f5f9',
-  textSub:  '#94a3b8',
-  textLow:  '#8599ae',
+  blue:     TK.blue400,
+  text:     TK.slate100,
+  textSub:  TK.slate400,
+  textLow:  TK.sub3,
 }
 
 // ── 숫자 포맷 유틸 ────────────────────────────────────────────────────────────
@@ -138,7 +139,7 @@ function InputRow({
         onChange={e => onChange(Number(e.target.value))}
         style={{
           width: '100%', height: 5, appearance: 'none', cursor: 'pointer',
-          background: `linear-gradient(to right, ${color} 0%, ${color} ${((value - min) / (max - min)) * 100}%, #1e293b ${((value - min) / (max - min)) * 100}%, #1e293b 100%)`,
+          background: `linear-gradient(to right, ${color} 0%, ${color} ${((value - min) / (max - min)) * 100}%, ${TK.border} ${((value - min) / (max - min)) * 100}%, ${TK.border} 100%)`,
           borderRadius: 3, outline: 'none',
         }}
       />
@@ -201,7 +202,7 @@ function SafetyMarginGauge({ margin }: { margin: number }) {
     <div style={{ textAlign: 'center' }}>
       <svg width="160" height="92" viewBox="0 0 160 90" style={{ overflow: 'visible' }}>
         {/* 배경 호 */}
-        <path d={arcPath} fill="none" stroke="#1e293b" strokeWidth={14} strokeLinecap="round" />
+        <path d={arcPath} fill="none" stroke={TK.border} strokeWidth={14} strokeLinecap="round" />
         {/* 빨간 구간 (0% 미만) */}
         <path d={arcPath} fill="none" stroke={C.red} strokeWidth={14} strokeOpacity={0.3} strokeLinecap="round"
           strokeDasharray={`${(zero0Deg / 180) * (Math.PI * r)} ${Math.PI * r}`}
@@ -337,7 +338,7 @@ export default function BuffettDCFPanel() {
         </div>
         <div style={{ fontSize: 12, color: '#a7f3d0', lineHeight: 1.6 }}>
           실제 현금흐름(FCF)을 할인율로 나눈 뒤 합산하는 정통 가치평가 방식.
-          <strong style={{ color: '#6ee7b7' }}> 성장률↑ → 내재가치↑ / 할인율↑ → 내재가치↓</strong> 원리를 슬라이더로 직접 체험하세요.
+          <strong style={{ color: TK.emerald300 }}> 성장률↑ → 내재가치↑ / 할인율↑ → 내재가치↓</strong> 원리를 슬라이더로 직접 체험하세요.
         </div>
       </div>
 
@@ -472,7 +473,7 @@ export default function BuffettDCFPanel() {
             <div style={{ height: 160 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} margin={{ top: 4, right: 10, bottom: 4, left: 0 }} barGap={2}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={TK.border} vertical={false} />
                   <XAxis dataKey="year" tick={{ fill: C.textLow, fontSize: 9 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: C.textLow, fontSize: 9 }} axisLine={false} tickLine={false}
                     tickFormatter={(v) => `${(v/1000).toFixed(0)}천억`} width={44} />
@@ -660,14 +661,14 @@ export default function BuffettDCFPanel() {
       <style>{`
         input[type=range]::-webkit-slider-thumb {
           -webkit-appearance: none; width:15px; height:15px;
-          border-radius:50%; background:#10b981; border:2px solid #0a0e1a;
+          border-radius:50%; background:${TK.emerald500}; border:2px solid ${TK.bg0};
           cursor:pointer; box-shadow:0 0 5px rgba(16,185,129,0.5);
         }
         input[type=range]::-moz-range-thumb {
           width:15px; height:15px; border-radius:50%;
-          background:#10b981; border:2px solid #0a0e1a; cursor:pointer;
+          background:${TK.emerald500}; border:2px solid ${TK.bg0}; cursor:pointer;
         }
-        input[type=number]:focus { border-color:#10b981 !important; }
+        input[type=number]:focus { border-color:${TK.emerald500} !important; }
       `}</style>
     </div>
   )

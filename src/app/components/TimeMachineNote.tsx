@@ -10,6 +10,7 @@
  */
 
 import { useMemo } from 'react'
+import { TK } from '@/lib/theme'
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 interface SnapshotData {
@@ -42,7 +43,7 @@ const LYNCH_KR: Record<string, string> = {
   cyclical: '경기 순환주', turnaround: '회생주', asset_play: '자산 보유주', na: '해당없음',
 }
 
-const N = '#1b1e2e'
+const N = TK.bg8
 
 export default function TimeMachineNote({ sellHistory, priceMap }: Props) {
   // 스냅샷이 있는 매도만 (블랙박스 기록된 거래)
@@ -74,17 +75,17 @@ export default function TimeMachineNote({ sellHistory, priceMap }: Props) {
                   : `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
   return (
-    <div style={{ background: N, boxShadow: '7px 7px 18px #0e1020, -4px -4px 12px #282c44', borderRadius: 14, padding: '20px 22px',
+    <div style={{ background: N, boxShadow: `7px 7px 18px ${TK.bg2}, -4px -4px 12px ${TK.line2}`, borderRadius: 14, padding: '20px 22px',
       fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
       {/* 헤더 */}
       <div style={{ marginBottom: 18 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 18 }}>👻</span>
-          <span style={{ fontSize: 16, fontWeight: 900, color: '#dde4f0' }}>타임머신 복기 노트</span>
+          <span style={{ fontSize: 16, fontWeight: 900, color: TK.sub12 }}>타임머신 복기 노트</span>
           <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20,
-            background: 'rgba(99,102,241,0.12)', color: '#a5b4fc', fontWeight: 700 }}>SECRET</span>
+            background: 'rgba(99,102,241,0.12)', color: TK.indigo300, fontWeight: 700 }}>SECRET</span>
         </div>
-        <div style={{ fontSize: 12, color: '#9aa0b8', marginTop: 4 }}>
+        <div style={{ fontSize: 12, color: TK.sub4, marginTop: 4 }}>
           매도 당시 블랙박스 스냅샷(지표)과 현재 주가를 비교하여 매도 타이밍을 복기합니다 · {records.length}건
         </div>
       </div>
@@ -97,24 +98,24 @@ export default function TimeMachineNote({ sellHistory, priceMap }: Props) {
           const missed  = diff > 0                          // 팔고 올랐으면 기회비용
           const cost    = Math.abs(diff * tx.quantity)
           const diffPct = tx.price > 0 ? (diff / tx.price) * 100 : 0
-          const accent  = missed ? '#f87171' : '#34d399'
+          const accent  = missed ? TK.red400 : TK.emerald400
           const snap    = tx.snapshot_data
 
           return (
             <div key={tx.id} style={{
-              background: '#0a0e1a', boxShadow: 'inset 4px 4px 10px #0e1020, inset -3px -3px 8px #282c44',
+              background: TK.bg0, boxShadow: `inset 4px 4px 10px ${TK.bg2}, inset -3px -3px 8px ${TK.line2}`,
               borderRadius: 12, padding: '16px 18px',
             }}>
               {/* 상단: 결과 요약 */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, gap: 12, flexWrap: 'wrap' }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 15, fontWeight: 800, color: '#dde4f0' }}>{tx.name || tx.ticker}</span>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: '#8b92b8', background: '#1b1e2e', padding: '2px 8px', borderRadius: 5 }}>
+                    <span style={{ fontSize: 15, fontWeight: 800, color: TK.sub12 }}>{tx.name || tx.ticker}</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: TK.sub14, background: TK.bg8, padding: '2px 8px', borderRadius: 5 }}>
                       {tx.transaction_date.split('T')[0]} 매도
                     </span>
                   </div>
-                  <div style={{ fontSize: 12, color: '#9aa0b8', marginTop: 5, fontFamily: 'monospace' }}>
+                  <div style={{ fontSize: 12, color: TK.sub4, marginTop: 5, fontFamily: 'monospace' }}>
                     매도가 {fmt(tx.price, cur)} → 현재가 <span style={{ color: accent, fontWeight: 700 }}>{fmt(nowPrice, cur)}</span>
                   </div>
                 </div>
@@ -125,7 +126,7 @@ export default function TimeMachineNote({ sellHistory, priceMap }: Props) {
                   <div style={{ fontSize: 13, fontWeight: 700, color: accent, marginTop: 3, fontFamily: 'monospace' }}>
                     {diffPct >= 0 ? '+' : ''}{diffPct.toFixed(1)}%
                   </div>
-                  <div style={{ fontSize: 10, color: '#9aa0b8', marginTop: 1 }}>
+                  <div style={{ fontSize: 10, color: TK.sub4, marginTop: 1 }}>
                     {missed ? '놓친 수익' : '방어한 손실'} {fmt(cost, cur)}
                   </div>
                 </div>
@@ -135,12 +136,12 @@ export default function TimeMachineNote({ sellHistory, priceMap }: Props) {
               <div style={{ background: N, borderRadius: 10, padding: '12px 14px', border: '1px solid rgba(99,102,241,0.2)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                   <span style={{ fontSize: 13 }}>📸</span>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: '#a5b4fc' }}>매도 당시 블랙박스 스냅샷</span>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: TK.indigo300 }}>매도 당시 블랙박스 스냅샷</span>
                 </div>
-                <div style={{ display: 'flex', gap: 16, fontSize: 11, color: '#9aa0b8', marginBottom: 10, flexWrap: 'wrap' }}>
-                  <span>분류 <strong style={{ color: '#dde4f0' }}>{snap?.category ? (LYNCH_KR[snap.category] ?? snap.category) : '—'}</strong></span>
-                  <span>당시 PEG <strong style={{ color: snap?.peg != null ? (snap.peg < 1 ? '#34d399' : '#f87171') : '#9aa0b8' }}>{snap?.peg != null ? snap.peg.toFixed(2) : '—'}</strong></span>
-                  <span>예상성장률 <strong style={{ color: '#fbbf24' }}>{snap?.growth_rate != null ? `${snap.growth_rate.toFixed(1)}%` : '—'}</strong></span>
+                <div style={{ display: 'flex', gap: 16, fontSize: 11, color: TK.sub4, marginBottom: 10, flexWrap: 'wrap' }}>
+                  <span>분류 <strong style={{ color: TK.sub12 }}>{snap?.category ? (LYNCH_KR[snap.category] ?? snap.category) : '—'}</strong></span>
+                  <span>당시 PEG <strong style={{ color: snap?.peg != null ? (snap.peg < 1 ? TK.emerald400 : TK.red400) : TK.sub4 }}>{snap?.peg != null ? snap.peg.toFixed(2) : '—'}</strong></span>
+                  <span>예상성장률 <strong style={{ color: TK.amber400 }}>{snap?.growth_rate != null ? `${snap.growth_rate.toFixed(1)}%` : '—'}</strong></span>
                 </div>
                 <div style={{ fontSize: 12, color: '#b8c0d8', lineHeight: 1.7, borderLeft: '2px solid #6366f1', paddingLeft: 12, fontStyle: 'italic' }}>
                   &ldquo;{factBomb(snap, missed)}&rdquo;
@@ -151,7 +152,7 @@ export default function TimeMachineNote({ sellHistory, priceMap }: Props) {
         })}
       </div>
 
-      <div style={{ marginTop: 14, fontSize: 10, color: '#7a8599', lineHeight: 1.6 }}>
+      <div style={{ marginTop: 14, fontSize: 10, color: TK.sub10, lineHeight: 1.6 }}>
         ℹ️ 매도 시점에 자동 보존된 PEG·성장률 스냅샷 기준입니다. 스냅샷 도입(2026-05-31) 이전 매도는 표시되지 않습니다.
       </div>
     </div>

@@ -29,13 +29,14 @@ import {
   Tooltip as RTooltip, ResponsiveContainer, Legend, ReferenceLine, ReferenceDot,
   BarChart, Bar, Cell as BarCell, LabelList,
 } from 'recharts'
+import { TK } from '@/lib/theme'
 
 // ── 디자인 토큰 ──────────────────────────────────────────────────────────────
 const T = {
-  bg:  '#0f1117', card:'#1a1d27', bd:  '#2a2d3a',
-  up:  '#ef4444', dn:  '#3b82f6', grn: '#34d399',
-  gld: '#fbbf24', mut: '#8a9aaa', txt: '#f1f5f9',
-  sub: '#94a3b8', est: '#8a96a8',
+  bg:  TK.bg3, card:TK.bg7, bd:  TK.line1,
+  up:  TK.red500, dn:  TK.blue500, grn: TK.emerald400,
+  gld: TK.amber400, mut: TK.sub, txt: TK.slate100,
+  sub: TK.slate400, est: TK.sub7,
 } as const
 
 function cs(extra: React.CSSProperties = {}): React.CSSProperties {
@@ -77,7 +78,7 @@ function pegRating(peg: number | null) {
     return { label: '계산불가',          color: T.mut,     emoji: '⚪' }
   if (peg < 1.0) return { label: '저평가 (강력 매수)', color: T.grn,     emoji: '🟢' }
   if (peg < 1.5) return { label: '적정 수준',          color: T.gld,     emoji: '🟡' }
-  if (peg < 2.0) return { label: '약간 고평가',         color: '#fb923c', emoji: '🟠' }
+  if (peg < 2.0) return { label: '약간 고평가',         color: TK.orange400, emoji: '🟠' }
   return           { label: '고평가',                  color: T.up,      emoji: '🔴' }
 }
 
@@ -112,10 +113,10 @@ function Cell({ value, isEst, onChange, loading }: CellProps) {
       onChange={e => { const n = parseFloat(e.target.value); onChange(isFinite(n) ? n : 0) }}
       placeholder="—"
       style={{
-        width: '100%', minWidth: 58, background: focused ? '#0f1117' : 'transparent',
+        width: '100%', minWidth: 58, background: focused ? TK.bg3 : 'transparent',
         border: focused ? `1px solid ${isEst ? T.gld : T.grn}` : 'none',
         borderRadius: 4, outline: 'none', textAlign: 'right',
-        color: isEst ? '#a8b5c2' : T.txt, fontSize: 12, padding: '3px 6px',
+        color: isEst ? TK.sub9 : T.txt, fontSize: 12, padding: '3px 6px',
         fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums',
       }}
     />
@@ -490,9 +491,9 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
     //   - EPS기반 / OI기반: 해당 시나리오 PER 로 계산 → PER에 따라 높이 변화
     //   - 매출기반: PSR 배수 사용 → 모든 시나리오에서 동일 (PER 무관)
     const scenariosForBar = [
-      { label: '보수적\n(PER 15)',               per: 15,     barColor: '#8a9aaa' },
+      { label: '보수적\n(PER 15)',               per: 15,     barColor: TK.sub },
       { label: '적정\n(PER 25)',                  per: 25,     barColor: T.gld     },
-      { label: '성장주\n(PER 50)',                per: 50,     barColor: '#fb923c' },
+      { label: '성장주\n(PER 50)',                per: 50,     barColor: TK.orange400 },
       { label: `현재 시장\n(PER ${perMkt.toFixed(0)}배)`, per: perMkt, barColor: T.dn     },
     ] as const
 
@@ -773,7 +774,7 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
                     const inv = investments.find(i => i.id === e.target.value)
                     if (inv) { setTicker(inv.ticker); setMarket(inv.market === 'KR' ? 'KR' : 'US') }
                   }}
-                  style={{ background: '#0f1117', border: `1px solid ${T.bd}`, borderRadius: 8, color: T.sub, padding: '9px 12px', fontSize: 13, cursor: 'pointer' }}
+                  style={{ background: TK.bg3, border: `1px solid ${T.bd}`, borderRadius: 8, color: T.sub, padding: '9px 12px', fontSize: 13, cursor: 'pointer' }}
                 >
                   <option value="">보유 종목 선택</option>
                   {investments.map(i => <option key={i.id} value={i.id}>{i.name} ({i.ticker})</option>)}
@@ -784,7 +785,7 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
                 onChange={e => setTicker(e.target.value.toUpperCase())}
                 onKeyDown={e => e.key === 'Enter' && startAnalysis()}
                 placeholder="NVDA · AAPL · 005930 …"
-                style={{ flex: 1, background: '#0f1117', border: `1px solid ${T.bd}`, borderRadius: 8, color: T.txt, padding: '9px 14px', fontSize: 14, outline: 'none' }}
+                style={{ flex: 1, background: TK.bg3, border: `1px solid ${T.bd}`, borderRadius: 8, color: T.txt, padding: '9px 14px', fontSize: 14, outline: 'none' }}
               />
             </div>
           </div>
@@ -831,7 +832,7 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
             <div style={{ fontSize: 34, lineHeight: 1, flexShrink: 0 }}>🚫</div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 16, fontWeight: 900, color: T.up, marginBottom: 8 }}>데이터 로드 실패</div>
-              <div style={{ fontSize: 14, color: '#fca5a5', lineHeight: 1.7, marginBottom: 12, fontWeight: 500 }}>{error}</div>
+              <div style={{ fontSize: 14, color: TK.red300, lineHeight: 1.7, marginBottom: 12, fontWeight: 500 }}>{error}</div>
               <div style={{ padding: '10px 14px', background: `${T.up}08`, border: `1px solid ${T.up}33`, borderRadius: 8, fontSize: 12, color: T.mut, lineHeight: 1.9 }}>
                 💡 <strong style={{ color: T.sub }}>해결 방법</strong><br />
                 · 미국 주식: 영문 대문자 티커 정확 입력 (예: NVDA, AAPL, MSFT)<br />
@@ -961,7 +962,7 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
               <div style={{ fontSize: 13, fontWeight: 800, color: T.dn, marginBottom: 5 }}>
                 안내: 애널리스트 추정치(컨센서스)가 없는 종목입니다
               </div>
-              <div style={{ fontSize: 12, color: '#93c5fd', lineHeight: 1.8 }}>
+              <div style={{ fontSize: 12, color: TK.blue300, lineHeight: 1.8 }}>
                 본 종목은 기관 투자자의 시장 추정치(컨센서스)가 존재하지 않습니다.<br />
                 이로 인해 미래 연도(<strong style={{ color: T.gld }}>E 컬럼</strong>)의 EPS·영업이익·매출이 비어 있습니다.<br />
                 <strong style={{ color: T.dn }}>직접 예상 수치를 입력</strong>하면 CAGR 계산 및 시뮬레이션이 즉시 작동합니다.
@@ -994,7 +995,7 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
               <div key={`${label}-long`} style={{ padding: '12px 16px', fontWeight: 800, fontSize: 18, borderTop: `1px solid ${T.bd}`, color: l != null ? T.txt : T.mut }}>
                 {l != null ? `${l > 0 ? '+' : ''}${l.toFixed(1)}%` : '—'}
               </div>,
-              <div key={`${label}-short`} style={{ padding: '12px 16px', fontWeight: 800, fontSize: 18, borderTop: `1px solid ${T.bd}`, color: s!=null&&l!=null?(s>=l?T.grn:'#fb923c'):T.mut }}>
+              <div key={`${label}-short`} style={{ padding: '12px 16px', fontWeight: 800, fontSize: 18, borderTop: `1px solid ${T.bd}`, color: s!=null&&l!=null?(s>=l?T.grn:TK.orange400):T.mut }}>
                 {s != null ? `${s > 0 ? '+' : ''}${s.toFixed(1)}%` : '—'}
               </div>,
             ])}
@@ -1003,7 +1004,7 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
             {cagrData.short.eps != null && cagrData.long.eps != null && (() => {
               const isAccel = cagrData.short.eps >= cagrData.long.eps
               return (
-                <div style={{ padding: '5px 12px', borderRadius: 6, fontSize: 12, background: isAccel ? `${T.grn}15` : `#fb923c15`, border: `1px solid ${isAccel ? T.grn : '#fb923c'}44`, color: isAccel ? T.grn : '#fb923c' }}>
+                <div style={{ padding: '5px 12px', borderRadius: 6, fontSize: 12, background: isAccel ? `${T.grn}15` : `${TK.orange400}15`, border: `1px solid ${isAccel ? T.grn : TK.orange400}44`, color: isAccel ? T.grn : TK.orange400 }}>
                   {isAccel ? '✅ EPS 성장 가속 (단기 > 장기)' : '⚠️ EPS 성장 둔화 (단기 < 장기)'}
                 </div>
               )
@@ -1025,7 +1026,7 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 12, color: T.mut }}>시장 PER 조정:</span>
               <input type="number" value={perInput} onChange={e => setPerInput(e.target.value)}
-                style={{ width: 70, background: '#0f1117', border: `1px solid ${T.bd}`, borderRadius: 6, color: T.txt, padding: '4px 8px', fontSize: 13, textAlign: 'center', outline: 'none' }}/>
+                style={{ width: 70, background: TK.bg3, border: `1px solid ${T.bd}`, borderRadius: 6, color: T.txt, padding: '4px 8px', fontSize: 13, textAlign: 'center', outline: 'none' }}/>
               <span style={{ fontSize: 12, color: T.mut }}>배</span>
             </div>
           </div>
@@ -1190,7 +1191,7 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
                 <div key={label} style={cs({ padding: '14px 16px', border: hl ? `1px solid ${T.gld}55` : `1px solid ${T.bd}` })}>
                   <div style={{ fontSize: 10, color: T.mut, marginBottom: 4 }}>{label}</div>
                   <div style={{ fontSize: hl ? 20 : 16, fontWeight: 900, color: hl ? T.gld : T.txt }}>{val != null ? fmtP(val, analysis.cur) : '—'}</div>
-                  <div style={{ fontSize: 10, color: '#7a8fa3', marginTop: 2 }}>{note}</div>
+                  <div style={{ fontSize: 10, color: TK.sub6, marginTop: 2 }}>{note}</div>
                 </div>
               ))}
             </div>
@@ -1208,8 +1209,8 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
                       {analysis.upside >= 0 ? '▲' : '▼'} {Math.abs(analysis.upside).toFixed(1)}%
                     </span>
                   </div>
-                  <div style={{ height: 12, background: '#2a2d3a', borderRadius: 6, overflow: 'hidden', position: 'relative' }}>
-                    <div style={{ position:'absolute', left:`${Math.min(pCP,pFV)}%`, width:`${Math.abs(pFV-pCP)}%`, height:'100%', background: analysis.upside>=0 ? `linear-gradient(90deg,${T.dn},${T.grn})` : `linear-gradient(90deg,${T.up},#fb923c)` }}/>
+                  <div style={{ height: 12, background: TK.line1, borderRadius: 6, overflow: 'hidden', position: 'relative' }}>
+                    <div style={{ position:'absolute', left:`${Math.min(pCP,pFV)}%`, width:`${Math.abs(pFV-pCP)}%`, height:'100%', background: analysis.upside>=0 ? `linear-gradient(90deg,${T.dn},${T.grn})` : `linear-gradient(90deg,${T.up},${TK.orange400})` }}/>
                     <div style={{ position:'absolute', left:`${pCP}%`, width:3, height:'100%', background:T.txt, transform:'translateX(-50%)' }}/>
                     <div style={{ position:'absolute', left:`${pFV}%`, width:3, height:'100%', background:T.gld, transform:'translateX(-50%)' }}/>
                   </div>
@@ -1242,7 +1243,7 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
               { name: '장기 성장 지속', rate: R.장기, cross: tenBaggerPoints.장기CAGR, color: T.grn },
               { name: '최근 1년 속도', rate: R.단기, cross: tenBaggerPoints.단기CAGR, color: T.dn },
               { name: '애널리스트 추정', rate: R.애널, cross: tenBaggerPoints.애널추정, color: T.up },
-              { name: '보수적(연 8%)', rate: R.보수적, cross: tenBaggerPoints.보수적, color: '#8a9aaa' },
+              { name: '보수적(연 8%)', rate: R.보수적, cross: tenBaggerPoints.보수적, color: TK.sub },
             ]
             return (
               <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -1256,10 +1257,10 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
                         {r.name}
                         <span style={{ color: T.mut, fontWeight: 400, marginLeft: 5 }}>{unknown ? '' : `연 ${(r.rate as number) >= 100 ? Math.round(r.rate as number) : (r.rate as number).toFixed(1)}%`}</span>
                       </div>
-                      <div style={{ position: 'relative', height: 14, background: '#1c2434', borderRadius: 7, overflow: 'hidden' }}>
+                      <div style={{ position: 'relative', height: 14, background: TK.grid, borderRadius: 7, overflow: 'hidden' }}>
                         {!unknown && !noGrow && (
                           <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${pct}%`, borderRadius: 7,
-                            background: r.cross ? `linear-gradient(90deg, ${r.color}55, ${r.color})` : `repeating-linear-gradient(45deg, #2a2d3a, #2a2d3a 6px, #232634 6px, #232634 12px)` }} />
+                            background: r.cross ? `linear-gradient(90deg, ${r.color}55, ${r.color})` : `repeating-linear-gradient(45deg, ${TK.line1}, ${TK.line1} 6px, #232634 6px, #232634 12px)` }} />
                         )}
                         {r.cross && <span style={{ position: 'absolute', left: `calc(${pct}% - 7px)`, top: -1, fontSize: 12 }}>🏁</span>}
                       </div>
@@ -1308,7 +1309,7 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
               )}
 
               {/* ── 시나리오 라인 (CAGR 산출 불가 시나리오는 라인·범례 생략 — 폴백 그리기 금지) ── */}
-              <Line type="monotone" dataKey="보수적"   stroke="#8a9aaa" strokeWidth={1.5} dot={false}/>
+              <Line type="monotone" dataKey="보수적"   stroke={TK.sub} strokeWidth={1.5} dot={false}/>
               {cagrData?.short.eps != null && <Line type="monotone" dataKey="단기CAGR" stroke={T.dn}    strokeWidth={2}   dot={false}/>}
               {cagrData?.long.eps  != null && <Line type="monotone" dataKey="장기CAGR" stroke={T.grn}   strokeWidth={2.5} dot={false}/>}
               <Line type="monotone" dataKey="애널추정"  stroke={T.up}    strokeWidth={2}   dot={false} strokeDasharray="5 3"/>
@@ -1361,7 +1362,7 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
               {tenBaggerPoints?.보수적 && (() => {
                 const { year, value } = tenBaggerPoints.보수적
                 return (
-                  <ReferenceDot x={year} y={value} r={6} fill="#8a9aaa" stroke={T.txt} strokeWidth={2}
+                  <ReferenceDot x={year} y={value} r={6} fill={TK.sub} stroke={T.txt} strokeWidth={2}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     label={{ content: (props: any) => {
                       const cx = props.viewBox?.cx ?? 0
@@ -1370,9 +1371,9 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
                       const w = txt.length * 6.2 + 14
                       return (
                         <g>
-                          <rect x={cx - w/2} y={cy - 34} width={w} height={20} rx={4} fill={T.card} stroke="#8a9aaa" strokeWidth={1.5}/>
-                          <text x={cx} y={cy - 20} textAnchor="middle" fill="#a8b5c2" fontSize={10} fontWeight={700}>{txt}</text>
-                          <polygon points={`${cx-5},${cy-14} ${cx+5},${cy-14} ${cx},${cy-7}`} fill="#8a9aaa"/>
+                          <rect x={cx - w/2} y={cy - 34} width={w} height={20} rx={4} fill={T.card} stroke={TK.sub} strokeWidth={1.5}/>
+                          <text x={cx} y={cy - 20} textAnchor="middle" fill={TK.sub9} fontSize={10} fontWeight={700}>{txt}</text>
+                          <polygon points={`${cx-5},${cy-14} ${cx+5},${cy-14} ${cx},${cy-7}`} fill={TK.sub}/>
                         </g>
                       )
                     }}}
@@ -1445,7 +1446,7 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
                 <div style={{ fontSize:30, fontWeight:900, color:scoreData.verdict.color, lineHeight:1 }}>{scoreData.pts}</div>
                 <div style={{ fontSize:10, color:scoreData.verdict.color, opacity:0.7 }}>/ 100</div>
               </div>
-              <div style={{ height:8, background:'#2a2d3a', borderRadius:4, overflow:'hidden' }}>
+              <div style={{ height:8, background:TK.line1, borderRadius:4, overflow:'hidden' }}>
                 <div style={{ width:`${scoreData.pts}%`, height:'100%', background:`linear-gradient(90deg,${T.up},${T.gld},${T.grn})`, backgroundSize:'200% 100%', backgroundPosition:`${100-scoreData.pts}% 0`, transition:'width 1s ease' }}/>
               </div>
             </div>
@@ -1470,7 +1471,7 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
                   marginBottom: 14, padding: '12px 14px', borderRadius: 8,
                   background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.3)',
                 }}>
-                  <div style={{ fontSize: 12, color: '#93c5fd', lineHeight: 1.8 }}>
+                  <div style={{ fontSize: 12, color: TK.blue300, lineHeight: 1.8 }}>
                     <strong style={{ color: T.dn }}>💡 알림: 성장주 관점의 고평가 종목</strong><br />
                     현재 주가가 계산된 평균 적정주가를{' '}
                     <strong style={{ color: T.up }}>{Math.abs(scoreData.upside).toFixed(1)}% 상회</strong>하여

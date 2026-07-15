@@ -21,6 +21,7 @@ import {
   AlertTriangle, ShieldAlert, CheckCircle2,
   PackageOpen, RefreshCw, Info, Database, AlertCircle,
 } from 'lucide-react'
+import { TK } from '@/lib/theme'
 
 // ────────────────────────────────────────────────────────────
 // 타입
@@ -65,10 +66,10 @@ type TickerState =
 // 컬러
 // ────────────────────────────────────────────────────────────
 const C = {
-  bg:'#020617', surface:'#0f172a', card:'#1e293b', cardHi:'#263348',
-  border:'#7a8fa3', textHi:'#f1f5f9', textMid:'#94a3b8', textLow:'#7f93a8',
-  red:'#f87171', yellow:'#fbbf24', green:'#4ade80', blue:'#60a5fa',
-  barRev:'#3b82f6', lineInv:'#ec4899',
+  bg:TK.slate950, surface:TK.slate900, card:TK.border, cardHi:'#263348',
+  border:TK.sub6, textHi:TK.slate100, textMid:TK.slate400, textLow:TK.sub2,
+  red:TK.red400, yellow:TK.amber400, green:TK.green400, blue:TK.blue400,
+  barRev:TK.blue500, lineInv:TK.pink500,
 }
 const SM: Record<CrossSignal, { color:string; bg:string; border:string; label:string }> = {
   DANGER:  { color:C.red,    bg:'rgba(239,68,68,0.12)',   border:'rgba(239,68,68,0.30)',   label:'위험' },

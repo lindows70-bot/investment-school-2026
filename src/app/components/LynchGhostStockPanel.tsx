@@ -23,6 +23,7 @@ import {
   Sparkles, ShieldCheck, Info, RefreshCw,
   AlertTriangle, Database,
 } from 'lucide-react'
+import { TK } from '@/lib/theme'
 
 // ────────────────────────────────────────────────────────────
 // 타입 정의
@@ -125,24 +126,24 @@ function mapApiRow(row: ApiCacheRow): GhostRecord {
 // 컬러 팔레트 & 메타데이터
 // ────────────────────────────────────────────────────────────
 const C = {
-  bg:'#020617', surface:'#0f172a', card:'#1e293b', cardHi:'#263348',
-  border:'#7a8fa3', textHi:'#f1f5f9', textMid:'#94a3b8', textLow:'#7f93a8',
-  green:'#4ade80', red:'#f87171', amber:'#fbbf24', blue:'#60a5fa', purple:'#c084fc',
+  bg:TK.slate950, surface:TK.slate900, card:TK.border, cardHi:'#263348',
+  border:TK.sub6, textHi:TK.slate100, textMid:TK.slate400, textLow:TK.sub2,
+  green:TK.green400, red:TK.red400, amber:TK.amber400, blue:TK.blue400, purple:TK.purple400,
 }
 
 const GRADE_META: Record<GhostGrade, { icon:string; label:string; color:string; bg:string; border:string; desc:string }> = {
-  diamond: { icon:'💎', label:'특급 유령 종목', color:'#fbbf24', bg:'rgba(251,191,36,0.12)', border:'rgba(251,191,36,0.35)', desc:'월가 사각지대 + 내부자 강력 매수' },
-  pearl:   { icon:'🌱', label:'잠재 진주 종목', color:'#4ade80', bg:'rgba(34,197,94,0.10)',  border:'rgba(34,197,94,0.30)',  desc:'소형 커버리지 + 내부자 매수 우세' },
-  radar:   { icon:'🔭', label:'주목 구간',      color:'#60a5fa', bg:'rgba(59,130,246,0.10)', border:'rgba(59,130,246,0.28)', desc:'중형 커버리지 — 내부자 주의 신호' },
-  hotspot: { icon:'📢', label:'월가 핫플',      color:'#fb923c', bg:'rgba(251,146,60,0.10)', border:'rgba(251,146,60,0.30)', desc:'고커버리지 — 이미 알려진 종목' },
-  crowded: { icon:'🔒', label:'월가 총공세',    color:'#f87171', bg:'rgba(239,68,68,0.10)',  border:'rgba(239,68,68,0.28)',  desc:'초과열 커버리지 + 내부자 차익실현' },
+  diamond: { icon:'💎', label:'특급 유령 종목', color:TK.amber400, bg:'rgba(251,191,36,0.12)', border:'rgba(251,191,36,0.35)', desc:'월가 사각지대 + 내부자 강력 매수' },
+  pearl:   { icon:'🌱', label:'잠재 진주 종목', color:TK.green400, bg:'rgba(34,197,94,0.10)',  border:'rgba(34,197,94,0.30)',  desc:'소형 커버리지 + 내부자 매수 우세' },
+  radar:   { icon:'🔭', label:'주목 구간',      color:TK.blue400, bg:'rgba(59,130,246,0.10)', border:'rgba(59,130,246,0.28)', desc:'중형 커버리지 — 내부자 주의 신호' },
+  hotspot: { icon:'📢', label:'월가 핫플',      color:TK.orange400, bg:'rgba(251,146,60,0.10)', border:'rgba(251,146,60,0.30)', desc:'고커버리지 — 이미 알려진 종목' },
+  crowded: { icon:'🔒', label:'월가 총공세',    color:TK.red400, bg:'rgba(239,68,68,0.10)',  border:'rgba(239,68,68,0.28)',  desc:'초과열 커버리지 + 내부자 차익실현' },
 }
 
 const DIR_META: Record<InsiderDir, { color:string; icon:string; label:string; bg:string }> = {
   strong_buy:  { color:C.green,   icon:'↑↑', label:'강한 매수', bg:'rgba(34,197,94,0.1)' },
-  buy:         { color:'#86efac', icon:'↑',  label:'매수 우세', bg:'rgba(34,197,94,0.07)' },
+  buy:         { color:TK.green300, icon:'↑',  label:'매수 우세', bg:'rgba(34,197,94,0.07)' },
   neutral:     { color:C.textLow, icon:'—',  label:'중립',      bg:'rgba(100,116,139,0.1)' },
-  sell:        { color:'#fca5a5', icon:'↓',  label:'매도 우세', bg:'rgba(239,68,68,0.07)' },
+  sell:        { color:TK.red300, icon:'↓',  label:'매도 우세', bg:'rgba(239,68,68,0.07)' },
   strong_sell: { color:C.red,     icon:'↓↓', label:'강한 매도', bg:'rgba(239,68,68,0.1)' },
 }
 
@@ -207,9 +208,9 @@ function AnalystGauge({ count, change }: { count: number; change: number }) {
   const pct = Math.min(98, (count / MAX) * 100)
   const color =
     count <= 5  ? C.green   :
-    count <= 15 ? '#86efac' :
+    count <= 15 ? TK.green300 :
     count <= 25 ? C.amber   :
-    count <= 35 ? '#fb923c' : C.red
+    count <= 35 ? TK.orange400 : C.red
   const zoneLabel =
     count <= 5  ? '소외 구간 (유령)' :
     count <= 10 ? '소형 커버'        :
@@ -298,8 +299,8 @@ function InsiderIndicator({ record }: { record: GhostRecord }) {
 // ────────────────────────────────────────────────────────────
 function NonEquityCard({ asset }: { asset: ExcludedAsset }) {
   const typeColor =
-    asset.assetType === 'CRYPTO'    ? '#c084fc' :
-    asset.assetType === 'COMMODITY' ? '#fbbf24' : '#60a5fa'
+    asset.assetType === 'CRYPTO'    ? TK.purple400 :
+    asset.assetType === 'COMMODITY' ? TK.amber400 : TK.blue400
   const typeBg =
     asset.assetType === 'CRYPTO'    ? 'rgba(192,132,252,0.08)' :
     asset.assetType === 'COMMODITY' ? 'rgba(251,191,36,0.08)'  : 'rgba(59,130,246,0.08)'

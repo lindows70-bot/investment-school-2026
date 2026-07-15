@@ -4,25 +4,26 @@
 import { useState, useEffect } from 'react'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, ReferenceLine } from 'recharts'
 import type { CryptoStocksResult } from '@/app/api/crypto-stocks/route'
+import { TK } from '@/lib/theme'
 
-const CARD = '#161b25', BORDER = '#1e293b'
+const CARD = TK.bg6, BORDER = TK.border
 
 function BetaGauge({ beta, color, label = 'BTC 베타' }: { beta: number | null; color: string; label?: string }) {
-  if (beta == null) return <span style={{ color: '#8a9aaa', fontSize: 12 }}>—</span>
+  if (beta == null) return <span style={{ color: TK.sub, fontSize: 12 }}>—</span>
   const pct = Math.min(Math.max((beta / 3) * 100, 0), 100)
   return (
     <div style={{ marginTop: 4 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-        <span style={{ color: '#8a9aaa', fontSize: 10 }}>{label}</span>
+        <span style={{ color: TK.sub, fontSize: 10 }}>{label}</span>
         <span style={{ color, fontWeight: 800, fontSize: 13, fontFamily: 'monospace' }}>{beta}</span>
       </div>
-      <div style={{ background: '#1e293b', borderRadius: 4, height: 6, overflow: 'hidden' }}>
-        <div style={{ width: `${pct}%`, height: '100%', background: beta >= 1.5 ? '#ef4444' : beta >= 0.7 ? color : '#64748b', borderRadius: 4, transition: 'width 0.5s' }} />
+      <div style={{ background: TK.border, borderRadius: 4, height: 6, overflow: 'hidden' }}>
+        <div style={{ width: `${pct}%`, height: '100%', background: beta >= 1.5 ? TK.red500 : beta >= 0.7 ? color : TK.slate500, borderRadius: 4, transition: 'width 0.5s' }} />
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 1 }}>
-        <span style={{ color: '#475569', fontSize: 9 }}>0 (무관)</span>
-        <span style={{ color: '#475569', fontSize: 9 }}>1 (동일)</span>
-        <span style={{ color: '#475569', fontSize: 9 }}>3 (3배)</span>
+        <span style={{ color: TK.slate600, fontSize: 9 }}>0 (무관)</span>
+        <span style={{ color: TK.slate600, fontSize: 9 }}>1 (동일)</span>
+        <span style={{ color: TK.slate600, fontSize: 9 }}>3 (3배)</span>
       </div>
     </div>
   )
@@ -30,18 +31,18 @@ function BetaGauge({ beta, color, label = 'BTC 베타' }: { beta: number | null;
 
 function ReturnBadge({ val, label }: { val: number | null; label: string }) {
   if (val == null) return null
-  const c = val >= 0 ? '#22c55e' : '#ef4444'
+  const c = val >= 0 ? TK.green500 : TK.red500
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0' }}>
-      <span style={{ color: '#8a9aaa', fontSize: 11 }}>{label}</span>
+      <span style={{ color: TK.sub, fontSize: 11 }}>{label}</span>
       <span style={{ color: c, fontWeight: 700, fontSize: 11, fontFamily: 'monospace' }}>{val > 0 ? '+' : ''}{val}%</span>
     </div>
   )
 }
 
 const TREND: Record<string, { t: string; c: string }> = {
-  up: { t: '🟢 상승추세', c: '#22c55e' }, side: { t: '🟡 횡보', c: '#f59e0b' },
-  down: { t: '🔴 하락추세', c: '#ef4444' }, unknown: { t: '— 데이터부족', c: '#64748b' },
+  up: { t: '🟢 상승추세', c: TK.green500 }, side: { t: '🟡 횡보', c: TK.amber500 },
+  down: { t: '🔴 하락추세', c: TK.red500 }, unknown: { t: '— 데이터부족', c: TK.slate500 },
 }
 
 export default function CryptoStocksPanel() {
@@ -66,12 +67,12 @@ export default function CryptoStocksPanel() {
   }, [])
 
   if (loading) return (
-    <div style={{ background: CARD, borderRadius: 12, padding: 20, border: `1px solid ${BORDER}`, color: '#8a9aaa', fontSize: 12 }}>
+    <div style={{ background: CARD, borderRadius: 12, padding: 20, border: `1px solid ${BORDER}`, color: TK.sub, fontSize: 12 }}>
       🏢 코인 관련 주식 데이터를 수집하는 중…
     </div>
   )
   if (!d) return (
-    <div style={{ background: CARD, borderRadius: 12, padding: 20, border: `1px solid ${BORDER}`, color: '#8a9aaa', fontSize: 12 }}>
+    <div style={{ background: CARD, borderRadius: 12, padding: 20, border: `1px solid ${BORDER}`, color: TK.sub, fontSize: 12 }}>
       코인 주식 데이터를 불러오지 못했습니다 — 잠시 후 새로고침해주세요.
     </div>
   )
@@ -130,33 +131,33 @@ export default function CryptoStocksPanel() {
       {/* 교육 설명 */}
       <div style={{ background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 10, padding: '10px 14px', color: '#fde68a', fontSize: 11.5, lineHeight: 1.7 }}>
         🏢 <b>코인 관련 주식 평가 프레임</b> — 두 가지 질문으로 봅니다.
-        <br />① <b>코인 베타</b>: &quot;기준 코인이 1% 오를 때 몇 % 움직이나?&quot; — 베타 2.0 = 2배 레버리지. <span style={{ color: '#fbbf24' }}>기준 코인은 사업에 맞춤 — BTC 트레저리·거래소는 <b>BTC</b>, ETH 트레저리(비트마인)는 <b>ETH</b>.</span>
+        <br />① <b>코인 베타</b>: &quot;기준 코인이 1% 오를 때 몇 % 움직이나?&quot; — 베타 2.0 = 2배 레버리지. <span style={{ color: TK.amber400 }}>기준 코인은 사업에 맞춤 — BTC 트레저리·거래소는 <b>BTC</b>, ETH 트레저리(비트마인)는 <b>ETH</b>.</span>
         <br />② <b>본업 가치</b>: &quot;코인을 빼면 뭘로 돈 버나?&quot; — 거래소 수수료 / 채굴 스프레드 / 스테이블 이자 / 리테일 플랫폼.
         <br />③ <b>매매 타이밍</b>: 카드의 추세(🟢상승/🟡횡보/🔴하락)와 52주 위치로 추격·눌림·바닥을 가늠 — 떨어지는 칼날은 추격 금물.
-        <br /><span style={{ color: '#fbbf24', fontSize: 10.5 }}>※ 1년 주봉 수익률 기준 · 차트의 점선=BTC·ETH 벤치마크. 단기 급등락 구간엔 베타가 왜곡될 수 있어 장기 추세 참고용으로만 쓰세요.</span>
+        <br /><span style={{ color: TK.amber400, fontSize: 10.5 }}>※ 1년 주봉 수익률 기준 · 차트의 점선=BTC·ETH 벤치마크. 단기 급등락 구간엔 베타가 왜곡될 수 있어 장기 추세 참고용으로만 쓰세요.</span>
       </div>
 
       {/* 정규화 오버레이 차트 */}
       <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '13px 15px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-          <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>📈 1년 수익률 오버레이</span>
-          <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>첫 주=100 정규화 · <b style={{ color: '#a8b5c2' }}>로그 스케일</b> · 점선=BTC·ETH 벤치마크 · 오른쪽 수치=1년 누적수익률 · <b style={{ color: '#fbbf24' }}>범례 클릭으로 라인 켜고 끄기</b>(겹쳐 보일 땐 끄고 비교)</span>
+          <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 13 }}>📈 1년 수익률 오버레이</span>
+          <span style={{ color: TK.sub, fontSize: 10.5 }}>첫 주=100 정규화 · <b style={{ color: TK.sub9 }}>로그 스케일</b> · 점선=BTC·ETH 벤치마크 · 오른쪽 수치=1년 누적수익률 · <b style={{ color: TK.amber400 }}>범례 클릭으로 라인 켜고 끄기</b>(겹쳐 보일 땐 끄고 비교)</span>
         </div>
         <ResponsiveContainer width="100%" height={340}>
           <LineChart data={chartData} margin={{ top: 4, right: 56, bottom: 0, left: -10 }}>
-            <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#64748b' }} tickFormatter={d => d.slice(5)} interval={7} />
-            <YAxis scale="log" domain={yDomain} ticks={logTicks} allowDataOverflow tick={{ fontSize: 9, fill: '#64748b' }} tickFormatter={v => `${v}`} />
+            <XAxis dataKey="date" tick={{ fontSize: 9, fill: TK.slate500 }} tickFormatter={d => d.slice(5)} interval={7} />
+            <YAxis scale="log" domain={yDomain} ticks={logTicks} allowDataOverflow tick={{ fontSize: 9, fill: TK.slate500 }} tickFormatter={v => `${v}`} />
             <Tooltip
-              contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, fontSize: 10.5, padding: '6px 10px' }}
+              contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, fontSize: 10.5, padding: '6px 10px' }}
               formatter={((v: number, name: string) => [`${v - 100 > 0 ? '+' : ''}${(v - 100).toFixed(1)}%`, name]) as any}
               labelFormatter={l => l as string}
             />
             <ReferenceLine y={100} stroke="#334155" strokeDasharray="3 3" />
-            <Line dataKey="BTC" stroke="#f7931a" strokeWidth={2} strokeDasharray="4 2" connectNulls hide={hidden.has('BTC')}
+            <Line dataKey="BTC" stroke={TK.btcOrange} strokeWidth={2} strokeDasharray="4 2" connectNulls hide={hidden.has('BTC')}
               dot={(props: any) => {
                 if (props.index !== endIdx.BTC) return <g key={props.index} />
                 const r = Math.round(props.value - 100)
-                return <text key={props.index} x={props.cx + 5} y={props.cy + 3 + (labelDy.BTC ?? 0)} fill="#f7931a" fontSize={9.5} fontFamily="monospace" fontWeight={700}>{r > 0 ? '+' : ''}{r}%</text>
+                return <text key={props.index} x={props.cx + 5} y={props.cy + 3 + (labelDy.BTC ?? 0)} fill={TK.btcOrange} fontSize={9.5} fontFamily="monospace" fontWeight={700}>{r > 0 ? '+' : ''}{r}%</text>
               }} />
             <Line dataKey="ETH" stroke="#627eea" strokeWidth={2} strokeDasharray="4 2" connectNulls hide={hidden.has('ETH')}
               dot={(props: any) => {
@@ -177,7 +178,7 @@ export default function CryptoStocksPanel() {
             ))}
             <Legend wrapperStyle={{ fontSize: 10.5, cursor: 'pointer' }}
               onClick={(o: any) => toggleLine(String(o?.dataKey ?? o?.value))}
-              formatter={(value: string) => <span style={{ color: hidden.has(value) ? '#475569' : '#cbd5e1', textDecoration: hidden.has(value) ? 'line-through' : 'none' }}>{value}</span>} />
+              formatter={(value: string) => <span style={{ color: hidden.has(value) ? TK.slate600 : TK.slate300, textDecoration: hidden.has(value) ? 'line-through' : 'none' }}>{value}</span>} />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -191,35 +192,35 @@ export default function CryptoStocksPanel() {
               padding: '11px 13px', cursor: 'pointer', transition: 'border-color 0.2s' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
               <span style={{ background: s.color + '22', color: s.color, borderRadius: 5, padding: '1px 6px', fontSize: 11, fontWeight: 800, fontFamily: 'monospace' }}>{s.symbol}</span>
-              <span style={{ color: '#94a3b8', fontSize: 10 }}>{s.tagline}</span>
+              <span style={{ color: TK.slate400, fontSize: 10 }}>{s.tagline}</span>
             </div>
-            <div style={{ color: '#cbd5e1', fontWeight: 700, fontSize: 11.5, marginBottom: 6 }}>{s.name}</div>
+            <div style={{ color: TK.slate300, fontWeight: 700, fontSize: 11.5, marginBottom: 6 }}>{s.name}</div>
             <BetaGauge beta={s.beta} color={s.color} label={`${s.benchmark} 베타`} />
             <div style={{ marginTop: 7, borderTop: `1px solid ${BORDER}`, paddingTop: 6 }}>
               <ReturnBadge val={s.return1y} label="1년 수익률" />
               <ReturnBadge val={s.benchmarkReturn1y} label={`${s.benchmark} 1년`} />
               {s.corr != null && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                  <span style={{ color: '#8a9aaa', fontSize: 11 }}>{s.benchmark} 상관{Math.abs(s.corr) < 0.3 ? ' ⚠️' : ''}</span>
-                  <span style={{ color: Math.abs(s.corr) < 0.3 ? '#f59e0b' : '#94a3b8', fontSize: 11, fontFamily: 'monospace' }} title={Math.abs(s.corr) < 0.3 ? '상관 낮음 — 베타 신뢰도 낮음(주가가 코인과 따로 움직임)' : ''}>{s.corr}</span>
+                  <span style={{ color: TK.sub, fontSize: 11 }}>{s.benchmark} 상관{Math.abs(s.corr) < 0.3 ? ' ⚠️' : ''}</span>
+                  <span style={{ color: Math.abs(s.corr) < 0.3 ? TK.amber500 : TK.slate400, fontSize: 11, fontFamily: 'monospace' }} title={Math.abs(s.corr) < 0.3 ? '상관 낮음 — 베타 신뢰도 낮음(주가가 코인과 따로 움직임)' : ''}>{s.corr}</span>
                 </div>
               )}
             </div>
             {/* 📉 매매 타이밍 — 추세 + 52주 위치 */}
             <div style={{ marginTop: 7, borderTop: `1px solid ${BORDER}`, paddingTop: 6 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                <span style={{ color: '#8a9aaa', fontSize: 10 }}>매매 타이밍</span>
+                <span style={{ color: TK.sub, fontSize: 10 }}>매매 타이밍</span>
                 <span style={{ color: TREND[s.trend].c, fontWeight: 800, fontSize: 10.5 }}>{TREND[s.trend].t}</span>
               </div>
               {s.pct52w != null && (
                 <>
-                  <div style={{ position: 'relative', height: 6, background: '#0f1117', borderRadius: 4 }}>
+                  <div style={{ position: 'relative', height: 6, background: TK.bg3, borderRadius: 4 }}>
                     <div style={{ position: 'absolute', left: `${s.pct52w}%`, top: -1, bottom: -1, width: 3, background: TREND[s.trend].c, transform: 'translateX(-50%)', borderRadius: 2 }} />
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 1 }}>
-                    <span style={{ color: '#475569', fontSize: 9 }}>52주 저점</span>
-                    <span style={{ color: '#94a3b8', fontSize: 9, fontFamily: 'monospace' }}>{s.pct52w}%</span>
-                    <span style={{ color: '#475569', fontSize: 9 }}>고점</span>
+                    <span style={{ color: TK.slate600, fontSize: 9 }}>52주 저점</span>
+                    <span style={{ color: TK.slate400, fontSize: 9, fontFamily: 'monospace' }}>{s.pct52w}%</span>
+                    <span style={{ color: TK.slate600, fontSize: 9 }}>고점</span>
                   </div>
                 </>
               )}
@@ -239,18 +240,18 @@ export default function CryptoStocksPanel() {
 
       {/* 비즈니스 모델 설명 */}
       <div style={{ background: CARD, borderRadius: 10, border: `1px solid ${BORDER}`, padding: '11px 14px' }}>
-        <div style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 12, marginBottom: 8 }}>🔍 비즈니스 모델 — &quot;BTC를 빼면 뭘로 돈 버나&quot;</div>
+        <div style={{ color: TK.slate200, fontWeight: 800, fontSize: 12, marginBottom: 8 }}>🔍 비즈니스 모델 — &quot;BTC를 빼면 뭘로 돈 버나&quot;</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           {d.stocks.map(s => (
             <div key={s.symbol} style={{ display: 'flex', gap: 8 }}>
               <span style={{ color: s.color, fontWeight: 800, fontFamily: 'monospace', fontSize: 11, minWidth: 38 }}>{s.symbol}</span>
-              <span style={{ color: '#94a3b8', fontSize: 11, lineHeight: 1.6 }}>{s.model}</span>
+              <span style={{ color: TK.slate400, fontSize: 11, lineHeight: 1.6 }}>{s.model}</span>
             </div>
           ))}
         </div>
       </div>
 
-      <div style={{ color: '#8a9aaa', fontSize: 10, lineHeight: 1.6 }}>
+      <div style={{ color: TK.sub, fontSize: 10, lineHeight: 1.6 }}>
         ※ 데이터: Yahoo Finance(1년 주봉, 무료) · 베타 = Cov(종목수익률, 기준코인수익률) / Var(기준코인수익률) · 기준코인: BTC(트레저리·거래소)·ETH(이더리움 트레저리) · 6h 캐시 · 교육용이며 투자 추천이 아닙니다.
       </div>
     </div>

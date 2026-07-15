@@ -7,10 +7,11 @@ import FullCandleChart from '@/app/components/FullCandleChart'
 import MoneyFlowRadar from '@/app/components/MoneyFlowRadar'
 import { getAssetType } from '@/lib/assetClassifier'
 import type { Candle } from '@/app/components/CandleChart'
+import { TK } from '@/lib/theme'
 
-const N   = '#1b1e2e'
-const SHO = '7px 7px 18px #0e1020, -4px -4px 12px #282c44'
-const SHI = 'inset 4px 4px 10px #0e1020, inset -3px -3px 8px #282c44'
+const N   = TK.bg8
+const SHO = `7px 7px 18px ${TK.bg2}, -4px -4px 12px ${TK.line2}`
+const SHI = `inset 4px 4px 10px ${TK.bg2}, inset -3px -3px 8px ${TK.line2}`
 
 type Market    = 'US' | 'KR' | 'CRYPTO'
 type TimeFrame = '1D' | '1W' | '1M' | '1Y'
@@ -157,18 +158,18 @@ export default function WatchlistPage() {
       {/* ── 헤더 ── */}
       <div style={{ background:N, boxShadow:SHO, borderRadius:14, padding:'14px 20px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <div>
-          <div style={{ fontSize:16, fontWeight:800, color:'#dde4f0' }}>⭐ 관심종목</div>
-          <div style={{ fontSize:11, color:'#9aa0b8', marginTop:2 }}>{items.length}개 종목 모니터링 중</div>
+          <div style={{ fontSize:16, fontWeight:800, color:TK.sub12 }}>⭐ 관심종목</div>
+          <div style={{ fontSize:11, color:TK.sub4, marginTop:2 }}>{items.length}개 종목 모니터링 중</div>
         </div>
         <div style={{ display:'flex', gap:8 }}>
           <button onClick={fetchAll}
             style={{ padding:'7px 14px', borderRadius:9, border:'none', cursor:'pointer',
-              background:N, boxShadow:SHI, color:'#8a9aaa', fontSize:12, fontWeight:600 }}>
+              background:N, boxShadow:SHI, color:TK.sub, fontSize:12, fontWeight:600 }}>
             🔄 새로고침
           </button>
           <a href="/research"
             style={{ padding:'7px 16px', borderRadius:9, textDecoration:'none',
-              background:'linear-gradient(135deg,#92400e,#b45309)', color:'#fde68a',
+              background:`linear-gradient(135deg,${TK.amber800},${TK.amber700})`, color:'#fde68a',
               fontSize:12, fontWeight:700, display:'flex', alignItems:'center' }}>
             + 종목 추가
           </a>
@@ -179,10 +180,10 @@ export default function WatchlistPage() {
       {items.length === 0 && (
         <div style={{ background:N, boxShadow:SHO, borderRadius:14, padding:'60px 20px', textAlign:'center' as const }}>
           <div style={{ fontSize:40, marginBottom:14 }}>⭐</div>
-          <div style={{ fontSize:16, fontWeight:700, color:'#dde4f0', marginBottom:8 }}>관심종목이 없습니다</div>
-          <div style={{ fontSize:13, color:'#9aa0b8', marginBottom:20 }}>종목 리서치에서 관심 종목을 추가해보세요</div>
+          <div style={{ fontSize:16, fontWeight:700, color:TK.sub12, marginBottom:8 }}>관심종목이 없습니다</div>
+          <div style={{ fontSize:13, color:TK.sub4, marginBottom:20 }}>종목 리서치에서 관심 종목을 추가해보세요</div>
           <a href="/research" style={{ display:'inline-block', padding:'10px 24px', borderRadius:10, textDecoration:'none',
-            background:'linear-gradient(135deg,#92400e,#b45309)', color:'#fde68a', fontSize:13, fontWeight:700 }}>
+            background:`linear-gradient(135deg,${TK.amber800},${TK.amber700})`, color:'#fde68a', fontSize:13, fontWeight:700 }}>
             🔭 종목 리서치 바로가기
           </a>
         </div>
@@ -195,8 +196,8 @@ export default function WatchlistPage() {
         const tf       = getTf(item.ticker)
         const currency = info?.currency ?? (item.market === 'US' ? 'USD' : 'KRW')
         const isUp     = price ? price.changePct >= 0 : true
-        const C        = isUp ? '#ef4444' : '#3b82f6'
-        const Cs       = isUp ? '#f87171' : '#60a5fa'
+        const C        = isUp ? TK.red500 : TK.blue500
+        const Cs       = isUp ? TK.red400 : TK.blue400
         const ohlc     = price?.ohlcCharts?.[tf] ?? []
         const prevClose = price ? price.currentPrice - price.change : undefined
 
@@ -212,23 +213,23 @@ export default function WatchlistPage() {
             <div style={{ width:200, flexShrink:0, padding:'16px 18px', display:'flex', flexDirection:'column', justifyContent:'center', gap:4 }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
                 <div>
-                  <div style={{ fontSize:14, fontWeight:800, color:'#dde4f0', marginBottom:1 }}>{item.name}</div>
-                  <div style={{ fontSize:10, color:'#9aa0b8', fontFamily:'monospace' }}>{item.ticker}</div>
+                  <div style={{ fontSize:14, fontWeight:800, color:TK.sub12, marginBottom:1 }}>{item.name}</div>
+                  <div style={{ fontSize:10, color:TK.sub4, fontFamily:'monospace' }}>{item.ticker}</div>
                 </div>
-                <span style={{ fontSize:9, fontWeight:700, color:'#fbbf24',
+                <span style={{ fontSize:9, fontWeight:700, color:TK.amber400,
                   background:'rgba(251,191,36,0.1)', border:'1px solid rgba(251,191,36,0.2)',
                   borderRadius:4, padding:'2px 5px', flexShrink:0 }}>{item.market}</span>
               </div>
 
               {price ? (
                 <>
-                  <div style={{ fontSize:22, fontWeight:900, color:'#dde4f0',
+                  <div style={{ fontSize:22, fontWeight:900, color:TK.sub12,
                     fontVariantNumeric:'tabular-nums', letterSpacing:'-0.5px', marginTop:6 }}>
                     {fmtPrice(price.currentPrice, currency)}
                   </div>
                   <div style={{ fontSize:12, fontWeight:700, color:Cs, fontVariantNumeric:'tabular-nums' }}>
                     {isUp ? '▲' : '▼'} {Math.abs(price.changePct).toFixed(2)}%
-                    <span style={{ color:'#9aa0b8', marginLeft:6, fontWeight:400 }}>
+                    <span style={{ color:TK.sub4, marginLeft:6, fontWeight:400 }}>
                       {price.change >= 0 ? '+' : ''}{currency === 'KRW'
                         ? `₩${Math.round(price.change).toLocaleString('ko-KR')}`
                         : `$${price.change.toFixed(2)}`}
@@ -236,7 +237,7 @@ export default function WatchlistPage() {
                   </div>
                 </>
               ) : (
-                <div style={{ fontSize:13, color:'#7a8599', marginTop:8 }}>로딩 중…</div>
+                <div style={{ fontSize:13, color:TK.sub10, marginTop:8 }}>로딩 중…</div>
               )}
 
               {/* 액션 버튼 */}
@@ -244,24 +245,24 @@ export default function WatchlistPage() {
                 <a href={`/research?q=${item.ticker}`}
                   style={{ flex:1, padding:'6px 0', borderRadius:7, textAlign:'center' as const,
                     textDecoration:'none', background:N, boxShadow:SHI,
-                    color:'#fbbf24', fontSize:11, fontWeight:700 }}>
+                    color:TK.amber400, fontSize:11, fontWeight:700 }}>
                   🔭 리서치
                 </a>
                 <button onClick={() => handleRemove(item.id, item.ticker)}
                   disabled={removing === item.ticker}
                   style={{ flex:1, padding:'6px 0', borderRadius:7, border:'none', cursor:'pointer',
-                    background:N, boxShadow:SHI, color:'#f87171', fontSize:11, fontWeight:700 }}>
+                    background:N, boxShadow:SHI, color:TK.red400, fontSize:11, fontWeight:700 }}>
                   {removing === item.ticker ? '…' : '🗑 삭제'}
                 </button>
               </div>
             </div>
 
             {/* ─ 구분선 ─ */}
-            <div style={{ width:1, background:'#1e2140', flexShrink:0, margin:'12px 0' }}/>
+            <div style={{ width:1, background:TK.bg9, flexShrink:0, margin:'12px 0' }}/>
 
             {/* ─ 2. 재무 지표 (중간 220px) ─ */}
             <div style={{ width:220, flexShrink:0, padding:'14px 16px', display:'flex', flexDirection:'column', justifyContent:'center' }}>
-              <div style={{ fontSize:9, fontWeight:800, color:'#7a8599', letterSpacing:'0.1em',
+              <div style={{ fontSize:9, fontWeight:800, color:TK.sub10, letterSpacing:'0.1em',
                 textTransform:'uppercase' as const, marginBottom:10 }}>핵심 지표</div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:7 }}>
                 {[
@@ -276,10 +277,10 @@ export default function WatchlistPage() {
                     : '—' },
                   { label:'시가총액',   val: info?.marketCap  != null ? fmtKrw(info.marketCap)         : '—' },
                 ].map(({ label, val }) => (
-                  <div key={label} style={{ background:'#0a0e1a', boxShadow:SHI, borderRadius:7, padding:'7px 9px' }}>
-                    <div style={{ fontSize:8, color:'#7a8599', textTransform:'uppercase' as const,
+                  <div key={label} style={{ background:TK.bg0, boxShadow:SHI, borderRadius:7, padding:'7px 9px' }}>
+                    <div style={{ fontSize:8, color:TK.sub10, textTransform:'uppercase' as const,
                       letterSpacing:'0.06em', marginBottom:3 }}>{label}</div>
-                    <div style={{ fontSize:13, fontWeight:700, color:'#a8b5c2',
+                    <div style={{ fontSize:13, fontWeight:700, color:TK.sub9,
                       fontVariantNumeric:'tabular-nums', overflow:'hidden',
                       textOverflow:'ellipsis', whiteSpace:'nowrap' as const }}>{val}</div>
                   </div>
@@ -288,7 +289,7 @@ export default function WatchlistPage() {
             </div>
 
             {/* ─ 구분선 ─ */}
-            <div style={{ width:1, background:'#1e2140', flexShrink:0, margin:'12px 0' }}/>
+            <div style={{ width:1, background:TK.bg9, flexShrink:0, margin:'12px 0' }}/>
 
             {/* ─ 3. 캔들차트 (오른쪽 flex:1) ─ */}
             <div style={{ flex:1, minWidth:0, padding:'10px 14px 8px', display:'flex', flexDirection:'column' }}>
@@ -299,12 +300,12 @@ export default function WatchlistPage() {
                     style={{
                       padding:'3px 10px', borderRadius:6, border:'none', cursor:'pointer',
                       fontSize:11, fontWeight:700, transition:'all 0.15s',
-                      background: tf === t ? '#fbbf24' : N,
+                      background: tf === t ? TK.amber400 : N,
                       boxShadow:  tf === t ? '0 2px 8px rgba(251,191,36,0.3)' : SHI,
-                      color:      tf === t ? '#1b1e2e' : '#9aa0b8',
+                      color:      tf === t ? TK.bg8 : TK.sub4,
                     }}>{t}</button>
                 ))}
-                <span style={{ marginLeft:'auto', fontSize:10, color:'#7a8599', alignSelf:'center' }}>
+                <span style={{ marginLeft:'auto', fontSize:10, color:TK.sub10, alignSelf:'center' }}>
                   {ohlc.length > 0 ? `${ohlc.length}캔들` : ''}
                 </span>
               </div>
@@ -321,7 +322,7 @@ export default function WatchlistPage() {
                   />
                 ) : (
                   <div style={{ height:170, display:'flex', alignItems:'center',
-                    justifyContent:'center', color:'#7a8599', fontSize:12 }}>
+                    justifyContent:'center', color:TK.sub10, fontSize:12 }}>
                     {price ? `${tf} 차트 데이터 없음` : '현재가 로딩 중…'}
                   </div>
                 )}

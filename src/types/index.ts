@@ -1,3 +1,4 @@
+import { TK } from '@/lib/theme'
 export type PeterLynchCategory =
   | 'slow_grower'
   | 'stalwart'
@@ -16,11 +17,11 @@ export const PETER_LYNCH_LABELS: Record<PeterLynchCategory, string> = {
 }
 
 export const PETER_LYNCH_COLORS: Record<PeterLynchCategory, string> = {
-  slow_grower: '#8a9aaa',
-  stalwart: '#3B82F6',
-  fast_grower: '#10B981',
-  cyclical: '#F59E0B',
-  turnaround: '#EF4444',
+  slow_grower: TK.sub,
+  stalwart: TK.blue500,
+  fast_grower: TK.emerald500,
+  cyclical: TK.amber500,
+  turnaround: TK.red500,
   asset_play: '#8B5CF6',
 }
 

@@ -1,4 +1,5 @@
 'use client'
+import { TK } from '@/lib/theme'
 
 export interface Candle {
   date:   string
@@ -16,7 +17,7 @@ interface Props {
 }
 
 export default function CandleChart({ data, width = 120, height = 60 }: Props) {
-  if (!data?.length) return <span style={{ color:'#7a8fa3', fontSize:11 }}>—</span>
+  if (!data?.length) return <span style={{ color:TK.sub6, fontSize:11 }}>—</span>
 
   // Price range with padding
   const prices = data.flatMap(d => [d.high, d.low])
@@ -45,7 +46,7 @@ export default function CandleChart({ data, width = 120, height = 60 }: Props) {
         const x     = i * step + step / 2
         const isUp  = c.close >= c.open
         // Korean style: up=red, down=blue
-        const color = isUp ? '#ef4444' : '#3b82f6'
+        const color = isUp ? TK.red500 : TK.blue500
 
         const bodyTop = toY(Math.max(c.open, c.close))
         const bodyBot = toY(Math.min(c.open, c.close))

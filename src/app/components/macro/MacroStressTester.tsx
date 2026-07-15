@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { Sliders, AlertTriangle, ShieldCheck, Shield } from 'lucide-react'
+import { TK } from '@/lib/theme'
 
 // ✅ 제1원칙: STOCK_META 하드코딩 완전 제거
 // beta/PEG/category는 props로 주입받거나 아래 범용 기본값을 사용합니다.
@@ -75,10 +76,10 @@ export default function MacroStressTester({ portfolioData }: Props) {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-6 border-b border-zinc-800">
         <div>
           <div className="flex items-center gap-2">
-            <Sliders className="w-5 h-5 text-[#deff9a]" />
+            <Sliders className={`w-5 h-5 text-[${TK.neonLime}]`} />
             <h3 className="text-xl font-bold tracking-tight">
               매크로 스트레스 테스터{' '}
-              <span className="text-[#deff9a]">Phase 1</span>
+              <span className={`text-[${TK.neonLime}]`}>Phase 1</span>
             </h3>
           </div>
           <p className="text-xs text-zinc-400 mt-1">
@@ -110,7 +111,7 @@ export default function MacroStressTester({ portfolioData }: Props) {
             가상 연준 금리 충격 시나리오 (Fed Funds Rate Shock)
           </span>
           <span className={`text-lg font-bold ${
-            rateShock > 0 ? 'text-rose-400' : rateShock < 0 ? 'text-emerald-400' : 'text-[#deff9a]'
+            rateShock > 0 ? 'text-rose-400' : rateShock < 0 ? 'text-emerald-400' : `text-[${TK.neonLime}]`
           }`}>
             {rateShock > 0
               ? `+${rateShock.toFixed(2)}%p 인상`
@@ -123,7 +124,7 @@ export default function MacroStressTester({ portfolioData }: Props) {
           type="range" min="-1.00" max="1.00" step="0.25"
           value={rateShock}
           onChange={e => setRateShock(parseFloat(e.target.value))}
-          className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-[#deff9a]"
+          className={`w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-[${TK.neonLime}]`}
         />
         <div className="flex justify-between text-[11px] text-zinc-500 mt-2 px-1">
           <span>-1.00%p (강한 피벗)</span>
@@ -143,7 +144,7 @@ export default function MacroStressTester({ portfolioData }: Props) {
               <th className="pb-3 font-medium">린치 카테고리</th>
               <th className="pb-3 font-medium text-right">민감도 (Beta)</th>
               <th className="pb-3 font-medium text-right">기본 PEG</th>
-              <th className="pb-3 font-medium text-right text-[#deff9a]">시나리오 PEG</th>
+              <th className={`pb-3 font-medium text-right text-[${TK.neonLime}]`}>시나리오 PEG</th>
               <th className="pb-3 font-medium text-center">매크로 위험도</th>
             </tr>
           </thead>
@@ -189,13 +190,13 @@ export default function MacroStressTester({ portfolioData }: Props) {
       </div>
 
       {/* 코칭 인사이트 */}
-      <div className="mt-6 p-4 bg-[#deff9a]/5 border border-[#deff9a]/20 rounded-xl flex gap-3 items-start">
-        <AlertTriangle className="w-5 h-5 text-[#deff9a] shrink-0 mt-0.5" />
+      <div className={`mt-6 p-4 bg-[${TK.neonLime}]/5 border border-[${TK.neonLime}]/20 rounded-xl flex gap-3 items-start`}>
+        <AlertTriangle className={`w-5 h-5 text-[${TK.neonLime}] shrink-0 mt-0.5`} />
         <div className="text-xs text-zinc-300 leading-relaxed">
           <span className="font-semibold text-zinc-100">투자학교 핵심 코칭 가이드:</span>{' '}
           금리 시뮬레이터를 올릴 때{' '}
-          <span className="text-[#deff9a] font-semibold">Tempus AI</span>와{' '}
-          <span className="text-[#deff9a] font-semibold">NVIDIA</span>의 시나리오 PEG 변동폭이 가장 큰
+          <span className={`text-[${TK.neonLime}] font-semibold`}>Tempus AI</span>와{' '}
+          <span className={`text-[${TK.neonLime}] font-semibold`}>NVIDIA</span>의 시나리오 PEG 변동폭이 가장 큰
           이유를 학생들이 캐치하게 하십시오. 미래 현금흐름의 할인 계수(Beta)가 높은 고성장·턴어라운드
           섹터일수록 매크로 금리 상방 압력에 밸류에이션 훼손 리스크가 직관적으로 노출됨을 보여주는
           지표입니다.

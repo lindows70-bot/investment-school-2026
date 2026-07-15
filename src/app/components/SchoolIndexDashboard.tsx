@@ -12,6 +12,7 @@
 
 import { useState, useEffect } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
+import { TK } from '@/lib/theme'
 
 // ── 데이터 타입 ───────────────────────────────────────────────────────────────
 interface StockSnapshot {
@@ -29,15 +30,15 @@ interface SectorSnapshot {
 interface PieDatum { name: string; value: number; color: string; residual?: boolean }
 
 const C = {
-  card: '#1a1d27', card2: '#141720', border: '#2a2d3a',
-  gold: '#f59e0b', green: '#4ade80', red: '#f87171', blue: '#60a5fa', cyan: '#22d3ee', purple: '#a78bfa',
-  text: '#f1f5f9', textSub: '#94a3b8', textLow: '#8599ae',
+  card: TK.bg7, card2: TK.bg5, border: TK.line1,
+  gold: TK.amber500, green: TK.green400, red: TK.red400, blue: TK.blue400, cyan: TK.cyan400, purple: TK.violet400,
+  text: TK.slate100, textSub: TK.slate400, textLow: TK.sub3,
 }
 const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
-const SECTOR_COLORS = ['#22d3ee', '#60a5fa', '#a78bfa', '#4ade80', '#f59e0b', '#f472b6', '#fb923c', '#34d399', '#818cf8', '#f87171']
+const SECTOR_COLORS = [TK.cyan400, TK.blue400, TK.violet400, TK.green400, TK.amber500, TK.pink400, TK.orange400, TK.emerald400, TK.indigo400, TK.red400]
 
 // 한국식 등락 색: 상승=빨강▲ / 하락=파랑▼
-const upColor = '#f87171', downColor = '#60a5fa'
+const upColor = TK.red400, downColor = TK.blue400
 const fmtChg = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(2)}`
 
 export default function SchoolIndexDashboard() {
@@ -125,7 +126,7 @@ export default function SchoolIndexDashboard() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, fontFamily: FONT }}>
       {/* 헤더 */}
-      <div style={{ padding: '16px 20px', borderRadius: 14, background: 'linear-gradient(135deg,#0a0e1a,#141720)', border: `1px solid ${C.cyan}33` }}>
+      <div style={{ padding: '16px 20px', borderRadius: 14, background: `linear-gradient(135deg,${TK.bg0},${TK.bg5})`, border: `1px solid ${C.cyan}33` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 18 }}>🏫</span>
           <span style={{ fontSize: 16, fontWeight: 900, color: C.text }}>투자학교 13F 인덱스</span>
@@ -143,11 +144,11 @@ export default function SchoolIndexDashboard() {
           <div style={{ height: 252 }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={52} outerRadius={92} paddingAngle={1.5} stroke="#0a0e1a" strokeWidth={1.5} isAnimationActive={false}>
+                <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={52} outerRadius={92} paddingAngle={1.5} stroke={TK.bg0} strokeWidth={1.5} isAnimationActive={false}>
                   {pieData.map((d, i) => <Cell key={i} fill={d.color} />)}
                 </Pie>
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#1f2937', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12 }}
+                  contentStyle={{ backgroundColor: TK.gray800, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12 }}
                   itemStyle={{ color: '#e5e7eb' }} labelStyle={{ color: '#fff' }}
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   formatter={((v: any, n: any) => [`${Number(v).toFixed(2)}%`, n]) as any}

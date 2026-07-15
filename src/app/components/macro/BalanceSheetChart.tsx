@@ -12,16 +12,17 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine,
 } from 'recharts'
 import { type BalanceSheetPoint } from '@/lib/fredApi'
+import { TK } from '@/lib/theme'
 
 const C = {
-  total:   '#E2E8F0',   // 아이스 실버 — 총자산 기준선
-  tsy:     '#3B82F6',   // 딥 스카이블루 — 미국채
-  mbs:     '#10B981',   // 에메랄드 — MBS
-  grid:    '#1e2140',
-  card:    '#1a1d27',
-  border:  '#2a2d3a',
-  textHi:  '#f1f5f9',
-  textLow: '#8599ae',
+  total:   TK.slate200,   // 아이스 실버 — 총자산 기준선
+  tsy:     TK.blue500,   // 딥 스카이블루 — 미국채
+  mbs:     TK.emerald500,   // 에메랄드 — MBS
+  grid:    TK.bg9,
+  card:    TK.bg7,
+  border:  TK.line1,
+  textHi:  TK.slate100,
+  textLow: TK.sub3,
 }
 
 const fmtT = (v: number) => `$${v.toFixed(2)}T`
@@ -58,15 +59,15 @@ function Skeleton() {
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: '18px 20px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        <div style={{ width: 28, height: 28, borderRadius: 6, background: '#1e2535', animation: 'pulse 1.5s infinite' }} />
+        <div style={{ width: 28, height: 28, borderRadius: 6, background: TK.bg10, animation: 'pulse 1.5s infinite' }} />
         <div style={{ flex: 1 }}>
-          <div style={{ height: 14, width: 280, background: '#1e2535', borderRadius: 4, marginBottom: 6, animation: 'pulse 1.5s infinite' }} />
-          <div style={{ height: 22, width: 360, background: '#1e2535', borderRadius: 6, animation: 'pulse 1.5s infinite' }} />
+          <div style={{ height: 14, width: 280, background: TK.bg10, borderRadius: 4, marginBottom: 6, animation: 'pulse 1.5s infinite' }} />
+          <div style={{ height: 22, width: 360, background: TK.bg10, borderRadius: 6, animation: 'pulse 1.5s infinite' }} />
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
           {[0, 1, 2].map(i => (
             <div key={i} style={{ textAlign: 'center' }}>
-              <div style={{ height: 22, width: 70, background: '#1e2535', borderRadius: 4, marginBottom: 4, animation: 'pulse 1.5s infinite' }} />
+              <div style={{ height: 22, width: 70, background: TK.bg10, borderRadius: 4, marginBottom: 4, animation: 'pulse 1.5s infinite' }} />
               <div style={{ height: 10, width: 70, background: '#141c28', borderRadius: 3, animation: 'pulse 1.5s infinite' }} />
             </div>
           ))}
@@ -79,7 +80,7 @@ function Skeleton() {
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 24, marginBottom: 8 }}>📡</div>
           <div style={{ fontSize: 12, color: C.textLow }}>FRED API 데이터 수신 중…</div>
-          <div style={{ fontSize: 11, color: '#7a8fa3', marginTop: 4 }}>WALCL · WSHOTSL · WSHOMCB</div>
+          <div style={{ fontSize: 11, color: TK.sub6, marginTop: 4 }}>WALCL · WSHOTSL · WSHOMCB</div>
         </div>
       </div>
     </div>
@@ -91,8 +92,8 @@ function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   const d: BalanceSheetPoint | undefined = payload[0]?.payload
   return (
-    <div style={{ background: '#0f172a', border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 14px', fontSize: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
-      <div style={{ color: '#7f93a8', marginBottom: 6, fontSize: 11, fontWeight: 700 }}>{label}</div>
+    <div style={{ background: TK.slate900, border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 14px', fontSize: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+      <div style={{ color: TK.sub2, marginBottom: 6, fontSize: 11, fontWeight: 700 }}>{label}</div>
       {d && (
         <>
           <div style={{ color: C.total, marginBottom: 3 }}>총자산: <strong style={{ fontFamily: 'monospace' }}>{fmtT(d.total)}</strong></div>
@@ -134,23 +135,23 @@ export default function BalanceSheetChart({ data, loading, error, isMock, lastUp
             <span style={{ fontSize: 16 }}>💧</span>
             <span style={{ fontSize: 14, fontWeight: 800, color: C.textHi }}>연준 대차대조표 — 양적긴축(QT) 현황</span>
             {isMock ? (
-              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'rgba(251,191,36,0.12)', color: '#fbbf24', fontWeight: 700 }}>MOCK DATA</span>
+              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'rgba(251,191,36,0.12)', color: TK.amber400, fontWeight: 700 }}>MOCK DATA</span>
             ) : (
-              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'rgba(74,222,128,0.12)', color: '#4ade80', fontWeight: 700 }}>🟢 LIVE · FRED</span>
+              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'rgba(74,222,128,0.12)', color: TK.green400, fontWeight: 700 }}>🟢 LIVE · FRED</span>
             )}
-            {lastUpdated && !isMock && <span style={{ fontSize: 9, color: '#7a8fa3' }}>업데이트: {lastUpdated}</span>}
+            {lastUpdated && !isMock && <span style={{ fontSize: 9, color: TK.sub6 }}>업데이트: {lastUpdated}</span>}
           </div>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
             padding: '5px 11px', borderRadius: 7,
             background: 'rgba(129,140,248,0.08)', border: '1px solid rgba(129,140,248,0.2)',
-            fontSize: 11, color: '#818cf8', fontWeight: 600,
+            fontSize: 11, color: TK.indigo400, fontWeight: 600,
           }}>
             ⚡ 고점({peakMonth}) {peak ? fmtT(peak.total) : '—'} 대비
-            <strong style={{ color: '#f87171', marginLeft: 4 }}>–{fmtT(shrink)} 축소</strong>
+            <strong style={{ color: TK.red400, marginLeft: 4 }}>–{fmtT(shrink)} 축소</strong>
             {qtGoing
-              ? <span style={{ color: '#f87171', marginLeft: 4 }}>· QT 진행 중</span>
-              : <span style={{ color: '#4ade80', marginLeft: 4 }}>· QT 감속 감지</span>
+              ? <span style={{ color: TK.red400, marginLeft: 4 }}>· QT 진행 중</span>
+              : <span style={{ color: TK.green400, marginLeft: 4 }}>· QT 감속 감지</span>
             }
           </div>
           {error && (
@@ -158,7 +159,7 @@ export default function BalanceSheetChart({ data, loading, error, isMock, lastUp
               marginTop: 8, padding: '6px 12px', borderRadius: 6,
               background: isMock ? 'rgba(251,191,36,0.07)' : 'rgba(248,113,113,0.07)',
               border: `1px solid ${isMock ? 'rgba(251,191,36,0.25)' : 'rgba(248,113,113,0.25)'}`,
-              fontSize: 11, color: isMock ? '#fcd34d' : '#f87171',
+              fontSize: 11, color: isMock ? '#fcd34d' : TK.red400,
               display: 'flex', alignItems: 'center', gap: 6,
             }}>
               {isMock ? '⚠️' : '🔴'} {error}
@@ -175,7 +176,7 @@ export default function BalanceSheetChart({ data, loading, error, isMock, lastUp
             ].map(item => (
               <div key={item.label} style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 18, fontWeight: 900, color: item.color, fontFamily: 'monospace', lineHeight: 1.1 }}>{item.val}</div>
-                <div style={{ fontSize: 9, color: '#8599ae', marginTop: 2 }}>{item.label}</div>
+                <div style={{ fontSize: 9, color: TK.sub3, marginTop: 2 }}>{item.label}</div>
               </div>
             ))}
           </div>
@@ -205,9 +206,9 @@ export default function BalanceSheetChart({ data, loading, error, isMock, lastUp
             tick={{ fill: C.textLow, fontSize: 10 }} tickLine={false} axisLine={false} width={56} />
           <Tooltip content={<CustomTooltip />} />
           <Legend wrapperStyle={{ fontSize: 11, color: C.textHi, paddingTop: 6 }} iconType="rect" />
-          <ReferenceLine x={qtStartMonth} stroke="#f87171" strokeDasharray="5 3"
+          <ReferenceLine x={qtStartMonth} stroke={TK.red400} strokeDasharray="5 3"
             strokeWidth={1.3} strokeOpacity={0.65}
-            label={{ value: 'QT 시작', position: 'insideTopRight', fill: '#f87171', fontSize: 10, fontWeight: 700 }}
+            label={{ value: 'QT 시작', position: 'insideTopRight', fill: TK.red400, fontSize: 10, fontWeight: 700 }}
           />
           <Area type="monotone" dataKey="mbs"   name="MBS"        stroke={C.mbs}   strokeWidth={1.5} fill="url(#gradMbs)"   isAnimationActive={false} />
           <Area type="monotone" dataKey="tsy"   name="미국채(UST)" stroke={C.tsy}   strokeWidth={2}   fill="url(#gradTsy)"   isAnimationActive={false} />
@@ -215,16 +216,16 @@ export default function BalanceSheetChart({ data, loading, error, isMock, lastUp
         </AreaChart>
       </ResponsiveContainer>
 
-      <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 8, background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.15)', fontSize: 11, color: '#94a3b8', lineHeight: 1.7 }}>
-        <strong style={{ color: '#f87171' }}>📌 QT 해석:</strong>{' '}
+      <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 8, background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.15)', fontSize: 11, color: TK.slate400, lineHeight: 1.7 }}>
+        <strong style={{ color: TK.red400 }}>📌 QT 해석:</strong>{' '}
         연준 보유 채권 만기 시 재투자 중단 → 시중 달러 유동성 흡수.
-        현재 누적 축소: <strong style={{ color: '#f87171' }}>{shrink > 0 ? `–${fmtT(shrink)}` : '계산 중'}</strong>.
+        현재 누적 축소: <strong style={{ color: TK.red400 }}>{shrink > 0 ? `–${fmtT(shrink)}` : '계산 중'}</strong>.
         QT 상태:{' '}
         {qtGoing
-          ? <strong style={{ color: '#f87171' }}>진행 중 — 위험자산에 구조적 압력</strong>
-          : <strong style={{ color: '#4ade80' }}>감속 감지 — 유동성 압박 완화 신호</strong>
+          ? <strong style={{ color: TK.red400 }}>진행 중 — 위험자산에 구조적 압력</strong>
+          : <strong style={{ color: TK.green400 }}>감속 감지 — 유동성 압박 완화 신호</strong>
         }
-        {!isMock && <span style={{ marginLeft: 8, color: '#7a8fa3' }}>· 출처: FRED WALCL/WSHOTSL/WSHOMCB</span>}
+        {!isMock && <span style={{ marginLeft: 8, color: TK.sub6 }}>· 출처: FRED WALCL/WSHOTSL/WSHOMCB</span>}
       </div>
     </div>
   )

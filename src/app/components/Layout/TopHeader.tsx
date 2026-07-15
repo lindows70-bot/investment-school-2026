@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
+import { TK } from '@/lib/theme'
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard': '대시보드',
@@ -59,8 +60,8 @@ export default function TopHeader() {
   return (
     <header style={{
       height: 52,
-      background: '#111827',
-      borderBottom: '1px solid #1f2937',
+      background: TK.gray900,
+      borderBottom: `1px solid ${TK.gray800}`,
       display: 'flex', alignItems: 'center',
       padding: '0 24px',
       justifyContent: 'space-between',
@@ -81,7 +82,7 @@ export default function TopHeader() {
       </div>
 
       {/* 페이지 타이틀 (모바일에서는 브랜드 옆에 숨김, PC에서만 표시) */}
-      <h1 className="desktop-page-title" style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9', margin: 0, letterSpacing: '-0.3px' }}>
+      <h1 className="desktop-page-title" style={{ fontSize: 15, fontWeight: 700, color: TK.slate100, margin: 0, letterSpacing: '-0.3px' }}>
         {title}
       </h1>
 
@@ -90,17 +91,17 @@ export default function TopHeader() {
         {/* USD/KRW 환율 — dashboard 카드와 동일한 값 */}
         {usdKrw && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 10, color: '#8a96a8', fontWeight: 600, letterSpacing: '0.05em' }}>USD/KRW</span>
-            <span style={{ fontSize: 13, color: '#10b981', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+            <span style={{ fontSize: 10, color: TK.sub7, fontWeight: 600, letterSpacing: '0.05em' }}>USD/KRW</span>
+            <span style={{ fontSize: 13, color: TK.emerald500, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
               ₩{usdKrw.toLocaleString('ko-KR')}
             </span>
           </div>
         )}
 
-        {usdKrw && <div style={{ width: 1, height: 16, background: '#1f2937' }}/>}
+        {usdKrw && <div style={{ width: 1, height: 16, background: TK.gray800 }}/>}
 
         {/* 날짜 */}
-        <span style={{ fontSize: 12, color: '#8a96a8' }}>
+        <span style={{ fontSize: 12, color: TK.sub7 }}>
           {new Date().toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })}
         </span>
       </div>

@@ -24,25 +24,26 @@ import {
   BookOpen, HelpCircle, ChevronDown, ChevronUp,
   Zap, BarChart2, Activity, DollarSign,
 } from 'lucide-react'
+import { TK } from '@/lib/theme'
 
 // ── 디자인 토큰 (기존 macro-hub 팔레트 통일) ──────────────────────────────
 const C = {
-  bg:       '#020617',
+  bg:       TK.slate950,
   surface:  '#06101f',
   card:     '#0a1929',
   cardHi:   '#0d2137',
   border:   '#0f2a45',
-  neon:     '#deff9a',
-  blue:     '#38bdf8',
-  cyan:     '#22d3ee',
-  orange:   '#fb923c',
-  red:      '#f87171',
-  purple:   '#a78bfa',
-  gold:     '#fbbf24',
-  gray:     '#7f93a8',
-  textHi:   '#f1f5f9',
-  textMid:  '#94a3b8',
-  textLow:  '#8599ae',
+  neon:     TK.neonLime,
+  blue:     TK.sky400,
+  cyan:     TK.cyan400,
+  orange:   TK.orange400,
+  red:      TK.red400,
+  purple:   TK.violet400,
+  gold:     TK.amber400,
+  gray:     TK.sub2,
+  textHi:   TK.slate100,
+  textMid:  TK.slate400,
+  textLow:  TK.sub3,
 }
 
 // ── 채권 현재가치(PV) 계산 ────────────────────────────────────────────────
@@ -512,7 +513,7 @@ export default function BondSimulator() {
                           <rect x={lx - rateBW / 2} y={plotTop - 22} width={rateBW} height={20} rx={5}
                             fill={C.cyan} opacity={0.93} />
                           <text x={lx} y={plotTop - 8} textAnchor="middle"
-                            fill="#020617" fontSize={10} fontWeight={800}>{rateStr}</text>
+                            fill={TK.slate950} fontSize={10} fontWeight={800}>{rateStr}</text>
 
                           {/* 가격 말풍선 + dot + 연결선 */}
                           {items.map((it, i) => {
@@ -525,7 +526,7 @@ export default function BondSimulator() {
                               <g key={it.m.label}>
                                 {/* dot */}
                                 <circle cx={lx} cy={it.dotY} r={it.m.n === 30 ? 7 : 5}
-                                  fill={it.m.color} stroke="#020617" strokeWidth={2} />
+                                  fill={it.m.color} stroke={TK.slate950} strokeWidth={2} />
                                 {/* 연결선 */}
                                 <line x1={cx1} y1={it.dotY} x2={cx2} y2={sy}
                                   stroke={it.m.color} strokeWidth={1}

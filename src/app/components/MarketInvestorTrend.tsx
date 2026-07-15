@@ -4,9 +4,10 @@
 import { useState, useEffect } from 'react'
 import { ResponsiveContainer, BarChart, Bar, ComposedChart, Area, XAxis, YAxis, Tooltip, ReferenceLine, Cell as RCell } from 'recharts'
 import type { MarketInvestorResult, InvestorRow } from '@/app/api/market-investor-trend/route'
+import { TK } from '@/lib/theme'
 
-const CARD = '#161b25', BORDER = '#1e293b'
-const BUY = '#ef4444', SELL = '#3b82f6'   // 한국 관례: 매수=빨강, 매도=파랑
+const CARD = TK.bg6, BORDER = TK.border
+const BUY = TK.red500, SELL = TK.blue500   // 한국 관례: 매수=빨강, 매도=파랑
 
 // 순매수 금액(억원) 포맷
 const fmtEok = (v: number) => {
@@ -14,7 +15,7 @@ const fmtEok = (v: number) => {
   if (a >= 10000) return `${s}${(a / 10000).toFixed(2)}조`
   return `${s}${Math.round(a).toLocaleString()}억`
 }
-const sgnColor = (v: number) => Math.abs(v) < 0.5 ? '#64748b' : v > 0 ? BUY : SELL
+const sgnColor = (v: number) => Math.abs(v) < 0.5 ? TK.slate500 : v > 0 ? BUY : SELL
 
 // 네이버페이 화면의 투자자 구분(기관계는 세부합이라 막대에선 세부만 표시)
 const BAR_KEYS: { key: keyof InvestorRow; label: string }[] = [
@@ -68,33 +69,33 @@ export default function MarketInvestorTrend() {
       {/* 헤더 + 시장 토글 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 18 }}>🏛️</span>
-        <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 16 }}>투자자별 매매동향</span>
-        <span style={{ color: '#7f93a8', fontSize: 11 }}>일별 순매수 · 단위 억원 · 빨강=순매수/파랑=순매도</span>
-        <div style={{ marginLeft: 'auto', display: 'inline-flex', gap: 4, background: '#0f1117', padding: 4, borderRadius: 9, border: `1px solid ${BORDER}` }}>
+        <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 16 }}>투자자별 매매동향</span>
+        <span style={{ color: TK.sub2, fontSize: 11 }}>일별 순매수 · 단위 억원 · 빨강=순매수/파랑=순매도</span>
+        <div style={{ marginLeft: 'auto', display: 'inline-flex', gap: 4, background: TK.bg3, padding: 4, borderRadius: 9, border: `1px solid ${BORDER}` }}>
           {(['KOSPI', 'KOSDAQ'] as const).map(m => (
             <button key={m} type="button" onClick={() => setMarket(m)}
               style={{ padding: '5px 14px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700,
-                background: market === m ? '#1e293b' : 'transparent', color: market === m ? '#e2e8f0' : '#8599ae' }}>
+                background: market === m ? TK.border : 'transparent', color: market === m ? TK.slate200 : TK.sub3 }}>
               {m === 'KOSPI' ? '코스피' : '코스닥'}
             </button>
           ))}
         </div>
       </div>
 
-      {loading && <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa', fontSize: 12 }}>🏛️ {market} 투자자별 매매동향을 불러오는 중…</div>}
-      {!loading && !d && <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: '#8a9aaa', fontSize: 12 }}>매매동향 데이터를 불러오지 못했습니다 — 잠시 후 새로고침해주세요.</div>}
+      {loading && <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: TK.sub, fontSize: 12 }}>🏛️ {market} 투자자별 매매동향을 불러오는 중…</div>}
+      {!loading && !d && <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: TK.sub, fontSize: 12 }}>매매동향 데이터를 불러오지 못했습니다 — 잠시 후 새로고침해주세요.</div>}
 
       {!loading && d && latest && (<>
         {/* ① 투자자별 순매수 막대 (1일/1주/1개월/3개월) */}
         <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '13px 15px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-            <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>📊 투자자별 순매수</span>
-            <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>{pCfg.label} 합산 · {rangeLabel}</span>
-            <div style={{ marginLeft: 'auto', display: 'inline-flex', gap: 3, background: '#0f1117', padding: 3, borderRadius: 8, border: `1px solid ${BORDER}` }}>
+            <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 13 }}>📊 투자자별 순매수</span>
+            <span style={{ color: TK.sub, fontSize: 10.5 }}>{pCfg.label} 합산 · {rangeLabel}</span>
+            <div style={{ marginLeft: 'auto', display: 'inline-flex', gap: 3, background: TK.bg3, padding: 3, borderRadius: 8, border: `1px solid ${BORDER}` }}>
               {PERIODS.map(p => (
                 <button key={p.key} type="button" onClick={() => setPeriod(p.key)}
                   style={{ padding: '4px 11px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700,
-                    background: period === p.key ? '#1e293b' : 'transparent', color: period === p.key ? '#e2e8f0' : '#8599ae' }}>
+                    background: period === p.key ? TK.border : 'transparent', color: period === p.key ? TK.slate200 : TK.sub3 }}>
                   {p.label}
                 </button>
               ))}
@@ -102,12 +103,12 @@ export default function MarketInvestorTrend() {
           </div>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={barData} margin={{ top: 18, right: 8, bottom: 0, left: 4 }}>
-              <XAxis dataKey="name" tick={{ fontSize: 9.5, fill: '#94a3b8' }} interval={0} angle={-18} textAnchor="end" height={42} />
-              <YAxis tick={{ fontSize: 9, fill: '#64748b' }} tickFormatter={axisFmt} width={52} />
+              <XAxis dataKey="name" tick={{ fontSize: 9.5, fill: TK.slate400 }} interval={0} angle={-18} textAnchor="end" height={42} />
+              <YAxis tick={{ fontSize: 9, fill: TK.slate500 }} tickFormatter={axisFmt} width={52} />
               <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)' }}
-                contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, fontSize: 11, padding: '6px 10px' }}
+                contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, fontSize: 11, padding: '6px 10px' }}
                 formatter={((v: number) => [fmtEok(v), '순매수']) as any} />
-              <ReferenceLine y={0} stroke="#475569" />
+              <ReferenceLine y={0} stroke={TK.slate600} />
               <Bar dataKey="val" radius={[3, 3, 0, 0]} label={((props: any) => {
                 const { x, y, width, height, value } = props
                 if (Math.abs(value) < barMaxAbs * 0.05) return null   // 0 근처(은행 등)는 라벨 생략
@@ -129,8 +130,8 @@ export default function MarketInvestorTrend() {
           return (
             <div style={{ background: CARD, borderRadius: 12, border: '1px solid rgba(167,139,250,0.35)', padding: '13px 15px' }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                <span style={{ color: '#a78bfa', fontWeight: 800, fontSize: 13 }}>🏛️ 국민연금(연기금) 누적 순매수 추세</span>
-                <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>코스피 큰손 · 우상향=매집/우하향=매도</span>
+                <span style={{ color: TK.violet400, fontWeight: 800, fontSize: 13 }}>🏛️ 국민연금(연기금) 누적 순매수 추세</span>
+                <span style={{ color: TK.sub, fontSize: 10.5 }}>코스피 큰손 · 우상향=매집/우하향=매도</span>
                 <span style={{ marginLeft: 'auto', color: sgnColor(d.cum.pension), fontWeight: 800, fontSize: 13, fontFamily: 'monospace' }}>
                   {d.rows.length}일 누적 {fmtEok(d.cum.pension)}
                 </span>
@@ -138,10 +139,10 @@ export default function MarketInvestorTrend() {
               {/* 최근 5일/20일 요약 칩 */}
               <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
                 {([['최근 5일', recent5], ['최근 20일', recent20]] as const).map(([lab, v]) => (
-                  <span key={lab} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#0f1117', border: `1px solid ${sgnColor(v)}44`, borderRadius: 8, padding: '3px 9px', fontSize: 11 }}>
-                    <span style={{ color: '#cbd5e1', fontWeight: 700 }}>{lab}</span>
+                  <span key={lab} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: TK.bg3, border: `1px solid ${sgnColor(v)}44`, borderRadius: 8, padding: '3px 9px', fontSize: 11 }}>
+                    <span style={{ color: TK.slate300, fontWeight: 700 }}>{lab}</span>
                     <span style={{ color: sgnColor(v), fontWeight: 800, fontFamily: 'monospace' }}>{fmtEok(v)}</span>
-                    <span style={{ color: '#7f93a8', fontSize: 10 }}>{v > 0 ? '순매수' : v < 0 ? '순매도' : '중립'}</span>
+                    <span style={{ color: TK.sub2, fontSize: 10 }}>{v > 0 ? '순매수' : v < 0 ? '순매도' : '중립'}</span>
                   </span>
                 ))}
               </div>
@@ -149,19 +150,19 @@ export default function MarketInvestorTrend() {
                 <ComposedChart data={d.pensionCumSeries} margin={{ top: 8, right: 10, bottom: 0, left: -6 }}>
                   <defs>
                     <linearGradient id="pcum" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.35} />
-                      <stop offset="100%" stopColor="#a78bfa" stopOpacity={0.02} />
+                      <stop offset="0%" stopColor={TK.violet400} stopOpacity={0.35} />
+                      <stop offset="100%" stopColor={TK.violet400} stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#64748b' }} tickFormatter={s => s.slice(5)} interval={Math.max(0, Math.floor(d.pensionCumSeries.length / 8))} />
-                  <YAxis tick={{ fontSize: 9, fill: '#64748b' }} tickFormatter={v => `${(v / 10000).toFixed(1)}조`} />
-                  <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, fontSize: 11, padding: '6px 10px' }}
+                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: TK.slate500 }} tickFormatter={s => s.slice(5)} interval={Math.max(0, Math.floor(d.pensionCumSeries.length / 8))} />
+                  <YAxis tick={{ fontSize: 9, fill: TK.slate500 }} tickFormatter={v => `${(v / 10000).toFixed(1)}조`} />
+                  <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, fontSize: 11, padding: '6px 10px' }}
                     formatter={((v: number) => [fmtEok(v), '연기금 누적']) as any} labelFormatter={l => l as string} />
-                  <ReferenceLine y={0} stroke="#475569" strokeDasharray="3 3" />
-                  <Area dataKey="cum" stroke="#a78bfa" strokeWidth={2} fill="url(#pcum)" dot={false} />
+                  <ReferenceLine y={0} stroke={TK.slate600} strokeDasharray="3 3" />
+                  <Area dataKey="cum" stroke={TK.violet400} strokeWidth={2} fill="url(#pcum)" dot={false} />
                 </ComposedChart>
               </ResponsiveContainer>
-              <div style={{ color: '#8a9aaa', fontSize: 9.5, marginTop: 6, lineHeight: 1.6 }}>
+              <div style={{ color: TK.sub, fontSize: 9.5, marginTop: 6, lineHeight: 1.6 }}>
                 ※ &lsquo;연기금등&rsquo; = 국민연금(NPS) 주력 + 사학·공무원·우정사업 연기금 합산(국민연금이 압도적 비중). 종목별 국민연금 매매는 글로벌 시총 Top10 탭의 🏛️ 국민연금 대시보드(DART 5%룰) 참조.
               </div>
             </div>
@@ -171,8 +172,8 @@ export default function MarketInvestorTrend() {
         {/* ② 외국인 누적 순매수 타임라인 — 핵심 */}
         <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '13px 15px' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-            <span style={{ color: '#f59e0b', fontWeight: 800, fontSize: 13 }}>🌍 외국인 누적 순매수 추세</span>
-            <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>최근 {d.rows.length}거래일 · 우상향=매집/우하향=이탈</span>
+            <span style={{ color: TK.amber500, fontWeight: 800, fontSize: 13 }}>🌍 외국인 누적 순매수 추세</span>
+            <span style={{ color: TK.sub, fontSize: 10.5 }}>최근 {d.rows.length}거래일 · 우상향=매집/우하향=이탈</span>
             <span style={{ marginLeft: 'auto', color: sgnColor(d.cum.foreign), fontWeight: 800, fontSize: 13, fontFamily: 'monospace' }}>
               누적 {fmtEok(d.cum.foreign)}
             </span>
@@ -181,16 +182,16 @@ export default function MarketInvestorTrend() {
             <ComposedChart data={d.foreignCumSeries} margin={{ top: 8, right: 10, bottom: 0, left: -6 }}>
               <defs>
                 <linearGradient id="fcum" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.02} />
+                  <stop offset="0%" stopColor={TK.amber500} stopOpacity={0.35} />
+                  <stop offset="100%" stopColor={TK.amber500} stopOpacity={0.02} />
                 </linearGradient>
               </defs>
-              <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#64748b' }} tickFormatter={s => s.slice(5)} interval={Math.max(0, Math.floor(d.foreignCumSeries.length / 8))} />
-              <YAxis tick={{ fontSize: 9, fill: '#64748b' }} tickFormatter={v => `${(v / 10000).toFixed(1)}조`} />
-              <Tooltip contentStyle={{ background: '#0f1117', border: `1px solid ${BORDER}`, fontSize: 11, padding: '6px 10px' }}
+              <XAxis dataKey="date" tick={{ fontSize: 9, fill: TK.slate500 }} tickFormatter={s => s.slice(5)} interval={Math.max(0, Math.floor(d.foreignCumSeries.length / 8))} />
+              <YAxis tick={{ fontSize: 9, fill: TK.slate500 }} tickFormatter={v => `${(v / 10000).toFixed(1)}조`} />
+              <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, fontSize: 11, padding: '6px 10px' }}
                 formatter={((v: number) => [fmtEok(v), '외국인 누적']) as any} labelFormatter={l => l as string} />
-              <ReferenceLine y={0} stroke="#475569" strokeDasharray="3 3" />
-              <Area dataKey="cum" stroke="#f59e0b" strokeWidth={2} fill="url(#fcum)" dot={false} />
+              <ReferenceLine y={0} stroke={TK.slate600} strokeDasharray="3 3" />
+              <Area dataKey="cum" stroke={TK.amber500} strokeWidth={2} fill="url(#fcum)" dot={false} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
@@ -198,27 +199,27 @@ export default function MarketInvestorTrend() {
         {/* ③ 일별 매매동향 표 (개인/외국인/기관) */}
         <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '13px 15px' }}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap', alignItems: 'baseline' }}>
-            <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>📅 일별 매매동향</span>
+            <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 13 }}>📅 일별 매매동향</span>
             {([['개인', d.cum.personal], ['외국인', d.cum.foreign], ['기관', d.cum.institution]] as const).map(([lab, v]) => (
-              <span key={lab} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#0f1117', border: `1px solid ${sgnColor(v)}44`, borderRadius: 8, padding: '3px 9px', fontSize: 11 }}>
-                <span style={{ color: '#cbd5e1', fontWeight: 700 }}>{lab}</span>
+              <span key={lab} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: TK.bg3, border: `1px solid ${sgnColor(v)}44`, borderRadius: 8, padding: '3px 9px', fontSize: 11 }}>
+                <span style={{ color: TK.slate300, fontWeight: 700 }}>{lab}</span>
                 <span style={{ color: sgnColor(v), fontWeight: 800, fontFamily: 'monospace' }}>{fmtEok(v)}</span>
               </span>
             ))}
-            <span style={{ color: '#7f93a8', fontSize: 10 }}>← {d.rows.length}일 누적</span>
+            <span style={{ color: TK.sub2, fontSize: 10 }}>← {d.rows.length}일 누적</span>
           </div>
           {/* 헤더 */}
-          <div style={{ display: 'grid', gridTemplateColumns: '56px 1fr 1fr 1fr 1fr', gap: 8, padding: '0 2px 6px', fontSize: 10.5, color: '#7f93a8', borderBottom: `1px solid ${BORDER}` }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '56px 1fr 1fr 1fr 1fr', gap: 8, padding: '0 2px 6px', fontSize: 10.5, color: TK.sub2, borderBottom: `1px solid ${BORDER}` }}>
             <span>날짜</span>
             <span style={{ textAlign: 'right' }}>개인</span>
-            <span style={{ textAlign: 'right', color: '#f59e0b' }}>외국인</span>
+            <span style={{ textAlign: 'right', color: TK.amber500 }}>외국인</span>
             <span style={{ textAlign: 'right' }}>기관</span>
-            <span style={{ textAlign: 'right', color: '#a78bfa' }}>연기금</span>
+            <span style={{ textAlign: 'right', color: TK.violet400 }}>연기금</span>
           </div>
           <div style={{ maxHeight: 340, overflowY: 'auto' }}>
             {d.rows.map(r => (
               <div key={r.date} style={{ display: 'grid', gridTemplateColumns: '56px 1fr 1fr 1fr 1fr', gap: 8, padding: '7px 2px', alignItems: 'center', borderBottom: '1px solid #131922' }}>
-                <span style={{ color: '#aab6c4', fontSize: 11, fontFamily: 'monospace' }}>{r.date.slice(5)}</span>
+                <span style={{ color: TK.sub5, fontSize: 11, fontFamily: 'monospace' }}>{r.date.slice(5)}</span>
                 <TableCell v={r.personal} />
                 <TableCell v={r.foreign} highlight />
                 <TableCell v={r.institution} />
@@ -226,7 +227,7 @@ export default function MarketInvestorTrend() {
               </div>
             ))}
           </div>
-          <div style={{ color: '#8a9aaa', fontSize: 9.5, marginTop: 8, lineHeight: 1.6 }}>
+          <div style={{ color: TK.sub, fontSize: 9.5, marginTop: 8, lineHeight: 1.6 }}>
             ※ 데이터: 네이버 금융 일별 투자자 매매동향(무료) · 단위 억원 · 개인+외국인+기관+기타법인 = 0(시장 순매수 합) · 6h 캐시 · 교육용.
           </div>
         </div>

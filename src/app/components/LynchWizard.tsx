@@ -20,29 +20,30 @@ import {
   RotateCcw, TrendingUp, AlertTriangle, Award,
   DollarSign, Activity, ShieldCheck, Zap, Sparkles,
 } from 'lucide-react'
+import { TK } from '@/lib/theme'
 
 // ── 디자인 토큰 (리서치 페이지 뉴모피즘 팔레트 계승) ──────────
 const T = {
-  bg:     '#1b1e2e',         // 카드 배경
-  deep:   '#0a0e1a',         // 인풋·인셋 배경
-  border: '#4a5070',         // 보더
-  text:   '#dde4f0',         // 본문
-  muted:  '#9aa0b8',         // 보조
-  dim:    '#7a8599',         // 비활성
+  bg:     TK.bg8,         // 카드 배경
+  deep:   TK.bg0,         // 인풋·인셋 배경
+  border: TK.line4,         // 보더
+  text:   TK.sub12,         // 본문
+  muted:  TK.sub4,         // 보조
+  dim:    TK.sub10,         // 비활성
   // 유형별 컬러
-  fast:   '#a3e635',         // 고성장주 — 네온그린
-  stalw:  '#38bdf8',         // 대형우량주 — 스카이블루
-  slow:   '#fbbf24',         // 저성장주 — 앰버
-  cycl:   '#fb923c',         // 경기변동주 — 오렌지
-  asset:  '#c084fc',         // 자산주 — 퍼플
-  turn:   '#f87171',         // 턴어라운드 — 레드
+  fast:   TK.lime400,         // 고성장주 — 네온그린
+  stalw:  TK.sky400,         // 대형우량주 — 스카이블루
+  slow:   TK.amber400,         // 저성장주 — 앰버
+  cycl:   TK.orange400,         // 경기변동주 — 오렌지
+  asset:  TK.purple400,         // 자산주 — 퍼플
+  turn:   TK.red400,         // 턴어라운드 — 레드
   // PEG
-  pegGood: '#4ade80',
-  pegOk:   '#60a5fa',
-  pegBad:  '#f87171',
+  pegGood: TK.green400,
+  pegOk:   TK.blue400,
+  pegBad:  TK.red400,
 }
-const SHO = '7px 7px 18px #0e1020, -4px -4px 12px #282c44'
-const SHI = 'inset 4px 4px 10px #0e1020, inset -3px -3px 8px #282c44'
+const SHO = `7px 7px 18px ${TK.bg2}, -4px -4px 12px ${TK.line2}`
+const SHI = `inset 4px 4px 10px ${TK.bg2}, inset -3px -3px 8px ${TK.line2}`
 
 // ── 컴포넌트 Props ────────────────────────────────────────────
 // 종목 리서치에서 API로 받아온 임시 데이터를 그대로 전달받습니다.
@@ -354,7 +355,7 @@ function StepBar({ current }: { current: 1 | 2 | 3 }) {
       {steps.map((s, i) => {
         const done    = s.n < current
         const active  = s.n === current
-        const color   = done ? T.fast : active ? '#fbbf24' : T.muted
+        const color   = done ? T.fast : active ? TK.amber400 : T.muted
         return (
           <div key={s.n} style={{ display: 'flex', alignItems: 'center', flex: i < steps.length - 1 ? 1 : 'unset' }}>
             {/* 원 */}
@@ -746,9 +747,9 @@ export default function LynchWizard({
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
                   padding: '12px 24px', borderRadius: 10, border: 'none', cursor: stockName.trim() ? 'pointer' : 'not-allowed',
-                  background: stockName.trim() ? 'linear-gradient(135deg,#fbbf24,#f59e0b)' : T.deep,
+                  background: stockName.trim() ? `linear-gradient(135deg,${TK.amber400},${TK.amber500})` : T.deep,
                   boxShadow: stockName.trim() ? '0 4px 12px rgba(251,191,36,0.3)' : SHI,
-                  color: stockName.trim() ? '#1b1e2e' : T.dim,
+                  color: stockName.trim() ? TK.bg8 : T.dim,
                   fontSize: 14, fontWeight: 800, transition: 'all 0.2s',
                 }}
               >
@@ -783,7 +784,7 @@ export default function LynchWizard({
             }}>
               {autoChecking ? (
                 <>
-                  <div className="lw-spin" style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${T.border}`, borderTopColor: '#22d3ee', flexShrink: 0 }} />
+                  <div className="lw-spin" style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${T.border}`, borderTopColor: TK.cyan400, flexShrink: 0 }} />
                   <span style={{ fontSize: 12, color: T.text }}>🤖 <b>{autoName || stockName}</b> 자동 진단 중 — 내부자·애널리스트 데이터와 AI로 항목을 채우고 있어요…</span>
                   <style jsx>{`@keyframes lw-spin{to{transform:rotate(360deg)}}.lw-spin{animation:lw-spin .8s linear infinite}`}</style>
                 </>
@@ -868,9 +869,9 @@ export default function LynchWizard({
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
                   padding: '12px 24px', borderRadius: 10, border: 'none', cursor: 'pointer',
-                  background: 'linear-gradient(135deg,#fbbf24,#f59e0b)',
+                  background: `linear-gradient(135deg,${TK.amber400},${TK.amber500})`,
                   boxShadow: '0 4px 12px rgba(251,191,36,0.3)',
-                  color: '#1b1e2e', fontSize: 14, fontWeight: 800,
+                  color: TK.bg8, fontSize: 14, fontWeight: 800,
                 }}
               >
                 최종 처방전 받기 <Zap size={16} />
@@ -888,7 +889,7 @@ export default function LynchWizard({
               🏥 STEP 3 · 피터 린치 처방전
             </div>
             <div style={{ fontSize: 12, color: T.muted, marginBottom: 20 }}>
-              <b style={{ color: '#fbbf24' }}>{stockName}</b> 종합 진단 완료
+              <b style={{ color: TK.amber400 }}>{stockName}</b> 종합 진단 완료
             </div>
 
             {/* ── 유형 판정 메인 카드 ────────────────────────── */}

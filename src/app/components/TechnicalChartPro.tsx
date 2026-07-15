@@ -4,15 +4,16 @@
 import { useState, useMemo, useRef, useCallback } from 'react'
 import type { TechCandle } from '@/app/api/tech-chart/route'
 import { calcMACD, calcRSI, calcStoch, calcCCI, calcMFI, calcADX, calcATR, detectLiquidity, raschkeSequenceMarks, computePOC, computeTTMSqueeze, computeAnchoredVWAP, computeSuperTrend, detectFVG } from '@/lib/techSignals'
+import { TK } from '@/lib/theme'
 
 /* ── 팔레트 (네이비/틸/골드) ── */
 const C = {
-  bg: '#0B1120', panel: '#0F172A', grid: '#1E293B', gridSoft: '#162136', axis: '#334155',
-  text: '#E2E8F0', textLow: '#7C8BA1',
-  up: '#F0475B', down: '#3B82F6',                    // 한국식: 양봉 빨강 / 음봉 파랑
-  ema112: '#FBBF24', ema224: '#F97316',
+  bg: '#0B1120', panel: TK.slate900, grid: TK.border, gridSoft: '#162136', axis: '#334155',
+  text: TK.slate200, textLow: '#7C8BA1',
+  up: '#F0475B', down: TK.blue500,                    // 한국식: 양봉 빨강 / 음봉 파랑
+  ema112: TK.amber400, ema224: '#F97316',
   cloudUp: 'rgba(34,197,94,0.38)', cloudDown: 'rgba(240,71,91,0.34)',   // 어두운 배경에서 또렷하게(0.16→0.38)
-  spanA: '#22C55E', spanB: '#F0475B', gold: '#E9C46A',
+  spanA: TK.green500, spanB: '#F0475B', gold: '#E9C46A',
   future: 'rgba(148,163,184,0.05)',
 }
 
@@ -35,11 +36,11 @@ type SubInd = 'MACD' | 'RSI' | 'STOCH' | 'CCI' | 'MFI' | 'ADX' | 'SQUEEZE' | nul
 interface LensCfg { ema: boolean; cloud: boolean; vol: boolean; liq: boolean; rk: boolean; poc: boolean; vwap: boolean; st: boolean; fvg: boolean; ind: SubInd }
 const LENSES: { key: string; label: string; color: string; desc: string; cfg: LensCfg }[] = [
   { key: 'core', label: '⭐ 핵심', color: '#d4af37', desc: '추세 뼈대(EMA·구름)+매물대+MACD', cfg: { ema: true, cloud: true, vol: true, liq: false, rk: false, poc: true, vwap: false, st: false, fvg: false, ind: 'MACD' } },
-  { key: 'trend', label: '📈 추세·타점', color: '#34d399', desc: 'EMA·구름·SuperTrend·라쉬케·MACD', cfg: { ema: true, cloud: true, vol: false, liq: false, rk: true, poc: false, vwap: false, st: true, fvg: false, ind: 'MACD' } },
-  { key: 'supply', label: '💰 매물·평단', color: '#38bdf8', desc: '매물대·기관평단(VWAP)·유동성·공정가치갭(FVG)·MFI', cfg: { ema: false, cloud: false, vol: true, liq: true, rk: false, poc: true, vwap: true, st: false, fvg: true, ind: 'MFI' } },
-  { key: 'vol', label: '🔥 변동성 돌파', color: '#f59e0b', desc: 'TTM 스퀴즈·VWAP·SuperTrend(신규 3종)', cfg: { ema: false, cloud: false, vol: true, liq: false, rk: false, poc: false, vwap: true, st: true, fvg: false, ind: 'SQUEEZE' } },
-  { key: 'momentum', label: '⚡ 모멘텀', color: '#f0abfc', desc: 'EMA·라쉬케·RSI(에너지·진입)', cfg: { ema: true, cloud: false, vol: false, liq: false, rk: true, poc: false, vwap: false, st: false, fvg: false, ind: 'RSI' } },
-  { key: 'all', label: '🔬 전체', color: '#94a3b8', desc: '모든 지표(고급)', cfg: { ema: true, cloud: true, vol: true, liq: true, rk: true, poc: true, vwap: true, st: true, fvg: true, ind: 'MACD' } },
+  { key: 'trend', label: '📈 추세·타점', color: TK.emerald400, desc: 'EMA·구름·SuperTrend·라쉬케·MACD', cfg: { ema: true, cloud: true, vol: false, liq: false, rk: true, poc: false, vwap: false, st: true, fvg: false, ind: 'MACD' } },
+  { key: 'supply', label: '💰 매물·평단', color: TK.sky400, desc: '매물대·기관평단(VWAP)·유동성·공정가치갭(FVG)·MFI', cfg: { ema: false, cloud: false, vol: true, liq: true, rk: false, poc: true, vwap: true, st: false, fvg: true, ind: 'MFI' } },
+  { key: 'vol', label: '🔥 변동성 돌파', color: TK.amber500, desc: 'TTM 스퀴즈·VWAP·SuperTrend(신규 3종)', cfg: { ema: false, cloud: false, vol: true, liq: false, rk: false, poc: false, vwap: true, st: true, fvg: false, ind: 'SQUEEZE' } },
+  { key: 'momentum', label: '⚡ 모멘텀', color: TK.fuchsia300, desc: 'EMA·라쉬케·RSI(에너지·진입)', cfg: { ema: true, cloud: false, vol: false, liq: false, rk: true, poc: false, vwap: false, st: false, fvg: false, ind: 'RSI' } },
+  { key: 'all', label: '🔬 전체', color: TK.slate400, desc: '모든 지표(고급)', cfg: { ema: true, cloud: true, vol: true, liq: true, rk: true, poc: true, vwap: true, st: true, fvg: true, ind: 'MACD' } },
 ]
 
 interface DispBar {
@@ -190,8 +191,8 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
     type L = { key: string; price: number; line: string; bg: string; textCol: string; text: string }
     const items: L[] = []
     if (avgPrice != null) items.push({ key: 'avg', price: avgPrice, line: C.gold, bg: C.gold, textCol: C.bg, text: `평단 ${fmt(avgPrice)}` })
-    if (showPoc && poc) items.push({ key: 'poc', price: poc.poc, line: '#38bdf8', bg: '#0c4a6e', textCol: '#7dd3fc', text: `📊 매물대 ${fmt(poc.poc)}` })
-    if (showVwap && avwap) items.push({ key: 'vwap', price: avwap.vwap, line: '#f472b6', bg: '#831843', textCol: '#fbcfe8', text: `⚓ VWAP ${fmt(avwap.vwap)}` })
+    if (showPoc && poc) items.push({ key: 'poc', price: poc.poc, line: TK.sky400, bg: '#0c4a6e', textCol: '#7dd3fc', text: `📊 매물대 ${fmt(poc.poc)}` })
+    if (showVwap && avwap) items.push({ key: 'vwap', price: avwap.vwap, line: TK.pink400, bg: '#831843', textCol: '#fbcfe8', text: `⚓ VWAP ${fmt(avwap.vwap)}` })
     const withY = items.map(it => ({ ...it, ty: yP(it.price), ly: yP(it.price) })).sort((a, b) => a.ty - b.ty)
     let last = -Infinity
     for (const it of withY) { if (it.ly < last + 17) it.ly = last + 17; last = it.ly }
@@ -338,19 +339,19 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
             }}>{l.label}</button>
           )
         })}
-        <span style={{ fontSize: 9.5, color: '#7f93a8', marginLeft: 2 }}>{activeLens ? LENSES.find(l => l.key === activeLens)?.desc : '사용자 지정(세부 토글로 조정됨)'}</span>
+        <span style={{ fontSize: 9.5, color: TK.sub2, marginLeft: 2 }}>{activeLens ? LENSES.find(l => l.key === activeLens)?.desc : '사용자 지정(세부 토글로 조정됨)'}</span>
       </div>
       {/* 세부 토글(개별 지표 미세 조정) */}
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
         {toggle(showEMA, '지수이평선', C.ema224, setShowEMA)}
         {toggle(showCloud, '구름대', C.spanA, setShowCloud)}
         {toggle(showVolume, '거래량', C.gold, setShowVolume)}
-        {toggle(showLiq, '💧유동성', '#2dd4bf', setShowLiq)}
-        {toggle(showRaschke, '🎼라쉬케', '#f0abfc', setShowRaschke)}
-        {poc && toggle(showPoc, '📊매물대', '#38bdf8', setShowPoc)}
-        {avwap && toggle(showVwap, '⚓VWAP', '#f472b6', setShowVwap)}
-        {superT && toggle(showST, '🛡️추세선', '#34d399', setShowST)}
-        {fvg.length > 0 && toggle(showFvg, '📦FVG', '#a3e635', setShowFvg)}
+        {toggle(showLiq, '💧유동성', TK.teal400, setShowLiq)}
+        {toggle(showRaschke, '🎼라쉬케', TK.fuchsia300, setShowRaschke)}
+        {poc && toggle(showPoc, '📊매물대', TK.sky400, setShowPoc)}
+        {avwap && toggle(showVwap, '⚓VWAP', TK.pink400, setShowVwap)}
+        {superT && toggle(showST, '🛡️추세선', TK.emerald400, setShowST)}
+        {fvg.length > 0 && toggle(showFvg, '📦FVG', TK.lime400, setShowFvg)}
         {/* 모멘텀 서브패널 탭(하나만) */}
         <span style={{ display: 'inline-flex', border: `1px solid ${C.axis}`, borderRadius: 7, overflow: 'hidden', marginLeft: 4 }}>
           {(['MACD', 'RSI', 'STOCH', 'CCI', 'MFI', 'ADX', 'SQUEEZE'] as const).map(t => (
@@ -361,13 +362,13 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
           ))}
         </span>
         <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 8, flexWrap: 'wrap' }}>
-          {aligned && <span style={{ fontSize: 10.5, fontWeight: 800, color: aligned === 'up' ? '#4ade80' : '#f87171', background: aligned === 'up' ? '#14532d44' : '#7f1d1d44', borderRadius: 5, padding: '2px 8px' }}>
+          {aligned && <span style={{ fontSize: 10.5, fontWeight: 800, color: aligned === 'up' ? TK.green400 : TK.red400, background: aligned === 'up' ? '#14532d44' : '#7f1d1d44', borderRadius: 5, padding: '2px 8px' }}>
             {aligned === 'up' ? '📈 EMA 정배열(112>224)' : '📉 EMA 역배열(112<224)'}</span>}
-          {abovCloud && <span style={{ fontSize: 10.5, fontWeight: 800, color: abovCloud === 'above' ? '#4ade80' : abovCloud === 'below' ? '#f87171' : '#eab308', background: '#0F172A', border: `1px solid ${C.axis}`, borderRadius: 5, padding: '2px 8px' }}>
+          {abovCloud && <span style={{ fontSize: 10.5, fontWeight: 800, color: abovCloud === 'above' ? TK.green400 : abovCloud === 'below' ? TK.red400 : TK.yellow500, background: TK.slate900, border: `1px solid ${C.axis}`, borderRadius: 5, padding: '2px 8px' }}>
             {abovCloud === 'above' ? '☁️ 구름 위(강세·지지)' : abovCloud === 'below' ? '☁️ 구름 아래(약세·저항)' : '☁️ 구름 속(방향 탐색)'}</span>}
-          {squeeze && (squeeze.on || squeeze.fired) && <span style={{ fontSize: 10.5, fontWeight: 800, color: squeeze.on ? '#f59e0b' : squeeze.fired === 'up' ? '#4ade80' : '#f87171', background: squeeze.on ? '#42200644' : squeeze.fired === 'up' ? '#14532d44' : '#7f1d1d44', border: `1px solid ${squeeze.on ? '#f59e0b55' : squeeze.fired === 'up' ? '#22c55e55' : '#ef444455'}`, borderRadius: 5, padding: '2px 8px' }}>
+          {squeeze && (squeeze.on || squeeze.fired) && <span style={{ fontSize: 10.5, fontWeight: 800, color: squeeze.on ? TK.amber500 : squeeze.fired === 'up' ? TK.green400 : TK.red400, background: squeeze.on ? '#42200644' : squeeze.fired === 'up' ? '#14532d44' : '#7f1d1d44', border: `1px solid ${squeeze.on ? `${TK.amber500}55` : squeeze.fired === 'up' ? `${TK.green500}55` : `${TK.red500}55`}`, borderRadius: 5, padding: '2px 8px' }}>
             {squeeze.on ? `🔥 스퀴즈 압축(${squeeze.barsOn}봉)` : squeeze.fired === 'up' ? '💥 스퀴즈 상방 분출' : '💥 스퀴즈 하방 분출'}</span>}
-          {showVwap && avwap && <span style={{ fontSize: 10.5, fontWeight: 800, color: avwap.above ? '#4ade80' : '#f87171', background: '#831843aa', border: '1px solid #f472b655', borderRadius: 5, padding: '2px 8px' }}>
+          {showVwap && avwap && <span style={{ fontSize: 10.5, fontWeight: 800, color: avwap.above ? TK.green400 : TK.red400, background: '#831843aa', border: `1px solid ${TK.pink400}55`, borderRadius: 5, padding: '2px 8px' }}>
             ⚓ VWAP {avwap.above ? '위' : '아래'}({avwap.distPct}%)</span>}
         </span>
       </div>
@@ -420,8 +421,8 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
           {/* 🛡️ ATR 변동성 손절 참고선(현재가 − 2×ATR) — 라벨은 Y축 영역(우측 여백)에만 표시해 차트를 가리지 않음 */}
           {atrStop != null && (
             <g>
-              <line x1={padL} x2={W - padR} y1={yP(atrStop)} y2={yP(atrStop)} stroke="#a78bfa" strokeWidth={1.2} strokeDasharray="7 4" opacity={0.85} />
-              <rect x={W - padR} y={yP(atrStop) - 8} width={padR} height={16} rx={2} fill="#a78bfa" />
+              <line x1={padL} x2={W - padR} y1={yP(atrStop)} y2={yP(atrStop)} stroke={TK.violet400} strokeWidth={1.2} strokeDasharray="7 4" opacity={0.85} />
+              <rect x={W - padR} y={yP(atrStop) - 8} width={padR} height={16} rx={2} fill={TK.violet400} />
               <text x={W - padR + 4} y={yP(atrStop) + 3} fontSize={9.5} fontWeight={800} fill={C.bg}>🛡{fmt(atrStop)}</text>
             </g>
           )}
@@ -441,12 +442,12 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
                   const wpx = Math.max(2, b.frac * MAXW)
                   return (
                     <rect key={'vp' + i} x={xR - wpx} y={yT} width={wpx} height={h}
-                      fill={isPoc ? '#38bdf8' : b.inVA ? '#38bdf8' : '#475569'}
+                      fill={isPoc ? TK.sky400 : b.inVA ? TK.sky400 : TK.slate600}
                       opacity={isPoc ? 0.75 : b.inVA ? 0.35 : 0.18} />
                   )
                 })}
                 {/* POC 수평 점선(라벨은 좌측 통합 스택 priceLabels에서 렌더 — 평단·VWAP와 세로로 안 겹치게) */}
-                <line x1={padL} x2={xR} y1={y0} y2={y0} stroke="#38bdf8" strokeWidth={1.2} strokeDasharray="8 4" opacity={0.8} />
+                <line x1={padL} x2={xR} y1={y0} y2={y0} stroke={TK.sky400} strokeWidth={1.2} strokeDasharray="8 4" opacity={0.8} />
               </g>
             )
           })()}
@@ -463,7 +464,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
               cur += (pen ? ' L' : 'M') + xc(j).toFixed(1) + ',' + yP(v).toFixed(1); pen = true; upSeg = up
             }
             if (cur) segs.push({ d: cur, up: upSeg })
-            return <g fill="none">{segs.map((s, i) => <path key={'st' + i} d={s.d} stroke={s.up ? '#34d399' : '#f87171'} strokeWidth={1.8} opacity={0.9} />)}</g>
+            return <g fill="none">{segs.map((s, i) => <path key={'st' + i} d={s.d} stroke={s.up ? TK.emerald400 : TK.red400} strokeWidth={1.8} opacity={0.9} />)}</g>
           })()}
 
           {/* ⚓ Anchored VWAP — 직전 스윙 저점 앵커 기관 평균단가(핑크 실선) + 앵커 마커 */}
@@ -472,9 +473,9 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
             for (let j = 0; j < N; j++) { const v = avwap.line[j]; if (v == null) { pen = false; continue } d += (pen ? ' L' : 'M') + xc(j).toFixed(1) + ',' + yP(v).toFixed(1); pen = true }
             return (
               <g>
-                <path d={d} fill="none" stroke="#f472b6" strokeWidth={1.7} opacity={0.9} />
-                <circle cx={xc(avwap.anchorIdx)} cy={yP(data[avwap.anchorIdx].low)} r={3.5} fill="#f472b6" stroke={C.bg} strokeWidth={1} />
-                <text x={xc(avwap.anchorIdx)} y={yP(data[avwap.anchorIdx].low) + 13} fontSize={8} fontWeight={800} fill="#f472b6" textAnchor="middle">⚓</text>
+                <path d={d} fill="none" stroke={TK.pink400} strokeWidth={1.7} opacity={0.9} />
+                <circle cx={xc(avwap.anchorIdx)} cy={yP(data[avwap.anchorIdx].low)} r={3.5} fill={TK.pink400} stroke={C.bg} strokeWidth={1} />
+                <text x={xc(avwap.anchorIdx)} y={yP(data[avwap.anchorIdx].low) + 13} fontSize={8} fontWeight={800} fill={TK.pink400} textAnchor="middle">⚓</text>
                 {/* ⚓VWAP 값 라벨은 좌측 통합 스택(priceLabels)에서 렌더 — 캔들·다른 라벨과 안 겹치게 */}
               </g>
             )
@@ -487,7 +488,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
             return fvg.map((g, i) => {
               const yT = yP(g.hi), yB = yP(g.lo)
               const x0 = xc(g.idx), xR = W - padR
-              const col = g.type === 'bull' ? '#a3e635' : '#f87171'
+              const col = g.type === 'bull' ? TK.lime400 : TK.red400
               const yc = (yT + yB) / 2
               const showLabel = !usedY.some(u => Math.abs(u - yc) < 12)
               if (showLabel) usedY.push(yc)
@@ -519,10 +520,10 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
                 return (
                   <g key={'lq' + i} opacity={0.9}>
                     <line x1={xc(lv.idx)} x2={xc(N - 1)} y1={y} y2={y}
-                      stroke={lv.type === 'low' ? '#2dd4bf' : '#fb923c'} strokeWidth={1} strokeDasharray="2 4" />
+                      stroke={lv.type === 'low' ? TK.teal400 : TK.orange400} strokeWidth={1} strokeDasharray="2 4" />
                     {label && (
                       <text x={Math.min(xc(lv.idx) + 4, W - padR - 78)} y={y + (lv.type === 'low' ? 11 : -4)}
-                        fontSize={9} fontWeight={800} fill={lv.type === 'low' ? '#2dd4bf' : '#fb923c'}>
+                        fontSize={9} fontWeight={800} fill={lv.type === 'low' ? TK.teal400 : TK.orange400}>
                         {lv.type === 'low' ? '유동성(전저점)' : '유동성(전고점)'}
                       </text>
                     )}
@@ -535,11 +536,11 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
                 return (
                   <g key={'sw' + i}>
                     <line x1={xc(sw.idx)} x2={xc(sw.endIdx!)} y1={y} y2={y}
-                      stroke={sw.type === 'low' ? '#2dd4bf' : '#fb923c'} strokeWidth={1} strokeDasharray="2 4" opacity={0.45} />
+                      stroke={sw.type === 'low' ? TK.teal400 : TK.orange400} strokeWidth={1} strokeDasharray="2 4" opacity={0.45} />
                     <text x={xc(sw.endIdx!)} y={y + (sw.type === 'low' ? 16 : -8)} fontSize={12} textAnchor="middle">💧</text>
                     {label && (
                       <text x={xc(sw.endIdx!)} y={y + (sw.type === 'low' ? 27 : -19)} fontSize={8.5} fontWeight={800}
-                        textAnchor="middle" fill={sw.type === 'low' ? '#2dd4bf' : '#fb923c'}>
+                        textAnchor="middle" fill={sw.type === 'low' ? TK.teal400 : TK.orange400}>
                         스윕{sw.volBoost ? '·거래량↑' : ''}
                       </text>
                     )}
@@ -553,10 +554,10 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
               500봉이라 봉 간격 ~2px → 며칠 차 마커가 가로로 붙음 → 봉 아래 '세로 사다리'로 분리. 텍스트는 현재 단계(📍)만(범례가 ①②③④ 설명) */}
           {showRaschke && raschke && (() => {
             const marks = [
-              { idx: raschke.cci, n: 1, s: 1, label: 'CCI 신호탄', color: '#eab308' },
-              { idx: raschke.rsi50, n: 2, s: 2, label: 'RSI50 돌파', color: '#22d3ee' },
-              { idx: raschke.macdZero, n: 3, s: 3, label: 'MACD 영선 돌파', color: '#4ade80' },
-              { idx: raschke.pullback, n: 4, s: 4, label: '첫 눌림목(최적 타점)', color: '#f0abfc' },
+              { idx: raschke.cci, n: 1, s: 1, label: 'CCI 신호탄', color: TK.yellow500 },
+              { idx: raschke.rsi50, n: 2, s: 2, label: 'RSI50 돌파', color: TK.cyan400 },
+              { idx: raschke.macdZero, n: 3, s: 3, label: 'MACD 영선 돌파', color: TK.green400 },
+              { idx: raschke.pullback, n: 4, s: 4, label: '첫 눌림목(최적 타점)', color: TK.fuchsia300 },
             ].filter((m): m is { idx: number; n: number; s: number; label: string; color: string } => m.idx != null && m.idx >= 0 && m.idx < N)
             // 실제 위치 충돌 감지 — 겹칠 때만 아래로 밀어냄(블라인드 사다리가 가격 상승 구간서 수렴하는 결함 방지)
             const placed: { x: number; y: number }[] = []
@@ -575,8 +576,8 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
                 <g key={'rk' + m.n}>
                   <line x1={m.x} x2={m.x} y1={m.yLow + 2} y2={m.y - m.r} stroke={m.color} strokeWidth={1} strokeDasharray="2 3" opacity={0.5} />
                   {m.here && <circle cx={m.x} cy={m.y} r={m.r + 3} fill="none" stroke={m.color} strokeWidth={1.5} opacity={0.5} />}
-                  <circle cx={m.x} cy={m.y} r={m.r} fill={m.color} stroke="#0F172A" strokeWidth={1.5} />
-                  <text x={m.x} y={m.y + 3.2} fontSize={m.here ? 10.5 : 8.5} fontWeight={900} textAnchor="middle" fill="#0F172A">{m.n}</text>
+                  <circle cx={m.x} cy={m.y} r={m.r} fill={m.color} stroke={TK.slate900} strokeWidth={1.5} />
+                  <text x={m.x} y={m.y + 3.2} fontSize={m.here ? 10.5 : 8.5} fontWeight={900} textAnchor="middle" fill={TK.slate900}>{m.n}</text>
                   {m.here && (() => {
                     const leftSide = m.x > W - padR - 100   // 우측 끝이면 라벨을 왼쪽으로
                     return (
@@ -620,47 +621,47 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
             return (
               <g>
                 <line x1={padL} x2={W - padR} y1={indTop - 7} y2={indTop - 7} stroke={C.grid} strokeWidth={1} />
-                <text x={padL + 2} y={indTop + 11} fontSize={10} fontWeight={700} fill="#a78bfa">
+                <text x={padL + 2} y={indTop + 11} fontSize={10} fontWeight={700} fill={TK.violet400}>
                   {ind === 'MACD' ? 'MACD (12·26·9)' : ind === 'RSI' ? 'RSI (14)' : ind === 'STOCH' ? '스토캐스틱 (14·3)' : ind === 'CCI' ? 'CCI (20)' : ind === 'MFI' ? 'MFI (14) — 거래량 가중 수급' : ind === 'SQUEEZE' ? '🔥 TTM Squeeze (BB20 ⊂ KC1.5) — 빨강점=압축·초록점=해제·막대=모멘텀' : 'ADX (14) — 추세 강도'}
                 </text>
                 {ind === 'MACD' && (<>
                   {/* 라쉬케: 영선(0)이 추세 전환의 진짜 기준선 — 영선 아래 골든크로스→영선 돌파가 확정 신호 */}
-                  {refLine(0, '0 영선', '#f0abfc')}
+                  {refLine(0, '0 영선', TK.fuchsia300)}
                   {mom.hist.map((h, j) => h == null ? null : (
                     <rect key={'h' + j} x={xc(j) - cw / 2} y={Math.min(yI(0), yI(h))} width={cw} height={Math.max(Math.abs(yI(h) - yI(0)), 0.5)}
                       fill={h >= 0 ? C.up : C.down} opacity={0.45} />
                   ))}
-                  <path d={indPath(mom.macd)} fill="none" stroke="#22d3ee" strokeWidth={1.5} />
+                  <path d={indPath(mom.macd)} fill="none" stroke={TK.cyan400} strokeWidth={1.5} />
                   <path d={indPath(mom.signal)} fill="none" stroke="#f97316" strokeWidth={1.4} />
                 </>)}
                 {ind === 'RSI' && (<>
                   <rect x={padL} y={yI(100)} width={plotW} height={yI(70) - yI(100)} fill={C.up} opacity={0.07} />
                   <rect x={padL} y={yI(30)} width={plotW} height={yI(0) - yI(30)} fill={C.down} opacity={0.07} />
                   {/* 라쉬케: 50선 돌파 = 매수세 장악(30/70보다 중요) */}
-                  {refLine(70, '70', C.up)}{refLine(50, '50 라쉬케선', '#f0abfc')}{refLine(30, '30', C.down)}
-                  <path d={indPath(mom.rsi)} fill="none" stroke="#a78bfa" strokeWidth={1.6} />
+                  {refLine(70, '70', C.up)}{refLine(50, '50 라쉬케선', TK.fuchsia300)}{refLine(30, '30', C.down)}
+                  <path d={indPath(mom.rsi)} fill="none" stroke={TK.violet400} strokeWidth={1.6} />
                 </>)}
                 {ind === 'STOCH' && (<>
                   <rect x={padL} y={yI(100)} width={plotW} height={yI(80) - yI(100)} fill={C.up} opacity={0.07} />
                   <rect x={padL} y={yI(20)} width={plotW} height={yI(0) - yI(20)} fill={C.down} opacity={0.07} />
                   {refLine(80, '80', C.up)}{refLine(20, '20', C.down)}
-                  <path d={indPath(mom.k)} fill="none" stroke="#22d3ee" strokeWidth={1.5} />
+                  <path d={indPath(mom.k)} fill="none" stroke={TK.cyan400} strokeWidth={1.5} />
                   <path d={indPath(mom.d)} fill="none" stroke="#f97316" strokeWidth={1.4} />
                 </>)}
                 {ind === 'CCI' && (<>
                   {refLine(100, '+100', C.up)}{refLine(0, '0')}{refLine(-100, '-100', C.down)}
-                  <path d={indPath(mom.cci)} fill="none" stroke="#a78bfa" strokeWidth={1.6} />
+                  <path d={indPath(mom.cci)} fill="none" stroke={TK.violet400} strokeWidth={1.6} />
                 </>)}
                 {ind === 'MFI' && (<>
                   <rect x={padL} y={yI(100)} width={plotW} height={yI(80) - yI(100)} fill={C.up} opacity={0.07} />
                   <rect x={padL} y={yI(20)} width={plotW} height={yI(0) - yI(20)} fill={C.down} opacity={0.07} />
                   {refLine(80, '80 과열', C.up)}{refLine(20, '20 소외', C.down)}
-                  <path d={indPath(mom.mfi)} fill="none" stroke="#34d399" strokeWidth={1.6} />
+                  <path d={indPath(mom.mfi)} fill="none" stroke={TK.emerald400} strokeWidth={1.6} />
                 </>)}
                 {ind === 'ADX' && (<>
-                  <rect x={padL} y={yI(20)} width={plotW} height={yI(0) - yI(20)} fill="#94a3b8" opacity={0.08} />
-                  {refLine(25, '25 추세장', C.up)}{refLine(20, '20 박스권', '#94a3b8')}
-                  <path d={indPath(mom.adx)} fill="none" stroke="#38bdf8" strokeWidth={1.6} />
+                  <rect x={padL} y={yI(20)} width={plotW} height={yI(0) - yI(20)} fill={TK.slate400} opacity={0.08} />
+                  {refLine(25, '25 추세장', C.up)}{refLine(20, '20 박스권', TK.slate400)}
+                  <path d={indPath(mom.adx)} fill="none" stroke={TK.sky400} strokeWidth={1.6} />
                 </>)}
                 {ind === 'SQUEEZE' && squeeze && (<>
                   {refLine(0, '0')}
@@ -669,13 +670,13 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
                     if (v == null) return null
                     const pv = squeeze.momArr[j - 1] ?? 0
                     const up = v >= 0, rising = Math.abs(v) >= Math.abs(pv)
-                    const col = up ? (rising ? '#059669' : '#6ee7b7') : (rising ? '#dc2626' : '#fca5a5')
+                    const col = up ? (rising ? '#059669' : TK.emerald300) : (rising ? TK.red600 : TK.red300)
                     const y0 = yI(0), yv = yI(v)
                     return <rect key={'sq' + j} x={xc(j) - cw / 2} y={Math.min(y0, yv)} width={cw} height={Math.max(1, Math.abs(yv - y0))} fill={col} />
                   })}
                   {/* 스퀴즈 점 — 영선 위 도트(ON=빨강 압축 / OFF=초록 해제) */}
                   {squeeze.onArr.map((o, j) => o == null ? null : (
-                    <circle key={'sd' + j} cx={xc(j)} cy={yI(0)} r={1.9} fill={o ? '#ef4444' : '#22c55e'} />
+                    <circle key={'sd' + j} cx={xc(j)} cy={yI(0)} r={1.9} fill={o ? TK.red500 : TK.green500} />
                   ))}
                 </>)}
               </g>
@@ -727,12 +728,12 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
               const j = hover.j, f1 = (v: number | null | undefined) => v == null ? '-' : v.toFixed(ind === 'MACD' ? 2 : 1)
               return (
                 <div style={{ marginTop: 6, paddingTop: 6, borderTop: `1px solid ${C.grid}`, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                  {ind === 'MACD' && <><span style={{ color: '#22d3ee' }}>MACD {f1(mom.macd[j])}</span><span style={{ color: '#f97316' }}>Signal {f1(mom.signal[j])}</span></>}
-                  {ind === 'RSI' && <span style={{ color: '#a78bfa' }}>RSI {f1(mom.rsi[j])}</span>}
-                  {ind === 'STOCH' && <><span style={{ color: '#22d3ee' }}>%K {f1(mom.k[j])}</span><span style={{ color: '#f97316' }}>%D {f1(mom.d[j])}</span></>}
-                  {ind === 'CCI' && <span style={{ color: '#a78bfa' }}>CCI {f1(mom.cci[j])}</span>}
-                  {ind === 'MFI' && <span style={{ color: '#34d399' }}>MFI {f1(mom.mfi[j])}</span>}
-                  {ind === 'ADX' && <span style={{ color: '#38bdf8' }}>ADX {f1(mom.adx[j])}</span>}
+                  {ind === 'MACD' && <><span style={{ color: TK.cyan400 }}>MACD {f1(mom.macd[j])}</span><span style={{ color: '#f97316' }}>Signal {f1(mom.signal[j])}</span></>}
+                  {ind === 'RSI' && <span style={{ color: TK.violet400 }}>RSI {f1(mom.rsi[j])}</span>}
+                  {ind === 'STOCH' && <><span style={{ color: TK.cyan400 }}>%K {f1(mom.k[j])}</span><span style={{ color: '#f97316' }}>%D {f1(mom.d[j])}</span></>}
+                  {ind === 'CCI' && <span style={{ color: TK.violet400 }}>CCI {f1(mom.cci[j])}</span>}
+                  {ind === 'MFI' && <span style={{ color: TK.emerald400 }}>MFI {f1(mom.mfi[j])}</span>}
+                  {ind === 'ADX' && <span style={{ color: TK.sky400 }}>ADX {f1(mom.adx[j])}</span>}
                 </div>
               )
             })()}
@@ -751,43 +752,43 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 14, height: 10, background: C.cloudDown, border: `1px solid ${C.spanB}` }} /><span style={{ color: C.textLow }}>음운(선행A&lt;B·저항)</span></span>
         </>)}
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, borderTop: `2px dashed ${C.gold}` }} /><span style={{ color: C.textLow }}>평단가(보유 시)</span></span>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, borderTop: `2px dashed #a78bfa` }} /><span style={{ color: C.textLow }}>🛡 ATR 손절 참고선(현재가−2×ATR)</span></span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, borderTop: `2px dashed ${TK.violet400}` }} /><span style={{ color: C.textLow }}>🛡 ATR 손절 참고선(현재가−2×ATR)</span></span>
         {showLiq && (<>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, borderTop: `2px dotted #2dd4bf` }} /><span style={{ color: C.textLow }}>유동성(전저점 — 손절 대기 구간)</span></span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, borderTop: `2px dotted #fb923c` }} /><span style={{ color: C.textLow }}>유동성(전고점 — 익절·돌파주문 대기)</span></span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, borderTop: `2px dotted ${TK.teal400}` }} /><span style={{ color: C.textLow }}>유동성(전저점 — 손절 대기 구간)</span></span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, borderTop: `2px dotted ${TK.orange400}` }} /><span style={{ color: C.textLow }}>유동성(전고점 — 익절·돌파주문 대기)</span></span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ color: C.textLow }}>💧 스윕(꼬리로 털고 종가 회복)</span></span>
         </>)}
         {showRaschke && raschke && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: C.textLow }}>
-            <span style={{ color: '#f0abfc', fontWeight: 800 }}>🎼 라쉬케 연쇄</span>
-            <b style={{ color: '#eab308' }}>①CCI</b>→<b style={{ color: '#22d3ee' }}>②RSI50</b>→<b style={{ color: '#4ade80' }}>③영선</b>→<b style={{ color: '#f0abfc' }}>④첫눌림목</b>
+            <span style={{ color: TK.fuchsia300, fontWeight: 800 }}>🎼 라쉬케 연쇄</span>
+            <b style={{ color: TK.yellow500 }}>①CCI</b>→<b style={{ color: TK.cyan400 }}>②RSI50</b>→<b style={{ color: TK.green400 }}>③영선</b>→<b style={{ color: TK.fuchsia300 }}>④첫눌림목</b>
             <span>(📍=현재 단계, 봉 아래 번호핀)</span>
           </span>
         )}
         {showPoc && poc && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ width: 16, borderTop: '2px dashed #38bdf8' }} />
+            <span style={{ width: 16, borderTop: `2px dashed ${TK.sky400}` }} />
             <span style={{ color: C.textLow }}>📊 매물대 — 우측 가로 막대=가격대별 거래량(진한 파랑=POC·중간=가치영역 70%·흐림=밖), 점선=매물대 중심선</span>
-            <span style={{ fontSize: 9.5, fontWeight: 800, color: poc.above ? '#4ade80' : '#fb923c', background: poc.above ? '#14532d33' : '#7c2d1233', border: `1px solid ${poc.above ? '#22c55e55' : '#fb923c55'}`, borderRadius: 5, padding: '1px 6px' }}>
+            <span style={{ fontSize: 9.5, fontWeight: 800, color: poc.above ? TK.green400 : TK.orange400, background: poc.above ? '#14532d33' : '#7c2d1233', border: `1px solid ${poc.above ? `${TK.green500}55` : `${TK.orange400}55`}`, borderRadius: 5, padding: '1px 6px' }}>
               현재 매물대 {poc.above ? '위(+' : '아래('}{poc.distPct}%) — {poc.above ? '수익권 다수·지지 기대' : '손실권 다수·저항 주의'}
             </span>
           </span>
         )}
         {showVwap && avwap && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ width: 16, borderTop: '2px solid #f472b6' }} />
+            <span style={{ width: 16, borderTop: `2px solid ${TK.pink400}` }} />
             <span style={{ color: C.textLow }}>⚓ Anchored VWAP — 직전 스윙 저점(⚓) 이후 기관 평균단가(위=매집 우위/아래=저항)</span>
           </span>
         )}
         {showST && superT && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ width: 16, borderTop: '2px solid #34d399' }} />
+            <span style={{ width: 16, borderTop: `2px solid ${TK.emerald400}` }} />
             <span style={{ color: C.textLow }}>🛡️ SuperTrend — 시각 트레일링 라인(초록=지지/빨강=저항). 이 선 깨질 때까지 홀드 훈련용(알림 없음)</span>
           </span>
         )}
         {showFvg && fvg.length > 0 && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ width: 16, height: 10, background: 'rgba(163,230,53,0.2)', border: '1px dashed #a3e635' }} />
+            <span style={{ width: 16, height: 10, background: 'rgba(163,230,53,0.2)', border: `1px dashed ${TK.lime400}` }} />
             <span style={{ color: C.textLow }}>📦 FVG(공정가치 갭) — 미충족 빈 공간(라임=지지·빨강=저항), 되메움 되돌림 타점 후보</span>
           </span>
         )}
@@ -811,9 +812,9 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
         </div>
         {showLiq && (
           <div style={{ backgroundColor: C.panel, border: `1px solid ${C.grid}`, borderRadius: 12, padding: 12 }}>
-            <div style={{ fontWeight: 700, color: '#2dd4bf', marginBottom: 4 }}>💧 유동성 레벨·스윕 읽는 법</div>
+            <div style={{ fontWeight: 700, color: TK.teal400, marginBottom: 4 }}>💧 유동성 레벨·스윕 읽는 법</div>
             <p style={{ lineHeight: 1.6, color: C.textLow, margin: 0 }}>
-              <b style={{ color: '#2dd4bf' }}>전저점(틸 점선)</b> 아래엔 보유자들의 손절 주문이, <b style={{ color: '#fb923c' }}>전고점(주황 점선)</b> 위엔 익절·추격매수 주문이
+              <b style={{ color: TK.teal400 }}>전저점(틸 점선)</b> 아래엔 보유자들의 손절 주문이, <b style={{ color: TK.orange400 }}>전고점(주황 점선)</b> 위엔 익절·추격매수 주문이
               몰려 있습니다 — 이 &lsquo;주문 뭉치&rsquo;가 유동성입니다. 큰손은 물량을 싸게 모으려고 전저점을 일부러 살짝 깨서 개미 손절을 받아낸 뒤 올립니다.
               <b style={{ color: C.text }}> 💧스윕 = 꼬리로 레벨을 뚫었는데 종가는 회복</b> — 전형적인 &lsquo;개미 털기&rsquo; 흔적입니다(여정 ③).
               반대로 <b style={{ color: C.text }}>종가까지 깨면 스윕이 아니라 진짜 이탈</b>이니 구분하세요. 스윕 단독은 매수 신호가 아니며 구름·추세와 함께 봐야 합니다.
@@ -822,37 +823,37 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
         )}
         {showPoc && poc && (
           <div style={{ backgroundColor: C.panel, border: `1px solid ${C.grid}`, borderRadius: 12, padding: 12 }}>
-            <div style={{ fontWeight: 700, color: '#38bdf8', marginBottom: 4 }}>📊 매물대 중심선(POC) 읽는 법</div>
+            <div style={{ fontWeight: 700, color: TK.sky400, marginBottom: 4 }}>📊 매물대 중심선(POC) 읽는 법</div>
             <p style={{ lineHeight: 1.6, color: C.textLow, margin: 0 }}>
-              최근 120봉에서 <b style={{ color: '#38bdf8' }}>가장 많은 거래가 일어난 가격대</b>입니다(거래량 가중 — 시간 가중인 일목 구름과 상호보완).
-              가격이 <b style={{ color: '#4ade80' }}>POC 위</b>면 그 물량을 산 대다수가 수익권이라 눌림 시 <b style={{ color: C.text }}>지지</b>로,
-              <b style={{ color: '#fb923c' }}> POC 아래</b>면 대다수가 손실권(본전 매도 대기)이라 반등 시 <b style={{ color: C.text }}>저항</b>으로 작용하기 쉽습니다.
+              최근 120봉에서 <b style={{ color: TK.sky400 }}>가장 많은 거래가 일어난 가격대</b>입니다(거래량 가중 — 시간 가중인 일목 구름과 상호보완).
+              가격이 <b style={{ color: TK.green400 }}>POC 위</b>면 그 물량을 산 대다수가 수익권이라 눌림 시 <b style={{ color: C.text }}>지지</b>로,
+              <b style={{ color: TK.orange400 }}> POC 아래</b>면 대다수가 손실권(본전 매도 대기)이라 반등 시 <b style={{ color: C.text }}>저항</b>으로 작용하기 쉽습니다.
               차트 우측의 가로 막대는 가격대별 거래량(세워놓은 거래량)이며, 막대가 긴 구간일수록 매물이 두껍습니다 — 진한 파랑=매물대 중심(POC), 중간 톤=가치영역(거래 70%, 매물 소화 구간). 단독 매매 신호가 아니라 구름·신호등과 함께 보세요.
             </p>
           </div>
         )}
         {ind === 'SQUEEZE' && (
           <div style={{ backgroundColor: C.panel, border: `1px solid ${C.grid}`, borderRadius: 12, padding: 12 }}>
-            <div style={{ fontWeight: 700, color: '#f59e0b', marginBottom: 4 }}>🔥 TTM Squeeze 읽는 법 — 변동성 응축→폭발</div>
+            <div style={{ fontWeight: 700, color: TK.amber500, marginBottom: 4 }}>🔥 TTM Squeeze 읽는 법 — 변동성 응축→폭발</div>
             <p style={{ lineHeight: 1.6, color: C.textLow, margin: 0 }}>
-              시장은 <b style={{ color: C.text }}>80% 횡보 + 20% 추세</b>를 반복합니다. 볼린저밴드가 켈트너 채널 안으로 쏙 들어가면(<b style={{ color: '#ef4444' }}>빨강 점</b>) = 변동성이 극도로 눌린 <b style={{ color: '#f59e0b' }}>화약고 응축(스퀴즈 ON)</b> — 지루함에 팔지 말고 <b style={{ color: C.text }}>방향 분출을 대기</b>하세요. 밴드가 채널 밖으로 튀면(<b style={{ color: '#22c55e' }}>초록 점</b>) = 폭발(Fired). 아래 <b style={{ color: '#8b5cf6' }}>막대(모멘텀)</b>가 위(초록)면 상방, 아래(빨강)면 하방 분출 에너지입니다. 압축이 길수록 분출이 큽니다. 방향 확정은 신호등·라쉬케와 함께.
+              시장은 <b style={{ color: C.text }}>80% 횡보 + 20% 추세</b>를 반복합니다. 볼린저밴드가 켈트너 채널 안으로 쏙 들어가면(<b style={{ color: TK.red500 }}>빨강 점</b>) = 변동성이 극도로 눌린 <b style={{ color: TK.amber500 }}>화약고 응축(스퀴즈 ON)</b> — 지루함에 팔지 말고 <b style={{ color: C.text }}>방향 분출을 대기</b>하세요. 밴드가 채널 밖으로 튀면(<b style={{ color: TK.green500 }}>초록 점</b>) = 폭발(Fired). 아래 <b style={{ color: '#8b5cf6' }}>막대(모멘텀)</b>가 위(초록)면 상방, 아래(빨강)면 하방 분출 에너지입니다. 압축이 길수록 분출이 큽니다. 방향 확정은 신호등·라쉬케와 함께.
             </p>
           </div>
         )}
         {showVwap && avwap && (
           <div style={{ backgroundColor: C.panel, border: `1px solid ${C.grid}`, borderRadius: 12, padding: 12 }}>
-            <div style={{ fontWeight: 700, color: '#f472b6', marginBottom: 4 }}>⚓ Anchored VWAP 읽는 법 — 기관 평균단가</div>
+            <div style={{ fontWeight: 700, color: TK.pink400, marginBottom: 4 }}>⚓ Anchored VWAP 읽는 법 — 기관 평균단가</div>
             <p style={{ lineHeight: 1.6, color: C.textLow, margin: 0 }}>
-              직전 <b style={{ color: '#f472b6' }}>주요 스윙 저점(⚓)</b> 이후의 <b style={{ color: C.text }}>거래량가중 평균단가</b> = 그 바닥 이후 매수한 모두의 평균 매입가입니다.
-              현재가가 <b style={{ color: '#4ade80' }}>VWAP 위</b>면 대다수가 수익권 = <b style={{ color: C.text }}>매집 우위·지지</b>, <b style={{ color: '#fb923c' }}>아래</b>면 손실권 = <b style={{ color: C.text }}>본전 매도 압력·저항</b>. 매물대(POC)가 &lsquo;가격대별 매물&rsquo;이라면 VWAP는 &lsquo;특정 사건 이후 시간 흐름의 평균단가&rsquo;라 상호보완입니다. 이탈/회복이 실전 매수·매도의 관문.
+              직전 <b style={{ color: TK.pink400 }}>주요 스윙 저점(⚓)</b> 이후의 <b style={{ color: C.text }}>거래량가중 평균단가</b> = 그 바닥 이후 매수한 모두의 평균 매입가입니다.
+              현재가가 <b style={{ color: TK.green400 }}>VWAP 위</b>면 대다수가 수익권 = <b style={{ color: C.text }}>매집 우위·지지</b>, <b style={{ color: TK.orange400 }}>아래</b>면 손실권 = <b style={{ color: C.text }}>본전 매도 압력·저항</b>. 매물대(POC)가 &lsquo;가격대별 매물&rsquo;이라면 VWAP는 &lsquo;특정 사건 이후 시간 흐름의 평균단가&rsquo;라 상호보완입니다. 이탈/회복이 실전 매수·매도의 관문.
             </p>
           </div>
         )}
         {showFvg && fvg.length > 0 && (
           <div style={{ backgroundColor: C.panel, border: `1px solid ${C.grid}`, borderRadius: 12, padding: 12 }}>
-            <div style={{ fontWeight: 700, color: '#a3e635', marginBottom: 4 }}>📦 FVG(공정가치 갭) 읽는 법 — 되메워지는 빈 공간</div>
+            <div style={{ fontWeight: 700, color: TK.lime400, marginBottom: 4 }}>📦 FVG(공정가치 갭) 읽는 법 — 되메워지는 빈 공간</div>
             <p style={{ lineHeight: 1.6, color: C.textLow, margin: 0 }}>
-              급격한 분출로 <b style={{ color: C.text }}>세 봉 사이에 거래 없이 비어버린 가격대</b>입니다(가운데 봉 앞뒤 봉의 고저가 서로 안 겹침 = 불균형). 시장은 이 빈틈을 <b style={{ color: C.text }}>자석처럼 되메우는 경향</b>이 있어, <b style={{ color: '#a3e635' }}>상승 갭(라임)</b>은 눌림 시 <b style={{ color: C.text }}>지지</b>, <b style={{ color: '#f87171' }}>하락 갭(빨강)</b>은 반등 시 <b style={{ color: C.text }}>저항</b> 후보가 됩니다. 매물대(POC)·유동성 스윕과 겹치는 갭일수록 신뢰도↑. 단독 매수 신호가 아니라 <b style={{ color: C.text }}>&lsquo;어디서 되돌림을 기다릴까&rsquo;의 타점 후보</b>이며, 되메우면 사라집니다. 순수 산수(리페인팅 없음)·교육용.
+              급격한 분출로 <b style={{ color: C.text }}>세 봉 사이에 거래 없이 비어버린 가격대</b>입니다(가운데 봉 앞뒤 봉의 고저가 서로 안 겹침 = 불균형). 시장은 이 빈틈을 <b style={{ color: C.text }}>자석처럼 되메우는 경향</b>이 있어, <b style={{ color: TK.lime400 }}>상승 갭(라임)</b>은 눌림 시 <b style={{ color: C.text }}>지지</b>, <b style={{ color: TK.red400 }}>하락 갭(빨강)</b>은 반등 시 <b style={{ color: C.text }}>저항</b> 후보가 됩니다. 매물대(POC)·유동성 스윕과 겹치는 갭일수록 신뢰도↑. 단독 매수 신호가 아니라 <b style={{ color: C.text }}>&lsquo;어디서 되돌림을 기다릴까&rsquo;의 타점 후보</b>이며, 되메우면 사라집니다. 순수 산수(리페인팅 없음)·교육용.
             </p>
           </div>
         )}
