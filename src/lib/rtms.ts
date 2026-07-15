@@ -1,6 +1,8 @@
 // 국토부 RTMS 실거래가 공용 fetcher(서버 전용, DATA_GO_KR_SERVICE_KEY) — 아파트 매매(TradeDev)·전월세(Rent)
 // 과거월 실거래는 불변 → 월별 캐시(과거 30일·당월 6시간). XML은 정규식 파싱(DART 패턴).
+// ⭐ 서울 25구 '매매'는 서울 열린데이터광장 우선(seoulApt — 국토부와 건별 100% 일치 실측·더 신선·data.go.kr 일 1,000콜 쿼터 온존), 실패 시 국토부 폴백. 전월세는 국토부 유지(서울 API가 연 7만행 전 유형이라 비효율).
 import { getCache, setCache } from '@/lib/appCache'
+import { seoulTradeMonth } from '@/lib/seoulApt'
 
 export interface AptDeal {
   aptNm: string; dong: string; ym: string; day: number   // dong=법정동(umdNm) — 같은 이름 아파트가 동마다 존재(송파 '대림' 사건)
@@ -42,6 +44,11 @@ export async function rtmsTradeMonth(lawd: string, ym: string): Promise<AptDeal[
   const ck = `rtms-trade-v2:${lawd}:${ym}`
   const cached = await getCache<AptDeal[]>(ck, ttl)
   if (cached) return cached
+  // 서울 25구 → 서울시 API 우선(같은 월별 캐시 키에 적재 — re-map 히트맵 등 기존 소비자 무수정 호환). null(범위 밖·장애)이면 국토부
+  if (lawd.startsWith('11') && process.env.SEOUL_API_KEY) {
+    const s = await seoulTradeMonth(lawd, ym)
+    if (s != null) { await setCache(ck, s); return s }
+  }
   const xml = await fetchRtmsXml('RTMSDataSvcAptTradeDev', 'getRTMSDataSvcAptTradeDev', lawd, ym)
   if (!xml) return []
   const deals: AptDeal[] = []

@@ -5,9 +5,11 @@ export const maxDuration = 120
 
 import { NextResponse } from 'next/server'
 import { getCache } from '@/lib/appCache'
-import { rtmsTradeMonth, rtmsRentMonth, LAWD_SIDO, type AptDeal } from '@/lib/rtms'
+import { rtmsTradeMonth, rtmsRentMonth, LAWD_SIDO, LAWD_REGIONS, type AptDeal } from '@/lib/rtms'
+import { getSeoulAptMaster, matchAptMaster } from '@/lib/seoulApt'
 
 export interface AptComplex { name: string; dealCount: number; lastPrice: number; lastYm: string; buildYear: number | null }
+export interface AptOverview { households: number | null; dongs: number | null; aprv: string | null; park: number | null; parkPerHh: number | null; heat: string | null }
 export interface AptDealOut { ym: string; day: number; price: number; area: number; floor: number | null; type: '매매' | '전세' }
 export interface AptResearchResult {
   lawd: string; sido: string; months: number
@@ -18,6 +20,7 @@ export interface AptResearchResult {
     area: number                                // 선택 면적대
     deals: AptDealOut[]                          // 선택 면적대 ±2㎡ 개별 거래(매매+전세)
     monthly: { ym: string; sale: number | null; jeonse: number | null }[]   // 월 중위가(억)
+    overview: AptOverview | null                 // 🏢 단지 개요(서울시 공동주택 마스터 — 서울만·의무관리단지만)
     value: {
       saleMed6: number | null; jeonseMed6: number | null   // 최근 6개월 중위(억)
       jeonseRatio: number | null                            // 전세가율 %
@@ -75,11 +78,13 @@ export async function GET(req: Request) {
   if (aptQ) {
     if (byApt.has(aptQ)) selName = aptQ
     else {
+      // 양방향 부분일치 — 지도 핀(마스터 표기 '래미안대치팰리스1단지')이 RTMS 표기('래미안대치팰리스')보다 길어도 매칭
       const q = aptQ.replace(/\s+/g, '')
       const hits = Array.from(byApt.entries())
-        .filter(([k]) => k.replace(/\s+/g, '').includes(q))
-        .sort((a, b) => b[1].length - a[1].length)
-      if (hits.length) selName = hits[0][0]
+        .map(([k, arr]) => { const k2 = k.replace(/\s+/g, ''); return { k, n: arr.length, score: k2 === q ? 3 : k2.includes(q) ? 2 : q.includes(k2) ? 1 : 0 } })
+        .filter(h => h.score > 0)
+        .sort((a, b) => b.score - a.score || b.n - a.n)
+      if (hits.length) selName = hits[0].k
     }
   }
   let selected: AptResearchResult['selected'] = null
@@ -115,12 +120,26 @@ export async function GET(req: Request) {
       const rm = await getCache<{ kpi: { mortgageRate: number | null } }>('re-market-v2', 3 * 86400_000)
       mortgageRate = rm?.kpi.mortgageRate ?? null
     } catch { /* graceful */ }
+    // 🏢 단지 개요 — 서울시 공동주택 마스터 매칭(서울만·의무관리단지만 존재, 미매칭 시 null 정직)
+    let overview: AptOverview | null = null
+    if (lawd.startsWith('11')) {
+      try {
+        const master = await getSeoulAptMaster()
+        const guName = LAWD_REGIONS.find(r => r.lawd === lawd)?.name ?? ''
+        const parts = selName.split(' ')
+        const m = matchAptMaster(master, guName, parts[0], parts.slice(1).join(' '))
+        if (m) overview = {
+          households: m.hh, dongs: m.dongs, aprv: m.aprv, park: m.park,
+          parkPerHh: m.hh && m.park ? Math.round(m.park / m.hh * 100) / 100 : null, heat: m.heat,
+        }
+      } catch { /* graceful */ }
+    }
     const deals: AptDealOut[] = [
       ...bandT.map(d => ({ ym: `${d.ym.slice(0, 4)}-${d.ym.slice(4)}`, day: d.day, price: eok(d.price!), area: d.area, floor: d.floor, type: '매매' as const })),
       ...bandR.map(d => ({ ym: `${d.ym.slice(0, 4)}-${d.ym.slice(4)}`, day: d.day, price: eok(d.deposit!), area: d.area, floor: d.floor, type: '전세' as const })),
     ].sort((a, b) => (b.ym + String(b.day).padStart(2, '0')).localeCompare(a.ym + String(a.day).padStart(2, '0')))
     selected = {
-      name: selName, areas, area: selArea, deals: deals.slice(0, 400), monthly,
+      name: selName, areas, area: selArea, deals: deals.slice(0, 400), monthly, overview,
       value: {
         saleMed6: saleMed6 != null ? eok(saleMed6) : null,
         jeonseMed6: jeonseMed6 != null ? eok(jeonseMed6) : null,

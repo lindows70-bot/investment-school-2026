@@ -1,8 +1,10 @@
 'use client'
 // 🗺️ 서울 자치구 실거래 히트맵 — 구별 평당가(최근 3개월·캐시 전용) 색칠 + 클릭 시 해당 구 단지 리서치 로드
+//    + 선택 구의 대단지 핀(서울시 공동주택 마스터 좌표·세대수 상위) — 핀 클릭 = 단지 선택
 import { useState, useEffect } from 'react'
-import { ComposableMap, Geographies, Geography } from 'react-simple-maps'
+import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps'
 import type { GuSummary } from '@/app/api/re-map/route'
+import type { AptPin } from '@/app/api/re-apt-pins/route'
 
 const BORDER = '#1e293b'
 
@@ -17,9 +19,11 @@ function colorOf(p: number | null, min: number, max: number): string {
   return '#dc2626'
 }
 
-export default function SeoulAptMap({ lawd, onSelect, refreshKey }: { lawd: string; onSelect: (lawd: string) => void; refreshKey?: string }) {
+export default function SeoulAptMap({ lawd, onSelect, onSelectApt, refreshKey }: { lawd: string; onSelect: (lawd: string) => void; onSelectApt?: (query: string) => void; refreshKey?: string }) {
   const [data, setData] = useState<GuSummary[] | null>(null)
   const [hover, setHover] = useState<GuSummary | null>(null)
+  const [pins, setPins] = useState<AptPin[]>([])
+  const [pinHover, setPinHover] = useState<AptPin | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -28,6 +32,15 @@ export default function SeoulAptMap({ lawd, onSelect, refreshKey }: { lawd: stri
       .catch(() => { /* graceful — 지도 색만 비활성 */ })
     return () => { alive = false }
   }, [refreshKey])   // ⚠️ lawd(수집 시작 전)가 아니라 수집 '완료' 시점(asOf)에 재조회해야 방금 본 구가 색칠됨
+
+  useEffect(() => {
+    let alive = true
+    setPins([]); setPinHover(null)
+    fetch(`/api/re-apt-pins?lawd=${lawd}`).then(r => r.json())
+      .then(j => { if (alive && Array.isArray(j.pins)) setPins(j.pins) })
+      .catch(() => { /* graceful — 핀만 비활성 */ })
+    return () => { alive = false }
+  }, [lawd])
 
   const byName = new Map((data ?? []).map(g => [g.name, g]))
   const vals = (data ?? []).map(g => g.pyeong).filter((v): v is number => v != null)
@@ -38,7 +51,7 @@ export default function SeoulAptMap({ lawd, onSelect, refreshKey }: { lawd: stri
     <div style={{ background: '#141824', border: `1px solid ${BORDER}`, borderRadius: 14, padding: '14px 18px' }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'baseline' }}>
         <span style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 13 }}>🗺️ 서울 자치구 평당가 지도</span>
-        <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>최근 3개월 매매 실거래 ㎡당 중위가 × 3.3(평) · 구 클릭 = 단지 리서치 · 회색 = 아직 미수집(클릭하면 수집 후 색칠)</span>
+        <span style={{ color: '#8a9aaa', fontSize: 10.5 }}>최근 3개월 매매 실거래 ㎡당 중위가 × 3.3(평) · 구 클릭 = 단지 리서치 · 회색 = 아직 미수집(클릭하면 수집 후 색칠) · ⚪핀 = 선택 구 대단지(세대수 상위·서울시 공동주택 마스터) — 핀 클릭 = 단지 선택</span>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-start' }}>
         <div style={{ flex: '1 1 420px', minWidth: 300, maxWidth: 640 }}>
@@ -63,12 +76,36 @@ export default function SeoulAptMap({ lawd, onSelect, refreshKey }: { lawd: stri
                 )
               })}
             </Geographies>
+            {/* 선택 구 대단지 핀(세대수 상위 — 클릭 = 단지 선택) */}
+            {pins.map(p => {
+              const r = Math.min(6.5, 2.4 + Math.sqrt(p.hh ?? 0) / 18)
+              return (
+                <Marker key={`${p.dong}-${p.name}`} coordinates={[p.lng, p.lat]}>
+                  <g style={{ cursor: 'pointer' }}
+                    onClick={() => onSelectApt?.(`${p.dong} ${p.name.replace(/아파트$/, '')}`)}
+                    onMouseEnter={() => setPinHover(p)}
+                    onMouseLeave={() => setPinHover(null)}>
+                    <circle r={r} fill="#f8fafc" fillOpacity={0.92} stroke="#0d1017" strokeWidth={1} />
+                    <circle r={Math.max(1.2, r - 2.2)} fill="#fb923c" />
+                    <title>{p.name} · {p.hh != null ? `${p.hh.toLocaleString()}세대` : '세대수 —'}{p.aprv ? ` · ${p.aprv} 준공` : ''}</title>
+                  </g>
+                </Marker>
+              )
+            })}
           </ComposableMap>
         </div>
         <div style={{ flex: '1 1 200px', minWidth: 190 }}>
           {/* 호버 정보 + 랭킹 */}
           <div style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 13px', minHeight: 62 }}>
-            {hover ? (
+            {pinHover ? (
+              <>
+                <div style={{ color: '#f1f5f9', fontWeight: 800, fontSize: 13 }}>🏢 {pinHover.name}</div>
+                <div style={{ color: '#fb923c', fontSize: 12, fontWeight: 700 }}>
+                  {pinHover.dong}{pinHover.hh != null ? ` · ${pinHover.hh.toLocaleString()}세대` : ''}{pinHover.aprv ? ` · ${pinHover.aprv} 준공` : ''}
+                </div>
+                <div style={{ color: '#8a9aaa', fontSize: 10 }}>핀 클릭 = 이 단지 리서치</div>
+              </>
+            ) : hover ? (
               <>
                 <div style={{ color: '#f1f5f9', fontWeight: 800, fontSize: 13 }}>{hover.name}</div>
                 <div style={{ color: hover.pyeong != null ? '#fb923c' : '#8a9aaa', fontSize: 12.5, fontWeight: 700, fontFamily: 'monospace' }}>

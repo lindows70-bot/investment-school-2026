@@ -58,7 +58,8 @@ export default function AptResearch({ initialLawd }: { initialLawd?: string } = 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* 서울 자치구 히트맵 — 구 클릭 = 지역 선택 */}
-      <SeoulAptMap lawd={lawd} onSelect={l => { setLawd(l); setApt(''); setAptInput(''); setArea(null) }} refreshKey={d?.asOf ?? ''} />
+      <SeoulAptMap lawd={lawd} onSelect={l => { setLawd(l); setApt(''); setAptInput(''); setArea(null) }}
+        onSelectApt={q => { setApt(q); setAptInput(q); setArea(null) }} refreshKey={d?.asOf ?? ''} />
       {/* 지역 선택 */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
         <select value={lawd} onChange={e => { setLawd(e.target.value); setApt(''); setArea(null) }}
@@ -122,6 +123,22 @@ export default function AptResearch({ initialLawd }: { initialLawd?: string } = 
                     ))}
                   </span>
                 </div>
+                {sel.overview && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 9 }}>
+                    {([
+                      ['🏢 세대수', sel.overview.households != null ? `${sel.overview.households.toLocaleString()}세대` : null],
+                      ['🧱 동수', sel.overview.dongs != null ? `${sel.overview.dongs}개동` : null],
+                      ['📅 준공', sel.overview.aprv],
+                      ['🚗 주차', sel.overview.park != null ? `${sel.overview.park.toLocaleString()}대${sel.overview.parkPerHh != null ? ` (세대당 ${sel.overview.parkPerHh})` : ''}` : null],
+                      ['🔥 난방', sel.overview.heat],
+                    ] as [string, string | null][]).filter(([, val]) => val).map(([label, val]) => (
+                      <span key={label} style={{ background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 7, padding: '4px 10px', fontSize: 11, color: '#cbd5e1' }}>
+                        <span style={{ color: '#8a9aaa', fontWeight: 700 }}>{label}</span> <span style={{ fontWeight: 800 }}>{val}</span>
+                      </span>
+                    ))}
+                    <span style={{ fontSize: 9.5, color: '#8a9aaa', alignSelf: 'center' }}>서울시 공동주택 마스터</span>
+                  </div>
+                )}
                 {v && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 12 }}>
                     <div style={{ flex: '1 1 160px', background: '#0f1117', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 13px' }}>
@@ -186,7 +203,8 @@ export default function AptResearch({ initialLawd }: { initialLawd?: string } = 
           {/* 정직 캐비엇 */}
           <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '12px 18px', fontSize: 10.5, color: '#8a9aaa', lineHeight: 1.65 }}>
             ⚠️ 실거래 신고는 계약 후 30일 이내라 최근 1개월 데이터는 불완전합니다. 같은 면적대라도 동·층·리모델링에 따라 가격 차가 크고, 월세 거래는 v1에서 제외(전세만).
-            전세가율이 높다고 무조건 저평가가 아니며(역전세·깡통 위험 병존), 매수 추천이 아닌 <b style={{ color: '#cbd5e1' }}>가치 관측</b> 도구입니다(교육용). 출처: 국토교통부 실거래가 공개시스템.
+            전세가율이 높다고 무조건 저평가가 아니며(역전세·깡통 위험 병존), 매수 추천이 아닌 <b style={{ color: '#cbd5e1' }}>가치 관측</b> 도구입니다(교육용).
+            출처: 국토교통부 실거래가 공개시스템 · 서울 매매·단지 정보는 서울 열린데이터광장(국토부와 건별 교차검증 일치, 단지 개요는 의무관리단지만).
           </div>
         </>
       )}
