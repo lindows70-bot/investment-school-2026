@@ -116,6 +116,12 @@ export default function UnifiedReco() {
           </div>
           {data.selectionRule && <div style={{ color: TK.sub, fontSize: 10.5, marginTop: 3 }}>📋 선별 기준: {data.selectionRule} → 총 <b style={{ color: TK.slate300 }}>{data.items.length}종</b></div>}
           {data.portfolioKrw > 0 && <div style={{ color: TK.green300, fontSize: 10.5, marginTop: 2 }}>💰 권장 편입 = 포트폴리오({fmtWon(data.portfolioKrw)}) 기준 통합점수 1.5~2.5%{data.regimeMult < 1 && <> × 국면 조정 {Math.round(data.regimeMult * 100)}%</>} · 분할 신규 편입 기준</div>}
+          {data.momCrash && (
+            <div style={{ marginTop: 7, background: '#2a1c0e', border: `1px solid ${TK.amber700}`, borderRadius: 8, padding: '7px 11px', fontSize: 11, color: '#fdba74', lineHeight: 1.55 }}>
+              ⚠️ <b>모멘텀 크래시 주의 국면</b>(승패 해부실 실측) — 지금은 낙폭과대주(12개월 패자)가 승자보다 더 오르는 반전 장입니다.
+              모멘텀 좋은 종목의 추격 매수가 가장 잘 무너지는 구간(Daniel-Moskowitz 2016) — 분할·신중 진입을 권합니다. 점수에는 미반영(정보 캐비엇).
+            </div>
+          )}
         </div>
       </div>
 

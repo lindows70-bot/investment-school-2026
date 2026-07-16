@@ -15,7 +15,7 @@ import { GICS_SECTOR_META } from '@/lib/gicsSectorMeta'
 import { classifyAssetRole } from '@/lib/portfolioRole'
 import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
 import type { ScreenedStock } from '@/lib/macroPhaseScreener'
-import type { WLRow, WLSchoolRow, WLApi, WLQuad, WLTrend, WLFwd } from '@/lib/winLose'
+import { splitGroups, type WLRow, type WLSchoolRow, type WLApi, type WLQuad, type WLTrend, type WLFwd } from '@/lib/winLose'
 import { TK } from '@/lib/theme'
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
@@ -121,7 +121,7 @@ const admin = () => createClient(
   { auth: { persistSession: false }, global: { fetch: (u: any, o: any) => fetch(u, { ...o, cache: 'no-store' }) } },
 )
 
-interface Px { ret1w: number | null; ret1m: number | null; ret3m: number | null; pos52: number | null; closes: number[] }
+interface Px { ret1w: number | null; ret1m: number | null; ret3m: number | null; pos52: number | null; mom12: number | null; volAdj: number | null; closes: number[] }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function fetchPx(yf: any, ticker: string, market: 'US' | 'KR' | 'CRYPTO'): Promise<Px | null> {
   const syms = market === 'KR' ? [`${code6(ticker)}.KS`, `${code6(ticker)}.KQ`]
@@ -137,9 +137,23 @@ async function fetchPx(yf: any, ticker: string, market: 'US' | 'KR' | 'CRYPTO'):
       const pct = (base: number) => (base ? (last / base - 1) * 100 : null)
       const w = c.slice(-252)
       const hi = Math.max(...w), lo = Math.min(...w)
+      // 🏃 12-1 모멘텀(최근 21봉=1개월 제외 12개월 수익률) + ⚖️ 변동성 조정(연율화 σ로 표준화) — 252봉 미만(신규상장)은 null 정직
+      let mom12: number | null = null, volAdj: number | null = null
+      if (c.length >= 252) {
+        const pEnd = at(21), pStart = at(252)
+        if (pStart > 0) mom12 = (pEnd / pStart - 1) * 100
+        const rets: number[] = []
+        for (let i = c.length - 251; i < c.length; i++) if (c[i - 1] > 0) rets.push(c[i] / c[i - 1] - 1)
+        if (mom12 != null && rets.length >= 200) {
+          const mean = rets.reduce((a, b) => a + b, 0) / rets.length
+          const sd = Math.sqrt(rets.reduce((a, b) => a + (b - mean) ** 2, 0) / rets.length) * Math.sqrt(252) * 100
+          if (sd > 0) volAdj = Math.round(mom12 / sd * 100) / 100
+        }
+        if (mom12 != null) mom12 = Math.round(mom12 * 10) / 10
+      }
       return {
         ret1w: pct(at(5)), ret1m: pct(at(21)), ret3m: pct(at(63)),
-        pos52: hi > lo ? ((last - lo) / (hi - lo)) * 100 : null, closes: c,
+        pos52: hi > lo ? ((last - lo) / (hi - lo)) * 100 : null, mom12, volAdj, closes: c,
       }
     } catch { /* 다음 심볼 */ }
   }
@@ -159,7 +173,7 @@ function trendFromCloses(c: number[]): WLTrend {
 
 export async function GET(req: Request) {
   const origin = new URL(req.url).origin
-  const cacheKey = `win-lose-v7:${kstDate()}`   // v7: 섹터 미분류 패치 완성 — '—' 정규화 + KR 네이버 업종→GICS(전기제품=2차전지 포함) / US assetProfile
+  const cacheKey = `win-lose-v8:${kstDate()}`   // v8: 🏃 12-1 모멘텀·⚖️ 변동성 조정 모멘텀 요인 + ⚠️ 모멘텀 크래시 국면 판정(추가 fetch 0)
   const cached = await getCache<WLApi>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -240,6 +254,7 @@ export async function GET(req: Request) {
       peg: s?.peg ?? null, opMargin: s?.opMargin ?? null, sector,
       rotQuad: rot?.q ?? null, rotScore: rot?.score ?? null,
       knife: s?.knife ?? false,
+      mom12: px.mom12, volAdj: px.volAdj,
     })
   }
 
@@ -305,9 +320,16 @@ export async function GET(req: Request) {
 
   school.sort((a, b) => (b.ret1m ?? -999) - (a.ret1m ?? -999))
 
+  // ⚠️ 모멘텀 크래시 국면 판정(Daniel-Moskowitz 2016) — 1개월 기준 '패자'의 12-1 모멘텀이 '승자'보다 뚜렷이 높으면(≥10%p 역전)
+  //    지금 오르는 건 낙폭과대(12개월 패자)라는 뜻 = 반등 장에서 모멘텀 추격이 무너지는 국면. 결정론·관측(점수 미반영).
+  const { win: w1, lose: l1 } = splitGroups(rows, '1m')
+  const momAvg = (a: WLRow[]) => { const v = a.map(r => r.mom12).filter((x): x is number => x != null); return v.length ? v.reduce((s, b) => s + b, 0) / v.length : null }
+  const wm = momAvg(w1), lm = momAvg(l1)
+  const momCrash = wm != null && lm != null && w1.length >= 10 && l1.length >= 10 && lm - wm >= 10
+
   const result: WLApi = {
     rows, school, asOf: new Date().toISOString(), total: merged.length,
-    rotJoined: rows.filter(r => r.rotQuad != null).length,
+    rotJoined: rows.filter(r => r.rotQuad != null).length, momCrash,
   }
   // 성공률 60% 미만이면 캐시 박제 금지(부분실패 방지 — 앱 공통 원칙)
   if (rows.length >= merged.length * 0.6) await setCache(cacheKey, result)

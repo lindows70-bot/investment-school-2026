@@ -57,6 +57,7 @@ export interface UnifiedRecoResult {
   selectionRule: string
   portfolioKrw: number          // 포트폴리오 총가치(₩) — 권장 편입액 기준
   regimeMult: number            // 국면 배율(위험 국면 축소)
+  momCrash?: boolean            // ⚠️ 모멘텀 크래시 국면(승패 해부실 12-1 역전 실측 재사용) — 점수 불변·캐비엇 전용
   asOf: string
 }
 
@@ -97,7 +98,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v25:${user.id}:${kstDate()}:${fp}`   // v25: ⬛ 관망(횡보·ADX<20) supply 필드 추가 — 영상 '회색 지대'(가짜 돌파 회피)
+  const cacheKey = `unified-reco-v26:${user.id}:${kstDate()}:${fp}`   // v26: ⚠️ 모멘텀 크래시 국면 캐비엇(승패 해부실 12-1 역전 플래그 재사용·점수 불변)
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -165,6 +166,15 @@ export async function GET(req: Request) {
   const marketTemp = marksCache?.temp ?? null   // 0~100 탐욕온도(높음=과열/버블·낮음=공포/하락)
   const fcfDefensive = marketTemp != null && (marketTemp >= 65 || marketTemp <= 32)   // "버블·하락장엔 현금이 왕" 국면
   const mSig = (d: ScreenedStock['fwdEpsDir']) => d === 'accel' ? 1 : d === 'flat' ? 0.5 : 0
+
+  // ⚠️ 모멘텀 크래시 국면(Daniel-Moskowitz 2016) — 승패 해부실 실측 플래그(12-1 모멘텀 역전 = 낙폭과대 반등 장) 재사용.
+  //    점수·선정 절대 불변 — 헤더 캐비엇 전용("달리는 말 추격이 무너지는 국면"). 캐시 읽기만·콜드면 off.
+  let momCrash = false
+  for (let d = 0; d < 2 && !momCrash; d++) {
+    const dt = new Date(Date.now() + 9 * 3600_000 - d * 86_400_000).toISOString().slice(0, 10)
+    const wl = await getCache<{ momCrash?: boolean }>(`win-lose-v8:${dt}`, 2 * 24 * 3600_000)
+    if (wl) { momCrash = !!wl.momCrash; break }
+  }
 
   // ★ 🧭 섹터 로테이션 틸트 — 로테이션 시계(RRG 17섹터)의 국면을 제한된 가점·감점으로 반영(qualityTilt와 동일 패턴).
   //   5번째 가중축이 아닌 이유: 섹터 국면은 rs/mom 부호로 며칠 만에 뒤집혀 축으로 넣으면 추천 리스트 휩쏘 + 4축 희석.
@@ -369,7 +379,7 @@ export async function GET(req: Request) {
     weights: W,
     usSeason: { quadrant: usQuad, label: SEASON_META[usQuad].label, favored: SEASON_META[usQuad].favored },
     krSeason: { quadrant: krQuad, label: SEASON_META[krQuad].label, favored: SEASON_META[krQuad].favored },
-    items, selectionRule, portfolioKrw, regimeMult, asOf: new Date().toISOString(),
+    items, selectionRule, portfolioKrw, regimeMult, momCrash, asOf: new Date().toISOString(),
   }
   await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })

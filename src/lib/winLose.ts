@@ -19,6 +19,8 @@ export interface WLRow {
   rotQuad: WLQuad | null                  // 섹터 로테이션 국면(GICS 11만)
   rotScore: number | null                 // 섹터 자금쏠림 점수
   knife: boolean
+  mom12: number | null                    // 🏃 12-1 모멘텀 % — 학술 표준(최근 1개월 제외 12개월 수익률, Jegadeesh-Titman) · 252봉 미만 null
+  volAdj: number | null                   // ⚖️ 변동성 조정 모멘텀 — mom12 ÷ 연율화 변동성(샤프형 표준화)
 }
 
 // 🏫 우리 포트 승패 보드 행 — 학생 전체 보유(주식+ETF+코인) 합집합. 보유자·인원수는 절대 미포함(개인 식별 차단).
@@ -30,7 +32,10 @@ export interface WLSchoolRow {
   sub: { label: string; emoji: string; color: string; sector: string } | null   // 소섹터 라벨(테마 우선 → GICS → ETF 역매핑)
 }
 
-export interface WLApi { rows: WLRow[]; school: WLSchoolRow[]; asOf: string; total: number; rotJoined: number }
+export interface WLApi {
+  rows: WLRow[]; school: WLSchoolRow[]; asOf: string; total: number; rotJoined: number
+  momCrash?: boolean   // ⚠️ 모멘텀 크래시 국면(Daniel-Moskowitz 2016) — 1개월 기준 패자의 12-1 모멘텀이 승자보다 뚜렷이 높음(낙폭과대 반등 장)
+}
 
 // 기간별 승/패 임계(%) — 짧은 기간일수록 좁게
 export const WL_THRESH: Record<WLPeriod, number> = { '1w': 1.5, '1m': 3, '3m': 5 }
@@ -117,6 +122,14 @@ export function factorStats(win: WLRow[], lose: WLRow[]): FactorStat[] {
     avg(win, r => (r.peg != null && r.peg > 0 && r.peg < 3.5 ? r.peg : null)),
     avg(lose, r => (r.peg != null && r.peg > 0 && r.peg < 3.5 ? r.peg : null)),
     n => (n == null ? '—' : n.toFixed(2)), n => clamp(((n ?? 0) / 3) * 100), d => clamp(d * 25), '싸다/비싸다(성장 대비) — 못 가르는 날이 많다는 것 자체가 교훈')
+  // ⑧ 12-1 모멘텀 — 학술 표준(Jegadeesh-Titman: 최근 1개월 제외 12개월 수익률·단기 반전 회피). 역전(패자↑)이면 모멘텀 크래시 국면
+  push('mom12', '🏃', '12-1 모멘텀(평균)',
+    avg(win, r => r.mom12), avg(lose, r => r.mom12),
+    n => f1(n) + '%', n => clamp(((n ?? 0) + 40) / 160 * 100), d => clamp(d * 0.8), '최근 1개월 뺀 12개월 수익률 — 승자가 이미 12개월 승자면 관성 장, 역전이면 낙폭과대 반등(크래시) 장')
+  // ⑨ 변동성 조정 모멘텀 — 키움式 표준화(수익률÷연변동성). 조용히 오른 종목 vs 널뛰며 오른 종목 분별
+  push('volAdj', '⚖️', '변동성 조정 모멘텀',
+    avg(win, r => r.volAdj), avg(lose, r => r.volAdj),
+    n => (n == null ? '—' : n.toFixed(2)), n => clamp(((n ?? 0) + 1) / 3 * 100), d => clamp(d * 35), '12-1 수익률 ÷ 연율화 변동성(샤프형) — 같은 상승도 안정 상승이 더 높은 점수')
   return out
 }
 

@@ -122,6 +122,14 @@ export default function WinLosePage() {
         )}
       </div>
 
+      {/* ── ⚠️ 모멘텀 크래시 국면 경보 — 12-1 모멘텀 역전 실측 시에만(결정론·점수 미반영) ── */}
+      {data?.momCrash && (
+        <div style={{ background: '#2a1c0e', border: `1px solid ${TK.amber700}`, borderRadius: 12, padding: '11px 16px', fontSize: 11.5, color: '#fdba74', lineHeight: 1.65 }}>
+          ⚠️ <b>모멘텀 크래시 주의 국면</b> — 지금은 <b>12개월 패자(낙폭과대주)가 승자보다 더 오르는 반전 장</b>입니다(1개월 기준 12-1 모멘텀 역전 실측).
+          이런 국면은 급락 후 반등에서 나타나며, &lsquo;달리는 말에 올라타기&rsquo;(승자 추격)가 가장 잘 무너지는 구간입니다(Daniel-Moskowitz 2016). 신규 진입은 분할·신중하게.
+        </div>
+      )}
+
       {/* ── 🏫 우리 포트 승패 — 학생 전체 보유(주식+ETF+코인) ────── */}
       {data && (data.school?.length ?? 0) > 0 && (() => {
         const sch = data.school
@@ -304,6 +312,8 @@ export default function WinLosePage() {
             🎓 <b style={{ color: TK.slate300 }}>이 화면 읽는 법</b> — 여기 보이는 건 <b style={{ color: TK.slate200 }}>과거 {WL_PERIOD_LABEL[period]}의 채점 기준</b>이지 미래 보장이 아닙니다.
             장이 바뀌면 승부 요인도 바뀝니다(오늘 추세가 갈랐어도 다음 달엔 밸류가 가를 수 있음) — <b style={{ color: TK.violet300 }}>매일 와서 &lsquo;기준이 바뀌는 순간&rsquo;을 목격하는 것</b>이 이 화면의 사용법입니다.
             승자 추격 매수 신호가 아니며(과열 위험), 종목 선정(WHAT)은 펀더멘탈·통합추천, 타이밍(WHEN)은 타점 신호등이 담당합니다. 유니버스 = 추천 후보 풀(514종)+학교 보유 합집합 · 교육용.
+            <br />🏃 <b style={{ color: TK.slate300 }}>12-1 모멘텀이 최근 1개월을 빼는 이유</b> — 최근 1개월 급등주는 오히려 되돌림(단기 반전) 경향이 있어, 학술 모멘텀은 1개월을 제외한 12개월 수익률을 씁니다(Jegadeesh-Titman).
+            이 요인이 <b style={{ color: TK.slate200 }}>역전(패자가 더 높음)</b>되면 낙폭과대 반등 장 = 모멘텀 추격이 무너지는 &lsquo;모멘텀 크래시&rsquo; 국면 신호입니다.
           </div>
         </>
       )}
