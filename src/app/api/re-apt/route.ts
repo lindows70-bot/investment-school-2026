@@ -115,7 +115,7 @@ export async function GET(req: Request) {
     // 지역 벌집 국면(캐시 읽기만 — 콜드면 null graceful). 월 단위 통계라 stale 14일 허용(3일이면 벌집 페이지 미방문 시 '—'로 비던 결함 — 주간 크론 워밍 병행)
     let regionPhase: string | null = null
     try {
-      const hc = await getCache<{ regions: { name: string; phaseName: string }[] }>('re-honeycomb-v2', 14 * 86400_000)
+      const hc = await getCache<{ regions: { name: string; phaseName: string }[] }>('re-honeycomb-v3', 14 * 86400_000)
       regionPhase = hc?.regions.find(r => r.name === LAWD_SIDO[lawd.slice(0, 2)])?.phaseName ?? null
     } catch { /* graceful */ }
     let mortgageRate: number | null = null

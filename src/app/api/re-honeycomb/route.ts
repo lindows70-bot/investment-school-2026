@@ -36,7 +36,7 @@ function judge(p: number, v: number): HcPhase {
 const ymNow = () => { const d = new Date(Date.now() + 9 * 3600_000); return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}` }
 
 export async function GET() {
-  const cacheKey = 're-honeycomb-v2'   // v2: 거래량 ITM 필터(동(호)수 100001 — 면적 행이 덮어쓰던 오염 수정)
+  const cacheKey = 're-honeycomb-v3'   // v3: vol3m·asOf 표시 창을 판정 창(nowM)으로 통일(미발행 달 0 혼입 과소 표기 수정) — reader: re-apt(국면 연동)
   const cached = await getCache<HoneycombResult>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -79,13 +79,15 @@ export async function GET() {
       }
       const nowM = trail.length ? trail[trail.length - 1] : null
       if (!nowM) continue
-      const vol3m = [0, 1, 2].reduce((s, k) => s + (vMap.get(ymAdd(lastYm, -k)) ?? 0), 0)
+      // ⚠️ 표시 창 = 판정 창(nowM 기준월) — 가격 최신월(lastYm) 기준으로 합하면 거래량 미발행 달이 0으로 섞여 과소 표기(16,467호 사건)
+      const nowYmRaw = nowM.ym.replace('-', '')
+      const vol3m = [0, 1, 2].reduce((s, k) => s + (vMap.get(ymAdd(nowYmRaw, -k)) ?? 0), 0)
       const phase = judge(nowM.p, nowM.v)
       regions.push({
         name, priceIdx: Math.round(price[price.length - 1].value * 100) / 100,
         priceChg3m: nowM.p, volYoY: nowM.v, vol3m: vol3m || null,
         phase, phaseName: HC_PHASES[phase], trail,
-        asOf: `${lastYm.slice(0, 4)}-${lastYm.slice(4)}`,
+        asOf: nowM.ym,   // 판정 기준월(가격·거래 둘 다 있는 최신월) — 가격만 최신인 달을 '기준'으로 표기하던 불일치 수정
       })
     }
   }))
