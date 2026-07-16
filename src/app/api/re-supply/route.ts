@@ -57,7 +57,7 @@ const pctOf = (arr: (number | null)[], v: number | null): number | null => {
 }
 
 export async function GET() {
-  const cacheKey = 're-supply-v1'
+  const cacheKey = 're-supply-v2'   // v2: 인허가 누계→월별 차분(누계 시리즈 실측 발견)
   const cached = await getCache<SupplyApi>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -75,7 +75,15 @@ export async function GET() {
           roneSeries(RONE_COMP_TBL, RONE_SUPPLY_CLS[name], '201101', end, RONE_SUPPLY_ITM),
           ecosSeries('901Y074', 'M', '200701', end, UNSOLD_ITEM[name]),
         ])
-        const pm = new Map(permits.map(x => [x.time, x.value]))
+        // ⚠️ ECOS 인허가(901Y105)는 '연초부터 누계' 시리즈(실측: 2025-12=379,834 → 2026-01=16,531 리셋) → 월별 차분으로 변환(1월은 그대로)
+        const pm = new Map<string, number>()
+        const sorted = [...permits].sort((a, b) => a.time.localeCompare(b.time))
+        for (let i = 0; i < sorted.length; i++) {
+          const cur = sorted[i]
+          const prev = i > 0 && sorted[i - 1].time.slice(0, 4) === cur.time.slice(0, 4) ? sorted[i - 1].value : 0
+          const monthly = cur.value - prev
+          if (monthly >= 0) pm.set(cur.time, monthly)   // 음수(정정 공시)는 결측 처리(정직)
+        }
         const sm = new Map(starts.map(x => [x.time, x.value]))
         const cm = new Map(comps.map(x => [x.time, x.value]))
         const um = new Map(unsold.map(x => [x.time, x.value]))
