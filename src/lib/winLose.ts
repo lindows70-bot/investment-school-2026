@@ -140,7 +140,8 @@ export function buildLesson(stats: FactorStat[], periodLabel: string): WLLesson 
   const top = sorted.filter(s => s.gap >= 15).slice(0, 3)
   const flat = sorted.filter(s => s.gap < 12)
   const circ = ['①', '②', '③']
-  const topTxt = top.map((s, i) => `${circ[i]} ${s.label.replace(/\(.*\)/, '').trim()}(격차 ${Math.round(s.gap)})`).join(' ')
+  // 역전 요인(패자가 높음 — 예: 모멘텀 크래시 장의 12-1)은 '역전'을 명시해 "이 요인이 좋아서 이겼다"는 오독 차단
+  const topTxt = top.map((s, i) => `${circ[i]} ${s.label.replace(/\(.*\)/, '').trim()}(격차 ${Math.round(s.gap)}${s.betterSide === 'lose' ? '·역전 — 패자가 높음' : ''})`).join(' ')
   // 조사 은/는 — 마지막 단어 받침 자동 판별(앱 josa 패턴)
   const eunNeun = (w: string) => { const c = w.charCodeAt(w.length - 1); return c >= 0xac00 && c <= 0xd7a3 ? ((c - 0xac00) % 28 > 0 ? '은' : '는') : '은(는)' }
   const flatList = flat.map(s => s.label.replace(/\(.*\)/, '').trim())
