@@ -1,6 +1,7 @@
 'use client'
 // 🐝 벌집순환모형 — 부동산 Phase 2(지역별 가격×거래량 6국면 = 부동산판 로테이션 시계)
 import HoneycombCycle from '@/app/components/HoneycombCycle'
+import WeeklyPulse from '@/app/components/WeeklyPulse'
 import SupplyPipeline from '@/app/components/SupplyPipeline'
 import { TK } from '@/lib/theme'
 
@@ -15,6 +16,7 @@ export default function HoneycombPage() {
         </div>
       </div>
       <HoneycombCycle />
+      <WeeklyPulse />
       <SupplyPipeline />
     </div>
   )

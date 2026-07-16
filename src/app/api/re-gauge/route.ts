@@ -1,4 +1,4 @@
-// 🫧 부동산 심화 게이지 API — ①적정성지수(가격 vs 전세·금리 근본가치, 주금공 방법론) ②M2 vs 서울아파트(1986~, 구·신계열 접합) ③매매수급지수(R-ONE)
+// 🫧 부동산 심화 게이지 API — ①적정성지수(가격 vs 전세·금리 근본가치, 주금공 방법론) ②M2 vs 서울아파트(1986~, 구·신계열 접합) ③매매수급지수(R-ONE) ④소비심리지수(국토연구원, 2011~)
 // 데이터 전부 2026-07-11 실측 확정: M2 구계열 101Y004(1986~)·신계열 161Y006(2003.10~) BBHA00 / KB 매매 901Y062 P63ACA·전세 901Y063 P64ACA / 수급 A_2024_00076(서울 CLS=500008)
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -6,7 +6,7 @@ export const maxDuration = 60
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { ecosSeries } from '@/lib/ecos'
-import { roneSeries } from '@/lib/rone'
+import { roneSeries, RONE_PSY_TBL, RONE_PSY_CLS } from '@/lib/rone'
 
 export interface GaugePoint { t: string; [k: string]: number | string | null }
 export interface ReGaugeResult {
@@ -26,10 +26,17 @@ export interface ReGaugeResult {
     latest: { name: string; value: number }[]
     asOfMonth: string
   } | null
+  psyche: {
+    series: { t: string; 전국: number | null; 서울: number | null; 수도권: number | null; 지방: number | null }[]   // 2011-07~ 15년
+    latest: { name: string; value: number }[]     // 최신월 시도 전체 스냅샷
+    national: number | null                        // 전국 최신
+    phase: '상승국면' | '보합국면' | '하강국면' | null   // 부동산원 공식 3국면(<95 하강 / 95~115 보합 / ≥115 상승)
+    asOfMonth: string
+  } | null
   asOf: string
 }
 
-const CACHE_KEY = 're-gauge-v1'
+const CACHE_KEY = 're-gauge-v2'   // v2: ④ 소비심리지수(psyche) 추가
 const pct = (v: number) => Math.round(v * 10) / 10
 
 export async function GET(req: Request) {
@@ -52,6 +59,17 @@ export async function GET(req: Request) {
     roneSeries('A_2024_00076', 500008, '201801', endYm, '100001'),  // 서울
     roneSeries('A_2024_00076', 500002, '201801', endYm, '100001'),  // 수도권
     roneSeries('A_2024_00076', 500003, '201801', endYm, '100001'),  // 지방권
+  ])
+  // ④ 주택시장 소비심리지수(2011-07~, 국토연구원 설문 — 부동산원 수급지수와 별개 축) — CLS 맵은 lib/rone RONE_PSY_CLS(실측)
+  //   장기 4계열(전국·서울·수도권·지방, pSize 200) + 시도 스냅샷은 CLS 미지정 1콜(최근 3개월 전 지역 행)
+  const psyStart = '201107'
+  const snapStart = `${now.getUTCMonth() + 1 <= 3 ? now.getUTCFullYear() - 1 : now.getUTCFullYear()}${String(((now.getUTCMonth() + 9) % 12) + 1).padStart(2, '0')}`
+  const [psyKor, psySeoul, psyCap, psyLocal, psySnap] = await Promise.all([
+    roneSeries(RONE_PSY_TBL, RONE_PSY_CLS['전국'], psyStart, endYm, '10001'),
+    roneSeries(RONE_PSY_TBL, RONE_PSY_CLS['서울'], psyStart, endYm, '10001'),
+    roneSeries(RONE_PSY_TBL, RONE_PSY_CLS['수도권'], psyStart, endYm, '10001'),
+    roneSeries(RONE_PSY_TBL, RONE_PSY_CLS['지방'], psyStart, endYm, '10001'),
+    roneSeries(RONE_PSY_TBL, null, snapStart, endYm, '10001', 600),   // 시도 스냅샷(CLS 미필터)
   ])
 
   // ── ① 적정성지수(주금공 프레임): 근본가치 ∝ 임대료(전세) ÷ 할인율(주담대) ──
@@ -126,8 +144,36 @@ export async function GET(req: Request) {
     }
   }
 
-  const result: ReGaugeResult = { bubble, m2, sentiment, asOf: new Date().toISOString() }
-  // 부분 실패 박제 방지 — 3축 모두 성공 시에만 캐시
-  if (bubble && m2 && sentiment) await setCache(CACHE_KEY, result)
+  // ── ④ 주택시장 소비심리지수 — 공식 3국면(<95 하강 / 95~115 보합 / ≥115 상승) ──
+  let psyche: ReGaugeResult['psyche'] = null
+  {
+    const names = ['전국', '서울', '수도권', '지방'] as const
+    const seriesRows = [psyKor, psySeoul, psyCap, psyLocal]
+    const maps = seriesRows.map(rows => new Map(rows.map(r => [r.time, r.value])))
+    const months = Array.from(new Set(seriesRows.flatMap(rows => rows.map(r => r.time)))).sort()
+    if (months.length) {
+      const series = months.map(t => {
+        const row: { t: string; 전국: number | null; 서울: number | null; 수도권: number | null; 지방: number | null } =
+          { t: `${t.slice(0, 4)}-${t.slice(4)}`, 전국: null, 서울: null, 수도권: null, 지방: null }
+        names.forEach((n, i) => { const v = maps[i].get(t); if (v != null) row[n] = pct(v) })
+        return row
+      })
+      const lastT = months[months.length - 1]
+      const national = maps[0].get(lastT) != null ? pct(maps[0].get(lastT)!) : null
+      // 시도 스냅샷: CLS 미필터 응답에서 최신월 행만 — RONE_PSY_CLS 역맵으로 지역명 부여('소계' 행이라 CLS_ID가 유일 식별자)
+      const idToName = new Map(Object.entries(RONE_PSY_CLS).map(([n, id]) => [String(id), n]))
+      const snapLastT = psySnap.length ? psySnap[psySnap.length - 1].time : ''
+      const latest = psySnap
+        .filter(r => r.time === snapLastT && idToName.has(r.clsId))
+        .map(r => ({ name: idToName.get(r.clsId)!, value: pct(r.value) }))
+        .sort((a, b) => b.value - a.value)
+      const phase = national == null ? null : national < 95 ? '하강국면' as const : national < 115 ? '보합국면' as const : '상승국면' as const
+      psyche = { series, latest, national, phase, asOfMonth: `${lastT.slice(0, 4)}-${lastT.slice(4)}` }
+    }
+  }
+
+  const result: ReGaugeResult = { bubble, m2, sentiment, psyche, asOf: new Date().toISOString() }
+  // 부분 실패 박제 방지 — 4축 모두 성공 시에만 캐시
+  if (bubble && m2 && sentiment && psyche) await setCache(CACHE_KEY, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

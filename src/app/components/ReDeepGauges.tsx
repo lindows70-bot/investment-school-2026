@@ -1,5 +1,5 @@
 'use client'
-// 🫧 부동산 심화 게이지 3종 — ①적정성지수(주금공 방법론: 가격 vs 전세·금리 근본가치) ②M2 vs 서울아파트(1986~) ③매매수급지수(부동산원)
+// 🫧 부동산 심화 게이지 4종 — ①적정성지수(주금공 방법론: 가격 vs 전세·금리 근본가치) ②M2 vs 서울아파트(1986~) ③매매수급지수(부동산원) ④소비심리지수(국토연구원)
 import { useState, useEffect } from 'react'
 import { ComposedChart, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, ReferenceLine, Area } from 'recharts'
 import type { ReGaugeResult } from '@/app/api/re-gauge/route'
@@ -139,6 +139,53 @@ export default function ReDeepGauges() {
           <div style={{ color: TK.sub, fontSize: 10.5, marginTop: 6, lineHeight: 1.6 }}>
             🎓 주식의 공포탐욕 지수에 해당 — <b style={{ color: TK.slate300 }}>벌집순환(거래량)·적정성(밸류)과 교차</b>해 읽으세요:
             수급 과열(110+)에 밸류 상단권이면 상투 경계, 수급 냉각(90−)에 밸류 하단권이면 역발상 관찰 구간. 중개업소 설문 기반 심리 지표(실거래 아님).
+          </div>
+        </Card>
+      )}
+
+      {/* ④ 소비심리지수 */}
+      {d.psyche && (
+        <Card title="🧠 주택시장 소비심리지수 — 일반 가구가 보는 시장 (국토연구원)"
+          sub={`③수급지수가 중개사(공급자 접점)의 현장 체감이라면, 이건 일반 가구·중개업소 설문의 심리 지수(2011-07~ 15년). 공식 3국면: 95 미만 하강 · 95~115 보합 · 115 이상 상승. 기준월 ${d.psyche.asOfMonth}(1~2개월 시차).`}>
+          {/* 국면 배지 + 전국 수치 */}
+          <div style={{ display: 'flex', gap: 10, marginBottom: 10, flexWrap: 'wrap', alignItems: 'stretch' }}>
+            <div style={{ flex: '1 1 170px', background: TK.bg3, border: `1px solid ${d.psyche.phase === '상승국면' ? TK.red400 : d.psyche.phase === '하강국면' ? TK.blue400 : TK.yellow500}55`, borderRadius: 10, padding: '10px 13px' }}>
+              <div style={{ color: TK.sub, fontSize: 10.5, fontWeight: 700 }}>전국 국면(공식 기준)</div>
+              <div style={{ fontSize: 17, fontWeight: 900, color: d.psyche.phase === '상승국면' ? TK.red400 : d.psyche.phase === '하강국면' ? TK.blue400 : TK.yellow500 }}>
+                {d.psyche.phase === '상승국면' ? '🔥 상승국면' : d.psyche.phase === '하강국면' ? '❄️ 하강국면' : '⚖️ 보합국면'}
+              </div>
+              <div style={{ color: TK.sub9, fontSize: 10.5 }}>전국 지수 <b style={{ color: TK.slate200, fontFamily: 'monospace' }}>{d.psyche.national ?? '—'}</b></div>
+            </div>
+            {/* 최신월 지역 스냅샷 — 높은 순 */}
+            <div style={{ flex: '3 1 320px', display: 'flex', flexWrap: 'wrap', gap: 5, alignContent: 'flex-start' }}>
+              {d.psyche.latest.map(x => (
+                <span key={x.name} style={{
+                  background: TK.bg3, borderRadius: 7, padding: '4px 8px', fontSize: 10.5, fontWeight: 700,
+                  border: `1px solid ${x.value >= 115 ? `${TK.red400}66` : x.value < 95 ? `${TK.blue400}66` : BORDER}`,
+                  color: x.value >= 115 ? TK.red400 : x.value < 95 ? TK.blue400 : TK.slate300,
+                }}>{x.name} {x.value}</span>
+              ))}
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={d.psyche.series} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid stroke={TK.grid} strokeDasharray="3 3" />
+              <XAxis dataKey="t" tick={{ fill: TK.sub, fontSize: 9.5 }} interval={Math.floor(d.psyche.series.length / 8)} />
+              <YAxis tick={{ fill: TK.sub, fontSize: 10 }} width={40} domain={['auto', 'auto']} />
+              <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }} labelStyle={{ color: TK.slate300 }} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <ReferenceLine y={115} stroke={TK.red400} strokeDasharray="4 4" label={{ value: '상승 115', fill: TK.red400, fontSize: 10, position: 'insideTopRight' }} />
+              <ReferenceLine y={95} stroke={TK.blue400} strokeDasharray="4 4" label={{ value: '하강 95', fill: TK.blue400, fontSize: 10, position: 'insideBottomRight' }} />
+              <Line type="monotone" dataKey="전국" stroke={TK.slate200} strokeWidth={2} dot={false} connectNulls />
+              <Line type="monotone" dataKey="서울" stroke={TK.orange400} strokeWidth={2} dot={false} connectNulls />
+              <Line type="monotone" dataKey="수도권" stroke={TK.blue400} strokeWidth={1.6} dot={false} connectNulls />
+              <Line type="monotone" dataKey="지방" stroke={TK.green400} strokeWidth={1.6} dot={false} connectNulls />
+            </LineChart>
+          </ResponsiveContainer>
+          <div style={{ color: TK.sub, fontSize: 10.5, marginTop: 6, lineHeight: 1.6 }}>
+            🎓 <b style={{ color: TK.slate300 }}>수급지수(③)와의 차이</b> — 수급은 &ldquo;지금 사려는 사람 vs 팔려는 사람&rdquo;(현재 수급),
+            심리지수는 &ldquo;가격이 오를 것 같은가&rdquo;(기대·전망 포함)를 묻습니다. 둘이 어긋나는 구간(수급은 식는데 심리는 낙관)이 전환점 단서.
+            2011-07부터 15년 — 2013 바닥(하강)→2015·2020 과열(상승)→2022 급랭 사이클이 한 차트에. 설문 지표(실거래 아님)·발표 1~2개월 시차 · 교육용 관측.
           </div>
         </Card>
       )}
