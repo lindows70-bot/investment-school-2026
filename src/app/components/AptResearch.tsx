@@ -164,6 +164,20 @@ export default function AptResearch({ initialLawd }: { initialLawd?: string } = 
                       <div style={{ color: TK.slate200, fontSize: 15, fontWeight: 900 }}>{v.regionPhase ?? '—'}</div>
                       <div style={{ color: TK.sub, fontSize: 10 }}>벌집순환모형 연동 · 주담대 {v.mortgageRate != null ? `${v.mortgageRate}%` : '—'} 참고</div>
                     </div>
+                    {/* 💰 월세 시세·수익률 — 표본 있을 때만(정직) */}
+                    {v.rentN6 > 0 && v.rentMon6 != null && (
+                      <div style={{ flex: '1 1 180px', background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 13px' }}>
+                        <div style={{ color: TK.sub, fontSize: 10.5, fontWeight: 700 }}>💰 월세 시세(6개월 · {v.rentN6}건)</div>
+                        <div style={{ color: TK.slate100, fontSize: 15, fontWeight: 900, fontFamily: 'monospace' }}>
+                          {v.rentDep6 ?? 0}억 / 월 {v.rentMon6}만
+                        </div>
+                        <div style={{ fontSize: 10, color: v.rentYield == null ? TK.sub : v.mortgageRate != null && v.rentYield > v.mortgageRate ? TK.green400 : TK.red400 }}>
+                          {v.rentYield != null
+                            ? `월세수익률 ${v.rentYield}% ${v.mortgageRate != null ? (v.rentYield > v.mortgageRate ? `> 주담대 ${v.mortgageRate}% (캐리 +)` : `≤ 주담대 ${v.mortgageRate}% (역마진권)`) : ''}`
+                            : '수익률 산출 불가(표본·가격 부족)'}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -209,7 +223,7 @@ export default function AptResearch({ initialLawd }: { initialLawd?: string } = 
           {/* 정직 캐비엇 */}
           <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '12px 18px', fontSize: 10.5, color: TK.sub, lineHeight: 1.65 }}>
             ⚠️ 실거래 신고는 계약 후 30일 이내라 최근 1개월 데이터는 불완전합니다. 같은 면적대라도 동·층·리모델링에 따라 가격 차가 크고, 월세 거래는 v1에서 제외(전세만).
-            전세가율이 높다고 무조건 저평가가 아니며(역전세·깡통 위험 병존), 매수 추천이 아닌 <b style={{ color: TK.slate300 }}>가치 관측</b> 도구입니다(교육용).
+            전세가율이 높다고 무조건 저평가가 아니며(역전세·깡통 위험 병존), 월세수익률은 <b style={{ color: TK.slate300 }}>공실·세금·수선비 미반영 명목치</b>(실투자금=매매가−보증금 기준)입니다. 매수 추천이 아닌 <b style={{ color: TK.slate300 }}>가치 관측</b> 도구입니다(교육용).
             출처: 국토교통부 실거래가 공개시스템 · 서울 매매·단지 정보는 서울 열린데이터광장(국토부와 건별 교차검증 일치, 단지 개요는 의무관리단지만).
           </div>
         </>

@@ -24,6 +24,8 @@ export interface AptResearchResult {
     value: {
       saleMed6: number | null; jeonseMed6: number | null   // 최근 6개월 중위(억)
       jeonseRatio: number | null                            // 전세가율 %
+      rentDep6: number | null; rentMon6: number | null; rentN6: number   // 월세 시세(6개월): 중위 보증금(억)·중위 월세(만원)·표본수
+      rentYield: number | null                              // 월세수익률 % = 연월세 ÷ (매매중위 − 월세보증금중위)
       peak: number | null; vsPeak: number | null            // 역대 최고 실거래(억)·고점 대비 %
       regionPhase: string | null                            // 지역 벌집 국면
       mortgageRate: number | null                           // 주담대(참고)
@@ -93,7 +95,8 @@ export async function GET(req: Request) {
   let selected: AptResearchResult['selected'] = null
   if (selName) {
     const selTrades = byApt.get(selName) ?? []
-    const selRents = rents.filter(d => keyOf(d) === selName && (d.monthlyRent ?? 0) === 0)   // 전세만(월세 제외 — v1 정직 한정)
+    const selRents = rents.filter(d => keyOf(d) === selName && (d.monthlyRent ?? 0) === 0)   // 전세(전세가율용)
+    const selMonthly = rents.filter(d => keyOf(d) === selName && (d.monthlyRent ?? 0) > 0)   // 월세(월세수익률용)
     // 면적대(반올림 ㎡) 거래 많은 순
     const areaCnt = new Map<number, number>()
     for (const d of selTrades) { const a = Math.round(d.area); areaCnt.set(a, (areaCnt.get(a) ?? 0) + 1) }
@@ -111,6 +114,12 @@ export async function GET(req: Request) {
     const last6 = yms.slice(0, 6)
     const saleMed6 = med(bandT.filter(d => last6.includes(d.ym)).map(d => d.price!))
     const jeonseMed6 = med(bandR.filter(d => last6.includes(d.ym)).map(d => d.deposit!))
+    // 월세 시세(같은 면적대·최근 6개월) — 중위 보증금·중위 월세. 수익률 = 연월세 ÷ (매매중위 − 월세보증금중위) = 실투자금 대비(만원 단위 통일)
+    const bandM6 = selMonthly.filter(inBand).filter(d => last6.includes(d.ym))
+    const rentDep6 = med(bandM6.map(d => d.deposit ?? 0))
+    const rentMon6 = med(bandM6.map(d => d.monthlyRent!))
+    const rentYield = saleMed6 && rentMon6 != null && rentDep6 != null && saleMed6 > rentDep6
+      ? Math.round(rentMon6 * 12 / (saleMed6 - rentDep6) * 1000) / 10 : null
     const peakMan = bandT.length ? Math.max(...bandT.map(d => d.price!)) : null
     // 지역 벌집 국면(캐시 읽기만 — 콜드면 null graceful). 월 단위 통계라 stale 14일 허용(3일이면 벌집 페이지 미방문 시 '—'로 비던 결함 — 주간 크론 워밍 병행)
     let regionPhase: string | null = null
@@ -147,6 +156,10 @@ export async function GET(req: Request) {
         saleMed6: saleMed6 != null ? eok(saleMed6) : null,
         jeonseMed6: jeonseMed6 != null ? eok(jeonseMed6) : null,
         jeonseRatio: saleMed6 && jeonseMed6 ? Math.round(jeonseMed6 / saleMed6 * 1000) / 10 : null,
+        rentDep6: rentDep6 != null ? eok(rentDep6) : null,
+        rentMon6: rentMon6 != null ? Math.round(rentMon6) : null,
+        rentN6: bandM6.length,
+        rentYield,
         peak: peakMan != null ? eok(peakMan) : null,
         vsPeak: peakMan && saleMed6 ? Math.round((saleMed6 / peakMan - 1) * 1000) / 10 : null,
         regionPhase, mortgageRate,
