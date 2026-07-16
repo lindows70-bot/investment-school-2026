@@ -9,7 +9,8 @@ export async function ecosSeries(statCode: string, cycle: string, start: string,
   if (!key) return []
   try {
     const url = `https://ecos.bok.or.kr/api/StatisticSearch/${key}/json/kr/1/${limit}/${statCode}/${cycle}/${start}/${end}/${itemCode}`
-    const r = await fetch(url, { signal: AbortSignal.timeout(15_000) })
+    // ⚠️ no-store 필수 — endYm이 같은 달이면 URL이 동일해 Next Data Cache가 옛 응답을 박제(새 달 발행이 조용히 미반영)
+    const r = await fetch(url, { signal: AbortSignal.timeout(15_000), cache: 'no-store' })
     if (!r.ok) return []
     const j = await r.json()
     const rows = j?.StatisticSearch?.row ?? []

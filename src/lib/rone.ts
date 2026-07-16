@@ -12,7 +12,8 @@ export async function roneSeries(statblId: string, clsId: string | number | null
   try {
     const clsPart = clsId == null ? '' : `&CLS_ID=${clsId}`
     const url = `https://www.reb.or.kr/r-one/openapi/SttsApiTblData.do?KEY=${key}&Type=json&pIndex=1&pSize=${pSize}&STATBL_ID=${statblId}&DTACYCLE_CD=${cycle}${clsPart}&START_WRTTIME=${start}&END_WRTTIME=${end}`
-    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(20_000) })
+    // ⚠️ no-store 필수 — 같은 기간 파라미터 URL을 Next Data Cache가 박제(새 달 발행 미반영, ecos.ts와 동일 함정)
+    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(20_000), cache: 'no-store' })
     if (!r.ok) return []
     const j = await r.json()
     const rows = j?.SttsApiTblData?.[1]?.row ?? []

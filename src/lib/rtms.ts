@@ -29,7 +29,8 @@ async function fetchRtmsXml(service: string, op: string, lawd: string, ym: strin
   if (!key) return null
   try {
     const url = `https://apis.data.go.kr/1613000/${service}/${op}?serviceKey=${encodeURIComponent(key)}&LAWD_CD=${lawd}&DEAL_YMD=${ym}&pageNo=1&numOfRows=2000`
-    const r = await fetch(url, { signal: AbortSignal.timeout(20_000) })
+    // ⚠️ no-store 필수 — 같은 월 파라미터 URL을 Next Data Cache가 박제(신고 지연 유입분 미반영)
+    const r = await fetch(url, { signal: AbortSignal.timeout(20_000), cache: 'no-store' })
     if (!r.ok) return null
     const t = await r.text()
     if (!t.includes('<resultCode>000</resultCode>')) return null
