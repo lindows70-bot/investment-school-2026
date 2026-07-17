@@ -26,6 +26,7 @@ export default function TimingWatchBanner() {
     return (
       <span title={s.detail} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: bg, border: `1px solid ${c}55`, borderRadius: 7, padding: '3px 9px', fontSize: 11, whiteSpace: 'nowrap' }}>
         <b style={{ color: TK.slate200 }}>{s.market === 'KR' ? '🇰🇷' : '🇺🇸'} {s.name}</b>
+        <span style={{ color: TK.sub, fontSize: 10, fontFamily: 'monospace', fontWeight: 700 }}>{s.ticker}</span>
         <b style={{ color: c, fontSize: 10 }}>{s.icon} {s.label}</b>
       </span>
     )
