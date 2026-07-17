@@ -20,7 +20,8 @@ export interface ReWatchItem {
 }
 export interface ReWatchApi { items: ReWatchItem[]; needsSetup?: boolean; asOf: string }
 
-const med = (a: number[]) => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)] }
+// 중위값 — re-apt·re-map과 동일 관례(짝수면 가운데 두 값 평균 = 제2원칙: 같은 단지는 어느 화면에서든 같은 중위가)
+const med = (a: number[]) => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2 }
 const eok = (man: number) => Math.round(man / 1000) / 10
 const ymList = (n: number) => {
   const d = new Date(Date.now() + 9 * 3600_000); const out: string[] = []
