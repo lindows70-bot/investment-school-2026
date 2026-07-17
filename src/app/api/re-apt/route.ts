@@ -4,8 +4,9 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
 import { NextResponse } from 'next/server'
-import { getCache } from '@/lib/appCache'
+import { getCache, setCache } from '@/lib/appCache'
 import { rtmsTradeMonth, rtmsRentMonth, LAWD_SIDO, LAWD_REGIONS, type AptDeal } from '@/lib/rtms'
+import { roneSeries, RONE_JEONSE_TBL, RONE_PRICE_CLS } from '@/lib/rone'
 import { getSeoulAptMaster, matchAptMaster } from '@/lib/seoulApt'
 
 export interface AptComplex { name: string; dealCount: number; lastPrice: number; lastYm: string; buildYear: number | null }
@@ -26,6 +27,10 @@ export interface AptResearchResult {
       jeonseRatio: number | null                            // 전세가율 %
       rentDep6: number | null; rentMon6: number | null; rentN6: number   // 월세 시세(6개월): 중위 보증금(억)·중위 월세(만원)·표본수
       rentYield: number | null                              // 월세수익률 % = 연월세 ÷ (매매중위 − 월세보증금중위)
+      gap: number | null                                    // 갭투자 실투자금(억) = 매매중위 − 전세중위
+      leverage: number | null                               // 레버리지 배율 = 매매중위 ÷ 갭
+      jeonseMdd: number | null                              // 시도 아파트 전세지수 역사 최대 낙폭 %(음수·실측)
+      stressAmt: number | null                              // 역전세 스트레스(억) = 전세중위 × |최대낙폭|
       peak: number | null; vsPeak: number | null            // 역대 최고 실거래(억)·고점 대비 %
       regionPhase: string | null                            // 지역 벌집 국면
       mortgageRate: number | null                           // 주담대(참고)
@@ -132,6 +137,28 @@ export async function GET(req: Request) {
       const rm = await getCache<{ kpi: { mortgageRate: number | null } }>('re-market-v2', 14 * 86400_000)
       mortgageRate = rm?.kpi.mortgageRate ?? null
     } catch { /* graceful */ }
+    // 💸 갭투자 X-Ray — 시도 아파트 전세지수(A_2024_00053) 역사 최대 낙폭(실측·30일 캐시). 하락 가정이 아니라 그 시도의 실제 최악 낙폭
+    let jeonseMdd: number | null = null
+    try {
+      const sidoNm = LAWD_SIDO[lawd.slice(0, 2)]
+      const clsId = sidoNm ? RONE_PRICE_CLS[sidoNm] : null   // 전세지수 CLS = 매매지수와 동일 체계(실측)
+      if (clsId != null) {
+        const mddKey = `jeonse-mdd-v1:${sidoNm}`
+        const hit = await getCache<{ mdd: number }>(mddKey, 30 * 86400_000)
+        if (hit) jeonseMdd = hit.mdd
+        else {
+          const endYm = yms[0]
+          const s = await roneSeries(RONE_JEONSE_TBL, clsId, '200311', endYm, '100001')
+          if (s.length >= 60) {
+            let peak = -Infinity, mdd = 0
+            for (const x of s) { peak = Math.max(peak, x.value); mdd = Math.min(mdd, (x.value / peak - 1) * 100) }
+            jeonseMdd = Math.round(mdd * 10) / 10
+            await setCache(mddKey, { mdd: jeonseMdd })
+          }
+        }
+      }
+    } catch { /* graceful */ }
+    const gapMan = saleMed6 && jeonseMed6 && saleMed6 > jeonseMed6 ? saleMed6 - jeonseMed6 : null
     // 🏢 단지 개요 — 서울시 공동주택 마스터 매칭(서울만·의무관리단지만 존재, 미매칭 시 null 정직)
     let overview: AptOverview | null = null
     if (lawd.startsWith('11')) {
@@ -160,6 +187,10 @@ export async function GET(req: Request) {
         rentMon6: rentMon6 != null ? Math.round(rentMon6) : null,
         rentN6: bandM6.length,
         rentYield,
+        gap: gapMan != null ? eok(gapMan) : null,
+        leverage: gapMan != null && saleMed6 ? Math.round(saleMed6 / gapMan * 10) / 10 : null,
+        jeonseMdd,
+        stressAmt: jeonseMed6 && jeonseMdd != null ? eok(jeonseMed6 * Math.abs(jeonseMdd) / 100) : null,
         peak: peakMan != null ? eok(peakMan) : null,
         vsPeak: peakMan && saleMed6 ? Math.round((saleMed6 / peakMan - 1) * 1000) / 10 : null,
         regionPhase, mortgageRate,

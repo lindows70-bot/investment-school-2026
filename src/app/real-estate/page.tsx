@@ -3,6 +3,7 @@
 import ReMarketDashboard from '@/app/components/ReMarketDashboard'
 import ReDeepGauges from '@/app/components/ReDeepGauges'
 import RentYieldSpread from '@/app/components/RentYieldSpread'
+import HouseVsKospi from '@/app/components/HouseVsKospi'
 import { TK } from '@/lib/theme'
 
 export default function RealEstatePage() {
@@ -18,6 +19,7 @@ export default function RealEstatePage() {
       <ReMarketDashboard />
       <ReDeepGauges />
       <RentYieldSpread />
+      <HouseVsKospi />
     </div>
   )
 }

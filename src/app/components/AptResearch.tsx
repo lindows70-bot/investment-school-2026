@@ -180,6 +180,35 @@ export default function AptResearch({ initialLawd }: { initialLawd?: string } = 
                     )}
                   </div>
                 )}
+
+                {/* 💸 갭투자 X-Ray — 전세 끼고 사면 실제로 얼마가 드나(입력 0·전부 실측) */}
+                {v && v.gap != null && (
+                  <div style={{ marginTop: 12, background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '11px 14px' }}>
+                    <div style={{ color: TK.slate200, fontSize: 12, fontWeight: 800 }}>💸 갭투자 X-Ray — 전세 끼고 사면 실제로 얼마가 드나</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 8 }}>
+                      <div style={{ flex: '1 1 150px', background: TK.bg4, borderRadius: 8, padding: '9px 12px' }}>
+                        <div style={{ color: TK.sub, fontSize: 10, fontWeight: 700 }}>실투자금(갭)</div>
+                        <div style={{ color: TK.slate100, fontSize: 17, fontWeight: 900, fontFamily: 'monospace' }}>{v.gap}억</div>
+                        <div style={{ color: TK.sub, fontSize: 9.5 }}>매매 {v.saleMed6}억 − 전세 {v.jeonseMed6}억</div>
+                      </div>
+                      <div style={{ flex: '1 1 150px', background: TK.bg4, borderRadius: 8, padding: '9px 12px' }}>
+                        <div style={{ color: TK.sub, fontSize: 10, fontWeight: 700 }}>레버리지 배율</div>
+                        <div style={{ color: v.leverage != null && v.leverage >= 3 ? TK.orange400 : TK.slate100, fontSize: 17, fontWeight: 900, fontFamily: 'monospace' }}>{v.leverage}배</div>
+                        <div style={{ color: TK.sub, fontSize: 9.5 }}>가격 10% 변동 = 내 돈 {v.leverage != null ? Math.round(v.leverage * 10) : '—'}% 변동(양방향)</div>
+                      </div>
+                      {v.stressAmt != null && (
+                        <div style={{ flex: '1 1 190px', background: TK.bg4, border: `1px solid ${TK.red400}44`, borderRadius: 8, padding: '9px 12px' }}>
+                          <div style={{ color: TK.red400, fontSize: 10, fontWeight: 700 }}>역전세 스트레스(역사 최악 재현 시)</div>
+                          <div style={{ color: TK.red400, fontSize: 17, fontWeight: 900, fontFamily: 'monospace' }}>−{v.stressAmt}억</div>
+                          <div style={{ color: TK.sub, fontSize: 9.5 }}>{d.sido} 아파트 전세지수 역사 최대 낙폭 {v.jeonseMdd}%(실측) 적용 — 만기 시 세입자에게 내줄 현금</div>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ color: TK.sub, fontSize: 10, marginTop: 7, lineHeight: 1.55 }}>
+                      전세가율이 높을수록 적은 돈으로 사는 대신(고레버리지) 역전세 한 방이 큽니다. 하락률은 가정이 아니라 {d.sido} 전세지수(2003~)의 <b style={{ color: TK.slate300 }}>실제 최악 낙폭</b> — 취득세·중개비 미포함, 매수 권유 아님(교육용 관측).
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* 실거래 추이 차트 */}
