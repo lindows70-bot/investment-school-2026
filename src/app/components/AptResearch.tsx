@@ -5,14 +5,15 @@ import { useState, useEffect, useMemo } from 'react'
 import { ComposedChart, Line, Scatter, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { LAWD_REGIONS } from '@/lib/rtms'
 import SeoulAptMap from '@/app/components/SeoulAptMap'
+import StarAptButton from '@/app/components/StarAptButton'
 import type { AptResearchResult } from '@/app/api/re-apt/route'
 import { TK } from '@/lib/theme'
 
 const CARD = TK.card, BORDER = TK.border
 
-export default function AptResearch({ initialLawd }: { initialLawd?: string } = {}) {
+export default function AptResearch({ initialLawd, initialApt }: { initialLawd?: string; initialApt?: string } = {}) {
   const [lawd, setLawd] = useState(initialLawd && LAWD_REGIONS.some(r => r.lawd === initialLawd) ? initialLawd : '11680')
-  const [apt, setApt] = useState('')
+  const [apt, setApt] = useState(initialApt ?? '')
   const [aptInput, setAptInput] = useState('')
   const [area, setArea] = useState<number | null>(null)
   const [d, setD] = useState<AptResearchResult | null>(null)
@@ -119,6 +120,7 @@ export default function AptResearch({ initialLawd }: { initialLawd?: string } = 
               <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'baseline' }}>
                   <span style={{ color: TK.slate100, fontWeight: 900, fontSize: 16 }}>🏢 {sel.name}</span>
+                  <StarAptButton lawd={lawd} apt={sel.name} area={sel.area || null} />
                   <span style={{ display: 'inline-flex', gap: 5 }}>
                     {sel.areas.map(a => (
                       <button key={a.area} onClick={() => setArea(a.area)} style={{

@@ -77,6 +77,15 @@ export const RONE_CONV_CLS: Record<string, number> = {
   전남: 500019, 경북: 500020, 경남: 500021, 제주: 500022,
 }
 
+/** 신규 분양세대수 T244633134461863 (2015-10~, MM·ITM 10001) — 2026-07-17 실측(CLS_NM 실명·공급 테이블과 또 다른 체계!) */
+export const RONE_PRESALE_TBL = 'T244633134461863'
+export const RONE_PRESALE_ITM = '10001'
+export const RONE_PRESALE_CLS: Record<string, number> = {
+  전국: 50001, 수도권: 50002, 서울: 50005, 인천: 50006, 경기: 50007, 부산: 50008, 대구: 50009, 광주: 50010,
+  대전: 50011, 울산: 50012, 세종: 50013, 강원: 50014, 충북: 50015, 충남: 50016, 전북: 50017, 전남: 50018,
+  경북: 50019, 경남: 50020, 제주: 50021,
+}
+
 /** (월) 행정구역별 아파트매매거래현황 A_2024_00554 — 시도 CLS 코드(실측 — 가격 테이블과 다름!) */
 export const RONE_VOL_TBL = 'A_2024_00554'
 export const RONE_VOL_CLS: Record<string, number> = {

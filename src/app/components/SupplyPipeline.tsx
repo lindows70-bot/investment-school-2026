@@ -31,7 +31,7 @@ export default function SupplyPipeline() {
 
   const sel = data?.regions.find(r => r.name === region) ?? null
   const chart = useMemo(() => (sel?.points ?? []).filter(x => x.p != null || x.s != null || x.c != null).map(x => ({
-    ym: `${x.t.slice(0, 4)}-${x.t.slice(4)}`, 인허가: x.p, 착공: x.s, 준공: x.c, 미분양: x.u,
+    ym: `${x.t.slice(0, 4)}-${x.t.slice(4)}`, 인허가: x.p, 분양: x.b, 착공: x.s, 준공: x.c, 미분양: x.u,
   })), [sel])
 
   if (err) return null
@@ -41,7 +41,7 @@ export default function SupplyPipeline() {
     <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'baseline' }}>
         <b style={{ fontSize: 14, color: TK.slate100 }}>🏗️ 공급 파이프라인</b>
-        <span style={{ fontSize: 10.5, color: TK.sub2 }}>인허가 → (1~2년) 착공 → (2~3년) 준공=입주 — 벌집(수요)의 반대편, 공급 사이클. 12개월 누적 기준</span>
+        <span style={{ fontSize: 10.5, color: TK.sub2 }}>인허가 → 분양 → 착공 → (2~3년) 준공=입주 — 벌집(수요)의 반대편, 공급 사이클. 12개월 누적 기준</span>
       </div>
 
       {!data ? (
@@ -69,6 +69,7 @@ export default function SupplyPipeline() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, marginTop: 8 }}>
                 {([
                   ['📋 인허가(12개월)', sel.latest.permitTtm, sel.latest.permitPct, '미래 공급의 씨앗'],
+                  ['🏷️ 분양(12개월)', sel.latest.presaleTtm, sel.latest.presalePct, '시장에 예고된 물량(2015~)'],
                   ['🚧 착공(12개월)', sel.latest.startTtm, sel.latest.startPct, '2~3년 뒤 입주 예고'],
                   ['🏢 준공=입주(12개월)', sel.latest.compTtm, sel.latest.compPct, '지금 시장에 풀리는 물량'],
                   ['📦 미분양(현재)', sel.latest.unsold, sel.latest.unsoldPct, '팔리지 않은 재고'],
@@ -97,6 +98,7 @@ export default function SupplyPipeline() {
                     <Legend wrapperStyle={{ fontSize: 11 }} />
                     <Area yAxisId="r" type="monotone" dataKey="미분양" fill={`${TK.amber400}22`} stroke={TK.amber400} strokeWidth={1} strokeDasharray="4 3" dot={false} connectNulls />
                     <Line yAxisId="l" type="monotone" dataKey="인허가" stroke={TK.violet400} strokeWidth={2} dot={false} connectNulls />
+                    <Line yAxisId="l" type="monotone" dataKey="분양" stroke={TK.pink400} strokeWidth={1.6} dot={false} connectNulls />
                     <Line yAxisId="l" type="monotone" dataKey="착공" stroke={TK.teal400} strokeWidth={2} dot={false} connectNulls />
                     <Line yAxisId="l" type="monotone" dataKey="준공" stroke={TK.slate100} strokeWidth={1.6} dot={false} connectNulls />
                   </ComposedChart>

@@ -7,7 +7,7 @@ export const maxDuration = 120
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { ecosSeries } from '@/lib/ecos'
-import { roneSeries, RONE_START_TBL, RONE_COMP_TBL, RONE_SUPPLY_ITM, RONE_SUPPLY_CLS } from '@/lib/rone'
+import { roneSeries, RONE_START_TBL, RONE_COMP_TBL, RONE_SUPPLY_ITM, RONE_SUPPLY_CLS, RONE_PRESALE_TBL, RONE_PRESALE_ITM, RONE_PRESALE_CLS } from '@/lib/rone'
 
 // ECOS 인허가(901Y105)·미분양(901Y074) 지역 항목코드 — 2026-07-16 StatisticItemList 실측
 const PERMIT_ITEM: Record<string, string> = {
@@ -20,12 +20,13 @@ const UNSOLD_ITEM: Record<string, string> = {
 }
 const REGIONS = Object.keys(PERMIT_ITEM)   // ⚠️ route는 상수 export 금지(HC_PHASES 교훈) — 내부 전용
 
-export interface SupplyPoint { t: string; p: number | null; s: number | null; c: number | null; u: number | null }  // t=YYYYMM · p=인허가ttm s=착공ttm c=준공ttm u=미분양(호)
+export interface SupplyPoint { t: string; p: number | null; b: number | null; s: number | null; c: number | null; u: number | null }  // t=YYYYMM · p=인허가ttm b=분양ttm s=착공ttm c=준공ttm u=미분양(호)
 export interface SupplyRegion {
   name: string
   points: SupplyPoint[]                 // 12개월 이동합(인허가·착공·준공) + 미분양 레벨
   latest: {
     permitTtm: number | null; permitPct: number | null      // 인허가 12개월합 · 역사 백분위(낮음=공급 절벽 예고)
+    presaleTtm: number | null; presalePct: number | null    // 신규 분양 12개월합 · 백분위(2015-10~ — 분양은 착공 전후 시장에 물량 예고)
     startTtm: number | null; startPct: number | null        // 착공 12개월합 · 백분위(→2~3년 뒤 입주)
     compTtm: number | null; compPct: number | null          // 준공(입주) 12개월합 · 백분위
     unsold: number | null; unsoldPct: number | null         // 미분양 호수 · 백분위(높음=재고 적체)
@@ -57,7 +58,7 @@ const pctOf = (arr: (number | null)[], v: number | null): number | null => {
 }
 
 export async function GET() {
-  const cacheKey = 're-supply-v2'   // v2: 인허가 누계→월별 차분(누계 시리즈 실측 발견)
+  const cacheKey = 're-supply-v3'   // v3: 분양세대수(T244633134461863) 4번째 축 추가
   const cached = await getCache<SupplyApi>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -69,8 +70,9 @@ export async function GET() {
       const name = queue.shift()
       if (!name) break
       try {
-        const [permits, starts, comps, unsold] = await Promise.all([
+        const [permits, presales, starts, comps, unsold] = await Promise.all([
           ecosSeries('901Y105', 'M', '200701', end, PERMIT_ITEM[name]),
+          roneSeries(RONE_PRESALE_TBL, RONE_PRESALE_CLS[name], '201510', end, RONE_PRESALE_ITM),   // 분양은 2015-10~(테이블 시작)
           roneSeries(RONE_START_TBL, RONE_SUPPLY_CLS[name], '201101', end, RONE_SUPPLY_ITM),
           roneSeries(RONE_COMP_TBL, RONE_SUPPLY_CLS[name], '201101', end, RONE_SUPPLY_ITM),
           ecosSeries('901Y074', 'M', '200701', end, UNSOLD_ITEM[name]),
@@ -84,17 +86,20 @@ export async function GET() {
           const monthly = cur.value - prev
           if (monthly >= 0) pm.set(cur.time, monthly)   // 음수(정정 공시)는 결측 처리(정직)
         }
+        const bm = new Map(presales.map(x => [x.time, x.value]))
         const sm = new Map(starts.map(x => [x.time, x.value]))
         const cm = new Map(comps.map(x => [x.time, x.value]))
         const um = new Map(unsold.map(x => [x.time, x.value]))
         const months = Array.from(new Set([...Array.from(pm.keys()), ...Array.from(sm.keys()), ...Array.from(cm.keys())])).sort()
         if (months.length < 24) continue
-        const pT = ttm(pm, months), sT = ttm(sm, months), cT = ttm(cm, months)
-        const points: SupplyPoint[] = months.map((t, i) => ({ t, p: pT[i], s: sT[i], c: cT[i], u: um.get(t) ?? null }))
+        // 분양 ttm은 분양 자체 월축(2015-10~)으로 — 전체 months에 넣으면 시작 전 구간이 전부 null 창이 됨(정상)
+        const pT = ttm(pm, months), bT = ttm(bm, months), sT = ttm(sm, months), cT = ttm(cm, months)
+        const points: SupplyPoint[] = months.map((t, i) => ({ t, p: pT[i], b: bT[i], s: sT[i], c: cT[i], u: um.get(t) ?? null }))
         const lastOf = (a: (number | null)[]) => { for (let i = a.length - 1; i >= 0; i--) if (a[i] != null) return a[i]; return null }
         const uArr = points.map(x => x.u)
         const latest = {
           permitTtm: lastOf(pT), permitPct: pctOf(pT, lastOf(pT)),
+          presaleTtm: lastOf(bT), presalePct: pctOf(bT, lastOf(bT)),
           startTtm: lastOf(sT), startPct: pctOf(sT, lastOf(sT)),
           compTtm: lastOf(cT), compPct: pctOf(cT, lastOf(cT)),
           unsold: lastOf(uArr), unsoldPct: pctOf(uArr, lastOf(uArr)),

@@ -4,6 +4,8 @@ import ReMarketDashboard from '@/app/components/ReMarketDashboard'
 import ReDeepGauges from '@/app/components/ReDeepGauges'
 import RentYieldSpread from '@/app/components/RentYieldSpread'
 import HouseVsKospi from '@/app/components/HouseVsKospi'
+import ReWatchlist from '@/app/components/ReWatchlist'
+import RePhaseAlert from '@/app/components/RePhaseAlert'
 import { TK } from '@/lib/theme'
 
 export default function RealEstatePage() {
@@ -16,6 +18,8 @@ export default function RealEstatePage() {
           KB·한국부동산원 공식 통계(한국은행 ECOS)와 미국 케이스-실러(FRED) 실데이터.
         </div>
       </div>
+      <RePhaseAlert />
+      <ReWatchlist />
       <ReMarketDashboard />
       <ReDeepGauges />
       <RentYieldSpread />

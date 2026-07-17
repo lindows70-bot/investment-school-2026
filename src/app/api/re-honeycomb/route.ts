@@ -18,7 +18,8 @@ export interface HcRegion {
   trail: { ym: string; p: number; v: number }[]   // 최근 24개월 궤적(가격3m%·거래량YoY%)
   asOf: string
 }
-export interface HoneycombResult { regions: HcRegion[]; phaseCount: Record<HcPhase, number>; asOf: string }
+export interface HcPhaseChange { name: string; from: string; to: string; date: string }
+export interface HoneycombResult { regions: HcRegion[]; phaseCount: Record<HcPhase, number>; phaseChanges?: HcPhaseChange[]; asOf: string }
 
 // 벌집 6국면(고전 모형) — 가격 방향(3m, ±0.3% 밴드) × 거래량 방향(YoY 부호)
 // ⚠️ route 파일은 GET 등 지정 export만 허용 — 상수는 export 금지(fomcSchedule 교훈)
@@ -99,7 +100,25 @@ export async function GET() {
   const phaseCount = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 } as Record<HcPhase, number>
   for (const r of regions) if (r.name !== '전국') phaseCount[r.phase]++
 
-  const result: HoneycombResult = { regions, phaseCount, asOf: new Date().toISOString() }
+  // 🔔 국면 전환 감지 — 직전 스냅과 diff(타점 워처 패턴). 전환은 7일간 배너 유지
+  let phaseChanges: HcPhaseChange[] | undefined
+  try {
+    const kstDate = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
+    const prev = await getCache<{ phases: Record<string, string> }>('re-phase-latest', 90 * 86400_000)
+    if (prev?.phases) {
+      const diffs = regions
+        .filter(r => prev.phases[r.name] && prev.phases[r.name] !== r.phaseName)
+        .map(r => ({ name: r.name, from: prev.phases[r.name], to: r.phaseName, date: kstDate }))
+      if (diffs.length) await setCache('re-phase-changes', { changes: diffs })
+    }
+    const nowPhases: Record<string, string> = {}
+    for (const r of regions) nowPhases[r.name] = r.phaseName
+    await setCache('re-phase-latest', { phases: nowPhases })
+    const recent = await getCache<{ changes: HcPhaseChange[] }>('re-phase-changes', 7 * 86400_000)
+    if (recent?.changes?.length) phaseChanges = recent.changes
+  } catch { /* graceful */ }
+
+  const result: HoneycombResult = { regions, phaseCount, phaseChanges, asOf: new Date().toISOString() }
   await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

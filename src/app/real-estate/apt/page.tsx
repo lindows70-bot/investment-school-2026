@@ -7,7 +7,7 @@ import { TK } from '@/lib/theme'
 
 function AptResearchWithParams() {
   const sp = useSearchParams()
-  return <AptResearch initialLawd={sp.get('lawd') ?? undefined} />
+  return <AptResearch initialLawd={sp.get('lawd') ?? undefined} initialApt={sp.get('apt') ?? undefined} />
 }
 
 export default function AptResearchPage() {
