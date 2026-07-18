@@ -19,16 +19,6 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
-    // 주요 자산군을 한 렌즈로 — 전체 자산군 밸런스(주식·채권·부동산·코인)를 위한 진입점
-    title: '💎 자산군', color: '#d4af37',
-    items: [
-      { href: '/research',              icon: '📈', label: '주식' },
-      { href: '/bonds',                 icon: '📜', label: '채권' },
-      { href: '/real-estate',           icon: '🏠', label: '부동산' },
-      { href: '/dashboard?tab=coinlab', icon: '🪙', label: '암호화폐' },
-    ],
-  },
-  {
     title: '💼 내 자산', color: TK.blue500,
     items: [
       { href: '/assets',  icon: '💼', label: '자산 관리' },
@@ -62,6 +52,18 @@ const GROUPS: NavGroup[] = [
       { href: '/real-estate/honeycomb', icon: '🐝', label: '벌집순환모형(지역 사이클)' },
       { href: '/real-estate/apt', icon: '🔍', label: '아파트 단지 리서치' },
       { href: '/real-estate/plan2040', icon: '🏙️', label: '2040 서울플랜' },
+    ],
+  },
+  {
+    title: '📜 채권', color: '#2dd4bf',
+    items: [
+      { href: '/bonds', icon: '🧭', label: '듀레이션 나침반' },
+    ],
+  },
+  {
+    title: '🪙 암호화폐', color: TK.btcOrange,
+    items: [
+      { href: '/dashboard?tab=coinlab', icon: '🪙', label: '코인 랩' },
     ],
   },
   {
