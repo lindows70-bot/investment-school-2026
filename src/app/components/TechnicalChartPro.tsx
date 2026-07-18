@@ -3,7 +3,7 @@
 // + 모멘텀 서브패널(MACD·RSI·스토캐스틱·CCI 탭 선택) + 십자선·툴팁
 import { useState, useMemo, useRef, useCallback } from 'react'
 import type { TechCandle } from '@/app/api/tech-chart/route'
-import { calcMACD, calcRSI, calcStoch, calcCCI, calcMFI, calcADX, calcATR, detectLiquidity, raschkeSequenceMarks, computePOC, computeTTMSqueeze, computeAnchoredVWAP, computeSuperTrend, detectFVG } from '@/lib/techSignals'
+import { calcMACD, calcRSI, calcStoch, calcCCI, calcMFI, calcADX, calcATR, detectLiquidity, raschkeSequenceMarks, computePOC, computeTTMSqueeze, computeAnchoredVWAP, computeSuperTrend, detectFVG, computeBollinger } from '@/lib/techSignals'
 import { TK } from '@/lib/theme'
 
 /* ── 팔레트 (네이비/틸/골드) ── */
@@ -33,14 +33,14 @@ const forwardBars = (n: number) => n >= 52 ? 26 : Math.min(6, Math.max(2, Math.r
 
 // 🔎 분석 렌즈 — 목적별로 관련 지표만 묶어서 ON, 나머지는 OFF(클러터 해소). 한 번에 하나의 관점으로 집중
 type SubInd = 'MACD' | 'RSI' | 'STOCH' | 'CCI' | 'MFI' | 'ADX' | 'SQUEEZE' | null
-interface LensCfg { ema: boolean; cloud: boolean; vol: boolean; liq: boolean; rk: boolean; poc: boolean; vwap: boolean; st: boolean; fvg: boolean; ind: SubInd }
+interface LensCfg { ema: boolean; cloud: boolean; vol: boolean; liq: boolean; rk: boolean; poc: boolean; vwap: boolean; st: boolean; fvg: boolean; bb: boolean; ind: SubInd }
 const LENSES: { key: string; label: string; color: string; desc: string; cfg: LensCfg }[] = [
-  { key: 'core', label: '⭐ 핵심', color: '#d4af37', desc: '추세 뼈대(EMA·구름)+매물대+MACD', cfg: { ema: true, cloud: true, vol: true, liq: false, rk: false, poc: true, vwap: false, st: false, fvg: false, ind: 'MACD' } },
-  { key: 'trend', label: '📈 추세·타점', color: TK.emerald400, desc: 'EMA·구름·SuperTrend·라쉬케·MACD', cfg: { ema: true, cloud: true, vol: false, liq: false, rk: true, poc: false, vwap: false, st: true, fvg: false, ind: 'MACD' } },
-  { key: 'supply', label: '💰 매물·평단', color: TK.sky400, desc: '매물대·기관평단(VWAP)·유동성·공정가치갭(FVG)·MFI', cfg: { ema: false, cloud: false, vol: true, liq: true, rk: false, poc: true, vwap: true, st: false, fvg: true, ind: 'MFI' } },
-  { key: 'vol', label: '🔥 변동성 돌파', color: TK.amber500, desc: 'TTM 스퀴즈·VWAP·SuperTrend(신규 3종)', cfg: { ema: false, cloud: false, vol: true, liq: false, rk: false, poc: false, vwap: true, st: true, fvg: false, ind: 'SQUEEZE' } },
-  { key: 'momentum', label: '⚡ 모멘텀', color: TK.fuchsia300, desc: 'EMA·라쉬케·RSI(에너지·진입)', cfg: { ema: true, cloud: false, vol: false, liq: false, rk: true, poc: false, vwap: false, st: false, fvg: false, ind: 'RSI' } },
-  { key: 'all', label: '🔬 전체', color: TK.slate400, desc: '모든 지표(고급)', cfg: { ema: true, cloud: true, vol: true, liq: true, rk: true, poc: true, vwap: true, st: true, fvg: true, ind: 'MACD' } },
+  { key: 'core', label: '⭐ 핵심', color: '#d4af37', desc: '추세 뼈대(EMA·구름)+매물대+MACD', cfg: { ema: true, cloud: true, vol: true, liq: false, rk: false, poc: true, vwap: false, st: false, fvg: false, bb: false, ind: 'MACD' } },
+  { key: 'trend', label: '📈 추세·타점', color: TK.emerald400, desc: 'EMA·구름·SuperTrend·라쉬케·MACD', cfg: { ema: true, cloud: true, vol: false, liq: false, rk: true, poc: false, vwap: false, st: true, fvg: false, bb: false, ind: 'MACD' } },
+  { key: 'supply', label: '💰 매물·평단', color: TK.sky400, desc: '매물대·기관평단(VWAP)·유동성·공정가치갭(FVG)·MFI', cfg: { ema: false, cloud: false, vol: true, liq: true, rk: false, poc: true, vwap: true, st: false, fvg: true, bb: false, ind: 'MFI' } },
+  { key: 'vol', label: '🔥 변동성 돌파', color: TK.amber500, desc: 'TTM 스퀴즈·볼린저 밴드·VWAP·SuperTrend', cfg: { ema: false, cloud: false, vol: true, liq: false, rk: false, poc: false, vwap: true, st: true, fvg: false, bb: true, ind: 'SQUEEZE' } },
+  { key: 'momentum', label: '⚡ 모멘텀', color: TK.fuchsia300, desc: 'EMA·라쉬케·RSI(에너지·진입)', cfg: { ema: true, cloud: false, vol: false, liq: false, rk: true, poc: false, vwap: false, st: false, fvg: false, bb: false, ind: 'RSI' } },
+  { key: 'all', label: '🔬 전체', color: TK.slate400, desc: '모든 지표(고급)', cfg: { ema: true, cloud: true, vol: true, liq: true, rk: true, poc: true, vwap: true, st: true, fvg: true, bb: true, ind: 'MACD' } },
 ]
 
 interface DispBar {
@@ -106,6 +106,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
   const [showVwap, setShowVwap] = useState(false)   // ⚓ Anchored VWAP(기관 평균단가)
   const [showST, setShowST] = useState(false)   // 🛡️ SuperTrend(시각 트레일링 라인)
   const [showFvg, setShowFvg] = useState(false)   // 📦 FVG(공정가치 갭) — 기본 OFF('매물·평단' 렌즈에서 켬)
+  const [showBB, setShowBB] = useState(false)     // 📏 볼린저 밴드(20, 2σ) — 기본 OFF('🔥 변동성 돌파' 렌즈에서 켬). TTM 스퀴즈와 동일 수학의 시각화
   const [ind, setInd] = useState<'MACD' | 'RSI' | 'STOCH' | 'CCI' | 'MFI' | 'ADX' | 'SQUEEZE' | null>('MACD')   // 모멘텀 서브패널(하나만 선택 — 화면 간결)
   const [hover, setHover] = useState<{ j: number; px: number; py: number } | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
@@ -185,6 +186,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
   const avwap = useMemo(() => computeAnchoredVWAP(data), [data])
   const superT = useMemo(() => computeSuperTrend(data), [data])
   const fvg = useMemo(() => detectFVG(data), [data])
+  const boll = useMemo(() => computeBollinger(data), [data])
 
   // 🏷️ 좌측 가격 기준선 라벨(평단·매물대·VWAP) — 가격이 가까우면 세로로 밀어 겹침 방지(선은 실제 위치·라벨은 스택)
   const priceLabels = useMemo(() => {
@@ -310,9 +312,9 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
   // 🔎 렌즈 적용 — 관련 지표만 ON, 나머지 OFF / 현재 상태와 일치하는 렌즈 하이라이트
   const applyLens = (c: LensCfg) => {
     setShowEMA(c.ema); setShowCloud(c.cloud); setShowVolume(c.vol); setShowLiq(c.liq)
-    setShowRaschke(c.rk); setShowPoc(c.poc); setShowVwap(c.vwap); setShowST(c.st); setShowFvg(c.fvg); setInd(c.ind)
+    setShowRaschke(c.rk); setShowPoc(c.poc); setShowVwap(c.vwap); setShowST(c.st); setShowFvg(c.fvg); setShowBB(c.bb); setInd(c.ind)
   }
-  const curCfg: LensCfg = { ema: showEMA, cloud: showCloud, vol: showVolume, liq: showLiq, rk: showRaschke, poc: showPoc, vwap: showVwap, st: showST, fvg: showFvg, ind }
+  const curCfg: LensCfg = { ema: showEMA, cloud: showCloud, vol: showVolume, liq: showLiq, rk: showRaschke, poc: showPoc, vwap: showVwap, st: showST, fvg: showFvg, bb: showBB, ind }
   const activeLens = LENSES.find(l => (Object.keys(l.cfg) as (keyof LensCfg)[]).every(k => l.cfg[k] === curCfg[k]))?.key ?? null
 
   const toggle = (on: boolean, label: string, color: string, set: (f: (v: boolean) => boolean) => void) => (
@@ -352,6 +354,7 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
         {avwap && toggle(showVwap, '⚓VWAP', TK.pink400, setShowVwap)}
         {superT && toggle(showST, '🛡️추세선', TK.emerald400, setShowST)}
         {fvg.length > 0 && toggle(showFvg, '📦FVG', TK.lime400, setShowFvg)}
+        {boll && toggle(showBB, '📏볼린저', TK.blue400, setShowBB)}
         {/* 모멘텀 서브패널 탭(하나만) */}
         <span style={{ display: 'inline-flex', border: `1px solid ${C.axis}`, borderRadius: 7, overflow: 'hidden', marginLeft: 4 }}>
           {(['MACD', 'RSI', 'STOCH', 'CCI', 'MFI', 'ADX', 'SQUEEZE'] as const).map(t => (
@@ -468,6 +471,22 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
           })()}
 
           {/* ⚓ Anchored VWAP — 직전 스윙 저점 앵커 기관 평균단가(핑크 실선) + 앵커 마커 */}
+          {/* 📏 볼린저 밴드(20, 2σ) — TTM 스퀴즈와 동일 수학의 시각화(압축=밴드 수축·분출=확장을 눈으로). 점수·추천 미반영 */}
+          {showBB && boll && (() => {
+            const path = (arr: (number | null)[]) => {
+              let d = '', pen = false
+              for (let j = 0; j < N; j++) { const v = arr[j]; if (v == null) { pen = false; continue } d += (pen ? ' L' : 'M') + xc(j).toFixed(1) + ',' + yP(v).toFixed(1); pen = true }
+              return d
+            }
+            return (
+              <g>
+                <path d={path(boll.upper)} fill="none" stroke={TK.blue400} strokeWidth={1.1} opacity={0.75} />
+                <path d={path(boll.lower)} fill="none" stroke={TK.blue400} strokeWidth={1.1} opacity={0.75} />
+                <path d={path(boll.mid)} fill="none" stroke={TK.yellow500} strokeWidth={1} strokeDasharray="4 3" opacity={0.7} />
+              </g>
+            )
+          })()}
+
           {showVwap && avwap && (() => {
             let d = '', pen = false
             for (let j = 0; j < N; j++) { const v = avwap.line[j]; if (v == null) { pen = false; continue } d += (pen ? ' L' : 'M') + xc(j).toFixed(1) + ',' + yP(v).toFixed(1); pen = true }
@@ -753,6 +772,10 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
         </>)}
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, borderTop: `2px dashed ${C.gold}` }} /><span style={{ color: C.textLow }}>평단가(보유 시)</span></span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, borderTop: `2px dashed ${TK.violet400}` }} /><span style={{ color: C.textLow }}>🛡 ATR 손절 참고선(현재가−2×ATR)</span></span>
+        {showBB && boll && (<>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, borderTop: `2px solid ${TK.blue400}` }} /><span style={{ color: C.textLow }}>📏 볼린저 상·하단(20, ±2σ)</span></span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, borderTop: `2px dashed ${TK.yellow500}` }} /><span style={{ color: C.textLow }}>볼린저 중단(SMA20)</span></span>
+        </>)}
         {showLiq && (<>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, borderTop: `2px dotted ${TK.teal400}` }} /><span style={{ color: C.textLow }}>유동성(전저점 — 손절 대기 구간)</span></span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, borderTop: `2px dotted ${TK.orange400}` }} /><span style={{ color: C.textLow }}>유동성(전고점 — 익절·돌파주문 대기)</span></span>
@@ -837,6 +860,16 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
             <div style={{ fontWeight: 700, color: TK.amber500, marginBottom: 4 }}>🔥 TTM Squeeze 읽는 법 — 변동성 응축→폭발</div>
             <p style={{ lineHeight: 1.6, color: C.textLow, margin: 0 }}>
               시장은 <b style={{ color: C.text }}>80% 횡보 + 20% 추세</b>를 반복합니다. 볼린저밴드가 켈트너 채널 안으로 쏙 들어가면(<b style={{ color: TK.red500 }}>빨강 점</b>) = 변동성이 극도로 눌린 <b style={{ color: TK.amber500 }}>화약고 응축(스퀴즈 ON)</b> — 지루함에 팔지 말고 <b style={{ color: C.text }}>방향 분출을 대기</b>하세요. 밴드가 채널 밖으로 튀면(<b style={{ color: TK.green500 }}>초록 점</b>) = 폭발(Fired). 아래 <b style={{ color: '#8b5cf6' }}>막대(모멘텀)</b>가 위(초록)면 상방, 아래(빨강)면 하방 분출 에너지입니다. 압축이 길수록 분출이 큽니다. 방향 확정은 신호등·라쉬케와 함께.
+            </p>
+          </div>
+        )}
+        {showBB && boll && (
+          <div style={{ backgroundColor: C.panel, border: `1px solid ${C.grid}`, borderRadius: 12, padding: 12 }}>
+            <div style={{ fontWeight: 700, color: TK.blue400, marginBottom: 4 }}>📏 볼린저 밴드 읽는 법 — 변동성의 눈금</div>
+            <p style={{ lineHeight: 1.6, color: C.textLow, margin: 0 }}>
+              중단(SMA20) ± 2×표준편차 — 가격의 약 95%가 밴드 안에서 움직입니다. <b style={{ color: C.text }}>밴드가 좁아지면(스퀴즈)</b> 변동성 응축 = 아래 🔥TTM 스퀴즈의 빨강 점과 같은 순간이고,
+              <b style={{ color: C.text }}> 분출 후 상단을 타고 달리는 것(밴드 워킹)</b>은 과열이 아니라 강한 추세의 특징입니다. 반대로 횡보장에서 상단 터치는 되돌림 자리 —
+              <b style={{ color: C.text }}>추세장이냐 횡보장이냐(ADX)에 따라 같은 신호가 반대로 읽히니</b> 단독 매매 신호로 쓰지 마세요. 🔥스퀴즈와 동일 수학의 시각화(교육용).
             </p>
           </div>
         )}

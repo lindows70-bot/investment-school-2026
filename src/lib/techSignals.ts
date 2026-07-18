@@ -516,6 +516,24 @@ export interface SqueezeRead {
   onArr: (boolean | null)[]   // 봉별 스퀴즈 ON(차트 점)
   momArr: (number | null)[]   // 봉별 모멘텀(차트 히스토그램)
 }
+/** 볼린저 밴드 3선(SMA n ± mult·σ) — TTM 스퀴즈와 동일 수학(모집단 σ)의 시각화용 라인. 점수·추천 미반영(차트 전용) */
+export function computeBollinger(data: Ohlc[], n = 20, mult = 2): { upper: (number | null)[]; mid: (number | null)[]; lower: (number | null)[] } | null {
+  const N = data.length
+  if (N < n + 5) return null
+  const close = data.map(d => d.close)
+  const upper: (number | null)[] = new Array(N).fill(null)
+  const mid: (number | null)[] = new Array(N).fill(null)
+  const lower: (number | null)[] = new Array(N).fill(null)
+  for (let i = n - 1; i < N; i++) {
+    let sum = 0; for (let j = 0; j < n; j++) sum += close[i - j]
+    const sma = sum / n
+    let vs = 0; for (let j = 0; j < n; j++) vs += (close[i - j] - sma) ** 2
+    const sd = Math.sqrt(vs / n)
+    mid[i] = sma; upper[i] = sma + mult * sd; lower[i] = sma - mult * sd
+  }
+  return { upper, mid, lower }
+}
+
 export function computeTTMSqueeze(data: Ohlc[], n = 20, bbMult = 2, kcMult = 1.5): SqueezeRead | null {
   const N = data.length
   if (N < n + 5) return null
