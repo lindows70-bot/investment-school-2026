@@ -41,7 +41,7 @@ const GROUPS: NavGroup[] = [
     title: '🎯 종목 추천', color: '#a855f7',
     items: [
       { href: '/reco-hub',                             icon: '🗺️', label: '추천 지도(근거·위계)' },
-      { href: '/dashboard?tab=moneyflow&view=unified', icon: '🎯', label: '통합 추천 (4축 종합)' },
+      { href: '/dashboard?tab=moneyflow&view=unified', icon: '🎯', label: '통합 추천 (5축 종합)' },
       { href: '/dashboard?tab=rebalance',              icon: '🤖', label: 'AI 리밸런싱 (최종)' },
       { href: '/dashboard?tab=rotation',               icon: '🧭', label: '섹터 로테이션 시계' },
     ],
