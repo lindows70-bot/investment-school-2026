@@ -111,7 +111,7 @@ export default function EventCalendarPanel({ compact }: { compact?: boolean }) {
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 90 }}>
               {data.monthly.map(m => (
                 <div key={m.month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                  {m.krw > 0 && <span style={{ fontSize: 8.5, color: TK.sub4 }}>{Math.round(m.krw / 1e4)}만</span>}
+                  {m.krw > 0 && <span style={{ fontSize: 8.5, color: TK.sub4 }}>{m.krw >= 1e4 ? `${(m.krw / 1e4).toFixed(m.krw < 1e5 ? 1 : 0)}만` : `${Math.round(m.krw / 1e3)}천`}</span>}
                   <div style={{ width: '100%', height: Math.max(2, m.krw / maxMonth * 60), background: m.krw > 0 ? TK.green400 : TK.bg2, borderRadius: 3, opacity: m.krw > 0 ? 0.85 : 1 }} />
                   <span style={{ fontSize: 8.5, color: TK.sub2 }}>{Number(m.month.slice(5))}월</span>
                 </div>
