@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react'
 import TimingBadge from '@/app/components/TimingBadge'
 import TradePlanCard from '@/app/components/TradePlanCard'
+import EventCalendarPanel from '@/app/components/EventCalendarPanel'
 import type { UnifiedRecoResult } from '@/app/api/unified-reco/route'
 import type { RotationResult } from '@/app/api/sector-rotation/route'
 import type { WatchSig } from '@/app/api/cron/timing-watch/route'
@@ -89,6 +90,9 @@ export default function BriefingPage() {
           </div>
         ) : <div style={{ fontSize: 12, color: TK.sub2 }}>오늘은 보유 종목의 타점 전환이 없습니다 — 조용한 날엔 아무것도 안 하는 것도 실력.</div>}
       </Sec>
+
+      {/* ①½ 이번 주 이벤트 — 어닝 D-day·배당락(이벤트 없으면 렌더 0) */}
+      <EventCalendarPanel compact />
 
       {/* ② 정리할 것 */}
       <Sec no="②" title="정리할 것" sub="AI 리밸런싱의 버릴/줄일 상위" link="/dashboard?tab=rebalance" linkLabel="AI 리밸런싱 상세">

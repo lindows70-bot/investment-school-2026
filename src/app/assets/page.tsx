@@ -12,6 +12,7 @@ import AddInvestmentModal from '@/app/components/AddInvestmentModal'
 import TransactionModal from '@/app/components/TransactionModal'
 import FullCandleChart from '@/app/components/FullCandleChart'
 import MoneyFlowRadar from '@/app/components/MoneyFlowRadar'
+import EventCalendarPanel from '@/app/components/EventCalendarPanel'
 import { type Candle } from '@/app/components/CandleChart'
 import { TK } from '@/lib/theme'
 
@@ -427,6 +428,9 @@ export default function AssetsPage() {
           ))}
         </div>
       )}
+
+      {/* 📅 이벤트 캘린더 — 어닝 D-day·배당락·배당 현금흐름 */}
+      {!dbLoading && investments.length > 0 && <EventCalendarPanel />}
 
       {/* 컨트롤 */}
       <div style={{ display:'flex', flexWrap:'wrap', gap:8, alignItems:'center' }}>
