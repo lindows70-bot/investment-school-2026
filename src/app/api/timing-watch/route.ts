@@ -20,7 +20,21 @@ export async function GET() {
   const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
   const { data: mine } = await admin.from('investments').select('ticker').eq('user_id', user.id)
   const mySet = new Set((mine ?? []).map(r => String(r.ticker).toUpperCase()))
-  const sigs = cached.sigs.filter(s => mySet.has(s.ticker.toUpperCase()))
+  let sigs = cached.sigs.filter(s => mySet.has(s.ticker.toUpperCase()))
+
+  // 🧭 펀더(WHAT) 교차 주입 — Jarvis 모닝 처방전 최신 판정을 붙여 '타점 매수 vs 펀더 매도검토'가 모순 없이 한 칩에서 읽히게(ETN 2축 융합 전례)
+  try {
+    const { data: briefs } = await admin.from('user_daily_briefings')
+      .select('ticker, signal_type, base_date').eq('user_id', user.id)
+      .order('base_date', { ascending: false }).limit(60)
+    if (briefs?.length) {
+      const latestDate = briefs[0].base_date
+      const fundMap = new Map<string, 'SELL' | 'BUY'>()
+      for (const b of briefs) if (b.base_date === latestDate && (b.signal_type === 'SELL' || b.signal_type === 'BUY'))
+        fundMap.set(String(b.ticker).toUpperCase(), b.signal_type)
+      sigs = sigs.map(s => ({ ...s, fund: fundMap.get(s.ticker.toUpperCase()) ?? null }))
+    }
+  } catch { /* graceful — 테이블 없어도 배너는 정상 */ }
 
   return NextResponse.json({ asOf: cached.asOf, sigs }, { headers: { 'Cache-Control': 'no-store' } })
 }

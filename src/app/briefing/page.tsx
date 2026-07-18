@@ -72,11 +72,17 @@ export default function BriefingPage() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {watch.d.sigs.map((s, i) => {
               const c = s.kind === 'sell' ? TK.red400 : TK.green400
+              const clash = s.fund && ((s.kind === 'buy' && s.fund === 'SELL') || (s.kind === 'sell' && s.fund === 'BUY'))
+              const clashTxt = s.kind === 'buy' ? '⚠️ 펀더 매도검토' : '🟢 펀더 매수기회'
+              const clashTip = s.kind === 'buy'
+                ? '기술 타점은 매수 신호지만 Jarvis 펀더멘탈 진단은 매도 검토 — 신규 진입·불타기 자제(WHAT은 펀더멘탈 우선)'
+                : 'Jarvis 펀더멘탈 진단은 매수 기회 — 이 기술 신호는 단기 경계 참고로만(저점 매도 주의)'
               return (
-                <span key={s.ticker + s.market + i} title={s.detail} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: TK.bg3, border: `1px solid ${c}55`, borderRadius: 7, padding: '4px 10px', fontSize: 11.5 }}>
+                <span key={s.ticker + s.market + i} title={clash ? `${s.detail} · ${clashTip}` : s.detail} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: TK.bg3, border: `1px solid ${c}55`, borderRadius: 7, padding: '4px 10px', fontSize: 11.5 }}>
                   <b style={{ color: TK.slate200 }}>{s.market === 'KR' ? '🇰🇷' : '🇺🇸'} {s.name}</b>
                   <span style={{ color: TK.sub, fontSize: 10, fontFamily: 'monospace', fontWeight: 700 }}>{s.ticker}</span>
                   <b style={{ color: c }}>{s.icon} {s.label}</b>
+                  {clash && <b style={{ color: s.kind === 'buy' ? TK.red400 : TK.green400, fontSize: 10, borderLeft: `1px solid ${TK.border}`, paddingLeft: 5 }}>{clashTxt}</b>}
                 </span>
               )
             })}

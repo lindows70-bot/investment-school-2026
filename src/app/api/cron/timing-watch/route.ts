@@ -25,7 +25,7 @@ const YSEC_TO_ROT: Record<string, string> = {
 }
 
 export type WatchKind = 'buy' | 'sell'
-export interface WatchSig { ticker: string; name: string; market: 'KR' | 'US'; kind: WatchKind; icon: string; label: string; detail: string }
+export interface WatchSig { ticker: string; name: string; market: 'KR' | 'US'; kind: WatchKind; icon: string; label: string; detail: string; fund?: 'SELL' | 'BUY' | null }  // fund=Jarvis 펀더 판정(서빙 라우트에서 개인화 주입 — 타점 WHEN vs 펀더 WHAT 모순 방지)
 export interface WatchResult { asOf: string; prevDate: string | null; scanned: number; sigs: WatchSig[] }
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
