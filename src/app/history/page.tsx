@@ -232,13 +232,21 @@ export default function HistoryPage() {
       }
       setInvestments(invs)
 
-      // ── 3. 현재가 조회 (미실현 손익 계산용) ──────────────────────────────────
-      if (invs.length > 0) {
+      // ── 3. 현재가 조회 (미실현 손익 + 👻타임머신 복기용) ─────────────────────
+      //    ⚠️ 보유 종목만 조회하면 '전량 매도' 종목이 현재가 폴백(매도가)으로 전부 +0.0% 가짜 판정 →
+      //    매도 거래 티커까지 합집합으로 요청(복기가 가장 필요한 게 전량 매도 종목)
+      const priceTargets = new Map<string, { ticker: string; market: Market }>()
+      invs.forEach((i: Investment) => priceTargets.set(i.ticker.toUpperCase(), { ticker: i.ticker, market: i.market }))
+      txList.filter(t => t.type === 'sell').forEach(t => {
+        const k = t.ticker.toUpperCase()
+        if (!priceTargets.has(k)) priceTargets.set(k, { ticker: t.ticker, market: t.market })
+      })
+      if (priceTargets.size > 0) {
         try {
           const res = await fetch('/api/stock-price', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(invs.map((i: Investment) => ({ ticker: i.ticker, market: i.market }))),
+            body: JSON.stringify(Array.from(priceTargets.values())),
           })
           if (res.ok) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any

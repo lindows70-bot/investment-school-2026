@@ -53,9 +53,10 @@ export default function TimeMachineNote({ sellHistory, priceMap }: Props) {
   )
 
   // ── 팩트 폭행 코멘트 생성기 ──────────────────────────────────────────────────
-  const factBomb = (snap: SnapshotData | null | undefined, missed: boolean): string => {
+  const factBomb = (snap: SnapshotData | null | undefined, missed: boolean, hasNow: boolean): string => {
     const peg = snap?.peg
     if (peg == null) return '당시 기록된 PEG 지표가 없어 정밀 복기는 어렵지만, 분류·성장률 기록은 보존되어 있습니다.'
+    if (!hasNow) return `당시 PEG ${peg.toFixed(2)} 기록 — 현재가를 아직 못 받아 결과(방어/기회비용) 복기는 가격 수신 후 가능합니다.`
     if (missed && peg < 1.0)
       return `[뼈 아픈 실책] 매도 당시 PEG ${peg.toFixed(2)}로 저평가 구간이었습니다. 가치의 열매가 맺히기 전에 섣부른 매도로 큰 수익을 놓쳤습니다.`
     if (!missed && peg > 1.5)
@@ -93,12 +94,15 @@ export default function TimeMachineNote({ sellHistory, priceMap }: Props) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {records.map(tx => {
           const cur     = tx.currency
-          const nowPrice = priceMap[tx.ticker.toUpperCase()] ?? tx.price
+          // ⚠️ 현재가 미수신 시 매도가 폴백 금지 — 전량 매도 종목이 전부 '+0.0% 방어 성공' 가짜 판정이 되던 버그
+          const nowRaw  = priceMap[tx.ticker.toUpperCase()]
+          const hasNow  = typeof nowRaw === 'number' && nowRaw > 0
+          const nowPrice = hasNow ? nowRaw : tx.price
           const diff    = nowPrice - tx.price
           const missed  = diff > 0                          // 팔고 올랐으면 기회비용
           const cost    = Math.abs(diff * tx.quantity)
           const diffPct = tx.price > 0 ? (diff / tx.price) * 100 : 0
-          const accent  = missed ? TK.red400 : TK.emerald400
+          const accent  = hasNow ? (missed ? TK.red400 : TK.emerald400) : TK.sub4
           const snap    = tx.snapshot_data
 
           return (
@@ -116,19 +120,21 @@ export default function TimeMachineNote({ sellHistory, priceMap }: Props) {
                     </span>
                   </div>
                   <div style={{ fontSize: 12, color: TK.sub4, marginTop: 5, fontFamily: 'monospace' }}>
-                    매도가 {fmt(tx.price, cur)} → 현재가 <span style={{ color: accent, fontWeight: 700 }}>{fmt(nowPrice, cur)}</span>
+                    매도가 {fmt(tx.price, cur)} → 현재가 <span style={{ color: accent, fontWeight: 700 }}>{hasNow ? fmt(nowPrice, cur) : '미확인'}</span>
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5, fontSize: 13, fontWeight: 800, color: accent }}>
-                    {missed ? '📈 기회비용 발생' : '🛡 하락 방어 성공'}
+                    {!hasNow ? '⏳ 현재가 미확인' : missed ? '📈 기회비용 발생' : '🛡 하락 방어 성공'}
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: accent, marginTop: 3, fontFamily: 'monospace' }}>
-                    {diffPct >= 0 ? '+' : ''}{diffPct.toFixed(1)}%
-                  </div>
-                  <div style={{ fontSize: 10, color: TK.sub4, marginTop: 1 }}>
-                    {missed ? '놓친 수익' : '방어한 손실'} {fmt(cost, cur)}
-                  </div>
+                  {hasNow && <>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: accent, marginTop: 3, fontFamily: 'monospace' }}>
+                      {diffPct >= 0 ? '+' : ''}{diffPct.toFixed(1)}%
+                    </div>
+                    <div style={{ fontSize: 10, color: TK.sub4, marginTop: 1 }}>
+                      {missed ? '놓친 수익' : '방어한 손실'} {fmt(cost, cur)}
+                    </div>
+                  </>}
                 </div>
               </div>
 
@@ -144,7 +150,7 @@ export default function TimeMachineNote({ sellHistory, priceMap }: Props) {
                   <span>예상성장률 <strong style={{ color: TK.amber400 }}>{snap?.growth_rate != null ? `${snap.growth_rate.toFixed(1)}%` : '—'}</strong></span>
                 </div>
                 <div style={{ fontSize: 12, color: '#b8c0d8', lineHeight: 1.7, borderLeft: '2px solid #6366f1', paddingLeft: 12, fontStyle: 'italic' }}>
-                  &ldquo;{factBomb(snap, missed)}&rdquo;
+                  &ldquo;{factBomb(snap, missed, hasNow)}&rdquo;
                 </div>
               </div>
             </div>
