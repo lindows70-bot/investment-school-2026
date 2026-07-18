@@ -187,7 +187,7 @@ export async function GET(req: Request) {
 
   // 🛒 이 계절 우대 섹터 매수 후보 — macro-ai-picks가 적재한 공유 스크리너 캐시 재사용(추가 fetch 0)
   const heldSet = new Set(stocks.map(r => r.ticker.replace(/\.(KS|KQ)$/i, '')))
-  const screened = await getCache<ScreenedStock[]>('macro-screened-universe:v8', 8 * 24 * 3600_000)
+  const screened = await getCache<ScreenedStock[]>('macro-screened-universe:v9', 8 * 24 * 3600_000)
   const buyCandidates = (screened ?? [])
     .filter(s => s.sector != null && meta.favored.includes(s.sector) && !heldSet.has(s.ticker.replace(/\.(KS|KQ)$/i, '')))
     .sort((a, b) => b.score - a.score)

@@ -60,8 +60,8 @@ export interface ScreenedStock {
   price:        number | null
   currency:     'USD' | 'KRW'
   score:        number          // 퀀트 최종 점수 (높을수록 선호) — 통합추천 외 소비자(macro-ai-picks·season·alpha) 공용
-  valueScore:   number          // 💎 가치(저평가) 축 0~1 = PEG 점수(기저효과 가드 포함) — 통합추천 5축 분해용
-  qualityScore: number          // 🏰 퀄리티(재무 건전성) 축 0~1 = 수익성(마진)+현금(FCF)+이익질 — 통합추천 5축 분해용
+  valueScore:   number          // 💎 가치 축 0~1 = PEG(촘촘) 50% + 어닝일드(E/P) 25% + FCF수익률 25% — 통합추천 5축
+  qualityScore: number          // 🏰 퀄리티 축 0~1 = 영업이익률 30% + ROE 30% + 저부채(재무안정성) 25% + 이익질 15% — 통합추천 5축
   flags:        string[]        // 경고 플래그 (탈락 아님, LLM 컨텍스트)
   // 📈 모멘텀 SSOT (Fwd EPS 성장 + 최근 주가 추세) — 사이클 방향
   momentumScore: number         // 0~100 (Fwd EPS 0.6 + 가격추세 0.4)
@@ -816,12 +816,27 @@ async function screenOne(
       : fcfNegOcfOk ? 0.4                                          // 영업현금 흑자인데 CAPEX로 FCF 적자 = 완화(좀비 아님)
       : (fcf != null ? (fcf > 0 ? 0.7 : 0.2) : 0.6)               // FCF·OCF 다 적자=0.2 / 시총만 없으면 부호 / 아예 모르면 0.6
     const score = Math.round((lynchW * 0.35 + pegScore * 0.35 + marginScore * 0.2 + fcfScore * 0.1) * 1000) / 1000
-    // 💎 가치·🏰 퀄리티 분해(통합추천 5축용) — 이중계산 방지: 가치=PEG(저평가), 퀄리티=수익성·현금·이익질
-    //   금융주는 마진·FCF 무의미 → 퀄리티 중립. 이익-현금 괴리(qualityGap)면 이익질 의심으로 감점.
-    const valueScore = pegScore
-    const qualityScore = isFin ? 0.55
-      : qualityGap ? Math.min(marginScore, fcfScore) * 0.5
-      : marginScore * 0.55 + fcfScore * 0.45
+    // 💎 가치·🏰 퀄리티 다지표 분해(통합추천 5축용) — 추가 fetch 0(financialData에 ROE·부채비율·PER 이미 포함).
+    //   가치=성장·이익·현금 3각도 / 퀄리티=수익성·자본효율·재무안정성·이익질 4각도. 이중계산 방지(가치=밸류, 퀄리티=펀더).
+    // ── 💎 가치: PEG(촘촘·포화 제거) 50% + 어닝일드(E/P) 25% + FCF수익률 25% ──
+    const per = numf(sd.trailingPE) ?? numf(ks.forwardPE)
+    const earnYield = (per != null && per > 0) ? 100 / per : null   // 이익수익률(E/P %) — 이익 대비 가격(높을수록 쌈)
+    const eyScore = earnYield == null ? 0.4 : earnYield >= 8 ? 1.0 : earnYield >= 5 ? 0.7 : earnYield >= 3 ? 0.45 : earnYield > 0 ? 0.2 : 0.3
+    const fcfValScore = fcfYield == null ? 0.4 : fcfYield >= 6 ? 1.0 : fcfYield >= 4 ? 0.8 : fcfYield >= 2 ? 0.6 : fcfYield >= 0 ? 0.4 : 0.15
+    // PEG 촘촘: 0.5→1.0·1.0→0.71·1.5→0.41·2.0→0.12(기존 saturate[≤1.67 만점] 대체) / 기저효과·PEG 없으면 어닝일드로
+    const pegGrad = isPegBaseEffect(peg, earnGrowth) ? 0.5
+      : (peg != null && peg > 0 ? Math.min(1, Math.max(0, (2.2 - peg) / 1.7)) : (earnYield != null ? eyScore : 0.4))
+    const valueScore = Math.round((pegGrad * 0.50 + eyScore * 0.25 + fcfValScore * 0.25) * 1000) / 1000
+    // ── 🏰 퀄리티: 영업이익률 30% + ROE(자본효율) 30% + 저부채(재무안정성) 25% + 이익질(현금전환) 15% ──
+    const roe = numf(fd.returnOnEquity)   // 소수(0.20=20%) — 버핏 핵심 자본효율
+    const roeScore = roe == null ? 0.4 : roe >= 0.20 ? 1.0 : roe >= 0.15 ? 0.8 : roe >= 0.10 ? 0.6 : roe >= 0.05 ? 0.35 : roe > 0 ? 0.2 : 0
+    const de = numf(fd.debtToEquity)      // 부채비율(%) — 낮을수록 안전(빚으로 부풀린 ROE 상쇄)
+    const safetyScore = de == null ? 0.5 : de <= 30 ? 1.0 : de <= 80 ? 0.8 : de <= 150 ? 0.55 : de <= 250 ? 0.3 : 0.1
+    const cashQualScore = qualityGap ? 0.05 : fcfNegOcfOk ? 0.6 : fcfPositive ? 1.0 : 0.3   // 이익→현금 전환의 질
+    // 금융주: 부채=원재료·FCF 무의미 → 수익성·ROE만(이자보상배율·총마진 가드와 동일 철학)
+    const qualityScore = isFin
+      ? Math.round((marginScore * 0.4 + roeScore * 0.6) * 1000) / 1000
+      : Math.round((marginScore * 0.30 + roeScore * 0.30 + safetyScore * 0.25 + cashQualScore * 0.15) * 1000) / 1000
 
     // 📈 모멘텀(Fwd EPS·가격추세) — 추가 fetch 0, 별도 축으로 노출(downstream 4축 채점·칼날 제외)
     const mom = computeMomentum(ks, fd, sd, price, q?.earningsTrend?.trend ?? [])
