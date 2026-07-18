@@ -27,6 +27,8 @@ const YSEC_TO_ROT: Record<string, string> = {
 export type WatchKind = 'buy' | 'sell'
 export interface WatchSig { ticker: string; name: string; market: 'KR' | 'US'; kind: WatchKind; icon: string; label: string; detail: string; fund?: 'SELL' | 'BUY' | null }  // fund=Jarvis 펀더 판정(서빙 라우트에서 개인화 주입 — 타점 WHEN vs 펀더 WHAT 모순 방지)
 export interface WatchResult { asOf: string; prevDate: string | null; scanned: number; sigs: WatchSig[] }
+// 📋 신호 성적표(#2) 적립 엔트리 — changes는 당일분 덮어쓰기라 별도 누적 스토어에 append
+export interface SignalHistEntry { date: string; src: 'timing'; ticker: string; name: string; market: 'KR' | 'US'; kind: WatchKind; label: string }
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
@@ -123,6 +125,20 @@ export async function GET(req: Request) {
     // 🔴 매도·경계 먼저(방어), 🟢 매수 다음
     sigs.sort((a, b) => (a.kind === 'sell' ? 0 : 1) - (b.kind === 'sell' ? 0 : 1))
     await setCache('timing-watch-changes-v2', { asOf: new Date().toISOString(), prevDate: prev.date, scanned: list.length, sigs } satisfies WatchResult)
+    // 📋 신호 성적표(#2) 이력 적립 — 같은 날 재실행 중복 방지 + 상한 2,000건(FIFO)
+    if (sigs.length) {
+      try {
+        const hist = (await getCache<SignalHistEntry[]>('signal-history-v1', 400 * 86400_000)) ?? []
+        const seen = new Set(hist.filter(h => h.date === today).map(h => `${h.ticker}:${h.market}:${h.kind}`))
+        for (const s of sigs) {
+          const k = `${s.ticker}:${s.market}:${s.kind}`
+          if (seen.has(k)) continue
+          seen.add(k)
+          hist.push({ date: today, src: 'timing', ticker: s.ticker, name: s.name, market: s.market, kind: s.kind, label: s.label })
+        }
+        await setCache('signal-history-v1', hist.slice(-2000))
+      } catch { /* graceful — 적립 실패해도 워처 본연 기능은 유지 */ }
+    }
   }
   await setCache('timing-watch-latest-v2', { date: today, snap, names } satisfies WatchSnap)
 
