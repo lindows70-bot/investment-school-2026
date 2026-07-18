@@ -121,6 +121,17 @@ export default function CorrelationRadar() {
         ))}
       </div>
 
+      {/* 위험자산 수렴 경고 스트립 — 전체 평균이 낮아도(달러·채권 헤지 상쇄) 위험자산끼리 수렴 시 */}
+      {data.riskConverge && (
+        <div style={{ background: `${TK.amber400}12`, border: `1px solid ${TK.amber400}55`, borderRadius: 10, padding: '9px 13px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13 }}>🔥</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: TK.amber400 }}>위험자산 수렴</span>
+          <span style={{ fontSize: 11.5, color: TK.slate200 }}>
+            주식·금·BTC끼리 평균 <b>{fmt(data.riskMeanRecent)}</b>로 동조(평시 {fmt(data.riskMeanBaseline)}) — 지금 분산은 <b style={{ color: TK.green400 }}>💵 달러·채권 헤지</b>가 상쇄해 살아있다. 이 축이 없으면 분산 취약.
+          </span>
+        </div>
+      )}
+
       {/* 상관 히트맵 2개 */}
       <div style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 12, display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
         <Matrix axes={data.axes} m={data.matrixBaseline} title={`평시 (${data.baselineDays}일)`} />

@@ -25,6 +25,9 @@ export interface CorrRadarResult {
   meanRecent: number | null       // 최근 10쌍 평균 상관(높을수록 분산 약화)
   meanBaseline: number | null
   meanDelta: number | null
+  riskMeanRecent: number | null   // 위험자산(주식·금·BTC) 3쌍 평균 상관(최근)
+  riskMeanBaseline: number | null
+  riskConverge: boolean           // 위험자산끼리 강하게 수렴(≥0.5) — 전체 평균이 낮아도 경고
   hySpread: number | null
   hySpike: number | null
   alert: CorrAlert
@@ -61,7 +64,7 @@ function pearson(x: number[], y: number[]): number | null {
 }
 
 export async function GET(req: Request) {
-  const cacheKey = `correlation-radar-v1:${kstDate()}`
+  const cacheKey = `correlation-radar-v2:${kstDate()}`
   const cached = await getCache<CorrRadarResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -130,6 +133,14 @@ export async function GET(req: Request) {
     if (w.ok) { const j = await w.json(); hySpread = typeof j.hySpread === 'number' ? j.hySpread : null; hySpike = typeof j.hySpike === 'number' ? j.hySpike : null }
   } catch { /* graceful */ }
 
+  // ⭐ 위험자산 클러스터(주식·금·BTC)만의 평균 상관 — 전체 평균이 낮아도(달러·채권 헤지가 상쇄)
+  //    위험자산끼리 수렴 중이면 "달러 없으면 분산 취약"을 드러낸다(초록 요약이 수렴을 가리는 것 방지)
+  const RISK = new Set(['stock', 'gold', 'btc'])
+  const riskPairs = pairs.filter(p => RISK.has(p.a) && RISK.has(p.b))
+  const riskMeanRecent = mean(riskPairs.map(p => p.recent))
+  const riskMeanBaseline = mean(riskPairs.map(p => p.baseline))
+  const riskConverge = riskMeanRecent != null && riskMeanRecent >= 0.50
+
   // 경보 판정(결정론)
   let alert: CorrAlert = 'calm'
   if (meanRecent != null && meanDelta != null) {
@@ -138,22 +149,27 @@ export async function GET(req: Request) {
   }
 
   const pct = (x: number | null) => x == null ? '—' : (x >= 0 ? '+' : '') + Math.round(x * 100) + '%'
+  const riskTail = riskConverge ? ` — 단 위험자산(주식·금·BTC)은 서로 수렴 중(평균 ${pct(riskMeanRecent)})` : ''
   const headline =
     alert === 'converging' ? `⚠️ 상관 수렴 — 자산군이 함께 움직이기 시작(평균 상관 ${pct(meanBaseline)}→${pct(meanRecent)})`
-    : alert === 'watch' ? `🟡 상관 상승 조짐 — 분산 효과가 약해지는 중(평균 ${pct(meanRecent)})`
-    : `🟢 분산 정상 — 자산군이 제각각 움직임(평균 상관 ${pct(meanRecent)})`
+    : alert === 'watch' ? `🟡 상관 상승 조짐 — 분산 효과가 약해지는 중(평균 ${pct(meanRecent)})${riskTail}`
+    : `🟢 전체 분산 정상(평균 상관 ${pct(meanRecent)})${riskTail || ' — 자산군이 제각각 움직임'}`
   const crisisCtx = hySpread != null && hySpread >= 4.0 ? ' 신용 스프레드도 높아 위기 맥락 보강.' : ''
+  const riskNote = riskConverge
+    ? ` ⚠️ 단, 주식·금·BTC 위험자산끼리는 이미 강하게 동조(평균 ${pct(riskMeanRecent)}·평시 ${pct(riskMeanBaseline)}) — 지금 분산이 살아있는 건 달러(UUP)·채권이 반대로 움직여 상쇄하기 때문이다. 이 헤지 축이 없으면 분산이 취약하다.`
+    : ''
   const note =
     alert === 'converging'
       ? `위기엔 주식·채권·금·코인이 함께 떨어져 "분산됐다"는 착시가 깨진다.${crisisCtx} 달러(UUP)만 오르는지 확인 — 진짜 헤지는 현금·달러일 수 있다. ⛔ 기계적 현금화 아님, 비중·리스크 점검 신호.`
       : alert === 'watch'
-      ? '자산군 간 상관이 평시보다 오르는 중 — 분산 방어력이 줄고 있다. 신규 편입 시 상관 낮은 축(달러·금)을 함께 보라.'
-      : '주식·채권·금·달러·코인이 서로 다른 방향으로 움직여 분산이 살아있다. 위기 땐 이 상관이 1로 수렴하는지 감시.'
+      ? `자산군 간 상관이 평시보다 오르는 중 — 분산 방어력이 줄고 있다. 신규 편입 시 상관 낮은 축(달러·금)을 함께 보라.${riskNote}`
+      : `주식·채권·금·달러·코인이 서로 다른 방향으로 움직여 전체 분산은 살아있다. 위기 땐 이 상관이 1로 수렴하는지 감시.${riskNote}`
 
   const result: CorrRadarResult = {
     asOf: new Date().toISOString(),
     axes: AXES, matrixRecent, matrixBaseline, pairs,
     meanRecent, meanBaseline, meanDelta,
+    riskMeanRecent, riskMeanBaseline, riskConverge,
     hySpread, hySpike, alert, headline, note,
     commonDays: common.length, recentDays, baselineDays,
   }
