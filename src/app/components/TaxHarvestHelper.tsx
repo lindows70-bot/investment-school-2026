@@ -128,6 +128,7 @@ export default function TaxHarvestHelper() {
               ))}
             </tbody>
           </table>
+          <div style={{ fontSize: 10.5, color: TK.sub2, marginTop: 8 }}>※ 각 행은 그 종목 <b>단독 실행 기준</b> — 여러 종목을 함께 익절할 땐 합산 이익이 여유 한도({fmtW(d.roomKrw)})를 넘지 않게 조절하세요.</div>
         </div>
       )}
 

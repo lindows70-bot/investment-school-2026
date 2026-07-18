@@ -149,7 +149,8 @@ export async function GET(req: Request) {
       const maxQty = Math.floor(roomKrw / perShareGainKrw)
       if (maxQty >= 1) gainHarvest.push({
         ticker: m.ticker, name: m.name, perShareGainKrw,
-        maxQty: Math.min(maxQty, m.qty), useKrw: Math.min(unrealizedKrw, roomKrw),
+        // 소수점 매매 보유(2.9685주 등) — 표시용으로 소수 2자리 절사
+        maxQty: Math.floor(Math.min(maxQty, m.qty) * 100) / 100, useKrw: Math.min(unrealizedKrw, roomKrw),
       })
     }
   }
