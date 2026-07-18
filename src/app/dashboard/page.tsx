@@ -43,6 +43,7 @@ import AiRebalancePanel           from '@/app/components/AiRebalancePanel'
 import QuantBuilderLab            from '@/app/components/QuantBuilderLab'
 import MarketCatalystBanner       from '@/app/components/MarketCatalystBanner'
 import TimingWatchBanner          from '@/app/components/TimingWatchBanner'
+import DilutionAlertBanner        from '@/app/components/DilutionAlertBanner'
 import PortfolioTimeMachine       from '@/app/components/PortfolioTimeMachine'
 import CoinLab                     from '@/app/components/CoinLab'
 import AlphaHunter                 from '@/app/components/AlphaHunter'
@@ -1575,6 +1576,7 @@ export default function DashboardPage() {
       {/* 🔔 오늘의 타점 신호(어제 대비 매수/매도 전환 — 신호등·라쉬케·스퀴즈·매물평단·섹터이탈) — 변화 없으면 자동 숨김 */}
       <ErrorBoundary label="타점 전환 알림">
         <TimingWatchBanner />
+        <DilutionAlertBanner />
       </ErrorBoundary>
 
       {/* 🤖 Jarvis 모닝 포트폴리오 처방전 (2단계) — 아침에 가장 먼저 보는 AI 비서 브리핑 */}
