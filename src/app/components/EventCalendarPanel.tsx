@@ -69,7 +69,7 @@ export default function EventCalendarPanel({ compact }: { compact?: boolean }) {
 
       {/* ① 타임라인 */}
       {data.events.length === 0 ? (
-        <div style={{ fontSize: 12, color: TK.sub4 }}>향후 90일 내 예정된 실적·배당 이벤트가 없습니다{data.krNoEarnings ? ' (한국 종목 실적 발표일은 무료 소스 미제공)' : ''}.</div>
+        <div style={{ fontSize: 12, color: TK.sub4 }}>향후 90일 내 예정된 실적·배당 이벤트가 없습니다{data.krNoEarnings ? ' (일부 한국 종목은 실적일 미제공)' : ''}.</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {data.events.slice(0, 14).map((e, i) => {
@@ -122,7 +122,8 @@ export default function EventCalendarPanel({ compact }: { compact?: boolean }) {
       )}
 
       <div style={{ fontSize: 10, color: TK.sub2, lineHeight: 1.6 }}>
-        ⚠️ 실적 발표일은 기업이 수시로 변경합니다(±수일) · 한국 종목 실적일은 무료 소스 미제공 ·
+        ⚠️ 실적 발표일은 기업이 수시로 변경합니다(±수일){data.krNoEarnings ? ' · 일부 한국 종목은 실적일 미제공' : ''} ·
+        배당락·지급일은 다음 일정이 공시된 종목만 표시(공시 전엔 안 보임) ·
         월별 배당은 지난 12개월 지급 이력의 투영(증배·감배·일정 변경 미반영)이며 환율은 현재 기준 추정 · 교육·참고용.
       </div>
     </div>
