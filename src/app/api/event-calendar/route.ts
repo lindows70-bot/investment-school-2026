@@ -51,7 +51,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `event-calendar-v1:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `event-calendar-v2:${user.id}:${kstDate()}:${fp}`   // v2: 연배당을 stock-info SSOT로(대시보드 KPI와 통일 — Yahoo dividendRate는 ETF 분배금 누락)
   const cached = await getCache<EventCalendarResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -96,12 +96,28 @@ export async function GET(req: Request) {
     for (;;) {
       const h = queue.shift(); if (!h) break
       const fx = h.market === 'KR' ? 1 : usdKrw
+
+      // 💰 연배당 = stock-info SSOT(제2원칙 — 대시보드 KPI '월간 예상 배당금'과 동일 출처.
+      //    Yahoo summaryDetail.dividendRate는 ETF 분배금이 null이라 두 화면이 3배 어긋나던 원인)
+      let rate: number | null = null            // 주당 연 배당(현지 통화)
+      let yieldPct: number | null = null
+      try {
+        const si = await fetch(`${base}/api/stock-info?ticker=${encodeURIComponent(h.ticker)}&market=${h.market}`, { signal: AbortSignal.timeout(20_000) })
+        if (si.ok) {
+          const f = (await si.json())?.fundamentals
+          const ad = Number(f?.annualDividend)
+          if (isFinite(ad) && ad > 0) rate = ad
+          const dy = Number(f?.dividendYield)
+          if (isFinite(dy) && dy > 0) yieldPct = Math.round((dy > 1 ? dy : dy * 100) * 100) / 100
+        }
+      } catch { /* graceful — 배당 없음 처리 */ }
+
       const symbols = h.market === 'KR' ? [`${h.ticker}.KS`, `${h.ticker}.KQ`] : [h.ticker]
       for (const sym of symbols) {
         try {
-          const qs = await yf.quoteSummary(sym, { modules: ['calendarEvents', 'summaryDetail'] }, { validateResult: false })
-          const cal = qs?.calendarEvents, sd = qs?.summaryDetail
-          if (!cal && !sd) continue
+          const qs = await yf.quoteSummary(sym, { modules: ['calendarEvents'] }, { validateResult: false })
+          const cal = qs?.calendarEvents
+          if (!cal) continue
           // 🎯 어닝(주식만)
           if (h.isStock) {
             const ed = cal?.earnings?.earningsDate
@@ -112,10 +128,7 @@ export async function GET(req: Request) {
               if (h.market === 'KR') krEarningsFound = true
             }
           }
-          // 💰 배당락·지급일 + 연 배당
-          const rate = typeof sd?.dividendRate === 'number' && sd.dividendRate > 0 ? sd.dividendRate : null
-          const yieldPct = typeof sd?.dividendYield === 'number' && sd.dividendYield > 0
-            ? Math.round((sd.dividendYield > 1 ? sd.dividendYield : sd.dividendYield * 100) * 100) / 100 : null
+          // 💰 배당락·지급일(날짜는 Yahoo calendarEvents 담당)
           for (const [field, type] of [['exDividendDate', 'exDiv'], ['dividendDate', 'payDiv']] as const) {
             const v = cal?.[field]
             const ms = v ? new Date(v).getTime() : NaN
@@ -125,11 +138,7 @@ export async function GET(req: Request) {
             }
           }
           if (rate != null) {
-            divHoldings.push({
-              ticker: h.ticker, name: h.name, market: h.market, quantity: h.qty,
-              annualPerShare: rate, annualKrw: Math.round(rate * h.qty * fx), yieldPct,
-            })
-            // 💵 월별 투영 — 최근 12개월 지급 이력을 다음 해 같은 달로
+            // 💵 월별 투영 — 최근 12개월 지급 이력을 다음 해 같은 달로(Yahoo 심볼 성공 시 best-effort)
             try {
               const ch = await yf.chart(sym, { period1: oneYearAgo, period2: new Date(), events: 'div' }, { validateResult: false })
               const divsRaw = ch?.events?.dividends
@@ -148,6 +157,11 @@ export async function GET(req: Request) {
           break   // 심볼 폴백 성공 시 종료
         } catch { /* 다음 심볼 폴백 */ }
       }
+      // 연간 배당 집계는 Yahoo 심볼 해석과 무관하게(stock-info SSOT — KR ETF 등 Yahoo 미해석 종목 포함)
+      if (rate != null) divHoldings.push({
+        ticker: h.ticker, name: h.name, market: h.market, quantity: h.qty,
+        annualPerShare: rate, annualKrw: Math.round(rate * h.qty * fx), yieldPct,
+      })
     }
   }))
 
