@@ -19,6 +19,16 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
+    // 주요 자산군을 한 렌즈로 — 전체 자산군 밸런스(주식·채권·부동산·코인)를 위한 진입점
+    title: '💎 자산군', color: '#d4af37',
+    items: [
+      { href: '/research',              icon: '📈', label: '주식' },
+      { href: '/bonds',                 icon: '📜', label: '채권' },
+      { href: '/real-estate',           icon: '🏠', label: '부동산' },
+      { href: '/dashboard?tab=coinlab', icon: '🪙', label: '암호화폐' },
+    ],
+  },
+  {
     title: '💼 내 자산', color: TK.blue500,
     items: [
       { href: '/assets',  icon: '💼', label: '자산 관리' },

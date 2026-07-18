@@ -681,7 +681,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search)
     const t = sp.get('tab')
-    const ALLOW = new Set(['rebalance', 'moneyflow', 'rotation', 'marks', 'season', 'quantbuilder'])
+    const ALLOW = new Set(['rebalance', 'moneyflow', 'rotation', 'marks', 'season', 'quantbuilder', 'coinlab'])
     if (t && ALLOW.has(t)) setDashTab(t as 'rebalance')
     const v = sp.get('view')
     const FLOW = new Set(['mine', 'market', 'investor', 'reco', 'unified', 'leverage'])
