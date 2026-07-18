@@ -71,6 +71,12 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
     return () => { alive = false }
   }, [])
 
+  // 사이드바 딥링크(?cv=btc|alt|stable|stocks)로 초기 뷰 진입 — 암호화폐 하위 4메뉴
+  useEffect(() => {
+    const cv = new URLSearchParams(window.location.search).get('cv')
+    if (cv === 'btc' || cv === 'alt' || cv === 'stable' || cv === 'stocks') setView(cv)
+  }, [])
+
   if (loading) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: TK.sub, fontSize: 12 }}>🪙 코인 랩 — 사이클·심리·온체인·유동성 데이터를 모으는 중…</div>
   if (!d) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: TK.sub, fontSize: 12 }}>코인 데이터를 불러오지 못했습니다 — 잠시 후 새로고침해주세요.</div>
 

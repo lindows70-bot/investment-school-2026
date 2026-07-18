@@ -63,7 +63,10 @@ const GROUPS: NavGroup[] = [
   {
     title: '🪙 암호화폐', color: TK.btcOrange,
     items: [
-      { href: '/dashboard?tab=coinlab', icon: '🪙', label: '코인 랩' },
+      { href: '/dashboard?tab=coinlab&cv=btc',    icon: '₿', label: '비트코인' },
+      { href: '/dashboard?tab=coinlab&cv=alt',    icon: '🔷', label: '알트코인' },
+      { href: '/dashboard?tab=coinlab&cv=stable', icon: '💵', label: '스테이블코인' },
+      { href: '/dashboard?tab=coinlab&cv=stocks', icon: '🏢', label: '코인 관련 주식' },
     ],
   },
   {
