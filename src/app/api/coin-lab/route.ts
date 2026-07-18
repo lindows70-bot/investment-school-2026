@@ -230,13 +230,13 @@ async function buildCorrelation(): Promise<CoinLabResult['correlation']> {
   return {
     labels: syms.map(s => s[0]), matrix,
     window: `${common[0]} ~ ${common[common.length - 1]} (5년·일별 수익률)`,
-    note: '1.0에 가까울수록 같이 움직임. 비트코인이 나스닥(기술주)과 상관이 높고 금과는 낮다면, 코인은 &lsquo;디지털 금&rsquo;보다 &lsquo;고위험 기술주&rsquo;처럼 유동성·위험선호에 반응한다는 뜻입니다.',
+    note: '1.0에 가까울수록 같이 움직임. 비트코인이 나스닥(기술주)과 상관이 높고 금과는 낮다면, 코인은 ‘디지털 금’보다 ‘고위험 기술주’처럼 유동성·위험선호에 반응한다는 뜻입니다.',
     series,
   }
 }
 
 export async function GET(req: Request) {
-  const cacheKey = 'coin-lab-v15'   // v15: 사이클 정렬을 달력 연도(침체 연도 1/1)로 — 실제 고점(2017-12·2021-11) 직후 침체와 정합
+  const cacheKey = 'coin-lab-v16'   // v16: note·macroNote의 HTML 엔티티(&lsquo;/&rsquo;)를 실제 곡선 따옴표로(JS 문자열은 엔티티 미디코드 → 리터럴 노출 버그)
   const cached = await getCache<CoinLabResult>(cacheKey, 3600_000)   // 1h
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -338,7 +338,7 @@ export async function GET(req: Request) {
     m2: Math.round(o.v),                          // 미국 M2 통화량($10억 단위, ≈21000 = $21T)
     btc: Math.round(btcMonthly.get(o.date)!),     // 비트코인 가격($)
   }))
-  const macroNote = '좌축 = 미국 M2 통화량 · 우축 = 비트코인 가격(각자 스케일). M2는 완만히 우상향(연 ~3%)하고, 비트코인은 그 유동성 위에서 훨씬 크게 출렁입니다 — 돈이 풀리면 먼저 오르고 죄면 먼저 빠지는 &lsquo;고베타 유동성 자산&rsquo;.'
+  const macroNote = '좌축 = 미국 M2 통화량 · 우축 = 비트코인 가격(각자 스케일). M2는 완만히 우상향(연 ~3%)하고, 비트코인은 그 유동성 위에서 훨씬 크게 출렁입니다 — 돈이 풀리면 먼저 오르고 죄면 먼저 빠지는 ‘고베타 유동성 자산’.'
 
   // ── 처방(국면×리스크 사이징 — 매수 지시 아님) ──────────────────
   let tone: 'accumulate' | 'caution' | 'neutral' = 'neutral'
