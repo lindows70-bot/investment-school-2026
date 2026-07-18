@@ -59,7 +59,9 @@ export interface ScreenedStock {
   qualityGap:   boolean         // ⚠️ 이익-현금 괴리(영업흑자인데 FCF 적자) = 이익의 질 의심
   price:        number | null
   currency:     'USD' | 'KRW'
-  score:        number          // 퀀트 최종 점수 (높을수록 선호)
+  score:        number          // 퀀트 최종 점수 (높을수록 선호) — 통합추천 외 소비자(macro-ai-picks·season·alpha) 공용
+  valueScore:   number          // 💎 가치(저평가) 축 0~1 = PEG 점수(기저효과 가드 포함) — 통합추천 5축 분해용
+  qualityScore: number          // 🏰 퀄리티(재무 건전성) 축 0~1 = 수익성(마진)+현금(FCF)+이익질 — 통합추천 5축 분해용
   flags:        string[]        // 경고 플래그 (탈락 아님, LLM 컨텍스트)
   // 📈 모멘텀 SSOT (Fwd EPS 성장 + 최근 주가 추세) — 사이클 방향
   momentumScore: number         // 0~100 (Fwd EPS 0.6 + 가격추세 0.4)
@@ -814,13 +816,19 @@ async function screenOne(
       : fcfNegOcfOk ? 0.4                                          // 영업현금 흑자인데 CAPEX로 FCF 적자 = 완화(좀비 아님)
       : (fcf != null ? (fcf > 0 ? 0.7 : 0.2) : 0.6)               // FCF·OCF 다 적자=0.2 / 시총만 없으면 부호 / 아예 모르면 0.6
     const score = Math.round((lynchW * 0.35 + pegScore * 0.35 + marginScore * 0.2 + fcfScore * 0.1) * 1000) / 1000
+    // 💎 가치·🏰 퀄리티 분해(통합추천 5축용) — 이중계산 방지: 가치=PEG(저평가), 퀄리티=수익성·현금·이익질
+    //   금융주는 마진·FCF 무의미 → 퀄리티 중립. 이익-현금 괴리(qualityGap)면 이익질 의심으로 감점.
+    const valueScore = pegScore
+    const qualityScore = isFin ? 0.55
+      : qualityGap ? Math.min(marginScore, fcfScore) * 0.5
+      : marginScore * 0.55 + fcfScore * 0.45
 
     // 📈 모멘텀(Fwd EPS·가격추세) — 추가 fetch 0, 별도 축으로 노출(downstream 4축 채점·칼날 제외)
     const mom = computeMomentum(ks, fd, sd, price, q?.earningsTrend?.trend ?? [])
     if (mom.fwdEpsDir === 'decline') flags.push('이익 역성장(하강 사이클)')
     if (mom.knife) flags.push('주가 급락 추세(falling knife)')
 
-    return { ticker, name, market, sector, lynchCategory: lynch, peg, opMargin, fcfPositive, fcfYield, qualityGap, price, currency, score, flags, ...mom }
+    return { ticker, name, market, sector, lynchCategory: lynch, peg, opMargin, fcfPositive, fcfYield, qualityGap, price, currency, score, valueScore, qualityScore, flags, ...mom }
   } catch { return null }
 }
 

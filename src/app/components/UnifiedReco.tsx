@@ -8,7 +8,7 @@ import TradePlanCard from '@/app/components/TradePlanCard'
 import { TK } from '@/lib/theme'
 
 const CARD = TK.bg6, BORDER = TK.border
-const AX = { season: TK.amber500, fund: TK.green500, supply: TK.blue400, momentum: TK.violet400 }  // 계절/펀더멘탈/수급/모멘텀 축 색
+const AX = { season: TK.amber500, value: TK.green500, quality: '#2dd4bf', supply: TK.blue400, momentum: TK.violet400 }  // 가치/퀄리티/모멘텀/수급/계절 축 색
 const fmtWon = (w: number) => w >= 1e8 ? `${(w / 1e8).toFixed(1)}억원` : `${Math.round(w / 1e4)}만원`
 
 function MiniBar({ label, score, color, unknown }: { label: string; score: number; color: string; unknown?: boolean }) {
@@ -43,12 +43,13 @@ function Item({ it, portfolioKrw }: { it: UnifiedRecoItem; portfolioKrw: number 
           <span style={{ color: TK.sub, fontSize: 10 }}>통합</span>
         </span>
       </div>
-      {/* 투명 4축 — 계절·가치·수급·모멘텀(Fwd EPS·주가추세) */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
-        <MiniBar label="🌦️ 계절" score={it.seasonScore} color={AX.season} />
-        <MiniBar label="💎 가치" score={it.fundScore} color={AX.fund} />
-        <MiniBar label={it.supplyProxy ? '💰 수급*' : '💰 수급'} score={it.supplyScore} color={AX.supply} unknown={!it.supplyKnown} />
+      {/* 투명 5축 — 가치·퀄리티·모멘텀·수급·계절 */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+        <MiniBar label="💎 가치" score={it.valueScore} color={AX.value} />
+        <MiniBar label="🏰 퀄리티" score={it.qualityScore} color={AX.quality} />
         <MiniBar label="📈 모멘텀" score={it.momentumScore} color={AX.momentum} />
+        <MiniBar label={it.supplyProxy ? '💰 수급*' : '💰 수급'} score={it.supplyScore} color={AX.supply} unknown={!it.supplyKnown} />
+        <MiniBar label="🌦️ 계절" score={it.seasonScore} color={AX.season} />
       </div>
       {/* 💰 권장 편입 금액 + 배지 */}
       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 6, alignItems: 'center' }}>
@@ -95,7 +96,7 @@ export default function UnifiedReco() {
     return () => { alive = false; window.removeEventListener('portfolio-updated', load) }
   }, [])
 
-  if (loading) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: TK.sub }}>🎯 계절·펀더멘탈·수급·모멘텀 4축을 융합해 통합 추천을 계산 중입니다…</div>
+  if (loading) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: TK.sub }}>🎯 가치·퀄리티·모멘텀·수급·계절 5축을 융합해 통합 추천을 계산 중입니다…</div>
   if (!data) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: TK.sub }}>통합 추천 데이터를 불러오지 못했습니다.</div>
   if (data.warming || data.items.length === 0) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: TK.sub }}>🎯 추천 유니버스를 준비 중입니다. 거시경제 AI 추천 탭을 한 번 열어 데이터를 적재한 뒤 다시 시도해 주세요.</div>
 
@@ -105,13 +106,13 @@ export default function UnifiedReco() {
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'linear-gradient(135deg,rgba(245,158,11,0.10),rgba(96,165,250,0.06))', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12, padding: '12px 16px' }}>
         <span style={{ fontSize: 18 }}>🎯</span>
         <div>
-          <div style={{ color: TK.amber500, fontWeight: 800, fontSize: 12, marginBottom: 3 }}>통합 추천 — 계절 × 가치 × 수급 × 모멘텀 융합</div>
+          <div style={{ color: TK.amber500, fontWeight: 800, fontSize: 12, marginBottom: 3 }}>통합 추천 — 가치 × 퀄리티 × 모멘텀 × 수급 × 계절 융합</div>
           <div style={{ color: TK.sub5, fontSize: 12, lineHeight: 1.6 }}>
-            4계절(매크로 방향)·가치(저PEG·마진·FCF)·수급(스마트머니)·모멘텀(Fwd EPS·주가추세)을 <b>하나의 점수</b>로 합칩니다. 네 축이 모두 높은 종목이 최상위 — 왜 추천됐는지 소점수로 투명하게 보여줍니다.
-            여기에 🧭 <b>섹터 로테이션 시계 국면</b>을 소폭 가점·감점(주도 +4 ~ 이탈 −3)으로 반영 — 돈이 도는 섹터의 종목이 동점권에서 앞섭니다.
+            💎가치(저평가·PEG)·🏰퀄리티(수익성·현금·이익질)·📈모멘텀(Fwd EPS·주가추세)·💰수급(스마트머니)·🌦️계절(매크로)을 <b>하나의 점수</b>로 합칩니다. <b>펀더멘탈(가치+퀄리티 45%)이 앵커</b>이고 수급·모멘텀은 가볍게 — 다섯 축이 모두 높은 종목이 최상위. 왜 추천됐는지 소점수로 투명하게.
+            여기에 🧭 <b>섹터 로테이션 국면</b>을 소폭 가점·감점(주도 +4 ~ 이탈 −3)으로 반영 — 돈이 도는 섹터의 종목이 동점권에서 앞섭니다.
           </div>
           <div style={{ color: TK.sub2, fontSize: 11, marginTop: 4 }}>
-            통합 = 🌦️ 계절 {Math.round(data.weights.season * 100)}% + 💎 가치 {Math.round(data.weights.fund * 100)}% + 💰 수급 {Math.round(data.weights.supply * 100)}% + 📈 모멘텀 {Math.round(data.weights.momentum * 100)}%
+            통합 = 💎 가치 {Math.round(data.weights.value * 100)}% + 🏰 퀄리티 {Math.round(data.weights.quality * 100)}% + 📈 모멘텀 {Math.round(data.weights.momentum * 100)}% + 💰 수급 {Math.round(data.weights.supply * 100)}% + 🌦️ 계절 {Math.round(data.weights.season * 100)}%
             {data.usSeason && <> · 🇺🇸 {data.usSeason.label.split(' ')[0]} · 🇰🇷 {data.krSeason.label.split(' ')[0]}</>}
           </div>
           {data.selectionRule && <div style={{ color: TK.sub, fontSize: 10.5, marginTop: 3 }}>📋 선별 기준: {data.selectionRule} → 총 <b style={{ color: TK.slate300 }}>{data.items.length}종</b></div>}
@@ -130,7 +131,7 @@ export default function UnifiedReco() {
       </div>
 
       <div style={{ color: TK.sub8, fontSize: 10.5, lineHeight: 1.6 }}>
-        ※ 통합 점수 = 계절 적합(현재 매크로 계절의 우대 섹터/분류) + 펀더멘탈 가치(린치가중·PEG·영업이익률·FCF) + 수급(연료). 최종 선별 종목은 🏰 <b>버핏 퀄리티</b>(고ROE 자본효율)·📈 <b>Fwd EPS 모멘텀</b>(애널리스트 이익추정 상·하향)으로 심화 검증해 배지로 표시합니다. <b>수급*</b>는 미국 종목으로, 외국인/기관 실수급이 없어 MFI·내부자·13F 거인 <b>프록시</b>입니다(한국은 외인/기관/개인 실수급). PEG는 stock-info SSOT 기준. 보유 종목은 제외했습니다. 교육용 시뮬레이션이며 투자 추천이 아닙니다.
+        ※ 통합 점수 = 💎가치(저평가 PEG) + 🏰퀄리티(영업이익률·FCF 현금창출력·이익질) + 📈모멘텀(Fwd EPS·주가추세) + 💰수급(연료) + 🌦️계절(매크로 우대 섹터/분류). 펀더멘탈(가치+퀄리티)이 45%로 앵커입니다. 최종 선별 종목은 ⚙️ <b>ROIC 복리기계</b>·📈 <b>Fwd EPS 리비전</b>으로 심화 검증해 배지로 표시합니다. <b>수급*</b>는 미국 종목으로, 외국인/기관 실수급이 없어 MFI·내부자·13F 거인 <b>프록시</b>입니다(한국은 외인/기관/개인 실수급). PEG는 stock-info SSOT 기준. 보유 종목은 제외했습니다. 교육용 시뮬레이션이며 투자 추천이 아닙니다.
       </div>
     </div>
   )

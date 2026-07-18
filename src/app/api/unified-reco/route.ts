@@ -23,13 +23,15 @@ const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0,
 const code6 = (t: string) => t.replace(/\.(KS|KQ)$/i, '').replace(/\D/g, '').padStart(6, '0').slice(-6)
 const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
 
-// 축 가중치 — 방향(펀더멘탈)이 가장 무겁게(앱 철학: 수급은 연료, 방향은 펀더멘탈)
-// 📈 모멘텀(Fwd EPS·가격추세)을 4번째 가중축으로 — "가장 중요" 철학 반영(펀더와 공동 최고)
-const W = { season: 0.20, fund: 0.30, supply: 0.20, momentum: 0.30 }
+// 축 가중치 — 펀더멘탈(가치+퀄리티)을 앵커로(앱 철학: Get Rich Slowly·확정적으로 잃지 않게·WHAT은 펀더멘탈)
+// 5축: 💎가치(저평가)·🏰퀄리티(재무건전성)·📈모멘텀·💰수급(연료)·🌦️계절(매크로).
+// 🏰퀄리티를 5번째 축으로 승격(2026-07-18) — 기존엔 가치축에 마진으로만 묻혀 실효 ~6%. 방어적 앱에 가장 중요.
+// 수급 20→15(연료는 가볍게)·모멘텀 30→20(모멘텀 크래시 위험·앱 자체 감지)·펀더멘탈(가치25+퀄리티20)=45% 앵커.
+const W = { season: 0.20, value: 0.25, quality: 0.20, supply: 0.15, momentum: 0.20 }
 
 export interface UnifiedRecoItem {
   ticker: string; name: string; market: string; sector: string; lynchCategory: string
-  seasonScore: number; fundScore: number; supplyScore: number; momentumScore: number; combined: number
+  seasonScore: number; valueScore: number; qualityScore: number; supplyScore: number; momentumScore: number; combined: number
   fwdEpsDir: 'accel' | 'flat' | 'decline' | 'unknown'   // 📈 Fwd EPS 사이클 방향
   priceTrend: 'up' | 'side' | 'down' | 'unknown'        // 📉 최근 주가 추세
   fwdGrowthPct: number | null; priceVs200: number | null
@@ -61,7 +63,7 @@ export interface UnifiedRecoResult {
   asOf: string
 }
 
-// 펀더멘탈 점수(0~100) — screenOne score 합(최상위 ~1.0) ×100
+// 축 점수(0~100) — screenOne valueScore·qualityScore(0~1) ×100
 const fundOf = (s: number) => clamp(s * 100)
 
 // KR 수급 점수(0~100) — 외인/기관 5일 + 쌍끌이 + 개인 이탈(메이저가 받는 구조)
@@ -98,12 +100,12 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v26:${user.id}:${kstDate()}:${fp}`   // v26: ⚠️ 모멘텀 크래시 국면 캐비엇(승패 해부실 12-1 역전 플래그 재사용·점수 불변)
+  const cacheKey = `unified-reco-v27:${user.id}:${kstDate()}:${fp}`   // v27: 🏰 퀄리티 5번째 축 승격(계절20·가치25·퀄리티20·수급15·모멘텀20) — 펀더멘탈 앵커화
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // base 유니버스 — macro-ai-picks가 적재한 전체 채점 캐시(없으면 빈 결과 graceful)
-  const screened = await getCache<ScreenedStock[]>('macro-screened-universe:v7', 8 * 24 * 3600_000)
+  const screened = await getCache<ScreenedStock[]>('macro-screened-universe:v8', 8 * 24 * 3600_000)
   if (!screened || screened.length === 0) {
     return NextResponse.json({ weights: W, usSeason: null, krSeason: null, items: [], asOf: new Date().toISOString(), warming: true }, { headers: { 'Cache-Control': 'no-store' } })
   }
@@ -210,7 +212,7 @@ export async function GET(req: Request) {
   }
 
   // ③ 계절+펀더멘탈 즉시 채점(전체) → US는 상위만 수급 fetch
-  type Pre = { s: ScreenedStock; quad: Quadrant; seasonScore: number; fundScore: number; momentumScore: number; knife: boolean; isKr: boolean; favored: boolean; waveOverride: boolean }
+  type Pre = { s: ScreenedStock; quad: Quadrant; seasonScore: number; valueScore: number; qualityScore: number; momentumScore: number; knife: boolean; isKr: boolean; favored: boolean; waveOverride: boolean }
   const pre: Pre[] = screened
     .filter(s => !held.has(s.market === 'KR' ? code6(s.ticker) : s.ticker.toUpperCase()))
     .map(s => {
@@ -219,11 +221,12 @@ export async function GET(req: Request) {
       const h: Holding = { ticker: s.ticker, weight: 0, lynchCategory: s.lynchCategory as Holding['lynchCategory'], sector: s.sector ?? undefined }
       const { score: seasonScore, overridden: waveOverride } = adjustedSeason(holdingFit(h, quad), s, isKr ? krDiverge : usDiverge)
       const favored = s.sector != null && SEASON_META[quad].favored.includes(s.sector)
-      return { s, quad, seasonScore, fundScore: fundOf(s.score), momentumScore: s.momentumScore ?? 50, knife: s.knife ?? false, isKr, favored, waveOverride }
+      return { s, quad, seasonScore, valueScore: fundOf(s.valueScore ?? s.score), qualityScore: fundOf(s.qualityScore ?? 0.5), momentumScore: s.momentumScore ?? 50, knife: s.knife ?? false, isKr, favored, waveOverride }
     })
 
-  // US 수급 fetch 대상 — 계절+펀더+모멘텀 상위 25만(성능 바운드)
-  const usPre = pre.filter(p => !p.isKr).sort((a, b) => (b.fundScore * 0.45 + b.seasonScore * 0.25 + b.momentumScore * 0.3) - (a.fundScore * 0.45 + a.seasonScore * 0.25 + a.momentumScore * 0.3)).slice(0, 25)
+  // US 수급 fetch 대상 — 가치+퀄리티+계절+모멘텀 상위 25만(성능 바운드·수급 제외)
+  const preRank = (p: Pre) => p.valueScore * 0.25 + p.qualityScore * 0.20 + p.seasonScore * 0.20 + p.momentumScore * 0.20
+  const usPre = pre.filter(p => !p.isKr).sort((a, b) => preRank(b) - preRank(a)).slice(0, 25)
   const usFlowMap = new Map<string, Awaited<ReturnType<typeof getMoneyFlow>>>()
   for (let i = 0; i < usPre.length; i += 5) {
     const batch = usPre.slice(i, i + 5)
@@ -265,7 +268,7 @@ export async function GET(req: Request) {
     const rot = rotationOf(p.s.sector)
     if (rot) badges.push(`🧭 ${ROT_LABEL[rot.q]}`)
     const rotTilt = rot?.tilt ?? 0
-    const combined = clamp(p.seasonScore * W.season + p.fundScore * W.fund + supplyScore * W.supply + p.momentumScore * W.momentum + rotTilt)
+    const combined = clamp(p.seasonScore * W.season + p.valueScore * W.value + p.qualityScore * W.quality + supplyScore * W.supply + p.momentumScore * W.momentum + rotTilt)
     return { p, supplyScore, supplyKnown, supplyProxy, badges, combined, rotQuad: rot?.q ?? null, rotTilt }
   })
 
@@ -319,16 +322,16 @@ export async function GET(req: Request) {
       const roeInflated = sm?.roeInflated ?? false
       const epsRevision = analyst?.revisionSignal ?? null
       let badges = [...t.badges]
-      let fundScore = t.p.fundScore
+      let valueScore = t.p.valueScore
       let combined = t.combined
       // ⚠️ 기저효과 가드(SSOT 공통 판정) — 착시 저PEG(이익 붕괴 후 회복 G>100%)는 💎 뱃지 박탈 + 경고 배지
-      //   + 가치 점수 과신 방지: 신뢰 불가한 저PEG가 가치를 인플레하므로 가치를 중립 상한(68=마진·FCF 기반만)으로 캡 후 통합 재계산
+      //   + 가치 점수 과신 방지: 신뢰 불가한 저PEG가 가치축을 인플레하므로 가치를 중립 상한(60)으로 캡 후 통합 재계산(퀄리티는 별개 축이라 불변)
       if (isPegBaseEffect(peg, cf?.growth ?? null)) {
         badges = badges.filter(b => b !== '💎 저PEG')
         badges.push('⚠️ 저PEG 기저효과 의심')
-        if (fundScore > 68) {
-          fundScore = 68
-          combined = clamp(t.p.seasonScore * W.season + fundScore * W.fund + t.supplyScore * W.supply + t.p.momentumScore * W.momentum + t.rotTilt)
+        if (valueScore > 60) {
+          valueScore = 60
+          combined = clamp(t.p.seasonScore * W.season + valueScore * W.value + t.p.qualityScore * W.quality + t.supplyScore * W.supply + t.p.momentumScore * W.momentum + t.rotTilt)
         }
       }
       // ⚙️ 자본효율 — ROIC(투하자본이익률) 우선. 없으면 ROE 폴백. + 점수(→비중) 반영: 복리 기계는 가점, 빚으로 부풀린 ROE는 감점
@@ -357,7 +360,7 @@ export async function GET(req: Request) {
       const suggestWon = Math.round(portfolioKrw * suggestWeight / 100)
       return {
         ticker: t.p.s.ticker, name: t.p.s.name, market: t.p.s.market, sector: t.p.s.sector ?? '—', lynchCategory: t.p.s.lynchCategory as string,
-        seasonScore: t.p.seasonScore, fundScore, supplyScore: t.supplyScore, momentumScore: t.p.momentumScore, combined,
+        seasonScore: t.p.seasonScore, valueScore, qualityScore: t.p.qualityScore, supplyScore: t.supplyScore, momentumScore: t.p.momentumScore, combined,
         fwdEpsDir: t.p.s.fwdEpsDir, priceTrend: t.p.s.priceTrend, fwdGrowthPct: t.p.s.fwdGrowthPct ?? null, priceVs200: t.p.s.priceVs200 ?? null,
         peg, opMargin: t.p.s.opMargin, fcfYield: t.p.s.fcfYield ?? null, qualityGap: t.p.s.qualityGap ?? false, psr: cf?.psr ?? null, roe, roic, roeInflated, epsRevision, suggestWeight, suggestWon,
         seasonFavored: t.p.favored, supplyProxy: t.supplyProxy, supplyKnown: t.supplyKnown, badges,

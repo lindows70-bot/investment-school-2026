@@ -26,7 +26,7 @@ export interface HqBriefing {
   trim: { name: string; weight: number; fit: number; market: string }[]
   sells: { name: string; market: string; action: string; pnlPct: number | null; releaseWeight: number; reason: string }[]
   sellBudget: number
-  buys: { name: string; sector: string; market: string; combined: number; seasonScore: number; fundScore: number; supplyScore: number }[]
+  buys: { name: string; sector: string; market: string; combined: number; seasonScore: number; valueScore: number; qualityScore: number; supplyScore: number }[]
   policyTilt: { tilt: 'dovish' | 'hawkish' | 'neutral'; label: string; note: string } | null   // 연준 기조(참고) — 계절 SSOT 불변
   riskChecks: { kind: 'regulation' | 'valuation' | 'moat' | 'baseEffect' | 'liquidity'; level: 'red' | 'amber'; text: string }[]   // 상황 인지 리스크 레이어(결정론적)
   model: string | null
@@ -41,7 +41,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `hq-briefing-v11:${user.id}:${kstDate()}:${fp}`   // v10: 정책기조를 FOMC 디코더 stance에 일치(매파↔비둘기 모순 차단)
+  const cacheKey = `hq-briefing-v12:${user.id}:${kstDate()}:${fp}`   // v12: 통합추천 5축(가치·퀄리티 분해) 반영 — 브리핑에 퀄리티 점수 병기
   const cached = await getCache<HqBriefing>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -84,7 +84,7 @@ export async function GET(req: Request) {
     .map(h => ({ name: h.name, market: h.market, action: h.action, pnlPct: h.pnlPct, releaseWeight: h.releaseWeight, reason: h.sellReasons?.[0] ?? '' }))
   const sellBudget = rebal?.sellBudget ?? 0
   const buys = (unified?.items ?? []).slice(0, 4)
-    .map(b => ({ name: b.name, sector: b.sector, market: b.market, combined: b.combined, seasonScore: b.seasonScore, fundScore: b.fundScore, supplyScore: b.supplyScore }))
+    .map(b => ({ name: b.name, sector: b.sector, market: b.market, combined: b.combined, seasonScore: b.seasonScore, valueScore: b.valueScore, qualityScore: b.qualityScore, supplyScore: b.supplyScore }))
 
   // ── 연준 정책 기조(참고 맥락) — 비둘기/매파 톤만 가미, 계절·국면 판정은 절대 불변 ──
   // ⚠️ 라벨 상대화(중요): 시장(FF선물·rateDir)이 동결/인상을 베팅 중인데 '완화 쪽'이라는 절대적 표현을 쓰면
@@ -155,7 +155,7 @@ export async function GET(req: Request) {
     ? sells.map(s => `${s.name}(${ACTION_KO[s.action] ?? s.action}·손익 ${s.pnlPct != null ? (s.pnlPct > 0 ? '+' : '') + s.pnlPct + '%' : '—'}·회수 ${s.releaseWeight}%${s.reason ? `·${s.reason}` : ''})`).join(', ')
     : '손익 기준 매도 신호 없음'
   const trimTxt = trim.length ? trim.map(t => `${t.name}(계절적합 ${t.fit})`).join(', ') : '없음(보유 종목 대부분 계절 적합)'
-  const buyTxt = buys.map(b => `${b.name}(${b.sector}·통합 ${b.combined}: 계절${b.seasonScore}/가치${b.fundScore}/수급${b.supplyScore})`).join('\n')
+  const buyTxt = buys.map(b => `${b.name}(${b.sector}·통합 ${b.combined}: 계절${b.seasonScore}/가치${b.valueScore}/퀄리티${b.qualityScore}/수급${b.supplyScore})`).join('\n')
   const prompt = `너는 '2026 투자학교'의 AI 포트폴리오 운용 본부장이다. 학생에게 지금 무엇을 팔고 무엇을 사야 하는지 한 편의 운용 지시로 브리핑하라.
 
 [현재 매크로 계절] ${seasonLabel}
@@ -186,7 +186,7 @@ ${buyTxt || '없음'}
     const top = buys[0], s0 = sells[0]
     briefing = `현재 ${seasonLabel} 국면이며 내 포트폴리오의 계절 정합도는 ${alignmentScore}점입니다. ` +
       (s0 ? `${s0.name}은(는) ${ACTION_KO[s0.action] ?? ''} 신호(손익 ${s0.pnlPct ?? '—'}%${s0.reason ? `·${s0.reason}` : ''})로 비중 ${s0.releaseWeight}% 회수를 검토하세요. ` : `급히 팔아야 할 손익 신호는 없습니다. `) +
-      (top ? `회수/신규 자금으로 통합 1위 ${top.name}(${top.sector}·통합 ${top.combined}점: 계절 ${top.seasonScore}·가치 ${top.fundScore}·수급 ${top.supplyScore})을 분할로 신중히 편입을 검토하세요. ` : '') +
+      (top ? `회수/신규 자금으로 통합 1위 ${top.name}(${top.sector}·통합 ${top.combined}점: 계절 ${top.seasonScore}·가치 ${top.valueScore}·퀄리티 ${top.qualityScore}·수급 ${top.supplyScore})을 분할로 신중히 편입을 검토하세요. ` : '') +
       (riskChecks.length ? `⚠️ 리스크 체크: ${riskChecks.map(r => r.text).join(' / ')} ` : '') +
       (policyTilt ? `참고로 연준 기조는 ${policyTilt.label}입니다(${policyTilt.note}). ` : '') +
       `자세한 매도 진단은 아래 ② 리밸런싱 패널을 함께 확인하세요. ※ 교육용 시뮬레이션이며 자동 체결은 하지 않습니다.`
