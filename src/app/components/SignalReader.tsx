@@ -147,7 +147,7 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   if (!verdicts.length) verdicts.push(
     f == null && fund !== 'loading'
       ? { icon: 'ℹ️', title: '펀더멘탈 데이터 없음 — 기술신호만 참고', col: TK.sub3, bg: 'transparent', body: 'ETF·신생 종목은 PEG·FCF 크로스체크가 불가합니다. 아래 교과서 신호는 참고만 하고, 지수·테마 ETF는 섹터 로테이션 화면의 자금 흐름과 함께 판단하세요.' }
-      : { icon: '〰️', title: '뚜렷한 모멘텀 이벤트 없음', col: TK.sub3, bg: 'transparent', body: `최근 5봉 내 교과서적 매수/매도 크로스가 없습니다.${adxRange ? ` ADX ${sig.adx}로 추세가 죽은 박스권이 정량 확인됨 — 이 구간에서 오실레이터 신호를 억지로 따라가면 수수료로 자산이 녹는 휩쏘(Whipsaw)에 빠집니다.` : ' 횡보 구간에서 오실레이터 신호를 억지로 따라가면 수수료로 자산이 녹는 휩쏘(Whipsaw)에 빠집니다.'} 신호가 명확해질 때까지 기다리는 것도 전략.` }
+      : { icon: '〰️', title: '뚜렷한 모멘텀 이벤트 없음', col: TK.sub3, bg: 'transparent', body: `최근 5봉 내 교과서적 매수/매도 크로스가 없습니다.${adxRange ? ` ADX ${sig.adx}로 추세 강도가 약한 박스권(방향 확신 낮음 — 정배열 등 구조 신호와 별개) — 이 구간에서 오실레이터 신호를 억지로 따라가면 수수료로 자산이 녹는 휩쏘(Whipsaw)에 빠집니다.` : ' 횡보 구간에서 오실레이터 신호를 억지로 따라가면 수수료로 자산이 녹는 휩쏘(Whipsaw)에 빠집니다.'} 신호가 명확해질 때까지 기다리는 것도 전략.` }
   )
   const v = verdicts[0]
   // ADX 추세장 보강: 이벤트 있는 판정에 추세 강도 근거 병기
@@ -291,7 +291,7 @@ export default function SignalReader({ ticker, market, candles, tf }: {
                 <span>{check(macdOk,
                   rk.macdZeroBreak != null ? `MACD 방향 — 영선 돌파(${rk.macdZeroBreak}봉 전)${rk.histRising ? '·히스토 확대' : ''}` : rk.macdGoldenBelowZero != null ? `MACD 방향 — 영선 아래 골든크로스(${rk.macdGoldenBelowZero}봉 전)` : 'MACD 방향 — 전환 신호 있음',
                   'MACD 방향 — 갓 나온 전환 신호 없음')}</span>
-                <span>{check(rsiOk, `RSI 에너지 — 50선 돌파(${rk.rsi50Break}봉 전)·매수세 장악`, rk.rsiAbove50 ? 'RSI 50 위(돌파는 10봉+ 경과)' : 'RSI 에너지 — 50 아래(매도세 우위)')}</span>
+                <span>{check(rsiOk, `RSI 에너지 — 50선 돌파(${rk.rsi50Break}봉 전)${rk.bearDivergence ? '·단기 재점화(아래 다이버전스 경고 병존 — 소진 후 반등일 수 있음)' : '·매수세 장악'}`, rk.rsiAbove50 ? 'RSI 50 위(돌파는 10봉+ 경과)' : 'RSI 에너지 — 50 아래(매도세 우위)')}</span>
                 <span>{check(rk.volBoost, '거래량 — 신호봉 1.5배+ 폭발(진짜 자금)', '거래량 — 평균 수준(확신 부족)', '거래량 데이터 없음')}</span>
               </>)}
             </div>
@@ -321,7 +321,7 @@ export default function SignalReader({ ticker, market, candles, tf }: {
                 ? <><b style={{ color: TK.orange400 }}>⚠️ 눌림목이나 직전 상승이 급등(수직)</b> — 영선 돌파 후 첫 되돌림(추세 확립: MACD 양수·RSI {sig.rsi})이지만, 직전 상승이 EMA20에서 25%+ 벌어진 수직 급등이었습니다. 라쉬케 눌림목(홀리그레일)은 <b>완만·건강한 추세</b>를 전제 — 수직 급등 뒤 첫 눌림목은 함정(추가 하락)일 수 있어 반등·거래량 확인 후 소액 접근. 손절은 위 ATR 참고선.</>
                 : <><b style={{ color: TK.green400 }}>📍 첫 번째 눌림목</b> — 라쉬케가 꼽는 안전한 진입 자리. 추세 확립(MACD 양수·RSI {sig.rsi}) 상태에서 고점 대비 {rk.pullbackPct}% 되돌림(숨 고르기). 돌파는 이미 지났으므로 &lsquo;갓 나온 크로스&rsquo; 3박자가 아니라 <b>추세 유지 3요소</b>로 확인. 손절은 위 ATR 참고선.</>)
               : rk.buyCount >= 3 ? <><b style={{ color: TK.green400 }}>3박자 완성(3/3)</b> — 방향·에너지·연료가 동시에 맞았습니다. 단 지금이 아니라 <b>첫 눌림목을 기다리는 것</b>이 라쉬케式(추격 대신 되돌림 진입).</>
-              : rk.stage >= 2 ? <>연쇄 {rk.stage}단계 진행 중(3박자 {rk.buyCount}/3) — {rk.stage === 2 ? 'RSI가 50을 넘어 에너지가 붙었고, MACD 영선 돌파(추세 확정)를 기다리는 구간.' : 'MACD가 영선을 넘어 추세가 확정 — 첫 눌림목(숨 고르기)이 오면 최적 타점.'}</>
+              : rk.stage >= 2 ? <>연쇄 {rk.stage}단계 진행 중(3박자 {rk.buyCount}/3) — {rk.stage === 2 ? 'RSI가 50을 넘어 에너지가 붙었고, MACD 영선 돌파(추세 확정)를 기다리는 구간.' : 'MACD가 영선을 넘어 추세가 확정 — 첫 눌림목(숨 고르기)이 오면 최적 타점.'}{rk.bearDivergence ? ' 단, 아래 하락 다이버전스 경고가 병존 — 스윙 고점의 에너지는 식는 중이라 연쇄가 소진 후 단순 반등으로 끝날 수 있음(신중).' : ''}</>
               : rk.stage === 1 ? <>CCI가 바닥권(−100)을 탈출한 선행 신호탄 단계 — 성급한 진입 대신 RSI 50 돌파로 에너지가 붙는지 확인.</>
               : <>매수 연쇄 신호 없음 — 라쉬케式으로는 관망 구간입니다.</>}
             </div>
