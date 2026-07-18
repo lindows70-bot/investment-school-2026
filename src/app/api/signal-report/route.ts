@@ -63,16 +63,25 @@ const closeAt = (candles: TechCandle[], date: string): number | null => {
 
 export async function GET() {
   const today = kstDate()
-  const cacheKey = `signal-report-v1:${today}`
+  const cacheKey = `signal-report-v2:${today}`   // v2: 1,000행 절단 버그 수정(페이지네이션) — v1 캐시엔 7월 신호가 통째로 누락
   const cached = await getCache<SignalReportResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // ── ① Jarvis 이력 → 이벤트 압축 ──
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
-  const { data: rows } = await admin.from('user_daily_briefings')
-    .select('base_date,ticker,stock_name,signal_type')
-    .in('signal_type', ['SELL', 'BUY'])
-    .order('base_date', { ascending: true })
+  // ⚠️ Supabase select 기본 1,000행 상한 — 브리핑은 사용자×일×종목이라 이미 1,456행(검증이 발견: 7월 신호 통째 절단)
+  //    → range 페이지네이션(안정 정렬 위해 id 보조 정렬 필수 — 동일 base_date 행이 페이지 경계에서 중복/누락 방지)
+  const rows: { base_date: string; ticker: string; stock_name: string | null; signal_type: string }[] = []
+  for (let from = 0; ; from += 1000) {
+    const { data: page } = await admin.from('user_daily_briefings')
+      .select('base_date,ticker,stock_name,signal_type')
+      .in('signal_type', ['SELL', 'BUY'])
+      .order('base_date', { ascending: true }).order('id', { ascending: true })
+      .range(from, from + 999)
+    if (!page?.length) break
+    rows.push(...page)
+    if (page.length < 1000) break
+  }
 
   // (base_date,ticker) 디듀프(여러 학생이 같은 종목 보유 — 판정은 동일)
   const daily = new Map<string, { date: string; ticker: string; name: string; type: 'SELL' | 'BUY' }>()
