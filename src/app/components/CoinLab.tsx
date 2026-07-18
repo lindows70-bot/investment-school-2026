@@ -12,6 +12,7 @@ import AltSeasonIndex from '@/app/components/AltSeasonIndex'
 import CryptoStocksPanel from '@/app/components/CryptoStocksPanel'
 import BtcRainbowChart from '@/app/components/BtcRainbowChart'
 import BtcCycleNavigator from '@/app/components/BtcCycleNavigator'
+import CryptoFundingRadar from '@/app/components/CryptoFundingRadar'
 import { TK } from '@/lib/theme'
 
 const CARD = TK.bg6, BORDER = TK.border
@@ -262,6 +263,9 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
 
       {/* 🏦 현물 ETF 순유입/유출 + 누적 거래량 — 제도권 자금(연료) */}
       <BtcEtfFlows />
+
+      {/* 🪙 펀딩비·OI 과열 레이더 — 무기한 선물 레버리지 froth */}
+      <CryptoFundingRadar />
 
       {/* ④ 네트워크 + ⑤ M2 — 2단 배치(풀폭 가로 늘어짐 해소) */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
