@@ -10,6 +10,7 @@ import {
 } from 'recharts'
 import TimeMachineNote from '@/app/components/TimeMachineNote'
 import DecisionCalibration from '@/app/components/DecisionCalibration'
+import TaxHarvestHelper from '@/app/components/TaxHarvestHelper'
 import { TK } from '@/lib/theme'
 
 type Market = 'US' | 'KR' | 'CRYPTO'
@@ -82,7 +83,7 @@ export default function HistoryPage() {
   const [priceMap,     setPriceMap]     = useState<Record<string, number>>({})
   const [loading,      setLoading]      = useState(true)
   const [usdKrw,       setUsdKrw]       = useState(1_350)
-  const [activeTab,    setActiveTab]    = useState<'transactions' | 'cashflow' | 'replay' | 'calibration'>('transactions')
+  const [activeTab,    setActiveTab]    = useState<'transactions' | 'cashflow' | 'replay' | 'calibration' | 'tax'>('transactions')
   const [filterType,   setFilterType]   = useState<'all' | 'buy' | 'sell'>('all')
 
   // USD/KRW rate — localStorage cache (1 hour TTL)
@@ -338,6 +339,7 @@ export default function HistoryPage() {
     { id: 'cashflow', label: '💰 현금 흐름' },
     { id: 'replay', label: '👻 타임머신 복기' },
     { id: 'calibration', label: '🎯 의사결정 적중률' },
+    { id: 'tax', label: '💸 절세 도우미' },
   ]
 
   const filterBtns = [
@@ -372,7 +374,7 @@ export default function HistoryPage() {
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 0 }}>
         {tabs.map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id as 'transactions' | 'cashflow' | 'replay' | 'calibration')}
+          <button key={tab.id} onClick={() => setActiveTab(tab.id as 'transactions' | 'cashflow' | 'replay' | 'calibration' | 'tax')}
             style={{
               padding: '9px 20px', borderRadius: 10, border: 'none', cursor: 'pointer',
               fontSize: 13, fontWeight: 700,
@@ -638,6 +640,9 @@ export default function HistoryPage() {
 
       {/* Tab 4: 의사결정 적중률(calibration) */}
       {activeTab === 'calibration' && <DecisionCalibration transactions={transactions} priceMap={priceMap} />}
+
+      {/* Tab 5: 💸 절세 도우미 */}
+      {activeTab === 'tax' && <TaxHarvestHelper />}
     </div>
   )
 }
