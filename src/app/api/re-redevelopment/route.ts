@@ -5,21 +5,29 @@ export const maxDuration = 60
 
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
+import stagesData from './stages.json'   // OA-22856 정비사업 추진현황(분기 xlsx 정적 스냅샷) — 추진단계·날짜·세대수
 
 const KEY = () => process.env.SEOUL_API_KEY ?? null
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 // 서울 25개 자치구(파싱 오염 필터 화이트리스트)
 const SEOUL_GU = ['종로구', '중구', '용산구', '성동구', '광진구', '동대문구', '중랑구', '성북구', '강북구', '도봉구', '노원구', '은평구', '서대문구', '마포구', '양천구', '강서구', '구로구', '금천구', '영등포구', '동작구', '관악구', '서초구', '강남구', '송파구', '강동구']
+// 정비사업 추진 7단계(표준 순서)
+const STAGE_ORDER = ['구역지정', '추진위', '조합설립', '건축심의', '사업시행', '관리처분', '착공']
 
 interface Zone { rgn: string; gu: string | null; typeGroup: string; status: string; date: string; pos: string; area: number | null }
+export interface StageProject {
+  gu: string; name: string; addr: string; type: string; typeGroup: string
+  stage: string; stageIdx: number; dZone: string; dUnion: string; dImpl: string; dMgmt: string; dStart: string; units: number | null
+}
 export interface RedevelopResult {
-  asOf: string; totalZones: number; activeZones: number
+  asOf: string; stageAsOf: string; totalZones: number; activeZones: number; stageTotal: number
   districts: { gu: string; count: number; redev: number; rebuild: number; urban: number; resid: number }[]
   typeDist: { group: string; count: number }[]
   recentNew: { rgn: string; gu: string | null; typeGroup: string; date: string; pos: string }[]
   recentCancelled: { rgn: string; gu: string | null; typeGroup: string; date: string }[]
-  zones: Zone[]   // 활성 구역(검색용)
+  stagePipeline: { stage: string; idx: number; count: number }[]   // 단계별 프로젝트 수(xlsx)
+  stageProjects: StageProject[]   // 추진 중 472 프로젝트(단계·세대수·날짜)
 }
 
 const typeGroupOf = (s: string): string =>
@@ -93,10 +101,16 @@ export async function GET() {
   const recentCancelled = zones.filter(z => ['폐지', '실효'].includes(z.status) && z.date).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12)
     .map(z => ({ rgn: z.rgn, gu: z.gu, typeGroup: z.typeGroup, date: z.date }))
 
+  // 📋 추진단계(xlsx 정적 스냅샷) — 단계별 프로젝트 수 + 472 프로젝트 목록
+  const stageProjects = (stagesData.projects ?? []) as StageProject[]
+  const spCount = new Map<string, number>()
+  for (const p of stageProjects) spCount.set(p.stage, (spCount.get(p.stage) || 0) + 1)
+  const stagePipeline = STAGE_ORDER.map((stage, i) => ({ stage, idx: i + 1, count: spCount.get(stage) || 0 }))
+
   const result: RedevelopResult = {
-    asOf: kstDate(), totalZones: zones.length, activeZones: active.length,
+    asOf: kstDate(), stageAsOf: stagesData.asOf ?? '', totalZones: zones.length, activeZones: active.length, stageTotal: stageProjects.length,
     districts, typeDist, recentNew, recentCancelled,
-    zones: active.map(z => ({ ...z })),
+    stagePipeline, stageProjects,
   }
   await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
