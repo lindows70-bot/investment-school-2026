@@ -106,10 +106,10 @@ const RATE_FALLBACK: Record<string, number> = {
 //  INDICATOR CONFIG
 // ═══════════════════════════════════════════════════════════════
 const INDICATORS = [
-  { key:'cpi',   label:'물가상승률 (CPI)', unit:'%', low:2,  high:5   },
-  { key:'unemp', label:'실업률',           unit:'%', low:4,  high:8   },
-  { key:'debt',  label:'정부부채/GDP',     unit:'%', low:60, high:120 },
-  { key:'rates', label:'기준금리',         unit:'%', low:2,  high:5   },
+  { key:'cpi',   label:'물가상승률 (CPI)', unit:'%', low:2,  high:5,   dp:1 },
+  { key:'unemp', label:'실업률',           unit:'%', low:4,  high:8,   dp:1 },
+  { key:'debt',  label:'정부부채/GDP',     unit:'%', low:60, high:120, dp:1 },
+  { key:'rates', label:'기준금리',         unit:'%', low:2,  high:5,   dp:2 },   // 기준금리는 관례상 소수 2자리(2.75%·3.63%)
 ] as const
 type IndKey = typeof INDICATORS[number]['key']
 
@@ -369,7 +369,7 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
                           strokeWidth: 2,
                         } as React.CSSProperties}
                       >
-                        {val.toFixed(1)}{cfg.unit}
+                        {val.toFixed(cfg.dp)}{cfg.unit}
                       </text>
                     )}
                   </Marker>
@@ -391,7 +391,7 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
             <div style={{ display:'flex', justifyContent:'space-between', gap:16 }}>
               <span style={{ fontSize:11, color:C.sub }}>{cfg.label}</span>
               <span style={{ fontSize:15, fontWeight:900, color:getGeoColor(hovered!), fontVariantNumeric:'tabular-nums' }}>
-                {(getVal(hovIso, ind) ?? '—')}{cfg.unit}
+                {getVal(hovIso, ind)?.toFixed(cfg.dp) ?? '—'}{cfg.unit}
               </span>
             </div>
             <div style={{ marginTop:8, paddingTop:8, borderTop:`1px solid ${C.border}`,
@@ -400,7 +400,7 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
                 const v = getVal(hovIso, i.key)
                 return (
                   <div key={i.key} style={{ fontSize:9, color:C.sub }}>
-                    {i.label.split(' ')[0]}: <span style={{ color:C.text }}>{v!=null?`${v}${i.unit}`:'—'}</span>
+                    {i.label.split(' ')[0]}: <span style={{ color:C.text }}>{v!=null?`${v.toFixed(i.dp)}${i.unit}`:'—'}</span>
                   </div>
                 )
               })}
@@ -437,7 +437,7 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
                     borderRadius:8, padding:'7px 10px', minWidth:78, textAlign:'center' as const }}>
                     <div style={{ fontSize:10, color:C.sub, marginBottom:2 }}>{COUNTRY_META[iso].ko}</div>
                     <div style={{ fontSize:14, fontWeight:900, color:col, fontVariantNumeric:'tabular-nums' }}>
-                      {(v as number).toFixed(1)}{cfg.unit}
+                      {(v as number).toFixed(cfg.dp)}{cfg.unit}
                     </div>
                   </div>
                 )
