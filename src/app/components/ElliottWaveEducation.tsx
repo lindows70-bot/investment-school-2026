@@ -105,50 +105,55 @@ export default function ElliottWaveEducation() {
     volDn: i > 0 && p.price < closes[i - 1] ? p.volume : 0,
   }))
 
-  // 📐 피보나치 격자 — 마지막 확정 상승 스윙(저점→고점)의 되돌림/확장(객관, 파동 번호 단정 아님)
+  // 📐 최근 상승 임펄스 레그 — 마지막 확정 저점(L0) → 그 이후 실제 최고가(legHigh). 미확정 고점도 포착(객관)
   const cf = confirmed
-  let fib: { levels: { y: number; lbl: string }[]; ext: number; up: boolean } | null = null
-  if (cf.length >= 2) {
-    const A = cf[cf.length - 2], B = cf[cf.length - 1]
-    const up = B.type === 'high' && A.type === 'low' && B.price > A.price
-    if (up) {
-      const retr = (r: number) => B.price - r * (B.price - A.price)
-      fib = { up, ext: A.price + 1.618 * (B.price - A.price), levels: [
-        { y: retr(0.382), lbl: '38.2%' }, { y: retr(0.5), lbl: '50%' }, { y: retr(0.618), lbl: '61.8%' },
-      ] }
+  let leg: { lowP: number; lowDate: string; highP: number; highDate: string } | null = null
+  {
+    let L0: (typeof cf)[number] | null = null
+    for (let i = cf.length - 1; i >= 0; i--) { if (cf[i].type === 'low') { L0 = cf[i]; break } }
+    if (L0) {
+      const after = pointsArr.filter(p => p.date >= L0!.date)
+      if (after.length) {
+        let hi = after[0]
+        for (const p of after) if (p.price > hi.price) hi = p
+        if (hi.price > L0.price) leg = { lowP: L0.price, lowDate: L0.date, highP: hi.price, highDate: hi.date }
+      }
     }
   }
+  // 피보나치 되돌림/확장(레그 저점→고점 기준)
+  let fib: { levels: { y: number; lbl: string }[]; ext: number } | null = null
+  if (leg) {
+    const range = leg.highP - leg.lowP
+    const retr = (r: number) => leg!.highP - r * range
+    fib = { ext: leg.lowP + 1.618 * range, levels: [
+      { y: retr(0.382), lbl: '38.2%' }, { y: retr(0.5), lbl: '50%' }, { y: retr(0.618), lbl: '61.8%' },
+    ] }
+  }
 
-  // ⭐ 융합 체크리스트 — 마지막 상승 임펄스 세팅(고점 H + 직전 저점 L0)에 4-STEP 객관 점검
+  // ⭐ 융합 체크리스트 — 상승 레그에 4-STEP 객관 점검(파동 번호 단정 아님)
   let conf: null | {
     step1: Verdict; step2: Verdict; step3: Verdict; step4: Verdict
-    retrPct: number; newHigh: boolean; pbLow: number; legAvgV: number; pbAvgV: number; overall: 'buy' | 'watch' | 'void'
+    retrPct: number; newHigh: boolean; overall: 'buy' | 'watch' | 'void'
   } = null
-  if (data && cf.length >= 2 && emaLast != null) {
-    let H: (typeof cf)[number] | null = null, L0: (typeof cf)[number] | null = null
-    for (let i = cf.length - 1; i >= 0; i--) {
-      if (cf[i].type === 'high') { H = cf[i]; for (let j = i - 1; j >= 0; j--) { if (cf[j].type === 'low') { L0 = cf[j]; break } } break }
-    }
-    if (H && L0 && L0.date < H.date && H.price > L0.price) {
-      const cur = data.current.price
-      const legRange = H.price - L0.price
-      const afterH = pointsArr.filter(p => p.date > H.date)
-      const pbLow = afterH.length ? Math.min(...afterH.map(p => p.price)) : cur
-      const newHigh = cur > H.price
-      const retrPct = Math.round(((H.price - pbLow) / legRange) * 1000) / 10
-      const legVols = pointsArr.filter(p => p.date >= L0!.date && p.date <= H!.date).map(p => p.volume).filter(v => v > 0)
-      const pbVols = afterH.map(p => p.volume).filter(v => v > 0)
-      const legAvgV = legVols.length ? legVols.reduce((a, b) => a + b, 0) / legVols.length : 0
-      const pbAvgV = pbVols.length ? pbVols.reduce((a, b) => a + b, 0) / pbVols.length : 0
-      const step1: Verdict = cur > emaLast ? 'pass' : 'fail'
-      const step2: Verdict = newHigh ? 'na' : retrPct > 100 ? 'fail' : retrPct >= 38.2 && retrPct <= 61.8 ? 'pass' : retrPct >= 23.6 && retrPct <= 78.6 ? 'watch' : 'watch'
-      const step3: Verdict = legAvgV > 0 && pbAvgV > 0 ? (pbAvgV < legAvgV ? 'pass' : 'watch') : 'na'
-      const step4: Verdict = pbLow > L0.price ? 'pass' : 'fail'
-      const overall: 'buy' | 'watch' | 'void' =
-        step1 === 'fail' || step4 === 'fail' || step2 === 'fail' ? 'void'
-          : step1 === 'pass' && step4 === 'pass' && (step2 === 'pass' || step2 === 'na') && step3 !== 'watch' ? 'buy' : 'watch'
-      conf = { step1, step2, step3, step4, retrPct, newHigh, pbLow, legAvgV, pbAvgV, overall }
-    }
+  if (data && leg && emaLast != null) {
+    const cur = data.current.price
+    const range = leg.highP - leg.lowP
+    const afterHigh = pointsArr.filter(p => p.date > leg!.highDate)
+    const pbLow = afterHigh.length ? Math.min(...afterHigh.map(p => p.price)) : cur
+    const newHigh = cur >= leg.highP - 1e-9
+    const retrPct = Math.round(((leg.highP - cur) / range) * 1000) / 10   // 현재 되돌림 깊이
+    const legVols = pointsArr.filter(p => p.date >= leg!.lowDate && p.date <= leg!.highDate).map(p => p.volume).filter(v => v > 0)
+    const pbVols = afterHigh.map(p => p.volume).filter(v => v > 0)
+    const legAvgV = legVols.length ? legVols.reduce((a, b) => a + b, 0) / legVols.length : 0
+    const pbAvgV = pbVols.length ? pbVols.reduce((a, b) => a + b, 0) / pbVols.length : 0
+    const step1: Verdict = cur > emaLast ? 'pass' : 'fail'
+    const step2: Verdict = newHigh ? 'na' : retrPct > 100 ? 'fail' : retrPct >= 38.2 && retrPct <= 61.8 ? 'pass' : 'watch'
+    const step3: Verdict = legAvgV > 0 && pbAvgV > 0 ? (pbAvgV < legAvgV ? 'pass' : 'watch') : 'na'
+    const step4: Verdict = pbLow > leg.lowP ? 'pass' : 'fail'
+    const overall: 'buy' | 'watch' | 'void' =
+      step1 === 'fail' || step4 === 'fail' || step2 === 'fail' ? 'void'
+        : step1 === 'pass' && step4 === 'pass' && (step2 === 'pass' || step2 === 'na') && step3 !== 'watch' ? 'buy' : 'watch'
+    conf = { step1, step2, step3, step4, retrPct, newHigh, overall }
   }
 
   return (
