@@ -81,6 +81,49 @@ function IdealWaveDiagram() {
   )
 }
 
+// 🔭 프랙탈 위치 지도 — 대세(장기) 파동 속 현재 위치 + 5X 확대하면 소파동(현재 차트의 1-5-A-B)
+function FractalPositionMap() {
+  // 소파동(확대 원 안) 1-5-A-B-C zigzag 좌표 + 라벨
+  const sub: [number, number, string, boolean][] = [
+    [438, 178, '', true], [462, 128, '1', true], [476, 152, '2', true], [504, 88, '3', true],
+    [518, 116, '4', true], [546, 58, '5', true], [568, 104, 'A', false], [586, 78, 'B', false], [604, 132, 'C', false],
+  ]
+  return (
+    <svg viewBox="0 0 660 250" style={{ width: '100%', height: 'auto', display: 'block' }}>
+      <defs>
+        <clipPath id="fracCircle"><circle cx="515" cy="118" r="94" /></clipPath>
+        <radialGradient id="fracGlow"><stop offset="0%" stopColor="#4ade80" stopOpacity="0.85" /><stop offset="100%" stopColor="#4ade80" stopOpacity="0" /></radialGradient>
+      </defs>
+      {/* baseline */}
+      <line x1="18" y1="224" x2="360" y2="224" stroke="#3a4152" strokeWidth="1" />
+      {/* 대세 1파 (bold rising) */}
+      <path d="M26 212 C140 212 215 120 322 62" fill="none" stroke={TK.amber400} strokeWidth="4" strokeLinecap="round" />
+      {/* faint future 2파?(미래·가정) */}
+      <path d="M322 62 L352 100 L366 56" fill="none" stroke={TK.sub} strokeWidth="1.6" strokeDasharray="4 4" opacity="0.5" />
+      <text x="360" y="118" fill={TK.sub} fontSize="9" opacity="0.7">2파?(미래)</text>
+      {/* 현재 marker */}
+      <circle cx="322" cy="62" r="17" fill="url(#fracGlow)" />
+      <circle cx="322" cy="62" r="5.5" fill={TK.green400} stroke="#0f1117" strokeWidth="1.5" />
+      <text x="322" y="42" fill={TK.slate200} fontSize="12.5" fontWeight="800" textAnchor="middle">현재 · 대세 1파</text>
+      <text x="150" y="205" fill={TK.amber400} fontSize="12" fontWeight="800">대세(장기) 파동 ↑</text>
+      <text x="150" y="219" fill={TK.sub} fontSize="9.5">콘드라티예프(기술혁신 50~60년) · AI 사이클</text>
+      {/* magnifier fan */}
+      <line x1="205" y1="128" x2="428" y2="56" stroke={TK.blue300} strokeWidth="1" strokeDasharray="3 3" opacity="0.5" />
+      <line x1="322" y1="62" x2="428" y2="180" stroke={TK.blue300} strokeWidth="1" strokeDasharray="3 3" opacity="0.5" />
+      {/* 확대 원 */}
+      <circle cx="515" cy="118" r="94" fill="rgba(96,165,250,0.05)" stroke={TK.blue300} strokeWidth="2" strokeOpacity="0.55" />
+      <text x="515" y="32" fill={TK.blue300} fontSize="11" fontWeight="800" textAnchor="middle">🔍 5X 확대 — 프랙탈 소파동</text>
+      <g clipPath="url(#fracCircle)">
+        <polyline points={sub.map(p => `${p[0]},${p[1]}`).join(' ')} fill="none" stroke="#38bdf8" strokeWidth="2.4" />
+        {sub.filter(p => p[2]).map((p, i) => (
+          <text key={i} x={p[0]} y={p[1] > 118 ? p[1] + 15 : p[1] - 8} fill={'12345'.includes(p[2]) ? TK.green400 : TK.red400} fontSize="11" fontWeight="800" textAnchor="middle">{p[2]}</text>
+        ))}
+      </g>
+      <text x="515" y="230" fill={TK.sub} fontSize="9.5" textAnchor="middle">= 지금 차트의 1·2·3·4·5·A·B·C 잔파동</text>
+    </svg>
+  )
+}
+
 // 융합 체크리스트 단계 상태 배지
 type Verdict = 'pass' | 'watch' | 'fail' | 'na'
 const VC: Record<Verdict, { c: string; t: string }> = {
@@ -376,6 +419,19 @@ export default function ElliottWaveEducation() {
               )}
               <div style={{ color: TK.sub, fontSize: 9.5, marginTop: 5, lineHeight: 1.5 }}>
                 ⓘ 이 라벨은 <b>객관 알고리즘</b>(최저 저점 기점 + ZigZag {pct}% 스윙)이 매긴 <b>추정 카운트</b>이지 공식·확정 카운트가 아닙니다. 같은 차트를 분석가마다 다르게 셀 수 있으므로 규칙 검증과 함께 &lsquo;확률적 참고&rsquo;로만 보세요.
+              </div>
+            </div>
+
+            {/* 🔭 프랙탈 위치 — 대세 파동 속 현재(사용자 통찰: 지금은 큰 1파, 잔파동은 프랙탈) */}
+            <div style={{ marginTop: 10, background: TK.bg3, borderRadius: 10, border: `1px solid ${BORDER}`, padding: '10px 12px' }}>
+              <div style={{ color: TK.slate200, fontWeight: 800, fontSize: 12, marginBottom: 2 }}>🔭 프랙탈 위치 — 지금 나스닥은 &lsquo;대세 파동&rsquo;의 어디인가?</div>
+              <div style={{ color: TK.sub, fontSize: 10, marginBottom: 6 }}>큰 그림에선 이 상승 전체가 한 개의 큰 파동 · 확대하면 잔파동(프랙탈)</div>
+              <FractalPositionMap />
+              <div style={{ color: TK.sub5, fontSize: 10.5, lineHeight: 1.6, marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div>① 위 <b>degree를 &lsquo;큰 13%&rsquo;</b>로 보면 2023년 이후 상승 <b>전체가 사실상 한 개의 큰 파동</b>입니다(객관 — 스윙이 3개로 합쳐짐).</div>
+                <div>② <b style={{ color: TK.amber400 }}>콘드라티예프(기술혁신 50~60년) 장기 상승 + AI 사이클</b> 관점에선, 그 큰 파동이 <b>대세 1파(또는 3파)의 초입</b>일 수 있습니다 — 위 &lsquo;경제 파동 중첩 시뮬레이터&rsquo;의 콘드라티예프 상승과 같은 맥락.</div>
+                <div>③ 그 <b>대세 1파를 5X 확대</b>하면 = 위 실제 차트의 <b style={{ color: TK.blue300 }}>1-5-A-B-C 잔파동</b>(프랙탈·자기 유사성). <b>큰 흐름의 방향을 알아야 잔파동에서 길을 잃지 않습니다.</b></div>
+                <div style={{ color: TK.sub, fontSize: 9.5 }}>※ 대세 &lsquo;몇 파동&rsquo;인지는 관점(가설)이며 미래 단정이 아닙니다 — degree를 바꿔 큰 그림↔잔파동을 오가며 직접 확인하세요.</div>
               </div>
             </div>
 
