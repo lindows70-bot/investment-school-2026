@@ -113,7 +113,7 @@ export default function ElliottWaveEducation() {
             {/* 범례 — 실제 주가(얇게) vs 파동 골격(스윙 연결) */}
             <div style={{ display: 'flex', gap: 14, alignItems: 'center', fontSize: 10, color: TK.sub, marginBottom: 6, flexWrap: 'wrap' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{ width: 18, height: 2, background: TK.slate500, opacity: 0.6, display: 'inline-block' }} /> {idxName} 실제 주가(얇게)
+                <span style={{ width: 18, height: 2, background: TK.amber400, display: 'inline-block' }} /> {idxName} 실제 주가(노란선)
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                 <span style={{ width: 18, height: 3, background: TK.blue300, display: 'inline-block' }} /> 파동 골격(고점·저점 연결)
@@ -133,8 +133,8 @@ export default function ElliottWaveEducation() {
                   <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     formatter={(v: any, n: any) => [data.market === 'KR' ? `₩${Number(v).toLocaleString()}` : `$${Number(v).toFixed(1)}`, n === '파동 골격' ? '파동 골격' : data.label]} />
-                  {/* 실제 주가 — 얇고 흐릿하게(배경) */}
-                  <Line type="monotone" dataKey="price" name={data.label} stroke={TK.slate500} strokeWidth={1} strokeOpacity={0.5} dot={false} isAnimationActive={false} />
+                  {/* 실제 주가 — 노란 얇은 선(배경, 가독성 위해 노란색으로 구분) */}
+                  <Line type="monotone" dataKey="price" name={data.label} stroke={TK.amber400} strokeWidth={1.1} strokeOpacity={0.8} dot={false} isAnimationActive={false} />
                   {/* 파동 골격 — 스윙 연결 굵은 선(전경), 개념도①의 파란 파동선과 대응 */}
                   <Line type="linear" dataKey="zz" name="파동 골격" stroke={TK.blue300} strokeWidth={2.4} dot={false} connectNulls isAnimationActive={false} />
                   {confirmed.map(s => (

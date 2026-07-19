@@ -11,12 +11,12 @@ import { TK } from '@/lib/theme'
 
 const CARD = TK.bg6, BORDER = TK.border
 // 🛒 매수 후보 테이블 — 퀀트 4축(린치·PEG·영업이익률·FCF) 노출용 그리드·린치 분류 축약 라벨
-const COLS = 'minmax(84px,1.1fr) 0.75fr 38px 40px 46px 48px 62px 58px 32px'
+const COLS = 'minmax(78px,1fr) 0.65fr 36px 38px 44px 46px 150px 54px 30px'
 
-// 📈 3개월 추세 미니 스파크라인(상승=초록·하락=빨강)
-function MiniSpark({ data }: { data?: number[] }) {
+// 📈 추세 미니 스파크라인(상승=초록·하락=빨강)
+function MiniSpark({ data, w = 60, h = 22 }: { data?: number[]; w?: number; h?: number }) {
   if (!data || data.length < 2) return <span style={{ color: TK.slate500, fontSize: 9 }}>—</span>
-  const w = 60, h = 22, pad = 2
+  const pad = 2
   const min = Math.min(...data), max = Math.max(...data), rng = max - min || 1
   const up = data[data.length - 1] >= data[0]
   const col = up ? TK.green500 : TK.red400
@@ -28,6 +28,26 @@ function MiniSpark({ data }: { data?: number[] }) {
       <polyline points={pts} fill="none" stroke={col} strokeWidth="1.4" strokeLinejoin="round" />
       <circle cx={last[0]} cy={last[1]} r="1.8" fill={col} />
     </svg>
+  )
+}
+
+// 📊 1M·3M·1Y 추세 미니차트 3연 — 초단기/단기/장기 방향을 한눈에
+function TrendTriple({ ctx }: { ctx?: { spark1m?: number[]; spark3m?: number[]; spark?: number[] } | null }) {
+  if (!ctx) return <span style={{ color: TK.slate500, fontSize: 9, textAlign: 'center' }}>—</span>
+  const items = [
+    { lbl: '1M', d: ctx.spark1m },
+    { lbl: '3M', d: ctx.spark3m },
+    { lbl: '1Y', d: ctx.spark },
+  ]
+  return (
+    <div style={{ display: 'flex', gap: 7, justifyContent: 'center' }}>
+      {items.map(it => (
+        <div key={it.lbl} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+          <span style={{ fontSize: 7.5, color: TK.sub, fontWeight: 700 }}>{it.lbl}</span>
+          <MiniSpark data={it.d} w={40} h={18} />
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -324,7 +344,7 @@ export default function SeasonNavigator() {
           </div>
           {/* 헤더 — 퀀트 4축(린치·PEG·영업이익률·FCF)을 다 노출 */}
           <div style={{ display: 'grid', gridTemplateColumns: COLS, gap: 8, alignItems: 'center', padding: '0 2px 5px', borderBottom: `1px solid ${BORDER}`, color: TK.sub, fontSize: 10 }}>
-            <span>종목</span><span>섹터</span><span style={{ textAlign: 'center' }}>린치</span><span style={{ textAlign: 'right' }}>PEG</span><span style={{ textAlign: 'right' }}>영업익률</span><span style={{ textAlign: 'right' }}>FCF수익</span><span style={{ textAlign: 'center' }}>추세·3M</span><span style={{ textAlign: 'center' }}>52주</span><span style={{ textAlign: 'right' }}>점수</span>
+            <span>종목</span><span>섹터</span><span style={{ textAlign: 'center' }}>린치</span><span style={{ textAlign: 'right' }}>PEG</span><span style={{ textAlign: 'right' }}>영업익률</span><span style={{ textAlign: 'right' }}>FCF수익</span><span style={{ textAlign: 'center' }}>추세 (1M·3M·1Y)</span><span style={{ textAlign: 'center' }}>52주</span><span style={{ textAlign: 'right' }}>점수</span>
           </div>
           <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
             {data.buyCandidates.map(c => {
@@ -347,7 +367,7 @@ export default function SeasonNavigator() {
                   <span style={{ color: c.peg != null && c.peg > 0 && c.peg < 1 ? TK.green500 : TK.slate300, fontFamily: 'monospace', fontSize: 10.5, textAlign: 'right' }}>{c.peg != null ? c.peg.toFixed(2) : '—'}</span>
                   <span style={{ color: TK.slate300, fontFamily: 'monospace', fontSize: 10.5, textAlign: 'right' }}>{c.opMargin != null ? `${c.opMargin}%` : '—'}</span>
                   <span style={{ color: fcf.col, fontFamily: 'monospace', fontSize: 10.5, textAlign: 'right' }}>{fcf.t}</span>
-                  <span style={{ display: 'flex', justifyContent: 'center' }}><MiniSpark data={c.priceCtx?.spark3m} /></span>
+                  <span style={{ display: 'flex', justifyContent: 'center' }}><TrendTriple ctx={c.priceCtx} /></span>
                   <Pos52 pct={c.priceCtx?.posPct} />
                   <span style={{ color: sc, fontWeight: 800, fontSize: 12.5, fontFamily: 'monospace', textAlign: 'right' }}>{c.score}</span>
                 </div>
@@ -355,7 +375,7 @@ export default function SeasonNavigator() {
             })}
           </div>
           <div style={{ color: TK.sub8, fontSize: 10, marginTop: 8, lineHeight: 1.5 }}>
-            ※ 점수 = 린치가중 35% + PEG 35% + 영업이익률 20% + FCF 10%. 저PEG·고FCF수익률(≥5%)은 초록, FCF 현금 대비 고평가(&lt;1%)는 주황↓, 이익-현금 괴리는 빨강. 🏦금융주는 FCF 무의미(—). <b>추세·3M</b> = 최근 3개월 주봉(초록=상승·빨강=하락) · <b>52주</b> = 1년 밴드 내 현재 위치(0=저점·100=고점, 저점권 초록·신고가권 주황=추격 주의). 주가 예측 아님 · 위성/소형주는 10배거 헌터에서 검증.
+            ※ 점수 = 린치가중 35% + PEG 35% + 영업이익률 20% + FCF 10%. 저PEG·고FCF수익률(≥5%)은 초록, FCF 현금 대비 고평가(&lt;1%)는 주황↓, 이익-현금 괴리는 빨강. 🏦금융주는 FCF 무의미(—). <b>추세</b> = 1개월·3개월·1년 주봉 미니차트(초록=상승·빨강=하락) · <b>52주</b> = 1년 밴드 내 현재 위치(0=저점·100=고점, 저점권 초록·신고가권 주황=추격 주의). 주가 예측 아님 · 위성/소형주는 10배거 헌터에서 검증.
           </div>
         </div>
       )}
