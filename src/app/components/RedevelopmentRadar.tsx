@@ -23,6 +23,17 @@ const STAGES = [
   { key: '착공', ic: '🏗️', c: '#2dd4bf', d: '철거·착공 → 준공. 입주권이 새 아파트로 실현.' },
 ]
 const fmtDate = (d: string) => !d ? '' : d.length === 8 ? `${d.slice(0, 4)}.${d.slice(4, 6)}` : d.replace('-', '.')
+// 재건축 구역명(오금현대) → 실거래 단지 검색어(오금동 현대) — xlsx는 동 약칭, RTMS는 정식 동명이라 지번주소의 동으로 보정
+function aptQuery(name: string, addr: string): string {
+  const clean = name.replace(/\(.*?\)$/, '').trim()   // 끝 괄호(차수 등) 제거
+  const m = /^([가-힣]+(?:동|가|리))/.exec(addr || '')
+  const dong = m ? m[1] : ''
+  if (!dong) return clean
+  const abbr = dong.slice(0, -1)   // 오금동 → 오금
+  if (clean.startsWith(abbr) && clean.length > abbr.length + 1) return `${dong} ${clean.slice(abbr.length)}`   // 오금현대 → 오금동 현대
+  if (clean.startsWith(dong)) return clean   // 이미 정식 동명 포함
+  return `${dong} ${clean}`
+}
 const heat = (n: number, max: number) => {
   if (n <= 0) return TK.bg6
   const t = Math.min(1, n / (max || 1))
@@ -224,7 +235,7 @@ export default function RedevelopmentRadar() {
             : searchHits.map((p, i) => {
               const sc = STAGE_C[p.stageIdx] ?? TK.sub2
               return (
-                <div key={i} onClick={() => goApt(p.gu, p.typeGroup === '재건축' ? p.name : undefined)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 7, background: TK.bg6, cursor: 'pointer' }}>
+                <div key={i} onClick={() => goApt(p.gu, p.typeGroup === '재건축' ? aptQuery(p.name, p.addr) : undefined)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 7, background: TK.bg6, cursor: 'pointer' }}>
                   <span style={{ fontSize: 9, fontWeight: 800, color: '#1c1917', background: sc, borderRadius: 5, padding: '2px 6px', minWidth: 50, textAlign: 'center' }}>{p.stage}</span>
                   <span style={{ fontSize: 10, color: TK.sub2, minWidth: 44 }}>{p.gu}</span>
                   <span style={{ fontSize: 12, color: TK.slate200, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
