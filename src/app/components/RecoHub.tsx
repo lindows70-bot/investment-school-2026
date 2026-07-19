@@ -10,7 +10,7 @@ interface Lens { icon: string; name: string; basis: string; href: string; color:
 // 최종·종합(위계 상단) — 여러 렌즈를 합치거나 내 손익까지 반영
 const FINAL: Lens[] = [
   { icon: '🎯', name: '통합 추천', color: TK.violet400, href: '/dashboard?tab=moneyflow&view=unified',
-    basis: '가치(25%)·퀄리티(20%)·모멘텀(20%)·수급(15%)·계절(20%) 5축 종합 랭킹. 펀더멘탈(가치+퀄리티 45%)이 앵커. "여러 근거를 합치면 무엇이 좋은가"의 메인 답.' },
+    basis: '가치(25%)·퀄리티(20%)·모멘텀(20%)·주도섹터(10%)·수급(10%)·계절(15%) 6축 종합 랭킹. 펀더멘탈(가치+퀄리티 45%)이 앵커. "여러 근거를 합치면 무엇이 좋은가"의 메인 답.' },
   { icon: '🤖', name: 'AI 리밸런싱', color: TK.emerald500, href: '/dashboard?tab=rebalance',
     basis: '통합 추천 + 내 실제 손익(익절/손절 4분면) + 자산배분까지 반영해 "무엇을 빼고 무엇을 담을지" 최종 처방. 궁극의 통합 결정.' },
 ]
@@ -67,12 +67,12 @@ export default function RecoHub() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12 }}>
           <span style={{ padding: '6px 11px', borderRadius: 8, background: TK.bg1, border: `1px solid ${BORDER}`, color: TK.sub2 }}>🔍 특수 렌즈들<br /><span style={{ fontSize: 9.5, color: TK.sub4 }}>매크로·수급·가치·10배거·섹터</span></span>
           <span style={{ color: TK.sub3, fontSize: 16 }}>→</span>
-          <span style={{ padding: '6px 11px', borderRadius: 8, background: `${TK.violet400}18`, border: `1px solid ${TK.violet400}66`, color: TK.violet400, fontWeight: 700 }}>🎯 통합 추천<br /><span style={{ fontSize: 9.5, color: TK.sub3 }}>5축 종합 랭킹</span></span>
+          <span style={{ padding: '6px 11px', borderRadius: 8, background: `${TK.violet400}18`, border: `1px solid ${TK.violet400}66`, color: TK.violet400, fontWeight: 700 }}>🎯 통합 추천<br /><span style={{ fontSize: 9.5, color: TK.sub3 }}>6축 종합 랭킹</span></span>
           <span style={{ color: TK.sub3, fontSize: 16 }}>→</span>
           <span style={{ padding: '6px 11px', borderRadius: 8, background: `${TK.emerald500}18`, border: `1px solid ${TK.emerald500}66`, color: TK.emerald500, fontWeight: 700 }}>🤖 AI 리밸런싱<br /><span style={{ fontSize: 9.5, color: TK.sub3 }}>내 손익까지 = 최종</span></span>
         </div>
         <div style={{ fontSize: 11, color: TK.sub3, marginTop: 9, lineHeight: 1.6 }}>
-          각 렌즈는 <b>한 가지 각도</b>만 봅니다(그래서 1위가 서로 다른 게 정상). <b style={{ color: TK.violet400 }}>통합 추천</b>이 5축을 합치고,
+          각 렌즈는 <b>한 가지 각도</b>만 봅니다(그래서 1위가 서로 다른 게 정상). <b style={{ color: TK.violet400 }}>통합 추천</b>이 6축을 합치고,
           <b style={{ color: TK.emerald500 }}> AI 리밸런싱</b>이 내 실제 포트폴리오 손익까지 반영해 ‘무엇을 팔고 무엇을 살지’를 최종 처방합니다.
         </div>
       </div>
