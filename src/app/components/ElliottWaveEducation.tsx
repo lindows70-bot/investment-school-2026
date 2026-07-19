@@ -11,13 +11,13 @@ const CARD = TK.bg4, BORDER = TK.line3
 
 // ── 객관 지표 헬퍼(주봉) ──────────────────────────────────────────────
 // 224일 ≈ 45주 지수이동평균(EMA)
+// 차트 왼쪽 시작점부터 그리도록 index 0에서 시드(초기 구간은 워밍업 — BTC 200주선과 동일 방식)
 function ema(vals: number[], period: number): (number | null)[] {
   const k = 2 / (period + 1)
   const out: (number | null)[] = []
   let prev: number | null = null
   for (let i = 0; i < vals.length; i++) {
-    if (i < period - 1) { out.push(null); continue }
-    if (prev === null) { prev = vals.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0) / period; out.push(prev); continue }
+    if (prev === null) { prev = vals[i]; out.push(Math.round(prev * 100) / 100); continue }
     prev = vals[i] * k + prev * (1 - k); out.push(Math.round(prev * 100) / 100)
   }
   return out
@@ -75,6 +75,7 @@ export default function ElliottWaveEducation() {
   const [data, setData] = useState<ElliottEduResult | null>(null)
   const [err, setErr] = useState(false)
   const [eduOpen, setEduOpen] = useState(true)
+  const [showWave, setShowWave] = useState(true)   // 🌊 알고리즘 추정 파동 카운트 표시
 
   useEffect(() => {
     setData(null)
@@ -156,6 +157,29 @@ export default function ElliottWaveEducation() {
     conf = { step1, step2, step3, step4, retrPct, newHigh, overall }
   }
 
+  // 🌊 알고리즘 추정 엘리어트 카운트 — 구조 바닥(최저 확정 저점)에서 스윙에 1-5·A-B-C 라벨 + 3대 규칙 검증(객관)
+  const waveLabel = new Map<number, string>()
+  let waveRules: null | { r1: boolean; r2: boolean; r3: boolean; ok: boolean } = null
+  {
+    const lows = cf.filter(s => s.type === 'low')
+    const anchor = lows.length ? lows.reduce((m, s) => (s.price < m.price ? s : m)) : null
+    if (anchor) {
+      const ordered = [...cf, ...(pending ? [pending] : [])].filter(s => s.date > anchor.date).sort((a, b) => (a.date < b.date ? -1 : 1))
+      const LB = ['1', '2', '3', '4', '5', 'A', 'B', 'C']
+      ordered.forEach((s, i) => { if (i < LB.length) waveLabel.set(s.seq, LB[i]) })
+      const byLabel = (l: string) => ordered.find(s => waveLabel.get(s.seq) === l) ?? null
+      const w1 = byLabel('1'), w2 = byLabel('2'), w3 = byLabel('3'), w4 = byLabel('4'), w5 = byLabel('5')
+      if (w1 && w2 && w3 && w4 && w5) {
+        const len1 = Math.abs(w1.price - anchor.price), len3 = Math.abs(w3.price - w2.price), len5 = Math.abs(w5.price - w4.price)
+        const r1 = w2.price > anchor.price          // 2파는 1파 시작점 이하로 안 내려감
+        const r3 = w4.price > w1.price               // 4파 저점 > 1파 고점(중첩 없음)
+        const r2 = !(len3 < len1 && len3 < len5)     // 3파는 최단 아님
+        waveRules = { r1, r2, r3, ok: r1 && r2 && r3 }
+      }
+    }
+  }
+  const isImpulse = (l: string | undefined) => !!l && '12345'.includes(l)
+
   return (
     <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
@@ -172,7 +196,7 @@ export default function ElliottWaveEducation() {
       {/* ② 실제 차트 */}
       <div style={{ marginTop: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-          <span style={{ color: TK.sub8, fontSize: 11 }}>② {idxName} 실제 주봉 + 224일 EMA·피보나치 격자 — 객관 지표만(파동 번호 단정 아님)</span>
+          <span style={{ color: TK.sub8, fontSize: 11 }}>② {idxName} 실제 주봉 + 224 EMA·피보·알고리즘 추정 파동 카운트 — 규칙 검증 병기(확정 아님)</span>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
             {(['US', 'KR'] as const).map(k => (
               <button key={k} onClick={() => setMkt(k)} style={{
@@ -234,14 +258,20 @@ export default function ElliottWaveEducation() {
                   <Line type="monotone" dataKey="ma" name="224일선" stroke={TK.violet400} strokeWidth={1.4} strokeDasharray="5 3" strokeOpacity={0.85} dot={false} connectNulls isAnimationActive={false} />
                   {/* 파동 골격(스윙 연결) */}
                   <Line type="linear" dataKey="zz" name="파동 골격" stroke={TK.blue300} strokeWidth={2.4} dot={false} connectNulls isAnimationActive={false} />
-                  {confirmed.map(s => (
-                    <ReferenceDot key={s.seq} x={s.date} y={s.price} r={5} fill={s.type === 'high' ? TK.green400 : TK.red400} stroke={TK.bg3} strokeWidth={1.5}
-                      label={{ value: String(s.seq), position: s.type === 'high' ? 'top' : 'bottom', fill: TK.slate200, fontSize: 10, fontWeight: 800 }} />
-                  ))}
-                  {pending && (
-                    <ReferenceDot x={pending.date} y={pending.price} r={5} fill="none" stroke={pending.type === 'high' ? TK.green400 : TK.red400} strokeWidth={2}
-                      label={{ value: `${pending.seq}?`, position: pending.type === 'high' ? 'top' : 'bottom', fill: TK.sub, fontSize: 10, fontWeight: 800 }} />
-                  )}
+                  {confirmed.map(s => {
+                    const wl = showWave ? waveLabel.get(s.seq) : undefined
+                    return (
+                      <ReferenceDot key={s.seq} x={s.date} y={s.price} r={5} fill={s.type === 'high' ? TK.green400 : TK.red400} stroke={TK.bg3} strokeWidth={1.5}
+                        label={{ value: wl ?? String(s.seq), position: s.type === 'high' ? 'top' : 'bottom', fill: wl ? (isImpulse(wl) ? TK.green400 : TK.red400) : TK.slate200, fontSize: wl ? 13 : 10, fontWeight: 800 }} />
+                    )
+                  })}
+                  {pending && (() => {
+                    const wl = showWave ? waveLabel.get(pending.seq) : undefined
+                    return (
+                      <ReferenceDot x={pending.date} y={pending.price} r={5} fill="none" stroke={pending.type === 'high' ? TK.green400 : TK.red400} strokeWidth={2}
+                        label={{ value: wl ? `${wl}?` : `${pending.seq}?`, position: pending.type === 'high' ? 'top' : 'bottom', fill: wl ? (isImpulse(wl) ? TK.green400 : TK.red400) : TK.sub, fontSize: wl ? 12 : 10, fontWeight: 800 }} />
+                    )
+                  })()}
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
@@ -268,6 +298,44 @@ export default function ElliottWaveEducation() {
             {/* 224일 EMA 실전 해석 */}
             <div style={{ color: TK.sub, fontSize: 10, marginTop: 6, lineHeight: 1.55, background: 'rgba(167,139,250,0.06)', border: `1px solid rgba(167,139,250,0.22)`, borderRadius: 8, padding: '7px 10px' }}>
               📏 <b style={{ color: TK.violet400 }}>224일선(1년선)</b> 위 스윙만 &lsquo;의미 있는 파동&rsquo;으로 봅니다 — 1년선 아래 작은 파동은 노이즈로 걸러 <b>주관적 카운팅에 객관 기준</b>을 부여합니다. <b style={{ color: TK.green400 }}>1년선 돌파</b> = 하락 종료·새 상승 사이클 출발(제1파), 이후 <b>눌림목(2파)</b>에서 진입해 가장 강력한 <b>3파</b>를 노립니다.
+            </div>
+
+            {/* 🌊 알고리즘 추정 파동 카운트 — 3대 규칙 검증 병기(정직) */}
+            <div style={{ marginTop: 10, background: TK.bg3, borderRadius: 10, border: `1px solid ${BORDER}`, padding: '10px 12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: waveRules ? 6 : 0 }}>
+                <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 12 }}>🌊 알고리즘 추정 파동 카운트</span>
+                <span style={{ color: TK.sub, fontSize: 10 }}>구조 바닥에서 스윙에 1-5·A-B-C 라벨 (확정 아님 · 규칙 검증 병기)</span>
+                <button onClick={() => setShowWave(v => !v)} style={{
+                  marginLeft: 'auto', padding: '3px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 10.5, fontWeight: 700,
+                  background: showWave ? TK.border : 'transparent', color: showWave ? TK.slate200 : TK.sub3 }}>
+                  {showWave ? '🌊 파동 표시 ON' : '파동 표시 OFF'}
+                </button>
+              </div>
+              {waveRules ? (
+                <>
+                  <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                    {[
+                      { ok: waveRules.r1, t: '법칙1 · 2파>1파 시작점' },
+                      { ok: waveRules.r2, t: '법칙2 · 3파≠최단' },
+                      { ok: waveRules.r3, t: '법칙3 · 4파≠1파 중첩' },
+                    ].map(r => (
+                      <span key={r.t} style={{ fontSize: 10, fontWeight: 700, color: r.ok ? TK.green500 : TK.red400, background: r.ok ? 'rgba(74,222,128,0.08)' : 'rgba(248,113,113,0.08)', border: `1px solid ${r.ok ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)'}`, borderRadius: 6, padding: '3px 8px' }}>
+                        {r.ok ? '✅' : '❌'} {r.t}
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ color: waveRules.ok ? TK.green500 : TK.amber500, fontSize: 10.5, fontWeight: 700, marginTop: 6 }}>
+                    {waveRules.ok
+                      ? '🟢 3대 규칙 충족 — 유효한 카운트 후보(그래도 확정은 아님, 대체 시나리오 병행)'
+                      : '🟡 규칙 위반 — 이 카운트는 무효/재검토 필요. 실제 데이터로 기계적 카운트하면 규칙 위반이 흔합니다 = 엘리어트가 주관적인 이유(대체 카운트 필요).'}
+                  </div>
+                </>
+              ) : (
+                <div style={{ color: TK.sub, fontSize: 10, marginTop: 4 }}>1~5파를 이룰 스윙이 아직 부족해 규칙 검증 보류(진행 중).</div>
+              )}
+              <div style={{ color: TK.sub, fontSize: 9.5, marginTop: 5, lineHeight: 1.5 }}>
+                ⓘ 이 라벨은 <b>객관 알고리즘</b>(최저 저점 기점 + ZigZag {data.zigzagPct}% 스윙)이 매긴 <b>추정 카운트</b>이지 공식·확정 카운트가 아닙니다. 같은 차트를 분석가마다 다르게 셀 수 있으므로 규칙 검증과 함께 &lsquo;확률적 참고&rsquo;로만 보세요.
+              </div>
             </div>
 
             {/* ⭐ 융합(Confluence) 체크리스트 — 현재 차트 객관 점검 */}
@@ -390,7 +458,7 @@ export default function ElliottWaveEducation() {
             🧠 <b style={{ color: TK.amber500 }}>마인드셋</b> — 파동은 주관적 예술이 아니라 <b>현대 지표(224 EMA·거래량·피보)와 결합된 엄격한 기하학적 리스크 관리 시스템</b>입니다. 기술적 분석은 미래를 맞추는 예언서가 아니라 <b>확률적 우위</b>를 점하는 도구 — 맹신하지 말고 &lsquo;확률&rsquo;에 베팅하세요.
           </div>
 
-          <div>⚠️ <b style={{ color: TK.amber500 }}>왜 이 앱은 번호를 단정하지 않나</b> — &lsquo;지금이 몇 파동인가&rsquo;는 분석가마다 다르게 셀 수 있는 <b>주관적</b> 판단입니다. 이 앱은 하드코딩·주관 개입 배제 원칙이라, 차트의 번호는 <b>공식 카운트가 아니라</b> 객관 알고리즘(ZigZag {data?.zigzagPct ?? 8}% 임계)이 찾은 <b>스윙 순번</b>이고, EMA·거래량·피보·융합 체크리스트는 전부 객관 계산입니다.</div>
+          <div>⚠️ <b style={{ color: TK.amber500 }}>파동 카운트를 어떻게 그렸나 (그리고 왜 &lsquo;확정&rsquo;이 아닌가)</b> — 차트의 1-5·A-B-C는 <b>객관 알고리즘</b>(최저 저점 기점 + ZigZag {data?.zigzagPct ?? 8}% 스윙)이 매긴 <b>추정 카운트</b>이고, 옆에 <b>3대 규칙(2파·3파·4파) 검증</b>을 함께 표시합니다. 다만 &lsquo;지금이 몇 파동인가&rsquo;는 기점·시간대에 따라 분석가마다 다르게 셀 수 있어 <b>공식·확정 카운트가 아닙니다</b> — 실제로 기계적 카운트는 규칙을 자주 위반합니다(그래서 대체 시나리오를 병행). EMA·거래량·피보·융합 체크리스트는 전부 객관 계산이며, 파동 라벨은 &lsquo;확률적 참고&rsquo;로만 보세요.</div>
         </div>
       )}
     </div>
