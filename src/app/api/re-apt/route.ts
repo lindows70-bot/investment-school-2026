@@ -87,10 +87,16 @@ export async function GET(req: Request) {
   if (aptQ) {
     if (byApt.has(aptQ)) selName = aptQ
     else {
-      // 양방향 부분일치 — 지도 핀(마스터 표기 '래미안대치팰리스1단지')이 RTMS 표기('래미안대치팰리스')보다 길어도 매칭
+      // 양방향 부분일치 + 토큰 매칭 — 지도 핀('래미안대치팰리스1단지')이 길어도, '오금 대림'(동 생략+공백)도 '오금동 대림'에 매칭
       const q = aptQ.replace(/\s+/g, '')
+      const tokens = aptQ.trim().split(/\s+/).map(t => t.replace(/\s+/g, '')).filter(Boolean)
       const hits = Array.from(byApt.entries())
-        .map(([k, arr]) => { const k2 = k.replace(/\s+/g, ''); return { k, n: arr.length, score: k2 === q ? 3 : k2.includes(q) ? 2 : q.includes(k2) ? 1 : 0 } })
+        .map(([k, arr]) => {
+          const k2 = k.replace(/\s+/g, '')
+          let score = k2 === q ? 4 : k2.includes(q) ? 3 : q.includes(k2) ? 2 : 0
+          if (score === 0 && tokens.length > 0 && tokens.every(t => k2.includes(t))) score = 1   // 토큰 전부 포함(순서 무관)
+          return { k, n: arr.length, score }
+        })
         .filter(h => h.score > 0)
         .sort((a, b) => b.score - a.score || b.n - a.n)
       if (hits.length) selName = hits[0].k
