@@ -759,6 +759,12 @@ export default function MacroHubPage() {
   // 탭: 'macro' | 'bond' | 'stress'
   const [activeTab,   setActiveTab]   = useState<'macro' | 'bond' | 'stress'>('macro')
 
+  // 🔗 딥링크 — ?tab=bond|stress 진입 시 해당 탭 자동 오픈(사이드바 채권 그룹 → 채권 시뮬레이터 직행). client-only window라 Suspense 불필요
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab')
+    if (t === 'bond' || t === 'stress' || t === 'macro') setActiveTab(t)
+  }, [])
+
   useEffect(() => {
     ;(async () => {
       setLoading(true); setError(null)

@@ -65,6 +65,8 @@ const GROUPS: NavGroup[] = [
     title: '📜 채권', color: '#2dd4bf',
     items: [
       { href: '/bonds', icon: '🧭', label: '듀레이션 나침반' },
+      { href: '/macro-hub?tab=bond', icon: '📊', label: '채권 시뮬레이터' },
+      { href: '/macro-hub?tab=stress', icon: '⚡', label: '금리 스트레스 테스트' },
     ],
   },
   {
@@ -267,8 +269,8 @@ function SidebarInner() {
               if (hQuery) {
                 const hq = new URLSearchParams(hQuery)
                 active = pathname === hPath && Array.from(hq.entries()).every(([k, v]) => searchParams.get(k) === v)
-              } else if (hPath === '/dashboard' || hPath === '/real-estate') {
-                // 하위 경로(딥링크·서브페이지)가 있는 허브는 정확 일치만 — 자식 항목과 이중 하이라이트 방지
+              } else if (hPath === '/dashboard' || hPath === '/real-estate' || hPath === '/macro-hub') {
+                // 하위 경로·탭 딥링크가 있는 허브는 정확 일치+탭 없을 때만 — 자식 항목(채권 시뮬레이터 등)과 이중 하이라이트 방지
                 active = pathname === hPath && !searchParams.get('tab')
               } else if (hPath === '/analysis') {
                 active = isAnalysis && !searchParams.get('tab')
