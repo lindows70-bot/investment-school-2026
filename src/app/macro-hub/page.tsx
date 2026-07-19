@@ -112,14 +112,22 @@ const INDICATORS = [
 ] as const
 type IndKey = typeof INDICATORS[number]['key']
 
-function heatColor(v: number, low: number, high: number) {
-  if (v <= low * 0.7)  return '#2d6a4f'
-  if (v <= low)        return '#52b788'
-  if (v <= low * 1.1)  return C.neon
-  if (v <= high)       return C.gold
-  if (v <= high * 1.5) return C.orange
-  return C.red
+// 🎨 연속 히트 램프 — 안정(초록)→위험(빨강) 6색 스톱을 값에 따라 부드럽게 보간(불연속 버킷 → 그라데이션)
+const HEAT_STOPS = ['#2d6a4f', '#52b788', '#deff9a', '#fbbf24', '#fb923c', '#f87171']
+function lerpHex(a: string, b: string, t: number) {
+  const p = (h: string) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]
+  const [ar, ag, ab] = p(a), [br, bg, bb] = p(b)
+  return `rgb(${Math.round(ar + (br - ar) * t)},${Math.round(ag + (bg - ag) * t)},${Math.round(ab + (bb - ab) * t)})`
 }
+function heatColor(v: number, low: number, high: number) {
+  const lo = low * 0.7, hi = high * 1.5
+  const t = Math.max(0, Math.min(1, (v - lo) / (hi - lo)))
+  const seg = t * (HEAT_STOPS.length - 1)
+  const i = Math.min(HEAT_STOPS.length - 2, Math.floor(seg))
+  return lerpHex(HEAT_STOPS[i], HEAT_STOPS[i + 1], seg - i)
+}
+// 연속 램프 CSS 그라데이션(범례 바)
+const HEAT_GRADIENT = `linear-gradient(90deg, ${HEAT_STOPS.join(', ')})`
 
 // ═══════════════════════════════════════════════════════════════
 //  SKELETON
@@ -221,41 +229,46 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
         </div>
       </div>
 
-      {/* ─ 지도 — 컴팩트 320px 고정 높이 ─ */}
+      {/* ─ 지도 — 400px 높이(등면적 투영이 세로에 여유롭게 담김) ─ */}
       <div style={{
         position: 'relative',
         padding:  '0',
         margin:   '0',
-        maxHeight: 320,
-        height:    320,
+        maxHeight: 400,
+        height:    400,
         overflow:  'hidden',   // 지도가 영역 밖으로 절대 넘치지 않음
       }}>
         {loading
-          ? <div style={{ height:320 }}><Sk h={320} r={0}/></div>
+          ? <div style={{ height:400 }}><Sk h={400} r={0}/></div>
           : (
             <ComposableMap
               // 🌍 geoEqualEarth — 현대 등면적 투영(고위도 왜곡 없음, Our World in Data·전문 대시보드 표준)
               projection="geoEqualEarth"
               projectionConfig={{
-                scale:  148,        // 800폭에 세계 전체가 아담하게(등면적)
-                center: [12, 8],    // 경도 12°E·위도 8°N 중심 — 인구 밀집 북반구 여유·남극 크롭
+                scale:  150,        // 800×400에 세계가 큼직하게(등면적)
+                center: [12, 6],    // 경도 12°E·위도 6°N 중심 — 파타고니아까지 보이고 남극만 크롭
               }}
-              // SVG 내부 좌표계: 800×320. height:100%로 부모 320px에 꽉 참(overflow:hidden 크롭)
+              // SVG 내부 좌표계: 800×400. height:100%로 부모 400px에 꽉 참(overflow:hidden 크롭)
               width={800}
-              height={320}
+              height={400}
               style={{ background:'transparent', width:'100%', height:'100%', display:'block' }}
             >
-              {/* 바다 그라데이션(구 배경) */}
+              {/* 바다 그라데이션 + 데이터 국가 글로우 필터 */}
               <defs>
-                <radialGradient id="rsmOcean" cx="47%" cy="40%" r="80%">
-                  <stop offset="0%"   stopColor="#102138" />
-                  <stop offset="100%" stopColor="#081422" />
+                <radialGradient id="rsmOcean" cx="46%" cy="38%" r="82%">
+                  <stop offset="0%"   stopColor="#12315a" />
+                  <stop offset="55%"  stopColor="#0c2038" />
+                  <stop offset="100%" stopColor="#050e1a" />
                 </radialGradient>
+                {/* ① 데이터 국가 글로우 — 채색 국가가 어두운 지도에서 확 튀어오름 */}
+                <filter id="ctryGlow" x="-40%" y="-40%" width="180%" height="180%">
+                  <feDropShadow dx="0" dy="0" stdDeviation="2.2" floodColor="#eaf6ff" floodOpacity="0.55" />
+                </filter>
               </defs>
               {/* 🌐 Sphere — 둥근 세계 경계 + 바다 채움(육지/바다 명확 구분) */}
-              <Sphere id="rsmSphere" fill="url(#rsmOcean)" stroke="#1d3a5c" strokeWidth={0.6} />
-              {/* 경위선 그리드(은은하게 — 프로 지도 느낌) */}
-              <Graticule stroke="#16324f" strokeWidth={0.28} step={[30, 30]} />
+              <Sphere id="rsmSphere" fill="url(#rsmOcean)" stroke="#2a5686" strokeWidth={0.9} />
+              {/* ② 경위선 그리드 강화(더 촘촘·또렷 — 블룸버그 터미널 느낌) */}
+              <Graticule stroke="#1c3d63" strokeWidth={0.45} step={[20, 20]} />
 
               {/* ── 국가별 히트맵 채색 ── */}
               <Geographies geography={GEO_URL}>
@@ -275,11 +288,13 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
                     return (
                       <Geography key={geo.rsmKey} geography={geo}
                         fill={isHov ? TK.slate200 : col}
-                        stroke="#0a1c30"
-                        strokeWidth={0.4}
+                        // ① 데이터 국가는 밝은 반투명 테두리 — 어두운 지도에서 경계 또렷
+                        stroke={active ? 'rgba(255,255,255,0.5)' : '#0a1c30'}
+                        strokeWidth={active ? 0.8 : 0.4}
                         style={{
-                          default:{ outline:'none', transition:'fill 0.22s ease' },
-                          hover:  { outline:'none', fill: active ? TK.slate200 : LAND, cursor: active ? 'pointer' : 'default' },
+                          // ① 데이터 국가에만 글로우 필터 → 확 떠오름
+                          default:{ outline:'none', transition:'fill 0.22s ease', filter: active ? 'url(#ctryGlow)' : 'none' },
+                          hover:  { outline:'none', fill: active ? TK.slate200 : LAND, cursor: active ? 'pointer' : 'default', filter: active ? 'url(#ctryGlow)' : 'none' },
                           pressed:{ outline:'none' },
                         }}
                         onMouseEnter={(e:React.MouseEvent<SVGPathElement>) => {
@@ -395,19 +410,17 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
           </div>
         )}
 
-        {/* 범례 — 지도 우하단 오버레이 */}
+        {/* ③ 범례 — 연속 그라데이션 바(안정→위험 부드럽게) */}
         <div style={{
           position:'absolute', bottom:6, right:8,
-          display:'flex', gap:5, flexWrap:'wrap' as const, justifyContent:'flex-end',
-          background:'rgba(2,6,23,0.78)', backdropFilter:'blur(6px)',
+          background:'rgba(2,6,23,0.82)', backdropFilter:'blur(6px)',
           border:`1px solid ${C.border}`, borderRadius:8,
-          padding:'5px 10px',
+          padding:'6px 11px 7px',
         }}>
-          {[['#2d6a4f','매우 안정'],['#52b788','안정'],[C.neon,'적정'],[C.gold,'주의'],[C.orange,'경고'],[C.red,'위험']].map(([col,lbl])=>(
-            <div key={lbl} style={{ display:'flex', alignItems:'center', gap:3, fontSize:9, color:C.sub }}>
-              <div style={{ width:10, height:7, borderRadius:2, background:col }}/>{lbl}
-            </div>
-          ))}
+          <div style={{ width:168, height:8, borderRadius:4, background:HEAT_GRADIENT, border:`1px solid ${C.border}` }}/>
+          <div style={{ display:'flex', justifyContent:'space-between', marginTop:3, fontSize:8.5, color:C.sub }}>
+            <span>안정</span><span>적정</span><span>주의</span><span>위험</span>
+          </div>
         </div>
       </div>
 
