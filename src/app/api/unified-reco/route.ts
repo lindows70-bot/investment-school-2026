@@ -75,6 +75,17 @@ function krSupply(e: MarketFlowEntry): number {
   s += (e.individual?.d1 ?? 0) < 0 ? 12 : 0
   return clamp(s)
 }
+// KR 수급 폴백 점수(0~100) — marketFlowKr POOL 밖 종목을 getMoneyFlow(네이버 실수급)로 채점. krSupply와 동일 척도(5일 순매수·동반매수·개인 이탈)
+//   ⚠️ 쌍끌이 연속일수(dualStreak)는 per-ticker 트렌드엔 없어, 외인·기관 5일 동반 순매수에 고정 보너스(+24 ≈ 2일 쌍끌이)로 근사
+function krSupplyFromFlow(mf: Awaited<ReturnType<typeof getMoneyFlow>>): number {
+  const f5 = mf.foreign?.net5 ?? 0, o5 = mf.organ?.net5 ?? 0, i5 = mf.individual?.net5 ?? 0
+  let s = 30
+  if (f5 > 0 && o5 > 0) s += 24
+  s += f5 > 0 ? 15 : f5 < 0 ? -12 : 0
+  s += o5 > 0 ? 15 : o5 < 0 ? -12 : 0
+  s += i5 < 0 ? 12 : 0
+  return clamp(s)
+}
 // US 수급 점수(0~100, 프록시) — MFI 과매도·상승 + 내부자 + 13F 거인
 function usSupply(mf: Awaited<ReturnType<typeof getMoneyFlow>>): number {
   let s = 40
@@ -100,7 +111,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v29:${user.id}:${kstDate()}:${fp}`   // v29: 🧭 주도섹터 6번째 축 승격(가치25·퀄리티20·모멘텀20·주도섹터10·수급10·계절15) — 로테이션 틸트→정식 축
+  const cacheKey = `unified-reco-v30:${user.id}:${kstDate()}:${fp}`   // v30: KR 수급 폴백 — marketFlowKr POOL 밖 종목(삼성E&A 등)을 getMoneyFlow로 보강(미집계 해소)
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -234,6 +245,16 @@ export async function GET(req: Request) {
     batch.forEach((p, idx) => { if (r[idx]) usFlowMap.set(p.s.ticker, r[idx]!) })
   }
 
+  // KR 수급 폴백 fetch — marketFlowKr POOL(큐레이션 시장 랭킹 ~113종) 밖 상위 종목을 getMoneyFlow(수급 레이더와 동일 SSOT)로 보강.
+  //   유니버스(~183종)엔 있으나 POOL엔 없는 종목(삼성E&A 등)이 '수급 미집계'로 빠지던 문제 해소. 상위 preRank 15만(성능 바운드)
+  const krPre = pre.filter(p => p.isKr && !krFlow.has(code6(p.s.ticker))).sort((a, b) => preRank(b) - preRank(a)).slice(0, 15)
+  const krFlowExtra = new Map<string, Awaited<ReturnType<typeof getMoneyFlow>>>()
+  for (let i = 0; i < krPre.length; i += 5) {
+    const batch = krPre.slice(i, i + 5)
+    const r = await Promise.all(batch.map(p => getMoneyFlow(p.s.ticker, 'KR', p.s.name, base).catch(() => null)))
+    batch.forEach((p, idx) => { if (r[idx] && r[idx]!.status !== 'UNSUPPORTED') krFlowExtra.set(code6(p.s.ticker), r[idx]!) })
+  }
+
   // ④ 수급 점수 + 통합 점수
   const scored = pre.map(p => {
     let supplyScore = 50, supplyKnown = false, supplyProxy = false
@@ -244,6 +265,13 @@ export async function GET(req: Request) {
         supplyScore = krSupply(e); supplyKnown = true
         if (e.dualStreak >= 2) badges.push(`🔥 ${e.dualStreak}일 쌍끌이`)
         if ((e.individual?.d1 ?? 0) < 0) badges.push('👤 개인 이탈')
+      } else {
+        const mf = krFlowExtra.get(code6(p.s.ticker))   // POOL 밖 종목 — getMoneyFlow 실수급 폴백
+        if (mf) {
+          supplyScore = krSupplyFromFlow(mf); supplyKnown = true
+          if ((mf.foreign?.net5 ?? 0) > 0 && (mf.organ?.net5 ?? 0) > 0) badges.push('🔥 외인·기관 쌍끌이')
+          if ((mf.individual?.net5 ?? 0) < 0) badges.push('👤 개인 이탈')
+        }
       }
     } else {
       supplyProxy = true
