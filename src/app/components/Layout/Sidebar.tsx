@@ -50,6 +50,9 @@ const GROUPS: NavGroup[] = [
     title: '🌍 시장 탐구', color: TK.violet400,
     items: [
       { href: '/macro-hub', icon: '🌐', label: 'Macro Hub' },
+      { href: '/dashboard?tab=season', icon: '🧭', label: '4계절 내비게이터' },
+      { href: '/dashboard?tab=marks',  icon: '🕰️', label: '막스 사이클 시계추' },
+      { href: '/dashboard?tab=crisis', icon: '🚨', label: '글로벌 위기 레이더' },
     ],
   },
   {
