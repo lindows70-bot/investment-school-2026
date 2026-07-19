@@ -25,14 +25,16 @@ const STAGES = [
 const fmtDate = (d: string) => !d ? '' : d.length === 8 ? `${d.slice(0, 4)}.${d.slice(4, 6)}` : d.replace('-', '.')
 // 재건축 구역명(오금현대) → 실거래 단지 검색어(오금동 현대) — xlsx는 동 약칭, RTMS는 정식 동명이라 지번주소의 동으로 보정
 function aptQuery(name: string, addr: string): string {
-  const clean = name.replace(/\(.*?\)$/, '').trim()   // 끝 괄호(차수 등) 제거
   const m = /^([가-힣]+(?:동|가|리))/.exec(addr || '')
   const dong = m ? m[1] : ''
-  if (!dong) return clean
+  // 괄호 안이 아파트명이면(경동미주아파트 등) 그걸 단지명으로, 아니면 괄호 제거
+  const paren = /\(([^)]*아파트[^)]*)\)/.exec(name)
+  let brand = (paren ? paren[1] : name.replace(/\([^)]*\)/g, '')).trim()
+  if (!dong) return brand
   const abbr = dong.slice(0, -1)   // 오금동 → 오금
-  if (clean.startsWith(abbr) && clean.length > abbr.length + 1) return `${dong} ${clean.slice(abbr.length)}`   // 오금현대 → 오금동 현대
-  if (clean.startsWith(dong)) return clean   // 이미 정식 동명 포함
-  return `${dong} ${clean}`
+  if (brand.startsWith(dong)) brand = brand.slice(dong.length).trim()                        // 시흥동현대아파트 → 현대아파트
+  else if (brand.startsWith(abbr) && brand.length > abbr.length + 1) brand = brand.slice(abbr.length).trim()   // 오금현대 → 현대
+  return brand ? `${dong} ${brand}` : dong
 }
 const heat = (n: number, max: number) => {
   if (n <= 0) return TK.bg6
