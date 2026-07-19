@@ -1,6 +1,7 @@
 'use client'
-// 🗺️ 종목 추천 지도 — 여러 곳이 각기 다른 근거로 추천하는 걸 한 곳에 모아 위계·근거를 설명(정적 안내 지도)
-//    엔진 재구축 0(SSOT 무손상) · 데이터 fetch 0 · 각 렌즈 "무슨 근거로 추천하나" + 바로가기. 학생 혼란 해소.
+// 🗺️ 종목 추천 지도 — 여러 곳이 각기 다른 근거로 추천하는 걸 한 곳에 모아 위계·근거를 인포그래픽으로 설명(정적 안내 지도)
+//    엔진 재구축 0(SSOT 무손상) · 데이터 fetch 0 · 추천 파이프라인 시각화 + 렌즈 메달리온 카드. 학생 혼란 해소.
+import type { ReactNode } from 'react'
 import { TK } from '@/lib/theme'
 
 const BORDER = '#2a2f3a'
@@ -29,79 +30,155 @@ const LENSES: Lens[] = [
     basis: '지금 돈이 몰려 오르는 섹터·소섹터의 대표 ETF. 근거 = 상대강도 × 모멘텀(자금 흐름의 국면). 개별 종목보다 "흐름".' },
 ]
 
-function Card({ l, big }: { l: Lens; big?: boolean }) {
+// 파이프라인 단계 노드
+function Stage({ title, sub, accent, big, children }: { title: string; sub: string; accent?: string; big?: boolean; children?: ReactNode }) {
   return (
-    <a href={l.href} style={{
-      display: 'block', textDecoration: 'none', flex: big ? '1 1 320px' : '1 1 300px',
-      background: big ? `${l.color}12` : TK.bg3, border: `1px solid ${big ? l.color + '66' : BORDER}`,
-      borderRadius: 12, padding: '13px 15px', transition: 'all 0.12s',
-    }}
-      onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = l.color }}
-      onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = big ? l.color + '66' : BORDER }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-        <span style={{ fontSize: 17 }}>{l.icon}</span>
-        <b style={{ fontSize: 14, color: TK.slate100 }}>{l.name}</b>
-        <span style={{ marginLeft: 'auto', fontSize: 11, color: l.color, fontWeight: 700 }}>열기 →</span>
+    <div style={{
+      flex: big ? '1.15 1 190px' : '1 1 168px', minWidth: 150,
+      background: accent ? `linear-gradient(155deg, ${accent}22, ${TK.bg1} 78%)` : TK.bg1,
+      border: `1.5px solid ${accent ? accent + '99' : BORDER}`, borderRadius: 13, padding: '14px 14px 15px', textAlign: 'center',
+      boxShadow: accent ? `0 0 22px ${accent}22, inset 0 0 0 1px ${accent}18` : 'none',
+    }}>
+      <div style={{ fontSize: big ? 14.5 : 13, fontWeight: 900, color: accent ?? TK.slate200, letterSpacing: '-0.01em' }}>{title}</div>
+      <div style={{ fontSize: 10, color: accent ? `${accent}cc` : TK.sub3, marginTop: 3, fontWeight: 700 }}>{sub}</div>
+      {children}
+    </div>
+  )
+}
+
+function Arrow() {
+  return <div className="rh-arrow" style={{ display: 'grid', placeItems: 'center', flex: '0 0 auto', color: TK.sub2, fontSize: 20, fontWeight: 900 }}>→</div>
+}
+
+function LensCard({ l }: { l: Lens }) {
+  return (
+    <a href={l.href} className="rh-lens" data-c={l.color} style={{
+      display: 'block', textDecoration: 'none', flex: '1 1 300px',
+      background: `linear-gradient(160deg, ${l.color}0e, ${TK.bg3} 60%)`, border: `1px solid ${l.color}3a`,
+      borderRadius: 13, padding: '14px 15px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+        {/* 컬러 메달리온 */}
+        <span style={{ width: 38, height: 38, flex: '0 0 auto', borderRadius: 11, background: `${l.color}22`, border: `1px solid ${l.color}66`, display: 'grid', placeItems: 'center', fontSize: 19, boxShadow: `0 0 14px ${l.color}22` }}>{l.icon}</span>
+        <div style={{ minWidth: 0 }}>
+          <b style={{ fontSize: 14, color: TK.slate100, display: 'block' }}>{l.name}</b>
+          <span style={{ fontSize: 10, color: l.color, fontWeight: 800, letterSpacing: '0.03em' }}>렌즈</span>
+        </div>
+        <span style={{ marginLeft: 'auto', fontSize: 11, color: l.color, fontWeight: 800 }}>열기 →</span>
       </div>
-      <div style={{ fontSize: 11.5, color: TK.sub2, lineHeight: 1.6 }}>{l.basis}</div>
+      <div style={{ height: 2, background: `linear-gradient(90deg, ${l.color}, ${l.color}00)`, borderRadius: 2, marginBottom: 8 }} />
+      <div style={{ fontSize: 11.5, color: TK.sub2, lineHeight: 1.62 }}>{l.basis}</div>
+    </a>
+  )
+}
+
+function FeatureCard({ l }: { l: Lens }) {
+  return (
+    <a href={l.href} className="rh-feat" data-c={l.color} style={{
+      display: 'block', textDecoration: 'none', flex: '1 1 330px', position: 'relative', overflow: 'hidden',
+      background: `linear-gradient(150deg, ${l.color}1c, ${TK.bg2} 72%)`, border: `1.5px solid ${l.color}77`,
+      borderRadius: 15, padding: '16px 18px', boxShadow: `0 0 26px ${l.color}1f`,
+    }}>
+      <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, borderRadius: '50%', background: `radial-gradient(circle, ${l.color}22, transparent 70%)`, pointerEvents: 'none' }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 9 }}>
+        <span style={{ width: 46, height: 46, flex: '0 0 auto', borderRadius: 13, background: `${l.color}2a`, border: `1px solid ${l.color}88`, display: 'grid', placeItems: 'center', fontSize: 23, boxShadow: `0 0 18px ${l.color}33` }}>{l.icon}</span>
+        <div>
+          <b style={{ fontSize: 16.5, color: TK.slate100, letterSpacing: '-0.01em' }}>{l.name}</b>
+          <div style={{ fontSize: 10.5, color: l.color, fontWeight: 800, marginTop: 1 }}>여기서 최종 결정</div>
+        </div>
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: l.color, fontWeight: 800 }}>열기 →</span>
+      </div>
+      <div style={{ fontSize: 12, color: TK.sub, lineHeight: 1.66 }}>{l.basis}</div>
     </a>
   )
 }
 
 export default function RecoHub() {
   return (
-    <div style={{ padding: '20px 22px', maxWidth: 1120, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* 헤더 */}
-      <div style={{ background: `linear-gradient(135deg,#141020,${TK.bg1})`, border: `1px solid ${TK.violet400}44`, borderRadius: 12, padding: '16px 18px' }}>
-        <div style={{ fontSize: 17, fontWeight: 800, color: TK.slate100 }}>🗺️ 종목 추천 지도</div>
-        <div style={{ fontSize: 12, color: TK.sub, marginTop: 4, lineHeight: 1.55 }}>
-          여러 화면이 <b style={{ color: TK.slate300 }}>각기 다른 근거</b>로 종목을 추천합니다 — 매크로·수급·가치·모멘텀·섹터 흐름.
-          <b style={{ color: TK.violet400 }}> 근거를 알면 헷갈리지 않습니다.</b> 각 렌즈가 무엇을 보는지, 어디서 최종 결정을 내리는지 한눈에.
+    <div style={{ padding: '20px 22px', maxWidth: 1120, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <style>{`
+        .rh-lens,.rh-feat{transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease}
+        .rh-lens:hover,.rh-feat:hover{transform:translateY(-3px)}
+        @keyframes rhPulse{0%,100%{opacity:.45;transform:translateX(-1px)}50%{opacity:1;transform:translateX(1px)}}
+        .rh-arrow{animation:rhPulse 2s ease-in-out infinite}
+        @media (prefers-reduced-motion:reduce){.rh-arrow{animation:none;opacity:.8}}
+      `}</style>
+
+      {/* 히어로 */}
+      <div style={{ position: 'relative', overflow: 'hidden', background: `linear-gradient(135deg, #1a1230, #14101f 55%, ${TK.bg1})`, border: `1px solid ${TK.violet400}55`, borderRadius: 16, padding: '20px 22px' }}>
+        <div style={{ position: 'absolute', top: -40, right: -20, width: 180, height: 180, borderRadius: '50%', background: `radial-gradient(circle, ${TK.violet400}2e, transparent 68%)`, pointerEvents: 'none' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+          <span style={{ width: 50, height: 50, flex: '0 0 auto', borderRadius: 14, background: `${TK.violet400}26`, border: `1px solid ${TK.violet400}77`, display: 'grid', placeItems: 'center', fontSize: 26, boxShadow: `0 0 24px ${TK.violet400}33` }}>🗺️</span>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: TK.slate100, letterSpacing: '-0.02em' }}>종목 추천 지도</div>
+            <div style={{ fontSize: 12, color: TK.sub, marginTop: 4, lineHeight: 1.55, maxWidth: 760 }}>
+              여러 화면이 <b style={{ color: TK.slate300 }}>각기 다른 근거</b>로 종목을 추천합니다 — 매크로·수급·가치·모멘텀·섹터 흐름.
+              <b style={{ color: TK.violet400 }}> 근거를 알면 헷갈리지 않습니다.</b>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* 위계 흐름 */}
-      <div style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '13px 16px' }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: TK.slate200, marginBottom: 8 }}>📐 추천의 위계 — 렌즈들이 합쳐져 최종 처방이 된다</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12 }}>
-          <span style={{ padding: '6px 11px', borderRadius: 8, background: TK.bg1, border: `1px solid ${BORDER}`, color: TK.sub2 }}>🔍 특수 렌즈들<br /><span style={{ fontSize: 9.5, color: TK.sub4 }}>매크로·수급·가치·10배거·섹터</span></span>
-          <span style={{ color: TK.sub3, fontSize: 16 }}>→</span>
-          <span style={{ padding: '6px 11px', borderRadius: 8, background: `${TK.violet400}18`, border: `1px solid ${TK.violet400}66`, color: TK.violet400, fontWeight: 700 }}>🎯 통합 추천<br /><span style={{ fontSize: 9.5, color: TK.sub3 }}>6축 종합 랭킹</span></span>
-          <span style={{ color: TK.sub3, fontSize: 16 }}>→</span>
-          <span style={{ padding: '6px 11px', borderRadius: 8, background: `${TK.emerald500}18`, border: `1px solid ${TK.emerald500}66`, color: TK.emerald500, fontWeight: 700 }}>🤖 AI 리밸런싱<br /><span style={{ fontSize: 9.5, color: TK.sub3 }}>내 손익까지 = 최종</span></span>
+      {/* 추천 파이프라인 시각화 */}
+      <div style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 15, padding: '18px 18px 16px' }}>
+        <div style={{ fontSize: 12.5, fontWeight: 800, color: TK.slate200, marginBottom: 15, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 14 }}>📐</span> 추천의 위계 — 렌즈가 합쳐져 최종 처방이 된다
         </div>
-        <div style={{ fontSize: 11, color: TK.sub3, marginTop: 9, lineHeight: 1.6 }}>
+        <div style={{ display: 'flex', alignItems: 'stretch', gap: 8, flexWrap: 'wrap' }}>
+          <Stage title="🔍 특수 렌즈 5종" sub="각기 다른 각도로 본다">
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'center', marginTop: 10 }}>
+              {LENSES.map(l => (
+                <span key={l.name} title={l.name} style={{ width: 27, height: 27, borderRadius: 8, background: `${l.color}22`, border: `1px solid ${l.color}66`, display: 'grid', placeItems: 'center', fontSize: 13 }}>{l.icon}</span>
+              ))}
+            </div>
+          </Stage>
+          <Arrow />
+          <Stage big accent={TK.violet400} title="🎯 통합 추천" sub="6축 종합 랭킹">
+            <div style={{ display: 'flex', gap: 3, justifyContent: 'center', marginTop: 10, fontSize: 14 }}>💎🏰📈🧭💰🌦️</div>
+          </Stage>
+          <Arrow />
+          <Stage big accent={TK.emerald500} title="🤖 AI 리밸런싱" sub="내 손익까지 = 최종">
+            <div style={{ marginTop: 10, fontSize: 10.5, color: TK.emerald500, fontWeight: 800, letterSpacing: '0.04em' }}>익절 · 손절 · 편입</div>
+          </Stage>
+        </div>
+        <div style={{ fontSize: 11, color: TK.sub3, marginTop: 13, lineHeight: 1.62 }}>
           각 렌즈는 <b>한 가지 각도</b>만 봅니다(그래서 1위가 서로 다른 게 정상). <b style={{ color: TK.violet400 }}>통합 추천</b>이 6축을 합치고,
           <b style={{ color: TK.emerald500 }}> AI 리밸런싱</b>이 내 실제 포트폴리오 손익까지 반영해 ‘무엇을 팔고 무엇을 살지’를 최종 처방합니다.
         </div>
       </div>
 
-      {/* 최종·종합 */}
+      {/* 종합·최종 */}
       <div>
-        <div style={{ fontSize: 11.5, fontWeight: 800, color: TK.emerald500, letterSpacing: '0.05em', margin: '2px 2px 8px' }}>🏆 종합·최종 — 여기서 결정</div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          {FINAL.map(l => <Card key={l.name} l={l} big />)}
+        <div style={{ fontSize: 11.5, fontWeight: 900, color: TK.emerald500, letterSpacing: '0.05em', margin: '2px 2px 9px' }}>🏆 종합·최종 — 여기서 결정</div>
+        <div style={{ display: 'flex', gap: 11, flexWrap: 'wrap' }}>
+          {FINAL.map(l => <FeatureCard key={l.name} l={l} />)}
         </div>
       </div>
 
       {/* 특수 렌즈 */}
       <div>
-        <div style={{ fontSize: 11.5, fontWeight: 800, color: TK.sub2, letterSpacing: '0.05em', margin: '4px 2px 8px' }}>🔍 특수 렌즈 — 각기 다른 근거(참고용)</div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          {LENSES.map(l => <Card key={l.name} l={l} />)}
+        <div style={{ fontSize: 11.5, fontWeight: 900, color: TK.sub2, letterSpacing: '0.05em', margin: '4px 2px 9px' }}>🔍 특수 렌즈 — 각기 다른 근거(참고용)</div>
+        <div style={{ display: 'flex', gap: 11, flexWrap: 'wrap' }}>
+          {LENSES.map(l => <LensCard key={l.name} l={l} />)}
         </div>
       </div>
 
-      {/* 교육 포인트 */}
-      <div style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '12px 15px' }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: TK.slate200, marginBottom: 7 }}>🎓 읽는 법</div>
-        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11.5, color: TK.sub2, lineHeight: 1.75 }}>
-          <li><b style={{ color: TK.green400 }}>여러 렌즈가 동시에 꼽는 종목 = 근거가 겹쳐 신뢰도↑.</b> 매크로·수급·가치가 한 종목을 함께 가리키면 강한 신호.</li>
-          <li><b>렌즈마다 1위가 다른 건 당연.</b> 보는 각도가 다르기 때문 — 매크로 렌즈는 삼성전자, 가치 렌즈는 다른 종목일 수 있음. 모순이 아니라 다른 질문에 답하는 것.</li>
-          <li><b>최종 결정은 🎯통합 추천 → 🤖AI 리밸런싱</b> 순서로. 특수 렌즈는 ‘왜’를 이해하는 참고 자료.</li>
-          <li>매수 전엔 <b>종목 리서치의 &lsquo;🎯 종합 매수 판정&rsquo;</b>으로 그 종목 하나를 다시 확인(4축+기술 타이밍).</li>
-        </ul>
+      {/* 읽는 법 */}
+      <div style={{ background: `linear-gradient(160deg, ${TK.green400}0c, ${TK.bg3} 55%)`, border: `1px solid ${TK.green400}33`, borderRadius: 13, padding: '14px 16px' }}>
+        <div style={{ fontSize: 12.5, fontWeight: 800, color: TK.slate200, marginBottom: 9, display: 'flex', alignItems: 'center', gap: 6 }}>🎓 읽는 법</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {[
+            { i: '🎯', c: TK.green400, t: <><b style={{ color: TK.green400 }}>여러 렌즈가 동시에 꼽는 종목 = 근거가 겹쳐 신뢰도↑.</b> 매크로·수급·가치가 한 종목을 함께 가리키면 강한 신호.</> },
+            { i: '🔀', c: TK.blue400, t: <><b>렌즈마다 1위가 다른 건 당연.</b> 보는 각도가 다르기 때문 — 매크로 렌즈는 삼성전자, 가치 렌즈는 다른 종목일 수 있음. 모순이 아니라 다른 질문에 답하는 것.</> },
+            { i: '🏆', c: TK.violet400, t: <><b>최종 결정은 🎯통합 추천 → 🤖AI 리밸런싱</b> 순서로. 특수 렌즈는 ‘왜’를 이해하는 참고 자료.</> },
+            { i: '✅', c: TK.amber400, t: <>매수 전엔 <b>종목 리서치의 ‘🎯 종합 매수 판정’</b>으로 그 종목 하나를 다시 확인(4축+기술 타이밍).</> },
+          ].map((r, k) => (
+            <div key={k} style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
+              <span style={{ width: 24, height: 24, flex: '0 0 auto', borderRadius: 7, background: `${r.c}1e`, border: `1px solid ${r.c}55`, display: 'grid', placeItems: 'center', fontSize: 12 }}>{r.i}</span>
+              <div style={{ fontSize: 11.5, color: TK.sub2, lineHeight: 1.6, paddingTop: 2 }}>{r.t}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div style={{ fontSize: 9.5, color: TK.sub4, lineHeight: 1.5 }}>
