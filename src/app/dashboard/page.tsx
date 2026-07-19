@@ -1331,39 +1331,36 @@ export default function DashboardPage() {
           items: { key: typeof dashTab; icon: string; label: string; desc: string }[]
         }[] = [
           {
-            id: 'monitor', icon: '📊', label: '자산 & 모니터링',
+            id: 'monitor', icon: '📊', label: '내 포트폴리오',
             items: [
               { key: 'live',        icon: '📊', label: '실시간 대시보드',    desc: '자산 현황 · 리밸런싱' },
               { key: 'balance',     icon: '⚖️', label: '린치 황금비율',      desc: '6대 분류 밸런스 진단' },
               { key: 'correlation',  icon: '📐', label: '상관관계 매트릭스',  desc: '종목 간 동조화 · 분산 진단' },
               { key: 'newscatalyst',icon: '📰', label: '뉴스 촉매 레이더',   desc: '보유 종목 뉴스 → 3단계 신호' },
-              { key: 'rebalance',   icon: '🤖', label: 'AI 리밸런싱',        desc: '손익 반영 익절/손절 교체매매' },
-              { key: 'alphahunter', icon: '🎯', label: '알파 헌터',          desc: '가치·가격 괴리 탐지(저평가/거품)' },
-              { key: 'quantbuilder',icon: '🛰️', label: 'AI 1억 퀀트 빌더',   desc: '코어-새틀라이트 백지 설계' },
               { key: 'moneyflow',   icon: '📡', label: '수급 레이더',        desc: '내 종목 스마트머니 유입/이탈' },
-              { key: 'earnings',    icon: '📋', label: '어닝 터미널',        desc: 'G 리비전 · PEG 알럿' },
-              { key: 'yield',       icon: '💰', label: '주주환원 터미널',    desc: '배당 + 자사주 · 총환원율' },
             ],
           },
           {
-            id: 'valuation', icon: '🔍', label: '린치 가치평가',
+            id: 'reco', icon: '🎯', label: '매수·매도 추천',
             items: [
+              { key: 'rebalance',   icon: '🤖', label: 'AI 리밸런싱',        desc: '손익 반영 익절/손절 교체매매' },
+              { key: 'macroai',  icon: '🌐', label: '거시경제 AI 추천',       desc: '매크로 × 린치 × Gemini 종합 추천' },
+              { key: 'alphahunter', icon: '🎯', label: '알파 헌터',          desc: '가치·가격 괴리 탐지(저평가/거품)' },
+              { key: 'tenbagger',icon: '🚀', label: '10배거 헌터',           desc: '린치 10루타 7대 기준 종목 검증' },
+              { key: 'quantbuilder',icon: '🛰️', label: 'AI 1억 퀀트 빌더',   desc: '코어-새틀라이트 백지 설계' },
+            ],
+          },
+          {
+            id: 'stockdeep', icon: '🔬', label: '종목 심층 분석',
+            items: [
+              { key: 'mentor',   icon: '🤖', label: 'AI 멘토 족집게',       desc: '마스터 진단 레포트' },
               { key: 'valuation', icon: '🔬', label: '린치 밸류에이션',  desc: '6대 분류 맞춤 가치평가' },
               { key: 'tracer',    icon: '🔭', label: '이익선 트레이서',  desc: '역사적 EPS × 이격도 추적' },
               { key: 'lynch',     icon: '📈', label: '린치 이익선 차트', desc: '적정가치 시계열 분석' },
               { key: 'signal',    icon: '🚨', label: '매도 시그널 패널', desc: '유형별 매도 경고등' },
-            ],
-          },
-          {
-            id: 'research', icon: '💡', label: '종목 리서치',
-            items: [
-              { key: 'champions', icon: '🏆', label: '상반기 수익률 챔피언십', desc: '4대 시장 Top10 + FOMO 계산기 + 비교차트' },
-              { key: 'globaltop10', icon: '🌍', label: '글로벌 시총 Top 10',  desc: '미국 vs 한국 시총 거인 + 국민연금·블랙록' },
-              { key: 'macroai',  icon: '🌐', label: '거시경제 AI 추천',       desc: '매크로 × 린치 × Gemini 종합 추천' },
-              { key: 'tenbagger',icon: '🚀', label: '10배거 헌터',           desc: '린치 10루타 7대 기준 종목 검증' },
-              { key: 'mentor',   icon: '🤖', label: 'AI 멘토 족집게',       desc: '마스터 진단 레포트' },
+              { key: 'earnings',    icon: '📋', label: '어닝 터미널',        desc: 'G 리비전 · PEG 알럿' },
+              { key: 'yield',       icon: '💰', label: '주주환원 터미널',    desc: '배당 + 자사주 · 총환원율' },
               { key: 'guidance', icon: '📡', label: '가이던스 모멘텀 레이더', desc: 'EPS 컨센서스 기울기 스캐닝' },
-              { key: 'schoolflow', icon: '🏫', label: '학교 13F 인덱스',  desc: '집단지성 동일가중 인덱스' },
               { key: 'ghost',  icon: '👻', label: '유령 종목 추적기',     desc: '기관 소외 × 내부자 매수' },
             ],
           },
@@ -1409,8 +1406,11 @@ export default function DashboardPage() {
             ],
           },
           {
-            id: 'simulation', icon: '⏳', label: '시뮬레이션',
+            id: 'reference', icon: '📚', label: '벤치마크·참고',
             items: [
+              { key: 'champions', icon: '🏆', label: '상반기 수익률 챔피언십', desc: '4대 시장 Top10 + FOMO 계산기 + 비교차트' },
+              { key: 'globaltop10', icon: '🌍', label: '글로벌 시총 Top 10',  desc: '미국 vs 한국 시총 거인 + 국민연금·블랙록' },
+              { key: 'schoolflow', icon: '🏫', label: '학교 13F 인덱스',  desc: '집단지성 동일가중 인덱스' },
               { key: 'backtest', icon: '⏳', label: '투자 타임머신',     desc: '5개년 전략 백테스트' },
               { key: 'leverage', icon: '⚠️', label: '레버리지 위험 시뮬', desc: '음의 복리 · 투자 vs 투기' },
             ],
