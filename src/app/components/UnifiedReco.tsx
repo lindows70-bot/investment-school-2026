@@ -11,6 +11,21 @@ const CARD = TK.bg6, BORDER = TK.border
 const AX = { season: TK.amber500, value: TK.green500, quality: '#2dd4bf', supply: TK.blue400, momentum: TK.violet400, rotation: '#f472b6' }  // 가치/퀄리티/모멘텀/주도섹터/수급/계절 축 색
 const fmtWon = (w: number) => w >= 1e8 ? `${(w / 1e8).toFixed(1)}억원` : `${Math.round(w / 1e4)}만원`
 
+// 🎯 매수 타점 하이라이트 — 타점 신호등(green)·라쉬케(첫 눌림목)·스퀴즈(상방 분출) SSOT 재사용.
+//   ⛔ 점수·선정·정렬 불변(시각 강조만). prime=진입적기+급소 트리거·깨끗 / ready=진입적기·깨끗. 과대이격·하락 다이버전스면 제외
+type BuyTier = 'prime' | 'ready' | null
+function buyTierOf(t: UnifiedRecoItem['timing']): { tier: BuyTier; reason: string } {
+  if (!t) return { tier: null, reason: '' }
+  const rk = t.raschke, sp = t.supply
+  const dirty = !!(sp?.overExtended || rk?.bearDiv)   // 기관평단 과대이격·신고가권 에너지 소진 = 깨끗한 매수 타점 아님
+  const trig: string[] = []
+  if (rk?.pullback) trig.push('🎼 첫 눌림목(최적 타점)')
+  if (sp?.squeezeFired === 'up') trig.push('🔥 변동성 상방 분출')
+  if (t.light === 'green' && !dirty && trig.length) return { tier: 'prime', reason: trig.join(' · ') }
+  if (t.light === 'green' && !dirty) return { tier: 'ready', reason: '정배열 · 구름 위' }
+  return { tier: null, reason: '' }
+}
+
 function MiniBar({ label, score, color, unknown }: { label: string; score: number; color: string; unknown?: boolean }) {
   return (
     <div style={{ flex: 1, minWidth: 78 }}>
@@ -31,8 +46,22 @@ function MiniBar({ label, score, color, unknown }: { label: string; score: numbe
 function Item({ it, portfolioKrw }: { it: UnifiedRecoItem; portfolioKrw: number }) {
   const [open, setOpen] = useState(false)
   const cc = it.combined >= 80 ? TK.green500 : it.combined >= 60 ? TK.amber500 : TK.sub
+  const { tier, reason } = buyTierOf(it.timing)
+  const prime = tier === 'prime', ready = tier === 'ready'
+  const cardStyle = prime
+    ? { background: `linear-gradient(135deg,rgba(251,191,36,0.13),rgba(34,197,94,0.05) 45%,${TK.bg3} 78%)`, borderRadius: 10, border: `1.5px solid ${TK.amber400}`, padding: '11px 13px', overflow: 'hidden' as const }
+    : ready
+      ? { background: `linear-gradient(135deg,rgba(34,197,94,0.09),${TK.bg3} 62%)`, borderRadius: 10, border: `1.5px solid ${TK.green500}99`, padding: '11px 13px', overflow: 'hidden' as const, boxShadow: '0 0 14px rgba(34,197,94,0.12)' }
+      : { background: TK.bg3, borderRadius: 10, border: `1px solid ${cc}33`, padding: '11px 13px' }
   return (
-    <div style={{ background: TK.bg3, borderRadius: 10, border: `1px solid ${cc}33`, padding: '11px 13px' }}>
+    <div className={prime ? 'ur-prime' : undefined} style={cardStyle}>
+      {tier && (
+        <div className={prime ? 'ur-prime-strip' : undefined} style={{ margin: '-11px -13px 10px', padding: '6px 13px', display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 800, ...(prime ? { color: '#3a2c05' } : { background: 'rgba(34,197,94,0.15)', color: TK.green300 }) }}>
+          <span style={{ fontSize: 13 }}>{prime ? '🎯' : '🟢'}</span>
+          <span>{prime ? '지금이 매수 타점' : '진입 적기'}</span>
+          <span style={{ fontWeight: 600, opacity: 0.9, fontSize: 10.5 }}>· {reason}</span>
+        </div>
+      )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
         <span style={{ fontSize: 11 }}>{it.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
         <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 14 }}>{it.name}</span>
@@ -103,6 +132,13 @@ export default function UnifiedReco() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <style>{`
+        @keyframes urcGlow{0%,100%{box-shadow:0 0 0 1px rgba(251,191,36,.32),0 3px 16px rgba(251,191,36,.14)}50%{box-shadow:0 0 0 1px rgba(251,191,36,.62),0 5px 26px rgba(251,191,36,.34)}}
+        @keyframes urcShine{0%{background-position:-160% 0}100%{background-position:160% 0}}
+        .ur-prime{animation:urcGlow 2.6s ease-in-out infinite}
+        .ur-prime-strip{background:linear-gradient(100deg,rgba(251,191,36,.4),rgba(253,224,71,.72) 50%,rgba(251,191,36,.4));background-size:200% 100%;animation:urcShine 3.2s linear infinite}
+        @media (prefers-reduced-motion:reduce){.ur-prime{animation:none;box-shadow:0 0 0 1px rgba(251,191,36,.55),0 4px 18px rgba(251,191,36,.2)}.ur-prime-strip{animation:none}}
+      `}</style>
       {/* 헤더 */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'linear-gradient(135deg,rgba(245,158,11,0.10),rgba(96,165,250,0.06))', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12, padding: '12px 16px' }}>
         <span style={{ fontSize: 18 }}>🎯</span>
@@ -116,6 +152,7 @@ export default function UnifiedReco() {
             {data.usSeason && <> · 🇺🇸 {data.usSeason.label.split(' ')[0]} · 🇰🇷 {data.krSeason.label.split(' ')[0]}</>}
           </div>
           {data.selectionRule && <div style={{ color: TK.sub, fontSize: 10.5, marginTop: 3 }}>📋 선별 기준: {data.selectionRule} → 총 <b style={{ color: TK.slate300 }}>{data.items.length}종</b></div>}
+          <div style={{ color: TK.sub, fontSize: 10.5, marginTop: 3 }}>🎯 <b style={{ color: TK.amber400 }}>금색 하이라이트</b> = 기술적 <b>매수 타점(진입 적기 + 급소 트리거)</b>이 온 종목 · 🟢 초록 = 진입 적기. <span style={{ color: TK.sub2 }}>WHAT(점수)은 펀더멘탈, WHEN(타점)은 기술 — 점수엔 미반영, 시각 강조만.</span></div>
           {data.portfolioKrw > 0 && <div style={{ color: TK.green300, fontSize: 10.5, marginTop: 2 }}>💰 권장 편입 = 포트폴리오({fmtWon(data.portfolioKrw)}) 기준 통합점수 1.5~2.5%{data.regimeMult < 1 && <> × 국면 조정 {Math.round(data.regimeMult * 100)}%</>} · 분할 신규 편입 기준</div>}
           {data.momCrash && (
             <div style={{ marginTop: 7, background: '#2a1c0e', border: `1px solid ${TK.amber700}`, borderRadius: 8, padding: '7px 11px', fontSize: 11, color: '#fdba74', lineHeight: 1.55 }}>
