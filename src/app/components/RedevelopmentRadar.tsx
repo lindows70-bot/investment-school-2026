@@ -1,6 +1,6 @@
 'use client'
 // 🏗️ 서울 정비사업(재건축·재개발) 레이더 — 자치구 히트맵·유형분포·신규지정/해제 + 추진단계(xlsx)
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps'
 import type { RedevelopResult } from '@/app/api/re-redevelopment/route'
 import { LAWD_REGIONS } from '@/lib/rtms'
@@ -49,25 +49,36 @@ export default function RedevelopmentRadar() {
   const [q, setQ] = useState('')
   const [typeF, setTypeF] = useState<string>('전체')
   const [stageF, setStageF] = useState<string>('전체')
+  const [guF, setGuF] = useState<string | null>(null)   // 선택 자치구(페이지 내 필터)
   const [hover, setHover] = useState<string | null>(null)
+  const searchRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetch('/api/re-redevelopment', { cache: 'no-store' }).then(r => r.json())
       .then(j => { if (!j.error) setD(j) }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
+  // 구 클릭 = 페이지 내 필터(단지 리서치로 이동 X) + 검색 섹션으로 스크롤
+  const selectGu = (gu: string) => {
+    const next = guF === gu ? null : gu
+    setGuF(next)
+    if (next) setTimeout(() => searchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
+  }
+
   const guCount = useMemo(() => new Map((d?.districts ?? []).map(x => [x.gu, x])), [d])
   const maxCount = useMemo(() => Math.max(1, ...(d?.districts ?? []).map(x => x.count)), [d])
   const stageCount = useMemo(() => new Map((d?.stagePipeline ?? []).map(s => [s.stage, s.count])), [d])
   const searchHits = useMemo(() => {
     if (!d) return []
-    const qq = q.trim().replace(/\s/g, '')
+    // 토큰 기반 유연 검색 — 공백 무시 + 여러 키워드 AND(예: '잠실 주공' → 둘 다 포함하면 매칭)
+    const tokens = q.trim().split(/\s+/).map(t => t.replace(/\s/g, '')).filter(Boolean)
     return d.stageProjects
+      .filter(p => !guF || p.gu === guF)
       .filter(p => typeF === '전체' || p.typeGroup === typeF)
       .filter(p => stageF === '전체' || p.stage === stageF)
-      .filter(p => !qq || (p.name + p.gu + p.addr).replace(/\s/g, '').includes(qq))
-      .slice(0, 60)
-  }, [d, q, typeF, stageF])
+      .filter(p => { const hay = (p.name + p.gu + p.addr).replace(/\s/g, ''); return tokens.every(t => hay.includes(t)) })
+      .slice(0, 80)
+  }, [d, q, typeF, stageF, guF])
 
   // 구 클릭=구 단위 / 단지 클릭=아파트 이름까지 넘겨 해당 단지 자동 조회(재건축은 단지명, 재개발은 구역명이라 구 단위)
   const goApt = (gu: string | null, apt?: string) => {
@@ -138,7 +149,7 @@ export default function RedevelopmentRadar() {
         {/* 자치구 히트맵 */}
         <div style={{ flex: '1 1 480px', background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '14px 16px' }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: TK.slate200, marginBottom: 2 }}>🗺️ 자치구별 정비구역 밀도</div>
-          <div style={{ fontSize: 10.5, color: TK.sub3, marginBottom: 6 }}>진할수록 활성 구역 많음 · 구 클릭 → 실거래 리서치</div>
+          <div style={{ fontSize: 10.5, color: TK.sub3, marginBottom: 6 }}>진할수록 활성 구역 많음 · <b style={{ color: '#fdba74' }}>구 클릭 → 그 구의 정비사업 아래에 표시</b></div>
           <div style={{ position: 'relative' }}>
             <ComposableMap projection="geoMercator" projectionConfig={{ scale: 62000, center: [126.99, 37.55] }} width={520} height={340} style={{ width: '100%', height: 'auto' }}>
               <Geographies geography="/geo/seoul-gu.json">
@@ -146,13 +157,14 @@ export default function RedevelopmentRadar() {
                   const nm = geo.properties.name as string
                   const e = guCount.get(nm)
                   const isH = hover === nm
+                  const isSel = guF === nm
                   return (
                     <Geography key={geo.rsmKey} geography={geo}
-                      onClick={() => goApt(nm)}
+                      onClick={() => selectGu(nm)}
                       onMouseEnter={() => setHover(nm)} onMouseLeave={() => setHover(null)}
                       style={{
-                        default: { fill: isH ? '#fdba74' : heat(e?.count ?? 0, maxCount), stroke: TK.bg1, strokeWidth: 0.8, outline: 'none', cursor: 'pointer' },
-                        hover: { fill: '#fdba74', stroke: TK.bg1, strokeWidth: 1, outline: 'none', cursor: 'pointer' },
+                        default: { fill: isSel || isH ? '#fdba74' : heat(e?.count ?? 0, maxCount), stroke: isSel ? TK.slate100 : TK.bg1, strokeWidth: isSel ? 2 : 0.8, outline: 'none', cursor: 'pointer' },
+                        hover: { fill: '#fdba74', stroke: isSel ? TK.slate100 : TK.bg1, strokeWidth: isSel ? 2 : 1, outline: 'none', cursor: 'pointer' },
                         pressed: { outline: 'none' },
                       }} />
                   )
@@ -169,8 +181,8 @@ export default function RedevelopmentRadar() {
           </div>
           <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {[...d.districts].sort((a, b) => b.count - a.count).slice(0, 8).map((x, i) => (
-              <span key={x.gu} onClick={() => goApt(x.gu)} style={{ cursor: 'pointer', fontSize: 10.5, color: TK.slate300, background: TK.bg6, border: `1px solid ${BORDER}`, borderRadius: 7, padding: '3px 8px' }}>
-                {i + 1}. {x.gu} <b style={{ color: TK.orange400 }}>{x.count}</b>
+              <span key={x.gu} onClick={() => selectGu(x.gu)} style={{ cursor: 'pointer', fontSize: 10.5, color: guF === x.gu ? '#1c1917' : TK.slate300, background: guF === x.gu ? '#fdba74' : TK.bg6, border: `1px solid ${guF === x.gu ? '#fdba74' : BORDER}`, borderRadius: 7, padding: '3px 8px' }}>
+                {i + 1}. {x.gu} <b style={{ color: guF === x.gu ? '#7c2d12' : TK.orange400 }}>{x.count}</b>
               </span>
             ))}
           </div>
@@ -199,7 +211,7 @@ export default function RedevelopmentRadar() {
             <div style={{ fontSize: 12.5, fontWeight: 800, color: TK.green400, marginBottom: 7 }}>🆕 최근 신규 지정 <span style={{ color: TK.sub3, fontWeight: 400, fontSize: 10 }}>— 초기 진입 관심 구역</span></div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 168, overflowY: 'auto' }}>
               {d.recentNew.map((z, i) => (
-                <div key={i} onClick={() => goApt(z.gu)} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: z.gu ? 'pointer' : 'default', fontSize: 11 }}>
+                <div key={i} onClick={() => z.gu && selectGu(z.gu)} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: z.gu ? 'pointer' : 'default', fontSize: 11 }}>
                   <span style={{ fontSize: 9, color: TK.sub3, fontFamily: 'monospace', minWidth: 46 }}>{fmtDate(z.date)}</span>
                   <span style={{ fontSize: 8.5, color: TYPE_COLOR[z.typeGroup], border: `1px solid ${TYPE_COLOR[z.typeGroup]}55`, borderRadius: 5, padding: '0 5px' }}>{z.typeGroup}</span>
                   {z.gu && <span style={{ fontSize: 9.5, color: TK.sub2 }}>{z.gu}</span>}
@@ -212,11 +224,16 @@ export default function RedevelopmentRadar() {
       </div>
 
       {/* 🔍 단계별 프로젝트 검색 (xlsx 추진현황) */}
-      <div style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '13px 16px' }}>
+      <div ref={searchRef} style={{ background: TK.bg3, border: `1px solid ${guF ? '#fdba74' : BORDER}`, borderRadius: 14, padding: '13px 16px', scrollMarginTop: 12 }}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 9 }}>
           <div style={{ fontSize: 12.5, fontWeight: 800, color: TK.slate200 }}>🔍 어느 아파트가 어느 단계인가</div>
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="단지·구역명·지역 (예: 잠실주공5, 오금현대, 한남)"
-            style={{ flex: '1 1 220px', background: TK.bg1, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '6px 11px', color: TK.slate100, fontSize: 12, outline: 'none' }} />
+          {guF && (
+            <span onClick={() => setGuF(null)} style={{ cursor: 'pointer', fontSize: 11, fontWeight: 800, color: '#1c1917', background: '#fdba74', borderRadius: 999, padding: '3px 11px' }}>
+              📍 {guF} {searchHits.length}개 <span style={{ marginLeft: 3, opacity: 0.7 }}>✕</span>
+            </span>
+          )}
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="단지명 일부만 쳐도 OK (예: 잠실, 현대, 래미안, 한남)"
+            style={{ flex: '1 1 200px', background: TK.bg1, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '6px 11px', color: TK.slate100, fontSize: 12, outline: 'none' }} />
         </div>
         {/* 단계 필터 */}
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 9 }}>
@@ -248,7 +265,7 @@ export default function RedevelopmentRadar() {
               )
             })}
         </div>
-        <div style={{ fontSize: 9.5, color: TK.sub4, marginTop: 6 }}>추진 중 {d.stageTotal}개 프로젝트 · 단계순(착공→구역지정) 상위 60개 표시 · 세대수·지정일 포함</div>
+        <div style={{ fontSize: 9.5, color: TK.sub4, marginTop: 6 }}>추진 중 {d.stageTotal}개 프로젝트{guF ? ` 중 ${guF}` : ''} · 단계순(착공→구역지정) 상위 80개 · 단지(재건축) 클릭 → 실거래 리서치 · 지도의 구 클릭 → 이 목록 필터</div>
       </div>
 
       {/* 교육 + 해제 */}
