@@ -21,6 +21,12 @@ import {
   useState, useEffect, useRef, useMemo, useCallback,
 } from 'react'
 import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps'
+// ⚠️ Sphere·Graticule — react-simple-maps 런타임엔 export 존재하나 타입 정의(@types)에 누락 → 네임스페이스에서 추출·캐스팅
+import * as ReactSimpleMaps from 'react-simple-maps'
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const Sphere = (ReactSimpleMaps as any).Sphere as React.FC<{ id?: string; fill?: string; stroke?: string; strokeWidth?: number }>
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const Graticule = (ReactSimpleMaps as any).Graticule as React.FC<{ stroke?: string; strokeWidth?: number; step?: [number, number]; fill?: string }>
 import {
   createChart, ColorType, LineStyle,
   AreaSeries, LineSeries,
@@ -228,19 +234,29 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
           ? <div style={{ height:320 }}><Sk h={320} r={0}/></div>
           : (
             <ComposableMap
-              projection="geoMercator"
+              // 🌍 geoEqualEarth — 현대 등면적 투영(고위도 왜곡 없음, Our World in Data·전문 대시보드 표준)
+              projection="geoEqualEarth"
               projectionConfig={{
-                // scale 100: 줌아웃 — 320px 높이 안에서 세계 전체가 아담하게
-                scale:  100,
-                // 위도 0°(적도 중심) → 지도가 수직 중앙에 정렬
-                center: [10, 0],
+                scale:  148,        // 800폭에 세계 전체가 아담하게(등면적)
+                center: [12, 8],    // 경도 12°E·위도 8°N 중심 — 인구 밀집 북반구 여유·남극 크롭
               }}
-              // SVG 내부 좌표계: 800×320 (2.5:1)
-              // height:100% 로 부모 320px에 꽉 채움 (overflow:hidden 이 잘라냄)
+              // SVG 내부 좌표계: 800×320. height:100%로 부모 320px에 꽉 참(overflow:hidden 크롭)
               width={800}
               height={320}
               style={{ background:'transparent', width:'100%', height:'100%', display:'block' }}
             >
+              {/* 바다 그라데이션(구 배경) */}
+              <defs>
+                <radialGradient id="rsmOcean" cx="47%" cy="40%" r="80%">
+                  <stop offset="0%"   stopColor="#102138" />
+                  <stop offset="100%" stopColor="#081422" />
+                </radialGradient>
+              </defs>
+              {/* 🌐 Sphere — 둥근 세계 경계 + 바다 채움(육지/바다 명확 구분) */}
+              <Sphere id="rsmSphere" fill="url(#rsmOcean)" stroke="#1d3a5c" strokeWidth={0.6} />
+              {/* 경위선 그리드(은은하게 — 프로 지도 느낌) */}
+              <Graticule stroke="#16324f" strokeWidth={0.28} step={[30, 30]} />
+
               {/* ── 국가별 히트맵 채색 ── */}
               <Geographies geography={GEO_URL}>
                 {({ geographies }) =>
@@ -253,16 +269,17 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
                     // COUNTRY_META는 ISO 3166-1 alpha-3 ('USA','KOR'...)을 키로 사용
                     // GEO2ISO를 통해 정확히 매핑됨
                     const active = !!GEO2ISO[gid]
-                    const col    = active ? getGeoColor(gid) : '#0d1f35'
+                    const LAND   = '#1b3450'   // 데이터 없는 육지(바다보다 밝게 — 지형 또렷)
+                    const col    = active ? getGeoColor(gid) : LAND
                     const isHov  = hovered === gid
                     return (
                       <Geography key={geo.rsmKey} geography={geo}
                         fill={isHov ? TK.slate200 : col}
-                        stroke="#0a1929"
-                        strokeWidth={0.35}
+                        stroke="#0a1c30"
+                        strokeWidth={0.4}
                         style={{
                           default:{ outline:'none', transition:'fill 0.22s ease' },
-                          hover:  { outline:'none', fill: active ? TK.slate200 : '#0d1f35', cursor: active ? 'pointer' : 'default' },
+                          hover:  { outline:'none', fill: active ? TK.slate200 : LAND, cursor: active ? 'pointer' : 'default' },
                           pressed:{ outline:'none' },
                         }}
                         onMouseEnter={(e:React.MouseEvent<SVGPathElement>) => {
