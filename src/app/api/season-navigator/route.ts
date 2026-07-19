@@ -8,6 +8,7 @@ import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { getSector } from '@/lib/schoolIndex'
 import { getEtfComposition } from '@/lib/etfLookThrough'
 import { fetchMacroData, detectMacroPhase, type ScreenedStock } from '@/lib/macroPhaseScreener'
+import { fetchPriceContext, type PriceContext } from '@/lib/quantBuilder'
 import {
   growthFromCli, inflationFromRegime, seasonOf, holdingFit,
   SEASON_META, type Holding, type Quadrant,
@@ -45,7 +46,7 @@ export interface SeasonNavResult {
   yieldCurveInverted: boolean
   yieldCurve: number | null
   // 🛒 이 계절 우대 섹터 매수 후보(공유 스크리너 캐시 재사용 · 보유 종목 제외)
-  buyCandidates: { ticker: string; name: string; market: string; sector: string; lynchCategory: string; peg: number | null; opMargin: number | null; fcfPositive: boolean; fcfYield: number | null; qualityGap: boolean; score: number }[]
+  buyCandidates: { ticker: string; name: string; market: string; sector: string; lynchCategory: string; peg: number | null; opMargin: number | null; fcfPositive: boolean; fcfYield: number | null; qualityGap: boolean; score: number; priceCtx: PriceContext | null }[]
   asOf: string
 }
 
@@ -92,7 +93,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `season-navigator-v9:${user.id}:${kstDate()}:${fp}`   // v8: ETF Look-through 정합성 반영
+  const cacheKey = `season-navigator-v10:${user.id}:${kstDate()}:${fp}`   // v10: 매수 후보 3개월 미니차트 + 52주 위치
   const cached = await getCache<SeasonNavResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -188,7 +189,7 @@ export async function GET(req: Request) {
   // 🛒 이 계절 우대 섹터 매수 후보 — macro-ai-picks가 적재한 공유 스크리너 캐시 재사용(추가 fetch 0)
   const heldSet = new Set(stocks.map(r => r.ticker.replace(/\.(KS|KQ)$/i, '')))
   const screened = await getCache<ScreenedStock[]>('macro-screened-universe:v9', 8 * 24 * 3600_000)
-  const buyCandidates = (screened ?? [])
+  const baseCands = (screened ?? [])
     .filter(s => s.sector != null && meta.favored.includes(s.sector) && !heldSet.has(s.ticker.replace(/\.(KS|KQ)$/i, '')))
     .sort((a, b) => b.score - a.score)
     .slice(0, 8)
@@ -196,6 +197,13 @@ export async function GET(req: Request) {
       ticker: s.ticker, name: s.name, market: s.market as string, sector: s.sector ?? '—', lynchCategory: s.lynchCategory as string,
       peg: s.peg, opMargin: s.opMargin, fcfPositive: s.fcfPositive, fcfYield: s.fcfYield, qualityGap: s.qualityGap, score: scaleScore(s.score),
     }))
+  // 📈 매수 후보 ≤8개 주가 컨텍스트(3개월 미니차트 + 52주 위치) — 동시성 4(퀀트빌더 SSOT 재사용)
+  const buyCandidates: SeasonNavResult['buyCandidates'] = []
+  for (let i = 0; i < baseCands.length; i += 4) {
+    const batch = baseCands.slice(i, i + 4)
+    const ctxs = await Promise.all(batch.map(c => fetchPriceContext(c.ticker, c.market).catch(() => null)))
+    batch.forEach((c, j) => buyCandidates.push({ ...c, priceCtx: ctxs[j] }))
+  }
 
   const result: SeasonNavResult = {
     quadrant: meta.quadrant, seasonKo: meta.seasonKo, icon: meta.icon, label: meta.label,

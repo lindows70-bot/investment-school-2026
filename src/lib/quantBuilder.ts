@@ -96,9 +96,10 @@ export interface PriceContext {
   high52: number
   posPct: number         // 52주 밴드 내 현재 위치 0~100 (0=52주 최저, 100=52주 최고)
   spark: number[]        // 1년 주봉 종가(다운샘플 ≤32포인트) — UI 스파크라인용
+  spark3m: number[]      // 최근 3개월(≈13주) 주봉 종가 — 단기 추세 미니차트용
 }
 
-async function fetchPriceContext(ticker: string, market: string): Promise<PriceContext | null> {
+export async function fetchPriceContext(ticker: string, market: string): Promise<PriceContext | null> {
   try {
     const { default: YF } = await import('yahoo-finance2')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -118,7 +119,8 @@ async function fetchPriceContext(ticker: string, market: string): Promise<PriceC
           // 다운샘플 ≤32포인트(페이로드 절약)
           const step = Math.max(1, Math.ceil(closes.length / 32))
           const spark = closes.filter((_, i) => i % step === 0 || i === closes.length - 1).map(v => Math.round(v * 100) / 100)
-          return { price: Math.round(price * 100) / 100, low52: Math.round(low52 * 100) / 100, high52: Math.round(high52 * 100) / 100, posPct, spark }
+          const spark3m = closes.slice(-13).map(v => Math.round(v * 100) / 100)   // 최근 ≈3개월 주봉
+          return { price: Math.round(price * 100) / 100, low52: Math.round(low52 * 100) / 100, high52: Math.round(high52 * 100) / 100, posPct, spark, spark3m }
         }
       } catch { /* 다음 심볼 */ }
     }

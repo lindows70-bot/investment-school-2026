@@ -52,6 +52,18 @@ export default function ElliottWaveEducation() {
   const confirmed = data?.swings.filter(s => s.confirmed) ?? []
   const pending = data?.swings.find(s => !s.confirmed) ?? null
 
+  const idxName = mkt === 'US' ? '나스닥100 (QQQ)' : '코스피200'
+  const idxFlag = mkt === 'US' ? '🇺🇸' : '🇰🇷'
+  // 실제 주가(얇은 선) 위에 '파동 골격'(스윙 연결·굵은 선)을 오버레이해 개념도①과 대응
+  const swingByDate = new Map<string, number>()
+  confirmed.forEach(s => swingByDate.set(s.date, s.price))
+  if (pending) swingByDate.set(pending.date, pending.price)
+  const lastIdx = (data?.points.length ?? 0) - 1
+  const chartData = (data?.points ?? []).map((p, i) => ({
+    ...p,
+    zz: swingByDate.has(p.date) ? swingByDate.get(p.date)! : (i === lastIdx ? p.price : null),
+  }))
+
   return (
     <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
@@ -68,7 +80,7 @@ export default function ElliottWaveEducation() {
       {/* ② 실제 차트 */}
       <div style={{ marginTop: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-          <span style={{ color: TK.sub8, fontSize: 11 }}>② 실제 주봉에 객관적 스윙(ZigZag {data?.zigzagPct ?? 8}%) 표시 — &lsquo;파동을 세는 방식&rsquo;의 예시일 뿐</span>
+          <span style={{ color: TK.sub8, fontSize: 11 }}>② {idxName} 실제 주봉에 객관적 스윙(ZigZag {data?.zigzagPct ?? 8}%) 표시 — &lsquo;파동을 세는 방식&rsquo;의 예시일 뿐</span>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
             {(['US', 'KR'] as const).map(k => (
               <button key={k} onClick={() => setMkt(k)} style={{
@@ -92,22 +104,39 @@ export default function ElliottWaveEducation() {
               borderRadius: 9, padding: '8px 12px', marginBottom: 8 }}>
               <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 12.5 }}>📍 현재 위치</span>
               <span style={{ color: TK.sub5, fontSize: 12, marginLeft: 8 }}>
-                마지막 확정 스윙(#{confirmed[confirmed.length - 1]?.seq ?? '—'}, {confirmed[confirmed.length - 1]?.type === 'high' ? '고점' : '저점'}, {confirmed[confirmed.length - 1]?.date}) 이후
+                {idxFlag} <b style={{ color: TK.sub8 }}>{idxName}</b> 실제 주가 기준 · 마지막 확정 스윙(#{confirmed[confirmed.length - 1]?.seq ?? '—'}, {confirmed[confirmed.length - 1]?.type === 'high' ? '고점' : '저점'}, {confirmed[confirmed.length - 1]?.date}) 이후
                 <b style={{ color: data.current.direction === 'up' ? TK.green400 : TK.red400 }}> {data.current.sincePivotPct > 0 ? '+' : ''}{data.current.sincePivotPct}%</b>
                 {pending && <span> · {pending.type === 'high' ? '고점 갱신 중(진행)' : '저점 갱신 중(진행)'}, 아직 {data.zigzagPct}% 반전 미확정</span>}
               </span>
             </div>
 
+            {/* 범례 — 실제 주가(얇게) vs 파동 골격(스윙 연결) */}
+            <div style={{ display: 'flex', gap: 14, alignItems: 'center', fontSize: 10, color: TK.sub, marginBottom: 6, flexWrap: 'wrap' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 18, height: 2, background: TK.slate500, opacity: 0.6, display: 'inline-block' }} /> {idxName} 실제 주가(얇게)
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 18, height: 3, background: TK.blue300, display: 'inline-block' }} /> 파동 골격(고점·저점 연결)
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 9, height: 9, borderRadius: '50%', background: TK.green400, display: 'inline-block' }} /> 고점 ·
+                <span style={{ width: 9, height: 9, borderRadius: '50%', background: TK.red400, display: 'inline-block' }} /> 저점 스윙
+              </span>
+            </div>
+
             <div style={{ height: 260 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={data.points} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                <ComposedChart data={chartData} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
                   <XAxis dataKey="date" tick={{ fill: TK.sub2, fontSize: 9.5 }} tickFormatter={(s: string) => s.slice(0, 7)} minTickGap={56} axisLine={{ stroke: BORDER }} tickLine={false} />
                   <YAxis domain={['auto', 'auto']} tick={{ fill: TK.sub2, fontSize: 9.5 }} axisLine={false} tickLine={false} width={54}
                     tickFormatter={(v: number) => data.market === 'KR' ? `${Math.round(v / 1000)}k` : `$${Math.round(v)}`} />
                   <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    formatter={(v: any) => [data.market === 'KR' ? `₩${Number(v).toLocaleString()}` : `$${Number(v).toFixed(1)}`, data.label]} />
-                  <Line type="monotone" dataKey="price" stroke={TK.blue300} strokeWidth={1.6} dot={false} isAnimationActive={false} />
+                    formatter={(v: any, n: any) => [data.market === 'KR' ? `₩${Number(v).toLocaleString()}` : `$${Number(v).toFixed(1)}`, n === '파동 골격' ? '파동 골격' : data.label]} />
+                  {/* 실제 주가 — 얇고 흐릿하게(배경) */}
+                  <Line type="monotone" dataKey="price" name={data.label} stroke={TK.slate500} strokeWidth={1} strokeOpacity={0.5} dot={false} isAnimationActive={false} />
+                  {/* 파동 골격 — 스윙 연결 굵은 선(전경), 개념도①의 파란 파동선과 대응 */}
+                  <Line type="linear" dataKey="zz" name="파동 골격" stroke={TK.blue300} strokeWidth={2.4} dot={false} connectNulls isAnimationActive={false} />
                   {confirmed.map(s => (
                     <ReferenceDot key={s.seq} x={s.date} y={s.price} r={5} fill={s.type === 'high' ? TK.green400 : TK.red400} stroke={TK.bg3} strokeWidth={1.5}
                       label={{ value: String(s.seq), position: s.type === 'high' ? 'top' : 'bottom', fill: TK.slate200, fontSize: 10, fontWeight: 800 }} />
