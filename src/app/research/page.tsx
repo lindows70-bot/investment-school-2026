@@ -553,7 +553,7 @@ export default function ResearchPage() {
       {/* ★ ETF·코인·원자재 → 개별주식 전용 분석 차단 안내 (1회) */}
       {!loading && stockInfo && priceData && !isStock && NonStockNotice}
 
-      {/* 🎯 종합 매수 판정 — 4축(계절·가치·수급·모멘텀)+리스크 "이 종목 매수해도 되나?"(차트 탭의 전체 평가) */}
+      {/* 🎯 종합 매수 판정 — 6축(가치·퀄리티·모멘텀·주도섹터·수급·계절)+리스크 "이 종목 매수해도 되나?"(차트 탭의 전체 평가) */}
       {!loading && stockInfo && priceData && isStock && (
         <ResearchVerdictCard ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
       )}

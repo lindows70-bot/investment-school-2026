@@ -1,12 +1,13 @@
 'use client'
-// 🎯 종목 리서치 종합 매수 판정 — 4축(계절·가치·수급·모멘텀)+리스크를 합성해 매수/신중/부적합 한눈에
+// 🎯 종목 리서치 종합 매수 판정 — 6축(가치·퀄리티·모멘텀·주도섹터·수급·계절)+리스크를 합성해 매수/신중/부적합 한눈에
 import { useState, useEffect } from 'react'
 import type { ResearchVerdict } from '@/app/api/research-verdict/route'
 import TimingBadge from '@/app/components/TimingBadge'
 import { TK } from '@/lib/theme'
 
 const CARD = TK.bg6, BORDER = TK.border
-const AX = { season: TK.amber500, value: TK.green500, supply: TK.blue400, momentum: TK.violet400 }
+// 통합추천(UnifiedReco)과 동일한 축 색상(제2원칙 — 같은 축은 같은 색)
+const AX = { season: TK.amber500, value: TK.green500, quality: '#2dd4bf', momentum: TK.violet400, rotation: '#f472b6', supply: TK.blue400 }
 const V = {
   buy:     { label: '✅ 매수 적합', color: TK.green500, bg: 'rgba(34,197,94,0.10)', bd: 'rgba(34,197,94,0.4)' },
   caution: { label: '⚖️ 조건부·신중', color: TK.amber500, bg: 'rgba(245,158,11,0.10)', bd: 'rgba(245,158,11,0.4)' },
@@ -47,7 +48,7 @@ export default function ResearchVerdictCard({ ticker, market, name }: { ticker: 
   if (unsupported) return null
   if (loading) return (
     <div style={{ background: CARD, borderRadius: 14, border: `1px solid ${BORDER}`, padding: 18, color: TK.sub, fontSize: 12.5 }}>
-      🎯 종합 매수 판정 — 4축·리스크를 합성하는 중…
+      🎯 종합 매수 판정 — 6축·리스크를 합성하는 중…
     </div>
   )
   if (!d) return null
@@ -69,12 +70,14 @@ export default function ResearchVerdictCard({ ticker, market, name }: { ticker: 
       <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 13 }}>
         <div style={{ color: TK.slate300, fontSize: 12.5, lineHeight: 1.6 }}>{d.oneLiner}</div>
 
-        {/* 4축 */}
+        {/* 6축 — 통합추천과 동일 순서·색상 */}
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          <Bar label="🌦️ 계절" score={d.axes.season} color={AX.season} />
           <Bar label="💎 가치" score={d.axes.value} color={AX.value} />
-          <Bar label="💰 수급" score={d.axes.supply} color={AX.supply} />
+          <Bar label="🏰 퀄리티" score={d.axes.quality} color={AX.quality} />
           <Bar label="📈 모멘텀" score={d.axes.momentum} color={AX.momentum} />
+          <Bar label="🧭 주도섹터" score={d.axes.rotation} color={AX.rotation} />
+          <Bar label="💰 수급" score={d.axes.supply} color={AX.supply} />
+          <Bar label="🌦️ 계절" score={d.axes.season} color={AX.season} />
         </div>
 
         {/* 🚦 기술적 타이밍 (WHEN) — AI 리밸런싱·통합추천과 동일한 신호등+라쉬케+매물·평단(SSOT). 224봉 미만이면 자동 생략 */}
@@ -102,7 +105,7 @@ export default function ResearchVerdictCard({ ticker, market, name }: { ticker: 
         </div>
 
         <div style={{ color: TK.sub, fontSize: 10, lineHeight: 1.6 }}>
-          ※ AI 리밸런싱과 동일한 4축(계절·가치·수급·모멘텀)+리스크 엔진으로 합성한 교육용 판정입니다(WHAT=무엇을 살까). 🚦 기술적 타이밍은 언제 살까(WHEN)를 보는 별도 레이어로, 점수엔 반영되지 않습니다. 상세 근거는 아래 각 카드(역-DCF·수급·내부자·해자·섹터피어 등)에서 확인하세요. 투자 추천이 아닙니다.
+          ※ 통합추천과 동일한 6축(가치25·퀄리티20·모멘텀20·주도섹터10·수급10·계절15)+리스크 엔진으로 합성한 교육용 판정입니다(WHAT=무엇을 살까). 🚦 기술적 타이밍은 언제 살까(WHEN)를 보는 별도 레이어로, 점수엔 반영되지 않습니다. 상세 근거는 아래 각 카드(역-DCF·수급·내부자·해자·섹터피어 등)에서 확인하세요. 투자 추천이 아닙니다.
         </div>
       </div>
     </div>

@@ -171,7 +171,7 @@ export default function RecoHub() {
             { i: '🎯', c: TK.green400, t: <><b style={{ color: TK.green400 }}>여러 렌즈가 동시에 꼽는 종목 = 근거가 겹쳐 신뢰도↑.</b> 매크로·수급·가치가 한 종목을 함께 가리키면 강한 신호.</> },
             { i: '🔀', c: TK.blue400, t: <><b>렌즈마다 1위가 다른 건 당연.</b> 보는 각도가 다르기 때문 — 매크로 렌즈는 삼성전자, 가치 렌즈는 다른 종목일 수 있음. 모순이 아니라 다른 질문에 답하는 것.</> },
             { i: '🏆', c: TK.violet400, t: <><b>최종 결정은 🎯통합 추천 → 🤖AI 리밸런싱</b> 순서로. 특수 렌즈는 ‘왜’를 이해하는 참고 자료.</> },
-            { i: '✅', c: TK.amber400, t: <>매수 전엔 <b>종목 리서치의 ‘🎯 종합 매수 판정’</b>으로 그 종목 하나를 다시 확인(4축+기술 타이밍).</> },
+            { i: '✅', c: TK.amber400, t: <>매수 전엔 <b>종목 리서치의 ‘🎯 종합 매수 판정’</b>으로 그 종목 하나를 다시 확인(6축+기술 타이밍).</> },
           ].map((r, k) => (
             <div key={k} style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
               <span style={{ width: 24, height: 24, flex: '0 0 auto', borderRadius: 7, background: `${r.c}1e`, border: `1px solid ${r.c}55`, display: 'grid', placeItems: 'center', fontSize: 12 }}>{r.i}</span>
