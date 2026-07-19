@@ -18,6 +18,16 @@ const heat = (n: number, max: number) => {
   return `rgb(${r},${g},${b})`
 }
 
+// 정비사업 6단계(표준 절차) — 안전진단 → 정비구역 지정 → 조합설립 → 사업시행인가 → 관리처분 → 착공·준공
+const STAGES = [
+  { n: '1', ic: '🔍', t: '안전진단', c: TK.sub2, d: '재건축 필수 관문 — D·E등급이면 재건축 확정. 재개발엔 없음(노후도로 판단).', p: '기대 형성(초기 소문)' },
+  { n: '2', ic: '📌', t: '정비구역 지정·정비계획', c: '#fdba74', d: '구역 지정 고시 = 재개발/재건축 공식 출발점. 개발 기대가 가격에 선반영.', p: '첫 가격 점프', mark: '★ 데이터 시작점' },
+  { n: '3', ic: '🤝', t: '조합설립인가', c: TK.orange400, d: '토지등소유자 3/4 이상 동의 → 사업 주체(조합) 확정. 사업 본격화.', p: '불확실성 축소' },
+  { n: '4', ic: '📐', t: '사업시행인가', c: TK.violet400, d: '건축계획·세대수·설계 확정 → 사업 밑그림 확정, 리스크 대폭 감소.', p: '가격 상승 가속' },
+  { n: '5', ic: '💰', t: '관리처분인가', c: TK.green400, d: '분담금·입주권 확정 → 사실상 성공 확정. 이주·철거 임박.', p: '프리미엄 급등·안정', mark: '★ 가격 핵심' },
+  { n: '6', ic: '🏗️', t: '이주·착공·준공', c: '#2dd4bf', d: '철거→착공→준공. 입주권이 실제 새 아파트로 실현.', p: '신축 시세 반영' },
+]
+
 export default function RedevelopmentRadar() {
   const [d, setD] = useState<RedevelopResult | null>(null)
   const [loading, setLoading] = useState(true)
@@ -178,6 +188,31 @@ export default function RedevelopmentRadar() {
             ))}
         </div>
         <div style={{ fontSize: 9.5, color: TK.sub4, marginTop: 6 }}>총 {d.activeZones.toLocaleString()}개 활성 구역 · 상위 40개 표시(최신 고시순)</div>
+      </div>
+
+      {/* 📋 정비사업 단계 파이프라인 */}
+      <div style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '14px 16px' }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: TK.slate200, marginBottom: 3 }}>📋 정비사업 단계 — 안전진단부터 준공까지</div>
+        <div style={{ fontSize: 10.5, color: TK.sub3, marginBottom: 11 }}>단계가 오를수록 <b>불확실성↓ · 가격↑</b> (계단식 상승) · ★ 이 앱 데이터는 <b style={{ color: '#fdba74' }}>정비구역 지정</b>부터 잡힙니다(그 前 초기 단계는 미표시)</div>
+        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingTop: 6, paddingBottom: 4 }}>
+          {STAGES.map((s, i) => (
+            <div key={s.n} style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
+              <div style={{ width: 172, alignSelf: 'stretch', background: `linear-gradient(160deg,${s.c}16,${TK.bg6})`, border: `1px solid ${s.c}${s.mark ? '99' : '44'}`, borderRadius: 11, padding: '10px 11px', position: 'relative' }}>
+                {s.mark && <div style={{ position: 'absolute', top: -8, left: 8, fontSize: 8.5, fontWeight: 800, color: '#1c1917', background: s.c, borderRadius: 5, padding: '1px 6px' }}>{s.mark}</div>}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5 }}>
+                  <span style={{ fontSize: 15 }}>{s.ic}</span>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: TK.slate100 }}>{s.n}. {s.t}</span>
+                </div>
+                <div style={{ fontSize: 10, color: TK.sub2, lineHeight: 1.5, marginBottom: 6, minHeight: 60 }}>{s.d}</div>
+                <div style={{ fontSize: 9.5, fontWeight: 800, color: s.c }}>💹 {s.p}</div>
+              </div>
+              {i < STAGES.length - 1 && <div style={{ display: 'grid', placeItems: 'center', color: TK.sub3, fontSize: 15, flex: '0 0 auto' }}>→</div>}
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: 9.5, color: TK.sub4, marginTop: 8, lineHeight: 1.5 }}>
+          ⚠️ 아파트별 <b>현재 단계</b> 표시는 준비 중입니다 — 서울시 분기 통계(OA-22856)에 있으나 자동 다운로드가 막혀(브라우저 전용) 정적 스냅샷 방식으로 붙일 예정. 위 단계는 표준 절차 안내입니다.
+        </div>
       </div>
 
       {/* 교육 + 해제 */}
