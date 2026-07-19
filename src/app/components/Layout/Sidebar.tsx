@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { TK } from '@/lib/theme'
@@ -108,6 +108,11 @@ function SidebarInner() {
   const [isTeacher,  setIsTeacher]  = useState(false)
   const [confirming, setConfirming] = useState(false)
 
+  // 사이드바가 <a> 풀 네비로 리마운트될 때 스크롤이 맨 위로 튀는 문제 →
+  // 마운트 후 활성 항목이 사이드바 중앙에 오도록 aside 스크롤만 조정(윈도우·메인 영향 없음)
+  const asideRef  = useRef<HTMLElement | null>(null)
+  const activeRef = useRef<HTMLAnchorElement | null>(null)
+
   useEffect(() => {
     const sb = createClient()
     sb.auth.getUser().then(async ({ data }) => {
@@ -130,8 +135,20 @@ function SidebarInner() {
   const avatarChar    = (displayName ?? email ?? '?')[0].toUpperCase()
   const isAnalysis    = pathname.startsWith('/analysis')
 
+  // 활성 항목을 사이드바 중앙으로(리마운트·teacher 섹션 지연 렌더 모두 대응)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      const aside = asideRef.current, el = activeRef.current
+      if (!aside || !el) return
+      const ar = aside.getBoundingClientRect(), er = el.getBoundingClientRect()
+      const delta = (er.top - ar.top) - (aside.clientHeight / 2 - el.clientHeight / 2)
+      aside.scrollTop = Math.max(0, aside.scrollTop + delta)
+    })
+    return () => cancelAnimationFrame(id)
+  }, [pathname, currentTab, isTeacher])
+
   return (
-    <aside style={{
+    <aside ref={asideRef} style={{
       width: 260, flexShrink: 0,
       background: `linear-gradient(180deg, #0d1117 0%, ${TK.gray900} 100%)`,
       borderRight: `1px solid ${TK.gray800}`,
@@ -286,7 +303,7 @@ function SidebarInner() {
                 active = isAnalysis && currentTab === new URLSearchParams(hQuery).get('tab')
               }
               return (
-                <a key={href} href={href} style={{
+                <a key={href} href={href} ref={active ? activeRef : undefined} style={{
                   display: 'flex', alignItems: 'center', gap: 12,
                   padding: '9px 12px', borderRadius: 10, textDecoration: 'none',
                   color:      active ? TK.slate100 : TK.sub,
