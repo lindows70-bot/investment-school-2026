@@ -83,7 +83,7 @@ const COUNTRY_META: Record<string, { ko: string; geo: string }> = {
   JPN:{ ko:'일본',   geo:'392' }, CHN:{ ko:'중국',   geo:'156' },
   DEU:{ ko:'독일',   geo:'276' }, GBR:{ ko:'영국',   geo:'826' },
   FRA:{ ko:'프랑스', geo:'250' }, IND:{ ko:'인도',   geo:'356' },
-  BRA:{ ko:'브라질', geo:'76'  }, AUS:{ ko:'호주',   geo:'36'  },
+  BRA:{ ko:'브라질', geo:'076' }, AUS:{ ko:'호주',   geo:'036' },   // ⚠️ ISO 숫자코드 3자리 zero-pad(036·076) — TopoJSON id와 일치(2자리면 매칭 실패)
   CAN:{ ko:'캐나다', geo:'124' }, RUS:{ ko:'러시아', geo:'643' },
   TUR:{ ko:'터키',   geo:'792' }, SAU:{ ko:'사우디', geo:'682' },
   ZAF:{ ko:'남아공', geo:'710' },
