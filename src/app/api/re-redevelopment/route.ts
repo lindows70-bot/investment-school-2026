@@ -1,5 +1,5 @@
 // 🏗️ 서울 정비사업(재건축·재개발) 레이더 — upisRebuild 라이브(6,581 고시 → 4,066 구역) 집계
-//    서울 부동산 핵심 가격변수. 자치구별 활성 구역·유형분포·최근 신규지정/해제. 추진단계는 라이브 API 부재(2차 xlsx 확장)
+//    서울 부동산 핵심 가격변수. 자치구별 활성 구역·유형분포·신규지정/해제 + 추진단계(OA-22856 xlsx 정적 스냅샷 472 프로젝트 join)
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
@@ -37,7 +37,7 @@ const dateOf = (code: string): string => { const m = /(\d{8})/.exec(code || '');
 export async function GET() {
   const key = KEY()
   if (!key) return NextResponse.json({ error: 'SEOUL_API_KEY 미설정' }, { status: 500 })
-  const cacheKey = `re-redevelop-v1:${kstDate()}`
+  const cacheKey = `re-redevelop-v2:${kstDate()}`
   const cached = await getCache<RedevelopResult>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
