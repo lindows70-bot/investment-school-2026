@@ -166,7 +166,7 @@ export default function RedevelopmentRadar() {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 260, overflowY: 'auto' }}>
           {searchHits.length === 0
-            ? <div style={{ color: TK.sub3, fontSize: 11, padding: '6px 0' }}>검색 결과 없음</div>
+            ? <div style={{ color: TK.sub3, fontSize: 11, padding: '6px 0', lineHeight: 1.6 }}>검색 결과 없음 · <span style={{ color: TK.sub4 }}>안전진단만 통과하고 아직 정비구역 지정 前인 사업은 이 데이터에 없을 수 있습니다.</span></div>
             : searchHits.map((z, i) => (
               <div key={i} onClick={() => goApt(z.gu)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 7, background: TK.bg6, cursor: z.gu ? 'pointer' : 'default' }}>
                 <span style={{ fontSize: 8.5, color: TYPE_COLOR[z.typeGroup], border: `1px solid ${TYPE_COLOR[z.typeGroup]}55`, borderRadius: 5, padding: '1px 6px', minWidth: 54, textAlign: 'center' }}>{z.typeGroup}</span>
@@ -188,7 +188,8 @@ export default function RedevelopmentRadar() {
             <li><b style={{ color: '#fdba74' }}>구역 지정</b>만으로 그 일대 기대감이 가격에 선반영됩니다.</li>
             <li>단계가 오를수록(조합설립→사업시행인가→<b>관리처분</b>) 불확실성이 줄어 가격이 계단식 상승 — 관리처분 이후가 안정 구간.</li>
             <li><b style={{ color: TK.red400 }}>초기 단계</b>는 무산(폐지) 리스크가 커 고위험·고수익.</li>
-            <li>⚠️ 본 데이터는 <b>구역 지정 현황</b>(위치·유형·신규/해제)입니다. 추진 단계(조합·인가)는 별도 확인 필요 — 교육용 참고.</li>
+            <li>⚠️ 이 데이터는 <b style={{ color: '#fdba74' }}>정비구역으로 지정 고시된</b> 곳만 담습니다. <b>안전진단 통과했지만 아직 구역 지정 前</b>(정비계획 수립 단계)인 사업(예: 오금동 대림아파트)은 <b>아직 안 나올 수 있습니다</b> — 무료 API로는 지정 前 초기 단계를 잡을 소스가 없음.</li>
+            <li>순서: 안전진단 → <b>구역 지정 고시</b>(여기부터 데이터에 잡힘) → 조합설립 → 사업시행인가 → 관리처분. 추진 단계는 별도 확인 필요 — 교육용 참고.</li>
           </ul>
         </div>
         <div style={{ flex: '1 1 280px', background: TK.bg3, border: `1px solid ${TK.red400}33`, borderRadius: 13, padding: '13px 16px' }}>
