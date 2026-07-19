@@ -93,10 +93,11 @@ const GEO2ISO = Object.fromEntries(
 )
 
 // ═══════════════════════════════════════════════════════════════
-//  FALLBACK 기준금리 (분기 수동 업데이트)
+//  FALLBACK 기준금리 (수동 업데이트 · 기준일 2026-07-19 · 한국 2.50→2.75 인상 반영)
+//  ⚠️ 중앙은행 정책금리는 무료 라이브 API가 없음(미국만 FRED 라이브) → 나머지는 수동 관리
 // ═══════════════════════════════════════════════════════════════
 const RATE_FALLBACK: Record<string, number> = {
-  USA:3.63, KOR:2.50, JPN:0.50, CHN:3.10, DEU:2.65,
+  USA:3.63, KOR:2.75, JPN:0.50, CHN:3.10, DEU:2.65,
   GBR:4.50, FRA:2.65, IND:6.25, BRA:13.25, AUS:4.10,
   CAN:2.75, RUS:21.0, TUR:42.5, SAU:5.00, ZAF:7.75,
 }
@@ -246,7 +247,7 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
               projection="geoEqualEarth"
               projectionConfig={{
                 scale:  150,        // 800×400에 세계가 큼직하게(등면적)
-                center: [12, 6],    // 경도 12°E·위도 6°N 중심 — 파타고니아까지 보이고 남극만 크롭
+                center: [12, 18],   // 위도 18°N 중심 — 주요국(북반구)을 아래로 내려 상단 여유·가독성↑(호주·남아공·브라질 전부 화면 내)
               }}
               // SVG 내부 좌표계: 800×400. height:100%로 부모 400px에 꽉 참(overflow:hidden 크롭)
               width={800}
