@@ -56,7 +56,11 @@ export default function RedevelopmentRadar() {
       .slice(0, 60)
   }, [d, q, typeF, stageF])
 
-  const goApt = (gu: string | null) => { const lawd = gu ? GU_LAWD.get(gu) : null; if (lawd) window.location.href = `/real-estate/apt?lawd=${lawd}` }
+  // 구 클릭=구 단위 / 단지 클릭=아파트 이름까지 넘겨 해당 단지 자동 조회(재건축은 단지명, 재개발은 구역명이라 구 단위)
+  const goApt = (gu: string | null, apt?: string) => {
+    const lawd = gu ? GU_LAWD.get(gu) : null
+    if (lawd) window.location.href = `/real-estate/apt?lawd=${lawd}${apt ? `&apt=${encodeURIComponent(apt)}` : ''}`
+  }
 
   if (loading) return <div style={{ padding: 24, color: TK.sub, background: TK.bg3, borderRadius: 14, border: `1px solid ${BORDER}` }}>🏗️ 서울 정비사업 데이터를 불러오는 중…</div>
   if (!d) return <div style={{ padding: 24, color: TK.sub, background: TK.bg3, borderRadius: 14, border: `1px solid ${BORDER}` }}>정비사업 데이터를 불러오지 못했습니다.</div>
@@ -220,7 +224,7 @@ export default function RedevelopmentRadar() {
             : searchHits.map((p, i) => {
               const sc = STAGE_C[p.stageIdx] ?? TK.sub2
               return (
-                <div key={i} onClick={() => goApt(p.gu)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 7, background: TK.bg6, cursor: 'pointer' }}>
+                <div key={i} onClick={() => goApt(p.gu, p.typeGroup === '재건축' ? p.name : undefined)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 7, background: TK.bg6, cursor: 'pointer' }}>
                   <span style={{ fontSize: 9, fontWeight: 800, color: '#1c1917', background: sc, borderRadius: 5, padding: '2px 6px', minWidth: 50, textAlign: 'center' }}>{p.stage}</span>
                   <span style={{ fontSize: 10, color: TK.sub2, minWidth: 44 }}>{p.gu}</span>
                   <span style={{ fontSize: 12, color: TK.slate200, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
