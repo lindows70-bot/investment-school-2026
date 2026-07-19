@@ -10,7 +10,7 @@ export const maxDuration = 20
 interface Swing { date: string; price: number; type: 'high' | 'low'; seq: number; confirmed: boolean }
 export interface ElliottEduResult {
   market: 'US' | 'KR'; ticker: string; label: string
-  points: { date: string; price: number }[]
+  points: { date: string; price: number; volume: number }[]
   swings: Swing[]
   current: { price: number; date: string; sincePivotPct: number; direction: 'up' | 'down'; pivotsUp: number; pivotsDown: number }
   zigzagPct: number
@@ -20,7 +20,9 @@ export interface ElliottEduResult {
 const ANCHOR = { US: { ticker: 'QQQ', label: '나스닥100(QQQ)' }, KR: { ticker: '069500', label: '코스피200(KODEX200)' } } as const
 const ZIGZAG_PCT = 8   // 8% 임계 — 주봉 기준 노이즈 필터(임계 낮추면 스윙 과다, 높이면 과소)
 
-async function yahooWeeklyClose(ticker: string): Promise<{ date: string; price: number }[]> {
+type Pt = { date: string; price: number; volume: number }
+
+async function yahooWeeklyClose(ticker: string): Promise<Pt[]> {
   for (const host of ['query1', 'query2']) {
     try {
       const r = await fetch(`https://${host}.finance.yahoo.com/v8/finance/chart/${ticker}?range=3y&interval=1wk`, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10_000) })
@@ -29,24 +31,25 @@ async function yahooWeeklyClose(ticker: string): Promise<{ date: string; price: 
       const res = j?.chart?.result?.[0]
       const ts: number[] = res?.timestamp ?? []
       const c: (number | null)[] = res?.indicators?.quote?.[0]?.close ?? []
-      const out = ts.map((t, i) => ({ date: new Date(t * 1000).toISOString().slice(0, 10), price: c[i] }))
-        .filter((x): x is { date: string; price: number } => x.price != null && x.price > 0)
+      const v: (number | null)[] = res?.indicators?.quote?.[0]?.volume ?? []
+      const out = ts.map((t, i) => ({ date: new Date(t * 1000).toISOString().slice(0, 10), price: c[i], volume: v[i] ?? 0 }))
+        .filter((x): x is Pt => x.price != null && x.price > 0)
       if (out.length > 20) return out
     } catch { /* 다음 host */ }
   }
   return []
 }
 
-async function naverWeeklyClose(code: string): Promise<{ date: string; price: number }[]> {
+async function naverWeeklyClose(code: string): Promise<Pt[]> {
   try {
     const r = await fetch(`https://fchart.stock.naver.com/sise.nhn?symbol=${code}&timeframe=week&count=150&requestType=0`, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10_000) })
     if (!r.ok) return []
     const xml = await r.text()
-    const out: { date: string; price: number }[] = []
+    const out: Pt[] = []
     const re = /data="([^"]+)"/g; let m: RegExpExecArray | null
     while ((m = re.exec(xml)) !== null) {
-      const p = m[1].split('|'); const ds = p[0]; const c = parseFloat(p[4])
-      if (isFinite(c) && c > 0) out.push({ date: `${ds.slice(0, 4)}-${ds.slice(4, 6)}-${ds.slice(6, 8)}`, price: c })
+      const p = m[1].split('|'); const ds = p[0]; const c = parseFloat(p[4]); const vol = parseFloat(p[5])
+      if (isFinite(c) && c > 0) out.push({ date: `${ds.slice(0, 4)}-${ds.slice(4, 6)}-${ds.slice(6, 8)}`, price: c, volume: isFinite(vol) ? vol : 0 })
     }
     return out
   } catch { return [] }
@@ -86,7 +89,7 @@ function zigzag(points: { date: string; price: number }[], pct: number): Swing[]
 
 export async function GET(req: Request) {
   const market = (new URL(req.url).searchParams.get('market') ?? 'US').toUpperCase() === 'KR' ? 'KR' : 'US'
-  const cacheKey = `elliott-wave-edu-v1:${market}`
+  const cacheKey = `elliott-wave-edu-v2:${market}`   // v2: 거래량 추가(RSI·EMA·피보·융합 클라 계산)
   const cached = await getCache<ElliottEduResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
