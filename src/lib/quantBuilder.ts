@@ -1,5 +1,5 @@
 // 🛰️ AI 1억 백지 퀀트 빌더 엔진 — 코어-새틀라이트 설계 본체(route와 copy가 공유)
-// Core(50~70%): 국면별 시장 ETF(SPY·QQQ·SCHD) · Satellite(30~50%): 3축 SSOT(버핏 ROE·린치 PEG·수급) 통과 5~7종
+// Core(50~70%): 국면별 시장 ETF(SPY·QQQ·SCHD) · Satellite(30~50%): 3축 SSOT(버핏 ROE·린치 PEG·수급) 통과 + 섹터당 최대 2종(분산) 5~7종
 // 모든 점수는 unified-reco SSOT 재사용(제2원칙 — 통합매수와 동일 점수·동일 기저효과 가드) · ETF 투시경으로 실질 섹터 합성
 import { getCache, setCache } from '@/lib/appCache'
 import { getEtfComposition } from '@/lib/etfLookThrough'
@@ -153,7 +153,7 @@ export interface QuantBuilderResult {
 
 /** 빌드 본체 — GET과 copy(POST)가 공유. base=요청 origin, cookie=인증 전달용 */
 export async function buildQuantPlan(base: string, cookie: string): Promise<QuantBuilderResult | null> {
-  const cacheKey = `quant-builder-v5:${kstDate()}`   // v5: 🚦 타점 신호등(timing) 상속
+  const cacheKey = `quant-builder-v6:${kstDate()}`   // v6: 🧭 위성 섹터 분산(섹터당 최대 2종) / v5: 🚦 타점 신호등(timing) 상속
   const cached = await getCache<QuantBuilderResult>(cacheKey, 12 * 3600_000)
   if (cached && !cached.warming) return cached
 
@@ -169,15 +169,25 @@ export async function buildQuantPlan(base: string, cookie: string): Promise<Quan
   const plan = CORE_PLAN[quad]
   const satelliteBudget = 100 - plan.coreRatio
 
-  // ② 3축 게이트 — fail 0개 + pass 1개 이상. 3축 전부 pass(최정예)→2축→1축 순, 최대 7종
+  // ② 3축 게이트 — fail 0개 + pass 1개 이상. 3축 전부 pass(최정예)→2축→1축 순, 섹터당 최대 2종·최대 7종
   const judgedAll = (ur.items ?? []).map(it => {
     const axes = judgeAxes(it)
     const vals = [axes.buffett, axes.lynch, axes.supply]
     return { it, axes, passCount: vals.filter(v => v === 'pass').length, hasFail: vals.includes('fail') }
   }).filter(j => !j.hasFail && j.passCount >= 1)
     .sort((a, b) => b.passCount - a.passCount || b.it.combined - a.it.combined)
-  const picked = judgedAll.slice(0, 7)
-  // 후보가 적으면 있는 만큼만(추정치로 채우지 않음 — 정직)
+  // 🧭 섹터 분산 — 종목당 상한(10%) 외에 섹터당 최대 2종(금융 등 한 섹터 쏠림 방지). 품질순 정렬 유지하며 그리디 선별
+  const SAT_SECTOR_CAP = 2
+  const secCnt = new Map<string, number>()
+  const picked: typeof judgedAll = []
+  for (const j of judgedAll) {
+    if (picked.length >= 7) break
+    const sec = j.it.sector ?? '기타'
+    if ((secCnt.get(sec) ?? 0) >= SAT_SECTOR_CAP) continue
+    secCnt.set(sec, (secCnt.get(sec) ?? 0) + 1)
+    picked.push(j)
+  }
+  // 후보가 적으면 있는 만큼만(추정치로 채우지 않음 — 정직). 섹터 상한에 막힌 종목은 Core로 환류
 
   // ③ 위성 비중 — 통합점수 비례 배분하되 **종목당 상한 10%**(분산 원칙: 1종 독식 방지).
   //    상한 때문에 못 채운 미달분은 Core로 환류(미배치 현금 없이 시장 본체에 묻어감)
@@ -236,7 +246,7 @@ export async function buildQuantPlan(base: string, cookie: string): Promise<Quan
     coreRatio: coreEffective, satelliteRatio: satAllocated, rationale: plan.rationale,
     core: plan.mix.map(m => ({ ticker: m.ticker, name: m.name, market: m.market, role: m.role, mixPct: m.weight, weightPct: Math.round(coreEffective * m.weight / 100 * 10) / 10, priceCtx: ctxMap.get(`C:${m.ticker}`) ?? null })),
     satellites, effectiveSectors,
-    axisRule: '3축 게이트: 🏰 버핏(ROE 15%↑) · 💎 린치(PEG 1.0↓ & 기저효과 가드) · 📡 수급(60↑) — 결격(추정하향·PEG 2↑·저ROE·수급이탈) 0개 + 1축 이상 통과 · 종목당 상한 10% · 최대 7종',
+    axisRule: '3축 게이트: 🏰 버핏(ROE 15%↑) · 💎 린치(PEG 1.0↓ & 기저효과 가드) · 📡 수급(60↑) — 결격(추정하향·PEG 2↑·저ROE·수급이탈) 0개 + 1축 이상 통과 · 🧭 섹터당 최대 2종(쏠림 방지) · 종목당 상한 10% · 최대 7종',
     unallocatedNote: leftover >= 0.5 ? `위성 분산 상한(종목당 10%) 때문에 ${leftover}%는 Core(시장 ETF)로 환류했습니다 — 정예 후보가 늘어나면 자동으로 위성에 재배분됩니다.` : null,
     warming: (ur.items ?? []).length === 0,
     asOf: new Date().toISOString(),
