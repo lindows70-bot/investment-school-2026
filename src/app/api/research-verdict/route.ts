@@ -22,6 +22,7 @@ export interface ResearchVerdict {
   ticker: string; name: string; market: 'KR' | 'US'
   verdict: 'buy' | 'caution' | 'avoid'   // ✅매수 적합 / ⚖️조건부·신중 / ⛔부적합
   score: number                          // 종합 매수 적합도 0~100
+  sector: string | null; rotationQuad: RotQuad | null   // GICS 섹터(영문) + 로테이션 국면 — 리서치 리포트 재사용(제2원칙)
   axes: { season: number; value: number; quality: number; momentum: number; rotation: number; supply: number }
   seasonLabel: string; seasonFit: 'favored' | 'neutral' | 'unfavored'
   fwdEpsDir: 'accel' | 'flat' | 'decline' | 'unknown'
@@ -46,7 +47,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ unsupported: true, reason: '개별 주식 전용 판정입니다(ETF·코인·원자재 제외).' }, { headers: { 'Cache-Control': 'no-store' } })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || url.origin
-  const cacheKey = `research-verdict-v8:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v8: 4축→6축(퀄리티·주도섹터 축 추가, 통합추천과 동일 가중) / v7: 🚦 타점 timing 응답
+  const cacheKey = `research-verdict-v9:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v9: sector·rotationQuad 노출(리서치 리포트 재사용) / v8: 6축
   const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -175,6 +176,7 @@ export async function GET(req: Request) {
 
   const result: ResearchVerdict = {
     ticker, name, market, verdict, score,
+    sector: m.sector ?? null, rotationQuad: rotQuad,
     axes: { season: seasonScore, value, quality, momentum, rotation, supply },
     seasonLabel, seasonFit, fwdEpsDir: m.fwdEpsDir, priceTrend: m.priceTrend,
     peg: m.peg, pegSuspect, dcfVerdict: dcf, flowStatus: flow,
