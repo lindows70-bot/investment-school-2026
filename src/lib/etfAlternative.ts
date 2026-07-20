@@ -33,16 +33,33 @@ const GICS_SECTOR_ETF: Record<string, { ko: string; us?: { t: string; name: stri
   'Real Estate':            { ko: '부동산',       us: { t: 'XLRE', name: 'SPDR 부동산' },   kr: { code: '329200', name: 'TIGER 리츠부동산' } },
 }
 
+// 🔎 소섹터 정밀화 — 종목명 키워드로 세부 ETF. ⚠️ **동일 업종을 일관되게 가를 수 있는 '신뢰 가능한' 키워드만** 넣는다.
+//    금융 증권/보험·산업재 항공 = 종목명에 업종어가 항상 포함(대한항공·Air Lines·○○증권·○○화재) → 일관 분류 가능.
+//    반도체·방산 등은 영문명이 키워드를 안 담아(TSMC엔 'Semiconductor'가 있지만 Qualcomm엔 없음) 같은 업종이
+//    갈리면 오히려 학생이 헷갈림 → 광의 섹터 ETF 유지. 티커는 전부 실측 검증(SECTOR_ETF 재사용 + JETS/IAI/KIE 확인).
+const NAME_REFINE: Record<string, { re: RegExp; label: string; us?: { t: string; name: string }; kr?: { code: string; name: string } }[]> = {
+  'Financial Services': [
+    { re: /증권|금융투자|한국금융지주|한국투자/, label: '증권', us: { t: 'IAI', name: 'iShares 증권' }, kr: { code: '102970', name: 'KODEX 증권' } },
+    { re: /보험|생명|화재|손해|메리츠금융/, label: '보험', us: { t: 'KIE', name: 'SPDR 보험' }, kr: { code: '140700', name: 'KODEX 보험' } },
+    // 그 외(은행·KB/신한/하나 금융지주) → 광의 폴백(KODEX 은행 / XLF)
+  ],
+  'Industrials': [
+    { re: /항공(?!우주)|Airlines?|Air ?Lines/i, label: '항공', us: { t: 'JETS', name: 'US Global 항공' } },   // 항공사(대한항공·Delta Air Lines). '항공우주'(방산)는 제외
+    // 방산·조선·운송 등은 영문명이 업종어를 안 담는 경우가 많아(Lockheed·RTX) 광의(XLI) 유지 — 동일 업종 불일치 방지
+  ],
+}
+
 /** GICS 섹터 + 시장(+종목명) → 매칭 섹터 ETF 스텁(타점·PEG 계산 전).
- *  금융(광의: 은행+증권+보험)은 KR 종목명으로 하위 ETF를 정교화(증권/보험 별도 ETF 존재). KR 대응 없으면 US 폴백. */
+ *  ① 신뢰 가능한 소섹터 키워드(NAME_REFINE)로 세부 ETF → ② 없으면 광의 GICS 섹터 ETF. KR 대응 없으면 US 폴백. */
 export function etfAltStub(gicsSector: string, market: string, name = ''): Stub | null {
   const isKr = (market ?? '').toUpperCase() === 'KR'
-  // 🏦 금융 하위 정교화(KR) — GICS 'Financial Services'는 은행·증권·보험 혼합이라 종목명으로 세분(각 전용 ETF 존재)
-  if (gicsSector === 'Financial Services' && isKr) {
-    if (/증권/.test(name)) return { ticker: '102970', name: 'KODEX 증권', market: 'KR', sectorLabel: '증권', isFallback: false }
-    if (/보험|생명|화재|손해/.test(name)) return { ticker: '140700', name: 'KODEX 보험', market: 'KR', sectorLabel: '보험', isFallback: false }
-    // 은행·금융지주·기타 → 은행 ETF(광의)로 폴백(아래 공통 처리)
+  // ① 소섹터 정밀화(신뢰 키워드만)
+  const refine = NAME_REFINE[gicsSector]?.find(r => r.re.test(name))
+  if (refine) {
+    if (isKr && refine.kr) return { ticker: refine.kr.code, name: refine.kr.name, market: 'KR', sectorLabel: refine.label, isFallback: false }
+    if (refine.us) return { ticker: refine.us.t, name: refine.us.name, market: 'US', sectorLabel: refine.label, isFallback: isKr }
   }
+  // ② 광의 GICS 섹터 폴백
   const g = GICS_SECTOR_ETF[gicsSector]
   if (!g) return null
   if (isKr && g.kr) return { ticker: g.kr.code, name: g.kr.name, market: 'KR', sectorLabel: g.ko, isFallback: false }

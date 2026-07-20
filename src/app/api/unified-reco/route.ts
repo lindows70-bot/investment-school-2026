@@ -113,7 +113,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v32:${user.id}:${kstDate()}:${fp}`   // v32: ETF 분산 대안 정교화 — 금융 하위(증권/보험) 종목명 세분 + US 이름 SPDR(중복 제거)
+  const cacheKey = `unified-reco-v33:${user.id}:${kstDate()}:${fp}`   // v33: ETF 소섹터 정밀화 — 금융 보험(메리츠금융지주 포함)·한국금융지주=증권 + 산업재 항공→JETS
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
