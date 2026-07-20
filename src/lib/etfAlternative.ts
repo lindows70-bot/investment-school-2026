@@ -33,31 +33,50 @@ const GICS_SECTOR_ETF: Record<string, { ko: string; us?: { t: string; name: stri
   'Real Estate':            { ko: '부동산',       us: { t: 'XLRE', name: 'SPDR 부동산' },   kr: { code: '329200', name: 'TIGER 리츠부동산' } },
 }
 
-// 🔎 소섹터 정밀화 — 종목명 키워드로 세부 ETF. ⚠️ **동일 업종을 일관되게 가를 수 있는 '신뢰 가능한' 키워드만** 넣는다.
-//    금융 증권/보험·산업재 항공 = 종목명에 업종어가 항상 포함(대한항공·Air Lines·○○증권·○○화재) → 일관 분류 가능.
-//    반도체·방산 등은 영문명이 키워드를 안 담아(TSMC엔 'Semiconductor'가 있지만 Qualcomm엔 없음) 같은 업종이
-//    갈리면 오히려 학생이 헷갈림 → 광의 섹터 ETF 유지. 티커는 전부 실측 검증(SECTOR_ETF 재사용 + JETS/IAI/KIE 확인).
-const NAME_REFINE: Record<string, { re: RegExp; label: string; us?: { t: string; name: string }; kr?: { code: string; name: string } }[]> = {
-  'Financial Services': [
-    { re: /증권|금융투자|한국금융지주|한국투자/, label: '증권', us: { t: 'IAI', name: 'iShares 증권' }, kr: { code: '102970', name: 'KODEX 증권' } },
-    { re: /보험|생명|화재|손해|메리츠금융/, label: '보험', us: { t: 'KIE', name: 'SPDR 보험' }, kr: { code: '140700', name: 'KODEX 보험' } },
-    // 그 외(은행·KB/신한/하나 금융지주) → 광의 폴백(KODEX 은행 / XLF)
-  ],
-  'Industrials': [
-    { re: /항공(?!우주)|Airlines?|Air ?Lines/i, label: '항공', us: { t: 'JETS', name: 'US Global 항공' } },   // 항공사(대한항공·Delta Air Lines). '항공우주'(방산)는 제외
-    // 방산·조선·운송 등은 영문명이 업종어를 안 담는 경우가 많아(Lockheed·RTX) 광의(XLI) 유지 — 동일 업종 불일치 방지
-  ],
-}
+// 🔎 소섹터 정밀화 — **Yahoo `industry`(정확한 소업종 카테고리 필드)로** 세부 ETF에 매핑. 이름 추측이 아니라
+//    카테고리 필드라 같은 업종은 항상 같은 ETF(TSMC·Qualcomm 둘 다 industry='Semiconductors'→SOXX = 일관·학생 혼동 없음).
+//    industry가 없으면(KR 일부) 종목명 폴백(KR 금융·항공은 이름에 업종어 포함). 티커는 전부 실측 검증(SECTOR_ETF 재사용 + JETS).
+//    ⚠️ 순서 중요: 증권(자본시장)→보험→은행 / 항공→방산(Aerospace보다 Airlines 먼저·상호 배타).
+const SUB_ETF: { re: RegExp; label: string; us?: { t: string; name: string }; kr?: { code: string; name: string } }[] = [
+  // 산업재
+  { re: /Airlines|Air ?Lines|항공(?!우주)/i,              label: '항공',       us: { t: 'JETS', name: 'US Global 항공' } },
+  { re: /Aerospace|Defense|방산|항공우주/i,               label: '방산·우주',  us: { t: 'ITA',  name: 'iShares 방산' },     kr: { code: '449450', name: 'PLUS K방산' } },
+  { re: /Railroad|Freight|Trucking|Logistics|운송|물류/i,  label: '운송·물류', us: { t: 'IYT',  name: 'iShares 운송' } },
+  // 금융 (증권→보험→은행 순 — 상호 배타)
+  { re: /Capital Markets|Asset Management|Stock Exchange|증권|금융투자|한국금융지주|한국투자/i, label: '증권·자본시장', us: { t: 'IAI', name: 'iShares 증권' }, kr: { code: '102970', name: 'KODEX 증권' } },
+  { re: /Insurance|보험|생명|화재|손해|메리츠금융/i,       label: '보험',      us: { t: 'KIE',  name: 'SPDR 보험' },       kr: { code: '140700', name: 'KODEX 보험' } },
+  { re: /\bBanks?\b|은행/i,                               label: '은행',      us: { t: 'KBWB', name: 'KBW 은행' },         kr: { code: '091170', name: 'KODEX 은행' } },
+  // IT
+  { re: /Semiconductor|반도체|파운드리/i,                 label: '반도체',    us: { t: 'SOXX', name: 'iShares 반도체' },   kr: { code: '091160', name: 'KODEX 반도체' } },
+  { re: /Software/i,                                      label: '소프트웨어', us: { t: 'IGV',  name: 'iShares SW' } },
+  // 헬스케어
+  { re: /Biotechnolog|바이오/i,                           label: '바이오',    us: { t: 'XBI',  name: 'SPDR 바이오' },     kr: { code: '244580', name: 'KODEX 바이오' } },
+  { re: /Drug Manufactur|Pharmaceutic|제약/i,             label: '제약',      us: { t: 'PPH',  name: 'VanEck 제약' } },
+  { re: /Medical (Device|Instrument)|의료기기/i,          label: '의료기기',  us: { t: 'IHI',  name: 'iShares 의료기기' } },
+  { re: /Healthcare Plans/i,                              label: '의료서비스', us: { t: 'IHF',  name: 'iShares 의료서비스' } },
+  // 에너지
+  { re: /Oil & Gas E&P|Exploration/i,                     label: 'E&P',       us: { t: 'XOP',  name: 'SPDR E&P' } },
+  { re: /Oil & Gas Equipment|유전/i,                      label: '유전서비스', us: { t: 'OIH',  name: 'VanEck 유전서비스' } },
+  // 자유소비재
+  { re: /Auto Manufactur|Auto Parts|자동차/i,             label: '자동차',    us: { t: 'CARZ', name: 'First Trust 자동차' }, kr: { code: '091180', name: 'KODEX 자동차' } },
+  { re: /Specialty Retail|Internet Retail/i,              label: '소매·유통', us: { t: 'XRT',  name: 'SPDR 소매' } },
+  // 소재
+  { re: /\bSteel\b|철강|제철/i,                           label: '철강',      us: { t: 'SLX',  name: 'VanEck 철강' },     kr: { code: '117680', name: 'KODEX 철강' } },
+  { re: /\bGold\b|Precious Metals/i,                      label: '금·귀금속', us: { t: 'GDX',  name: 'VanEck 금광' } },
+  // 커뮤니케이션
+  { re: /Internet Content/i,                              label: '인터넷',    us: { t: 'FDN',  name: 'First Trust 인터넷' } },
+]
 
-/** GICS 섹터 + 시장(+종목명) → 매칭 섹터 ETF 스텁(타점·PEG 계산 전).
- *  ① 신뢰 가능한 소섹터 키워드(NAME_REFINE)로 세부 ETF → ② 없으면 광의 GICS 섹터 ETF. KR 대응 없으면 US 폴백. */
-export function etfAltStub(gicsSector: string, market: string, name = ''): Stub | null {
+/** GICS 섹터 + 시장 + (종목명·소업종) → 매칭 ETF 스텁(타점·PEG 계산 전).
+ *  ① Yahoo industry(신뢰)로 소섹터 ETF → ② industry 없으면 종목명 폴백 → ③ 광의 GICS 섹터 ETF. KR 대응 없으면 US 폴백. */
+export function etfAltStub(gicsSector: string, market: string, name = '', industry = ''): Stub | null {
   const isKr = (market ?? '').toUpperCase() === 'KR'
-  // ① 소섹터 정밀화(신뢰 키워드만)
-  const refine = NAME_REFINE[gicsSector]?.find(r => r.re.test(name))
-  if (refine) {
-    if (isKr && refine.kr) return { ticker: refine.kr.code, name: refine.kr.name, market: 'KR', sectorLabel: refine.label, isFallback: false }
-    if (refine.us) return { ticker: refine.us.t, name: refine.us.name, market: 'US', sectorLabel: refine.label, isFallback: isKr }
+  // ① 소업종 정밀화 — industry(정확) 우선, 없으면 종목명
+  const probe = (industry || name || '').trim()
+  const sub = probe ? SUB_ETF.find(r => r.re.test(probe)) : undefined
+  if (sub) {
+    if (isKr && sub.kr) return { ticker: sub.kr.code, name: sub.kr.name, market: 'KR', sectorLabel: sub.label, isFallback: false }
+    if (sub.us) return { ticker: sub.us.t, name: sub.us.name, market: 'US', sectorLabel: sub.label, isFallback: isKr }
   }
   // ② 광의 GICS 섹터 폴백
   const g = GICS_SECTOR_ETF[gicsSector]
@@ -69,10 +88,10 @@ export function etfAltStub(gicsSector: string, market: string, name = ''): Stub 
 
 /** 추천 아이템(티커·섹터·시장·이름) → 종목별 ETF 대안 계산 → Map(stockTicker → EtfAlt).
  *  타점·합산 PEG는 유니크 ETF(ticker+market)마다 1회씩만 계산(여러 종목이 같은 ETF면 중복 제거). */
-export async function buildEtfAltMap(items: { ticker: string; sector: string; market: string; name: string }[], base: string): Promise<Map<string, EtfAlt>> {
-  // 1) 종목별 스텁(종목명 정교화 반영)
+export async function buildEtfAltMap(items: { ticker: string; sector: string; market: string; name: string; industry?: string | null }[], base: string): Promise<Map<string, EtfAlt>> {
+  // 1) 종목별 스텁(소업종 industry 우선 정밀화)
   const stubByStock = new Map<string, Stub | null>()
-  for (const it of items) if (!stubByStock.has(it.ticker)) stubByStock.set(it.ticker, etfAltStub(it.sector, it.market, it.name))
+  for (const it of items) if (!stubByStock.has(it.ticker)) stubByStock.set(it.ticker, etfAltStub(it.sector, it.market, it.name, it.industry ?? ''))
   // 2) 유니크 ETF(ticker+market) → 타점·합산 PEG 1회씩만 계산
   const etfKeys = new Map<string, { ticker: string; market: 'US' | 'KR' }>()
   for (const s of Array.from(stubByStock.values())) if (s) etfKeys.set(`${s.ticker}:${s.market}`, { ticker: s.ticker, market: s.market })

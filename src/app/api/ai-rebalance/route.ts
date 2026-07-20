@@ -232,7 +232,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v39:${user.id}:${today}:${fp}`   // v39: ETF 소섹터 정밀화 상속(금융 보험·증권 세분 + 항공 JETS)
+  const cacheKey = `ai-rebalance-v40:${user.id}:${today}:${fp}`   // v40: ETF 소섹터 Yahoo industry 정밀화 상속(전 소섹터 일관 매핑)
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)

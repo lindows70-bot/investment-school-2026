@@ -51,6 +51,7 @@ export interface ScreenedStock {
   name:         string
   market:       'US' | 'KR'
   sector:       string | null
+  industry:     string | null   // Yahoo 세부 소업종(assetProfile.industry) — ETF 소섹터 정밀 매핑용(추가 fetch 0)
   lynchCategory: LynchCategory
   peg:          number | null
   opMargin:     number | null   // 영업이익률 %
@@ -788,6 +789,7 @@ async function screenOne(
     const price = numf(pr.regularMarketPrice) ?? numf(sd.regularMarketPrice)
     const currency = market === 'KR' ? 'KRW' as const : 'USD' as const
     const sector = String(q?.assetProfile?.sector || q?.price?.sector || '—')   // ★ price.sector는 빈값 → assetProfile 우선(섹터 필터·LLM 정확도)
+    const industry = String(q?.assetProfile?.industry || '').trim() || null      // 세부 소업종(ETF 소섹터 정밀 매핑용, 추가 fetch 0 — 이미 assetProfile fetch함)
 
     // 최소 품질 필터 (탈락): 영업이익 -20% 이하만 제거
     if (opMargin != null && opMargin < -20) return null
@@ -843,7 +845,7 @@ async function screenOne(
     if (mom.fwdEpsDir === 'decline') flags.push('이익 역성장(하강 사이클)')
     if (mom.knife) flags.push('주가 급락 추세(falling knife)')
 
-    return { ticker, name, market, sector, lynchCategory: lynch, peg, opMargin, fcfPositive, fcfYield, qualityGap, price, currency, score, valueScore, qualityScore, flags, ...mom }
+    return { ticker, name, market, sector, industry, lynchCategory: lynch, peg, opMargin, fcfPositive, fcfYield, qualityGap, price, currency, score, valueScore, qualityScore, flags, ...mom }
   } catch { return null }
 }
 

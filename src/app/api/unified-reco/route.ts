@@ -31,7 +31,7 @@ const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
 const W = { season: 0.15, value: 0.25, quality: 0.20, supply: 0.10, momentum: 0.20, rotation: 0.10 }
 
 export interface UnifiedRecoItem {
-  ticker: string; name: string; market: string; sector: string; lynchCategory: string
+  ticker: string; name: string; market: string; sector: string; industry: string | null; lynchCategory: string
   seasonScore: number; valueScore: number; qualityScore: number; supplyScore: number; momentumScore: number; combined: number
   fwdEpsDir: 'accel' | 'flat' | 'decline' | 'unknown'   // 📈 Fwd EPS 사이클 방향
   priceTrend: 'up' | 'side' | 'down' | 'unknown'        // 📉 최근 주가 추세
@@ -113,12 +113,12 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v33:${user.id}:${kstDate()}:${fp}`   // v33: ETF 소섹터 정밀화 — 금융 보험(메리츠금융지주 포함)·한국금융지주=증권 + 산업재 항공→JETS
+  const cacheKey = `unified-reco-v34:${user.id}:${kstDate()}:${fp}`   // v34: ETF 소섹터 정밀화 — Yahoo industry 기반 전면(반도체·방산·바이오·자동차·철강 등 일관 매핑, 이름 추측 폐기)
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // base 유니버스 — macro-ai-picks가 적재한 전체 채점 캐시(없으면 빈 결과 graceful)
-  const screened = await getCache<ScreenedStock[]>('macro-screened-universe:v9', 8 * 24 * 3600_000)
+  const screened = await getCache<ScreenedStock[]>('macro-screened-universe:v10', 8 * 24 * 3600_000)
   if (!screened || screened.length === 0) {
     return NextResponse.json({ weights: W, usSeason: null, krSeason: null, items: [], asOf: new Date().toISOString(), warming: true }, { headers: { 'Cache-Control': 'no-store' } })
   }
@@ -389,7 +389,7 @@ export async function GET(req: Request) {
       const suggestWeight = Math.round((combined >= 85 ? 2.5 : combined >= 78 ? 2.0 : 1.5) * regimeMult * 10) / 10
       const suggestWon = Math.round(portfolioKrw * suggestWeight / 100)
       return {
-        ticker: t.p.s.ticker, name: t.p.s.name, market: t.p.s.market, sector: t.p.s.sector ?? '—', lynchCategory: t.p.s.lynchCategory as string,
+        ticker: t.p.s.ticker, name: t.p.s.name, market: t.p.s.market, sector: t.p.s.sector ?? '—', industry: t.p.s.industry ?? null, lynchCategory: t.p.s.lynchCategory as string,
         seasonScore: t.p.seasonScore, valueScore, qualityScore: t.p.qualityScore, supplyScore: t.supplyScore, momentumScore: t.p.momentumScore, combined,
         fwdEpsDir: t.p.s.fwdEpsDir, priceTrend: t.p.s.priceTrend, fwdGrowthPct: t.p.s.fwdGrowthPct ?? null, priceVs200: t.p.s.priceVs200 ?? null,
         peg, opMargin: t.p.s.opMargin, fcfYield: t.p.s.fcfYield ?? null, qualityGap: t.p.s.qualityGap ?? false, psr: cf?.psr ?? null, roe, roic, roeInflated, epsRevision, suggestWeight, suggestWon,
@@ -411,7 +411,7 @@ export async function GET(req: Request) {
 
   // 🔬 ETF 분산 대안 부착(최종 선정 후 — 점수·선정·정렬 절대 불변, 같은 GICS 섹터 ETF 분산 선택지만)
   try {
-    const etfMap = await buildEtfAltMap(items.map(i => ({ ticker: i.ticker, sector: i.sector, market: i.market, name: i.name })), base)
+    const etfMap = await buildEtfAltMap(items.map(i => ({ ticker: i.ticker, sector: i.sector, market: i.market, name: i.name, industry: i.industry })), base)
     for (const it of items) it.etfAlt = etfMap.get(it.ticker) ?? null
   } catch { /* graceful — ETF 대안만 생략 */ }
 

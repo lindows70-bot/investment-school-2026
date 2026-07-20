@@ -178,7 +178,7 @@ export async function GET(req: Request) {
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // ① 유니버스 — 스크리너 캐시(주간 크론이 적재한 ScreenedStock 전체)
-  const screened = (await getCache<ScreenedStock[]>('macro-screened-universe:v9', 8 * 24 * 3600_000)) ?? []
+  const screened = (await getCache<ScreenedStock[]>('macro-screened-universe:v10', 8 * 24 * 3600_000)) ?? []
   const byKey = new Map<string, ScreenedStock>()
   for (const s of screened) byKey.set(normKey(s.market, s.ticker), s)
 
