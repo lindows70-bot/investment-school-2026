@@ -293,6 +293,21 @@ export default function ElliottWaveEducation() {
                 <b style={{ color: curDir === 'up' ? TK.green400 : TK.red400 }}> {sincePivotPct > 0 ? '+' : ''}{sincePivotPct}%</b>
                 {pending && <span> · {pending.type === 'high' ? '고점 갱신 중(진행)' : '저점 갱신 중(진행)'}, 아직 {pct}% 반전 미확정</span>}
               </span>
+              {conf && (
+                <div style={{ marginTop: 7, paddingTop: 6, borderTop: `1px solid ${curDir === 'up' ? 'rgba(74,222,128,0.22)' : 'rgba(248,113,113,0.22)'}`, display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: conf.overall === 'buy' ? TK.green500 : conf.overall === 'watch' ? TK.amber500 : TK.red400 }}>
+                    🧭 지금 무엇을 준비할까 — {conf.overall === 'buy' ? '🟢 상향 돌파 시도 유효' : conf.overall === 'watch' ? '🟡 확인 대기' : '🔴 하락 대비'}
+                  </span>
+                  <span style={{ fontSize: 10.5, color: TK.sub5, lineHeight: 1.45 }}>
+                    {conf.overall === 'buy'
+                      ? '224 EMA 위 · 되돌림 건강(38.2~61.8%) · 1파 시작점 방어 — 눌림에서 3파를 노리는 자리'
+                      : conf.overall === 'watch'
+                        ? '일부 조건 미충족 — 224 EMA·되돌림 깊이 확인 후 분할로만 대응(추격 자제)'
+                        : `${conf.step1 === 'fail' ? '224 EMA 이탈' : conf.step4 === 'fail' ? '1파 시작점(무효화선) 붕괴' : '되돌림 과도(100%+)'} — 추세·무효화 규칙이 깨진 자리, 반등은 정리 기회로`}
+                  </span>
+                  <span style={{ fontSize: 9, color: TK.sub, width: '100%' }}>ⓘ 특정 가격 예측이 아니라 위 객관 필터(EMA·되돌림·무효화선)에서 파생한 스탠스 — 확정은 아래 융합 체크리스트로 교차 확인</span>
+                </div>
+              )}
             </div>
 
             {/* 범례 */}
