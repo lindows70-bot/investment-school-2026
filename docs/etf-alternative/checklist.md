@@ -15,7 +15,11 @@
 - [x] `ai-rebalance/route.ts`: `BuyCandidate.etfAlt`·`BuyIdea.etfAlt` — unified-reco 상속(제2원칙). 캐시 v36→v37
 - [x] `CoreSatelliteHero.tsx` "🛒 보강" 매수 카드에 ETF 대안 행
 
-## 4단계 — 검증·배포
+## 4단계 — 검증·배포 ✅
 - [x] `npm run check` 통과 (tsc + lint, 내 파일 이슈 0)
-- [ ] 배포 후 라이브 검증(auth-gated): 합산 PEG=X-Ray 동일, 타점=기술차트 동일, 매핑 정확
-- [ ] 커밋 + 배포 + CLAUDE.md 기록
+- [x] 라이브 화면검증(10카드): 매핑·dedup·PEG·타점 정확 → 정교화 2건(금융 하위 세분·US SPDR 이름) 반영
+- [x] 커밋(134b0d9) + 배포(READY) + push + CLAUDE.md 기록
+
+## v2 후보 (백로그)
+- 세부 소섹터 ETF(반도체→SOXX 등): 스크리너에 Yahoo industry 실어야 GICS 대섹터→소섹터 정밀화
+- US 금융 하위 세분(증권 IAI·보험 KIE): 영문명 감지 신뢰도 낮아 보류
