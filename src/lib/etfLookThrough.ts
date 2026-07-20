@@ -3,6 +3,7 @@
 // 가드레일: 기존 STOCK 엔진 무손상 — 분해는 이 별도 레이어에서만. 추정치 금지(비중 없으면 null로 정직 표기)
 
 import { getCache, setCache } from '@/lib/appCache'
+import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
 
 export interface EtfHolding {
   ticker: string | null    // 6자리/US심볼. 해외주식형 KR ETF는 null(코드 미제공)
@@ -165,4 +166,29 @@ export async function getEtfComposition(ticker: string, market?: string): Promis
   const result = mkt === 'KR' ? await fetchKr(code) : await fetchUs(code)
   if (result && (result.topHoldings.length > 0 || result.sectorWeights.length > 0)) await setCache(cacheKey, result)
   return result
+}
+
+/** 💎 합산 PEG(SSOT) — 이미 fetch한 composition에서 상위 구성종목 canonical PEG(SSOT) 가중평균.
+ *  커버리지(합산 포함 비중 / 상위 비중 합)가 40%↑일 때만 반환(반쪽 평균 과신 방지).
+ *  ⚠️ portfolio-xray Phase 4와 동일 로직 — 이 함수를 단일 출처로 공유(제2원칙: 같은 ETF=같은 합산 PEG). */
+export async function blendedPegFromComposition(c: EtfComposition, base?: string): Promise<{ peg: number; coverage: number } | null> {
+  if (!c.holdingsHaveWeights || c.topWeightSum == null) return null
+  const withTicker = c.topHoldings.filter(t => t.ticker && t.weight != null)
+  const cfs = await Promise.all(withTicker.map(t =>
+    getCanonicalFundamentals(t.ticker!, /^\d{6}$/.test(t.ticker!) ? 'KR' : 'US', base).catch(() => null)))
+  let pegW = 0, wSum = 0
+  withTicker.forEach((t, k) => {
+    const peg = cfs[k]?.peg
+    if (peg != null && peg > 0 && peg <= 10) { pegW += peg * t.weight!; wSum += t.weight! }   // 음수·극단값 제외
+  })
+  const covPct = Math.round(wSum / c.topWeightSum * 1000) / 10
+  if (wSum > 0 && covPct >= 40) return { peg: Math.round(pegW / wSum * 100) / 100, coverage: covPct }
+  return null
+}
+
+/** 💎 합산 PEG — 티커로 composition을 fetch한 뒤 계산(단독 호출용, 예: ETF 분산 대안). */
+export async function getBlendedPeg(ticker: string, market?: string, base?: string): Promise<{ peg: number; coverage: number } | null> {
+  const c = await getEtfComposition(ticker, market)
+  if (!c) return null
+  return blendedPegFromComposition(c, base)
 }

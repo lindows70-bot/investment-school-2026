@@ -6,8 +6,7 @@ import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { getSector } from '@/lib/schoolIndex'
-import { getEtfComposition, type EtfComposition } from '@/lib/etfLookThrough'
-import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
+import { getEtfComposition, type EtfComposition, blendedPegFromComposition } from '@/lib/etfLookThrough'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -136,21 +135,12 @@ export async function GET(req: Request) {
     })
   })
 
-  // ④ 💎 Phase 4: 합산 PEG — 비중 있는 ETF의 상위 구성종목 canonical PEG(SSOT) 가중평균
-  //    커버리지(합산에 실제 포함된 비중) 명시 — 40% 미만이면 표시 안 함(반쪽 평균의 과신 방지)
+  // ④ 💎 Phase 4: 합산 PEG — etfLookThrough SSOT(blendedPegFromComposition) 재사용(제2원칙: ETF 분산 대안과 동일값 보장)
   for (let i = 0; i < etfs.length; i++) {
     const c = comps[i], d = etfDetails.find(x => x.ticker === etfs[i].ticker)
-    if (!c || !d || !d.resolved || !c.holdingsHaveWeights || c.topWeightSum == null) continue
-    const withTicker = c.topHoldings.filter(t => t.ticker && t.weight != null)
-    const cfs = await Promise.all(withTicker.map(t =>
-      getCanonicalFundamentals(t.ticker!, /^\d{6}$/.test(t.ticker!) ? 'KR' : 'US', base).catch(() => null)))
-    let pegW = 0, wSum = 0
-    withTicker.forEach((t, k) => {
-      const peg = cfs[k]?.peg
-      if (peg != null && peg > 0 && peg <= 10) { pegW += peg * t.weight!; wSum += t.weight! }   // 음수·극단값 제외(평균 오염 방지)
-    })
-    const covPct = r1(wSum / c.topWeightSum * 100)
-    if (wSum > 0 && covPct >= 40) { d.syntheticPeg = Math.round(pegW / wSum * 100) / 100; d.pegCoverage = covPct }
+    if (!c || !d || !d.resolved) continue
+    const bp = await blendedPegFromComposition(c, base)
+    if (bp) { d.syntheticPeg = bp.peg; d.pegCoverage = bp.coverage }
   }
 
   // ③ 비주식 자산(코인·원자재) → 기타

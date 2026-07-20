@@ -17,6 +17,7 @@ import { isPegBaseEffect } from '@/lib/canonicalFundamentals'
 import { getSector } from '@/lib/schoolIndex'
 import { screenSatellite, type SatelliteScore } from '@/lib/satelliteScreener'
 import type { UnifiedRecoResult } from '@/app/api/unified-reco/route'   // ③통합매수와 동일 SSOT(제2원칙)
+import type { EtfAlt } from '@/lib/etfAlternative'
 import { getEntryTimings, type EntryTiming } from '@/lib/entryTiming'   // 🚦 타점 신호등(WHEN 레이어 — 판정·점수 불변)
 import { classifyAssetRole, type AssetRole } from '@/lib/portfolioRole'   // P2: 코어-새틀라이트 5분류 SSOT
 import { getCurrentSeason } from '@/lib/currentSeason'
@@ -85,6 +86,7 @@ export interface BuyCandidate {
   timing?:       EntryTiming | null   // 🚦 타점 신호등(unified-reco 상속)
   allocWeight:   number          // 제안 편입 비중 %
   sector:        string          // GICS 섹터(분산 진단용)
+  etfAlt?:       EtfAlt | null    // 🔬 ETF 분산 대안(unified-reco 상속)
 }
 
 // Phase 2 — 분산 진단(분류 Before→After + 섹터 집중도)
@@ -153,7 +155,7 @@ export interface ActionItem {
   tag: string                // 근거 엔진 태그(레버리지·알트·캡초과·역DCF·수급·좀비 등)
   sector?: string | null     // GICS 섹터(테마·섹터 배지용 — secByTicker 재사용, 추가 비용 0)
 }
-export interface BuyIdea { ticker: string; name: string; market: string; role: string; targetPct: number; reason: string; tag: string; sector?: string | null; timing?: EntryTiming | null }
+export interface BuyIdea { ticker: string; name: string; market: string; role: string; targetPct: number; reason: string; tag: string; sector?: string | null; timing?: EntryTiming | null; etfAlt?: EtfAlt | null }
 export interface CoreSatelliteView {
   groups: AssetGroupRow[]              // 5분류+차단 현재 비중(전 자산)
   totalValue: number                   // 전 자산 원화 총액(원화 환산 정확도용 — 주식만 아닌 ETF·크립토 포함)
@@ -230,7 +232,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v36:${user.id}:${today}:${fp}`   // v36: US CROWDED 사유 시장별(외인→기관) + 📊 매물·평단 익절 근거
+  const cacheKey = `ai-rebalance-v38:${user.id}:${today}:${fp}`   // v38: ETF 분산 대안 정교화 상속(금융 하위 세분 + US SPDR 이름)
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -403,7 +405,7 @@ export async function GET(req: Request) {
       const csum = ranked.reduce((s, it) => s + it.combined, 0) || 1
       buyCandidates = ranked.map(it => ({
         ticker: it.ticker, name: it.name, market: it.market, lynchCategory: it.lynchCategory,
-        peg: it.peg, aiScore: it.combined, sector: it.sector, timing: it.timing ?? null,
+        peg: it.peg, aiScore: it.combined, sector: it.sector, timing: it.timing ?? null, etfAlt: it.etfAlt ?? null,
         reason: it.badges.slice(0, 3).join(' · ') || `통합 ${it.combined}점(계절·가치·수급·모멘텀)`,
         // 회수 예산(coreBudget)을 통합점수 비례로 배분 — 어떤 종목을 살지는 ③과 동일, 얼마나는 회수액 기준
         allocWeight: coreBudget > 0 ? Math.round((coreBudget * (it.combined / csum)) * 10) / 10 : 0,
@@ -639,7 +641,7 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
     const s = sats[0]
     add.push({ ticker: s.ticker, name: s.name, market: s.market, role: 'SATELLITE_GHOST', targetPct: Math.round(Math.min(CAP - ghostPct, s.allocWeight || 3) * 10) / 10, reason: `유령 캡 ${CAP}% 미달(현재 ${ghostPct}%) — 발굴주: ${s.reason}`, tag: '유령 발굴', sector: s.sector ?? null })
   }
-  for (const b of buys.slice(0, 4)) add.push({ ticker: b.ticker, name: b.name, market: b.market, role: 'SATELLITE_GENERAL', targetPct: b.allocWeight, reason: b.reason, tag: `통합점수 ${b.aiScore}`, sector: b.sector ?? null, timing: b.timing ?? null })
+  for (const b of buys.slice(0, 4)) add.push({ ticker: b.ticker, name: b.name, market: b.market, role: 'SATELLITE_GENERAL', targetPct: b.allocWeight, reason: b.reason, tag: `통합점수 ${b.aiScore}`, sector: b.sector ?? null, timing: b.timing ?? null, etfAlt: b.etfAlt ?? null })
 
   // 🚦 최후 방어선 경고(역배열+구름 이탈) — 매도측 근거 '병기'(판정은 절대 안 뒤집음 — 일방적 매도 강요 금지 원칙)
   //    + 매수측(add)엔 타점 신호등 부착. 전부 기술차트와 동일 SSOT(entryTiming) — tech-chart 캐시 공유·추가 판정기 0

@@ -13,6 +13,7 @@ import { buildSignalMetrics } from '@/lib/jarvisBriefing'
 import { getAnalystSignal } from '@/app/actions/getAnalystSignal'
 import { fetchMacroData, detectMacroPhase, type ScreenedStock } from '@/lib/macroPhaseScreener'
 import { getEntryTimings, type EntryTiming } from '@/lib/entryTiming'
+import { buildEtfAltMap, type EtfAlt } from '@/lib/etfAlternative'
 import type { RotationResult, Quadrant as RotQuad } from '@/app/api/sector-rotation/route'
 // ⚠️ 버핏 DCF는 원시 FCF 변동성(예: TXN 팹 capex)으로 비현실적 값(-2637%) 발생 → 신뢰 가능한 ROE(버핏 핵심)로 대체
 
@@ -50,6 +51,7 @@ export interface UnifiedRecoItem {
   timing: EntryTiming | null       // 🚦 타점 신호등(EMA112·224+구름+ATR) — 점수 미반영, WHEN 정보만(신생·부족 시 null)
   rotationQuad: 'leading' | 'weakening' | 'lagging' | 'improving' | null   // 🧭 섹터 로테이션 국면(GICS 11만)
   rotationScore: number            // 🧭 주도섹터 축(0~100) — RRG 쏠림점수(상대강도×모멘텀) 정규화, 미집계=50(중립)
+  etfAlt: EtfAlt | null             // 🔬 ETF 분산 대안(같은 GICS 섹터 ETF) — 점수 미반영, 분산 선택지 병기만
 }
 export interface UnifiedRecoResult {
   weights: typeof W
@@ -111,7 +113,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v30:${user.id}:${kstDate()}:${fp}`   // v30: KR 수급 폴백 — marketFlowKr POOL 밖 종목(삼성E&A 등)을 getMoneyFlow로 보강(미집계 해소)
+  const cacheKey = `unified-reco-v32:${user.id}:${kstDate()}:${fp}`   // v32: ETF 분산 대안 정교화 — 금융 하위(증권/보험) 종목명 세분 + US 이름 SPDR(중복 제거)
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -394,6 +396,7 @@ export async function GET(req: Request) {
         seasonFavored: t.p.favored, supplyProxy: t.supplyProxy, supplyKnown: t.supplyKnown, badges,
         timing: null,   // 🚦 최종 선정 후 일괄 부착
         rotationQuad: t.rotQuad, rotationScore: t.rotationScore,
+        etfAlt: null,   // 🔬 최종 선정 후 일괄 부착
       }
     }))
     items.push(...part)
@@ -405,6 +408,12 @@ export async function GET(req: Request) {
     const tmap = await getEntryTimings(items.map(i => ({ ticker: i.ticker, market: (i.market === 'KR' ? 'KR' : 'US') as 'KR' | 'US' })), 4)
     for (const it of items) it.timing = tmap.get(`${it.ticker}:${it.market === 'KR' ? 'KR' : 'US'}`) ?? null
   } catch { /* graceful — 배지만 생략 */ }
+
+  // 🔬 ETF 분산 대안 부착(최종 선정 후 — 점수·선정·정렬 절대 불변, 같은 GICS 섹터 ETF 분산 선택지만)
+  try {
+    const etfMap = await buildEtfAltMap(items.map(i => ({ ticker: i.ticker, sector: i.sector, market: i.market, name: i.name })), base)
+    for (const it of items) it.etfAlt = etfMap.get(it.ticker) ?? null
+  } catch { /* graceful — ETF 대안만 생략 */ }
 
   const result: UnifiedRecoResult = {
     weights: W,

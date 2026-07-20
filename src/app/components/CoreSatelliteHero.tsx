@@ -133,6 +133,19 @@ export default function CoreSatelliteHero({ cs, portfolioValue }: { cs: CoreSate
               </div>
               <div style={{ color: TK.sub13, fontSize: 11, lineHeight: 1.5 }}>{a.reason}</div>
               {a.timing && <div style={{ marginTop: 4 }}><TimingBadge t={a.timing} market={a.market} compact /></div>}
+              {/* 🔬 ETF 분산 대안 — 같은 섹터를 ETF로 분산 진입(점수와 무관, 선택지 병기) */}
+              {a.etfAlt && (
+                <div style={{ marginTop: 4, background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.2)', borderRadius: 6, padding: '5px 8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, flexWrap: 'wrap' }}>
+                    <span style={{ color: TK.blue300, fontWeight: 800, fontSize: 9.5 }}>🔬 ETF 분산 대안</span>
+                    <span style={{ color: TK.slate200, fontWeight: 700, fontSize: 10.5 }}>{a.etfAlt.market === 'KR' ? '🇰🇷' : '🇺🇸'} {a.etfAlt.name}</span>
+                    <span style={{ color: TK.sub, fontSize: 9, fontFamily: 'monospace' }}>{a.etfAlt.ticker}</span>
+                    <span style={{ color: TK.sub, fontSize: 9 }}>· {a.etfAlt.sectorLabel} 섹터{a.etfAlt.isFallback ? '(미국)' : ''}</span>
+                    {a.etfAlt.blendedPeg != null && <span style={{ color: TK.blue400, fontSize: 9, fontFamily: 'monospace' }}>합산 PEG {a.etfAlt.blendedPeg.toFixed(2)}</span>}
+                  </div>
+                  {a.etfAlt.timing && <div style={{ marginTop: 3 }}><TimingBadge t={a.etfAlt.timing} market={a.etfAlt.market} compact /></div>}
+                </div>
+              )}
             </div>
           ))}
         </ActionCard>

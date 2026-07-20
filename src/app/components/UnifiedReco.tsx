@@ -98,6 +98,24 @@ function Item({ it, portfolioKrw }: { it: UnifiedRecoItem; portfolioKrw: number 
       {it.timing && it.timing.price != null && portfolioKrw > 0 && (
         <TradePlanCard market={it.market} timing={it.timing} portfolioKrw={portfolioKrw} />
       )}
+      {/* 🔬 ETF 분산 대안 — 같은 섹터를 ETF로 분산 진입(점수·순위와 무관, 분산 선택지 병기) */}
+      {it.etfAlt && (
+        <div style={{ marginTop: 2, marginBottom: 6, background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.25)', borderRadius: 8, padding: '7px 10px' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
+            <span style={{ color: TK.blue300, fontWeight: 800, fontSize: 10.5 }}>🔬 ETF 분산 대안</span>
+            <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 12 }}>{it.etfAlt.market === 'KR' ? '🇰🇷' : '🇺🇸'} {it.etfAlt.name}</span>
+            <span style={{ color: TK.sub, fontSize: 10, fontFamily: 'monospace' }}>{it.etfAlt.ticker}</span>
+            <span style={{ color: TK.sub, fontSize: 10 }}>· {it.etfAlt.sectorLabel} 섹터 분산</span>
+            {it.etfAlt.blendedPeg != null && (
+              <span style={{ color: TK.blue400, fontSize: 10, fontFamily: 'monospace' }}>합산 PEG {it.etfAlt.blendedPeg.toFixed(2)}{it.etfAlt.pegCoverage != null ? ` (커버 ${it.etfAlt.pegCoverage}%)` : ''}</span>
+            )}
+          </div>
+          {it.etfAlt.timing && <div style={{ marginBottom: 3 }}><TimingBadge t={it.etfAlt.timing} market={it.etfAlt.market} compact /></div>}
+          <div style={{ color: TK.sub, fontSize: 9, lineHeight: 1.4 }}>
+            개별주가 부담되면 같은 섹터를 ETF로 분산 진입{it.etfAlt.isFallback ? ' · ⚠️ 국내 대응 ETF 없어 미국 섹터 ETF' : ''} · 광의 섹터라 세부 업종과는 다를 수 있음(참고)
+          </div>
+        </div>
+      )}
       {it.market === 'KR' && (
         <button onClick={() => setOpen(o => !o)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 7, fontSize: 10.5, fontWeight: 700, cursor: 'pointer', background: open ? 'rgba(99,102,241,0.18)' : 'rgba(99,102,241,0.08)', color: open ? TK.indigo300 : TK.indigo400, border: `1px solid ${open ? `${TK.indigo400}66` : `${TK.indigo400}33`}` }}>
           📅 {open ? '매매동향 접기' : '최근 20일 매매동향'}
