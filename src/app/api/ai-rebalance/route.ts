@@ -232,7 +232,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v40:${user.id}:${today}:${fp}`   // v40: ETF 소섹터 Yahoo industry 정밀화 상속(전 소섹터 일관 매핑)
+  const cacheKey = `ai-rebalance-v41:${user.id}:${today}:${fp}`   // v41: VWAP 하향 이탈 매도 근거+크로스 칩 / v40: ETF 소섹터 정밀화
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -653,6 +653,9 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
     for (const it of [...drop, ...trim]) {
       const t = tmap.get(`${it.ticker}:${it.market}`)
       if (t?.trendBreak) it.reason += ' · 🚨 최후 방어선 붕괴(EMA 역배열+구름 이탈 — 장기 추세까지 꺾임)'
+      // ⚓ 기관평단(VWAP) 하향 이탈 = 본전 매도 압력 구간 진입(최후 방어선보다 이른 주도권 교체 경보) — 매도측 근거 병기(판정 불변)
+      if (t?.supply?.vwapCross?.dir === 'down' && t.supply.vwapCross.barsAgo <= 5)
+        it.reason += ` · ⚓ 기관평단(VWAP) 하향 이탈(${t.supply.vwapCross.barsAgo === 0 ? '오늘' : `${t.supply.vwapCross.barsAgo}봉 전`} — 본전 매도 압력 구간)`
       // 🎼 라쉬케 하락 다이버전스 = 신고가권 에너지 소진(최후 방어선 붕괴보다 이른 경보). 익절 종목에만 '조기 익절 타이밍' 근거 병기
       if (it.tag === '익절' && t?.raschke?.bearDiv)
         it.reason += ` · 🎼 라쉬케 하락 다이버전스(주가 신고점↑ vs RSI ${t.raschke.divRsiPrev}→${t.raschke.divRsiHi}↓ — 상승 에너지 소진, 분할 익절 조기 타이밍)`

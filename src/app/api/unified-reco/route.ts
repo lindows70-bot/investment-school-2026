@@ -113,7 +113,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v34:${user.id}:${kstDate()}:${fp}`   // v34: ETF 소섹터 정밀화 — Yahoo industry 기반 전면(반도체·방산·바이오·자동차·철강 등 일관 매핑, 이름 추측 폐기)
+  const cacheKey = `unified-reco-v35:${user.id}:${kstDate()}:${fp}`   // v35: VWAP 주도권 교체(vwapCross) 칩 / v34: ETF 소섹터 industry 정밀화
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

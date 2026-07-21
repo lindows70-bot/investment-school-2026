@@ -10,6 +10,7 @@ export type TimingLight = 'green' | 'yellow' | 'red'
  *  매수=지지 확인+되돌림 매수 존, 매도=과대이격+머리 위 저항 갭. ⛔ 점수·선정 미반영(배지만). */
 export interface SupplyLite {
   vwap: number | null; aboveVwap: boolean; vwapDistPct: number | null      // ⚓ 기관 평균단가(앵커 이후 매수자 평단)
+  vwapCross: { dir: 'up' | 'down'; barsAgo: number } | null                // ⚓ 최근 12봉 내 평단 회복(up)/이탈(down) — 주도권 교체 후보(맥락·단독 신호 아님)
   poc: number | null; abovePoc: boolean; pocDistPct: number | null          // 📊 매물대 중심선(최대 거래 가격대)
   supportStrong: boolean       // VWAP·POC 둘 다 위 = 지지 탄탄
   supportWeak: boolean         // 둘 다 아래 = 지지 약함
@@ -94,6 +95,7 @@ export function timingFromCandles(D: TechCandle[]): EntryTiming | null {
   const pct = (v: number) => Math.round((v - price) / price * 1000) / 10
   const supply: SupplyLite = {
     vwap: avwap?.vwap ?? null, aboveVwap: !!avwap?.above, vwapDistPct: avwap?.distPct ?? null,
+    vwapCross: avwap?.cross ?? null,
     poc: pocR?.poc ?? null, abovePoc: !!pocR?.above, pocDistPct: pocR?.distPct ?? null,
     supportStrong: !!(avwap?.above && pocR?.above),
     supportWeak: !!(avwap && !avwap.above && pocR && !pocR.above),

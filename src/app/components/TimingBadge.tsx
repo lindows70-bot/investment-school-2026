@@ -22,12 +22,17 @@ export default function TimingBadge({ t, market, compact = false }: { t: EntryTi
     )
     // ⬛ 관망(추세 강도 약함·ADX<20) — 신호등 미확립(green 아님)일 때만. 돈 몰려도 ETF 추세 약하면 가짜 돌파 주의
     const chop = !!(t.supply?.choppy && t.light !== 'green')
-    if (!chop) return lightChip
+    // ⚓ 최근 5봉 내 기관평단(VWAP) 회복/이탈 = 주도권 교체 후보 — 매수/매도 판단의 맥락(오래된 크로스는 노이즈라 생략)
+    const vx = t.supply?.vwapCross && t.supply.vwapCross.barsAgo <= 5 ? t.supply.vwapCross : null
+    if (!chop && !vx) return lightChip
     return (
       <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
         {lightChip}
-        <span title={`추세 강도 약함(ADX ${t.supply!.adx}) — 방향 확신 낮아 돌파도 가짜(휩쏘) 가능, 방향 확정 후 진입`}
-          style={{ fontSize: 9.5, fontWeight: 800, color: TK.slate400, background: `${TK.slate400}18`, border: `1px solid ${TK.slate400}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>⬛관망</span>
+        {chop && <span title={`추세 강도 약함(ADX ${t.supply!.adx}) — 방향 확신 낮아 돌파도 가짜(휩쏘) 가능, 방향 확정 후 진입`}
+          style={{ fontSize: 9.5, fontWeight: 800, color: TK.slate400, background: `${TK.slate400}18`, border: `1px solid ${TK.slate400}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>⬛관망</span>}
+        {vx && <span title={vx.dir === 'up' ? '기관평단(VWAP) 위로 복귀 — 주도권 교체 후보(확인 캔들·신호등과 함께)' : 'VWAP 아래로 이탈 — 본전 매도 압력 구간(주도권 교체 후보·단독 신호 아님)'}
+          style={{ fontSize: 9.5, fontWeight: 800, color: vx.dir === 'up' ? TK.green400 : TK.red400, background: `${vx.dir === 'up' ? TK.green400 : TK.red400}18`, border: `1px solid ${vx.dir === 'up' ? TK.green400 : TK.red400}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>
+          ⚓{vx.dir === 'up' ? '평단 회복' : '평단 이탈'}</span>}
       </span>
     )
   }
@@ -66,11 +71,20 @@ export default function TimingBadge({ t, market, compact = false }: { t: EntryTi
     else if (sp.supportStrong && sp.overExtended) spChip = { label: '📊 과대이격', c: TK.amber500, tip: '평단·매물대가 크게 아래 = 지지선 멀다, 되돌림 낙폭 큼(추격 주의)' }
     else if (sp.supportWeak) spChip = { label: '📊 지지 약함', c: TK.orange400, tip: '평단·매물 대다수가 위 = 지지 얇음, 되돌림 리스크' }
   }
+  // ⚓ VWAP 주도권 교체(최근 5봉) — 매수: 평단 회복=매수자 우위 전환 / 매도: 평단 이탈=본전 매도 압력. 맥락(단독 신호 아님)
+  let vwChip: { label: string; c: string; tip: string } | null = null
+  if (sp?.vwapCross && sp.vwapCross.barsAgo <= 5) {
+    const ago = sp.vwapCross.barsAgo === 0 ? '오늘' : `${sp.vwapCross.barsAgo}봉 전`
+    vwChip = sp.vwapCross.dir === 'up'
+      ? { label: `⚓ 평단 회복(${ago})`, c: TK.green400, tip: '직전 바닥 이후 매수자 평균단가(VWAP) 위로 복귀 — 주도권 교체 후보. VWAP가 있는 쪽 편에(확인 캔들과 함께)' }
+      : { label: `⚓ 평단 이탈(${ago})`, c: TK.red400, tip: 'VWAP 아래로 이탈 — 본전 매도 압력 구간 진입(주도권 교체 후보·단독 신호 아님)' }
+  }
   return (
     <div style={{ background: s.bg, border: `1px solid ${s.bd}`, borderRadius: 8, padding: '6px 10px', fontSize: 10.5, lineHeight: 1.55 }}>
       <b style={{ color: s.c }}>{t.label}</b>
       {rkChip && <span title="라쉬케 모멘텀 연쇄 — 상세는 매매 플랜에서" style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 800, color: rkChip.c, background: `${rkChip.c}18`, border: `1px solid ${rkChip.c}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{rkChip.label}</span>}
       {spChip && <span title={spChip.tip} style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 800, color: spChip.c, background: `${spChip.c}18`, border: `1px solid ${spChip.c}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{spChip.label}</span>}
+      {vwChip && <span title={vwChip.tip} style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 800, color: vwChip.c, background: `${vwChip.c}18`, border: `1px solid ${vwChip.c}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{vwChip.label}</span>}
       <span style={{ color: TK.sub5 }}> — {t.guide}</span>
       {t.atrStop != null && <span style={{ color: TK.violet300 }}> · 🛡 손절 참고 {fmtStop(t.atrStop)}</span>}
       {rkLine && <div style={{ color: TK.fuchsia300, marginTop: 3, fontSize: 10 }}>{rkLine}</div>}
