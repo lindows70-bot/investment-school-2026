@@ -14,6 +14,7 @@
  */
 
 import { createClient as createAdmin } from '@supabase/supabase-js'
+import { KO_STYLE } from '@/lib/gemini'
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 export interface JarvisFacts {
@@ -177,7 +178,9 @@ ${newsBlock}
   "managementTone": "경영진 태도 — 뉴스·실적에서 읽히는 경영진의 자신감/태도. 추정이면 추정이라 명시.",
   "guidance":       "다음 분기 가이던스 — 향후 전망과 학생이 체크해야 할 핵심 포인트.",
   "sentimentScore": 0~100 정수 (실적·전망 종합 낙관도, 높을수록 긍정)
-}`
+}
+
+${KO_STYLE}`
 
   const body = JSON.stringify({
     contents: [{ parts: [{ text: prompt }] }],
