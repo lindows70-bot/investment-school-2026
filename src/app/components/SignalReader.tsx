@@ -81,11 +81,12 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   const avwap = useMemo(() => candles.length >= 30 ? computeAnchoredVWAP(candles) : null, [candles])
   // ⏳ 기간 조정 — 눌림목의 '시간 축'(직전 상승 봉수 대비 조정 봉수). 판정 미반영(정보만)
   const timeCorr = useMemo(() => candles.length >= 30 ? readTimeCorrection(candles) : null, [candles])
-  // 💧 최근 10봉 내 유동성 스윕(차트 오버레이와 동일 SSOT) — 판정 로직엔 미반영, 정보 표시만
+  // 💧 유동성 레벨(차트 오버레이와 동일 SSOT) — 스윕 표시 + ⚖️손익비 목표(전고점) 공용
+  const liqLevels = useMemo(() => candles.length >= 30 ? detectLiquidity(candles) : [], [candles])
   const liqSweeps = useMemo(() => {
     const N = candles.length
-    return detectLiquidity(candles).filter(l => l.swept && l.endIdx != null && l.endIdx >= N - 10)
-  }, [candles])
+    return liqLevels.filter(l => l.swept && l.endIdx != null && l.endIdx >= N - 10)
+  }, [liqLevels, candles])
 
   if (!sig) return null
 
@@ -160,6 +161,23 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   const price = candles[candles.length - 1]?.close
   const atrStop = sig.atr != null && price != null ? price - 2 * sig.atr : null
   const fmtP = (n: number) => market === 'KR' ? `₩${Math.round(n).toLocaleString()}` : `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+
+  // ⚖️ 손익비(R:R) 참고 — 목표 = 머리 위 '살아있는 전고점'(가장 가까운 저항) / 손절 = ATR 참고선.
+  //    "승률이 아니라 손익비로 승부(손실은 짧게·수익은 길게)" — 신고가권(머리 위 저항 없음)은 정직 생략. 판정 미반영(정보만)
+  let rr: { target: number; upPct: number; downPct: number; ratio: number } | null = null
+  if (price != null && atrStop != null && atrStop > 0) {
+    const overhead = liqLevels.filter(l => l.endIdx == null && l.type === 'high' && l.price > price)
+    if (overhead.length) {
+      const target = Math.min(...overhead.map(l => l.price))
+      const up = target - price, down = price - atrStop
+      if (up > 0 && down > 0) rr = {
+        target,
+        upPct: Math.round((up / price) * 1000) / 10,
+        downPct: Math.round((down / price) * 1000) / 10,
+        ratio: Math.round((up / down) * 10) / 10,
+      }
+    }
+  }
 
   const chip = (label: string, val: string, col: string) => (
     <span style={{ fontSize: 10.5, background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 6, padding: '3px 8px' }}>
@@ -268,6 +286,20 @@ export default function SignalReader({ ticker, market, candles, tf }: {
                 ? ' — 조정 기간이 쌓이는 중 — 상승에 걸린 시간만큼 쉬어가는 경우가 많음(매물 소화).'
                 : ' — 조정 기간이 상승 기간에 근접·초과 — 여기서 자리를 지지하면 재상승 후보(지지·거래량은 신호등·매물대로 확인).'}
             {' '}기간대칭은 경향이지 법칙 아님.</span>
+        </div>
+      )}
+
+      {/* ⚖️ 손익비(R:R) 참고 — 목표(전고점 저항) vs 손절(ATR). "승률이 아니라 손익비" 교육. 판정 미반영(정보만) */}
+      {rr && (
+        <div style={{ background: TK.bg3, border: `1px solid ${rr.ratio >= 2 ? `${TK.green500}44` : rr.ratio >= 1 ? `${TK.amber500}44` : `${TK.orange400}44`}`, borderRadius: 9, padding: '8px 12px', fontSize: 11, lineHeight: 1.6 }}>
+          <b style={{ color: TK.cyan400 }}>⚖️ 손익비 참고 — 목표(전고점) {fmtP(rr.target)}(+{rr.upPct}%) vs 손절(ATR) {fmtP(atrStop!)}(−{rr.downPct}%)</b>
+          <span style={{ color: rr.ratio >= 2 ? TK.green400 : rr.ratio >= 1 ? TK.amber500 : TK.orange400, fontWeight: 800 }}> = 1 : {rr.ratio}</span>
+          <span style={{ color: TK.sub5 }}>{rr.ratio >= 2
+            ? ' — 손실 1 대비 수익 여지가 2배 이상인 자리(손익비 매력 구간). '
+            : rr.ratio >= 1
+              ? ' — 보통 — 머리 위 저항까지 여지가 손절 거리와 비슷한 편. '
+              : ' — 타점 매력 낮음 — 저항까지 거리가 손절 거리보다 짧음(먹을 것보다 잃을 것이 큼). '}
+            승률 높은 기법은 없음 — 5:5 자리라도 이기면 크게·지면 작게가 프로의 수학(손실은 짧게, 수익은 길게). 목표는 가장 가까운 살아있는 전고점 기준(돌파 시 다음 저항까지 확장)·예측 아님.</span>
         </div>
       )}
 
