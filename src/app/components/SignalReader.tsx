@@ -255,9 +255,16 @@ export default function SignalReader({ ticker, market, candles, tf }: {
         <div style={{ background: TK.bg3, border: `1px solid ${avwap.above ? `${TK.green500}44` : `${TK.orange400}44`}`, borderRadius: 9, padding: '8px 12px', fontSize: 11, lineHeight: 1.6 }}>
           <b style={{ color: TK.pink400 }}>⚓ 기관 평균단가(VWAP) {fmtP(avwap.vwap)}</b>
           <span style={{ color: avwap.above ? TK.green400 : TK.orange400, fontWeight: 800 }}> — 현재가 {avwap.above ? `위(+${avwap.distPct}%)` : `아래(${avwap.distPct}%)`}</span>
+          {avwap.cross && (
+            <span style={{ color: avwap.cross.dir === 'up' ? TK.green400 : TK.red400, fontWeight: 800 }}>
+              {' '}· {avwap.cross.dir === 'up' ? '⤴ 상향 돌파' : '⤵ 하향 이탈'}({avwap.cross.barsAgo === 0 ? '오늘' : `${avwap.cross.barsAgo}봉 전`})
+            </span>
+          )}
           <span style={{ color: TK.sub5 }}>{avwap.above
-            ? ' — 직전 바닥 이후 산 대다수가 수익권 = 매집 우위(지지). VWAP 이탈 시 경계.'
-            : ' — 직전 바닥 이후 산 대다수가 손실권 = 매도 압력 우위(저항). VWAP 회복이 반등 관문.'}</span>
+            ? ' — 직전 바닥 이후 산 대다수가 수익권 = 매수자 우위(지지). '
+            : ' — 직전 바닥 이후 산 대다수가 손실권 = 본전 매도 압력(저항). '}
+            {avwap.cross ? '돌파/이탈은 주도권 교체 후보 — 단독 신호 아닌 맥락. ' : ''}
+            VWAP가 있는 쪽 편에 서고(맞서지 말 것), 터치는 신호가 아니라 맥락 — 확인 캔들(반전 꼬리·거래량)과 신호등으로 확인 후 진입.</span>
         </div>
       )}
 

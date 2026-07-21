@@ -584,6 +584,7 @@ export interface AvwapRead {
   above: boolean
   distPct: number
   line: (number | null)[]  // 앵커 이후 봉별 AVWAP
+  cross: { dir: 'up' | 'down'; barsAgo: number } | null  // 최근 12봉 내 마지막 AVWAP 돌파(주도권 교체 후보 — 종가 기준)
 }
 export function computeAnchoredVWAP(data: Ohlc[], lookback = 160): AvwapRead | null {
   const N = data.length
@@ -604,9 +605,18 @@ export function computeAnchoredVWAP(data: Ohlc[], lookback = 160): AvwapRead | n
   const vwap = line[N - 1]
   if (vwap == null) return null
   const close = data[N - 1].close
+  // 주도권 교체 후보 — 최근 12봉 내 종가가 AVWAP 선을 넘거나 잃은 마지막 지점(위=매수자 우위 전환/아래=본전 매도 압력 전환)
+  let cross: AvwapRead['cross'] = null
+  for (let i = N - 1; i >= Math.max(anchorIdx + 1, N - 12); i--) {
+    const cur = line[i], prev = line[i - 1]
+    if (cur == null || prev == null) break
+    const upX = data[i].close >= cur && data[i - 1].close < prev
+    const dnX = data[i].close < cur && data[i - 1].close >= prev
+    if (upX || dnX) { cross = { dir: upX ? 'up' : 'down', barsAgo: N - 1 - i }; break }
+  }
   return {
     vwap, anchorIdx,
-    above: close >= vwap, distPct: Math.round((close - vwap) / vwap * 1000) / 10, line,
+    above: close >= vwap, distPct: Math.round((close - vwap) / vwap * 1000) / 10, line, cross,
   }
 }
 

@@ -877,8 +877,9 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
           <div style={{ backgroundColor: C.panel, border: `1px solid ${C.grid}`, borderRadius: 12, padding: 12 }}>
             <div style={{ fontWeight: 700, color: TK.pink400, marginBottom: 4 }}>⚓ Anchored VWAP 읽는 법 — 기관 평균단가</div>
             <p style={{ lineHeight: 1.6, color: C.textLow, margin: 0 }}>
-              직전 <b style={{ color: TK.pink400 }}>주요 스윙 저점(⚓)</b> 이후의 <b style={{ color: C.text }}>거래량가중 평균단가</b> = 그 바닥 이후 매수한 모두의 평균 매입가입니다.
+              직전 <b style={{ color: TK.pink400 }}>주요 스윙 저점(⚓)</b> 이후의 <b style={{ color: C.text }}>거래량가중 평균단가</b> = 그 바닥 이후 매수한 모두의 평균 매입가(본전선)입니다.
               현재가가 <b style={{ color: TK.green400 }}>VWAP 위</b>면 대다수가 수익권 = <b style={{ color: C.text }}>매집 우위·지지</b>, <b style={{ color: TK.orange400 }}>아래</b>면 손실권 = <b style={{ color: C.text }}>본전 매도 압력·저항</b>. 매물대(POC)가 &lsquo;가격대별 매물&rsquo;이라면 VWAP는 &lsquo;특정 사건 이후 시간 흐름의 평균단가&rsquo;라 상호보완입니다. 이탈/회복이 실전 매수·매도의 관문.
+              골드만삭스 등 기관은 트레이더 성과를 VWAP 대비로 평가하고 VWAP 연동 주문까지 씁니다 — 큰돈이 이 선을 기준으로 움직이니 가격이 근처에서 반응합니다. ⚠️ <b style={{ color: C.text }}>터치는 신호가 아니라 맥락</b> — VWAP가 있는 쪽 편에 서되(맞서지 말 것), 진입은 확인 캔들·신호등과 함께.
             </p>
           </div>
         )}
