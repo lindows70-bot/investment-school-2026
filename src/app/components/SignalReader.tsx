@@ -3,7 +3,7 @@
 // 교차검증해 '가짜 반등/신호 정합/조기 청산 주의/떨어지는 칼날'을 결정론적으로 판정(AI 미사용·환각 0).
 // 기술신호는 이 화면 전용 — 통합추천·리밸런싱 점수에는 절대 미반영(앱의 펀더멘탈 우선 원칙).
 import { useState, useEffect, useMemo } from 'react'
-import { readSignals, detectLiquidity, readRaschke, computePOC, computeTTMSqueeze, computeAnchoredVWAP } from '@/lib/techSignals'
+import { readSignals, detectLiquidity, readRaschke, computePOC, computeTTMSqueeze, computeAnchoredVWAP, readTimeCorrection } from '@/lib/techSignals'
 import type { TechCandle } from '@/app/api/tech-chart/route'
 import { TK } from '@/lib/theme'
 
@@ -79,6 +79,8 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   // 🔥 TTM Squeeze / ⚓ Anchored VWAP — 차트 오버레이와 동일 SSOT. 판정 로직 미반영(정보만)
   const squeeze = useMemo(() => candles.length >= 30 ? computeTTMSqueeze(candles) : null, [candles])
   const avwap = useMemo(() => candles.length >= 30 ? computeAnchoredVWAP(candles) : null, [candles])
+  // ⏳ 기간 조정 — 눌림목의 '시간 축'(직전 상승 봉수 대비 조정 봉수). 판정 미반영(정보만)
+  const timeCorr = useMemo(() => candles.length >= 30 ? readTimeCorrection(candles) : null, [candles])
   // 💧 최근 10봉 내 유동성 스윕(차트 오버레이와 동일 SSOT) — 판정 로직엔 미반영, 정보 표시만
   const liqSweeps = useMemo(() => {
     const N = candles.length
@@ -251,6 +253,21 @@ export default function SignalReader({ ticker, market, candles, tf }: {
             <><b style={{ color: squeeze.fired === 'up' ? TK.green400 : TK.red400 }}>💥 스퀴즈 {squeeze.fired === 'up' ? '상방' : '하방'} 분출</b>
             <span style={{ color: TK.sub5 }}> — 응축된 변동성이 {squeeze.fired === 'up' ? '위로' : '아래로'} 튀었습니다. {squeeze.fired === 'up' ? '추세·거래량 확인 후 분할 진입 검토.' : '지지 붕괴 위험 — 신규 진입 자제·비중 점검.'}</span></>
           )}
+        </div>
+      )}
+
+      {/* ⏳ 기간 조정 — 눌림목의 '시간 축'. 가격 되돌림(%)과 별개로 '기간'을 채웠는지 관측. 판정 미반영(정보만) */}
+      {timeCorr && (
+        <div style={{ background: TK.bg3, border: `1px solid ${timeCorr.phase === 'filled' ? `${TK.green500}44` : timeCorr.phase === 'mid' ? `${TK.amber500}44` : `${TK.orange400}44`}`, borderRadius: 9, padding: '8px 12px', fontSize: 11, lineHeight: 1.6 }}>
+          <b style={{ color: TK.violet400 }}>⏳ 기간 조정 — 직전 상승 {timeCorr.rallyBars}봉 vs 조정 {timeCorr.pullbackBars}봉</b>
+          <span style={{ color: timeCorr.phase === 'filled' ? TK.green400 : timeCorr.phase === 'mid' ? TK.amber500 : TK.orange400, fontWeight: 800 }}> ({timeCorr.ratioPct}% {timeCorr.phase === 'filled' ? '· 기간 충족권' : timeCorr.phase === 'mid' ? '· 중반' : '· 초기'})</span>
+          <span style={{ color: TK.sub5 }}> · 고점 대비 −{timeCorr.depthPct}%
+            {timeCorr.phase === 'early'
+              ? ' — 눌림목은 가격만이 아니라 기간도 채우는 경향(N자형 즉시 재상승은 소수) — 성급 진입보다 기간·지지 확인.'
+              : timeCorr.phase === 'mid'
+                ? ' — 조정 기간이 쌓이는 중 — 상승에 걸린 시간만큼 쉬어가는 경우가 많음(매물 소화).'
+                : ' — 조정 기간이 상승 기간에 근접·초과 — 여기서 자리를 지지하면 재상승 후보(지지·거래량은 신호등·매물대로 확인).'}
+            {' '}기간대칭은 경향이지 법칙 아님.</span>
         </div>
       )}
 

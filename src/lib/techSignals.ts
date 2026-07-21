@@ -692,6 +692,49 @@ export function detectLiquidity(data: Ohlc[], pivot = 5): LiqLevel[] {
   return levels
 }
 
+/* ── ⏳ 기간 조정(Time Correction) — 눌림목의 '시간 축' 관측(결정론)
+   가격 되돌림(%)만으론 눌림목 성숙도를 못 잰다: 급등 후 조정은 '가격'만이 아니라 '기간'을 채우는
+   경향(기간대칭 — N자형 즉시 재상승은 소수, 대부분은 상승에 걸린 시간만큼 쉬며 매물 소화).
+   직전 상승 레그(확정 스윙 저점→고점)의 봉 수 대비, 고점 이후 경과 봉 수의 비율로 진행도를 계산.
+   순수 봉 수 산수(주관 0). 기간대칭은 경향이지 법칙 아님 — 판정·점수 미반영(교육·차트 전용). ── */
+export interface TimeCorrRead {
+  rallyBars: number       // 직전 스윙 저점→고점 상승 기간(봉)
+  pullbackBars: number    // 고점 이후 경과 봉 수(조정 기간)
+  ratioPct: number        // 조정/상승 기간 비율 ×100
+  depthPct: number        // 고점 대비 현재가 하락률(%) — 가격 축 병기
+  phase: 'early' | 'mid' | 'filled'  // <40% 초기 / 40~80% 중반 / ≥80% 기간 충족권
+}
+export function readTimeCorrection(data: Ohlc[], pivot = 5): TimeCorrRead | null {
+  const N = data.length
+  if (N < pivot * 2 + 15) return null
+  // 마지막 확정 스윙 고점(좌우 pivot봉 대비 최고 — detectLiquidity와 동일 정의)
+  let ph = -1
+  for (let i = N - 1 - pivot; i >= pivot; i--) {
+    const isHigh = data.slice(i - pivot, i + pivot + 1).every((d, k) => k === pivot || d.high <= data[i].high)
+    if (isHigh) { ph = i; break }
+  }
+  if (ph < 0) return null
+  const highP = data[ph].high
+  const last = data[N - 1]
+  if (last.close >= highP) return null            // 신고가권 — 조정(눌림) 국면 아님
+  // 그 고점 이전의 확정 스윙 저점 → 상승 레그
+  let pl = -1
+  for (let i = ph - 1; i >= pivot; i--) {
+    const isLow = data.slice(i - pivot, i + pivot + 1).every((d, k) => k === pivot || d.low >= data[i].low)
+    if (isLow) { pl = i; break }
+  }
+  if (pl < 0 || ph - pl < 5) return null           // 상승 레그 5봉 미만 = 노이즈 생략
+  if (highP <= data[pl].low) return null
+  const rallyBars = ph - pl
+  const pullbackBars = (N - 1) - ph
+  if (pullbackBars < 1) return null
+  const ratioPct = Math.round((pullbackBars / rallyBars) * 100)
+  const depthPct = Math.round(((highP - last.close) / highP) * 1000) / 10
+  if (depthPct > 25) return null                   // 고점 대비 25%+ 하락은 눌림목이 아니라 하락추세/칼날 영역(신호등·칼날 가드 담당) — '재상승 후보' 오도 방지
+  const phase: TimeCorrRead['phase'] = ratioPct < 40 ? 'early' : ratioPct < 80 ? 'mid' : 'filled'
+  return { rallyBars, pullbackBars, ratioPct, depthPct, phase }
+}
+
 /* ── 📦 FVG(공정가치 갭·Fair Value Gap) 탐지(결정론) — SMC 개념 중 가장 객관적인 부분.
    3봉 불균형: 급격한 분출로 캔들 사이에 비어버린 가격 공간. "자석처럼 되메워지는 경향" → 눌림목 지지/저항 후보.
    · 상승 갭(bull): i-1봉 고가 < i+1봉 저가 → 빈 공간 [i-1.high, i+1.low]
