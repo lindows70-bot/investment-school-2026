@@ -51,17 +51,27 @@ export async function GET(req: Request) {
   const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
-  const m = await buildSignalMetrics(ticker, market, name, base)
-  if (!m) return NextResponse.json({ unsupported: true, reason: '재무 데이터를 가져오지 못했습니다.' }, { headers: { 'Cache-Control': 'no-store' } })
-
-  // ── 병렬 보조 신호: 계절 · 역-DCF · 수급 · 타점(관망) ──
-  const [season, dcf, flow, timing] = await Promise.all([
+  // ── 전 신호 동시 발사(async-api-routes: start early, await late) — 보조 신호·로테이션 캐시는 m과 무관하므로
+  //    buildSignalMetrics(콜드 2~5s)를 기다리지 않고 같이 출발 → 콜드 응답시간 = max(신호들)로 단축(합이 아님)
+  const mP = buildSignalMetrics(ticker, market, name, base)
+  const signalsP = Promise.all([
     getCurrentSeason(base).catch(() => null),
     fetch(`${base}/api/reverse-dcf?ticker=${encodeURIComponent(ticker)}&market=${market}`, { signal: AbortSignal.timeout(10_000) })
       .then(r => r.ok ? r.json() : null).then(j => j?.verdict ?? null).catch(() => null),
     getMoneyFlow(ticker, market, name, base).then(f => f?.status ?? null).catch(() => null),
     getEntryTiming(ticker, market).catch(() => null),
   ])
+  // 주도섹터 로테이션 캐시 — 최근 3일치를 병렬로 읽고 최신 우선 채택(기존 순차 루프와 동일 결과)
+  const rotP = (async (): Promise<Map<string, { q: RotQuad; score: number }> | null> => {
+    const dates = [0, 1, 2].map(dd => new Date(Date.now() + 9 * 3600_000 - dd * 86_400_000).toISOString().slice(0, 10))
+    const rots = await Promise.all(dates.map(dt => getCache<RotationResult>(`sector-rotation-v11:${dt}`, 3 * 24 * 3600_000).catch(() => null)))
+    const rot = rots.find(r => r?.items?.length)
+    return rot?.items?.length ? new Map(rot.items.map(i => [i.key, { q: i.quadrant, score: i.score }])) : null
+  })()
+
+  const m = await mP
+  if (!m) return NextResponse.json({ unsupported: true, reason: '재무 데이터를 가져오지 못했습니다.' }, { headers: { 'Cache-Control': 'no-store' } })
+  const [season, dcf, flow, timing] = await signalsP
   // ⬛ 관망(횡보) — ADX<20 추세 없음 + 신호등 미확립(green=구조적 상승은 제외, 자기모순 차단). 영상 '회색 지대'
   const choppy = !!(timing?.supply?.choppy && timing.light !== 'green')
   const adx = timing?.supply?.adx ?? null
@@ -101,12 +111,8 @@ export async function GET(req: Request) {
   const quality = clamp((marginScore * 0.40 + effScore * 0.40 + cashScore * 0.20) * 100)
 
   // ⑥ 주도섹터 — 섹터 로테이션 RRG 쏠림(unified-reco와 동일 SSOT·캐시 읽기만). 콜드/미매핑이면 중립 50
-  let rotBySector: Map<string, { q: RotQuad; score: number }> | null = null
-  for (let dd = 0; dd < 3 && !rotBySector; dd++) {
-    const dt = new Date(Date.now() + 9 * 3600_000 - dd * 86_400_000).toISOString().slice(0, 10)
-    const rot = await getCache<RotationResult>(`sector-rotation-v11:${dt}`, 3 * 24 * 3600_000)
-    if (rot?.items?.length) rotBySector = new Map(rot.items.map(i => [i.key, { q: i.quadrant, score: i.score }]))
-  }
+  //    (조회는 위 rotP에서 이미 병렬 발사 — 여기선 결과만 수거)
+  const rotBySector = await rotP
   const SECTOR_TO_ROT: Record<string, string> = {
     'Technology': 'infotech', 'Financial Services': 'financials', 'Healthcare': 'healthcare',
     'Consumer Cyclical': 'discretionary', 'Consumer Defensive': 'staples', 'Energy': 'energy',

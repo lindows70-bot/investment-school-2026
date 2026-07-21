@@ -9,6 +9,8 @@ const nextConfig = {
   // Next.js 14: experimental.serverComponentsExternalPackages
   experimental: {
     serverComponentsExternalPackages: ['yahoo-finance2', 'pdf-parse'],
+    // recharts 배럴 임포트를 딥 패스로 자동 변환(160+ 파일 공통) — 번들·컴파일 시간 절감. 실패 시 원래 동작으로 조용히 폴백
+    optimizePackageImports: ['recharts', 'lucide-react'],
   },
 
   // 외부 이미지 허용 도메인 (필요 시 추가)

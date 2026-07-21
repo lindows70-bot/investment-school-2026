@@ -70,18 +70,21 @@ export async function GET(req: Request) {
   const year = now.getUTCFullYear()
   const daysLeft = Math.max(0, Math.ceil((Date.UTC(year, 11, 31) - Date.UTC(year, now.getUTCMonth(), now.getUTCDate())) / 86_400_000))
 
-  // ── 환율(추정 환산용 — 세법 정확값은 결제일 환율, 캐비엇 UI 명시) ──
+  // ── 환율·매도내역·보유내역 병렬 조회(전부 독립 — async-parallel, 환율 8s 타임아웃이 전체를 막지 않게) ──
   let usdKrw = FALLBACK_KRW
-  try {
-    const ex = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) })
-    if (ex.ok) { const j = await ex.json(); if (typeof j.rate === 'number' && j.rate > 0) usdKrw = j.rate }
-  } catch { /* 폴백 */ }
-
-  // ── ① 올해 확정 손익 — transactions(sell) ──
-  const { data: sells } = await sb.from('transactions')
-    .select('ticker,name,market,currency,realized_pnl,transaction_date')
-    .eq('user_id', user.id).eq('type', 'sell')
-    .gte('transaction_date', `${year}-01-01`).lte('transaction_date', `${year}-12-31`)
+  const [exRate, { data: sells }, { data: holdings }] = await Promise.all([
+    fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) })
+      .then(r => r.ok ? r.json() : null).then(j => (typeof j?.rate === 'number' && j.rate > 0 ? j.rate as number : null))
+      .catch(() => null),
+    sb.from('transactions')
+      .select('ticker,name,market,currency,realized_pnl,transaction_date')
+      .eq('user_id', user.id).eq('type', 'sell')
+      .gte('transaction_date', `${year}-01-01`).lte('transaction_date', `${year}-12-31`),
+    sb.from('investments')
+      .select('ticker,name,market,currency,purchase_price,quantity')
+      .eq('user_id', user.id),
+  ])
+  if (exRate != null) usdKrw = exRate
 
   let realizedUsUsd = 0, realizedKrKrw = 0
   let usSellCount = 0, krSellCount = 0, krEtfSellCount = 0, cryptoSellCount = 0
@@ -99,10 +102,7 @@ export async function GET(req: Request) {
   const estTaxKrw = Math.round(taxableKrw * TAX.RATE)
   const roomKrw = Math.max(0, TAX.DEDUCTION_KRW - realizedUsKrw)
 
-  // ── ② 보유 US 종목 평가손익 → harvest 후보 (KR=비과세·CRYPTO=유예라 대상 아님) ──
-  const { data: holdings } = await sb.from('investments')
-    .select('ticker,name,market,currency,purchase_price,quantity')
-    .eq('user_id', user.id)
+  // ── ② 보유 US 종목 평가손익 → harvest 후보 (KR=비과세·CRYPTO=유예라 대상 아님, holdings는 위 병렬 조회분) ──
   const usHoldings = (holdings ?? []).filter(h =>
     h.market === 'US' && h.currency === 'USD' && (h.quantity ?? 0) > 0 &&
     getAssetType(h.ticker, h.name ?? '', h.market ?? '') !== 'CRYPTO')
