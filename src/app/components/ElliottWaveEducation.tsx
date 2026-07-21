@@ -196,7 +196,8 @@ export default function ElliottWaveEducation() {
     const range = leg.highP - leg.lowP
     const retr = (r: number) => leg!.highP - r * range
     fib = { ext: leg.lowP + 1.618 * range, levels: [
-      { y: retr(0.382), lbl: '38.2%' }, { y: retr(0.5), lbl: '50%' }, { y: retr(0.618), lbl: '61.8%' },
+      // 38.2/50/61.8 = 얕은 되돌림(4파 영역) · 78.6 = 깊은 되돌림 한계(2파도 여기까지, 이 아래로 100%=무효화 임박)
+      { y: retr(0.382), lbl: '38.2%' }, { y: retr(0.5), lbl: '50%' }, { y: retr(0.618), lbl: '61.8%' }, { y: retr(0.786), lbl: '78.6%' },
     ] }
   }
 
