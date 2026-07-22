@@ -745,6 +745,64 @@ export function readTimeCorrection(data: Ohlc[], pivot = 5): TimeCorrRead | null
   return { rallyBars, pullbackBars, ratioPct, depthPct, phase }
 }
 
+/* ── 📐 피보나치 되돌림(엘리엇 파동 타겟팅의 결정론 부분만 차용) — 직전 임펄스(스윙 저점→고점)의 가격 되돌림 깊이.
+   ⏳ 기간조정이 눌림의 '시간' 축이면 이건 '가격' 축 — 스윙 감지는 readTimeCorrection과 동일 정의(SSOT).
+   · 38.2~61.8% = 표준 눌림 존(2파·4파 되돌림이 가장 자주 멈추는 구간) · 78.6% 초과 = 되돌림 아닌 추세 전환 의심
+   · 100% 초과 = 상승 구조 무효 — 엘리엇 절대 규칙("2파는 1파 시작점을 못 깬다")을 파동 카운팅 없이 규칙만 차용.
+   ⛔ 파동 라벨링(1-5·ABC) 자동화는 하지 않음 — 주관·복수 시나리오 영역(영상 스스로 인정). 순수 산수, 점수·판정 미반영. ── */
+export interface FibRead {
+  lo: number; hi: number             // 직전 임펄스 스윙 저점→고점
+  retrPct: number                    // 상승분 대비 되돌림 비율 ×100 (61.8 = 0.618 레벨)
+  zone: 'shallow' | 'golden' | 'deep' | 'reversal' | 'invalid'   // <38.2 / 38.2~61.8 / ~78.6 / ~100 / >100
+  levels: { r: number; price: number }[]   // 0.382·0.5·0.618·0.786 가격
+}
+export function readFibRetracement(data: Ohlc[], pivot = 5): FibRead | null {
+  const N = data.length
+  if (N < pivot * 2 + 15) return null
+  let ph = -1
+  for (let i = N - 1 - pivot; i >= pivot; i--) {
+    const isHigh = data.slice(i - pivot, i + pivot + 1).every((d, k) => k === pivot || d.high <= data[i].high)
+    if (isHigh) { ph = i; break }
+  }
+  if (ph < 0) return null
+  const hi = data[ph].high
+  const last = data[N - 1]
+  if (last.close >= hi) return null                 // 신고가권 — 되돌림 국면 아님
+  let pl = -1
+  for (let i = ph - 1; i >= pivot; i--) {
+    const isLow = data.slice(i - pivot, i + pivot + 1).every((d, k) => k === pivot || d.low >= data[i].low)
+    if (isLow) { pl = i; break }
+  }
+  if (pl < 0 || ph - pl < 5) return null            // 상승 레그 5봉 미만 = 노이즈
+  const lo = data[pl].low
+  const range = hi - lo
+  if (range <= 0 || range / hi < 0.05) return null  // 상승폭 5% 미만 = 노이즈
+  const retrPct = Math.round(((hi - last.close) / range) * 1000) / 10
+  if (retrPct > 130) return null                    // 완전 붕괴 — 신호등·칼날 가드 영역(오도 방지)
+  const zone: FibRead['zone'] = retrPct < 38.2 ? 'shallow' : retrPct <= 61.8 ? 'golden' : retrPct <= 78.6 ? 'deep' : retrPct <= 100 ? 'reversal' : 'invalid'
+  const levels = [0.382, 0.5, 0.618, 0.786].map(r => ({ r, price: Math.round((hi - range * r) * 100) / 100 }))
+  return { lo, hi, retrPct, zone, levels }
+}
+
+/* ── 🎯 컨플루언스(겹침) 존 — "서로 다른 기법이 같은 존을 가리키면 고확률 지지/저항"(영상 최종 결론).
+   이미 계산된 지지 후보(VWAP·POC·FVG·피보 레벨)를 ±bandPct 밴드로 그리디 클러스터 — 서로 다른 src 2개 이상일 때만 존 성립
+   (같은 기법의 레벨 2개는 겹침이 아님). 순수 산수·추가 fetch 0. 판독기 정보 전용, 점수·판정 미반영. ── */
+export interface ConfluenceZone { mid: number; names: string[]; distPct: number }
+export function findConfluence(cands: { name: string; src: string; price: number }[], price: number, bandPct = 1.5, maxDistPct = 12): ConfluenceZone | null {
+  const below = cands.filter(c => c.price > 0 && c.price < price && (price - c.price) / price * 100 <= maxDistPct)
+  let best: ConfluenceZone | null = null
+  for (const seed of below) {
+    const members = below.filter(c => Math.abs(c.price - seed.price) / seed.price * 100 <= bandPct)
+    const srcs = new Set(members.map(m => m.src))
+    if (srcs.size < 2) continue
+    const mid = members.reduce((a, m) => a + m.price, 0) / members.length
+    const names = Array.from(new Set(members.map(m => m.name)))
+    const z: ConfluenceZone = { mid: Math.round(mid * 100) / 100, names, distPct: Math.round((price - mid) / price * 1000) / 10 }
+    if (!best || z.names.length > best.names.length || (z.names.length === best.names.length && z.distPct < best.distPct)) best = z
+  }
+  return best
+}
+
 /* ── 📦 FVG(공정가치 갭·Fair Value Gap) 탐지(결정론) — SMC 개념 중 가장 객관적인 부분.
    3봉 불균형: 급격한 분출로 캔들 사이에 비어버린 가격 공간. "자석처럼 되메워지는 경향" → 눌림목 지지/저항 후보.
    · 상승 갭(bull): i-1봉 고가 < i+1봉 저가 → 빈 공간 [i-1.high, i+1.low]

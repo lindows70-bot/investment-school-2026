@@ -3,7 +3,7 @@
 // 교차검증해 '가짜 반등/신호 정합/조기 청산 주의/떨어지는 칼날'을 결정론적으로 판정(AI 미사용·환각 0).
 // 기술신호는 이 화면 전용 — 통합추천·리밸런싱 점수에는 절대 미반영(앱의 펀더멘탈 우선 원칙).
 import { useState, useEffect, useMemo } from 'react'
-import { readSignals, detectLiquidity, readRaschke, computePOC, computeTTMSqueeze, computeAnchoredVWAP, readTimeCorrection } from '@/lib/techSignals'
+import { readSignals, detectLiquidity, readRaschke, computePOC, computeTTMSqueeze, computeAnchoredVWAP, readTimeCorrection, readFibRetracement, findConfluence, detectFVG } from '@/lib/techSignals'
 import type { TechCandle } from '@/app/api/tech-chart/route'
 import { TK } from '@/lib/theme'
 
@@ -81,6 +81,19 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   const avwap = useMemo(() => candles.length >= 30 ? computeAnchoredVWAP(candles) : null, [candles])
   // ⏳ 기간 조정 — 눌림목의 '시간 축'(직전 상승 봉수 대비 조정 봉수). 판정 미반영(정보만)
   const timeCorr = useMemo(() => candles.length >= 30 ? readTimeCorrection(candles) : null, [candles])
+  // 📐 피보나치 되돌림 — 눌림의 '가격 깊이' 축(⏳과 시간×가격 한 쌍). 판정 미반영(정보만)
+  const fib = useMemo(() => candles.length >= 30 ? readFibRetracement(candles) : null, [candles])
+  // 🎯 컨플루언스(겹침) 존 — 서로 다른 기법(VWAP·매물대·FVG·피보)의 지지 후보가 같은 가격대에 모이면 고확률. 판정 미반영(정보만)
+  const confl = useMemo(() => {
+    if (candles.length < 30) return null
+    const price = candles[candles.length - 1].close
+    const cands: { name: string; src: string; price: number }[] = []
+    if (avwap?.vwap != null) cands.push({ name: '⚓ 기관평단', src: 'vwap', price: avwap.vwap })
+    if (poc?.poc != null) cands.push({ name: '📊 매물대', src: 'poc', price: poc.poc })
+    if (fib) for (const l of fib.levels) cands.push({ name: `📐 피보 ${(l.r * 100).toFixed(1)}%`, src: 'fib', price: l.price })
+    for (const g of detectFVG(candles)) if (g.type === 'bull') cands.push({ name: '📦 상승 갭', src: 'fvg', price: (g.lo + g.hi) / 2 })
+    return findConfluence(cands, price)
+  }, [candles, avwap, poc, fib])
   // 💧 유동성 레벨(차트 오버레이와 동일 SSOT) — 스윕 표시 + ⚖️손익비 목표(전고점) 공용
   const liqLevels = useMemo(() => candles.length >= 30 ? detectLiquidity(candles) : [], [candles])
   const liqSweeps = useMemo(() => {
@@ -293,6 +306,33 @@ export default function SignalReader({ ticker, market, candles, tf }: {
                 ? ' — 조정 기간이 쌓이는 중 — 상승에 걸린 시간만큼 쉬어가는 경우가 많음(매물 소화).'
                 : ' — 조정 기간이 상승 기간에 근접·초과 — 여기서 자리를 지지하면 재상승 후보(지지·거래량은 신호등·매물대로 확인).'}
             {' '}기간대칭은 경향이지 법칙 아님.</span>
+        </div>
+      )}
+
+      {/* 📐 피보나치 되돌림 — 눌림의 '가격 깊이'(⏳ 기간조정의 가격 축 짝). 엘리엇 절대 규칙(2파는 1파 시작점 못 깸)만 차용, 파동 카운팅 없음. 판정 미반영(정보만) */}
+      {fib && (
+        <div style={{ background: TK.bg3, border: `1px solid ${fib.zone === 'golden' ? `${TK.green500}44` : fib.zone === 'shallow' ? `${TK.sky400}44` : fib.zone === 'deep' ? `${TK.amber500}44` : `${TK.red500}44`}`, borderRadius: 9, padding: '8px 12px', fontSize: 11, lineHeight: 1.6 }}>
+          <b style={{ color: TK.amber400 }}>📐 되돌림 깊이 — 직전 상승({fmtP(fib.lo)}→{fmtP(fib.hi)})의 {fib.retrPct}% 반납</b>
+          <span style={{ color: fib.zone === 'golden' ? TK.green400 : fib.zone === 'shallow' ? TK.sky400 : fib.zone === 'deep' ? TK.amber500 : TK.red400, fontWeight: 800 }}>
+            {' '}({fib.zone === 'shallow' ? '얕은 눌림' : fib.zone === 'golden' ? '표준 눌림 존 38.2~61.8%' : fib.zone === 'deep' ? '깊은 되돌림 61.8~78.6%' : fib.zone === 'reversal' ? '78.6% 초과 — 전환 의심' : '시작점 하회 — 구조 무효'})</span>
+          <span style={{ color: TK.sub5 }}> · {fib.zone === 'shallow'
+            ? '강한 추세일수록 얕게 눌림 — 아직 매수자 우위.'
+            : fib.zone === 'golden'
+              ? '교과서 되돌림(2파·4파)이 가장 자주 멈추는 깊이 — 여기서 지지+확인 캔들이면 재상승 후보.'
+              : fib.zone === 'deep'
+                ? '지지의 마지막 관문(78.6%) 접근 — 여기서도 못 서면 되돌림이 아닐 수 있음.'
+                : fib.zone === 'reversal'
+                  ? '단순 눌림 범위를 벗어남 — 상승 지속 가정 재검토(신호등·최후 방어선 확인).'
+                  : '엘리엇 절대 규칙 위반(되돌림이 상승 시작점을 깨면 그 상승 구조는 무효) — 새 구조가 나올 때까지 관망.'}
+            {' '}레벨: {fib.levels.map(l => `${(l.r * 100).toFixed(1)}% ${fmtP(l.price)}`).join(' · ')} — 예측 아닌 위치 확인(파동 카운팅은 하지 않음 — 시나리오 수만 가지).</span>
+        </div>
+      )}
+
+      {/* 🎯 컨플루언스(겹침) 존 — "서로 다른 기법이 같은 존을 가리키면 고확률"(엘리엇 영상 최종 결론). 판정 미반영(정보만) */}
+      {confl && (
+        <div style={{ background: TK.bg3, border: `1px solid ${TK.green500}55`, borderRadius: 9, padding: '8px 12px', fontSize: 11, lineHeight: 1.6 }}>
+          <b style={{ color: TK.green400 }}>🎯 지지 겹침 존(컨플루언스) {fmtP(confl.mid)} (현재가 −{confl.distPct}%)</b>
+          <span style={{ color: TK.sub5 }}> — {confl.names.join(' + ')} {confl.names.length}개 독립 기법이 같은 가격대(±1.5%)를 가리킴 — 겹칠수록 신뢰도 높은 지지 후보. 이탈 시 반대로 강한 매도 신호. 단독 진입 근거 아님 — 신호등·확인 캔들과 함께.</span>
         </div>
       )}
 
