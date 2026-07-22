@@ -206,6 +206,16 @@ export default function SignalReader({ ticker, market, candles, tf }: {
     </span>
   )
 
+  // 🪢 넥라인 선택 — 가장 '가까운' 살아있는 목선 우선(멀리 있는 다회 터치보다 가까운 선이 실전 대응 기준), 없으면 가장 가까운 깨진 목선(머리 위 롤플립 저항)
+  const nkLiving = price != null ? necks.filter(n => !n.broken && n.price < price).sort((a, b) => b.price - a.price)[0] ?? null : null
+  const nkBroken = price != null ? necks.filter(n => n.broken && n.price > price).sort((a, b) => a.price - b.price)[0] ?? null : null
+  const nkPick = nkLiving ?? nkBroken
+
+  // 📍 자리 읽기 요약 미니칩 — "복잡하다" 피드백 반영: 접힌 상태에서도 핵심 수치는 한 줄로 다 보이게
+  const mini = (txt: string, c: string) => (
+    <span style={{ fontSize: 9.5, fontWeight: 800, color: c, background: `${c}14`, border: `1px solid ${c}44`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{txt}</span>
+  )
+
   return (
     <div style={{ background: `linear-gradient(135deg,#131624,${TK.bg1})`, border: `1px solid #7c3aed44`, borderRadius: 14, padding: '15px 17px', display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -258,6 +268,24 @@ export default function SignalReader({ ticker, market, candles, tf }: {
           </div>
         )
       })()}
+
+      {/* 📍 자리 읽기 묶음 — "복잡하다" 피드백 반영: 접힌 한 줄 칩 요약(핵심 수치 전부) + 펼치면 기존 상세 해설(정보 손실 0) */}
+      <details style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '8px 12px' }}>
+        <summary style={{ cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <b style={{ color: TK.slate200, fontSize: 11 }}>📍 자리 읽기</b>
+          {poc && mini(`📊 ${poc.above ? '+' : ''}${poc.distPct}%`, poc.above ? TK.green400 : TK.orange400)}
+          {avwap && mini(`⚓ ${avwap.above ? '+' : ''}${avwap.distPct}%${avwap.cross ? (avwap.cross.dir === 'up' ? '⤴' : '⤵') : ''}`, avwap.above ? TK.green400 : TK.orange400)}
+          {squeeze?.on ? mini(`🔥 응축 ${squeeze.barsOn}봉`, TK.amber500) : squeeze?.fired ? mini(`💥 ${squeeze.fired === 'up' ? '상방' : '하방'} 분출`, squeeze.fired === 'up' ? TK.green400 : TK.red400) : null}
+          {timeCorr && mini(`⏳ ${timeCorr.ratioPct}%`, TK.violet400)}
+          {fib && mini(`📐 ${fib.retrPct}% ${fib.zone === 'shallow' ? '얕음' : fib.zone === 'golden' ? '표준' : fib.zone === 'deep' ? '깊음' : fib.zone === 'reversal' ? '전환?' : '무효'}`, fib.zone === 'golden' ? TK.green400 : fib.zone === 'shallow' ? TK.sky400 : fib.zone === 'deep' ? TK.amber500 : TK.red400)}
+          {nkPick && price != null && mini(`🪢 ${nkPick.broken ? '깨짐 +' : '−'}${(Math.abs(price - nkPick.price) / price * 100).toFixed(1)}%·${nkPick.touches}회`, nkPick.broken ? TK.orange400 : TK.sky400)}
+          {wedge && mini(wedge.type === 'rising' ? '🔺 쐐기' : '🔻 쐐기', wedge.type === 'rising' ? TK.orange400 : TK.sky400)}
+          {zigzag && mini(`📏 −${zigzag.distPct}%`, TK.violet400)}
+          {confl && mini(`🎯 −${confl.distPct}%·${confl.names.length}겹`, TK.green400)}
+          {rr && mini(`⚖ 1:${rr.ratio}`, rr.ratio >= 2 ? TK.green400 : rr.ratio >= 1 ? TK.amber500 : TK.orange400)}
+          <span style={{ fontSize: 9.5, color: TK.sub2 }}>▸ 클릭하면 상세 해설</span>
+        </summary>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
 
       {/* 📊 매물대(POC) 위치 — 위=수익권 다수(지지)/아래=손실권(저항). 판정 미반영(정보만) */}
       {poc && (
@@ -336,19 +364,15 @@ export default function SignalReader({ ticker, market, candles, tf }: {
         </div>
       )}
 
-      {/* 🪢 넥라인(반복 지지) — "봉우리 여러 개가 지지하는 목선. 깨면 지지→저항 롤플립"(김도담). 살아있는 지지 우선, 없으면 깨진 목선(머리 위 저항) 경고. 판정 미반영(정보만) */}
-      {(() => {
-        const price = candles.length ? candles[candles.length - 1].close : 0
-        const living = necks.filter(n => !n.broken && n.price < price).sort((a, b) => b.touches - a.touches)[0]
-        const broken = necks.filter(n => n.broken && n.price > price).sort((a, b) => b.touches - a.touches)[0]
-        const nk = living ?? broken
-        if (!nk || !price) return null
-        const dist = Math.round(Math.abs(price - nk.price) / price * 1000) / 10
+      {/* 🪢 넥라인(반복 지지) — "봉우리 여러 개가 지지하는 목선. 깨면 지지→저항 롤플립"(김도담). 가장 가까운 살아있는 목선 우선(실전 대응 기준), 없으면 깨진 목선(머리 위 저항) 경고. 판정 미반영(정보만) */}
+      {nkPick && price != null && (() => {
+        const living = !nkPick.broken
+        const dist = Math.round(Math.abs(price - nkPick.price) / price * 1000) / 10
         return (
           <div style={{ background: TK.bg3, border: `1px solid ${living ? `${TK.sky400}44` : `${TK.orange400}44`}`, borderRadius: 9, padding: '8px 12px', fontSize: 11, lineHeight: 1.6 }}>
-            <b style={{ color: living ? TK.sky400 : TK.orange400 }}>🪢 넥라인 {fmtP(nk.price)} ({living ? `−${dist}% 아래` : `+${dist}% 위`}) — {nk.touches}회 {living ? '지지받은 목선' : '지지 후 붕괴'}</b>
+            <b style={{ color: living ? TK.sky400 : TK.orange400 }}>🪢 넥라인 {fmtP(nkPick.price)} ({living ? `−${dist}% 아래` : `+${dist}% 위`}) — {nkPick.touches}회 {living ? '지지받은 목선' : '지지 후 붕괴'}</b>
             <span style={{ color: TK.sub5 }}> · {living
-              ? '같은 저점대를 반복 지지 = 매수세가 지키는 선. 지지 유지면 우위, 종가 이탈 시 지지→저항 롤플립(강한 매도 신호). 단, 여러 번 두드릴수록 깨질 확률도 커짐(추세선은 깨라고 있는 선).'
+              ? '같은 저점대를 반복 지지 = 매수세가 지키는 선(현재가에서 가장 가까운 살아있는 목선). 지지 유지면 우위, 종가 이탈 시 지지→저항 롤플립(강한 매도 신호). 단, 여러 번 두드릴수록 깨질 확률도 커짐(추세선은 깨라고 있는 선).'
               : '깨진 목선은 저항으로 뒤집힘(롤플립) — 반등이 이 선에 막히는지 관찰. 회복(종가 재돌파) 시 다시 지지로 복귀.'}</span>
           </div>
         )
@@ -394,6 +418,8 @@ export default function SignalReader({ ticker, market, candles, tf }: {
             승률 높은 기법은 없음 — 5:5 자리라도 이기면 크게·지면 작게가 프로의 수학(손실은 짧게, 수익은 길게). 목표는 가장 가까운 살아있는 전고점 기준(돌파 시 다음 저항까지 확장)·예측 아님.</span>
         </div>
       )}
+        </div>
+      </details>
 
       {/* 🎯 스마트 알림 체인 — 가치 게이트(펀더) × 변동성/타이밍(기술). 판정 미반영·교육 안내(강제 아님) */}
       {squeeze?.fired === 'up' && f && (
