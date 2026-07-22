@@ -503,6 +503,15 @@ export default function SignalReader({ ticker, market, candles, tf }: {
                 </span>
               </div>
             )}
+            {/* 매수 조기 경보 — 상승 다이버전스(와일더 원전·차트슈타인 영상): 가격 저점↓·RSI 저점↑ = 하락 에너지 소진 */}
+            {rk.bullDivergence && (
+              <div style={{ marginTop: 7, padding: '7px 10px', background: '#14532d22', border: `1px solid ${TK.green400}44`, borderRadius: 8 }}>
+                <b style={{ color: TK.green400 }}>🔼 상승 다이버전스{rk.bullDivergence.strong ? '(강함 — 저점 간격 14봉 이내)' : ''}</b>
+                <span style={{ color: TK.slate300 }}>
+                  {' '}— 주가 저점은 {fmtP(rk.bullDivergence.prevLo)}→{fmtP(rk.bullDivergence.priceLo)}로 낮아졌는데 RSI 저점은 {rk.bullDivergence.rsiAtPrev}→{rk.bullDivergence.rsiAtLo}로 높아짐(하락 에너지 소진 — 바닥 반전 후보). 확정 아닌 가능성 — RSI 50 돌파·확인 캔들·신호등으로 확인 후 분할 진입 검토(WHAT은 여전히 펀더멘탈 먼저).
+                </span>
+              </div>
+            )}
             <div style={{ marginTop: 6, fontSize: 9.5, color: TK.sub2 }}>
               🎓 라쉬케式 핵심: 골든크로스 하나가 아니라 <b style={{ color: TK.slate300 }}>지표들이 연쇄로 같은 방향을 가리키는 순간</b>을 기다리고, 돌파 추격 대신 <b style={{ color: TK.slate300 }}>첫 눌림목</b>에 진입. 홀리그레일(ADX 추세 + 되돌림)은 위 ADX 칩·타점 신호등의 눌림목 판정이 같은 철학. 판정은 전부 결정론(주관 0)·점수 미반영.
             </div>

@@ -253,6 +253,8 @@ export interface RaschkeRead {
   // 매도 신호
   bearDivergence: { priceHi: number; prevHi: number; rsiAtHi: number; rsiAtPrev: number } | null   // 하락 다이버전스
   exitCross: boolean                   // MACD 데드크로스 + RSI 70 하향이탈 동시(최근 5봉)
+  // 매수 조기 경보(차트슈타인 볼린저+RSI 영상 — 와일더 원전) — 가격 저점↓·RSI 저점↑ = 하락 에너지 소진(바닥 반전 후보)
+  bullDivergence: { priceLo: number; prevLo: number; rsiAtLo: number; rsiAtPrev: number; strong: boolean } | null   // strong = 피벗 간격 14봉 이내(RSI 길이값 — 가까울수록 강함)
 }
 
 export function readRaschke(data: Ohlc[]): RaschkeRead | null {
@@ -366,6 +368,22 @@ export function readRaschke(data: Ohlc[]): RaschkeRead | null {
     if (r1 != null && r2 != null && data[p2].high > data[p1].high && r2 < r1 - 2 && r1 > 60)
       bearDivergence = { priceHi: data[p2].high, prevHi: data[p1].high, rsiAtHi: Math.round(r2 * 10) / 10, rsiAtPrev: Math.round(r1 * 10) / 10 }
   }
+  // 매수 조기 경보: 상승 다이버전스 — 최근 60봉 스윙 저점(좌우 5봉) 2개 비교: 가격 저점↓ & RSI 저점↑ (bearDiv의 거울)
+  //    게이트: 직전 RSI 저점 40 미만(저점권에서만 의미) · strong = 피벗 간격 14봉 이내(RSI 길이값 — 영상: 가까울수록 강함)
+  let bullDivergence: RaschkeRead['bullDivergence'] = null
+  const lowPivots: number[] = []
+  for (let i = Math.max(5, N - 60); i < N - 5; i++) {
+    let isLow = true
+    for (let j = i - 5; j <= i + 5; j++) { if (j !== i && data[j].low < data[i].low) { isLow = false; break } }
+    if (isLow) lowPivots.push(i)
+  }
+  if (lowPivots.length >= 2) {
+    const q1 = lowPivots[lowPivots.length - 2], q2 = lowPivots[lowPivots.length - 1]
+    const s1 = rsiA[q1], s2 = rsiA[q2]
+    if (s1 != null && s2 != null && data[q2].low < data[q1].low && s2 > s1 + 2 && s1 < 40)
+      bullDivergence = { priceLo: data[q2].low, prevLo: data[q1].low, rsiAtLo: Math.round(s2 * 10) / 10, rsiAtPrev: Math.round(s1 * 10) / 10, strong: q2 - q1 <= 14 }
+  }
+
   // 매도 ②: MACD 데드크로스 + RSI 70 하향이탈 동시(각 최근 5봉)
   const deadAgo = (() => {
     for (let ago = 0; ago < 5; ago++) {
@@ -381,7 +399,7 @@ export function readRaschke(data: Ohlc[]): RaschkeRead | null {
 
   return {
     macdGoldenBelowZero: goldenBelowZero, macdZeroBreak: zeroBreak, macdAboveZero, histRising,
-    rsi50Break, rsiAbove50, volBoost, buyCount, stage, cciSignal, pullback, pullbackPct, parabolicRun, bearDivergence, exitCross,
+    rsi50Break, rsiAbove50, volBoost, buyCount, stage, cciSignal, pullback, pullbackPct, parabolicRun, bearDivergence, exitCross, bullDivergence,
   }
 }
 
