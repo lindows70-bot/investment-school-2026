@@ -821,6 +821,36 @@ export function detectNecklines(data: Ohlc[], pivot = 3, lookback = 160, bandPct
   return out.sort((a, b) => b.touches - a.touches || b.lastIdx - a.lastIdx).slice(0, 3)
 }
 
+/* ── 🔺🔻 쐐기형(웨지) 감지 — "조정 받아야 할 자리에서 못 받고 저점·고점이 같이 높아지며 수렴하면 끝은 급락,
+   반등할 자리에서 못 반등하고 같이 낮아지며 수렴하면 끝은 급등"(박경철 엘리엇 강의 — '가장 중요한 패턴').
+   TTM 스퀴즈는 변동성 '수렴'만 봄 — 쐐기는 수렴의 '기울기 방향'을 더해 분출 방향 힌트를 줌(상호보완).
+   판정: 최근 피벗 고점 2개 이상 + 피벗 저점 2개 이상이 같은 방향 + 진폭 수렴(끝폭 < 시작폭 80%) + 최근성.
+   순수 산수. 경향이지 법칙 아님 — 판독기 정보 전용, 점수·판정 미반영. ── */
+export interface WedgeRead { type: 'rising' | 'falling'; bars: number }
+export function readWedge(data: Ohlc[], pivot = 3, lookback = 45): WedgeRead | null {
+  const N = data.length
+  if (N < pivot * 2 + 20) return null
+  const from = Math.max(pivot, N - lookback)
+  const his: { idx: number; p: number }[] = [], los: { idx: number; p: number }[] = []
+  for (let i = from; i < N - pivot; i++) {
+    const win = data.slice(i - pivot, i + pivot + 1)
+    if (win.every((d, k) => k === pivot || d.high <= data[i].high)) his.push({ idx: i, p: data[i].high })
+    if (win.every((d, k) => k === pivot || d.low >= data[i].low)) los.push({ idx: i, p: data[i].low })
+  }
+  if (his.length < 2 || los.length < 2) return null
+  const h0 = his[0], h1 = his[his.length - 1], l0 = los[0], l1 = los[los.length - 1]
+  // 살아있는 구조 판정 — 한쪽 경계는 10봉 내 터치, 반대쪽은 20봉 내(피벗 확정 지연 감안 — 양쪽 10봉 강제는 과도)
+  if (Math.max(h1.idx, l1.idx) < N - 1 - 10 || Math.min(h1.idx, l1.idx) < N - 1 - 20) return null
+  const span = Math.max(h1.idx, l1.idx) - Math.min(h0.idx, l0.idx)
+  if (span < 10) return null
+  const startW = Math.abs(h0.p - l0.p), endW = Math.abs(h1.p - l1.p)
+  if (!(startW > 0) || endW >= startW * 0.8) return null           // 진폭 수렴 아님
+  const hisUp = h1.p > h0.p, losUp = l1.p > l0.p
+  if (hisUp && losUp) return { type: 'rising', bars: span }        // 상승 쐐기 — 하방 분출 경계
+  if (!hisUp && !losUp) return { type: 'falling', bars: span }     // 하락 쐐기 — 상방 분출 후보
+  return null                                                       // 대칭 수렴(방향 없음) = 스퀴즈·삼각수렴 영역
+}
+
 /* ── 📏 지그재그 A=C 등가 타겟 — "C파동은 A파동과 같은 크기(또는 1.236배)로 나오는 경향"(김도담 영상 핵심 반복 주장).
    결정론 감지: 마지막 스윙 고점 H → H 이후 확정 스윙 저점 L(A파 하락) → 그 뒤 확정 스윙 고점 B(반등, A의 30~90%) → 현재 C 진행 중.
    타겟 = B고점 − A크기(등가) 및 −1.236배. 구조 미확정이면 null(정직 생략). ⛔ 파동 라벨 자동화 아님 — 등가성 산수만 차용. ── */

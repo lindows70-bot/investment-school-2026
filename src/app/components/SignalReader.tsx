@@ -3,7 +3,7 @@
 // 교차검증해 '가짜 반등/신호 정합/조기 청산 주의/떨어지는 칼날'을 결정론적으로 판정(AI 미사용·환각 0).
 // 기술신호는 이 화면 전용 — 통합추천·리밸런싱 점수에는 절대 미반영(앱의 펀더멘탈 우선 원칙).
 import { useState, useEffect, useMemo } from 'react'
-import { readSignals, detectLiquidity, readRaschke, computePOC, computeTTMSqueeze, computeAnchoredVWAP, readTimeCorrection, readFibRetracement, findConfluence, detectFVG, detectNecklines, readZigzagTarget } from '@/lib/techSignals'
+import { readSignals, detectLiquidity, readRaschke, computePOC, computeTTMSqueeze, computeAnchoredVWAP, readTimeCorrection, readFibRetracement, findConfluence, detectFVG, detectNecklines, readZigzagTarget, readWedge } from '@/lib/techSignals'
 import type { TechCandle } from '@/app/api/tech-chart/route'
 import { TK } from '@/lib/theme'
 
@@ -87,6 +87,8 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   const necks = useMemo(() => candles.length >= 30 ? detectNecklines(candles) : [], [candles])
   // 📏 지그재그 A=C 등가 타겟 — 조정 바닥 측정(C=A 등가성). 구조 미확정이면 null(정직 생략)
   const zigzag = useMemo(() => candles.length >= 30 ? readZigzagTarget(candles) : null, [candles])
+  // 🔺🔻 쐐기형(웨지) — 수렴의 '기울기 방향'(스퀴즈 보완). 판정 미반영(정보만)
+  const wedge = useMemo(() => candles.length >= 30 ? readWedge(candles) : null, [candles])
   // 🎯 컨플루언스(겹침) 존 — 서로 다른 기법(VWAP·매물대·FVG·피보·넥라인·등가타겟)의 지지 후보가 같은 가격대에 모이면 고확률. 판정 미반영(정보만)
   const confl = useMemo(() => {
     if (candles.length < 30) return null
@@ -351,6 +353,17 @@ export default function SignalReader({ ticker, market, candles, tf }: {
           </div>
         )
       })()}
+
+      {/* 🔺🔻 쐐기형(웨지) — "조정 못 받고 밀려 올라가는 수렴은 끝이 급락, 반등 못 하고 흘러내리는 수렴은 끝이 급등"(박경철). 스퀴즈의 방향 보완. 판정 미반영(정보만) */}
+      {wedge && (
+        <div style={{ background: TK.bg3, border: `1px solid ${wedge.type === 'rising' ? `${TK.orange400}44` : `${TK.sky400}44`}`, borderRadius: 9, padding: '8px 12px', fontSize: 11, lineHeight: 1.6 }}>
+          <b style={{ color: wedge.type === 'rising' ? TK.orange400 : TK.sky400 }}>{wedge.type === 'rising' ? '🔺 상승 쐐기' : '🔻 하락 쐐기'} — 최근 {wedge.bars}봉 수렴</b>
+          <span style={{ color: TK.sub5 }}> · {wedge.type === 'rising'
+            ? '저점·고점이 같이 높아지며 진폭 축소 — 조정 받을 자리에서 못 받고 밀려 올라가는 형태. 이런 수렴의 끝은 하방 분출로 끝나는 경우가 많음(추격 매수 자제·기존 보유는 이탈선 관찰).'
+            : '저점·고점이 같이 낮아지며 진폭 축소 — 반등할 자리에서 못 반등하고 눌려 있는 형태. 이런 수렴의 끝은 상방 분출로 끝나는 경우가 많음(분출 확인 후 진입 후보).'}
+            {squeeze?.on ? ' 지금 🔥 스퀴즈 압축과 겹침 — 분출 임박 가능성↑.' : ''} 경향이지 법칙 아님 — 방향 확정은 신호등·확인 캔들로.</span>
+        </div>
+      )}
 
       {/* 📏 A=C 등가 타겟 — "C파동은 A파동과 같은 크기(또는 1.236배) 경향"(김도담). 조정 바닥 측정. 판정 미반영(정보만) */}
       {zigzag && (
