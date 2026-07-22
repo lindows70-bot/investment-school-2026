@@ -3,7 +3,7 @@
 // 교차검증해 '가짜 반등/신호 정합/조기 청산 주의/떨어지는 칼날'을 결정론적으로 판정(AI 미사용·환각 0).
 // 기술신호는 이 화면 전용 — 통합추천·리밸런싱 점수에는 절대 미반영(앱의 펀더멘탈 우선 원칙).
 import { useState, useEffect, useMemo } from 'react'
-import { readSignals, detectLiquidity, readRaschke, computePOC, computeTTMSqueeze, computeAnchoredVWAP, readTimeCorrection, readFibRetracement, findConfluence, detectFVG } from '@/lib/techSignals'
+import { readSignals, detectLiquidity, readRaschke, computePOC, computeTTMSqueeze, computeAnchoredVWAP, readTimeCorrection, readFibRetracement, findConfluence, detectFVG, detectNecklines, readZigzagTarget } from '@/lib/techSignals'
 import type { TechCandle } from '@/app/api/tech-chart/route'
 import { TK } from '@/lib/theme'
 
@@ -83,7 +83,11 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   const timeCorr = useMemo(() => candles.length >= 30 ? readTimeCorrection(candles) : null, [candles])
   // 📐 피보나치 되돌림 — 눌림의 '가격 깊이' 축(⏳과 시간×가격 한 쌍). 판정 미반영(정보만)
   const fib = useMemo(() => candles.length >= 30 ? readFibRetracement(candles) : null, [candles])
-  // 🎯 컨플루언스(겹침) 존 — 서로 다른 기법(VWAP·매물대·FVG·피보)의 지지 후보가 같은 가격대에 모이면 고확률. 판정 미반영(정보만)
+  // 🪢 넥라인(반복 지지 레벨) — 피벗 저점 클러스터 + 터치 수. 판정 미반영(정보만)
+  const necks = useMemo(() => candles.length >= 30 ? detectNecklines(candles) : [], [candles])
+  // 📏 지그재그 A=C 등가 타겟 — 조정 바닥 측정(C=A 등가성). 구조 미확정이면 null(정직 생략)
+  const zigzag = useMemo(() => candles.length >= 30 ? readZigzagTarget(candles) : null, [candles])
+  // 🎯 컨플루언스(겹침) 존 — 서로 다른 기법(VWAP·매물대·FVG·피보·넥라인·등가타겟)의 지지 후보가 같은 가격대에 모이면 고확률. 판정 미반영(정보만)
   const confl = useMemo(() => {
     if (candles.length < 30) return null
     const price = candles[candles.length - 1].close
@@ -92,8 +96,10 @@ export default function SignalReader({ ticker, market, candles, tf }: {
     if (poc?.poc != null) cands.push({ name: '📊 매물대', src: 'poc', price: poc.poc })
     if (fib) for (const l of fib.levels) cands.push({ name: `📐 피보 ${(l.r * 100).toFixed(1)}%`, src: 'fib', price: l.price })
     for (const g of detectFVG(candles)) if (g.type === 'bull') cands.push({ name: '📦 상승 갭', src: 'fvg', price: (g.lo + g.hi) / 2 })
+    for (const nk of necks) if (!nk.broken) cands.push({ name: `🪢 넥라인(${nk.touches}회)`, src: 'neck', price: nk.price })
+    if (zigzag) cands.push({ name: '📏 A=C 타겟', src: 'zigzag', price: zigzag.target1 })
     return findConfluence(cands, price)
-  }, [candles, avwap, poc, fib])
+  }, [candles, avwap, poc, fib, necks, zigzag])
   // 💧 유동성 레벨(차트 오버레이와 동일 SSOT) — 스윕 표시 + ⚖️손익비 목표(전고점) 공용
   const liqLevels = useMemo(() => candles.length >= 30 ? detectLiquidity(candles) : [], [candles])
   const liqSweeps = useMemo(() => {
@@ -325,6 +331,32 @@ export default function SignalReader({ ticker, market, candles, tf }: {
                   ? '단순 눌림 범위를 벗어남 — 상승 지속 가정 재검토(신호등·최후 방어선 확인).'
                   : '엘리엇 절대 규칙 위반(되돌림이 상승 시작점을 깨면 그 상승 구조는 무효) — 새 구조가 나올 때까지 관망.'}
             {' '}레벨: {fib.levels.map(l => `${(l.r * 100).toFixed(1)}% ${fmtP(l.price)}`).join(' · ')} — 예측 아닌 위치 확인(파동 카운팅은 하지 않음 — 시나리오 수만 가지).</span>
+        </div>
+      )}
+
+      {/* 🪢 넥라인(반복 지지) — "봉우리 여러 개가 지지하는 목선. 깨면 지지→저항 롤플립"(김도담). 살아있는 지지 우선, 없으면 깨진 목선(머리 위 저항) 경고. 판정 미반영(정보만) */}
+      {(() => {
+        const price = candles.length ? candles[candles.length - 1].close : 0
+        const living = necks.filter(n => !n.broken && n.price < price).sort((a, b) => b.touches - a.touches)[0]
+        const broken = necks.filter(n => n.broken && n.price > price).sort((a, b) => b.touches - a.touches)[0]
+        const nk = living ?? broken
+        if (!nk || !price) return null
+        const dist = Math.round(Math.abs(price - nk.price) / price * 1000) / 10
+        return (
+          <div style={{ background: TK.bg3, border: `1px solid ${living ? `${TK.sky400}44` : `${TK.orange400}44`}`, borderRadius: 9, padding: '8px 12px', fontSize: 11, lineHeight: 1.6 }}>
+            <b style={{ color: living ? TK.sky400 : TK.orange400 }}>🪢 넥라인 {fmtP(nk.price)} ({living ? `−${dist}% 아래` : `+${dist}% 위`}) — {nk.touches}회 {living ? '지지받은 목선' : '지지 후 붕괴'}</b>
+            <span style={{ color: TK.sub5 }}> · {living
+              ? '같은 저점대를 반복 지지 = 매수세가 지키는 선. 지지 유지면 우위, 종가 이탈 시 지지→저항 롤플립(강한 매도 신호). 단, 여러 번 두드릴수록 깨질 확률도 커짐(추세선은 깨라고 있는 선).'
+              : '깨진 목선은 저항으로 뒤집힘(롤플립) — 반등이 이 선에 막히는지 관찰. 회복(종가 재돌파) 시 다시 지지로 복귀.'}</span>
+          </div>
+        )
+      })()}
+
+      {/* 📏 A=C 등가 타겟 — "C파동은 A파동과 같은 크기(또는 1.236배) 경향"(김도담). 조정 바닥 측정. 판정 미반영(정보만) */}
+      {zigzag && (
+        <div style={{ background: TK.bg3, border: `1px solid ${TK.violet400}44`, borderRadius: 9, padding: '8px 12px', fontSize: 11, lineHeight: 1.6 }}>
+          <b style={{ color: TK.violet400 }}>📏 A=C 등가 타겟 {fmtP(zigzag.target1)} (현재가 −{zigzag.distPct}%)</b>
+          <span style={{ color: TK.sub5 }}> · 확장 1.236배 {fmtP(zigzag.target1236)} — 지그재그 조정(하락 A → 반등 B → 하락 C)에서 C는 A와 같은 크기로 나오는 경향 = 조정 완성 후보 지점. 다른 지지(🎯 겹침 존)와 만나면 신뢰도↑. 예측 아닌 참고 — 진입은 신호등·확인 캔들과 함께.</span>
         </div>
       )}
 

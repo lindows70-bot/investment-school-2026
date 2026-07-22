@@ -784,6 +784,83 @@ export function readFibRetracement(data: Ohlc[], pivot = 5): FibRead | null {
   return { lo, hi, retrPct, zone, levels }
 }
 
+/* ── 🪢 넥라인(반복 지지 레벨) — "봉우리 여러 개가 같은 저점대를 지지하는 목선. 깨면 지지→저항 롤플립"(김도담 영상).
+   기존 detectLiquidity는 전고점(저항)만 감지 — 이건 반대편: 피벗 저점들을 가격 밴드로 클러스터해 '몇 번 지지받았나'까지 셈.
+   터치 2회 이상만 넥라인 인정. broken = 마지막 종가가 레벨 아래(지지→저항 전환). 순수 산수, 점수·판정 미반영. ── */
+export interface NeckLine { price: number; touches: number; lastIdx: number; broken: boolean }
+export function detectNecklines(data: Ohlc[], pivot = 3, lookback = 160, bandPct = 1.0): NeckLine[] {
+  const N = data.length
+  if (N < pivot * 2 + 10) return []
+  const lows: { idx: number; price: number }[] = []
+  for (let i = Math.max(pivot, N - lookback); i < N - pivot; i++) {
+    const isLow = data.slice(i - pivot, i + pivot + 1).every((d, k) => k === pivot || d.low >= data[i].low)
+    if (isLow) lows.push({ idx: i, price: data[i].low })
+  }
+  if (lows.length < 2) return []
+  // 가격 밴드(±bandPct%) 그리디 클러스터 — 같은 저점대를 반복 지지한 수평선
+  const used = new Set<number>()
+  const out: NeckLine[] = []
+  const lastClose = data[N - 1].close
+  for (let i = 0; i < lows.length; i++) {
+    if (used.has(i)) continue
+    const members = [lows[i]]
+    for (let j = i + 1; j < lows.length; j++) {
+      if (used.has(j)) continue
+      if (Math.abs(lows[j].price - lows[i].price) / lows[i].price * 100 <= bandPct) { members.push(lows[j]); used.add(j) }
+    }
+    if (members.length < 2) continue
+    // 근접 중복 제거 — 같은 눌림(연속 봉)은 1회 터치로 셈(횡보 구간의 가짜 다중 터치 방지)
+    members.sort((a, b) => a.idx - b.idx)
+    const distinct: typeof members = []
+    for (const m of members) if (!distinct.length || m.idx - distinct[distinct.length - 1].idx >= pivot * 2) distinct.push(m)
+    if (distinct.length < 2) continue
+    const price = Math.round(distinct.reduce((a, m) => a + m.price, 0) / distinct.length * 100) / 100
+    out.push({ price, touches: distinct.length, lastIdx: distinct[distinct.length - 1].idx, broken: lastClose < price })
+  }
+  // 터치 수 우선, 동률이면 최근에 테스트된 목선 우선(오래된 횡보 구간보다 현재 구조에 유의미)
+  return out.sort((a, b) => b.touches - a.touches || b.lastIdx - a.lastIdx).slice(0, 3)
+}
+
+/* ── 📏 지그재그 A=C 등가 타겟 — "C파동은 A파동과 같은 크기(또는 1.236배)로 나오는 경향"(김도담 영상 핵심 반복 주장).
+   결정론 감지: 마지막 스윙 고점 H → H 이후 확정 스윙 저점 L(A파 하락) → 그 뒤 확정 스윙 고점 B(반등, A의 30~90%) → 현재 C 진행 중.
+   타겟 = B고점 − A크기(등가) 및 −1.236배. 구조 미확정이면 null(정직 생략). ⛔ 파동 라벨 자동화 아님 — 등가성 산수만 차용. ── */
+export interface ZigzagTarget { aSize: number; bHigh: number; target1: number; target1236: number; distPct: number }
+export function readZigzagTarget(data: Ohlc[], pivot = 3, lookback = 120): ZigzagTarget | null {
+  const N = data.length
+  if (N < pivot * 2 + 20) return null
+  // H = 최근 lookback 내 '최고' 확정 스윙 고점(구조의 출발점 — 마지막 피벗이 아니라 최고여야 B 반등 고점과 구분됨)
+  const big = 5
+  let H = -1
+  for (let i = Math.max(big, N - lookback); i < N - big; i++) {
+    const isHigh = data.slice(i - big, i + big + 1).every((d, k) => k === big || d.high <= data[i].high)
+    if (isHigh && (H < 0 || data[i].high > data[H].high)) H = i
+  }
+  if (H < 0 || data[N - 1].close >= data[H].high) return null   // 신고가권 — 조정 구조 아님
+  // B = H 이후 '마지막' 확정 스윙 고점(가장 최근 반등 고점, H보다 낮아야 함)
+  let B = -1
+  for (let i = H + pivot; i < N - pivot; i++) {
+    const isHigh = data.slice(i - pivot, i + pivot + 1).every((d, k) => k === pivot || d.high <= data[i].high)
+    if (isHigh && data[i].high < data[H].high) B = i
+  }
+  if (B < 0) return null
+  const bHigh = data[B].high
+  // L = H~B 사이 최저가(A파 저점)
+  let L = -1, lo = Infinity
+  for (let i = H + 1; i <= B; i++) if (data[i].low < lo) { lo = data[i].low; L = i }
+  if (L < 0) return null
+  const aSize = data[H].high - lo
+  if (aSize <= 0 || aSize / data[H].high < 0.03) return null    // A파 3% 미만 = 노이즈
+  const bRetr = (bHigh - lo) / aSize
+  if (bRetr < 0.3 || bRetr > 0.9) return null                   // 지그재그 B 반등 범위 밖(0.618 중심 경향)
+  const price = data[N - 1].close
+  if (price >= bHigh) return null                               // B 고점 돌파 — C 하락 시나리오 무효(정직 생략)
+  if ((bHigh - price) / bHigh * 100 < 3) return null            // B 고점 부근(3% 미만 이탈) — C 진행 미확인, 성급한 하락 시나리오 방지
+  const target1 = Math.round((bHigh - aSize) * 100) / 100
+  const target1236 = Math.round((bHigh - aSize * 1.236) * 100) / 100
+  if (target1 <= 0 || (price - target1) / price * 100 > 25) return null  // 너무 먼 타겟 = 오도 방지
+  return { aSize: Math.round(aSize * 100) / 100, bHigh, target1, target1236, distPct: Math.round((price - target1) / price * 1000) / 10 }
+}
+
 /* ── 🎯 컨플루언스(겹침) 존 — "서로 다른 기법이 같은 존을 가리키면 고확률 지지/저항"(영상 최종 결론).
    이미 계산된 지지 후보(VWAP·POC·FVG·피보 레벨)를 ±bandPct 밴드로 그리디 클러스터 — 서로 다른 src 2개 이상일 때만 존 성립
    (같은 기법의 레벨 2개는 겹침이 아님). 순수 산수·추가 fetch 0. 판독기 정보 전용, 점수·판정 미반영. ── */
