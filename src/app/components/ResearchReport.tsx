@@ -2,6 +2,7 @@
 // 📄 종목 리서치 리포트 — 앱 SSOT 총동원 풀 리포트(섹터·경쟁사·밸류·1년주가·어닝·전망·액션) + PDF 다운로드
 import { useEffect, useState } from 'react'
 import { TK } from '@/lib/theme'
+import { curSymbol } from '@/lib/globalTickers'
 import type { ResearchReport as Report } from '@/app/api/research-report/route'
 
 const CARD = TK.bg4, BORDER = TK.line3
@@ -12,15 +13,27 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 const fmtMcap = (v: number | null) => { if (v == null) return '—'; const usd = v < 1e6 ? v * 1e9 : v; return usd >= 1e12 ? `$${(usd / 1e12).toFixed(2)}T` : usd >= 1e9 ? `$${Math.round(usd / 1e9)}B` : `$${Math.round(usd / 1e6)}M` }
 const ymd = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}` }
 
-// 종가 배열 → SVG 라인 path(0~W,0~H). 상승=초록/하락=빨강
-function linePath(closes: number[], w: number, h: number, pad = 2) {
-  if (closes.length < 2) return { d: '', area: '', up: true }
+// 1년 주가 SVG 빌더 — 라인 path + 세로축(가격 3눈금)·가로축(날짜 5눈금)·현재가 마커(사용자 요청: 축 없는 맨선 개선)
+function buildLineChart(points: { d: string; c: number }[], w: number, h: number, cs: string) {
+  const pts = points.filter(p => p.c > 0)
+  if (pts.length < 2) return null
+  const padL = 52, padR = 10, padT = 10, padB = 18
+  const closes = pts.map(p => p.c)
   const min = Math.min(...closes), max = Math.max(...closes), range = max - min || 1
-  const x = (i: number) => pad + i / (closes.length - 1) * (w - pad * 2)
-  const y = (c: number) => pad + (1 - (c - min) / range) * (h - pad * 2)
+  const x = (i: number) => padL + i / (pts.length - 1) * (w - padL - padR)
+  const y = (c: number) => padT + (1 - (c - min) / range) * (h - padT - padB)
   const d = closes.map((c, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(c).toFixed(1)}`).join(' ')
-  const area = `${d} L ${x(closes.length - 1).toFixed(1)} ${h} L ${x(0).toFixed(1)} ${h} Z`
-  return { d, area, up: closes[closes.length - 1] >= closes[0] }
+  const area = `${d} L ${x(pts.length - 1).toFixed(1)} ${(h - padB).toFixed(1)} L ${x(0).toFixed(1)} ${(h - padB).toFixed(1)} Z`
+  // 가격 라벨 — KR은 반올림 콤마, 그 외 통화는 크기에 따라 소수 조절
+  const fmt = (v: number) => cs === '₩' ? `₩${Math.round(v).toLocaleString()}` : `${cs}${v >= 1000 ? Math.round(v).toLocaleString() : v.toFixed(v < 100 ? 1 : 0)}`
+  const yTicks = [max, (max + min) / 2, min].map(v => ({ y: y(v), label: fmt(v) }))
+  const idxs = [0, Math.round((pts.length - 1) * 0.25), Math.round((pts.length - 1) * 0.5), Math.round((pts.length - 1) * 0.75), pts.length - 1]
+  const xTicks = idxs.map(i => {
+    const dt = new Date(pts[i].d)
+    return { x: x(i), label: `${String(dt.getFullYear()).slice(2)}.${String(dt.getMonth() + 1).padStart(2, '0')}` }
+  })
+  const last = closes[closes.length - 1]
+  return { d, area, up: last >= closes[0], yTicks, xTicks, padL, padR, padB, lastX: x(pts.length - 1), lastY: y(last), lastLabel: fmt(last) }
 }
 
 // 새 창에 인쇄용 문서 → window.print()(브라우저 'PDF로 저장'). 파일명=티커_리서치리포트_날짜(document.title)
@@ -28,10 +41,12 @@ function printReport(r: Report) {
   const dt = new Date(r.generatedAt).toLocaleString('ko-KR')
   const vColor = r.action.verdict === 'buy' ? '#16a34a' : r.action.verdict === 'caution' ? '#d97706' : '#dc2626'
   const li = (arr: string[], c: string) => arr.length ? `<ul style="margin:3px 0 0;padding-left:16px">${arr.map(x => `<li style="color:${c};margin:1px 0">${esc(x)}</li>`).join('')}</ul>` : '<span style="color:#888">—</span>'
-  const closes = r.chart.points.map(p => p.c).filter(c => c > 0)
-  const lp = linePath(closes, 640, 130)
-  const chartSvg = closes.length >= 2 ? `<svg viewBox="0 0 640 130" style="width:100%;height:auto;border:1px solid #e5e5ea;border-radius:6px;background:#fafafa">
-    <path d="${lp.area}" fill="${lp.up ? 'rgba(22,163,74,.08)' : 'rgba(220,38,38,.08)'}"/><path d="${lp.d}" fill="none" stroke="${lp.up ? '#16a34a' : '#dc2626'}" stroke-width="1.6"/></svg>` : '<div style="color:#888">주가 데이터 부족</div>'
+  const lp = buildLineChart(r.chart.points, 640, 150, curSymbol(r.ticker, r.market === 'KR' ? 'KR' : 'US'))
+  const chartSvg = lp ? `<svg viewBox="0 0 640 150" style="width:100%;height:auto;border:1px solid #e5e5ea;border-radius:6px;background:#fafafa">
+    ${lp.yTicks.map(t => `<line x1="${lp.padL}" x2="${640 - lp.padR}" y1="${t.y.toFixed(1)}" y2="${t.y.toFixed(1)}" stroke="#e5e5ea" stroke-dasharray="3 4" stroke-width="0.7"/><text x="${lp.padL - 6}" y="${(t.y + 3).toFixed(1)}" text-anchor="end" font-size="8.5" fill="#999">${t.label}</text>`).join('')}
+    ${lp.xTicks.map((t, i) => `<text x="${t.x.toFixed(1)}" y="147" text-anchor="${i === 0 ? 'start' : i === lp.xTicks.length - 1 ? 'end' : 'middle'}" font-size="8.5" fill="#999">${t.label}</text>`).join('')}
+    <path d="${lp.area}" fill="${lp.up ? 'rgba(22,163,74,.08)' : 'rgba(220,38,38,.08)'}"/><path d="${lp.d}" fill="none" stroke="${lp.up ? '#16a34a' : '#dc2626'}" stroke-width="1.6"/>
+    <circle cx="${lp.lastX.toFixed(1)}" cy="${lp.lastY.toFixed(1)}" r="2.5" fill="${lp.up ? '#16a34a' : '#dc2626'}"/><text x="${(lp.lastX - 6).toFixed(1)}" y="${(lp.lastY - 6).toFixed(1)}" text-anchor="end" font-size="9" font-weight="800" fill="${lp.up ? '#16a34a' : '#dc2626'}">${lp.lastLabel}</text></svg>` : '<div style="color:#888">주가 데이터 부족</div>'
   const peerRows = r.peers.map(p => `<tr style="${p.isTarget ? 'background:#eef2ff;font-weight:700' : ''}">
     <td style="padding:3px 6px;border-bottom:1px solid #eee">${p.isTarget ? '⭐ ' : ''}${esc(p.name)}</td>
     <td style="padding:3px 6px;border-bottom:1px solid #eee;text-align:right">${p.peg ?? '—'}</td>
@@ -98,8 +113,7 @@ export default function ResearchReport({ ticker, name, market }: { ticker: strin
   )
 
   const vc = VCOLOR[rep.action.verdict]
-  const closes = rep.chart.points.map(p => p.c).filter(c => c > 0)
-  const lp = linePath(closes, 640, 120)
+  const lp = buildLineChart(rep.chart.points, 640, 150, curSymbol(rep.ticker, rep.market === 'KR' ? 'KR' : 'US'))
 
   return (
     <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
@@ -159,13 +173,24 @@ export default function ResearchReport({ ticker, name, market }: { ticker: strin
         </div>
       </Sec>
 
-      {/* ③ 1년 주가 */}
+      {/* ③ 1년 주가 — 세로축(가격)·가로축(날짜)·현재가 마커 포함 */}
       <Sec n="③" title="1년 주가 추이">
-        {closes.length >= 2 ? (
+        {lp ? (
           <>
-            <svg viewBox="0 0 640 120" style={{ width: '100%', height: 'auto', display: 'block', background: TK.bg3, borderRadius: 6, border: `1px solid ${BORDER}` }}>
+            <svg viewBox="0 0 640 150" style={{ width: '100%', height: 'auto', display: 'block', background: TK.bg3, borderRadius: 6, border: `1px solid ${BORDER}` }}>
+              {lp.yTicks.map((t, i) => (
+                <g key={`y${i}`}>
+                  <line x1={lp.padL} x2={640 - lp.padR} y1={t.y} y2={t.y} stroke={BORDER} strokeDasharray="3 4" strokeWidth={0.7} />
+                  <text x={lp.padL - 6} y={t.y + 3} textAnchor="end" fontSize={8.5} fill={TK.sub3}>{t.label}</text>
+                </g>
+              ))}
+              {lp.xTicks.map((t, i) => (
+                <text key={`x${i}`} x={t.x} y={147} textAnchor={i === 0 ? 'start' : i === lp.xTicks.length - 1 ? 'end' : 'middle'} fontSize={8.5} fill={TK.sub3}>{t.label}</text>
+              ))}
               <path d={lp.area} fill={lp.up ? 'rgba(74,222,128,0.1)' : 'rgba(248,113,113,0.1)'} />
               <path d={lp.d} fill="none" stroke={lp.up ? TK.green400 : TK.red400} strokeWidth={1.6} />
+              <circle cx={lp.lastX} cy={lp.lastY} r={2.5} fill={lp.up ? TK.green400 : TK.red400} />
+              <text x={lp.lastX - 6} y={lp.lastY - 6} textAnchor="end" fontSize={9} fontWeight={800} fill={lp.up ? TK.green400 : TK.red400}>{lp.lastLabel}</text>
             </svg>
             <div style={{ color: TK.sub5, fontSize: 10.5, marginTop: 3 }}>1년 수익률 <b style={{ color: (rep.chart.pct1y ?? 0) >= 0 ? TK.green400 : TK.red400 }}>{rep.chart.pct1y != null ? (rep.chart.pct1y > 0 ? '+' : '') + rep.chart.pct1y + '%' : '—'}</b> · 52주 위치 <b style={{ color: TK.slate300 }}>{rep.chart.pos52 != null ? rep.chart.pos52 + '%' : '—'}</b> <span style={{ color: TK.sub }}>(0=저점·100=고점)</span></div>
           </>
