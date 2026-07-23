@@ -5,7 +5,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { readSignals, detectLiquidity, readRaschke, computePOC, computeTTMSqueeze, computeAnchoredVWAP, readTimeCorrection, readFibRetracement, findConfluence, detectFVG, detectNecklines, readZigzagTarget, readWedge } from '@/lib/techSignals'
 import type { TechCandle } from '@/app/api/tech-chart/route'
-import { curSymbol } from '@/lib/globalTickers'
+import type { SignalReportResult } from '@/app/api/signal-report/route'
+import { curSymbol, isLeveragedTicker } from '@/lib/globalTickers'
 import { TK } from '@/lib/theme'
 
 const BORDER = TK.border
@@ -50,6 +51,17 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   ticker: string; market: 'KR' | 'US'; candles: TechCandle[]; tf: 'D' | 'W' | 'M'
 }) {
   const [fund, setFund] = useState<Fund | null | 'loading'>('loading')
+  // 💰 켈리 승률 소스 — 앱 성적표 실측(매수 신호 30일 적중률, 표본 20+만 신뢰), 미달이면 보수 가정 50%(정직 명시)
+  const [winStat, setWinStat] = useState<{ p: number; label: string } | null>(null)
+  useEffect(() => {
+    let alive = true
+    fetch('/api/signal-report').then(r => r.json()).then((j: SignalReportResult) => {
+      if (!alive) return
+      const pick = (j?.groups ?? []).filter(g => g.kind === 'buy' && g.n30 >= 20 && g.win30 != null).sort((a, b) => b.n30 - a.n30)[0]
+      if (pick) setWinStat({ p: pick.win30! / 100, label: `앱 ${pick.src === 'timing' ? '타이밍' : 'Jarvis'} 매수 신호 실측 30일 승률 ${pick.win30}%(표본 ${pick.n30})` })
+    }).catch(() => { /* 성적표 미수신 시 가정 모드 */ })
+    return () => { alive = false }
+  }, [])
   // 교육 섹션(3대 함정·추세의 여정)은 상시 펼침 — 아코디언 상태 제거(2026-07-10 사용자 요청)
 
   useEffect(() => {
@@ -249,6 +261,14 @@ export default function SignalReader({ ticker, market, candles, tf }: {
         )}
       </div>
 
+      {/* ⚡ 레버리지·인버스 ETF 변동성 드래그 경고 — "횡보만 해도 원금이 녹는 구조"(언더스탠딩 켈리 영상). 상시 노출 */}
+      {isLeveragedTicker(ticker) && (
+        <div style={{ background: 'rgba(251,146,60,0.08)', border: `1px solid ${TK.orange400}66`, borderRadius: 9, padding: '8px 12px', fontSize: 11, lineHeight: 1.6 }}>
+          <b style={{ color: TK.orange400 }}>⚡ 레버리지·인버스 ETF — 변동성 드래그 주의</b>
+          <span style={{ color: TK.sub5 }}> · 기초지수가 −20% 후 +25%면 본전이지만, 2배 레버리지는 −40% 후 +50%를 받아도 <b style={{ color: TK.orange400 }}>−10%</b>로 복구가 산술적으로 안 됩니다 — 횡보(변동성)만 반복돼도 원금이 구조적으로 녹는 상품(섀넌의 도깨비 역방향). 단기 방향 베팅 도구이며 장기 보유·적립식엔 부적합. 이 앱의 Get Rich Slowly 철학과 정면 충돌하니 보유 중이면 기간·비중을 꼭 점검하세요.</span>
+        </div>
+      )}
+
       {/* 🛡️ ATR 변동성 손절 참고선 */}
       {atrStop != null && atrStop > 0 && (
         <div style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 9, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 11 }}>
@@ -421,6 +441,25 @@ export default function SignalReader({ ticker, market, candles, tf }: {
             승률 높은 기법은 없음 — 5:5 자리라도 이기면 크게·지면 작게가 프로의 수학(손실은 짧게, 수익은 길게). 목표는 가장 가까운 살아있는 전고점 기준(돌파 시 다음 저항까지 확장)·예측 아님.</span>
         </div>
       )}
+
+      {/* 💰 켈리 배팅 사이즈 — WHAT(선정)·WHEN(타점)에 이은 HOW MUCH(비중) 축. f = p−(1−p)/b (언더스탠딩 켈리 영상). 판정 미반영(정보만) */}
+      {rr && (() => {
+        const p = winStat?.p ?? 0.5
+        const srcLabel = winStat?.label ?? '보수 가정 승률 50%(앱 성적표 표본 20개+ 쌓이면 실측으로 자동 전환)'
+        const b = rr.ratio
+        const f = p - (1 - p) / b
+        const full = Math.round(Math.max(0, f) * 1000) / 10
+        const half = Math.round(Math.max(0, f) * 500) / 10
+        return (
+          <div style={{ background: TK.bg3, border: `1px solid ${full > 0 ? `${TK.amber500}44` : `${TK.orange400}44`}`, borderRadius: 9, padding: '8px 12px', fontSize: 11, lineHeight: 1.6 }}>
+            <b style={{ color: TK.amber400 }}>💰 켈리 배팅 사이즈 참고 — {full > 0 ? <>풀켈리 <span style={{ color: TK.slate200 }}>{full}%</span> · 하프켈리 <span style={{ color: TK.green400 }}>{half}%</span></> : '0% (우위 없음)'}</b>
+            <span style={{ color: TK.sub5 }}> · 켈리 공식 f=p−(1−p)/b — {srcLabel} × 손익비 1:{b} 기준. {full > 0
+              ? `수학적 최적은 ${full}%지만 시장은 카지노보다 불확실 — 에드 소프처럼 하프켈리(${half}%) 이하로(그도 그래서 1987 블랙먼데이를 살아남음).`
+              : '이 승률·손익비 조합은 수학적 우위가 없음 — "우위 없으면 걸지 않는다"가 켈리의 제1규칙(운 좋게 이겨도 반복하면 파산).'}
+              {' '}파산의 수학: 아무리 벌어도 마지막에 0을 곱하면 0 — 올인 금지, 현금은 재입장권. 판정 미반영·투자 권유 아님.</span>
+          </div>
+        )
+      })()}
         </div>
       </details>
 

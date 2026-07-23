@@ -128,6 +128,18 @@ export const curSymbol = (ticker: string, market: 'KR' | 'US'): string => {
   return '$'
 }
 
+// ⚡ 레버리지·인버스 ETF — 변동성 드래그 경고 대상(언더스탠딩 켈리 영상: 횡보만 해도 원금이 녹는 구조)
+const LEVERAGED = new Set([
+  // US 2·3배·인버스
+  'TQQQ', 'SQQQ', 'QLD', 'QID', 'SSO', 'SDS', 'UPRO', 'SPXU', 'SPXL', 'SPXS',
+  'SOXL', 'SOXS', 'TMF', 'TMV', 'FNGU', 'FNGD', 'BULZ', 'NVDL', 'TSLL', 'TSLQ',
+  'LABU', 'LABD', 'YINN', 'YANG', 'UVXY', 'TNA', 'TZA', 'ERX', 'ERY', 'DPST',
+  // KR 레버리지·인버스(6자리)
+  '122630', '252670', '233740', '251340', '123320', '114800',
+])
+/** 레버리지·인버스 ETF 여부(목록 + 이름 패턴은 호출부에서 보완) */
+export const isLeveragedTicker = (ticker: string): boolean => LEVERAGED.has(ticker.trim().toUpperCase())
+
 /** 야후 접미사 → 통화 코드(stock-info 등 서버 응답용 — 비KR 'USD' 하드코딩 대체) */
 export const curCodeFromTicker = (ticker: string): string => {
   const t = ticker.toUpperCase()
