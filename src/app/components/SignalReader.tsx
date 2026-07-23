@@ -292,6 +292,40 @@ export default function SignalReader({ ticker, market, candles, tf }: {
         )
       })()}
 
+      {/* 🗣️ 자리 한 줄 총평 — 학생용: 아래 자리 배너 전체를 쉬운 한 문장으로 집계(결정론·판정 미반영). 사용자 요청("한눈에 결론") */}
+      {price != null && (poc || avwap) && (() => {
+        let s = 0
+        if (poc) s += poc.above ? 1 : -1
+        if (avwap) s += avwap.above ? 1 : -1
+        if (avwap?.cross) s += avwap.cross.dir === 'up' ? 1 : -1
+        if (fib) s += (fib.zone === 'shallow' || fib.zone === 'golden') ? 1 : (fib.zone === 'reversal' || fib.zone === 'invalid') ? -1 : 0
+        if (wedge) s += wedge.type === 'falling' ? 1 : -1
+        if (squeeze?.fired) s += squeeze.fired === 'up' ? 1 : -1
+        if (confl) s += 1
+        if (rr) s += rr.ratio >= 2 ? 1 : rr.ratio < 1 ? -1 : 0
+        const level = s >= 3 ? 'good' : s <= -3 ? 'bad' : 'mid'
+        const C = level === 'good' ? TK.green400 : level === 'bad' ? TK.red400 : TK.amber500
+        const head = level === 'good' ? '🟢 유리한 자리' : level === 'bad' ? '🔴 불리한 자리' : '🟡 반반 — 확인이 필요한 자리'
+        const parts: string[] = []
+        if (poc && avwap) parts.push(!poc.above && !avwap.above
+          ? '머리 위에 본전 매물벽(물린 사람들)이 있음'
+          : poc.above && avwap.above ? '산 사람들 대부분이 수익권이라 바닥이 든든함' : '위아래 재료가 섞여 있음')
+        if (squeeze?.fired === 'down') parts.push('방금 변동성이 아래로 터져 경계 신호도 있음')
+        const nkDist = nkLiving ? Math.round((price - nkLiving.price) / price * 1000) / 10 : null
+        if (nkLiving && nkDist != null && nkDist <= 5) parts.push(`발밑 ${nkDist}% 아래에 ${nkLiving.touches}번 지켜진 바닥선이 있어 이 선 사수가 관건`)
+        else if (confl) parts.push(`${confl.distPct}% 아래에 여러 계산이 겹치는 바닥 후보가 있음`)
+        if (rr) parts.push(rr.ratio < 1
+          ? '지금은 벌 폭보다 잃을 폭이 커서 기다리는 자리'
+          : `산다면 잃을 1 대 벌 ${rr.ratio} — 비중은 하프켈리 이하로`)
+        return (
+          <div style={{ background: `${C}0f`, border: `1.5px solid ${C}55`, borderRadius: 9, padding: '9px 12px', fontSize: 12, lineHeight: 1.65 }}>
+            <b style={{ color: C }}>🗣️ 자리 총평: {head}</b>
+            <span style={{ color: TK.slate300 }}> — {parts.join('. ')}.</span>
+            <span style={{ color: TK.sub2, fontSize: 10 }}> (상세 근거는 아래 📍 펼쳐보기 · 판정 미반영)</span>
+          </div>
+        )
+      })()}
+
       {/* 📍 자리 읽기 묶음 — "복잡하다" 피드백 반영: 접힌 한 줄 칩 요약(핵심 수치 전부) + 펼치면 기존 상세 해설(정보 손실 0) */}
       <details style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '8px 12px' }}>
         <summary style={{ cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
