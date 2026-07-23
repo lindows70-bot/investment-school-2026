@@ -40,6 +40,22 @@ export const curSymbol = (ticker: string, market: 'KR' | 'US'): string => {
   return '$'
 }
 
+/** 야후 접미사 → 통화 코드(stock-info 등 서버 응답용 — 비KR 'USD' 하드코딩 대체) */
+export const curCodeFromTicker = (ticker: string): string => {
+  const t = ticker.toUpperCase()
+  if (/\.(PA|DE|MI|AS|BR|F)$/.test(t)) return 'EUR'
+  if (t.endsWith('.SW')) return 'CHF'
+  if (t.endsWith('.L')) return 'GBp'
+  if (t.endsWith('.HK')) return 'HKD'
+  return 'USD'
+}
+
+/** 야후 통화 코드 → 기호(리서치 등 stock-info.currency 기반 화면용 — 야후 공식 통화가 접미사 추정보다 우선) */
+export const curFromCode = (code?: string | null): string => {
+  const m: Record<string, string> = { KRW: '₩', USD: '$', EUR: '€', CHF: 'CHF ', GBP: '£', GBp: 'GBp ', HKD: 'HK$', JPY: '¥' }
+  return m[code ?? ''] ?? (code ? `${code} ` : '$')
+}
+
 /** 접미사 기반 시장 라벨(헤더 표기용) */
 export const marketLabel = (ticker: string, market: 'KR' | 'US'): string => {
   if (market === 'KR') return '한국'

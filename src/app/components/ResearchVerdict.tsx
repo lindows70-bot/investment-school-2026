@@ -84,7 +84,7 @@ export default function ResearchVerdictCard({ ticker, market, name }: { ticker: 
         {d.timing && (
           <div>
             <div style={{ color: TK.sub, fontSize: 10.5, fontWeight: 700, marginBottom: 5 }}>🚦 기술적 타이밍 <span style={{ color: TK.slate500, fontWeight: 400 }}>— 언제 살까(WHEN). 점수엔 미반영, 진입 타점만</span></div>
-            <TimingBadge t={d.timing} market={d.market} />
+            <TimingBadge t={d.timing} market={d.market} ticker={d.ticker} />
           </div>
         )}
 

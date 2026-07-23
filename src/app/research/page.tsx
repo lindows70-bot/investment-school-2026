@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { resolveGlobalTicker } from '@/lib/globalTickers'
+import { resolveGlobalTicker, marketLabel, curFromCode } from '@/lib/globalTickers'
 import FullCandleChart from '@/app/components/FullCandleChart'
 import JarvisInsight   from '@/app/components/JarvisInsight'
 import InsiderReceipt   from '@/app/components/InsiderReceipt'
@@ -361,7 +361,7 @@ export default function ResearchPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: TK.sub4, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
-                    {stockInfo?.market === 'KR' ? 'KR Stock' : stockInfo?.market === 'CRYPTO' ? 'Crypto' : 'US Stock'}
+                    {stockInfo?.market === 'KR' ? 'KR Stock' : stockInfo?.market === 'CRYPTO' ? 'Crypto' : marketLabel(query, 'US') === '미국' ? 'US Stock' : `${marketLabel(query, 'US')} Stock`}
                   </div>
                   <div style={{ fontSize: 28, fontWeight: 900, color: TK.sub12, letterSpacing: '-0.5px', lineHeight: 1.1 }}>
                     {stockInfo?.name ?? query}
@@ -372,7 +372,7 @@ export default function ResearchPage() {
                   {priceData && (
                     <>
                       <div style={{ fontSize: 32, fontWeight: 900, color: TK.sub12, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.5px' }}>
-                        {stockInfo?.currency === 'KRW' ? '₩' : '$'}{priceData.currentPrice.toLocaleString(stockInfo?.currency === 'KRW' ? 'ko-KR' : 'en-US', { maximumFractionDigits: 2 })}
+                        {curFromCode(stockInfo?.currency)}{priceData.currentPrice.toLocaleString(stockInfo?.currency === 'KRW' ? 'ko-KR' : 'en-US', { maximumFractionDigits: 2 })}
                       </div>
                       <div style={{
                         display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -444,9 +444,9 @@ export default function ResearchPage() {
                 {stockInfo && [
                   { label: 'PER',         value: stockInfo.per != null ? stockInfo.per.toFixed(1) : '—' },
                   { label: 'PBR',         value: stockInfo.pbr != null ? stockInfo.pbr.toFixed(1) : '—' },
-                  { label: 'EPS',         value: stockInfo.eps != null ? (stockInfo.currency === 'KRW' ? `₩${Math.round(stockInfo.eps).toLocaleString()}` : `$${stockInfo.eps.toFixed(2)}`) : '—' },
+                  { label: 'EPS',         value: stockInfo.eps != null ? (stockInfo.currency === 'KRW' ? `₩${Math.round(stockInfo.eps).toLocaleString()}` : `${curFromCode(stockInfo.currency)}${stockInfo.eps.toFixed(2)}`) : '—' },
                   { label: 'EPS 성장률',  value: stockInfo.epsGrowth != null ? `${stockInfo.epsGrowth.toFixed(1)}%` : '—' },
-                  { label: 'Forward EPS', value: stockInfo.forwardEps != null ? (stockInfo.currency === 'KRW' ? `₩${Math.round(stockInfo.forwardEps).toLocaleString()}` : `$${stockInfo.forwardEps.toFixed(2)}`) : '—' },
+                  { label: 'Forward EPS', value: stockInfo.forwardEps != null ? (stockInfo.currency === 'KRW' ? `₩${Math.round(stockInfo.forwardEps).toLocaleString()}` : `${curFromCode(stockInfo.currency)}${stockInfo.forwardEps.toFixed(2)}`) : '—' },
                   { label: 'PEG',         value: stockInfo.peg != null ? stockInfo.peg.toFixed(2) : '—' },
                 ].map(({ label, value }) => (
                   <div key={label} style={{ background: TK.bg0, boxShadow: SHI, borderRadius: 9, padding: '10px 12px' }}>
@@ -538,7 +538,7 @@ export default function ResearchPage() {
                 {priceData.changePct >= 0 ? '+' : ''}{priceData.changePct.toFixed(2)}%
               </div>
               <div style={{ fontSize: 10, color: TK.sub10, marginTop: 4 }}>
-                전일 대비 {priceData.change >= 0 ? '+' : ''}{stockInfo.currency === 'KRW' ? `₩${Math.round(priceData.change).toLocaleString()}` : `$${priceData.change.toFixed(2)}`}
+                전일 대비 {priceData.change >= 0 ? '+' : ''}{stockInfo.currency === 'KRW' ? `₩${Math.round(priceData.change).toLocaleString()}` : `${curFromCode(stockInfo.currency)}${priceData.change.toFixed(2)}`}
               </div>
             </div>
 
@@ -547,7 +547,7 @@ export default function ResearchPage() {
               <div style={{ fontSize: 9, color: TK.sub4, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>Forward EPS</div>
               <div style={{ fontSize: 16, fontWeight: 800, color: TK.emerald400 }}>
                 {stockInfo.forwardEps != null
-                  ? (stockInfo.currency === 'KRW' ? `₩${Math.round(stockInfo.forwardEps).toLocaleString()}` : `$${stockInfo.forwardEps.toFixed(2)}`)
+                  ? (stockInfo.currency === 'KRW' ? `₩${Math.round(stockInfo.forwardEps).toLocaleString()}` : `${curFromCode(stockInfo.currency)}${stockInfo.forwardEps.toFixed(2)}`)
                   : '—'}
               </div>
               <div style={{ fontSize: 10, color: TK.sub10, marginTop: 4 }}>애널리스트 예상 이익 기준 EPS</div>

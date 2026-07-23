@@ -13,12 +13,13 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import type { Market, Fundamentals } from '@/app/api/stock-price/route'
+import { curCodeFromTicker } from '@/lib/globalTickers'
 
 export interface StockInfo {
   ticker:       string
   name:         string
   market:       Market
-  currency:     'USD' | 'KRW'
+  currency:     string   // 'USD'·'KRW'·'EUR'·'CHF'·'GBp'·'HKD' — 야후 접미사 기반
   fundamentals: Fundamentals
   /** 순현금 여부: true=현금>부채, false=부채>현금, null=데이터없음 */
   hasCash?:     boolean | null
@@ -940,7 +941,7 @@ async function usInfo(ticker: string): Promise<StockInfo> {
     const usDcf = isEtf ? DCF_EMPTY : await fetchDcfFromYahoo(t, 'US')
 
     return {
-      ticker: t, name, market: 'US', currency: 'USD',
+      ticker: t, name, market: 'US', currency: curCodeFromTicker(t),
       fundamentals: {
         pe:             per ?? 'N/A',
         peg,
@@ -1030,7 +1031,7 @@ async function usInfo(ticker: string): Promise<StockInfo> {
     }
 
     return {
-      ticker: t, name, market: 'US', currency: 'USD',
+      ticker: t, name, market: 'US', currency: curCodeFromTicker(t),
       fundamentals: {
         pe:             pe ?? 'N/A',
         peg:            finalPeg,
@@ -1066,7 +1067,7 @@ async function usInfo(ticker: string): Promise<StockInfo> {
 
   // 완전 실패 → 이름만 반환
   return {
-    ticker: t, name: t, market: 'US', currency: 'USD',
+    ticker: t, name: t, market: 'US', currency: curCodeFromTicker(t),
     fundamentals: nullFund(),
     source: 'live', error: `재무 데이터를 가져올 수 없습니다: ${t}`,
   }

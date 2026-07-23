@@ -13,6 +13,7 @@
 
 import { useState } from 'react'
 import type { Candle } from './CandleChart'
+import { curFromCode } from '@/lib/globalTickers'
 import { TK } from '@/lib/theme'
 
 type TimeFrame = '1D' | '1W' | '1M' | '1Y'
@@ -90,9 +91,10 @@ export default function FullCandleChart({
       if (p >= 10_000)      return `₩${(p/10_000).toFixed(0)}만`
       return `₩${Math.round(p).toLocaleString('ko-KR')}`
     }
+    const cs = curFromCode(currency)   // 유럽 명품주 €·CHF·GBp 등 야후 공식 통화 기호
     return p >= 1000
-      ? `$${p.toLocaleString('en-US',{maximumFractionDigits:0})}`
-      : `$${p.toFixed(2)}`
+      ? `${cs}${p.toLocaleString('en-US',{maximumFractionDigits:0})}`
+      : `${cs}${p.toFixed(2)}`
   }
   const fmtDate = (date: string) => {
     const d = new Date(date + (date.length === 10 ? 'T09:00:00' : ''))

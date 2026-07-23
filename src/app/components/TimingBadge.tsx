@@ -1,6 +1,7 @@
 'use client'
 // 🚦 타점 신호등 배지 — 추천 카드 공용(통합추천·리밸런싱·퀀트빌더·로테이션). 점수와 무관한 WHEN 정보 레이어.
 import type { EntryTiming } from '@/lib/entryTiming'
+import { curSymbol } from '@/lib/globalTickers'
 import { TK } from '@/lib/theme'
 
 const COL: Record<string, { c: string; bg: string; bd: string }> = {
@@ -9,10 +10,12 @@ const COL: Record<string, { c: string; bg: string; bd: string }> = {
   red: { c: TK.red400, bg: '#7f1d1d33', bd: `${TK.red500}55` },
 }
 
-export default function TimingBadge({ t, market, compact = false }: { t: EntryTiming | null | undefined; market?: string; compact?: boolean }) {
+export default function TimingBadge({ t, market, ticker, compact = false }: { t: EntryTiming | null | undefined; market?: string; ticker?: string; compact?: boolean }) {
   if (!t) return null
   const s = COL[t.light]
-  const fmtStop = (n: number) => market === 'KR' ? `₩${Math.round(n).toLocaleString()}` : `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+  // 통화 기호 — ticker 접미사 인식(유럽 명품주 €·CHF 등). ticker 미전달 시 기존 KR/US 동작 그대로
+  const cs = curSymbol(ticker ?? '', market === 'KR' ? 'KR' : 'US')
+  const fmtStop = (n: number) => market === 'KR' ? `₩${Math.round(n).toLocaleString()}` : `${cs}${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
   if (compact) {
     const lightChip = (
       <span title={`${t.guide}${t.atrStop != null ? ` · 🛡ATR손절 ${fmtStop(t.atrStop)}` : ''}`}
