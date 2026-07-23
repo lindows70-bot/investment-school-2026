@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { resolveGlobalTicker } from '@/lib/globalTickers'
 import FullCandleChart from '@/app/components/FullCandleChart'
 import JarvisInsight   from '@/app/components/JarvisInsight'
 import InsiderReceipt   from '@/app/components/InsiderReceipt'
@@ -105,8 +106,11 @@ export default function ResearchPage() {
   }, [])
 
   const handleSearch = async (tickerInput?: string) => {
-    const t = (tickerInput ?? query).trim().toUpperCase()
-    if (!t) return
+    const raw = (tickerInput ?? query).trim()
+    if (!raw) return
+    // 유럽 명품주 별칭 해석(에르메스→RMS.PA 등) — 미등록이면 입력 그대로
+    const g = resolveGlobalTicker(raw)
+    const t = g?.ticker ?? raw.toUpperCase()
     setQuery(t)
     setLoading(true)
     setError(null)
@@ -114,7 +118,8 @@ export default function ResearchPage() {
     setStockInfo(null)
 
     try {
-      const market: Market = /^\d/.test(t) ? 'KR'
+      // KR은 순수 6자리 코드만(1913.HK 같은 접미사 티커는 글로벌 야후 경로)
+      const market: Market = /^\d{6}$/.test(t) ? 'KR'
         : ['BTC','ETH','XRP','SOL','ADA','DOGE','MATIC','AVAX','DOT','LINK'].includes(t) ? 'CRYPTO'
         : 'US'
 

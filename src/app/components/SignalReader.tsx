@@ -5,6 +5,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { readSignals, detectLiquidity, readRaschke, computePOC, computeTTMSqueeze, computeAnchoredVWAP, readTimeCorrection, readFibRetracement, findConfluence, detectFVG, detectNecklines, readZigzagTarget, readWedge } from '@/lib/techSignals'
 import type { TechCandle } from '@/app/api/tech-chart/route'
+import { curSymbol } from '@/lib/globalTickers'
 import { TK } from '@/lib/theme'
 
 const BORDER = TK.border
@@ -181,7 +182,9 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   // 🛡️ ATR 변동성 손절 참고선(제미나이 추천 채택) — 종목 고유 변동폭 기반 수학적 손절선(일률 % 아님)
   const price = candles[candles.length - 1]?.close
   const atrStop = sig.atr != null && price != null ? price - 2 * sig.atr : null
-  const fmtP = (n: number) => market === 'KR' ? `₩${Math.round(n).toLocaleString()}` : `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+  // 통화 기호 — 야후 접미사 인식(유럽 명품주 €·CHF·GBp·HK$ 지원)
+  const cs = curSymbol(ticker, market)
+  const fmtP = (n: number) => market === 'KR' ? `₩${Math.round(n).toLocaleString()}` : `${cs}${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
 
   // ⚖️ 손익비(R:R) 참고 — 목표 = 머리 위 '살아있는 전고점'(가장 가까운 저항) / 손절 = ATR 참고선.
   //    "승률이 아니라 손익비로 승부(손실은 짧게·수익은 길게)" — 신고가권(머리 위 저항 없음)은 정직 생략. 판정 미반영(정보만)

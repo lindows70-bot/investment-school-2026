@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { getAssetType } from '@/lib/assetClassifier'
 import TechnicalChartPro from '@/app/components/TechnicalChartPro'
 import SignalReader from '@/app/components/SignalReader'
+import { resolveGlobalTicker, GLOBAL_LUXURY, marketLabel } from '@/lib/globalTickers'
 import type { TechCandle } from '@/app/api/tech-chart/route'
 import { TK } from '@/lib/theme'
 
@@ -81,11 +82,15 @@ export default function TechChartPage() {
   }, [tf])
 
   const search = () => {
-    const t = query.trim().toUpperCase()
-    if (!t) return
-    const mkt: 'KR' | 'US' = /^\d/.test(t) ? 'KR' : 'US'
+    const raw = query.trim()
+    if (!raw) return
+    // 명품주 별칭 해석(에르메스→RMS.PA 등) — 미등록이면 입력 그대로
+    const g = resolveGlobalTicker(raw)
+    const t = g?.ticker ?? raw.toUpperCase()
+    // KR은 순수 6자리 코드만(1913.HK 같은 접미사 티커는 글로벌 야후 경로)
+    const mkt: 'KR' | 'US' = /^\d{6}$/.test(t) ? 'KR' : 'US'
     const owned = holdings.find(h => h.ticker === t)
-    load(owned ?? { ticker: t, name: t, market: mkt, avgPrice: null })
+    load(owned ?? { ticker: t, name: g?.name ?? t, market: mkt, avgPrice: null })
   }
 
   const changeTf = (t: TF) => { setTf(t); if (sel) load(sel, t) }
@@ -104,7 +109,7 @@ export default function TechChartPage() {
       {/* 검색 + 타임프레임 */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
         <input value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && search()}
-          placeholder="티커 검색 — 미국: AAPL·NVDA / 한국: 6자리 코드(005930)"
+          placeholder="티커 검색 — 미국: AAPL / 한국: 6자리(005930) / 유럽 명품: LVMH·에르메스·페라리"
           style={{ flex: '1 1 300px', background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 14px', color: TK.slate200, fontSize: 13, outline: 'none' }} />
         <button onClick={search} style={{ background: TK.blue600, border: 'none', borderRadius: 10, padding: '10px 18px', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>🔍 검색</button>
         <div style={{ display: 'inline-flex', background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 10, overflow: 'hidden' }}>
@@ -132,11 +137,24 @@ export default function TechChartPage() {
         </div>
       )}
 
+      {/* 🇪🇺 유럽·글로벌 명품주 칩 — 별칭 사전(globalTickers) 기반, 야후 접미사 티커로 조회 */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+        <span style={{ fontSize: 11, color: TK.sub3, fontWeight: 700, marginRight: 4 }}>👜 명품</span>
+        {GLOBAL_LUXURY.map(g => (
+          <button key={g.ticker} onClick={() => load({ ticker: g.ticker, name: g.name, market: 'US', avgPrice: null })} style={{
+            padding: '5px 11px', borderRadius: 16, fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
+            background: sel?.ticker === g.ticker ? TK.blue700 : TK.bg3,
+            color: sel?.ticker === g.ticker ? '#fff' : TK.slate300,
+            border: `1px solid ${sel?.ticker === g.ticker ? TK.blue500 : BORDER}`,
+          }}>🇪🇺 {g.name}</button>
+        ))}
+      </div>
+
       {/* 종목 헤더 + 차트 */}
       {sel && (
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 20, fontWeight: 900, color: TK.slate100 }}>{sel.name}</span>
-          <span style={{ fontSize: 12.5, color: TK.sub3, fontFamily: 'monospace' }}>{sel.ticker} · {sel.market === 'KR' ? '한국' : '미국'} · {tf === 'D' ? '일봉' : tf === 'W' ? '주봉' : '월봉'}</span>
+          <span style={{ fontSize: 12.5, color: TK.sub3, fontFamily: 'monospace' }}>{sel.ticker} · {marketLabel(sel.ticker, sel.market)} · {tf === 'D' ? '일봉' : tf === 'W' ? '주봉' : '월봉'}</span>
           {candles?.length ? (() => {
             const c = candles[candles.length - 1], p = candles[candles.length - 2]
             const chg = p ? c.close - p.close : null
