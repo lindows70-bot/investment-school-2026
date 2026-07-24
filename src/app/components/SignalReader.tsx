@@ -316,6 +316,7 @@ export default function SignalReader({ ticker, market, candles, tf }: {
           ? '머리 위에 본전 매물벽(물린 사람들)이 있음'
           : poc.above && avwap.above ? '산 사람들 대부분이 수익권이라 바닥이 든든함' : '위아래 재료가 섞여 있음')
         if (squeeze?.fired === 'down') parts.push('방금 변동성이 아래로 터져 경계 신호도 있음')
+        if (fib && (fib.zone === 'reversal' || fib.zone === 'invalid')) parts.push('오른 폭을 대부분 반납해 추세가 꺾였는지 의심되는 신호도 있음')
         const nkDist = nkLiving ? Math.round((price - nkLiving.price) / price * 1000) / 10 : null
         if (nkLiving && nkDist != null && nkDist <= 5) parts.push(`발밑 ${nkDist}% 아래에 ${nkLiving.touches}번 지켜진 바닥선이 있어 이 선 사수가 관건`)
         else if (confl) parts.push(`${confl.distPct}% 아래에 여러 계산이 겹치는 바닥 후보가 있음`)
@@ -344,7 +345,7 @@ export default function SignalReader({ ticker, market, candles, tf }: {
           {fib && mini(`📐 ${fib.retrPct}% ${fib.zone === 'shallow' ? '얕음' : fib.zone === 'golden' ? '표준' : fib.zone === 'deep' ? '깊음' : fib.zone === 'reversal' ? '전환?' : '무효'}`, fib.zone === 'golden' ? TK.green400 : fib.zone === 'shallow' ? TK.sky400 : fib.zone === 'deep' ? TK.amber500 : TK.red400)}
           {nkPick && price != null && mini(`🪢 ${nkPick.broken ? '깨짐 +' : '−'}${(Math.abs(price - nkPick.price) / price * 100).toFixed(1)}%·${nkPick.touches}회`, nkPick.broken ? TK.orange400 : TK.sky400)}
           {wedge && mini(wedge.type === 'rising' ? '🔺 쐐기' : '🔻 쐐기', wedge.type === 'rising' ? TK.orange400 : TK.sky400)}
-          {zigzag && mini(`📏 −${zigzag.distPct}%`, TK.violet400)}
+          {zigzag && mini(zigzag.distPct <= 0.1 ? '📏 타겟 도달' : `📏 −${zigzag.distPct}%`, TK.violet400)}
           {confl && mini(`🎯 −${confl.distPct}%·${confl.names.length}겹`, TK.green400)}
           {rr && mini(`⚖ 1:${rr.ratio}`, rr.ratio >= 2 ? TK.green400 : rr.ratio >= 1 ? TK.amber500 : TK.orange400)}
           <span style={{ fontSize: 9.5, color: TK.sub2 }}>▸ 클릭하면 상세 해설</span>
@@ -456,7 +457,7 @@ export default function SignalReader({ ticker, market, candles, tf }: {
       {/* 📏 A=C 등가 타겟 — "C파동은 A파동과 같은 크기(또는 1.236배) 경향"(김도담). 조정 바닥 측정. 판정 미반영(정보만) */}
       {zigzag && (
         <div style={{ background: TK.bg3, border: `1px solid ${TK.violet400}44`, borderRadius: 9, padding: '8px 12px', fontSize: 11, lineHeight: 1.6 }}>
-          <b style={{ color: TK.violet400 }}>📏 A=C 등가 타겟 {fmtP(zigzag.target1)} (현재가 −{zigzag.distPct}%)</b>
+          <b style={{ color: TK.violet400 }}>📏 A=C 등가 타겟 {fmtP(zigzag.target1)} ({zigzag.distPct <= 0.1 ? '현재가가 타겟 도달 — 조정 완성 후보 지점' : `현재가 −${zigzag.distPct}%`})</b>
           <span style={{ color: TK.sub5 }}> · 확장 1.236배 {fmtP(zigzag.target1236)} — 지그재그 조정(하락 A → 반등 B → 하락 C)에서 C는 A와 같은 크기로 나오는 경향 = 조정 완성 후보 지점. 다른 지지(🎯 겹침 존)와 만나면 신뢰도↑. 예측 아닌 참고 — 진입은 신호등·확인 캔들과 함께.</span>
         </div>
       )}
