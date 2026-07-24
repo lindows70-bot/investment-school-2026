@@ -802,6 +802,45 @@ export function readFibRetracement(data: Ohlc[], pivot = 5): FibRead | null {
   return { lo, hi, retrPct, zone, levels }
 }
 
+/* ── ☁️ 일목 정밀(후행스팬·기준선·트위스트존) — 박경철 「다시쓰는 기술적분석」 일목균형표 이론편.
+   구름 위/속/아래는 entryTiming SSOT 기구현 — 여기는 영상의 미구현 알맹이 3개만 보완:
+   ① 후행스팬(현재가 vs 26봉 전 종가) "가장 단순하면서 가장 의미 있는 선" ② 기준선(26봉 고저 중간값) 방향 = 추세
+   ③ 트위스트존(선행스팬 교차 = 구름 꼬임) "가장 약한 국면, 뚫기 쉽지만 반드시 회귀" — 구름은 26봉 선행 투영이라 미래 꼬임 D-day 예고 가능.
+   순수 산수(고저 중간값·시프트 비교). 판정 미반영 교육 카드. ── */
+export interface IchimokuRead {
+  chikou: 'above' | 'below'; chikouGapPct: number
+  kijunDir: 'up' | 'down' | 'flat'
+  twist: { inBars: number; to: 'bull' | 'bear' } | null   // inBars 0=현재 봉에서 꼬임, 1~26=미래 예고
+}
+export function readIchimokuLines(data: Ohlc[]): IchimokuRead | null {
+  const N = data.length
+  if (N < 79) return null   // spanB(52) + 26봉 시프트 창 확보
+  const hl = (span: number, i: number) => {
+    let hi = -Infinity, lo = Infinity
+    for (let j = i - span + 1; j <= i; j++) { hi = Math.max(hi, data[j].high); lo = Math.min(lo, data[j].low) }
+    return (hi + lo) / 2
+  }
+  const last = data[N - 1].close, ref = data[N - 1 - 26].close
+  if (!(ref > 0)) return null
+  const kijunNow = hl(26, N - 1), kijunPrev = hl(26, N - 4)
+  const kd = (kijunNow - kijunPrev) / kijunNow
+  // 표시봉 i의 구름 = 26봉 전 기준 스팬(차트·entryTiming과 동일 정의) → 미래 26봉까지 기준 인덱스 N-27..N-1로 전부 확정
+  const diff = (base: number) => (hl(9, base) + hl(26, base)) / 2 - hl(52, base)
+  let twist: IchimokuRead['twist'] = null
+  let prev = diff(N - 2 - 26)
+  for (let k = 0; k <= 26; k++) {
+    const cur = diff(N - 1 - 26 + k)
+    if (prev !== 0 && cur !== 0 && (prev > 0) !== (cur > 0)) { twist = { inBars: k, to: cur > 0 ? 'bull' : 'bear' }; break }
+    prev = cur
+  }
+  return {
+    chikou: last >= ref ? 'above' : 'below',
+    chikouGapPct: Math.round((last - ref) / ref * 1000) / 10,
+    kijunDir: kd > 0.001 ? 'up' : kd < -0.001 ? 'down' : 'flat',
+    twist,
+  }
+}
+
 /* ── 🕯️ 오늘의 봉 6등급 — "전일종가 기준으로 봉은 6가지: 갭상승 양봉이 최강, 갭하락 추가하락 음봉이 최약"(이정윤 슈퍼개미 영상).
    등급(강→약): ①갭상승+양선 ②갭하락 출발이나 양선·전일比+ ③갭상승 출발이나 음선·전일比+ ④양선이나 전일比− ⑤음선·전일比−(갭상승 출발) ⑥갭하락+음선.
    순수 산수(전일종가·시가·종가 3개 비교). 일봉 전용 교육 칩 — 점수·판정 미반영. ── */

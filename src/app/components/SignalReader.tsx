@@ -3,7 +3,7 @@
 // 교차검증해 '가짜 반등/신호 정합/조기 청산 주의/떨어지는 칼날'을 결정론적으로 판정(AI 미사용·환각 0).
 // 기술신호는 이 화면 전용 — 통합추천·리밸런싱 점수에는 절대 미반영(앱의 펀더멘탈 우선 원칙).
 import { useState, useEffect, useMemo } from 'react'
-import { readSignals, detectLiquidity, readRaschke, computePOC, computeTTMSqueeze, computeAnchoredVWAP, readTimeCorrection, readFibRetracement, findConfluence, detectFVG, detectNecklines, readZigzagTarget, readWedge, readGapCandle } from '@/lib/techSignals'
+import { readSignals, detectLiquidity, readRaschke, computePOC, computeTTMSqueeze, computeAnchoredVWAP, readTimeCorrection, readFibRetracement, findConfluence, detectFVG, detectNecklines, readZigzagTarget, readWedge, readGapCandle, readIchimokuLines } from '@/lib/techSignals'
 import type { TechCandle } from '@/app/api/tech-chart/route'
 import type { SignalReportResult } from '@/app/api/signal-report/route'
 import { curSymbol, isLeveragedTicker } from '@/lib/globalTickers'
@@ -96,6 +96,8 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   const timeCorr = useMemo(() => candles.length >= 30 ? readTimeCorrection(candles) : null, [candles])
   // 📐 피보나치 되돌림 — 눌림의 '가격 깊이' 축(⏳과 시간×가격 한 쌍). 판정 미반영(정보만)
   const fib = useMemo(() => candles.length >= 30 ? readFibRetracement(candles) : null, [candles])
+  // ☁️ 일목 정밀 — 후행스팬·기준선 방향·트위스트존 D-day(박경철 일목 영상). 판정 미반영
+  const ichi = useMemo(() => candles.length >= 79 ? readIchimokuLines(candles) : null, [candles])
   // 🕯️ 오늘의 봉 6등급 — 전일종가 기준 갭·마감 조합(이정윤 영상). 일봉 전용 교육 칩·판정 미반영
   const gapCandle = useMemo(() => tf === 'D' && candles.length >= 2 ? readGapCandle(candles) : null, [candles, tf])
   // 🪢 넥라인(반복 지지 레벨) — 피벗 저점 클러스터 + 터치 수. 판정 미반영(정보만)
@@ -469,6 +471,15 @@ export default function SignalReader({ ticker, market, candles, tf }: {
         <div style={{ background: TK.bg3, border: `1px solid ${TK.violet400}44`, borderRadius: 9, padding: '8px 12px', fontSize: 11, lineHeight: 1.6 }}>
           <b style={{ color: TK.violet400 }}>📏 A=C 등가 타겟 {fmtP(zigzag.target1)} ({zigzag.distPct <= 0.1 ? '현재가가 타겟 도달 — 조정 완성 후보 지점' : `현재가 −${zigzag.distPct}%`})</b>
           <span style={{ color: TK.sub5 }}> · 확장 1.236배 {fmtP(zigzag.target1236)} — 지그재그 조정(하락 A → 반등 B → 하락 C)에서 C는 A와 같은 크기로 나오는 경향 = 조정 완성 후보 지점. 다른 지지(🎯 겹침 존)와 만나면 신뢰도↑. 예측 아닌 참고 — 진입은 신호등·확인 캔들과 함께.</span>
+        </div>
+      )}
+
+      {/* ☁️ 일목 정밀 — 후행스팬(현재가 vs 26봉 전)·기준선 방향·트위스트존 D-day(박경철 일목 영상). 구름 위/속/아래는 신호등이 기판정 — 판정 미반영(정보만) */}
+      {ichi && (
+        <div style={{ background: TK.bg3, border: `1px solid ${ichi.chikou === 'above' ? `${TK.sky400}44` : `${TK.orange400}44`}`, borderRadius: 9, padding: '8px 12px', fontSize: 11, lineHeight: 1.6 }}>
+          <b style={{ color: ichi.chikou === 'above' ? TK.sky400 : TK.orange400 }}>☁️ 일목 정밀 — 후행스팬 {ichi.chikou === 'above' ? '우위' : '열위'}({ichi.chikouGapPct > 0 ? '+' : ''}{ichi.chikouGapPct}%) · 기준선 {ichi.kijunDir === 'up' ? '상향' : ichi.kijunDir === 'down' ? '하향' : '횡보'}{ichi.twist ? ` · 구름 꼬임 ${ichi.twist.inBars === 0 ? '지금' : `D+${ichi.twist.inBars}봉`}` : ''}</b>
+          <span style={{ color: TK.sub5 }}> · 후행스팬 = 현재가를 26봉 전과 비교 — {ichi.chikou === 'above' ? '그때 산 사람 전원이 수익권(매물 부담↓, 매수 우위)' : '그때 산 사람 전원이 손실권(반등마다 본전 매물 출회 부담)'}. 기준선(26봉 고저 중간값) 방향이 일목식 추세.
+          {ichi.twist ? ` 구름 꼬임(${ichi.twist.to === 'bull' ? '음운→양운' : '양운→음운'} 전환)은 구름이 가장 얇은 약체 국면 — 돌파는 쉽지만 회귀 성향이 강해(박경철) 변화일 후보로 관찰.` : ''} 구름은 26봉 선행 투영이라 꼬임은 미리 확정된 일정 — 판정 미반영(정보만).</span>
         </div>
       )}
 
