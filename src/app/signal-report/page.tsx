@@ -9,10 +9,17 @@ const CARD: React.CSSProperties = { background: TK.bg8, borderRadius: 14, paddin
 const pctColor = (r: number | null) => r == null ? TK.sub4 : r >= 0 ? TK.red400 : TK.blue400
 const fmtPct = (r: number | null) => r == null ? '—' : `${r >= 0 ? '+' : ''}${r.toFixed(1)}%`
 
+// 학생용 쉬운 말 툴팁 — 처음 보는 용어 위에 마우스 올리면 뜸
+const TAG_HINT: Record<string, string> = {
+  '최대 방어': '"팔아볼까(매도검토)"라고 한 것 중, 신호 뒤 가장 많이 떨어진 종목 — 그때 팔았다면 가장 크게 손실을 피한 셈(신호가 제일 잘 맞은 예).',
+  '역주행': '"팔아볼까"라고 했는데 오히려 가장 많이 오른 종목 — 신호와 반대로 갔다는 뜻(가장 빗나간 매도 신호).',
+  '최고 적중': '"사볼까(매수기회)"라고 한 것 중, 신호 뒤 가장 많이 오른 종목(신호가 제일 잘 맞은 예). % = 신호 낸 날부터 지금까지 오른 정도.',
+  '최대 빗나감': '"사볼까"라고 했는데 가장 많이 떨어진 종목(가장 빗나간 매수 신호).',
+}
 function EventChip({ e, tag }: { e: SigEvent; tag: string }) {
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: TK.bg2, border: `1px solid ${TK.border}`, borderRadius: 7, padding: '3px 9px', fontSize: 11 }}>
-      <span style={{ color: TK.sub4, fontSize: 9.5 }}>{tag}</span>
+    <span title={TAG_HINT[tag] ?? ''} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: TK.bg2, border: `1px solid ${TK.border}`, borderRadius: 7, padding: '3px 9px', fontSize: 11, cursor: 'help' }}>
+      <span style={{ color: TK.sub4, fontSize: 9.5, borderBottom: `1px dotted ${TK.sub4}` }}>{tag}</span>
       <b style={{ color: TK.slate200 }}>{e.name}</b>
       <span style={{ color: pctColor(e.retNow), fontWeight: 800 }}>{fmtPct(e.retNow)}</span>
       <span style={{ color: TK.sub2, fontSize: 9.5 }}>{e.date.slice(5)} 신호</span>
@@ -70,8 +77,8 @@ function GroupCard({ g }: { g: GroupStat }) {
                 <th style={{ textAlign: 'left', padding: '3px 6px' }}>신호일</th>
                 <th style={{ textAlign: 'left', padding: '3px 6px' }}>종목</th>
                 <th style={{ textAlign: 'left', padding: '3px 6px' }}>신호</th>
-                <th style={{ textAlign: 'right', padding: '3px 6px' }}>30일 후</th>
-                <th style={{ textAlign: 'right', padding: '3px 6px' }}>현재까지</th>
+                <th title="신호 낸 날부터 딱 한 달(약 30일) 뒤의 성적 — 한 번 정해지면 안 바뀜. 아직 한 달이 안 지났으면 '—'." style={{ textAlign: 'right', padding: '3px 6px', cursor: 'help', borderBottom: `1px dotted ${TK.sub4}` }}>30일 후</th>
+                <th title="신호 낸 날부터 오늘까지의 성적 — 주가가 움직이면 매일 바뀜. 아직 일주일이 안 지났으면 'D+며칠'로 표시." style={{ textAlign: 'right', padding: '3px 6px', cursor: 'help', borderBottom: `1px dotted ${TK.sub4}` }}>현재까지</th>
               </tr></thead>
               <tbody>
                 {g.recent.slice(0, 8).map((e, i) => (
@@ -95,6 +102,7 @@ function GroupCard({ g }: { g: GroupStat }) {
 export default function SignalReportPage() {
   const [data, setData] = useState<SignalReportResult | null>(null)
   const [err, setErr] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(true)   // 처음 보는 학생 기본 펼침
 
   useEffect(() => {
     fetch('/api/signal-report').then(r => r.ok ? r.json() : Promise.reject()).then(setData).catch(() => setErr(true))
@@ -114,6 +122,25 @@ export default function SignalReportPage() {
           <div style={{ marginTop: 6, fontSize: 11, color: TK.amber400, background: `${TK.amber400}12`, border: `1px solid ${TK.amber400}44`, borderRadius: 8, padding: '6px 10px', lineHeight: 1.55 }}>
             🧟 <b>생존편향 방어</b> — {data.unscored}종목은 캔들 로드 실패(상장폐지·거래정지 가능)로 <b>채점에서 제외</b>됐습니다.
             이런 최악 사례가 조용히 빠지면 승률이 실제보다 좋아 보이므로, 위 적중률은 <b>{data.unscored}건만큼 낙관 편향</b>일 수 있습니다.
+          </div>
+        )}
+      </div>
+
+      {/* 📖 처음 보는 학생용 쉬운 설명 — 기본 펼침, 접을 수 있음 */}
+      <div style={{ ...CARD, background: TK.bg2, padding: '12px 16px' }}>
+        <button onClick={() => setHelpOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
+          <span style={{ fontSize: 13.5, fontWeight: 800, color: TK.slate100 }}>📖 처음이신가요? — 쉽게 읽는 법</span>
+          <span style={{ marginLeft: 'auto', fontSize: 11, color: TK.sub4 }}>{helpOpen ? '▲ 접기' : '▼ 펼치기'}</span>
+        </button>
+        {helpOpen && (
+          <div style={{ marginTop: 10, fontSize: 12.5, color: TK.sub11, lineHeight: 1.75, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div>① 이 표는 앱이 <b style={{ color: TK.green400 }}>&ldquo;사볼까(매수기회)&rdquo;</b>·<b style={{ color: TK.red400 }}>&ldquo;팔아볼까(매도검토)&rdquo;</b>라고 낸 신호가 <b style={{ color: TK.slate200 }}>나중에 실제로 맞았는지</b> 채점한 성적표예요.</div>
+            <div>② <b style={{ color: TK.slate200 }}>적중률</b> = 신호대로 움직인 비율이에요. <b style={{ color: TK.green400 }}>매수는 오르면</b> 적중, <b style={{ color: TK.red400 }}>매도는 떨어지면</b> 적중(&ldquo;그때 팔았으면 손실을 피함&rdquo;).</div>
+            <div style={{ background: `${TK.amber400}12`, border: `1px solid ${TK.amber400}44`, borderRadius: 8, padding: '8px 10px' }}>
+              ③ <b style={{ color: TK.amber400 }}>매수 적중률이 낮아도 신호가 틀린 게 아니에요.</b> 이 신호는 <b>&ldquo;싸고 좋은 회사인가(가치)&rdquo;</b>를 보는 거라 결과가 <b>몇 달~몇 년</b>에 걸쳐 나와요. 그런데 지금 표는 <b>30일</b>이라는 짧은 자로 재고, 표본도 6~7월 <b>조정장(하락장)</b>에 몰려 있어요. 하락장에선 좋은 회사도 같이 떨어지니 짧은 성적은 나쁠 수밖에 없죠. 반대로 <b>매도 적중률이 높은 것</b>도 실력만이 아니라 &ldquo;떨어지는 장이라 뭘 팔아도 맞은&rdquo; 효과가 섞여 있어요.
+            </div>
+            <div>④ 그래서 이 표는 <b>&ldquo;무엇이 싸고 좋은가&rdquo;</b>(WHAT)의 채점이지 <b>&ldquo;언제 살까&rdquo;</b>(타이밍)가 아니에요. 실제 매매는 <b style={{ color: TK.blue400 }}>🚦 신호등(타이밍)</b>과 <b>함께</b> 보고, 표본이 충분히 쌓인 뒤에 믿으세요.</div>
+            <div style={{ fontSize: 11, color: TK.sub4 }}>💡 <b>30일 후</b> = 신호 한 달 뒤 고정 성적 · <b>현재까지</b> = 오늘까지 실시간 성적. 표 안의 <span style={{ borderBottom: `1px dotted ${TK.sub4}` }}>점선 밑줄</span> 글자에 마우스를 올리면 뜻이 나와요.</div>
           </div>
         )}
       </div>
