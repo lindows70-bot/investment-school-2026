@@ -29,6 +29,7 @@ function EventChip({ e, tag }: { e: SigEvent; tag: string }) {
 
 function GroupCard({ g }: { g: GroupStat }) {
   const isSell = g.kind === 'sell'
+  const isConf = g.src === 'confluence'   // ⭐ 고신뢰 합류 — 금색 강조
   const accent = isSell ? TK.red400 : TK.green400
   const empty = g.n === 0
   const headWin = g.win30 ?? g.winNow
@@ -36,14 +37,21 @@ function GroupCard({ g }: { g: GroupStat }) {
   const headN = g.win30 != null ? g.n30 : g.n7   // 헤드라인 승률을 뒷받침하는 실제 표본수
   const thinSample = headWin != null && headN < 5 // 소표본 가드 — 데이터 스누핑/일화 오인 방지(퀀트 원칙)
   return (
-    <div style={{ ...CARD, display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ ...CARD, display: 'flex', flexDirection: 'column', gap: 10,
+      ...(isConf ? { border: `1.5px solid ${TK.amber400}88`, background: `${TK.amber400}0a`, boxShadow: `0 0 0 1px ${TK.amber400}22` } : {}) }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 13.5, fontWeight: 800, color: TK.slate200 }}>{g.title}</span>
+        <span title={isConf ? '가치(Jarvis)와 타이밍(타점) 두 신호가 같은 종목·같은 방향으로 겹친 것만 모은 그룹 — 두 독립 엔진의 합의라 가장 신뢰도가 높습니다.' : ''}
+          style={{ fontSize: 13.5, fontWeight: 800, color: isConf ? TK.amber400 : TK.slate200, cursor: isConf ? 'help' : 'default' }}>{g.title}</span>
         <span style={{ fontSize: 10.5, color: TK.sub4 }}>이벤트 {g.n}건 {g.n7 < g.n ? `· 채점 대상 ${g.n7}건(7일+)` : ''}</span>
       </div>
+      {isConf && (
+        <div style={{ fontSize: 10.5, color: TK.sub5, lineHeight: 1.55, marginTop: -2 }}>
+          🤖 <b>가치(Jarvis)</b>가 &ldquo;싸고 좋다/비싸다&rdquo;고 한 종목에 🚦 <b>타이밍(타점)</b>까지 같은 방향으로 겹친 것만 — <b style={{ color: TK.amber400 }}>두 엔진이 합의한 고신뢰 신호</b>. 하나만 뜬 것보다 이걸 우선하세요.
+        </div>
+      )}
       {empty ? (
         <div style={{ fontSize: 12, color: TK.sub4, padding: '10px 0' }}>
-          📥 신호 적립 중 — 전환 이벤트가 발생하면 자동으로 채점이 시작됩니다(타점 워처는 2026-07-18부터 적립).
+          📥 {isConf ? '합류 신호 적립 중 — 가치+타이밍이 겹치는 순간만 잡히므로 드물게(귀하게) 쌓입니다.' : '신호 적립 중 — 전환 이벤트가 발생하면 자동으로 채점이 시작됩니다(타점 워처는 2026-07-18부터 적립).'}
         </div>
       ) : (
         <>
@@ -140,6 +148,9 @@ export default function SignalReportPage() {
               ③ <b style={{ color: TK.amber400 }}>매수 적중률이 낮아도 신호가 틀린 게 아니에요.</b> 이 신호는 <b>&ldquo;싸고 좋은 회사인가(가치)&rdquo;</b>를 보는 거라 결과가 <b>몇 달~몇 년</b>에 걸쳐 나와요. 그런데 지금 표는 <b>30일</b>이라는 짧은 자로 재고, 표본도 6~7월 <b>조정장(하락장)</b>에 몰려 있어요. 하락장에선 좋은 회사도 같이 떨어지니 짧은 성적은 나쁠 수밖에 없죠. 반대로 <b>매도 적중률이 높은 것</b>도 실력만이 아니라 &ldquo;떨어지는 장이라 뭘 팔아도 맞은&rdquo; 효과가 섞여 있어요.
             </div>
             <div>④ 그래서 이 표는 <b>&ldquo;무엇이 싸고 좋은가&rdquo;</b>(WHAT)의 채점이지 <b>&ldquo;언제 살까&rdquo;</b>(타이밍)가 아니에요. 실제 매매는 <b style={{ color: TK.blue400 }}>🚦 신호등(타이밍)</b>과 <b>함께</b> 보고, 표본이 충분히 쌓인 뒤에 믿으세요.</div>
+            <div style={{ background: `${TK.amber400}12`, border: `1px solid ${TK.amber400}55`, borderRadius: 8, padding: '8px 10px' }}>
+              ⑤ <b style={{ color: TK.amber400 }}>⭐ 고신뢰 합류</b>는 그래서 만든 거예요 — <b>가치(Jarvis)</b>가 &ldquo;싸고 좋다&rdquo;고 한 종목에 <b>타이밍(타점)</b>까지 같은 방향으로 겹친 것만 모았어요. <b>둘 중 하나만 뜬 것보다 둘 다 겹친 이 신호를 우선</b>하세요. 대신 겹치는 순간만 잡혀서 <b>드물게(귀하게)</b> 나와요.
+            </div>
             <div style={{ fontSize: 11, color: TK.sub4 }}>💡 <b>30일 후</b> = 신호 한 달 뒤 고정 성적 · <b>현재까지</b> = 오늘까지 실시간 성적. 표 안의 <span style={{ borderBottom: `1px dotted ${TK.sub4}` }}>점선 밑줄</span> 글자에 마우스를 올리면 뜻이 나와요.</div>
           </div>
         )}

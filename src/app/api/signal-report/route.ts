@@ -15,7 +15,7 @@ const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0,
 const dayDiff = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000)
 const addDays = (d: string, n: number) => new Date(Date.parse(d) + n * 86_400_000).toISOString().slice(0, 10)
 
-export type SigSrc = 'jarvis' | 'timing'
+export type SigSrc = 'jarvis' | 'timing' | 'confluence'   // confluence = 가치(Jarvis)+타이밍(타점)이 같은 종목·같은 방향으로 겹친 고신뢰 신호
 export interface SigEvent {
   date: string
   ticker: string
@@ -64,7 +64,7 @@ const closeAt = (candles: TechCandle[], date: string): number | null => {
 
 export async function GET() {
   const today = kstDate()
-  const cacheKey = `signal-report-v3:${today}`   // v3: unscored(생존편향 방어) 필드 추가 — v2 캐시엔 없어 키 갱신 / v2: 1,000행 절단 버그 수정(페이지네이션)
+  const cacheKey = `signal-report-v4:${today}`   // v4: ⭐합류(confluence) 그룹 추가 / v3: unscored(생존편향) / v2: 1,000행 절단 수정
   const cached = await getCache<SignalReportResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -114,6 +114,23 @@ export async function GET() {
   const hist = (await getCache<SignalHistEntry[]>('signal-history-v1', 400 * 86400_000)) ?? []
   const timingSince = hist.length ? hist.reduce((m, h) => h.date < m ? h.date : m, hist[0].date) : null
 
+  // ── ②-b ⭐ 합류(confluence) — 타점(WHEN) 트리거가 같은 종목·같은 방향의 Jarvis(WHAT) 신호로 뒷받침될 때만 '고신뢰'
+  //    "싸고 좋은 회사(가치)"가 "진입/이탈 타이밍(기술)"까지 겹친 자리 = 두 독립 엔진의 합의. 타점일을 기준(행동 시점)으로 채점.
+  const CONF_WINDOW = 14   // Jarvis 신호가 타점 −14일~+3일 이내에 같은 방향으로 존재하면 합류(가치는 느려 2주 창이 합리적)
+  const confluenceEvents: { date: string; ticker: string; name: string; market: 'KR' | 'US'; kind: 'buy' | 'sell' }[] = []
+  const confSeen = new Set<string>()
+  for (const h of hist) {
+    const jarvisArr = byTicker.get(h.ticker)
+    if (!jarvisArr) continue
+    const wantType = h.kind === 'sell' ? 'SELL' : 'BUY'
+    const backed = jarvisArr.some(j => { const d = dayDiff(j.date, h.date); return j.type === wantType && d >= -3 && d <= CONF_WINDOW })
+    if (!backed) continue
+    const k = `${h.date}:${h.ticker}:${h.kind}`
+    if (confSeen.has(k)) continue
+    confSeen.add(k)
+    confluenceEvents.push({ date: h.date, ticker: h.ticker, name: h.name, market: h.market, kind: h.kind })
+  }
+
   // ── ③ 가격 수집(캔들 SSOT·동시성 4) ──
   const tickers = new Map<string, { ticker: string; market: 'KR' | 'US' }>()
   for (const e of jarvisEvents) tickers.set(e.ticker, { ticker: e.ticker, market: isKr(e.ticker) ? 'KR' : 'US' })
@@ -158,14 +175,19 @@ export async function GET() {
     const ev = score(h.date, h.ticker, h.name, h.market, 'timing', h.kind, h.label)
     if (ev) events.push(ev)
   }
+  for (const c of confluenceEvents) {
+    const ev = score(c.date, c.ticker, c.name, c.market, 'confluence', c.kind, '⭐ 가치(Jarvis)+타이밍(타점) 합류')
+    if (ev) events.push(ev)
+  }
 
   // ── ⑤ 그룹 통계(소스×방향) — buy 승=상승 / sell 승=하락(매도검토 신호는 공매도가 아님·UI 명시) ──
   const TITLES: Record<string, string> = {
+    'confluence:buy': '⭐ 고신뢰 합류 매수(가치+타이밍)', 'confluence:sell': '⭐ 고신뢰 합류 매도(가치+타이밍)',
     'jarvis:sell': '🤖 Jarvis 매도검토(SELL)', 'jarvis:buy': '🤖 Jarvis 매수기회(BUY)',
     'timing:sell': '🚦 타점 매도·경계 전환', 'timing:buy': '🚦 타점 매수 전환',
   }
   const groups: GroupStat[] = []
-  for (const src of ['jarvis', 'timing'] as SigSrc[]) {
+  for (const src of ['confluence', 'jarvis', 'timing'] as SigSrc[]) {
     for (const kind of ['sell', 'buy'] as ('sell' | 'buy')[]) {
       const evs = events.filter(e => e.src === src && e.kind === kind).sort((a, b) => b.date.localeCompare(a.date))
       const e7 = evs.filter(e => e.retNow != null)
