@@ -303,7 +303,12 @@ export default function SignalReader({ ticker, market, candles, tf }: {
         if (squeeze?.fired) s += squeeze.fired === 'up' ? 1 : -1
         if (confl) s += 1
         if (rr) s += rr.ratio >= 2 ? 1 : rr.ratio < 1 ? -1 : 0
-        const level = s >= 3 ? 'good' : s <= -3 ? 'bad' : 'mid'
+        // 켈리 우위(f) — 손익비 타점 우위가 없으면 자리 재료가 좋아도 '유리' 결론 금지(모순 방지: 유리한데 기다리라는 말 안 되게)
+        const pW = winStat?.p ?? 0.5
+        const fK = rr ? pW - (1 - pW) / rr.ratio : null
+        const halfK = fK != null && fK > 0 ? Math.round(fK * 500) / 10 : null
+        let level: 'good' | 'bad' | 'mid' = s >= 3 ? 'good' : s <= -3 ? 'bad' : 'mid'
+        if (level === 'good' && fK != null && fK <= 0) level = 'mid'
         const C = level === 'good' ? TK.green400 : level === 'bad' ? TK.red400 : TK.amber500
         const head = level === 'good' ? '🟢 유리한 자리' : level === 'bad' ? '🔴 불리한 자리' : '🟡 반반 — 확인이 필요한 자리'
         const parts: string[] = []
@@ -314,9 +319,9 @@ export default function SignalReader({ ticker, market, candles, tf }: {
         const nkDist = nkLiving ? Math.round((price - nkLiving.price) / price * 1000) / 10 : null
         if (nkLiving && nkDist != null && nkDist <= 5) parts.push(`발밑 ${nkDist}% 아래에 ${nkLiving.touches}번 지켜진 바닥선이 있어 이 선 사수가 관건`)
         else if (confl) parts.push(`${confl.distPct}% 아래에 여러 계산이 겹치는 바닥 후보가 있음`)
-        if (rr) parts.push(rr.ratio < 1
-          ? '지금은 벌 폭보다 잃을 폭이 커서 기다리는 자리'
-          : `산다면 잃을 1 대 벌 ${rr.ratio} — 비중은 하프켈리 이하로`)
+        if (rr) parts.push(fK != null && fK <= 0
+          ? `지금 사면 잘돼야 +${rr.upPct}%인데 잘못되면 −${rr.downPct}%라 남는 장사가 아님 — 좋은 자리가 올 때까지 기다리기`
+          : `산다면 — 잘못되면 −${rr.downPct}%지만 잘되면 +${rr.upPct}%로 벌 폭이 ${rr.ratio}배 큰 자리${halfK != null ? `, 대신 재산의 ${halfK}%까지만(켈리 수학의 안전 상한)` : ''}`)
         return (
           <div style={{ background: `${C}0f`, border: `1.5px solid ${C}55`, borderRadius: 9, padding: '9px 12px', fontSize: 12, lineHeight: 1.65 }}>
             <b style={{ color: C }}>🗣️ 자리 총평: {head}</b>
