@@ -3,7 +3,7 @@
 // 교차검증해 '가짜 반등/신호 정합/조기 청산 주의/떨어지는 칼날'을 결정론적으로 판정(AI 미사용·환각 0).
 // 기술신호는 이 화면 전용 — 통합추천·리밸런싱 점수에는 절대 미반영(앱의 펀더멘탈 우선 원칙).
 import { useState, useEffect, useMemo } from 'react'
-import { readSignals, detectLiquidity, readRaschke, computePOC, computeTTMSqueeze, computeAnchoredVWAP, readTimeCorrection, readFibRetracement, findConfluence, detectFVG, detectNecklines, readZigzagTarget, readWedge } from '@/lib/techSignals'
+import { readSignals, detectLiquidity, readRaschke, computePOC, computeTTMSqueeze, computeAnchoredVWAP, readTimeCorrection, readFibRetracement, findConfluence, detectFVG, detectNecklines, readZigzagTarget, readWedge, readGapCandle } from '@/lib/techSignals'
 import type { TechCandle } from '@/app/api/tech-chart/route'
 import type { SignalReportResult } from '@/app/api/signal-report/route'
 import { curSymbol, isLeveragedTicker } from '@/lib/globalTickers'
@@ -96,6 +96,8 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   const timeCorr = useMemo(() => candles.length >= 30 ? readTimeCorrection(candles) : null, [candles])
   // 📐 피보나치 되돌림 — 눌림의 '가격 깊이' 축(⏳과 시간×가격 한 쌍). 판정 미반영(정보만)
   const fib = useMemo(() => candles.length >= 30 ? readFibRetracement(candles) : null, [candles])
+  // 🕯️ 오늘의 봉 6등급 — 전일종가 기준 갭·마감 조합(이정윤 영상). 일봉 전용 교육 칩·판정 미반영
+  const gapCandle = useMemo(() => tf === 'D' && candles.length >= 2 ? readGapCandle(candles) : null, [candles, tf])
   // 🪢 넥라인(반복 지지 레벨) — 피벗 저점 클러스터 + 터치 수. 판정 미반영(정보만)
   const necks = useMemo(() => candles.length >= 30 ? detectNecklines(candles) : [], [candles])
   // 📏 지그재그 A=C 등가 타겟 — 조정 바닥 측정(C=A 등가성). 구조 미확정이면 null(정직 생략)
@@ -247,6 +249,13 @@ export default function SignalReader({ ticker, market, candles, tf }: {
         {sig.adx != null && chip('ADX 추세', `${sig.adx} ${adxTrend ? '추세장' : adxRange ? '박스권' : '중간'}`, adxTrend ? TK.green400 : adxRange ? TK.slate400 : TK.slate200)}
         {f?.peg != null && chip('PEG', f.peg.toFixed(2), f.peg <= 1 ? TK.green400 : f.peg > 2.2 ? TK.red400 : TK.slate200)}
         {f && chip('FCF', f.fcf == null ? '-' : f.fcf >= 0 ? '흑자' : '적자', (f.fcf ?? 0) >= 0 ? TK.green400 : TK.red400)}
+        {gapCandle && (
+          <span title={`전일종가 기준 6등급 중 ${gapCandle.grade}등급 — 갭 ${gapCandle.gapPct > 0 ? '+' : ''}${gapCandle.gapPct}% · 전일比 ${gapCandle.chgPct > 0 ? '+' : ''}${gapCandle.chgPct}%. 갭상승 양봉이 최강, 갭하락 추가하락 음봉이 최약(교육용·판정 미반영)`}
+            style={{ fontSize: 10.5, background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 6, padding: '3px 8px' }}>
+            <span style={{ color: TK.sub2 }}>오늘 봉 </span>
+            <b style={{ color: gapCandle.grade <= 2 ? TK.red400 : gapCandle.grade <= 4 ? TK.slate200 : TK.blue400 }}>{gapCandle.label}</b>
+          </span>
+        )}
         {fund === 'loading' && <span style={{ fontSize: 10.5, color: TK.sub2 }}>펀더멘탈 확인 중…</span>}
       </div>
 

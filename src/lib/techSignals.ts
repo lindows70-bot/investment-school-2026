@@ -802,6 +802,34 @@ export function readFibRetracement(data: Ohlc[], pivot = 5): FibRead | null {
   return { lo, hi, retrPct, zone, levels }
 }
 
+/* ── 🕯️ 오늘의 봉 6등급 — "전일종가 기준으로 봉은 6가지: 갭상승 양봉이 최강, 갭하락 추가하락 음봉이 최약"(이정윤 슈퍼개미 영상).
+   등급(강→약): ①갭상승+양선 ②갭하락 출발이나 양선·전일比+ ③갭상승 출발이나 음선·전일比+ ④양선이나 전일比− ⑤음선·전일比−(갭상승 출발) ⑥갭하락+음선.
+   순수 산수(전일종가·시가·종가 3개 비교). 일봉 전용 교육 칩 — 점수·판정 미반영. ── */
+export interface GapCandleRead { grade: 1 | 2 | 3 | 4 | 5 | 6; label: string; gapPct: number; chgPct: number }
+export function readGapCandle(data: Ohlc[]): GapCandleRead | null {
+  const N = data.length
+  if (N < 2) return null
+  const prev = data[N - 2].close, { open, close } = data[N - 1]
+  if (!(prev > 0) || !(open > 0)) return null
+  const gapUp = open > prev, bull = close > open, upVsPrev = close > prev
+  const grade: GapCandleRead['grade'] =
+    gapUp && bull ? 1
+      : !gapUp && bull && upVsPrev ? 2
+        : gapUp && !bull && upVsPrev ? 3
+          : !gapUp && bull && !upVsPrev ? 4
+            : gapUp && !bull && !upVsPrev ? 5
+              : 6
+  const labels: Record<number, string> = {
+    1: '갭상승 양봉(최강 ★★★)', 2: '갭하락 출발→양봉 회복(강)', 3: '갭상승 출발→밀렸지만 전일比 상승(중)',
+    4: '양봉이지만 전일比 하락(약)', 5: '갭상승 출발→전일比 하락 반납(약)', 6: '갭하락 추가하락 음봉(최약)',
+  }
+  return {
+    grade, label: labels[grade],
+    gapPct: Math.round((open - prev) / prev * 1000) / 10,
+    chgPct: Math.round((close - prev) / prev * 1000) / 10,
+  }
+}
+
 /* ── 🪢 넥라인(반복 지지 레벨) — "봉우리 여러 개가 같은 저점대를 지지하는 목선. 깨면 지지→저항 롤플립"(김도담 영상).
    기존 detectLiquidity는 전고점(저항)만 감지 — 이건 반대편: 피벗 저점들을 가격 밴드로 클러스터해 '몇 번 지지받았나'까지 셈.
    터치 2회 이상만 넥라인 인정. broken = 마지막 종가가 레벨 아래(지지→저항 전환). 순수 산수, 점수·판정 미반영. ── */
