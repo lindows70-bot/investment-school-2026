@@ -229,7 +229,7 @@ export default function ElliottWaveEducation() {
 
   // 🌊 알고리즘 추정 엘리어트 카운트 — 구조 바닥(최저 확정 저점)에서 스윙에 1-5·A-B-C 라벨 + 3대 규칙 검증(객관)
   const waveLabel = new Map<number, string>()
-  let waveRules: null | { r1: boolean; r2: boolean; r3: boolean; ok: boolean } = null
+  let waveRules: null | { r1: boolean; r2: boolean; r3: boolean; ok: boolean; truncation: boolean; truncPending: boolean } = null
   {
     const lows = cf.filter(s => s.type === 'low')
     const anchor = lows.length ? lows.reduce((m, s) => (s.price < m.price ? s : m)) : null
@@ -244,7 +244,9 @@ export default function ElliottWaveEducation() {
         const r1 = w2.price > anchor.price          // 2파는 1파 시작점 이하로 안 내려감
         const r3 = w4.price > w1.price               // 4파 저점 > 1파 고점(중첩 없음)
         const r2 = !(len3 < len1 && len3 < len5)     // 3파는 최단 아님
-        waveRules = { r1, r2, r3, ok: r1 && r2 && r3 }
+        // 🔻 5파 절단(Truncation) — 5파 고점이 3파 고점을 못 넘음 = 동력 소진(규칙 아닌 약세 경고). 5파 미확정이면 '진행 중'
+        const truncation = w3.type === 'high' && w5.type === 'high' && w5.price < w3.price
+        waveRules = { r1, r2, r3, ok: r1 && r2 && r3, truncation, truncPending: truncation && !w5.confirmed }
       }
     }
   }
@@ -424,6 +426,11 @@ export default function ElliottWaveEducation() {
                       ? '🟢 3대 규칙 충족 — 유효한 카운트 후보(그래도 확정은 아님, 대체 시나리오 병행)'
                       : '🟡 규칙 위반 — 이 degree의 카운트는 무효/재검토. 기계적 카운트가 규칙을 자주 위반하는 것이 엘리어트가 주관적인 이유입니다.'}
                   </div>
+                  {waveRules.truncation && (
+                    <div style={{ marginTop: 6, background: 'rgba(248,113,113,0.08)', border: `1px solid rgba(248,113,113,0.35)`, borderRadius: 8, padding: '7px 9px', fontSize: 10.5, color: TK.red300, lineHeight: 1.5 }}>
+                      🔻 <b style={{ color: TK.red400 }}>5파 절단(Truncation) {waveRules.truncPending ? '진행 중' : '감지'}</b> — 5파 고점이 3파 고점을 <b>넘지 못했습니다</b>. 상승 동력 소진 신호로, 5파가 짧게 끝나며 <b>급반전(ABC 조정)</b>이 뒤따를 위험이 큰 교과서상 최악의 약세 신호 중 하나{waveRules.truncPending ? ' — 단, 아직 5파 진행 중이라 3파 고점 재돌파 시 절단은 취소됩니다' : ''}.
+                    </div>
+                  )}
                   {!waveRules.ok && (
                     <div style={{ marginTop: 6, background: 'rgba(96,165,250,0.06)', border: `1px solid rgba(96,165,250,0.25)`, borderRadius: 8, padding: '7px 9px', fontSize: 10, color: TK.sub5, lineHeight: 1.5 }}>
                       🔄 <b style={{ color: TK.blue300 }}>대체 카운트(Alternate Count) · 프랙탈 관점</b> — 규칙이 깨지면 이 degree가 파동 차수와 안 맞을 가능성이 큽니다. 큰 그림에선 이 상승 <b>전체가 더 큰 차수의 단일 파동</b>(예: 대세 <b>1파·3파</b>)이고, 여기 1-5는 그 안의 잔파동일 수 있어요. 위 <b>degree</b>를 &lsquo;큰 13%&rsquo;로 올려 큰 파동으로, &lsquo;잔 5%&rsquo;로 내려 작은 파동으로 다시 세어보세요 — <b>degree에 따라 카운트가 달라지는 것이 프랙탈의 핵심</b>이자 파동이 주관적인 이유입니다.
@@ -541,6 +548,7 @@ export default function ElliottWaveEducation() {
               <div>• <b style={{ color: TK.green400 }}>1파</b> 거래량 다소↑(시장 의구심) → <b style={{ color: TK.green400 }}>2파</b> 확연히↓(정상 눌림목 증명)</div>
               <div>• <b style={{ color: TK.green400 }}>3파</b> 거래량 <b>폭발 + 갭(Gap)</b> = 가장 강력·확실한 진행 신호</div>
               <div>• <b style={{ color: TK.red400 }}>5파</b> 신고가는 경신해도 거래량↓·RSI↓ <b>다이버전스</b> = 추세 종료 임박(마지막 잔치)</div>
+              <div>• 🔻 <b style={{ color: TK.red400 }}>5파 절단(Truncation)</b> — 5파가 3파 고점을 <b>아예 못 넘고</b> 꺾이면 동력 완전 소진. 짧고 약한 5파 뒤 급락이 잦은 최악의 약세 신호(위 카운트에서 자동 감지·경고).</div>
               <div style={{ color: TK.sub, fontSize: 10 }}>🔗 <b>컨플런스</b>: 이평선 돌파(시작)+거래량 급증(힘)+RSI 다이버전스(종료)를 결합해 주관성을 줄입니다 — 위 거래량·RSI 스트립 및 <b>[기술적 차트]</b>의 라쉬케 다이버전스로 교차 확인.</div>
             </div>
           </div>
