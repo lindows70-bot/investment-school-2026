@@ -64,7 +64,7 @@ const closeAt = (candles: TechCandle[], date: string): number | null => {
 
 export async function GET() {
   const today = kstDate()
-  const cacheKey = `signal-report-v2:${today}`   // v2: 1,000행 절단 버그 수정(페이지네이션) — v1 캐시엔 7월 신호가 통째로 누락
+  const cacheKey = `signal-report-v3:${today}`   // v3: unscored(생존편향 방어) 필드 추가 — v2 캐시엔 없어 키 갱신 / v2: 1,000행 절단 버그 수정(페이지네이션)
   const cached = await getCache<SignalReportResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
