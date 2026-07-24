@@ -438,7 +438,8 @@ export default function SignalReader({ ticker, market, candles, tf }: {
             <b style={{ color: living ? TK.sky400 : TK.orange400 }}>🪢 넥라인 {fmtP(nkPick.price)} ({living ? `−${dist}% 아래` : `+${dist}% 위`}) — {nkPick.touches}회 {living ? '지지받은 목선' : '지지 후 붕괴'}</b>
             <span style={{ color: TK.sub5 }}> · {living
               ? '같은 저점대를 반복 지지 = 매수세가 지키는 선(현재가에서 가장 가까운 살아있는 목선). 지지 유지면 우위, 종가 이탈 시 지지→저항 롤플립(강한 매도 신호). 단, 여러 번 두드릴수록 깨질 확률도 커짐(추세선은 깨라고 있는 선).'
-              : '깨진 목선은 저항으로 뒤집힘(롤플립) — 반등이 이 선에 막히는지 관찰. 회복(종가 재돌파) 시 다시 지지로 복귀.'}</span>
+              : '깨진 목선은 저항으로 뒤집힘(롤플립) — 반등이 이 선에 막히는지 관찰. 회복(종가 재돌파) 시 다시 지지로 복귀.'}
+            {dist > 25 ? <b style={{ color: TK.orange400 }}> ⚠️ 다만 현재가에서 25% 이상 떨어진 옛 {living ? '바닥' : '고점'}이라 당장의 대응 기준으론 약함 — 참고만(그 사이에 새 지지·저항이 생기면 그쪽이 우선).</b> : null}</span>
           </div>
         )
       })()}
