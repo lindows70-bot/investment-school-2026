@@ -802,6 +802,30 @@ export function readFibRetracement(data: Ohlc[], pivot = 5): FibRead | null {
   return { lo, hi, retrPct, zone, levels }
 }
 
+/* ── 🥷 매집·분산 봉 — "음봉인데 매수량이 압도(긴 아래꼬리+대량거래)=세력 매집, 양봉인데 매도폭탄(위꼬리)=분산·이탈"(골드핑거 수급 영상).
+   진짜 체결 구분(시장가 매수/매도) 데이터는 무료 일봉에 없음 → OHLCV 근사: 범위 내 종가 위치((close-low)/(high-low))로 힘의 방향 추정.
+   매집봉 = 음봉 + 종가가 범위 절반 위(≥50%) + 거래량 1.5×평균 / 분산봉 = 양봉 + 종가가 범위 절반 아래(≤50%) + 거래량 급증(기존 volBoost 관례와 동일 1.5×).
+   임계 근거: NVDA·삼전·TSLA 전 구간 백테스트 빈도 0.2~2%(종목당 연 1~5회) — 희소하되 실재하는 수준.
+   캔들 겉색과 내부 힘의 괴리(다이버전스)만 감지 — 판정 미반영 교육 카드. ── */
+export interface StealthBar { type: 'accum' | 'distrib'; barsAgo: number; posPct: number; volX: number }
+export function detectStealthBars(data: Ohlc[], lookback = 20): StealthBar | null {
+  const N = data.length
+  if (N < lookback + 20) return null
+  for (let i = N - 1; i >= N - lookback; i--) {
+    const b = data[i], range = b.high - b.low, vol = b.volume ?? 0
+    if (!(range > 0) || !(vol > 0)) continue
+    let avg = 0
+    for (let j = i - 20; j < i; j++) avg += data[j].volume ?? 0
+    avg /= 20
+    if (!(avg > 0) || vol < avg * 1.5) continue
+    const pos = (b.close - b.low) / range
+    const bull = b.close > b.open
+    if (!bull && pos >= 0.5) return { type: 'accum', barsAgo: N - 1 - i, posPct: Math.round(pos * 100), volX: Math.round(vol / avg * 10) / 10 }
+    if (bull && pos <= 0.5) return { type: 'distrib', barsAgo: N - 1 - i, posPct: Math.round(pos * 100), volX: Math.round(vol / avg * 10) / 10 }
+  }
+  return null
+}
+
 /* ── ☁️ 일목 정밀(후행스팬·기준선·트위스트존) — 박경철 「다시쓰는 기술적분석」 일목균형표 이론편.
    구름 위/속/아래는 entryTiming SSOT 기구현 — 여기는 영상의 미구현 알맹이 3개만 보완:
    ① 후행스팬(현재가 vs 26봉 전 종가) "가장 단순하면서 가장 의미 있는 선" ② 기준선(26봉 고저 중간값) 방향 = 추세

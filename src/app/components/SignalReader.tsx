@@ -3,7 +3,7 @@
 // 교차검증해 '가짜 반등/신호 정합/조기 청산 주의/떨어지는 칼날'을 결정론적으로 판정(AI 미사용·환각 0).
 // 기술신호는 이 화면 전용 — 통합추천·리밸런싱 점수에는 절대 미반영(앱의 펀더멘탈 우선 원칙).
 import { useState, useEffect, useMemo } from 'react'
-import { readSignals, detectLiquidity, readRaschke, computePOC, computeTTMSqueeze, computeAnchoredVWAP, readTimeCorrection, readFibRetracement, findConfluence, detectFVG, detectNecklines, readZigzagTarget, readWedge, readGapCandle, readIchimokuLines } from '@/lib/techSignals'
+import { readSignals, detectLiquidity, readRaschke, computePOC, computeTTMSqueeze, computeAnchoredVWAP, readTimeCorrection, readFibRetracement, findConfluence, detectFVG, detectNecklines, readZigzagTarget, readWedge, readGapCandle, readIchimokuLines, detectStealthBars } from '@/lib/techSignals'
 import type { TechCandle } from '@/app/api/tech-chart/route'
 import type { SignalReportResult } from '@/app/api/signal-report/route'
 import { curSymbol, isLeveragedTicker } from '@/lib/globalTickers'
@@ -96,6 +96,8 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   const timeCorr = useMemo(() => candles.length >= 30 ? readTimeCorrection(candles) : null, [candles])
   // 📐 피보나치 되돌림 — 눌림의 '가격 깊이' 축(⏳과 시간×가격 한 쌍). 판정 미반영(정보만)
   const fib = useMemo(() => candles.length >= 30 ? readFibRetracement(candles) : null, [candles])
+  // 🥷 매집·분산 봉 — 캔들 겉색과 내부 힘(범위 내 종가 위치)의 괴리 + 대량거래(골드핑거 수급 영상). 판정 미반영
+  const stealth = useMemo(() => candles.length >= 40 ? detectStealthBars(candles) : null, [candles])
   // ☁️ 일목 정밀 — 후행스팬·기준선 방향·트위스트존 D-day(박경철 일목 영상). 판정 미반영
   const ichi = useMemo(() => candles.length >= 79 ? readIchimokuLines(candles) : null, [candles])
   // 🕯️ 오늘의 봉 6등급 — 전일종가 기준 갭·마감 조합(이정윤 영상). 일봉 전용 교육 칩·판정 미반영
@@ -471,6 +473,16 @@ export default function SignalReader({ ticker, market, candles, tf }: {
         <div style={{ background: TK.bg3, border: `1px solid ${TK.violet400}44`, borderRadius: 9, padding: '8px 12px', fontSize: 11, lineHeight: 1.6 }}>
           <b style={{ color: TK.violet400 }}>📏 A=C 등가 타겟 {fmtP(zigzag.target1)} ({zigzag.distPct <= 0.1 ? '현재가가 타겟 도달 — 조정 완성 후보 지점' : `현재가 −${zigzag.distPct}%`})</b>
           <span style={{ color: TK.sub5 }}> · 확장 1.236배 {fmtP(zigzag.target1236)} — 지그재그 조정(하락 A → 반등 B → 하락 C)에서 C는 A와 같은 크기로 나오는 경향 = 조정 완성 후보 지점. 다른 지지(🎯 겹침 존)와 만나면 신뢰도↑. 예측 아닌 참고 — 진입은 신호등·확인 캔들과 함께.</span>
+        </div>
+      )}
+
+      {/* 🥷 매집·분산 봉 — "음봉인데 매수 우세=매집, 양봉인데 매도 우세=분산"(골드핑거 수급 영상). OHLCV 근사 — 판정 미반영(정보만) */}
+      {stealth && (
+        <div style={{ background: TK.bg3, border: `1px solid ${stealth.type === 'accum' ? `${TK.sky400}44` : `${TK.orange400}44`}`, borderRadius: 9, padding: '8px 12px', fontSize: 11, lineHeight: 1.6 }}>
+          <b style={{ color: stealth.type === 'accum' ? TK.sky400 : TK.orange400 }}>🥷 {stealth.type === 'accum' ? '매집 흔적 봉' : '분산 흔적 봉'} — {stealth.barsAgo === 0 ? '오늘' : `${stealth.barsAgo}봉 전`} (거래량 {stealth.volX}×)</b>
+          <span style={{ color: TK.sub5 }}> · {stealth.type === 'accum'
+            ? `겉은 음봉인데 종가가 당일 범위 상단 ${stealth.posPct}% — 쏟아진 매물을 다 받아먹고 아래꼬리로 마감한 형태. 대량거래와 겹치면 세력 매집 흔적 후보(겉색에 속지 말 것).`
+            : `겉은 양봉인데 종가가 당일 범위 하단 ${stealth.posPct}% — 장중 끌어올렸다가 위꼬리로 밀려 마감한 형태. 대량거래와 겹치면 고점 분산·이탈 징후 후보.`} 단, 무료 일봉엔 진짜 체결 구분 데이터가 없어 범위 내 종가 위치로 근사한 값 — 단독 근거 아님, 신호등·확인 캔들과 함께.</span>
         </div>
       )}
 
