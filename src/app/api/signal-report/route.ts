@@ -50,6 +50,7 @@ export interface SignalReportResult {
   timingSince: string | null    // 타이밍 적립 시작일(없으면 null = 적립 중)
   groups: GroupStat[]
   tickers: number
+  unscored: number              // ⚠️ 생존편향 방어: 캔들 로드 실패(상폐·거래정지 가능)로 채점 못 한 종목 수 — 승률 분모 투명성
 }
 
 // Jarvis 대상은 개별주식(STOCK)만이라 KR = 6자리 숫자 코드로 충분(영숫자 신형 코드는 ETF 전용 — 브리핑에 없음)
@@ -118,11 +119,15 @@ export async function GET() {
   for (const e of jarvisEvents) tickers.set(e.ticker, { ticker: e.ticker, market: isKr(e.ticker) ? 'KR' : 'US' })
   for (const h of hist) tickers.set(h.ticker, { ticker: h.ticker, market: h.market })
   const candleMap = new Map<string, TechCandle[]>()
+  const failedTickers = new Set<string>()   // ⚠️ 생존편향: 캔들 로드 실패(상폐·거래정지 가능) 종목 — 조용히 버리면 최악 결과가 승률에서 빠져 위로 부풀려짐
   const queue = Array.from(tickers.values())
   await Promise.all(Array.from({ length: 4 }, async () => {
     for (;;) {
       const it = queue.shift(); if (!it) break
-      try { candleMap.set(it.ticker, await getTechCandles(it.ticker, it.market, 'D')) } catch { /* graceful — 해당 종목 채점 제외 */ }
+      try {
+        const c = await getTechCandles(it.ticker, it.market, 'D')
+        if (c?.length) candleMap.set(it.ticker, c); else failedTickers.add(it.ticker)
+      } catch { failedTickers.add(it.ticker) }
     }
   }))
 
@@ -180,7 +185,7 @@ export async function GET() {
     }
   }
 
-  const result: SignalReportResult = { asOf: new Date().toISOString(), jarvisSince, timingSince, groups, tickers: tickers.size }
+  const result: SignalReportResult = { asOf: new Date().toISOString(), jarvisSince, timingSince, groups, tickers: tickers.size, unscored: failedTickers.size }
   // 이벤트 0건(콜드·이력 부재)이면 캐시 박제 금지
   if (events.length > 0) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })

@@ -26,6 +26,8 @@ function GroupCard({ g }: { g: GroupStat }) {
   const empty = g.n === 0
   const headWin = g.win30 ?? g.winNow
   const headLabel = g.win30 != null ? '30일 적중률' : '현재까지 적중률'
+  const headN = g.win30 != null ? g.n30 : g.n7   // 헤드라인 승률을 뒷받침하는 실제 표본수
+  const thinSample = headWin != null && headN < 5 // 소표본 가드 — 데이터 스누핑/일화 오인 방지(퀀트 원칙)
   return (
     <div style={{ ...CARD, display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
@@ -41,8 +43,16 @@ function GroupCard({ g }: { g: GroupStat }) {
           <div style={{ display: 'flex', gap: 18, alignItems: 'flex-end', flexWrap: 'wrap' }}>
             <div>
               <div style={{ fontSize: 10.5, color: TK.sub4 }}>{headLabel}{isSell ? ' (하락 적중)' : ' (상승 적중)'}</div>
-              <div style={{ fontSize: 26, fontWeight: 900, color: headWin != null && headWin >= 50 ? accent : TK.sub4 }}>
-                {headWin != null ? `${headWin}%` : '—'}
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 26, fontWeight: 900, color: thinSample ? TK.sub4 : (headWin != null && headWin >= 50 ? accent : TK.sub4) }}>
+                  {headWin != null ? `${headWin}%` : '—'}
+                </div>
+                {thinSample && (
+                  <span title={`채점 표본 ${headN}건 — 통계로 보기엔 너무 적어 우연일 수 있습니다`}
+                    style={{ fontSize: 9.5, fontWeight: 800, color: TK.amber400, background: `${TK.amber400}1a`, border: `1px solid ${TK.amber400}55`, borderRadius: 6, padding: '2px 6px' }}>
+                    ⚠️ 표본 {headN}건 · 참고만
+                  </span>
+                )}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 14, fontSize: 11.5, color: TK.sub4, paddingBottom: 4 }}>
@@ -100,6 +110,12 @@ export default function SignalReportPage() {
           {data?.jarvisSince && <span> · Jarvis 이력 {data.jarvisSince}~</span>}
           {data && <span> · 대상 {data.tickers}종목</span>}
         </div>
+        {!!data?.unscored && (
+          <div style={{ marginTop: 6, fontSize: 11, color: TK.amber400, background: `${TK.amber400}12`, border: `1px solid ${TK.amber400}44`, borderRadius: 8, padding: '6px 10px', lineHeight: 1.55 }}>
+            🧟 <b>생존편향 방어</b> — {data.unscored}종목은 캔들 로드 실패(상장폐지·거래정지 가능)로 <b>채점에서 제외</b>됐습니다.
+            이런 최악 사례가 조용히 빠지면 승률이 실제보다 좋아 보이므로, 위 적중률은 <b>{data.unscored}건만큼 낙관 편향</b>일 수 있습니다.
+          </div>
+        )}
       </div>
 
       {err && <div style={{ ...CARD, color: TK.sub4, fontSize: 12.5 }}>성적표를 불러오지 못했습니다 — 새로고침해 주세요.</div>}
@@ -114,7 +130,7 @@ export default function SignalReportPage() {
       <div style={{ fontSize: 10.5, color: TK.sub2, lineHeight: 1.7 }}>
         ⚠️ <b>표본이 적으면(특히 10건 미만) 통계가 아니라 일화입니다</b> — 표본수를 항상 함께 보세요.
         SELL/매도 신호의 &lsquo;적중&rsquo;은 <b>신호 후 실제 하락 여부</b>로 채점합니다(공매도 수익이 아니라 &ldquo;피했으면 면한 손실&rdquo;의 의미).
-        대상은 학생 보유 종목뿐이라 선택 편향이 있고, 진입가는 신호일 이하 최근 종가(±1일 오차)·배당 미반영.
+        대상은 학생 보유 종목뿐이라 <b>선택 편향</b>이 있고(WorldQuant식으로 말하면 유니버스가 생존자 쪽으로 기움), 채점 불가 종목(상폐·거래정지)은 위 배너에 별도 집계해 <b>생존편향</b>을 드러냈습니다. 진입가는 신호일 이하 최근 종가(±1일 오차)·배당 미반영.
         Jarvis 신호는 연속 반복 판정을 <b>연속 구간의 첫날 1건</b>으로 압축해 자기상관을 제거했습니다.
         과거 성과는 미래를 보장하지 않으며, 이 화면은 교육용 자기 검증 지표입니다.
       </div>
