@@ -321,7 +321,9 @@ export default function SignalReader({ ticker, market, candles, tf }: {
         else if (confl) parts.push(`${confl.distPct}% 아래에 여러 계산이 겹치는 바닥 후보가 있음`)
         if (rr) parts.push(fK != null && fK <= 0
           ? `지금 사면 잘돼야 +${rr.upPct}%인데 잘못되면 −${rr.downPct}%라 남는 장사가 아님 — 좋은 자리가 올 때까지 기다리기`
-          : `산다면 — 잘못되면 −${rr.downPct}%지만 잘되면 +${rr.upPct}%로 벌 폭이 ${rr.ratio}배 큰 자리${halfK != null ? `, 대신 재산의 ${halfK}%까지만(켈리 수학의 안전 상한)` : ''}`)
+          : level === 'bad'
+            ? `자리 자체가 불리해 일단 관망이 기본 — 굳이 시도한다면 재산의 ${halfK}% 이하로만(켈리 수학의 안전 상한)`
+            : `산다면 — 잘못되면 −${rr.downPct}%지만 잘되면 +${rr.upPct}%로 벌 폭이 ${rr.ratio}배 큰 자리${halfK != null ? `, 대신 재산의 ${halfK}%까지만(켈리 수학의 안전 상한)` : ''}`)
         return (
           <div style={{ background: `${C}0f`, border: `1.5px solid ${C}55`, borderRadius: 9, padding: '9px 12px', fontSize: 12, lineHeight: 1.65 }}>
             <b style={{ color: C }}>🗣️ 자리 총평: {head}</b>
