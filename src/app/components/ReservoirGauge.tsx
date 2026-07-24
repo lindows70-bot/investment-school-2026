@@ -98,7 +98,7 @@ export default function ReservoirGauge() {
                 </div>
                 {next && (
                   <div style={{ marginTop: 6, fontSize: 11, color: TK.sub5 }}>
-                    다음 기준선({next.dd}%)까지 <b style={{ color: TK.slate200 }}>{Math.round((next.dd - v.ddPct) * 10) / 10}%p</b> 남음
+                    다음 기준선({next.dd}%)까지 <b style={{ color: TK.slate200 }}>{Math.round(Math.abs(next.dd - v.ddPct) * 10) / 10}%p</b> 더 하락하면 도달
                   </div>
                 )}
               </div>
