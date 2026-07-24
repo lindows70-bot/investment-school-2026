@@ -55,7 +55,7 @@ export default function ReservoirGauge() {
     <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '16px 18px' }}>
       <div style={{ color: TK.slate200, fontWeight: 900, fontSize: 15, marginBottom: 4 }}>🏞️ 저수지 수위계 — 지수 가뭄 단계</div>
       <div style={{ color: TK.sub3, fontSize: 11.5, lineHeight: 1.6, marginBottom: 12 }}>
-        "여유자금을 저수지에 채워두고, 가뭄(지수 폭락)이 오면 3번에 나눠 물을 댄다"(여운봉 저수지 투자법).
+        &ldquo;여유자금을 저수지에 채워두고, 가뭄(지수 폭락)이 오면 3번에 나눠 물을 댄다&rdquo;(여운봉 저수지 투자법).
         바닥은 맞추는 게 아니라 <b style={{ color: TK.sky400 }}>미리 정한 기준선에서 기계적으로 나눠 사는 것</b> — S&P500은 −20% 약세장 27번이 27번 전부 회복했지만, 평균 낙폭이 −33~35%라 한 번에 다 사면 안 됨.
       </div>
       {!g && !err && <div style={{ color: TK.sub, fontSize: 12.5 }}>지수 낙폭 계산 중…</div>}
