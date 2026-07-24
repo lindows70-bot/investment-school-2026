@@ -35,6 +35,7 @@ import MarksCycle                 from '@/app/components/MarksCycle'
 import CorrelationRadar           from '@/app/components/CorrelationRadar'
 import IpoHypeCycle               from '@/app/components/IpoHypeCycle'
 import CrisisRadar                from '@/app/components/CrisisRadar'
+import ReservoirGauge             from '@/app/components/ReservoirGauge'
 import LeverageRadar              from '@/app/components/LeverageRadar'
 import ShortInterestRadar         from '@/app/components/ShortInterestRadar'
 import UnifiedReco                 from '@/app/components/UnifiedReco'
@@ -3115,6 +3116,9 @@ export default function DashboardPage() {
       <div id="tab-crisis" style={{ display: dashTab==='crisis' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         <ErrorBoundary label="글로벌 위기 감지 레이더">
           {dashTab==='crisis' && <CrisisRadar />}
+        </ErrorBoundary>
+        <ErrorBoundary label="저수지 수위계">
+          {dashTab==='crisis' && <ReservoirGauge />}
         </ErrorBoundary>
       </div>
 
