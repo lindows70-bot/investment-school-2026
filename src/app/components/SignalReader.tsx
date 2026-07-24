@@ -3,7 +3,7 @@
 // 교차검증해 '가짜 반등/신호 정합/조기 청산 주의/떨어지는 칼날'을 결정론적으로 판정(AI 미사용·환각 0).
 // 기술신호는 이 화면 전용 — 통합추천·리밸런싱 점수에는 절대 미반영(앱의 펀더멘탈 우선 원칙).
 import { useState, useEffect, useMemo } from 'react'
-import { readSignals, detectLiquidity, readRaschke, computePOC, computeTTMSqueeze, computeAnchoredVWAP, readTimeCorrection, readFibRetracement, findConfluence, detectFVG, detectNecklines, readZigzagTarget, readWedge, readGapCandle, readIchimokuLines, detectStealthBars } from '@/lib/techSignals'
+import { readSignals, detectLiquidity, readRaschke, computePOC, computeTTMSqueeze, computeAnchoredVWAP, readTimeCorrection, readFibRetracement, findConfluence, detectFVG, detectNecklines, readZigzagTarget, readWedge, readGapCandle, readIchimokuLines, detectStealthBars, detectElephantBar } from '@/lib/techSignals'
 import type { TechCandle } from '@/app/api/tech-chart/route'
 import type { SignalReportResult } from '@/app/api/signal-report/route'
 import { curSymbol, isLeveragedTicker } from '@/lib/globalTickers'
@@ -98,6 +98,8 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   const fib = useMemo(() => candles.length >= 30 ? readFibRetracement(candles) : null, [candles])
   // 🥷 매집·분산 봉 — 캔들 겉색과 내부 힘(범위 내 종가 위치)의 괴리 + 대량거래(골드핑거 수급 영상). 판정 미반영
   const stealth = useMemo(() => candles.length >= 40 ? detectStealthBars(candles) : null, [candles])
+  // 🐘 엘리펀트 바 — 몸통≥70%·몸통≥ATR100의 1.3배·8SMA 정렬 = 기관 대금 확신봉(올리버 벨레즈). 판정 미반영
+  const elephant = useMemo(() => candles.length >= 110 ? detectElephantBar(candles) : null, [candles])
   // ☁️ 일목 정밀 — 후행스팬·기준선 방향·트위스트존 D-day(박경철 일목 영상). 판정 미반영
   const ichi = useMemo(() => candles.length >= 79 ? readIchimokuLines(candles) : null, [candles])
   // 🕯️ 오늘의 봉 6등급 — 전일종가 기준 갭·마감 조합(이정윤 영상). 일봉 전용 교육 칩·판정 미반영
@@ -483,6 +485,16 @@ export default function SignalReader({ ticker, market, candles, tf }: {
           <span style={{ color: TK.sub5 }}> · {stealth.type === 'accum'
             ? `겉은 음봉인데 종가가 당일 범위 상단 ${stealth.posPct}% — 쏟아진 매물을 다 받아먹고 아래꼬리로 마감한 형태. 대량거래와 겹치면 세력 매집 흔적 후보(겉색에 속지 말 것).`
             : `겉은 양봉인데 종가가 당일 범위 하단 ${stealth.posPct}% — 장중 끌어올렸다가 위꼬리로 밀려 마감한 형태. 대량거래와 겹치면 고점 분산·이탈 징후 후보.`} 단, 무료 일봉엔 진짜 체결 구분 데이터가 없어 범위 내 종가 위치로 근사한 값 — 단독 근거 아님, 신호등·확인 캔들과 함께.</span>
+        </div>
+      )}
+
+      {/* 🐘 엘리펀트 바 — "거대 캔들=기관 대금 유입 확신봉"(올리버 벨레즈). 몸통≥70%·몸통≥ATR100×1.3·8SMA 정렬. 후행 확인봉 — 판정 미반영(정보만) */}
+      {elephant && (
+        <div style={{ background: TK.bg3, border: `1px solid ${elephant.type === 'bull' ? `${TK.green500}44` : `${TK.red400}44`}`, borderRadius: 9, padding: '8px 12px', fontSize: 11, lineHeight: 1.6 }}>
+          <b style={{ color: elephant.type === 'bull' ? TK.green400 : TK.red400 }}>🐘 {elephant.type === 'bull' ? '불 엘리펀트 바' : '베어 엘리펀트 바'} — {elephant.barsAgo === 0 ? '오늘' : `${elephant.barsAgo}봉 전`} (몸통 {elephant.bodyPct}% · ATR {elephant.atrX}배)</b>
+          <span style={{ color: TK.sub5 }}> · 몸통이 전체 범위의 {elephant.bodyPct}%({elephant.type === 'bull' ? '고가' : '저가'} 근처 {elephant.closePct}% 마감)에 평균 변동폭(ATR100)의 {elephant.atrX}배 — {elephant.type === 'bull'
+            ? '8SMA 상승 정렬 속 나온 거대 양봉 = 누구도 무시 못 할 "방 안의 코끼리"(기관 대금 유입 확신봉). 벨레즈式으로는 다음 봉 진입 후보.'
+            : '8SMA 하락 정렬 속 나온 거대 음봉 = 기관 대량 이탈 확신봉. 반등 시 매도 압력 후보.'} ⚠️ 큰 봉이 이미 나온 뒤라 <b>고점(저점) 추격 위험</b> — 단독 근거 아님, 신호등·눌림목과 교차로.</span>
         </div>
       )}
 

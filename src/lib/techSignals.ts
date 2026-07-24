@@ -826,6 +826,42 @@ export function detectStealthBars(data: Ohlc[], lookback = 20): StealthBar | nul
   return null
 }
 
+/* ── 🐘 엘리펀트 바 — "방 안의 코끼리처럼 거대한 캔들 = 기관 대금 유입 확신봉"(올리버 벨레즈, 영상 재소개).
+   완전 객관 정의: ① 몸통 ≥ 전체 봉 범위의 70% ② 몸통 ≥ ATR(100)의 1.3배 ③ 8기간 SMA 상승(불)/하락(베어) 정렬 + 색 일치.
+   기존 봉 신호와 축이 다름 — 🥷매집분산=숨은 매집(겉색↔내부힘 괴리), 🕯️6등급=갭+마감. 이건 추세 방향의 '노골적 점화(thrust) 봉'.
+   ⚠️ 후행 확인봉(큰 양봉 이후 다음 봉 진입 = 고점 추격 위험) — 단독 판정 아님, 신호등·눌림목과 교차용 판정 미반영 교육 카드. ── */
+export interface ElephantBar { type: 'bull' | 'bear'; barsAgo: number; bodyPct: number; atrX: number; closePct: number }
+export function detectElephantBar(data: Ohlc[], lookback = 10): ElephantBar | null {
+  const N = data.length
+  if (N < 110) return null                             // ATR(100) + 8SMA 창 확보
+  // ATR(100): 최근 100봉 트루레인지 평균(현재 봉 직전까지)
+  const atrAt = (idx: number) => {
+    let s = 0, n = 0
+    for (let j = idx - 99; j <= idx; j++) {
+      if (j <= 0) continue
+      const tr = Math.max(data[j].high - data[j].low, Math.abs(data[j].high - data[j - 1].close), Math.abs(data[j].low - data[j - 1].close))
+      s += tr; n++
+    }
+    return n > 0 ? s / n : 0
+  }
+  const smaAt = (idx: number) => { let s = 0; for (let j = idx - 7; j <= idx; j++) s += data[j].close; return s / 8 }
+  for (let i = N - 1; i >= N - lookback; i--) {
+    if (i < 108) break
+    const b = data[i], range = b.high - b.low, body = Math.abs(b.close - b.open)
+    if (!(range > 0)) continue
+    const atr = atrAt(i - 1)                            // 직전까지의 ATR(당일 오염 방지)
+    if (!(atr > 0) || body < atr * 1.3) continue        // 몸통이 ATR 1.3배 미만이면 코끼리 아님
+    if (body / range < 0.7) continue                    // 몸통 비율 70% 미만이면 꼬리가 길어 확신 약함
+    const bull = b.close > b.open
+    const smaRising = smaAt(i - 1) > smaAt(i - 3)       // 8SMA 기울기 — 엘리펀트 바 '직전'(봉 자신 제외)이라야 거대봉 한 개가 추세를 자가 정당화 못 함
+    if (bull && !smaRising) continue                    // 불 코끼리는 SMA 상승 정렬 필수
+    if (!bull && smaRising) continue                    // 베어 코끼리는 SMA 하락 정렬 필수
+    const closePct = bull ? Math.round((b.close - b.low) / range * 100) : Math.round((b.high - b.close) / range * 100)
+    return { type: bull ? 'bull' : 'bear', barsAgo: N - 1 - i, bodyPct: Math.round(body / range * 100), atrX: Math.round(body / atr * 10) / 10, closePct }
+  }
+  return null
+}
+
 /* ── ☁️ 일목 정밀(후행스팬·기준선·트위스트존) — 박경철 「다시쓰는 기술적분석」 일목균형표 이론편.
    구름 위/속/아래는 entryTiming SSOT 기구현 — 여기는 영상의 미구현 알맹이 3개만 보완:
    ① 후행스팬(현재가 vs 26봉 전 종가) "가장 단순하면서 가장 의미 있는 선" ② 기준선(26봉 고저 중간값) 방향 = 추세
