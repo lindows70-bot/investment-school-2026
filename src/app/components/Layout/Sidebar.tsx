@@ -33,6 +33,7 @@ const GROUPS: NavGroup[] = [
       { href: '/watchlist',            icon: '⭐', label: '관심종목' },
       { href: '/analysis?tab=lynch',   icon: '🔍', label: '피터린치 분석' },
       { href: '/analysis?tab=buffett', icon: '🛡️', label: '워렌버핏 분석' },
+      { href: '/guru-portfolio',       icon: '🐳', label: '거인의 포트폴리오' },
       { href: '/valuation',            icon: '📊', label: '최일 가치분석' },
     ],
   },
