@@ -18,7 +18,7 @@ export const FUNDS: { cik: string; mgr: string; fund: string }[] = [
   { cik: '0001656456', mgr: '데이비드 테퍼',   fund: '아팔루사' },
 ]
 
-export interface Holding { name: string; sh: number; val: number }
+export interface Holding { name: string; cusip: string; sh: number; val: number }   // cusip=종목 고유번호(분기 불변) — 이름 드리프트에 안 흔들리는 매칭 키
 export interface FundData { mgr: string; fund: string; cur: Holding[]; prev: Holding[]; total: number; asOf: string }
 
 // ── SEC 전용 HTTP GET (Node https — undici fetch 금지) ──────────────────────────
@@ -83,9 +83,10 @@ async function fetchHoldings(cik: string, accDash: string): Promise<Holding[]> {
   const decode = (s: string) => s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#3?9;|&apos;/g, "'")
   return docRes.text.split(/<(?:\w+:)?infoTable>/i).slice(1)
     .map(b => ({
-      name: decode(pick(b, 'nameOfIssuer')),
-      sh:   parseInt(pick(b, 'sshPrnamt').replace(/[^0-9]/g, ''), 10) || 0,
-      val:  parseInt(pick(b, 'value').replace(/[^0-9]/g, ''), 10) || 0,
+      name:  decode(pick(b, 'nameOfIssuer')),
+      cusip: pick(b, 'cusip').toUpperCase(),
+      sh:    parseInt(pick(b, 'sshPrnamt').replace(/[^0-9]/g, ''), 10) || 0,
+      val:   parseInt(pick(b, 'value').replace(/[^0-9]/g, ''), 10) || 0,
     }))
     .filter(h => h.name && h.sh > 0)
 }
@@ -114,7 +115,37 @@ async function loadOneFund(f: typeof FUNDS[number]): Promise<FundData | null> {
   return { mgr: f.mgr, fund: f.fund, cur, prev, total, asOf: accs[0].dt }
 }
 
-const FUND_CACHE_KEY = 'shadow-13f-funds-v3'   // v3: 발행사명 엔티티 디코드 / v2: 네임스페이스(ns1:) 파싱 수정(달리오·리루 활성화)
+// ── 🧮 다중분기 13F 이력 (추정 평단용) — 한 거인의 최근 N개 분기 보유내역을 분기말(reportDate)과 함께 ──
+//    이걸로 "언제 몇 주 늘렸나"를 역산 → 그 분기 평균가로 매입가정 → 추정 평단. 온디맨드(선택 거인만)·12h 캐시.
+export interface QuarterHoldings { asOf: string; holdings: Holding[] }   // asOf = 분기말(periodOfReport)
+export async function loadFundQuarters(cik: string, n = 8): Promise<QuarterHoldings[]> {
+  const key = `guru-13f-history-v2:${cik}:${n}`   // v2: cusip 포함
+  const hit = await getCache<QuarterHoldings[]>(key, 12 * 3600_000)
+  if (hit && hit.length) return hit
+  const subRes = await secGet(`https://data.sec.gov/submissions/CIK${cik}.json`, isJson)
+  if (subRes.status !== 200) return []
+  const accs: { acc: string; report: string }[] = []
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sub: any = JSON.parse(subRes.text)
+    const r = sub?.filings?.recent
+    if (!r?.form) return []
+    for (let i = 0; i < r.form.length && accs.length < n; i++)
+      if (r.form[i] === '13F-HR') accs.push({ acc: r.accessionNumber[i], report: r.reportDate?.[i] || r.filingDate[i] })
+  } catch { return [] }
+  if (!accs.length) return []
+  const out: QuarterHoldings[] = []
+  for (const a of accs) {   // 순차(SEC throttle 회피) — 캐시라 콜드 1회만
+    const h = await fetchHoldings(cik, a.acc)
+    if (h.length) out.push({ asOf: a.report, holdings: h })
+    await sleep(250)
+  }
+  out.sort((x, y) => x.asOf.localeCompare(y.asOf))   // 오래된→최신
+  if (out.length) await setCache(key, out)
+  return out
+}
+
+const FUND_CACHE_KEY = 'shadow-13f-funds-v4'   // v4: cusip 파싱 추가
 export async function loadFunds(): Promise<FundData[]> {
   // L1 인메모리
   if (FUND_CACHE.data.length && Date.now() < FUND_CACHE.expiresAt) return FUND_CACHE.data
