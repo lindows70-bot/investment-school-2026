@@ -57,10 +57,12 @@ async function secGet(url: string, valid?: (t: string) => boolean): Promise<{ st
 const isJson = (t: string) => { const s = t.trimStart(); return s.startsWith('{') || s.startsWith('[') }
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
-// ── 13F 정보테이블 파싱 (네임스페이스 없는 단순 태그) ─────────────────────────────
-const pick = (b: string, t: string) => { const m = b.match(new RegExp('<' + t + '>([^<]*)</' + t + '>', 'i')); return m ? m[1].trim() : '' }
+// ── 13F 정보테이블 파싱 ───────────────────────────────────────────────────────
+// ⚠️ 네임스페이스 허용: 버핏·게이츠 등은 <infoTable>로 제출하지만 브리지워터(달리오)·히말라야(리루)는
+//    <ns1:infoTable>·<ns1:nameOfIssuer>처럼 접두사를 붙임 → (?:\w+:)? 로 둘 다 매칭(안 그러면 0개 파싱=거인 누락).
+const pick = (b: string, t: string) => { const m = b.match(new RegExp('<(?:\\w+:)?' + t + '>([^<]*)</(?:\\w+:)?' + t + '>', 'i')); return m ? m[1].trim() : '' }
 // 완전성 검증: 닫는 루트태그가 있어야 '잘리지 않은 전체 응답'(SEC throttle 시 truncated 200 방어)
-const isInfoTable = (t: string) => /<\/informationTable>/i.test(t) || (/<\/infoTable>/i.test(t) && /<nameOfIssuer>/i.test(t))
+const isInfoTable = (t: string) => /<\/(?:\w+:)?informationTable>/i.test(t) || (/<\/(?:\w+:)?infoTable>/i.test(t) && /<(?:\w+:)?nameOfIssuer>/i.test(t))
 
 async function fetchHoldings(cik: string, accDash: string): Promise<Holding[]> {
   const dir = 'https://www.sec.gov/Archives/edgar/data/' + parseInt(cik, 10) + '/' + accDash.replace(/-/g, '')
@@ -77,9 +79,11 @@ async function fetchHoldings(cik: string, accDash: string): Promise<Holding[]> {
   if (!xmlName) return []
   const docRes = await secGet(dir + '/' + xmlName, isInfoTable)
   if (docRes.status !== 200) return []
-  return docRes.text.split(/<infoTable>/i).slice(1)
+  // 발행사명 HTML 엔티티 디코드(S&amp;P → S&P, AT&amp;T → AT&T 등)
+  const decode = (s: string) => s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#3?9;|&apos;/g, "'")
+  return docRes.text.split(/<(?:\w+:)?infoTable>/i).slice(1)
     .map(b => ({
-      name: pick(b, 'nameOfIssuer'),
+      name: decode(pick(b, 'nameOfIssuer')),
       sh:   parseInt(pick(b, 'sshPrnamt').replace(/[^0-9]/g, ''), 10) || 0,
       val:  parseInt(pick(b, 'value').replace(/[^0-9]/g, ''), 10) || 0,
     }))
@@ -110,7 +114,7 @@ async function loadOneFund(f: typeof FUNDS[number]): Promise<FundData | null> {
   return { mgr: f.mgr, fund: f.fund, cur, prev, total, asOf: accs[0].dt }
 }
 
-const FUND_CACHE_KEY = 'shadow-13f-funds'
+const FUND_CACHE_KEY = 'shadow-13f-funds-v3'   // v3: 발행사명 엔티티 디코드 / v2: 네임스페이스(ns1:) 파싱 수정(달리오·리루 활성화)
 export async function loadFunds(): Promise<FundData[]> {
   // L1 인메모리
   if (FUND_CACHE.data.length && Date.now() < FUND_CACHE.expiresAt) return FUND_CACHE.data
