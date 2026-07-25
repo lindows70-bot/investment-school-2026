@@ -2,6 +2,7 @@
 // 🐳 거인의 포트폴리오 — 전설적 투자자 9인의 13F 전체 보유 리스트(거인→종목 역방향 뷰). 기본 워런 버핏(버크셔).
 import { useEffect, useState } from 'react'
 import type { GuruPortfolioResult, GuruPosition } from '@/app/api/guru-portfolio/route'
+import GuruConsensusPanel from '@/app/components/GuruConsensusPanel'
 import { TK } from '@/lib/theme'
 
 const CARD: React.CSSProperties = { background: TK.bg8, borderRadius: 14, padding: '16px 18px', border: `1px solid ${TK.border}` }
@@ -39,6 +40,9 @@ export default function GuruPortfolioPage() {
           피터 린치: &ldquo;거인을 <b>복제</b>하지 말고, 거인이 <b>왜</b> 샀는지를 생각하라.&rdquo;
         </div>
       </div>
+
+      {/* 🤝 합의 종목 — 여러 거장이 겹쳐 담은 곳(투자의 재미) */}
+      <GuruConsensusPanel />
 
       {/* 거인 셀렉터 — 이번 캐시에 로드 안 된 거인(SEC 일시 지연)은 비활성화 */}
       {funds.length > 0 && (
