@@ -85,17 +85,22 @@ export default function GuruPortfolioPage() {
               <th style={{ textAlign: 'left', padding: '4px 6px' }}>종목(발행사)</th>
               <th style={{ textAlign: 'right', padding: '4px 6px' }}>비중</th>
               <th style={{ textAlign: 'right', padding: '4px 6px' }}>평가액</th>
-              <th style={{ textAlign: 'right', padding: '4px 6px' }}>주식수</th>
+              <th title="⚠️ 거인의 실제 수익률이 아닙니다 — 13F 공시일 종가 대비 현재 종가의 등락률(그 스냅샷 이후 주가가 얼마나 움직였나). 거인의 진짜 매입단가는 13F에 없어 알 수 없습니다."
+                style={{ textAlign: 'right', padding: '4px 6px', cursor: 'help', borderBottom: `1px dotted ${TK.sub4}` }}>공시 후</th>
               <th style={{ textAlign: 'center', padding: '4px 6px' }}>전분기</th>
             </tr></thead>
             <tbody>
               {data.positions.map((p, i) => (
                 <tr key={p.name} style={{ borderTop: `1px solid ${TK.border}` }}>
                   <td style={{ padding: '6px 6px', color: TK.sub4, fontFamily: 'monospace' }}>{i + 1}</td>
-                  <td style={{ padding: '6px 6px', color: TK.slate200, fontWeight: 700 }}>{p.name}</td>
+                  <td style={{ padding: '6px 6px', color: TK.slate200, fontWeight: 700 }}>
+                    {p.name}{p.ticker && <span style={{ color: TK.sub4, fontWeight: 600, fontSize: 10.5, marginLeft: 5 }}>{p.ticker}</span>}
+                  </td>
                   <td style={{ padding: '6px 6px', textAlign: 'right', color: TK.slate200, fontWeight: 800 }}>{p.pctPort}%</td>
                   <td style={{ padding: '6px 6px', textAlign: 'right', color: TK.sub5 }}>{fmtB(p.value)}</td>
-                  <td style={{ padding: '6px 6px', textAlign: 'right', color: TK.sub4, fontSize: 11 }}>{fmtSh(p.shares)}</td>
+                  <td style={{ padding: '6px 6px', textAlign: 'right', fontWeight: 700, color: p.retSinceFiling == null ? TK.sub2 : p.retSinceFiling >= 0 ? TK.green400 : TK.red400 }}>
+                    {p.retSinceFiling == null ? '—' : `${p.retSinceFiling >= 0 ? '+' : ''}${p.retSinceFiling}%`}
+                  </td>
                   <td style={{ padding: '6px 6px', textAlign: 'center' }}>
                     <span title={p.deltaPct != null ? `전분기 대비 주식수 ${p.deltaPct > 0 ? '+' : ''}${p.deltaPct}%` : '이번 분기 신규 편입'}
                       style={{ fontSize: 10, fontWeight: 800, color: ACT[p.action].c, background: ACT[p.action].bg, borderRadius: 6, padding: '2px 7px', cursor: 'help' }}>
@@ -112,7 +117,9 @@ export default function GuruPortfolioPage() {
       <div style={{ fontSize: 10.5, color: TK.sub2, lineHeight: 1.7 }}>
         ⚠️ <b>13F는 분기 종료 후 최대 45일 뒤 공시</b>됩니다 — 거인들의 &lsquo;현재&rsquo;가 아니라 <b>과거 스냅샷</b>입니다(그 사이 이미 바뀌었을 수 있음).
         13F는 <b>미국 상장 롱 포지션만</b> 담습니다(공매도·해외주식·현금·채권 제외) — 버크셔의 애플·현금성 자산처럼 실제 자산의 일부만 보이는 점에 유의하세요.
-        발행사명만 공시돼(티커·CUSIP은 유료 데이터) 종목명으로 표시합니다. <b>거인을 맹목적으로 복제하지 말고, 그들이 본 가치를 스스로 확인하는 훈련</b>으로 쓰세요. 매수·매도 권유 아님.
+        발행사명만 공시돼(티커·CUSIP은 유료 데이터) 종목명으로 표시하며, 유명 대형주만 티커·수익률을 매핑합니다(나머지 &lsquo;—&rsquo;).
+        <b style={{ color: TK.amber400 }}>&lsquo;공시 후&rsquo;는 거인의 실제 수익률이 아닙니다</b> — 13F엔 매입단가가 없어 공시일({data?.asOf ?? '—'}) 종가 대비 <b>현재까지 주가 등락률</b>일 뿐입니다(버핏은 수십 년 전 훨씬 싼 값에 샀을 수 있음).
+        <b>거인을 맹목적으로 복제하지 말고, 그들이 본 가치를 스스로 확인하는 훈련</b>으로 쓰세요. 매수·매도 권유 아님.
       </div>
     </div>
   )
