@@ -43,6 +43,16 @@ function RelChart({ series, h = 130 }: { series: { name: string; color: string; 
   const all = reb.flatMap(s => s.r)
   const mn = Math.min(...all), mx = Math.max(...all), rg = mx - mn || 1
   const y = (v: number) => h - 14 - ((v - mn) / rg) * (h - 26)
+  // 끝점 라벨 겹침 방지 — 코인 4선처럼 종착값이 비슷하면 글자가 뭉쳐 판독이 안 된다.
+  // 위에서부터 최소 간격(10px)을 강제해 세로로 흩는다(선 위치는 그대로).
+  const labelY = new Map<string, number>()
+  {
+    const ends = reb.map(s => ({ name: s.name, y: y(s.r[s.r.length - 1]) })).sort((a, b) => a.y - b.y)
+    for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 10) ends[i].y = ends[i - 1].y + 10
+    const over = ends.length ? ends[ends.length - 1].y - (h - 3) : 0
+    if (over > 0) for (const e of ends) e.y -= over   // 아래로 밀려 잘리면 통째로 위로
+    for (const e of ends) labelY.set(e.name, e.y)
+  }
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${h}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
@@ -51,7 +61,7 @@ function RelChart({ series, h = 130 }: { series: { name: string; color: string; 
         {reb.map(s => (
           <g key={s.name}>
             <path d={s.r.map((v, i) => `${i === 0 ? 'M' : 'L'}${(i / (s.r.length - 1) * (W - 44)).toFixed(1)},${y(v).toFixed(1)}`).join(' ')} fill="none" stroke={s.color} strokeWidth={1.7} />
-            <text x={W - 42} y={y(s.r[s.r.length - 1]) + 3} fill={s.color} fontSize={9} fontWeight={700}>{(s.r[s.r.length - 1] - 100) > 0 ? '+' : ''}{(s.r[s.r.length - 1] - 100).toFixed(1)}%</text>
+            <text x={W - 42} y={(labelY.get(s.name) ?? y(s.r[s.r.length - 1])) + 3} fill={s.color} fontSize={9} fontWeight={700}>{(s.r[s.r.length - 1] - 100) > 0 ? '+' : ''}{(s.r[s.r.length - 1] - 100).toFixed(1)}%</text>
           </g>
         ))}
       </svg>
@@ -82,8 +92,15 @@ function relSvgStr(series: { name: string; color: string; data: number[] }[], h 
   const all = reb.flatMap(s => s.r)
   const mn = Math.min(...all), mx = Math.max(...all), rg = mx - mn || 1
   const y = (v: number) => h - 14 - ((v - mn) / rg) * (h - 26)
+  // 끝점 라벨 겹침 방지(화면 RelChart와 동일 규칙)
+  const labelY = new Map<string, number>()
+  const ends = reb.map(s => ({ name: s.name, y: y(s.r[s.r.length - 1]) })).sort((a, b) => a.y - b.y)
+  for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 10) ends[i].y = ends[i - 1].y + 10
+  const over = ends.length ? ends[ends.length - 1].y - (h - 3) : 0
+  if (over > 0) for (const e of ends) e.y -= over
+  for (const e of ends) labelY.set(e.name, e.y)
   const lines = reb.map(s => `<path d="${s.r.map((v, i) => `${i === 0 ? 'M' : 'L'}${(i / (s.r.length - 1) * (W - 44)).toFixed(1)},${y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="${s.color}" stroke-width="1.7"/>`
-    + `<text x="${W - 42}" y="${(y(s.r[s.r.length - 1]) + 3).toFixed(1)}" fill="${s.color}" font-size="9" font-weight="700">${(s.r[s.r.length - 1] - 100) > 0 ? '+' : ''}${(s.r[s.r.length - 1] - 100).toFixed(1)}%</text>`).join('')
+    + `<text x="${W - 42}" y="${((labelY.get(s.name) ?? y(s.r[s.r.length - 1])) + 3).toFixed(1)}" fill="${s.color}" font-size="9" font-weight="700">${(s.r[s.r.length - 1] - 100) > 0 ? '+' : ''}${(s.r[s.r.length - 1] - 100).toFixed(1)}%</text>`).join('')
   const legend = reb.map(s => `<span style="margin-right:12px"><span style="display:inline-block;width:9px;height:3px;background:${s.color};border-radius:2px;margin-right:4px;vertical-align:middle"></span>${s.name}</span>`).join('')
   return `<svg viewBox="0 0 ${W} ${h}" style="width:100%;height:auto"><line x1="0" x2="${W}" y1="${y(100).toFixed(1)}" y2="${y(100).toFixed(1)}" stroke="#d8dde3" stroke-dasharray="3 3"/>${lines}</svg><div style="font-size:9px;color:#6b7684">${legend}</div>`
 }
@@ -467,11 +484,11 @@ export default function WeeklyReportPage() {
             </div>
             <div style={{ display: 'flex', height: 10, borderRadius: 5, overflow: 'hidden', marginBottom: 4 }}>
               {m.byClass.map((b, i) => (
-                <div key={b.cls} title={`${b.cls} ${b.weight}%`} style={{ width: `${b.weight}%`, background: [TK.blue400, '#eb6834', '#1baf7a', '#eda100', TK.slate400][i % 5] }} />
+                <div key={b.cls} title={`${b.cls} ${b.weight.toFixed(1)}%`} style={{ width: `${b.weight}%`, background: [TK.blue400, '#eb6834', '#1baf7a', '#eda100', TK.slate400][i % 5] }} />
               ))}
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 9.5, color: TK.sub2, marginBottom: 10 }}>
-              {m.byClass.map((b, i) => <span key={b.cls}><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: [TK.blue400, '#eb6834', '#1baf7a', '#eda100', TK.slate400][i % 5], marginRight: 4 }} />{b.cls} {b.weight}%</span>)}
+              {m.byClass.map((b, i) => <span key={b.cls}><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: [TK.blue400, '#eb6834', '#1baf7a', '#eda100', TK.slate400][i % 5], marginRight: 4 }} />{b.cls} {b.weight.toFixed(1)}%</span>)}
             </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>

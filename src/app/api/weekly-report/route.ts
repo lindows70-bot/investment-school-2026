@@ -27,6 +27,7 @@ import { getSector } from '@/lib/schoolIndex'
 import { callGeminiJSON } from '@/lib/gemini'
 import { SECTOR_ETF, SECTOR_LIST } from '@/lib/sectorConfigs'
 import { getEtfComposition } from '@/lib/etfLookThrough'
+import { GICS_SECTOR_META } from '@/lib/gicsSectorMeta'
 import type { ScreenedStock } from '@/lib/macroPhaseScreener'
 import type { MarketCatalystResult } from '@/app/api/market-catalyst/route'
 import type { EventCalendarResult, CalEvent } from '@/app/api/event-calendar/route'
@@ -148,7 +149,7 @@ const AI_SCHEMA = {
 }
 
 async function buildCommon(base: string): Promise<WrCommon> {
-  const key = `weekly-report-common-v5:${kstDate()}`   // v5: 미10Y 스케일 자동판별(÷10 버그)·앵커 요일 표기·수급 최근일 주입·프롬프트 구체성 강화
+  const key = `weekly-report-common-v6:${kstDate()}`   // v5: 미10Y 스케일 자동판별(÷10 버그)·앵커 요일 표기·수급 최근일 주입·프롬프트 구체성 강화
   const cached = await getCache<WrCommon>(key, 6 * 3600_000)
   if (cached) return cached
 
@@ -237,7 +238,7 @@ async function buildCommon(base: string): Promise<WrCommon> {
   const jo = (v: number) => `${v > 0 ? '+' : ''}${(v / 1e4).toFixed(2)}조원`   // 억원 원자료 → 조 단위(AI가 '23037억원'으로 쓰던 것 방지)
   const facts = [
     `주간(${weekRange}): 코스피 ${kospi?.close}(${p(kospi?.weekPct)}) 코스닥 ${p(kosdaq?.weekPct)} S&P500 ${p(sp?.weekPct)} 나스닥 ${p(nasdaq?.weekPct)}`,
-    `BTC ${p(btc?.weekPct)} ETH ${p(eth?.weekPct)} 금 ${p(gold?.weekPct)} WTI ${wti?.close}$(${p(wti?.weekPct)}) 원/달러 ${fx?.close}(${p(fx?.weekPct)}) 미10Y ${us10?.close}%(${us10?.weekPct != null ? `${us10.weekPct > 0 ? '+' : ''}${us10.weekPct}bp` : '미집계'})`,
+    `BTC ${p(btc?.weekPct)} ETH ${p(eth?.weekPct)} 금 ${p(gold?.weekPct)} WTI ${wti?.close}$(${p(wti?.weekPct)}) 원/달러 ${fx?.close}(${p(fx?.weekPct)}) 미10Y ${us10?.close}%(${us10?.weekPct != null ? `${us10.weekPct > 0 ? '+' : ''}${Math.round(us10.weekPct)}bp` : '미집계'})`,
     // ⚠️ 최근일까지 줘야 한다 — 5일 누적만 주면 '금요일 외국인 −3.27조 대량 매도' 같은 주간 최대 사건을 AI가 볼 수 없다
     krFlow ? `코스피 수급: 최근일(${krFlow.lastDate}) 외국인 ${jo(krFlow.day.foreign)}·기관 ${jo(krFlow.day.institution)}·개인 ${jo(krFlow.day.personal)} / 최근 5거래일 누적 외국인 ${jo(krFlow.w5.foreign)}·기관 ${jo(krFlow.w5.institution)}·개인 ${jo(krFlow.w5.personal)}` : '수급 미집계',
     seoulRe ? `서울 아파트 주간 ${p(seoulRe.w1)}(부동산원)` : '부동산 미집계',
@@ -268,8 +269,12 @@ async function buildCommon(base: string): Promise<WrCommon> {
 1) headline: 이번 주를 규정하는 제목(15자 이내). 데이터에서 가장 큰 변화 한 가지를 잡는다.
 2) sub: 헤드라인을 뒷받침하는 2문장. 지수·수급·원자재 중 서로 다른 축을 엮어 자금 흐름을 설명한다.
 3) bullets: 자산군별 핵심 요약 5개 — tag는 [주식/원자재/암호화폐/부동산/수급] 각 1개, text는 수치 포함 1문장.
-4) strategy: 자산배분 실전 전략 5개 — title은 [현금·헤지/주식/암호화폐/부동산/매크로] 순.
-   각 1~2문장, 수치와 조건을 반드시 포함. 매수·매도 단정은 금지하고 '검토합니다·확인합니다·유의합니다' 화법을 쓴다.
+4) strategy: 자산배분 실전 전략 5개 — title은 [현금·헤지/주식/암호화폐/부동산/매크로] 순. 각 1~2문장, 수치와 조건을 반드시 포함한다.
+   ⛔ 매수·매도·비중 확대를 권하는 문장은 쓰지 마라. '소량 매수를 검토합니다'처럼 '검토'를 붙여 우회하는 것도 금지다.
+      무엇을 확인하고 어떤 기준으로 판단할지만 쓴다.
+   ⛔ 암호화폐 항목은 '포트폴리오 5% 이하 유지'가 이 앱의 공통 원칙이다. 비중 확대를 시사하는 표현을 쓰지 마라.
+   ✓ 화법은 '~을 확인합니다 / ~인지 점검합니다 / ~은 신중하게 판단합니다'.
+      '분할 접근을 유의합니다'처럼 목적어와 서술어가 어울리지 않는 문장은 쓰지 마라.
 5) checkpoints: 다음 주 체크포인트 5개 — k는 [통화정책/주식/원자재·코인/부동산/환율·금리].
    각 항목에 확인할 구체적 수치나 날짜를 넣는다.
 
@@ -472,9 +477,12 @@ async function buildMe(uid: string, name: string, selfCalendar: boolean, cookie:
   const byClass = Array.from(byClsMap.entries()).map(([cls, weight]) => ({ cls, weight: r1(weight) })).sort((a, b) => b.weight - a.weight)
 
   // 섹터 기여(⭐ 시장→내 계좌 연결)
+  // ⚠️ GICS 원문(Technology·Energy)과 ETF 테마 한글 라벨(광역 ETF(분산)…)이 섞이면 한 표에 한·영이 혼재한다.
+  //    GICS_SECTOR_META(SSOT)로 영문만 한글화하고 이미 한글인 라벨은 그대로 둔다.
+  const secKo = (s: string) => GICS_SECTOR_META[s]?.ko ?? s
   const secAgg = new Map<string, { weight: number; contrib: number; known: boolean }>()
   for (const h of holdings) {
-    const sec = h.sector ?? '미분류'
+    const sec = secKo(h.sector ?? '미분류')
     const cur = secAgg.get(sec) ?? { weight: 0, contrib: 0, known: false }
     cur.weight += h.weight
     if (h.weekContrib != null) { cur.contrib += h.weekContrib; cur.known = true }
@@ -575,7 +583,7 @@ export async function GET(req: Request) {
 
   // 캐시(개인 6h·보유 지문 무효화)
   const fp = await holdingsFingerprint(targetId)
-  const meKey = `weekly-report-me-v4:${targetId}:${kstDate()}:${fp}:${selfView ? 's' : 't'}`   // v4: 코인 임계 5/10(앱 가드 정합) + 반도체 집중도 ETF 투시(look-through) 포함
+  const meKey = `weekly-report-me-v5:${targetId}:${kstDate()}:${fp}:${selfView ? 's' : 't'}`   // v4: 코인 임계 5/10(앱 가드 정합) + 반도체 집중도 ETF 투시(look-through) 포함
   let me = await getCache<WrMe>(meKey, 6 * 3600_000)
   const common = await buildCommon(base)
   if (!me) {
