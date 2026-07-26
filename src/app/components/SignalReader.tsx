@@ -275,7 +275,8 @@ export default function SignalReader({ ticker, market, candles, tf }: {
           <div style={{ fontSize: FS.micro, color: TK.sub, lineHeight: 1.55, marginTop: 6, borderTop: `1px solid ${TK.amber500}33`, paddingTop: 5 }}>
             <b style={{ color: TK.sub2 }}>백테스트 성적</b> · 60종목·12,594봉 워크포워드(룩어헤드 없음) · 표본 323건/42종목 ·
             20봉 승률 <b style={{ color: TK.green400 }}>60.7%</b>(기준 50.1%) · 중위 초과수익 <b style={{ color: TK.green400 }}>+3.4%p</b> · 이상치 상위 10% 제거 후에도 +1.8%p 유지.
-            <br />⚠️ 2년 단일 상승장 표본 · 거래비용 미반영 · 31기법 중 선택이라 과최적화 여지가 있습니다. 수익이 상위 10%에 편중되므로 <b>손익비 관리가 전제</b>입니다.
+            <br />⚠️ <b>상승 추세 국면 전용</b> — 국면을 나눠 재검증하니 상승장에서만 edge +2.2%p(중립장 −0.7·하락장 사실상 미발생)였습니다. 하락장에서 매수에 쓰면 안 됩니다.
+            <br />⚠️ 2년 표본 · 거래비용 미반영 · 31기법 중 선택이라 과최적화 여지가 있습니다. 수익이 상위 10%에 편중되므로 <b>손익비 관리가 전제</b>입니다.
             <br />⛔ 추천 점수·선정에는 반영하지 않습니다(WHAT은 펀더멘탈, WHEN은 기술).
           </div>
         </div>
