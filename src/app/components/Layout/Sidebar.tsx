@@ -13,6 +13,7 @@ const GROUPS: NavGroup[] = [
     title: '📌 매일', color: TK.emerald500,
     items: [
       { href: '/briefing',  icon: '🎯', label: '오늘의 매매 브리핑' },
+      { href: '/weekly-report', icon: '📄', label: '주간 리포트' },
       { href: '/win-lose',  icon: '⚔️', label: '승패 해부실' },
       { href: '/signal-report', icon: '📋', label: '앱 신호 성적표' },
       { href: '/dashboard', icon: '📊', label: '대시보드' },
@@ -33,8 +34,8 @@ const GROUPS: NavGroup[] = [
       { href: '/watchlist',            icon: '⭐', label: '관심종목' },
       { href: '/analysis?tab=lynch',   icon: '🔍', label: '피터린치 분석' },
       { href: '/analysis?tab=buffett', icon: '🛡️', label: '워렌버핏 분석' },
-      { href: '/guru-portfolio',       icon: '🐳', label: '거인의 포트폴리오' },
       { href: '/valuation',            icon: '📊', label: '최일 가치분석' },
+      { href: '/guru-portfolio',       icon: '🐳', label: '거인의 포트폴리오' },
     ],
   },
   {
@@ -64,6 +65,12 @@ const GROUPS: NavGroup[] = [
       { href: '/real-estate/apt', icon: '🔍', label: '아파트 단지 리서치' },
       { href: '/real-estate/redevelopment', icon: '🏗️', label: '정비사업(재건축·재개발)' },
       { href: '/real-estate/plan2040', icon: '🏙️', label: '2040 서울플랜' },
+    ],
+  },
+  {
+    title: '💵 배당', color: TK.amber500,
+    items: [
+      { href: '/dividend', icon: '💵', label: '배당 인컴 랩' },
     ],
   },
   {

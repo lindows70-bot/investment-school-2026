@@ -35,7 +35,7 @@ export interface AiRecommendation {
   peg:              number | null
   opMargin:         number | null
   price:            number | null
-  currency:         'USD' | 'KRW'
+  currency:         string   // 'USD'|'KRW'|'EUR'|'CHF'|... (🇪🇺 유럽 메이저 접미사 통화)
   flags:            string[]
   macroFitReason:   string   // LLM 생성: 매크로 궁합
   fundamentalReason:string   // LLM 생성: 펀더멘탈 분석

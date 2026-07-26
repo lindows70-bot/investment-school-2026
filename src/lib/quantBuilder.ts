@@ -157,7 +157,7 @@ export interface QuantBuilderResult {
 
 /** 빌드 본체 — GET과 copy(POST)가 공유. base=요청 origin, cookie=인증 전달용 */
 export async function buildQuantPlan(base: string, cookie: string): Promise<QuantBuilderResult | null> {
-  const cacheKey = `quant-builder-v6:${kstDate()}`   // v6: 🧭 위성 섹터 분산(섹터당 최대 2종) / v5: 🚦 타점 신호등(timing) 상속
+  const cacheKey = `quant-builder-v7:${kstDate()}`   // v6: 🧭 위성 섹터 분산(섹터당 최대 2종) / v5: 🚦 타점 신호등(timing) 상속
   const cached = await getCache<QuantBuilderResult>(cacheKey, 12 * 3600_000)
   if (cached && !cached.warming) return cached
 

@@ -1,15 +1,29 @@
 'use client'
 // 🎯 통합 4축 추천 UI — 계절(방향)×펀더멘탈(가치)×수급(연료)×모멘텀(Fwd EPS·주가추세) 융합 + 투명 소점수
 import { useState, useEffect } from 'react'
-import type { UnifiedRecoResult, UnifiedRecoItem } from '@/app/api/unified-reco/route'
+import type { UnifiedRecoResult, UnifiedRecoItem, RegionRefItem } from '@/app/api/unified-reco/route'
+import type { CountryVolItem } from '@/lib/countryVolShared'
+import { VOL_META, volForStock } from '@/lib/countryVolShared'
 import InvestorTimeline from '@/app/components/InvestorTimeline'
 import TimingBadge from '@/app/components/TimingBadge'
 import TradePlanCard from '@/app/components/TradePlanCard'
 import { TK } from '@/lib/theme'
+import { marketFlag } from '@/lib/globalTickers'
 
 const CARD = TK.bg6, BORDER = TK.border
 const AX = { season: TK.amber500, value: TK.green500, quality: '#2dd4bf', supply: TK.blue400, momentum: TK.violet400, rotation: '#f472b6' }  // 가치/퀄리티/모멘텀/주도섹터/수급/계절 축 색
 const fmtWon = (w: number) => w >= 1e8 ? `${(w / 1e8).toFixed(1)}억원` : `${Math.round(w / 1e4)}만원`
+// 해외 접미사(.PA·.T·.HK 등)가 없는 티커 = 미국 상장 ADR → 국기가 🇺🇸로 나옴(에퀴노르·핀둬둬 등). 원래 국적을 별도 마커로 표시
+const isUsListedForeign = (ticker: string) => !/\.(PA|DE|MI|SW|L|AS|MC|CO|ST|OL|HE|HK|T|SS|SZ)$/i.test(ticker)
+// 원래 국적 마커 pill(미국 ADR로 상장된 유럽/일본/중국 기업 옆에 "원래 ○○ 기업" 표시)
+const OriginTag = ({ origin }: { origin: 'EU' | 'JP' | 'CN' }) => {
+  const label = origin === 'EU' ? '🇪🇺 유럽 기업·미국 ADR' : origin === 'JP' ? '🇯🇵 일본 기업·미국 ADR' : '🇨🇳 중국 기업·미국 ADR'
+  return <span style={{ fontSize: 9, fontWeight: 700, color: '#93c5fd', background: 'rgba(59,130,246,0.13)', border: '1px solid rgba(59,130,246,0.4)', borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{label}</span>
+}
+// ⚠️ 중국 고유 리스크 칩(ADR VIE·상장폐지·정부개입) — 교육용 캐비엇. 중국 종목 옆에 표시
+const ChinaRiskChip = () => (
+  <span title="중국 종목 고유 리스크 — 미국 ADR은 VIE 구조(실소유 아님)·미·중 갈등 상장폐지 위험, 본토 A주는 외국인 접근 제한(Stock Connect), 정부 개입·자본통제. 변동성·규제 리스크가 큰 편." style={{ fontSize: 9, fontWeight: 700, color: TK.red400, background: `${TK.red400}18`, border: `1px solid ${TK.red400}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>⚠️ 중국 리스크</span>
+)
 
 // 🎯 매수 타점 하이라이트 — 타점 신호등(green)·라쉬케(첫 눌림목)·스퀴즈(상방 분출) SSOT 재사용.
 //   ⛔ 점수·선정·정렬 불변(시각 강조만). prime=진입적기+급소 트리거·깨끗 / ready=진입적기·깨끗. 과대이격·하락 다이버전스면 제외
@@ -43,7 +57,19 @@ function MiniBar({ label, score, color, unknown }: { label: string; score: numbe
   )
 }
 
-function Item({ it, portfolioKrw }: { it: UnifiedRecoItem; portfolioKrw: number }) {
+// 🌪️ 국가 시장 변동성 칩 — 극단·높음일 때만(평온·보통은 노이즈라 생략). ⛔ 점수 미반영, 리스크 맥락만
+function CountryVolChip({ v }: { v: CountryVolItem }) {
+  if (v.verdict !== 'extreme' && v.verdict !== 'high') return null
+  const m = VOL_META[v.verdict]
+  const tip = `${v.label} 20일 실현변동성 ${v.vol20}%(자국 5년 백분위 ${v.pctile}%) · 최근 20일 중 ±3% 급변동 ${v.big3}일 · 52주 고점 대비 ${v.drawdown}%. ${m.guide}`
+  return (
+    <span title={tip} style={{ fontSize: 9.5, fontWeight: 800, color: m.color, background: `${m.color}18`, border: `1px solid ${m.color}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>
+      🌪️ {v.flag} {v.verdict === 'extreme' ? '시장 극단 변동' : '시장 변동성↑'}
+    </span>
+  )
+}
+
+function Item({ it, portfolioKrw, vol }: { it: UnifiedRecoItem; portfolioKrw: number; vol?: CountryVolItem | null }) {
   const [open, setOpen] = useState(false)
   const cc = it.combined >= 80 ? TK.green500 : it.combined >= 60 ? TK.amber500 : TK.sub
   const { tier, reason } = buyTierOf(it.timing)
@@ -63,8 +89,11 @@ function Item({ it, portfolioKrw }: { it: UnifiedRecoItem; portfolioKrw: number 
         </div>
       )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-        <span style={{ fontSize: 11 }}>{it.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
+        <span style={{ fontSize: 11 }}>{marketFlag(it.ticker, it.market === 'KR' ? 'KR' : 'US')}</span>
         <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 14 }}>{it.name}</span>
+        {(it.origin === 'EU' || it.origin === 'JP' || it.origin === 'CN') && isUsListedForeign(it.ticker) && <OriginTag origin={it.origin} />}
+        {it.origin === 'CN' && <ChinaRiskChip />}
+        {vol && <CountryVolChip v={vol} />}
         <span style={{ color: TK.sub, fontSize: 11 }}>{it.sector}</span>
         {it.peg != null && it.peg > 0 && it.peg < 1 && <span style={{ color: TK.blue400, fontSize: 10.5, fontFamily: 'monospace' }}>PEG {it.peg.toFixed(2)}</span>}
         <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'baseline', gap: 4 }}>
@@ -92,11 +121,12 @@ function Item({ it, portfolioKrw }: { it: UnifiedRecoItem; portfolioKrw: number 
         )}
         {it.badges.map(b => <span key={b} style={{ background: 'rgba(148,163,184,0.1)', color: TK.slate300, border: `1px solid ${BORDER}`, borderRadius: 6, padding: '1px 7px', fontSize: 10 }}>{b}</span>)}
       </div>
-      {/* 🚦 타점 신호등(WHEN 레이어) — 점수·순위와 무관, 진입 타이밍+ATR 손절 참고 */}
-      {it.timing && <div style={{ marginBottom: 6 }}><TimingBadge t={it.timing} market={it.market} /></div>}
-      {/* 📋 매매 플랜(1% 리스크 룰 포지션 사이저) — 신형 timing(price 포함)일 때만 표시 */}
+      {/* 🚦 타점 신호등(WHEN 레이어) — 점수·순위와 무관, 진입 타이밍+ATR 손절 참고. ticker 전달 → 🇪🇺 유럽 종목은 €·CHF 등 손절가 정확 표기 */}
+      {it.timing && <div style={{ marginBottom: 6 }}><TimingBadge t={it.timing} market={it.market} ticker={it.ticker} /></div>}
+      {/* 📋 매매 플랜(1% 리스크 룰 포지션 사이저) — 종목 통화(EUR·CHF·GBp 등)를 ₩로 환산해 수량 계산(🇪🇺 유럽 종목 포함) */}
       {it.timing && it.timing.price != null && portfolioKrw > 0 && (
-        <TradePlanCard market={it.market} timing={it.timing} portfolioKrw={portfolioKrw} />
+        <TradePlanCard market={it.market} timing={it.timing} portfolioKrw={portfolioKrw} currency={it.currency}
+          volWarn={vol && vol.verdict === 'extreme' ? { flag: vol.flag, label: vol.label, pctile: vol.pctile, big3: vol.big3, vol20: vol.vol20 } : null} />
       )}
       {/* 🔬 ETF 분산 대안 — 같은 섹터를 ETF로 분산 진입(점수·순위와 무관, 분산 선택지 병기) */}
       {it.etfAlt && (
@@ -122,6 +152,34 @@ function Item({ it, portfolioKrw }: { it: UnifiedRecoItem; portfolioKrw: number 
         </button>
       )}
       {open && it.market === 'KR' && <div style={{ marginTop: 6 }}><InvestorTimeline ticker={it.ticker} name={it.name} /></div>}
+    </div>
+  )
+}
+
+// 🌍 지역 커버리지 참고 행(순위 무관·경량) — merit 밖 한국·유럽 대표 후보
+function RefRow({ r }: { r: RegionRefItem }) {
+  return (
+    <div style={{ background: TK.bg3, borderRadius: 8, border: `1px solid ${BORDER}`, padding: '7px 10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 5 }}>
+        <span style={{ fontSize: 11 }}>{marketFlag(r.ticker, r.market === 'KR' ? 'KR' : 'US')}</span>
+        <span style={{ color: TK.slate200, fontWeight: 700, fontSize: 12.5 }}>{r.name}</span>
+        {(r.region === 'EU' || r.region === 'JP' || r.region === 'CN') && isUsListedForeign(r.ticker) && <OriginTag origin={r.region} />}
+        {r.region === 'CN' && <ChinaRiskChip />}
+        <span style={{ color: TK.sub, fontSize: 10.5 }}>{r.sector}</span>
+        {r.peg != null && r.peg > 0 && r.peg < 1 && <span style={{ color: TK.blue400, fontSize: 10, fontFamily: 'monospace' }}>PEG {r.peg.toFixed(2)}</span>}
+        <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'baseline', gap: 3 }}>
+          <span style={{ color: TK.slate300, fontWeight: 800, fontSize: 15, fontFamily: 'monospace' }}>{r.combined}</span>
+          <span style={{ color: TK.sub, fontSize: 9 }}>통합</span>
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <MiniBar label="💎 가치" score={r.valueScore} color={AX.value} />
+        <MiniBar label="🏰 퀄리티" score={r.qualityScore} color={AX.quality} />
+        <MiniBar label="📈 모멘텀" score={r.momentumScore} color={AX.momentum} />
+        <MiniBar label="🧭 주도섹터" score={r.rotationScore} color={AX.rotation} />
+        <MiniBar label={r.supplyProxy ? '💰 수급*' : '💰 수급'} score={r.supplyScore} color={AX.supply} unknown={!r.supplyKnown} />
+        <MiniBar label="🌦️ 계절" score={r.seasonScore} color={AX.season} />
+      </div>
     </div>
   )
 }
@@ -182,11 +240,35 @@ export default function UnifiedReco() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {data.items.map(it => <Item key={`${it.market}-${it.ticker}`} it={it} portfolioKrw={data.portfolioKrw} />)}
+        {data.items.map(it => <Item key={`${it.market}-${it.ticker}`} it={it} portfolioKrw={data.portfolioKrw} vol={volForStock(it.ticker, it.origin, data.volByOrigin)} />)}
       </div>
 
+      {/* 🌍 지역 커버리지(참고 · 순위 무관) — merit 밖의 한국·유럽 대표 후보 */}
+      {data.reference && data.reference.length > 0 && (
+        <div style={{ background: TK.bg6, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '13px 16px' }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: TK.slate200, marginBottom: 3 }}>🌍 지역 커버리지 <span style={{ fontSize: 10.5, color: TK.sub, fontWeight: 600 }}>— 참고 · 순위 무관</span></div>
+          <div style={{ fontSize: 10.5, color: TK.sub, lineHeight: 1.55, marginBottom: 10 }}>
+            종합 랭킹(위 {data.items.length}종)엔 못 들었지만 앱이 함께 채점·커버하는 <b>🇰🇷 한국·🇪🇺 유럽·🇯🇵 일본·🇨🇳 중국</b> 대표 후보입니다. <b>억지로 순위에 끼우지 않고</b> 참고로만 — 이 지역이 계절·수급에서 유리해지는 국면엔 위 랭킹으로 올라옵니다.
+            {data.euSeason && <> 지금 🇪🇺 <b style={{ color: TK.sub2 }}>{data.euSeason.label.split(' ')[0]}</b></>}{data.jpSeason && <> · 🇯🇵 <b style={{ color: TK.sub2 }}>{data.jpSeason.label.split(' ')[0]}</b></>}{data.cnSeason && <> · 🇨🇳 <b style={{ color: TK.sub2 }}>{data.cnSeason.label.split(' ')[0]}</b> 국면.</>}
+          </div>
+          {(['KR', 'EU', 'JP', 'CN'] as const).map(reg => {
+            const rows = data.reference!.filter(r => r.region === reg)
+            if (!rows.length) return null
+            const label = reg === 'KR' ? '🇰🇷 한국' : reg === 'EU' ? '🇪🇺 유럽' : reg === 'JP' ? '🇯🇵 일본' : '🇨🇳 중국'
+            return (
+              <div key={reg} style={{ marginBottom: reg === 'CN' ? 0 : 9 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: TK.sub2, marginBottom: 5 }}>{label} <span style={{ color: TK.sub, fontWeight: 500 }}>({rows.length}종)</span>{reg === 'CN' && <span style={{ color: TK.red400, fontWeight: 500, marginLeft: 6 }}>⚠️ ADR VIE·상장폐지·정부개입 리스크 — 참고만</span>}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  {rows.map(r => <RefRow key={r.ticker} r={r} />)}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       <div style={{ color: TK.sub8, fontSize: 10.5, lineHeight: 1.6 }}>
-        ※ 통합 점수 = 💎가치(PEG 촘촘·어닝일드 E/P·FCF수익률) + 🏰퀄리티(영업이익률·ROE 자본효율·저부채 재무안정성·이익질) + 📈모멘텀(Fwd EPS·주가추세) + 🧭주도섹터(RRG 상대강도×모멘텀 — 지금 돈이 도는 섹터) + 💰수급(연료) + 🌦️계절(매크로 우대 섹터/분류). 펀더멘탈(가치+퀄리티)이 45%로 앵커입니다. 최종 선별 종목은 ⚙️ <b>ROIC 복리기계</b>(빚까지 반영한 정밀 자본효율)·📈 <b>Fwd EPS 리비전</b>으로 심화 검증해 배지로 표시합니다. <b>수급*</b>는 미국 종목으로, 외국인/기관 실수급이 없어 MFI·내부자·13F 거인 <b>프록시</b>입니다(한국은 외인/기관/개인 실수급). PEG는 stock-info SSOT 기준. 보유 종목은 제외했습니다. 교육용 시뮬레이션이며 투자 추천이 아닙니다.
+        ※ 통합 점수 = 💎가치(PEG 촘촘·어닝일드 E/P·FCF수익률) + 🏰퀄리티(영업이익률·ROE 자본효율·저부채 재무안정성·이익질) + 📈모멘텀(Fwd EPS·주가추세) + 🧭주도섹터(RRG 상대강도×모멘텀 — 지금 돈이 도는 섹터) + 💰수급(연료) + 🌦️계절(매크로 우대 섹터/분류). 펀더멘탈(가치+퀄리티)이 45%로 앵커입니다. 최종 선별 종목은 ⚙️ <b>ROIC 복리기계</b>(빚까지 반영한 정밀 자본효율)·📈 <b>Fwd EPS 리비전</b>으로 심화 검증해 배지로 표시합니다. <b>수급*</b>는 미국·유럽·일본·중국 종목으로, 해당 거래소가 외국인/기관 일별 수급을 공시하지 않아 MFI·내부자·13F 거인 <b>프록시</b>입니다(한국만 외인/기관/개인 실수급). 프록시조차 못 구한 종목은 <b>빗금(미집계)</b>으로 표시하고 중립 처리합니다 — 잰 척하지 않습니다. PEG는 stock-info SSOT 기준. 보유 종목은 제외했습니다. 교육용 시뮬레이션이며 투자 추천이 아닙니다.
       </div>
     </div>
   )

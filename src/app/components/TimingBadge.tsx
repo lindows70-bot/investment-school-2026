@@ -27,10 +27,14 @@ export default function TimingBadge({ t, market, ticker, compact = false }: { t:
     const chop = !!(t.supply?.choppy && t.light !== 'green')
     // ⚓ 최근 5봉 내 기관평단(VWAP) 회복/이탈 = 주도권 교체 후보 — 매수/매도 판단의 맥락(오래된 크로스는 노이즈라 생략)
     const vx = t.supply?.vwapCross && t.supply.vwapCross.barsAgo <= 5 ? t.supply.vwapCross : null
-    if (!chop && !vx) return lightChip
+    // 🏅 정예 타점 — 자체 백테스트 선별 합류 조건(20봉 승률 60.7% vs 기준 50.1%). 가장 행동 가치가 커 최우선 노출
+    const pm = t.prime
+    if (!chop && !vx && !pm) return lightChip
     return (
       <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
         {lightChip}
+        {pm && <span title={`정예 타점 — ${pm.trigger === 'divergence' ? '상승 다이버전스' : '첫 눌림목'} × 정배열+구름 위. 자체 백테스트 표본 323건·42종목, 20봉 승률 60.7%(기준 50.1%). 점수 미반영·배지 전용`}
+          style={{ fontSize: 9.5, fontWeight: 900, color: TK.bg1, background: TK.amber500, border: `1px solid ${TK.amber500}`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>🏅정예 타점</span>}
         {chop && <span title={`추세 강도 약함(ADX ${t.supply!.adx}) — 방향 확신 낮아 돌파도 가짜(휩쏘) 가능, 방향 확정 후 진입`}
           style={{ fontSize: 9.5, fontWeight: 800, color: TK.slate400, background: `${TK.slate400}18`, border: `1px solid ${TK.slate400}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>⬛관망</span>}
         {vx && <span title={vx.dir === 'up' ? '기관평단(VWAP) 위로 복귀 — 주도권 교체 후보(확인 캔들·신호등과 함께)' : 'VWAP 아래로 이탈 — 본전 매도 압력 구간(주도권 교체 후보·단독 신호 아님)'}
@@ -85,10 +89,17 @@ export default function TimingBadge({ t, market, ticker, compact = false }: { t:
   return (
     <div style={{ background: s.bg, border: `1px solid ${s.bd}`, borderRadius: 8, padding: '6px 10px', fontSize: 10.5, lineHeight: 1.55 }}>
       <b style={{ color: s.c }}>{t.label}</b>
+      {t.prime && <span title={`자체 백테스트 표본 323건·42종목 · 20봉 승률 60.7%(기준 50.1%) · 중위 초과 +3.4%p. 2년 단일 상승장 표본·거래비용 미반영. 점수 미반영·배지 전용`}
+        style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 900, color: TK.bg1, background: TK.amber500, borderRadius: 5, padding: '1px 7px', whiteSpace: 'nowrap' }}>
+        🏅 정예 타점 · {t.prime.trigger === 'divergence' ? '다이버전스' : '첫 눌림목'}</span>}
       {rkChip && <span title="라쉬케 모멘텀 연쇄 — 상세는 매매 플랜에서" style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 800, color: rkChip.c, background: `${rkChip.c}18`, border: `1px solid ${rkChip.c}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{rkChip.label}</span>}
       {spChip && <span title={spChip.tip} style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 800, color: spChip.c, background: `${spChip.c}18`, border: `1px solid ${spChip.c}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{spChip.label}</span>}
       {vwChip && <span title={vwChip.tip} style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 800, color: vwChip.c, background: `${vwChip.c}18`, border: `1px solid ${vwChip.c}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{vwChip.label}</span>}
       <span style={{ color: TK.sub5 }}> — {t.guide}</span>
+      {t.prime && <div style={{ fontSize: 9.5, color: TK.amber400, marginTop: 3, lineHeight: 1.5 }}>
+        🏅 추세가 살아있는 상태에서 {t.prime.trigger === 'divergence' ? '하락 에너지 소진(상승 다이버전스)' : '되돌림 완료(첫 눌림목)'}이 겹쳤습니다 — 자체 백테스트에서 20봉 승률 60.7%(기준 50.1%)로 가장 우위였던 조합입니다.
+        {t.prime.parabolic && ' ⚠️ 직전 급등 이력이 있어 첫 눌림목이 함정일 수 있으니 분할로.'}
+      </div>}
       {t.atrStop != null && <span style={{ color: TK.violet300 }}> · 🛡 손절 참고 {fmtStop(t.atrStop)}</span>}
       {rkLine && <div style={{ color: TK.fuchsia300, marginTop: 3, fontSize: 10 }}>{rkLine}</div>}
     </div>

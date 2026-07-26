@@ -32,10 +32,13 @@ const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0,
 const yyyymmdd = () => kstDate().replace(/-/g, '')
 const NUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
 
-// 네이버 원자료 단위는 백만원 → 억원으로 환산(÷100)해 앱 전체와 단위 통일
+// ⚠️ 네이버 원자료는 '이미 억원' — 페이지가 「일자별 순매수 (단위:억원)」로 명시(2026-07-26 원천 실측).
+//   과거 ÷100(백만원 가정) 환산은 100배 축소 버그였다. 검산: 26.07.24 원값 개인 51,782·외국인 −32,683·기관 −19,514
+//   = +5.18조/−3.27조/−1.95조 → 클라우드 코워크 리포트(언론 인용) +5.20/−3.28/−1.95조와 일치.
+//   ※ 기존 검산(개인+외국인+기관+기타법인=0)은 스케일 불변이라 단위 오류를 잡지 못했다.
 const toEok = (s: string): number => {
   const v = parseFloat(s.replace(/,/g, '').replace(/[−–]/g, '-'))
-  return isFinite(v) ? Math.round(v / 100 * 10) / 10 : 0
+  return isFinite(v) ? Math.round(v * 10) / 10 : 0
 }
 
 // 한 페이지(약 10거래일) 파싱 — bizdate가 페이지의 '최신일'을 지정
@@ -78,7 +81,7 @@ async function fetchMarket(sosok: '01' | '02', pages: number): Promise<InvestorR
 
 export async function GET(req: Request) {
   const market = new URL(req.url).searchParams.get('market') === 'KOSDAQ' ? 'KOSDAQ' : 'KOSPI'
-  const cacheKey = `mkt-investor-v3:${market}:${kstDate()}`   // v3: 연기금 누적 추세(pensionCumSeries) 추가
+  const cacheKey = `mkt-investor-v4:${market}:${kstDate()}`   // v4: 단위 100배 축소 버그 수정(원자료는 이미 억원) / v3: 연기금 누적 추세
   const cached = await getCache<MarketInvestorResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

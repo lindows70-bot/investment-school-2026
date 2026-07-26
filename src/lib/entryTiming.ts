@@ -2,7 +2,7 @@
 // EMA112·224 정배열 + 일목 구름 위치 + ATR 손절선을 결정론 판정(기술차트 화면과 동일 계산).
 // ⛔ 원칙: 추천 '점수·선정·정렬'에는 절대 미반영 — 카드에 배지(정보)로만 표시. 자동매매 없음.
 import { getTechCandles, type TechCandle } from '@/lib/techChartData'
-import { calcATR, calcADX, readRaschke, computeAnchoredVWAP, computePOC, computeTTMSqueeze, detectFVG } from '@/lib/techSignals'
+import { calcATR, calcADX, readRaschke, computeAnchoredVWAP, computePOC, computeTTMSqueeze, detectFVG, readPrimeSetup, type PrimeSetup } from '@/lib/techSignals'
 
 export type TimingLight = 'green' | 'yellow' | 'red'
 /** 📊 매물·평단 지지 요약(카드용 lite) — 같은 캔들에서 추가 fetch 0.
@@ -27,9 +27,13 @@ export interface RaschkeLite {
   pullbackPct: number | null
   parabolicRun: boolean           // 급등(수직) 이력 — 첫 눌림목 함정 경고
   bearDiv: boolean                // 하락 다이버전스(신고가권 에너지 소진)
+  bullDiv: boolean                // 상승 다이버전스(바닥 반전 후보) — 정예 타점 방아쇠
   divPrevHi: number | null; divPriceHi: number | null; divRsiPrev: number | null; divRsiHi: number | null
 }
 export interface EntryTiming {
+  /** 🏅 정예 타점 — 자체 백테스트(60종목·12,594봉)로 선별한 합류 조건: 정배열+구름 위 × (상승 다이버전스 | 첫 눌림목).
+   *  표본 323건·42종목 · 20봉 승률 60.7%(기준 50.1%) · 중위 초과 +3.4%p. ⛔ 점수·선정 미반영(배지·근거 전용) */
+  prime: PrimeSetup | null
   light: TimingLight
   label: string          // 배지 문구
   guide: string          // 실행 가이드 한 줄
@@ -83,7 +87,7 @@ export function timingFromCandles(D: TechCandle[]): EntryTiming | null {
   const rk = readRaschke(D)
   const raschke: RaschkeLite | null = rk ? {
     stage: rk.stage, pullback: rk.pullback, pullbackPct: rk.pullbackPct, parabolicRun: rk.parabolicRun,
-    bearDiv: rk.bearDivergence != null,
+    bearDiv: rk.bearDivergence != null, bullDiv: rk.bullDivergence != null,
     divPrevHi: rk.bearDivergence?.prevHi ?? null, divPriceHi: rk.bearDivergence?.priceHi ?? null,
     divRsiPrev: rk.bearDivergence?.rsiAtPrev ?? null, divRsiHi: rk.bearDivergence?.rsiAtHi ?? null,
   } : null
@@ -105,8 +109,10 @@ export function timingFromCandles(D: TechCandle[]): EntryTiming | null {
     fvgSellLo: sg?.lo ?? null, fvgSellHi: sg?.hi ?? null, fvgSellDistPct: sg ? pct(sg.lo) : null,
     squeezeOn: !!sq?.on, squeezeFired: sq?.fired ?? null,
   }
+  // 🏅 정예 타점 — 백테스트 검증 합류 조건. 게이트는 신호등 green과 동일 정의(정배열+구름 위)를 그대로 넘긴다
+  const prime = readPrimeSetup(D, aligned && cloud === 'above')
   const base = {
-    aligned, cloud, atrStop, raschke, supply,
+    prime, aligned, cloud, atrStop, raschke, supply,
     price: Math.round(price * 100) / 100, cloudTop,
     atr: atr != null ? Math.round(atr * 100) / 100 : null,
   }

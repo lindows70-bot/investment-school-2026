@@ -5,32 +5,45 @@
 import { useState, useEffect } from 'react'
 import type { EntryTiming } from '@/lib/entryTiming'
 import { TK } from '@/lib/theme'
+import { curFromCode } from '@/lib/globalTickers'
 
 const BORDER = TK.border
 
-// 환율 1회 공유 캐시(카드 여러 장이 떠도 fetch 1번)
-let fxPromise: Promise<number> | null = null
-const getFx = () => fxPromise ?? (fxPromise = fetch('/api/exchange-rate').then(r => r.json()).then(j => (typeof j.rate === 'number' && j.rate > 500 ? j.rate : 1380)).catch(() => 1380))
+// 통화별 →KRW 환율 맵 1회 공유 캐시(카드 여러 장이 떠도 fetch 1번). { USD, EUR, CHF, GBP, HKD, DKK, SEK, KRW:1 }
+let fxPromise: Promise<Record<string, number>> | null = null
+const getFxMap = () => fxPromise ?? (fxPromise = fetch('/api/exchange-rate').then(r => r.json())
+  .then(j => (j && j.rates && typeof j.rates === 'object') ? j.rates as Record<string, number> : (typeof j?.rate === 'number' ? { USD: j.rate, KRW: 1 } : { USD: 1380, KRW: 1 }))
+  .catch(() => ({ USD: 1380, KRW: 1 })))
 
-export default function TradePlanCard({ market, timing, portfolioKrw }: {
-  market: string; timing: EntryTiming; portfolioKrw: number
+export default function TradePlanCard({ market, timing, portfolioKrw, currency, volWarn }: {
+  market: string; timing: EntryTiming; portfolioKrw: number; currency?: string
+  // 🌪️ 국가 시장 극단 변동 — 1%룰은 'ATR 손절가 체결'을 가정하는데 지수 갭다운엔 뚫림(개별 ATR로 못 막는 시스템 리스크)
+  volWarn?: { flag: string; label: string; pctile: number; big3: number; vol20: number } | null
 }) {
+  const cur = currency ?? (market === 'KR' ? 'KRW' : 'USD')   // 미전달 시 시장에서 유추(하위호환)
   const [open, setOpen] = useState(false)
   const [detail, setDetail] = useState(false)      // 🔬 상세 근거 펼침
   const [riskPct, setRiskPct] = useState(1)         // 1회 매매 감당 리스크(% of 포트폴리오)
-  const [fx, setFx] = useState<number | null>(market === 'KR' ? 1 : null)
+  const [fxMap, setFxMap] = useState<Record<string, number> | null>(cur === 'KRW' ? { KRW: 1 } : null)
 
-  useEffect(() => { if (market !== 'KR') getFx().then(setFx) }, [market])
+  useEffect(() => { if (cur !== 'KRW') getFxMap().then(setFxMap) }, [cur])
 
   const t = timing
   if (t.atrStop == null || t.price <= t.atrStop) return null   // 손절폭 계산 불가 시 정직 생략
 
-  const fmtP = (n: number) => market === 'KR' ? `₩${Math.round(n).toLocaleString()}` : `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+  // 종목 통화 → KRW 환율. GBp(펜스)는 GBP÷100. 로딩 중: USD만 폴백(즉시 표시), 유럽 통화는 환율 도착까지 대기
+  const rate = cur === 'KRW' ? 1
+    : !fxMap ? (cur === 'USD' ? 1380 : null)
+    : cur === 'GBp' ? (fxMap.GBP != null ? fxMap.GBP / 100 : null)
+    : (fxMap[cur] ?? (cur === 'USD' ? 1380 : null))
+  if (rate == null) return null   // 환율 로딩 중/미지원 통화 — 잠시 후 표시(정직)
+
+  const sym = curFromCode(cur)   // ₩ $ € CHF  GBp  HK$ ...
+  const fmtP = (n: number) => cur === 'KRW' ? `₩${Math.round(n).toLocaleString()}` : `${sym}${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
   const fmtW = (n: number) => n >= 1e8 ? `${Math.round(n / 1e6) / 100}억원` : `${Math.round(n / 1e4).toLocaleString()}만원`
 
   const perShareRisk = t.price - t.atrStop                     // 주당 리스크(진입가 − 손절가)
   const riskBudgetKrw = portfolioKrw * riskPct / 100           // 감당할 손실(₩)
-  const rate = fx ?? (market === 'KR' ? 1 : 1380)
   const qty = Math.floor(riskBudgetKrw / (perShareRisk * rate))
   const totalKrw = qty * t.price * rate
   const r2 = t.price + 2 * perShareRisk, r3 = t.price + 3 * perShareRisk
@@ -68,6 +81,18 @@ export default function TradePlanCard({ market, timing, portfolioKrw }: {
             <div style={{ color: v.tone, fontWeight: 900, fontSize: 13.5 }}>{v.title}</div>
             <div style={{ color: TK.slate300, fontSize: 10.5, marginTop: 3, lineHeight: 1.55 }}>{v.sub}</div>
           </div>
+
+          {/* 🌪️ 국가 시장 극단 변동 — 갭 리스크 경고. 1%룰은 손절 체결을 가정하므로 지수 갭다운 국면엔 수량을 줄여야 함 */}
+          {volWarn && (
+            <div style={{ background: '#2a1010', border: `1px solid ${TK.red400}55`, borderRadius: 9, padding: '9px 12px', marginBottom: 9 }}>
+              <div style={{ color: TK.red400, fontWeight: 800, fontSize: 11.5 }}>🌪️ {volWarn.flag} {volWarn.label} 극단 변동 — 손절이 갭에 뚫릴 수 있습니다</div>
+              <div style={{ color: '#fecaca', fontSize: 10.5, marginTop: 3, lineHeight: 1.55 }}>
+                20일 변동성 {volWarn.vol20}%(자국 5년 백분위 {volWarn.pctile}%) · 최근 20일 중 <b>{volWarn.big3}일이 ±3% 급변동</b>.
+                아래 수량은 <b>손절가에 정상 체결</b>되는 걸 가정한 값입니다. 지수가 통째로 갭다운하면 그 가격에 못 팔아 손실이 계산보다 커집니다 —
+                <b> 계산 수량의 절반 이하로, 반드시 나눠서</b> 진입하세요.
+              </div>
+            </div>
+          )}
 
           {/* 핵심 3줄 — 지금 몇 주 · 손절선 · 리스크 */}
           <div style={{ background: TK.bg3, borderRadius: 8, padding: '9px 11px', marginBottom: 8, display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 10, rowGap: 6, alignItems: 'center' }}>

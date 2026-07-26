@@ -3,11 +3,11 @@
 // 교차검증해 '가짜 반등/신호 정합/조기 청산 주의/떨어지는 칼날'을 결정론적으로 판정(AI 미사용·환각 0).
 // 기술신호는 이 화면 전용 — 통합추천·리밸런싱 점수에는 절대 미반영(앱의 펀더멘탈 우선 원칙).
 import { useState, useEffect, useMemo } from 'react'
-import { readSignals, detectLiquidity, readRaschke, computePOC, computeTTMSqueeze, computeAnchoredVWAP, readTimeCorrection, readFibRetracement, findConfluence, detectFVG, detectNecklines, readZigzagTarget, readWedge, readGapCandle, readIchimokuLines, detectStealthBars, detectElephantBar } from '@/lib/techSignals'
+import { readSignals, detectLiquidity, readRaschke, readPrimeSetup, computePOC, computeTTMSqueeze, computeAnchoredVWAP, readTimeCorrection, readFibRetracement, findConfluence, detectFVG, detectNecklines, readZigzagTarget, readWedge, readGapCandle, readIchimokuLines, detectStealthBars, detectElephantBar } from '@/lib/techSignals'
 import type { TechCandle } from '@/app/api/tech-chart/route'
 import type { SignalReportResult } from '@/app/api/signal-report/route'
 import { curSymbol, isLeveragedTicker } from '@/lib/globalTickers'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 
 const BORDER = TK.border
 
@@ -17,7 +17,7 @@ const toNum = (v: unknown): number | null => typeof v === 'number' && isFinite(v
 
 /* ── 🗺️ 추세의 여정 현재 단계 판정(순수 계산 — entryTiming SSOT와 동일 공식: EMA112·224 + 일목 구름 26봉 선행)
    251봉↑ = 정식(EMA112·224 정배열) / 130~250봉 = 약식(신생 — EMA224 미확보, 구름+EMA112로 판정. 기술차트의 강등 규칙과 동일) ── */
-type JStage = { card: 0 | 1 | 2; label: string; color: string; note: string; approx: boolean }
+type JStage = { card: 0 | 1 | 2; label: string; color: string; note: string; approx: boolean; green: boolean }
 function journeyStage(D: TechCandle[]): JStage | null {
   const N = D.length
   if (N < 130) return null   // 구름(78봉)+EMA112(112봉) 최소 요건 미달 — 정직 생략
@@ -35,16 +35,16 @@ function journeyStage(D: TechCandle[]): JStage | null {
   }
   const cur = cloudAt(N - 1)
   const A = approx   // 라벨에 약식 여부 반영
-  if (cur === 'in') return { card: 0, label: '①② 혼돈·매물대 소화 구간', color: TK.yellow500, note: '가격이 구름 속 — 아직 방향이 정해지지 않았습니다. 돌파 확인 전 관망 구간.', approx: A }
+  if (cur === 'in') return { card: 0, label: '①② 혼돈·매물대 소화 구간', color: TK.yellow500, note: '가격이 구름 속 — 아직 방향이 정해지지 않았습니다. 돌파 확인 전 관망 구간.', approx: A, green: false }
   if (cur === 'above') {
-    if (!aligned) return { card: 1, label: '③④ 전환 시도 중(구름 위·추세 미확증)', color: TK.yellow500, note: A ? '구름은 넘었지만 가격이 EMA112 아래 — 진짜 돌파(④)의 확증 대기.' : '구름은 넘었지만 장기 이평이 아직 역배열 — 진짜 돌파(④)의 확증 대기.', approx: A }
+    if (!aligned) return { card: 1, label: '③④ 전환 시도 중(구름 위·추세 미확증)', color: TK.yellow500, note: A ? '구름은 넘었지만 가격이 EMA112 아래 — 진짜 돌파(④)의 확증 대기.' : '구름은 넘었지만 장기 이평이 아직 역배열 — 진짜 돌파(④)의 확증 대기.', approx: A, green: false }
     let recent = false
     for (let k = 1; k <= 12; k++) if (cloudAt(N - 1 - k) !== 'above') { recent = true; break }
-    if (recent) return { card: 1, label: '③④ 구조 돌파 직후', color: TK.green400, note: '최근 12봉 내 구름 상단 돌파 — 여정의 전환점을 막 지났습니다.', approx: A }
-    return { card: 2, label: '⑤⑥ 추세 진행 중', color: TK.green400, note: A ? '구름 위 + EMA112 위 유지 — 추세를 존중하며 따라가는 구간.' : '정배열+구름 위 유지 — 추세를 존중하며 따라가는 구간.', approx: A }
+    if (recent) return { card: 1, label: '③④ 구조 돌파 직후', color: TK.green400, note: '최근 12봉 내 구름 상단 돌파 — 여정의 전환점을 막 지났습니다.', approx: A, green: true }
+    return { card: 2, label: '⑤⑥ 추세 진행 중', color: TK.green400, note: A ? '구름 위 + EMA112 위 유지 — 추세를 존중하며 따라가는 구간.' : '정배열+구름 위 유지 — 추세를 존중하며 따라가는 구간.', approx: A, green: true }
   }
-  if (aligned) return { card: 1, label: '④ 문 앞 — 구름 아래 눌림', color: TK.yellow500, note: A ? '가격이 EMA112 위라 추세는 살아있지만 구름 아래로 눌림 — 재돌파(④) 확인 후가 안전.' : '장기 추세(정배열)는 살아있지만 가격이 구름 아래로 눌림 — 재돌파(④) 확인 후가 안전.', approx: A }
-  return { card: 2, label: '⑤⑥의 역주행 — 추세 이탈', color: TK.red400, note: A ? '구름 아래 + EMA112 아래 — 여정을 거꾸로 내려가는 중, 신규 진입 유예.' : '역배열+구름 아래 = 최후 방어선 붕괴. 여정을 거꾸로 내려가는 중 — 신규 진입 유예.', approx: A }
+  if (aligned) return { card: 1, label: '④ 문 앞 — 구름 아래 눌림', color: TK.yellow500, note: A ? '가격이 EMA112 위라 추세는 살아있지만 구름 아래로 눌림 — 재돌파(④) 확인 후가 안전.' : '장기 추세(정배열)는 살아있지만 가격이 구름 아래로 눌림 — 재돌파(④) 확인 후가 안전.', approx: A, green: false }
+  return { card: 2, label: '⑤⑥의 역주행 — 추세 이탈', color: TK.red400, note: A ? '구름 아래 + EMA112 아래 — 여정을 거꾸로 내려가는 중, 신규 진입 유예.' : '역배열+구름 아래 = 최후 방어선 붕괴. 여정을 거꾸로 내려가는 중 — 신규 진입 유예.', approx: A, green: false }
 }
 
 export default function SignalReader({ ticker, market, candles, tf }: {
@@ -87,6 +87,9 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   const rk = useMemo(() => candles.length >= 60 ? readRaschke(candles) : null, [candles])
   // 🗺️ 추세의 여정 현재 단계 — 일봉에서만 판정(EMA112·224+구름은 일봉 기준 SSOT)
   const jStage = useMemo(() => tf === 'D' ? journeyStage(candles) : null, [candles, tf])
+  // 🏅 정예 타점 — 백테스트로 선별한 합류 조건. 일봉 전용(검증이 일봉 기준)
+  const prime = useMemo(() => (tf === 'D' && jStage?.green && candles.length >= 60)
+    ? readPrimeSetup(candles, true) : null, [candles, tf, jStage])
   // 📊 매물대 중심선(POC) — 차트 오버레이와 동일 SSOT. 판정 로직 미반영(정보만)
   const poc = useMemo(() => candles.length >= 30 ? computePOC(candles) : null, [candles])
   // 🔥 TTM Squeeze / ⚓ Anchored VWAP — 차트 오버레이와 동일 SSOT. 판정 로직 미반영(정보만)
@@ -245,6 +248,32 @@ export default function SignalReader({ ticker, market, candles, tf }: {
         <span style={{ fontSize: 13.5, fontWeight: 800, color: TK.violet300 }}>🧭 신호 판독기 — 교과서 신호 vs 펀더멘탈 교차검증</span>
         <span style={{ fontSize: 10, color: TK.sub2 }}>{tf === 'D' ? '일봉' : tf === 'W' ? '주봉' : '월봉'} 기준 · 결정론적 판정(AI 미사용)</span>
       </div>
+
+      {/* 🏅 정예 타점 — 자체 백테스트 1위 합류 조건. 최상단(가장 행동 가치 큰 정보) */}
+      {prime && (
+        <div style={{ background: `linear-gradient(120deg,${TK.amber500}22,${TK.bg3})`, border: `1px solid ${TK.amber500}88`, borderRadius: 11, padding: '11px 13px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: FS.body, fontWeight: 900, color: TK.amber400 }}>🏅 정예 타점 성립</span>
+            <span style={{ fontSize: FS.micro, fontWeight: 800, color: TK.bg1, background: TK.amber500, borderRadius: 5, padding: '1px 7px' }}>
+              {prime.trigger === 'divergence' ? `상승 다이버전스${prime.strong ? '(강)' : ''}` : `첫 눌림목${prime.pullbackPct != null ? ` ${prime.pullbackPct.toFixed(1)}%` : ''}`}
+            </span>
+            <span style={{ fontSize: FS.micro, color: TK.sub2 }}>× 정배열+구름 위</span>
+          </div>
+          <div style={{ fontSize: FS.tiny, color: TK.slate300, lineHeight: 1.6, marginTop: 5 }}>
+            구조적 상승 추세가 살아있는 상태에서 {prime.trigger === 'divergence'
+              ? <>하락 에너지가 소진되는 <b>상승 다이버전스</b>가 나왔습니다(가격 저점↓ · RSI 저점↑).</>
+              : <>추세 확립 후 <b>첫 눌림목</b>에 도달했습니다(되돌림 완료).</>} 앱이 구현한 31개 기법을 자체 백테스트해 고른 조합입니다.
+            {prime.parabolic && <><br /><b style={{ color: TK.amber500 }}>⚠️ 직전 급등 이력</b> — 수직 상승 뒤의 첫 눌림목은 함정일 수 있어 분할로 접근합니다.</>}
+            {prime.rsiAbove50 === false && <><br /><b style={{ color: TK.amber500 }}>⚠️ RSI 50 아래</b> — 매수세 장악 전이라 확인 후가 안전합니다.</>}
+          </div>
+          <div style={{ fontSize: FS.micro, color: TK.sub, lineHeight: 1.55, marginTop: 6, borderTop: `1px solid ${TK.amber500}33`, paddingTop: 5 }}>
+            <b style={{ color: TK.sub2 }}>백테스트 성적</b> · 60종목·12,594봉 워크포워드(룩어헤드 없음) · 표본 323건/42종목 ·
+            20봉 승률 <b style={{ color: TK.green400 }}>60.7%</b>(기준 50.1%) · 중위 초과수익 <b style={{ color: TK.green400 }}>+3.4%p</b> · 이상치 상위 10% 제거 후에도 +1.8%p 유지.
+            <br />⚠️ 2년 단일 상승장 표본 · 거래비용 미반영 · 31기법 중 선택이라 과최적화 여지가 있습니다. 수익이 상위 10%에 편중되므로 <b>손익비 관리가 전제</b>입니다.
+            <br />⛔ 추천 점수·선정에는 반영하지 않습니다(WHAT은 펀더멘탈, WHEN은 기술).
+          </div>
+        </div>
+      )}
 
       {/* 현재 지표 스냅샷 칩 */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>

@@ -125,6 +125,8 @@ export const curSymbol = (ticker: string, market: 'KR' | 'US'): string => {
   if (t.endsWith('.CO')) return 'DKK '
   if (t.endsWith('.ST')) return 'SEK '
   if (t.endsWith('.OL')) return 'NOK '
+  if (t.endsWith('.T')) return '¥'
+  if (/\.(SS|SZ)$/.test(t)) return 'CN¥'
   return '$'
 }
 
@@ -150,13 +152,36 @@ export const curCodeFromTicker = (ticker: string): string => {
   if (t.endsWith('.CO')) return 'DKK'
   if (t.endsWith('.ST')) return 'SEK'
   if (t.endsWith('.OL')) return 'NOK'
+  if (t.endsWith('.T')) return 'JPY'
+  if (/\.(SS|SZ)$/.test(t)) return 'CNY'
   return 'USD'
 }
 
 /** 야후 통화 코드 → 기호(리서치 등 stock-info.currency 기반 화면용 — 야후 공식 통화가 접미사 추정보다 우선) */
 export const curFromCode = (code?: string | null): string => {
-  const m: Record<string, string> = { KRW: '₩', USD: '$', EUR: '€', CHF: 'CHF ', GBP: '£', GBp: 'GBp ', HKD: 'HK$', JPY: '¥', DKK: 'DKK ', SEK: 'SEK ', NOK: 'NOK ' }
+  const m: Record<string, string> = { KRW: '₩', USD: '$', EUR: '€', CHF: 'CHF ', GBP: '£', GBp: 'GBp ', HKD: 'HK$', JPY: '¥', CNY: 'CN¥', DKK: 'DKK ', SEK: 'SEK ', NOK: 'NOK ' }
   return m[code ?? ''] ?? (code ? `${code} ` : '$')
+}
+
+/** 접미사 기반 국기 이모지(칩 표기용). KR/US 기본, 유럽 접미사는 해당국 국기(ADR·본토는 🇺🇸) */
+export const marketFlag = (ticker: string, market: 'KR' | 'US'): string => {
+  if (market === 'KR') return '🇰🇷'
+  const t = ticker.toUpperCase()
+  if (t.endsWith('.PA')) return '🇫🇷'
+  if (/\.(DE|F)$/.test(t)) return '🇩🇪'
+  if (t.endsWith('.MI')) return '🇮🇹'
+  if (t.endsWith('.SW')) return '🇨🇭'
+  if (t.endsWith('.L')) return '🇬🇧'
+  if (t.endsWith('.AS')) return '🇳🇱'
+  if (t.endsWith('.MC')) return '🇪🇸'
+  if (t.endsWith('.CO')) return '🇩🇰'
+  if (t.endsWith('.ST')) return '🇸🇪'
+  if (t.endsWith('.OL')) return '🇳🇴'
+  if (t.endsWith('.HE')) return '🇫🇮'
+  if (t.endsWith('.HK')) return '🇭🇰'
+  if (t.endsWith('.T')) return '🇯🇵'
+  if (/\.(SS|SZ)$/.test(t)) return '🇨🇳'
+  return '🇺🇸'
 }
 
 /** 접미사 기반 시장 라벨(헤더 표기용) */
@@ -175,5 +200,7 @@ export const marketLabel = (ticker: string, market: 'KR' | 'US'): string => {
   if (t.endsWith('.ST')) return '스웨덴'
   if (t.endsWith('.OL')) return '노르웨이'
   if (t.endsWith('.HE')) return '핀란드'
+  if (t.endsWith('.T')) return '일본'
+  if (/\.(SS|SZ)$/.test(t)) return '중국'
   return '미국'
 }

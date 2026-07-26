@@ -407,6 +407,36 @@ export function readRaschke(data: Ohlc[]): RaschkeRead | null {
    *차트 어디서* 일어났는지 마커로 찍기 위한 봉 인덱스. readRaschke의 barsAgo는 10~15봉 단창이라
    성숙한 눌림목에선 옛 이벤트를 못 잡음 → 여기선 lookback(기본 90봉) 앵커 탐색으로 연쇄 스토리를 복원.
    차트 전용(점수·추천 미반영). ── */
+/** 🏅 정예 타점 — 자체 백테스트로 선별한 '엑기스' 합류 조건.
+ *  구조적 상승 추세(정배열+구름 위)에서 ①모멘텀 반전(상승 다이버전스) 또는 ②추세 내 첫 눌림목이 발생한 지점.
+ *
+ *  ── 검증(2026-07-26, 표본 60종목·12,594봉·앱 실제 함수로 워크포워드·룩어헤드 없음) ──
+ *   · 표본 323건 / 42종목 분산(최다 종목 12%) / 10개월 분산
+ *   · 20봉 승률 60.7% (baseline 50.1%) · 중위 초과수익 +3.4%p
+ *   · 상위 10% 이상치 제거 후에도 초과수익 +1.8%p 유지
+ *  ⚠️ 단일 기법 1위였던 '다이버전스×green'(초과 +33%p)은 7종목·한 종목 49% 점유라 기각했다(데이터 고문).
+ *  ⚠️ 한계: 2년 단일 레짐(상승장 baseline +1.57%/20봉) · 거래비용 미반영 · 31기법 중 선택이라 과최적화 여지.
+ *     수익이 상위 10%에 편중되므로 손익비 관리가 전제다("이기면 크게" — 라쉬케).
+ *  ⛔ 점수·선정에 미반영(WHAT=펀더멘탈 원칙 유지) — 배지·근거로만 노출한다.
+ */
+export interface PrimeSetup {
+  trigger: 'divergence' | 'pullback'   // 방아쇠
+  strong: boolean                      // 다이버전스 피벗 간격 14봉 이내(가까울수록 강함)
+  pullbackPct: number | null           // 눌림목 되돌림 %(pullback일 때)
+  parabolic: boolean                   // 직전 급등 이력 — 첫 눌림목이 함정일 수 있음
+  rsiAbove50: boolean | null
+}
+/** trendOk = 구조적 상승 추세(정배열 + 구름 위 = 신호등 green). 호출부가 이미 아는 값을 넘긴다
+ *  (techSignals는 EMA·구름을 갖지 않으므로 여기서 재계산하지 않는다 — 계산 중복·불일치 방지) */
+export function readPrimeSetup(data: Ohlc[], trendOk: boolean): PrimeSetup | null {
+  if (!trendOk) return null
+  const r = readRaschke(data)
+  if (!r) return null
+  if (r.bullDivergence) return { trigger: 'divergence', strong: !!r.bullDivergence.strong, pullbackPct: null, parabolic: r.parabolicRun, rsiAbove50: r.rsiAbove50 }
+  if (r.stage === 4 && r.pullback) return { trigger: 'pullback', strong: false, pullbackPct: r.pullbackPct, parabolic: r.parabolicRun, rsiAbove50: r.rsiAbove50 }
+  return null
+}
+
 export interface RaschkeMarks {
   cci: number | null       // CCI −100 상향 탈출 봉(선행 신호탄)
   rsi50: number | null     // RSI 50 상향 돌파 봉(에너지 장악)

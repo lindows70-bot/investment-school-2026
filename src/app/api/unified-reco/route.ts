@@ -11,7 +11,8 @@ import { getMoneyFlow } from '@/lib/moneyFlow'
 import { getCanonicalFundamentals, isPegBaseEffect } from '@/lib/canonicalFundamentals'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
 import { getAnalystSignal } from '@/app/actions/getAnalystSignal'
-import { fetchMacroData, detectMacroPhase, type ScreenedStock } from '@/lib/macroPhaseScreener'
+import { fetchMacroData, detectMacroPhase, EU_TICKER_SET, JP_TICKER_SET, CN_TICKER_SET, type ScreenedStock } from '@/lib/macroPhaseScreener'
+import { computeCountryVol, type CountryVolItem } from '@/lib/countryVol'
 import { getEntryTimings, type EntryTiming } from '@/lib/entryTiming'
 import { buildEtfAltMap, type EtfAlt } from '@/lib/etfAlternative'
 import type { RotationResult, Quadrant as RotQuad } from '@/app/api/sector-rotation/route'
@@ -31,7 +32,7 @@ const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
 const W = { season: 0.15, value: 0.25, quality: 0.20, supply: 0.10, momentum: 0.20, rotation: 0.10 }
 
 export interface UnifiedRecoItem {
-  ticker: string; name: string; market: string; sector: string; industry: string | null; lynchCategory: string
+  ticker: string; name: string; market: string; currency: string; origin: 'EU' | 'KR' | 'US' | 'JP' | 'CN'; sector: string; industry: string | null; lynchCategory: string
   seasonScore: number; valueScore: number; qualityScore: number; supplyScore: number; momentumScore: number; combined: number
   fwdEpsDir: 'accel' | 'flat' | 'decline' | 'unknown'   // 📈 Fwd EPS 사이클 방향
   priceTrend: 'up' | 'side' | 'down' | 'unknown'        // 📉 최근 주가 추세
@@ -53,11 +54,24 @@ export interface UnifiedRecoItem {
   rotationScore: number            // 🧭 주도섹터 축(0~100) — RRG 쏠림점수(상대강도×모멘텀) 정규화, 미집계=50(중립)
   etfAlt: EtfAlt | null             // 🔬 ETF 분산 대안(같은 GICS 섹터 ETF) — 점수 미반영, 분산 선택지 병기만
 }
+// 🌍 지역 커버리지 참고 아이템(순위 무관·경량) — merit 12종 밖의 한국·유럽 대표 후보
+export interface RegionRefItem {
+  ticker: string; name: string; market: string; currency: string; sector: string; region: 'KR' | 'EU' | 'JP' | 'CN'
+  combined: number; seasonScore: number; valueScore: number; qualityScore: number; momentumScore: number; supplyScore: number; rotationScore: number
+  supplyKnown: boolean; supplyProxy: boolean   // 수급 미집계(중립 50)를 실측값처럼 보이지 않게 — merit 카드와 동일 정직 표기
+  peg: number | null; badges: string[]
+}
+
 export interface UnifiedRecoResult {
   weights: typeof W
   usSeason: { quadrant: Quadrant; label: string; favored: string[] }
   krSeason: { quadrant: Quadrant; label: string; favored: string[] }
+  euSeason?: { quadrant: Quadrant; label: string; favored: string[] }   // 🇪🇺 유럽 독자 계절(참고 섹션 라벨용)
+  jpSeason?: { quadrant: Quadrant; label: string; favored: string[] }   // 🇯🇵 일본 독자 계절
+  cnSeason?: { quadrant: Quadrant; label: string; favored: string[] }   // 🇨🇳 중국 독자 계절
   items: UnifiedRecoItem[]
+  reference?: RegionRefItem[]   // 🌍 지역 커버리지(참고 · 순위 무관)
+  volByOrigin?: Record<string, CountryVolItem>   // 🌪️ 국가별 시장 변동성(origin → 대표 지수) — ⛔ 점수 미반영, 배지·갭 경고 전용
   selectionRule: string
   portfolioKrw: number          // 포트폴리오 총가치(₩) — 권장 편입액 기준
   regimeMult: number            // 국면 배율(위험 국면 축소)
@@ -113,7 +127,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v35:${user.id}:${kstDate()}:${fp}`   // v35: VWAP 주도권 교체(vwapCross) 칩 / v34: ETF 소섹터 industry 정밀화
+  const cacheKey = `unified-reco-v45:${user.id}:${kstDate()}:${fp}`   // v44: 본토 A주(.SS/.SZ)는 상해종합 기준 변동성(CN_A) / v43: 🌪️ 국가 변동성 배지·갭 경고
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -143,10 +157,35 @@ export async function GET(req: Request) {
       const out = { cli: o[0], cliPrev: o[3] }; await setCache(key, out); return out
     } catch { return null }
   }
-  const [usCli, krCli] = await Promise.all([fetchCli('USALOLITOAASTSAM', 'oecd-cli-us-v1'), fetchCli('KORLOLITOAASTSAM', 'oecd-cli-kr-v1')])
+  // 🇪🇺 유로존 HICP(소비자물가) YoY — 유럽 독자 물가축(FRED 신선). 실패 시 글로벌(US) 물가로 폴백
+  const fetchEuHicp = async (): Promise<number | null> => {
+    const c = await getCache<{ v: number }>('eu-hicp-yoy-v1', 24 * 3600_000); if (c) return c.v
+    try {
+      const r = await fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=CP0000EZ19M086NEST&api_key=${process.env.FRED_API_KEY}&file_type=json&sort_order=desc&limit=2&units=pc1`, { signal: AbortSignal.timeout(10_000) })
+      if (!r.ok) return null
+      const j = await r.json(); const o = (j.observations ?? []).map((x: { value: string }) => parseFloat(x.value)).filter((v: number) => !isNaN(v))
+      if (!o.length) return null; await setCache('eu-hicp-yoy-v1', { v: o[0] }); return o[0]
+    } catch { return null }
+  }
+  const avg = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length
+  const [usCli, krCli, deCli, frCli, itCli, gbCli, jpCli, cnCli, euHicp] = await Promise.all([
+    fetchCli('USALOLITOAASTSAM', 'oecd-cli-us-v1'), fetchCli('KORLOLITOAASTSAM', 'oecd-cli-kr-v1'),
+    fetchCli('DEULOLITOAASTSAM', 'oecd-cli-de-v1'), fetchCli('FRALOLITOAASTSAM', 'oecd-cli-fr-v1'),
+    fetchCli('ITALOLITOAASTSAM', 'oecd-cli-it-v1'), fetchCli('GBRLOLITOAASTSAM', 'oecd-cli-gb-v1'),
+    fetchCli('JPNLOLITOAASTSAM', 'oecd-cli-jp-v1'), fetchCli('CHNLOLITOAASTSAM', 'oecd-cli-cn-v1'),
+    fetchEuHicp(),
+  ])
   const inf = inflationFromRegime(cpiYoY, rateDir)
   const usQuad = seasonOf(growthFromCli(usCli?.cli ?? 100, usCli?.cliPrev ?? 100), inf)
   const krQuad = seasonOf(growthFromCli(krCli?.cli ?? 100, krCli?.cliPrev ?? 100), inf)
+  // 🇪🇺 유럽 독자 계절 — 유로존 통합 CLI(EA19)는 2022 중단(stale)이라 대국(독·프·이·영) 신선 CLI 평균으로 성장축 + 유로존 HICP로 물가축. 2개국+ 있을 때만, 부족 시 usQuad 폴백
+  const euClis = [deCli, frCli, itCli, gbCli].filter((c): c is { cli: number; cliPrev: number } => c != null)
+  const euQuad = euClis.length >= 2
+    ? seasonOf(growthFromCli(avg(euClis.map(c => c.cli)), avg(euClis.map(c => c.cliPrev))), euHicp != null ? inflationFromRegime(euHicp, rateDir) : inf)
+    : usQuad
+  // 🇯🇵 일본·🇨🇳 중국 독자 계절 — 각 OECD CLI(신선)로 성장축 + 글로벌 물가축(한국 방식 — 일본 CPI 미제공·중국 CPI stale). 데이터 없으면 usQuad 폴백
+  const jpQuad = jpCli ? seasonOf(growthFromCli(jpCli.cli, jpCli.cliPrev), inf) : usQuad
+  const cnQuad = cnCli ? seasonOf(growthFromCli(cnCli.cli, cnCli.cliPrev), inf) : usQuad
 
   // ② KR 수급 — marketFlowKr 캐시(113) 6자리 조인. ★최근 5일 내 최신 캐시 폴백(장중/주말 라이브 스크랩 회피)
   //    크론이 16:00 KST 장마감 후에만 워밍 → 아침·장중·주말엔 오늘 키가 비므로 최근 영업일 캐시 재사용(누적 수급 유효)
@@ -197,7 +236,7 @@ export async function GET(req: Request) {
   let rotQuadBySector: Map<string, { q: RotQuad; score: number }> | null = null
   for (let d = 0; d < 3 && !rotQuadBySector; d++) {
     const dt = new Date(Date.now() + 9 * 3600_000 - d * 86_400_000).toISOString().slice(0, 10)
-    const rot = await getCache<RotationResult>(`sector-rotation-v11:${dt}`, 3 * 24 * 3600_000)
+    const rot = await getCache<RotationResult>(`sector-rotation-v12:${dt}`, 3 * 24 * 3600_000)
     if (rot?.items?.length) rotQuadBySector = new Map(rot.items.map(i => [i.key, { q: i.quadrant, score: i.score }]))
   }
   // Yahoo GICS 섹터명 → 로테이션 시계 키(GICS 11만 — 테마 6은 종목 중복 소속이라 매핑 제외)
@@ -230,7 +269,10 @@ export async function GET(req: Request) {
     .filter(s => !held.has(s.market === 'KR' ? code6(s.ticker) : s.ticker.toUpperCase()))
     .map(s => {
       const isKr = s.market === 'KR'
-      const quad = isKr ? krQuad : usQuad
+      const isEu = EU_TICKER_SET.has(s.ticker)   // 🇪🇺 유럽 기업(ADR 포함) — 유럽 독자 계절 quadrant 배정
+      const isJp = JP_TICKER_SET.has(s.ticker)   // 🇯🇵 일본 · 🇨🇳 중국도 각 독자 계절
+      const isCn = CN_TICKER_SET.has(s.ticker)
+      const quad = isKr ? krQuad : isEu ? euQuad : isJp ? jpQuad : isCn ? cnQuad : usQuad
       const h: Holding = { ticker: s.ticker, weight: 0, lynchCategory: s.lynchCategory as Holding['lynchCategory'], sector: s.sector ?? undefined }
       const { score: seasonScore, overridden: waveOverride } = adjustedSeason(holdingFit(h, quad), s, isKr ? krDiverge : usDiverge)
       const favored = s.sector != null && SEASON_META[quad].favored.includes(s.sector)
@@ -302,11 +344,11 @@ export async function GET(req: Request) {
     return { p, supplyScore, supplyKnown, supplyProxy, badges, combined, rotQuad: rot?.q ?? null, rotationScore }
   })
 
-  // ⑤ 원칙적 선별 — ① 품질 바닥 통합 65↑ ② 섹터당 최대 4(분산) ③ 최대 12종 ④ 한국 최소 3종 보장(국내 학생용)
-  const QUALITY_FLOOR = 65, SECTOR_CAP = 4, MAX_ITEMS = 12, MIN_KR = 3
+  // ⑤ 원칙적 선별 — ① 품질 바닥 통합 65↑ ② 섹터당 최대 4(분산) ③ 최대 12종. ⚠️ 지역 할당(한국/유럽 최소 보장) 없음 — 순수 6축 실력 랭킹(점수에서 밀리면 억지로 안 끼움). 지역 커버리지는 아래 참고 섹션으로
+  const QUALITY_FLOOR = 65, SECTOR_CAP = 4, MAX_ITEMS = 15
   const ranked = scored.sort((a, b) => b.combined - a.combined)
   const secCount = new Map<string, number>()
-  let top: typeof ranked = []
+  const top: typeof ranked = []
   for (const t of ranked) {
     if (t.combined < QUALITY_FLOOR) continue
     if (t.p.knife) continue   // 🔪 급락 추세 종목은 매수 추천 제외(떨어지는 칼날)
@@ -316,25 +358,25 @@ export async function GET(req: Request) {
     secCount.set(sec, c + 1); top.push(t)
     if (top.length >= MAX_ITEMS) break
   }
-  // ④ 한국 대표성 — KR이 MIN_KR 미만이면, 품질 바닥 넘는 최상위 KR로 최저 미국 종목을 교체(국내 학생 체감↑)
-  const krInTop = top.filter(t => t.p.isKr).length
-  if (krInTop < MIN_KR) {
-    const inTop = new Set(top.map(t => t.p.s.ticker))
-    const krAdd: typeof ranked = []
-    for (const t of ranked) {
-      if (krAdd.length >= MIN_KR - krInTop) break
-      if (!t.p.isKr || t.combined < QUALITY_FLOOR || t.p.knife || inTop.has(t.p.s.ticker)) continue
-      const sec = t.p.s.sector ?? '—'
-      if ((secCount.get(sec) ?? 0) >= SECTOR_CAP) continue
-      secCount.set(sec, (secCount.get(sec) ?? 0) + 1); krAdd.push(t)
-    }
-    if (krAdd.length > 0) {
-      const dropUs = top.filter(t => !t.p.isKr).sort((a, b) => a.combined - b.combined).slice(0, krAdd.length)
-      const dropSet = new Set(dropUs.map(t => t.p.s.ticker))
-      top = top.filter(t => !dropSet.has(t.p.s.ticker)).concat(krAdd).sort((a, b) => b.combined - a.combined)
-    }
-  }
-  const selectionRule = `통합 ${QUALITY_FLOOR}점 이상 · 🔪 급락 추세(falling knife) 제외 · 섹터당 최대 ${SECTOR_CAP}종(분산) · 한국 최소 ${MIN_KR}종 보장 · 최대 ${MAX_ITEMS}종${rotQuadBySector ? ' · 🧭 주도섹터 축 10%(자금 회전 국면)' : ''}`
+  const selectionRule = `통합 ${QUALITY_FLOOR}점 이상 · 🔪 급락 추세(falling knife) 제외 · 섹터당 최대 ${SECTOR_CAP}종(분산) · 최대 ${MAX_ITEMS}종 · 순수 실력 랭킹(지역 할당 없음)${rotQuadBySector ? ' · 🧭 주도섹터 축 10%(자금 회전 국면)' : ''}`
+
+  // 🌍 지역 커버리지(참고 · 순위 무관) — merit 12종 밖의 한국·유럽 대표 후보를 점수와 함께 노출. 억지 편입이 아니라 "앱이 이 지역도 채점·커버한다"를 보여주는 참고 리스트
+  const meritSet = new Set(top.map(t => t.p.s.ticker))
+  const buildRef = (pred: (t: typeof scored[number]) => boolean, region: 'KR' | 'EU' | 'JP' | 'CN'): RegionRefItem[] =>
+    scored.filter(t => pred(t) && !meritSet.has(t.p.s.ticker) && !t.p.knife && t.combined >= 50)
+      .sort((a, b) => b.combined - a.combined).slice(0, 5)
+      .map(t => ({
+        ticker: t.p.s.ticker, name: t.p.s.name, market: t.p.s.market, currency: t.p.s.currency ?? 'USD', sector: t.p.s.sector ?? '—', region,
+        combined: t.combined, seasonScore: t.p.seasonScore, valueScore: t.p.valueScore, qualityScore: t.p.qualityScore,
+        momentumScore: t.p.momentumScore, supplyScore: t.supplyScore, rotationScore: t.rotationScore,
+        supplyKnown: t.supplyKnown, supplyProxy: t.supplyProxy, peg: t.p.s.peg, badges: t.badges,
+      }))
+  const reference: RegionRefItem[] = [
+    ...buildRef(t => t.p.isKr, 'KR'),
+    ...buildRef(t => EU_TICKER_SET.has(t.p.s.ticker), 'EU'),
+    ...buildRef(t => JP_TICKER_SET.has(t.p.s.ticker), 'JP'),
+    ...buildRef(t => CN_TICKER_SET.has(t.p.s.ticker), 'CN'),
+  ]
 
   // ⑥ 최종 12종 심화 검증 — canonical PEG(제2원칙) + 🛡️버핏 DCF 안전마진 + 📈Fwd EPS 모멘텀 (배치 4)
   const items: UnifiedRecoItem[] = []
@@ -389,7 +431,9 @@ export async function GET(req: Request) {
       const suggestWeight = Math.round((combined >= 85 ? 2.5 : combined >= 78 ? 2.0 : 1.5) * regimeMult * 10) / 10
       const suggestWon = Math.round(portfolioKrw * suggestWeight / 100)
       return {
-        ticker: t.p.s.ticker, name: t.p.s.name, market: t.p.s.market, sector: t.p.s.sector ?? '—', industry: t.p.s.industry ?? null, lynchCategory: t.p.s.lynchCategory as string,
+        ticker: t.p.s.ticker, name: t.p.s.name, market: t.p.s.market, currency: t.p.s.currency ?? 'USD',
+        origin: (EU_TICKER_SET.has(t.p.s.ticker) ? 'EU' : JP_TICKER_SET.has(t.p.s.ticker) ? 'JP' : CN_TICKER_SET.has(t.p.s.ticker) ? 'CN' : t.p.s.market === 'KR' ? 'KR' : 'US') as 'EU' | 'KR' | 'US' | 'JP' | 'CN',
+        sector: t.p.s.sector ?? '—', industry: t.p.s.industry ?? null, lynchCategory: t.p.s.lynchCategory as string,
         seasonScore: t.p.seasonScore, valueScore, qualityScore: t.p.qualityScore, supplyScore: t.supplyScore, momentumScore: t.p.momentumScore, combined,
         fwdEpsDir: t.p.s.fwdEpsDir, priceTrend: t.p.s.priceTrend, fwdGrowthPct: t.p.s.fwdGrowthPct ?? null, priceVs200: t.p.s.priceVs200 ?? null,
         peg, opMargin: t.p.s.opMargin, fcfYield: t.p.s.fcfYield ?? null, qualityGap: t.p.s.qualityGap ?? false, psr: cf?.psr ?? null, roe, roic, roeInflated, epsRevision, suggestWeight, suggestWon,
@@ -402,6 +446,10 @@ export async function GET(req: Request) {
     items.push(...part)
   }
   items.sort((a, b) => b.combined - a.combined)
+
+  // 🌪️ 국가별 시장 변동성(6h 캐시 재사용) — ⛔ 점수·선정 절대 불변. 종목 배지·매매 플랜 갭 리스크 경고 전용
+  let volByOrigin: Record<string, CountryVolItem> | undefined
+  try { volByOrigin = (await computeCountryVol())?.byOrigin } catch { /* graceful — 배지만 생략 */ }
 
   // 🚦 타점 신호등 부착(최종 선정 후 — 점수·선정·정렬 절대 불변, WHEN 정보 레이어만)
   try {
@@ -419,7 +467,10 @@ export async function GET(req: Request) {
     weights: W,
     usSeason: { quadrant: usQuad, label: SEASON_META[usQuad].label, favored: SEASON_META[usQuad].favored },
     krSeason: { quadrant: krQuad, label: SEASON_META[krQuad].label, favored: SEASON_META[krQuad].favored },
-    items, selectionRule, portfolioKrw, regimeMult, momCrash, asOf: new Date().toISOString(),
+    euSeason: { quadrant: euQuad, label: SEASON_META[euQuad].label, favored: SEASON_META[euQuad].favored },
+    jpSeason: { quadrant: jpQuad, label: SEASON_META[jpQuad].label, favored: SEASON_META[jpQuad].favored },
+    cnSeason: { quadrant: cnQuad, label: SEASON_META[cnQuad].label, favored: SEASON_META[cnQuad].favored },
+    items, reference, volByOrigin, selectionRule, portfolioKrw, regimeMult, momCrash, asOf: new Date().toISOString(),
   }
   await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })

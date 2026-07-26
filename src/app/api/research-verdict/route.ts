@@ -47,7 +47,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ unsupported: true, reason: '개별 주식 전용 판정입니다(ETF·코인·원자재 제외).' }, { headers: { 'Cache-Control': 'no-store' } })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || url.origin
-  const cacheKey = `research-verdict-v9:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v9: sector·rotationQuad 노출(리서치 리포트 재사용) / v8: 6축
+  const cacheKey = `research-verdict-v10:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v9: sector·rotationQuad 노출(리서치 리포트 재사용) / v8: 6축
   const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -64,7 +64,7 @@ export async function GET(req: Request) {
   // 주도섹터 로테이션 캐시 — 최근 3일치를 병렬로 읽고 최신 우선 채택(기존 순차 루프와 동일 결과)
   const rotP = (async (): Promise<Map<string, { q: RotQuad; score: number }> | null> => {
     const dates = [0, 1, 2].map(dd => new Date(Date.now() + 9 * 3600_000 - dd * 86_400_000).toISOString().slice(0, 10))
-    const rots = await Promise.all(dates.map(dt => getCache<RotationResult>(`sector-rotation-v11:${dt}`, 3 * 24 * 3600_000).catch(() => null)))
+    const rots = await Promise.all(dates.map(dt => getCache<RotationResult>(`sector-rotation-v12:${dt}`, 3 * 24 * 3600_000).catch(() => null)))
     const rot = rots.find(r => r?.items?.length)
     return rot?.items?.length ? new Map(rot.items.map(i => [i.key, { q: i.quadrant, score: i.score }])) : null
   })()
@@ -150,6 +150,8 @@ export async function GET(req: Request) {
   if (pegSuspect) cons.push(`⚠️ 저PEG ${m.peg?.toFixed(2)}는 기저효과 착시(저평가 근거 불가)`)
   if (m.peg != null && m.peg > 2.2) cons.push(`💲 고PEG ${m.peg.toFixed(2)}(성장 대비 고평가)`)
   if (dcf === 'conservative') pros.push('🔮 역-DCF: 시장 기대 보수적(저평가 여지)')
+  // 🏅 정예 타점 — 자체 백테스트(60종목·12,594봉)로 선별한 합류 조건. ⛔ 점수엔 미반영(WHEN은 배지·근거만)
+  if (timing?.prime) pros.push(`🏅 정예 타점 성립(${timing.prime.trigger === 'divergence' ? '상승 다이버전스' : '첫 눌림목'} × 정배열+구름 위) — 자체 백테스트 20봉 승률 60.7%(기준 50.1%)`)
   else if (dcf === 'demanding') cons.push('🔮 역-DCF: 기대 과도(주가가 높은 성장 선반영)')
   // ⚠️ 미국은 외국인/기관/개인 일별 구분이 없음(한국거래소만 공시) → US는 '기관·내부자', KR만 '외인·기관'
   if (flow === 'INFLOW') pros.push(market === 'KR' ? '💰 스마트머니 유입(외인·기관 매집)' : '💰 스마트머니 유입(기관·내부자 매집)')

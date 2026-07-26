@@ -17,6 +17,7 @@ import { getCache, setCache } from '@/lib/appCache'
 import { isPegBaseEffect } from '@/lib/canonicalFundamentals'
 import { isFinancialCompany } from '@/lib/assetClassifier'
 import { TK } from '@/lib/theme'
+import { GLOBAL_LUXURY, EU_MAJORS, curCodeFromTicker } from '@/lib/globalTickers'
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 export type MacroPhase =
@@ -59,7 +60,7 @@ export interface ScreenedStock {
   fcfYield:     number | null   // 💵 FCF 수익률 = FCF/시총 (%) — 주가 대비 현금창출력(버블·하락장 방어력)
   qualityGap:   boolean         // ⚠️ 이익-현금 괴리(영업흑자인데 FCF 적자) = 이익의 질 의심
   price:        number | null
-  currency:     'USD' | 'KRW'
+  currency:     string        // 'USD' | 'KRW' | 'EUR' | 'CHF' | 'GBp' | 'HKD' | 'DKK' | 'SEK' 등(🇪🇺 유럽 메이저 접미사 통화)
   score:        number          // 퀀트 최종 점수 (높을수록 선호) — 통합추천 외 소비자(macro-ai-picks·season·alpha) 공용
   valueScore:   number          // 💎 가치 축 0~1 = PEG(촘촘) 50% + 어닝일드(E/P) 25% + FCF수익률 25% — 통합추천 5축
   qualityScore: number          // 🏰 퀄리티 축 0~1 = 영업이익률 30% + ROE 30% + 저부채(재무안정성) 25% + 이익질 15% — 통합추천 5축
@@ -609,6 +610,100 @@ const KR_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'035760', lynch:'slow_grower', name:'CJ ENM' },
 ]
 
+// ── 🇪🇺 유럽 메이저 유니버스 (2026-07) ────────────────────────────────────────
+// globalTickers(검색·리서치용 84종)를 추천 유니버스에 편입. market='US'(글로벌 파이프라인) — 야후 접미사 티커(MC.PA 등)가
+// quoteSummary 6모듈을 그대로 반환(82종 전수 실측 완료·제1원칙), 시장 특화 축(수급=MFI 프록시·계절=Fed 기반)은 US 경로 자동 상속.
+// LIN(린데)·SPOT(스포티파이)은 이미 US_UNIVERSE에 있어 제외(중복 방지). 통화는 curCodeFromTicker로 접미사 인식(EUR/CHF/GBp/...).
+const EU_DUP_US = new Set(['LIN', 'SPOT'])   // 이미 US_UNIVERSE 편입
+// 린치 분류: 앱 섹터 규칙 준용(에너지·소재·자동차·반도체·해운·중장비=경기순환 / 통신·유틸=저성장 / 고성장 SW·방산·비만치료=빠른성장 / 나머지 대형=대형우량)
+const EU_CYCLICAL = new Set(['SHEL','TTE','EQNR','E','RIO','GLEN.L','BAS.DE','SIKA.SW','STM','IFX.DE','MBG.DE','BMW.DE','VOW3.DE','P911.DE','STLA','MAERSK-B.CO','ATCO-A.ST','VOLV-B.ST','DHL.DE','VWS.CO'])
+const EU_SLOW     = new Set(['DTE.DE','VOD','IBE.MC','ENEL.MI'])
+const EU_FAST     = new Set(['NVO','ADYEN.AS','DSY.PA','PRX.AS','RHM.DE','SAF.PA','LDO.MI','ENR.DE'])
+const euLynch = (t: string): LynchCategory =>
+  EU_CYCLICAL.has(t) ? 'cyclical' : EU_SLOW.has(t) ? 'slow_grower' : EU_FAST.has(t) ? 'fast_grower' : 'stalwart'
+const EU_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] =
+  [...GLOBAL_LUXURY, ...EU_MAJORS]
+    .filter(g => !EU_DUP_US.has(g.ticker))
+    .map(g => ({ ticker: g.ticker, lynch: euLynch(g.ticker), name: g.name }))
+// 🇪🇺 유럽 종목 판별용(통합추천 계절축이 유럽 독자 quadrant를 배정 — ADR도 유럽 기업이라 포함). market='US'라 티커로 식별
+export const EU_TICKER_SET = new Set(EU_UNIVERSE.map(u => u.ticker))
+
+// ── 🇯🇵 일본 유니버스 (2026-07) ────────────────────────────────────────────────
+// 도쿄증권(.T) 현지 상장 — 야후 quoteSummary 6모듈 전수 실측(32종·제1원칙). market='US'(글로벌 파이프라인·JPY 통화 접미사 인식).
+// 린치 분류: 자동차·상사·소재·반도체장비·중공업=경기순환 / 통신=저성장 / 인력·성장 IT=빠른성장 / 나머지 대형=대형우량
+const JP_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
+  { ticker:'7203.T', lynch:'cyclical',    name:'도요타' },
+  { ticker:'6758.T', lynch:'stalwart',    name:'소니' },
+  { ticker:'6861.T', lynch:'stalwart',    name:'키엔스' },
+  { ticker:'8306.T', lynch:'stalwart',    name:'미쓰비시UFJ' },
+  { ticker:'8035.T', lynch:'cyclical',    name:'도쿄일렉트론' },
+  { ticker:'9984.T', lynch:'cyclical',    name:'소프트뱅크그룹' },
+  { ticker:'9983.T', lynch:'stalwart',    name:'패스트리테일링(유니클로)' },
+  { ticker:'7974.T', lynch:'stalwart',    name:'닌텐도' },
+  { ticker:'4063.T', lynch:'cyclical',    name:'신에츠화학' },
+  { ticker:'6098.T', lynch:'fast_grower', name:'리크루트' },
+  { ticker:'6501.T', lynch:'stalwart',    name:'히타치' },
+  { ticker:'8316.T', lynch:'stalwart',    name:'스미토모미쓰이' },
+  { ticker:'6367.T', lynch:'stalwart',    name:'다이킨' },
+  { ticker:'6857.T', lynch:'cyclical',    name:'어드반테스트' },
+  { ticker:'6981.T', lynch:'cyclical',    name:'무라타제작소' },
+  { ticker:'7267.T', lynch:'cyclical',    name:'혼다' },
+  { ticker:'4502.T', lynch:'stalwart',    name:'다케다제약' },
+  { ticker:'9433.T', lynch:'slow_grower', name:'KDDI' },
+  { ticker:'9432.T', lynch:'slow_grower', name:'NTT' },
+  { ticker:'8058.T', lynch:'cyclical',    name:'미쓰비시상사' },
+  { ticker:'8031.T', lynch:'cyclical',    name:'미쓰이물산' },
+  { ticker:'8001.T', lynch:'cyclical',    name:'이토추상사' },
+  { ticker:'8766.T', lynch:'stalwart',    name:'도쿄해상' },
+  { ticker:'6902.T', lynch:'cyclical',    name:'덴소' },
+  { ticker:'7741.T', lynch:'stalwart',    name:'호야' },
+  { ticker:'4568.T', lynch:'stalwart',    name:'다이이치산쿄' },
+  { ticker:'6594.T', lynch:'cyclical',    name:'니덱' },
+  { ticker:'6146.T', lynch:'cyclical',    name:'디스코' },
+  { ticker:'6301.T', lynch:'cyclical',    name:'코마츠' },
+  { ticker:'7011.T', lynch:'cyclical',    name:'미쓰비시중공업' },
+  { ticker:'6503.T', lynch:'cyclical',    name:'미쓰비시전기' },
+  { ticker:'4519.T', lynch:'stalwart',    name:'추가이제약' },
+]
+export const JP_TICKER_SET = new Set(JP_UNIVERSE.map(u => u.ticker))
+
+// ── 🇨🇳 중국(중화권) 유니버스 (2026-07) ────────────────────────────────────────
+// 홍콩(.HK) 우선 + ADR전용(PDD·LI 등) + 본토 대표(마오타이·CATL). 야후 전수 실측(30종·제1원칙). market='US'(글로벌 파이프라인).
+// ⚠️ 중국 고유 리스크(ADR VIE·상장폐지·정부개입) — UI에서 교육용 캐비엇으로 별도 표시. 린치: 은행=저성장 / 성장 플랫폼·EV=빠른성장 / 나머지 대형=대형우량
+const CN_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
+  { ticker:'0700.HK', lynch:'stalwart',    name:'텐센트' },
+  { ticker:'9988.HK', lynch:'stalwart',    name:'알리바바' },
+  { ticker:'3690.HK', lynch:'fast_grower', name:'메이투안' },
+  { ticker:'1211.HK', lynch:'fast_grower', name:'BYD(비야디)' },
+  { ticker:'1398.HK', lynch:'slow_grower', name:'공상은행(ICBC)' },
+  { ticker:'0939.HK', lynch:'slow_grower', name:'건설은행(CCB)' },
+  { ticker:'9618.HK', lynch:'stalwart',    name:'JD닷컴(징둥)' },
+  { ticker:'9999.HK', lynch:'stalwart',    name:'넷이즈' },
+  { ticker:'1810.HK', lynch:'fast_grower', name:'샤오미' },
+  { ticker:'2318.HK', lynch:'stalwart',    name:'핑안보험' },
+  { ticker:'0883.HK', lynch:'cyclical',    name:'CNOOC(중국해양석유)' },
+  { ticker:'0941.HK', lynch:'slow_grower', name:'차이나모바일' },
+  { ticker:'2020.HK', lynch:'fast_grower', name:'안타스포츠' },
+  { ticker:'1024.HK', lynch:'fast_grower', name:'콰이쇼우' },
+  { ticker:'9888.HK', lynch:'stalwart',    name:'바이두' },
+  { ticker:'2331.HK', lynch:'stalwart',    name:'리닝' },
+  { ticker:'0388.HK', lynch:'stalwart',    name:'홍콩거래소(HKEX)' },
+  { ticker:'1288.HK', lynch:'slow_grower', name:'농업은행(ABC)' },
+  { ticker:'2628.HK', lynch:'stalwart',    name:'차이나라이프' },
+  { ticker:'1928.HK', lynch:'cyclical',    name:'샌즈차이나' },
+  { ticker:'PDD',     lynch:'fast_grower', name:'핀둬둬(테무)' },
+  { ticker:'LI',      lynch:'fast_grower', name:'리오토' },
+  { ticker:'XPEV',    lynch:'fast_grower', name:'샤오펑' },
+  { ticker:'NIO',     lynch:'fast_grower', name:'니오' },
+  { ticker:'TCOM',    lynch:'fast_grower', name:'트립닷컴' },
+  { ticker:'BILI',    lynch:'fast_grower', name:'빌리빌리' },
+  { ticker:'YUMC',    lynch:'stalwart',    name:'얌차이나' },
+  { ticker:'BEKE',    lynch:'cyclical',    name:'커홀딩스(베이커)' },
+  { ticker:'600519.SS', lynch:'stalwart',    name:'구이저우마오타이' },
+  { ticker:'300750.SZ', lynch:'fast_grower', name:'CATL(닝더스다이)' },
+]
+export const CN_TICKER_SET = new Set(CN_UNIVERSE.map(u => u.ticker))
+
 // ── 매크로 국면 × 피터 린치 가중치 매트릭스 (제미나이 보강 ①) ─────────────────
 // 값이 높을수록 해당 국면에서 해당 분류에 가점
 const LYNCH_MACRO_WEIGHTS: Record<MacroPhase, Record<LynchCategory, number>> = {
@@ -787,7 +882,8 @@ async function screenOne(
     const qualityGap = !isFin && opMargin != null && opMargin > 0 && ocf != null && ocf < 0
     const fcfNegOcfOk = !isFin && fcf != null && fcf < 0 && ocf != null && ocf > 0   // FCF만 적자·OCF 흑자 = CAPEX 성장(좀비 아님)
     const price = numf(pr.regularMarketPrice) ?? numf(sd.regularMarketPrice)
-    const currency = market === 'KR' ? 'KRW' as const : 'USD' as const
+    // 통화 — KR=₩, 그 외는 접미사 인식(🇪🇺 EU=EUR/CHF/GBp/..., US ADR·본토=USD). 야후 공식 통화 우선, 없으면 접미사 추정
+    const currency = market === 'KR' ? 'KRW' : (String(pr.currency || '') || curCodeFromTicker(ticker))
     const sector = String(q?.assetProfile?.sector || q?.price?.sector || '—')   // ★ price.sector는 빈값 → assetProfile 우선(섹터 필터·LLM 정확도)
     const industry = String(q?.assetProfile?.industry || '').trim() || null      // 세부 소업종(ETF 소섹터 정밀 매핑용, 추가 fetch 0 — 이미 assetProfile fetch함)
 
@@ -855,6 +951,9 @@ export async function runScreener(phase: MacroPhase): Promise<{ us: ScreenedStoc
   const CONC = 8
   const universe = [
     ...US_UNIVERSE.map(s => ({ ...s, market: 'US' as const })),
+    ...EU_UNIVERSE.map(s => ({ ...s, market: 'US' as const })),   // 🇪🇺 유럽 메이저 — 글로벌 파이프라인(접미사 티커 그대로 야후 fetch)
+    ...JP_UNIVERSE.map(s => ({ ...s, market: 'US' as const })),   // 🇯🇵 일본(.T) — 글로벌 파이프라인
+    ...CN_UNIVERSE.map(s => ({ ...s, market: 'US' as const })),   // 🇨🇳 중국(.HK·ADR·본토) — 글로벌 파이프라인
     ...KR_UNIVERSE.map(s => ({ ...s, market: 'KR' as const })),
   ]
   for (let i = 0; i < universe.length; i += CONC) {
