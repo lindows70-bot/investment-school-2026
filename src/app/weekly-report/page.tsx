@@ -232,6 +232,7 @@ function printReport(d: WeeklyReportResult) {
  .fn{color:#8a94a2;font-size:9px;margin-top:12px;border-top:1px solid #e3e6ea;padding-top:6px}
  .pb{page-break-before:always}
  h2{break-after:avoid} .cols>div,.scb,.sgw,.sgw3{break-inside:avoid}
+ thead{display:table-header-group} tr{break-inside:avoid}   /* 페이지 넘어가도 표 헤더 반복 */
  .sub2{font-size:10px;font-weight:800;color:#12284C;margin:7px 0 3px}
  .bars{display:flex;flex-direction:column;gap:2px} .bw{display:flex;align-items:center;gap:5px;font-size:9px}
  .bl{width:52px;color:#5a6675;flex-shrink:0} .bt{flex:1;height:8px;background:#eef1f4;border-radius:3px;position:relative;display:block}
@@ -262,7 +263,6 @@ ${c.realestate ? `<h2>④ 부동산 — 부동산원 주간 아파트 매매지�
 ${cat || issueBlk ? `<h2>⑤ 이슈 분석 — 이번 주 시장 구조</h2>${issueBlk}${c.catalyst?.mood ? `<div class="mut">${c.catalyst.mood}</div>` : ''}<ul>${cat}</ul>` : ''}
 ${strat ? `<h2>⑥ 2026 투자학교 — 자산배분 실전 전략</h2><div class="sgw">${strat}</div>${checklist}` : ''}
 ${chk ? `<h2>⑦ 다음 주 체크포인트</h2><table>${chk}</table>` : ''}
-<div class="pb"></div>
 <h2>⑧ 내 포트폴리오 — ${m.name} 님</h2>
 <div><span class="kpi2">평가액 <b>${won(m.kpi.totalKrw)}</b></span><span class="kpi2">누적 손익 <b style="color:${pc(m.kpi.pnlPct)}">${p(m.kpi.pnlPct)}</b></span><span class="kpi2">이번 주 <b style="color:${pc(m.kpi.weekPct)}">${p(m.kpi.weekPct)}</b></span><span class="kpi2">종목 <b>${m.kpi.count}개</b></span></div>
 <table><tr><th>종목</th><th>자산군</th><th class="n">비중</th><th class="n">누적</th><th class="n">주간</th><th class="n">신호</th></tr>${holRows}</table>
