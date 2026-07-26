@@ -60,7 +60,12 @@ export default function TechChartPage() {
         ...h, avgPrice: acc[key] && acc[key].qty > 0 ? acc[key].cost / acc[key].qty : null,
       }))
       setHoldings(list)
-      if (list.length && !sel) load(list[0], 'D')   // 첫 보유종목 자동 표시
+      // 첫 보유종목 자동 표시 — 단 검색기 딥링크(?ticker=)로 들어왔으면 건드리지 않는다.
+      // ⚠️ 여기서 `!sel`로 판단하면 안 된다: deps []라 sel이 마운트 시점 값(null)에 고정된 stale closure이고,
+      //    이 블록은 await 뒤라 딥링크 effect보다 늦게 실행돼 선택을 덮어썼다(실제 발생 버그).
+      //    URL을 직접 읽으면 effect 순서·비동기 타이밍과 무관하게 결정된다.
+      const deepLinked = typeof window !== 'undefined' && !!new URLSearchParams(window.location.search).get('ticker')
+      if (list.length && !deepLinked) load(list[0], 'D')
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
