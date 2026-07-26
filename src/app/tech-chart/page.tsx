@@ -95,6 +95,18 @@ export default function TechChartPage() {
 
   const changeTf = (t: TF) => { setTf(t); if (sel) load(sel, t) }
 
+  // 🔎 검색기 딥링크(?ticker=&market=) — 마운트 시 1회 자동 조회. window.location 사용(Suspense 불필요)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const q = new URLSearchParams(window.location.search)
+    const t = q.get('ticker')?.trim()
+    if (!t) return
+    const m = q.get('market') === 'KR' ? 'KR' : q.get('market') === 'US' ? 'US' : (/^\d{6}$/.test(t) ? 'KR' : 'US')
+    const g = resolveGlobalTicker(t)
+    load({ ticker: g?.ticker ?? t.toUpperCase(), name: g?.name ?? t.toUpperCase(), market: m, avgPrice: null })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   return (
     <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 1180, margin: '0 auto' }}>
       {/* 헤더 */}

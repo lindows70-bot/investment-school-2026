@@ -31,6 +31,7 @@ const GROUPS: NavGroup[] = [
     items: [
       { href: '/research',             icon: '🔭', label: '종목 리서치' },
       { href: '/tech-chart',           icon: '📉', label: '기술적 차트' },
+      { href: '/tech-screener',        icon: '🔎', label: '기술적 종목 검색기' },
       { href: '/watchlist',            icon: '⭐', label: '관심종목' },
       { href: '/analysis?tab=lynch',   icon: '🔍', label: '피터린치 분석' },
       { href: '/analysis?tab=buffett', icon: '🛡️', label: '워렌버핏 분석' },
