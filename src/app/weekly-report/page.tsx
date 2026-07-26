@@ -200,9 +200,9 @@ function printReport(d: WeeklyReportResult) {
   const retBars = barsHtml((['kospi', 'kosdaq', 'sp500', 'nasdaq', 'dow', 'gold', 'silver', 'wti'] as const)
     .map(k => ix(k)).filter((i): i is WrIndex => !!i).map(i => ({ label: i.label.replace(/\s*\(.*\)/, ''), v: i.weekPct })), v => p(v))
   const wtiI = ix('wti'), goldI = ix('gold'), silverI = ix('silver')
-  const wtiBlk = wtiI && wtiI.spark.length >= 2 ? `<div class="sub2">국제유가 WTI ($/배럴) — 이번 주 촉매</div>${relSvgStr([{ name: 'WTI', color: '#c98a00', data: wtiI.spark }], 96)}` : ''
+  const wtiBlk = wtiI && wtiI.spark.length >= 2 ? `<div class="sub2">국제유가 WTI ($/배럴) — 이번 주 촉매</div>${relSvgStr([{ name: 'WTI', color: '#c98a00', data: wtiI.spark }], 96)}<div class="mut">최근 종가 ${num(wtiI.close)}$ · <b style="color:${pc(wtiI.weekPct)}">주간 ${p(wtiI.weekPct)}</b> · 차트 끝 숫자는 최근 ${wtiI.spark.length}거래일 누적</div>` : ''
   const gsBlk = goldI && silverI && goldI.spark.length >= 2
-    ? `<h2>✦ 안전자산 — 금 · 은</h2><div class="cols"><div>${relSvgStr([{ name: '금', color: '#c98a00', data: goldI.spark }, { name: '은', color: '#7a8fa3', data: silverI.spark }], 100)}</div><div style="font-size:10px">금 <b style="color:${pc(goldI.weekPct)}">${p(goldI.weekPct)}</b>(${num(goldI.close)}$) · 은 <b style="color:${pc(silverI.weekPct)}">${p(silverI.weekPct)}</b>(${num(silverI.close)}$).<div class="mut" style="margin-top:4px">은은 산업 수요가 겹쳐 금보다 탄력이 큰 편입니다. 주식 급락기 헤지 역할을 확인하는 축입니다.</div></div></div>` : ''
+    ? `<h2>✦ 안전자산 — 금 · 은</h2><div class="cols"><div>${relSvgStr([{ name: '금', color: '#c98a00', data: goldI.spark }, { name: '은', color: '#7a8fa3', data: silverI.spark }], 100)}</div><div style="font-size:10px"><b>주간</b> 금 <b style="color:${pc(goldI.weekPct)}">${p(goldI.weekPct)}</b>(${num(goldI.close)}$) · 은 <b style="color:${pc(silverI.weekPct)}">${p(silverI.weekPct)}</b>(${num(silverI.close)}$).<div class="mut" style="margin-top:4px">※ 왼쪽 차트의 끝 숫자는 최근 ${goldI.spark.length}거래일 누적이라 주간 등락과 부호가 다를 수 있습니다.<br />은은 산업 수요가 겹쳐 금보다 탄력이 큰 편입니다. 주식 급락기 헤지 역할을 확인하는 축입니다.</div></div></div>` : ''
   const reRankBlk = c.reRank?.length ? `<div class="sub2">지역별 주간 변동 — 강세 · 약세</div>${barsHtml(c.reRank.map(r => ({ label: r.name, v: r.w1 })), v => p(v))}` : ''
   const reRentBlk = c.reRent?.length ? `<div class="sub2">전월세 전환율 — 전세의 ‘월세화’ 축</div><table><tr><th>지역</th><th class="n">전환율</th><th class="n">주담대 대비</th></tr>${c.reRent.map(r => `<tr><td>${r.name}</td><td class="n">${r.conv.toFixed(2)}%</td><td class="n" style="color:${pc(r.spread)}">${r.spread > 0 ? '+' : ''}${r.spread.toFixed(2)}%p</td></tr>`).join('')}</table>` : ''
   const issueBlk = (ai?.issue?.length ?? 0) > 0 ? `<div class="sgw3">${ai!.issue.map((q, i) => `<div class="sg" style="border-left-color:${['#c02b2b', '#B8860B', '#12284C'][i % 3]}"><div class="st">${['①', '②', '③'][i] ?? ''} ${q.k}</div><p>${q.text}</p></div>`).join('')}</div>` : ''
@@ -210,7 +210,9 @@ function printReport(d: WeeklyReportResult) {
 
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>2026투자학교_주간리포트_${m.name}_${dateStr}</title>
 <style>
- @page{margin:11mm 12mm} body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;color:#16202c;font-size:10.5px;line-height:1.5;margin:0}
+ @page{margin:11mm 12mm}
+ *{-webkit-print-color-adjust:exact;print-color-adjust:exact}   /* 막대·배지 배경색이 인쇄에서 빠지는 것 방지 */
+ body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;color:#16202c;font-size:10.5px;line-height:1.5;margin:0}
  .mast{border-bottom:3px solid #12284C;padding-bottom:8px;margin-bottom:10px}
  .brand{font-size:10px;font-weight:800;color:#B8860B;letter-spacing:1.5px} h1{font-size:19px;color:#12284C;margin:1px 0}
  .who{display:inline-block;font-size:10.5px;font-weight:800;color:#12284C;background:#f6efdc;border:1px solid #d9c48a;border-radius:999px;padding:2px 12px;margin-top:4px}
@@ -229,6 +231,7 @@ function printReport(d: WeeklyReportResult) {
  .kpi2{display:inline-block;border:1px solid #e3e6ea;border-radius:9px;padding:6px 12px;margin:3px 5px 3px 0} .kpi2 b{font-size:13px}
  .fn{color:#8a94a2;font-size:8.6px;margin-top:12px;border-top:1px solid #e3e6ea;padding-top:6px}
  .pb{page-break-before:always}
+ h2{break-after:avoid} .cols>div,.scb,.sgw,.sgw3{break-inside:avoid}
  .sub2{font-size:10px;font-weight:800;color:#12284C;margin:7px 0 3px}
  .bars{display:flex;flex-direction:column;gap:2px} .bw{display:flex;align-items:center;gap:5px;font-size:9px}
  .bl{width:52px;color:#5a6675;flex-shrink:0} .bt{flex:1;height:8px;background:#eef1f4;border-radius:3px;position:relative;display:block}
@@ -253,7 +256,6 @@ ${bullets ? `<h2>✦ 이번 주 핵심 요약</h2><ul>${bullets}</ul>` : ''}
 ${gsBlk}
 <h2>✦ 자산군 스코어보드</h2>
 <table class="scb"><tr>${scb}${reTd}${bondTd}</tr></table>
-<div class="pb"></div>
 <h2>③ 암호화폐</h2>
 <div class="cols"><div>${coRel}</div><div><table><tr><th>코인</th><th class="n">가격</th><th class="n">주간</th></tr>${coins}</table></div></div>
 ${c.realestate ? `<h2>④ 부동산 — 부동산원 주간 아파트 매매지수</h2><div>${c.realestate.map(r => `<span class="kpi2">${r.name} <b style="color:${pc(r.w1)}">${p(r.w1)}</b> <span class="mut">4주 ${p(r.w4)}</span></span>`).join('')}</div><div class="cols"><div>${reRankBlk}</div><div>${reRentBlk}</div></div>` : ''}
@@ -458,7 +460,7 @@ export default function WeeklyReportPage() {
                 국제유가 WTI ($/배럴) <span style={{ fontWeight: 600, color: TK.sub2 }}>— 이번 주 촉매</span>
               </div>
               <RelChart h={104} series={[{ name: 'WTI', color: '#eda100', data: wtiIx.spark }]} />
-              <div style={{ fontSize: 9, color: TK.sub8 }}>최근 종가 {num(wtiIx.close)}$ · 주간 {pct(wtiIx.weekPct)}</div>
+              <div style={{ fontSize: 9, color: TK.sub8 }}>최근 종가 {num(wtiIx.close)}$ · <b style={{ color: pcol(wtiIx.weekPct) }}>주간 {pct(wtiIx.weekPct)}</b> · 차트 끝 숫자는 최근 {wtiIx.spark.length}거래일 누적</div>
             </div>
           )}
         </div>
@@ -470,7 +472,8 @@ export default function WeeklyReportPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px,3fr) minmax(200px,2fr)', gap: 14 }}>
             <RelChart h={110} series={[{ name: '금', color: '#eda100', data: goldIx.spark }, { name: '은', color: TK.slate400, data: silverIx.spark }]} />
             <div style={{ fontSize: 10.5, color: TK.slate300, lineHeight: 1.65 }}>
-              금 <b style={{ color: pcol(goldIx.weekPct) }}>{pct(goldIx.weekPct)}</b>({num(goldIx.close)}$) · 은 <b style={{ color: pcol(silverIx.weekPct) }}>{pct(silverIx.weekPct)}</b>({num(silverIx.close)}$).
+              <b style={{ color: TK.slate200 }}>주간</b> 금 <b style={{ color: pcol(goldIx.weekPct) }}>{pct(goldIx.weekPct)}</b>({num(goldIx.close)}$) · 은 <b style={{ color: pcol(silverIx.weekPct) }}>{pct(silverIx.weekPct)}</b>({num(silverIx.close)}$).
+              <div style={{ fontSize: 9, color: TK.sub8, marginTop: 2 }}>※ 왼쪽 차트의 끝 숫자는 최근 {goldIx.spark.length}거래일 누적이라 주간 등락과 부호가 다를 수 있습니다.</div>
               <div style={{ fontSize: 9.5, color: TK.sub2, marginTop: 5 }}>은은 산업 수요가 겹쳐 금보다 탄력이 큰 편입니다. 주식 급락기에 포트폴리오 헤지 역할을 하는지 확인하는 축입니다.</div>
             </div>
           </div>

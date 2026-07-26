@@ -155,7 +155,7 @@ const AI_SCHEMA = {
 }
 
 async function buildCommon(base: string): Promise<WrCommon> {
-  const key = `weekly-report-common-v9:${kstDate()}`   // v5: 미10Y 스케일 자동판별(÷10 버그)·앵커 요일 표기·수급 최근일 주입·프롬프트 구체성 강화
+  const key = `weekly-report-common-v10:${kstDate()}`   // v5: 미10Y 스케일 자동판별(÷10 버그)·앵커 요일 표기·수급 최근일 주입·프롬프트 구체성 강화
   const cached = await getCache<WrCommon>(key, 6 * 3600_000)
   if (cached) return cached
 
@@ -298,8 +298,10 @@ async function buildCommon(base: string): Promise<WrCommon> {
   //    정상 등락에도 털려 나가는 위험한 조언이다. 프롬프트로 막아도 모델이 뒤집은 전력이 있어
   //    항목 단위로 검사해 해당 항목만 결정론 폴백 문장으로 교체한다(나머지 좋은 문장은 살린다).
   const BAD_ADVICE = /손절\s*(폭|선)?\s*(을|를)?\s*(좁|축소|줄)/
+  //    + 수치가 하나도 없는 항목도 교체한다 — '변동성이 큰 장세에서 현금 비중을 유지'처럼
+  //      데이터를 인용하지 않은 문장은 리포트의 값어치가 없다(프롬프트로 요구해도 빠지는 항목이 있다).
   const sanitize = (list: { title: string; text: string }[] | undefined) =>
-    (list ?? []).map(it => BAD_ADVICE.test(it.text)
+    (list ?? []).map(it => (BAD_ADVICE.test(it.text) || !/\d/.test(it.text))
       ? { ...it, text: fbStrategy.find(f => f.title === it.title)?.text ?? it.text }
       : it)
 
@@ -334,7 +336,8 @@ async function buildCommon(base: string): Promise<WrCommon> {
 2) sub: 헤드라인을 뒷받침하는 2문장. 지수·수급·원자재 중 서로 다른 축을 엮어 자금 흐름을 설명한다.
 3) bullets: 자산군별 핵심 요약 5개 — tag는 [주식/원자재/암호화폐/부동산/수급] 각 1개, text는 수치 포함 1문장.
 4) issue: 이번 주 시장을 '왜 이렇게 움직였나'로 구조 분해한 3개 — k는 [촉매/증폭/자금 흐름] 순.
-   촉매 = 이번 주 변화를 일으킨 방아쇠(가장 큰 등락을 낸 지표) / 증폭 = 그 충격을 키운 요인(변동성·수급·이슈)
+   촉매 = 이번 주 변화를 일으킨 방아쇠. **[실측 데이터] 중 절대값이 가장 큰 등락을 낸 지표를 우선 고르고,
+          headline이 지목한 사건과 반드시 같은 것을 가리켜야 한다**(헤드라인은 유가인데 촉매는 실적 일정, 같은 어긋남 금지) / 증폭 = 그 충격을 키운 요인(변동성·수급·이슈)
    / 자금 흐름 = 결과적으로 돈이 어디서 어디로 갔는지(위험자산 ↔ 안전자산).
    각 1~2문장, 수치를 포함하고 셋이 하나의 인과로 이어져야 한다.
 
