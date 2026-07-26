@@ -149,7 +149,7 @@ const AI_SCHEMA = {
 }
 
 async function buildCommon(base: string): Promise<WrCommon> {
-  const key = `weekly-report-common-v7:${kstDate()}`   // v5: 미10Y 스케일 자동판별(÷10 버그)·앵커 요일 표기·수급 최근일 주입·프롬프트 구체성 강화
+  const key = `weekly-report-common-v8:${kstDate()}`   // v5: 미10Y 스케일 자동판별(÷10 버그)·앵커 요일 표기·수급 최근일 주입·프롬프트 구체성 강화
   const cached = await getCache<WrCommon>(key, 6 * 3600_000)
   if (cached) return cached
 
@@ -245,7 +245,27 @@ async function buildCommon(base: string): Promise<WrCommon> {
     macro ? `매크로: ${macro.label}·기준금리 ${macro.fedRate}%·CPI ${macro.cpiYoY}%·다음 FOMC ${macro.nextFomc ?? '미정'}` : '',
     extremeStr ? `변동성 극단 시장: ${vol.filter(v => v.verdict === 'extreme').map(v => `${v.label} 20일 변동성 ${v.vol20}%(자국 5년 백분위 ${v.pctile}%)`).join(', ')}` : '',
     catalyst?.items?.length ? `이슈: ${catalyst.items.map(i => i.title).join(' / ')}` : '',
+    // ⚠️ 국면만 주고 대응 원칙을 안 주면 모델이 '손절폭을 좁힌다'처럼 방향을 뒤집는다(실제 발생).
+    //    화면 극단 변동 배너와 같은 문구를 원칙으로 함께 주입한다.
+    extremeStr ? '[대응 원칙] 극단 변동 국면에서는 손절이 갭에 뚫릴 수 있으므로 손절폭을 좁히지 말고 넓게 잡는다. 신규 진입은 수량을 줄이고 분할로 나눈다.' : '',
   ].filter(Boolean).join('\n')
+
+  const fbStrategy: { title: string; text: string }[] = [
+    { title: '현금·헤지', text: extremeStr ? `${extremeStr} 변동성이 자국 5년 기준 최상단이라, 레버리지를 줄이고 현금 비중을 확보해 두는 편이 안전합니다.` : `금 ${p(gold?.weekPct)} 흐름을 참고해 현금·안전자산 비중을 점검합니다.` },
+    { title: '주식', text: `코스피 ${p(kospi?.weekPct)}·나스닥 ${p(nasdaq?.weekPct)} 구간입니다. 신규 진입은 계산 수량의 절반 이하로 나누고 손절선을 먼저 정한 뒤 접근합니다.` },
+    { title: '암호화폐', text: `비트코인 ${p(btc?.weekPct)} 구간이며, 포트폴리오의 5% 이하 원칙을 유지하고 레버리지는 청산 위험을 감안해 피합니다.` },
+    { title: '부동산', text: seoulRe ? `서울 아파트가 주간 ${p(seoulRe.w1)}입니다. 정책·대출 규제 변화가 주간 지수보다 먼저 움직이므로 그쪽을 확인합니다.` : '정책·대출 규제 변화를 먼저 확인합니다.' },
+    { title: '매크로', text: macro ? `${macro.label} 국면이고 기준금리 ${macro.fedRate}%·CPI ${macro.cpiYoY}%입니다. 다음 FOMC(${macro.nextFomc ?? '일정 확인'}) 전까지 포지션 확대는 신중하게 판단합니다.` : `미 10년물 ${us10?.close ?? '—'}% 방향을 확인한 뒤 비중을 정합니다.` },
+  ]
+
+  // ⛔ 잘못된 조언 차단(확률에 맡길 수 없는 것) — 극단 변동 국면에서 '손절폭을 좁힌다'는
+  //    정상 등락에도 털려 나가는 위험한 조언이다. 프롬프트로 막아도 모델이 뒤집은 전력이 있어
+  //    항목 단위로 검사해 해당 항목만 결정론 폴백 문장으로 교체한다(나머지 좋은 문장은 살린다).
+  const BAD_ADVICE = /손절\s*(폭|선)?\s*(을|를)?\s*(좁|축소|줄)/
+  const sanitize = (list: { title: string; text: string }[] | undefined) =>
+    (list ?? []).map(it => BAD_ADVICE.test(it.text)
+      ? { ...it, text: fbStrategy.find(f => f.title === it.title)?.text ?? it.text }
+      : it)
 
   let ai: WrAi | null = null
   try {
@@ -255,7 +275,8 @@ async function buildCommon(base: string): Promise<WrCommon> {
 ⛔ 절대 규칙(어기면 실패)
 - 데이터에 없는 숫자·사건·기업명을 창작하지 마라. 모든 수치는 데이터 그대로.
 - 문장은 전부 '~합니다/~입니다' 존댓말. 명령형('점검하라'·'주시하라')과 평서체('하락했다')는 금지.
-- 큰 금액은 조 단위로 쓴다(억원 표기 금지).
+- 큰 금액은 조 단위로 쓴다. '3조 2700억원'처럼 조와 억을 섞지 말고 '3.27조원'으로 쓴다(리포트의 표와 표기를 맞춰야 한다).
+- 변동성이 극단인 국면에서 '손절폭을 좁힌다'고 쓰지 마라. 정상 등락에도 털려 나간다 — 넓히고 수량을 줄이는 것이 원칙이다.
 
 ✍️ 작성 원칙(가장 중요 — 이게 리포트의 값어치다)
 - 모든 문장에 데이터의 실제 수치를 최소 하나 인용한다. 수치 없는 일반론은 실패다.
@@ -282,12 +303,16 @@ async function buildCommon(base: string): Promise<WrCommon> {
    ⛔ 암호화폐 항목은 '포트폴리오 5% 이하 유지'가 이 앱의 공통 원칙이다. 비중 확대를 시사하는 표현을 쓰지 마라.
    ✓ 화법은 '~을 확인합니다 / ~인지 점검합니다 / ~은 신중하게 판단합니다'.
       '분할 접근을 유의합니다'처럼 목적어와 서술어가 어울리지 않는 문장은 쓰지 마라.
+   ✓ 각 title이 다룰 범위(벗어나지 마라):
+      현금·헤지 = 현금 비중·환헤지·안전자산 / 주식 = 지수·진입 방식·손절폭 / 암호화폐 = 코인 비중(5% 이하)
+      부동산 = 주택 가격·정책·대출 / 매크로 = 금리·물가·FOMC가 자산 비중(채권 듀레이션·성장주 등)에 주는 영향
+   ⛔ 매크로·주식 항목에서 개인 대출 이야기를 하지 마라(부동산 항목과 중복된다).
 5) checkpoints: 다음 주 체크포인트 5개 — k는 [통화정책/주식/원자재·코인/부동산/환율·금리].
    각 항목에 확인할 구체적 수치나 날짜를 넣는다.
 
 [실측 데이터]
 ${facts}`, AI_SCHEMA, { temperature: 0.4 })
-    if (g.ok && g.data && g.data.headline && (g.data.bullets?.length ?? 0) >= 3) ai = { ...g.data, source: 'gemini' }
+    if (g.ok && g.data && g.data.headline && (g.data.bullets?.length ?? 0) >= 3) ai = { ...g.data, strategy: sanitize(g.data.strategy), source: 'gemini' }
   } catch { /* 폴백 */ }
   if (!ai) {
     // 결정론 폴백 — 실측 숫자만 조립
@@ -302,13 +327,7 @@ ${facts}`, AI_SCHEMA, { temperature: 0.4 })
         { tag: '부동산', text: seoulRe ? `서울 아파트 주간 ${p(seoulRe.w1)}(부동산원 주간 매매지수).` : '부동산 주간 지표 미집계.' },
         { tag: '수급', text: krFlow ? `코스피 최근일(${krFlow.lastDate.slice(5)}) 외국인 ${jo(krFlow.day.foreign)}·개인 ${jo(krFlow.day.personal)}, 최근 5거래일 누적 외국인 ${jo(krFlow.w5.foreign)}·기관 ${jo(krFlow.w5.institution)}입니다.` : '수급 미집계.' },
       ],
-      strategy: [
-        { title: '현금·헤지', text: extremeStr ? `${extremeStr} 변동성이 자국 5년 기준 최상단이라, 레버리지를 줄이고 현금 비중을 확보해 두는 편이 안전합니다.` : `금 ${p(gold?.weekPct)} 흐름을 참고해 현금·안전자산 비중을 점검합니다.` },
-        { title: '주식', text: `코스피 ${p(kospi?.weekPct)}·나스닥 ${p(nasdaq?.weekPct)} 구간입니다. 신규 진입은 계산 수량의 절반 이하로 나누고 손절선을 먼저 정한 뒤 접근합니다.` },
-        { title: '암호화폐', text: `비트코인 ${p(btc?.weekPct)} 구간이며, 포트폴리오의 5% 이하 원칙을 유지하고 레버리지는 청산 위험을 감안해 피합니다.` },
-        { title: '부동산', text: seoulRe ? `서울 아파트가 주간 ${p(seoulRe.w1)}입니다. 정책·대출 규제 변화가 주간 지수보다 먼저 움직이므로 그쪽을 확인합니다.` : '정책·대출 규제 변화를 먼저 확인합니다.' },
-        { title: '매크로', text: macro ? `${macro.label} 국면이고 기준금리 ${macro.fedRate}%·CPI ${macro.cpiYoY}%입니다. 다음 FOMC(${macro.nextFomc ?? '일정 확인'}) 전까지 포지션 확대는 신중하게 판단합니다.` : `미 10년물 ${us10?.close ?? '—'}% 방향을 확인한 뒤 비중을 정합니다.` },
-      ],
+      strategy: fbStrategy,
       checkpoints: [
         { k: '통화정책', text: macro?.nextFomc ? `다음 FOMC ${macro.nextFomc} — 금리 시그널 확인` : 'FOMC 일정 확인' },
         { k: '주식', text: `코스피 ${kospi?.close ?? '—'} 지지 여부 · 실적 시즌 가이던스` },

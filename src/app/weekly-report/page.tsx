@@ -119,7 +119,7 @@ function printReport(d: WeeklyReportResult) {
   const dateStr = c.weekOf.replace(/-/g, '')
   const kpiKeys = ['kospi', 'kosdaq', 'sp500', 'nasdaq', 'btc', 'gold', 'wti', 'usdkrw']
   const kpi = kpiKeys.map(k => ix(k)).filter((x): x is WrIndex => !!x)
-    .map(i => `<div class="kpi"><div class="kl">${i.flag} ${i.label}</div><b>${i.close != null ? i.close.toLocaleString() : '—'}</b><div style="color:${pc(i.weekPct)};font-weight:800">${p(i.weekPct)}</div></div>`).join('')
+    .map(i => `<div class="kpi"><div class="kl">${i.flag} ${i.label}</div><b>${num(i.close)}</b><div style="color:${pc(i.weekPct)};font-weight:800">${p(i.weekPct)}</div></div>`).join('')
   const bullets = (ai?.bullets ?? []).map(b => `<li><b>${b.tag}</b> · ${b.text}</li>`).join('')
   const krRel = relSvgStr([{ name: '코스피', color: '#2a78d6', data: ix('kospi')?.spark ?? [] }, { name: '코스닥', color: '#eb6834', data: ix('kosdaq')?.spark ?? [] }])
   const usRel = relSvgStr([{ name: 'S&P 500', color: '#2a78d6', data: ix('sp500')?.spark ?? [] }, { name: '나스닥', color: '#1baf7a', data: ix('nasdaq')?.spark ?? [] }])
@@ -130,19 +130,19 @@ function printReport(d: WeeklyReportResult) {
     <tr><td>기관</td><td class="n" style="color:${pc(kf.day.institution)}">${jo(kf.day.institution)}</td><td class="n" style="color:${pc(kf.w5.institution)}"><b>${jo(kf.w5.institution)}</b></td></tr>
     <tr><td>개인</td><td class="n" style="color:${pc(kf.day.personal)}">${jo(kf.day.personal)}</td><td class="n" style="color:${pc(kf.w5.personal)}"><b>${jo(kf.w5.personal)}</b></td></tr></table>` : ''
   const macroChips = ['us10y', 'nikkei', 'gold', 'silver', 'wti', 'usdkrw'].map(k => ix(k)).filter((x): x is WrIndex => !!x)
-    .map(i => `<span class="chip">${i.label} <b>${i.close?.toLocaleString() ?? '—'}</b> <span style="color:${pc(i.weekPct)}">${i.isYield ? bp(i.weekPct) : p(i.weekPct)}</span></span>`).join('')
+    .map(i => `<span class="chip">${i.label} <b>${num(i.close)}</b> <span style="color:${pc(i.weekPct)}">${i.isYield ? bp(i.weekPct) : p(i.weekPct)}</span></span>`).join('')
   // 변동성 칩·극단 배너 — 화면과 동일 정보를 PDF에도(⑩ 리스크 배너가 이 근거를 전제로 말한다)
   const volChips = c.vol.map(v => `<span class="chip">${VOL_ICON[v.verdict] ?? ''} ${v.flag} ${v.label} <b style="color:${v.verdict === 'extreme' ? '#c02b2b' : v.verdict === 'high' ? '#b7791f' : '#16202c'}">${v.vol20}%</b></span>`).join('')
   const exList = c.vol.filter(v => v.verdict === 'extreme')
   const exWarn = exList.length ? `<div class="warn">🌪️ <b>극단 변동 시장</b>: ${exList.map(v => `${v.flag} ${v.label}`).join(' · ')} — 손절이 갭에 뚫릴 수 있는 국면입니다. 비중 축소·분할 진입 원칙을 지키세요.</div>` : ''
-  const sc1 = (keys: string[]) => keys.map(k => { const i = ix(k); return i ? `<div class="scr">${i.label.replace(/\s*\(.*\)/, '')} <span>${i.close?.toLocaleString()}</span> <span style="color:${pc(i.weekPct)}">${i.isYield ? bp(i.weekPct) : p(i.weekPct)}</span></div>` : '' }).join('')
+  const sc1 = (keys: string[]) => keys.map(k => { const i = ix(k); return i ? `<div class="scr">${i.label.replace(/\s*\(.*\)/, '')} <span>${num(i.close)}</span> <span style="color:${pc(i.weekPct)}">${i.isYield ? bp(i.weekPct) : p(i.weekPct)}</span></div>` : '' }).join('')
   const scb = [
     ['주식', ['kospi', 'sp500', 'nasdaq']], ['원자재', ['gold', 'silver', 'wti']], ['암호화폐', ['btc', 'eth', 'sol']],
   ].map(([g, keys]) => `<td><b>${g}</b>${sc1(keys as string[])}</td>`).join('')
   const bondTd = `<td><b>채권·환율</b>${sc1(['us10y', 'usdkrw'])}</td>`
   const reTd = c.realestate ? `<td><b>부동산(주간)</b>${c.realestate.map(r => `<div class="scr">${r.name} 아파트 <span style="color:${pc(r.w1)}">${p(r.w1)}</span></div>`).join('')}</td>` : ''
   const coins = ['btc', 'eth', 'xrp', 'sol'].map(k => ix(k)).filter((x): x is WrIndex => !!x)
-    .map(i => `<tr><td>${i.label}</td><td class="n">${i.close?.toLocaleString() ?? '—'}</td><td class="n" style="color:${pc(i.weekPct)}"><b>${p(i.weekPct)}</b></td></tr>`).join('')
+    .map(i => `<tr><td>${i.label}</td><td class="n">${num(i.close)}</td><td class="n" style="color:${pc(i.weekPct)}"><b>${p(i.weekPct)}</b></td></tr>`).join('')
   const cat = c.catalyst?.items?.map(i => `<li><b>${i.title}</b>${i.note ? ` — ${i.note}` : ''}</li>`).join('') ?? ''
   const strat = (ai?.strategy ?? []).map(s => `<div class="sg"><div class="st">${STRAT_ICON[s.title] ?? '▸'} ${s.title}</div><p>${s.text}</p></div>`).join('')
   const chk = (ai?.checkpoints ?? []).map(x => `<tr><td><b>${x.k}</b></td><td>${x.text}</td></tr>`).join('')
