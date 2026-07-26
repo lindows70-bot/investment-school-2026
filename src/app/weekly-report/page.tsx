@@ -4,7 +4,7 @@
 //   🖨️ PDF 저장=라이트 인쇄 문서(새 창 window.print). 상승 초록·하락 빨강(앱 규칙 통일). 서사는 Gemini(실측 숫자만 주입)·실패 시 결정론 폴백.
 import { useEffect, useState } from 'react'
 import type { WeeklyReportResult, WrHolding, WrIndex } from '@/app/api/weekly-report/route'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 
 const CARD = TK.bg6, BORDER = TK.border
 const pct = (v: number | null | undefined, d = 1) => v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(d)}%`
@@ -65,7 +65,7 @@ function RelChart({ series, h = 130 }: { series: { name: string; color: string; 
           </g>
         ))}
       </svg>
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 9.5, color: TK.sub2, marginTop: 2 }}>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: FS.micro, color: TK.sub2, marginTop: 2 }}>
         {reb.map(s => <span key={s.name}><span style={{ display: 'inline-block', width: 9, height: 3, background: s.color, borderRadius: 2, marginRight: 4, verticalAlign: 'middle' }} />{s.name}</span>)}
       </div>
     </div>
@@ -93,7 +93,7 @@ function MiniBars({ rows, fmt = (v: number | null) => pct(v), labelW = 62 }: { r
       {rows.map(r => {
         const w = r.v == null ? 0 : Math.abs(r.v) / mx * 48
         return (
-          <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9.5 }}>
+          <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: FS.micro }}>
             <span style={{ width: labelW, color: TK.sub2, flexShrink: 0 }}>{r.label}</span>
             <div style={{ flex: 1, height: 9, background: TK.bg3, borderRadius: 3, position: 'relative', overflow: 'hidden' }}>
               <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 1, background: TK.border }} />
@@ -109,14 +109,14 @@ function MiniBars({ rows, fmt = (v: number | null) => pct(v), labelW = 62 }: { r
 // 상대추이 차트 기간 라벨 — 세 섹션이 같은 문구를 쓰도록 실제 데이터 길이에서 파생(하드코딩 '12거래일' 금지)
 function relNote(len: number | undefined) {
   if (!len || len < 2) return undefined
-  return <span style={{ fontSize: 9.5, color: TK.sub }}>최근 {len}거래일 상대추이(시작=100)</span>
+  return <span style={{ fontSize: FS.micro, color: TK.sub }}>최근 {len}거래일 상대추이(시작=100)</span>
 }
 function Sec({ no, title, right, children }: { no: string; title: string; right?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <span style={{ fontSize: 11, fontWeight: 900, color: TK.amber500, background: `${TK.amber500}18`, border: `1px solid ${TK.amber500}44`, borderRadius: 6, padding: '1px 7px' }}>{no}</span>
-        <span style={{ fontSize: 13, fontWeight: 800, color: TK.slate200 }}>{title}</span>
+        <span style={{ fontSize: FS.tiny, fontWeight: 900, color: TK.amber500, background: `${TK.amber500}18`, border: `1px solid ${TK.amber500}44`, borderRadius: 6, padding: '1px 7px' }}>{no}</span>
+        <span style={{ fontSize: FS.lg, fontWeight: 800, color: TK.slate200 }}>{title}</span>
         {right && <span style={{ marginLeft: 'auto' }}>{right}</span>}
       </div>
       {children}
@@ -218,18 +218,18 @@ function printReport(d: WeeklyReportResult) {
  .who{display:inline-block;font-size:10.5px;font-weight:800;color:#12284C;background:#f6efdc;border:1px solid #d9c48a;border-radius:999px;padding:2px 12px;margin-top:4px}
  .hb{background:linear-gradient(120deg,#12284C,#1d3a63);color:#fff;border-radius:12px;padding:12px 16px;margin:9px 0}
  .hb h2{margin:0;font-size:17px;color:#fff;border:none;padding:0} .hb p{margin:4px 0 0;font-size:10.5px;color:#dbe4f0}
- h2{font-size:13px;color:#12284C;border-left:4px solid #B8860B;padding-left:8px;margin:15px 0 6px}
+ h2{font-size:15px;color:#12284C;border-left:4px solid #B8860B;padding-left:8px;margin:15px 0 6px}
  table{border-collapse:collapse;width:100%;margin:3px 0} th,td{border-bottom:1px solid #e3e6ea;padding:3.5px 7px;text-align:left;vertical-align:top} th{background:#f2f4f7;font-size:9.5px;color:#5a6675}
  .n{text-align:right;font-variant-numeric:tabular-nums} .mut{color:#8a94a2;font-size:9px}
- .kpis{display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin:7px 0} .kpi{border:1px solid #e3e6ea;border-radius:8px;padding:5px 7px} .kpi .kl{font-size:8.5px;color:#6b7684} .kpi b{font-size:11.5px}
+ .kpis{display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin:7px 0} .kpi{border:1px solid #e3e6ea;border-radius:8px;padding:5px 7px} .kpi .kl{font-size:9px;color:#6b7684} .kpi b{font-size:11.5px}
  .chip{display:inline-block;border:1px solid #e3e6ea;border-radius:999px;padding:2px 9px;margin:2px 4px 2px 0;font-size:9.5px}
  ul{margin:3px 0 3px 16px;padding:0} li{margin:2px 0}
  .cols{display:grid;grid-template-columns:1fr 1fr;gap:10px} .sgw{display:grid;grid-template-columns:1fr 1fr;gap:7px}
- .sg{border:1px solid #e3e6ea;border-left:4px solid #B8860B;border-radius:9px;padding:7px 10px;break-inside:avoid} .sg .st{font-size:10.5px;font-weight:800;color:#12284C} .sg p{margin:2px 0 0;font-size:9.8px;color:#4c5866}
- .scb td{border:1px solid #e3e6ea;border-radius:8px;padding:7px 9px} .scr{font-size:9.8px;display:flex;justify-content:space-between;gap:6px}
+ .sg{border:1px solid #e3e6ea;border-left:4px solid #B8860B;border-radius:9px;padding:7px 10px;break-inside:avoid} .sg .st{font-size:10.5px;font-weight:800;color:#12284C} .sg p{margin:2px 0 0;font-size:10px;color:#4c5866}
+ .scb td{border:1px solid #e3e6ea;border-radius:8px;padding:7px 9px} .scr{font-size:10px;display:flex;justify-content:space-between;gap:6px}
  .warn{background:#fdf0ef;border:1px solid #ecc4c0;border-radius:9px;padding:7px 11px;margin:6px 0;font-size:10px}
  .kpi2{display:inline-block;border:1px solid #e3e6ea;border-radius:9px;padding:6px 12px;margin:3px 5px 3px 0} .kpi2 b{font-size:13px}
- .fn{color:#8a94a2;font-size:8.6px;margin-top:12px;border-top:1px solid #e3e6ea;padding-top:6px}
+ .fn{color:#8a94a2;font-size:9px;margin-top:12px;border-top:1px solid #e3e6ea;padding-top:6px}
  .pb{page-break-before:always}
  h2{break-after:avoid} .cols>div,.scb,.sgw,.sgw3{break-inside:avoid}
  .sub2{font-size:10px;font-weight:800;color:#12284C;margin:7px 0 3px}
@@ -315,31 +315,31 @@ export default function WeeklyReportPage() {
       <div style={{ background: 'linear-gradient(135deg,rgba(184,134,11,0.13),rgba(18,40,76,0.35))', border: `1px solid ${TK.amber500}44`, borderRadius: 12, padding: '13px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 240 }}>
-            <div style={{ fontSize: 9.5, fontWeight: 800, color: TK.amber500, letterSpacing: 1.6 }}>2026 투자학교 · WEEKLY ASSET REPORT</div>
-            <div style={{ fontSize: 15, fontWeight: 900, color: TK.slate100, marginTop: 1 }}>자산 전반 주간 리포트 — 주식·코인·금·부동산</div>
-            <div style={{ fontSize: 10, color: TK.sub, marginTop: 3 }}>{issueLine(c.weekOf, c.weekRange)}</div>
-            <div style={{ fontSize: 9, color: TK.sub8, marginTop: 1 }}>{c.anchorNote}</div>
-            <div style={{ display: 'inline-block', marginTop: 6, fontSize: 10.5, fontWeight: 800, color: TK.amber400, background: `${TK.amber500}15`, border: `1px solid ${TK.amber500}55`, borderRadius: 999, padding: '2px 12px' }}>
+            <div style={{ fontSize: FS.micro, fontWeight: 800, color: TK.amber500, letterSpacing: 1.6 }}>2026 투자학교 · WEEKLY ASSET REPORT</div>
+            <div style={{ fontSize: FS.xl, fontWeight: 900, color: TK.slate100, marginTop: 1 }}>자산 전반 주간 리포트 — 주식·코인·금·부동산</div>
+            <div style={{ fontSize: FS.tiny, color: TK.sub, marginTop: 3 }}>{issueLine(c.weekOf, c.weekRange)}</div>
+            <div style={{ fontSize: FS.micro, color: TK.sub8, marginTop: 1 }}>{c.anchorNote}</div>
+            <div style={{ display: 'inline-block', marginTop: 6, fontSize: FS.tiny, fontWeight: 800, color: TK.amber400, background: `${TK.amber500}15`, border: `1px solid ${TK.amber500}55`, borderRadius: 999, padding: '2px 12px' }}>
               {m.name} 님 · 개인 맞춤본{data.isTeacherView && ' · 교사 대리 조회'}
             </div>
           </div>
           {data.students && (
             <select value={sel} onChange={e => { setSel(e.target.value); load(e.target.value || undefined) }}
-              style={{ background: TK.bg3, color: TK.slate200, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '6px 9px', fontSize: 11.5 }}>
+              style={{ background: TK.bg3, color: TK.slate200, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '6px 9px', fontSize: FS.body }}>
               <option value="">내 리포트</option>
               {data.students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           )}
-          <button onClick={() => printReport(data)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', background: TK.amber500, color: '#1c1917', fontSize: 11.5, fontWeight: 900 }}>🖨️ PDF 저장</button>
+          <button onClick={() => printReport(data)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', background: TK.amber500, color: '#1c1917', fontSize: FS.body, fontWeight: 900 }}>🖨️ PDF 저장</button>
         </div>
       </div>
 
       {/* 헤드라인 배너 */}
       {ai && (
         <div style={{ background: 'linear-gradient(120deg,#12284C,#1d3a63)', borderRadius: 12, border: `1px solid ${TK.blue400}44`, padding: '14px 18px' }}>
-          <div style={{ fontSize: 19, fontWeight: 900, color: '#fff' }}>{ai.headline}</div>
-          <div style={{ fontSize: 11.5, color: '#dbe4f0', marginTop: 5, lineHeight: 1.65 }}>{ai.sub}</div>
-          {ai.source === 'fallback' && <div style={{ fontSize: 9, color: '#8ea4c4', marginTop: 4 }}>※ 규칙 기반 자동 요약(AI 미사용)</div>}
+          <div style={{ fontSize: FS.h2, fontWeight: 900, color: '#fff' }}>{ai.headline}</div>
+          <div style={{ fontSize: FS.body, color: '#dbe4f0', marginTop: 5, lineHeight: 1.65 }}>{ai.sub}</div>
+          {ai.source === 'fallback' && <div style={{ fontSize: FS.micro, color: '#8ea4c4', marginTop: 4 }}>※ 규칙 기반 자동 요약(AI 미사용)</div>}
         </div>
       )}
 
@@ -347,9 +347,9 @@ export default function WeeklyReportPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(118px,1fr))', gap: 7 }}>
         {kpis.map(i => (
           <div key={i.key} style={{ background: CARD, borderRadius: 10, border: `1px solid ${BORDER}`, padding: '8px 10px' }}>
-            <div style={{ fontSize: 9.5, color: TK.sub2 }}>{i.flag} {i.label}</div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: TK.slate200, fontFamily: 'monospace' }}>{num(i.close)}</div>
-            <div style={{ fontSize: 11, fontWeight: 800, color: pcol(i.weekPct), fontFamily: 'monospace' }}>{pct(i.weekPct)}</div>
+            <div style={{ fontSize: FS.micro, color: TK.sub2 }}>{i.flag} {i.label}</div>
+            <div style={{ fontSize: FS.lg, fontWeight: 800, color: TK.slate200, fontFamily: 'monospace' }}>{num(i.close)}</div>
+            <div style={{ fontSize: FS.tiny, fontWeight: 800, color: pcol(i.weekPct), fontFamily: 'monospace' }}>{pct(i.weekPct)}</div>
             <div style={{ marginTop: 3 }}><Spark data={i.spark} color={pcol(i.weekPct)} /></div>
           </div>
         ))}
@@ -360,8 +360,8 @@ export default function WeeklyReportPage() {
         <Sec no="✦" title="이번 주 핵심 요약">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {ai.bullets.map((b, i) => (
-              <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11.5, color: TK.slate300, lineHeight: 1.6 }}>
-                <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 800, color: TAG_COLOR[b.tag] ?? TK.sub2, background: `${TAG_COLOR[b.tag] ?? TK.sub2}18`, border: `1px solid ${TAG_COLOR[b.tag] ?? TK.sub2}44`, borderRadius: 5, padding: '1px 7px', marginTop: 1 }}>{b.tag}</span>
+              <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: FS.body, color: TK.slate300, lineHeight: 1.6 }}>
+                <span style={{ flexShrink: 0, fontSize: FS.micro, fontWeight: 800, color: TAG_COLOR[b.tag] ?? TK.sub2, background: `${TAG_COLOR[b.tag] ?? TK.sub2}18`, border: `1px solid ${TAG_COLOR[b.tag] ?? TK.sub2}44`, borderRadius: 5, padding: '1px 7px', marginTop: 1 }}>{b.tag}</span>
                 <span>{b.text}</span>
               </div>
             ))}
@@ -375,8 +375,8 @@ export default function WeeklyReportPage() {
           <RelChart series={[{ name: '코스피', color: TK.blue400, data: ix('kospi')?.spark ?? [] }, { name: '코스닥', color: '#eb6834', data: ix('kosdaq')?.spark ?? [] }]} />
           <div>
             {kf ? (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-                <thead><tr style={{ color: TK.sub, fontSize: 9.5 }}><th style={{ textAlign: 'left', padding: '3px 6px', borderBottom: `1px solid ${BORDER}` }}>코스피 수급</th><th style={{ textAlign: 'right', padding: '3px 6px', borderBottom: `1px solid ${BORDER}` }}>최근일({kf.lastDate.slice(5)})</th><th style={{ textAlign: 'right', padding: '3px 6px', borderBottom: `1px solid ${BORDER}` }}>5거래일</th></tr></thead>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS.tiny }}>
+                <thead><tr style={{ color: TK.sub, fontSize: FS.micro }}><th style={{ textAlign: 'left', padding: '3px 6px', borderBottom: `1px solid ${BORDER}` }}>코스피 수급</th><th style={{ textAlign: 'right', padding: '3px 6px', borderBottom: `1px solid ${BORDER}` }}>최근일({kf.lastDate.slice(5)})</th><th style={{ textAlign: 'right', padding: '3px 6px', borderBottom: `1px solid ${BORDER}` }}>5거래일</th></tr></thead>
                 <tbody>
                   {([['외국인', kf.day.foreign, kf.w5.foreign], ['기관', kf.day.institution, kf.w5.institution], ['개인', kf.day.personal, kf.w5.personal]] as const).map(([l, d1, w5]) => (
                     <tr key={l as string} style={{ borderBottom: `1px solid ${TK.bg3}` }}>
@@ -387,19 +387,19 @@ export default function WeeklyReportPage() {
                   ))}
                 </tbody>
               </table>
-            ) : <div style={{ fontSize: 10.5, color: TK.sub2 }}>수급 데이터 미집계(장 마감 후 갱신)</div>}
-            <div style={{ fontSize: 9, color: TK.sub8, marginTop: 4 }}>단위 조원 · 코스피 투자자별 순매수(수급 레이더 SSOT)</div>
+            ) : <div style={{ fontSize: FS.tiny, color: TK.sub2 }}>수급 데이터 미집계(장 마감 후 갱신)</div>}
+            <div style={{ fontSize: FS.micro, color: TK.sub8, marginTop: 4 }}>단위 조원 · 코스피 투자자별 순매수(수급 레이더 SSOT)</div>
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px,1fr) minmax(240px,1fr)', gap: 14, marginTop: 10 }}>
           {c.bigCaps && (
             <div>
-              <div style={{ fontSize: 10, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>대형주 — 코스피 시총 상위</div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+              <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>대형주 — 코스피 시총 상위</div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS.tiny }}>
                 <tbody>
                   {c.bigCaps.map(b => (
                     <tr key={b.ticker} style={{ borderBottom: `1px solid ${TK.bg3}` }}>
-                      <td style={{ padding: '4px 6px', color: TK.slate300 }}>{b.name}<span style={{ fontSize: 9, color: TK.sub8 }}> {b.ticker}</span></td>
+                      <td style={{ padding: '4px 6px', color: TK.slate300 }}>{b.name}<span style={{ fontSize: FS.micro, color: TK.sub8 }}> {b.ticker}</span></td>
                       <td style={{ padding: '4px 6px', textAlign: 'right', fontFamily: 'monospace', color: TK.slate200 }}>{b.close != null ? `${Math.round(b.close).toLocaleString()}원` : '—'}</td>
                       <td style={{ padding: '4px 6px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 800, color: pcol(b.weekPct) }}>{pct(b.weekPct)}</td>
                     </tr>
@@ -410,7 +410,7 @@ export default function WeeklyReportPage() {
           )}
           {kf && (
             <div>
-              <div style={{ fontSize: 10, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>최근일({kf.lastDate.slice(5)}) 투자자별 순매수</div>
+              <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>최근일({kf.lastDate.slice(5)}) 투자자별 순매수</div>
               <MiniBars labelW={44} fmt={v => v == null ? '—' : jo(v)} rows={[
                 { label: '외국인', v: kf.day.foreign }, { label: '기관', v: kf.day.institution }, { label: '개인', v: kf.day.personal },
               ]} />
@@ -426,41 +426,41 @@ export default function WeeklyReportPage() {
           <div>
             <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
               {macroChips.map(i => (
-                <span key={i.key} style={{ fontSize: 10, color: TK.slate300, background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 999, padding: '3px 10px' }}>
+                <span key={i.key} style={{ fontSize: FS.tiny, color: TK.slate300, background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 999, padding: '3px 10px' }}>
                   {i.label} <b style={{ fontFamily: 'monospace' }}>{num(i.close)}</b> <span style={{ color: pcol(i.weekPct), fontFamily: 'monospace' }}>{i.isYield ? bp(i.weekPct) : pct(i.weekPct)}</span>
                 </span>
               ))}
             </div>
-            {c.macro && <div style={{ fontSize: 11, color: TK.slate300, lineHeight: 1.6, marginTop: 8 }}>{c.macro.icon} <b style={{ color: TK.slate200 }}>{c.macro.label}</b> — {c.macro.description}<div style={{ fontSize: 9.5, color: TK.sub, marginTop: 2 }}>기준금리 {c.macro.fedRate}% · CPI {c.macro.cpiYoY}% · 다음 FOMC {c.macro.nextFomc ?? '—'}</div></div>}
+            {c.macro && <div style={{ fontSize: FS.tiny, color: TK.slate300, lineHeight: 1.6, marginTop: 8 }}>{c.macro.icon} <b style={{ color: TK.slate200 }}>{c.macro.label}</b> — {c.macro.description}<div style={{ fontSize: FS.micro, color: TK.sub, marginTop: 2 }}>기준금리 {c.macro.fedRate}% · CPI {c.macro.cpiYoY}% · 다음 FOMC {c.macro.nextFomc ?? '—'}</div></div>}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 9 }}>
           {c.vol.map(v => (
             <span key={v.label} title={`20일 변동성 ${v.vol20}% · 자국 5년 백분위 ${v.pctile}% · ±3% ${v.big3}일`}
-              style={{ fontSize: 9.5, fontWeight: 700, color: v.verdict === 'extreme' ? TK.red400 : v.verdict === 'high' ? TK.amber500 : TK.sub2, background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 6, padding: '2px 8px' }}>
+              style={{ fontSize: FS.micro, fontWeight: 700, color: v.verdict === 'extreme' ? TK.red400 : v.verdict === 'high' ? TK.amber500 : TK.sub2, background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 6, padding: '2px 8px' }}>
               {VOL_ICON[v.verdict] ?? ''} {v.flag} {v.label} {v.vol20}%
             </span>
           ))}
         </div>
         {extremes.length > 0 && (
-          <div style={{ marginTop: 8, background: '#2a1010', border: `1px solid ${TK.red400}55`, borderRadius: 8, padding: '8px 12px', fontSize: 11, color: '#fca5a5', lineHeight: 1.55 }}>
+          <div style={{ marginTop: 8, background: '#2a1010', border: `1px solid ${TK.red400}55`, borderRadius: 8, padding: '8px 12px', fontSize: FS.tiny, color: '#fca5a5', lineHeight: 1.55 }}>
             🌪️ <b>극단 변동 시장</b>: {extremes.map(v => `${v.flag} ${v.label}`).join(' · ')} — 손절이 갭에 뚫릴 수 있는 국면입니다. 비중 축소·분할 진입 원칙을 지키세요.
           </div>
         )}
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(250px,1fr) minmax(250px,1fr)', gap: 14, marginTop: 10 }}>
           <div>
-            <div style={{ fontSize: 10, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>주요 지수·원자재 주간 등락률</div>
+            <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>주요 지수·원자재 주간 등락률</div>
             <MiniBars rows={(['kospi', 'kosdaq', 'sp500', 'nasdaq', 'dow', 'gold', 'silver', 'wti'] as const)
               .map(k => ix(k)).filter((i): i is WrIndex => !!i)
               .map(i => ({ label: i.label.replace(/\s*\(.*\)/, ''), v: i.weekPct }))} />
           </div>
           {wtiIx && wtiIx.spark.length >= 2 && (
             <div>
-              <div style={{ fontSize: 10, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>
+              <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>
                 국제유가 WTI ($/배럴) <span style={{ fontWeight: 600, color: TK.sub2 }}>— 이번 주 촉매</span>
               </div>
               <RelChart h={104} series={[{ name: 'WTI', color: '#eda100', data: wtiIx.spark }]} />
-              <div style={{ fontSize: 9, color: TK.sub8 }}>최근 종가 {num(wtiIx.close)}$ · <b style={{ color: pcol(wtiIx.weekPct) }}>주간 {pct(wtiIx.weekPct)}</b> · 차트 끝 숫자는 최근 {wtiIx.spark.length}거래일 누적</div>
+              <div style={{ fontSize: FS.micro, color: TK.sub8 }}>최근 종가 {num(wtiIx.close)}$ · <b style={{ color: pcol(wtiIx.weekPct) }}>주간 {pct(wtiIx.weekPct)}</b> · 차트 끝 숫자는 최근 {wtiIx.spark.length}거래일 누적</div>
             </div>
           )}
         </div>
@@ -471,10 +471,10 @@ export default function WeeklyReportPage() {
         <Sec no="✦" title="안전자산 — 금 · 은" right={relNote(goldIx.spark.length)}>
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px,3fr) minmax(200px,2fr)', gap: 14 }}>
             <RelChart h={110} series={[{ name: '금', color: '#eda100', data: goldIx.spark }, { name: '은', color: TK.slate400, data: silverIx.spark }]} />
-            <div style={{ fontSize: 10.5, color: TK.slate300, lineHeight: 1.65 }}>
+            <div style={{ fontSize: FS.tiny, color: TK.slate300, lineHeight: 1.65 }}>
               <b style={{ color: TK.slate200 }}>주간</b> 금 <b style={{ color: pcol(goldIx.weekPct) }}>{pct(goldIx.weekPct)}</b>({num(goldIx.close)}$) · 은 <b style={{ color: pcol(silverIx.weekPct) }}>{pct(silverIx.weekPct)}</b>({num(silverIx.close)}$).
-              <div style={{ fontSize: 9, color: TK.sub8, marginTop: 2 }}>※ 왼쪽 차트의 끝 숫자는 최근 {goldIx.spark.length}거래일 누적이라 주간 등락과 부호가 다를 수 있습니다.</div>
-              <div style={{ fontSize: 9.5, color: TK.sub2, marginTop: 5 }}>은은 산업 수요가 겹쳐 금보다 탄력이 큰 편입니다. 주식 급락기에 포트폴리오 헤지 역할을 하는지 확인하는 축입니다.</div>
+              <div style={{ fontSize: FS.micro, color: TK.sub8, marginTop: 2 }}>※ 왼쪽 차트의 끝 숫자는 최근 {goldIx.spark.length}거래일 누적이라 주간 등락과 부호가 다를 수 있습니다.</div>
+              <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 5 }}>은은 산업 수요가 겹쳐 금보다 탄력이 큰 편입니다. 주식 급락기에 포트폴리오 헤지 역할을 하는지 확인하는 축입니다.</div>
             </div>
           </div>
         </Sec>
@@ -485,27 +485,27 @@ export default function WeeklyReportPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 7 }}>
           {([['📈 주식', ['kospi', 'sp500', 'nasdaq']], ['🥇 원자재', ['gold', 'silver', 'wti']], ['🪙 암호화폐', ['btc', 'eth', 'sol']]] as const).map(([g, keys]) => (
             <div key={g} style={{ background: TK.bg3, borderRadius: 9, border: `1px solid ${BORDER}`, padding: '8px 11px' }}>
-              <div style={{ fontSize: 10.5, fontWeight: 800, color: TK.slate200, marginBottom: 5 }}>{g}</div>
+              <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate200, marginBottom: 5 }}>{g}</div>
               {keys.map(k => { const i = ix(k); return i ? (
-                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 6, fontSize: 10, color: TK.sub2, padding: '1.5px 0' }}>
+                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 6, fontSize: FS.tiny, color: TK.sub2, padding: '1.5px 0' }}>
                   <span>{i.label.replace(/\s*\(.*\)/, '')}</span><span style={{ fontFamily: 'monospace', color: TK.slate300 }}>{num(i.close)}</span><span style={{ fontFamily: 'monospace', color: pcol(i.weekPct), fontWeight: 700 }}>{pct(i.weekPct)}</span>
                 </div>) : null })}
             </div>
           ))}
           {c.realestate && (
             <div style={{ background: TK.bg3, borderRadius: 9, border: `1px solid ${BORDER}`, padding: '8px 11px' }}>
-              <div style={{ fontSize: 10.5, fontWeight: 800, color: TK.slate200, marginBottom: 5 }}>🏠 부동산(주간)</div>
+              <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate200, marginBottom: 5 }}>🏠 부동산(주간)</div>
               {c.realestate.map(r => (
-                <div key={r.name} style={{ display: 'flex', justifyContent: 'space-between', gap: 6, fontSize: 10, color: TK.sub2, padding: '1.5px 0' }}>
+                <div key={r.name} style={{ display: 'flex', justifyContent: 'space-between', gap: 6, fontSize: FS.tiny, color: TK.sub2, padding: '1.5px 0' }}>
                   <span>{r.name} 아파트</span><span style={{ fontFamily: 'monospace', color: pcol(r.w1), fontWeight: 700 }}>{pct(r.w1, 2)}</span>
                 </div>
               ))}
             </div>
           )}
           <div style={{ background: TK.bg3, borderRadius: 9, border: `1px solid ${BORDER}`, padding: '8px 11px' }}>
-            <div style={{ fontSize: 10.5, fontWeight: 800, color: TK.slate200, marginBottom: 5 }}>📜 채권·환율</div>
+            <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate200, marginBottom: 5 }}>📜 채권·환율</div>
             {(['us10y', 'usdkrw'] as const).map(k => { const i = ix(k); return i ? (
-              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 6, fontSize: 10, color: TK.sub2, padding: '1.5px 0' }}>
+              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 6, fontSize: FS.tiny, color: TK.sub2, padding: '1.5px 0' }}>
                 <span>{i.label.replace(/\s*\(.*\)/, '')}</span><span style={{ fontFamily: 'monospace', color: TK.slate300 }}>{num(i.close)}</span><span style={{ fontFamily: 'monospace', color: pcol(i.weekPct), fontWeight: 700 }}>{i.isYield ? bp(i.weekPct) : pct(i.weekPct)}</span>
               </div>) : null })}
           </div>
@@ -521,8 +521,8 @@ export default function WeeklyReportPage() {
             { name: 'SOL', color: '#1baf7a', data: ix('sol')?.spark ?? [] },
             { name: 'XRP', color: TK.violet400, data: ix('xrp')?.spark ?? [] },
           ]} />
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, alignSelf: 'start' }}>
-            <thead><tr style={{ color: TK.sub, fontSize: 9.5 }}><th style={{ textAlign: 'left', padding: '3px 6px', borderBottom: `1px solid ${BORDER}` }}>코인</th><th style={{ textAlign: 'right', padding: '3px 6px', borderBottom: `1px solid ${BORDER}` }}>가격($)</th><th style={{ textAlign: 'right', padding: '3px 6px', borderBottom: `1px solid ${BORDER}` }}>주간</th></tr></thead>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS.tiny, alignSelf: 'start' }}>
+            <thead><tr style={{ color: TK.sub, fontSize: FS.micro }}><th style={{ textAlign: 'left', padding: '3px 6px', borderBottom: `1px solid ${BORDER}` }}>코인</th><th style={{ textAlign: 'right', padding: '3px 6px', borderBottom: `1px solid ${BORDER}` }}>가격($)</th><th style={{ textAlign: 'right', padding: '3px 6px', borderBottom: `1px solid ${BORDER}` }}>주간</th></tr></thead>
             <tbody>
               {coins.map(i => (
                 <tr key={i.key} style={{ borderBottom: `1px solid ${TK.bg3}` }}>
@@ -542,24 +542,24 @@ export default function WeeklyReportPage() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {c.realestate.map(r => (
               <div key={r.name} style={{ background: TK.bg3, borderRadius: 9, border: `1px solid ${BORDER}`, padding: '8px 14px' }}>
-                <div style={{ fontSize: 10, color: TK.sub2 }}>{r.name} 아파트</div>
-                <div style={{ fontSize: 16, fontWeight: 900, color: pcol(r.w1), fontFamily: 'monospace' }}>{pct(r.w1, 2)}</div>
-                <div style={{ fontSize: 9.5, color: TK.sub }}>4주 {pct(r.w4, 2)}</div>
+                <div style={{ fontSize: FS.tiny, color: TK.sub2 }}>{r.name} 아파트</div>
+                <div style={{ fontSize: FS.lg, fontWeight: 900, color: pcol(r.w1), fontFamily: 'monospace' }}>{pct(r.w1, 2)}</div>
+                <div style={{ fontSize: FS.micro, color: TK.sub }}>4주 {pct(r.w4, 2)}</div>
               </div>
             ))}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(250px,1fr) minmax(250px,1fr)', gap: 14, marginTop: 10 }}>
             {c.reRank && c.reRank.length > 0 && (
               <div>
-                <div style={{ fontSize: 10, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>지역별 주간 변동 — 강세 · 약세</div>
+                <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>지역별 주간 변동 — 강세 · 약세</div>
                 <MiniBars labelW={46} fmt={v => pct(v, 2)} rows={c.reRank.map(r => ({ label: r.name, v: r.w1 }))} />
               </div>
             )}
             {c.reRent && c.reRent.length > 0 && (
               <div>
-                <div style={{ fontSize: 10, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>전월세 전환율 — 전세의 &lsquo;월세화&rsquo; 축</div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10.5 }}>
-                  <thead><tr style={{ color: TK.sub, fontSize: 9 }}>
+                <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>전월세 전환율 — 전세의 &lsquo;월세화&rsquo; 축</div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS.tiny }}>
+                  <thead><tr style={{ color: TK.sub, fontSize: FS.micro }}>
                     <th style={{ textAlign: 'left', padding: '2px 5px', borderBottom: `1px solid ${BORDER}` }}>지역</th>
                     <th style={{ textAlign: 'right', padding: '2px 5px', borderBottom: `1px solid ${BORDER}` }}>전환율</th>
                     <th style={{ textAlign: 'right', padding: '2px 5px', borderBottom: `1px solid ${BORDER}` }}>주담대 대비</th>
@@ -574,31 +574,31 @@ export default function WeeklyReportPage() {
                     ))}
                   </tbody>
                 </table>
-                <div style={{ fontSize: 9, color: TK.sub8, marginTop: 3 }}>전환율이 주담대 금리보다 높을수록 임대인이 월세를 선호할 유인이 커집니다(월간 지표).</div>
+                <div style={{ fontSize: FS.micro, color: TK.sub8, marginTop: 3 }}>전환율이 주담대 금리보다 높을수록 임대인이 월세를 선호할 유인이 커집니다(월간 지표).</div>
               </div>
             )}
           </div>
-          <div style={{ fontSize: 9.5, color: TK.sub8, marginTop: 6 }}>부동산원 주간 매매가격지수(주간 펄스 SSOT) + 전월세 전환율(월간). 자치구 단위 시세는 부동산 → 단지 리서치에서.</div>
+          <div style={{ fontSize: FS.micro, color: TK.sub8, marginTop: 6 }}>부동산원 주간 매매가격지수(주간 펄스 SSOT) + 전월세 전환율(월간). 자치구 단위 시세는 부동산 → 단지 리서치에서.</div>
         </Sec>
       )}
 
       {/* ⑤ 이슈 */}
       {((ai?.issue?.length ?? 0) > 0 || (c.catalyst?.items?.length ?? 0) > 0) && (
         <Sec no="⑤" title="이슈 분석 — 이번 주 시장 구조">
-          {c.catalyst?.mood && <div style={{ fontSize: 10.5, color: TK.sub2, marginBottom: 6 }}>{c.catalyst.mood}</div>}
+          {c.catalyst?.mood && <div style={{ fontSize: FS.tiny, color: TK.sub2, marginBottom: 6 }}>{c.catalyst.mood}</div>}
           {ai && ai.issue?.length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 8, marginBottom: 9 }}>
               {ai.issue.map((q, i) => (
                 <div key={i} style={{ background: TK.bg3, borderRadius: 9, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${[TK.red400, TK.amber500, TK.blue400][i % 3]}`, padding: '8px 11px' }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, color: [TK.red400, TK.amber500, TK.blue400][i % 3] }}>{['①', '②', '③'][i] ?? ''} {q.k}</div>
-                  <div style={{ fontSize: 10.5, color: TK.slate300, lineHeight: 1.6, marginTop: 3 }}>{q.text}</div>
+                  <div style={{ fontSize: FS.tiny, fontWeight: 800, color: [TK.red400, TK.amber500, TK.blue400][i % 3] }}>{['①', '②', '③'][i] ?? ''} {q.k}</div>
+                  <div style={{ fontSize: FS.tiny, color: TK.slate300, lineHeight: 1.6, marginTop: 3 }}>{q.text}</div>
                 </div>
               ))}
             </div>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {(c.catalyst?.items ?? []).map((it, i) => (
-              <div key={i} style={{ background: TK.bg3, borderRadius: 8, border: `1px solid ${BORDER}`, padding: '7px 11px', fontSize: 11, color: TK.slate300, lineHeight: 1.55 }}>
+              <div key={i} style={{ background: TK.bg3, borderRadius: 8, border: `1px solid ${BORDER}`, padding: '7px 11px', fontSize: FS.tiny, color: TK.slate300, lineHeight: 1.55 }}>
                 <b style={{ color: TK.slate200 }}>{it.title}</b>{it.note && <span style={{ color: TK.sub2 }}> — {it.note}</span>}
               </div>
             ))}
@@ -608,18 +608,18 @@ export default function WeeklyReportPage() {
 
       {/* ⑥ 자산배분 실전 전략 */}
       {ai && ai.strategy.length > 0 && (
-        <Sec no="⑥" title="2026 투자학교 — 자산배분 실전 전략" right={<span style={{ fontSize: 9, color: TK.sub }}>{ai.source === 'gemini' ? 'AI 요약(실측 수치만 주입)' : '규칙 기반'}</span>}>
+        <Sec no="⑥" title="2026 투자학교 — 자산배분 실전 전략" right={<span style={{ fontSize: FS.micro, color: TK.sub }}>{ai.source === 'gemini' ? 'AI 요약(실측 수치만 주입)' : '규칙 기반'}</span>}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 7 }}>
             {ai.strategy.map((s, i) => (
               <div key={i} style={{ background: TK.bg3, borderRadius: 9, border: `1px solid ${BORDER}`, borderLeft: `4px solid ${TK.amber500}`, padding: '8px 12px' }}>
-                <div style={{ fontSize: 11, fontWeight: 800, color: TK.slate200 }}>{STRAT_ICON[s.title] ?? '▸'} {s.title}</div>
-                <div style={{ fontSize: 10.5, color: TK.sub2, lineHeight: 1.55, marginTop: 3 }}>{s.text}</div>
+                <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate200 }}>{STRAT_ICON[s.title] ?? '▸'} {s.title}</div>
+                <div style={{ fontSize: FS.tiny, color: TK.sub2, lineHeight: 1.55, marginTop: 3 }}>{s.text}</div>
               </div>
             ))}
           </div>
           <div style={{ marginTop: 9, background: TK.bg3, borderRadius: 9, border: `1px dashed ${TK.amber500}55`, padding: '9px 12px' }}>
-            <div style={{ fontSize: 10, fontWeight: 800, color: TK.amber400, letterSpacing: 0.6 }}>CHECKLIST · 이번 주 자기점검</div>
-            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 10.5, color: TK.slate300, marginTop: 5 }}>
+            <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.amber400, letterSpacing: 0.6 }}>CHECKLIST · 이번 주 자기점검</div>
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: FS.tiny, color: TK.slate300, marginTop: 5 }}>
               {['자산군별 목표 비중', '현금·안전자산 헤지 비중', '코인 5% 이하·레버리지', '부동산 대출 규제 확인', '다음 FOMC 일정'].map(t => (
                 <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                   <span style={{ width: 10, height: 10, border: `1.5px solid ${TK.sub2}`, borderRadius: 2, display: 'inline-block' }} />{t}
@@ -627,7 +627,7 @@ export default function WeeklyReportPage() {
               ))}
             </div>
           </div>
-          <div style={{ fontSize: 9.5, color: TK.sub8, marginTop: 7 }}>※ 매수·매도 지시가 아닌 교육용 점검 프레임입니다. 실행 판단·책임은 본인에게 있습니다.</div>
+          <div style={{ fontSize: FS.micro, color: TK.sub8, marginTop: 7 }}>※ 매수·매도 지시가 아닌 교육용 점검 프레임입니다. 실행 판단·책임은 본인에게 있습니다.</div>
         </Sec>
       )}
 
@@ -636,7 +636,7 @@ export default function WeeklyReportPage() {
         <Sec no="⑦" title="다음 주 체크포인트">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {ai.checkpoints.map((x, i) => (
-              <div key={i} style={{ display: 'flex', gap: 10, background: TK.bg3, borderRadius: 8, border: `1px solid ${BORDER}`, padding: '6px 11px', fontSize: 11 }}>
+              <div key={i} style={{ display: 'flex', gap: 10, background: TK.bg3, borderRadius: 8, border: `1px solid ${BORDER}`, padding: '6px 11px', fontSize: FS.tiny }}>
                 <span style={{ flexShrink: 0, minWidth: 78, fontWeight: 800, color: TK.amber400 }}>{x.k}</span>
                 <span style={{ color: TK.slate300, lineHeight: 1.5 }}>{x.text}</span>
               </div>
@@ -648,7 +648,7 @@ export default function WeeklyReportPage() {
       {/* ⑧ 내 포트폴리오 */}
       <Sec no="⑧" title={`내 포트폴리오 — ${m.name} 님`}>
         {!m.hasPortfolio ? (
-          <div style={{ fontSize: 12, color: TK.sub2, padding: '14px 4px', lineHeight: 1.7 }}>
+          <div style={{ fontSize: FS.body, color: TK.sub2, padding: '14px 4px', lineHeight: 1.7 }}>
             아직 등록된 포트폴리오가 없습니다. <b style={{ color: TK.slate300 }}>자산 관리</b>에서 보유 종목을 등록하면 다음 리포트부터 개인 분석(종목 진단·섹터 기여·리스크 점검)이 시작됩니다.
           </div>
         ) : (
@@ -661,8 +661,8 @@ export default function WeeklyReportPage() {
                 { l: '종목', v: `${m.kpi.count}개`, c: TK.slate200 },
               ].map(k => (
                 <div key={k.l} style={{ background: TK.bg3, borderRadius: 9, border: `1px solid ${BORDER}`, padding: '7px 13px' }}>
-                  <div style={{ fontSize: 9.5, color: TK.sub }}>{k.l}</div>
-                  <div style={{ fontSize: 15, fontWeight: 900, color: k.c, fontFamily: 'monospace' }}>{k.v}</div>
+                  <div style={{ fontSize: FS.micro, color: TK.sub }}>{k.l}</div>
+                  <div style={{ fontSize: FS.xl, fontWeight: 900, color: k.c, fontFamily: 'monospace' }}>{k.v}</div>
                 </div>
               ))}
             </div>
@@ -671,31 +671,31 @@ export default function WeeklyReportPage() {
                 <div key={b.cls} title={`${b.cls} ${b.weight.toFixed(1)}%`} style={{ width: `${b.weight}%`, background: [TK.blue400, '#eb6834', '#1baf7a', '#eda100', TK.slate400][i % 5] }} />
               ))}
             </div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 9.5, color: TK.sub2, marginBottom: 10 }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: FS.micro, color: TK.sub2, marginBottom: 10 }}>
               {m.byClass.map((b, i) => <span key={b.cls}><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: [TK.blue400, '#eb6834', '#1baf7a', '#eda100', TK.slate400][i % 5], marginRight: 4 }} />{b.cls} {b.weight.toFixed(1)}%</span>)}
             </div>
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-                <thead><tr style={{ color: TK.sub, fontSize: 10 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS.tiny }}>
+                <thead><tr style={{ color: TK.sub, fontSize: FS.tiny }}>
                   {['종목', '자산군', '비중', '누적', '주간', '기여', '신호', '타점'].map(h => <th key={h} style={{ textAlign: h === '종목' || h === '자산군' ? 'left' : 'right', padding: '4px 7px', borderBottom: `1px solid ${BORDER}` }}>{h}</th>)}
                 </tr></thead>
                 <tbody>
                   {m.holdings.map((h: WrHolding) => (
                     <tr key={`${h.market}-${h.ticker}`} style={{ borderBottom: `1px solid ${TK.bg3}` }}>
-                      <td style={{ padding: '5px 7px', color: TK.slate200, fontWeight: 700 }}>{h.name} <span style={{ color: TK.sub, fontSize: 9, fontWeight: 400 }}>{h.ticker}</span></td>
-                      <td style={{ padding: '5px 7px', color: TK.sub2, fontSize: 10 }}>{h.cls}</td>
+                      <td style={{ padding: '5px 7px', color: TK.slate200, fontWeight: 700 }}>{h.name} <span style={{ color: TK.sub, fontSize: FS.micro, fontWeight: 400 }}>{h.ticker}</span></td>
+                      <td style={{ padding: '5px 7px', color: TK.sub2, fontSize: FS.tiny }}>{h.cls}</td>
                       <td style={{ padding: '5px 7px', textAlign: 'right', color: TK.slate300, fontFamily: 'monospace' }}>{h.weight.toFixed(1)}%</td>
                       <td style={{ padding: '5px 7px', textAlign: 'right', color: pcol(h.pnlPct), fontFamily: 'monospace' }}>{pct(h.pnlPct)}</td>
                       <td style={{ padding: '5px 7px', textAlign: 'right', color: pcol(h.weekPct), fontFamily: 'monospace', fontWeight: 700 }}>{pct(h.weekPct)}</td>
-                      <td style={{ padding: '5px 7px', textAlign: 'right', color: pcol(h.weekContrib), fontFamily: 'monospace', fontSize: 10 }}>{h.weekContrib != null ? `${h.weekContrib > 0 ? '+' : ''}${h.weekContrib.toFixed(1)}%p` : '—'}</td>
-                      <td style={{ padding: '5px 7px', textAlign: 'right' }}>{h.signal ? <span title={h.signalTitle ?? ''} style={{ fontSize: 9.5, fontWeight: 800, color: SIG_META[h.signal]?.c ?? TK.sub }}>{SIG_META[h.signal]?.label ?? h.signal}</span> : <span style={{ color: TK.sub, fontSize: 9.5 }}>—</span>}</td>
-                      <td style={{ padding: '5px 7px', textAlign: 'right', fontSize: 11 }}>{h.timing ? LIGHT_META[h.timing] : '—'}</td>
+                      <td style={{ padding: '5px 7px', textAlign: 'right', color: pcol(h.weekContrib), fontFamily: 'monospace', fontSize: FS.tiny }}>{h.weekContrib != null ? `${h.weekContrib > 0 ? '+' : ''}${h.weekContrib.toFixed(1)}%p` : '—'}</td>
+                      <td style={{ padding: '5px 7px', textAlign: 'right' }}>{h.signal ? <span title={h.signalTitle ?? ''} style={{ fontSize: FS.micro, fontWeight: 800, color: SIG_META[h.signal]?.c ?? TK.sub }}>{SIG_META[h.signal]?.label ?? h.signal}</span> : <span style={{ color: TK.sub, fontSize: FS.micro }}>—</span>}</td>
+                      <td style={{ padding: '5px 7px', textAlign: 'right', fontSize: FS.tiny }}>{h.timing ? LIGHT_META[h.timing] : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div style={{ fontSize: 9.5, color: TK.sub8, marginTop: 6, lineHeight: 1.5 }}>
+            <div style={{ fontSize: FS.micro, color: TK.sub8, marginTop: 6, lineHeight: 1.5 }}>
               ※ 가격 실측 {m.kpi.liveCoverage}% · 달러 자산 누적 손익은 매입환율 미등록으로 현재 환율 근사 · 신호=Jarvis 규칙 판정 · 타점=신호등(🟢적기/🟡대기/🔴유예)
             </div>
           </>
@@ -708,21 +708,21 @@ export default function WeeklyReportPage() {
           <Sec no="⑨" title="이번 주 시장이 내 계좌에 미친 영향 — 섹터 기여">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               {m.sectorImpact.map(s => (
-                <div key={s.sector} style={{ display: 'flex', alignItems: 'center', gap: 9, background: TK.bg3, borderRadius: 8, border: `1px solid ${BORDER}`, padding: '6px 11px', fontSize: 11 }}>
+                <div key={s.sector} style={{ display: 'flex', alignItems: 'center', gap: 9, background: TK.bg3, borderRadius: 8, border: `1px solid ${BORDER}`, padding: '6px 11px', fontSize: FS.tiny }}>
                   <span style={{ minWidth: 130, color: TK.slate200, fontWeight: 700 }}>{s.sector}</span>
-                  <span style={{ color: TK.sub2, fontFamily: 'monospace', fontSize: 10 }}>비중 {s.weight.toFixed(1)}%</span>
-                  <span style={{ color: pcol(s.weekPct), fontFamily: 'monospace', fontSize: 10 }}>주간 {pct(s.weekPct)}</span>
+                  <span style={{ color: TK.sub2, fontFamily: 'monospace', fontSize: FS.tiny }}>비중 {s.weight.toFixed(1)}%</span>
+                  <span style={{ color: pcol(s.weekPct), fontFamily: 'monospace', fontSize: FS.tiny }}>주간 {pct(s.weekPct)}</span>
                   <span style={{ marginLeft: 'auto', fontWeight: 900, color: pcol(s.contrib), fontFamily: 'monospace' }}>{s.contrib != null ? `${s.contrib > 0 ? '+' : ''}${s.contrib.toFixed(1)}%p` : '미집계'}</span>
                 </div>
               ))}
             </div>
-            <div style={{ fontSize: 9.5, color: TK.sub8, marginTop: 6 }}>기여도 = 비중 × 주간 등락. 위 ①·② 시장 등락이 내 계좌의 어느 섹터를 통해 얼마나 들어왔는지 보여줍니다.</div>
+            <div style={{ fontSize: FS.micro, color: TK.sub8, marginTop: 6 }}>기여도 = 비중 × 주간 등락. 위 ①·② 시장 등락이 내 계좌의 어느 섹터를 통해 얼마나 들어왔는지 보여줍니다.</div>
           </Sec>
 
           {/* ⑩ 리스크 점검 */}
           <Sec no="⑩" title="리스크 점검 — 포트폴리오 구조 진단">
             {m.krExtreme && (
-              <div style={{ marginBottom: 8, background: '#2a1010', border: `1px solid ${TK.red400}55`, borderRadius: 8, padding: '8px 12px', fontSize: 11, color: '#fca5a5', lineHeight: 1.55 }}>
+              <div style={{ marginBottom: 8, background: '#2a1010', border: `1px solid ${TK.red400}55`, borderRadius: 8, padding: '8px 12px', fontSize: FS.tiny, color: '#fca5a5', lineHeight: 1.55 }}>
                 🌪️ <b>코스피 극단 변동 국면 + 한국 종목 보유</b> — 이번 주 신규 진입은 계산 수량의 절반 이하·분할을 권장합니다.
               </div>
             )}
@@ -732,16 +732,16 @@ export default function WeeklyReportPage() {
                 return (
                   <div key={r.key} style={{ background: TK.bg3, borderRadius: 9, border: `1px solid ${r.level === 'bad' ? `${TK.red400}55` : BORDER}`, padding: '8px 11px' }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                      <span style={{ fontSize: 10.5, fontWeight: 800, color: TK.slate200 }}>{r.label}</span>
-                      <span style={{ marginLeft: 'auto', fontSize: 9.5, fontWeight: 800, color: rm.c }}>{rm.label}</span>
+                      <span style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate200 }}>{r.label}</span>
+                      <span style={{ marginLeft: 'auto', fontSize: FS.micro, fontWeight: 800, color: rm.c }}>{rm.label}</span>
                     </div>
-                    <div style={{ fontSize: 15, fontWeight: 900, color: rm.c, fontFamily: 'monospace' }}>{r.value != null ? `${r.value.toFixed(1)}${r.unit}` : '—'}</div>
-                    <div style={{ fontSize: 9, color: TK.sub, lineHeight: 1.4 }}>{r.note}</div>
+                    <div style={{ fontSize: FS.lg, fontWeight: 900, color: rm.c, fontFamily: 'monospace' }}>{r.value != null ? `${r.value.toFixed(1)}${r.unit}` : '—'}</div>
+                    <div style={{ fontSize: FS.micro, color: TK.sub, lineHeight: 1.4 }}>{r.note}</div>
                   </div>
                 )
               })}
             </div>
-            <div style={{ fontSize: 9.5, color: TK.sub8, marginTop: 6 }}>※ 규칙 기반 자동 진단 — 매매 권유가 아니라 비중·분산·구조를 스스로 점검하는 교육용 지표입니다.</div>
+            <div style={{ fontSize: FS.micro, color: TK.sub8, marginTop: 6 }}>※ 규칙 기반 자동 진단 — 매매 권유가 아니라 비중·분산·구조를 스스로 점검하는 교육용 지표입니다.</div>
           </Sec>
 
           {/* ⑪ 캘린더 */}
@@ -749,22 +749,22 @@ export default function WeeklyReportPage() {
             {m.calendar && m.calendar.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                 {m.calendar.map((e, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, background: TK.bg3, borderRadius: 8, border: `1px solid ${e.dDay <= 3 ? `${TK.amber500}55` : BORDER}`, padding: '6px 11px', fontSize: 11 }}>
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, background: TK.bg3, borderRadius: 8, border: `1px solid ${e.dDay <= 3 ? `${TK.amber500}55` : BORDER}`, padding: '6px 11px', fontSize: FS.tiny }}>
                     <span style={{ fontWeight: 900, color: e.dDay <= 3 ? TK.amber500 : TK.slate300, fontFamily: 'monospace', minWidth: 40 }}>D-{e.dDay}</span>
-                    <span style={{ color: TK.sub2, fontSize: 10, minWidth: 76 }}>{e.date}</span>
+                    <span style={{ color: TK.sub2, fontSize: FS.tiny, minWidth: 76 }}>{e.date}</span>
                     <span style={{ color: TK.slate200, fontWeight: 700 }}>{e.name}</span>
-                    <span style={{ marginLeft: 'auto', color: TK.sub2, fontSize: 10 }}>{e.type === 'earnings' ? '📊 실적 발표' : e.type === 'exDiv' ? '📅 배당락' : '💵 배당 지급'}</span>
+                    <span style={{ marginLeft: 'auto', color: TK.sub2, fontSize: FS.tiny }}>{e.type === 'earnings' ? '📊 실적 발표' : e.type === 'exDiv' ? '📅 배당락' : '💵 배당 지급'}</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <div style={{ fontSize: 11, color: TK.sub2 }}>{m.calendarNote ?? '다음 2주 내 예정된 이벤트가 없습니다.'}</div>
+              <div style={{ fontSize: FS.tiny, color: TK.sub2 }}>{m.calendarNote ?? '다음 2주 내 예정된 이벤트가 없습니다.'}</div>
             )}
           </Sec>
         </>
       )}
 
-      <div style={{ fontSize: 10, color: TK.sub8, lineHeight: 1.6 }}>
+      <div style={{ fontSize: FS.tiny, color: TK.sub8, lineHeight: 1.6 }}>
         <b style={{ color: TK.sub2 }}>데이터 출처</b> · 지수·원자재·환율·코인 Yahoo Finance / 코스피 투자자별 순매수 네이버 금융(단위 억원 원자료를 조 단위로 환산) / 매크로 FRED·CME FedWatch / 부동산 한국부동산원 주간 매매가격지수·전월세 전환율 / 국가별 변동성 20일 실현변동성 및 자국 5년 백분위 / 개인 섹션은 본인 등록 보유 종목 기준.<br />
         ※ 교육용 시뮬레이션이며 투자 추천이 아닙니다. 주간 기준은 직전 금요일 종가(휴장 시 그 이전 거래일)로 전 지표 동일 적용. 헤드라인·요약·전략은 실측 수치만 주입해 생성({ai?.source === 'gemini' ? 'AI 요약' : '규칙 기반'})합니다. 현금(예수금·CMA)은 앱 미등록으로 리스크 점검에서 제외되고, 달러 자산 환차손익은 매입환율 미보유로 현재 환율 근사입니다 — 잰 척하지 않습니다.
       </div>
