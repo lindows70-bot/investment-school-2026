@@ -265,6 +265,12 @@ export default function SignalReader({ ticker, market, candles, tf }: {
               : <>추세 확립 후 <b>첫 눌림목</b>에 도달했습니다(되돌림 완료).</>} 앱이 구현한 31개 기법을 자체 백테스트해 고른 조합입니다.
             {prime.parabolic && <><br /><b style={{ color: TK.amber500 }}>⚠️ 직전 급등 이력</b> — 수직 상승 뒤의 첫 눌림목은 함정일 수 있어 분할로 접근합니다.</>}
             {prime.rsiAbove50 === false && <><br /><b style={{ color: TK.amber500 }}>⚠️ RSI 50 아래</b> — 매수세 장악 전이라 확인 후가 안전합니다.</>}
+            {/* 첫 눌림목은 정의상 되돌림 = 단기 약세가 동반된다. 아래 매도 신호·음봉과 병존하는 이유를 설명하지 않으면 학생이 모순으로 읽는다 */}
+            {prime.trigger === 'pullback' && (v.icon === '⚠️' || (gapCandle != null && gapCandle.grade >= 5)) && (
+              <><br /><b style={{ color: TK.sky400 }}>ⓘ 아래 매도 신호와 함께 뜨는 게 정상입니다</b> — 첫 눌림목은 <b>고점 대비 되돌림</b>이 조건이라
+                RSI 하락{gapCandle != null && gapCandle.grade >= 5 ? '·음봉' : ''} 같은 단기 약세가 반드시 동반됩니다. 되돌림 없이는 눌림목이 아닙니다.
+                다만 <b>되돌림이 지지에서 멈추는지</b>는 확인해야 하므로, 손절선(아래 ATR 참고선)을 먼저 정하고 분할로 접근합니다.</>
+            )}
           </div>
           <div style={{ fontSize: FS.micro, color: TK.sub, lineHeight: 1.55, marginTop: 6, borderTop: `1px solid ${TK.amber500}33`, paddingTop: 5 }}>
             <b style={{ color: TK.sub2 }}>백테스트 성적</b> · 60종목·12,594봉 워크포워드(룩어헤드 없음) · 표본 323건/42종목 ·
