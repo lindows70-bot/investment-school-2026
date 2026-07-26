@@ -71,6 +71,11 @@ function RelChart({ series, h = 130 }: { series: { name: string; color: string; 
     </div>
   )
 }
+// 상대추이 차트 기간 라벨 — 세 섹션이 같은 문구를 쓰도록 실제 데이터 길이에서 파생(하드코딩 '12거래일' 금지)
+function relNote(len: number | undefined) {
+  if (!len || len < 2) return undefined
+  return <span style={{ fontSize: 9.5, color: TK.sub }}>최근 {len}거래일 상대추이(시작=100)</span>
+}
 function Sec({ no, title, right, children }: { no: string; title: string; right?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
@@ -102,7 +107,8 @@ function relSvgStr(series: { name: string; color: string; data: number[] }[], h 
   const lines = reb.map(s => `<path d="${s.r.map((v, i) => `${i === 0 ? 'M' : 'L'}${(i / (s.r.length - 1) * (W - 44)).toFixed(1)},${y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="${s.color}" stroke-width="1.7"/>`
     + `<text x="${W - 42}" y="${((labelY.get(s.name) ?? y(s.r[s.r.length - 1])) + 3).toFixed(1)}" fill="${s.color}" font-size="9" font-weight="700">${(s.r[s.r.length - 1] - 100) > 0 ? '+' : ''}${(s.r[s.r.length - 1] - 100).toFixed(1)}%</text>`).join('')
   const legend = reb.map(s => `<span style="margin-right:12px"><span style="display:inline-block;width:9px;height:3px;background:${s.color};border-radius:2px;margin-right:4px;vertical-align:middle"></span>${s.name}</span>`).join('')
-  return `<svg viewBox="0 0 ${W} ${h}" style="width:100%;height:auto"><line x1="0" x2="${W}" y1="${y(100).toFixed(1)}" y2="${y(100).toFixed(1)}" stroke="#d8dde3" stroke-dasharray="3 3"/>${lines}</svg><div style="font-size:9px;color:#6b7684">${legend}</div>`
+  const note = `<span style="color:#8a94a2">최근 ${reb[0].r.length}거래일 상대추이(시작=100)</span>`   // 화면 relNote와 동일 문구
+  return `<svg viewBox="0 0 ${W} ${h}" style="width:100%;height:auto"><line x1="0" x2="${W}" y1="${y(100).toFixed(1)}" y2="${y(100).toFixed(1)}" stroke="#d8dde3" stroke-dasharray="3 3"/>${lines}</svg><div style="font-size:9px;color:#6b7684;display:flex;justify-content:space-between;gap:8px"><span>${legend}</span>${note}</div>`
 }
 
 function printReport(d: WeeklyReportResult) {
@@ -293,7 +299,7 @@ export default function WeeklyReportPage() {
       )}
 
       {/* ① 한국 증시 + 수급 */}
-      <Sec no="①" title="한국 증시 — 코스피·코스닥" right={<span style={{ fontSize: 9.5, color: TK.sub }}>최근 12거래일 상대추이(시작=100)</span>}>
+      <Sec no="①" title="한국 증시 — 코스피·코스닥" right={relNote(ix('kospi')?.spark?.length)}>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px,3fr) minmax(220px,2fr)', gap: 14 }}>
           <RelChart series={[{ name: '코스피', color: TK.blue400, data: ix('kospi')?.spark ?? [] }, { name: '코스닥', color: '#eb6834', data: ix('kosdaq')?.spark ?? [] }]} />
           <div>
@@ -317,7 +323,7 @@ export default function WeeklyReportPage() {
       </Sec>
 
       {/* ② 미국·글로벌 + 매크로 스냅샷 */}
-      <Sec no="②" title="미국·글로벌 — 매크로 스냅샷">
+      <Sec no="②" title="미국·글로벌 — 매크로 스냅샷" right={relNote(ix('sp500')?.spark?.length)}>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px,3fr) minmax(220px,2fr)', gap: 14 }}>
           <RelChart series={[{ name: 'S&P 500', color: TK.blue400, data: ix('sp500')?.spark ?? [] }, { name: '나스닥', color: '#1baf7a', data: ix('nasdaq')?.spark ?? [] }]} />
           <div>
@@ -379,7 +385,7 @@ export default function WeeklyReportPage() {
       </Sec>
 
       {/* ③ 암호화폐 */}
-      <Sec no="③" title="암호화폐 — BTC·ETH·XRP·SOL" right={<span style={{ fontSize: 9.5, color: TK.sub }}>상대추이(시작=100)</span>}>
+      <Sec no="③" title="암호화폐 — BTC·ETH·XRP·SOL" right={relNote(ix('btc')?.spark?.length)}>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px,3fr) minmax(200px,2fr)', gap: 14 }}>
           <RelChart series={[
             { name: 'BTC', color: '#eda100', data: ix('btc')?.spark ?? [] },
