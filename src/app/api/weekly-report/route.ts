@@ -5,7 +5,7 @@
  * 설계(docs/weekly-student-report/plan.md):
  *  - 클라우드 코워크 스킬(build_v4/portfolio.py) 파이프라인을 앱 단독으로 이식 — 분석은 전부 앱 SSOT 재사용(제2원칙)
  *  - 주간 기준(SSOT): 직전 금요일 종가 대비(휴장 시 그 이전 최근 거래일) — 티커별 07/16~07/17 혼재 문제를 단일 함수로 통일
- *  - 리스크 5종 게이지 = 클라우드 portfolio.py 임계값 그대로(반도체 40/60·상위3 55/70·환노출 50/75·코인 20/35·현금)
+ *  - 리스크 5종 게이지: 반도체 40/60(ETF 투시 포함)·상위3 55/70·환노출 50/75·코인 5/10(앱 코인랩 가드와 정합)·현금
  *  - 현금·매입환율은 DB에 없음 → '미등록·근사치' 정직 표기(잰 척 금지)
  *  - ?userId= 는 teacher 역할만 허용(학생은 본인 것만)
  */
@@ -26,6 +26,7 @@ import { getTechCandles } from '@/lib/techChartData'
 import { getSector } from '@/lib/schoolIndex'
 import { callGeminiJSON } from '@/lib/gemini'
 import { SECTOR_ETF, SECTOR_LIST } from '@/lib/sectorConfigs'
+import { getEtfComposition } from '@/lib/etfLookThrough'
 import type { ScreenedStock } from '@/lib/macroPhaseScreener'
 import type { MarketCatalystResult } from '@/app/api/market-catalyst/route'
 import type { EventCalendarResult, CalEvent } from '@/app/api/event-calendar/route'
@@ -147,7 +148,7 @@ const AI_SCHEMA = {
 }
 
 async function buildCommon(base: string): Promise<WrCommon> {
-  const key = `weekly-report-common-v4:${kstDate()}`   // v4: 미10Y 스케일 자동판별(÷10 버그) + 앵커 요일 표기 정정
+  const key = `weekly-report-common-v5:${kstDate()}`   // v5: 미10Y 스케일 자동판별(÷10 버그)·앵커 요일 표기·수급 최근일 주입·프롬프트 구체성 강화
   const cached = await getCache<WrCommon>(key, 6 * 3600_000)
   if (cached) return cached
 
@@ -233,13 +234,15 @@ async function buildCommon(base: string): Promise<WrCommon> {
   const seoulRe = realestate?.find(x => x.name === '서울')
   const extremeStr = vol.filter(v => v.verdict === 'extreme').map(v => v.label).join('·')
   const p = (v: number | null | undefined) => v == null ? '미집계' : `${v > 0 ? '+' : ''}${v}%`
+  const jo = (v: number) => `${v > 0 ? '+' : ''}${(v / 1e4).toFixed(2)}조원`   // 억원 원자료 → 조 단위(AI가 '23037억원'으로 쓰던 것 방지)
   const facts = [
     `주간(${weekRange}): 코스피 ${kospi?.close}(${p(kospi?.weekPct)}) 코스닥 ${p(kosdaq?.weekPct)} S&P500 ${p(sp?.weekPct)} 나스닥 ${p(nasdaq?.weekPct)}`,
     `BTC ${p(btc?.weekPct)} ETH ${p(eth?.weekPct)} 금 ${p(gold?.weekPct)} WTI ${wti?.close}$(${p(wti?.weekPct)}) 원/달러 ${fx?.close}(${p(fx?.weekPct)}) 미10Y ${us10?.close}%(${us10?.weekPct != null ? `${us10.weekPct > 0 ? '+' : ''}${us10.weekPct}bp` : '미집계'})`,
-    krFlow ? `코스피 수급(최근5거래일·억원): 외국인 ${krFlow.w5.foreign} 기관 ${krFlow.w5.institution} 개인 ${krFlow.w5.personal}` : '수급 미집계',
+    // ⚠️ 최근일까지 줘야 한다 — 5일 누적만 주면 '금요일 외국인 −3.27조 대량 매도' 같은 주간 최대 사건을 AI가 볼 수 없다
+    krFlow ? `코스피 수급: 최근일(${krFlow.lastDate}) 외국인 ${jo(krFlow.day.foreign)}·기관 ${jo(krFlow.day.institution)}·개인 ${jo(krFlow.day.personal)} / 최근 5거래일 누적 외국인 ${jo(krFlow.w5.foreign)}·기관 ${jo(krFlow.w5.institution)}·개인 ${jo(krFlow.w5.personal)}` : '수급 미집계',
     seoulRe ? `서울 아파트 주간 ${p(seoulRe.w1)}(부동산원)` : '부동산 미집계',
     macro ? `매크로: ${macro.label}·기준금리 ${macro.fedRate}%·CPI ${macro.cpiYoY}%·다음 FOMC ${macro.nextFomc ?? '미정'}` : '',
-    extremeStr ? `변동성 극단 시장: ${extremeStr}` : '',
+    extremeStr ? `변동성 극단 시장: ${vol.filter(v => v.verdict === 'extreme').map(v => `${v.label} 20일 변동성 ${v.vol20}%(자국 5년 백분위 ${v.pctile}%)`).join(', ')}` : '',
     catalyst?.items?.length ? `이슈: ${catalyst.items.map(i => i.title).join(' / ')}` : '',
   ].filter(Boolean).join('\n')
 
@@ -247,12 +250,28 @@ async function buildCommon(base: string): Promise<WrCommon> {
   try {
     const g = await callGeminiJSON<Omit<WrAi, 'source'>>(
       `너는 2026 투자학교의 주간 자산 리포트 편집자다. 아래 [실측 데이터]만 사용해 한국어로 작성하라.
-⛔ 절대 규칙: 데이터에 없는 숫자·사건·기업명을 창작하지 마라. 모든 수치는 데이터 그대로.
-1) headline: 이번 주를 한 문장으로 규정하는 강렬한 제목(15자 이내, 예: 검은 금요일 −5.7%류 — 단 데이터 근거로만)
-2) sub: 헤드라인 보충 2문장(자금 흐름 서사)
-3) bullets: 자산군별 핵심 요약 5개 — tag는 [주식/원자재/암호화폐/부동산/수급] 각 1개씩, text는 수치 포함 1문장
-4) strategy: 자산배분 실전 전략 5개 — title은 [현금·헤지/주식/암호화폐/부동산/매크로] 순, text는 교육용 조언 1~2문장(매수·매도 단정 금지, '검토·확인·주의' 화법)
-5) checkpoints: 다음 주 체크포인트 5개 — k는 [통화정책/주식/원자재·코인/부동산/환율·금리]
+
+⛔ 절대 규칙(어기면 실패)
+- 데이터에 없는 숫자·사건·기업명을 창작하지 마라. 모든 수치는 데이터 그대로.
+- 문장은 전부 '~합니다/~입니다' 존댓말. 명령형('점검하라'·'주시하라')과 평서체('하락했다')는 금지.
+- 큰 금액은 조 단위로 쓴다(억원 표기 금지).
+
+✍️ 작성 원칙(가장 중요 — 이게 리포트의 값어치다)
+- 모든 문장에 데이터의 실제 수치를 최소 하나 인용한다. 수치 없는 일반론은 실패다.
+  나쁨: "변동성이 큰 장세에서 자산 방어 수단을 점검하라."
+  좋음: "코스피 20일 변동성이 73%로 자국 5년 기준 최상단이라, 신규 진입은 분할로 나누고 손절폭은 갭을 감안해 넓히는 편이 안전합니다."
+- strategy와 checkpoints는 '조건 → 행동' 형태로 쓴다. 무엇을 보고(수치·날짜) 어떻게 판단할지가 드러나야 한다.
+  좋음: "미 10년물이 4.7% 위에 머무는 동안에는 고평가 성장주 추격을 미루고, 4.5% 아래로 내려오면 분할 접근을 검토합니다."
+- 수급은 최근일과 5거래일 누적의 방향이 다르면 반드시 둘 다 언급한다(하루 대량 매매가 그 주의 핵심 사건일 수 있다).
+- 같은 지표를 여러 항목에서 반복하지 마라. 항목마다 다른 데이터를 쓴다.
+
+1) headline: 이번 주를 규정하는 제목(15자 이내). 데이터에서 가장 큰 변화 한 가지를 잡는다.
+2) sub: 헤드라인을 뒷받침하는 2문장. 지수·수급·원자재 중 서로 다른 축을 엮어 자금 흐름을 설명한다.
+3) bullets: 자산군별 핵심 요약 5개 — tag는 [주식/원자재/암호화폐/부동산/수급] 각 1개, text는 수치 포함 1문장.
+4) strategy: 자산배분 실전 전략 5개 — title은 [현금·헤지/주식/암호화폐/부동산/매크로] 순.
+   각 1~2문장, 수치와 조건을 반드시 포함. 매수·매도 단정은 금지하고 '검토합니다·확인합니다·유의합니다' 화법을 쓴다.
+5) checkpoints: 다음 주 체크포인트 5개 — k는 [통화정책/주식/원자재·코인/부동산/환율·금리].
+   각 항목에 확인할 구체적 수치나 날짜를 넣는다.
 
 [실측 데이터]
 ${facts}`, AI_SCHEMA, { temperature: 0.4 })
@@ -269,14 +288,14 @@ ${facts}`, AI_SCHEMA, { temperature: 0.4 })
         { tag: '원자재', text: `금 ${p(gold?.weekPct)}·WTI ${wti?.close ?? '—'}$(${p(wti?.weekPct)}).` },
         { tag: '암호화폐', text: `비트코인 ${p(btc?.weekPct)}·이더리움 ${p(eth?.weekPct)}.` },
         { tag: '부동산', text: seoulRe ? `서울 아파트 주간 ${p(seoulRe.w1)}(부동산원 주간 매매지수).` : '부동산 주간 지표 미집계.' },
-        { tag: '수급', text: krFlow ? `코스피 최근 5거래일 외국인 ${(krFlow.w5.foreign / 1e4).toFixed(1)}조·기관 ${(krFlow.w5.institution / 1e4).toFixed(1)}조·개인 ${(krFlow.w5.personal / 1e4).toFixed(1)}조.` : '수급 미집계.' },
+        { tag: '수급', text: krFlow ? `코스피 최근일(${krFlow.lastDate.slice(5)}) 외국인 ${jo(krFlow.day.foreign)}·개인 ${jo(krFlow.day.personal)}, 최근 5거래일 누적 외국인 ${jo(krFlow.w5.foreign)}·기관 ${jo(krFlow.w5.institution)}입니다.` : '수급 미집계.' },
       ],
       strategy: [
-        { title: '현금·헤지', text: extremeStr ? '변동성 극단 국면 — 레버리지 축소·현금 비중 확보, 안전자산 헤지 유지를 검토하세요.' : '변동성 국면에 대비해 현금·안전자산 비중을 점검하세요.' },
-        { title: '주식', text: '급락일수록 분할 원칙 — 신규 진입은 계산 수량의 절반 이하로, 손절선을 먼저 정하고 들어가세요.' },
-        { title: '암호화폐', text: '포트폴리오의 5% 이하 원칙 유지 — 변동성 확대 구간 레버리지는 청산 리스크를 경계하세요.' },
-        { title: '부동산', text: seoulRe ? `서울 주간 ${p(seoulRe.w1)} — 정책·대출 규제 변화를 먼저 점검하세요.` : '정책·대출 규제 변화를 먼저 점검하세요.' },
-        { title: '매크로', text: macro ? `${macro.label} 국면 — 다음 FOMC(${macro.nextFomc ?? '일정 확인'}) 전 포지션 과다 확대는 신중하게.` : '금리 방향 확인 후 비중을 결정하세요.' },
+        { title: '현금·헤지', text: extremeStr ? `${extremeStr} 변동성이 자국 5년 기준 최상단이라, 레버리지를 줄이고 현금 비중을 확보해 두는 편이 안전합니다.` : `금 ${p(gold?.weekPct)} 흐름을 참고해 현금·안전자산 비중을 점검합니다.` },
+        { title: '주식', text: `코스피 ${p(kospi?.weekPct)}·나스닥 ${p(nasdaq?.weekPct)} 구간입니다. 신규 진입은 계산 수량의 절반 이하로 나누고 손절선을 먼저 정한 뒤 접근합니다.` },
+        { title: '암호화폐', text: `비트코인 ${p(btc?.weekPct)} 구간이며, 포트폴리오의 5% 이하 원칙을 유지하고 레버리지는 청산 위험을 감안해 피합니다.` },
+        { title: '부동산', text: seoulRe ? `서울 아파트가 주간 ${p(seoulRe.w1)}입니다. 정책·대출 규제 변화가 주간 지수보다 먼저 움직이므로 그쪽을 확인합니다.` : '정책·대출 규제 변화를 먼저 확인합니다.' },
+        { title: '매크로', text: macro ? `${macro.label} 국면이고 기준금리 ${macro.fedRate}%·CPI ${macro.cpiYoY}%입니다. 다음 FOMC(${macro.nextFomc ?? '일정 확인'}) 전까지 포지션 확대는 신중하게 판단합니다.` : `미 10년물 ${us10?.close ?? '—'}% 방향을 확인한 뒤 비중을 정합니다.` },
       ],
       checkpoints: [
         { k: '통화정책', text: macro?.nextFomc ? `다음 FOMC ${macro.nextFomc} — 금리 시그널 확인` : 'FOMC 일정 확인' },
@@ -314,7 +333,12 @@ function clsOf(assetType: string, market: string): string {
 }
 
 // 반도체 집중도 — 업종(industry) 기준 + 폴백 티커(클라우드 하드코딩 3종 확장)
-const SEMI_FALLBACK = new Set(['005930', '000660', 'NVDA', 'MU', 'TSM', 'AMD', 'AVGO', 'QCOM', 'TXN', 'AMAT', 'LRCX', 'KLAC'])
+// 반도체 판별 폴백 — Yahoo가 industry를 안 주는 KR 종목 + ETF 구성종목(영문명에 semiconductor가 없는 AVGO·MU류) 대응
+const SEMI_FALLBACK = new Set([
+  '005930', '000660', 'NVDA', 'MU', 'TSM', 'AMD', 'AVGO', 'QCOM', 'TXN', 'AMAT', 'LRCX', 'KLAC',
+  'INTC', 'ADI', 'NXPI', 'MRVL', 'ASML', 'MCHP', 'ON', 'ARM', 'SNDK', 'TER', 'ENTG', 'SWKS', 'MPWR',
+  '240810', '042700', '036930', '039030', '403870', '058470', '000990', '005290',   // 원익IPS·한미반도체·주성엔지·이오테크닉스·HPSP·리노공업·DB하이텍·동진쎄미켐
+])
 
 // 🔬 테마·섹터 ETF 역맵(SECTOR_ETF SSOT — win-lose 학교 보드와 동일 체인): 티커 → 섹터 라벨. 미등록 ETF는 '광역 ETF(분산)'
 const ETF_SECTOR_REV: Map<string, string> = (() => {
@@ -460,14 +484,42 @@ async function buildMe(uid: string, name: string, selfCalendar: boolean, cookie:
     .map(([sector, v]) => ({ sector, weight: r1(v.weight), weekPct: v.known && v.weight > 0 ? r1(v.contrib / v.weight * 100) : null, contrib: v.known ? r1(v.contrib) : null }))
     .sort((a, b) => (a.contrib ?? 0) - (b.contrib ?? 0))
 
-  // 리스크 5종(클라우드 portfolio.py 임계값 그대로)
-  const semiW = r1(holdings.filter(h => SEMI_FALLBACK.has(h.ticker.toUpperCase()) || /semiconductor/i.test(String(uniMap.get(h.ticker.toUpperCase())?.industry ?? ''))).reduce((s, h) => s + h.weight, 0))
+  // 🔬 반도체 집중도 — ETF 투시(look-through) 포함.
+  //    직접 보유만 세면 코어 ETF 안의 반도체를 통째로 놓친다(실측: TIGER 200 내 삼성전자 32.8%+SK하이닉스 27.5%=60.2%).
+  //    X-Ray SSOT(getEtfComposition·7일 캐시) 재사용 — 추가 수집 부담 작음.
+  //    ⚠️ 구성은 상위 종목만 제공되므로 결과는 '하한값'(최소 이만큼)이다. 커버리지를 함께 표기해 잰 척하지 않는다.
+  const isSemi = (ticker?: string | null, name?: string | null) => {
+    const t = String(ticker ?? '').toUpperCase().replace(/\.(KS|KQ)$/, '')
+    if (t && SEMI_FALLBACK.has(t)) return true
+    if (t && /semiconductor/i.test(String(uniMap.get(t)?.industry ?? ''))) return true
+    return /반도체|semiconduct/i.test(String(name ?? ''))
+  }
+  const semiDirect = r1(holdings.filter(h => isSemi(h.ticker, h.name)).reduce((s, h) => s + h.weight, 0))
+  let semiEtf = 0, etfCov = 0
+  try {
+    const etfs = holdings.filter(h => h.assetType === 'ETF' && h.weight > 0)
+    for (let i = 0; i < etfs.length; i += 4) {
+      const comps = await Promise.all(etfs.slice(i, i + 4).map(async h =>
+        ({ h, c: await getEtfComposition(h.ticker, h.market).catch(() => null) })))
+      for (const { h, c } of comps) {
+        if (!c || !c.isEquityEtf || c.isLeveraged) continue   // 채권·원자재·레버리지(스왑 구조)는 분해 부적합
+        const inner = c.topHoldings.reduce((s, x) => s + (x.weight ?? 0), 0)
+        const semiIn = c.topHoldings.filter(x => isSemi(x.ticker, x.name)).reduce((s, x) => s + (x.weight ?? 0), 0)
+        semiEtf += h.weight * semiIn / 100
+        etfCov += h.weight * inner / 100
+      }
+    }
+  } catch { /* graceful — 분해 실패 시 직접 보유분만 */ }
+  const semiW = r1(semiDirect + semiEtf)
+  const semiNote = semiEtf >= 0.05
+    ? `직접 ${semiDirect}% + ETF 투시 ${r1(semiEtf)}%p — ETF 구성 상위 종목만 분해(포트 ${r1(etfCov)}% 커버)라 실제는 이보다 클 수 있습니다`
+    : '직접 보유 기준(업종+대표 반도체 티커) — 보유 ETF의 구성 종목이 제공되지 않았습니다'
   const top3W = r1(holdings.slice(0, 3).reduce((s, h) => s + h.weight, 0))
   const fxW = r1(items.filter(({ h, at }) => h.currency === 'USD' && at !== 'CRYPTO').reduce((s, { valueKrw, costKrw }) => s + ((valueKrw ?? costKrw) / totalSafe) * 100, 0))
   const cryptoW = r1(holdings.filter(h => h.assetType === 'CRYPTO').reduce((s, h) => s + h.weight, 0))
   const lv = (v: number, mid: number, hi: number): WrRisk['level'] => v >= hi ? 'bad' : v >= mid ? 'warn' : 'ok'
   const risks: WrRisk[] = [
-    { key: 'semi', label: '반도체 집중도', value: semiW, unit: '%', level: lv(semiW, 40, 60), note: '업종(industry)+대표 반도체 티커 기준' },
+    { key: 'semi', label: '반도체 집중도(ETF 투시)', value: semiW, unit: '%', level: lv(semiW, 40, 60), note: semiNote },
     { key: 'top3', label: '상위 3종목 집중도', value: top3W, unit: '%', level: lv(top3W, 55, 70), note: '평가액 비중 상위 3종목 합' },
     { key: 'fx', label: '환노출(달러 자산)', value: fxW, unit: '%', level: lv(fxW, 50, 75), note: '통화 USD 자산 비중(코인 제외)' },
     // ⚠️ 임계는 앱 자체 가드(코인 랩 '≤5% 권장')와 일치시킨다 — 클라우드 원본의 20/35를 쓰면
@@ -523,7 +575,7 @@ export async function GET(req: Request) {
 
   // 캐시(개인 6h·보유 지문 무효화)
   const fp = await holdingsFingerprint(targetId)
-  const meKey = `weekly-report-me-v3:${targetId}:${kstDate()}:${fp}:${selfView ? 's' : 't'}`   // v3: 코인 비중 임계 5/10(앱 가드 정합)
+  const meKey = `weekly-report-me-v4:${targetId}:${kstDate()}:${fp}:${selfView ? 's' : 't'}`   // v4: 코인 임계 5/10(앱 가드 정합) + 반도체 집중도 ETF 투시(look-through) 포함
   let me = await getCache<WrMe>(meKey, 6 * 3600_000)
   const common = await buildCommon(base)
   if (!me) {
