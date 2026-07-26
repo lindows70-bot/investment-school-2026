@@ -1,0 +1,547 @@
+/**
+ * GET /api/weekly-report[?userId=]
+ * 📄 학생별 주간 리포트 — 공통 시장 섹션(전원 공유·1회 계산) + 개인 포트폴리오 섹션(로그인 학생)
+ *
+ * 설계(docs/weekly-student-report/plan.md):
+ *  - 클라우드 코워크 스킬(build_v4/portfolio.py) 파이프라인을 앱 단독으로 이식 — 분석은 전부 앱 SSOT 재사용(제2원칙)
+ *  - 주간 기준(SSOT): 직전 금요일 종가 대비(휴장 시 그 이전 최근 거래일) — 티커별 07/16~07/17 혼재 문제를 단일 함수로 통일
+ *  - 리스크 5종 게이지 = 클라우드 portfolio.py 임계값 그대로(반도체 40/60·상위3 55/70·환노출 50/75·코인 20/35·현금)
+ *  - 현금·매입환율은 DB에 없음 → '미등록·근사치' 정직 표기(잰 척 금지)
+ *  - ?userId= 는 teacher 역할만 허용(학생은 본인 것만)
+ */
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const maxDuration = 120
+
+import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdmin } from '@supabase/supabase-js'
+import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
+import { getAssetType } from '@/lib/assetClassifier'
+import { fetchMacroData, detectMacroPhase } from '@/lib/macroPhaseScreener'
+import { computeCountryVol } from '@/lib/countryVol'
+import { getEntryTimings } from '@/lib/entryTiming'
+import { getTechCandles } from '@/lib/techChartData'
+import { getSector } from '@/lib/schoolIndex'
+import { callGeminiJSON } from '@/lib/gemini'
+import { SECTOR_ETF, SECTOR_LIST } from '@/lib/sectorConfigs'
+import type { ScreenedStock } from '@/lib/macroPhaseScreener'
+import type { MarketCatalystResult } from '@/app/api/market-catalyst/route'
+import type { EventCalendarResult, CalEvent } from '@/app/api/event-calendar/route'
+import type { MarketInvestorResult } from '@/app/api/market-investor-trend/route'
+import type { ReWeeklyApi } from '@/app/api/re-weekly/route'
+
+const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
+const r1 = (n: number) => Math.round(n * 10) / 10
+
+// ── 주간 앵커(SSOT) — 직전 금요일 종가 대비. 최신 봉이 금요일이면 그 전 금요일 ──
+type Px = { date: string; close: number }
+function weeklyFrom(candles: Px[]): { weekPct: number | null; anchorDate: string | null; last: number | null } {
+  if (!candles || candles.length < 6) return { weekPct: null, anchorDate: null, last: candles?.length ? candles[candles.length - 1].close : null }
+  const last = candles[candles.length - 1]
+  const d = new Date(last.date + 'T00:00:00Z')
+  // 주말 봉(크립토는 토·일에도 거래) → 방금 끝난 금요일 주간으로 귀속(안 하면 앵커가 어제 금요일이 돼 '주간'이 1일 변동이 됨)
+  while (d.getUTCDay() === 6 || d.getUTCDay() === 0) d.setUTCDate(d.getUTCDate() - 1)
+  do { d.setUTCDate(d.getUTCDate() - 1) } while (d.getUTCDay() !== 5)   // 직전 금요일(<기준일)
+  const anchorIso = d.toISOString().slice(0, 10)
+  let base: Px | null = null
+  for (let i = candles.length - 1; i >= 0; i--) { if (candles[i].date <= anchorIso) { base = candles[i]; break } }
+  if (!base || base.close <= 0) return { weekPct: null, anchorDate: null, last: last.close }
+  return { weekPct: r1((last.close / base.close - 1) * 100), anchorDate: base.date, last: last.close }
+}
+
+// 야후 일봉(지수·FX·크립토 심볼용 — getTechCandles는 개별 종목 전용)
+async function yChart(sym: string, days = 45): Promise<Px[]> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { default: YF } = await import('yahoo-finance2') as any
+    const yf = new YF({ suppressNotices: ['yahooSurvey'] })
+    const r = await yf.chart(sym, { period1: new Date(Date.now() - days * 864e5), interval: '1d' })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (r?.quotes ?? []).filter((q: any) => typeof q?.close === 'number' && isFinite(q.close))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((q: any) => ({ date: new Date(q.date).toISOString().slice(0, 10), close: q.close }))
+  } catch { return [] }
+}
+
+// ── 타입 ──────────────────────────────────────────────────────────────────────
+export interface WrIndex {
+  key: string; label: string; flag: string; close: number | null; weekPct: number | null; anchorDate: string | null
+  spark: number[]            // 최근 ~12거래일 종가(KPI 스파크라인·상대추이 차트용)
+  isYield?: boolean          // 미10Y — close=수익률%, weekPct=bp 변화
+}
+export interface WrAi {
+  headline: string; sub: string
+  bullets: { tag: string; text: string }[]       // ✦ 핵심 요약 5(자산군 태그)
+  strategy: { title: string; text: string }[]    // 자산배분 실전 전략 5
+  checkpoints: { k: string; text: string }[]     // 다음 주 체크포인트
+  source: 'gemini' | 'fallback'
+}
+export interface WrCommon {
+  weekOf: string; weekRange: string; anchorNote: string
+  indices: WrIndex[]
+  macro: { label: string; icon: string; description: string; fedRate: number; cpiYoY: number; rateDir: string; nextFomc: string | null } | null
+  vol: { flag: string; label: string; verdict: string; vol20: number; pctile: number; big3: number }[]
+  catalyst: { mood: string | null; items: { title: string; note: string }[] } | null
+  krFlow: { lastDate: string; day: { foreign: number; institution: number; personal: number }; w5: { foreign: number; institution: number; personal: number } } | null   // 억원
+  realestate: { name: string; w1: number | null; w4: number | null }[] | null   // 부동산원 주간 매매지수(서울·수도권·전국)
+  ai: WrAi | null
+}
+export interface WrHolding {
+  ticker: string; name: string; market: string; assetType: string; cls: string
+  qty: number; costKrw: number; valueKrw: number | null; weight: number
+  pnlPct: number | null; weekPct: number | null; weekContrib: number | null   // %p (비중×주간)
+  sector: string | null
+  signal: 'SELL' | 'BUY' | 'HOLD' | null; signalTitle: string | null
+  timing: 'green' | 'yellow' | 'red' | null
+}
+export interface WrRisk { key: string; label: string; value: number | null; unit: string; level: 'ok' | 'warn' | 'bad' | 'unknown'; note: string }
+export interface WrMe {
+  userId: string; name: string; hasPortfolio: boolean
+  kpi: { totalKrw: number; costKrw: number; pnlPct: number | null; weekPct: number | null; count: number; liveCoverage: number }
+  byClass: { cls: string; weight: number }[]
+  holdings: WrHolding[]
+  sectorImpact: { sector: string; weight: number; weekPct: number | null; contrib: number | null }[]
+  risks: WrRisk[]
+  krExtreme: boolean          // 🌪️ 코스피 극단 변동 국면에서 KR 보유가 있는가
+  calendar: CalEvent[] | null // 본인 조회일 때만(교사 대리 조회 시 null — 캘린더 API가 세션 기준이라)
+  calendarNote: string | null
+}
+export interface WeeklyReportResult {
+  common: WrCommon
+  me: WrMe
+  students?: { id: string; name: string }[]   // teacher 전용 로스터
+  isTeacherView: boolean
+  asOf: string
+}
+
+// ── 공통 시장 섹션(전원 공유·6h 캐시) ─────────────────────────────────────────
+//    클라우드 리포트(build_v4) 커버리지 이식: KPI 8종 + 매크로 스냅샷(닛케이·은·WTI·미10Y) + 코인 4종
+const INDICES: { key: string; label: string; flag: string; sym: string; yield?: boolean }[] = [
+  { key: 'kospi',  label: '코스피',      flag: '🇰🇷', sym: '^KS11' },
+  { key: 'kosdaq', label: '코스닥',      flag: '🇰🇷', sym: '^KQ11' },
+  { key: 'sp500',  label: 'S&P 500',    flag: '🇺🇸', sym: '^GSPC' },
+  { key: 'nasdaq', label: '나스닥',      flag: '🇺🇸', sym: '^IXIC' },
+  { key: 'usdkrw', label: '원/달러',     flag: '💱', sym: 'KRW=X' },
+  { key: 'btc',    label: '비트코인($)',  flag: '🪙', sym: 'BTC-USD' },
+  { key: 'gold',   label: '금 ($/oz)',   flag: '🥇', sym: 'GC=F' },
+  { key: 'wti',    label: 'WTI 유가($)', flag: '🛢️', sym: 'CL=F' },
+  { key: 'silver', label: '은 ($/oz)',   flag: '🥈', sym: 'SI=F' },
+  { key: 'us10y',  label: '미 10Y(%)',   flag: '📜', sym: '^TNX', yield: true },
+  { key: 'nikkei', label: '닛케이 225',  flag: '🇯🇵', sym: '^N225' },
+  { key: 'eth',    label: '이더리움($)',  flag: '🔷', sym: 'ETH-USD' },
+  { key: 'xrp',    label: '리플($)',     flag: '🪙', sym: 'XRP-USD' },
+  { key: 'sol',    label: '솔라나($)',    flag: '🪙', sym: 'SOL-USD' },
+]
+
+const AI_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    headline: { type: 'STRING' }, sub: { type: 'STRING' },
+    bullets: { type: 'ARRAY', items: { type: 'OBJECT', properties: { tag: { type: 'STRING' }, text: { type: 'STRING' } }, required: ['tag', 'text'] } },
+    strategy: { type: 'ARRAY', items: { type: 'OBJECT', properties: { title: { type: 'STRING' }, text: { type: 'STRING' } }, required: ['title', 'text'] } },
+    checkpoints: { type: 'ARRAY', items: { type: 'OBJECT', properties: { k: { type: 'STRING' }, text: { type: 'STRING' } }, required: ['k', 'text'] } },
+  },
+  required: ['headline', 'sub', 'bullets', 'strategy', 'checkpoints'],
+}
+
+async function buildCommon(base: string): Promise<WrCommon> {
+  const key = `weekly-report-common-v4:${kstDate()}`   // v4: 미10Y 스케일 자동판별(÷10 버그) + 앵커 요일 표기 정정
+  const cached = await getCache<WrCommon>(key, 6 * 3600_000)
+  if (cached) return cached
+
+  const indices: WrIndex[] = []
+  for (let i = 0; i < INDICES.length; i += 4) {
+    const batch = INDICES.slice(i, i + 4)
+    const res = await Promise.all(batch.map(async m => {
+      const px = await yChart(m.sym)
+      const w = weeklyFrom(px)
+      // ⚠️ ^TNX 스케일: 과거엔 수익률×10(47.0)이었으나 2026-07-26 원천 실측은 4.679 = 퍼센트 그대로.
+      //    무조건 ÷10 하면 4.68%가 0.47%로 표시된다(실제 발생 버그). 미 10년물이 20%를 넘는 일은
+      //    사실상 없으므로 값으로 스케일을 판별해 양방향 10배 오류를 원천 차단한다.
+      const ys = (v: number | null | undefined) => (m.yield && v != null && v > 20 ? 10 : 1)
+      const spark = px.slice(-12).map(p => Math.round(p.close / ys(p.close) * 100) / 100)
+      const close = w.last != null ? Math.round(w.last / ys(w.last) * 100) / 100 : null
+      const baseRaw = w.anchorDate ? px.find(p => p.date === w.anchorDate)?.close ?? null : null
+      const weekPct = m.yield
+        ? (close != null && baseRaw != null ? r1((close - baseRaw / ys(baseRaw)) * 100) : null)   // bp
+        : w.weekPct
+      return { key: m.key, label: m.label, flag: m.flag, close, weekPct, anchorDate: w.anchorDate, spark, isYield: m.yield }
+    }))
+    indices.push(...res)
+  }
+  const ix = (k: string) => indices.find(i => i.key === k)
+
+  let macro: WrCommon['macro'] = null
+  try {
+    const md = await fetchMacroData(base)
+    const ph = detectMacroPhase(md)
+    macro = { label: ph.label, icon: ph.icon, description: ph.description, fedRate: md.fedRate, cpiYoY: md.cpiYoY, rateDir: md.rateDir, nextFomc: md.nextFomc ?? null }
+  } catch { /* graceful */ }
+
+  let vol: WrCommon['vol'] = []
+  try {
+    const cv = await computeCountryVol()
+    if (cv) vol = cv.items.map(i => ({ flag: i.flag, label: i.label, verdict: i.verdict, vol20: i.vol20, pctile: i.pctile, big3: i.big3 }))
+  } catch { /* graceful */ }
+
+  // 이슈(마켓 카탈리스트) — 캐시 읽기만(콜드면 생략, 무거운 재계산 촉발 금지)
+  let catalyst: WrCommon['catalyst'] = null
+  try {
+    const mc = await getCache<MarketCatalystResult>(`market-catalyst-v3:${kstDate()}`, 24 * 3600_000)
+    if (mc) catalyst = { mood: mc.marketMood ?? null, items: (mc.catalysts ?? []).slice(0, 3).map(c => ({ title: String((c as { title?: string }).title ?? ''), note: String((c as { why?: string; note?: string }).why ?? (c as { note?: string }).note ?? '') })) }
+  } catch { /* graceful */ }
+
+  // 🇰🇷 코스피 투자자별 수급 — 수급 레이더 SSOT 재사용(공개 라우트 self-fetch·6h 캐시)
+  let krFlow: WrCommon['krFlow'] = null
+  try {
+    const r = await fetch(`${base}/api/market-investor-trend?market=KOSPI`, { signal: AbortSignal.timeout(30_000), cache: 'no-store' })
+    if (r.ok) {
+      const j = await r.json() as MarketInvestorResult
+      const rows = [...(j.rows ?? [])].sort((a, b) => b.date.localeCompare(a.date))
+      if (rows.length >= 5) {
+        const w5 = rows.slice(0, 5)
+        const sum = (f: 'foreign' | 'institution' | 'personal') => Math.round(w5.reduce((s, x) => s + (x[f] ?? 0), 0))
+        krFlow = { lastDate: rows[0].date, day: { foreign: Math.round(rows[0].foreign), institution: Math.round(rows[0].institution), personal: Math.round(rows[0].personal) }, w5: { foreign: sum('foreign'), institution: sum('institution'), personal: sum('personal') } }
+      }
+    }
+  } catch { /* graceful */ }
+
+  // 🏠 부동산원 주간 매매지수 — 부동산 주간 펄스 SSOT 재사용(공개 라우트 self-fetch·캐시)
+  let realestate: WrCommon['realestate'] = null
+  try {
+    const r = await fetch(`${base}/api/re-weekly`, { signal: AbortSignal.timeout(30_000), cache: 'no-store' })
+    if (r.ok) {
+      const j = await r.json() as ReWeeklyApi
+      const pick = ['서울', '수도권', '전국']
+      const rs = (j.regions ?? []).filter(x => pick.includes(x.name)).map(x => ({ name: x.name, w1: x.w1, w4: x.w4 }))
+      if (rs.length > 0) realestate = pick.map(n => rs.find(x => x.name === n)).filter((x): x is NonNullable<typeof x> => !!x)
+    }
+  } catch { /* graceful */ }
+
+  // 주 범위(월~금) 표기
+  const anchor = ix('kospi')?.anchorDate ?? ix('sp500')?.anchorDate ?? null
+  const lastD = new Date(kstDate() + 'T00:00:00Z')
+  while (lastD.getUTCDay() !== 5) lastD.setUTCDate(lastD.getUTCDate() - 1)   // 직전(포함) 금요일
+  const monD = new Date(lastD); monD.setUTCDate(monD.getUTCDate() - 4)
+  const mmdd = (d: Date) => `${d.getUTCMonth() + 1}/${d.getUTCDate()}`
+  const weekRange = `${mmdd(monD)}–${mmdd(lastD)}`
+
+  // ✍️ AI 서사(헤드라인·핵심 요약·전략·체크포인트) — 숫자는 전부 우리가 주입(창작 금지 가드), 실패 시 결정론 폴백
+  const kospi = ix('kospi'), kosdaq = ix('kosdaq'), nasdaq = ix('nasdaq'), sp = ix('sp500'), btc = ix('btc'), eth = ix('eth'), gold = ix('gold'), wti = ix('wti'), fx = ix('usdkrw'), us10 = ix('us10y')
+  const seoulRe = realestate?.find(x => x.name === '서울')
+  const extremeStr = vol.filter(v => v.verdict === 'extreme').map(v => v.label).join('·')
+  const p = (v: number | null | undefined) => v == null ? '미집계' : `${v > 0 ? '+' : ''}${v}%`
+  const facts = [
+    `주간(${weekRange}): 코스피 ${kospi?.close}(${p(kospi?.weekPct)}) 코스닥 ${p(kosdaq?.weekPct)} S&P500 ${p(sp?.weekPct)} 나스닥 ${p(nasdaq?.weekPct)}`,
+    `BTC ${p(btc?.weekPct)} ETH ${p(eth?.weekPct)} 금 ${p(gold?.weekPct)} WTI ${wti?.close}$(${p(wti?.weekPct)}) 원/달러 ${fx?.close}(${p(fx?.weekPct)}) 미10Y ${us10?.close}%(${us10?.weekPct != null ? `${us10.weekPct > 0 ? '+' : ''}${us10.weekPct}bp` : '미집계'})`,
+    krFlow ? `코스피 수급(최근5거래일·억원): 외국인 ${krFlow.w5.foreign} 기관 ${krFlow.w5.institution} 개인 ${krFlow.w5.personal}` : '수급 미집계',
+    seoulRe ? `서울 아파트 주간 ${p(seoulRe.w1)}(부동산원)` : '부동산 미집계',
+    macro ? `매크로: ${macro.label}·기준금리 ${macro.fedRate}%·CPI ${macro.cpiYoY}%·다음 FOMC ${macro.nextFomc ?? '미정'}` : '',
+    extremeStr ? `변동성 극단 시장: ${extremeStr}` : '',
+    catalyst?.items?.length ? `이슈: ${catalyst.items.map(i => i.title).join(' / ')}` : '',
+  ].filter(Boolean).join('\n')
+
+  let ai: WrAi | null = null
+  try {
+    const g = await callGeminiJSON<Omit<WrAi, 'source'>>(
+      `너는 2026 투자학교의 주간 자산 리포트 편집자다. 아래 [실측 데이터]만 사용해 한국어로 작성하라.
+⛔ 절대 규칙: 데이터에 없는 숫자·사건·기업명을 창작하지 마라. 모든 수치는 데이터 그대로.
+1) headline: 이번 주를 한 문장으로 규정하는 강렬한 제목(15자 이내, 예: 검은 금요일 −5.7%류 — 단 데이터 근거로만)
+2) sub: 헤드라인 보충 2문장(자금 흐름 서사)
+3) bullets: 자산군별 핵심 요약 5개 — tag는 [주식/원자재/암호화폐/부동산/수급] 각 1개씩, text는 수치 포함 1문장
+4) strategy: 자산배분 실전 전략 5개 — title은 [현금·헤지/주식/암호화폐/부동산/매크로] 순, text는 교육용 조언 1~2문장(매수·매도 단정 금지, '검토·확인·주의' 화법)
+5) checkpoints: 다음 주 체크포인트 5개 — k는 [통화정책/주식/원자재·코인/부동산/환율·금리]
+
+[실측 데이터]
+${facts}`, AI_SCHEMA, { temperature: 0.4 })
+    if (g.ok && g.data && g.data.headline && (g.data.bullets?.length ?? 0) >= 3) ai = { ...g.data, source: 'gemini' }
+  } catch { /* 폴백 */ }
+  if (!ai) {
+    // 결정론 폴백 — 실측 숫자만 조립
+    ai = {
+      source: 'fallback',
+      headline: `코스피 주간 ${p(kospi?.weekPct)}${extremeStr ? ' · 변동성 극단' : ''}`,
+      sub: `주간(${weekRange}) 코스피 ${p(kospi?.weekPct)}·나스닥 ${p(nasdaq?.weekPct)}. ${extremeStr ? `${extremeStr} 변동성이 자국 역사 극단 구간입니다.` : '지표별 상세는 아래 섹션을 확인하세요.'}`,
+      bullets: [
+        { tag: '주식', text: `코스피 ${p(kospi?.weekPct)}·코스닥 ${p(kosdaq?.weekPct)}·S&P500 ${p(sp?.weekPct)}·나스닥 ${p(nasdaq?.weekPct)}.` },
+        { tag: '원자재', text: `금 ${p(gold?.weekPct)}·WTI ${wti?.close ?? '—'}$(${p(wti?.weekPct)}).` },
+        { tag: '암호화폐', text: `비트코인 ${p(btc?.weekPct)}·이더리움 ${p(eth?.weekPct)}.` },
+        { tag: '부동산', text: seoulRe ? `서울 아파트 주간 ${p(seoulRe.w1)}(부동산원 주간 매매지수).` : '부동산 주간 지표 미집계.' },
+        { tag: '수급', text: krFlow ? `코스피 최근 5거래일 외국인 ${(krFlow.w5.foreign / 1e4).toFixed(1)}조·기관 ${(krFlow.w5.institution / 1e4).toFixed(1)}조·개인 ${(krFlow.w5.personal / 1e4).toFixed(1)}조.` : '수급 미집계.' },
+      ],
+      strategy: [
+        { title: '현금·헤지', text: extremeStr ? '변동성 극단 국면 — 레버리지 축소·현금 비중 확보, 안전자산 헤지 유지를 검토하세요.' : '변동성 국면에 대비해 현금·안전자산 비중을 점검하세요.' },
+        { title: '주식', text: '급락일수록 분할 원칙 — 신규 진입은 계산 수량의 절반 이하로, 손절선을 먼저 정하고 들어가세요.' },
+        { title: '암호화폐', text: '포트폴리오의 5% 이하 원칙 유지 — 변동성 확대 구간 레버리지는 청산 리스크를 경계하세요.' },
+        { title: '부동산', text: seoulRe ? `서울 주간 ${p(seoulRe.w1)} — 정책·대출 규제 변화를 먼저 점검하세요.` : '정책·대출 규제 변화를 먼저 점검하세요.' },
+        { title: '매크로', text: macro ? `${macro.label} 국면 — 다음 FOMC(${macro.nextFomc ?? '일정 확인'}) 전 포지션 과다 확대는 신중하게.` : '금리 방향 확인 후 비중을 결정하세요.' },
+      ],
+      checkpoints: [
+        { k: '통화정책', text: macro?.nextFomc ? `다음 FOMC ${macro.nextFomc} — 금리 시그널 확인` : 'FOMC 일정 확인' },
+        { k: '주식', text: `코스피 ${kospi?.close ?? '—'} 지지 여부 · 실적 시즌 가이던스` },
+        { k: '원자재·코인', text: `WTI ${wti?.close ?? '—'}$ 방향 · 비트코인 ${btc?.close ? Math.round(btc.close / 1000) + 'K$' : '—'} 지지` },
+        { k: '부동산', text: '정부 정책·대출 규제 발표 여부' },
+        { k: '환율·금리', text: `원/달러 ${fx?.close ?? '—'} · 미 10Y ${us10?.close ?? '—'}% 방향` },
+      ],
+    }
+  }
+
+  const out: WrCommon = {
+    weekOf: kstDate(), weekRange,
+    // ⚠️ 앵커가 실제 금요일인지 확인 후 표기 — 금요일 휴장이면 그 이전 거래일이 앵커가 되므로
+    //    무조건 '직전 금요일(날짜)'로 쓰면 목요일 날짜에 금요일 라벨이 붙는다(실제 발생).
+    anchorNote: anchor
+      ? (new Date(`${anchor}T00:00:00Z`).getUTCDay() === 5
+        ? `주간 = 직전 금요일(${anchor}) 종가 대비`
+        : `주간 = 직전 금요일 기준 · 휴장으로 ${anchor} 종가 대비`)
+      : '주간 = 직전 금요일 종가 대비(휴장 시 그 이전 거래일)',
+    indices, macro, vol, catalyst, krFlow, realestate, ai,
+  }
+  if (indices.filter(i => i.weekPct != null).length >= 7) await setCache(key, out)   // 과반 실패 시 박제 금지
+  return out
+}
+
+// ── 개인 섹션 ─────────────────────────────────────────────────────────────────
+interface InvRow { ticker: string; name: string | null; market: string | null; purchase_price: number | null; quantity: number | null; currency: string | null }
+
+// 자산군(클라우드 portfolio.py cls 대응 — 앱 SSOT getAssetType로 판정)
+function clsOf(assetType: string, market: string): string {
+  if (assetType === 'CRYPTO') return '암호화폐'
+  if (assetType === 'COMMODITY') return '원자재'
+  return market === 'KR' ? '국내 주식·ETF' : '해외 주식·ETF'
+}
+
+// 반도체 집중도 — 업종(industry) 기준 + 폴백 티커(클라우드 하드코딩 3종 확장)
+const SEMI_FALLBACK = new Set(['005930', '000660', 'NVDA', 'MU', 'TSM', 'AMD', 'AVGO', 'QCOM', 'TXN', 'AMAT', 'LRCX', 'KLAC'])
+
+// 🔬 테마·섹터 ETF 역맵(SECTOR_ETF SSOT — win-lose 학교 보드와 동일 체인): 티커 → 섹터 라벨. 미등록 ETF는 '광역 ETF(분산)'
+const ETF_SECTOR_REV: Map<string, string> = (() => {
+  const m = new Map<string, string>()
+  const labelOf = (k: string) => SECTOR_LIST.find(s => s.key === k.split(':')[0])?.label ?? null
+  for (const [k, v] of Object.entries(SECTOR_ETF)) {
+    const lbl = labelOf(k)
+    if (!lbl) continue
+    if (v.us?.t) m.set(v.us.t.toUpperCase(), `${lbl} ETF`)
+    if (v.kr?.t) m.set(v.kr.t.toUpperCase(), `${lbl} ETF`)
+  }
+  return m
+})()
+
+async function buildMe(uid: string, name: string, selfCalendar: boolean, cookie: string, base: string): Promise<WrMe> {
+  const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
+  const { data: raw } = await admin.from('investments').select('ticker,name,market,purchase_price,quantity,currency').eq('user_id', uid)
+  const rows = (raw ?? []) as InvRow[]
+
+  // 같은 티커 다중 행(분할매수) 병합
+  const merged = new Map<string, { ticker: string; name: string; market: string; currency: string; qty: number; cost: number }>()
+  for (const r of rows) {
+    const mkt = r.market === 'KR' ? 'KR' : (r.market ?? 'US')
+    const k = `${r.ticker.toUpperCase()}:${mkt}`
+    const qty = Number(r.quantity) || 0
+    const cost = (Number(r.purchase_price) || 0) * qty
+    const prev = merged.get(k)
+    if (prev) { prev.qty += qty; prev.cost += cost }
+    else merged.set(k, { ticker: r.ticker, name: r.name ?? r.ticker, market: mkt, currency: r.currency ?? (mkt === 'KR' ? 'KRW' : 'USD'), qty, cost })
+  }
+  const hs = Array.from(merged.values())
+  if (hs.length === 0) {
+    return { userId: uid, name, hasPortfolio: false, kpi: { totalKrw: 0, costKrw: 0, pnlPct: null, weekPct: null, count: 0, liveCoverage: 0 }, byClass: [], holdings: [], sectorImpact: [], risks: [], krExtreme: false, calendar: null, calendarNote: '포트폴리오를 등록하면 개인 분석이 시작됩니다.' }
+  }
+
+  // 환율(₩ 환산)
+  let usdKrw = 1400
+  try { const ex = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000), cache: 'no-store' }); if (ex.ok) { const j = await ex.json(); if (typeof j.rate === 'number' && j.rate > 500) usdKrw = j.rate } } catch { /* 폴백 */ }
+
+  // 현재가 배치(앱 가격 SSOT /api/stock-price — KR·US·CRYPTO 전부 처리, 40개 청크)
+  const priceMap = new Map<string, { price: number; krw: boolean }>()
+  for (let i = 0; i < hs.length; i += 40) {
+    const chunk = hs.slice(i, i + 40)
+    try {
+      const pr = await fetch(`${base}/api/stock-price`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(chunk.map(h => ({ ticker: h.ticker, market: h.market }))), signal: AbortSignal.timeout(30_000), cache: 'no-store' })
+      if (pr.ok) {
+        const arr = await pr.json() as Array<{ ticker: string; currentPrice: number; currency: string }>
+        for (const d of arr) priceMap.set(String(d.ticker).toUpperCase(), { price: Number(d.currentPrice) || 0, krw: d.currency === 'KRW' })
+      }
+    } catch { /* graceful — 해당 청크는 원가 폴백 */ }
+  }
+
+  // 유니버스 캐시(섹터·업종 조인 — 추가 fetch 0)
+  const uni = (await getCache<ScreenedStock[]>('macro-screened-universe:v10', 8 * 24 * 3600_000)) ?? []
+  const uniMap = new Map(uni.map(s => [s.ticker.toUpperCase(), s]))
+
+  // 주간 수익률(주식·ETF=getTechCandles 캐시 / 크립토=야후 -USD 근사) — 동시성 4
+  const weekMap = new Map<string, number | null>()
+  const sectorMap = new Map<string, string | null>()
+  for (let i = 0; i < hs.length; i += 4) {
+    const batch = hs.slice(i, i + 4)
+    await Promise.all(batch.map(async h => {
+      const at = getAssetType(h.ticker, h.name, h.market)
+      const key = h.ticker.toUpperCase()
+      try {
+        let candles: Px[] = []
+        if (at === 'CRYPTO') candles = await yChart(`${key.replace(/-USD$/, '')}-USD`)
+        else candles = (await getTechCandles(h.ticker, h.market as 'KR' | 'US', 'D')).map(c => ({ date: c.date, close: c.close }))
+        weekMap.set(key, weeklyFrom(candles).weekPct)
+      } catch { weekMap.set(key, null) }
+      // 섹터: 크립토 고정 → ETF는 SECTOR_ETF 역맵(테마) 아니면 광역 ETF → 개별주는 유니버스 → getSector(7일 캐시)
+      if (at === 'CRYPTO') sectorMap.set(key, '암호화폐')
+      else if (at === 'ETF' || at === 'COMMODITY') sectorMap.set(key, ETF_SECTOR_REV.get(key) ?? (at === 'COMMODITY' ? '원자재' : '광역 ETF(분산)'))
+      else {
+        const u = uniMap.get(key)
+        if (u?.sector && u.sector !== '—') sectorMap.set(key, u.sector)
+        else { try { const s = await getSector(h.ticker, h.market); sectorMap.set(key, s && s !== '기타' ? s : null) } catch { sectorMap.set(key, null) } }
+      }
+    }))
+  }
+
+  // 매도/매수 신호(user_daily_briefings 최신 base_date — Jarvis 크론 적재분 = 앱 화면과 동일)
+  const sigMap = new Map<string, { signal: 'SELL' | 'BUY' | 'HOLD'; title: string | null }>()
+  try {
+    const { data: sig } = await admin.from('user_daily_briefings').select('ticker,signal_type,briefing_title,base_date').eq('user_id', uid).order('base_date', { ascending: false }).limit(80)
+    const latest = sig?.[0]?.base_date
+    for (const s of sig ?? []) if (s.base_date === latest) sigMap.set(String(s.ticker).toUpperCase(), { signal: s.signal_type as 'SELL' | 'BUY' | 'HOLD', title: s.briefing_title ?? null })
+  } catch { /* graceful */ }
+
+  // 타점 신호등(캐시 재사용)
+  const stockHs = hs.filter(h => { const at = getAssetType(h.ticker, h.name, h.market); return at === 'STOCK' || at === 'ETF' })
+  let timingMap = new Map<string, { light?: 'green' | 'yellow' | 'red' } | null>()
+  try {
+    const tm = await getEntryTimings(stockHs.map(h => ({ ticker: h.ticker, market: h.market as 'KR' | 'US' })), 4)
+    timingMap = tm as unknown as Map<string, { light?: 'green' | 'yellow' | 'red' } | null>
+  } catch { /* graceful */ }
+
+  // 조립
+  let total = 0, cost = 0, live = 0
+  const items = hs.map(h => {
+    const key = h.ticker.toUpperCase()
+    const at = getAssetType(h.ticker, h.name, h.market)
+    const pm = priceMap.get(key)
+    let valueKrw: number | null = null
+    if (pm && pm.price > 0) { valueKrw = pm.price * h.qty * (pm.krw ? 1 : usdKrw); live++ }
+    const costKrw = h.cost * (h.currency === 'USD' ? usdKrw : 1)   // ⚠️ 매입환율 미보유 → 현재 환율 근사(정직 표기)
+    total += valueKrw ?? costKrw; cost += costKrw
+    return { h, at, key, valueKrw, costKrw }
+  })
+  const totalSafe = total || 1
+
+  const holdings: WrHolding[] = items.map(({ h, at, key, valueKrw, costKrw }) => {
+    const weight = r1(((valueKrw ?? costKrw) / totalSafe) * 100)
+    const weekPct = weekMap.get(key) ?? null
+    const sig = sigMap.get(key)
+    const t = timingMap.get(`${h.ticker}:${h.market}`)
+    return {
+      ticker: h.ticker, name: h.name, market: h.market, assetType: at, cls: clsOf(at, h.market),
+      qty: h.qty, costKrw: Math.round(costKrw), valueKrw: valueKrw != null ? Math.round(valueKrw) : null, weight,
+      pnlPct: valueKrw != null && costKrw > 0 ? r1((valueKrw / costKrw - 1) * 100) : null,
+      weekPct, weekContrib: weekPct != null ? r1(weight * weekPct / 100 * 10) / 10 : null,
+      sector: sectorMap.get(key) ?? null,
+      signal: sig?.signal ?? null, signalTitle: sig?.title ?? null,
+      timing: t?.light ?? null,
+    }
+  }).sort((a, b) => b.weight - a.weight)
+
+  // 자산군 분해
+  const byClsMap = new Map<string, number>()
+  for (const h of holdings) byClsMap.set(h.cls, (byClsMap.get(h.cls) ?? 0) + h.weight)
+  const byClass = Array.from(byClsMap.entries()).map(([cls, weight]) => ({ cls, weight: r1(weight) })).sort((a, b) => b.weight - a.weight)
+
+  // 섹터 기여(⭐ 시장→내 계좌 연결)
+  const secAgg = new Map<string, { weight: number; contrib: number; known: boolean }>()
+  for (const h of holdings) {
+    const sec = h.sector ?? '미분류'
+    const cur = secAgg.get(sec) ?? { weight: 0, contrib: 0, known: false }
+    cur.weight += h.weight
+    if (h.weekContrib != null) { cur.contrib += h.weekContrib; cur.known = true }
+    secAgg.set(sec, cur)
+  }
+  const sectorImpact = Array.from(secAgg.entries())
+    .map(([sector, v]) => ({ sector, weight: r1(v.weight), weekPct: v.known && v.weight > 0 ? r1(v.contrib / v.weight * 100) : null, contrib: v.known ? r1(v.contrib) : null }))
+    .sort((a, b) => (a.contrib ?? 0) - (b.contrib ?? 0))
+
+  // 리스크 5종(클라우드 portfolio.py 임계값 그대로)
+  const semiW = r1(holdings.filter(h => SEMI_FALLBACK.has(h.ticker.toUpperCase()) || /semiconductor/i.test(String(uniMap.get(h.ticker.toUpperCase())?.industry ?? ''))).reduce((s, h) => s + h.weight, 0))
+  const top3W = r1(holdings.slice(0, 3).reduce((s, h) => s + h.weight, 0))
+  const fxW = r1(items.filter(({ h, at }) => h.currency === 'USD' && at !== 'CRYPTO').reduce((s, { valueKrw, costKrw }) => s + ((valueKrw ?? costKrw) / totalSafe) * 100, 0))
+  const cryptoW = r1(holdings.filter(h => h.assetType === 'CRYPTO').reduce((s, h) => s + h.weight, 0))
+  const lv = (v: number, mid: number, hi: number): WrRisk['level'] => v >= hi ? 'bad' : v >= mid ? 'warn' : 'ok'
+  const risks: WrRisk[] = [
+    { key: 'semi', label: '반도체 집중도', value: semiW, unit: '%', level: lv(semiW, 40, 60), note: '업종(industry)+대표 반도체 티커 기준' },
+    { key: 'top3', label: '상위 3종목 집중도', value: top3W, unit: '%', level: lv(top3W, 55, 70), note: '평가액 비중 상위 3종목 합' },
+    { key: 'fx', label: '환노출(달러 자산)', value: fxW, unit: '%', level: lv(fxW, 50, 75), note: '통화 USD 자산 비중(코인 제외)' },
+    // ⚠️ 임계는 앱 자체 가드(코인 랩 '≤5% 권장')와 일치시킨다 — 클라우드 원본의 20/35를 쓰면
+    //    '권장 상한 5%'라 써놓고 11.8%를 '적정'으로 판정하는 자기모순이 된다(제2원칙).
+    { key: 'crypto', label: '암호화폐 비중', value: cryptoW, unit: '%', level: lv(cryptoW, 5, 10), note: '권장 상한 5% — 잃어도 되는 돈만(10% 초과는 위험)' },
+    { key: 'cash', label: '현금 비중', value: null, unit: '%', level: 'unknown', note: '앱에 현금 미등록 — 증권사 예수금·CMA는 직접 확인' },
+  ]
+
+  // 🌪️ 코스피 극단 변동 + KR 보유
+  let krExtreme = false
+  try { const cv = await computeCountryVol(); krExtreme = cv?.byOrigin?.KR?.verdict === 'extreme' && holdings.some(h => h.market === 'KR') } catch { /* graceful */ }
+
+  // 개인 캘린더(본인 조회일 때만 — event-calendar가 세션 기준이라 교사 대리 조회 시 잘못된 데이터가 됨)
+  let calendar: CalEvent[] | null = null
+  let calendarNote: string | null = null
+  if (selfCalendar) {
+    try {
+      const r = await fetch(`${base}/api/event-calendar`, { headers: { cookie }, signal: AbortSignal.timeout(30_000), cache: 'no-store' })
+      if (r.ok) { const j = await r.json() as EventCalendarResult; calendar = (j.events ?? []).filter(e => e.dDay >= 0 && e.dDay <= 14) }
+    } catch { calendarNote = '캘린더 로딩 실패 — 자산 관리 탭에서 확인' }
+  } else calendarNote = '어닝·배당 캘린더는 본인 로그인 화면에서만 제공됩니다.'
+
+  const weekPct = holdings.some(h => h.weekContrib != null) ? r1(holdings.reduce((s, h) => s + (h.weekContrib ?? 0), 0)) : null
+  return {
+    userId: uid, name, hasPortfolio: true,
+    kpi: { totalKrw: Math.round(total), costKrw: Math.round(cost), pnlPct: cost > 0 ? r1((total / cost - 1) * 100) : null, weekPct, count: holdings.length, liveCoverage: Math.round(live / hs.length * 100) },
+    byClass, holdings, sectorImpact, risks, krExtreme, calendar, calendarNote,
+  }
+}
+
+// ── GET ───────────────────────────────────────────────────────────────────────
+export async function GET(req: Request) {
+  const sb = createClient()
+  const { data: { user } } = await sb.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+
+  const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
+  const cookie = req.headers.get('cookie') ?? ''
+  const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
+
+  // teacher 역할 확인 + ?userId= 대리 조회(teacher만)
+  const { data: myProfile } = await admin.from('profiles').select('role,full_name,email').eq('id', user.id).single()
+  const isTeacher = myProfile?.role === 'teacher'
+  const reqUserId = new URL(req.url).searchParams.get('userId')
+  const targetId = (isTeacher && reqUserId) ? reqUserId : user.id
+  const selfView = targetId === user.id
+
+  let targetName = myProfile?.full_name || myProfile?.email || '학생'
+  if (!selfView) {
+    const { data: tp } = await admin.from('profiles').select('full_name,email').eq('id', targetId).single()
+    targetName = tp?.full_name || tp?.email || '학생'
+  }
+
+  // 캐시(개인 6h·보유 지문 무효화)
+  const fp = await holdingsFingerprint(targetId)
+  const meKey = `weekly-report-me-v3:${targetId}:${kstDate()}:${fp}:${selfView ? 's' : 't'}`   // v3: 코인 비중 임계 5/10(앱 가드 정합)
+  let me = await getCache<WrMe>(meKey, 6 * 3600_000)
+  const common = await buildCommon(base)
+  if (!me) {
+    me = await buildMe(targetId, targetName, selfView, cookie, base)
+    if (me.hasPortfolio && me.kpi.liveCoverage >= 50) await setCache(meKey, me)   // 가격 과반 실패 시 박제 금지
+  }
+
+  // teacher 로스터(보유 있는 학생 우선 정렬)
+  let students: { id: string; name: string }[] | undefined
+  if (isTeacher) {
+    const { data: ps } = await admin.from('profiles').select('id,full_name,email')
+    const { data: inv } = await admin.from('investments').select('user_id')
+    const has = new Set((inv ?? []).map(r => r.user_id))
+    students = (ps ?? []).map(p => ({ id: p.id, name: (p.full_name || p.email || '') as string, own: has.has(p.id) }))
+      .sort((a, b) => Number((b as { own?: boolean }).own) - Number((a as { own?: boolean }).own))
+      .map(({ id, name }) => ({ id, name }))
+  }
+
+  const result: WeeklyReportResult = { common, me, students, isTeacherView: !selfView, asOf: new Date().toISOString() }
+  return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
+}
