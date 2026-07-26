@@ -76,6 +76,7 @@ export interface WrIndex {
 export interface WrAi {
   headline: string; sub: string
   bullets: { tag: string; text: string }[]       // ✦ 핵심 요약 5(자산군 태그)
+  issue: { k: string; text: string }[]           // ⑤ 이슈 구조 분석 — 촉매 → 증폭 → 자금 흐름
   strategy: { title: string; text: string }[]    // 자산배분 실전 전략 5
   checkpoints: { k: string; text: string }[]     // 다음 주 체크포인트
   source: 'gemini' | 'fallback'
@@ -88,6 +89,9 @@ export interface WrCommon {
   catalyst: { mood: string | null; items: { title: string; note: string }[] } | null
   krFlow: { lastDate: string; day: { foreign: number; institution: number; personal: number }; w5: { foreign: number; institution: number; personal: number } } | null   // 억원
   realestate: { name: string; w1: number | null; w4: number | null }[] | null   // 부동산원 주간 매매지수(서울·수도권·전국)
+  reRank: { name: string; w1: number }[] | null        // 주간 상승·하락 상위 지역(원본 리포트의 '지역 강세' 대응)
+  reRent: { name: string; conv: number; spread: number }[] | null   // 전월세 전환율 상위(전세→월세 축)
+  bigCaps: { ticker: string; name: string; close: number | null; weekPct: number | null }[] | null   // ① 대형주 표
   ai: WrAi | null
 }
 export interface WrHolding {
@@ -125,6 +129,7 @@ const INDICES: { key: string; label: string; flag: string; sym: string; yield?: 
   { key: 'kosdaq', label: '코스닥',      flag: '🇰🇷', sym: '^KQ11' },
   { key: 'sp500',  label: 'S&P 500',    flag: '🇺🇸', sym: '^GSPC' },
   { key: 'nasdaq', label: '나스닥',      flag: '🇺🇸', sym: '^IXIC' },
+  { key: 'dow',    label: '다우',        flag: '🇺🇸', sym: '^DJI' },
   { key: 'usdkrw', label: '원/달러',     flag: '💱', sym: 'KRW=X' },
   { key: 'btc',    label: '비트코인($)',  flag: '🪙', sym: 'BTC-USD' },
   { key: 'gold',   label: '금 ($/oz)',   flag: '🥇', sym: 'GC=F' },
@@ -142,14 +147,15 @@ const AI_SCHEMA = {
   properties: {
     headline: { type: 'STRING' }, sub: { type: 'STRING' },
     bullets: { type: 'ARRAY', items: { type: 'OBJECT', properties: { tag: { type: 'STRING' }, text: { type: 'STRING' } }, required: ['tag', 'text'] } },
+    issue: { type: 'ARRAY', items: { type: 'OBJECT', properties: { k: { type: 'STRING' }, text: { type: 'STRING' } }, required: ['k', 'text'] } },
     strategy: { type: 'ARRAY', items: { type: 'OBJECT', properties: { title: { type: 'STRING' }, text: { type: 'STRING' } }, required: ['title', 'text'] } },
     checkpoints: { type: 'ARRAY', items: { type: 'OBJECT', properties: { k: { type: 'STRING' }, text: { type: 'STRING' } }, required: ['k', 'text'] } },
   },
-  required: ['headline', 'sub', 'bullets', 'strategy', 'checkpoints'],
+  required: ['headline', 'sub', 'bullets', 'issue', 'strategy', 'checkpoints'],
 }
 
 async function buildCommon(base: string): Promise<WrCommon> {
-  const key = `weekly-report-common-v8:${kstDate()}`   // v5: 미10Y 스케일 자동판별(÷10 버그)·앵커 요일 표기·수급 최근일 주입·프롬프트 구체성 강화
+  const key = `weekly-report-common-v9:${kstDate()}`   // v5: 미10Y 스케일 자동판별(÷10 버그)·앵커 요일 표기·수급 최근일 주입·프롬프트 구체성 강화
   const cached = await getCache<WrCommon>(key, 6 * 3600_000)
   if (cached) return cached
 
@@ -212,6 +218,8 @@ async function buildCommon(base: string): Promise<WrCommon> {
 
   // 🏠 부동산원 주간 매매지수 — 부동산 주간 펄스 SSOT 재사용(공개 라우트 self-fetch·캐시)
   let realestate: WrCommon['realestate'] = null
+  let reRank: WrCommon['reRank'] = null
+  let reRent: WrCommon['reRent'] = null
   try {
     const r = await fetch(`${base}/api/re-weekly`, { signal: AbortSignal.timeout(30_000), cache: 'no-store' })
     if (r.ok) {
@@ -219,7 +227,35 @@ async function buildCommon(base: string): Promise<WrCommon> {
       const pick = ['서울', '수도권', '전국']
       const rs = (j.regions ?? []).filter(x => pick.includes(x.name)).map(x => ({ name: x.name, w1: x.w1, w4: x.w4 }))
       if (rs.length > 0) realestate = pick.map(n => rs.find(x => x.name === n)).filter((x): x is NonNullable<typeof x> => !!x)
+      // 지역 랭킹 — 원본 리포트의 '자치구 강세'에 대응(부동산원 주간 지수는 시도 단위까지 제공)
+      const rk = (j.regions ?? []).filter(x => typeof x.w1 === 'number' && !['전국', '수도권', '지방권'].includes(x.name))
+        .map(x => ({ name: x.name, w1: x.w1 as number })).sort((a, b) => b.w1 - a.w1)
+      if (rk.length >= 4) reRank = [...rk.slice(0, 4), ...rk.slice(-2)]
     }
+  } catch { /* graceful */ }
+
+  // 🏠 전월세 전환율 — 원본의 '전세 → 월세 전환' 축(월간 SSOT 재사용)
+  try {
+    const r = await fetch(`${base}/api/re-rent`, { signal: AbortSignal.timeout(30_000), cache: 'no-store' })
+    if (r.ok) {
+      const j = await r.json() as { regions?: { name: string; conv: number; spread: number }[] }
+      const rs = (j.regions ?? []).filter(x => typeof x.conv === 'number').sort((a, b) => b.conv - a.conv)
+      if (rs.length >= 3) reRent = [...rs.slice(0, 3), ...rs.slice(-1)]
+    }
+  } catch { /* graceful */ }
+
+  // 📊 대형주 — 원본 ① 섹션의 '대형주·수급' 표(코스피 시총 1·2위)
+  let bigCaps: WrCommon['bigCaps'] = null
+  try {
+    const caps = [{ ticker: '005930', name: '삼성전자' }, { ticker: '000660', name: 'SK하이닉스' }]
+    const got = await Promise.all(caps.map(async c => {
+      try {
+        const cd = (await getTechCandles(c.ticker, 'KR', 'D')).map(x => ({ date: x.date, close: x.close }))
+        const w = weeklyFrom(cd)
+        return { ...c, close: w.last, weekPct: w.weekPct }
+      } catch { return { ...c, close: null, weekPct: null } }
+    }))
+    if (got.some(g => g.close != null)) bigCaps = got
   } catch { /* graceful */ }
 
   // 주 범위(월~금) 표기
@@ -297,7 +333,12 @@ async function buildCommon(base: string): Promise<WrCommon> {
 1) headline: 이번 주를 규정하는 제목(15자 이내). 데이터에서 가장 큰 변화 한 가지를 잡는다.
 2) sub: 헤드라인을 뒷받침하는 2문장. 지수·수급·원자재 중 서로 다른 축을 엮어 자금 흐름을 설명한다.
 3) bullets: 자산군별 핵심 요약 5개 — tag는 [주식/원자재/암호화폐/부동산/수급] 각 1개, text는 수치 포함 1문장.
-4) strategy: 자산배분 실전 전략 5개 — title은 [현금·헤지/주식/암호화폐/부동산/매크로] 순. 각 1~2문장, 수치와 조건을 반드시 포함한다.
+4) issue: 이번 주 시장을 '왜 이렇게 움직였나'로 구조 분해한 3개 — k는 [촉매/증폭/자금 흐름] 순.
+   촉매 = 이번 주 변화를 일으킨 방아쇠(가장 큰 등락을 낸 지표) / 증폭 = 그 충격을 키운 요인(변동성·수급·이슈)
+   / 자금 흐름 = 결과적으로 돈이 어디서 어디로 갔는지(위험자산 ↔ 안전자산).
+   각 1~2문장, 수치를 포함하고 셋이 하나의 인과로 이어져야 한다.
+
+5) strategy: 자산배분 실전 전략 5개 — title은 [현금·헤지/주식/암호화폐/부동산/매크로] 순. 각 1~2문장, 수치와 조건을 반드시 포함한다.
    ⛔ 매수·매도·비중 확대를 권하는 문장은 쓰지 마라. '소량 매수를 검토합니다'처럼 '검토'를 붙여 우회하는 것도 금지다.
       무엇을 확인하고 어떤 기준으로 판단할지만 쓴다.
    ⛔ 암호화폐 항목은 '포트폴리오 5% 이하 유지'가 이 앱의 공통 원칙이다. 비중 확대를 시사하는 표현을 쓰지 마라.
@@ -307,7 +348,7 @@ async function buildCommon(base: string): Promise<WrCommon> {
       현금·헤지 = 현금 비중·환헤지·안전자산 / 주식 = 지수·진입 방식·손절폭 / 암호화폐 = 코인 비중(5% 이하)
       부동산 = 주택 가격·정책·대출 / 매크로 = 금리·물가·FOMC가 자산 비중(채권 듀레이션·성장주 등)에 주는 영향
    ⛔ 매크로·주식 항목에서 개인 대출 이야기를 하지 마라(부동산 항목과 중복된다).
-5) checkpoints: 다음 주 체크포인트 5개 — k는 [통화정책/주식/원자재·코인/부동산/환율·금리].
+6) checkpoints: 다음 주 체크포인트 5개 — k는 [통화정책/주식/원자재·코인/부동산/환율·금리].
    각 항목에 확인할 구체적 수치나 날짜를 넣는다.
 
 [실측 데이터]
@@ -320,6 +361,11 @@ ${facts}`, AI_SCHEMA, { temperature: 0.4 })
       source: 'fallback',
       headline: `코스피 주간 ${p(kospi?.weekPct)}${extremeStr ? ' · 변동성 극단' : ''}`,
       sub: `주간(${weekRange}) 코스피 ${p(kospi?.weekPct)}·나스닥 ${p(nasdaq?.weekPct)}. ${extremeStr ? `${extremeStr} 변동성이 자국 역사 극단 구간입니다.` : '지표별 상세는 아래 섹션을 확인하세요.'}`,
+      issue: [
+        { k: '촉매', text: `WTI ${wti?.close ?? '—'}$(${p(wti?.weekPct)})·미10Y ${us10?.close ?? '—'}% 등 매크로 변수가 이번 주 방아쇠였습니다.` },
+        { k: '증폭', text: extremeStr ? `${extremeStr} 변동성이 자국 5년 기준 극단 구간이라 같은 충격에도 낙폭이 커졌습니다.` : `코스피 ${p(kospi?.weekPct)}·나스닥 ${p(nasdaq?.weekPct)}로 지수 변동이 이어졌습니다.` },
+        { k: '자금 흐름', text: krFlow ? `코스피에서 최근일 외국인 ${jo(krFlow.day.foreign)}·개인 ${jo(krFlow.day.personal)}로 매매 주체가 갈렸고, 금은 ${p(gold?.weekPct)}였습니다.` : `금 ${p(gold?.weekPct)}·비트코인 ${p(btc?.weekPct)}로 위험·안전자산이 갈렸습니다.` },
+      ],
       bullets: [
         { tag: '주식', text: `코스피 ${p(kospi?.weekPct)}·코스닥 ${p(kosdaq?.weekPct)}·S&P500 ${p(sp?.weekPct)}·나스닥 ${p(nasdaq?.weekPct)}.` },
         { tag: '원자재', text: `금 ${p(gold?.weekPct)}·WTI ${wti?.close ?? '—'}$(${p(wti?.weekPct)}).` },
@@ -347,7 +393,7 @@ ${facts}`, AI_SCHEMA, { temperature: 0.4 })
         ? `주간 = 직전 금요일(${anchor}) 종가 대비`
         : `주간 = 직전 금요일 기준 · 휴장으로 ${anchor} 종가 대비`)
       : '주간 = 직전 금요일 종가 대비(휴장 시 그 이전 거래일)',
-    indices, macro, vol, catalyst, krFlow, realestate, ai,
+    indices, macro, vol, catalyst, krFlow, realestate, reRank, reRent, bigCaps, ai,
   }
   if (indices.filter(i => i.weekPct != null).length >= 7) await setCache(key, out)   // 과반 실패 시 박제 금지
   return out

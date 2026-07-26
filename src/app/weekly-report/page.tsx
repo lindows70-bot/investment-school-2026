@@ -71,6 +71,41 @@ function RelChart({ series, h = 130 }: { series: { name: string; color: string; 
     </div>
   )
 }
+// 발행일·주차 정식 표기 — 원본 리포트의 "2026년 7월 25일 (토) / 7월 4주차 · 7/20–7/24" 형식
+const DOW_KO = ['일', '월', '화', '수', '목', '금', '토']
+function issueLine(weekOf: string, weekRange: string): string {
+  const d = new Date(`${weekOf}T00:00:00Z`)
+  if (isNaN(d.getTime())) return `${weekOf} · ${weekRange}`
+  const m = weekRange.match(/^(\d+)\/(\d+)/)
+  let wk = ''
+  if (m) {
+    const mo = +m[1], day = +m[2]
+    const off = (new Date(Date.UTC(d.getUTCFullYear(), mo - 1, 1)).getUTCDay() + 6) % 7   // 월=0
+    wk = ` · ${mo}월 ${Math.ceil((day + off) / 7)}주차`
+  }
+  return `${d.getUTCFullYear()}년 ${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일 (${DOW_KO[d.getUTCDay()]})${wk} · ${weekRange}`
+}
+// 좌우 발산 막대 — 주간 등락률·수급 순매수처럼 부호가 있는 값의 크기 비교(원본의 막대 차트 대응)
+function MiniBars({ rows, fmt = (v: number | null) => pct(v), labelW = 62 }: { rows: { label: string; v: number | null }[]; fmt?: (v: number | null) => string; labelW?: number }) {
+  const mx = Math.max(...rows.map(r => Math.abs(r.v ?? 0)), 1e-9)
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {rows.map(r => {
+        const w = r.v == null ? 0 : Math.abs(r.v) / mx * 48
+        return (
+          <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9.5 }}>
+            <span style={{ width: labelW, color: TK.sub2, flexShrink: 0 }}>{r.label}</span>
+            <div style={{ flex: 1, height: 9, background: TK.bg3, borderRadius: 3, position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 1, background: TK.border }} />
+              {r.v != null && <div style={{ position: 'absolute', top: 1, bottom: 1, borderRadius: 2, background: r.v > 0 ? TK.green400 : TK.red400, left: r.v > 0 ? '50%' : `${50 - w}%`, width: `${w}%` }} />}
+            </div>
+            <span style={{ width: 52, textAlign: 'right', fontFamily: 'monospace', color: pcol(r.v), fontWeight: 700 }}>{fmt(r.v)}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 // 상대추이 차트 기간 라벨 — 세 섹션이 같은 문구를 쓰도록 실제 데이터 길이에서 파생(하드코딩 '12거래일' 금지)
 function relNote(len: number | undefined) {
   if (!len || len < 2) return undefined
@@ -122,7 +157,7 @@ function printReport(d: WeeklyReportResult) {
     .map(i => `<div class="kpi"><div class="kl">${i.flag} ${i.label}</div><b>${num(i.close)}</b><div style="color:${pc(i.weekPct)};font-weight:800">${p(i.weekPct)}</div></div>`).join('')
   const bullets = (ai?.bullets ?? []).map(b => `<li><b>${b.tag}</b> · ${b.text}</li>`).join('')
   const krRel = relSvgStr([{ name: '코스피', color: '#2a78d6', data: ix('kospi')?.spark ?? [] }, { name: '코스닥', color: '#eb6834', data: ix('kosdaq')?.spark ?? [] }])
-  const usRel = relSvgStr([{ name: 'S&P 500', color: '#2a78d6', data: ix('sp500')?.spark ?? [] }, { name: '나스닥', color: '#1baf7a', data: ix('nasdaq')?.spark ?? [] }])
+  const usRel = relSvgStr([{ name: 'S&P 500', color: '#2a78d6', data: ix('sp500')?.spark ?? [] }, { name: '나스닥', color: '#1baf7a', data: ix('nasdaq')?.spark ?? [] }, { name: '다우', color: '#c98a00', data: ix('dow')?.spark ?? [] }])
   const coRel = relSvgStr([{ name: 'BTC', color: '#eda100', data: ix('btc')?.spark ?? [] }, { name: 'ETH', color: '#2a78d6', data: ix('eth')?.spark ?? [] }, { name: 'SOL', color: '#1baf7a', data: ix('sol')?.spark ?? [] }, { name: 'XRP', color: '#8a5cd6', data: ix('xrp')?.spark ?? [] }])
   const kf = c.krFlow
   const krFlowTbl = kf ? `<table><tr><th></th><th class="n">최근일(${kf.lastDate.slice(5)})</th><th class="n">최근 5거래일</th></tr>
@@ -151,6 +186,28 @@ function printReport(d: WeeklyReportResult) {
   const riskRows = m.risks.map(r => `<tr><td>${r.label}</td><td class="n">${r.value != null ? `${r.value.toFixed(1)}${r.unit}` : '미등록'}</td><td><b>${RISK_META[r.level]?.label ?? r.level}</b></td><td class="mut">${r.note}</td></tr>`).join('')
   const calRows = (m.calendar ?? []).map(e => `<tr><td>D-${e.dDay}</td><td>${e.date}</td><td>${e.name}</td><td>${e.type === 'earnings' ? '실적 발표' : e.type === 'exDiv' ? '배당락' : '배당 지급'}</td></tr>`).join('')
 
+  // 원본 리포트 대응 블록(막대·표) — 화면과 같은 데이터로 조립
+  const barsHtml = (rows: { label: string; v: number | null }[], fmt: (v: number | null) => string) => {
+    const mx = Math.max(...rows.map(r => Math.abs(r.v ?? 0)), 1e-9)
+    return `<div class="bars">${rows.map(r => {
+      const w = r.v == null ? 0 : Math.abs(r.v) / mx * 48
+      const left = r.v != null && r.v > 0 ? 50 : 50 - w
+      return `<div class="bw"><span class="bl">${r.label}</span><span class="bt"><i style="left:${left}%;width:${w}%;background:${r.v != null && r.v > 0 ? '#0a8a3c' : '#c02b2b'}"></i></span><span class="bv" style="color:${pc(r.v)}">${fmt(r.v)}</span></div>`
+    }).join('')}</div>`
+  }
+  const capsTbl = c.bigCaps ? `<table><tr><th>대형주</th><th class="n">종가</th><th class="n">주간</th></tr>${c.bigCaps.map(b => `<tr><td>${b.name} <span class="mut">${b.ticker}</span></td><td class="n">${b.close != null ? Math.round(b.close).toLocaleString() + '원' : '—'}</td><td class="n" style="color:${pc(b.weekPct)}"><b>${p(b.weekPct)}</b></td></tr>`).join('')}</table>` : ''
+  const flowBars = kf ? `<div class="sub2">최근일(${kf.lastDate.slice(5)}) 투자자별 순매수</div>${barsHtml([{ label: '외국인', v: kf.day.foreign }, { label: '기관', v: kf.day.institution }, { label: '개인', v: kf.day.personal }], v => v == null ? '—' : jo(v))}` : ''
+  const retBars = barsHtml((['kospi', 'kosdaq', 'sp500', 'nasdaq', 'dow', 'gold', 'silver', 'wti'] as const)
+    .map(k => ix(k)).filter((i): i is WrIndex => !!i).map(i => ({ label: i.label.replace(/\s*\(.*\)/, ''), v: i.weekPct })), v => p(v))
+  const wtiI = ix('wti'), goldI = ix('gold'), silverI = ix('silver')
+  const wtiBlk = wtiI && wtiI.spark.length >= 2 ? `<div class="sub2">국제유가 WTI ($/배럴) — 이번 주 촉매</div>${relSvgStr([{ name: 'WTI', color: '#c98a00', data: wtiI.spark }], 96)}` : ''
+  const gsBlk = goldI && silverI && goldI.spark.length >= 2
+    ? `<h2>✦ 안전자산 — 금 · 은</h2><div class="cols"><div>${relSvgStr([{ name: '금', color: '#c98a00', data: goldI.spark }, { name: '은', color: '#7a8fa3', data: silverI.spark }], 100)}</div><div style="font-size:10px">금 <b style="color:${pc(goldI.weekPct)}">${p(goldI.weekPct)}</b>(${num(goldI.close)}$) · 은 <b style="color:${pc(silverI.weekPct)}">${p(silverI.weekPct)}</b>(${num(silverI.close)}$).<div class="mut" style="margin-top:4px">은은 산업 수요가 겹쳐 금보다 탄력이 큰 편입니다. 주식 급락기 헤지 역할을 확인하는 축입니다.</div></div></div>` : ''
+  const reRankBlk = c.reRank?.length ? `<div class="sub2">지역별 주간 변동 — 강세 · 약세</div>${barsHtml(c.reRank.map(r => ({ label: r.name, v: r.w1 })), v => p(v))}` : ''
+  const reRentBlk = c.reRent?.length ? `<div class="sub2">전월세 전환율 — 전세의 ‘월세화’ 축</div><table><tr><th>지역</th><th class="n">전환율</th><th class="n">주담대 대비</th></tr>${c.reRent.map(r => `<tr><td>${r.name}</td><td class="n">${r.conv.toFixed(2)}%</td><td class="n" style="color:${pc(r.spread)}">${r.spread > 0 ? '+' : ''}${r.spread.toFixed(2)}%p</td></tr>`).join('')}</table>` : ''
+  const issueBlk = (ai?.issue?.length ?? 0) > 0 ? `<div class="sgw3">${ai!.issue.map((q, i) => `<div class="sg" style="border-left-color:${['#c02b2b', '#B8860B', '#12284C'][i % 3]}"><div class="st">${['①', '②', '③'][i] ?? ''} ${q.k}</div><p>${q.text}</p></div>`).join('')}</div>` : ''
+  const checklist = `<div class="ckl"><b>CHECKLIST · 이번 주 자기점검</b><div>${['자산군별 목표 비중', '현금·안전자산 헤지 비중', '코인 5% 이하·레버리지', '부동산 대출 규제 확인', '다음 FOMC 일정'].map(t => `<span>☐ ${t}</span>`).join('')}</div></div>`
+
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>2026투자학교_주간리포트_${m.name}_${dateStr}</title>
 <style>
  @page{margin:11mm 12mm} body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;color:#16202c;font-size:10.5px;line-height:1.5;margin:0}
@@ -172,26 +229,36 @@ function printReport(d: WeeklyReportResult) {
  .kpi2{display:inline-block;border:1px solid #e3e6ea;border-radius:9px;padding:6px 12px;margin:3px 5px 3px 0} .kpi2 b{font-size:13px}
  .fn{color:#8a94a2;font-size:8.6px;margin-top:12px;border-top:1px solid #e3e6ea;padding-top:6px}
  .pb{page-break-before:always}
+ .sub2{font-size:10px;font-weight:800;color:#12284C;margin:7px 0 3px}
+ .bars{display:flex;flex-direction:column;gap:2px} .bw{display:flex;align-items:center;gap:5px;font-size:9px}
+ .bl{width:52px;color:#5a6675;flex-shrink:0} .bt{flex:1;height:8px;background:#eef1f4;border-radius:3px;position:relative;display:block}
+ .bt i{position:absolute;top:1px;bottom:1px;border-radius:2px;display:block} .bv{width:50px;text-align:right;font-weight:700}
+ .sgw3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin:4px 0 7px}
+ .ckl{border:1px dashed #d9c48a;border-radius:9px;padding:7px 10px;margin-top:7px;font-size:9.5px}
+ .ckl b{color:#B8860B;font-size:10px} .ckl div{margin-top:4px} .ckl span{margin-right:12px;color:#4c5866}
 </style></head><body>
 <div class="mast"><div class="brand">2026 투자학교 · WEEKLY ASSET REPORT</div><h1>자산 전반 주간 리포트 — 주식·코인·금·부동산</h1>
-<div class="mut">${c.weekOf} · ${c.weekRange} · ${c.anchorNote} · 상승 <span style="color:#0a8a3c">초록</span>/하락 <span style="color:#c02b2b">빨강</span></div>
+<div class="mut">${issueLine(c.weekOf, c.weekRange)} · ${c.anchorNote} · 상승 <span style="color:#0a8a3c">초록</span>/하락 <span style="color:#c02b2b">빨강</span></div>
 <div class="who">${m.name} 님 · 개인 맞춤본</div></div>
 ${ai ? `<div class="hb"><h2>${ai.headline}</h2><p>${ai.sub}</p></div>` : ''}
 <div class="kpis">${kpi}</div>
 ${bullets ? `<h2>✦ 이번 주 핵심 요약</h2><ul>${bullets}</ul>` : ''}
 <h2>① 한국 증시 — 코스피·코스닥</h2>
 <div class="cols"><div>${krRel}</div><div>${krFlowTbl}<div class="mut">단위 조원 · 코스피 투자자별 순매수(네이버 집계)</div></div></div>
+<div class="cols"><div>${capsTbl}</div><div>${flowBars}</div></div>
 <h2>② 미국·글로벌 — 매크로 스냅샷</h2>
 <div class="cols"><div>${usRel}</div><div>${macroChips}${c.macro ? `<div style="margin-top:5px;font-size:10px">${c.macro.icon} <b>${c.macro.label}</b> — ${c.macro.description}</div>` : ''}</div></div>
 <div style="margin-top:6px">${volChips}</div>${exWarn}
+<div class="cols"><div><div class="sub2">주요 지수·원자재 주간 등락률</div>${retBars}</div><div>${wtiBlk}</div></div>
+${gsBlk}
 <h2>✦ 자산군 스코어보드</h2>
 <table class="scb"><tr>${scb}${reTd}${bondTd}</tr></table>
 <div class="pb"></div>
 <h2>③ 암호화폐</h2>
 <div class="cols"><div>${coRel}</div><div><table><tr><th>코인</th><th class="n">가격</th><th class="n">주간</th></tr>${coins}</table></div></div>
-${c.realestate ? `<h2>④ 부동산 — 부동산원 주간 아파트 매매지수</h2><div>${c.realestate.map(r => `<span class="kpi2">${r.name} <b style="color:${pc(r.w1)}">${p(r.w1)}</b> <span class="mut">4주 ${p(r.w4)}</span></span>`).join('')}</div>` : ''}
-${cat ? `<h2>⑤ 이슈 분석</h2>${c.catalyst?.mood ? `<div class="mut">${c.catalyst.mood}</div>` : ''}<ul>${cat}</ul>` : ''}
-${strat ? `<h2>⑥ 2026 투자학교 — 자산배분 실전 전략</h2><div class="sgw">${strat}</div>` : ''}
+${c.realestate ? `<h2>④ 부동산 — 부동산원 주간 아파트 매매지수</h2><div>${c.realestate.map(r => `<span class="kpi2">${r.name} <b style="color:${pc(r.w1)}">${p(r.w1)}</b> <span class="mut">4주 ${p(r.w4)}</span></span>`).join('')}</div><div class="cols"><div>${reRankBlk}</div><div>${reRentBlk}</div></div>` : ''}
+${cat || issueBlk ? `<h2>⑤ 이슈 분석 — 이번 주 시장 구조</h2>${issueBlk}${c.catalyst?.mood ? `<div class="mut">${c.catalyst.mood}</div>` : ''}<ul>${cat}</ul>` : ''}
+${strat ? `<h2>⑥ 2026 투자학교 — 자산배분 실전 전략</h2><div class="sgw">${strat}</div>${checklist}` : ''}
 ${chk ? `<h2>⑦ 다음 주 체크포인트</h2><table>${chk}</table>` : ''}
 <div class="pb"></div>
 <h2>⑧ 내 포트폴리오 — ${m.name} 님</h2>
@@ -202,7 +269,7 @@ ${chk ? `<h2>⑦ 다음 주 체크포인트</h2><table>${chk}</table>` : ''}
 <h2>⑩ 리스크 점검(구조 진단)</h2>
 <table><tr><th>지표</th><th class="n">값</th><th>판정</th><th>기준</th></tr>${riskRows}</table>
 ${calRows ? `<h2>⑪ 다음 2주 내 캘린더</h2><table><tr><th>D-day</th><th>날짜</th><th>종목</th><th>이벤트</th></tr>${calRows}</table>` : ''}
-<p class="fn">※ 2026 투자학교 교육용 리포트 — 매수·매도 권유가 아닙니다. 주간 등락은 직전 금요일 종가 대비(전 지표 동일 함수). 달러 자산 누적 손익은 매입환율 미등록으로 현재 환율 근사, 현금(예수금·CMA)은 앱 미등록으로 리스크 점검 제외. 서사·전략은 실측 수치만으로 생성(${ai?.source === 'gemini' ? 'AI 요약' : '규칙 기반'})했으며 규칙 기반 자동 판정입니다. 생성 ${new Date(d.asOf).toLocaleString('ko-KR')} ⓒ 2026 투자학교</p>
+<p class="fn"><b>데이터 출처</b> · 지수·원자재·환율·코인 Yahoo Finance / 코스피 투자자별 순매수 네이버 금융(억원 원자료를 조 단위로 환산) / 매크로 FRED·CME FedWatch / 부동산 한국부동산원 주간 매매가격지수·전월세 전환율 / 국가별 변동성 20일 실현변동성 및 자국 5년 백분위 / 개인 섹션은 본인 등록 보유 종목 기준.<br />※ 2026 투자학교 교육용 리포트 — 매수·매도 권유가 아닙니다. 주간 등락은 직전 금요일 종가 대비(전 지표 동일 함수). 달러 자산 누적 손익은 매입환율 미등록으로 현재 환율 근사, 현금(예수금·CMA)은 앱 미등록으로 리스크 점검 제외. 서사·전략은 실측 수치만으로 생성(${ai?.source === 'gemini' ? 'AI 요약' : '규칙 기반'})했으며 규칙 기반 자동 판정입니다. 생성 ${new Date(d.asOf).toLocaleString('ko-KR')} ⓒ 2026 투자학교</p>
 </body></html>`
   const w = window.open('', '_blank', 'width=920,height=1100')
   if (!w) return
@@ -233,6 +300,7 @@ export default function WeeklyReportPage() {
   const ai = c.ai
   const ix = (k: string) => c.indices.find(i => i.key === k)
   const extremes = c.vol.filter(v => v.verdict === 'extreme')
+  const wtiIx = ix('wti'), goldIx = ix('gold'), silverIx = ix('silver')
   const kpiKeys = ['kospi', 'kosdaq', 'sp500', 'nasdaq', 'btc', 'gold', 'wti', 'usdkrw']
   const kpis = kpiKeys.map(k => ix(k)).filter((x): x is WrIndex => !!x)
   const macroChips = ['us10y', 'nikkei', 'gold', 'silver', 'wti', 'usdkrw'].map(k => ix(k)).filter((x): x is WrIndex => !!x)
@@ -247,7 +315,8 @@ export default function WeeklyReportPage() {
           <div style={{ flex: 1, minWidth: 240 }}>
             <div style={{ fontSize: 9.5, fontWeight: 800, color: TK.amber500, letterSpacing: 1.6 }}>2026 투자학교 · WEEKLY ASSET REPORT</div>
             <div style={{ fontSize: 15, fontWeight: 900, color: TK.slate100, marginTop: 1 }}>자산 전반 주간 리포트 — 주식·코인·금·부동산</div>
-            <div style={{ fontSize: 10, color: TK.sub, marginTop: 3 }}>{c.weekOf} · {c.weekRange} · {c.anchorNote}</div>
+            <div style={{ fontSize: 10, color: TK.sub, marginTop: 3 }}>{issueLine(c.weekOf, c.weekRange)}</div>
+            <div style={{ fontSize: 9, color: TK.sub8, marginTop: 1 }}>{c.anchorNote}</div>
             <div style={{ display: 'inline-block', marginTop: 6, fontSize: 10.5, fontWeight: 800, color: TK.amber400, background: `${TK.amber500}15`, border: `1px solid ${TK.amber500}55`, borderRadius: 999, padding: '2px 12px' }}>
               {m.name} 님 · 개인 맞춤본{data.isTeacherView && ' · 교사 대리 조회'}
             </div>
@@ -320,12 +389,38 @@ export default function WeeklyReportPage() {
             <div style={{ fontSize: 9, color: TK.sub8, marginTop: 4 }}>단위 조원 · 코스피 투자자별 순매수(수급 레이더 SSOT)</div>
           </div>
         </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px,1fr) minmax(240px,1fr)', gap: 14, marginTop: 10 }}>
+          {c.bigCaps && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>대형주 — 코스피 시총 상위</div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                <tbody>
+                  {c.bigCaps.map(b => (
+                    <tr key={b.ticker} style={{ borderBottom: `1px solid ${TK.bg3}` }}>
+                      <td style={{ padding: '4px 6px', color: TK.slate300 }}>{b.name}<span style={{ fontSize: 9, color: TK.sub8 }}> {b.ticker}</span></td>
+                      <td style={{ padding: '4px 6px', textAlign: 'right', fontFamily: 'monospace', color: TK.slate200 }}>{b.close != null ? `${Math.round(b.close).toLocaleString()}원` : '—'}</td>
+                      <td style={{ padding: '4px 6px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 800, color: pcol(b.weekPct) }}>{pct(b.weekPct)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {kf && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>최근일({kf.lastDate.slice(5)}) 투자자별 순매수</div>
+              <MiniBars labelW={44} fmt={v => v == null ? '—' : jo(v)} rows={[
+                { label: '외국인', v: kf.day.foreign }, { label: '기관', v: kf.day.institution }, { label: '개인', v: kf.day.personal },
+              ]} />
+            </div>
+          )}
+        </div>
       </Sec>
 
       {/* ② 미국·글로벌 + 매크로 스냅샷 */}
       <Sec no="②" title="미국·글로벌 — 매크로 스냅샷" right={relNote(ix('sp500')?.spark?.length)}>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px,3fr) minmax(220px,2fr)', gap: 14 }}>
-          <RelChart series={[{ name: 'S&P 500', color: TK.blue400, data: ix('sp500')?.spark ?? [] }, { name: '나스닥', color: '#1baf7a', data: ix('nasdaq')?.spark ?? [] }]} />
+          <RelChart series={[{ name: 'S&P 500', color: TK.blue400, data: ix('sp500')?.spark ?? [] }, { name: '나스닥', color: '#1baf7a', data: ix('nasdaq')?.spark ?? [] }, { name: '다우', color: '#eda100', data: ix('dow')?.spark ?? [] }]} />
           <div>
             <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
               {macroChips.map(i => (
@@ -350,7 +445,37 @@ export default function WeeklyReportPage() {
             🌪️ <b>극단 변동 시장</b>: {extremes.map(v => `${v.flag} ${v.label}`).join(' · ')} — 손절이 갭에 뚫릴 수 있는 국면입니다. 비중 축소·분할 진입 원칙을 지키세요.
           </div>
         )}
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(250px,1fr) minmax(250px,1fr)', gap: 14, marginTop: 10 }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>주요 지수·원자재 주간 등락률</div>
+            <MiniBars rows={(['kospi', 'kosdaq', 'sp500', 'nasdaq', 'dow', 'gold', 'silver', 'wti'] as const)
+              .map(k => ix(k)).filter((i): i is WrIndex => !!i)
+              .map(i => ({ label: i.label.replace(/\s*\(.*\)/, ''), v: i.weekPct }))} />
+          </div>
+          {wtiIx && wtiIx.spark.length >= 2 && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>
+                국제유가 WTI ($/배럴) <span style={{ fontWeight: 600, color: TK.sub2 }}>— 이번 주 촉매</span>
+              </div>
+              <RelChart h={104} series={[{ name: 'WTI', color: '#eda100', data: wtiIx.spark }]} />
+              <div style={{ fontSize: 9, color: TK.sub8 }}>최근 종가 {num(wtiIx.close)}$ · 주간 {pct(wtiIx.weekPct)}</div>
+            </div>
+          )}
+        </div>
       </Sec>
+
+      {/* ✦ 안전자산 — 금·은 상대추이(원본 3페이지 대응) */}
+      {goldIx && silverIx && goldIx.spark.length >= 2 && (
+        <Sec no="✦" title="안전자산 — 금 · 은" right={relNote(goldIx.spark.length)}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px,3fr) minmax(200px,2fr)', gap: 14 }}>
+            <RelChart h={110} series={[{ name: '금', color: '#eda100', data: goldIx.spark }, { name: '은', color: TK.slate400, data: silverIx.spark }]} />
+            <div style={{ fontSize: 10.5, color: TK.slate300, lineHeight: 1.65 }}>
+              금 <b style={{ color: pcol(goldIx.weekPct) }}>{pct(goldIx.weekPct)}</b>({num(goldIx.close)}$) · 은 <b style={{ color: pcol(silverIx.weekPct) }}>{pct(silverIx.weekPct)}</b>({num(silverIx.close)}$).
+              <div style={{ fontSize: 9.5, color: TK.sub2, marginTop: 5 }}>은은 산업 수요가 겹쳐 금보다 탄력이 큰 편입니다. 주식 급락기에 포트폴리오 헤지 역할을 하는지 확인하는 축입니다.</div>
+            </div>
+          </div>
+        </Sec>
+      )}
 
       {/* ✦ 자산군 스코어보드 */}
       <Sec no="✦" title="자산군 스코어보드 — 주간 한눈에">
@@ -420,16 +545,56 @@ export default function WeeklyReportPage() {
               </div>
             ))}
           </div>
-          <div style={{ fontSize: 9.5, color: TK.sub8, marginTop: 6 }}>부동산원 주간 매매가격지수(부동산 주간 펄스 SSOT). 자세한 지역별 랭킹은 부동산 → 벌집순환모형에서.</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(250px,1fr) minmax(250px,1fr)', gap: 14, marginTop: 10 }}>
+            {c.reRank && c.reRank.length > 0 && (
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>지역별 주간 변동 — 강세 · 약세</div>
+                <MiniBars labelW={46} fmt={v => pct(v, 2)} rows={c.reRank.map(r => ({ label: r.name, v: r.w1 }))} />
+              </div>
+            )}
+            {c.reRent && c.reRent.length > 0 && (
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>전월세 전환율 — 전세의 &lsquo;월세화&rsquo; 축</div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10.5 }}>
+                  <thead><tr style={{ color: TK.sub, fontSize: 9 }}>
+                    <th style={{ textAlign: 'left', padding: '2px 5px', borderBottom: `1px solid ${BORDER}` }}>지역</th>
+                    <th style={{ textAlign: 'right', padding: '2px 5px', borderBottom: `1px solid ${BORDER}` }}>전환율</th>
+                    <th style={{ textAlign: 'right', padding: '2px 5px', borderBottom: `1px solid ${BORDER}` }}>주담대 대비</th>
+                  </tr></thead>
+                  <tbody>
+                    {c.reRent.map(r => (
+                      <tr key={r.name} style={{ borderBottom: `1px solid ${TK.bg3}` }}>
+                        <td style={{ padding: '4px 5px', color: TK.slate300 }}>{r.name}</td>
+                        <td style={{ padding: '4px 5px', textAlign: 'right', fontFamily: 'monospace', color: TK.slate200 }}>{r.conv.toFixed(2)}%</td>
+                        <td style={{ padding: '4px 5px', textAlign: 'right', fontFamily: 'monospace', color: pcol(r.spread), fontWeight: 700 }}>{r.spread > 0 ? '+' : ''}{r.spread.toFixed(2)}%p</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div style={{ fontSize: 9, color: TK.sub8, marginTop: 3 }}>전환율이 주담대 금리보다 높을수록 임대인이 월세를 선호할 유인이 커집니다(월간 지표).</div>
+              </div>
+            )}
+          </div>
+          <div style={{ fontSize: 9.5, color: TK.sub8, marginTop: 6 }}>부동산원 주간 매매가격지수(주간 펄스 SSOT) + 전월세 전환율(월간). 자치구 단위 시세는 부동산 → 단지 리서치에서.</div>
         </Sec>
       )}
 
       {/* ⑤ 이슈 */}
-      {c.catalyst && c.catalyst.items.length > 0 && (
-        <Sec no="⑤" title="이슈 분석">
-          {c.catalyst.mood && <div style={{ fontSize: 10.5, color: TK.sub2, marginBottom: 6 }}>{c.catalyst.mood}</div>}
+      {((ai?.issue?.length ?? 0) > 0 || (c.catalyst?.items?.length ?? 0) > 0) && (
+        <Sec no="⑤" title="이슈 분석 — 이번 주 시장 구조">
+          {c.catalyst?.mood && <div style={{ fontSize: 10.5, color: TK.sub2, marginBottom: 6 }}>{c.catalyst.mood}</div>}
+          {ai && ai.issue?.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 8, marginBottom: 9 }}>
+              {ai.issue.map((q, i) => (
+                <div key={i} style={{ background: TK.bg3, borderRadius: 9, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${[TK.red400, TK.amber500, TK.blue400][i % 3]}`, padding: '8px 11px' }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: [TK.red400, TK.amber500, TK.blue400][i % 3] }}>{['①', '②', '③'][i] ?? ''} {q.k}</div>
+                  <div style={{ fontSize: 10.5, color: TK.slate300, lineHeight: 1.6, marginTop: 3 }}>{q.text}</div>
+                </div>
+              ))}
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {c.catalyst.items.map((it, i) => (
+            {(c.catalyst?.items ?? []).map((it, i) => (
               <div key={i} style={{ background: TK.bg3, borderRadius: 8, border: `1px solid ${BORDER}`, padding: '7px 11px', fontSize: 11, color: TK.slate300, lineHeight: 1.55 }}>
                 <b style={{ color: TK.slate200 }}>{it.title}</b>{it.note && <span style={{ color: TK.sub2 }}> — {it.note}</span>}
               </div>
@@ -448,6 +613,16 @@ export default function WeeklyReportPage() {
                 <div style={{ fontSize: 10.5, color: TK.sub2, lineHeight: 1.55, marginTop: 3 }}>{s.text}</div>
               </div>
             ))}
+          </div>
+          <div style={{ marginTop: 9, background: TK.bg3, borderRadius: 9, border: `1px dashed ${TK.amber500}55`, padding: '9px 12px' }}>
+            <div style={{ fontSize: 10, fontWeight: 800, color: TK.amber400, letterSpacing: 0.6 }}>CHECKLIST · 이번 주 자기점검</div>
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 10.5, color: TK.slate300, marginTop: 5 }}>
+              {['자산군별 목표 비중', '현금·안전자산 헤지 비중', '코인 5% 이하·레버리지', '부동산 대출 규제 확인', '다음 FOMC 일정'].map(t => (
+                <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ width: 10, height: 10, border: `1.5px solid ${TK.sub2}`, borderRadius: 2, display: 'inline-block' }} />{t}
+                </span>
+              ))}
+            </div>
           </div>
           <div style={{ fontSize: 9.5, color: TK.sub8, marginTop: 7 }}>※ 매수·매도 지시가 아닌 교육용 점검 프레임입니다. 실행 판단·책임은 본인에게 있습니다.</div>
         </Sec>
@@ -587,6 +762,7 @@ export default function WeeklyReportPage() {
       )}
 
       <div style={{ fontSize: 10, color: TK.sub8, lineHeight: 1.6 }}>
+        <b style={{ color: TK.sub2 }}>데이터 출처</b> · 지수·원자재·환율·코인 Yahoo Finance / 코스피 투자자별 순매수 네이버 금융(단위 억원 원자료를 조 단위로 환산) / 매크로 FRED·CME FedWatch / 부동산 한국부동산원 주간 매매가격지수·전월세 전환율 / 국가별 변동성 20일 실현변동성 및 자국 5년 백분위 / 개인 섹션은 본인 등록 보유 종목 기준.<br />
         ※ 교육용 시뮬레이션이며 투자 추천이 아닙니다. 주간 기준은 직전 금요일 종가(휴장 시 그 이전 거래일)로 전 지표 동일 적용. 헤드라인·요약·전략은 실측 수치만 주입해 생성({ai?.source === 'gemini' ? 'AI 요약' : '규칙 기반'})합니다. 현금(예수금·CMA)은 앱 미등록으로 리스크 점검에서 제외되고, 달러 자산 환차손익은 매입환율 미보유로 현재 환율 근사입니다 — 잰 척하지 않습니다.
       </div>
     </div>
