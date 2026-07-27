@@ -52,19 +52,32 @@ for (const k of newKeys) {
   const [name, ver] = k.split('|')
   const n = Number(ver)
   if (n <= 1) continue
-  // 직전 버전이 src/ 어딘가에 여전히 남아 있는가
-  const hits = sh(`git grep -n --cached -F "${name}-v${n - 1}" -- src/`).trim()
-  if (hits) stale.push({ name, from: n - 1, to: n, hits: hits.split('\n') })
+  // ⚠️ 직전 버전(n-1) 하나만 보면 **건너뛴 버전업을 놓친다**.
+  //    v9 → v11 로 올리면 v10 을 찾다가 못 찾고 통과시켜, 정작 이 훅을 만든 근거인
+  //    v9 reader 잔존 사고를 그대로 흘려보낸다(Codex 리뷰가 잡아낸 실제 결함).
+  //    → n 미만 **모든** 옛 버전을 찾는다.
+  const raw = sh(`git grep -n --cached -E "${name}-v[0-9]+" -- src/`).trim()
+  if (!raw) continue
+  const olds = new Set()
+  const hits = raw.split('\n').filter(line => {
+    let found = false
+    for (const m of line.matchAll(new RegExp(`${name}-v(\\d+)`, 'g'))) {
+      if (Number(m[1]) < n) { olds.add(Number(m[1])); found = true }
+    }
+    return found
+  })
+  if (hits.length) stale.push({ name, olds: [...olds].sort((a, b) => a - b), to: n, hits })
 }
 if (stale.length) {
   blocked = true
   console.log(`${C.r}${C.b}⛔ 캐시 키 버전업 누락 — reader가 옛 키를 참조 중입니다${C.x}`)
   for (const s of stale) {
-    console.log(`${C.r}   ${s.name}: v${s.from} → v${s.to} 로 올렸는데 v${s.from} 참조가 남아 있습니다${C.x}`)
+    const list = s.olds.map(v => `v${v}`).join('·')
+    console.log(`${C.r}   ${s.name}: v${s.to} 로 올렸는데 옛 버전(${list}) 참조가 남아 있습니다${C.x}`)
     s.hits.slice(0, 6).forEach(h => console.log(`${C.d}      ${h.slice(0, 120)}${C.x}`))
   }
   console.log(`${C.d}   → writer만 올리면 reader는 옛 키를 읽어 신호가 조용히 죽습니다(sector-rotation v9→v11 사건).${C.x}`)
-  console.log(`${C.d}     grep -rn "${stale[0].name}-v${stale[0].from}" src/ 로 전수 확인 후 함께 올리세요.${C.x}`)
+  console.log(`${C.d}     grep -rnE "${stale[0].name}-v[0-9]+" src/ 로 전수 확인 후 함께 올리세요.${C.x}`)
 }
 
 if (blocked) {
