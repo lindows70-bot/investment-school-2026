@@ -10,6 +10,10 @@
 //
 // 안전
 //  · `--approval-mode plan` = **읽기 전용**. 감사가 코드를 고치는 일은 구조적으로 불가.
+//  · ⚠️ `plan` 은 **폴더가 신뢰 목록에 없으면 조용히 default 로 덮어써진다**
+//    ("Approval mode overridden to default because the current folder is not trusted").
+//    그래서 `--skip-trust`(이 세션 한정 워크스페이스 신뢰)를 함께 줘야 plan 이 실제로 적용된다.
+//    두 플래그는 세트다 — 하나만 주면 읽기 전용 보장이 깨진다.
 //  · 지적은 반드시 재현으로 확인한 뒤 채택한다(다른 에이전트도 틀린다).
 //
 // 사용: node scripts/gemini-audit.mjs <ssot|cache-keys|contradiction> [대상]
@@ -74,8 +78,7 @@ if (!PROMPTS[mode] || (mode !== 'cache-keys' && !target)) {
 const prompt = PROMPTS[mode]()
 console.log(`\x1b[2m[gemini-audit] mode=${mode}${target ? ` target=${target}` : ''} · 읽기 전용(plan) · 1M 컨텍스트\x1b[0m\n`)
 
-const r = spawnSync('gemini', ['-p', prompt, '--approval-mode', 'plan', '-m', 'gemini-2.5-pro'], {
-  stdio: 'inherit',
-  shell: process.platform === 'win32',
-})
+// ⚠️ --skip-trust 없이 --approval-mode plan 만 주면 신뢰 안 된 폴더에서 default 로 덮어써진다(위 주석).
+const args = ['-p', prompt, '--skip-trust', '--approval-mode', 'plan', '-m', 'gemini-2.5-pro']
+const r = spawnSync('gemini', args, { stdio: 'inherit', shell: process.platform === 'win32' })
 process.exit(r.status ?? 1)
