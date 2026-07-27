@@ -3552,6 +3552,15 @@ BTC·ETH·SOL 무기한 선물의 **펀딩비(funding rate)**와 **미결제약�
 
 교훈: **문서에만 있는 원칙은 지켜지지 않는다** — 제1-b를 문서에 넣은 뒤에도 색상 하드코딩이 645→885곳으로 늘었다. 기계적으로 검사 가능한 것은 훅으로, 절차는 스킬로 옮겨야 실제로 강제된다.
 
+### 🤝 Codex 멀티 에이전트 (2026-07-28)
+클로드 코드에 OpenAI Codex 플러그인을 붙여 **클로드=구현 / Codex=리뷰**로 역할을 나눴다. 설치: `npm i -g @openai/codex`(CLI 0.145.0) + `claude plugin marketplace add openai/codex-plugin-cc` → `claude plugin install codex@openai-codex --scope user`(플러그인 1.0.6). 인증은 **ChatGPT 로그인**(API 키 아님) — 별도 종량 과금 없이 구독 한도를 나눠 쓴다. 커맨드 8종(`/codex:review` `:status` `:result` `:rescue` `:adversarial-review` `:cancel` `:setup` `:transfer`). ⚠️ `codex:review`는 **커밋이 있는 git 저장소**에서만 동작한다.
+
+**첫 리뷰가 즉시 진짜 결함을 잡았다(기록할 가치 있음)**: 커밋 훅(`precommit-guard.mjs`)의 캐시 키 검사가 `git grep "${name}-v${n-1}"`로 **직전 버전 하나만** 봐서, **v9 → v11 처럼 건너뛴 버전업을 통과시켰다**. 정작 이 훅을 만든 근거로 든 sector-rotation v9→v11 사고를 그대로 흘려보내는 결함이었다. 재현(v12→v14 staged → EXIT 0 통과, v12 reader 5곳 잔존) 후 **n 미만 모든 옛 버전 탐색**으로 수정, 3케이스(건너뜀·연속·새 키 오탐) 재검증.
+- ⭐ 교훈: **자기 코드의 사각지대는 자기가 못 본다** — 훅을 짠 본인은 "직전 버전"이 자연스러워 보였고, 그 가정이 깨지는 경우가 바로 훅의 존재 이유였음을 놓쳤다. 다른 모델의 독립 리뷰가 이 종류를 잡는다.
+- ⚠️ **리뷰 결과는 재현으로 확인하고 채택**할 것(다른 에이전트도 틀린다). 이번엔 재현이 지적을 확증했다.
+- ⚠️ **Windows 마찰**: Codex의 셸 호출이 `pwsh.exe ... (exit -1)`로 전부 실패하고 GitHub API·node_repl로 우회해 리뷰를 완성했다. 결과는 정확했으나 로컬 파일 탐색이 제한될 수 있으니 **리뷰 범위를 작게** 주는 편이 낫다.
+- 쓰임새: 훅(기계적 규칙)·스킬(절차)이 못 보는 **설계 가정·엣지 케이스**가 Codex 몫. 한도를 쓰므로 매 커밋이 아니라 **판단이 갈리는 변경**에 쓴다.
+
 ## 배포
 
 - **프로덕션**: https://investment-school-2026.vercel.app
