@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
-import { computeMarketFlowKr, type MarketFlowKrResult, type MarketFlowEntry } from '@/lib/marketFlowKr'
+import { MARKET_FLOW_KR_KEY, computeMarketFlowKr, type MarketFlowKrResult, type MarketFlowEntry } from '@/lib/marketFlowKr'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -111,7 +111,7 @@ export async function GET(req: Request) {
 
   // 시장 수급 — 캐시 우선(추가 수집 0)
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-  let mf = await getCache<MarketFlowKrResult>(`market-flow-kr-v5:${kstDate()}`, 24 * 3600_000)
+  let mf = await getCache<MarketFlowKrResult>(MARKET_FLOW_KR_KEY(kstDate()), 24 * 3600_000)
   if (!mf) mf = await computeMarketFlowKr(base)
   const entries = mf.entries
 

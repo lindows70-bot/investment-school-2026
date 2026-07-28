@@ -3,6 +3,12 @@
 import { fetchKrTrend, trendNum as num } from '@/lib/moneyFlow'
 import { getCanonicalFundamentals, isPegBaseEffect } from '@/lib/canonicalFundamentals'
 
+/** 🔑 KR 수급 캐시 키 SSOT — writer(크론·API)와 reader(통합추천·맞춤추천·마켓카탈리스트)가 **반드시 같은 키**를 쓴다.
+ *  ⚠️ 과거엔 각 파일이 키를 따로 적어, 크론이 v5 를 데우는데 화면은 v10 을 읽어
+ *     **크론 워밍이 화면에 아무 효과가 없었다**(매일 첫 접속마다 느린 스크랩). 버전은 여기 한 곳에서만 올린다.
+ *  v10: 추세속도 MA10·±15 상한(MA20 이상치 폭증 롤백) */
+export const MARKET_FLOW_KR_KEY = (dateKst: string) => `market-flow-kr-v10:${dateKst}`
+
 export type Period = 'd1' | 'd5' | 'd20'
 
 // 코스닥(KOSDAQ) 코드 집합 — 네이버 stockExchangeType.code 라이브 검증(2026-06-26) 후 고정(시장 분류는 정적 참조 데이터). 그 외 풀=코스피

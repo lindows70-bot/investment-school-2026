@@ -6,7 +6,7 @@ import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { growthFromCli, inflationFromRegime, seasonOf, holdingFit, SEASON_META, type Quadrant, type Holding } from '@/lib/seasonNavigator'
-import { computeMarketFlowKr, type MarketFlowKrResult, type MarketFlowEntry } from '@/lib/marketFlowKr'
+import { MARKET_FLOW_KR_KEY, computeMarketFlowKr, type MarketFlowKrResult, type MarketFlowEntry } from '@/lib/marketFlowKr'
 import { getMoneyFlow } from '@/lib/moneyFlow'
 import { getCanonicalFundamentals, isPegBaseEffect } from '@/lib/canonicalFundamentals'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
@@ -127,7 +127,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v45:${user.id}:${kstDate()}:${fp}`   // v44: 본토 A주(.SS/.SZ)는 상해종합 기준 변동성(CN_A) / v43: 🌪️ 국가 변동성 배지·갭 경고
+  const cacheKey = `unified-reco-v46:${user.id}:${kstDate()}:${fp}`   // v46: 💵 FCF 방어 틸트 복구(marks-cycle 키 v3→v4 — 2026-07-14부터 죽어 있었음) / v44: 본토 A주(.SS/.SZ)는 상해종합 기준 변동성(CN_A)
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -192,10 +192,10 @@ export async function GET(req: Request) {
   let mf: MarketFlowKrResult | null = null
   for (let d = 0; d < 5 && !mf; d++) {
     const dt = new Date(Date.now() + 9 * 3600_000 - d * 86_400_000).toISOString().slice(0, 10)
-    mf = await getCache<MarketFlowKrResult>(`market-flow-kr-v5:${dt}`, 6 * 24 * 3600_000)
+    mf = await getCache<MarketFlowKrResult>(MARKET_FLOW_KR_KEY(dt), 6 * 24 * 3600_000)
   }
   // 5일 내 캐시도 없으면(콜드/크론 미실행) 1회 라이브 컴퓨트 후 오늘 키에 적재 → 이후 요청 재사용
-  if (!mf) { try { mf = await computeMarketFlowKr(base); if (mf) await setCache(`market-flow-kr-v5:${kstDate()}`, mf) } catch { mf = null } }
+  if (!mf) { try { mf = await computeMarketFlowKr(base); if (mf) await setCache(MARKET_FLOW_KR_KEY(kstDate()), mf) } catch { mf = null } }
   const krFlow = new Map((mf?.entries ?? []).map(e => [e.ticker, e]))
 
   // 보유 종목 제외 + ₩환산 포트폴리오 총가치(권장 편입 금액 계산용)
@@ -216,7 +216,9 @@ export async function GET(req: Request) {
   const capexFrac = (capCache?.latestYoY ?? 0) / 100
 
   // 💵 하락장·버블 국면 FCF 방어 틸트 — 막스 시계추 온도(과열≥65 OR 공포≤32)일 때만 현금창출력 가중(getCache 읽기만·콜드면 off)
-  const marksCache = await getCache<{ temp: number }>(`marks-cycle-v3:${kstDate()}`, 12 * 3600_000)
+  // ⚠️ 키는 marks-cycle 라우트의 writer 와 반드시 같아야 한다. v3 를 읽고 있어 2026-07-14(v3→v4) 이후
+  //    캐시가 영원히 미스 → 이 틸트가 조용히 죽어 있었다(Gemini 정합성 감사가 발견).
+  const marksCache = await getCache<{ temp: number }>(`marks-cycle-v4:${kstDate()}`, 12 * 3600_000)
   const marketTemp = marksCache?.temp ?? null   // 0~100 탐욕온도(높음=과열/버블·낮음=공포/하락)
   const fcfDefensive = marketTemp != null && (marketTemp >= 65 || marketTemp <= 32)   // "버블·하락장엔 현금이 왕" 국면
   const mSig = (d: ScreenedStock['fwdEpsDir']) => d === 'accel' ? 1 : d === 'flat' ? 0.5 : 0

@@ -1,6 +1,7 @@
 // 🔥 오늘 시장의 눈 — 마켓 카탈리스트 API. ①메가 뉴스(시장 전체 판도, Gemini ≤3건) ②수급 블랙홀(US 트렌딩 거래량 폭증 + KR 수급 상위) ③자비스 한줄 처방(린치/버핏 페르소나)
 // Zero Cost: Google News RSS(무인증) + Yahoo trending/quote + market-flow-kr 캐시 재사용 · 3h 캐시(아침 갱신) · 수급 수치는 전부 정량 계산(LLM은 뉴스 요약만)
 import { NextResponse } from 'next/server'
+import { MARKET_FLOW_KR_KEY } from '@/lib/marketFlowKr'
 import { getCache, setCache } from '@/lib/appCache'
 import { callGeminiJSON } from '@/lib/gemini'
 import type { MarketFlowKrResult } from '@/lib/marketFlowKr'
@@ -80,7 +81,7 @@ async function krMovers(): Promise<MarketMover[]> {
   let mf: MarketFlowKrResult | null = null
   for (let d = 0; d < 5 && !mf; d++) {
     const dt = new Date(Date.now() + 9 * 3600_000 - d * 86_400_000).toISOString().slice(0, 10)
-    mf = await getCache<MarketFlowKrResult>(`market-flow-kr-v5:${dt}`, 6 * 24 * 3600_000)
+    mf = await getCache<MarketFlowKrResult>(MARKET_FLOW_KR_KEY(dt), 6 * 24 * 3600_000)
   }
   if (!mf) return []
   return (mf.entries ?? [])

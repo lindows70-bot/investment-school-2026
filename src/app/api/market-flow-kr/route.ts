@@ -1,13 +1,13 @@
 // 🌐 국내 시장 수급 랭킹 API — 외국인/기관 순매수 상위 + 쌍끌이. 일별 캐시(크론 워밍, 콜드는 직접 계산)
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
-import { computeMarketFlowKr, latestTradeDate, type MarketFlowKrResult } from '@/lib/marketFlowKr'
+import { MARKET_FLOW_KR_KEY, computeMarketFlowKr, latestTradeDate, type MarketFlowKrResult } from '@/lib/marketFlowKr'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
-const CACHE_KEY = () => `market-flow-kr-v10:${kstDate()}`  // v10: 추세속도 MA10·±15 상한(MA20 이상치 폭증 롤백)
+const CACHE_KEY = () => MARKET_FLOW_KR_KEY(kstDate())   // 🔑 키는 lib SSOT(버전은 거기서만 올린다)
 
 export async function GET(req: Request) {
   const cached = await getCache<MarketFlowKrResult>(CACHE_KEY(), 24 * 3600_000)
