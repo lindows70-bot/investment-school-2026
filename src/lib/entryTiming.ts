@@ -105,11 +105,16 @@ export function timingFromCandles(D: TechCandle[]): EntryTiming | null {
   const sg = gaps.filter(g => g.type === 'bear' && g.lo >= price).sort((a, b) => a.lo - b.lo)[0]   // 현재가 위 가장 가까운 하락 갭
   const pct = (v: number) => Math.round((v - price) / price * 1000) / 10
   // 📉 최근 20봉 고점 대비 급락 — 느린 구조 지표(EMA·구름)가 못 보는 '속도'를 잡는다
+  // ⚠️ 고점은 **종가가 아니라 고가(high)** 로 잡는다(드로다운의 표준 정의).
+  //    종가 기준이면 장중 급반락을 통째로 놓친다 — 오늘 고가 130 → 종가 110(−15.4%)이어도
+  //    그 종가가 20봉 중 최고면 '고점=오늘 종가'가 되어 낙폭이 **0%** 로 계산된다(합성 재현으로 확인).
+  //    같은 이유로 `highBarsAgo === 0`(오늘 고점) 분기도 종가 기준에선 도달 불가한 죽은 코드였다.
   const win = D.slice(-20)
-  const hiIdx = win.reduce((bi, c, i) => (c.close > win[bi].close ? i : bi), 0)
-  const hiClose = win[hiIdx]?.close ?? null
-  const dropFromHigh = hiClose && hiClose > 0 ? Math.round((price / hiClose - 1) * 1000) / 10 : null
-  const highBarsAgo = hiClose != null ? win.length - 1 - hiIdx : null
+  const hiOf = (c: TechCandle) => c.high ?? c.close
+  const hiIdx = win.reduce((bi, c, i) => (hiOf(c) > hiOf(win[bi]) ? i : bi), 0)
+  const peak = win[hiIdx] ? hiOf(win[hiIdx]) : null
+  const dropFromHigh = peak && peak > 0 ? Math.round((price / peak - 1) * 1000) / 10 : null
+  const highBarsAgo = peak != null ? win.length - 1 - hiIdx : null
   const supply: SupplyLite = {
     vwap: avwap?.vwap ?? null, aboveVwap: !!avwap?.above, vwapDistPct: avwap?.distPct ?? null,
     vwapCross: avwap?.cross ?? null,
