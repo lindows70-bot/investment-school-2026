@@ -127,7 +127,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v47:${user.id}:${kstDate()}:${fp}`   // v47: 🔪 칼날에 깊이 조건(200일선 −20%↓는 52주 무관) — 1년 급등 후 폭락 종목이 상위에 남던 것 차단 / v46: 💵 FCF 방어 틸트 복구
+  const cacheKey = `unified-reco-v48:${user.id}:${kstDate()}:${fp}`   // v48: 📉 급락 종목을 **선별에서 제외**(배지→필터) · v47: 🔪 칼날 깊이 조건(200일선 −20%↓)
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -346,21 +346,40 @@ export async function GET(req: Request) {
     return { p, supplyScore, supplyKnown, supplyProxy, badges, combined, rotQuad: rot?.q ?? null, rotationScore }
   })
 
-  // ⑤ 원칙적 선별 — ① 품질 바닥 통합 65↑ ② 섹터당 최대 4(분산) ③ 최대 12종. ⚠️ 지역 할당(한국/유럽 최소 보장) 없음 — 순수 6축 실력 랭킹(점수에서 밀리면 억지로 안 끼움). 지역 커버리지는 아래 참고 섹션으로
+  // ⑤ 원칙적 선별 — ① 품질 바닥 통합 65↑ ② 🔪칼날·📉급락 제외 ③ 섹터당 최대 4(분산) ④ 최대 15종. ⚠️ 지역 할당 없음 — 순수 6축 실력 랭킹
   const QUALITY_FLOOR = 65, SECTOR_CAP = 4, MAX_ITEMS = 15
   const ranked = scored.sort((a, b) => b.combined - a.combined)
+
+  // 📉 급락 종목 **선별에서 제외**(2026-07-29) — 예전엔 배지로만 경고했으나 배지 하나로 '통합 81점 2위'를
+  //    상쇄할 수 없다. 학생이 보는 건 점수와 순위다. "한 번 물리면 몇십 %"를 막는 게 우선.
+  //    ⚠️ 이건 예측이 아니라 **위험 회피**다(백테스트로 정당화할 성격이 아님). 다만 근거는 있다 —
+  //    실측: 지수 대비 −10%p 이하 약세 구간은 이상치 제거 후에도 전방 20봉 −2.12%p 로 명확히 나빴다.
+  //    ⭐ 복귀는 **자동·결정론**: 낙폭이 −12% 위로 회복되면 sharpDrop 이 스스로 false 가 된다(별도 상태 없음).
+  //    후보 상위 N종만 캔들을 보므로 비용은 작다(일별 캐시 + tech-screener 크론이 매일 워밍).
+  const preTop = ranked.filter(t => t.combined >= QUALITY_FLOOR && !t.p.knife).slice(0, MAX_ITEMS * 2)
+  const preTiming = new Map<string, EntryTiming>()   // 아래 배지 부착에서 재사용(같은 종목 두 번 안 부른다)
+  const dropSet = new Set<string>()
+  try {
+    const tm = await getEntryTimings(preTop.map(t => ({ ticker: t.p.s.ticker, market: (t.p.s.market === 'KR' ? 'KR' : 'US') as 'KR' | 'US' })), 4)
+    for (const t of preTop) {
+      const tt = tm.get(`${t.p.s.ticker}:${t.p.s.market === 'KR' ? 'KR' : 'US'}`)
+      if (tt) { preTiming.set(t.p.s.ticker, tt); if (tt.supply?.sharpDrop) dropSet.add(t.p.s.ticker) }
+    }
+  } catch { /* graceful — 타점 실패 시 급락 제외를 건너뛴다(있던 추천이 사라지는 것보다 낫다) */ }
+
   const secCount = new Map<string, number>()
   const top: typeof ranked = []
   for (const t of ranked) {
     if (t.combined < QUALITY_FLOOR) continue
-    if (t.p.knife) continue   // 🔪 급락 추세 종목은 매수 추천 제외(떨어지는 칼날)
+    if (t.p.knife) continue              // 🔪 떨어지는 칼날(구조적 하락)
+    if (dropSet.has(t.p.s.ticker)) continue   // 📉 최근 급락(구조는 살아도 지금 진입은 칼받이)
     const sec = t.p.s.sector ?? '—'
     const c = secCount.get(sec) ?? 0
     if (c >= SECTOR_CAP) continue   // 한 섹터 과밀 방지
     secCount.set(sec, c + 1); top.push(t)
     if (top.length >= MAX_ITEMS) break
   }
-  const selectionRule = `통합 ${QUALITY_FLOOR}점 이상 · 🔪 급락 추세(falling knife) 제외 · 섹터당 최대 ${SECTOR_CAP}종(분산) · 최대 ${MAX_ITEMS}종 · 순수 실력 랭킹(지역 할당 없음)${rotQuadBySector ? ' · 🧭 주도섹터 축 10%(자금 회전 국면)' : ''}`
+  const selectionRule = `통합 ${QUALITY_FLOOR}점 이상 · 🔪 급락 추세(falling knife) 제외 · 📉 최근 급락 종목 제외(반등 시 자동 복귀) · 섹터당 최대 ${SECTOR_CAP}종(분산) · 최대 ${MAX_ITEMS}종 · 순수 실력 랭킹(지역 할당 없음)${rotQuadBySector ? ' · 🧭 주도섹터 축 10%(자금 회전 국면)' : ''}`
 
   // 🌍 지역 커버리지(참고 · 순위 무관) — merit 12종 밖의 한국·유럽 대표 후보를 점수와 함께 노출. 억지 편입이 아니라 "앱이 이 지역도 채점·커버한다"를 보여주는 참고 리스트
   const meritSet = new Set(top.map(t => t.p.s.ticker))
@@ -453,10 +472,15 @@ export async function GET(req: Request) {
   let volByOrigin: Record<string, CountryVolItem> | undefined
   try { volByOrigin = (await computeCountryVol())?.byOrigin } catch { /* graceful — 배지만 생략 */ }
 
-  // 🚦 타점 신호등 부착(최종 선정 후 — 점수·선정·정렬 절대 불변, WHEN 정보 레이어만)
+  // 🚦 타점 신호등 부착 — ⑤ 선별에서 이미 계산한 preTiming 재사용(같은 종목을 두 번 부르지 않는다).
+  //    빠진 것만 보충 fetch(선별 후보 30종 밖에서 올라온 경우).
   try {
-    const tmap = await getEntryTimings(items.map(i => ({ ticker: i.ticker, market: (i.market === 'KR' ? 'KR' : 'US') as 'KR' | 'US' })), 4)
-    for (const it of items) it.timing = tmap.get(`${it.ticker}:${it.market === 'KR' ? 'KR' : 'US'}`) ?? null
+    for (const it of items) it.timing = preTiming.get(it.ticker) ?? null
+    const miss = items.filter(i => !i.timing)
+    if (miss.length) {
+      const tmap = await getEntryTimings(miss.map(i => ({ ticker: i.ticker, market: (i.market === 'KR' ? 'KR' : 'US') as 'KR' | 'US' })), 4)
+      for (const it of miss) it.timing = tmap.get(`${it.ticker}:${it.market === 'KR' ? 'KR' : 'US'}`) ?? null
+    }
   } catch { /* graceful — 배지만 생략 */ }
 
   // 🔬 ETF 분산 대안 부착(최종 선정 후 — 점수·선정·정렬 절대 불변, 같은 GICS 섹터 ETF 분산 선택지만)
