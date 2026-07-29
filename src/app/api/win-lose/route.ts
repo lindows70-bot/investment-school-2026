@@ -216,7 +216,7 @@ export async function GET(req: Request) {
   let rotBySector: Map<string, { q: WLQuad; score: number }> | null = null
   for (let d = 0; d < 3 && !rotBySector; d++) {
     const dt = new Date(Date.now() + 9 * 3600_000 - d * 86_400_000).toISOString().slice(0, 10)
-    const rot = await getCache<RotLite>(`sector-rotation-v12:${dt}`, 3 * 24 * 3600_000)
+    const rot = await getCache<RotLite>(`sector-rotation-v13:${dt}`, 3 * 24 * 3600_000)
     if (rot?.items?.length) rotBySector = new Map(rot.items.map(i => [i.key, { q: i.quadrant, score: i.score }]))
   }
 

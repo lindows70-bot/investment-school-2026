@@ -232,7 +232,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v42:${user.id}:${today}:${fp}`   // v41: VWAP 하향 이탈 매도 근거+크로스 칩 / v40: ETF 소섹터 정밀화
+  const cacheKey = `ai-rebalance-v43:${user.id}:${today}:${fp}`   // v43: 📉 매수측 급락 제외(유령 발굴 포함) / v41: VWAP 하향 이탈 매도 근거+크로스 칩 / v40: ETF 소섹터 정밀화
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -668,6 +668,14 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
       }
     }
     for (const a of add) if (!a.timing) a.timing = tmap.get(`${a.ticker}:${a.market}`) ?? null
+    // 📉 매수측 급락 제외 — 통합추천에서 온 코어·위성은 이미 걸러졌지만 **유령 발굴(satelliteScreener)** 은
+    //    knife(구조적 하락)만 보고 최근 낙폭은 안 본다. 매수 카드는 전부 같은 기준이어야 한다(제2원칙).
+    //    ⚠️ 자리가 비면 비운다 — 급락장에 억지로 채우는 것보다 낫다.
+    for (let i = add.length - 1; i >= 0; i--) {
+      const a = add[i]
+      if (a.ticker === 'CORE' || a.ticker === 'BTC') continue   // 광의 ETF·비트코인은 개별 급락 판정 대상 아님
+      if (a.timing?.supply?.sharpDrop) add.splice(i, 1)
+    }
   } catch { /* graceful — 경고·배지만 생략 */ }
 
   // ⑦ 조언형 실행 가이드(체결 X)

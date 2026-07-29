@@ -134,7 +134,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v49:${user.id}:${kstDate()}:${fp}`   // v49: 💪 상대강도(지수 대비 20일) 표시 추가(점수 미반영) · v48: 📉 급락 종목 선별 제외(배지→필터) · v47: 🔪 칼날 깊이 조건(200일선 −20%↓)
+  const cacheKey = `unified-reco-v50:${user.id}:${kstDate()}:${fp}`   // v50: 📉 참고 리스트도 급락 제외 · v49: 💪 상대강도(지수 대비 20일) 표시 추가(점수 미반영) · v48: 📉 급락 종목 선별 제외(배지→필터) · v47: 🔪 칼날 깊이 조건(200일선 −20%↓)
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -245,7 +245,7 @@ export async function GET(req: Request) {
   let rotQuadBySector: Map<string, { q: RotQuad; score: number }> | null = null
   for (let d = 0; d < 3 && !rotQuadBySector; d++) {
     const dt = new Date(Date.now() + 9 * 3600_000 - d * 86_400_000).toISOString().slice(0, 10)
-    const rot = await getCache<RotationResult>(`sector-rotation-v12:${dt}`, 3 * 24 * 3600_000)
+    const rot = await getCache<RotationResult>(`sector-rotation-v13:${dt}`, 3 * 24 * 3600_000)
     if (rot?.items?.length) rotQuadBySector = new Map(rot.items.map(i => [i.key, { q: i.quadrant, score: i.score }]))
   }
   // Yahoo GICS 섹터명 → 로테이션 시계 키(GICS 11만 — 테마 6은 종목 중복 소속이라 매핑 제외)
@@ -393,21 +393,42 @@ export async function GET(req: Request) {
 
   // 🌍 지역 커버리지(참고 · 순위 무관) — merit 12종 밖의 한국·유럽 대표 후보를 점수와 함께 노출. 억지 편입이 아니라 "앱이 이 지역도 채점·커버한다"를 보여주는 참고 리스트
   const meritSet = new Set(top.map(t => t.p.s.ticker))
-  const buildRef = (pred: (t: typeof scored[number]) => boolean, region: 'KR' | 'EU' | 'JP' | 'CN'): RegionRefItem[] =>
+  // 📉 참고 리스트도 급락을 거른다 — "순위 무관 참고"라 적혀 있어도 학생은 **점수와 배지**를 보고 추천으로 읽는다.
+  //    ⚠️ 본목록은 preTop(45) 안에서만 검사하므로 참고 후보 상당수는 dropSet 에 없다 → 여기서 따로 검사한다.
+  //    캔들은 일별 캐시(tech-screener 크론이 매일 워밍)라 비용은 계산뿐이다.
+  const refPool = (pred: (t: typeof scored[number]) => boolean) =>
     scored.filter(t => pred(t) && !meritSet.has(t.p.s.ticker) && !t.p.knife && t.combined >= 50)
-      .sort((a, b) => b.combined - a.combined).slice(0, 5)
+      .sort((a, b) => b.combined - a.combined).slice(0, 10)   // 급락 탈락분 여유를 두고 10 → 최종 5
+  const refPreds: [(t: typeof scored[number]) => boolean, 'KR' | 'EU' | 'JP' | 'CN'][] = [
+    [t => t.p.isKr, 'KR'],
+    [t => EU_TICKER_SET.has(t.p.s.ticker), 'EU'],
+    [t => JP_TICKER_SET.has(t.p.s.ticker), 'JP'],
+    [t => CN_TICKER_SET.has(t.p.s.ticker), 'CN'],
+  ]
+  const refCands = refPreds.map(([pred]) => refPool(pred))
+  try {
+    const need = Array.from(new Map(
+      refCands.flat().filter(t => !preTiming.has(t.p.s.ticker))
+        .map(t => [t.p.s.ticker, { ticker: t.p.s.ticker, market: (t.p.s.market === 'KR' ? 'KR' : 'US') as 'KR' | 'US' }])
+    ).values())
+    if (need.length) {
+      const tm = await getEntryTimings(need, 4)
+      for (const n of need) {
+        const tt = tm.get(`${n.ticker}:${n.market}`)
+        if (tt) { preTiming.set(n.ticker, tt); if (tt.supply?.sharpDrop) dropSet.add(n.ticker) }
+      }
+    }
+  } catch { /* graceful — 실패 시 참고 리스트는 급락 필터 없이 나간다(리스트가 비는 것보다 낫다) */ }
+
+  const buildRef = (cands: typeof scored, region: 'KR' | 'EU' | 'JP' | 'CN'): RegionRefItem[] =>
+    cands.filter(t => !dropSet.has(t.p.s.ticker)).slice(0, 5)
       .map(t => ({
         ticker: t.p.s.ticker, name: t.p.s.name, market: t.p.s.market, currency: t.p.s.currency ?? 'USD', sector: t.p.s.sector ?? '—', region,
         combined: t.combined, seasonScore: t.p.seasonScore, valueScore: t.p.valueScore, qualityScore: t.p.qualityScore,
         momentumScore: t.p.momentumScore, supplyScore: t.supplyScore, rotationScore: t.rotationScore,
         supplyKnown: t.supplyKnown, supplyProxy: t.supplyProxy, peg: t.p.s.peg, badges: t.badges,
       }))
-  const reference: RegionRefItem[] = [
-    ...buildRef(t => t.p.isKr, 'KR'),
-    ...buildRef(t => EU_TICKER_SET.has(t.p.s.ticker), 'EU'),
-    ...buildRef(t => JP_TICKER_SET.has(t.p.s.ticker), 'JP'),
-    ...buildRef(t => CN_TICKER_SET.has(t.p.s.ticker), 'CN'),
-  ]
+  const reference: RegionRefItem[] = refCands.flatMap((c, i) => buildRef(c, refPreds[i][1]))
 
   // ⑥ 최종 12종 심화 검증 — canonical PEG(제2원칙) + 🛡️버핏 DCF 안전마진 + 📈Fwd EPS 모멘텀 (배치 4)
   const items: UnifiedRecoItem[] = []

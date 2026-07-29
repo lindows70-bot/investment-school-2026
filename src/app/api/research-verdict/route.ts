@@ -64,7 +64,7 @@ export async function GET(req: Request) {
   // 주도섹터 로테이션 캐시 — 최근 3일치를 병렬로 읽고 최신 우선 채택(기존 순차 루프와 동일 결과)
   const rotP = (async (): Promise<Map<string, { q: RotQuad; score: number }> | null> => {
     const dates = [0, 1, 2].map(dd => new Date(Date.now() + 9 * 3600_000 - dd * 86_400_000).toISOString().slice(0, 10))
-    const rots = await Promise.all(dates.map(dt => getCache<RotationResult>(`sector-rotation-v12:${dt}`, 3 * 24 * 3600_000).catch(() => null)))
+    const rots = await Promise.all(dates.map(dt => getCache<RotationResult>(`sector-rotation-v13:${dt}`, 3 * 24 * 3600_000).catch(() => null)))
     const rot = rots.find(r => r?.items?.length)
     return rot?.items?.length ? new Map(rot.items.map(i => [i.key, { q: i.quadrant, score: i.score }])) : null
   })()
