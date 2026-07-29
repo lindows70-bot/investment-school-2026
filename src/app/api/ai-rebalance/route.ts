@@ -235,7 +235,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v45+${UNIFIED_RECO_V}:${user.id}:${today}:${fp}`   // v43: 📉 매수측 급락 제외(유령 발굴 포함) / v41: VWAP 하향 이탈 매도 근거+크로스 칩 / v40: ETF 소섹터 정밀화
+  const cacheKey = `ai-rebalance-v46+${UNIFIED_RECO_V}:${user.id}:${today}:${fp}`   // v43: 📉 매수측 급락 제외(유령 발굴 포함) / v41: VWAP 하향 이탈 매도 근거+크로스 칩 / v40: ETF 소섹터 정밀화
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -472,13 +472,18 @@ export async function GET(req: Request) {
     }
   } catch { /* graceful */ }
 
-  const narrative = await buildNarrative(diagnoses, buyCandidates, sellBudget, diversification, cyclicalTrap, hypePremium, zombieRisk, regimeNote)
-
   // ═══ P2: 코어-새틀라이트 5분류 자산군 분석(전 자산 기준) ═══════════════════════
+  // ⚠️ **내러티브보다 먼저** 만든다 — 화면 검수에서 비서가 "회수 가능 예산이 없어 신규 매수 제안은
+  //    0%"라고 썼는데 바로 위 '보강할 것'엔 6종이 있었다. 두 시스템의 관점이 달라서다:
+  //    레거시는 현금 중립(판 만큼만 산다)이라 sellBudget 0 → 매수 0이지만, 코어-새틀라이트는
+  //    자산군 배분이라 **코어가 목표 밴드에 크게 미달하면 회수 예산과 무관하게 보강을 제안**한다.
+  //    둘 다 맞지만 내러티브가 히어로를 못 보고 쓰면 한 화면이 정반대를 말한다.
   let coreSatellite: CoreSatelliteView | undefined
   try {
     coreSatellite = await buildCoreSatellite(rows ?? [], diagnoses, buyCandidates, satelliteCandidates, zombieHoldings, secByTicker, base, usdKrw)
   } catch (e) { console.warn('[coreSatellite]', (e as Error).message) }
+
+  const narrative = await buildNarrative(diagnoses, buyCandidates, sellBudget, diversification, cyclicalTrap, hypePremium, zombieRisk, regimeNote, coreSatellite)
 
   const result: RebalanceResult = {
     holdings: diagnoses, buyCandidates, sellBudget, diversification, cyclicalTrap, hypePremium, zombieRisk, satelliteCandidates, portfolioValue: Math.round(totalMv),
@@ -755,7 +760,7 @@ const ACTION_KO: Record<RebalanceAction, string> = {
   HOLD_DIP: '보류(손실중·단순고평가→저점매도 방지)', DEFEND: '사수(저평가/호재)', KEEP: '유지',
 }
 
-async function buildNarrative(holdings: HoldingDiagnosis[], buys: BuyCandidate[], sellBudget: number, div: DiversificationView | null, trap: CyclicalTrap | null, hype: HypePremium | null, zombie: ZombieRisk | null, regimeNote: string | null): Promise<string> {
+async function buildNarrative(holdings: HoldingDiagnosis[], buys: BuyCandidate[], sellBudget: number, div: DiversificationView | null, trap: CyclicalTrap | null, hype: HypePremium | null, zombie: ZombieRisk | null, regimeNote: string | null, cs?: CoreSatelliteView): Promise<string> {
   const sellLines = holdings
     // 실제 행동 가능한 것만: 회수 비중 ≥0.1% 이거나 보류(저점매도 방지) — 소액(0%) 익절 노이즈 제외
     .filter(h => h.releaseWeight >= 0.1 || h.action === 'HOLD_DIP')
@@ -790,7 +795,10 @@ ${sellLines || '없음'}
 [신규 매수 후보 (미보유·AI 추천)]
 ${buyLines || '없음'}
 
-[회수 가능 예산] 총 ${sellBudget}% (이 비중만큼만 신규 매수 — 현금 중립)
+[회수 가능 예산] 총 ${sellBudget}% (교체매매 한도 — 판 만큼만 사는 현금 중립 기준)
+${cs ? `[자산군 보강 제안 — 회수 예산과 별개] 코어 ${cs.corePct}% (목표 ${cs.coreTargetMin}~${cs.coreTargetMax}%)
+${cs.add.length ? cs.add.map(a => `- ${a.name || a.ticker}: 목표 ${a.targetPct}%p (${a.tag}) — ${a.reason.slice(0, 80)}`).join('\n') : '- 없음'}
+⚠️ 회수 예산이 0%여도 위 보강 제안이 있으면 "신규 매수 제안은 0%"라고 쓰지 마라. 회수 예산은 '판 만큼 사는' 교체매매 한도이고, 코어 밴드 미달 보강은 그와 별개의 자산군 배분이다. 보강 제안이 있으면 그것을 언급하라.` : ''}
 
 [분산 상태] ${divLine || '자료없음'}
 
