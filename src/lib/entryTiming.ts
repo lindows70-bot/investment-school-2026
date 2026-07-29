@@ -142,10 +142,18 @@ export function timingFromCandles(D: TechCandle[]): EntryTiming | null {
     price: Math.round(price * 100) / 100, cloudTop,
     atr: atr != null ? Math.round(atr * 100) / 100 : null,
   }
+  // ⚠️ 급락 중이면 **라벨·가이드를 바꿔야 한다** — 안 그러면 같은 카드에서 정면 모순이 난다:
+  //    "계획 비중대로 분할 진입"(가이드) ↔ "지금 진입은 칼받이"(급락 경고)  — 한국콜마 −21.8%·S-Oil −19.2%
+  //    "🟡 눌림목·대기"(눌림목 = 건강한 조정) ↔ 20봉 고점 −19.4% 급락       — HD현대·삼성E&A·두산밥캣
+  //    신호등의 **빛(구조 판정)은 그대로 두고** 문구만 정직하게 바꾼다.
+  const drop = supply.sharpDrop ? ` (고점 대비 ${supply.dropFromHigh}%)` : ''
+  const dropGuide = `구조는 살아있으나 최근 낙폭이 큼${drop} — 지금 진입은 보류, 반등·지지 확인 후 분할로`
+
   // 🚦 신호등(결정론): 🟢 정배열+구름 위 / 🔴 역배열+구름 아래 / 🟡 그 외(구름 속·눌림·전환기)
   if (aligned && cloud === 'above') return {
     ...base, light: 'green', trendBreak: false,
-    label: '🟢 진입 적기', guide: '정배열+구름 위 — 추세·매물대 둘 다 확인, 계획 비중대로 분할 진입',
+    label: supply.sharpDrop ? '🟢 구조 양호 · 급락 주의' : '🟢 진입 적기',
+    guide: supply.sharpDrop ? dropGuide : '정배열+구름 위 — 추세·매물대 둘 다 확인, 계획 비중대로 분할 진입',
   }
   if (!aligned && cloud === 'below') return {
     ...base, light: 'red', trendBreak: true,
@@ -153,8 +161,10 @@ export function timingFromCandles(D: TechCandle[]): EntryTiming | null {
   }
   return {
     ...base, light: 'yellow', trendBreak: false,
-    label: cloud === 'in' ? '🟡 매물대 소화 중' : aligned ? '🟡 눌림목·대기' : '🟡 전환 시도',
-    guide: '절반만 진입, 나머지는 구름 상단 돌파(매물 소화) 확인 후',
+    // 급락 중인데 '눌림목'(=건강한 조정)이라 부르지 않는다
+    label: supply.sharpDrop ? '🟡 급락 조정 중'
+      : cloud === 'in' ? '🟡 매물대 소화 중' : aligned ? '🟡 눌림목·대기' : '🟡 전환 시도',
+    guide: supply.sharpDrop ? dropGuide : '절반만 진입, 나머지는 구름 상단 돌파(매물 소화) 확인 후',
   }
 }
 

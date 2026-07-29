@@ -116,9 +116,6 @@ export default function TimingBadge({ t, market, ticker, compact = false }: { t:
         🏅 추세가 살아있는 상태에서 {t.prime.trigger === 'divergence' ? '하락 에너지 소진(상승 다이버전스)' : '되돌림 완료(첫 눌림목)'}이 겹쳤습니다 — 자체 백테스트에서 20봉 승률 60.7%(기준 50.1%)로 가장 우위였던 조합입니다.
         {t.prime.parabolic && ' ⚠️ 직전 급등 이력이 있어 첫 눌림목이 함정일 수 있으니 분할로.'}
       </div>}
-      {dropChip && <div style={{ fontSize: 9.5, color: TK.red400, marginTop: 3, lineHeight: 1.5 }}>
-        📉 추세 구조는 아직 살아있으나 최근 낙폭이 큽니다 — 지금 진입은 칼받이가 될 수 있으니 반등·지지 확인 후 분할로.
-      </div>}
       {t.atrStop != null && <span style={{ color: TK.violet300 }}> · 🛡 손절 참고 {fmtStop(t.atrStop)}</span>}
       {rkLine && <div style={{ color: TK.fuchsia300, marginTop: 3, fontSize: 10 }}>{rkLine}</div>}
     </div>
