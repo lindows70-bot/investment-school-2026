@@ -356,7 +356,11 @@ export async function GET(req: Request) {
   //    실측: 지수 대비 −10%p 이하 약세 구간은 이상치 제거 후에도 전방 20봉 −2.12%p 로 명확히 나빴다.
   //    ⭐ 복귀는 **자동·결정론**: 낙폭이 −12% 위로 회복되면 sharpDrop 이 스스로 false 가 된다(별도 상태 없음).
   //    후보 상위 N종만 캔들을 보므로 비용은 작다(일별 캐시 + tech-screener 크론이 매일 워밍).
-  const preTop = ranked.filter(t => t.combined >= QUALITY_FLOOR && !t.p.knife).slice(0, MAX_ITEMS * 2)
+  //    ⚠️ **선별 루프는 반드시 preTop 안에서만** 돈다 — 전체 ranked 를 돌면 검사 안 된 31위 이하가
+  //    급락인 채로 뽑힌다(Codex 리뷰 지적). 급락률이 31%(KR 62%)라 루프가 30위 밖으로 내려가는 건
+  //    흔한 일이라 이론이 아니라 실제로 뚫린다. 후보 깊이를 3배(45)로 늘려 섹터 캡까지 감당하고,
+  //    그래도 15종을 못 채우면 **적게 보여주는 게 맞다**(급락장엔 살 게 없는 것도 정직한 답).
+  const preTop = ranked.filter(t => t.combined >= QUALITY_FLOOR && !t.p.knife).slice(0, MAX_ITEMS * 3)
   const preTiming = new Map<string, EntryTiming>()   // 아래 배지 부착에서 재사용(같은 종목 두 번 안 부른다)
   const dropSet = new Set<string>()
   try {
@@ -369,9 +373,8 @@ export async function GET(req: Request) {
 
   const secCount = new Map<string, number>()
   const top: typeof ranked = []
-  for (const t of ranked) {
-    if (t.combined < QUALITY_FLOOR) continue
-    if (t.p.knife) continue              // 🔪 떨어지는 칼날(구조적 하락)
+  for (const t of preTop) {              // ⚠️ ranked 가 아니라 preTop — 뽑히는 종목은 전부 급락 검사를 거친다
+    if (t.p.knife) continue              // 🔪 떨어지는 칼날(구조적 하락) — preTop 에서 이미 걸렀지만 방어적으로
     if (dropSet.has(t.p.s.ticker)) continue   // 📉 최근 급락(구조는 살아도 지금 진입은 칼받이)
     const sec = t.p.s.sector ?? '—'
     const c = secCount.get(sec) ?? 0
