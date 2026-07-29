@@ -123,6 +123,12 @@ export default function CoreSatelliteHero({ cs, portfolioValue }: { cs: CoreSate
         </ActionCard>
 
         <ActionCard icon="🛒" title="보강할 것" color={TK.green500} count={cs.add.length}>
+          {/* ⚠️ 통합추천을 못 받은 상태를 숨기지 않는다 — 안 알리면 '보강 6종'이 어느 날 2종이 되고 학생은 이유를 모른다 */}
+          {cs.buysUnavailable && (
+            <div style={{ background: 'rgba(251,146,60,0.09)', border: `1px solid ${TK.orange400}55`, borderRadius: 7, padding: '7px 9px', marginBottom: 7, color: TK.amber400, fontSize: 10.5, lineHeight: 1.5 }}>
+              ⚠️ 통합추천을 불러오지 못해 <b>개별 종목 보강이 빠졌습니다</b>(집계가 오래 걸릴 때 발생). 아래는 자산군 보강만입니다 — 잠시 후 새로고침해 주세요.
+            </div>
+          )}
           {cs.add.map((a: BuyIdea, i: number) => (
             <div key={`${a.ticker}-${i}`} style={{ background: TK.bg3, borderRadius: 8, padding: '8px 10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>

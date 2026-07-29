@@ -113,7 +113,7 @@ export default function AiRebalancePanel() {
               <span style={{ color: TK.slate200, fontWeight: 700, fontSize: 16 }}>AI 포트폴리오 리밸런싱</span>
               {data.sellBudget > 0 && (
                 <span style={{ background: 'rgba(245,158,11,0.15)', color: TK.amber500, border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12, padding: '2px 10px', fontSize: 12, fontWeight: 600 }}>
-                  재배분 예산 {data.sellBudget}%
+                  재배분 예산 {data.sellBudget}%<span style={{ fontWeight: 600, opacity: 0.75 }}> (주식 기준)</span>
                 </span>
               )}
             </div>
@@ -173,7 +173,7 @@ export default function AiRebalancePanel() {
       {data.hypePremium && (
         <div style={{ background: 'rgba(168,85,247,0.08)', border: '1px solid rgba(168,85,247,0.35)', borderRadius: 12, padding: '14px 18px' }}>
           <div style={{ color: TK.purple400, fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
-            💭 하이프 프리미엄 주의 — 영업적자 종목 {data.hypePremium.weight}% 보유
+            💭 하이프 프리미엄 주의 — 영업적자 종목 <span title="보유 주식만을 분모로 한 비중입니다. 위 자산군·3액션은 ETF·코인을 포함한 전 자산 기준이라 같은 종목이라도 숫자가 다릅니다.">보유 주식 중 {data.hypePremium.weight}%</span>
           </div>
           <div style={{ color: '#d8b4fe', fontSize: 12.5, lineHeight: 1.7 }}>
             <b>{data.hypePremium.tickers.map(t => `${t.market === 'KR' ? (t.name || t.ticker).slice(0, 10) : t.ticker}(영업이익률 ${t.opMargin}%)`).join(', ')}</b>는 아직 영업적자라 &lsquo;이익&rsquo;이라는 실체가 없습니다.
@@ -187,7 +187,7 @@ export default function AiRebalancePanel() {
       {data.zombieRisk && (
         <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 12, padding: '14px 18px' }}>
           <div style={{ color: TK.red400, fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
-            🧟 좀비 기업 경고 — 이자도 못 갚는 종목 {data.zombieRisk.weight}% 보유
+            🧟 좀비 기업 경고 — 이자도 못 갚는 종목 <span title="보유 주식만을 분모로 한 비중입니다. 위 자산군·3액션은 ETF·코인을 포함한 전 자산 기준이라 같은 종목이라도 숫자가 다릅니다.">보유 주식 중 {data.zombieRisk.weight}%</span>
           </div>
           <div style={{ color: TK.red300, fontSize: 12.5, lineHeight: 1.7 }}>
             <b>{data.zombieRisk.tickers.map(t => `${t.market === 'KR' ? (t.name || t.ticker).slice(0, 10) : t.ticker}(이자보상배율 ${t.interestCoverage}배)`).join(', ')}</b>는 영업이익으로 이자비용도 충분히 못 갚습니다(이자보상배율 1.5 미만).

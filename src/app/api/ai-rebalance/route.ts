@@ -168,6 +168,9 @@ export interface CoreSatelliteView {
   trim: ActionItem[]                   // ✂️ 줄일 것
   add: BuyIdea[]                       // 🛒 보강할 것
   guide: string                        // 조언형 실행 가이드
+  /** ⚠️ 통합추천을 못 불러와 **개별 종목 보강이 빠진** 상태(콜드 재계산 타임아웃 등).
+   *  이걸 안 알리면 '보강할 것 6종'이 어느 날 조용히 2종이 되고 학생은 이유를 모른다. */
+  buysUnavailable?: boolean
 }
 
 function admin() {
@@ -235,7 +238,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v46+${UNIFIED_RECO_V}:${user.id}:${today}:${fp}`   // v43: 📉 매수측 급락 제외(유령 발굴 포함) / v41: VWAP 하향 이탈 매도 근거+크로스 칩 / v40: ETF 소섹터 정밀화
+  const cacheKey = `ai-rebalance-v47+${UNIFIED_RECO_V}:${user.id}:${today}:${fp}`   // v43: 📉 매수측 급락 제외(유령 발굴 포함) / v41: VWAP 하향 이탈 매도 근거+크로스 칩 / v40: ETF 소섹터 정밀화
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -397,6 +400,7 @@ export async function GET(req: Request) {
   //    기존엔 macro-ai-picks 별도 엔진 + 갭/섹터 재랭킹을 써 ①③과 종목이 달라지는 불일치가 있었음.
   //    → unified-reco가 이미 보유제외·섹터분산(SECTOR_CAP)·통합 3축 채점을 수행하므로 그 상위를 그대로 채택.
   let buyCandidates: BuyCandidate[] = []
+  let buysUnavailable = false   // ⚠️ 통합추천 fetch 실패(콜드 재계산 타임아웃 등) — 조용히 목록이 줄면 학생은 이유를 모른다
   let waveBoostedNames: string[] = []   // 🌊 계절 페널티가 실제로 복구된 추천 종목(정직한 배너용)
   try {
     const ur = await fetch(`${base}/api/unified-reco`, { headers: { cookie }, signal: AbortSignal.timeout(40_000) })
@@ -420,7 +424,7 @@ export async function GET(req: Request) {
         if (Math.abs(remainder) >= 0.1) buyCandidates[0].allocWeight = Math.round((buyCandidates[0].allocWeight + remainder) * 10) / 10
       }
     }
-  } catch { /* graceful */ }
+  } catch { buysUnavailable = true }   // ⚠️ 실패를 삼키지 않는다 — 화면에 정직하게 표기(아래 보강 카드)
 
   // ⑤-b 🚀 위성 10배거 후보 — 중소형 유니버스 스크리닝 → 위성 예산 배분(점수 비례)
   let satelliteCandidates: SatelliteCandidate[] = []
@@ -481,6 +485,7 @@ export async function GET(req: Request) {
   let coreSatellite: CoreSatelliteView | undefined
   try {
     coreSatellite = await buildCoreSatellite(rows ?? [], diagnoses, buyCandidates, satelliteCandidates, zombieHoldings, secByTicker, base, usdKrw)
+    if (coreSatellite && buysUnavailable) coreSatellite.buysUnavailable = true
   } catch (e) { console.warn('[coreSatellite]', (e as Error).message) }
 
   const narrative = await buildNarrative(diagnoses, buyCandidates, sellBudget, diversification, cyclicalTrap, hypePremium, zombieRisk, regimeNote, coreSatellite)
@@ -637,7 +642,7 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
     //    ⛔ 판정은 안 바꾼다 — 일부 축소는 유효하되 **전량 투매는 금물**이라는 게 둘을 합친 결론이다.
     const be = breakEvenRiseOf(d.pnlPct)
     const deepLoss = d.pnlPct != null && d.pnlPct <= -15
-      ? ` · 🛡️ 단, 현재 ${d.pnlPct.toFixed(1)}% 손실 중 — **일부만** 축소하고 전량 투매는 금물${be != null ? `(본전까지 +${be.toFixed(1)}%)` : ''}`
+      ? ` · 🛡️ 단, 현재 ${d.pnlPct.toFixed(1)}% 손실 중 — 일부만 축소하고 전량 투매는 금물${be != null ? `(본전까지 +${be.toFixed(1)}%)` : ''}`
       : ''
     trim.push({ ticker: d.ticker, name: d.name, market: (d.market === 'KR' ? 'KR' : 'US'), weightPct: w, trimPct: Math.round(Math.min(w * 0.3, 4) * 10) / 10, reason: sigs.join(' · ') + deepLoss, tag: sig.get(k)?.dcf === 'demanding' ? '고평가' : sig.get(k)?.flow === 'CROWDED' ? '수급 이탈' : '계절 역풍', sector: secByTicker[k] ?? null })
     trimSeen.add(k)
