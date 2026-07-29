@@ -13,6 +13,7 @@ import { buildSignalMetrics } from '@/lib/jarvisBriefing'
 import { getAnalystSignal } from '@/app/actions/getAnalystSignal'
 import { fetchMacroData, detectMacroPhase, EU_TICKER_SET, JP_TICKER_SET, CN_TICKER_SET, type ScreenedStock } from '@/lib/macroPhaseScreener'
 import { computeCountryVol, type CountryVolItem } from '@/lib/countryVol'
+import { volForStock } from '@/lib/countryVolShared'
 import { getEntryTimings, type EntryTiming } from '@/lib/entryTiming'
 import { buildEtfAltMap, type EtfAlt } from '@/lib/etfAlternative'
 import type { RotationResult, Quadrant as RotQuad } from '@/app/api/sector-rotation/route'
@@ -504,7 +505,10 @@ export async function GET(req: Request) {
   //    ⛔ 점수·선정 절대 미반영 — 백테스트에서 예측력이 없었다(타입 주석 참조). 표시 전용.
   for (const it of items) {
     const mine = it.timing?.supply?.ret20
-    const idx = volByOrigin?.[it.origin]?.ret20
+    // ⚠️ byOrigin[origin] 직접 인덱싱 금지 — 본토 A주(.SS/.SZ)는 origin 이 'CN' 이지만 기준 지수는
+    //    항셍이 아니라 **상해종합(CN_A)** 이다. 티커까지 보는 volForStock 을 쓴다(다른 배지와 동일 SSOT).
+    //    실측 차이: 항셍 ret20 +12.8% vs 상해종합 −6.9% → 안 쓰면 20%p 가까이 틀린 값이 표시된다.
+    const idx = volForStock(it.ticker, it.origin, volByOrigin)?.ret20
     it.rsVsMarket = (mine != null && idx != null) ? Math.round((mine - idx) * 10) / 10 : null
   }
 

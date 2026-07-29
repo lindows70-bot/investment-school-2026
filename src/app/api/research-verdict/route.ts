@@ -47,7 +47,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ unsupported: true, reason: '개별 주식 전용 판정입니다(ETF·코인·원자재 제외).' }, { headers: { 'Cache-Control': 'no-store' } })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || url.origin
-  const cacheKey = `research-verdict-v10:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v9: sector·rotationQuad 노출(리서치 리포트 재사용) / v8: 6축
+  const cacheKey = `research-verdict-v11:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v11: timing.supply 에 dropFromHigh·sharpDrop·ret20 추가 / v9: sector·rotationQuad 노출
   const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
