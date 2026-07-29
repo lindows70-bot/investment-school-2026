@@ -54,11 +54,12 @@ export interface UnifiedRecoItem {
   rotationQuad: 'leading' | 'weakening' | 'lagging' | 'improving' | null   // 🧭 섹터 로테이션 국면(GICS 11만)
   rotationScore: number            // 🧭 주도섹터 축(0~100) — RRG 쏠림점수(상대강도×모멘텀) 정규화, 미집계=50(중립)
   etfAlt: EtfAlt | null             // 🔬 ETF 분산 대안(같은 GICS 섹터 ETF) — 점수 미반영, 분산 선택지 병기만
-  /** 💪 상대강도 — 자국 지수 대비 20일 초과수익(%p). ⛔ **점수 절대 미반영·표시 전용**.
-   *  자체 백테스트(58종목·28,910봉) 결과 예측력이 없어 축으로 넣지 않기로 했다:
-   *   · 강세(≥+10%p) edge +1.25%p 이나 **이상치 제거 시 −0.14%p 로 소멸**
+  /** 💪 상대강도 — 자국 지수 대비 20일 초과수익(%p). ⛔ **점수(가중 축)에는 절대 미반영**.
+   *  자체 백테스트(58종목·28,910봉·워크포워드)가 **한쪽만** 지지했기 때문이다:
+   *   · 강세(≥+10%p) edge +1.25%p 이나 **이상치 제거 시 −0.14%p 로 소멸** → '강한 걸 사라'는 기각
    *   · 하락장만 보면 **정반대** — 버틴 종목 −2.83%p / 같이 무너진 종목 +0.75%p(모멘텀 크래시)
-   *  즉 '이미 오른 것'과 '앞으로 오를 것'은 다르다. 화면에도 이 한계를 반드시 함께 적는다. */
+   *   · ⭐ 약세(≤−10%p)만 **이상치 제거 후에도 −2.12%p** 로 명확히 나빴다 → '약한 건 피하라'만 살아남음
+   *  그래서 **점수가 아니라 제외 게이트로만** 쓴다(RS_FLOOR). 표시 배지에도 한계를 함께 적는다. */
   rsVsMarket: number | null
 }
 // 🌍 지역 커버리지 참고 아이템(순위 무관·경량) — merit 12종 밖의 한국·유럽 대표 후보
@@ -134,7 +135,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v50:${user.id}:${kstDate()}:${fp}`   // v50: 📉 참고 리스트도 급락 제외 · v49: 💪 상대강도(지수 대비 20일) 표시 추가(점수 미반영) · v48: 📉 급락 종목 선별 제외(배지→필터) · v47: 🔪 칼날 깊이 조건(200일선 −20%↓)
+  const cacheKey = `unified-reco-v51:${user.id}:${kstDate()}:${fp}`   // v51: 💪📉 지수 대비 −10%p 이하 약세 선별 제외 · v50: 참고 리스트도 급락 제외 · v49: 💪 상대강도(지수 대비 20일) 표시 추가(점수 미반영) · v48: 📉 급락 종목 선별 제외(배지→필터) · v47: 🔪 칼날 깊이 조건(200일선 −20%↓)
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -378,18 +379,40 @@ export async function GET(req: Request) {
     }
   } catch { /* graceful — 타점 실패 시 급락 제외를 건너뛴다(있던 추천이 사라지는 것보다 낫다) */ }
 
+  // 🌪️ 국가 지수 변동성(6h 캐시) — 상대강도 약세 제외에 필요해 **선별 앞으로** 당겨 계산한다(배지에도 재사용).
+  let volByOrigin: Record<string, CountryVolItem> | undefined
+  try { volByOrigin = (await computeCountryVol())?.byOrigin } catch { /* graceful — 약세 제외·배지 생략 */ }
+
+  // 💪📉 **상대강도 약세 제외**(2026-07-29) — 자국 지수 대비 20일 초과수익이 −10%p 이하면 선별에서 뺀다.
+  //    ⚠️ 이건 '강한 걸 사라'가 아니다 — 그쪽은 백테스트에서 이상치 제거 시 edge 가 소멸했다(−0.14%p).
+  //    ⭐ 살아남은 건 **'약한 건 피하라'** 한쪽뿐이다: 지수 대비 ≤−10%p 구간은 이상치 제거 후에도
+  //       전방 20봉 **−2.12%p** 로 명확히 나빴다(58종목·28,910봉·워크포워드·룩어헤드 없음).
+  //    급락 필터가 못 잡는 유형을 잡는다 — 퀄컴은 −16.9% 를 10봉 넘게 **천천히** 빠져 sharpDrop=false 인데
+  //    지수 대비로는 −13.5%p 로 명확한 약세였다. 빠른 급락(sharpDrop)과 느린 약세는 다른 축이다.
+  //    ⛔ 점수에는 여전히 미반영 — 제외 게이트로만 쓴다(축으로 넣으면 하락장에서 정반대로 작동한다).
+  const RS_FLOOR = -10
+  const originOf = (s: ScreenedStock): 'EU' | 'KR' | 'US' | 'JP' | 'CN' =>
+    EU_TICKER_SET.has(s.ticker) ? 'EU' : JP_TICKER_SET.has(s.ticker) ? 'JP' : CN_TICKER_SET.has(s.ticker) ? 'CN' : s.market === 'KR' ? 'KR' : 'US'
+  const weakSet = new Set<string>()
+  for (const t of preTop) {
+    const mine = preTiming.get(t.p.s.ticker)?.supply?.ret20
+    const idx = volForStock(t.p.s.ticker, originOf(t.p.s), volByOrigin)?.ret20
+    if (mine != null && idx != null && (mine - idx) <= RS_FLOOR) weakSet.add(t.p.s.ticker)
+  }
+
   const secCount = new Map<string, number>()
   const top: typeof ranked = []
   for (const t of preTop) {              // ⚠️ ranked 가 아니라 preTop — 뽑히는 종목은 전부 급락 검사를 거친다
     if (t.p.knife) continue              // 🔪 떨어지는 칼날(구조적 하락) — preTop 에서 이미 걸렀지만 방어적으로
     if (dropSet.has(t.p.s.ticker)) continue   // 📉 최근 급락(구조는 살아도 지금 진입은 칼받이)
+    if (weakSet.has(t.p.s.ticker)) continue   // 💪📉 지수 대비 −10%p 이하 약세(백테스트상 명확히 나쁜 구간)
     const sec = t.p.s.sector ?? '—'
     const c = secCount.get(sec) ?? 0
     if (c >= SECTOR_CAP) continue   // 한 섹터 과밀 방지
     secCount.set(sec, c + 1); top.push(t)
     if (top.length >= MAX_ITEMS) break
   }
-  const selectionRule = `통합 ${QUALITY_FLOOR}점 이상 · 🔪 급락 추세(falling knife) 제외 · 📉 최근 급락 종목 제외(반등 시 자동 복귀) · 섹터당 최대 ${SECTOR_CAP}종(분산) · 최대 ${MAX_ITEMS}종 · 순수 실력 랭킹(지역 할당 없음)${rotQuadBySector ? ' · 🧭 주도섹터 축 10%(자금 회전 국면)' : ''}`
+  const selectionRule = `통합 ${QUALITY_FLOOR}점 이상 · 🔪 급락 추세(falling knife) 제외 · 📉 최근 급락 종목 제외(반등 시 자동 복귀) · 💪 지수 대비 ${RS_FLOOR}%p 이하 약세 제외 · 섹터당 최대 ${SECTOR_CAP}종(분산) · 최대 ${MAX_ITEMS}종 · 순수 실력 랭킹(지역 할당 없음)${rotQuadBySector ? ' · 🧭 주도섹터 축 10%(자금 회전 국면)' : ''}`
 
   // 🌍 지역 커버리지(참고 · 순위 무관) — merit 12종 밖의 한국·유럽 대표 후보를 점수와 함께 노출. 억지 편입이 아니라 "앱이 이 지역도 채점·커버한다"를 보여주는 참고 리스트
   const meritSet = new Set(top.map(t => t.p.s.ticker))
@@ -415,13 +438,21 @@ export async function GET(req: Request) {
       const tm = await getEntryTimings(need, 4)
       for (const n of need) {
         const tt = tm.get(`${n.ticker}:${n.market}`)
-        if (tt) { preTiming.set(n.ticker, tt); if (tt.supply?.sharpDrop) dropSet.add(n.ticker) }
+        if (!tt) continue
+        preTiming.set(n.ticker, tt)
+        if (tt.supply?.sharpDrop) dropSet.add(n.ticker)
+      }
+      // 💪📉 참고 리스트도 상대강도 약세 제외(본목록과 동일 게이트 — 같은 기준이어야 한다)
+      for (const c of refCands.flat()) {
+        const mine = preTiming.get(c.p.s.ticker)?.supply?.ret20
+        const idx = volForStock(c.p.s.ticker, originOf(c.p.s), volByOrigin)?.ret20
+        if (mine != null && idx != null && (mine - idx) <= RS_FLOOR) weakSet.add(c.p.s.ticker)
       }
     }
   } catch { /* graceful — 실패 시 참고 리스트는 급락 필터 없이 나간다(리스트가 비는 것보다 낫다) */ }
 
   const buildRef = (cands: typeof scored, region: 'KR' | 'EU' | 'JP' | 'CN'): RegionRefItem[] =>
-    cands.filter(t => !dropSet.has(t.p.s.ticker)).slice(0, 5)
+    cands.filter(t => !dropSet.has(t.p.s.ticker) && !weakSet.has(t.p.s.ticker)).slice(0, 5)
       .map(t => ({
         ticker: t.p.s.ticker, name: t.p.s.name, market: t.p.s.market, currency: t.p.s.currency ?? 'USD', sector: t.p.s.sector ?? '—', region,
         combined: t.combined, seasonScore: t.p.seasonScore, valueScore: t.p.valueScore, qualityScore: t.p.qualityScore,
@@ -500,9 +531,7 @@ export async function GET(req: Request) {
   }
   items.sort((a, b) => b.combined - a.combined)
 
-  // 🌪️ 국가별 시장 변동성(6h 캐시 재사용) — ⛔ 점수·선정 절대 불변. 종목 배지·매매 플랜 갭 리스크 경고 전용
-  let volByOrigin: Record<string, CountryVolItem> | undefined
-  try { volByOrigin = (await computeCountryVol())?.byOrigin } catch { /* graceful — 배지만 생략 */ }
+  // 🌪️ volByOrigin 은 ⑤ 선별 앞에서 이미 계산했다(상대강도 약세 제외에 필요) — 여기서 재사용만 한다
 
   // 🚦 타점 신호등 부착 — ⑤ 선별에서 이미 계산한 preTiming 재사용(같은 종목을 두 번 부르지 않는다).
   //    빠진 것만 보충 fetch(선별 후보 30종 밖에서 올라온 경우).
