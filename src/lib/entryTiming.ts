@@ -19,6 +19,13 @@ export interface SupplyLite {
   fvgBuyLo: number | null; fvgBuyHi: number | null; fvgBuyDistPct: number | null   // 현재가 아래 가장 가까운 상승 갭(되돌림 매수 존)
   fvgSellLo: number | null; fvgSellHi: number | null; fvgSellDistPct: number | null // 현재가 위 가장 가까운 하락 갭(저항·익절 타겟)
   squeezeOn: boolean; squeezeFired: 'up' | 'down' | null    // 🔥 TTM 스퀴즈 압축/분출(변동성 돌파 타이밍)
+  // 📉 최근 고점 대비 급락 — **신호등(구조)이 못 보는 속도**를 보완한다.
+  //    신호등은 EMA112·224·구름으로 '구조'를 보므로 느리다. 1년 급등한 종목이 며칠 만에 20% 빠져도
+  //    구조는 아직 정배열·구름 위라 🟢 진입 적기로 남는다(실측 2026-07-29: S-Oil 3거래일 −16.4%인데 🟢).
+  //    ⛔ 판정을 뒤집지 않는다 — 구조 판단은 그대로 두고 '지금 들어가면 칼받이일 수 있다'는 맥락만 준다.
+  dropFromHigh: number | null   // 최근 20봉 고점 대비 %(음수)
+  highBarsAgo: number | null    // 그 고점이 몇 봉 전인가(작을수록 급락)
+  sharpDrop: boolean            // 20봉 고점 대비 −12%↓ & 고점이 10봉 이내 = 급락 직후
 }
 /** 🎼 라쉬케 요약(카드용 lite) — 같은 캔들에서 추가 fetch 0. 매수=연쇄 stage/첫눌림목, 매도=하락 다이버전스 조기경보 */
 export interface RaschkeLite {
@@ -97,6 +104,12 @@ export function timingFromCandles(D: TechCandle[]): EntryTiming | null {
   const bg = gaps.filter(g => g.type === 'bull' && g.hi <= price).sort((a, b) => b.hi - a.hi)[0]   // 현재가 아래 가장 가까운 상승 갭
   const sg = gaps.filter(g => g.type === 'bear' && g.lo >= price).sort((a, b) => a.lo - b.lo)[0]   // 현재가 위 가장 가까운 하락 갭
   const pct = (v: number) => Math.round((v - price) / price * 1000) / 10
+  // 📉 최근 20봉 고점 대비 급락 — 느린 구조 지표(EMA·구름)가 못 보는 '속도'를 잡는다
+  const win = D.slice(-20)
+  const hiIdx = win.reduce((bi, c, i) => (c.close > win[bi].close ? i : bi), 0)
+  const hiClose = win[hiIdx]?.close ?? null
+  const dropFromHigh = hiClose && hiClose > 0 ? Math.round((price / hiClose - 1) * 1000) / 10 : null
+  const highBarsAgo = hiClose != null ? win.length - 1 - hiIdx : null
   const supply: SupplyLite = {
     vwap: avwap?.vwap ?? null, aboveVwap: !!avwap?.above, vwapDistPct: avwap?.distPct ?? null,
     vwapCross: avwap?.cross ?? null,
@@ -108,6 +121,14 @@ export function timingFromCandles(D: TechCandle[]): EntryTiming | null {
     fvgBuyLo: bg?.lo ?? null, fvgBuyHi: bg?.hi ?? null, fvgBuyDistPct: bg ? pct(bg.hi) : null,
     fvgSellLo: sg?.lo ?? null, fvgSellHi: sg?.hi ?? null, fvgSellDistPct: sg ? pct(sg.lo) : null,
     squeezeOn: !!sq?.on, squeezeFired: sq?.fired ?? null,
+    dropFromHigh, highBarsAgo,
+    // 지금 진입이 '칼받이'가 되는 경우는 두 가지이고, 둘 다 독립적으로 성립한다 → OR 로 둔다.
+    //  ① 속도: 최근 급락(고점 10봉 이내 −12%↓) — 하락 모멘텀이 아직 살아 있다
+    //  ② 크기: 창 전체에서 낙폭 자체가 깊음(−20%↓) — 며칠 더 걸렸어도 위험은 같다
+    // 임계 근거: 상승 추세의 건강한 되돌림은 통상 5~10%(실측 에퀴노르 −6.6% = 정상 눌림목, 경고 불필요).
+    //   ①만 두면 **미래에셋증권 −31.4%(16봉 전 고점)가 빠진다** — 느리게 빠졌다고 안전한 게 아니다.
+    sharpDrop: dropFromHigh != null
+      && ((dropFromHigh <= -12 && highBarsAgo != null && highBarsAgo <= 10) || dropFromHigh <= -20),
   }
   // 🏅 정예 타점 — 백테스트 검증 합류 조건. 게이트는 신호등 green과 동일 정의(정배열+구름 위)를 그대로 넘긴다
   const prime = readPrimeSetup(D, aligned && cloud === 'above')

@@ -29,7 +29,9 @@ export default function TimingBadge({ t, market, ticker, compact = false }: { t:
     const vx = t.supply?.vwapCross && t.supply.vwapCross.barsAgo <= 5 ? t.supply.vwapCross : null
     // 🏅 정예 타점 — 자체 백테스트 선별 합류 조건(20봉 승률 60.7% vs 기준 50.1%). 가장 행동 가치가 커 최우선 노출
     const pm = t.prime
-    if (!chop && !vx && !pm) return lightChip
+    // 📉 급락 — 구조는 살아있어도 최근 낙폭이 큰 구간(신호등이 못 보는 '속도'). 판정 불변·경고만
+    const sd = t.supply?.sharpDrop ? t.supply : null
+    if (!chop && !vx && !pm && !sd) return lightChip
     return (
       <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
         {lightChip}
@@ -37,6 +39,8 @@ export default function TimingBadge({ t, market, ticker, compact = false }: { t:
           style={{ fontSize: 9.5, fontWeight: 900, color: TK.bg1, background: TK.amber500, border: `1px solid ${TK.amber500}`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>🏅정예 타점</span>}
         {chop && <span title={`추세 강도 약함(ADX ${t.supply!.adx}) — 방향 확신 낮아 돌파도 가짜(휩쏘) 가능, 방향 확정 후 진입`}
           style={{ fontSize: 9.5, fontWeight: 800, color: TK.slate400, background: `${TK.slate400}18`, border: `1px solid ${TK.slate400}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>⬛관망</span>}
+        {sd && <span title={`${sd.highBarsAgo === 0 ? '오늘' : `${sd.highBarsAgo}거래일 전`} 고점에서 ${Math.abs(sd.dropFromHigh!)}% 급락 — 추세 구조는 살아있으나 지금 진입은 칼받이 위험. 반등·지지 확인 후 분할로`}
+          style={{ fontSize: 9.5, fontWeight: 900, color: TK.red400, background: `${TK.red400}22`, border: `1px solid ${TK.red400}88`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>📉급락 {sd.dropFromHigh}%</span>}
         {vx && <span title={vx.dir === 'up' ? '기관평단(VWAP) 위로 복귀 — 주도권 교체 후보(확인 캔들·신호등과 함께)' : 'VWAP 아래로 이탈 — 본전 매도 압력 구간(주도권 교체 후보·단독 신호 아님)'}
           style={{ fontSize: 9.5, fontWeight: 800, color: vx.dir === 'up' ? TK.green400 : TK.red400, background: `${vx.dir === 'up' ? TK.green400 : TK.red400}18`, border: `1px solid ${vx.dir === 'up' ? TK.green400 : TK.red400}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>
           ⚓{vx.dir === 'up' ? '평단 회복' : '평단 이탈'}</span>}
@@ -78,6 +82,17 @@ export default function TimingBadge({ t, market, ticker, compact = false }: { t:
     else if (sp.supportStrong && sp.overExtended) spChip = { label: '📊 과대이격', c: TK.amber500, tip: '평단·매물대가 크게 아래 = 지지선 멀다, 되돌림 낙폭 큼(추격 주의)' }
     else if (sp.supportWeak) spChip = { label: '📊 지지 약함', c: TK.orange400, tip: '평단·매물 대다수가 위 = 지지 얇음, 되돌림 리스크' }
   }
+  // 📉 급락 경고 — 구조(신호등)는 살아있어도 **속도**가 위험한 구간. 판정은 안 뒤집고 맥락만 준다.
+  //    신호등은 EMA112·224·구름으로 구조를 보므로 느리다 → 1년 급등 종목이 며칠 만에 20% 빠져도 🟢 로 남는다.
+  let dropChip: { label: string; c: string; tip: string } | null = null
+  if (sp?.sharpDrop && sp.dropFromHigh != null) {
+    const ago = sp.highBarsAgo === 0 ? '오늘' : `${sp.highBarsAgo}거래일 전`
+    dropChip = {
+      label: `📉 급락(고점 대비 ${sp.dropFromHigh}%)`,
+      c: TK.red400,
+      tip: `${ago} 고점에서 ${Math.abs(sp.dropFromHigh)}% 급락 — 추세 구조는 아직 살아있으나 지금 진입은 칼받이가 될 수 있습니다. 반등·지지 확인 후 분할로.`,
+    }
+  }
   // ⚓ VWAP 주도권 교체(최근 5봉) — 매수: 평단 회복=매수자 우위 전환 / 매도: 평단 이탈=본전 매도 압력. 맥락(단독 신호 아님)
   let vwChip: { label: string; c: string; tip: string } | null = null
   if (sp?.vwapCross && sp.vwapCross.barsAgo <= 5) {
@@ -95,10 +110,14 @@ export default function TimingBadge({ t, market, ticker, compact = false }: { t:
       {rkChip && <span title="라쉬케 모멘텀 연쇄 — 상세는 매매 플랜에서" style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 800, color: rkChip.c, background: `${rkChip.c}18`, border: `1px solid ${rkChip.c}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{rkChip.label}</span>}
       {spChip && <span title={spChip.tip} style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 800, color: spChip.c, background: `${spChip.c}18`, border: `1px solid ${spChip.c}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{spChip.label}</span>}
       {vwChip && <span title={vwChip.tip} style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 800, color: vwChip.c, background: `${vwChip.c}18`, border: `1px solid ${vwChip.c}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{vwChip.label}</span>}
+      {dropChip && <span title={dropChip.tip} style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 900, color: dropChip.c, background: `${dropChip.c}22`, border: `1px solid ${dropChip.c}88`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{dropChip.label}</span>}
       <span style={{ color: TK.sub5 }}> — {t.guide}</span>
       {t.prime && <div style={{ fontSize: 9.5, color: TK.amber400, marginTop: 3, lineHeight: 1.5 }}>
         🏅 추세가 살아있는 상태에서 {t.prime.trigger === 'divergence' ? '하락 에너지 소진(상승 다이버전스)' : '되돌림 완료(첫 눌림목)'}이 겹쳤습니다 — 자체 백테스트에서 20봉 승률 60.7%(기준 50.1%)로 가장 우위였던 조합입니다.
         {t.prime.parabolic && ' ⚠️ 직전 급등 이력이 있어 첫 눌림목이 함정일 수 있으니 분할로.'}
+      </div>}
+      {dropChip && <div style={{ fontSize: 9.5, color: TK.red400, marginTop: 3, lineHeight: 1.5 }}>
+        📉 추세 구조는 아직 살아있으나 최근 낙폭이 큽니다 — 지금 진입은 칼받이가 될 수 있으니 반등·지지 확인 후 분할로.
       </div>}
       {t.atrStop != null && <span style={{ color: TK.violet300 }}> · 🛡 손절 참고 {fmtStop(t.atrStop)}</span>}
       {rkLine && <div style={{ color: TK.fuchsia300, marginTop: 3, fontSize: 10 }}>{rkLine}</div>}

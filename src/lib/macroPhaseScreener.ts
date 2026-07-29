@@ -832,7 +832,13 @@ export function computeMomentum(ks: any, fd: any, sd: any, price: number | null,
 
   // ② 가격 추세 + ③ 떨어지는 칼날 — 공유 SSOT(위성 스크리너도 동일 정의 사용)
   const { priceTrend, knife, priceVs200 } = priceTrendKnife(ks, sd, price)
-  const priceScore = priceTrend === 'up' ? 1.0 : priceTrend === 'down' ? 0.15 : 0.5
+  // ⚠️ 'side' 를 일률적으로 0.5(중립) 주면 **200일선을 크게 뚫고 내려간 종목이 건강한 횡보와 같은 점수**를 받는다.
+  //    (실측: 두산퓨얼셀 200일선 −33.8% 인데 라벨은 'side' → 모멘텀 50점)
+  //    라벨이 아니라 **200일선 대비 위치**로 눌러준다 — 급락 직후 이평선이 아직 교차 못 한 구간 보정.
+  const priceScore = priceTrend === 'up' ? 1.0
+    : priceTrend === 'down' ? 0.15
+    : (priceVs200 != null && priceVs200 <= -8) ? 0.3   // 200일선 8%+ 하회는 눌림목이 아니다
+    : 0.5
   const momentumScore = Math.round((fwdScore * 0.6 + priceScore * 0.4) * 100)   // Fwd EPS 가중↑(가장 중요)
   return { momentumScore, fwdEpsDir, priceTrend, knife, fwdGrowthPct, priceVs200 }
 }
@@ -851,9 +857,16 @@ export function priceTrendKnife(ks: any, sd: any, price: number | null): { price
     else if (!above200 && !ma50Up) priceTrend = 'down'          // 200일선·정배열 모두 깨짐(하락)
     else priceTrend = 'side'                                     // 눌림목/횡보(200일선 위·정배열 유지)
   }
-  // 떨어지는 칼날 — 하락추세 + 200일선 8%+ 하회 + (52주 하락 또는 52주 저점 15% 이내). 눌림목은 칼날 아님
+  // 떨어지는 칼날 — 200일선 8%+ 하회 + (52주 하락 또는 52주 저점 15% 이내). 눌림목은 칼날 아님
+  // ⚠️ 예전엔 `priceTrend === 'down'` 을 함께 요구했는데 **그러면 급락 직후를 놓친다**.
+  //    'down' 은 50일선이 200일선 **아래로 내려가야** 성립하는데, 1년 급등 뒤 1주 폭락에서는
+  //    느린 이평선이 아직 교차하지 못해 'side'(눌림목/횡보)로 분류된다.
+  //    실측(2026-07-29): 200일선 8%+ 하회 종목 중 **KR 30%가 이 경로로 필터를 통과**했다
+  //    (두산퓨얼셀 −33.8%·롯데에너지머티리얼즈 −29.6% 인데 'side'). US 는 4%.
+  //    → 한국이 **더 급하게 빠져서 오히려 안 걸리는** 역설. `priceVs200 <= -8` 이 이미
+  //    눌림목(200일선 위)을 배제하므로 추세 라벨을 추가로 요구할 이유가 없다.
   const nearLow = (price != null && lo != null && lo > 0) ? (price <= lo * 1.15) : false
-  const knife = priceTrend === 'down' && priceVs200 != null && priceVs200 <= -8 && ((w52 != null && w52 < 0) || nearLow)
+  const knife = priceVs200 != null && priceVs200 <= -8 && ((w52 != null && w52 < 0) || nearLow)
   return { priceTrend, knife, priceVs200 }
 }
 
