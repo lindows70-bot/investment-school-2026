@@ -133,19 +133,24 @@ export default function CoreSatelliteHero({ cs, portfolioValue }: { cs: CoreSate
               </div>
               <div style={{ color: TK.sub13, fontSize: 11, lineHeight: 1.5 }}>{a.reason}</div>
               {a.timing && <div style={{ marginTop: 4 }}><TimingBadge t={a.timing} market={a.market} compact /></div>}
-              {/* 🔬 ETF 분산 대안 — 같은 섹터를 ETF로 분산 진입(점수와 무관, 선택지 병기) */}
-              {a.etfAlt && (
-                <div style={{ marginTop: 4, background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.2)', borderRadius: 6, padding: '5px 8px' }}>
+              {/* 🔬 ETF 분산 대안 — 같은 섹터를 ETF로 분산 진입(점수와 무관, 선택지 병기)
+                  📉 ETF 자체가 급락 중이면 분산 대안이 아니다 → 권유를 경고로(통합추천과 동일 처리) */}
+              {a.etfAlt && (() => {
+                const etfDrop = a.etfAlt.timing?.supply?.sharpDrop ? a.etfAlt.timing.supply.dropFromHigh : null
+                return (
+                <div style={{ marginTop: 4, background: etfDrop != null ? 'rgba(251,146,60,0.07)' : 'rgba(56,189,248,0.06)', border: `1px solid ${etfDrop != null ? 'rgba(251,146,60,0.4)' : 'rgba(56,189,248,0.2)'}`, borderRadius: 6, padding: '5px 8px' }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, flexWrap: 'wrap' }}>
-                    <span style={{ color: TK.blue300, fontWeight: 800, fontSize: 9.5 }}>🔬 ETF 분산 대안</span>
+                    <span style={{ color: etfDrop != null ? TK.orange400 : TK.blue300, fontWeight: 800, fontSize: 9.5 }}>🔬 ETF 분산 대안{etfDrop != null ? ' — 지금은 대기' : ''}</span>
                     <span style={{ color: TK.slate200, fontWeight: 700, fontSize: 10.5 }}>{a.etfAlt.market === 'KR' ? '🇰🇷' : '🇺🇸'} {a.etfAlt.name}</span>
                     <span style={{ color: TK.sub, fontSize: 9, fontFamily: 'monospace' }}>{a.etfAlt.ticker}</span>
                     <span style={{ color: TK.sub, fontSize: 9 }}>· {a.etfAlt.sectorLabel} 섹터{a.etfAlt.isFallback ? '(미국)' : ''}</span>
                     {a.etfAlt.blendedPeg != null && <span style={{ color: TK.blue400, fontSize: 9, fontFamily: 'monospace' }}>합산 PEG {a.etfAlt.blendedPeg.toFixed(2)}</span>}
                   </div>
                   {a.etfAlt.timing && <div style={{ marginTop: 3 }}><TimingBadge t={a.etfAlt.timing} market={a.etfAlt.market} compact /></div>}
+                  {etfDrop != null && <div style={{ marginTop: 3, color: TK.amber400, fontSize: 9, lineHeight: 1.4 }}>⚠️ 이 섹터 ETF도 고점 대비 {etfDrop}% 급락 중 — 지금은 분산 대안이 되지 못합니다(섹터 전체 조정). 반등 확인 후.</div>}
                 </div>
-              )}
+                )
+              })()}
             </div>
           ))}
         </ActionCard>
