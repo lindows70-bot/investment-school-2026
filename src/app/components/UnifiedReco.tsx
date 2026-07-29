@@ -163,6 +163,12 @@ function Item({ it, portfolioKrw, vol }: { it: UnifiedRecoItem; portfolioKrw: nu
             {etfDrop != null
               ? `⚠️ 이 섹터 ETF도 고점 대비 ${etfDrop}% 급락 중 — 지금은 분산 대안이 되지 못합니다(개별주가 아니라 섹터 전체가 조정 중). 반등·지지 확인 후 참고.`
               : `개별주가 부담되면 같은 섹터를 ETF로 분산 진입${it.etfAlt.isFallback ? ' · ⚠️ 국내 대응 ETF 없어 미국 섹터 ETF' : ''} · 광의 섹터라 세부 업종과는 다를 수 있음(참고)`}
+            {/* 🧭 로테이션과 어긋날 때 숨기지 않는다 — 타점(추세)은 진입 적기인데 자금 흐름은 과열일 수 있다 */}
+            {etfDrop == null && it.etfAlt.rotationHot && (
+              <div style={{ marginTop: 3, color: TK.amber400, fontSize: 9 }}>
+                🧭 단, 섹터 로테이션에선 이 ETF가 <b>{it.etfAlt.rotationHot} 과열(분할 익절)</b> 신호입니다 — 타점(추세)은 좋아도 자금 흐름은 식는 중이라 분할로.
+              </div>
+            )}
           </div>
         </div>
         )

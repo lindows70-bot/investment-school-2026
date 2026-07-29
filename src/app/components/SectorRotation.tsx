@@ -262,7 +262,7 @@ export default function SectorRotation() {
         <div style={{ background: `linear-gradient(135deg,#1a1524,${TK.bg1})`, border: `1px solid ${TK.purple500}44`, borderRadius: 12, padding: '14px 16px' }}>
           <div style={{ fontSize: 13.5, fontWeight: 800, color: TK.violet300 }}>🔥 오늘의 52주 신고가 × 소섹터 국면 — 최고가는 다 같은 최고가가 아니다</div>
           <div style={{ fontSize: 10, color: TK.sub2, margin: '3px 0 10px' }}>
-            같은 &lsquo;신고가&rsquo;라도 소섹터가 <b style={{ color: QC.leading }}>🌱주도</b>면 섹터 전체 강세(신뢰↑) · <b style={{ color: QC.improving }}>❄️태동</b>이면 약한 무리 속 대장(품질 프리미엄) · <b style={{ color: QC.weakening }}>🔥과열</b>이면 모멘텀 식는 중(추격 주의) · 주봉 기준 52주 최고가의 98%+ 종목
+            같은 &lsquo;신고가&rsquo;라도 소섹터가 <b style={{ color: QC.leading }}>🌱주도</b>면 그 소섹터로 자금이 몰리는 중(신뢰↑) · <b style={{ color: QC.improving }}>❄️태동</b>이면 약한 무리 속 대장(품질 프리미엄) · <b style={{ color: QC.weakening }}>🔥과열</b>이면 모멘텀 식는 중(추격 주의) · 주봉 기준 52주 최고가의 98%+ 종목
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {data.highs.map(h => (
@@ -270,6 +270,8 @@ export default function SectorRotation() {
                 <span style={{ fontSize: 9, fontWeight: 800, color: QC[h.q], background: QC[h.q] + '22', borderRadius: 4, padding: '2px 6px', minWidth: 42, textAlign: 'center' }}>{QI[h.q]}{QN[h.q]}</span>
                 <span style={{ fontSize: 12.5, fontWeight: 700, color: TK.slate100 }}>{h.name}</span>
                 <span style={{ fontSize: 10.5, color: TK.sub3 }}>{h.sectorEmoji}{FULL[h.sectorKey] ?? h.sectorLabel} › {h.subEmoji}{h.subLabel}</span>
+                {/* 중복 소속(GICS ↔ 테마)을 두 줄이 아니라 한 줄에 병기 — 같은 이름이 두 번 뜨면 오류로 읽힌다 */}
+                {h.alsoIn?.length ? <span style={{ fontSize: 9.5, color: TK.sub2 }}>· 또한 {h.alsoIn.join(' · ')}</span> : null}
                 <span style={{ marginLeft: 'auto', fontSize: 10.5, fontFamily: 'monospace', color: TK.sub3 }}>1년 <b style={{ color: pcol(h.ret1y) }}>{pfmt(h.ret1y)}</b></span>
                 <span style={{ fontSize: 10, fontWeight: 800, color: h.q === 'leading' ? TK.green400 : h.q === 'weakening' ? TK.amber400 : TK.violet300 }}>
                   {h.q === 'leading' ? '섹터 강세·신뢰' : h.q === 'improving' ? '약한 무리 속 대장' : h.q === 'weakening' ? '추격 주의' : '나홀로 반등'}

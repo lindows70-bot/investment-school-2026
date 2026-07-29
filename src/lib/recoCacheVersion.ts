@@ -13,4 +13,4 @@
 // 📌 규약: 통합추천의 **출력이 달라지는** 변경을 하면 여기만 올린다. 그러면
 //   unified-reco · hq-briefing · ai-rebalance · quant-builder 캐시가 **한 번에** 무효화된다.
 //   (하류가 자기 사정으로 바뀔 땐 각자 자기 버전을 따로 올린다 — 두 축은 독립이다.)
-export const UNIFIED_RECO_V = 'v52'
+export const UNIFIED_RECO_V = 'v53'

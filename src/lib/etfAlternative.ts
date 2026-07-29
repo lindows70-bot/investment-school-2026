@@ -2,6 +2,8 @@
 //    점수·선정 절대 불변(배지·병기만). 합산 PEG=etfLookThrough SSOT, 타점=entryTiming SSOT 재사용.
 import { getEntryTiming, type EntryTiming } from '@/lib/entryTiming'
 import { getBlendedPeg } from '@/lib/etfLookThrough'
+import { getCache } from '@/lib/appCache'
+import type { RotationResult } from '@/app/api/sector-rotation/route'
 
 export interface EtfAlt {
   ticker: string
@@ -12,9 +14,13 @@ export interface EtfAlt {
   blendedPeg: number | null
   pegCoverage: number | null
   timing: EntryTiming | null
+  /** ⚠️ 섹터 로테이션에서 이 ETF가 **과열(분할 익절) 소섹터의 대표 ETF**로 잡힌 상태.
+   *  같은 XLE가 여기선 '진입 적기', 로테이션에선 '분할 익절'로 뜨면 학생은 사라는 건지 팔라는 건지 모른다.
+   *  두 축이 다르다(타점=EMA·구름 추세 / 로테이션=상대강도·모멘텀 반전) — 숨기지 말고 함께 적는다. */
+  rotationHot?: string | null
 }
 
-type Stub = Omit<EtfAlt, 'blendedPeg' | 'pegCoverage' | 'timing'>
+type Stub = Omit<EtfAlt, 'blendedPeg' | 'pegCoverage' | 'timing' | 'rotationHot'>
 
 // GICS(Yahoo 표기) → 광의 섹터 ETF. US=S&P SPDR 공식 섹터지수 / KR=대표 프록시(완전 GICS 아님).
 // ⚠️ season-sector route에 동일 티커 데이터 존재(정적 참조 — 티커 수정 시 동기화). 세부 소섹터 ETF는 v2.
@@ -88,7 +94,23 @@ export function etfAltStub(gicsSector: string, market: string, name = '', indust
 
 /** 추천 아이템(티커·섹터·시장·이름) → 종목별 ETF 대안 계산 → Map(stockTicker → EtfAlt).
  *  타점·합산 PEG는 유니크 ETF(ticker+market)마다 1회씩만 계산(여러 종목이 같은 ETF면 중복 제거). */
+// 🧭 로테이션 캐시에서 '과열(분할 익절)' 소섹터의 대표 ETF 집합을 만든다(읽기만 — 콜드면 빈 집합)
+async function hotEtfMap(): Promise<Map<string, string>> {
+  const m = new Map<string, string>()
+  try {
+    const kst = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
+    const rot = await getCache<RotationResult>(`sector-rotation-v14:${kst}`, 3 * 24 * 3600_000)
+    for (const s of rot?.sells ?? []) {
+      const label = `${s.sectorLabel} › ${s.subLabel}`
+      if (s.etfUs) m.set(s.etfUs.toUpperCase(), label)
+      if (s.etfKrT) m.set(String(s.etfKrT).toUpperCase(), label)
+    }
+  } catch { /* graceful — 캐비엇만 생략 */ }
+  return m
+}
+
 export async function buildEtfAltMap(items: { ticker: string; sector: string; market: string; name: string; industry?: string | null }[], base: string): Promise<Map<string, EtfAlt>> {
+  const hotEtf = await hotEtfMap()
   // 1) 종목별 스텁(소업종 industry 우선 정밀화)
   const stubByStock = new Map<string, Stub | null>()
   for (const it of items) if (!stubByStock.has(it.ticker)) stubByStock.set(it.ticker, etfAltStub(it.sector, it.market, it.name, it.industry ?? ''))
@@ -108,7 +130,7 @@ export async function buildEtfAltMap(items: { ticker: string; sector: string; ma
   for (const [stockTicker, s] of Array.from(stubByStock.entries())) {
     if (!s) continue
     const c = computed.get(`${s.ticker}:${s.market}`)
-    out.set(stockTicker, { ...s, timing: c?.timing ?? null, blendedPeg: c?.blendedPeg ?? null, pegCoverage: c?.pegCoverage ?? null })
+    out.set(stockTicker, { ...s, timing: c?.timing ?? null, blendedPeg: c?.blendedPeg ?? null, pegCoverage: c?.pegCoverage ?? null, rotationHot: hotEtf.get(s.ticker.toUpperCase()) ?? null })
   }
   return out
 }

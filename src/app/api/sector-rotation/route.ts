@@ -59,6 +59,8 @@ export interface HighStock {
   subLabel: string; subEmoji: string; q: SubQ   // 소섹터 국면
   hi52: number                                  // 52주 최고가 대비 위치(100=신고가)
   ret1w: number | null; ret1y: number | null
+  /** 같은 국면으로 **중복 소속**된 다른 섹터·소테마(GICS ↔ 테마 교차). 한 줄로 합쳐 보여준다 */
+  alsoIn?: string[]
 }
 export interface RotationResult {
   items: RotationItem[]
@@ -80,7 +82,7 @@ const avg = (arr: (number | null | undefined)[]): number | null => {
 
 export async function GET(req: Request) {
   void req
-  const cacheKey = `sector-rotation-v13:${kstDate()}`   // v9: 🚦 매수 랭킹 대표 ETF 타점 신호등(etfTiming)
+  const cacheKey = `sector-rotation-v14:${kstDate()}`   // v9: 🚦 매수 랭킹 대표 ETF 타점 신호등(etfTiming)
   const cached = await getCache<RotationResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -164,6 +166,22 @@ export async function GET(req: Request) {
   sells.sort((a, b) => a.total - b.total)   // 매도는 자금 이탈이 심한(점수 낮은) 순
   // 신고가는 소섹터 국면 신뢰도 순(주도>태동>과열>이탈), 같은 국면이면 최고가 근접도 순
   const HQ: Record<SubQ, number> = { leading: 0, improving: 1, weakening: 2, lagging: 3 }
+  // ⚠️ 같은 종목이 GICS 섹터와 테마 섹터에 **동시 소속**이면 두 줄로 뜬다(Illumina = 헬스케어›의료기기 +
+  //    AI바이오›유전체·툴). 설계상 의도된 중복 소속이지만, 한 목록에 같은 이름이 두 번 나오면 학생은
+  //    중복 오류로 읽는다. **국면이 같으면** 소테마를 합쳐 한 줄로(정보 손실 0).
+  //    ⛔ 국면이 다르면 합치지 않는다 — "GICS로는 주도, 테마로는 과열"은 그 자체가 의미 있는 정보다.
+  const mergedHighs: typeof highs = []
+  const hSeen = new Map<string, number>()
+  for (const h of highs) {
+    const k = `${h.ticker}:${h.q}`
+    const at = hSeen.get(k)
+    if (at == null) { hSeen.set(k, mergedHighs.length); mergedHighs.push(h); continue }
+    const prev = mergedHighs[at]
+    const tag = `${h.sectorEmoji}${h.sectorLabel} › ${h.subEmoji}${h.subLabel}`
+    if (!prev.alsoIn) prev.alsoIn = []
+    if (!prev.alsoIn.includes(tag)) prev.alsoIn.push(tag)
+  }
+  highs.length = 0; highs.push(...mergedHighs)
   highs.sort((a, b) => HQ[a.q] - HQ[b.q] || b.hi52 - a.hi52)
   // ⭐ 국면 대조가 항상 보이게 — 주도(신뢰)는 10개로 캡, 과열/태동/이탈(교육적 '주의' 케이스)은 전부 포함
   const hByQ = (q: SubQ) => highs.filter(h => h.q === q)
