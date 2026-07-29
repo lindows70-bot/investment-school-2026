@@ -270,6 +270,14 @@ export default function UnifiedReco() {
           <div style={{ fontSize: 12, fontWeight: 800, color: TK.slate200, marginBottom: 3 }}>🌍 지역 커버리지 <span style={{ fontSize: 10.5, color: TK.sub, fontWeight: 600 }}>— 참고 · 순위 무관</span></div>
           <div style={{ fontSize: 10.5, color: TK.sub, lineHeight: 1.55, marginBottom: 10 }}>
             종합 랭킹(위 {data.items.length}종)엔 못 들었지만 앱이 함께 채점·커버하는 <b>🇰🇷 한국·🇪🇺 유럽·🇯🇵 일본·🇨🇳 중국</b> 대표 후보입니다. <b>억지로 순위에 끼우지 않고</b> 참고로만 — 이 지역이 계절·수급에서 유리해지는 국면엔 위 랭킹으로 올라옵니다.
+            {/* ⚠️ 후보가 하나도 없는 지역은 명시한다 — 문구엔 4개 지역이 적혀 있는데 섹션이 비면 학생이 누락으로 오해한다.
+                '없다'는 것 자체가 신호다(그 지역이 통째로 칼날·급락·약세 필터에 걸렸다는 뜻). */}
+            {(() => {
+              const empty = (['KR', 'EU', 'JP', 'CN'] as const).filter(r => !data.reference!.some(x => x.region === r))
+              if (!empty.length) return null
+              const nm: Record<string, string> = { KR: '🇰🇷 한국', EU: '🇪🇺 유럽', JP: '🇯🇵 일본', CN: '🇨🇳 중국' }
+              return <> <b style={{ color: TK.amber400 }}>{empty.map(r => nm[r]).join('·')}은 지금 참고 후보도 0종</b>(칼날·급락·약세 필터를 통과한 종목이 없음).</>
+            })()}
             {data.euSeason && <> 지금 🇪🇺 <b style={{ color: TK.sub2 }}>{data.euSeason.label.split(' ')[0]}</b></>}{data.jpSeason && <> · 🇯🇵 <b style={{ color: TK.sub2 }}>{data.jpSeason.label.split(' ')[0]}</b></>}{data.cnSeason && <> · 🇨🇳 <b style={{ color: TK.sub2 }}>{data.cnSeason.label.split(' ')[0]}</b> 국면.</>}
           </div>
           {(['KR', 'EU', 'JP', 'CN'] as const).map(reg => {

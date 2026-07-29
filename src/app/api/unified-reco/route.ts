@@ -135,7 +135,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v51:${user.id}:${kstDate()}:${fp}`   // v51: 💪📉 지수 대비 −10%p 이하 약세 선별 제외 · v50: 참고 리스트도 급락 제외 · v49: 💪 상대강도(지수 대비 20일) 표시 추가(점수 미반영) · v48: 📉 급락 종목 선별 제외(배지→필터) · v47: 🔪 칼날 깊이 조건(200일선 −20%↓)
+  const cacheKey = `unified-reco-v52:${user.id}:${kstDate()}:${fp}`   // v52: 심화 검증 후 품질 바닥(65) 재적용 · v51: 지수 대비 −10%p 이하 약세 제외 · v50: 참고 리스트도 급락 제외 · v49: 💪 상대강도(지수 대비 20일) 표시 추가(점수 미반영) · v48: 📉 급락 종목 선별 제외(배지→필터) · v47: 🔪 칼날 깊이 조건(200일선 −20%↓)
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -529,6 +529,19 @@ export async function GET(req: Request) {
     }))
     items.push(...part)
   }
+  // ⚠️ **품질 바닥 재적용**(2026-07-29 화면 검수) — ⑤ 선별은 ④의 원시 통합점수로 하는데,
+  //    ⑥ 심화 검증에서 통합점수가 **내려간다**(기저효과 가치 캡 60 · roeInflated −6 · FCF 국면 틸트).
+  //    그 결과 "통합 65점 이상"이라 적어놓고 화면엔 61점(엔씨소프트)·64점(Marathon)이 떴다.
+  //    ⭐ 더 중요한 건 문구 불일치가 아니라 **선별이 착시 점수로 이뤄졌다는 것**이다 — 앱이 스스로
+  //    "이 저PEG는 기저효과 착시"·"이 ROE는 부채로 부풀림"이라 판정해놓고, 정작 컷은 그 부풀린 값으로 넘겼다.
+  //    ⛔ 못 채운 자리는 비운다(뒤 후보는 심화 검증을 안 거쳐 끌어올릴 수 없고, 억지로 채우는 게 더 함정이다).
+  //    ⚠️ ④에도 스크리너 기반 기저효과 가드가 있지만 그건 Yahoo earningsGrowth 기준이고,
+  //       ⑥은 canonical(PEG SSOT) 기준이라 판정이 갈린다 — 최종 판단은 SSOT 쪽이 맞다.
+  const beforeFloor = items.length
+  const dropped = items.filter(i => i.combined < QUALITY_FLOOR).map(i => `${i.name}(${i.combined})`)
+  const finalItems = items.filter(i => i.combined >= QUALITY_FLOOR)
+  items.length = 0; items.push(...finalItems)
+  if (dropped.length) console.log(`[unified-reco] 심화 검증 후 품질 바닥 미달 제외 ${dropped.length}/${beforeFloor}: ${dropped.join(', ')}`)
   items.sort((a, b) => b.combined - a.combined)
 
   // 🌪️ volByOrigin 은 ⑤ 선별 앞에서 이미 계산했다(상대강도 약세 제외에 필요) — 여기서 재사용만 한다
