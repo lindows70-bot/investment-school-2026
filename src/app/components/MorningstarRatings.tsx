@@ -92,10 +92,18 @@ function Row({ e, open, onToggle }: { e: RatingEntry; open: boolean; onToggle: (
         {e.stars != null ? <Stars n={e.stars} /> : <span style={{ color: TK.sub3, fontSize: 11 }}>별점 보류</span>}
         {e.baseEffect && <span title="작년 이익 붕괴 후 폭증(+100%↑)으로 DCF 성장률이 부풀려져 공정가치가 과대평가됨 → 저평가 별점은 착시일 수 있어 보류합니다." style={{ background: 'rgba(251,191,36,0.14)', color: TK.amber400, border: `1px solid ${TK.amber400}55`, borderRadius: 5, padding: '1px 7px', fontSize: 9.5, fontWeight: 700 }}>⚠️ 기저효과</span>}
         <span style={{ background: `${moatColor(e.moatWidth)}1f`, color: moatColor(e.moatWidth), border: `1px solid ${moatColor(e.moatWidth)}55`, borderRadius: 5, padding: '1px 7px', fontSize: 9.5, fontWeight: 700 }}>🏰 {MOAT_KO[e.moatWidth]}</span>
+        {/* ⚠️ 기저효과 + 저평가 방향이면 **초록 '저평가'로 쓰지 않는다** — 별점을 보류한 이유가
+            "그 저평가가 착시"인데 바로 옆에 초록 '33% 저평가'를 띄우면 한 줄 안에서 자기모순이고,
+            학생은 배지가 아니라 숫자를 읽는다(ETF 분산 대안·급락 필터와 같은 이유).
+            고평가 방향(disc<0)은 보수적이라 그대로 둔다. */}
         {disc != null && (
-          <span style={{ color: disc >= 0 ? TK.green400 : TK.red400, fontWeight: 800, fontSize: 11.5, fontFamily: 'monospace' }}>
-            {disc >= 0 ? `▼ ${disc.toFixed(0)}% 저평가` : `▲ ${Math.abs(disc).toFixed(0)}% 고평가`}
-          </span>
+          disc >= 0 && e.baseEffect
+            ? <span title="기저효과로 공정가치가 과대 산정돼 이 할인율은 신뢰할 수 없습니다 — 저평가 신호로 읽지 마세요." style={{ color: TK.amber400, fontWeight: 800, fontSize: 11.5, fontFamily: 'monospace' }}>
+                ▼ {disc.toFixed(0)}% <span style={{ fontWeight: 600, fontSize: 10 }}>(기저효과 — 저평가로 읽지 말 것)</span>
+              </span>
+            : <span style={{ color: disc >= 0 ? TK.green400 : TK.red400, fontWeight: 800, fontSize: 11.5, fontFamily: 'monospace' }}>
+                {disc >= 0 ? `▼ ${disc.toFixed(0)}% 저평가` : `▲ ${Math.abs(disc).toFixed(0)}% 고평가`}
+              </span>
         )}
         <span style={{ marginLeft: 'auto', color: TK.sub, fontSize: 11, fontFamily: 'monospace' }}>{e.weight}%</span>
         <span style={{ color: TK.sub2, fontSize: 10 }}>{open ? '▲' : '▼'}</span>

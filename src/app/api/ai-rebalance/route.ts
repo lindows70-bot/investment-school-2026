@@ -235,7 +235,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v44+${UNIFIED_RECO_V}:${user.id}:${today}:${fp}`   // v43: 📉 매수측 급락 제외(유령 발굴 포함) / v41: VWAP 하향 이탈 매도 근거+크로스 칩 / v40: ETF 소섹터 정밀화
+  const cacheKey = `ai-rebalance-v45+${UNIFIED_RECO_V}:${user.id}:${today}:${fp}`   // v43: 📉 매수측 급락 제외(유령 발굴 포함) / v41: VWAP 하향 이탈 매도 근거+크로스 칩 / v40: ETF 소섹터 정밀화
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -627,7 +627,14 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
     if (sigs.length === 0) continue
     const w = pctOf(mvByTicker.get(k)?.mv ?? 0)
     if (w < 1) continue   // 비중 1% 미만은 노이즈
-    trim.push({ ticker: d.ticker, name: d.name, market: (d.market === 'KR' ? 'KR' : 'US'), weightPct: w, trimPct: Math.round(Math.min(w * 0.3, 4) * 10) / 10, reason: sigs.join(' · '), tag: sig.get(k)?.dcf === 'demanding' ? '고평가' : sig.get(k)?.flow === 'CROWDED' ? '수급 이탈' : '계절 역풍', sector: secByTicker[k] ?? null })
+    // ⚠️ 깊은 손실 종목은 '저점 매도 방지'(HOLD_DIP) 대상이기도 하다 — 두 지침이 각각 다른 박스에
+    //    따로 뜨면 학생은 "팔라는 거야 버티라는 거야"가 된다. 트림 사유 안에 함께 적어 한 카드로 만든다.
+    //    ⛔ 판정은 안 바꾼다 — 일부 축소는 유효하되 **전량 투매는 금물**이라는 게 둘을 합친 결론이다.
+    const be = breakEvenRiseOf(d.pnlPct)
+    const deepLoss = d.pnlPct != null && d.pnlPct <= -15
+      ? ` · 🛡️ 단, 현재 ${d.pnlPct.toFixed(1)}% 손실 중 — **일부만** 축소하고 전량 투매는 금물${be != null ? `(본전까지 +${be.toFixed(1)}%)` : ''}`
+      : ''
+    trim.push({ ticker: d.ticker, name: d.name, market: (d.market === 'KR' ? 'KR' : 'US'), weightPct: w, trimPct: Math.round(Math.min(w * 0.3, 4) * 10) / 10, reason: sigs.join(' · ') + deepLoss, tag: sig.get(k)?.dcf === 'demanding' ? '고평가' : sig.get(k)?.flow === 'CROWDED' ? '수급 이탈' : '계절 역풍', sector: secByTicker[k] ?? null })
     trimSeen.add(k)
   }
   // 기존 drop·trim 이유에 종목 신호 보강(중복 방지)

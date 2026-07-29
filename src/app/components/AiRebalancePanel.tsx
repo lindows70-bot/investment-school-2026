@@ -80,7 +80,11 @@ export default function AiRebalancePanel() {
   const sellList = data.holdings.filter(h => (h.action === 'TAKE_PROFIT' || h.action === 'CUT_LOSS') && h.releaseWeight >= 0.1)
   // Phase 3: 분산 목적 트림(신호 없으나 과집중 → 일부 축소)
   const trimList = data.holdings.filter(h => h.trimWeight >= 0.1 && h.action !== 'TAKE_PROFIT' && h.action !== 'CUT_LOSS')
-  const trimmedSet = new Set(trimList.map(h => h.ticker))
+  // ⚠️ 히어로(3액션)의 '줄일 것'까지 포함해야 중복이 안 난다 — 신호 기반 트림(역DCF·수급 이탈)은
+  //    trimWeight 와 무관하게 들어가서, 깊은 손실로 트림 비중이 0인 종목(PLTR)이 '줄일 것'과
+  //    '저점 매도 방지'에 동시에 떴다. 한 화면이 '팔라'와 '버텨라'를 같이 말하면 안 된다.
+  //    (전량 투매 금물이라는 지침은 히어로 트림 사유 안에 함께 적힌다 — 정보는 안 잃는다)
+  const trimmedSet = new Set([...trimList.map(h => h.ticker), ...(data.coreSatellite?.trim ?? []).map(t => t.ticker)])
   const holdDips = data.holdings.filter(h => h.action === 'HOLD_DIP' && !trimmedSet.has(h.ticker))
   const defends = data.holdings.filter(h => h.action === 'DEFEND' && !trimmedSet.has(h.ticker))
 
