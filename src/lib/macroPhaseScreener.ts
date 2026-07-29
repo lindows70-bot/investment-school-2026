@@ -865,8 +865,16 @@ export function priceTrendKnife(ks: any, sd: any, price: number | null): { price
   //    (두산퓨얼셀 −33.8%·롯데에너지머티리얼즈 −29.6% 인데 'side'). US 는 4%.
   //    → 한국이 **더 급하게 빠져서 오히려 안 걸리는** 역설. `priceVs200 <= -8` 이 이미
   //    눌림목(200일선 위)을 배제하므로 추세 라벨을 추가로 요구할 이유가 없다.
+  //    ⚠️ 52주 게이트(`w52<0 || nearLow`)만 두면 **1년 급등 후 폭락한 종목이 통째로 빠져나간다** —
+  //    실측(2026-07-29 재계산 유니버스): HD현대일렉트릭 **200일선 −37%**·미래에셋증권 −32.8%·
+  //    키움증권 −28.9% 가 52주 성과가 아직 플러스라는 이유로 통과해 **통합추천 상위에 그대로 남았다.**
+  //    52주 게이트의 목적은 '상승 추세 중 정상 조정'을 살리는 것인데, **−20%는 정상 조정이 아니다**
+  //    (기준선 −8% 의 2.5배). → **깊이 조건을 52주와 무관하게 독립 성립**시킨다.
   const nearLow = (price != null && lo != null && lo > 0) ? (price <= lo * 1.15) : false
-  const knife = priceVs200 != null && priceVs200 <= -8 && ((w52 != null && w52 < 0) || nearLow)
+  const knife = priceVs200 != null && (
+    priceVs200 <= -20                                                  // 깊이 — 52주 성과 무관(구조 붕괴)
+    || (priceVs200 <= -8 && ((w52 != null && w52 < 0) || nearLow))      // 기존 — 얕지만 장기 하락·저점권
+  )
   return { priceTrend, knife, priceVs200 }
 }
 

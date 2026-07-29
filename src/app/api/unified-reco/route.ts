@@ -127,7 +127,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v46:${user.id}:${kstDate()}:${fp}`   // v46: 💵 FCF 방어 틸트 복구(marks-cycle 키 v3→v4 — 2026-07-14부터 죽어 있었음) / v44: 본토 A주(.SS/.SZ)는 상해종합 기준 변동성(CN_A)
+  const cacheKey = `unified-reco-v47:${user.id}:${kstDate()}:${fp}`   // v47: 🔪 칼날에 깊이 조건(200일선 −20%↓는 52주 무관) — 1년 급등 후 폭락 종목이 상위에 남던 것 차단 / v46: 💵 FCF 방어 틸트 복구
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
