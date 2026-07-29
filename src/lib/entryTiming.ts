@@ -26,6 +26,7 @@ export interface SupplyLite {
   dropFromHigh: number | null   // 최근 20봉 고점 대비 %(음수)
   highBarsAgo: number | null    // 그 고점이 몇 봉 전인가(작을수록 급락)
   sharpDrop: boolean            // 20봉 고점 대비 −12%↓ & 고점이 10봉 이내 = 급락 직후
+  ret20: number | null          // 최근 20봉 수익률 % — 상대강도(지수 대비) 계산용. ⛔ 점수 미반영·표시 전용
 }
 /** 🎼 라쉬케 요약(카드용 lite) — 같은 캔들에서 추가 fetch 0. 매수=연쇄 stage/첫눌림목, 매도=하락 다이버전스 조기경보 */
 export interface RaschkeLite {
@@ -134,6 +135,9 @@ export function timingFromCandles(D: TechCandle[]): EntryTiming | null {
     //   ①만 두면 **미래에셋증권 −31.4%(16봉 전 고점)가 빠진다** — 느리게 빠졌다고 안전한 게 아니다.
     sharpDrop: dropFromHigh != null
       && ((dropFromHigh <= -12 && highBarsAgo != null && highBarsAgo <= 10) || dropFromHigh <= -20),
+    // 20봉 수익률 — 지수 ret20 과 빼서 상대강도. ⛔ 점수 미반영(백테스트에서 예측력 없음이 확인됨·아래 주석)
+    ret20: D.length > 20 && D[D.length - 21].close > 0
+      ? Math.round((price / D[D.length - 21].close - 1) * 1000) / 10 : null,
   }
   // 🏅 정예 타점 — 백테스트 검증 합류 조건. 게이트는 신호등 green과 동일 정의(정배열+구름 위)를 그대로 넘긴다
   const prime = readPrimeSetup(D, aligned && cloud === 'above')

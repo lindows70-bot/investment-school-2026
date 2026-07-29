@@ -53,6 +53,12 @@ export interface UnifiedRecoItem {
   rotationQuad: 'leading' | 'weakening' | 'lagging' | 'improving' | null   // 🧭 섹터 로테이션 국면(GICS 11만)
   rotationScore: number            // 🧭 주도섹터 축(0~100) — RRG 쏠림점수(상대강도×모멘텀) 정규화, 미집계=50(중립)
   etfAlt: EtfAlt | null             // 🔬 ETF 분산 대안(같은 GICS 섹터 ETF) — 점수 미반영, 분산 선택지 병기만
+  /** 💪 상대강도 — 자국 지수 대비 20일 초과수익(%p). ⛔ **점수 절대 미반영·표시 전용**.
+   *  자체 백테스트(58종목·28,910봉) 결과 예측력이 없어 축으로 넣지 않기로 했다:
+   *   · 강세(≥+10%p) edge +1.25%p 이나 **이상치 제거 시 −0.14%p 로 소멸**
+   *   · 하락장만 보면 **정반대** — 버틴 종목 −2.83%p / 같이 무너진 종목 +0.75%p(모멘텀 크래시)
+   *  즉 '이미 오른 것'과 '앞으로 오를 것'은 다르다. 화면에도 이 한계를 반드시 함께 적는다. */
+  rsVsMarket: number | null
 }
 // 🌍 지역 커버리지 참고 아이템(순위 무관·경량) — merit 12종 밖의 한국·유럽 대표 후보
 export interface RegionRefItem {
@@ -127,7 +133,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v48:${user.id}:${kstDate()}:${fp}`   // v48: 📉 급락 종목을 **선별에서 제외**(배지→필터) · v47: 🔪 칼날 깊이 조건(200일선 −20%↓)
+  const cacheKey = `unified-reco-v49:${user.id}:${kstDate()}:${fp}`   // v49: 💪 상대강도(지수 대비 20일) 표시 추가(점수 미반영) · v48: 📉 급락 종목 선별 제외(배지→필터) · v47: 🔪 칼날 깊이 조건(200일선 −20%↓)
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -465,6 +471,7 @@ export async function GET(req: Request) {
         timing: null,   // 🚦 최종 선정 후 일괄 부착
         rotationQuad: t.rotQuad, rotationScore: t.rotationScore,
         etfAlt: null,   // 🔬 최종 선정 후 일괄 부착
+        rsVsMarket: null,   // 💪 상대강도 — 지수 ret20 부착 후 계산(점수 미반영)
       }
     }))
     items.push(...part)
@@ -491,6 +498,15 @@ export async function GET(req: Request) {
     const etfMap = await buildEtfAltMap(items.map(i => ({ ticker: i.ticker, sector: i.sector, market: i.market, name: i.name, industry: i.industry })), base)
     for (const it of items) it.etfAlt = etfMap.get(it.ticker) ?? null
   } catch { /* graceful — ETF 대안만 생략 */ }
+
+  // 💪 상대강도(자국 지수 대비 20일 초과수익) — **새 fetch 0**: 종목은 timing.supply.ret20,
+  //    지수는 이미 받은 volByOrigin[origin].ret20 을 그대로 뺀다.
+  //    ⛔ 점수·선정 절대 미반영 — 백테스트에서 예측력이 없었다(타입 주석 참조). 표시 전용.
+  for (const it of items) {
+    const mine = it.timing?.supply?.ret20
+    const idx = volByOrigin?.[it.origin]?.ret20
+    it.rsVsMarket = (mine != null && idx != null) ? Math.round((mine - idx) * 10) / 10 : null
+  }
 
   const result: UnifiedRecoResult = {
     weights: W,

@@ -120,6 +120,20 @@ function Item({ it, portfolioKrw, vol }: { it: UnifiedRecoItem; portfolioKrw: nu
           </span>
         )}
         {it.badges.map(b => <span key={b} style={{ background: 'rgba(148,163,184,0.1)', color: TK.slate300, border: `1px solid ${BORDER}`, borderRadius: 6, padding: '1px 7px', fontSize: 10 }}>{b}</span>)}
+        {/* 💪 상대강도 — 지수 대비 20일 초과수익. ⛔ 점수 미반영·표시 전용.
+            ⚠️ 툴팁에 백테스트 한계를 반드시 병기한다 — 수치만 보면 학생이 '이거 사면 되겠네'로 읽는데
+               우리 실측은 그 반대다(하락장에서 버틴 종목이 이후 20봉 −2.83%p). */}
+        {it.rsVsMarket != null && Math.abs(it.rsVsMarket) >= 5 && (
+          <span title={`자국 지수 대비 최근 20거래일 초과수익 ${it.rsVsMarket > 0 ? '+' : ''}${it.rsVsMarket}%p — 시장보다 ${it.rsVsMarket > 0 ? '잘 버텼다' : '더 빠졌다'}는 '과거' 사실입니다.
+
+⚠️ 앞으로의 예측이 아닙니다. 자체 백테스트(58종목·28,910봉)에서 상대강도는 예측력이 확인되지 않았고, 특히 하락장에서는 잘 버틴 종목이 이후 20봉 동안 오히려 못했습니다(−2.83%p). 그래서 점수에는 반영하지 않습니다.`}
+            style={{ background: it.rsVsMarket > 0 ? 'rgba(45,212,191,0.10)' : 'rgba(248,113,113,0.10)',
+              color: it.rsVsMarket > 0 ? TK.teal400 : TK.red400,
+              border: `1px solid ${it.rsVsMarket > 0 ? TK.teal400 : TK.red400}44`,
+              borderRadius: 6, padding: '1px 7px', fontSize: 10, whiteSpace: 'nowrap' }}>
+            💪 지수 대비 {it.rsVsMarket > 0 ? '+' : ''}{it.rsVsMarket}%p<span style={{ opacity: 0.7 }}> (과거·점수 미반영)</span>
+          </span>
+        )}
       </div>
       {/* 🚦 타점 신호등(WHEN 레이어) — 점수·순위와 무관, 진입 타이밍+ATR 손절 참고. ticker 전달 → 🇪🇺 유럽 종목은 €·CHF 등 손절가 정확 표기 */}
       {it.timing && <div style={{ marginBottom: 6 }}><TimingBadge t={it.timing} market={it.market} ticker={it.ticker} /></div>}
