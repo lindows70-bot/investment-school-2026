@@ -158,7 +158,7 @@ export interface QuantBuilderResult {
 
 /** 빌드 본체 — GET과 copy(POST)가 공유. base=요청 origin, cookie=인증 전달용 */
 export async function buildQuantPlan(base: string, cookie: string): Promise<QuantBuilderResult | null> {
-  const cacheKey = `quant-builder-v7+${UNIFIED_RECO_V}:${kstDate()}`   // v6: 🧭 위성 섹터 분산(섹터당 최대 2종) / v5: 🚦 타점 신호등(timing) 상속
+  const cacheKey = `quant-builder-v8+${UNIFIED_RECO_V}:${kstDate()}`   // v6: 🧭 위성 섹터 분산(섹터당 최대 2종) / v5: 🚦 타점 신호등(timing) 상속
   const cached = await getCache<QuantBuilderResult>(cacheKey, 12 * 3600_000)
   if (cached && !cached.warming) return cached
 
@@ -208,6 +208,23 @@ export async function buildQuantPlan(base: string, cookie: string): Promise<Quan
     badges: j.it.badges,
     priceCtx: null,   // ③-b에서 채움
   }))
+  // ⚠️ 반올림 잔돈 보정 — 종목별 Math.round 가 **올림 쪽으로 누적**되면 위성 합이 예산을 넘어
+  //    코어 60% + 위성 40.1% = 100.1%(1억인데 1억 10만원)이 된다. leftover 의 Math.max(0,…) 는
+  //    '미달'만 코어로 환류할 뿐 '초과'는 보정하지 않았다. 잔돈을 최대 비중 종목에서 가감해
+  //    합을 예산에 정확히 맞춘다(ai-rebalance 코어 배분과 동일 패턴).
+  if (satellites.length > 0) {
+    const sum0 = Math.round(satellites.reduce((s, x) => s + x.weightPct, 0) * 10) / 10
+    const diff = Math.round((satelliteBudget - sum0) * 10) / 10
+    if (diff < 0) {   // 초과분만 깎는다(미달은 기존대로 코어 환류 — 위성을 억지로 늘리지 않는다)
+      let rest = diff
+      for (const x of [...satellites].sort((a, b) => b.weightPct - a.weightPct)) {
+        if (Math.abs(rest) < 0.05) break
+        const cut = Math.max(rest, -(x.weightPct - 0.1))   // 0.1% 아래로는 안 깎는다
+        x.weightPct = Math.round((x.weightPct + cut) * 10) / 10
+        rest = Math.round((rest - cut) * 10) / 10
+      }
+    }
+  }
   const satAllocated = Math.round(satellites.reduce((s, x) => s + x.weightPct, 0) * 10) / 10
   const leftover = Math.round((satelliteBudget - satAllocated) * 10) / 10   // 위성 미달분 → Core 증액
   const coreEffective = Math.round((plan.coreRatio + Math.max(0, leftover)) * 10) / 10

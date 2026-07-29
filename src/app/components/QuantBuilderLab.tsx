@@ -6,6 +6,7 @@ import type { QuantBuilderResult, QuantSatellite, AxisStatus, PriceContext } fro
 import SectorBadge from '@/app/components/SectorBadge'
 import TimingBadge from '@/app/components/TimingBadge'
 import { TK } from '@/lib/theme'
+import { marketFlag } from '@/lib/globalTickers'   // 시장 국기 SSOT(해외 접미사 인식)
 
 const CARD = TK.bg6, BORDER = TK.border
 
@@ -200,7 +201,9 @@ export default function QuantBuilderLab() {
             <span>{c.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
             <span style={{ color: TK.slate200, fontWeight: 700 }}>{c.ticker}</span>
             <span style={{ color: TK.sub, fontSize: 10.5 }}>{c.name} · {c.role}</span>
-            {c.priceCtx && <ChaseBadge posPct={c.priceCtx.posPct} />}
+            {/* ⛔ 코어 ETF엔 '추격주의'를 붙이지 않는다 — 광의 지수는 **적립 대상**이지 타이밍 대상이 아니다.
+                SPY·SCHD가 신고가라고 코어 적립을 망설이게 만들면 코어-새틀라이트 설계 자체와 충돌한다.
+                52주 위치는 아래 게이지로 그대로 보여준다(정보는 유지, 경고 프레임만 제거). */}
             {c.priceCtx && (
               <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
                 <Spark ctx={c.priceCtx} />
@@ -216,7 +219,8 @@ export default function QuantBuilderLab() {
           <div key={s.ticker}>
             <div onClick={() => setOpenSat(o => o === s.ticker ? null : s.ticker)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderTop: `1px solid ${BORDER}`, fontSize: 11.5, flexWrap: 'wrap', cursor: 'pointer' }}>
               <span style={{ background: 'rgba(167,139,250,0.12)', color: TK.violet400, border: '1px solid rgba(167,139,250,0.4)', borderRadius: 5, padding: '1px 7px', fontSize: 9.5, fontWeight: 800 }}>SAT</span>
-              <span>{s.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
+              {/* ⚠️ market 이분법 금지 — CNOOC(0883.HK)가 '🇺🇸'로 떴다. 티커 접미사까지 보는 SSOT 사용(통합추천과 동일) */}
+              <span>{marketFlag(s.ticker, s.market === 'KR' ? 'KR' : 'US')}</span>
               <span style={{ color: TK.slate200, fontWeight: 700 }}>{s.name}</span>
               <SectorBadge sector={s.sector} size="xs" />
               {s.priceCtx && <ChaseBadge posPct={s.priceCtx.posPct} />}
