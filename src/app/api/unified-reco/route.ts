@@ -14,6 +14,7 @@ import { getAnalystSignal } from '@/app/actions/getAnalystSignal'
 import { fetchMacroData, detectMacroPhase, EU_TICKER_SET, JP_TICKER_SET, CN_TICKER_SET, type ScreenedStock } from '@/lib/macroPhaseScreener'
 import { computeCountryVol, type CountryVolItem } from '@/lib/countryVol'
 import { volForStock } from '@/lib/countryVolShared'
+import { UNIFIED_RECO_V } from '@/lib/recoCacheVersion'   // 하류(브리핑·리밸런싱·퀀트빌더) 캐시를 함께 무효화하는 공유 버전
 import { getEntryTimings, type EntryTiming } from '@/lib/entryTiming'
 import { buildEtfAltMap, type EtfAlt } from '@/lib/etfAlternative'
 import type { RotationResult, Quadrant as RotQuad } from '@/app/api/sector-rotation/route'
@@ -135,7 +136,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `unified-reco-v52:${user.id}:${kstDate()}:${fp}`   // v52: 심화 검증 후 품질 바닥(65) 재적용 · v51: 지수 대비 −10%p 이하 약세 제외 · v50: 참고 리스트도 급락 제외 · v49: 💪 상대강도(지수 대비 20일) 표시 추가(점수 미반영) · v48: 📉 급락 종목 선별 제외(배지→필터) · v47: 🔪 칼날 깊이 조건(200일선 −20%↓)
+  const cacheKey = `unified-reco-${UNIFIED_RECO_V}:${user.id}:${kstDate()}:${fp}`   // v52: 심화 검증 후 품질 바닥(65) 재적용 · v51: 지수 대비 −10%p 이하 약세 제외 · v50: 참고 리스트도 급락 제외 · v49: 💪 상대강도(지수 대비 20일) 표시 추가(점수 미반영) · v48: 📉 급락 종목 선별 제외(배지→필터) · v47: 🔪 칼날 깊이 조건(200일선 −20%↓)
   const cached = await getCache<UnifiedRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

@@ -1,6 +1,7 @@
 // 🛰️ AI 1억 백지 퀀트 빌더 엔진 — 코어-새틀라이트 설계 본체(route와 copy가 공유)
 // Core(50~70%): 국면별 시장 ETF(SPY·QQQ·SCHD) · Satellite(30~50%): 3축 SSOT(버핏 ROE·린치 PEG·수급) 통과 + 섹터당 최대 2종(분산) 5~7종
 // 모든 점수는 unified-reco SSOT 재사용(제2원칙 — 통합매수와 동일 점수·동일 기저효과 가드) · ETF 투시경으로 실질 섹터 합성
+import { UNIFIED_RECO_V } from '@/lib/recoCacheVersion'   // ⚠️ 통합추천 출력이 바뀌면 이 캐시도 함께 무효화(옛 추천 종목 박제 방지)
 import { getCache, setCache } from '@/lib/appCache'
 import { getEtfComposition } from '@/lib/etfLookThrough'
 import type { UnifiedRecoResult, UnifiedRecoItem } from '@/app/api/unified-reco/route'
@@ -157,7 +158,7 @@ export interface QuantBuilderResult {
 
 /** 빌드 본체 — GET과 copy(POST)가 공유. base=요청 origin, cookie=인증 전달용 */
 export async function buildQuantPlan(base: string, cookie: string): Promise<QuantBuilderResult | null> {
-  const cacheKey = `quant-builder-v7:${kstDate()}`   // v6: 🧭 위성 섹터 분산(섹터당 최대 2종) / v5: 🚦 타점 신호등(timing) 상속
+  const cacheKey = `quant-builder-v7+${UNIFIED_RECO_V}:${kstDate()}`   // v6: 🧭 위성 섹터 분산(섹터당 최대 2종) / v5: 🚦 타점 신호등(timing) 상속
   const cached = await getCache<QuantBuilderResult>(cacheKey, 12 * 3600_000)
   if (cached && !cached.warming) return cached
 

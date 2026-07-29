@@ -1,5 +1,6 @@
 // 🎖️ AI 본부장 종합 브리핑 — 진단(계절 정합) + 매수(통합 3축)를 하나의 처방으로 연결
 // season-navigator(진단·매도신호) + unified-reco(매수)의 캐시된 결과를 합쳐 Gemini가 한 편의 운용 지시로 작성
+import { UNIFIED_RECO_V } from '@/lib/recoCacheVersion'   // ⚠️ 통합추천 출력이 바뀌면 이 캐시도 함께 무효화(옛 추천 종목 박제 방지)
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
@@ -41,7 +42,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `hq-briefing-v12:${user.id}:${kstDate()}:${fp}`   // v12: 통합추천 5축(가치·퀄리티 분해) 반영 — 브리핑에 퀄리티 점수 병기
+  const cacheKey = `hq-briefing-v12+${UNIFIED_RECO_V}:${user.id}:${kstDate()}:${fp}`   // v12: 통합추천 5축(가치·퀄리티 분해) 반영 — 브리핑에 퀄리티 점수 병기
   const cached = await getCache<HqBriefing>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

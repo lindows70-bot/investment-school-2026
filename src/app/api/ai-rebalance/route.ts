@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 export const maxDuration = 120
 
+import { UNIFIED_RECO_V } from '@/lib/recoCacheVersion'   // ⚠️ 통합추천 출력이 바뀌면 이 캐시도 함께 무효화(옛 추천 종목 박제 방지)
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
@@ -234,7 +235,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v44:${user.id}:${today}:${fp}`   // v43: 📉 매수측 급락 제외(유령 발굴 포함) / v41: VWAP 하향 이탈 매도 근거+크로스 칩 / v40: ETF 소섹터 정밀화
+  const cacheKey = `ai-rebalance-v44+${UNIFIED_RECO_V}:${user.id}:${today}:${fp}`   // v43: 📉 매수측 급락 제외(유령 발굴 포함) / v41: VWAP 하향 이탈 매도 근거+크로스 칩 / v40: ETF 소섹터 정밀화
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
