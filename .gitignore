@@ -44,3 +44,7 @@ next-env.d.ts
 .vercel
 
 .vercel
+
+# 야간 감사 보고서(로컬 전용)
+.audit/
+scripts/logs/
