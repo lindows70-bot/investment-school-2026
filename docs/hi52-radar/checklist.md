@@ -7,4 +7,4 @@
 - [x] 화면 + 백테스트 수치 헤더 + momCrash 연동 + 캐비엇
 - [x] 검증 — 그룹 판정 전수 시뮬 + 라이브 647종 스캔 + 화면 간 정합(CVX·Visa)
 - [x] tsc → check:build → 배포 → 라이브 확인(342종·3그룹 정상)
-- [ ] CLAUDE.md + docs/README.md 기록
+- [x] CLAUDE.md + docs/README.md 기록

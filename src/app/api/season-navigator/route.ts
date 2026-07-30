@@ -7,7 +7,7 @@ import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { getSector } from '@/lib/schoolIndex'
 import { getEtfComposition } from '@/lib/etfLookThrough'
-import { fetchMacroData, detectMacroPhase, type ScreenedStock } from '@/lib/macroPhaseScreener'
+import { fetchMacroData, detectMacroPhase, type ScreenedStock, UNIVERSE_KEY } from '@/lib/macroPhaseScreener'
 import { fetchPriceContext, type PriceContext } from '@/lib/quantBuilder'
 import {
   growthFromCli, inflationFromRegime, seasonOf, holdingFit,
@@ -188,7 +188,7 @@ export async function GET(req: Request) {
 
   // 🛒 이 계절 우대 섹터 매수 후보 — macro-ai-picks가 적재한 공유 스크리너 캐시 재사용(추가 fetch 0)
   const heldSet = new Set(stocks.map(r => r.ticker.replace(/\.(KS|KQ)$/i, '')))
-  const screened = await getCache<ScreenedStock[]>('macro-screened-universe:v10', 8 * 24 * 3600_000)
+  const screened = await getCache<ScreenedStock[]>(UNIVERSE_KEY, 8 * 24 * 3600_000)
   const baseCands = (screened ?? [])
     .filter(s => s.sector != null && meta.favored.includes(s.sector) && !heldSet.has(s.ticker.replace(/\.(KS|KQ)$/i, '')))
     .sort((a, b) => b.score - a.score)

@@ -23,7 +23,7 @@ export const maxDuration = 300   // 유니버스 ~220종 확장 대응(스크리
 
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
-import { fetchMacroData, detectMacroPhase, runScreener, type ScreenedStock } from '@/lib/macroPhaseScreener'
+import { fetchMacroData, detectMacroPhase, runScreener, type ScreenedStock, UNIVERSE_KEY } from '@/lib/macroPhaseScreener'
 import { callGeminiJSON } from '@/lib/gemini'
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
@@ -161,7 +161,7 @@ async function generatePicks(
   const { us, kr, all } = await runScreener(phaseResult.phase as Parameters<typeof runScreener>[0])
   const allScreened = [...us, ...kr]
   // ★ 슬라이스 전 전체 채점 유니버스(섹터 무관 100종)를 공유 캐시에 적재 → 4계절 '계절 매수 후보'가 섹터 필터로 재사용(추가 스크리닝 0)
-  await setCache('macro-screened-universe:v10', all)
+  await setCache(UNIVERSE_KEY, all)
 
   // Gemini 호출
   const prompt = buildPrompt(macroData, phaseResult, allScreened)

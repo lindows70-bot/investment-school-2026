@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
+import { WIN_LOSE_KEY } from '@/lib/winLose'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { growthFromCli, inflationFromRegime, seasonOf, holdingFit, SEASON_META, type Quadrant, type Holding } from '@/lib/seasonNavigator'
 import { MARKET_FLOW_KR_KEY, computeMarketFlowKr, type MarketFlowKrResult, type MarketFlowEntry } from '@/lib/marketFlowKr'
@@ -11,7 +12,7 @@ import { getMoneyFlow } from '@/lib/moneyFlow'
 import { getCanonicalFundamentals, isPegBaseEffect } from '@/lib/canonicalFundamentals'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
 import { getAnalystSignal } from '@/app/actions/getAnalystSignal'
-import { fetchMacroData, detectMacroPhase, EU_TICKER_SET, JP_TICKER_SET, CN_TICKER_SET, type ScreenedStock } from '@/lib/macroPhaseScreener'
+import { fetchMacroData, detectMacroPhase, EU_TICKER_SET, JP_TICKER_SET, CN_TICKER_SET, type ScreenedStock, UNIVERSE_KEY } from '@/lib/macroPhaseScreener'
 import { computeCountryVol, type CountryVolItem } from '@/lib/countryVol'
 import { volForStock } from '@/lib/countryVolShared'
 import { UNIFIED_RECO_V } from '@/lib/recoCacheVersion'   // 하류(브리핑·리밸런싱·퀀트빌더) 캐시를 함께 무효화하는 공유 버전
@@ -142,7 +143,7 @@ export async function GET(req: Request) {
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // base 유니버스 — macro-ai-picks가 적재한 전체 채점 캐시(없으면 빈 결과 graceful)
-  const screened = await getCache<ScreenedStock[]>('macro-screened-universe:v10', 8 * 24 * 3600_000)
+  const screened = await getCache<ScreenedStock[]>(UNIVERSE_KEY, 8 * 24 * 3600_000)
   if (!screened || screened.length === 0) {
     return NextResponse.json({ weights: W, usSeason: null, krSeason: null, items: [], asOf: new Date().toISOString(), warming: true }, { headers: { 'Cache-Control': 'no-store' } })
   }
@@ -238,7 +239,7 @@ export async function GET(req: Request) {
   let momCrash = false
   for (let d = 0; d < 2 && !momCrash; d++) {
     const dt = new Date(Date.now() + 9 * 3600_000 - d * 86_400_000).toISOString().slice(0, 10)
-    const wl = await getCache<{ momCrash?: boolean }>(`win-lose-v8:${dt}`, 2 * 24 * 3600_000)
+    const wl = await getCache<{ momCrash?: boolean }>(WIN_LOSE_KEY(dt), 2 * 24 * 3600_000)
     if (wl) { momCrash = !!wl.momCrash; break }
   }
 

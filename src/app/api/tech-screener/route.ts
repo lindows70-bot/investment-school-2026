@@ -19,7 +19,7 @@ import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { getTechCandles } from '@/lib/techChartData'
 import { evaluateSetups, SCREEN_SETUPS, type ScreenHit, type SetupMeta } from '@/lib/techScreener'
-import type { ScreenedStock } from '@/lib/macroPhaseScreener'
+import { UNIVERSE_KEY, type ScreenedStock } from '@/lib/macroPhaseScreener'
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
@@ -41,7 +41,7 @@ export async function GET(req: Request) {
     if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
   }
 
-  const uni = (await getCache<ScreenedStock[]>('macro-screened-universe:v10', 8 * 24 * 3600_000)) ?? []
+  const uni = (await getCache<ScreenedStock[]>(UNIVERSE_KEY, 8 * 24 * 3600_000)) ?? []
   if (uni.length === 0) {
     return NextResponse.json({ error: 'universe_cold', note: '유니버스 캐시가 비었습니다. 주간 스크리너 크론(월 04:00 KST) 이후 다시 시도하세요.' }, { status: 200 })
   }

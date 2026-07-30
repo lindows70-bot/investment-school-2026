@@ -15,8 +15,8 @@ import { SECTORS, SECTOR_ETF } from '@/lib/sectorConfigs'
 import { GICS_SECTOR_META } from '@/lib/gicsSectorMeta'
 import { classifyAssetRole } from '@/lib/portfolioRole'
 import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
-import type { ScreenedStock } from '@/lib/macroPhaseScreener'
-import { splitGroups, type WLRow, type WLSchoolRow, type WLApi, type WLQuad, type WLTrend, type WLFwd } from '@/lib/winLose'
+import { UNIVERSE_KEY, type ScreenedStock } from '@/lib/macroPhaseScreener'
+import { splitGroups, type WLRow, type WLSchoolRow, type WLApi, type WLQuad, type WLTrend, type WLFwd, WIN_LOSE_KEY } from '@/lib/winLose'
 import { TK } from '@/lib/theme'
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
@@ -168,12 +168,12 @@ function trendFromCloses(c: number[]): WLTrend {
 
 export async function GET(req: Request) {
   const origin = new URL(req.url).origin
-  const cacheKey = `win-lose-v8:${kstDate()}`   // v8: 🏃 12-1 모멘텀·⚖️ 변동성 조정 모멘텀 요인 + ⚠️ 모멘텀 크래시 국면 판정(추가 fetch 0)
+  const cacheKey = WIN_LOSE_KEY(kstDate())   // v8: 🏃 12-1 모멘텀·⚖️ 변동성 조정 모멘텀 요인 + ⚠️ 모멘텀 크래시 국면 판정(추가 fetch 0)
   const cached = await getCache<WLApi>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // ① 유니버스 — 스크리너 캐시(주간 크론이 적재한 ScreenedStock 전체)
-  const screened = (await getCache<ScreenedStock[]>('macro-screened-universe:v10', 8 * 24 * 3600_000)) ?? []
+  const screened = (await getCache<ScreenedStock[]>(UNIVERSE_KEY, 8 * 24 * 3600_000)) ?? []
   const byKey = new Map<string, ScreenedStock>()
   for (const s of screened) byKey.set(normKey(s.market, s.ticker), s)
 

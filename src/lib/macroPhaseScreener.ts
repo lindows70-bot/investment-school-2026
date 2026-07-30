@@ -47,6 +47,10 @@ export interface MacroPhaseResult {
   description: string
 }
 
+/** 유니버스 캐시 키 SSOT — writer(macro-ai-picks)·reader 6곳이 이것만 쓴다.
+ *  리터럴 산재는 sector-rotation v13→v14 워밍 누락 사고의 온상이었다 — 버전업은 이 한 줄. */
+export const UNIVERSE_KEY = 'macro-screened-universe:v10'
+
 export interface ScreenedStock {
   ticker:       string
   name:         string

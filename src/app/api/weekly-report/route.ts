@@ -19,7 +19,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { getAssetType } from '@/lib/assetClassifier'
-import { fetchMacroData, detectMacroPhase } from '@/lib/macroPhaseScreener'
+import { fetchMacroData, detectMacroPhase, UNIVERSE_KEY } from '@/lib/macroPhaseScreener'
 import { computeCountryVol } from '@/lib/countryVol'
 import { getEntryTimings } from '@/lib/entryTiming'
 import { getTechCandles } from '@/lib/techChartData'
@@ -472,7 +472,7 @@ async function buildMe(uid: string, name: string, selfCalendar: boolean, cookie:
   }
 
   // 유니버스 캐시(섹터·업종 조인 — 추가 fetch 0)
-  const uni = (await getCache<ScreenedStock[]>('macro-screened-universe:v10', 8 * 24 * 3600_000)) ?? []
+  const uni = (await getCache<ScreenedStock[]>(UNIVERSE_KEY, 8 * 24 * 3600_000)) ?? []
   const uniMap = new Map(uni.map(s => [s.ticker.toUpperCase(), s]))
 
   // 주간 수익률(주식·ETF=getTechCandles 캐시 / 크립토=야후 -USD 근사) — 동시성 4

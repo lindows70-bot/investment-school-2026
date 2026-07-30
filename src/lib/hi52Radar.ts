@@ -6,6 +6,8 @@
 //     **건강한 추세**였다(200일선 위 baseline 대비 소멸). 그래서 판정은 이미 검증된 기존 SSOT
 //     (신호등 green 구조 + 정예 타점/첫 눌림목 — 절사 +1.8)가 하고, hi52는 **모집 필터·위치 라벨**만 한다.
 // ⛔ hi52 기반 신규 점수·판정기를 만들지 않는다(WHAT/WHEN 분리 + 백테스트 기각).
+import { UNIVERSE_KEY } from '@/lib/macroPhaseScreener'
+import { WIN_LOSE_KEY } from '@/lib/winLose'
 import { getCache } from './appCache'
 import { getTechCandles } from './techChartData'
 import { timingFromCandles } from './entryTiming'
@@ -49,7 +51,7 @@ const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0,
 const POOL_MIN = 75, FRESH_HIGH = 98
 
 export async function buildHi52Radar(): Promise<Hi52Radar | { error: string; note: string }> {
-  const uni = (await getCache<ScreenedStock[]>('macro-screened-universe:v10', 8 * 24 * 3600_000)) ?? []
+  const uni = (await getCache<ScreenedStock[]>(UNIVERSE_KEY, 8 * 24 * 3600_000)) ?? []
   if (uni.length === 0) return { error: 'universe_cold', note: '유니버스 캐시가 비었습니다. 주간 스크리너 크론 이후 다시 시도하세요.' }
 
   const rotBySector = await loadRotationBySector()
@@ -58,7 +60,7 @@ export async function buildHi52Radar(): Promise<Hi52Radar | { error: string; not
   try {
     for (let i = 0; i < 2; i++) {
       const dt = new Date(Date.now() + 9 * 3600_000 - i * 86400_000).toISOString().slice(0, 10)
-      const wl = await getCache<{ momCrash?: boolean }>(`win-lose-v8:${dt}`, 2 * 24 * 3600_000)
+      const wl = await getCache<{ momCrash?: boolean }>(WIN_LOSE_KEY(dt), 2 * 24 * 3600_000)
       if (wl) { momCrash = !!wl.momCrash; break }
     }
   } catch { /* graceful */ }

@@ -2,6 +2,9 @@
 //   순수 함수만(클라·서버 공용) — 그룹 분할·7요인 격차 통계·'오늘의 교훈' 문장 자동 조립(AI 미사용·환각 0).
 //   원칙: 관측이지 추천 아님(점수·추천 미반영) · 요인 정의는 기존 SSOT(priceTrend·fwdEpsDir·로테이션 quad) 재사용.
 
+
+/** 승패 해부실 일별 캐시 키 SSOT — writer(win-lose route)·momCrash reader(unified-reco·hi52Radar) 공유 */
+export const WIN_LOSE_KEY = (dateKst: string) => `win-lose-v8:${dateKst}`
 export type WLTrend = 'up' | 'side' | 'down' | 'unknown'
 export type WLFwd = 'accel' | 'flat' | 'decline' | 'unknown'
 export type WLQuad = 'leading' | 'weakening' | 'lagging' | 'improving'

@@ -6,7 +6,7 @@ import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { getCanonicalFundamentals, isPegBaseEffect } from '@/lib/canonicalFundamentals'
-import type { ScreenedStock } from '@/lib/macroPhaseScreener'
+import { UNIVERSE_KEY, type ScreenedStock } from '@/lib/macroPhaseScreener'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -69,7 +69,7 @@ export async function GET(req: Request) {
   const held = (rows ?? []).filter(r => getAssetType(r.ticker, r.name ?? '', r.market ?? 'US') === 'STOCK')
   const heldKeys = new Set(held.map(h => `${h.ticker.toUpperCase()}|${h.market === 'KR' ? 'KR' : 'US'}`))
 
-  const universe = (await getCache<ScreenedStock[]>('macro-screened-universe:v10', 7 * 24 * 3600_000)) ?? []
+  const universe = (await getCache<ScreenedStock[]>(UNIVERSE_KEY, 7 * 24 * 3600_000)) ?? []
   const uniTop = [...universe].sort((a, b) => b.score - a.score).slice(0, 60)
 
   const merged = new Map<string, { ticker: string; name: string; market: 'KR' | 'US'; held: boolean }>()
