@@ -3,6 +3,7 @@
 import { getEntryTiming, type EntryTiming } from '@/lib/entryTiming'
 import { getBlendedPeg } from '@/lib/etfLookThrough'
 import { getCache } from '@/lib/appCache'
+import { SECTOR_ROTATION_KEY } from '@/lib/rotationShared'
 import type { RotationResult } from '@/app/api/sector-rotation/route'
 
 export interface EtfAlt {
@@ -99,7 +100,7 @@ async function hotEtfMap(): Promise<Map<string, string>> {
   const m = new Map<string, string>()
   try {
     const kst = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
-    const rot = await getCache<RotationResult>(`sector-rotation-v14:${kst}`, 3 * 24 * 3600_000)
+    const rot = await getCache<RotationResult>(SECTOR_ROTATION_KEY(kst), 3 * 24 * 3600_000)
     for (const s of rot?.sells ?? []) {
       const label = `${s.sectorLabel} › ${s.subLabel}`
       if (s.etfUs) m.set(s.etfUs.toUpperCase(), label)

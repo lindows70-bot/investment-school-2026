@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
 import { NextResponse } from 'next/server'
+import { SECTOR_ROTATION_KEY } from '@/lib/rotationShared'   // 🧭 키 SSOT(reader 전원과 공유 — 범프는 lib 한 줄)
 import { getCache, setCache } from '@/lib/appCache'
 import { scoreSubFlow, type SubQ } from '@/lib/subFlow'
 import { etfFor, SECTORS } from '@/lib/sectorConfigs'
@@ -82,7 +83,7 @@ const avg = (arr: (number | null | undefined)[]): number | null => {
 
 export async function GET(req: Request) {
   void req
-  const cacheKey = `sector-rotation-v14:${kstDate()}`   // v9: 🚦 매수 랭킹 대표 ETF 타점 신호등(etfTiming)
+  const cacheKey = SECTOR_ROTATION_KEY(kstDate())   // v9: 🚦 매수 랭킹 대표 ETF 타점 신호등(etfTiming)
   const cached = await getCache<RotationResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

@@ -15,6 +15,7 @@ import { fetchMacroData, detectMacroPhase, EU_TICKER_SET, JP_TICKER_SET, CN_TICK
 import { computeCountryVol, type CountryVolItem } from '@/lib/countryVol'
 import { volForStock } from '@/lib/countryVolShared'
 import { UNIFIED_RECO_V } from '@/lib/recoCacheVersion'   // 하류(브리핑·리밸런싱·퀀트빌더) 캐시를 함께 무효화하는 공유 버전
+import { SECTOR_ROTATION_KEY, SECTOR_TO_ROT, rotAxisScore } from '@/lib/rotationShared'   // 🧭 로테이션 SSOT(키·맵·정규화 — 3곳 복붙 제거)
 import { getEntryTimings, type EntryTiming } from '@/lib/entryTiming'
 import { buildEtfAltMap, type EtfAlt } from '@/lib/etfAlternative'
 import type { RotationResult, Quadrant as RotQuad } from '@/app/api/sector-rotation/route'
@@ -247,23 +248,17 @@ export async function GET(req: Request) {
   let rotQuadBySector: Map<string, { q: RotQuad; score: number }> | null = null
   for (let d = 0; d < 3 && !rotQuadBySector; d++) {
     const dt = new Date(Date.now() + 9 * 3600_000 - d * 86_400_000).toISOString().slice(0, 10)
-    const rot = await getCache<RotationResult>(`sector-rotation-v14:${dt}`, 3 * 24 * 3600_000)
+    const rot = await getCache<RotationResult>(SECTOR_ROTATION_KEY(dt), 3 * 24 * 3600_000)
     if (rot?.items?.length) rotQuadBySector = new Map(rot.items.map(i => [i.key, { q: i.quadrant, score: i.score }]))
   }
-  // Yahoo GICS 섹터명 → 로테이션 시계 키(GICS 11만 — 테마 6은 종목 중복 소속이라 매핑 제외)
-  const SECTOR_TO_ROT: Record<string, string> = {
-    'Technology': 'infotech', 'Financial Services': 'financials', 'Healthcare': 'healthcare',
-    'Consumer Cyclical': 'discretionary', 'Consumer Defensive': 'staples', 'Energy': 'energy',
-    'Industrials': 'industrials', 'Basic Materials': 'materials', 'Communication Services': 'communication',
-    'Utilities': 'utilities', 'Real Estate': 'realestate',
-  }
+  // SECTOR_TO_ROT — rotationShared(SSOT)에서 import
   const ROT_LABEL: Record<RotQuad, string> = { leading: '🌱 주도 섹터(자금 유입)', improving: '❄️ 태동 섹터(회전 초입)', weakening: '🔥 과열 섹터(모멘텀 둔화)', lagging: '🍂 이탈 섹터(자금 유출)' }
   const rotationOf = (sector: string | null): { q: RotQuad; rotScore: number } | null => {
     if (!rotQuadBySector || !sector) return null
     const key = SECTOR_TO_ROT[sector]; if (!key) return null
     const r = rotQuadBySector.get(key); if (!r) return null
     // 🧭 주도섹터 축(0~100) — RRG 쏠림점수(0.6 상대강도 + 0.4 모멘텀, %p)를 정규화. 주도(높은 +)→100·이탈(−)→0·중립 50
-    return { q: r.q, rotScore: clamp((r.score + 12) / 24 * 100) }
+    return { q: r.q, rotScore: rotAxisScore(r.score) }
   }
   //   복구 공식(제미나이): adjFit = fit + 0.5·min(1,ΔCapEx/0.5)·M_sig — 계절 불리(fit<0.5)·수혜섹터(Technology)만
   function adjustedSeason(rawFit01: number, s: ScreenedStock, diverge: boolean): { score: number; overridden: boolean } {

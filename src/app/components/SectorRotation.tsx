@@ -262,7 +262,7 @@ export default function SectorRotation() {
         <div style={{ background: `linear-gradient(135deg,#1a1524,${TK.bg1})`, border: `1px solid ${TK.purple500}44`, borderRadius: 12, padding: '14px 16px' }}>
           <div style={{ fontSize: 13.5, fontWeight: 800, color: TK.violet300 }}>🔥 오늘의 52주 신고가 × 소섹터 국면 — 최고가는 다 같은 최고가가 아니다</div>
           <div style={{ fontSize: 10, color: TK.sub2, margin: '3px 0 10px' }}>
-            같은 &lsquo;신고가&rsquo;라도 소섹터가 <b style={{ color: QC.leading }}>🌱주도</b>면 그 소섹터로 자금이 몰리는 중(신뢰↑) · <b style={{ color: QC.improving }}>❄️태동</b>이면 약한 무리 속 대장(품질 프리미엄) · <b style={{ color: QC.weakening }}>🔥과열</b>이면 모멘텀 식는 중(추격 주의) · 주봉 기준 52주 최고가의 98%+ 종목
+            <a href="/hi52-radar" style={{ color: TK.amber400, fontWeight: 800, textDecoration: 'none' }}>🐎 신고가 레이더에서 매수 판정 보기 →</a> · 같은 &lsquo;신고가&rsquo;라도 소섹터가 <b style={{ color: QC.leading }}>🌱주도</b>면 그 소섹터로 자금이 몰리는 중(신뢰↑) · <b style={{ color: QC.improving }}>❄️태동</b>이면 약한 무리 속 대장(품질 프리미엄) · <b style={{ color: QC.weakening }}>🔥과열</b>이면 모멘텀 식는 중(추격 주의) · 주봉 기준 52주 최고가의 98%+ 종목
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {data.highs.map(h => (

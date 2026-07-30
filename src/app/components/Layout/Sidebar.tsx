@@ -47,6 +47,7 @@ const GROUPS: NavGroup[] = [
       { href: '/dashboard?tab=moneyflow&view=unified', icon: '🎯', label: '통합 추천 (6축 종합)' },
       { href: '/dashboard?tab=rebalance',              icon: '🤖', label: 'AI 리밸런싱 (최종)' },
       { href: '/dashboard?tab=rotation',               icon: '🧭', label: '섹터 로테이션 시계' },
+      { href: '/hi52-radar',                           icon: '🐎', label: '신고가 레이더(달리는 말)' },
     ],
   },
   {

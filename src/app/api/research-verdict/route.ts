@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 import { NextResponse } from 'next/server'
+import { SECTOR_ROTATION_KEY, SECTOR_TO_ROT, rotAxisScore } from '@/lib/rotationShared'   // 🧭 로테이션 SSOT
 import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache } from '@/lib/appCache'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
@@ -64,7 +65,7 @@ export async function GET(req: Request) {
   // 주도섹터 로테이션 캐시 — 최근 3일치를 병렬로 읽고 최신 우선 채택(기존 순차 루프와 동일 결과)
   const rotP = (async (): Promise<Map<string, { q: RotQuad; score: number }> | null> => {
     const dates = [0, 1, 2].map(dd => new Date(Date.now() + 9 * 3600_000 - dd * 86_400_000).toISOString().slice(0, 10))
-    const rots = await Promise.all(dates.map(dt => getCache<RotationResult>(`sector-rotation-v14:${dt}`, 3 * 24 * 3600_000).catch(() => null)))
+    const rots = await Promise.all(dates.map(dt => getCache<RotationResult>(SECTOR_ROTATION_KEY(dt), 3 * 24 * 3600_000).catch(() => null)))
     const rot = rots.find(r => r?.items?.length)
     return rot?.items?.length ? new Map(rot.items.map(i => [i.key, { q: i.quadrant, score: i.score }])) : null
   })()
@@ -113,14 +114,8 @@ export async function GET(req: Request) {
   // ⑥ 주도섹터 — 섹터 로테이션 RRG 쏠림(unified-reco와 동일 SSOT·캐시 읽기만). 콜드/미매핑이면 중립 50
   //    (조회는 위 rotP에서 이미 병렬 발사 — 여기선 결과만 수거)
   const rotBySector = await rotP
-  const SECTOR_TO_ROT: Record<string, string> = {
-    'Technology': 'infotech', 'Financial Services': 'financials', 'Healthcare': 'healthcare',
-    'Consumer Cyclical': 'discretionary', 'Consumer Defensive': 'staples', 'Energy': 'energy',
-    'Industrials': 'industrials', 'Basic Materials': 'materials', 'Communication Services': 'communication',
-    'Utilities': 'utilities', 'Real Estate': 'realestate',
-  }
   const rotEntry = m.sector && rotBySector ? (rotBySector.get(SECTOR_TO_ROT[m.sector] ?? '') ?? null) : null
-  const rotation = rotEntry ? clamp((rotEntry.score + 12) / 24 * 100) : 50
+  const rotation = rotEntry ? rotAxisScore(rotEntry.score) : 50
   const rotQuad: RotQuad | null = rotEntry?.q ?? null
 
   // 리스크 플래그

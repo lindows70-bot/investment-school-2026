@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
 import { NextResponse } from 'next/server'
+import { SECTOR_ROTATION_KEY, SECTOR_TO_ROT } from '@/lib/rotationShared'   // 🧭 로테이션 SSOT
 import { createClient } from '@supabase/supabase-js'
 import { getCache, setCache } from '@/lib/appCache'
 import { getAssetType } from '@/lib/assetClassifier'
@@ -22,13 +23,7 @@ const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0,
 const code6 = (t: string) => t.replace(/\.(KS|KQ)$/i, '')
 const normKey = (market: string, ticker: string) => `${market}:${market === 'KR' ? code6(ticker) : ticker.toUpperCase()}`
 
-// Yahoo GICS 섹터명 → 로테이션 시계 키(GICS 11만) — unified-reco와 동일 맵(제2원칙)
-const SECTOR_TO_ROT: Record<string, string> = {
-  'Technology': 'infotech', 'Financial Services': 'financials', 'Healthcare': 'healthcare',
-  'Consumer Cyclical': 'discretionary', 'Consumer Defensive': 'staples', 'Energy': 'energy',
-  'Industrials': 'industrials', 'Basic Materials': 'materials', 'Communication Services': 'communication',
-  'Utilities': 'utilities', 'Real Estate': 'realestate',
-}
+// SECTOR_TO_ROT — rotationShared(SSOT)에서 import
 // 네이버 업종명 → Yahoo GICS 11 영문 섹터(키워드 매칭) — 전장 지도 sector-null 패치 전용(Yahoo가 섹터 안 주는 코스닥주 커버)
 function upjongToGics(u: string | null): string | null {
   if (!u) return null
@@ -216,7 +211,7 @@ export async function GET(req: Request) {
   let rotBySector: Map<string, { q: WLQuad; score: number }> | null = null
   for (let d = 0; d < 3 && !rotBySector; d++) {
     const dt = new Date(Date.now() + 9 * 3600_000 - d * 86_400_000).toISOString().slice(0, 10)
-    const rot = await getCache<RotLite>(`sector-rotation-v14:${dt}`, 3 * 24 * 3600_000)
+    const rot = await getCache<RotLite>(SECTOR_ROTATION_KEY(dt), 3 * 24 * 3600_000)
     if (rot?.items?.length) rotBySector = new Map(rot.items.map(i => [i.key, { q: i.quadrant, score: i.score }]))
   }
 

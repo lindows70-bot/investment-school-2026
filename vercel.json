@@ -82,6 +82,9 @@
     },
     "src/app/api/win-lose/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/hi52-radar/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -132,6 +135,10 @@
     {
       "path": "/api/tech-screener?refresh=1",
       "schedule": "10 0 * * *"
+    },
+    {
+      "path": "/api/hi52-radar?refresh=1",
+      "schedule": "25 0 * * *"
     }
   ],
   "headers": [
