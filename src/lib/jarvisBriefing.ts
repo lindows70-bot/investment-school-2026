@@ -48,6 +48,11 @@ export interface SignalMetrics {
   fwdEpsDir:      'accel' | 'flat' | 'decline' | 'unknown'   // Fwd EPS 사이클 방향
   inventoryBuildup: boolean       // 📦 재고 적체(재고증가율 > 매출증가율) — 경기순환 수요 둔화 선행 신호
   invGapPct:      number | null   // 재고증가율 − 매출증가율 (%p, YoY)
+  /** 📋 어닝 서프라이즈 이력(최근 4분기, Yahoo earningsHistory) — '경영진이 약속(컨센서스)을 지켰나'의 결정론 프록시.
+   *  가이던스 원문 추적은 무료 데이터가 없어(전사 유료) 컨센서스 상회/미달 기록으로 대신한다(정직 근사). */
+  epsBeats:       number | null   // 컨센서스 상회 분기 수(최근 4분기)
+  epsMisses:      number | null   // 미달 분기 수
+  epsBeatStreak:  number | null   // 최근부터 연속 상회 수
   currency:       string | null
 }
 export interface SignalDecision { type: SignalType; reasons: string[] }
@@ -73,7 +78,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
   const tk = ticker.trim().toUpperCase()
   // v4: PEG를 app_cache(canon-fund) 직접 읽기로 변경 — selfBase 의존성 제거
   //     selfBase가 undefined여도 canon-fund 캐시에서 SSOT PEG를 가져옴
-  const cacheKey = `jarvis-metrics-v14:${tk}:${market}:${kstDate()}`   // v14: equity 노출(밸류 삼각형 PBR용)
+  const cacheKey = `jarvis-metrics-v15:${tk}:${market}:${kstDate()}`   // v15: 📋 어닝 서프라이즈 이력(earningsHistory — 약속 이행 프록시) / v14: equity 노출
   const cached = await getCache<SignalMetrics>(cacheKey, 12 * 3600_000)
   if (cached) return cached
 
@@ -88,7 +93,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
     let sym = tries[0]
     for (const s of tries) {
       try {
-        const r = await yf.quoteSummary(s, { modules: ['defaultKeyStatistics', 'financialData', 'summaryDetail', 'assetProfile', 'price', 'earningsTrend'] })
+        const r = await yf.quoteSummary(s, { modules: ['defaultKeyStatistics', 'financialData', 'summaryDetail', 'assetProfile', 'price', 'earningsTrend', 'earningsHistory'] })
         if (r) { q = r; sym = s; if (r?.assetProfile?.industry) break }
       } catch { /* 다음 심볼 */ }
     }
@@ -194,6 +199,23 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
     }
     // ROE는 높은데 ROIC가 낮음 = 빚으로 부풀린 가짜 효율(AT&T ROE 18%/ROIC 8%). roe≥15 & roic<12 & 갭≥8%p
     if (roe != null && roic != null && roe >= 15 && roic < 12 && (roe - roic) >= 8) roeInflated = true
+    // 📋 어닝 서프라이즈 이력(최근 4분기) — epsActual vs epsEstimate. '약속 이행'의 결정론 프록시(유튜브 회계사 스킬 검토에서 채택).
+    //    둘 다 있는 분기만 센다(발표 전 분기·추정 없는 분기는 제외 — 없는 데이터를 미달로 세지 않는 정직 처리)
+    let epsBeats: number | null = null, epsMisses: number | null = null, epsBeatStreak: number | null = null
+    try {
+      const hist = (q.earningsHistory?.history ?? []) as Array<{ epsActual?: unknown; epsEstimate?: unknown }>
+      const rows = hist.map(h => ({ a: num(h.epsActual), e: num(h.epsEstimate) })).filter(r => r.a != null && r.e != null)
+      if (rows.length >= 2) {          // 1분기짜리로 '이력'을 말하지 않는다
+        epsBeats = rows.filter(r => (r.a as number) >= (r.e as number)).length
+        epsMisses = rows.length - epsBeats
+        epsBeatStreak = 0
+        for (let i = rows.length - 1; i >= 0; i--) {   // earningsHistory는 과거→최근 순
+          if ((rows[i].a as number) >= (rows[i].e as number)) epsBeatStreak++
+          else break
+        }
+      }
+    } catch { /* graceful — 이력 없으면 null */ }
+
     const m: SignalMetrics = {
       ticker: tk, name: name || String(pr.shortName || tk),
       market: market || 'US',
@@ -203,6 +225,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
       fcf, fcfNegative: fcf != null && fcf < 0,
       roe, roic, roeInflated, interestCoverage: isFinancial ? null : interestCoverage, marketCap, equity, revenueGrowth, earningsGrowth, analystCount,
       priceTrend, knife, momentumScore, fwdEpsDir, inventoryBuildup, invGapPct,
+      epsBeats, epsMisses, epsBeatStreak,
       currency: pr.currency ? String(pr.currency) : null,
     }
     await setCache(cacheKey, m)

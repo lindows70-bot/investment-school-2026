@@ -48,7 +48,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ unsupported: true, reason: '개별 주식 전용 판정입니다(ETF·코인·원자재 제외).' }, { headers: { 'Cache-Control': 'no-store' } })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || url.origin
-  const cacheKey = `research-verdict-v11:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v11: timing.supply 에 dropFromHigh·sharpDrop·ret20 추가 / v9: sector·rotationQuad 노출
+  const cacheKey = `research-verdict-v12:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v12: 📋 어닝 서프라이즈 이력 근거 / v11: timing.supply 급락 필드
   const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -153,6 +153,14 @@ export async function GET(req: Request) {
   else if (flow === 'CROWDED') cons.push(market === 'KR' ? '💰 수급 과열·이탈(외인·기관 매도, 매물 부담)' : '💰 수급 과열(기관 순감소·MFI 과매수, 매물 부담)')
   if (m.fwdEpsDir === 'accel') pros.push('📈 이익 가속(Fwd EPS 상향 — 상승 사이클)')
   else if (m.fwdEpsDir === 'decline') cons.push('📉 이익 역성장(Fwd EPS 하향 — 하강 사이클)')
+  // 📋 어닝 서프라이즈 이력(약속 이행 프록시) — 경영진이 컨센서스라는 '약속'을 지켜온 기록.
+  //    가이던스 원문 추적은 무료 데이터가 없어 컨센서스 상회/미달로 근사(정직). 상회 우세·미달 우세만 말한다(중간은 침묵)
+  if (m.epsBeats != null && m.epsMisses != null) {
+    const total = m.epsBeats + m.epsMisses
+    if ((m.epsBeatStreak ?? 0) >= 4) pros.push(`📋 ${m.epsBeatStreak}분기 연속 컨센서스 상회(약속을 지키는 경영진)`)
+    else if (m.epsBeats === total && total >= 2) pros.push(`📋 최근 ${total}분기 전부 컨센서스 상회`)
+    else if (m.epsMisses >= 2) cons.push(`📋 최근 ${total}분기 중 ${m.epsMisses}회 컨센서스 미달(실적 신뢰 주의)`)
+  }
   if (m.priceTrend === 'up') pros.push('🚀 주가 상승추세(50·200일선 정배열)')
   else if (m.priceTrend === 'down') cons.push('🔻 주가 하락추세(50·200일선 이탈)')
   if (m.knife) cons.push('🔪 떨어지는 칼날(급락 추세) — 추격 금물')

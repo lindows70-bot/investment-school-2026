@@ -29,6 +29,8 @@ export interface ReportPeer { ticker: string; name: string; peg: number | null; 
 export interface ResearchReport {
   ticker: string; name: string; market: string; sector: string | null; sectorKo: string; generatedAt: string
   summary: string; outlook: string
+  /** 💀 실패 시나리오 한 줄 — '이 회사가 무너진다면 무엇 때문인가'(린치식 반증 훈련). 리스크 플래그·섹터 사실에만 grounding */
+  failScenario: string
   sectorSec: { phaseLabel: string; seasonFit: string; narrative: string }
   peers: ReportPeer[]; peersComment: string
   valuation: { peg: number | null; pe: number | null; psr: number | null; roic: number | null; roe: number | null; dcfVerdict: string | null }
@@ -48,7 +50,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ unsupported: true, reason: '개별 주식 전용 리포트입니다(ETF·코인·원자재 제외).' }, { headers: { 'Cache-Control': 'no-store' } })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-  const cacheKey = `research-report-v3:${ticker.toUpperCase()}:${market}:${kstDate()}`
+  const cacheKey = `research-report-v4:${ticker.toUpperCase()}:${market}:${kstDate()}`
   const cached = await getCache<ResearchReport>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -107,18 +109,19 @@ export async function GET(req: Request) {
     `밸류: PEG=${verdict.peg ?? '—'} PER=${cf?.pe ?? '—'} PSR=${cf?.psr ?? '—'} ROIC=${verdict.roic ?? '—'}% · ` +
     `1년 주가 ${pct1y ?? '—'}%(52주 위치 ${pos52 ?? '—'}%) · 어닝 낙관도=${earn?.sentimentScore ?? '—'}/100 · EPS 리비전=${revision} · ` +
     `경쟁사=${peerLine} · 리스크 플래그=${flags.join('/') || '없음'} · 강점=${verdict.pros.slice(0, 3).join('/') || '—'} · 주의=${verdict.cons.slice(0, 3).join('/') || '—'}.`
-  const g = await callGeminiJSON<{ summary: string; sectorNarrative: string; outlook: string }>(
+  const g = await callGeminiJSON<{ summary: string; sectorNarrative: string; outlook: string; failScenario: string }>(
     prompt,
-    { type: 'OBJECT', properties: { summary: { type: 'STRING' }, sectorNarrative: { type: 'STRING' }, outlook: { type: 'STRING' } }, required: ['summary', 'sectorNarrative', 'outlook'] },
+    { type: 'OBJECT', properties: { summary: { type: 'STRING' }, sectorNarrative: { type: 'STRING' }, outlook: { type: 'STRING' }, failScenario: { type: 'STRING' } }, required: ['summary', 'sectorNarrative', 'outlook', 'failScenario'] },
     { temperature: 0.4 },
   )
   const summary = g.ok ? g.data.summary : `${name}은(는) 종합 ${verdictKo}(${verdict.score}점) — ${verdict.oneLiner}`
   const sectorNarrative = g.ok ? g.data.sectorNarrative : (phase ? `${sectorKo} 섹터는 현재 ${phaseLabel} 국면이며, 계절 적합도는 ${seasonFit}입니다.` : `${sectorKo} 섹터 · 로테이션 국면 미집계 · 계절 적합 ${seasonFit}.`)
+  const failScenario = g.ok && g.data.failScenario ? g.data.failScenario : (flags.length ? `이 회사가 무너진다면 그 시작은 ${flags[0]}일 가능성이 큽니다.` : '뚜렷한 리스크 플래그는 없으나, 섹터 사이클 반전이 가장 큰 잠재 리스크입니다.')
   const outlook = g.ok ? g.data.outlook : `종합 판정 ${verdictKo}(${verdict.score}점). ${flags.length ? '리스크: ' + flags.join(', ') + '. ' : ''}향후 실적·밸류 흐름과 타점을 함께 지켜보세요.`
 
   const report: ResearchReport = {
     ticker: ticker.toUpperCase(), name, market, sector, sectorKo, generatedAt: new Date().toISOString(),
-    summary, outlook,
+    summary, outlook, failScenario,
     sectorSec: { phaseLabel, seasonFit, narrative: sectorNarrative },
     peers, peersComment,
     valuation: { peg: verdict.peg, pe: cf?.pe ?? null, psr: cf?.psr ?? null, roic: verdict.roic, roe: verdict.roe, dcfVerdict: verdict.dcfVerdict },

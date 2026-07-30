@@ -77,7 +77,7 @@ function printReport(r: Report) {
       ${chartSvg}
       <p style="font-size:11px">1년 수익률 <b>${r.chart.pct1y != null ? r.chart.pct1y + '%' : '—'}</b> · 52주 위치 <b>${r.chart.pos52 != null ? r.chart.pos52 + '%' : '—'}</b>(0=저점·100=고점)</p>
       <h2>④ 어닝 애널리시스</h2>${earnBlock}
-      <h2>⑤ 현재 상황 & 향후 전망</h2><p>${esc(r.outlook)}</p>
+      <h2>⑤ 현재 상황 & 향후 전망</h2><p>${esc(r.outlook)}</p>${r.failScenario ? `<p style="color:#dc2626">💀 실패 시나리오 — ${esc(r.failScenario)} <i>(리스크 플래그 기반·예측 아님)</i></p>` : ''}
       <h2>⑥ 액션 — 그래서 지금</h2>
       <p><span class="badge">${VKO[r.action.verdict]} ${r.action.score}점</span> &nbsp;${esc(r.action.oneLiner)}</p>
       ${r.action.timingLabel ? `<p>🚦 기술 타이밍: <b>${esc(r.action.timingLabel)}</b></p>` : ''}
@@ -212,6 +212,13 @@ export default function ResearchReport({ ticker, name, market }: { ticker: strin
       {/* ⑤ 향후 전망 */}
       <Sec n="⑤" title="현재 상황 & 향후 전망">
         {rep.outlook}
+        {/* 💀 실패 시나리오 한 줄(린치식 반증 훈련) — "이 회사가 무너진다면 무엇 때문인가"를 항상 한 번 생각하게 한다 */}
+        {rep.failScenario && (
+          <div style={{ marginTop: 8, background: 'rgba(239,68,68,0.07)', border: `1px solid ${TK.red400}44`, borderRadius: 8, padding: '8px 11px', color: TK.red300, fontSize: 12, lineHeight: 1.55 }}>
+            💀 <b>실패 시나리오</b> — {rep.failScenario}
+            <span style={{ color: TK.sub2, fontSize: 10, marginLeft: 6 }}>(리스크 플래그 기반 · 예측 아님 — 반증 훈련용)</span>
+          </div>
+        )}
       </Sec>
 
       {/* ⑥ 액션 */}
