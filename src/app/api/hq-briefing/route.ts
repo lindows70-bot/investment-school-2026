@@ -42,7 +42,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `hq-briefing-v12+${UNIFIED_RECO_V}:${user.id}:${kstDate()}:${fp}`   // v12: 통합추천 5축(가치·퀄리티 분해) 반영 — 브리핑에 퀄리티 점수 병기
+  const cacheKey = `hq-briefing-v13+${UNIFIED_RECO_V}:${user.id}:${kstDate()}:${fp}`   // v12: 통합추천 5축(가치·퀄리티 분해) 반영 — 브리핑에 퀄리티 점수 병기
   const cached = await getCache<HqBriefing>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -135,7 +135,7 @@ export async function GET(req: Request) {
   }
   if (overvalued.length) {
     riskChecks.push({ kind: 'valuation', level: 'amber',
-      text: `공정가치 대비 고평가(★1~2): ${overvalued.slice(0, 4).map(e => `${msNm(e)}(★${e.stars})`).join(', ')} — 추격 매수 자제, 분할 익절을 고려하세요.` })
+      text: `공정가치 대비 고평가(★1~2): ${overvalued.slice(0, 4).map(e => `${msNm(e)}(★${e.stars})`).join(', ')} — 추격 매수만 자제(보유분은 중장기 관점 유지). 별점 DCF는 성장률을 35%로 클램핑하는 보수 모델이라 성장주는 구조적으로 비싸게 나옵니다 — 매도 판단은 thesis 훼손·추세 붕괴 신호와 결합될 때만.` })
   }
   if (moatNone.length) {
     riskChecks.push({ kind: 'moat', level: 'amber',
@@ -170,7 +170,7 @@ ${buyTxt || '없음'}
 [🧭 리스크 체크(반드시 처방에 반영 — 우리 엔진이 산출한 사실)] ${riskChecks.length ? '\n' + riskChecks.map(r => `· ${r.text}`).join('\n') : '특이 리스크 없음'}
 
 [작성 규칙]
-- ⭐ 위 [리스크 체크]를 처방에 반드시 녹여라(상황 인지형 처방): ① 규제 🔴 자산은 ROE·성장이 좋아도 신규 매수를 '대기'로 권하고 그 이유를 명시 ② 공정가치 대비 고평가·기저효과 종목은 추격 매수 자제·분할 익절 톤 ③ 해자 없음 종목은 비중 제한 권고. 단, 리스크 체크에 없는 내용을 지어내지는 마라.
+- ⭐ 위 [리스크 체크]를 처방에 반드시 녹여라(상황 인지형 처방): ① 규제 🔴 자산은 ROE·성장이 좋아도 신규 매수를 '대기'로 권하고 그 이유를 명시 ② 공정가치 대비 고평가·기저효과 종목은 '추격 매수 자제' 톤만 — DCF 고평가 단독으로 익절·매도를 권하지 마라(보수 DCF는 성장주를 구조적으로 비싸게 봄). 익절·축소는 thesis 훼손이나 추세 붕괴가 함께 있을 때만 ③ 해자 없음 종목은 비중 제한 권고. 단, 리스크 체크에 없는 내용을 지어내지는 마라.
 - 4~5문장, 한국어. ① 지금 국면과 내 포폴 정합 상태 ② 손익 기준 매도 신호가 있으면 무엇을 왜(손절=손실+thesis붕괴 / 익절=수익+고평가), 없으면 "급히 팔 종목은 없음" ③ 매도/회수 자금(${sellBudget}%)으로 통합 1~2위 종목을 왜 담을지(3축 근거 + 매도↔매수 연결) ④ 연준 기조 한 줄 — ⚠️ 반드시 위 [연준 기조] 라벨(${policyTilt ? policyTilt.label : '중립'})과 일치시켜라(거시경제 탭 FOMC 디코더와 모순 금지). 매파면 "고금리 장기화", 비둘기면 "시장보다 덜 매파적" 톤으로 매수 종목 성격 보조 근거로만 가볍게 언급 ⑤ "분할로 신중히" 톤.
 - ⚠️ 연준 기조는 어디까지나 '참고'다. 계절/국면 판정(${seasonLabel})을 뒤집거나 매크로 결론을 바꾸지 마라. 금리 방향 힌트로 매수 종목 성격(성장주 vs 가치주) 코멘트에만 가볍게 쓰라.
 - ⚠️ 비둘기 기조라도 '금리 인하 예상'·'완화 국면' 같은 절대적 표현 금지 — 시장은 동결/인상을 반영 중일 수 있다. 반드시 '시장 기대보다 덜 매파적일 수 있다' 같은 상대적 표현만 쓰라.

@@ -123,7 +123,7 @@ export default function Hi52RadarPage() {
         </div>
         <div style={{ color: TK.sub13, fontSize: FS.tiny, lineHeight: 1.6, marginTop: 6 }}>
           증권 격언을 자체 백테스트(84종목·2년·워크포워드)로 검증했습니다 — <b style={{ color: TK.slate300 }}>말(상승추세)은 맞고, 올라타는 순간(갓 돌파)은 틀렸습니다.</b>{' '}
-          갓 신고가(98%+)에서 사면 3개월 중위 <b style={{ color: TK.red400 }}>−4.1%·승률 −6.8%p</b>(같은 표본 대비) — 반면 검증된 트리거(정예 타점·이상치 제거 후 <b style={{ color: TK.green400 }}>+1.8%p</b>)가 온 눌림 자리가 진짜 올라탈 곳입니다.
+          갓 신고가(98%+)에서 사면 3개월 중위 <b style={{ color: TK.red400 }}>−4.1%·승률 −6.8%p</b>(같은 표본 대비) — 반면 검증된 트리거(정예 타점 — 재측정 절사 초과 <b style={{ color: TK.green400 }}>+1.3%p</b>·상승 국면 전용)가 온 눌림 자리가 진짜 올라탈 곳입니다.
         </div>
         {data?.momCrash && (
           <div style={{ marginTop: 8, background: 'rgba(251,146,60,0.09)', border: `1px solid ${TK.orange400}55`, borderRadius: 8, padding: '7px 10px', color: TK.amber400, fontSize: FS.tiny, lineHeight: 1.5 }}>

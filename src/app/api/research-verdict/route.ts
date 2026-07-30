@@ -146,7 +146,7 @@ export async function GET(req: Request) {
   if (m.peg != null && m.peg > 2.2) cons.push(`💲 고PEG ${m.peg.toFixed(2)}(성장 대비 고평가)`)
   if (dcf === 'conservative') pros.push('🔮 역-DCF: 시장 기대 보수적(저평가 여지)')
   // 🏅 정예 타점 — 자체 백테스트(60종목·12,594봉)로 선별한 합류 조건. ⛔ 점수엔 미반영(WHEN은 배지·근거만)
-  if (timing?.prime) pros.push(`🏅 정예 타점 성립(${timing.prime.trigger === 'divergence' ? '상승 다이버전스' : '첫 눌림목'} × 정배열+구름 위) — 자체 백테스트 20봉 승률 60.7%(기준 50.1%)`)
+  if (timing?.prime) pros.push(`🏅 정예 타점 성립(${timing.prime.trigger === 'divergence' ? '상승 다이버전스' : '첫 눌림목'} × 정배열+구름 위) — 자체 백테스트 절사 초과 +1.3%p(하락장 포함 재측정 · 상승장 원측정 승률 60.7%)`)
   else if (dcf === 'demanding') cons.push('🔮 역-DCF: 기대 과도(주가가 높은 성장 선반영)')
   // ⚠️ 미국은 외국인/기관/개인 일별 구분이 없음(한국거래소만 공시) → US는 '기관·내부자', KR만 '외인·기관'
   if (flow === 'INFLOW') pros.push(market === 'KR' ? '💰 스마트머니 유입(외인·기관 매집)' : '💰 스마트머니 유입(기관·내부자 매집)')

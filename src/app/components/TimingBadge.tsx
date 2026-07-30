@@ -27,7 +27,7 @@ export default function TimingBadge({ t, market, ticker, compact = false }: { t:
     const chop = !!(t.supply?.choppy && t.light !== 'green')
     // ⚓ 최근 5봉 내 기관평단(VWAP) 회복/이탈 = 주도권 교체 후보 — 매수/매도 판단의 맥락(오래된 크로스는 노이즈라 생략)
     const vx = t.supply?.vwapCross && t.supply.vwapCross.barsAgo <= 5 ? t.supply.vwapCross : null
-    // 🏅 정예 타점 — 자체 백테스트 선별 합류 조건(20봉 승률 60.7% vs 기준 50.1%). 가장 행동 가치가 커 최우선 노출
+    // 🏅 정예 타점 — 자체 백테스트 선별 합류 조건(재측정 절사 +1.3%p·상승장 원측정 승률 60.7%). 가장 행동 가치가 커 최우선 노출
     const pm = t.prime
     // 📉 급락 — 구조는 살아있어도 최근 낙폭이 큰 구간(신호등이 못 보는 '속도'). 판정 불변·경고만
     const sd = t.supply?.sharpDrop ? t.supply : null
@@ -104,7 +104,7 @@ export default function TimingBadge({ t, market, ticker, compact = false }: { t:
   return (
     <div style={{ background: s.bg, border: `1px solid ${s.bd}`, borderRadius: 8, padding: '6px 10px', fontSize: 10.5, lineHeight: 1.55 }}>
       <b style={{ color: s.c }}>{t.label}</b>
-      {t.prime && <span title={`자체 백테스트 표본 323건·42종목 · 20봉 승률 60.7%(기준 50.1%) · 중위 초과 +3.4%p. 2년 단일 상승장 표본·거래비용 미반영. 점수 미반영·배지 전용`}
+      {t.prime && <span title={`재측정 2026-07(84종목·하락장 포함) 절사 초과 +1.3%p · 상승장 원측정 승률 60.7%(기준 50.1%) · 중위 초과 +3.4%p. 2년 단일 상승장 표본·거래비용 미반영. 점수 미반영·배지 전용`}
         style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 900, color: TK.bg1, background: TK.amber500, borderRadius: 5, padding: '1px 7px', whiteSpace: 'nowrap' }}>
         🏅 정예 타점 · {t.prime.trigger === 'divergence' ? '다이버전스' : '첫 눌림목'}</span>}
       {rkChip && <span title="라쉬케 모멘텀 연쇄 — 상세는 매매 플랜에서" style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 800, color: rkChip.c, background: `${rkChip.c}18`, border: `1px solid ${rkChip.c}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{rkChip.label}</span>}
