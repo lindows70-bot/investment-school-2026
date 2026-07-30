@@ -13,7 +13,6 @@ const ROT_CHIP: Record<string, { t: string; c: string }> = {
   leading: { t: '🌱 주도', c: TK.green400 }, improving: { t: '❄️ 태동', c: TK.cyan400 },
   weakening: { t: '🔥 과열', c: TK.orange400 }, lagging: { t: '🍂 이탈', c: TK.red400 },
 }
-const LIGHT_DOT: Record<string, string> = { green: '🟢', yellow: '🟡', red: '🔴' }
 
 function Spark({ v }: { v: number[] }) {
   if (!v || v.length < 5) return null
@@ -49,7 +48,8 @@ function Row({ it }: { it: Hi52Item }) {
       {rot && <span style={{ fontSize: FS.micro, fontWeight: 700, color: rot.c }}>{rot.t}</span>}
       <Spark v={it.spark} />
       <Hi52Gauge v={it.hi52} />
-      <span style={{ fontSize: FS.micro, color: TK.sub }}>{LIGHT_DOT[it.light ?? ''] ?? '—'} {it.lightLabel.replace(/^[🟢🟡🔴]\s*/, '')}</span>
+      {/* 신호등 라벨은 SSOT 문자열 그대로(🟢 포함) — 이모지 char class 정규식은 서로게이트를 쪼개므로 가공하지 않는다 */}
+      <span style={{ fontSize: FS.micro, color: TK.sub }}>{it.lightLabel}</span>
       {it.trigger && <span style={{ fontSize: FS.micro, fontWeight: 800, color: '#3a2c05', background: TK.amber400, borderRadius: 5, padding: '1px 7px' }}>{it.trigger === 'prime' ? '🏅 정예 타점' : '🎼 첫 눌림목'}</span>}
       {it.reasons.map((r, i) => <span key={i} style={{ fontSize: FS.micro, color: TK.orange400, background: `${TK.orange400}14`, border: `1px solid ${TK.orange400}44`, borderRadius: 5, padding: '1px 6px' }}>⏳ {r}</span>)}
       <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
@@ -135,7 +135,7 @@ export default function Hi52RadarPage() {
           <Group icon="🎯" title="지금 올라탈 자리" color={TK.green400} items={f.ride}
             sub="상승 구조(green) + 검증 트리거(정예 타점·첫 눌림목) + 과열·급락 아님" empty="지금은 없습니다 — 억지로 채우지 않습니다. 말이 숨 고르기를 기다리세요." />
           <Group icon="🐎" title="달리는 중 — 눌림·트리거 대기" color={TK.blue400} items={f.wait}
-            sub="신고가권 추세 유지 중 — 관심 목록으로 두고 트리거(눌림 완료)가 켜지면 위 그룹으로 올라옵니다" empty="해당 없음" />
+            sub="관심 목록 — green 구조와 트리거(정예·첫 눌림목)가 모두 갖춰지면 위 그룹으로 올라옵니다" empty="해당 없음" />
           <Group icon="⏳" title="추격 주의" color={TK.orange400} items={f.caution}
             sub="갓 돌파·과대이격·에너지 소진·급락 — 우리 표본에서 나빴던 자리(사유 칩 참고)" empty="해당 없음" />
         </>
