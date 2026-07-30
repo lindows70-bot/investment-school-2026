@@ -62,7 +62,9 @@ function Row({ it }: { it: Hi52Item }) {
   )
 }
 
-function Group({ icon, title, sub, color, items, empty }: { icon: string; title: string; sub: string; color: string; items: Hi52Item[]; empty: string }) {
+function Group({ icon, title, sub, color, items, empty, cap }: { icon: string; title: string; sub: string; color: string; items: Hi52Item[]; empty: string; cap?: number }) {
+  // 대기 그룹이 200종+ — 전부 그리면 화면이 무한 스크롤이 된다. 퀀트 점수순 상위만 표시하고 잘린 수를 정직하게 병기
+  const shown = cap ? items.slice(0, cap) : items
   return (
     <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${color}44`, padding: '13px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
@@ -73,7 +75,8 @@ function Group({ icon, title, sub, color, items, empty }: { icon: string; title:
       </div>
       {items.length === 0
         ? <div style={{ color: TK.sub2, fontSize: FS.tiny, padding: '8px 0' }}>{empty}</div>
-        : items.map(it => <Row key={`${it.ticker}:${it.market}`} it={it} />)}
+        : shown.map(it => <Row key={`${it.ticker}:${it.market}`} it={it} />)}
+      {shown.length < items.length && <div style={{ color: TK.sub2, fontSize: FS.micro, paddingTop: 7 }}>… 외 {items.length - shown.length}종(퀀트 점수순 상위 {shown.length}종만 표시 — 시장 필터로 좁혀 보세요)</div>}
     </div>
   )
 }
@@ -135,9 +138,9 @@ export default function Hi52RadarPage() {
           <Group icon="🎯" title="지금 올라탈 자리" color={TK.green400} items={f.ride}
             sub="상승 구조(green) + 검증 트리거(정예 타점·첫 눌림목) + 과열·급락 아님" empty="지금은 없습니다 — 억지로 채우지 않습니다. 말이 숨 고르기를 기다리세요." />
           <Group icon="🐎" title="달리는 중 — 눌림·트리거 대기" color={TK.blue400} items={f.wait}
-            sub="관심 목록 — green 구조와 트리거(정예·첫 눌림목)가 모두 갖춰지면 위 그룹으로 올라옵니다" empty="해당 없음" />
+            sub="관심 목록 — green 구조와 트리거(정예·첫 눌림목)가 모두 갖춰지면 위 그룹으로 올라옵니다" empty="해당 없음" cap={30} />
           <Group icon="⏳" title="추격 주의" color={TK.orange400} items={f.caution}
-            sub="갓 돌파·과대이격·에너지 소진·급락 — 우리 표본에서 나빴던 자리(사유 칩 참고)" empty="해당 없음" />
+            sub="갓 돌파·과대이격·에너지 소진·급락 — 우리 표본에서 나빴던 자리(사유 칩 참고)" empty="해당 없음" cap={30} />
         </>
       )}
 
