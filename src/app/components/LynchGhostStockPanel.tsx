@@ -203,7 +203,7 @@ function SkeletonCard() {
 // ────────────────────────────────────────────────────────────
 // 애널리스트 커버리지 게이지
 // ────────────────────────────────────────────────────────────
-function AnalystGauge({ count, change }: { count: number; change: number }) {
+function AnalystGauge({ count, change, unit = '명' }: { count: number; change: number; unit?: string }) {
   const MAX = 55
   const pct = Math.min(98, (count / MAX) * 100)
   const color =
@@ -222,7 +222,7 @@ function AnalystGauge({ count, change }: { count: number; change: number }) {
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:5 }}>
         <div style={{ display:'flex', alignItems:'center', gap:6 }}>
           <Users size={12} color={color} />
-          <span style={{ fontSize:11, fontWeight:800, color, fontFamily:'monospace' }}>{count}명</span>
+          <span style={{ fontSize:11, fontWeight:800, color, fontFamily:'monospace' }}>{count}{unit}</span>
           {change !== 0 && (
             <span style={{
               fontSize:9, padding:'1px 5px', borderRadius:4,
@@ -287,8 +287,8 @@ function InsiderIndicator({ record }: { record: GhostRecord }) {
         }} />
       </div>
       <div style={{ display:'flex', justifyContent:'space-between', marginTop:3 }}>
-        <span style={{ fontSize:8, color:'rgba(34,197,94,0.6)' }}>매수 {record.insiderBuys}건 ({record.insiderBuyAmt})</span>
-        <span style={{ fontSize:8, color:'rgba(239,68,68,0.6)' }}>매도 {record.insiderSells}건 ({record.insiderSellAmt})</span>
+        <span style={{ fontSize:8, color:'rgba(34,197,94,0.6)' }}>장내매수 {record.insiderBuys}건 ({record.insiderBuyAmt})</span>
+        <span style={{ fontSize:8, color:C.textLow }}>매도 미추적(장내매수만 집계)</span>
       </div>
     </div>
   )
@@ -452,7 +452,7 @@ function GhostCard({ record }: { record: GhostRecord }) {
             <div style={{ fontSize:9, color:C.textLow, fontWeight:700, marginBottom:6, display:'flex', alignItems:'center', gap:4 }}>
               <Building2 size={10} /> 기관 커버리지
             </div>
-            <AnalystGauge count={record.analystCount} change={record.analystChange} />
+            <AnalystGauge count={record.analystCount} change={record.analystChange} unit={record.market === 'KR' ? '건(3개월 리포트)' : '명'} />
           </div>
 
           {/* 내부자 거래 */}
@@ -500,7 +500,7 @@ function GhostCard({ record }: { record: GhostRecord }) {
               <div style={{ fontSize:11, color:C.textMid, lineHeight:1.7 }}>{record.insiderComment}</div>
               <div style={{ marginTop:6, fontSize:10, color:C.textLow }}>
                 최근: <span style={{ color:C.textMid }}>{record.lastActivity}</span>
-                <span style={{ color:C.textLow }}> ({record.lastActivityDays}일 전)</span>
+                {record.lastActivityDays > 0 && <span style={{ color:C.textLow }}> ({record.lastActivityDays}일 전)</span>}
               </div>
             </div>
           </div>
@@ -820,7 +820,7 @@ export default function LynchGhostStockPanel() {
             Supabase <code style={{ background:C.cardHi, padding:'1px 4px', borderRadius:3, fontSize:9 }}>investments</code> →{' '}
             <code style={{ background:C.cardHi, padding:'1px 4px', borderRadius:3, fontSize:9 }}>/api/lynch/ghost-stock</code> →{' '}
             <code style={{ background:C.cardHi, padding:'1px 4px', borderRadius:3, fontSize:9 }}>ghost_stock_cache</code> (일 1회 갱신) ·
-            내부자 거래: FMP/SEC Edgar · 기관 커버리지: FMP/Yahoo Finance
+            내부자 거래: SEC EDGAR(US)·DART(KR) 90일 장내매수 · 커버리지: Yahoo 애널리스트 수(US)·네이버 리포트 건수(KR 3개월)
           </div>
         </div>
 
