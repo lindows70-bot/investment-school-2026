@@ -56,3 +56,4 @@
 - **완료 기록·함정 사전** → `CLAUDE.md`(3,500줄·⚠️ 300개)
 - **절차 자동화** → `.claude/skills/`(deploy-verify·backtest-autopsy·feature-kickoff)
 - **커밋 시 기계적 검사** → `scripts/precommit-guard.mjs`
+- `hi52-radar/` — 🐎 신고가 레이더('달리는 말') — Phase 0 백테스트 완료·승인 대기
