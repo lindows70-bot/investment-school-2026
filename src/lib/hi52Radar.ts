@@ -100,7 +100,7 @@ export async function buildHi52Radar(): Promise<Hi52Radar | { error: string; not
           sector: s.sector ?? null, industry: s.industry ?? null,
           price: last.close, hi52,
           spark: D.slice(-40).map(c => Math.round(c.close * 100) / 100),
-          quant: Math.round((s.score ?? 0) * 100),
+          quant: Math.min(100, Math.round((s.score ?? 0) * 100)),   // 원시 score는 lynch 가중이 1을 넘어 107도 나온다 — 표시축은 100 캡(4계절 매수후보 표기 관례)
           value: Math.round((s.valueScore ?? 0) * 100), quality: Math.round((s.qualityScore ?? 0) * 100),
           momentum: Math.round(s.momentumScore ?? 0),
           peg: s.peg ?? null,

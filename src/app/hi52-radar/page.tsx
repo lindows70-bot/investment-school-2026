@@ -43,7 +43,9 @@ function Row({ it }: { it: Hi52Item }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap', padding: '8px 2px', borderTop: `1px solid ${BORDER}` }}>
       <span style={{ fontSize: 12 }}>{marketFlag(it.ticker, it.market)}</span>
-      <span style={{ color: TK.slate200, fontWeight: 800, fontSize: FS.body, minWidth: 90 }}>{it.market === 'KR' ? it.name.slice(0, 10) : it.ticker}</span>
+      {/* 종목명을 주(主)로 — 티커만으론 0388.HK·8306.T가 무슨 회사인지 알 수 없다(사용자 지적). 티커는 보조 표기 */}
+      <span style={{ color: TK.slate200, fontWeight: 800, fontSize: FS.body, minWidth: 118 }}>{it.name.slice(0, 14)}</span>
+      <span style={{ color: TK.sub2, fontSize: FS.micro, fontFamily: 'monospace' }}>{it.ticker}</span>
       {sm && <span style={{ fontSize: FS.micro, color: sm.color, background: `${sm.color}16`, border: `1px solid ${sm.color}44`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{sm.icon} {sm.ko}</span>}
       {rot && <span style={{ fontSize: FS.micro, fontWeight: 700, color: rot.c }}>{rot.t}</span>}
       <Spark v={it.spark} />
