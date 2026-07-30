@@ -12,7 +12,7 @@ const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0,
 export async function GET(req: Request) {
   const url = new URL(req.url)
   const refresh = url.searchParams.get('refresh') === '1'   // 크론 워밍·수동 강제 재계산(research-verdict 교훈: refresh 미지원 라우트는 검증이 캐시에 속는다)
-  const key = `hi52-radar-v1:${kstDate()}`
+  const key = `hi52-radar-v2:${kstDate()}`   // v2: origin(실제 국적) 필드 추가
   if (!refresh) {
     const cached = await getCache<Hi52Radar>(key, 12 * 3600_000)
     if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })

@@ -9,11 +9,14 @@
 import { getCache } from './appCache'
 import { getTechCandles } from './techChartData'
 import { timingFromCandles } from './entryTiming'
-import type { ScreenedStock } from './macroPhaseScreener'
+import { EU_TICKER_SET, JP_TICKER_SET, CN_TICKER_SET, type ScreenedStock } from './macroPhaseScreener'
 import { SECTOR_TO_ROT, loadRotationBySector, type RotQuadShared } from './rotationShared'
 
 export interface Hi52Item {
   ticker: string; name: string; market: 'US' | 'KR'
+  /** 실제 국적 — 파이프라인 market은 해외 종목도 'US'라 필터에 못 쓴다(화면 검수에서 HK·GB·CH가 '미국' 필터에 걸림).
+   *  unified-reco의 origin 분류(EU·JP·CN 티커셋)와 동일 SSOT */
+  origin: 'US' | 'KR' | 'EU' | 'JP' | 'CN'
   sector: string | null; industry: string | null
   price: number | null
   hi52: number                      // 52주 최고가(고가 기준) 대비 현재 위치 % — techScreener와 동일 공식
@@ -95,8 +98,9 @@ export async function buildHi52Radar(): Promise<Hi52Radar | { error: string; not
         if (sp?.sharpDrop && sp.dropFromHigh != null) reasons.push(`급락 ${sp.dropFromHigh}%`)
         if (s.knife) reasons.push('🔪 떨어지는 칼날')
 
+        const origin: Hi52Item['origin'] = EU_TICKER_SET.has(s.ticker) ? 'EU' : JP_TICKER_SET.has(s.ticker) ? 'JP' : CN_TICKER_SET.has(s.ticker) ? 'CN' : s.market === 'KR' ? 'KR' : 'US'
         const item: Hi52Item = {
-          ticker: s.ticker, name: s.name ?? s.ticker, market: s.market,
+          ticker: s.ticker, name: s.name ?? s.ticker, market: s.market, origin,
           sector: s.sector ?? null, industry: s.industry ?? null,
           price: last.close, hi52,
           spark: D.slice(-40).map(c => Math.round(c.close * 100) / 100),

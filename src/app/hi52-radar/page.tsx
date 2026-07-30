@@ -86,7 +86,7 @@ function Group({ icon, title, sub, color, items, empty, cap }: { icon: string; t
 export default function Hi52RadarPage() {
   const [data, setData] = useState<Hi52Radar | null>(null)
   const [err, setErr] = useState<string | null>(null)
-  const [mk, setMk] = useState<'ALL' | 'US' | 'KR'>('ALL')
+  const [mk, setMk] = useState<'ALL' | 'US' | 'KR' | 'EU' | 'JP' | 'CN'>('ALL')
 
   useEffect(() => {
     let alive = true
@@ -103,7 +103,7 @@ export default function Hi52RadarPage() {
   }, [])
 
   const f = useMemo(() => {
-    const flt = (a: Hi52Item[]) => mk === 'ALL' ? a : a.filter(x => x.market === mk)
+    const flt = (a: Hi52Item[]) => mk === 'ALL' ? a : a.filter(x => x.origin === mk)   // market이 아니라 origin — 해외 종목은 market='US'라 국기와 어긋난다
     return data ? { ride: flt(data.ride), wait: flt(data.wait), caution: flt(data.caution) } : null
   }, [data, mk])
 
@@ -116,8 +116,8 @@ export default function Hi52RadarPage() {
           <span style={{ color: TK.slate200, fontWeight: 800, fontSize: FS.h2 }}>신고가 레이더 — 달리는 말에 올라타라?</span>
           {data && <span style={{ color: TK.sub, fontSize: FS.tiny }}>52주 고점 75%+ {data.scanned}종 · 기준 {data.asOf}</span>}
           <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 4 }}>
-            {(['ALL', 'US', 'KR'] as const).map(m => (
-              <button key={m} onClick={() => setMk(m)} style={{ padding: '3px 11px', borderRadius: 6, cursor: 'pointer', fontSize: FS.tiny, fontWeight: 700, background: mk === m ? TK.blue500 : TK.bg3, color: mk === m ? '#fff' : TK.slate400, border: `1px solid ${mk === m ? TK.blue500 : BORDER}` }}>{m === 'ALL' ? '전체' : m === 'US' ? '🇺🇸 미국' : '🇰🇷 한국'}</button>
+            {([['ALL', '전체'], ['US', '🇺🇸 미국'], ['KR', '🇰🇷 한국'], ['EU', '🇪🇺 유럽'], ['JP', '🇯🇵 일본'], ['CN', '🇨🇳 중화권']] as const).map(([m, lb]) => (
+              <button key={m} onClick={() => setMk(m)} style={{ padding: '3px 10px', borderRadius: 6, cursor: 'pointer', fontSize: FS.tiny, fontWeight: 700, background: mk === m ? TK.blue500 : TK.bg3, color: mk === m ? '#fff' : TK.slate400, border: `1px solid ${mk === m ? TK.blue500 : BORDER}` }}>{lb}</button>
             ))}
           </span>
         </div>
