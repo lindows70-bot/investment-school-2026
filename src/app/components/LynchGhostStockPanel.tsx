@@ -723,7 +723,8 @@ export default function LynchGhostStockPanel() {
             <strong style={{ color:C.amber }}>피터 린치의 핵심 원칙:</strong>{' '}
             &quot;월가 애널리스트가 팔로우하지 않고, 임원이 자기 돈으로 사는 종목이 10루타 후보입니다.
             기관이 발견하기 전에 먼저 들어가는 것이 개인 투자자의 유일한 이점입니다.&quot;
-            <span style={{ color:C.textLow }}> — Ghost Score: 기관 소외 40pt + 내부자 매수 40pt + 기관 보유 낮음 20pt</span>
+            <span style={{ color:C.textLow }}> — Ghost Score: 기관 소외 40pt + 내부자 매수 40pt + 기관 보유 낮음 20pt.
+            ⚠️ 이 점수는 <b>기업의 품질이 아니라 &lsquo;시장이 아직 모르는 정도(정보 우위 여지)&rsquo;</b>입니다 — 점수 낮음(총공세)은 나쁜 회사가 아니라 이미 다 알려진 회사라는 뜻. 좋은 기업인지(WHAT)는 종합 매수 판정(6축), 지금 살 자리인지(WHEN)는 타점 신호등의 몫입니다</span>
           </div>
         </div>
 

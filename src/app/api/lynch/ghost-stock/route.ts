@@ -98,25 +98,36 @@ function calcGhostGrade(
 }
 
 // ── 린치 버딕트 자동 생성 ─────────────────────────────────────
+//    ⚠️ 2026-08-01 재작성: ① 진주 등급은 내부자 0건도 가능한데 옛 문구가 "내부자 매수 신호가 잡힙니다·선점하세요"라고
+//    거짓+매수 권유(원익IPS 화면검증 발견) ② KR은 '건(리포트)'인데 '명' 단위 ③ net 3 '강한 매수' 배지와 "소규모 매수" 톤 충돌.
+//    원칙: 사실만 서술 · 매수 지시 금지(조사 권유까지만).
 function generateLynchVerdict(
   grade:        string,
   ticker:       string,
   analystCount: number,
   insiderNet:   number,
+  isKr:         boolean,
 ): string {
+  const cov = isKr ? `리포트 ${analystCount}건` : `애널리스트 ${analystCount}명`
+  const insiderTone =
+    insiderNet >= 2 ? '서로 다른 내부자가 자기 돈으로 사고 있습니다(고확신 신호)'
+    : insiderNet >= 1 ? '내부자 소규모 매수가 있습니다'
+    : '내부자 매수는 아직 없습니다'
   if (grade === 'diamond') {
-    return `"바로 이겁니다! 고작 ${analystCount}명의 애널리스트만 보는 월가의 사각지대인데, 임원들이 자기 돈으로 쓸어 담고 있습니다. 심봤습니다! 린치가 평생 찾던 그 종목입니다."`
+    return `"시장의 사각지대(${cov})인데 ${insiderTone}. 린치가 평생 찾던 조합입니다 — 단, 여기서부터가 시작입니다. 재무·이익을 직접 조사하세요."`
   }
   if (grade === 'pearl') {
-    return `"아직 소형 커버리지(${analystCount}명)에 내부자 매수 신호가 잡힙니다. 린치라면 이 초기 발굴 신호를 절대 놓치지 않습니다. 소문이 퍼지기 전에 선점하세요."`
+    return insiderNet > 0
+      ? `"소형 커버리지(${cov})에 내부자 매수까지 — 린치식 초기 발굴 신호입니다. 소문이 아니라 숫자(이익·재무)로 직접 확인할 가치가 있습니다."`
+      : `"소형 커버리지(${cov}) — 시장이 아직 주목하지 않는 구간입니다. 내부자 매수는 아직 없으니 '발굴 후보'로 관찰하며 이익·재무부터 직접 조사하세요."`
   }
   if (grade === 'radar') {
-    return `"중간 커버리지(${analystCount}명) 구간입니다. ${insiderNet > 0 ? '내부자 소규모 매수가 있어 미약한 긍정 신호이지만' : '내부자 동향도 중립적이라'} 아직 적극적 진입 전 모니터링이 적합합니다."`
+    return `"중간 커버리지(${cov}) 구간입니다. ${insiderNet >= 2 ? '내부자 클러스터 매수가 붙어 주목할 만하지만' : insiderNet > 0 ? '내부자 소규모 매수가 있지만' : '내부자 동향은 중립이라'} 소외 프리미엄은 크지 않습니다 — 판단은 펀더멘탈로."`
   }
   if (grade === 'hotspot') {
-    return `"${analystCount}명이 주목하는 인기 종목입니다. 린치가 좋아하는 소외 구간과는 거리가 있습니다. 우량하더라도 숨겨진 진주는 아닙니다."`
+    return `"${cov}이 주목하는 인기 종목입니다. 린치가 좋아하는 소외 구간과는 거리가 있습니다 — 나쁜 회사라는 뜻이 아니라, '남보다 먼저'의 이점이 없다는 뜻입니다."`
   }
-  return `"${ticker}는 월가의 총아입니다. ${analystCount}명이 샅샅이 들여다보니 개인 투자자의 정보 이점이 없습니다. 린치 공식의 유령 종목과 정반대입니다."`
+  return `"${ticker}는 월가의 총아입니다. ${cov}이 샅샅이 들여다보니 개인의 정보 이점은 없습니다 — 품질 판단은 종합 매수 판정(6축)의 몫입니다."`
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -241,7 +252,7 @@ async function buildGhostRecord(
   const analystComment =
     coverage.count <= 5
       ? `${coverage.count}${unit} — 시장의 사각지대.${instTail || ' 기관 유입 전 초기 구간일 수 있습니다.'}`
-      : coverage.count <= 15
+      : coverage.count <= 10
         ? `${coverage.count}${unit} — 아직 발굴 초기 단계.${instTail}`
         : `${coverage.count}${unit} — 이미 시장의 레이더 안에 있습니다.${instTail}`
 
@@ -266,7 +277,7 @@ async function buildGhostRecord(
     last_activity_days: insider.lastActivityDays,
     ghost_score:        score,
     ghost_grade:        grade,
-    lynch_verdict:      generateLynchVerdict(grade, ticker, coverage.count, net),
+    lynch_verdict:      generateLynchVerdict(grade, ticker, coverage.count, net, isKr),
     analyst_comment:    analystComment,
     insider_comment:    insiderComment,
   }
