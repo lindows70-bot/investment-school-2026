@@ -1,4 +1,4 @@
-// 🎖️ AI 본부장 종합 브리핑 — 진단(계절 정합) + 매수(통합 3축)를 하나의 처방으로 연결
+// 🎖️ AI 본부장 종합 브리핑 — 진단(계절 정합) + 매수(통합 6축)를 하나의 처방으로 연결
 // season-navigator(진단·매도신호) + unified-reco(매수)의 캐시된 결과를 합쳐 Gemini가 한 편의 운용 지시로 작성
 import { UNIFIED_RECO_V } from '@/lib/recoCacheVersion'   // ⚠️ 통합추천 출력이 바뀌면 이 캐시도 함께 무효화(옛 추천 종목 박제 방지)
 import { NextResponse } from 'next/server'
@@ -42,7 +42,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `hq-briefing-v13+${UNIFIED_RECO_V}:${user.id}:${kstDate()}:${fp}`   // v12: 통합추천 5축(가치·퀄리티 분해) 반영 — 브리핑에 퀄리티 점수 병기
+  const cacheKey = `hq-briefing-v14+${UNIFIED_RECO_V}:${user.id}:${kstDate()}:${fp}`   // v14: 3축→6축 라벨·프롬프트 정합 / v13: 고평가 익절 문구 원칙 정합
   const cached = await getCache<HqBriefing>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -164,14 +164,14 @@ export async function GET(req: Request) {
 [손익 기준 매도 신호(손절/익절)] ${sellTxt}
 [총 회수 가능 비중] ${sellBudget}%
 [계절 미스매치 보유 종목(참고)] ${trimTxt}
-[통합 추천 상위 매수 후보(계절×가치×수급 3축)]
+[통합 추천 상위 매수 후보(6축: 가치·퀄리티·모멘텀·주도섹터·수급·계절)]
 ${buyTxt || '없음'}
 [연준 정책 기조(참고 맥락·계절판정 대체 아님)] ${policyTilt ? `${policyTilt.label} — ${policyTilt.note}` : '데이터 없음'}
 [🧭 리스크 체크(반드시 처방에 반영 — 우리 엔진이 산출한 사실)] ${riskChecks.length ? '\n' + riskChecks.map(r => `· ${r.text}`).join('\n') : '특이 리스크 없음'}
 
 [작성 규칙]
 - ⭐ 위 [리스크 체크]를 처방에 반드시 녹여라(상황 인지형 처방): ① 규제 🔴 자산은 ROE·성장이 좋아도 신규 매수를 '대기'로 권하고 그 이유를 명시 ② 공정가치 대비 고평가·기저효과 종목은 '추격 매수 자제' 톤만 — DCF 고평가 단독으로 익절·매도를 권하지 마라(보수 DCF는 성장주를 구조적으로 비싸게 봄). 익절·축소는 thesis 훼손이나 추세 붕괴가 함께 있을 때만 ③ 해자 없음 종목은 비중 제한 권고. 단, 리스크 체크에 없는 내용을 지어내지는 마라.
-- 4~5문장, 한국어. ① 지금 국면과 내 포폴 정합 상태 ② 손익 기준 매도 신호가 있으면 무엇을 왜(손절=손실+thesis붕괴 / 익절=수익+고평가), 없으면 "급히 팔 종목은 없음" ③ 매도/회수 자금(${sellBudget}%)으로 통합 1~2위 종목을 왜 담을지(3축 근거 + 매도↔매수 연결) ④ 연준 기조 한 줄 — ⚠️ 반드시 위 [연준 기조] 라벨(${policyTilt ? policyTilt.label : '중립'})과 일치시켜라(거시경제 탭 FOMC 디코더와 모순 금지). 매파면 "고금리 장기화", 비둘기면 "시장보다 덜 매파적" 톤으로 매수 종목 성격 보조 근거로만 가볍게 언급 ⑤ "분할로 신중히" 톤.
+- 4~5문장, 한국어. ① 지금 국면과 내 포폴 정합 상태 ② 손익 기준 매도 신호가 있으면 무엇을 왜(손절=손실+thesis붕괴 / 익절=수익+고평가), 없으면 "급히 팔 종목은 없음" ③ 매도/회수 자금(${sellBudget}%)으로 통합 1~2위 종목을 왜 담을지(6축 근거 + 매도↔매수 연결) ④ 연준 기조 한 줄 — ⚠️ 반드시 위 [연준 기조] 라벨(${policyTilt ? policyTilt.label : '중립'})과 일치시켜라(거시경제 탭 FOMC 디코더와 모순 금지). 매파면 "고금리 장기화", 비둘기면 "시장보다 덜 매파적" 톤으로 매수 종목 성격 보조 근거로만 가볍게 언급 ⑤ "분할로 신중히" 톤.
 - ⚠️ 연준 기조는 어디까지나 '참고'다. 계절/국면 판정(${seasonLabel})을 뒤집거나 매크로 결론을 바꾸지 마라. 금리 방향 힌트로 매수 종목 성격(성장주 vs 가치주) 코멘트에만 가볍게 쓰라.
 - ⚠️ 비둘기 기조라도 '금리 인하 예상'·'완화 국면' 같은 절대적 표현 금지 — 시장은 동결/인상을 반영 중일 수 있다. 반드시 '시장 기대보다 덜 매파적일 수 있다' 같은 상대적 표현만 쓰라.
 - ⛔ 자동매매·체결 지시 금지(제안까지). 단정적 수익 예측·가짜 숫자 금지. 손실 깊은 종목 저점매도 강요 금지(thesis 멀쩡하면 보유).

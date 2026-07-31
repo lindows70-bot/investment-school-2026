@@ -102,7 +102,7 @@ export default function OperationsHQ() {
 
         {/* 3단계 흐름 */}
         <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-          {[['①', '진단', '지금 국면 · 내 포폴 정합'], ['②', '매도·리밸런싱', '익절/손절/분산 트림'], ['③', '통합 매수', '계절×가치×수급 3축']].map(([n, t, d]) => (
+          {[['①', '진단', '지금 국면 · 내 포폴 정합'], ['②', '매도·리밸런싱', '익절/손절/분산 트림'], ['③', '통합 매수', '6축(가치·퀄리티·모멘텀·주도섹터·수급·계절)']].map(([n, t, d]) => (
             <div key={t} style={{ flex: '1 1 180px', background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 9, padding: '8px 12px' }}>
               <span style={{ color: TK.indigo400, fontWeight: 800, fontSize: 13 }}>{n} {t}</span>
               <div style={{ color: TK.sub, fontSize: 10.5, marginTop: 1 }}>{d}</div>
