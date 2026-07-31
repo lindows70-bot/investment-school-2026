@@ -103,6 +103,29 @@ export default function ExitPlanBoard() {
                   </div>
                 )}
 
+                {it.thesis && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 7, padding: '6px 8px', borderRadius: 7, background: TK.slate900, border: `1px dashed ${TK.border}` }}>
+                    <span title="매수 순간 자동 저장된 신호(PEG·이익·수급·계절)와 지금을 대조 — 린치: '산 이유가 사라지면 판다'. 손절을 감정이 아니라 근거 소멸로 판단하는 훈련"
+                      style={{ fontSize: 10, fontWeight: 800, color: TK.slate300 }}>
+                      🧭 산 이유 점검 <span style={{ color: TK.sub2, fontWeight: 400 }}>({it.thesis.boughtAt} 매수 기록)</span>
+                    </span>
+                    {it.thesis.axes.map((a, i) => {
+                      const c = a.state === 'bad' ? TK.red400 : a.state === 'chg' ? TK.amber400 : TK.green400
+                      return (
+                        <span key={i} style={{ fontSize: 9.5, color: c, border: `1px solid ${c}44`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>
+                          {a.icon} {a.label} {a.then} → {a.now}
+                        </span>
+                      )
+                    })}
+                    <b style={{ marginLeft: 'auto', fontSize: 10,
+                      color: it.thesis.verdict === 'broken' ? TK.red400 : it.thesis.verdict === 'partial' ? TK.amber400 : TK.green400 }}>
+                      {it.thesis.verdict === 'broken' ? '🔴 매수 근거 훼손'
+                        : it.thesis.verdict === 'partial' ? '🟡 일부 변화 — 가격 근거 변화만으론 손절 강요 아님'
+                        : '🟢 산 이유 유지 — 하락은 변동성일 가능성'}
+                    </b>
+                  </div>
+                )}
+
                 <div style={{ marginTop: 7, fontSize: 11, color: TK.slate300, lineHeight: 1.55 }}>
                   <b style={{ color: it.signals.length >= 2 ? TK.amber400 : TK.sub }}>→ </b>{it.action}
                 </div>
@@ -113,6 +136,7 @@ export default function ExitPlanBoard() {
           <div style={{ fontSize: 9.5, color: TK.sub2, lineHeight: 1.6, padding: '2px 4px' }}>
             ⛔ 매도 지시가 아니라 참고선·신호 집계입니다(자동매매 없음). 참고선은 매일 갱신되는 트레일링 값이며,
             펀더멘탈이 멀쩡한 하락은 변동성일 수 있습니다 — 무서워서 파는 건 손실 확정(영구손실 vs 변동성 구분).
+            🧭 산 이유 점검은 매수 순간 자동 저장된 신호가 있는 종목만 표시됩니다(2026-06-19 기록 시작 — 이후 매수부터 자동 적립).
             {data.skipped.length > 0 && ` · 데이터 부족 생략: ${data.skipped.join(', ')}`}
           </div>
         </div>

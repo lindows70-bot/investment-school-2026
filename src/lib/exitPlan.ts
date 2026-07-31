@@ -6,8 +6,88 @@ import { getTechCandles } from './techChartData'
 import { timingFromCandles } from './entryTiming'
 import { loadRotationBySector, SECTOR_TO_ROT, type RotQuadShared } from './rotationShared'
 import { getSector } from './schoolIndex'
+import { getCanonicalFundamentals, isPegBaseEffect } from './canonicalFundamentals'
+import { getMoneyFlow } from './moneyFlow'
+import { getCurrentSeason } from './currentSeason'
+import { holdingFit, type Quadrant } from './seasonNavigator'
+import { classifyLynchMece } from './lynchAnalysis'
 
 export interface ExitSignal { icon: string; label: string; detail: string }
+
+// ── 🧭 매수 이유 유효성 점검("산 이유가 아직 맞는가") ──────────────────────
+// 매수 순간 박제된 snapshot_data(decision-snapshot)와 현재 SSOT 값을 대조.
+// 린치: "산 이유가 사라지면 판다" — 손절을 감정이 아니라 근거 소멸로 판단하게 훈련.
+export interface BuySnapshot {
+  peg?: number | null; growth_rate?: number | null; opMargin?: number | null
+  flow?: string | null; seasonTag?: string | null; sector?: string | null; category?: string | null
+}
+export interface ThesisAxis { icon: string; label: string; then: string; now: string; state: 'ok' | 'chg' | 'bad' }
+export interface ThesisCheck { boughtAt: string; verdict: 'intact' | 'partial' | 'broken'; axes: ThesisAxis[] }
+
+const fmtPeg = (v: number) => v.toFixed(2)
+const fmtOm = (v: number) => `${Math.round(v * 1000) / 10}%`
+const FLOW_KO: Record<string, string> = { INFLOW: '유입', CROWDED: '이탈', NEGLECTED: '소외', NEUTRAL: '중립' }
+const TAG_KO: Record<string, string> = { favored: '유리', neutral: '중립', unfavored: '불리' }
+
+/** 매수 시점 스냅샷 vs 현재 값 → 축별 상태 + 종합 판정(결정론).
+ *  임계는 전부 기존 SSOT 관례: PEG 저평가 <1 · 고평가 >2.2(Jarvis SELL) · 영업적자 −10%(opLoss) ·
+ *  seasonTag 75/50(decision-snapshot과 동일 holdingFit 공식). */
+export function computeThesis(
+  snap: BuySnapshot, boughtAt: string,
+  now: { peg: number | null; growth: number | null; opMargin: number | null; flow: string | null; seasonTag: string | null },
+): ThesisCheck | null {
+  const axes: ThesisAxis[] = []
+
+  // 💎 가치(PEG) — 핵심축
+  if (snap.peg != null && now.peg != null) {
+    const thenLow = snap.peg < 1, nowHigh = now.peg > 2.2
+    const state: ThesisAxis['state'] =
+      thenLow && nowHigh ? 'bad'
+      : thenLow && now.peg >= 1 ? 'chg'
+      : !thenLow && snap.peg <= 2.2 && nowHigh ? 'chg'
+      : 'ok'
+    const baseNote = isPegBaseEffect(now.peg, now.growth) ? '(기저효과 의심)' : ''
+    axes.push({ icon: '💎', label: 'PEG', then: fmtPeg(snap.peg), now: fmtPeg(now.peg) + baseNote, state })
+  }
+  // 📊 이익 체력(영업이익률) — 핵심축(린치: 이익 훼손이 진짜 매도 사유)
+  if (snap.opMargin != null && now.opMargin != null) {
+    const state: ThesisAxis['state'] =
+      snap.opMargin > 0 && now.opMargin <= -0.10 ? 'bad'
+      : snap.opMargin > 0 && now.opMargin < 0 ? 'chg'
+      : 'ok'
+    axes.push({ icon: '📊', label: '영업이익률', then: fmtOm(snap.opMargin), now: fmtOm(now.opMargin), state })
+  }
+  // 📡 수급 — 보조축(빨리 변하는 축이라 판정 가중 낮음)
+  if (snap.flow && now.flow && FLOW_KO[snap.flow] && FLOW_KO[now.flow]) {
+    const state: ThesisAxis['state'] =
+      snap.flow === 'INFLOW' && now.flow === 'CROWDED' ? 'bad'
+      : now.flow === 'CROWDED' && snap.flow !== 'CROWDED' ? 'chg'
+      : snap.flow === 'INFLOW' && now.flow !== 'INFLOW' ? 'chg'
+      : 'ok'
+    axes.push({ icon: '📡', label: '수급', then: FLOW_KO[snap.flow], now: FLOW_KO[now.flow], state })
+  }
+  // 🌦️ 계절 — 보조축
+  if (snap.seasonTag && now.seasonTag && TAG_KO[snap.seasonTag] && TAG_KO[now.seasonTag]) {
+    const state: ThesisAxis['state'] =
+      snap.seasonTag === 'favored' && now.seasonTag === 'unfavored' ? 'bad'
+      : snap.seasonTag !== now.seasonTag && now.seasonTag !== 'favored' ? 'chg'
+      : 'ok'
+    axes.push({ icon: '🌦️', label: '계절', then: TAG_KO[snap.seasonTag], now: TAG_KO[now.seasonTag], state })
+  }
+
+  if (axes.length === 0) return null
+  const bad = axes.filter(a => a.state === 'bad')
+  const chg = axes.filter(a => a.state === 'chg')
+  const profitBad = bad.some(a => a.label === '영업이익률')
+  const valueBad = bad.some(a => a.label === 'PEG')
+  const verdict: ThesisCheck['verdict'] =
+    profitBad ? 'broken'                                     // 이익 체력 훼손은 단독으로도 thesis 붕괴(린치)
+    : valueBad && (bad.length >= 2 || chg.length >= 1) ? 'broken'
+    : valueBad ? 'partial'                                   // 가격 근거만 약화 — 단순 고평가로 손절 강요 금지
+    : bad.length >= 1 || chg.length >= 2 ? 'partial'
+    : 'intact'
+  return { boughtAt, verdict, axes }
+}
 
 export interface ExitPlanItem {
   ticker: string; name: string; market: 'KR' | 'US'
@@ -21,6 +101,8 @@ export interface ExitPlanItem {
   fund: 'SELL' | 'BUY' | 'HOLD' | null   // Jarvis 최신 펀더 판정(WHAT축)
   action: string                 // 결정론 행동 한 줄(학생 언어)
   rotQuad: RotQuadShared | null
+  /** 🧭 산 이유 점검 — 매수 시점 스냅샷 대비. null = 기록 없음(6/19 기록 시작 이전 매수) */
+  thesis: ThesisCheck | null
 }
 
 export interface ExitHolding { ticker: string; name: string; market: 'KR' | 'US'; avgPrice: number; qty: number }
@@ -32,6 +114,9 @@ async function buildOne(
   h: ExitHolding,
   fund: ExitPlanItem['fund'],
   rotBySector: Map<string, { q: RotQuadShared }> | null,
+  snap: (BuySnapshot & { boughtAt: string }) | null,
+  quads: { us: Quadrant | null; kr: Quadrant | null },
+  base: string,
 ): Promise<ExitPlanItem | null> {
   const D = await getTechCandles(h.ticker, h.market, 'D')
   if (!D || D.length < 225) return null
@@ -64,6 +149,30 @@ async function buildOne(
 
   if (fund === 'SELL') signals.push({ icon: '🧠', label: '펀더 매도검토', detail: 'Jarvis 정량 룰(고PEG·마진 연속 하락·FCF 적자·칼날) 발동 — WHAT축 경고' })
 
+  // 🧭 산 이유 점검 — 매수 시점 스냅샷 vs 현재(전부 캐시된 SSOT: canonical 6h·moneyFlow 일별)
+  let thesis: ThesisCheck | null = null
+  if (snap) {
+    try {
+      const [cf, mf] = await Promise.all([
+        getCanonicalFundamentals(h.ticker, h.market, base).catch(() => null),
+        getMoneyFlow(h.ticker, h.market, h.name).catch(() => null),
+      ])
+      // 계절 now = decision-snapshot과 동일 공식(holdingFit 75/50) — 섹터는 스냅샷 GICS 재사용(드리프트·재fetch 방지)
+      let seasonTagNow: string | null = null
+      const quad = h.market === 'KR' ? quads.kr : quads.us
+      if (quad) {
+        const lynch = classifyLynchMece(null, cf?.growth ?? null, snap.sector ?? null).cat
+        const fit = Math.round(holdingFit({ ticker: '', weight: 0, lynchCategory: lynch === 'na' ? null : lynch, sector: snap.sector ?? undefined }, quad) * 100)
+        seasonTagNow = fit >= 75 ? 'favored' : fit <= 50 ? 'unfavored' : 'neutral'
+      }
+      const flowNow = mf && mf.status !== 'UNSUPPORTED' ? mf.status : null
+      thesis = computeThesis(snap, snap.boughtAt, {
+        peg: cf?.peg ?? null, growth: cf?.growth ?? null, opMargin: cf?.opMargin ?? null,
+        flow: flowNow, seasonTag: seasonTagNow,
+      })
+    } catch { /* graceful — 점검 실패 시 표시 생략 */ }
+  }
+
   // ── 결정론 행동 한 줄(우선순위 — 학생 언어·저점 매도 강요 금지) ──
   let action: string
   if (t.trendBreak) {
@@ -84,6 +193,8 @@ async function buildOne(
     action = '경계 신호 있음 — 신규 추가매수는 보류, 참고선 이탈 시 대응'
   }
 
+  if (thesis?.verdict === 'broken') action += ' · 🧭 산 이유(매수 근거)도 훼손 — 아래 점검 참조'
+
   return {
     ticker: h.ticker, name: h.name, market: h.market,
     price, avgPrice: h.avgPrice, qty: h.qty, pnlPct,
@@ -94,7 +205,7 @@ async function buildOne(
     defDistPct: pctOf(price, t.cloudBottom),
     defBroken,
     light: t.light,
-    signals, fund, action, rotQuad,
+    signals, fund, action, rotQuad, thesis,
   }
 }
 
@@ -102,8 +213,12 @@ async function buildOne(
 export async function buildExitPlans(
   holdings: ExitHolding[],
   fundMap: Map<string, ExitPlanItem['fund']>,
+  snapMap: Map<string, BuySnapshot & { boughtAt: string }>,
+  base: string,
 ): Promise<{ items: ExitPlanItem[]; skipped: string[] }> {
   const rotBySector = await loadRotationBySector().catch(() => null)
+  const season = await getCurrentSeason(base).catch(() => null)
+  const quads = { us: (season?.usQuad ?? null) as Quadrant | null, kr: (season?.krQuad ?? null) as Quadrant | null }
   const items: ExitPlanItem[] = []
   const skipped: string[] = []
   const q = [...holdings]
@@ -111,7 +226,7 @@ export async function buildExitPlans(
     while (q.length) {
       const h = q.shift(); if (!h) break
       try {
-        const it = await buildOne(h, fundMap.get(h.ticker.toUpperCase()) ?? null, rotBySector)
+        const it = await buildOne(h, fundMap.get(h.ticker.toUpperCase()) ?? null, rotBySector, snapMap.get(h.ticker.toUpperCase()) ?? null, quads, base)
         if (it) items.push(it); else skipped.push(h.ticker)
       } catch { skipped.push(h.ticker) }
     }
