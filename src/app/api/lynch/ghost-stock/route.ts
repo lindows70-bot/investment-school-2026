@@ -17,11 +17,14 @@
 
 // 빌드 시 정적 생성 금지 — 무거운 외부 fetch가 빌드 타임아웃을 내고(2026-08-01 실측: SEC·Yahoo 지연으로 빌드 실패) 데이터가 빌드 시점에 박제된다
 export const dynamic = 'force-dynamic'
+export const maxDuration = 120   // 🔍 미보유 발굴 콜드 스캔(24종 × 커버리지+내부자) 여유
 
 import { NextResponse } from 'next/server'
 import { createServerClient }        from '@supabase/ssr'
 import { cookies }                   from 'next/headers'
 import { getAssetClassification }     from '@/lib/assetClassifier'
+import { getCache, setCache }         from '@/lib/appCache'
+import { SAT_SCORE_KEY, type SatelliteScore } from '@/lib/satelliteScreener'
 import { getInsiderSignal }           from '@/app/actions/getInsiderSignal'
 import { getAnalystSignal }           from '@/app/actions/getAnalystSignal'
 
@@ -269,6 +272,36 @@ async function buildGhostRecord(
   }
 }
 
+// ── 🔍 미보유 유령 발굴 — 위성 풀(중소형 100종·매일 크론 채점) 상위에서 유령 3축 스캔 ──────────
+//    린치 유령 철학("기관이 발견하기 전에")의 발굴판 — 보유 점검만으론 반쪽(2026-08-01 사용자 지적).
+//    유니버스 기반이라 **전 학생 공유 일일 캐시**(개인 데이터 없음). 서빙 시 각자 보유분만 제외.
+const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
+
+async function buildDiscovery(): Promise<Omit<GhostCacheRow, 'updated_at'>[]> {
+  const key = `ghost-discovery-v1:${kstDate()}`
+  const cached = await getCache<Omit<GhostCacheRow, 'updated_at'>[]>(key, 24 * 3600_000)
+  if (cached?.length) return cached
+
+  const sat = (await getCache<SatelliteScore[]>(SAT_SCORE_KEY, 2 * 24 * 3600_000)) ?? []
+  if (!sat.length) return []   // 위성 크론 콜드 — 정직하게 빈 목록(가짜 후보 금지)
+  const cands = sat.filter(x => !x.knife).sort((a, b) => b.tenScore - a.tenScore).slice(0, 24)
+
+  const out: Omit<GhostCacheRow, 'updated_at'>[] = []
+  const q = [...cands]
+  async function worker() {
+    while (q.length) {
+      const c = q.shift(); if (!c) break
+      try { out.push(await buildGhostRecord(c.ticker.toUpperCase(), c.name, c.market, '')) }
+      catch { /* 커버리지 미확인 종목은 정직 생략(가짜 행 금지) */ }
+    }
+  }
+  await Promise.all(Array.from({ length: 4 }, worker))
+  out.sort((a, b) => b.ghost_score - a.ghost_score)
+  const top = out.slice(0, 12)
+  if (top.length >= 5) await setCache(key, top)   // 과반 실패 박제 금지
+  return top
+}
+
 // ── GET 핸들러 ────────────────────────────────────────────────
 export async function GET() {
   const cookieStore = await cookies()
@@ -289,6 +322,9 @@ export async function GET() {
   if (authError || !user) {
     return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 })
   }
+
+  // 🔍 발굴 스캔은 보유 분석과 독립 — 먼저 발사하고 응답 직전에 회수(워터폴 방지)
+  const discoveryP = buildDiscovery().catch(() => [] as Omit<GhostCacheRow, 'updated_at'>[])
 
   // ── 2. 서비스 롤 클라이언트 — 캐시 읽기/쓰기 ──────────────
   const { createClient: createSbAdmin } = await import('@supabase/supabase-js')
@@ -408,8 +444,12 @@ export async function GET() {
   const hitCount  = hitMap.size
   const missCount = newRows.length
 
+  const heldSet = new Set(holdings.map(h => String(h.ticker).toUpperCase()))
+  const discovery = (await discoveryP).filter(d => !heldSet.has(d.ticker.toUpperCase()))
+
   return NextResponse.json({
     records:  allRecords,
+    discovery,                    // 🔍 미보유 유령 발굴(위성 풀 상위 · 전 학생 공유 캐시 · 내 보유 제외)
     excluded: excludedHoldings,   // 비주식 자산 목록 (ETF·CRYPTO·COMMODITY)
     source:   hitCount > 0 && missCount === 0 ? 'cache' : 'partial',
     meta: {

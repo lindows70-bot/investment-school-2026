@@ -87,6 +87,7 @@ interface ExcludedAsset {
 
 interface ApiResponse {
   records:   ApiCacheRow[]
+  discovery?: ApiCacheRow[]   // 🔍 미보유 유령 발굴(위성 풀 상위 · 전 학생 공유 · 내 보유 제외)
   excluded?: ExcludedAsset[]
   source:    'cache' | 'partial' | 'empty'
   meta?: {
@@ -408,7 +409,7 @@ function GhostScoreRing({ score }: { score: number }) {
 // ────────────────────────────────────────────────────────────
 // 개별 종목 카드
 // ────────────────────────────────────────────────────────────
-function GhostCard({ record }: { record: GhostRecord }) {
+function GhostCard({ record, held = true }: { record: GhostRecord; held?: boolean }) {
   const [expanded, setExpanded] = useState(false)
   const grade   = GRADE_META[record.ghostGrade]
   const dir     = insiderDir(record)
@@ -432,7 +433,8 @@ function GhostCard({ record }: { record: GhostRecord }) {
                 fontFamily:'monospace', fontWeight:900,
               }}>{record.ticker}</span>
               <span style={{ fontSize:9, padding:'1px 5px', borderRadius:3,
-                background:'rgba(192,132,252,0.12)', color:C.purple, fontWeight:700 }}>보유중</span>
+                background: held ? 'rgba(192,132,252,0.12)' : 'rgba(45,212,191,0.12)',
+                color: held ? C.purple : '#2dd4bf', fontWeight:700 }}>{held ? '보유중' : '미보유 발굴'}</span>
             </div>
             <div style={{ fontSize:12, fontWeight:800, color:C.textHi, marginBottom:4, lineHeight:1.3 }}>{record.name}</div>
             <div style={{
@@ -537,6 +539,7 @@ export default function LynchGhostStockPanel() {
 
   // ── 상태 ─────────────────────────────────────────────────
   const [records,    setRecords]    = useState<GhostRecord[]>([])
+  const [discovery,  setDiscovery]  = useState<GhostRecord[]>([])
   const [excluded,   setExcluded]   = useState<ExcludedAsset[]>([])
   const [loading,    setLoading]    = useState(true)
   const [error,      setError]      = useState<string | null>(null)
@@ -558,6 +561,7 @@ export default function LynchGhostStockPanel() {
         return
       }
       setRecords((body.records ?? []).map(mapApiRow))
+      setDiscovery((body.discovery ?? []).map(mapApiRow))
       setExcluded(body.excluded ?? [])
       setMeta(body.meta ?? null)
       setLastFetch(new Date().toLocaleTimeString('ko-KR'))
@@ -783,6 +787,27 @@ export default function LynchGhostStockPanel() {
         ) : (
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
             {filtered.map(r => <GhostCard key={r.ticker} record={r} />)}
+          </div>
+        )}
+
+        {/* ── 🔍 미보유 유령 발굴 — 위성 풀(중소형 100종) 상위 유령 스캔 ── */}
+        {!loading && discovery.length > 0 && (
+          <div style={{ marginTop:18 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4, flexWrap:'wrap' }}>
+              <span style={{ fontSize:13, fontWeight:900, color:C.textHi }}>🔍 미보유 유령 발굴</span>
+              <span style={{ fontSize:10, color:C.textLow }}>— 중소형 위성 풀(100종·매일 채점) 상위에서 기관 소외 × 내부자 매수 스캔 · 내 보유 제외</span>
+            </div>
+            <div style={{ fontSize:10.5, color:C.textLow, lineHeight:1.55, marginBottom:10 }}>
+              린치의 유령 철학은 본래 <b style={{ color:C.textMid }}>발굴</b>입니다 — 기관이 발견하기 전에 먼저 조사하는 것.
+              ⛔ <b style={{ color:C.amber }}>매수 신호가 아니라 조사 후보</b>입니다. 담기 전에 반드시 종목 리서치의 <b style={{ color:C.textMid }}>종합 매수 판정(6축)</b>과 재무를 직접 확인하세요.
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              {discovery.map(r => <GhostCard key={`d-${r.ticker}`} record={r} held={false} />)}
+            </div>
+            <div style={{ fontSize:9.5, color:C.textLow, marginTop:8, lineHeight:1.5 }}>
+              후보 풀 = 위성 스크리너(시총·성장·칼날 필터 통과 중소형 100종 큐레이션) 상위 — 전 시장 전수가 아닙니다(정직).
+              발굴 결과는 하루 1회 갱신·전 학생 공유(개인 데이터 없음).
+            </div>
           </div>
         )}
 
