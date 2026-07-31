@@ -75,9 +75,9 @@ export default function ExitPlanBoard() {
                   <span style={{ fontSize: 10, color: TK.sub, fontFamily: 'monospace', fontWeight: 700 }}>{it.ticker}</span>
                   <b style={{ fontSize: 11, color: pnlC, fontFamily: 'monospace' }}>{it.pnlPct >= 0 ? '+' : ''}{it.pnlPct}%</b>
                   <span style={{ fontSize: 9.5, color: lightC, border: `1px solid ${lightC}55`, borderRadius: 5, padding: '1px 6px' }}>
-                    {it.light === 'green' ? '구조 양호' : it.light === 'red' ? '구조 붕괴' : '구조 중립'}
+                    {it.light === 'green' ? '구조 양호' : it.light === 'red' ? '구조 붕괴' : it.defBroken ? '구조 약화' : '구조 중립'}
                   </span>
-                  <span style={{ marginLeft: 'auto', fontSize: 10, color: TK.sub2, fontFamily: 'monospace' }}>현재 {fmtP(it.price, it.market)}</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 10, color: TK.sub2, fontFamily: 'monospace' }}>종가 {fmtP(it.price, it.market)}</span>
                 </div>
 
                 <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 6 }}>
