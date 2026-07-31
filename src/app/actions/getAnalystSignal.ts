@@ -129,7 +129,22 @@ async function krAnalyst(ticker: string, asOf: string): Promise<AnalystSignal> {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const researches = (intg?.researches ?? []) as any[]
-  const reportCount = researches.length
+  // ⚠️ integration.researches 는 **최근 5건 고정 상한**(2026-08-01 실측: 삼성전자도 5) — 커버리지 척도로 쓰면
+  //    전 종목이 '소외'로 오판된다(유령 추적기에서 SK하이닉스가 특급 유령으로 뜬 사건). 페이징 리서치 API로
+  //    **최근 90일 실제 건수**를 센다(실측: 삼성전자 49·SK하이닉스 33·원익IPS 2). 실패 시 옛 5-cap 폴백.
+  let reportCount = researches.length
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const list = await naverJson(`https://m.stock.naver.com/api/research/stock/${stock6}?pageSize=100&page=1`) as any[]
+    if (Array.isArray(list) && list.length > 0) {
+      const cut = Date.now() - 90 * 86400_000
+      const n = list.filter(r => {
+        const d = new Date(String(r.writeDate ?? '').replace(/\./g, '-'))
+        return !isNaN(d.getTime()) && d.getTime() >= cut
+      }).length
+      reportCount = n   // 0건도 실데이터(진짜 소외) — 폴백으로 덮지 않는다
+    }
+  } catch { /* graceful — 5-cap 폴백 유지 */ }
   const brokers = Array.from(new Set(researches.map(r => String(r.bnm || '')).filter(Boolean))).slice(0, 5)
 
   // 판정 (KR: 분산·리비전 없음 → 상승여력 + 투자의견 기반)
