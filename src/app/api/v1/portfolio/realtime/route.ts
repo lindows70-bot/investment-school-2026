@@ -13,6 +13,9 @@
  *   - 프로덕션에서는 DB 쿼리 결과로 반환해야 함
  */
 
+// 빌드 시 정적 생성 금지 — 무거운 외부 fetch가 빌드 타임아웃을 내고(2026-08-01 실측: SEC·Yahoo 지연으로 빌드 실패) 데이터가 빌드 시점에 박제된다
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 
 // ── DEMO 데이터 (개발용 — 특정 종목 의존 없이 포맷 확인 목적)

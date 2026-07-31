@@ -11,6 +11,9 @@
  * 캐싱: 6시간 (s-maxage=21600)
  */
 
+// 빌드 시 정적 생성 금지 — 무거운 외부 fetch가 빌드 타임아웃을 내고(2026-08-01 실측: SEC·Yahoo 지연으로 빌드 실패) 데이터가 빌드 시점에 박제된다
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 
 // ─── 기준금리 폴백 (수동 업데이트, ISO3 기준 · 기준일 2026-07-19) ──────────────
