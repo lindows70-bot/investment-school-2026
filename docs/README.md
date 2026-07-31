@@ -57,3 +57,4 @@
 - **절차 자동화** → `.claude/skills/`(deploy-verify·backtest-autopsy·feature-kickoff)
 - **커밋 시 기계적 검사** → `scripts/precommit-guard.mjs`
 - `hi52-radar/` — 🐎 신고가 레이더('달리는 말') — Phase 0 백테스트 완료·승인 대기
+- `exit-plan/` — 🚪 출구 플랜(보유 종목 매도 계획: 샹들리에 이익 보호선·최후 방어선·매도 압력 집계)
