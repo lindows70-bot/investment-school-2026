@@ -270,6 +270,51 @@ export default function UnifiedReco() {
         {data.items.map(it => <Item key={`${it.market}-${it.ticker}`} it={it} portfolioKrw={data.portfolioKrw} vol={volForStock(it.ticker, it.origin, data.volByOrigin)} />)}
       </div>
 
+      {/* 👀 재진입 감시 — 급락·약세 게이트로 이번 선별에서 빠진 상위 후보(제외를 조용히 숨기지 않는다) */}
+      {data.watchlist && data.watchlist.length > 0 && (
+        <div style={{ background: TK.bg6, borderRadius: 12, border: `1px dashed ${TK.amber400}44`, padding: '13px 16px' }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: TK.slate200, marginBottom: 3 }}>
+            👀 재진입 감시 <span style={{ fontSize: 10.5, color: TK.sub, fontWeight: 600 }}>— 실력은 상위인데 급락·약세로 이번 선별에서 제외 · 매수 아님</span>
+          </div>
+          <div style={{ fontSize: 10.5, color: TK.sub, lineHeight: 1.55, marginBottom: 9 }}>
+            6축 점수는 통과했지만 <b style={{ color: TK.slate300 }}>📉 급락 진행</b> 또는 <b style={{ color: TK.slate300 }}>💪 지수 대비 −10%p 이하 약세</b>라 지금 진입은 칼받이일 수 있어 뺐습니다.
+            억지로 추천하지 않되, <b style={{ color: TK.green400 }}>회복하면 다음 계산에서 본목록에 자동 복귀</b>합니다(별도 조작 없음 — 필터가 스스로 풀리는 결정론).
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {data.watchlist.map(w => {
+              const lightC = w.light === 'green' ? TK.green400 : w.light === 'red' ? TK.red400 : TK.amber400
+              return (
+                <div key={`${w.market}-${w.ticker}`} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '6px 9px', borderRadius: 8, background: TK.bg2 }}>
+                  <b style={{ fontSize: 11.5, color: TK.slate200 }}>{w.market === 'KR' ? '🇰🇷' : '🇺🇸'} {w.name}</b>
+                  <span style={{ fontSize: 9.5, color: TK.sub, fontFamily: 'monospace', fontWeight: 700 }}>{w.ticker}</span>
+                  <span style={{ fontSize: 10, color: TK.sub2 }}>통합 {w.combined}</span>
+                  {w.reason === 'drop' ? (
+                    <span title="최근 20봉 고점 대비 급락 진행 중 — 낙폭이 −12%(속도 조건) 안쪽으로 회복되면 자동 복귀"
+                      style={{ fontSize: 9.5, fontWeight: 700, color: TK.red300, background: '#7f1d1d22', border: `1px solid ${TK.red400}44`, borderRadius: 5, padding: '2px 6px' }}>
+                      📉 급락 {w.dropFromHigh != null ? `${w.dropFromHigh}%` : ''}
+                    </span>
+                  ) : (
+                    <span title="자국 지수 대비 20일 초과수익 −10%p 이하 — 백테스트상 명확히 나쁜 구간(이상치 제거 후 −2.12%p). 격차가 좁혀지면 자동 복귀"
+                      style={{ fontSize: 9.5, fontWeight: 700, color: TK.amber400, background: '#78350f22', border: `1px solid ${TK.amber400}44`, borderRadius: 5, padding: '2px 6px' }}>
+                      💪 지수 대비 {w.rsGap != null ? `${w.rsGap}%p` : '약세'}
+                    </span>
+                  )}
+                  {w.light && (
+                    <span style={{ marginLeft: 'auto', fontSize: 9.5, color: lightC, border: `1px solid ${lightC}44`, borderRadius: 5, padding: '1px 6px' }}>
+                      {w.light === 'green' ? '구조 양호' : w.light === 'red' ? '구조 붕괴' : '구조 중립·약화'}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          <div style={{ fontSize: 9.5, color: TK.sub2, marginTop: 8, lineHeight: 1.5 }}>
+            ⛔ 관찰 목록이지 매수 신호가 아닙니다 — &ldquo;떨어진 것&rdquo;이 &ldquo;오를 것&rdquo;은 아닙니다(자체 백테스트: 약세 구간은 이상치 제거 후에도 명확히 나쁨).
+            회복 여부는 매일 갱신되는 필터가 판정합니다.
+          </div>
+        </div>
+      )}
+
       {/* 🌍 지역 커버리지(참고 · 순위 무관) — merit 밖의 한국·유럽 대표 후보 */}
       {data.reference && data.reference.length > 0 && (
         <div style={{ background: TK.bg6, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '13px 16px' }}>

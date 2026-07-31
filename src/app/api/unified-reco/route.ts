@@ -73,6 +73,17 @@ export interface RegionRefItem {
   peg: number | null; badges: string[]
 }
 
+/** 👀 재진입 감시 — 실력(6축)은 상위인데 급락·약세 게이트로 이번 선별에서 제외된 후보.
+ *  ⛔ 매수 신호 아님(관찰 목록). 복귀는 자동·결정론: sharpDrop·약세가 해소되면 다음 계산에서 본목록에 스스로 돌아온다. */
+export interface WatchCandidate {
+  ticker: string; name: string; market: 'KR' | 'US'; sector: string | null
+  combined: number
+  reason: 'drop' | 'weak'          // 📉 급락 게이트 / 💪 지수 대비 약세 게이트
+  dropFromHigh: number | null      // 20봉 고점 대비 %(급락 사유 상세)
+  rsGap: number | null             // 지수 대비 20일 초과수익 %p(약세 사유 상세)
+  light: 'green' | 'yellow' | 'red' | null
+}
+
 export interface UnifiedRecoResult {
   weights: typeof W
   usSeason: { quadrant: Quadrant; label: string; favored: string[] }
@@ -87,6 +98,7 @@ export interface UnifiedRecoResult {
   portfolioKrw: number          // 포트폴리오 총가치(₩) — 권장 편입액 기준
   regimeMult: number            // 국면 배율(위험 국면 축소)
   momCrash?: boolean            // ⚠️ 모멘텀 크래시 국면(승패 해부실 12-1 역전 실측 재사용) — 점수 불변·캐비엇 전용
+  watchlist?: WatchCandidate[]  // 👀 재진입 감시(급락·약세 제외 후보 — 회복 시 자동 복귀)
   asOf: string
 }
 
@@ -391,10 +403,11 @@ export async function GET(req: Request) {
   const originOf = (s: ScreenedStock): 'EU' | 'KR' | 'US' | 'JP' | 'CN' =>
     EU_TICKER_SET.has(s.ticker) ? 'EU' : JP_TICKER_SET.has(s.ticker) ? 'JP' : CN_TICKER_SET.has(s.ticker) ? 'CN' : s.market === 'KR' ? 'KR' : 'US'
   const weakSet = new Set<string>()
+  const weakGap = new Map<string, number>()   // 👀 감시 리스트 사유 상세용
   for (const t of preTop) {
     const mine = preTiming.get(t.p.s.ticker)?.supply?.ret20
     const idx = volForStock(t.p.s.ticker, originOf(t.p.s), volByOrigin)?.ret20
-    if (mine != null && idx != null && (mine - idx) <= RS_FLOOR) weakSet.add(t.p.s.ticker)
+    if (mine != null && idx != null && (mine - idx) <= RS_FLOOR) { weakSet.add(t.p.s.ticker); weakGap.set(t.p.s.ticker, Math.round((mine - idx) * 10) / 10) }
   }
 
   const secCount = new Map<string, number>()
@@ -409,6 +422,24 @@ export async function GET(req: Request) {
     secCount.set(sec, c + 1); top.push(t)
     if (top.length >= MAX_ITEMS) break
   }
+  // 👀 재진입 감시 — 급락·약세로 빠진 preTop 후보(점수·타점 이미 계산됨 = 추가 fetch 0). 회복 근접이 보이도록 점수순 상위 8
+  const watchlist: WatchCandidate[] = preTop
+    .filter(t => dropSet.has(t.p.s.ticker) || weakSet.has(t.p.s.ticker))
+    .slice(0, 8)
+    .map(t => {
+      const tt = preTiming.get(t.p.s.ticker)
+      return {
+        ticker: t.p.s.ticker, name: t.p.s.name ?? t.p.s.ticker,
+        market: (t.p.s.market === 'KR' ? 'KR' : 'US') as 'KR' | 'US',
+        sector: t.p.s.sector ?? null,
+        combined: t.combined,
+        reason: (dropSet.has(t.p.s.ticker) ? 'drop' : 'weak') as WatchCandidate['reason'],
+        dropFromHigh: tt?.supply?.dropFromHigh ?? null,
+        rsGap: weakGap.get(t.p.s.ticker) ?? null,
+        light: tt?.light ?? null,
+      }
+    })
+
   const selectionRule = `통합 ${QUALITY_FLOOR}점 이상 · 🔪 급락 추세(falling knife) 제외 · 📉 최근 급락 종목 제외(반등 시 자동 복귀) · 💪 지수 대비 ${RS_FLOOR}%p 이하 약세 제외 · 섹터당 최대 ${SECTOR_CAP}종(분산) · 최대 ${MAX_ITEMS}종 · 순수 실력 랭킹(지역 할당 없음)${rotQuadBySector ? ' · 🧭 주도섹터 축 10%(자금 회전 국면)' : ''}`
 
   // 🌍 지역 커버리지(참고 · 순위 무관) — merit 12종 밖의 한국·유럽 대표 후보를 점수와 함께 노출. 억지 편입이 아니라 "앱이 이 지역도 채점·커버한다"를 보여주는 참고 리스트
@@ -579,7 +610,7 @@ export async function GET(req: Request) {
     euSeason: { quadrant: euQuad, label: SEASON_META[euQuad].label, favored: SEASON_META[euQuad].favored },
     jpSeason: { quadrant: jpQuad, label: SEASON_META[jpQuad].label, favored: SEASON_META[jpQuad].favored },
     cnSeason: { quadrant: cnQuad, label: SEASON_META[cnQuad].label, favored: SEASON_META[cnQuad].favored },
-    items, reference, volByOrigin, selectionRule, portfolioKrw, regimeMult, momCrash, asOf: new Date().toISOString(),
+    items, reference, volByOrigin, selectionRule, portfolioKrw, regimeMult, momCrash, watchlist, asOf: new Date().toISOString(),
   }
   await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
