@@ -119,9 +119,18 @@ export default function ExitPlanBoard() {
                     })}
                     <b style={{ marginLeft: 'auto', fontSize: 10,
                       color: it.thesis.verdict === 'broken' ? TK.red400 : it.thesis.verdict === 'partial' ? TK.amber400 : TK.green400 }}>
-                      {it.thesis.verdict === 'broken' ? '🔴 매수 근거 훼손'
-                        : it.thesis.verdict === 'partial' ? '🟡 일부 변화 — 가격 근거 변화만으론 손절 강요 아님'
-                        : '🟢 산 이유 유지 — 하락은 변동성일 가능성'}
+                      {(() => {
+                        const th = it.thesis!
+                        if (th.verdict === 'broken') return '🔴 매수 근거 훼손'
+                        if (th.verdict === 'partial') {
+                          // 바뀐 축을 그대로 말한다 — 가치(PEG)만 나빠진 경우에만 '손절 강요 아님' 문구(일방적 매도 금지)
+                          const moved = th.axes.filter(a => a.state !== 'ok')
+                          const pegOnly = moved.length > 0 && moved.every(a => a.label === 'PEG')
+                          if (pegOnly) return '🟡 가격 근거 약화 — 이것만으론 손절 강요 아님'
+                          return `🟡 일부 변화(${moved.map(a => a.label).join('·')}) — 핵심 근거 재점검`
+                        }
+                        return it.pnlPct < 0 ? '🟢 산 이유 유지 — 하락은 변동성일 가능성' : '🟢 산 이유 유지'
+                      })()}
                     </b>
                   </div>
                 )}
