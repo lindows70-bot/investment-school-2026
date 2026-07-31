@@ -622,7 +622,11 @@ export default function LynchGhostStockPanel() {
           }}>
             <Sparkles size={13} color={C.amber} />
             <div>
-              <div style={{ fontSize:9, color:C.textLow }}>이번 주 No.1 유령 종목</div>
+              <div style={{ fontSize:9, color:C.textLow }}>
+                {topGhost.ghostGrade === 'diamond' || topGhost.ghostGrade === 'pearl'
+                  ? '이번 주 No.1 유령 종목'
+                  : '보유 중 최고 Ghost 점수 (유령 등급 없음)'}
+              </div>
               <div style={{ fontSize:12, fontWeight:800, color:C.amber }}>{topGhost.name} ({topGhost.ticker})</div>
             </div>
             <div style={{
