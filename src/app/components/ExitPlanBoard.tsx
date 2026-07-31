@@ -129,6 +129,9 @@ export default function ExitPlanBoard() {
                           if (pegOnly) return '🟡 가격 근거 약화 — 이것만으론 손절 강요 아님'
                           return `🟡 일부 변화(${moved.map(a => a.label).join('·')}) — 핵심 근거 재점검`
                         }
+                        // ⚖️ 산 이유(기록 4축)는 유지인데 Jarvis 펀더가 다른 룰(칼날·FCF·분기 마진 추세)로 SELL이면
+                        //    한 카드에 '유지 🟢' vs '정리 우선'이 공존 — 축이 다름을 병기(원익IPS 화면검증 발견)
+                        if (it.fund === 'SELL') return '🟢 기록된 산 이유(4축)는 유지 — 단 펀더 진단은 별도 룰로 경고 중'
                         return it.pnlPct < 0 ? '🟢 산 이유 유지 — 하락은 변동성일 가능성' : '🟢 산 이유 유지'
                       })()}
                     </b>
