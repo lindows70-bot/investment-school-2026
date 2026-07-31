@@ -2,7 +2,7 @@
 // EMA112·224 정배열 + 일목 구름 위치 + ATR 손절선을 결정론 판정(기술차트 화면과 동일 계산).
 // ⛔ 원칙: 추천 '점수·선정·정렬'에는 절대 미반영 — 카드에 배지(정보)로만 표시. 자동매매 없음.
 import { getTechCandles, type TechCandle } from '@/lib/techChartData'
-import { calcATR, calcADX, readRaschke, computeAnchoredVWAP, computePOC, computeTTMSqueeze, detectFVG, readPrimeSetup, type PrimeSetup } from '@/lib/techSignals'
+import { calcATR, calcADX, readRaschke, computeAnchoredVWAP, computePOC, computeTTMSqueeze, detectFVG, readPrimeSetup, computeChandelier, type PrimeSetup } from '@/lib/techSignals'
 
 export type TimingLight = 'green' | 'yellow' | 'red'
 /** 📊 매물·평단 지지 요약(카드용 lite) — 같은 캔들에서 추가 fetch 0.
@@ -51,7 +51,10 @@ export interface EntryTiming {
   trendBreak: boolean    // 역배열 + 구름 아래 = 최후 방어선 붕괴(보유 종목 경고용)
   price: number          // 최근 종가(매매 플랜 계산용)
   cloudTop: number       // 현재 봉 위치의 구름 상단(분할 매수 기준선)
+  cloudBottom: number    // 구름 하단 — 보유 종목의 '최후 방어선' 가격 레벨(출구 플랜용)
   atr: number | null     // ATR(14) 원값
+  /** 🛎️ 이익 보호선(샹들리에 22봉·3×ATR) — 수익 반납 방어 참고선. ⛔ 판정·점수 미반영 */
+  chand?: { line: number; broken: boolean; distPct: number } | null
   raschke?: RaschkeLite | null  // 🎼 라쉬케 연쇄/다이버전스(같은 캔들·추가 fetch 0)
   supply?: SupplyLite | null    // 📊 매물·평단 지지(VWAP·POC·FVG·스퀴즈, 같은 캔들·추가 fetch 0)
 }
@@ -144,7 +147,9 @@ export function timingFromCandles(D: TechCandle[]): EntryTiming | null {
   const base = {
     prime, aligned, cloud, atrStop, raschke, supply,
     price: Math.round(price * 100) / 100, cloudTop,
+    cloudBottom: Math.round(Math.min(spanA, spanB) * 100) / 100,
     atr: atr != null ? Math.round(atr * 100) / 100 : null,
+    chand: computeChandelier(D),
   }
   // ⚠️ 급락 중이면 **라벨·가이드를 바꿔야 한다** — 안 그러면 같은 카드에서 정면 모순이 난다:
   //    "계획 비중대로 분할 진입"(가이드) ↔ "지금 진입은 칼받이"(급락 경고)  — 한국콜마 −21.8%·S-Oil −19.2%

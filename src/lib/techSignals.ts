@@ -121,6 +121,24 @@ export function calcATR(data: Ohlc[], period = 14): (number | null)[] {
   return out
 }
 
+/** 🛎️ 샹들리에 스탑(Chandelier Exit) — 이익 보호선. 표준 파라미터(Chuck LeBeau 원저): 22봉 최고가(high) − 3×ATR(22).
+ *  창(22봉)이 스스로 따라 올라가는 트레일링 성질 — 수익 중 종목의 '번 것을 지키는 선'.
+ *  ⚠️ "매수 후 최고가" 변형은 학생마다 값이 갈려 제2원칙 위반 → 표준 창으로 전원 동일 값(docs/exit-plan).
+ *  ⛔ 판정·점수 미반영 — 참고선·알림 전용. */
+export function computeChandelier(data: Ohlc[], period = 22, mult = 3): { line: number; broken: boolean; distPct: number } | null {
+  const N = data.length
+  if (N < period + 1) return null
+  const atrArr = calcATR(data, period)
+  const atr = atrArr[N - 1]
+  if (atr == null) return null
+  let hh = -Infinity
+  for (let i = N - period; i < N; i++) { const h = data[i].high ?? data[i].close; if (h > hh) hh = h }
+  const line = hh - mult * atr
+  const price = data[N - 1].close
+  if (!(line > 0) || !(price > 0)) return null   // 초저가·변동성 극단에서 음수 선은 무의미 — 정직 생략
+  return { line: Math.round(line * 100) / 100, broken: price < line, distPct: Math.round((price / line - 1) * 1000) / 10 }
+}
+
 /** ADX(14) — 추세 강도(방향 무관). <20=박스권(오실레이터 휩쏘 위험) / ≥25=추세장 */
 export function calcADX(data: Ohlc[], period = 14): (number | null)[] {
   const N = data.length

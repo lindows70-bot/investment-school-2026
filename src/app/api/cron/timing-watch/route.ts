@@ -15,7 +15,7 @@ import type { RotationResult } from '@/app/api/sector-rotation/route'
 
 type SupportState = 'strong' | 'ext' | 'weak' | 'mixed' | null
 type RotQuad = 'leading' | 'weakening' | 'lagging' | 'improving'
-interface SigState { light: TimingLight | null; rkStage: number | null; bearDiv: boolean; sqFired: 'up' | 'down' | null; support: SupportState; sectorQuad?: RotQuad | null }
+interface SigState { light: TimingLight | null; rkStage: number | null; bearDiv: boolean; sqFired: 'up' | 'down' | null; support: SupportState; sectorQuad?: RotQuad | null; protBreak?: boolean }
 interface WatchSnap { date: string; snap: Record<string, SigState>; names: Record<string, string> }
 
 // Yahoo assetProfile.sector → 섹터 로테이션 GICS 키(#3 섹터 자금 이탈 매도신호용)
@@ -39,13 +39,14 @@ function toState(t: EntryTiming | null | undefined): SigState {
   const support: SupportState = !sup ? null
     : sup.supportStrong ? (sup.overExtended ? 'ext' : 'strong')
     : sup.supportWeak ? 'weak' : 'mixed'
-  return { light: t?.light ?? null, rkStage: t?.raschke?.stage ?? null, bearDiv: !!t?.raschke?.bearDiv, sqFired: t?.supply?.squeezeFired ?? null, support }
+  return { light: t?.light ?? null, rkStage: t?.raschke?.stage ?? null, bearDiv: !!t?.raschke?.bearDiv, sqFired: t?.supply?.squeezeFired ?? null, support, protBreak: t?.chand ? t.chand.broken : undefined }
 }
 
 /** 전일→오늘 상태 전환 중 '행동 가치 있는' 것 하나만(우선순위: 매도 방어 먼저 → 매수 기회). 미변화면 null */
 function diffSig(p: SigState, c: SigState): Omit<WatchSig, 'ticker' | 'name' | 'market'> | null {
   // 🔴 매도·경계(자본 방어 우선)
   if (p.light === 'green' && c.light === 'red') return { kind: 'sell', icon: '🔴', label: '최후 방어선 붕괴', detail: 'EMA 역배열+구름 이탈 — 장기 추세까지 꺾임. 재무 좋아도 기회비용 주의' }
+  if (p.protBreak === false && c.protBreak === true) return { kind: 'sell', icon: '🛎️', label: '이익 보호선 이탈', detail: '샹들리에(22봉 고점−3×ATR) 하향 — 수익 반납 방어 구간, 수익 중이면 분할 익절 검토' }
   if (!p.bearDiv && c.bearDiv) return { kind: 'sell', icon: '📉', label: '하락 다이버전스', detail: '주가 신고점↑ vs RSI↓ — 상승 에너지 소진, 분할 익절 조기 신호' }
   if (p.support === 'strong' && c.support === 'weak') return { kind: 'sell', icon: '📊', label: '지지 상실', detail: '기관평단(VWAP)·매물대(POC) 아래로 이탈 — 지지 얇아짐, 되돌림 리스크' }
   if (c.sqFired === 'down' && p.sqFired !== 'down') return { kind: 'sell', icon: '🔥', label: '변동성 하방 분출', detail: '스퀴즈 해제 하방 — 신규 매수 보류' }
