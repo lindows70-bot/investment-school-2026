@@ -130,11 +130,12 @@ export default function DividendIncomeLab() {
       const y = p.dividendYield ?? 0
       const divKRW = investKRW * y                 // 배당률은 통화 무관(소수) → 환율 불필요
       annualDiv += divKRW; wYield += wNorm * y
-      // ⚠️ 성장률 null을 0으로 채우면 낙관 편향이 된다 — 실측(2026-08-01): 커버드콜들이 분배를
-      //    27~77% 줄이는 중인데(dividendGrowth1y) yocProjRate가 null이라 전부 '성장 0%'로 처리돼
-      //    포트 성장률이 +1.0%로 표시됐다(실제 가중 −11.4%). 5년 CAGR → 1년 실적 순으로 폴백하고,
-      //    둘 다 없으면 '모름'이라 가중에서 제외한다(0으로 메우지 않는다).
-      const gRaw = p.yocProjRate ?? p.dividendGrowth1y
+      // ⚠️ 성장률은 '가공되지 않은' 값을 써야 한다 — 두 번 데인 자리(2026-08-01):
+      //    ① null을 0으로 채우면 감소가 '변화 없음'으로 둔갑(비중 75%가 null이라 +1.0%로 표시됐다)
+      //    ② yocProjRate는 YoC 프로젝션 전용이라 `Math.max(0, cagr5)`로 **음수를 0으로 잘라낸다** —
+      //       CONY는 5년 CAGR −50.2%인데 0%로 들어와 성장률을 끌어올렸다.
+      //    → 원본 5년 CAGR(dividendGrowth5y) → 1년 실적 → 둘 다 없으면 가중에서 제외.
+      const gRaw = p.dividendGrowth5y ?? p.dividendGrowth1y
       if (gRaw != null) { wGrowth += wNorm * gRaw; growthN += wNorm }
       if (p.safetyScore != null) { wSafety += wNorm * p.safetyScore; safetyN += wNorm }
       if (p.style) styleW[p.style] += wNorm
