@@ -3841,6 +3841,24 @@ v3 발견 사이클 지도도 하루 만에 기각(사용자: "이 화면으로 
 - ③ **통합추천 최종 12종(UNIFIED_RECO_V v56)**: 🔥 배지 — 리밸런싱·퀀트빌더·본부장 브리핑 자동 상속.
 - SSOT = getInsiderSignal 단일 소스(레이더·판정·배지·알림이 같은 값). ⚠️ 크론 알림은 다음 크론부터 베이스라인 적재 후 신규 공시에 발동.
 
+## 🚨 크론 헬스 모니터 (2026-08-01) — 조용한 미발화 감지 + 자동 복구
+
+8/1 타점 워처 크론 미발화 사고(코드 정상·조용히 안 돎)의 재발 방지 — 크론 13개의 산출물(캐시 updated_at·DB 스냅샷)을 매일 09:40 KST에 자동 점검. 설계 docs/cron-health/.
+- **`lib/cronHealth.ts`(SSOT)**: 크론 13개 ↔ 산출물 매핑(키는 전부 lib 상수 import — WIN_LOSE_KEY·MARKET_FLOW_KR_KEY·SAT_SCORE_KEY·UNIVERSE_KEY·FUND_CACHE_KEY) + `lastExpectedKst`(KST·요일 반영 — ⚠️ UTC 월요일 크론=KST 화요일 발화) + 판정(ok/pending[유예 45분]/stale).
+- **`/api/cron-health`**: 크론 호출(CRON_SECRET 일치)일 때만 stale의 경량 idempotent 크론 자동 재실행(240s 예산·morning-briefing은 heavy로 마지막), 일반 GET은 보고만. 브리핑 상단에 미발화 빨간 배너(없으면 렌더 0).
+- ⚠️ **검증이 잡은 설계 결함 2건(라이브 대조)**: ① **워밍형 크론(nps·honeycomb·shadow13f)은 예정 시각 판정이 오탐** — 라우트가 캐시 TTL로 재계산을 스스로 결정해, 사용자가 중간에 캐시를 갱신하면 크론이 정상 실행돼도 updated_at 불변 → `ttlH` 모드(최대 허용 나이=TTL+24h+유예)로 분리 ② **죽은 키를 감시할 뻔** — 'shadow-13f-funds'는 7/25 CUSIP 작업 때 v4로 바뀐 옛 키(옛 키가 7/25에 멈춘 건 당연한데 "7일째 미발화"로 오경보) → guru13f `FUND_CACHE_KEY` export해 SSOT import.
+- 검증: 단위 13케이스(요일·주간·유예 경계) + 라이브 13/13 ok(8/1 크론 전부 정상 실측) + 프로덕션 API 대조 일치.
+- ⭐ 교훈: **헬스 모니터 자체가 캐시 키 사고의 소비자가 된다** — 감시 키를 리터럴로 박으면 키 버전업 순간 영구 오경보. 감시자야말로 SSOT import가 필수. + 워밍형(TTL 판단)과 스케줄형(항상 재계산) 크론은 "실행됐나"의 증거가 다르다.
+
+## 📰 어닝 결과 모닝 브리핑 (2026-08-01) — 발표 다음날 beat/miss + 주가 반응
+
+보유 종목 실적 발표 다음날 아침, 매매 브리핑에서 결과를 바로 확인(어닝 시즌 시의성 — PLTR 8/3·NVDA 8/26). 설계 docs/earnings-results/.
+- **Phase 0 실측이 설계를 확정**: Yahoo `earningsHistory`는 발표 직후 actual+**surprisePercent** 반영(GOOGL 7/22 발표분 +214%·SK하이닉스 .KS도 +85% — KR 제공 실측). 단 **지나간 발표일은 어느 모듈도 안 줌**(발표 후 calendarEvents가 다음 분기로 점프) → **미래 발표일을 공유 맵(`earn-dates-v1`)에 사전 적립**하고 날짜가 지나면 그 날을 앵커로 결과 계산.
+- **`lib/earnResults.ts`(SSOT)**: 적립(라우트 자급 — 캘린더 방문 의존 없음·과거 21일 유지) + beat/miss(**surprisePercent 제공값 사용** — 재계산 금지·제2원칙) + **결합 검증**(발표일−분기말 <100일 — 미발표 종목의 이전 분기 결과를 이번 발표로 오인 방지, MPC 122일 실측) + 반응(발표일 **이전** 마지막 종가→최신 종가 — BMO/AMC 불명이라 전일 앵커 통일). AI 미사용·결정론 문장 조립.
+- **`/api/earnings-results`**(auth·fp 캐시 6h) + 브리핑 ①¾ 📰 섹션(발표 없으면 렌더 0·Jarvis 어닝콜 딥링크).
+- 검증(실컴파일 4케이스): GOOGL beat +214.2%·반응 +5.8% / **SK하이닉스 +85.2%·반응 +30.0% = 7/31 실제 상한가**(1,322,000→1,718,000 검산 — 이상값이 아니라 실데이터) / MPC '집계 중' / 창(3일) 밖 제외 — 캔들 원천 재계산 소수점 일치.
+- ⚠️ 첫날 한계(정직): 적립 맵이 오늘부터 쌓여 첫 실전 표시는 PLTR(8/3 발표) 다음날부터.
+
 ## 배포
 
 - **프로덕션**: https://investment-school-2026.vercel.app
