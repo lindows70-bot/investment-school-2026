@@ -46,6 +46,12 @@ export const CC_PAIRS: CcPair[] = [
 export const yahooSymbol = (p: { ticker: string; market: 'KR' | 'US' }) =>
   p.market === 'KR' ? `${p.ticker}.KS` : p.ticker
 
+/** 본주를 커버드콜과 같은 통화로 맞춰야 하는가 — KR 상장 ETF(원화) vs US 본주(달러)
+ *  ⚠️ 안 맞추면 환율 상승분이 갭에 그대로 섞인다(2026-08-01 실측: 2년 환율 +2.7~7.3%p가
+ *  갭에 얹혀 RISE +5.9%p·TIGER S&P500 +0.5%p처럼 '커버드콜이 본주를 이긴' 것처럼 보였다.
+ *  통화를 맞추면 −4.5%p·−3.3%p로 뒤집힌다). 커버드콜이 구조상 본주를 크게 이기는 일은 없다. */
+export const needsFxAlign = (p: CcPair) => p.market === 'KR' && !/^\d{6}$/.test(p.bench)
+
 export interface Bar { date: string; close: number; adj: number }
 
 export interface PeriodStat {
@@ -66,15 +72,24 @@ export interface CcXrayRow extends CcPair {
   primary: PeriodStat       // 판정 기준(2년 우선, 없으면 가장 긴 창)
   verdict: CcVerdict
   navErosion: boolean       // 판정 창에서 가격 하락 = 분배가 원금에서 나온 정황
+  fxAligned: boolean        // 본주를 원화로 환산해 비교(환율 효과 제거)
 }
 
-/** 공통 거래일만 남긴다 — 상장일이 다르면 비교가 불공정(둘 다 존재하는 날짜로 정렬) */
-export function alignBars(cc: Bar[], bench: Bar[]): { cc: Bar[]; bench: Bar[] } {
+/** 공통 거래일만 남긴다 — 상장일이 다르면 비교가 불공정(둘 다 존재하는 날짜로 정렬).
+ *  fx가 주어지면 본주를 그 환율로 환산하고, 환율 결측일도 공통 구간에서 뺀다. */
+export function alignBars(cc: Bar[], bench: Bar[], fx?: Bar[]): { cc: Bar[]; bench: Bar[] } {
   const bm = new Map(bench.map(b => [b.date, b]))
+  const fm = fx ? new Map(fx.map(b => [b.date, b.close])) : null
   const outCc: Bar[] = [], outBench: Bar[] = []
   for (const c of cc) {
     const b = bm.get(c.date)
-    if (b && c.adj > 0 && b.adj > 0) { outCc.push(c); outBench.push(b) }
+    if (!b || c.adj <= 0 || b.adj <= 0) continue
+    if (fm) {
+      const rate = fm.get(c.date)
+      if (!rate || rate <= 0) continue
+      outBench.push({ date: b.date, close: b.close * rate, adj: b.adj * rate })   // 본주를 원화로
+    } else outBench.push(b)
+    outCc.push(c)
   }
   return { cc: outCc, bench: outBench }
 }
@@ -115,8 +130,8 @@ export function verdictOf(trGap: number, ccTr: number): CcVerdict {
   return 'far_behind'
 }
 
-export function buildRow(pair: CcPair, ccBars: Bar[], benchBars: Bar[]): CcXrayRow | null {
-  const { cc, bench } = alignBars(ccBars, benchBars)
+export function buildRow(pair: CcPair, ccBars: Bar[], benchBars: Bar[], fxBars?: Bar[]): CcXrayRow | null {
+  const { cc, bench } = alignBars(ccBars, benchBars, needsFxAlign(pair) ? fxBars : undefined)
   if (cc.length < 20) return null
   const periods = [12, 24, 999].map(m => periodStat(cc, bench, m)).filter((p): p is PeriodStat => p != null)
   if (!periods.length) return null
@@ -126,5 +141,6 @@ export function buildRow(pair: CcPair, ccBars: Bar[], benchBars: Bar[]): CcXrayR
     ...pair, periods, primary,
     verdict: verdictOf(primary.trGap, primary.ccTr),
     navErosion: primary.ccPrice < 0,
+    fxAligned: needsFxAlign(pair),
   }
 }

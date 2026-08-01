@@ -41,6 +41,9 @@ export async function GET(req: Request) {
       }))
   }
 
+  // 💱 환율(USD/KRW) — KR 상장 ETF를 US 본주와 비교할 때 통화를 맞추기 위해 1회만 조회
+  const fxBars = await barsOf('KRW=X').catch(() => [] as Bar[])
+
   // 벤치마크는 여러 커버드콜이 공유 → 중복 제거 후 1회씩
   const benchSyms = Array.from(new Set(CC_PAIRS.map(p => p.bench)))
   const benchMap = new Map<string, Bar[]>()
@@ -61,7 +64,7 @@ export async function GET(req: Request) {
       if (!bench?.length) continue
       try {
         const cc = await barsOf(yahooSymbol(p))
-        const row = buildRow(p, cc, bench)
+        const row = buildRow(p, cc, bench, fxBars)
         if (row) rows.push(row)
       } catch { /* 종목 실패 — 정직 생략 */ }
     }

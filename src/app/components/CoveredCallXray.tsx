@@ -81,7 +81,9 @@ export default function CoveredCallXray() {
                 <span style={{ marginLeft: 'auto', fontSize: 15, fontWeight: 900, fontFamily: 'monospace', color: gapColor(r.primary.trGap) }}>
                   {r.primary.trGap >= 0 ? '+' : ''}{r.primary.trGap.toFixed(1)}%p
                 </span>
-                <span style={{ fontSize: 9.5, color: C.low }}>vs {r.benchLabel}{r.kind === 'proxy' && ' (근사)'}</span>
+                <span style={{ fontSize: 9.5, color: C.low }} title={r.fxAligned ? '국내 상장 ETF(원화)와 비교하려고 본주를 같은 기간 환율로 원화 환산 — 환율 상승분이 갭에 섞이지 않게' : undefined}>
+                  vs {r.benchLabel}{r.fxAligned && ' · 원화환산'}
+                </span>
               </div>
 
               {isOpen && (
@@ -115,7 +117,8 @@ export default function CoveredCallXray() {
       </div>
 
       <div style={{ fontSize: 10, color: C.low, marginTop: 10, lineHeight: 1.55 }}>
-        총수익 = 배당 재투자 기준(Yahoo 조정종가) · 본주와 <b>공통 거래일</b>만 비교(상장일 차이 보정) · 판정은 2년 창 기준(펼치면 1년·전체도 표시) ·
+        총수익 = 배당 재투자 기준(Yahoo 조정종가) · 본주와 <b>공통 거래일</b>만 비교(상장일 차이 보정) ·
+        <b>국내 상장 ETF는 본주를 원화로 환산해 비교</b>(환율 효과 제거 — 안 그러면 환율 상승분이 커버드콜 성과처럼 보입니다) · 판정은 2년 창 기준(펼치면 1년·전체도 표시) ·
         세금·환율 미반영 · 옵션 프리미엄은 변동성에 따라 달라져 과거가 미래를 보장하지 않습니다 · <b>매수·매도 지시가 아닙니다</b>.
         <br />
         같은 지수를 따라가도 <b style={{ color: C.gold }}>옵션 매도 구조</b>(타겟 프리미엄 vs 데일리 전량)에 따라 결과가 크게 갈립니다 — 이름이 비슷하다고 같은 상품이 아닙니다.
