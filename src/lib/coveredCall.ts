@@ -3,8 +3,11 @@
 //   분배율 20%여도 본주 대비 TR이 −22%p이고 가격이 −8%면 그 분배는 상당 부분 원금에서 나온 것.
 //   ⛔ 매수·매도 지시 아님(관측·교육 전용) · 추천 6축 점수 미반영.
 
-/** 일별 캐시 키 — ⚠️ route 파일은 GET/dynamic/maxDuration 외 export 금지(Next 타입 검증 실패)라 lib에 둔다 */
-export const CC_XRAY_KEY = (dateKst: string) => `covered-call-xray-v1:${dateKst}`
+/** 일별 캐시 키 — ⚠️ route 파일은 GET/dynamic/maxDuration 외 export 금지(Next 타입 검증 실패)라 lib에 둔다.
+ *  ⚠️ 판정 로직이 바뀌면 **날짜 키만으로는 부족하다** — 같은 날 배포하면 옛 값이 그대로 서빙된다
+ *  (2026-08-01 환율 정규화 배포 후 실제로 발생: 푸터 문구는 새 코드인데 수치는 옛 캐시였다).
+ *  v2: 본주 원화 환산(needsFxAlign) 적용 */
+export const CC_XRAY_KEY = (dateKst: string) => `covered-call-xray-v2:${dateKst}`
 
 export type BenchKind = 'exact' | 'proxy'
 
