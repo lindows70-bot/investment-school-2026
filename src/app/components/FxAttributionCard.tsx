@@ -45,17 +45,36 @@ export default function FxAttributionCard() {
         <span style={{ marginLeft: 'auto', fontSize: 10.5, color: C.low, fontFamily: 'monospace' }}>현재 ₩{d.fxNow.toLocaleString()}</span>
       </div>
 
+      {/* 🧮 개념 설명 — 학생이 등식을 먼저 이해하고 아래 숫자를 보게 */}
+      <div style={{ marginTop: 11, background: '#141b26', border: `1px solid ${C.cyan}33`, borderRadius: 10, padding: '11px 13px' }}>
+        <div style={{ fontSize: 12.5, fontWeight: 900, color: C.text }}>🧮 미국 주식은 <span style={{ color: C.cyan }}>두 번</span> 계산됩니다</div>
+        <div style={{ fontSize: 11.5, color: C.sub, marginTop: 5, lineHeight: 1.7 }}>
+          ① <b style={{ color: C.text }}>주가</b>가 오르내리고, ② <b style={{ color: C.gold }}>환율</b>이 또 오르내립니다.
+          이 둘을 합친 것이 ③ <b style={{ color: C.text }}>내 계좌에 찍히는 원화 수익</b>입니다.
+        </div>
+        <div style={{ fontSize: 11, color: C.sub, marginTop: 7, background: TK.bg3, borderRadius: 7, padding: '7px 10px', lineHeight: 1.7 }}>
+          <b style={{ color: C.text }}>예를 들면</b> — $100짜리 주식이 $110이 되면 달러로는 <b style={{ color: C.green }}>+10%</b>입니다.
+          그런데 살 때 <b>1,500원</b>이던 환율이 <b>1,350원</b>이 되면, 15만원 넣은 돈이 14.85만원이 되어
+          원화로는 오히려 <b style={{ color: C.red }}>−1%</b>입니다. <span style={{ color: C.low }}>주가는 올랐는데 계좌는 마이너스인 것 — 환율이 수익을 먹은 겁니다.</span>
+        </div>
+      </div>
+
       {/* 3분해 — 원화 수익 = 달러 수익 + 환율 기여 */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10, alignItems: 'stretch' }}>
         {[
-          { k: '달러 기준 수익', v: pct(d.retUsd), c: col(d.retUsd), sub: '종목이 실제로 번 것' },
-          { k: '환율 기여', v: pp(d.fxContrib), c: col(d.fxContrib), sub: d.fxContrib >= 0 ? '환율이 보태준 것' : '환율이 깎아먹은 것' },
-          { k: '원화 기준 수익', v: pct(d.retKrw), c: col(d.retKrw), sub: '내 계좌에 찍히는 것' },
+          { n: '①', k: '달러 기준 수익', v: pct(d.retUsd), c: col(d.retUsd), sub: '종목이 실제로 번 것', op: '+' },
+          { n: '②', k: '환율 기여', v: pp(d.fxContrib), c: col(d.fxContrib), sub: d.fxContrib >= 0 ? '환율이 보태준 것' : '환율이 깎아먹은 것', op: '=' },
+          { n: '③', k: '원화 기준 수익', v: pct(d.retKrw), c: col(d.retKrw), sub: '내 계좌에 찍히는 것', op: null },
         ].map(x => (
-          <div key={x.k} style={{ flex: '1 1 150px', background: C.card2, border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 12px' }}>
-            <div style={{ fontSize: 10.5, color: C.low }}>{x.k}</div>
-            <div style={{ fontSize: 19, fontWeight: 900, fontFamily: 'monospace', color: x.c }}>{x.v}</div>
-            <div style={{ fontSize: 9.5, color: C.low, marginTop: 1 }}>{x.sub}</div>
+          <div key={x.k} style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '1 1 160px' }}>
+            <div style={{ flex: 1, background: x.n === '③' ? '#161d18' : C.card2, border: `1px solid ${x.n === '③' ? C.green + '44' : C.border}`, borderRadius: 10, padding: '10px 12px' }}>
+              <div style={{ fontSize: 10.5, color: C.low }}>
+                <span style={{ color: x.n === '②' ? C.gold : C.cyan, fontWeight: 900 }}>{x.n}</span> {x.k}
+              </div>
+              <div style={{ fontSize: 19, fontWeight: 900, fontFamily: 'monospace', color: x.c }}>{x.v}</div>
+              <div style={{ fontSize: 9.5, color: C.low, marginTop: 1 }}>{x.sub}</div>
+            </div>
+            {x.op && <span style={{ fontSize: 17, fontWeight: 900, color: C.low, flexShrink: 0 }}>{x.op}</span>}
           </div>
         ))}
       </div>
