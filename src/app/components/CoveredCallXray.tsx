@@ -16,6 +16,8 @@ const VERDICT = {
   tracking:   { icon: '🟢', label: '본주 추종 양호', color: TK.green400, desc: '본주 총수익을 거의 따라감(운용보수 수준 차이)' },
   lagging:    { icon: '🟡', label: '뒤처짐',        color: TK.amber400, desc: '분배는 받지만 총수익은 본주보다 낮음' },
   far_behind: { icon: '🔴', label: '크게 뒤처짐',   color: TK.red400,   desc: '분배율이 높아도 자산 증가는 본주에 크게 못 미침' },
+  // ⚠️ 총수익이 마이너스면 갭이 작아도 '양호'가 아니다 — 본주와 함께 내려간 것뿐(MSTY 갭 −0.6%p·총수익 −42.8%)
+  both_down:  { icon: '🔻', label: '본주와 동반 하락', color: TK.red400, desc: '본주도 하락해 갭은 작지만 총수익 자체가 마이너스 — 분배를 받아도 자산은 줄었음' },
 } as const
 
 const pct = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`

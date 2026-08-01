@@ -18,8 +18,10 @@ export interface CcPair {
   structure: string         // 옵션 매도 구조 — 같은 지수라도 결과를 가르는 요인
 }
 
-/** ⚠️ 전 종목 Yahoo 종목명으로 실측 검증(2026-08-01). 펀드of펀드(YMAG·YMAX·ULTY)는
- *  단일 본주가 없어 의도적으로 제외 — 억지 근사 매핑은 거짓 비교가 된다. */
+/** ⚠️ 전 종목 Yahoo 종목명으로 실측 검증(2026-08-01). **기초지수가 정확히 일치하는 본주가 있는 상품만** 넣는다.
+ *  제외: 펀드of펀드(YMAG·YMAX·ULTY — 단일 본주 없음) · 498410 금융고배당TOP10(근사 벤치를 KODEX 은행으로
+ *  잡으면 갭 −53%p, KODEX 200으로 잡으면 −195%p로 벤치 선택이 결론을 뒤집는다 = 비교 자체가 무의미).
+ *  억지 근사 매핑은 정직한 비교가 아니라 그럴듯한 거짓말이 된다. */
 export const CC_PAIRS: CcPair[] = [
   // ── 미국 지수 추종 국내 ETF ──
   { ticker: '482730', market: 'KR', label: 'TIGER 미국S&P500 +10% 프리미엄', bench: 'SPY', benchLabel: 'S&P500(SPY)', kind: 'exact', structure: '타겟 프리미엄(연 10%)' },
@@ -27,7 +29,6 @@ export const CC_PAIRS: CcPair[] = [
   { ticker: '486290', market: 'KR', label: 'TIGER 미국나스닥100 +15% 프리미엄', bench: 'QQQ', benchLabel: '나스닥100(QQQ)', kind: 'exact', structure: '타겟 프리미엄(연 15%)' },
   { ticker: '494300', market: 'KR', label: 'KODEX 미국나스닥100 데일리커버드콜', bench: 'QQQ', benchLabel: '나스닥100(QQQ)', kind: 'exact', structure: '데일리 OTM(매일 전량 매도)' },
   { ticker: '491620', market: 'KR', label: 'RISE 미국테크100 데일리고정커버드콜', bench: 'QQQ', benchLabel: '나스닥100(QQQ)', kind: 'exact', structure: '데일리 고정 프리미엄' },
-  { ticker: '498410', market: 'KR', label: 'KODEX 금융고배당TOP10 위클리', bench: '091170', benchLabel: 'KODEX 은행(근사)', kind: 'proxy', structure: '위클리 커버드콜' },
   // ── 미국 상장 지수형 ──
   { ticker: 'JEPI', market: 'US', label: 'JPM 프리미엄 인컴(S&P)', bench: 'SPY', benchLabel: 'S&P500(SPY)', kind: 'exact', structure: 'ELN + 저변동 주식' },
   { ticker: 'JEPQ', market: 'US', label: 'JPM 나스닥 프리미엄 인컴', bench: 'QQQ', benchLabel: '나스닥100(QQQ)', kind: 'exact', structure: 'ELN + 나스닥 주식' },
@@ -58,7 +59,7 @@ export interface PeriodStat {
   trGap: number             // ccTr − benchTr (음수 = 본주보다 뒤처짐)
 }
 
-export type CcVerdict = 'tracking' | 'lagging' | 'far_behind'
+export type CcVerdict = 'tracking' | 'lagging' | 'far_behind' | 'both_down'
 
 export interface CcXrayRow extends CcPair {
   periods: PeriodStat[]     // 1년·2년·전체
@@ -104,8 +105,11 @@ export function periodStat(cc: Bar[], bench: Bar[], months: number): PeriodStat 
   }
 }
 
-/** 갭 판정 — 임계 근거는 docs/covered-call-xray/context-notes.md */
-export function verdictOf(trGap: number): CcVerdict {
+/** 갭 판정 — 임계 근거는 docs/covered-call-xray/context-notes.md
+ *  ⚠️ 총수익이 마이너스면 갭과 무관하게 'both_down' — MSTY는 본주(MSTR)도 폭락해 갭이 −0.6%p뿐이지만
+ *  총수익 −42.8%·가격 −91.6%다. 여기에 초록 '추종 양호'를 붙이면 배지가 숫자를 정면으로 뒤집는다. */
+export function verdictOf(trGap: number, ccTr: number): CcVerdict {
+  if (ccTr < 0) return 'both_down'
   if (trGap >= -2) return 'tracking'
   if (trGap >= -10) return 'lagging'
   return 'far_behind'
@@ -120,7 +124,7 @@ export function buildRow(pair: CcPair, ccBars: Bar[], benchBars: Bar[]): CcXrayR
   const primary = periods.find(p => p.months === 24) ?? periods[periods.length - 1]
   return {
     ...pair, periods, primary,
-    verdict: verdictOf(primary.trGap),
+    verdict: verdictOf(primary.trGap, primary.ccTr),
     navErosion: primary.ccPrice < 0,
   }
 }
