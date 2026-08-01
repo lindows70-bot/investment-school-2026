@@ -39,10 +39,11 @@ export async function GET(req: Request) {
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
-  const { data: rows } = await admin.from('investments').select('ticker,name,market').eq('user_id', user.id)
+  const { data: rows } = await admin.from('investments').select('ticker,name,market,quantity').eq('user_id', user.id)
   const seen = new Set<string>()
   const stocks = (rows ?? []).filter(r => {
     const k = String(r.ticker).toUpperCase()
+    if ((r.quantity ?? 0) <= 0) return false   // 전량 매도(수량 0) 잔여 행 유령 표시 방지 — 타 라우트 관례와 통일
     if (seen.has(k) || getAssetType(r.ticker, r.name ?? '', r.market ?? 'US') !== 'STOCK') return false
     seen.add(k); return true
   })
