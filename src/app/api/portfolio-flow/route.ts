@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
+import { getUsdKrw } from '@/lib/fx'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { getMoneyFlow, type FlowStatus, type MoneyFlowResult } from '@/lib/moneyFlow'
 import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
@@ -49,7 +50,6 @@ export interface PortfolioFlowResult {
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 const dirArrow = (d?: string) => (d === 'BUY' ? '▲' : d === 'SELL' ? '▼' : '─')
-const USD_KRW = 1350
 const dnm = (e: { market: string; name: string; ticker: string }) => (e.market === 'KR' ? (e.name || e.ticker).slice(0, 10) : e.ticker.toUpperCase())
 
 // 받침 유무로 은/는 조사 선택(한글만 판정, 그 외 영문 티커는 '는'). "SK하이닉스은(는)" 노출 방지
@@ -123,12 +123,13 @@ export async function GET(req: Request) {
     return NextResponse.json({ entries: [], total: 0, inflowCount: 0, crowdedCount: 0, smartMoneyRate: 0, headline: '', history: [], season: null, asOf: new Date().toISOString() })
   }
 
-  // 원가 기준 비중(히트맵용) — 통화 정규화(USD→KRW), 추가 fetch 0
-  const costKrw = (s: typeof stocks[number]) => (s.purchase_price ?? 0) * (s.quantity ?? 0) * (s.currency === 'USD' ? USD_KRW : 1)
+  const selfBase = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
+
+  // 원가 기준 비중(히트맵용) — 통화 정규화(USD→KRW). 환율은 라이브 SSOT(제1원칙: 하드코딩 금지)
+  const usdKrw = await getUsdKrw(selfBase)
+  const costKrw = (s: typeof stocks[number]) => (s.purchase_price ?? 0) * (s.quantity ?? 0) * (s.currency === 'USD' ? usdKrw : 1)
   const totalCost = stocks.reduce((sum, s) => sum + costKrw(s), 0) || 1
   const weightOf = (s: typeof stocks[number]) => Math.round((costKrw(s) / totalCost) * 1000) / 10
-
-  const selfBase = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
 
   // 🌦️ 현재 계절(US·KR) — 통합추천과 동일 SSOT 경로 재사용(macro + OECD CLI). 전부 캐시라 비용 미미
   let usQuad: Season = 'shoulder', krQuad: Season = 'shoulder'

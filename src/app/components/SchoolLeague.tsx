@@ -309,9 +309,14 @@ export default function SchoolLeague() {
           .select('purchase_price, quantity, currency')
           .eq('user_id', user.id)
         if (!invs?.length) return
-        const USD_KRW = 1_350
+        // 환율은 라이브(/api/exchange-rate) — 실패 시에만 폴백(제1원칙: 하드코딩 금지)
+        let fx = 1_350
+        try {
+          const fr = await fetch('/api/exchange-rate')
+          if (fr.ok) { const fj = await fr.json(); if (typeof fj?.rate === 'number' && fj.rate > 500) fx = fj.rate }
+        } catch { /* 폴백 유지 */ }
         const total = invs.reduce((s, i) => {
-          const rate = i.currency === 'USD' ? USD_KRW : 1
+          const rate = i.currency === 'USD' ? fx : 1
           return s + (Number(i.purchase_price) || 0) * (Number(i.quantity) || 0) * rate
         }, 0)
         setTotalAssets(Math.round(total))

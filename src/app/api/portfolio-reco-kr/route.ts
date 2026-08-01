@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
+import { getUsdKrw } from '@/lib/fx'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { MARKET_FLOW_KR_KEY, computeMarketFlowKr, type MarketFlowKrResult, type MarketFlowEntry } from '@/lib/marketFlowKr'
 
@@ -50,7 +51,6 @@ export interface PortfolioRecoResult {
 
 const eok = (v: number) => Math.round(v / 1e8)
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
-const USD_KRW = 1350
 
 // ★ 매크로 국면 → 권장 매수액 배율(SSOT /api/macro-regime 재사용 — 추가 fetch 0)
 //   위험 국면(스태그플레이션·침체위험)일수록 보수적으로 권장액 축소(자동매매 아닌 '참고 가이드' 조절)
@@ -131,8 +131,9 @@ export async function GET(req: Request) {
   const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
   const { data: rows } = await admin.from('investments').select('ticker,name,market,purchase_price,quantity,currency').eq('user_id', user.id)
   const krStocks = (rows ?? []).filter(r => r.market === 'KR' && getAssetType(r.ticker, r.name ?? '', 'KR') === 'STOCK')
+  const usdKrw = await getUsdKrw(base)   // 라이브 환율(제1원칙: 하드코딩 금지)
   const portfolioKrw = (rows ?? []).reduce((s, r) => {
-    const rate = (r.currency === 'USD') ? USD_KRW : 1
+    const rate = (r.currency === 'USD') ? usdKrw : 1
     return s + (r.purchase_price ?? 0) * (r.quantity ?? 0) * rate
   }, 0)
 

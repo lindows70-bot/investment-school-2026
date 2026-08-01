@@ -9,12 +9,12 @@ import { getMoatBreach } from '@/app/actions/getMoatBreach'
 import { calcDCF, deriveDcfInputs } from '@/lib/buffettDcf'
 import { computeStarRating, type StarResult } from '@/lib/morningstarRating'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
+import { getUsdKrw } from '@/lib/fx'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
-const USD_KRW = 1350
 
 export interface RatingEntry extends StarResult {
   ticker: string; name: string; market: 'KR' | 'US'; currency: 'USD' | 'KRW'
@@ -45,12 +45,13 @@ export async function GET(req: Request) {
   const stocks = (rows ?? []).filter(r => getAssetType(r.ticker, r.name ?? '', r.market ?? 'US') === 'STOCK')
   if (!stocks.length) return NextResponse.json({ entries: [], total: 0, avgStars: null, asOf: new Date().toISOString() })
 
-  // 원가 기준 비중(통화 정규화)
-  const costKrw = (s: typeof stocks[number]) => (s.purchase_price ?? 0) * (s.quantity ?? 0) * (s.currency === 'USD' ? USD_KRW : 1)
+  const selfBase = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
+
+  // 원가 기준 비중(통화 정규화) — 환율은 라이브 SSOT(제1원칙: 하드코딩 금지)
+  const usdKrw = await getUsdKrw(selfBase)
+  const costKrw = (s: typeof stocks[number]) => (s.purchase_price ?? 0) * (s.quantity ?? 0) * (s.currency === 'USD' ? usdKrw : 1)
   const totalCost = stocks.reduce((sum, s) => sum + costKrw(s), 0) || 1
   const weightOf = (s: typeof stocks[number]) => Math.round((costKrw(s) / totalCost) * 1000) / 10
-
-  const selfBase = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
 
   // 현재가 일괄 조회(배치 1회)
   const priceMap = new Map<string, number>()

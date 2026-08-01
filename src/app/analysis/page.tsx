@@ -42,7 +42,8 @@ interface Fundamentals {
   grossMargins?:      number | null
 }
 
-const USD_KRW = 1_350
+// ⚠️ 폴백 전용 — 실제 환산은 /api/exchange-rate 라이브 값(usdKrw state). 제1원칙: 환율 하드코딩 금지
+const USD_KRW_FALLBACK = 1_350
 
 const LYNCH_META: Record<string,{ label:string; color:string; moat:string; buffett:number }> = {
   slow_grower: { label:'저성장주', color:TK.sub9, moat:'배당형 해자',   buffett:65 },
@@ -90,6 +91,7 @@ function AnalysisContent() {
     router.push(`/analysis?tab=${t}`, { scroll: false })
   }
   const [investments,  setInvestments]  = useState<Investment[]>([])
+  const [usdKrw,       setUsdKrw]       = useState(USD_KRW_FALLBACK)   // 라이브 환율(자산관리·현금카드와 동일 원천)
   const [priceMap,     setPriceMap]     = useState<Record<string,LivePrice>>({})
   const [fundMap,      setFundMap]      = useState<Record<string,Fundamentals>>({})
   const [fundLoading,  setFundLoading]  = useState(false)
@@ -149,9 +151,17 @@ function AnalysisContent() {
   }, [router])
 
   useEffect(()=>{ fetchData() },[fetchData])
+  // 💱 라이브 환율 — 폴백(1,350)은 조회 실패 시에만
+  useEffect(() => {
+    let alive = true
+    fetch('/api/exchange-rate').then(r => r.ok ? r.json() : null)
+      .then(j => { if (alive && typeof j?.rate === 'number' && j.rate > 500) setUsdKrw(j.rate) })
+      .catch(() => { /* 폴백 유지 */ })
+    return () => { alive = false }
+  }, [])
 
   const live = (inv: Investment) => priceMap[inv.ticker.toUpperCase()] ?? null
-  const toKrw = (inv: Investment, price?: number) => (price??inv.purchase_price)*inv.quantity*(inv.currency==='USD'?USD_KRW:1)
+  const toKrw = (inv: Investment, price?: number) => (price??inv.purchase_price)*inv.quantity*(inv.currency==='USD'?usdKrw:1)
   const getRet = (inv: Investment) => { const lv=live(inv); return lv ? ((lv.currentPrice-inv.purchase_price)/inv.purchase_price)*100 : null }
 
   // ── 피터린치 데이터 ─────────────────────────────────────────────

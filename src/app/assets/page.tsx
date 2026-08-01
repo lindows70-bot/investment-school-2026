@@ -58,7 +58,10 @@ const SHO = `7px 7px 18px ${TK.bg2}, -4px -4px 12px ${TK.line2}`
 const SHI = `inset 4px 4px 10px ${TK.bg2}, inset -3px -3px 8px ${TK.line2}`
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const USD_KRW = 1_350
+// ⚠️ 폴백 전용 상수 — 실제 환산은 /api/exchange-rate 라이브 값(usdKrw state)을 쓴다.
+//    (제1원칙: 하드코딩 1,350을 그대로 쓰면 실제 1,445 대비 7% 과소 표기 + 같은 화면의
+//     현금 포지션 카드는 라이브 환율이라 두 수치가 어긋난다 = 제2원칙 위반)
+const USD_KRW_FALLBACK = 1_350
 const FRAMES: TimeFrame[] = ['1D','1W','1M','1Y']
 
 const LYNCH_META: Record<string, { label: string; color: string }> = {
@@ -87,6 +90,7 @@ export default function AssetsPage() {
   const [priceMap,      setPriceMap]      = useState<Record<string,LivePrice>>({})
   const [priceStatus,   setPriceStatus]   = useState<PriceStatus>('idle')
   const [dbLoading,     setDbLoading]     = useState(true)
+  const [usdKrw,        setUsdKrw]        = useState(USD_KRW_FALLBACK)   // 라이브 환율(현금 카드·리밸런싱과 동일 SSOT)
   const [search,        setSearch]        = useState('')
   const [filterMarket,  setFilterMarket]  = useState<Market|'all'>('all')
   const [sortBy,        setSortBy]        = useState<SortKey>('return')
@@ -118,6 +122,15 @@ export default function AssetsPage() {
     const t = setTimeout(() => setDbLoading(false), 5000)
     return () => clearTimeout(t)
   }, [dbLoading])
+
+  // 💱 라이브 환율 — 하드코딩 폴백(1,350)은 조회 실패 시에만. 현금 포지션 카드와 같은 원천을 써야 화면 안에서 수치가 어긋나지 않는다.
+  useEffect(() => {
+    let alive = true
+    fetch('/api/exchange-rate').then(r => r.ok ? r.json() : null)
+      .then(j => { if (alive && typeof j?.rate === 'number' && j.rate > 500) setUsdKrw(j.rate) })
+      .catch(() => { /* 폴백 유지 */ })
+    return () => { alive = false }
+  }, [])
 
   const fetchInvestments = useCallback(async (silent = false) => {
     if (!silent) setDbLoading(true)
@@ -353,7 +366,7 @@ export default function AssetsPage() {
   const getLive   = (inv: Investment) => priceMap[inv.ticker.toUpperCase()] ?? null
   const getReturn = (inv: Investment) => { const lv=getLive(inv); if (!lv) return null; return ((lv.currentPrice-inv.purchase_price)/inv.purchase_price)*100 }
 
-  const toKrwTotal = (inv: Investment) => inv.purchase_price*inv.quantity*(inv.currency==='USD'?USD_KRW:1)
+  const toKrwTotal = (inv: Investment) => inv.purchase_price*inv.quantity*(inv.currency==='USD'?usdKrw:1)
   const totalCostKrw = investments.reduce((s,i)=>s+toKrwTotal(i),0)
   const hasUsd = investments.some(i=>i.currency==='USD')
 
@@ -371,7 +384,7 @@ export default function AssetsPage() {
   const evalKrw = (inv: Investment) => {
     const lv = getLive(inv)
     const price = lv ? lv.currentPrice : inv.purchase_price
-    return price * inv.quantity * (inv.currency === 'USD' ? USD_KRW : 1)
+    return price * inv.quantity * (inv.currency === 'USD' ? usdKrw : 1)
   }
 
   /** 섹션 정렬 함수 */
@@ -621,10 +634,10 @@ export default function AssetsPage() {
                     const dy    = livePrice?.dividendYield ?? 0
                     const annDiv = livePrice?.annualDividend ?? null
                     const curPrice = livePrice?.currentPrice ?? inv.purchase_price
-                    const exRate   = inv.currency === 'USD' ? 1_350 : 1
+                    const exRate   = inv.currency === 'USD' ? usdKrw : 1
                     // 연간 총 배당금 (원화)
                     const annualTotal = annDiv && annDiv > 0
-                      ? annDiv * inv.quantity * (inv.currency === 'USD' ? 1_350 : 1)
+                      ? annDiv * inv.quantity * (inv.currency === 'USD' ? usdKrw : 1)
                       : dy > 0
                         ? curPrice * inv.quantity * exRate * dy
                         : 0
@@ -702,7 +715,7 @@ export default function AssetsPage() {
                         { label:'매수가',  val: inv.currency==='KRW' ? `₩${Math.round(inv.purchase_price).toLocaleString('ko-KR')}` : `$${inv.purchase_price.toFixed(2)}`, color:TK.sub9 },
                         /* ★ 매수수량 — 자산관리 카드 중앙 영역에 추가 */
                         { label:'매수수량', val: `${inv.quantity.toLocaleString('ko-KR')}주`, color:TK.blue400 },
-                        { label:'보유금액', val: livePrice ? (inv.currency==='KRW' ? fmtKrwVal(livePrice.currentPrice*inv.quantity) : `$${(livePrice.currentPrice*inv.quantity).toFixed(0)}`) : fmtKrwVal(inv.purchase_price*inv.quantity*(inv.currency==='USD'?USD_KRW:1)), color:TK.purple400 },
+                        { label:'보유금액', val: livePrice ? (inv.currency==='KRW' ? fmtKrwVal(livePrice.currentPrice*inv.quantity) : `$${(livePrice.currentPrice*inv.quantity).toFixed(0)}`) : fmtKrwVal(inv.purchase_price*inv.quantity*(inv.currency==='USD'?usdKrw:1)), color:TK.purple400 },
                         { label:'평가손익', val: livePrice ? (inv.currency==='KRW' ? ((livePrice.currentPrice-inv.purchase_price)*inv.quantity>=0?'+':'')+`₩${Math.round((livePrice.currentPrice-inv.purchase_price)*inv.quantity).toLocaleString('ko-KR')}` : ((livePrice.currentPrice-inv.purchase_price)*inv.quantity>=0?'+':'')+'$'+(Math.abs((livePrice.currentPrice-inv.purchase_price)*inv.quantity)).toFixed(2)) : '—', color: livePrice && livePrice.currentPrice >= inv.purchase_price ? TK.red400 : TK.blue400 },
                         { label:'수익률',  val: livePrice ? `${ret >= 0 ? '+' : ''}${ret.toFixed(2)}%` : '—', color: ret >= 0 ? TK.red400 : TK.blue400 },
                       ].map(({ label, val, color }) => (
@@ -732,7 +745,7 @@ export default function AssetsPage() {
                             const annDiv = livePrice?.annualDividend ?? null
                             const dy     = livePrice?.dividendYield ?? 0
                             const price  = livePrice?.currentPrice ?? inv.purchase_price
-                            const exRate = inv.currency === 'USD' ? 1_350 : 1
+                            const exRate = inv.currency === 'USD' ? usdKrw : 1
                             const monthly = annDiv && annDiv > 0
                               ? annDiv * inv.quantity * exRate / 12
                               : dy > 0 ? price * inv.quantity * exRate * dy / 12 : 0

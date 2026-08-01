@@ -113,7 +113,8 @@ interface LivePrice {
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const USD_KRW = 1_350
+// ⚠️ 폴백 전용 — 실제 환산은 usdKrw state(/api/exchange-rate 라이브). 제1원칙: 환율 하드코딩 금지
+const USD_KRW_FALLBACK = 1_350
 
 const LYNCH_META: Record<string, { label: string; color: string }> = {
   slow_grower: { label: '저성장주', color: TK.sub9 },
@@ -127,9 +128,9 @@ const LYNCH_META: Record<string, { label: string; color: string }> = {
 const MKT_COLOR: Record<Market, string> = { US:TK.emerald400, KR:TK.blue400, CRYPTO:TK.orange400 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const toKrw = (inv: Investment, price?: number) => {
+const toKrw = (inv: Investment, price?: number, fx: number = USD_KRW_FALLBACK) => {
   const p = price ?? inv.purchase_price
-  return p * inv.quantity * (inv.currency === 'USD' ? USD_KRW : 1)
+  return p * inv.quantity * (inv.currency === 'USD' ? fx : 1)
 }
 const fmtKrw = (n: number) => {
   const v = isFinite(n) ? n : 0
@@ -663,7 +664,7 @@ export default function DashboardPage() {
   const [investments, setInvestments] = useState<Investment[]>([])
   const [priceMap,    setPriceMap]    = useState<Record<string,LivePrice>>({})
   const [loading,     setLoading]     = useState(true)
-  const [usdKrw,      setUsdKrw]      = useState(USD_KRW)
+  const [usdKrw,      setUsdKrw]      = useState(USD_KRW_FALLBACK)
   const [rateSource,  setRateSource]  = useState<string>('로딩 중')
   const [indices,     setIndices]     = useState<IndexData[]>([])
   const [indicesLoading, setIndicesLoading] = useState(true)
@@ -736,7 +737,7 @@ export default function DashboardPage() {
         }
       } catch { /* fallback */ }
 
-      setUsdKrw(USD_KRW)
+      setUsdKrw(USD_KRW_FALLBACK)
       setRateSource('기본값 ₩1,350')
     }
 
@@ -948,12 +949,12 @@ export default function DashboardPage() {
   const live = (inv: Investment) => priceMap[inv.ticker.toUpperCase()] ?? null
 
   const pricedInvs = investments.filter(i => live(i))
-  const totalCostKrw = investments.reduce((s,i) => s + toKrw(i), 0)
+  const totalCostKrw = investments.reduce((s,i) => s + toKrw(i, undefined, usdKrw), 0)
   const totalCurrKrw = pricedInvs.reduce((s,i) => {
     const lv = live(i)
-    return s + (lv ? toKrw(i, lv.currentPrice) : toKrw(i))
+    return s + (lv ? toKrw(i, lv.currentPrice, usdKrw) : toKrw(i, undefined, usdKrw))
   }, 0)
-  const costPricedKrw = pricedInvs.reduce((s,i) => s + toKrw(i), 0)
+  const costPricedKrw = pricedInvs.reduce((s,i) => s + toKrw(i, undefined, usdKrw), 0)
   const totalPnL  = totalCurrKrw - costPricedKrw
   const totalRet  = costPricedKrw > 0 ? (totalPnL / costPricedKrw) * 100 : null
 
@@ -1017,9 +1018,9 @@ export default function DashboardPage() {
       let total = 0
       pricedInvs.forEach(inv => {
         const chart = priceMap[inv.ticker.toUpperCase()]?.charts?.['1M'] ?? []
-        if (!chart.length) { total += toKrw(inv); return }
+        if (!chart.length) { total += toKrw(inv, undefined, usdKrw); return }
         const closest = chart.reduce((a,b) => Math.abs(b.t-t) < Math.abs(a.t-t) ? b : a)
-        total += toKrw(inv, closest.v)
+        total += toKrw(inv, closest.v, usdKrw)
       })
       return {
         t,
@@ -1100,7 +1101,7 @@ export default function DashboardPage() {
     const coreVal = pricedInvs.reduce((s, inv) => {
       const lv  = live(inv)
       if (!lv) return s
-      const val = toKrw(inv, lv.currentPrice)
+      const val = toKrw(inv, lv.currentPrice, usdKrw)
       return isCoreInv(inv) ? s + val : s
     }, 0)
     return (coreVal / totalCurrKrw) * 100
@@ -1110,7 +1111,7 @@ export default function DashboardPage() {
   // 🪙 코인 랩 가드레일용 — 내 포트폴리오의 암호화폐 비중(%). 보유 없으면 undefined
   const myCryptoPct = useMemo(() => {
     if (pricedInvs.length === 0 || totalCurrKrw === 0) return undefined
-    const cv = pricedInvs.filter(i => i.market === 'CRYPTO').reduce((s, i) => s + toKrw(i, live(i)?.currentPrice ?? i.purchase_price), 0)
+    const cv = pricedInvs.filter(i => i.market === 'CRYPTO').reduce((s, i) => s + toKrw(i, live(i)?.currentPrice ?? i.purchase_price, usdKrw), 0)
     return Math.round((cv / totalCurrKrw) * 1000) / 10
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pricedInvs, priceMap, usdKrw])
@@ -1760,7 +1761,7 @@ export default function DashboardPage() {
         // 코인 비중
         const cryptoVal  = pricedInvs
           .filter(i => i.market === 'CRYPTO')
-          .reduce((s,i) => s + toKrw(i, live(i)?.currentPrice ?? i.purchase_price), 0)
+          .reduce((s,i) => s + toKrw(i, live(i)?.currentPrice ?? i.purchase_price, usdKrw), 0)
         const cryptoPct  = totalCurrKrw > 0 ? (cryptoVal / totalCurrKrw) * 100 : 0
 
         // 최고 / 최저 수익 종목

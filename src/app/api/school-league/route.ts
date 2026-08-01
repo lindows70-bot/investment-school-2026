@@ -14,6 +14,7 @@ export const revalidate = 0
 import { NextResponse }                    from 'next/server'
 import { createClient as createAdmin }     from '@supabase/supabase-js'
 import { classifyAsset }                   from '@/lib/classifyAsset'
+import { getUsdKrw } from '@/lib/fx'
 import { TK } from '@/lib/theme'
 
 // ── 서비스 롤 클라이언트 (전체 사용자 데이터 조회) ──────────────
@@ -201,7 +202,7 @@ export async function GET(req: Request) {
 
     // stock-price API 배치 호출 (최대 50개)
     const priceMap: Record<string, number> = {}    // ticker → currentPrice
-    const usdKrw   = 1_350
+    const usdKrw   = await getUsdKrw(selfBase)   // 라이브 환율(제1원칙: 하드코딩 금지)
 
     if (uniqueTickers.length > 0) {
       try {

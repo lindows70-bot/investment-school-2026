@@ -40,7 +40,8 @@ interface StudentRow extends Profile {
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const USD_KRW = 1_350
+// ⚠️ 폴백 전용 — 실제 환산은 usdKrw state(/api/exchange-rate). 제1원칙: 환율 하드코딩 금지
+const USD_KRW_FALLBACK = 1_350
 
 const LYNCH_META: Record<string, { label: string; color: string }> = {
   slow_grower: { label: '저성장주', color: TK.sub9 },
@@ -63,8 +64,8 @@ const fmtKrw = (n: number) =>
   n >= 10_000      ? `₩${Math.round(n/10_000).toLocaleString('ko-KR')}만` :
   `₩${fmt(n)}`
 
-function toKrw(inv: Investment) {
-  return inv.purchase_price * inv.quantity * (inv.currency === 'USD' ? USD_KRW : 1)
+function toKrw(inv: Investment, usdKrw: number = USD_KRW_FALLBACK) {
+  return inv.purchase_price * inv.quantity * (inv.currency === 'USD' ? usdKrw : 1)
 }
 
 // ─── Student detail modal ─────────────────────────────────────────────────────
@@ -72,12 +73,13 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
   const invs = student.investments
 
   // ── 실시간 환율 (localStorage 캐시 → 없으면 1,350 기본값) ──
-  const [usdKrw, setUsdKrw] = useState(1_350)
+  const [usdKrw, setUsdKrw] = useState(USD_KRW_FALLBACK)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [priceMap, setPriceMap] = useState<Record<string, any>>({})
   const [loadingPrices, setLoadingPrices] = useState(false)
 
   useEffect(() => {
+    // localStorage 캐시 → 라이브(/api/exchange-rate) 순으로 갱신. 폴백은 조회 실패 시에만(제1원칙)
     try {
       const cached = localStorage.getItem('usd_krw_rate')
       if (cached) {
@@ -85,6 +87,11 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
         if (rate > 0) setUsdKrw(Math.round(rate))
       }
     } catch { /* 기본값 유지 */ }
+    let alive = true
+    fetch('/api/exchange-rate').then(r => r.ok ? r.json() : null)
+      .then(j => { if (alive && typeof j?.rate === 'number' && j.rate > 500) setUsdKrw(j.rate) })
+      .catch(() => { /* 폴백 유지 */ })
+    return () => { alive = false }
   }, [])
 
   // ── 현재가 실시간 조회 (배치: 8개씩 순차 처리 → Naver rate limit 방지) ──
@@ -340,6 +347,7 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
 export default function AdminPage() {
   const router = useRouter()
 
+  const [usdKrw,          setUsdKrw]          = useState(USD_KRW_FALLBACK)   // 라이브 환율(학생 총자산 환산 — 제1원칙)
   const [loading,         setLoading]         = useState(true)
   const [authErr,         setAuthErr]         = useState<string | null>(null)
   const [students,        setStudents]        = useState<StudentRow[]>([])
@@ -369,6 +377,14 @@ export default function AdminPage() {
       setTimeout(() => setCopied(false), 2000)
     })
   }
+
+  useEffect(() => {
+    let alive = true
+    fetch('/api/exchange-rate').then(r => r.ok ? r.json() : null)
+      .then(j => { if (alive && typeof j?.rate === 'number' && j.rate > 500) setUsdKrw(j.rate) })
+      .catch(() => { /* 폴백 유지 */ })
+    return () => { alive = false }
+  }, [])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -454,7 +470,7 @@ export default function AdminPage() {
       const invList = allInv
       const rows: StudentRow[] = profiles.map((p: Profile) => {
         const invs = invList.filter((i: { user_id: string }) => i.user_id === p.id)
-        const totalKrw = invs.reduce((s: number, i: Investment) => s + toKrw(i), 0)
+        const totalKrw = invs.reduce((s: number, i: Investment) => s + toKrw(i, usdKrw), 0)
         return { ...p, investments: invs, totalKrw, count: invs.length }
       })
 
@@ -467,7 +483,7 @@ export default function AdminPage() {
       // 성공·실패·예외 모두 로딩 해제
       setLoading(false)
     }
-  }, [router])
+  }, [router, usdKrw])
 
   // 5초 타임아웃
   useEffect(() => {
