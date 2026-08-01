@@ -9,8 +9,8 @@ import { dartBuf, unzipFirst, dartJson, getCorpCode } from '@/lib/dart'
 import { getCache, setCache } from '@/lib/appCache'
 
 // v3: 기간 라벨 6가지 표기 지원(대부분 빈칸이던 것) + 주석에서 '관련공시' 제거 — 파싱 결과가 바뀌어 키를 올린다
-export const KR_EARN_KEY = (t: string) => `kr-earnings-v3:${t}`
-export const KR_EARN_INDEX_KEY = 'kr-earnings-index-v3'
+export const KR_EARN_KEY = (t: string) => `kr-earnings-v4:${t}`
+export const KR_EARN_INDEX_KEY = 'kr-earnings-index-v4'
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
 export interface KrMetric {
@@ -87,25 +87,35 @@ const stripTags = (s: string) => s.replace(/<[^>]+>/g, ' ')
   .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
   .replace(/\s+/g, ' ').trim()
 
-/** 실적 기간 라벨 추출 — 회사마다 표기가 제각각이라 실측으로 6가지를 확인했다.
- *   (26.2Q) 하나금융 · ('26.2Q) 한화에어로 · (2026년 2분기) SK하이닉스 · (26년 2분기 ) 우리금융
- *   (2026.04.01~2026.06.30) 신한지주 · (2026.4.1~2026.6.30) KB금융
- *  ⚠️ 하나만 지원하면 대부분의 카드에서 분기가 빈칸이 된다(1분기·2분기가 섞인 목록에선 치명적). */
-const PERIOD_RE = /\(\s*(?:['’`]?(\d{2}|\d{4})\s*[.년]\s*(\d)\s*(?:Q|분기)|\d{4}[.\-/]\s*\d{1,2}[.\-/]\s*\d{1,2}\s*~\s*(\d{4})[.\-/]\s*(\d{1,2})[.\-/]\s*\d{1,2})\s*\)/g
+/** 실적 기간 라벨 정규화 — 회사마다 표기가 자유라 실측으로 10가지를 확인했다.
+ *   (26.2Q)하나금융 · ('26.2Q)한화에어로 · (2026년 2분기)SK하이닉스 · (26년 2분기)우리금융
+ *   (2026.04.01~2026.06.30)신한지주 · (2026.4.1~2026.6.30)KB금융 · (1Q'26)S-Oil · ('26.Q1)고려아연
+ *   2026년 1분기(괄호 없음)LIG넥스원 · 26.1.1~ 26.3.31(괄호 없음)메리츠금융
+ *  ⚠️ 알아보지 못하면 원문 그대로 보여준다 — 빈칸보다 낫다(1분기·2분기가 섞인 목록이라 분기 표기는 필수). */
+const yr = (y: string) => (y.length === 2 ? `20${y}` : y)
 
-function extractPeriods(flat: string): string[] {
-  const out: string[] = []
-  const re = new RegExp(PERIOD_RE.source, 'g')
-  let m: RegExpExecArray | null
-  while ((m = re.exec(flat))) {
-    if (m[1] && m[2]) {
-      const y = m[1].length === 2 ? `20${m[1]}` : m[1]
-      out.push(`${y}년 ${m[2]}분기`)
-    } else if (m[3] && m[4]) {
-      out.push(`${m[3]}년 ${Math.ceil(Number(m[4]) / 3)}분기`)   // 날짜 범위는 종료월로 분기 산출
-    }
-  }
-  return out
+function normQuarter(raw: string): string {
+  const s = raw.replace(/[()'’`\s]/g, '')
+  let m: RegExpMatchArray | null
+  // ① 날짜 범위 → 종료월로 분기 산출
+  if ((m = s.match(/^\d{2,4}[.\-/]\d{1,2}[.\-/]\d{1,2}~(\d{2,4})[.\-/](\d{1,2})[.\-/]\d{1,2}$/)))
+    return `${yr(m[1])}년 ${Math.ceil(Number(m[2]) / 3)}분기`
+  // ② 분기가 앞 — 1Q26
+  if ((m = s.match(/^(\d)Q(\d{2,4})$/i))) return `${yr(m[2])}년 ${m[1]}분기`
+  // ③ 연도가 앞 — 26.2Q · 2026년2분기 · 26.Q1
+  if ((m = s.match(/^(\d{2,4})[.년]?Q?(\d)(?:Q|분기)?$/i))) return `${yr(m[1])}년 ${m[2]}분기`
+  return raw.trim()
+}
+
+/** 표 헤더 행에서 기간 셀을 직접 뽑는다 — 표기 형식에 기대지 않는 방식.
+ *  헤더2 행 = 증감율 셀이 2개인 행이고, 거기서 증감율·흑자적자 칸을 뺀 나머지가 [당기, 전기, 전년동기]다. */
+function extractPeriods(rows: string[][]): string[] {
+  const hdr = rows.find(r => r.filter(c => /증감\s*율/.test(c)).length >= 2)
+  if (!hdr) return []
+  return hdr
+    .filter(c => c && !/증감\s*율|흑자|적자|구분|실적/.test(c))
+    .slice(0, 3)
+    .map(normQuarter)
 }
 
 function tableRows(xml: string): string[][] {
@@ -154,8 +164,7 @@ export function parseProvisional(xml: string): {
   const flat = stripTags(xml)
   const { label: unitLabel, mult } = unitOf(flat)
 
-  const qs = extractPeriods(flat)
-  const [periodLabel = '', prevLabel = '', yoyLabel = ''] = qs
+  const [periodLabel = '', prevLabel = '', yoyLabel = ''] = extractPeriods(rows)
 
   const KNOWN = ['매출액', '영업이익', '법인세비용차감전계속사업이익', '당기순이익', '지배기업 소유주지분 순이익', '지배기업소유주지분 순이익']
   const metrics: KrMetric[] = []
