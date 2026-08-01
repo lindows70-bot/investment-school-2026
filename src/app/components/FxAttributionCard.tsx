@@ -92,8 +92,18 @@ export default function FxAttributionCard() {
         </div>
       )}
 
-      {/* 종목별 */}
+      {/* 종목별 — 오른쪽 세 숫자가 무엇인지 헤더로 명시(고정폭이라 아래 행과 세로로 맞음) */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 11 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, padding: '0 11px 2px', borderBottom: `1px solid ${C.border}` }}>
+          <span style={{ fontSize: 9.5, fontWeight: 700, color: C.low }}>종목 · 매입 환율</span>
+          <span style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 9.5, fontWeight: 700 }}>
+            <span style={{ minWidth: 52, textAlign: 'right', color: C.cyan }}>① 달러 수익</span>
+            <span style={{ minWidth: 10, textAlign: 'center', color: 'transparent' }}>+</span>
+            <span style={{ minWidth: 56, textAlign: 'right', color: C.gold }}>② 환율 기여</span>
+            <span style={{ minWidth: 10, textAlign: 'center', color: 'transparent' }}>=</span>
+            <span style={{ minWidth: 58, textAlign: 'right', color: C.text }}>③ 내 계좌</span>
+          </span>
+        </div>
         {shown.map(r => (
           <div key={r.ticker} style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap', background: r.flipped ? '#221c10' : C.card2, borderRadius: 8, padding: '7px 11px', borderLeft: `3px solid ${col(r.fxContrib)}` }}>
             <span style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{r.name.length > 18 ? r.name.slice(0, 18) : r.name}</span>
@@ -102,11 +112,11 @@ export default function FxAttributionCard() {
               매입 ₩{r.fxBuy.toLocaleString()}{r.lots > 1 && ` (${r.lots}건)`}
             </span>
             <span style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'baseline', fontFamily: 'monospace', fontSize: 11.5 }}>
-              <span style={{ color: col(r.retUsd) }} title="달러 기준">{pct(r.retUsd)}</span>
-              <span style={{ color: C.low, fontSize: 10 }}>+</span>
-              <span style={{ color: col(r.fxContrib), fontWeight: 800 }} title="환율 기여">{pp(r.fxContrib)}</span>
-              <span style={{ color: C.low, fontSize: 10 }}>=</span>
-              <span style={{ color: col(r.retKrw), fontWeight: 900, fontSize: 12.5 }} title="원화 기준(내 계좌)">{pct(r.retKrw)}</span>
+              <span style={{ minWidth: 52, textAlign: 'right', color: col(r.retUsd) }} title="① 달러 기준 — 종목이 실제로 번 것">{pct(r.retUsd)}</span>
+              <span style={{ minWidth: 10, textAlign: 'center', color: C.low, fontSize: 10 }}>+</span>
+              <span style={{ minWidth: 56, textAlign: 'right', color: col(r.fxContrib), fontWeight: 800 }} title="② 환율 기여 — 환율이 만든 것">{pp(r.fxContrib)}</span>
+              <span style={{ minWidth: 10, textAlign: 'center', color: C.low, fontSize: 10 }}>=</span>
+              <span style={{ minWidth: 58, textAlign: 'right', color: col(r.retKrw), fontWeight: 900, fontSize: 12.5 }} title="③ 원화 기준 — 내 계좌에 찍히는 것">{pct(r.retKrw)}</span>
             </span>
           </div>
         ))}
