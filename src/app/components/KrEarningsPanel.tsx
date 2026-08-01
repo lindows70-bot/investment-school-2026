@@ -22,6 +22,21 @@ function Badge({ c, children }: { c: string; children: React.ReactNode }) {
   return <span style={{ fontSize: FS.tiny, color: c, border: `1px solid ${c}44`, background: c + '14', borderRadius: 6, padding: '2px 7px', fontWeight: 700 }}>{children}</span>
 }
 
+/** 카드를 눌러 펼칠 수 있다는 표시 — 없으면 학생이 상세가 있는지 모른다 */
+export function ExpandHint({ open }: { open: boolean }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0,
+      fontSize: FS.tiny, fontWeight: 700, color: open ? TK.cyan400 : TK.sub,
+      border: `1px solid ${open ? TK.cyan400 + '55' : BORDER}`, background: open ? TK.cyan400 + '14' : TK.bg4,
+      borderRadius: 999, padding: '3px 9px',
+    }}>
+      {open ? '접기' : '자세히'}
+      <span style={{ display: 'inline-block', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s', lineHeight: 1 }}>▾</span>
+    </span>
+  )
+}
+
 const won = (v: number | null) => {
   if (v == null) return '—'
   const a = Math.abs(v), s = v < 0 ? '−' : ''
@@ -64,6 +79,12 @@ export default function KrEarningsPanel() {
   }, [rows, sort])
 
   const divCount = rows.filter(r => r.divergence).length
+  // 아직 최신 분기를 발표하지 않은 회사가 섞인다 → 다수와 다른 분기는 눈에 띄게(같은 목록에 1분기·2분기가 공존)
+  const topPeriod = useMemo(() => {
+    const c: Record<string, number> = {}
+    rows.forEach(r => { if (r.periodLabel) c[r.periodLabel] = (c[r.periodLabel] ?? 0) + 1 })
+    return Object.entries(c).sort((a, b) => b[1] - a[1])[0]?.[0] ?? ''
+  }, [rows])
 
   return (
     <>
@@ -102,8 +123,16 @@ export default function KrEarningsPanel() {
                 <span style={{ fontSize: FS.tiny, color: TK.sub2 }}>{won(r.marketCap)}원</span>
                 {r.corrected && <Badge c={TK.amber400}>정정 반영</Badge>}
                 {r.divergence && <Badge c={TK.amber400}>⚠️ 매출↑ 이익↓</Badge>}
-                <span style={{ marginLeft: 'auto', fontSize: FS.tiny, color: TK.sub2, fontFamily: 'monospace' }}>
-                  {r.periodLabel} · {r.filedAt} · {dday(r.filedAt)}
+                <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'baseline', gap: 7 }}>
+                  <span style={{ fontSize: FS.tiny, fontFamily: 'monospace', color: TK.sub2 }}>
+                    {r.periodLabel && (
+                      <b
+                        title={r.periodLabel !== topPeriod ? '이 회사는 아직 최신 분기를 발표하지 않았습니다' : undefined}
+                        style={{ color: r.periodLabel && topPeriod && r.periodLabel !== topPeriod ? TK.amber400 : TK.slate400 }}
+                      >{r.periodLabel}</b>
+                    )} · {r.filedAt} · {dday(r.filedAt)}
+                  </span>
+                  <ExpandHint open={open === r.ticker} />
                 </span>
               </div>
 

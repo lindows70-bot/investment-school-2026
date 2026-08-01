@@ -8,9 +8,9 @@
 import { dartBuf, unzipFirst, dartJson, getCorpCode } from '@/lib/dart'
 import { getCache, setCache } from '@/lib/appCache'
 
-// v2: 분기 라벨 표기를 회사별 원문('26.2Q'/'2026년2분기')에서 한 형태로 통일 — 캐시된 옛 표기 무효화
-export const KR_EARN_KEY = (t: string) => `kr-earnings-v2:${t}`
-export const KR_EARN_INDEX_KEY = 'kr-earnings-index-v2'
+// v3: 기간 라벨 6가지 표기 지원(대부분 빈칸이던 것) + 주석에서 '관련공시' 제거 — 파싱 결과가 바뀌어 키를 올린다
+export const KR_EARN_KEY = (t: string) => `kr-earnings-v3:${t}`
+export const KR_EARN_INDEX_KEY = 'kr-earnings-index-v3'
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
 export interface KrMetric {
@@ -87,13 +87,25 @@ const stripTags = (s: string) => s.replace(/<[^>]+>/g, ' ')
   .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
   .replace(/\s+/g, ' ').trim()
 
-/** '26.2Q' · '2026년 2분기' → '2026년 2분기' */
-function normQuarter(s: string): string {
-  const a = s.replace(/\s+/g, '').match(/^(\d{2})\.(\d)Q$/)
-  if (a) return `20${a[1]}년 ${a[2]}분기`
-  const b = s.replace(/\s+/g, '').match(/^(\d{4})년(\d)분기$/)
-  if (b) return `${b[1]}년 ${b[2]}분기`
-  return s.trim()
+/** 실적 기간 라벨 추출 — 회사마다 표기가 제각각이라 실측으로 6가지를 확인했다.
+ *   (26.2Q) 하나금융 · ('26.2Q) 한화에어로 · (2026년 2분기) SK하이닉스 · (26년 2분기 ) 우리금융
+ *   (2026.04.01~2026.06.30) 신한지주 · (2026.4.1~2026.6.30) KB금융
+ *  ⚠️ 하나만 지원하면 대부분의 카드에서 분기가 빈칸이 된다(1분기·2분기가 섞인 목록에선 치명적). */
+const PERIOD_RE = /\(\s*(?:['’`]?(\d{2}|\d{4})\s*[.년]\s*(\d)\s*(?:Q|분기)|\d{4}[.\-/]\s*\d{1,2}[.\-/]\s*\d{1,2}\s*~\s*(\d{4})[.\-/]\s*(\d{1,2})[.\-/]\s*\d{1,2})\s*\)/g
+
+function extractPeriods(flat: string): string[] {
+  const out: string[] = []
+  const re = new RegExp(PERIOD_RE.source, 'g')
+  let m: RegExpExecArray | null
+  while ((m = re.exec(flat))) {
+    if (m[1] && m[2]) {
+      const y = m[1].length === 2 ? `20${m[1]}` : m[1]
+      out.push(`${y}년 ${m[2]}분기`)
+    } else if (m[3] && m[4]) {
+      out.push(`${m[3]}년 ${Math.ceil(Number(m[4]) / 3)}분기`)   // 날짜 범위는 종료월로 분기 산출
+    }
+  }
+  return out
 }
 
 function tableRows(xml: string): string[][] {
@@ -142,9 +154,7 @@ export function parseProvisional(xml: string): {
   const flat = stripTags(xml)
   const { label: unitLabel, mult } = unitOf(flat)
 
-  // 기간 라벨 — 회사마다 표기가 다르다(삼성전자 '26.2Q' / SK하이닉스 '2026년 2분기') → 한 형태로 통일
-  // ⚠️ 스프레드 대신 Array.from — 프로젝트 tsconfig 타깃에서 TS2802(5번째 재현)
-  const qs = Array.from(flat.matchAll(/\((\d{2}\.\d ?Q|\d{4}년\s*\d분기)\)/g)).map(m => normQuarter(m[1]))
+  const qs = extractPeriods(flat)
   const [periodLabel = '', prevLabel = '', yoyLabel = ''] = qs
 
   const KNOWN = ['매출액', '영업이익', '법인세비용차감전계속사업이익', '당기순이익', '지배기업 소유주지분 순이익', '지배기업소유주지분 순이익']
@@ -182,10 +192,13 @@ export function parseProvisional(xml: string): {
 
   // IR 웹페이지(공시 본문에 회사가 직접 적어둔다 — 서술 자료 안내용)
   const ir = flat.match(/https?:\/\/[^\s<>"')|]+/)
-  // 기타 투자판단 문구
+  // 기타 투자판단 문구 — '※ 관련공시' 이후는 다른 공시 제목 나열이라 잘라낸다
   const noteIdx = flat.indexOf('기타 투자판단')
-  const notes = noteIdx >= 0
-    ? flat.slice(noteIdx, noteIdx + 900).split(/\s-\s/).slice(1).map(s => s.trim()).filter(s => s.length > 8).slice(0, 5)
+  let noteBlock = noteIdx >= 0 ? flat.slice(noteIdx, noteIdx + 1200) : ''
+  const cut = noteBlock.indexOf('※ 관련공시')
+  if (cut > 0) noteBlock = noteBlock.slice(0, cut)
+  const notes = noteBlock
+    ? noteBlock.split(/\s-\s/).slice(1).map(s => s.trim()).filter(s => s.length > 8).slice(0, 5)
     : []
 
   return {

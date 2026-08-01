@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { TK, FS } from '@/lib/theme'
 import type { ErIndexRow, EarningsReportDoc } from '@/lib/earningsReport'
 import ResearchVerdictCard from '@/app/components/ResearchVerdict'
-import KrEarningsPanel from '@/app/components/KrEarningsPanel'
+import KrEarningsPanel, { ExpandHint } from '@/app/components/KrEarningsPanel'
 
 const CARD = TK.bg6, BORDER = TK.border
 
@@ -139,8 +139,11 @@ function UsPanel() {
                   <b style={{ fontSize: FS.body, color: TK.slate100, fontFamily: 'monospace' }}>{r.ticker}</b>
                   <span style={{ fontSize: FS.body, color: TK.slate300 }}>{r.name}</span>
                   <span style={{ fontSize: FS.tiny, color: TK.sub2 }}>{fmtCap(r.marketCap)}</span>
-                  <span style={{ marginLeft: 'auto', fontSize: FS.tiny, color: TK.sub2, fontFamily: 'monospace' }}>
-                    {r.filedAt} · {dday(r.filedAt)}
+                  <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'baseline', gap: 7 }}>
+                    <span style={{ fontSize: FS.tiny, color: TK.sub2, fontFamily: 'monospace' }}>
+                      {r.filedAt} · {dday(r.filedAt)}
+                    </span>
+                    {!cmpMode && <ExpandHint open={open === r.ticker} />}
                   </span>
                 </div>
                 <div style={{ fontSize: FS.body, color: r.headline ? TK.slate300 : TK.sub2, marginTop: 6, lineHeight: 1.7 }}>
