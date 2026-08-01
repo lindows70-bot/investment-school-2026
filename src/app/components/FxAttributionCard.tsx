@@ -60,9 +60,10 @@ export default function FxAttributionCard() {
         ))}
       </div>
       <div style={{ fontSize: 10.5, color: C.sub, marginTop: 7, lineHeight: 1.6 }}>
-        해외 자산 {won(d.valueKrw)}
-        {d.fxExposurePct != null && <> · 전체 자산의 <b style={{ color: C.cyan }}>{d.fxExposurePct}%</b>가 환율에 노출</>}
+        해외 종목 {won(d.valueKrw)}{d.cashUsdKrw > 0 && <> + 달러 예수금 {won(d.cashUsdKrw)}</>}
+        {d.fxExposurePct != null && <> · <b style={{ color: C.cyan }}>총자산의 {d.fxExposurePct}%</b>가 환율에 노출(현금 포함)</>}
         {' '}— 원화 수익({pct(d.retKrw)}) = 달러 수익({pct(d.retUsd)}) + 환율({pp(d.fxContrib)}).
+        {d.cashUsdKrw > 0 && <span style={{ color: C.low }}> 아래 수익 분해는 <b>종목만</b>입니다(예수금은 매입 환율 개념이 없어 노출·시나리오에만 반영).</span>}
       </div>
 
       {flipped.length > 0 && (

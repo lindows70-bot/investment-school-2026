@@ -38,7 +38,9 @@ export interface FxAttribution {
   retUsd: number            // 포트 전체(해외분) 달러 기준
   retKrw: number
   fxContrib: number
-  fxExposurePct: number | null   // 전체 자산 중 외화 자산 비중 %(계산 불가면 null)
+  /** 환노출 = 해외 종목 + 달러 현금(예수금) — 분모는 투자 자산 + 현금 */
+  fxExposurePct: number | null
+  cashUsdKrw: number        // 환노출에 포함된 달러 현금(원화 환산)
   scenarios: FxScenario[]
   flippedCount: number
 }
@@ -62,6 +64,7 @@ export function buildFxAttribution(
   fxSeries: { date: string; rate: number }[],
   fxNow: number,
   totalPortfolioKrw?: number,
+  cashUsd = 0,              // 달러 예수금(원화 환산 전) — 이것도 환율에 노출된 자산
 ): FxAttribution | null {
   if (!lots.length || !fxNow || fxNow <= 0) return null
 
@@ -95,33 +98,42 @@ export function buildFxAttribution(
     const retKrw = (a.valueKrw / a.costKrw - 1) * 100
     costKrw += a.costKrw; valueKrw += a.valueKrw
     costUsd += a.costUsd; valueUsd += a.valueUsd
+    // ⚠️ 화면이 'A + B = C'로 보여주므로 **반올림된 값끼리** 합이 맞아야 한다
+    //    (원본끼리 빼고 반올림하면 -8.4 + -5.5 = -13.8처럼 0.1%p 어긋난 줄이 생긴다)
+    const rU = r1(retUsd), rK = r1(retKrw)
     rows.push({
       ticker, name: a.name, purchaseDate: a.date, lots: a.lots,
       fxBuy: Math.round(a.costKrw / a.costUsd),        // 원가 가중 평균 매입 환율
       costUsd: a.costUsd, valueUsd: a.valueUsd, costKrw: a.costKrw, valueKrw: a.valueKrw,
-      retUsd: r1(retUsd), retKrw: r1(retKrw), fxContrib: r1(retKrw - retUsd),
+      retUsd: rU, retKrw: rK, fxContrib: r1(rK - rU),
       // 부호 뒤집힘 — 달러로는 이익인데 원화로는 손실(또는 반대). 학생이 가장 헷갈리는 케이스
       flipped: (retUsd > 0 && retKrw < 0) || (retUsd < 0 && retKrw > 0),
     })
   }
   rows.sort((a, b) => a.fxContrib - b.fxContrib)      // 환손실 큰 순
 
-  const retUsd = (valueUsd / costUsd - 1) * 100
-  const retKrw = (valueKrw / costKrw - 1) * 100
+  const retUsd = r1((valueUsd / costUsd - 1) * 100)
+  const retKrw = r1((valueKrw / costKrw - 1) * 100)
+  const cashUsdKrw = Math.max(0, cashUsd) * fxNow      // 달러 예수금도 환율에 노출된다
+  const exposureKrw = valueKrw + cashUsdKrw
 
   // 환율만 ±N% 움직였을 때 원화 평가액(다른 조건 불변 가정)
+  const usdTotal = valueUsd + Math.max(0, cashUsd)       // 종목 + 달러 예수금
   const scenarios: FxScenario[] = [-10, -5, 5, 10].map(d => {
     const rate = fxNow * (1 + d / 100)
-    const v = valueUsd * rate
-    return { deltaPct: d, fxRate: Math.round(rate), valueKrw: Math.round(v), diffKrw: Math.round(v - valueKrw) }
+    const v = usdTotal * rate
+    return { deltaPct: d, fxRate: Math.round(rate), valueKrw: Math.round(v), diffKrw: Math.round(v - usdTotal * fxNow) }
   })
 
   return {
     fxNow: Math.round(fxNow * 10) / 10,
     rows,
     costKrw: Math.round(costKrw), valueKrw: Math.round(valueKrw),
-    retUsd: r1(retUsd), retKrw: r1(retKrw), fxContrib: r1(retKrw - retUsd),
-    fxExposurePct: totalPortfolioKrw && totalPortfolioKrw > 0 ? r1(valueKrw / totalPortfolioKrw * 100) : null,
+    retUsd, retKrw, fxContrib: r1(retKrw - retUsd),
+    // 분모 = 투자 자산 + 현금(현금 카드의 '총자산'과 같은 기준) · 분자 = 해외 종목 + 달러 현금
+    fxExposurePct: totalPortfolioKrw && totalPortfolioKrw > 0
+      ? r1(exposureKrw / (totalPortfolioKrw + cashUsdKrw) * 100) : null,
+    cashUsdKrw: Math.round(cashUsdKrw),
     scenarios,
     flippedCount: rows.filter(r => r.flipped).length,
   }

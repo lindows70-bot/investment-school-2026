@@ -19,7 +19,8 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `fx-attribution-v1:${user.id}:${kstDate()}:${fp}`
+  // v2: 달러 예수금을 환노출·시나리오에 포함 + 표시 반올림 정합(응답에 cashUsdKrw 추가)
+  const cacheKey = `fx-attribution-v2:${user.id}:${kstDate()}:${fp}`
   const cached = await getCache<FxAttribution>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -86,7 +87,14 @@ export async function GET(req: Request) {
       : (Number(r.purchase_price) || 0) * qty * (isKrw ? 1 : fxNow)
   }
 
-  const result = buildFxAttribution(lots, fxSeries, fxNow, totalKrw)
+  // 💵 달러 예수금 — 종목은 아니지만 환율에 노출된 자산(테이블 미생성이면 0)
+  let cashUsd = 0
+  try {
+    const { data: c } = await sb.from('user_cash').select('usd').eq('user_id', user.id).maybeSingle()
+    cashUsd = Number(c?.usd) || 0
+  } catch { /* graceful */ }
+
+  const result = buildFxAttribution(lots, fxSeries, fxNow, totalKrw, cashUsd)
   if (!result) return NextResponse.json({ empty: true }, { headers: { 'Cache-Control': 'no-store' } })
 
   // 라이브 가격을 충분히 확보했을 때만 캐시(부분실패 박제 금지)
