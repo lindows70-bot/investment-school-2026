@@ -6,4 +6,4 @@
 - [x] vercel.json 크론 등록(09:40 KST)
 - [x] 브리핑 상단 빨간 배너
 - [x] 검증: 단위 13케이스 + 라이브 13/13 대조(오탐 2건 수정)
-- [ ] tsc → lint → check:build(&&) → 배포 → CLAUDE.md 기록
+- [x] tsc → lint → check:build(&&) → 배포 → CLAUDE.md 기록
