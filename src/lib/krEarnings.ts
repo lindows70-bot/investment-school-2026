@@ -9,8 +9,8 @@ import { dartBuf, unzipFirst, dartJson, getCorpCode } from '@/lib/dart'
 import { getCache, setCache } from '@/lib/appCache'
 
 // v3: 기간 라벨 6가지 표기 지원(대부분 빈칸이던 것) + 주석에서 '관련공시' 제거 — 파싱 결과가 바뀌어 키를 올린다
-export const KR_EARN_KEY = (t: string) => `kr-earnings-v4:${t}`
-export const KR_EARN_INDEX_KEY = 'kr-earnings-index-v4'
+export const KR_EARN_KEY = (t: string) => `kr-earnings-v5:${t}`
+export const KR_EARN_INDEX_KEY = 'kr-earnings-index-v5'
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
 export interface KrMetric {
@@ -95,10 +95,13 @@ const stripTags = (s: string) => s.replace(/<[^>]+>/g, ' ')
 const yr = (y: string) => (y.length === 2 ? `20${y}` : y)
 
 function normQuarter(raw: string): string {
-  const s = raw.replace(/[()'’`\s]/g, '')
+  const t = raw.trim()
   let m: RegExpMatchArray | null
-  // ① 날짜 범위 → 종료월로 분기 산출
-  if ((m = s.match(/^\d{2,4}[.\-/]\d{1,2}[.\-/]\d{1,2}~(\d{2,4})[.\-/](\d{1,2})[.\-/]\d{1,2}$/)))
+  // ⓪ '2026년 1/4분기' 슬래시 표기(뒤에 날짜 범위가 덧붙기도 한다)
+  if ((m = t.match(/(\d{2,4})\s*년\s*(\d)\s*\/\s*4\s*분기/))) return `${yr(m[1])}년 ${m[2]}분기`
+  const s = t.replace(/[()'’`\s]/g, '')
+  // ① 날짜 범위 → 종료월로 분기 산출(문자열 안에 묻혀 있어도 잡는다)
+  if ((m = s.match(/\d{2,4}[.\-/]\d{1,2}[.\-/]\d{1,2}~(\d{2,4})[.\-/](\d{1,2})[.\-/]\d{1,2}/)))
     return `${yr(m[1])}년 ${Math.ceil(Number(m[2]) / 3)}분기`
   // ② 분기가 앞 — 1Q26
   if ((m = s.match(/^(\d)Q(\d{2,4})$/i))) return `${yr(m[2])}년 ${m[1]}분기`
