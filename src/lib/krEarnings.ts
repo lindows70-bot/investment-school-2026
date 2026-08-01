@@ -59,9 +59,12 @@ export interface KrIndexRow {
   revenueYoyPct: number | null
   opProfit: number | null
   opProfitYoyPct: number | null
+  /** 증감율 대신 오는 값('흑자전환'·'적자전환'·'적자지속') — 전년이 적자면 %가 성립하지 않는다 */
+  opProfitYoyTurn: string | null
   netProfit: number | null
   netProfitYoyPct: number | null
-  /** 매출은 늘었는데 이익은 줄어든 조합 — 헤드라인에 묻히기 쉬운 대비를 목록에서 바로 드러낸다 */
+  netProfitYoyTurn: string | null
+  /** 매출은 늘었는데 이익은 줄어든(또는 적자로 돌아선) 조합 — 헤드라인에 묻히기 쉬운 대비를 목록에서 바로 드러낸다 */
   divergence: boolean
   dartUrl: string
   marketCap: number | null
@@ -264,13 +267,15 @@ export function toKrIndexRow(d: KrEarningsDoc): KrIndexRow {
   const net = pick(d, ['당기순이익', '지배기업소유주지분순이익'])
   const revYoy = rev?.yoyPct ?? null
   const opYoy = op?.yoyPct ?? null
+  const opTurn = op?.yoyTurn ?? null
   return {
     ticker: d.ticker, name: d.name, filedAt: d.filedAt,
     periodLabel: d.periodLabel, corrected: d.corrected,
     revenue: rev?.cur ?? null, revenueYoyPct: revYoy,
-    opProfit: op?.cur ?? null, opProfitYoyPct: opYoy,
-    netProfit: net?.cur ?? null, netProfitYoyPct: net?.yoyPct ?? null,
-    divergence: revYoy != null && opYoy != null && revYoy > 0 && opYoy < 0,
+    opProfit: op?.cur ?? null, opProfitYoyPct: opYoy, opProfitYoyTurn: opTurn,
+    netProfit: net?.cur ?? null, netProfitYoyPct: net?.yoyPct ?? null, netProfitYoyTurn: net?.yoyTurn ?? null,
+    // 이익이 '줄어든' 것뿐 아니라 '적자로 돌아선' 경우도 같은 경고 대상
+    divergence: revYoy != null && revYoy > 0 && ((opYoy != null && opYoy < 0) || /적자/.test(opTurn ?? '')),
     dartUrl: d.dartUrl, marketCap: d.marketCap,
   }
 }

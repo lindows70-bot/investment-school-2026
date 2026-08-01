@@ -31,6 +31,10 @@ const won = (v: number | null) => {
 }
 const pctColor = (v: number | null) => (v == null ? TK.sub2 : v > 0 ? TK.green400 : v < 0 ? TK.red400 : TK.slate400)
 const pctText = (v: number | null) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.toLocaleString()}%`)
+/** 전년이 적자였다면 증감율이 성립하지 않아 '흑자전환'·'적자전환' 문구가 온다 — %와 같은 자리에 그대로 보여준다 */
+const yoyText = (pct: number | null, turn: string | null) => (pct != null ? pctText(pct) : turn ?? '—')
+const yoyColor = (pct: number | null, turn: string | null) =>
+  pct != null ? pctColor(pct) : turn ? (/적자/.test(turn) ? TK.red400 : TK.green400) : TK.sub2
 const dday = (d: string) => {
   const n = Math.floor((Date.now() - new Date(d + 'T00:00:00Z').getTime()) / 86_400_000)
   return n <= 0 ? '오늘' : n === 1 ? '어제' : `${n}일 전`
@@ -105,14 +109,18 @@ export default function KrEarningsPanel() {
 
               {/* 3지표 — 전년 동기 대비가 핵심(회사가 직접 낸 증감율) */}
               <div style={{ display: 'flex', gap: 10, marginTop: 11, flexWrap: 'wrap' }}>
-                {([['매출', r.revenue, r.revenueYoyPct], ['영업이익', r.opProfit, r.opProfitYoyPct], ['순이익', r.netProfit, r.netProfitYoyPct]] as const).map(([lab, val, pct]) => (
+                {([
+                  ['매출', r.revenue, r.revenueYoyPct, null],
+                  ['영업이익', r.opProfit, r.opProfitYoyPct, r.opProfitYoyTurn],
+                  ['순이익', r.netProfit, r.netProfitYoyPct, r.netProfitYoyTurn],
+                ] as const).map(([lab, val, pct, turn]) => (
                   <div key={lab} style={{ flex: '1 1 150px', background: TK.bg4, border: `1px solid ${BORDER}`, borderRadius: 9, padding: '9px 11px' }}>
                     <div style={{ fontSize: FS.micro, color: TK.sub2 }}>{lab}</div>
                     <div style={{ fontSize: FS.lg, fontWeight: 900, color: val == null ? TK.sub2 : TK.slate100, fontFamily: 'monospace' }}>
                       {val == null ? '미공시' : `${won(val)}원`}
                     </div>
-                    <div style={{ fontSize: FS.tiny, color: pctColor(pct), fontWeight: 700 }}>
-                      전년 동기 대비 {pctText(pct)}
+                    <div style={{ fontSize: FS.tiny, color: yoyColor(pct, turn), fontWeight: 700 }}>
+                      전년 동기 대비 {yoyText(pct, turn)}
                     </div>
                   </div>
                 ))}
@@ -174,10 +182,10 @@ function KrDetail({ ticker, name }: { ticker: string; name: string }) {
               <tr key={m.label} style={{ borderTop: `1px solid ${BORDER}` }}>
                 <td style={{ ...tdL, color: TK.slate300 }}>{m.label}</td>
                 <td style={{ ...tdR, color: m.cur == null ? TK.sub2 : TK.slate100, fontWeight: 800 }}>{m.cur == null ? '미공시' : `${won(m.cur)}원`}</td>
-                <td style={{ ...tdR, color: pctColor(m.qoqPct) }}>{m.qoqTurn ?? pctText(m.qoqPct)}</td>
-                <td style={{ ...tdR, color: pctColor(m.yoyPct), fontWeight: 800 }}>{m.yoyTurn ?? pctText(m.yoyPct)}</td>
+                <td style={{ ...tdR, color: yoyColor(m.qoqPct, m.qoqTurn) }}>{yoyText(m.qoqPct, m.qoqTurn)}</td>
+                <td style={{ ...tdR, color: yoyColor(m.yoyPct, m.yoyTurn), fontWeight: 800 }}>{yoyText(m.yoyPct, m.yoyTurn)}</td>
                 <td style={{ ...tdR, color: TK.slate400 }}>{m.ytd == null ? '—' : `${won(m.ytd)}원`}</td>
-                <td style={{ ...tdR, color: pctColor(m.ytdPct) }}>{m.ytdTurn ?? pctText(m.ytdPct)}</td>
+                <td style={{ ...tdR, color: yoyColor(m.ytdPct, m.ytdTurn) }}>{yoyText(m.ytdPct, m.ytdTurn)}</td>
               </tr>
             ))}
           </tbody>
