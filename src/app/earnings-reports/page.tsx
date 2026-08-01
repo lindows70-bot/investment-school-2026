@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { TK, FS } from '@/lib/theme'
 import type { ErIndexRow, EarningsReportDoc } from '@/lib/earningsReport'
 import ResearchVerdictCard from '@/app/components/ResearchVerdict'
+import KrEarningsPanel from '@/app/components/KrEarningsPanel'
 
 const CARD = TK.bg6, BORDER = TK.border
 
@@ -24,6 +25,24 @@ const dday = (d: string) => {
 }
 
 export default function EarningsReportsPage() {
+  const [market, setMarket] = useState<'US' | 'KR'>('US')
+  return (
+    <div style={{ padding: '22px 20px 60px', maxWidth: 1180, margin: '0 auto' }}>
+      <h1 style={{ fontSize: FS.h2, fontWeight: 900, color: TK.slate100, margin: 0 }}>📑 실적 리포트</h1>
+      <div style={{ display: 'flex', gap: 7, marginTop: 12, marginBottom: 4 }}>
+        {([['US', '🇺🇸 미국'], ['KR', '🇰🇷 한국']] as const).map(([k, l]) => (
+          <button key={k} onClick={() => setMarket(k)} style={{
+            ...chip(market === k), fontSize: FS.body, padding: '7px 16px',
+          }}>{l}</button>
+        ))}
+      </div>
+      {market === 'US' ? <UsPanel /> : <KrEarningsPanel />}
+    </div>
+  )
+}
+
+// ── 🇺🇸 미국 — SEC 8-K 실적 원문 서술 요약 ──────────────────────────────────
+function UsPanel() {
   const [rows, setRows] = useState<ErIndexRow[]>([])
   const [updatedAt, setUpdatedAt] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -54,15 +73,11 @@ export default function EarningsReportsPage() {
   const withSummary = rows.filter(r => r.hasSummary).length
 
   return (
-    <div style={{ padding: '22px 20px 60px', maxWidth: 1180, margin: '0 auto' }}>
-      {/* 헤더 */}
-      <div style={{ marginBottom: 16 }}>
-        <h1 style={{ fontSize: FS.h2, fontWeight: 900, color: TK.slate100, margin: 0 }}>📑 실적 리포트</h1>
-        <p style={{ fontSize: FS.body, color: TK.sub, marginTop: 7, lineHeight: 1.75 }}>
-          미국 시총 상위 50개 기업이 <b style={{ color: TK.slate300 }}>증권거래위원회(SEC)에 직접 제출한 실적 발표 원문</b>을 자동으로 모아 한국어로 정리합니다.
-          기자가 쓴 기사나 남의 해설이 아니라 <b style={{ color: TK.slate300 }}>회사가 자기 손으로 쓴 문서</b>가 출처입니다.
-        </p>
-      </div>
+    <>
+      <p style={{ fontSize: FS.body, color: TK.sub, margin: '10px 0 16px', lineHeight: 1.75 }}>
+        미국 시총 상위 50개 기업이 <b style={{ color: TK.slate300 }}>증권거래위원회(SEC)에 직접 제출한 실적 발표 원문</b>을 자동으로 모아 한국어로 정리합니다.
+        기자가 쓴 기사나 남의 해설이 아니라 <b style={{ color: TK.slate300 }}>회사가 자기 손으로 쓴 문서</b>가 출처입니다.
+      </p>
 
       {/* 상태 바 */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 14 }}>
@@ -149,10 +164,10 @@ export default function EarningsReportsPage() {
         <b style={{ color: TK.sub }}>읽기 전에</b><br />
         · 요약은 AI가 원문을 정리한 것입니다. <b style={{ color: TK.sub }}>숫자는 반드시 SEC 원문으로 확인</b>하세요(원문 링크 병기).<br />
         · 컨퍼런스 콜의 질의응답 전문은 SEC 공시 대상이 아니라 담기지 않습니다. 실적 보도자료와 최고재무책임자 코멘터리까지가 범위입니다.<br />
-        · 미국 상장사만 다룹니다. 한국은 금융감독원 공시가 숫자 위주라 서술 요약에 맞지 않아 제외했습니다.<br />
+        · 한국 기업은 서술형 공시가 제도적으로 없어 숫자 카드로 따로 다룹니다(🇰🇷 탭).<br />
         · 투자 추천이 아닙니다. 회사가 발표한 내용의 정리입니다.
       </div>
-    </div>
+    </>
   )
 }
 

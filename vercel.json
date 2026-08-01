@@ -94,6 +94,9 @@
     },
     "src/app/api/cron/earnings-reports/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/cron/kr-earnings/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -160,6 +163,10 @@
     {
       "path": "/api/cron/earnings-reports",
       "schedule": "20 0 * * *"
+    },
+    {
+      "path": "/api/cron/kr-earnings",
+      "schedule": "15 0 * * *"
     }
   ],
   "headers": [
