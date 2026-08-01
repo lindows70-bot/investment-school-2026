@@ -12,20 +12,23 @@ import {
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
-const TOP_N = 50               // 사용자 확정 규모
+const TOP_N = 50               // 사용자 확정 규모(수집 성공 기준 — 8-K를 안 내는 종목은 건너뛰고 다음 순위로 채운다)
 const SUMMARIZE_PER_RUN = 10   // Gemini 무료 한도 분산(며칠에 걸쳐 전 종목 채움)
 
 export async function GET(req: NextRequest) {
   const started = Date.now()
 
-  // ① 대상 = 유니버스 US 시총 상위 50 (하드코딩 리스트 없음 — 시총 변동 자동 반영)
+  // ① 후보 = 유니버스의 미국 상장사를 시총 순으로 (하드코딩 리스트 없음 — 시총 변동 자동 반영)
+  //  ⚠️ ScreenedStock.market 'US'는 '한국이 아님'이라 일본(.T)·홍콩(.HK)·유럽이 섞이고,
+  //     marketCap은 원시 통화(엔·홍콩달러)라 환산 없이 정렬하면 엔화 종목이 달러 종목을 압도한다.
+  //     SEC 8-K는 미국 상장사만 제출하므로 통화(USD) + 접미사 없음으로 좁히면 두 문제가 함께 해소된다.
   const uni = (await getCache<ScreenedStock[]>(UNIVERSE_KEY, 10 * 86_400_000)) ?? []
-  const targets = uni
-    .filter(s => s.market === 'US' && typeof s.marketCap === 'number' && (s.marketCap as number) > 0)
+  const pool = uni
+    .filter(s => s.market === 'US' && s.currency === 'USD' && !s.ticker.includes('.')
+      && typeof s.marketCap === 'number' && (s.marketCap as number) > 0)
     .sort((a, b) => (b.marketCap as number) - (a.marketCap as number))
-    .slice(0, TOP_N)
 
-  if (targets.length < 10) {
+  if (pool.length < 10) {
     return NextResponse.json({
       ok: false,
       reason: 'universe_not_ready',
@@ -39,14 +42,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: 'cik_map_unavailable' })
   }
 
-  // ② 원문 수집(순차 — SEC 예의). 새 분기 발표가 없으면 캐시 반환이라 빠르다
+  // ② 원문 수집(순차 — SEC 예의). 시총 순으로 훑다 50개를 채우면 중단.
+  //    미국 예탁증서(ADR)·8-K 미제출사는 자동으로 건너뛰고 다음 순위가 그 자리를 채운다.
   const docs: { doc: EarningsReportDoc; cap: number | null }[] = []
-  let collected = 0, failed = 0
-  for (const t of targets) {
-    if (Date.now() - started > 200_000) break   // 요약 예산 남기기
+  let scanned = 0, failed = 0
+  for (const t of pool) {
+    if (docs.length >= TOP_N) break
+    if (Date.now() - started > 190_000) break   // 요약 예산 남기기
+    scanned++
     try {
       const doc = await collectReport(t.ticker, t.name, cikMap)
-      if (doc) { docs.push({ doc, cap: t.marketCap ?? null }); collected++ }
+      if (doc) docs.push({ doc, cap: t.marketCap ?? null })
       else failed++
     } catch { failed++ }
     await sleep(250)
@@ -73,13 +79,13 @@ export async function GET(req: NextRequest) {
     .map(d => toIndexRow(d.doc, d.cap))
     .sort((a, b) => b.filedAt.localeCompare(a.filedAt))
 
-  const enough = rows.length >= Math.floor(targets.length * 0.5)
-  if (enough) await setCache(ER_INDEX_KEY, { rows, targets: targets.length, updatedAt: new Date().toISOString() })
+  const enough = rows.length >= Math.floor(TOP_N * 0.5)
+  if (enough) await setCache(ER_INDEX_KEY, { rows, targets: TOP_N, updatedAt: new Date().toISOString() })
 
   return NextResponse.json({
     ok: true,
-    targets: targets.length,
-    collected, failed,
+    poolSize: pool.length,
+    scanned, collected: docs.length, failed,
     summarized, summaryFailed,
     withSummary: rows.filter(r => r.hasSummary).length,
     indexWritten: enough,
