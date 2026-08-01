@@ -120,7 +120,7 @@ export default function DividendIncomeLab() {
   const port = useMemo(() => {
     const valid = holdings.filter(h => byTicker[h.ticker]?.dividendYield != null)
     const wSum = valid.reduce((s, h) => s + h.w, 0) || 1
-    let annualDiv = 0, wYield = 0, wGrowth = 0, wSafety = 0, safetyN = 0
+    let annualDiv = 0, wYield = 0, wGrowth = 0, wSafety = 0, safetyN = 0, growthN = 0
     const monthly = Array(12).fill(0)
     const styleW: Record<string, number> = { high_yield: 0, growth: 0, balanced: 0 }
     const rows = valid.map(h => {
@@ -130,7 +130,12 @@ export default function DividendIncomeLab() {
       const y = p.dividendYield ?? 0
       const divKRW = investKRW * y                 // 배당률은 통화 무관(소수) → 환율 불필요
       annualDiv += divKRW; wYield += wNorm * y
-      const g = p.yocProjRate ?? 0; wGrowth += wNorm * g
+      // ⚠️ 성장률 null을 0으로 채우면 낙관 편향이 된다 — 실측(2026-08-01): 커버드콜들이 분배를
+      //    27~77% 줄이는 중인데(dividendGrowth1y) yocProjRate가 null이라 전부 '성장 0%'로 처리돼
+      //    포트 성장률이 +1.0%로 표시됐다(실제 가중 −11.4%). 5년 CAGR → 1년 실적 순으로 폴백하고,
+      //    둘 다 없으면 '모름'이라 가중에서 제외한다(0으로 메우지 않는다).
+      const gRaw = p.yocProjRate ?? p.dividendGrowth1y
+      if (gRaw != null) { wGrowth += wNorm * gRaw; growthN += wNorm }
       if (p.safetyScore != null) { wSafety += wNorm * p.safetyScore; safetyN += wNorm }
       if (p.style) styleW[p.style] += wNorm
       const months = p.paymentMonths.length ? p.paymentMonths : [12]
@@ -139,7 +144,7 @@ export default function DividendIncomeLab() {
     })
     return {
       rows, annualDiv, monthlyAvg: annualDiv / 12,
-      yield: wYield, growth: wGrowth,
+      yield: wYield, growth: growthN > 0 ? wGrowth / growthN : 0, growthKnown: growthN,
       safety: safetyN > 0 ? Math.round(wSafety / safetyN) : null,
       monthly, styleW,
       krW: valid.reduce((s, h) => byTicker[h.ticker].market === 'KR' ? s + h.w / wSum : s, 0),
@@ -275,7 +280,8 @@ export default function DividendIncomeLab() {
             { k: '💰 연간 배당금', v: won(port.annualDiv), c: C.gold, sub: `세전 · 배당률 ${(port.yield * 100).toFixed(2)}%` },
             { k: '🗓️ 월평균 배당', v: won(port.monthlyAvg), c: C.green, sub: '지금 매달 받는 현금흐름' },
             { k: '🛡️ 포트 안전성', v: port.safety != null ? port.safety + '점' : '—', c: port.safety != null && port.safety >= 60 ? C.green : C.gold, sub: '배당 안전성 종합' },
-            { k: '🌱 배당 성장률', v: (port.growth * 100).toFixed(1) + '%', c: C.cyan, sub: '연평균(가중)' },
+            { k: '🌱 배당 성장률', v: (port.growth * 100).toFixed(1) + '%', c: port.growth < 0 ? C.red : C.cyan,
+              sub: port.growth < 0 ? `연평균(가중) · 분배 축소 중` : `연평균(가중) · 실측 ${Math.round(port.growthKnown * 100)}%` },
           ].map(m => (
             <div key={m.k} style={{ padding: '13px 15px', borderRadius: 12, background: C.card2, border: `1px solid ${C.border}` }}>
               <div style={{ fontSize: 10.5, color: C.low, marginBottom: 5 }}>{m.k}</div>
@@ -328,7 +334,8 @@ export default function DividendIncomeLab() {
           </label>
         </div>
         <div style={{ fontSize: 10.5, color: C.low, marginBottom: 14 }}>
-          연 성장률 {(proj.g * 100).toFixed(1)}%{drip && ` + 재투자 수익률 ${(proj.reinvest * 100).toFixed(1)}%`} = 배당이 매년 약 <b style={{ color: C.green }}>{(proj.snowRate * 100).toFixed(1)}%</b>씩 불어난다고 가정
+          연 성장률 {(proj.g * 100).toFixed(1)}%{drip && ` + 재투자 수익률 ${(proj.reinvest * 100).toFixed(1)}%`} = 배당이 매년 약 <b style={{ color: proj.snowRate >= 0 ? C.green : C.red }}>{(proj.snowRate * 100).toFixed(1)}%</b>씩 {proj.snowRate >= 0 ? '불어난다고' : '변한다고'} 가정
+          {proj.g < 0 && <span style={{ color: C.red }}> — 이 포트는 <b>분배를 줄이는 중</b>이라 성장률이 마이너스입니다(재투자로 상쇄해도 스노우볼이 느려집니다).</span>}
         </div>
 
         {/* 프로젝션 라인 */}
@@ -381,9 +388,13 @@ export default function DividendIncomeLab() {
           <div style={{ padding: '14px 16px', borderRadius: 12, background: C.card2, border: `1px solid ${C.border}` }}>
             <div style={{ fontSize: 10.5, color: C.low, marginBottom: 5 }}>지금 {won(totalKRW)} 투자 + {drip ? 'DRIP·' : ''}배당 성장 시</div>
             <div style={{ fontSize: 24, fontWeight: 900, fontFamily: 'monospace', color: C.green }}>
-              {goal.years == null ? '—' : goal.years === 0 ? '이미 달성 🎉' : `약 ${Math.ceil(goal.years)}년 후`}
+              {goal.years == null ? (proj.snowRate <= 0 ? '도달 불가' : '—') : goal.years === 0 ? '이미 달성 🎉' : `약 ${Math.ceil(goal.years)}년 후`}
             </div>
-            <div style={{ fontSize: 9.5, color: C.low, marginTop: 3 }}>월 {goalMan}만원 달성까지</div>
+            <div style={{ fontSize: 9.5, color: goal.years == null && proj.snowRate <= 0 ? C.red : C.low, marginTop: 3 }}>
+              {goal.years == null && proj.snowRate <= 0
+                ? '분배 축소가 재투자 효과보다 커서 이 조합으론 늘지 않습니다'
+                : `월 ${goalMan}만원 달성까지`}
+            </div>
           </div>
         </div>
       </div>
