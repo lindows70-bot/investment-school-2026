@@ -33,6 +33,7 @@ import RayDalioAnalysis           from '@/app/components/RayDalioAnalysis'
 import GlobalBusinessCycle        from '@/app/components/GlobalBusinessCycle'
 import MarksCycle                 from '@/app/components/MarksCycle'
 import CorrelationRadar           from '@/app/components/CorrelationRadar'
+import MarketBreadthPanel         from '@/app/components/MarketBreadthPanel'
 import IpoHypeCycle               from '@/app/components/IpoHypeCycle'
 import CrisisRadar                from '@/app/components/CrisisRadar'
 import ReservoirGauge             from '@/app/components/ReservoirGauge'
@@ -3099,6 +3100,9 @@ export default function DashboardPage() {
       <div id="tab-marks" style={{ display: dashTab==='marks' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         <ErrorBoundary label="하워드 막스 사이클 시계추">
           {dashTab==='marks' && <MarksCycle />}
+        </ErrorBoundary>
+        <ErrorBoundary label="시장 폭 레이더">
+          {dashTab==='marks' && <MarketBreadthPanel />}
         </ErrorBoundary>
         <ErrorBoundary label="이종 자산 상관 수렴 레이더">
           {dashTab==='marks' && <CorrelationRadar />}

@@ -8,6 +8,7 @@ import { MARKET_FLOW_KR_KEY } from '@/lib/marketFlowKr'
 import { SAT_SCORE_KEY } from '@/lib/satelliteScreener'
 import { UNIVERSE_KEY } from '@/lib/macroPhaseScreener'
 import { FUND_CACHE_KEY } from '@/lib/guru13f'
+import { BREADTH_KEY } from '@/lib/marketBreadth'
 
 const GRACE_MS = 45 * 60_000            // 실행 지연 유예(가장 긴 크론 300s의 9배 — 오탐 방지)
 const KST_MS = 9 * 3600_000
@@ -45,6 +46,7 @@ export const CRON_MONITORS: CronMonitor[] = [
   { id: 'winLose', label: '승패 해부실', kst: '08:50', days: 'daily', artifact: { type: 'cacheDate', key: d => WIN_LOSE_KEY(d) }, heal: '/api/win-lose' },
   { id: 'techScreener', label: '기술 검색기 스캔', kst: '09:10', days: 'daily', artifact: { type: 'cacheDate', key: d => `tech-screener-v1:${d}` }, heal: '/api/tech-screener' },
   { id: 'hi52', label: '신고가 레이더 스캔', kst: '09:25', days: 'daily', artifact: { type: 'cacheDate', key: d => `hi52-radar-v2:${d}` }, heal: '/api/hi52-radar' },
+  { id: 'breadth', label: '시장 폭 레이더 스캔', kst: '09:35', days: 'daily', artifact: { type: 'cacheDate', key: d => BREADTH_KEY(d) }, heal: '/api/market-breadth' },
   { id: 'marketFlowKr', label: '국내 시장 수급 워밍', kst: '20:00', days: 'weekday', artifact: { type: 'cacheDate', key: d => MARKET_FLOW_KR_KEY(d) }, heal: '/api/market-flow-kr' },
 ]
 

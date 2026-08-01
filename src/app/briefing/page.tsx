@@ -53,6 +53,7 @@ export default function BriefingPage() {
   const staleCrons = (health.d?.checks ?? []).filter(c => c.status === 'stale')
   const earn = useFetch<{ rows: { ticker: string; name: string; market: string; reportDate: string; daysAgo: number; beat: boolean | null; reactionPct: number | null; summary: string }[] }>('/api/earnings-results')
   const earnRows = earn.d?.rows ?? []
+  const breadth = useFetch<{ us: { pctAbove200: number } | null; kr: { pctAbove200: number } | null }>('/api/market-breadth')
 
   const cs = reb.d?.coreSatellite
   const sells = cs ? [...(cs.drop ?? []).map((x: any) => ({ ...x, kind: '버릴 것', kc: TK.red400 })), ...(cs.trim ?? []).map((x: any) => ({ ...x, kind: '줄일 것', kc: TK.amber400 }))].slice(0, 4) : []
@@ -231,6 +232,13 @@ export default function BriefingPage() {
             </>)}
             {reco.d && (
               <span style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 7, padding: '5px 11px' }}>🌦️ 계절 🇺🇸 <b style={{ color: TK.slate300 }}>{reco.d.usSeason.label}</b> · 🇰🇷 <b style={{ color: TK.slate300 }}>{reco.d.krSeason.label}</b></span>
+            )}
+            {breadth.d && (breadth.d.us || breadth.d.kr) && (
+              <span title="추천 유니버스 중 200일선 위에 있는 종목 비율 — 지수가 올라도 이 수치가 낮으면 소수 대형주 장세(상세는 막스 시계추 탭)" style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 7, padding: '5px 11px' }}>
+                📊 시장 속살(200일선 위)
+                {breadth.d.us && <> 🇺🇸 <b style={{ color: breadth.d.us.pctAbove200 >= 45 ? TK.green400 : breadth.d.us.pctAbove200 >= 25 ? TK.amber400 : TK.sky400, fontFamily: 'monospace' }}>{breadth.d.us.pctAbove200}%</b></>}
+                {breadth.d.kr && <> · 🇰🇷 <b style={{ color: breadth.d.kr.pctAbove200 >= 45 ? TK.green400 : breadth.d.kr.pctAbove200 >= 25 ? TK.amber400 : TK.sky400, fontFamily: 'monospace' }}>{breadth.d.kr.pctAbove200}%</b></>}
+              </span>
             )}
           </div>
         )}
