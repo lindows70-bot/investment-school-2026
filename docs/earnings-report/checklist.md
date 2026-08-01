@@ -12,6 +12,16 @@
 - [x] tsc → lint → check:build (`&&` 체이닝·파이프 금지) → 배포
 - [x] CLAUDE.md 기록 + docs/README.md 한 줄
 
+## 🇰🇷 한국 실적 카드 (2026-08-02 추가)
+
+- [x] DART 잠정실적 원문 실측 → 서술 부재 확정, 숫자 확보 가능 확인
+- [x] 제미나이 "완전히 가능" 주장 검증(오류 2건 발견 — context-notes 판정표)
+- [x] SSOT lib `krEarnings.ts` (셀 단위 파싱·단위 정규화·정정 채택·빈 항목 null)
+- [x] `/api/kr-earnings` + `/api/cron/kr-earnings`(09:15 KST) + cronHealth 등록
+- [x] 실적 리포트 화면 🇺🇸/🇰🇷 탭 + 매출↑이익↓ 자동 경고 + 흑자/적자 전환 표시
+- [x] 실컴파일 검증 3사 12개 값 DART 원문 일치 · 첫 수집 50종 23초
+- [ ] 전체 화면 검증 (사용자 일정 — 구축 완료 후 일괄)
+
 ## 운영 메모
 - 크론이 매일 전량 수집(50종 ~75초) + 요약 10종. 같은 분기(accession 동일)면 재수집·재요약 없음
 - 프롬프트를 고친 뒤 특정 종목만 다시 요약: `?force=TICKER,TICKER&limit=N`
