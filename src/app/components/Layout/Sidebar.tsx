@@ -30,6 +30,7 @@ const GROUPS: NavGroup[] = [
     title: '🔍 종목 확인', color: TK.amber400,
     items: [
       { href: '/research',             icon: '🔭', label: '종목 리서치' },
+      { href: '/earnings-reports',     icon: '📑', label: '실적 리포트' },
       { href: '/tech-chart',           icon: '📉', label: '기술적 차트' },
       { href: '/tech-screener',        icon: '🔎', label: '기술적 종목 검색기' },
       { href: '/watchlist',            icon: '⭐', label: '관심종목' },

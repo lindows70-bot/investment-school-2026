@@ -49,7 +49,7 @@ export interface MacroPhaseResult {
 
 /** 유니버스 캐시 키 SSOT — writer(macro-ai-picks)·reader 6곳이 이것만 쓴다.
  *  리터럴 산재는 sector-rotation v13→v14 워밍 누락 사고의 온상이었다 — 버전업은 이 한 줄. */
-export const UNIVERSE_KEY = 'macro-screened-universe:v10'
+export const UNIVERSE_KEY = 'macro-screened-universe:v11'
 
 export interface ScreenedStock {
   ticker:       string
@@ -64,6 +64,7 @@ export interface ScreenedStock {
   fcfYield:     number | null   // 💵 FCF 수익률 = FCF/시총 (%) — 주가 대비 현금창출력(버블·하락장 방어력)
   qualityGap:   boolean         // ⚠️ 이익-현금 괴리(영업흑자인데 FCF 적자) = 이익의 질 의심
   price:        number | null
+  marketCap:    number | null   // 시가총액(원시 통화) — 이미 fcfYield 계산에 쓰던 값을 노출만(추가 fetch 0). 실적 리포트 상위 N 선정용
   currency:     string        // 'USD' | 'KRW' | 'EUR' | 'CHF' | 'GBp' | 'HKD' | 'DKK' | 'SEK' 등(🇪🇺 유럽 메이저 접미사 통화)
   score:        number          // 퀀트 최종 점수 (높을수록 선호) — 통합추천 외 소비자(macro-ai-picks·season·alpha) 공용
   valueScore:   number          // 💎 가치 축 0~1 = PEG(촘촘) 50% + 어닝일드(E/P) 25% + FCF수익률 25% — 통합추천 5축
@@ -966,7 +967,7 @@ async function screenOne(
     if (mom.fwdEpsDir === 'decline') flags.push('이익 역성장(하강 사이클)')
     if (mom.knife) flags.push('주가 급락 추세(falling knife)')
 
-    return { ticker, name, market, sector, industry, lynchCategory: lynch, peg, opMargin, fcfPositive, fcfYield, qualityGap, price, currency, score, valueScore, qualityScore, flags, ...mom }
+    return { ticker, name, market, sector, industry, lynchCategory: lynch, peg, opMargin, fcfPositive, fcfYield, qualityGap, price, marketCap, currency, score, valueScore, qualityScore, flags, ...mom }
   } catch { return null }
 }
 

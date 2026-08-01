@@ -7,6 +7,7 @@ import { WIN_LOSE_KEY } from '@/lib/winLose'
 import { MARKET_FLOW_KR_KEY } from '@/lib/marketFlowKr'
 import { SAT_SCORE_KEY } from '@/lib/satelliteScreener'
 import { UNIVERSE_KEY } from '@/lib/macroPhaseScreener'
+import { ER_INDEX_KEY } from '@/lib/earningsReport'
 import { FUND_CACHE_KEY } from '@/lib/guru13f'
 import { BREADTH_KEY } from '@/lib/marketBreadth'
 
@@ -45,6 +46,7 @@ export const CRON_MONITORS: CronMonitor[] = [
   { id: 'timingWatch', label: '타점 전환 워처', kst: '08:30', days: 'daily', artifact: { type: 'cache', key: () => 'timing-watch-latest-v2' }, heal: '/api/cron/timing-watch' },
   { id: 'winLose', label: '승패 해부실', kst: '08:50', days: 'daily', artifact: { type: 'cacheDate', key: d => WIN_LOSE_KEY(d) }, heal: '/api/win-lose' },
   { id: 'techScreener', label: '기술 검색기 스캔', kst: '09:10', days: 'daily', artifact: { type: 'cacheDate', key: d => `tech-screener-v1:${d}` }, heal: '/api/tech-screener' },
+  { id: 'earnReports', label: '실적 리포트 수집', kst: '09:20', days: 'daily', artifact: { type: 'cache', key: () => ER_INDEX_KEY }, heal: '/api/cron/earnings-reports', heavy: true },
   { id: 'hi52', label: '신고가 레이더 스캔', kst: '09:25', days: 'daily', artifact: { type: 'cacheDate', key: d => `hi52-radar-v2:${d}` }, heal: '/api/hi52-radar' },
   { id: 'breadth', label: '시장 폭 레이더 스캔', kst: '09:35', days: 'daily', artifact: { type: 'cacheDate', key: d => BREADTH_KEY(d) }, heal: '/api/market-breadth' },
   { id: 'marketFlowKr', label: '국내 시장 수급 워밍', kst: '20:00', days: 'weekday', artifact: { type: 'cacheDate', key: d => MARKET_FLOW_KR_KEY(d) }, heal: '/api/market-flow-kr' },
