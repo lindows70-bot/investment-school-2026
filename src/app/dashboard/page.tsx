@@ -1363,7 +1363,7 @@ export default function DashboardPage() {
               { key: 'earnings',    icon: '📋', label: '어닝 터미널',        desc: 'G 리비전 · PEG 알럿' },
               { key: 'yield',       icon: '💰', label: '주주환원 터미널',    desc: '배당 + 자사주 · 총환원율' },
               { key: 'guidance', icon: '📡', label: '가이던스 모멘텀 레이더', desc: 'EPS 컨센서스 기울기 스캐닝' },
-              { key: 'ghost',  icon: '👻', label: '유령 종목 추적기',     desc: '기관 소외 × 내부자 매수' },
+              { key: 'ghost',  icon: '🔥', label: '내부자 매수 레이더',   desc: '임원이 자기 돈으로 산 종목' },
             ],
           },
           {
