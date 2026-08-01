@@ -11,6 +11,7 @@ import { MARKET_FLOW_KR_KEY, computeMarketFlowKr, type MarketFlowKrResult, type 
 import { getMoneyFlow } from '@/lib/moneyFlow'
 import { getCanonicalFundamentals, isPegBaseEffect } from '@/lib/canonicalFundamentals'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
+import { getInsiderSignal } from '@/app/actions/getInsiderSignal'
 import { getAnalystSignal } from '@/app/actions/getAnalystSignal'
 import { fetchMacroData, detectMacroPhase, EU_TICKER_SET, JP_TICKER_SET, CN_TICKER_SET, type ScreenedStock, UNIVERSE_KEY } from '@/lib/macroPhaseScreener'
 import { computeCountryVol, type CountryVolItem } from '@/lib/countryVol'
@@ -494,10 +495,11 @@ export async function GET(req: Request) {
   for (let i = 0; i < top.length; i += 4) {
     const batch = top.slice(i, i + 4)
     const part = await Promise.all(batch.map(async t => {
-      const [cf, analyst, sm] = await Promise.all([
+      const [cf, analyst, sm, insider] = await Promise.all([
         getCanonicalFundamentals(t.p.s.ticker, t.p.s.market, base).catch(() => null),
         getAnalystSignal({ ticker: t.p.s.ticker, name: t.p.s.name, market: t.p.s.market }).catch(() => null),
         buildSignalMetrics(t.p.s.ticker, t.p.s.market, t.p.s.name, base).catch(() => null),   // ⚙️ ROIC(캐시 재사용)
+        getInsiderSignal({ ticker: t.p.s.ticker, market: t.p.s.market, name: t.p.s.name }).catch(() => null),   // 🔥 임원 장내매수(24h 공유 캐시)
       ])
       const peg = cf?.peg ?? t.p.s.peg
       const roe = cf?.roe ?? null
@@ -517,6 +519,9 @@ export async function GET(req: Request) {
           combined = clamp(t.p.seasonScore * W.season + valueScore * W.value + t.p.qualityScore * W.quality + t.supplyScore * W.supply + t.p.momentumScore * W.momentum + t.rotationScore * W.rotation)
         }
       }
+      // 🔥 임원 장내매수(90일 공시) — 린치 최애 신호. ⛔ 점수 미반영(배지만 — 내부자 매수 레이더와 동일 SSOT)
+      if (insider && (insider.buys?.length ?? 0) > 0)
+        badges.push(`🔥 임원 장내매수 ${insider.buys.length}건${insider.cluster ? '(2명+·고확신)' : ''}`)
       // ⚙️ 자본효율 — ROIC(투하자본이익률) 우선. 없으면 ROE 폴백. + 점수(→비중) 반영: 복리 기계는 가점, 빚으로 부풀린 ROE는 감점
       if (roic != null && roic >= 15) badges.push(`⚙️ 고ROIC ${Math.round(roic)}%`)          // 복리 기계(빚까지 반영한 진짜 효율)
       else if (roic == null && roe != null && roe >= 0.20) badges.push(`🏰 고ROE ${Math.round(roe * 100)}%`)   // ROIC 없을 때만 ROE 폴백

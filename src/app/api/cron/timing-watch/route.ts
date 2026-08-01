@@ -9,13 +9,14 @@ import { SECTOR_ROTATION_KEY } from '@/lib/rotationShared'
 import { createClient } from '@supabase/supabase-js'
 import { getCache, setCache } from '@/lib/appCache'
 import { getAssetType } from '@/lib/assetClassifier'
+import { getInsiderSignal } from '@/app/actions/getInsiderSignal'
 import { getEntryTimings, type TimingLight, type EntryTiming } from '@/lib/entryTiming'
 import { getSector } from '@/lib/schoolIndex'
 import type { RotationResult } from '@/app/api/sector-rotation/route'
 
 type SupportState = 'strong' | 'ext' | 'weak' | 'mixed' | null
 type RotQuad = 'leading' | 'weakening' | 'lagging' | 'improving'
-interface SigState { light: TimingLight | null; rkStage: number | null; bearDiv: boolean; sqFired: 'up' | 'down' | null; support: SupportState; sectorQuad?: RotQuad | null; protBreak?: boolean }
+interface SigState { light: TimingLight | null; rkStage: number | null; bearDiv: boolean; sqFired: 'up' | 'down' | null; support: SupportState; sectorQuad?: RotQuad | null; protBreak?: boolean; insAmt?: number }
 interface WatchSnap { date: string; snap: Record<string, SigState>; names: Record<string, string> }
 
 // Yahoo assetProfile.sector → 섹터 로테이션 GICS 키(#3 섹터 자금 이탈 매도신호용)
@@ -47,6 +48,8 @@ function diffSig(p: SigState, c: SigState): Omit<WatchSig, 'ticker' | 'name' | '
   // 🔴 매도·경계(자본 방어 우선)
   if (p.light === 'green' && c.light === 'red') return { kind: 'sell', icon: '🔴', label: '최후 방어선 붕괴', detail: 'EMA 역배열+구름 이탈 — 장기 추세까지 꺾임. 재무 좋아도 기회비용 주의' }
   if (p.protBreak === false && c.protBreak === true) return { kind: 'sell', icon: '🛎️', label: '이익 보호선 이탈', detail: '샹들리에(22봉 고점−3×ATR) 하향 — 수익 반납 방어 구간, 수익 중이면 분할 익절 검토' }
+  // 🔥 임원 장내매수 신규 공시 — 90일 누적 총액이 어제보다 늘면 새 공시가 나온 것(undefined-safe: 옛 스냅은 미기록)
+  if (p.insAmt != null && c.insAmt != null && c.insAmt > p.insAmt) return { kind: 'buy', icon: '🔥', label: '임원 장내매수 공시', detail: '회사 내부자가 자기 돈으로 자사주 매수(신규 공시) — 내부자 매수 레이더에서 금액·인원 확인. 매수 판단은 6축·타점 확인 후' }
   if (!p.bearDiv && c.bearDiv) return { kind: 'sell', icon: '📉', label: '하락 다이버전스', detail: '주가 신고점↑ vs RSI↓ — 상승 에너지 소진, 분할 익절 조기 신호' }
   if (p.support === 'strong' && c.support === 'weak') return { kind: 'sell', icon: '📊', label: '지지 상실', detail: '기관평단(VWAP)·매물대(POC) 아래로 이탈 — 지지 얇아짐, 되돌림 리스크' }
   if (c.sqFired === 'down' && p.sqFired !== 'down') return { kind: 'sell', icon: '🔥', label: '변동성 하방 분출', detail: '스퀴즈 해제 하방 — 신규 매수 보류' }
@@ -89,6 +92,24 @@ export async function GET(req: Request) {
     const key = `${it.ticker}:${it.market}`
     snap[key] = toState(tmap.get(key))
     names[key] = it.name
+  }
+
+  // 🔥 내부자 장내매수 총액(90일) — 신규 공시 감지용(최태원 62억 케이스가 아침 브리핑에 뜨게).
+  //    getInsiderSignal은 insider_signals 테이블 24h 공유 캐시라 대부분 히트(유령 레이더·리서치와 공유).
+  //    ETF·지수는 unsupported → insAmt 미기록(undefined) — diff에서 자동 무시(오탐 0).
+  {
+    const stocks = list.filter(it => getAssetType(it.ticker, it.name, it.market) === 'STOCK')
+    const q = [...stocks]
+    const insWorker = async () => {
+      while (q.length) {
+        const it = q.shift(); if (!it) break
+        try {
+          const sig = await getInsiderSignal({ ticker: it.ticker, market: it.market, name: it.name })
+          if (sig.status === 'ok' || sig.status === 'none') snap[`${it.ticker}:${it.market}`].insAmt = Math.round(sig.totalValue ?? 0)
+        } catch { /* graceful — 미기록이면 diff 제외 */ }
+      }
+    }
+    await Promise.all(Array.from({ length: 4 }, insWorker))
   }
 
   // 🍂 섹터 국면(#3) — 로테이션 캐시(오늘)가 있을 때만. 보유 종목 GICS 섹터(getSector 7일 캐시·대부분 히트) → 로테이션 국면 매핑

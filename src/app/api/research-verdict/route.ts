@@ -13,6 +13,7 @@ import { classifyLynchMece } from '@/lib/lynchAnalysis'
 import { getCurrentSeason } from '@/lib/currentSeason'
 import { holdingFit, SEASON_META, type Quadrant, type Holding } from '@/lib/seasonNavigator'
 import { getMoneyFlow } from '@/lib/moneyFlow'
+import { getInsiderSignal } from '@/app/actions/getInsiderSignal'
 import { getEntryTiming, type EntryTiming } from '@/lib/entryTiming'
 import type { RotationResult, Quadrant as RotQuad } from '@/app/api/sector-rotation/route'
 
@@ -48,7 +49,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ unsupported: true, reason: '개별 주식 전용 판정입니다(ETF·코인·원자재 제외).' }, { headers: { 'Cache-Control': 'no-store' } })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || url.origin
-  const cacheKey = `research-verdict-v13:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v13: 정예 타점 pro 문구 재측정 수치로 갱신(내용 변경=키 범프) / v12: 📋 어닝 서프라이즈 이력 근거
+  const cacheKey = `research-verdict-v14:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v13: 정예 타점 pro 문구 재측정 수치로 갱신(내용 변경=키 범프) / v12: 📋 어닝 서프라이즈 이력 근거
   const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -61,6 +62,7 @@ export async function GET(req: Request) {
       .then(r => r.ok ? r.json() : null).then(j => j?.verdict ?? null).catch(() => null),
     getMoneyFlow(ticker, market, name, base).then(f => f?.status ?? null).catch(() => null),
     getEntryTiming(ticker, market).catch(() => null),
+    getInsiderSignal({ ticker, market, name }).catch(() => null),   // 🔥 임원 장내매수(90일·24h 공유 캐시)
   ])
   // 주도섹터 로테이션 캐시 — 최근 3일치를 병렬로 읽고 최신 우선 채택(기존 순차 루프와 동일 결과)
   const rotP = (async (): Promise<Map<string, { q: RotQuad; score: number }> | null> => {
@@ -72,7 +74,7 @@ export async function GET(req: Request) {
 
   const m = await mP
   if (!m) return NextResponse.json({ unsupported: true, reason: '재무 데이터를 가져오지 못했습니다.' }, { headers: { 'Cache-Control': 'no-store' } })
-  const [season, dcf, flow, timing] = await signalsP
+  const [season, dcf, flow, timing, insider] = await signalsP
   // ⬛ 관망(횡보) — ADX<20 추세 없음 + 신호등 미확립(green=구조적 상승은 제외, 자기모순 차단). 영상 '회색 지대'
   const choppy = !!(timing?.supply?.choppy && timing.light !== 'green')
   const adx = timing?.supply?.adx ?? null
@@ -146,6 +148,8 @@ export async function GET(req: Request) {
   if (m.peg != null && m.peg > 2.2) cons.push(`💲 고PEG ${m.peg.toFixed(2)}(성장 대비 고평가)`)
   if (dcf === 'conservative') pros.push('🔮 역-DCF: 시장 기대 보수적(저평가 여지)')
   // 🏅 정예 타점 — 자체 백테스트(60종목·12,594봉)로 선별한 합류 조건. ⛔ 점수엔 미반영(WHEN은 배지·근거만)
+  if (insider && (insider.buys?.length ?? 0) > 0)
+    pros.push(`🔥 임원 장내매수 ${insider.buys.length}건(90일 공시) — 회사 내부자가 자기 돈을 걸었다${insider.cluster ? ' · 서로 다른 2명 이상(고확신)' : ''}`)
   if (timing?.prime) pros.push(`🏅 정예 타점 성립(${timing.prime.trigger === 'divergence' ? '상승 다이버전스' : '첫 눌림목'} × 정배열+구름 위) — 자체 백테스트 절사 초과 +1.3%p(하락장 포함 재측정 · 상승장 원측정 승률 60.7%)`)
   else if (dcf === 'demanding') cons.push('🔮 역-DCF: 기대 과도(주가가 높은 성장 선반영)')
   // ⚠️ 미국은 외국인/기관/개인 일별 구분이 없음(한국거래소만 공시) → US는 '기관·내부자', KR만 '외인·기관'
