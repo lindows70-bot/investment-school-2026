@@ -9,6 +9,7 @@ import type { UnifiedRecoResult } from '@/app/api/unified-reco/route'
 import type { RotationResult } from '@/app/api/sector-rotation/route'
 import type { WatchSig } from '@/app/api/cron/timing-watch/route'
 import { type WLApi, splitGroups, factorStats, buildLesson, WL_PERIOD_LABEL } from '@/lib/winLose'
+import { cashBandOf } from '@/lib/cashPosition'
 import { TK } from '@/lib/theme'
 
 const CARD = '#12151f', BORDER = TK.border
@@ -54,12 +55,13 @@ export default function BriefingPage() {
   const earn = useFetch<{ rows: { ticker: string; name: string; market: string; reportDate: string; daysAgo: number; beat: boolean | null; reactionPct: number | null; summary: string }[] }>('/api/earnings-results')
   const earnRows = earn.d?.rows ?? []
   const breadth = useFetch<{ us: { pctAbove200: number } | null; kr: { pctAbove200: number } | null }>('/api/market-breadth')
+  const cash = useFetch<{ needsSetup?: boolean; cashPct?: number; cashKrw?: number; verdict?: 'aggressive' | 'inband' | 'defensive' | null }>('/api/cash-position')
 
   const cs = reb.d?.coreSatellite
   const sells = cs ? [...(cs.drop ?? []).map((x: any) => ({ ...x, kind: '버릴 것', kc: TK.red400 })), ...(cs.trim ?? []).map((x: any) => ({ ...x, kind: '줄일 것', kc: TK.amber400 }))].slice(0, 4) : []
   const buys = reco.d?.items?.slice(0, 5) ?? []
   const temp = marks.d?.temp
-  const cash = temp == null ? null : temp >= 75 ? '30~40%' : temp >= 58 ? '20~30%' : temp >= 42 ? '15~25%' : temp >= 25 ? '10~20%' : '10~15%'
+  const cashBand = temp == null ? null : (() => { const b = cashBandOf(temp); return `${b.min}~${b.max}%` })()   // 밴드 산식 SSOT(lib/cashPosition)
 
   return (
     <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 1100, margin: '0 auto' }}>
@@ -225,7 +227,14 @@ export default function BriefingPage() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 12 }}>
             {temp != null && (<>
               <span style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 7, padding: '5px 11px' }}>🕰️ 탐욕 온도 <b style={{ color: temp >= 58 ? TK.red400 : temp <= 42 ? TK.green400 : TK.slate200, fontFamily: 'monospace' }}>{temp}</b> · <b style={{ color: TK.slate300 }}>{marks.d.stance}</b></span>
-              <span style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 7, padding: '5px 11px' }}>💰 권장 현금 <b style={{ color: TK.violet300, fontFamily: 'monospace' }}>{cash}</b></span>
+              <span style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 7, padding: '5px 11px' }}>
+                💰 권장 현금 <b style={{ color: TK.violet300, fontFamily: 'monospace' }}>{cashBand}</b>
+                {cash.d?.verdict && typeof cash.d.cashPct === 'number' ? (
+                  <> · 내 현금 <b style={{ color: cash.d.verdict === 'inband' ? TK.green400 : cash.d.verdict === 'aggressive' ? TK.amber400 : TK.sky400, fontFamily: 'monospace' }}>{cash.d.cashPct}%</b></>
+                ) : cash.d && !cash.d.needsSetup ? (
+                  <> · <a href="/assets" style={{ color: TK.indigo400, textDecoration: 'none', fontWeight: 700 }}>내 현금 등록 →</a></>
+                ) : null}
+              </span>
               {typeof marks.d.requiredMos === 'number' && (
                 <span title="탐욕일수록 더 큰 할인을 요구 — 신규 매수는 공정가치 대비 이만큼 싼 가격에서만(모닝스타 별점 할인율과 비교)" style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 7, padding: '5px 11px' }}>🎯 요구 안전마진 <b style={{ color: temp >= 58 ? TK.red400 : temp <= 42 ? TK.green400 : TK.amber400, fontFamily: 'monospace' }}>{marks.d.requiredMos}%</b></span>
               )}

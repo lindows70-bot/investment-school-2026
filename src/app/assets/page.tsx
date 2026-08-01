@@ -14,6 +14,7 @@ import FullCandleChart from '@/app/components/FullCandleChart'
 import MoneyFlowRadar from '@/app/components/MoneyFlowRadar'
 import EventCalendarPanel from '@/app/components/EventCalendarPanel'
 import ExitPlanBoard from '@/app/components/ExitPlanBoard'
+import CashPositionCard from '@/app/components/CashPositionCard'
 import { type Candle } from '@/app/components/CandleChart'
 import { TK } from '@/lib/theme'
 
@@ -429,6 +430,9 @@ export default function AssetsPage() {
           ))}
         </div>
       )}
+
+      {/* 💰 현금 포지션 — 예수금·CMA 등록 → 실제 현금 비중 vs 막스 권장 밴드 */}
+      {!dbLoading && <CashPositionCard />}
 
       {/* 📅 이벤트 캘린더 — 어닝 D-day·배당락·배당 현금흐름 */}
       {!dbLoading && investments.length > 0 && <EventCalendarPanel />}

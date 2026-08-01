@@ -601,6 +601,24 @@ async function buildMe(uid: string, name: string, selfCalendar: boolean, cookie:
   const fxW = r1(items.filter(({ h, at }) => h.currency === 'USD' && at !== 'CRYPTO').reduce((s, { valueKrw, costKrw }) => s + ((valueKrw ?? costKrw) / totalSafe) * 100, 0))
   const cryptoW = r1(holdings.filter(h => h.assetType === 'CRYPTO').reduce((s, h) => s + h.weight, 0))
   const lv = (v: number, mid: number, hi: number): WrRisk['level'] => v >= hi ? 'bad' : v >= mid ? 'warn' : 'ok'
+
+  // 💰 현금 비중 — 학생이 등록한 user_cash 실측(미등록·테이블 미생성은 unknown 정직 유지)
+  let cashRisk: WrRisk = { key: 'cash', label: '현금 비중', value: null, unit: '%', level: 'unknown', note: '앱에 현금 미등록 — 자산 관리에서 예수금·CMA를 등록하면 권장 밴드와 비교됩니다' }
+  try {
+    const { data: cashRow } = await admin.from('user_cash').select('krw,usd').eq('user_id', uid).maybeSingle()
+    const cashKrw = (Number(cashRow?.krw) || 0) + (Number(cashRow?.usd) || 0) * usdKrw
+    if (cashKrw > 0) {
+      const denom = totalSafe + cashKrw
+      const cashW = r1((cashKrw / denom) * 100)
+      // 임계는 사이클 무관 일반 가이드(막스 밴드는 온도 연동이라 주간 리포트에선 범용 구간 사용)
+      cashRisk = {
+        key: 'cash', label: '현금 비중', value: cashW, unit: '%',
+        level: cashW < 5 ? 'bad' : cashW < 10 ? 'warn' : 'ok',
+        note: `등록 현금 ₩${Math.round(cashKrw).toLocaleString()} 기준 — 조정 시 실탄. 사이클 연동 권장 밴드는 막스 시계추에서 확인`,
+      }
+    }
+  } catch { /* 테이블 미생성 등 — unknown 유지 */ }
+
   const risks: WrRisk[] = [
     { key: 'semi', label: '반도체 집중도(ETF 투시)', value: semiW, unit: '%', level: lv(semiW, 40, 60), note: semiNote },
     { key: 'top3', label: '상위 3종목 집중도', value: top3W, unit: '%', level: lv(top3W, 55, 70), note: '평가액 비중 상위 3종목 합' },
@@ -608,7 +626,7 @@ async function buildMe(uid: string, name: string, selfCalendar: boolean, cookie:
     // ⚠️ 임계는 앱 자체 가드(코인 랩 '≤5% 권장')와 일치시킨다 — 클라우드 원본의 20/35를 쓰면
     //    '권장 상한 5%'라 써놓고 11.8%를 '적정'으로 판정하는 자기모순이 된다(제2원칙).
     { key: 'crypto', label: '암호화폐 비중', value: cryptoW, unit: '%', level: lv(cryptoW, 5, 10), note: '권장 상한 5% — 잃어도 되는 돈만(10% 초과는 위험)' },
-    { key: 'cash', label: '현금 비중', value: null, unit: '%', level: 'unknown', note: '앱에 현금 미등록 — 증권사 예수금·CMA는 직접 확인' },
+    cashRisk,
   ]
 
   // 🌪️ 코스피 극단 변동 + KR 보유

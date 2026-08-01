@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { MarksCycleResult, MarksAxis } from '@/app/api/marks-cycle/route'
 import PermanentLossRadar from '@/app/components/PermanentLossRadar'
+import { cashBandOf, type CashPosition } from '@/lib/cashPosition'
 import { TK } from '@/lib/theme'
 
 const BORDER = '#2a2f3a'
@@ -14,11 +15,15 @@ const ZONE_COLOR: Record<string, string> = {
 export default function MarksCycle() {
   const [data, setData] = useState<MarksCycleResult | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  // 💰 내 실제 현금 비중(등록 시) — 권장 밴드 옆에 병기. 미로그인·미등록·테이블 미생성은 조용히 생략
+  const [cash, setCash] = useState<(Partial<CashPosition> & { needsSetup?: boolean }) | null>(null)
 
   useEffect(() => {
     fetch('/api/marks-cycle').then(r => r.ok ? r.json() : Promise.reject(r))
       .then(j => j.error ? setErr(j.error) : setData(j))
       .catch(() => setErr('시계추 데이터를 불러오지 못했습니다. 잠시 후 다시 시도하세요.'))
+    fetch('/api/cash-position').then(r => r.ok ? r.json() : null)
+      .then(j => setCash(j?.error ? null : j)).catch(() => setCash(null))
   }, [])
 
   if (err) return <div style={{ padding: 24, color: TK.sub3, textAlign: 'center', fontSize: 13 }}>⚠️ {err}</div>
@@ -76,13 +81,23 @@ export default function MarksCycle() {
           {/* 💰 온도 → 권장 현금 밴드(결정론) — 시계추 위치를 '현금 비중'이라는 행동으로 번역 */}
           {(() => {
             const t = data.temp
-            const band = t >= 75 ? ['30~40%', '극단 낙관 — 두둑한 현금이 곧 옵션'] : t >= 58 ? ['20~30%', '낙관 우위 — 조정 대비 실탄 확보']
-              : t >= 42 ? ['15~25%', '균형 — 표준 현금 쿠션'] : t >= 25 ? ['10~20%', '비관 우위 — 기회에 투입 시작'] : ['10~15%', '극단 공포 — 현금을 공격적으로 투입할 때']
+            const b = cashBandOf(t)          // 밴드 산식 SSOT(lib/cashPosition) — 현금 카드·브리핑과 동일값
+            const note = t >= 75 ? '극단 낙관 — 두둑한 현금이 곧 옵션' : t >= 58 ? '낙관 우위 — 조정 대비 실탄 확보'
+              : t >= 42 ? '균형 — 표준 현금 쿠션' : t >= 25 ? '비관 우위 — 기회에 투입 시작' : '극단 공포 — 현금을 공격적으로 투입할 때'
+            const vc = cash?.verdict === 'inband' ? TK.green400 : cash?.verdict === 'aggressive' ? TK.amber400 : TK.sky400
             return (
               <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: '#131722', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '6px 10px' }}>
                 <span style={{ fontSize: 11, fontWeight: 800, color: TK.violet300 }}>💰 권장 현금 밴드</span>
-                <b style={{ color: TK.slate200, fontSize: 13, fontFamily: 'monospace' }}>{band[0]}</b>
-                <span style={{ fontSize: 10, color: TK.sub3 }}>{band[1]} · 온도 {t} 기준 가이드(강제 아님)</span>
+                <b style={{ color: TK.slate200, fontSize: 13, fontFamily: 'monospace' }}>{b.min}~{b.max}%</b>
+                <span style={{ fontSize: 10, color: TK.sub3 }}>{note} · 온도 {t} 기준 가이드(강제 아님)</span>
+                {cash?.verdict && typeof cash.cashPct === 'number' && (
+                  <span style={{ fontSize: 10.5, fontWeight: 800, color: vc, background: `${vc}18`, borderRadius: 6, padding: '2px 8px' }}>
+                    내 현금 {cash.cashPct}% · {cash.verdict === 'inband' ? '밴드 안' : cash.verdict === 'aggressive' ? '권장보다 적음' : '권장보다 많음'}
+                  </span>
+                )}
+                {cash && !cash.needsSetup && !cash.verdict && (cash.cashKrw ?? 0) === 0 && (
+                  <a href="/assets" style={{ fontSize: 10.5, fontWeight: 700, color: TK.indigo400, textDecoration: 'none' }}>내 현금 등록 →</a>
+                )}
               </div>
             )
           })()}
