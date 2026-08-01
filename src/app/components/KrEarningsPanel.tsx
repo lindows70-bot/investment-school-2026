@@ -62,6 +62,8 @@ export default function KrEarningsPanel() {
   const [pending, setPending] = useState(false)
   const [sort, setSort] = useState<'filed' | 'cap'>('filed')
   const [open, setOpen] = useState<string | null>(null)
+  const [cmpMode, setCmpMode] = useState(false)
+  const [compare, setCompare] = useState<string[]>([])
 
   useEffect(() => {
     fetch('/api/kr-earnings')
@@ -103,8 +105,23 @@ export default function KrEarningsPanel() {
           {([['filed', '발표일순'], ['cap', '시총순']] as const).map(([k, l]) => (
             <button key={k} onClick={() => setSort(k)} style={chip(sort === k)}>{l}</button>
           ))}
+          <button onClick={() => { setCmpMode(!cmpMode); setCompare([]) }} style={chip(cmpMode)}>
+            ⚖️ 비교{cmpMode && ` ${compare.length}/4`}
+          </button>
         </span>
       </div>
+
+      {cmpMode && (
+        <div style={{ marginBottom: 12, background: TK.cyan400 + '14', border: `1px solid ${TK.cyan400}44`, borderRadius: 9, padding: '9px 12px', fontSize: FS.tiny, color: TK.slate300 }}>
+          비교할 기업을 카드에서 <b>최대 4개</b>까지 고르세요
+          {compare.length > 0 && ` — 현재 ${compare.map(t => rows.find(r => r.ticker === t)?.name ?? t).join('·')}`}
+          {compare.length === 1 && <span style={{ color: TK.sub2 }}> (2개 이상 고르면 비교 표가 나타납니다)</span>}
+        </div>
+      )}
+
+      {cmpMode && compare.length >= 2 && (
+        <KrCompareTable rows={compare.map(t => rows.find(r => r.ticker === t)!).filter(Boolean)} onRemove={t => setCompare(c => c.filter(x => x !== t))} />
+      )}
 
       {loading && <div style={{ color: TK.sub, fontSize: FS.body, padding: 30, textAlign: 'center' }}>공시를 불러오는 중…</div>}
       {!loading && pending && (
@@ -116,8 +133,21 @@ export default function KrEarningsPanel() {
       <div style={{ display: 'grid', gap: 10 }}>
         {sorted.map(r => (
           <div key={r.ticker} style={{ background: CARD, border: `1px solid ${open === r.ticker ? TK.cyan400 + '55' : BORDER}`, borderRadius: 12, overflow: 'hidden' }}>
-            <div onClick={() => setOpen(open === r.ticker ? null : r.ticker)} style={{ padding: '13px 15px', cursor: 'pointer' }}>
+            <div
+              onClick={() => (cmpMode
+                ? setCompare(c => (c.includes(r.ticker) ? c.filter(x => x !== r.ticker) : c.length < 4 ? [...c, r.ticker] : c))
+                : setOpen(open === r.ticker ? null : r.ticker))}
+              style={{ padding: '13px 15px', cursor: 'pointer' }}
+            >
               <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                {cmpMode && (
+                  <span style={{
+                    width: 18, height: 18, flexShrink: 0, borderRadius: 5, alignSelf: 'center',
+                    border: `1.5px solid ${compare.includes(r.ticker) ? TK.cyan400 : TK.sub2}`,
+                    background: compare.includes(r.ticker) ? TK.cyan400 : 'transparent',
+                    color: TK.bg0, fontSize: FS.tiny, textAlign: 'center', lineHeight: '16px', fontWeight: 900,
+                  }}>{compare.includes(r.ticker) ? '✓' : ''}</span>
+                )}
                 <b style={{ fontSize: FS.body, color: TK.slate100 }}>{r.name}</b>
                 <span style={{ fontSize: FS.tiny, color: TK.sub2, fontFamily: 'monospace' }}>{r.ticker}</span>
                 <span style={{ fontSize: FS.tiny, color: TK.sub2 }}>{won(r.marketCap)}원</span>
@@ -132,7 +162,7 @@ export default function KrEarningsPanel() {
                       >{r.periodLabel}</b>
                     )} · {r.filedAt} · {dday(r.filedAt)}
                   </span>
-                  <ExpandHint open={open === r.ticker} />
+                  {!cmpMode && <ExpandHint open={open === r.ticker} />}
                 </span>
               </div>
 
@@ -155,7 +185,7 @@ export default function KrEarningsPanel() {
                 ))}
               </div>
             </div>
-            {open === r.ticker && <KrDetail ticker={r.ticker} name={r.name} />}
+            {open === r.ticker && !cmpMode && <KrDetail ticker={r.ticker} name={r.name} />}
           </div>
         ))}
       </div>
@@ -249,3 +279,98 @@ const thL: React.CSSProperties = { textAlign: 'left', padding: '6px 8px', fontWe
 const thR: React.CSSProperties = { textAlign: 'right', padding: '6px 8px', fontWeight: 700 }
 const tdL: React.CSSProperties = { textAlign: 'left', padding: '8px' }
 const tdR: React.CSSProperties = { textAlign: 'right', padding: '8px', fontFamily: 'monospace' }
+
+// ── ⚖️ 기업 비교 — '나란히 보기'가 아니라 같은 축으로 줄을 맞춘 표 ────────────
+//   한국 공시는 매출·영업이익·순이익이 이미 같은 항목이라 진짜 비교가 된다.
+//   영업이익률은 앱이 계산해 넣는다 — 규모가 다른 회사를 견주는 데 가장 쓸모 있는 한 줄.
+function KrCompareTable({ rows, onRemove }: { rows: KrIndexRow[]; onRemove: (t: string) => void }) {
+  const marginOf = (r: KrIndexRow) =>
+    r.revenue != null && r.opProfit != null && r.revenue > 0 ? (r.opProfit / r.revenue) * 100 : null
+  const bestOf = (vals: (number | null)[]) => {
+    const ok = vals.filter((v): v is number => v != null)
+    return ok.length >= 2 ? Math.max(...ok) : null
+  }
+  const margins = rows.map(marginOf)
+  const revG = rows.map(r => r.revenueYoyPct)
+  const opG = rows.map(r => r.opProfitYoyPct)
+  const bMargin = bestOf(margins), bRev = bestOf(revG), bOp = bestOf(opG)
+  const hi = (on: boolean): React.CSSProperties => (on ? { fontWeight: 900, textShadow: `0 0 10px ${TK.green400}55` } : {})
+
+  return (
+    <div style={{ background: CARD, border: `1px solid ${TK.cyan400}44`, borderRadius: 12, padding: 14, marginBottom: 14, overflowX: 'auto' }}>
+      <div style={{ fontSize: FS.body, fontWeight: 800, color: TK.slate100, marginBottom: 10 }}>⚖️ 기업 비교 ({rows.length})</div>
+      <table style={{ width: '100%', minWidth: 460, borderCollapse: 'collapse', fontSize: FS.tiny }}>
+        <thead>
+          <tr>
+            <th style={{ ...thL, width: 104, color: TK.sub2 }}>항목</th>
+            {rows.map(r => (
+              <th key={r.ticker} style={{ ...thR, color: TK.slate100 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  {r.name}
+                  <button onClick={() => onRemove(r.ticker)} title="비교에서 빼기"
+                    style={{ background: 'none', border: 'none', color: TK.sub2, cursor: 'pointer', fontSize: FS.tiny, padding: 0 }}>✕</button>
+                </span>
+                <div style={{ fontSize: FS.micro, color: TK.sub2, fontWeight: 400, fontFamily: 'monospace' }}>{r.ticker}</div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          <tr style={{ borderTop: `1px solid ${BORDER}` }}>
+            <td style={{ ...tdL, color: TK.sub }}>실적 분기</td>
+            {rows.map(r => <td key={r.ticker} style={{ ...tdR, color: TK.slate400 }}>{r.periodLabel || '—'}</td>)}
+          </tr>
+          <tr style={{ borderTop: `1px solid ${BORDER}` }}>
+            <td style={{ ...tdL, color: TK.sub }}>매출</td>
+            {rows.map(r => <td key={r.ticker} style={{ ...tdR, color: TK.slate100, fontWeight: 800 }}>{r.revenue == null ? '미공시' : `${won(r.revenue)}원`}</td>)}
+          </tr>
+          <tr>
+            <td style={{ ...tdL, color: TK.sub2, paddingLeft: 18 }}>↳ 전년 대비</td>
+            {rows.map((r, i) => (
+              <td key={r.ticker} style={{ ...tdR, color: pctColor(r.revenueYoyPct), ...hi(revG[i] != null && revG[i] === bRev) }}>
+                {pctText(r.revenueYoyPct)}
+              </td>
+            ))}
+          </tr>
+          <tr style={{ borderTop: `1px solid ${BORDER}` }}>
+            <td style={{ ...tdL, color: TK.sub }}>영업이익</td>
+            {rows.map(r => <td key={r.ticker} style={{ ...tdR, color: TK.slate100, fontWeight: 800 }}>{r.opProfit == null ? '미공시' : `${won(r.opProfit)}원`}</td>)}
+          </tr>
+          <tr>
+            <td style={{ ...tdL, color: TK.sub2, paddingLeft: 18 }}>↳ 전년 대비</td>
+            {rows.map((r, i) => (
+              <td key={r.ticker} style={{ ...tdR, color: yoyColor(r.opProfitYoyPct, r.opProfitYoyTurn), ...hi(opG[i] != null && opG[i] === bOp) }}>
+                {yoyText(r.opProfitYoyPct, r.opProfitYoyTurn)}
+              </td>
+            ))}
+          </tr>
+          <tr style={{ borderTop: `1px solid ${BORDER}`, background: TK.bg4 }}>
+            <td style={{ ...tdL, color: TK.slate300, fontWeight: 700 }}>영업이익률</td>
+            {rows.map((r, i) => (
+              <td key={r.ticker} style={{ ...tdR, color: margins[i] == null ? TK.sub2 : TK.slate100, ...hi(margins[i] != null && margins[i] === bMargin) }}>
+                {margins[i] == null ? '—' : `${(margins[i] as number).toFixed(1)}%`}
+              </td>
+            ))}
+          </tr>
+          <tr style={{ borderTop: `1px solid ${BORDER}` }}>
+            <td style={{ ...tdL, color: TK.sub }}>순이익</td>
+            {rows.map(r => <td key={r.ticker} style={{ ...tdR, color: TK.slate100, fontWeight: 800 }}>{r.netProfit == null ? '미공시' : `${won(r.netProfit)}원`}</td>)}
+          </tr>
+          <tr>
+            <td style={{ ...tdL, color: TK.sub2, paddingLeft: 18 }}>↳ 전년 대비</td>
+            {rows.map(r => (
+              <td key={r.ticker} style={{ ...tdR, color: yoyColor(r.netProfitYoyPct, r.netProfitYoyTurn) }}>
+                {yoyText(r.netProfitYoyPct, r.netProfitYoyTurn)}
+              </td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
+      <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 9, lineHeight: 1.7 }}>
+        · 굵고 밝은 값이 그 줄에서 가장 좋은 숫자입니다(성장률·수익성은 클수록 좋음).<br />
+        · <b style={{ color: TK.sub }}>영업이익률은 앱이 계산합니다</b>(영업이익 ÷ 매출) — 규모가 다른 회사를 견주는 기준입니다.<br />
+        · <b style={{ color: TK.sub }}>실적 분기가 서로 다르면 그대로 견주지 마세요</b> — 아직 최신 분기를 발표하지 않은 회사가 섞일 수 있습니다.
+      </div>
+    </div>
+  )
+}

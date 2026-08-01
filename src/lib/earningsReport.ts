@@ -28,6 +28,14 @@ export interface ErSummary {
   segments: string[]      // 사업 부문별 흐름
   risks: string[]         // 원문이 언급한 위험·역풍
   tone: 'positive' | 'neutral' | 'cautious'
+  // ── 비교용 정량 필드 ─────────────────────────────────────────────────────
+  //   서술만 나란히 놓으면 회사마다 다른 지표를 말해 '비교'가 되지 않는다(AAPL은 총마진, GOOGL은 영업이익…).
+  //   같은 축으로 줄을 맞추려면 정해진 칸이 필요하다. 원문에 없으면 빈 문자열.
+  period: string          // '2026년 3분기' — 회사 회계 기준 표기 그대로
+  revenue: string         // '1,094억 7,000만 달러'
+  revenueChange: string   // '+16%'
+  eps: string             // '2.02달러'(희석 주당순이익)
+  epsChange: string       // '+29%'
 }
 
 export interface EarningsReportDoc {
@@ -224,8 +232,13 @@ const SUMMARY_SCHEMA = {
     segments: { type: 'ARRAY', items: { type: 'STRING' } },
     risks: { type: 'ARRAY', items: { type: 'STRING' } },
     tone: { type: 'STRING' },
+    period: { type: 'STRING' },
+    revenue: { type: 'STRING' },
+    revenueChange: { type: 'STRING' },
+    eps: { type: 'STRING' },
+    epsChange: { type: 'STRING' },
   },
-  required: ['headline', 'performance', 'guidance', 'segments', 'risks', 'tone'],
+  required: ['headline', 'performance', 'guidance', 'segments', 'risks', 'tone', 'period', 'revenue', 'revenueChange', 'eps', 'epsChange'],
 }
 
 const MAX_INPUT = 30_000   // exhibit 합산 상한(요약 품질엔 충분, 응답 지연 방지)
@@ -258,6 +271,12 @@ export async function summarizeReport(doc: EarningsReportDoc): Promise<ErSummary
 - guidance: 다음 분기·연간 전망을 2~3문장
 - segments: 사업 부문별 흐름 0~5개(수치 포함)
 - risks: 원문이 스스로 언급한 위험·역풍·비용 요인 0~4개
+- period: 이 실적이 어느 분기인지 회사 표기 그대로("2026년 3분기"·"2026 회계연도 4분기"). 원문에 없으면 빈 문자열
+- revenue: 총매출 금액 하나만(예 "1,094억 7,000만 달러"). 원문에 없으면 빈 문자열
+- revenueChange: 매출의 전년 동기 대비 증감(예 "+16%"). 원문에 없으면 빈 문자열
+- eps: 희석 주당순이익(예 "2.02달러"). 일반회계기준을 우선하고 없으면 조정 기준. 원문에 없으면 빈 문자열
+- epsChange: 주당순이익의 전년 동기 대비 증감(예 "+29%"). 원문에 없으면 빈 문자열
+  ⚠️ period·revenue·eps는 여러 기업을 한 표에 줄 세우는 칸이다. **금액·비율을 지어내지 말고 원문에 있는 것만** 쓴다.
 - tone: ⚠️ 실적 보도자료는 원래 대부분 낙관적으로 쓰인다. 그 점을 감안해 **같은 종류의 문서들 사이에서 상대적으로** 판정하라.
   성과를 앞세우고 전망도 자신 있으면 positive / 성과는 알리되 비용·수요·불확실성을 눈에 띄게 언급하면 neutral /
   감익·수요 둔화·구조조정·가이던스 하향처럼 경계 신호를 스스로 강조하면 cautious
@@ -276,6 +295,8 @@ ${body}`
     segments: (s.segments ?? []).filter(Boolean).map(ko).slice(0, 6),
     risks: (s.risks ?? []).filter(Boolean).map(ko).slice(0, 5),
     tone,
+    period: ko(s.period), revenue: ko(s.revenue), revenueChange: ko(s.revenueChange),
+    eps: ko(s.eps), epsChange: ko(s.epsChange),
   }
 }
 
@@ -298,6 +319,8 @@ export function summaryIssues(s: ErSummary | null): string[] {
   // 한글 숫자 3자 이상 + 금액·비율 단위 → 풀어쓰기(예: '이십오조 삼백십억 달러', '팔십오 퍼센트')
   if (/[일이삼사오육칠팔구십백천만억조점공]{3,}\s*(퍼센트|달러)/.test(all)) out.push('한글숫자')
   if (/\d+\s*원\b|원\s*\d+\s*센트/.test(all)) out.push('통화오류')
+  // 비교 표를 줄 세우는 칸 — 없으면 '나란히 보기'로 되돌아간다. 크론이 알아서 다시 요약한다
+  if (!s.revenue && !s.period) out.push('정량필드')
   return out
 }
 

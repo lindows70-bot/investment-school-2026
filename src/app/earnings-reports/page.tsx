@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { TK, FS } from '@/lib/theme'
-import type { ErIndexRow, EarningsReportDoc } from '@/lib/earningsReport'
+import type { ErIndexRow, EarningsReportDoc, ErSummary } from '@/lib/earningsReport'
 import ResearchVerdictCard from '@/app/components/ResearchVerdict'
 import KrEarningsPanel, { ExpandHint } from '@/app/components/KrEarningsPanel'
 
@@ -288,42 +288,85 @@ function CompareTable({ tickers, rows, onRemove }: { tickers: string[]; rows: Er
   return (
     <div style={{ background: CARD, border: `1px solid ${TK.cyan400}44`, borderRadius: 12, padding: 14, marginBottom: 14, overflowX: 'auto' }}>
       <div style={{ fontSize: FS.body, fontWeight: 800, color: TK.slate100, marginBottom: 10 }}>⚖️ 기업 비교 ({tickers.length})</div>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${tickers.length}, minmax(230px, 1fr))`, gap: 12 }}>
+
+      {/* 같은 축으로 줄을 맞춘 표 — 카드를 옆에 늘어놓으면 회사마다 다른 지표를 말해 비교가 되지 않는다 */}
+      <table style={{ width: '100%', minWidth: 460, borderCollapse: 'collapse', fontSize: FS.tiny, marginBottom: 10 }}>
+        <thead>
+          <tr>
+            <th style={{ ...cthL, width: 104, color: TK.sub2 }}>항목</th>
+            {tickers.map(t => {
+              const row = rows.find(r => r.ticker === t)
+              return (
+                <th key={t} style={{ ...cthR, color: TK.slate100 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ fontFamily: 'monospace' }}>{t}</span>
+                    <button onClick={() => onRemove(t)} title="비교에서 빼기"
+                      style={{ background: 'none', border: 'none', color: TK.sub2, cursor: 'pointer', fontSize: FS.tiny, padding: 0 }}>✕</button>
+                  </span>
+                  <div style={{ fontSize: FS.micro, color: TK.sub2, fontWeight: 400 }}>{row?.name}</div>
+                </th>
+              )
+            })}
+          </tr>
+        </thead>
+        <tbody>
+          {([
+            ['실적 분기', (s: ErSummary) => s.period, true],
+            ['발표일', null, true],
+            ['매출', (s: ErSummary) => s.revenue, false],
+            ['↳ 전년 대비', (s: ErSummary) => s.revenueChange, false],
+            ['주당순이익', (s: ErSummary) => s.eps, false],
+            ['↳ 전년 대비', (s: ErSummary) => s.epsChange, false],
+          ] as const).map(([label, get, dim], ri) => (
+            <tr key={label + ri} style={{ borderTop: ri % 2 === 0 ? `1px solid ${BORDER}` : undefined }}>
+              <td style={{ ...ctdL, color: String(label).startsWith('↳') ? TK.sub2 : TK.sub, paddingLeft: String(label).startsWith('↳') ? 18 : 8 }}>{label}</td>
+              {tickers.map(t => {
+                const d = docs[t]
+                if (label === '발표일') return <td key={t} style={{ ...ctdR, color: TK.slate400 }}>{rows.find(r => r.ticker === t)?.filedAt ?? '—'}</td>
+                const v = d?.summary && get ? get(d.summary) : ''
+                return (
+                  <td key={t} style={{ ...ctdR, color: v ? (dim ? TK.slate400 : TK.slate100) : TK.sub2, fontWeight: v && !dim ? 800 : 400 }}>
+                    {d === undefined ? '…' : v || '—'}
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* 서술은 표 아래에 — 숫자로 줄을 맞춘 뒤 회사가 한 말을 읽는다 */}
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${tickers.length}, minmax(210px, 1fr))`, gap: 10 }}>
         {tickers.map(t => {
-          const row = rows.find(r => r.ticker === t)
           const d = docs[t]
           return (
-            <div key={t} style={{ background: TK.bg4, border: `1px solid ${BORDER}`, borderRadius: 9, padding: 11 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontFamily: 'monospace', fontWeight: 900, color: TK.slate100, fontSize: FS.body }}>{t}</span>
-                <button onClick={() => onRemove(t)} title="비교에서 빼기"
-                  style={{ marginLeft: 'auto', background: 'none', border: 'none', color: TK.sub2, cursor: 'pointer', fontSize: FS.tiny, padding: 2 }}>✕</button>
-              </div>
-              <div style={{ fontSize: FS.tiny, color: TK.sub2, marginBottom: 8 }}>{row?.name} · {row?.filedAt}</div>
+            <div key={t} style={{ background: TK.bg4, border: `1px solid ${BORDER}`, borderRadius: 9, padding: 10 }}>
               {d === undefined ? <div style={{ fontSize: FS.tiny, color: TK.sub2 }}>불러오는 중…</div>
                 : !d?.summary ? <div style={{ fontSize: FS.tiny, color: TK.sub2 }}>요약 준비 중</div>
                 : (
-                  <div style={{ display: 'grid', gap: 8 }}>
+                  <div style={{ display: 'grid', gap: 7 }}>
+                    {d.summary.tone && <Badge c={TONE[d.summary.tone].c}>{TONE[d.summary.tone].t}</Badge>}
                     <div style={{ fontSize: FS.tiny, color: TK.slate300, lineHeight: 1.7 }}>{d.summary.headline}</div>
                     <div>
-                      <div style={{ fontSize: FS.micro, color: TK.sub2, fontWeight: 800 }}>핵심 실적</div>
-                      <ul style={{ margin: '3px 0 0', paddingLeft: 15 }}>
-                        {d.summary.performance.slice(0, 3).map((x, i) => (
-                          <li key={i} style={{ fontSize: FS.tiny, color: TK.slate400, lineHeight: 1.65 }}>{x}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: FS.micro, color: TK.sub2, fontWeight: 800 }}>가이던스</div>
+                      <div style={{ fontSize: FS.micro, color: TK.sub2, fontWeight: 800 }}>다음 분기 전망</div>
                       <div style={{ fontSize: FS.tiny, color: TK.slate400, lineHeight: 1.65, marginTop: 3 }}>{d.summary.guidance}</div>
                     </div>
-                    {d.summary.tone && <Badge c={TONE[d.summary.tone].c}>{TONE[d.summary.tone].t}</Badge>}
                   </div>
                 )}
             </div>
           )
         })}
       </div>
+
+      <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 9, lineHeight: 1.7 }}>
+        · 표의 숫자는 회사가 원문에 쓴 값입니다. <b style={{ color: TK.sub }}>—는 그 회사가 원문에서 밝히지 않았거나 요약 갱신 중</b>이라는 뜻입니다.<br />
+        · <b style={{ color: TK.sub }}>실적 분기와 발표일을 먼저 보세요</b> — 회사마다 회계연도가 달라 같은 날 발표라도 다른 분기일 수 있습니다.
+      </div>
     </div>
   )
 }
+
+const cthL: React.CSSProperties = { textAlign: 'left', padding: '6px 8px', fontWeight: 700 }
+const cthR: React.CSSProperties = { textAlign: 'right', padding: '6px 8px', fontWeight: 700 }
+const ctdL: React.CSSProperties = { textAlign: 'left', padding: '7px 8px' }
+const ctdR: React.CSSProperties = { textAlign: 'right', padding: '7px 8px', fontFamily: 'monospace' }
