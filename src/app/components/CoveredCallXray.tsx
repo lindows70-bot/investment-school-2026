@@ -36,10 +36,11 @@ function PeriodCell({ p }: { p: PeriodStat }) {
   )
 }
 
-export default function CoveredCallXray() {
+export default function CoveredCallXray({ heldTickers = [] }: { heldTickers?: string[] } = {}) {
   const [rows, setRows] = useState<CcXrayRow[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -53,13 +54,33 @@ export default function CoveredCallXray() {
   if (loading) return <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 18, fontSize: 12, color: C.low }}>📉 커버드콜 X-Ray 집계 중…</div>
   if (!rows?.length) return null
 
+  // 내 포트에 담긴 커버드콜 — 이게 있어야 이 화면이 '내 얘기'가 된다
+  const heldSet = new Set(heldTickers.map(t => t.toUpperCase()))
+  const mine = rows.filter(r => heldSet.has(r.ticker.toUpperCase()))
+  const others = rows.filter(r => !heldSet.has(r.ticker.toUpperCase()))
+  const view = [...mine, ...others]          // 내 것 먼저
   const erosion = rows.filter(r => r.navErosion).length
+
+  // 커버드콜이 없는 포트(고배당·균형·성장형)에선 무관한 목록이라 접어둔다 — 담기 전 참고용으로만
+  if (!mine.length && !expanded) return (
+    <div onClick={() => setExpanded(true)}
+      style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: '12px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+      <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>📉 커버드콜 X-Ray</span>
+      <span style={{ fontSize: 11, color: C.sub }}>
+        지금 포트엔 커버드콜이 없습니다 — <b style={{ color: C.gold }}>초고배당형을 고민 중이라면</b> 담기 전에 분배율 대신 총수익을 확인하세요.
+      </span>
+      <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: C.cyan }}>펼쳐 보기 ▾</span>
+    </div>
+  )
 
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: '16px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 14, fontWeight: 900, color: C.text }}>📉 커버드콜 X-Ray</span>
         <span style={{ fontSize: 11, color: C.sub }}>분배율 말고 <b style={{ color: C.gold }}>총수익</b> — 본주를 얼마나 따라갔나</span>
+        {mine.length > 0
+          ? <span style={{ fontSize: 10.5, fontWeight: 800, color: C.gold, background: `${C.gold}18`, borderRadius: 6, padding: '2px 8px' }}>⭐ 내 포트에 {mine.length}종</span>
+          : <span onClick={() => setExpanded(false)} style={{ marginLeft: 'auto', fontSize: 10.5, color: C.low, cursor: 'pointer' }}>접기 ▴</span>}
       </div>
       <div style={{ fontSize: 11.5, color: C.sub, marginTop: 6, lineHeight: 1.6 }}>
         커버드콜은 <b>분배율이 곧 수익이 아닙니다</b>. 분배에 원금(NAV)이 섞이면 통장엔 매달 들어와도 자산은 줄어듭니다.
@@ -68,12 +89,14 @@ export default function CoveredCallXray() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 12 }}>
-        {rows.map(r => {
+        {view.map(r => {
           const v = VERDICT[r.verdict]
           const isOpen = open === r.ticker
+          const isMine = heldSet.has(r.ticker.toUpperCase())
           return (
-            <div key={r.ticker} style={{ background: C.card2, border: `1px solid ${isOpen ? v.color + '66' : C.border}`, borderRadius: 10, padding: '10px 12px', borderLeft: `3px solid ${v.color}` }}>
+            <div key={r.ticker} style={{ background: isMine ? TK.bg4 : C.card2, border: `1px solid ${isMine ? C.gold + '55' : isOpen ? v.color + '66' : C.border}`, borderRadius: 10, padding: '10px 12px', borderLeft: `3px solid ${v.color}` }}>
               <div onClick={() => setOpen(isOpen ? null : r.ticker)} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', cursor: 'pointer' }}>
+                {isMine && <span title="지금 내 포트폴리오에 담긴 종목" style={{ fontSize: 11 }}>⭐</span>}
                 <span style={{ fontSize: 12.5, fontWeight: 800, color: C.text }}>{r.label}</span>
                 <span style={{ fontSize: 9.5, fontFamily: 'monospace', color: C.low }}>{r.ticker}</span>
                 <span style={{ fontSize: 10, fontWeight: 800, color: v.color, background: `${v.color}18`, borderRadius: 5, padding: '2px 7px' }}>{v.icon} {v.label}</span>

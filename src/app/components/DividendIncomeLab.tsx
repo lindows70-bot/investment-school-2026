@@ -81,7 +81,7 @@ function buildAllocation(tKey: string, byTicker: Record<string, DividendProfile>
   return picks
 }
 
-export default function DividendIncomeLab() {
+export default function DividendIncomeLab({ onHoldingsChange }: { onHoldingsChange?: (tickers: string[]) => void } = {}) {
   const [data, setData] = useState<DividendPortfolioData | null>(null)
   const [ultraItems, setUltraItems] = useState<UltraDividendItem[]>([])
   const [err, setErr] = useState(false)
@@ -115,6 +115,10 @@ export default function DividendIncomeLab() {
 
   const usdKrw = data?.usdKrw ?? 1380
   const totalKRW = investMan * 1e4
+
+  // 커버드콜 X-Ray가 '내 포트에 담긴 것'을 알 수 있게 티커만 통지(문자열 deps로 무한루프 방지)
+  const heldKey = holdings.map(h => h.ticker).join(',')
+  useEffect(() => { onHoldingsChange?.(heldKey ? heldKey.split(',') : []) }, [heldKey, onHoldingsChange])
 
   // ── 포트폴리오 지표 ───────────────────────────────────────────────────────────
   const port = useMemo(() => {
