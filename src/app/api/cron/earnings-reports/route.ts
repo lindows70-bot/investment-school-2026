@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { UNIVERSE_KEY, type ScreenedStock } from '@/lib/macroPhaseScreener'
 import {
-  getCikMap, collectReport, summarizeReport, attachSummary, toIndexRow, sleep,
+  getCikMap, collectReport, summarizeReport, attachSummary, toIndexRow, sleep, summaryIssues,
   ER_INDEX_KEY, type EarningsReportDoc, type ErIndexRow,
 } from '@/lib/earningsReport'
 
@@ -64,8 +64,10 @@ export async function GET(req: NextRequest) {
     (req.nextUrl.searchParams.get('force') || '').split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
   )
   const limit = Number(req.nextUrl.searchParams.get('limit')) || SUMMARIZE_PER_RUN
+  // 품질 검사에 걸린 요약도 재생성 대상 — 프롬프트를 고칠 때마다 손으로 훑지 않아도 크론이 스스로 낫는다
+  const flagged = new Map(docs.map(d => [d.doc.ticker, summaryIssues(d.doc.summary)]))
   const needSummary = docs
-    .filter(d => !d.doc.summary || force.has(d.doc.ticker))
+    .filter(d => !d.doc.summary || force.has(d.doc.ticker) || (flagged.get(d.doc.ticker)?.length ?? 0) > 0)
     .sort((a, b) => {
       const fa = force.has(a.doc.ticker) ? 1 : 0, fb = force.has(b.doc.ticker) ? 1 : 0
       return fb - fa || b.doc.filedAt.localeCompare(a.doc.filedAt)
@@ -96,6 +98,8 @@ export async function GET(req: NextRequest) {
     scanned, collected: docs.length, failed,
     summarized, summaryFailed,
     withSummary: rows.filter(r => r.hasSummary).length,
+    // 이번 실행 뒤에도 품질 검사에 걸리는 것(다음 실행이 다시 시도한다)
+    stillFlagged: docs.filter(d => summaryIssues(d.doc.summary).length > 0).map(d => `${d.doc.ticker}:${summaryIssues(d.doc.summary).join('/')}`),
     indexWritten: enough,
     elapsedMs: Date.now() - started,
     cronAuth: !!req.headers.get('authorization'),
