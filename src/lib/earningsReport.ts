@@ -241,6 +241,8 @@ export async function summarizeReport(doc: EarningsReportDoc): Promise<ErSummary
 
 ⛔ 절대 규칙
 - **모든 출력 필드는 한국어로 쓴다.** 원문이 영어여도 영문 문장을 그대로 옮기지 마라(고유명사·티커만 영문 병기 허용).
+- 한자를 쓰지 마라. 수 단위는 한글로만 쓴다(만·억·조 — 万·亿 같은 중국어 표기 금지).
+- 문장은 '~했다·~이다' 평서형으로 끝낸다('~습니다' 같은 높임 종결은 쓰지 마라).
 - 원문에 없는 숫자·사실·기업명·계약을 절대 만들지 마라. 모든 수치는 원문에 있는 것만 인용한다.
 - 가이던스(다음 분기·연간 전망)가 원문에 없으면 guidance는 정확히 "원문에 제시 없음"이라고 쓴다.
 - 주가 예측·매수/매도 의견을 쓰지 마라. 회사가 발표한 내용의 정리까지만.
@@ -264,13 +266,19 @@ ${body}`
   const s = r.data
   const tone = (['positive', 'neutral', 'cautious'] as const).includes(s.tone as 'positive') ? s.tone : 'neutral'
   return {
-    headline: String(s.headline ?? '').trim(),
-    performance: (s.performance ?? []).filter(Boolean).slice(0, 6),
-    guidance: String(s.guidance ?? '').trim() || '원문에 제시 없음',
-    segments: (s.segments ?? []).filter(Boolean).slice(0, 6),
-    risks: (s.risks ?? []).filter(Boolean).slice(0, 5),
+    headline: ko(s.headline),
+    performance: (s.performance ?? []).filter(Boolean).map(ko).slice(0, 6),
+    guidance: ko(s.guidance) || '원문에 제시 없음',
+    segments: (s.segments ?? []).filter(Boolean).map(ko).slice(0, 6),
+    risks: (s.risks ?? []).filter(Boolean).map(ko).slice(0, 5),
     tone,
   }
+}
+
+/** 중국어 수 단위 한자 혼입 정리 — 프롬프트로 막아도 드물게 새어(XOM에서 '11억 3100万 달러') 후처리로 확정한다.
+ *  한국어 실적 문장에 이 글자가 정상적으로 올 일이 없어 안전한 치환이다. */
+function ko(v: unknown): string {
+  return String(v ?? '').replace(/万/g, '만').replace(/亿/g, '억').replace(/兆/g, '조').trim()
 }
 
 /** 요약을 doc에 얹어 캐시에 되쓴다 */
