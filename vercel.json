@@ -85,6 +85,9 @@
     },
     "src/app/api/hi52-radar/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/cron-health/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -139,6 +142,10 @@
     {
       "path": "/api/hi52-radar?refresh=1",
       "schedule": "25 0 * * *"
+    },
+    {
+      "path": "/api/cron-health",
+      "schedule": "40 0 * * *"
     }
   ],
   "headers": [

@@ -145,7 +145,7 @@ export async function loadFundQuarters(cik: string, n = 8): Promise<QuarterHoldi
   return out
 }
 
-const FUND_CACHE_KEY = 'shadow-13f-funds-v4'   // v4: cusip 파싱 추가
+export const FUND_CACHE_KEY = 'shadow-13f-funds-v4'   // v4: cusip 파싱 추가 (export: 크론 헬스 모니터가 SSOT로 감시)
 export async function loadFunds(): Promise<FundData[]> {
   // L1 인메모리
   if (FUND_CACHE.data.length && Date.now() < FUND_CACHE.expiresAt) return FUND_CACHE.data

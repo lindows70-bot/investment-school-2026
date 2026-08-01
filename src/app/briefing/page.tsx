@@ -49,6 +49,8 @@ export default function BriefingPage() {
   const rot = useFetch<RotationResult>('/api/sector-rotation')
   const marks = useFetch<any>('/api/marks-cycle')
   const wl = useFetch<WLApi>('/api/win-lose')
+  const health = useFetch<{ staleCount: number; checks: { id: string; label: string; status: string }[] }>('/api/cron-health')
+  const staleCrons = (health.d?.checks ?? []).filter(c => c.status === 'stale')
 
   const cs = reb.d?.coreSatellite
   const sells = cs ? [...(cs.drop ?? []).map((x: any) => ({ ...x, kind: '버릴 것', kc: TK.red400 })), ...(cs.trim ?? []).map((x: any) => ({ ...x, kind: '줄일 것', kc: TK.amber400 }))].slice(0, 4) : []
@@ -66,6 +68,18 @@ export default function BriefingPage() {
           근거가 궁금할 때만 각 섹션의 &lsquo;상세&rsquo;로 들어가세요.
         </div>
       </div>
+
+      {/* 🚨 크론 헬스 — 오늘 안 돈 자동 갱신이 있으면 빨간 한 줄(없으면 렌더 0) */}
+      {staleCrons.length > 0 && (
+        <div style={{ background: '#2a1215', border: `1px solid ${TK.red400}66`, borderRadius: 10, padding: '10px 14px' }}>
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: TK.red400 }}>
+            ⚠️ 오늘 실행되지 않은 자동 갱신 {staleCrons.length}건 — {staleCrons.map(c => c.label).join(' · ')}
+          </div>
+          <div style={{ fontSize: 11, color: TK.sub3, marginTop: 3 }}>
+            해당 데이터는 어제(직전 실행) 기준일 수 있습니다. 아침 자동 점검(09:40)이 경량 갱신은 스스로 복구합니다.
+          </div>
+        </div>
+      )}
 
       {/* ① 오늘 신호 */}
       <Sec no="①" title="오늘 신호" sub="어제 대비 매수/매도 타점 전환(신호등·라쉬케·스퀴즈·매물평단) — 내 보유 종목만">
