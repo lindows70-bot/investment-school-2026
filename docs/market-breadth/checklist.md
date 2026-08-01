@@ -6,4 +6,4 @@
 - [x] 크론 09:35 + cronHealth 모니터 등록
 - [x] MarketBreadthPanel(막스 탭) + 브리핑 ⑤ 한 줄
 - [x] 검증: 독립 재구현 대조 완전 일치(US 60.4·KR 27.1)
-- [ ] tsc → check:build(&&) → 배포 → CLAUDE.md 기록
+- [x] tsc → check:build(&&) → 배포 → CLAUDE.md 기록
