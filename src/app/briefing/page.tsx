@@ -51,6 +51,8 @@ export default function BriefingPage() {
   const wl = useFetch<WLApi>('/api/win-lose')
   const health = useFetch<{ staleCount: number; checks: { id: string; label: string; status: string }[] }>('/api/cron-health')
   const staleCrons = (health.d?.checks ?? []).filter(c => c.status === 'stale')
+  const earn = useFetch<{ rows: { ticker: string; name: string; market: string; reportDate: string; daysAgo: number; beat: boolean | null; reactionPct: number | null; summary: string }[] }>('/api/earnings-results')
+  const earnRows = earn.d?.rows ?? []
 
   const cs = reb.d?.coreSatellite
   const sells = cs ? [...(cs.drop ?? []).map((x: any) => ({ ...x, kind: '버릴 것', kc: TK.red400 })), ...(cs.trim ?? []).map((x: any) => ({ ...x, kind: '줄일 것', kc: TK.amber400 }))].slice(0, 4) : []
@@ -107,6 +109,23 @@ export default function BriefingPage() {
 
       {/* ①½ 이번 주 이벤트 — 어닝 D-day·배당락(이벤트 없으면 렌더 0) */}
       <EventCalendarPanel compact />
+
+      {/* 📰 실적 발표 결과(최근 3일) — 보유 종목 발표가 없으면 렌더 0 */}
+      {earnRows.length > 0 && (
+        <Sec no="①¾" title="📰 실적 발표 결과" sub="내 보유 종목 최근 3일 발표 — 컨센서스 대비 + 발표 후 주가">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {earnRows.map(r => (
+              <div key={`${r.ticker}:${r.market}`} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: '#171b26', borderRadius: 8, padding: '8px 12px', borderLeft: `3px solid ${r.beat === true ? TK.green400 : r.beat === false ? TK.red400 : TK.sub3}` }}>
+                <span style={{ fontSize: 12.5, fontWeight: 800, color: TK.slate100 }}>{r.name}</span>
+                <span style={{ fontSize: 10.5, color: TK.sub3 }}>{r.daysAgo === 0 ? '오늘' : `${r.daysAgo}일 전`} 발표</span>
+                <span style={{ fontSize: 11.5, color: r.beat === true ? TK.green400 : r.beat === false ? TK.red400 : TK.sub2, fontWeight: 700 }}>{r.summary}</span>
+                <a href={`/research?q=${encodeURIComponent(r.ticker)}`} style={{ marginLeft: 'auto', fontSize: 10.5, fontWeight: 700, color: TK.indigo400, textDecoration: 'none' }}>Jarvis 어닝콜 →</a>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 10, color: TK.sub3, marginTop: 6 }}>서프라이즈는 EPS 컨센서스 대비(가이던스·실적의 질은 어닝콜 분석에서) · 발표 당일은 주가 반응 집계 전일 수 있음</div>
+        </Sec>
+      )}
 
       {/* ② 정리할 것 */}
       <Sec no="②" title="정리할 것" sub="AI 리밸런싱의 버릴/줄일 상위" link="/dashboard?tab=rebalance" linkLabel="AI 리밸런싱 상세">
