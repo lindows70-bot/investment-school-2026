@@ -41,6 +41,7 @@
 | `real-estate` | 🏠 부동산 인텔리전스 (5단계) | ✅ | ✅ | ✅ |
 | `redevelopment` | 🏗️ 서울 정비사업 레이더 | ✅ | | |
 | `research-report` | 📄 종목 리서치 리포트 | ✅ | | |
+| `earnings-report` | 📑 실적 리포트(SEC 8-K 원문 자동 수집·요약) | ✅ | ✅ | ✅ |
 | `season-navigator` | 🧭 4계절 매크로 내비게이터 | | ✅ | ✅ |
 | `sector-rotation` | 🧭 섹터 로테이션 시계 | ✅ | | |
 | `signal-report` | 📋 앱 신호 성적표 | ✅ | ✅ | ✅ |
