@@ -74,9 +74,19 @@ export default function EarningsReportsPage() {
           {([['filed', '발표일순'], ['cap', '시총순']] as const).map(([k, l]) => (
             <button key={k} onClick={() => setSort(k)} style={chip(sort === k)}>{l}</button>
           ))}
-          <button onClick={() => { setCmpMode(!cmpMode); setCompare([]) }} style={chip(cmpMode)}>⚖️ 비교</button>
+          <button onClick={() => { setCmpMode(!cmpMode); setCompare([]) }} style={chip(cmpMode)}>
+            ⚖️ 비교{cmpMode && ` ${compare.length}/4`}
+          </button>
         </span>
       </div>
+
+      {/* 비교 모드 안내 — 아래로 스크롤해 고르는 동안에도 몇 개 골랐는지 보이게 */}
+      {cmpMode && (
+        <div style={{ marginBottom: 12, background: TK.cyan400 + '14', border: `1px solid ${TK.cyan400}44`, borderRadius: 9, padding: '9px 12px', fontSize: FS.tiny, color: TK.slate300 }}>
+          비교할 기업을 카드에서 <b>최대 4개</b>까지 고르세요{compare.length > 0 && ` — 현재 ${compare.map(t => t).join('·')}`}
+          {compare.length === 1 && <span style={{ color: TK.sub2 }}> (2개 이상 고르면 비교 표가 나타납니다)</span>}
+        </div>
+      )}
 
       {loading && <div style={{ color: TK.sub, fontSize: FS.body, padding: 30, textAlign: 'center' }}>실적 원문을 불러오는 중…</div>}
 
@@ -88,7 +98,7 @@ export default function EarningsReportsPage() {
 
       {/* 비교 표 */}
       {cmpMode && compare.length >= 2 && (
-        <CompareTable tickers={compare} rows={rows} />
+        <CompareTable tickers={compare} rows={rows} onRemove={t => setCompare(c => c.filter(x => x !== t))} />
       )}
 
       {/* 목록 */}
@@ -245,7 +255,7 @@ function Section({ title, items, color }: { title: string; items: string[]; colo
 }
 
 // ── 여러 기업 비교 ────────────────────────────────────────────────────────────
-function CompareTable({ tickers, rows }: { tickers: string[]; rows: ErIndexRow[] }) {
+function CompareTable({ tickers, rows, onRemove }: { tickers: string[]; rows: ErIndexRow[]; onRemove: (t: string) => void }) {
   const [docs, setDocs] = useState<Record<string, EarningsReportDoc | null>>({})
   useEffect(() => {
     tickers.forEach(t => {
@@ -266,7 +276,11 @@ function CompareTable({ tickers, rows }: { tickers: string[]; rows: ErIndexRow[]
           const d = docs[t]
           return (
             <div key={t} style={{ background: TK.bg4, border: `1px solid ${BORDER}`, borderRadius: 9, padding: 11 }}>
-              <div style={{ fontFamily: 'monospace', fontWeight: 900, color: TK.slate100, fontSize: FS.body }}>{t}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontFamily: 'monospace', fontWeight: 900, color: TK.slate100, fontSize: FS.body }}>{t}</span>
+                <button onClick={() => onRemove(t)} title="비교에서 빼기"
+                  style={{ marginLeft: 'auto', background: 'none', border: 'none', color: TK.sub2, cursor: 'pointer', fontSize: FS.tiny, padding: 2 }}>✕</button>
+              </div>
               <div style={{ fontSize: FS.tiny, color: TK.sub2, marginBottom: 8 }}>{row?.name} · {row?.filedAt}</div>
               {d === undefined ? <div style={{ fontSize: FS.tiny, color: TK.sub2 }}>불러오는 중…</div>
                 : !d?.summary ? <div style={{ fontSize: FS.tiny, color: TK.sub2 }}>요약 준비 중</div>
