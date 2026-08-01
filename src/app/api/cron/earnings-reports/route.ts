@@ -59,10 +59,18 @@ export async function GET(req: NextRequest) {
   }
 
   // ③ 요약 없는 것부터 N개(최신 발표 우선 — 학생이 먼저 볼 것)
+  //    ?force=NVDA,CVX 면 이미 요약된 종목도 다시 요약한다(프롬프트 수정 후 재생성용)
+  const force = new Set(
+    (req.nextUrl.searchParams.get('force') || '').split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
+  )
+  const limit = Number(req.nextUrl.searchParams.get('limit')) || SUMMARIZE_PER_RUN
   const needSummary = docs
-    .filter(d => !d.doc.summary)
-    .sort((a, b) => b.doc.filedAt.localeCompare(a.doc.filedAt))
-    .slice(0, SUMMARIZE_PER_RUN)
+    .filter(d => !d.doc.summary || force.has(d.doc.ticker))
+    .sort((a, b) => {
+      const fa = force.has(a.doc.ticker) ? 1 : 0, fb = force.has(b.doc.ticker) ? 1 : 0
+      return fb - fa || b.doc.filedAt.localeCompare(a.doc.filedAt)
+    })
+    .slice(0, Math.min(limit, 25))
 
   let summarized = 0, summaryFailed = 0
   for (const d of needSummary) {

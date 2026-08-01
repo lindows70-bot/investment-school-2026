@@ -240,6 +240,7 @@ export async function summarizeReport(doc: EarningsReportDoc): Promise<ErSummary
 학생이 이해할 수 있는 한국어로 구조화해 요약하라.
 
 ⛔ 절대 규칙
+- **모든 출력 필드는 한국어로 쓴다.** 원문이 영어여도 영문 문장을 그대로 옮기지 마라(고유명사·티커만 영문 병기 허용).
 - 원문에 없는 숫자·사실·기업명·계약을 절대 만들지 마라. 모든 수치는 원문에 있는 것만 인용한다.
 - 가이던스(다음 분기·연간 전망)가 원문에 없으면 guidance는 정확히 "원문에 제시 없음"이라고 쓴다.
 - 주가 예측·매수/매도 의견을 쓰지 마라. 회사가 발표한 내용의 정리까지만.
@@ -251,7 +252,9 @@ export async function summarizeReport(doc: EarningsReportDoc): Promise<ErSummary
 - guidance: 다음 분기·연간 전망을 2~3문장
 - segments: 사업 부문별 흐름 0~5개(수치 포함)
 - risks: 원문이 스스로 언급한 위험·역풍·비용 요인 0~4개
-- tone: 원문 어조가 자신감 있으면 positive, 중립적이면 neutral, 신중·경계면 cautious
+- tone: ⚠️ 실적 보도자료는 원래 대부분 낙관적으로 쓰인다. 그 점을 감안해 **같은 종류의 문서들 사이에서 상대적으로** 판정하라.
+  성과를 앞세우고 전망도 자신 있으면 positive / 성과는 알리되 비용·수요·불확실성을 눈에 띄게 언급하면 neutral /
+  감익·수요 둔화·구조조정·가이던스 하향처럼 경계 신호를 스스로 강조하면 cautious
 
 [원문]
 ${body}`
