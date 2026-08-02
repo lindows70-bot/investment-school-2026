@@ -134,7 +134,10 @@ export default function SignalReportPage() {
    *  recent를 쓰면 최근 10건이 전부 미채점일 때 칩이 통째로 사라진다(타이밍 매수 31%인데 적중 칩 0개였음) */
   const picks = (g: GroupStat | undefined, ok: boolean) => {
     if (!g) return []
-    return g.scored.filter(e => ok ? (g.kind === 'buy' ? e.retNow! > 0 : e.retNow! < 0) : (g.kind === 'buy' ? e.retNow! <= 0 : e.retNow! >= 0)).slice(0, 3)
+    const hit = g.scored.filter(e => ok ? (g.kind === 'buy' ? e.retNow! > 0 : e.retNow! < 0) : (g.kind === 'buy' ? e.retNow! <= 0 : e.retNow! >= 0))
+    // 같은 종목이 다른 날 두 번 잡히면 칩 3개가 2종목이 된다 — "어느 종목이 맞았나"엔 서로 다른 종목이 유용하다
+    const seen = new Set<string>()
+    return hit.filter(e => !seen.has(e.ticker) && seen.add(e.ticker)).slice(0, 3)
   }
   // 시장 기준선 요약 — 가장 표본이 두꺼운 매수 그룹에서 뽑는다(학생 오독 방지의 핵심 숫자)
   const benchRef = find('jarvis', 'buy')?.avgBenchNow ?? find('timing', 'buy')?.avgBenchNow ?? null
@@ -251,7 +254,7 @@ export default function SignalReportPage() {
             </div>
             <div style={{ fontSize: 12, color: TK.sub11, marginTop: 8, lineHeight: 1.75 }}>
               ② <b style={{ color: TK.amber400 }}>그래도 정직하게 — 매수는 시장을 이기지 못했습니다.</b> 표의 &lsquo;시장 대비&rsquo;를 보세요.
-              매수는 세 축 모두 <b>소폭 열위(−2~4%p)</b>입니다. 반면 <b style={{ color: TK.green400 }}>매도는 시장 대비 +5~10%p로 확실히 이겼습니다</b> —
+              매수는 세 축 모두 <b>소폭 열위(−2~4%p)</b>입니다. 반면 <b style={{ color: TK.green400 }}>매도는 세 축 모두 플러스(+4.7~+10.1%p)</b> —
               내려갈 종목을 골라내는 일은 실제로 해내고 있다는 뜻입니다.
             </div>
             <div style={{ fontSize: 12, color: TK.sub11, marginTop: 8, lineHeight: 1.75 }}>
