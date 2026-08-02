@@ -323,6 +323,7 @@ function ko(v: unknown): string {
 export function summaryIssues(s: ErSummary | null): string[] {
   if (!s) return ['no_summary']
   const all = [s.headline, s.guidance, ...s.performance, ...s.segments, ...s.risks].join(' ')
+  const nums = [s.revenue, s.opIncome, s.eps].join(' ')   // 표에 줄 세우는 칸만 표기 규칙을 강제한다
   const out: string[] = []
   if (/[万亿兆]/.test(all)) out.push('한자')
   if (/습니다|입니다|됩니다|합니다/.test(all)) out.push('높임체')
@@ -332,10 +333,10 @@ export function summaryIssues(s: ErSummary | null): string[] {
   if (/\d+\s*원\b|원\s*\d+\s*센트/.test(all)) out.push('통화오류')
   // 비교 표를 줄 세우는 칸 — 없으면 '나란히 보기'로 되돌아간다. 크론이 알아서 다시 요약한다
   if (!s.revenue || !s.period) out.push('정량필드')
-  // 영업이익(본업)이 없으면 순이익·주당순이익만 남아 일회성 이익이 실력처럼 보인다(구글 평가이익 사례)
-  if (!s.opIncome) out.push('영업이익')
-  // '9천6백만' 같은 표기 — 다른 카드는 '1,700만'이라 한 표에서 자릿수가 어긋난다
-  if (/\d\s*천\s*\d*\s*백만/.test(all)) out.push('자릿수표기')
+  // ⚠️ 영업이익 누락은 재요약 대상이 아니다 — 은행(WFC)·제약(MRK)은 **원문에 영업이익 표기가 없어**
+  //    다시 요약해도 영원히 채워지지 않는다. 트리거로 두면 매일 헛되이 호출한다(정직하게 빈칸으로 둔다).
+  // '9천6백만' 같은 표기 — 다른 카드는 '1,700만'이라 한 표에서 자릿수가 어긋난다(정량 칸만 검사)
+  if (/\d\s*천\s*\d*\s*백만/.test(nums)) out.push('자릿수표기')
   return out
 }
 
