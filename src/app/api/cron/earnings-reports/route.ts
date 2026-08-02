@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { UNIVERSE_KEY, type ScreenedStock } from '@/lib/macroPhaseScreener'
 import {
-  getCikMap, collectReport, summarizeReport, attachSummary, toIndexRow, sleep, summaryIssues,
+  getCikMap, collectReport, summarizeReport, attachSummary, toIndexRow, sleep, summaryIssues, amountIssues,
   ER_INDEX_KEY, type EarningsReportDoc, type ErIndexRow,
 } from '@/lib/earningsReport'
 
@@ -65,7 +65,11 @@ export async function GET(req: NextRequest) {
   )
   const limit = Number(req.nextUrl.searchParams.get('limit')) || SUMMARIZE_PER_RUN
   // 품질 검사에 걸린 요약도 재생성 대상 — 프롬프트를 고칠 때마다 손으로 훑지 않아도 크론이 스스로 낫는다
-  const flagged = new Map(docs.map(d => [d.doc.ticker, summaryIssues(d.doc.summary)]))
+  const bodyOf = (d: EarningsReportDoc) => d.exhibits.map(e => e.text).join(' ')
+  const flagged = new Map(docs.map(d => [
+    d.doc.ticker,
+    [...summaryIssues(d.doc.summary), ...amountIssues(d.doc.summary, bodyOf(d.doc))],
+  ]))
   const needSummary = docs
     .filter(d => !d.doc.summary || force.has(d.doc.ticker) || (flagged.get(d.doc.ticker)?.length ?? 0) > 0)
     .sort((a, b) => {
@@ -99,7 +103,9 @@ export async function GET(req: NextRequest) {
     summarized, summaryFailed,
     withSummary: rows.filter(r => r.hasSummary).length,
     // 이번 실행 뒤에도 품질 검사에 걸리는 것(다음 실행이 다시 시도한다)
-    stillFlagged: docs.filter(d => summaryIssues(d.doc.summary).length > 0).map(d => `${d.doc.ticker}:${summaryIssues(d.doc.summary).join('/')}`),
+    stillFlagged: docs
+      .map(d => ({ t: d.doc.ticker, i: [...summaryIssues(d.doc.summary), ...amountIssues(d.doc.summary, bodyOf(d.doc))] }))
+      .filter(x => x.i.length > 0).map(x => `${x.t}:${x.i.join('/')}`),
     indexWritten: enough,
     elapsedMs: Date.now() - started,
     cronAuth: !!req.headers.get('authorization'),

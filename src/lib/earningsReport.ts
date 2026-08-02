@@ -353,6 +353,43 @@ export function summaryIssues(s: ErSummary | null): string[] {
   return out
 }
 
+// ── 금액 자릿수 원문 대조 ────────────────────────────────────────────────────
+//  ⚠️ 프롬프트로는 반복해서 샌다(실측): $90,007M → "900억 7만"(MSFT) · $21,203M → "212억 3만"(PG).
+//     백만 달러 표기의 끝 세 자리를 만 단위로 옮길 때 앞의 0을 흘려 1,000배 작아진다.
+//     예시를 아무리 넣어도 다른 종목에서 또 나므로, **원문에 그 숫자가 실재하는지** 기계로 확인한다.
+
+/** '1,094억 1,700만 달러' → 109417000000 */
+export function parseKoAmount(s: string): number | null {
+  const t = String(s ?? '').replace(/,/g, '')
+  const g = (re: RegExp) => { const m = t.match(re); return m ? Number(m[1]) : 0 }
+  const v = g(/(\d+(?:\.\d+)?)\s*조/) * 1e12 + g(/(\d+(?:\.\d+)?)\s*억/) * 1e8 + g(/(\d+(?:\.\d+)?)\s*만/) * 1e4
+  return v > 0 ? v : null
+}
+
+/** 그 금액이 원문에 백만/십억 단위 어느 표기로든 나타나는가 */
+function appearsInSource(n: number, body: string): boolean {
+  const millions = Math.round(n / 1e6)
+  if (body.includes(millions.toLocaleString('en-US'))) return true       // 21,203
+  if (body.includes(String(millions))) return true                        // 21203
+  const b = n / 1e9
+  for (const d of [1, 2, 3]) if (body.includes(b.toFixed(d))) return true // 109.4 / 90.01 …
+  if (body.includes(String(Math.round(b)))) return true                   // 90
+  return false
+}
+
+/** 요약 금액이 원문에 없으면 자릿수가 어긋난 것 — 재요약 대상 */
+export function amountIssues(s: ErSummary | null, body: string): string[] {
+  if (!s || !body) return []
+  const out: string[] = []
+  for (const [label, val] of [['매출', s.revenue], ['영업이익', s.opIncome]] as const) {
+    if (!val) continue
+    const n = parseKoAmount(val)
+    if (n == null) continue
+    if (!appearsInSource(n, body)) out.push(`금액틀림:${label}`)
+  }
+  return out
+}
+
 /** 요약을 doc에 얹어 캐시에 되쓴다 */
 export async function attachSummary(doc: EarningsReportDoc, summary: ErSummary): Promise<EarningsReportDoc> {
   const next: EarningsReportDoc = { ...doc, summary, summarizedAt: new Date().toISOString() }
