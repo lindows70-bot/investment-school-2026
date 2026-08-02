@@ -286,6 +286,9 @@ export async function summarizeReport(doc: EarningsReportDoc): Promise<ErSummary
   ⚠️ **반드시 이번 분기(period) 수치**를 쓴다. 회계연도 결산 발표는 연간(Fiscal Year)과 분기(Q4) 수치를 나란히 싣는데,
      period가 분기이면 값도 **분기 값**이어야 한다(예: P&G는 분기 $21,203M / 연간 $87,032M → 분기 값을 쓴다).
   ⚠️ **순수 매출만** 쓴다. 손익계산서 맨 위의 "Total revenues and other income"처럼 지분법이익·기타수익을 더한 합계를 쓰지 마라
+  ⚠️ **보도자료 본문이 이익·현금흐름 중심이어도 빈칸으로 두지 마라** — 첨부된 손익계산서 표에서 매출 행을 찾아 채운다
+     (엑슨모빌은 본문이 순이익 중심이지만 표에 "Sales and other operating revenue 114,529"가 있다 → 1,145억 2,900만 달러).
+     표에도 매출 행이 전혀 없을 때만 빈 문자열로 둔다.
      (예: 셰브론은 매출 $67,199M이 맞고, 기타수익까지 더한 $70,055M은 틀리다).
 - revenueChange: 매출의 전년 동기 대비 증감(예 "+16%"). 원문에 없으면 빈 문자열
 - opIncome: **영업이익**(operating income) 금액(예 "407억 7,000만 달러"). 원문에 없으면 빈 문자열
