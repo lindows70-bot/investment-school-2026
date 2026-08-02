@@ -39,6 +39,23 @@ function StockChip({ e, ok }: { e: SigEvent; ok: boolean }) {
   )
 }
 
+/** 종목 칩 한 줄 — "적중 N건" 전체 건수 + 최근 3개 + 남은 건수.
+ *  ⚠️ 칩만 3개 두면 '대표종목'으로 오해된다(사용자 질문). 선정 기준(최근순)과 모수(N건)를 라벨이 스스로 말해야 한다. */
+function ChipRow({ label, color, list, total, ok }: { label: string; color: string; list: SigEvent[]; total: number; ok: boolean }) {
+  if (list.length === 0) return null
+  const rest = total - list.length
+  return (
+    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+      <span style={{ fontSize: 9.5, color, minWidth: 74 }}>
+        {label} <b style={{ fontFamily: 'monospace' }}>{total}건</b>
+      </span>
+      {list.map((e, i) => <StockChip key={i} e={e} ok={ok} />)}
+      {rest > 0 && <span title="종목 칩은 신호일 최근순 3개까지만 표시합니다 — 전체 기록은 아래 '신호 하나하나 보기'에서"
+        style={{ fontSize: 9.5, color: TK.sub2, cursor: 'help' }}>외 {rest}건</span>}
+    </div>
+  )
+}
+
 /** 적중률 셀 — 큰 % + 표본 + 시장 대비 초과(%p) */
 function WinCell({ g }: { g: GroupStat | undefined }) {
   if (!g || g.n === 0) return <span style={{ color: TK.sub2, fontSize: 12 }}>적립 중</span>
@@ -173,7 +190,8 @@ export default function SignalReportPage() {
             <div style={{ fontSize: 13, fontWeight: 800, color: TK.slate200 }}>신호별 적중률</div>
             <div style={{ fontSize: 11, color: TK.sub4, margin: '3px 0 10px' }}>
               매수는 <b style={{ color: TK.green400 }}>오르면</b> 적중 · 매도는 <b style={{ color: TK.red400 }}>떨어지면</b> 적중(그때 팔았으면 면한 손실) ·
-              <b style={{ color: TK.slate200 }}> 시장 대비</b>가 +면 국면을 이긴 것
+              <b style={{ color: TK.slate200 }}> 시장 대비</b>가 +면 국면을 이긴 것 ·
+              <b style={{ color: TK.slate200 }}> 종목 칩</b>은 <b>신호일 최근순 3개</b>(대표·최고 성과가 아닙니다 — 전체 건수는 칩 왼쪽에)
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
@@ -193,26 +211,14 @@ export default function SignalReportPage() {
                         <div style={{ fontSize: 13, fontWeight: 800, color: a.hero ? TK.amber400 : TK.slate200 }}>{a.icon} {a.name}</div>
                         <div style={{ fontSize: 10.5, color: TK.sub4, marginTop: 1 }}>{a.desc}</div>
                         {/* 🎯 종목 실명 — "그래서 뭐가 맞았는데?"에 바로 답한다 */}
+                        {/* 🎯 종목 칩 — ⚠️ '최근 3개'라는 사실과 전체 건수를 반드시 함께: 같은 3개라도
+                            가치 매수는 적중 4건 중 3개(사실상 전부)이고 가치 매도는 22건 중 3개다.
+                            건수 없이 3개만 두면 학생이 '대표종목'이나 '최고 성과'로 오해한다(사용자 질문). */}
                         {(hitB.length > 0 || hitS.length > 0 || missB.length > 0) && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 7 }}>
-                            {hitB.length > 0 && (
-                              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-                                <span style={{ fontSize: 9.5, color: TK.green400, minWidth: 52 }}>매수 적중</span>
-                                {hitB.map((e, i) => <StockChip key={i} e={e} ok />)}
-                              </div>
-                            )}
-                            {missB.length > 0 && (
-                              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-                                <span style={{ fontSize: 9.5, color: TK.sub4, minWidth: 52 }}>매수 빗나감</span>
-                                {missB.map((e, i) => <StockChip key={i} e={e} ok={false} />)}
-                              </div>
-                            )}
-                            {hitS.length > 0 && (
-                              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-                                <span style={{ fontSize: 9.5, color: TK.red400, minWidth: 52 }}>매도 적중</span>
-                                {hitS.map((e, i) => <StockChip key={i} e={e} ok />)}
-                              </div>
-                            )}
+                            <ChipRow label="매수 적중" color={TK.green400} list={hitB} total={gb?.hitN ?? 0} ok />
+                            <ChipRow label="매수 빗나감" color={TK.sub4} list={missB} total={gb?.missN ?? 0} ok={false} />
+                            <ChipRow label="매도 적중" color={TK.red400} list={hitS} total={gs?.hitN ?? 0} ok />
                           </div>
                         )}
                       </td>

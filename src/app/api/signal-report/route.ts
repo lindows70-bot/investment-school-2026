@@ -54,6 +54,10 @@ export interface GroupStat {
   //    적중 종목 칩도 사라진다(매도 적중 22건인데 칩 2개, 타이밍 매수는 칩 줄 자체가 소멸했다).
   scored: SigEvent[]            // 채점 완료(retNow != null) 이벤트 최신순 최대 12 — 표·칩의 실제 소스
   pendingN: number              // 아직 채점 전(경과 7일 미만) 건수 — 표에 "대기 N건"으로 정직 표기
+  // 칩은 '최근 3개'인데 그 3개의 뜻이 축마다 다르다(가치 매수는 적중 4건 중 3개=사실상 전부 /
+  // 가치 매도는 22건 중 3개). 건수를 함께 줘야 "왜 몇 개만 보여주나"에 화면이 스스로 답한다.
+  hitN: number                  // 채점분 중 적중 건수(전체 기준)
+  missN: number                 // 채점분 중 빗나간 건수
 }
 export interface SignalReportResult {
   asOf: string
@@ -76,7 +80,7 @@ const closeAt = (candles: TechCandle[], date: string): number | null => {
 export async function GET() {
   const today = kstDate()
   // ⚠️ 응답 '내용'(제목·라벨 문자열)만 바뀌어도 키를 올려야 한다 — 스키마가 같으면 커밋 훅이 못 잡는다(v6에서 실제로 겪음).
-  const cacheKey = `signal-report-v8:${today}`   // v8: scored/pendingN(표·칩이 미채점만 보던 결함) / v7: 라벨 '이중 확인' / v6: 📏 시장 기준선 / v5: 런 압축 / v4: ⭐그룹 / v3: unscored / v2: 1,000행 절단
+  const cacheKey = `signal-report-v9:${today}`   // v9: hitN/missN(칩 '몇 개 중 몇 개'가 안 보이던 문제) / v8: scored·pendingN / v7: 라벨 '이중 확인' / v6: 📏 기준선 / v5: 런 압축 / v4: ⭐그룹 / v3: unscored / v2: 1,000행
   const cached = await getCache<SignalReportResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -242,6 +246,7 @@ export async function GET() {
         best: sortedBySignal[0] ?? null, worst: sortedBySignal[sortedBySignal.length - 1] ?? null,
         recent: evs.slice(0, 10),
         scored: e7.slice(0, 12), pendingN: evs.length - e7.length,
+        hitN: e7.filter(e => hit(e.retNow!)).length, missN: e7.filter(e => !hit(e.retNow!)).length,
       })
     }
   }
