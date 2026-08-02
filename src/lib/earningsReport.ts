@@ -376,10 +376,13 @@ function appearsInSource(n: number, body: string): boolean {
     if (body.includes(cand.toLocaleString('en-US'))) return true           // 21,203
     if (cand >= 1000 && body.includes(String(cand))) return true           // 21203
   }
+  // 십억 소수 — 표 머리에 단위(in billions)를 두고 '$9.3'처럼만 적는 회사가 있다(마스터카드·뱅크오브아메리카).
+  // ⚠️ '$' 접두를 반드시 요구한다. 맨숫자 매칭은 비율·다른 수치에 걸려 검사를 무력화한다(PG '21.2' 사례).
   const b = n / 1e9
-  for (const d of [1, 2, 3]) {
-    const s = b.toFixed(d).replace(/\.?0+$/, '') || b.toFixed(d)
-    if (new RegExp(`${s.replace('.', '\\.')}\\s*billion`, 'i').test(body)) return true   // "$21.2 billion"
+  for (const d of [1, 2]) {
+    const s = b.toFixed(d).replace('.', '\\.')
+    if (new RegExp(`\\$\\s?${s}(?!\\d)`).test(body)) return true          // "$9.3"
+    if (new RegExp(`${s}\\s*billion`, 'i').test(body)) return true        // "9.3 billion"
   }
   return false
 }
