@@ -26,6 +26,7 @@ import { getTechCandles } from '@/lib/techChartData'
 import { getSector } from '@/lib/schoolIndex'
 import { callGeminiJSON } from '@/lib/gemini'
 import { SECTOR_ETF, SECTOR_LIST } from '@/lib/sectorConfigs'
+import { classifyAssetRole } from '@/lib/portfolioRole'
 import { getEtfComposition } from '@/lib/etfLookThrough'
 import { GICS_SECTOR_META } from '@/lib/gicsSectorMeta'
 import type { ScreenedStock } from '@/lib/macroPhaseScreener'
@@ -155,7 +156,7 @@ const AI_SCHEMA = {
 }
 
 async function buildCommon(base: string): Promise<WrCommon> {
-  const key = `weekly-report-common-v10:${kstDate()}`   // v5: 미10Y 스케일 자동판별(÷10 버그)·앵커 요일 표기·수급 최근일 주입·프롬프트 구체성 강화
+  const key = `weekly-report-common-v11:${kstDate()}`   // v11: 헤드라인 주어 하나 규칙(두 자산 이어붙임 금지) · v5: 미10Y 스케일 자동판별(÷10 버그)
   const cached = await getCache<WrCommon>(key, 6 * 3600_000)
   if (cached) return cached
 
@@ -333,6 +334,8 @@ async function buildCommon(base: string): Promise<WrCommon> {
 - 같은 지표를 여러 항목에서 반복하지 마라. 항목마다 다른 데이터를 쓴다.
 
 1) headline: 이번 주를 규정하는 제목(15자 이내). 데이터에서 가장 큰 변화 한 가지를 잡는다.
+   ⛔ 주어는 하나만 — 두 자산을 구분 없이 이어 붙이지 마라("코스피 WTI 5.2% 급락"처럼 읽히면 실패.
+   좋음: "WTI 5.2% 급락" / 굳이 병렬하려면 "WTI 급락·코스피 약세"처럼 ·로 구분).
 2) sub: 헤드라인을 뒷받침하는 2문장. 지수·수급·원자재 중 서로 다른 축을 엮어 자금 흐름을 설명한다.
 3) bullets: 자산군별 핵심 요약 5개 — tag는 [주식/원자재/암호화폐/부동산/수급] 각 1개, text는 수치 포함 1문장.
 4) issue: 이번 주 시장을 '왜 이렇게 움직였나'로 구조 분해한 3개 — k는 [촉매/증폭/자금 흐름] 순.
@@ -489,9 +492,20 @@ async function buildMe(uid: string, name: string, selfCalendar: boolean, cookie:
         else candles = (await getTechCandles(h.ticker, h.market as 'KR' | 'US', 'D')).map(c => ({ date: c.date, close: c.close }))
         weekMap.set(key, weeklyFrom(candles).weekPct)
       } catch { weekMap.set(key, null) }
-      // 섹터: 크립토 고정 → ETF는 SECTOR_ETF 역맵(테마) 아니면 광역 ETF → 개별주는 유니버스 → getSector(7일 캐시)
+      // 섹터: 크립토 고정 → ETF는 SECTOR_ETF 역맵(테마) → 미등록은 portfolioRole로 광역/채권/테마 분별 → 개별주는 유니버스 → getSector(7일 캐시)
       if (at === 'CRYPTO') sectorMap.set(key, '암호화폐')
-      else if (at === 'ETF' || at === 'COMMODITY') sectorMap.set(key, ETF_SECTOR_REV.get(key) ?? (at === 'COMMODITY' ? '원자재' : '광역 ETF(분산)'))
+      else if (at === 'COMMODITY') sectorMap.set(key, '원자재')
+      else if (at === 'ETF') {
+        // ⚠️ 미등록 ETF를 전부 '광역'으로 떨구면 테마 ETF가 분산 라벨에 숨는다 — 실제 사고: 신형 코드 3종
+        //   (1Q미국우주항공테크·TIGER코리아AI전력기기·TIGER코리아원자력, 주간 −3~−12.5%)이 '광역 ETF(분산)'에 섞여
+        //   진짜 광의지수 3종(주간 −0.04% 보합)이 −2.3%로 표시됐다. portfolioRole SSOT(win-lose 학교 보드와 동일 체인)로 분별.
+        const rev = ETF_SECTOR_REV.get(key)
+        if (rev) sectorMap.set(key, rev)
+        else {
+          const role = classifyAssetRole(h.ticker, h.name, h.market).role
+          sectorMap.set(key, role === 'CORE_INDEX' ? '광역 ETF(분산)' : role === 'CORE_BOND' ? '채권 ETF' : '테마 ETF(개별 섹터)')
+        }
+      }
       else {
         const u = uniMap.get(key)
         if (u?.sector && u.sector !== '—') sectorMap.set(key, u.sector)
@@ -598,7 +612,13 @@ async function buildMe(uid: string, name: string, selfCalendar: boolean, cookie:
     ? `직접 ${semiDirect}% + ETF 투시 ${r1(semiEtf)}%p — ETF 구성 상위 종목만 분해(포트 ${r1(etfCov)}% 커버)라 실제는 이보다 클 수 있습니다`
     : '직접 보유 기준(업종+대표 반도체 티커) — 보유 ETF의 구성 종목이 제공되지 않았습니다'
   const top3W = r1(holdings.slice(0, 3).reduce((s, h) => s + h.weight, 0))
-  const fxW = r1(items.filter(({ h, at }) => h.currency === 'USD' && at !== 'CRYPTO').reduce((s, { valueKrw, costKrw }) => s + ((valueKrw ?? costKrw) / totalSafe) * 100, 0))
+  // ⚠️ 통화 USD만 세면 환노출이 크게 과소된다 — 국내 상장 미국 추종 ETF(TIGER 미국S&P500·나스닥100·1Q미국우주항공테크)는
+  //    원화 호가지만 기초자산이 달러라 환율에 그대로 노출(환노출형). 커버드콜 X-Ray 환율 교훈의 리스크 게이지 버전.
+  //    실측: 교사 포트 직접 USD 29.2% + 간접 22.4%p = 실질 ~52%(적정→주의로 판정이 뒤집히는 크기).
+  const isUsUnderlyingKrEtf = ({ h, at }: { h: { market: string; name: string }; at: string }) =>
+    at === 'ETF' && h.market === 'KR' && /미국|나스닥|S&P/i.test(h.name)
+  const fxW = r1(items.filter(({ h, at }) => (h.currency === 'USD' || isUsUnderlyingKrEtf({ h, at })) && at !== 'CRYPTO')
+    .reduce((s, { valueKrw, costKrw }) => s + ((valueKrw ?? costKrw) / totalSafe) * 100, 0))
   const cryptoW = r1(holdings.filter(h => h.assetType === 'CRYPTO').reduce((s, h) => s + h.weight, 0))
   const lv = (v: number, mid: number, hi: number): WrRisk['level'] => v >= hi ? 'bad' : v >= mid ? 'warn' : 'ok'
 
@@ -622,7 +642,7 @@ async function buildMe(uid: string, name: string, selfCalendar: boolean, cookie:
   const risks: WrRisk[] = [
     { key: 'semi', label: '반도체 집중도(ETF 투시)', value: semiW, unit: '%', level: lv(semiW, 40, 60), note: semiNote },
     { key: 'top3', label: '상위 3종목 집중도', value: top3W, unit: '%', level: lv(top3W, 55, 70), note: '평가액 비중 상위 3종목 합' },
-    { key: 'fx', label: '환노출(달러 자산)', value: fxW, unit: '%', level: lv(fxW, 50, 75), note: '통화 USD 자산 비중(코인 제외)' },
+    { key: 'fx', label: '환노출(달러 자산)', value: fxW, unit: '%', level: lv(fxW, 50, 75), note: 'USD 자산 + 국내 상장 미국 추종 ETF(간접 환노출) 비중 — 코인 제외' },
     // ⚠️ 임계는 앱 자체 가드(코인 랩 '≤5% 권장')와 일치시킨다 — 클라우드 원본의 20/35를 쓰면
     //    '권장 상한 5%'라 써놓고 11.8%를 '적정'으로 판정하는 자기모순이 된다(제2원칙).
     { key: 'crypto', label: '암호화폐 비중', value: cryptoW, unit: '%', level: lv(cryptoW, 5, 10), note: '권장 상한 5% — 잃어도 되는 돈만(10% 초과는 위험)' },
@@ -676,7 +696,7 @@ export async function GET(req: Request) {
 
   // 캐시(개인 6h·보유 지문 무효화)
   const fp = await holdingsFingerprint(targetId)
-  const meKey = `weekly-report-me-v5:${targetId}:${kstDate()}:${fp}:${selfView ? 's' : 't'}`   // v4: 코인 임계 5/10(앱 가드 정합) + 반도체 집중도 ETF 투시(look-through) 포함
+  const meKey = `weekly-report-me-v6:${targetId}:${kstDate()}:${fp}:${selfView ? 's' : 't'}`   // v6: 미등록 ETF 섹터 portfolioRole 분별(테마가 광역에 숨던 것) + 환노출에 국내 상장 미국 ETF 간접 포함
   let me = await getCache<WrMe>(meKey, 6 * 3600_000)
   const common = await buildCommon(base)
   if (!me) {
