@@ -309,6 +309,9 @@ export async function summarizeReport(doc: EarningsReportDoc): Promise<ErSummary
   ⛔ 은행·증권사의 **Pre-tax income(세전이익)·Pre-tax earnings·Pre-provision profit(충당금 차감 전 이익)을 영업이익 칸에 쓰지 마라**
      — 이들은 영업이익이 아니라 다른 개념이다. 원문에 GAAP 영업이익 라인이 없으면 빈 문자열로 둔다(빈칸이 정직하다).
   ⛔ 회사 고유의 조정·비GAAP 지표(IBM의 'Operating (Non-GAAP)' 등)도 영업이익 칸에 쓰지 마라 — 조정 지표는 서술(performance)에서만 언급한다.
+  ⛔ 'pre-tax'·'before income taxes'가 붙은 값은 GAAP이어도 전부 세전이익이지 영업이익이 아니다.
+     실제 판정 예: 골드만삭스 "Pre-tax earnings 8,563" → 빈칸 / IBM은 GAAP·비GAAP 모두 pre-tax 지표뿐 → 빈칸 /
+     JP모건 "Pre-provision profit" → 빈칸. **"Operating income" 또는 "Income from operations"라는 라벨이 문자 그대로 있는 경우에만 채운다.**
      (예: 셰브론은 매출 $67,199M이 맞고, 기타수익까지 더한 $70,055M은 틀리다).
 - revenueChange: 매출의 전년 동기 대비 증감(예 "+16%"). 원문에 없으면 빈 문자열
 - opIncome: **영업이익**(operating income) 금액(예 "407억 7,000만 달러"). 원문에 없으면 빈 문자열
