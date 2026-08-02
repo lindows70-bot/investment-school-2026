@@ -10,6 +10,7 @@ import type { RotationResult } from '@/app/api/sector-rotation/route'
 import type { WatchSig } from '@/app/api/cron/timing-watch/route'
 import { type WLApi, splitGroups, factorStats, buildLesson, WL_PERIOD_LABEL } from '@/lib/winLose'
 import { cashBandOf } from '@/lib/cashPosition'
+import { LYNCH_CATEGORY_KR } from '@/lib/lynchAnalysis'
 import { TK } from '@/lib/theme'
 
 const CARD = '#12151f', BORDER = TK.border
@@ -57,9 +58,20 @@ export default function BriefingPage() {
   const breadth = useFetch<{ us: { pctAbove200: number } | null; kr: { pctAbove200: number } | null }>('/api/market-breadth')
   const cash = useFetch<{ needsSetup?: boolean; cashPct?: number; cashKrw?: number; verdict?: 'aggressive' | 'inband' | 'defensive' | null }>('/api/cash-position')
 
+  const cal = useFetch<{ events: { type: string; dDay: number; ticker: string }[] }>('/api/event-calendar')
+
   const cs = reb.d?.coreSatellite
   const sells = cs ? [...(cs.drop ?? []).map((x: any) => ({ ...x, kind: '버릴 것', kc: TK.red400 })), ...(cs.trim ?? []).map((x: any) => ({ ...x, kind: '줄일 것', kc: TK.amber400 }))].slice(0, 4) : []
   const buys = reco.d?.items?.slice(0, 5) ?? []
+  // 📅 실적 임박(D-7) 보유 종목 — 같은 페이지의 이벤트 캘린더와 ② 매도 카드가 서로 모르면
+  //    'PLTR 줄일 것'과 'PLTR 실적 D-1'이 나란히 뜨고도 갭 경고가 없다(교차 주입 — ETN 융합 전례)
+  const earnDday = new Map<string, number>()
+  for (const e of cal.d?.events ?? []) if (e.type === 'earnings' && e.dDay <= 7 && !earnDday.has(e.ticker)) earnDday.set(e.ticker, e.dDay)
+  // ⚖️ ②에서 '~비중 과다'로 줄이는 분류가 ③ 추천에 다시 올라오면 — 시장 랭킹(보유 제외)과
+  //    내 분산 상황의 축 차이라 모순은 아니지만, 설명 없이 나란히 두면 학생은 반대 지시로 읽는다
+  const overCats = new Set<string>()
+  for (const s of sells) { const m = String(s.reason ?? '').match(/([가-힣]+)\s*비중 과다/); if (m) overCats.add(m[1]) }
+  const overlapBuys = buys.filter(b => overCats.has(LYNCH_CATEGORY_KR[b.lynchCategory as string] ?? ''))
   const temp = marks.d?.temp
   const cashBand = temp == null ? null : (() => { const b = cashBandOf(temp); return `${b.min}~${b.max}%` })()   // 밴드 산식 SSOT(lib/cashPosition)
 
@@ -139,7 +151,25 @@ export default function BriefingPage() {
                 <b style={{ fontSize: 10, color: s.kc, minWidth: 42 }}>{s.kind}</b>
                 <b style={{ fontSize: 12.5, color: TK.slate200 }}>{s.name}</b>
                 <span style={{ fontSize: 10.5, color: TK.sub2, fontFamily: 'monospace' }}>{s.trimPct ? `−${s.trimPct}%p` : `비중 ${s.weightPct}%`}</span>
-                <span style={{ fontSize: 10.5, color: TK.sub13, flex: 1, minWidth: 200 }}>{String(s.reason).slice(0, 90)}{String(s.reason).length > 90 ? '…' : ''}</span>
+                {earnDday.has(s.ticker) && (
+                  <b title="실적 발표 직전·직후는 갭 변동성이 크다 — 정리하더라도 발표 전후 분할·시점 분산 고려" style={{ fontSize: 10, color: TK.amber400 }}>
+                    📅 실적 {earnDday.get(s.ticker) === 0 ? '오늘' : `D-${earnDday.get(s.ticker)}`} · 갭 주의
+                  </b>
+                )}
+                {(() => {
+                  // 🛡 보호 문구(투매 금물)는 절대 잘리면 안 된다 — 90자 컷이 앞부분만 남기면
+                  //   '손실 중 —' 까지만 보여 정반대(당장 팔라)로 읽힌다. 앞만 자르고 🛡 꼬리는 통짜 유지.
+                  const r = String(s.reason ?? '')
+                  const g = r.indexOf('🛡')
+                  const head = g >= 0 ? r.slice(0, g).replace(/[\s·]+$/, '') : r
+                  const guard = g >= 0 ? r.slice(g) : ''
+                  return (
+                    <span style={{ fontSize: 10.5, color: TK.sub13, flex: 1, minWidth: 200 }}>
+                      {head.length > 90 ? head.slice(0, 90) + '…' : head}
+                      {guard && <b style={{ color: TK.amber400 }}> {guard}</b>}
+                    </span>
+                  )
+                })()}
               </div>
             ))}
           </div>
@@ -167,6 +197,12 @@ export default function BriefingPage() {
                 )}
               </div>
             ))}
+            {overlapBuys.length > 0 && (
+              <div style={{ fontSize: 10.5, color: TK.amber400, lineHeight: 1.55, background: '#2a1f0a55', border: `1px solid ${TK.amber400}33`, borderRadius: 8, padding: '7px 11px' }}>
+                ⚖️ ②에서 <b>{Array.from(overCats).join('·')} 비중 과다</b>로 줄이는 중인데 {overlapBuys.map(b => b.name).join('·')}도 같은 분류입니다 —
+                ③은 시장 전체 랭킹(내 보유 제외)이라 내 분산 상황을 모릅니다. &lsquo;더 담기&rsquo;보다 <b>교체(줄인 자리를 더 나은 종목으로)</b> 관점으로 보세요.
+              </div>
+            )}
           </div>
         ) : <div style={{ fontSize: 12, color: TK.sub2 }}>추천 데이터 로드 실패 — 통합추천 탭에서 확인해주세요.</div>}
       </Sec>
