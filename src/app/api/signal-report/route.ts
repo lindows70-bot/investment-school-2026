@@ -28,6 +28,10 @@ export interface SigEvent {
   entry: number | null          // 이벤트일 이하 최근 종가
   retNow: number | null         // 현재까지 %(경과 7일 미만이면 null — 하루짜리 노이즈 배제)
   ret30: number | null          // +30일 %(30일 이상 익은 이벤트만)
+  // 📏 같은 기간 시장(코스피/S&P500) 수익률 — 승률의 기준선. 이게 없으면 "29%는 나쁘다"는 오독을 막을 수 없다.
+  //    실측(2026-06~07): 코스피는 30일 후 상승 확률 0%(0/23)·평균 −16.6%. 아무 종목이나 사도 다 물리던 구간이다.
+  benchNow: number | null
+  bench30: number | null
 }
 export interface GroupStat {
   src: SigSrc
@@ -40,6 +44,9 @@ export interface GroupStat {
   win30: number | null          // 30일 적중률 %
   avgNow: number | null
   avg30: number | null
+  // 📏 기준선 — 같은 기간 시장 평균과, 시장을 이긴 비율(buy=더 오름/sell=더 피함). 적중률만으로는 국면을 못 걷어낸다.
+  avgBenchNow: number | null
+  winVsNow: number | null       // 시장 대비 승률 %(경과 7일+ 대상)
   best: SigEvent | null         // 신호 관점 최고 사례(buy=최대 상승 / sell=최대 하락)
   worst: SigEvent | null
   recent: SigEvent[]            // 최근 이벤트 최대 10
@@ -64,7 +71,7 @@ const closeAt = (candles: TechCandle[], date: string): number | null => {
 
 export async function GET() {
   const today = kstDate()
-  const cacheKey = `signal-report-v5:${today}`   // v5: 합류 7일 런 압축(자기상관 제거) / v4: ⭐합류 그룹 / v3: unscored(생존편향) / v2: 1,000행 절단
+  const cacheKey = `signal-report-v6:${today}`   // v6: 📏 시장 기준선(벤치마크) + 시장 대비 승률·용어 '이중 확인' / v5: 합류 7일 런 압축 / v4: ⭐합류 그룹 / v3: unscored / v2: 1,000행 절단
   const cached = await getCache<SignalReportResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -152,6 +159,14 @@ export async function GET() {
     }
   }))
 
+  // ── ③-b 📏 기준선(벤치마크) 캔들 — KR은 코스피, US는 S&P500. 둘 다 야후 심볼이라 'US' 경로로 받는다.
+  //    ⚠️ 이게 없으면 화면이 거짓말을 한다: 매수 적중률 29%만 보면 나빠 보이지만, 실측상 이 표본 구간(2026-06~07)의
+  //    코스피는 30일 후 상승 확률이 0%(0/23)·평균 −16.6%였다. 기준선 없는 승률은 국면을 신호 탓으로 돌린다.
+  const benchMap = new Map<'KR' | 'US', TechCandle[]>()
+  await Promise.all(([['KR', '^KS11'], ['US', '^GSPC']] as const).map(async ([mk, sym]) => {
+    try { const c = await getTechCandles(sym, 'US', 'D'); if (c?.length) benchMap.set(mk, c) } catch { /* 기준선 없으면 null로 정직하게 생략 */ }
+  }))
+
   // ── ④ 채점 ──
   const score = (date: string, ticker: string, name: string, market: 'KR' | 'US', src: SigSrc, kind: 'buy' | 'sell', label: string): SigEvent | null => {
     const candles = candleMap.get(ticker)
@@ -166,7 +181,15 @@ export async function GET() {
       const c30 = closeAt(candles, addDays(date, 30))
       if (c30 != null) ret30 = Math.round((c30 / entry - 1) * 1000) / 10
     }
-    return { date, ticker, name, market, src, kind, label, ageDays, entry, retNow, ret30 }
+    // 같은 창(신호일→오늘 / 신호일→+30일)의 시장 수익률
+    const bc = benchMap.get(market)
+    const b0 = bc ? closeAt(bc, date) : null
+    let benchNow: number | null = null, bench30: number | null = null
+    if (bc && b0 != null && b0 > 0) {
+      if (retNow != null) benchNow = Math.round((bc[bc.length - 1].close / b0 - 1) * 1000) / 10
+      if (ret30 != null) { const b30 = closeAt(bc, addDays(date, 30)); if (b30 != null) bench30 = Math.round((b30 / b0 - 1) * 1000) / 10 }
+    }
+    return { date, ticker, name, market, src, kind, label, ageDays, entry, retNow, ret30, benchNow, bench30 }
   }
 
   const events: SigEvent[] = []
@@ -185,10 +208,11 @@ export async function GET() {
   }
 
   // ── ⑤ 그룹 통계(소스×방향) — buy 승=상승 / sell 승=하락(매도검토 신호는 공매도가 아님·UI 명시) ──
+  // ⚠️ '합류'는 학생에게 낯선 말이라 '이중 확인'으로(사용자 지적). '통합'은 이미 통합추천(unified-reco)이 써서 충돌한다.
   const TITLES: Record<string, string> = {
-    'confluence:buy': '⭐ 고신뢰 합류 매수(가치+타이밍)', 'confluence:sell': '⭐ 고신뢰 합류 매도(가치+타이밍)',
-    'jarvis:sell': '🤖 Jarvis 매도검토(SELL)', 'jarvis:buy': '🤖 Jarvis 매수기회(BUY)',
-    'timing:sell': '🚦 타점 매도·경계 전환', 'timing:buy': '🚦 타점 매수 전환',
+    'confluence:buy': '⭐ 이중 확인 매수(가치+타이밍)', 'confluence:sell': '⭐ 이중 확인 매도(가치+타이밍)',
+    'jarvis:sell': '🤖 가치 신호 매도검토(SELL)', 'jarvis:buy': '🤖 가치 신호 매수기회(BUY)',
+    'timing:sell': '🚦 타이밍 매도·경계 전환', 'timing:buy': '🚦 타이밍 매수 전환',
   }
   const groups: GroupStat[] = []
   for (const src of ['confluence', 'jarvis', 'timing'] as SigSrc[]) {
@@ -199,12 +223,17 @@ export async function GET() {
       const hit = (r: number) => kind === 'buy' ? r > 0 : r < 0
       const avg = (xs: number[]) => xs.length ? Math.round(xs.reduce((s, x) => s + x, 0) / xs.length * 10) / 10 : null
       const sortedBySignal = e7.slice().sort((a, b) => kind === 'buy' ? (b.retNow! - a.retNow!) : (a.retNow! - b.retNow!))
+      // 📏 시장 대비 — buy는 시장보다 더 오르면 승, sell은 시장보다 더 떨어지면 승(그만큼 더 피한 손실)
+      const eb = e7.filter(e => e.benchNow != null)
+      const beat = (e: SigEvent) => kind === 'buy' ? e.retNow! > e.benchNow! : e.retNow! < e.benchNow!
       groups.push({
         src, kind, title: TITLES[`${src}:${kind}`],
         n: evs.length, n7: e7.length, n30: e30.length,
         winNow: e7.length ? Math.round(e7.filter(e => hit(e.retNow!)).length / e7.length * 100) : null,
         win30: e30.length ? Math.round(e30.filter(e => hit(e.ret30!)).length / e30.length * 100) : null,
         avgNow: avg(e7.map(e => e.retNow!)), avg30: avg(e30.map(e => e.ret30!)),
+        avgBenchNow: avg(eb.map(e => e.benchNow!)),
+        winVsNow: eb.length ? Math.round(eb.filter(beat).length / eb.length * 100) : null,
         best: sortedBySignal[0] ?? null, worst: sortedBySignal[sortedBySignal.length - 1] ?? null,
         recent: evs.slice(0, 10),
       })
