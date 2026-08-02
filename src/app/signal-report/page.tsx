@@ -76,8 +76,10 @@ function GroupCard({ g }: { g: GroupStat }) {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {g.best && <EventChip e={g.best} tag={isSell ? '최대 방어' : '최고 적중'} />}
-            {g.worst && g.worst !== g.best && <EventChip e={g.worst} tag={isSell ? '역주행' : '최대 빗나감'} />}
+            {/* ⚠️ 칩은 라벨 뜻이 성립할 때만 — 표본이 전부 한쪽이면 best=worst가 되어 '최대 방어 −10.4%'와
+                '역주행 −10.4%'가 나란히 뜬다(TEMPUS 사건: 하락=매도 적중인데 역주행 칩에 등장). 방향 가드 필수. */}
+            {g.best && (isSell ? (g.best.retNow ?? 0) < 0 : (g.best.retNow ?? 0) > 0) && <EventChip e={g.best} tag={isSell ? '최대 방어' : '최고 적중'} />}
+            {g.worst && g.worst !== g.best && (isSell ? (g.worst.retNow ?? 0) > 0 : (g.worst.retNow ?? 0) < 0) && <EventChip e={g.worst} tag={isSell ? '역주행' : '최대 빗나감'} />}
           </div>
           {g.recent.length > 0 && (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11.5 }}>

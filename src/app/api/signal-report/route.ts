@@ -64,7 +64,7 @@ const closeAt = (candles: TechCandle[], date: string): number | null => {
 
 export async function GET() {
   const today = kstDate()
-  const cacheKey = `signal-report-v4:${today}`   // v4: ⭐합류(confluence) 그룹 추가 / v3: unscored(생존편향) / v2: 1,000행 절단 수정
+  const cacheKey = `signal-report-v5:${today}`   // v5: 합류 7일 런 압축(자기상관 제거) / v4: ⭐합류 그룹 / v3: unscored(생존편향) / v2: 1,000행 절단
   const cached = await getCache<SignalReportResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -118,16 +118,20 @@ export async function GET() {
   //    "싸고 좋은 회사(가치)"가 "진입/이탈 타이밍(기술)"까지 겹친 자리 = 두 독립 엔진의 합의. 타점일을 기준(행동 시점)으로 채점.
   const CONF_WINDOW = 14   // Jarvis 신호가 타점 −14일~+3일 이내에 같은 방향으로 존재하면 합류(가치는 느려 2주 창이 합리적)
   const confluenceEvents: { date: string; ticker: string; name: string; market: 'KR' | 'US'; kind: 'buy' | 'sell' }[] = []
-  const confSeen = new Set<string>()
-  for (const h of hist) {
+  // ⚠️ 같은 날짜만 거르면 자기상관이 남는다 — 타점 트리거가 연일 재발화하면(OXY 07-28·07-30·08-01)
+  //    같은 Jarvis 런에 3번 합류해 '드물게(귀하게)'를 표방하는 그룹에 같은 통찰이 3표가 된다.
+  //    Jarvis 런 압축과 동일 원칙: 종목·방향별로 7일 내 재발화는 첫날 1건으로 압축(오래된 것부터 훑어 첫날을 남긴다).
+  const confLast = new Map<string, string>()   // `${ticker}:${kind}` → 마지막 채택 신호일
+  for (const h of [...hist].sort((a, b) => a.date.localeCompare(b.date))) {
     const jarvisArr = byTicker.get(h.ticker)
     if (!jarvisArr) continue
     const wantType = h.kind === 'sell' ? 'SELL' : 'BUY'
     const backed = jarvisArr.some(j => { const d = dayDiff(j.date, h.date); return j.type === wantType && d >= -3 && d <= CONF_WINDOW })
     if (!backed) continue
-    const k = `${h.date}:${h.ticker}:${h.kind}`
-    if (confSeen.has(k)) continue
-    confSeen.add(k)
+    const runKey = `${h.ticker}:${h.kind}`
+    const prev = confLast.get(runKey)
+    if (prev && dayDiff(prev, h.date) <= 7) continue
+    confLast.set(runKey, h.date)
     confluenceEvents.push({ date: h.date, ticker: h.ticker, name: h.name, market: h.market, kind: h.kind })
   }
 
