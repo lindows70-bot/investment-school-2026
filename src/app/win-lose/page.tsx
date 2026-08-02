@@ -264,7 +264,7 @@ export default function WinLosePage() {
                     if (!p) return null
                     return (
                       <div style={{ background: '#1b2130', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '7px 10px', fontSize: 11 }}>
-                        <b style={{ color: TK.slate100 }}>{p.r.name}</b> <span style={{ color: TK.sub2 }}>{p.r.market}</span>
+                        <b style={{ color: TK.slate100 }}>{p.r.name}</b> <span style={{ color: TK.sub2 }}>{p.r.origin ?? p.r.market}</span>
                         <div style={{ color: retColor(retOf(p.r, period)) }}>{WL_PERIOD_LABEL[period]} {fmt1(retOf(p.r, period))}</div>
                         <div style={{ color: TK.sub3 }}>52주 {Math.round(p.r.pos52 ?? 0)} · {p.r.trend === 'up' ? '정배열' : p.r.trend === 'down' ? '역배열' : '혼조'}{p.r.sector ? ` · ${sectorMeta(p.r.sector)?.ko ?? p.r.sector}` : ''}</div>
                       </div>
@@ -294,7 +294,8 @@ export default function WinLosePage() {
                       <span style={{ color: TK.sub2, fontFamily: 'monospace', width: 14 }}>{i + 1}</span>
                       {isMine(r) && <Coin />}
                       <b style={{ color: isMine(r) ? TK.slate100 : TK.slate200, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</b>
-                      <span style={{ fontSize: 9, color: TK.sub2 }}>{r.market}</span>
+                      {/* origin — market 'US'는 유럽·일본·중국 포함이라 국기 칩으론 못 쓴다(케링 US 오표기) */}
+                      <span style={{ fontSize: 9, color: TK.sub2 }}>{r.origin ?? r.market}</span>
                       {r.sector && <span style={{ fontSize: 9 }}>{sectorMeta(r.sector)?.icon}</span>}
                       <span style={{ fontSize: 9.5, color: r.trend === 'up' ? TK.green400 : r.trend === 'down' ? TK.red400 : TK.sub3 }}>{r.trend === 'up' ? '📈정배열' : r.trend === 'down' ? '📉역배열' : '〰️혼조'}</span>
                       {r.fwd === 'accel' && <span style={{ fontSize: 9.5, color: TK.green400 }}>EPS↑</span>}
@@ -311,7 +312,7 @@ export default function WinLosePage() {
           <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '13px 16px', fontSize: 11, color: TK.sub, lineHeight: 1.7 }}>
             🎓 <b style={{ color: TK.slate300 }}>이 화면 읽는 법</b> — 여기 보이는 건 <b style={{ color: TK.slate200 }}>과거 {WL_PERIOD_LABEL[period]}의 채점 기준</b>이지 미래 보장이 아닙니다.
             장이 바뀌면 승부 요인도 바뀝니다(오늘 추세가 갈랐어도 다음 달엔 밸류가 가를 수 있음) — <b style={{ color: TK.violet300 }}>매일 와서 &lsquo;기준이 바뀌는 순간&rsquo;을 목격하는 것</b>이 이 화면의 사용법입니다.
-            승자 추격 매수 신호가 아니며(과열 위험), 종목 선정(WHAT)은 펀더멘탈·통합추천, 타이밍(WHEN)은 타점 신호등이 담당합니다. 유니버스 = 추천 후보 풀(514종)+학교 보유 합집합 · 교육용.
+            승자 추격 매수 신호가 아니며(과열 위험), 종목 선정(WHAT)은 펀더멘탈·통합추천, 타이밍(WHEN)은 타점 신호등이 담당합니다. 유니버스 = 추천 후보 풀+학교 보유 합집합(오늘 {rows.length}종) · 교육용.
             <br />🏃 <b style={{ color: TK.slate300 }}>12-1 모멘텀이 최근 1개월을 빼는 이유</b> — 최근 1개월 급등주는 오히려 되돌림(단기 반전) 경향이 있어, 학술 모멘텀은 1개월을 제외한 12개월 수익률을 씁니다(Jegadeesh-Titman).
             이 요인이 <b style={{ color: TK.slate200 }}>역전(패자가 더 높음)</b>되면 낙폭과대 반등 장 = 모멘텀 추격이 무너지는 &lsquo;모멘텀 크래시&rsquo; 국면 신호입니다.
           </div>

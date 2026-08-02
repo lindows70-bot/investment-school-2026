@@ -15,7 +15,7 @@ import { SECTORS, SECTOR_ETF } from '@/lib/sectorConfigs'
 import { GICS_SECTOR_META } from '@/lib/gicsSectorMeta'
 import { classifyAssetRole } from '@/lib/portfolioRole'
 import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
-import { UNIVERSE_KEY, type ScreenedStock } from '@/lib/macroPhaseScreener'
+import { UNIVERSE_KEY, EU_TICKER_SET, JP_TICKER_SET, CN_TICKER_SET, type ScreenedStock } from '@/lib/macroPhaseScreener'
 import { splitGroups, type WLRow, type WLSchoolRow, type WLApi, type WLQuad, type WLTrend, type WLFwd, WIN_LOSE_KEY } from '@/lib/winLose'
 import { TK } from '@/lib/theme'
 
@@ -243,6 +243,8 @@ export async function GET(req: Request) {
     rows.push({
       ticker: m.market === 'KR' ? code6(m.ticker) : m.ticker.toUpperCase(),
       name: m.name, market: m.market,
+      // ⚠️ market 'US'는 실은 '한국이 아님'(유럽·일본·중국 포함) — 화면 국기는 origin으로(케링이 US로 뜨던 오표기 차단)
+      origin: m.market === 'KR' ? 'KR' : EU_TICKER_SET.has(m.ticker) ? 'EU' : JP_TICKER_SET.has(m.ticker) ? 'JP' : CN_TICKER_SET.has(m.ticker) ? 'CN' : 'US',
       ret1w: px.ret1w, ret1m: px.ret1m, ret3m: px.ret3m, pos52: px.pos52,
       trend: s?.priceTrend && s.priceTrend !== 'unknown' ? (s.priceTrend as WLTrend) : trendFromCloses(px.closes),
       fwd: (s?.fwdEpsDir ?? 'unknown') as WLFwd,

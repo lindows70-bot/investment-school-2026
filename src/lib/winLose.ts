@@ -4,7 +4,7 @@
 
 
 /** 승패 해부실 일별 캐시 키 SSOT — writer(win-lose route)·momCrash reader(unified-reco·hi52Radar) 공유 */
-export const WIN_LOSE_KEY = (dateKst: string) => `win-lose-v8:${dateKst}`
+export const WIN_LOSE_KEY = (dateKst: string) => `win-lose-v9:${dateKst}`   // v9: origin(실제 국적) 필드 + 해외 비중 라벨
 export type WLTrend = 'up' | 'side' | 'down' | 'unknown'
 export type WLFwd = 'accel' | 'flat' | 'decline' | 'unknown'
 export type WLQuad = 'leading' | 'weakening' | 'lagging' | 'improving'
@@ -12,6 +12,8 @@ export type WLPeriod = '1w' | '1m' | '3m'
 
 export interface WLRow {
   ticker: string; name: string; market: 'US' | 'KR'
+  /** 실제 국적 칩용 — market 'US'는 '한국이 아님'(유럽·일본·중국 포함)이라 국기 표시엔 못 쓴다(케링 US 오표기 사건) */
+  origin?: 'US' | 'KR' | 'EU' | 'JP' | 'CN'
   ret1w: number | null; ret1m: number | null; ret3m: number | null
   pos52: number | null                    // 52주 위치 0~100 (100=신고가)
   trend: WLTrend                          // priceTrend SSOT(50·200일선 정렬)
@@ -102,8 +104,8 @@ export function factorStats(win: WLRow[], lose: WLRow[]): FactorStat[] {
   push('pos52', '🏔️', '52주 위치(100=신고가)',
     avg(win, r => r.pos52), avg(lose, r => r.pos52),
     n => (n == null ? '—' : `${Math.round(n)}`), pctBar, d => d, '52주 저점~고점 사이 현재가 위치 — 높을수록 신고가권')
-  // ③ 시장 — 미국 비중
-  push('market', '🌍', '미국 종목 비중',
+  // ③ 시장 — 해외(비한국) 비중. ⚠️ market 'US'는 유럽·일본·중국까지 포함하므로 '미국'이라 쓰면 거짓말이 된다(계산은 동일·라벨만 정직하게)
+  push('market', '🌍', '해외 종목 비중',
     shareOf(win, r => r.market === 'US'), shareOf(lose, r => r.market === 'US'),
     pctFmt, pctBar, d => d, '미장 vs 국장 — 시장 자체가 갈랐는지(글로벌 분산 교육)')
   // ④ 수익성 — 영업이익률
