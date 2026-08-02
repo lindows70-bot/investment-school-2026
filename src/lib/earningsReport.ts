@@ -38,7 +38,13 @@ export interface ErSummary {
   opIncomeChange: string  // '+30%'
   eps: string             // '2.02달러'(희석 주당순이익)
   epsChange: string       // '+29%'
+  /** 이 요약을 만든 프롬프트 판 — 규칙을 고치면 올린다. 크론이 구버전을 스스로 다시 요약한다 */
+  v?: number
 }
+
+/** 프롬프트 판. ⚠️ 요약 규칙(특히 숫자 규칙)을 고치면 반드시 올릴 것 — 안 올리면 옛 요약이 그대로 남는다.
+ *  2: 정량 필드 도입 · 3: 영업이익 추가 · 4: 분기 수치·순수 매출 규칙(PG 연간 혼용·CVX 기타수익 포함 사고) */
+export const PROMPT_V = 4
 
 export interface EarningsReportDoc {
   ticker: string
@@ -276,7 +282,11 @@ export async function summarizeReport(doc: EarningsReportDoc): Promise<ErSummary
 - segments: 사업 부문별 흐름 0~5개(수치 포함)
 - risks: 원문이 스스로 언급한 위험·역풍·비용 요인 0~4개
 - period: 이 실적이 어느 분기인지 회사 표기 그대로("2026년 3분기"·"2026 회계연도 4분기"). 원문에 없으면 빈 문자열
-- revenue: 총매출 금액 하나만(예 "1,094억 7,000만 달러"). 원문에 없으면 빈 문자열
+- revenue: 매출 금액 하나만(예 "1,094억 1,700만 달러"). 원문에 없으면 빈 문자열
+  ⚠️ **반드시 이번 분기(period) 수치**를 쓴다. 회계연도 결산 발표는 연간(Fiscal Year)과 분기(Q4) 수치를 나란히 싣는데,
+     period가 분기이면 값도 **분기 값**이어야 한다(예: P&G는 분기 $21,203M / 연간 $87,032M → 분기 값을 쓴다).
+  ⚠️ **순수 매출만** 쓴다. 손익계산서 맨 위의 "Total revenues and other income"처럼 지분법이익·기타수익을 더한 합계를 쓰지 마라
+     (예: 셰브론은 매출 $67,199M이 맞고, 기타수익까지 더한 $70,055M은 틀리다).
 - revenueChange: 매출의 전년 동기 대비 증감(예 "+16%"). 원문에 없으면 빈 문자열
 - opIncome: **영업이익**(operating income) 금액(예 "407억 7,000만 달러"). 원문에 없으면 빈 문자열
 - opIncomeChange: 영업이익의 전년 동기 대비 증감(예 "+30%"). 원문에 증감이 없으면 전년 영업이익이 함께 있을 때만 계산해 쓰고, 아니면 빈 문자열
@@ -308,6 +318,7 @@ ${body}`
     period: ko(s.period), revenue: ko(s.revenue), revenueChange: ko(s.revenueChange),
     opIncome: ko(s.opIncome), opIncomeChange: ko(s.opIncomeChange),
     eps: ko(s.eps), epsChange: ko(s.epsChange),
+    v: PROMPT_V,
   }
 }
 
@@ -337,6 +348,8 @@ export function summaryIssues(s: ErSummary | null): string[] {
   //    다시 요약해도 영원히 채워지지 않는다. 트리거로 두면 매일 헛되이 호출한다(정직하게 빈칸으로 둔다).
   // '9천6백만' 같은 표기 — 다른 카드는 '1,700만'이라 한 표에서 자릿수가 어긋난다(정량 칸만 검사)
   if (/\d\s*천\s*\d*\s*백만/.test(nums)) out.push('자릿수표기')
+  // 프롬프트 규칙을 고쳤는데 옛 요약이 남아 있으면 다시 만든다 — 손으로 50종을 훑지 않기 위한 장치
+  if ((s.v ?? 0) < PROMPT_V) out.push('구버전')
   return out
 }
 
