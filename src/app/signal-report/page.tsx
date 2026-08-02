@@ -12,7 +12,12 @@ const CARD: React.CSSProperties = { background: TK.bg8, borderRadius: 14, paddin
 const pctColor = (r: number | null) => r == null ? TK.sub4 : r >= 0 ? TK.red400 : TK.blue400
 const fmtPct = (r: number | null) => r == null ? '—' : `${r >= 0 ? '+' : ''}${r.toFixed(1)}%`
 
-const headOf = (g: GroupStat) => ({ win: g.win30 ?? g.winNow, n: g.win30 != null ? g.n30 : g.n7 })
+/** 헤드라인 성적 — ⚠️ 반드시 '현재까지'(winNow/n7) 하나로 통일한다.
+ *  `win30 ?? winNow`로 두면 비교 표가 무너진다: 가치만 30일 기준(81%·27건)이고 이중확인·타이밍은
+ *  현재까지 기준(33%·57%)이라 같은 열에서 비교가 안 되고, 같은 행 안에서도 표 14건(30일) vs
+ *  칩 4+13=17건(현재까지)으로 모수가 어긋난다. 칩·시장대비가 이미 현재까지 기준이므로 그쪽으로 맞춘다.
+ *  (30일 고정 성적은 상세 카드의 '30일 후' 열에 그대로 남는다) */
+const headOf = (g: GroupStat) => ({ win: g.winNow, n: g.n7 })
 
 /** 3대 축 — 이중 확인이 궁극 기준이고 나머지 둘은 그 재료 */
 const AXES = [
@@ -192,6 +197,7 @@ export default function SignalReportPage() {
               매수는 <b style={{ color: TK.green400 }}>오르면</b> 적중 · 매도는 <b style={{ color: TK.red400 }}>떨어지면</b> 적중(그때 팔았으면 면한 손실) ·
               <b style={{ color: TK.slate200 }}> 시장 대비</b>가 +면 국면을 이긴 것 ·
               <b style={{ color: TK.slate200 }}> 종목 칩</b>은 <b>신호일 최근순 3개</b>(대표·최고 성과가 아닙니다 — 전체 건수는 칩 왼쪽에)
+              <br />모든 숫자는 <b style={{ color: TK.slate200 }}>신호일 → 오늘</b> 기준으로 통일했습니다(세 축을 같은 잣대로 비교하려고) · <b>한 달 뒤 고정 성적</b>은 아래 &lsquo;신호 하나하나 보기&rsquo;의 <b>30일 후</b> 열에 있습니다
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
@@ -234,7 +240,7 @@ export default function SignalReportPage() {
             <div style={{ fontSize: 11, color: TK.sub4, marginTop: 10, lineHeight: 1.7, borderTop: `1px solid ${TK.border}`, paddingTop: 9, display: 'flex', flexDirection: 'column', gap: 5 }}>
               <div>
                 📌 <b style={{ color: TK.slate200 }}>지금 이 표가 말하는 것</b> — <b>이중 확인은 표본이 적어 아직 증명 전</b>이고,
-                <b> 매도는 &lsquo;가치&rsquo;가 가장 두꺼운 근거</b>이며, <b>매수는 세 축 모두 30%대</b>입니다.
+                <b> 매도는 &lsquo;가치&rsquo;가 가장 두꺼운 근거</b>(30건)이며, <b>매수는 세 축 모두 20~30%대</b>입니다.
               </div>
               <div>
                 📌 <b style={{ color: TK.amber400 }}>그런데도 이중 확인을 우선하는 근거</b>는 이 표가 아니라 <b>별도 백테스트</b>예요 —
@@ -249,7 +255,7 @@ export default function SignalReportPage() {
               ⚠️ 초안엔 "매수 29%는 나쁜 게 아니라 바닥 기준선 위"라 썼는데 실측이 반박했다(시장 대비 −2.3%p).
                  화면이 스스로를 반박하지 않도록, 절반만 장 탓이고 절반은 아직 증명 못 한 것이라고 정직하게 쓴다. */}
           <div style={{ ...CARD, borderColor: `${TK.blue400}44`, background: `${TK.blue400}0a` }}>
-            <div style={{ fontSize: 13.5, fontWeight: 800, color: TK.blue400 }}>🧯 매수 적중률 30%대 — 신호가 나빠서일까?</div>
+            <div style={{ fontSize: 13.5, fontWeight: 800, color: TK.blue400 }}>🧯 매수 적중률이 낮은 게 신호가 나빠서일까?</div>
             <div style={{ fontSize: 12, color: TK.sub11, marginTop: 7, lineHeight: 1.75 }}>
               <b style={{ color: TK.slate200 }}>절반은 장 때문이고, 절반은 아직 증명하지 못한 겁니다.</b> 솔직히 말할게요.
             </div>
@@ -269,7 +275,7 @@ export default function SignalReportPage() {
               <b style={{ color: TK.amber400 }}> 그래서 타이밍을 겹쳐 보는 &lsquo;이중 확인&rsquo;이 필요한 것</b>이고, 그 효과는 별도 백테스트(+1.8%p)가 뒷받침합니다.
             </div>
             <div style={{ fontSize: 11, color: TK.sub4, marginTop: 9, lineHeight: 1.7, borderTop: `1px solid ${TK.border}`, paddingTop: 8 }}>
-              ⚖️ 반대 방향도 짚어둡니다 — <b>매도 적중률 81%도 실력만은 아닙니다</b>. 다 떨어지는 장에선 뭘 팔아도 맞으니까요.
+              ⚖️ 반대 방향도 짚어둡니다 — <b>매도 적중률이 높은 것도 실력만은 아닙니다</b>. 다 떨어지는 장에선 뭘 팔아도 맞으니까요.
               그래서 &lsquo;시장 대비&rsquo;(+8.2%p)가 진짜 성적입니다. <b>이 표는 하락장 한 국면의 기록</b>이라, 상승장이 오면 숫자가 뒤집힐 수 있습니다.
               앱이 자기 약점을 숨기지 않는 것 — 그게 이 화면의 목적입니다.
             </div>
