@@ -220,24 +220,33 @@ export default function SignalReportPage() {
             </div>
           </div>
 
-          {/* 🧯 매수 30%의 진짜 이유 — 학생 신뢰 문제에 데이터로 답한다 */}
+          {/* 🧯 매수 30%의 진짜 이유 — 학생 신뢰 문제에 데이터로 답한다.
+              ⚠️ 초안엔 "매수 29%는 나쁜 게 아니라 바닥 기준선 위"라 썼는데 실측이 반박했다(시장 대비 −2.3%p).
+                 화면이 스스로를 반박하지 않도록, 절반만 장 탓이고 절반은 아직 증명 못 한 것이라고 정직하게 쓴다. */}
           <div style={{ ...CARD, borderColor: `${TK.blue400}44`, background: `${TK.blue400}0a` }}>
-            <div style={{ fontSize: 13.5, fontWeight: 800, color: TK.blue400 }}>🧯 매수 적중률이 30%대인 게 신호가 나빠서일까?</div>
+            <div style={{ fontSize: 13.5, fontWeight: 800, color: TK.blue400 }}>🧯 매수 적중률 30%대 — 신호가 나빠서일까?</div>
             <div style={{ fontSize: 12, color: TK.sub11, marginTop: 7, lineHeight: 1.75 }}>
-              <b style={{ color: TK.slate200 }}>아닙니다. 이 표본 구간의 시장이 그랬습니다.</b> 신호가 쌓인 2026년 6~7월,
-              <b style={{ color: TK.blue400 }}> 코스피는 어느 날 사도 30일 뒤 오를 확률이 0%</b>였습니다(23개 구간 전부 하락 · 평균 −16.6% · 기간 −25.1%).
-              같은 기간 S&P500은 상승 확률 73%였고요. <b>즉 &ldquo;아무거나 사는&rdquo; 기준선 자체가 바닥</b>이었습니다.
-              {benchRef != null && <> 실제로 우리 매수 신호 종목들의 <b>같은 기간 시장 평균은 {fmtPct(benchRef)}</b>였습니다.</>}
+              <b style={{ color: TK.slate200 }}>절반은 장 때문이고, 절반은 아직 증명하지 못한 겁니다.</b> 솔직히 말할게요.
             </div>
             <div style={{ fontSize: 12, color: TK.sub11, marginTop: 8, lineHeight: 1.75 }}>
-              그래서 봐야 할 숫자는 <b style={{ color: TK.slate200 }}>적중률이 아니라 표의 &lsquo;시장 대비&rsquo;</b>입니다 —
-              그게 +라면 하락장에서도 시장보다 덜 잃었다는 뜻이고, 그게 신호의 진짜 성적입니다.
-              여기에 <b>가치 신호는 결과가 몇 달~몇 년에 걸쳐 나오는데 지금은 30일이라는 짧은 자로 재고 있다</b>는 점도 겹칩니다.
+              ① <b>장 탓인 부분</b> — 신호가 쌓인 2026년 6~7월,
+              <b style={{ color: TK.blue400 }}> 코스피는 어느 날 사도 30일 뒤 오를 확률이 0%</b>였습니다(23개 구간 전부 하락 · 평균 −16.6% · 기간 −25.1%).
+              {benchRef != null && <> 우리 매수 신호 종목들의 <b>같은 기간 시장 평균도 {fmtPct(benchRef)}</b>였고요.</>} 적중률 30%는 이 바닥 기준선 위에서 나온 숫자입니다.
             </div>
-            <div style={{ fontSize: 11, color: TK.sub4, marginTop: 8, lineHeight: 1.7 }}>
-              ⚖️ 반대로 <b>매도 적중률이 높은 것도 실력만은 아닙니다</b> — 다 떨어지는 장에선 뭘 팔아도 맞습니다.
-              그래서 매도도 &lsquo;시장 대비&rsquo;로 봐야 공정합니다. <b>이 표는 하락장 한 국면의 기록</b>이니,
-              상승장이 오면 숫자가 뒤집힐 수 있다는 것까지 알고 보세요.
+            <div style={{ fontSize: 12, color: TK.sub11, marginTop: 8, lineHeight: 1.75 }}>
+              ② <b style={{ color: TK.amber400 }}>그래도 정직하게 — 매수는 시장을 이기지 못했습니다.</b> 표의 &lsquo;시장 대비&rsquo;를 보세요.
+              매수는 세 축 모두 <b>소폭 열위(−2~4%p)</b>입니다. 반면 <b style={{ color: TK.green400 }}>매도는 시장 대비 +5~10%p로 확실히 이겼습니다</b> —
+              내려갈 종목을 골라내는 일은 실제로 해내고 있다는 뜻입니다.
+            </div>
+            <div style={{ fontSize: 12, color: TK.sub11, marginTop: 8, lineHeight: 1.75 }}>
+              ③ <b>왜 매수만 어려울까</b> — 가치 신호는 &ldquo;싸고 좋은 회사&rdquo;를 고르는 일이라 결과가 <b>몇 달~몇 년</b>에 걸쳐 나오는데,
+              지금은 <b>30일이라는 짧은 자</b>로 재고 있습니다. 게다가 하락장에선 <b>싼 게 더 싸집니다</b>.
+              <b style={{ color: TK.amber400 }}> 그래서 타이밍을 겹쳐 보는 &lsquo;이중 확인&rsquo;이 필요한 것</b>이고, 그 효과는 별도 백테스트(+1.8%p)가 뒷받침합니다.
+            </div>
+            <div style={{ fontSize: 11, color: TK.sub4, marginTop: 9, lineHeight: 1.7, borderTop: `1px solid ${TK.border}`, paddingTop: 8 }}>
+              ⚖️ 반대 방향도 짚어둡니다 — <b>매도 적중률 81%도 실력만은 아닙니다</b>. 다 떨어지는 장에선 뭘 팔아도 맞으니까요.
+              그래서 &lsquo;시장 대비&rsquo;(+8.2%p)가 진짜 성적입니다. <b>이 표는 하락장 한 국면의 기록</b>이라, 상승장이 오면 숫자가 뒤집힐 수 있습니다.
+              앱이 자기 약점을 숨기지 않는 것 — 그게 이 화면의 목적입니다.
             </div>
           </div>
 

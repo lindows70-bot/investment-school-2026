@@ -203,7 +203,7 @@ export async function GET() {
     if (ev) events.push(ev)
   }
   for (const c of confluenceEvents) {
-    const ev = score(c.date, c.ticker, c.name, c.market, 'confluence', c.kind, '⭐ 가치(Jarvis)+타이밍(타점) 합류')
+    const ev = score(c.date, c.ticker, c.name, c.market, 'confluence', c.kind, '⭐ 가치+타이밍 이중 확인')
     if (ev) events.push(ev)
   }
 
