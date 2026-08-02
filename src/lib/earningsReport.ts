@@ -366,14 +366,21 @@ export function parseKoAmount(s: string): number | null {
   return v > 0 ? v : null
 }
 
-/** 그 금액이 원문에 백만/십억 단위 어느 표기로든 나타나는가 */
+/** 그 금액이 원문에 백만/십억 단위 표기로 나타나는가.
+ *  ⚠️ 느슨하면 검사가 무력해진다 — 처음엔 십억 소수("21.2")를 그대로 찾았더니
+ *     PG의 잘못된 "212억 3만"(=21.20003십억)이 원문 어딘가의 '21.2'에 걸려 통과했다.
+ *     십억 표기는 반드시 'billion'이 붙은 문맥으로만 인정한다. */
 function appearsInSource(n: number, body: string): boolean {
-  const millions = Math.round(n / 1e6)
-  if (body.includes(millions.toLocaleString('en-US'))) return true       // 21,203
-  if (body.includes(String(millions))) return true                        // 21203
+  const m = Math.round(n / 1e6)
+  for (const cand of [m, m - 1, m + 1]) {                                  // 반올림 오차 1 허용
+    if (body.includes(cand.toLocaleString('en-US'))) return true           // 21,203
+    if (cand >= 1000 && body.includes(String(cand))) return true           // 21203
+  }
   const b = n / 1e9
-  for (const d of [1, 2, 3]) if (body.includes(b.toFixed(d))) return true // 109.4 / 90.01 …
-  if (body.includes(String(Math.round(b)))) return true                   // 90
+  for (const d of [1, 2, 3]) {
+    const s = b.toFixed(d).replace(/\.?0+$/, '') || b.toFixed(d)
+    if (new RegExp(`${s.replace('.', '\\.')}\\s*billion`, 'i').test(body)) return true   // "$21.2 billion"
+  }
   return false
 }
 
