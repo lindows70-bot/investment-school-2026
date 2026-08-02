@@ -32,8 +32,10 @@ export interface ErSummary {
   //   서술만 나란히 놓으면 회사마다 다른 지표를 말해 '비교'가 되지 않는다(AAPL은 총마진, GOOGL은 영업이익…).
   //   같은 축으로 줄을 맞추려면 정해진 칸이 필요하다. 원문에 없으면 빈 문자열.
   period: string          // '2026년 3분기' — 회사 회계 기준 표기 그대로
-  revenue: string         // '1,094억 7,000만 달러'
+  revenue: string         // '1,094억 1,700만 달러'
   revenueChange: string   // '+16%'
+  opIncome: string        // '407억 7,000만 달러'(영업이익 — 본업)
+  opIncomeChange: string  // '+30%'
   eps: string             // '2.02달러'(희석 주당순이익)
   epsChange: string       // '+29%'
 }
@@ -235,10 +237,12 @@ const SUMMARY_SCHEMA = {
     period: { type: 'STRING' },
     revenue: { type: 'STRING' },
     revenueChange: { type: 'STRING' },
+    opIncome: { type: 'STRING' },
+    opIncomeChange: { type: 'STRING' },
     eps: { type: 'STRING' },
     epsChange: { type: 'STRING' },
   },
-  required: ['headline', 'performance', 'guidance', 'segments', 'risks', 'tone', 'period', 'revenue', 'revenueChange', 'eps', 'epsChange'],
+  required: ['headline', 'performance', 'guidance', 'segments', 'risks', 'tone', 'period', 'revenue', 'revenueChange', 'opIncome', 'opIncomeChange', 'eps', 'epsChange'],
 }
 
 const MAX_INPUT = 30_000   // exhibit 합산 상한(요약 품질엔 충분, 응답 지연 방지)
@@ -274,9 +278,13 @@ export async function summarizeReport(doc: EarningsReportDoc): Promise<ErSummary
 - period: 이 실적이 어느 분기인지 회사 표기 그대로("2026년 3분기"·"2026 회계연도 4분기"). 원문에 없으면 빈 문자열
 - revenue: 총매출 금액 하나만(예 "1,094억 7,000만 달러"). 원문에 없으면 빈 문자열
 - revenueChange: 매출의 전년 동기 대비 증감(예 "+16%"). 원문에 없으면 빈 문자열
+- opIncome: **영업이익**(operating income) 금액(예 "407억 7,000만 달러"). 원문에 없으면 빈 문자열
+- opIncomeChange: 영업이익의 전년 동기 대비 증감(예 "+30%"). 원문에 증감이 없으면 전년 영업이익이 함께 있을 때만 계산해 쓰고, 아니면 빈 문자열
+  ⚠️ 영업이익은 **본업의 이익**이다. 투자 평가이익·일회성 이익이 순이익과 주당순이익을 크게 부풀릴 수 있어, 본업만 따로 보는 칸이 반드시 필요하다.
 - eps: 희석 주당순이익(예 "2.02달러"). 일반회계기준을 우선하고 없으면 조정 기준. 원문에 없으면 빈 문자열
 - epsChange: 주당순이익의 전년 동기 대비 증감(예 "+29%"). 원문에 없으면 빈 문자열
-  ⚠️ period·revenue·eps는 여러 기업을 한 표에 줄 세우는 칸이다. **금액·비율을 지어내지 말고 원문에 있는 것만** 쓴다.
+  ⚠️ 이 칸들은 여러 기업을 한 표에 줄 세우는 자리다. **금액·비율을 지어내지 말고 원문에 있는 것만** 쓴다.
+  ⚠️ 금액 자릿수는 **억·만 단위로 통일**한다: "1,197억 9,600만 달러" (O) / "1,197억 9천6백만 달러" (X).
 - tone: ⚠️ 실적 보도자료는 원래 대부분 낙관적으로 쓰인다. 그 점을 감안해 **같은 종류의 문서들 사이에서 상대적으로** 판정하라.
   성과를 앞세우고 전망도 자신 있으면 positive / 성과는 알리되 비용·수요·불확실성을 눈에 띄게 언급하면 neutral /
   감익·수요 둔화·구조조정·가이던스 하향처럼 경계 신호를 스스로 강조하면 cautious
@@ -296,6 +304,7 @@ ${body}`
     risks: (s.risks ?? []).filter(Boolean).map(ko).slice(0, 5),
     tone,
     period: ko(s.period), revenue: ko(s.revenue), revenueChange: ko(s.revenueChange),
+    opIncome: ko(s.opIncome), opIncomeChange: ko(s.opIncomeChange),
     eps: ko(s.eps), epsChange: ko(s.epsChange),
   }
 }
@@ -320,7 +329,11 @@ export function summaryIssues(s: ErSummary | null): string[] {
   if (/[일이삼사오육칠팔구십백천만억조점공]{3,}\s*(퍼센트|달러)/.test(all)) out.push('한글숫자')
   if (/\d+\s*원\b|원\s*\d+\s*센트/.test(all)) out.push('통화오류')
   // 비교 표를 줄 세우는 칸 — 없으면 '나란히 보기'로 되돌아간다. 크론이 알아서 다시 요약한다
-  if (!s.revenue && !s.period) out.push('정량필드')
+  if (!s.revenue || !s.period) out.push('정량필드')
+  // 영업이익(본업)이 없으면 순이익·주당순이익만 남아 일회성 이익이 실력처럼 보인다(구글 평가이익 사례)
+  if (!s.opIncome) out.push('영업이익')
+  // '9천6백만' 같은 표기 — 다른 카드는 '1,700만'이라 한 표에서 자릿수가 어긋난다
+  if (/\d\s*천\s*\d*\s*백만/.test(all)) out.push('자릿수표기')
   return out
 }
 

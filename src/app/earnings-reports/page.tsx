@@ -315,6 +315,8 @@ function CompareTable({ tickers, rows, onRemove }: { tickers: string[]; rows: Er
             ['발표일', null, true],
             ['매출', (s: ErSummary) => s.revenue, false],
             ['↳ 전년 대비', (s: ErSummary) => s.revenueChange, false],
+            ['영업이익', (s: ErSummary) => s.opIncome, false],
+            ['↳ 전년 대비', (s: ErSummary) => s.opIncomeChange, false],
             ['주당순이익', (s: ErSummary) => s.eps, false],
             ['↳ 전년 대비', (s: ErSummary) => s.epsChange, false],
           ] as const).map(([label, get, dim], ri) => (
@@ -347,6 +349,15 @@ function CompareTable({ tickers, rows, onRemove }: { tickers: string[]; rows: Er
                   <div style={{ display: 'grid', gap: 7 }}>
                     {d.summary.tone && <Badge c={TONE[d.summary.tone].c}>{TONE[d.summary.tone].t}</Badge>}
                     <div style={{ fontSize: FS.tiny, color: TK.slate300, lineHeight: 1.7 }}>{d.summary.headline}</div>
+                    {/* 핵심 실적 — 표의 공통 칸이 못 담는 회사별 사정이 여기서 드러난다(일회성 이익·부문 편중 등) */}
+                    <div>
+                      <div style={{ fontSize: FS.micro, color: TK.sub2, fontWeight: 800 }}>핵심 실적</div>
+                      <ul style={{ margin: '3px 0 0', paddingLeft: 15 }}>
+                        {d.summary.performance.slice(0, 3).map((x, i) => (
+                          <li key={i} style={{ fontSize: FS.tiny, color: TK.slate400, lineHeight: 1.6 }}>{x}</li>
+                        ))}
+                      </ul>
+                    </div>
                     <div>
                       <div style={{ fontSize: FS.micro, color: TK.sub2, fontWeight: 800 }}>다음 분기 전망</div>
                       <div style={{ fontSize: FS.tiny, color: TK.slate400, lineHeight: 1.65, marginTop: 3 }}>{d.summary.guidance}</div>
@@ -360,7 +371,8 @@ function CompareTable({ tickers, rows, onRemove }: { tickers: string[]; rows: Er
 
       <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 9, lineHeight: 1.7 }}>
         · 표의 숫자는 회사가 원문에 쓴 값입니다. <b style={{ color: TK.sub }}>—는 그 회사가 원문에서 밝히지 않았거나 요약 갱신 중</b>이라는 뜻입니다.<br />
-        · <b style={{ color: TK.sub }}>실적 분기와 발표일을 먼저 보세요</b> — 회사마다 회계연도가 달라 같은 날 발표라도 다른 분기일 수 있습니다.
+        · <b style={{ color: TK.sub }}>실적 분기와 발표일을 먼저 보세요</b> — 회사마다 회계연도가 달라 같은 날 발표라도 다른 분기일 수 있습니다.<br />
+        · <b style={{ color: TK.sub }}>영업이익과 주당순이익을 나란히 보세요</b> — 투자 평가이익 같은 일회성 이익이 주당순이익만 크게 부풀릴 수 있습니다. 본업의 힘은 영업이익에 나타납니다.
       </div>
     </div>
   )
