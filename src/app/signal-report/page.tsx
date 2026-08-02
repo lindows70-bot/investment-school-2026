@@ -123,9 +123,9 @@ export default function SignalReportPage() {
       <div>
         <div style={{ fontSize: 18, fontWeight: 900, color: TK.slate100 }}>📋 앱 신호 성적표</div>
         <div style={{ fontSize: 12, color: TK.sub4, marginTop: 4 }}>
-          이 앱이 낸 신호(Jarvis 처방전·타점 전환)를 실제 주가로 <b style={{ color: TK.slate200 }}>스스로 채점</b>합니다 —
-          어떤 신호를 얼마나 신뢰할지 데이터로 판단하는 훈련.
-          {data?.jarvisSince && <span> · Jarvis 이력 {data.jarvisSince}~</span>}
+          이 앱이 낸 신호를 실제 주가로 <b style={{ color: TK.slate200 }}>스스로 채점</b>합니다 —
+          볼 것은 <b style={{ color: TK.amber400 }}>⭐ 합류 하나</b>, 나머지는 그 재료입니다.
+          {data?.jarvisSince && <span> · 이력 {data.jarvisSince}~</span>}
           {data && <span> · 대상 {data.tickers}종목</span>}
         </div>
         {!!data?.unscored && (
@@ -144,16 +144,11 @@ export default function SignalReportPage() {
         </button>
         {helpOpen && (
           <div style={{ marginTop: 10, fontSize: 12.5, color: TK.sub11, lineHeight: 1.75, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div>① 이 표는 앱이 <b style={{ color: TK.green400 }}>&ldquo;사볼까(매수기회)&rdquo;</b>·<b style={{ color: TK.red400 }}>&ldquo;팔아볼까(매도검토)&rdquo;</b>라고 낸 신호가 <b style={{ color: TK.slate200 }}>나중에 실제로 맞았는지</b> 채점한 성적표예요.</div>
-            <div>② <b style={{ color: TK.slate200 }}>적중률</b> = 신호대로 움직인 비율이에요. <b style={{ color: TK.green400 }}>매수는 오르면</b> 적중, <b style={{ color: TK.red400 }}>매도는 떨어지면</b> 적중(&ldquo;그때 팔았으면 손실을 피함&rdquo;).</div>
-            <div style={{ background: `${TK.amber400}12`, border: `1px solid ${TK.amber400}44`, borderRadius: 8, padding: '8px 10px' }}>
-              ③ <b style={{ color: TK.amber400 }}>매수 적중률이 낮아도 신호가 틀린 게 아니에요.</b> 이 신호는 <b>&ldquo;싸고 좋은 회사인가(가치)&rdquo;</b>를 보는 거라 결과가 <b>몇 달~몇 년</b>에 걸쳐 나와요. 그런데 지금 표는 <b>30일</b>이라는 짧은 자로 재고, 표본도 6~7월 <b>조정장(하락장)</b>에 몰려 있어요. 하락장에선 좋은 회사도 같이 떨어지니 짧은 성적은 나쁠 수밖에 없죠. 반대로 <b>매도 적중률이 높은 것</b>도 실력만이 아니라 &ldquo;떨어지는 장이라 뭘 팔아도 맞은&rdquo; 효과가 섞여 있어요.
-            </div>
-            <div>④ 그래서 이 표는 <b>&ldquo;무엇이 싸고 좋은가&rdquo;</b>(WHAT)의 채점이지 <b>&ldquo;언제 살까&rdquo;</b>(타이밍)가 아니에요. 실제 매매는 <b style={{ color: TK.blue400 }}>🚦 신호등(타이밍)</b>과 <b>함께</b> 보고, 표본이 충분히 쌓인 뒤에 믿으세요.</div>
+            <div>① 앱이 낸 <b style={{ color: TK.green400 }}>&ldquo;사볼까&rdquo;</b>·<b style={{ color: TK.red400 }}>&ldquo;팔아볼까&rdquo;</b> 신호가 나중에 실제로 맞았는지 채점한 성적표예요 — <b style={{ color: TK.green400 }}>매수는 오르면</b>, <b style={{ color: TK.red400 }}>매도는 떨어지면</b> 적중.</div>
             <div style={{ background: `${TK.amber400}12`, border: `1px solid ${TK.amber400}55`, borderRadius: 8, padding: '8px 10px' }}>
-              ⑤ <b style={{ color: TK.amber400 }}>⭐ 고신뢰 합류</b>는 그래서 만든 거예요 — <b>가치(Jarvis)</b>가 &ldquo;싸고 좋다&rdquo;고 한 종목에 <b>타이밍(타점)</b>까지 같은 방향으로 겹친 것만 모았어요. <b>둘 중 하나만 뜬 것보다 둘 다 겹친 이 신호를 우선</b>하세요. 대신 겹치는 순간만 잡혀서 <b>드물게(귀하게)</b> 나와요.
+              ② 볼 것은 하나 — <b style={{ color: TK.amber400 }}>⭐ 합류</b>. <b>가치(싸고 좋은 회사인가)</b>와 <b>타이밍(들어갈 자리인가)</b>, 서로 다른 두 엔진이 <b>같은 방향으로 합의한 순간만</b> 잡은 궁극의 신호예요. 그래서 드물게(귀하게) 나와요. 하나만 뜬 신호는 반쪽이라 아래 &lsquo;엔진별 세부&rsquo;에 접어 두었어요.
             </div>
-            <div style={{ fontSize: 11, color: TK.sub4 }}>💡 <b>30일 후</b> = 신호 한 달 뒤 고정 성적 · <b>현재까지</b> = 오늘까지 실시간 성적. 표 안의 <span style={{ borderBottom: `1px dotted ${TK.sub4}` }}>점선 밑줄</span> 글자에 마우스를 올리면 뜻이 나와요.</div>
+            <div style={{ fontSize: 11.5 }}>③ <b>주의</b> — 표본이 적으면(⚠️배지) 통계가 아니라 일화예요. 지금 표본은 6~7월 하락장에 몰려 있어 <b>30일이라는 짧은 자</b>로는 매수 성적이 나쁘게, 매도 성적이 좋게 보여요. <b>30일 후</b>=한 달 뒤 고정 성적 · <b>현재까지</b>=오늘까지 실시간.</div>
           </div>
         )}
       </div>
@@ -161,11 +156,43 @@ export default function SignalReportPage() {
       {err && <div style={{ ...CARD, color: TK.sub4, fontSize: 12.5 }}>성적표를 불러오지 못했습니다 — 새로고침해 주세요.</div>}
       {!data && !err && <div style={{ ...CARD, color: TK.sub4, fontSize: 12.5 }}>📋 신호 이력을 채점하는 중… (첫 로드는 수십 초 걸릴 수 있어요)</div>}
 
-      {data && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 12 }}>
-          {data.groups.map(g => <GroupCard key={`${g.src}:${g.kind}`} g={g} />)}
-        </div>
-      )}
+      {data && (() => {
+        // 🏆 궁극 기준 = ⭐ 합류 하나만 주인공 — Jarvis·타점 단독 4카드를 같은 등급으로 나열하면
+        //    "3가지 기준 중 뭘 믿으라는 거야"가 된다(사용자 피드백). 반쪽 엔진 성적은 접힌 세부로 강등
+        //    (삭제하지 않는 이유: 이 화면의 존재 이유가 정직한 자기 채점 — 재료 성적을 숨기면 안 됨).
+        const conf = data.groups.filter(g => g.src === 'confluence')
+        const rest = data.groups.filter(g => g.src !== 'confluence')
+        return (
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 15, fontWeight: 900, color: TK.amber400 }}>🏆 궁극의 매수/매도 신호 — ⭐ 합류</span>
+                <span style={{ fontSize: 11.5, color: TK.sub4 }}>가치와 타이밍, 두 엔진이 합의할 때만 나옵니다</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 12 }}>
+                {conf.map(g => <GroupCard key={`${g.src}:${g.kind}`} g={g} />)}
+              </div>
+              <div style={{ fontSize: 11.5, color: TK.sub4, lineHeight: 1.6 }}>
+                💡 합류 신호가 뜬 종목은 <a href="/briefing" style={{ color: TK.indigo400, textDecoration: 'none', fontWeight: 700 }}>🎯 매매 브리핑</a>과
+                <a href="/research" style={{ color: TK.indigo400, textDecoration: 'none', fontWeight: 700 }}> 종합 매수 판정</a>에서 확인하고 판단하세요 — 여기는 성적 기록이지 매매 화면이 아니에요.
+              </div>
+            </div>
+
+            <details style={{ ...CARD, padding: '12px 16px' }}>
+              <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 800, color: TK.sub11, listStyle: 'none' }}>
+                🔬 엔진별 세부 성적 — 합류의 재료(펼쳐 보기) <span style={{ fontSize: 10.5, fontWeight: 400, color: TK.sub4 }}>· 가치(Jarvis)·타이밍(타점) 각각의 성적</span>
+              </summary>
+              <div style={{ fontSize: 11.5, color: TK.sub4, lineHeight: 1.65, margin: '10px 0' }}>
+                합류는 아래 두 엔진이 같은 방향으로 겹칠 때만 나옵니다. 각각은 <b>반쪽 신호</b>(가치만 보거나, 타이밍만 보거나)라 성적도 반쪽이에요 —
+                이게 &ldquo;하나만 뜬 신호를 따라가지 말라&rdquo;는 근거입니다. 반쪽 성적이 나쁜 건 고장이 아니라 <b>합류만 보라는 이유</b>예요.
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 12 }}>
+                {rest.map(g => <GroupCard key={`${g.src}:${g.kind}`} g={g} />)}
+              </div>
+            </details>
+          </>
+        )
+      })()}
 
       <div style={{ fontSize: 10.5, color: TK.sub2, lineHeight: 1.7 }}>
         ⚠️ <b>표본이 적으면(특히 10건 미만) 통계가 아니라 일화입니다</b> — 표본수를 항상 함께 보세요.
