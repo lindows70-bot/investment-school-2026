@@ -50,6 +50,10 @@ export interface GroupStat {
   best: SigEvent | null         // 신호 관점 최고 사례(buy=최대 상승 / sell=최대 하락)
   worst: SigEvent | null
   recent: SigEvent[]            // 최근 이벤트 최대 10
+  // ⚠️ 화면은 recent만 보면 안 된다 — 최근 10건이 전부 경과 7일 미만이면 표가 대시(—)만 남고,
+  //    적중 종목 칩도 사라진다(매도 적중 22건인데 칩 2개, 타이밍 매수는 칩 줄 자체가 소멸했다).
+  scored: SigEvent[]            // 채점 완료(retNow != null) 이벤트 최신순 최대 12 — 표·칩의 실제 소스
+  pendingN: number              // 아직 채점 전(경과 7일 미만) 건수 — 표에 "대기 N건"으로 정직 표기
 }
 export interface SignalReportResult {
   asOf: string
@@ -72,7 +76,7 @@ const closeAt = (candles: TechCandle[], date: string): number | null => {
 export async function GET() {
   const today = kstDate()
   // ⚠️ 응답 '내용'(제목·라벨 문자열)만 바뀌어도 키를 올려야 한다 — 스키마가 같으면 커밋 훅이 못 잡는다(v6에서 실제로 겪음).
-  const cacheKey = `signal-report-v7:${today}`   // v7: 상세 라벨도 '이중 확인'으로 / v6: 📏 시장 기준선 + 시장 대비 승률 / v5: 런 압축 / v4: ⭐그룹 / v3: unscored / v2: 1,000행 절단
+  const cacheKey = `signal-report-v8:${today}`   // v8: scored/pendingN(표·칩이 미채점만 보던 결함) / v7: 라벨 '이중 확인' / v6: 📏 시장 기준선 / v5: 런 압축 / v4: ⭐그룹 / v3: unscored / v2: 1,000행 절단
   const cached = await getCache<SignalReportResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -237,6 +241,7 @@ export async function GET() {
         winVsNow: eb.length ? Math.round(eb.filter(beat).length / eb.length * 100) : null,
         best: sortedBySignal[0] ?? null, worst: sortedBySignal[sortedBySignal.length - 1] ?? null,
         recent: evs.slice(0, 10),
+        scored: e7.slice(0, 12), pendingN: evs.length - e7.length,
       })
     }
   }

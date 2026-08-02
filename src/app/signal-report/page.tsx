@@ -32,6 +32,8 @@ function StockChip({ e, ok }: { e: SigEvent; ok: boolean }) {
       }}>
       <span style={{ fontSize: 9 }}>{e.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
       <b style={{ color: TK.slate200, maxWidth: 96, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</b>
+      {/* 신호일 병기 — 같은 종목이 다른 날 다른 신호로 잡히면(TI 07-22 채점 vs 08-01 대기) 칩과 표가 어긋나 보인다 */}
+      <span style={{ color: TK.sub2, fontSize: 9 }}>{e.date.slice(5)}</span>
       <b style={{ color: pctColor(e.retNow) }}>{fmtPct(e.retNow)}</b>
     </span>
   )
@@ -77,27 +79,40 @@ function DetailCard({ g }: { g: GroupStat }) {
           {g.avgBenchNow != null && <span style={{ color: TK.sub2 }}> (같은 기간 시장 {fmtPct(g.avgBenchNow)})</span>}
         </span>
       </div>
-      {g.recent.length > 0 && (
+      {/* ⚠️ recent(최근순)를 그대로 쓰면 최근 10건이 전부 경과 7일 미만일 때 표가 대시(—)만 남는다.
+          채점 완료분을 보여주고, 대기 중인 건수는 한 줄로 정직하게 알린다. */}
+      {g.scored.length > 0 ? (
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
           <thead><tr style={{ color: TK.sub4, fontSize: 9.5 }}>
             <th style={{ textAlign: 'left', padding: '2px 5px' }}>신호일</th>
             <th style={{ textAlign: 'left', padding: '2px 5px' }}>종목</th>
             <th title="신호 낸 날부터 딱 한 달 뒤 성적(한 번 정해지면 안 바뀜)" style={{ textAlign: 'right', padding: '2px 5px', cursor: 'help' }}>30일 후</th>
-            <th title="신호일부터 오늘까지 성적(매일 바뀜). 일주일 안 됐으면 D+며칠" style={{ textAlign: 'right', padding: '2px 5px', cursor: 'help' }}>현재</th>
+            <th title="신호일부터 오늘까지 성적(매일 바뀜)" style={{ textAlign: 'right', padding: '2px 5px', cursor: 'help' }}>현재</th>
             <th title="같은 기간 시장(코스피·S&P500) 수익률 — 신호를 이 값과 비교해야 공정합니다" style={{ textAlign: 'right', padding: '2px 5px', cursor: 'help' }}>시장</th>
           </tr></thead>
           <tbody>
-            {g.recent.slice(0, 6).map((e: SigEvent, i: number) => (
-              <tr key={`${e.ticker}:${e.date}:${i}`} style={{ borderTop: `1px solid ${TK.border}` }}>
-                <td style={{ padding: '4px 5px', color: TK.sub4, fontFamily: 'monospace' }}>{e.date.slice(5)}</td>
-                <td style={{ padding: '4px 5px', color: TK.slate200 }}>{e.market === 'KR' ? '🇰🇷' : '🇺🇸'} {e.name}</td>
-                <td style={{ padding: '4px 5px', textAlign: 'right', color: pctColor(e.ret30), fontWeight: 700 }}>{fmtPct(e.ret30)}</td>
-                <td style={{ padding: '4px 5px', textAlign: 'right', color: pctColor(e.retNow), fontWeight: 700 }}>{e.retNow == null ? `D+${e.ageDays}` : fmtPct(e.retNow)}</td>
-                <td style={{ padding: '4px 5px', textAlign: 'right', color: TK.sub2 }}>{fmtPct(e.benchNow)}</td>
-              </tr>
-            ))}
+            {g.scored.slice(0, 6).map((e: SigEvent, i: number) => {
+              const ok = g.kind === 'buy' ? e.retNow! > 0 : e.retNow! < 0
+              return (
+                <tr key={`${e.ticker}:${e.date}:${i}`} style={{ borderTop: `1px solid ${TK.border}` }}>
+                  <td style={{ padding: '4px 5px', color: TK.sub4, fontFamily: 'monospace' }}>{e.date.slice(5)}</td>
+                  <td style={{ padding: '4px 5px', color: TK.slate200 }}>
+                    <span title={ok ? '신호대로 움직임(적중)' : '신호와 반대로 움직임'} style={{ color: ok ? TK.green400 : TK.sub2, marginRight: 3 }}>{ok ? '✓' : '·'}</span>
+                    {e.market === 'KR' ? '🇰🇷' : '🇺🇸'} {e.name}
+                  </td>
+                  <td style={{ padding: '4px 5px', textAlign: 'right', color: pctColor(e.ret30), fontWeight: 700 }}>{fmtPct(e.ret30)}</td>
+                  <td style={{ padding: '4px 5px', textAlign: 'right', color: pctColor(e.retNow), fontWeight: 700 }}>{fmtPct(e.retNow)}</td>
+                  <td style={{ padding: '4px 5px', textAlign: 'right', color: TK.sub2 }}>{fmtPct(e.benchNow)}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
+      ) : (
+        <div style={{ fontSize: 11, color: TK.sub2, padding: '6px 0' }}>아직 채점된 신호가 없습니다 — 경과 7일이 지나야 성적이 붙습니다.</div>
+      )}
+      {g.pendingN > 0 && (
+        <div style={{ fontSize: 10, color: TK.sub2 }}>⏳ 채점 대기 {g.pendingN}건(경과 7일 미만) — 익으면 위 표에 들어옵니다.</div>
       )}
       <div style={{ fontSize: 10, color: TK.sub2 }}>
         {g.kind === 'sell' ? '매도 적중 = 신호 뒤 실제 하락(“그때 팔았으면 면한 손실”)' : '매수 적중 = 신호 뒤 실제 상승'}
@@ -115,10 +130,11 @@ export default function SignalReportPage() {
   }, [])
 
   const find = (src: string, kind: 'buy' | 'sell') => data?.groups.find(g => g.src === src && g.kind === kind)
-  /** 그룹의 적중/빗나감 종목(최근순 3개씩) — 표 아래 칩으로 */
+  /** 그룹의 적중/빗나감 종목 3개씩 — ⚠️ recent(최근순)가 아니라 scored(채점분)에서 뽑아야 한다.
+   *  recent를 쓰면 최근 10건이 전부 미채점일 때 칩이 통째로 사라진다(타이밍 매수 31%인데 적중 칩 0개였음) */
   const picks = (g: GroupStat | undefined, ok: boolean) => {
     if (!g) return []
-    return g.recent.filter(e => e.retNow != null && (ok ? (g.kind === 'buy' ? e.retNow! > 0 : e.retNow! < 0) : (g.kind === 'buy' ? e.retNow! <= 0 : e.retNow! >= 0))).slice(0, 3)
+    return g.scored.filter(e => ok ? (g.kind === 'buy' ? e.retNow! > 0 : e.retNow! < 0) : (g.kind === 'buy' ? e.retNow! <= 0 : e.retNow! >= 0)).slice(0, 3)
   }
   // 시장 기준선 요약 — 가장 표본이 두꺼운 매수 그룹에서 뽑는다(학생 오독 방지의 핵심 숫자)
   const benchRef = find('jarvis', 'buy')?.avgBenchNow ?? find('timing', 'buy')?.avgBenchNow ?? null
