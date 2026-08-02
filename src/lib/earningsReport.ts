@@ -388,15 +388,22 @@ function appearsInSource(n: number, body: string): boolean {
   return false
 }
 
-/** 요약 금액이 원문에 없으면 자릿수가 어긋난 것 — 재요약 대상 */
+/** 요약 금액을 두 가지로 검산한다 — 재요약 대상 판정용.
+ *  ⭐ ① 만 단위 자릿수 — 백만 달러 단위 공시를 억·만으로 옮기면 만 단위는 100의 배수(=3자리 이상)가 된다.
+ *        "212억 3만"(만 단위 3) · "900억 7만"(7)처럼 1~2자리면 끝자리를 흘린 것이다.
+ *        오차가 0.01%대라 값 대조로는 절대 잡히지 않는 유형이라 자릿수 자체를 본다.
+ *        ⚠️ 백만 정수성으로 판정하면 천 달러 단위까지 공시하는 회사(KLA 36억 5,755만·넷플릭스 125억 5,993만)를 오탐한다.
+ *  ② 원문 실재 — 연간·분기 혼용이나 다른 줄(기타수익 포함 합계)을 가져온 경우를 잡는다. */
 export function amountIssues(s: ErSummary | null, body: string): string[] {
-  if (!s || !body) return []
+  if (!s) return []
   const out: string[] = []
   for (const [label, val] of [['매출', s.revenue], ['영업이익', s.opIncome]] as const) {
     if (!val) continue
     const n = parseKoAmount(val)
     if (n == null) continue
-    if (!appearsInSource(n, body)) out.push(`금액틀림:${label}`)
+    const man = Math.round((n % 1e8) / 1e4)          // 억 단위 뒤에 붙는 '만' 부분
+    if (man > 0 && man < 100) { out.push(`자릿수:${label}`); continue }
+    if (body && !appearsInSource(n, body)) out.push(`금액틀림:${label}`)
   }
   return out
 }
