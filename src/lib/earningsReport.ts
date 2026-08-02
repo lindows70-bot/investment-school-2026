@@ -371,10 +371,11 @@ export function parseKoAmount(s: string): number | null {
  *     PG의 잘못된 "212억 3만"(=21.20003십억)이 원문 어딘가의 '21.2'에 걸려 통과했다.
  *     십억 표기는 반드시 'billion'이 붙은 문맥으로만 인정한다. */
 function appearsInSource(n: number, body: string): boolean {
+  // ⚠️ 맨숫자 includes는 쓰지 않는다 — 부분 문자열이라 다른 긴 숫자 안에 걸려 검사가 통과해버린다(PG 사례).
   const m = Math.round(n / 1e6)
   for (const cand of [m, m - 1, m + 1]) {                                  // 반올림 오차 1 허용
-    if (body.includes(cand.toLocaleString('en-US'))) return true           // 21,203
-    if (cand >= 1000 && body.includes(String(cand))) return true           // 21203
+    if (body.includes(cand.toLocaleString('en-US'))) return true           // "21,203"
+    if (new RegExp(`(?<![\\d,.])${cand}(?![\\d,.])`).test(body)) return true // 콤마 없이 적는 표도 있다
   }
   // 십억 소수 — 표 머리에 단위(in billions)를 두고 '$9.3'처럼만 적는 회사가 있다(마스터카드·뱅크오브아메리카).
   // ⚠️ '$' 접두를 반드시 요구한다. 맨숫자 매칭은 비율·다른 수치에 걸려 검사를 무력화한다(PG '21.2' 사례).
