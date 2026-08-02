@@ -252,12 +252,28 @@ const SUMMARY_SCHEMA = {
 }
 
 const MAX_INPUT = 30_000   // exhibit 합산 상한(요약 품질엔 충분, 응답 지연 방지)
+const FIN_WINDOW = 6_000   // 앞에서 잘린 손익계산서를 따로 실어 보낼 창
+
+/** 손익계산서 표가 앞 상한 밖이면 그 구간을 덧붙인다.
+ *  ⚠️ 실제 사고: 엑슨모빌은 매출 행이 34,347자 위치라 30,000자 상한에 **잘려 모델에 도달한 적이 없었다**.
+ *     프롬프트에 예시까지 넣었는데도 매출 칸이 계속 비었던 진짜 이유가 이것이다(입력을 안 줬는데 지시만 한 셈).
+ *     보도자료 본문(앞)은 서술에, 손익계산서(뒤)는 정량 칸에 필요하므로 둘 다 실어야 한다. */
+function clipForPrompt(body: string): string {
+  if (body.length <= MAX_INPUT) return body
+  const head = body.slice(0, MAX_INPUT - FIN_WINDOW)
+  for (const re of [/Sales and other operating revenue/i, /Total net sales/i, /Net sales/i, /Total revenues?/i, /Total net revenues?/i]) {
+    const m = re.exec(body)
+    if (m && m.index >= head.length) {
+      return `${head}\n\n--- [손익계산서 발췌] ---\n${body.slice(Math.max(0, m.index - 300), m.index + FIN_WINDOW)}`
+    }
+  }
+  return body.slice(0, MAX_INPUT)
+}
 
 export async function summarizeReport(doc: EarningsReportDoc): Promise<ErSummary | null> {
-  const body = doc.exhibits
+  const body = clipForPrompt(doc.exhibits
     .map(e => `[${e.type} · ${e.file}]\n${e.text}`)
-    .join('\n\n---\n\n')
-    .slice(0, MAX_INPUT)
+    .join('\n\n---\n\n'))
 
   const prompt = `너는 투자 교육 앱의 애널리스트다. 아래는 ${doc.name}(${doc.ticker})가 ${doc.filedAt}에 미국 증권거래위원회(SEC)에 8-K로 제출한 실적 발표 원문이다(EX-99 첨부).
 학생이 이해할 수 있는 한국어로 구조화해 요약하라.
