@@ -71,7 +71,8 @@ const closeAt = (candles: TechCandle[], date: string): number | null => {
 
 export async function GET() {
   const today = kstDate()
-  const cacheKey = `signal-report-v6:${today}`   // v6: 📏 시장 기준선(벤치마크) + 시장 대비 승률·용어 '이중 확인' / v5: 합류 7일 런 압축 / v4: ⭐합류 그룹 / v3: unscored / v2: 1,000행 절단
+  // ⚠️ 응답 '내용'(제목·라벨 문자열)만 바뀌어도 키를 올려야 한다 — 스키마가 같으면 커밋 훅이 못 잡는다(v6에서 실제로 겪음).
+  const cacheKey = `signal-report-v7:${today}`   // v7: 상세 라벨도 '이중 확인'으로 / v6: 📏 시장 기준선 + 시장 대비 승률 / v5: 런 압축 / v4: ⭐그룹 / v3: unscored / v2: 1,000행 절단
   const cached = await getCache<SignalReportResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
