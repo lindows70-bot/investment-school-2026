@@ -305,6 +305,10 @@ export async function summarizeReport(doc: EarningsReportDoc): Promise<ErSummary
   ⚠️ **보도자료 본문이 이익·현금흐름 중심이어도 빈칸으로 두지 마라** — 첨부된 손익계산서 표에서 매출 행을 찾아 채운다
      (엑슨모빌은 본문이 순이익 중심이지만 표에 "Sales and other operating revenue 114,529"가 있다 → 1,145억 2,900만 달러).
      표에도 매출 행이 전혀 없을 때만 빈 문자열로 둔다.
+- opIncome(영업이익)은 **원문의 GAAP 'Operating income'/'Income from operations' 라인만** 쓴다.
+  ⛔ 은행·증권사의 **Pre-tax income(세전이익)·Pre-tax earnings·Pre-provision profit(충당금 차감 전 이익)을 영업이익 칸에 쓰지 마라**
+     — 이들은 영업이익이 아니라 다른 개념이다. 원문에 GAAP 영업이익 라인이 없으면 빈 문자열로 둔다(빈칸이 정직하다).
+  ⛔ 회사 고유의 조정·비GAAP 지표(IBM의 'Operating (Non-GAAP)' 등)도 영업이익 칸에 쓰지 마라 — 조정 지표는 서술(performance)에서만 언급한다.
      (예: 셰브론은 매출 $67,199M이 맞고, 기타수익까지 더한 $70,055M은 틀리다).
 - revenueChange: 매출의 전년 동기 대비 증감(예 "+16%"). 원문에 없으면 빈 문자열
 - opIncome: **영업이익**(operating income) 금액(예 "407억 7,000만 달러"). 원문에 없으면 빈 문자열
