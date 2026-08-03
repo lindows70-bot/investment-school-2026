@@ -1293,7 +1293,8 @@ export default function DashboardPage() {
         // ⚠️ 공백 금지 — Recharts Text 는 막대 폭(maxBarSize 56px)에 맞춰 '공백 기준'으로
         //    줄바꿈한다. "…% · …만" 처럼 띄우면 3줄로 쪼개져 x축 월 라벨과 겹친다(실사고).
         const barLabel  = `${pnlPct >= 0 ? '+' : ''}${pnlPct}%(${totalPnl >= 0 ? '' : '−'}${fmtKrw(Math.abs(totalPnl))})`
-        return { month, label:`${y.slice(2)}년 ${parseInt(m)}월`, corePnl, satPnl, totalPnl, pnlPct, barLabel, count, isUp: totalPnl >= 0 }
+        // x축에 '매수분'을 명시 — "26년 5월"만 쓰면 시계열('5월의 손익')로 오독된다(실사고)
+        return { month, label:`${y.slice(2)}년 ${parseInt(m)}월 매수분`, corePnl, satPnl, totalPnl, pnlPct, barLabel, count, isUp: totalPnl >= 0 }
       })
 
     // 누적 평가손익 추가
@@ -2696,11 +2697,13 @@ export default function DashboardPage() {
         {/* 헤더 */}
         <div style={{ padding:'14px 20px 6px', display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:8 }}>
           <div>
+            {/* ⚠️ 예전 제목 "월별 평가손익"은 시계열('5월의 손익')로 오독됐다 — 실제로는
+                매수월 그룹핑 × 현재가 스냅샷이다. 사용자(교사) 본인이 오독한 실사고. */}
             <div style={{ fontSize:12, fontWeight:700, color:TK.sub9, letterSpacing:'0.04em', textTransform:'uppercase' as const }}>
-              📊 월별 평가손익 (매수월 기준)
+              🛒 매수 시기별 평가손익 (현재가 기준)
             </div>
             <div style={{ fontSize:11, color:TK.sub6, marginTop:3 }}>
-              Core · Satellite 분리 누적 손익 + 추이선
+              각 막대 = 그 달에 <b style={{ color:TK.sub9 }}>매수한</b> 종목들의 <b style={{ color:TK.sub9 }}>지금</b> 손익 — 그 달의 성과가 아닙니다
             </div>
           </div>
           {/* 범례 */}
@@ -2708,7 +2711,7 @@ export default function DashboardPage() {
             {[
               { color:TK.neonLime, label:'Core (ETF·우량주)', dash:false },
               { color:TK.sky400, label:'Satellite (성장·테마)', dash:false },
-              { color:TK.indigo400, label:'누적 추이', dash:true },
+              { color:TK.indigo400, label:'누적 합계(전체 손익)', dash:true },
             ].map(({ color, label, dash }) => (
               <span key={label} style={{ display:'flex', alignItems:'center', gap:5, fontSize:10, color:TK.sub }}>
                 {dash
