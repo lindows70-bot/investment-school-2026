@@ -996,9 +996,14 @@ export default function DashboardPage() {
       }
 
       // ⚠️ 전멸(응답 0건)을 '배당 종목 없음'으로 쓰면 사실이 아닌 주장이 된다.
-      //    콜드 배포 직후 stock-info 가 전부 실패해 15개 배당 종목이 "없음"으로 표시된 사고.
-      if (!cancelled) { setDividendMap(result); setDividendFailed(okCount === 0 && investments.length > 0) }
-      setDividendLoading(false)
+      // ⚠️ setDividendLoading(false) 는 반드시 !cancelled 안에 있어야 한다. 밖에 두면
+      //    취소된 실행(StrictMode 이중 호출·investments 재생성)이 로딩을 먼저 꺼버려서
+      //    dividendMap 이 아직 빈 상태로 "배당 종목 없음"이 잠깐 뜬다 — 실제로 그렇게 보였다.
+      if (!cancelled) {
+        setDividendMap(result)
+        setDividendFailed(okCount === 0 && investments.length > 0)
+        setDividendLoading(false)
+      }
     }
     run()
     return () => { cancelled = true }
