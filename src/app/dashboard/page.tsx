@@ -9,6 +9,7 @@ import {
   ComposedChart
 } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
+import type { MonthlyPnlResult } from '@/lib/monthlyPnl'
 import AIPortfolioDashboard from '@/app/components/AIPortfolioDashboard'
 import LynchEarningsChart    from '@/app/components/LynchEarningsChart'
 import EarningsAlertTerminal      from '@/app/components/EarningsAlertTerminal'
@@ -747,6 +748,11 @@ export default function DashboardPage() {
   const [dividendLoading, setDividendLoading] = useState(false)
   /** 배당 조회가 전멸했는가 — '조회 실패'와 '배당 종목 없음'은 다른 말이다 */
   const [dividendFailed, setDividendFailed] = useState(false)
+
+  // ── 진짜 월별 손익 시계열 (/api/monthly-pnl) — 매수시기별 스냅샷과 별개 축 ──
+  const [pnlView, setPnlView] = useState<'series' | 'byPurchase'>('series')
+  const [pnlSeries, setPnlSeries] = useState<MonthlyPnlResult | null>(null)
+  const [pnlSeriesLoading, setPnlSeriesLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
   const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'dalio' | 'marks' | 'globalcycle' | 'ipocycle' | 'crisis' | 'champions' | 'rotation' | 'quantum' | 'aisemi' | 'power' | 'physai' | 'aibio' | 'defense' | 'financials' | 'energy' | 'materials' | 'industrials' | 'discretionary' | 'staples' | 'healthcare' | 'infotech' | 'communication' | 'utilities' | 'realestate'>('live')
 
@@ -1017,6 +1023,32 @@ export default function DashboardPage() {
         setDividendFailed(okCount === 0 && investments.length > 0)
         setDividendLoading(false)
       }
+    }
+    run()
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [investments])
+
+  // ── 진짜 월별 손익 시계열 로드 — 로트를 서버에 보내 캔들 이력으로 재구성 ──
+  useEffect(() => {
+    if (investments.length === 0) return
+    let cancelled = false
+    const run = async () => {
+      setPnlSeriesLoading(true)
+      try {
+        const res = await fetch('/api/monthly-pnl', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store',
+          body: JSON.stringify({ lots: investments.map(i => ({
+            ticker: i.ticker, market: i.market, currency: i.currency,
+            purchase_price: i.purchase_price, quantity: i.quantity, purchase_date: i.purchase_date,
+          })) }),
+        })
+        const j: MonthlyPnlResult | { error: string } = await res.json()
+        if (!cancelled) {
+          if (res.ok && 'points' in j) { setPnlSeries(j) }
+          setPnlSeriesLoading(false)
+        }
+      } catch { if (!cancelled) setPnlSeriesLoading(false) }
     }
     run()
     return () => { cancelled = true }
@@ -1302,6 +1334,15 @@ export default function DashboardPage() {
     return rows.map(r => { cumulative += r.totalPnl; return { ...r, cumulative } })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pricedInvs, priceMap, usdKrw])
+
+  /** 시계열 차트 데이터 — 서버 재구성 결과에 표시용 라벨만 붙인다(라벨은 공백 금지: LabelList 줄바꿈 함정) */
+  const pnlSeriesData = useMemo(() => {
+    if (!pnlSeries?.points?.length) return []
+    return pnlSeries.points.map(p => ({
+      ...p,
+      barLabel: `${p.pnl >= 0 ? '+' : '−'}${fmtKrw(Math.abs(p.pnl)).replace('₩', '')}`,
+    }))
+  }, [pnlSeries])
 
   // ── 오늘 포트폴리오 등락 (changePct 기반) ──────────────────────
   const todayPnL = useMemo(() => {
@@ -2697,22 +2738,43 @@ export default function DashboardPage() {
         {/* 헤더 */}
         <div style={{ padding:'14px 20px 6px', display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:8 }}>
           <div>
-            {/* ⚠️ 예전 제목 "월별 평가손익"은 시계열('5월의 손익')로 오독됐다 — 실제로는
-                매수월 그룹핑 × 현재가 스냅샷이다. 사용자(교사) 본인이 오독한 실사고. */}
+            {/* ⚠️ "월별 평가손익" 단일 뷰 시절, 매수월 스냅샷이 시계열('5월의 손익')로 오독됐다(교사 본인 실사고).
+                이제 진짜 시계열이 기본이고, 매수 시기별은 토글 뒤로. */}
             <div style={{ fontSize:12, fontWeight:700, color:TK.sub9, letterSpacing:'0.04em', textTransform:'uppercase' as const }}>
-              🛒 매수 시기별 평가손익 (현재가 기준)
+              {pnlView === 'series' ? '📈 월별 손익 (시계열)' : '🛒 매수 시기별 평가손익 (현재가 기준)'}
             </div>
             <div style={{ fontSize:11, color:TK.sub6, marginTop:3 }}>
-              각 막대 = 그 달에 <b style={{ color:TK.sub9 }}>매수한</b> 종목들의 <b style={{ color:TK.sub9 }}>지금</b> 손익 — 그 달의 성과가 아닙니다
+              {pnlView === 'series'
+                ? <>각 막대 = <b style={{ color:TK.sub9 }}>그 달에</b> 늘거나 줄어든 평가손익 — &ldquo;이번 달 얼마 잃었나/벌었나&rdquo;</>
+                : <>각 막대 = 그 달에 <b style={{ color:TK.sub9 }}>매수한</b> 종목들의 <b style={{ color:TK.sub9 }}>지금</b> 손익 — 그 달의 성과가 아닙니다</>}
             </div>
           </div>
-          {/* 범례 */}
-          <div style={{ display:'flex', gap:12, flexShrink:0, alignItems:'center' }}>
-            {[
-              { color:TK.neonLime, label:'Core (ETF·우량주)', dash:false },
-              { color:TK.sky400, label:'Satellite (성장·테마)', dash:false },
-              { color:TK.indigo400, label:'누적 합계(전체 손익)', dash:true },
-            ].map(({ color, label, dash }) => (
+          <div style={{ display:'flex', gap:12, flexShrink:0, alignItems:'center', flexWrap:'wrap' }}>
+            {/* 뷰 토글 */}
+            <div style={{ display:'flex', gap:2, background:TK.bg0, borderRadius:8, padding:2 }}>
+              {([['series','월별 손익'],['byPurchase','매수 시기별']] as const).map(([v, l]) => (
+                <button key={v} onClick={() => setPnlView(v)} style={{
+                  border:'none', cursor:'pointer', borderRadius:6, padding:'4px 10px',
+                  fontSize:10, fontWeight:800,
+                  background: pnlView === v ? NEON : 'transparent',
+                  color: pnlView === v ? '#0a0a0a' : TK.sub7,
+                  transition:'all 0.18s',
+                }}>{l}</button>
+              ))}
+            </div>
+            {/* 범례 — 뷰별 */}
+            {(pnlView === 'series'
+              ? [
+                  { color:TK.red400, label:'월 손익(+)', dash:false },
+                  { color:TK.blue400, label:'월 손익(−)', dash:false },
+                  { color:TK.indigo400, label:'누적 손익', dash:true },
+                ]
+              : [
+                  { color:TK.neonLime, label:'Core (ETF·우량주)', dash:false },
+                  { color:TK.sky400, label:'Satellite (성장·테마)', dash:false },
+                  { color:TK.indigo400, label:'누적 합계(전체 손익)', dash:true },
+                ]
+            ).map(({ color, label, dash }) => (
               <span key={label} style={{ display:'flex', alignItems:'center', gap:5, fontSize:10, color:TK.sub }}>
                 {dash
                   ? <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke={color} strokeWidth="2" strokeDasharray="4 2"/></svg>
@@ -2725,7 +2787,57 @@ export default function DashboardPage() {
         </div>
 
         <div style={{ padding:'4px 8px 16px' }}>
-          {monthlyPnL.length === 0 ? (
+          {pnlView === 'series' ? (
+            /* ── 진짜 월별 시계열 — 캔들 이력으로 재구성한 '그 달의 손익' ── */
+            pnlSeriesData.length === 0 ? (
+              <Empty msg={pnlSeriesLoading ? '가격 이력을 재구성하는 중… (최대 20초)' : '가격 이력을 불러오지 못했습니다 — 새로고침 해보세요'}/>
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height={250}>
+                  <ComposedChart data={pnlSeriesData} margin={{ top:24, right:16, bottom:0, left:8 }} barCategoryGap="32%">
+                    <CartesianGrid strokeDasharray="2 4" stroke="#1a2035" vertical={false}/>
+                    <XAxis dataKey="label" tick={{ fill:TK.sub7, fontSize:10, fontWeight:500 }} axisLine={{ stroke:'#1e2a3a' }} tickLine={false}/>
+                    <YAxis yAxisId="bar" tick={{ fill:TK.sub7, fontSize:9 }} axisLine={false} tickLine={false} width={52} tickFormatter={fmtAxisKrw}/>
+                    <YAxis yAxisId="line" orientation="right" tick={{ fill:TK.sub6, fontSize:9 }} axisLine={false} tickLine={false} width={52} tickFormatter={fmtAxisKrw}/>
+                    <ReferenceLine yAxisId="bar" y={0} stroke="#2d3a50" strokeWidth={1.5}/>
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    <Tooltip content={({ active, payload }: any) => {
+                      if (!active || !payload?.length) return null
+                      const d = payload[0]?.payload
+                      if (!d) return null
+                      return (
+                        <div style={{ background:TK.bg3, border:'1px solid #1e2a40', borderRadius:10, padding:'10px 14px', boxShadow:'0 8px 30px rgba(0,0,0,0.6)' }}>
+                          <div style={{ fontWeight:700, color:TK.sub12, fontSize:12, marginBottom:6 }}>{d.label}</div>
+                          {[['그 달 손익', d.pnl, d.pnl >= 0 ? TK.red400 : TK.blue400],
+                            ['누적 손익', d.cumPnl, TK.indigo400],
+                            ['월말 평가액', d.valueKrw, TK.sub12]].map(([l, v, c]) => (
+                            <div key={l as string} style={{ display:'flex', justifyContent:'space-between', gap:16, fontSize:11, marginBottom:3 }}>
+                              <span style={{ color:TK.sub }}>{l as string}</span>
+                              <span style={{ color:c as string, fontWeight:700, fontVariantNumeric:'tabular-nums' }}>{(v as number) < 0 ? '−' : ''}{fmtKrw(Math.abs(v as number))}</span>
+                            </div>
+                          ))}
+                          <div style={{ fontSize:9, color:TK.sub6, marginTop:4 }}>반영 {d.lotCount}종목 · 월말 종가·환율 기준</div>
+                        </div>
+                      )
+                    }}/>
+                    <Bar yAxisId="bar" dataKey="pnl" name="월 손익" maxBarSize={56} minPointSize={3} radius={[4,4,0,0]}>
+                      {pnlSeriesData.map((e, i) => (
+                        <BarCell key={i} fill={e.pnl >= 0 ? TK.red400 : TK.blue400}/>
+                      ))}
+                      <LabelList dataKey="barLabel" position="top" style={{ fontSize:10, fontWeight:700, fill:TK.sub }}/>
+                    </Bar>
+                    <Line yAxisId="line" type="monotone" dataKey="cumPnl" name="누적 손익" stroke={TK.indigo400} strokeWidth={2} strokeDasharray="5 3"
+                      dot={{ r:3, fill:TK.indigo400, stroke:TK.bg3, strokeWidth:1.5 }} activeDot={{ r:5 }} isAnimationActive={true} animationDuration={800}/>
+                  </ComposedChart>
+                </ResponsiveContainer>
+                <div style={{ fontSize:9.5, color:TK.sub6, padding:'2px 12px 0', lineHeight:1.5 }}>
+                  ※ 현재 보유 종목의 가격 이력으로 재구성한 <b style={{ color:TK.sub9 }}>평가손익(미실현)</b> —
+                  이미 매도한 종목의 과거 손익·배당 미포함 · 월말 종가·환율 환산
+                  {pnlSeries?.skipped?.length ? <> · <b style={{ color:TK.orange400 }}>이력 미확보 제외: {pnlSeries.skipped.join(', ')}</b></> : null}
+                </div>
+              </>
+            )
+          ) : monthlyPnL.length === 0 ? (
             <Empty msg="현재가가 로드되면 차트가 표시됩니다"/>
           ) : (
             <ResponsiveContainer width="100%" height={250}>
