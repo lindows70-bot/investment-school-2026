@@ -149,6 +149,19 @@ const fmtKrwFine = (n: number) => {
   if (v >= 1e6) return `₩${(v/1e4).toLocaleString('ko-KR', { maximumFractionDigits:0 })}만`
   return `₩${Math.round(v).toLocaleString('ko-KR')}`
 }
+/**
+ * 차트 축 눈금(만/억) — 부호를 먼저 떼고 크기로 판정한다.
+ * ⚠️ 예전 우축 포맷터는 `v >= 1e4 ? ...만 : \`${v}\`` 라 음수가 어느 분기에도 안 걸려
+ *    -5040000 처럼 원 단위 raw 로 찍혔다. 좌축엔 음수 분기가 있어 -600만이 나와,
+ *    같은 차트에서 좌우 축 단위가 달라 보였다. 누적 손익은 대개 음수라 상시 발생.
+ */
+const fmtAxisKrw = (v: number) => {
+  if (!isFinite(v) || v === 0) return '0'
+  const a = Math.abs(v), sign = v < 0 ? '-' : ''
+  if (a >= 1e8) return `${sign}${(a / 1e8).toFixed(1)}억`
+  if (a >= 1e4) return `${sign}${Math.round(a / 1e4).toLocaleString('ko-KR')}만`
+  return `${sign}${Math.round(a).toLocaleString('ko-KR')}`
+}
 /** undefined/null/NaN 안전한 % 포맷 */
 const safeFixed = (v: number|null|undefined, d = 1) => (isFinite(v ?? 0) ? (v ?? 0) : 0).toFixed(d)
 const fmtPct = (n: number|null|undefined) => {
@@ -2744,18 +2757,19 @@ export default function DashboardPage() {
                   tick={{ fill:TK.sub7, fontSize:10, fontWeight:500 }}
                   axisLine={{ stroke:'#1e2a3a' }} tickLine={false}
                 />
+                {/* 좌우 축이 같은 규칙을 쓰도록 포맷터를 하나로 — 예전엔 각자 달라 우축만 raw 원 단위였다 */}
                 <YAxis
                   yAxisId="bar"
                   tick={{ fill:TK.sub7, fontSize:9 }}
                   axisLine={false} tickLine={false} width={52}
-                  tickFormatter={v => v === 0 ? '0' : v >= 1e8 ? `${(v/1e8).toFixed(1)}억` : v >= 1e4 ? `${(v/1e4).toFixed(0)}만` : Math.abs(v) >= 1e4 ? `-${(Math.abs(v)/1e4).toFixed(0)}만` : `${(v/1e4).toFixed(0)}만`}
+                  tickFormatter={fmtAxisKrw}
                 />
                 <YAxis
                   yAxisId="line"
                   orientation="right"
                   tick={{ fill:TK.sub6, fontSize:9 }}
                   axisLine={false} tickLine={false} width={52}
-                  tickFormatter={v => v === 0 ? '0' : v >= 1e8 ? `${(v/1e8).toFixed(1)}억` : v >= 1e4 ? `${(v/1e4).toFixed(0)}만` : `${v}`}
+                  tickFormatter={fmtAxisKrw}
                 />
 
                 {/* 기준선 Y=0 */}
