@@ -724,6 +724,8 @@ export default function DashboardPage() {
     peg?:           number | null   // AI 멘토 차트용
   }>>({})
   const [dividendLoading, setDividendLoading] = useState(false)
+  /** 배당 조회가 전멸했는가 — '조회 실패'와 '배당 종목 없음'은 다른 말이다 */
+  const [dividendFailed, setDividendFailed] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
   const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'dalio' | 'marks' | 'globalcycle' | 'ipocycle' | 'crisis' | 'champions' | 'rotation' | 'quantum' | 'aisemi' | 'power' | 'physai' | 'aibio' | 'defense' | 'financials' | 'energy' | 'materials' | 'industrials' | 'discretionary' | 'staples' | 'healthcare' | 'infotech' | 'communication' | 'utilities' | 'realestate'>('live')
 
@@ -949,6 +951,7 @@ export default function DashboardPage() {
     const run = async () => {
       setDividendLoading(true)
       const result: typeof dividendMap = {}
+      let okCount = 0   // 응답을 실제로 받은 종목 수
 
       for (let i = 0; i < investments.length; i += BATCH) {
         if (cancelled) break
@@ -961,6 +964,7 @@ export default function DashboardPage() {
             if (!res.ok) return
             const d = await res.json()
             const f = d?.fundamentals
+            okCount++
             const peNum  = typeof f?.pe  === 'number' && isFinite(f.pe)  && f.pe  > 0 ? f.pe  : null
             const pegNum = typeof f?.peg === 'number' && isFinite(f.peg) && f.peg > 0 ? f.peg : null
             result[inv.ticker.toUpperCase()] = {
@@ -983,7 +987,9 @@ export default function DashboardPage() {
         }
       }
 
-      if (!cancelled) setDividendMap(result)
+      // ⚠️ 전멸(응답 0건)을 '배당 종목 없음'으로 쓰면 사실이 아닌 주장이 된다.
+      //    콜드 배포 직후 stock-info 가 전부 실패해 15개 배당 종목이 "없음"으로 표시된 사고.
+      if (!cancelled) { setDividendMap(result); setDividendFailed(okCount === 0 && investments.length > 0) }
       setDividendLoading(false)
     }
     run()
@@ -1231,7 +1237,9 @@ export default function DashboardPage() {
         const [y, m]    = month.split('-')
         // 막대 높이는 '금액'인데 라벨은 '%'라, -23.5% 인 달이 -17.5% 인 달보다 막대가
         // 훨씬 작아 보였다. 두 축을 한 라벨에 붙여 눈으로 연결되게 한다.
-        const barLabel  = `${pnlPct >= 0 ? '+' : ''}${pnlPct}% · ${totalPnl >= 0 ? '' : '−'}${fmtKrw(Math.abs(totalPnl))}`
+        // ⚠️ 공백 금지 — Recharts Text 는 막대 폭(maxBarSize 56px)에 맞춰 '공백 기준'으로
+        //    줄바꿈한다. "…% · …만" 처럼 띄우면 3줄로 쪼개져 x축 월 라벨과 겹친다(실사고).
+        const barLabel  = `${pnlPct >= 0 ? '+' : ''}${pnlPct}%(${totalPnl >= 0 ? '' : '−'}${fmtKrw(Math.abs(totalPnl))})`
         return { month, label:`${y.slice(2)}년 ${parseInt(m)}월`, corePnl, satPnl, totalPnl, pnlPct, barLabel, count, isUp: totalPnl >= 0 }
       })
 
@@ -1987,10 +1995,12 @@ export default function DashboardPage() {
                 : '—',
             sub:    dividendLoading
               ? `${investments.length}개 종목 분석 중`
-              : monthlyDividend > 0
-                ? `배당 종목 ${dividendStockCount}개 · 연 ${fmtKrwFine(Math.round(monthlyDividend * 12))}`
-                : '배당 종목 없음',
-            accent: TK.emerald400,
+              : dividendFailed
+                ? '⚠️ 배당 조회 실패 — 새로고침하세요'
+                : monthlyDividend > 0
+                  ? `배당 종목 ${dividendStockCount}개 · 연 ${fmtKrwFine(Math.round(monthlyDividend * 12))}`
+                  : '배당 종목 없음',
+            accent: dividendFailed ? TK.orange400 : TK.emerald400,
           },
         ]
 
