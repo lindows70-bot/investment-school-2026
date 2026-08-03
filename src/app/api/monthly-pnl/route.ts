@@ -31,6 +31,10 @@ export async function POST(req: Request) {
   }
   if (!lots.length) return NextResponse.json({ error: 'no valid lots' }, { status: 400 })
 
-  const result = await computeMonthlyPnl(lots)
+  // 현재 월 환율 — 대시보드가 쓰는 실시간 환율을 그대로 받아 누적 끝 == 평가손익(제2원칙)
+  const fxRaw = Number((body as Record<string, unknown>).usdKrwNow)
+  const usdKrwNow = isFinite(fxRaw) && fxRaw > 500 && fxRaw < 5000 ? fxRaw : null
+
+  const result = await computeMonthlyPnl(lots, usdKrwNow)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

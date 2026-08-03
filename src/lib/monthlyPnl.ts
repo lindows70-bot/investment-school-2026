@@ -64,6 +64,10 @@ export function buildMonthlySeries(
   candleMap: Map<string, TechCandle[]>,
   fxCandles: TechCandle[],
   nowMonth: string,          // 'YYYY-MM' (KST)
+  /** 현재 월에만 쓸 실시간 환율 — 없으면 KRW=X 캔들.
+   *  ⚠️ 캔들 환율(전일 종가)로만 계산하면 누적 끝이 대시보드 평가손익(실시간 환율)과
+   *  ~1% 어긋나 같은 화면에 '손익' 두 값이 생긴다(제2원칙). 과거 월은 캔들이 정답. */
+  usdKrwNow?: number | null,
 ): { points: MonthlyPnlPoint[]; skipped: string[] } {
   const skipped = Array.from(new Set(
     lots.filter(l => !(candleMap.get(l.ticker.toUpperCase())?.length)).map(l => l.ticker.toUpperCase())
@@ -84,7 +88,9 @@ export function buildMonthlySeries(
   let prevCum = 0
   for (const m of months) {
     const endMax = `${m}-99`
-    const fx = closeAtOrBefore(fxCandles, endMax)
+    const fx = (m === nowMonth && usdKrwNow && isFinite(usdKrwNow) && usdKrwNow > 0)
+      ? usdKrwNow
+      : closeAtOrBefore(fxCandles, endMax)
     let value = 0, cum = 0, lotCount = 0
     for (const lot of usable) {
       if (lot.purchase_date.slice(0, 7) > m) continue          // 아직 안 산 로트
@@ -108,7 +114,7 @@ export function buildMonthlySeries(
 }
 
 /** 수집 + 계산 오케스트레이션 (라우트에서 호출) */
-export async function computeMonthlyPnl(lots: PnlLot[]): Promise<MonthlyPnlResult> {
+export async function computeMonthlyPnl(lots: PnlLot[], usdKrwNow?: number | null): Promise<MonthlyPnlResult> {
   const tickers = Array.from(new Set(lots.map(l => l.ticker.toUpperCase())))
   const candleMap = new Map<string, TechCandle[]>()
   // 순차+소배치 — 외부 API 부하 방지(업비트·네이버 rate limit)
@@ -123,6 +129,6 @@ export async function computeMonthlyPnl(lots: PnlLot[]): Promise<MonthlyPnlResul
   }
   const fxCandles = await getTechCandles('KRW=X', 'US', 'D')
   const nowMonth = kstDate().slice(0, 7)
-  const { points, skipped } = buildMonthlySeries(lots, candleMap, fxCandles, nowMonth)
+  const { points, skipped } = buildMonthlySeries(lots, candleMap, fxCandles, nowMonth, usdKrwNow)
   return { points, skipped, asOf: new Date().toISOString() }
 }

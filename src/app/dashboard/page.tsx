@@ -1038,10 +1038,14 @@ export default function DashboardPage() {
       try {
         const res = await fetch('/api/monthly-pnl', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store',
-          body: JSON.stringify({ lots: investments.map(i => ({
-            ticker: i.ticker, market: i.market, currency: i.currency,
-            purchase_price: i.purchase_price, quantity: i.quantity, purchase_date: i.purchase_date,
-          })) }),
+          body: JSON.stringify({
+            // 현재 월은 대시보드와 같은 실시간 환율로 — 누적 끝 == 평가손익 카드(제2원칙)
+            usdKrwNow: usdKrw,
+            lots: investments.map(i => ({
+              ticker: i.ticker, market: i.market, currency: i.currency,
+              purchase_price: i.purchase_price, quantity: i.quantity, purchase_date: i.purchase_date,
+            })),
+          }),
         })
         const j: MonthlyPnlResult | { error: string } = await res.json()
         if (!cancelled) {
@@ -1052,8 +1056,9 @@ export default function DashboardPage() {
     }
     run()
     return () => { cancelled = true }
+  // usdKrw 도 의존성에 — 실시간 환율 도착 시 현재 월을 그 환율로 재계산(캔들은 캐시라 빠름)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [investments])
+  }, [investments, usdKrw])
 
   // ── Derived values ─────────────────────────────────────────────
   const live = (inv: Investment) => priceMap[inv.ticker.toUpperCase()] ?? null
