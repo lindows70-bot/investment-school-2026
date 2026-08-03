@@ -163,6 +163,28 @@ const fmtAxisKrw = (v: number) => {
   if (a >= 1e4) return `${sign}${Math.round(a / 1e4).toLocaleString('ko-KR')}만`
   return `${sign}${Math.round(a).toLocaleString('ko-KR')}`
 }
+/**
+ * 막대 라벨(알약 배경) — 누적 점선이 라벨 위를 지나가도 읽히도록 어두운 배경을 깐다.
+ * 점선을 막대보다 먼저(뒤층에) 그리는 것과 한 세트: 라벨은 막대 레이어에 있어 점선 위에 온다.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const BarPillLabel = (props: any) => {
+  const { x, y, width, height, value } = props
+  if (value == null || x == null || width == null) return null
+  const s = String(value)
+  const neg = s.startsWith('−') || s.startsWith('-')
+  // 한글은 폭이 넓다 — 대략치로 알약 폭 산정
+  const w = Array.from(s).reduce((acc, ch) => acc + (/[가-힣]/.test(ch) ? 10 : 6.2), 0) + 12
+  const cx = x + width / 2
+  const cy = neg ? y + (height ?? 0) + 13 : y - 13
+  return (
+    <g>
+      <rect x={cx - w / 2} y={cy - 8.5} width={w} height={17} rx={5} fill={TK.bg3} opacity={0.92} stroke={TK.border} strokeWidth={0.5}/>
+      <text x={cx} y={cy + 3.5} textAnchor="middle" fill={TK.sub} fontSize={10} fontWeight={700}>{s}</text>
+    </g>
+  )
+}
+
 /** undefined/null/NaN 안전한 % 포맷 */
 const safeFixed = (v: number|null|undefined, d = 1) => (isFinite(v ?? 0) ? (v ?? 0) : 0).toFixed(d)
 const fmtPct = (n: number|null|undefined) => {
@@ -2825,14 +2847,16 @@ export default function DashboardPage() {
                         </div>
                       )
                     }}/>
+                    {/* ⚠️ 점선을 막대보다 '먼저' 그린다 — Recharts 는 자식 순서대로 쌓아서,
+                        Line 이 뒤에 오면 막대 라벨 위를 덮는다(7월 -442만 겹침 실사고). */}
+                    <Line yAxisId="line" type="monotone" dataKey="cumPnl" name="누적 손익" stroke={TK.indigo400} strokeWidth={2} strokeDasharray="5 3"
+                      dot={{ r:3, fill:TK.indigo400, stroke:TK.bg3, strokeWidth:1.5 }} activeDot={{ r:5 }} isAnimationActive={true} animationDuration={800}/>
                     <Bar yAxisId="bar" dataKey="pnl" name="월 손익" maxBarSize={56} minPointSize={3} radius={[4,4,0,0]}>
                       {pnlSeriesData.map((e, i) => (
                         <BarCell key={i} fill={e.pnl >= 0 ? TK.red400 : TK.blue400}/>
                       ))}
-                      <LabelList dataKey="barLabel" position="top" style={{ fontSize:10, fontWeight:700, fill:TK.sub }}/>
+                      <LabelList dataKey="barLabel" content={BarPillLabel}/>
                     </Bar>
-                    <Line yAxisId="line" type="monotone" dataKey="cumPnl" name="누적 손익" stroke={TK.indigo400} strokeWidth={2} strokeDasharray="5 3"
-                      dot={{ r:3, fill:TK.indigo400, stroke:TK.bg3, strokeWidth:1.5 }} activeDot={{ r:5 }} isAnimationActive={true} animationDuration={800}/>
                   </ComposedChart>
                 </ResponsiveContainer>
                 <div style={{ fontSize:9.5, color:TK.sub6, padding:'2px 12px 0', lineHeight:1.5 }}>
@@ -2958,6 +2982,21 @@ export default function DashboardPage() {
                   )
                 }}/>
 
+                {/* 누적 추이선 — 막대보다 '먼저'(뒤층에) 그려야 라벨을 안 덮는다 */}
+                <Line
+                  yAxisId="line"
+                  type="monotone"
+                  dataKey="cumulative"
+                  name="누적 손익"
+                  stroke={TK.indigo400}
+                  strokeWidth={2}
+                  strokeDasharray="5 3"
+                  dot={{ r:3, fill:TK.indigo400, stroke:TK.bg3, strokeWidth:1.5 }}
+                  activeDot={{ r:5, fill:TK.indigo400, stroke:TK.bg3, strokeWidth:2 }}
+                  isAnimationActive={true}
+                  animationDuration={800}
+                />
+
                 {/* Core 막대 — 수익/손실 그라데이션. minPointSize: 소액 월(수천원대)도 막대가 보이도록 최소 3px 보장 */}
                 <Bar yAxisId="bar" dataKey="corePnl" name="Core" stackId="pnl" maxBarSize={56} minPointSize={3} radius={[0,0,0,0]}>
                   {monthlyPnL.map((entry, i) => (
@@ -2978,27 +3017,8 @@ export default function DashboardPage() {
                       fill={entry.satPnl >= 0 ? 'url(#satProfit)' : 'url(#satLoss)'}
                     />
                   ))}
-                  <LabelList
-                    dataKey="barLabel"
-                    position="top"
-                    style={{ fontSize:10, fontWeight:700, fill:TK.sub }}
-                  />
+                  <LabelList dataKey="barLabel" content={BarPillLabel}/>
                 </Bar>
-
-                {/* 누적 추이선 */}
-                <Line
-                  yAxisId="line"
-                  type="monotone"
-                  dataKey="cumulative"
-                  name="누적 손익"
-                  stroke={TK.indigo400}
-                  strokeWidth={2}
-                  strokeDasharray="5 3"
-                  dot={{ r:3, fill:TK.indigo400, stroke:TK.bg3, strokeWidth:1.5 }}
-                  activeDot={{ r:5, fill:TK.indigo400, stroke:TK.bg3, strokeWidth:2 }}
-                  isAnimationActive={true}
-                  animationDuration={800}
-                />
               </ComposedChart>
             </ResponsiveContainer>
           )}
