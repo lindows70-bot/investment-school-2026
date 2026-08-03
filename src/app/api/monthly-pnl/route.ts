@@ -22,11 +22,13 @@ export async function POST(req: Request) {
     const purchase_date = typeof r.purchase_date === 'string' ? r.purchase_date.slice(0, 10) : ''
     if (!ticker || !/^\d{4}-\d{2}-\d{2}/.test(purchase_date)) continue
     if (!isFinite(purchase_price) || purchase_price <= 0 || !isFinite(quantity) || quantity <= 0) continue
+    const cp = Number(r.currentPrice)
     lots.push({
       ticker,
       market: typeof r.market === 'string' ? r.market : 'US',
       currency: r.currency === 'USD' ? 'USD' : 'KRW',
       purchase_price, quantity, purchase_date,
+      currentPrice: isFinite(cp) && cp > 0 ? cp : null,
     })
   }
   if (!lots.length) return NextResponse.json({ error: 'no valid lots' }, { status: 400 })

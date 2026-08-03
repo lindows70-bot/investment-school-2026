@@ -10,6 +10,9 @@ export interface PnlLot {
   purchase_price: number
   quantity: number
   purchase_date: string     // 'YYYY-MM-DD'
+  /** 대시보드가 쓰는 실시간 현재가 — 현재 월에만 사용(과거 월은 일봉 종가가 정답).
+   *  이걸 안 쓰면 마지막 달이 '종가 기준'이라 평가손익 카드(실시간)와 미세하게 어긋난다. */
+  currentPrice?: number | null
 }
 
 export interface MonthlyPnlPoint {
@@ -92,9 +95,13 @@ export function buildMonthlySeries(
       ? usdKrwNow
       : closeAtOrBefore(fxCandles, endMax)
     let value = 0, cum = 0, lotCount = 0
+    const isNow = m === nowMonth
     for (const lot of usable) {
       if (lot.purchase_date.slice(0, 7) > m) continue          // 아직 안 산 로트
-      const close = closeAtOrBefore(candleMap.get(lot.ticker.toUpperCase())!, endMax)
+      const candleClose = closeAtOrBefore(candleMap.get(lot.ticker.toUpperCase())!, endMax)
+      // 현재 월은 대시보드와 같은 실시간 현재가로 — 과거 월은 그 달 말 종가
+      const close = (isNow && lot.currentPrice && isFinite(lot.currentPrice) && lot.currentPrice > 0)
+        ? lot.currentPrice : candleClose
       if (close == null) continue                              // 상장 전(SPCX 5월 등)
       const rate = lot.currency === 'USD' ? (fx ?? 0) : 1
       if (!rate) continue                                      // 환율 이력 없으면 USD 로트 제외(조용한 0 환산 금지)

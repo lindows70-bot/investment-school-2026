@@ -169,14 +169,22 @@ const fmtAxisKrw = (v: number) => {
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const BarPillLabel = (props: any) => {
-  const { x, y, width, height, value } = props
-  if (value == null || x == null || width == null) return null
+  // ⚠️ Recharts 버전에 따라 막대 크기가 최상위(x/y/width/height)가 아니라 viewBox 로 온다.
+  //    height 를 못 받고 0 으로 폴백했더니 음수 라벨이 막대 '안쪽'에 박혔다(실사고).
+  const vb = props.viewBox ?? {}
+  const x = props.x ?? vb.x
+  const y = props.y ?? vb.y
+  const width = Number(props.width ?? vb.width ?? 0)
+  const height = Number(props.height ?? vb.height ?? 0)
+  const value = props.value
+  if (value == null || x == null || y == null) return null
   const s = String(value)
   const neg = s.startsWith('−') || s.startsWith('-')
   // 한글은 폭이 넓다 — 대략치로 알약 폭 산정
   const w = Array.from(s).reduce((acc, ch) => acc + (/[가-힣]/.test(ch) ? 10 : 6.2), 0) + 12
   const cx = x + width / 2
-  const cy = neg ? y + (height ?? 0) + 13 : y - 13
+  // 음수는 막대 아래. height 를 끝내 못 받으면 막대 안쪽 대신 0선 '위'로 — 절대 막대를 덮지 않는다.
+  const cy = neg ? (height > 0 ? y + height + 13 : y - 13) : y - 13
   return (
     <g>
       <rect x={cx - w / 2} y={cy - 8.5} width={w} height={17} rx={5} fill={TK.bg3} opacity={0.92} stroke={TK.border} strokeWidth={0.5}/>
@@ -1066,6 +1074,8 @@ export default function DashboardPage() {
             lots: investments.map(i => ({
               ticker: i.ticker, market: i.market, currency: i.currency,
               purchase_price: i.purchase_price, quantity: i.quantity, purchase_date: i.purchase_date,
+              // 현재 월을 카드와 같은 값으로 맞추기 위한 실시간 현재가
+              currentPrice: priceMap[i.ticker.toUpperCase()]?.currentPrice ?? null,
             })),
           }),
         })
@@ -1078,9 +1088,10 @@ export default function DashboardPage() {
     }
     run()
     return () => { cancelled = true }
-  // usdKrw 도 의존성에 — 실시간 환율 도착 시 현재 월을 그 환율로 재계산(캔들은 캐시라 빠름)
+  // usdKrw·priceMap 도 의존성에 — 현재 월을 카드와 '같은 실시간 값'으로 유지한다.
+  // 시세는 5분 주기라 폭주하지 않고, 캔들은 30분 공유 캐시라 재호출이 싸다.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [investments, usdKrw])
+  }, [investments, usdKrw, priceMap])
 
   // ── Derived values ─────────────────────────────────────────────
   const live = (inv: Investment) => priceMap[inv.ticker.toUpperCase()] ?? null
@@ -2861,7 +2872,7 @@ export default function DashboardPage() {
                 </ResponsiveContainer>
                 <div style={{ fontSize:9.5, color:TK.sub6, padding:'2px 12px 0', lineHeight:1.5 }}>
                   ※ 현재 보유 종목의 가격 이력으로 재구성한 <b style={{ color:TK.sub9 }}>평가손익(미실현)</b> —
-                  이미 매도한 종목의 과거 손익·배당 미포함 · 월말 종가·환율 환산
+                  이미 매도한 종목의 과거 손익·배당 미포함 · 지난 달은 월말 종가·환율, 이번 달은 현재가 기준
                   {pnlSeries?.skipped?.length ? <> · <b style={{ color:TK.orange400 }}>이력 미확보 제외: {pnlSeries.skipped.join(', ')}</b></> : null}
                 </div>
               </>
