@@ -2344,7 +2344,7 @@ export default function DashboardPage() {
                   </div>
                   <div style={{
                     fontSize: 10, fontWeight: 700, marginTop: 7, textAlign: 'center' as const,
-                    color: indices.length === 0 ? '#525678'
+                    color: indices.length === 0 ? TK.sub6
                       : conflicted ? TK.amber400
                       : allUp ? TK.red400 : majority ? TK.red400 : downCount > upCount ? TK.blue400 : '#525678',
                   }}>
