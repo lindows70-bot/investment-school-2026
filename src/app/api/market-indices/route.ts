@@ -54,13 +54,21 @@ async function fetchYahooIndex(
       const prevClose = (meta.chartPreviousClose ?? meta.previousClose ?? value) as number
       const change    = value - prevClose
       const changePct = prevClose > 0 ? (change / prevClose) * 100 : 0
-      const open      = (meta.regularMarketOpen    ?? prevClose) as number
       const high      = (meta.regularMarketDayHigh ?? value)    as number
       const low       = (meta.regularMarketDayLow  ?? value)    as number
 
       // 인트라데이 1분봉 차트 (동일 응답에서 무료로 추출!)
       const timestamps: number[]      = result?.timestamp ?? []
       const closes: (number | null)[] = result?.indicators?.quote?.[0]?.close ?? []
+      // ⚠️ meta.regularMarketOpen 은 지수 응답에 존재하지 않는다(실측 3/3 undefined).
+      //    폴백으로 prevClose 를 쓰면 "시가"가 전일종가로 표시되고, 갭 하락일엔
+      //    시가 > 고가 라는 물리적으로 불가능한 값이 화면에 나온다(닛케이·KOSPI 실사고).
+      //    실제 시가는 같은 응답의 1분봉 open 첫 값 — 추가 호출 없이 얻는다.
+      const opens: (number | null)[] = result?.indicators?.quote?.[0]?.open ?? []
+      const firstOpen = opens.find(v => v != null && isFinite(v as number)) as number | undefined
+      const firstClose = closes.find(v => v != null && isFinite(v as number)) as number | undefined
+      const open = (meta.regularMarketOpen as number | undefined)
+        ?? firstOpen ?? firstClose ?? prevClose
       const chartData = timestamps
         .map((t, i) => ({ t: t * 1000, v: closes[i] }))
         .filter((p): p is { t: number; v: number } =>

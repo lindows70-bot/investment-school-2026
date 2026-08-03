@@ -138,6 +138,17 @@ const fmtKrw = (n: number) => {
     : v >= 1e4 ? `₩${Math.round(v/1e4).toLocaleString('ko-KR')}만`
     : `₩${Math.round(v).toLocaleString('ko-KR')}`
 }
+/**
+ * 소액 정밀 표기 — fmtKrw 는 만 단위로 반올림해서 13,500원이 "₩1만"이 된다(-26% 오차).
+ * 그 상태로 ×12 를 병기하면 "월 ₩1만 · 연 ₩16만"처럼 학생이 검산할 수 없는 조합이 나온다.
+ * 100만 미만은 원 단위 그대로 보여 검산이 되게 한다.
+ */
+const fmtKrwFine = (n: number) => {
+  const v = isFinite(n) ? n : 0
+  if (v >= 1e8) return `₩${(v/1e8).toLocaleString('ko-KR', { minimumFractionDigits:1, maximumFractionDigits:1 })}억`
+  if (v >= 1e6) return `₩${(v/1e4).toLocaleString('ko-KR', { maximumFractionDigits:0 })}만`
+  return `₩${Math.round(v).toLocaleString('ko-KR')}`
+}
 /** undefined/null/NaN 안전한 % 포맷 */
 const safeFixed = (v: number|null|undefined, d = 1) => (isFinite(v ?? 0) ? (v ?? 0) : 0).toFixed(d)
 const fmtPct = (n: number|null|undefined) => {
@@ -322,13 +333,22 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
 // ─── RebalanceWidget ─────────────────────────────────────────────────────────
 // 대시보드 중간에 삽입되는 아코디언형 리밸런싱 알림 + 시뮬레이터
 // props: corePct(현재 코어 비중%), totalValKrw(총 평가금액), targetCore(목표 코어 비중%)
+/** 한 진영(Core 또는 Satellite)의 손익 구성 — 처방을 손익 기반으로 쓰기 위해 필요 */
+interface SideProfile {
+  gainers:      { name: string; ret: number; valKrw: number }[]  // 수익 종목 (수익률 내림차순)
+  gainerValKrw: number                                           // 수익 종목 평가액 합
+  loserCount:   number
+  totalCount:   number
+}
 interface RebalanceWidgetProps {
   corePct:      number          // 현재 코어 비중 (0~100)
   totalValKrw:  number          // 총 평가금액 (원화)
   targetCore:   number          // 목표 코어 비중 (기본값 70)
+  coreProfile:  SideProfile     // Core 진영 손익 구성
+  satProfile:   SideProfile     // Satellite 진영 손익 구성
 }
 
-function RebalanceWidget({ corePct, totalValKrw, targetCore }: RebalanceWidgetProps) {
+function RebalanceWidget({ corePct, totalValKrw, targetCore, coreProfile, satProfile }: RebalanceWidgetProps) {
   const [isOpen,       setIsOpen]       = useState(false)
   const [simulated,    setSimulated]    = useState(false)  // 가상 리밸런싱 실행 여부
   const [animating,    setAnimating]    = useState(false)
@@ -346,6 +366,16 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore }: RebalanceWidgetPr
   // 예) Core 과잉: Satellite 매수 or Core 일부 매도
   const adjustKrw = Math.round((absGap / 100) * totalValKrw)
   const coreIsOver = gap > 0  // true = Core 과잉(Sat 소외), false = Sat 과잉(Core 소외)
+
+  // ── 처방을 손익으로 결정한다 ──────────────────────────────────────────────
+  // ⛔ 예전엔 coreIsOver 만 보고 항상 "일부 매도(수익 확정)"라고 썼다. 과잉 진영이
+  //    전부 손실인 포트폴리오에서는 그게 익절이 아니라 손절 강요가 된다.
+  const over      = coreIsOver ? coreProfile : satProfile
+  const overName  = coreIsOver ? 'Core'      : 'Satellite'
+  const underName = coreIsOver ? 'Satellite' : 'Core'
+  /** 수익 종목만으로 조정 금액을 채울 수 있는가 = '수익 확정'이라 부를 자격이 있는가 */
+  const canHarvest = over.gainers.length > 0 && over.gainerValKrw >= adjustKrw
+  const someGains  = over.gainers.length > 0
 
   // 가상 리밸런싱 실행
   const handleSimulate = () => {
@@ -558,25 +588,41 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore }: RebalanceWidgetPr
               border:       '1px solid rgba(249,115,22,0.2)',
               marginBottom: 12,
             }}>
-              {/* 처방 제목 */}
+              {/* 처방 제목 — 과잉 진영의 '손익'에 따라 갈린다 */}
               <div style={{ fontSize: 12, fontWeight: 800, color: WARN_CLR, marginBottom: 8 }}>
-                {coreIsOver
-                  ? '📌 소외된 Satellite 자산 보강 권장'
-                  : '📌 과잉 Satellite 일부 수익 확정 권장'}
+                {canHarvest  ? `📌 과잉 ${overName} 중 수익 종목부터 일부 정리`
+                  : someGains ? `📌 매도는 수익 종목까지만 — 부족분은 신규 자금으로`
+                  : `📌 매도 말고 신규 자금으로 ${underName} 보강`}
               </div>
               {/* 처방 내용 */}
               <div style={{ fontSize: 12, color: TK.slate400, lineHeight: 1.7 }}>
-                {coreIsOver ? (
+                {someGains ? (
                   <>
-                    비대해진 <span style={{ color: CORE_CLR, fontWeight: 700 }}>Core(채권·ETF)</span> 자산을 일부 매도(수익 확정)하고,
-                    소외된 <span style={{ color: SAT_CLR, fontWeight: 700 }}>Satellite(성장주)</span> 자산을 추가 매수하세요.
+                    비대해진 <span style={{ color: coreIsOver ? CORE_CLR : SAT_CLR, fontWeight: 700 }}>{overName}</span> 중
+                    <b style={{ color: TK.red400 }}> 수익 중인 {over.gainers.slice(0, 3).map(g => g.name).join('·')}</b>
+                    {over.gainers.length > 3 ? ` 외 ${over.gainers.length - 3}종목` : ''}부터 일부 정리해
+                    <span style={{ color: coreIsOver ? SAT_CLR : CORE_CLR, fontWeight: 700 }}> {underName}</span>을 보강하세요.
+                    {!canHarvest && (
+                      <> 수익 종목 평가액은 <b style={{ color: TK.slate300 }}>{fmtKrw(over.gainerValKrw)}</b>으로
+                      필요액 <b style={{ color: TK.slate300 }}>{fmtKrw(adjustKrw)}</b>에 못 미칩니다 —
+                      나머지는 <b style={{ color: TK.slate300 }}>신규 자금</b>으로 채우는 편이 낫습니다.</>
+                    )}
                   </>
                 ) : (
                   <>
-                    비대해진 <span style={{ color: SAT_CLR, fontWeight: 700 }}>Satellite(성장주)</span> 자산을 일부 매도(수익 확정)하고,
-                    소외된 <span style={{ color: CORE_CLR, fontWeight: 700 }}>Core(채권·ETF)</span> 자산을 추가 매수하세요.
+                    지금 <span style={{ color: coreIsOver ? CORE_CLR : SAT_CLR, fontWeight: 700 }}>{overName}</span>
+                    {over.totalCount > 0 ? ` ${over.totalCount}종목은 전부 손실 구간`: '은 수익 종목이 없는 상태'}입니다.
+                    여기서 팔면 <b style={{ color: TK.red400 }}>수익 확정이 아니라 손실 확정</b>입니다.
+                    비중은 <b style={{ color: TK.slate300 }}>신규 자금을 {underName}에 배정</b>해 맞추고,
+                    매도는 <b style={{ color: TK.slate300 }}>매수 근거가 깨진 종목에 한해</b> 개별로 판단하세요.
                   </>
                 )}
+              </div>
+              {/* 손익 구성 근거 — 숫자를 보여주면 문구를 검산할 수 있다 */}
+              <div style={{ fontSize: 10, color: TK.sub6, marginTop: 8, lineHeight: 1.6 }}>
+                과잉 {overName} {over.totalCount}종목 = 수익 {over.gainers.length} · 손실 {over.loserCount}
+                {someGains && <><br/>※ 이건 <b style={{ color: TK.sub2 }}>비중 조절</b>이지 종목 판단이 아닙니다 —
+                  스토리가 살아 있는 장기 종목은 전량이 아니라 일부만 덜어내세요.</>}
               </div>
             </div>
 
@@ -1006,15 +1052,22 @@ export default function DashboardPage() {
   // ── 30-day portfolio trend using 1M chart data ─────────────────
   const trendData = useMemo(() => {
     if (!pricedInvs.length) return []
-    // Collect all timestamps from 1M charts
-    const tsSet = new Set<number>()
+    // ⚠️ US·KR·코인은 장 시각이 달라 타임스탬프가 서로 겹치지 않는다. 예전처럼 Set 에
+    //    그대로 담아 slice(-30) 하면 "최근 30일"이 아니라 "최근 30개 시각"이 되어
+    //    같은 날짜가 x축에 여러 번 찍혔다(8.1 이 3칸, 8.3 이 2칸 — 실사고).
+    //    KST 달력 날짜로 접고 하루 1점(그 날의 마지막 시각)만 남긴다.
+    const byDay = new Map<string, number>()   // 'YYYY-MM-DD' → 그 날의 마지막 타임스탬프
     pricedInvs.forEach(inv => {
-      (priceMap[inv.ticker.toUpperCase()]?.charts?.['1M'] ?? []).forEach(p => tsSet.add(p.t))
+      (priceMap[inv.ticker.toUpperCase()]?.charts?.['1M'] ?? []).forEach(p => {
+        const day  = new Date(p.t).toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
+        const prev = byDay.get(day)
+        if (prev == null || p.t > prev) byDay.set(day, p.t)
+      })
     })
-    const sortedTs = Array.from(tsSet).sort((a,b) => a-b).slice(-30)
-    if (!sortedTs.length) return []
+    const days = Array.from(byDay.entries()).sort((a,b) => a[0].localeCompare(b[0])).slice(-30)
+    if (!days.length) return []
 
-    return sortedTs.map(t => {
+    return days.map(([day, t]) => {
       let total = 0
       pricedInvs.forEach(inv => {
         const chart = priceMap[inv.ticker.toUpperCase()]?.charts?.['1M'] ?? []
@@ -1024,7 +1077,7 @@ export default function DashboardPage() {
       })
       return {
         t,
-        date: new Date(t).toLocaleDateString('ko-KR', { month:'numeric', day:'numeric' }),
+        date: `${+day.slice(5,7)}. ${+day.slice(8,10)}.`,
         value: Math.round(total),
       }
     })
@@ -1043,6 +1096,14 @@ export default function DashboardPage() {
       ...d,
       pct: parseFloat(((d.value - base) / base * 100).toFixed(3)),
     }))
+  }, [trendData])
+
+  /** 차트 기간의 실제 변화율(첫날→마지막날) — '전체 수익률'(매수가 대비)과 다른 값이다 */
+  const periodChangePct = useMemo(() => {
+    if (trendData.length < 2) return null
+    const base = trendData[0].value
+    if (!base) return null
+    return ((trendData[trendData.length - 1].value - base) / base) * 100
   }, [trendData])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1108,6 +1169,32 @@ export default function DashboardPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pricedInvs, priceMap, usdKrw])
 
+  // ── Core / Satellite 각 진영의 손익 구성 ────────────────────────────────
+  // ⛔ 리밸런싱 처방이 "일부 매도(수익 확정)"를 손익과 무관하게 권하던 문제 때문에 필요하다.
+  //    과잉 진영이 전부 손실이면 그건 익절이 아니라 손절 강요다(일방적 매도 강요 금지).
+  const sideProfiles = useMemo(() => {
+    const build = (wantCore: boolean) => {
+      const rows = pricedInvs
+        .filter(inv => isCoreInv(inv) === wantCore)
+        .map(inv => {
+          const lv = live(inv)
+          if (!lv) return null
+          const ret = ((lv.currentPrice - inv.purchase_price) / inv.purchase_price) * 100
+          return { name: inv.name, ret: isFinite(ret) ? ret : 0, valKrw: toKrw(inv, lv.currentPrice, usdKrw) }
+        })
+        .filter((r): r is { name: string; ret: number; valKrw: number } => r != null)
+      const gainers = rows.filter(r => r.ret > 0).sort((a, b) => b.ret - a.ret)
+      return {
+        gainers,
+        gainerValKrw: gainers.reduce((s, r) => s + r.valKrw, 0),
+        loserCount:   rows.filter(r => r.ret < 0).length,
+        totalCount:   rows.length,
+      }
+    }
+    return { core: build(true), sat: build(false) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pricedInvs, priceMap, usdKrw])
+
   // 🪙 코인 랩 가드레일용 — 내 포트폴리오의 암호화폐 비중(%). 보유 없으면 undefined
   const myCryptoPct = useMemo(() => {
     if (pricedInvs.length === 0 || totalCurrKrw === 0) return undefined
@@ -1142,7 +1229,10 @@ export default function DashboardPage() {
         const totalCost = coreCost + satCost
         const pnlPct    = totalCost > 0 ? parseFloat(((totalPnl / totalCost) * 100).toFixed(1)) : 0
         const [y, m]    = month.split('-')
-        return { month, label:`${y.slice(2)}년 ${parseInt(m)}월`, corePnl, satPnl, totalPnl, pnlPct, count, isUp: totalPnl >= 0 }
+        // 막대 높이는 '금액'인데 라벨은 '%'라, -23.5% 인 달이 -17.5% 인 달보다 막대가
+        // 훨씬 작아 보였다. 두 축을 한 라벨에 붙여 눈으로 연결되게 한다.
+        const barLabel  = `${pnlPct >= 0 ? '+' : ''}${pnlPct}% · ${totalPnl >= 0 ? '' : '−'}${fmtKrw(Math.abs(totalPnl))}`
+        return { month, label:`${y.slice(2)}년 ${parseInt(m)}월`, corePnl, satPnl, totalPnl, pnlPct, barLabel, count, isUp: totalPnl >= 0 }
       })
 
     // 누적 평가손익 추가
@@ -1864,9 +1954,18 @@ export default function DashboardPage() {
             sub:   rateSource,
           },
           {
-            label: '코인 비중', accent: TK.orange400,
+            // ⛔ 코인 가드(권장 상한 5%, ≥10% 위험)는 CoinLab 에만 있고 대시보드엔 없었다.
+            //    11.7% 가 2% 와 똑같은 색·서식으로 보이면 경고가 아니다.
+            label: '코인 비중',
+            accent: cryptoVal === 0 ? TK.orange400
+              : cryptoPct >= 10 ? TK.red400
+              : cryptoPct >  5   ? TK.orange400
+              : TK.emerald400,
             main:  pricedInvs.length ? `${cryptoPct.toFixed(1)}%` : '—',
-            sub:   cryptoVal > 0 ? fmtKrw(cryptoVal) : '코인 없음',
+            sub:   cryptoVal === 0 ? '코인 없음'
+              : cryptoPct >= 10 ? `${fmtKrw(cryptoVal)} · 🚨 위험 (권장 ≤5%)`
+              : cryptoPct >  5   ? `${fmtKrw(cryptoVal)} · ⚠️ 권장 5% 초과`
+              : `${fmtKrw(cryptoVal)} · 권장 5% 이내`,
           },
           {
             label: '최고 수익', accent: TK.red400,
@@ -1880,15 +1979,16 @@ export default function DashboardPage() {
           },
           {
             label:  '월간 예상 배당금',
+            // 월·연을 나란히 쓰므로 ×12 가 눈으로 맞아떨어져야 한다 → fmtKrwFine
             main:   dividendLoading
               ? '조회 중…'
               : monthlyDividend > 0
-                ? fmtKrw(Math.round(monthlyDividend))
+                ? fmtKrwFine(Math.round(monthlyDividend))
                 : '—',
             sub:    dividendLoading
               ? `${investments.length}개 종목 분석 중`
               : monthlyDividend > 0
-                ? `배당 종목 ${dividendStockCount}개 · 연 ${fmtKrw(Math.round(monthlyDividend * 12))}`
+                ? `배당 종목 ${dividendStockCount}개 · 연 ${fmtKrwFine(Math.round(monthlyDividend * 12))}`
                 : '배당 종목 없음',
             accent: TK.emerald400,
           },
@@ -1955,6 +2055,14 @@ export default function DashboardPage() {
         const downCount = indices.length - upCount
         const allUp     = indices.length > 0 && upCount === indices.length
         const majority  = upCount > downCount
+        // ⚠️ 개수만 세면 KOSPI -5.12% 폭락일이 "4개 상승 우위 📈"로 나온다(실사고).
+        //    등락 '폭'의 평균을 함께 보고, 개수와 부호가 어긋나면 그 사실을 드러낸다.
+        const avgPct    = indices.length
+          ? indices.reduce((s, i) => s + (isFinite(i.changePct) ? i.changePct : 0), 0) / indices.length
+          : 0
+        const countSaysUp = upCount > downCount
+        const avgSaysUp   = avgPct > 0
+        const conflicted  = indices.length > 0 && !allUp && downCount !== upCount && countSaysUp !== avgSaysUp
 
         const fmtIdx = (v: number, cur: string) =>
           cur === 'KRW' ? v.toLocaleString('ko-KR',  { maximumFractionDigits: 2 })
@@ -2236,14 +2344,24 @@ export default function DashboardPage() {
                   </div>
                   <div style={{
                     fontSize: 10, fontWeight: 700, marginTop: 7, textAlign: 'center' as const,
-                    color: allUp ? TK.red400 : majority ? TK.red400 : downCount > upCount ? TK.blue400 : '#525678',
+                    color: indices.length === 0 ? '#525678'
+                      : conflicted ? TK.amber400
+                      : allUp ? TK.red400 : majority ? TK.red400 : downCount > upCount ? TK.blue400 : '#525678',
                   }}>
                     {indices.length === 0 ? '—'
+                      : conflicted
+                        ? `⚠ 개수는 ${countSaysUp ? '상승' : '하락'} 우위, 폭은 반대 (평균 ${avgPct >= 0 ? '+' : ''}${avgPct.toFixed(2)}%)`
                       : allUp ? '📈 전 지수 상승'
                       : majority ? `📈 ${upCount}개 상승 우위`
                       : downCount > upCount ? `📉 ${downCount}개 하락 우위`
                       : '➡ 혼조세'}
                   </div>
+                  {/* 개수와 별개로 '폭'을 항상 병기 — 개수는 크기를 못 담는다 */}
+                  {indices.length > 0 && !conflicted && (
+                    <div style={{ fontSize: 9, color: TK.sub6, marginTop: 3, textAlign: 'center' as const, fontVariantNumeric:'tabular-nums' }}>
+                      평균 등락 {avgPct >= 0 ? '+' : ''}{avgPct.toFixed(2)}%
+                    </div>
+                  )}
                 </div>
 
                 {/* 구분선 */}
@@ -2367,7 +2485,7 @@ export default function DashboardPage() {
           {/* 헤더: 타이틀 + 토글 */}
           <div style={{ padding:'14px 18px 0', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8 }}>
             <div style={{ fontSize:11, fontWeight:700, color:TK.sub, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>
-              자산 총액 변화 (최근 30일)
+              자산 총액 변화 (최근 {trendData.length}거래일)
             </div>
             {/* 세그먼트 토글 */}
             <div style={{ display:'flex', background:TK.bg0, borderRadius:8, padding:2, gap:2 }}>
@@ -2389,10 +2507,18 @@ export default function DashboardPage() {
           <div style={{ padding:'8px 18px 4px', display:'flex', gap:20, flexWrap:'wrap' }}>
             {totalRet != null && (
               <>
+                {/* ⚠️ totalRet 은 '매수가 대비 전체' 수익률이다. 예전엔 이걸 '30일 수익률'로
+                    라벨링해 차트 기간 변화와 다른 값을 같은 이름으로 보여줬다. 둘 다 병기한다. */}
                 <div>
-                  <div style={{ fontSize:9, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>30일 수익률</div>
+                  <div style={{ fontSize:9, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>전체 수익률</div>
                   <div style={{ fontSize:15, fontWeight:800, color:(totalRet??0)>=0?TK.red500:TK.blue500, fontVariantNumeric:'tabular-nums' }}>{fmtPct(totalRet)}</div>
                 </div>
+                {periodChangePct != null && (
+                  <div>
+                    <div style={{ fontSize:9, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>기간 변화</div>
+                    <div style={{ fontSize:15, fontWeight:800, color:periodChangePct>=0?TK.red500:TK.blue500, fontVariantNumeric:'tabular-nums' }}>{fmtPct(periodChangePct)}</div>
+                  </div>
+                )}
                 <div>
                   <div style={{ fontSize:9, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>평가 손익</div>
                   <div style={{ fontSize:15, fontWeight:800, color:totalPnL>=0?TK.red500:TK.blue500, fontVariantNumeric:'tabular-nums' }}>{fmtKrw(totalPnL)}</div>
@@ -2405,7 +2531,7 @@ export default function DashboardPage() {
                     <>
                       {maxVal != null && (
                         <div>
-                          <div style={{ fontSize:9, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>30일 최고</div>
+                          <div style={{ fontSize:9, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>기간 최고</div>
                           <div style={{ fontSize:15, fontWeight:800, color:NEON, fontVariantNumeric:'tabular-nums' }}>
                             {trendMode==='amount' ? fmtKrw(maxVal) : `+${maxVal.toFixed(2)}%`}
                           </div>
@@ -2413,7 +2539,7 @@ export default function DashboardPage() {
                       )}
                       {minVal != null && (
                         <div>
-                          <div style={{ fontSize:9, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>30일 최저</div>
+                          <div style={{ fontSize:9, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>기간 최저</div>
                           <div style={{ fontSize:15, fontWeight:800, color:TK.sub, fontVariantNumeric:'tabular-nums' }}>
                             {trendMode==='amount' ? fmtKrw(minVal) : `${minVal.toFixed(2)}%`}
                           </div>
@@ -2762,10 +2888,8 @@ export default function DashboardPage() {
                     />
                   ))}
                   <LabelList
-                    dataKey="pnlPct"
+                    dataKey="barLabel"
                     position="top"
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    formatter={(v: any) => `${v >= 0 ? '+' : ''}${v}%`}
                     style={{ fontSize:10, fontWeight:700, fill:TK.sub }}
                   />
                 </Bar>
@@ -2795,6 +2919,8 @@ export default function DashboardPage() {
         corePct={currentCorePct}
         totalValKrw={totalCurrKrw}
         targetCore={targetCore}
+        coreProfile={sideProfiles.core}
+        satProfile={sideProfiles.sat}
       />
 
       {/* ── 5. 보유 자산 테이블 + 알림 패널 ── */}

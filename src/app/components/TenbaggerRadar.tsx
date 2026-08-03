@@ -85,8 +85,24 @@ function getBarColor(returnPct: number): string {
   return TK.amber400
 }
 
+/** 원금 회복에 필요한 상승률 — -50%는 +50%가 아니라 +100%가 있어야 돌아온다 */
+function recoveryPct(returnPct: number): number {
+  const loss = -returnPct                      // 0 < loss < 100
+  return loss >= 100 ? Infinity : (loss / (100 - loss)) * 100
+}
+
 function getLynchMessage(returnPct: number): { text: string; color: string } {
-  if (returnPct < 0)   return { color: TK.red400, text: '⚾ 좋은 공을 기다리는 타자의 심정으로, 기업의 펀더멘탈을 믿고 고를 때입니다.' }
+  // ⚠️ 예전엔 음수 전체가 한 버킷이라 -0.1% 와 -48% 가 똑같이 "펀더멘탈을 믿고 버텨라"를
+  //    받았다. 같은 화면의 급락 경보와 정면으로 모순됐다. 손실 깊이에 따라 나누고,
+  //    위로 대신 '회복에 필요한 상승률'이라는 사실을 보여준다.
+  if (returnPct < -50) return { color: TK.red400,
+    text: `🩹 반토막 구간 — 원금 회복에 +${recoveryPct(returnPct).toFixed(0)}%가 필요합니다. 추가 매수 전에 매수 근거가 아직 살아 있는지부터 확인하세요.` }
+  if (returnPct < -25) return { color: TK.red400,
+    text: `🧭 조정이 깊습니다 — 원금 회복에 +${recoveryPct(returnPct).toFixed(0)}%가 필요합니다. 주가가 아니라 실적·점유율이 꺾였는지를 보세요.` }
+  if (returnPct < -10) return { color: TK.orange400,
+    text: '📉 조정 구간 — 살 때의 이유가 그대로인지 점검할 시점입니다. 이유가 살아 있으면 흔들림은 소음입니다.' }
+  if (returnPct < 0)   return { color: TK.sub2,
+    text: '⚾ 흔한 등락 폭입니다. 좋은 공을 기다리는 타자의 심정으로 기다리세요.' }
   if (returnPct < 100) return { color: TK.blue400, text: '🏃‍♂️ 1루 진출 성공! 주가 흔들림에 털리지 말고 2루타를 향해 전진하세요.' }
   if (returnPct < 400) return { color: TK.emerald400, text: '🥈 대형 안타 작렬! 이미 원금은 확보되었습니다. 복리의 마법이 시작됩니다.' }
   if (returnPct < 900) return { color: TK.orange400, text: '🔥 홈런성 타구! 텐배거가 눈앞에 보입니다. 절대 중간에 내리지 마세요.' }

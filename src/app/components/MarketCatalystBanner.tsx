@@ -68,7 +68,9 @@ export default function MarketCatalystBanner() {
               style={{ background: CARD, border: `1px solid ${(m.volRatio ?? 0) >= 3 ? `${TK.red400}55` : BORDER}`, borderRadius: 6, padding: '2px 9px', fontSize: 10.5, color: TK.slate300, display: 'inline-flex', gap: 5, alignItems: 'center' }}>
               {m.market === 'KR' ? '🇰🇷' : '🇺🇸'} <b>{m.market === 'KR' ? m.name.slice(0, 8) : m.ticker}</b>
               {m.volRatio != null && <span style={{ color: m.volRatio >= 3 ? TK.red400 : TK.orange400, fontWeight: 800 }}>거래량 {m.volRatio}배</span>}
-              {m.changePct != null && <span style={{ color: m.changePct > 0 ? TK.green400 : TK.red400 }}>{m.changePct > 0 ? '+' : ''}{m.changePct}%</span>}
+              {/* ⚠️ 색은 앱 전체와 같은 한국식(빨강=상승·파랑=하락). 예전엔 여기만 미국식이라
+                     -6% 가 빨강으로 찍혀 바로 위 보유표와 정반대로 읽혔다. */}
+              {m.changePct != null && <span style={{ color: m.changePct > 0 ? TK.red400 : TK.blue400 }}>{m.changePct > 0 ? '+' : ''}{m.changePct}%</span>}
               {m.market === 'KR' && <span style={{ color: TK.cyan400 }}>{m.note}</span>}
             </span>
           ))}
@@ -76,7 +78,10 @@ export default function MarketCatalystBanner() {
       )}
 
       <div style={{ color: TK.sub, fontSize: 9.5, marginTop: 7, lineHeight: 1.5 }}>
-        ※ 뉴스는 Google News 실시간 헤드라인 요약(Gemini·헤드라인에 있는 사건만), 수급은 Yahoo 트렌딩 거래량·KR 쌍끌이 실측 · 3h 캐시 · 핫하다고 사라는 뜻이 아닙니다 — 진단 탭 함정 레이더부터 확인하세요 · 교육용.
+        ※ 뉴스는 <b style={{ color: TK.amber400 }}>최근 24~48시간</b> Google News 헤드라인 요약(Gemini·헤드라인에 있는 사건만)이라
+        <b style={{ color: TK.amber400 }}> 오늘 시세와 반대일 수 있습니다</b> — &ldquo;급등&rdquo;이라 쓰여 있어도 오늘 하락일 수 있으니
+        실제 등락은 아래 보유표·지수 카드로 확인하세요. 수급은 Yahoo 트렌딩 거래량·KR 쌍끌이 실측 · 3h 캐시 ·
+        핫하다고 사라는 뜻이 아닙니다 — 진단 탭 함정 레이더부터 확인하세요 · 교육용.
       </div>
       </>)}
     </div>
