@@ -157,8 +157,16 @@ const fmtPct = (n: number|null|undefined) => {
 }
 
 // ─── Treemap custom content ───────────────────────────────────────────────────
+/**
+ * 히트맵 타일 색.
+ * ⚠️ 범례에는 '보합'(회색)이 있는데 예전 코드엔 그 분기가 없어(r >= 0 이 전부 빨강)
+ *    +0.04% 가 +8.4% 와 같은 빨강으로 칠해졌다 — 범례가 거짓말을 하고 있었다.
+ *    ±0.5% 는 사실상 본전이므로 회색으로 뺀다.
+ */
+const HEATMAP_FLAT = 0.5   // ±0.5%p 이내 = 보합
 const getHeatmapColor = (r: number) =>
-  r >= 10 ? TK.red600 : r >= 0 ? TK.red500 : r >= -10 ? TK.blue500 : TK.blue700
+  Math.abs(r) < HEATMAP_FLAT ? TK.sub6
+    : r >= 10 ? TK.red600 : r > 0 ? TK.red500 : r > -10 ? TK.blue500 : TK.blue700
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomTreemapContent = (props: any) => {
@@ -1201,6 +1209,33 @@ export default function DashboardPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pricedInvs, priceMap, usdKrw])
 
+  // ── 배당 SSOT (제2원칙) ───────────────────────────────────────────────
+  // ⚠️ 같은 월간 배당 합계를 KPI 카드·모달 행·모달 월합·모달 연합이 **각각 따로** 계산했다.
+  //    그래서 카드는 ₩13,035 인데 모달 총액은 ₩1만으로 서로 다른 값이 한 화면에 떴다.
+  //    한 곳에서 계산하고 나머지는 전부 여기서 파생시킨다.
+  const dividendCalc = useMemo(() => {
+    const rows = investments
+      .map(inv => {
+        const lv   = live(inv)
+        const dMap = dividendMap[inv.ticker.toUpperCase()]
+        const fx   = inv.currency === 'USD' ? usdKrw : 1
+        let monthlyAmt = 0
+        const annDiv = dMap?.annualDividend ?? null
+        if (annDiv && annDiv > 0) {
+          monthlyAmt = annDiv * fx * inv.quantity / 12
+        } else {
+          const dy = dMap?.dividendYield ?? lv?.dividendYield ?? null
+          if (dy && dy > 0) monthlyAmt = (lv?.currentPrice ?? inv.purchase_price) * fx * inv.quantity * dy / 12
+        }
+        return monthlyAmt > 0 ? { ...inv, monthlyAmt } : null
+      })
+      .filter((d): d is (Investment & { monthlyAmt: number }) => d !== null)
+      .sort((a, b) => b.monthlyAmt - a.monthlyAmt)
+    const monthly = rows.reduce((s, r) => s + r.monthlyAmt, 0)
+    return { rows, monthly, annual: monthly * 12, count: rows.length }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [investments, dividendMap, priceMap, usdKrw])
+
   // 🪙 코인 랩 가드레일용 — 내 포트폴리오의 암호화폐 비중(%). 보유 없으면 undefined
   const myCryptoPct = useMemo(() => {
     if (pricedInvs.length === 0 || totalCurrKrw === 0) return undefined
@@ -1745,27 +1780,7 @@ export default function DashboardPage() {
 
             {/* 종목 리스트 (스크롤) */}
             <div style={{ overflowY:'auto', flex:1, padding:'6px 0' }}>
-              {dividendMap && investments
-                .map(inv => {
-                  const key  = inv.ticker.toUpperCase()
-                  const lv   = priceMap[inv.ticker.toUpperCase()]
-                  const dMap = dividendMap[key]
-                  const annDiv = dMap?.annualDividend ?? null
-                  let monthlyAmt = 0
-                  if (annDiv && annDiv > 0) {
-                    const annDivKrw = inv.currency === 'USD' ? annDiv * usdKrw : annDiv
-                    monthlyAmt = annDivKrw * inv.quantity / 12
-                  } else {
-                    const dy = dMap?.dividendYield ?? lv?.dividendYield ?? null
-                    if (dy && dy > 0) {
-                      const p = (lv?.currentPrice ?? inv.purchase_price) * (inv.currency === 'USD' ? usdKrw : 1)
-                      monthlyAmt = p * inv.quantity * dy / 12
-                    }
-                  }
-                  return monthlyAmt > 0 ? { ...inv, monthlyAmt } : null
-                })
-                .filter((d): d is (Investment & {monthlyAmt:number}) => d !== null)
-                .sort((a,b) => b.monthlyAmt - a.monthlyAmt)
+              {dividendCalc.rows
                 .map((d, i, arr) => (
                   <div key={d.id} style={{
                     display:'flex', alignItems:'center', justifyContent:'space-between',
@@ -1814,39 +1829,11 @@ export default function DashboardPage() {
               <div>
                 <div style={{ fontSize:9, color:TK.sub4, fontWeight:700, letterSpacing:'0.1em' }}>TOTAL / 월</div>
                 <div style={{ fontSize:10, color:'#374168', marginTop:2 }}>
-                  연 {fmtKrw(Math.round(
-                    investments.reduce((sum, inv) => {
-                      const key  = inv.ticker.toUpperCase()
-                      const lv   = priceMap[inv.ticker.toUpperCase()]
-                      const dMap = dividendMap[key]
-                      const annDiv = dMap?.annualDividend ?? null
-                      if (annDiv && annDiv > 0) return sum + annDiv * inv.quantity * (inv.currency === 'USD' ? usdKrw : 1)
-                      const dy = dMap?.dividendYield ?? lv?.dividendYield ?? null
-                      if (dy && dy > 0) {
-                        const p = (lv?.currentPrice ?? inv.purchase_price) * (inv.currency === 'USD' ? usdKrw : 1)
-                        return sum + p * inv.quantity * dy
-                      }
-                      return sum
-                    }, 0)
-                  ))} 예상
+                  연 {fmtKrwFine(Math.round(dividendCalc.annual))} 예상
                 </div>
               </div>
               <div style={{ fontSize:22, fontWeight:900, color:TK.emerald400, fontVariantNumeric:'tabular-nums', letterSpacing:'-0.5px' }}>
-                {fmtKrw(Math.round(
-                  investments.reduce((sum, inv) => {
-                    const key  = inv.ticker.toUpperCase()
-                    const lv   = priceMap[inv.ticker.toUpperCase()]
-                    const dMap = dividendMap[key]
-                    const annDiv = dMap?.annualDividend ?? null
-                    if (annDiv && annDiv > 0) return sum + annDiv * inv.quantity * (inv.currency === 'USD' ? usdKrw : 1) / 12
-                    const dy = dMap?.dividendYield ?? lv?.dividendYield ?? null
-                    if (dy && dy > 0) {
-                      const p = (lv?.currentPrice ?? inv.purchase_price) * (inv.currency === 'USD' ? usdKrw : 1)
-                      return sum + p * inv.quantity * dy / 12
-                    }
-                    return sum
-                  }, 0)
-                ))}
+                {fmtKrwFine(Math.round(dividendCalc.monthly))}
               </div>
             </div>
           </div>
@@ -1882,54 +1869,9 @@ export default function DashboardPage() {
         const winCount  = pricedInvs.filter(i => (live(i)?.currentPrice ?? 0) > i.purchase_price).length
         const lossCount = pricedInvs.filter(i => (live(i)?.currentPrice ?? 0) < i.purchase_price).length
 
-        // 월간 예상 배당금 계산 — dividendMap(stock-info) 우선, fallback priceMap
-        // 우선순위: annualDividend(주/좌당 연간 배당금) → dividendYield × 현재가
-        const monthlyDividend = investments.reduce((sum, inv) => {
-          const key  = inv.ticker.toUpperCase()
-          const lv   = live(inv)
-          const dMap = dividendMap[key]
-
-          // annualDividend: 주당 연간 배당금(원화 기준, KR ETF는 SEIBro 합산)
-          const annDiv = dMap?.annualDividend ?? null
-          if (annDiv && annDiv > 0) {
-            // KR: 원화 그대로, US: USD→KRW 환산
-            const annDivKrw = inv.currency === 'USD' ? annDiv * usdKrw : annDiv
-            return sum + annDivKrw * inv.quantity / 12
-          }
-
-          // fallback: dividendYield × 현재가
-          const dy = dMap?.dividendYield
-            ?? lv?.dividendYield
-            ?? null
-          if (!dy || dy <= 0) return sum
-          const priceKrw = (lv?.currentPrice ?? inv.purchase_price) * (inv.currency === 'USD' ? usdKrw : 1)
-          return sum + priceKrw * inv.quantity * dy / 12
-        }, 0)
-
-        // 종목별 배당 상세 목록 (팝업용)
-        const dividendDetails = investments
-          .map(inv => {
-            const key  = inv.ticker.toUpperCase()
-            const lv   = live(inv)
-            const dMap = dividendMap[key]
-            const annDiv = dMap?.annualDividend ?? null
-            let monthlyAmt = 0
-            if (annDiv && annDiv > 0) {
-              const annDivKrw = inv.currency === 'USD' ? annDiv * usdKrw : annDiv
-              monthlyAmt = annDivKrw * inv.quantity / 12
-            } else {
-              const dy = dMap?.dividendYield ?? lv?.dividendYield ?? null
-              if (dy && dy > 0) {
-                const priceKrw = (lv?.currentPrice ?? inv.purchase_price) * (inv.currency === 'USD' ? usdKrw : 1)
-                monthlyAmt = priceKrw * inv.quantity * dy / 12
-              }
-            }
-            return monthlyAmt > 0 ? { name: inv.name, ticker: inv.ticker, monthlyAmt } : null
-          })
-          .filter((d): d is { name:string; ticker:string; monthlyAmt:number } => d !== null)
-          .sort((a, b) => b.monthlyAmt - a.monthlyAmt)
-
-        const dividendStockCount = dividendDetails.length
+        // 배당은 dividendCalc(SSOT)에서만 온다 — 카드·모달이 따로 계산하면 값이 갈린다
+        const monthlyDividend    = dividendCalc.monthly
+        const dividendStockCount = dividendCalc.count
 
         // ── 9 카드 정의 ──────────────────────────────────────────
         const N   = TK.bg8
@@ -2477,7 +2419,7 @@ export default function DashboardPage() {
           )}
           {/* 히트맵 범례 */}
           <div style={{ display:'flex', gap:16, marginTop:10, flexWrap:'wrap' }}>
-            {[[TK.red600,'+10% 이상'],[TK.red500,'0~+10%'],[TK.sub6,'보합'],[TK.blue500,'0~-10%'],[TK.blue700,'-10% 이하']].map(([c,l]) => (
+            {[[TK.red600,'+10% 이상'],[TK.red500,'0~+10%'],[TK.sub6,'보합(±0.5%)'],[TK.blue500,'0~-10%'],[TK.blue700,'-10% 이하']].map(([c,l]) => (
               <span key={l} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:TK.sub }}>
                 <span style={{ width:10, height:10, borderRadius:2, background:c, display:'inline-block', flexShrink:0 }}/>
                 {l}

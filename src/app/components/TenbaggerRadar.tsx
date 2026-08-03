@@ -101,8 +101,11 @@ function getLynchMessage(returnPct: number): { text: string; color: string } {
     text: `🧭 조정이 깊습니다 — 원금 회복에 +${recoveryPct(returnPct).toFixed(0)}%가 필요합니다. 주가가 아니라 실적·점유율이 꺾였는지를 보세요.` }
   if (returnPct < -10) return { color: TK.orange400,
     text: '📉 조정 구간 — 살 때의 이유가 그대로인지 점검할 시점입니다. 이유가 살아 있으면 흔들림은 소음입니다.' }
-  if (returnPct < 0)   return { color: TK.sub2,
+  if (returnPct < -0.5) return { color: TK.sub2,
     text: '⚾ 흔한 등락 폭입니다. 좋은 공을 기다리는 타자의 심정으로 기다리세요.' }
+  // ±0.5% 는 사실상 본전 — 여기에 "1루 진출 성공"을 붙이면 성과를 과장하게 된다
+  if (returnPct <= 0.5) return { color: TK.sub2,
+    text: '⚾ 아직 본전 구간입니다. 타석에 들어섰을 뿐, 성과를 논하기엔 이릅니다.' }
   if (returnPct < 100) return { color: TK.blue400, text: '🏃‍♂️ 1루 진출 성공! 주가 흔들림에 털리지 말고 2루타를 향해 전진하세요.' }
   if (returnPct < 400) return { color: TK.emerald400, text: '🥈 대형 안타 작렬! 이미 원금은 확보되었습니다. 복리의 마법이 시작됩니다.' }
   if (returnPct < 900) return { color: TK.orange400, text: '🔥 홈런성 타구! 텐배거가 눈앞에 보입니다. 절대 중간에 내리지 마세요.' }
