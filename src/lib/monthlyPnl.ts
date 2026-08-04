@@ -34,6 +34,13 @@ export interface MonthlyPnlResult {
    *    이력이 시작되는 달에 그동안의 변화가 몰려 튀었다(실측 확인). 이제 잘라내고 알린다.
    */
   truncated: { from: string; to: string; months: number } | null
+  /** 매도 확정 손익 — 라우트가 서버에서 transactions 를 읽어 붙인다(평가손익만 보면 성적의 절반이 없다) */
+  realized?: {
+    byMonth: { month: string; krw: number; count: number }[]
+    totalKrw: number
+    totalCount: number
+    fxFallbackCount: number
+  } | null
   asOf: string
 }
 

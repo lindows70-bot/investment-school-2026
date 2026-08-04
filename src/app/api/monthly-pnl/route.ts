@@ -1,7 +1,10 @@
 // 진짜 월별 손익 시계열 API — 로트를 body 로 받아 서버에서 캔들 재구성 후 반환
 // ⚠️ 개인 포트폴리오 데이터: 결과를 공유 캐시에 저장하지 않는다(캔들만 tech-chart-v1 공유 캐시).
 import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 import { computeMonthlyPnl, type PnlLot } from '@/lib/monthlyPnl'
+import { getTechCandles } from '@/lib/techChartData'
+import { buildRealizedByMonth, type SellTx } from '@/lib/realizedPnl'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -38,5 +41,28 @@ export async function POST(req: Request) {
   const usdKrwNow = isFinite(fxRaw) && fxRaw > 500 && fxRaw < 5000 ? fxRaw : null
 
   const result = await computeMonthlyPnl(lots, usdKrwNow)
-  return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
+
+  // ── 실현손익(매도 확정) 병합 ────────────────────────────────────────────
+  // ⚠️ 평가손익만 보여주면 성적의 절반이 사라진다 — 이 학생은 매도 11건으로 이미
+  //    +$3,879.93 을 확정해 뒀는데 대시보드는 -541만만 보여줬다.
+  //    로트는 body 로 받지만 매도 이력은 서버가 본인 세션으로 직접 읽는다(RLS + 인증).
+  let realized: Awaited<ReturnType<typeof buildRealizedByMonth>> | null = null
+  try {
+    const sb = createClient()
+    const { data: { user } } = await sb.auth.getUser()
+    if (user) {
+      const { data: sells } = await sb.from('transactions')
+        .select('ticker,name,market,currency,realized_pnl,transaction_date')
+        .eq('user_id', user.id).eq('type', 'sell')
+      if (sells?.length) {
+        const fxCandles = await getTechCandles('KRW=X', 'US', 'D')
+        const latestFx = usdKrwNow ?? fxCandles[fxCandles.length - 1]?.close ?? 0
+        if (latestFx > 0) realized = buildRealizedByMonth(sells as SellTx[], fxCandles, latestFx)
+      } else {
+        realized = { byMonth: [], totalKrw: 0, totalCount: 0, fxFallbackCount: 0 }
+      }
+    }
+  } catch { /* 실현손익은 부가 정보 — 실패해도 평가손익 시계열은 그대로 준다 */ }
+
+  return NextResponse.json({ ...result, realized }, { headers: { 'Cache-Control': 'no-store' } })
 }

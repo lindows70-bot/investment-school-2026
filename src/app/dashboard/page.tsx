@@ -179,6 +179,7 @@ const BarPillLabel = (props: any) => {
   const value = props.value
   if (value == null || x == null || y == null) return null
   const s = String(value)
+  if (!s.trim()) return null          // 값이 없는 달(실현손익 0) — 빈 알약을 그리지 않는다
   const neg = s.startsWith('−') || s.startsWith('-')
   // 한글은 폭이 넓다 — 대략치로 알약 폭 산정
   const w = Array.from(s).reduce((acc, ch) => acc + (/[가-힣]/.test(ch) ? 10 : 6.2), 0) + 12
@@ -1060,6 +1061,8 @@ export default function DashboardPage() {
   }, [investments])
 
   // ── 진짜 월별 손익 시계열 로드 — 로트를 서버에 보내 캔들 이력으로 재구성 ──
+  // 가격이 채워진 종목 수 — 이 값이 안정되면 재실행이 멈춘다(priceMap 객체를 deps 에 넣으면 안 됨)
+  const pricedCount = investments.filter(i => priceMap[i.ticker.toUpperCase()]).length
   useEffect(() => {
     if (investments.length === 0) return
     let cancelled = false
@@ -1088,10 +1091,12 @@ export default function DashboardPage() {
     }
     run()
     return () => { cancelled = true }
-  // usdKrw·priceMap 도 의존성에 — 현재 월을 카드와 '같은 실시간 값'으로 유지한다.
-  // 시세는 5분 주기라 폭주하지 않고, 캔들은 30분 공유 캐시라 재호출이 싸다.
+  // ⚠️ priceMap 객체 자체를 deps 에 넣으면 안 된다 — 이 요청은 캔들 수집 때문에 수십 초가
+  //    걸리는데, 그 사이 시세가 갱신되면 취소→재시작이 반복돼 영영 끝나지 않는다(실사고).
+  //    '가격이 몇 개나 채워졌는가'라는 안정적인 신호에만 반응하고, 현재가는 실행 시점의
+  //    priceMap 을 클로저로 읽는다.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [investments, usdKrw, priceMap])
+  }, [investments, usdKrw, pricedCount])
 
   // ── Derived values ─────────────────────────────────────────────
   const live = (inv: Investment) => priceMap[inv.ticker.toUpperCase()] ?? null
@@ -1199,6 +1204,10 @@ export default function DashboardPage() {
       pct: parseFloat(((d.value - base) / base * 100).toFixed(3)),
     }))
   }, [trendData])
+
+  /** 실현손익(매도 확정) — 없으면 null(로그인 전·매도 이력 없음) */
+  const realizedKrw   = pnlSeries?.realized ? pnlSeries.realized.totalKrw : null
+  const realizedCount = pnlSeries?.realized?.totalCount ?? 0
 
   /** 차트 기간의 실제 변화율(첫날→마지막날) — '전체 수익률'(매수가 대비)과 다른 값이다 */
   const periodChangePct = useMemo(() => {
@@ -1373,14 +1382,32 @@ export default function DashboardPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pricedInvs, priceMap, usdKrw])
 
-  /** 시계열 차트 데이터 — 서버 재구성 결과에 표시용 라벨만 붙인다(라벨은 공백 금지: LabelList 줄바꿈 함정) */
+  /**
+   * 시계열 차트 데이터 — 평가손익 변화 + 그 달 실현손익 = 그 달 실제 성적.
+   * ⚠️ 실현을 빼면 7월이 −442만으로 보이지만, XBI·IBB 매도로 +417만을 확정해
+   *    실제로는 −25만이다. "이번 달 얼마 벌었나"에 답하려면 실현이 반드시 들어간다.
+   */
   const pnlSeriesData = useMemo(() => {
     if (!pnlSeries?.points?.length) return []
-    return pnlSeries.points.map(p => ({
-      ...p,
-      barLabel: `${p.pnl >= 0 ? '+' : '−'}${fmtKrw(Math.abs(p.pnl)).replace('₩', '')}`,
-    }))
+    const realizedMap = new Map((pnlSeries.realized?.byMonth ?? []).map(m => [m.month, m]))
+    return pnlSeries.points.map(p => {
+      const rz = realizedMap.get(p.month)
+      const realized = rz?.krw ?? 0
+      const total = p.pnl + realized
+      return {
+        ...p,
+        realized, realizedCount: rz?.count ?? 0, total,
+        // ⚠️ 라벨은 막대마다 '자기 값'. 합계는 툴팁에서 본다 —
+        //    평가(−)와 실현(+)이 부호가 반대라 한 막대에 합쳐 그릴 수 없다(stackId 로 묶었더니
+        //    Recharts 가 height 를 음수로 계산해 막대가 통째로 사라졌다).
+        pnlLabel: `${p.pnl >= 0 ? '+' : '−'}${fmtKrw(Math.abs(p.pnl)).replace('₩', '')}`,
+        realizedLabel: realized !== 0 ? `${realized >= 0 ? '+' : '−'}${fmtKrw(Math.abs(realized)).replace('₩', '')}` : '',
+      }
+    })
   }, [pnlSeries])
+
+  /** 실현손익이 실제로 존재하는가 — 있으면 차트에 별도 시리즈를 그린다 */
+  const hasRealized = pnlSeriesData.some(p => p.realized !== 0)
 
   // ── 오늘 포트폴리오 등락 (changePct 기반) ──────────────────────
   const todayPnL = useMemo(() => {
@@ -1986,6 +2013,14 @@ export default function DashboardPage() {
             main:  totalPnL !== 0 ? fmtKrw(totalPnL) : '—',
             sub:   totalRet != null ? `${(totalRet??0) >= 0 ? '+' : ''}${(totalRet??0).toFixed(2)}%` : undefined,
           },
+          // ⚠️ 평가손익만 보여주면 성적의 절반이 사라진다 — 매도로 이미 확정한 실현손익을
+          //    빼고 보면 "541만 잃었다"로 읽히지만 실제로는 555만을 벌어 뒀다(실사고).
+          ...(realizedKrw != null ? [{
+            label: '총 손익 (평가+실현)',
+            accent: (totalPnL + realizedKrw) >= 0 ? TK.red400 : TK.blue400,
+            main:  fmtKrw(totalPnL + realizedKrw),
+            sub:   `실현 ${realizedKrw >= 0 ? '+' : '−'}${fmtKrw(Math.abs(realizedKrw))} 포함 · 매도 ${realizedCount}건`,
+          }] : []),
           {
             label: '수익률', accent: (totalRet??0) >= 0 ? TK.red400 : TK.blue400,
             main:  totalRet != null ? `${(totalRet??0) >= 0 ? '+' : ''}${(totalRet??0).toFixed(2)}%` : '—',
@@ -2783,7 +2818,7 @@ export default function DashboardPage() {
             </div>
             <div style={{ fontSize:11, color:TK.sub6, marginTop:3 }}>
               {pnlView === 'series'
-                ? <>각 막대 = <b style={{ color:TK.sub9 }}>그 달에</b> 늘거나 줄어든 평가손익 — &ldquo;이번 달 얼마 잃었나/벌었나&rdquo;</>
+                ? <>각 막대 = <b style={{ color:TK.sub9 }}>그 달 성적</b> (평가손익 변화 + 매도로 확정한 실현손익) — &ldquo;이번 달 얼마 잃었나/벌었나&rdquo;</>
                 : <>각 막대 = 그 달에 <b style={{ color:TK.sub9 }}>매수한</b> 종목들의 <b style={{ color:TK.sub9 }}>지금</b> 손익 — 그 달의 성과가 아닙니다</>}
             </div>
           </div>
@@ -2803,9 +2838,9 @@ export default function DashboardPage() {
             {/* 범례 — 뷰별 */}
             {(pnlView === 'series'
               ? [
-                  { color:TK.red400, label:'월 손익(+)', dash:false },
-                  { color:TK.blue400, label:'월 손익(−)', dash:false },
-                  { color:TK.indigo400, label:'누적 손익', dash:true },
+                  { color:TK.red400, label:'평가손익 변화', dash:false },
+                  ...(hasRealized ? [{ color:TK.amber400, label:'실현손익(매도)', dash:false }] : []),
+                  { color:TK.indigo400, label:'누적 평가손익', dash:true },
                 ]
               : [
                   { color:TK.neonLime, label:'Core (ETF·우량주)', dash:false },
@@ -2846,8 +2881,11 @@ export default function DashboardPage() {
                       return (
                         <div style={{ background:TK.bg3, border:'1px solid #1e2a40', borderRadius:10, padding:'10px 14px', boxShadow:'0 8px 30px rgba(0,0,0,0.6)' }}>
                           <div style={{ fontWeight:700, color:TK.sub12, fontSize:12, marginBottom:6 }}>{d.label}</div>
-                          {[['그 달 손익', d.pnl, d.pnl >= 0 ? TK.red400 : TK.blue400],
-                            ['누적 손익', d.cumPnl, TK.indigo400],
+                          {[
+                            ['평가손익 변화', d.pnl, d.pnl >= 0 ? TK.red400 : TK.blue400],
+                            ...(d.realized !== 0 ? [[`실현손익 (매도 ${d.realizedCount}건)`, d.realized, d.realized >= 0 ? TK.red400 : TK.blue400] as [string, number, string]] : []),
+                            ['그 달 성적 (합계)', d.total, d.total >= 0 ? TK.red400 : TK.blue400],
+                            ['누적 평가손익', d.cumPnl, TK.indigo400],
                             ['월말 평가액', d.valueKrw, TK.sub12]].map(([l, v, c]) => (
                             <div key={l as string} style={{ display:'flex', justifyContent:'space-between', gap:16, fontSize:11, marginBottom:3 }}>
                               <span style={{ color:TK.sub }}>{l as string}</span>
@@ -2862,17 +2900,29 @@ export default function DashboardPage() {
                         Line 이 뒤에 오면 막대 라벨 위를 덮는다(7월 -442만 겹침 실사고). */}
                     <Line yAxisId="line" type="monotone" dataKey="cumPnl" name="누적 손익" stroke={TK.indigo400} strokeWidth={2} strokeDasharray="5 3"
                       dot={{ r:3, fill:TK.indigo400, stroke:TK.bg3, strokeWidth:1.5 }} activeDot={{ r:5 }} isAnimationActive={true} animationDuration={800}/>
-                    <Bar yAxisId="bar" dataKey="pnl" name="월 손익" maxBarSize={56} minPointSize={3} radius={[4,4,0,0]}>
+                    {/* ⚠️ stackId 로 묶지 않는다 — 평가(−)와 실현(+)은 부호가 반대라 스택 누적이
+                        깨져 height 가 음수가 되고 막대가 통째로 사라진다(실사고). 나란히 그린다. */}
+                    <Bar yAxisId="bar" dataKey="pnl" name="평가손익 변화" maxBarSize={44} minPointSize={3} radius={[4,4,0,0]}>
                       {pnlSeriesData.map((e, i) => (
                         <BarCell key={i} fill={e.pnl >= 0 ? TK.red400 : TK.blue400}/>
                       ))}
-                      <LabelList dataKey="barLabel" content={BarPillLabel}/>
+                      <LabelList dataKey="pnlLabel" content={BarPillLabel}/>
                     </Bar>
+                    {hasRealized && (
+                      <Bar yAxisId="bar" dataKey="realized" name="실현손익(매도)" maxBarSize={44} minPointSize={3} radius={[4,4,0,0]}>
+                        {pnlSeriesData.map((e, i) => (
+                          <BarCell key={i} fill={e.realized >= 0 ? TK.amber400 : TK.violet400}/>
+                        ))}
+                        <LabelList dataKey="realizedLabel" content={BarPillLabel}/>
+                      </Bar>
+                    )}
                   </ComposedChart>
                 </ResponsiveContainer>
                 <div style={{ fontSize:9.5, color:TK.sub6, padding:'2px 12px 0', lineHeight:1.5 }}>
-                  ※ 현재 보유 종목의 가격 이력으로 재구성한 <b style={{ color:TK.sub9 }}>평가손익(미실현)</b> —
-                  이미 매도한 종목의 과거 손익·배당 미포함 · 지난 달은 월말 종가·환율, 이번 달은 현재가 기준
+                  ※ 그 달 성적 = <b style={{ color:TK.sub9 }}>평가손익 변화</b>(보유분·가격 이력 재구성) +
+                  <b style={{ color:TK.amber400 }}> 실현손익</b>(그 달 매도로 확정) · 배당·수수료·세금 미포함 ·
+                  평가손익은 지난 달=월말 종가·환율, 이번 달=현재가 기준이고
+                  <b style={{ color:TK.sub9 }}> 실현손익은 매도일 환율</b>로 확정된 금액입니다(두 축의 환율 기준이 다릅니다)
                   {pnlSeries?.skipped?.length ? <> · <b style={{ color:TK.orange400 }}>이력 미확보 제외: {pnlSeries.skipped.join(', ')}</b></> : null}
                   {/* 잘라낸 구간은 반드시 밝힌다 — 0 으로 그리면 "그 달엔 손익이 없었다"는 거짓말이 된다 */}
                   {pnlSeries?.truncated ? (
