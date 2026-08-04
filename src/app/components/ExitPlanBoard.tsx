@@ -67,7 +67,9 @@ export default function ExitPlanBoard() {
 
           {data.items.map(it => {
             const lightC = it.light === 'green' ? TK.green400 : it.light === 'red' ? TK.red400 : TK.amber400
-            const pnlC = it.pnlPct >= 0 ? TK.green400 : TK.red400
+            // ⚠️ 손익은 한국식(빨강=수익·파랑=손실) — 보유 자산 표와 같은 개념이라 색도 같아야 한다.
+            //    바로 위 lightC 의 초록·빨강은 '신호등' 은유라 별개다(초록=양호).
+            const pnlC = it.pnlPct >= 0 ? TK.red400 : TK.blue400
             return (
               <div key={it.ticker} style={{ borderRadius: 10, background: TK.slate950, border: `1px solid ${it.signals.length >= 2 ? `${TK.amber400}66` : TK.border}`, padding: '10px 12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>

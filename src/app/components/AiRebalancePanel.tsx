@@ -18,7 +18,9 @@ const ACTION_CFG: Record<RebalanceAction, { color: string; bg: string; icon: str
   KEEP:        { color: TK.sub3, bg: 'rgba(133,153,174,0.08)', icon: '·', label: '유지' },
 }
 
-function pnlColor(p: number | null) { return p == null ? TK.sub3 : p > 0 ? TK.green500 : p < 0 ? TK.red500 : TK.sub3 }
+// ⚠️ 내 보유 손익은 한국식(빨강=수익·파랑=손실). 이 패널은 대시보드에 렌더되는데
+//    바로 위 보유 자산 표는 빨강=수익이라, 미국식이면 같은 화면에서 같은 종목이 반대 색이 된다.
+function pnlColor(p: number | null) { return p == null ? TK.sub3 : p > 0 ? TK.red500 : p < 0 ? TK.blue500 : TK.sub3 }
 function pnlStr(p: number | null) { return p == null ? '—' : `${p > 0 ? '+' : ''}${p}%` }
 // 국내(KR)는 한국 종목명, 해외는 티커 표시
 function disp(market: string, name: string, ticker: string) {
