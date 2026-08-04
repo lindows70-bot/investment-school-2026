@@ -2874,6 +2874,13 @@ export default function DashboardPage() {
                   ※ 현재 보유 종목의 가격 이력으로 재구성한 <b style={{ color:TK.sub9 }}>평가손익(미실현)</b> —
                   이미 매도한 종목의 과거 손익·배당 미포함 · 지난 달은 월말 종가·환율, 이번 달은 현재가 기준
                   {pnlSeries?.skipped?.length ? <> · <b style={{ color:TK.orange400 }}>이력 미확보 제외: {pnlSeries.skipped.join(', ')}</b></> : null}
+                  {/* 잘라낸 구간은 반드시 밝힌다 — 0 으로 그리면 "그 달엔 손익이 없었다"는 거짓말이 된다 */}
+                  {pnlSeries?.truncated ? (
+                    <> · <b style={{ color:TK.orange400 }}>
+                      ⚠️ 가격 이력 한계로 {pnlSeries.truncated.from}~{pnlSeries.truncated.to}
+                      ({pnlSeries.truncated.months}개월)은 표시하지 않았습니다
+                    </b></>
+                  ) : null}
                 </div>
               </>
             )
