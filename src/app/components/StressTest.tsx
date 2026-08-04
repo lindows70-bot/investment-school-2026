@@ -532,11 +532,11 @@ export default function StressTest() {
               color={C.amber}
             />
             <MetricBadge
-              icon={<Zap size={14} color={finalRet >= 0 ? C.green : C.red} />}
+              icon={<Zap size={14} color={finalRet >= 0 ? TK.red400 : TK.blue400} />}
               label="12개월 수익률"
               value={`${finalRet >= 0 ? '+' : ''}${finalRet.toFixed(1)}%`}
               subtext="시뮬레이션 최종 수익"
-              color={finalRet >= 0 ? C.green : C.red}
+              color={finalRet >= 0 ? TK.red400 : TK.blue400}
             />
           </div>
 

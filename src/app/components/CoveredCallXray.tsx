@@ -116,10 +116,10 @@ export default function CoveredCallXray({ heldTickers = [] }: { heldTickers?: st
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: 10.5 }}>
                     <span style={{ background: TK.bg3, borderRadius: 5, padding: '3px 8px', color: C.sub }}>
-                      총수익 <b style={{ color: r.primary.ccTr >= 0 ? C.green : C.red, fontFamily: 'monospace' }}>{pct(r.primary.ccTr)}</b>
+                      총수익 <b style={{ color: r.primary.ccTr >= 0 ? TK.red400 : TK.blue400, fontFamily: 'monospace' }}>{pct(r.primary.ccTr)}</b>
                     </span>
                     <span style={{ background: TK.bg3, borderRadius: 5, padding: '3px 8px', color: C.sub }}>
-                      가격만 <b style={{ color: r.primary.ccPrice >= 0 ? C.green : C.red, fontFamily: 'monospace' }}>{pct(r.primary.ccPrice)}</b>
+                      가격만 <b style={{ color: r.primary.ccPrice >= 0 ? TK.red400 : TK.blue400, fontFamily: 'monospace' }}>{pct(r.primary.ccPrice)}</b>
                     </span>
                     <span title="총수익 − 가격 = 분배가 만든 부분. 가격이 마이너스면 이 분배의 일부는 원금에서 나온 것" style={{ background: TK.bg3, borderRadius: 5, padding: '3px 8px', color: C.sub }}>
                       분배 기여 <b style={{ color: C.gold, fontFamily: 'monospace' }}>+{r.primary.distContrib.toFixed(1)}%p</b>

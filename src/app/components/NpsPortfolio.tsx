@@ -85,7 +85,8 @@ export default function NpsPortfolio() {
                 </td>
                 <td style={{ textAlign: 'right', fontWeight: 700, color: C.text, padding: '7px 4px' }}>{h.value > 0 ? won(h.value) : '—'}</td>
                 <td style={{ textAlign: 'right', padding: '7px 4px' }}>
-                  <div style={{ fontWeight: 800, color: h.sinceDisclPct == null ? C.textLow : h.sinceDisclPct >= 0 ? C.green : C.red }}>{h.sinceDisclPct == null ? '—' : `${h.sinceDisclPct > 0 ? '+' : ''}${Math.round(h.sinceDisclPct).toLocaleString()}%`}</div>
+                  {/* 공시 후 주가 등락률 — 한국식(빨강=상승). 위 stakeChg 는 지분율 변화라 별개 */}
+                  <div style={{ fontWeight: 800, color: h.sinceDisclPct == null ? C.textLow : h.sinceDisclPct >= 0 ? TK.red400 : TK.blue400 }}>{h.sinceDisclPct == null ? '—' : `${h.sinceDisclPct > 0 ? '+' : ''}${Math.round(h.sinceDisclPct).toLocaleString()}%`}</div>
                   <div style={{ fontSize: 8.5, color: C.textLow, fontFamily: FONT }}>{h.disclDate ? `'${h.disclDate.slice(2, 7).replace('-', '.')}~` : ''}</div>
                 </td>
               </tr>

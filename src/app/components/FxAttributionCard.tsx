@@ -15,7 +15,9 @@ const won = (n: number) => n >= 1e8 ? `₩${(n / 1e8).toFixed(1)}억`
   : Math.abs(n) >= 1e4 ? `₩${Math.round(n / 1e4).toLocaleString()}만` : `₩${Math.round(n).toLocaleString()}`
 const pct = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`
 const pp = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(1)}%p`
-const col = (n: number) => n >= 0 ? C.green : C.red
+// ⚠️ 내 계좌 수익률이므로 한국식(빨강=수익·파랑=손실). 이 카드 바로 아래가 보유 종목 표라
+//    미국식이면 같은 화면에서 같은 손익이 반대 색으로 읽힌다.
+const col = (n: number) => n >= 0 ? TK.red400 : TK.blue400
 
 export default function FxAttributionCard() {
   const [d, setD] = useState<FxAttribution | null>(null)
