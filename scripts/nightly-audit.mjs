@@ -15,7 +15,7 @@
 //
 // 사용: node scripts/nightly-audit.mjs   (작업 스케줄러가 매일 1회 호출)
 import { spawnSync } from 'child_process'
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'fs'
+import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'fs'
 
 const sh = (cmd, args, opts = {}) =>
   spawnSync(cmd, args, { encoding: 'utf8', shell: process.platform === 'win32', ...opts })
@@ -23,6 +23,29 @@ const sh = (cmd, args, opts = {}) =>
 const kst = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 const out = [`# 🌙 야간 감사 — ${kst}`, '']
 const t0 = Date.now()
+
+/** 각 단계의 성공 여부 — 하나라도 실패면 보고서 최상단에 띄우고 last-head 를 전진시키지 않는다 */
+const status = { codex: 'skip', gemini: 'skip' }
+
+/**
+ * 도구가 "돌긴 했는데 아무것도 못 했다"를 성공으로 세지 않기 위한 판정.
+ * ⚠️ 2026-08-02 감사는 Codex 가 "Reviewer failed to output a response" 를 뱉었는데도
+ *    보고서가 정상 완료로 끝났고, last-head 까지 전진해 **커밋 50건이 영구 미리뷰**로 남았다.
+ */
+const looksFailed = (r, body) =>
+  r?.error != null || r?.status !== 0 ||
+  /failed to output a response|rate.?limit|quota|usage limit|not authenticated|command not found/i.test(body)
+
+/** 마지막 감사 이후 며칠 비었는지 — 감사가 조용히 멈춘 걸 아침에 알아채는 유일한 단서 */
+function gapDays() {
+  try {
+    if (!existsSync('.audit')) return 0
+    const prev = readdirSync('.audit').filter(f => /^\d{4}-\d{2}-\d{2}\.md$/.test(f)).sort()
+    const last = prev.filter(f => f.slice(0, 10) < kst).pop()
+    if (!last) return 0
+    return Math.round((Date.parse(kst) - Date.parse(last.slice(0, 10))) / 86400_000)
+  } catch { return 0 }
+}
 
 // ── ① 오늘 커밋에 대한 Codex 리뷰 ──────────────────────────────────────────
 out.push('## 🔍 Codex 코드 리뷰')
@@ -44,7 +67,7 @@ try {
   const n = base ? Number(sh('git', ['rev-list', '--count', `${base}..HEAD`]).stdout.trim() || 0) : 0
 
   if (!base) out.push('- 기준 커밋을 찾지 못했습니다(저장소 이력 부족). 건너뜀.')
-  else if (n === 0) out.push('- 지난 감사 이후 새 커밋 없음 → 리뷰 건너뜀(한도 절약).')
+  else if (n === 0) { out.push('- 지난 감사 이후 새 커밋 없음 → 리뷰 건너뜀(한도 절약).'); status.codex = 'ok' }
   else {
     out.push(`- 지난 감사 이후 커밋 ${n}건 리뷰 (\`${base.slice(0, 7)}..HEAD\`)`, '')
     const r = sh('node', [
@@ -54,9 +77,14 @@ try {
     const body = `${r.stdout || ''}${r.stderr || ''}`
       .split('\n').filter(l => !/^\[codex\]|DeprecationWarning|trace-deprecation|^\s+at /.test(l))
       .join('\n').trim()
+    if (looksFailed(r, body)) {
+      status.codex = 'fail'
+      out.push(`- ❌ **리뷰 실패 — 커밋 ${n}건은 아직 검토되지 않았습니다.**`,
+        '  (다음 감사가 같은 구간을 다시 시도합니다 — 기준점을 전진시키지 않았습니다)', '')
+    } else status.codex = 'ok'
     out.push(body || '(출력 없음)')
   }
-} catch (e) { out.push(`- ⚠️ 실패: ${e.message}`) }
+} catch (e) { status.codex = 'fail'; out.push(`- ⚠️ 실패: ${e.message}`) }
 
 // ── ② 캐시 키 정합성 감사 ─────────────────────────────────────────────────
 out.push('', '## 🔑 캐시 키 정합성 (writer/reader 버전 불일치)')
@@ -67,17 +95,33 @@ try {
     .replace(/\u001b\[[0-9;]*m/g, '')
     .split('\n').filter(l => !/DeprecationWarning|trace-deprecation|True color|Ripgrep|^\s+at /.test(l))
     .join('\n').trim()
+  if (looksFailed(r, body)) { status.gemini = 'fail'; out.push('- ❌ **정합성 감사 실패 — 이번 회차는 점검되지 않았습니다.**', '') }
+  else status.gemini = 'ok'
   out.push(body || '(출력 없음)')
-} catch (e) { out.push(`- ⚠️ 실패: ${e.message}`) }
+} catch (e) { status.gemini = 'fail'; out.push(`- ⚠️ 실패: ${e.message}`) }
 
 // ── 보고서 저장 ───────────────────────────────────────────────────────────
 out.push('', '---',
   `_${Math.round((Date.now() - t0) / 1000)}초 · 읽기 전용(코드 변경 없음) · 지적은 재현으로 확인 후 채택할 것_`)
 
+// 최상단 상태 배너 — 보고서가 '있다'는 것과 '제대로 돌았다'는 건 다른 말이다.
+const icon = { ok: '✅', fail: '❌', skip: '⏭️' }
+const gap = gapDays()
+const banner = [
+  `**상태** — Codex 리뷰 ${icon[status.codex]} · 캐시 정합성 ${icon[status.gemini]}`,
+]
+if (gap > 1) banner.push(`> ⚠️ **직전 감사가 ${gap}일 전입니다** — 그 사이 감사가 돌지 않았습니다(PC 절전·배터리 등).`)
+if (status.codex === 'fail') banner.push('> ⚠️ Codex 무료 한도 소진 시 실패합니다(2026-08-27까지 알려진 상태). 리뷰 기준점은 전진하지 않으므로 복구되면 자동으로 밀린 구간을 봅니다.')
+out.splice(1, 0, ...banner, '')
+
 mkdirSync('.audit', { recursive: true })
 const path = `.audit/${kst}.md`
 writeFileSync(path, out.join('\n'), 'utf8')
 writeFileSync('.audit/latest.md', out.join('\n'), 'utf8')
-// 다음 감사의 기준점 — 여기까지 봤다는 표식(PC 가 며칠 꺼져 있어도 그 사이 커밋을 놓치지 않는다)
-if (head) writeFileSync('.audit/last-head', head, 'utf8')
-console.log(`[nightly-audit] ${path} 작성 완료 (${Math.round((Date.now() - t0) / 1000)}초)`)
+// ⚠️ 기준점은 **리뷰가 실제로 성공했을 때만** 전진시킨다.
+//    실패해도 갱신하면 그 구간은 영영 리뷰되지 않는다(2026-08-02 에 커밋 50건이 그렇게 유실됐다).
+if (head && status.codex === 'ok') writeFileSync('.audit/last-head', head, 'utf8')
+const summary = `codex=${status.codex} gemini=${status.gemini}${gap > 1 ? ` gap=${gap}일` : ''}`
+console.log(`[nightly-audit] ${path} 작성 완료 (${Math.round((Date.now() - t0) / 1000)}초) · ${summary}`)
+// 실패가 있으면 비정상 종료 — 작업 스케줄러 'LastTaskResult' 에 남아 조용한 실패를 막는다
+if (status.codex === 'fail' || status.gemini === 'fail') process.exitCode = 1
