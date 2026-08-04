@@ -4,6 +4,7 @@ import type { CoreSatelliteView, ActionItem, BuyIdea } from '@/app/api/ai-rebala
 import SectorBadge from '@/app/components/SectorBadge'
 import TimingBadge from '@/app/components/TimingBadge'
 import { TK } from '@/lib/theme'
+import { flagOf } from '@/lib/marketFlag'
 
 const CARD = TK.bg6, BORDER = TK.border
 const ROLE_COLOR: Record<string, string> = {
@@ -147,7 +148,7 @@ export default function CoreSatelliteHero({ cs, portfolioValue }: { cs: CoreSate
                 <div style={{ marginTop: 4, background: etfDrop != null ? 'rgba(251,146,60,0.07)' : 'rgba(56,189,248,0.06)', border: `1px solid ${etfDrop != null ? 'rgba(251,146,60,0.4)' : 'rgba(56,189,248,0.2)'}`, borderRadius: 6, padding: '5px 8px' }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, flexWrap: 'wrap' }}>
                     <span style={{ color: etfDrop != null ? TK.orange400 : TK.blue300, fontWeight: 800, fontSize: 9.5 }}>🔬 ETF 분산 대안{etfDrop != null ? ' — 지금은 대기' : ''}</span>
-                    <span style={{ color: TK.slate200, fontWeight: 700, fontSize: 10.5 }}>{a.etfAlt.market === 'KR' ? '🇰🇷' : '🇺🇸'} {a.etfAlt.name}</span>
+                    <span style={{ color: TK.slate200, fontWeight: 700, fontSize: 10.5 }}>{flagOf(a.etfAlt.market, a.etfAlt.ticker)} {a.etfAlt.name}</span>
                     <span style={{ color: TK.sub, fontSize: 9, fontFamily: 'monospace' }}>{a.etfAlt.ticker}</span>
                     <span style={{ color: TK.sub, fontSize: 9 }}>· {a.etfAlt.sectorLabel} 섹터{a.etfAlt.isFallback ? '(미국)' : ''}</span>
                     {a.etfAlt.blendedPeg != null && <span style={{ color: TK.blue400, fontSize: 9, fontFamily: 'monospace' }}>합산 PEG {a.etfAlt.blendedPeg.toFixed(2)}</span>}

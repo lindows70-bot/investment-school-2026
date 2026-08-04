@@ -17,6 +17,7 @@
 import { useState, useEffect } from 'react'
 import { RefreshCw, AlertTriangle } from 'lucide-react'
 import { TK } from '@/lib/theme'
+import { flagOf } from '@/lib/marketFlag'
 
 // ── 타입 (API 계약 — 기존과 동일) ──────────────────────────────
 type GhostGrade = 'diamond' | 'pearl' | 'radar' | 'hotspot' | 'crowded'
@@ -76,7 +77,7 @@ function BuyRow({ r, held }: { r: GhostRecord; held: boolean }) {
     <div style={{ borderRadius: 12, background: TK.slate950, border: `1px solid ${C.amber}44`, padding: '12px 15px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 15 }}>🔥</span>
-        <b style={{ fontSize: 13.5, color: C.textHi }}>{r.market === 'KR' ? '🇰🇷' : '🇺🇸'} {r.name}</b>
+        <b style={{ fontSize: 13.5, color: C.textHi }}>{flagOf(r.market, r.ticker)} {r.name}</b>
         <span style={{ fontSize: 10, color: C.textLow, fontFamily: 'monospace', fontWeight: 700 }}>{r.ticker}</span>
         {held
           ? <span style={{ fontSize: 9.5, fontWeight: 700, color: TK.purple400, background: 'rgba(192,132,252,0.1)', borderRadius: 5, padding: '2px 7px' }}>보유중</span>
@@ -119,7 +120,7 @@ function QuietChip({ r, selected, onClick }: { r: GhostRecord; selected: boolean
       border: `1px solid ${selected ? C.textLow : C.border}`,
       cursor: 'pointer', fontSize: 10.5, color: C.textMid, fontWeight: 600, whiteSpace: 'nowrap',
     }}>
-      {r.market === 'KR' ? '🇰🇷' : '🇺🇸'} {r.name.length > 15 ? r.name.slice(0, 14) + '…' : r.name}
+      {flagOf(r.market, r.ticker)} {r.name.length > 15 ? r.name.slice(0, 14) + '…' : r.name}
       <span style={{ fontSize: 9, color: C.textLow }}>{covText(r)}</span>
     </button>
   )
@@ -239,7 +240,7 @@ export default function LynchGhostStockPanel() {
               </div>
               {sel && sel.insiderBuys === 0 && (
                 <div style={{ marginTop: 8, padding: '9px 12px', borderRadius: 9, background: TK.slate950, border: `1px solid ${C.border}`, fontSize: 10.5, color: C.textMid, lineHeight: 1.6 }}>
-                  <b style={{ color: C.textHi }}>{sel.market === 'KR' ? '🇰🇷' : '🇺🇸'} {sel.name}</b>
+                  <b style={{ color: C.textHi }}>{flagOf(sel.market, sel.ticker)} {sel.name}</b>
                   <span style={{ color: C.textLow }}> · {covText(sel)} · {knownTag(sel.ghostGrade).txt}</span>
                   <div style={{ marginTop: 4, color: C.textLow }}>🔭 {sel.lynchVerdict.replace(/^"|"$/g, '')}</div>
                 </div>

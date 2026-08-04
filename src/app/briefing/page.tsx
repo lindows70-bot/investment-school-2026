@@ -12,6 +12,7 @@ import { type WLApi, splitGroups, factorStats, buildLesson, WL_PERIOD_LABEL } fr
 import { cashBandOf } from '@/lib/cashPosition'
 import { LYNCH_CATEGORY_KR } from '@/lib/lynchAnalysis'
 import { TK } from '@/lib/theme'
+import { flagOf } from '@/lib/marketFlag'
 
 const CARD = '#12151f', BORDER = TK.border
 
@@ -111,7 +112,7 @@ export default function BriefingPage() {
                 : 'Jarvis 펀더멘탈 진단은 매수 기회 — 이 기술 신호는 단기 경계 참고로만(저점 매도 주의)'
               return (
                 <span key={s.ticker + s.market + i} title={clash ? `${s.detail} · ${clashTip}` : s.detail} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: TK.bg3, border: `1px solid ${c}55`, borderRadius: 7, padding: '4px 10px', fontSize: 11.5 }}>
-                  <b style={{ color: TK.slate200 }}>{s.market === 'KR' ? '🇰🇷' : '🇺🇸'} {s.name}</b>
+                  <b style={{ color: TK.slate200 }}>{flagOf(s.market, s.ticker)} {s.name}</b>
                   <span style={{ color: TK.sub, fontSize: 10, fontFamily: 'monospace', fontWeight: 700 }}>{s.ticker}</span>
                   <b style={{ color: c }}>{s.icon} {s.label}</b>
                   {clash && <b style={{ color: s.kind === 'buy' ? TK.red400 : TK.green400, fontSize: 10, borderLeft: `1px solid ${TK.border}`, paddingLeft: 5 }}>{clashTxt}</b>}
@@ -183,7 +184,7 @@ export default function BriefingPage() {
             {buys.map(it => (
               <div key={it.ticker + it.market} style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 13px' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-                  <b style={{ fontSize: 13, color: TK.slate100 }}>{it.market === 'KR' ? '🇰🇷' : '🇺🇸'} {it.name}</b>
+                  <b style={{ fontSize: 13, color: TK.slate100 }}>{flagOf(it.market, it.ticker)} {it.name}</b>
                   <span style={{ fontSize: 10.5, color: TK.sub2 }}>{it.sector}</span>
                   <b style={{ marginLeft: 'auto', fontSize: 15, color: TK.green400, fontFamily: 'monospace' }}>{it.combined}<span style={{ fontSize: 9, color: TK.sub2 }}> 통합</span></b>
                 </div>

@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react'
 import { TK } from '@/lib/theme'
 import type { ExitPlanItem } from '@/lib/exitPlan'
+import { flagOf } from '@/lib/marketFlag'
 
 interface Api { asOf: string; items: ExitPlanItem[]; skipped: string[] }
 
@@ -73,7 +74,7 @@ export default function ExitPlanBoard() {
             return (
               <div key={it.ticker} style={{ borderRadius: 10, background: TK.slate950, border: `1px solid ${it.signals.length >= 2 ? `${TK.amber400}66` : TK.border}`, padding: '10px 12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <b style={{ fontSize: 12, color: TK.slate100 }}>{it.market === 'KR' ? '🇰🇷' : '🇺🇸'} {it.name}</b>
+                  <b style={{ fontSize: 12, color: TK.slate100 }}>{flagOf(it.market, it.ticker)} {it.name}</b>
                   <span style={{ fontSize: 10, color: TK.sub, fontFamily: 'monospace', fontWeight: 700 }}>{it.ticker}</span>
                   <b style={{ fontSize: 11, color: pnlC, fontFamily: 'monospace' }}>{it.pnlPct >= 0 ? '+' : ''}{it.pnlPct}%</b>
                   <span style={{ fontSize: 9.5, color: lightC, border: `1px solid ${lightC}55`, borderRadius: 5, padding: '1px 6px' }}>

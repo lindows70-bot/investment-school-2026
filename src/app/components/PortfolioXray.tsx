@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import type { XrayResult } from '@/app/api/portfolio-xray/route'
 import { TK } from '@/lib/theme'
+import { flagOf } from '@/lib/marketFlag'
 
 const CARD = TK.bg6, BORDER = TK.border
 const SEC_COLOR: Record<string, string> = {
@@ -66,7 +67,8 @@ export default function PortfolioXray() {
                 return (
                   <div key={s.key} style={{ display: 'grid', gridTemplateColumns: 'minmax(110px,1.2fr) 2fr 110px', gap: 8, alignItems: 'center', fontSize: 11.5 }}>
                     <span style={{ display: 'flex', gap: 5, alignItems: 'center', overflow: 'hidden' }}>
-                      <span style={{ fontSize: 9.5 }}>{s.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
+                      {/* XrayStock 엔 ticker 가 없어 key(=티커) 로 국적을 추론한다 */}
+                      <span style={{ fontSize: 9.5 }}>{flagOf(s.market, s.key)}</span>
                       <span style={{ color: TK.slate200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.viaEtfs.length ? `경유: ${s.viaEtfs.join(', ')}` : undefined}>{s.name}</span>
                     </span>
                     <div style={{ height: 9, background: TK.bg3, borderRadius: 4, overflow: 'hidden', display: 'flex' }}>

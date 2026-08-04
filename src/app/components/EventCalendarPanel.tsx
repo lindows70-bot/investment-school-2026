@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react'
 import type { EventCalendarResult, CalEvent } from '@/app/api/event-calendar/route'
 import { TK } from '@/lib/theme'
+import { flagOf } from '@/lib/marketFlag'
 
 const CARD: React.CSSProperties = { background: TK.bg8, borderRadius: 14, padding: '16px 18px', border: `1px solid ${TK.border}` }
 const fmtW = (n: number) => {
@@ -44,7 +45,7 @@ export default function EventCalendarPanel({ compact }: { compact?: boolean }) {
             <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: TK.bg2, border: `1px solid ${m.color}44`, borderRadius: 7, padding: '3px 9px', fontSize: 11, whiteSpace: 'nowrap' }}>
               <b style={{ color: m.color, fontSize: 10 }}>{e.dDay === 0 ? 'TODAY' : `D-${e.dDay}`}</b>
               <span>{m.icon}</span>
-              <b style={{ color: TK.slate200 }}>{e.market === 'KR' ? '🇰🇷' : '🇺🇸'} {e.name}</b>
+              <b style={{ color: TK.slate200 }}>{flagOf(e.market, e.ticker)} {e.name}</b>
               <span style={{ color: TK.sub4, fontSize: 10 }}>{m.label}{fmtPer(e)}</span>
             </span>
           )
@@ -79,7 +80,7 @@ export default function EventCalendarPanel({ compact }: { compact?: boolean }) {
                 <b style={{ color: e.dDay <= 7 ? m.color : TK.sub4, fontSize: 12, fontFamily: 'monospace', minWidth: 52 }}>{e.dDay === 0 ? 'TODAY' : `D-${e.dDay}`}</b>
                 <span style={{ fontSize: 11, color: TK.sub4, fontFamily: 'monospace', minWidth: 44 }}>{e.date.slice(5)}</span>
                 <span>{m.icon}</span>
-                <b style={{ color: TK.slate200, fontSize: 12.5 }}>{e.market === 'KR' ? '🇰🇷' : '🇺🇸'} {e.name}</b>
+                <b style={{ color: TK.slate200, fontSize: 12.5 }}>{flagOf(e.market, e.ticker)} {e.name}</b>
                 <span style={{ color: TK.sub4, fontSize: 11.5 }}>{m.label}{fmtPer(e)}</span>
                 {e.type === 'earnings' && e.dDay <= 7 && <span style={{ marginLeft: 'auto', fontSize: 10, color: TK.amber400 }}>⚠️ 어닝 갭 변동성 주의</span>}
               </div>
@@ -98,7 +99,7 @@ export default function EventCalendarPanel({ compact }: { compact?: boolean }) {
               <tbody>
                 {data.divHoldings.slice(0, 8).map(h => (
                   <tr key={h.ticker} style={{ borderTop: `1px solid ${TK.border}` }}>
-                    <td style={{ padding: '4px 6px', color: TK.slate200, fontWeight: 700 }}>{h.market === 'KR' ? '🇰🇷' : '🇺🇸'} {h.name}</td>
+                    <td style={{ padding: '4px 6px', color: TK.slate200, fontWeight: 700 }}>{flagOf(h.market, h.ticker)} {h.name}</td>
                     <td style={{ padding: '4px 6px', textAlign: 'right', color: TK.sub4 }}>{h.yieldPct != null ? `${h.yieldPct}%` : '—'}</td>
                     <td style={{ padding: '4px 6px', textAlign: 'right', color: TK.green400, fontWeight: 700 }}>{fmtW(h.annualKrw)}</td>
                   </tr>

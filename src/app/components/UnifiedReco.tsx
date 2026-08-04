@@ -9,6 +9,7 @@ import TimingBadge from '@/app/components/TimingBadge'
 import TradePlanCard from '@/app/components/TradePlanCard'
 import { TK } from '@/lib/theme'
 import { marketFlag } from '@/lib/globalTickers'
+import { flagOf } from '@/lib/marketFlag'
 
 const CARD = TK.bg6, BORDER = TK.border
 const AX = { season: TK.amber500, value: TK.green500, quality: '#2dd4bf', supply: TK.blue400, momentum: TK.violet400, rotation: '#f472b6' }  // 가치/퀄리티/모멘텀/주도섹터/수급/계절 축 색
@@ -151,7 +152,7 @@ function Item({ it, portfolioKrw, vol }: { it: UnifiedRecoItem; portfolioKrw: nu
         <div style={{ marginTop: 2, marginBottom: 6, background: etfDrop != null ? 'rgba(251,146,60,0.07)' : 'rgba(56,189,248,0.06)', border: `1px solid ${etfDrop != null ? 'rgba(251,146,60,0.4)' : 'rgba(56,189,248,0.25)'}`, borderRadius: 8, padding: '7px 10px' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
             <span style={{ color: etfDrop != null ? TK.orange400 : TK.blue300, fontWeight: 800, fontSize: 10.5 }}>🔬 ETF 분산 대안{etfDrop != null ? ' — 지금은 대기' : ''}</span>
-            <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 12 }}>{it.etfAlt.market === 'KR' ? '🇰🇷' : '🇺🇸'} {it.etfAlt.name}</span>
+            <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 12 }}>{flagOf(it.etfAlt.market, it.etfAlt.ticker)} {it.etfAlt.name}</span>
             <span style={{ color: TK.sub, fontSize: 10, fontFamily: 'monospace' }}>{it.etfAlt.ticker}</span>
             <span style={{ color: TK.sub, fontSize: 10 }}>· {it.etfAlt.sectorLabel} 섹터 분산</span>
             {it.etfAlt.blendedPeg != null && (
@@ -285,7 +286,7 @@ export default function UnifiedReco() {
               const lightC = w.light === 'green' ? TK.green400 : w.light === 'red' ? TK.red400 : TK.amber400
               return (
                 <div key={`${w.market}-${w.ticker}`} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '6px 9px', borderRadius: 8, background: TK.bg2 }}>
-                  <b style={{ fontSize: 11.5, color: TK.slate200 }}>{w.market === 'KR' ? '🇰🇷' : '🇺🇸'} {w.name}</b>
+                  <b style={{ fontSize: 11.5, color: TK.slate200 }}>{flagOf(w.market, w.ticker)} {w.name}</b>
                   <span style={{ fontSize: 9.5, color: TK.sub, fontFamily: 'monospace', fontWeight: 700 }}>{w.ticker}</span>
                   <span style={{ fontSize: 10, color: TK.sub2 }}>통합 {w.combined}</span>
                   {w.reason === 'drop' ? (

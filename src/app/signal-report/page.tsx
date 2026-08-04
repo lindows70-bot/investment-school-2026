@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react'
 import type { SignalReportResult, GroupStat, SigEvent } from '@/app/api/signal-report/route'
 import { TK } from '@/lib/theme'
+import { flagOf } from '@/lib/marketFlag'
 
 const CARD: React.CSSProperties = { background: TK.bg8, borderRadius: 14, padding: '16px 18px', border: `1px solid ${TK.border}` }
 const pctColor = (r: number | null) => r == null ? TK.sub4 : r >= 0 ? TK.red400 : TK.blue400
@@ -35,7 +36,7 @@ function StockChip({ e, ok }: { e: SigEvent; ok: boolean }) {
         background: ok ? `${TK.green400}14` : `${TK.sub2}18`, border: `1px solid ${ok ? `${TK.green400}44` : TK.border}`,
         borderRadius: 6, padding: '2px 7px',
       }}>
-      <span style={{ fontSize: 9 }}>{e.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
+      <span style={{ fontSize: 9 }}>{flagOf(e.market, e.ticker)}</span>
       <b style={{ color: TK.slate200, maxWidth: 96, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</b>
       {/* 신호일 병기 — 같은 종목이 다른 날 다른 신호로 잡히면(TI 07-22 채점 vs 08-01 대기) 칩과 표가 어긋나 보인다 */}
       <span style={{ color: TK.sub2, fontSize: 9 }}>{e.date.slice(5)}</span>
@@ -120,7 +121,7 @@ function DetailCard({ g }: { g: GroupStat }) {
                   <td style={{ padding: '4px 5px', color: TK.sub4, fontFamily: 'monospace' }}>{e.date.slice(5)}</td>
                   <td style={{ padding: '4px 5px', color: TK.slate200 }}>
                     <span title={ok ? '신호대로 움직임(적중)' : '신호와 반대로 움직임'} style={{ color: ok ? TK.green400 : TK.sub2, marginRight: 3 }}>{ok ? '✓' : '·'}</span>
-                    {e.market === 'KR' ? '🇰🇷' : '🇺🇸'} {e.name}
+                    {flagOf(e.market, e.ticker)} {e.name}
                   </td>
                   <td style={{ padding: '4px 5px', textAlign: 'right', color: pctColor(e.ret30), fontWeight: 700 }}>{fmtPct(e.ret30)}</td>
                   <td style={{ padding: '4px 5px', textAlign: 'right', color: pctColor(e.retNow), fontWeight: 700 }}>{fmtPct(e.retNow)}</td>

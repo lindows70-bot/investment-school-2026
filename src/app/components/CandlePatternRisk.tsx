@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import type { CandlePatternResult } from '@/app/api/candle-pattern/route'
 import { TK } from '@/lib/theme'
+import { flagOf } from '@/lib/marketFlag'
 
 const CARD = TK.bg4, BORDER = TK.line3
 // 양봉(상승)=빨강, 음봉(하락)=파랑 — 앱 기술차트와 동일한 한국식 캔들 색
@@ -75,7 +76,7 @@ export default function CandlePatternRisk() {
           const label = a.pattern === 'bearish' ? '🔻 약세장악형' : a.pattern === 'bullish' ? '🔺 강세장악형' : '— 없음'
           return (
             <div key={a.ticker} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5 }}>
-              <span style={{ width: 130, color: TK.sub11, fontWeight: 700 }}>{a.market === 'KR' ? '🇰🇷' : '🇺🇸'} {a.label}</span>
+              <span style={{ width: 130, color: TK.sub11, fontWeight: 700 }}>{flagOf(a.market, a.ticker)} {a.label}</span>
               <span style={{ color: c, fontWeight: 800, width: 90 }}>{label}</span>
               <span style={{ color: TK.sub2, fontSize: 10 }}>{a.weekOf} 완결주 · O{a.curOpen}→C{a.curClose} (전주 O{a.prevOpen}→C{a.prevClose})</span>
             </div>

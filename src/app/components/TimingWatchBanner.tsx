@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react'
 import type { WatchSig } from '@/app/api/cron/timing-watch/route'
 import { TK } from '@/lib/theme'
+import { flagOf } from '@/lib/marketFlag'
 
 export default function TimingWatchBanner() {
   const [sigs, setSigs] = useState<WatchSig[]>([])
@@ -31,7 +32,7 @@ export default function TimingWatchBanner() {
       : 'Jarvis 펀더멘탈 진단은 매수 기회 — 이 기술 신호는 단기 경계 참고로만(펀더 멀쩡한 하락에 저점 매도 주의)'
     return (
       <span title={clash ? `${s.detail} · ${clashTip}` : s.detail} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: bg, border: `1px solid ${c}55`, borderRadius: 7, padding: '3px 9px', fontSize: 11, whiteSpace: 'nowrap' }}>
-        <b style={{ color: TK.slate200 }}>{s.market === 'KR' ? '🇰🇷' : '🇺🇸'} {s.name}</b>
+        <b style={{ color: TK.slate200 }}>{flagOf(s.market, s.ticker)} {s.name}</b>
         <span style={{ color: TK.sub, fontSize: 10, fontFamily: 'monospace', fontWeight: 700 }}>{s.ticker}</span>
         <b style={{ color: c, fontSize: 10 }}>{s.icon} {s.label}</b>
         {clash && <b style={{ color: s.kind === 'buy' ? TK.red400 : TK.green400, fontSize: 9.5, borderLeft: `1px solid ${TK.border}`, paddingLeft: 5 }}>{clashTxt}</b>}

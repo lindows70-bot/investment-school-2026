@@ -8,6 +8,7 @@ import SignalReader from '@/app/components/SignalReader'
 import { resolveGlobalTicker, GLOBAL_LUXURY, marketLabel } from '@/lib/globalTickers'
 import type { TechCandle } from '@/app/api/tech-chart/route'
 import { TK } from '@/lib/theme'
+import { flagOf } from '@/lib/marketFlag'
 
 interface Holding { ticker: string; name: string; market: 'KR' | 'US'; avgPrice: number | null }
 type TF = 'D' | 'W' | 'M'
@@ -149,7 +150,7 @@ export default function TechChartPage() {
               background: sel?.ticker === h.ticker ? TK.blue700 : TK.bg3,
               color: sel?.ticker === h.ticker ? '#fff' : TK.slate300,
               border: `1px solid ${sel?.ticker === h.ticker ? TK.blue500 : BORDER}`,
-            }}>{h.market === 'KR' ? '🇰🇷' : '🇺🇸'} {h.name}</button>
+            }}>{flagOf(h.market, h.ticker)} {h.name}</button>
           ))}
         </div>
       )}

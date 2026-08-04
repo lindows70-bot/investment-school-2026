@@ -7,6 +7,7 @@ import SectorBadge from '@/app/components/SectorBadge'
 import TimingBadge from '@/app/components/TimingBadge'
 import { TK } from '@/lib/theme'
 import { marketFlag } from '@/lib/globalTickers'   // 시장 국기 SSOT(해외 접미사 인식)
+import { flagOf } from '@/lib/marketFlag'
 
 const CARD = TK.bg6, BORDER = TK.border
 
@@ -198,7 +199,7 @@ export default function QuantBuilderLab() {
         {d.core.map(c => (
           <div key={c.ticker} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderTop: `1px solid ${BORDER}`, fontSize: 11.5, flexWrap: 'wrap' }}>
             <span style={{ background: 'rgba(34,211,238,0.12)', color: TK.cyan400, border: '1px solid rgba(34,211,238,0.4)', borderRadius: 5, padding: '1px 7px', fontSize: 9.5, fontWeight: 800 }}>CORE</span>
-            <span>{c.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
+            <span>{flagOf(c.market, c.ticker)}</span>
             <span style={{ color: TK.slate200, fontWeight: 700 }}>{c.ticker}</span>
             <span style={{ color: TK.sub, fontSize: 10.5 }}>{c.name} · {c.role}</span>
             {/* ⛔ 코어 ETF엔 '추격주의'를 붙이지 않는다 — 광의 지수는 **적립 대상**이지 타이밍 대상이 아니다.

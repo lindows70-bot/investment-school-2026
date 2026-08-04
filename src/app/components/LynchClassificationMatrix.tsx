@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
 import type { LynchMatrixResult } from '@/app/api/lynch-matrix/route'
 import { TK } from '@/lib/theme'
+import { flagOf } from '@/lib/marketFlag'
 
 const CARD = TK.bg6, BORDER = TK.border
 
@@ -121,7 +122,7 @@ export default function LynchClassificationMatrix() {
                     <div style={{ color: TK.sub8, fontSize: 10, lineHeight: 1.55, marginBottom: 6 }}>{CAT_DESC[c.key]}</div>
                     {c.items.map(it => (
                       <div key={it.ticker} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '3px 0', fontSize: 10.5, borderTop: `1px solid ${BORDER}` }}>
-                        <span>{it.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
+                        <span>{flagOf(it.market, it.ticker)}</span>
                         <span style={{ color: TK.slate300, fontWeight: 600 }}>{it.name}</span>
                         {it.trap && <span style={{ color: TK.red400, fontWeight: 700 }}>⚠️ 기저효과</span>}
                         {it.source === 'user' && <span style={{ color: TK.sub, fontSize: 9 }}>내 지정</span>}

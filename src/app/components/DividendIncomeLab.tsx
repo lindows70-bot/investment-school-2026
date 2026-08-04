@@ -11,6 +11,7 @@ import { DIVIDEND_UNIVERSE, BUCKET_META, DIV_TEMPLATES, type DivBucket } from '@
 import { ULTRA_RISKS, ULTRA_UNIVERSE } from '@/lib/ultraDividendUniverse'
 import type { UltraDividendData, UltraDividendItem } from '@/app/api/ultra-dividend/route'
 import { TK } from '@/lib/theme'
+import { flagOf } from '@/lib/marketFlag'
 
 const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
 const C = {
@@ -481,7 +482,7 @@ export default function DividendIncomeLab({ onHoldingsChange }: { onHoldingsChan
                   return (
                     <button key={u.ticker} disabled={held} onClick={() => addHold(u.ticker)} title={u.note}
                       style={{ width: 148, textAlign: 'left', padding: '8px 10px', borderRadius: 9, border: `1px solid ${held ? C.border : meta.color + '44'}`, background: held ? 'transparent' : C.card, opacity: held ? 0.4 : 1, cursor: held ? 'default' : 'pointer' }}>
-                      <div style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{(p?.name || u.ticker).slice(0, 12)} {u.market === 'KR' ? '🇰🇷' : '🇺🇸'}</div>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{(p?.name || u.ticker).slice(0, 12)} {flagOf(u.market, u.ticker)}</div>
                       <div style={{ fontSize: 10, fontFamily: 'monospace', color: addBucket === 'ultra' ? C.red : C.green }}>{p?.dividendYield != null ? (p.dividendYield * 100).toFixed(1) + '%' : '—'}
                         {est && <span style={{ color: C.red, marginLeft: 3 }}>목표</span>}
                         {p?.dividendGrade && <span style={{ marginLeft: 5 }}>{GRADE_EMOJI[p.dividendGrade]}</span>}
@@ -505,7 +506,7 @@ export default function DividendIncomeLab({ onHoldingsChange }: { onHoldingsChan
               <div key={p.ticker} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, background: C.card2, border: `1px solid ${C.border}`, flexWrap: 'wrap' }}>
                 <div style={{ minWidth: 150, flex: '1 1 150px' }}>
                   <div style={{ fontSize: 12.5, fontWeight: 800 }}>
-                    {p.name.slice(0, 16)} {p.market === 'KR' ? '🇰🇷' : '🇺🇸'}
+                    {p.name.slice(0, 16)} {flagOf(p.market, p.ticker)}
                     {p.dividendGrade && <span title={p.dividendGrade} style={{ marginLeft: 5 }}>{GRADE_EMOJI[p.dividendGrade]}</span>}
                     {p.isTrapWarning && <span title={p.trapReasons.join(', ')} style={{ marginLeft: 5, color: C.orange }}>⚠️</span>}
                   </div>

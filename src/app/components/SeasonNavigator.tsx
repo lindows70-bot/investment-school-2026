@@ -8,6 +8,7 @@ import JuglarCapexTracker from '@/app/components/JuglarCapexTracker'
 import CandlePatternRisk from '@/app/components/CandlePatternRisk'
 import ElliottWaveEducation from '@/app/components/ElliottWaveEducation'
 import { TK } from '@/lib/theme'
+import { flagOf } from '@/lib/marketFlag'
 
 const CARD = TK.bg6, BORDER = TK.border
 // 🛒 매수 후보 테이블 — 퀀트 4축(린치·PEG·영업이익률·FCF) 노출용 그리드·린치 분류 축약 라벨
@@ -289,7 +290,7 @@ export default function SeasonNavigator() {
             return (
               <div key={h.ticker} style={{ display: 'grid', gridTemplateColumns: 'minmax(120px,1.4fr) 56px 1fr 52px', gap: 8, alignItems: 'center', fontSize: 11.5 }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden' }}>
-                  <span style={{ fontSize: 10 }}>{h.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
+                  <span style={{ fontSize: 10 }}>{flagOf(h.market, h.ticker)}</span>
                   <span style={{ color: TK.slate200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</span>
                   {h.isEtf && <span style={{ background: 'rgba(34,211,238,0.12)', color: TK.cyan400, border: `1px solid ${TK.cyan400}44`, borderRadius: 5, padding: '0 5px', fontSize: 9, fontWeight: 700, flexShrink: 0 }}>📦 ETF</span>}
                 </span>
@@ -359,7 +360,7 @@ export default function SeasonNavigator() {
               return (
                 <div key={c.ticker} style={{ display: 'grid', gridTemplateColumns: COLS, gap: 8, alignItems: 'center', fontSize: 11.5 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden' }}>
-                    <span style={{ fontSize: 10 }}>{c.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
+                    <span style={{ fontSize: 10 }}>{flagOf(c.market, c.ticker)}</span>
                     <span style={{ color: TK.slate200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
                   </span>
                   <span style={{ color: TK.sub, fontSize: 10.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.sector}</span>

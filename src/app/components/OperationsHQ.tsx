@@ -7,6 +7,7 @@ import PortfolioXray from '@/app/components/PortfolioXray'
 import LynchClassificationMatrix from '@/app/components/LynchClassificationMatrix'
 import MorningstarRatings from '@/app/components/MorningstarRatings'
 import { TK } from '@/lib/theme'
+import { flagOf } from '@/lib/marketFlag'
 
 const CARD = TK.bg6, BORDER = TK.border
 
@@ -140,7 +141,7 @@ export default function OperationsHQ() {
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {mismatch.slice(0, 6).map(h => (
                     <span key={h.ticker} style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 6, padding: '2px 8px', fontSize: 10.5, color: TK.slate300 }}>
-                      {h.market === 'KR' ? '🇰🇷' : '🇺🇸'} {h.name} <span style={{ color: TK.sub }}>{h.weight}% · 적합 {Math.round(h.fit * 100)}</span>
+                      {flagOf(h.market, h.ticker)} {h.name} <span style={{ color: TK.sub }}>{h.weight}% · 적합 {Math.round(h.fit * 100)}</span>
                     </span>
                   ))}
                 </div>
