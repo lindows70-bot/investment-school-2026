@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
   const bodyOf = (d: EarningsReportDoc) => d.exhibits.map(e => e.text).join(' ')
   const flagged = new Map(docs.map(d => [
     d.doc.ticker,
-    [...summaryIssues(d.doc.summary), ...amountIssues(d.doc.summary, bodyOf(d.doc))],
+    [...summaryIssues(d.doc.summary, bodyOf(d.doc)), ...amountIssues(d.doc.summary, bodyOf(d.doc))],
   ]))
   const needSummary = docs
     .filter(d => !d.doc.summary || force.has(d.doc.ticker) || (flagged.get(d.doc.ticker)?.length ?? 0) > 0)
@@ -131,7 +131,7 @@ export async function GET(req: NextRequest) {
     withSummary: rows.filter(r => r.hasSummary).length,
     // 이번 실행 뒤에도 품질 검사에 걸리는 것(다음 실행이 다시 시도한다)
     stillFlagged: docs
-      .map(d => ({ t: d.doc.ticker, i: [...summaryIssues(d.doc.summary), ...amountIssues(d.doc.summary, bodyOf(d.doc))] }))
+      .map(d => ({ t: d.doc.ticker, i: [...summaryIssues(d.doc.summary, bodyOf(d.doc)), ...amountIssues(d.doc.summary, bodyOf(d.doc))] }))
       .filter(x => x.i.length > 0).map(x => `${x.t}:${x.i.join('/')}`),
     indexWritten: enough,
     elapsedMs: Date.now() - started,

@@ -275,6 +275,15 @@ export async function summarizeReport(doc: EarningsReportDoc): Promise<ErSummary
     .map(e => `[${e.type} · ${e.file}]\n${e.text}`)
     .join('\n\n---\n\n'))
 
+  // 🧷 금액 그라운딩 — 원문의 서술형 달러 금액을 기계 추출해 프롬프트에 목록으로 박는다.
+  //    경고 문구만으론 자릿수 오독이 반복됐다(TEM $1.605B→"16억 5,000만"·COHR $1.81B→"18억 5,600만" 실사고).
+  const statedStrs = statedAmountStrings(body)
+  const grounding = statedStrs.length === 0 ? '' : `
+⚠️ 원문 명시 금액 목록(기계 추출): ${statedStrs.join(' · ')}
+  서술형 달러 금액을 요약에 쓸 때 이 목록에 같은 금액이 있으면 **그 값과 자릿수까지 일치**해야 한다.
+  소수 셋째 자리까지 그대로 읽어라: $1.605 billion = 16억 500만 달러("16억 5,000만"은 $1.65 billion — 다른 금액이다) / $1.81B = 18억 1,000만 달러.
+  목록에 없는 서술형 금액을 만들지 마라(표에서 읽은 수치는 표의 숫자를 그대로 옮기는 것만 허용).`
+
   const prompt = `너는 투자 교육 앱의 애널리스트다. 아래는 ${doc.name}(${doc.ticker})가 ${doc.filedAt}에 미국 증권거래위원회(SEC)에 8-K로 제출한 실적 발표 원문이다(EX-99 첨부).
 학생이 이해할 수 있는 한국어로 구조화해 요약하라.
 
@@ -288,6 +297,7 @@ export async function summarizeReport(doc: EarningsReportDoc): Promise<ErSummary
   ⛔ 자릿수 실수 주의 — 1 billion = 10억이다: $13 billion → 130억 달러("13억" 금지) / $300 million → 3억 달러("300만" 금지) / $977 million → 9억 7,700만 달러.
   ⛔ 자기교정 문구 금지 — "977억 달러가 아니라 9억 7,700만 달러로"·"3억 5,100만 달러가 아닌 주당 3.51달러" 같은 문장을 쓰지 마라. 틀린 값을 언급하지 말고 **맞는 값만** 한 번 쓴다.
   ⛔ 범위(가감) 표기 — "$8.10 billion +/- $400 million" → "81억 달러에서 4억 달러를 가감한 수준"(± 뒤 숫자는 가감 폭이지 범위 하한이 아니다).
+  ⛔ 주당(per share) 금액은 총액이 아니다 — EPS 가이던스 "$35.50 to $36.50"는 "주당 35.50~36.50달러"로 쓴다("35억 5,000만 달러" 금지 — 주당 금액을 억·만 단위 총액으로 바꾸면 완전히 다른 숫자가 된다).
 - 문장은 '~했다·~이다' 평서형으로 끝낸다('~습니다' 같은 높임 종결은 쓰지 마라).
 - 원문에 없는 숫자·사실·기업명·계약을 절대 만들지 마라. 모든 수치는 원문에 있는 것만 인용한다.
 - 가이던스(다음 분기·연간 전망)가 원문에 없으면 guidance는 정확히 "원문에 제시 없음"이라고 쓴다.
@@ -329,6 +339,7 @@ export async function summarizeReport(doc: EarningsReportDoc): Promise<ErSummary
 - tone: ⚠️ 실적 보도자료는 원래 대부분 낙관적으로 쓰인다. 그 점을 감안해 **같은 종류의 문서들 사이에서 상대적으로** 판정하라.
   성과를 앞세우고 전망도 자신 있으면 positive / 성과는 알리되 비용·수요·불확실성을 눈에 띄게 언급하면 neutral /
   감익·수요 둔화·구조조정·가이던스 하향처럼 경계 신호를 스스로 강조하면 cautious
+${grounding}
 
 [원문]
 ${body}`
@@ -368,7 +379,7 @@ function ko(v: unknown): string {
 /** 요약 품질 검사 — 프롬프트만으로는 새는 유형을 기계적으로 잡는다(재요약 대상 선별용).
  *  ⚠️ 실제 사고 사례: 숫자 한글 풀어쓰기가 JNJ에서 '$25.3 Billion → 이십오조 삼백십억 달러'(1,000배)로,
  *     TXN에서 '$2.14 → 2원 14센트'(통화 뒤바뀜)로 번졌다. 문체 문제가 아니라 수치 오류가 된다. */
-export function summaryIssues(s: ErSummary | null): string[] {
+export function summaryIssues(s: ErSummary | null, body?: string): string[] {
   if (!s) return ['no_summary']
   const all = [s.headline, s.guidance, ...s.performance, ...s.segments, ...s.risks].join(' ')
   const nums = [s.revenue, s.opIncome, s.eps].join(' ')   // 표에 줄 세우는 칸만 표기 규칙을 강제한다
@@ -380,7 +391,11 @@ export function summaryIssues(s: ErSummary | null): string[] {
   if (/[일이삼사오육칠팔구십백천만억조점공]{3,}\s*(퍼센트|달러)/.test(all)) out.push('한글숫자')
   if (/\d+\s*원\b|원\s*\d+\s*센트/.test(all)) out.push('통화오류')
   // 비교 표를 줄 세우는 칸 — 없으면 '나란히 보기'로 되돌아간다. 크론이 알아서 다시 요약한다
-  if (!s.revenue || !s.period) out.push('정량필드')
+  // ⚠️ 단, 원문(8-K)이 실적 발표가 아니라 매출 수치 자체가 없으면 빈칸이 정직하다 — 재요약 트리거로 두면
+  //    매일 헛되이 호출한다(PLUG·OXY 실측: 보유 종목 수집분의 비실적 8-K). 영업이익과 같은 원칙.
+  //    단어만 검사하면 OXY의 법정 boilerplate("projections of earnings, revenue or ...")에 걸린다 — 80자 안에 숫자·$가 붙어야 매출 수치다.
+  const bodyHasRevenue = body == null || /(?:revenues?|net sales)[^]{0,80}?[\d$]|[\d$][^]{0,80}?(?:revenues?|net sales)/i.test(body)
+  if ((!s.revenue && bodyHasRevenue) || !s.period) out.push('정량필드')
   // ⚠️ 영업이익 누락은 재요약 대상이 아니다 — 은행(WFC)·제약(MRK)은 **원문에 영업이익 표기가 없어**
   //    다시 요약해도 영원히 채워지지 않는다. 트리거로 두면 매일 헛되이 호출한다(정직하게 빈칸으로 둔다).
   // '9천6백만' 같은 표기 — 다른 카드는 '1,700만'이라 한 표에서 자릿수가 어긋난다(정량 칸만 검사)
@@ -447,7 +462,7 @@ function appearsInSource(n: number, body: string): boolean {
  *  META 가이던스가 이 표기라 610억·640억이 둘 다 정당한 값이다. */
 function statedDollarAmounts(body: string): number[] {
   const out: number[] = []
-  const unit = (u: string) => /trillion/i.test(u) ? 1e12 : /billion/i.test(u) ? 1e9 : 1e6
+  const unit = (u: string) => /^t/i.test(u) ? 1e12 : /^b/i.test(u) ? 1e9 : 1e6
   for (const m of Array.from(body.matchAll(/\$\s?([\d,]+(?:\.\d+)?)(?:\s*(?:-|–|to)\s*\$?\s?([\d,]+(?:\.\d+)?))?\s*(billion|million|trillion)/gi))) {
     const u = unit(m[3])
     for (const g of [m[1], m[2]]) {
@@ -456,7 +471,22 @@ function statedDollarAmounts(body: string): number[] {
       if (isFinite(v) && v > 0) out.push(v * u)
     }
   }
+  // 축약 표기 — "REVENUE OF $1.81B"(COHR 실측) 같은 $X.XB/$XM/$XT 도 명시 금액이다(대문자만 — $5b 소문자는 오탐 위험)
+  for (const m of Array.from(body.matchAll(/\$\s?([\d,]+(?:\.\d+)?)\s*([BMT])\b/g))) {
+    const v = parseFloat(m[1].replace(/,/g, ''))
+    if (isFinite(v) && v > 0) out.push(v * unit(m[2]))
+  }
   return out
+}
+
+/** 원문의 서술형 달러 금액을 원문 표기 그대로 수집 — 요약 프롬프트 그라운딩용(중복 제거·상한 40) */
+function statedAmountStrings(body: string): string[] {
+  const seen = new Set<string>()
+  for (const m of Array.from(body.matchAll(/\$\s?[\d,]+(?:\.\d+)?\s*(?:billion|million|trillion|[BMT]\b)/g))) {
+    seen.add(m[0].replace(/\s+/g, ' ').trim())
+    if (seen.size >= 40) break
+  }
+  return Array.from(seen)
 }
 
 /** 자유 서식 문장 속 '…억/만 달러' 금액이 원문과 자릿수까지 맞는지 */
