@@ -285,6 +285,9 @@ export async function summarizeReport(doc: EarningsReportDoc): Promise<ErSummary
   단위 낱말(만·억·조·퍼센트)만 한글로 쓰고, 万·亿 같은 중국어 한자는 쓰지 마라.
 - **금액은 원문 통화 그대로 쓴다(미국 기업이므로 달러).** 원·엔 등 다른 통화로 바꾸지 마라.
   달러 금액은 원문 표기를 한국식 자릿수로만 옮긴다: $25.3 Billion → 253억 달러 / $5.46 billion → 54억 6천만 달러.
+  ⛔ 자릿수 실수 주의 — 1 billion = 10억이다: $13 billion → 130억 달러("13억" 금지) / $300 million → 3억 달러("300만" 금지) / $977 million → 9억 7,700만 달러.
+  ⛔ 자기교정 문구 금지 — "977억 달러가 아니라 9억 7,700만 달러로"·"3억 5,100만 달러가 아닌 주당 3.51달러" 같은 문장을 쓰지 마라. 틀린 값을 언급하지 말고 **맞는 값만** 한 번 쓴다.
+  ⛔ 범위(가감) 표기 — "$8.10 billion +/- $400 million" → "81억 달러에서 4억 달러를 가감한 수준"(± 뒤 숫자는 가감 폭이지 범위 하한이 아니다).
 - 문장은 '~했다·~이다' 평서형으로 끝낸다('~습니다' 같은 높임 종결은 쓰지 마라).
 - 원문에 없는 숫자·사실·기업명·계약을 절대 만들지 마라. 모든 수치는 원문에 있는 것만 인용한다.
 - 가이던스(다음 분기·연간 전망)가 원문에 없으면 guidance는 정확히 "원문에 제시 없음"이라고 쓴다.
@@ -419,6 +422,17 @@ function appearsInSource(n: number, body: string): boolean {
     if (new RegExp(`\\$\\s?${s}(?!\\d)`).test(body)) return true          // "$9.3"
     if (new RegExp(`${s}\\s*billion`, 'i').test(body)) return true        // "9.3 billion"
   }
+  // 정수 십억 — "guidance of $61 billion"(META)·"$148 billion"(MS)처럼 소수 없이 적는 표기.
+  // ⚠️ billion 문맥을 반드시 요구한다 — 맨 "$61"은 주가·EPS 에 걸려 검사가 무력해진다.
+  if (Number.isInteger(Math.round(b * 10) / 10) || Math.abs(b - Math.round(b)) < 0.05) {
+    if (new RegExp(`\\$?\\s?${Math.round(b)}\\s*billion`, 'i').test(body)) return true
+  }
+  // 조 단위 — "$10 trillion"(MS 고객자산)·"$2.9 trillion"(MA 거래금액)
+  const t = n / 1e12
+  for (const d of [0, 1, 2]) {
+    const s = t.toFixed(d).replace('.', '\\.')
+    if (new RegExp(`\\$?\\s?${s}\\s*trillion`, 'i').test(body)) return true
+  }
   return false
 }
 
@@ -428,6 +442,42 @@ function appearsInSource(n: number, body: string): boolean {
  *        오차가 0.01%대라 값 대조로는 절대 잡히지 않는 유형이라 자릿수 자체를 본다.
  *        ⚠️ 백만 정수성으로 판정하면 천 달러 단위까지 공시하는 회사(KLA 36억 5,755만·넷플릭스 125억 5,993만)를 오탐한다.
  *  ② 원문 실재 — 연간·분기 혼용이나 다른 줄(기타수익 포함 합계)을 가져온 경우를 잡는다. */
+/** 원문에 '$X billion / $X million / $X trillion' 으로 명시된 달러 금액 목록.
+ *  범위 표기("$61-64 billion" · "$61 billion to $64 billion")는 양끝 값을 모두 담는다 —
+ *  META 가이던스가 이 표기라 610억·640억이 둘 다 정당한 값이다. */
+function statedDollarAmounts(body: string): number[] {
+  const out: number[] = []
+  const unit = (u: string) => /trillion/i.test(u) ? 1e12 : /billion/i.test(u) ? 1e9 : 1e6
+  for (const m of Array.from(body.matchAll(/\$\s?([\d,]+(?:\.\d+)?)(?:\s*(?:-|–|to)\s*\$?\s?([\d,]+(?:\.\d+)?))?\s*(billion|million|trillion)/gi))) {
+    const u = unit(m[3])
+    for (const g of [m[1], m[2]]) {
+      if (!g) continue
+      const v = parseFloat(g.replace(/,/g, ''))
+      if (isFinite(v) && v > 0) out.push(v * u)
+    }
+  }
+  return out
+}
+
+/** 자유 서식 문장 속 '…억/만 달러' 금액이 원문과 자릿수까지 맞는지 */
+function freeTextAmountIssues(label: string, text: string | null | undefined, body: string, stated: number[]): string[] {
+  if (!text || !body) return []
+  const out: string[] = []
+  for (const m of Array.from(text.matchAll(/((?:[\d,.]+\s*조\s*)?(?:[\d,.]+\s*억\s*)?(?:[\d,.]+\s*만\s*)?)달러/g))) {
+    const phrase = m[1].trim()
+    if (!phrase) continue                       // "2.14달러"(주당) 같은 단위 없는 금액은 대상 아님
+    const n = parseKoAmount(phrase)
+    if (n == null || n < 1e6) continue
+    // ① 표·백만 단위 표기로 원문에 존재하는가 ($10M 미만은 appearsInSource 가 너무 느슨해 제외)
+    if (n >= 1e7 && appearsInSource(n, body)) continue
+    // ② '$X billion/million' 명시 문장과 상대오차 1% 이내인가
+    if (stated.some(d => Math.abs(n - d) / d <= 0.01)) continue
+    // 둘 다 아니면 자릿수가 틀렸을 가능성이 크다 — AMD "$13 billion→13억"(×1/10)·"$300 million→300만"(×1/100) 실사고
+    out.push(`금액틀림:${label}`)
+  }
+  return out
+}
+
 export function amountIssues(s: ErSummary | null, body: string): string[] {
   if (!s) return []
   const out: string[] = []
@@ -439,7 +489,14 @@ export function amountIssues(s: ErSummary | null, body: string): string[] {
     if (man > 0 && man < 100) { out.push(`자릿수:${label}`); continue }
     if (body && !appearsInSource(n, body)) out.push(`금액틀림:${label}`)
   }
-  return out
+  // ── 자유 서식 필드(가이던스·실적·부문)의 달러 금액도 검산한다 ────────────────
+  // ⚠️ 매출·영업이익 두 필드만 검사하던 시절, 가이던스의 "$13 billion → 13억 달러"(×1/10)와
+  //    "$300 million → 300만 달러"(×1/100)가 걸리지 않고 화면까지 나갔다(AMD 실사고).
+  const stated = statedDollarAmounts(body)
+  out.push(...freeTextAmountIssues('가이던스', s.guidance, body, stated))
+  for (const p of s.performance ?? []) out.push(...freeTextAmountIssues('실적', p, body, stated))
+  for (const g of s.segments ?? []) out.push(...freeTextAmountIssues('부문', g, body, stated))
+  return Array.from(new Set(out))
 }
 
 /** 요약을 doc에 얹어 캐시에 되쓴다 */

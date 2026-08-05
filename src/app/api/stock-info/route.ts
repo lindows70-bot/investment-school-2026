@@ -854,11 +854,19 @@ async function usInfo(ticker: string): Promise<StockInfo> {
     const pbrStr = getItem('pbr')
     const pbrVal = pbrStr ? parseNum(pbrStr) : null
 
-    // 시총: USD 백만 단위로 환산 (거친 추정)
+    // 시총 — 네이버 해외주식 marketValue 는 "1조 6,521억 USD" 처럼 **이미 USD** 를 한국 단위로 표기한다.
+    // ⚠️ 예전엔 숫자를 전부 이어붙여(16521) KRW 로 가정하고 ÷1,350 해서, SPCX 가 $12.2조
+    //    (실제 $1.65T), NVDA 가 $38조(실제 $5.1T)로 나왔다 — 조·억을 자릿수대로 합산해야 한다.
     let marketCap: number | null = null
-    if (mcStr && mcStr.includes('조')) {
-      const m = parseNum(mcStr.replace(/[^0-9.]/g,''))
-      if (m) marketCap = m * 1e12 / 1350   // KRW 표기 → USD 추정
+    if (mcStr) {
+      let v = 0, matched = false
+      const jo  = mcStr.match(/([\d,.]+)\s*조/)
+      const eok = mcStr.match(/([\d,.]+)\s*억/)
+      const man = mcStr.match(/([\d,.]+)\s*만/)
+      if (jo)  { v += parseFloat(jo[1].replace(/,/g, ''))  * 1e12; matched = true }
+      if (eok) { v += parseFloat(eok[1].replace(/,/g, '')) * 1e8;  matched = true }
+      if (man) { v += parseFloat(man[1].replace(/,/g, '')) * 1e4;  matched = true }
+      if (matched && isFinite(v) && v > 0) marketCap = v   // USD 그대로 — 환산하지 않는다
     }
 
     let earningsGrowth: number | null = null

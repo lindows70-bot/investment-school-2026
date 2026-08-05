@@ -2,7 +2,9 @@
 //   수집(SEC)은 가볍고(50종 ~75초) Gemini 요약이 병목(무료 한도) → 요약은 매 실행 N개씩 분산.
 //   같은 분기(accession 동일)면 재수집·재요약 안 하므로 평시엔 신규 발표분만 처리된다.
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getCache, setCache } from '@/lib/appCache'
+import { getAssetType } from '@/lib/assetClassifier'
 import { UNIVERSE_KEY, type ScreenedStock } from '@/lib/macroPhaseScreener'
 import {
   getCikMap, collectReport, summarizeReport, attachSummary, toIndexRow, sleep, summaryIssues, amountIssues,
@@ -58,6 +60,31 @@ export async function GET(req: NextRequest) {
     await sleep(250)
   }
 
+  // ②-b 학생 보유 미국 개별주 — 시총 순위와 무관하게 **항상** 수집한다.
+  //  ⚠️ "시총 상위 50"만 훑으면 유니버스에 아직 없는 신규 상장사가 8-K 를 내도 조용히 빠진다.
+  //     실사고: SPCX(26-06-12 상장)가 26-08-04 에 8-K Item 2.02 를 제출했는데, 유니버스에
+  //     미등재라 스캔 대상조차 아니었다. 학생이 가진 종목의 실적이 가장 먼저 필요한 정보다.
+  let heldAdded = 0
+  try {
+    const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+    const { data: held } = await admin.from('investments')
+      .select('ticker,name,market,currency').eq('market', 'US')
+    const collected = new Set(docs.map(d => d.doc.ticker.toUpperCase()))
+    const heldTickers = Array.from(new Map((held ?? [])
+      .filter(h => h.currency === 'USD' && !h.ticker.includes('.')
+        && getAssetType(h.ticker, h.name ?? '', 'US') === 'STOCK'
+        && !collected.has(h.ticker.toUpperCase()))
+      .map(h => [h.ticker.toUpperCase(), h])).values())
+    for (const h of heldTickers) {
+      if (Date.now() - started > 220_000) break
+      try {
+        const doc = await collectReport(h.ticker.toUpperCase(), h.name ?? h.ticker, cikMap)
+        if (doc) { docs.push({ doc, cap: null }); heldAdded++ }
+      } catch { /* 8-K 미제출·CIK 없음 — 건너뜀 */ }
+      await sleep(250)
+    }
+  } catch { /* 보유 종목 조회 실패 시 상위 50 만으로 진행 */ }
+
   // ③ 요약 없는 것부터 N개(최신 발표 우선 — 학생이 먼저 볼 것)
   //    ?force=NVDA,CVX 면 이미 요약된 종목도 다시 요약한다(프롬프트 수정 후 재생성용)
   const force = new Set(
@@ -99,7 +126,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     poolSize: pool.length,
-    scanned, collected: docs.length, failed,
+    scanned, collected: docs.length, failed, heldAdded,
     summarized, summaryFailed,
     withSummary: rows.filter(r => r.hasSummary).length,
     // 이번 실행 뒤에도 품질 검사에 걸리는 것(다음 실행이 다시 시도한다)
