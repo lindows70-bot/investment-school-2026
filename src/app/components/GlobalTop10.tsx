@@ -5,7 +5,7 @@ import type { GlobalTop10Result, TopEntry } from '@/app/api/global-top10/route'
 import { TK } from '@/lib/theme'
 
 const BORDER = TK.border
-const LYNCH_COLOR: Record<string, string> = { '빠른성장주': TK.green500, '대형우량주': TK.blue500, '경기순환주': TK.amber500, '저성장주': TK.sub, '회생주': TK.red500, '자산주': TK.purple400 }
+const LYNCH_COLOR: Record<string, string> = { '고성장주': TK.green500, '대형우량주': TK.blue500, '경기순환주': TK.amber500, '저성장주': TK.sub, '회생주': TK.red500, '자산주': TK.purple400 }
 const medal = (r: number) => r === 1 ? '🥇' : r === 2 ? '🥈' : r === 3 ? '🥉' : `${r}`
 
 const fmtKrw = (v: number) => {

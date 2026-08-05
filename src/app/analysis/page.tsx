@@ -48,7 +48,7 @@ const USD_KRW_FALLBACK = 1_350
 const LYNCH_META: Record<string,{ label:string; color:string; moat:string; buffett:number }> = {
   slow_grower: { label:'저성장주', color:TK.sub9, moat:'배당형 해자',   buffett:65 },
   stalwart:    { label:'대형 우량주',   color:TK.blue400, moat:'브랜드 해자',   buffett:82 },
-  fast_grower: { label:'빠른 성장주',   color:TK.emerald400, moat:'성장 해자',     buffett:70 },
+  fast_grower: { label:'고성장주',   color:TK.emerald400, moat:'성장 해자',     buffett:70 },
   cyclical:    { label:'경기 순환주',   color:TK.orange400, moat:'해자 약함',     buffett:40 },
   turnaround:  { label:'회생 기업주',   color:TK.red400, moat:'회복 중',       buffett:35 },
   asset_play:  { label:'자산 보유주',   color:TK.purple400, moat:'자산 해자',     buffett:75 },

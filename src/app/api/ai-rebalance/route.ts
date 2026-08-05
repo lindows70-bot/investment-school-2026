@@ -43,7 +43,7 @@ const IDEAL_RATIOS: Record<string, number> = {
   stalwart: 35, fast_grower: 30, cyclical: 20, turnaround: 10, asset_play: 5, slow_grower: 0,
 }
 const CAT_KR: Record<string, string> = {
-  stalwart: '대형우량주', fast_grower: '빠른성장주', cyclical: '경기순환주',
+  stalwart: '대형우량주', fast_grower: '고성장주', cyclical: '경기순환주',
   turnaround: '회생주', asset_play: '자산주', slow_grower: '저성장주',
 }
 

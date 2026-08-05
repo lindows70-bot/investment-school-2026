@@ -37,7 +37,7 @@ interface Props {
 // ── 피터 린치의 이상적 포트폴리오 권장 비중 (%) ────────────────────────────────
 const IDEAL_RATIOS = {
   stalwart:    35,   // 대형 우량주 — 안전판·하방 경직성
-  fast_grower: 30,   // 빠른 성장주 — 알파 창출의 핵심
+  fast_grower: 30,   // 고성장주 — 알파 창출의 핵심
   cyclical:    20,   // 경기 순환주 — 사이클 타이밍 투자
   turnaround:  10,   // 회생주 — 하이리스크 하이리턴
   asset_play:  5,    // 자산 보유주 — 숨겨진 가치
@@ -46,7 +46,7 @@ const IDEAL_RATIOS = {
 
 const CATEGORY_LABELS: Record<string, string> = {
   stalwart:    '대형 우량주',
-  fast_grower: '빠른 성장주',
+  fast_grower: '고성장주',
   cyclical:    '경기 순환주',
   turnaround:  '회생주',
   asset_play:  '자산 보유주',
@@ -118,8 +118,8 @@ export default function PortfolioBalanceRadar({ investments, usdKrw = 1350 }: Pr
     const sorted = [...chartData].sort((a, b) => b.myRatio - a.myRatio)
     const top = sorted[0]
 
-    if (top.subject === '빠른 성장주' && top.myRatio > 50)
-      return { icon: '💡', color: TK.amber400, text: '빠른 성장주 비중이 매우 높습니다. 공격적 알파 창출엔 좋지만 하락장 방어력이 약할 수 있으니, 대형 우량주 비중 확대를 고려해 보세요.' }
+    if (top.subject === '고성장주' && top.myRatio > 50)
+      return { icon: '💡', color: TK.amber400, text: '고성장주 비중이 매우 높습니다. 공격적 알파 창출엔 좋지만 하락장 방어력이 약할 수 있으니, 대형 우량주 비중 확대를 고려해 보세요.' }
     if (top.subject === '경기 순환주' && top.myRatio > 40)
       return { icon: '⚠️', color: TK.orange400, text: '경기 순환주 비중이 높습니다. 산업 사이클 고점에서 매도 타이밍을 놓치지 않도록 각별한 주의가 필요합니다.' }
     if (top.subject === '저성장주' && top.myRatio > 20)
@@ -274,7 +274,7 @@ export default function PortfolioBalanceRadar({ investments, usdKrw = 1350 }: Pr
         display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px,1fr))', gap: 8,
       }}>
         <div><strong style={{ color: TK.blue400 }}>대형우량주 35%</strong> — 안전판·하방 경직성</div>
-        <div><strong style={{ color: TK.emerald400 }}>빠른성장주 30%</strong> — 알파 창출 핵심</div>
+        <div><strong style={{ color: TK.emerald400 }}>고성장주 30%</strong> — 알파 창출 핵심</div>
         <div><strong style={{ color: TK.orange400 }}>경기순환주 20%</strong> — 사이클 타이밍</div>
         <div><strong style={{ color: TK.red400 }}>회생주 10%</strong> — 하이리스크 하이리턴</div>
         <div><strong style={{ color: TK.purple400 }}>자산보유주 5%</strong> — 숨겨진 가치</div>

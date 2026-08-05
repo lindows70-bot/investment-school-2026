@@ -36,7 +36,7 @@ type AssetRole = 'CORE' | 'SATELLITE'
 
 // 린치 6대 분류 한글 라벨 (스냅샷 표시용)
 const LYNCH_KR: Record<string, string> = {
-  slow_grower: '저성장주', stalwart: '대형 우량주', fast_grower: '빠른 성장주',
+  slow_grower: '저성장주', stalwart: '대형 우량주', fast_grower: '고성장주',
   cyclical: '경기 순환주', turnaround: '회생주', asset_play: '자산 보유주', na: '해당없음',
 }
 

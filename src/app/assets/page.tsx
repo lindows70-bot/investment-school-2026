@@ -68,7 +68,7 @@ const FRAMES: TimeFrame[] = ['1D','1W','1M','1Y']
 const LYNCH_META: Record<string, { label: string; color: string }> = {
   slow_grower: { label: '저성장주', color: TK.sub9 },
   stalwart:    { label: '대형 우량주',   color: TK.blue400 },
-  fast_grower: { label: '빠른 성장주',   color: TK.emerald400 },
+  fast_grower: { label: '고성장주',   color: TK.emerald400 },
   cyclical:    { label: '경기 순환주',   color: TK.orange400 },
   turnaround:  { label: '회생 기업주',   color: TK.red400 },
   asset_play:  { label: '자산 보유주',   color: TK.purple400 },

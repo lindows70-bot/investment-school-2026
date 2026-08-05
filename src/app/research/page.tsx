@@ -153,7 +153,7 @@ export default function ResearchPage() {
             lynchCategory = lynchData.category ?? null
             const LYNCH_LABELS: Record<string,string> = {
               slow_grower: '저성장주', stalwart: '대형 우량주',
-              fast_grower: '빠른 성장주',  cyclical:  '경기 순환주',
+              fast_grower: '고성장주',  cyclical:  '경기 순환주',
               turnaround:  '회생 기업주',  asset_play:'자산 보유주',
               na: 'N/A',
             }
