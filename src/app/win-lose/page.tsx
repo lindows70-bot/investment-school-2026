@@ -111,9 +111,9 @@ export default function WinLosePage() {
         ) : (
           <>
             <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-              <span style={{ background: '#2a0f12', border: `1px solid ${TK.red500}44`, borderRadius: 9, padding: '7px 14px', fontSize: 13 }}>🔺 오르는 <b style={{ color: TK.red400, fontFamily: 'monospace', fontSize: 16 }}>{win.length}</b><span style={{ color: TK.sub2, fontSize: 10 }}> (평균 {fmt1(win.length ? win.reduce((s, r) => s + retOf(r, period)!, 0) / win.length : null)})</span></span>
+              <span style={{ background: `${TK.red500}1a`, border: `1px solid ${TK.red500}44`, borderRadius: 9, padding: '7px 14px', fontSize: 13 }}>🔺 오르는 <b style={{ color: TK.red400, fontFamily: 'monospace', fontSize: 16 }}>{win.length}</b><span style={{ color: TK.sub2, fontSize: 10 }}> (평균 {fmt1(win.length ? win.reduce((s, r) => s + retOf(r, period)!, 0) / win.length : null)})</span></span>
               <span style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 9, padding: '7px 14px', fontSize: 13 }}>➖ 보합 <b style={{ color: TK.slate400, fontFamily: 'monospace', fontSize: 16 }}>{mid.length}</b></span>
-              <span style={{ background: '#0f1c2e', border: `1px solid ${TK.blue400}44`, borderRadius: 9, padding: '7px 14px', fontSize: 13 }}>🔻 떨어지는 <b style={{ color: TK.blue400, fontFamily: 'monospace', fontSize: 16 }}>{lose.length}</b><span style={{ color: TK.sub2, fontSize: 10 }}> (평균 {fmt1(lose.length ? lose.reduce((s, r) => s + retOf(r, period)!, 0) / lose.length : null)})</span></span>
+              <span style={{ background: `${TK.blue500}1a`, border: `1px solid ${TK.blue400}44`, borderRadius: 9, padding: '7px 14px', fontSize: 13 }}>🔻 떨어지는 <b style={{ color: TK.blue400, fontFamily: 'monospace', fontSize: 16 }}>{lose.length}</b><span style={{ color: TK.sub2, fontSize: 10 }}> (평균 {fmt1(lose.length ? lose.reduce((s, r) => s + retOf(r, period)!, 0) / lose.length : null)})</span></span>
               <span style={{ fontSize: 10, color: TK.sub2, alignSelf: 'center' }}>유니버스 {rows.length}종(추천 후보 풀+학교 종목) · 임계 ±{th}%</span>
             </div>
             {/* 🎓 오늘의 교훈 — 결정론 자동 생성 */}
@@ -246,7 +246,7 @@ export default function WinLosePage() {
                       <div style={{ width: `${b.winRate}%`, height: '100%', background: TK.green500 }} />
                     </div>
                     <span style={{ fontSize: 10, fontFamily: 'monospace', color: b.winRate >= 50 ? TK.green400 : TK.red400, minWidth: 56 }}>🔺{b.win.length} 🔻{b.lose.length}</span>
-                    {chips(b.win, TK.red400, '#2a0f12')}{chips(b.lose, TK.blue400, '#0f1c2e')}
+                    {chips(b.win, TK.red400, `${TK.red500}1a`)}{chips(b.lose, TK.blue400, `${TK.blue500}1a`)}
                   </div>
                 )
               })}
