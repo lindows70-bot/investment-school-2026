@@ -8,72 +8,78 @@ import {
   Treemap, Bar, Cell as BarCell, ReferenceLine, LabelList,
   ComposedChart
 } from 'recharts'
+import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
 import type { MonthlyPnlResult } from '@/lib/monthlyPnl'
-import AIPortfolioDashboard from '@/app/components/AIPortfolioDashboard'
-import LynchEarningsChart    from '@/app/components/LynchEarningsChart'
-import EarningsAlertTerminal      from '@/app/components/EarningsAlertTerminal'
-import ShareholderYieldTerminal   from '@/app/components/ShareholderYieldTerminal'
-import LynchValuationEngine       from '@/app/components/LynchValuationEngine'
-import LeverageRiskSimulator      from '@/app/components/LeverageRiskSimulator'
-import PortfolioBalanceRadar      from '@/app/components/PortfolioBalanceRadar'
-import CocktailPartyGauge         from '@/app/components/CocktailPartyGauge'
-import MacroWeather               from '@/app/components/MacroWeather'
-import DualMandateDashboard       from '@/app/components/DualMandateDashboard'
-import FedChartsBoard             from '@/app/components/FedChartsBoard'
-import FomcDecoder                from '@/app/components/FomcDecoder'
-import RegimeTripwire             from '@/app/components/RegimeTripwire'
-import NpsPortfolio               from '@/app/components/NpsPortfolio'
-import BlackRockTracker           from '@/app/components/BlackRockTracker'
+const AIPortfolioDashboard = dynamic(() => import('@/app/components/AIPortfolioDashboard'), { ssr: false, loading: Loading })
+const LynchEarningsChart = dynamic(() => import('@/app/components/LynchEarningsChart'), { ssr: false, loading: Loading })
+const EarningsAlertTerminal = dynamic(() => import('@/app/components/EarningsAlertTerminal'), { ssr: false, loading: Loading })
+const ShareholderYieldTerminal = dynamic(() => import('@/app/components/ShareholderYieldTerminal'), { ssr: false, loading: Loading })
+const LynchValuationEngine = dynamic(() => import('@/app/components/LynchValuationEngine'), { ssr: false, loading: Loading })
+const LeverageRiskSimulator = dynamic(() => import('@/app/components/LeverageRiskSimulator'), { ssr: false, loading: Loading })
+const PortfolioBalanceRadar = dynamic(() => import('@/app/components/PortfolioBalanceRadar'), { ssr: false, loading: Loading })
+const CocktailPartyGauge = dynamic(() => import('@/app/components/CocktailPartyGauge'), { ssr: false, loading: Loading })
+const MacroWeather = dynamic(() => import('@/app/components/MacroWeather'), { ssr: false, loading: Loading })
+const DualMandateDashboard = dynamic(() => import('@/app/components/DualMandateDashboard'), { ssr: false, loading: Loading })
+const FedChartsBoard = dynamic(() => import('@/app/components/FedChartsBoard'), { ssr: false, loading: Loading })
+const FomcDecoder = dynamic(() => import('@/app/components/FomcDecoder'), { ssr: false, loading: Loading })
+const RegimeTripwire = dynamic(() => import('@/app/components/RegimeTripwire'), { ssr: false, loading: Loading })
+const NpsPortfolio = dynamic(() => import('@/app/components/NpsPortfolio'), { ssr: false, loading: Loading })
+const BlackRockTracker = dynamic(() => import('@/app/components/BlackRockTracker'), { ssr: false, loading: Loading })
 import JarvisMorningBriefing      from '@/app/components/JarvisMorningBriefing'
-import SchoolIndexDashboard       from '@/app/components/SchoolIndexDashboard'
-import GlobalTop10                from '@/app/components/GlobalTop10'
-import H1Champions                from '@/app/components/H1Champions'
-import SeasonNavigator            from '@/app/components/SeasonNavigator'
-import RayDalioAnalysis           from '@/app/components/RayDalioAnalysis'
-import GlobalBusinessCycle        from '@/app/components/GlobalBusinessCycle'
-import MarksCycle                 from '@/app/components/MarksCycle'
-import CorrelationRadar           from '@/app/components/CorrelationRadar'
-import MarketBreadthPanel         from '@/app/components/MarketBreadthPanel'
-import IpoHypeCycle               from '@/app/components/IpoHypeCycle'
-import CrisisRadar                from '@/app/components/CrisisRadar'
-import ReservoirGauge             from '@/app/components/ReservoirGauge'
-import CountryVolRadar            from '@/app/components/CountryVolRadar'
-import LeverageRadar              from '@/app/components/LeverageRadar'
-import ShortInterestRadar         from '@/app/components/ShortInterestRadar'
-import UnifiedReco                 from '@/app/components/UnifiedReco'
-import OperationsHQ                 from '@/app/components/OperationsHQ'
-import NewsCatalystRadar          from '@/app/components/NewsCatalystRadar'
-import AiRebalancePanel           from '@/app/components/AiRebalancePanel'
-import QuantBuilderLab            from '@/app/components/QuantBuilderLab'
+const SchoolIndexDashboard = dynamic(() => import('@/app/components/SchoolIndexDashboard'), { ssr: false, loading: Loading })
+const GlobalTop10 = dynamic(() => import('@/app/components/GlobalTop10'), { ssr: false, loading: Loading })
+const H1Champions = dynamic(() => import('@/app/components/H1Champions'), { ssr: false, loading: Loading })
+const SeasonNavigator = dynamic(() => import('@/app/components/SeasonNavigator'), { ssr: false, loading: Loading })
+const RayDalioAnalysis = dynamic(() => import('@/app/components/RayDalioAnalysis'), { ssr: false, loading: Loading })
+const GlobalBusinessCycle = dynamic(() => import('@/app/components/GlobalBusinessCycle'), { ssr: false, loading: Loading })
+const MarksCycle = dynamic(() => import('@/app/components/MarksCycle'), { ssr: false, loading: Loading })
+const CorrelationRadar = dynamic(() => import('@/app/components/CorrelationRadar'), { ssr: false, loading: Loading })
+const MarketBreadthPanel = dynamic(() => import('@/app/components/MarketBreadthPanel'), { ssr: false, loading: Loading })
+const IpoHypeCycle = dynamic(() => import('@/app/components/IpoHypeCycle'), { ssr: false, loading: Loading })
+const CrisisRadar = dynamic(() => import('@/app/components/CrisisRadar'), { ssr: false, loading: Loading })
+const ReservoirGauge = dynamic(() => import('@/app/components/ReservoirGauge'), { ssr: false, loading: Loading })
+const CountryVolRadar = dynamic(() => import('@/app/components/CountryVolRadar'), { ssr: false, loading: Loading })
+const LeverageRadar = dynamic(() => import('@/app/components/LeverageRadar'), { ssr: false, loading: Loading })
+const ShortInterestRadar = dynamic(() => import('@/app/components/ShortInterestRadar'), { ssr: false, loading: Loading })
+const UnifiedReco = dynamic(() => import('@/app/components/UnifiedReco'), { ssr: false, loading: Loading })
+const OperationsHQ = dynamic(() => import('@/app/components/OperationsHQ'), { ssr: false, loading: Loading })
+const NewsCatalystRadar = dynamic(() => import('@/app/components/NewsCatalystRadar'), { ssr: false, loading: Loading })
+const AiRebalancePanel = dynamic(() => import('@/app/components/AiRebalancePanel'), { ssr: false, loading: Loading })
+const QuantBuilderLab = dynamic(() => import('@/app/components/QuantBuilderLab'), { ssr: false, loading: Loading })
 import MarketCatalystBanner       from '@/app/components/MarketCatalystBanner'
 import TimingWatchBanner          from '@/app/components/TimingWatchBanner'
 import DilutionAlertBanner        from '@/app/components/DilutionAlertBanner'
-import PortfolioTimeMachine       from '@/app/components/PortfolioTimeMachine'
-import CoinLab                     from '@/app/components/CoinLab'
-import AlphaHunter                 from '@/app/components/AlphaHunter'
-import PortfolioFlowDashboard     from '@/app/components/PortfolioFlowDashboard'
-import MarketFlowKr               from '@/app/components/MarketFlowKr'
-import MarketInvestorTrend        from '@/app/components/MarketInvestorTrend'
-import PortfolioRecoKr            from '@/app/components/PortfolioRecoKr'
-import TenbaggerHunter            from '@/app/components/TenbaggerHunter'
-import CorrelationMatrix          from '@/app/components/CorrelationMatrix'
-import LynchEarningsLineTracer    from '@/app/components/LynchEarningsLineTracer'
-import GuidanceRevisionRadar      from '@/app/components/GuidanceRevisionRadar'
-import DividendExplorer           from '@/app/components/DividendExplorer'
-import MacroAiTerminal            from '@/app/components/MacroAiTerminal'
-import SectorCanvas               from '@/app/components/SectorCanvas'
-import SectorRotation             from '@/app/components/SectorRotation'
+const PortfolioTimeMachine = dynamic(() => import('@/app/components/PortfolioTimeMachine'), { ssr: false, loading: Loading })
+const CoinLab = dynamic(() => import('@/app/components/CoinLab'), { ssr: false, loading: Loading })
+const AlphaHunter = dynamic(() => import('@/app/components/AlphaHunter'), { ssr: false, loading: Loading })
+const PortfolioFlowDashboard = dynamic(() => import('@/app/components/PortfolioFlowDashboard'), { ssr: false, loading: Loading })
+const MarketFlowKr = dynamic(() => import('@/app/components/MarketFlowKr'), { ssr: false, loading: Loading })
+const MarketInvestorTrend = dynamic(() => import('@/app/components/MarketInvestorTrend'), { ssr: false, loading: Loading })
+const PortfolioRecoKr = dynamic(() => import('@/app/components/PortfolioRecoKr'), { ssr: false, loading: Loading })
+const TenbaggerHunter = dynamic(() => import('@/app/components/TenbaggerHunter'), { ssr: false, loading: Loading })
+const CorrelationMatrix = dynamic(() => import('@/app/components/CorrelationMatrix'), { ssr: false, loading: Loading })
+const LynchEarningsLineTracer = dynamic(() => import('@/app/components/LynchEarningsLineTracer'), { ssr: false, loading: Loading })
+const GuidanceRevisionRadar = dynamic(() => import('@/app/components/GuidanceRevisionRadar'), { ssr: false, loading: Loading })
+const DividendExplorer = dynamic(() => import('@/app/components/DividendExplorer'), { ssr: false, loading: Loading })
+const MacroAiTerminal = dynamic(() => import('@/app/components/MacroAiTerminal'), { ssr: false, loading: Loading })
+const SectorCanvas = dynamic(() => import('@/app/components/SectorCanvas'), { ssr: false, loading: Loading })
+const SectorRotation = dynamic(() => import('@/app/components/SectorRotation'), { ssr: false, loading: Loading })
 import ErrorBoundary              from '@/app/components/ErrorBoundary'
 import ChangePasswordBanner  from '@/app/components/ChangePasswordBanner'
-import LynchSellSignalPanel  from '@/app/components/LynchSellSignalPanel'
+const LynchSellSignalPanel = dynamic(() => import('@/app/components/LynchSellSignalPanel'), { ssr: false, loading: Loading })
 import TenbaggerRadar        from '@/app/components/TenbaggerRadar'
-import MacroDashboard        from '@/app/components/MacroDashboard'
-import MacroTerminalDashboard                                from '@/app/components/macro/MacroTerminalDashboard'
-import LynchGhostStockPanel  from '@/app/components/LynchGhostStockPanel'
+const MacroDashboard = dynamic(() => import('@/app/components/MacroDashboard'), { ssr: false, loading: Loading })
+const MacroTerminalDashboard = dynamic(() => import('@/app/components/macro/MacroTerminalDashboard'), { ssr: false, loading: Loading })
+const LynchGhostStockPanel = dynamic(() => import('@/app/components/LynchGhostStockPanel'), { ssr: false, loading: Loading })
 // SSOT: 자산 유형 분류는 assetClassifier에서만
 import { getAssetType }          from '@/lib/assetClassifier'
 import { TK } from '@/lib/theme'
+
+// 탭 전용 컴포넌트의 지연 로딩 표시 — 탭을 처음 열 때 청크를 받는 동안 잠깐 보인다
+// (function 선언 — 위쪽 dynamic() 호출에서 참조되므로 호이스팅이 필요하다)
+function Loading() { return <div style={{ color: TK.sub13, fontSize: 12, padding: 12 }}>불러오는 중…</div> }
+
 // ※ LynchInventorySentinel — 재고 센티넬 기능 제거됨 (API 한계로 폐기)
 // import LynchInventorySentinel from '@/app/components/LynchInventorySentinel'
 
@@ -786,6 +792,16 @@ export default function DashboardPage() {
   const [pnlSeriesLoading, setPnlSeriesLoading] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
   const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'dalio' | 'marks' | 'globalcycle' | 'ipocycle' | 'crisis' | 'champions' | 'rotation' | 'quantum' | 'aisemi' | 'power' | 'physai' | 'aibio' | 'defense' | 'financials' | 'energy' | 'materials' | 'industrials' | 'discretionary' | 'staples' | 'healthcare' | 'infotech' | 'communication' | 'utilities' | 'realestate'>('live')
+
+  // 🧩 탭 지연 마운트 — 한 번이라도 연 탭만 렌더한다(연 뒤에는 계속 유지 = 재조회 없음·상태 보존).
+  //    이전엔 45개 탭이 display:none 으로 전부 마운트돼, 대시보드를 한 번 열 때마다 보지도 않는 탭들의
+  //    API 42개가 동시에 날아갔다(컴포넌트 61개 중 42개가 마운트 즉시 fetch). 그 경합이 통합추천 실패
+  //    ("개별 종목 보강이 빠졌습니다")의 원인이기도 했다. 기본 탭 live 는 항상 마운트한다.
+  const [seenTabs, setSeenTabs] = useState<Set<string>>(() => new Set(['live']))
+  useEffect(() => {
+    setSeenTabs(prev => prev.has(dashTab) ? prev : new Set(prev).add(dashTab))
+  }, [dashTab])
+  const seen = (t: string) => seenTabs.has(t)
 
   // 🎯 딥링크(?tab=&view=) — 매매 브리핑 등 외부에서 특정 탭(+수급레이더 서브탭)으로 바로 진입(허용 목록만)
   useEffect(() => {
@@ -3251,34 +3267,43 @@ export default function DashboardPage() {
 
       {/* ── 투자 타임머신 탭 — 내 실제 보유 종목 5개년 실데이터 백테스트(하드코딩 제거, 제1원칙) ── */}
       <div id="tab-backtest" style={{ display: dashTab==='backtest' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('backtest') && (<>
         <ErrorBoundary label="투자 타임머신">
           <PortfolioTimeMachine />
         </ErrorBoundary>
+      </>)}
       </div>  {/* 투자 타임머신 탭 끝 */}
 
       {/* ── 레버리지 위험 시뮬레이터 탭 ── */}
       <div id="tab-leverage" style={{ display: dashTab==='leverage' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('leverage') && (<>
         <ErrorBoundary label="레버리지 시뮬레이터">
           <LeverageRiskSimulator />
         </ErrorBoundary>
+      </>)}
       </div>
 
       {/* ── 🌐 거시경제 AI 추천 터미널 탭 ── */}
       <div id="tab-macroai" style={{ display: dashTab==='macroai' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('macroai') && (<>
         <ErrorBoundary label="거시경제 AI 추천">
           <MacroAiTerminal />
         </ErrorBoundary>
+      </>)}
       </div>
 
       {/* ── 📡 가이던스 수정 모멘텀 레이더 탭 ── */}
       <div id="tab-guidance" style={{ display: dashTab==='guidance' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('guidance') && (<>
         <ErrorBoundary label="가이던스 모멘텀 레이더">
           <GuidanceRevisionRadar />
         </ErrorBoundary>
+      </>)}
       </div>
 
       {/* ── AI 멘토 족집게 탭 ── */}
       <div id="tab-mentor" style={{ display: dashTab==='mentor' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('mentor') && (<>
         <AIPortfolioDashboard
           portfolioStocks={investments.map(inv => {
             const key = inv.ticker.toUpperCase()
@@ -3310,27 +3335,33 @@ export default function DashboardPage() {
             }
           })}
         />
+      </>)}
       </div>  {/* AI 멘토 탭 끝 */}
 
       {/* ── 🔭 린치 이익선 트레이서 탭 (독립 티커·역사적 EPS×이격도) ── */}
       <div id="tab-tracer" style={{ display: dashTab==='tracer' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('tracer') && (<>
         <ErrorBoundary label="린치 이익선 트레이서">
           <LynchEarningsLineTracer />
         </ErrorBoundary>
+      </>)}
       </div>
 
       {/* ── 린치 이익선 차트 탭 ── */}
       <div id="tab-lynch" style={{ display: dashTab==='lynch' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('lynch') && (<>
         {/* portfolioStocks: 실제 보유 종목 배열을 그대로 전달 (하드코딩 금지) */}
         {/* assetType 주입: SSOT getAssetType으로 각 종목 분류 후 전달 */}
         <LynchEarningsChart portfolioStocks={investments.map(inv => ({
           ...inv,
           assetType: getAssetType(inv.ticker, inv.name, inv.market ?? 'US'),
         }))} />
+      </>)}
       </div>  {/* 린치 이익선 탭 끝 */}
 
       {/* ── 매도 시그널 패널 탭 ── */}
       <div id="tab-signal" style={{ display: dashTab==='signal' ? 'flex' : 'none', flexDirection:'column', gap:0 }}>
+        {seen('signal') && (<>
         <LynchSellSignalPanel
           portfolioStocks={investments.map(inv => {
             const key  = inv.ticker.toUpperCase()
@@ -3365,20 +3396,26 @@ export default function DashboardPage() {
             }
           })}
         />
+      </>)}
       </div>  {/* 매도 시그널 탭 끝 */}
 
       {/* ── 유령 종목 추적기 탭 ── */}
       <div id="tab-ghost" style={{ display: dashTab==='ghost' ? 'flex' : 'none', flexDirection:'column', gap:0 }}>
+        {seen('ghost') && (<>
         <LynchGhostStockPanel />
+      </>)}
       </div>  {/* 유령 종목 탭 끝 */}
 
       {/* ── 🌍 글로벌 시총 Top 10 탭 ── */}
       <div id="tab-champions" style={{ display: dashTab==='champions' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('champions') && (<>
         <ErrorBoundary label="상반기 수익률 챔피언십">
           {dashTab==='champions' && <H1Champions />}
         </ErrorBoundary>
+      </>)}
       </div>
       <div id="tab-globaltop10" style={{ display: dashTab==='globaltop10' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('globaltop10') && (<>
         <ErrorBoundary label="글로벌 시총 Top 10">
           <GlobalTop10 />
         </ErrorBoundary>
@@ -3390,20 +3427,26 @@ export default function DashboardPage() {
         <ErrorBoundary label="블랙록 트래커">
           <BlackRockTracker />
         </ErrorBoundary>
+      </>)}
       </div>
 
       {/* ── 🧭 4계절 매크로 내비게이터 탭 ── */}
       <div id="tab-season" style={{ display: dashTab==='season' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('season') && (<>
         <ErrorBoundary label="4계절 내비게이터">
           <SeasonNavigator />
         </ErrorBoundary>
+      </>)}
       </div>
       <div id="tab-dalio" style={{ display: dashTab==='dalio' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('dalio') && (<>
         <ErrorBoundary label="레이 달리오 매크로 사이클">
           {dashTab==='dalio' && <RayDalioAnalysis />}
         </ErrorBoundary>
+      </>)}
       </div>
       <div id="tab-marks" style={{ display: dashTab==='marks' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('marks') && (<>
         <ErrorBoundary label="하워드 막스 사이클 시계추">
           {dashTab==='marks' && <MarksCycle />}
         </ErrorBoundary>
@@ -3413,18 +3456,24 @@ export default function DashboardPage() {
         <ErrorBoundary label="이종 자산 상관 수렴 레이더">
           {dashTab==='marks' && <CorrelationRadar />}
         </ErrorBoundary>
+      </>)}
       </div>
       <div id="tab-globalcycle" style={{ display: dashTab==='globalcycle' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('globalcycle') && (<>
         <ErrorBoundary label="글로벌 비즈니스 사이클">
           {dashTab==='globalcycle' && <GlobalBusinessCycle />}
         </ErrorBoundary>
+      </>)}
       </div>
       <div id="tab-ipocycle" style={{ display: dashTab==='ipocycle' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('ipocycle') && (<>
         <ErrorBoundary label="IPO 하이프 사이클">
           {dashTab==='ipocycle' && <IpoHypeCycle />}
         </ErrorBoundary>
+      </>)}
       </div>
       <div id="tab-crisis" style={{ display: dashTab==='crisis' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('crisis') && (<>
         <ErrorBoundary label="글로벌 위기 감지 레이더">
           {dashTab==='crisis' && <CrisisRadar />}
         </ErrorBoundary>
@@ -3434,125 +3483,175 @@ export default function DashboardPage() {
         <ErrorBoundary label="저수지 수위계">
           {dashTab==='crisis' && <ReservoirGauge />}
         </ErrorBoundary>
+      </>)}
       </div>
 
       {/* ── 🪙 코인 랩 탭 (비트코인 독립 분석 엔진) ── */}
       <div id="tab-coinlab" style={{ display: dashTab==='coinlab' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('coinlab') && (<>
         <ErrorBoundary label="코인 랩">
           <CoinLab myCryptoPct={myCryptoPct} />
         </ErrorBoundary>
+      </>)}
       </div>
 
       {/* ── 🧭 섹터 로테이션 시계 ── */}
       <div id="tab-rotation" style={{ display: dashTab==='rotation' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('rotation') && (<>
         <ErrorBoundary label="섹터 로테이션 시계">
           {dashTab==='rotation' && <SectorRotation />}
         </ErrorBoundary>
+      </>)}
       </div>
       {/* ── 🧬 테마·섹터 분석 탭 (양자 / AI 반도체) ── */}
       <div id="tab-quantum" style={{ display: dashTab==='quantum' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('quantum') && (<>
         <ErrorBoundary label="양자컴퓨팅 섹터">
           {dashTab==='quantum' && <SectorCanvas sectorKey="quantum" />}
         </ErrorBoundary>
+      </>)}
       </div>
       <div id="tab-aisemi" style={{ display: dashTab==='aisemi' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('aisemi') && (<>
         <ErrorBoundary label="AI 반도체 섹터">
           {dashTab==='aisemi' && <SectorCanvas sectorKey="ai-semi" />}
         </ErrorBoundary>
+      </>)}
       </div>
       <div id="tab-power" style={{ display: dashTab==='power' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('power') && (<>
         <ErrorBoundary label="AI 전력망 & 원전 섹터">
           {dashTab==='power' && <SectorCanvas sectorKey="power" />}
         </ErrorBoundary>
+      </>)}
       </div>
       <div id="tab-physai" style={{ display: dashTab==='physai' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('physai') && (<>
         <ErrorBoundary label="피지컬 AI 섹터">
           {dashTab==='physai' && <SectorCanvas sectorKey="phys-ai" />}
         </ErrorBoundary>
+      </>)}
       </div>
       <div id="tab-aibio" style={{ display: dashTab==='aibio' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('aibio') && (<>
         <ErrorBoundary label="AI 바이오 섹터">
           {dashTab==='aibio' && <SectorCanvas sectorKey="ai-bio" />}
         </ErrorBoundary>
+      </>)}
       </div>
       <div id="tab-defense" style={{ display: dashTab==='defense' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('defense') && (<>
         <ErrorBoundary label="우주항공 & 방산 섹터">
           {dashTab==='defense' && <SectorCanvas sectorKey="defense" />}
         </ErrorBoundary>
+      </>)}
       </div>
       <div id="tab-energy" style={{ display: dashTab==='energy' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('energy') && (<>
         <ErrorBoundary label="에너지 섹터">{dashTab==='energy' && <SectorCanvas sectorKey="energy" />}</ErrorBoundary>
+      </>)}
       </div>
       <div id="tab-materials" style={{ display: dashTab==='materials' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('materials') && (<>
         <ErrorBoundary label="소재 섹터">{dashTab==='materials' && <SectorCanvas sectorKey="materials" />}</ErrorBoundary>
+      </>)}
       </div>
       <div id="tab-industrials" style={{ display: dashTab==='industrials' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('industrials') && (<>
         <ErrorBoundary label="산업재 섹터">{dashTab==='industrials' && <SectorCanvas sectorKey="industrials" />}</ErrorBoundary>
+      </>)}
       </div>
       <div id="tab-discretionary" style={{ display: dashTab==='discretionary' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('discretionary') && (<>
         <ErrorBoundary label="자유소비재 섹터">{dashTab==='discretionary' && <SectorCanvas sectorKey="discretionary" />}</ErrorBoundary>
+      </>)}
       </div>
       <div id="tab-staples" style={{ display: dashTab==='staples' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('staples') && (<>
         <ErrorBoundary label="필수소비재 섹터">{dashTab==='staples' && <SectorCanvas sectorKey="staples" />}</ErrorBoundary>
+      </>)}
       </div>
       <div id="tab-healthcare" style={{ display: dashTab==='healthcare' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('healthcare') && (<>
         <ErrorBoundary label="헬스케어 섹터">{dashTab==='healthcare' && <SectorCanvas sectorKey="healthcare" />}</ErrorBoundary>
+      </>)}
       </div>
       <div id="tab-financials" style={{ display: dashTab==='financials' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('financials') && (<>
         <ErrorBoundary label="금융 섹터">
           {dashTab==='financials' && <SectorCanvas sectorKey="financials" />}
         </ErrorBoundary>
+      </>)}
       </div>
       <div id="tab-infotech" style={{ display: dashTab==='infotech' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('infotech') && (<>
         <ErrorBoundary label="정보기술 섹터">{dashTab==='infotech' && <SectorCanvas sectorKey="infotech" />}</ErrorBoundary>
+      </>)}
       </div>
       <div id="tab-communication" style={{ display: dashTab==='communication' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('communication') && (<>
         <ErrorBoundary label="커뮤니케이션 섹터">{dashTab==='communication' && <SectorCanvas sectorKey="communication" />}</ErrorBoundary>
+      </>)}
       </div>
       <div id="tab-utilities" style={{ display: dashTab==='utilities' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('utilities') && (<>
         <ErrorBoundary label="유틸리티 섹터">{dashTab==='utilities' && <SectorCanvas sectorKey="utilities" />}</ErrorBoundary>
+      </>)}
       </div>
       <div id="tab-realestate" style={{ display: dashTab==='realestate' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('realestate') && (<>
         <ErrorBoundary label="부동산 섹터">{dashTab==='realestate' && <SectorCanvas sectorKey="realestate" />}</ErrorBoundary>
+      </>)}
       </div>
 
       {/* ── 🎯 알파 헌터 탭 (가치·가격 괴리 탐지) ── */}
       <div id="tab-alphahunter" style={{ display: dashTab==='alphahunter' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('alphahunter') && (<>
         <ErrorBoundary label="알파 헌터">
           {dashTab==='alphahunter' && <AlphaHunter />}
         </ErrorBoundary>
+      </>)}
       </div>
 
       {/* ── 🏫 투자학교 13F 인덱스 탭 (School Insider Flow · 2단계) ── */}
       <div id="tab-schoolflow" style={{ display: dashTab==='schoolflow' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('schoolflow') && (<>
         <ErrorBoundary label="학교 13F 인덱스">
           <SchoolIndexDashboard />
         </ErrorBoundary>
+      </>)}
       </div>  {/* 학교 13F 인덱스 탭 끝 */}
 
       {/* ── 린치 황금비율 로드맵 탭 (비밀병기 1단계) ── */}
       <div id="tab-balance" style={{ display: dashTab==='balance' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('balance') && (<>
         <ErrorBoundary label="린치 황금비율">
           <PortfolioBalanceRadar investments={investments} usdKrw={usdKrw} />
         </ErrorBoundary>
+      </>)}
       </div>
 
       {/* ── 📐 상관관계 매트릭스 탭 ── */}
       <div id="tab-correlation" style={{ display: dashTab==='correlation' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('correlation') && (<>
         <ErrorBoundary label="상관관계 매트릭스">
           <CorrelationMatrix />
         </ErrorBoundary>
+      </>)}
       </div>
 
       {/* ── 뉴스 촉매 레이더 탭 ── */}
       <div id="tab-newscatalyst" style={{ display: dashTab==='newscatalyst' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('newscatalyst') && (<>
         <ErrorBoundary label="뉴스 촉매 레이더">
           <NewsCatalystRadar />
         </ErrorBoundary>
+      </>)}
       </div>
 
       {/* ── AI 리밸런싱 탭 ── */}
       <div id="tab-rebalance" style={{ display: dashTab==='rebalance' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('rebalance') && (<>
         {/* ① 진단 — AI 운용 본부 헤더(4계절 정합) */}
         <ErrorBoundary label="운용 본부 진단">
           <OperationsHQ />
@@ -3567,17 +3666,21 @@ export default function DashboardPage() {
         <ErrorBoundary label="통합 매수 처방">
           <UnifiedReco />
         </ErrorBoundary>
+      </>)}
       </div>
 
       {/* ── 🛰️ AI 1억 백지 퀀트 빌더 탭 (코어-새틀라이트 백지 설계) ── */}
       <div id="tab-quantbuilder" style={{ display: dashTab==='quantbuilder' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('quantbuilder') && (<>
         <ErrorBoundary label="AI 퀀트 빌더">
           <QuantBuilderLab />
         </ErrorBoundary>
+      </>)}
       </div>
 
       {/* ── 📡 수급 레이더 탭 (내 종목 / 시장 랭킹 / 맞춤 추천) ── */}
       <div id="tab-moneyflow" style={{ display: dashTab==='moneyflow' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('moneyflow') && (<>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
           {([
             ['mine','📡 내 종목 수급',TK.green500],
@@ -3598,17 +3701,21 @@ export default function DashboardPage() {
         <ErrorBoundary label="수급 레이더">
           {flowView==='mine' ? <PortfolioFlowDashboard /> : flowView==='market' ? <MarketFlowKr /> : flowView==='investor' ? <MarketInvestorTrend /> : flowView==='reco' ? <PortfolioRecoKr /> : flowView==='leverage' ? <><LeverageRadar /><ShortInterestRadar /></> : <UnifiedReco />}
         </ErrorBoundary>
+      </>)}
       </div>
 
       {/* ── 10배거 헌터 탭 ── */}
       <div id="tab-tenbagger" style={{ display: dashTab==='tenbagger' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('tenbagger') && (<>
         <ErrorBoundary label="10배거 헌터">
           <TenbaggerHunter />
         </ErrorBoundary>
+      </>)}
       </div>
 
       {/* ── 어닝 터미널 탭 ── */}
       <div id="tab-earnings" style={{ display: dashTab==='earnings' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('earnings') && (<>
         <ErrorBoundary label="어닝 터미널">
           <EarningsAlertTerminal
             investments={investments.filter(
@@ -3618,10 +3725,12 @@ export default function DashboardPage() {
             priceMap={priceMap}
           />
         </ErrorBoundary>
+      </>)}
       </div>
 
       {/* ── 주주환원율 터미널 탭 ── */}
       <div id="tab-yield" style={{ display: dashTab==='yield' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('yield') && (<>
         <ErrorBoundary label="주주환원 터미널">
           <ShareholderYieldTerminal
             investments={investments.filter(
@@ -3635,10 +3744,12 @@ export default function DashboardPage() {
         <ErrorBoundary label="배당 익스플로러">
           <DividendExplorer />
         </ErrorBoundary>
+      </>)}
       </div>
 
       {/* ── 린치 밸류에이션 엔진 탭 ── */}
       <div id="tab-valuation" style={{ display: dashTab==='valuation' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+        {seen('valuation') && (<>
         <ErrorBoundary label="린치 밸류에이션">
           <LynchValuationEngine
             investments={investments.filter(
@@ -3648,10 +3759,12 @@ export default function DashboardPage() {
             priceMap={priceMap}
           />
         </ErrorBoundary>
+      </>)}
       </div>
 
       {/* ── 거시경제 Fed Watch 탭 ── */}
       <div id="tab-macro" style={{ display: dashTab==='macro' ? 'flex' : 'none', flexDirection:'column', gap:20 }}>
+        {seen('macro') && (<>
         <ErrorBoundary label="FOMC 디코더">
           <FomcDecoder />
         </ErrorBoundary>
@@ -3680,6 +3793,7 @@ export default function DashboardPage() {
             dividendMap={dividendMap}
           />
         </ErrorBoundary>
+      </>)}
       </div>  {/* 거시경제 탭 끝 */}
 
     </div>
