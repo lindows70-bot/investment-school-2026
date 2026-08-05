@@ -131,7 +131,7 @@ async function fetchUsTop10(usdKrw: number): Promise<TopEntry[]> {
 
 export async function GET(req: Request) {
   const forceRefresh = new URL(req.url).searchParams.get('refresh') === '1'
-  const cacheKey = `global-top10-v2:${kstDate()}`   // v2: KR 시총 숫자화(e+131 버그 수정) + SPCX 추가
+  const cacheKey = `global-top10-v3:${kstDate()}`   // v3: fast_grower 라벨 '고성장주' 통일(f2ecdd0) — 옛 라벨 박제 무효화 / v2: KR 시총 숫자화 + SPCX 추가
   if (!forceRefresh) {
     const cached = await getCache<GlobalTop10Result>(cacheKey, 12 * 3600_000)
     if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })

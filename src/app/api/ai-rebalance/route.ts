@@ -238,7 +238,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v47+${UNIFIED_RECO_V}:${user.id}:${today}:${fp}`   // v43: 📉 매수측 급락 제외(유령 발굴 포함) / v41: VWAP 하향 이탈 매도 근거+크로스 칩 / v40: ETF 소섹터 정밀화
+  const cacheKey = `ai-rebalance-v48+${UNIFIED_RECO_V}:${user.id}:${today}:${fp}`   // v48: fast_grower 라벨 '고성장주' 통일(f2ecdd0) — 옛 라벨 박제 무효화 / v43: 📉 매수측 급락 제외(유령 발굴 포함) / v41: VWAP 하향 이탈 매도 근거+크로스 칩
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -494,7 +494,9 @@ export async function GET(req: Request) {
     holdings: diagnoses, buyCandidates, sellBudget, diversification, cyclicalTrap, hypePremium, zombieRisk, satelliteCandidates, portfolioValue: Math.round(totalMv),
     narrative, generatedAt: new Date().toISOString(), fromCache: false, coreSatellite, waveOverride,
   }
-  await setCache(cacheKey, result)
+  // ⚠️ 부분실패 박제 금지 — 통합추천을 못 받은 결과를 24h 캐시하면 '보강 카드'가 하루 종일 빈다.
+  //    fetch 시도 자체가 통합추천 캐시를 데우므로, 캐시를 생략하면 다음 요청에서 온전한 결과로 수렴한다.
+  if (!buysUnavailable) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }
 
