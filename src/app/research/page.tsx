@@ -20,6 +20,7 @@ import ValueTriangle      from '@/app/components/ValueTriangle'
 import ResearchVerdictCard from '@/app/components/ResearchVerdict'
 import ResearchReport from '@/app/components/ResearchReport'
 import LynchAutoPanel     from '@/app/components/LynchAutoPanel'
+import MastersCommittee   from '@/app/components/MastersCommittee'
 import ChoiValuationPanel from '@/app/components/ChoiValuationPanel'
 import { getAssetType } from '@/lib/assetClassifier'
 import type { Candle } from '@/app/components/CandleChart'
@@ -30,7 +31,7 @@ const SHO = `7px 7px 18px ${TK.bg2}, -4px -4px 12px ${TK.line2}`
 const SHI = `inset 4px 4px 10px ${TK.bg2}, inset -3px -3px 8px ${TK.line2}`
 
 // 탭: 'chart' = 차트 리서치 | 'wizard' = 피터린치 진단
-type ResearchTab = 'chart' | 'lynch' | 'buffett' | 'choi' | 'report'
+type ResearchTab = 'chart' | 'lynch' | 'buffett' | 'choi' | 'masters' | 'report'
 
 type Market = 'US' | 'KR' | 'CRYPTO'
 type TimeFrame = '1D' | '1W' | '1M' | '1Y'
@@ -261,6 +262,7 @@ export default function ResearchPage() {
           { key: 'lynch',   label: '🔍 피터린치 분석', desc: '6대 분류·PEG·이익선 자동' },
           { key: 'buffett', label: '🏰 워렌버핏 분석', desc: '공정가치·해자·안전마진' },
           { key: 'choi',    label: '🧭 최일 가치분석', desc: '8개년 재무·CAGR·적정주가·PER밴드' },
+          { key: 'masters', label: '🎩 거장 위원회',   desc: '버핏·멍거·단요핑·리루 4인 판정+토론' },
           { key: 'report',  label: '📄 리서치 리포트', desc: '섹터·어닝·액션 통합 + PDF 다운로드' },
         ] as { key: ResearchTab; label: string; desc: string }[]).map(({ key, label, desc }) => (
           <button
@@ -615,6 +617,10 @@ export default function ResearchPage() {
         <FcfQualityCard ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
         <ChoiValuationPanel ticker={stockInfo.ticker} market={stockInfo.market === 'KR' ? 'KR' : 'US'} embedded />
       </>))}
+      {/* ── 🎩 거장 위원회 탭 — 4인 독립 판정 → 교차 반박 → 강제 결론 ── */}
+      {activeTab === 'masters' && (!stockInfo ? GuruEmptyNotice : !isStock ? NonStockNotice : (
+        <MastersCommittee ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
+      ))}
       {activeTab === 'report' && (!stockInfo ? GuruEmptyNotice : !isStock ? NonStockNotice : (
         <ResearchReport ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} />
       ))}
