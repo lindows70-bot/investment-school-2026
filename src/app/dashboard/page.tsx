@@ -790,6 +790,8 @@ export default function DashboardPage() {
   const [pnlView, setPnlView] = useState<'series' | 'byPurchase'>('series')
   const [pnlSeries, setPnlSeries] = useState<MonthlyPnlResult | null>(null)
   const [pnlSeriesLoading, setPnlSeriesLoading] = useState(false)
+  /** 재구성 요청이 실패했는가 — '보유 없음'·'이력 짧음'과 같은 문구를 쓰면 사실이 아닌 주장이 된다 */
+  const [pnlSeriesFailed, setPnlSeriesFailed] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
   const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'dalio' | 'marks' | 'globalcycle' | 'ipocycle' | 'crisis' | 'champions' | 'rotation' | 'quantum' | 'aisemi' | 'power' | 'physai' | 'aibio' | 'defense' | 'financials' | 'energy' | 'materials' | 'industrials' | 'discretionary' | 'staples' | 'healthcare' | 'infotech' | 'communication' | 'utilities' | 'realestate'>('live')
 
@@ -1099,11 +1101,13 @@ export default function DashboardPage() {
           }),
         })
         const j: MonthlyPnlResult | { error: string } = await res.json()
+        // 상태 3종(로딩·실패·결과)은 같은 취소 가드 안에서 함께 확정한다
         if (!cancelled) {
-          if (res.ok && 'points' in j) { setPnlSeries(j) }
+          if (res.ok && 'points' in j) { setPnlSeries(j); setPnlSeriesFailed(false) }
+          else { setPnlSeriesFailed(true) }   // 실패를 삼키면 '보유 없음'과 구분되지 않는다
           setPnlSeriesLoading(false)
         }
-      } catch { if (!cancelled) setPnlSeriesLoading(false) }
+      } catch { if (!cancelled) { setPnlSeriesFailed(true); setPnlSeriesLoading(false) } }
     }
     run()
     return () => { cancelled = true }
@@ -2879,7 +2883,13 @@ export default function DashboardPage() {
           {pnlView === 'series' ? (
             /* ── 진짜 월별 시계열 — 캔들 이력으로 재구성한 '그 달의 손익' ── */
             pnlSeriesData.length === 0 ? (
-              <Empty msg={pnlSeriesLoading ? '가격 이력을 재구성하는 중… (최대 20초)' : '가격 이력을 불러오지 못했습니다 — 새로고침 해보세요'}/>
+              /* '보유 없음'·'로딩'·'실패'·'이력 짧음'은 서로 다른 사실이다 — 같은 문구로 뭉뚱그리면 거짓말이 된다 */
+              <Empty msg={
+                investments.length === 0 ? '아직 등록한 종목이 없습니다 — ‘자산 관리’에서 종목을 추가하면 월별 손익이 그려집니다'
+                : pnlSeriesLoading      ? '가격 이력을 재구성하는 중… (최대 20초)'
+                : pnlSeriesFailed       ? '가격 이력을 불러오지 못했습니다 — 새로고침 해보세요'
+                : '가격 이력이 짧아 표시할 달이 아직 없습니다'
+              }/>
             ) : (
               <>
                 <ResponsiveContainer width="100%" height={250}>
