@@ -74,11 +74,11 @@ const MacroTerminalDashboard = dynamic(() => import('@/app/components/macro/Macr
 const LynchGhostStockPanel = dynamic(() => import('@/app/components/LynchGhostStockPanel'), { ssr: false, loading: Loading })
 // SSOT: 자산 유형 분류는 assetClassifier에서만
 import { getAssetType }          from '@/lib/assetClassifier'
-import { TK } from '@/lib/theme'
+import { TK, FS, SP } from '@/lib/theme'
 
 // 탭 전용 컴포넌트의 지연 로딩 표시 — 탭을 처음 열 때 청크를 받는 동안 잠깐 보인다
 // (function 선언 — 위쪽 dynamic() 호출에서 참조되므로 호이스팅이 필요하다)
-function Loading() { return <div style={{ color: TK.sub13, fontSize: 12, padding: 12 }}>불러오는 중…</div> }
+function Loading() { return <div style={{ color: TK.sub13, fontSize: FS.body, padding: SP.md }}>불러오는 중…</div> }
 
 // ※ LynchInventorySentinel — 재고 센티넬 기능 제거됨 (API 한계로 폐기)
 // import LynchInventorySentinel from '@/app/components/LynchInventorySentinel'
