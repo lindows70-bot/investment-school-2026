@@ -20,7 +20,10 @@ const QUAD_META: Record<WLQuad, { icon: string; label: string; color: string; or
   lagging: { icon: '🍂', label: '이탈', color: TK.red400, order: 3 },
 }
 const fmt1 = (n: number | null) => (n == null ? '—' : `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`)
-const retColor = (n: number | null) => (n == null ? TK.sub3 : n > 0 ? TK.green400 : n < 0 ? TK.red400 : TK.slate200)
+// 🇰🇷 주가 등락률은 한국식(빨강=상승·파랑=하락) — 같은 −28.8%가 대시보드 보유표에선 파랑인데
+//    여기서만 빨강이면 학생은 정반대로 읽는다. ±0.5% 는 보합(회색) — 0 근처를 성과로 칠하지 않는다.
+//    ⚠️ 섹터 국면(주도/이탈)·추세(정배열/역배열)·EPS 방향은 등락이 아니라 '좋다/나쁘다'라 초록/빨강 유지.
+const retColor = (n: number | null) => (n == null ? TK.sub3 : n > 0.5 ? TK.red400 : n < -0.5 ? TK.blue400 : TK.slate400)
 
 // 🪙 내 보유 시각 언어(3D) — 금화 배지 + 뉴모피즘 융기(행이 보드에서 떠오름·호버 시 상승). 우리 포트·Top8·산점도·전장 지도 공통 골드.
 const Coin = ({ size = 14 }: { size?: number }) => (
@@ -108,9 +111,9 @@ export default function WinLosePage() {
         ) : (
           <>
             <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-              <span style={{ background: '#0d2818', border: `1px solid ${TK.green500}44`, borderRadius: 9, padding: '7px 14px', fontSize: 13 }}>🔺 오르는 <b style={{ color: TK.green400, fontFamily: 'monospace', fontSize: 16 }}>{win.length}</b><span style={{ color: TK.sub2, fontSize: 10 }}> (평균 {fmt1(win.length ? win.reduce((s, r) => s + retOf(r, period)!, 0) / win.length : null)})</span></span>
+              <span style={{ background: '#2a0f12', border: `1px solid ${TK.red500}44`, borderRadius: 9, padding: '7px 14px', fontSize: 13 }}>🔺 오르는 <b style={{ color: TK.red400, fontFamily: 'monospace', fontSize: 16 }}>{win.length}</b><span style={{ color: TK.sub2, fontSize: 10 }}> (평균 {fmt1(win.length ? win.reduce((s, r) => s + retOf(r, period)!, 0) / win.length : null)})</span></span>
               <span style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 9, padding: '7px 14px', fontSize: 13 }}>➖ 보합 <b style={{ color: TK.slate400, fontFamily: 'monospace', fontSize: 16 }}>{mid.length}</b></span>
-              <span style={{ background: '#2a0f12', border: `1px solid ${TK.red500}44`, borderRadius: 9, padding: '7px 14px', fontSize: 13 }}>🔻 떨어지는 <b style={{ color: TK.red400, fontFamily: 'monospace', fontSize: 16 }}>{lose.length}</b><span style={{ color: TK.sub2, fontSize: 10 }}> (평균 {fmt1(lose.length ? lose.reduce((s, r) => s + retOf(r, period)!, 0) / lose.length : null)})</span></span>
+              <span style={{ background: '#0f1c2e', border: `1px solid ${TK.blue400}44`, borderRadius: 9, padding: '7px 14px', fontSize: 13 }}>🔻 떨어지는 <b style={{ color: TK.blue400, fontFamily: 'monospace', fontSize: 16 }}>{lose.length}</b><span style={{ color: TK.sub2, fontSize: 10 }}> (평균 {fmt1(lose.length ? lose.reduce((s, r) => s + retOf(r, period)!, 0) / lose.length : null)})</span></span>
               <span style={{ fontSize: 10, color: TK.sub2, alignSelf: 'center' }}>유니버스 {rows.length}종(추천 후보 풀+학교 종목) · 임계 ±{th}%</span>
             </div>
             {/* 🎓 오늘의 교훈 — 결정론 자동 생성 */}
@@ -133,8 +136,11 @@ export default function WinLosePage() {
       {/* ── 🏫 우리 포트 승패 — 학생 전체 보유(주식+ETF+코인) ────── */}
       {data && (data.school?.length ?? 0) > 0 && (() => {
         const sch = data.school
-        const up = sch.filter(r => (retOf(r, period) ?? 0) > 0 && retOf(r, period) != null).sort((a, b) => retOf(b, period)! - retOf(a, period)!)
-        const dn = sch.filter(r => (retOf(r, period) ?? 0) < 0).sort((a, b) => retOf(a, period)! - retOf(b, period)!)
+        // 한 화면에 잣대가 둘이면 안 된다 — 유니버스 승패와 **같은 임계(±th%)** 로 가른다.
+        // 0 기준으로 자르던 시절엔 +0.04%(표시 +0.0%)가 '오르는', −0.1%가 '내리는'에 들어갔다.
+        const up  = sch.filter(r => (retOf(r, period) ?? null) != null && retOf(r, period)! >   th).sort((a, b) => retOf(b, period)! - retOf(a, period)!)
+        const dn  = sch.filter(r => (retOf(r, period) ?? null) != null && retOf(r, period)! <  -th).sort((a, b) => retOf(a, period)! - retOf(b, period)!)
+        const flat = sch.filter(r => (retOf(r, period) ?? null) != null && Math.abs(retOf(r, period)!) <= th)
         const na = sch.filter(r => retOf(r, period) == null)
         const Row = ({ r, i }: { r: (typeof sch)[number]; i: number }) => (
           <div className={isMine(r) ? 'wl-mine' : undefined}
@@ -155,19 +161,19 @@ export default function WinLosePage() {
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
               <b style={{ fontSize: 14, color: TK.slate100 }}>🏫 우리 포트 승패</b>
               <span style={{ fontSize: 10.5, color: TK.sub2, display: 'inline-flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                학생 전체 보유(주식+ETF+코인 {sch.length}종) — {WL_PERIOD_LABEL[period]} 기준 · 보유자 표시 없음 · <Coin size={11} /> = 내 보유 · 📈정배열 📉역배열
+                학생 전체 보유(주식+ETF+코인 {sch.length}종) — {WL_PERIOD_LABEL[period]} 기준 · 위 유니버스와 <b style={{ color: TK.slate300 }}>같은 임계 ±{th}%</b>(보합 {flat.length}종 제외) · 보유자 표시 없음 · <Coin size={11} /> = 내 보유 · 📈정배열 📉역배열
               </span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))', gap: 14, marginTop: 10 }}>
               <div>
-                <b style={{ fontSize: 12, color: TK.green400 }}>🔺 오르는 {up.length}종</b>
+                <b style={{ fontSize: 12, color: TK.red400 }}>🔺 오르는 {up.length}종</b>
                 <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {up.map((r, i) => <Row key={r.market + r.ticker} r={r} i={i} />)}
                   {up.length === 0 && <span style={{ fontSize: 11, color: TK.sub2 }}>오르는 보유 종목이 없습니다.</span>}
                 </div>
               </div>
               <div>
-                <b style={{ fontSize: 12, color: TK.red400 }}>🔻 내리는 {dn.length}종</b>
+                <b style={{ fontSize: 12, color: TK.blue400 }}>🔻 내리는 {dn.length}종</b>
                 <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {dn.map((r, i) => <Row key={r.market + r.ticker} r={r} i={i} />)}
                   {dn.length === 0 && <span style={{ fontSize: 11, color: TK.sub2 }}>내리는 보유 종목이 없습니다.</span>}
@@ -186,7 +192,7 @@ export default function WinLosePage() {
             <b style={{ fontSize: 14, color: TK.slate100 }}>⚔️ 오늘의 대전표</b>
             <span style={{ fontSize: 10.5, color: TK.sub2, marginLeft: 8 }}>격차 큰 요인이 진하게 — <b style={{ color: TK.sub3 }}>회색 요인은 승패를 못 가른 것</b>(그게 교훈)</span>
             <div style={{ display: 'flex', justifyContent: 'space-between', margin: '10px 0 4px', fontSize: 11.5, fontWeight: 800 }}>
-              <span style={{ color: TK.green400 }}>🔺 오르는 {win.length}종</span><span style={{ color: TK.red400 }}>떨어지는 {lose.length}종 🔻</span>
+              <span style={{ color: TK.red400 }}>🔺 오르는 {win.length}종</span><span style={{ color: TK.blue400 }}>떨어지는 {lose.length}종 🔻</span>
             </div>
             {stats.map(s => {
               const dim = s.gap < 12
@@ -240,7 +246,7 @@ export default function WinLosePage() {
                       <div style={{ width: `${b.winRate}%`, height: '100%', background: TK.green500 }} />
                     </div>
                     <span style={{ fontSize: 10, fontFamily: 'monospace', color: b.winRate >= 50 ? TK.green400 : TK.red400, minWidth: 56 }}>🔺{b.win.length} 🔻{b.lose.length}</span>
-                    {chips(b.win, TK.green400, '#0d2818')}{chips(b.lose, TK.red400, '#2a0f12')}
+                    {chips(b.win, TK.red400, '#2a0f12')}{chips(b.lose, TK.blue400, '#0f1c2e')}
                   </div>
                 )
               })}
@@ -284,7 +290,7 @@ export default function WinLosePage() {
 
           {/* ── 🏆/💀 개별 랭킹 ─────────────────────────────── */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 14 }}>
-            {([['🏆 상승 Top 8', win.slice(0, 8), TK.green400], ['💀 하락 Top 8', lose.slice(0, 8), TK.red400]] as const).map(([title, arr, color]) => (
+            {([['🏆 상승 Top 8', win.slice(0, 8), TK.red400], ['💀 하락 Top 8', lose.slice(0, 8), TK.blue400]] as const).map(([title, arr, color]) => (
               <div key={title} style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '14px 16px' }}>
                 <b style={{ fontSize: 13.5, color }}>{title}</b>
                 <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>

@@ -63,15 +63,21 @@ function ChipRow({ label, color, list, total, ok }: { label: string; color: stri
 }
 
 /** 적중률 셀 — 큰 % + 표본 + 시장 대비 초과(%p) */
+/** 시장 대비 초과(%p) — 평균 수익률 − 같은 기간 시장 평균(매도는 부호를 뒤집어 "더 피한 손실"로 읽는다).
+ *  ⚠️ SSOT: 표 셀과 아래 해설 문구가 **같은 함수**를 써야 한다. 해설에 숫자를 리터럴로 박았더니
+ *  데이터가 흐른 뒤 "매수는 세 축 모두 열위(−2~4%p)"라고 적혀 있는데 표는 +1.5·+1.1·−1.6 이 되어
+ *  요약이 상세를 반박했다(제1원칙 — 화면 숫자는 데이터에서 뽑는다). */
+const edgeOf = (g: GroupStat | undefined) =>
+  g && g.avgNow != null && g.avgBenchNow != null
+    ? Math.round((g.kind === 'buy' ? g.avgNow - g.avgBenchNow : g.avgBenchNow - g.avgNow) * 10) / 10
+    : null
+
 function WinCell({ g }: { g: GroupStat | undefined }) {
   if (!g || g.n === 0) return <span style={{ color: TK.sub2, fontSize: 12 }}>적립 중</span>
   const { win, n } = headOf(g)
   if (win == null) return <span style={{ color: TK.sub2, fontSize: 12 }}>채점 대기</span>
   const thin = n < 5
-  // 시장 대비 초과 — 평균 수익률 − 같은 기간 시장 평균(매도는 부호를 뒤집어 "더 피한 손실"로 읽는다)
-  const edge = g.avgNow != null && g.avgBenchNow != null
-    ? Math.round((g.kind === 'buy' ? g.avgNow - g.avgBenchNow : g.avgBenchNow - g.avgNow) * 10) / 10
-    : null
+  const edge = edgeOf(g)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
       <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5 }}>
@@ -164,6 +170,21 @@ export default function SignalReportPage() {
   }
   // 시장 기준선 요약 — 가장 표본이 두꺼운 매수 그룹에서 뽑는다(학생 오독 방지의 핵심 숫자)
   const benchRef = find('jarvis', 'buy')?.avgBenchNow ?? find('timing', 'buy')?.avgBenchNow ?? null
+  // 📌 해설용 요약 — 표와 같은 edgeOf() 에서 뽑는다(리터럴 금지). 범위·방향을 데이터가 정한다.
+  const edges = (kind: 'buy' | 'sell') => AXES.map(a => edgeOf(find(a.src, kind))).filter((e): e is number => e != null)
+  const edgeSpan = (kind: 'buy' | 'sell') => {
+    const v = edges(kind)
+    if (v.length === 0) return null
+    const lo = Math.min(...v), hi = Math.max(...v)
+    const f = (x: number) => `${x >= 0 ? '+' : ''}${x.toFixed(1)}%p`
+    return { lo, hi, allPlus: lo >= 0, allMinus: hi < 0, text: lo === hi ? f(lo) : `${f(lo)}~${f(hi)}`, n: v.length }
+  }
+  const buyEdge = edgeSpan('buy'), sellEdge = edgeSpan('sell')
+  const winRange = (kind: 'buy' | 'sell') => {
+    const v = AXES.map(a => find(a.src, kind)).filter(Boolean).map(g => headOf(g!).win).filter((w): w is number => w != null)
+    return v.length ? `${Math.min(...v)}~${Math.max(...v)}%` : null
+  }
+  const sellThickest = AXES.map(a => ({ a, g: find(a.src, 'sell') })).filter(x => x.g).sort((x, y) => (y.g!.n7 ?? 0) - (x.g!.n7 ?? 0))[0]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
@@ -241,7 +262,8 @@ export default function SignalReportPage() {
             <div style={{ fontSize: 11, color: TK.sub4, marginTop: 10, lineHeight: 1.7, borderTop: `1px solid ${TK.border}`, paddingTop: 9, display: 'flex', flexDirection: 'column', gap: 5 }}>
               <div>
                 📌 <b style={{ color: TK.slate200 }}>지금 이 표가 말하는 것</b> — <b>이중 확인은 표본이 적어 아직 증명 전</b>이고,
-                <b> 매도는 &lsquo;가치&rsquo;가 가장 두꺼운 근거</b>(30건)이며, <b>매수는 세 축 모두 20~30%대</b>입니다.
+                {sellThickest && <><b> 매도는 &lsquo;{sellThickest.a.name.replace('만', '')}&rsquo;가 가장 두꺼운 근거</b>({sellThickest.g!.n7}건)이며,</>}
+                {winRange('buy') && <> <b>매수 적중률은 {winRange('buy')}</b>입니다.</>}
               </div>
               <div>
                 📌 <b style={{ color: TK.amber400 }}>그런데도 이중 확인을 우선하는 근거</b>는 이 표가 아니라 <b>별도 백테스트</b>예요 —
@@ -266,9 +288,10 @@ export default function SignalReportPage() {
               {benchRef != null && <> 우리 매수 신호 종목들의 <b>같은 기간 시장 평균도 {fmtPct(benchRef)}</b>였고요.</>} 적중률 30%는 이 바닥 기준선 위에서 나온 숫자입니다.
             </div>
             <div style={{ fontSize: 12, color: TK.sub11, marginTop: 8, lineHeight: 1.75 }}>
-              ② <b style={{ color: TK.amber400 }}>그래도 정직하게 — 매수는 시장을 이기지 못했습니다.</b> 표의 &lsquo;시장 대비&rsquo;를 보세요.
-              매수는 세 축 모두 <b>소폭 열위(−2~4%p)</b>입니다. 반면 <b style={{ color: TK.green400 }}>매도는 세 축 모두 플러스(+4.7~+10.1%p)</b> —
-              내려갈 종목을 골라내는 일은 실제로 해내고 있다는 뜻입니다.
+              ② <b style={{ color: TK.amber400 }}>그래도 정직하게 — 매수와 매도는 성적이 다릅니다.</b> 표의 &lsquo;시장 대비&rsquo;를 보세요.
+              {buyEdge && <> 매수는 <b>{buyEdge.allPlus ? `세 축 모두 소폭 우위(${buyEdge.text})` : buyEdge.allMinus ? `세 축 모두 열위(${buyEdge.text})` : `축마다 갈립니다(${buyEdge.text})`}</b>이고,</>}
+              {sellEdge && <> <b style={{ color: sellEdge.allPlus ? TK.green400 : TK.sub4 }}>매도는 {sellEdge.allPlus ? `세 축 모두 플러스(${sellEdge.text})` : `${sellEdge.text}`}</b> —
+                {sellEdge.allPlus ? ' 내려갈 종목을 골라내는 일은 실제로 해내고 있다는 뜻입니다.' : ' 아직 시장을 안정적으로 이기지는 못했습니다.'}</>}
             </div>
             <div style={{ fontSize: 12, color: TK.sub11, marginTop: 8, lineHeight: 1.75 }}>
               ③ <b>왜 매수만 어려울까</b> — 가치 신호는 &ldquo;싸고 좋은 회사&rdquo;를 고르는 일이라 결과가 <b>몇 달~몇 년</b>에 걸쳐 나오는데,
@@ -277,7 +300,7 @@ export default function SignalReportPage() {
             </div>
             <div style={{ fontSize: 11, color: TK.sub4, marginTop: 9, lineHeight: 1.7, borderTop: `1px solid ${TK.border}`, paddingTop: 8 }}>
               ⚖️ 반대 방향도 짚어둡니다 — <b>매도 적중률이 높은 것도 실력만은 아닙니다</b>. 다 떨어지는 장에선 뭘 팔아도 맞으니까요.
-              그래서 &lsquo;시장 대비&rsquo;(+8.2%p)가 진짜 성적입니다. <b>이 표는 하락장 한 국면의 기록</b>이라, 상승장이 오면 숫자가 뒤집힐 수 있습니다.
+              그래서 &lsquo;시장 대비&rsquo;{sellEdge ? `(매도 ${sellEdge.text})` : ''}가 진짜 성적입니다. <b>이 표는 하락장 한 국면의 기록</b>이라, 상승장이 오면 숫자가 뒤집힐 수 있습니다.
               앱이 자기 약점을 숨기지 않는 것 — 그게 이 화면의 목적입니다.
             </div>
           </div>
