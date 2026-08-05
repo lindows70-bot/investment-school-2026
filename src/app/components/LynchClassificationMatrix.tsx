@@ -1,5 +1,5 @@
 'use client'
-// 🧬 피터 린치 7대 종목 분류 Matrix & 함정 레이더 — 진단 탭 시각화(도넛 + 인터랙티브 분포표 + 기저효과 경고)
+// 🧬 피터 린치 6대 종목 분류 Matrix & 함정 레이더 — 진단 탭 시각화(도넛 + 인터랙티브 분포표 + 기저효과 경고)
 import { useState, useEffect } from 'react'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
 import type { LynchMatrixResult } from '@/app/api/lynch-matrix/route'
@@ -8,7 +8,7 @@ import { flagOf } from '@/lib/marketFlag'
 
 const CARD = TK.bg6, BORDER = TK.border
 
-// 카테고리별 고정 색(7대) — 어느 화면에서든 동일 색 = 동일 카테고리
+// 카테고리별 고정 색(6대 + 미분류) — 어느 화면에서든 동일 색 = 동일 카테고리
 const CAT_COLOR: Record<string, string> = {
   fast_grower: TK.green400,   // 고성장주 — 초록
   stalwart:    TK.blue400,   // 대형우량주 — 파랑
@@ -55,7 +55,7 @@ export default function LynchClassificationMatrix() {
   return (
     <div style={{ background: CARD, borderRadius: 12, padding: '14px 16px', border: `1px solid ${BORDER}` }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-        <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 13 }}>🧬 피터 린치 7대 분류 Matrix</span>
+        <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 13 }}>🧬 피터 린치 6대 분류 Matrix</span>
         <span style={{ color: TK.sub, fontSize: 10.5 }}>한 종목 = 단 하나의 정체성(상호배타 분류) · 주식 {d.totalStocks}종목</span>
       </div>
 

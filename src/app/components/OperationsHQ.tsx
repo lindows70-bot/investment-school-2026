@@ -158,7 +158,7 @@ export default function OperationsHQ() {
         )}
       </div>
 
-      {/* 🧬 피터 린치 7대 분류 Matrix & 함정 레이더 — 진단 해상도 보강(주식 미보유면 자동 숨김) */}
+      {/* 🧬 피터 린치 6대 분류 Matrix & 함정 레이더 — 진단 해상도 보강(주식 미보유면 자동 숨김) */}
       <LynchClassificationMatrix />
 
       {/* 🌟 모닝스타식 스타 등급 — 공정가치(DCF)·해자·불확실성·자본배분 종합(진단 캡스톤) */}

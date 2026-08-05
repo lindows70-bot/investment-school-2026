@@ -1,4 +1,4 @@
-// 🧬 피터 린치 7대 종목 분류 Matrix & 함정 레이더 API — 보유 주식을 MECE(상호배타) 단일 카테고리로 분류
+// 🧬 피터 린치 6대 종목 분류 Matrix & 함정 레이더 API — 보유 주식을 MECE(상호배타) 단일 카테고리로 분류
 // 핵심 가드: ①티커 병합(분할매수 여러 행→1종목) ②카테고리 단판 우선순위(사용자 지정>펀더멘탈 자동>미분류)
 // ③함정 레이더 = canonicalFundamentals.isPegBaseEffect SSOT 재사용(BP 0.01 사건과 동일 기준 — 제2원칙)
 import { NextResponse } from 'next/server'
