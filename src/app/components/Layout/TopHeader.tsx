@@ -19,6 +19,13 @@ const HOUR_MS   = 60 * 60 * 1000
 export default function TopHeader() {
   const pathname = usePathname()
   const [usdKrw, setUsdKrw] = useState<number | null>(null)
+  // 📅 날짜는 마운트 후에만 — 렌더 중 new Date() 는 서버(UTC)와 클라이언트(KST)의 날짜가
+  //    자정~오전 9시(KST) 사이 하루 어긋나, 전 페이지 하이드레이션 불일치(React #425)를 일으켰다.
+  //    스쿨 리그가 '집계 중…'에서 얼어붙은 사고의 뿌리 — 낮에는 두 날짜가 같아 안 보였다.
+  const [today, setToday] = useState<string | null>(null)
+  useEffect(() => {
+    setToday(new Date().toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' }))
+  }, [])
 
   const title = PAGE_TITLES[pathname] ?? '투자학교'
 
@@ -100,10 +107,8 @@ export default function TopHeader() {
 
         {usdKrw && <div style={{ width: 1, height: 16, background: TK.gray800 }}/>}
 
-        {/* 날짜 */}
-        <span style={{ fontSize: 12, color: TK.sub7 }}>
-          {new Date().toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })}
-        </span>
+        {/* 날짜 — 서버 렌더에선 비워두고 마운트 후 채운다(하이드레이션 안전) */}
+        <span style={{ fontSize: 12, color: TK.sub7 }}>{today}</span>
       </div>
     </header>
   )
