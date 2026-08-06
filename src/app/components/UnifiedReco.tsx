@@ -218,6 +218,9 @@ function RefRow({ r }: { r: RegionRefItem }) {
 export default function UnifiedReco() {
   const [data, setData] = useState<UnifiedRecoResult & { warming?: boolean } | null>(null)
   const [loading, setLoading] = useState(true)
+  // ⭐ 핵심 추천용 위원회 판정(brief) — 티커별. 판정은 리서치 탭·배지와 같은 SSOT(제2원칙)
+  const [committee, setCommittee] = useState<Record<string, { final: 'pass' | 'gray' | 'fail'; unitSuspect: boolean }>>({})
+  const [committeeDone, setCommitteeDone] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -232,6 +235,24 @@ export default function UnifiedReco() {
     window.addEventListener('portfolio-updated', load)
     return () => { alive = false; window.removeEventListener('portfolio-updated', load) }
   }, [])
+
+  // ⭐ 위원회 판정 수집 — 추천 15종 병렬. 실패한 티커는 '판정 없음'으로 남고 핵심 추천에 못 든다(결측≠통과).
+  const itemKey = data?.items.map(i => i.ticker).join(',') ?? ''
+  useEffect(() => {
+    if (!data?.items.length) return
+    let cancelled = false
+    setCommitteeDone(false)
+    const out: Record<string, { final: 'pass' | 'gray' | 'fail'; unitSuspect: boolean }> = {}
+    Promise.all(data.items.map(async it => {
+      try {
+        const r = await fetch(`/api/masters-verdict?ticker=${encodeURIComponent(it.ticker)}&market=${it.market === 'KR' ? 'KR' : 'US'}&brief=1`)
+        const j = await r.json()
+        if (j?.final) out[it.ticker] = { final: j.final, unitSuspect: !!j.unitSuspect }
+      } catch { /* 결측으로 처리 */ }
+    })).then(() => { if (!cancelled) { setCommittee(out); setCommitteeDone(true) } })
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemKey])
 
   if (loading) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: TK.sub }}>🎯 가치·퀄리티·모멘텀·주도섹터·수급·계절 6축을 융합해 통합 추천을 계산 중입니다…</div>
   if (!data) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: TK.sub }}>통합 추천 데이터를 불러오지 못했습니다.</div>
@@ -271,6 +292,52 @@ export default function UnifiedReco() {
           )}
         </div>
       </div>
+
+      {/* ⭐ 핵심 추천 — 가치(6축 상위) × 타이밍(진입 적기/정예 타점) × 거장 위원회(비불통과) 3중 통과.
+          ⛔ 승률 숫자를 박지 않는다 — 소급 시뮬은 역인과로 오염됨을 확인했고(2026-08-06),
+             전향적 표본은 앱 신호 성적표가 매일 적립·채점한다. 없으면 없다고 말한다(억지로 채우지 않음). */}
+      {(() => {
+        const pass = data.items.filter(it => {
+          const timingOk = it.timing && (it.timing.light === 'green' || !!it.timing.prime)
+          const v = committee[it.ticker]
+          return timingOk && v && v.final !== 'fail' && !v.unitSuspect
+        })
+        return (
+          <div style={{ background: `${TK.amber400}0d`, border: `1px solid ${TK.amber400}55`, borderRadius: 12, padding: '12px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+              <b style={{ fontSize: FS.body, color: TK.amber400 }}>⭐ 핵심 추천 — 3중 검증을 모두 통과한 종목</b>
+              <span style={{ fontSize: FS.micro, color: TK.sub2 }}>
+                💎 가치(6축 통합 상위) × 🚦 타이밍(진입 적기·정예 타점) × 🎩 거장 위원회(비불통과·레드라인 0)
+              </span>
+            </div>
+            {!committeeDone ? (
+              <div style={{ fontSize: FS.tiny, color: TK.sub13, marginTop: 6 }}>🎩 위원회 판정 수집 중… (첫 조회는 최대 1~2분, 이후 하루 동안 즉시)</div>
+            ) : pass.length === 0 ? (
+              <div style={{ fontSize: FS.tiny, color: TK.sub11, marginTop: 6, lineHeight: 1.6 }}>
+                지금은 3중 검증을 모두 통과한 종목이 <b style={{ color: TK.slate200 }}>없습니다</b> — 세 관문이 동시에 열리는 순간은 드뭅니다(귀합니다).
+                억지로 채우지 않고, 생기면 여기에 자동으로 올라옵니다.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                {pass.map(it => (
+                  <span key={it.ticker} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: TK.bg3, border: `1px solid ${TK.amber400}66`, borderRadius: 8, padding: '4px 10px' }}>
+                    <span style={{ fontSize: FS.micro }}>{flagOf(it.market, it.ticker, it.origin)}</span>
+                    <b style={{ fontSize: FS.tiny, color: TK.slate100 }}>{it.name}</b>
+                    <span style={{ fontSize: FS.micro, fontFamily: 'monospace', color: TK.amber400 }}>통합 {it.combined}</span>
+                    <span style={{ fontSize: FS.micro, color: it.timing?.prime ? TK.amber400 : TK.green400 }}>{it.timing?.prime ? '🏅 정예 타점' : '🟢 진입 적기'}</span>
+                    <span style={{ fontSize: FS.micro, color: committee[it.ticker]?.final === 'pass' ? TK.green400 : TK.amber400 }}>🎩 {committee[it.ticker]?.final === 'pass' ? '통과' : '회색'}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 7, lineHeight: 1.6 }}>
+              📊 <b>표본 적립 중</b> — 이 조합의 승률은 아직 통계로 말할 수 없어 숫자를 표기하지 않습니다(근접 표본 2건뿐 · 소급 검증은 역인과로 무효 확인).
+              성적은 📋 앱 신호 성적표가 매일 자동 채점합니다. {data.momCrash && <>지금은 <b style={{ color: '#fdba74' }}>모멘텀 크래시 주의 국면</b> — 핵심 추천이어도 분할·소액으로. </>}
+              상세 근거는 아래 해당 종목 카드와 종목 리서치 → 🎩 거장 위원회에서. 교육용 · 투자 추천 아님.
+            </div>
+          </div>
+        )
+      })()}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {data.items.map(it => <Item key={`${it.market}-${it.ticker}`} it={it} portfolioKrw={data.portfolioKrw} vol={volForStock(it.ticker, it.origin, data.volByOrigin)} />)}
