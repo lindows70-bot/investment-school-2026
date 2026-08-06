@@ -332,7 +332,7 @@ export default function UnifiedReco() {
             )}
             <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 7, lineHeight: 1.6 }}>
               📊 <b>표본 적립 중</b> — 이 조합의 승률은 아직 통계로 말할 수 없어 숫자를 표기하지 않습니다(근접 표본 2건뿐 · 소급 검증은 역인과로 무효 확인).
-              성적은 📋 앱 신호 성적표가 매일 자동 채점합니다. {data.momCrash && <>지금은 <b style={{ color: '#fdba74' }}>모멘텀 크래시 주의 국면</b> — 핵심 추천이어도 분할·소액으로. </>}
+              성적은 📋 앱 신호 성적표가 매일 자동 채점합니다. {data.momCrash && <>지금은 <b style={{ color: TK.orange400 }}>모멘텀 크래시 주의 국면</b> — 핵심 추천이어도 분할·소액으로. </>}
               상세 근거는 아래 해당 종목 카드와 종목 리서치 → 🎩 거장 위원회에서. 교육용 · 투자 추천 아님.
             </div>
           </div>
