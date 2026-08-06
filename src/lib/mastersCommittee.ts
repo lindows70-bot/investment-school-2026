@@ -58,6 +58,9 @@ export interface CommitteeInput {
   pegBaseEffect: boolean | null
   // buffettDcf(있으면) — 매수 가격 구간의 유일한 원천(제2원칙)
   intrinsicPerShare: number | null
+  // 🏦 금융주(stock-fcf SSOT 판정) — FCF·DCF·순부채 잣대가 구조적으로 무의미(예금·대출·보험 float).
+  //    실사고(2026-08-06): Schwab 내재가치가 현재가의 2.8배로 떠 매수구간 $217~263 vs 현재가 ~$110.
+  isFinancial: boolean | null
 }
 
 export interface BuyBand { low: number; high: number; fairValue: number }
@@ -117,16 +120,16 @@ function buffettChecks(x: CommitteeInput, unitSuspect: boolean): MasterCheck[] {
     { key: 'roe', label: '자기자본이익률', basis: '≥15% (부풀림 아님)',
       status: roePct == null ? 'warn' : x.roeInflated === true ? 'fail' : roePct >= 15 ? 'pass' : roePct >= 10 ? 'warn' : 'fail',
       value: roePct == null ? '데이터 없음' : `ROE ${roePct.toFixed(1)}%${x.roeInflated ? ' (부채 부풀림)' : ''}` },
-    // 💱 통화 불일치가 의심되면 현금 지표를 '통과'로 읽지 않는다 — 부풀린 값이 합격을 만들면 최악이다
+    // 💱 통화 불일치·🏦 금융주는 현금 지표를 '통과'로 읽지 않는다 — 왜곡된 값이 합격을 만들면 최악이다
     { key: 'fcf', label: '현금 창출력', basis: 'FCF수익률 ≥3%',
-      status: unitSuspect ? 'warn' : x.fcfYieldPct == null ? 'warn' : x.fcfYieldPct >= 3 ? 'pass' : x.fcfYieldPct >= 1 ? 'warn' : 'fail',
-      value: unitSuspect ? '통화 단위 불일치 의심 — 검증 보류' : x.fcfYieldPct == null ? '데이터 없음' : `${x.fcfYieldPct.toFixed(1)}%` },
+      status: x.isFinancial ? 'warn' : unitSuspect ? 'warn' : x.fcfYieldPct == null ? 'warn' : x.fcfYieldPct >= 3 ? 'pass' : x.fcfYieldPct >= 1 ? 'warn' : 'fail',
+      value: x.isFinancial ? '금융주 — FCF 잣대 부적합(보류)' : unitSuspect ? '통화 단위 불일치 의심 — 검증 보류' : x.fcfYieldPct == null ? '데이터 없음' : `${x.fcfYieldPct.toFixed(1)}%` },
     { key: 'debt', label: '재무 요새', basis: '순부채 ≤0 또는 <시총 20%',
-      status: netDebtOk == null ? 'warn' : netDebtOk ? 'pass' : 'fail',
-      value: netDebt == null ? '데이터 없음' : netDebt <= 0 ? '순현금' : `순부채 시총 대비 ${x.marketCap ? ((netDebt / x.marketCap) * 100).toFixed(0) : '?'}%` },
+      status: x.isFinancial ? 'warn' : netDebtOk == null ? 'warn' : netDebtOk ? 'pass' : 'fail',
+      value: x.isFinancial ? '금융주 — 부채 구조 상이(예금·차입 — 보류)' : netDebt == null ? '데이터 없음' : netDebt <= 0 ? '순현금' : `순부채 시총 대비 ${x.marketCap ? ((netDebt / x.marketCap) * 100).toFixed(0) : '?'}%` },
     { key: 'margin_of_safety', label: '안전마진(DCF)', basis: '내재가치 대비 ≥0%',
-      status: unitSuspect || margin == null ? 'warn' : margin >= 0.15 ? 'pass' : margin >= 0 ? 'warn' : 'fail',
-      value: unitSuspect ? '통화 단위 불일치 의심 — 산정 보류' : margin == null ? '산정 보류' : `${(margin * 100).toFixed(0)}%` },
+      status: x.isFinancial ? 'warn' : unitSuspect || margin == null ? 'warn' : margin >= 0.15 ? 'pass' : margin >= 0 ? 'warn' : 'fail',
+      value: x.isFinancial ? '금융주 — FCF 기반 DCF 부적합(보류)' : unitSuspect ? '통화 단위 불일치 의심 — 산정 보류' : margin == null ? '산정 보류' : `${(margin * 100).toFixed(0)}%` },
   ]
 }
 
@@ -249,9 +252,9 @@ export function computeCommittee(x: CommitteeInput): CommitteeResult {
   }
 
   // 매수 가격 구간 — 버핏 DCF 내재가치의 안전마진 30%~15%.
-  // 기저효과·DCF 불가·레드라인·**통화 단위 의심**이면 보류한다(틀린 가격은 없는 가격보다 나쁘다).
+  // 기저효과·DCF 불가·레드라인·통화 단위 의심·**금융주**면 보류한다(틀린 가격은 없는 가격보다 나쁘다).
   const buyBand: BuyBand | null =
-    !redlineHit && !unitSuspect && x.intrinsicPerShare != null && x.intrinsicPerShare > 0
+    !redlineHit && !unitSuspect && !x.isFinancial && x.intrinsicPerShare != null && x.intrinsicPerShare > 0
       ? { fairValue: x.intrinsicPerShare, low: x.intrinsicPerShare * 0.70, high: x.intrinsicPerShare * 0.85 }
       : null
 

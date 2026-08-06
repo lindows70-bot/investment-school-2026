@@ -63,9 +63,9 @@ export async function GET(req: NextRequest) {
   // 판정은 결정론이지만 가격 의존 체크(안전마진·어닝일드·52주 위치)가 있어 일 단위 캐시.
   // 캐시가 둘인 이유: full 은 토론까지 있어야 완전하고, brief 는 판정만으로 완전하다.
   // brief 결과를 full 키에 넣으면 위원회 탭이 "토론 실패"로 보이고, 그게 24h 박제된다.
-  // v2: 통화 단위 불일치 가드 추가(TSM·에퀴노르 내재가치 20배 부풀림) — 옛 밴드가 박제돼 있으므로 키를 올린다
-  const fullKey  = `masters-committee-v2:${ticker}:${market}:${kstDate()}`
-  const briefKey = `masters-brief-v2:${ticker}:${market}:${kstDate()}`
+  // v3: 🏦 금융주 가드(FCF·DCF·순부채 잣대 보류 — Schwab 내재가치 2.8배 실사고) / v2: 통화 단위 불일치 가드
+  const fullKey  = `masters-committee-v3:${ticker}:${market}:${kstDate()}`
+  const briefKey = `masters-brief-v3:${ticker}:${market}:${kstDate()}`
   const full = await getCache<MastersVerdictResponse>(fullKey, 24 * 3600_000)
   if (full) return NextResponse.json(full, { headers: { 'Cache-Control': 'no-store' } })   // 토론 포함 = 어느 모드든 충분
   if (brief) {
@@ -101,9 +101,12 @@ export async function GET(req: NextRequest) {
   const peg = typeof f.peg === 'number' ? f.peg : null
   const pegBase = peg != null && growthPct != null ? isPegBaseEffect(peg, growthPct) : null
 
-  // 버핏 DCF — 흑자 FCF + 주식수 확보(ok)일 때만. 기저효과면 산정 보류(모닝스타 패널과 동일 원칙)
+  // 🏦 금융주 여부 — stock-fcf SSOT 판정 재사용(예금·대출·보험 float 탓에 FCF·DCF·순부채 잣대 무의미)
+  const isFinancial: boolean | null = typeof fcfJ?.isFinancial === 'boolean' ? fcfJ.isFinancial : null
+
+  // 버핏 DCF — 흑자 FCF + 주식수 확보(ok)일 때만. 기저효과·금융주면 산정 보류(모닝스타 패널과 동일 원칙)
   let intrinsicPerShare: number | null = null
-  if (currentPrice != null && pegBase !== true) {
+  if (currentPrice != null && pegBase !== true && isFinancial !== true) {
     try {
       const inp = deriveDcfInputs(f, { market, currency, lynchCategory: null, currentPrice })
       if (inp.ok && inp.fcf0 != null && inp.shares != null) {
@@ -140,6 +143,7 @@ export async function GET(req: NextRequest) {
     rdcfImplied: typeof rdcfJ?.impliedGrowth === 'number' ? rdcfJ.impliedGrowth : null,
     pegBaseEffect: pegBase,
     intrinsicPerShare,
+    isFinancial,
   }
 
   // ── ③ 결정론 판정 ──

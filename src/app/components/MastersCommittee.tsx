@@ -67,6 +67,7 @@ export default function MastersCommittee({ ticker, name, market }: { ticker: str
             <div style={{ fontSize: FS.tiny, color: TK.sub2, marginTop: 4 }}>💰 매수 가격 구간: 산정 보류 — {
               data.redlineHit ? '레드라인 상태에선 가격을 논하지 않는다'
               : data.unitSuspect ? '💱 통화 단위 불일치 의심(재무는 현지통화·주가는 달러로 보이는 해외 상장사) — 틀린 가격을 보여주느니 보류한다'
+              : data.masters.some(m => m.checks.some(c => c.value.includes('금융주'))) ? '🏦 금융주 — 예금·대출·보험 float 탓에 FCF 기반 DCF가 성립하지 않는다(PBR·ROE 축으로 판단)'
               : 'DCF 불가(적자·기저효과·데이터 부족)'}</div>
           )}
         </div>

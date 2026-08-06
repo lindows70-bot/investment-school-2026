@@ -33,7 +33,9 @@ export default function MastersBadge({ ticker, market, currency, currentPrice }:
   const cur = currency ?? d.currency
   const fmt = (v: number) => cur === 'KRW' ? `₩${Math.round(v).toLocaleString('ko-KR')}` : `$${v.toFixed(2)}`
   const price = currentPrice ?? d.currentPrice
-  const inBand = d.buyBand && price != null ? price <= d.buyBand.high : null
+  // 세 상태를 가른다 — '구간 아래(더 싼 값)'를 '구간 안'이라 부르면 부정확하다(오리온 13만 vs 구간 32.6만~ 실사고)
+  const bandPos: 'below' | 'in' | 'above' | null = d.buyBand && price != null
+    ? (price < d.buyBand.low ? 'below' : price <= d.buyBand.high ? 'in' : 'above') : null
   const hits = d.redlines.filter(r => r.hit)
 
   const tip = [
@@ -62,13 +64,14 @@ export default function MastersBadge({ ticker, market, currency, currentPrice }:
         <span title={`버핏식 보수 DCF 내재가치 ${fmt(d.buyBand.fairValue)} 의 안전마진 30~15% 구간입니다.
 현재가가 이 구간 위에 있다면 '나쁜 회사'라는 뜻이 아니라 '이 잣대로는 아직 비싸다'는 뜻입니다.
 ⚠️ 경기순환주는 현재 이익 기준 DCF라 사이클 위치에 따라 구간이 크게 왜곡될 수 있습니다.`}
-          style={{ background: inBand === true ? `${TK.green500}12` : 'rgba(148,163,184,0.10)',
-            color: inBand === true ? TK.green400 : TK.slate300,
-            border: `1px solid ${inBand === true ? TK.green500 : TK.line1}44`,
+          style={{ background: bandPos === 'in' || bandPos === 'below' ? `${TK.green500}12` : 'rgba(148,163,184,0.10)',
+            color: bandPos === 'in' || bandPos === 'below' ? TK.green400 : TK.slate300,
+            border: `1px solid ${bandPos === 'in' || bandPos === 'below' ? TK.green500 : TK.line1}44`,
             borderRadius: RAD.xs, padding: '1px 7px', fontSize: FS.micro, cursor: 'help', whiteSpace: 'nowrap' }}>
           🎯 위원회 매수구간 {fmt(d.buyBand.low)}~{fmt(d.buyBand.high)}
-          {inBand === false && <span style={{ opacity: 0.75 }}> (현재가는 구간 위)</span>}
-          {inBand === true && <span style={{ opacity: 0.85 }}> ✓ 구간 안</span>}
+          {bandPos === 'above' && <span style={{ opacity: 0.75 }}> (현재가는 구간 위)</span>}
+          {bandPos === 'in' && <span style={{ opacity: 0.85 }}> ✓ 구간 안</span>}
+          {bandPos === 'below' && <span style={{ opacity: 0.85 }}> ✓ 구간 아래(안전마진 30%+)</span>}
         </span>
       )}
     </span>
