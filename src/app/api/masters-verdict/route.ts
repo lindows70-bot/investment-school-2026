@@ -56,11 +56,22 @@ export async function GET(req: NextRequest) {
   const ticker = (req.nextUrl.searchParams.get('ticker') || '').trim().toUpperCase()
   const market = (req.nextUrl.searchParams.get('market') === 'KR' ? 'KR' : 'US') as 'KR' | 'US'
   if (!ticker) return NextResponse.json({ error: 'ticker required' }, { status: 400 })
+  // 🪶 brief=1 — 판정만(Gemini 토론 생략). 통합추천·리밸런싱이 배지·가격구간을 붙일 때 쓴다.
+  //    ⚠️ 판정 자체는 전체 모드와 **같은 computeCommittee** 다 — 화면마다 판정이 달라지면 제2원칙 위반.
+  const brief = req.nextUrl.searchParams.get('brief') === '1'
 
-  // 판정은 결정론이지만 가격 의존 체크(안전마진·어닝일드·52주 위치)가 있어 일 단위 캐시
-  const cacheKey = `masters-committee-v1:${ticker}:${market}:${kstDate()}`
-  const cached = await getCache<MastersVerdictResponse>(cacheKey, 24 * 3600_000)
-  if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
+  // 판정은 결정론이지만 가격 의존 체크(안전마진·어닝일드·52주 위치)가 있어 일 단위 캐시.
+  // 캐시가 둘인 이유: full 은 토론까지 있어야 완전하고, brief 는 판정만으로 완전하다.
+  // brief 결과를 full 키에 넣으면 위원회 탭이 "토론 실패"로 보이고, 그게 24h 박제된다.
+  // v2: 통화 단위 불일치 가드 추가(TSM·에퀴노르 내재가치 20배 부풀림) — 옛 밴드가 박제돼 있으므로 키를 올린다
+  const fullKey  = `masters-committee-v2:${ticker}:${market}:${kstDate()}`
+  const briefKey = `masters-brief-v2:${ticker}:${market}:${kstDate()}`
+  const full = await getCache<MastersVerdictResponse>(fullKey, 24 * 3600_000)
+  if (full) return NextResponse.json(full, { headers: { 'Cache-Control': 'no-store' } })   // 토론 포함 = 어느 모드든 충분
+  if (brief) {
+    const b = await getCache<MastersVerdictResponse>(briefKey, 24 * 3600_000)
+    if (b) return NextResponse.json(b, { headers: { 'Cache-Control': 'no-store' } })
+  }
 
   const selfBase = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin
 
@@ -163,15 +174,16 @@ ${redlineTxt}
   구체적 수치는 넣지 마라(수치는 판정표 몫이다).
 - 전부 한국어, '~다' 평서형. 거장 이름을 빌린 교육용 재현임을 잊지 마라(실존 인물 사칭 문체 금지 — 3인칭 아닌 1인칭은 허용).`
 
-  const g = await callGeminiJSON<CommitteeDebate>(prompt, DEBATE_SCHEMA, { temperature: 0.6 })
-  const debate: CommitteeDebate | null = g.ok ? g.data : null
+  const g = brief ? null : await callGeminiJSON<CommitteeDebate>(prompt, DEBATE_SCHEMA, { temperature: 0.6 })
+  const debate: CommitteeDebate | null = g?.ok ? g.data : null
 
   const result: MastersVerdictResponse = {
     ...committee, ticker, name, market, currency, currentPrice, debate, asOf: new Date().toISOString(),
   }
 
-  // ⚠️ 부분실패 박제 금지 — Gemini 서술이 없으면 캐시하지 않는다(다음 요청이 재시도해 온전한 결과로 수렴).
-  //    판정(결정론)은 그대로 응답하므로 화면은 항상 뜬다.
-  if (debate) await setCache(cacheKey, result)
+  // ⚠️ 부분실패 박제 금지 — full 모드에서 Gemini 서술이 없으면 캐시하지 않는다(다음 요청이 재시도).
+  //    brief 는 판정만으로 완전하므로 별도 키에 캐시한다(통합추천이 15종목을 매번 재계산하지 않게).
+  if (debate) await setCache(fullKey, result)
+  else if (brief) await setCache(briefKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

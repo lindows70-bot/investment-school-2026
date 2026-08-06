@@ -3,6 +3,7 @@
 import type { CoreSatelliteView, ActionItem, BuyIdea } from '@/app/api/ai-rebalance/route'
 import SectorBadge from '@/app/components/SectorBadge'
 import TimingBadge from '@/app/components/TimingBadge'
+import MastersBadge from '@/app/components/MastersBadge'
 import { TK } from '@/lib/theme'
 import { flagOf } from '@/lib/marketFlag'
 
@@ -139,6 +140,11 @@ export default function CoreSatelliteHero({ cs, portfolioValue }: { cs: CoreSate
                 <span style={{ marginLeft: 'auto' }}><Tag t={a.tag} color={TK.green500} /></span>
               </div>
               <div style={{ color: TK.sub13, fontSize: 11, lineHeight: 1.5 }}>{a.reason}</div>
+              {/* 🎩 거장 위원회 — '보강할 것'은 매수 축이라 위원회 판정이 그대로 맞는다.
+                  ⛔ '버릴 것·줄일 것'에는 붙이지 않는다 — 위원회는 매수 관점이라 불통과를 매도 지시로 읽히게 된다. */}
+              {a.ticker !== 'CORE' && a.ticker !== 'BTC' && (
+                <div style={{ marginTop: 4 }}><MastersBadge ticker={a.ticker} market={a.market} /></div>
+              )}
               {a.timing && <div style={{ marginTop: 4 }}><TimingBadge t={a.timing} market={a.market} compact /></div>}
               {/* 🔬 ETF 분산 대안 — 같은 섹터를 ETF로 분산 진입(점수와 무관, 선택지 병기)
                   📉 ETF 자체가 급락 중이면 분산 대안이 아니다 → 권유를 경고로(통합추천과 동일 처리) */}

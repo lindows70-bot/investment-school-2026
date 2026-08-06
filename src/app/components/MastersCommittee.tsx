@@ -64,7 +64,10 @@ export default function MastersCommittee({ ticker, name, market }: { ticker: str
               {data.currentPrice != null && <span style={{ fontSize: FS.tiny, color: TK.sub11 }}> · 현재가 {fmtP(data.currentPrice)}</span>}
             </div>
           ) : (
-            <div style={{ fontSize: FS.tiny, color: TK.sub2, marginTop: 4 }}>💰 매수 가격 구간: 산정 보류 — {data.redlineHit ? '레드라인 상태에선 가격을 논하지 않는다' : 'DCF 불가(적자·기저효과·데이터 부족)'}</div>
+            <div style={{ fontSize: FS.tiny, color: TK.sub2, marginTop: 4 }}>💰 매수 가격 구간: 산정 보류 — {
+              data.redlineHit ? '레드라인 상태에선 가격을 논하지 않는다'
+              : data.unitSuspect ? '💱 통화 단위 불일치 의심(재무는 현지통화·주가는 달러로 보이는 해외 상장사) — 틀린 가격을 보여주느니 보류한다'
+              : 'DCF 불가(적자·기저효과·데이터 부족)'}</div>
           )}
         </div>
 
@@ -138,6 +141,7 @@ export default function MastersCommittee({ ticker, name, market }: { ticker: str
         {/* ── 결측 + 캐비엇 ── */}
         <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: SP.md, lineHeight: 1.7 }}>
           {data.missingKeys.length > 0 && <>⚠️ 결측 데이터: {data.missingKeys.join('·')} — 해당 체크는 ⚠️(보류)로 반영했습니다(결측을 통과로 치지 않음).<br /></>}
+          {data.unitSuspect && <>💱 <b style={{ color: TK.amber400 }}>통화 단위 불일치 의심</b> — 이 종목은 재무제표가 현지통화, 주가가 달러로 들어오는 것으로 보입니다(해외 상장·ADR에서 발생). 현금 관련 판정과 가격 구간을 보류했습니다.<br /></>}
           ※ <b>매수 관점 판정</b>입니다 — 보유 중인 종목이 불통과여도 매도 지시가 아닙니다(보유분 관리는 대시보드 출구 플랜에서).
           판정은 거장 본인의 의견이 아니라 공개된 투자 철학을 앱 데이터로 재현한 결정론이며, 6축 통합점수에는 반영되지 않습니다.
           거장 4인 구조는 오픈소스 &lsquo;AI Berkshire&rsquo;에서 착안했습니다. 교육용 · 투자 추천 아님.

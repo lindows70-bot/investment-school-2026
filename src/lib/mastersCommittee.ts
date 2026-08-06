@@ -70,6 +70,24 @@ export interface CommitteeResult {
   finalReason: string            // 결론이 나온 산식 설명(사람이 검산 가능하게)
   buyBand: BuyBand | null        // 안전마진 30%~15% 구간. DCF 불가면 null(가짜 정밀 금지)
   missingKeys: string[]          // 결측 입력 목록 — 화면에 그대로 밝힌다
+  unitSuspect: boolean           // 통화 단위 불일치 의심 — 현금 관련 판정·가격 구간을 보류한다
+}
+
+/**
+ * 💱 통화 단위 불일치 감지 — ADR·외국 상장사는 **재무제표가 현지통화, 주가·시총은 USD** 로 오는 일이 있다.
+ * 실측(2026-08-06): TSM freeCashflow 739,057,991,680 은 TWD 인데 marketCap 은 USD 2,147B →
+ * FCF/시총 34%, DCF 내재가치 $9,187 (현재가 $414 의 22배). 에퀴노르도 19.7배.
+ * 합계·부호 검산으로는 절대 안 잡히는 유형이라(스케일 오류) **비율의 상식 범위**로 판별한다.
+ *  - FCF/시총 > 30% : 정상 기업에선 거의 나오지 않는다(NVDA 0.9%·삼성 4.2%·토탈 7.0%)
+ *  - 내재가치 > 현재가 × 5 : 보수 DCF(성장률 35% 클램프)로는 나올 수 없는 배수
+ */
+function detectUnitSuspect(x: CommitteeInput): boolean {
+  const fcfOverMc = x.freeCashflow != null && x.freeCashflow > 0 && x.marketCap != null && x.marketCap > 0
+    ? x.freeCashflow / x.marketCap : null
+  if (fcfOverMc != null && fcfOverMc > 0.30) return true
+  if (x.intrinsicPerShare != null && x.currentPrice != null && x.currentPrice > 0
+    && x.intrinsicPerShare > x.currentPrice * 5) return true
+  return false
 }
 
 // ── 헬퍼 ─────────────────────────────────────────────────────────
@@ -86,7 +104,7 @@ function verdictOf(checks: MasterCheck[]): Verdict {
 }
 
 // ── 4인 체크리스트(결정론) ────────────────────────────────────────
-function buffettChecks(x: CommitteeInput): MasterCheck[] {
+function buffettChecks(x: CommitteeInput, unitSuspect: boolean): MasterCheck[] {
   const roePct = pct(x.roe)
   const netDebt = x.totalDebt != null && x.totalCash != null ? x.totalDebt - x.totalCash : null
   const netDebtOk = netDebt == null ? null : (netDebt <= 0 || (x.marketCap != null && netDebt < x.marketCap * 0.2))
@@ -99,15 +117,16 @@ function buffettChecks(x: CommitteeInput): MasterCheck[] {
     { key: 'roe', label: '자기자본이익률', basis: '≥15% (부풀림 아님)',
       status: roePct == null ? 'warn' : x.roeInflated === true ? 'fail' : roePct >= 15 ? 'pass' : roePct >= 10 ? 'warn' : 'fail',
       value: roePct == null ? '데이터 없음' : `ROE ${roePct.toFixed(1)}%${x.roeInflated ? ' (부채 부풀림)' : ''}` },
+    // 💱 통화 불일치가 의심되면 현금 지표를 '통과'로 읽지 않는다 — 부풀린 값이 합격을 만들면 최악이다
     { key: 'fcf', label: '현금 창출력', basis: 'FCF수익률 ≥3%',
-      status: x.fcfYieldPct == null ? 'warn' : x.fcfYieldPct >= 3 ? 'pass' : x.fcfYieldPct >= 1 ? 'warn' : 'fail',
-      value: x.fcfYieldPct == null ? '데이터 없음' : `${x.fcfYieldPct.toFixed(1)}%` },
+      status: unitSuspect ? 'warn' : x.fcfYieldPct == null ? 'warn' : x.fcfYieldPct >= 3 ? 'pass' : x.fcfYieldPct >= 1 ? 'warn' : 'fail',
+      value: unitSuspect ? '통화 단위 불일치 의심 — 검증 보류' : x.fcfYieldPct == null ? '데이터 없음' : `${x.fcfYieldPct.toFixed(1)}%` },
     { key: 'debt', label: '재무 요새', basis: '순부채 ≤0 또는 <시총 20%',
       status: netDebtOk == null ? 'warn' : netDebtOk ? 'pass' : 'fail',
       value: netDebt == null ? '데이터 없음' : netDebt <= 0 ? '순현금' : `순부채 시총 대비 ${x.marketCap ? ((netDebt / x.marketCap) * 100).toFixed(0) : '?'}%` },
     { key: 'margin_of_safety', label: '안전마진(DCF)', basis: '내재가치 대비 ≥0%',
-      status: margin == null ? 'warn' : margin >= 0.15 ? 'pass' : margin >= 0 ? 'warn' : 'fail',
-      value: margin == null ? '산정 보류' : `${(margin * 100).toFixed(0)}%` },
+      status: unitSuspect || margin == null ? 'warn' : margin >= 0.15 ? 'pass' : margin >= 0 ? 'warn' : 'fail',
+      value: unitSuspect ? '통화 단위 불일치 의심 — 산정 보류' : margin == null ? '산정 보류' : `${(margin * 100).toFixed(0)}%` },
   ]
 }
 
@@ -197,8 +216,10 @@ export function computeCommittee(x: CommitteeInput): CommitteeResult {
     영업이익률: x.opMargin, FCF수익률: x.fcfYieldPct, 해자: x.moatWidth, 현재가: x.currentPrice,
   }) as [string, unknown][]).filter(([, v]) => v == null).map(([k]) => k)
 
+  const unitSuspect = detectUnitSuspect(x)
+
   const masters: MasterResult[] = [
-    { id: 'buffett', name: '워런 버핏', emoji: '🏰', philosophy: '훌륭한 기업을 적당한 가격에 — 해자와 현금이 전부다', checks: buffettChecks(x), verdict: 'gray' },
+    { id: 'buffett', name: '워런 버핏', emoji: '🏰', philosophy: '훌륭한 기업을 적당한 가격에 — 해자와 현금이 전부다', checks: buffettChecks(x, unitSuspect), verdict: 'gray' },
     { id: 'munger', name: '찰리 멍거', emoji: '🔍', philosophy: '뒤집어라 — 망하는 길을 먼저 지워야 남는 것이 답이다', checks: mungerChecks(x), verdict: 'gray' },
     { id: 'duan', name: '단요핑', emoji: '⚓', philosophy: '본분(本分) — 본업이 벌고, 번 것을 주주와 나누는가', checks: duanChecks(x), verdict: 'gray' },
     { id: 'lilu', name: '리루', emoji: '⚖️', philosophy: '가격이 가치보다 충분히 쌀 때만 — 심도 있는 저평가', checks: liluChecks(x), verdict: 'gray' },
@@ -227,11 +248,12 @@ export function computeCommittee(x: CommitteeInput): CommitteeResult {
     finalReason = `통과 ${passN}·불통과 ${failN} — 확신 부족(회색지대). 회색은 "사지 않는다"와 같다`
   }
 
-  // 매수 가격 구간 — 버핏 DCF 내재가치의 안전마진 30%~15% (기저효과·DCF 불가면 보류)
+  // 매수 가격 구간 — 버핏 DCF 내재가치의 안전마진 30%~15%.
+  // 기저효과·DCF 불가·레드라인·**통화 단위 의심**이면 보류한다(틀린 가격은 없는 가격보다 나쁘다).
   const buyBand: BuyBand | null =
-    !redlineHit && x.intrinsicPerShare != null && x.intrinsicPerShare > 0
+    !redlineHit && !unitSuspect && x.intrinsicPerShare != null && x.intrinsicPerShare > 0
       ? { fairValue: x.intrinsicPerShare, low: x.intrinsicPerShare * 0.70, high: x.intrinsicPerShare * 0.85 }
       : null
 
-  return { masters, redlines, redlineHit, final, finalReason, buyBand, missingKeys }
+  return { masters, redlines, redlineHit, final, finalReason, buyBand, missingKeys, unitSuspect }
 }
