@@ -63,9 +63,10 @@ export async function GET(req: NextRequest) {
   // 판정은 결정론이지만 가격 의존 체크(안전마진·어닝일드·52주 위치)가 있어 일 단위 캐시.
   // 캐시가 둘인 이유: full 은 토론까지 있어야 완전하고, brief 는 판정만으로 완전하다.
   // brief 결과를 full 키에 넣으면 위원회 탭이 "토론 실패"로 보이고, 그게 24h 박제된다.
-  // v4: KR 자국통화는 통화 오탐 제외(IPARK 실사고) + 밴드 stretch(성장 외삽 의존도) / v3: 금융주 가드 / v2: 통화 가드
-  const fullKey  = `masters-committee-v4:${ticker}:${market}:${kstDate()}`
-  const briefKey = `masters-brief-v4:${ticker}:${market}:${kstDate()}`
+  // v6: stretchCause·cashYieldPct 신설(원인별 문구) / v5: growthPct + 쉬운 문구 / v4: KR 통화 오탐 / v3: 금융주 / v2: 통화
+  //     ⚠️ 응답에 **필드가 늘어도** 키를 올려야 한다 — 안 올리면 옛 응답이 그대로 서빙돼 새 필드가 undefined 로 온다(실제로 겪음).
+  const fullKey  = `masters-committee-v6:${ticker}:${market}:${kstDate()}`
+  const briefKey = `masters-brief-v6:${ticker}:${market}:${kstDate()}`
   const full = await getCache<MastersVerdictResponse>(fullKey, 24 * 3600_000)
   if (full) return NextResponse.json(full, { headers: { 'Cache-Control': 'no-store' } })   // 토론 포함 = 어느 모드든 충분
   if (brief) {
@@ -106,12 +107,13 @@ export async function GET(req: NextRequest) {
 
   // 버핏 DCF — 흑자 FCF + 주식수 확보(ok)일 때만. 기저효과·금융주면 산정 보류(모닝스타 패널과 동일 원칙)
   let intrinsicPerShare: number | null = null
+  let dcfGrowthPct: number | null = null   // 화면에 "연 N% 성장 가정"을 그대로 밝히기 위해 보관
   if (currentPrice != null && pegBase !== true && isFinancial !== true) {
     try {
       const inp = deriveDcfInputs(f, { market, currency, lynchCategory: null, currentPrice })
       if (inp.ok && inp.fcf0 != null && inp.shares != null) {
         const dcf = calcDCF(inp.fcf0, inp.g, inp.r, inp.gp, inp.netDebt, inp.shares, currentPrice)
-        if (dcf.intrinsicPerShare > 0) intrinsicPerShare = dcf.intrinsicPerShare
+        if (dcf.intrinsicPerShare > 0) { intrinsicPerShare = dcf.intrinsicPerShare; dcfGrowthPct = inp.g }
       }
     } catch { /* DCF 불가 — buyBand null 로 정직 표기 */ }
   }
@@ -143,6 +145,7 @@ export async function GET(req: NextRequest) {
     rdcfImplied: typeof rdcfJ?.impliedGrowth === 'number' ? rdcfJ.impliedGrowth : null,
     pegBaseEffect: pegBase,
     intrinsicPerShare,
+    dcfGrowthPct,
     isFinancial,
     // 🇰🇷 KR 시장 종목은 재무·주가가 모두 KRW — 통화 불일치가 원천 불가능(오탐 방지)
     sameCurrency: market === 'KR' && currency === 'KRW',

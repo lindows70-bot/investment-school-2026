@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react'
 import { TK, FS, SP, RAD } from '@/lib/theme'
 import type { MastersVerdictResponse } from '@/app/api/masters-verdict/route'
+import { stretchReason } from '@/lib/mastersCommittee'
 
 const V_COLOR = { pass: TK.green400, gray: TK.amber400, fail: TK.red400 } as const
 const V_LABEL = { pass: '통과', gray: '회색지대', fail: '불통과' } as const
@@ -59,22 +60,22 @@ export default function MastersCommittee({ ticker, name, market }: { ticker: str
           </div>
           {data.buyBand ? (
             <div style={{ fontSize: FS.body, color: TK.slate200, marginTop: 4 }}>
-              💰 매수 고려 구간(안전마진 30~15%): <b style={{ fontFamily: 'monospace' }}>{fmtP(data.buyBand.low)} ~ {fmtP(data.buyBand.high)}</b>
-              <span style={{ fontSize: FS.micro, color: TK.sub2 }}> · 내재가치 {fmtP(data.buyBand.fairValue)} (버핏식 보수 DCF — 성장률 35% 클램프라 성장주는 낮게 나올 수 있음)</span>
-              {data.currentPrice != null && <span style={{ fontSize: FS.tiny, color: TK.sub11 }}> · 현재가 {fmtP(data.currentPrice)}</span>}
-              {(data.buyBand.stretch ?? 0) > 2.5 && (
-                <div style={{ fontSize: FS.micro, color: TK.amber400, marginTop: 3, lineHeight: 1.6 }}>
-                  ⚠️ 내재가치가 현재가의 <b>{data.buyBand.stretch!.toFixed(1)}배</b>입니다 — 최근 성장률을 5년 복리로 외삽한 결과에 크게 기대고 있습니다.
-                  성장이 꺾이면 이 구간도 함께 내려갑니다. <b>안전마진을 액면 그대로 믿지 마세요.</b>
+              💰 이 값 아래면 사도 괜찮다고 본 가격대: <b style={{ fontFamily: 'monospace' }}>{fmtP(data.buyBand.low)} ~ {fmtP(data.buyBand.high)}</b>
+              <span style={{ fontSize: FS.micro, color: TK.sub2 }}> · 이 회사가 앞으로 벌 돈으로 따진 값 {fmtP(data.buyBand.fairValue)} 에서 30~15% 깎은 구간(싸게 살수록 실수해도 덜 다칩니다)</span>
+              {data.currentPrice != null && <span style={{ fontSize: FS.tiny, color: TK.sub11 }}> · 지금 가격 {fmtP(data.currentPrice)}</span>}
+              {stretchReason(data.buyBand) && (
+                <div style={{ fontSize: FS.micro, color: TK.amber400, marginTop: 3, lineHeight: 1.7 }}>
+                  ⚠️ 이 값은 지금 가격의 <b>{data.buyBand.stretch!.toFixed(1)}배</b>나 됩니다 — {stretchReason(data.buyBand)}
+                  <b> &ldquo;{Math.round((1 - 1 / data.buyBand.stretch!) * 100)}% 싸다&rdquo;가 아니라 &ldquo;그 가정이 맞을 때만 싸다&rdquo;로 읽으세요.</b>
                 </div>
               )}
             </div>
           ) : (
-            <div style={{ fontSize: FS.tiny, color: TK.sub2, marginTop: 4 }}>💰 매수 가격 구간: 산정 보류 — {
-              data.redlineHit ? '레드라인 상태에선 가격을 논하지 않는다'
-              : data.unitSuspect ? '💱 통화 단위 불일치 의심(재무는 현지통화·주가는 달러로 보이는 해외 상장사) — 틀린 가격을 보여주느니 보류한다'
-              : data.masters.some(m => m.checks.some(c => c.value.includes('금융주'))) ? '🏦 금융주 — 예금·대출·보험 float 탓에 FCF 기반 DCF가 성립하지 않는다(PBR·ROE 축으로 판단)'
-              : 'DCF 불가(적자·기저효과·데이터 부족)'}</div>
+            <div style={{ fontSize: FS.tiny, color: TK.sub2, marginTop: 4 }}>💰 적정 매수 가격: <b>계산하지 않았습니다</b> — {
+              data.redlineHit ? '🚧 치명적 문제(레드라인)가 걸린 회사는 "얼마면 살까"를 따지지 않습니다. 가격 문제가 아니니까요.'
+              : data.unitSuspect ? '💱 회사 실적은 현지 돈(대만달러 등), 주가는 달러로 들어와 계산이 어긋납니다 — 틀린 가격을 보여주느니 비워둡니다.'
+              : data.masters.some(m => m.checks.some(c => c.value.includes('금융주'))) ? '🏦 은행·증권·보험은 남의 돈(예금·보험료)을 굴리는 구조라 이 계산법이 안 맞습니다 — 다른 잣대(PBR·ROE)로 봅니다.'
+              : '계산에 필요한 게 없습니다(적자거나, 작년 이익이 무너졌다 튀어 착시거나, 데이터 부족).'}</div>
           )}
         </div>
 

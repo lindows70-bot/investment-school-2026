@@ -58,6 +58,8 @@ export interface CommitteeInput {
   pegBaseEffect: boolean | null
   // buffettDcf(있으면) — 매수 가격 구간의 유일한 원천(제2원칙)
   intrinsicPerShare: number | null
+  /** DCF 가 쓴 연 성장률(%) — 가정을 화면에 그대로 밝히기 위해 함께 받는다 */
+  dcfGrowthPct: number | null
   // 🏦 금융주(stock-fcf SSOT 판정) — FCF·DCF·순부채 잣대가 구조적으로 무의미(예금·대출·보험 float).
   //    실사고(2026-08-06): Schwab 내재가치가 현재가의 2.8배로 떠 매수구간 $217~263 vs 현재가 ~$110.
   isFinancial: boolean | null
@@ -68,10 +70,19 @@ export interface CommitteeInput {
 
 export interface BuyBand {
   low: number; high: number; fairValue: number
-  /** 내재가치 ÷ 현재가. 2.5배를 넘으면 DCF 가 **성장률 외삽에 크게 기대고 있다**는 뜻이라 화면에 경고를 병기한다.
-   *  실측(2026-08-06): 오리온 3.44배(성장률 25.5%를 5년 복리) — 틀렸다고 단정할 순 없지만
-   *  "안전마진 66%"로 읽히면 가짜 정밀이 된다. 숫자를 지우지 말고 **의존도를 밝힌다**. */
+  /** 내재가치 ÷ 현재가. 2.5배를 넘으면 이 가격이 **"지금 성장이 계속된다"는 가정에 크게 기대고 있다**는 뜻이라
+   *  화면에 경고를 병기한다. 실측(2026-08-06): 오리온 3.44배(연 25.5% 성장을 5년 가정) — 틀렸다고 단정할 순
+   *  없지만 "안전마진 66%"로 읽히면 가짜 정밀이 된다. 숫자를 지우지 말고 **무엇을 가정했는지 밝힌다**. */
   stretch: number | null
+  /** DCF 가 실제로 쓴 연 성장률(%) — 화면에 "연 N% 성장이 5년 더"라고 구체적으로 말해주기 위한 값.
+   *  가정을 숨기고 결과만 보여주면 학생은 그것을 사실로 읽는다. */
+  growthPct: number | null
+  /** 이 값이 크게 나온 **이유** — 원인을 틀리게 설명하면 경고가 오히려 거짓말이 된다.
+   *  실측(2026-08-06): IPARK 4.93배인데 성장률은 1.6%뿐 — 원인은 성장이 아니라 시총 대비 38%나 되는
+   *  일시적 현금 유입(건설 분양대금)이었다. "매년 1.6%씩 성장 가정" 이라고 쓰면 명백한 오설명. */
+  stretchCause: 'growth' | 'cash' | 'both' | 'other' | null
+  /** 시총 대비 연간 현금창출(%) — 'cash' 원인일 때 화면에 근거로 함께 보여준다 */
+  cashYieldPct: number | null
 }
 
 export interface CommitteeResult {
@@ -105,6 +116,20 @@ function detectUnitSuspect(x: CommitteeInput): boolean {
   if (x.intrinsicPerShare != null && x.currentPrice != null && x.currentPrice > 0
     && x.intrinsicPerShare > x.currentPrice * 5) return true
   return false
+}
+
+/** 매수구간이 지금 가격보다 크게 높을 때, **왜 그런지**를 학생 말로 한 줄 설명(배지·패널 공용 SSOT).
+ *  원인을 틀리게 쓰면 경고가 거짓말이 된다 — 성장 가정 탓인지, 지금 현금이 유난히 많은 탓인지 갈라 쓴다. */
+export function stretchReason(b: BuyBand): string | null {
+  if (b.stretch == null || b.stretch <= 2.5) return null
+  const g = b.growthPct != null ? `매년 ${b.growthPct.toFixed(0)}%씩` : '지금 속도로'
+  const c = b.cashYieldPct != null ? `연 ${b.cashYieldPct.toFixed(0)}%` : '지금처럼 많이'
+  switch (b.stretchCause) {
+    case 'growth': return `“${g} 5년 더 성장한다”고 가정해서 나온 값이에요. 성장이 멈추면 이 값도 같이 내려갑니다.`
+    case 'cash':   return `지금 이 회사에 들어온 현금이 시가총액 대비 ${c}로 유난히 많은데, “이 현금이 앞으로도 계속 들어온다”고 가정한 값이에요. 분양대금·일회성 수입이면 다시 줄어듭니다.`
+    case 'both':   return `“${g} 계속 성장하고, 지금처럼 많은 현금(${c})도 계속 들어온다”고 가정해서 나온 값이에요. 둘 중 하나만 어긋나도 이 값은 내려갑니다.`
+    default:       return `“지금 벌이가 앞으로도 계속된다”고 가정해서 나온 값이에요. 실적이 흔들리면 이 값도 같이 내려갑니다.`
+  }
 }
 
 // ── 헬퍼 ─────────────────────────────────────────────────────────
@@ -272,6 +297,13 @@ export function computeCommittee(x: CommitteeInput): CommitteeResult {
       ? {
         fairValue: x.intrinsicPerShare, low: x.intrinsicPerShare * 0.70, high: x.intrinsicPerShare * 0.85,
         stretch: x.currentPrice != null && x.currentPrice > 0 ? x.intrinsicPerShare / x.currentPrice : null,
+        growthPct: x.dcfGrowthPct,
+        cashYieldPct: x.fcfYieldPct,
+        // 원인 판별 — 성장률 15%↑ 이면 성장 외삽, 현금창출 15%↑ 이면 일시적 현금, 둘 다면 both
+        stretchCause: (() => {
+          const g = (x.dcfGrowthPct ?? 0) >= 15, c = (x.fcfYieldPct ?? 0) >= 15
+          return g && c ? 'both' : g ? 'growth' : c ? 'cash' : 'other'
+        })(),
       }
       : null
 

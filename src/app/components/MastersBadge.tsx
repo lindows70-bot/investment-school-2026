@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react'
 import { TK, FS, RAD } from '@/lib/theme'
 import type { MastersVerdictResponse } from '@/app/api/masters-verdict/route'
+import { stretchReason } from '@/lib/mastersCommittee'
 
 const C = { pass: TK.green400, gray: TK.amber400, fail: TK.red400 } as const
 const L = { pass: '위원회 통과', gray: '위원회 회색', fail: '위원회 불통과' } as const
@@ -61,20 +62,25 @@ export default function MastersBadge({ ticker, market, currency, currentPrice }:
         </span>
       )}
       {d.buyBand && (
-        <span title={`버핏식 보수 DCF 내재가치 ${fmt(d.buyBand.fairValue)} 의 안전마진 30~15% 구간입니다.
-현재가가 이 구간 위에 있다면 '나쁜 회사'라는 뜻이 아니라 '이 잣대로는 아직 비싸다'는 뜻입니다.
-⚠️ 경기순환주는 현재 이익 기준 DCF라 사이클 위치에 따라 구간이 크게 왜곡될 수 있습니다.${
-          (d.buyBand.stretch ?? 0) > 2.5 ? `\n\n⚠️ 내재가치가 현재가의 ${d.buyBand.stretch!.toFixed(1)}배입니다 — 최근 성장률을 5년 복리로 외삽한 결과에 크게 기대고 있습니다. 성장이 꺾이면 구간도 함께 내려갑니다(안전마진을 액면 그대로 믿지 마세요).` : ''}`}
+        <span title={`이 회사가 앞으로 벌 돈을 계산해 '한 주에 ${fmt(d.buyBand.fairValue)} 짜리'로 봤고,
+거기서 30~15% 깎아 '이 값 아래면 사도 괜찮다'고 본 가격대입니다(싸게 살수록 실수해도 덜 다치니까요).
+지금 가격이 이 구간보다 비싸다고 나쁜 회사라는 뜻은 아닙니다 — '이 잣대로는 아직 비싸다'일 뿐입니다.
+⚠️ 반도체·조선·에너지처럼 경기를 타는 회사는 좋을 때 이익으로 계산돼 값이 크게 부풀 수 있습니다.${
+          stretchReason(d.buyBand) ? `\n\n⚠️ 이 값은 지금 가격의 ${d.buyBand.stretch!.toFixed(1)}배나 됩니다.
+${stretchReason(d.buyBand)}
+"싸다"가 아니라 "그 가정이 맞을 때만 싸다"로 읽으세요.` : ''}`}
           style={{ background: bandPos === 'in' || bandPos === 'below' ? `${TK.green500}12` : 'rgba(148,163,184,0.10)',
             color: bandPos === 'in' || bandPos === 'below' ? TK.green400 : TK.slate300,
             border: `1px solid ${bandPos === 'in' || bandPos === 'below' ? TK.green500 : TK.line1}44`,
             borderRadius: RAD.xs, padding: '1px 7px', fontSize: FS.micro, cursor: 'help', whiteSpace: 'nowrap' }}>
           🎯 위원회 매수구간 {fmt(d.buyBand.low)}~{fmt(d.buyBand.high)}
-          {bandPos === 'above' && <span style={{ opacity: 0.75 }}> (현재가는 구간 위)</span>}
-          {bandPos === 'in' && <span style={{ opacity: 0.85 }}> ✓ 구간 안</span>}
-          {bandPos === 'below' && <span style={{ opacity: 0.85 }}> ✓ 구간 아래(안전마진 30%+)</span>}
-          {/* 성장 외삽 의존도 — 숫자를 지우지 않고 의존도를 밝힌다(가짜 정밀 금지) */}
-          {(d.buyBand.stretch ?? 0) > 2.5 && <span style={{ color: TK.amber400 }}> ⚠️ 성장 외삽 의존({d.buyBand.stretch!.toFixed(1)}배)</span>}
+          {bandPos === 'above' && <span style={{ opacity: 0.75 }}> (지금은 이보다 비쌈)</span>}
+          {bandPos === 'in' && <span style={{ opacity: 0.85 }}> ✓ 지금 이 구간 안</span>}
+          {bandPos === 'below' && <span style={{ opacity: 0.85 }}> ✓ 지금은 이보다 더 쌈</span>}
+          {/* 가정 의존도 — 숫자를 지우지 않고 '무엇을 가정했는지'를 밝힌다(가짜 정밀 금지) */}
+          {(d.buyBand.stretch ?? 0) > 2.5 && (
+            <span style={{ color: TK.amber400 }}> ⚠️ {d.buyBand.stretchCause === 'cash' ? '지금 현금이 계속 들어온다고' : d.buyBand.stretchCause === 'both' ? '성장·현금이 계속된다고' : '성장이 계속된다고'} 가정한 값({d.buyBand.stretch!.toFixed(1)}배)</span>
+          )}
         </span>
       )}
     </span>
