@@ -36,9 +36,19 @@ export interface XrayEtfDetail {
   topSectors: { sector: string; weight: number }[]
   resolved: boolean            // 분해 성공 여부
 }
+/** 🌍 실질 국가 노출 — "어디에 상장했나"가 아니라 "어느 나라 기업을 갖고 있나".
+ *  TIGER 미국S&P500 은 한국 상장이지만 담은 건 미국 기업 94.7% — 이걸 한국으로 세면
+ *  학생이 "난 한국 비중이 높네"라고 정반대로 판단한다(실측: 미국 26.4%→45.3%). */
+export interface XrayCountry {
+  country: string        // 'US' | 'KR' | 'JP' | 'CN' | 'HK' | 'CRYPTO' | '기타'
+  listed: number         // 겉보기(상장 시장 기준) 비중 %
+  real: number           // 실질(ETF 국가 구성 반영) 비중 %
+}
 export interface XrayResult {
   realStocks: XrayStock[]              // 실질 종목 노출(직접+ETF경유 합산, 비중순)
   realSectors: { sector: string; weight: number }[]   // 실질 섹터 노출
+  realCountries: XrayCountry[]         // 🌍 실질 국가 노출(겉보기 vs 실질)
+  countryUnresolved: number            // 국가 구성을 못 구해 상장 시장으로 둔 비중 % — 정직 표기
   etfDetails: XrayEtfDetail[]
   coverage: { directStock: number; etfDecomposed: number; etfResidual: number; other: number }
   hiddenConcentration: { name: string; totalWeight: number; directWeight: number; viaEtfs: string[] } | null
@@ -53,7 +63,8 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `portfolio-xray-v4:${user.id}:${kstDate()}:${fp}`   // v4: 합산 PEG(Phase 4)
+  // v5: 🌍 실질 국가 노출(realCountries) 신설 — 필드 추가도 캐시 범프 대상
+  const cacheKey = `portfolio-xray-v5:${user.id}:${kstDate()}:${fp}`   // v4: 합산 PEG(Phase 4)
   const cached = await getCache<XrayResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -84,6 +95,12 @@ export async function GET(req: Request) {
 
   let directStock = 0, etfDecomposed = 0, etfResidual = 0, other = 0
   const etfDetails: XrayEtfDetail[] = []
+  // 🌍 국가 노출 — listed(겉보기·상장 시장) vs real(실질·ETF 국가 구성 반영)
+  const cListed = new Map<string, number>(), cReal = new Map<string, number>()
+  let countryUnresolved = 0
+  const addC = (m: Map<string, number>, k: string, w: number) => { if (w > 0) m.set(k, (m.get(k) ?? 0) + w) }
+  /** 상장 시장 → 국가 코드. CRYPTO 는 국가가 없으므로 그대로 둔다(억지로 미국에 넣지 않는다) */
+  const listedCountry = (t: string, m: string) => m === 'CRYPTO' ? 'CRYPTO' : isKrT(t, m) ? 'KR' : 'US'
   const directStocks = all.filter(h => h.type === 'STOCK')
   const etfs = all.filter(h => h.type === 'ETF')
 
@@ -94,6 +111,9 @@ export async function GET(req: Request) {
     directStock += w
     addStock(keyOf(h.ticker, h.market), h.name, isKrT(h.ticker, h.market) ? 'KR' : 'US', w, null)
     addSector(dirSectors[i] || '기타', w)
+    // 개별 주식은 상장 시장 = 소재 국가(겉보기·실질 동일). ⚠️ ADR 은 예외지만 학생 보유에선 드물어 단순화
+    const c = listedCountry(h.ticker, h.market)
+    addC(cListed, c, w); addC(cReal, c, w)
   })
 
   // ② ETF — Look-through 분해(동시성 4)
@@ -103,6 +123,16 @@ export async function GET(req: Request) {
   etfs.forEach((h, i) => {
     const w = r1(h.krw / totalKrw * 100)
     const c = comps[i]
+    // 🌍 국가 — 겉보기는 상장 시장, 실질은 ETF 국가 구성(없으면 상장 시장으로 두고 '미해결'로 카운트)
+    const lc = listedCountry(h.ticker, h.market)
+    addC(cListed, lc, w)
+    const cw = c?.countryWeights ?? []
+    const cwSum = cw.reduce((s, x) => s + x.weight, 0)
+    if (cwSum > 0) {
+      for (const x of cw) addC(cReal, x.country === 'MISC' ? '기타' : x.country, w * x.weight / cwSum)
+    } else {
+      addC(cReal, lc, w); countryUnresolved += w   // 국가 구성 미제공 — 추정하지 않고 상장 시장으로 두되 밝힌다
+    }
     if (!c || !c.isEquityEtf || c.isLeveraged || c.sectorWeights.length === 0) {
       // 분해 불가(채권·원자재·레버리지·데이터없음) → 정직하게 '기타'. 레버리지는 스왑 구조라 구성종목이 실노출(2X) 왜곡
       other += w
@@ -143,16 +173,29 @@ export async function GET(req: Request) {
     if (bp) { d.syntheticPeg = bp.peg; d.pegCoverage = bp.coverage }
   }
 
-  // ③ 비주식 자산(코인·원자재) → 기타
-  for (const h of all.filter(x => x.type !== 'STOCK' && x.type !== 'ETF')) other += r1(h.krw / totalKrw * 100)
+  // ③ 비주식 자산(코인·원자재) → 기타. 국가는 CRYPTO/기타로 따로 둔다(억지로 나라에 배정하지 않는다)
+  for (const h of all.filter(x => x.type !== 'STOCK' && x.type !== 'ETF')) {
+    const w = r1(h.krw / totalKrw * 100)
+    other += w
+    const c = h.market === 'CRYPTO' ? 'CRYPTO' : '기타'
+    addC(cListed, c, w); addC(cReal, c, w)
+  }
 
   const realStocks = Array.from(stocks.values()).sort((a, b) => b.totalWeight - a.totalWeight).slice(0, 15)
     .map(s => ({ ...s, directWeight: r1(s.directWeight), etfWeight: r1(s.etfWeight), totalWeight: r1(s.totalWeight) }))
   const realSectors = Array.from(sectors.entries()).map(([sector, weight]) => ({ sector, weight: r1(weight) })).sort((a, b) => b.weight - a.weight)
   // 숨은 몰빵: ETF 경유 비중이 있고 합산이 가장 큰 종목(직접+경유 합산 15%↑일 때만 경고)
   const hc = realStocks.find(s => s.etfWeight > 0 && s.totalWeight >= 15)
+  // 🌍 실질 국가 — 겉보기·실질을 한 행에 나란히(둘 중 하나라도 있으면 표시). 큰 순 정렬
+  // ⚠️ TS2802 — Map 키 스프레드 금지, Array.from() 으로(함정 사전 5회 재발)
+  const countryKeys = Array.from(new Set(Array.from(cListed.keys()).concat(Array.from(cReal.keys()))))
+  const realCountries = countryKeys
+    .map(country => ({ country, listed: r1(cListed.get(country) ?? 0), real: r1(cReal.get(country) ?? 0) }))
+    .filter(c => c.listed > 0 || c.real > 0)
+    .sort((a, b) => b.real - a.real)
+
   const result: XrayResult = {
-    realStocks, realSectors, etfDetails,
+    realStocks, realSectors, realCountries, countryUnresolved: r1(countryUnresolved), etfDetails,
     coverage: { directStock: r1(directStock), etfDecomposed: r1(etfDecomposed), etfResidual: r1(etfResidual), other: r1(other) },
     hiddenConcentration: hc ? { name: hc.name, totalWeight: hc.totalWeight, directWeight: hc.directWeight, viaEtfs: hc.viaEtfs } : null,
     etfTotalWeight: r1(etfs.reduce((s, h) => s + h.krw / totalKrw * 100, 0)),

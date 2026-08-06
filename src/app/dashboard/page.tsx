@@ -133,6 +133,8 @@ const LYNCH_META: Record<string, { label: string; color: string }> = {
   na:          { label: 'N/A',           color: TK.sub6 },
 }
 const MKT_COLOR: Record<Market, string> = { US:TK.emerald400, KR:TK.blue400, CRYPTO:TK.orange400 }
+// 🌍 국가 라벨 — X-Ray 의 realCountries 코드(US·KR·JP·CN·HK·CRYPTO·기타)를 한국어로
+const MKT_KO: Record<string, string> = { US:'🇺🇸 미국', KR:'🇰🇷 한국', JP:'🇯🇵 일본', CN:'🇨🇳 중국', HK:'🇭🇰 홍콩', CRYPTO:'🪙 코인', 기타:'🌐 기타' }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const toKrw = (inv: Investment, price?: number, fx: number = USD_KRW_FALLBACK) => {
@@ -1259,9 +1261,36 @@ export default function DashboardPage() {
   const trendGradId = 'trendGradNeon'
 
   // ── Market donut data ──────────────────────────────────────────
-  const mktData = (['US','KR','CRYPTO'] as Market[]).map(m => ({
-    name: m, value: investments.filter(i => i.market === m).length, color: MKT_COLOR[m],
-  })).filter(d => d.value > 0)
+  // 🌍 실질 국가 노출 — "어디에 상장했나"가 아니라 "어느 나라 기업을 갖고 있나".
+  //    TIGER 미국S&P500 은 한국 상장이지만 담은 건 미국 기업 94.7% — 상장 시장으로 세면
+  //    미국 비중이 통째로 빠진다(실측 2026-08-06: 미국 26.4% → 45.3%, 19%p 과소평가).
+  //    ⚠️ 그리고 '비중'은 금액이어야 한다 — 개수로 세면 100만원과 1000만원이 똑같이 1종이다.
+  const [xrayCountries, setXrayCountries] = useState<{ country: string; listed: number; real: number }[] | null>(null)
+  useEffect(() => {
+    if (investments.length === 0) return
+    let cancelled = false
+    fetch('/api/portfolio-xray', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (!cancelled && Array.isArray(j?.realCountries)) setXrayCountries(j.realCountries) })
+      .catch(() => { /* 실패 시 아래 금액·상장 기준으로 폴백 — 개수보다는 정확하다 */ })
+    return () => { cancelled = true }
+  }, [investments.length])
+
+  const mktData = useMemo(() => {
+    const cnt = (k: string) => investments.filter(i => (i.market === 'CRYPTO' ? 'CRYPTO' : i.market === 'KR' ? 'KR' : 'US') === k).length
+    if (xrayCountries && xrayCountries.length > 0) {
+      return xrayCountries.filter(c => c.real > 0)
+        .map(c => ({ name: MKT_KO[c.country] ?? c.country, value: c.real, listed: c.listed, count: cnt(c.country), color: MKT_COLOR[c.country as Market] ?? TK.slate500 }))
+    }
+    // 폴백 — 금액 기준 상장 시장(ETF 속은 못 봄). 개수 집계로는 돌아가지 않는다
+    const amt = (k: string) => investments
+      .filter(i => (i.market === 'CRYPTO' ? 'CRYPTO' : i.market === 'KR' ? 'KR' : 'US') === k)
+      .reduce((s, i) => s + (i.purchase_price ?? 0) * (i.quantity ?? 0) * (i.currency === 'USD' ? usdKrw : 1), 0)
+    const tot = (['US','KR','CRYPTO'] as Market[]).reduce((s, m) => s + amt(m), 0) || 1
+    return (['US','KR','CRYPTO'] as Market[])
+      .map(m => ({ name: MKT_KO[m] ?? m, value: Math.round(amt(m) / tot * 1000) / 10, listed: null as number | null, count: cnt(m), color: MKT_COLOR[m] }))
+      .filter(d => d.value > 0)
+  }, [investments, xrayCountries, usdKrw])
 
   // ── Lynch donut data ───────────────────────────────────────────
   const lynchData = useMemo(() => {
@@ -2768,7 +2797,14 @@ export default function DashboardPage() {
         <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
           {/* 시장별 */}
           <Card style={{ flex:1, padding:'14px 16px' }}>
-            <div style={{ fontSize:11, fontWeight:700, color:TK.sub, marginBottom:10, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>시장별 비중</div>
+            <div style={{ fontSize:11, fontWeight:700, color:TK.sub, marginBottom:2, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>
+              국가별 비중 {xrayCountries ? '(실질)' : '(금액)'}
+            </div>
+            <div style={{ fontSize:9.5, color:TK.sub2, marginBottom:8, lineHeight:1.45 }}>
+              {xrayCountries
+                ? '한국에 상장한 미국 ETF는 미국으로 셉니다 — 담고 있는 게 미국 기업이니까요(금액 기준).'
+                : '금액 기준. ETF 속 국가는 잠시 후 반영됩니다.'}
+            </div>
             {mktData.length === 0 ? <Empty/> : (
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                 <ResponsiveContainer width={90} height={90}>
@@ -2783,7 +2819,12 @@ export default function DashboardPage() {
                     <div key={d.name} style={{ display:'flex', alignItems:'center', gap:6 }}>
                       <span style={{ width:8,height:8,borderRadius:'50%',background:d.color,flexShrink:0 }}/>
                       <span style={{ fontSize:11, color:d.color, fontWeight:600 }}>{d.name}</span>
-                      <span style={{ fontSize:11, color:TK.sub7, marginLeft:'auto' }}>{d.value}종</span>
+                      <span style={{ fontSize:11, color:TK.slate200, marginLeft:'auto', fontFamily:'monospace' }}>{d.value}%</span>
+                      {/* 겉보기와 다르면 그 사실을 함께 — 숨기면 학생이 계속 상장 기준으로 오해한다 */}
+                      {d.listed != null && Math.abs(d.listed - d.value) >= 1 && (
+                        <span style={{ fontSize:9, color:TK.sub2 }}>(겉 {d.listed}%)</span>
+                      )}
+                      <span style={{ fontSize:9, color:TK.sub2 }}>{d.count}종</span>
                     </div>
                   ))}
                 </div>

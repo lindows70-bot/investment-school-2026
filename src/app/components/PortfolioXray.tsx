@@ -6,6 +6,10 @@ import { TK } from '@/lib/theme'
 import { flagOf } from '@/lib/marketFlag'
 
 const CARD = TK.bg6, BORDER = TK.border
+// 🌍 국가 라벨·색 — 네이버 countryPortfolioList 코드(US·KR·JP·HK·CN) + 우리가 붙인 CRYPTO·기타
+const CNAME: Record<string, string> = { US: '미국', KR: '한국', JP: '일본', CN: '중국', HK: '홍콩', CRYPTO: '코인', 기타: '기타' }
+const CFLAG: Record<string, string> = { US: '🇺🇸', KR: '🇰🇷', JP: '🇯🇵', CN: '🇨🇳', HK: '🇭🇰', CRYPTO: '🪙', 기타: '🌐' }
+const CCOLOR: Record<string, string> = { US: TK.blue400, KR: TK.green400, JP: TK.violet400, CN: TK.red400, HK: TK.amber400, CRYPTO: TK.orange400, 기타: TK.slate500 }
 const SEC_COLOR: Record<string, string> = {
   Technology: TK.blue400, 'Communication Services': TK.violet400, 'Consumer Cyclical': TK.pink400,
   'Consumer Defensive': TK.emerald400, 'Financial Services': TK.amber400, Healthcare: TK.green400,
@@ -101,6 +105,43 @@ export default function PortfolioXray() {
               ))}
             </div>
           </div>
+
+          {/* 🌍 실질 국가 노출 — "어디에 상장했나"가 아니라 "어느 나라 기업을 갖고 있나" */}
+          {data.realCountries && data.realCountries.length > 0 && (
+            <div>
+              <div style={{ color: TK.cyan400, fontWeight: 800, fontSize: 12, marginBottom: 2 }}>🌍 실질 국가 노출 — 한국에 상장한 미국 ETF는 미국으로</div>
+              <div style={{ color: TK.sub2, fontSize: 10, marginBottom: 6 }}>
+                예: TIGER 미국S&amp;P500은 한국 증시에서 사지만 담고 있는 건 미국 기업입니다 — 그래서 미국 비중으로 넣습니다.
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {data.realCountries.map(c => {
+                  const gap = Math.round((c.real - c.listed) * 10) / 10
+                  return (
+                    <div key={c.country} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
+                      <span style={{ width: 52, color: TK.slate200, fontWeight: 700 }}>{CFLAG[c.country] ?? '🌐'} {CNAME[c.country] ?? c.country}</span>
+                      <div style={{ flex: 1, height: 14, background: TK.bg3, borderRadius: 4, overflow: 'hidden', border: `1px solid ${BORDER}`, position: 'relative' }}>
+                        {/* 겉보기(옅게) 위에 실질(진하게) — 두 잣대를 한 막대에 겹쳐 차이를 눈으로 */}
+                        <div style={{ position: 'absolute', inset: 0, width: `${Math.min(c.listed, 100)}%`, background: `${CCOLOR[c.country] ?? TK.slate500}33` }} />
+                        <div style={{ position: 'absolute', inset: 0, width: `${Math.min(c.real, 100)}%`, background: CCOLOR[c.country] ?? TK.slate500, opacity: 0.85 }} />
+                      </div>
+                      <span style={{ width: 118, textAlign: 'right', fontFamily: 'monospace', color: TK.slate100 }}>
+                        <b>{c.real}%</b>
+                        <span style={{ color: TK.sub2, fontSize: 9.5 }}> (겉보기 {c.listed}%)</span>
+                      </span>
+                      <span style={{ width: 46, textAlign: 'right', fontSize: 9.5, fontFamily: 'monospace', color: gap > 0 ? TK.red400 : gap < 0 ? TK.blue400 : TK.sub3 }}>
+                        {gap > 0 ? '+' : ''}{gap !== 0 ? `${gap}%p` : '—'}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+              <div style={{ color: TK.sub2, fontSize: 9.5, marginTop: 5, lineHeight: 1.5 }}>
+                진한 막대 = <b>실질</b>(ETF 속 국가까지) · 옅은 막대 = <b>겉보기</b>(상장한 나라 기준) · 금액 비중입니다(종목 개수 아님).
+                {data.countryUnresolved > 0 && <> ⚠️ 국가 구성을 못 구한 <b>{data.countryUnresolved}%</b>는 추정하지 않고 상장한 나라로 뒀습니다.</>}
+                {' '}코인은 나라가 없어 따로 표시합니다.
+              </div>
+            </div>
+          )}
 
           {/* 보유 ETF 분해 명세 */}
           <div>
