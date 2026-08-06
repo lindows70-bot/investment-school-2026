@@ -5,7 +5,7 @@ import type { CoreSatelliteView, ActionItem, BuyIdea } from '@/app/api/ai-rebala
 import SectorBadge from '@/app/components/SectorBadge'
 import TimingBadge from '@/app/components/TimingBadge'
 import MastersBadge from '@/app/components/MastersBadge'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 import { flagOf } from '@/lib/marketFlag'
 
 const CARD = TK.bg6, BORDER = TK.border
@@ -181,7 +181,7 @@ export default function CoreSatelliteHero({ cs, portfolioValue }: { cs: CoreSate
               )}
               {/* ⚠️ 불통과(기저효과·기대과도 등 — 회계 품질 제외)는 목록에 남되 권유 문구를 뒤집는다 */}
               {verdicts[a.ticker]?.final === 'fail' && (
-                <div style={{ marginTop: 4, color: TK.amber400, fontSize: 10, lineHeight: 1.5 }}>
+                <div style={{ marginTop: 4, color: TK.amber400, fontSize: FS.micro, lineHeight: 1.5 }}>
                   ⚠️ 거장 위원회 <b>불통과</b> — 점수는 상위지만 위원회 관문(레드라인)에 걸렸습니다. 새 돈은 <b>소액·분할만</b>, 사유는 위 배지에서 확인하세요.
                 </div>
               )}
@@ -208,7 +208,7 @@ export default function CoreSatelliteHero({ cs, portfolioValue }: { cs: CoreSate
           ))}
           {/* 제외를 조용히 숨기지 않는다 — 회계 품질 레드라인(실증 축)으로 뺀 종목은 사실을 명시 */}
           {acctExcluded.length > 0 && (
-            <div style={{ color: TK.sub2, fontSize: 10, lineHeight: 1.5, marginTop: 2 }}>
+            <div style={{ color: TK.sub2, fontSize: FS.micro, lineHeight: 1.5, marginTop: 2 }}>
               🚧 위원회 <b style={{ color: TK.red400 }}>회계 품질 레드라인</b>(이익-현금 괴리·ROE 부풀림)으로 보강 목록에서 제외:
               {' '}{acctExcluded.map((a: BuyIdea) => dnm(a.market, a.name, a.ticker)).join(' · ')} — 자체 백테스트(1,089건)에서 실증된 유일한 나쁜 축이라 액션 목록에선 뺍니다.
             </div>
