@@ -8,7 +8,7 @@ import InvestorTimeline from '@/app/components/InvestorTimeline'
 import TimingBadge from '@/app/components/TimingBadge'
 import TradePlanCard from '@/app/components/TradePlanCard'
 import MastersBadge from '@/app/components/MastersBadge'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 import { marketFlag } from '@/lib/globalTickers'
 import { flagOf } from '@/lib/marketFlag'
 
@@ -262,7 +262,7 @@ export default function UnifiedReco() {
           <div style={{ color: TK.sub, fontSize: 10.5, marginTop: 3 }}>🎯 <b style={{ color: TK.amber400 }}>금색 하이라이트</b> = 기술적 <b>매수 타점(진입 적기 + 급소 트리거)</b>이 온 종목 · 🟢 초록 = 진입 적기. <span style={{ color: TK.sub2 }}>WHAT(점수)은 펀더멘탈, WHEN(타점)은 기술 — 점수엔 미반영, 시각 강조만.</span></div>
           {data.portfolioKrw > 0 && <div style={{ color: TK.green300, fontSize: 10.5, marginTop: 2 }}>💰 권장 편입 = 포트폴리오({fmtWon(data.portfolioKrw)}) 기준 통합점수 1.5~2.5%{data.regimeMult < 1 && <> × 국면 조정 {Math.round(data.regimeMult * 100)}%</>} · 분할 신규 편입 기준</div>}
           {/* 축 병기 — 점수(연속)와 위원회(관문)는 잣대가 다르다. 같은 종목에 다른 결론이 붙을 수 있음을 먼저 말한다. */}
-          <div style={{ color: TK.sub, fontSize: 10.5, marginTop: 3 }}>🎩 <b style={{ color: TK.amber400 }}>거장 위원회</b> = 버핏·멍거·단요핑·리루 4인의 <b>관문식</b> 판정(레드라인 하나면 탈락) + <b>얼마에 살 것인가</b>(안전마진 구간). <span style={{ color: TK.sub2 }}>점수는 &lsquo;얼마나 좋은가&rsquo;를 연속으로 재고 위원회는 &lsquo;사도 되는가&rsquo;를 통과/탈락으로 가르기 때문에, 통합 상위인데 위원회 불통과가 나올 수 있습니다 — 점수·순위엔 미반영. 4인 토론 전문은 종목 리서치 → 🎩 거장 위원회.</span></div>
+          <div style={{ color: TK.sub, fontSize: FS.tiny, marginTop: 3 }}>🎩 <b style={{ color: TK.amber400 }}>거장 위원회</b> = 버핏·멍거·단요핑·리루 4인의 <b>관문식</b> 판정(레드라인 하나면 탈락) + <b>얼마에 살 것인가</b>(안전마진 구간). <span style={{ color: TK.sub2 }}>점수는 &lsquo;얼마나 좋은가&rsquo;를 연속으로 재고 위원회는 &lsquo;사도 되는가&rsquo;를 통과/탈락으로 가르기 때문에, 통합 상위인데 위원회 불통과가 나올 수 있습니다 — 점수·순위엔 미반영. 4인 토론 전문은 종목 리서치 → 🎩 거장 위원회.</span></div>
           {data.momCrash && (
             <div style={{ marginTop: 7, background: '#2a1c0e', border: `1px solid ${TK.amber700}`, borderRadius: 8, padding: '7px 11px', fontSize: 11, color: '#fdba74', lineHeight: 1.55 }}>
               ⚠️ <b>모멘텀 크래시 주의 국면</b>(승패 해부실 실측) — 지금은 낙폭과대주(12개월 패자)가 승자보다 더 오르는 반전 장입니다.
