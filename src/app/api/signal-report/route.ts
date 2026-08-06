@@ -77,10 +77,12 @@ const closeAt = (candles: TechCandle[], date: string): number | null => {
   return null
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const today = kstDate()
+  // 🔬 full=1 — scored 12건 캡 없이 전 이벤트 반환(시뮬레이션·감사용. 화면은 캡 유지)
+  const full = new URL(req.url).searchParams.get('full') === '1'
   // ⚠️ 응답 '내용'(제목·라벨 문자열)만 바뀌어도 키를 올려야 한다 — 스키마가 같으면 커밋 훅이 못 잡는다(v6에서 실제로 겪음).
-  const cacheKey = `signal-report-v9:${today}`   // v9: hitN/missN(칩 '몇 개 중 몇 개'가 안 보이던 문제) / v8: scored·pendingN / v7: 라벨 '이중 확인' / v6: 📏 기준선 / v5: 런 압축 / v4: ⭐그룹 / v3: unscored / v2: 1,000행
+  const cacheKey = `signal-report-v9:${today}${full ? ':full' : ''}`   // v9: hitN/missN(칩 '몇 개 중 몇 개'가 안 보이던 문제) / v8: scored·pendingN / v7: 라벨 '이중 확인' / v6: 📏 기준선 / v5: 런 압축 / v4: ⭐그룹 / v3: unscored / v2: 1,000행
   const cached = await getCache<SignalReportResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -245,7 +247,7 @@ export async function GET() {
         winVsNow: eb.length ? Math.round(eb.filter(beat).length / eb.length * 100) : null,
         best: sortedBySignal[0] ?? null, worst: sortedBySignal[sortedBySignal.length - 1] ?? null,
         recent: evs.slice(0, 10),
-        scored: e7.slice(0, 12), pendingN: evs.length - e7.length,
+        scored: full ? e7 : e7.slice(0, 12), pendingN: evs.length - e7.length,
         hitN: e7.filter(e => hit(e.retNow!)).length, missN: e7.filter(e => !hit(e.retNow!)).length,
       })
     }
