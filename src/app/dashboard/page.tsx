@@ -2800,7 +2800,7 @@ export default function DashboardPage() {
             <div style={{ fontSize:11, fontWeight:700, color:TK.sub, marginBottom:2, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>
               국가별 비중 {xrayCountries ? '(실질)' : '(금액)'}
             </div>
-            <div style={{ fontSize:9.5, color:TK.sub2, marginBottom:8, lineHeight:1.45 }}>
+            <div style={{ fontSize:FS.micro, color:TK.sub2, marginBottom:8, lineHeight:1.45 }}>
               {xrayCountries
                 ? '한국에 상장한 미국 ETF는 미국으로 셉니다 — 담고 있는 게 미국 기업이니까요(금액 기준).'
                 : '금액 기준. ETF 속 국가는 잠시 후 반영됩니다.'}
@@ -2822,9 +2822,9 @@ export default function DashboardPage() {
                       <span style={{ fontSize:11, color:TK.slate200, marginLeft:'auto', fontFamily:'monospace' }}>{d.value}%</span>
                       {/* 겉보기와 다르면 그 사실을 함께 — 숨기면 학생이 계속 상장 기준으로 오해한다 */}
                       {d.listed != null && Math.abs(d.listed - d.value) >= 1 && (
-                        <span style={{ fontSize:9, color:TK.sub2 }}>(겉 {d.listed}%)</span>
+                        <span style={{ fontSize:FS.micro, color:TK.sub2 }}>(겉 {d.listed}%)</span>
                       )}
-                      <span style={{ fontSize:9, color:TK.sub2 }}>{d.count}종</span>
+                      <span style={{ fontSize:FS.micro, color:TK.sub2 }}>{d.count}종</span>
                     </div>
                   ))}
                 </div>
