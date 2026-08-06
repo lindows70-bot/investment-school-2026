@@ -63,9 +63,9 @@ export async function GET(req: NextRequest) {
   // 판정은 결정론이지만 가격 의존 체크(안전마진·어닝일드·52주 위치)가 있어 일 단위 캐시.
   // 캐시가 둘인 이유: full 은 토론까지 있어야 완전하고, brief 는 판정만으로 완전하다.
   // brief 결과를 full 키에 넣으면 위원회 탭이 "토론 실패"로 보이고, 그게 24h 박제된다.
-  // v3: 🏦 금융주 가드(FCF·DCF·순부채 잣대 보류 — Schwab 내재가치 2.8배 실사고) / v2: 통화 단위 불일치 가드
-  const fullKey  = `masters-committee-v3:${ticker}:${market}:${kstDate()}`
-  const briefKey = `masters-brief-v3:${ticker}:${market}:${kstDate()}`
+  // v4: KR 자국통화는 통화 오탐 제외(IPARK 실사고) + 밴드 stretch(성장 외삽 의존도) / v3: 금융주 가드 / v2: 통화 가드
+  const fullKey  = `masters-committee-v4:${ticker}:${market}:${kstDate()}`
+  const briefKey = `masters-brief-v4:${ticker}:${market}:${kstDate()}`
   const full = await getCache<MastersVerdictResponse>(fullKey, 24 * 3600_000)
   if (full) return NextResponse.json(full, { headers: { 'Cache-Control': 'no-store' } })   // 토론 포함 = 어느 모드든 충분
   if (brief) {
@@ -144,6 +144,8 @@ export async function GET(req: NextRequest) {
     pegBaseEffect: pegBase,
     intrinsicPerShare,
     isFinancial,
+    // 🇰🇷 KR 시장 종목은 재무·주가가 모두 KRW — 통화 불일치가 원천 불가능(오탐 방지)
+    sameCurrency: market === 'KR' && currency === 'KRW',
   }
 
   // ── ③ 결정론 판정 ──

@@ -61,9 +61,18 @@ export interface CommitteeInput {
   // 🏦 금융주(stock-fcf SSOT 판정) — FCF·DCF·순부채 잣대가 구조적으로 무의미(예금·대출·보험 float).
   //    실사고(2026-08-06): Schwab 내재가치가 현재가의 2.8배로 떠 매수구간 $217~263 vs 현재가 ~$110.
   isFinancial: boolean | null
+  /** 🇰🇷 자국 통화 상장(KR 시장의 KR 종목) — 재무·주가가 같은 통화라 **통화 불일치가 원천 불가능**하다.
+   *  이걸 안 가리면 진짜 고FCF 기업이 오탐된다(IPARK현대산업개발 FCF/시총 38% → 통화 의심 오판). */
+  sameCurrency: boolean | null
 }
 
-export interface BuyBand { low: number; high: number; fairValue: number }
+export interface BuyBand {
+  low: number; high: number; fairValue: number
+  /** 내재가치 ÷ 현재가. 2.5배를 넘으면 DCF 가 **성장률 외삽에 크게 기대고 있다**는 뜻이라 화면에 경고를 병기한다.
+   *  실측(2026-08-06): 오리온 3.44배(성장률 25.5%를 5년 복리) — 틀렸다고 단정할 순 없지만
+   *  "안전마진 66%"로 읽히면 가짜 정밀이 된다. 숫자를 지우지 말고 **의존도를 밝힌다**. */
+  stretch: number | null
+}
 
 export interface CommitteeResult {
   masters: MasterResult[]
@@ -85,9 +94,14 @@ export interface CommitteeResult {
  *  - 내재가치 > 현재가 × 5 : 보수 DCF(성장률 35% 클램프)로는 나올 수 없는 배수
  */
 function detectUnitSuspect(x: CommitteeInput): boolean {
-  const fcfOverMc = x.freeCashflow != null && x.freeCashflow > 0 && x.marketCap != null && x.marketCap > 0
-    ? x.freeCashflow / x.marketCap : null
-  if (fcfOverMc != null && fcfOverMc > 0.30) return true
+  // 🇰🇷 자국 통화 상장이면 FCF 비율이 아무리 높아도 '통화' 문제일 수 없다 — 진짜 고FCF 를 오탐하지 않는다.
+  //     (IPARK현대산업개발 FCF/시총 38%는 건설 선수금 유입 등 실제 현상. 통화 불일치가 아니다)
+  if (x.sameCurrency !== true) {
+    const fcfOverMc = x.freeCashflow != null && x.freeCashflow > 0 && x.marketCap != null && x.marketCap > 0
+      ? x.freeCashflow / x.marketCap : null
+    if (fcfOverMc != null && fcfOverMc > 0.30) return true
+  }
+  // 배수 조건은 통화와 무관하게 유지 — 어떤 통화든 보수 DCF 가 현재가의 5배는 나올 수 없다
   if (x.intrinsicPerShare != null && x.currentPrice != null && x.currentPrice > 0
     && x.intrinsicPerShare > x.currentPrice * 5) return true
   return false
@@ -255,7 +269,10 @@ export function computeCommittee(x: CommitteeInput): CommitteeResult {
   // 기저효과·DCF 불가·레드라인·통화 단위 의심·**금융주**면 보류한다(틀린 가격은 없는 가격보다 나쁘다).
   const buyBand: BuyBand | null =
     !redlineHit && !unitSuspect && !x.isFinancial && x.intrinsicPerShare != null && x.intrinsicPerShare > 0
-      ? { fairValue: x.intrinsicPerShare, low: x.intrinsicPerShare * 0.70, high: x.intrinsicPerShare * 0.85 }
+      ? {
+        fairValue: x.intrinsicPerShare, low: x.intrinsicPerShare * 0.70, high: x.intrinsicPerShare * 0.85,
+        stretch: x.currentPrice != null && x.currentPrice > 0 ? x.intrinsicPerShare / x.currentPrice : null,
+      }
       : null
 
   return { masters, redlines, redlineHit, final, finalReason, buyBand, missingKeys, unitSuspect }

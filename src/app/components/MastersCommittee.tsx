@@ -62,6 +62,12 @@ export default function MastersCommittee({ ticker, name, market }: { ticker: str
               💰 매수 고려 구간(안전마진 30~15%): <b style={{ fontFamily: 'monospace' }}>{fmtP(data.buyBand.low)} ~ {fmtP(data.buyBand.high)}</b>
               <span style={{ fontSize: FS.micro, color: TK.sub2 }}> · 내재가치 {fmtP(data.buyBand.fairValue)} (버핏식 보수 DCF — 성장률 35% 클램프라 성장주는 낮게 나올 수 있음)</span>
               {data.currentPrice != null && <span style={{ fontSize: FS.tiny, color: TK.sub11 }}> · 현재가 {fmtP(data.currentPrice)}</span>}
+              {(data.buyBand.stretch ?? 0) > 2.5 && (
+                <div style={{ fontSize: FS.micro, color: TK.amber400, marginTop: 3, lineHeight: 1.6 }}>
+                  ⚠️ 내재가치가 현재가의 <b>{data.buyBand.stretch!.toFixed(1)}배</b>입니다 — 최근 성장률을 5년 복리로 외삽한 결과에 크게 기대고 있습니다.
+                  성장이 꺾이면 이 구간도 함께 내려갑니다. <b>안전마진을 액면 그대로 믿지 마세요.</b>
+                </div>
+              )}
             </div>
           ) : (
             <div style={{ fontSize: FS.tiny, color: TK.sub2, marginTop: 4 }}>💰 매수 가격 구간: 산정 보류 — {

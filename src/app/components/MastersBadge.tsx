@@ -63,7 +63,8 @@ export default function MastersBadge({ ticker, market, currency, currentPrice }:
       {d.buyBand && (
         <span title={`버핏식 보수 DCF 내재가치 ${fmt(d.buyBand.fairValue)} 의 안전마진 30~15% 구간입니다.
 현재가가 이 구간 위에 있다면 '나쁜 회사'라는 뜻이 아니라 '이 잣대로는 아직 비싸다'는 뜻입니다.
-⚠️ 경기순환주는 현재 이익 기준 DCF라 사이클 위치에 따라 구간이 크게 왜곡될 수 있습니다.`}
+⚠️ 경기순환주는 현재 이익 기준 DCF라 사이클 위치에 따라 구간이 크게 왜곡될 수 있습니다.${
+          (d.buyBand.stretch ?? 0) > 2.5 ? `\n\n⚠️ 내재가치가 현재가의 ${d.buyBand.stretch!.toFixed(1)}배입니다 — 최근 성장률을 5년 복리로 외삽한 결과에 크게 기대고 있습니다. 성장이 꺾이면 구간도 함께 내려갑니다(안전마진을 액면 그대로 믿지 마세요).` : ''}`}
           style={{ background: bandPos === 'in' || bandPos === 'below' ? `${TK.green500}12` : 'rgba(148,163,184,0.10)',
             color: bandPos === 'in' || bandPos === 'below' ? TK.green400 : TK.slate300,
             border: `1px solid ${bandPos === 'in' || bandPos === 'below' ? TK.green500 : TK.line1}44`,
@@ -72,6 +73,8 @@ export default function MastersBadge({ ticker, market, currency, currentPrice }:
           {bandPos === 'above' && <span style={{ opacity: 0.75 }}> (현재가는 구간 위)</span>}
           {bandPos === 'in' && <span style={{ opacity: 0.85 }}> ✓ 구간 안</span>}
           {bandPos === 'below' && <span style={{ opacity: 0.85 }}> ✓ 구간 아래(안전마진 30%+)</span>}
+          {/* 성장 외삽 의존도 — 숫자를 지우지 않고 의존도를 밝힌다(가짜 정밀 금지) */}
+          {(d.buyBand.stretch ?? 0) > 2.5 && <span style={{ color: TK.amber400 }}> ⚠️ 성장 외삽 의존({d.buyBand.stretch!.toFixed(1)}배)</span>}
         </span>
       )}
     </span>
