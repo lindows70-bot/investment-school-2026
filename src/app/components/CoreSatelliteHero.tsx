@@ -1,5 +1,6 @@
 'use client'
 // 🎯 코어-새틀라이트 처방전 히어로 — 자산군 구성·코어밴드·캡 게이지 + 버릴/줄일/보강 3액션
+import { useState, useEffect } from 'react'
 import type { CoreSatelliteView, ActionItem, BuyIdea } from '@/app/api/ai-rebalance/route'
 import SectorBadge from '@/app/components/SectorBadge'
 import TimingBadge from '@/app/components/TimingBadge'
@@ -58,6 +59,39 @@ function ActionCard({ icon, title, color, count, children }: { icon: string; tit
 export default function CoreSatelliteHero({ cs, portfolioValue }: { cs: CoreSatelliteView; portfolioValue: number }) {
   const coreOk = cs.corePct >= cs.coreTargetMin && cs.corePct <= cs.coreTargetMax
   const pv = cs.totalValue > 0 ? cs.totalValue : portfolioValue   // 전 자산 총액 우선(원화 환산 정확도)
+
+  // 🎩 '보강할 것'(액션 표면)의 위원회 관문 — 배지만으론 부족하다("배지는 숫자를 상쇄하지 못한다").
+  //    실증된 축만 강하게: ① 회계 품질 레드라인(이익-현금 괴리·ROE 부풀림 — 1,089건 시뮬 절사초과 −3.5%p 실증)
+  //    은 목록에서 **제외**(제외 사실 명시). ② 그 외 불통과(기저효과·기대과도 — 역인과라 유죄 증거 없음)는
+  //    **후순위 + 경고 문구**. 정보 표면(통합추천 15종)은 배지 병기 유지 — 액션 표면만 관문을 세운다.
+  const [verdicts, setVerdicts] = useState<Record<string, { final: string; acctBad: boolean }>>({})
+  const stockAdds = cs.add.filter((a: BuyIdea) => a.ticker !== 'CORE' && a.ticker !== 'BTC')
+  const addKey = stockAdds.map((a: BuyIdea) => a.ticker).join(',')
+  useEffect(() => {
+    if (!stockAdds.length) return
+    let cancelled = false
+    const out: Record<string, { final: string; acctBad: boolean }> = {}
+    Promise.all(stockAdds.map(async (a: BuyIdea) => {
+      try {
+        const r = await fetch(`/api/masters-verdict?ticker=${encodeURIComponent(a.ticker)}&market=${a.market === 'KR' ? 'KR' : 'US'}&brief=1`)
+        const j = await r.json()
+        if (j?.final) out[a.ticker] = {
+          final: j.final,
+          acctBad: (j.redlines ?? []).some((rl: { key: string; hit: boolean }) => rl.hit && (rl.key === 'quality_gap' || rl.key === 'roe_inflated')),
+        }
+      } catch { /* 판정 없음 = 관문 미적용(정보 부족으로 제외하지 않는다 — 제외는 실증 축에만) */ }
+    })).then(() => { if (!cancelled) setVerdicts(out) })
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addKey])
+
+  // 정렬·제외 적용된 보강 목록: CORE·BTC(자산군 제안)는 항상 앞, 주식은 비불통과 → 불통과 순, 회계품질 레드라인은 제외
+  const acctExcluded = stockAdds.filter((a: BuyIdea) => verdicts[a.ticker]?.acctBad)
+  const addOrdered: BuyIdea[] = [
+    ...cs.add.filter((a: BuyIdea) => a.ticker === 'CORE' || a.ticker === 'BTC'),
+    ...stockAdds.filter((a: BuyIdea) => !verdicts[a.ticker]?.acctBad && verdicts[a.ticker]?.final !== 'fail'),
+    ...stockAdds.filter((a: BuyIdea) => !verdicts[a.ticker]?.acctBad && verdicts[a.ticker]?.final === 'fail'),
+  ]
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* 자산군 구성 */}
@@ -131,8 +165,8 @@ export default function CoreSatelliteHero({ cs, portfolioValue }: { cs: CoreSate
               ⚠️ 통합추천을 불러오지 못해 <b>개별 종목 보강이 빠졌습니다</b>(집계가 오래 걸릴 때 발생). 아래는 자산군 보강만입니다 — 잠시 후 새로고침해 주세요.
             </div>
           )}
-          {cs.add.map((a: BuyIdea, i: number) => (
-            <div key={`${a.ticker}-${i}`} style={{ background: TK.bg3, borderRadius: 8, padding: '8px 10px' }}>
+          {addOrdered.map((a: BuyIdea, i: number) => (
+            <div key={`${a.ticker}-${i}`} style={{ background: TK.bg3, borderRadius: 8, padding: '8px 10px', ...(verdicts[a.ticker]?.final === 'fail' ? { border: `1px solid ${TK.amber500}44`, opacity: 0.92 } : {}) }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                 <span style={{ color: TK.slate200, fontWeight: 700, fontSize: 12 }}>{a.ticker === 'CORE' || a.ticker === 'BTC' ? a.name : dnm(a.market, a.name, a.ticker)}</span>
                 <SectorBadge sector={a.sector} size="xs" />
@@ -144,6 +178,12 @@ export default function CoreSatelliteHero({ cs, portfolioValue }: { cs: CoreSate
                   ⛔ '버릴 것·줄일 것'에는 붙이지 않는다 — 위원회는 매수 관점이라 불통과를 매도 지시로 읽히게 된다. */}
               {a.ticker !== 'CORE' && a.ticker !== 'BTC' && (
                 <div style={{ marginTop: 4 }}><MastersBadge ticker={a.ticker} market={a.market} /></div>
+              )}
+              {/* ⚠️ 불통과(기저효과·기대과도 등 — 회계 품질 제외)는 목록에 남되 권유 문구를 뒤집는다 */}
+              {verdicts[a.ticker]?.final === 'fail' && (
+                <div style={{ marginTop: 4, color: TK.amber400, fontSize: 10, lineHeight: 1.5 }}>
+                  ⚠️ 거장 위원회 <b>불통과</b> — 점수는 상위지만 위원회 관문(레드라인)에 걸렸습니다. 새 돈은 <b>소액·분할만</b>, 사유는 위 배지에서 확인하세요.
+                </div>
               )}
               {a.timing && <div style={{ marginTop: 4 }}><TimingBadge t={a.timing} market={a.market} compact /></div>}
               {/* 🔬 ETF 분산 대안 — 같은 섹터를 ETF로 분산 진입(점수와 무관, 선택지 병기)
@@ -166,6 +206,13 @@ export default function CoreSatelliteHero({ cs, portfolioValue }: { cs: CoreSate
               })()}
             </div>
           ))}
+          {/* 제외를 조용히 숨기지 않는다 — 회계 품질 레드라인(실증 축)으로 뺀 종목은 사실을 명시 */}
+          {acctExcluded.length > 0 && (
+            <div style={{ color: TK.sub2, fontSize: 10, lineHeight: 1.5, marginTop: 2 }}>
+              🚧 위원회 <b style={{ color: TK.red400 }}>회계 품질 레드라인</b>(이익-현금 괴리·ROE 부풀림)으로 보강 목록에서 제외:
+              {' '}{acctExcluded.map((a: BuyIdea) => dnm(a.market, a.name, a.ticker)).join(' · ')} — 자체 백테스트(1,089건)에서 실증된 유일한 나쁜 축이라 액션 목록에선 뺍니다.
+            </div>
+          )}
         </ActionCard>
       </div>
 
