@@ -781,7 +781,7 @@ function CompareChart({ api, loading }: { api: MacroApi | null; loading: boolean
 // ═══════════════════════════════════════════════════════════════
 import BondSimulator from '@/app/components/BondSimulator'
 import StressTest    from '@/app/components/StressTest'
-import { TK } from '@/lib/theme'
+import { TK, FS, RAD } from '@/lib/theme'
 
 export default function MacroHubPage() {
   const [api,         setApi]         = useState<MacroApi | null>(null)
@@ -886,6 +886,12 @@ export default function MacroHubPage() {
             <div style={{ fontSize:9, fontWeight:400, color: activeTab === key ? C.sub : C.muted, marginTop:1 }}>{desc}</div>
           </button>
         ))}
+        {/* 시장 탐구 허브 — 사이드바에서 시장 탐구 4항목을 여기 하나로 모았으므로 나머지 세 화면으로 가는 길을 탭 옆에 제공 */}
+        <div style={{ display:'flex', gap:8, alignItems:'center', marginLeft:'auto', flexWrap:'wrap' }}>
+          <a href="/dashboard?tab=season" style={{ fontSize:FS.tiny, fontWeight:700, color:C.sub, background:C.surface, border:`1px solid ${C.border}`, borderRadius:RAD.pill, padding:'5px 12px', textDecoration:'none' }}>🧭 4계절 내비게이터 →</a>
+          <a href="/dashboard?tab=marks" style={{ fontSize:FS.tiny, fontWeight:700, color:C.sub, background:C.surface, border:`1px solid ${C.border}`, borderRadius:RAD.pill, padding:'5px 12px', textDecoration:'none' }}>🕰️ 막스 시계추 →</a>
+          <a href="/dashboard?tab=crisis" style={{ fontSize:FS.tiny, fontWeight:700, color:C.sub, background:C.surface, border:`1px solid ${C.border}`, borderRadius:RAD.pill, padding:'5px 12px', textDecoration:'none' }}>🚨 위기 레이더 →</a>
+        </div>
       </div>
 
       {/* ─ 탭 콘텐츠 ─ */}

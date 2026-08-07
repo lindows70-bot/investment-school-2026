@@ -34,8 +34,7 @@ const GROUPS: NavGroup[] = [
       { href: '/tech-chart',           icon: '📉', label: '기술적 차트' },
       { href: '/tech-screener',        icon: '🔎', label: '기술적 종목 검색기' },
       { href: '/watchlist',            icon: '⭐', label: '관심종목' },
-      { href: '/analysis?tab=lynch',   icon: '🔍', label: '피터린치 분석' },
-      { href: '/analysis?tab=buffett', icon: '🛡️', label: '워렌버핏 분석' },
+      { href: '/analysis?tab=lynch',   icon: '🔍', label: '린치·버핏 분석' },
       { href: '/valuation',            icon: '📊', label: '최일 가치분석' },
       { href: '/guru-portfolio',       icon: '🐳', label: '거인의 포트폴리오' },
     ],
@@ -44,20 +43,13 @@ const GROUPS: NavGroup[] = [
     // 여러 근거로 종목을 추천하는 곳을 한 그룹으로(지도=근거·위계 안내). 중복 방지 위해 시장 탐구에서 이관
     title: '🎯 종목 추천', color: '#a855f7',
     items: [
-      { href: '/reco-hub',                             icon: '🗺️', label: '추천 지도(근거·위계)' },
-      { href: '/dashboard?tab=moneyflow&view=unified', icon: '🎯', label: '통합 추천 (6축 종합)' },
-      { href: '/dashboard?tab=rebalance',              icon: '🤖', label: 'AI 리밸런싱 (최종)' },
-      { href: '/dashboard?tab=rotation',               icon: '🧭', label: '섹터 로테이션 시계' },
-      { href: '/hi52-radar',                           icon: '🐎', label: '신고가 레이더(달리는 말)' },
+      { href: '/reco-hub', icon: '🗺️', label: '추천 지도 — 모든 추천 입구' },
     ],
   },
   {
     title: '🌍 시장 탐구', color: TK.violet400,
     items: [
-      { href: '/macro-hub', icon: '🌐', label: 'Macro Hub' },
-      { href: '/dashboard?tab=season', icon: '🧭', label: '4계절 내비게이터' },
-      { href: '/dashboard?tab=marks',  icon: '🕰️', label: '막스 사이클 시계추' },
-      { href: '/dashboard?tab=crisis', icon: '🚨', label: '글로벌 위기 레이더' },
+      { href: '/macro-hub', icon: '🌐', label: 'Macro Hub — 계절·막스·위기' },
     ],
   },
   {
@@ -79,18 +71,13 @@ const GROUPS: NavGroup[] = [
   {
     title: '📜 채권', color: '#2dd4bf',
     items: [
-      { href: '/bonds', icon: '🧭', label: '듀레이션 나침반' },
-      { href: '/macro-hub?tab=bond', icon: '📊', label: '채권 시뮬레이터' },
-      { href: '/macro-hub?tab=stress', icon: '⚡', label: '금리 스트레스 테스트' },
+      { href: '/bonds', icon: '🧭', label: '듀레이션 나침반 — 시뮬·스트레스' },
     ],
   },
   {
     title: '🪙 암호화폐', color: TK.btcOrange,
     items: [
-      { href: '/dashboard?tab=coinlab&cv=btc',    icon: '₿', label: '비트코인' },
-      { href: '/dashboard?tab=coinlab&cv=alt',    icon: '🔷', label: '알트코인' },
-      { href: '/dashboard?tab=coinlab&cv=stable', icon: '💵', label: '스테이블코인' },
-      { href: '/dashboard?tab=coinlab&cv=stocks', icon: '🏢', label: '코인 관련 주식' },
+      { href: '/dashboard?tab=coinlab&cv=btc', icon: '₿', label: '코인 랩 — BTC·알트·스테이블·관련주' },
     ],
   },
   {

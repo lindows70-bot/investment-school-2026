@@ -3,7 +3,7 @@
 //    금리 국면 macro-regime SSOT 재사용. 채권 자산군 진입 화면(/bonds). 경보/가이드만·매매 지시 아님.
 import { useEffect, useState, type ReactNode } from 'react'
 import type { BondsResult, BondEtf, DurBias } from '@/app/api/bonds/route'
-import { TK } from '@/lib/theme'
+import { TK, FS, RAD, SP } from '@/lib/theme'
 
 const BORDER = '#2a2f3a'
 const CAT_META: Record<BondEtf['category'], { label: string; color: string }> = {
@@ -49,6 +49,11 @@ export default function BondsDashboard() {
         <div style={{ fontSize: 12, color: TK.sub, marginTop: 4, lineHeight: 1.55 }}>
           <b style={{ color: TK.violet400 }}>금리는 채권 가격의 중력</b> — 금리가 내리면 채권값은 오르고, <b style={{ color: TK.slate300 }}>듀레이션(만기)</b>이 길수록 더 크게 움직인다.
           지금 금리 국면에 맞는 <b>단기/중기/장기채·국채/회사채</b> 포지션을 읽는다. 금리 국면은 Fed Watch와 동일 SSOT.
+        </div>
+        {/* 채권 허브 — 사이드바에서 채권 3항목을 여기 하나로 모았으므로 나머지 두 도구로 가는 길을 여기서 제공 */}
+        <div style={{ display: 'flex', gap: SP.sm, flexWrap: 'wrap', marginTop: SP.sm }}>
+          <a href="/macro-hub?tab=bond" style={{ fontSize: FS.tiny, fontWeight: 700, color: TK.slate200, background: TK.bg3, border: `1px solid ${TK.violet400}55`, borderRadius: RAD.pill, padding: '5px 12px', textDecoration: 'none' }}>📊 채권 시뮬레이터 →</a>
+          <a href="/macro-hub?tab=stress" style={{ fontSize: FS.tiny, fontWeight: 700, color: TK.slate200, background: TK.bg3, border: `1px solid ${TK.violet400}55`, borderRadius: RAD.pill, padding: '5px 12px', textDecoration: 'none' }}>⚡ 금리 스트레스 테스트 →</a>
         </div>
       </div>
 
