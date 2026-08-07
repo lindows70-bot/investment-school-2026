@@ -17,18 +17,21 @@ import { flagOf } from '@/lib/marketFlag'
 const CARD = '#12151f', BORDER = TK.border
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-function useFetch<T>(url: string): { d: T | null; loading: boolean } {
+// ⚠️ 401(비로그인)을 일반 실패와 같은 null로 뭉개면 '로드 실패'라는 거짓 문구가 나간다
+//    ('없음 vs 못 불러옴 vs 로그인 필요'는 다른 사실) — unauth를 따로 들고 문구를 분기한다.
+function useFetch<T>(url: string): { d: T | null; loading: boolean; unauth: boolean } {
   const [d, setD] = useState<T | null>(null)
   const [loading, setLoading] = useState(true)
+  const [unauth, setUnauth] = useState(false)
   useEffect(() => {
     let alive = true
-    fetch(url).then(r => r.ok ? r.json() : null)
+    fetch(url).then(r => { if (alive && r.status === 401) setUnauth(true); return r.ok ? r.json() : null })
       .then(j => { if (alive) setD(j?.error ? null : j) })
       .catch(() => { if (alive) setD(null) })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [url])
-  return { d, loading }
+  return { d, loading, unauth }
 }
 
 const Sec = ({ no, title, sub, link, linkLabel, children }: { no: string; title: string; sub: string; link?: string; linkLabel?: string; children: React.ReactNode }) => (
@@ -174,7 +177,7 @@ export default function BriefingPage() {
               </div>
             ))}
           </div>
-        ) : <div style={{ fontSize: 12, color: TK.sub2 }}>{reb.d ? '지금 정리할 종목이 없습니다 — 포트폴리오 건강.' : '리밸런싱 데이터 로드 실패 — 상세 탭에서 확인해주세요.'}</div>}
+        ) : <div style={{ fontSize: 12, color: TK.sub2 }}>{reb.d ? '지금 정리할 종목이 없습니다 — 포트폴리오 건강.' : reb.unauth ? '내 포트폴리오 기준이라 로그인하면 보입니다.' : '리밸런싱 데이터 로드 실패 — 상세 탭에서 확인해주세요.'}</div>}
       </Sec>
 
       {/* ③ 담을 것 */}
@@ -205,7 +208,7 @@ export default function BriefingPage() {
               </div>
             )}
           </div>
-        ) : <div style={{ fontSize: 12, color: TK.sub2 }}>추천 데이터 로드 실패 — 통합추천 탭에서 확인해주세요.</div>}
+        ) : <div style={{ fontSize: 12, color: TK.sub2 }}>{reco.unauth ? '권장 편입액이 내 포트폴리오 기준이라 로그인하면 보입니다.' : '추천 데이터 로드 실패 — 통합추천 탭에서 확인해주세요.'}</div>}
       </Sec>
 
       {/* ④ 판 읽기 */}
@@ -232,7 +235,7 @@ export default function BriefingPage() {
               </div>
             )}
           </div>
-        ) : <div style={{ fontSize: 12, color: TK.sub2 }}>로테이션 데이터 로드 실패.</div>}
+        ) : <div style={{ fontSize: 12, color: TK.sub2 }}>{rot.unauth ? '로그인하면 보입니다.' : '로테이션 데이터 로드 실패.'}</div>}
       </Sec>
 
       {/* ④½ ⚔️ 승패 해부 — 지금 장에서 뭐가 통하나(시장의 채점 기준) */}
