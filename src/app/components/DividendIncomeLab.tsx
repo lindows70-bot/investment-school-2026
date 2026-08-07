@@ -10,7 +10,7 @@ import type { DividendPortfolioData } from '@/app/api/dividend-portfolio/route'
 import { DIVIDEND_UNIVERSE, BUCKET_META, DIV_TEMPLATES, type DivBucket } from '@/lib/dividendUniverse'
 import { ULTRA_RISKS, ULTRA_UNIVERSE } from '@/lib/ultraDividendUniverse'
 import type { UltraDividendData, UltraDividendItem } from '@/app/api/ultra-dividend/route'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 import { flagOf } from '@/lib/marketFlag'
 
 const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
@@ -302,7 +302,7 @@ export default function DividendIncomeLab({ onHoldingsChange }: { onHoldingsChan
           {/* ⚠️ market 기준은 '상장지'다 — 국기(🇰🇷:🇺🇸)로 쓰면 TIGER 미국S&P500(한국 상장·미국 자산)이
               한국으로 읽혀 거짓말이 된다. 배당 맥락에서 상장지가 실제로 가르는 건 **분배금 통화·과세**이므로
               그 이름으로 정확히 부른다. 실질 국적은 ETF 투시경(실질 국가 노출)이 담당. */}
-          <div style={{ fontSize: 10.5, color: C.low, marginBottom: 6 }}>
+          <div style={{ fontSize: FS.tiny, color: C.low, marginBottom: 6 }}>
             ⚖️ 고수익 ↔ 성장 바벨 · 배당 받는 돈: ₩ 원화 {(port.krW * 100).toFixed(0)}% : $ 달러 {((1 - port.krW) * 100).toFixed(0)}%
             <span style={{ opacity: 0.75 }}> (상장지 기준 — 한국에 상장한 미국 ETF 분배금은 원화 쪽입니다. 실질 국가 비중은 ETF 투시경에서)</span>
           </div>
