@@ -2,7 +2,7 @@
 // 🚀 IPO 하이프 사이클 — 신규 상장주 수명주기 곡선 위에 실제 종목을 상장가·주봉 실데이터로 자동 매핑
 import { useState, useEffect, useMemo } from 'react'
 import type { IpoCycleResult, IpoStock, Phase } from '@/app/api/ipo-cycle/route'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 
 const CARD = TK.bg4, BORDER = TK.line3, GOLD = '#d4af7a'
 const PH: Record<Phase, { ko: string; en: string; color: string; desc: string; action: string }> = {
@@ -161,7 +161,7 @@ export default function IpoHypeCycle() {
             {/* 하락 국면(광기·자각·고통)인데 저점 반등이 붙어 있으면 — 학생이 "반등 중인데 왜 하락 구간?"으로
                 읽는 모순을 문장으로 해소한다. 짧은 반등 ≠ 바닥 확인(전환은 매집·회복 국면 승격으로 판정). */}
             {(cur.phase === 'hype' || cur.phase === 'reality' || cur.phase === 'pain') && cur.upFromTrough >= 10 && (
-              <div style={{ color: TK.amber400, fontSize: 11, lineHeight: 1.6, marginTop: 5 }}>
+              <div style={{ color: TK.amber400, fontSize: FS.tiny, lineHeight: 1.6, marginTop: 5 }}>
                 🩹 저점 대비 +{cur.upFromTrough}% 반등을 시도 중입니다 — 다만 짧은 반등은 &lsquo;바닥 확인&rsquo;이 아닙니다.
                 반등이 이어져 추세가 바뀌면 곡선 위치가 매집·회복 쪽으로 자동 이동합니다.
               </div>
