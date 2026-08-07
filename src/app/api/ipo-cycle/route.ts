@@ -64,7 +64,10 @@ function judge(mo: number, ipoP: number, peak: number, trough: number, cur: numb
   const mult = cur / ipoP                   // 상장가 대비 배수(핵심 게이트)
   let phase: Phase
   // ⭐ 상장가 배수로 게이팅: '저점 대비 반등'만으로 recovery 오판 금지(RIVN 0.14배인데 +116% 반등 = 여전히 폭락 → 매집)
-  if (mo <= 5 && dd > -0.35) phase = 'hype'                          // 갓 상장(5개월 내)·미붕괴 = 광기(신선도 최우선)
+  // ⚠️ 광기 = '갓 상장 + 아직 고점권'이다. 낙폭 허용을 −35%까지 주면 고점 대비 −31% 떨어진 종목이
+  //    광기 꼭대기에 찍혀 카드의 숫자(−31%)와 곡선 위치가 자기모순이 된다(SPCX 실사고 — 실제 차트는
+  //    −43% 폭락 후 바닥 반등 중이었다). 주봉 종가는 장중 고점보다 낙폭을 얕게 재므로 임계는 더 엄격해야 한다.
+  if (mo <= 5 && dd > -0.20) phase = 'hype'                          // 갓 상장(5개월 내)·고점권 유지 = 광기
   else if (mult >= 2.5 && dd > -0.45) phase = 'uptrend'              // 졸업: 상장가 2.5배+ & 고점권 유지
   else if (dd >= -0.12) phase = 'uptrend'                            // 전고점 근처
   else if (mo <= 12 && dd <= -0.30 && up < 0.25) phase = 'reality'    // 락업/실적 붕괴 초입(1년 내)
@@ -87,7 +90,7 @@ function judge(mo: number, ipoP: number, peak: number, trough: number, cur: numb
 }
 
 export async function GET() {
-  const cacheKey = 'ipo-cycle-v3'   // v3: period1/period2 정확 slice(SPCX·CRCL 오염 회피)로 SpaceX·Circle·CoreWeave 편입, HYPE 신선도 우선
+  const cacheKey = 'ipo-cycle-v4'   // v4: HYPE 낙폭 임계 −35%→−20% (고점 −31% 종목이 광기로 찍히던 자기모순 수정 — SPCX)
   const cached = await getCache<IpoCycleResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

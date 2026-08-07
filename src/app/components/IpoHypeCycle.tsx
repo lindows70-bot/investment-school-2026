@@ -158,6 +158,14 @@ export default function IpoHypeCycle() {
               <Spark values={cur.spark} color={PH[cur.phase].color} />
             </div>
             <div style={{ color: TK.sub5, fontSize: 11.5, lineHeight: 1.6 }}>{PH[cur.phase].desc}</div>
+            {/* 하락 국면(광기·자각·고통)인데 저점 반등이 붙어 있으면 — 학생이 "반등 중인데 왜 하락 구간?"으로
+                읽는 모순을 문장으로 해소한다. 짧은 반등 ≠ 바닥 확인(전환은 매집·회복 국면 승격으로 판정). */}
+            {(cur.phase === 'hype' || cur.phase === 'reality' || cur.phase === 'pain') && cur.upFromTrough >= 10 && (
+              <div style={{ color: TK.amber400, fontSize: 11, lineHeight: 1.6, marginTop: 5 }}>
+                🩹 저점 대비 +{cur.upFromTrough}% 반등을 시도 중입니다 — 다만 짧은 반등은 &lsquo;바닥 확인&rsquo;이 아닙니다.
+                반등이 이어져 추세가 바뀌면 곡선 위치가 매집·회복 쪽으로 자동 이동합니다.
+              </div>
+            )}
             <div style={{ background: TK.bg3, borderRadius: 8, padding: '8px 12px', marginTop: 8, color: TK.slate200, fontSize: 11.5, lineHeight: 1.6, borderLeft: `3px solid ${PH[cur.phase].color}` }}>
               <b style={{ color: PH[cur.phase].color }}>린치·달리오식 대응</b> — {PH[cur.phase].action}
             </div>
