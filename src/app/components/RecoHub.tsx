@@ -127,7 +127,8 @@ export default function RecoHub() {
           <span style={{ fontSize: 14 }}>📐</span> 추천의 위계 — 렌즈가 합쳐져 최종 처방이 된다
         </div>
         <div style={{ display: 'flex', alignItems: 'stretch', gap: 8, flexWrap: 'wrap' }}>
-          <Stage title="🔍 특수 렌즈 5종" sub="각기 다른 각도로 본다">
+          {/* 개수는 리터럴 금지 — 렌즈를 추가할 때 이 문구가 조용히 거짓말이 된다(신고가 레이더 추가 때 실제로 5종 표기가 남았다) */}
+          <Stage title={`🔍 특수 렌즈 ${LENSES.length}종`} sub="각기 다른 각도로 본다">
             <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'center', marginTop: 10 }}>
               {LENSES.map(l => (
                 <span key={l.name} title={l.name} style={{ width: 27, height: 27, borderRadius: 8, background: `${l.color}22`, border: `1px solid ${l.color}66`, display: 'grid', placeItems: 'center', fontSize: 13 }}>{l.icon}</span>
