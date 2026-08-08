@@ -6,6 +6,7 @@
 //   ③ 논거 붕괴 — 매수 시점 스냅샷 대비 근거 소멸(출구 플랜 ThesisCheck 재사용)
 // ⛔ 고평가는 사유가 아니다(HOLD_DIP) — 기각: 내부자 매도(보상성 노이즈 — NVDA 건재한데 $574M 실측), 경영진(정량화 불가)
 import { getCache, setCache } from '@/lib/appCache'
+import type { RoeTrendKind } from '@/lib/roeTrend'   // 📈 해자 침식의 교차 확인용(판정기 아님)
 
 export interface MoatYear { d: string; gmPct: number | null; omPct: number | null }
 export interface MoatErosion {
@@ -82,10 +83,24 @@ export interface BuffettSellResult {
  *  (COP 실사고 — 유가 사이클 마진 하락이 '제품 경쟁력 훼손'으로 읽힐 뻔. 경고는 원인까지 맞아야 한다).
  *  financial: 금융주는 이익-현금·총마진 잣대가 원천 부적합(예금·대출·보험 float) — 스크리너의 false 를
  *  '정상'으로 단정하면 오표기(KB금융 화면검증 발견). 무의미한 지표는 정상이 아니라 보류다. */
-export function combineBuffettSell(moat: MoatErosion, qualityGap: boolean | null, thesisBroken: boolean | null, cyclical = false, financial = false): BuffettSellResult {
-  const moatDetail = moat.hit && cyclical
+export function combineBuffettSell(
+  moat: MoatErosion, qualityGap: boolean | null, thesisBroken: boolean | null,
+  cyclical = false, financial = false,
+  // 📈 ROE 추세 — ⛔ 새 판정기가 아니라 **교차 확인 레이어**다(손주부 인터뷰 2026-08-08 반영).
+  //    해자 침식 판정은 총마진 그대로 유지하고, ROE가 같은 방향인지만 문구로 덧붙인다.
+  //    단독 규칙으로 만들지 않은 이유: 인텔 실측(7.9→1.6→−18.9→−0.2)에서 보듯 ROE 단독은
+  //    '최저 후 반등'을 개선으로 읽어 오히려 오판한다. 발동률만 올리고 검증은 안 되는 판정기는 짐이다.
+  roeTrend: RoeTrendKind = 'na',
+): BuffettSellResult {
+  const base = moat.hit && cyclical
     ? moat.detail + ' · 단 경기순환 업종이라 해자 훼손이 아니라 업황(사이클) 하강일 수 있습니다 — 경쟁사 대비 마진도 함께 보세요'
     : moat.detail
+  // 두 지표가 함께 꺾이면 신뢰도↑ · 마진만 꺾였으면 완화(자본효율은 살아 있다는 사실을 숨기지 않는다)
+  const moatDetail = !moat.hit ? base
+    : roeTrend === 'deteriorating' ? base + ' · 🔁 자본효율(ROE)도 같은 기간 함께 꺾였습니다 — 두 지표가 같은 방향이라 구조 신호의 신뢰도가 높습니다'
+    : roeTrend === 'improving' ? base + ' · 🔁 다만 자본효율(ROE)은 오히려 좋아지는 중입니다 — 마진은 눌렸지만 자본을 굴리는 힘은 살아 있다는 뜻이라, 팔기 전에 원인을 더 확인하세요'
+    : roeTrend === 'stable' ? base + ' · 🔁 자본효율(ROE)은 유지되고 있습니다 — 마진만 눌린 것인지 함께 보세요'
+    : base
   const qg = financial ? null : qualityGap   // 🏦 금융주는 판정 자체를 보류(가드 값 false 를 '정상'으로 둔갑시키지 않는다)
   const checks: BuffettSellCheck[] = [
     {

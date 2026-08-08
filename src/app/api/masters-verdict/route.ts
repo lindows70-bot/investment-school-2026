@@ -70,8 +70,9 @@ export async function GET(req: NextRequest) {
   // v10: 보류 사유 분기(suspectCause) — 응답에 필드가 늘었으므로 키 범프(옛 응답은 undefined 로 온다)
   // v12: 💱 FTS 현금흐름 통화 판별 — 두산밥캣류(KRX 상장·USD 보고) FCF 이중 환산 차단(fcfYield·DCF 입력이 바뀐다)
   // v13: ⛔ 옛 FCF 필드 폴백 제거(Gemini 감사) — trueFcf 결측 시 DCF 보류로 바뀌므로 밴드가 달라질 수 있다
-  const fullKey  = `masters-committee-v13:${ticker}:${market}:${kstDate()}`
-  const briefKey = `masters-brief-v13:${ticker}:${market}:${kstDate()}`
+  // v14: 📈 stock-fcf 응답에 roeTrend 필드 추가(위원회가 stock-fcf 를 소비하므로 옛 응답이면 undefined 로 온다)
+  const fullKey  = `masters-committee-v14:${ticker}:${market}:${kstDate()}`
+  const briefKey = `masters-brief-v14:${ticker}:${market}:${kstDate()}`
   const full = await getCache<MastersVerdictResponse>(fullKey, 24 * 3600_000)
   if (full) return NextResponse.json(full, { headers: { 'Cache-Control': 'no-store' } })   // 토론 포함 = 어느 모드든 충분
   if (brief) {

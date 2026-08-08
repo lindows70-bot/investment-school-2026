@@ -57,7 +57,18 @@ export default function FcfQualityCard({ ticker, name, market }: { ticker: strin
             {d.fcfNature === 'mirage' ? '🚨 ' : '⚠️ '}{d.natureNote}
           </div>
         )}
+        {/* 📈 ROE 추세 — "지금 좋은 회사"와 "좋아지고 있는 회사"는 다르다(손주부 인터뷰 2026-08-08).
+            ⛔ 점수 미반영 배지 — 전향적 표본이 쌓이기 전엔 근거로만 쓴다(앱 관례: 배지 먼저, 채점 후 승격) */}
+        {d.roeNote && (
+          <div style={{ marginTop: 6, fontSize: FS.tiny, fontWeight: 700, lineHeight: 1.55, color: d.roeTrend === 'improving' ? TK.green400 : TK.orange400 }}>
+            {d.roeTrend === 'improving' ? '📈 ' : '📉 '}{d.roeNote}
+          </div>
+        )}
         <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 12, rowGap: 3, fontSize: 10.5 }}>
+          {d.roeLatest != null && d.roeYears >= 3 && (<>
+            <span style={{ color: C.low }}>ROE(최근)</span>
+            <span style={{ color: TK.slate200, fontFamily: 'monospace' }}>{d.roeLatest}% <span style={{ color: TK.sub2 }}>({d.roeYears}년 추세 기준)</span></span>
+          </>)}
           <span style={{ color: C.low }}>FCF 수익률</span>
           <span style={{ color: TK.slate200, fontFamily: 'monospace' }}>{d.fcfYield != null ? `${d.fcfYield}% (FCF ÷ 시가총액)` : '—'}</span>
           {d.fcfAvgYield != null && d.fcfYears >= 3 && (<>

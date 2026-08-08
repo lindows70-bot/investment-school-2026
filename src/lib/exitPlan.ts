@@ -12,6 +12,7 @@ import { getCurrentSeason } from './currentSeason'
 import { holdingFit, type Quadrant } from './seasonNavigator'
 import { classifyLynchMece } from './lynchAnalysis'
 import { computeMoatErosion, combineBuffettSell, type BuffettSellResult } from './buffettSell'   // 🏰 버핏 매도 점검(기업 변질 3축)
+import { getRoeTrend } from './roeTrend'   // 📈 ROE 추세 — 해자 침식 교차 확인(판정기 아님)
 import { UNIVERSE_KEY, type ScreenedStock } from './macroPhaseScreener'   // quality_gap 재사용(보유 종목은 유니버스에 항상 포함)
 import { getCache } from './appCache'
 import { isFinancialCompany } from './assetClassifier'   // 🏦 금융주 판별(버핏 점검 보류 처리용)
@@ -186,14 +187,18 @@ async function buildOne(
   //    산 이유=위 thesis 재사용. strong(2축+)이면 매도 압력 신호에도 올린다(WHAT축 — fund SELL과 같은 성격).
   let buffett: BuffettSellResult | null = null
   try {
-    const moat = await computeMoatErosion(h.ticker, h.market)
+    // 📈 ROE 시계열은 해자 침식의 **교차 확인**용(판정기 아님) — 같은 FTS annual 창이라 부담 낮음(24h 캐시)
+    const [moat, roeT] = await Promise.all([
+      computeMoatErosion(h.ticker, h.market),
+      getRoeTrend(h.ticker, h.market).catch(() => null),
+    ])
     const qg = qualityGapMap?.has(h.ticker.toUpperCase()) ? (qualityGapMap.get(h.ticker.toUpperCase()) as boolean) : null
     const thesisBroken = thesis == null ? null : thesis.verdict === 'broken'
     // 경기순환 업종(에너지·소재)은 마진 하락이 사이클 하강일 수 있어 문구를 가른다(COP 화면검증 발견)
     const cyclical = gicsSector === 'Energy' || gicsSector === 'Basic Materials'
     // 🏦 금융주는 이익-현금·마진 잣대 부적합 — 가드 값(false)이 '정상'으로 둔갑하지 않게 보류 처리(KB금융 화면검증 발견)
     const financial = gicsSector === 'Financial Services' || isFinancialCompany(h.ticker, h.name, '')
-    buffett = combineBuffettSell(moat, qg, thesisBroken, cyclical, financial)
+    buffett = combineBuffettSell(moat, qg, thesisBroken, cyclical, financial, roeT?.kind ?? 'na')
     if (buffett.level === 'strong') signals.push({ icon: '🏰', label: '버핏 매도 검토', detail: '기업 변질 신호 2축 이상(해자·현금·산 이유) — 가격이 아니라 기업이 변했다' })
   } catch { /* graceful — 점검 실패 시 표시 생략 */ }
 

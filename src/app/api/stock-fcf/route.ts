@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import { getAssetType, isFinancialCompany } from '@/lib/assetClassifier'
 import { normalizeCashflow } from '@/lib/finCurrency'   // 💱 ADR 재무통화 환산(스크리너와 동일 SSOT)
 import { getTrueFcf, assessFcfNature, type FcfNature } from '@/lib/trueFcf'   // 💵 FCF 분자 SSOT + TTM 대표성 판정
+import { getRoeTrend } from '@/lib/roeTrend'   // 📈 ROE 추세 SSOT(배지 전용·점수 미반영)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 20
@@ -17,6 +18,11 @@ export interface StockFcfResult {
   fcfYears: number               // 평균의 표본 연수(화면 병기)
   fcfNature: FcfNature           // 🚨 mirage=최근 1년만 흑자(다년 합산 적자) · volatile=올해가 이례적
   natureNote: string | null      // 학생 화면용 한 줄(assessFcfNature 가 생성 — 문구도 SSOT)
+  // 📈 ROE 추세 — "지금 좋은 회사"와 "좋아지고 있는 회사"를 가른다. ⛔ 점수 미반영(배지 전용)
+  roeTrend: 'improving' | 'deteriorating' | 'stable' | 'na'
+  roeNote: string | null
+  roeLatest: number | null       // 최신 연간 ROE %(절대값은 병기만 — 애플 197% 같은 왜곡이 있어 판정엔 안 쓴다)
+  roeYears: number               // 표본 연수
   qualityGap: boolean            // ⚠️ 이익-현금 괴리(영업흑자인데 영업현금흐름 적자)
   fcfNegOcfOk: boolean           // FCF만 적자·OCF 흑자 = CAPEX 성장 투자(좀비 아님)
   fcf: number | null
@@ -69,6 +75,8 @@ export async function GET(req: Request) {
     const fcfAvgYield = (!isFinancial && avgRaw != null && cfFactor != null && marketCap != null && marketCap > 0)
       ? Math.round(avgRaw * cfFactor / marketCap * 1000) / 10 : null
     const nature = assessFcfNature(fcfYield, fcfAvgYield, nY)
+    // 📈 ROE 추세 — 금융주는 자본 구조상 ROE 잣대가 달라 판정 보류(기존 금융 가드와 같은 철학)
+    const roeT = isFinancial ? null : await getRoeTrend(ticker, market).catch(() => null)
 
     const grade: StockFcfResult['grade'] =
       isFinancial ? 'na'
@@ -81,8 +89,12 @@ export async function GET(req: Request) {
       : fcfNegOcfOk ? 'capex'
       : (fcf != null && fcf < 0) ? 'loss' : 'na'
 
-    return NextResponse.json({ ticker, isFinancial, fcfYield, fcfAvgYield, fcfYears: nY, fcfNature: nature.kind, natureNote: nature.note, qualityGap, fcfNegOcfOk, fcf, ocf, fxRate: cfFix.rate, finCur: cfFix.finCur, opMargin, grade, asOf: new Date().toISOString() } as StockFcfResult)
+    return NextResponse.json({ ticker, isFinancial, fcfYield, fcfAvgYield, fcfYears: nY, fcfNature: nature.kind, natureNote: nature.note,
+      roeTrend: roeT?.kind ?? 'na', roeNote: roeT?.note ?? null, roeLatest: roeT?.latest ?? null, roeYears: roeT?.years.length ?? 0,
+      qualityGap, fcfNegOcfOk, fcf, ocf, fxRate: cfFix.rate, finCur: cfFix.finCur, opMargin, grade, asOf: new Date().toISOString() } as StockFcfResult)
   } catch {
-    return NextResponse.json({ ticker, isFinancial: false, fcfYield: null, fcfAvgYield: null, fcfYears: 0, fcfNature: 'na', natureNote: null, qualityGap: false, fcfNegOcfOk: false, fcf: null, ocf: null, fxRate: null, finCur: null, opMargin: null, grade: 'na', asOf: new Date().toISOString() } as StockFcfResult)
+    return NextResponse.json({ ticker, isFinancial: false, fcfYield: null, fcfAvgYield: null, fcfYears: 0, fcfNature: 'na', natureNote: null,
+      roeTrend: 'na', roeNote: null, roeLatest: null, roeYears: 0,
+      qualityGap: false, fcfNegOcfOk: false, fcf: null, ocf: null, fxRate: null, finCur: null, opMargin: null, grade: 'na', asOf: new Date().toISOString() } as StockFcfResult)
   }
 }
