@@ -30,10 +30,13 @@ const AXES = [
 
 /** 종목 칩 — 학생이 "그래서 어느 종목이 맞았는데?"를 바로 볼 수 있게(허전함 해소) */
 function StockChip({ e, ok }: { e: SigEvent; ok: boolean }) {
+  // 🔗 칩에서 그 종목 리서치로 — 성적표는 "앱 말을 믿어도 되나"에 답하는데, 개별 신호가 왜 맞고 틀렸는지
+  //    따라갈 경로가 없으면 학생은 승률 숫자만 외우게 된다(2026-08-08 연결 조직)
   return (
-    <span title={`${e.date} 신호 · 진입 이후 ${fmtPct(e.retNow)}${e.benchNow != null ? ` · 같은 기간 시장 ${fmtPct(e.benchNow)}` : ''}`}
+    <a href={`/research?q=${encodeURIComponent(e.ticker)}`}
+      title={`${e.date} 신호 · 진입 이후 ${fmtPct(e.retNow)}${e.benchNow != null ? ` · 같은 기간 시장 ${fmtPct(e.benchNow)}` : ''}\n\n클릭하면 이 종목 리서치로 이동합니다`}
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, cursor: 'help',
+        display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, textDecoration: 'none',
         background: ok ? `${TK.green400}14` : `${TK.sub2}18`, border: `1px solid ${ok ? `${TK.green400}44` : TK.border}`,
         borderRadius: 6, padding: '2px 7px',
       }}>
@@ -42,7 +45,7 @@ function StockChip({ e, ok }: { e: SigEvent; ok: boolean }) {
       {/* 신호일 병기 — 같은 종목이 다른 날 다른 신호로 잡히면(TI 07-22 채점 vs 08-01 대기) 칩과 표가 어긋나 보인다 */}
       <span style={{ color: TK.sub2, fontSize: 9 }}>{e.date.slice(5)}</span>
       <b style={{ color: pctColor(e.retNow) }}>{fmtPct(e.retNow)}</b>
-    </span>
+    </a>
   )
 }
 

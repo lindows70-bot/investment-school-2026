@@ -20,6 +20,7 @@
 import {
   useState, useEffect, useRef, useMemo, useCallback,
 } from 'react'
+import { POLICY_RATES } from '@/lib/policyRates'   // 🏦 정책금리 폴백 SSOT(api/macro-data 와 공유)
 import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps'
 // ⚠️ Sphere·Graticule — react-simple-maps 런타임엔 export 존재하나 타입 정의(@types)에 누락 → 네임스페이스에서 추출·캐스팅
 import * as ReactSimpleMaps from 'react-simple-maps'
@@ -92,15 +93,8 @@ const GEO2ISO = Object.fromEntries(
   Object.entries(COUNTRY_META).map(([iso, { geo }]) => [geo, iso])
 )
 
-// ═══════════════════════════════════════════════════════════════
-//  FALLBACK 기준금리 (수동 업데이트 · 기준일 2026-07-19 · 한국 2.50→2.75 인상 반영)
-//  ⚠️ 중앙은행 정책금리는 무료 라이브 API가 없음(미국만 FRED 라이브) → 나머지는 수동 관리
-// ═══════════════════════════════════════════════════════════════
-const RATE_FALLBACK: Record<string, number> = {
-  USA:3.63, KOR:2.75, JPN:0.50, CHN:3.10, DEU:2.65,
-  GBR:4.50, FRA:2.65, IND:6.25, BRA:13.25, AUS:4.10,
-  CAN:2.75, RUS:21.0, TUR:42.5, SAU:5.00, ZAF:7.75,
-}
+// FALLBACK 기준금리 — policyRates SSOT(api/macro-data 와 값이 갈라지지 않도록 한 곳에서 관리)
+const RATE_FALLBACK = POLICY_RATES
 
 // ═══════════════════════════════════════════════════════════════
 //  INDICATOR CONFIG

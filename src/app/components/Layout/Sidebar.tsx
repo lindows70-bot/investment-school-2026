@@ -44,6 +44,8 @@ const GROUPS: NavGroup[] = [
     title: '🎯 종목 추천', color: '#a855f7',
     items: [
       { href: '/reco-hub', icon: '🗺️', label: '추천 지도 — 모든 추천 입구' },
+      // 🐎 전용 크론·헬스 감시까지 있는 정식 기능인데 내비게이션에서만 빠져 있었다(추천 지도 카드로만 진입 가능)
+      { href: '/hi52-radar', icon: '🐎', label: '신고가 레이더 — 달리는 말' },
     ],
   },
   {
