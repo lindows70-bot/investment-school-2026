@@ -11,6 +11,9 @@ import { getMoneyFlow } from './moneyFlow'
 import { getCurrentSeason } from './currentSeason'
 import { holdingFit, type Quadrant } from './seasonNavigator'
 import { classifyLynchMece } from './lynchAnalysis'
+import { computeMoatErosion, combineBuffettSell, type BuffettSellResult } from './buffettSell'   // 🏰 버핏 매도 점검(기업 변질 3축)
+import { UNIVERSE_KEY, type ScreenedStock } from './macroPhaseScreener'   // quality_gap 재사용(보유 종목은 유니버스에 항상 포함)
+import { getCache } from './appCache'
 
 export interface ExitSignal { icon: string; label: string; detail: string }
 
@@ -103,6 +106,8 @@ export interface ExitPlanItem {
   rotQuad: RotQuadShared | null
   /** 🧭 산 이유 점검 — 매수 시점 스냅샷 대비. null = 기록 없음(6/19 기록 시작 이전 매수) */
   thesis: ThesisCheck | null
+  /** 🏰 버핏 매도 점검 — 해자 침식·이익의 실재·산 이유 3축(기업이 변했는가). 가격은 사유가 아님 */
+  buffett: BuffettSellResult | null
 }
 
 export interface ExitHolding { ticker: string; name: string; market: 'KR' | 'US'; avgPrice: number; qty: number }
@@ -117,6 +122,7 @@ async function buildOne(
   snap: (BuySnapshot & { boughtAt: string }) | null,
   quads: { us: Quadrant | null; kr: Quadrant | null },
   base: string,
+  qualityGapMap: Map<string, boolean> | null,
 ): Promise<ExitPlanItem | null> {
   const D = await getTechCandles(h.ticker, h.market, 'D')
   if (!D || D.length < 225) return null
@@ -173,6 +179,17 @@ async function buildOne(
     } catch { /* graceful — 점검 실패 시 표시 생략 */ }
   }
 
+  // 🏰 버핏 매도 점검 — 기업이 변했는가(가격 무관 3축). 해자=연간 마진 추세(24h 캐시), 이익 실재=유니버스 quality_gap,
+  //    산 이유=위 thesis 재사용. strong(2축+)이면 매도 압력 신호에도 올린다(WHAT축 — fund SELL과 같은 성격).
+  let buffett: BuffettSellResult | null = null
+  try {
+    const moat = await computeMoatErosion(h.ticker, h.market)
+    const qg = qualityGapMap?.has(h.ticker.toUpperCase()) ? (qualityGapMap.get(h.ticker.toUpperCase()) as boolean) : null
+    const thesisBroken = thesis == null ? null : thesis.verdict === 'broken'
+    buffett = combineBuffettSell(moat, qg, thesisBroken)
+    if (buffett.level === 'strong') signals.push({ icon: '🏰', label: '버핏 매도 검토', detail: '기업 변질 신호 2축 이상(해자·현금·산 이유) — 가격이 아니라 기업이 변했다' })
+  } catch { /* graceful — 점검 실패 시 표시 생략 */ }
+
   // ── 결정론 행동 한 줄(우선순위 — 학생 언어·저점 매도 강요 금지) ──
   let action: string
   if (t.trendBreak) {
@@ -194,6 +211,7 @@ async function buildOne(
   }
 
   if (thesis?.verdict === 'broken') action += ' · 🧭 산 이유(매수 근거)도 훼손 — 아래 점검 참조'
+  if (buffett?.level === 'strong') action += ' · 🏰 버핏 점검 빨강 — 기업이 변했는지 카드 3축을 먼저 보세요'
 
   return {
     ticker: h.ticker, name: h.name, market: h.market,
@@ -205,7 +223,7 @@ async function buildOne(
     defDistPct: pctOf(price, t.cloudBottom),
     defBroken,
     light: t.light,
-    signals, fund, action, rotQuad, thesis,
+    signals, fund, action, rotQuad, thesis, buffett,
   }
 }
 
@@ -219,6 +237,10 @@ export async function buildExitPlans(
   const rotBySector = await loadRotationBySector().catch(() => null)
   const season = await getCurrentSeason(base).catch(() => null)
   const quads = { us: (season?.usQuad ?? null) as Quadrant | null, kr: (season?.krQuad ?? null) as Quadrant | null }
+  // 🏰 quality_gap 조인 — 스크리너 유니버스(보유 종목 항상 포함)를 한 번만 읽어 티커→괴리 맵(추가 fetch 0)
+  const qualityGapMap = await getCache<ScreenedStock[]>(UNIVERSE_KEY, 8 * 24 * 3600_000)
+    .then(uni => uni ? new Map(uni.map(s => [s.ticker.toUpperCase(), s.qualityGap])) : null)
+    .catch(() => null)
   const items: ExitPlanItem[] = []
   const skipped: string[] = []
   const q = [...holdings]
@@ -226,7 +248,7 @@ export async function buildExitPlans(
     while (q.length) {
       const h = q.shift(); if (!h) break
       try {
-        const it = await buildOne(h, fundMap.get(h.ticker.toUpperCase()) ?? null, rotBySector, snapMap.get(h.ticker.toUpperCase()) ?? null, quads, base)
+        const it = await buildOne(h, fundMap.get(h.ticker.toUpperCase()) ?? null, rotBySector, snapMap.get(h.ticker.toUpperCase()) ?? null, quads, base, qualityGapMap)
         if (it) items.push(it); else skipped.push(h.ticker)
       } catch { skipped.push(h.ticker) }
     }

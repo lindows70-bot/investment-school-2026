@@ -141,6 +141,27 @@ export default function ExitPlanBoard() {
                   </div>
                 )}
 
+                {/* 🏰 버핏 매도 점검 — '가격이 떨어졌는가'가 아니라 '기업이 변했는가'. 3축 결정론(해자·현금·산 이유) */}
+                {it.buffett && it.buffett.level !== 'na' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 7, padding: '6px 8px', borderRadius: 7, background: TK.slate900, border: `1px dashed ${it.buffett.level === 'strong' ? TK.red400 + '66' : TK.border}` }}>
+                    <span title="버핏의 매도 기준은 가격이 아니라 기업의 변화입니다 — ①해자 침식(연간 마진의 구조적 하락) ②이익의 실재(장부 이익 vs 실제 현금) ③산 이유 소멸. 셋 중 무엇이 켜졌는지가 매도 판단의 재료"
+                      style={{ fontSize: 10, fontWeight: 800, color: TK.slate300 }}>
+                      🏰 버핏 매도 점검
+                    </span>
+                    {it.buffett.checks.map(c => {
+                      const col = c.hit == null ? TK.sub2 : c.hit ? TK.red400 : TK.green400
+                      return (
+                        <span key={c.key} title={c.detail} style={{ fontSize: 9.5, color: col, border: `1px solid ${col}44`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>
+                          {c.icon} {c.label} {c.hit == null ? '—' : c.hit ? '훼손' : '정상'}
+                        </span>
+                      )
+                    })}
+                    <b style={{ marginLeft: 'auto', fontSize: 10, color: it.buffett.level === 'strong' ? TK.red400 : it.buffett.level === 'watch' ? TK.amber400 : TK.green400 }}>
+                      {it.buffett.headline}
+                    </b>
+                  </div>
+                )}
+
                 <div style={{ marginTop: 7, fontSize: 11, color: TK.slate300, lineHeight: 1.55 }}>
                   <b style={{ color: it.signals.length >= 2 ? TK.amber400 : TK.sub }}>→ </b>{it.action}
                 </div>

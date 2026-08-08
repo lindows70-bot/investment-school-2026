@@ -21,7 +21,7 @@ export async function GET(req: Request) {
 
   const refresh = new URL(req.url).searchParams.get('refresh') === '1'
   const fp = await holdingsFingerprint(user.id)
-  const key = `exit-plan-v2:${user.id}:${kstDate()}:${fp}`   // v2: 🧭 산 이유 점검(thesis) 추가
+  const key = `exit-plan-v3:${user.id}:${kstDate()}:${fp}`   // v3: 🏰 버핏 매도 점검(해자 침식·이익 실재·산 이유) 추가
   if (!refresh) {
     const cached = await getCache<ExitPlanApi>(key, 6 * 3600_000)
     if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
