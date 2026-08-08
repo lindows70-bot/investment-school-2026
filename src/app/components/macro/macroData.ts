@@ -41,68 +41,11 @@ export const INFLATION_DATA: InflationPoint[] = [
 export const FED_TARGET = 2.0
 
 // ────────────────────────────────────────────────────────────────────────────
-// Section 2 : Dot Plot — FOMC 위원 금리 예상 분포
+// Section 2 : Dot Plot — 아래 LATEST_SEP(신형)으로 통합됨
 // ────────────────────────────────────────────────────────────────────────────
-// 2025년 3월 SEP 기준 (19명)
-// ScatterChart용: { year, rate, isMedian }
-export interface DotPoint {
-  rate:     number   // 연말 금리 예상(%)
-  count:    number   // 해당 금리에 찍은 위원 수
-  isMedian: boolean
-}
-
-export interface DotPlotYear {
-  year:    string
-  dots:    DotPoint[]
-  median:  number
-}
-
-function toDots(rates: number[]): DotPoint[] {
-  const freq: Record<number, number> = {}
-  rates.forEach(r => { freq[r] = (freq[r] ?? 0) + 1 })
-  const sorted = Object.entries(freq)
-    .map(([r, c]) => ({ rate: parseFloat(r), count: c, isMedian: false }))
-    .sort((a, b) => a.rate - b.rate)
-  // 중간값 계산
-  const allRates = rates.slice().sort((a, b) => a - b)
-  const mid = allRates[Math.floor(allRates.length / 2)]
-  sorted.forEach(d => { if (d.rate === mid) d.isMedian = true })
-  return sorted
-}
-
-const DOT_RATES: Record<string, number[]> = {
-  '2026': [4.375,4.375,4.125,4.125,4.125,3.875,3.875,3.875,3.875,3.625,3.625,3.625,3.375,3.375,3.375,3.125,3.125,2.875,2.875],
-  '2027': [3.625,3.375,3.375,3.125,3.125,3.125,2.875,2.875,2.875,2.625,2.625,2.625,2.625,2.375,2.375,2.125,2.125,2.125,1.875],
-  '2028': [3.125,3.125,2.875,2.875,2.625,2.625,2.625,2.375,2.375,2.375,2.125,2.125,2.125,1.875,1.875,1.875,1.875,1.625,1.625],
-  'Longer-run': [3.0,3.0,3.0,2.875,2.875,2.875,2.75,2.75,2.75,2.75,2.625,2.625,2.5,2.5,2.5,2.375,2.375,2.25,2.25],
-}
-
-export const DOT_PLOT_DATA: DotPlotYear[] = Object.entries(DOT_RATES).map(([year, rates]) => {
-  const sorted = rates.slice().sort((a, b) => a - b)
-  const median = sorted[Math.floor(sorted.length / 2)]
-  return { year, dots: toDots(rates), median }
-})
-
-// ────────────────────────────────────────────────────────────────────────────
-// Section 2 : SEP 경제전망 요약 테이블
-// ────────────────────────────────────────────────────────────────────────────
-export interface SepRow {
-  label:      string
-  unit:       string
-  y2025:      string
-  y2026:      string
-  y2027:      string
-  longerRun:  string
-  direction:  'up' | 'down' | 'neutral'  // 방향성 힌트 (색상용)
-}
-
-export const SEP_TABLE: SepRow[] = [
-  { label: '실질 GDP 성장률',    unit: '%', y2025: '1.7', y2026: '1.8', y2027: '1.9', longerRun: '1.8', direction: 'neutral' },
-  { label: '실업률',             unit: '%', y2025: '4.4', y2026: '4.3', y2027: '4.3', longerRun: '4.2', direction: 'neutral' },
-  { label: 'PCE 인플레이션',     unit: '%', y2025: '2.7', y2026: '2.2', y2027: '2.0', longerRun: '2.0', direction: 'down'    },
-  { label: 'Core PCE',          unit: '%', y2025: '2.8', y2026: '2.2', y2027: '2.0', longerRun: '—',   direction: 'down'    },
-  { label: '연방기금금리 (중간)', unit: '%', y2025: '3.9', y2026: '3.4', y2027: '3.1', longerRun: '3.0', direction: 'down'    },
-]
+// ⚠️ 2026-08-08 정리: 같은 SEP 데이터를 구형(DOT_RATES/DOT_PLOT_DATA·SepRow/SEP_TABLE)과
+//    신형(LATEST_SEP)이 **이중으로** 들고 있었다(구형 축 y2025~ · 신형 축 y2026~).
+//    구형은 외부 참조 0이었고, 한쪽만 갱신하면 조용히 갈라지는 구조라 제거했다. 신형 하나만 유지한다.
 
 // ────────────────────────────────────────────────────────────────────────────
 // Section 3 : 연준 대차대조표 (QT — 양적 긴축)

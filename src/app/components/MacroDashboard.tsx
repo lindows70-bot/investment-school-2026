@@ -82,6 +82,17 @@ function buildGuideCards(
   const rateMedians = LATEST_SEP.dotPlot
     .filter(d => d.year !== 'Longer-run')
     .map(d => d.median)
+  // ⚠️ SEP는 연 4회 수동 갱신 정적 데이터다 — **출처(발표 회차)를 화면에 밝힌다.**
+  //    2026-08-08 발견: 점도표 수치가 문구에 그대로 나가는데 그게 언제 전망인지 표기가 없었다
+  //    (당시 최신값이 2025년 3월 = 17개월 전). 정적 참조 데이터의 예외 조건은 '출처를 남길 것'이다.
+  //    6개월 넘게 갱신이 없으면 '오래된 전망'임을 함께 말한다 — 학생이 최신으로 오해하면 안 된다.
+  const sepAgeMo = (() => {
+    const m = /^(\d{4})-(\d{2})$/.exec(LATEST_SEP.publishDate)
+    if (!m) return null
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, 1)
+    return Math.round((Date.now() - d.getTime()) / (30 * 86_400_000))
+  })()
+  const sepSrc = `${LATEST_SEP.publishLabel} 기준${sepAgeMo != null && sepAgeMo >= 6 ? ` · ⚠️ ${sepAgeMo}개월 전 전망` : ''}`
 
   // ── 카드 1: 공격 포지션 — 실질금리(스프레드) × 금리방향(SSOT) 결합 ──
   //    '완화 중 → 적극 공격'은 실제 인하(rateDir==='cut')일 때만. 동결/인상이면 선별적(모순 방지)
@@ -143,7 +154,7 @@ function buildGuideCards(
     ? {
         icon:   '🟢',
         title:  '금리 인하 사이클 가동 중',
-        body:   `FF선물이 인하 경로를 반영 중입니다(SEP 점도표 ${rateMedians[0]?.toFixed(2)}%→${rateMedians[rateMedians.length - 1]?.toFixed(2)}% 우하향과 일치). ` +
+        body:   `FF선물이 인하 경로를 반영 중입니다(SEP 점도표 ${rateMedians[0]?.toFixed(2)}%→${rateMedians[rateMedians.length - 1]?.toFixed(2)}% 우하향과 일치 · ${sepSrc}). ` +
                 '유동성 리레이팅 수혜 핵심 주도주 분할 매수 타이밍으로 활용하세요.',
         color:  TK.green400,
         bg:     'rgba(74,222,128,0.07)',
@@ -154,7 +165,7 @@ function buildGuideCards(
         icon:   '🔴',
         title:  '동결~소폭 인상 기대',
         body:   'FF선물이 당분간 동결 또는 소폭 인상 가능성을 반영하고 있습니다. ' +
-                '추격 매수를 자제하고 이자수익 우량주·현금 비중을 유지하세요. (연준 점도표상 장기 인하 경로는 참고용)',
+                `추격 매수를 자제하고 이자수익 우량주·현금 비중을 유지하세요. (연준 점도표상 장기 인하 경로는 참고용 · ${sepSrc})`,
         color:  TK.red400,
         bg:     'rgba(248,113,113,0.07)',
         border: 'rgba(248,113,113,0.25)',
@@ -163,7 +174,7 @@ function buildGuideCards(
         icon:   '🟡',
         title:  '금리 고점·동결 국면',
         body:   '시장(FF선물)은 당분간 금리 동결을 기대하고 있습니다. ' +
-                '연준 점도표상 장기 인하 경로는 참고용이며, 단기 추격보다 이자수익 금융주·FCF 우량주 중심이 유리합니다.',
+                `연준 점도표상 장기 인하 경로는 참고용이며(${sepSrc}), 단기 추격보다 이자수익 금융주·FCF 우량주 중심이 유리합니다.`,
         color:  TK.amber400,
         bg:     'rgba(251,191,36,0.07)',
         border: 'rgba(251,191,36,0.25)',

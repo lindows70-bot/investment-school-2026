@@ -29,11 +29,18 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // ── 1. 미인증 → /login ──────────────────────────────────────────────────────
+  // ⚠️ 화면을 새로 만들 때 여기에 추가하는 걸 잊기 쉽다 — 2026-08-08 전수 점검에서 13개가 빠져 있었다.
+  //    데이터 자체는 API가 401로 막지만, 비로그인 학생은 **빈 화면을 보고 '고장났다'고 오해**한다
+  //    (브리핑만 "로그인하면 보입니다"를 따로 처리하고 있었고 나머지는 그냥 비어 보였다).
   const protectedPaths = [
     '/portfolio', '/admin', '/dashboard', '/assets', '/history',
     '/analysis', '/watchlist', '/research', '/master-strategy',
     '/investment-academy', '/school-lounge', '/macro-hub', '/valuation',
     '/school-league',
+    // 2026-08-08 보강 — 내 보유·내 신호를 다루거나 로그인 전제인 화면들
+    '/briefing', '/weekly-report', '/win-lose', '/signal-report', '/reco-hub',
+    '/tech-chart', '/tech-screener', '/earnings-reports', '/hi52-radar',
+    '/dividend', '/bonds', '/guru-portfolio', '/real-estate',
   ]
   const authPaths = ['/login', '/signup']
 
