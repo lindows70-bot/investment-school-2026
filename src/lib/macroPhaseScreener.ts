@@ -18,6 +18,7 @@ import { isPegBaseEffect } from '@/lib/canonicalFundamentals'
 import { isFinancialCompany } from '@/lib/assetClassifier'
 import { TK } from '@/lib/theme'
 import { GLOBAL_LUXURY, EU_MAJORS, curCodeFromTicker } from '@/lib/globalTickers'
+import { normalizeCashflow } from '@/lib/finCurrency'   // 💱 ADR 재무통화 환산(TSM TWD·SONY JPY — FCF/시총 부풀림 차단)
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 export type MacroPhase =
@@ -49,7 +50,7 @@ export interface MacroPhaseResult {
 
 /** 유니버스 캐시 키 SSOT — writer(macro-ai-picks)·reader 6곳이 이것만 쓴다.
  *  리터럴 산재는 sector-rotation v13→v14 워밍 누락 사고의 온상이었다 — 버전업은 이 한 줄. */
-export const UNIVERSE_KEY = 'macro-screened-universe:v11'
+export const UNIVERSE_KEY = 'macro-screened-universe:v12'   // v12: 💱 ADR 재무통화 환산(TSM 33.9%→1.05% 등 FCF 부풀림 수정)
 
 export interface ScreenedStock {
   ticker:       string
@@ -895,8 +896,12 @@ async function screenOne(
     const ks = q?.defaultKeyStatistics ?? {}, fd = q?.financialData ?? {}, sd = q?.summaryDetail ?? {}, pr = q?.price ?? {}
     const peg = numf(ks.pegRatio)
     const opMargin = numf(fd.operatingMargins) != null ? Math.round((fd.operatingMargins as number) * 1000) / 10 : null
-    const fcf = numf(fd.freeCashflow)
-    const ocf = numf(fd.operatingCashflow)   // 영업현금흐름 — 이익의 질(현금 전환) 척도
+    // 💱 ADR 통화 환산 — Yahoo 재무(freeCashflow·OCF)는 재무통화(TSM=TWD·SONY=JPY), 시총은 거래통화(USD)로 와서
+    //    그대로 나누면 FCF/시총이 부풀어(실측 TSM 33.9%·SONY 2432.6%) 가치 축·방어 가중을 오염시킨다. 환산 실패 시 null(보류).
+    const cfRaw = { fcf: numf(fd.freeCashflow), ocf: numf(fd.operatingCashflow) }
+    const cfFix = await normalizeCashflow(cfRaw.fcf, cfRaw.ocf, fd.financialCurrency, pr.currency)
+    const fcf = cfFix.fcf
+    const ocf = cfFix.ocf   // 영업현금흐름 — 이익의 질(현금 전환) 척도
     const fcfPositive = fcf != null ? fcf > 0 : true   // 모를 때 긍정 가정
     const marketCap = numf(sd.marketCap) ?? numf(pr.marketCap)
     // 🏦 금융 가드 — 은행·보험·증권은 OCF/FCF가 예금·대출·트레이딩·보험 float으로 출렁여 '이익의 질' 신호가 무의미(이자보상배율·총마진 가드와 동일). FCF 지표 중립 처리
@@ -923,6 +928,8 @@ async function screenOne(
     else if (fcfNegOcfOk) flags.push('FCF 적자(단 영업현금 흑자 — CAPEX 성장 투자)')
     else if (!fcfPositive) flags.push('FCF 적자')
     if (fcfYield != null && fcfYield >= 5) flags.push(`💵 FCF 수익률 ${fcfYield}%(현금창출력 우수)`)
+    if (cfFix.converted) flags.push(`💱 재무통화 환산(${cfFix.finCur}→${cfFix.trdCur})`)
+    else if (cfFix.fxFailed) flags.push(`⚠️ 재무통화 ${cfFix.finCur} 환율 조회 실패 — FCF 지표 보류`)
     if (opMargin != null && opMargin < 0) flags.push('영업손실')
     if (peg != null && peg > 3.0) flags.push('밸류에이션 부담 과중')
 

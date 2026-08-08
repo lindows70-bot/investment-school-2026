@@ -65,8 +65,9 @@ export async function GET(req: NextRequest) {
   // brief 결과를 full 키에 넣으면 위원회 탭이 "토론 실패"로 보이고, 그게 24h 박제된다.
   // v6: stretchCause·cashYieldPct 신설(원인별 문구) / v5: growthPct + 쉬운 문구 / v4: KR 통화 오탐 / v3: 금융주 / v2: 통화
   //     ⚠️ 응답에 **필드가 늘어도** 키를 올려야 한다 — 안 올리면 옛 응답이 그대로 서빙돼 새 필드가 undefined 로 온다(실제로 겪음).
-  const fullKey  = `masters-committee-v6:${ticker}:${market}:${kstDate()}`
-  const briefKey = `masters-brief-v6:${ticker}:${market}:${kstDate()}`
+  // v7: 💱 stock-fcf ADR 재무통화 환산 — fcfYield가 바뀌므로(TSM 35.1%→1.0%) 버핏 현금 체크 재판정
+  const fullKey  = `masters-committee-v7:${ticker}:${market}:${kstDate()}`
+  const briefKey = `masters-brief-v7:${ticker}:${market}:${kstDate()}`
   const full = await getCache<MastersVerdictResponse>(fullKey, 24 * 3600_000)
   if (full) return NextResponse.json(full, { headers: { 'Cache-Control': 'no-store' } })   // 토론 포함 = 어느 모드든 충분
   if (brief) {
