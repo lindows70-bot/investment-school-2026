@@ -79,17 +79,25 @@ export interface BuffettSellResult {
 
 /** 3원칙 종합 — 순수 함수(판정은 코드·결정론). qualityGap/thesisBroken 은 각 SSOT 값을 호출부가 전달(중복 계산 금지).
  *  cyclical: 경기순환 업종(에너지·소재 등)은 마진 하락이 해자 훼손이 아니라 사이클 하강일 수 있어 문구를 가른다
- *  (COP 실사고 — 유가 사이클 마진 하락이 '제품 경쟁력 훼손'으로 읽힐 뻔. 경고는 원인까지 맞아야 한다). */
-export function combineBuffettSell(moat: MoatErosion, qualityGap: boolean | null, thesisBroken: boolean | null, cyclical = false): BuffettSellResult {
+ *  (COP 실사고 — 유가 사이클 마진 하락이 '제품 경쟁력 훼손'으로 읽힐 뻔. 경고는 원인까지 맞아야 한다).
+ *  financial: 금융주는 이익-현금·총마진 잣대가 원천 부적합(예금·대출·보험 float) — 스크리너의 false 를
+ *  '정상'으로 단정하면 오표기(KB금융 화면검증 발견). 무의미한 지표는 정상이 아니라 보류다. */
+export function combineBuffettSell(moat: MoatErosion, qualityGap: boolean | null, thesisBroken: boolean | null, cyclical = false, financial = false): BuffettSellResult {
   const moatDetail = moat.hit && cyclical
     ? moat.detail + ' · 단 경기순환 업종이라 해자 훼손이 아니라 업황(사이클) 하강일 수 있습니다 — 경쟁사 대비 마진도 함께 보세요'
     : moat.detail
+  const qg = financial ? null : qualityGap   // 🏦 금융주는 판정 자체를 보류(가드 값 false 를 '정상'으로 둔갑시키지 않는다)
   const checks: BuffettSellCheck[] = [
-    { key: 'moat_erosion', icon: '🏰', label: cyclical && moat.hit ? '마진 하락(사이클?)' : '해자 침식', hit: moat.hit, detail: moatDetail },
     {
-      key: 'earning_real', icon: '💵', label: '이익의 실재', hit: qualityGap,
-      detail: qualityGap == null ? '데이터 없음 — 판정 보류'
-        : qualityGap ? '장부상 이익은 흑자인데 실제 현금은 들어오지 않고 있습니다 — 이익의 실재가 의심되는 구조 신호'
+      key: 'moat_erosion', icon: '🏰', label: cyclical && moat.hit ? '마진 하락(사이클?)' : '해자 침식',
+      hit: financial ? (moat.hit === true ? true : null) : moat.hit,   // 금융주 마진 데이터는 대부분 무의미 — 발동만 존중, 미발동은 보류
+      detail: financial && moat.hit !== true ? '금융주 — 은행·증권·보험은 마진 잣대가 맞지 않아 판정 보류' : moatDetail,
+    },
+    {
+      key: 'earning_real', icon: '💵', label: '이익의 실재', hit: qg,
+      detail: financial ? '금융주 — 예금·대출·보험 구조라 이익-현금 잣대가 맞지 않습니다(보류)'
+        : qg == null ? '데이터 없음 — 판정 보류'
+        : qg ? '장부상 이익은 흑자인데 실제 현금은 들어오지 않고 있습니다 — 이익의 실재가 의심되는 구조 신호'
         : '이익이 현금으로 들어오고 있습니다 — 정상',
     },
     {
