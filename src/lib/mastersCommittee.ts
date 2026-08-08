@@ -93,7 +93,8 @@ export interface CommitteeResult {
   finalReason: string            // 결론이 나온 산식 설명(사람이 검산 가능하게)
   buyBand: BuyBand | null        // 안전마진 30%~15% 구간. DCF 불가면 null(가짜 정밀 금지)
   missingKeys: string[]          // 결측 입력 목록 — 화면에 그대로 밝힌다
-  unitSuspect: boolean           // 통화 단위 불일치 의심 — 현금 관련 판정·가격 구간을 보류한다
+  unitSuspect: boolean           // 값 이상 의심(통화 혼입 또는 계산값 과대) — 현금 판정·가격 구간을 보류한다
+  suspectCause: SuspectCause     // 그 의심의 원인 — 화면 문구를 원인에 맞게 가르기 위해(뭉뚱그리면 오설명)
 }
 
 /**
@@ -104,18 +105,23 @@ export interface CommitteeResult {
  *  - FCF/시총 > 30% : 정상 기업에선 거의 나오지 않는다(NVDA 0.9%·삼성 4.2%·토탈 7.0%)
  *  - 내재가치 > 현재가 × 5 : 보수 DCF(성장률 35% 클램프)로는 나올 수 없는 배수
  */
-function detectUnitSuspect(x: CommitteeInput): boolean {
+/** 보류 사유 — ⚠️ 두 조건은 원인이 다르므로 문구를 뭉뚱그리면 오설명이 된다(EQNR 실사고 2026-08-08:
+ *  통화가 재무·거래 모두 USD 인데 "통화 단위 불일치 의심"으로 표시됐다). 경고는 원인까지 맞아야 한다. */
+export type SuspectCause = 'currency' | 'multiple' | null
+
+function detectUnitSuspect(x: CommitteeInput): SuspectCause {
   // 🇰🇷 자국 통화 상장이면 FCF 비율이 아무리 높아도 '통화' 문제일 수 없다 — 진짜 고FCF 를 오탐하지 않는다.
   //     (IPARK현대산업개발 FCF/시총 38%는 건설 선수금 유입 등 실제 현상. 통화 불일치가 아니다)
   if (x.sameCurrency !== true) {
     const fcfOverMc = x.freeCashflow != null && x.freeCashflow > 0 && x.marketCap != null && x.marketCap > 0
       ? x.freeCashflow / x.marketCap : null
-    if (fcfOverMc != null && fcfOverMc > 0.30) return true
+    if (fcfOverMc != null && fcfOverMc > 0.30) return 'currency'
   }
-  // 배수 조건은 통화와 무관하게 유지 — 어떤 통화든 보수 DCF 가 현재가의 5배는 나올 수 없다
+  // 배수 조건은 통화와 무관 — 어떤 통화든 보수 DCF 가 현재가의 5배는 나올 수 없다.
+  // 다만 '통화 탓'이라고 단정하면 안 된다(현금창출력이 실제로 높아 계산이 커진 경우가 섞인다).
   if (x.intrinsicPerShare != null && x.currentPrice != null && x.currentPrice > 0
-    && x.intrinsicPerShare > x.currentPrice * 5) return true
-  return false
+    && x.intrinsicPerShare > x.currentPrice * 5) return 'multiple'
+  return null
 }
 
 /** 매수구간이 지금 가격보다 크게 높을 때, **왜 그런지**를 학생 말로 한 줄 설명(배지·패널 공용 SSOT).
@@ -146,7 +152,19 @@ function verdictOf(checks: MasterCheck[]): Verdict {
 }
 
 // ── 4인 체크리스트(결정론) ────────────────────────────────────────
-function buffettChecks(x: CommitteeInput, unitSuspect: boolean): MasterCheck[] {
+/** 보류 사유별 학생 언어 — 원인이 다르면 문장도 달라야 한다(전문용어 금지) */
+const SUSPECT_TXT: Record<'currency' | 'multiple', { fcf: string; band: string }> = {
+  currency: {
+    fcf: '나라별 화폐가 섞여 계산됐을 수 있어요 — 확인 전까지 보류',
+    band: '나라별 화폐가 섞여 계산됐을 수 있어요 — 확인 전까지 보류',
+  },
+  multiple: {
+    fcf: '계산값이 지나치게 커서 보류 — 숫자를 그대로 믿지 않습니다',
+    band: '계산한 값이 지금 주가의 5배가 넘어요 — 가정이 과했을 수 있어 보류',
+  },
+}
+
+function buffettChecks(x: CommitteeInput, unitSuspect: SuspectCause): MasterCheck[] {
   const roePct = pct(x.roe)
   const netDebt = x.totalDebt != null && x.totalCash != null ? x.totalDebt - x.totalCash : null
   const netDebtOk = netDebt == null ? null : (netDebt <= 0 || (x.marketCap != null && netDebt < x.marketCap * 0.2))
@@ -162,13 +180,13 @@ function buffettChecks(x: CommitteeInput, unitSuspect: boolean): MasterCheck[] {
     // 💱 통화 불일치·🏦 금융주는 현금 지표를 '통과'로 읽지 않는다 — 왜곡된 값이 합격을 만들면 최악이다
     { key: 'fcf', label: '현금 창출력', basis: 'FCF수익률 ≥3%',
       status: x.isFinancial ? 'warn' : unitSuspect ? 'warn' : x.fcfYieldPct == null ? 'warn' : x.fcfYieldPct >= 3 ? 'pass' : x.fcfYieldPct >= 1 ? 'warn' : 'fail',
-      value: x.isFinancial ? '금융주 — FCF 잣대 부적합(보류)' : unitSuspect ? '통화 단위 불일치 의심 — 검증 보류' : x.fcfYieldPct == null ? '데이터 없음' : `${x.fcfYieldPct.toFixed(1)}%` },
+      value: x.isFinancial ? '금융주 — FCF 잣대 부적합(보류)' : unitSuspect ? SUSPECT_TXT[unitSuspect].fcf : x.fcfYieldPct == null ? '데이터 없음' : `${x.fcfYieldPct.toFixed(1)}%` },
     { key: 'debt', label: '재무 요새', basis: '순부채 ≤0 또는 <시총 20%',
       status: x.isFinancial ? 'warn' : netDebtOk == null ? 'warn' : netDebtOk ? 'pass' : 'fail',
       value: x.isFinancial ? '금융주 — 부채 구조 상이(예금·차입 — 보류)' : netDebt == null ? '데이터 없음' : netDebt <= 0 ? '순현금' : `순부채 시총 대비 ${x.marketCap ? ((netDebt / x.marketCap) * 100).toFixed(0) : '?'}%` },
     { key: 'margin_of_safety', label: '안전마진(DCF)', basis: '내재가치 대비 ≥0%',
       status: x.isFinancial ? 'warn' : unitSuspect || margin == null ? 'warn' : margin >= 0.15 ? 'pass' : margin >= 0 ? 'warn' : 'fail',
-      value: x.isFinancial ? '금융주 — FCF 기반 DCF 부적합(보류)' : unitSuspect ? '통화 단위 불일치 의심 — 산정 보류' : margin == null ? '산정 보류' : `${(margin * 100).toFixed(0)}%` },
+      value: x.isFinancial ? '금융주 — FCF 기반 DCF 부적합(보류)' : unitSuspect ? SUSPECT_TXT[unitSuspect].band : margin == null ? '산정 보류' : `${(margin * 100).toFixed(0)}%` },
   ]
 }
 
@@ -307,5 +325,5 @@ export function computeCommittee(x: CommitteeInput): CommitteeResult {
       }
       : null
 
-  return { masters, redlines, redlineHit, final, finalReason, buyBand, missingKeys, unitSuspect }
+  return { masters, redlines, redlineHit, final, finalReason, buyBand, missingKeys, unitSuspect: unitSuspect != null, suspectCause: unitSuspect }
 }

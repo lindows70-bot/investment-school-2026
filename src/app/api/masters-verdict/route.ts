@@ -67,8 +67,9 @@ export async function GET(req: NextRequest) {
   //     ⚠️ 응답에 **필드가 늘어도** 키를 올려야 한다 — 안 올리면 옛 응답이 그대로 서빙돼 새 필드가 undefined 로 온다(실제로 겪음).
   // v7: 💱 stock-fcf ADR 재무통화 환산 — fcfYield가 바뀌므로(TSM 35.1%→1.0%) 버핏 현금 체크 재판정
   // v8: 💱 DCF 입력(FCF·부채·현금) 재무통화 환산 — TSM·SONY 등 ADR 매수 밴드가 보류에서 정상 산정으로
-  const fullKey  = `masters-committee-v9:${ticker}:${market}:${kstDate()}`
-  const briefKey = `masters-brief-v9:${ticker}:${market}:${kstDate()}`
+  // v10: 보류 사유 분기(suspectCause) — 응답에 필드가 늘었으므로 키 범프(옛 응답은 undefined 로 온다)
+  const fullKey  = `masters-committee-v10:${ticker}:${market}:${kstDate()}`
+  const briefKey = `masters-brief-v10:${ticker}:${market}:${kstDate()}`
   const full = await getCache<MastersVerdictResponse>(fullKey, 24 * 3600_000)
   if (full) return NextResponse.json(full, { headers: { 'Cache-Control': 'no-store' } })   // 토론 포함 = 어느 모드든 충분
   if (brief) {
