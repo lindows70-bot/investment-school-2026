@@ -63,7 +63,10 @@ export default function FirmHandsCard() {
             🕰️ {d.tempLabel} {d.temp}
           </span>
         )}
-        <span style={{ marginLeft: 'auto', fontSize: FS.micro, color: TK.sub3 }}>3조건 중 {d.strongCount}개 갖춤</span>
+        {/* 분모는 '판정 가능한 축' — 현금 미등록을 '못 갖춤'으로 세면 억울한 낙인이 된다 */}
+        <span style={{ marginLeft: 'auto', fontSize: FS.micro, color: TK.sub3 }}>
+          {d.knownCount < 3 ? `판정 가능한 ${d.knownCount}조건 중 ${d.strongCount}개 갖춤` : `3조건 중 ${d.strongCount}개 갖춤`}
+        </span>
       </div>
       <div style={{ fontSize: FS.micro, color: TK.sub3, marginTop: 3, lineHeight: 1.55 }}>
         폭락은 돈이 사라지는 게 아니라 <b style={{ color: TK.sub }}>떨리는 손에서 단단한 손으로 주식이 옮겨가는 과정</b>입니다 — 코스톨라니.

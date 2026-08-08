@@ -26,6 +26,8 @@ export interface FirmAxis {
 export interface FirmHandsResult {
   axes: FirmAxis[]
   strongCount: number
+  /** 판정 가능한 축 수 — 현금 미등록 학생은 3이 아니라 2가 분모다(미확인을 '못 갖춤'으로 세면 억울하다) */
+  knownCount: number
   grade: 'firm' | 'mixed' | 'trembling' | 'na'
   headline: string
   /** 국면(막스 온도) × 여유자금 결합 행동 — 매수/매도 판단에 바로 쓰는 한 줄 */
@@ -72,14 +74,19 @@ function thesisAxis(withSnap: number, eligible: number, preStart: number): FirmA
   const pct = Math.round((withSnap / eligible) * 100)
   const level: AxisLevel = pct >= 70 ? 'strong' : pct >= 30 ? 'mid' : 'weak'
   const tail = preStart > 0 ? ` · 기록 시작 이전 매수 ${preStart}종은 분모에서 제외` : ''
-  return { ...base, level, value: `${withSnap}/${eligible}종`,
+  // '6/6종'만 크게 보이면 보유가 6종인 줄 오해한다 — 분모가 '기록 대상'임을 값에 못박는다
+  return { ...base, level, value: `기록 ${withSnap}/${eligible}종`,
     detail: level === 'strong'
       ? `근거가 남아 있어 폭락 때 "이유가 사라졌는지"로 판단할 수 있습니다${tail}`
       : `근거 기록이 ${pct}%뿐입니다 — 기록이 없으면 폭락 때 기준이 아니라 공포로 팔게 됩니다${tail}`,
     fix: level === 'strong' ? null : '투자 기록에서 매수를 등록하면 그 시점 지표가 자동 저장됩니다' }
 }
 
-/** ⏳ 인내 — 실제로 얼마나 오래 들고 있었는가. 시간을 견뎌본 계좌만 다음 상승의 복리를 받는다 */
+/** ⏳ 인내 — 실제로 얼마나 오래 들고 있었는가. 시간을 견뎌본 계좌만 다음 상승의 복리를 받는다.
+ *  ⚠️ 원천은 `investments.purchase_date`(사용자 입력)다. 앱을 시작하며 기존 보유를 등록할 때
+ *     실제 매수일 대신 **등록일**을 넣으면 보유 기간이 실제보다 짧게 나온다(실측 정황: 거래 기록이
+ *     특정 하루에 15건·12건씩 몰려 있음 = 일괄 등록 패턴). 그래서 단정하지 않고 **출처를 밝히고
+ *     고치는 법을 함께 준다** — 판정이 데이터 아티팩트로 학생에게 낙인이 되면 안 된다. */
 function patienceAxis(avgMonths: number | null, n: number, longRatio: number | null): FirmAxis {
   const base = { key: 'patience' as const, icon: '⏳', label: '보유 기간' }
   if (avgMonths == null || n === 0) {
@@ -87,13 +94,15 @@ function patienceAxis(avgMonths: number | null, n: number, longRatio: number | n
   }
   const level: AxisLevel = avgMonths >= 12 ? 'strong' : avgMonths >= 6 ? 'mid' : 'weak'
   const longTxt = longRatio != null ? ` · 1년 이상 ${Math.round(longRatio * 100)}%` : ''
+  const src = ' (앱에 입력한 매수일 기준)'
   return { ...base, level, value: `평균 ${avgMonths.toFixed(1)}개월`,
     detail: level === 'strong'
-      ? `한 사이클을 견뎌본 계좌입니다${longTxt}`
+      ? `한 사이클을 견뎌본 계좌입니다${longTxt}${src}`
       : level === 'mid'
-        ? `아직 한 사이클(1년)을 다 겪지 않았습니다${longTxt} — 첫 폭락이 진짜 시험대예요`
-        : `대부분 최근에 산 종목입니다${longTxt} — 짧은 보유는 작은 하락에도 흔들리기 쉽습니다`,
-    fix: level === 'strong' ? null : '파는 이유가 "무서워서"인지 "근거가 사라져서"인지만 구분해도 보유 기간은 길어집니다' }
+        ? `아직 한 사이클(1년)을 다 겪지 않았습니다${longTxt}${src} — 첫 폭락이 진짜 시험대예요`
+        : `입력된 매수일 기준으로는 대부분 최근에 산 종목입니다${longTxt}${src} — 짧은 보유는 작은 하락에도 흔들리기 쉽습니다`,
+    fix: level === 'strong' ? null
+      : '실제로 더 오래 보유한 종목이 있다면 자산 관리에서 매수일을 실제 날짜로 고쳐 주세요 — 등록일이 들어가 있으면 이 축이 실제보다 짧게 나옵니다' }
 }
 
 // ── 국면 × 여유자금 → 행동 한 줄 ─────────────────────────────────────────────
@@ -144,7 +153,7 @@ export function computeFirmHands(input: {
     : grade === 'trembling' ? '😰 떨리는 손 — 지금 폭락이 오면 흔들릴 수 있습니다'
     : '⚪ 판단 보류 — 현금과 보유 정보를 등록하면 점검할 수 있습니다'
   return {
-    axes, strongCount, grade, headline,
+    axes, strongCount, knownCount: known.length, grade, headline,
     action: buildAction(temp, axes[0].level, grade),
     temp, tempLabel: TEMP_LABEL(temp),
   }
