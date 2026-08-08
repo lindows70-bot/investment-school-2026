@@ -1,5 +1,7 @@
-// 크론 헬스 모니터 API — 매일 09:40 KST 크론이 미발화 감지 + 경량 크론 자동 복구, 일반 GET은 보고만
-//    복구는 크론 호출(Authorization=CRON_SECRET)일 때만 · idempotent 경량 크론 화이트리스트 · 240s 예산.
+// 크론 헬스 모니터 API — 미발화 감지 + 자동 복구, 일반 GET은 보고만
+//    복구는 크론 호출(Authorization=CRON_SECRET)일 때만 · idempotent · 240s 예산.
+//    ⏱ 하루 3회(09:40·12:40·15:40 KST) — 한 번의 예산으로는 무거운 스캔 1개만 복구되므로
+//       패스를 나눠 굶는 항목이 없게 한다(2026-08-08: 1회 실행일 때 hi52·breadth가 종일 stale).
 //    브리핑 페이지가 이 API를 읽어 stale이 있으면 상단 빨간 줄 표시.
 import { NextResponse } from 'next/server'
 import { runHealthChecks, CRON_MONITORS, type HealthCheck } from '@/lib/cronHealth'
@@ -21,12 +23,21 @@ export async function GET(req: Request) {
   const healFailed: string[] = []
 
   if (isCron) {
-    // 복구 대상: stale + heal 경로 보유. 경량 먼저 → 무거운 것(morning-briefing)은 예산 남을 때만
+    // 복구 대상: stale + heal 경로 보유.
+    // ⚠️ 정렬을 '항상 같은 순서(CRON_MONITORS 배열)'로 두면 앞의 무거운 크론이 예산을 다 먹고
+    //    뒤의 것은 매일 타임아웃/스킵돼 **영영 복구되지 않는다**(실측 2026-08-08: winLose가 먼저
+    //    시도되고 hi52·breadth는 남은 예산 부족으로 하루 종일 stale). 라운드로빈이 아니라
+    //    **가장 오래 방치된 것 우선**으로 정렬해 굶는 항목이 생기지 않게 한다.
+    //    (산출물이 아예 없는 것 = lastRun null 이 가장 시급 → 0으로 최우선)
     const staleWithHeal = checks
       .filter(c => c.status === 'stale')
       .map(c => ({ c, m: CRON_MONITORS.find(m => m.id === c.id)! }))
       .filter(x => x.m?.heal)
-      .sort((a, b) => Number(!!a.m.heavy) - Number(!!b.m.heavy))
+      .sort((a, b) => {
+        const at = a.c.lastRun ? new Date(a.c.lastRun).getTime() : 0
+        const bt = b.c.lastRun ? new Date(b.c.lastRun).getTime() : 0
+        return at - bt
+      })
 
     for (const { c, m } of staleWithHeal) {
       const remain = HEAL_BUDGET_MS - (Date.now() - started)
