@@ -5,6 +5,7 @@ export const maxDuration = 60
 
 import { NextResponse } from 'next/server'
 import { SECTOR_ROTATION_KEY, SECTOR_TO_ROT, rotAxisScore } from '@/lib/rotationShared'   // 🧭 로테이션 SSOT
+import { wOf } from '@/lib/axisWeights'   // ⚖️ 6축 가중치 SSOT — 통합추천과 **같은 상수**(복붙 금지)
 import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache } from '@/lib/appCache'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
@@ -49,7 +50,8 @@ export async function GET(req: Request) {
     return NextResponse.json({ unsupported: true, reason: '개별 주식 전용 판정입니다(ETF·코인·원자재 제외).' }, { headers: { 'Cache-Control': 'no-store' } })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || url.origin
-  const cacheKey = `research-verdict-v14:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v13: 정예 타점 pro 문구 재측정 수치로 갱신(내용 변경=키 범프) / v12: 📋 어닝 서프라이즈 이력 근거
+  // v15: ⚖️ 6축 가중치를 axisWeights SSOT 로 교체(해외는 수급 0·가치 30·모멘텀 25) — 점수가 바뀌므로 필수 범프
+  const cacheKey = `research-verdict-v15:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v13: 정예 타점 pro 문구 재측정 수치로 갱신(내용 변경=키 범프) / v12: 📋 어닝 서프라이즈 이력 근거
   const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -124,8 +126,13 @@ export async function GET(req: Request) {
   const zombie = m.interestCoverage != null && m.interestCoverage < 1.5
   const hype = m.opMargin != null && m.opMargin < 0
 
-  // 종합 점수(6축 가중 = 통합추천과 동일: 가치25·퀄리티20·모멘텀20·주도섹터10·수급10·계절15) − 리스크 감점
-  let score = value * 0.25 + quality * 0.20 + momentum * 0.20 + rotation * 0.10 + supply * 0.10 + seasonScore * 0.15
+  // 종합 점수(6축) — ⚖️ **가중치는 lib/axisWeights SSOT**(통합추천과 같은 상수를 import).
+  //   ⚠️ 2026-08-08 사고: 여기 값을 복붙해뒀다가("통합추천과 동일"이라는 주석만 남기고) 통합추천을
+  //      시장별 가중치로 바꿀 때 이 줄이 안 따라와, **같은 종목이 두 화면에서 다른 점수**를 받았다
+  //      (제2원칙 위반). 주석으로 "동일"을 약속하지 말고 **같은 상수를 import** 해야 실제로 동일해진다.
+  //   🌍 해외는 수급 축 가중치가 0 이라 supply 값이 있어도 점수엔 안 들어간다(없는 데이터로 점수 금지).
+  const w = wOf(market === 'KR')
+  let score = value * w.value + quality * w.quality + momentum * w.momentum + rotation * w.rotation + supply * w.supply + seasonScore * w.season
   if (m.knife) score -= 20
   if (zombie) score -= 20
   if (m.inventoryBuildup) score -= 10
