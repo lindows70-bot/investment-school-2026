@@ -68,8 +68,9 @@ export async function GET(req: NextRequest) {
   // v7: 💱 stock-fcf ADR 재무통화 환산 — fcfYield가 바뀌므로(TSM 35.1%→1.0%) 버핏 현금 체크 재판정
   // v8: 💱 DCF 입력(FCF·부채·현금) 재무통화 환산 — TSM·SONY 등 ADR 매수 밴드가 보류에서 정상 산정으로
   // v10: 보류 사유 분기(suspectCause) — 응답에 필드가 늘었으므로 키 범프(옛 응답은 undefined 로 온다)
-  const fullKey  = `masters-committee-v11:${ticker}:${market}:${kstDate()}`
-  const briefKey = `masters-brief-v11:${ticker}:${market}:${kstDate()}`
+  // v12: 💱 FTS 현금흐름 통화 판별 — 두산밥캣류(KRX 상장·USD 보고) FCF 이중 환산 차단(fcfYield·DCF 입력이 바뀐다)
+  const fullKey  = `masters-committee-v12:${ticker}:${market}:${kstDate()}`
+  const briefKey = `masters-brief-v12:${ticker}:${market}:${kstDate()}`
   const full = await getCache<MastersVerdictResponse>(fullKey, 24 * 3600_000)
   if (full) return NextResponse.json(full, { headers: { 'Cache-Control': 'no-store' } })   // 토론 포함 = 어느 모드든 충분
   if (brief) {

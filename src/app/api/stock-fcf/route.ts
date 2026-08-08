@@ -46,9 +46,11 @@ export async function GET(req: Request) {
     // 💵 분자는 현금흐름표에서 직접(OCF−CapEx) — financialData.freeCashflow 는 정의 불명(EQNR은 OCF보다 큼·MSFT는 1/4)
     // 💱 그 위에 ADR 통화 환산 — 재무는 재무통화(TSM=TWD), 시총은 거래통화라 그대로 나누면 부풀림
     const tf = await getTrueFcf(ticker, market)
-    const cfFix = await normalizeCashflow(tf.fcf, tf.ocf ?? numf(fd.operatingCashflow), fd.financialCurrency, pr.currency)
-    const fcf = cfFix.fcf, ocf = cfFix.ocf
     const marketCap = numf(sd.marketCap) ?? numf(pr.marketCap)
+    // refOcf·시총 = 원값 통화 판별 근거 — FTS는 상장지 공시 통화라 financialCurrency와 다를 수 있다(두산밥캣 실사고)
+    const cfFix = await normalizeCashflow(tf.fcf, tf.ocf ?? numf(fd.operatingCashflow), fd.financialCurrency, pr.currency,
+      { refOcf: numf(fd.operatingCashflow), marketCap })
+    const fcf = cfFix.fcf, ocf = cfFix.ocf
     const opMargin = numf(fd.operatingMargins) != null ? Math.round((fd.operatingMargins as number) * 1000) / 10 : null
     // 🏦 금융 가드(스크리너와 동일) — 은행·보험·증권은 OCF/FCF가 예금·대출·트레이딩·float으로 왜곡 → 지표 중립
     const isFinancial = isFinancialCompany(ticker, name, String(q?.assetProfile?.industry || '')) || /financ|bank|insurance/i.test(String(q?.assetProfile?.sector || ''))

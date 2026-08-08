@@ -51,7 +51,7 @@ export interface MacroPhaseResult {
 
 /** 유니버스 캐시 키 SSOT — writer(macro-ai-picks)·reader 6곳이 이것만 쓴다.
  *  리터럴 산재는 sector-rotation v13→v14 워밍 누락 사고의 온상이었다 — 버전업은 이 한 줄. */
-export const UNIVERSE_KEY = 'macro-screened-universe:v13'   // v13: 💵 FCF 분자를 현금흐름표(OCF−CapEx)로 교체 — Yahoo freeCashflow 필드 신뢰 불가 판정
+export const UNIVERSE_KEY = 'macro-screened-universe:v14'   // v14: 💱 FTS 현금흐름 통화 판별 — 두산밥캣 이중 환산(FCF수익률 18,310%) 차단 / v13: 💵 FCF 분자를 현금흐름표(OCF−CapEx)로 교체
 
 export interface ScreenedStock {
   ticker:       string
@@ -901,11 +901,13 @@ async function screenOne(
     //    EQNR 은 FCF가 OCF보다 큼·MSFT 는 실제의 1/4). 같은 응답의 operatingCashflow 는 정확하므로 그것만 폴백.
     // 💱 그 위에 ADR 통화 환산 — 재무통화(TSM=TWD·SONY=JPY) 값을 거래통화 시총과 나누면 부풀린다. 실패 시 null(보류).
     const tf = await getTrueFcf(ticker, market)
-    const cfFix = await normalizeCashflow(tf.fcf, tf.ocf ?? numf(fd.operatingCashflow), fd.financialCurrency, pr.currency)
+    const marketCap = numf(sd.marketCap) ?? numf(pr.marketCap)
+    // refOcf·시총 = 원값 통화 판별 근거 — FTS는 상장지 공시 통화라 financialCurrency와 다를 수 있다(두산밥캣 실사고)
+    const cfFix = await normalizeCashflow(tf.fcf, tf.ocf ?? numf(fd.operatingCashflow), fd.financialCurrency, pr.currency,
+      { refOcf: numf(fd.operatingCashflow), marketCap })
     const fcf = cfFix.fcf
     const ocf = cfFix.ocf   // 영업현금흐름 — 이익의 질(현금 전환) 척도
     const fcfPositive = fcf != null ? fcf > 0 : true   // 모를 때 긍정 가정
-    const marketCap = numf(sd.marketCap) ?? numf(pr.marketCap)
     // 🏦 금융 가드 — 은행·보험·증권은 OCF/FCF가 예금·대출·트레이딩·보험 float으로 출렁여 '이익의 질' 신호가 무의미(이자보상배율·총마진 가드와 동일). FCF 지표 중립 처리
     const isFin = isFinancialCompany(ticker, name, String(q?.assetProfile?.industry || '')) || /financ|bank|insurance/i.test(String(q?.assetProfile?.sector || ''))
     // 💵 FCF 수익률(FCF/시총) — 부호만 보던 것을 '주가 대비 현금창출력'으로.
