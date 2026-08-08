@@ -68,8 +68,8 @@ export async function GET(req: NextRequest) {
   // v7: 💱 stock-fcf ADR 재무통화 환산 — fcfYield가 바뀌므로(TSM 35.1%→1.0%) 버핏 현금 체크 재판정
   // v8: 💱 DCF 입력(FCF·부채·현금) 재무통화 환산 — TSM·SONY 등 ADR 매수 밴드가 보류에서 정상 산정으로
   // v10: 보류 사유 분기(suspectCause) — 응답에 필드가 늘었으므로 키 범프(옛 응답은 undefined 로 온다)
-  const fullKey  = `masters-committee-v10:${ticker}:${market}:${kstDate()}`
-  const briefKey = `masters-brief-v10:${ticker}:${market}:${kstDate()}`
+  const fullKey  = `masters-committee-v11:${ticker}:${market}:${kstDate()}`
+  const briefKey = `masters-brief-v11:${ticker}:${market}:${kstDate()}`
   const full = await getCache<MastersVerdictResponse>(fullKey, 24 * 3600_000)
   if (full) return NextResponse.json(full, { headers: { 'Cache-Control': 'no-store' } })   // 토론 포함 = 어느 모드든 충분
   if (brief) {
@@ -146,7 +146,9 @@ export async function GET(req: NextRequest) {
     payoutRatio: typeof f.payoutRatio === 'number' ? f.payoutRatio : null,
     dividendYield: typeof f.dividendYield === 'number' ? f.dividendYield : null,
     // 💱 재무통화 값은 거래통화로 환산해 넘긴다(시총과 같은 잣대) — 순부채/시총 체크가 통화 불일치로 튀던 것 차단
-    freeCashflow: fxUnusable ? null : convFin(f.freeCashflow),
+    // 💵 FCF 는 DCF 입력과 **같은 값**을 써야 한다 — 여기만 옛 필드로 남기면 FCF/시총 가드가 옛 값으로
+    //    판정해 "통화 불일치"를 오탐한다(EQNR 실사고: DCF만 고치고 이 줄을 안 고쳐 31.8%로 계속 걸렸다)
+    freeCashflow: fxUnusable ? null : (trueFcfConv ?? convFin(f.freeCashflow)),
     totalDebt: fxUnusable ? null : convFin(f.totalDebt),
     totalCash: fxUnusable ? null : convFin(f.totalCash),
     marketCap: typeof f.marketCap === 'number' && f.marketCap > 0 ? f.marketCap : null,
