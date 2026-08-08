@@ -15,6 +15,7 @@ import MoneyFlowRadar from '@/app/components/MoneyFlowRadar'
 import EventCalendarPanel from '@/app/components/EventCalendarPanel'
 import ExitPlanBoard from '@/app/components/ExitPlanBoard'
 import CashPositionCard from '@/app/components/CashPositionCard'
+import FirmHandsCard from '@/app/components/FirmHandsCard'
 import FxAttributionCard from '@/app/components/FxAttributionCard'
 import { type Candle } from '@/app/components/CandleChart'
 import { TK } from '@/lib/theme'
@@ -444,6 +445,9 @@ export default function AssetsPage() {
           ))}
         </div>
       )}
+
+      {/* 🤲 단단한 손 점검 — 코스톨라니 3조건(돈·생각·인내)을 한자리에. 현금 카드 바로 위(돈 축의 상세가 아래에 이어짐) */}
+      {!dbLoading && <FirmHandsCard />}
 
       {/* 💰 현금 포지션 — 예수금·CMA 등록 → 실제 현금 비중 vs 막스 권장 밴드 */}
       {!dbLoading && <CashPositionCard />}
