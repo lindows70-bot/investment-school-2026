@@ -3,7 +3,7 @@
 //   버블·하락장에서 결정적인 '주가 대비 현금창출력'과 '이익의 질(현금 전환)'을 배지로.
 import { useState, useEffect } from 'react'
 import type { StockFcfResult } from '@/app/api/stock-fcf/route'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 
 const C = { panel: '#12141c', grid: '#1e2230', low: TK.sub }
 
@@ -53,7 +53,7 @@ export default function FcfQualityCard({ ticker, name, market }: { ticker: strin
         <div style={{ fontSize: 10.5, color: C.low, lineHeight: 1.55 }}>{badge.sub}</div>
         {/* 🚨 TTM 대표성 캐비엇 — 올해 수치가 다년 현금창출력과 다를 때(문구는 assessFcfNature SSOT가 생성) */}
         {d.natureNote && (
-          <div style={{ marginTop: 6, fontSize: 10.5, fontWeight: 700, lineHeight: 1.55, color: d.fcfNature === 'mirage' ? TK.red400 : TK.orange400 }}>
+          <div style={{ marginTop: 6, fontSize: FS.tiny, fontWeight: 700, lineHeight: 1.55, color: d.fcfNature === 'mirage' ? TK.red400 : TK.orange400 }}>
             {d.fcfNature === 'mirage' ? '🚨 ' : '⚠️ '}{d.natureNote}
           </div>
         )}

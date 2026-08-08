@@ -52,6 +52,7 @@
 | `sector-rotation` | 🧭 섹터 로테이션 시계 | ✅ | | |
 | `signal-report` | 📋 앱 신호 성적표 | ✅ | ✅ | ✅ |
 | `tax-helper` | 💸 연말 절세 도우미 | ✅ | ✅ | ✅ |
+| `fcf-nature` | 💵 고FCF 성격 구분 (mirage·volatile — TTM vs 다년 평균) | ✅ | ✅ | ✅ |
 | `unified-reco` | 🎯 통합 추천 엔진 | ✅ | | ✅ |
 | `weekly-student-report` | 📄 학생별 주간 리포트 | ✅ | | |
 | `win-lose` | ⚔️ 승패 해부실 | ✅ | | |
