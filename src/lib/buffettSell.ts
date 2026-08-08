@@ -77,10 +77,15 @@ export interface BuffettSellResult {
   headline: string                             // 학생 언어 한 줄
 }
 
-/** 3원칙 종합 — 순수 함수(판정은 코드·결정론). qualityGap/thesisBroken 은 각 SSOT 값을 호출부가 전달(중복 계산 금지). */
-export function combineBuffettSell(moat: MoatErosion, qualityGap: boolean | null, thesisBroken: boolean | null): BuffettSellResult {
+/** 3원칙 종합 — 순수 함수(판정은 코드·결정론). qualityGap/thesisBroken 은 각 SSOT 값을 호출부가 전달(중복 계산 금지).
+ *  cyclical: 경기순환 업종(에너지·소재 등)은 마진 하락이 해자 훼손이 아니라 사이클 하강일 수 있어 문구를 가른다
+ *  (COP 실사고 — 유가 사이클 마진 하락이 '제품 경쟁력 훼손'으로 읽힐 뻔. 경고는 원인까지 맞아야 한다). */
+export function combineBuffettSell(moat: MoatErosion, qualityGap: boolean | null, thesisBroken: boolean | null, cyclical = false): BuffettSellResult {
+  const moatDetail = moat.hit && cyclical
+    ? moat.detail + ' · 단 경기순환 업종이라 해자 훼손이 아니라 업황(사이클) 하강일 수 있습니다 — 경쟁사 대비 마진도 함께 보세요'
+    : moat.detail
   const checks: BuffettSellCheck[] = [
-    { key: 'moat_erosion', icon: '🏰', label: '해자 침식', hit: moat.hit, detail: moat.detail },
+    { key: 'moat_erosion', icon: '🏰', label: cyclical && moat.hit ? '마진 하락(사이클?)' : '해자 침식', hit: moat.hit, detail: moatDetail },
     {
       key: 'earning_real', icon: '💵', label: '이익의 실재', hit: qualityGap,
       detail: qualityGap == null ? '데이터 없음 — 판정 보류'

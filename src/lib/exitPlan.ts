@@ -145,8 +145,10 @@ async function buildOne(
 
   // 섹터 로테이션 국면(캐시 읽기만 — 콜드면 생략)
   let rotQuad: RotQuadShared | null = null
+  let gicsSector: string | null = null   // 🏰 버핏 점검의 경기순환 힌트로도 재사용
   try {
     const gics = await getSector(h.ticker, h.market)
+    gicsSector = gics ?? null
     const rotKey = gics ? SECTOR_TO_ROT[gics] : undefined
     rotQuad = (rotKey ? rotBySector?.get(rotKey)?.q : null) ?? null
     if (rotQuad === 'weakening') signals.push({ icon: '🍂', label: '섹터 과열(익절 국면)', detail: '보유 섹터가 로테이션 과열 — 강했으나 모멘텀 꺾이는 중' })
@@ -186,7 +188,9 @@ async function buildOne(
     const moat = await computeMoatErosion(h.ticker, h.market)
     const qg = qualityGapMap?.has(h.ticker.toUpperCase()) ? (qualityGapMap.get(h.ticker.toUpperCase()) as boolean) : null
     const thesisBroken = thesis == null ? null : thesis.verdict === 'broken'
-    buffett = combineBuffettSell(moat, qg, thesisBroken)
+    // 경기순환 업종(에너지·소재)은 마진 하락이 사이클 하강일 수 있어 문구를 가른다(COP 화면검증 발견)
+    const cyclical = gicsSector === 'Energy' || gicsSector === 'Basic Materials'
+    buffett = combineBuffettSell(moat, qg, thesisBroken, cyclical)
     if (buffett.level === 'strong') signals.push({ icon: '🏰', label: '버핏 매도 검토', detail: '기업 변질 신호 2축 이상(해자·현금·산 이유) — 가격이 아니라 기업이 변했다' })
   } catch { /* graceful — 점검 실패 시 표시 생략 */ }
 
