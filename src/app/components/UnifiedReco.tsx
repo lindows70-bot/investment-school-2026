@@ -17,6 +17,7 @@ import StockActionChips from '@/app/components/StockActionChips'   // 🔗 종�
 const CARD = TK.bg6, BORDER = TK.border
 const AX = { season: TK.amber500, value: TK.green500, quality: '#2dd4bf', supply: TK.blue400, momentum: TK.violet400, rotation: '#f472b6' }  // 가치/퀄리티/모멘텀/주도섹터/수급/계절 축 색
 const fmtWon = (w: number) => w >= 1e8 ? `${(w / 1e8).toFixed(1)}억원` : `${Math.round(w / 1e4)}만원`
+const pct = (w: number) => `${Math.round(w * 100)}%`   // ⚖️ 가중치 표기 — 시장별 두 줄에서 공용
 // 해외 접미사(.PA·.T·.HK 등)가 없는 티커 = 미국 상장 ADR → 국기가 🇺🇸로 나옴(에퀴노르·핀둬둬 등). 원래 국적을 별도 마커로 표시
 const isUsListedForeign = (ticker: string) => !/\.(PA|DE|MI|SW|L|AS|MC|CO|ST|OL|HE|HK|T|SS|SZ)$/i.test(ticker)
 // 원래 국적 마커 pill(미국 ADR로 상장된 유럽/일본/중국 기업 옆에 "원래 ○○ 기업" 표시)
@@ -271,6 +272,9 @@ export default function UnifiedReco() {
   if (!data) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: TK.sub }}>통합 추천 데이터를 불러오지 못했습니다.</div>
   if (data.warming || data.items.length === 0) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: TK.sub }}>🎯 추천 유니버스를 준비 중입니다. 거시경제 AI 추천 탭을 한 번 열어 데이터를 적재한 뒤 다시 시도해 주세요.</div>
 
+  // ⚖️ 해외 가중치 — 옛 캐시(v60 이하)엔 없으므로 있을 때만 두 번째 줄을 그린다(undefined 렌더 방지)
+  const wg = data.weightsGlobal ?? null
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <style>{`
@@ -288,8 +292,12 @@ export default function UnifiedReco() {
           <div style={{ color: TK.sub5, fontSize: 12, lineHeight: 1.6 }}>
             💎가치(PEG·어닝일드·FCF)·🏰퀄리티(영업이익률·ROE·저부채·이익질)·📈모멘텀(Fwd EPS·주가추세)·🧭주도섹터(지금 돈이 도는 섹터)·💰수급(스마트머니)·🌦️계절(매크로)을 <b>하나의 점수</b>로 합칩니다. <b>펀더멘탈(가치+퀄리티 45%)이 앵커</b>이고 수급·모멘텀·주도섹터는 가볍게 — 여섯 축이 모두 높은 종목이 최상위. 왜 추천됐는지 소점수로 투명하게.
           </div>
-          <div style={{ color: TK.sub2, fontSize: 11, marginTop: 4 }}>
-            통합 = 💎 가치 {Math.round(data.weights.value * 100)}% + 🏰 퀄리티 {Math.round(data.weights.quality * 100)}% + 📈 모멘텀 {Math.round(data.weights.momentum * 100)}% + 🧭 주도섹터 {Math.round(data.weights.rotation * 100)}% + 💰 수급 {Math.round(data.weights.supply * 100)}% + 🌦️ 계절 {Math.round(data.weights.season * 100)}%
+          {/* ⚖️ 가중치는 **시장별로 다르다** — 하나만 적으면 요약이 상세를 반박한다("수급 10%"라고 읽었는데
+              미국 카드엔 '수급 미적용'이 뜬다). 둘 다 적고 왜 다른지도 한 줄로 밝힌다(2026-08-08). */}
+          <div style={{ color: TK.sub2, fontSize: 11, marginTop: 4, lineHeight: 1.7 }}>
+            🇰🇷 국내 = 💎 가치 {pct(data.weights.value)} + 🏰 퀄리티 {pct(data.weights.quality)} + 📈 모멘텀 {pct(data.weights.momentum)} + 🧭 주도섹터 {pct(data.weights.rotation)} + 💰 수급 {pct(data.weights.supply)} + 🌦️ 계절 {pct(data.weights.season)}
+            {wg && (<><br />🌍 해외 = 💎 가치 <b style={{ color: TK.green400 }}>{pct(wg.value)}</b> + 🏰 퀄리티 {pct(wg.quality)} + 📈 모멘텀 <b style={{ color: TK.green400 }}>{pct(wg.momentum)}</b> + 🧭 주도섹터 {pct(wg.rotation)} + 🌦️ 계절 {pct(wg.season)}
+              <span style={{ color: TK.sub }}> — 해외는 외국인·기관의 <b>일별 순매수를 공개하지 않아</b> 수급 축을 빼고, 그 몫을 가치·모멘텀에 나눴습니다(없는 데이터로 점수를 매기지 않기 위해). 내부자 매수·13F·MFI는 배지로 계속 표시합니다.</span></>)}
             {data.usSeason && <> · 🇺🇸 {data.usSeason.label.split(' ')[0]} · 🇰🇷 {data.krSeason.label.split(' ')[0]}</>}
           </div>
           {data.selectionRule && <div style={{ color: TK.sub, fontSize: 10.5, marginTop: 3 }}>📋 선별 기준: {data.selectionRule} → 총 <b style={{ color: TK.slate300 }}>{data.items.length}종</b></div>}
