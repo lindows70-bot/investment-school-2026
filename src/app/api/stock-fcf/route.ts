@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { getAssetType, isFinancialCompany } from '@/lib/assetClassifier'
 import { normalizeCashflow } from '@/lib/finCurrency'   // 💱 ADR 재무통화 환산(스크리너와 동일 SSOT)
+import { getTrueFcf } from '@/lib/trueFcf'              // 💵 FCF 분자 SSOT(현금흐름표 OCF−CapEx)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 20
@@ -42,8 +43,10 @@ export async function GET(req: Request) {
     const sym = market === 'KR' ? `${ticker.replace(/\D/g, '')}.KS` : ticker
     const q = await yf.quoteSummary(sym, { modules: ['financialData', 'summaryDetail', 'price', 'assetProfile'] })
     const fd = q?.financialData ?? {}, sd = q?.summaryDetail ?? {}, pr = q?.price ?? {}
-    // 💱 ADR 통화 환산 — 재무는 재무통화(TSM=TWD·SONY=JPY), 시총은 거래통화라 그대로 나누면 부풀림(스크리너와 동일 수정)
-    const cfFix = await normalizeCashflow(numf(fd.freeCashflow), numf(fd.operatingCashflow), fd.financialCurrency, pr.currency)
+    // 💵 분자는 현금흐름표에서 직접(OCF−CapEx) — financialData.freeCashflow 는 정의 불명(EQNR은 OCF보다 큼·MSFT는 1/4)
+    // 💱 그 위에 ADR 통화 환산 — 재무는 재무통화(TSM=TWD), 시총은 거래통화라 그대로 나누면 부풀림
+    const tf = await getTrueFcf(ticker, market)
+    const cfFix = await normalizeCashflow(tf.fcf, tf.ocf ?? numf(fd.operatingCashflow), fd.financialCurrency, pr.currency)
     const fcf = cfFix.fcf, ocf = cfFix.ocf
     const marketCap = numf(sd.marketCap) ?? numf(pr.marketCap)
     const opMargin = numf(fd.operatingMargins) != null ? Math.round((fd.operatingMargins as number) * 1000) / 10 : null

@@ -67,8 +67,8 @@ export async function GET(req: NextRequest) {
   //     ⚠️ 응답에 **필드가 늘어도** 키를 올려야 한다 — 안 올리면 옛 응답이 그대로 서빙돼 새 필드가 undefined 로 온다(실제로 겪음).
   // v7: 💱 stock-fcf ADR 재무통화 환산 — fcfYield가 바뀌므로(TSM 35.1%→1.0%) 버핏 현금 체크 재판정
   // v8: 💱 DCF 입력(FCF·부채·현금) 재무통화 환산 — TSM·SONY 등 ADR 매수 밴드가 보류에서 정상 산정으로
-  const fullKey  = `masters-committee-v8:${ticker}:${market}:${kstDate()}`
-  const briefKey = `masters-brief-v8:${ticker}:${market}:${kstDate()}`
+  const fullKey  = `masters-committee-v9:${ticker}:${market}:${kstDate()}`
+  const briefKey = `masters-brief-v9:${ticker}:${market}:${kstDate()}`
   const full = await getCache<MastersVerdictResponse>(fullKey, 24 * 3600_000)
   if (full) return NextResponse.json(full, { headers: { 'Cache-Control': 'no-store' } })   // 토론 포함 = 어느 모드든 충분
   if (brief) {
@@ -114,13 +114,17 @@ export async function GET(req: NextRequest) {
   const fxUnusable = fxRate == null && typeof fcfJ?.finCur === 'string' && fcfJ.finCur !== currency
   const fx = fxRate ?? 1
   const convFin = (v: unknown): number | null => (typeof v === 'number' && isFinite(v) ? v * fx : null)
+  // 💵 stock-fcf 의 fcf = 현금흐름표(OCF−CapEx) 기반 + 통화 환산 완료 — Yahoo freeCashflow 필드보다 이걸 쓴다
+  const trueFcfConv: number | null = typeof fcfJ?.fcf === 'number' && isFinite(fcfJ.fcf) ? fcfJ.fcf : null
 
   // 버핏 DCF — 흑자 FCF + 주식수 확보(ok)일 때만. 기저효과·금융주면 산정 보류(모닝스타 패널과 동일 원칙)
   let intrinsicPerShare: number | null = null
   let dcfGrowthPct: number | null = null   // 화면에 "연 N% 성장 가정"을 그대로 밝히기 위해 보관
   if (currentPrice != null && pegBase !== true && isFinancial !== true && !fxUnusable) {
     try {
-      const fFx = { ...f, freeCashflow: convFin(f.freeCashflow), totalDebt: convFin(f.totalDebt), totalCash: convFin(f.totalCash) }
+      // ⚠️ FCF 는 stock-fcf 가 이미 '현금흐름표 계산 + 통화 환산'을 끝낸 값이라 여기서 다시 곱하면 이중 환산이다.
+      //    부채·현금은 stock-info 원값(재무통화)이라 여기서 환산한다 — 출처가 다르면 처리도 달라야 한다.
+      const fFx = { ...f, freeCashflow: trueFcfConv ?? convFin(f.freeCashflow), totalDebt: convFin(f.totalDebt), totalCash: convFin(f.totalCash) }
       const inp = deriveDcfInputs(fFx, { market, currency, lynchCategory: null, currentPrice })
       if (inp.ok && inp.fcf0 != null && inp.shares != null) {
         const dcf = calcDCF(inp.fcf0, inp.g, inp.r, inp.gp, inp.netDebt, inp.shares, currentPrice)
