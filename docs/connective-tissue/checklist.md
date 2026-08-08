@@ -26,7 +26,21 @@
 - [x] 희석 경보 브리핑 노출 실증(SK하이닉스 유상증자 공시)
 - [x] CLAUDE.md·docs/README 기록
 
-## 남은 이식 후보(다음 라운드)
-- signal-report 채점 행 → 그 종목 리서치
-- reco-hub 렌즈 카드 → 오늘 실제 추천과 연결(현재 정적 안내)
-- assets 보유 → 거장 위원회 전체 화면(현재 배지만, 리밸런싱 탭 경유 필요)
+## Phase E — 잔여 연결 (완료)
+- [x] signal-report 종목 칩 → 그 종목 리서치
+- [x] reco-hub '읽는 법'의 "리서치로 확인하라" 안내에 실제 링크(정적 지도 원칙은 유지 — fetch 0)
+- [x] 사이드바에 🐎 신고가 레이더 추가(크론·헬스까지 있는데 내비게이션에서만 빠져 있었다)
+- [x] assets → 거장 위원회: Phase C의 🎯 종합 판정 칩으로 이미 도달 가능 — 별도 작업 불필요 확인
+
+## Phase F — 데드코드 정리 (완료)
+- [x] 컴포넌트 6종 삭제(BuffettDCFPanel·LynchWizard·SeoulPlanMap·macro 3종 고립 클러스터)
+- [x] 서버액션 1·lib 3·라우트 6 삭제 — 총 **2,794줄**
+- [x] ⚠️ LynchLineChart 의 손으로 박은 종목별 주가 시계열(제1원칙 위반) 함께 제거
+- [x] 정책금리 15개국 테이블 복제 → `lib/policyRates.ts` SSOT
+- [x] ⛔ 보존: tossQuote/tossOwner(보존 결정 기록 있음) · macroData(실제 폴백 사용 중)
+- [x] 삭제 후 tsc·lint·check:build 통과 + 라이브 12화면 200/307 정상
+
+## 다음 라운드 후보(미착수)
+- reco-hub 렌즈 카드에 '오늘의 대표 종목' 표시 — 정적 원칙(fetch 0)을 깨야 해서 보류
+- middleware protectedPaths 13개 누락(브리핑·성적표 등) — 데이터는 API가 막지만 비로그인 UX
+- macroData 의 미사용 상수(DOT_RATES·SEP_TABLE 구형) 정리
