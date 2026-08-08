@@ -11,7 +11,7 @@ export const revalidate = 0
 
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
-import { getDividendProfile, type DividendProfile } from '@/lib/dividendProfile'
+import { getDividendProfile, DIV_PROFILE_KEY, type DividendProfile } from '@/lib/dividendProfile'
 
 // 컴포넌트 하위호환: 기존 import 경로 유지
 export type { DividendProfile }
@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   const market = (searchParams.get('market') || 'US').trim().toUpperCase()
   if (!ticker) return NextResponse.json({ error: '티커가 필요합니다.' }, { status: 400 })
 
-  const cacheKey = `div-explorer-v7:${ticker}:${market}`   // v7: 프로필 SSOT 추출·지급월 추가
+  const cacheKey = DIV_PROFILE_KEY(ticker, market)   // 키는 dividendProfile SSOT(포트폴리오 reader와 공유)
   const cached = await getCache<DividendProfile>(cacheKey, 48 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

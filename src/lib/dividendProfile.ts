@@ -4,6 +4,11 @@
 import { getTrueFcf } from '@/lib/trueFcf'          // 💵 FCF 분자 SSOT(현금흐름표 OCF−CapEx)
 import { normalizeCashflow } from '@/lib/finCurrency' // 💱 재무통화→거래통화(배당총액과 같은 잣대로)
 
+/** 배당 프로필 per-ticker 캐시 키 SSOT — writer(dividend-explorer)와 reader(dividend-portfolio)가 공유.
+ *  ⚠️ 상수로 묶지 않으면 writer만 범프됐을 때 reader 가 옛 키를 읽어 조용히 옛 값을 서빙한다(v7→v8에서 실제로 발견).
+ *  v8: 💵 FCF 를 trueFcf SSOT로 교체 — fcfCover·안전등급이 1.0 경계를 넘나든다 */
+export const DIV_PROFILE_KEY = (ticker: string, market: string) => `div-explorer-v8:${ticker}:${market}`
+
 // ── 배당 주기 판정 ────────────────────────────────────────────────────────────
 const MONTHLY_TICKERS = new Set(['O', 'MAIN', 'STAG', 'AGNC', 'NLY', 'GLAD', 'HTGC', 'GOOD',
   'MSTY', 'JEPI', 'JEPQ', 'TSLY', 'NVDY', 'GOOGY', 'AMZY', 'PLTY', 'SCHD'])

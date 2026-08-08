@@ -2,7 +2,7 @@
  * GET /api/ultra-dividend
  *
  * 🔥 초고배당(초고위험) 유니버스 배당 프로필 배치 — 배당 인컴 랩 하단 섹션.
- *   계산은 lib/dividendProfile.ts(SSOT) 재사용 · per-ticker 캐시(div-explorer-v7:*) 익스플로러와 공유(제2원칙).
+ *   계산은 lib/dividendProfile.ts(SSOT) 재사용 · per-ticker 캐시(DIV_PROFILE_KEY) 익스플로러와 공유(제2원칙).
  *   커버드콜/옵션 ETF 중 Yahoo 분배율 0(YieldMax·Roundhill류)은 targetYield(운용사 목표·변동) 참고치로 대체 + estimated 플래그.
  */
 
@@ -12,7 +12,7 @@ export const maxDuration = 60
 
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
-import { getDividendProfile, type DividendProfile } from '@/lib/dividendProfile'
+import { getDividendProfile, DIV_PROFILE_KEY, type DividendProfile } from '@/lib/dividendProfile'
 import { ULTRA_UNIVERSE, type UltraTier } from '@/lib/ultraDividendUniverse'
 
 export interface UltraDividendItem extends DividendProfile {
@@ -40,7 +40,7 @@ export async function GET() {
   await Promise.all(Array.from({ length: 6 }, async () => {
     for (; ;) {
       const u = queue.shift(); if (!u) break
-      const pk = `div-explorer-v7:${u.ticker}:${u.market}`
+      const pk = DIV_PROFILE_KEY(u.ticker, u.market)   // 키는 SSOT — 리터럴로 두면 writer 범프 때 여기만 옛 값을 읽는다
       let p = await getCache<DividendProfile>(pk, 48 * 3600_000)
       if (!p) {
         p = await getDividendProfile(u.ticker, u.market)

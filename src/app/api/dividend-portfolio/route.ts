@@ -3,7 +3,7 @@
  *
  * 💵 배당 인컴 랩 — 배당 종목 유니버스(US+KR) 배당 프로필 배치 + 환율(USDKRW).
  *   포트폴리오 배분·월배당·미래 프로젝션 계산은 클라이언트에서(슬라이더 즉시 반응).
- *   per-ticker 캐시(div-explorer-v7:*)를 익스플로러와 공유(제2원칙).
+ *   per-ticker 캐시(dividendProfile.DIV_PROFILE_KEY)를 익스플로러와 공유(제2원칙 — 키는 상수 SSOT).
  */
 
 export const dynamic = 'force-dynamic'
@@ -12,7 +12,7 @@ export const maxDuration = 120
 
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
-import { getDividendProfile, type DividendProfile } from '@/lib/dividendProfile'
+import { getDividendProfile, DIV_PROFILE_KEY, type DividendProfile } from '@/lib/dividendProfile'
 import { DIVIDEND_UNIVERSE } from '@/lib/dividendUniverse'
 
 export interface DividendPortfolioData {
@@ -49,7 +49,7 @@ export async function GET() {
       await Promise.all(Array.from({ length: 6 }, async () => {
         for (; ;) {
           const u = queue.shift(); if (!u) break
-          const pk = `div-explorer-v7:${u.ticker}:${u.market}`
+          const pk = DIV_PROFILE_KEY(u.ticker, u.market)   // 키는 SSOT — writer(익스플로러)와 어긋나면 옛 값을 읽는다
           let p = await getCache<DividendProfile>(pk, 48 * 3600_000)
           if (!p) {
             p = await getDividendProfile(u.ticker, u.market)
