@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { Market, Fundamentals } from '@/app/api/stock-price/route'
 import { curCodeFromTicker } from '@/lib/globalTickers'
+import { getTrueFcf } from '@/lib/trueFcf'   // 💵 FCF 분자 SSOT(현금흐름표 OCF−CapEx) — fd.freeCashflow 는 부호까지 틀린다
 
 export interface StockInfo {
   ticker:       string
@@ -171,17 +172,29 @@ async function fetchDcfFromYahoo(ticker: string, market: Market): Promise<DcfDat
     }
   }
 
+  // 💵 FCF 분자만 SSOT(trueFcf = 현금흐름표 OCF−CapEx)로 교체 — fd.freeCashflow 는 정의 불명이라
+  //    부호까지 틀린다(실측 2026-08-08: LG전자 +2.34조→−0.42조 · 보잉 +5.6B→−3.1B).
+  //    ⚠️ 통화는 환산하지 않는다 — 이 응답의 totalDebt·totalCash 가 재무통화라 FCF만 환산하면 DCF에서 차원이 어긋난다.
+  //       환산이 필요한 소비처(masters-verdict)는 자체 경로에서 세 값을 함께 환산한다.
+  const withTrueFcf = async (d: DcfData): Promise<DcfData> => {
+    try {
+      const tf = await getTrueFcf(ticker, market === 'KR' ? 'KR' : 'US')
+      return tf.fcf != null ? { ...d, freeCashflow: tf.fcf } : { ...d, freeCashflow: null }   // ⛔ 옛 필드 폴백 금지
+    } catch { return { ...d, freeCashflow: null } }
+  }
+
   // 5초 타임아웃
   const timeout = new Promise<DcfData>(res => setTimeout(() => res(DCF_EMPTY), 5000))
 
   if (market === 'KR') {
-    // .KS 먼저 시도
+    // .KS 먼저 시도 — ⚠️ 폴백 판정은 원본 fd.freeCashflow 로(trueFcf 로 덮기 전에) 해야 한다.
+    //    덮은 뒤 판정하면 trueFcf 결측 종목이 매번 .KQ 재시도로 빠져 응답이 느려진다.
     const ks = await Promise.race([queryOne(`${ticker}.KS`), timeout])
-    if (ks.sharesOutstanding != null || ks.freeCashflow != null) return ks
+    if (ks.sharesOutstanding != null || ks.freeCashflow != null) return withTrueFcf(ks)
     // 실패 시 .KQ(코스닥) 재시도
-    return Promise.race([queryOne(`${ticker}.KQ`), timeout])
+    return withTrueFcf(await Promise.race([queryOne(`${ticker}.KQ`), timeout]))
   }
-  return Promise.race([queryOne(ticker), timeout])
+  return withTrueFcf(await Promise.race([queryOne(ticker), timeout]))
 }
 
 // ── 공통 유틸 ────────────────────────────────────────────────────────────────
@@ -1017,7 +1030,8 @@ async function usInfo(ticker: string): Promise<StockInfo> {
     const annualDividendY = sData?.summaryDetail?.dividendRate?.raw ?? sData?.summaryDetail?.dividendRate ?? null
     // DCF 데이터 — 이미 호출한 financialData/defaultKeyStatistics 재사용
     const pickN = (v: unknown) => typeof v === 'number' && isFinite(v) ? v : null
-    const dcfFcf    = pickN(sData?.financialData?.freeCashflow)
+    // 💵 FCF 는 SSOT(trueFcf) — 이 경로도 fd.freeCashflow 를 쓰면 같은 종목이 경로마다 다른 FCF 를 갖는다(제2원칙)
+    const dcfFcf    = (await getTrueFcf(t, 'US').catch(() => null))?.fcf ?? null   // 이 폴백 경로는 usInfo 전용(US 고정)
     const dcfShares = pickN(sData?.defaultKeyStatistics?.sharesOutstanding)
     const dcfDebt   = pickN(sData?.financialData?.totalDebt)
     const dcfCash   = pickN(sData?.financialData?.totalCash)

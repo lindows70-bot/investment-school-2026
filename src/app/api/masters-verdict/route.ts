@@ -69,8 +69,9 @@ export async function GET(req: NextRequest) {
   // v8: 💱 DCF 입력(FCF·부채·현금) 재무통화 환산 — TSM·SONY 등 ADR 매수 밴드가 보류에서 정상 산정으로
   // v10: 보류 사유 분기(suspectCause) — 응답에 필드가 늘었으므로 키 범프(옛 응답은 undefined 로 온다)
   // v12: 💱 FTS 현금흐름 통화 판별 — 두산밥캣류(KRX 상장·USD 보고) FCF 이중 환산 차단(fcfYield·DCF 입력이 바뀐다)
-  const fullKey  = `masters-committee-v12:${ticker}:${market}:${kstDate()}`
-  const briefKey = `masters-brief-v12:${ticker}:${market}:${kstDate()}`
+  // v13: ⛔ 옛 FCF 필드 폴백 제거(Gemini 감사) — trueFcf 결측 시 DCF 보류로 바뀌므로 밴드가 달라질 수 있다
+  const fullKey  = `masters-committee-v13:${ticker}:${market}:${kstDate()}`
+  const briefKey = `masters-brief-v13:${ticker}:${market}:${kstDate()}`
   const full = await getCache<MastersVerdictResponse>(fullKey, 24 * 3600_000)
   if (full) return NextResponse.json(full, { headers: { 'Cache-Control': 'no-store' } })   // 토론 포함 = 어느 모드든 충분
   if (brief) {
@@ -126,7 +127,9 @@ export async function GET(req: NextRequest) {
     try {
       // ⚠️ FCF 는 stock-fcf 가 이미 '현금흐름표 계산 + 통화 환산'을 끝낸 값이라 여기서 다시 곱하면 이중 환산이다.
       //    부채·현금은 stock-info 원값(재무통화)이라 여기서 환산한다 — 출처가 다르면 처리도 달라야 한다.
-      const fFx = { ...f, freeCashflow: trueFcfConv ?? convFin(f.freeCashflow), totalDebt: convFin(f.totalDebt), totalCash: convFin(f.totalCash) }
+      // ⛔ 옛 필드 폴백 금지 — SSOT가 "버리라"고 판정한 값을 폴백으로 쓰면 결측일 때 조용히 틀린 DCF가 나온다
+      //    (Gemini 정합성 감사 2026-08-08 지적). trueFcf 가 없으면 DCF 를 포기한다(deriveDcfInputs 가 ok=false 로 거른다).
+      const fFx = { ...f, freeCashflow: trueFcfConv, totalDebt: convFin(f.totalDebt), totalCash: convFin(f.totalCash) }
       const inp = deriveDcfInputs(fFx, { market, currency, lynchCategory: null, currentPrice })
       if (inp.ok && inp.fcf0 != null && inp.shares != null) {
         const dcf = calcDCF(inp.fcf0, inp.g, inp.r, inp.gp, inp.netDebt, inp.shares, currentPrice)
@@ -149,7 +152,7 @@ export async function GET(req: NextRequest) {
     // 💱 재무통화 값은 거래통화로 환산해 넘긴다(시총과 같은 잣대) — 순부채/시총 체크가 통화 불일치로 튀던 것 차단
     // 💵 FCF 는 DCF 입력과 **같은 값**을 써야 한다 — 여기만 옛 필드로 남기면 FCF/시총 가드가 옛 값으로
     //    판정해 "통화 불일치"를 오탐한다(EQNR 실사고: DCF만 고치고 이 줄을 안 고쳐 31.8%로 계속 걸렸다)
-    freeCashflow: fxUnusable ? null : (trueFcfConv ?? convFin(f.freeCashflow)),
+    freeCashflow: fxUnusable ? null : trueFcfConv,   // ⛔ 옛 필드 폴백 금지(위와 동일 — 없으면 없는 대로 보류)
     totalDebt: fxUnusable ? null : convFin(f.totalDebt),
     totalCash: fxUnusable ? null : convFin(f.totalCash),
     marketCap: typeof f.marketCap === 'number' && f.marketCap > 0 ? f.marketCap : null,

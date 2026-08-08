@@ -54,6 +54,8 @@ export const CRON_MONITORS: CronMonitor[] = [
   { id: 'hi52', label: '신고가 레이더 스캔', kst: '09:25', days: 'daily', artifact: { type: 'cacheDate', key: d => `hi52-radar-v2:${d}` }, heal: '/api/hi52-radar', heavy: true },
   { id: 'breadth', label: '시장 폭 레이더 스캔', kst: '09:35', days: 'daily', artifact: { type: 'cacheDate', key: d => BREADTH_KEY(d) }, heal: '/api/market-breadth', heavy: true },
   { id: 'marketFlowKr', label: '국내 시장 수급 워밍', kst: '20:00', days: 'weekday', artifact: { type: 'cacheDate', key: d => MARKET_FLOW_KR_KEY(d) }, heal: '/api/market-flow-kr' },
+  // ⭐ 핵심 추천 전향 적립 — 적립 0건인 날도 run 마커를 남기므로 cacheDate 로 실행 여부만 본다(무신호≠실패)
+  { id: 'coreReco', label: '핵심 추천 적립', kst: '17:00', days: 'daily', artifact: { type: 'cacheDate', key: d => `core-reco-run-v1:${d}` }, heal: '/api/cron/core-reco' },
 ]
 
 export interface HealthCheck {

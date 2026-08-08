@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getCache, setCache } from '@/lib/appCache'
 import { getTechCandles, type TechCandle } from '@/lib/techChartData'
 import type { SignalHistEntry } from '@/app/api/cron/timing-watch/route'
+import { CORE_HIST_KEY, type CoreHistEntry } from '@/lib/coreReco'   // ⭐ 핵심 추천(3중 통과) 전향적 적립분
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -15,7 +16,7 @@ const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0,
 const dayDiff = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000)
 const addDays = (d: string, n: number) => new Date(Date.parse(d) + n * 86_400_000).toISOString().slice(0, 10)
 
-export type SigSrc = 'jarvis' | 'timing' | 'confluence'   // confluence = 가치(Jarvis)+타이밍(타점)이 같은 종목·같은 방향으로 겹친 고신뢰 신호
+export type SigSrc = 'jarvis' | 'timing' | 'confluence' | 'core'   // confluence = 가치+타이밍 겹침 · core = ⭐핵심 추천(가치 상위×타이밍×위원회 3중 통과, 매수 전용)
 export interface SigEvent {
   date: string
   ticker: string
@@ -82,7 +83,7 @@ export async function GET(req: Request) {
   // 🔬 full=1 — scored 12건 캡 없이 전 이벤트 반환(시뮬레이션·감사용. 화면은 캡 유지)
   const full = new URL(req.url).searchParams.get('full') === '1'
   // ⚠️ 응답 '내용'(제목·라벨 문자열)만 바뀌어도 키를 올려야 한다 — 스키마가 같으면 커밋 훅이 못 잡는다(v6에서 실제로 겪음).
-  const cacheKey = `signal-report-v9:${today}${full ? ':full' : ''}`   // v9: hitN/missN(칩 '몇 개 중 몇 개'가 안 보이던 문제) / v8: scored·pendingN / v7: 라벨 '이중 확인' / v6: 📏 기준선 / v5: 런 압축 / v4: ⭐그룹 / v3: unscored / v2: 1,000행
+  const cacheKey = `signal-report-v10:${today}${full ? ':full' : ''}`   // v10: 🌟 핵심 추천(core) 그룹 — 3중 통과 전향적 적립분 채점 / v9: hitN/missN / v8: scored·pendingN / v7: 라벨 / v6: 📏 기준선 / v5: 런 압축 / v4: ⭐그룹
   const cached = await getCache<SignalReportResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -128,9 +129,10 @@ export async function GET(req: Request) {
     }
   }
 
-  // ── ② 타이밍 워처 적립 이력 ──
+  // ── ② 타이밍 워처 적립 이력 + ⭐ 핵심 추천 적립 이력(별도 스토어 — 섞으면 timing 그룹에 오집계) ──
   const hist = (await getCache<SignalHistEntry[]>('signal-history-v1', 400 * 86400_000)) ?? []
   const timingSince = hist.length ? hist.reduce((m, h) => h.date < m ? h.date : m, hist[0].date) : null
+  const coreHist = (await getCache<CoreHistEntry[]>(CORE_HIST_KEY, 400 * 86400_000)) ?? []
 
   // ── ②-b ⭐ 합류(confluence) — 타점(WHEN) 트리거가 같은 종목·같은 방향의 Jarvis(WHAT) 신호로 뒷받침될 때만 '고신뢰'
   //    "싸고 좋은 회사(가치)"가 "진입/이탈 타이밍(기술)"까지 겹친 자리 = 두 독립 엔진의 합의. 타점일을 기준(행동 시점)으로 채점.
@@ -157,6 +159,7 @@ export async function GET(req: Request) {
   const tickers = new Map<string, { ticker: string; market: 'KR' | 'US' }>()
   for (const e of jarvisEvents) tickers.set(e.ticker, { ticker: e.ticker, market: isKr(e.ticker) ? 'KR' : 'US' })
   for (const h of hist) tickers.set(h.ticker, { ticker: h.ticker, market: h.market })
+  for (const c of coreHist) tickers.set(c.ticker, { ticker: c.ticker, market: c.market })
   const candleMap = new Map<string, TechCandle[]>()
   const failedTickers = new Set<string>()   // ⚠️ 생존편향: 캔들 로드 실패(상폐·거래정지 가능) 종목 — 조용히 버리면 최악 결과가 승률에서 빠져 위로 부풀려짐
   const queue = Array.from(tickers.values())
@@ -217,17 +220,24 @@ export async function GET(req: Request) {
     const ev = score(c.date, c.ticker, c.name, c.market, 'confluence', c.kind, '⭐ 가치+타이밍 이중 확인')
     if (ev) events.push(ev)
   }
+  // 🌟 핵심 추천 — 크론(core-reco)이 적립한 3중 통과분. 매수 전용(⭐는 매수 후보 개념이라 sell 이 없다)
+  for (const c of coreHist) {
+    const ev = score(c.date, c.ticker, c.name, c.market, 'core', 'buy', `🌟 3중 통과${c.prime ? '(정예 타점)' : ''}`)
+    if (ev) events.push(ev)
+  }
 
   // ── ⑤ 그룹 통계(소스×방향) — buy 승=상승 / sell 승=하락(매도검토 신호는 공매도가 아님·UI 명시) ──
   // ⚠️ '합류'는 학생에게 낯선 말이라 '이중 확인'으로(사용자 지적). '통합'은 이미 통합추천(unified-reco)이 써서 충돌한다.
   const TITLES: Record<string, string> = {
+    'core:buy': '🌟 핵심 추천 매수(가치×타이밍×위원회 3중)',
     'confluence:buy': '⭐ 이중 확인 매수(가치+타이밍)', 'confluence:sell': '⭐ 이중 확인 매도(가치+타이밍)',
     'jarvis:sell': '🤖 가치 신호 매도검토(SELL)', 'jarvis:buy': '🤖 가치 신호 매수기회(BUY)',
     'timing:sell': '🚦 타이밍 매도·경계 전환', 'timing:buy': '🚦 타이밍 매수 전환',
   }
   const groups: GroupStat[] = []
-  for (const src of ['confluence', 'jarvis', 'timing'] as SigSrc[]) {
-    for (const kind of ['sell', 'buy'] as ('sell' | 'buy')[]) {
+  for (const src of ['core', 'confluence', 'jarvis', 'timing'] as SigSrc[]) {
+    // 🌟 core 는 매수 전용 — 빈 sell 그룹을 만들면 화면에 '표본 0' 카드만 는다
+    for (const kind of (src === 'core' ? ['buy'] : ['sell', 'buy']) as ('sell' | 'buy')[]) {
       const evs = events.filter(e => e.src === src && e.kind === kind).sort((a, b) => b.date.localeCompare(a.date))
       const e7 = evs.filter(e => e.retNow != null)
       const e30 = evs.filter(e => e.ret30 != null)

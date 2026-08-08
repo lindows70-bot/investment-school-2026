@@ -11,6 +11,7 @@ import MastersBadge from '@/app/components/MastersBadge'
 import { TK, FS } from '@/lib/theme'
 import { marketFlag } from '@/lib/globalTickers'
 import { flagOf } from '@/lib/marketFlag'
+import { isCorePick } from '@/lib/coreReco'   // ⭐ 3중 통과 술어 SSOT(적립 크론과 동일)
 
 const CARD = TK.bg6, BORDER = TK.border
 const AX = { season: TK.amber500, value: TK.green500, quality: '#2dd4bf', supply: TK.blue400, momentum: TK.violet400, rotation: '#f472b6' }  // 가치/퀄리티/모멘텀/주도섹터/수급/계절 축 색
@@ -297,11 +298,8 @@ export default function UnifiedReco() {
           ⛔ 승률 숫자를 박지 않는다 — 소급 시뮬은 역인과로 오염됨을 확인했고(2026-08-06),
              전향적 표본은 앱 신호 성적표가 매일 적립·채점한다. 없으면 없다고 말한다(억지로 채우지 않음). */}
       {(() => {
-        const pass = data.items.filter(it => {
-          const timingOk = it.timing && (it.timing.light === 'green' || !!it.timing.prime)
-          const v = committee[it.ticker]
-          return timingOk && v && v.final !== 'fail' && !v.unitSuspect
-        })
+        // 술어는 coreReco SSOT — 적립 크론(core-reco)과 같은 함수(둘이 어긋나면 채점 대상과 화면이 다른 걸 가리킨다)
+        const pass = data.items.filter(it => isCorePick(it.timing, committee[it.ticker]))
         return (
           <div style={{ background: `${TK.amber400}0d`, border: `1px solid ${TK.amber400}55`, borderRadius: 12, padding: '12px 16px' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>

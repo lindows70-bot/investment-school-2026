@@ -1,6 +1,8 @@
 // 💰 배당 프로필 계산 SSOT — 배당 익스플로러·배당 포트폴리오가 공유하는 단일 엔진(제2원칙)
 //   시가배당률·연배당금·배당성향·연속 인상·5년 CAGR·안전성·바벨 스타일·YoC·리츠 AFFO·지급월.
 //   Yahoo quoteSummary + 배당 지급 이력(chart events=div). 캐싱은 호출부(라우트)에서.
+import { getTrueFcf } from '@/lib/trueFcf'          // 💵 FCF 분자 SSOT(현금흐름표 OCF−CapEx)
+import { normalizeCashflow } from '@/lib/finCurrency' // 💱 재무통화→거래통화(배당총액과 같은 잣대로)
 
 // ── 배당 주기 판정 ────────────────────────────────────────────────────────────
 const MONTHLY_TICKERS = new Set(['O', 'MAIN', 'STAG', 'AGNC', 'NLY', 'GLAD', 'HTGC', 'GOOD',
@@ -269,7 +271,12 @@ export async function getDividendProfile(ticker: string, market: string): Promis
       } catch { /* graceful */ }
     }
 
-    const fcf = pick(fd.freeCashflow)
+    // 💵 FCF는 trueFcf SSOT — fd.freeCashflow 는 정의 불명(실측: 셰브론 커버율 1.57→0.73·MSFT 0.61→2.48로
+    //    안전 등급의 1.0 경계를 넘나든다). 💱 분모(배당총액)는 거래통화라 분자도 같은 통화로 환산해야 한다(ADR).
+    const tf = await getTrueFcf(tk, mkt === 'KR' ? 'KR' : 'US')
+    const cf = await normalizeCashflow(tf.fcf, tf.ocf, fd.financialCurrency, currency,
+      { refOcf: pick(fd.operatingCashflow), marketCap: pick(sd.marketCap) ?? pick(pr.marketCap) })
+    const fcf = cf.fcf ?? null
     const hist = await getDivHistory(yf, mkt === 'KR' ? yahooSym : tk)
 
     const staticStreak = ARISTOCRAT_YEARS[tk] ?? null

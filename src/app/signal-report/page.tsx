@@ -20,9 +20,10 @@ const fmtPct = (r: number | null) => r == null ? '—' : `${r >= 0 ? '+' : ''}${
  *  (30일 고정 성적은 상세 카드의 '30일 후' 열에 그대로 남는다) */
 const headOf = (g: GroupStat) => ({ win: g.winNow, n: g.n7 })
 
-/** 3대 축 — 이중 확인이 궁극 기준이고 나머지 둘은 그 재료 */
+/** 4대 축 — 이중 확인이 검증된 궁극 기준, 🌟 핵심 추천(3중)은 2026-08-08부터 전향 적립 중(표본이 쌓여야 말할 수 있다) */
 const AXES = [
   { src: 'confluence', icon: '⭐', name: '이중 확인', desc: '가치 + 타이밍 둘 다 겹침', hero: true },
+  { src: 'core', icon: '🌟', name: '핵심 추천', desc: '가치 상위 × 타이밍 × 위원회 3중 통과 (적립 중)', hero: false },
   { src: 'jarvis', icon: '🤖', name: '가치만', desc: '싸고 좋은 회사인가', hero: false },
   { src: 'timing', icon: '🚦', name: '타이밍만', desc: '지금 들어갈 자리인가', hero: false },
 ] as const

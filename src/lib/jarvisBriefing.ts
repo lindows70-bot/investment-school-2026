@@ -16,6 +16,7 @@
 import { getCache, setCache } from '@/lib/appCache'
 import { callGeminiJSON } from '@/lib/gemini'
 import { getCanonicalPeg, isPegBaseEffect } from '@/lib/canonicalFundamentals'
+import { getTrueFcf } from '@/lib/trueFcf'   // 💵 FCF 분자 SSOT — fd.freeCashflow 는 부호까지 틀린다(LG전자·보잉 실측)
 import { computeMomentum, type MomentumSignal } from '@/lib/macroPhaseScreener'   // 📈 모멘텀 SSOT(통합추천과 동일 정의: Fwd EPS 방향+가격추세+칼날)
 import { getInsiderSignal } from '@/app/actions/getInsiderSignal'
 import { getSectorPeers } from '@/app/actions/getSectorPeers'
@@ -121,7 +122,11 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
       if (canonPeg != null) peg = canonPeg
     }
     const opMargin = num(fd.operatingMargins) != null ? Math.round((fd.operatingMargins as number) * 1000) / 10 : null
-    const fcf = num(fd.freeCashflow)
+    // 💵 FCF 는 trueFcf SSOT — fd.freeCashflow 는 정의 불명이라 부호까지 뒤집힌다(실측 2026-08-08:
+    //    LG전자 +2.34조→−0.42조 · 보잉 +5.6B→−3.1B). 이 값이 fcfNegative → 브리핑·리밸런싱·영구손실 판정에 쓰인다.
+    //    부호만 쓰므로 통화 환산은 불필요(환율은 항상 양수). 캐시 7일이라 종목 루프 부담도 낮다.
+    const tfcf = await getTrueFcf(tk, mkt)
+    const fcf = tfcf.fcf
     const roe = num(fd.returnOnEquity) != null ? Math.round((fd.returnOnEquity as number) * 1000) / 10 : null
 
     // 분기 영업이익률 추세 → 2분기 연속 하락 + 이자보상배율(영업이익/이자비용) — 같은 FTS 응답 재사용(추가 fetch 0)

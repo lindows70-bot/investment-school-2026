@@ -175,6 +175,10 @@
     {
       "path": "/api/cron/kr-earnings",
       "schedule": "15 0 * * *"
+    },
+    {
+      "path": "/api/cron/core-reco",
+      "schedule": "0 8 * * *"
     }
   ],
   "headers": [
