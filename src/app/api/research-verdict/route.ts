@@ -54,9 +54,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ unsupported: true, reason: '개별 주식 전용 판정입니다(ETF·코인·원자재 제외).' }, { headers: { 'Cache-Control': 'no-store' } })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || url.origin
+  // v17: 📐 주도섹터 입력 섹터도 유니버스 우선(같은 SSOT 함수라도 입력이 다르면 결과가 갈린다)
   // v16: 📐 축 점수를 유니버스 SSOT 로(통합추천과 동일) — 점수가 바뀌므로 필수 범프
   // v15: ⚖️ 6축 가중치를 axisWeights SSOT 로 교체(해외는 수급 0·가치 30·모멘텀 25)
-  const cacheKey = `research-verdict-v16:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v13: 정예 타점 pro 문구 재측정 수치로 갱신(내용 변경=키 범프) / v12: 📋 어닝 서프라이즈 이력 근거
+  const cacheKey = `research-verdict-v17:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v13: 정예 타점 pro 문구 재측정 수치로 갱신(내용 변경=키 범프) / v12: 📋 어닝 서프라이즈 이력 근거
   const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -135,8 +136,11 @@ export async function GET(req: Request) {
 
   // ⑥ 주도섹터 — 섹터 로테이션 RRG 쏠림(unified-reco와 동일 SSOT·캐시 읽기만). 콜드/미매핑이면 중립 50
   //    (조회는 위 rotP에서 이미 병렬 발사 — 여기선 결과만 수거)
+  //    📐 섹터도 **유니버스 값 우선**: 같은 rotAxisScore 를 써도 입력 섹터가 다르면 결과가 갈린다
+  //       (실측 2026-08-09: 삼성E&A 통합추천 63 vs 리서치 50 — m.sector 가 유니버스와 달랐다)
   const rotBySector = await rotP
-  const rotEntry = m.sector && rotBySector ? (rotBySector.get(SECTOR_TO_ROT[m.sector] ?? '') ?? null) : null
+  const rotSector = ax?.sector ?? m.sector
+  const rotEntry = rotSector && rotBySector ? (rotBySector.get(SECTOR_TO_ROT[rotSector] ?? '') ?? null) : null
   const rotation = rotEntry ? rotAxisScore(rotEntry.score) : 50
   const rotQuad: RotQuad | null = rotEntry?.q ?? null
 
