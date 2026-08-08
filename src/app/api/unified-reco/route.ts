@@ -19,6 +19,7 @@ import { computeCountryVol, type CountryVolItem } from '@/lib/countryVol'
 import { volForStock } from '@/lib/countryVolShared'
 import { UNIFIED_RECO_V } from '@/lib/recoCacheVersion'   // 하류(브리핑·리밸런싱·퀀트빌더) 캐시를 함께 무효화하는 공유 버전
 import { SECTOR_ROTATION_KEY, SECTOR_TO_ROT, rotAxisScore } from '@/lib/rotationShared'   // 🧭 로테이션 SSOT(키·맵·정규화 — 3곳 복붙 제거)
+import { W_KR, W_GLOBAL, wOf, type AxisWeights } from '@/lib/axisWeights'   // ⚖️ 6축 가중치 SSOT(시장별)
 import { getEntryTimings, type EntryTiming } from '@/lib/entryTiming'
 import { buildEtfAltMap, type EtfAlt } from '@/lib/etfAlternative'
 import type { RotationResult, Quadrant as RotQuad } from '@/app/api/sector-rotation/route'
@@ -35,7 +36,8 @@ const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
 // 6축: 💎가치(저평가)·🏰퀄리티(재무건전성)·📈모멘텀·🧭주도섹터(자금 회전)·💰수급(연료)·🌦️계절(매크로).
 // 🏰퀄리티 5번째 축(2026-07-18) + 🧭주도섹터 6번째 축(같은 날) — 기존 ±4 틸트를 정식 축으로 승격(실제 돈이 도는 섹터).
 // 주도섹터 10%(수급·모멘텀과 성격 겹치고 반전 위험이라 과중 금지·틸트보단 확실히). 수급 15→10·계절 20→15로 재원.
-const W = { season: 0.15, value: 0.25, quality: 0.20, supply: 0.10, momentum: 0.20, rotation: 0.10 }
+// ⚖️ 6축 가중치는 lib/axisWeights SSOT — 시장별로 다르다(🇰🇷 수급 포함 · 그 외 제외+재배분).
+//    route 파일은 임의 export 가 금지되므로 상수를 여기 두지 않는다.
 
 export interface UnifiedRecoItem {
   ticker: string; name: string; market: string; currency: string; origin: 'EU' | 'KR' | 'US' | 'JP' | 'CN'; sector: string; industry: string | null; lynchCategory: string
@@ -90,7 +92,8 @@ export interface WatchCandidate {
 }
 
 export interface UnifiedRecoResult {
-  weights: typeof W
+  weights: AxisWeights              // 🇰🇷 수급 축 포함(외인·기관 일별 실데이터가 있는 시장)
+  weightsGlobal?: AxisWeights       // 🌍 수급 축 제외 + 가치·모멘텀 재배분(일별 수급 공개 자료가 없는 시장)
   usSeason: { quadrant: Quadrant; label: string; favored: string[] }
   krSeason: { quadrant: Quadrant; label: string; favored: string[] }
   euSeason?: { quadrant: Quadrant; label: string; favored: string[] }   // 🇪🇺 유럽 독자 계절(참고 섹션 라벨용)
@@ -162,7 +165,7 @@ export async function GET(req: Request) {
   // base 유니버스 — macro-ai-picks가 적재한 전체 채점 캐시(없으면 빈 결과 graceful)
   const screened = await getCache<ScreenedStock[]>(UNIVERSE_KEY, 8 * 24 * 3600_000)
   if (!screened || screened.length === 0) {
-    return NextResponse.json({ weights: W, usSeason: null, krSeason: null, items: [], asOf: new Date().toISOString(), warming: true }, { headers: { 'Cache-Control': 'no-store' } })
+    return NextResponse.json({ weights: W_KR, weightsGlobal: W_GLOBAL, usSeason: null, krSeason: null, items: [], asOf: new Date().toISOString(), warming: true }, { headers: { 'Cache-Control': 'no-store' } })
   }
 
   // ① 계절(US·KR) — macro SSOT를 ★in-process 직접 호출(HTTP 자기호출 실패→골디락스 오판 버그 차단)
@@ -303,8 +306,15 @@ export async function GET(req: Request) {
       return { s, quad, seasonScore, valueScore: fundOf(s.valueScore ?? s.score), qualityScore: fundOf(s.qualityScore ?? 0.5), momentumScore: s.momentumScore ?? 50, knife: s.knife ?? false, isKr, favored, waveOverride }
     })
 
-  // US 수급 fetch 대상 — 가치+퀄리티+계절+모멘텀 상위 25만(성능 바운드·수급 제외)
-  const preRank = (p: Pre) => p.valueScore * 0.25 + p.qualityScore * 0.20 + p.seasonScore * 0.20 + p.momentumScore * 0.20
+  // 사전 선별 랭크 — ⚠️ **최종 가중치와 같은 잣대를 써야 한다**(2026-08-08 감사).
+  //    과거엔 season 0.20(최종은 0.15)에 supply·rotation 이 빠져 합이 0.85 였다. 두 단계가 다른
+  //    잣대를 쓰면 "최종 가중치로는 통과했을 종목"이 앞단에서 잘려 랭킹에 오를 기회를 잃는다.
+  //    수급·로테이션은 이 시점에 아직 없으므로 중립 50 으로 두고 **나머지를 최종 비율 그대로** 쓴다.
+  const preRank = (p: Pre) => {
+    const w = wOf(p.isKr)
+    return p.valueScore * w.value + p.qualityScore * w.quality + p.seasonScore * w.season
+      + p.momentumScore * w.momentum + 50 * (w.supply + w.rotation)
+  }
   const usPre = pre.filter(p => !p.isKr).sort((a, b) => preRank(b) - preRank(a)).slice(0, 25)
   const usFlowMap = new Map<string, Awaited<ReturnType<typeof getMoneyFlow>>>()
   for (let i = 0; i < usPre.length; i += 5) {
@@ -364,7 +374,9 @@ export async function GET(req: Request) {
     const rot = rotationOf(p.s.sector)
     if (rot) badges.push(`🧭 ${ROT_LABEL[rot.q]}`)
     const rotationScore = rot?.rotScore ?? 50
-    const combined = clamp(p.seasonScore * W.season + p.valueScore * W.value + p.qualityScore * W.quality + supplyScore * W.supply + p.momentumScore * W.momentum + rotationScore * W.rotation)
+    // ⚖️ 시장별 가중치 — 🇰🇷는 수급 10% 포함, 그 외는 수급을 빼고 가치·모멘텀에 5%p씩 재배분
+    const w = wOf(p.isKr)
+    const combined = clamp(p.seasonScore * w.season + p.valueScore * w.value + p.qualityScore * w.quality + supplyScore * w.supply + p.momentumScore * w.momentum + rotationScore * w.rotation)
     return { p, supplyScore, supplyKnown, supplyProxy, badges, combined, rotQuad: rot?.q ?? null, rotationScore }
   })
 
@@ -520,7 +532,8 @@ export async function GET(req: Request) {
         badges.push('⚠️ 저PEG 기저효과 의심')
         if (valueScore > 60) {
           valueScore = 60
-          combined = clamp(t.p.seasonScore * W.season + valueScore * W.value + t.p.qualityScore * W.quality + t.supplyScore * W.supply + t.p.momentumScore * W.momentum + t.rotationScore * W.rotation)
+          const wv = wOf(t.p.isKr)   // ⚖️ 재계산도 **같은 시장 가중치**로(안 그러면 캡 적용 종목만 다른 잣대가 된다)
+          combined = clamp(t.p.seasonScore * wv.season + valueScore * wv.value + t.p.qualityScore * wv.quality + t.supplyScore * wv.supply + t.p.momentumScore * wv.momentum + t.rotationScore * wv.rotation)
         }
       }
       // 🔥 임원 장내매수(90일 공시) — 린치 최애 신호. ⛔ 점수 미반영(배지만 — 내부자 매수 레이더와 동일 SSOT)
@@ -622,7 +635,7 @@ export async function GET(req: Request) {
   }
 
   const result: UnifiedRecoResult = {
-    weights: W,
+    weights: W_KR, weightsGlobal: W_GLOBAL,   // ⚖️ 시장별 가중치 — 화면이 "왜 미국엔 수급 축이 없나"를 설명할 수 있게 둘 다 내보낸다
     usSeason: { quadrant: usQuad, label: SEASON_META[usQuad].label, favored: SEASON_META[usQuad].favored },
     krSeason: { quadrant: krQuad, label: SEASON_META[krQuad].label, favored: SEASON_META[krQuad].favored },
     euSeason: { quadrant: euQuad, label: SEASON_META[euQuad].label, favored: SEASON_META[euQuad].favored },

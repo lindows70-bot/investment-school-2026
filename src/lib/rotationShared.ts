@@ -20,8 +20,14 @@ export const SECTOR_TO_ROT: Record<string, string> = {
 
 export type RotQuadShared = 'leading' | 'weakening' | 'lagging' | 'improving'
 
-/** 🧭 주도섹터 축(0~100) — RRG 쏠림점수(0.6 상대강도 + 0.4 모멘텀, %p)를 정규화. 주도(+)→100·이탈(−)→0·중립 50 */
-export const rotAxisScore = (score: number) => Math.max(0, Math.min(100, Math.round((score + 12) / 24 * 100)))
+/** 🧭 주도섹터 축(0~100) — RRG 쏠림점수(0.6 상대강도 + 0.4 모멘텀, %p)를 정규화. 주도(+)→100·이탈(−)→0·중립 50
+ *
+ *  ⚠️ 정규화 폭을 ±12 → ±8 로 좁혔다(2026-08-08 실측): 실제 섹터 score 분포가 **−8.2~+7.2(SD 3.6)**
+ *  뿐이라 ±12 가정으로는 0~100 중 가운데 15.8~80 구간만 써서 축의 변별력을 3분의 1쯤 버리고 있었다.
+ *  ±8 로 좁히면 같은 분포가 0~100 을 거의 다 쓴다(축 실효 기여 1.50 → 2.25 로 회복).
+ *  ⛔ 더 좁히지 않는 이유: 분포가 좁아지는 국면(섹터 간 차이가 실제로 없는 날)에 0/100 극단이
+ *     남발되면 "차이가 없는데 차이가 있다"고 말하게 된다. ±8 은 실측 범위를 딱 덮는 선이다. */
+export const rotAxisScore = (score: number) => Math.max(0, Math.min(100, Math.round((score + 8) / 16 * 100)))
 
 /** 최근 N일의 로테이션 캐시에서 섹터별 국면·쏠림 맵을 읽는다(읽기만 — 콜드면 null·재계산 촉발 금지) */
 export async function loadRotationBySector(days = 3): Promise<Map<string, { q: RotQuadShared; score: number }> | null> {

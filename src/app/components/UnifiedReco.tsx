@@ -111,7 +111,14 @@ function Item({ it, portfolioKrw, vol }: { it: UnifiedRecoItem; portfolioKrw: nu
         <MiniBar label="🏰 퀄리티" score={it.qualityScore} color={AX.quality} />
         <MiniBar label="📈 모멘텀" score={it.momentumScore} color={AX.momentum} />
         <MiniBar label="🧭 주도섹터" score={it.rotationScore} color={AX.rotation} />
-        <MiniBar label={it.supplyProxy ? '💰 수급*' : '💰 수급'} score={it.supplyScore} color={AX.supply} unknown={!it.supplyKnown} />
+        {/* 💰 수급 축은 🇰🇷 전용 — 그 외 시장은 일별 투자자별 매매동향 공개 자료가 없어 축에서 뺐다(2026-08-08).
+            숨기지 않고 "왜 없는지"를 말한다: 빈칸이 오해를 만드는 것보다 이유가 보이는 게 낫다. */}
+        {it.market === 'KR'
+          ? <MiniBar label="💰 수급" score={it.supplyScore} color={AX.supply} unknown={!it.supplyKnown} />
+          : <span title="미국·유럽 등은 외국인·기관의 일별 순매수를 공개하지 않습니다. 추정치로 점수를 매기면 없는 정보를 있는 척하게 되므로, 이 시장은 수급 축을 빼고 그 몫(10%)을 💎가치·📈모멘텀에 5%p씩 나눴습니다. 대신 내부자 매수·13F·MFI 는 아래 배지로 계속 보여드립니다."
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: FS.micro, color: TK.sub2, background: TK.bg3, border: `1px dashed ${BORDER}`, borderRadius: 6, padding: '2px 7px', cursor: 'help' }}>
+              💰 수급 <b style={{ color: TK.sub }}>미적용</b>
+            </span>}
         <MiniBar label="🌦️ 계절" score={it.seasonScore} color={AX.season} />
       </div>
       {/* 💰 권장 편입 금액 + 배지 */}
