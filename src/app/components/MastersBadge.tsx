@@ -72,7 +72,9 @@ ${stretchReason(d.buyBand)}
           style={{ background: bandPos === 'in' || bandPos === 'below' ? `${TK.green500}12` : 'rgba(148,163,184,0.10)',
             color: bandPos === 'in' || bandPos === 'below' ? TK.green400 : TK.slate300,
             border: `1px solid ${bandPos === 'in' || bandPos === 'below' ? TK.green500 : TK.line1}44`,
-            borderRadius: RAD.xs, padding: '1px 7px', fontSize: FS.micro, cursor: 'help', whiteSpace: 'nowrap' }}>
+            // ⚠️ 이 칩만은 nowrap 금지 — 구간+상태+가정 경고가 붙으면 길어져 좁은 카드(보강할 것)에서
+            //    오른쪽으로 삐져나간다(IPARK 실사고). 칩 안에서 줄바꿈하고 카드 폭을 넘지 않게.
+            borderRadius: RAD.xs, padding: '1px 7px', fontSize: FS.micro, cursor: 'help', maxWidth: '100%', lineHeight: 1.5 }}>
           🎯 위원회 매수구간 {fmt(d.buyBand.low)}~{fmt(d.buyBand.high)}
           {bandPos === 'above' && <span style={{ opacity: 0.75 }}> (지금은 이보다 비쌈)</span>}
           {bandPos === 'in' && <span style={{ opacity: 0.85 }}> ✓ 지금 이 구간 안</span>}
