@@ -100,7 +100,7 @@ function patienceAxis(avgMonths: number | null, n: number, longRatio: number | n
       ? `한 사이클을 견뎌본 계좌입니다${longTxt}${src}`
       : level === 'mid'
         ? `아직 한 사이클(1년)을 다 겪지 않았습니다${longTxt}${src} — 첫 폭락이 진짜 시험대예요`
-        : `입력된 매수일 기준으로는 대부분 최근에 산 종목입니다${longTxt}${src} — 짧은 보유는 작은 하락에도 흔들리기 쉽습니다`,
+        : `대부분 최근에 산 종목입니다${longTxt}${src} — 짧은 보유는 작은 하락에도 흔들리기 쉽습니다`,
     fix: level === 'strong' ? null
       : '실제로 더 오래 보유한 종목이 있다면 자산 관리에서 매수일을 실제 날짜로 고쳐 주세요 — 등록일이 들어가 있으면 이 축이 실제보다 짧게 나옵니다' }
 }
