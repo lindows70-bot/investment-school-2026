@@ -66,8 +66,9 @@ export async function GET(req: NextRequest) {
   // v6: stretchCause·cashYieldPct 신설(원인별 문구) / v5: growthPct + 쉬운 문구 / v4: KR 통화 오탐 / v3: 금융주 / v2: 통화
   //     ⚠️ 응답에 **필드가 늘어도** 키를 올려야 한다 — 안 올리면 옛 응답이 그대로 서빙돼 새 필드가 undefined 로 온다(실제로 겪음).
   // v7: 💱 stock-fcf ADR 재무통화 환산 — fcfYield가 바뀌므로(TSM 35.1%→1.0%) 버핏 현금 체크 재판정
-  const fullKey  = `masters-committee-v7:${ticker}:${market}:${kstDate()}`
-  const briefKey = `masters-brief-v7:${ticker}:${market}:${kstDate()}`
+  // v8: 💱 DCF 입력(FCF·부채·현금) 재무통화 환산 — TSM·SONY 등 ADR 매수 밴드가 보류에서 정상 산정으로
+  const fullKey  = `masters-committee-v8:${ticker}:${market}:${kstDate()}`
+  const briefKey = `masters-brief-v8:${ticker}:${market}:${kstDate()}`
   const full = await getCache<MastersVerdictResponse>(fullKey, 24 * 3600_000)
   if (full) return NextResponse.json(full, { headers: { 'Cache-Control': 'no-store' } })   // 토론 포함 = 어느 모드든 충분
   if (brief) {
@@ -106,12 +107,21 @@ export async function GET(req: NextRequest) {
   // 🏦 금융주 여부 — stock-fcf SSOT 판정 재사용(예금·대출·보험 float 탓에 FCF·DCF·순부채 잣대 무의미)
   const isFinancial: boolean | null = typeof fcfJ?.isFinancial === 'boolean' ? fcfJ.isFinancial : null
 
+  // 💱 재무통화 환산 계수 — Yahoo 재무(FCF·부채·현금)는 재무통화(TSM=TWD·SONY=JPY), 시총·주가는 거래통화.
+  //    FCF 하나만 고치면 DCF는 여전히 틀린다(순부채가 TWD로 남아 내재가치가 튄다) → 셋을 함께 곱한다.
+  //    환율 실패(mismatch인데 rate 없음)면 DCF 자체를 건너뛴다 — 틀린 가격은 없는 가격보다 나쁘다.
+  const fxRate: number | null = typeof fcfJ?.fxRate === 'number' && fcfJ.fxRate > 0 ? fcfJ.fxRate : null
+  const fxUnusable = fxRate == null && typeof fcfJ?.finCur === 'string' && fcfJ.finCur !== currency
+  const fx = fxRate ?? 1
+  const convFin = (v: unknown): number | null => (typeof v === 'number' && isFinite(v) ? v * fx : null)
+
   // 버핏 DCF — 흑자 FCF + 주식수 확보(ok)일 때만. 기저효과·금융주면 산정 보류(모닝스타 패널과 동일 원칙)
   let intrinsicPerShare: number | null = null
   let dcfGrowthPct: number | null = null   // 화면에 "연 N% 성장 가정"을 그대로 밝히기 위해 보관
-  if (currentPrice != null && pegBase !== true && isFinancial !== true) {
+  if (currentPrice != null && pegBase !== true && isFinancial !== true && !fxUnusable) {
     try {
-      const inp = deriveDcfInputs(f, { market, currency, lynchCategory: null, currentPrice })
+      const fFx = { ...f, freeCashflow: convFin(f.freeCashflow), totalDebt: convFin(f.totalDebt), totalCash: convFin(f.totalCash) }
+      const inp = deriveDcfInputs(fFx, { market, currency, lynchCategory: null, currentPrice })
       if (inp.ok && inp.fcf0 != null && inp.shares != null) {
         const dcf = calcDCF(inp.fcf0, inp.g, inp.r, inp.gp, inp.netDebt, inp.shares, currentPrice)
         if (dcf.intrinsicPerShare > 0) { intrinsicPerShare = dcf.intrinsicPerShare; dcfGrowthPct = inp.g }
@@ -130,9 +140,10 @@ export async function GET(req: NextRequest) {
     opMargin: typeof f.operatingMargins === 'number' ? f.operatingMargins : null,
     payoutRatio: typeof f.payoutRatio === 'number' ? f.payoutRatio : null,
     dividendYield: typeof f.dividendYield === 'number' ? f.dividendYield : null,
-    freeCashflow: typeof f.freeCashflow === 'number' ? f.freeCashflow : null,
-    totalDebt: typeof f.totalDebt === 'number' ? f.totalDebt : null,
-    totalCash: typeof f.totalCash === 'number' ? f.totalCash : null,
+    // 💱 재무통화 값은 거래통화로 환산해 넘긴다(시총과 같은 잣대) — 순부채/시총 체크가 통화 불일치로 튀던 것 차단
+    freeCashflow: fxUnusable ? null : convFin(f.freeCashflow),
+    totalDebt: fxUnusable ? null : convFin(f.totalDebt),
+    totalCash: fxUnusable ? null : convFin(f.totalCash),
     marketCap: typeof f.marketCap === 'number' && f.marketCap > 0 ? f.marketCap : null,
     high52w: typeof f.high52w === 'number' ? f.high52w : null,
     low52w: typeof f.low52w === 'number' ? f.low52w : null,

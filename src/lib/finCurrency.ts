@@ -39,13 +39,16 @@ export interface CashflowFix {
   converted: boolean          // 환산 수행됨(예: TWD→USD)
   fxFailed: boolean           // 통화 불일치인데 환율을 못 구함 → 부풀린 원값 대신 null 서빙
   finCur: string | null; trdCur: string | null
+  /** 재무통화 값 → 거래통화 환산 계수. 같은 통화=1 · 환산=환율 · 실패=null(다른 재무값도 쓰면 안 된다는 신호).
+   *  FCF만 고치면 DCF가 여전히 틀린다 — 부채·현금도 같은 재무통화라 이 계수를 함께 곱해야 한다. */
+  rate: number | null
 }
 
 /** 재무통화 ≠ 거래통화면 FCF·OCF를 거래통화로 환산. 환율 실패 시 null(부풀린 값 서빙 금지). */
 export async function normalizeCashflow(fcf: number | null, ocf: number | null, finCurRaw: unknown, trdCurRaw: unknown): Promise<CashflowFix> {
   const fin = normCur(finCurRaw), trd = normCur(trdCurRaw)
-  if (!fin || !trd || fin === trd) return { fcf, ocf, converted: false, fxFailed: false, finCur: fin, trdCur: trd }
+  if (!fin || !trd || fin === trd) return { fcf, ocf, converted: false, fxFailed: false, finCur: fin, trdCur: trd, rate: 1 }
   const r = await fxRate(fin, trd)
-  if (r == null) return { fcf: null, ocf: null, converted: false, fxFailed: true, finCur: fin, trdCur: trd }
-  return { fcf: fcf != null ? fcf * r : null, ocf: ocf != null ? ocf * r : null, converted: true, fxFailed: false, finCur: fin, trdCur: trd }
+  if (r == null) return { fcf: null, ocf: null, converted: false, fxFailed: true, finCur: fin, trdCur: trd, rate: null }
+  return { fcf: fcf != null ? fcf * r : null, ocf: ocf != null ? ocf * r : null, converted: true, fxFailed: false, finCur: fin, trdCur: trd, rate: r }
 }

@@ -16,6 +16,10 @@ export interface StockFcfResult {
   fcfNegOcfOk: boolean           // FCF만 적자·OCF 흑자 = CAPEX 성장 투자(좀비 아님)
   fcf: number | null
   ocf: number | null
+  /** 💱 재무통화 → 거래통화 환산 계수(같은 통화=1 · 실패=null). 소비자는 부채·현금 등 다른 재무값에도 곱해야 한다
+   *  — DCF는 FCF·부채·현금을 함께 쓰므로 하나만 고치면 여전히 틀린다(거장 위원회 밴드 보류의 근본 원인). */
+  fxRate: number | null
+  finCur: string | null
   opMargin: number | null        // 영업이익률 %
   grade: 'excellent' | 'good' | 'fair' | 'expensive' | 'gap' | 'capex' | 'loss' | 'na'
   asOf: string
@@ -60,8 +64,8 @@ export async function GET(req: Request) {
       : fcfNegOcfOk ? 'capex'
       : (fcf != null && fcf < 0) ? 'loss' : 'na'
 
-    return NextResponse.json({ ticker, isFinancial, fcfYield, qualityGap, fcfNegOcfOk, fcf, ocf, opMargin, grade, asOf: new Date().toISOString() } as StockFcfResult)
+    return NextResponse.json({ ticker, isFinancial, fcfYield, qualityGap, fcfNegOcfOk, fcf, ocf, fxRate: cfFix.rate, finCur: cfFix.finCur, opMargin, grade, asOf: new Date().toISOString() } as StockFcfResult)
   } catch {
-    return NextResponse.json({ ticker, isFinancial: false, fcfYield: null, qualityGap: false, fcfNegOcfOk: false, fcf: null, ocf: null, opMargin: null, grade: 'na', asOf: new Date().toISOString() } as StockFcfResult)
+    return NextResponse.json({ ticker, isFinancial: false, fcfYield: null, qualityGap: false, fcfNegOcfOk: false, fcf: null, ocf: null, fxRate: null, finCur: null, opMargin: null, grade: 'na', asOf: new Date().toISOString() } as StockFcfResult)
   }
 }
