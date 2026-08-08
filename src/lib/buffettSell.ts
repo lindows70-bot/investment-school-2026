@@ -61,7 +61,7 @@ export async function computeMoatErosion(ticker: string, market: 'KR' | 'US'): P
     const out: MoatErosion = {
       hit, years, peakGm: peak, latestGm: latest, dropPp: drop,
       detail: hit
-        ? `${label}이 ${peak}% → ${latest}%로 ${drop}%p 낮아졌고 회복 없이 ${isMin ? '기간 최저' : '2년 연속 하락'}입니다 — 제품 경쟁력(해자)이 깎이고 있다는 구조 신호`
+        ? `${label}이 ${peak}% → ${latest}%로 ${drop}%p 낮아졌고 회복 없이 ${isMin ? '기간 최저' : '2년 연속 하락'}입니다 — 제품 경쟁력(해자)이 깎이고 있다는 구조 신호. 단, 언제 팔지의 타이밍 신호는 아닙니다 — 소급 실측(표본 164·발동 17종·2025-06 단일 시점)에선 마진 바닥이 반등의 출발점인 경우가 더 많았습니다`
         : `${label} ${latest}% (${series.length}년 고점 ${peak}% 대비 −${drop}%p) — 구조적 침식 아님`,
     }
     await setCache(cacheKey, out)

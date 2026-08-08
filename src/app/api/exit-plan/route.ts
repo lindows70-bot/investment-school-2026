@@ -21,7 +21,7 @@ export async function GET(req: Request) {
 
   const refresh = new URL(req.url).searchParams.get('refresh') === '1'
   const fp = await holdingsFingerprint(user.id)
-  const key = `exit-plan-v5:${user.id}:${kstDate()}:${fp}`   // v5: 🏦 금융주 버핏 점검 보류 처리(가드 false ≠ 정상 — KB금융)
+  const key = `exit-plan-v6:${user.id}:${kstDate()}:${fp}`   // v6: 🏰 해자 침식 문구에 소급 실측 한계 병기(타이밍 신호 아님 — 반증 기록)
   if (!refresh) {
     const cached = await getCache<ExitPlanApi>(key, 6 * 3600_000)
     if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })

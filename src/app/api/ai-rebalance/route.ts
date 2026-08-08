@@ -239,7 +239,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v49+${UNIFIED_RECO_V}:${user.id}:${today}:${fp}`   // v49: 🏰 버핏 해자 침식 — 매도 사유 추가 + 손실 시 HOLD_DIP 예외(기업 변질은 고평가 보호 대상 아님)
+  const cacheKey = `ai-rebalance-v50+${UNIFIED_RECO_V}:${user.id}:${today}:${fp}`   // v50: 🏰 해자 침식 손절 격상 철회(소급 실측 반증 — 발동군 +44.7% vs +16.6%) → 정보 제공만
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -320,20 +320,21 @@ export async function GET(req: Request) {
           const mece = classifyLynchMece(v.lynch_category ?? null, m.earningsGrowth, m.sector).cat
           lynchCategory = mece === 'na' ? null : mece   // 'na'는 기존처럼 미분류(null) — 황금비율 트림 대상 제외
           const decision = evaluateSignal(m, lynchCategory, false)
-          // 🏰 버핏 해자 침식(연간 총마진 구조 하락 — buffettSell SSOT·24h 캐시) — HOLD_DIP은 '단순 고평가'로부터
-          //    학생을 보호하는 장치인데, 해자 침식은 고평가가 아니라 '기업이 변했다'라 보호 대상이 아니다(버핏 매도원칙).
-          //    경기순환주는 사이클 하강일 수 있어 격상에서 제외(COP 화면검증과 동일 원인 분리).
+          // 🏰 버핏 해자 침식(buffettSell SSOT·24h 캐시) — ⚠️ 정보 제공만, 손절 격상 금지.
+          //    소급 실측(2026-08-08·표본 164·발동 17종)이 반증: 발동군 전방 12개월 절사 +44.7% vs 미발동 +16.6% —
+          //    마진 바닥은 반등장에서 낙폭과대 반등의 출발점이었다(INTC +355%). 단일 시점(2025-06) 한계는 있으나
+          //    '마진 바닥 손절 격상'은 저점 매도 강요가 될 위험이 실측됐다. 구조 변화 알림으로만 쓴다.
           let moatStructural = false
           try {
             const moat = await computeMoatErosion(v.ticker, (v.market === 'KR' ? 'KR' : 'US'))
             moatStructural = moat.hit === true && lynchCategory !== 'cyclical'
           } catch { /* graceful — 판정 보류 */ }
-          const thesisBroken = m.opMargin2qDown || m.fcfNegative || (m.opMargin != null && m.opMargin < -10) || moatStructural
+          const thesisBroken = m.opMargin2qDown || m.fcfNegative || (m.opMargin != null && m.opMargin < -10)
           if (decision.type === 'SELL') {
             sellReasons = decision.reasons
-            if (moatStructural) sellReasons = [...sellReasons, '🏰 해자 침식 — 연간 총마진이 고점 대비 회복 없이 구조적으로 하락(기업이 변했다는 버핏 매도 신호)']
+            if (moatStructural) sellReasons = [...sellReasons, '🏰 해자 침식 관찰 — 연간 총마진이 고점 대비 회복 없이 하락(기업 구조 변화 알림 · 단독 매도 근거 아님 — 소급 실측에선 마진 바닥이 반등 출발점인 경우도 많았음)']
             if (v.pnlPct != null && v.pnlPct > 0)        action = 'TAKE_PROFIT'   // 수익 중 → 익절
-            else if (thesisBroken)                        action = 'CUT_LOSS'      // 손실 + thesis붕괴(해자 침식 포함) → 손절
+            else if (thesisBroken)                        action = 'CUT_LOSS'      // 손실 + thesis붕괴 → 손절
             else                                          action = 'HOLD_DIP'      // 손실 + 단순고평가 → 저점매도 방지
           } else if (decision.type === 'BUY') {
             action = 'DEFEND'
