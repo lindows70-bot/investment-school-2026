@@ -1,6 +1,7 @@
 // 🧭 4계절 매크로 내비게이터 API — macro-regime SSOT + OECD CLI를 2×2로 번역 + 보유 계절 적합도
 // 제2원칙. 매크로 결론은 macro-regime SSOT 단일출처를 그대로 읽고, 성장축만 CLI로 보강(새 판정기 아님)
 import { NextResponse } from 'next/server'
+import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
@@ -17,7 +18,7 @@ import {
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const FALLBACK_KRW = 1350
+const FALLBACK_KRW = USD_KRW_FALLBACK
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 type LynchCat = Holding['lynchCategory']

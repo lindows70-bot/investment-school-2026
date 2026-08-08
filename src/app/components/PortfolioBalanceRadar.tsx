@@ -11,6 +11,7 @@
  */
 
 import { useMemo } from 'react'
+import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, Tooltip, Legend,
@@ -68,7 +69,7 @@ type ByCategory = Record<string, CatStock[]>
 const emptyByCat = (): ByCategory =>
   ({ stalwart: [], fast_grower: [], cyclical: [], turnaround: [], asset_play: [], slow_grower: [] })
 
-export default function PortfolioBalanceRadar({ investments, usdKrw = 1350 }: Props) {
+export default function PortfolioBalanceRadar({ investments, usdKrw = USD_KRW_FALLBACK }: Props) {
   // ── 차트 데이터 (내 비중 vs 권장 비중) ──────────────────────────────────────
   const { chartData, totalStockValue, stockCount, byCategory } = useMemo(() => {
     // ① 개별 주식만 + 분류된 종목만 (SSOT 필터)

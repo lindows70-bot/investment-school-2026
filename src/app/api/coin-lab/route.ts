@@ -2,6 +2,7 @@
 // 4축: 사이클(반감기·메이어멀티플) · 심리(공포탐욕·도미넌스) · 온체인(해시레이트) · 유동성(M2) + 김치프리미엄
 // 전부 무료·무인증 소스(CoinGecko·alternative.me·mempool.space·업비트·FRED) · 1h 캐시 · 추정치 금지(없으면 null)
 import { NextResponse } from 'next/server'
+import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
 import { getCache, setCache } from '@/lib/appCache'
 
 export const dynamic = 'force-dynamic'
@@ -244,7 +245,7 @@ export async function GET(req: Request) {
   const FRED = process.env.FRED_API_KEY
 
   // 환율(김치프리미엄)
-  let usdKrw = 1350
+  let usdKrw = USD_KRW_FALLBACK
   try { const ex = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) }); if (ex.ok) { const j = await ex.json(); if (typeof j.rate === 'number' && j.rate > 0) usdKrw = j.rate } } catch { /* 폴백 */ }
 
   // ── CoinGecko 외 소스: 병렬(서로 다른 호스트라 충돌 없음) ──────────

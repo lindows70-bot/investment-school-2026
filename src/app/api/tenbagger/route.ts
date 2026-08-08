@@ -5,6 +5,7 @@ export const revalidate = 0
 export const maxDuration = 60
 
 import { NextResponse } from 'next/server'
+import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
 import { getCache, setCache } from '@/lib/appCache'
 import { getAssetType } from '@/lib/assetClassifier'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
@@ -32,7 +33,7 @@ export interface TenbaggerResult {
   cachedAt:    string
 }
 
-const USD_KRW = 1350
+const USD_KRW = USD_KRW_FALLBACK   // 💱 폴백 SSOT
 
 // stock-info에서 종목명(특히 KR 한글명)과 PEG SSOT만 — 숫자는 buildSignalMetrics가 SSOT
 async function fetchStockMeta(ticker: string, market: string, base: string): Promise<{ name: string | null; peg: number | null; opMargin: number | null } | null> {

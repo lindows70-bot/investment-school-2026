@@ -2,6 +2,7 @@
 import { getCache, setCache } from '@/lib/appCache'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
 import { isPegBaseEffect } from '@/lib/canonicalFundamentals'   // 기저효과 PEG 가드(코어와 동일 SSOT)
+import { getUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT — 상수 하드코딩 금지(제1원칙)
 
 export const SAT_SCORE_KEY = 'satellite-scores-v4'   // 위성 100종목 점수 — 크론이 매일 적재 (v4: sector 필드 추가·섹터 배지용)
 
@@ -127,6 +128,7 @@ export const SATELLITE_UNIVERSE: { ticker: string; market: 'US' | 'KR'; name: st
 // 풀 일부를 라이브 채점(배치6). 크론(전체)·콜드폴백(소수) 공용
 async function scoreSatellitePool(pool: typeof SATELLITE_UNIVERSE, base: string): Promise<SatelliteScore[]> {
   const scored: SatelliteScore[] = []
+  const usdKrw = await getUsdKrw(base)   // 💱 KR 시총 → USD 환산용(풀 전체 1회 조회)
   for (let i = 0; i < pool.length; i += 6) {
     const batch = pool.slice(i, i + 6)
     const rs = await Promise.all(batch.map(async s => {
@@ -134,7 +136,7 @@ async function scoreSatellitePool(pool: typeof SATELLITE_UNIVERSE, base: string)
         const m = await buildSignalMetrics(s.ticker, s.market, s.name, base)
         if (!m) return null
         let mcUsd = m.marketCap
-        if (mcUsd != null && s.market === 'KR') mcUsd = mcUsd / 1350
+        if (mcUsd != null && s.market === 'KR') mcUsd = mcUsd / usdKrw   // 💱 라이브 환율(상수 1350은 4.1% 과소 — 시총룸 점수 왜곡)
         const growthPct = m.revenueGrowth != null ? Math.round(m.revenueGrowth * 1000) / 10 : null
         const icr = m.interestCoverage
         const zombie = icr != null && icr < 1.5

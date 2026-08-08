@@ -2,6 +2,7 @@
 //    손실 매도(loss harvesting)·공제 여유 익절(gain harvesting) 기회를 결정론 산출 (Zero-Input·자동매매 없음)
 //    ⚠️ realized_pnl은 종목 통화 기준(USD/KRW — history 페이지와 동일 관례) → 현재 환율 일괄 환산(추정치, 캐비엇 명시)
 import { NextResponse } from 'next/server'
+import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
 import { createClient } from '@/lib/supabase/server'
 import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
@@ -15,7 +16,7 @@ const TAX = {
   RATE: 0.22,                 // 양도소득세 20% + 지방소득세 2%
 } as const
 
-const FALLBACK_KRW = 1350
+const FALLBACK_KRW = USD_KRW_FALLBACK
 const kstNow = () => new Date(Date.now() + 9 * 3600_000)
 const kstDate = () => kstNow().toISOString().slice(0, 10)
 

@@ -2,6 +2,7 @@
 //    소스: Yahoo calendarEvents(어닝·배당락 — sectorEngine 검증 패턴)·summaryDetail(연배당)·chart events=div(지급 이력 12M 투영)
 //    ⚠️ 정직: 어닝일은 수시 변경·KR 실적일 무료 미제공·월별 배당은 과거 패턴 투영 추정(캐비엇 UI 명시). Zero-Input·결정론.
 import { NextResponse } from 'next/server'
+import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
 import { createClient } from '@/lib/supabase/server'
 import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
@@ -10,7 +11,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
-const FALLBACK_KRW = 1350
+const FALLBACK_KRW = USD_KRW_FALLBACK
 
 export type EventType = 'earnings' | 'exDiv' | 'payDiv'
 export interface CalEvent {

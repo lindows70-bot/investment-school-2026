@@ -15,6 +15,7 @@
 
 import { headers } from 'next/headers'
 import { getCanonicalPeg } from '@/lib/canonicalFundamentals'
+import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT
 
 export interface PeerMetric {
   ticker:    string
@@ -49,8 +50,9 @@ export interface SectorPeerResult {
 const CACHE = new Map<string, { data: SectorPeerResult; expiresAt: number }>()
 const CACHE_TTL = 6 * 3600_000
 const num = (v: unknown) => typeof v === 'number' && isFinite(v) ? v : null
-// 체급(시총) 비교용 대략 환율 — 비율 지표는 환율 무관이지만 '시총 체급'만 USD로 통일해 글로벌 1등과 비교
-const USDKRW_APPROX = 1380
+// 체급(시총) 비교용 환율 — 비율 지표는 환율 무관이지만 '시총 체급'만 USD로 통일해 글로벌 1등과 비교.
+// 💱 폴백은 SSOT 상수(과거 자체 1380 이 다른 화면의 1350 과 갈라져 있었다)
+const USDKRW_APPROX = USD_KRW_FALLBACK
 
 // ── 글로벌 GICS 동종업계 피어 맵 (Yahoo industry 문자열 → 대표 글로벌 종목 US+KR) ──
 // 비율 지표(PEG·영업이익률·부채/시총)는 통화 무관 → 환율 변환 없이 KR↔US 직접 비교

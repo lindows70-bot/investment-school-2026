@@ -6,14 +6,15 @@ import { useState, useEffect } from 'react'
 import type { EntryTiming } from '@/lib/entryTiming'
 import { TK } from '@/lib/theme'
 import { curFromCode } from '@/lib/globalTickers'
+import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(1350/1380 분열 제거)
 
 const BORDER = TK.border
 
 // 통화별 →KRW 환율 맵 1회 공유 캐시(카드 여러 장이 떠도 fetch 1번). { USD, EUR, CHF, GBP, HKD, DKK, SEK, KRW:1 }
 let fxPromise: Promise<Record<string, number>> | null = null
 const getFxMap = () => fxPromise ?? (fxPromise = fetch('/api/exchange-rate').then(r => r.json())
-  .then(j => (j && j.rates && typeof j.rates === 'object') ? j.rates as Record<string, number> : (typeof j?.rate === 'number' ? { USD: j.rate, KRW: 1 } : { USD: 1380, KRW: 1 }))
-  .catch(() => ({ USD: 1380, KRW: 1 })))
+  .then(j => (j && j.rates && typeof j.rates === 'object') ? j.rates as Record<string, number> : (typeof j?.rate === 'number' ? { USD: j.rate, KRW: 1 } : { USD: USD_KRW_FALLBACK, KRW: 1 }))
+  .catch(() => ({ USD: USD_KRW_FALLBACK, KRW: 1 })))
 
 export default function TradePlanCard({ market, timing, portfolioKrw, currency, volWarn }: {
   market: string; timing: EntryTiming; portfolioKrw: number; currency?: string
@@ -33,9 +34,9 @@ export default function TradePlanCard({ market, timing, portfolioKrw, currency, 
 
   // 종목 통화 → KRW 환율. GBp(펜스)는 GBP÷100. 로딩 중: USD만 폴백(즉시 표시), 유럽 통화는 환율 도착까지 대기
   const rate = cur === 'KRW' ? 1
-    : !fxMap ? (cur === 'USD' ? 1380 : null)
+    : !fxMap ? (cur === 'USD' ? USD_KRW_FALLBACK : null)
     : cur === 'GBp' ? (fxMap.GBP != null ? fxMap.GBP / 100 : null)
-    : (fxMap[cur] ?? (cur === 'USD' ? 1380 : null))
+    : (fxMap[cur] ?? (cur === 'USD' ? USD_KRW_FALLBACK : null))
   if (rate == null) return null   // 환율 로딩 중/미지원 통화 — 잠시 후 표시(정직)
 
   const sym = curFromCode(cur)   // ₩ $ € CHF  GBp  HK$ ...

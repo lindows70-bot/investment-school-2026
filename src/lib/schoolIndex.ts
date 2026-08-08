@@ -17,7 +17,9 @@
 import { getCache, setCache } from '@/lib/appCache'
 import { getAssetType } from '@/lib/assetClassifier'
 
-const USDKRW = 1350   // 통화 통일(평가액 비교용 대략 환율) — 비중은 비율이라 절대 환율값에 둔감
+// ⚠️ 환율 상수를 두지 않는다(제1원칙) — 과거 `const USDKRW = 1350` 이 상시 사용돼 실제 1,407 대비 4.1% 과소였다.
+//    '비중은 비율이라 둔감하다'는 옛 주석은 반만 맞다: USD 종목만 든 학생과 KR 종목만 든 학생을 비교하면
+//    분모(전 자산)가 통째로 틀어져 종목별 평균 비중·순위가 바뀐다. 호출부가 라이브 환율을 주입한다.
 
 export function kstDate(d = new Date()): string {
   return new Date(d.getTime() + 9 * 3600_000).toISOString().slice(0, 10)  // Asia/Seoul 달력일
@@ -72,6 +74,7 @@ export function aggregateSchoolIndex(
   sectorMap: Record<string, string>,           // ticker(UPPER) → GICS 섹터 (주식만)
   prevStockWeight: Record<string, number>,     // ticker → 직전 스냅샷 avg_weight
   baseDate: string,
+  usdKrw: number,                              // 💱 라이브 환율(호출부가 /api/exchange-rate 로 주입 — 상수 금지)
 ): { stockRows: StockSnapshotRow[]; sectorRows: SectorSnapshotRow[]; registered: number } {
   // 1) 학생별 그룹
   const byUser: Record<string, Inv[]> = {}
@@ -89,7 +92,7 @@ export function aggregateSchoolIndex(
       let total = 0
       const vals: { inv: Inv; value: number; isStock: boolean }[] = []
       for (const inv of list) {
-        const fx = inv.currency === 'USD' ? USDKRW : 1
+        const fx = inv.currency === 'USD' ? usdKrw : 1
         const price = priceMap[(inv.ticker ?? '').toUpperCase()]
         const unit = (price && price > 0) ? price : (inv.purchase_price ?? 0)
         const value = unit * (inv.quantity ?? 0) * fx

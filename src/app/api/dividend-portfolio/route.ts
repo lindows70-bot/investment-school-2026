@@ -11,6 +11,7 @@ export const revalidate = 0
 export const maxDuration = 120
 
 import { NextResponse } from 'next/server'
+import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
 import { getCache, setCache } from '@/lib/appCache'
 import { getDividendProfile, DIV_PROFILE_KEY, type DividendProfile } from '@/lib/dividendProfile'
 import { DIVIDEND_UNIVERSE } from '@/lib/dividendUniverse'
@@ -31,7 +32,7 @@ async function fetchUsdKrw(): Promise<number> {
     const r = q?.regularMarketPrice
     if (typeof r === 'number' && r > 500 && r < 3000) return Math.round(r * 100) / 100
   } catch { /* 폴백 */ }
-  return 1380
+  return USD_KRW_FALLBACK
 }
 
 export async function GET() {

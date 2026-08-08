@@ -1,6 +1,7 @@
 // ⏳ 투자 타임머신 — 내 실제 보유 종목을 5년 전부터 보유했다면? 실데이터 백테스트(제1원칙 — 하드코딩 0)
 // stock-price-history(연도별 실제 평균가) 재사용 · Core/Satellite 분해 · 벤치마크=US/KR 비중 혼합(SPY+KODEX200) · 12h Lazy Cache
 import { NextResponse } from 'next/server'
+import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
@@ -65,7 +66,7 @@ export async function GET(req: Request) {
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // 환율(₩ 원가 비중)
-  let usdKrw = 1350
+  let usdKrw = USD_KRW_FALLBACK
   try { const ex = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) }); if (ex.ok) { const j = await ex.json(); if (typeof j.rate === 'number' && j.rate > 0) usdKrw = j.rate } } catch { /* 폴백 */ }
 
   // ── 출처별 입력 구성 ──────────────────────────────────────────────

@@ -2,6 +2,7 @@
 // 핵심 가드: ①티커 병합(분할매수 여러 행→1종목) ②카테고리 단판 우선순위(사용자 지정>펀더멘탈 자동>미분류)
 // ③함정 레이더 = canonicalFundamentals.isPegBaseEffect SSOT 재사용(BP 0.01 사건과 동일 기준 — 제2원칙)
 import { NextResponse } from 'next/server'
+import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
@@ -12,7 +13,7 @@ import { LYNCH_CATEGORY_KR, classifyLynchMece, type LynchCategoryKey } from '@/l
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const FALLBACK_KRW = 1350
+const FALLBACK_KRW = USD_KRW_FALLBACK
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 export interface LynchMatrixItem {

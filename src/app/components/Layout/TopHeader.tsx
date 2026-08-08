@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { TK } from '@/lib/theme'
+import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(상수 분열 방지)
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard': '대시보드',
@@ -58,7 +59,7 @@ export default function TopHeader() {
         }
       } catch { /* fallback */ }
 
-      setUsdKrw(1350)
+      setUsdKrw(USD_KRW_FALLBACK)   // 💱 폴백도 SSOT — 화면마다 다른 숫자를 쓰면 표끼리 어긋난다
     }
 
     load()

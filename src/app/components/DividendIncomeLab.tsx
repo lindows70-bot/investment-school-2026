@@ -9,6 +9,7 @@ import type { DividendProfile } from '@/lib/dividendProfile'
 import type { DividendPortfolioData } from '@/app/api/dividend-portfolio/route'
 import { DIVIDEND_UNIVERSE, BUCKET_META, DIV_TEMPLATES, type DivBucket } from '@/lib/dividendUniverse'
 import { ULTRA_RISKS, ULTRA_UNIVERSE } from '@/lib/ultraDividendUniverse'
+import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT
 import type { UltraDividendData, UltraDividendItem } from '@/app/api/ultra-dividend/route'
 import { TK, FS } from '@/lib/theme'
 import { flagOf } from '@/lib/marketFlag'
@@ -114,7 +115,7 @@ export default function DividendIncomeLab({ onHoldingsChange }: { onHoldingsChan
   }, [byTicker])
   useEffect(() => { if (data && !holdings.length) setHoldings(buildAllocation(tpl, byTicker)) }, [data, byTicker, tpl, holdings.length])
 
-  const usdKrw = data?.usdKrw ?? 1380
+  const usdKrw = data?.usdKrw ?? USD_KRW_FALLBACK   // 💱 폴백 SSOT(화면별 상수 분열 방지)
   const totalKRW = investMan * 1e4
 
   // 커버드콜 X-Ray가 '내 포트에 담긴 것'을 알 수 있게 티커만 통지(문자열 deps로 무한루프 방지)

@@ -15,6 +15,7 @@
 import { NextResponse } from 'next/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
+import { getUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT — 상수 하드코딩 금지(제1원칙)
 import {
   aggregateSchoolIndex, getSector, kstDate,
   type Inv, type StockSnapshotRow, type SectorSnapshotRow,
@@ -108,7 +109,9 @@ export async function GET(req: Request) {
     } catch { /* 테이블 없거나 직전 없음 → 변동 0 */ }
 
     // ── 집계 ──
-    const { stockRows, sectorRows, registered } = aggregateSchoolIndex(invs, priceMap, sectorMap, prevStockWeight, baseDate)
+    // 💱 라이브 환율 주입 — 상수(1350)를 쓰면 USD 보유 학생의 분모가 통째로 틀어져 종목 평균 비중·순위가 바뀐다
+    const usdKrw = await getUsdKrw(selfBase)
+    const { stockRows, sectorRows, registered } = aggregateSchoolIndex(invs, priceMap, sectorMap, prevStockWeight, baseDate, usdKrw)
     summary.registered = registered
     summary.stockRows = stockRows.length
     summary.sectorRows = sectorRows.length

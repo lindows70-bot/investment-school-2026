@@ -1,6 +1,7 @@
 // 💰 현금 포지션 API — GET=현금+자산 평가액→비중·막스 밴드 대비 / PUT=현금 등록(upsert)
 //    ⚠️ user_cash 테이블 미생성 시 needsSetup 정직 반환(re_watchlist 관례). 개인 데이터라 auth 필수·캐시 개인 키.
 import { NextResponse } from 'next/server'
+import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
 import { createClient } from '@/lib/supabase/server'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { evaluateAssets, buildCashPosition, type CashPosition } from '@/lib/cashPosition'
@@ -8,7 +9,7 @@ import { evaluateAssets, buildCashPosition, type CashPosition } from '@/lib/cash
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const FALLBACK_KRW = 1380
+const FALLBACK_KRW = USD_KRW_FALLBACK
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 const isMissingTable = (e: { code?: string; message?: string } | null) =>

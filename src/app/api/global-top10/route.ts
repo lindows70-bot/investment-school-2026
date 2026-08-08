@@ -1,5 +1,6 @@
 // 🌍 글로벌 시총 Top 10 — KR(네이버 marketValue) + US(yahoo-finance2). ETF 차단, 12h 캐시
 import { NextResponse } from 'next/server'
+import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
 import { getCache, setCache } from '@/lib/appCache'
 import { getAssetType } from '@/lib/assetClassifier'
 
@@ -139,10 +140,10 @@ export async function GET(req: Request) {
 
   // 환율
   const selfBase = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-  let usdKrw = 1350
+  let usdKrw = USD_KRW_FALLBACK
   try {
     const er = await fetch(`${selfBase}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) })
-    if (er.ok) { const j = await er.json(); usdKrw = j.rate ?? 1350 }
+    if (er.ok) { const j = await er.json(); usdKrw = j.rate ?? USD_KRW_FALLBACK }
   } catch { /* graceful */ }
 
   const [kr, us] = await Promise.all([fetchKrTop10(usdKrw), fetchUsTop10(usdKrw)])
