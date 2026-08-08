@@ -19,7 +19,7 @@ import { isFinancialCompany } from '@/lib/assetClassifier'
 import { TK } from '@/lib/theme'
 import { GLOBAL_LUXURY, EU_MAJORS, curCodeFromTicker } from '@/lib/globalTickers'
 import { normalizeCashflow } from '@/lib/finCurrency'   // 💱 ADR 재무통화 환산(TSM TWD·SONY JPY — FCF/시총 부풀림 차단)
-import { getTrueFcf } from '@/lib/trueFcf'              // 💵 FCF 분자 SSOT(현금흐름표 OCF−CapEx — Yahoo freeCashflow 필드는 신뢰 불가)
+import { getTrueFcf, assessFcfNature } from '@/lib/trueFcf'   // 💵 FCF 분자 SSOT + TTM 대표성 판정(mirage·volatile)
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 export type MacroPhase =
@@ -51,7 +51,7 @@ export interface MacroPhaseResult {
 
 /** 유니버스 캐시 키 SSOT — writer(macro-ai-picks)·reader 6곳이 이것만 쓴다.
  *  리터럴 산재는 sector-rotation v13→v14 워밍 누락 사고의 온상이었다 — 버전업은 이 한 줄. */
-export const UNIVERSE_KEY = 'macro-screened-universe:v14'   // v14: 💱 FTS 현금흐름 통화 판별 — 두산밥캣 이중 환산(FCF수익률 18,310%) 차단 / v13: 💵 FCF 분자를 현금흐름표(OCF−CapEx)로 교체
+export const UNIVERSE_KEY = 'macro-screened-universe:v15'   // v15: 💵 고FCF 성격 구분(mirage·volatile — 점수는 다년 평균으로 보수화) / v14: 💱 FTS 통화 판별(두산밥캣 이중 환산 차단)
 
 export interface ScreenedStock {
   ticker:       string
@@ -64,6 +64,9 @@ export interface ScreenedStock {
   opMargin:     number | null   // 영업이익률 %
   fcfPositive:  boolean
   fcfYield:     number | null   // 💵 FCF 수익률 = FCF/시총 (%) — 주가 대비 현금창출력(버블·하락장 방어력)
+  fcfAvgYield:  number | null   // 💵 다년(3~4년) 평균 FCF 수익률 % — TTM 대표성 판별(실측: IPARK +28.2 vs 4년 평균 −33.9)
+  fcfYears:     number          // 평균의 표본 연수 — 화면에 병기(가짜 정밀 금지)
+  fcfNature:    'mirage' | 'volatile' | 'steady' | 'na'   // trueFcf.assessFcfNature SSOT 판정
   qualityGap:   boolean         // ⚠️ 이익-현금 괴리(영업흑자인데 FCF 적자) = 이익의 질 의심
   price:        number | null
   marketCap:    number | null   // 시가총액(원시 통화) — 이미 fcfYield 계산에 쓰던 값을 노출만(추가 fetch 0). 실적 리포트 상위 N 선정용
@@ -916,6 +919,13 @@ async function screenOne(
     const fcfYield = (!isFin && fcf != null && marketCap != null && marketCap > 0) ? Math.round(fcf / marketCap * 1000) / 10 : null
     const qualityGap = !isFin && opMargin != null && opMargin > 0 && ocf != null && ocf < 0
     const fcfNegOcfOk = !isFin && fcf != null && fcf < 0 && ocf != null && ocf > 0   // FCF만 적자·OCF 흑자 = CAPEX 성장(좀비 아님)
+    // 💵 다년 평균 FCF 수익률 — TTM 이 다년 현금창출력을 대표하는지(연간 시계열은 TTM 과 같은 FTS 출처라 같은 환산 계수 적용)
+    const cfFactor = cfFix.fxFailed ? null : (cfFix.converted ? (cfFix.rate ?? 1) : 1)
+    const nY = (tf.annualFcf ?? []).length
+    const avgRaw = nY > 0 ? tf.annualFcf.reduce((s, x) => s + x.fcf, 0) / nY : null
+    const fcfAvgYield = (!isFin && avgRaw != null && cfFactor != null && marketCap != null && marketCap > 0)
+      ? Math.round(avgRaw * cfFactor / marketCap * 1000) / 10 : null
+    const nature = assessFcfNature(fcfYield, fcfAvgYield, nY)
     const price = numf(pr.regularMarketPrice) ?? numf(sd.regularMarketPrice)
     // 통화 — KR=₩, 그 외는 접미사 인식(🇪🇺 EU=EUR/CHF/GBp/..., US ADR·본토=USD). 야후 공식 통화 우선, 없으면 접미사 추정
     const currency = market === 'KR' ? 'KRW' : (String(pr.currency || '') || curCodeFromTicker(ticker))
@@ -931,7 +941,10 @@ async function screenOne(
     if (qualityGap) flags.push('⚠️ 이익-현금 괴리(영업흑자인데 영업현금흐름 적자 — 이익의 질 의심)')
     else if (fcfNegOcfOk) flags.push('FCF 적자(단 영업현금 흑자 — CAPEX 성장 투자)')
     else if (!fcfPositive) flags.push('FCF 적자')
-    if (fcfYield != null && fcfYield >= 5) flags.push(`💵 FCF 수익률 ${fcfYield}%(현금창출력 우수)`)
+    // 💵 우수 배지는 mirage(다년 합산 적자) 제외 — 배지는 숫자를 상쇄 못하므로 문구 자체를 뒤집는다
+    if (fcfYield != null && fcfYield >= 5 && nature.kind !== 'mirage') flags.push(`💵 FCF 수익률 ${fcfYield}%(현금창출력 우수)`)
+    if (nature.kind === 'mirage') flags.push(`🚨 FCF 착시 주의 — ${nature.note}`)
+    else if (nature.kind === 'volatile') flags.push(`⚠️ FCF 변동 큼 — ${nature.note}`)
     if (cfFix.converted) flags.push(`💱 재무통화 환산(${cfFix.finCur}→${cfFix.trdCur})`)
     else if (cfFix.fxFailed) flags.push(`⚠️ 재무통화 ${cfFix.finCur} 환율 조회 실패 — FCF 지표 보류`)
     if (opMargin != null && opMargin < 0) flags.push('영업손실')
@@ -945,9 +958,12 @@ async function screenOne(
       : (peg != null && peg > 0 ? Math.min(1.0, Math.max(0, 1.5 - peg * 0.3)) : 0.5)
     const marginScore = opMargin != null ? Math.min(1, Math.max(0, opMargin / 40)) : 0.3
     // 💵 FCF 점수 — 부호만 → FCF 수익률 등급제. 괴리(OCF 적자)=최저, FCF적자는 OCF 흑자(성장 CAPEX)면 완화·OCF도 적자면 최저
+    // 점수는 보수적 수익률로 — mirage/volatile 은 다년 평균(올해 한 해가 등급을 결정하면 IPARK +28.2%가 만점이 된다)
+    const scoreFy = nature.scoreYieldPct ?? fcfYield
     const fcfScore = isFin ? 0.6                                   // 🏦 금융주는 FCF 무의미 → 중립(FCF로 가감 안 함)
       : qualityGap ? 0.15
-      : fcfYield != null && fcfYield >= 0 ? (fcfYield >= 5 ? 1.0 : fcfYield >= 3 ? 0.85 : fcfYield >= 1 ? 0.65 : 0.45)
+      : nature.kind === 'mirage' ? 0.2                             // 🚨 다년 합산 적자 — FCF·OCF 동반 적자와 같은 최저급
+      : scoreFy != null && scoreFy >= 0 ? (scoreFy >= 5 ? 1.0 : scoreFy >= 3 ? 0.85 : scoreFy >= 1 ? 0.65 : 0.45)
       : fcfNegOcfOk ? 0.4                                          // 영업현금 흑자인데 CAPEX로 FCF 적자 = 완화(좀비 아님)
       : (fcf != null ? (fcf > 0 ? 0.7 : 0.2) : 0.6)               // FCF·OCF 다 적자=0.2 / 시총만 없으면 부호 / 아예 모르면 0.6
     const score = Math.round((lynchW * 0.35 + pegScore * 0.35 + marginScore * 0.2 + fcfScore * 0.1) * 1000) / 1000
@@ -957,7 +973,8 @@ async function screenOne(
     const per = numf(sd.trailingPE) ?? numf(ks.forwardPE)
     const earnYield = (per != null && per > 0) ? 100 / per : null   // 이익수익률(E/P %) — 이익 대비 가격(높을수록 쌈)
     const eyScore = earnYield == null ? 0.4 : earnYield >= 8 ? 1.0 : earnYield >= 5 ? 0.7 : earnYield >= 3 ? 0.45 : earnYield > 0 ? 0.2 : 0.3
-    const fcfValScore = fcfYield == null ? 0.4 : fcfYield >= 6 ? 1.0 : fcfYield >= 4 ? 0.8 : fcfYield >= 2 ? 0.6 : fcfYield >= 0 ? 0.4 : 0.15
+    const fcfValScore = nature.kind === 'mirage' ? 0.15   // 🚨 다년 합산 적자 — 가치 축에서도 최저급(scoreFy 는 보수 수익률)
+      : scoreFy == null ? 0.4 : scoreFy >= 6 ? 1.0 : scoreFy >= 4 ? 0.8 : scoreFy >= 2 ? 0.6 : scoreFy >= 0 ? 0.4 : 0.15
     // PEG 촘촘: 0.5→1.0·1.0→0.71·1.5→0.41·2.0→0.12(기존 saturate[≤1.67 만점] 대체) / 기저효과·PEG 없으면 어닝일드로
     const pegGrad = isPegBaseEffect(peg, earnGrowth) ? 0.5
       : (peg != null && peg > 0 ? Math.min(1, Math.max(0, (2.2 - peg) / 1.7)) : (earnYield != null ? eyScore : 0.4))
@@ -978,7 +995,7 @@ async function screenOne(
     if (mom.fwdEpsDir === 'decline') flags.push('이익 역성장(하강 사이클)')
     if (mom.knife) flags.push('주가 급락 추세(falling knife)')
 
-    return { ticker, name, market, sector, industry, lynchCategory: lynch, peg, opMargin, fcfPositive, fcfYield, qualityGap, price, marketCap, currency, score, valueScore, qualityScore, flags, ...mom }
+    return { ticker, name, market, sector, industry, lynchCategory: lynch, peg, opMargin, fcfPositive, fcfYield, fcfAvgYield, fcfYears: nY, fcfNature: nature.kind, qualityGap, price, marketCap, currency, score, valueScore, qualityScore, flags, ...mom }
   } catch { return null }
 }
 

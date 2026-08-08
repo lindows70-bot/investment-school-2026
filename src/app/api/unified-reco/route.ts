@@ -44,6 +44,9 @@ export interface UnifiedRecoItem {
   fwdGrowthPct: number | null; priceVs200: number | null
   peg: number | null; opMargin: number | null
   fcfYield: number | null          // 💵 FCF 수익률(FCF/시총 %) — 주가 대비 현금창출력(버블·하락장 방어력)
+  fcfAvgYield: number | null       // 💵 다년 평균 FCF 수익률 % — TTM 대표성 판별(스크리너 SSOT)
+  fcfYears: number                 // 평균의 표본 연수(화면 병기 — 가짜 정밀 금지)
+  fcfNature: 'mirage' | 'volatile' | 'steady' | 'na'   // 🚨 mirage=최근 1년만 흑자(다년 합산 적자)
   qualityGap: boolean              // ⚠️ 이익-현금 괴리(영업흑자인데 FCF 적자) = 이익의 질 의심
   psr: number | null               // 💵 주가매출비율 P/S — 적자기업·성장주 밸류 척도
   roe: number | null               // 🏰 버핏 퀄리티 — 자기자본이익률(소수)
@@ -530,12 +533,21 @@ export async function GET(req: Request) {
       if (qualityTilt !== 0) combined = clamp(combined + qualityTilt)
       // 💵 FCF — 이익-현금 괴리 경보(항상) + FCF 수익률 배지 + 버블·하락장 국면 방어 틸트(과열·공포 국면에서만 가점/감점)
       const fy = t.p.s.fcfYield
+      // 💵 성격 판정(스크리너 SSOT) — mirage(다년 합산 적자)는 '우수'를 못 받고, 방어 가중도 다년 평균 기준
+      const fcfNature = t.p.s.fcfNature ?? 'na'
+      const fyAvg = t.p.s.fcfAvgYield ?? null
+      const fyGuard = fcfNature === 'mirage' || fcfNature === 'volatile' ? fyAvg : fy   // 보수 수익률(배지·방어 가중 공용)
       // 💵 FCF 수익률 배지 — 점수 반영이 화면에 드러나게: 우수(≥5%)·양호(3~5%)는 초록 톤, 낮음(<1%=현금 대비 비쌈)은 경고 톤
       if (t.p.s.qualityGap) badges.push('⚠️ 이익-현금 괴리(영업흑자·영업현금 적자)')
+      else if (fcfNature === 'mirage') badges.push(`🚨 FCF 착시 주의 — 올해 ${fy}%지만 ${t.p.s.fcfYears}년 합치면 적자(연평균 ${fyAvg}%)`)
+      else if (fcfNature === 'volatile') badges.push(`💵 FCF수익률 ${fy}% · ⚠️ ${t.p.s.fcfYears}년 평균은 ${fyAvg}%(변동 큼)`)
       else if (fy != null && fy >= 5) badges.push(`💵 FCF수익률 ${fy}%(우수)`)
       else if (fy != null && fy >= 3) badges.push(`💵 FCF수익률 ${fy}%`)
       else if (fy != null && fy < 1) badges.push(`💵 FCF수익률 ${fy}%↓(현금 대비 고평가)`)
-      const fcfTilt = fcfDefensive ? (t.p.s.qualityGap ? -5 : fy != null && fy >= 5 ? 3 : fy != null && fy >= 3 ? 1.5 : fy != null && fy < 0 ? -2 : 0) : 0
+      const fcfTilt = fcfDefensive
+        ? (t.p.s.qualityGap || fcfNature === 'mirage' ? -5   // 다년 합산 적자는 방어력이 아니라 취약점
+          : fyGuard != null && fyGuard >= 5 ? 3 : fyGuard != null && fyGuard >= 3 ? 1.5 : fyGuard != null && fyGuard < 0 ? -2 : 0)
+        : 0
       if (fcfTilt !== 0) {
         combined = clamp(combined + fcfTilt)
         if (fcfTilt > 0) badges.push('🛟 현금창출력 방어 가중(국면)')
@@ -552,7 +564,7 @@ export async function GET(req: Request) {
         sector: t.p.s.sector ?? '—', industry: t.p.s.industry ?? null, lynchCategory: t.p.s.lynchCategory as string,
         seasonScore: t.p.seasonScore, valueScore, qualityScore: t.p.qualityScore, supplyScore: t.supplyScore, momentumScore: t.p.momentumScore, combined,
         fwdEpsDir: t.p.s.fwdEpsDir, priceTrend: t.p.s.priceTrend, fwdGrowthPct: t.p.s.fwdGrowthPct ?? null, priceVs200: t.p.s.priceVs200 ?? null,
-        peg, opMargin: t.p.s.opMargin, fcfYield: t.p.s.fcfYield ?? null, qualityGap: t.p.s.qualityGap ?? false, psr: cf?.psr ?? null, roe, roic, roeInflated, epsRevision, suggestWeight, suggestWon,
+        peg, opMargin: t.p.s.opMargin, fcfYield: t.p.s.fcfYield ?? null, fcfAvgYield: fyAvg, fcfYears: t.p.s.fcfYears ?? 0, fcfNature, qualityGap: t.p.s.qualityGap ?? false, psr: cf?.psr ?? null, roe, roic, roeInflated, epsRevision, suggestWeight, suggestWon,
         seasonFavored: t.p.favored, supplyProxy: t.supplyProxy, supplyKnown: t.supplyKnown, badges,
         timing: null,   // 🚦 최종 선정 후 일괄 부착
         rotationQuad: t.rotQuad, rotationScore: t.rotationScore,

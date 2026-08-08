@@ -27,6 +27,7 @@ export default function FcfQualityCard({ ticker, name, market }: { ticker: strin
   const badge = (() => {
     switch (d.grade) {
       case 'gap': return { t: '⚠️ 이익-현금 괴리', c: TK.red400, bg: '#7f1d1d33', sub: '영업흑자인데 영업현금흐름(OCF)까지 적자 — 이익이 현금으로 안 들어옴(분식·버블 조기경보)' }
+      case 'mirage': return { t: `🚨 FCF 수익률 ${d.fcfYield}% · 착시 주의`, c: TK.red400, bg: '#7f1d1d33', sub: '올해 수치만 보면 우수하지만, 여러 해를 합치면 현금흐름이 적자인 회사예요 — 한 해의 현금이 실력을 대표하지 못합니다' }
       case 'excellent': return { t: `💵 FCF 수익률 ${d.fcfYield}% · 우수`, c: TK.green400, bg: '#14532d33', sub: '주가 대비 현금창출력 우수 — 버블·하락장 방어력이 강한 자리' }
       case 'good': return { t: `💵 FCF 수익률 ${d.fcfYield}% · 양호`, c: TK.lime400, bg: '#3f621233', sub: '주가 대비 현금창출력 양호' }
       case 'fair': return { t: `💵 FCF 수익률 ${d.fcfYield}%`, c: TK.yellow500, bg: '#42200633', sub: '주가 대비 현금창출력 보통' }
@@ -50,9 +51,19 @@ export default function FcfQualityCard({ ticker, name, market }: { ticker: strin
       ) : badge ? (<>
         <span style={{ display: 'inline-block', fontSize: 11.5, fontWeight: 800, color: badge.c, background: badge.bg, border: `1px solid ${badge.c}55`, borderRadius: 7, padding: '3px 10px', marginBottom: 6 }}>{badge.t}</span>
         <div style={{ fontSize: 10.5, color: C.low, lineHeight: 1.55 }}>{badge.sub}</div>
+        {/* 🚨 TTM 대표성 캐비엇 — 올해 수치가 다년 현금창출력과 다를 때(문구는 assessFcfNature SSOT가 생성) */}
+        {d.natureNote && (
+          <div style={{ marginTop: 6, fontSize: 10.5, fontWeight: 700, lineHeight: 1.55, color: d.fcfNature === 'mirage' ? TK.red400 : TK.orange400 }}>
+            {d.fcfNature === 'mirage' ? '🚨 ' : '⚠️ '}{d.natureNote}
+          </div>
+        )}
         <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 12, rowGap: 3, fontSize: 10.5 }}>
           <span style={{ color: C.low }}>FCF 수익률</span>
           <span style={{ color: TK.slate200, fontFamily: 'monospace' }}>{d.fcfYield != null ? `${d.fcfYield}% (FCF ÷ 시가총액)` : '—'}</span>
+          {d.fcfAvgYield != null && d.fcfYears >= 3 && (<>
+            <span style={{ color: C.low }}>{d.fcfYears}년 평균</span>
+            <span style={{ color: d.fcfAvgYield < 0 ? TK.red400 : TK.slate200, fontFamily: 'monospace' }}>{d.fcfAvgYield}%</span>
+          </>)}
           <span style={{ color: C.low }}>영업이익률</span>
           <span style={{ color: TK.slate200, fontFamily: 'monospace' }}>{d.opMargin != null ? `${d.opMargin}%` : '—'}</span>
           <span style={{ color: C.low }}>영업현금흐름</span>

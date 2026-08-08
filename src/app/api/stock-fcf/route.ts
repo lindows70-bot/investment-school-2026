@@ -4,7 +4,7 @@
 import { NextResponse } from 'next/server'
 import { getAssetType, isFinancialCompany } from '@/lib/assetClassifier'
 import { normalizeCashflow } from '@/lib/finCurrency'   // 💱 ADR 재무통화 환산(스크리너와 동일 SSOT)
-import { getTrueFcf } from '@/lib/trueFcf'              // 💵 FCF 분자 SSOT(현금흐름표 OCF−CapEx)
+import { getTrueFcf, assessFcfNature, type FcfNature } from '@/lib/trueFcf'   // 💵 FCF 분자 SSOT + TTM 대표성 판정
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 20
@@ -13,6 +13,10 @@ export interface StockFcfResult {
   ticker: string
   isFinancial: boolean           // 🏦 금융주 = FCF/OCF 무의미(예금·대출·보험 float) → 지표 중립
   fcfYield: number | null        // 💵 FCF 수익률(FCF/시총 %)
+  fcfAvgYield: number | null     // 💵 다년 평균 FCF 수익률 % — TTM 대표성 판별(스크리너와 동일 SSOT)
+  fcfYears: number               // 평균의 표본 연수(화면 병기)
+  fcfNature: FcfNature           // 🚨 mirage=최근 1년만 흑자(다년 합산 적자) · volatile=올해가 이례적
+  natureNote: string | null      // 학생 화면용 한 줄(assessFcfNature 가 생성 — 문구도 SSOT)
   qualityGap: boolean            // ⚠️ 이익-현금 괴리(영업흑자인데 영업현금흐름 적자)
   fcfNegOcfOk: boolean           // FCF만 적자·OCF 흑자 = CAPEX 성장 투자(좀비 아님)
   fcf: number | null
@@ -22,7 +26,7 @@ export interface StockFcfResult {
   fxRate: number | null
   finCur: string | null
   opMargin: number | null        // 영업이익률 %
-  grade: 'excellent' | 'good' | 'fair' | 'expensive' | 'gap' | 'capex' | 'loss' | 'na'
+  grade: 'excellent' | 'good' | 'fair' | 'expensive' | 'gap' | 'capex' | 'loss' | 'mirage' | 'na'
   asOf: string
 }
 
@@ -58,10 +62,18 @@ export async function GET(req: Request) {
     const fcfYield = (!isFinancial && fcf != null && marketCap != null && marketCap > 0) ? Math.round(fcf / marketCap * 1000) / 10 : null
     const qualityGap = !isFinancial && opMargin != null && opMargin > 0 && ocf != null && ocf < 0
     const fcfNegOcfOk = !isFinancial && fcf != null && fcf < 0 && ocf != null && ocf > 0
+    // 💵 다년 평균 — 연간 시계열은 TTM 과 같은 FTS 출처라 같은 환산 계수(스크리너와 동일 계산)
+    const cfFactor = cfFix.fxFailed ? null : (cfFix.converted ? (cfFix.rate ?? 1) : 1)
+    const nY = (tf.annualFcf ?? []).length
+    const avgRaw = nY > 0 ? tf.annualFcf.reduce((s, x) => s + x.fcf, 0) / nY : null
+    const fcfAvgYield = (!isFinancial && avgRaw != null && cfFactor != null && marketCap != null && marketCap > 0)
+      ? Math.round(avgRaw * cfFactor / marketCap * 1000) / 10 : null
+    const nature = assessFcfNature(fcfYield, fcfAvgYield, nY)
 
     const grade: StockFcfResult['grade'] =
       isFinancial ? 'na'
       : qualityGap ? 'gap'
+      : nature.kind === 'mirage' ? 'mirage'   // 🚨 올해만 흑자 — '우수' 문구가 나가면 오설명(배지는 숫자를 상쇄 못한다)
       : fcfYield != null && fcfYield >= 5 ? 'excellent'
       : fcfYield != null && fcfYield >= 3 ? 'good'
       : fcfYield != null && fcfYield >= 1 ? 'fair'
@@ -69,8 +81,8 @@ export async function GET(req: Request) {
       : fcfNegOcfOk ? 'capex'
       : (fcf != null && fcf < 0) ? 'loss' : 'na'
 
-    return NextResponse.json({ ticker, isFinancial, fcfYield, qualityGap, fcfNegOcfOk, fcf, ocf, fxRate: cfFix.rate, finCur: cfFix.finCur, opMargin, grade, asOf: new Date().toISOString() } as StockFcfResult)
+    return NextResponse.json({ ticker, isFinancial, fcfYield, fcfAvgYield, fcfYears: nY, fcfNature: nature.kind, natureNote: nature.note, qualityGap, fcfNegOcfOk, fcf, ocf, fxRate: cfFix.rate, finCur: cfFix.finCur, opMargin, grade, asOf: new Date().toISOString() } as StockFcfResult)
   } catch {
-    return NextResponse.json({ ticker, isFinancial: false, fcfYield: null, qualityGap: false, fcfNegOcfOk: false, fcf: null, ocf: null, fxRate: null, finCur: null, opMargin: null, grade: 'na', asOf: new Date().toISOString() } as StockFcfResult)
+    return NextResponse.json({ ticker, isFinancial: false, fcfYield: null, fcfAvgYield: null, fcfYears: 0, fcfNature: 'na', natureNote: null, qualityGap: false, fcfNegOcfOk: false, fcf: null, ocf: null, fxRate: null, finCur: null, opMargin: null, grade: 'na', asOf: new Date().toISOString() } as StockFcfResult)
   }
 }
