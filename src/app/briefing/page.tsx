@@ -14,6 +14,8 @@ import { cashBandOf } from '@/lib/cashPosition'
 import { LYNCH_CATEGORY_KR } from '@/lib/lynchAnalysis'
 import { TK } from '@/lib/theme'
 import { flagOf } from '@/lib/marketFlag'
+import StockActionChips from '@/app/components/StockActionChips'   // 🔗 종목 액션 SSOT
+import DilutionAlertBanner from '@/app/components/DilutionAlertBanner'   // 🚨 희석 경보(대시보드에만 있던 것을 브리핑에도)
 
 const CARD = '#12151f', BORDER = TK.border
 
@@ -121,17 +123,25 @@ export default function BriefingPage() {
                 ? '기술 타점은 매수 신호지만 Jarvis 펀더멘탈 진단은 매도 검토 — 신규 진입·불타기 자제(WHAT은 펀더멘탈 우선)'
                 : 'Jarvis 펀더멘탈 진단은 매수 기회 — 이 기술 신호는 단기 경계 참고로만(저점 매도 주의)'
               return (
-                <span key={s.ticker + s.market + i} title={clash ? `${s.detail} · ${clashTip}` : s.detail} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: TK.bg3, border: `1px solid ${c}55`, borderRadius: 7, padding: '4px 10px', fontSize: 11.5 }}>
+                // 🔗 칩 전체가 차트 링크 — 신호를 보고 확인하러 가는 게 한 번의 클릭이어야 한다(대시보드 배너와 동일 규약)
+                <a key={s.ticker + s.market + i} href={`/tech-chart?ticker=${encodeURIComponent(s.ticker)}&market=${s.market}`}
+                  title={`${clash ? `${s.detail} · ${clashTip}` : s.detail}\n\n클릭하면 이 종목 차트로 이동합니다`}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: TK.bg3, border: `1px solid ${c}55`, borderRadius: 7, padding: '4px 10px', fontSize: 11.5, textDecoration: 'none' }}>
                   <b style={{ color: TK.slate200 }}>{flagOf(s.market, s.ticker)} {s.name}</b>
                   <span style={{ color: TK.sub, fontSize: 10, fontFamily: 'monospace', fontWeight: 700 }}>{s.ticker}</span>
                   <b style={{ color: c }}>{s.icon} {s.label}</b>
                   {clash && <b style={{ color: s.kind === 'buy' ? TK.red400 : TK.green400, fontSize: 10, borderLeft: `1px solid ${TK.border}`, paddingLeft: 5 }}>{clashTxt}</b>}
-                </span>
+                </a>
               )
             })}
           </div>
         ) : <div style={{ fontSize: 12, color: TK.sub2 }}>오늘은 보유 종목의 타점 전환이 없습니다 — 조용한 날엔 아무것도 안 하는 것도 실력.</div>}
       </Sec>
+
+      {/* 🚨 희석 경보(유상증자·CB) — 대시보드 live 탭에만 있어서, 사이드바 첫 항목인 브리핑만 보는 학생은
+          자기 KR 보유 종목의 유상증자 공시를 영영 못 봤다(2026-08-08 조사). 경보는 학생이 있는 곳에 있어야 한다.
+          경보가 없으면 컴포넌트가 스스로 렌더 0 — 조용한 날엔 화면을 차지하지 않는다. */}
+      <DilutionAlertBanner />
 
       {/* ①½ 이번 주 이벤트 — 어닝 D-day·배당락(이벤트 없으면 렌더 0) */}
       <EventCalendarPanel compact />
@@ -199,6 +209,9 @@ export default function BriefingPage() {
                     </span>
                   )
                 })()}
+                {/* 🔗 정리 후보도 근거 확인 경로가 필요하다 — '팔라'는 말만 있고 왜인지 볼 곳이 없으면 공포로 판다.
+                    이미 보유 중이므로 '보유 등록'은 제외하고 판정·차트만(축에 맞는 액션만 노출) */}
+                <StockActionChips ticker={String(s.ticker)} name={s.name} market={s.market} only={['research', 'chart']} compact />
               </div>
             ))}
           </div>
@@ -234,6 +247,11 @@ export default function BriefingPage() {
                   {it.suggestWon > 0 && <span style={{ fontSize: 10, color: TK.green300, background: '#14532d33', borderRadius: 5, padding: '1px 7px' }}>💰 권장 {Math.round(it.suggestWon / 1e4).toLocaleString()}만원</span>}
                   {it.timing && <TimingBadge t={it.timing} market={it.market} compact />}
                   {it.badges.slice(0, 3).map(b => <span key={b} style={{ fontSize: 9.5, color: TK.sub13, background: '#1b2130', borderRadius: 5, padding: '1px 6px' }}>{b}</span>)}
+                </div>
+                {/* 🔗 다음 행동 — 배지 3개만 보여주고 링크가 없어서, 근거를 더 보려면 통합추천 탭에서 같은 종목을
+                    다시 찾아야 했고 사려면 티커를 손으로 타이핑해야 했다(2026-08-08 연결 조직) */}
+                <div style={{ marginTop: 6 }}>
+                  <StockActionChips ticker={it.ticker} name={it.name} market={it.market} />
                 </div>
                 {it.timing && it.timing.price != null && (reco.d?.portfolioKrw ?? 0) > 0 && (
                   <TradePlanCard market={it.market} timing={it.timing} portfolioKrw={reco.d!.portfolioKrw} />

@@ -17,6 +17,7 @@ import ExitPlanBoard from '@/app/components/ExitPlanBoard'
 import CashPositionCard from '@/app/components/CashPositionCard'
 import FirmHandsCard from '@/app/components/FirmHandsCard'
 import FxAttributionCard from '@/app/components/FxAttributionCard'
+import StockActionChips from '@/app/components/StockActionChips'   // 🔗 종목 액션 SSOT(보유 → 근거·차트)
 import { type Candle } from '@/app/components/CandleChart'
 import { TK } from '@/lib/theme'
 
@@ -112,6 +113,11 @@ export default function AssetsPage() {
   const [sortKR,     setSortKR]     = useState<SortOption>('eval')
   const [sortCRYPTO, setSortCRYPTO] = useState<SortOption>('eval')
   const classifyAttempted = useRef<Set<string>>(new Set())
+  // 🔗 딥링크 프리필 — 추천·리서치 화면의 '➕ 보유 등록' 칩이 `?add=TICKER&name=&market=` 로 보낸다.
+  //    이게 없어서 학생이 추천에서 본 티커를 손으로 다시 타이핑해야 했다(연결 조직 2026-08-08).
+  //    한 번만 적용하고 URL을 정리한다 — 남겨두면 새로고침·뒤로가기 때 모달이 계속 다시 열린다.
+  const addPrefill = useRef<{ ticker: string; name: string; market: Market } | null>(null)
+  const prefillDone = useRef(false)
   // ── 텐배거 트래커 평단가 (localStorage → FullCandleChart avgPrice prop 연동)
   const [tenbaggerPrices, setTenbaggerPrices] = useState<Record<string, number>>({})
   const abortRef = useRef<AbortController|null>(null)
@@ -124,6 +130,26 @@ export default function AssetsPage() {
     const t = setTimeout(() => setDbLoading(false), 5000)
     return () => clearTimeout(t)
   }, [dbLoading])
+
+  // 🔗 `?add=TICKER&name=&market=` 딥링크 → 등록 모달 자동 오픈(프리필). 마운트 후 1회만.
+  //    ⚠️ 렌더 중 window 를 읽으면 하이드레이션이 깨진다(서버엔 URL이 없다) → useEffect 안에서만.
+  useEffect(() => {
+    if (prefillDone.current) return
+    prefillDone.current = true
+    const sp = new URLSearchParams(window.location.search)
+    const t = (sp.get('add') ?? '').trim().toUpperCase()
+    if (!t) return
+    const m = sp.get('market')
+    addPrefill.current = {
+      ticker: t,
+      name: (sp.get('name') ?? '').trim(),
+      market: (m === 'KR' || m === 'CRYPTO' ? m : 'US') as Market,
+    }
+    setEditTarget(null)
+    setModalOpen(true)
+    // URL 정리 — 남겨두면 새로고침·뒤로가기마다 모달이 다시 열려 학생이 갇힌 느낌을 받는다
+    window.history.replaceState({}, '', '/assets')
+  }, [])
 
   // 💱 라이브 환율 — 하드코딩 폴백(1,350)은 조회 실패 시에만. 현금 포지션 카드와 같은 원천을 써야 화면 안에서 수치가 어긋나지 않는다.
   useEffect(() => {
@@ -609,6 +635,13 @@ export default function AssetsPage() {
                     </div>
                   </div>
 
+                  {/* 🔗 내 종목 → 근거·차트 — 보유 화면에서 리서치·차트로 가는 링크가 0건이었다(2026-08-08 조사).
+                      "계속 들고 갈까"를 판단할 곳이 없으면 학생은 가격만 보고 결정하게 된다.
+                      이미 보유 중이라 '보유 등록'·'관심'은 제외 — 축에 맞는 액션만 노출한다. */}
+                  <div onClick={e => e.stopPropagation()}>
+                    <StockActionChips ticker={inv.ticker} name={inv.name} market={inv.market} only={['research', 'chart']} compact />
+                  </div>
+
                   {/* Lynch badge */}
                   {!isNA && lynchMeta && (
                     <span style={{ display:'inline-flex', alignItems:'center', gap:3, padding:'2px 7px', borderRadius:99, fontSize:10, fontWeight:500, color:lynchMeta.color, background:`${lynchMeta.color}15`, border:`1px solid ${lynchMeta.color}35`, alignSelf:'flex-start' }}>
@@ -833,8 +866,11 @@ export default function AssetsPage() {
 
       {modalOpen && (
         <AddInvestmentModal
-          initial={editTarget??undefined}
-          onClose={()=>{setModalOpen(false);setEditTarget(null)}}
+          // 편집이면 그 종목, 딥링크(?add=)면 티커·시장만 채운 껍데기 — 수량·단가는 학생이 직접 입력한다(자동 채움 금지)
+          initial={editTarget ?? (addPrefill.current
+            ? ({ ticker: addPrefill.current.ticker, name: addPrefill.current.name, market: addPrefill.current.market } as Investment)
+            : undefined)}
+          onClose={()=>{setModalOpen(false);setEditTarget(null);addPrefill.current=null}}
           onRefresh={handleRefresh}
           onAdded={(inv) => {
             // ★ 전역 동기화 이벤트 발송

@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react'
 import { TK } from '@/lib/theme'
 import type { ExitPlanItem } from '@/lib/exitPlan'
+import StockActionChips from '@/app/components/StockActionChips'   // 🔗 종목 액션 SSOT
 import { flagOf } from '@/lib/marketFlag'
 
 interface Api { asOf: string; items: ExitPlanItem[]; skipped: string[] }
@@ -81,6 +82,8 @@ export default function ExitPlanBoard() {
                     {it.light === 'green' ? '구조 양호' : it.light === 'red' ? '구조 붕괴' : it.defBroken ? '구조 약화' : '구조 중립'}
                   </span>
                   <span style={{ marginLeft: 'auto', fontSize: 10, color: TK.sub2, fontFamily: 'monospace' }}>종가 {fmtP(it.price, it.market)}</span>
+                  {/* 🔗 매도 판단 직전에 근거를 다시 볼 경로 — 보호선이 깨졌다는 사실만으로 팔면 그건 신호가 아니라 공포다 */}
+                  <StockActionChips ticker={it.ticker} name={it.name} market={it.market} only={['research', 'chart']} compact />
                 </div>
 
                 <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 6 }}>

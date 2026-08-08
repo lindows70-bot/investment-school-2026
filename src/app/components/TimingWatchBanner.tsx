@@ -30,13 +30,17 @@ export default function TimingWatchBanner() {
     const clashTip = s.kind === 'buy'
       ? '기술 타점은 매수 신호지만 Jarvis 펀더멘탈 진단은 매도 검토 — 신규 진입·불타기 자제, 반등은 정리 기회로 참고(WHAT은 펀더멘탈 우선)'
       : 'Jarvis 펀더멘탈 진단은 매수 기회 — 이 기술 신호는 단기 경계 참고로만(펀더 멀쩡한 하락에 저점 매도 주의)'
+    // 🔗 칩 전체가 차트 링크 — "기술적 차트에서 확인"이라고 문장으로만 안내하고 정작 링크가 없었다(2026-08-08).
+    //    경보를 보고 확인하러 가는 게 한 번의 클릭이어야 한다. hi52-radar 는 이미 이렇게 하고 있었다.
     return (
-      <span title={clash ? `${s.detail} · ${clashTip}` : s.detail} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: bg, border: `1px solid ${c}55`, borderRadius: 7, padding: '3px 9px', fontSize: 11, whiteSpace: 'nowrap' }}>
+      <a href={`/tech-chart?ticker=${encodeURIComponent(s.ticker)}&market=${s.market}`}
+        title={`${clash ? `${s.detail} · ${clashTip}` : s.detail}\n\n클릭하면 이 종목 차트로 이동합니다`}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: bg, border: `1px solid ${c}55`, borderRadius: 7, padding: '3px 9px', fontSize: 11, whiteSpace: 'nowrap', textDecoration: 'none' }}>
         <b style={{ color: TK.slate200 }}>{flagOf(s.market, s.ticker)} {s.name}</b>
         <span style={{ color: TK.sub, fontSize: 10, fontFamily: 'monospace', fontWeight: 700 }}>{s.ticker}</span>
         <b style={{ color: c, fontSize: 10 }}>{s.icon} {s.label}</b>
         {clash && <b style={{ color: s.kind === 'buy' ? TK.red400 : TK.green400, fontSize: 9.5, borderLeft: `1px solid ${TK.border}`, paddingLeft: 5 }}>{clashTxt}</b>}
-      </span>
+      </a>
     )
   }
 
@@ -48,7 +52,7 @@ export default function TimingWatchBanner() {
       {buys.length > 0 && <span style={{ fontSize: 10, fontWeight: 800, color: TK.green400, marginLeft: sells.length ? 4 : 0 }}>🟢 매수 기회</span>}
       {buys.slice(0, 5).map(s => <Chip key={s.ticker + s.market + s.label} s={s} />)}
       {sigs.length > 10 && <span style={{ fontSize: 10, color: TK.sub2 }}>외 {sigs.length - 10}건</span>}
-      <span style={{ fontSize: 10.5, color: TK.sub9 }}>어제 대비 전환 · 기술적 차트에서 확인</span>
+      <span style={{ fontSize: 10.5, color: TK.sub9 }}>어제 대비 전환 · 종목을 누르면 차트로</span>
       <button onClick={() => setDismissed(true)} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: TK.sub, cursor: 'pointer', fontSize: 13 }}>✕</button>
     </div>
   )

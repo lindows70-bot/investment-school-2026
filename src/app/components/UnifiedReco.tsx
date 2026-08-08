@@ -12,6 +12,7 @@ import { TK, FS } from '@/lib/theme'
 import { marketFlag } from '@/lib/globalTickers'
 import { flagOf } from '@/lib/marketFlag'
 import { isCorePick } from '@/lib/coreReco'   // ⭐ 3중 통과 술어 SSOT(적립 크론과 동일)
+import StockActionChips from '@/app/components/StockActionChips'   // 🔗 종목 액션 SSOT(리서치·차트·관심·보유등록)
 
 const CARD = TK.bg6, BORDER = TK.border
 const AX = { season: TK.amber500, value: TK.green500, quality: '#2dd4bf', supply: TK.blue400, momentum: TK.violet400, rotation: '#f472b6' }  // 가치/퀄리티/모멘텀/주도섹터/수급/계절 축 색
@@ -139,6 +140,10 @@ function Item({ it, portfolioKrw, vol }: { it: UnifiedRecoItem; portfolioKrw: nu
             💪 지수 대비 {it.rsVsMarket > 0 ? '+' : ''}{it.rsVsMarket}%p<span style={{ opacity: 0.7 }}> (과거·점수 미반영)</span>
           </span>
         )}
+      </div>
+      {/* 🔗 다음 행동 — 여기 링크가 없어서 학생이 6축 점수를 보고도 근거 심화·매수 기록으로 갈 수 없었다(2026-08-08) */}
+      <div style={{ marginBottom: 7 }}>
+        <StockActionChips ticker={it.ticker} name={it.name} market={it.market} />
       </div>
       {/* 🚦 타점 신호등(WHEN 레이어) — 점수·순위와 무관, 진입 타이밍+ATR 손절 참고. ticker 전달 → 🇪🇺 유럽 종목은 €·CHF 등 손절가 정확 표기 */}
       {it.timing && <div style={{ marginBottom: 6 }}><TimingBadge t={it.timing} market={it.market} ticker={it.ticker} /></div>}
@@ -324,6 +329,8 @@ export default function UnifiedReco() {
                     <span style={{ fontSize: FS.micro, fontFamily: 'monospace', color: TK.amber400 }}>통합 {it.combined}</span>
                     <span style={{ fontSize: FS.micro, color: it.timing?.prime ? TK.amber400 : TK.green400 }}>{it.timing?.prime ? '🏅 정예 타점' : '🟢 진입 적기'}</span>
                     <span style={{ fontSize: FS.micro, color: committee[it.ticker]?.final === 'pass' ? TK.green400 : TK.amber400 }}>🎩 {committee[it.ticker]?.final === 'pass' ? '통과' : '회색'}</span>
+                    {/* 🔗 3중 통과 종목에서 바로 근거·행동으로 — 여기서 끊기면 '귀한 자리'를 보고도 아무것도 못 한다 */}
+                    <StockActionChips ticker={it.ticker} name={it.name} market={it.market} only={['research', 'chart', 'hold']} compact />
                   </span>
                 ))}
               </div>

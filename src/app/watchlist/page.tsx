@@ -248,6 +248,15 @@ export default function WatchlistPage() {
                     color:TK.amber400, fontSize:11, fontWeight:700 }}>
                   🔭 리서치
                 </a>
+                {/* 🔗 관심 → 보유 전환 — 이 버튼이 없어서 관심종목과 보유가 완전히 분리된 두 세계였다.
+                    "샀는데 어디에 적지?"에 학생이 티커를 손으로 다시 타이핑해야 했다(2026-08-08). */}
+                <a href={`/assets?add=${encodeURIComponent(item.ticker)}&name=${encodeURIComponent(item.name ?? '')}&market=${item.market}`}
+                  title="이미 매수했다면 보유 종목으로 기록(수량·단가는 직접 입력)"
+                  style={{ flex:1, padding:'6px 0', borderRadius:7, textAlign:'center' as const,
+                    textDecoration:'none', background:N, boxShadow:SHI,
+                    color:TK.green400, fontSize:11, fontWeight:700 }}>
+                  ➕ 보유 등록
+                </a>
                 <button onClick={() => handleRemove(item.id, item.ticker)}
                   disabled={removing === item.ticker}
                   style={{ flex:1, padding:'6px 0', borderRadius:7, border:'none', cursor:'pointer',

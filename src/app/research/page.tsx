@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { resolveGlobalTicker, marketLabel, curFromCode } from '@/lib/globalTickers'
 import FullCandleChart from '@/app/components/FullCandleChart'
+import StockActionChips from '@/app/components/StockActionChips'   // 🔗 종목 액션 SSOT(종착역 해소)
 import JarvisInsight   from '@/app/components/JarvisInsight'
 import InsiderReceipt   from '@/app/components/InsiderReceipt'
 import NoiseCanceller   from '@/app/components/NoiseCanceller'
@@ -489,6 +490,14 @@ export default function ResearchPage() {
               }}>
               {isInWatchlist ? '⭐ 관심종목 등록됨' : wlSuccess ? '✅ 추가 완료!' : '⭐ 관심종목 추가'}
             </button>
+
+            {/* 🔗 종착역 해소 — 이 화면은 종합 매수 판정까지 내고도 나가는 링크가 0건이었다(2026-08-08 조사).
+                판단을 끝낸 학생이 '그래서 뭘'에서 막히면 앱이 거기서 끊긴다. 관심 칩은 위 버튼과 중복이라 제외. */}
+            {stockInfo && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+                <StockActionChips ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market} only={['chart', 'hold']} />
+              </div>
+            )}
           </div>
         </div>
       )}
