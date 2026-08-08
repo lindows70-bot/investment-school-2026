@@ -26,6 +26,7 @@ import { classifyAssetRole, type AssetRole } from '@/lib/portfolioRole'   // P2:
 import { getCurrentSeason } from '@/lib/currentSeason'
 import { holdingFit } from '@/lib/seasonNavigator'   // 보강: 계절 적합도(불리 종목 트림)
 import { getMoneyFlow } from '@/lib/moneyFlow'        // 보강: 수급 이탈(CROWDED) 트림
+import { computeMoatErosion } from '@/lib/buffettSell'   // 🏰 버핏 해자 침식(연간 마진 구조 하락 — 출구 플랜과 동일 SSOT)
 
 // 코어 목표 밴드(40~70%) — 위험 계절·매파일수록 코어(지수+채권) ↑
 function coreTargetBand(usQuad: string, rateDir: string): { min: number; max: number; text: string } {
@@ -238,7 +239,7 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v48+${UNIFIED_RECO_V}:${user.id}:${today}:${fp}`   // v48: fast_grower 라벨 '고성장주' 통일(f2ecdd0) — 옛 라벨 박제 무효화 / v43: 📉 매수측 급락 제외(유령 발굴 포함) / v41: VWAP 하향 이탈 매도 근거+크로스 칩
+  const cacheKey = `ai-rebalance-v49+${UNIFIED_RECO_V}:${user.id}:${today}:${fp}`   // v49: 🏰 버핏 해자 침식 — 매도 사유 추가 + 손실 시 HOLD_DIP 예외(기업 변질은 고평가 보호 대상 아님)
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)
@@ -319,11 +320,20 @@ export async function GET(req: Request) {
           const mece = classifyLynchMece(v.lynch_category ?? null, m.earningsGrowth, m.sector).cat
           lynchCategory = mece === 'na' ? null : mece   // 'na'는 기존처럼 미분류(null) — 황금비율 트림 대상 제외
           const decision = evaluateSignal(m, lynchCategory, false)
-          const thesisBroken = m.opMargin2qDown || m.fcfNegative || (m.opMargin != null && m.opMargin < -10)
+          // 🏰 버핏 해자 침식(연간 총마진 구조 하락 — buffettSell SSOT·24h 캐시) — HOLD_DIP은 '단순 고평가'로부터
+          //    학생을 보호하는 장치인데, 해자 침식은 고평가가 아니라 '기업이 변했다'라 보호 대상이 아니다(버핏 매도원칙).
+          //    경기순환주는 사이클 하강일 수 있어 격상에서 제외(COP 화면검증과 동일 원인 분리).
+          let moatStructural = false
+          try {
+            const moat = await computeMoatErosion(v.ticker, (v.market === 'KR' ? 'KR' : 'US'))
+            moatStructural = moat.hit === true && lynchCategory !== 'cyclical'
+          } catch { /* graceful — 판정 보류 */ }
+          const thesisBroken = m.opMargin2qDown || m.fcfNegative || (m.opMargin != null && m.opMargin < -10) || moatStructural
           if (decision.type === 'SELL') {
             sellReasons = decision.reasons
+            if (moatStructural) sellReasons = [...sellReasons, '🏰 해자 침식 — 연간 총마진이 고점 대비 회복 없이 구조적으로 하락(기업이 변했다는 버핏 매도 신호)']
             if (v.pnlPct != null && v.pnlPct > 0)        action = 'TAKE_PROFIT'   // 수익 중 → 익절
-            else if (thesisBroken)                        action = 'CUT_LOSS'      // 손실 + thesis붕괴 → 손절
+            else if (thesisBroken)                        action = 'CUT_LOSS'      // 손실 + thesis붕괴(해자 침식 포함) → 손절
             else                                          action = 'HOLD_DIP'      // 손실 + 단순고평가 → 저점매도 방지
           } else if (decision.type === 'BUY') {
             action = 'DEFEND'

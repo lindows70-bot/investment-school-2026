@@ -6,6 +6,7 @@ import TimingBadge from '@/app/components/TimingBadge'
 import TradePlanCard from '@/app/components/TradePlanCard'
 import EventCalendarPanel from '@/app/components/EventCalendarPanel'
 import type { UnifiedRecoResult } from '@/app/api/unified-reco/route'
+import type { ExitPlanApi } from '@/app/api/exit-plan/route'
 import type { RotationResult } from '@/app/api/sector-rotation/route'
 import type { WatchSig } from '@/app/api/cron/timing-watch/route'
 import { type WLApi, splitGroups, factorStats, buildLesson, WL_PERIOD_LABEL } from '@/lib/winLose'
@@ -51,6 +52,7 @@ const Skel = ({ h = 60 }: { h?: number }) => <div style={{ height: h, background
 export default function BriefingPage() {
   const watch = useFetch<{ sigs: WatchSig[] }>('/api/timing-watch')
   const reb = useFetch<any>('/api/ai-rebalance')
+  const exitp = useFetch<ExitPlanApi>('/api/exit-plan')   // 🚪 출구 플랜 조인 — ②정리할 것에 참고선·버핏 점검 근거 병기
   const reco = useFetch<UnifiedRecoResult>('/api/unified-reco')
   const rot = useFetch<RotationResult>('/api/sector-rotation')
   const marks = useFetch<any>('/api/marks-cycle')
@@ -63,6 +65,11 @@ export default function BriefingPage() {
   const cash = useFetch<{ needsSetup?: boolean; cashPct?: number; cashKrw?: number; verdict?: 'aggressive' | 'inband' | 'defensive' | null }>('/api/cash-position')
 
   const cal = useFetch<{ events: { type: string; dDay: number; ticker: string }[] }>('/api/event-calendar')
+
+  // 🚪 출구 플랜 조인 — ② 정리 후보 옆에 '기술 출구신호(WHEN)'와 '버핏 기업 점검(WHAT)'을 나란히.
+  //    리밸런싱(비중)·출구신호(타이밍)·버핏(기업)은 축이 다르므로 병기해야 학생이 "왜 정리인가"를 축별로 읽는다.
+  const exitMap = new Map((exitp.d?.items ?? []).map(it => [it.ticker.toUpperCase(), it]))
+  const buffettAlerts = (exitp.d?.items ?? []).filter(it => it.buffett && (it.buffett.level === 'strong' || it.buffett.level === 'watch'))
 
   const cs = reb.d?.coreSatellite
   const sells = cs ? [...(cs.drop ?? []).map((x: any) => ({ ...x, kind: '버릴 것', kc: TK.red400 })), ...(cs.trim ?? []).map((x: any) => ({ ...x, kind: '줄일 것', kc: TK.amber400 }))].slice(0, 4) : []
@@ -161,6 +168,24 @@ export default function BriefingPage() {
                   </b>
                 )}
                 {(() => {
+                  // 🚪 출구 플랜 조인 — 같은 종목의 타이밍(출구신호)·기업(버핏) 판정을 비중 사유 옆에 병기(축 병기 원칙)
+                  const ex = exitMap.get(String(s.ticker ?? '').toUpperCase())
+                  if (!ex) return null
+                  const bf = ex.buffett
+                  return (<>
+                    {ex.signals.length > 0 && (
+                      <b title={`출구 플랜 매도 압력: ${ex.signals.map(x => `${x.icon} ${x.label}`).join(' · ')} — 상세는 자산 관리 → 출구 플랜`}
+                        style={{ fontSize: 10, color: TK.amber400 }}>🚪 출구신호 {ex.signals.length}</b>
+                    )}
+                    {bf && bf.level !== 'na' && (
+                      <b title={bf.headline}
+                        style={{ fontSize: 10, color: bf.level === 'strong' ? TK.red400 : bf.level === 'watch' ? TK.amber400 : TK.green400 }}>
+                        {bf.level === 'strong' ? '🏰 기업 변질' : bf.level === 'watch' ? '🏰 기업 주의' : '🏰 기업은 그대로'}
+                      </b>
+                    )}
+                  </>)
+                })()}
+                {(() => {
                   // 🛡 보호 문구(투매 금물)는 절대 잘리면 안 된다 — 90자 컷이 앞부분만 남기면
                   //   '손실 중 —' 까지만 보여 정반대(당장 팔라)로 읽힌다. 앞만 자르고 🛡 꼬리는 통짜 유지.
                   const r = String(s.reason ?? '')
@@ -178,6 +203,20 @@ export default function BriefingPage() {
             ))}
           </div>
         ) : <div style={{ fontSize: 12, color: TK.sub2 }}>{reb.d ? '지금 정리할 종목이 없습니다 — 포트폴리오 건강.' : reb.unauth ? '내 포트폴리오 기준이라 로그인하면 보입니다.' : '리밸런싱 데이터 로드 실패 — 상세 탭에서 확인해주세요.'}</div>}
+        {/* 🏰 정리 목록에 없어도 기업 변질 감시 종목은 여기서 알린다 — 비중(리밸런싱)과 기업(버핏)은 다른 축이라
+            리밸런싱이 조용해도 버핏 축이 켜질 수 있다. 반대로 정리 후보인데 버핏 🟢이면 '기업이 아니라 비중 문제'다. */}
+        {buffettAlerts.length > 0 && (
+          <div style={{ fontSize: 10.5, color: TK.sub13, lineHeight: 1.6, marginTop: 7, background: '#2a1f0a55', border: `1px solid ${TK.amber400}33`, borderRadius: 8, padding: '6px 10px' }}>
+            🏰 <b style={{ color: TK.amber400 }}>버핏 기업 점검 감시</b> — {buffettAlerts.map(it => `${it.name}(${it.buffett!.level === 'strong' ? '🔴 변질 신호 다수' : '🟡 신호 1개'})`).join(' · ')}
+            <span style={{ color: TK.sub3 }}> · 가격이 아니라 기업이 변했는지의 축 — 근거는 </span>
+            <a href="/assets" style={{ color: TK.indigo400, textDecoration: 'none', fontWeight: 700 }}>출구 플랜 →</a>
+          </div>
+        )}
+        {exitp.d && exitp.d.items.length > 0 && (
+          <div style={{ fontSize: 10, color: TK.sub3, marginTop: 5 }}>
+            🚪 정리 판단의 근거 3축 — 비중(리밸런싱)·타이밍(출구신호)·기업(버핏 점검)을 함께 보세요. 참고선·3축 상세는 <a href="/assets" style={{ color: TK.indigo400, textDecoration: 'none' }}>자산 관리 → 출구 플랜</a>
+          </div>
+        )}
       </Sec>
 
       {/* ③ 담을 것 */}
