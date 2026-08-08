@@ -22,7 +22,7 @@ const LENSES: Lens[] = [
     basis: '지금 매크로 국면(금리·CPI·장단기차)에 맞는 성격의 린치 퀀트 우량주. 근거 = 매크로 국면 × 펀더멘탈 점수(린치·PEG·마진·FCF).' },
   { icon: '🎯', name: '맞춤 추천 (국내)', color: TK.amber400, href: '/dashboard?tab=moneyflow&view=reco',
     basis: '외국인·기관이 실제로 사 모으는 국내주. 근거 = 실수급(쌍끌이·개인 이탈) + 저PEG. 미국은 일별 수급이 없어 국내 전용.' },
-  { icon: '🎯', name: '알파 헌터', color: '#a855f7', href: '/dashboard?tab=alphahunter',
+  { icon: '🧲', name: '알파 헌터', color: '#a855f7', href: '/dashboard?tab=alphahunter',
     basis: '가치(이익)는 오르는데 주가는 안 따라온 괴리(저평가) vs 주가만 펌핑된 거품. 근거 = 이익성장률 − 주가수익률.' },
   { icon: '🚀', name: '10배거 헌터', color: TK.red400, href: '/dashboard?tab=tenbagger',
     basis: '아무 종목이나 입력하면 린치 10루타 7대 기준으로 채점. 근거 = 작은 시총 + 고성장 + 저PEG + 언더커버리지(고위험·발굴형).' },

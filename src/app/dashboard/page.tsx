@@ -1656,7 +1656,7 @@ export default function DashboardPage() {
             items: [
               { key: 'rebalance',   icon: '🤖', label: 'AI 리밸런싱',        desc: '손익 반영 익절/손절 교체매매' },
               { key: 'macroai',  icon: '🌐', label: '거시경제 AI 추천',       desc: '매크로 × 린치 × Gemini 종합 추천' },
-              { key: 'alphahunter', icon: '🎯', label: '알파 헌터',          desc: '가치·가격 괴리 탐지(저평가/거품)' },
+              { key: 'alphahunter', icon: '🧲', label: '알파 헌터',          desc: '가치·가격 괴리 탐지(저평가/거품)' },
               { key: 'tenbagger',icon: '🚀', label: '10배거 헌터',           desc: '린치 10루타 7대 기준 종목 검증' },
               { key: 'quantbuilder',icon: '🛰️', label: 'AI 1억 퀀트 빌더',   desc: '코어-새틀라이트 백지 설계' },
             ],
