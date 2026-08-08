@@ -6,6 +6,7 @@ export const maxDuration = 60
 import { NextResponse } from 'next/server'
 import { SECTOR_ROTATION_KEY, SECTOR_TO_ROT, rotAxisScore } from '@/lib/rotationShared'   // 🧭 로테이션 SSOT
 import { wOf } from '@/lib/axisWeights'   // ⚖️ 6축 가중치 SSOT — 통합추천과 **같은 상수**(복붙 금지)
+import { getAxisSnapshot } from '@/lib/axisSnapshot'   // 📐 축 점수 SSOT — 유니버스에 있으면 통합추천과 동일 값
 import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache } from '@/lib/appCache'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
@@ -27,6 +28,9 @@ export interface ResearchVerdict {
   score: number                          // 종합 매수 적합도 0~100
   sector: string | null; rotationQuad: RotQuad | null   // GICS 섹터(영문) + 로테이션 국면 — 리서치 리포트 재사용(제2원칙)
   axes: { season: number; value: number; quality: number; momentum: number; rotation: number; supply: number }
+  /** 📐 축 출처 — 'universe'면 통합추천과 **같은 값**(모순 없음) · 'local'이면 유니버스 밖이라 자체 계산.
+   *  화면이 "왜 통합추천엔 이 종목이 없나"를 설명할 수 있게 정직하게 내보낸다. */
+  axisSource: 'universe' | 'local'
   seasonLabel: string; seasonFit: 'favored' | 'neutral' | 'unfavored'
   fwdEpsDir: 'accel' | 'flat' | 'decline' | 'unknown'
   priceTrend: 'up' | 'side' | 'down' | 'unknown'
@@ -50,14 +54,17 @@ export async function GET(req: Request) {
     return NextResponse.json({ unsupported: true, reason: '개별 주식 전용 판정입니다(ETF·코인·원자재 제외).' }, { headers: { 'Cache-Control': 'no-store' } })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || url.origin
-  // v15: ⚖️ 6축 가중치를 axisWeights SSOT 로 교체(해외는 수급 0·가치 30·모멘텀 25) — 점수가 바뀌므로 필수 범프
-  const cacheKey = `research-verdict-v15:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v13: 정예 타점 pro 문구 재측정 수치로 갱신(내용 변경=키 범프) / v12: 📋 어닝 서프라이즈 이력 근거
+  // v16: 📐 축 점수를 유니버스 SSOT 로(통합추천과 동일) — 점수가 바뀌므로 필수 범프
+  // v15: ⚖️ 6축 가중치를 axisWeights SSOT 로 교체(해외는 수급 0·가치 30·모멘텀 25)
+  const cacheKey = `research-verdict-v16:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v13: 정예 타점 pro 문구 재측정 수치로 갱신(내용 변경=키 범프) / v12: 📋 어닝 서프라이즈 이력 근거
   const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // ── 전 신호 동시 발사(async-api-routes: start early, await late) — 보조 신호·로테이션 캐시는 m과 무관하므로
   //    buildSignalMetrics(콜드 2~5s)를 기다리지 않고 같이 출발 → 콜드 응답시간 = max(신호들)로 단축(합이 아님)
   const mP = buildSignalMetrics(ticker, market, name, base)
+  // 📐 축 SSOT — 유니버스에 있으면 통합추천과 **같은 축 값**을 쓴다(캐시 읽기라 비용 ~0, 병렬 발사)
+  const axP = getAxisSnapshot(ticker, market).catch(() => null)
   const signalsP = Promise.all([
     getCurrentSeason(base).catch(() => null),
     fetch(`${base}/api/reverse-dcf?ticker=${encodeURIComponent(ticker)}&market=${market}`, { signal: AbortSignal.timeout(10_000) })
@@ -77,43 +84,54 @@ export async function GET(req: Request) {
   const m = await mP
   if (!m) return NextResponse.json({ unsupported: true, reason: '재무 데이터를 가져오지 못했습니다.' }, { headers: { 'Cache-Control': 'no-store' } })
   const [season, dcf, flow, timing, insider] = await signalsP
+  const ax = await axP   // 📐 유니버스 축(있으면 통합추천과 동일 · 없으면 null → 아래 자체 계산 폴백)
   // ⬛ 관망(횡보) — ADX<20 추세 없음 + 신호등 미확립(green=구조적 상승은 제외, 자기모순 차단). 영상 '회색 지대'
   const choppy = !!(timing?.supply?.choppy && timing.light !== 'green')
   const adx = timing?.supply?.adx ?? null
 
-  const lynchCategory = classifyLynchMece(null, m.earningsGrowth, m.sector).cat
+  // 📐 린치 분류 — 유니버스 값 우선. 분류가 갈리면 **계절 축이 통째로 달라진다**(실측: 100 vs 60).
+  //    통합추천은 유니버스의 lynchCategory 로 holdingFit 을 계산하므로 여기서도 같은 입력을 써야 한다.
+  const lynchCategory = ax?.lynchCategory ?? classifyLynchMece(null, m.earningsGrowth, m.sector).cat
   const lc = lynchCategory === 'na' ? null : lynchCategory
 
   // ① 계절 적합 — 현재 매크로 국면에 이 종목이 유리/불리한가
   const quad: Quadrant = season ? (market === 'KR' ? season.krQuad : season.usQuad) : 'shoulder'
-  const h: Holding = { ticker: '', weight: 0, lynchCategory: (lc as Holding['lynchCategory']) ?? null, sector: m.sector ?? undefined }
+  const h: Holding = { ticker: '', weight: 0, lynchCategory: (lc as Holding['lynchCategory']) ?? null, sector: (ax?.sector ?? m.sector) ?? undefined }
   const fit = season ? holdingFit(h, quad) : 0.5
   const seasonScore = clamp(fit * 100)
   const seasonFit: ResearchVerdict['seasonFit'] = fit >= 0.75 ? 'favored' : fit <= 0.5 ? 'unfavored' : 'neutral'
   const seasonLabel = season ? SEASON_META[quad].label : '국면 분석 보류'
 
-  // ② 가치 — PEG(기저효과 가드) + 역-DCF 보정
+  // ② 가치 — 📐 유니버스 우선(PEG 촘촘 50% + 어닝일드 25% + FCF수익률 25% — 통합추천과 동일 계산).
+  //    유니버스 밖 종목만 아래 자체 계산(PEG 구간)으로 폴백한다. ⚠️ 폴백은 재료가 적어 결과가 다를 수 있다.
   const pegSuspect = isPegBaseEffect(m.peg, m.earningsGrowth)
-  let value = 50
-  if (pegSuspect) value = 50   // 착시 저PEG는 중립(저평가 근거로 못 씀)
-  else if (m.peg != null && m.peg > 0) value = m.peg <= 0.8 ? 90 : m.peg <= 1.2 ? 75 : m.peg <= 2.2 ? 55 : 30
-  if (dcf === 'demanding') value -= 15          // 역-DCF 기대 과도
-  else if (dcf === 'conservative') value += 10  // 시장 기대 보수적(저평가 여지)
-  value = clamp(value)
+  let value: number
+  if (ax) {
+    value = ax.value
+  } else {
+    value = 50
+    if (pegSuspect) value = 50   // 착시 저PEG는 중립(저평가 근거로 못 씀)
+    else if (m.peg != null && m.peg > 0) value = m.peg <= 0.8 ? 90 : m.peg <= 1.2 ? 75 : m.peg <= 2.2 ? 55 : 30
+    if (dcf === 'demanding') value -= 15          // 역-DCF 기대 과도
+    else if (dcf === 'conservative') value += 10  // 시장 기대 보수적(저평가 여지)
+    value = clamp(value)
+  }
 
   // ③ 수급 — 스마트머니
   const supply = flow === 'INFLOW' ? 80 : flow === 'NEGLECTED' ? 58 : flow === 'NEUTRAL' ? 55 : flow === 'CROWDED' ? 32 : 50
 
-  // ④ 모멘텀 — Fwd EPS 방향 + 주가추세(SSOT)
-  const momentum = m.momentumScore
+  // ④ 모멘텀 — 📐 유니버스 우선. ⚠️ 실사고 지점: 자체 경로가 **50(=모름)** 을 내는데 유니버스는 91 이었다.
+  //    "아는 값을 모른다고 처리"하면 학생은 같은 종목을 두 화면에서 정반대로 읽는다.
+  const momentum = ax?.momentum ?? m.momentumScore
 
-  // ⑤ 퀄리티 — 영업이익률 + 자본효율(ROIC 우선·빚 반영, roeInflated 상쇄) + 이익질(FCF). 추가 fetch 0(SignalMetrics 재사용)
+  // ⑤ 퀄리티 — 📐 유니버스 우선(영업이익률 30% + ROE 30% + 저부채 25% + 이익질 15%).
+  //    폴백은 재료가 달라(저부채 없음) 결과가 다를 수 있다 — 유니버스 밖 종목에만 쓴다.
   const marginScore = m.opMargin == null ? 0.4 : m.opMargin >= 25 ? 1.0 : m.opMargin >= 15 ? 0.8 : m.opMargin >= 8 ? 0.6 : m.opMargin >= 0 ? 0.35 : 0.1
   const eff = m.roic ?? m.roe
   let effScore = eff == null ? 0.4 : eff >= 20 ? 1.0 : eff >= 15 ? 0.8 : eff >= 10 ? 0.6 : eff >= 5 ? 0.35 : eff > 0 ? 0.2 : 0
   if (m.roeInflated) effScore = Math.min(effScore, 0.4)   // 빚으로 부풀린 ROE 상쇄(진짜 자본효율만)
   const cashScore = m.fcf == null ? 0.5 : m.fcfNegative ? 0.3 : 1.0
-  const quality = clamp((marginScore * 0.40 + effScore * 0.40 + cashScore * 0.20) * 100)
+  const quality = ax?.quality ?? clamp((marginScore * 0.40 + effScore * 0.40 + cashScore * 0.20) * 100)
 
   // ⑥ 주도섹터 — 섹터 로테이션 RRG 쏠림(unified-reco와 동일 SSOT·캐시 읽기만). 콜드/미매핑이면 중립 50
   //    (조회는 위 rotP에서 이미 병렬 발사 — 여기선 결과만 수거)
@@ -200,6 +218,7 @@ export async function GET(req: Request) {
     ticker, name, market, verdict, score,
     sector: m.sector ?? null, rotationQuad: rotQuad,
     axes: { season: seasonScore, value, quality, momentum, rotation, supply },
+    axisSource: ax ? 'universe' : 'local',
     seasonLabel, seasonFit, fwdEpsDir: m.fwdEpsDir, priceTrend: m.priceTrend,
     peg: m.peg, pegSuspect, dcfVerdict: dcf, flowStatus: flow,
     roic: m.roic, roe: m.roe, roeInflated: m.roeInflated,
