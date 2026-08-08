@@ -40,7 +40,14 @@
 - [x] ⛔ 보존: tossQuote/tossOwner(보존 결정 기록 있음) · macroData(실제 폴백 사용 중)
 - [x] 삭제 후 tsc·lint·check:build 통과 + 라이브 12화면 200/307 정상
 
-## 다음 라운드 후보(미착수)
-- reco-hub 렌즈 카드에 '오늘의 대표 종목' 표시 — 정적 원칙(fetch 0)을 깨야 해서 보류
-- middleware protectedPaths 13개 누락(브리핑·성적표 등) — 데이터는 API가 막지만 비로그인 UX
-- macroData 의 미사용 상수(DOT_RATES·SEP_TABLE 구형) 정리
+## Phase G — 잔여 후보 처리 (완료)
+- [x] middleware protectedPaths 13개 보강 — 라이브 전수 307 리다이렉트 확인
+- [x] macroData 구형 중복 상수 제거(DOT_RATES·DOT_PLOT_DATA·SepRow·SEP_TABLE·toDots·타입 2)
+      ⛔ LATEST_SEP 은 MacroDashboard 실사용 중이라 보존 — 조사 에이전트의 '참조 0' 판정은 오판이었다
+- [x] **덤으로 발견·수정**: SEP 점도표 수치가 출처(발표 회차) 없이 화면에 나가고 있었다.
+      세 분기 문구에 기준 병기 + 6개월 초과 시 `⚠️ N개월 전 전망` 자동 표시
+- [x] reco-hub '오늘의 대표 종목' — **기각**(근거는 context-notes.md). 지도의 목적이 흐려지고
+      API 6개를 새로 호출해야 하며, 이미 지도→렌즈 화면→종목 액션 두 클릭으로 도달한다
+
+## 전부 완료 — 남은 것 없음
+
