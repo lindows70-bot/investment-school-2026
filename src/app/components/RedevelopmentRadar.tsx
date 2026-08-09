@@ -101,6 +101,33 @@ export default function RedevelopmentRadar() {
     if (lawd) window.location.href = `/real-estate/apt?lawd=${lawd}${apt ? `&apt=${encodeURIComponent(apt)}` : ''}`
   }
 
+  // 🗺️ 동 이름 → 자치구 (응답 데이터에서 학습). 실거래 리서치는 **지역(lawd)이 필수**라
+  //    구를 모르면 이동 자체가 안 된다 — 검색 0건 안내의 '실거래 보기'가 무반응이던 원인.
+  //    ⚠️ Map 을 for..of 로 돌면 TS2802 — Array.from 으로(이 프로젝트 반복 함정).
+  const dong2gu = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const p of d?.stageProjects ?? []) {
+      const dm = /^([가-힣0-9]+동)/.exec(p.addr ?? '')
+      if (dm && p.gu && !m.has(dm[1])) m.set(dm[1], p.gu)
+    }
+    for (const z of d?.zoneOnly ?? []) {
+      const dm = /([가-힣0-9]+동)/.exec(z.pos ?? '')
+      if (dm && z.gu && !m.has(dm[1])) m.set(dm[1], z.gu)
+    }
+    return m
+  }, [d])
+
+  /** 검색어에서 자치구 추론 — '오금 대림' → 오금동 → 송파구. 못 찾으면 null(버튼 대신 안내를 띄운다) */
+  const guessGu = (query: string): string | null => {
+    const toks = query.trim().split(/\s+/).filter(Boolean)
+    const pairs = Array.from(dong2gu.entries())
+    for (const t of toks) {
+      const hit = pairs.find(([dong]) => dong === t || dong === `${t}동` || dong.startsWith(t))
+      if (hit) return hit[1]
+    }
+    return null
+  }
+
   if (loading) return <div style={{ padding: 24, color: TK.sub, background: TK.bg3, borderRadius: 14, border: `1px solid ${BORDER}` }}>🏗️ 서울 정비사업 데이터를 불러오는 중…</div>
   if (!d) return <div style={{ padding: 24, color: TK.sub, background: TK.bg3, borderRadius: 14, border: `1px solid ${BORDER}` }}>정비사업 데이터를 불러오지 못했습니다.</div>
 
@@ -275,13 +302,22 @@ export default function RedevelopmentRadar() {
                   이 목록은 <b>정비구역으로 지정돼 고시된</b> 사업만 담습니다. <b>안전진단만 통과</b>했거나 정비계획을
                   세우는 중인 단지는 아직 서울시 고시에 없어서 안 보여요 — 데이터가 빠진 게 아니라 <b>단계가 이르기 때문</b>입니다.
                 </div>
-                {q.trim() && (
-                  <div onClick={() => goApt(guF, q.trim())}
-                    style={{ display: 'inline-block', marginTop: 8, cursor: 'pointer', fontSize: FS.tiny, fontWeight: 800,
-                      color: '#1c1917', background: '#fdba74', borderRadius: 999, padding: '4px 12px' }}>
-                    💰 그래도 &lsquo;{q.trim()}&rsquo; 실거래는 볼 수 있어요 →
-                  </div>
-                )}
+                {/* ⚠️ 실거래 리서치는 지역(lawd)이 있어야 열린다 — 구를 모르면 버튼이 무반응이 된다(실제로 그랬다).
+                    선택된 구 → 검색어에서 추론한 구 순으로 쓰고, 둘 다 없으면 버튼 대신 방법을 알려준다. */}
+                {q.trim() && (() => {
+                  const gu = guF ?? guessGu(q)
+                  return gu ? (
+                    <div onClick={() => goApt(gu, q.trim())}
+                      style={{ display: 'inline-block', marginTop: 8, cursor: 'pointer', fontSize: FS.tiny, fontWeight: 800,
+                        color: '#1c1917', background: '#fdba74', borderRadius: 999, padding: '4px 12px' }}>
+                      💰 그래도 &lsquo;{q.trim()}&rsquo; 실거래는 볼 수 있어요 — {gu} →
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: 8, fontSize: FS.micro, color: TK.sub3 }}>
+                      💡 실거래로 보시려면 위 <b>지도에서 자치구를 먼저 누르거나</b>, 검색어에 동 이름을 넣어보세요(예: 오금동 대림).
+                    </div>
+                  )
+                })()}
               </div>
             )
             : searchHits.map((p, i) => {
