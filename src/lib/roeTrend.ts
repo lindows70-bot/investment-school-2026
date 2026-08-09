@@ -12,9 +12,29 @@
 //     평균 대비 +16%p 개선이지만 최신이 전년보다 낮다. → `최신 ≥ 직전연도` 조건을 넣는다.
 //
 // ⛔ 점수 미반영 — 배지·근거 전용. 전향적 표본이 쌓이기 전에 점수에 넣지 않는다(앱 관례).
+//
+// 🔬 소급 백테스트 결론(2026-08-09) — **점수 승격 기각.** 아래 ROE_TREND_BACKTEST 참조.
+//   인터뷰의 가설("ROE가 급등하는 기업은 아직 주가에 덜 반영됐다")은 우리 표본에서 지지되지 않았다.
+//   문구도 그에 맞춰 고쳤다 — 검증되지 않은 주장을 학생 화면에 남겨두면 그게 가짜 정밀이다.
 import { getCache, setCache } from '@/lib/appCache'
 
 export type RoeTrendKind = 'improving' | 'deteriorating' | 'stable' | 'na'
+
+/** 🔬 소급 백테스트 성적 — 숫자를 문구에 흩뿌리지 않고 여기 한 곳에 둔다(백테스트 관례).
+ *  방법: 유니버스 등간격 층화 표본 → 최신 회계연도를 **빼고** 판정(룩어헤드 차단) →
+ *        판정에 쓴 마지막 회계연도 종료 +4개월(공시 지연)부터 12개월 수익률 → 같은 표본 평균 대비 초과분.
+ *  4단 해부: ①종목 분산 ✅ ②섹터 점유 24% ✅ ③시점 분산 ❌ ④이상치 제거 — improving 사망.
+ *  ⚠️ 가장 큰 한계: Yahoo 연간 재무가 **정확히 4년**뿐이라(실측 208/208종·6년 이상 0%)
+ *     판정에 3년을 쓰면 코호트를 하나밖에 못 만든다. 다년 교차 검증이 데이터상 불가능하다. */
+export const ROE_TREND_BACKTEST = {
+  sample: 285,              // 판정 가능 관측 수(320종 표본 중)
+  startMonth: '2025-05',    // 사실상 단일 시점 — 12월 결산이 대부분이라 구조적으로 뭉친다
+  improvingN: 43,
+  improvingEdgePp: -5.2,    // 상하위 10% 절사 후 초과분(원 +6.8%p 는 소수 대박이 만든 것 — 중위는 기준선보다 낮았다)
+  deterioratingN: 69,
+  deterioratingEdgePp: 21.8,// 절사 후에도 생존했으나 ③시점 분산 미통과 → 승격 불가
+  verdict: 'not_promoted',
+} as const
 
 export interface RoeYear { y: string; roe: number }
 export interface RoeTrendResult {
@@ -46,20 +66,22 @@ export function assessRoeTrend(years: RoeYear[]): RoeTrendResult {
 
   // 개선 — 꺾이지 않았고(최신 ≥ 직전연도) 과거 평균을 뚜렷이 넘어섰고 절대 수준도 최소선(10%) 이상
   if (latest >= prev && deltaPp >= 5 && latest >= 10) {
+    // ⚠️ 예전 문구는 "아직 주가에 덜 반영됐을 수 있어요"였다 — 소급 확인에서 **반증됐다**(초과 −5.2%p).
+    //    좋은 회사라는 사실과 싼 주식이라는 주장은 다르다. 후자는 근거가 없으면 쓰지 않는다.
     return { ...base, kind: 'improving',
-      note: `자본효율(ROE)이 좋아지는 중 — ${nY}년 평균 ${prevAvg}%였는데 최근 ${r1(latest)}%입니다(+${deltaPp}%p). 아직 주가에 덜 반영됐을 수 있어요` }
+      note: `자본효율(ROE)이 좋아지는 중 — ${nY}년 평균 ${prevAvg}%였는데 최근 ${r1(latest)}%입니다(+${deltaPp}%p). 다만 소급 확인(${ROE_TREND_BACKTEST.sample}종·${ROE_TREND_BACKTEST.startMonth} 시작 1개 시점)에선 이런 종목들이 이후 1년간 시장 평균보다 더 오르지는 않았습니다 — 좋은 회사라는 뜻이지 싼 주식이라는 뜻은 아닙니다` }
   }
   // 악화 — 꺾였고 과거 평균보다 뚜렷이 낮다
   if (latest <= prev && prevAvg - latest >= 5) {
     return { ...base, kind: 'deteriorating',
-      note: `자본효율(ROE)이 나빠지는 중 — ${nY}년 평균 ${prevAvg}%였는데 최근 ${r1(latest)}%입니다(${deltaPp}%p). 경쟁이 심해졌는지 확인하세요` }
+      note: `자본효율(ROE)이 나빠지는 중 — ${nY}년 평균 ${prevAvg}%였는데 최근 ${r1(latest)}%입니다(${deltaPp}%p). 경쟁이 심해졌는지 확인하세요. 다만 이것만으로 파는 근거는 아닙니다 — 같은 소급 확인에서 ROE가 꺾인 구간이 오히려 반등의 출발점인 경우가 많았습니다(시점이 하나뿐이라 일반화는 못 합니다)` }
   }
   return { ...base, kind: 'stable', note: null }
 }
 
 /** 연간 ROE 시계열 수집 — buffettSell 과 같은 FTS annual 창(5년)을 쓴다. 캐시 24h(연간 재무는 분기에 한 번 바뀐다). */
 export async function getRoeTrend(ticker: string, market: 'KR' | 'US'): Promise<RoeTrendResult> {
-  const cacheKey = `roe-trend-v1:${ticker}:${market}`
+  const cacheKey = `roe-trend-v2:${ticker}:${market}`   // v2: 📉 note 문구 교체(소급 백테스트 반증 반영 — 스키마 동일이라 훅이 못 잡는다)
   const cached = await getCache<RoeTrendResult>(cacheKey, 24 * 3600_000)
   if (cached) return cached
   try {

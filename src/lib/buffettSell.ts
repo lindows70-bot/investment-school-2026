@@ -97,7 +97,10 @@ export function combineBuffettSell(
     : moat.detail
   // 두 지표가 함께 꺾이면 신뢰도↑ · 마진만 꺾였으면 완화(자본효율은 살아 있다는 사실을 숨기지 않는다)
   const moatDetail = !moat.hit ? base
-    : roeTrend === 'deteriorating' ? base + ' · 🔁 자본효율(ROE)도 같은 기간 함께 꺾였습니다 — 두 지표가 같은 방향이라 구조 신호의 신뢰도가 높습니다'
+    // ⚠️ '신뢰도가 높다'는 **기업이 변했다는 서술**의 신뢰도지 파는 타이밍의 신뢰도가 아니다.
+    //    ROE 소급 확인에서 꺾인 구간이 오히려 반등 출발점인 경우가 많았다(roeTrend.ROE_TREND_BACKTEST).
+    //    마진 캐비엇과 같은 말을 해야 한다 — 한 화면에서 두 지표가 반대 온도로 읽히면 안 된다.
+    : roeTrend === 'deteriorating' ? base + ' · 🔁 자본효율(ROE)도 같은 기간 함께 꺾였습니다 — 두 지표가 같은 방향이라 "기업이 변했다"는 진단의 신뢰도는 높습니다. 다만 지금 팔라는 뜻은 아닙니다(마진·ROE 바닥은 반등의 출발점인 경우도 많습니다)'
     : roeTrend === 'improving' ? base + ' · 🔁 다만 자본효율(ROE)은 오히려 좋아지는 중입니다 — 마진은 눌렸지만 자본을 굴리는 힘은 살아 있다는 뜻이라, 팔기 전에 원인을 더 확인하세요'
     : roeTrend === 'stable' ? base + ' · 🔁 자본효율(ROE)은 유지되고 있습니다 — 마진만 눌린 것인지 함께 보세요'
     : base
