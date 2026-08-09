@@ -9,16 +9,28 @@ const CARD = TK.card, BORDER = TK.border
 export default function ReWatchlist() {
   const [d, setD] = useState<ReWatchApi | null>(null)
   const [authed, setAuthed] = useState(true)
+  // ⚠️ 실패를 상태로 남기지 않으면 '조회 실패'와 '아직 로딩'과 '등록 0건'을 영원히 구분할 수 없다.
+  //    예전엔 실패 시 카드가 통째로 사라져, ⭐ 등록해 둔 학생에겐 **등록이 날아간 것처럼** 보였다.
+  const [err, setErr] = useState(false)
 
   const load = useCallback(() => {
+    setErr(false)
     fetch('/api/re-watchlist').then(r => {
       if (r.status === 401) { setAuthed(false); return null }
-      return r.ok ? r.json() : null
-    }).then(j => { if (j) setD(j) }).catch(() => {})
+      if (!r.ok) { setErr(true); return null }
+      return r.json()
+    }).then(j => { if (j) setD(j) }).catch(() => setErr(true))
   }, [])
   useEffect(() => { load() }, [load])
 
-  if (!authed || !d) return null
+  if (!authed) return null
+  if (err) return (
+    <div style={{ background: CARD, border: `1px solid ${TK.amber400}44`, borderRadius: 12, padding: '10px 14px', fontSize: 11.5, color: TK.sub }}>
+      ⭐ <b style={{ color: TK.slate300 }}>관심 단지</b>를 불러오지 못했습니다 — 잠시 후 새로고침해 주세요.
+      <span style={{ color: TK.sub2 }}> 등록해 두신 단지는 그대로 있습니다(화면만 못 가져온 것).</span>
+    </div>
+  )
+  if (!d) return null   // 로딩 중(첫 응답 전) — 잠깐이라 자리만 비워 둔다
   if (d.needsSetup) return (
     <div style={{ background: CARD, border: `1px solid ${TK.amber400}44`, borderRadius: 12, padding: '10px 14px', fontSize: 11, color: TK.sub9 }}>
       ⭐ 관심 단지 기능을 켜려면 Supabase SQL Editor에서 <b style={{ color: TK.slate300 }}>supabase/re_watchlist.sql</b>을 1회 실행하세요(관리자).
