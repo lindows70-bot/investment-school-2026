@@ -43,14 +43,15 @@ export function rateRange(rows: TaxRow[]): string | null {
 }
 
 /** 🧹 화면용 정리 — 읽히지 않는 그룹·구간을 걷어낸다.
- *  ⚠️ 걷어낸 사실은 숨기지 않는다(호출부가 partial 로 안내). 원문은 접이식으로 항상 함께 있다. */
-export function cleanForStudents(p: ParsedArticle): ParsedArticle {
+ *  ⚠️ **`hidden`(안 보여준 것)과 `partial`(못 읽은 것)은 다르다.** 둘을 같은 플래그로 묶었더니
+ *     정리만 해도 partial 이 켜져 **세 카드가 전부 "원문 확인"** 이 됐다(2026-08-09 라이브).
+ *     종부세는 세율표를 완전히 읽었는데도 숫자를 잃었다 — 숨긴 것은 신뢰도를 떨어뜨리지 않는다. */
+export function cleanForStudents(p: ParsedArticle): ParsedArticle & { hidden: number } {
   const groups = p.groups
     .map(g => ({ ...g, rows: g.rows.filter(r => !isNoiseBand(r.band)) }))
     .filter(g => g.rows.length > 0)
     .filter(g => !isLegalRef(g.title))
-  const dropped = p.groups.length - groups.length
-  return { groups, partial: p.partial || dropped > 0 }
+  return { groups, partial: p.partial, hidden: p.groups.length - groups.length }
 }
 
 /** 💸 '깎아주는 것'(공제)과 '매기는 것'(세율)은 성격이 다르다 — 한 덩어리로 보여주면 세율로 오해한다. */

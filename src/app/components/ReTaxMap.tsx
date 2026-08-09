@@ -82,7 +82,7 @@ export default function ReTaxMap() {
                 <span style={{ marginLeft: 'auto', fontSize: FS.micro, color: t.c, fontWeight: 800 }}>{on ? '접기 ▲' : '세율 ▼'}</span>
               </div>
               {/* 대표 숫자 — 카드에서 가장 크게. 못 읽은 게 있으면 숫자 대신 사실을 적는다 */}
-              <div style={{ fontSize: 22, fontWeight: 900, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', color: headline ? t.c : TK.sub3, lineHeight: 1.1 }}>
+              <div style={{ fontSize: FS.xl, fontWeight: 900, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', color: headline ? t.c : TK.sub3, lineHeight: 1.15 }}>
                 {headline ?? '원문 확인'}
               </div>
               <div style={{ fontSize: FS.micro, color: TK.sub2, lineHeight: 1.5 }}>
