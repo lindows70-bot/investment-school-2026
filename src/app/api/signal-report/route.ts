@@ -68,7 +68,9 @@ export interface SignalReportResult {
   groups: GroupStat[]
   /** 📐 축별 성적 — 6축 중 어느 축이 실제로 맞았나(전향적 적립분·30일 채점). thin=true 면 '적립 중' */
   axisGrades: AxisGrade[]
-  axisSince: string | null      // 축 적립 시작일(없으면 null = 아직 한 건도 없음)
+  axisSince: string | null           // 축 적립 시작일(없으면 null = 아직 한 건도 없음)
+  axisPending: number                // 적립됐지만 30일 미경과(=아직 채점 못 함) 종목 수
+  axisFirstScoreDate: string | null  // 첫 채점 가능일 — "언제부터 숫자가 보이나"를 화면이 답할 수 있게
   tickers: number
   unscored: number              // ⚠️ 생존편향 방어: 캔들 로드 실패(상폐·거래정지 가능)로 채점 못 한 종목 수 — 승률 분모 투명성
 }
@@ -87,7 +89,7 @@ export async function GET(req: Request) {
   // 🔬 full=1 — scored 12건 캡 없이 전 이벤트 반환(시뮬레이션·감사용. 화면은 캡 유지)
   const full = new URL(req.url).searchParams.get('full') === '1'
   // ⚠️ 응답 '내용'(제목·라벨 문자열)만 바뀌어도 키를 올려야 한다 — 스키마가 같으면 커밋 훅이 못 잡는다(v6에서 실제로 겪음).
-  const cacheKey = `signal-report-v11:${today}${full ? ':full' : ''}`   // v11: 📐 축별 성적(axisGrades) 추가 — 필드가 늘어도 옛 응답이면 undefined 로 와서 화면이 빈다 / v10: 🌟 핵심 추천(core) 그룹 — 3중 통과 전향적 적립분 채점 / v9: hitN/missN / v8: scored·pendingN / v7: 라벨 / v6: 📏 기준선 / v5: 런 압축 / v4: ⭐그룹
+  const cacheKey = `signal-report-v12:${today}${full ? ':full' : ''}`   // v12: 📐 축 적립 대기 건수·첫 채점일 노출 / v11: 📐 축별 성적(axisGrades) 추가 — 필드가 늘어도 옛 응답이면 undefined 로 와서 화면이 빈다 / v10: 🌟 핵심 추천(core) 그룹 — 3중 통과 전향적 적립분 채점 / v9: hitN/missN / v8: scored·pendingN / v7: 라벨 / v6: 📏 기준선 / v5: 런 압축 / v4: ⭐그룹
   const cached = await getCache<SignalReportResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -251,6 +253,10 @@ export async function GET(req: Request) {
   })
   const axisGrades = gradeAxes(axisRows)
   const axisSince = axisHist.length ? axisHist.reduce((m, a) => a.date < m ? a.date : m, axisHist[0].date) : null
+  // ⚠️ 채점 n=0 이 '적립 안 됨'인지 '적립됐는데 아직 안 익음'인지 화면이 구분할 수 있어야 한다
+  //    (빈 화면은 최소 네 가지 사실 — 입력 없음/로딩/실패/데이터는 왔는데 그릴 게 없음).
+  const axisPending = axisRows.filter(r => r.ret == null).length
+  const axisFirstScoreDate = axisSince ? addDays(axisSince, 30) : null
 
   // ── ⑤ 그룹 통계(소스×방향) — buy 승=상승 / sell 승=하락(매도검토 신호는 공매도가 아님·UI 명시) ──
   // ⚠️ '합류'는 학생에게 낯선 말이라 '이중 확인'으로(사용자 지적). '통합'은 이미 통합추천(unified-reco)이 써서 충돌한다.
@@ -289,7 +295,7 @@ export async function GET(req: Request) {
     }
   }
 
-  const result: SignalReportResult = { asOf: new Date().toISOString(), jarvisSince, timingSince, groups, axisGrades, axisSince, tickers: tickers.size, unscored: failedTickers.size }
+  const result: SignalReportResult = { asOf: new Date().toISOString(), jarvisSince, timingSince, groups, axisGrades, axisSince, axisPending, axisFirstScoreDate, tickers: tickers.size, unscored: failedTickers.size }
   // 이벤트 0건(콜드·이력 부재)이면 캐시 박제 금지
   if (events.length > 0) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })

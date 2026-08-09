@@ -327,7 +327,11 @@ export default function SignalReportPage() {
               <div style={{ fontSize: FS.tiny, color: TK.sub2, lineHeight: 1.6, marginBottom: 9 }}>
                 추천에 오른 종목을 축마다 <b>점수 높은 1/3</b>과 <b>낮은 1/3</b>으로 갈라, 30일 뒤 수익률을 비교합니다.
                 차이가 <b>플러스</b>면 그 기준이 실제로 통했다는 뜻이에요.
-                {data.axisSince && <> 적립 시작 {data.axisSince}.</>}
+                {data.axisSince && <> {data.axisSince}부터 모으는 중이고,</>}
+                {/* ⚠️ '0건'이 적립 실패로 읽히지 않게 — 모으는 중과 안 모아진 것은 다르다 */}
+                {data.axisPending > 0
+                  ? <> 지금 <b>{data.axisPending}종목</b>이 30일을 기다리고 있어요{data.axisFirstScoreDate && <> (<b>{data.axisFirstScoreDate}</b>부터 숫자가 보입니다)</>}.</>
+                  : <> 아직 모인 종목이 없습니다.</>}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
                 {data.axisGrades.map(a => (
@@ -335,7 +339,7 @@ export default function SignalReportPage() {
                     <div style={{ fontSize: FS.tiny, color: TK.sub, fontWeight: 700 }}>{a.label}</div>
                     {a.thin || a.spreadPp == null ? (
                       <div style={{ fontSize: FS.tiny, color: TK.sub4, marginTop: 3 }}>
-                        적립 중 <span style={{ fontFamily: 'monospace' }}>{a.n}</span>건
+                        {a.n === 0 ? '채점 대기' : <>채점 <span style={{ fontFamily: 'monospace' }}>{a.n}</span>건</>}
                         <span style={{ fontSize: FS.micro, color: TK.slate500 }}> · 30건부터 표시</span>
                       </div>
                     ) : (
