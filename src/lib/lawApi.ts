@@ -83,7 +83,7 @@ export interface LawDoc {
 
 /** 법령 1건의 조문 전문. `articleFilter` 로 필요한 조문만 남긴다(전문은 수십~수백 조라 무겁다). */
 export async function getLawDoc(name: string, articleFilter: (title: string, no: string) => boolean): Promise<LawDoc | null> {
-  const ck = `law-doc-v2:${name}`   // v2: 항·호 구조 보존(메타 노이즈 제거 + 적용 대상 맥락 살림)
+  const ck = `law-doc-v3:${name}`   // v3: <목> 수집(세율의 절반이 목에 있었다) · v2: 항·호 구조 보존
   const cached = await getCache<LawDoc>(ck, 24 * 3600_000)   // 법률은 자주 안 바뀐다
   if (cached) return cached
   try {
@@ -108,12 +108,17 @@ export async function getLawDoc(name: string, articleFilter: (title: string, no:
         //      자기 세율로 오인한다. **항·호 서두를 표와 함께** 살려야 원문이 원문 구실을 한다.
         //   ③ 표 일부는 `<img>` 로도 제공된다 — 텍스트 표는 그대로 두고 img 태그만 제거한다.
         const clean = (s: string) => s.replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<img[^>]*>/gi, '').replace(/<[^>]+>/g, '').trimEnd()
+        //   ④ **`<목>` 은 `<호>` 의 자식이 아니라 형제다**(2026-08-10 XML 실측). 호 안쪽만 훑던 코드가
+        //      목을 통째로 버렸고, 그 바람에 지방세법 제11조에서 **학생이 가장 알아야 할 숫자**가 사라졌다 —
+        //      주택 유상거래 6억 이하 1.0% / 9억 초과 3.0%, 상속 2.3~2.8%, 그 밖의 원인 3.0~4.0%.
+        //      남은 건 무상취득 3.5% 뿐이라 화면이 "취득세 2.3~3.5%"라고 **틀린 인상**을 줬다.
+        //      → 호·목을 구조로 좇지 말고 **문서 순서대로** 내용 태그를 뽑는다(중첩·형제 어느 쪽이든 맞다).
         const parts: string[] = []
         const push = (s: string) => { const t = clean(s); if (t.trim()) parts.push(t) }
         push(tag(a, '조문내용'))
         for (const h of Array.from(a.matchAll(/<항>([\s\S]*?)<\/항>/g))) {
           push(tag(h[1], '항내용'))
-          for (const ho of Array.from(h[1].matchAll(/<호>([\s\S]*?)<\/호>/g))) push(tag(ho[1], '호내용'))
+          for (const c of Array.from(h[1].matchAll(/<(호내용|목내용)>([\s\S]*?)<\/\1>/g))) push(c[2])
         }
         const text = parts.join('\n\n')
         const rev = /개정\s*[\d., ]+/.exec(text)?.[0]?.trim() ?? ''

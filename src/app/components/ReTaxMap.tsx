@@ -6,7 +6,7 @@
 // 학생에게 그대로 노출됐다 — 읽을 수 없는 건 요약이 아니다.
 import { useState, useEffect } from 'react'
 import type { ReTaxResult, TaxStage } from '@/app/api/re-tax/route'
-import { parseTaxArticle, cleanForStudents, rateRange, isDeduction } from '@/lib/taxParse'
+import { parseTaxArticle, cleanForStudents, rateRange, isDeduction, isSentenceTitle } from '@/lib/taxParse'
 import { TK, FS } from '@/lib/theme'
 
 const CARD = TK.card, BORDER = TK.border
@@ -17,6 +17,13 @@ const TONE: Record<TaxStage['key'], { c: string; when: string; what: string }> =
   acquire: { c: TK.blue400, when: '한 번', what: '집값에' },
   hold: { c: TK.amber400, when: '매년', what: '공시가에' },
   transfer: { c: TK.green400, when: '팔 때', what: '차익에' },
+}
+
+// 💡 조문 한 줄 안내 — 제목만으론 무슨 표인지 모른다. 특히 제55조는 '종합소득' 세율표인데
+//    양도세가 그대로 준용한다(제104조제1항제1호). 안내 없이 두면 학생이 남의 세금표로 읽는다.
+const ARTICLE_HINT: Record<string, string> = {
+  '55': '양도세 기본세율. 제104조가 이 표를 그대로 씁니다',
+  '104': '기본세율 대신 이 세율이 붙는 경우(단기 보유·미등기 등)',
 }
 
 export default function ReTaxMap() {
@@ -81,13 +88,18 @@ export default function ReTaxMap() {
                 <b style={{ fontSize: FS.tiny, color: TK.slate200 }}>{s.label.replace(/^.*— /, '')}</b>
                 <span style={{ marginLeft: 'auto', fontSize: FS.micro, color: t.c, fontWeight: 800 }}>{on ? '접기 ▲' : '세율 ▼'}</span>
               </div>
-              {/* 대표 숫자 — 카드에서 가장 크게. 못 읽은 게 있으면 숫자 대신 사실을 적는다 */}
-              <div style={{ fontSize: FS.xl, fontWeight: 900, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', color: headline ? t.c : TK.sub3, lineHeight: 1.15 }}>
-                {headline ?? '원문 확인'}
+              {/* 대표 숫자 — 카드에서 가장 크게. 한 숫자로 못 줄이는 세목은 표로 안내한다
+                  (종부세는 주택분·토지분이, 양도세는 기본세율·중과세율이 한 카드에 섞인다) */}
+              <div style={{
+                fontSize: headline ? FS.xl : FS.lg, fontWeight: 900, lineHeight: 1.15,
+                fontFamily: headline ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : undefined,
+                color: headline ? t.c : TK.slate300,
+              }}>
+                {headline ?? '세율표 보기 →'}
               </div>
               <div style={{ fontSize: FS.micro, color: TK.sub2, lineHeight: 1.5 }}>
                 <b style={{ color: t.c }}>{t.when}</b> · {t.what} 붙어요
-                {anyPartial && <span style={{ color: TK.orange400 }}> · 일부 세율은 별표에 있어요</span>}
+                {anyPartial && <span style={{ color: TK.orange400 }}> · 이 범위 밖 세율도 있어요</span>}
               </div>
               <div style={{ fontSize: FS.micro, color: TK.slate500 }}>{s.lawName} · 시행 {ymd(s.effective)}</div>
             </button>
@@ -113,9 +125,18 @@ export default function ReTaxMap() {
               const deducts = a.p.groups.filter(g => isDeduction(g.title))
               return (
                 <div key={a.no} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {/* 📌 조문 헤더 — 어느 조문의 표인지 모르면 기본세율과 중과세율이 뒤섞여 보인다 */}
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+                    <b style={{ fontSize: FS.tiny, color: TK.slate200 }}>제{a.no}조 {a.title}</b>
+                    {ARTICLE_HINT[a.no] && (
+                      <span style={{ fontSize: FS.micro, color: TK.sub2 }}>— {ARTICLE_HINT[a.no]}</span>
+                    )}
+                  </div>
                   {rates.map((g, gi) => (
                     <div key={gi}>
-                      <div style={{ fontSize: FS.tiny, color: t.c, fontWeight: 800, marginBottom: 5 }}>{g.title}</div>
+                      {!isSentenceTitle(g.title) && (
+                        <div style={{ fontSize: FS.tiny, color: t.c, fontWeight: 800, marginBottom: 5 }}>{g.title}</div>
+                      )}
                       {g.rows.map((row, ri) => (
                         <div key={ri} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px',
                           background: ri % 2 ? 'transparent' : TK.bg1, borderRadius: 6 }}>
@@ -150,8 +171,11 @@ export default function ReTaxMap() {
                   {a.p.partial && (
                     <div style={{ background: `${TK.orange400}14`, border: `1px solid ${TK.orange400}44`, borderRadius: 7,
                       padding: '7px 10px', fontSize: FS.micro, color: TK.orange400, lineHeight: 1.6 }}>
-                      ⚠️ 이 조문은 <b>별표·다른 법을 가리키는 부분</b>이 있어 위 표가 전부가 아닙니다
-                      (예: 집을 사고팔 때의 주택 유상거래 세율). 아래 원문을 함께 보세요.
+                      {rates.length === 0
+                        ? <>⚠️ 이 조문은 세율을 <b>다른 조문을 가리키는 방식</b>으로 적어 표로 정리하지 못했습니다.
+                            무엇에 얼마가 붙는지는 아래 원문에서 확인하세요.</>
+                        : <>⚠️ 위 표의 범위를 <b>벗어나는 세율</b>이 원문에 더 있습니다(중과·특례·다른 조문 참조).
+                            대표 숫자만 보고 판단하지 말고 아래 원문을 함께 보세요.</>}
                     </div>
                   )}
 

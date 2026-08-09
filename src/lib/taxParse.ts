@@ -30,9 +30,12 @@ export interface ParsedArticle {
 export const isLegalRef = (t: string): boolean =>
   /제\s*\d+\s*조/.test(t) || /제\s*\d+\s*항/.test(t) || /제\s*\d+\s*호/.test(t)
 
-/** 🚫 뜻이 없는 구간명 — "양도소득 과세표준의" 처럼 문장이 잘려 남은 조각. 숫자만 덩그러니 남으면 오해를 부른다. */
+/** 🚫 뜻이 없는 구간명 — "양도소득 과세표준의" 처럼 문장이 잘려 남은 조각. 숫자만 덩그러니 남으면 오해를 부른다.
+ *  구간명이 **다른 조문을 가리키는 문장**인 것도 같다("제55조제1항에 따른 세율(분양권의 경우에는 …" → 60%).
+ *  그 줄은 세율의 '적용 대상'이 아니라 참조라서, 학생이 읽으면 무엇에 60%가 붙는지 알 수 없다. */
 const isNoiseBand = (b: string): boolean =>
   b.length < 2 || /^양도소득\s*과세표준의?$/.test(b) || /따른\s*세율에?$/.test(b) || /^그\s*세율의?$/.test(b)
+  || isLegalRef(b)
 
 /** 📉 세율 범위 — 카드 앞면에 "한눈에" 보여줄 대표 숫자(예: `0.5~2.7%`) */
 export function rateRange(rows: TaxRow[]): string | null {
@@ -51,11 +54,20 @@ export function cleanForStudents(p: ParsedArticle): ParsedArticle & { hidden: nu
     .map(g => ({ ...g, rows: g.rows.filter(r => !isNoiseBand(r.band)) }))
     .filter(g => g.rows.length > 0)
     .filter(g => !isLegalRef(g.title))
-  return { groups, partial: p.partial, hidden: p.groups.length - groups.length }
+  // ⚠️ 다만 **전부 걷어내 아무것도 안 남은 조문**은 '안 보여준 것'이 아니라 '못 읽은 것'이다.
+  //    소득세법 제104조가 그렇다 — 세율은 있는데 대상이 전부 "제55조제1항에 따른 세율(…"이라
+  //    무엇에 60~75%가 붙는지 읽을 수 없다. 이걸 정상으로 두면 화면엔 기본세율 6~45%만 남아
+  //    "단기매매도 최대 45%"라는 **반대 방향의 오해**를 준다(처음엔 60~75%만 보여 반대로 틀렸다).
+  const wipedOut = p.groups.length > 0 && groups.length === 0
+  return { groups, partial: p.partial || wipedOut, hidden: p.groups.length - groups.length }
 }
 
 /** 💸 '깎아주는 것'(공제)과 '매기는 것'(세율)은 성격이 다르다 — 한 덩어리로 보여주면 세율로 오해한다. */
 export const isDeduction = (title: string): boolean => /공제/.test(title)
+
+/** 🚫 그룹 제목이 '항 서두 문장'인 경우 — 표 위의 항이 통째로 제목이 된다
+ *  ("거주자의 종합소득에 대한 소득세는 해당 연도의 …"). 화면엔 조문 헤더가 이미 있으니 생략한다. */
+export const isSentenceTitle = (t: string): boolean => t.length > 40
 
 /** `1천분의 7` → `0.7%` · `100분의 40` → `40%` · `천분의 5` → `0.5%` */
 function toPct(s: string): string | null {
@@ -76,42 +88,49 @@ function leadAmount(s: string): string | undefined {
 
 const BOX = /[┌┬┐├┼┤└┴┘─]/
 
-/** 📊 A. 박스 표 파싱 — `│구간│세율│` 행만 취한다(구분선·헤더 제외) */
-function parseTable(lines: string[]): TaxRow[] {
-  const rows: TaxRow[] = []
-  for (const ln of lines) {
-    if (!ln.includes('│')) continue
-    const cells = ln.split('│').map(c => c.trim()).filter(Boolean)
-    if (cells.length < 2) continue
-    const [band, rate] = cells
-    if (/^과세표준$/.test(band) || /^세\s*율$/.test(rate)) continue   // 헤더
-    const pct = toPct(rate)
-    if (!pct) continue
-    rows.push({ band, rate: pct, plus: leadAmount(rate) })
-  }
-  return rows
+/** 📊 A. 박스 표 행 — `│구간│세율│`. 구분선·헤더는 null */
+function tableRow(ln: string): TaxRow | null {
+  const cells = ln.split('│').map(c => c.trim()).filter(Boolean)
+  if (cells.length < 2) return null
+  const [band, rate] = cells
+  if (/^과세표준$/.test(band) || /^세\s*율$/.test(rate)) return null   // 헤더
+  const pct = toPct(rate)
+  return pct ? { band, rate: pct, plus: leadAmount(rate) } : null
 }
 
-/** 📋 B. 나열 파싱 — "N. 항목: 1천분의 35" 처럼 한 줄에 대상과 세율이 같이 오는 서식 */
-function parseList(lines: string[]): TaxRow[] {
+/** 📋 B. 나열 행 — "N. 항목: 1천분의 35" 처럼 한 줄에 대상과 세율이 같이 오는 서식 */
+function listRow(ln: string): TaxRow | null {
+  const pct = toPct(ln)
+  if (!pct) return null
+  // 번호와 세율 표현을 걷어낸 나머지를 대상명으로
+  //   `가.`·`나.`·`다.` 는 목(目) 번호다 — 세율의 절반이 여기 있다("가. 농지: 1천분의 23").
+  const band = ln
+    .replace(/^\s*(?:\d+\.|[가-힣]\.)\s*/, '')
+    .replace(/[::]?\s*(?:1?천분의|100분의)\s*[\d.]+.*$/, '')
+    .replace(/\([^)]*\)/g, '')
+    .replace(/\[[^\]]*\]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  // 대상명이 지나치게 길면 문장이지 항목이 아니다 · '삭제'된 호는 실체가 없다
+  if (!band || band.length > 60 || /^삭제/.test(band)) return null
+  return { band, rate: pct }
+}
+
+/** 한 묶음을 줄 단위로 읽는다.
+ *  ⚠️ **"박스 문자를 봤다"를 "표다"로 쓰면 안 된다**(2026-08-10 손 채점): 지방세법 제11조제8호에는
+ *     세율표가 아니라 **지분 계산식**이 박스로 그려져 있다. 그걸 표 시작으로 읽는 순간 뒤따르는
+ *     목(가·나·다)이 전부 표 파서로 넘어가 `│`가 없다는 이유로 버려졌고, 학생이 가장 알아야 할
+ *     **주택 유상거래 1.0%·3.0%** 가 사라졌다. 표 여부는 **실제로 표 행을 읽었을 때만** 참이다. */
+function parseLines(lines: string[]): { rows: TaxRow[]; sawTable: boolean } {
   const rows: TaxRow[] = []
+  let sawTable = false
   for (const ln of lines) {
-    if (BOX.test(ln)) continue
-    const pct = toPct(ln)
-    if (!pct) continue
-    // 번호와 세율 표현을 걷어낸 나머지를 대상명으로
-    const band = ln
-      .replace(/^\s*\d+\.\s*/, '')
-      .replace(/[::]?\s*(?:1?천분의|100분의)\s*[\d.]+.*$/, '')
-      .replace(/\([^)]*\)/g, '')
-      .replace(/\[[^\]]*\]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim()
-    // 대상명이 지나치게 길면 문장이지 항목이 아니다 · '삭제'된 호는 실체가 없다
-    if (!band || band.length > 60 || /^삭제/.test(band)) continue
-    rows.push({ band, rate: pct })
+    if (ln.includes('│')) { const r = tableRow(ln); if (r) { rows.push(r); sawTable = true } ; continue }
+    if (BOX.test(ln)) continue   // 표·계산식 테두리
+    const r = listRow(ln)
+    if (r) rows.push(r)
   }
-  return rows
+  return { rows, sawTable }
 }
 
 /** 조문 원문 → 그룹 목록. 그룹 제목은 표/나열 **바로 위**의 "N. …" 또는 "① …" 줄. */
@@ -120,7 +139,6 @@ export function parseTaxArticle(text: string): ParsedArticle {
   const groups: TaxGroup[] = []
   let title = ''
   let buf: string[] = []
-  let sawTable = false
 
   // ⚠️ 나열 형식엔 '그룹' 개념이 없다 — 각 호가 독립 항목이다(손 채점에서 "상속으로 인한 취득"이
   //    제목이 되고 그 아래 무관한 호들이 붙었다). 표가 있을 때만 직전 제목을 그룹명으로 쓰고,
@@ -128,13 +146,13 @@ export function parseTaxArticle(text: string): ParsedArticle {
   const LIST_TITLE = '적용 세율'
   const flush = () => {
     if (!buf.length) return
-    const rows = sawTable ? parseTable(buf) : parseList(buf)
+    const { rows, sawTable: isTable } = parseLines(buf)
     if (rows.length) {
       const prev = groups[groups.length - 1]
-      if (!sawTable && prev && prev.title === LIST_TITLE) prev.rows.push(...rows)
-      else groups.push({ title: sawTable ? (title || LIST_TITLE) : LIST_TITLE, rows })
+      if (!isTable && prev && prev.title === LIST_TITLE) prev.rows.push(...rows)
+      else groups.push({ title: isTable ? (title || LIST_TITLE) : LIST_TITLE, rows })
     }
-    buf = []; sawTable = false
+    buf = []
   }
 
   for (const ln of lines) {
@@ -148,16 +166,23 @@ export function parseTaxArticle(text: string): ParsedArticle {
       title = ln.replace(/^\s*(?:\d+\.|[①②③④⑤⑥⑦⑧⑨⑩])\s*/, '').replace(/\s+/g, ' ').trim()
       continue
     }
-    if (BOX.test(ln)) sawTable = true
     buf.push(ln)
   }
   flush()
 
-  const totalRows = groups.reduce((s, g) => s + g.rows.length, 0)
-  // ⚠️ '전부 실패'만 잡으면 **부분 누락을 놓친다**(손 채점에서 실제로 겪었다):
-  //    지방세법 제11조는 별표 참조가 섞여 있어, 정작 가장 중요한 **주택 유상거래 취득세(1~3%)** 가
-  //    빠진 채 무상취득 3.5%만 남았다. 그대로 두면 학생이 "취득세는 3.5%"로 오해한다.
-  //    → 원문의 세율 표현 개수와 실제로 읽어낸 행 수를 비교해 **못 읽은 게 있으면 알린다**.
-  const rateWords = (text.match(/(?:1?천분의|100분의)\s*\d/g) ?? []).length
-  return { groups, partial: rateWords > totalRows }
+  // ⚠️ partial 이 묻는 것은 "빠짐없이 읽었나"가 아니라 **"화면의 대표 숫자가 오해를 부르나"** 다.
+  //    개수 비교(원문 세율 표현 수 > 읽은 행 수)를 먼저 썼는데 양쪽으로 틀렸다(2026-08-10):
+  //      · 놓침 — 양도세는 기본세율이 "제55조에 따른 세율"이라 **숫자가 아예 없어** 세지 못했고,
+  //               남은 중과세율만으로 "60~75%"가 크게 떴다(실제 기본세율은 6~45%).
+  //      · 과잉 — 취득세는 한 줄에 세율이 둘인 단서("…3.5. 다만 비영리는 2.8") 하나 때문에
+  //               1~4% 를 통째로 감췄다. 2.8% 는 이미 그 범위 안이라 감출 이유가 없다.
+  //    → **원문의 모든 세율 숫자가 읽어낸 범위 안에 들어오는지**로 판정한다. 밖에 있으면 대표 숫자가
+  //      거짓이 되므로 감추고, 안에 있으면 범위는 여전히 참이다.
+  const parsed = groups.flatMap(g => g.rows).map(r => parseFloat(r.rate)).filter(n => isFinite(n))
+  if (!parsed.length) return { groups, partial: true }
+  const lo = Math.min(...parsed), hi = Math.max(...parsed)
+  const outside = Array.from(text.matchAll(/(?:(1?천분의)|100분의)\s*(\d+(?:\.\d+)?)/g))
+    .map(m => (m[1] ? Number(m[2]) / 10 : Number(m[2])))
+    .some(v => v < lo - 1e-9 || v > hi + 1e-9)
+  return { groups, partial: outside }
 }

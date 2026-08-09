@@ -31,18 +31,24 @@ export interface ReTaxResult {
 // ⚠️ Phase 0 실측으로 확정한 조문 위치(추측 금지):
 //   종합부동산세법 제9조 = **주택분** 세율 / 제14조 = **토지분** 세율(장 구조로 확인)
 //   소득세법 제104조 = 양도소득세 세율 / 지방세법 제11조 = 부동산 취득 세율
+//   ⚠️ 소득세법 **제55조(세율)** 를 함께 가져온다(2026-08-10 실측). 제104조제1항제1호는 세율을 직접
+//      적지 않고 "제55조제1항에 따른 세율"이라고만 한다 — 그 결과 화면에는 **중과세율(60~75%)만** 남아
+//      "집 팔면 60~75%"라는 틀린 인상을 줬다. 학생이 실제로 만나는 기본세율 6~45%가 제55조에 있다.
+//   ⚠️ 지방세법 제13조(과밀억제권역 중과)는 세율을 **중과기준세율의 배수**(100분의 200~600)로 적어
+//      대표 숫자를 오염시킨다. 제목 필터에서 이미 탈락하고 있었으므로 명시적으로 뺀다(다주택·법인 중과는
+//      제13조의2이며, 화면 캐비엇에 "적용 대상마다 다르다"로 남겨 둔다).
 const TARGETS: { key: TaxStage['key']; emoji: string; label: string; law: string; arts: string[]; note: string }[] = [
-  { key: 'acquire', emoji: '🏠', label: '살 때 — 취득세', law: '지방세법', arts: ['11', '13'],
+  { key: 'acquire', emoji: '🏠', label: '살 때 — 취득세', law: '지방세법', arts: ['11'],
     note: '집을 사는 순간 한 번 냅니다. 다주택·조정지역이면 중과될 수 있어요.' },
   { key: 'hold', emoji: '📅', label: '갖고 있을 때 — 종부세', law: '종합부동산세법', arts: ['9', '14'],
     note: '매년 6월 1일 소유자 기준. 요즘 개편 논의가 가장 뜨거운 세목입니다.' },
-  { key: 'transfer', emoji: '💸', label: '팔 때 — 양도세', law: '소득세법', arts: ['104', '95'],
+  { key: 'transfer', emoji: '💸', label: '팔 때 — 양도세', law: '소득세법', arts: ['104', '95', '55'],
     note: '판 가격이 아니라 **차익**에 붙습니다. 보유·거주 기간에 따라 크게 달라져요.' },
 ]
 
 export async function GET(req: Request) {
   const refresh = new URL(req.url).searchParams.get('refresh') === '1'
-  const cacheKey = `re-tax-v2:${kstDate()}`   // v2: 조문 파싱 교정(항·호 맥락 보존)
+  const cacheKey = `re-tax-v3:${kstDate()}`   // v3: <목> 수집 + 양도세 기본세율(제55조) · v2: 항·호 맥락 보존
   if (!refresh) {
     const cached = await getCache<ReTaxResult>(cacheKey, 24 * 3600_000)
     if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
