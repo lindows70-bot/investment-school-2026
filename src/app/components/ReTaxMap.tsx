@@ -99,7 +99,12 @@ export default function ReTaxMap() {
               </div>
               <div style={{ fontSize: FS.micro, color: TK.sub2, lineHeight: 1.5 }}>
                 <b style={{ color: t.c }}>{t.when}</b> · {t.what} 붙어요
-                {anyPartial && <span style={{ color: TK.orange400 }}> · 이 범위 밖 세율도 있어요</span>}
+                {/* ⚠️ 대표 숫자가 없는 카드에 "이 **범위** 밖"이라고 쓰면 화면에 없는 범위를 가리킨다 */}
+                {anyPartial && (
+                  <span style={{ color: TK.orange400 }}>
+                    {headline ? ' · 이 범위 밖 세율도 있어요' : ' · 대상마다 세율이 달라요'}
+                  </span>
+                )}
               </div>
               <div style={{ fontSize: FS.micro, color: TK.slate500 }}>{s.lawName} · 시행 {ymd(s.effective)}</div>
             </button>
