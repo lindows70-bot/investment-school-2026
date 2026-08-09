@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps'
 import type { RedevelopResult } from '@/app/api/re-redevelopment/route'
 import { LAWD_REGIONS } from '@/lib/rtms'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 
 const BORDER = '#2a2f3a'
 const GU_LAWD = new Map(LAWD_REGIONS.filter(r => r.sido === '서울').map(r => [r.name, r.lawd]))
@@ -78,6 +78,21 @@ export default function RedevelopmentRadar() {
       .filter(p => stageF === '전체' || p.stage === stageF)
       .filter(p => { const hay = (p.name + p.gu + p.addr).replace(/\s/g, ''); return tokens.every(t => hay.includes(t)) })
       .slice(0, 80)
+  }, [d, q, typeF, stageF, guF])
+
+  // 🔍 라이브 고시 구역(단계 미상) — xlsx 472건에 없는 활성 구역까지 뒤진다.
+  //   실측(2026-08-09): 검색이 472건만 보고 있었는데 활성 구역은 3,892건이었고, xlsx 는 2026-03 스냅샷이라
+  //   최근 신설 구역(중화6·태릉우성·독산1/2 등)이 통째로 빠졌다. 단계는 모르므로 아래 목록에 따로 표시한다.
+  //   ⚠️ 단계 필터가 걸려 있으면 숨긴다 — '단계 미상'을 특정 단계 결과에 섞으면 필터가 거짓말이 된다.
+  const zoneHits = useMemo(() => {
+    if (!d?.zoneOnly?.length || stageF !== '전체') return []
+    const tokens = q.trim().split(/\s+/).map(t => t.replace(/\s/g, '')).filter(Boolean)
+    if (!tokens.length && !guF) return []   // 빈 검색어로 3천 건을 쏟지 않는다
+    return d.zoneOnly
+      .filter(z => !guF || z.gu === guF)
+      .filter(z => typeF === '전체' || z.typeGroup === typeF)
+      .filter(z => { const hay = (z.rgn + (z.gu ?? '') + z.pos).replace(/\s/g, ''); return tokens.every(t => hay.includes(t)) })
+      .slice(0, 40)
   }, [d, q, typeF, stageF, guF])
 
   // 구 클릭=구 단위 / 단지 클릭=아파트 이름까지 넘겨 해당 단지 자동 조회(재건축은 단지명, 재개발은 구역명이라 구 단위)
@@ -249,8 +264,26 @@ export default function RedevelopmentRadar() {
           </span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 320, overflowY: 'auto' }}>
-          {searchHits.length === 0
-            ? <div style={{ color: TK.sub3, fontSize: 11, padding: '6px 0', lineHeight: 1.6 }}>검색 결과 없음 · <span style={{ color: TK.sub4 }}>추진 중({d.stageAsOf}) 472개 프로젝트만 단계 표시 — 아직 구역 지정 前(안전진단만 통과)인 사업은 미포함.</span></div>
+          {searchHits.length === 0 && zoneHits.length === 0
+            ? (
+              // ⚠️ '없음'을 회색 한 줄로 흘리면 학생은 버그로 읽는다 — 왜 없는지와 **그래서 뭘 볼 수 있는지**를 함께.
+              //    실사고: 오금동 대림아파트(2024 정밀안전진단 통과·2026 상반기 신속통합기획 접수)는 아직
+              //    구역 지정 前이라 서울시 고시에 없다. 데이터 누락이 아니라 단계 범위 밖이다.
+              <div style={{ background: TK.bg6, border: `1px solid ${TK.amber700}55`, borderRadius: 9, padding: '10px 13px', lineHeight: 1.65 }}>
+                <div style={{ fontSize: FS.tiny, color: '#fdba74', fontWeight: 700 }}>🔍 여기선 안 잡히는 단지입니다</div>
+                <div style={{ fontSize: FS.tiny, color: TK.sub2, marginTop: 4 }}>
+                  이 목록은 <b>정비구역으로 지정돼 고시된</b> 사업만 담습니다. <b>안전진단만 통과</b>했거나 정비계획을
+                  세우는 중인 단지는 아직 서울시 고시에 없어서 안 보여요 — 데이터가 빠진 게 아니라 <b>단계가 이르기 때문</b>입니다.
+                </div>
+                {q.trim() && (
+                  <div onClick={() => goApt(guF, q.trim())}
+                    style={{ display: 'inline-block', marginTop: 8, cursor: 'pointer', fontSize: FS.tiny, fontWeight: 800,
+                      color: '#1c1917', background: '#fdba74', borderRadius: 999, padding: '4px 12px' }}>
+                    💰 그래도 &lsquo;{q.trim()}&rsquo; 실거래는 볼 수 있어요 →
+                  </div>
+                )}
+              </div>
+            )
             : searchHits.map((p, i) => {
               const sc = STAGE_C[p.stageIdx] ?? TK.sub2
               return (
@@ -265,7 +298,29 @@ export default function RedevelopmentRadar() {
               )
             })}
         </div>
-        <div style={{ fontSize: 9.5, color: TK.sub4, marginTop: 6 }}>추진 중 {d.stageTotal}개 프로젝트{guF ? ` 중 ${guF}` : ''} · 단계순(착공→구역지정) 상위 80개 · 단지(재건축) 클릭 → 실거래 리서치 · 지도의 구 클릭 → 이 목록 필터</div>
+
+        {/* 🔍 라이브 고시 구역(단계 미상) — xlsx 스냅샷에 없는 활성 구역. 단계를 모르니 섞지 않고 따로 보여준다 */}
+        {zoneHits.length > 0 && (
+          <div style={{ marginTop: 9, borderTop: `1px dashed ${BORDER}`, paddingTop: 8 }}>
+            <div style={{ fontSize: FS.micro, color: TK.sub3, marginBottom: 5 }}>
+              📜 서울시 고시에는 있으나 <b>추진단계 자료({d.stageAsOf})에 없는</b> 구역 {zoneHits.length}건
+              <span style={{ color: TK.sub4 }}> — 최근 지정됐거나 자료 갱신 전이라 단계를 모릅니다</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 200, overflowY: 'auto' }}>
+              {zoneHits.map((z, i) => (
+                <div key={i} onClick={() => goApt(z.gu)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 7, background: TK.bg6, cursor: 'pointer' }}>
+                  <span style={{ fontSize: FS.micro, fontWeight: 800, color: TK.sub2, background: TK.bg1, borderRadius: 5, padding: '2px 6px', minWidth: 50, textAlign: 'center' }}>단계 미상</span>
+                  <span style={{ fontSize: FS.micro, color: TK.sub2, minWidth: 44 }}>{z.gu ?? '—'}</span>
+                  <span style={{ fontSize: FS.tiny, color: TK.slate200, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{z.rgn}</span>
+                  <span style={{ fontSize: 8.5, color: TYPE_COLOR[z.typeGroup], border: `1px solid ${TYPE_COLOR[z.typeGroup]}55`, borderRadius: 5, padding: '0 5px', whiteSpace: 'nowrap' }}>{z.typeGroup}</span>
+                  {z.date && <span style={{ fontSize: FS.micro, color: TK.sub4, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>고시 {fmtDate(z.date)}</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{ fontSize: 9.5, color: TK.sub4, marginTop: 6 }}>추진 중 {d.stageTotal}개 프로젝트{guF ? ` 중 ${guF}` : ''} · 단계순(착공→구역지정) 상위 80개 · 단지(재건축) 클릭 → 실거래 리서치 · 지도의 구 클릭 → 이 목록 필터<br />📜 여기에 서울시 활성 고시 구역 {d.activeZones?.toLocaleString()}건까지 함께 검색합니다(단계 자료엔 {d.stageTotal}건만 있습니다)</div>
       </div>
 
       {/* 교육 + 해제 */}

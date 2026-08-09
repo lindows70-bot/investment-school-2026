@@ -20,6 +20,12 @@ export interface StageProject {
   gu: string; name: string; addr: string; type: string; typeGroup: string
   stage: string; stageIdx: number; dZone: string; dUnion: string; dImpl: string; dMgmt: string; dStart: string; units: number | null
 }
+/** 🔍 검색 보강용 활성 정비구역 — 추진단계 xlsx(472)에 **없는** 라이브 고시 구역.
+ *  왜 필요한가(2026-08-09 실측): 검색이 xlsx 472건만 뒤지고 있었는데 활성 구역은 **3,892건**이었다.
+ *  게다가 xlsx 는 2026-03 정적 스냅샷이고 라이브 고시는 2026-06까지 신선하다 —
+ *  최근 신설된 구역(중화6·태릉우성·독산1/2 등)이 검색에서 통째로 빠졌다.
+ *  ⚠️ 단계 정보는 없다(고시 유형만 안다) — 화면에서 '단계 미상'으로 정직하게 구분한다. */
+export interface ZoneLite { gu: string | null; rgn: string; pos: string; typeGroup: string; date: string }
 export interface RedevelopResult {
   asOf: string; stageAsOf: string; totalZones: number; activeZones: number; stageTotal: number
   districts: { gu: string; count: number; redev: number; rebuild: number; urban: number; resid: number }[]
@@ -28,6 +34,7 @@ export interface RedevelopResult {
   recentCancelled: { rgn: string; gu: string | null; typeGroup: string; date: string }[]
   stagePipeline: { stage: string; idx: number; count: number }[]   // 단계별 프로젝트 수(xlsx)
   stageProjects: StageProject[]   // 추진 중 472 프로젝트(단계·세대수·날짜)
+  zoneOnly: ZoneLite[]            // 🔍 라이브 고시에만 있는 활성 구역(단계 미상) — 검색 커버리지 보강
 }
 
 const typeGroupOf = (s: string): string =>
@@ -37,7 +44,7 @@ const dateOf = (code: string): string => { const m = /(\d{8})/.exec(code || '');
 export async function GET() {
   const key = KEY()
   if (!key) return NextResponse.json({ error: 'SEOUL_API_KEY 미설정' }, { status: 500 })
-  const cacheKey = `re-redevelop-v2:${kstDate()}`
+  const cacheKey = `re-redevelop-v3:${kstDate()}`   // v3: 🔍 zoneOnly(라이브 활성 구역) 추가 — 검색 대상 472 → 3,892
   const cached = await getCache<RedevelopResult>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -107,10 +114,25 @@ export async function GET() {
   for (const p of stageProjects) spCount.set(p.stage, (spCount.get(p.stage) || 0) + 1)
   const stagePipeline = STAGE_ORDER.map((stage, i) => ({ stage, idx: i + 1, count: spCount.get(stage) || 0 }))
 
+  // 🔍 검색 커버리지 보강 — xlsx(472)에 이름이 없는 활성 구역을 따로 담는다.
+  //   ⚠️ 이름 정규화 후 양방향 부분일치로 중복 제거(같은 사업이 '가락상아1차' / '가락상아1차 아파트 재건축 정비사업'
+  //      처럼 다르게 적혀 있다). 실측: 472건 중 415건이 라이브와 매칭 → 라이브 단독 3,062건이 남는다.
+  const norm = (s: string) => (s || '').replace(/\s|아파트|재건축|재개발|정비사업|정비구역|구역|지구|주택/g, '')
+  // ⚠️ Set 을 for..of 로 돌면 TS2802(--downlevelIteration) — 이 프로젝트에서 6번째 재발. 배열로 만든다.
+  const stageNames = Array.from(new Set(stageProjects.map(p => norm(p.name)).filter(Boolean)))
+  const zoneOnly: ZoneLite[] = active
+    .filter(z => {
+      const n = norm(z.rgn)
+      if (!n) return false
+      return !stageNames.some(sn => sn.includes(n) || n.includes(sn))
+    })
+    .map(z => ({ gu: z.gu, rgn: z.rgn, pos: z.pos, typeGroup: z.typeGroup, date: z.date }))
+    .sort((a, b) => b.date.localeCompare(a.date))
+
   const result: RedevelopResult = {
     asOf: kstDate(), stageAsOf: stagesData.asOf ?? '', totalZones: zones.length, activeZones: active.length, stageTotal: stageProjects.length,
     districts, typeDist, recentNew, recentCancelled,
-    stagePipeline, stageProjects,
+    stagePipeline, stageProjects, zoneOnly,
   }
   await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })

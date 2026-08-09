@@ -87,9 +87,17 @@ export default function AptResearch({ initialLawd, initialApt }: { initialLawd?:
         <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: TK.red400, fontSize: 12 }}>⚠️ {err}</div>
       ) : d && (
         <>
+          {/* ⚠️ 원인을 뭉뚱그리면 오설명이 된다 — 같은 '못 찾음'이라도 이유가 다르고, 학생이 할 일도 다르다.
+              실사고(2026-08-09): 디에이치 방배(2026년 8월 입주)를 찾았는데 "재건축 멸실 가능"이라고만 떴다.
+              입주 전 단지는 아직 **아파트 매매 자체가 존재하지 않는다**(분양권만 거래) — 멸실과 정반대 상황이다. */}
           {d.queryMiss && (
-            <div style={{ background: '#2a1c0e', border: `1px solid ${TK.amber700}`, borderRadius: 10, padding: '9px 14px', fontSize: 11.5, color: '#fdba74' }}>
-              ⚠️ &lsquo;{apt}&rsquo; 실거래를 최근 24개월에서 찾지 못했습니다(재건축 멸실·표기 차이 가능) — 거래 1위 단지를 대신 표시합니다.
+            <div style={{ background: '#2a1c0e', border: `1px solid ${TK.amber700}`, borderRadius: 10, padding: '10px 14px', fontSize: 11.5, color: '#fdba74', lineHeight: 1.65 }}>
+              ⚠️ &lsquo;{apt}&rsquo; 실거래를 최근 24개월에서 찾지 못했습니다 — 거래 1위 단지를 대신 표시합니다.
+              <div style={{ color: TK.sub2, marginTop: 5 }}>
+                흔한 이유 세 가지예요. ① <b>아직 입주 전</b>인 새 아파트 — 등기 전이라 <b>분양권</b>으로만 거래돼 이 통계엔 안 잡힙니다.
+                ② <b>재건축으로 헐린</b> 단지 — 옛 거래가 24개월 밖으로 밀려났습니다.
+                ③ <b>이름 표기 차이</b> — 공식 등록명이 다를 수 있으니 아래 목록에서 비슷한 이름을 찾아보세요.
+              </div>
             </div>
           )}
           {/* 단지 랭킹 */}
