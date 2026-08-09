@@ -1,17 +1,28 @@
 'use client'
-// 💰 부동산 세금 지도 — 살 때(취득세)·갖고 있을 때(종부세)·팔 때(양도세) 세율을 법령 원문 그대로
+// 💰 부동산 세금 지도 — 집의 **생애주기**(살 때 한 번 / 가질 때 매년 / 팔 때 차익에)로 세금을 읽는다
+//
+// 왜 이 구조인가: 세금은 세목 이름이 아니라 **언제 무엇에 붙는가**로 이해된다. 앞면엔 그 세 가지만 두고,
+// 조문 표는 눌렀을 때만 편다. 이전 버전은 법 조문을 그대로 펼쳐 "제94조제1항제4호다목에 따른 자산…"이
+// 학생에게 그대로 노출됐다 — 읽을 수 없는 건 요약이 아니다.
 import { useState, useEffect } from 'react'
 import type { ReTaxResult, TaxStage } from '@/app/api/re-tax/route'
-import { parseTaxArticle } from '@/lib/taxParse'   // 📊 원문 → 구간·세율 표(적용 대상별로 전부)
+import { parseTaxArticle, cleanForStudents, rateRange, isDeduction } from '@/lib/taxParse'
 import { TK, FS } from '@/lib/theme'
 
 const CARD = TK.card, BORDER = TK.border
-const ymd = (s: string) => (/^\d{8}$/.test(s) ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6)}` : s)
+const ymd = (s: string) => (/^\d{8}$/.test(s) ? `${s.slice(0, 4)}.${s.slice(4, 6)}` : s)
+
+// 🎨 단계별 색 — 진입(파랑) → 보유(호박) → 실현(초록). 세금의 성격 차이를 색으로 encode 한다
+const TONE: Record<TaxStage['key'], { c: string; when: string; what: string }> = {
+  acquire: { c: TK.blue400, when: '한 번', what: '집값에' },
+  hold: { c: TK.amber400, when: '매년', what: '공시가에' },
+  transfer: { c: TK.green400, when: '팔 때', what: '차익에' },
+}
 
 export default function ReTaxMap() {
   const [d, setD] = useState<ReTaxResult | null>(null)
   const [err, setErr] = useState(false)
-  const [open, setOpen] = useState<TaxStage['key'] | null>('hold')   // 요즘 관심 1순위가 보유세라 기본 펼침
+  const [open, setOpen] = useState<TaxStage['key'] | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -29,111 +40,148 @@ export default function ReTaxMap() {
   )
   if (!d) return (
     <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '10px 14px', fontSize: FS.tiny, color: TK.sub }}>
-      💰 부동산 세법 원문을 불러오는 중…
+      💰 부동산 세법을 불러오는 중…
     </div>
   )
 
+  // 조문을 학생이 읽을 수 있는 형태로 정리 + 카드 앞면 대표 숫자 계산
+  const view = d.stages.map(s => {
+    const arts = s.articles.map(a => ({ ...a, p: cleanForStudents(parseTaxArticle(a.text)) }))
+    const rateRows = arts.flatMap(a => a.p.groups.filter(g => !isDeduction(g.title)).flatMap(g => g.rows))
+    const anyPartial = arts.some(a => a.p.partial)
+    // ⚠️ 못 읽은 게 있으면 대표 숫자를 **쓰지 않는다** — 취득세는 주택 유상거래(별표)가 빠져 있어
+    //    남은 값(2.3~3.5%)을 크게 띄우면 "집 살 때 3.5%"라는 **틀린 인상**을 준다.
+    const headline = anyPartial ? null : rateRange(rateRows)
+    return { s, arts, headline, anyPartial }
+  })
+
   return (
-    <div style={{ background: CARD, border: `1px solid ${TK.amber400}33`, borderRadius: 14, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, flexWrap: 'wrap' }}>
-        <b style={{ fontSize: FS.lg, color: TK.slate100 }}>💰 부동산 세금 지도</b>
-        <span style={{ color: TK.sub2, fontSize: FS.micro }}>살 때 · 갖고 있을 때 · 팔 때 — 국가법령정보 <b>원문 그대로</b></span>
+    <div style={{ background: CARD, border: `1px solid ${TK.amber400}33`, borderRadius: 14, padding: '15px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div>
+        <b style={{ fontSize: FS.lg, color: TK.slate100 }}>💰 부동산 세금, 언제 얼마나 내나</b>
+        <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 3 }}>
+          집은 <b>살 때 한 번</b>, <b>갖고 있는 동안 매년</b>, <b>팔 때 차익에</b> 세금이 붙습니다. 카드를 누르면 세율표가 열려요.
+        </div>
       </div>
 
-      {/* ⚠️ 조회 실패를 조용히 넘기지 않는다 — 세목이 빠진 걸 학생이 '해당 세금 없음'으로 읽으면 안 된다 */}
+      {/* 🧭 생애주기 3단계 — 세금의 성격 차이(언제·무엇에)를 앞면에 둔다 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 9 }}>
+        {view.map(({ s, headline, anyPartial }) => {
+          const t = TONE[s.key]
+          const on = open === s.key
+          return (
+            <button key={s.key} onClick={() => setOpen(on ? null : s.key)}
+              style={{
+                textAlign: 'left', cursor: 'pointer', background: on ? `${t.c}14` : TK.bg3,
+                border: `1px solid ${on ? `${t.c}77` : BORDER}`, borderRadius: 11, padding: '11px 13px',
+                display: 'flex', flexDirection: 'column', gap: 5,
+              }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                <span style={{ fontSize: FS.body }}>{s.emoji}</span>
+                <b style={{ fontSize: FS.tiny, color: TK.slate200 }}>{s.label.replace(/^.*— /, '')}</b>
+                <span style={{ marginLeft: 'auto', fontSize: FS.micro, color: t.c, fontWeight: 800 }}>{on ? '접기 ▲' : '세율 ▼'}</span>
+              </div>
+              {/* 대표 숫자 — 카드에서 가장 크게. 못 읽은 게 있으면 숫자 대신 사실을 적는다 */}
+              <div style={{ fontSize: 22, fontWeight: 900, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', color: headline ? t.c : TK.sub3, lineHeight: 1.1 }}>
+                {headline ?? '원문 확인'}
+              </div>
+              <div style={{ fontSize: FS.micro, color: TK.sub2, lineHeight: 1.5 }}>
+                <b style={{ color: t.c }}>{t.when}</b> · {t.what} 붙어요
+                {anyPartial && <span style={{ color: TK.orange400 }}> · 일부 세율은 별표에 있어요</span>}
+              </div>
+              <div style={{ fontSize: FS.micro, color: TK.slate500 }}>{s.lawName} · 시행 {ymd(s.effective)}</div>
+            </button>
+          )
+        })}
+      </div>
+
       {d.failed.length > 0 && (
         <div style={{ background: TK.bg3, border: `1px solid ${TK.amber400}44`, borderRadius: 8, padding: '7px 11px', fontSize: FS.micro, color: TK.sub2 }}>
           ⚠️ {d.failed.join(' · ')} 조회 실패 — 그 세목은 지금 화면에 없습니다(세금이 없는 게 아닙니다).
         </div>
       )}
 
-      {d.stages.map(s => {
-        const on = open === s.key
+      {/* 📖 펼친 단계의 상세 — 세율과 '깎아주는 것'을 갈라서 */}
+      {view.filter(v => v.s.key === open).map(({ s, arts }) => {
+        const t = TONE[s.key]
         return (
-          <div key={s.key} style={{ background: TK.bg3, border: `1px solid ${on ? `${TK.amber400}55` : BORDER}`, borderRadius: 10, overflow: 'hidden' }}>
-            <button onClick={() => setOpen(on ? null : s.key)}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap', background: 'transparent', border: 'none', cursor: 'pointer', padding: '10px 13px', textAlign: 'left' }}>
-              <span style={{ fontSize: FS.body }}>{s.emoji}</span>
-              <b style={{ fontSize: FS.tiny, color: TK.slate200 }}>{s.label}</b>
-              <span style={{ fontSize: FS.micro, color: TK.sub3 }}>{s.lawName} · 시행 {ymd(s.effective)}</span>
-              <span style={{ marginLeft: 'auto', fontSize: FS.micro, color: TK.amber400 }}>{on ? '▲ 접기' : '▼ 세율 보기'}</span>
-            </button>
-            <div style={{ padding: '0 13px 10px', fontSize: FS.micro, color: TK.sub2, lineHeight: 1.6 }}>{s.note}</div>
+          <div key={s.key} style={{ background: TK.bg3, border: `1px solid ${t.c}44`, borderRadius: 11, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ fontSize: FS.tiny, color: TK.sub2, lineHeight: 1.6 }}>{s.note}</div>
 
-            {on && (
-              <div style={{ padding: '0 13px 12px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {s.articles.map(a => {
-                  const parsed = parseTaxArticle(a.text)
-                  return (
-                    <div key={a.no}>
-                      <div style={{ fontSize: FS.micro, color: TK.sub3, marginBottom: 6 }}>
-                        제{a.no}조 {a.title}
-                        {a.revised && <span style={{ color: TK.sub4 }}> · {a.revised}</span>}
-                      </div>
+            {arts.map(a => {
+              const rates = a.p.groups.filter(g => !isDeduction(g.title))
+              const deducts = a.p.groups.filter(g => isDeduction(g.title))
+              return (
+                <div key={a.no} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {rates.map((g, gi) => (
+                    <div key={gi}>
+                      <div style={{ fontSize: FS.tiny, color: t.c, fontWeight: 800, marginBottom: 5 }}>{g.title}</div>
+                      {g.rows.map((row, ri) => (
+                        <div key={ri} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px',
+                          background: ri % 2 ? 'transparent' : TK.bg1, borderRadius: 6 }}>
+                          <span style={{ flex: 1, fontSize: FS.tiny, color: TK.slate300 }}>{row.band}</span>
+                          {row.plus && <span style={{ fontSize: FS.micro, color: TK.slate500, fontFamily: 'monospace' }}>{row.plus}</span>}
+                          <span style={{ fontSize: FS.tiny, fontWeight: 900, fontFamily: 'monospace', color: t.c, minWidth: 50, textAlign: 'right' }}>{row.rate}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
 
-                      {/* 📊 요약 — 적용 대상별로 **전부** 보여준다(하나만 골라 요약하면 오설명) */}
-                      {parsed.groups.map((g, gi) => (
-                        <div key={gi} style={{ marginBottom: 9 }}>
-                          <div style={{ fontSize: FS.tiny, color: TK.amber400, fontWeight: 800, marginBottom: 5, lineHeight: 1.4 }}>
-                            ▸ {g.title}
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {/* 💸 공제는 세율이 아니다 — 섞으면 '20%'를 세율로 읽는다 */}
+                  {deducts.length > 0 && (
+                    <div style={{ borderTop: `1px dashed ${BORDER}`, paddingTop: 8 }}>
+                      <div style={{ fontSize: FS.tiny, color: TK.green400, fontWeight: 800, marginBottom: 5 }}>💸 이만큼 깎아줍니다 (공제)</div>
+                      {deducts.map((g, gi) => (
+                        <div key={gi} style={{ marginBottom: 6 }}>
+                          <div style={{ fontSize: FS.micro, color: TK.sub3, marginBottom: 3, lineHeight: 1.5 }}>{g.title}</div>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             {g.rows.map((row, ri) => (
-                              <div key={ri} style={{ display: 'flex', alignItems: 'center', gap: 8,
-                                background: ri % 2 ? 'transparent' : TK.bg1, borderRadius: 6, padding: '5px 10px' }}>
-                                <span style={{ flex: 1, fontSize: FS.tiny, color: TK.slate300 }}>{row.band}</span>
-                                {row.plus && <span style={{ fontSize: FS.micro, color: TK.sub3, fontFamily: 'monospace' }}>{row.plus}</span>}
-                                <span style={{ fontSize: FS.tiny, fontWeight: 900, fontFamily: 'monospace', color: TK.amber400,
-                                  minWidth: 52, textAlign: 'right' }}>{row.rate}</span>
-                              </div>
+                              <span key={ri} style={{ fontSize: FS.micro, color: TK.green400, background: `${TK.green400}14`,
+                                border: `1px solid ${TK.green400}44`, borderRadius: 999, padding: '3px 9px' }}>
+                                {row.band} <b style={{ fontFamily: 'monospace' }}>{row.rate}</b>
+                              </span>
                             ))}
                           </div>
                         </div>
                       ))}
-
-                      {/* ⚠️ 못 읽은 게 있으면 반드시 말한다 — 빠진 걸 '없는 것'으로 읽으면 오해가 커진다 */}
-                      {parsed.partial && (
-                        <div style={{ background: `${TK.orange400}14`, border: `1px solid ${TK.orange400}44`, borderRadius: 7,
-                          padding: '7px 10px', fontSize: FS.micro, color: TK.orange400, lineHeight: 1.6, marginBottom: 8 }}>
-                          ⚠️ 이 조문은 <b>별표·다른 법 참조</b>가 섞여 있어 위 요약에 <b>빠진 세율이 있습니다</b>
-                          (예: 집을 사고팔 때의 주택 유상거래 세율). 아래 <b>원문</b>을 꼭 함께 보세요.
-                        </div>
-                      )}
-                      {parsed.groups.length === 0 && (
-                        <div style={{ fontSize: FS.micro, color: TK.sub3, marginBottom: 8 }}>
-                          이 조문은 표로 정리하기 어려운 서식이라 원문으로만 제공합니다.
-                        </div>
-                      )}
-
-                      {/* 📜 원문 — 요약을 학생이 직접 검증할 수 있게 접이식으로 함께 둔다 */}
-                      <details>
-                        <summary style={{ cursor: 'pointer', fontSize: FS.micro, color: TK.sub3 }}>📜 법령 원문 그대로 보기</summary>
-                        <pre style={{
-                          margin: '6px 0 0', padding: '9px 11px', background: TK.bg1, borderRadius: 7, border: `1px solid ${BORDER}`,
-                          fontSize: FS.micro, color: TK.slate300, lineHeight: 1.5, overflowX: 'auto', whiteSpace: 'pre',
-                          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', maxHeight: 320,
-                        }}>{a.text}</pre>
-                      </details>
                     </div>
-                  )
-                })}
-                <a href={s.link} target="_blank" rel="noreferrer"
-                  style={{ fontSize: FS.micro, color: TK.amber400, textDecoration: 'none', fontWeight: 700 }}>
-                  📜 {s.lawName} 전문 보기 (국가법령정보센터) →
-                </a>
-              </div>
-            )}
+                  )}
+
+                  {a.p.partial && (
+                    <div style={{ background: `${TK.orange400}14`, border: `1px solid ${TK.orange400}44`, borderRadius: 7,
+                      padding: '7px 10px', fontSize: FS.micro, color: TK.orange400, lineHeight: 1.6 }}>
+                      ⚠️ 이 조문은 <b>별표·다른 법을 가리키는 부분</b>이 있어 위 표가 전부가 아닙니다
+                      (예: 집을 사고팔 때의 주택 유상거래 세율). 아래 원문을 함께 보세요.
+                    </div>
+                  )}
+
+                  <details>
+                    <summary style={{ cursor: 'pointer', fontSize: FS.micro, color: TK.sub3 }}>
+                      📜 제{a.no}조 {a.title} 원문 보기{a.revised ? ` · ${a.revised}` : ''}
+                    </summary>
+                    <pre style={{
+                      margin: '6px 0 0', padding: '9px 11px', background: TK.bg1, borderRadius: 7, border: `1px solid ${BORDER}`,
+                      fontSize: FS.micro, color: TK.slate300, lineHeight: 1.5, overflowX: 'auto', whiteSpace: 'pre',
+                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', maxHeight: 300,
+                    }}>{a.text}</pre>
+                  </details>
+                </div>
+              )
+            })}
+
+            <a href={s.link} target="_blank" rel="noreferrer"
+              style={{ fontSize: FS.micro, color: t.c, textDecoration: 'none', fontWeight: 700 }}>
+              📜 {s.lawName} 전문 보기 (국가법령정보센터) →
+            </a>
           </div>
         )
       })}
 
-      {/* 정직 캐비엇 — 세금은 틀리면 실질 피해다 */}
       <div style={{ fontSize: FS.micro, color: TK.sub3, lineHeight: 1.7 }}>
-        📊 위 요약은 <b>법령 원문에서 기계로 뽑은 것</b>입니다(사람이 옮겨 적지 않았습니다) — 각 조문의 <b>원문</b>을 접어서 함께 뒀으니 직접 확인하실 수 있어요.
-        ⚠️ 세율은 <b>적용 대상마다 다릅니다</b> — 종부세만 해도 <b>2주택 이하 / 3주택 이상 / 법인</b>이 각각 다른 표예요. <b>▸ 로 시작하는 대상 문구</b>를 꼭 함께 보세요.
-        <b>공제·감면·특례·지방소득세는 별도</b>라 실제 낼 세금과 다릅니다.
+        표는 <b>법령 원문에서 기계로 뽑은 것</b>이고 원문도 함께 접어 뒀습니다. 법 조문끼리 서로를 가리키는 부분은
+        학생이 읽기 어려워 요약에서 뺐으니, 정확히 보시려면 원문을 펼치세요.
+        ⚠️ 세율은 <b>적용 대상마다 다릅니다</b>(2주택 이하 / 3주택 이상 / 법인). <b>공제·감면·특례·지방소득세는 별도</b>예요.
         ⛔ 개인 세액 계산은 하지 않습니다 — 정확한 금액은 <b>홈택스 모의계산</b>이나 <b>세무사</b>에게 확인하세요.
-        {d.lawSample && <> ⚠️ 지금은 샘플 키로 조회 중입니다.</>}
       </div>
     </div>
   )

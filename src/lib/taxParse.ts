@@ -25,6 +25,37 @@ export interface ParsedArticle {
   partial: boolean
 }
 
+/** 🚫 학생이 못 읽는 제목 — "제94조제1항제4호다목 및 라목에 따른 자산 중 …"을 읽을 수 있는 학생은 없다.
+ *  법률끼리 서로를 가리키는 참조는 원문에서 보면 되고, 요약 화면에는 **읽히는 것만** 남긴다. */
+export const isLegalRef = (t: string): boolean =>
+  /제\s*\d+\s*조/.test(t) || /제\s*\d+\s*항/.test(t) || /제\s*\d+\s*호/.test(t)
+
+/** 🚫 뜻이 없는 구간명 — "양도소득 과세표준의" 처럼 문장이 잘려 남은 조각. 숫자만 덩그러니 남으면 오해를 부른다. */
+const isNoiseBand = (b: string): boolean =>
+  b.length < 2 || /^양도소득\s*과세표준의?$/.test(b) || /따른\s*세율에?$/.test(b) || /^그\s*세율의?$/.test(b)
+
+/** 📉 세율 범위 — 카드 앞면에 "한눈에" 보여줄 대표 숫자(예: `0.5~2.7%`) */
+export function rateRange(rows: TaxRow[]): string | null {
+  const ns = rows.map(r => parseFloat(r.rate)).filter(n => isFinite(n))
+  if (!ns.length) return null
+  const lo = Math.min(...ns), hi = Math.max(...ns)
+  return lo === hi ? `${lo}%` : `${lo}~${hi}%`
+}
+
+/** 🧹 화면용 정리 — 읽히지 않는 그룹·구간을 걷어낸다.
+ *  ⚠️ 걷어낸 사실은 숨기지 않는다(호출부가 partial 로 안내). 원문은 접이식으로 항상 함께 있다. */
+export function cleanForStudents(p: ParsedArticle): ParsedArticle {
+  const groups = p.groups
+    .map(g => ({ ...g, rows: g.rows.filter(r => !isNoiseBand(r.band)) }))
+    .filter(g => g.rows.length > 0)
+    .filter(g => !isLegalRef(g.title))
+  const dropped = p.groups.length - groups.length
+  return { groups, partial: p.partial || dropped > 0 }
+}
+
+/** 💸 '깎아주는 것'(공제)과 '매기는 것'(세율)은 성격이 다르다 — 한 덩어리로 보여주면 세율로 오해한다. */
+export const isDeduction = (title: string): boolean => /공제/.test(title)
+
 /** `1천분의 7` → `0.7%` · `100분의 40` → `40%` · `천분의 5` → `0.5%` */
 function toPct(s: string): string | null {
   const m1 = /(?:1)?천분의\s*(\d+(?:\.\d+)?)/.exec(s)
