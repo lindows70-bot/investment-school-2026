@@ -96,8 +96,11 @@ export default function ResearchVerdictCard({ ticker, market, name }: { ticker: 
             ))}
             <span style={{ color: TK.sub }}>→ 최종</span>
             <span style={{ color: TK.slate200, fontWeight: 900, fontFamily: 'monospace' }}>{d.score}</span>
+            {/* ⚠️ "통합추천 점수와 같다"고 쓰면 안 된다 — 통합추천 본목록은 6축 위에 ROIC·현금창출력
+                보정을 얹어 1~3점 더 높다(삼성E&A 87 vs 89 실측). 같은 건 **6축 부분**까지다. */}
             <span style={{ color: TK.slate500, fontSize: FS.micro, flexBasis: '100%' }}>
-              6축 합계는 통합추천 점수와 같습니다. 리스크 감점은 개별 진단에서만 빼요(추천 목록은 이런 종목을 아예 제외합니다).
+              6축 계산은 통합추천과 같습니다(통합추천은 여기에 자본효율·현금창출력 보정을 조금 더 얹어요).
+              리스크 감점은 개별 진단에서만 빼요 — 추천 목록은 이런 종목을 아예 제외하니까요.
             </span>
           </div>
         )}
