@@ -12,7 +12,7 @@ import { getCache, setCache } from '@/lib/appCache'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
 import { isPegBaseEffect } from '@/lib/canonicalFundamentals'
 import { classifyLynchMece } from '@/lib/lynchAnalysis'
-import { getCurrentSeason } from '@/lib/currentSeason'
+import { getRegionSeasons, originOf } from '@/lib/regionSeason'   // 🌦️ 지역별 계절 SSOT — 통합추천과 같은 국면
 import { holdingFit, SEASON_META, type Quadrant, type Holding } from '@/lib/seasonNavigator'
 import { getSupplyScoreOne } from '@/lib/supplyScore'   // 💰 수급 채점 SSOT — 통합추천과 같은 함수(계단식 환산 폐기)
 import { getInsiderSignal } from '@/app/actions/getInsiderSignal'
@@ -56,11 +56,12 @@ export async function GET(req: Request) {
     return NextResponse.json({ unsupported: true, reason: '개별 주식 전용 판정입니다(ETF·코인·원자재 제외).' }, { headers: { 'Cache-Control': 'no-store' } })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || url.origin
+  // v19: 🌦️ 계절 국면을 origin 기준으로(유럽·일본·중국 종목에 미국 국면을 씌우던 버그) — 계절 축이 바뀐다
   // v18: 💰 수급 축을 lib/supplyScore SSOT 로(통합추천과 같은 함수) — 계단식 환산 폐기로 점수가 바뀐다
   // v17: 📐 주도섹터 입력 섹터도 유니버스 우선(같은 SSOT 함수라도 입력이 다르면 결과가 갈린다)
   // v16: 📐 축 점수를 유니버스 SSOT 로(통합추천과 동일) — 점수가 바뀌므로 필수 범프
   // v15: ⚖️ 6축 가중치를 axisWeights SSOT 로 교체(해외는 수급 0·가치 30·모멘텀 25)
-  const cacheKey = `research-verdict-v18:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v13: 정예 타점 pro 문구 재측정 수치로 갱신(내용 변경=키 범프) / v12: 📋 어닝 서프라이즈 이력 근거
+  const cacheKey = `research-verdict-v19:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v13: 정예 타점 pro 문구 재측정 수치로 갱신(내용 변경=키 범프) / v12: 📋 어닝 서프라이즈 이력 근거
   const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -70,7 +71,9 @@ export async function GET(req: Request) {
   // 📐 축 SSOT — 유니버스에 있으면 통합추천과 **같은 축 값**을 쓴다(캐시 읽기라 비용 ~0, 병렬 발사)
   const axP = getAxisSnapshot(ticker, market).catch(() => null)
   const signalsP = Promise.all([
-    getCurrentSeason(base).catch(() => null),
+    // 🌦️ 계절 — 통합추천과 **같은 지역별 국면**(lib/regionSeason). 예전엔 US/KR 둘뿐이라
+    //    유럽·일본·중국 종목에 미국 국면을 씌웠다(하이네켄 계절 80 vs 55 실사고).
+    getRegionSeasons(base).catch(() => null),
     fetch(`${base}/api/reverse-dcf?ticker=${encodeURIComponent(ticker)}&market=${market}`, { signal: AbortSignal.timeout(10_000) })
       .then(r => r.ok ? r.json() : null).then(j => j?.verdict ?? null).catch(() => null),
     // 💰 수급 — 통합추천과 **같은 채점 함수**(lib/supplyScore). 예전엔 status 만 받아 4단계 계단으로
@@ -102,7 +105,10 @@ export async function GET(req: Request) {
   const lc = lynchCategory === 'na' ? null : lynchCategory
 
   // ① 계절 적합 — 현재 매크로 국면에 이 종목이 유리/불리한가
-  const quad: Quadrant = season ? (market === 'KR' ? season.krQuad : season.usQuad) : 'shoulder'
+  // 🌍 상장 시장이 아니라 **자산 국적(origin)** 으로 국면을 고른다 — `market: 'US'` 는 '한국이 아님'일 뿐이다.
+  //    하이네켄(🇳🇱)에 미국 국면을 씌워 계절 축이 통합추천과 80 vs 55 로 갈렸던 지점.
+  const origin = originOf(ticker, market)
+  const quad: Quadrant = season ? season.quad[origin] : 'shoulder'
   const h: Holding = { ticker: '', weight: 0, lynchCategory: (lc as Holding['lynchCategory']) ?? null, sector: (ax?.sector ?? m.sector) ?? undefined }
   const fit = season ? holdingFit(h, quad) : 0.5
   const seasonScore = clamp(fit * 100)

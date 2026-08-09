@@ -7,7 +7,8 @@ import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
 import { WIN_LOSE_KEY } from '@/lib/winLose'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
-import { growthFromCli, inflationFromRegime, seasonOf, holdingFit, SEASON_META, type Quadrant, type Holding } from '@/lib/seasonNavigator'
+import { holdingFit, SEASON_META, type Quadrant, type Holding } from '@/lib/seasonNavigator'
+import { getRegionSeasons } from '@/lib/regionSeason'   // 🌦️ 지역별 계절 SSOT(종합판정과 같은 함수)
 import { MARKET_FLOW_KR_KEY, computeMarketFlowKr, type MarketFlowKrResult } from '@/lib/marketFlowKr'
 import { getMoneyFlow } from '@/lib/moneyFlow'
 import { krSupply, krSupplyFromFlow, usSupply } from '@/lib/supplyScore'   // 💰 수급 채점 SSOT(종합판정과 같은 함수)
@@ -135,55 +136,18 @@ export async function GET(req: Request) {
     return NextResponse.json({ weights: W_KR, weightsGlobal: W_GLOBAL, usSeason: null, krSeason: null, items: [], asOf: new Date().toISOString(), warming: true }, { headers: { 'Cache-Control': 'no-store' } })
   }
 
-  // ① 계절(US·KR) — macro SSOT를 ★in-process 직접 호출(HTTP 자기호출 실패→골디락스 오판 버그 차단)
-  let cpiYoY = 2.5, rateDir: 'cut' | 'hold' | 'hike' = 'hold', regimeMult = 1.0
+  // ① 계절(5개 지역) — 🌦️ lib/regionSeason SSOT. 종합판정(research-verdict)이 **같은 함수**를 부른다.
+  //    여기 인라인으로 두었더니 종합판정이 유럽 종목에 미국 국면을 씌워 하이네켄 계절이 80 vs 55 로 갈렸다.
+  //    ⚠️ 계산·CLI 캐시 키는 그대로 옮겼다(값 불변) — 그래서 통합추천 캐시 범프는 하지 않는다.
+  let regimeMult = 1.0
   try {
     const md = await fetchMacroData(base)
-    cpiYoY = typeof md.cpiYoY === 'number' ? md.cpiYoY : cpiYoY
-    rateDir = md.rateDir ?? 'hold'
     const phase = detectMacroPhase(md).phase   // 권장 편입액 국면 배율(위험 국면일수록 축소)
     regimeMult = phase === 'stagflation' || phase === 'recession_risk' ? 0.5 : phase === 'peak_rate' ? 0.75 : 1.0
   } catch { /* graceful */ }
-  const fetchCli = async (sid: string, key: string) => {
-    const c = await getCache<{ cli: number; cliPrev: number }>(key, 12 * 3600_000)
-    if (c) return c
-    try {
-      const r = await fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=${sid}&api_key=${process.env.FRED_API_KEY}&file_type=json&sort_order=desc&limit=4`, { signal: AbortSignal.timeout(10_000) })
-      if (!r.ok) return null
-      const j = await r.json(); const o = (j.observations ?? []).map((x: { value: string }) => parseFloat(x.value)).filter((v: number) => !isNaN(v))
-      if (o.length < 4) return null
-      const out = { cli: o[0], cliPrev: o[3] }; await setCache(key, out); return out
-    } catch { return null }
-  }
-  // 🇪🇺 유로존 HICP(소비자물가) YoY — 유럽 독자 물가축(FRED 신선). 실패 시 글로벌(US) 물가로 폴백
-  const fetchEuHicp = async (): Promise<number | null> => {
-    const c = await getCache<{ v: number }>('eu-hicp-yoy-v1', 24 * 3600_000); if (c) return c.v
-    try {
-      const r = await fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=CP0000EZ19M086NEST&api_key=${process.env.FRED_API_KEY}&file_type=json&sort_order=desc&limit=2&units=pc1`, { signal: AbortSignal.timeout(10_000) })
-      if (!r.ok) return null
-      const j = await r.json(); const o = (j.observations ?? []).map((x: { value: string }) => parseFloat(x.value)).filter((v: number) => !isNaN(v))
-      if (!o.length) return null; await setCache('eu-hicp-yoy-v1', { v: o[0] }); return o[0]
-    } catch { return null }
-  }
-  const avg = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length
-  const [usCli, krCli, deCli, frCli, itCli, gbCli, jpCli, cnCli, euHicp] = await Promise.all([
-    fetchCli('USALOLITOAASTSAM', 'oecd-cli-us-v1'), fetchCli('KORLOLITOAASTSAM', 'oecd-cli-kr-v1'),
-    fetchCli('DEULOLITOAASTSAM', 'oecd-cli-de-v1'), fetchCli('FRALOLITOAASTSAM', 'oecd-cli-fr-v1'),
-    fetchCli('ITALOLITOAASTSAM', 'oecd-cli-it-v1'), fetchCli('GBRLOLITOAASTSAM', 'oecd-cli-gb-v1'),
-    fetchCli('JPNLOLITOAASTSAM', 'oecd-cli-jp-v1'), fetchCli('CHNLOLITOAASTSAM', 'oecd-cli-cn-v1'),
-    fetchEuHicp(),
-  ])
-  const inf = inflationFromRegime(cpiYoY, rateDir)
-  const usQuad = seasonOf(growthFromCli(usCli?.cli ?? 100, usCli?.cliPrev ?? 100), inf)
-  const krQuad = seasonOf(growthFromCli(krCli?.cli ?? 100, krCli?.cliPrev ?? 100), inf)
-  // 🇪🇺 유럽 독자 계절 — 유로존 통합 CLI(EA19)는 2022 중단(stale)이라 대국(독·프·이·영) 신선 CLI 평균으로 성장축 + 유로존 HICP로 물가축. 2개국+ 있을 때만, 부족 시 usQuad 폴백
-  const euClis = [deCli, frCli, itCli, gbCli].filter((c): c is { cli: number; cliPrev: number } => c != null)
-  const euQuad = euClis.length >= 2
-    ? seasonOf(growthFromCli(avg(euClis.map(c => c.cli)), avg(euClis.map(c => c.cliPrev))), euHicp != null ? inflationFromRegime(euHicp, rateDir) : inf)
-    : usQuad
-  // 🇯🇵 일본·🇨🇳 중국 독자 계절 — 각 OECD CLI(신선)로 성장축 + 글로벌 물가축(한국 방식 — 일본 CPI 미제공·중국 CPI stale). 데이터 없으면 usQuad 폴백
-  const jpQuad = jpCli ? seasonOf(growthFromCli(jpCli.cli, jpCli.cliPrev), inf) : usQuad
-  const cnQuad = cnCli ? seasonOf(growthFromCli(cnCli.cli, cnCli.cliPrev), inf) : usQuad
+  const seasons = await getRegionSeasons(base)
+  const usQuad = seasons.quad.US, krQuad = seasons.quad.KR
+  const euQuad = seasons.quad.EU, jpQuad = seasons.quad.JP, cnQuad = seasons.quad.CN
 
   // ② KR 수급 — marketFlowKr 캐시(113) 6자리 조인. ★최근 5일 내 최신 캐시 폴백(장중/주말 라이브 스크랩 회피)
   //    크론이 16:00 KST 장마감 후에만 워밍 → 아침·장중·주말엔 오늘 키가 비므로 최근 영업일 캐시 재사용(누적 수급 유효)

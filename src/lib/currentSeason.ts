@@ -1,7 +1,10 @@
 // 현재 매크로 계절(US·KR 4계절) 공용 산출 — 통합추천·내종목수급·의사결정 스냅샷이 같은 SSOT 사용
-import { getCache, setCache } from '@/lib/appCache'
-import { growthFromCli, inflationFromRegime, seasonOf, type Quadrant } from '@/lib/seasonNavigator'
-import { fetchMacroData } from '@/lib/macroPhaseScreener'
+//
+// ⚠️ 2026-08-09: 국면 계산 자체는 **lib/regionSeason 으로 옮겼다**(5개 지역 지원).
+//    여기는 US/KR 만 필요한 6개 소비자를 위한 얇은 어댑터다 — 공식을 여기 복제해두면
+//    지역 확장·임계값 변경 때 두 곳이 갈린다(오늘 하이네켄 계절 80 vs 55 가 정확히 그 사고였다).
+import { type Quadrant } from '@/lib/seasonNavigator'
+import { getRegionSeasons } from '@/lib/regionSeason'
 
 export interface CurrentSeason {
   usQuad: Quadrant
@@ -10,26 +13,9 @@ export interface CurrentSeason {
   rateDir: 'cut' | 'hold' | 'hike'
 }
 
-async function fetchCli(sid: string, key: string): Promise<{ cli: number; cliPrev: number } | null> {
-  const c = await getCache<{ cli: number; cliPrev: number }>(key, 12 * 3600_000)
-  if (c) return c
-  try {
-    const r = await fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=${sid}&api_key=${process.env.FRED_API_KEY}&file_type=json&sort_order=desc&limit=4`, { signal: AbortSignal.timeout(10_000) })
-    if (!r.ok) return null
-    const j = await r.json(); const o = (j.observations ?? []).map((x: { value: string }) => parseFloat(x.value)).filter((v: number) => !isNaN(v))
-    if (o.length < 4) return null
-    const out = { cli: o[0], cliPrev: o[3] }; await setCache(key, out); return out
-  } catch { return null }
-}
-
+/** US·KR 국면만 필요한 호출부용 어댑터. 계산은 regionSeason SSOT 하나뿐이다.
+ *  (CLI·HICP 는 12~24h 공유 캐시라 지역이 늘어도 추가 비용은 사실상 없다) */
 export async function getCurrentSeason(base: string): Promise<CurrentSeason> {
-  let cpiYoY = 2.5, rateDir: 'cut' | 'hold' | 'hike' = 'hold'
-  try { const md = await fetchMacroData(base); cpiYoY = typeof md.cpiYoY === 'number' ? md.cpiYoY : cpiYoY; rateDir = md.rateDir ?? 'hold' } catch { /* graceful */ }
-  const [usCli, krCli] = await Promise.all([fetchCli('USALOLITOAASTSAM', 'oecd-cli-us-v1'), fetchCli('KORLOLITOAASTSAM', 'oecd-cli-kr-v1')])
-  const inf = inflationFromRegime(cpiYoY, rateDir)
-  return {
-    usQuad: seasonOf(growthFromCli(usCli?.cli ?? 100, usCli?.cliPrev ?? 100), inf),
-    krQuad: seasonOf(growthFromCli(krCli?.cli ?? 100, krCli?.cliPrev ?? 100), inf),
-    cpiYoY, rateDir,
-  }
+  const s = await getRegionSeasons(base)
+  return { usQuad: s.quad.US, krQuad: s.quad.KR, cpiYoY: s.cpiYoY, rateDir: s.rateDir }
 }
