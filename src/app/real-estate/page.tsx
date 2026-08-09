@@ -6,6 +6,7 @@ import RentYieldSpread from '@/app/components/RentYieldSpread'
 import HouseVsKospi from '@/app/components/HouseVsKospi'
 import ReWatchlist from '@/app/components/ReWatchlist'
 import RePhaseAlert from '@/app/components/RePhaseAlert'
+import RePolicyRadar from '@/app/components/RePolicyRadar'   // 🏛️ 정책은 모든 부동산 지표의 상류라 최상단
 import { TK } from '@/lib/theme'
 
 export default function RealEstatePage() {
@@ -19,6 +20,7 @@ export default function RealEstatePage() {
         </div>
       </div>
       <RePhaseAlert />
+      <RePolicyRadar />
       <ReWatchlist />
       <ReMarketDashboard />
       <ReDeepGauges />
