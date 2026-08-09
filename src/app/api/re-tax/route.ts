@@ -42,7 +42,7 @@ const TARGETS: { key: TaxStage['key']; emoji: string; label: string; law: string
 
 export async function GET(req: Request) {
   const refresh = new URL(req.url).searchParams.get('refresh') === '1'
-  const cacheKey = `re-tax-v1:${kstDate()}`
+  const cacheKey = `re-tax-v2:${kstDate()}`   // v2: 조문 파싱 교정(항·호 맥락 보존)
   if (!refresh) {
     const cached = await getCache<ReTaxResult>(cacheKey, 24 * 3600_000)
     if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })

@@ -81,7 +81,7 @@ export interface LawDoc {
 
 /** 법령 1건의 조문 전문. `articleFilter` 로 필요한 조문만 남긴다(전문은 수십~수백 조라 무겁다). */
 export async function getLawDoc(name: string, articleFilter: (title: string, no: string) => boolean): Promise<LawDoc | null> {
-  const ck = `law-doc-v1:${name}`
+  const ck = `law-doc-v2:${name}`   // v2: 항·호 구조 보존(메타 노이즈 제거 + 적용 대상 맥락 살림)
   const cached = await getCache<LawDoc>(ck, 24 * 3600_000)   // 법률은 자주 안 바뀐다
   if (cached) return cached
   try {
@@ -99,9 +99,21 @@ export async function getLawDoc(name: string, articleFilter: (title: string, no:
       .map(m => m[1])
       .map(a => {
         const no = tag(a, '조문번호'), title = tag(a, '조문제목')
-        // 원문 텍스트 — 태그만 벗기고 박스 문자·줄바꿈은 살린다(표가 표로 보이게)
-        const text = a.replace(/<[^>]+>/g, '\n').replace(/<!\[CDATA\[|\]\]>/g, '')
-          .split('\n').map(x => x.trimEnd()).filter(x => x.trim()).join('\n')
+        // ⚠️ 태그를 일괄로 벗기면 안 된다(2026-08-09 실사고):
+        //   ① 조문번호·시행일자·변경여부 같은 **메타 값이 본문에 섞여** 표 위에 `9 / 조문 / 20260101 / N` 이 찍혔다.
+        //   ② 더 심각한 건 **맥락 소실**이다 — 종부세 제9조는 호(號)마다 적용 대상이 다르다
+        //      (호1 "2주택 이하", 호2 "3주택 이상", 항② "법인"). 표만 나열하면 학생이 첫 표를
+        //      자기 세율로 오인한다. **항·호 서두를 표와 함께** 살려야 원문이 원문 구실을 한다.
+        //   ③ 표 일부는 `<img>` 로도 제공된다 — 텍스트 표는 그대로 두고 img 태그만 제거한다.
+        const clean = (s: string) => s.replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<img[^>]*>/gi, '').replace(/<[^>]+>/g, '').trimEnd()
+        const parts: string[] = []
+        const push = (s: string) => { const t = clean(s); if (t.trim()) parts.push(t) }
+        push(tag(a, '조문내용'))
+        for (const h of Array.from(a.matchAll(/<항>([\s\S]*?)<\/항>/g))) {
+          push(tag(h[1], '항내용'))
+          for (const ho of Array.from(h[1].matchAll(/<호>([\s\S]*?)<\/호>/g))) push(tag(ho[1], '호내용'))
+        }
+        const text = parts.join('\n\n')
         const rev = /개정\s*[\d., ]+/.exec(text)?.[0]?.trim() ?? ''
         return { no, title, text, revised: rev }
       })
