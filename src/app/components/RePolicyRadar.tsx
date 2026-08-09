@@ -110,17 +110,26 @@ export default function RePolicyRadar() {
             const s = ST[i.stance], m = CHANNEL_META[i.channel as Exclude<Channel, 'other'>]
             return (
               <a key={k} href={i.link} target="_blank" rel="noreferrer"
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 9px', borderRadius: 8, background: TK.bg6, textDecoration: 'none' }}>
-                <span style={{ fontSize: FS.micro, fontWeight: 800, color: i.source === 'law' ? TK.green400 : TK.sub2, minWidth: 34 }}>
-                  {i.source === 'law' ? '📜확정' : '📰예고'}
-                </span>
-                <span style={{ fontSize: FS.micro, color: TK.sub3, fontFamily: 'monospace', minWidth: 62 }}>{i.date}</span>
-                <span style={{ fontSize: FS.micro, minWidth: 20 }}>{m?.emoji}</span>
-                <span style={{ flex: 1, fontSize: FS.tiny, color: TK.slate200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i.title}</span>
-                <span style={{ fontSize: FS.micro, color: s.c, whiteSpace: 'nowrap' }}>{s.dot}</span>
-                <span style={{ fontSize: FS.micro, color: TK.slate500, whiteSpace: 'nowrap', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {i.meta}{i.effective && i.effective !== i.date ? ` · 시행 ${i.effective}` : ''}
-                </span>
+                style={{ display: 'block', padding: '6px 9px', borderRadius: 8, background: TK.bg6, textDecoration: 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: FS.micro, fontWeight: 800, color: i.source === 'law' ? TK.green400 : TK.sub2, minWidth: 34 }}>
+                    {i.source === 'law' ? '📜확정' : '📰예고'}
+                  </span>
+                  <span style={{ fontSize: FS.micro, color: TK.sub3, fontFamily: 'monospace', minWidth: 62 }}>{i.date}</span>
+                  <span style={{ fontSize: FS.micro, minWidth: 20 }}>{m?.emoji}</span>
+                  <span style={{ flex: 1, fontSize: FS.tiny, color: TK.slate200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i.title}</span>
+                  <span style={{ fontSize: FS.micro, color: s.c, whiteSpace: 'nowrap' }}>{s.dot}</span>
+                  <span style={{ fontSize: FS.micro, color: TK.slate500, whiteSpace: 'nowrap', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {i.meta}{i.effective && i.effective !== i.date ? ` · 시행 ${i.effective}` : ''}
+                  </span>
+                </div>
+                {/* 📌 무엇을 정하는 고시인지 — 제목만으론 알 수 없다. 원문 문장 그대로 주고 자르는 건 화면이 한다(2줄) */}
+                {i.purpose && (
+                  <div style={{ marginTop: 3, marginLeft: 42, fontSize: FS.micro, color: TK.sub3, lineHeight: 1.5,
+                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    📌 {i.purpose}
+                  </div>
+                )}
               </a>
             )
           })}

@@ -80,6 +80,10 @@ export interface PolicyItem {
   meta: string                // 법령=부처·종류·제개정 / 뉴스=매체
   link: string
   effective?: string          // 법령만 — 시행일(발령 ≠ 시행)
+  lawId?: string              // 법령만 — 본문(목적) 조회 키
+  /** 📌 이 고시가 **무엇을 정하는지** 한 줄(제1조 목적 원문). 제목만으론 알 수 없어서 붙인다.
+   *  없으면 표시하지 않는다(지어내지 않는다 — 목적 조문이 없는 고시가 실제로 있다). */
+  purpose?: string
 }
 
 export interface ChannelSummary {

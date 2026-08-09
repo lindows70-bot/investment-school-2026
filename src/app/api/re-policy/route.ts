@@ -7,7 +7,7 @@ export const maxDuration = 60
 
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
-import { collectAdmRules, LAW_OC_IS_SAMPLE } from '@/lib/lawApi'
+import { collectAdmRules, getAdmRulePurpose, LAW_OC_IS_SAMPLE } from '@/lib/lawApi'
 import {
   classifyChannel, classifyStance, summarize, climateOf, ymd, dedupKey,
   POLICY_ORG, POLITICS_NOISE, POLICY_NEWS,
@@ -55,8 +55,9 @@ async function newsOf(query: string): Promise<{ title: string; date: string; lin
 
 export async function GET(req: Request) {
   const refresh = new URL(req.url).searchParams.get('refresh') === '1'
+  // v3: 📌 확정 항목에 '무엇을 정하는 고시인지'(제1조 목적) 부착 — 제목만으론 알 수 없었다
   // v2: 축별 상한(법령이 뉴스에 밀려 사라지던 것) · 따옴표 정규화 중복 제거 · 정치 필터 보강
-  const cacheKey = `re-policy-v2:${kstDate()}`
+  const cacheKey = `re-policy-v3:${kstDate()}`
   if (!refresh) {
     const cached = await getCache<RePolicyResult>(cacheKey, 6 * 3600_000)
     if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
@@ -76,6 +77,7 @@ export async function GET(req: Request) {
       meta: `${r.org} · ${r.kind} · ${r.change}`,
       link: r.link,
       effective: ymd(r.effective),
+      lawId: r.id,
     }))
 
   // ── 📰 예고 축(뉴스) ──
@@ -111,6 +113,16 @@ export async function GET(req: Request) {
     ...onTopic.filter(i => i.source === 'law').sort(byDate).slice(0, 25),
     ...onTopic.filter(i => i.source === 'news').sort(byDate).slice(0, 35),
   ].sort(byDate)
+
+  // 📌 확정 항목에 "무엇을 정하는 고시인지" 한 줄을 붙인다 — 제목만으론 알 수 없다.
+  //    ⚠️ **화면에 나가는 것만** 조회한다(수집분 45건 전부 부르면 낭비). 개별 30일 캐시라 두 번째부터는 즉시.
+  //    실패는 무시 — 목적이 없으면 제목만 보여준다(없는 걸 지어내지 않는다).
+  const lawShown = items.filter(i => i.source === 'law' && i.lawId)
+  for (let k = 0; k < lawShown.length; k += 5) {
+    await Promise.all(lawShown.slice(k, k + 5).map(async i => {
+      i.purpose = (await getAdmRulePurpose(i.lawId!).catch(() => null)) ?? undefined
+    }))
+  }
 
   const result: RePolicyResult = {
     asOf: new Date().toISOString(),

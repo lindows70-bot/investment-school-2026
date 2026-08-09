@@ -17,6 +17,7 @@ export const LAW_OC = process.env.LAW_API_OC ?? 'test'
 export const LAW_OC_IS_SAMPLE = !process.env.LAW_API_OC
 
 export interface AdmRule {
+  id: string          // 행정규칙일련번호 — 본문(목적) 조회 키
   name: string        // 행정규칙명
   kind: string        // 고시 / 훈령 / 예규 …
   org: string         // 소관부처명
@@ -46,6 +47,7 @@ export async function searchAdmRules(query: string, display = 100): Promise<AdmR
       const it = m[1]
       const link = tag(it, '행정규칙상세링크')
       return {
+        id: tag(it, '행정규칙일련번호'),
         name: tag(it, '행정규칙명'),
         kind: tag(it, '행정규칙종류'),
         org: tag(it, '소관부처명'),
@@ -128,6 +130,37 @@ export async function getLawDoc(name: string, articleFilter: (title: string, no:
     }
     if (out.articles.length) await setCache(ck, out)   // 조문 0개면 캐시하지 않는다(파싱 실패 박제 금지)
     return out
+  } catch { return null }
+}
+
+/** 📌 고시·훈령이 **무엇을 정하는 것인지** 한 줄 — 제목만으론 알 수 없어서 붙인다.
+ *  예: "수도권 분양가상한제 인근지역 주택매매가격의 결정지침" → "거주의무기간·전매제한기간·매입금액을 정함"
+ *
+ *  ⚠️ 실측(2026-08-09): 행정규칙 본문은 `<조문단위>` 가 없고 `<조문내용>` 이 나열된다(법률과 구조가 다르다).
+ *     `조문형식여부=Y` 면 첫 조문내용이 대개 제1조(목적)이고, `N` 이면 목적 조문 없이 바로 본문이다
+ *     (예: '기본형건축비' 고시는 "1. 지상층건축비 …"로 시작). 둘 다 첫 내용을 쓰되 접두만 정리한다.
+ *  ⛔ 정규식을 늘려 문장을 재조립하지 않는다 — 이 프로젝트에서 그 방향은 11번째 표기가 나올 때까지 끝나지 않았다.
+ *     원문 문장을 그대로 주고 **자르는 건 화면**이 한다. */
+export async function getAdmRulePurpose(id: string): Promise<string | null> {
+  if (!id) return null
+  const ck = `law-admrul-purpose-v1:${id}`
+  const cached = await getCache<{ p: string }>(ck, 30 * 86400_000)   // 이미 발령된 고시 본문은 바뀌지 않는다
+  if (cached) return cached.p || null
+  try {
+    const r = await fetch(`${BASE}/DRF/lawService.do?OC=${encodeURIComponent(LAW_OC)}&target=admrul&ID=${encodeURIComponent(id)}&type=XML`,
+      { cache: 'no-store', signal: AbortSignal.timeout(15_000) })
+    if (!r.ok) return null
+    const xml = await r.text()
+    const raw = tag(xml, '조문내용')
+    if (!raw) return null
+    const p = raw
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/^\s*제1조\s*\(\s*목적\s*\)\s*/, '')          // "제1조(목적)" 접두 제거
+      .replace(/^\s*이\s*(지침|고시|규정|훈령|예규)은?\s*/, '') // "이 지침은" 접두 제거
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (p) await setCache(ck, { p })
+    return p || null
   } catch { return null }
 }
 
