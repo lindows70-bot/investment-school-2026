@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import type { ResearchVerdict } from '@/app/api/research-verdict/route'
 import TimingBadge from '@/app/components/TimingBadge'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 
 const CARD = TK.bg6, BORDER = TK.border
 // 통합추천(UnifiedReco)과 동일한 축 색상(제2원칙 — 같은 축은 같은 색)
@@ -25,7 +25,7 @@ function Bar({ label, score, color, note }: { label: string; score: number; colo
         <div style={{ width: `${score}%`, height: '100%', background: color, borderRadius: 3 }} />
       </div>
       {/* ⚠️ 중립 50(미집계)·점수 미반영을 막대만 보고 실측으로 읽지 않게 — 막대는 숫자를 상쇄하지 못한다 */}
-      {note && <div style={{ color: TK.slate500, fontSize: 9, marginTop: 2, lineHeight: 1.3 }}>{note}</div>}
+      {note && <div style={{ color: TK.slate500, fontSize: FS.micro, marginTop: 2, lineHeight: 1.3 }}>{note}</div>}
     </div>
   )
 }
