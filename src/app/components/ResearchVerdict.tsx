@@ -86,21 +86,25 @@ export default function ResearchVerdictCard({ ticker, market, name }: { ticker: 
 
         {/* 📐 점수 분해 — 6축 합계는 통합추천과 같은 값이다. 여기서만 빼는 리스크 감점을 숨기면
             학생은 "추천에선 75인데 여기선 65"를 이유 없이 다른 말로 읽는다(연결성 결함). */}
-        {d.penalties?.length > 0 && (
+        {((d.tilts?.length ?? 0) > 0 || (d.penalties?.length ?? 0) > 0) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: FS.tiny,
             background: TK.bg3, borderRadius: 8, padding: '7px 11px' }}>
             <span style={{ color: TK.sub }}>6축 합계</span>
             <span style={{ color: TK.slate300, fontWeight: 800, fontFamily: 'monospace' }}>{d.axisScore}</span>
-            {d.penalties.map(p => (
+            {/* ⚙️💵 6축 밖 보정 — 통합추천과 같은 값. 가점/감점 색을 갈라 방향이 한눈에 보이게 */}
+            {d.tilts?.map(t => (
+              <span key={t.label} style={{ color: t.pp > 0 ? TK.green400 : TK.orange400 }}>
+                {t.label} <b style={{ fontFamily: 'monospace' }}>{t.pp > 0 ? '+' : ''}{t.pp}</b>
+              </span>
+            ))}
+            {d.penalties?.map(p => (
               <span key={p.label} style={{ color: TK.orange400 }}>{p.label} <b style={{ fontFamily: 'monospace' }}>{p.pp}</b></span>
             ))}
             <span style={{ color: TK.sub }}>→ 최종</span>
             <span style={{ color: TK.slate200, fontWeight: 900, fontFamily: 'monospace' }}>{d.score}</span>
-            {/* ⚠️ "통합추천 점수와 같다"고 쓰면 안 된다 — 통합추천 본목록은 6축 위에 ROIC·현금창출력
-                보정을 얹어 1~3점 더 높다(삼성E&A 87 vs 89 실측). 같은 건 **6축 부분**까지다. */}
             <span style={{ color: TK.slate500, fontSize: FS.micro, flexBasis: '100%' }}>
-              6축 계산은 통합추천과 같습니다(통합추천은 여기에 자본효율·현금창출력 보정을 조금 더 얹어요).
-              리스크 감점은 개별 진단에서만 빼요 — 추천 목록은 이런 종목을 아예 제외하니까요.
+              6축과 보정은 통합추천과 같은 계산이에요. 맨 아래 리스크 감점만 이 화면에서 더 빼요 —
+              추천 목록은 그런 종목을 아예 빼버리거든요.
             </span>
           </div>
         )}

@@ -12,6 +12,7 @@ import { getRegionSeasons } from '@/lib/regionSeason'   // 🌦️ 지역별 계
 import { MARKET_FLOW_KR_KEY, computeMarketFlowKr, type MarketFlowKrResult } from '@/lib/marketFlowKr'
 import { getMoneyFlow } from '@/lib/moneyFlow'
 import { krSupply, krSupplyFromFlow, usSupply } from '@/lib/supplyScore'   // 💰 수급 채점 SSOT(종합판정과 같은 함수)
+import { computeTilts, applyTilts, isFcfDefensive } from '@/lib/scoreTilts'   // ⚙️💵 6축 밖 보정 SSOT(종합판정과 같은 보정)
 import { getCanonicalFundamentals, isPegBaseEffect } from '@/lib/canonicalFundamentals'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
 import { getInsiderSignal } from '@/app/actions/getInsiderSignal'
@@ -180,9 +181,7 @@ export async function GET(req: Request) {
   // 💵 하락장·버블 국면 FCF 방어 틸트 — 막스 시계추 온도(과열≥65 OR 공포≤32)일 때만 현금창출력 가중(getCache 읽기만·콜드면 off)
   // ⚠️ 키는 marks-cycle 라우트의 writer 와 반드시 같아야 한다. v3 를 읽고 있어 2026-07-14(v3→v4) 이후
   //    캐시가 영원히 미스 → 이 틸트가 조용히 죽어 있었다(Gemini 정합성 감사가 발견).
-  const marksCache = await getCache<{ temp: number }>(`marks-cycle-v4:${kstDate()}`, 12 * 3600_000)
-  const marketTemp = marksCache?.temp ?? null   // 0~100 탐욕온도(높음=과열/버블·낮음=공포/하락)
-  const fcfDefensive = marketTemp != null && (marketTemp >= 65 || marketTemp <= 32)   // "버블·하락장엔 현금이 왕" 국면
+  const fcfDefensive = await isFcfDefensive()   // 💵 판정·캐시 키는 lib/scoreTilts SSOT(종합판정과 같은 게이트)
   const mSig = (d: ScreenedStock['fwdEpsDir']) => d === 'accel' ? 1 : d === 'flat' ? 0.5 : 0
 
   // ⚠️ 모멘텀 크래시 국면(Daniel-Moskowitz 2016) — 승패 해부실 실측 플래그(12-1 모멘텀 역전 = 낙폭과대 반등 장) 재사용.
@@ -474,14 +473,13 @@ export async function GET(req: Request) {
       if (roic != null && roic >= 15) badges.push(`⚙️ 고ROIC ${Math.round(roic)}%`)          // 복리 기계(빚까지 반영한 진짜 효율)
       else if (roic == null && roe != null && roe >= 0.20) badges.push(`🏰 고ROE ${Math.round(roe * 100)}%`)   // ROIC 없을 때만 ROE 폴백
       if (roeInflated) badges.push(`⚙️ ROE 부풀림(진짜 ROIC ${Math.round(roic ?? 0)}%)`)     // 부채로 부풀린 가짜 효율 경고
-      const qualityTilt = (roic != null && roic >= 20 ? 3 : roic != null && roic >= 15 ? 1.5 : 0) - (roeInflated ? 6 : 0)
-      if (qualityTilt !== 0) combined = clamp(combined + qualityTilt)
+      // ⚙️💵 보정은 lib/scoreTilts SSOT — 종합판정이 **같은 함수**로 같은 보정을 얹는다(6축 밖 2점이 갈리던 지점)
       // 💵 FCF — 이익-현금 괴리 경보(항상) + FCF 수익률 배지 + 버블·하락장 국면 방어 틸트(과열·공포 국면에서만 가점/감점)
       const fy = t.p.s.fcfYield
       // 💵 성격 판정(스크리너 SSOT) — mirage(다년 합산 적자)는 '우수'를 못 받고, 방어 가중도 다년 평균 기준
       const fcfNature = t.p.s.fcfNature ?? 'na'
       const fyAvg = t.p.s.fcfAvgYield ?? null
-      const fyGuard = fcfNature === 'mirage' || fcfNature === 'volatile' ? fyAvg : fy   // 보수 수익률(배지·방어 가중 공용)
+      // (보수 수익률 계산은 computeTilts 안으로 옮겼다 — 여기 남겨두면 두 곳이 갈린다)
       // 💵 FCF 수익률 배지 — 점수 반영이 화면에 드러나게: 우수(≥5%)·양호(3~5%)는 초록 톤, 낮음(<1%=현금 대비 비쌈)은 경고 톤
       if (t.p.s.qualityGap) badges.push('⚠️ 이익-현금 괴리(영업흑자·영업현금 적자)')
       else if (fcfNature === 'mirage') badges.push(`🚨 FCF 착시 주의 — 올해 ${fy}%지만 ${t.p.s.fcfYears}년 합치면 적자(연평균 ${fyAvg}%)`)
@@ -489,14 +487,12 @@ export async function GET(req: Request) {
       else if (fy != null && fy >= 5) badges.push(`💵 FCF수익률 ${fy}%(우수)`)
       else if (fy != null && fy >= 3) badges.push(`💵 FCF수익률 ${fy}%`)
       else if (fy != null && fy < 1) badges.push(`💵 FCF수익률 ${fy}%↓(현금 대비 고평가)`)
-      const fcfTilt = fcfDefensive
-        ? (t.p.s.qualityGap || fcfNature === 'mirage' ? -5   // 다년 합산 적자는 방어력이 아니라 취약점
-          : fyGuard != null && fyGuard >= 5 ? 3 : fyGuard != null && fyGuard >= 3 ? 1.5 : fyGuard != null && fyGuard < 0 ? -2 : 0)
-        : 0
-      if (fcfTilt !== 0) {
-        combined = clamp(combined + fcfTilt)
-        if (fcfTilt > 0) badges.push('🛟 현금창출력 방어 가중(국면)')
-      }
+      const tilts = computeTilts({
+        roic, roeInflated, qualityGap: t.p.s.qualityGap ?? false,
+        fcfNature, fcfYield: fy ?? null, fcfAvgYield: fyAvg, fcfDefensive,
+      })
+      combined = applyTilts(combined, tilts)
+      if (tilts.some(x => x.pp > 0 && x.label.startsWith('🛟'))) badges.push('🛟 현금창출력 방어 가중(국면)')
       // 📈 애널리스트 추정 리비전 — 모멘텀(SSOT EPS 방향)과 어긋날 땐 숨김(제2원칙: '이익 가속+추정 하향' 모순 차단)
       if (epsRevision === 'up' && t.p.s.fwdEpsDir !== 'decline') badges.push('📈 이익추정 상향')
       else if (epsRevision === 'down' && t.p.s.fwdEpsDir !== 'accel') badges.push('📉 이익추정 하향')
