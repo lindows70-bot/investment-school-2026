@@ -2,6 +2,7 @@
 // 💰 부동산 세금 지도 — 살 때(취득세)·갖고 있을 때(종부세)·팔 때(양도세) 세율을 법령 원문 그대로
 import { useState, useEffect } from 'react'
 import type { ReTaxResult, TaxStage } from '@/app/api/re-tax/route'
+import { parseTaxArticle } from '@/lib/taxParse'   // 📊 원문 → 구간·세율 표(적용 대상별로 전부)
 import { TK, FS } from '@/lib/theme'
 
 const CARD = TK.card, BORDER = TK.border
@@ -60,21 +61,62 @@ export default function ReTaxMap() {
             <div style={{ padding: '0 13px 10px', fontSize: FS.micro, color: TK.sub2, lineHeight: 1.6 }}>{s.note}</div>
 
             {on && (
-              <div style={{ padding: '0 13px 12px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-                {s.articles.map(a => (
-                  <div key={a.no}>
-                    <div style={{ fontSize: FS.micro, color: TK.slate300, fontWeight: 700, marginBottom: 4 }}>
-                      제{a.no}조 {a.title}
-                      {a.revised && <span style={{ color: TK.sub4, fontWeight: 400 }}> · {a.revised}</span>}
+              <div style={{ padding: '0 13px 12px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {s.articles.map(a => {
+                  const parsed = parseTaxArticle(a.text)
+                  return (
+                    <div key={a.no}>
+                      <div style={{ fontSize: FS.micro, color: TK.sub3, marginBottom: 6 }}>
+                        제{a.no}조 {a.title}
+                        {a.revised && <span style={{ color: TK.sub4 }}> · {a.revised}</span>}
+                      </div>
+
+                      {/* 📊 요약 — 적용 대상별로 **전부** 보여준다(하나만 골라 요약하면 오설명) */}
+                      {parsed.groups.map((g, gi) => (
+                        <div key={gi} style={{ marginBottom: 9 }}>
+                          <div style={{ fontSize: FS.tiny, color: TK.amber400, fontWeight: 800, marginBottom: 5, lineHeight: 1.4 }}>
+                            ▸ {g.title}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            {g.rows.map((row, ri) => (
+                              <div key={ri} style={{ display: 'flex', alignItems: 'center', gap: 8,
+                                background: ri % 2 ? 'transparent' : TK.bg1, borderRadius: 6, padding: '5px 10px' }}>
+                                <span style={{ flex: 1, fontSize: FS.tiny, color: TK.slate300 }}>{row.band}</span>
+                                {row.plus && <span style={{ fontSize: FS.micro, color: TK.sub3, fontFamily: 'monospace' }}>{row.plus}</span>}
+                                <span style={{ fontSize: FS.tiny, fontWeight: 900, fontFamily: 'monospace', color: TK.amber400,
+                                  minWidth: 52, textAlign: 'right' }}>{row.rate}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* ⚠️ 못 읽은 게 있으면 반드시 말한다 — 빠진 걸 '없는 것'으로 읽으면 오해가 커진다 */}
+                      {parsed.partial && (
+                        <div style={{ background: `${TK.orange400}14`, border: `1px solid ${TK.orange400}44`, borderRadius: 7,
+                          padding: '7px 10px', fontSize: FS.micro, color: TK.orange400, lineHeight: 1.6, marginBottom: 8 }}>
+                          ⚠️ 이 조문은 <b>별표·다른 법 참조</b>가 섞여 있어 위 요약에 <b>빠진 세율이 있습니다</b>
+                          (예: 집을 사고팔 때의 주택 유상거래 세율). 아래 <b>원문</b>을 꼭 함께 보세요.
+                        </div>
+                      )}
+                      {parsed.groups.length === 0 && (
+                        <div style={{ fontSize: FS.micro, color: TK.sub3, marginBottom: 8 }}>
+                          이 조문은 표로 정리하기 어려운 서식이라 원문으로만 제공합니다.
+                        </div>
+                      )}
+
+                      {/* 📜 원문 — 요약을 학생이 직접 검증할 수 있게 접이식으로 함께 둔다 */}
+                      <details>
+                        <summary style={{ cursor: 'pointer', fontSize: FS.micro, color: TK.sub3 }}>📜 법령 원문 그대로 보기</summary>
+                        <pre style={{
+                          margin: '6px 0 0', padding: '9px 11px', background: TK.bg1, borderRadius: 7, border: `1px solid ${BORDER}`,
+                          fontSize: FS.micro, color: TK.slate300, lineHeight: 1.5, overflowX: 'auto', whiteSpace: 'pre',
+                          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', maxHeight: 320,
+                        }}>{a.text}</pre>
+                      </details>
                     </div>
-                    {/* 📜 원문 그대로 — 박스 문자로 그려진 세율표가 표로 보인다. 가로 스크롤로 가둔다(본문이 밀리지 않게) */}
-                    <pre style={{
-                      margin: 0, padding: '9px 11px', background: TK.bg1, borderRadius: 7, border: `1px solid ${BORDER}`,
-                      fontSize: FS.micro, color: TK.slate300, lineHeight: 1.5, overflowX: 'auto', whiteSpace: 'pre',
-                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', maxHeight: 360,
-                    }}>{a.text}</pre>
-                  </div>
-                ))}
+                  )
+                })}
                 <a href={s.link} target="_blank" rel="noreferrer"
                   style={{ fontSize: FS.micro, color: TK.amber400, textDecoration: 'none', fontWeight: 700 }}>
                   📜 {s.lawName} 전문 보기 (국가법령정보센터) →
@@ -87,9 +129,8 @@ export default function ReTaxMap() {
 
       {/* 정직 캐비엇 — 세금은 틀리면 실질 피해다 */}
       <div style={{ fontSize: FS.micro, color: TK.sub3, lineHeight: 1.7 }}>
-        📜 위 표는 <b>법령 원문 그대로</b>이며 앱이 요약·해석하지 않았습니다.
-        ⚠️ <b>한 조문에 표가 여러 개</b>입니다 — 예를 들어 종부세는 <b>2주택 이하 / 3주택 이상 / 법인</b>이 각각 다른 표예요.
-        표 바로 위의 <b>“1. 납세의무자가 …인 경우”</b> 문장을 꼭 함께 읽으세요.
+        📊 위 요약은 <b>법령 원문에서 기계로 뽑은 것</b>입니다(사람이 옮겨 적지 않았습니다) — 각 조문의 <b>원문</b>을 접어서 함께 뒀으니 직접 확인하실 수 있어요.
+        ⚠️ 세율은 <b>적용 대상마다 다릅니다</b> — 종부세만 해도 <b>2주택 이하 / 3주택 이상 / 법인</b>이 각각 다른 표예요. <b>▸ 로 시작하는 대상 문구</b>를 꼭 함께 보세요.
         <b>공제·감면·특례·지방소득세는 별도</b>라 실제 낼 세금과 다릅니다.
         ⛔ 개인 세액 계산은 하지 않습니다 — 정확한 금액은 <b>홈택스 모의계산</b>이나 <b>세무사</b>에게 확인하세요.
         {d.lawSample && <> ⚠️ 지금은 샘플 키로 조회 중입니다.</>}
