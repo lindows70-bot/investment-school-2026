@@ -9,7 +9,7 @@ import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { collectAdmRules, LAW_OC_IS_SAMPLE } from '@/lib/lawApi'
 import {
-  classifyChannel, classifyStance, summarize, climateOf, ymd,
+  classifyChannel, classifyStance, summarize, climateOf, ymd, dedupKey,
   POLICY_ORG, POLITICS_NOISE, POLICY_NEWS,
   type PolicyItem, type ChannelSummary, type Stance,
 } from '@/lib/rePolicy'
@@ -55,7 +55,8 @@ async function newsOf(query: string): Promise<{ title: string; date: string; lin
 
 export async function GET(req: Request) {
   const refresh = new URL(req.url).searchParams.get('refresh') === '1'
-  const cacheKey = `re-policy-v1:${kstDate()}`
+  // v2: 축별 상한(법령이 뉴스에 밀려 사라지던 것) · 따옴표 정규화 중복 제거 · 정치 필터 보강
+  const cacheKey = `re-policy-v2:${kstDate()}`
   if (!refresh) {
     const cached = await getCache<RePolicyResult>(cacheKey, 6 * 3600_000)
     if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
@@ -83,7 +84,7 @@ export async function GET(req: Request) {
   const newsItems: PolicyItem[] = []
   for (const q of NEWS_KW) {
     for (const n of await newsOf(q)) {
-      const key = n.title.replace(/\s|-\s*[가-힣A-Za-z0-9.]+$/g, '')   // 매체명 꼬리 제거 후 중복 판정
+      const key = dedupKey(n.title)   // ⚠️ 유니코드 따옴표까지 정규화(라이브에서 중복 2건 발생)
       if (seen.has(key)) continue
       seen.add(key)
       if (POLITICS_NOISE.test(n.title)) { politicsFiltered++; continue }
@@ -101,10 +102,15 @@ export async function GET(req: Request) {
   // ⚠️ 버린 건수는 응답에 남긴다 — 조용히 사라지면 "왜 이것밖에 없지?"에 화면이 답할 수 없다.
   const merged = [...lawItems, ...newsItems]
   const offTopicFiltered = merged.filter(i => i.channel === 'other').length
-  const items = merged
-    .filter(i => i.channel !== 'other')
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 60)
+  const onTopic = merged.filter(i => i.channel !== 'other')
+  // ⚠️ **축별로 상한을 따로 둔다.** 한 배열로 날짜 정렬 후 자르면 뉴스(매일 수십 건·오늘 날짜)가
+  //    상위를 독식해 법령이 통째로 사라진다 — 라이브에서 실제로 확정 45건이 화면에서 0건이 됐다.
+  //    이 기능의 핵심은 '확정 축'이라 그게 밀려나면 기능 자체가 무의미해진다.
+  const byDate = (a: PolicyItem, b: PolicyItem) => b.date.localeCompare(a.date)
+  const items = [
+    ...onTopic.filter(i => i.source === 'law').sort(byDate).slice(0, 25),
+    ...onTopic.filter(i => i.source === 'news').sort(byDate).slice(0, 35),
+  ].sort(byDate)
 
   const result: RePolicyResult = {
     asOf: new Date().toISOString(),
