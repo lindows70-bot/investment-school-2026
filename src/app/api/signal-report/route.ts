@@ -8,6 +8,7 @@ import { getCache, setCache } from '@/lib/appCache'
 import { getTechCandles, type TechCandle } from '@/lib/techChartData'
 import type { SignalHistEntry } from '@/app/api/cron/timing-watch/route'
 import { CORE_HIST_KEY, type CoreHistEntry } from '@/lib/coreReco'   // ⭐ 핵심 추천(3중 통과) 전향적 적립분
+import { AXIS_HIST_KEY, gradeAxes, type AxisHistEntry, type AxisGrade } from '@/lib/axisHistory'   // 📐 축별 성적
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -65,6 +66,9 @@ export interface SignalReportResult {
   jarvisSince: string | null    // Jarvis 이력 시작일
   timingSince: string | null    // 타이밍 적립 시작일(없으면 null = 적립 중)
   groups: GroupStat[]
+  /** 📐 축별 성적 — 6축 중 어느 축이 실제로 맞았나(전향적 적립분·30일 채점). thin=true 면 '적립 중' */
+  axisGrades: AxisGrade[]
+  axisSince: string | null      // 축 적립 시작일(없으면 null = 아직 한 건도 없음)
   tickers: number
   unscored: number              // ⚠️ 생존편향 방어: 캔들 로드 실패(상폐·거래정지 가능)로 채점 못 한 종목 수 — 승률 분모 투명성
 }
@@ -83,7 +87,7 @@ export async function GET(req: Request) {
   // 🔬 full=1 — scored 12건 캡 없이 전 이벤트 반환(시뮬레이션·감사용. 화면은 캡 유지)
   const full = new URL(req.url).searchParams.get('full') === '1'
   // ⚠️ 응답 '내용'(제목·라벨 문자열)만 바뀌어도 키를 올려야 한다 — 스키마가 같으면 커밋 훅이 못 잡는다(v6에서 실제로 겪음).
-  const cacheKey = `signal-report-v10:${today}${full ? ':full' : ''}`   // v10: 🌟 핵심 추천(core) 그룹 — 3중 통과 전향적 적립분 채점 / v9: hitN/missN / v8: scored·pendingN / v7: 라벨 / v6: 📏 기준선 / v5: 런 압축 / v4: ⭐그룹
+  const cacheKey = `signal-report-v11:${today}${full ? ':full' : ''}`   // v11: 📐 축별 성적(axisGrades) 추가 — 필드가 늘어도 옛 응답이면 undefined 로 와서 화면이 빈다 / v10: 🌟 핵심 추천(core) 그룹 — 3중 통과 전향적 적립분 채점 / v9: hitN/missN / v8: scored·pendingN / v7: 라벨 / v6: 📏 기준선 / v5: 런 압축 / v4: ⭐그룹
   const cached = await getCache<SignalReportResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -133,6 +137,8 @@ export async function GET(req: Request) {
   const hist = (await getCache<SignalHistEntry[]>('signal-history-v1', 400 * 86400_000)) ?? []
   const timingSince = hist.length ? hist.reduce((m, h) => h.date < m ? h.date : m, hist[0].date) : null
   const coreHist = (await getCache<CoreHistEntry[]>(CORE_HIST_KEY, 400 * 86400_000)) ?? []
+  // 📐 축별 성적 — 크론(core-reco)이 매일 적립한 6축 스냅샷. 소급이 역인과로 막혀 있어 전향적 적립만이 유일한 길이다.
+  const axisHist = (await getCache<AxisHistEntry[]>(AXIS_HIST_KEY, 400 * 86400_000)) ?? []
 
   // ── ②-b ⭐ 합류(confluence) — 타점(WHEN) 트리거가 같은 종목·같은 방향의 Jarvis(WHAT) 신호로 뒷받침될 때만 '고신뢰'
   //    "싸고 좋은 회사(가치)"가 "진입/이탈 타이밍(기술)"까지 겹친 자리 = 두 독립 엔진의 합의. 타점일을 기준(행동 시점)으로 채점.
@@ -160,6 +166,7 @@ export async function GET(req: Request) {
   for (const e of jarvisEvents) tickers.set(e.ticker, { ticker: e.ticker, market: isKr(e.ticker) ? 'KR' : 'US' })
   for (const h of hist) tickers.set(h.ticker, { ticker: h.ticker, market: h.market })
   for (const c of coreHist) tickers.set(c.ticker, { ticker: c.ticker, market: c.market })
+  for (const a of axisHist) tickers.set(a.ticker, { ticker: a.ticker, market: a.market })   // 📐 축별 채점 대상
   const candleMap = new Map<string, TechCandle[]>()
   const failedTickers = new Set<string>()   // ⚠️ 생존편향: 캔들 로드 실패(상폐·거래정지 가능) 종목 — 조용히 버리면 최악 결과가 승률에서 빠져 위로 부풀려짐
   const queue = Array.from(tickers.values())
@@ -226,6 +233,25 @@ export async function GET(req: Request) {
     if (ev) events.push(ev)
   }
 
+  // ── ④-b 📐 축별 성적 — "6축 중 어느 축이 실제로 맞았나". 각 축의 상위 1/3 vs 하위 1/3 30일 수익률 비교.
+  //    ⚠️ 30일 경과분만 채점한다(retNow 를 쓰면 최근 적립분이 며칠짜리 노이즈로 결과를 흔든다).
+  //    ⚠️ 같은 종목이 여러 날 적립되면 자기상관이 생기므로 **종목당 가장 오래된 1건**만 쓴다(Jarvis 런 압축과 같은 원칙).
+  const axisFirst = new Map<string, AxisHistEntry>()
+  for (const a of [...axisHist].sort((x, y) => x.date.localeCompare(y.date)))
+    if (!axisFirst.has(a.ticker)) axisFirst.set(a.ticker, a)
+  const axisRows = Array.from(axisFirst.values()).map(a => {
+    const candles = candleMap.get(a.ticker)
+    const entry = candles?.length ? closeAt(candles, a.date) : null
+    let ret: number | null = null
+    if (entry != null && entry > 0 && dayDiff(a.date, today) >= 30) {
+      const c30 = closeAt(candles!, addDays(a.date, 30))
+      if (c30 != null) ret = Math.round((c30 / entry - 1) * 1000) / 10
+    }
+    return { axes: a.axes, ret }
+  })
+  const axisGrades = gradeAxes(axisRows)
+  const axisSince = axisHist.length ? axisHist.reduce((m, a) => a.date < m ? a.date : m, axisHist[0].date) : null
+
   // ── ⑤ 그룹 통계(소스×방향) — buy 승=상승 / sell 승=하락(매도검토 신호는 공매도가 아님·UI 명시) ──
   // ⚠️ '합류'는 학생에게 낯선 말이라 '이중 확인'으로(사용자 지적). '통합'은 이미 통합추천(unified-reco)이 써서 충돌한다.
   const TITLES: Record<string, string> = {
@@ -263,7 +289,7 @@ export async function GET(req: Request) {
     }
   }
 
-  const result: SignalReportResult = { asOf: new Date().toISOString(), jarvisSince, timingSince, groups, tickers: tickers.size, unscored: failedTickers.size }
+  const result: SignalReportResult = { asOf: new Date().toISOString(), jarvisSince, timingSince, groups, axisGrades, axisSince, tickers: tickers.size, unscored: failedTickers.size }
   // 이벤트 0건(콜드·이력 부재)이면 캐시 박제 금지
   if (events.length > 0) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
