@@ -14,7 +14,7 @@ const V = {
   avoid:   { label: '⛔ 매수 부적합', color: TK.red500, bg: 'rgba(239,68,68,0.10)', bd: 'rgba(239,68,68,0.4)' },
 }
 
-function Bar({ label, score, color }: { label: string; score: number; color: string }) {
+function Bar({ label, score, color, note }: { label: string; score: number; color: string; note?: string | null }) {
   return (
     <div style={{ flex: '1 1 110px', minWidth: 100 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 10, marginBottom: 2 }}>
@@ -24,6 +24,8 @@ function Bar({ label, score, color }: { label: string; score: number; color: str
       <div style={{ height: 6, background: TK.bg3, borderRadius: 3, overflow: 'hidden' }}>
         <div style={{ width: `${score}%`, height: '100%', background: color, borderRadius: 3 }} />
       </div>
+      {/* ⚠️ 중립 50(미집계)·점수 미반영을 막대만 보고 실측으로 읽지 않게 — 막대는 숫자를 상쇄하지 못한다 */}
+      {note && <div style={{ color: TK.slate500, fontSize: 9, marginTop: 2, lineHeight: 1.3 }}>{note}</div>}
     </div>
   )
 }
@@ -76,7 +78,9 @@ export default function ResearchVerdictCard({ ticker, market, name }: { ticker: 
           <Bar label="🏰 퀄리티" score={d.axes.quality} color={AX.quality} />
           <Bar label="📈 모멘텀" score={d.axes.momentum} color={AX.momentum} />
           <Bar label="🧭 주도섹터" score={d.axes.rotation} color={AX.rotation} />
-          <Bar label="💰 수급" score={d.axes.supply} color={AX.supply} />
+          {/* 💰 수급 — 🇰🇷만 점수에 들어간다(해외는 투자자별 순매수 공시가 없어 가중치 0 · axisWeights SSOT) */}
+          <Bar label="💰 수급" score={d.axes.supply} color={AX.supply}
+            note={d.market !== 'KR' ? '해외는 참고용(점수 미반영)' : d.supplyKnown === false ? '미집계 — 중립 50' : null} />
           <Bar label="🌦️ 계절" score={d.axes.season} color={AX.season} />
         </div>
 

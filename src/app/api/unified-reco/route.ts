@@ -8,8 +8,9 @@ import { getAssetType } from '@/lib/assetClassifier'
 import { WIN_LOSE_KEY } from '@/lib/winLose'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { growthFromCli, inflationFromRegime, seasonOf, holdingFit, SEASON_META, type Quadrant, type Holding } from '@/lib/seasonNavigator'
-import { MARKET_FLOW_KR_KEY, computeMarketFlowKr, type MarketFlowKrResult, type MarketFlowEntry } from '@/lib/marketFlowKr'
+import { MARKET_FLOW_KR_KEY, computeMarketFlowKr, type MarketFlowKrResult } from '@/lib/marketFlowKr'
 import { getMoneyFlow } from '@/lib/moneyFlow'
+import { krSupply, krSupplyFromFlow, usSupply } from '@/lib/supplyScore'   // 💰 수급 채점 SSOT(종합판정과 같은 함수)
 import { getCanonicalFundamentals, isPegBaseEffect } from '@/lib/canonicalFundamentals'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
 import { getInsiderSignal } from '@/app/actions/getInsiderSignal'
@@ -113,43 +114,9 @@ export interface UnifiedRecoResult {
 // 축 점수(0~100) — screenOne valueScore·qualityScore(0~1) ×100
 const fundOf = (s: number) => clamp(s * 100)
 
-// KR 수급 점수(0~100) — 외인/기관 5일 + 쌍끌이 + 개인 이탈(메이저가 받는 구조)
-function krSupply(e: MarketFlowEntry): number {
-  let s = 30
-  s += Math.min(e.dualStreak * 12, 36)
-  s += e.foreign.d5 > 0 ? 15 : e.foreign.d5 < 0 ? -12 : 0
-  s += e.organ.d5 > 0 ? 15 : e.organ.d5 < 0 ? -12 : 0
-  s += (e.individual?.d1 ?? 0) < 0 ? 12 : 0
-  return clamp(s)
-}
-// KR 수급 폴백 점수(0~100) — marketFlowKr POOL 밖 종목을 getMoneyFlow(네이버 실수급)로 채점. krSupply와 동일 척도(5일 순매수·동반매수·개인 이탈)
-//   ⚠️ 쌍끌이 연속일수(dualStreak)는 per-ticker 트렌드엔 없어, 외인·기관 5일 동반 순매수에 고정 보너스(+24 ≈ 2일 쌍끌이)로 근사
-function krSupplyFromFlow(mf: Awaited<ReturnType<typeof getMoneyFlow>>): number {
-  const f5 = mf.foreign?.net5 ?? 0, o5 = mf.organ?.net5 ?? 0, i5 = mf.individual?.net5 ?? 0
-  let s = 30
-  if (f5 > 0 && o5 > 0) s += 24
-  s += f5 > 0 ? 15 : f5 < 0 ? -12 : 0
-  s += o5 > 0 ? 15 : o5 < 0 ? -12 : 0
-  s += i5 < 0 ? 12 : 0
-  return clamp(s)
-}
-// US 수급 점수(0~100, 프록시) — MFI 과매도·상승 + 내부자 + 13F 거인
-function usSupply(mf: Awaited<ReturnType<typeof getMoneyFlow>>): number {
-  let s = 40
-  const u = mf.us
-  if (u?.mfi != null) {
-    if (u.mfi < 30) s += 22
-    else if (u.mfi < 50) s += 12
-    else if (u.mfi <= 70) s += 4
-    else if (u.mfi > 80) s -= 15
-    if (u.mfiTrend === 'rising') s += 10
-  }
-  if (u?.insiderCluster) s += 20
-  else if ((u?.insiderBuyers ?? 0) > 0) s += 10
-  if (u?.giantTrend === 'add') s += 14
-  else if ((u?.giantHolders ?? 0) > 0) s += 6
-  return clamp(s)
-}
+// 💰 수급 채점은 lib/supplyScore SSOT — 종합판정(research-verdict)이 **같은 함수**를 부른다.
+//    여기 지역 함수로 두었더니 종합판정이 4단계 계단(INFLOW→80)으로 따로 계산해 삼성E&A 96 vs 80 이 갈렸다.
+//    (Next.js route 는 임의 export 가 금지되므로 공유하려면 lib 으로 내보내는 수밖에 없다 — axisWeights 와 같은 사정)
 
 export async function GET(req: Request) {
   const sb = createClient()

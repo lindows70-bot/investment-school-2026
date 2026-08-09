@@ -14,7 +14,7 @@ import { isPegBaseEffect } from '@/lib/canonicalFundamentals'
 import { classifyLynchMece } from '@/lib/lynchAnalysis'
 import { getCurrentSeason } from '@/lib/currentSeason'
 import { holdingFit, SEASON_META, type Quadrant, type Holding } from '@/lib/seasonNavigator'
-import { getMoneyFlow } from '@/lib/moneyFlow'
+import { getSupplyScoreOne } from '@/lib/supplyScore'   // 💰 수급 채점 SSOT — 통합추천과 같은 함수(계단식 환산 폐기)
 import { getInsiderSignal } from '@/app/actions/getInsiderSignal'
 import { getEntryTiming, type EntryTiming } from '@/lib/entryTiming'
 import type { RotationResult, Quadrant as RotQuad } from '@/app/api/sector-rotation/route'
@@ -28,6 +28,8 @@ export interface ResearchVerdict {
   score: number                          // 종합 매수 적합도 0~100
   sector: string | null; rotationQuad: RotQuad | null   // GICS 섹터(영문) + 로테이션 국면 — 리서치 리포트 재사용(제2원칙)
   axes: { season: number; value: number; quality: number; momentum: number; rotation: number; supply: number }
+  /** 💰 수급 축이 실측인가 — false 면 중립 50(미집계). 통합추천 카드와 같은 정직 표기(가짜 정밀 금지) */
+  supplyKnown: boolean
   /** 📐 축 출처 — 'universe'면 통합추천과 **같은 값**(모순 없음) · 'local'이면 유니버스 밖이라 자체 계산.
    *  화면이 "왜 통합추천엔 이 종목이 없나"를 설명할 수 있게 정직하게 내보낸다. */
   axisSource: 'universe' | 'local'
@@ -54,10 +56,11 @@ export async function GET(req: Request) {
     return NextResponse.json({ unsupported: true, reason: '개별 주식 전용 판정입니다(ETF·코인·원자재 제외).' }, { headers: { 'Cache-Control': 'no-store' } })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || url.origin
+  // v18: 💰 수급 축을 lib/supplyScore SSOT 로(통합추천과 같은 함수) — 계단식 환산 폐기로 점수가 바뀐다
   // v17: 📐 주도섹터 입력 섹터도 유니버스 우선(같은 SSOT 함수라도 입력이 다르면 결과가 갈린다)
   // v16: 📐 축 점수를 유니버스 SSOT 로(통합추천과 동일) — 점수가 바뀌므로 필수 범프
   // v15: ⚖️ 6축 가중치를 axisWeights SSOT 로 교체(해외는 수급 0·가치 30·모멘텀 25)
-  const cacheKey = `research-verdict-v17:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v13: 정예 타점 pro 문구 재측정 수치로 갱신(내용 변경=키 범프) / v12: 📋 어닝 서프라이즈 이력 근거
+  const cacheKey = `research-verdict-v18:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v13: 정예 타점 pro 문구 재측정 수치로 갱신(내용 변경=키 범프) / v12: 📋 어닝 서프라이즈 이력 근거
   const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -70,7 +73,9 @@ export async function GET(req: Request) {
     getCurrentSeason(base).catch(() => null),
     fetch(`${base}/api/reverse-dcf?ticker=${encodeURIComponent(ticker)}&market=${market}`, { signal: AbortSignal.timeout(10_000) })
       .then(r => r.ok ? r.json() : null).then(j => j?.verdict ?? null).catch(() => null),
-    getMoneyFlow(ticker, market, name, base).then(f => f?.status ?? null).catch(() => null),
+    // 💰 수급 — 통합추천과 **같은 채점 함수**(lib/supplyScore). 예전엔 status 만 받아 4단계 계단으로
+    //    환산했는데(INFLOW→80), 통합추천은 연속 점수라 같은 종목이 80 vs 96 으로 갈렸다.
+    getSupplyScoreOne(ticker, market, name, base).catch(() => null),
     getEntryTiming(ticker, market).catch(() => null),
     getInsiderSignal({ ticker, market, name }).catch(() => null),   // 🔥 임원 장내매수(90일·24h 공유 캐시)
   ])
@@ -84,7 +89,8 @@ export async function GET(req: Request) {
 
   const m = await mP
   if (!m) return NextResponse.json({ unsupported: true, reason: '재무 데이터를 가져오지 못했습니다.' }, { headers: { 'Cache-Control': 'no-store' } })
-  const [season, dcf, flow, timing, insider] = await signalsP
+  const [season, dcf, sup, timing, insider] = await signalsP
+  const flow = sup?.flow?.status ?? null   // 배지·설명용 상태는 그대로(같은 getMoneyFlow 호출을 재사용 — 중복 조회 없음)
   const ax = await axP   // 📐 유니버스 축(있으면 통합추천과 동일 · 없으면 null → 아래 자체 계산 폴백)
   // ⬛ 관망(횡보) — ADX<20 추세 없음 + 신호등 미확립(green=구조적 상승은 제외, 자기모순 차단). 영상 '회색 지대'
   const choppy = !!(timing?.supply?.choppy && timing.light !== 'green')
@@ -118,8 +124,9 @@ export async function GET(req: Request) {
     value = clamp(value)
   }
 
-  // ③ 수급 — 스마트머니
-  const supply = flow === 'INFLOW' ? 80 : flow === 'NEGLECTED' ? 58 : flow === 'NEUTRAL' ? 55 : flow === 'CROWDED' ? 32 : 50
+  // ③ 수급 — 스마트머니. 📐 통합추천과 동일 SSOT(POOL 우선 → 실수급 폴백, 미집계는 중립 50)
+  const supply = sup?.score ?? 50
+  const supplyKnown = sup?.known ?? false   // ⚠️ 중립 50을 실측처럼 보이지 않게 — 통합추천 카드와 같은 정직 표기
 
   // ④ 모멘텀 — 📐 유니버스 우선. ⚠️ 실사고 지점: 자체 경로가 **50(=모름)** 을 내는데 유니버스는 91 이었다.
   //    "아는 값을 모른다고 처리"하면 학생은 같은 종목을 두 화면에서 정반대로 읽는다.
@@ -222,6 +229,7 @@ export async function GET(req: Request) {
     ticker, name, market, verdict, score,
     sector: m.sector ?? null, rotationQuad: rotQuad,
     axes: { season: seasonScore, value, quality, momentum, rotation, supply },
+    supplyKnown,
     axisSource: ax ? 'universe' : 'local',
     seasonLabel, seasonFit, fwdEpsDir: m.fwdEpsDir, priceTrend: m.priceTrend,
     peg: m.peg, pegSuspect, dcfVerdict: dcf, flowStatus: flow,
