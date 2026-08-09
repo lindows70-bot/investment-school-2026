@@ -30,6 +30,10 @@ export interface ResearchVerdict {
   axes: { season: number; value: number; quality: number; momentum: number; rotation: number; supply: number }
   /** 💰 수급 축이 실측인가 — false 면 중립 50(미집계). 통합추천 카드와 같은 정직 표기(가짜 정밀 금지) */
   supplyKnown: boolean
+  /** 📐 6축 가중합(감점 전) — **통합추천 점수와 같은 값**. 아래 penalties 를 빼면 score 가 된다. */
+  axisScore: number
+  /** ⚠️ 종합판정 전용 리스크 감점 내역 — 통합추천은 같은 리스크를 '선별 제외'로 처리한다(점수를 안 깎는다) */
+  penalties: { label: string; pp: number }[]
   /** 📐 축 출처 — 'universe'면 통합추천과 **같은 값**(모순 없음) · 'local'이면 유니버스 밖이라 자체 계산.
    *  화면이 "왜 통합추천엔 이 종목이 없나"를 설명할 수 있게 정직하게 내보낸다. */
   axisSource: 'universe' | 'local'
@@ -56,12 +60,13 @@ export async function GET(req: Request) {
     return NextResponse.json({ unsupported: true, reason: '개별 주식 전용 판정입니다(ETF·코인·원자재 제외).' }, { headers: { 'Cache-Control': 'no-store' } })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || url.origin
+  // v20: 📐 감점 분해(axisScore·penalties) 응답 추가 — 옛 응답이면 undefined 로 와서 화면이 빈다(필드 추가도 범프 대상)
   // v19: 🌦️ 계절 국면을 origin 기준으로(유럽·일본·중국 종목에 미국 국면을 씌우던 버그) — 계절 축이 바뀐다
   // v18: 💰 수급 축을 lib/supplyScore SSOT 로(통합추천과 같은 함수) — 계단식 환산 폐기로 점수가 바뀐다
   // v17: 📐 주도섹터 입력 섹터도 유니버스 우선(같은 SSOT 함수라도 입력이 다르면 결과가 갈린다)
   // v16: 📐 축 점수를 유니버스 SSOT 로(통합추천과 동일) — 점수가 바뀌므로 필수 범프
   // v15: ⚖️ 6축 가중치를 axisWeights SSOT 로 교체(해외는 수급 0·가치 30·모멘텀 25)
-  const cacheKey = `research-verdict-v19:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v13: 정예 타점 pro 문구 재측정 수치로 갱신(내용 변경=키 범프) / v12: 📋 어닝 서프라이즈 이력 근거
+  const cacheKey = `research-verdict-v20:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v13: 정예 타점 pro 문구 재측정 수치로 갱신(내용 변경=키 범프) / v12: 📋 어닝 서프라이즈 이력 근거
   const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -167,12 +172,17 @@ export async function GET(req: Request) {
   //      (제2원칙 위반). 주석으로 "동일"을 약속하지 말고 **같은 상수를 import** 해야 실제로 동일해진다.
   //   🌍 해외는 수급 축 가중치가 0 이라 supply 값이 있어도 점수엔 안 들어간다(없는 데이터로 점수 금지).
   const w = wOf(market === 'KR')
-  let score = value * w.value + quality * w.quality + momentum * w.momentum + rotation * w.rotation + supply * w.supply + seasonScore * w.season
-  if (m.knife) score -= 20
-  if (zombie) score -= 20
-  if (m.inventoryBuildup) score -= 10
-  if (hype) score -= 8
-  score = clamp(score)
+  // 📐 6축 가중합 — 여기까지는 통합추천과 **완전히 같은 값**이어야 한다(실측으로 확인: 2026-08-09).
+  const axisScore = clamp(value * w.value + quality * w.quality + momentum * w.momentum + rotation * w.rotation + supply * w.supply + seasonScore * w.season)
+  // ⚠️ 아래 감점은 **종합판정 전용**이다. 통합추천은 같은 리스크를 점수로 깎는 대신 선별에서 아예 빼므로
+  //    (칼날·급락 필터) 두 화면의 최종 점수는 여기서 갈리는 게 정상이다. 다만 학생에겐 "축은 다 높은데
+  //    왜 낮지?"로 보이므로 **분해해서 보여준다** — 숨기면 두 화면이 이유 없이 다른 말을 하는 게 된다.
+  const penalties: { label: string; pp: number }[] = []
+  if (m.knife) penalties.push({ label: '🔪 떨어지는 칼날', pp: -20 })
+  if (zombie) penalties.push({ label: '🧟 이자도 못 버는 구조', pp: -20 })
+  if (m.inventoryBuildup) penalties.push({ label: '📦 재고가 매출보다 빨리 늚', pp: -10 })
+  if (hype) penalties.push({ label: '💸 영업 적자', pp: -8 })
+  const score = clamp(axisScore + penalties.reduce((s, p) => s + p.pp, 0))
 
   // 판정 — 명백한 부적합(칼날·좀비) 우선, 그 외 점수·리스크 종합
   let verdict: ResearchVerdict['verdict']
@@ -235,6 +245,7 @@ export async function GET(req: Request) {
     ticker, name, market, verdict, score,
     sector: m.sector ?? null, rotationQuad: rotQuad,
     axes: { season: seasonScore, value, quality, momentum, rotation, supply },
+    axisScore, penalties,
     supplyKnown,
     axisSource: ax ? 'universe' : 'local',
     seasonLabel, seasonFit, fwdEpsDir: m.fwdEpsDir, priceTrend: m.priceTrend,

@@ -84,6 +84,24 @@ export default function ResearchVerdictCard({ ticker, market, name }: { ticker: 
           <Bar label="🌦️ 계절" score={d.axes.season} color={AX.season} />
         </div>
 
+        {/* 📐 점수 분해 — 6축 합계는 통합추천과 같은 값이다. 여기서만 빼는 리스크 감점을 숨기면
+            학생은 "추천에선 75인데 여기선 65"를 이유 없이 다른 말로 읽는다(연결성 결함). */}
+        {d.penalties?.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: FS.tiny,
+            background: TK.bg3, borderRadius: 8, padding: '7px 11px' }}>
+            <span style={{ color: TK.sub }}>6축 합계</span>
+            <span style={{ color: TK.slate300, fontWeight: 800, fontFamily: 'monospace' }}>{d.axisScore}</span>
+            {d.penalties.map(p => (
+              <span key={p.label} style={{ color: TK.orange400 }}>{p.label} <b style={{ fontFamily: 'monospace' }}>{p.pp}</b></span>
+            ))}
+            <span style={{ color: TK.sub }}>→ 최종</span>
+            <span style={{ color: TK.slate200, fontWeight: 900, fontFamily: 'monospace' }}>{d.score}</span>
+            <span style={{ color: TK.slate500, fontSize: FS.micro, flexBasis: '100%' }}>
+              6축 합계는 통합추천 점수와 같습니다. 리스크 감점은 개별 진단에서만 빼요(추천 목록은 이런 종목을 아예 제외합니다).
+            </span>
+          </div>
+        )}
+
         {/* 🚦 기술적 타이밍 (WHEN) — AI 리밸런싱·통합추천과 동일한 신호등+라쉬케+매물·평단(SSOT). 224봉 미만이면 자동 생략 */}
         {d.timing && (
           <div>
