@@ -7,6 +7,7 @@ import HouseVsKospi from '@/app/components/HouseVsKospi'
 import ReWatchlist from '@/app/components/ReWatchlist'
 import RePhaseAlert from '@/app/components/RePhaseAlert'
 import RePolicyRadar from '@/app/components/RePolicyRadar'   // 🏛️ 정책은 모든 부동산 지표의 상류라 최상단
+import ReTaxMap from '@/app/components/ReTaxMap'             // 💰 세금은 국민 관심 1순위 — 정책 바로 아래
 import { TK } from '@/lib/theme'
 
 export default function RealEstatePage() {
@@ -21,6 +22,7 @@ export default function RealEstatePage() {
       </div>
       <RePhaseAlert />
       <RePolicyRadar />
+      <ReTaxMap />
       <ReWatchlist />
       <ReMarketDashboard />
       <ReDeepGauges />
