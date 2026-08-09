@@ -166,7 +166,9 @@ export async function getAdmRulePurpose(id: string): Promise<string | null> {
 
 /** 여러 키워드를 모아 **행정규칙명 기준 중복 제거**. 캐시 6h(고시는 하루에 몇 건 수준). */
 export async function collectAdmRules(keywords: string[]): Promise<{ rules: AdmRule[]; failed: number }> {
-  const ck = `law-admrul-v1:${keywords.join(',')}`
+  // ⚠️ v2: AdmRule 에 `id`(목적 조회 키)를 **추가**했다 → 키를 올리지 않으면 옛 캐시가 id 없이 서빙돼
+  //    목적이 전부 undefined 로 온다(실제로 겪었다). "필드가 늘어도 키를 올려라"는 이래서 있다.
+  const ck = `law-admrul-v2:${keywords.join(',')}`
   const cached = await getCache<{ rules: AdmRule[]; failed: number }>(ck, 6 * 3600_000)
   if (cached) return cached
 
