@@ -77,6 +77,7 @@ Next.js 14 (App Router) + Supabase + Tailwind CSS + TypeScript 로 구축한
 - **로컬 `npm run build` 절대 금지** — dev 서버의 `.next`를 덮어써 흰 화면. `check:build`가 `.next-build`로 분리 빌드한다. **dev 서버가 떠 있을 때 같은 폴더에서 `next build` 금지.**
 - **"배포 성공" ≠ "내 코드가 배포됨"** — `vercel --prod`는 git이 아니라 작업 디렉토리를 올린다. 커밋이 조용히 실패했을 수 있으니 **배포 후 `git log --oneline -1` 확인**.
 - **`git add -A` 금지** — 병렬 세션 산출물까지 쓸어담는다. 파일을 명시할 것.
+- **🔒 `.vercelignore` 에 `.env*` 가 없으면 `.env.local` 이 배포 번들에 통째로 실린다**(2026-08-09 실사고). `vercel --prod` 는 git 이 아니라 **작업 디렉토리**를 올리므로 `.gitignore` 는 아무 소용이 없다. 오늘 만든 키를 Vercel 에 등록한 적이 없는데 프로덕션이 그 값을 읽어서 발각됐다 — 그 안에 **KRX_ID·KRX_PW·TOSS_\*** 가 있었다(절대 원칙 위반). 프로덕션에 필요한 키는 **`vercel env add` 로 정식 등록**하고, 파일로 몰래 넘기지 마라. 검증법: 로컬에만 있는 env 를 읽는 플래그를 응답에 노출해 두면 업로드 여부가 바로 드러난다.
 - **vercel CLI 버전 고정** — `npx vercel@54.20.1 --prod --yes`(신규 릴리스 전파 지연으로 `notarget` 발생 이력).
 
 ### 캐시 (34건 기록 — 최다 재발)
