@@ -79,7 +79,14 @@ export default function RePolicyRadar() {
                 <span style={{ color: TK.sub3, fontWeight: 400 }}> {c.lawN + c.newsN}건</span>
               </div>
               <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 3, lineHeight: 1.5 }}>{m.metric}</div>
-              <div style={{ fontSize: FS.micro, color: TK.orange400, marginTop: 3, fontWeight: 700 }}>⏳ 효과까지 {m.lagLabel}</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6, marginTop: 3 }}>
+                <span style={{ fontSize: FS.micro, color: TK.orange400, fontWeight: 700 }}>⏳ 효과까지 {m.lagLabel}</span>
+                {/* 🔗 카드 본체는 '필터 토글'이라 링크를 겹치면 필터를 잃는다 — 별도 링크 + 전파 차단 */}
+                <a href={m.href} onClick={e => e.stopPropagation()}
+                  style={{ fontSize: FS.micro, color: TK.indigo400, textDecoration: 'none', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                  지표 보기 →
+                </a>
+              </div>
             </div>
           )
         })}

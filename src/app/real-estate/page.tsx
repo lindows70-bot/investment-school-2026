@@ -24,7 +24,9 @@ export default function RealEstatePage() {
       <RePolicyRadar />
       <ReTaxMap />
       <ReWatchlist />
-      <ReMarketDashboard />
+      {/* 🔗 id 는 정책 레이더의 4대 경로 카드가 걸어오는 앵커다(rePolicy.CHANNEL_META.href) —
+          세제·금융 경로가 닿는 지표(거래량·미분양·주담대 금리)가 여기 있다 */}
+      <div id="re-market"><ReMarketDashboard /></div>
       <ReDeepGauges />
       <RentYieldSpread />
       <HouseVsKospi />

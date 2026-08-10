@@ -13,10 +13,13 @@ export const CHANNEL_META: Record<Exclude<Channel, 'other'>, {
   emoji: string; label: string; metric: string; lagLabel: string; lagMonths: [number, number]; href: string
 }> = {
   // ⚠️ 시차가 이 기능의 핵심 교육 포인트다 — "공급 대책 발표 = 곧 하락"이 아니다.
-  supply:  { emoji: '🏗️', label: '공급',      metric: '공급 파이프라인(인허가→착공→준공)', lagLabel: '2~3년',   lagMonths: [24, 36], href: '/real-estate/honeycomb' },
-  tax:     { emoji: '💰', label: '세제',      metric: '매물 출회 → 거래량·미분양',        lagLabel: '6~12개월', lagMonths: [6, 12],  href: '/real-estate' },
-  finance: { emoji: '🏦', label: '금융',      metric: '주담대 금리·거래량',              lagLabel: '1~3개월',  lagMonths: [1, 3],   href: '/real-estate' },
-  zone:    { emoji: '📍', label: '규제지역',   metric: '해당 지역 벌집 국면·거래량',        lagLabel: '즉시',    lagMonths: [0, 1],   href: '/real-estate/honeycomb' },
+  // ⚠️ href 는 **그 지표가 실제로 있는 자리**를 가리켜야 한다. 예전 값은 tax·finance 가 둘 다 `/real-estate`
+  //    였는데 카드가 이미 그 페이지에 있어서, 눌러도 아무 일이 없었다(오늘 실거래 버튼과 같은 무반응 결함).
+  //    앵커 id 는 각 페이지가 컴포넌트를 감싸며 달아 둔다 — 이름을 바꾸면 링크가 조용히 죽는다.
+  supply:  { emoji: '🏗️', label: '공급',      metric: '공급 파이프라인(인허가→착공→준공)', lagLabel: '2~3년',   lagMonths: [24, 36], href: '/real-estate/honeycomb#supply-pipeline' },
+  tax:     { emoji: '💰', label: '세제',      metric: '매물 출회 → 거래량·미분양',        lagLabel: '6~12개월', lagMonths: [6, 12],  href: '#re-market' },
+  finance: { emoji: '🏦', label: '금융',      metric: '주담대 금리·거래량',              lagLabel: '1~3개월',  lagMonths: [1, 3],   href: '#re-market' },
+  zone:    { emoji: '📍', label: '규제지역',   metric: '해당 지역 벌집 국면·거래량',        lagLabel: '즉시',    lagMonths: [0, 1],   href: '/real-estate/honeycomb#honeycomb-cycle' },
 }
 
 // ⚠️ 사전은 **실측 손 채점으로 고쳤다**(2026-08-09, 법령 45건). 자동 분류만 믿었으면 놓쳤을 것들:

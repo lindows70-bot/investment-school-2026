@@ -17,9 +17,11 @@ export default function HoneycombPage() {
         </div>
       </div>
       <RePhaseAlert />
-      <HoneycombCycle />
+      {/* 🔗 id 는 정책 레이더의 4대 경로 카드가 걸어오는 앵커다(rePolicy.CHANNEL_META.href) —
+          지우거나 이름을 바꾸면 그 링크가 조용히 아무 데도 안 간다 */}
+      <div id="honeycomb-cycle"><HoneycombCycle /></div>
       <WeeklyPulse />
-      <SupplyPipeline />
+      <div id="supply-pipeline"><SupplyPipeline /></div>
     </div>
   )
 }
