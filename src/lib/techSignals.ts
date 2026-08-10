@@ -949,6 +949,41 @@ export function readIchimokuLines(data: Ohlc[]): IchimokuRead | null {
   }
 }
 
+/* ── 📐 선행스팬1 방향 — 일목 (전환선9 + 기준선26)/2.
+   차트에는 26봉 앞에 그리지만 **방향 판정은 계산 시점 기준**이다(그래야 오늘 쓸 수 있다).
+   ⚠️ `readIchimokuLines`는 치코우·기준선·꼬임만 준다 — 스팬A 기울기는 여기서 따로 낸다(기존 호출부 무손상). ── */
+export function readSpanADir(data: Ohlc[]): { dir: 'up' | 'down' | 'flat'; rising: boolean; value: number } | null {
+  const N = data.length
+  if (N < 30) return null
+  const hl = (span: number, i: number) => {
+    if (i - span + 1 < 0) return null
+    let hi = -Infinity, lo = Infinity
+    for (let j = i - span + 1; j <= i; j++) { hi = Math.max(hi, data[j].high); lo = Math.min(lo, data[j].low) }
+    return (hi + lo) / 2
+  }
+  const spanAt = (i: number) => { const t = hl(9, i), k = hl(26, i); return t == null || k == null ? null : (t + k) / 2 }
+  const now = spanAt(N - 1), prev = spanAt(N - 2)
+  if (now == null || prev == null || !(prev > 0)) return null
+  const d = (now - prev) / prev
+  // ⚠️ `dir` 은 **표시용**(0.02% 미만은 flat 으로 눌러 노이즈를 줄인다),
+  //    `rising` 은 **판정용 순수 비교**다. 백테스트가 순수 비교로 성적을 냈으므로 판정은 이쪽을 써야
+  //    화면의 승률이 그 신호의 승률이 된다(둘을 섞으면 성적과 신호가 어긋난다 — 실제로 4000봉 중 1건이 갈렸다).
+  return { dir: d > 0.0002 ? 'up' : d < -0.0002 ? 'down' : 'flat', rising: now > prev, value: now }
+}
+
+/* ── 📈 TRIX — 삼중 지수평활 변화율(%). MACD의 후행성을 줄인 '체결 강도' 지표.
+   영선(0) 상향 돌파 = 강도가 양(+)으로 전환. 값 자체보다 **전일 대비 증감**이 신호다(강도 발산). ── */
+export function calcTRIX(close: number[], n = 15): (number | null)[] {
+  if (close.length < n * 3) return close.map(() => null)
+  const ema = (arr: number[]): number[] => {
+    const k = 2 / (n + 1); const out: number[] = []; let p: number | null = null
+    for (const v of arr) { p = p == null ? v : v * k + p * (1 - k); out.push(p) }
+    return out
+  }
+  const e3 = ema(ema(ema(close)))
+  return e3.map((v, i) => (i === 0 || !(e3[i - 1] > 0) ? null : ((v - e3[i - 1]) / e3[i - 1]) * 100))
+}
+
 /* ── 🕯️ 오늘의 봉 6등급 — "전일종가 기준으로 봉은 6가지: 갭상승 양봉이 최강, 갭하락 추가하락 음봉이 최약"(이정윤 슈퍼개미 영상).
    등급(강→약): ①갭상승+양선 ②갭하락 출발이나 양선·전일比+ ③갭상승 출발이나 음선·전일比+ ④양선이나 전일比− ⑤음선·전일比−(갭상승 출발) ⑥갭하락+음선.
    순수 산수(전일종가·시가·종가 3개 비교). 일봉 전용 교육 칩 — 점수·판정 미반영. ── */
