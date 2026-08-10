@@ -4,7 +4,8 @@
 // ⚠️ 국면 판정은 **종목별 50일선 방향**이다(백테스트와 같은 정의). 지수 국면(`indexRegime`)은
 //    화면이 "왜 비었나"를 설명하기 위한 **안내용**이며 판정에 쓰지 않는다 — 섞으면 성적이 성적 구실을 못 한다.
 import { UNIVERSE_KEY, type ScreenedStock } from '@/lib/macroPhaseScreener'
-import { getCache } from '@/lib/appCache'
+import { getCache, setCache } from '@/lib/appCache'
+import { SWING_HIST_KEY, shouldAppend, gradeSwing, type SwingHistEntry, type SwingGrade, type ScoredRow } from '@/lib/swingHistory'
 import { getTechCandles } from '@/lib/techChartData'
 import { flagOf } from '@/lib/marketFlag'
 import { getUsdKrw } from '@/lib/fx'
@@ -13,10 +14,12 @@ import { readSwingSetup, readSwingRegime, SWING_TRACKS, positionSize, type Swing
 export interface SwingItem {
   ticker: string; name: string; market: 'KR' | 'US'; flag: string; sector: string | null
   track: SwingTrack; price: number
-  stop: number; stopPct: number          // 손절 — 트랙별 구조선(아래 STOP_RULE)
+  stop: number; stopPct: number          // 손절 — 트랙별 구조선(아래 stopFor)
   targetPct: number                      // 참고 목표 — 실측 절사 edge + 같은 기간 baseline
   reasons: string[]
   regime: SwingRegime
+  /** 📉 차트용 최근 60봉 종가 — 학생이 "지금 어디쯤인지"를 눈으로 보게 */
+  spark: number[]
 }
 export interface SwingRadar {
   asOf: string
@@ -28,6 +31,10 @@ export interface SwingRadar {
   items: SwingItem[]
   /** 트랙별로 지금 켜졌는지 + 왜 — 화면이 빈 목록을 설명할 수 있게 */
   tracks: { key: SwingTrack; on: boolean; why: string }[]
+  /** 📋 이 기능이 추천한 것의 **실제 성적**(오늘부터 전향 적립·소급 없음) */
+  grades: SwingGrade[]
+  /** 최근 채점 내역 — 학생이 개별 건을 눈으로 확인할 수 있게(승률만 보여주면 못 믿는다) */
+  recent: { date: string; ticker: string; name: string; flag: string; track: SwingTrack; retPct: number | null; stopHit: boolean }[]
 }
 
 /** 🛡️ 손절 — 트랙의 구조가 깨지는 자리(백테스트가 손절을 쓰진 않았으므로 **성적에 포함되지 않은 보호장치**다).
@@ -81,6 +88,7 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
           stopPct: Math.round((1 - stop / hit.price) * 1000) / 10,
           targetPct: t.edgePp,
           reasons: hit.reasons, regime: readSwingRegime(D) ?? 'flat',
+          spark: close.slice(-60).map(v => Math.round(v * 100) / 100),
         })
       } catch { /* 개별 실패 무시 — 부분실패는 아래 okCount 가드가 잡는다 */ }
     }
@@ -102,7 +110,52 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
     return { key: t.key, on, why }
   })
 
-  return { asOf: new Date().toISOString(), scanned, okCount, usdKrw, indexRegime: { KR: krIdx, US: usIdx }, items, tracks }
+  // ── 📋 성적 적립·채점 ─────────────────────────────────────────────────────
+  //   ⛔ 소급 금지 — 오늘부터 쌓는다. 과거를 소급하면 "지금 규칙으로 과거를 고른" 셈이라 성적이 부풀려진다.
+  const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
+  const dayDiff = (a: string, b: string) =>
+    Math.round((new Date(`${b}T00:00:00Z`).getTime() - new Date(`${a}T00:00:00Z`).getTime()) / 86400_000)
+
+  const hist = (await getCache<SwingHistEntry[]>(SWING_HIST_KEY, 400 * 86400_000)) ?? []
+  const fresh: SwingHistEntry[] = []
+  for (const it of items) {
+    const e: SwingHistEntry = {
+      date: today, ticker: it.ticker, name: it.name, market: it.market, track: it.track,
+      entry: it.price, stop: it.stop, holdBars: SWING_TRACKS[it.track].holdBars,
+    }
+    if (shouldAppend([...hist, ...fresh], e, dayDiff)) fresh.push(e)
+  }
+  const allHist = [...hist, ...fresh].slice(-2000)
+  if (fresh.length) await setCache(SWING_HIST_KEY, allHist)
+
+  // 채점 — 추천일 이후 holdBars 거래일이 지난 건만. 미경과분은 pending 으로 정직하게 남는다.
+  const scored: ScoredRow[] = []
+  const recent: SwingRadar['recent'] = []
+  for (const e of allHist) {
+    let retPct: number | null = null, stopHit = false
+    try {
+      const D = await getTechCandles(e.ticker, e.market, 'D')
+      if (D && D.length) {
+        const idx = D.findIndex(d => String(d.date ?? '').slice(0, 10) >= e.date)
+        if (idx >= 0 && idx + e.holdBars < D.length) {
+          const win = D.slice(idx, idx + e.holdBars + 1)
+          retPct = Math.round((win[win.length - 1].close / e.entry - 1) * 1000) / 10
+          stopHit = win.some(d => d.low <= e.stop)          // 보유 중 손절선을 건드렸나
+        }
+      }
+    } catch { /* 개별 실패는 미채점(null)로 남는다 — 조용히 0으로 세지 않는다 */ }
+    scored.push({ entry: e, retPct, stopHit })
+    recent.push({ date: e.date, ticker: e.ticker, name: e.name, flag: flagOf(e.market, e.ticker, null), track: e.track, retPct, stopHit })
+  }
+  recent.reverse()
+
+  const grades = [gradeSwing(scored, 'all'), gradeSwing(scored, 'reversion'), gradeSwing(scored, 'trend')]
+
+  return {
+    asOf: new Date().toISOString(), scanned, okCount, usdKrw,
+    indexRegime: { KR: krIdx, US: usIdx }, items, tracks,
+    grades, recent: recent.slice(0, 20),
+  }
 }
 
 export { SWING_TRACKS, positionSize }
