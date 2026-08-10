@@ -8,7 +8,7 @@ import { getCache, setCache } from '@/lib/appCache'
 import { getTechCandles, type TechCandle } from '@/lib/techChartData'
 import type { SignalHistEntry } from '@/app/api/cron/timing-watch/route'
 import { CORE_HIST_KEY, type CoreHistEntry } from '@/lib/coreReco'   // ⭐ 핵심 추천(3중 통과) 전향적 적립분
-import { AXIS_HIST_KEY, gradeAxes, type AxisHistEntry, type AxisGrade } from '@/lib/axisHistory'   // 📐 축별 성적
+import { AXIS_HIST_KEY, AXIS_REENTRY_DAYS, gradeAxes, pickAxisSamples, type AxisHistEntry, type AxisGrade } from '@/lib/axisHistory'   // 📐 축별 성적
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -89,7 +89,7 @@ export async function GET(req: Request) {
   // 🔬 full=1 — scored 12건 캡 없이 전 이벤트 반환(시뮬레이션·감사용. 화면은 캡 유지)
   const full = new URL(req.url).searchParams.get('full') === '1'
   // ⚠️ 응답 '내용'(제목·라벨 문자열)만 바뀌어도 키를 올려야 한다 — 스키마가 같으면 커밋 훅이 못 잡는다(v6에서 실제로 겪음).
-  const cacheKey = `signal-report-v12:${today}${full ? ':full' : ''}`   // v12: 📐 축 적립 대기 건수·첫 채점일 노출 / v11: 📐 축별 성적(axisGrades) 추가 — 필드가 늘어도 옛 응답이면 undefined 로 와서 화면이 빈다 / v10: 🌟 핵심 추천(core) 그룹 — 3중 통과 전향적 적립분 채점 / v9: hitN/missN / v8: scored·pendingN / v7: 라벨 / v6: 📏 기준선 / v5: 런 압축 / v4: ⭐그룹
+  const cacheKey = `signal-report-v13:${today}${full ? ':full' : ''}`   // v13: 📐 축 표본 재적립(30일 간격)+진입 시점 수(cohorts) — 스키마 확장이라 옛 응답이면 undefined / v12: 📐 축 적립 대기 건수·첫 채점일 노출 / v11: 📐 축별 성적(axisGrades) 추가 — 필드가 늘어도 옛 응답이면 undefined 로 와서 화면이 빈다 / v10: 🌟 핵심 추천(core) 그룹 — 3중 통과 전향적 적립분 채점 / v9: hitN/missN / v8: scored·pendingN / v7: 라벨 / v6: 📏 기준선 / v5: 런 압축 / v4: ⭐그룹
   const cached = await getCache<SignalReportResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -237,11 +237,11 @@ export async function GET(req: Request) {
 
   // ── ④-b 📐 축별 성적 — "6축 중 어느 축이 실제로 맞았나". 각 축의 상위 1/3 vs 하위 1/3 30일 수익률 비교.
   //    ⚠️ 30일 경과분만 채점한다(retNow 를 쓰면 최근 적립분이 며칠짜리 노이즈로 결과를 흔든다).
-  //    ⚠️ 같은 종목이 여러 날 적립되면 자기상관이 생기므로 **종목당 가장 오래된 1건**만 쓴다(Jarvis 런 압축과 같은 원칙).
-  const axisFirst = new Map<string, AxisHistEntry>()
-  for (const a of [...axisHist].sort((x, y) => x.date.localeCompare(y.date)))
-    if (!axisFirst.has(a.ticker)) axisFirst.set(a.ticker, a)
-  const axisRows = Array.from(axisFirst.values()).map(a => {
+  //    ⚠️ 같은 종목이 여러 날 적립되면 자기상관이 생긴다. 그렇다고 **종목당 1건**만 쓰면 표본이 고유 종목 수에서
+  //       멈춘다 — 실측(2026-08-10)에서 적립 이틀째 신규 종목이 0이었다(추천 목록이 안정적이라 같은 35종 반복).
+  //       그 상태로 30건을 넘기면 '전부 같은 날 진입'한 표본이 정식 성적으로 나가버린다.
+  //       → 채점 창(30일)만큼 벌어진 재등장은 **새 표본**으로 센다(구간이 안 겹쳐 자기상관이 없다).
+  const axisRows = pickAxisSamples(axisHist, dayDiff).map(a => {
     const candles = candleMap.get(a.ticker)
     const entry = candles?.length ? closeAt(candles, a.date) : null
     let ret: number | null = null
@@ -249,14 +249,17 @@ export async function GET(req: Request) {
       const c30 = closeAt(candles!, addDays(a.date, 30))
       if (c30 != null) ret = Math.round((c30 / entry - 1) * 1000) / 10
     }
-    return { axes: a.axes, ret }
+    return { axes: a.axes, ret, date: a.date }
   })
   const axisGrades = gradeAxes(axisRows)
   const axisSince = axisHist.length ? axisHist.reduce((m, a) => a.date < m ? a.date : m, axisHist[0].date) : null
   // ⚠️ 채점 n=0 이 '적립 안 됨'인지 '적립됐는데 아직 안 익음'인지 화면이 구분할 수 있어야 한다
   //    (빈 화면은 최소 네 가지 사실 — 입력 없음/로딩/실패/데이터는 왔는데 그릴 게 없음).
   const axisPending = axisRows.filter(r => r.ret == null).length
-  const axisFirstScoreDate = axisSince ? addDays(axisSince, 30) : null
+  // ⚠️ 첫 채점일은 '+30일'이 아니다 — 그날은 표본이 **전부 같은 날 진입**이라 여전히 보류된다(cohorts=1).
+  //    두 번째 진입 시점이 생기고(+재적립 30일) 그것마저 익어야(+채점 30일) 비로소 숫자가 나온다.
+  //    화면에 +30일을 적어두면 그날 학생이 숫자를 기대했다가 못 본다 — 날짜를 약속했으면 지켜야 한다.
+  const axisFirstScoreDate = axisSince ? addDays(axisSince, AXIS_REENTRY_DAYS + 30) : null
 
   // ── ⑤ 그룹 통계(소스×방향) — buy 승=상승 / sell 승=하락(매도검토 신호는 공매도가 아님·UI 명시) ──
   // ⚠️ '합류'는 학생에게 낯선 말이라 '이중 확인'으로(사용자 지적). '통합'은 이미 통합추천(unified-reco)이 써서 충돌한다.

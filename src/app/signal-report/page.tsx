@@ -332,6 +332,9 @@ export default function SignalReportPage() {
                 {data.axisPending > 0
                   ? <> 지금 <b>{data.axisPending}종목</b>이 30일을 기다리고 있어요{data.axisFirstScoreDate && <> (<b>{data.axisFirstScoreDate}</b>부터 숫자가 보입니다)</>}.</>
                   : <> 아직 모인 종목이 없습니다.</>}
+                {/* ⚠️ 건수만 채우면 '전부 같은 날 진입한 표본'이 성적으로 나간다 — 시점이 갈려야 축의 성적이다 */}
+                <> 같은 종목도 <b>30일이 지나면 다시</b> 세서, 서로 다른 시기가 섞이게 합니다 —
+                  한 시기만으로는 축이 아니라 <b>그때의 장세</b>를 재게 되거든요.</>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
                 {data.axisGrades.map(a => (
@@ -340,7 +343,12 @@ export default function SignalReportPage() {
                     {a.thin || a.spreadPp == null ? (
                       <div style={{ fontSize: FS.tiny, color: TK.sub4, marginTop: 3 }}>
                         {a.n === 0 ? '채점 대기' : <>채점 <span style={{ fontFamily: 'monospace' }}>{a.n}</span>건</>}
-                        <span style={{ fontSize: FS.micro, color: TK.slate500 }}> · 30건부터 표시</span>
+                        {/* ⚠️ 왜 아직 숫자가 없는지 이유를 갈라 준다 — 건수가 모자란 것과 시점이 하나뿐인 것은 다르다 */}
+                        <span style={{ fontSize: FS.micro, color: TK.slate500 }}>
+                          {a.n >= 30 && a.cohorts < 2
+                            ? ' · 진입 시점 1개 — 그 시기 국면일 수 있어 보류'
+                            : ' · 30건부터 표시'}
+                        </span>
                       </div>
                     ) : (
                       <>
