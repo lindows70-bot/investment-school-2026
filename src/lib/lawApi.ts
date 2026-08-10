@@ -148,7 +148,7 @@ export async function getLawDoc(name: string, articleFilter: (title: string, no:
  *     원문 문장을 그대로 주고 **자르는 건 화면**이 한다. */
 export async function getAdmRulePurpose(id: string): Promise<string | null> {
   if (!id) return null
-  const ck = `law-admrul-purpose-v3:${id}`   // v3: 장 제목("제1장 총칙") 건너뛰기 · v2: 접두 제거 폐기(문장 훼손)
+  const ck = `law-admrul-purpose-v4:${id}`   // v4: 전문 한 덩어리 고시에서 목적 문장만 도려냄 · v3: 장 제목 건너뛰기 · v2: 접두 제거 폐기
   const cached = await getCache<{ p: string }>(ck, 30 * 86400_000)   // 이미 발령된 고시 본문은 바뀌지 않는다
   if (cached) return cached.p || null
   try {
@@ -163,7 +163,20 @@ export async function getAdmRulePurpose(id: string): Promise<string | null> {
     const contents = Array.from(xml.matchAll(/<조문내용>([\s\S]*?)<\/조문내용>/g)).map(m => clean(m[1])).filter(Boolean)
     if (!contents.length) return null
     const isHeading = (s: string) => /^제\s*\d+\s*[장절관]\b/.test(s) || /^제\s*\d+\s*[장절관]\s/.test(s) || s.length < 12
-    const raw = contents.find(s => /목적/.test(s.slice(0, 40))) ?? contents.find(s => !isHeading(s)) ?? contents[0]
+    let raw = contents.find(s => /목적/.test(s.slice(0, 40))) ?? contents.find(s => !isHeading(s)) ?? contents[0]
+    // ⚠️ 장·절이 **태그가 아니라 텍스트**인 고시가 있다 — `<조문내용>` 하나에 전문이 통째로 들어와
+    //    화면에 "제1장 총칙 1-1. 목적 1-1-1. …"이 수천 자 그대로 나갔다(재건축진단 기준).
+    //    → 목적 문장 하나만 도려낸다. **문장을 재조립하지 않고 잘라내기만** 하므로, 못 찾으면 원문 그대로다
+    //      (접두 제거를 폐기한 이유가 재조립이 문장을 훼손해서였다 — 선택은 실패해도 훼손이 없다).
+    const end = /목적으로\s*한다\./.exec(raw)
+    if (end && raw.length > 300) {
+      const start = raw.slice(0, end.index).lastIndexOf('이 ')
+      if (start >= 0 && end.index - start < 400) raw = raw.slice(start, end.index + end[0].length)
+    }
+    // ⛔ 그래도 길면 **목적을 못 찾은 것**이다 — 목적 조문이 아예 없는 고시가 있다(기본형건축비는
+    //    "1. 지상층건축비 가. 층수별…"로 시작하는 2,609자였다). 그걸 목적이라며 내보내는 것보다
+    //    없다고 하는 게 낫다(화면은 제목만 보여준다). **없으면 없다고 한다.**
+    if (raw.length > 400) return null
     // ⚠️ "이 지침은/이 고시는" 접두까지 지우려다 문장을 망가뜨렸다(2026-08-09 라이브):
     //    `은?` 이 '는'을 못 잡아 "는 「주택법」…"이 되고, 목록에 없는 '기준'은 아예 안 잘렸다.
     //    종류 이름을 계속 추가하는 방향은 11번째 표기가 나올 때까지 끝나지 않는다 —
