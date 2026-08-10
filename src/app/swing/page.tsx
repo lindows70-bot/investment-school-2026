@@ -231,7 +231,7 @@ function SetupChart({ it }: { it: SwingItem }) {
       </div>
       <div style={{ fontSize: FS.micro, color: TK.sub4, marginTop: 3, lineHeight: 1.5 }}>
         ⚠️ 초록 띠는 <b>목표가가 아니라 기대 폭</b>입니다 — 백테스트는 &ldquo;{t.holdLabel} 뒤 종가&rdquo;를 쟀지
-        특정 가격 도달을 잰 게 아닙니다. <b>{t.holdLabel}이 지나면 도달 여부와 무관하게 정리</b>하는 방식입니다.
+        특정 가격 도달을 잰 게 아닙니다. <b>{t.holdBars}거래일이 지나면 도달 여부와 무관하게 정리</b>하는 방식입니다.
       </div>
     </div>
   )
