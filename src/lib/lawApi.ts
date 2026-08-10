@@ -148,7 +148,7 @@ export async function getLawDoc(name: string, articleFilter: (title: string, no:
  *     원문 문장을 그대로 주고 **자르는 건 화면**이 한다. */
 export async function getAdmRulePurpose(id: string): Promise<string | null> {
   if (!id) return null
-  const ck = `law-admrul-purpose-v2:${id}`   // v2: 접두 제거 폐기(문장 훼손) — 저장된 문자열이 바뀌므로 범프
+  const ck = `law-admrul-purpose-v3:${id}`   // v3: 장 제목("제1장 총칙") 건너뛰기 · v2: 접두 제거 폐기(문장 훼손)
   const cached = await getCache<{ p: string }>(ck, 30 * 86400_000)   // 이미 발령된 고시 본문은 바뀌지 않는다
   if (cached) return cached.p || null
   try {
@@ -156,17 +156,19 @@ export async function getAdmRulePurpose(id: string): Promise<string | null> {
       { cache: 'no-store', signal: AbortSignal.timeout(15_000) })
     if (!r.ok) return null
     const xml = await r.text()
-    const raw = tag(xml, '조문내용')
-    if (!raw) return null
+    // ⚠️ **첫 `<조문내용>`이 조문이 아닐 수 있다**(2026-08-10 라이브): 장(章)으로 나뉜 지침은 첫 내용이
+    //    `제1장 총칙` 이라, 화면에 목적이라며 "제1장 총칙"이 5건 나가고 있었다(정보량 0).
+    //    → 목적 조문을 먼저 찾고, 없으면 **장·절 제목이 아닌** 첫 내용을 쓴다.
+    const clean = (s: string) => s.replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+    const contents = Array.from(xml.matchAll(/<조문내용>([\s\S]*?)<\/조문내용>/g)).map(m => clean(m[1])).filter(Boolean)
+    if (!contents.length) return null
+    const isHeading = (s: string) => /^제\s*\d+\s*[장절관]\b/.test(s) || /^제\s*\d+\s*[장절관]\s/.test(s) || s.length < 12
+    const raw = contents.find(s => /목적/.test(s.slice(0, 40))) ?? contents.find(s => !isHeading(s)) ?? contents[0]
     // ⚠️ "이 지침은/이 고시는" 접두까지 지우려다 문장을 망가뜨렸다(2026-08-09 라이브):
     //    `은?` 이 '는'을 못 잡아 "는 「주택법」…"이 되고, 목록에 없는 '기준'은 아예 안 잘렸다.
     //    종류 이름을 계속 추가하는 방향은 11번째 표기가 나올 때까지 끝나지 않는다 —
     //    **접두 제거를 포기한다.** "이 지침은 ~을 목적으로 한다"가 원래 자연스러운 문장이다.
-    const p = raw
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/^\s*제1조\s*\(\s*목적\s*\)\s*/, '')   // 조문 번호만 뗀다(화면에 이미 조문 맥락이 있다)
-      .replace(/\s+/g, ' ')
-      .trim()
+    const p = raw.replace(/^\s*제1조\s*\(\s*목적\s*\)\s*/, '').trim()   // 조문 번호만 뗀다(화면에 이미 조문 맥락이 있다)
     if (p) await setCache(ck, { p })
     return p || null
   } catch { return null }
