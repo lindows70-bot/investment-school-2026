@@ -48,3 +48,7 @@ next-env.d.ts
 # 야간 감사 보고서(로컬 전용)
 .audit/
 scripts/logs/
+
+# 스윙 백테스트 임시 컴파일 산출물
+.bt-swing/
+.bt-swing.tsconfig.json
