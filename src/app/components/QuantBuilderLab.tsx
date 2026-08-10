@@ -220,8 +220,9 @@ export default function QuantBuilderLab() {
           <div key={s.ticker}>
             <div onClick={() => setOpenSat(o => o === s.ticker ? null : s.ticker)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderTop: `1px solid ${BORDER}`, fontSize: 11.5, flexWrap: 'wrap', cursor: 'pointer' }}>
               <span style={{ background: 'rgba(167,139,250,0.12)', color: TK.violet400, border: '1px solid rgba(167,139,250,0.4)', borderRadius: 5, padding: '1px 7px', fontSize: 9.5, fontWeight: 800 }}>SAT</span>
-              {/* ⚠️ market 이분법 금지 — CNOOC(0883.HK)가 '🇺🇸'로 떴다. 티커 접미사까지 보는 SSOT 사용(통합추천과 동일) */}
-              <span>{marketFlag(s.ticker, s.market === 'KR' ? 'KR' : 'US')}</span>
+              {/* ⚠️ market 이분법 금지 — CNOOC(0883.HK)가 '🇺🇸'로 떴다. 티커 접미사까지 보는 SSOT 사용(통합추천과 동일)
+                  origin 도 함께 넘긴다 — 접미사가 없는 ADR(쉘·페라리…)은 접미사만으론 못 잡는다 */}
+              <span>{marketFlag(s.ticker, s.market === 'KR' ? 'KR' : 'US', s.origin)}</span>
               <span style={{ color: TK.slate200, fontWeight: 700 }}>{s.name}</span>
               <SectorBadge sector={s.sector} size="xs" />
               {s.priceCtx && <ChaseBadge posPct={s.priceCtx.posPct} />}

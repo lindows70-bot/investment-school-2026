@@ -133,6 +133,9 @@ export async function fetchPriceContext(ticker: string, market: string): Promise
 
 export interface QuantSatellite {
   ticker: string; name: string; market: string; sector: string
+  /** 🏳️ 국적(EU/JP/CN/KR/US) — 국기 표시용. 없으면 접미사 없는 ADR(쉘·페라리…)이 🇺🇸 로 찍힌다.
+   *  통합추천(UnifiedRecoItem)이 이미 들고 있던 값인데 위성으로 옮길 때 빠뜨리고 있었다. */
+  origin?: string | null
   combined: number; peg: number | null; psr: number | null; roePct: number | null; epsRevision: string | null; supplyScore: number
   axes: SatelliteAxes
   passCount: number              // 3축 중 pass 수(3=최정예, 2=정예)
@@ -199,7 +202,7 @@ export async function buildQuantPlan(base: string, cookie: string): Promise<Quan
   const SAT_CAP = 10
   const csum = picked.reduce((s, j) => s + j.it.combined, 0) || 1
   const satellites: QuantSatellite[] = picked.map(j => ({
-    ticker: j.it.ticker, name: j.it.name, market: j.it.market, sector: j.it.sector,
+    ticker: j.it.ticker, name: j.it.name, market: j.it.market, sector: j.it.sector, origin: j.it.origin,
     combined: j.it.combined, peg: j.it.peg, psr: j.it.psr ?? null, timing: j.it.timing ?? null,
     roePct: j.it.roe != null ? Math.round(j.it.roe * 1000) / 10 : null,
     epsRevision: j.it.epsRevision, supplyScore: j.it.supplyScore,
