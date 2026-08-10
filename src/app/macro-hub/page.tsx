@@ -685,9 +685,24 @@ function CompareChart({ api, loading }: { api: MacroApi | null; loading: boolean
   }, [leftData, rightData, loading, preset]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 교육 인사이트 ─────────────────────────────────────────────────────────
+  // ⚠️ **숫자를 문장에 박지 않는다**(제1원칙 — 2026-08-10 화면검증): 예전엔 "5.33% 피크에서 3.63%로",
+  //    "CPI 6.3% 고점"이 리터럴이라, 값이 바뀌는 순간 화면이 조용히 거짓말을 한다.
+  //    지금 그려지는 계열(leftData)에서 고점·최신을 뽑아 쓰고, 방향어도 그 값으로 정한다.
+  const leftStat = useMemo(() => {
+    if (leftData.length < 2) return null
+    const vals = leftData.map(d => d.value)
+    const peak = Math.max(...vals), last = vals[vals.length - 1]
+    return { peak, last, down: last < peak }
+  }, [leftData])
+  const f1 = (n: number) => n.toFixed(2).replace(/\.?0+$/, '')
+
   const insights: Record<PresetKey, string> = {
-    rate_nvda: `기간(${dataStart}~${dataEnd}): 미국 기준금리가 5.33% 피크에서 3.63%로 인하 사이클에 진입하면서도, NVDA는 Blackwell GPU 수요 폭발로 시장 기대치를 압도하며 사상 최고치를 경신했습니다. AI 인프라 투자 붐이 금리 역풍을 상쇄한 역사적 국면을 관찰해보세요.`,
-    cpi_div:   `한국 CPI가 6.3% 고점에서 2% 목표 수준으로 안정화되는 동안, 포트폴리오 배당수익률은 꾸준히 상승했습니다. 인플레이션이 안정될수록 배당의 실질 가치가 회복된다는 원칙을 확인할 수 있습니다.`,
+    rate_nvda: leftStat
+      ? `기간(${dataStart}~${dataEnd}): 미국 기준금리가 고점 ${f1(leftStat.peak)}%에서 ${f1(leftStat.last)}%로 ${leftStat.down ? '내려오는' : '올라가는'} 동안에도 NVDA는 AI 인프라 수요에 힘입어 크게 올랐습니다. 금리라는 역풍과 수요라는 순풍이 맞붙은 국면을 관찰해보세요.`
+      : `기간(${dataStart}~${dataEnd}): 미국 기준금리와 NVDA를 겹쳐 봅니다 — 금리라는 역풍과 AI 수요라는 순풍이 어떻게 맞붙었는지 관찰해보세요.`,
+    cpi_div:   leftStat
+      ? `한국 CPI가 고점 ${f1(leftStat.peak)}%에서 ${f1(leftStat.last)}%로 ${leftStat.down ? '내려오는' : '올라가는'} 동안 포트폴리오 배당수익률이 어떻게 움직였는지 보세요. 물가가 안정될수록 배당의 실질 가치가 회복된다는 원칙을 확인할 수 있습니다.`
+      : `한국 CPI와 포트폴리오 배당수익률을 겹쳐 봅니다 — 물가가 안정될수록 배당의 실질 가치가 회복된다는 원칙을 확인해보세요.`,
     nvda_pltr: `AI 인프라(NVDA)와 AI 응용·방산(PLTR)의 성과 대결. PLTR은 트럼프 2기 DOGE 정부 AI 계약과 S&P500 편입으로 역대급 랠리를 기록했습니다. 두 자산의 변동성, 상관관계, 최고점 시기의 차이를 분석해보세요.`,
   }
 
