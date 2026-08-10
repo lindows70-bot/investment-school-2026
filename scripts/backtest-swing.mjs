@@ -41,7 +41,22 @@ const avg = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : null
 const trim = a => { const s = [...a].sort((x, y) => x - y); const k = Math.floor(s.length * 0.1); return s.slice(k, s.length - k) }
 const r2 = n => n == null ? '—' : Math.round(n * 100) / 100
 
-const hits = { revA: [], pullB: [] }          // 트랙별 신호
+// ── TRIX (삼중 지수평활) — 킴스 기법. techSignals 에 없어 여기서 계산(순수 수학·결정론) ──
+const ema = (arr, n) => { const k = 2 / (n + 1); const o = []; let p = null
+  for (let i = 0; i < arr.length; i++) { const v = arr[i]; p = p == null ? v : v * k + p * (1 - k); o.push(p) } return o }
+const trixOf = (close, n = 15) => {
+  const e3 = ema(ema(ema(close, n), n), n)
+  return e3.map((v, i) => i === 0 || e3[i - 1] === 0 ? null : ((v - e3[i - 1]) / e3[i - 1]) * 100)
+}
+// 일목 선행스팬1 = (전환선9 + 기준선26)/2 — 차트엔 26일 앞에 그리지만 '방향'은 계산 시점 기준으로 본다
+const spanAOf = (h, l) => {
+  const mid = (n, i) => { if (i + 1 < n) return null
+    let hi = -Infinity, lo = Infinity; for (let k = i - n + 1; k <= i; k++) { if (h[k] > hi) hi = h[k]; if (l[k] < lo) lo = l[k] }
+    return (hi + lo) / 2 }
+  return h.map((_, i) => { const t = mid(9, i), k = mid(26, i); return t == null || k == null ? null : (t + k) / 2 })
+}
+
+const hits = { revA: [], pullB: [], kimsC: [] }          // 트랙별 신호
 const maCompare = {}                           // 이평선 세트 비교(트랙 A)
 for (const k of Object.keys(MA_SETS)) maCompare[k] = []
 const base = { KR: { 5: [], 10: [], 15: [] }, US: { 5: [], 10: [], 15: [] } }
@@ -56,6 +71,8 @@ async function run(ticker, market) {
   const c = q.map(x => x.close)
   const ohlc = q.map(x => ({ open: x.open, high: x.high, low: x.low, close: x.close, volume: x.volume ?? 0 }))
   const vol = q.map(x => x.volume ?? 0)
+  const trix = trixOf(c)                                   // 킴스: TRIX(15)
+  const spanA = spanAOf(q.map(x => x.high), q.map(x => x.low))
 
   for (const h of HOR) for (let i = 0; i + h < c.length; i++) base[market][h].push((c[i + h] / c[i] - 1) * 100)
 
@@ -93,6 +110,17 @@ async function run(ticker, market) {
       const green = c[i] > q[i].open                              // 양봉 확인
       const aboveBase = c[i] > c[bi - 1]                          // 기준봉 시작가 위 유지
       if (quiet && nearMa5 && green && aboveBase) hits.pullB.push(meta)
+    }
+
+    // ── 트랙 C: 킴스(일목 선행스팬1 + TRIX) — 추세 추종 ──
+    //    문서 규칙: ①선행스팬1 상승(하락이면 매수 신호 전부 무시) ②TRIX 영선 상향 돌파
+    //             ③TRIX 강도 증가(어제보다 오늘이 높아야 — '강도 발산'이면 폐기) ④11일선 위
+    const ma11 = sma(c, 11, i)
+    if (spanA[i] != null && spanA[i - 1] != null && trix[i] != null && trix[i - 1] != null && ma11 != null) {
+      const spanUp = spanA[i] > spanA[i - 1]
+      const zeroCross = trix[i] > 0 && trix[i - 1] <= 0
+      const intensityUp = trix[i] > trix[i - 1]
+      if (spanUp && zeroCross && intensityUp && c[i] > ma11) hits.kimsC.push(meta)
     }
   }
 }
@@ -140,6 +168,7 @@ function report(title, rows) {
 console.log(`baseline 10봉 — KR ${r2(avg(base.KR[10]))}%(승률 ${r2(base.KR[10].filter(x => x > 0).length / base.KR[10].length * 100)}%) · US ${r2(avg(base.US[10]))}%(승률 ${r2(base.US[10].filter(x => x > 0).length / base.US[10].length * 100)}%)`)
 report('🅰️ 트랙 A — 역매공파(평균 회귀): 역배열 + 이격도≤95 + 단기선 회복 [112/224]', hits.revA)
 report('🅱️ 트랙 B — 급등 눌림목(추세 추종): 기준봉 → 거래량 1/3 급감 → 5일선 양봉', hits.pullB)
+report('🅲 트랙 C — 킴스(일목 선행스팬1 상승 + TRIX 영선 돌파 + 강도 증가 + 11일선 위)', hits.kimsC)
 
 console.log(`\n${'═'.repeat(78)}\n📏 이평선 세트 비교 (트랙 A · 10봉 · 시장 합산)\n${'═'.repeat(78)}`)
 for (const [label, rows] of Object.entries(maCompare)) {
