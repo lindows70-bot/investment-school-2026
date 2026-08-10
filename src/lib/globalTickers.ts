@@ -1,5 +1,7 @@
 // 유럽·글로벌 명품주 별칭 사전 — 한글/영문 이름을 야후 접미사 티커로 해석(검색 확장) + 접미사 기반 통화·시장 라벨
 //  야후 v8 차트·quoteSummary는 접미사 티커(MC.PA 등)를 그대로 지원 → 기존 US(글로벌) 파이프라인 재사용, 별도 시장 타입 불필요.
+import { flagOf } from '@/lib/marketFlag'   // 🏳️ 국기 판정 SSOT — 여기서 접미사 표를 따로 갖지 않는다
+
 export interface GlobalAlias { ticker: string; name: string }
 
 const M: Record<string, GlobalAlias> = {}
@@ -163,26 +165,14 @@ export const curFromCode = (code?: string | null): string => {
   return m[code ?? ''] ?? (code ? `${code} ` : '$')
 }
 
-/** 접미사 기반 국기 이모지(칩 표기용). KR/US 기본, 유럽 접미사는 해당국 국기(ADR·본토는 🇺🇸) */
-export const marketFlag = (ticker: string, market: 'KR' | 'US'): string => {
-  if (market === 'KR') return '🇰🇷'
-  const t = ticker.toUpperCase()
-  if (t.endsWith('.PA')) return '🇫🇷'
-  if (/\.(DE|F)$/.test(t)) return '🇩🇪'
-  if (t.endsWith('.MI')) return '🇮🇹'
-  if (t.endsWith('.SW')) return '🇨🇭'
-  if (t.endsWith('.L')) return '🇬🇧'
-  if (t.endsWith('.AS')) return '🇳🇱'
-  if (t.endsWith('.MC')) return '🇪🇸'
-  if (t.endsWith('.CO')) return '🇩🇰'
-  if (t.endsWith('.ST')) return '🇸🇪'
-  if (t.endsWith('.OL')) return '🇳🇴'
-  if (t.endsWith('.HE')) return '🇫🇮'
-  if (t.endsWith('.HK')) return '🇭🇰'
-  if (t.endsWith('.T')) return '🇯🇵'
-  if (/\.(SS|SZ)$/.test(t)) return '🇨🇳'
-  return '🇺🇸'
-}
+/** 국기 이모지(칩 표기용) — **판정은 `flagOf` SSOT 하나**다(제2원칙).
+ *  ⚠️ 여기 접미사 표를 따로 갖고 있었는데, 그러면 **접미사 없는 ADR을 못 잡는다**(2026-08-10 실측):
+ *     신고가 레이더 375종 중 **20종**이 🇺🇸 로 나갔다 — 쉘·토탈에너지·노바티스·아스트라제네카·유니레버·
+ *     페라리, 그리고 이름에 나라가 적힌 **"에니(이탈리아)"에까지 🇺🇸** 가 붙어 화면이 자기모순이었다.
+ *     `origin`(EU/JP/CN/KR/US)은 이미 계산돼 응답에 실려 있었는데 국기에만 안 넘기고 있었다.
+ *     → origin 을 받아 넘긴다. 없으면 접미사 → market 순으로 이전과 같게 동작한다. */
+export const marketFlag = (ticker: string, market: 'KR' | 'US', origin?: string | null): string =>
+  flagOf(market, ticker, origin)
 
 /** 접미사 기반 시장 라벨(헤더 표기용) */
 export const marketLabel = (ticker: string, market: 'KR' | 'US'): string => {

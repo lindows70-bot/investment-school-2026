@@ -94,7 +94,9 @@ function Item({ it, portfolioKrw, vol }: { it: UnifiedRecoItem; portfolioKrw: nu
         </div>
       )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-        <span style={{ fontSize: 11 }}>{marketFlag(it.ticker, it.market === 'KR' ? 'KR' : 'US')}</span>
+        {/* ⚠️ origin 을 넘긴다 — 없으면 접미사 없는 ADR(쉘·페라리…)이 🇺🇸 로 찍힌다. 바로 아래 OriginTag 가
+            "미국 상장 외국주"라고 붙는데 국기만 🇺🇸 면 한 줄 안에서 서로를 부정한다 */}
+        <span style={{ fontSize: 11 }}>{marketFlag(it.ticker, it.market === 'KR' ? 'KR' : 'US', it.origin)}</span>
         <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 14 }}>{it.name}</span>
         {(it.origin === 'EU' || it.origin === 'JP' || it.origin === 'CN') && isUsListedForeign(it.ticker) && <OriginTag origin={it.origin} />}
         {it.origin === 'CN' && <ChinaRiskChip />}
@@ -206,7 +208,7 @@ function RefRow({ r }: { r: RegionRefItem }) {
   return (
     <div style={{ background: TK.bg3, borderRadius: 8, border: `1px solid ${BORDER}`, padding: '7px 10px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 5 }}>
-        <span style={{ fontSize: 11 }}>{marketFlag(r.ticker, r.market === 'KR' ? 'KR' : 'US')}</span>
+        <span style={{ fontSize: 11 }}>{marketFlag(r.ticker, r.market === 'KR' ? 'KR' : 'US', r.region)}</span>
         <span style={{ color: TK.slate200, fontWeight: 700, fontSize: 12.5 }}>{r.name}</span>
         {(r.region === 'EU' || r.region === 'JP' || r.region === 'CN') && isUsListedForeign(r.ticker) && <OriginTag origin={r.region} />}
         {r.region === 'CN' && <ChinaRiskChip />}

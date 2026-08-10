@@ -42,7 +42,8 @@ function Row({ it }: { it: Hi52Item }) {
   const sm = sectorMeta(it.sector)
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap', padding: '8px 2px', borderTop: `1px solid ${BORDER}` }}>
-      <span style={{ fontSize: 12 }}>{marketFlag(it.ticker, it.market)}</span>
+      {/* ⚠️ origin 을 넘겨야 한다 — 접미사 없는 ADR(쉘·페라리·에니…)이 전부 🇺🇸 로 찍혔다 */}
+      <span style={{ fontSize: 12 }}>{marketFlag(it.ticker, it.market, it.origin)}</span>
       {/* 종목명을 주(主)로 — 티커만으론 0388.HK·8306.T가 무슨 회사인지 알 수 없다(사용자 지적). 티커는 보조 표기 */}
       <span style={{ color: TK.slate200, fontWeight: 800, fontSize: FS.body, minWidth: 118 }}>{it.name.slice(0, 14)}</span>
       <span style={{ color: TK.sub2, fontSize: FS.micro, fontFamily: 'monospace' }}>{it.ticker}</span>
