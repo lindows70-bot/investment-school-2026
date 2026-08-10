@@ -7,6 +7,7 @@ import { UNIVERSE_KEY, type ScreenedStock } from '@/lib/macroPhaseScreener'
 import { getCache } from '@/lib/appCache'
 import { getTechCandles } from '@/lib/techChartData'
 import { flagOf } from '@/lib/marketFlag'
+import { getUsdKrw } from '@/lib/fx'
 import { readSwingSetup, readSwingRegime, SWING_TRACKS, positionSize, type SwingTrack, type SwingRegime } from '@/lib/swingSetup'
 
 export interface SwingItem {
@@ -20,6 +21,9 @@ export interface SwingItem {
 export interface SwingRadar {
   asOf: string
   scanned: number; okCount: number
+  /** 💱 포지션 계산은 **종목 통화 기준**이어야 한다 — 원화 투자금을 달러 주가로 나누면
+   *  1천만원으로 172만 달러를 사라는 값이 나온다(2026-08-11 화면검증에서 실제로 나왔다). */
+  usdKrw: number
   indexRegime: { KR: SwingRegime | null; US: SwingRegime | null }
   items: SwingItem[]
   /** 트랙별로 지금 켜졌는지 + 왜 — 화면이 빈 목록을 설명할 수 있게 */
@@ -42,11 +46,13 @@ async function regimeOfIndex(symbol: string, market: 'KR' | 'US'): Promise<Swing
   } catch { return null }
 }
 
-export async function buildSwingRadar(): Promise<SwingRadar | { error: string; note: string }> {
+export async function buildSwingRadar(base: string): Promise<SwingRadar | { error: string; note: string }> {
   const uni = (await getCache<ScreenedStock[]>(UNIVERSE_KEY, 8 * 24 * 3600_000)) ?? []
   if (!uni.length) return { error: 'universe_cold', note: '유니버스 캐시가 비었습니다. 주간 스크리너 크론 이후 다시 시도하세요.' }
 
-  const [krIdx, usIdx] = await Promise.all([regimeOfIndex('^KS11', 'US'), regimeOfIndex('^GSPC', 'US')])
+  const [krIdx, usIdx, usdKrw] = await Promise.all([
+    regimeOfIndex('^KS11', 'US'), regimeOfIndex('^GSPC', 'US'), getUsdKrw(base),
+  ])
 
   const items: SwingItem[] = []
   let scanned = 0, okCount = 0
@@ -96,7 +102,7 @@ export async function buildSwingRadar(): Promise<SwingRadar | { error: string; n
     return { key: t.key, on, why }
   })
 
-  return { asOf: new Date().toISOString(), scanned, okCount, indexRegime: { KR: krIdx, US: usIdx }, items, tracks }
+  return { asOf: new Date().toISOString(), scanned, okCount, usdKrw, indexRegime: { KR: krIdx, US: usIdx }, items, tracks }
 }
 
 export { SWING_TRACKS, positionSize }

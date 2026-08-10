@@ -101,7 +101,7 @@ export default function SwingPage() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: SP.sm }}>
-                {d.items.map(it => <SwingCard key={`${it.track}:${it.ticker}`} it={it} equity={equity} />)}
+                {d.items.map(it => <SwingCard key={`${it.track}:${it.ticker}`} it={it} equity={equity} usdKrw={d.usdKrw} />)}
               </div>
             )}
           </div>
@@ -134,11 +134,16 @@ export default function SwingPage() {
   )
 }
 
-function SwingCard({ it, equity }: { it: SwingItem; equity: number }) {
+function SwingCard({ it, equity, usdKrw }: { it: SwingItem; equity: number; usdKrw: number }) {
   const t = SWING_TRACKS[it.track]
-  const ps = positionSize(equity, it.price, it.stop)
-  const cur = it.market === 'KR' ? '₩' : '$'
-  const fmt = (n: number) => it.market === 'KR' ? Math.round(n).toLocaleString() : n.toFixed(2)
+  // 💱 **투자금을 종목 통화로 맞춘 뒤** 수량을 낸다 — 원화를 달러 주가로 나누면
+  //    1천만원으로 172만 달러를 사라는 값이 나온다(화면검증에서 실제로 나왔다).
+  const isKr = it.market === 'KR'
+  const eqLocal = isKr ? equity : (usdKrw > 0 ? equity / usdKrw : 0)
+  const ps = eqLocal > 0 ? positionSize(eqLocal, it.price, it.stop) : null
+  const cur = isKr ? '₩' : '$'
+  const fmt = (n: number) => isKr ? Math.round(n).toLocaleString() : n.toFixed(2)
+  const money = (n: number) => isKr ? `${Math.round(n).toLocaleString()}원` : `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
   return (
     <div style={{ background: TK.bg3, border: `1px solid ${TK.green400}44`, borderRadius: RAD.sm, padding: '12px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, flexWrap: 'wrap' }}>
@@ -156,10 +161,17 @@ function SwingCard({ it, equity }: { it: SwingItem; equity: number }) {
         <Cell label="이 기법 성적" value={`+${t.edgePp}%p`} sub={`승률 ${t.winRate}% · ${t.sample}건`} c={TK.green400} />
       </div>
 
-      {ps && (
+      {ps ? (
         <div style={{ marginTop: 9, background: TK.bg0, borderRadius: RAD.xs, padding: '8px 11px', fontSize: FS.micro, color: TK.sub2, lineHeight: 1.6 }}>
           💰 투자금 {equity.toLocaleString()}원 기준 — <b style={{ color: TK.slate200 }}>{ps.qty.toLocaleString()}주</b>
-          <span style={{ color: TK.sub3 }}> (약 {ps.positionValue.toLocaleString()}{it.market === 'KR' ? '원' : '달러'} · 손절 시 손실 {ps.riskAmount.toLocaleString()}원 = 투자금의 {SWING_RISK_PCT}%)</span>
+          <span style={{ color: TK.sub3 }}> (약 {money(ps.positionValue)}
+            {!isKr && <> · 원화로 약 {Math.round(ps.positionValue * usdKrw).toLocaleString()}원</>}
+            {' '}· 손절 시 손실 {money(ps.riskAmount)} = 투자금의 {SWING_RISK_PCT}%)</span>
+          {!isKr && <span style={{ color: TK.sub4 }}> · 환율 ₩{Math.round(usdKrw).toLocaleString()} 적용</span>}
+        </div>
+      ) : (
+        <div style={{ marginTop: 9, fontSize: FS.micro, color: TK.sub3 }}>
+          💰 지금 투자금으로는 <b>한 주도 살 수 없는 자리</b>입니다 — 손절폭 대비 금액이 모자랍니다.
         </div>
       )}
 

@@ -11,12 +11,13 @@ const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0,
 
 export async function GET(req: Request) {
   const refresh = new URL(req.url).searchParams.get('refresh') === '1'
-  const key = `swing-radar-v1:${kstDate()}`
+  const key = `swing-radar-v2:${kstDate()}`   // v2: usdKrw 추가(포지션 계산 통화 일치) — 필드가 늘어도 키를 올린다
   if (!refresh) {
     const cached = await getCache<SwingRadar>(key, 12 * 3600_000)
     if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
   }
-  const out = await buildSwingRadar()
+  const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
+  const out = await buildSwingRadar(base)
   if ('error' in out) return NextResponse.json(out, { status: 200 })
   // ⚠️ 부분실패 박제 금지 — 캔들 성공률이 낮으면 "자리 없음"이 하루 박제된다(빈 목록은 사실이어야 한다)
   if (out.okCount >= 300) await setCache(key, out)
