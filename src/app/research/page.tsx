@@ -448,7 +448,12 @@ export default function ResearchPage() {
                   { label: 'PER',         value: stockInfo.per != null ? stockInfo.per.toFixed(1) : '—' },
                   { label: 'PBR',         value: stockInfo.pbr != null ? stockInfo.pbr.toFixed(1) : '—' },
                   { label: 'EPS',         value: stockInfo.eps != null ? (stockInfo.currency === 'KRW' ? `₩${Math.round(stockInfo.eps).toLocaleString()}` : `${curFromCode(stockInfo.currency)}${stockInfo.eps.toFixed(2)}`) : '—' },
-                  { label: 'EPS 성장률',  value: stockInfo.epsGrowth != null ? `${stockInfo.epsGrowth.toFixed(1)}%` : '—' },
+                  // ⚠️ 기간을 안 밝히면 바로 아래 PEG 와 나눗셈이 안 맞아 학생이 셈을 의심한다(2026-08-10 실측):
+                  //    쉘은 이 값이 220%인데 PEG 는 1.32였다(PER 9.8 ÷ 220% = 0.04 이어야 하는데).
+                  //    US 는 야후 `financialData.earningsGrowth`= **최근 분기 YoY**, KR 은 재무제표 **연간**이고,
+                  //    PEG 의 분모는 또 다른 것(야후 pegRatio = 5년 전망)이다. 셋은 서로 다른 잣대다.
+                  { label: stockInfo.market === 'KR' ? 'EPS 성장률(연간)' : 'EPS 성장률(최근 분기 YoY)',
+                    value: stockInfo.epsGrowth != null ? `${stockInfo.epsGrowth.toFixed(1)}%` : '—' },
                   { label: 'Forward EPS', value: stockInfo.forwardEps != null ? (stockInfo.currency === 'KRW' ? `₩${Math.round(stockInfo.forwardEps).toLocaleString()}` : `${curFromCode(stockInfo.currency)}${stockInfo.forwardEps.toFixed(2)}`) : '—' },
                   { label: 'PEG',         value: stockInfo.peg != null ? stockInfo.peg.toFixed(2) : '—' },
                 ].map(({ label, value }) => (
@@ -458,6 +463,13 @@ export default function ResearchPage() {
                   </div>
                 ))}
               </div>
+              {/* ⚠️ 나란히 놓인 숫자는 학생이 나눗셈을 시도한다 — 잣대가 다르면 그 사실을 화면이 말해야 한다 */}
+              {stockInfo?.peg != null && stockInfo?.epsGrowth != null && (
+                <div style={{ marginTop: 8, fontSize: 10, color: TK.sub4, lineHeight: 1.6 }}>
+                  ※ <b>PEG는 위 성장률로 나눈 값이 아닙니다</b> — PEG는 <b>앞으로 몇 년</b>의 성장 전망을,
+                  위 성장률은 <b>이미 지나간 기간</b>을 재는 숫자예요. 두 값이 어긋나 보이면 회사가 그만큼 <b>변하고 있다</b>는 뜻입니다.
+                </div>
+              )}
               {stockInfo?.marketCap != null && (
                 <div style={{ marginTop: 8, background: TK.bg0, boxShadow: SHI, borderRadius: 9, padding: '10px 12px' }}>
                   <div style={{ fontSize: 9, color: TK.sub4, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>시가총액</div>
