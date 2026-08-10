@@ -12,15 +12,12 @@ const SUFFIX_FLAG: Record<string, string> = {
   IR: '🇮🇪', SA: '🇧🇷', MX: '🇲🇽',
 }
 
-/** origin(있으면) → 티커 접미사 → market 순으로 국기를 정한다. */
+/** 티커 접미사 → origin → market 순으로 국기를 정한다.
+ *  ⚠️ **접미사가 origin 보다 먼저다.** 반대로 뒀다가 회귀를 냈다(2026-08-10): origin 은 지역(EU/CN)이고
+ *     접미사는 국가(FR/GB/HK)라 접미사가 더 정밀하다. origin 을 앞에 두자 홍콩거래소(0388.HK)가
+ *     🇭🇰 → 🇨🇳 로, 케링(KER.PA)이 🇫🇷 → 🇪🇺 로 **덜 정확해졌다**.
+ *     origin 의 역할은 **접미사가 없는 ADR**(쉘·페라리·노바티스)을 건지는 것이지, 접미사를 덮는 게 아니다. */
 export function flagOf(market?: string | null, ticker?: string | null, origin?: string | null): string {
-  const o = (origin ?? '').toUpperCase()
-  if (o === 'KR') return '🇰🇷'
-  if (o === 'JP') return '🇯🇵'
-  if (o === 'CN') return '🇨🇳'
-  if (o === 'EU') return '🇪🇺'
-  if (o === 'US') return '🇺🇸'
-
   const t = (ticker ?? '').trim().toUpperCase()
   if (t) {
     const dot = t.lastIndexOf('.')
@@ -30,6 +27,13 @@ export function flagOf(market?: string | null, ticker?: string | null, origin?: 
     }
     if (/^\d{6}$/.test(t) || /^\d{4}[A-Z]\d$/.test(t)) return '🇰🇷'   // 005930 · 0117V0(신형 ETF)
   }
+
+  const o = (origin ?? '').toUpperCase()
+  if (o === 'KR') return '🇰🇷'
+  if (o === 'JP') return '🇯🇵'
+  if (o === 'CN') return '🇨🇳'
+  if (o === 'EU') return '🇪🇺'
+  if (o === 'US') return '🇺🇸'
 
   const m = (market ?? '').toUpperCase()
   if (m === 'KR') return '🇰🇷'
