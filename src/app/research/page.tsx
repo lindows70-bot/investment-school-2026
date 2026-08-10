@@ -25,7 +25,7 @@ import MastersCommittee   from '@/app/components/MastersCommittee'
 import ChoiValuationPanel from '@/app/components/ChoiValuationPanel'
 import { getAssetType } from '@/lib/assetClassifier'
 import type { Candle } from '@/app/components/CandleChart'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 
 const N   = TK.bg8
 const SHO = `7px 7px 18px ${TK.bg2}, -4px -4px 12px ${TK.line2}`
@@ -465,7 +465,7 @@ export default function ResearchPage() {
               </div>
               {/* ⚠️ 나란히 놓인 숫자는 학생이 나눗셈을 시도한다 — 잣대가 다르면 그 사실을 화면이 말해야 한다 */}
               {stockInfo?.peg != null && stockInfo?.epsGrowth != null && (
-                <div style={{ marginTop: 8, fontSize: 10, color: TK.sub4, lineHeight: 1.6 }}>
+                <div style={{ marginTop: 8, fontSize: FS.micro, color: TK.sub4, lineHeight: 1.6 }}>
                   ※ <b>PEG는 위 성장률로 나눈 값이 아닙니다</b> — PEG는 <b>앞으로 몇 년</b>의 성장 전망을,
                   위 성장률은 <b>이미 지나간 기간</b>을 재는 숫자예요. 두 값이 어긋나 보이면 회사가 그만큼 <b>변하고 있다</b>는 뜻입니다.
                 </div>
