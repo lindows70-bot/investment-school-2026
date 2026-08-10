@@ -152,17 +152,28 @@ function verdictOf(checks: MasterCheck[]): Verdict {
 }
 
 // ── 4인 체크리스트(결정론) ────────────────────────────────────────
-/** 보류 사유별 학생 언어 — 원인이 다르면 문장도 달라야 한다(전문용어 금지) */
-const SUSPECT_TXT: Record<'currency' | 'multiple', { fcf: string; band: string }> = {
+/** 보류 사유별 학생 언어 — 원인이 다르면 문장도 달라야 한다(전문용어 금지).
+ *  ⚠️ `price` 는 화면 상단('적정 매수 가격을 왜 안 냈나')용이다. 컴포넌트가 자기 문구를 따로 갖고 있다가
+ *     **쉘 화면에서 "현지 돈(대만달러 등)"이라고 말했다**(2026-08-10 실측). 쉘은 대만과 무관하고,
+ *     실제 원인은 `multiple`(계산값 과대)이라 **같은 화면의 버핏 카드와 서로 다른 원인**을 댄 셈이다.
+ *     원인 판별(`suspectCause`)은 이미 응답에 실려 있었는데 상단만 boolean 을 보고 있었다 —
+ *     "문구 생성도 SSOT 함수로"가 이래서 있다. 특정 통화를 예로 들지도 않는다(종목마다 다르다). */
+const SUSPECT_TXT: Record<'currency' | 'multiple', { fcf: string; band: string; price: string }> = {
   currency: {
     fcf: '나라별 화폐가 섞여 계산됐을 수 있어요 — 확인 전까지 보류',
     band: '나라별 화폐가 섞여 계산됐을 수 있어요 — 확인 전까지 보류',
+    price: '💱 회사 실적과 주가가 서로 다른 나라 돈으로 들어와 계산이 어긋납니다 — 틀린 가격을 보여주느니 비워둡니다.',
   },
   multiple: {
     fcf: '계산값이 지나치게 커서 보류 — 숫자를 그대로 믿지 않습니다',
     band: '계산한 값이 지금 주가의 5배가 넘어요 — 가정이 과했을 수 있어 보류',
+    price: '📐 계산한 값이 지금 주가의 5배가 넘습니다 — 가정이 과했을 수 있어 가격 구간을 비워둡니다.',
   },
 }
+
+/** 화면이 같은 문구를 쓰도록 SSOT 를 노출한다(컴포넌트가 자기 문장을 따로 만들면 두 표면이 갈린다) */
+export const suspectPriceText = (cause: SuspectCause): string | null =>
+  cause ? SUSPECT_TXT[cause].price : null
 
 function buffettChecks(x: CommitteeInput, unitSuspect: SuspectCause): MasterCheck[] {
   const roePct = pct(x.roe)

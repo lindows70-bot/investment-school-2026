@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react'
 import { TK, FS, SP, RAD } from '@/lib/theme'
 import type { MastersVerdictResponse } from '@/app/api/masters-verdict/route'
-import { stretchReason } from '@/lib/mastersCommittee'
+import { stretchReason, suspectPriceText } from '@/lib/mastersCommittee'
 
 const V_COLOR = { pass: TK.green400, gray: TK.amber400, fail: TK.red400 } as const
 const V_LABEL = { pass: '통과', gray: '회색지대', fail: '불통과' } as const
@@ -73,9 +73,12 @@ export default function MastersCommittee({ ticker, name, market }: { ticker: str
           ) : (
             <div style={{ fontSize: FS.tiny, color: TK.sub2, marginTop: 4 }}>💰 적정 매수 가격: <b>계산하지 않았습니다</b> — {
               data.redlineHit ? '🚧 치명적 문제(레드라인)가 걸린 회사는 "얼마면 살까"를 따지지 않습니다. 가격 문제가 아니니까요.'
-              : data.unitSuspect ? '💱 회사 실적은 현지 돈(대만달러 등), 주가는 달러로 들어와 계산이 어긋납니다 — 틀린 가격을 보여주느니 비워둡니다.'
-              : data.masters.some(m => m.checks.some(c => c.value.includes('금융주'))) ? '🏦 은행·증권·보험은 남의 돈(예금·보험료)을 굴리는 구조라 이 계산법이 안 맞습니다 — 다른 잣대(PBR·ROE)로 봅니다.'
-              : '계산에 필요한 게 없습니다(적자거나, 작년 이익이 무너졌다 튀어 착시거나, 데이터 부족).'}</div>
+              // ⚠️ boolean 이 아니라 **원인**(suspectCause)으로 갈라야 한다 — 뭉뚱그리면 쉘 화면에서
+              //    "대만달러 등"이라 말하고, 같은 화면 버핏 카드는 "계산값 과대"라 말한다(2026-08-10 실측).
+              : suspectPriceText(data.suspectCause)
+              ?? (data.masters.some(m => m.checks.some(c => c.value.includes('금융주')))
+                ? '🏦 은행·증권·보험은 남의 돈(예금·보험료)을 굴리는 구조라 이 계산법이 안 맞습니다 — 다른 잣대(PBR·ROE)로 봅니다.'
+                : '계산에 필요한 게 없습니다(적자거나, 작년 이익이 무너졌다 튀어 착시거나, 데이터 부족).')}</div>
           )}
         </div>
 
