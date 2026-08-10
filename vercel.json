@@ -86,6 +86,9 @@
     "src/app/api/hi52-radar/route.ts": {
       "maxDuration": 300
     },
+    "src/app/api/swing-radar/route.ts": {
+      "maxDuration": 300
+    },
     "src/app/api/cron-health/route.ts": {
       "maxDuration": 300
     },
@@ -151,6 +154,10 @@
     {
       "path": "/api/hi52-radar?refresh=1",
       "schedule": "25 0 * * *"
+    },
+    {
+      "path": "/api/swing-radar?refresh=1",
+      "schedule": "35 0 * * *"
     },
     {
       "path": "/api/market-breadth?refresh=1",

@@ -29,7 +29,7 @@ export default function SwingPage() {
   return (
     <div style={{ padding: '20px 22px', maxWidth: 1180, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: SP.md }}>
       {/* 헤더 */}
-      <div style={{ background: `linear-gradient(135deg,#101a14,${TK.bg1})`, border: `1px solid ${TK.green400}33`, borderRadius: RAD.md, padding: '16px 18px' }}>
+      <div style={{ background: `linear-gradient(135deg,${TK.bg2},${TK.bg1})`, border: `1px solid ${TK.green400}33`, borderRadius: RAD.md, padding: '16px 18px' }}>
         <div style={{ fontSize: FS.xl, fontWeight: 800, color: TK.slate100 }}>🎯 스윙 타점 — 1~2주 짧게 먹고 나오기</div>
         <div style={{ fontSize: FS.tiny, color: TK.sub, marginTop: 4, lineHeight: 1.6 }}>
           중장기 원칙은 그대로 두고, <b style={{ color: TK.green400 }}>국면이 맞을 때만</b> 짧게 들어가는 별도 트랙입니다.
