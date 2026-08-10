@@ -50,7 +50,7 @@ function retAt(closes: number[], back: number): number | null {
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export async function GET(req: Request) {
-  const cacheKey = `bonds-v1:${kstDate()}`
+  const cacheKey = `bonds-v2:${kstDate()}`   // v2: 곡선-듀레이션 축 충돌 설명 추가(내용만 바뀌어도 키를 올린다)
   const cached = await getCache<BondsResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -97,6 +97,15 @@ export async function GET(req: Request) {
   else if (yieldCurve != null && yieldCurve < 0.3) curveNote = `수익률곡선 평탄(장단기차 ${yieldCurve.toFixed(2)}%p) — 경기 후반 신호, 금리차가 좁아 듀레이션 확대의 이자 이점이 작다.`
   else if (yieldCurve != null) curveNote = `수익률곡선 정상·우상향(장단기차 +${yieldCurve.toFixed(2)}%p) — 장기 금리가 단기보다 높아 듀레이션 보유의 이자(캐리)가 유리.`
   else curveNote = '수익률곡선 데이터 일시 미확인.'
+
+  // ⚠️ 곡선과 듀레이션 권고는 **축이 다른 신호**다 — 나란히 두면 정반대로 읽힌다(2026-08-10 화면검증):
+  //    위는 "단기채로 듀레이션 **축소**", 아래는 "듀레이션 **보유**의 이자가 유리"였다.
+  //    곡선은 '길게 가면 이자를 더 받는다'(캐리), 금리 방향은 '금리가 오르면 긴 채권이 더 깎인다'(가격)를
+  //    말한다. 숨기지 말고 **관계를 밝힌다**(요약과 상세가 서로를 부정하면 학생은 둘 다 못 믿는다).
+  const curveFavorsLong = yieldCurve != null && (yieldCurve < 0 || yieldCurve >= 0.3)
+  if (curveFavorsLong && durationBias === 'short') {
+    curveNote += ' ↔ 위의 단기채 권고와 반대로 보이지만 재는 것이 다릅니다 — 곡선은 "길게 맡기면 이자를 더 준다"(이자), 금리 인상은 "금리가 오르면 긴 채권 값이 더 깎인다"(가격). 인상 국면에선 가격 방어가 먼저입니다.'
+  }
 
   const durShort = durationBias === 'long' ? '장기채' : durationBias === 'short' ? '단기채' : '중기채'
   const headline = `🧭 금리 ${rateDirLabel} 국면 — ${durShort} 중심 · ${creditBias === 'govt' ? '국채 선호' : '크레딧 캐리 가능'}`

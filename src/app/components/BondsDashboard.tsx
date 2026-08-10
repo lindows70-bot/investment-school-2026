@@ -128,7 +128,9 @@ export default function BondsDashboard() {
         </div>
       </div>
 
-      <BondEdu />
+      <BondEdu
+        tlt={data.etfs.find(e => e.ticker === 'TLT')?.modDur ?? null}
+        shy={data.etfs.find(e => e.ticker === 'SHY')?.modDur ?? null} />
 
       <div style={{ fontSize: 9.5, color: TK.sub4, lineHeight: 1.55 }}>
         ⚠️ 나침반은 금리 국면 기반 <b>일반 가이드</b>이지 매매 지시가 아니다. 과거 수익률은 미래를 보장하지 않으며, 개별 채권 ETF의 실제 듀레이션·수익률은 시점마다 다르다. 채권도 금리 급변 시 손실이 날 수 있다(2022년 장기채 −30% 실제).
@@ -137,8 +139,8 @@ export default function BondsDashboard() {
   )
 }
 
-/** 🎓 채권 기초 — 비유로 풀이(기본 펼침) */
-function BondEdu() {
+/** 🎓 채권 기초 — 비유로 풀이(기본 펼침). 예시 숫자는 위 표에서 받아 쓴다(리터럴 금지) */
+function BondEdu({ tlt, shy }: { tlt: number | null; shy: number | null }) {
   const [open, setOpen] = useState(true)
   const Row = ({ q, a }: { q: string; a: ReactNode }) => (
     <div style={{ marginBottom: 10 }}>
@@ -156,7 +158,13 @@ function BondEdu() {
         <div style={{ marginTop: 10 }}>
           <Row q="📜 채권이 뭔가요?" a={<>정부·기업에 돈을 빌려주고 <b>정해진 이자를 받는 &lsquo;차용증&rsquo;</b>이에요. 주식은 회사의 주인이 되는 것, 채권은 <b>회사에 돈을 빌려주는 채권자</b>가 되는 것. 만기에 원금을 돌려받아 주식보다 안전하고 변동이 작아, <b>포트폴리오의 방어수</b> 역할을 합니다.</>} />
           <Row q="⚖️ 왜 &lsquo;금리는 채권의 중력&rsquo;인가요?" a={<>금리와 채권 가격은 <b>시소처럼 반대</b>예요. 새 채권이 5% 이자를 준다면, 3%짜리 옛 채권은 인기가 없어져 <b>가격이 떨어집니다</b>. 반대로 금리가 내리면 옛 고금리 채권값이 오르죠. 그래서 <b>금리 인하가 예상되면 채권(특히 장기채)이 유리</b>합니다.</>} />
-          <Row q="⏳ 듀레이션(Duration)이란?" a={<>채권이 <b>금리 변화에 얼마나 민감한가</b>를 나타내는 &lsquo;시소의 길이&rsquo;예요. 대략 만기가 길수록 커집니다. 듀레이션 17인 장기채(TLT)는 <b>금리 1%p 내리면 약 +17%</b>, 올리면 −17%. 듀레이션 2인 단기채(SHY)는 ±2%뿐. <b>긴 채권일수록 금리 베팅의 지렛대가 크고 위험도 큽니다.</b></>} />
+          {/* ⚠️ 예시 숫자를 리터럴로 박지 않는다 — 듀레이션은 시점마다 변한다(리터럴 17·2 vs 실제 표 16.5·1.9).
+              위 표에서 그대로 가져와, 설명과 표가 어긋나지 않게 한다(제1원칙). */}
+          <Row q="⏳ 듀레이션(Duration)이란?" a={<>채권이 <b>금리 변화에 얼마나 민감한가</b>를 나타내는 &lsquo;시소의 길이&rsquo;예요. 대략 만기가 길수록 커집니다.
+            {tlt != null && shy != null
+              ? <> 지금 위 표를 보면 장기채(TLT)는 듀레이션 {tlt.toFixed(1)} — <b>금리 1%p 내리면 약 +{tlt.toFixed(1)}%</b>, 올리면 −{tlt.toFixed(1)}%. 단기채(SHY)는 {shy.toFixed(1)}이라 ±{shy.toFixed(1)}%뿐이에요.</>
+              : <> 장기채(TLT)는 듀레이션이 커서 금리 1%p에 두 자릿수로 움직이고, 단기채(SHY)는 한 자릿수에 그칩니다.</>}
+            {' '}<b>긴 채권일수록 금리 베팅의 지렛대가 크고 위험도 큽니다.</b></>} />
           <Row q="💳 국채 vs 회사채 · 크레딧 스프레드는?" a={<>국채는 정부가 갚아 가장 안전, 회사채는 부도위험이 있어 이자를 더 줍니다. 그 <b>추가 이자가 &lsquo;크레딧 스프레드&rsquo;</b>. 스프레드가 <b>낮으면</b> 회사채로 더 높은 이자를 안전하게 먹을 만하고(캐리), <b>급등하면</b> 경제 위기 신호라 안전한 국채로 피신합니다. 특히 <b>하이일드(고위험 회사채)</b>는 위기에 주식처럼 폭락해요.</>} />
           <Row q="📐 수익률곡선 역전은 왜 무섭나요?" a={<>보통 <b>장기 금리 &gt; 단기 금리</b>(오래 빌려주니 더 받음)인데, 이게 뒤집혀 <b>단기가 더 높아지면(역전)</b> 역사적으로 <b>경기침체 선행 신호</b>였어요. 시장이 &lsquo;곧 경기가 나빠져 금리를 내릴 것&rsquo;이라 보는 것 — 장기채엔 우호적이나 주식엔 경계 신호입니다.</>} />
           <div style={{ fontSize: 10.5, color: TK.sub3, lineHeight: 1.55, borderTop: `1px solid ${BORDER}`, paddingTop: 8, marginTop: 2 }}>
