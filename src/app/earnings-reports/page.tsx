@@ -75,7 +75,10 @@ function UsPanel() {
   return (
     <>
       <p style={{ fontSize: FS.body, color: TK.sub, margin: '10px 0 16px', lineHeight: 1.75 }}>
-        미국 시총 상위 50개 기업이 <b style={{ color: TK.slate300 }}>증권거래위원회(SEC)에 직접 제출한 실적 발표 원문</b>을 자동으로 모아 한국어로 정리합니다.
+        {/* ⚠️ "상위 50개"라고만 쓰면 바로 아래 "59개 기업"과 어긋나 학생이 셈을 의심한다.
+            실제 대상은 상위 50 + 학생 보유 종목이다(유니버스에 없는 신규 상장사가 조용히 빠지지 않게). */}
+        미국 <b style={{ color: TK.slate300 }}>시총 상위 50개</b>와 <b style={{ color: TK.slate300 }}>우리가 보유한 종목</b>이
+        <b style={{ color: TK.slate300 }}> 증권거래위원회(SEC)에 직접 제출한 실적 발표 원문</b>을 자동으로 모아 한국어로 정리합니다.
         기자가 쓴 기사나 남의 해설이 아니라 <b style={{ color: TK.slate300 }}>회사가 자기 손으로 쓴 문서</b>가 출처입니다.
       </p>
 
