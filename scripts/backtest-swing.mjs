@@ -186,6 +186,24 @@ dist('C 킴스 US 5봉', hits.kimsC.filter(r => r.market === 'US'), 5)
 dist('C 킴스 US 상승장', hits.kimsC.filter(r => r.market === 'US' && r.regime === 'up'), 5)
 dist('(참고) 전 봉 KR 10봉', hits.revA.filter(r => r.market === 'KR').map(r => r), 10)
 
+// ── 🏔️ 최고 도달치(MFE) — "보유 중 최고점이 어디까지 가는가" (종가 아닌 그때까지의 최대 수익) ──
+//    사용자 질문: "2주~한 달 들고 있으면 진짜 어디까지 가나". 백테스트 원본 캔들이 필요해
+//    여기서는 ret 5/10/15 를 이미 갖고 있으므로 그 최대값으로 근사(봉 단위 종가 기준 MFE-lite).
+console.log(`\n${'═'.repeat(78)}\n🏔️ 보유 연장 실험 — 5→10→15봉 중 '가장 좋았던 시점'의 수익(종가 기준)\n${'═'.repeat(78)}`)
+function mfe(title, rows) {
+  if (!rows.length) { console.log(`  ${title}: 신호 없음`); return }
+  const best = rows.map(r => Math.max(r.ret[5], r.ret[10], r.ret[15]))
+  const s = [...best].sort((a, b) => a - b)
+  const q = p => s[Math.min(s.length - 1, Math.floor(s.length * p))]
+  const ge = x => Math.round(s.filter(v => v >= x).length / s.length * 100)
+  const bestAt = rows.map(r => [5, 10, 15][[r.ret[5], r.ret[10], r.ret[15]].indexOf(Math.max(r.ret[5], r.ret[10], r.ret[15]))])
+  const cnt = h => Math.round(bestAt.filter(x => x === h).length / bestAt.length * 100)
+  console.log(`  ${title.padEnd(24)} n=${String(s.length).padStart(4)} | 중위 ${String(r2(q(0.5))).padStart(6)}% | ≥5%: ${String(ge(5)).padStart(3)}% | ≥10%: ${String(ge(10)).padStart(3)}% | ≥15%: ${String(ge(15)).padStart(3)}%`)
+  console.log(`  ${' '.repeat(24)} 최고 시점 분포 — 5봉: ${cnt(5)}% · 10봉: ${cnt(10)}% · 15봉: ${cnt(15)}%`)
+}
+mfe('A 역매공파 KR 하락장', hits.revA.filter(r => r.market === 'KR' && r.regime === 'down'))
+mfe('C 킴스 US 전체', hits.kimsC.filter(r => r.market === 'US'))
+
 console.log(`\n${'═'.repeat(78)}\n📏 이평선 세트 비교 (트랙 A · 10봉 · 시장 합산)\n${'═'.repeat(78)}`)
 for (const [label, rows] of Object.entries(maCompare)) {
   if (!rows.length) { console.log(`  ${label.padEnd(26)} 신호 없음`); continue }

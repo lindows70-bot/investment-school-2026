@@ -4,7 +4,7 @@
 //   ⛔ 자동매매 없음 · ⛔ 목표 수익률 약속 없음 — edge 는 전부 '시장 대비'다.
 import { useEffect, useState } from 'react'
 import type { SwingRadar, SwingItem } from '@/lib/swingRadar'
-import { SWING_TRACKS, positionSize, SWING_RISK_PCT, type SwingRegime } from '@/lib/swingSetup'
+import { SWING_TRACKS, positionSize, SWING_RISK_PCT, SWING_BEST_REF, type SwingRegime } from '@/lib/swingSetup'
 import { SWING_MIN_SAMPLE, type SwingGrade } from '@/lib/swingHistory'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 
@@ -291,6 +291,42 @@ function SwingRecord({ d }: { d: SwingRadar }) {
           )}
         </>
       )}
+
+      {/* 🔬 보유 기간 실험 — "얼마까지 가나"는 이 표가 데이터로 답한다(1주~1달 전 구간 동시 채점) */}
+      <div style={{ marginTop: 12, background: TK.bg3, borderRadius: RAD.sm, padding: '10px 12px' }}>
+        <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate200 }}>🔬 보유 기간 실험 — 1주·2주·3주·1달을 전부 추적 중</div>
+        {d.horizons.some(h => h.n > 0) ? (
+          <div style={{ overflowX: 'auto', marginTop: 7 }}>
+            <table style={{ borderCollapse: 'collapse', fontSize: FS.micro, color: TK.sub2, minWidth: 420 }}>
+              <thead><tr style={{ color: TK.sub4 }}>
+                {['보유', '표본', '평균', '중위', '승률', '+5%↑', '+10%↑'].map(h => <th key={h} style={{ textAlign: 'right', padding: '3px 9px', fontWeight: 700 }}>{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {d.horizons.map(h => (
+                  <tr key={h.bars} style={{ borderTop: `1px solid ${BORDER}` }}>
+                    <td style={{ textAlign: 'right', padding: '3px 9px', color: TK.slate300, fontWeight: 700 }}>{h.label}</td>
+                    <td style={{ textAlign: 'right', padding: '3px 9px' }}>{h.n || '—'}</td>
+                    {[h.avgPct, h.medPct].map((v, i) => <td key={i} style={{ textAlign: 'right', padding: '3px 9px', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', color: v == null ? TK.sub4 : v > 0 ? TK.green400 : TK.orange400 }}>{v == null ? '—' : `${v > 0 ? '+' : ''}${v}%`}</td>)}
+                    {[h.winRate, h.ge5Rate, h.ge10Rate].map((v, i) => <td key={`p${i}`} style={{ textAlign: 'right', padding: '3px 9px' }}>{v == null ? '—' : `${v}%`}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {d.peak.n > 0 && (
+              <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 6, lineHeight: 1.6 }}>
+                🏔️ 보유 중 <b>최고점</b>(고가 기준·최대 1달): 평균 <b style={{ color: TK.green400 }}>+{d.peak.avgPct}%</b> · 중위 +{d.peak.medPct}%
+                · +10% 터치 {d.peak.ge10Rate}% · 평균 <b>{d.peak.avgBar}일째</b>가 고점이었습니다 — 끝값과의 차이가 곧 &lsquo;매도 타이밍의 값&rsquo;입니다.
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 5, lineHeight: 1.7 }}>
+            아직 1주가 안 지나 채점된 구간이 없습니다. 구간이 차는 대로 여기서 <b>최적 보유 기간이 데이터로 드러납니다</b>.
+            <br />참고(백테스트 {SWING_BEST_REF.asOf} · 최적 시점 매도 <b>가정</b>의 상한): 회복 트랙 최고점 중위 +{SWING_BEST_REF.reversion.medBestPct}% · +10% 도달 {SWING_BEST_REF.reversion.ge10Rate}%({SWING_BEST_REF.reversion.sample}건) /
+            추세 트랙 +{SWING_BEST_REF.trend.medBestPct}% · {SWING_BEST_REF.trend.ge10Rate}%({SWING_BEST_REF.trend.sample}건).
+          </div>
+        )}
+      </div>
 
       {d.recent.length > 0 && (
         <div style={{ marginTop: 10 }}>

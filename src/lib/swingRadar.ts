@@ -37,6 +37,11 @@ export interface SwingRadar {
   recent: { date: string; ticker: string; name: string; flag: string; track: SwingTrack; retPct: number | null; stopHit: boolean }[]
   /** 🚨 진행 중인 추천이 손절선을 깼다 — 매매 브리핑이 크게 띄운다("손절선이 오면 손절한다"가 이 기법의 반쪽) */
   stopAlerts: { date: string; ticker: string; name: string; flag: string; market: 'KR' | 'US'; track: SwingTrack; entry: number; stop: number; last: number; lossPct: number }[]
+  /** 🔬 보유 기간 실험 — 같은 추천을 1주·2주·3주·1달 구간에서 **모두** 채점한다.
+   *  "수익률이 어디까지 가나"는 백테스트 고정 구간이 아니라 이 적립이 답한다(사용자 요청 2026-08-11). */
+  horizons: { bars: number; label: string; n: number; avgPct: number | null; medPct: number | null; winRate: number | null; ge5Rate: number | null; ge10Rate: number | null }[]
+  /** 🏔️ 보유 중 최고 도달치(고가 기준·최대 20봉) — "최고점이 어디까지 갔고 며칠째였나" */
+  peak: { n: number; avgPct: number | null; medPct: number | null; ge5Rate: number | null; ge10Rate: number | null; avgBar: number | null }
 }
 
 /** 🛡️ 손절 — 트랙의 구조가 깨지는 자리(백테스트가 손절을 쓰진 않았으므로 **성적에 포함되지 않은 보호장치**다).
@@ -145,12 +150,33 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
   const scored: ScoredRow[] = []
   const recent: SwingRadar['recent'] = []
   const stopAlerts: SwingRadar['stopAlerts'] = []
+  // 🔬 보유 기간 실험 — 1주(5)·2주(10)·3주(15)·1달(20) 을 전부 채점(구간별 독립 표본)
+  const HORIZONS = [
+    { bars: 5, label: '1주' }, { bars: 10, label: '2주' }, { bars: 15, label: '3주' }, { bars: 20, label: '1달' },
+  ]
+  const horizonRets: Record<number, number[]> = { 5: [], 10: [], 15: [], 20: [] }
+  const peaks: { pct: number; bar: number }[] = []
   for (const e of allHist) {
     let retPct: number | null = null, stopHit = false
     try {
       const D = await getTechCandles(e.ticker, e.market, 'D')
       if (D && D.length) {
         const idx = D.findIndex(d => String(d.date ?? '').slice(0, 10) >= e.date)
+        if (idx >= 0) {
+          const elapsed = D.length - 1 - idx
+          for (const h of HORIZONS) {
+            if (elapsed >= h.bars) horizonRets[h.bars].push((D[idx + h.bars].close / e.entry - 1) * 100)
+          }
+          // 🏔️ 최고 도달치 — 고가 기준, 진입 다음 봉부터 최대 20봉. 5봉은 지나야 '고점'이라 부를 수 있다
+          if (elapsed >= 5) {
+            let best = -Infinity, bestBar = 0
+            for (let k = 1; k <= Math.min(elapsed, 20); k++) {
+              const p = (D[idx + k].high / e.entry - 1) * 100
+              if (p > best) { best = p; bestBar = k }
+            }
+            if (isFinite(best)) peaks.push({ pct: best, bar: bestBar })
+          }
+        }
         if (idx >= 0 && idx + e.holdBars < D.length) {
           const win = D.slice(idx, idx + e.holdBars + 1)
           retPct = Math.round((win[win.length - 1].close / e.entry - 1) * 1000) / 10
@@ -177,10 +203,31 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
 
   const grades = [gradeSwing(scored, 'all'), gradeSwing(scored, 'reversion'), gradeSwing(scored, 'trend')]
 
+  const r1 = (n: number) => Math.round(n * 10) / 10
+  const stat = (a: number[]) => {
+    if (!a.length) return { n: 0, avgPct: null, medPct: null, winRate: null, ge5Rate: null, ge10Rate: null }
+    const s = [...a].sort((x, y) => x - y)
+    const mid = s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2
+    return {
+      n: a.length,
+      avgPct: r1(a.reduce((x, y) => x + y, 0) / a.length),
+      medPct: r1(mid),
+      winRate: Math.round(a.filter(x => x > 0).length / a.length * 100),
+      ge5Rate: Math.round(a.filter(x => x >= 5).length / a.length * 100),
+      ge10Rate: Math.round(a.filter(x => x >= 10).length / a.length * 100),
+    }
+  }
+  const horizons = HORIZONS.map(h => ({ bars: h.bars, label: h.label, ...stat(horizonRets[h.bars]) }))
+  const pk = stat(peaks.map(p => p.pct))
+  const peak = {
+    n: pk.n, avgPct: pk.avgPct, medPct: pk.medPct, ge5Rate: pk.ge5Rate, ge10Rate: pk.ge10Rate,
+    avgBar: peaks.length ? Math.round(peaks.reduce((s, p) => s + p.bar, 0) / peaks.length) : null,
+  }
+
   return {
     asOf: new Date().toISOString(), scanned, okCount, usdKrw,
     indexRegime: { KR: krIdx, US: usIdx }, items, tracks,
-    grades, recent: recent.slice(0, 20), stopAlerts,
+    grades, recent: recent.slice(0, 20), stopAlerts, horizons, peak,
   }
 }
 

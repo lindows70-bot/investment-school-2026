@@ -41,6 +41,14 @@ export const SWING_TRACKS: Record<SwingTrack, {
   },
 }
 
+/** 🏔️ 참고 — 백테스트 '보유 연장 실험'(5·10·15봉 중 최고 시점의 종가 수익 · 실측 2026-08-11, backtest-swing.mjs).
+ *  전향 적립이 찰 때까지의 참고치다. **최적 시점 매도를 가정한 상한**이지 기대값이 아니다. */
+export const SWING_BEST_REF = {
+  reversion: { medBestPct: 3.5, ge10Rate: 18, sample: 73 },
+  trend: { medBestPct: 3.2, ge10Rate: 19, sample: 325 },
+  asOf: '2026-08-11',
+} as const
+
 const sma = (a: number[], n: number, i: number) => {
   if (i + 1 < n) return null
   let s = 0; for (let k = i - n + 1; k <= i; k++) s += a[k]
