@@ -56,7 +56,7 @@ const spanAOf = (h, l) => {
   return h.map((_, i) => { const t = mid(9, i), k = mid(26, i); return t == null || k == null ? null : (t + k) / 2 })
 }
 
-const hits = { revA: [], pullB: [], kimsC: [] }          // 트랙별 신호
+const hits = { revA: [], pullB: [], kimsC: [], spikeD: [] }          // 트랙별 신호
 const maCompare = {}                           // 이평선 세트 비교(트랙 A)
 for (const k of Object.keys(MA_SETS)) maCompare[k] = []
 const base = { KR: { 5: [], 10: [], 15: [] }, US: { 5: [], 10: [], 15: [] } }
@@ -110,6 +110,21 @@ async function run(ticker, market) {
       const green = c[i] > q[i].open                              // 양봉 확인
       const aboveBase = c[i] > c[bi - 1]                          // 기준봉 시작가 위 유지
       if (quiet && nearMa5 && green && aboveBase) hits.pullB.push(meta)
+    }
+
+    // ── 트랙 D: 써티퍼센트 '바닥 급등'(2026-08-12 영상) — 224선 아래 장기 체류 후 급등 당일 진입 ──
+    //    영상 규칙: "224 아래에서 바닥 파다가(digging) 갑자기 솟구치는 놈을 검색기로 잡는다.
+    //              1년선 아래 있는 놈에 미리 들어가지 않는다(급등을 확인하고 들어간다)."
+    //    정식화: 어제까지 최근 60봉 중 45봉 이상 224선 아래 + 오늘 +5% 이상 + 거래량 20일 평균 2배 이상
+    {
+      const ma224 = sma(c, 224, i - 1)
+      if (ma224 != null && vol[i] > 0) {
+        let below = 0
+        for (let k = i - 60; k < i; k++) { const m = sma(c, 224, k); if (m != null && c[k] < m) below++ }
+        const chg = (c[i] / c[i - 1] - 1) * 100
+        let v20 = 0; for (let k = i - 20; k < i; k++) v20 += vol[k]; v20 /= 20
+        if (below >= 45 && chg >= 5 && v20 > 0 && vol[i] >= v20 * 2) hits.spikeD.push(meta)
+      }
     }
 
     // ── 트랙 C: 킴스(일목 선행스팬1 + TRIX) — 추세 추종 ──
@@ -169,6 +184,7 @@ console.log(`baseline 10봉 — KR ${r2(avg(base.KR[10]))}%(승률 ${r2(base.KR[
 report('🅰️ 트랙 A — 역매공파(평균 회귀): 역배열 + 이격도≤95 + 단기선 회복 [112/224]', hits.revA)
 report('🅱️ 트랙 B — 급등 눌림목(추세 추종): 기준봉 → 거래량 1/3 급감 → 5일선 양봉', hits.pullB)
 report('🅲 트랙 C — 킴스(일목 선행스팬1 상승 + TRIX 영선 돌파 + 강도 증가 + 11일선 위)', hits.kimsC)
+report('🅳 트랙 D — 써티퍼센트 바닥 급등(224 아래 60봉 중 45봉+ 체류 → 당일 +5%·거래량 2배)', hits.spikeD)
 
 // ── 📊 수익률 분포 — "10% 이상 나야 의미 있다"는 질문에 답하려면 평균이 아니라 **분포**를 봐야 한다 ──
 function dist(title, rows, h) {
