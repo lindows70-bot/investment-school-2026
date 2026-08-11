@@ -12,8 +12,12 @@
 // ⛔ 자동매매 없음 — 판정·표시까지. 세금·수수료·슬리피지 미반영(단기매매에서 이게 성적을 크게 깎는다).
 import { calcTRIX, readSpanADir, type Ohlc } from '@/lib/techSignals'
 
-export type SwingTrack = 'reversion' | 'trend'
+export type SwingTrack = 'reversion' | 'trend' | 'spike'
 export type SwingRegime = 'up' | 'down' | 'flat'
+
+/** 🧢 하루 합산 추천 상한 — 하락장 바닥 급등은 몰려서 나오는 날이 있다(같은 장세에 여러 건 = 상관 노출).
+ *  손절폭 좁은 순으로 3건만 내보낸다(2026-08-12 사용자 승인). */
+export const SWING_DAILY_CAP = 3
 
 /** 📊 백테스트 성적 — 화면이 표본·승률을 항상 병기할 수 있게 여기 하나로 둔다(숫자를 코드에 흩뿌리지 않는다).
  *  측정: KR40+US40 · 5년 일봉 · 실제 techSignals 컴파일 · 룩어헤드 없음 · baseline 대비 절사 초과분 · autopsy 4단. */
@@ -38,6 +42,13 @@ export const SWING_TRACKS: Record<SwingTrack, {
     edgePp: 0.83, winRate: 64.0, sample: 325,
     medPct: 1.1, ge5Rate: 19, ge10Rate: 7,
     note: '오르는 흐름에 힘이 실리는 순간. 미국 상승장에서 통했습니다(한국은 승률 50.2%로 우위 없음).',
+  },
+  spike: {
+    key: 'spike', icon: '⚡', label: '바닥 급등 포착', source: '써티퍼센트(224 아래 장기 체류 → 급등 당일)',
+    market: 'KR', regime: 'down', holdBars: 10, holdLabel: '2주',
+    edgePp: 1.82, winRate: 57.9, sample: 152,
+    medPct: 2.6, ge5Rate: 36, ge10Rate: 21,
+    note: '1년선 아래 오래 눌려 있다가 거래량 실린 급등이 터진 날. **한국 하락장에서만** 통했습니다(미국은 역효과·기각).',
   },
 }
 
@@ -124,14 +135,48 @@ export function readTrendSetup(data: Ohlc[]): SwingHit | null {
   }
 }
 
+/** ⚡ 트랙 D — 써티퍼센트 바닥 급등: 224선 아래 장기 체류(60봉 중 45봉+) + 당일 +5%↑ + 거래량 2배↑.
+ *  "1년선 아래 있는 놈에 미리 들어가지 않는다 — 급등을 확인하고 들어간다"(영상 원칙).
+ *  ⚠️ 백테스트(backtest-swing.mjs 트랙 D)와 **자구까지 같은 규칙**이어야 성적이 성적 구실을 한다. */
+export function readSpikeSetup(data: Ohlc[]): SwingHit | null {
+  const c = data.map(d => d.close)
+  const i = c.length - 1
+  if (i < 285) return null                                  // 224선 + 체류 창 60봉 확보
+  if (sma(c, 224, i - 1) == null) return null
+  let below = 0
+  for (let k = i - 60; k < i; k++) {
+    const m = sma(c, 224, k)
+    if (m != null && c[k] < m) below++
+  }
+  if (below < 45) return null                               // 장기 체류(바닥 다지기)가 전제
+  const chg = (c[i] / c[i - 1] - 1) * 100
+  if (chg < 5) return null                                  // 급등 당일
+  let v20 = 0
+  for (let k = i - 20; k < i; k++) v20 += data[k].volume ?? 0
+  v20 /= 20
+  const vToday = data[i].volume ?? 0
+  if (!(v20 > 0) || vToday < v20 * 2) return null           // 거래량이 실려야 '돈의 유입'이다
+  return {
+    track: 'spike', price: c[i],
+    reasons: [
+      `최근 석 달 중 대부분(60일 중 ${below}일)을 1년 평균가 아래에서 보냈습니다(바닥 다지기)`,
+      `오늘 +${Math.round(chg * 10) / 10}% 급등 — 거래량이 평소의 ${Math.round(vToday / v20 * 10) / 10}배로 터졌습니다(돈이 들어온 흔적)`,
+      '미리 들어가지 않고 급등을 확인한 뒤 올라탑니다(영상 원칙 그대로)',
+    ],
+  }
+}
+
 /** 🧭 지금 이 종목에 쓸 트랙이 있나 — **국면·시장이 맞을 때만** 판정한다.
  *  맞는 트랙이 없으면 null 이고, 화면은 "지금은 자리가 아닙니다"를 이유와 함께 말해야 한다. */
+const READERS: Record<SwingTrack, (d: Ohlc[]) => SwingHit | null> = {
+  reversion: readReversionSetup, trend: readTrendSetup, spike: readSpikeSetup,
+}
 export function readSwingSetup(data: Ohlc[], market: 'KR' | 'US'): SwingHit | null {
   const regime = readSwingRegime(data)
   if (!regime) return null
   for (const t of Object.values(SWING_TRACKS)) {
     if (t.market !== market || t.regime !== regime) continue
-    const hit = t.key === 'reversion' ? readReversionSetup(data) : readTrendSetup(data)
+    const hit = READERS[t.key](data)
     if (hit) return hit
   }
   return null

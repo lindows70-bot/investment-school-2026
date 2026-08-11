@@ -14,14 +14,14 @@ export interface SwingHistEntry {
   date: string                     // 추천일(KST)
   ticker: string; name: string
   market: 'KR' | 'US'
-  track: 'reversion' | 'trend'
+  track: 'reversion' | 'trend' | 'spike'
   entry: number                    // 추천일 종가
   stop: number                     // 그날 제시한 손절선
   holdBars: number                 // 그 트랙의 보유 기간(거래일)
 }
 
 export interface SwingGrade {
-  track: 'reversion' | 'trend' | 'all'
+  track: 'reversion' | 'trend' | 'spike' | 'all'
   n: number                        // 채점 완료(보유 기간 경과) 건수
   pending: number                  // 적립됐지만 아직 기간 미경과
   cohorts: number                  // 서로 다른 진입 '주(週)' 수 — 1이면 그 주의 장세일 수 있다

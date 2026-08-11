@@ -9,7 +9,7 @@ import { SWING_HIST_KEY, shouldAppend, gradeSwing, type SwingHistEntry, type Swi
 import { getTechCandles } from '@/lib/techChartData'
 import { flagOf } from '@/lib/marketFlag'
 import { getUsdKrw } from '@/lib/fx'
-import { readSwingSetup, readSwingRegime, SWING_TRACKS, positionSize, type SwingTrack, type SwingRegime } from '@/lib/swingSetup'
+import { readSwingSetup, readSwingRegime, SWING_TRACKS, SWING_DAILY_CAP, positionSize, type SwingTrack, type SwingRegime } from '@/lib/swingSetup'
 
 export interface SwingItem {
   ticker: string; name: string; market: 'KR' | 'US'; flag: string; sector: string | null
@@ -29,6 +29,8 @@ export interface SwingRadar {
   usdKrw: number
   indexRegime: { KR: SwingRegime | null; US: SwingRegime | null }
   items: SwingItem[]
+  /** 🧢 하루 상한(3건)에 걸려 잘린 신호 수 — 숨기면 "오늘 3건뿐"이 거짓말이 된다 */
+  cappedOut: number
   /** 트랙별로 지금 켜졌는지 + 왜 — 화면이 빈 목록을 설명할 수 있게 */
   tracks: { key: SwingTrack; on: boolean; why: string }[]
   /** 📋 이 기능이 추천한 것의 **실제 성적**(오늘부터 전향 적립·소급 없음) */
@@ -52,13 +54,15 @@ export interface SwingRadar {
  *   · 상한 8% — Twilio가 18%로 나왔다(급등해 11일선에서 멀어진 상태). 그렇게 이격된 자리는
  *     추격이므로 **자리 자체를 버린다**(문서들도 추격 금지가 공통이다). */
 const STOP_MIN_PCT = 2.5, STOP_MAX_PCT = 8
-function stopFor(track: SwingTrack, close: number[], i: number): number | null {
-  const sma = (n: number) => { if (i + 1 < n) return null; let s = 0; for (let k = i - n + 1; k <= i; k++) s += close[k]; return s / n }
-  const line = track === 'reversion' ? sma(112) : sma(11)
-  if (line == null || !(line > 0) || line >= close[i]) return null   // 이미 아래면 자리가 아니다
-  const gapPct = (1 - line / close[i]) * 100
+function stopFor(track: SwingTrack, D: { close: number; low: number }[], i: number): number | null {
+  const close = (k: number) => D[k].close
+  const sma = (n: number) => { if (i + 1 < n) return null; let s = 0; for (let k = i - n + 1; k <= i; k++) s += close(k); return s / n }
+  // ⚡ spike 는 급등봉(당일) 저가 — "급등의 시작점이 무너지면 그 급등은 가짜였다"(밥그릇 기준봉 저가와 같은 논리)
+  const line = track === 'reversion' ? sma(112) : track === 'trend' ? sma(11) : D[i].low
+  if (line == null || !(line > 0) || line >= close(i)) return null   // 이미 아래면 자리가 아니다
+  const gapPct = (1 - line / close(i)) * 100
   if (gapPct > STOP_MAX_PCT) return null                             // 구조선에서 너무 멀다 = 추격 — 자리 아님
-  return Math.min(line, close[i] * (1 - STOP_MIN_PCT / 100))         // 최소 2.5% 여유(노이즈 컷 방지)
+  return Math.min(line, close(i) * (1 - STOP_MIN_PCT / 100))         // 최소 2.5% 여유(노이즈 컷 방지)
 }
 
 async function regimeOfIndex(symbol: string, market: 'KR' | 'US'): Promise<SwingRegime | null> {
@@ -91,9 +95,8 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
         const market: 'KR' | 'US' = s.market === 'KR' ? 'KR' : 'US'
         const hit = readSwingSetup(D, market)
         if (!hit) continue
-        const close = D.map(d => d.close)
-        const i = close.length - 1
-        const stop = stopFor(hit.track, close, i)
+        const i = D.length - 1
+        const stop = stopFor(hit.track, D, i)
         if (stop == null) continue                // 손절선을 못 세우면 내보내지 않는다(⛔ 손절 없는 진입 금지)
         const t = SWING_TRACKS[hit.track]
         items.push({
@@ -114,6 +117,11 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
 
   // 손절폭이 좁은 순(같은 리스크로 더 많이 살 수 있는 자리) → 표본 큰 트랙 우선
   items.sort((a, b) => a.stopPct - b.stopPct)
+
+  // 🧢 하루 합산 상한 — 하락장 바닥 급등은 몰려서 나오는 날이 있다. 같은 장세에 여러 건을 다 담으면
+  //    분산이 아니라 같은 베팅의 반복이다. 잘린 건수는 숨기지 않고 화면에 밝힌다.
+  const cappedOut = Math.max(0, items.length - SWING_DAILY_CAP)
+  if (cappedOut > 0) items.splice(SWING_DAILY_CAP)
 
   const tracks = (Object.values(SWING_TRACKS)).map(t => {
     const idx = t.market === 'KR' ? krIdx : usIdx
@@ -201,7 +209,7 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
   }
   recent.reverse()
 
-  const grades = [gradeSwing(scored, 'all'), gradeSwing(scored, 'reversion'), gradeSwing(scored, 'trend')]
+  const grades = [gradeSwing(scored, 'all'), gradeSwing(scored, 'reversion'), gradeSwing(scored, 'trend'), gradeSwing(scored, 'spike')]
 
   const r1 = (n: number) => Math.round(n * 10) / 10
   const stat = (a: number[]) => {
@@ -226,7 +234,7 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
 
   return {
     asOf: new Date().toISOString(), scanned, okCount, usdKrw,
-    indexRegime: { KR: krIdx, US: usIdx }, items, tracks,
+    indexRegime: { KR: krIdx, US: usIdx }, items, cappedOut, tracks,
     grades, recent: recent.slice(0, 20), stopAlerts, horizons, peak,
   }
 }
