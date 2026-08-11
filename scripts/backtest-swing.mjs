@@ -170,6 +170,22 @@ report('🅰️ 트랙 A — 역매공파(평균 회귀): 역배열 + 이격도�
 report('🅱️ 트랙 B — 급등 눌림목(추세 추종): 기준봉 → 거래량 1/3 급감 → 5일선 양봉', hits.pullB)
 report('🅲 트랙 C — 킴스(일목 선행스팬1 상승 + TRIX 영선 돌파 + 강도 증가 + 11일선 위)', hits.kimsC)
 
+// ── 📊 수익률 분포 — "10% 이상 나야 의미 있다"는 질문에 답하려면 평균이 아니라 **분포**를 봐야 한다 ──
+function dist(title, rows, h) {
+  if (!rows.length) { console.log(`  ${title}: 신호 없음`); return }
+  const s = rows.map(r => r.ret[h]).sort((a, b) => a - b)
+  const q = p => s[Math.min(s.length - 1, Math.floor(s.length * p))]
+  const ge = x => Math.round(s.filter(v => v >= x).length / s.length * 100)
+  console.log(`  ${title.padEnd(22)} n=${String(s.length).padStart(4)} | 중위 ${String(r2(q(0.5))).padStart(6)}% | 상위25% ${String(r2(q(0.75))).padStart(6)}% | 상위10% ${String(r2(q(0.9))).padStart(6)}% | 최대 ${String(r2(s[s.length - 1])).padStart(7)}%`)
+  console.log(`  ${' '.repeat(22)} ≥5%: ${String(ge(5)).padStart(3)}%  ≥10%: ${String(ge(10)).padStart(3)}%  ≥20%: ${String(ge(20)).padStart(3)}%  |  ≤−5%: ${String(Math.round(s.filter(v => v <= -5).length / s.length * 100)).padStart(3)}%  ≤−10%: ${String(Math.round(s.filter(v => v <= -10).length / s.length * 100)).padStart(3)}%`)
+}
+console.log(`\n${'═'.repeat(78)}\n📊 수익률 분포 — "10% 이상"이 얼마나 자주 나오나\n${'═'.repeat(78)}`)
+dist('A 역매공파 KR 10봉', hits.revA.filter(r => r.market === 'KR'), 10)
+dist('A 역매공파 KR 하락장', hits.revA.filter(r => r.market === 'KR' && r.regime === 'down'), 10)
+dist('C 킴스 US 5봉', hits.kimsC.filter(r => r.market === 'US'), 5)
+dist('C 킴스 US 상승장', hits.kimsC.filter(r => r.market === 'US' && r.regime === 'up'), 5)
+dist('(참고) 전 봉 KR 10봉', hits.revA.filter(r => r.market === 'KR').map(r => r), 10)
+
 console.log(`\n${'═'.repeat(78)}\n📏 이평선 세트 비교 (트랙 A · 10봉 · 시장 합산)\n${'═'.repeat(78)}`)
 for (const [label, rows] of Object.entries(maCompare)) {
   if (!rows.length) { console.log(`  ${label.padEnd(26)} 신호 없음`); continue }

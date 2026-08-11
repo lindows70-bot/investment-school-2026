@@ -170,8 +170,17 @@ function SwingCard({ it, equity, usdKrw }: { it: SwingItem; equity: number; usdK
           💰 투자금 {equity.toLocaleString()}원 기준 — <b style={{ color: TK.slate200 }}>{ps.qty.toLocaleString()}주</b>
           <span style={{ color: TK.sub3 }}> (약 {money(ps.positionValue)}
             {!isKr && <> · 원화로 약 {Math.round(ps.positionValue * usdKrw).toLocaleString()}원</>}
-            {' '}· 손절 시 손실 {money(ps.riskAmount)} = 투자금의 {SWING_RISK_PCT}%)</span>
+            {' '}· 손절 시 손실 {money(ps.riskAmount)}{ps.capped ? '' : ` = 투자금의 ${SWING_RISK_PCT}%`})</span>
           {!isKr && <span style={{ color: TK.sub4 }}> · 환율 ₩{Math.round(usdKrw).toLocaleString()} 적용</span>}
+          {ps.capped && (
+            <div style={{ color: TK.amber400, marginTop: 3 }}>
+              🧢 손절폭이 좁아 수량이 커질 자리라, <b>한 종목 상한(투자금의 20%)</b>으로 잘랐습니다 — 몰빵 방지.
+            </div>
+          )}
+          {/* 📊 기대치 현실 — "10% 이상"이 얼마나 나오는지 실측 그대로 */}
+          <div style={{ color: TK.sub3, marginTop: 3 }}>
+            📊 과거 이 자리 10번 중 — <b>+5% 이상 약 {Math.round(t.ge5Rate / 10)}번</b> · <b>+10% 이상 약 {Math.round(t.ge10Rate / 10)}번</b> · 절반은 ±{Math.abs(t.medPct).toFixed(1)}% 근처에서 끝났습니다.
+          </div>
         </div>
       ) : (
         <div style={{ marginTop: 9, fontSize: FS.micro, color: TK.sub3 }}>
@@ -195,39 +204,51 @@ function SwingCard({ it, equity, usdKrw }: { it: SwingItem; equity: number; usdK
   )
 }
 
-/** 📉 자리 차트 — 최근 60일 흐름 위에 진입·손절·기대선을 얹는다.
+/** 📉 자리 차트 — 최근 60일 **캔들**(증권사 차트 관례) 위에 진입·손절·기대선을 얹는다.
+ *  🕯️ 색은 한국식: 빨강=상승·파랑=하락(앱 공통 규약 — '주가 등락'은 한국식).
  *  ⚠️ '익절선'은 백테스트가 잰 것이 아니다 — 백테스트는 **N거래일 뒤 종가**를 쟀다.
  *     그래서 목표선을 '반드시 도달하는 선'처럼 그리지 않고, 기대 폭을 **옅은 띠**로만 두고 라벨로 설명한다. */
 function SetupChart({ it }: { it: SwingItem }) {
   const t = SWING_TRACKS[it.track]
-  const s = it.spark
-  if (!s || s.length < 10) return null
+  const cs = it.candles
+  if (!cs || cs.length < 10) return null
   const target = it.price * (1 + t.edgePp / 100)
-  const lo = Math.min(...s, it.stop) * 0.995
-  const hi = Math.max(...s, target) * 1.005
+  const lo = Math.min(...cs.map(k => k.l), it.stop) * 0.995
+  const hi = Math.max(...cs.map(k => k.h), target) * 1.005
   const W = 100, H = 44                      // viewBox 단위(반응형 — 실제 크기는 CSS가 정한다)
-  const x = (i: number) => (i / (s.length - 1)) * W
+  const slot = W / cs.length
+  const bw = Math.max(0.5, slot * 0.62)      // 몸통 폭
   const y = (v: number) => H - ((v - lo) / (hi - lo)) * H
-  const path = s.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(2)},${y(v).toFixed(2)}`).join(' ')
   return (
     <div style={{ marginTop: 10 }}>
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 96, display: 'block' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 130, display: 'block' }}>
         {/* 기대 폭 띠 — 도달을 약속하지 않는다는 뜻으로 옅게 */}
         <rect x={0} y={y(target)} width={W} height={Math.max(0.4, y(it.price) - y(target))} fill={TK.green400} opacity={0.10} />
         {/* 손절 아래 위험 구간 */}
         <rect x={0} y={y(it.stop)} width={W} height={Math.max(0.4, H - y(it.stop))} fill={TK.orange400} opacity={0.08} />
-        <path d={path} fill="none" stroke={TK.slate300} strokeWidth={0.7} vectorEffect="non-scaling-stroke" />
-        {[[it.price, TK.blue400, '4 0'], [it.stop, TK.orange400, '3 2'], [target, TK.green400, '3 2']].map(([v, c, dash], i) => (
-          <line key={i} x1={0} x2={W} y1={y(v as number)} y2={y(v as number)} stroke={c as string}
+        {cs.map((k, i) => {
+          const cx = i * slot + slot / 2
+          const up = k.c >= k.o
+          const col = up ? TK.red400 : TK.blue400            // 🇰🇷 빨강=상승·파랑=하락
+          const bodyTop = y(Math.max(k.o, k.c)), bodyBot = y(Math.min(k.o, k.c))
+          return (
+            <g key={i}>
+              <line x1={cx} x2={cx} y1={y(k.h)} y2={y(k.l)} stroke={col} strokeWidth={0.35} vectorEffect="non-scaling-stroke" />
+              <rect x={cx - bw / 2} y={bodyTop} width={bw} height={Math.max(0.35, bodyBot - bodyTop)}
+                fill={up ? col : TK.bg1} stroke={col} strokeWidth={0.3} vectorEffect="non-scaling-stroke" />
+            </g>
+          )
+        })}
+        {[[it.price, TK.amber400, '4 0'], [it.stop, TK.orange400, '3 2'], [target, TK.green400, '3 2']].map(([v, c, dash], i) => (
+          <line key={`ln${i}`} x1={0} x2={W} y1={y(v as number)} y2={y(v as number)} stroke={c as string}
             strokeWidth={0.6} strokeDasharray={dash as string} vectorEffect="non-scaling-stroke" />
         ))}
-        <circle cx={x(s.length - 1)} cy={y(it.price)} r={1.1} fill={TK.blue400} />
       </svg>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 5, fontSize: FS.micro }}>
-        <span style={{ color: TK.blue400 }}>━ 지금 들어가는 자리</span>
+        <span style={{ color: TK.amber400 }}>━ 지금 들어가는 자리</span>
         <span style={{ color: TK.orange400 }}>┅ 손절선(여기 깨지면 정리)</span>
         <span style={{ color: TK.green400 }}>┅ 기대 폭 <b>+{t.edgePp}%p</b></span>
-        <span style={{ color: TK.sub4 }}>· 최근 60일 흐름</span>
+        <span style={{ color: TK.sub4 }}>· 최근 60일 캔들(<span style={{ color: TK.red400 }}>빨강=상승</span>·<span style={{ color: TK.blue400 }}>파랑=하락</span>)</span>
       </div>
       <div style={{ fontSize: FS.micro, color: TK.sub4, marginTop: 3, lineHeight: 1.5 }}>
         ⚠️ 초록 띠는 <b>목표가가 아니라 기대 폭</b>입니다 — 백테스트는 &ldquo;{t.holdLabel} 뒤 종가&rdquo;를 쟀지

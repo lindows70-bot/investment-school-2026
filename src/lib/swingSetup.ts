@@ -21,17 +21,22 @@ export const SWING_TRACKS: Record<SwingTrack, {
   key: SwingTrack; icon: string; label: string; source: string
   market: 'KR' | 'US'; regime: SwingRegime; holdBars: number; holdLabel: string
   edgePp: number; winRate: number; sample: number; note: string
+  /** 📊 수익률 분포(실측) — "10% 이상 나야 의미 있다"는 기대에 화면이 사실로 답하기 위해.
+   *  medPct=중위 수익률 · ge5Rate/ge10Rate=+5%/+10% 이상으로 끝난 비율(%) */
+  medPct: number; ge5Rate: number; ge10Rate: number
 }> = {
   reversion: {
     key: 'reversion', icon: '🌊', label: '눌린 값 회복', source: '역매공파(112/224 역배열 회복)',
     market: 'KR', regime: 'down', holdBars: 10, holdLabel: '2주',
     edgePp: 1.70, winRate: 62.4, sample: 173,
+    medPct: 0.2, ge5Rate: 21, ge10Rate: 10,
     note: '많이 빠진 종목이 6개월 평균가를 되찾는 자리. **하락장에서만** 통했습니다(상승장 승률 49.7%).',
   },
   trend: {
     key: 'trend', icon: '🚀', label: '추세 올라타기', source: '일목 선행스팬1 + TRIX 영선',
     market: 'US', regime: 'up', holdBars: 5, holdLabel: '1주',
     edgePp: 0.83, winRate: 64.0, sample: 325,
+    medPct: 1.1, ge5Rate: 19, ge10Rate: 7,
     note: '오르는 흐름에 힘이 실리는 순간. 미국 상승장에서 통했습니다(한국은 승률 50.2%로 우위 없음).',
   },
 }
@@ -128,18 +133,25 @@ export function readSwingSetup(data: Ohlc[], market: 'KR' | 'US'): SwingHit | nu
  *  손절폭이 넓으면 자동으로 적게 산다. 이게 우리 exitPlan 에 없던 조각이다.
  *  ⚠️ 리스크 비율 기본 0.75%는 문서 값이며 **백테스트로 검증된 수치가 아니다**(구조적 안전장치일 뿐). */
 export const SWING_RISK_PCT = 0.75
+/** ⚠️ 리스크 상한만 지키면 **집중도**가 뚫린다(2026-08-11 화면검증): 유한양행 손절폭 1.1% → 79주 →
+ *  자산의 68%가 한 종목에 들어가는 값이 나왔다. 잃을 금액은 0.75%가 맞지만 포지션 자체도 상한이 필요하다. */
+export const SWING_MAX_POS_PCT = 20
 export function positionSize(
   equity: number, entry: number, stop: number, riskPct = SWING_RISK_PCT,
-): { qty: number; riskAmount: number; positionValue: number; stopPct: number } | null {
+): { qty: number; riskAmount: number; positionValue: number; stopPct: number; capped: boolean } | null {
   if (!(equity > 0) || !(entry > 0) || !(stop > 0) || stop >= entry) return null
   const riskAmount = equity * (riskPct / 100)
   const perShare = entry - stop
-  const qty = Math.floor(riskAmount / perShare)
+  let qty = Math.floor(riskAmount / perShare)
+  const capQty = Math.floor(equity * (SWING_MAX_POS_PCT / 100) / entry)
+  const capped = qty > capQty
+  if (capped) qty = capQty                                  // 포지션 상한 20% — 손절폭이 좁아도 몰빵이 되지 않게
   if (qty < 1) return null                                  // 한 주도 못 사면 자리가 아니다
   return {
     qty,
-    riskAmount: Math.round(riskAmount),
+    riskAmount: Math.round(capped ? qty * perShare : riskAmount),   // 상한에 걸리면 실제 리스크는 0.75%보다 작다
     positionValue: Math.round(qty * entry),
     stopPct: Math.round((perShare / entry) * 1000) / 10,
+    capped,
   }
 }

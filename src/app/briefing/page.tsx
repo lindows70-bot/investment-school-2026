@@ -16,6 +16,7 @@ import { TK } from '@/lib/theme'
 import { flagOf } from '@/lib/marketFlag'
 import StockActionChips from '@/app/components/StockActionChips'   // 🔗 종목 액션 SSOT
 import DilutionAlertBanner from '@/app/components/DilutionAlertBanner'   // 🚨 희석 경보(대시보드에만 있던 것을 브리핑에도)
+import SwingStopAlertBanner from '@/app/components/SwingStopAlertBanner'   // 🚨 스윙 손절선 이탈 — 진입만 알려주고 이탈을 침묵하면 반쪽이다
 
 const CARD = '#12151f', BORDER = TK.border
 
@@ -142,6 +143,9 @@ export default function BriefingPage() {
           자기 KR 보유 종목의 유상증자 공시를 영영 못 봤다(2026-08-08 조사). 경보는 학생이 있는 곳에 있어야 한다.
           경보가 없으면 컴포넌트가 스스로 렌더 0 — 조용한 날엔 화면을 차지하지 않는다. */}
       <DilutionAlertBanner />
+
+      {/* 🚨 스윙 손절선 이탈 — 스윙 추천 종목이 손절선 아래로 마감하면 여기 크게 뜬다(없으면 렌더 0) */}
+      <SwingStopAlertBanner />
 
       {/* ①½ 이번 주 이벤트 — 어닝 D-day·배당락(이벤트 없으면 렌더 0) */}
       <EventCalendarPanel compact />

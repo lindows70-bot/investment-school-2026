@@ -18,8 +18,8 @@ export interface SwingItem {
   targetPct: number                      // 참고 목표 — 실측 절사 edge + 같은 기간 baseline
   reasons: string[]
   regime: SwingRegime
-  /** 📉 차트용 최근 60봉 종가 — 학생이 "지금 어디쯤인지"를 눈으로 보게 */
-  spark: number[]
+  /** 📉 차트용 최근 60봉 OHLC — 증권사 차트처럼 캔들로 그린다(선 하나로는 하루의 싸움이 안 보인다) */
+  candles: { o: number; h: number; l: number; c: number }[]
 }
 export interface SwingRadar {
   asOf: string
@@ -35,15 +35,25 @@ export interface SwingRadar {
   grades: SwingGrade[]
   /** 최근 채점 내역 — 학생이 개별 건을 눈으로 확인할 수 있게(승률만 보여주면 못 믿는다) */
   recent: { date: string; ticker: string; name: string; flag: string; track: SwingTrack; retPct: number | null; stopHit: boolean }[]
+  /** 🚨 진행 중인 추천이 손절선을 깼다 — 매매 브리핑이 크게 띄운다("손절선이 오면 손절한다"가 이 기법의 반쪽) */
+  stopAlerts: { date: string; ticker: string; name: string; flag: string; market: 'KR' | 'US'; track: SwingTrack; entry: number; stop: number; last: number; lossPct: number }[]
 }
 
 /** 🛡️ 손절 — 트랙의 구조가 깨지는 자리(백테스트가 손절을 쓰진 않았으므로 **성적에 포함되지 않은 보호장치**다).
- *  회복 트랙: 되찾은 6개월선 아래 / 추세 트랙: 11일선 아래. 둘 다 "진입 근거가 사라진 자리"다. */
+ *  회복 트랙: 되찾은 6개월선 아래 / 추세 트랙: 11일선 아래. 둘 다 "진입 근거가 사라진 자리"다.
+ *  ⚠️ 폭에 상·하한을 둔다(2026-08-11 화면검증에서 둘 다 실제로 나왔다):
+ *   · 하한 2.5% — 유한양행이 1.1%로 나왔다. 당일 회복 신호는 구조선이 바로 아래라 원래 좁은데,
+ *     일간 노이즈(KR 일변동 ~2%)로도 뚫리는 손절선은 손절선이 아니다 → 구조선과 2.5% 중 **더 아래** 것.
+ *   · 상한 8% — Twilio가 18%로 나왔다(급등해 11일선에서 멀어진 상태). 그렇게 이격된 자리는
+ *     추격이므로 **자리 자체를 버린다**(문서들도 추격 금지가 공통이다). */
+const STOP_MIN_PCT = 2.5, STOP_MAX_PCT = 8
 function stopFor(track: SwingTrack, close: number[], i: number): number | null {
   const sma = (n: number) => { if (i + 1 < n) return null; let s = 0; for (let k = i - n + 1; k <= i; k++) s += close[k]; return s / n }
   const line = track === 'reversion' ? sma(112) : sma(11)
   if (line == null || !(line > 0) || line >= close[i]) return null   // 이미 아래면 자리가 아니다
-  return line
+  const gapPct = (1 - line / close[i]) * 100
+  if (gapPct > STOP_MAX_PCT) return null                             // 구조선에서 너무 멀다 = 추격 — 자리 아님
+  return Math.min(line, close[i] * (1 - STOP_MIN_PCT / 100))         // 최소 2.5% 여유(노이즈 컷 방지)
 }
 
 async function regimeOfIndex(symbol: string, market: 'KR' | 'US'): Promise<SwingRegime | null> {
@@ -88,7 +98,10 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
           stopPct: Math.round((1 - stop / hit.price) * 1000) / 10,
           targetPct: t.edgePp,
           reasons: hit.reasons, regime: readSwingRegime(D) ?? 'flat',
-          spark: close.slice(-60).map(v => Math.round(v * 100) / 100),
+          candles: D.slice(-60).map(d => ({
+            o: Math.round(d.open * 100) / 100, h: Math.round(d.high * 100) / 100,
+            l: Math.round(d.low * 100) / 100, c: Math.round(d.close * 100) / 100,
+          })),
         })
       } catch { /* 개별 실패 무시 — 부분실패는 아래 okCount 가드가 잡는다 */ }
     }
@@ -131,6 +144,7 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
   // 채점 — 추천일 이후 holdBars 거래일이 지난 건만. 미경과분은 pending 으로 정직하게 남는다.
   const scored: ScoredRow[] = []
   const recent: SwingRadar['recent'] = []
+  const stopAlerts: SwingRadar['stopAlerts'] = []
   for (const e of allHist) {
     let retPct: number | null = null, stopHit = false
     try {
@@ -141,6 +155,18 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
           const win = D.slice(idx, idx + e.holdBars + 1)
           retPct = Math.round((win[win.length - 1].close / e.entry - 1) * 1000) / 10
           stopHit = win.some(d => d.low <= e.stop)          // 보유 중 손절선을 건드렸나
+        } else if (idx >= 0) {
+          // 🚨 아직 보유 기간 안 — **종가**가 손절선 아래로 마감했으면 지금 경고한다
+          //    (킴스 'Daily Close' 원칙: 장중 꼬리는 무시, 종가 이탈만 유효)
+          const last = D[D.length - 1].close
+          if (last < e.stop) {
+            stopAlerts.push({
+              date: e.date, ticker: e.ticker, name: e.name, flag: flagOf(e.market, e.ticker, null),
+              market: e.market, track: e.track, entry: e.entry, stop: e.stop,
+              last: Math.round(last * 100) / 100,
+              lossPct: Math.round((last / e.entry - 1) * 1000) / 10,
+            })
+          }
         }
       }
     } catch { /* 개별 실패는 미채점(null)로 남는다 — 조용히 0으로 세지 않는다 */ }
@@ -154,7 +180,7 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
   return {
     asOf: new Date().toISOString(), scanned, okCount, usdKrw,
     indexRegime: { KR: krIdx, US: usIdx }, items, tracks,
-    grades, recent: recent.slice(0, 20),
+    grades, recent: recent.slice(0, 20), stopAlerts,
   }
 }
 
