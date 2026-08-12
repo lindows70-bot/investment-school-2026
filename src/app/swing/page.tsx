@@ -33,7 +33,7 @@ export default function SwingPage() {
         <div style={{ fontSize: FS.xl, fontWeight: 800, color: TK.slate100 }}>🎯 스윙 타점 — 1~2주 짧게 먹고 나오기</div>
         <div style={{ fontSize: FS.tiny, color: TK.sub, marginTop: 4, lineHeight: 1.6 }}>
           중장기 원칙은 그대로 두고, <b style={{ color: TK.green400 }}>국면이 맞을 때만</b> 짧게 들어가는 별도 트랙입니다.
-          우리 백테스트(KR40+US40·5년)가 <b>살아남는다고 확인한 두 가지</b>만 씁니다 —
+          우리 백테스트(KR40+US40·5년)가 <b>살아남는다고 확인한 {Object.keys(SWING_TRACKS).length}가지</b>만 씁니다 —
           <b> 눌림목을 기다리는 형태는 세 번 재서 세 번 다 손해</b>라 넣지 않았습니다.
         </div>
       </div>
@@ -217,9 +217,12 @@ function SetupChart({ it }: { it: SwingItem }) {
   const t = SWING_TRACKS[it.track]
   const cs = it.candles
   if (!cs || cs.length < 10) return null
-  const target = it.price * (1 + t.edgePp / 100)
+  // 🎯 목표선은 실측 기대치(+1~2%p)가 아니라 **사용자 기준선 +5%(1차)·+10%(2차)**로 그린다(2026-08-12 요청).
+  //    단, 선을 올리는 것과 도달을 약속하는 것은 다르다 — 각 선에 **과거 도달 확률(실측)**을 라벨로 박아
+  //    "여기까지 간다"가 아니라 "여기 걸면 10번 중 몇 번 걸리는지"를 말하게 한다(⛔ 가짜 정밀 금지).
+  const tgt5 = it.price * 1.05, tgt10 = it.price * 1.10
   const lo = Math.min(...cs.map(k => k.l), it.stop) * 0.995
-  const hi = Math.max(...cs.map(k => k.h), target) * 1.005
+  const hi = Math.max(...cs.map(k => k.h), tgt10) * 1.005
   const W = 100, H = 44                      // viewBox 단위(반응형 — 실제 크기는 CSS가 정한다)
   const slot = W / cs.length
   const bw = Math.max(0.5, slot * 0.62)      // 몸통 폭
@@ -227,8 +230,8 @@ function SetupChart({ it }: { it: SwingItem }) {
   return (
     <div style={{ marginTop: 10 }}>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 130, display: 'block' }}>
-        {/* 기대 폭 띠 — 도달을 약속하지 않는다는 뜻으로 옅게 */}
-        <rect x={0} y={y(target)} width={W} height={Math.max(0.4, y(it.price) - y(target))} fill={TK.green400} opacity={0.10} />
+        {/* 익절 구간 띠(+5%~+10%) — 목표 영역을 옅게 */}
+        <rect x={0} y={y(tgt10)} width={W} height={Math.max(0.4, y(tgt5) - y(tgt10))} fill={TK.green400} opacity={0.08} />
         {/* 손절 아래 위험 구간 */}
         <rect x={0} y={y(it.stop)} width={W} height={Math.max(0.4, H - y(it.stop))} fill={TK.orange400} opacity={0.08} />
         {cs.map((k, i) => {
@@ -244,20 +247,22 @@ function SetupChart({ it }: { it: SwingItem }) {
             </g>
           )
         })}
-        {[[it.price, TK.amber400, '4 0'], [it.stop, TK.orange400, '3 2'], [target, TK.green400, '3 2']].map(([v, c, dash], i) => (
+        {[[it.price, TK.amber400, '4 0', 0.6], [it.stop, TK.orange400, '3 2', 0.6], [tgt5, TK.green400, '1.5 2', 0.5], [tgt10, TK.green400, '4 2', 0.8]].map(([v, c, dash, w], i) => (
           <line key={`ln${i}`} x1={0} x2={W} y1={y(v as number)} y2={y(v as number)} stroke={c as string}
-            strokeWidth={0.6} strokeDasharray={dash as string} vectorEffect="non-scaling-stroke" />
+            strokeWidth={w as number} strokeDasharray={dash as string} vectorEffect="non-scaling-stroke" />
         ))}
       </svg>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 5, fontSize: FS.micro }}>
         <span style={{ color: TK.amber400 }}>━ 지금 들어가는 자리</span>
         <span style={{ color: TK.orange400 }}>┅ 손절선(여기 깨지면 정리)</span>
-        <span style={{ color: TK.green400 }}>┅ 기대 폭 <b>+{t.edgePp}%p</b></span>
+        <span style={{ color: TK.green400 }}>┅ 1차 익절 +5%</span>
+        <span style={{ color: TK.green400 }}><b>┅ 목표 +10%</b></span>
         <span style={{ color: TK.sub4 }}>· 최근 60일 캔들(<span style={{ color: TK.red400 }}>빨강=상승</span>·<span style={{ color: TK.blue400 }}>파랑=하락</span>)</span>
       </div>
-      <div style={{ fontSize: FS.micro, color: TK.sub4, marginTop: 3, lineHeight: 1.5 }}>
-        ⚠️ 초록 띠는 <b>목표가가 아니라 기대 폭</b>입니다 — 백테스트는 &ldquo;{t.holdLabel} 뒤 종가&rdquo;를 쟀지
-        특정 가격 도달을 잰 게 아닙니다. <b>{t.holdBars}거래일이 지나면 도달 여부와 무관하게 정리</b>하는 방식입니다.
+      <div style={{ fontSize: FS.micro, color: TK.sub4, marginTop: 3, lineHeight: 1.6 }}>
+        🎯 초록 선은 <b>목표 기준선</b>입니다 — 과거 같은 자리에서 {t.holdLabel} 안에
+        <b> +5%는 10번 중 약 {Math.round(t.ge5Rate / 10)}번, +10%는 약 {Math.max(1, Math.round(t.ge10Rate / 10))}번</b> 걸렸습니다(실측 {t.ge5Rate}%·{t.ge10Rate}%).
+        닿으면 익절하고, <b>{t.holdBars}거래일이 지나면 도달 여부와 무관하게 정리</b>합니다 — 스윙은 시간이 비용입니다.
       </div>
     </div>
   )
