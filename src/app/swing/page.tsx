@@ -372,6 +372,8 @@ function GradeCell({ g }: { g: SwingGrade }) {
           <div style={{ fontSize: FS.micro, color: TK.sub3, lineHeight: 1.5 }}>
             {g.n}건{g.pending > 0 && ` · ${g.pending} 대기`} · 평균 {g.avgPct}% · 중위 {g.medPct}%
             {g.stopHitRate != null && <> · 손절 터치 {g.stopHitRate}%</>}
+            {/* PF = 총이익÷총손실 — 승률이 높아도 이게 1 아래면 지는 시스템이다(큰 손실이 다 까먹는 구조) */}
+            {g.profitFactor != null && <> · 수익 인자 <b style={{ color: g.profitFactor >= 1.5 ? TK.green400 : g.profitFactor >= 1 ? TK.sub2 : TK.orange400 }}>{g.profitFactor}</b></>}
           </div>
         </>
       )}

@@ -28,6 +28,9 @@ export interface SwingGrade {
   winRate: number | null
   avgPct: number | null            // 평균 수익률(보유 기간 종료 시점 기준)
   medPct: number | null
+  /** 수익 인자 = 총이익 ÷ 총손실. 승률이 높아도 PF<1 이면 지는 시스템이다(큰 손실 몇 번이 다 까먹는 구조).
+   *  손실이 0건이면 null(∞ 표기는 가짜 정밀). 참고 기준: 1.5↑ 견고 · 1.0↓ 무효(성과 평가 프레임워크 문서). */
+  profitFactor: number | null
   stopHitRate: number | null       // 보유 중 손절선을 건드린 비율
   thin: boolean                    // 표본이 얇거나 시점이 하나뿐
   firstDate: string | null
@@ -62,11 +65,13 @@ export function gradeSwing(rows: ScoredRow[], track: SwingGrade['track'] = 'all'
   const cohorts = new Set(done.map(r => weekKey(r.entry.date))).size
   const firstDate = mine.length ? mine.reduce((m, r) => (r.entry.date < m ? r.entry.date : m), mine[0].entry.date) : null
   if (!done.length) {
-    return { track, n: 0, pending, cohorts, winRate: null, avgPct: null, medPct: null, stopHitRate: null, thin: true, firstDate }
+    return { track, n: 0, pending, cohorts, winRate: null, avgPct: null, medPct: null, profitFactor: null, stopHitRate: null, thin: true, firstDate }
   }
   const rets = done.map(r => r.retPct).sort((a, b) => a - b)
   const r1 = (x: number) => Math.round(x * 10) / 10
   const mid = rets.length % 2 ? rets[(rets.length - 1) / 2] : (rets[rets.length / 2 - 1] + rets[rets.length / 2]) / 2
+  const grossWin = rets.filter(x => x > 0).reduce((s, x) => s + x, 0)
+  const grossLoss = Math.abs(rets.filter(x => x < 0).reduce((s, x) => s + x, 0))
   return {
     track,
     n: done.length,
@@ -75,6 +80,7 @@ export function gradeSwing(rows: ScoredRow[], track: SwingGrade['track'] = 'all'
     winRate: Math.round(done.filter(r => r.retPct > 0).length / done.length * 100),
     avgPct: r1(rets.reduce((s, x) => s + x, 0) / rets.length),
     medPct: r1(mid),
+    profitFactor: grossLoss > 0 ? Math.round(grossWin / grossLoss * 100) / 100 : null,
     stopHitRate: Math.round(done.filter(r => r.stopHit).length / done.length * 100),
     thin: done.length < SWING_MIN_SAMPLE || cohorts < SWING_MIN_COHORTS,
     firstDate,

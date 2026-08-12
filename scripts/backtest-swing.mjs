@@ -56,7 +56,7 @@ const spanAOf = (h, l) => {
   return h.map((_, i) => { const t = mid(9, i), k = mid(26, i); return t == null || k == null ? null : (t + k) / 2 })
 }
 
-const hits = { revA: [], pullB: [], kimsC: [], spikeD: [] }          // 트랙별 신호
+const hits = { revA: [], pullB: [], kimsC: [], spikeD: [], kimsC200: [] }          // 트랙별 신호 (kimsC200 = C + 200일선 위 MTFA 게이트)
 const maCompare = {}                           // 이평선 세트 비교(트랙 A)
 for (const k of Object.keys(MA_SETS)) maCompare[k] = []
 const base = { KR: { 5: [], 10: [], 15: [] }, US: { 5: [], 10: [], 15: [] } }
@@ -135,7 +135,12 @@ async function run(ticker, market) {
       const spanUp = spanA[i] > spanA[i - 1]
       const zeroCross = trix[i] > 0 && trix[i - 1] <= 0
       const intensityUp = trix[i] > trix[i - 1]
-      if (spanUp && zeroCross && intensityUp && c[i] > ma11) hits.kimsC.push(meta)
+      if (spanUp && zeroCross && intensityUp && c[i] > ma11) {
+        hits.kimsC.push(meta)
+        // MTFA 게이트 실험 — 문서(기술 사양서 전략1)의 "일봉 200선 위 = 장기 강세 레짐 확증" 조건 추가
+        const ma200 = sma(c, 200, i)
+        if (ma200 != null && c[i] > ma200) hits.kimsC200.push(meta)
+      }
     }
   }
 }
@@ -185,6 +190,7 @@ report('🅰️ 트랙 A — 역매공파(평균 회귀): 역배열 + 이격도�
 report('🅱️ 트랙 B — 급등 눌림목(추세 추종): 기준봉 → 거래량 1/3 급감 → 5일선 양봉', hits.pullB)
 report('🅲 트랙 C — 킴스(일목 선행스팬1 상승 + TRIX 영선 돌파 + 강도 증가 + 11일선 위)', hits.kimsC)
 report('🅳 트랙 D — 써티퍼센트 바닥 급등(224 아래 60봉 중 45봉+ 체류 → 당일 +5%·거래량 2배)', hits.spikeD)
+report('🅲+ MTFA 실험 — 킴스 C + 200일선 위(장기 강세 레짐 게이트)', hits.kimsC200)
 
 // ── 📊 수익률 분포 — "10% 이상 나야 의미 있다"는 질문에 답하려면 평균이 아니라 **분포**를 봐야 한다 ──
 function dist(title, rows, h) {
@@ -201,6 +207,7 @@ dist('A 역매공파 KR 하락장', hits.revA.filter(r => r.market === 'KR' && r
 dist('C 킴스 US 5봉', hits.kimsC.filter(r => r.market === 'US'), 5)
 dist('C 킴스 US 상승장', hits.kimsC.filter(r => r.market === 'US' && r.regime === 'up'), 5)
 dist('(참고) 전 봉 KR 10봉', hits.revA.filter(r => r.market === 'KR').map(r => r), 10)
+dist('D 바닥급등 KR 하락장', hits.spikeD.filter(r => r.market === 'KR' && r.regime === 'down'), 10)
 
 // ── 🏔️ 최고 도달치(MFE) — "보유 중 최고점이 어디까지 가는가" (종가 아닌 그때까지의 최대 수익) ──
 //    사용자 질문: "2주~한 달 들고 있으면 진짜 어디까지 가나". 백테스트 원본 캔들이 필요해
