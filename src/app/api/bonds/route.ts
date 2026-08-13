@@ -3,6 +3,7 @@
 import { NextResponse } from 'next/server'
 import { getTechCandles } from '@/lib/techChartData'
 import { getCache, setCache } from '@/lib/appCache'
+import { buildRealYield, type RealYieldResult } from '@/lib/realYield'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 45
@@ -29,6 +30,8 @@ export interface BondsResult {
     curveNote: string; headline: string
   }
   etfs: BondEtf[]
+  /** 🧮 금리 3형제 — 명목 = 실질 + 기대인플레(BEI) 분해(realYield SSOT). 수집 실패 시 null(섹션 접힘) */
+  realYield: RealYieldResult | null
 }
 
 // 채권 ETF + 잘 알려진 수정 듀레이션(근사·참조 상수 — FRED 폴백처럼 허용)
@@ -50,7 +53,7 @@ function retAt(closes: number[], back: number): number | null {
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export async function GET(req: Request) {
-  const cacheKey = `bonds-v2:${kstDate()}`   // v2: 곡선-듀레이션 축 충돌 설명 추가(내용만 바뀌어도 키를 올린다)
+  const cacheKey = `bonds-v3:${kstDate()}`   // v3: 금리 3형제(realYield) 동승 / v2: 곡선-듀레이션 축 충돌 설명
   const cached = await getCache<BondsResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -110,11 +113,14 @@ export async function GET(req: Request) {
   const durShort = durationBias === 'long' ? '장기채' : durationBias === 'short' ? '단기채' : '중기채'
   const headline = `🧭 금리 ${rateDirLabel} 국면 — ${durShort} 중심 · ${creditBias === 'govt' ? '국채 선호' : '크레딧 캐리 가능'}`
 
+  const realYield = await buildRealYield().catch(() => null)
+
   const result: BondsResult = {
     asOf: new Date().toISOString(),
     macro: { fedRate, rateDir, rateDirLabel, yieldCurve, hySpread, label },
     compass: { durationBias, durationLabel, creditBias, creditLabel, curveNote, headline },
     etfs,
+    realYield,
   }
   if (etfs.some(e => e.price != null)) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })

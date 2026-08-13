@@ -3,7 +3,35 @@
 //    금리 국면 macro-regime SSOT 재사용. 채권 자산군 진입 화면(/bonds). 경보/가이드만·매매 지시 아님.
 import { useEffect, useState, type ReactNode } from 'react'
 import type { BondsResult, BondEtf, DurBias } from '@/app/api/bonds/route'
+import type { RealYieldResult } from '@/lib/realYield'
 import { TK, FS, RAD, SP } from '@/lib/theme'
+
+// 🧮 금리 3형제 2년 차트 — 외부 라이브러리 없이 SVG 3선(스윙 캔들 차트와 같은 관례)
+function RealYieldChart({ series }: { series: RealYieldResult['series'] }) {
+  const W = 640, H = 170, PAD = 6
+  const vals = series.flatMap(p => [p.n, p.r, p.b]).filter((v): v is number => v != null)
+  if (vals.length < 10) return null
+  const lo = Math.min(...vals) - 0.15, hi = Math.max(...vals) + 0.15
+  const x = (i: number) => PAD + (i / Math.max(1, series.length - 1)) * (W - PAD * 2)
+  const y = (v: number) => H - PAD - ((v - lo) / (hi - lo)) * (H - PAD * 2)
+  const path = (pick: (p: RealYieldResult['series'][number]) => number | null) =>
+    series.map((p, i) => { const v = pick(p); return v == null ? null : `${x(i).toFixed(1)},${y(v).toFixed(1)}` })
+      .filter(Boolean).join(' ')
+  const gridV = [Math.ceil(lo * 2) / 2, Math.floor(hi * 2) / 2]   // 0.5% 격자 상·하단
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+      {gridV.map(g => (
+        <g key={g}>
+          <line x1={PAD} x2={W - PAD} y1={y(g)} y2={y(g)} stroke={TK.border} strokeDasharray="3 4" strokeWidth={1} />
+          <text x={W - PAD - 2} y={y(g) - 3} textAnchor="end" fontSize={10} fill={TK.sub4}>{g.toFixed(1)}%</text>
+        </g>
+      ))}
+      <polyline points={path(p => p.n)} fill="none" stroke={TK.slate300} strokeWidth={2} />
+      <polyline points={path(p => p.r)} fill="none" stroke={TK.violet400} strokeWidth={1.7} />
+      <polyline points={path(p => p.b)} fill="none" stroke={TK.amber400} strokeWidth={1.7} />
+    </svg>
+  )
+}
 
 const BORDER = '#2a2f3a'
 const CAT_META: Record<BondEtf['category'], { label: string; color: string }> = {
@@ -56,6 +84,62 @@ export default function BondsDashboard() {
           <a href="/macro-hub?tab=stress" style={{ fontSize: FS.tiny, fontWeight: 700, color: TK.slate200, background: TK.bg3, border: `1px solid ${TK.violet400}55`, borderRadius: RAD.pill, padding: '5px 12px', textDecoration: 'none' }}>⚡ 금리 스트레스 테스트 →</a>
         </div>
       </div>
+
+      {/* 🧮 금리 3형제 — 명목 = 실질 + 기대인플레(항등식 분해) */}
+      {data.realYield && (() => {
+        const ry = data.realYield
+        const sign = (v: number) => (v > 0 ? '+' : '') + v.toFixed(2)
+        return (
+          <div style={{ background: TK.card, border: `1px solid ${BORDER}`, borderRadius: RAD.md, padding: '14px 16px' }}>
+            <div style={{ fontSize: FS.body, fontWeight: 800, color: TK.slate100 }}>🧮 금리 3형제 — 무엇이 금리를 움직였나</div>
+            <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 4, lineHeight: 1.55 }}>
+              미국채 10년 금리는 둘의 합입니다 — <b style={{ color: TK.violet400 }}>돈의 진짜 값(TIPS 실질금리)</b> +
+              <b style={{ color: TK.amber400 }}> 물가 기대(BEI)</b>. 셋은 통계적 상관이 아니라 <b>정의상 항등식</b>이라
+              (FRED 실측 오차 0.00%p), 금리가 움직이면 &ldquo;어느 쪽이 끌었나&rdquo;로 쪼개 읽는 게 정확합니다.
+            </div>
+            {/* 분해 식 — 지금 값 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 10, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
+              {[
+                { label: '명목 10년', v: ry.nominal.v, color: TK.slate200, note: '내가 보는 금리' },
+                { label: '=  실질(TIPS)', v: ry.real.v, color: TK.violet400, note: '돈의 진짜 값' },
+                { label: '+  기대인플레(BEI)', v: ry.bei.v, color: TK.amber400, note: '물가 전망' },
+              ].map(k => (
+                <div key={k.label} style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: RAD.sm, padding: '8px 14px' }}>
+                  <div style={{ fontSize: FS.micro, color: TK.sub3 }}>{k.label} <span style={{ color: TK.sub4 }}>· {k.note}</span></div>
+                  <div style={{ fontSize: FS.xl, fontWeight: 800, color: k.color }}>{k.v.toFixed(2)}%</div>
+                </div>
+              ))}
+              <div style={{ fontSize: FS.micro, color: TK.sub4 }}>기준 {ry.nominal.date}</div>
+            </div>
+            {/* 최근 3개월 분해 + 해석 */}
+            <div style={{ background: TK.bg1, borderRadius: RAD.sm, padding: '10px 13px', marginTop: 10, fontSize: FS.tiny, color: TK.sub2, lineHeight: 1.65 }}>
+              최근 3개월(60거래일): 명목 <b style={{ color: TK.slate200 }}>{sign(ry.chg60.nominal)}%p</b> =
+              실질 <b style={{ color: TK.violet400 }}>{sign(ry.chg60.real)}%p</b> +
+              기대인플레 <b style={{ color: TK.amber400 }}>{sign(ry.chg60.bei)}%p</b>
+              <div style={{ marginTop: 5, color: TK.slate300 }}>{ry.driverNote.replace(/\*\*/g, '')}</div>
+            </div>
+            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {ry.levelNotes.map((n, i) => (
+                <div key={i} style={{ fontSize: FS.micro, color: TK.sub2, lineHeight: 1.6 }}>· {n.replace(/\*\*/g, '')}</div>
+              ))}
+            </div>
+            {/* 2년 차트 */}
+            <div style={{ marginTop: 10 }}>
+              <div style={{ display: 'flex', gap: 12, fontSize: FS.micro, color: TK.sub3, marginBottom: 4 }}>
+                <span><span style={{ color: TK.slate300 }}>━</span> 명목 10년</span>
+                <span><span style={{ color: TK.violet400 }}>━</span> 실질(TIPS)</span>
+                <span><span style={{ color: TK.amber400 }}>━</span> 기대인플레(BEI)</span>
+                <span style={{ marginLeft: 'auto', color: TK.sub4 }}>최근 2년 · 주 단위 · FRED</span>
+              </div>
+              <RealYieldChart series={ry.series} />
+            </div>
+            <div style={{ fontSize: FS.micro, color: TK.sub4, marginTop: 6, lineHeight: 1.5 }}>
+              ⚠️ BEI에는 유동성·위험 프리미엄이 섞여 순수한 물가 기대보다 조금 왜곡될 수 있습니다.
+              수준 판정(긴축적/중립/느슨)은 역사 구간 서술이지 백테스트로 검증된 임계값이 아닙니다.
+            </div>
+          </div>
+        )
+      })()}
 
       {/* 🧭 나침반 */}
       <div style={{ background: `${bm.color}12`, border: `1px solid ${bm.color}55`, borderRadius: 12, padding: '14px 16px' }}>
