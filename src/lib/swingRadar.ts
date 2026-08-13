@@ -3,7 +3,9 @@
 //
 // ⚠️ 국면 판정은 **종목별 50일선 방향**이다(백테스트와 같은 정의). 지수 국면(`indexRegime`)은
 //    화면이 "왜 비었나"를 설명하기 위한 **안내용**이며 판정에 쓰지 않는다 — 섞으면 성적이 성적 구실을 못 한다.
+import { createClient } from '@supabase/supabase-js'
 import { UNIVERSE_KEY, type ScreenedStock } from '@/lib/macroPhaseScreener'
+import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache } from '@/lib/appCache'
 import { SWING_HIST_KEY, shouldAppend, gradeSwing, type SwingHistEntry, type SwingGrade, type ScoredRow } from '@/lib/swingHistory'
 import { getTechCandles } from '@/lib/techChartData'
@@ -75,9 +77,34 @@ async function regimeOfIndex(symbol: string, market: 'KR' | 'US'): Promise<Swing
   } catch { return null }
 }
 
+/** 👥 전 학생 보유 개별주식 — 유니버스는 큐레이션 정적 리스트라 보유 종목이 자동 포함되지 않는다.
+ *  "'상위 N' 선정은 모집단의 구멍을 그대로 물려받는다 — 학생 보유 종목은 항상 포함"(CLAUDE.md·SPCX 실사고,
+ *  스윙 반영은 2026-08-14 사용자 요청). ETF·코인·원자재는 제외(스윙 트랙은 개별주 백테스트다). 실패는 빈 배열(graceful). */
+async function studentHoldings(): Promise<{ ticker: string; name: string; market: string }[]> {
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) return []
+    const db = createClient(url, key, {
+      auth: { autoRefreshToken: false, persistSession: false },
+      global: { fetch: (u, o) => fetch(u as RequestInfo, { ...o, cache: 'no-store' }) },
+    })
+    const { data } = await db.from('investments').select('ticker,name,market')
+    const seen = new Set<string>()
+    return (data ?? [])
+      .filter(r => r.ticker && !seen.has(r.ticker) && (seen.add(r.ticker), true))
+      .filter(r => getAssetType(r.ticker, r.name ?? '', r.market ?? undefined) === 'STOCK')
+      .map(r => ({ ticker: String(r.ticker), name: String(r.name ?? r.ticker), market: String(r.market ?? 'US') }))
+  } catch { return [] }
+}
+
 export async function buildSwingRadar(base: string): Promise<SwingRadar | { error: string; note: string }> {
   const uni = (await getCache<ScreenedStock[]>(UNIVERSE_KEY, 8 * 24 * 3600_000)) ?? []
   if (!uni.length) return { error: 'universe_cold', note: '유니버스 캐시가 비었습니다. 주간 스크리너 크론 이후 다시 시도하세요.' }
+  // 👥 학생 보유 종목을 스캔 목록에 병합(유니버스에 없는 것만 추가 — 중복 스캔 방지)
+  const held = await studentHoldings()
+  const uniTickers = new Set(uni.map(s => s.ticker))
+  const extra = held.filter(h => !uniTickers.has(h.ticker))
+    .map(h => ({ ticker: h.ticker, name: h.name, market: h.market, sector: null } as unknown as ScreenedStock))
 
   const [krIdx, usIdx, usdKrw] = await Promise.all([
     regimeOfIndex('^KS11', 'US'), regimeOfIndex('^GSPC', 'US'), getUsdKrw(base),
@@ -85,7 +112,7 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
 
   const items: SwingItem[] = []
   let scanned = 0, okCount = 0
-  const q = [...uni]
+  const q = [...uni, ...extra]
   const CONC = 10
   await Promise.all(Array.from({ length: CONC }, async () => {
     for (;;) {
