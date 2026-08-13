@@ -89,7 +89,7 @@ async function worldBank(id: string): Promise<{ us: number; cn: number; year: st
 
 export async function GET(req: Request) {
   const base = new URL(req.url).origin
-  const cacheKey = 'dalio-cycle-v4'   // v4: 은행 대출 성장(TOTLL) 신호 추가 / v3: World Bank 공통 연도 비교
+  const cacheKey = 'dalio-cycle-v5'   // v5: partyScore 필드 교정(투기열풍 100% 폴백)·연방부채 라벨 / v4: 대출 성장 신호
   const cached = await getCache<DalioCycleResult>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -110,7 +110,8 @@ export async function GET(req: Request) {
 
   // ── 부채 사이클 신호(각 지표가 어느 국면 쪽인지) ──
   const signals: Signal[] = [
-    { key: 'debtgdp', label: '총부채 / GDP', value: `${debtGdp.toFixed(0)}%`, reading: debtGdp > 100 ? '역사적 고부채(정점권 위험)' : '중간', lean: debtGdp > 100 ? 'late' : 'neutral' },
+    // ⚠️ GFDEGDQ188S 는 '미 연방정부 부채'다 — '총부채'라 쓰면 가계·기업 포함 전체(약 350%)로 오독된다(2026-08-13 화면검증)
+    { key: 'debtgdp', label: '연방정부 부채 / GDP', value: `${debtGdp.toFixed(0)}%`, reading: debtGdp > 100 ? '역사적 고부채(정점권 위험)' : '중간', lean: debtGdp > 100 ? 'late' : 'neutral' },
     { key: 'real', label: '실질금리(10년 TIPS)', value: `${realRate.toFixed(1)}%`, reading: realRate > 1 ? '긴축적(부채에 부담)' : realRate < 0 ? '완화적(부양·디레버리징)' : '중립', lean: realRate > 1 ? 'late' : realRate < 0 ? 'stimulus' : 'neutral' },
     { key: 'fedbs', label: '연준 대차대조표', value: `$${(fedNow / 1e6).toFixed(1)}T`, reading: fedBsTrend === 'expanding' ? '돈 풀기(QE·부양)' : fedBsTrend === 'contracting' ? '돈 거두기(QT·긴축)' : '유지', lean: fedBsTrend === 'expanding' ? 'stimulus' : fedBsTrend === 'contracting' ? 'late' : 'neutral' },
     { key: 'curve', label: '장단기 금리차(10Y-2Y)', value: `${yieldCurve > 0 ? '+' : ''}${yieldCurve.toFixed(2)}%p`, reading: yieldCurve < 0 ? '역전(정점·침체 선행)' : yieldCurve < 0.5 ? '평탄(후기)' : '정상', lean: yieldCurve < 0.5 ? 'late' : 'neutral' },
@@ -153,7 +154,8 @@ export async function GET(req: Request) {
     factors.push({ label: '유동성(통화량) 팽창', status: m2Yoy != null && m2Yoy > 8 ? 'hot' : m2Yoy != null && m2Yoy > 4 ? 'warm' : 'cool', note: m2Yoy != null ? `M2 전년비 ${m2Yoy.toFixed(1)}%` : '자료없음' })
     // 4) 투기 열풍 → 앱의 칵테일 파티 지수(CNN F&G)로 안내
     let fng: number | null = null
-    try { const c = await fetch(`${base}/api/cocktail-party`, { signal: AbortSignal.timeout(8_000) }); if (c.ok) { const cj = await c.json(); fng = cj?.score ?? cj?.fng ?? null } } catch { /* graceful */ }
+    // ⚠️ 실제 응답 필드는 `partyScore`다(2026-08-13 실측 — score·fng 는 존재하지 않아 100% 폴백돼 '투기 열풍'이 영구 link 였다)
+    try { const c = await fetch(`${base}/api/cocktail-party`, { signal: AbortSignal.timeout(8_000) }); if (c.ok) { const cj = await c.json(); fng = cj?.partyScore ?? cj?.score ?? null } } catch { /* graceful */ }
     factors.push({ label: '투기 열풍(신규 구매자)', status: fng != null ? (fng >= 75 ? 'hot' : fng >= 55 ? 'warm' : 'cool') : 'link', note: fng != null ? `칵테일 파티 지수 ${fng}(탐욕↑=버블)` : '→ 대시보드 🍸 칵테일 파티 지수로 확인' })
     // 5) 가격 vs 역사평균(밸류에이션) → 앱 종목 밸류 도구로 안내(단일 숫자 부재)
     factors.push({ label: '가격 vs 역사평균(고평가)', status: 'link', note: '→ 종목별 역-DCF·PSR·모닝스타 별점으로 확인' })
@@ -174,7 +176,7 @@ export async function GET(req: Request) {
 
   // ── 역사 오버레이(현재 vs 2008 vs 2020) ──
   const history = [
-    { metric: '총부채 / GDP', now: Math.round(debtGdp), y2008: Math.round(atOrBefore(debtGdpS, '2008') ?? 0), y2020: Math.round(atOrBefore(debtGdpS, '2020') ?? 0), unit: '%' },
+    { metric: '연방정부 부채 / GDP', now: Math.round(debtGdp), y2008: Math.round(atOrBefore(debtGdpS, '2008') ?? 0), y2020: Math.round(atOrBefore(debtGdpS, '2020') ?? 0), unit: '%' },
     { metric: '실질금리(10Y)', now: Math.round(realRate * 10) / 10, y2008: Math.round((atOrBefore(realS, '2008') ?? 0) * 10) / 10, y2020: Math.round((atOrBefore(realS, '2020') ?? 0) * 10) / 10, unit: '%' },
     { metric: '장단기 금리차', now: Math.round(yieldCurve * 100) / 100, y2008: Math.round((atOrBefore(curveS, '2008') ?? 0) * 100) / 100, y2020: Math.round((atOrBefore(curveS, '2020') ?? 0) * 100) / 100, unit: '%p' },
   ]

@@ -40,7 +40,7 @@ export default function RayDalioAnalysis() {
         </div>
         {d && (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
-            {[['총부채/GDP', `${d.debt.debtGdp}%`, d.debt.debtGdpTrend === 'up' ? '▲' : ''], ['실질금리', `${d.debt.realRate}%`, ''], ['장단기차', `${d.debt.yieldCurve > 0 ? '+' : ''}${d.debt.yieldCurve}%p`, ''], ['연준 대차대조표', d.debt.fedBsTrend === 'contracting' ? 'QT(긴축)' : d.debt.fedBsTrend === 'expanding' ? 'QE(완화)' : '유지', '']].map(([k, v, t]) => (
+            {[['연방부채/GDP', `${d.debt.debtGdp}%`, d.debt.debtGdpTrend === 'up' ? '▲' : ''], ['실질금리', `${d.debt.realRate}%`, ''], ['장단기차', `${d.debt.yieldCurve > 0 ? '+' : ''}${d.debt.yieldCurve}%p`, ''], ['연준 대차대조표', d.debt.fedBsTrend === 'contracting' ? 'QT(긴축)' : d.debt.fedBsTrend === 'expanding' ? 'QE(완화)' : '유지', '']].map(([k, v, t]) => (
               <div key={k} style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 9, padding: '7px 13px', minWidth: 110 }}>
                 <div style={{ color: TK.sub2, fontSize: 10 }}>{k}</div>
                 <div style={{ color: TK.slate200, fontWeight: 800, fontSize: 15 }}>{v} <span style={{ color: TK.red400, fontSize: 12 }}>{t}</span></div>

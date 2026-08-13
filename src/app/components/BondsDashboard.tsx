@@ -167,18 +167,23 @@ export default function BondsDashboard() {
               <div style={{ background: ry.realVsBei.above ? `${TK.violet400}12` : TK.bg1, border: `1px solid ${ry.realVsBei.above ? `${TK.violet400}55` : BORDER}`, borderRadius: RAD.sm, padding: '9px 13px', marginTop: 8, fontSize: FS.micro, color: TK.sub2, lineHeight: 1.6 }}>
                 {ry.realVsBei.above ? (
                   <>
-                    📐 지금 <b style={{ color: TK.violet400 }}>실질금리가 기대인플레보다 높습니다</b>
-                    (+{ry.realVsBei.gapPp.toFixed(2)}%p{ry.realVsBei.sinceDate ? ` · ${ry.realVsBei.sinceDate}부터` : ''}) —
-                    차트에서 보라 선이 노랑 선을 넘어선 상태입니다. 해석은 둘입니다:
-                    <b style={{ color: TK.slate300 }}> ①성장 자신감</b>(물가 기대는 그대로인데 다른 데 투자하면 더 벌 수 있다는 요구수익률 상승) ·
-                    <b style={{ color: TK.slate300 }}> ②긴축 부담</b>(빌리는 돈의 진짜 값이 물가 전망보다 비싸짐).
-                    어느 쪽이 맞는지는 기업 실적이 답합니다.
+                    {/* 결론은 크게 — 학생이 이 줄 하나만 읽어도 되게(사용자 요청 2026-08-13) */}
+                    <div style={{ fontSize: FS.lg, fontWeight: 800, color: TK.violet400, lineHeight: 1.4 }}>
+                      📐 지금 실질금리가 기대인플레보다 높습니다
+                      <span style={{ color: TK.slate200 }}> (+{ry.realVsBei.gapPp.toFixed(2)}%p{ry.realVsBei.sinceDate ? ` · ${ry.realVsBei.sinceDate}부터` : ''})</span>
+                    </div>
+                    <div style={{ marginTop: 6 }}>
+                      차트에서 보라 선이 노랑 선을 넘어선 상태입니다. 해석은 둘입니다:
+                      <b style={{ color: TK.slate300 }}> ①성장 자신감</b>(물가 기대는 그대로인데 다른 데 투자하면 더 벌 수 있다는 요구수익률 상승) ·
+                      <b style={{ color: TK.slate300 }}> ②긴축 부담</b>(빌리는 돈의 진짜 값이 물가 전망보다 비싸짐).
+                      어느 쪽이 맞는지는 <b style={{ color: TK.slate200 }}>기업 실적이 답합니다</b>.
+                    </div>
                   </>
                 ) : (
-                  <>
-                    📐 지금은 <b style={{ color: TK.amber400 }}>기대인플레가 실질금리보다 높은</b> 보통의 배열입니다
-                    ({ry.realVsBei.gapPp.toFixed(2)}%p).
-                  </>
+                  <div style={{ fontSize: FS.body, fontWeight: 800, color: TK.amber400 }}>
+                    📐 지금은 기대인플레가 실질금리보다 높은 보통의 배열입니다
+                    <span style={{ color: TK.sub2, fontWeight: 400 }}> ({ry.realVsBei.gapPp.toFixed(2)}%p)</span>
+                  </div>
                 )}
               </div>
             )}
