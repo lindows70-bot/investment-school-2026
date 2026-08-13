@@ -7,23 +7,37 @@ import type { RealYieldResult } from '@/lib/realYield'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 
 // 🧮 금리 3형제 2년 차트 — 외부 라이브러리 없이 SVG 3선(스윙 캔들 차트와 같은 관례)
+//    우측에 0.5%p 간격 금리 눈금, 하단에 날짜 눈금(사용자 요청 2026-08-13)
 function RealYieldChart({ series }: { series: RealYieldResult['series'] }) {
-  const W = 640, H = 170, PAD = 6
+  const W = 640, H = 190, PL = 8, PR = 42, PT = 8, PB = 20
   const vals = series.flatMap(p => [p.n, p.r, p.b]).filter((v): v is number => v != null)
   if (vals.length < 10) return null
   const lo = Math.min(...vals) - 0.15, hi = Math.max(...vals) + 0.15
-  const x = (i: number) => PAD + (i / Math.max(1, series.length - 1)) * (W - PAD * 2)
-  const y = (v: number) => H - PAD - ((v - lo) / (hi - lo)) * (H - PAD * 2)
+  const x = (i: number) => PL + (i / Math.max(1, series.length - 1)) * (W - PL - PR)
+  const y = (v: number) => H - PB - ((v - lo) / (hi - lo)) * (H - PT - PB)
   const path = (pick: (p: RealYieldResult['series'][number]) => number | null) =>
     series.map((p, i) => { const v = pick(p); return v == null ? null : `${x(i).toFixed(1)},${y(v).toFixed(1)}` })
       .filter(Boolean).join(' ')
-  const gridV = [Math.ceil(lo * 2) / 2, Math.floor(hi * 2) / 2]   // 0.5% 격자 상·하단
+  // 세로 눈금 — 0.5%p 간격 전부(범위 밖 제외)
+  const gridV: number[] = []
+  for (let g = Math.ceil(lo * 2) / 2; g <= hi; g += 0.5) gridV.push(Math.round(g * 10) / 10)
+  // 가로 눈금 — 5개 균등(첫·끝 포함), 'YY.MM 표기
+  const dateIdx = [0, 1, 2, 3, 4].map(k => Math.round(k * (series.length - 1) / 4))
+  const fmtD = (iso: string) => `${iso.slice(2, 4)}.${iso.slice(5, 7)}`
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
       {gridV.map(g => (
         <g key={g}>
-          <line x1={PAD} x2={W - PAD} y1={y(g)} y2={y(g)} stroke={TK.border} strokeDasharray="3 4" strokeWidth={1} />
-          <text x={W - PAD - 2} y={y(g) - 3} textAnchor="end" fontSize={10} fill={TK.sub4}>{g.toFixed(1)}%</text>
+          <line x1={PL} x2={W - PR} y1={y(g)} y2={y(g)} stroke={TK.border} strokeDasharray="3 4" strokeWidth={1} />
+          <text x={W - PR + 5} y={y(g) + 3.5} textAnchor="start" fontSize={10} fill={TK.sub3}>{g.toFixed(1)}%</text>
+        </g>
+      ))}
+      {dateIdx.map((di, k) => (
+        <g key={k}>
+          <line x1={x(di)} x2={x(di)} y1={H - PB} y2={H - PB + 4} stroke={TK.sub4} strokeWidth={1} />
+          <text x={x(di)} y={H - 5} textAnchor={k === 0 ? 'start' : k === 4 ? 'end' : 'middle'} fontSize={10} fill={TK.sub3}>
+            {fmtD(series[di].date)}
+          </text>
         </g>
       ))}
       <polyline points={path(p => p.n)} fill="none" stroke={TK.slate300} strokeWidth={2} />
@@ -96,6 +110,20 @@ export default function BondsDashboard() {
               미국채 10년 금리는 둘의 합입니다 — <b style={{ color: TK.violet400 }}>돈의 진짜 값(TIPS 실질금리)</b> +
               <b style={{ color: TK.amber400 }}> 물가 기대(BEI)</b>. 셋은 통계적 상관이 아니라 <b>정의상 항등식</b>이라
               (FRED 실측 오차 0.00%p), 금리가 움직이면 &ldquo;어느 쪽이 끌었나&rdquo;로 쪼개 읽는 게 정확합니다.
+            </div>
+            {/* 📐 공식 — 이 섹션의 뼈대(사용자 요청: 따로 강조) */}
+            <div style={{ background: TK.bg1, border: `1px solid ${TK.violet400}55`, borderRadius: RAD.sm, padding: '12px 16px', marginTop: 10, textAlign: 'center' }}>
+              <div style={{ fontSize: FS.micro, color: TK.sub3, letterSpacing: 2 }}>📐 공 식</div>
+              <div style={{ fontSize: FS.lg, fontWeight: 800, marginTop: 4, lineHeight: 1.5 }}>
+                <span style={{ color: TK.slate100 }}>미국채 10년 명목금리</span>
+                <span style={{ color: TK.sub2 }}> = </span>
+                <span style={{ color: TK.violet400 }}>TIPS 실질금리</span>
+                <span style={{ color: TK.sub2 }}> + </span>
+                <span style={{ color: TK.amber400 }}>BEI(기대인플레)</span>
+              </div>
+              <div style={{ fontSize: FS.tiny, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', color: TK.sub2, marginTop: 4 }}>
+                {ry.nominal.v.toFixed(2)}% = <span style={{ color: TK.violet400 }}>{ry.real.v.toFixed(2)}%</span> + <span style={{ color: TK.amber400 }}>{ry.bei.v.toFixed(2)}%</span>
+              </div>
             </div>
             {/* 분해 식 — 지금 값 */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 10, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
