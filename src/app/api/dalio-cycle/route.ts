@@ -89,12 +89,13 @@ async function worldBank(id: string): Promise<{ us: number; cn: number; year: st
 
 export async function GET(req: Request) {
   const base = new URL(req.url).origin
-  const cacheKey = 'dalio-cycle-v3'   // v3: World Bank 공통 연도 비교(미 수출 최신값 null 방어) — v2가 4지표만 캐시한 것 무효화
+  const cacheKey = 'dalio-cycle-v4'   // v4: 은행 대출 성장(TOTLL) 신호 추가 / v3: World Bank 공통 연도 비교
   const cached = await getCache<DalioCycleResult>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
-  const [debtGdpS, dsrS, realS, fedS, curveS, m2S, season] = await Promise.all([
+  const [debtGdpS, dsrS, realS, fedS, curveS, m2S, loanS, season] = await Promise.all([
     fred('GFDEGDQ188S'), fred('TDSP'), fred('DFII10'), fred('WALCL'), fred('T10Y2Y'), fred('M2SL', 'pc1'),
+    fred('TOTLL', 'pc1'),          // 🏦 상업은행 대출·리스 YoY — 신용 사이클의 심장(2026-08-13 매크로 영상 검토로 추가)
     getCurrentSeason(base).catch(() => null),
   ])
   const debtGdp = last(debtGdpS) ?? 0
@@ -115,6 +116,16 @@ export async function GET(req: Request) {
     { key: 'curve', label: '장단기 금리차(10Y-2Y)', value: `${yieldCurve > 0 ? '+' : ''}${yieldCurve.toFixed(2)}%p`, reading: yieldCurve < 0 ? '역전(정점·침체 선행)' : yieldCurve < 0.5 ? '평탄(후기)' : '정상', lean: yieldCurve < 0.5 ? 'late' : 'neutral' },
     { key: 'dsr', label: '가계 부채원리금 상환비율', value: `${dsr.toFixed(1)}%`, reading: dsr > 13 ? '상환 부담 큼' : '관리 가능', lean: dsr > 13 ? 'late' : 'neutral' },
   ]
+  // 🏦 은행 대출 성장(TOTLL YoY) — 달리오 신용 사이클의 "신용 창출" 그 자체. 밴드는 역사 구간 서술
+  //    (확장기 5~10%·경색기 0% 부근 — FRED 역사, 백테스트 수치 아님). 실측 2026-08: 6.3%→7.05% 가속 중.
+  const loanYoy = last(loanS)
+  if (loanYoy != null) {
+    signals.push({
+      key: 'loans', label: '은행 대출 성장(전년비)', value: `${loanYoy.toFixed(1)}%`,
+      reading: loanYoy > 8 ? '신용 팽창 활발(과열 경계)' : loanYoy >= 3 ? '신용 창출 정상(경기 확장 지지)' : loanYoy >= 0 ? '신용 위축(대출 둔화)' : '신용 수축(경색 신호)',
+      lean: loanYoy > 8 ? 'late' : loanYoy >= 3 ? 'neutral' : 'stimulus',
+    })
+  }
 
   // ── 단계 추정(0 초기 ~ 5 정상화). 근거 조합 — 단정 아님 ──
   //   고부채 + 긴축(실질금리↑·QT·평탄곡선) = 정점/불황 압력 국면 / 완화(QE·마이너스 실질금리) = 디레버리징·부양

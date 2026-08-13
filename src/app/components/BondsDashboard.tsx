@@ -162,6 +162,26 @@ export default function BondsDashboard() {
                 <div key={i} style={{ fontSize: FS.micro, color: TK.sub2, lineHeight: 1.6 }}>· {n.replace(/\*\*/g, '')}</div>
               ))}
             </div>
+            {/* 📐 실질 vs BEI 교차 — 보라 선이 노랑 선을 넘었나(해석 양면 병기) */}
+            {ry.realVsBei && (
+              <div style={{ background: ry.realVsBei.above ? `${TK.violet400}12` : TK.bg1, border: `1px solid ${ry.realVsBei.above ? `${TK.violet400}55` : BORDER}`, borderRadius: RAD.sm, padding: '9px 13px', marginTop: 8, fontSize: FS.micro, color: TK.sub2, lineHeight: 1.6 }}>
+                {ry.realVsBei.above ? (
+                  <>
+                    📐 지금 <b style={{ color: TK.violet400 }}>실질금리가 기대인플레보다 높습니다</b>
+                    (+{ry.realVsBei.gapPp.toFixed(2)}%p{ry.realVsBei.sinceDate ? ` · ${ry.realVsBei.sinceDate}부터` : ''}) —
+                    차트에서 보라 선이 노랑 선을 넘어선 상태입니다. 해석은 둘입니다:
+                    <b style={{ color: TK.slate300 }}> ①성장 자신감</b>(물가 기대는 그대로인데 다른 데 투자하면 더 벌 수 있다는 요구수익률 상승) ·
+                    <b style={{ color: TK.slate300 }}> ②긴축 부담</b>(빌리는 돈의 진짜 값이 물가 전망보다 비싸짐).
+                    어느 쪽이 맞는지는 기업 실적이 답합니다.
+                  </>
+                ) : (
+                  <>
+                    📐 지금은 <b style={{ color: TK.amber400 }}>기대인플레가 실질금리보다 높은</b> 보통의 배열입니다
+                    ({ry.realVsBei.gapPp.toFixed(2)}%p).
+                  </>
+                )}
+              </div>
+            )}
             {/* 2년 차트 */}
             <div style={{ marginTop: 10 }}>
               <div style={{ display: 'flex', gap: 12, fontSize: FS.micro, color: TK.sub3, marginBottom: 4 }}>

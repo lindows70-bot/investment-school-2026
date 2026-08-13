@@ -53,7 +53,7 @@ function retAt(closes: number[], back: number): number | null {
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export async function GET(req: Request) {
-  const cacheKey = `bonds-v3:${kstDate()}`   // v3: 금리 3형제(realYield) 동승 / v2: 곡선-듀레이션 축 충돌 설명
+  const cacheKey = `bonds-v4:${kstDate()}`   // v4: 실질 vs BEI 교차(realVsBei) 추가 / v3: 금리 3형제 동승
   const cached = await getCache<BondsResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

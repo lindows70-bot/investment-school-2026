@@ -15,6 +15,9 @@ export interface RealYieldResult {
   driverNote: string
   /** 수준 읽기 — 학생 말로 */
   levelNotes: string[]
+  /** 📐 실질 vs 기대인플레 위치 — 실질이 BEI를 넘어선 상태는 해석이 갈리는 신호라 양면을 병기한다
+   *  (성장 기대가 밀어올렸다는 낙관론 vs 돈값이 긴축적이라는 부담론 — 2026-08 매크로 영상 검토에서 보강). */
+  realVsBei: { above: boolean; gapPp: number; sinceDate: string | null } | null
   /** 2년 주별 시계열(차트용 다운샘플) */
   series: RealYieldPoint[]
 }
@@ -61,12 +64,33 @@ export async function buildRealYield(): Promise<RealYieldResult | null> {
   const driverNote =
     driver === 'calm' ? `최근 3개월 금리는 크게 움직이지 않았습니다(${dN >= 0 ? '+' : ''}${dN}%p).`
     : driver === 'real' ? (up
-      ? `최근 금리 상승(+${dN}%p)은 **돈의 진짜 값(실질금리 ${dR >= 0 ? '+' : ''}${dR}%p)**이 끌었습니다 — 물가 걱정이 아니라 긴축적인 돈값입니다. 이런 상승은 성장주·장기채 가격에 부담이 됩니다.`
+      ? `최근 금리 상승(+${dN}%p)은 **돈의 진짜 값(실질금리 ${dR >= 0 ? '+' : ''}${dR}%p)**이 끌었습니다 — 물가 걱정형 상승이 아닙니다. 해석은 둘로 갈립니다: 돈값이 비싸져 성장주·장기채에 부담이라는 읽기와, 기대인플레가 고정된 채 실질만 오르는 건 시장이 성장을 자신한다는 뜻(성장 프리미엄)이라는 읽기 — 어느 쪽인지는 기업 실적이 따라오는지로 판가름 납니다.`
       : `최근 금리 하락(${dN}%p)은 실질금리(${dR}%p)가 끌었습니다 — 돈값이 싸지는 것이라 성장주·장기채에 순풍입니다.`)
     : driver === 'bei' ? (up
       ? `최근 금리 상승(+${dN}%p)은 **물가 기대(BEI ${dB >= 0 ? '+' : ''}${dB}%p)**가 끌었습니다 — 인플레 걱정형 상승이라 실물자산·물가연동채가 상대적으로 유리합니다.`
       : `최근 금리 하락(${dN}%p)은 물가 기대(${dB}%p)가 끌었습니다 — 인플레 걱정이 줄고 있다는 뜻이지만, 과하면 수요 둔화 걱정으로 읽힙니다.`)
     : `최근 금리 변화(${dN >= 0 ? '+' : ''}${dN}%p)는 실질(${dR >= 0 ? '+' : ''}${dR}%p)과 물가 기대(${dB >= 0 ? '+' : ''}${dB}%p)가 함께 만들었습니다.`
+
+  // 📐 실질 vs BEI — 같은 날짜끼리 비교(계열별 최신일이 달라 최신값끼리 섞으면 안 된다. 공식 줄과 같은 이유)
+  const beiByDate = new Map(bei.map(x => [x.date, x.v]))
+  let realVsBei: RealYieldResult['realVsBei'] = null
+  {
+    const aligned = real.filter(x => beiByDate.has(x.date))
+    if (aligned.length >= 20) {
+      const lastA = aligned[aligned.length - 1]
+      const above = lastA.v > (beiByDate.get(lastA.date) as number)
+      // 지금 상태(above/below)가 언제부터 이어졌나 — 뒤에서부터 상태가 바뀐 첫 지점
+      let sinceDate: string | null = null
+      for (let i = aligned.length - 1; i >= 0; i--) {
+        const a = aligned[i]
+        if ((a.v > (beiByDate.get(a.date) as number)) !== above) break
+        sinceDate = a.date
+      }
+      // 창(2.2년) 전체가 같은 상태면 sinceDate는 "창 시작"일 뿐이라 시작일을 주장하지 않는다
+      if (sinceDate === aligned[0].date) sinceDate = null
+      realVsBei = { above, gapPp: r2(lastA.v - (beiByDate.get(lastA.date) as number)), sinceDate }
+    }
+  }
 
   const realV = real[real.length - 1].v, beiV = bei[bei.length - 1].v
   const levelNotes: string[] = []
@@ -98,6 +122,6 @@ export async function buildRealYield(): Promise<RealYieldResult | null> {
     real: { v: r2(realV), date: real[real.length - 1].date },
     bei: { v: r2(beiV), date: bei[bei.length - 1].date },
     chg60: { nominal: dN, real: dR, bei: dB },
-    driver, driverNote, levelNotes, series,
+    driver, driverNote, levelNotes, realVsBei, series,
   }
 }
