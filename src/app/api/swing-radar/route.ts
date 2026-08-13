@@ -11,7 +11,7 @@ const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0,
 
 export async function GET(req: Request) {
   const refresh = new URL(req.url).searchParams.get('refresh') === '1'
-  const key = `swing-radar-v7:${kstDate()}`   // v7: 성적에 수익 인자(profitFactor) / v6: 트랙 D+하루 상한 / v5: 보유 기간 실험
+  const key = `swing-radar-v8:${kstDate()}`   // v8: 거래량 천장 경고(volCautions) / v7: 수익 인자 / v6: 트랙 D+하루 상한
   if (!refresh) {
     const cached = await getCache<SwingRadar>(key, 12 * 3600_000)
     if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })

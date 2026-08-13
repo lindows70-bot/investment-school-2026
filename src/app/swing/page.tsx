@@ -4,7 +4,7 @@
 //   ⛔ 자동매매 없음 · ⛔ 목표 수익률 약속 없음 — edge 는 전부 '시장 대비'다.
 import { useEffect, useState } from 'react'
 import type { SwingRadar, SwingItem } from '@/lib/swingRadar'
-import { SWING_TRACKS, positionSize, SWING_RISK_PCT, SWING_BEST_REF, type SwingRegime } from '@/lib/swingSetup'
+import { SWING_TRACKS, positionSize, SWING_RISK_PCT, SWING_BEST_REF, VOL_CAUTION_REF, type SwingRegime } from '@/lib/swingSetup'
 import { SWING_MIN_SAMPLE, type SwingGrade } from '@/lib/swingHistory'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 
@@ -75,6 +75,33 @@ export default function SwingPage() {
               })}
             </div>
           </div>
+
+          {/* 📉 거래량 천장 경고 — 진행 중 추천에서 '대량 양봉 → 눌림도 대량' 패턴(없으면 렌더 0) */}
+          {d.volCautions?.length > 0 && (
+            <div style={{ background: `${TK.amber400}10`, border: `1px solid ${TK.amber400}66`, borderRadius: RAD.md, padding: '13px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: FS.lg }}>📉</span>
+                <b style={{ fontSize: FS.body, color: TK.amber400 }}>거래량 경고 — 판 사람이 갑자기 늘었습니다</b>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                {d.volCautions.map((a, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: TK.bg1, borderRadius: RAD.sm, padding: '8px 12px' }}>
+                    <span style={{ fontSize: FS.body }}>{a.flag}</span>
+                    <b style={{ fontSize: FS.tiny, color: TK.slate100 }}>{a.name}</b>
+                    <span style={{ fontSize: FS.micro, color: TK.sub3 }}>{SWING_TRACKS[a.track].icon} {a.date} 추천 · 현재 {a.retPct >= 0 ? '+' : ''}{a.retPct}%</span>
+                    <span style={{ marginLeft: 'auto', fontSize: FS.micro, color: TK.sub2 }}>
+                      급등(+{a.burstChg}%) 직후 첫 하락일에 거래량이 평소의 <b style={{ color: TK.amber400 }}>{a.pullVolX}배</b>
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 8, lineHeight: 1.6 }}>
+                큰 양봉 다음의 첫 하락일에도 거래가 몰리면, 우리 실측에서 이후 2주 성적이 평소보다 나빴습니다
+                (시장 대비 🇰🇷 {VOL_CAUTION_REF.kr.edge10Pp}%p·{VOL_CAUTION_REF.kr.sample}건 / 🇺🇸 {VOL_CAUTION_REF.us.edge10Pp}%p·{VOL_CAUTION_REF.us.sample}건).
+                다만 승률 {VOL_CAUTION_REF.kr.winRate}%지 0%가 아닙니다 — <b>매도 지시가 아니라</b> 손절선을 다시 확인하라는 신호입니다.
+              </div>
+            </div>
+          )}
 
           {/* 🎯 오늘의 자리 — 없는 게 기본이다 */}
           <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: RAD.md, padding: '14px 16px' }}>

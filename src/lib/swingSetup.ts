@@ -166,6 +166,36 @@ export function readSpikeSetup(data: Ohlc[]): SwingHit | null {
   }
 }
 
+/** 📉 거래량 천장 경고 — 대량 양봉 직후 **첫 눌림 음봉에 다시 대량**이 실리면 이후 2주가 평소보다 나빴다.
+ *  출처: 거래량 다이버전스 영상(WiaBe7_VFz0) 4규칙 중 유일하게 양 시장·전 국면에서 살아남은 것
+ *  (실측 2026-08-13, scripts/probe-volume-divergence.mjs — 나머지 3규칙은 무효 또는 KR에서 정반대).
+ *  10봉 절사 edge KR −1.06%p(227건·40종·54개월)/US −0.56%p(79건), 상승 국면에서도 음수.
+ *  ⚠️ 매도 '강요'가 아니라 경고다 — 승률 43~46%지 0%가 아니다. 백테스트와 같은 규칙: 대량=20일 평균 2배↑,
+ *  양봉 급등 +2%↑, 눌림 봉은 급등봉 후 1~3봉 내 **첫** 음봉이어야 한다. */
+export const VOL_CAUTION_REF = {
+  kr: { edge10Pp: -1.06, winRate: 46.3, sample: 227 },
+  us: { edge10Pp: -0.56, winRate: 45.6, sample: 79 },
+  asOf: '2026-08-13',
+} as const
+export function readVolumeCaution(data: Ohlc[]): { burstChg: number; pullVolX: number } | null {
+  const i = data.length - 1
+  if (i < 25) return null
+  const c = data.map(d => d.close), o = data.map(d => d.open), v = data.map(d => d.volume ?? 0)
+  if (!(c[i] < o[i])) return null                           // 오늘이 눌림 음봉
+  const v20i = sma(v, 20, i - 1)
+  if (v20i == null || !(v20i > 0) || v[i] < v20i * 2) return null   // 눌림에도 대량(2배↑)
+  for (let j = i - 1; j >= i - 3 && j >= 21; j--) {
+    const v20j = sma(v, 20, j - 1)
+    if (v20j == null || !(v20j > 0)) continue
+    const chg = (c[j] / c[j - 1] - 1) * 100
+    if (c[j] > o[j] && chg >= 2 && v[j] >= v20j * 2) {
+      for (let k = j + 1; k < i; k++) if (c[k] < o[k]) return null  // 첫 눌림이어야 한다
+      return { burstChg: Math.round(chg * 10) / 10, pullVolX: Math.round((v[i] / v20i) * 10) / 10 }
+    }
+  }
+  return null
+}
+
 /** 🧭 지금 이 종목에 쓸 트랙이 있나 — **국면·시장이 맞을 때만** 판정한다.
  *  맞는 트랙이 없으면 null 이고, 화면은 "지금은 자리가 아닙니다"를 이유와 함께 말해야 한다. */
 const READERS: Record<SwingTrack, (d: Ohlc[]) => SwingHit | null> = {

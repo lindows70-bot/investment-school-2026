@@ -10,14 +10,34 @@ import { TK, FS, RAD } from '@/lib/theme'
 
 export default function SwingStopAlertBanner() {
   const [alerts, setAlerts] = useState<SwingRadar['stopAlerts']>([])
+  const [cautions, setCautions] = useState<SwingRadar['volCautions']>([])
   useEffect(() => {
     let alive = true
     fetch('/api/swing-radar', { cache: 'no-store' })
       .then(r => r.json())
-      .then(j => { if (alive && Array.isArray(j?.stopAlerts)) setAlerts(j.stopAlerts) })
+      .then(j => {
+        if (!alive) return
+        if (Array.isArray(j?.stopAlerts)) setAlerts(j.stopAlerts)
+        if (Array.isArray(j?.volCautions)) setCautions(j.volCautions)
+      })
       .catch(() => { /* 실패 시 렌더 0 — 경보를 지어내지 않는다 */ })
     return () => { alive = false }
   }, [])
+  if (!alerts.length && cautions.length) {
+    // 📉 손절 경보는 없지만 거래량 천장 경고가 있다 — 한 단계 약한 톤(amber)으로만 알린다
+    return (
+      <div style={{ background: `${TK.amber400}10`, border: `1px solid ${TK.amber400}66`, borderRadius: RAD.md, padding: '11px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: FS.body }}>📉</span>
+          <b style={{ fontSize: FS.tiny, color: TK.amber400 }}>스윙 거래량 경고</b>
+          <span style={{ fontSize: FS.micro, color: TK.sub2 }}>
+            {cautions.map(c => `${c.flag} ${c.name}`).join(' · ')} — 급등 직후 첫 하락일에 거래가 몰렸습니다.
+            실측에서 이런 날 이후 2주가 평소보다 약했습니다(스윙 타점 화면에서 손절선을 확인하세요).
+          </span>
+        </div>
+      </div>
+    )
+  }
   if (!alerts.length) return null
 
   return (

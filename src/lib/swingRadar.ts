@@ -9,7 +9,7 @@ import { SWING_HIST_KEY, shouldAppend, gradeSwing, type SwingHistEntry, type Swi
 import { getTechCandles } from '@/lib/techChartData'
 import { flagOf } from '@/lib/marketFlag'
 import { getUsdKrw } from '@/lib/fx'
-import { readSwingSetup, readSwingRegime, SWING_TRACKS, SWING_DAILY_CAP, positionSize, type SwingTrack, type SwingRegime } from '@/lib/swingSetup'
+import { readSwingSetup, readSwingRegime, readVolumeCaution, SWING_TRACKS, SWING_DAILY_CAP, positionSize, type SwingTrack, type SwingRegime } from '@/lib/swingSetup'
 
 export interface SwingItem {
   ticker: string; name: string; market: 'KR' | 'US'; flag: string; sector: string | null
@@ -39,6 +39,9 @@ export interface SwingRadar {
   recent: { date: string; ticker: string; name: string; flag: string; track: SwingTrack; retPct: number | null; stopHit: boolean }[]
   /** 🚨 진행 중인 추천이 손절선을 깼다 — 매매 브리핑이 크게 띄운다("손절선이 오면 손절한다"가 이 기법의 반쪽) */
   stopAlerts: { date: string; ticker: string; name: string; flag: string; market: 'KR' | 'US'; track: SwingTrack; entry: number; stop: number; last: number; lossPct: number }[]
+  /** 📉 거래량 천장 경고 — 진행 중 추천에서 '대량 양봉 → 첫 눌림도 대량' 패턴(readVolumeCaution SSOT).
+   *  실측(2026-08-13)에서 이후 2주가 baseline보다 KR −1.06%p/US −0.56%p 나빴다 — 손절선과 별개의 조기 경고. */
+  volCautions: { date: string; ticker: string; name: string; flag: string; market: 'KR' | 'US'; track: SwingTrack; entry: number; last: number; retPct: number; burstChg: number; pullVolX: number }[]
   /** 🔬 보유 기간 실험 — 같은 추천을 1주·2주·3주·1달 구간에서 **모두** 채점한다.
    *  "수익률이 어디까지 가나"는 백테스트 고정 구간이 아니라 이 적립이 답한다(사용자 요청 2026-08-11). */
   horizons: { bars: number; label: string; n: number; avgPct: number | null; medPct: number | null; winRate: number | null; ge5Rate: number | null; ge10Rate: number | null }[]
@@ -158,6 +161,7 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
   const scored: ScoredRow[] = []
   const recent: SwingRadar['recent'] = []
   const stopAlerts: SwingRadar['stopAlerts'] = []
+  const volCautions: SwingRadar['volCautions'] = []
   // 🔬 보유 기간 실험 — 1주(5)·2주(10)·3주(15)·1달(20) 을 전부 채점(구간별 독립 표본)
   const HORIZONS = [
     { bars: 5, label: '1주' }, { bars: 10, label: '2주' }, { bars: 15, label: '3주' }, { bars: 20, label: '1달' },
@@ -200,6 +204,18 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
               last: Math.round(last * 100) / 100,
               lossPct: Math.round((last / e.entry - 1) * 1000) / 10,
             })
+          } else {
+            // 📉 손절선은 안 깼지만 거래량 천장 패턴이 떴다 — 조기 경고(강요 아님, readVolumeCaution SSOT)
+            const vc = readVolumeCaution(D)
+            if (vc) {
+              volCautions.push({
+                date: e.date, ticker: e.ticker, name: e.name, flag: flagOf(e.market, e.ticker, null),
+                market: e.market, track: e.track, entry: e.entry,
+                last: Math.round(last * 100) / 100,
+                retPct: Math.round((last / e.entry - 1) * 1000) / 10,
+                burstChg: vc.burstChg, pullVolX: vc.pullVolX,
+              })
+            }
           }
         }
       }
@@ -235,7 +251,7 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
   return {
     asOf: new Date().toISOString(), scanned, okCount, usdKrw,
     indexRegime: { KR: krIdx, US: usIdx }, items, cappedOut, tracks,
-    grades, recent: recent.slice(0, 20), stopAlerts, horizons, peak,
+    grades, recent: recent.slice(0, 20), stopAlerts, volCautions, horizons, peak,
   }
 }
 
