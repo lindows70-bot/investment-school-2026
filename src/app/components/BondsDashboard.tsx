@@ -121,9 +121,20 @@ export default function BondsDashboard() {
                 <span style={{ color: TK.sub2 }}> + </span>
                 <span style={{ color: TK.amber400 }}>BEI(기대인플레)</span>
               </div>
-              <div style={{ fontSize: FS.tiny, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', color: TK.sub2, marginTop: 4 }}>
-                {ry.nominal.v.toFixed(2)}% = <span style={{ color: TK.violet400 }}>{ry.real.v.toFixed(2)}%</span> + <span style={{ color: TK.amber400 }}>{ry.bei.v.toFixed(2)}%</span>
-              </div>
+              {/* ⚠️ 등식 줄은 **같은 날짜** 값이어야 한다 — 계열별 최신일이 달라(명목 8/11 vs BEI 8/12)
+                  최신값끼리 섞으면 4.70 = 2.43 + 2.26(합 4.69)처럼 항등식이 스스로 어긋난다(2026-08-13 화면검증).
+                  차트와 같은 정렬(명목 기준일)인 series 마지막 점을 쓴다. */}
+              {(() => {
+                const lp = ry.series[ry.series.length - 1]
+                if (!lp || lp.n == null || lp.r == null || lp.b == null) return null
+                const n = lp.n, r = lp.r, b = lp.b
+                return (
+                  <div style={{ fontSize: FS.tiny, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', color: TK.sub2, marginTop: 4 }}>
+                    {n.toFixed(2)}% = <span style={{ color: TK.violet400 }}>{r.toFixed(2)}%</span> + <span style={{ color: TK.amber400 }}>{b.toFixed(2)}%</span>
+                    <span style={{ color: TK.sub4 }}> ({lp.date} 종가 기준)</span>
+                  </div>
+                )
+              })()}
             </div>
             {/* 분해 식 — 지금 값 */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 10, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
