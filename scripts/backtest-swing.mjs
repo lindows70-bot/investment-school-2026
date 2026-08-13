@@ -123,7 +123,12 @@ async function run(ticker, market) {
         for (let k = i - 60; k < i; k++) { const m = sma(c, 224, k); if (m != null && c[k] < m) below++ }
         const chg = (c[i] / c[i - 1] - 1) * 100
         let v20 = 0; for (let k = i - 20; k < i; k++) v20 += vol[k]; v20 /= 20
-        if (below >= 45 && chg >= 5 && v20 > 0 && vol[i] >= v20 * 2) hits.spikeD.push(meta)
+        // 🧢 추격 가드(2026-08-14): 20봉 저가 대비 이미 +30% 넘게 오른 급등은 제외 — runup >30% 구간이
+        //    KR 하락장 실측 7건·절사 −2.65%p·승률 43%로 음수(표본 얇음 — probe-runup-gate.mjs). 토니모리 +49% 사례.
+        let min20 = Infinity
+        for (let k = i - 19; k <= i; k++) { const l = q[k].low ?? c[k]; if (l < min20) min20 = l }
+        const runup = (c[i] / min20 - 1) * 100
+        if (below >= 45 && chg >= 5 && v20 > 0 && vol[i] >= v20 * 2 && runup <= 30) hits.spikeD.push(meta)
       }
     }
 

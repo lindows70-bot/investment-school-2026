@@ -46,9 +46,9 @@ export const SWING_TRACKS: Record<SwingTrack, {
   spike: {
     key: 'spike', icon: '⚡', label: '바닥 급등 포착', source: '써티퍼센트(224 아래 장기 체류 → 급등 당일)',
     market: 'KR', regime: 'down', holdBars: 10, holdLabel: '2주',
-    edgePp: 1.82, winRate: 57.9, sample: 152,
-    medPct: 2.6, ge5Rate: 36, ge10Rate: 21,
-    note: '1년선 아래 오래 눌려 있다가 거래량 실린 급등이 터진 날. **한국 하락장에서만** 통했습니다(미국은 역효과·기각).',
+    edgePp: 2.82, winRate: 61.9, sample: 134,
+    medPct: 2.9, ge5Rate: 39, ge10Rate: 22,
+    note: '1년선 아래 오래 눌려 있다가 거래량 실린 급등이 터진 날. **한국 하락장에서만** 통했습니다(미국은 역효과·기각). 저점에서 이미 30% 넘게 오른 자리는 추격이라 제외합니다.',
   },
 }
 
@@ -156,12 +156,20 @@ export function readSpikeSetup(data: Ohlc[]): SwingHit | null {
   v20 /= 20
   const vToday = data[i].volume ?? 0
   if (!(v20 > 0) || vToday < v20 * 2) return null           // 거래량이 실려야 '돈의 유입'이다
+  // 🧢 추격 가드(2026-08-14) — 20봉 저가 대비 이미 +30% 넘게 오른 급등은 자리 자체를 버린다.
+  //    runup >30% 구간이 KR 하락장 실측 7건·절사 −2.65%p·승률 43%(표본 얇음 — 방향 확인용)인 반면
+  //    ≤30% 구간은 +2.67~+3.28%p 로 명확히 갈렸다(probe-runup-gate.mjs). 토니모리 +49% 진입 사례가 계기.
+  //    ⚠️ backtest-swing.mjs 트랙 D와 자구까지 같은 규칙 — 가드 반영 후 성적으로 SWING_TRACKS 갱신됨.
+  let min20 = Infinity
+  for (let k = i - 19; k <= i; k++) { const l = data[k].low ?? c[k]; if (l < min20) min20 = l }
+  const runup = (c[i] / min20 - 1) * 100
+  if (runup > 30) return null
   return {
     track: 'spike', price: c[i],
     reasons: [
       `최근 석 달 중 대부분(60일 중 ${below}일)을 1년 평균가 아래에서 보냈습니다(바닥 다지기)`,
       `오늘 +${Math.round(chg * 10) / 10}% 급등 — 거래량이 평소의 ${Math.round(vToday / v20 * 10) / 10}배로 터졌습니다(돈이 들어온 흔적)`,
-      '미리 들어가지 않고 급등을 확인한 뒤 올라탑니다(영상 원칙 그대로)',
+      `최근 20일 저점 대비 +${Math.round(runup)}% 자리 — 30%를 넘긴 추격 자리는 추천하지 않습니다`,
     ],
   }
 }
