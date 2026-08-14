@@ -12,6 +12,9 @@ export interface SellTx {
   currency?: string | null      // 'USD' | 'KRW'
   realized_pnl?: number | null  // 통화 단위(USD 거래면 달러)
   transaction_date: string      // 'YYYY-MM-DD'
+  /** 매도 단가·수량 — '매도한 물량의 원가'를 역산할 때만 쓴다(buildRealizedTotals). */
+  price?: number | null
+  quantity?: number | null
 }
 
 export interface RealizedMonth {
@@ -26,6 +29,49 @@ export interface RealizedResult {
   totalCount: number
   /** 환율 이력을 못 구해 매도일 대신 최신 환율로 환산한 건수 — 조용한 폴백 금지 */
   fxFallbackCount: number
+}
+
+/** 사용자 한 명의 매도 총계 — 스쿨 리그 랭킹이 '총 투입 원금 대비 총 손익'을 계산할 때 쓴다. */
+export interface RealizedTotals {
+  realizedKrw: number   // 실현손익 합(원) — 매도일 환율
+  soldCostKrw: number   // 매도한 물량의 매수원가 합(원) = 매도금액 − 실현손익
+  sellCount: number
+  fxFallbackCount: number
+}
+
+/**
+ * 매도 거래 → (실현손익, 매도분 원가) 총계.
+ * ⚠️ 원가를 '매도금액 − 실현손익'으로 역산하는 이유: transactions 에 매도분의 매수단가가 없다.
+ *    두 값을 **같은 날 환율**로 환산해야 역산이 성립한다(다른 환율을 섞으면 원가가 왜곡된다).
+ * ⚠️ price·quantity 가 없는 옛 행은 원가를 못 구하므로 실현손익만 반영한다(분모 과소 → 수익률 과대).
+ *    그런 행이 있으면 호출부가 캐비엇을 띄울 수 있게 별도로 세지 않고 soldCostKrw 에 0 을 더한다.
+ */
+export function buildRealizedTotals(
+  sells: SellTx[],
+  fxCandles: TechCandle[],
+  latestFx: number,
+): RealizedTotals {
+  let realizedKrw = 0, soldCostKrw = 0, sellCount = 0, fxFallbackCount = 0
+  for (const t of sells) {
+    const date = (t.transaction_date ?? '').slice(0, 10)
+    const pnl = typeof t.realized_pnl === 'number' && isFinite(t.realized_pnl) ? t.realized_pnl : 0
+    let rate = 1
+    if (t.currency === 'USD') {
+      const r = /^\d{4}-\d{2}-\d{2}$/.test(date) ? rateAt(fxCandles, date) : null
+      if (r == null) fxFallbackCount++
+      rate = r ?? latestFx
+    }
+    const amount = (t.price ?? 0) * (t.quantity ?? 0)     // 매도금액(거래 통화)
+    realizedKrw += pnl * rate
+    if (amount > 0) soldCostKrw += Math.max(0, (amount - pnl) * rate)
+    sellCount++
+  }
+  return {
+    realizedKrw: Math.round(realizedKrw),
+    soldCostKrw: Math.round(soldCostKrw),
+    sellCount,
+    fxFallbackCount,
+  }
 }
 
 /** 'YYYY-MM-DD' 이하 가장 최근 종가 — 캔들은 오름차순 */

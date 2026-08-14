@@ -544,7 +544,7 @@ export default function SchoolLeague() {
         <SectionHeader
           icon={<BarChart2 size={16} color={C.gold} />}
           title="스쿨 리더보드"
-          subtitle={`누적 수익률 기준 실명 랭킹 · 미등록자 최하단 배치`}
+          subtitle={`누적 수익률 = 평가손익 + 매도로 확정한 손익(익절·손절) ÷ 총 투입 원금 · 미등록자 최하단 배치`}
         />
 
         {/* 테이블 헤더 */}
@@ -618,9 +618,18 @@ export default function SchoolLeague() {
                   </div>
                 </div>
 
-                {/* 수익률 */}
+                {/* 수익률 — 평가손익 + 실현손익(매도 확정) */}
                 <div>
                   <RetDisplay ret={s.totalReturn} />
+                  {/* 💰 매도로 확정한 몫이 총수익률에 얼마나 기여했나 — 금액은 비공개, %p만 */}
+                  {s.isRegistered && (s.sellCount ?? 0) > 0 && (
+                    <div
+                      title={`매도 ${s.sellCount}건으로 확정한 손익이 총 수익률에 ${(s.realizedPp ?? 0) >= 0 ? '+' : ''}${s.realizedPp}%p 기여했습니다. 익절·손절 모두 성적에 포함됩니다.`}
+                      style={{ fontSize: 9.5, color: C.textLow, marginTop: 2, cursor: 'help', whiteSpace: 'nowrap' }}
+                    >
+                      💰 실현 {(s.realizedPp ?? 0) >= 0 ? '+' : ''}{s.realizedPp}%p 포함 <span style={{ opacity: 0.7 }}>({s.sellCount}건)</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Core/Sat 비중 */}

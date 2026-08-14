@@ -15,6 +15,8 @@ import { NextResponse }                    from 'next/server'
 import { createClient as createAdmin }     from '@supabase/supabase-js'
 import { classifyAsset }                   from '@/lib/classifyAsset'
 import { getUsdKrw } from '@/lib/fx'
+import { getTechCandles } from '@/lib/techChartData'
+import { buildRealizedTotals, type SellTx } from '@/lib/realizedPnl'
 import { TK } from '@/lib/theme'
 
 // ── 서비스 롤 클라이언트 (전체 사용자 데이터 조회) ──────────────
@@ -39,7 +41,13 @@ export interface StudentPortfolio {
   avatarColor:      string           // 아바타 색상 (결정론적 생성)
   userType:         string           // 투자 성향 (Core 비중 기반)
   isRegistered:     boolean          // 종목 등록 여부
+  /** 🏆 랭킹 기준 = 총 수익률 % — (평가손익 + 실현손익) ÷ (보유원가 + 매도분 원가).
+   *  ⚠️ 2026-08-14 이전에는 평가손익만 셌다. 그러면 익절한 수익도 손절한 손실도 랭킹에서
+   *     사라져 "손절 많이 하고 익절 안 한 사람"이 유리해진다(교육 목적과 정반대). */
   totalReturn:      number | null    // 전체 수익률 % (미등록 시 null)
+  /** 총 수익률 중 **실현손익이 기여한 %p**(같은 분모) — 금액은 비공개 규약이라 비율만 낸다. 매도 0건이면 0 */
+  realizedPp:       number           // 실현 기여 %p
+  sellCount:        number           // 매도 건수(금액 아님 — 공개 가능)
   coreRatio:        number           // 코어 비중 %
   satelliteRatio:   number           // 새틀라이트 비중 %
   topStocks:        string[]         // 효자 종목 Top 3 (이름 기준)
@@ -189,6 +197,20 @@ export async function GET(req: Request) {
       invByUser[inv.user_id].push(inv)
     }
 
+    // ── 2-c. 매도 이력(실현손익) 조회 ────────────────────────────
+    // ⚠️ 평가손익만 세면 성적의 절반이 사라진다(realizedPnl.ts 주석의 실사고와 같은 결함이
+    //    스쿨 리그에만 남아 있었다 — 2026-08-14). 환율 관례도 그 SSOT 를 따른다(매도일 환율).
+    const { data: allSells } = await sb
+      .from('transactions')
+      .select('user_id, ticker, name, market, currency, realized_pnl, transaction_date, price, quantity')
+      .eq('type', 'sell')
+      .limit(5000)                       // Supabase 기본 1,000행 상한 방어
+    const sellsByUser: Record<string, SellTx[]> = {}
+    for (const s of allSells ?? []) {
+      const uid = (s as { user_id: string }).user_id
+      ;(sellsByUser[uid] ??= []).push(s as unknown as SellTx)
+    }
+
     // ── 3. 고유 티커 목록 수집 → 현재가 배치 조회 ────────────────
     const uniqueTickers: { ticker: string; market: string }[] = []
     const seen = new Set<string>()
@@ -203,6 +225,10 @@ export async function GET(req: Request) {
     // stock-price API 배치 호출 (최대 50개)
     const priceMap: Record<string, number> = {}    // ticker → currentPrice
     const usdKrw   = await getUsdKrw(selfBase)   // 라이브 환율(제1원칙: 하드코딩 금지)
+    // 실현손익 환산용 과거 환율 — 월별 손익 화면과 **같은 소스**여야 값이 갈리지 않는다(제2원칙)
+    const fxCandles = (allSells ?? []).length
+      ? await getTechCandles('KRW=X', 'US', 'D').catch(() => [])
+      : []
 
     if (uniqueTickers.length > 0) {
       try {
@@ -234,6 +260,8 @@ export async function GET(req: Request) {
       const displayName  = profile.full_name ?? profile.email?.split('@')[0] ?? '알 수 없음'
 
       if (!isRegistered) {
+        // ⚠️ 알려진 한계: '보유 0 + 매도 이력만' 인 학생은 여기로 빠져 실현손익이 랭킹에 안 잡힌다.
+        //    현재 그런 학생은 없다(2026-08-14 실측). 생기면 isRegistered 정의부터 손봐야 한다.
         return {
           userId:            profile.id,
           name:              displayName,
@@ -241,6 +269,8 @@ export async function GET(req: Request) {
           userType:          '미등록',
           isRegistered:      false,
           totalReturn:       null,
+          realizedPp:        0,
+          sellCount:         0,
           coreRatio:         0,
           satelliteRatio:    0,
           topStocks:         [],
@@ -280,9 +310,23 @@ export async function GET(req: Request) {
       const totalVal     = coreVal + satVal
       const coreRatio    = totalVal > 0 ? Math.round((coreVal    / totalVal) * 100) : 50
       const satRatio     = 100 - coreRatio
-      const totalReturn  = totalCost > 0
-        ? parseFloat(((totalCurrent - totalCost) / totalCost * 100).toFixed(1))
+
+      // 🏆 총 수익률 = (평가손익 + 실현손익) ÷ (보유원가 + 매도분 원가)
+      //    분모에 매도분 원가를 넣는 이유: 매도로 회수한 자본도 '투입했던 원금'이다. 빼면
+      //    매도가 많은 학생일수록 분모가 작아져 수익률이 부풀려진다(잣대가 사람마다 달라짐).
+      const mySells = sellsByUser[profile.id] ?? []
+      const rt = mySells.length
+        ? buildRealizedTotals(mySells, fxCandles, usdKrw)
+        : { realizedKrw: 0, soldCostKrw: 0, sellCount: 0, fxFallbackCount: 0 }
+      const denom       = totalCost + rt.soldCostKrw
+      const unrealized  = totalCurrent - totalCost
+      const totalReturn = denom > 0
+        ? parseFloat(((unrealized + rt.realizedKrw) / denom * 100).toFixed(1))
         : null
+      // 실현이 총수익률에 기여한 %p(같은 분모라 평가 기여분 + 실현 기여분 = 총수익률)
+      const realizedPp  = denom > 0
+        ? parseFloat((rt.realizedKrw / denom * 100).toFixed(1))
+        : 0
 
       // 효자 종목 Top 3 (평가금액 기준 내림차순)
       const topStocks = holdingValues
@@ -305,6 +349,8 @@ export async function GET(req: Request) {
         userType:          userTypeFromCore(coreRatio),
         isRegistered:      true,
         totalReturn,
+        realizedPp,
+        sellCount:         rt.sellCount,
         coreRatio,
         satelliteRatio:    satRatio,
         topStocks,
