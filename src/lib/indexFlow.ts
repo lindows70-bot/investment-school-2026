@@ -5,19 +5,27 @@
 //   데이터: 네이버 투자자별 매매동향(코스피 전체·억원·일별) + ^KS11 종가 · 약 1년
 import { getTechCandles } from '@/lib/techChartData'
 
-export interface IndexFlowDay { d: string; kospi: number; cumForeignEok: number; foreignEok: number }
+export interface IndexFlowDay {
+  d: string; kospi: number
+  foreignEok: number; cumForeignEok: number
+  organEok: number; cumOrganEok: number
+  indivEok: number; cumIndivEok: number
+}
 export interface IndexFlowResult {
   asOf: string
   days: IndexFlowDay[]           // 과거 → 현재 순
   corrDaily: number              // 당일 외인 순매수 ↔ 당일 지수 등락 상관(이 표본에서 라이브 계산 — 상수 박제 금지)
   totalEok: number               // 기간 누적 외인 순매수(억원)
+  totalOrganEok: number          // 기간 누적 기관 순매수(억원)
+  totalIndivEok: number          // 기간 누적 개인 순매수(억원)
 }
 
 const num = (s: unknown) => parseFloat(String(s ?? '').replace(/[,+\s]/g, '')) || 0
 
-/** 코스피 전체 외국인 일별 순매수(억원) — investorDealTrendDay 를 bizdate 커서로 과거로 넘긴다 */
-async function fetchForeignDaily(days: number): Promise<Map<string, number>> {
-  const flow = new Map<string, number>()
+type DailyFlow = { f: number; o: number; i: number }
+/** 코스피 전체 일별 순매수(억원·개인/외국인/기관계) — investorDealTrendDay 를 bizdate 커서로 과거로 넘긴다 */
+async function fetchInvestorDaily(days: number): Promise<Map<string, DailyFlow>> {
+  const flow = new Map<string, DailyFlow>()
   let cursor = new Date()
   const pages = Math.ceil(days / 9) + 2          // 페이지당 ~10행
   for (let p = 0; p < pages && flow.size < days; p++) {
@@ -27,12 +35,13 @@ async function fetchForeignDaily(days: number): Promise<Map<string, number>> {
         { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(12_000), cache: 'no-store' })
       if (!r.ok) break
       const t = new TextDecoder('euc-kr').decode(await r.arrayBuffer())
-      const rows = Array.from(t.matchAll(/date2">(\d{2}\.\d{2}\.\d{2})<\/td>\s*<td[^>]*>([-\d,]+)<\/td>\s*<td[^>]*>([-\d,]+)<\/td>/g))
+      // 열 순서(실측): 날짜 | 개인 | 외국인 | 기관계 | ...
+      const rows = Array.from(t.matchAll(/date2">(\d{2}\.\d{2}\.\d{2})<\/td>\s*<td[^>]*>([-\d,]+)<\/td>\s*<td[^>]*>([-\d,]+)<\/td>\s*<td[^>]*>([-\d,]+)<\/td>/g))
       if (!rows.length) break
       let oldest: string | null = null
       for (const m of rows) {
         const iso = `20${m[1].replace(/\./g, '-')}`
-        if (!flow.has(iso)) flow.set(iso, num(m[3]))   // m[2]=개인, m[3]=외국인
+        if (!flow.has(iso)) flow.set(iso, { i: num(m[2]), f: num(m[3]), o: num(m[4]) })
         oldest = iso
       }
       if (!oldest) break
@@ -43,9 +52,9 @@ async function fetchForeignDaily(days: number): Promise<Map<string, number>> {
   return flow
 }
 
-export async function buildIndexFlow(days = 250): Promise<IndexFlowResult | null> {
+export async function buildIndexFlow(days = 500): Promise<IndexFlowResult | null> {
   const [flow, candles] = await Promise.all([
-    fetchForeignDaily(days),
+    fetchInvestorDaily(days),
     getTechCandles('^KS11', 'US', 'D').catch(() => null),
   ])
   if (!flow.size || !candles || candles.length < 60) return null
@@ -56,11 +65,16 @@ export async function buildIndexFlow(days = 250): Promise<IndexFlowResult | null
   const joined = px.filter(x => flow.has(x.d)).slice(-days)
   if (joined.length < 60) return null
 
-  let cum = 0
+  let cumF = 0, cumO = 0, cumI = 0
   const out: IndexFlowDay[] = joined.map(x => {
-    const f = flow.get(x.d) as number
-    cum += f
-    return { d: x.d, kospi: Math.round(x.c * 100) / 100, foreignEok: Math.round(f), cumForeignEok: Math.round(cum) }
+    const fl = flow.get(x.d) as DailyFlow
+    cumF += fl.f; cumO += fl.o; cumI += fl.i
+    return {
+      d: x.d, kospi: Math.round(x.c * 100) / 100,
+      foreignEok: Math.round(fl.f), cumForeignEok: Math.round(cumF),
+      organEok: Math.round(fl.o), cumOrganEok: Math.round(cumO),
+      indivEok: Math.round(fl.i), cumIndivEok: Math.round(cumI),
+    }
   })
 
   // 당일 동행 상관 — 이 표본에서 라이브 계산(제1원칙: 측정 상수를 박제하지 않는다)
@@ -71,5 +85,5 @@ export async function buildIndexFlow(days = 250): Promise<IndexFlowResult | null
   for (let i = 0; i < xs.length; i++) { const dx = xs[i] - mx, dy = ys[i] - my; sxy += dx * dy; sxx += dx * dx; syy += dy * dy }
   const corrDaily = sxx > 0 && syy > 0 ? Math.round((sxy / Math.sqrt(sxx * syy)) * 100) / 100 : 0
 
-  return { asOf: new Date().toISOString(), days: out, corrDaily, totalEok: cum }
+  return { asOf: new Date().toISOString(), days: out, corrDaily, totalEok: cumF, totalOrganEok: cumO, totalIndivEok: cumI }
 }

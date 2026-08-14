@@ -47,31 +47,38 @@ function KospiFlowOverlay() {
     return () => { alive = false }
   }, [])
   if (!d) return null
-  const W = 680, H = 200, PL = 46, PR = 56, PT = 8, PB = 20
+  const W = 680, H = 210, PL = 46, PR = 56, PT = 8, PB = 20
   const days = d.days
   const kMin = Math.min(...days.map(x => x.kospi)), kMax = Math.max(...days.map(x => x.kospi))
-  const fMin = Math.min(...days.map(x => x.cumForeignEok)), fMax = Math.max(...days.map(x => x.cumForeignEok))
+  // 오른쪽 눈금은 세 주체 누적을 **한 축**으로 — 축이 다르면 비교 표가 아니다(잣대 하나 원칙)
+  const flows = days.flatMap(x => [x.cumForeignEok, x.cumOrganEok, x.cumIndivEok])
+  const fMin = Math.min(...flows), fMax = Math.max(...flows)
   const x = (i: number) => PL + (i / (days.length - 1)) * (W - PL - PR)
   const yK = (v: number) => H - PB - ((v - kMin) / (kMax - kMin || 1)) * (H - PT - PB)
   const yF = (v: number) => H - PB - ((v - fMin) / (fMax - fMin || 1)) * (H - PT - PB)
-  const pathK = days.map((p, i) => `${x(i).toFixed(1)},${yK(p.kospi).toFixed(1)}`).join(' ')
-  const pathF = days.map((p, i) => `${x(i).toFixed(1)},${yF(p.cumForeignEok).toFixed(1)}`).join(' ')
+  const path = (pick: (p: typeof days[number]) => number, yFn: (v: number) => number) =>
+    days.map((p, i) => `${x(i).toFixed(1)},${yFn(pick(p)).toFixed(1)}`).join(' ')
   const dateIdx = [0, 1, 2, 3, 4].map(k => Math.round(k * (days.length - 1) / 4))
   const fmtD = (iso: string) => `${iso.slice(2, 4)}.${iso.slice(5, 7)}`
   const jo = (eok: number) => `${(eok / 10000).toFixed(1)}조`
   const total = d.totalEok
+  const yearsLabel = days.length > 300 ? '2년' : '1년'
+  const sign = (v: number) => <b style={{ color: v >= 0 ? TK.green400 : TK.red400 }}>{v >= 0 ? '+' : ''}{jo(v)}</b>
   return (
     <div style={{ background: TK.bg3, borderRadius: RAD.sm, padding: '12px 14px', marginBottom: 12 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-        <b style={{ fontSize: FS.tiny, color: TK.slate200 }}>📈 코스피 지수 × 🟢 외국인 누적 순매수 (최근 1년)</b>
+        <b style={{ fontSize: FS.tiny, color: TK.slate200 }}>📈 코스피 지수 × 투자자별 누적 순매수 (최근 {yearsLabel})</b>
         <span style={{ fontSize: FS.micro, color: TK.sub2 }}>
-          기간 누적 <b style={{ color: total >= 0 ? TK.green400 : TK.red400 }}>{total >= 0 ? '+' : ''}{jo(total)}원</b>
-          · 당일 동행 상관 <b style={{ color: TK.slate300 }}>{d.corrDaily >= 0 ? '+' : ''}{d.corrDaily.toFixed(2)}</b>(이 표본 실측)
+          누적 — 🟢 외국인 {sign(d.totalEok)} · 🔵 기관 {sign(d.totalOrganEok)} · 🟡 개인 {sign(d.totalIndivEok)}
+          · 당일 동행 상관(외인) <b style={{ color: TK.slate300 }}>{d.corrDaily >= 0 ? '+' : ''}{d.corrDaily.toFixed(2)}</b>
         </span>
       </div>
-      <div style={{ display: 'flex', gap: 12, fontSize: FS.micro, color: TK.sub3, margin: '6px 0 2px' }}>
+      <div style={{ display: 'flex', gap: 12, fontSize: FS.micro, color: TK.sub3, margin: '6px 0 2px', flexWrap: 'wrap' }}>
         <span><span style={{ color: TK.slate300 }}>━</span> 코스피(왼쪽 눈금)</span>
-        <span><span style={{ color: TK.green400 }}>━</span> 외국인 누적 순매수(오른쪽 눈금·조원)</span>
+        <span><span style={{ color: TK.green400 }}>━</span> 외국인</span>
+        <span><span style={{ color: TK.blue400 }}>━</span> 기관</span>
+        <span><span style={{ color: TK.amber400 }}>━</span> 개인</span>
+        <span style={{ color: TK.sub4 }}>누적 순매수 · 오른쪽 눈금(조원)</span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
         {[0, 0.5, 1].map(t => {
@@ -80,15 +87,21 @@ function KospiFlowOverlay() {
             <g key={t}>
               <line x1={PL} x2={W - PR} y1={yy} y2={yy} stroke={TK.border} strokeDasharray="3 4" strokeWidth={1} />
               <text x={PL - 5} y={yy + 3.5} textAnchor="end" fontSize={10} fill={TK.sub3}>{Math.round(kMax - t * (kMax - kMin)).toLocaleString()}</text>
-              <text x={W - PR + 5} y={yy + 3.5} textAnchor="start" fontSize={10} fill={TK.green400}>{jo(fMax - t * (fMax - fMin))}</text>
+              <text x={W - PR + 5} y={yy + 3.5} textAnchor="start" fontSize={10} fill={TK.sub3}>{jo(fMax - t * (fMax - fMin))}</text>
             </g>
           )
         })}
+        {/* 0조 기준선 — 누적이 +에서 −로 넘어가는 순간이 보이게 */}
+        {fMin < 0 && fMax > 0 && (
+          <line x1={PL} x2={W - PR} y1={yF(0)} y2={yF(0)} stroke={TK.sub4} strokeWidth={1} strokeDasharray="2 3" />
+        )}
         {dateIdx.map((di, k) => (
           <text key={k} x={x(di)} y={H - 5} textAnchor={k === 0 ? 'start' : k === 4 ? 'end' : 'middle'} fontSize={10} fill={TK.sub3}>{fmtD(days[di].d)}</text>
         ))}
-        <polyline points={pathK} fill="none" stroke={TK.slate300} strokeWidth={1.8} />
-        <polyline points={pathF} fill="none" stroke={TK.green400} strokeWidth={1.8} />
+        <polyline points={path(p => p.kospi, yK)} fill="none" stroke={TK.slate300} strokeWidth={1.8} />
+        <polyline points={path(p => p.cumForeignEok, yF)} fill="none" stroke={TK.green400} strokeWidth={1.6} />
+        <polyline points={path(p => p.cumOrganEok, yF)} fill="none" stroke={TK.blue400} strokeWidth={1.4} />
+        <polyline points={path(p => p.cumIndivEok, yF)} fill="none" stroke={TK.amber400} strokeWidth={1.4} />
       </svg>
       {/* ⚠️ 문구는 데이터에서 파생 — "함께 움직인다"를 단정하면 이 기간(지수 상승 vs 외인 대량 매도)처럼
           방향이 갈린 해에 요약이 차트를 반박한다(2026-08-14 검증에서 실제로 걸림). */}
@@ -100,7 +113,7 @@ function KospiFlowOverlay() {
             {sameDir ? (
               <>이 기간 외국인 누적({total >= 0 ? '+' : ''}{jo(total)}원)과 지수({idxRet >= 0 ? '+' : ''}{Math.round(idxRet)}%)는 <b>방향이 같았습니다</b> — 하루하루의 동행(상관 {d.corrDaily >= 0 ? '+' : ''}{d.corrDaily.toFixed(2)})이 긴 흐름으로도 이어진 해입니다.</>
             ) : (
-              <>흥미로운 그림입니다 — 하루하루는 함께 움직이지만(당일 상관 {d.corrDaily >= 0 ? '+' : ''}{d.corrDaily.toFixed(2)}), 이 기간의 <b>긴 방향은 반대</b>였습니다: 외국인은 {jo(Math.abs(total))}원을 {total >= 0 ? '사는' : '파는'} 동안 지수는 {idxRet >= 0 ? '+' : ''}{Math.round(idxRet)}% {idxRet >= 0 ? '올랐습니다' : '내렸습니다'}. 반대편에서 개인·기관이 그 물량을 받아냈다는 뜻으로, <b>외국인이 곧 지수의 전부는 아닙니다</b>.</>
+              <>흥미로운 그림입니다 — 하루하루는 함께 움직이지만(당일 상관 {d.corrDaily >= 0 ? '+' : ''}{d.corrDaily.toFixed(2)}), 이 기간의 <b>긴 방향은 반대</b>였습니다: 외국인은 {jo(Math.abs(total))}원을 {total >= 0 ? '사는' : '파는'} 동안 지수는 {idxRet >= 0 ? '+' : ''}{Math.round(idxRet)}% {idxRet >= 0 ? '올랐습니다' : '내렸습니다'}. 초록 선(외국인)과 노란 선(개인)이 거울처럼 갈라지는 게 보이시죠 — <b>한쪽이 판 물량은 반드시 다른 쪽이 산 것</b>이라 수급은 제로섬이고, 그래서 외국인이 곧 지수의 전부가 아닙니다.</>
             )}
             {' '}⚠️ 우리 실측(1,150일)에서 <b>오늘까지의 수급으로 내일 이후를 맞히는 힘은 없었습니다</b>(예측 상관 0) —
             이 차트는 타이밍 도구가 아니라 &ldquo;외국인이 지금 한국 시장을 어떻게 대하고 있나&rdquo;를 읽는 관찰 도구입니다.

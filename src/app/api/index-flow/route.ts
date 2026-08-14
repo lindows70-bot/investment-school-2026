@@ -9,7 +9,7 @@ export const maxDuration = 60
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 export async function GET() {
-  const key = `index-flow-v1:${kstDate()}`
+  const key = `index-flow-v2:${kstDate()}`   // v2: 2년 + 기관·개인 누적 추가 / v1: 외인 1년
   const cached = await getCache<IndexFlowResult>(key, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
   const out = await buildIndexFlow()
