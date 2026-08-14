@@ -70,6 +70,7 @@ function KospiFlowOverlay() {
         <b style={{ fontSize: FS.tiny, color: TK.slate200 }}>📈 코스피 지수 × 투자자별 누적 순매수 (최근 {yearsLabel})</b>
         <span style={{ fontSize: FS.micro, color: TK.sub2 }}>
           누적 — 🟢 외국인 {sign(d.totalEok)} · 🔵 기관 {sign(d.totalOrganEok)} · 🟡 개인 {sign(d.totalIndivEok)}
+          {typeof d.totalEtcEok === 'number' && <> · ⚪ 기타법인(자사주 등) {sign(d.totalEtcEok)} <span style={{ color: TK.sub4 }}>= 넷의 합 0원(제로섬)</span></>}
           · 당일 동행 상관(외인) <b style={{ color: TK.slate300 }}>{d.corrDaily >= 0 ? '+' : ''}{d.corrDaily.toFixed(2)}</b>
         </span>
       </div>
@@ -91,10 +92,20 @@ function KospiFlowOverlay() {
             </g>
           )
         })}
-        {/* 0조 기준선 — 누적이 +에서 −로 넘어가는 순간이 보이게 */}
-        {fMin < 0 && fMax > 0 && (
-          <line x1={PL} x2={W - PR} y1={yF(0)} y2={yF(0)} stroke={TK.sub4} strokeWidth={1} strokeDasharray="2 3" />
-        )}
+        {/* 0조 기준선 — 누적이 +(사 모음)에서 −(팔아치움)로 넘어가는 경계.
+            ⚠️ 격자선과 같은 점선이면 장식으로 읽힌다(2026-08-14 화면검증) → 실선 + 라벨.
+            라벨은 눈금과 겹칠 수 있으니 가까우면(플롯 높이 10% 이내) 생략한다. */}
+        {fMin < 0 && fMax > 0 && (() => {
+          const y0 = yF(0)
+          const plotH = H - PT - PB
+          const tooClose = [PT, PT + plotH / 2, PT + plotH].some(ty => Math.abs(ty - y0) < plotH * 0.1)
+          return (
+            <g>
+              <line x1={PL} x2={W - PR} y1={y0} y2={y0} stroke={TK.slate500} strokeWidth={1.2} />
+              {!tooClose && <text x={W - PR + 5} y={y0 + 3.5} textAnchor="start" fontSize={10} fontWeight={700} fill={TK.slate400}>0조</text>}
+            </g>
+          )
+        })()}
         {dateIdx.map((di, k) => (
           <text key={k} x={x(di)} y={H - 5} textAnchor={k === 0 ? 'start' : k === 4 ? 'end' : 'middle'} fontSize={10} fill={TK.sub3}>{fmtD(days[di].d)}</text>
         ))}

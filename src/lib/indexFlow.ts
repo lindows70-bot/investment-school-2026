@@ -18,6 +18,10 @@ export interface IndexFlowResult {
   totalEok: number               // 기간 누적 외인 순매수(억원)
   totalOrganEok: number          // 기간 누적 기관 순매수(억원)
   totalIndivEok: number          // 기간 누적 개인 순매수(억원)
+  /** 기간 누적 기타법인(자사주 등) — **파생값**: 개인+외국인+기관계+기타법인 = 0 항등식으로 역산.
+   *  4일 표본 실측에서 오차 0(2026-08-14). 화면이 "수급은 제로섬"이라고 말하면서 세 숫자만 보여주면
+   *  합이 0이 아니라 요약이 스스로를 반박한다 — 네 번째 조각을 함께 표시한다. */
+  totalEtcEok: number
 }
 
 const num = (s: unknown) => parseFloat(String(s ?? '').replace(/[,+\s]/g, '')) || 0
@@ -85,5 +89,9 @@ export async function buildIndexFlow(days = 500): Promise<IndexFlowResult | null
   for (let i = 0; i < xs.length; i++) { const dx = xs[i] - mx, dy = ys[i] - my; sxy += dx * dy; sxx += dx * dx; syy += dy * dy }
   const corrDaily = sxx > 0 && syy > 0 ? Math.round((sxy / Math.sqrt(sxx * syy)) * 100) / 100 : 0
 
-  return { asOf: new Date().toISOString(), days: out, corrDaily, totalEok: cumF, totalOrganEok: cumO, totalIndivEok: cumI }
+  return {
+    asOf: new Date().toISOString(), days: out, corrDaily,
+    totalEok: cumF, totalOrganEok: cumO, totalIndivEok: cumI,
+    totalEtcEok: -(cumF + cumO + cumI),
+  }
 }
