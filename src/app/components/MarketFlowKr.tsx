@@ -1,9 +1,11 @@
 'use client'
 // 🌐 국내 시장 수급 랭킹 — 외국인/기관 순매수 상위(1/5/20일) + 쌍끌이 연속매집 (주요 코스피 유니버스)
+//    + 상단: 코스피 × 외국인 누적 순매수 오버레이(2026-08-14 사용자 아이디어 — 지수 투자 학생용 관찰 도구)
 import { useState, useEffect } from 'react'
 import type { MarketFlowKrResult, MarketFlowEntry, Period } from '@/lib/marketFlowKr'
+import type { IndexFlowResult } from '@/lib/indexFlow'
 import InvestorTimeline from '@/app/components/InvestorTimeline'
-import { TK } from '@/lib/theme'
+import { TK, FS, RAD } from '@/lib/theme'
 
 const CARD = TK.bg6, BORDER = TK.border
 type View = 'foreign' | 'organ' | 'dual'
@@ -30,6 +32,70 @@ function MiniChart({ prices }: { prices: number[] }) {
       <polyline points={pts} fill="none" stroke={col} strokeWidth={1.3} strokeLinejoin="round" strokeLinecap="round" />
       <circle cx={xs[xs.length - 1]} cy={ys[ys.length - 1]} r={1.8} fill={col} />
     </svg>
+  )
+}
+
+// 🌐 코스피 지수 × 외국인 누적 순매수 오버레이 — "함께 움직인다(동행)"를 눈으로 보여준다.
+//    ⚠️ 예측 도구가 아니다(실측: 동행 상관은 강하지만 과거 수급→미래 지수 상관 0) — 캐비엇을 반드시 같이 그린다.
+function KospiFlowOverlay() {
+  const [d, setD] = useState<IndexFlowResult | null>(null)
+  useEffect(() => {
+    let alive = true
+    fetch('/api/index-flow', { cache: 'no-store' })
+      .then(r => r.json()).then(j => { if (alive && Array.isArray(j?.days) && j.days.length >= 60) setD(j) })
+      .catch(() => { /* 실패 시 섹션 자체를 접는다 — 지어내지 않는다 */ })
+    return () => { alive = false }
+  }, [])
+  if (!d) return null
+  const W = 680, H = 200, PL = 46, PR = 56, PT = 8, PB = 20
+  const days = d.days
+  const kMin = Math.min(...days.map(x => x.kospi)), kMax = Math.max(...days.map(x => x.kospi))
+  const fMin = Math.min(...days.map(x => x.cumForeignEok)), fMax = Math.max(...days.map(x => x.cumForeignEok))
+  const x = (i: number) => PL + (i / (days.length - 1)) * (W - PL - PR)
+  const yK = (v: number) => H - PB - ((v - kMin) / (kMax - kMin || 1)) * (H - PT - PB)
+  const yF = (v: number) => H - PB - ((v - fMin) / (fMax - fMin || 1)) * (H - PT - PB)
+  const pathK = days.map((p, i) => `${x(i).toFixed(1)},${yK(p.kospi).toFixed(1)}`).join(' ')
+  const pathF = days.map((p, i) => `${x(i).toFixed(1)},${yF(p.cumForeignEok).toFixed(1)}`).join(' ')
+  const dateIdx = [0, 1, 2, 3, 4].map(k => Math.round(k * (days.length - 1) / 4))
+  const fmtD = (iso: string) => `${iso.slice(2, 4)}.${iso.slice(5, 7)}`
+  const jo = (eok: number) => `${(eok / 10000).toFixed(1)}조`
+  const total = d.totalEok
+  return (
+    <div style={{ background: TK.bg3, borderRadius: RAD.sm, padding: '12px 14px', marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+        <b style={{ fontSize: FS.tiny, color: TK.slate200 }}>📈 코스피 지수 × 🟢 외국인 누적 순매수 (최근 1년)</b>
+        <span style={{ fontSize: FS.micro, color: TK.sub2 }}>
+          기간 누적 <b style={{ color: total >= 0 ? TK.green400 : TK.red400 }}>{total >= 0 ? '+' : ''}{jo(total)}원</b>
+          · 당일 동행 상관 <b style={{ color: TK.slate300 }}>{d.corrDaily >= 0 ? '+' : ''}{d.corrDaily.toFixed(2)}</b>(이 표본 실측)
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: 12, fontSize: FS.micro, color: TK.sub3, margin: '6px 0 2px' }}>
+        <span><span style={{ color: TK.slate300 }}>━</span> 코스피(왼쪽 눈금)</span>
+        <span><span style={{ color: TK.green400 }}>━</span> 외국인 누적 순매수(오른쪽 눈금·조원)</span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+        {[0, 0.5, 1].map(t => {
+          const yy = PT + t * (H - PT - PB)
+          return (
+            <g key={t}>
+              <line x1={PL} x2={W - PR} y1={yy} y2={yy} stroke={TK.border} strokeDasharray="3 4" strokeWidth={1} />
+              <text x={PL - 5} y={yy + 3.5} textAnchor="end" fontSize={10} fill={TK.sub3}>{Math.round(kMax - t * (kMax - kMin)).toLocaleString()}</text>
+              <text x={W - PR + 5} y={yy + 3.5} textAnchor="start" fontSize={10} fill={TK.green400}>{jo(fMax - t * (fMax - fMin))}</text>
+            </g>
+          )
+        })}
+        {dateIdx.map((di, k) => (
+          <text key={k} x={x(di)} y={H - 5} textAnchor={k === 0 ? 'start' : k === 4 ? 'end' : 'middle'} fontSize={10} fill={TK.sub3}>{fmtD(days[di].d)}</text>
+        ))}
+        <polyline points={pathK} fill="none" stroke={TK.slate300} strokeWidth={1.8} />
+        <polyline points={pathF} fill="none" stroke={TK.green400} strokeWidth={1.8} />
+      </svg>
+      <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 6, lineHeight: 1.6 }}>
+        두 선이 함께 움직이는 게 보이시죠 — 외국인은 코스피의 큰손이라 <b>그들의 매매 자체가 그날의 지수</b>입니다.
+        ⚠️ 다만 우리 실측(1,150일)에서 <b>오늘까지의 수급으로 내일 이후를 맞히는 힘은 없었습니다</b>(예측 상관 0) —
+        이 차트는 타이밍 도구가 아니라 &ldquo;외국인이 지금 한국 시장을 어떻게 대하고 있나&rdquo;를 읽는 관찰 도구입니다.
+      </div>
+    </div>
   )
 }
 
@@ -151,6 +217,8 @@ export default function MarketFlowKr() {
 
   return (
     <div style={{ background: CARD, borderRadius: 12, padding: '16px 18px', border: `1px solid ${BORDER}` }}>
+      {/* 📈 지수 투자 학생용 — 코스피 × 외인 누적 오버레이(랭킹보다 먼저, 시장 전체 그림부터) */}
+      <KospiFlowOverlay />
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 18 }}>🌐</span>
         <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 16 }}>국내 시장 수급 랭킹</span>
