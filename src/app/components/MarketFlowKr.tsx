@@ -90,11 +90,23 @@ function KospiFlowOverlay() {
         <polyline points={pathK} fill="none" stroke={TK.slate300} strokeWidth={1.8} />
         <polyline points={pathF} fill="none" stroke={TK.green400} strokeWidth={1.8} />
       </svg>
-      <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 6, lineHeight: 1.6 }}>
-        두 선이 함께 움직이는 게 보이시죠 — 외국인은 코스피의 큰손이라 <b>그들의 매매 자체가 그날의 지수</b>입니다.
-        ⚠️ 다만 우리 실측(1,150일)에서 <b>오늘까지의 수급으로 내일 이후를 맞히는 힘은 없었습니다</b>(예측 상관 0) —
-        이 차트는 타이밍 도구가 아니라 &ldquo;외국인이 지금 한국 시장을 어떻게 대하고 있나&rdquo;를 읽는 관찰 도구입니다.
-      </div>
+      {/* ⚠️ 문구는 데이터에서 파생 — "함께 움직인다"를 단정하면 이 기간(지수 상승 vs 외인 대량 매도)처럼
+          방향이 갈린 해에 요약이 차트를 반박한다(2026-08-14 검증에서 실제로 걸림). */}
+      {(() => {
+        const idxRet = (days[days.length - 1].kospi / days[0].kospi - 1) * 100
+        const sameDir = (idxRet >= 0) === (total >= 0)
+        return (
+          <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 6, lineHeight: 1.6 }}>
+            {sameDir ? (
+              <>이 기간 외국인 누적({total >= 0 ? '+' : ''}{jo(total)}원)과 지수({idxRet >= 0 ? '+' : ''}{Math.round(idxRet)}%)는 <b>방향이 같았습니다</b> — 하루하루의 동행(상관 {d.corrDaily >= 0 ? '+' : ''}{d.corrDaily.toFixed(2)})이 긴 흐름으로도 이어진 해입니다.</>
+            ) : (
+              <>흥미로운 그림입니다 — 하루하루는 함께 움직이지만(당일 상관 {d.corrDaily >= 0 ? '+' : ''}{d.corrDaily.toFixed(2)}), 이 기간의 <b>긴 방향은 반대</b>였습니다: 외국인은 {jo(Math.abs(total))}원을 {total >= 0 ? '사는' : '파는'} 동안 지수는 {idxRet >= 0 ? '+' : ''}{Math.round(idxRet)}% {idxRet >= 0 ? '올랐습니다' : '내렸습니다'}. 반대편에서 개인·기관이 그 물량을 받아냈다는 뜻으로, <b>외국인이 곧 지수의 전부는 아닙니다</b>.</>
+            )}
+            {' '}⚠️ 우리 실측(1,150일)에서 <b>오늘까지의 수급으로 내일 이후를 맞히는 힘은 없었습니다</b>(예측 상관 0) —
+            이 차트는 타이밍 도구가 아니라 &ldquo;외국인이 지금 한국 시장을 어떻게 대하고 있나&rdquo;를 읽는 관찰 도구입니다.
+          </div>
+        )
+      })()}
     </div>
   )
 }
