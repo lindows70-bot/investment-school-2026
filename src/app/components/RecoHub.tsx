@@ -11,7 +11,7 @@ interface Lens { icon: string; name: string; basis: string; href: string; color:
 // 최종·종합(위계 상단) — 여러 렌즈를 합치거나 내 손익까지 반영
 const FINAL: Lens[] = [
   { icon: '🎯', name: '통합 추천', color: TK.violet400, href: '/dashboard?tab=moneyflow&view=unified',
-    basis: '가치(25%)·퀄리티(20%)·모멘텀(20%)·주도섹터(10%)·수급(10%)·계절(15%) 6축 종합 랭킹. 펀더멘탈(가치+퀄리티 45%)이 앵커. "여러 근거를 합치면 무엇이 좋은가"의 메인 답.' },
+    basis: '가치(30%)·퀄리티(20%)·모멘텀(25%)·주도섹터(10%)·계절(15%) 종합 랭킹. 펀더멘탈(가치+퀄리티 50%)이 앵커. 수급은 실측에서 예측력이 없어 점수에서 빼고 참고로만 표시. "여러 근거를 합치면 무엇이 좋은가"의 메인 답.' },
   { icon: '🤖', name: 'AI 리밸런싱', color: TK.emerald500, href: '/dashboard?tab=rebalance',
     basis: '통합 추천 + 내 실제 손익(익절/손절 4분면) + 자산배분까지 반영해 "무엇을 빼고 무엇을 담을지" 최종 처방. 궁극의 통합 결정.' },
 ]

@@ -114,11 +114,11 @@ function Item({ it, portfolioKrw, vol }: { it: UnifiedRecoItem; portfolioKrw: nu
         <MiniBar label="🏰 퀄리티" score={it.qualityScore} color={AX.quality} />
         <MiniBar label="📈 모멘텀" score={it.momentumScore} color={AX.momentum} />
         <MiniBar label="🧭 주도섹터" score={it.rotationScore} color={AX.rotation} />
-        {/* 💰 수급 축은 🇰🇷 전용 — 그 외 시장은 일별 투자자별 매매동향 공개 자료가 없어 축에서 뺐다(2026-08-08).
-            숨기지 않고 "왜 없는지"를 말한다: 빈칸이 오해를 만드는 것보다 이유가 보이는 게 낫다. */}
+        {/* 💰 수급은 이제 전 시장 점수 미반영(2026-08-14) — 해외는 데이터 부재(08-08), KR 은 5차 실측에서
+            예측력 0 확정(점수↔60봉 수익 상관 0.0057). 🇰🇷 실데이터는 버리지 않고 '참고'로 계속 보여준다. */}
         {it.market === 'KR'
-          ? <MiniBar label="💰 수급" score={it.supplyScore} color={AX.supply} unknown={!it.supplyKnown} />
-          : <span title="미국·유럽 등은 외국인·기관의 일별 순매수를 공개하지 않습니다. 추정치로 점수를 매기면 없는 정보를 있는 척하게 되므로, 이 시장은 수급 축을 빼고 그 몫(10%)을 💎가치·📈모멘텀에 5%p씩 나눴습니다. 대신 내부자 매수·13F·MFI 는 아래 배지로 계속 보여드립니다."
+          ? <MiniBar label="💰 수급(참고)" score={it.supplyScore} color={AX.supply} unknown={!it.supplyKnown} />
+          : <span title="미국·유럽 등은 외국인·기관의 일별 순매수를 공개하지 않습니다. 대신 내부자 매수·13F·MFI 는 아래 배지로 계속 보여드립니다."
               style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: FS.micro, color: TK.sub2, background: TK.bg3, border: `1px dashed ${BORDER}`, borderRadius: 6, padding: '2px 7px', cursor: 'help' }}>
               💰 수급 <b style={{ color: TK.sub }}>미적용</b>
             </span>}
@@ -270,12 +270,11 @@ export default function UnifiedReco() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemKey])
 
-  if (loading) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: TK.sub }}>🎯 가치·퀄리티·모멘텀·주도섹터·수급·계절 6축을 융합해 통합 추천을 계산 중입니다…</div>
+  if (loading) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: TK.sub }}>🎯 가치·퀄리티·모멘텀·주도섹터·계절 5축을 융합해 통합 추천을 계산 중입니다…</div>
   if (!data) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: TK.sub }}>통합 추천 데이터를 불러오지 못했습니다.</div>
   if (data.warming || data.items.length === 0) return <div style={{ background: CARD, borderRadius: 12, padding: 24, border: `1px solid ${BORDER}`, color: TK.sub }}>🎯 추천 유니버스를 준비 중입니다. 거시경제 AI 추천 탭을 한 번 열어 데이터를 적재한 뒤 다시 시도해 주세요.</div>
 
   // ⚖️ 해외 가중치 — 옛 캐시(v60 이하)엔 없으므로 있을 때만 두 번째 줄을 그린다(undefined 렌더 방지)
-  const wg = data.weightsGlobal ?? null
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -290,16 +289,15 @@ export default function UnifiedReco() {
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'linear-gradient(135deg,rgba(245,158,11,0.10),rgba(96,165,250,0.06))', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12, padding: '12px 16px' }}>
         <span style={{ fontSize: 18 }}>🎯</span>
         <div>
-          <div style={{ color: TK.amber500, fontWeight: 800, fontSize: 12, marginBottom: 3 }}>통합 추천 — 가치 × 퀄리티 × 모멘텀 × 주도섹터 × 수급 × 계절 융합</div>
+          <div style={{ color: TK.amber500, fontWeight: 800, fontSize: 12, marginBottom: 3 }}>통합 추천 — 가치 × 퀄리티 × 모멘텀 × 주도섹터 × 계절 융합</div>
           <div style={{ color: TK.sub5, fontSize: 12, lineHeight: 1.6 }}>
-            💎가치(PEG·어닝일드·FCF)·🏰퀄리티(영업이익률·ROE·저부채·이익질)·📈모멘텀(Fwd EPS·주가추세)·🧭주도섹터(지금 돈이 도는 섹터)·💰수급(스마트머니)·🌦️계절(매크로)을 <b>하나의 점수</b>로 합칩니다. <b>펀더멘탈(가치+퀄리티 45%)이 앵커</b>이고 수급·모멘텀·주도섹터는 가볍게 — 여섯 축이 모두 높은 종목이 최상위. 왜 추천됐는지 소점수로 투명하게.
+            💎가치(PEG·어닝일드·FCF)·🏰퀄리티(영업이익률·ROE·저부채·이익질)·📈모멘텀(Fwd EPS·주가추세)·🧭주도섹터(지금 돈이 도는 섹터)·🌦️계절(매크로)을 <b>하나의 점수</b>로 합칩니다. <b>펀더멘탈(가치+퀄리티 50%)이 앵커</b> — 축이 모두 높은 종목이 최상위. 💰수급은 5차 실측에서 예측력이 없어 점수에서 빼고 <b>참고 정보</b>로만 보여드립니다.
           </div>
-          {/* ⚖️ 가중치는 **시장별로 다르다** — 하나만 적으면 요약이 상세를 반박한다("수급 10%"라고 읽었는데
-              미국 카드엔 '수급 미적용'이 뜬다). 둘 다 적고 왜 다른지도 한 줄로 밝힌다(2026-08-08). */}
+          {/* ⚖️ 2026-08-14부터 전 시장 동일 가중(수급 0%) — KR 실수급 5차 검증에서 예측력 0(상관 0.0057) 확정.
+              수급 정보 자체는 카드의 '수급(참고)' 바·수급 레이더로 계속 노출한다(점수만 뺐다). */}
           <div style={{ color: TK.sub2, fontSize: 11, marginTop: 4, lineHeight: 1.7 }}>
-            🇰🇷 국내 = 💎 가치 {pct(data.weights.value)} + 🏰 퀄리티 {pct(data.weights.quality)} + 📈 모멘텀 {pct(data.weights.momentum)} + 🧭 주도섹터 {pct(data.weights.rotation)} + 💰 수급 {pct(data.weights.supply)} + 🌦️ 계절 {pct(data.weights.season)}
-            {wg && (<><br />🌍 해외 = 💎 가치 <b style={{ color: TK.green400 }}>{pct(wg.value)}</b> + 🏰 퀄리티 {pct(wg.quality)} + 📈 모멘텀 <b style={{ color: TK.green400 }}>{pct(wg.momentum)}</b> + 🧭 주도섹터 {pct(wg.rotation)} + 🌦️ 계절 {pct(wg.season)}
-              <span style={{ color: TK.sub }}> — 해외는 외국인·기관의 <b>일별 순매수를 공개하지 않아</b> 수급 축을 빼고, 그 몫을 가치·모멘텀에 나눴습니다(없는 데이터로 점수를 매기지 않기 위해). 내부자 매수·13F·MFI는 배지로 계속 표시합니다.</span></>)}
+            ⚖️ 전 시장 = 💎 가치 {pct(data.weights.value)} + 🏰 퀄리티 {pct(data.weights.quality)} + 📈 모멘텀 {pct(data.weights.momentum)} + 🧭 주도섹터 {pct(data.weights.rotation)} + 🌦️ 계절 {pct(data.weights.season)}
+            <span style={{ color: TK.sub }}> — 💰 수급은 국내 353종·4년 실측에서 <b>미래 수익 예측력이 없어</b>(점수-수익 상관 0.01) 점수에서 빼고 참고 정보로만 보여드립니다. 해외는 일별 수급 미공개로 원래 제외였습니다.</span>
             {data.usSeason && <> · 🇺🇸 {data.usSeason.label.split(' ')[0]} · 🇰🇷 {data.krSeason.label.split(' ')[0]}</>}
           </div>
           {data.selectionRule && <div style={{ color: TK.sub, fontSize: 10.5, marginTop: 3 }}>📋 선별 기준: {data.selectionRule} → 총 <b style={{ color: TK.slate300 }}>{data.items.length}종</b></div>}
