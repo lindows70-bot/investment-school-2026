@@ -26,7 +26,7 @@ import {
   Trophy, Users, Star, Flame, BarChart2,
   ChevronUp, ChevronDown, Minus, Loader2, AlertCircle,
 } from 'lucide-react'
-import type { TrendingStock, SchoolLeagueData } from '@/app/api/school-league/route'
+import type { TrendingStock, SchoolLeagueData, LynchKey } from '@/app/api/school-league/route'
 import { TK } from '@/lib/theme'
 
 // ── 디자인 토큰 ──────────────────────────────────────────────────
@@ -260,9 +260,12 @@ export default function SchoolLeague() {
   const [period]                          = useState<Period>('cumulative')
 
   // ── 리밸런싱 시뮬레이터 상태 ─────────────────────────────────
-  const [totalAssets,     setTotalAssets]     = useState<number>(0)    // 현재 총 자산 (투자금 기준 자동 로드)
+  const [totalAssets,     setTotalAssets]     = useState<number>(0)    // 현재 총 자산 (**평가액** 기준 자동 로드)
   const [assetAutoLoaded, setAssetAutoLoaded] = useState(false)         // 자동 로드 여부
   const [addCashMans,     setAddCashMans]     = useState<number>(0)     // 추가 투자금 (항상 万원 단위로 저장)
+  /** 🍀 내 실제 보유 중 린치 분류가 있는 위성 종목 — 하드코딩 샘플을 대체한다(제1원칙) */
+  const [myLynchStocks,   setMyLynchStocks]   = useState<{ ticker: string; name: string; lynch: LynchKey; per: number | null; peg: number | null }[]>([])
+  const [lynchLoaded,     setLynchLoaded]     = useState(false)          // 로딩/빈 상태를 구분하기 위한 플래그
   const [cashUnit,        setCashUnit]        = useState<'만원' | '원'>('만원') // 입력 표시 단위 (기본: 만원)
 
   // ── 현재 로그인 유저 이름 ────────────────────────────────────
@@ -296,8 +299,14 @@ export default function SchoolLeague() {
     load()
   }, [])
 
-  // ── 내 총 자산 자동 로드 (투자금 기준 — 현재가 불필요) ──────────
-  // purchase_price × quantity × 환율 합산 → 총 투자 원금 계산
+  // ── 내 보유 자동 로드 — ① 리밸런싱용 평가액 ② 린치 분류·PEG 산점도용 실제 종목 ──
+  // ⚠️ 2026-08-14 이전 결함 둘을 함께 고친다:
+  //   ① 총자산에 **매수원금**을 넣고 라벨은 "현재 총 자산"이었다. 게다가 코어 금액을
+  //      `원금총액 × 평가기준 코어비율` 로 계산해 **어느 잣대에도 없는 값**이 나왔다
+  //      (실측 ₩1153만 — 평가액 기준 실제는 ₩1044만, 원금 기준은 ₩965만).
+  //      → 평가액으로 통일한다(coreRatio 가 평가액 기준이므로 이제 잣대가 하나).
+  //   ② 린치 분류·PEG 산점도가 **하드코딩 12종목**이었다(제1원칙 위반). 학생 6명 중
+  //      실제 보유와 겹치는 건 1~6개뿐이라 남의 포트폴리오를 자기 것으로 보고 있었다.
   useEffect(() => {
     const load = async () => {
       try {
@@ -306,22 +315,76 @@ export default function SchoolLeague() {
         if (!user) return
         const { data: invs } = await sb
           .from('investments')
-          .select('purchase_price, quantity, currency')
+          .select('ticker, name, market, currency, purchase_price, quantity, asset_role, lynch_category')
           .eq('user_id', user.id)
         if (!invs?.length) return
+
         // 환율은 라이브(/api/exchange-rate) — 실패 시에만 폴백(제1원칙: 하드코딩 금지)
         let fx = 1_350
         try {
           const fr = await fetch('/api/exchange-rate')
           if (fr.ok) { const fj = await fr.json(); if (typeof fj?.rate === 'number' && fj.rate > 500) fx = fj.rate }
         } catch { /* 폴백 유지 */ }
+
+        // 현재가 배치 조회 — 평가액 계산용(본인 데이터라 노출 문제 없음)
+        const uniq: { ticker: string; market: string }[] = []
+        const seenT = new Set<string>()
+        for (const i of invs) {
+          const k = `${i.market}:${i.ticker}`
+          if (!seenT.has(k)) { seenT.add(k); uniq.push({ ticker: String(i.ticker), market: String(i.market ?? 'KR') }) }
+        }
+        const priceMap: Record<string, number> = {}
+        try {
+          for (let s = 0; s < uniq.length; s += 30) {
+            const pr = await fetch('/api/stock-price', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(uniq.slice(s, s + 30)),
+            })
+            if (pr.ok) for (const d of await pr.json() as { ticker: string; currentPrice: number }[]) {
+              if (d.currentPrice > 0) priceMap[d.ticker.toUpperCase()] = d.currentPrice
+            }
+          }
+        } catch { /* 가격 실패 시 아래에서 원가로 대체 */ }
+
+        // 평가액 — 가격을 못 구한 종목만 매수원가로 대체(스쿨 리그 API 와 같은 관례)
         const total = invs.reduce((s, i) => {
           const rate = i.currency === 'USD' ? fx : 1
-          return s + (Number(i.purchase_price) || 0) * (Number(i.quantity) || 0) * rate
+          const px = priceMap[String(i.ticker ?? '').toUpperCase()]
+          const qty = Number(i.quantity) || 0
+          return s + (px ? px * qty * rate : (Number(i.purchase_price) || 0) * qty * rate)
         }, 0)
         setTotalAssets(Math.round(total))
         setAssetAutoLoaded(true)
+
+        // ── 린치 분류·PEG 산점도용 실제 보유 ────────────────────────
+        // 위성(Satellite) 자산 + 린치 분류가 있는 종목만 — 스쿨 평균(schoolLynchAvg)과 **같은 모수**여야
+        // '종목은 있는데 내 비중 0%' 같은 자기모순이 안 생긴다.
+        const VALID: LynchKey[] = ['fast_grower', 'stalwart', 'slow_grower', 'cyclical', 'asset_play', 'turnaround']
+        const targets = invs
+          .filter(i => (i.asset_role ?? 'SATELLITE') === 'SATELLITE')
+          .filter(i => i.lynch_category && VALID.includes(i.lynch_category as LynchKey))
+          .slice(0, 24)                                   // 과도한 fetch 방지(현실적으로 24종 이하)
+        const rows = await Promise.all(targets.map(async i => {
+          const mk = String(i.market ?? 'KR').toUpperCase()
+          let per: number | null = null, peg: number | null = null
+          try {
+            const r = await fetch(`/api/stock-info?ticker=${encodeURIComponent(String(i.ticker))}&market=${mk === 'KR' ? 'KR' : 'US'}`)
+            if (r.ok) {
+              // ⚠️ pe·peg 는 **fundamentals 안에 중첩**돼 있다(2026-08-14 실측 — 최상위로 읽으면
+              //    전 종목이 조용히 null 이 돼 산점도가 통째로 빈다. 필드 경로는 짐작하지 말고 응답을 덤프해 확인할 것).
+              const f = (await r.json())?.fundamentals
+              if (typeof f?.pe === 'number' && f.pe > 0) per = f.pe
+              if (typeof f?.peg === 'number' && f.peg > 0) peg = f.peg
+            }
+          } catch { /* 개별 실패는 그 종목만 PEG 없음 */ }
+          return {
+            ticker: String(i.ticker), name: String(i.name ?? i.ticker),
+            lynch: i.lynch_category as LynchKey, per, peg,
+          }
+        }))
+        setMyLynchStocks(rows)
       } catch { /* 수동 입력으로 대체 */ }
+      finally { setLynchLoaded(true) }
     }
     load()
   }, [])
@@ -1040,7 +1103,7 @@ export default function SchoolLeague() {
                 value: totalAssets > 0
                   ? `₩${(totalAssets / 10_000).toFixed(0)}만`
                   : '—',
-                sub:   assetAutoLoaded ? '투자 원금 기준 자동 로드' : '아래에서 직접 입력하세요',
+                sub:   assetAutoLoaded ? '현재 평가액 기준 자동 로드' : '아래에서 직접 입력하세요',
                 color: C.amber,
               },
               {
@@ -1447,22 +1510,31 @@ export default function SchoolLeague() {
         const dominant    = [...LYNCH_META].sort((a, b) => (schoolAvg[b.key] ?? 0) - (schoolAvg[a.key] ?? 0))[0]
         const dominantPct = schoolAvg[dominant.key] ?? 0
 
-        // ── PEG 산점도 데이터 (중복 방지: 종목당 단일 lynchType) ──
-        // 중복 방지: 각 종목에 단일 lynchType 지정 / 한국 6자리 티커 포함
-        const PEG_DATA = [
-          { name:'엔비디아',          ticker:'NVDA',   lynchType:'고성장주',    per:32.5, growthRate:35, peg:0.93 },
-          { name:'팔란티어',          ticker:'PLTR',   lynchType:'고성장주',    per:45.0, growthRate:50, peg:0.90 },
-          { name:'한화에어로스페이스', ticker:'012450', lynchType:'고성장주',    per:28.0, growthRate:25, peg:1.12 },
-          { name:'GE Vernova',       ticker:'GEV',    lynchType:'고성장주',    per:52.0, growthRate:38, peg:1.37 },
-          { name:'삼성전자',           ticker:'005930', lynchType:'대형우량주',  per:14.5, growthRate:12, peg:1.21 },
-          { name:'마이크로소프트',     ticker:'MSFT',   lynchType:'대형우량주',  per:28.0, growthRate:14, peg:2.00 },
-          { name:'SK하이닉스',        ticker:'000660', lynchType:'경기순환주',  per:10.0, growthRate:35, peg:0.29 },
-          { name:'현대차',             ticker:'005380', lynchType:'경기순환주',  per:6.5,  growthRate:8,  peg:0.81 },
-          { name:'HD현대중공업',       ticker:'329180', lynchType:'경기순환주',  per:18.0, growthRate:20, peg:0.90 },
-          { name:'두산에너빌리티',     ticker:'034020', lynchType:'턴어라운드주', per:20.0, growthRate:22, peg:0.91 },
-          { name:'코카콜라',           ticker:'KO',     lynchType:'저성장주',    per:22.0, growthRate:5,  peg:4.40 },
-          { name:'삼성생명',           ticker:'032830', lynchType:'저성장주',    per:8.0,  growthRate:8,  peg:1.00 },
-        ]
+        // ── PEG 산점도 데이터 — **내 실제 보유**에서 생성(2026-08-14) ──
+        // ⚠️ 여기 있던 12종목 하드코딩 배열을 제거했다. 학생 6명 중 실제 보유와 겹치는 건 1~6개뿐이라
+        //    "내 포트폴리오 PEG 분포도"가 **누구의 포트폴리오도 아니었다**(제1원칙 위반).
+        //    PER·PEG 는 stock-info SSOT 값을 그대로 쓰고, 성장률은 PER÷PEG 로 역산한다
+        //    (PEG = PER ÷ 성장률% 이 정의라 점이 PEG 등고선 위에 정확히 놓인다 — 자체 재계산 금지).
+        const LABEL_OF: Record<LynchKey, string> = {
+          fast_grower: '고성장주', stalwart: '대형우량주', slow_grower: '저성장주',
+          cyclical: '경기순환주', asset_play: '자산주', turnaround: '턴어라운드주',
+        }
+        const withPeg = myLynchStocks
+          .filter(s => s.per != null && s.peg != null && s.peg > 0)
+          .map(s => ({
+            name: s.name, ticker: s.ticker, lynchType: LABEL_OF[s.lynch],
+            per: s.per as number, growthRate: Math.round((s.per as number) / (s.peg as number) * 10) / 10,
+            peg: s.peg as number,
+          }))
+        // ⚠️ 기저효과 컷 — 이익이 붕괴했다 회복하면 성장률이 100%+ 로 튀어 PEG 가 0 에 수렴한다.
+        //    실측(2026-08-14): SK하이닉스 PEG 0.09(성장률 123%)·원익IPS 0.13(305%)·인텔리안테크 0.18(475%).
+        //    이걸 그대로 그리면 '매력적 저평가' 초록 점이 되고, X축도 475% 까지 늘어나 나머지가 뭉갠다.
+        //    앱이 다른 화면에서 쓰는 pegSuspect 와 같은 기준(성장률 100%↑)으로 산점도에서만 제외한다.
+        const BASE_EFFECT_MAX = 100
+        const PEG_DATA   = withPeg.filter(s => s.growthRate <= BASE_EFFECT_MAX)
+        const pegSuspect = withPeg.length - PEG_DATA.length          // 기저효과로 제외한 수
+        const pegMissing = myLynchStocks.length - withPeg.length     // PER·PEG 자체를 못 구한 수
+        const suspectTickers = new Set(withPeg.filter(s => s.growthRate > BASE_EFFECT_MAX).map(s => s.ticker))
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const PegTooltip = ({ active, payload }: any) => {
@@ -1491,7 +1563,9 @@ export default function SchoolLeague() {
               <SectionHeader
                 icon={<span style={{ fontSize:16 }}>📊</span>}
                 title="피터 린치 6대 종목 분류 현황"
-                subtitle="각 종목은 주분류 기준으로 중복 없이 단일 배치됩니다"
+                subtitle={lynchLoaded
+                  ? `내 위성(Satellite) 보유 중 린치 분류가 매겨진 ${myLynchStocks.length}종 · 스쿨 평균과 같은 기준(ETF·코인은 분류 대상 아님)`
+                  : '내 보유 종목을 불러오는 중…'}
               />
 
               {hasData && dominantPct > 0 && (
@@ -1514,7 +1588,9 @@ export default function SchoolLeague() {
                 {LYNCH_META.map(m => {
                   const schoolPct = schoolAvg[m.key] ?? 0
                   const myPct     = myDist?.[m.key]  ?? 0
-                  const typeStocks = PEG_DATA.filter(s => s.lynchType === m.label)
+                  // ⚠️ 목록은 **PEG 유무와 무관하게** 내 보유 전체에서 뽑는다 — PEG 못 구한 종목이
+                  //    목록에서 사라지면 '종목 수'와 '내 비중'의 모수가 또 갈린다(같은 결함의 재발).
+                  const typeStocks = myLynchStocks.filter(s => s.lynch === m.key)
                   return (
                     <div key={m.key} style={{
                       padding:'13px 14px', borderRadius:11,
@@ -1537,10 +1613,17 @@ export default function SchoolLeague() {
                           ? typeStocks.map(s => (
                             <div key={s.ticker} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'5px 8px', borderRadius:6, background:C.card, border:`1px solid ${C.border}` }}>
                               <span style={{ fontSize:11, fontWeight:600, color:C.textHi }}>{s.name}</span>
-                              <span style={{ fontSize:9, color:C.textLow, fontFamily:'monospace' }}>{s.ticker} · PEG {s.peg}</span>
+                              <span
+                                title={suspectTickers.has(s.ticker) ? '이익 회복기라 성장률이 100%를 넘어 PEG가 실제보다 낮게 보입니다(기저효과) — 산점도에서는 제외했습니다.' : undefined}
+                                style={{ fontSize:9, color:suspectTickers.has(s.ticker) ? C.amber : C.textLow, fontFamily:'monospace' }}
+                              >
+                                {s.ticker} · PEG {s.peg != null ? s.peg.toFixed(2) : '—'}{suspectTickers.has(s.ticker) ? ' ⚠️' : ''}
+                              </span>
                             </div>
                           ))
-                          : <div style={{ fontSize:10, color:C.textLow, textAlign:'center', padding:'6px 0', fontStyle:'italic' }}>보유 종목 없음</div>
+                          : <div style={{ fontSize:10, color:C.textLow, textAlign:'center', padding:'6px 0', fontStyle:'italic' }}>
+                              {lynchLoaded ? '보유 종목 없음' : '불러오는 중…'}
+                            </div>
                         }
                       </div>
 
@@ -1574,10 +1657,22 @@ export default function SchoolLeague() {
             <Card>
               <SectionHeader
                 icon={<span style={{ fontSize:16 }}>📈</span>}
-                title="포트폴리오 PEG 분포도 (성장률 vs PER)"
-                subtitle="PEG=1.0 대각선 아래에 위치할수록 성장 대비 저평가된 매력적인 종목입니다"
+                title="내 포트폴리오 PEG 분포도 (성장률 vs PER)"
+                subtitle={`PEG=1.0 대각선 아래에 위치할수록 성장 대비 저평가 · 내 보유 ${PEG_DATA.length}종${pegSuspect > 0 ? ` · ⚠️ 기저효과 의심 ${pegSuspect}종 제외(성장률 100%↑)` : ''}${pegMissing > 0 ? ` · PER·PEG 미확보 ${pegMissing}종 제외` : ''}`}
               />
 
+              {/* 빈 상태를 '로딩'과 구분해서 말한다 — 둘을 같은 문구로 쓰면 학생이 고장으로 읽는다 */}
+              {PEG_DATA.length === 0 ? (
+                <div style={{ height:120, borderRadius:10, background:C.surface, border:`1px solid ${C.border}`, display:'flex', alignItems:'center', justifyContent:'center', textAlign:'center', fontSize:12, color:C.textLow, lineHeight:1.7, padding:'0 20px' }}>
+                  {!lynchLoaded
+                    ? '내 보유 종목의 PER·PEG를 불러오는 중…'
+                    : myLynchStocks.length === 0
+                      ? '린치 6대 분류가 매겨진 위성 종목이 없습니다 — 개별주를 등록하면 여기에 표시됩니다.'
+                      : pegSuspect > 0
+                        ? `보유 ${myLynchStocks.length}종 중 그릴 수 있는 종목이 없습니다 — ${pegSuspect}종은 이익 회복기(성장률 100%↑)라 PEG가 왜곡돼 제외했고, 나머지는 PER·PEG를 구하지 못했습니다.`
+                        : `보유 ${myLynchStocks.length}종의 PER·PEG를 아직 구하지 못했습니다(적자 기업·ETF 등은 PEG 계산이 불가능합니다).`}
+                </div>
+              ) : (
               <div style={{ height:300, borderRadius:10, background:C.surface, border:`1px solid ${C.border}`, padding:'12px 6px 4px 0' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <ScatterChart margin={{ top:10, right:20, bottom:30, left:10 }}>
@@ -1621,6 +1716,7 @@ export default function SchoolLeague() {
                   </ScatterChart>
                 </ResponsiveContainer>
               </div>
+              )}
 
               <div style={{ display:'flex', gap:16, marginTop:10, flexWrap:'wrap' }}>
                 {[
@@ -1641,7 +1737,8 @@ export default function SchoolLeague() {
                   초록색 마커(PEG ≤ 1.0)는 피터린치식 관점에서 <span style={{ color:C.green, fontWeight:700 }}>성장성 대비 저평가</span>된 상태입니다.
                   빨간색 마커 종목은 성장 기대치가 이미 주가에 반영됐을 수 있으므로 비중 조절을 검토하세요.
                   <span style={{ color:C.textLow, display:'block', marginTop:4, fontSize:11 }}>
-                    * 본 차트는 참고용 추정치이며, 실제 투자 시 최신 컨센서스 기준으로 검증이 필요합니다.
+                    * PER·PEG는 앱의 종목 정보(stock-info) 값이고 성장률은 PER÷PEG로 역산한 것입니다.
+                    실제 투자 시 최신 컨센서스로 다시 확인하세요.
                   </span>
                 </div>
               </div>
