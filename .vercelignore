@@ -11,3 +11,8 @@
 .env
 .env.*
 !.env.example
+
+# 🎬 유튜브 캡처 산출물 — vercel --prod 는 작업 디렉토리를 올리므로
+#    막지 않으면 포트폴리오 화면 PNG 수십 장이 배포 번들에 실린다(.env.local 유출과 같은 경로).
+youtube-captures/
+.bt-supply-cache/
