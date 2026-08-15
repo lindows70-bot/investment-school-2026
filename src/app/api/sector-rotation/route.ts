@@ -110,15 +110,23 @@ export async function GET(req: Request) {
   const mean1w = secs.reduce((s, x) => s + (x.ret1w as number), 0) / secs.length
 
   const items: RotationItem[] = secs.map(x => {
-    const rs = Math.round(((x.ret1m as number) - mean1m) * 10) / 10   // 상대강도(1M)
-    const mom = Math.round(((x.ret1w as number) - mean1w) * 10) / 10   // 모멘텀(1W peer 대비)
+    // ⚠️ 판정은 **원값**으로, 표시만 반올림한다(2026-08-15 실측 결함).
+    //    전에는 반올림한 rs·mom 을 QUAD 에 넘겨, 모멘텀이 +0.04%p 인 섹터가 0.0 으로 접힌 뒤
+    //    `mom > 0` 을 통과 못 해 **🔥과열(강했으나 둔화)** 로 찍혔다. 실제로 AI바이오가 그 케이스였고,
+    //    과열은 학생에게 '차익 경계' 행동 신호라 반올림 한 자리가 판정을 뒤집으면 안 된다.
+    //    (소섹터 판정 subFlow.scoreSubFlow 는 이미 원값을 쓴다 — 두 층의 잣대를 맞추는 셈이다.)
+    const rsRaw = (x.ret1m as number) - mean1m       // 상대강도(1M)
+    const momRaw = (x.ret1w as number) - mean1w      // 모멘텀(1W peer 대비)
+    const rs = Math.round(rsRaw * 10) / 10
+    const mom = Math.round(momRaw * 10) / 10
+    // score 는 화면의 rs·mom 으로 학생이 검산할 수 있어야 하므로 **표시값**으로 계산한다(오차 ≤0.05)
     const score = Math.round((0.6 * rs + 0.4 * mom) * 10) / 10
     return {
       key: x.key, label: x.label, emoji: x.emoji, group: x.group,
       ret1w: x.ret1w != null ? Math.round(x.ret1w * 10) / 10 : null,
       ret1m: x.ret1m != null ? Math.round(x.ret1m * 10) / 10 : null,
       ret1y: x.ret1y != null ? Math.round(x.ret1y * 10) / 10 : null,
-      rs, mom, quadrant: QUAD(rs, mom), score, count: x.count,
+      rs, mom, quadrant: QUAD(rsRaw, momRaw), score, count: x.count,
     }
   }).sort((a, b) => b.score - a.score)
 

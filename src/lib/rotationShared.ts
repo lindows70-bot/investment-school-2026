@@ -8,7 +8,9 @@
 import { getCache } from './appCache'
 
 /** 섹터 로테이션 일별 캐시 키 — writer(sector-rotation route)·reader 전원이 이것만 쓴다 */
-export const SECTOR_ROTATION_KEY = (dateKst: string) => `sector-rotation-v14:${dateKst}`
+// v15: 사분면 판정을 원값 기준으로(반올림 0.0 이 '과열'로 뒤집히던 결함) — quadrant 가 바뀌므로
+//      이 키를 읽는 6곳(통합추천·종합판정·승패해부·타점워처·ETF대안)의 주도섹터 축까지 함께 갱신된다.
+export const SECTOR_ROTATION_KEY = (dateKst: string) => `sector-rotation-v15:${dateKst}`
 
 /** Yahoo GICS 섹터명 → 로테이션 시계 키(GICS 11만 — 테마 6은 종목 중복 소속이라 매핑 제외) */
 export const SECTOR_TO_ROT: Record<string, string> = {

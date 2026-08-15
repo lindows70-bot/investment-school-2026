@@ -16,7 +16,8 @@ const QN: Record<Quadrant, string> = { leading: '주도', weakening: '과열', l
 // 풀 라벨(키별 고정) — 잘림 없이 전체 표기
 const FULL: Record<string, string> = {
   energy: '에너지', materials: '소재', industrials: '산업재', discretionary: '자유소비재', staples: '필수소비재',
-  healthcare: '헬스케어', financials: '금융', infotech: '정보기술', communication: '커뮤니케이션', utilities: '유틸리티', realestate: '리츠',
+  // realestate 는 '부동산' — SSOT 라벨('부동산(리츠)')·대시보드 섹터 탭과 첫 단어를 맞춘다('리츠'로 두면 화면마다 다른 이름이 된다)
+  healthcare: '헬스케어', financials: '금융', infotech: '정보기술', communication: '커뮤니케이션', utilities: '유틸리티', realestate: '부동산',
   quantum: '양자컴퓨팅', 'ai-semi': 'AI반도체', power: 'AI전력망', 'phys-ai': '피지컬AI', 'ai-bio': 'AI바이오', defense: '우주항공·방산',
 }
 
@@ -311,7 +312,10 @@ function Rank({ title, color, items, onSel, sel }: { title: string; color: strin
       {items.length ? items.map((it, i) => (
         <div key={it.key} onClick={() => onSel(it.key)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: '4px 6px', borderRadius: 6, background: sel === it.key ? '#1b2230' : 'transparent', marginBottom: 2 }}>
           <span style={{ color: TK.sub, fontSize: 10, width: 12 }}>{i + 1}</span>
-          <span style={{ color: TK.slate200, fontSize: 12, fontWeight: 600, flex: 1 }}>{it.emoji} {it.label.replace(/\s*\(.*\)/, '')}</span>
+          {/* ⚠️ 라벨은 반드시 FULL(짧은 이름) — 이 줄만 API 원본 label 을 쓰다가 같은 화면에서
+              시계 "리츠" vs 랭킹 "부동산", 시계 "AI반도체" vs 랭킹 "차세대 AI 반도체 & 신소재" 로
+              7개 섹터가 두 이름을 갖고 있었다(2026-08-15 화면검증). 다른 4개 표면은 이미 FULL 을 쓴다. */}
+          <span style={{ color: TK.slate200, fontSize: 12, fontWeight: 600, flex: 1 }}>{it.emoji} {FULL[it.key] ?? it.label.replace(/\s*\(.*\)/, '')}</span>
           <span style={{ fontSize: 9.5, color: QC[it.quadrant], fontWeight: 700, marginRight: 2 }}>{QI[it.quadrant]}{QN[it.quadrant]}</span>
           <span style={{ color, fontSize: 11, fontWeight: 800, fontFamily: 'monospace' }}>{it.score >= 0 ? '+' : ''}{it.score}</span>
         </div>
