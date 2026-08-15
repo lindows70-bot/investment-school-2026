@@ -26,12 +26,14 @@ export interface SwingGrade {
   pending: number                  // 적립됐지만 아직 기간 미경과
   cohorts: number                  // 서로 다른 진입 '주(週)' 수 — 1이면 그 주의 장세일 수 있다
   winRate: number | null
-  avgPct: number | null            // 평균 수익률(보유 기간 종료 시점 기준)
+  /** 평균 수익률 — **규칙 준수 기준**. 손절선을 깬 건은 그 가격에 종료한 것으로 채점한다(2026-08-15).
+   *  손절을 무시하고 끝까지 보유한 수익률로 매기면, 앱이 내건 규칙과 성적의 잣대가 갈린다. */
+  avgPct: number | null
   medPct: number | null
   /** 수익 인자 = 총이익 ÷ 총손실. 승률이 높아도 PF<1 이면 지는 시스템이다(큰 손실 몇 번이 다 까먹는 구조).
    *  손실이 0건이면 null(∞ 표기는 가짜 정밀). 참고 기준: 1.5↑ 견고 · 1.0↓ 무효(성과 평가 프레임워크 문서). */
   profitFactor: number | null
-  stopHitRate: number | null       // 보유 중 손절선을 건드린 비율
+  stopHitRate: number | null       // 보유 중 손절선을 깬 비율(= 손절가로 종료 처리된 비율)
   thin: boolean                    // 표본이 얇거나 시점이 하나뿐
   firstDate: string | null
 }

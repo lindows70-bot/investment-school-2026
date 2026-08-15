@@ -11,7 +11,9 @@ const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0,
 
 export async function GET(req: Request) {
   const refresh = new URL(req.url).searchParams.get('refresh') === '1'
-  const key = `swing-radar-v10:${kstDate()}`  // v10: 학생 보유 종목 스캔 포함 / v9: 트랙 D 추격 가드+성적 갱신
+  // v11: 채점을 **규칙 준수**(손절선 이탈 시 그 가격에 종료) 기준으로 — recent 에 retHoldPct 필드가 늘어난다
+  //      (스키마 확장도 키를 올린다: 옛 응답이 서빙되면 새 필드가 통째로 undefined 로 온다)
+  const key = `swing-radar-v11:${kstDate()}`  // v10: 학생 보유 종목 스캔 포함 / v9: 트랙 D 추격 가드+성적 갱신
   if (!refresh) {
     const cached = await getCache<SwingRadar>(key, 12 * 3600_000)
     if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })

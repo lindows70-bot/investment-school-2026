@@ -308,6 +308,11 @@ function SwingRecord({ d }: { d: SwingRadar }) {
           {started ? `${started}부터 적립 중` : '아직 추천 이력이 없습니다'} · 소급 채점 없음
         </span>
       </div>
+      {/* 🛡️ 잣대 선언 — 앱이 "손절선 없으면 추천도 안 한다"고 해놓고 성적은 손절 무시로 매기던 결함을 고쳤다(2026-08-15) */}
+      <div style={{ fontSize: FS.micro, color: TK.sub3, marginTop: 4, lineHeight: 1.6 }}>
+        🛡 채점 기준은 <b style={{ color: TK.slate300 }}>제시한 손절선을 지켰을 때</b>입니다 — 손절선이 깨진 건은 그 가격에 정리한 것으로 계산합니다.
+        추천할 때 손절선을 함께 준 이상, 성적도 같은 규칙으로 재는 게 맞습니다.
+      </div>
 
       {all.n === 0 ? (
         <div style={{ marginTop: 8, fontSize: FS.tiny, color: TK.sub2, lineHeight: 1.7 }}>
@@ -332,6 +337,11 @@ function SwingRecord({ d }: { d: SwingRadar }) {
       {/* 🔬 보유 기간 실험 — "얼마까지 가나"는 이 표가 데이터로 답한다(1주~1달 전 구간 동시 채점) */}
       <div style={{ marginTop: 12, background: TK.bg3, borderRadius: RAD.sm, padding: '10px 12px' }}>
         <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate200 }}>🔬 보유 기간 실험 — 1주·2주·3주·1달을 전부 추적 중</div>
+        {/* ⚠️ 이 표와 🏔️ 최고점은 **손절을 적용하지 않은** 순수 가격 경로다 — 목적이 '얼마나 갔나'라서 그렇다.
+            위쪽 성적표(승률·평균·수익 인자)는 반대로 **손절선을 지킨** 기준이다. 잣대가 다르니 반드시 밝힌다. */}
+        <div style={{ fontSize: FS.micro, color: TK.sub4, marginTop: 3 }}>
+          이 표는 <b>손절선 없이</b> 가격이 어디까지 갔는지만 봅니다(적정 보유 기간을 찾는 게 목적). 위 성적표는 손절선을 지킨 기준이라 숫자가 다를 수 있습니다.
+        </div>
         {d.horizons.some(h => h.n > 0) ? (
           <div style={{ overflowX: 'auto', marginTop: 7 }}>
             <table style={{ borderCollapse: 'collapse', fontSize: FS.micro, color: TK.sub2, minWidth: 420 }}>
@@ -367,7 +377,10 @@ function SwingRecord({ d }: { d: SwingRadar }) {
 
       {d.recent.length > 0 && (
         <div style={{ marginTop: 10 }}>
-          <div style={{ fontSize: FS.micro, color: TK.sub3, marginBottom: 5 }}>최근 추천 내역 — 승률만 보고 믿지 마시고 개별 건을 확인하세요</div>
+          <div style={{ fontSize: FS.micro, color: TK.sub3, marginBottom: 5 }}>
+            최근 추천 내역 — 승률만 보고 믿지 마시고 개별 건을 확인하세요
+            <br /><span style={{ color: TK.sub4 }}>수익률은 <b>손절선을 지켰을 때</b> 기준입니다. 🛡 표시는 손절선이 깨져 그 자리에서 정리된 건이고, 괄호는 그때 안 팔고 끝까지 들고 갔을 경우입니다.</span>
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 200, overflowY: 'auto' }}>
             {d.recent.map((r, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '4px 8px', background: i % 2 ? 'transparent' : TK.bg3, borderRadius: RAD.xs, fontSize: FS.micro }}>
@@ -375,7 +388,14 @@ function SwingRecord({ d }: { d: SwingRadar }) {
                 <span>{r.flag}</span>
                 <span style={{ color: TK.slate300, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
                 <span style={{ color: TK.sub4 }}>{SWING_TRACKS[r.track].icon}</span>
-                {r.stopHit && <span style={{ color: TK.orange400 }} title="보유 중 손절선을 건드렸습니다">🛡</span>}
+                {r.stopHit && <span style={{ color: TK.orange400 }} title="손절선이 깨져 그 가격에 정리된 것으로 채점했습니다">🛡</span>}
+                {/* 손절이 지켜준(또는 깎은) 폭 — 두 값이 실제로 다를 때만 보여준다(같으면 소음) */}
+                {r.stopHit && r.retHoldPct != null && r.retHoldPct !== r.retPct && (
+                  <span style={{ color: TK.sub4, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
+                    title="손절선을 무시하고 보유 기간 끝까지 들고 갔을 경우">
+                    ({r.retHoldPct > 0 ? '+' : ''}{r.retHoldPct}%)
+                  </span>
+                )}
                 <span style={{ minWidth: 54, textAlign: 'right', fontWeight: 800, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
                   color: r.retPct == null ? TK.sub4 : r.retPct > 0 ? TK.green400 : TK.orange400 }}>
                   {r.retPct == null ? '진행 중' : `${r.retPct > 0 ? '+' : ''}${r.retPct}%`}
@@ -403,7 +423,7 @@ function GradeCell({ g }: { g: SwingGrade }) {
           </div>
           <div style={{ fontSize: FS.micro, color: TK.sub3, lineHeight: 1.5 }}>
             {g.n}건{g.pending > 0 && ` · ${g.pending} 대기`} · 평균 {g.avgPct}% · 중위 {g.medPct}%
-            {g.stopHitRate != null && <> · 손절 터치 {g.stopHitRate}%</>}
+            {g.stopHitRate != null && <> · 손절로 끝난 건 {g.stopHitRate}%</>}
             {/* PF = 총이익÷총손실 — 승률이 높아도 이게 1 아래면 지는 시스템이다(큰 손실이 다 까먹는 구조) */}
             {g.profitFactor != null && <> · 수익 인자 <b style={{ color: g.profitFactor >= 1.5 ? TK.green400 : g.profitFactor >= 1 ? TK.sub2 : TK.orange400 }}>{g.profitFactor}</b></>}
           </div>

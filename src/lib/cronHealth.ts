@@ -54,7 +54,7 @@ export const CRON_MONITORS: CronMonitor[] = [
   { id: 'hi52', label: '신고가 레이더 스캔', kst: '09:25', days: 'daily', artifact: { type: 'cacheDate', key: d => `hi52-radar-v2:${d}` }, heal: '/api/hi52-radar', heavy: true },
   { id: 'breadth', label: '시장 폭 레이더 스캔', kst: '09:35', days: 'daily', artifact: { type: 'cacheDate', key: d => BREADTH_KEY(d) }, heal: '/api/market-breadth', heavy: true },
   // 🎯 스윙 스캔 — 성적 적립이 여기 붙어 있다. 조용히 멈추면 **추천 기록 자체가 비므로** 감시가 필수다
-  { id: 'swing', label: '스윙 타점 스캔·성적 적립', kst: '09:35', days: 'daily', artifact: { type: 'cacheDate', key: d => `swing-radar-v10:${d}` }, heal: '/api/swing-radar', heavy: true },
+  { id: 'swing', label: '스윙 타점 스캔·성적 적립', kst: '09:35', days: 'daily', artifact: { type: 'cacheDate', key: d => `swing-radar-v11:${d}` }, heal: '/api/swing-radar', heavy: true },
   { id: 'marketFlowKr', label: '국내 시장 수급 워밍', kst: '20:00', days: 'weekday', artifact: { type: 'cacheDate', key: d => MARKET_FLOW_KR_KEY(d) }, heal: '/api/market-flow-kr' },
   // ⭐ 핵심 추천 전향 적립 — 적립 0건인 날도 run 마커를 남기므로 cacheDate 로 실행 여부만 본다(무신호≠실패)
   { id: 'coreReco', label: '핵심 추천·축 성적 적립', kst: '17:00', days: 'daily', artifact: { type: 'cacheDate', key: d => `core-reco-run-v1:${d}` }, heal: '/api/cron/core-reco' },

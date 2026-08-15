@@ -38,7 +38,8 @@ export interface SwingRadar {
   /** 📋 이 기능이 추천한 것의 **실제 성적**(오늘부터 전향 적립·소급 없음) */
   grades: SwingGrade[]
   /** 최근 채점 내역 — 학생이 개별 건을 눈으로 확인할 수 있게(승률만 보여주면 못 믿는다) */
-  recent: { date: string; ticker: string; name: string; flag: string; track: SwingTrack; retPct: number | null; stopHit: boolean }[]
+  /** retPct = **규칙 준수**(손절선 이탈 시 그 가격에 종료) · retHoldPct = 손절 무시하고 끝까지 보유(참고) */
+  recent: { date: string; ticker: string; name: string; flag: string; track: SwingTrack; retPct: number | null; retHoldPct: number | null; stopHit: boolean }[]
   /** 🚨 진행 중인 추천이 손절선을 깼다 — 매매 브리핑이 크게 띄운다("손절선이 오면 손절한다"가 이 기법의 반쪽) */
   stopAlerts: { date: string; ticker: string; name: string; flag: string; market: 'KR' | 'US'; track: SwingTrack; entry: number; stop: number; last: number; lossPct: number }[]
   /** 📉 거래량 천장 경고 — 진행 중 추천에서 '대량 양봉 → 첫 눌림도 대량' 패턴(readVolumeCaution SSOT).
@@ -196,7 +197,7 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
   const horizonRets: Record<number, number[]> = { 5: [], 10: [], 15: [], 20: [] }
   const peaks: { pct: number; bar: number }[] = []
   for (const e of allHist) {
-    let retPct: number | null = null, stopHit = false
+    let retPct: number | null = null, retHoldPct: number | null = null, stopHit = false
     try {
       const D = await getTechCandles(e.ticker, e.market, 'D')
       if (D && D.length) {
@@ -218,8 +219,18 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
         }
         if (idx >= 0 && idx + e.holdBars < D.length) {
           const win = D.slice(idx, idx + e.holdBars + 1)
-          retPct = Math.round((win[win.length - 1].close / e.entry - 1) * 1000) / 10
-          stopHit = win.some(d => d.low <= e.stop)          // 보유 중 손절선을 건드렸나
+          // 🛡️ **규칙 준수** 채점(2026-08-15) — 손절선을 깬 날 그 가격에 나왔다고 본다.
+          //    전에는 손절을 **무시하고** 보유 기간 끝 종가로만 채점했다. 앱은 "손절선을 못 세우면
+          //    추천조차 안 한다"고 해놓고 성적은 규칙을 안 지킨 시나리오로 매긴 셈이라, 학생이 규칙대로
+          //    따랐을 때 실제로 얻는 성적과 화면 숫자가 서로 다른 것을 재고 있었다.
+          //    ⚠️ k>0 인 이유: 진입은 **종가** 기준이라 진입 당일 저가는 이미 지나간 값이다.
+          //    ⚠️ 체결가를 e.stop 으로 본다 — 갭 하락이면 실제론 더 나쁘다(낙관 방향의 근사, 화면에 병기).
+          const hitBar = win.findIndex((d, k) => k > 0 && d.low <= e.stop)
+          stopHit = hitBar > 0
+          const exit = stopHit ? e.stop : win[win.length - 1].close
+          retPct = Math.round((exit / e.entry - 1) * 1000) / 10
+          // 참고값 — 손절을 안 지키고 끝까지 들고 갔을 때. 둘의 차이가 곧 '손절이 지켜준 폭'이다
+          retHoldPct = Math.round((win[win.length - 1].close / e.entry - 1) * 1000) / 10
         } else if (idx >= 0) {
           // 🚨 아직 보유 기간 안 — **종가**가 손절선 아래로 마감했으면 지금 경고한다
           //    (킴스 'Daily Close' 원칙: 장중 꼬리는 무시, 종가 이탈만 유효)
@@ -248,7 +259,7 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
       }
     } catch { /* 개별 실패는 미채점(null)로 남는다 — 조용히 0으로 세지 않는다 */ }
     scored.push({ entry: e, retPct, stopHit })
-    recent.push({ date: e.date, ticker: e.ticker, name: e.name, flag: flagOf(e.market, e.ticker, null), track: e.track, retPct, stopHit })
+    recent.push({ date: e.date, ticker: e.ticker, name: e.name, flag: flagOf(e.market, e.ticker, null), track: e.track, retPct, retHoldPct, stopHit })
   }
   recent.reverse()
 
