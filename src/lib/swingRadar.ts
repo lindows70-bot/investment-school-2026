@@ -224,10 +224,13 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
           //    추천조차 안 한다"고 해놓고 성적은 규칙을 안 지킨 시나리오로 매긴 셈이라, 학생이 규칙대로
           //    따랐을 때 실제로 얻는 성적과 화면 숫자가 서로 다른 것을 재고 있었다.
           //    ⚠️ k>0 인 이유: 진입은 **종가** 기준이라 진입 당일 저가는 이미 지나간 값이다.
-          //    ⚠️ 체결가를 e.stop 으로 본다 — 갭 하락이면 실제론 더 나쁘다(낙관 방향의 근사, 화면에 병기).
+          //    ⚠️ 체결가는 **min(손절선, 그날 시가)** — 갭 하락으로 손절선을 건너뛰고 열리면 역지정가는
+          //    시가 근처에서 체결된다. 손절선 가격을 그대로 쓰면 성적이 체계적으로 부풀려진다
+          //    (2026-08-13 위메이드 실측: 손절선 18,300 인데 시가 17,160 → −3.7% 가 아니라 −9.7%. 6%p 과대).
           const hitBar = win.findIndex((d, k) => k > 0 && d.low <= e.stop)
           stopHit = hitBar > 0
-          const exit = stopHit ? e.stop : win[win.length - 1].close
+          const gapOpen = stopHit ? win[hitBar].open : 0
+          const exit = stopHit ? (gapOpen > 0 ? Math.min(e.stop, gapOpen) : e.stop) : win[win.length - 1].close
           retPct = Math.round((exit / e.entry - 1) * 1000) / 10
           // 참고값 — 손절을 안 지키고 끝까지 들고 갔을 때. 둘의 차이가 곧 '손절이 지켜준 폭'이다
           retHoldPct = Math.round((win[win.length - 1].close / e.entry - 1) * 1000) / 10
