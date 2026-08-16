@@ -680,6 +680,7 @@ async function krInfo(ticker: string): Promise<StockInfo> {
   let per: number | 'N/A' = 'N/A'
   let peg: number | 'N/A' = 'N/A'
   let earningsGrowth: number | null = null
+  let growthSourceKr: 'eps' | 'revenue' | 'fwd-eps' | null = null   // 📈 위 성장률이 무엇의 성장률인가(라벨 동기화)
   let dividendYield:  number | null = null
   let high52w: number | null = null
   let low52w:  number | null = null
@@ -719,6 +720,7 @@ async function krInfo(ticker: string): Promise<StockInfo> {
 
       if (epsGrowth !== null) {
         earningsGrowth = epsGrowth
+        growthSourceKr = 'eps'   // 📈 네이버 재무제표의 **이익** 성장률(EPS/순이익) — 라벨 그대로 유효
         if (typeof per === 'number' && epsGrowth > 0) {
           peg = parseFloat((per / (epsGrowth * 100)).toFixed(2))
         }
@@ -745,6 +747,7 @@ async function krInfo(ticker: string): Promise<StockInfo> {
             // forward PEG임을 표시하기 위해 earningsGrowth도 업데이트
             if (earningsGrowth == null || earningsGrowth <= 0) {
               earningsGrowth = fwdGrowth
+              growthSourceKr = 'fwd-eps'   // 📈 실적이 아니라 **전망 EPS** 기반 — 라벨이 이를 밝혀야 한다
             }
           }
         }
@@ -848,7 +851,7 @@ async function krInfo(ticker: string): Promise<StockInfo> {
     hasCash: krHasCash,
     fundamentals: {
       pe: per, peg, marketCap: mc, volume: null,
-      high52w, low52w, sector, earningsGrowth, dividendYield, isEtf,
+      high52w, low52w, sector, earningsGrowth, growthSource: growthSourceKr, dividendYield, isEtf,
       eps, pbr, forwardEps, payoutRatio, annualDividend,
       // DCF 실데이터
       freeCashflow:      dcf.freeCashflow,
@@ -915,6 +918,7 @@ async function usInfo(ticker: string): Promise<StockInfo> {
     }
 
     let earningsGrowth: number | null = null
+    let growthSourceUs: 'eps' | 'revenue' | 'fwd-eps' | null = null   // 📈 라벨 동기화(네이버 경로는 당기순이익 기반)
     let peg:            number | 'N/A' = 'N/A'
     let forwardEpsUs:   number | null = null
 
@@ -933,6 +937,7 @@ async function usInfo(ticker: string): Promise<StockInfo> {
 
         if (growth !== null) {
           earningsGrowth = growth
+          growthSourceUs = 'eps'   // 📈 네이버 연간 재무의 **당기순이익/세후손익** 성장률
           if (per !== null && per > 0 && growth > 0) {
             peg = parseFloat((per / (growth * 100)).toFixed(2))
           }
@@ -1004,6 +1009,7 @@ async function usInfo(ticker: string): Promise<StockInfo> {
         low52w:         l52Str ? parseNum(l52Str) : null,
         sector:         industryGroup,
         earningsGrowth,
+        growthSource:   growthSourceUs,
         dividendYield:  usDivData.dividendYield,
         isEtf,
         eps:        epsVal,
@@ -1053,9 +1059,12 @@ async function usInfo(ticker: string): Promise<StockInfo> {
     // 극단값(>500%) 신규 상장주는 revenueGrowth 대체
     const egRawFull = sData?.financialData?.earningsGrowth ?? null
     const revGrowth = sData?.financialData?.revenueGrowth    ?? null
-    const egRaw = (egRawFull !== null && Math.abs(egRawFull) < 5)
+    const useEg = egRawFull !== null && Math.abs(egRawFull) < 5
+    const egRaw = useEg
       ? egRawFull   // 정상 범위 (500% 미만)
-      : revGrowth   // 신규주 fallback → 매출 성장률
+      : revGrowth   // 신규주·적자주 fallback → 매출 성장률
+    // 📈 무엇의 성장률인지 화면에 알린다 — 라벨이 값을 따라가야 한다(위 growthSource 주석 참조)
+    const growthSourceY: 'eps' | 'revenue' | null = useEg ? 'eps' : (revGrowth != null ? 'revenue' : null)
     const mcRaw  = sData?.summaryDetail?.marketCap ?? null
     const isEtfY = qData?.quoteType?.toUpperCase() === 'ETF'
     const payoutRatioY    = sData?.summaryDetail?.payoutRatio?.raw ?? sData?.summaryDetail?.payoutRatio ?? null
@@ -1115,6 +1124,7 @@ async function usInfo(ticker: string): Promise<StockInfo> {
         low52w:         qData?.fiftyTwoWeekLow  ?? null,
         sector:         qData?.sector ?? null,
         earningsGrowth: egRaw ?? null,
+        growthSource:   growthSourceY,
         dividendYield:  sData?.summaryDetail?.dividendYield ?? null,
         isEtf:          isEtfY,
         eps:        typeof trailingEps === 'number' ? trailingEps : null,

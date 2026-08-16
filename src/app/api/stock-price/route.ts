@@ -44,6 +44,11 @@ export interface Fundamentals {
   /** 💵 선행 PSR — PSR × TTM매출 ÷ 미래 회계연도 예상매출(같은 Yahoo 응답 내 비율). 🇺🇸 US 전용(KR 은 Yahoo 추정치 신뢰 불가) */
   fwdPsr?:            number | null
   fwdPsrFy?:          number | null   // 그 예상매출의 회계연도(예: 2026) — 화면 병기용
+  /** 📈 `earningsGrowth` 가 **무엇의 성장률인가**. 'eps'=이익 · 'revenue'=매출(폴백) · 'fwd-eps'=전망EPS 기반.
+   *  ⚠️ 이 필드가 없던 시절 화면이 전부 "EPS 성장률"로 라벨링했는데, 적자기업(earningsGrowth=null)과
+   *  극단값 종목(|eg|≥5)은 **매출 성장률로 폴백**돼 있었다 — IONQ 286.8%·OXY 53.4% 실측(2026-08-16).
+   *  폴백 자체는 합리적이지만 라벨이 안 따라가면 학생은 다른 것을 같은 잣대로 읽는다. */
+  growthSource?:      'eps' | 'revenue' | 'fwd-eps' | null
 }
 
 export interface StockData {

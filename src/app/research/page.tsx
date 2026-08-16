@@ -56,6 +56,7 @@ interface StockInfo {
   epsGrowth?: number | null
   forwardEps?: number | null
   peg?: number | null
+  growthSource?: string | null   // 📈 위 성장률의 정체('eps'|'revenue'|'fwd-eps') — 라벨이 값을 따라가야 한다
   psr?: number | null       // 💵 매출배수(TTM) — 적자·고성장주에서 PER/PEG 대신 보는 밸류 척도
   fwdPsr?: number | null    // 💵 예상매출 기준(US 전용)
   fwdPsrFy?: number | null  // 그 예상매출의 회계연도
@@ -181,6 +182,7 @@ export default function ResearchPage() {
               : null,
             forwardEps:    toNum(f.forwardEps),
             peg:           toNum(f.peg) ?? (typeof f.peg === 'number' && f.peg > 0 ? f.peg : null),
+            growthSource:  typeof f.growthSource === 'string' ? f.growthSource : null,
             psr:           toNum(f.psr),
             fwdPsr:        toNum(f.fwdPsr),
             fwdPsrFy:      toNum(f.fwdPsrFy),
@@ -458,7 +460,12 @@ export default function ResearchPage() {
                   //    쉘은 이 값이 220%인데 PEG 는 1.32였다(PER 9.8 ÷ 220% = 0.04 이어야 하는데).
                   //    US 는 야후 `financialData.earningsGrowth`= **최근 분기 YoY**, KR 은 재무제표 **연간**이고,
                   //    PEG 의 분모는 또 다른 것(야후 pegRatio = 5년 전망)이다. 셋은 서로 다른 잣대다.
-                  { label: stockInfo.market === 'KR' ? 'EPS 성장률(연간)' : 'EPS 성장률(최근 분기 YoY)',
+                  // 📈 라벨이 값을 따라간다 — 적자기업·극단값 종목은 이익 대신 **매출** 성장률로 폴백된다
+                  //    (실측 2026-08-16: IONQ 286.8%·OXY 53.4% 가 'EPS 성장률'로 표시되고 있었다).
+                  //    폴백 자체는 합리적이지만 라벨을 안 바꾸면 학생이 다른 것을 같은 잣대로 읽는다.
+                  { label: stockInfo.growthSource === 'revenue' ? '매출 성장률(이익 자료 없음)'
+                      : stockInfo.growthSource === 'fwd-eps' ? '이익 성장률(전망 EPS 기준)'
+                      : stockInfo.market === 'KR' ? 'EPS 성장률(연간)' : 'EPS 성장률(최근 분기 YoY)',
                     value: stockInfo.epsGrowth != null ? `${stockInfo.epsGrowth.toFixed(1)}%` : '—' },
                   { label: 'Forward EPS', value: stockInfo.forwardEps != null ? (stockInfo.currency === 'KRW' ? `₩${Math.round(stockInfo.forwardEps).toLocaleString()}` : `${curFromCode(stockInfo.currency)}${stockInfo.forwardEps.toFixed(2)}`) : '—' },
                   { label: 'PEG',         value: stockInfo.peg != null ? stockInfo.peg.toFixed(2) : '—' },
@@ -488,6 +495,8 @@ export default function ResearchPage() {
                 <div style={{ marginTop: 8, fontSize: FS.micro, color: TK.sub4, lineHeight: 1.6 }}>
                   ※ <b>PEG는 위 성장률로 나눈 값이 아닙니다</b> — PEG는 <b>앞으로 몇 년</b>의 성장 전망을,
                   위 성장률은 <b>이미 지나간 기간</b>을 재는 숫자예요. 두 값이 어긋나 보이면 회사가 그만큼 <b>변하고 있다</b>는 뜻입니다.
+                  {/* 잣대가 아예 다른 경우(이익 vs 매출)는 그 사실 자체를 말해야 한다 — 기간 차이로 뭉뚱그리면 오설명 */}
+                  {stockInfo.growthSource === 'revenue' && <> 게다가 이 종목은 <b>이익 자료가 없어 위 숫자가 매출 성장률</b>입니다 — PEG(이익 기준)와는 애초에 다른 것을 재고 있어요.</>}
                 </div>
               )}
               {stockInfo?.marketCap != null && (
