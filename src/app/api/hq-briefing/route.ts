@@ -179,7 +179,10 @@ ${buyTxt || '없음'}
 
   let briefing = ''
   let model: string | null = null
-  const g = await callGeminiJSON<{ briefing: string }>(prompt, { type: 'OBJECT', properties: { briefing: { type: 'STRING' } }, required: ['briefing'] }, { temperature: 0.4 })
+  // 🔐 personal:true — 이 프롬프트엔 학생 **보유 종목명 + 종목별 손익%** 가 들어간다(위 sellTxt·trimTxt).
+  //    Gemini 무료 티어 약관은 "개인 정보를 제출하지 말라"고 명시하고 사람이 읽을 수 있다 → 유료 키 전용.
+  //    키가 없으면 fail-closed 로 실패하고 아래 결정론 폴백이 받는다(무료 키로 새지 않는다).
+  const g = await callGeminiJSON<{ briefing: string }>(prompt, { type: 'OBJECT', properties: { briefing: { type: 'STRING' } }, required: ['briefing'] }, { temperature: 0.4, personal: true })
   if (g.ok && g.data?.briefing) { briefing = g.data.briefing; model = g.model }
 
   // 결정론적 폴백(Gemini 실패/데이터 부족 시에도 항상 유효)

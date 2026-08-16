@@ -30,20 +30,41 @@ export const KO_STYLE = `[한국어 문체 지침 — 서술 필드에만 적용
 
 export type GeminiResult<T> =
   | { ok: true; data: T; model: string }
-  | { ok: false; reason: 'no_key' | 'rate_limited' | 'error' }
+  | { ok: false; reason: 'no_key' | 'no_paid_key' | 'rate_limited' | 'error' }
+
+/**
+ * 🔐 개인 데이터(학생 보유 종목·손익·비중)를 담은 프롬프트는 **유료 키로만** 보낸다.
+ *
+ * 왜: Google Gemini API 약관이 무료 티어("Unpaid Services")에 대해 이렇게 적는다 —
+ *   · "Google uses the content you submit … to provide, improve, and develop Google products"
+ *   · "human reviewers may read, annotate, and process your API input and output"
+ *   · "**Do not submit sensitive, confidential, or personal information** to the Unpaid Services"
+ * 유료 티어는 반대로 "prompts … are not used to improve our products"가 명시돼 있다.
+ * 그런데 ai-rebalance·hq-briefing 이 종목명+종목별 손익%+포트 비중을 무료 키로 보내고 있었다
+ * (2026-08-16 전수 점검 — 나머지 12개 LLM 경로는 공개 시장·재무 데이터라 무관).
+ *
+ * ⛔ **fail-closed** — 유료 키가 없으면 무료 키로 흘려보내지 않고 그냥 실패시킨다.
+ *    호출부는 이미 결정론 폴백이 있어 화면이 깨지지 않는다. 토스 `assertTossOwner` 와 같은 원칙:
+ *    개인 데이터 경계는 '되도록'이 아니라 '못 넘어가게' 막는다.
+ * 💰 비용: 실측 프롬프트 ai-rebalance 3,122 · hq-briefing 2,018 토큰 → 학생 7명 기준 **월 약 300원**
+ *    (flash-lite 유료 $0.10/M 입력 · $0.40/M 출력). 유료 계정에 얹히는 수준이라 사실상 무시 가능.
+ */
+const paidKey = () => process.env.GEMINI_PAID_API_KEY || null
 
 /**
  * 프롬프트 + responseSchema(JSON)로 Gemini 호출 → 파싱된 객체 반환.
  * @param schema Gemini responseSchema (type:'OBJECT' …)
+ * @param opts.personal 개인 데이터 포함 여부 — true 면 유료 키 전용(없으면 fail-closed)
  */
 export async function callGeminiJSON<T>(
   prompt: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   schema: Record<string, any>,
-  opts: { temperature?: number } = {}
+  opts: { temperature?: number; personal?: boolean } = {}
 ): Promise<GeminiResult<T>> {
-  const key = process.env.GEMINI_API_KEY
-  if (!key) return { ok: false, reason: 'no_key' }
+  // 🔐 개인 데이터면 유료 키만 — 무료 키 폴백 금지(약관상 학습·사람 검토 대상이 된다)
+  const key = opts.personal ? paidKey() : process.env.GEMINI_API_KEY
+  if (!key) return { ok: false, reason: opts.personal ? 'no_paid_key' : 'no_key' }
 
   const body = JSON.stringify({
     // 문체 지침을 프롬프트 끝에 부착(내용 규칙 뒤 → 사실·판정 가드 우선 유지)

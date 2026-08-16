@@ -843,9 +843,12 @@ ${cs.add.length ? cs.add.map(a => `- ${a.name || a.ticker}: 목표 ${a.targetPct
 
 [출력] 3~6문장의 한국어 코칭 1단락. JSON {"narrative": "..."} 형식만.`
 
+  // 🔐 personal:true — 이 프롬프트엔 학생 **종목명·티커·포트 비중%·종목별 손익%·본전까지 상승률** 이
+  //    줄줄이 들어간다(위 sellLines) — 사실상 포트폴리오 전체 그림이다. 무료 티어 약관상 금지 대상.
+  //    유료 키 없으면 fail-closed → 아래 결정론 폴백 문장이 나간다(화면은 안 깨진다).
   const r = await callGeminiJSON<{ narrative: string }>(prompt, {
     type: 'OBJECT', properties: { narrative: { type: 'STRING' } }, required: ['narrative'],
-  }, { temperature: 0.5 })
+  }, { temperature: 0.5, personal: true })
 
   if (r.ok && r.data.narrative) return r.data.narrative
   // 폴백(결정론적)

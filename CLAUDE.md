@@ -66,6 +66,15 @@ Next.js 14 (App Router) + Supabase + Tailwind CSS + TypeScript 로 구축한
 - **⛔ 개인 계좌 데이터 경계** — 토스 개인 계좌(잔고·보유·주문)는 소유자 본인 세션만(`assertTossOwner`, fail-closed). 공유 캐시 키·학생 노출 컴포넌트·`NEXT_PUBLIC_`에 절대 넣지 않는다. **키는 절대 커밋 금지**.
   - 🔑 **`TOSS_*` 는 Vercel 서버 환경변수로 등록한다**(2026-08-09 확정) — 토스 실거래 기능을 **추후 활용할 예정**이라 프로덕션에 필요하다. 예전 문구는 "Vercel 금지"였으나 그러면 기능 자체가 못 돈다. 지키는 건 ①커밋 금지 ②`NEXT_PUBLIC_` 금지 ③소유자 세션 게이트 ④`TOSS_TRADING_ENABLED` 기본 false + 사람 확인이다. **Vercel 에서 지우지 마라.**
   - 🚫 **`KRX_ID`/`KRX_PW` 는 Vercel 금지** — 웹 앱 코드가 쓰지 않는다(로컬 `scripts/krx-short-runner.py` 전용). 올릴 이유가 없으므로 올리지 않는다.
+- **⛔ 개인 데이터를 LLM 무료 티어로 보내지 마라**(2026-08-16 신설) — Gemini 무료 티어 약관은
+  *"Do not submit sensitive, confidential, or personal information to the Unpaid Services"* + *"human reviewers may read…"* 다.
+  그런데 **ai-rebalance·hq-briefing 이 학생 보유 종목명·종목별 손익%·포트 비중을 무료 키로 보내고 있었다**
+  (나머지 12개 LLM 경로는 공개 시장·재무 데이터라 무관 — 전수 확인함).
+  → 개인 데이터가 든 프롬프트는 **`callGeminiJSON(..., { personal: true })`** 로만 부른다.
+  그러면 `GEMINI_PAID_API_KEY`(유료·학습 미사용) 전용이 되고, **키가 없으면 fail-closed** 로 실패해
+  결정론 폴백이 받는다(무료 키로 새지 않는다 — 토스 `assertTossOwner` 와 같은 원칙).
+  ⚠️ **새 LLM 호출을 만들 때 프롬프트에 보유·손익·비중·계좌가 들어가는지 먼저 검열하라.** 들어가면 `personal: true`.
+  💰 비용 실측: 프롬프트 3,122·2,018 토큰 · 학생 7명 → **월 약 300원**(flash-lite 유료 $0.10/$0.40 per M).
 - **⛔ 코인 가드** — 학생 권장 상한 5%(≥10% 위험). "이자 없는 로켓 연료, 잃어도 되는 돈만."
 - **⛔ LuxAlgo 등 유료 지표 코드 복제 금지** — 공개 개념만 우리 결정론으로 재구현.
 
