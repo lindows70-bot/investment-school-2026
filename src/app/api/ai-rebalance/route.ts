@@ -240,7 +240,8 @@ export async function GET(req: Request) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `ai-rebalance-v50+${UNIFIED_RECO_V}:${user.id}:${today}:${fp}`   // v50: 🏰 해자 침식 손절 격상 철회(소급 실측 반증 — 발동군 +44.7% vs +16.6%) → 정보 제공만
+  // v51: 🔐 개인 데이터 → 유료 키 전용(personal:true) — 유료 키 등록 전에 캐시된 폴백 서술 무효화
+  const cacheKey = `ai-rebalance-v51+${UNIFIED_RECO_V}:${user.id}:${today}:${fp}`   // v50: 🏰 해자 침식 손절 격상 철회(소급 실측 반증) → 정보 제공만
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)

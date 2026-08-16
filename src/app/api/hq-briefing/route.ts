@@ -42,7 +42,9 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `hq-briefing-v14+${UNIFIED_RECO_V}:${user.id}:${kstDate()}:${fp}`   // v14: 3축→6축 라벨·프롬프트 정합 / v13: 고평가 익절 문구 원칙 정합
+  // v15: 🔐 개인 데이터 → 유료 키 전용(personal:true). 12h 캐시라 유료 키 등록 **이전에** 만들어진
+  //      폴백 브리핑이 그대로 서빙되고 있었다 — 키를 올려 강제 재생성시킨다(2026-08-16 화면검증).
+  const cacheKey = `hq-briefing-v15+${UNIFIED_RECO_V}:${user.id}:${kstDate()}:${fp}`   // v14: 3축→6축 라벨·프롬프트 정합
   const cached = await getCache<HqBriefing>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
