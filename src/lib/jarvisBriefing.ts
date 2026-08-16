@@ -16,6 +16,7 @@
 import { getCache, setCache } from '@/lib/appCache'
 import { callGeminiJSON } from '@/lib/gemini'
 import { getCanonicalPeg, isPegBaseEffect, CANON_FUND_KEY } from '@/lib/canonicalFundamentals'
+import { correctPsr } from '@/lib/finCurrency'   // 💱 PSR ADR 통화 교정 SSOT
 import { getTrueFcf } from '@/lib/trueFcf'   // 💵 FCF 분자 SSOT — fd.freeCashflow 는 부호까지 틀린다(LG전자·보잉 실측)
 import { computeMomentum, type MomentumSignal } from '@/lib/macroPhaseScreener'   // 📈 모멘텀 SSOT(통합추천과 동일 정의: Fwd EPS 방향+가격추세+칼날)
 import { getInsiderSignal } from '@/app/actions/getInsiderSignal'
@@ -41,6 +42,9 @@ export interface SignalMetrics {
   marketCap:      number | null   // 시가총액(종목 통화 — US=USD, KR=KRW) — 10배거 시총 룸 판별
   equity:         number | null   // 자기자본(최신 분기, 종목 통화) — 밸류 삼각형(PBR=시총/자본)·ROIC 분모
   revenueGrowth:  number | null   // 매출 성장률(Yahoo 소수, 0.36=36%) — 적자 하이퍼그로스 포착
+  /** 💵 주가매출비율 P/S — **correctPsr(SSOT)로 통화 교정한 값**. 적자기업 가치축 폴백의 입력.
+   *  ⚠️ Yahoo 원값을 그대로 넣으면 ADR 이 틀린다(TSM 0.5·SONY 0.01 실측) */
+  psr:            number | null
   earningsGrowth: number | null   // 이익 성장률(소수, 1.0=+100%) — 기저효과 저PEG 가드(isPegBaseEffect)용
   analystCount:   number | null   // 애널리스트 커버 수(Yahoo) — 언더커버리지 판별(US용, KR은 Naver 별도)
   priceTrend:     'up' | 'side' | 'down' | 'unknown'   // 📉 최근 주가 추세(50/200일선) — 위성 칼날 가드
@@ -81,7 +85,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
   //     selfBase가 undefined여도 canon-fund 캐시에서 SSOT PEG를 가져옴
   // v16: 📋 earningsHistory 분리 호출 — 적자주(IONQ 등)에서 그 모듈 하나가 전체를 죽여 metrics 가 null 이었다.
   //      옛 캐시엔 그 실패가 안 박혀 있지만(null 은 캐시 안 함), 이제 값이 생기는 종목이 있으므로 범프한다.
-  const cacheKey = `jarvis-metrics-v16:${tk}:${market}:${kstDate()}`   // v15: 📋 어닝 서프라이즈 이력 / v14: equity 노출
+  const cacheKey = `jarvis-metrics-v17:${tk}:${market}:${kstDate()}`   // v17: 💵 psr 필드 추가(적자 가치축 폴백 입력 — 없으면 폴백이 조용히 무효) / v15: 어닝 서프라이즈 이력
   const cached = await getCache<SignalMetrics>(cacheKey, 12 * 3600_000)
   if (cached) return cached
 
@@ -199,6 +203,11 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
     } catch { /* 재고 데이터 없으면 신호 없음 */ }
 
     const revenueGrowth = num(fd.revenueGrowth)
+    // 💵 PSR — Yahoo 직접값을 correctPsr(SSOT)로 통화 교정. 적자기업 가치축 폴백이 이 값을 읽는다
+    const psr = await correctPsr(
+      num(q.summaryDetail?.priceToSalesTrailing12Months),
+      fd.financialCurrency, market === 'KR' ? 'KRW' : (pr.currency ?? 'USD'),
+    ).catch(() => null)
     // 이익성장률 — canon-fund SSOT 우선(KR은 Naver 기반), 폴백 Yahoo. PEG와 같은 출처여야 기저효과 판정 정합
     const earningsGrowth = (canonFund?.growth ?? null) != null ? canonFund!.growth : num(fd.earningsGrowth)
     const analystCount = num(fd.numberOfAnalystOpinions)
@@ -242,7 +251,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
       industry: ap.industry ? String(ap.industry) : null,
       peg, opMargin, opMargin2qDown,
       fcf, fcfNegative: fcf != null && fcf < 0,
-      roe, roic, roeInflated, interestCoverage: isFinancial ? null : interestCoverage, marketCap, equity, revenueGrowth, earningsGrowth, analystCount,
+      roe, roic, roeInflated, interestCoverage: isFinancial ? null : interestCoverage, marketCap, equity, revenueGrowth, psr, earningsGrowth, analystCount,
       priceTrend, knife, momentumScore, fwdEpsDir, inventoryBuildup, invGapPct,
       epsBeats, epsMisses, epsBeatStreak,
       currency: pr.currency ? String(pr.currency) : null,
