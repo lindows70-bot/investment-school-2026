@@ -77,7 +77,7 @@ export async function GET(req: Request) {
   // v15: ⚖️ 6축 가중치를 axisWeights SSOT 로 교체(해외는 수급 0·가치 30·모멘텀 25)
   // v23: ⚖️ weights 필드 추가(화면 각주를 리터럴→데이터로) + 💵 가치축 적자기업 PSR 폴백(universe v16)
   //      ⚠️ 스키마 확장도 범프한다 — 옛 응답이 서빙되면 새 필드가 undefined 로 와서 각주가 통째로 빈다
-  const cacheKey = `research-verdict-v24:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v24: 💵 자체 폴백 경로에도 적자 PSR 가치축(유니버스 밖 IONQ 등) / v22: ⚖️ KR 수급 가중 0%
+  const cacheKey = `research-verdict-v25:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v24: 💵 자체 폴백 경로에도 적자 PSR 가치축(유니버스 밖 IONQ 등) / v22: ⚖️ KR 수급 가중 0%
   const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -141,19 +141,9 @@ export async function GET(req: Request) {
     value = 50
     if (pegSuspect) value = 50   // 착시 저PEG는 중립(저평가 근거로 못 씀)
     else if (m.peg != null && m.peg > 0) value = m.peg <= 0.8 ? 90 : m.peg <= 1.2 ? 75 : m.peg <= 2.2 ? 55 : 30
-    else {
-      // 💵 적자기업 PSR 폴백 — 유니버스(macroPhaseScreener)에 넣은 것과 **같은 철학·같은 공식**을
-      //    이 층에도 둔다(2026-08-16). 안 그러면 유니버스 밖 적자주(IONQ·RGTI·SPCX 실측)는 여기서
-      //    영영 중립 50 — 축을 고쳐놓고 정작 그 종목이 타는 경로엔 반영이 안 되는 'SSOT 한 겹' 함정이다.
-      //    적정 P/S = 매출성장률% ÷ 10 (상한 30·하한 0.5) — lynchAnalysis REVENUE 모드 규약.
-      //    0~100 척도라 유니버스의 0~1 등급(0.9/0.7/0.5/0.3/0.15)을 ×100 으로 옮긴다.
-      const psr = m.psr ?? null, revG = m.revenueGrowth ?? null
-      if (psr != null && psr > 0 && revG != null && revG > 0) {
-        const targetPS = Math.max(0.5, Math.min(revG * 100 / 10, 30))
-        const ratio = psr / targetPS
-        value = ratio <= 0.6 ? 90 : ratio <= 1 ? 70 : ratio <= 1.5 ? 50 : ratio <= 2.5 ? 30 : 15
-      }
-    }
+    // 💵 적자기업 PSR 폴백은 **실측으로 기각**(2026-08-16) — 상세 사유는 macroPhaseScreener 가치축 주석.
+    //    요지: 린치 적정 P/S(성장률÷10)가 현 시장 고성장주와 안 맞아 IONQ·PLTR·SNOW·CRWD·RGTI 가
+    //    전원 최하 등급으로 뭉갰다(NVDA 조차 ratio 2.53). 적자주는 중립 50("모른다")을 유지한다.
     if (dcf === 'demanding') value -= 15          // 역-DCF 기대 과도
     else if (dcf === 'conservative') value += 10  // 시장 기대 보수적(저평가 여지)
     value = clamp(value)

@@ -42,8 +42,9 @@ export interface SignalMetrics {
   marketCap:      number | null   // 시가총액(종목 통화 — US=USD, KR=KRW) — 10배거 시총 룸 판별
   equity:         number | null   // 자기자본(최신 분기, 종목 통화) — 밸류 삼각형(PBR=시총/자본)·ROIC 분모
   revenueGrowth:  number | null   // 매출 성장률(Yahoo 소수, 0.36=36%) — 적자 하이퍼그로스 포착
-  /** 💵 주가매출비율 P/S — **correctPsr(SSOT)로 통화 교정한 값**. 적자기업 가치축 폴백의 입력.
-   *  ⚠️ Yahoo 원값을 그대로 넣으면 ADR 이 틀린다(TSM 0.5·SONY 0.01 실측) */
+  /** 💵 주가매출비율 P/S — **correctPsr(SSOT)로 통화 교정한 값**(Yahoo 원값은 ADR 이 틀린다: TSM 0.5·SONY 0.01).
+   *  ⛔ 현재 **점수 미반영** — 적자기업 가치축 폴백을 시도했다가 실측 기각(macroPhaseScreener 주석 참조).
+   *     필드는 남겨둔다: 재도전(섹터 백분위 방식) 시 입력이고, 교정된 값이라 표시·비교에 쓸 수 있다. */
   psr:            number | null
   earningsGrowth: number | null   // 이익 성장률(소수, 1.0=+100%) — 기저효과 저PEG 가드(isPegBaseEffect)용
   analystCount:   number | null   // 애널리스트 커버 수(Yahoo) — 언더커버리지 판별(US용, KR은 Naver 별도)

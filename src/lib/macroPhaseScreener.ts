@@ -18,7 +18,7 @@ import { isPegBaseEffect } from '@/lib/canonicalFundamentals'
 import { isFinancialCompany } from '@/lib/assetClassifier'
 import { TK } from '@/lib/theme'
 import { GLOBAL_LUXURY, EU_MAJORS, curCodeFromTicker } from '@/lib/globalTickers'
-import { normalizeCashflow, correctPsr } from '@/lib/finCurrency'   // 💱 ADR 재무통화 환산(TSM TWD·SONY JPY — FCF/시총 부풀림 차단) + PSR 통화 교정
+import { normalizeCashflow } from '@/lib/finCurrency'   // 💱 ADR 재무통화 환산(TSM TWD·SONY JPY — FCF/시총 부풀림 차단)
 import { getTrueFcf, assessFcfNature } from '@/lib/trueFcf'   // 💵 FCF 분자 SSOT + TTM 대표성 판정(mirage·volatile)
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
@@ -51,7 +51,9 @@ export interface MacroPhaseResult {
 
 /** 유니버스 캐시 키 SSOT — writer(macro-ai-picks)·reader 6곳이 이것만 쓴다.
  *  리터럴 산재는 sector-rotation v13→v14 워밍 누락 사고의 온상이었다 — 버전업은 이 한 줄. */
-export const UNIVERSE_KEY = 'macro-screened-universe:v16'   // v16: 💵 적자기업 가치축 PSR 폴백(통화 교정 포함 — valueScore 변경) / v15: 💵 고FCF 성격 구분(mirage·volatile) / v14: 💱 FTS 통화 판별
+// v17: 💵 v16 의 적자기업 PSR 폴백을 **실측 기각으로 철회**(전원 최하 등급으로 뭉갬 — 아래 가치축 주석) → valueScore 원복
+// v16: 💵 적자기업 가치축 PSR 폴백(철회됨) / v15: 💵 고FCF 성격 구분(mirage·volatile) / v14: 💱 FTS 통화 판별
+export const UNIVERSE_KEY = 'macro-screened-universe:v17'
 
 export interface ScreenedStock {
   ticker:       string
@@ -975,24 +977,21 @@ async function screenOne(
     const eyScore = earnYield == null ? 0.4 : earnYield >= 8 ? 1.0 : earnYield >= 5 ? 0.7 : earnYield >= 3 ? 0.45 : earnYield > 0 ? 0.2 : 0.3
     const fcfValScore = nature.kind === 'mirage' ? 0.15   // 🚨 다년 합산 적자 — 가치 축에서도 최저급(scoreFy 는 보수 수익률)
       : scoreFy == null ? 0.4 : scoreFy >= 6 ? 1.0 : scoreFy >= 4 ? 0.8 : scoreFy >= 2 ? 0.6 : scoreFy >= 0 ? 0.4 : 0.15
-    // 💵 적자기업 PSR 폴백(2026-08-16) — PEG·PER 둘 다 없는 종목(IONQ·TEM·SPCX 류)은 가치축이
-    //    중립 0.4로 눈감던 구간. lynchAnalysis REVENUE 모드의 적정 P/S(= 매출성장률%÷10, 상한 30)를
-    //    그대로 재사용해 '성장 대비 매출배수'로 등급화한다. 흑자 기업(PEG 또는 PER 존재)은 불변.
-    //    상한 0.9(만점 불가) — 적자 기업의 가치 확신은 흑자 저PEG 만큼 높게 쳐주지 않는다.
-    //    ⚠️ psr 는 correctPsr(SSOT)로 통화 교정 — ADR 원값은 거래통화 시총 ÷ 재무통화 매출이라 틀린다.
-    const psrAdj = (peg == null || !(peg > 0)) && earnYield == null
-      ? await correctPsr(numf(sd.priceToSalesTrailing12Months), fd.financialCurrency, currency) : null
-    const revG = numf(fd.revenueGrowth)   // 소수(0.5 = +50%)
-    const psrGrad = (psrAdj != null && revG != null && revG > 0)
-      ? (() => {
-          const targetPS = Math.max(0.5, Math.min(revG * 100 / 10, 30))
-          const ratio = psrAdj / targetPS
-          return ratio <= 0.6 ? 0.9 : ratio <= 1 ? 0.7 : ratio <= 1.5 ? 0.5 : ratio <= 2.5 ? 0.3 : 0.15
-        })()
-      : 0.4   // PSR·성장률도 없으면 종전 중립 그대로
+    // 💵 적자기업 PSR 폴백 — **시도했다가 실측으로 기각**(2026-08-16). 기록을 남기는 이유는
+    //    다음 세션이 같은 안을 다시 제안하지 않게 하기 위해서다(음수·반증도 남긴다 원칙).
+    //    안: PEG·PER 둘 다 없는 적자기업(IONQ·SPCX류)의 중립 0.4 를 '성장 대비 매출배수'로 대체.
+    //        적정 P/S = 매출성장률%÷10(상한 30) — lynchAnalysis REVENUE 모드 공식 재사용.
+    //    기각 사유: 그 공식이 현 시장 고성장주와 맞지 않아 **전원 최저 등급으로 뭉갠다**.
+    //        실측 ratio — IONQ 2.65 · TEM 3.04 · SNOW 6.76 · PLTR 7.32 · SPCX 8.71 · CRWD 16.9 · RGTI 25.4
+    //        → 전부 최하 버킷. 결정적으로 **NVDA 도 2.53** 이라, 흑자만 아니었으면 IONQ 와 동급이 된다.
+    //        린치의 P/S 규약은 저마진 기업용 옛 기준이고 SaaS·AI 는 그 몇 배에서 거래된다.
+    //    → 축이 분화를 못 만들면서 "적자 성장주 = 가치 최악" 편향만 심는다. 중립 50("모른다")이
+    //      틀린 단언보다 정직하다. PSR·Fwd PSR 은 **리서치 화면 표시**로만 두고 학생이 동종 업종끼리 비교한다.
+    //    재도전한다면: 임계를 지어내지 말고 **같은 섹터 적자기업 PSR 분포의 백분위**로. 단 유니버스에
+    //      적자기업 표본이 충분한지부터 실측할 것(지금은 부족).
     // PEG 촘촘: 0.5→1.0·1.0→0.71·1.5→0.41·2.0→0.12(기존 saturate[≤1.67 만점] 대체) / 기저효과·PEG 없으면 어닝일드로
     const pegGrad = isPegBaseEffect(peg, earnGrowth) ? 0.5
-      : (peg != null && peg > 0 ? Math.min(1, Math.max(0, (2.2 - peg) / 1.7)) : (earnYield != null ? eyScore : psrGrad))
+      : (peg != null && peg > 0 ? Math.min(1, Math.max(0, (2.2 - peg) / 1.7)) : (earnYield != null ? eyScore : 0.4))
     const valueScore = Math.round((pegGrad * 0.50 + eyScore * 0.25 + fcfValScore * 0.25) * 1000) / 1000
     // ── 🏰 퀄리티: 영업이익률 30% + ROE(자본효율) 30% + 저부채(재무안정성) 25% + 이익질(현금전환) 15% ──
     const roe = numf(fd.returnOnEquity)   // 소수(0.20=20%) — 버핏 핵심 자본효율
