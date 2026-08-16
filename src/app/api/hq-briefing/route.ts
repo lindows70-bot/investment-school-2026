@@ -31,6 +31,11 @@ export interface HqBriefing {
   policyTilt: { tilt: 'dovish' | 'hawkish' | 'neutral'; label: string; note: string } | null   // 연준 기조(참고) — 계절 SSOT 불변
   riskChecks: { kind: 'regulation' | 'valuation' | 'moat' | 'baseEffect' | 'liquidity'; level: 'red' | 'amber'; text: string }[]   // 상황 인지 리스크 레이어(결정론적)
   model: string | null
+  /** 🔎 AI 서술이 안 나온 **이유** — model 이 null 일 때만 채운다.
+   *  'no_paid_key'=유료 키 미설정(개인 데이터라 무료 키로 안 보냄) · 'rate_limited'=한도 · 'error'=호출 실패.
+   *  ⚠️ 이게 없던 시절엔 폴백이 왜 떴는지 화면에서도 로그에서도 알 수 없어, 키 문제인지 캐시 문제인지
+   *     구분하는 데 배포를 두 번 헛돌았다(2026-08-16). '없음'과 '못 불러옴'을 구분하라는 원칙의 연장. */
+  aiReason?: 'no_key' | 'no_paid_key' | 'rate_limited' | 'error' | null
 }
 
 const ACTION_KO: Record<string, string> = { CUT_LOSS: '손절', TAKE_PROFIT: '익절' }
@@ -44,7 +49,7 @@ export async function GET(req: Request) {
   const fp = await holdingsFingerprint(user.id)
   // v15: 🔐 개인 데이터 → 유료 키 전용(personal:true). 12h 캐시라 유료 키 등록 **이전에** 만들어진
   //      폴백 브리핑이 그대로 서빙되고 있었다 — 키를 올려 강제 재생성시킨다(2026-08-16 화면검증).
-  const cacheKey = `hq-briefing-v15+${UNIFIED_RECO_V}:${user.id}:${kstDate()}:${fp}`   // v14: 3축→6축 라벨·프롬프트 정합
+  const cacheKey = `hq-briefing-v16+${UNIFIED_RECO_V}:${user.id}:${kstDate()}:${fp}`   // v16: aiReason 필드 추가(폴백 사유) / v14: 3축→6축 라벨·프롬프트 정합
   const cached = await getCache<HqBriefing>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -185,7 +190,9 @@ ${buyTxt || '없음'}
   //    Gemini 무료 티어 약관은 "개인 정보를 제출하지 말라"고 명시하고 사람이 읽을 수 있다 → 유료 키 전용.
   //    키가 없으면 fail-closed 로 실패하고 아래 결정론 폴백이 받는다(무료 키로 새지 않는다).
   const g = await callGeminiJSON<{ briefing: string }>(prompt, { type: 'OBJECT', properties: { briefing: { type: 'STRING' } }, required: ['briefing'] }, { temperature: 0.4, personal: true })
+  let aiReason: HqBriefing['aiReason'] = null
   if (g.ok && g.data?.briefing) { briefing = g.data.briefing; model = g.model }
+  else if (!g.ok) aiReason = g.reason   // 왜 폴백인지 남긴다(키 미설정 vs 한도 vs 호출 실패)
 
   // 결정론적 폴백(Gemini 실패/데이터 부족 시에도 항상 유효)
   if (!briefing) {
@@ -198,7 +205,7 @@ ${buyTxt || '없음'}
       `자세한 매도 진단은 아래 ② 리밸런싱 패널을 함께 확인하세요. ※ 교육용 시뮬레이션이며 자동 체결은 하지 않습니다.`
   }
 
-  const result: HqBriefing = { briefing, seasonLabel, alignmentScore, trim, sells, sellBudget, buys, policyTilt, riskChecks, model }
+  const result: HqBriefing = { briefing, seasonLabel, alignmentScore, trim, sells, sellBudget, buys, policyTilt, riskChecks, model, aiReason }
   // 매수 후보가 비었으면(통합추천 콜드/타임아웃) 캐시하지 않음 → 다음 로드에서 통합추천 워밍 후 재생성
   if (buys.length > 0) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
