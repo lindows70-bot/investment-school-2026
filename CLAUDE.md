@@ -75,6 +75,11 @@ Next.js 14 (App Router) + Supabase + Tailwind CSS + TypeScript 로 구축한
   결정론 폴백이 받는다(무료 키로 새지 않는다 — 토스 `assertTossOwner` 와 같은 원칙).
   ⚠️ **새 LLM 호출을 만들 때 프롬프트에 보유·손익·비중·계좌가 들어가는지 먼저 검열하라.** 들어가면 `personal: true`.
   💰 비용 실측: 프롬프트 3,122·2,018 토큰 · 학생 7명 → **월 약 300원**(flash-lite 유료 $0.10/$0.40 per M).
+  ✅ 2026-08-17 검증 완료 — `model: gemini-flash-lite-latest` · `aiReason: null` · 화면 'Gemini' 배지.
+  🩹 **환경변수는 `env ls` 로 검증하지 마라 — 존재만 보여준다.** 실제로 `GEMINI_PAID_API_KEY` 가
+  **값 없이 생성**돼(CLI 프롬프트 붙여넣기 미반영) 계속 fail-closed 로 떨어졌는데, `env ls` 는 정상으로
+  보였고 `env pull` 은 암호화 값을 복호화하지 않아 **두 키 모두 0자**로 나와 검사가 무효였다.
+  **런타임에서 길이를 재야 갈린다**(값은 절대 노출 말고 `.length` 만). 웹 대시보드 입력이 CLI 보다 안전하다.
 - **⛔ 코인 가드** — 학생 권장 상한 5%(≥10% 위험). "이자 없는 로켓 연료, 잃어도 되는 돈만."
 - **⛔ LuxAlgo 등 유료 지표 코드 복제 금지** — 공개 개념만 우리 결정론으로 재구현.
 
