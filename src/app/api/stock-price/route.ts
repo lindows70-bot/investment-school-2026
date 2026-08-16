@@ -41,6 +41,9 @@ export interface Fundamentals {
   grossMargins?:      number | null   // 매출총이익률 (0.40 = 40%)
   operatingMargins?:  number | null   // 영업이익률 (0.20 = 20%, 음수=영업적자)
   psr?:               number | null   // 주가매출비율 P/S (시총÷TTM매출) — 적자기업·성장주 밸류 척도
+  /** 💵 선행 PSR — PSR × TTM매출 ÷ 미래 회계연도 예상매출(같은 Yahoo 응답 내 비율). 🇺🇸 US 전용(KR 은 Yahoo 추정치 신뢰 불가) */
+  fwdPsr?:            number | null
+  fwdPsrFy?:          number | null   // 그 예상매출의 회계연도(예: 2026) — 화면 병기용
 }
 
 export interface StockData {

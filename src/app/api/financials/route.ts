@@ -502,19 +502,26 @@ async function fetchUS(ticker: string) {
   }
 
   // ── 미래 추정: earningsTrend ─────────────────────────────────────────────
+  // ⚠️ '0y/+1y'는 **회사 회계연도**지 달력연도가 아니다(2026-08-16 실측). NVDA(1월 결산)의 0y는
+  //    endDate 가 2027-01 이라, 예전처럼 (yr−올해) delta 로 매핑하면 ①진짜 다음 연도 추정(0y)이
+  //    FMP 실적에 덮여 통째로 버려지고 ②그다음 연도(+1y)가 한 해 당겨 붙는다 — NVDA 2027E 에
+  //    FY2028 추정 562B 가 찍혀 있었다(실제 FY2027 추정 394B는 실종). endDate 의 연도로 매핑한다.
   const trRows: Array<{
     period: string
+    endDate?: string | Date | null
     earningsEstimate: { avg: number | null }
     revenueEstimate:  { avg: number | null }
   }> = d?.earningsTrend?.trend ?? []
-  const trendMap = new Map<string, { eps: number; rev: number }>()
+  const trendMap = new Map<string, { eps: number; rev: number }>()   // 키 = 회계연도(예: '2027') · endDate 없으면 period 폴백
   for (const row of trRows) {
     try {
       const period = row.period ?? ''
-      if (!period) continue
+      if (!['0y', '+1y', '+2y'].includes(period)) continue
+      const endMs = row.endDate ? new Date(row.endDate).getTime() : NaN
+      const key = isFinite(endMs) ? String(new Date(endMs).getUTCFullYear()) : period
       const epsVal = row.earningsEstimate?.avg ?? 0
       const revVal = row.revenueEstimate?.avg  ?? 0
-      trendMap.set(period, {
+      trendMap.set(key, {
         eps: typeof epsVal === 'number' && isFinite(epsVal) ? epsVal : 0,
         rev: typeof revVal === 'number' && revVal > 0 ? +(revVal / 1e6).toFixed(2) : 0,
       })
@@ -571,9 +578,10 @@ async function fetchUS(ticker: string) {
         }
       } else {
         // 실제 FMP 데이터 없음 → Yahoo earningsTrend 추정치 사용
+        // 회계연도(endDate) 키 우선 — endDate 가 없던 행만 예전 period 방식으로 폴백
         const delta  = yr - cy
         const pMap: Record<number, string> = { 0: '0y', 1: '+1y', 2: '+2y' }
-        const td     = trendMap.get(pMap[delta] ?? '')
+        const td     = trendMap.get(String(yr)) ?? trendMap.get(pMap[delta] ?? '')
         const fwdEps = toNum(stats?.forwardEps)
         fin[key] = {
           eps:             td?.eps && td.eps > 0 ? td.eps : (delta === 0 ? fwdEps : 0),

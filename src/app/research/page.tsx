@@ -56,6 +56,9 @@ interface StockInfo {
   epsGrowth?: number | null
   forwardEps?: number | null
   peg?: number | null
+  psr?: number | null       // 💵 매출배수(TTM) — 적자·고성장주에서 PER/PEG 대신 보는 밸류 척도
+  fwdPsr?: number | null    // 💵 예상매출 기준(US 전용)
+  fwdPsrFy?: number | null  // 그 예상매출의 회계연도
   marketCap?: number | null
   currency?: string
   lynchCategory?: string | null
@@ -178,6 +181,9 @@ export default function ResearchPage() {
               : null,
             forwardEps:    toNum(f.forwardEps),
             peg:           toNum(f.peg) ?? (typeof f.peg === 'number' && f.peg > 0 ? f.peg : null),
+            psr:           toNum(f.psr),
+            fwdPsr:        toNum(f.fwdPsr),
+            fwdPsrFy:      toNum(f.fwdPsrFy),
             marketCap:     toNum(f.marketCap),
             lynchCategory,
             lynchLabel,
@@ -456,6 +462,11 @@ export default function ResearchPage() {
                     value: stockInfo.epsGrowth != null ? `${stockInfo.epsGrowth.toFixed(1)}%` : '—' },
                   { label: 'Forward EPS', value: stockInfo.forwardEps != null ? (stockInfo.currency === 'KRW' ? `₩${Math.round(stockInfo.forwardEps).toLocaleString()}` : `${curFromCode(stockInfo.currency)}${stockInfo.forwardEps.toFixed(2)}`) : '—' },
                   { label: 'PEG',         value: stockInfo.peg != null ? stockInfo.peg.toFixed(2) : '—' },
+                  // 💵 매출배수 쌍 — 적자·고성장주는 PER/PEG 가 무의미해서 매출 대비 밸류로 본다.
+                  //    Fwd 는 US 전용(KR 은 Yahoo 추정치 신뢰 불가 — 삼성전자 시총 3배 튀는 실측) → KR 은 '—'
+                  { label: '매출배수(PSR)', value: stockInfo.psr != null ? `${stockInfo.psr.toFixed(1)}배` : '—' },
+                  { label: stockInfo.fwdPsrFy != null ? `매출배수(${stockInfo.fwdPsrFy}년 예상)` : '매출배수(예상)',
+                    value: stockInfo.fwdPsr != null ? `${stockInfo.fwdPsr.toFixed(1)}배` : '—' },
                 ].map(({ label, value }) => (
                   <div key={label} style={{ background: TK.bg0, boxShadow: SHI, borderRadius: 9, padding: '10px 12px' }}>
                     <div style={{ fontSize: 9, color: TK.sub4, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>{label}</div>
@@ -463,6 +474,15 @@ export default function ResearchPage() {
                   </div>
                 ))}
               </div>
+              {/* 💵 매출배수 캐비엇 — '높다=비싸다' 단순 독해 방지. 업종 간 절대 비교 금지 + 두 값의 차이가 성장 기대치 */}
+              {stockInfo?.psr != null && (
+                <div style={{ marginTop: 8, fontSize: FS.micro, color: TK.sub4, lineHeight: 1.6 }}>
+                  ※ <b>매출배수는 같은 업종끼리만 비교</b>하세요 — 업종마다 정상 범위가 완전히 다릅니다.
+                  {stockInfo.fwdPsr != null && stockInfo.fwdPsr < stockInfo.psr && (
+                    <> 예상 기준({stockInfo.fwdPsr.toFixed(1)}배)이 지금({stockInfo.psr.toFixed(1)}배)보다 낮은 건 <b>시장이 매출이 늘 것으로 본다</b>는 뜻이고, 그 예상이 빗나가면 배수가 다시 무거워집니다.</>
+                  )}
+                </div>
+              )}
               {/* ⚠️ 나란히 놓인 숫자는 학생이 나눗셈을 시도한다 — 잣대가 다르면 그 사실을 화면이 말해야 한다 */}
               {stockInfo?.peg != null && stockInfo?.epsGrowth != null && (
                 <div style={{ marginTop: 8, fontSize: FS.micro, color: TK.sub4, lineHeight: 1.6 }}>

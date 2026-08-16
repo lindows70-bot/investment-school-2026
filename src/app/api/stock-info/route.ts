@@ -130,11 +130,17 @@ interface DcfData {
   grossMargins:      number | null
   operatingMargins:  number | null
   psr:               number | null   // 주가매출비율 P/S (Yahoo priceToSalesTrailing12Months)
+  /** 💵 선행 PSR = PSR × TTM매출 ÷ 다음 회계연도 예상매출 — **같은 Yahoo 응답 안의 비율**로만 계산.
+   *  ⚠️ 시총(sd.marketCap)을 직접 쓰지 않는 이유(2026-08-16 실측): GOOGL 시총 필드가 클래스 A만 잡혀
+   *  2,319B(실제 4,230B)로 오고, PSR 직접값과 자기모순이었다. psr×ttmRev÷fwdRev 는 그 오류를 우회한다.
+   *  🇰🇷 KR 제외 — Yahoo KR 추정치는 쓰레기값(삼성전자 시총 1,802조·성장률 634% 실측). KR 은 네이버가 SSOT. */
+  fwdPsr:            number | null
+  fwdPsrFy:          number | null   // 그 예상매출의 회계연도(예: 2026) — 화면에 병기(가짜 정밀 방지)
 }
 const DCF_EMPTY: DcfData = {
   freeCashflow: null, sharesOutstanding: null, totalDebt: null,
   totalCash: null, returnOnEquity: null, grossMargins: null, operatingMargins: null,
-  psr: null,
+  psr: null, fwdPsr: null, fwdPsrFy: null,
 }
 
 async function fetchDcfFromYahoo(ticker: string, market: Market): Promise<DcfData> {
@@ -143,7 +149,7 @@ async function fetchDcfFromYahoo(ticker: string, market: Market): Promise<DcfDat
       const { default: YahooFinance } = await import('yahoo-finance2')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const yf = new (YahooFinance as any)({ suppressNotices: ['yahooSurvey'] })
-      const s = await yf.quoteSummary(yfTicker, { modules: ['financialData', 'defaultKeyStatistics', 'summaryDetail'] })
+      const s = await yf.quoteSummary(yfTicker, { modules: ['financialData', 'defaultKeyStatistics', 'summaryDetail', 'earningsTrend'] })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const fd: any = s?.financialData ?? {}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -157,6 +163,24 @@ async function fetchDcfFromYahoo(ticker: string, market: Market): Promise<DcfDat
       const yMc = pick(sd.marketCap), yRev = pick(fd.totalRevenue)
       const psr = psrDirect != null ? +psrDirect.toFixed(2)
         : (yMc != null && yRev != null && yRev > 0 ? +(yMc / yRev).toFixed(2) : null)
+      // 💵 선행 PSR — 아직 안 끝난 첫 회계연도의 예상매출 사용. ⚠️ '0y'를 달력연도로 믿으면 안 된다:
+      //    Yahoo 의 0y 는 **회사 회계연도**라 NVDA(1월 결산)는 endDate 가 다음 해 1월이다. endDate 로 판별한다.
+      let fwdPsr: number | null = null, fwdPsrFy: number | null = null
+      if (market === 'US' && psr != null && yRev != null && yRev > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const rows: any[] = s?.earningsTrend?.trend ?? []
+        const now = Date.now()
+        for (const row of rows) {
+          if (!['0y', '+1y'].includes(row?.period)) continue
+          const end = row?.endDate ? new Date(row.endDate).getTime() : NaN
+          const fwdRev = pick(row?.revenueEstimate?.avg)
+          if (isFinite(end) && end > now && fwdRev != null && fwdRev > 0) {
+            fwdPsr = +(psr * yRev / fwdRev).toFixed(2)
+            fwdPsrFy = new Date(end).getUTCFullYear()
+            break   // 가장 가까운 미래 회계연도 하나만
+          }
+        }
+      }
       return {
         freeCashflow:      pick(fd.freeCashflow),
         sharesOutstanding: pick(ks.sharesOutstanding),
@@ -165,7 +189,7 @@ async function fetchDcfFromYahoo(ticker: string, market: Market): Promise<DcfDat
         returnOnEquity:    pick(fd.returnOnEquity),
         grossMargins:      pick(fd.grossMargins),
         operatingMargins:  pick(fd.operatingMargins),
-        psr,
+        psr, fwdPsr, fwdPsrFy,
       }
     } catch {
       return DCF_EMPTY
@@ -826,7 +850,7 @@ async function krInfo(ticker: string): Promise<StockInfo> {
       returnOnEquity:    dcf.returnOnEquity,
       grossMargins:      dcf.grossMargins,
       operatingMargins:  dcf.operatingMargins,
-      psr: dcf.psr,
+      psr: dcf.psr, fwdPsr: dcf.fwdPsr, fwdPsrFy: dcf.fwdPsrFy,
     },
     source: 'live',
   }
@@ -987,7 +1011,7 @@ async function usInfo(ticker: string): Promise<StockInfo> {
         returnOnEquity:    usDcf.returnOnEquity,
         grossMargins:      usDcf.grossMargins,
         operatingMargins:  usDcf.operatingMargins,
-        psr: usDcf.psr,
+        psr: usDcf.psr, fwdPsr: usDcf.fwdPsr, fwdPsrFy: usDcf.fwdPsrFy,
       },
       // ── FMP 배런스시트 → 순현금 자동 계산 ──────────────────
       hasCash: isEtf ? null : await fetchNetCashUS(t),
@@ -1003,7 +1027,7 @@ async function usInfo(ticker: string): Promise<StockInfo> {
 
     const [quote, summary] = await Promise.allSettled([
       yf.quote(t),
-      yf.quoteSummary(t, { modules: ['summaryDetail','defaultKeyStatistics','financialData'] }),
+      yf.quoteSummary(t, { modules: ['summaryDetail','defaultKeyStatistics','financialData','earningsTrend'] }),
     ])
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1043,6 +1067,24 @@ async function usInfo(ticker: string): Promise<StockInfo> {
     const dcfRev    = pickN(sData?.financialData?.totalRevenue)
     const psrY = psrDirect != null ? +psrDirect.toFixed(2)
       : (mcRaw != null && dcfRev != null && dcfRev > 0 ? +(mcRaw / dcfRev).toFixed(2) : null)
+    // 💵 선행 PSR — fetchDcfFromYahoo 와 같은 식(psr × TTM매출 ÷ 미래 회계연도 예상매출, endDate 로 판별).
+    //    이 폴백은 SPCX 같은 신규 상장주가 타는 경로라 Fwd PSR 이 가장 필요한 곳이다.
+    let fwdPsrY: number | null = null, fwdPsrFyY: number | null = null
+    if (psrY != null && dcfRev != null && dcfRev > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows: any[] = sData?.earningsTrend?.trend ?? []
+      const now = Date.now()
+      for (const row of rows) {
+        if (!['0y', '+1y'].includes(row?.period)) continue
+        const end = row?.endDate ? new Date(row.endDate).getTime() : NaN
+        const fwdRev = pickN(row?.revenueEstimate?.avg)
+        if (isFinite(end) && end > now && fwdRev != null && fwdRev > 0) {
+          fwdPsrY = +(psrY * dcfRev / fwdRev).toFixed(2)
+          fwdPsrFyY = new Date(end).getUTCFullYear()
+          break
+        }
+      }
+    }
 
     // PEG: Yahoo 직접값 → 재계산 순서
     let finalPeg: number | 'N/A' = 'N/A'
@@ -1078,7 +1120,7 @@ async function usInfo(ticker: string): Promise<StockInfo> {
         returnOnEquity:    dcfRoe,
         grossMargins:      dcfGm,
         operatingMargins:  dcfOm,
-        psr: psrY,
+        psr: psrY, fwdPsr: fwdPsrY, fwdPsrFy: fwdPsrFyY,
       },
       hasCash: isEtfY ? null : await fetchNetCashUS(t),
       source: 'live',
