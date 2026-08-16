@@ -23,6 +23,10 @@ export interface CanonicalFundamentals {
 const EMPTY: CanonicalFundamentals = { peg: null, pe: null, growth: null, sector: null, opMargin: null, roe: null, fcf: null, psr: null }
 const TTL = 6 * 3600_000
 
+/** 캐시 키 SSOT — 직접 리터럴로 읽는 reader(jarvisBriefing)가 있어 함수로 묶는다(writer만 올리면 reader가 조용히 죽는다).
+ *  v2(2026-08-16): PSR ADR 통화 교정 — 옛 캐시엔 TSM 0.5·SONY 0.01 같은 틀린 psr 이 박혀 있다. */
+export const CANON_FUND_KEY = (code: string, mkt: string) => `canon-fund-v2:${code}:${mkt}`
+
 /** 티커('NVDA' / '000660' / '000660.KS')를 (코드, market)으로 정규화 */
 function normalize(ticker: string, market?: string): { code: string; market: 'US' | 'KR' } {
   const t = ticker.trim().toUpperCase()
@@ -37,7 +41,7 @@ function normalize(ticker: string, market?: string): { code: string; market: 'US
  */
 export async function getCanonicalFundamentals(ticker: string, market?: string, base?: string): Promise<CanonicalFundamentals> {
   const { code, market: mkt } = normalize(ticker, market)
-  const cacheKey = `canon-fund:${code}:${mkt}`
+  const cacheKey = CANON_FUND_KEY(code, mkt)
   const cached = await getCache<CanonicalFundamentals>(cacheKey, TTL)
   if (cached) return cached
   if (!base) return EMPTY   // base 없으면 호출 불가 → 폴백(호출부에서 처리)

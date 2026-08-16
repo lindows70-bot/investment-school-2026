@@ -5,7 +5,7 @@
 import { getCache, setCache } from '@/lib/appCache'
 
 // GBp(펜스)·ZAc(센트) 등 소수 단위 표기는 본 통화로 정규화 — Yahoo 시총·재무는 본 통화 단위로 온다(BA.L 실측 4.5% 정상)
-const normCur = (c: unknown): string | null => {
+export const normCur = (c: unknown): string | null => {
   if (typeof c !== 'string' || !c.trim()) return null
   const u = c.trim()
   if (u === 'GBp') return 'GBP'
@@ -82,4 +82,21 @@ export async function normalizeCashflow(
     if (yRaw > PLAUS && yConv > PLAUS) return { fcf: null, ocf: null, ...base }   // 어느 쪽도 상식 밖 → 보류
   }
   return conv   // 판별 불가(양쪽 다 그럴듯 = 환율이 1 근처라 저위험) → 종전대로 환산
+}
+
+/** 💵 Yahoo PSR(priceToSalesTrailing12Months)의 ADR 통화 불일치 교정 SSOT.
+ *
+ *  Yahoo 는 이 값을 **거래통화 시총 ÷ 재무통화 매출**로 섞어 계산한다(2026-08-16 실측:
+ *  TSM 0.5 · SONY 0.01 · BABA 0.29 · NVO 0.61 — 전부 말이 안 되는 값이 그대로 화면에 나가고 있었다).
+ *  참 PSR = psrDirect ÷ fx(재무통화→거래통화). 검산: TSM 0.5÷0.031(TWD→USD)=16.1 ✓ · SONY 0.01÷0.0068=1.5 ✓.
+ *  환율을 못 구하면 **null** — 틀린 값은 없는 값보다 나쁘다. 상식 범위(0.01~500) 밖도 null.
+ *  같은 통화(GOOGL·SHEL·KR 종목)는 그대로 통과. */
+export async function correctPsr(psrDirect: number | null, finCurRaw: unknown, trdCurRaw: unknown): Promise<number | null> {
+  if (psrDirect == null || !(psrDirect > 0)) return null
+  const fin = normCur(finCurRaw), trd = normCur(trdCurRaw)
+  const pass = (v: number) => (v >= 0.01 && v <= 500 ? +v.toFixed(2) : null)
+  if (!fin || !trd || fin === trd) return pass(psrDirect)
+  const r = await fxRate(fin, trd)
+  if (r == null || !(r > 0)) return null
+  return pass(psrDirect / r)
 }

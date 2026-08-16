@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { Market, Fundamentals } from '@/app/api/stock-price/route'
 import { curCodeFromTicker } from '@/lib/globalTickers'
 import { getTrueFcf } from '@/lib/trueFcf'   // 💵 FCF 분자 SSOT(현금흐름표 OCF−CapEx) — fd.freeCashflow 는 부호까지 틀린다
+import { correctPsr } from '@/lib/finCurrency'   // 💱 PSR ADR 통화 교정 SSOT
 
 export interface StockInfo {
   ticker:       string
@@ -129,11 +130,16 @@ interface DcfData {
   returnOnEquity:    number | null
   grossMargins:      number | null
   operatingMargins:  number | null
-  psr:               number | null   // 주가매출비율 P/S (Yahoo priceToSalesTrailing12Months)
+  /** 주가매출비율 P/S — Yahoo 직접값을 **correctPsr(SSOT)로 통화 교정**해서만 쓴다(2026-08-16).
+   *  Yahoo 는 거래통화 시총 ÷ 재무통화 매출로 섞어 계산해 ADR 이 전부 틀렸다(TSM 0.5 · SONY 0.01 · BABA 0.29). */
+  psr:               number | null
   /** 💵 선행 PSR = PSR × TTM매출 ÷ 다음 회계연도 예상매출 — **같은 Yahoo 응답 안의 비율**로만 계산.
    *  ⚠️ 시총(sd.marketCap)을 직접 쓰지 않는 이유(2026-08-16 실측): GOOGL 시총 필드가 클래스 A만 잡혀
    *  2,319B(실제 4,230B)로 오고, PSR 직접값과 자기모순이었다. psr×ttmRev÷fwdRev 는 그 오류를 우회한다.
-   *  🇰🇷 KR 제외 — Yahoo KR 추정치는 쓰레기값(삼성전자 시총 1,802조·성장률 634% 실측). KR 은 네이버가 SSOT. */
+   *  매출 비율이라 재무통화가 분자·분모에서 소거 — ADR 도 psr 만 교정되면 안전하다.
+   *  🇰🇷 KR 포함(2026-08-16 정정) — 처음엔 "Yahoo KR 시총 1,802조는 쓰레기"라며 제외했는데, 네이버(KR SSOT)
+   *  독립 재계산으로 삼성전자 시총 1,604조·2026E 컨센서스 738.6조가 확인됐고 Yahoo 예상매출 732.9조와
+   *  0.8% 차이로 일치했다. 낡은 건 데이터가 아니라 검증자의 기억이었다(원천 독립 재계산 원칙). */
   fwdPsr:            number | null
   fwdPsrFy:          number | null   // 그 예상매출의 회계연도(예: 2026) — 화면에 병기(가짜 정밀 방지)
 }
@@ -161,12 +167,14 @@ async function fetchDcfFromYahoo(ticker: string, market: Market): Promise<DcfDat
       // 직접값 없으면 Yahoo 시총÷매출 역산(둘 다 Yahoo라 통화·단위 일치)
       const psrDirect = pick(sd.priceToSalesTrailing12Months)
       const yMc = pick(sd.marketCap), yRev = pick(fd.totalRevenue)
-      const psr = psrDirect != null ? +psrDirect.toFixed(2)
-        : (yMc != null && yRev != null && yRev > 0 ? +(yMc / yRev).toFixed(2) : null)
+      const psrRaw = psrDirect != null ? psrDirect
+        : (yMc != null && yRev != null && yRev > 0 ? yMc / yRev : null)
+      // 💱 ADR 통화 교정(SSOT) — 직접값·역산 둘 다 거래통화 시총 ÷ 재무통화 매출이라 같은 결함을 공유한다
+      const psr = await correctPsr(psrRaw, fd.financialCurrency, market === 'KR' ? 'KRW' : curCodeFromTicker(ticker))
       // 💵 선행 PSR — 아직 안 끝난 첫 회계연도의 예상매출 사용. ⚠️ '0y'를 달력연도로 믿으면 안 된다:
       //    Yahoo 의 0y 는 **회사 회계연도**라 NVDA(1월 결산)는 endDate 가 다음 해 1월이다. endDate 로 판별한다.
       let fwdPsr: number | null = null, fwdPsrFy: number | null = null
-      if (market === 'US' && psr != null && yRev != null && yRev > 0) {
+      if (psr != null && yRev != null && yRev > 0) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const rows: any[] = s?.earningsTrend?.trend ?? []
         const now = Date.now()
@@ -1065,8 +1073,10 @@ async function usInfo(ticker: string): Promise<StockInfo> {
     // PSR: Yahoo 직접값 우선, 없으면 시총÷매출 역산
     const psrDirect = pickN(sData?.summaryDetail?.priceToSalesTrailing12Months)
     const dcfRev    = pickN(sData?.financialData?.totalRevenue)
-    const psrY = psrDirect != null ? +psrDirect.toFixed(2)
-      : (mcRaw != null && dcfRev != null && dcfRev > 0 ? +(mcRaw / dcfRev).toFixed(2) : null)
+    // 💱 ADR 통화 교정(SSOT) — TSM 0.5 · SONY 0.01 유형 차단(finCurrency.correctPsr 주석 참조)
+    const psrY = await correctPsr(
+      psrDirect != null ? psrDirect : (mcRaw != null && dcfRev != null && dcfRev > 0 ? mcRaw / dcfRev : null),
+      sData?.financialData?.financialCurrency, curCodeFromTicker(t))
     // 💵 선행 PSR — fetchDcfFromYahoo 와 같은 식(psr × TTM매출 ÷ 미래 회계연도 예상매출, endDate 로 판별).
     //    이 폴백은 SPCX 같은 신규 상장주가 타는 경로라 Fwd PSR 이 가장 필요한 곳이다.
     let fwdPsrY: number | null = null, fwdPsrFyY: number | null = null

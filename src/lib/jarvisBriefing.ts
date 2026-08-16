@@ -15,7 +15,7 @@
 
 import { getCache, setCache } from '@/lib/appCache'
 import { callGeminiJSON } from '@/lib/gemini'
-import { getCanonicalPeg, isPegBaseEffect } from '@/lib/canonicalFundamentals'
+import { getCanonicalPeg, isPegBaseEffect, CANON_FUND_KEY } from '@/lib/canonicalFundamentals'
 import { getTrueFcf } from '@/lib/trueFcf'   // 💵 FCF 분자 SSOT — fd.freeCashflow 는 부호까지 틀린다(LG전자·보잉 실측)
 import { computeMomentum, type MomentumSignal } from '@/lib/macroPhaseScreener'   // 📈 모멘텀 SSOT(통합추천과 동일 정의: Fwd EPS 방향+가격추세+칼날)
 import { getInsiderSignal } from '@/app/actions/getInsiderSignal'
@@ -107,7 +107,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
     // 2순위: PER/성장률 직접 계산 (Yahoo 제공 시)
     // 3순위: 절대 Yahoo pegRatio 사용 금지 (KR에서 Naver PER과 달라 3.34 같은 오류 발생)
     const mkt = market === 'KR' ? 'KR' : 'US'
-    const canonFund = await getCache<{ peg: number | null; pe: number | null; growth: number | null }>(`canon-fund:${tk}:${mkt}`, 8 * 3600_000)
+    const canonFund = await getCache<{ peg: number | null; pe: number | null; growth: number | null }>(CANON_FUND_KEY(tk, mkt), 8 * 3600_000)
     let peg: number | null = canonFund?.peg ?? null
     if (peg == null) {
       // canon-fund 캐시 없으면 PER/성장률 직접 계산 (같은 공식)
