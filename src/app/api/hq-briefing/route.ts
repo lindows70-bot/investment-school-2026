@@ -36,6 +36,8 @@ export interface HqBriefing {
    *  ⚠️ 이게 없던 시절엔 폴백이 왜 떴는지 화면에서도 로그에서도 알 수 없어, 키 문제인지 캐시 문제인지
    *     구분하는 데 배포를 두 번 헛돌았다(2026-08-16). '없음'과 '못 불러옴'을 구분하라는 원칙의 연장. */
   aiReason?: 'no_key' | 'no_paid_key' | 'rate_limited' | 'error' | null
+  /** 🔎 일회성 진단 — 키 길이만(값 아님). 원인 규명 후 제거 예정. */
+  keyDiag?: { paidLen: number; freeLen: number }
 }
 
 const ACTION_KO: Record<string, string> = { CUT_LOSS: '손절', TAKE_PROFIT: '익절' }
@@ -49,7 +51,7 @@ export async function GET(req: Request) {
   const fp = await holdingsFingerprint(user.id)
   // v15: 🔐 개인 데이터 → 유료 키 전용(personal:true). 12h 캐시라 유료 키 등록 **이전에** 만들어진
   //      폴백 브리핑이 그대로 서빙되고 있었다 — 키를 올려 강제 재생성시킨다(2026-08-16 화면검증).
-  const cacheKey = `hq-briefing-v16+${UNIFIED_RECO_V}:${user.id}:${kstDate()}:${fp}`   // v16: aiReason 필드 추가(폴백 사유) / v14: 3축→6축 라벨·프롬프트 정합
+  const cacheKey = `hq-briefing-v17+${UNIFIED_RECO_V}:${user.id}:${kstDate()}:${fp}`   // v16: aiReason 필드 추가(폴백 사유) / v14: 3축→6축 라벨·프롬프트 정합
   const cached = await getCache<HqBriefing>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -205,7 +207,10 @@ ${buyTxt || '없음'}
       `자세한 매도 진단은 아래 ② 리밸런싱 패널을 함께 확인하세요. ※ 교육용 시뮬레이션이며 자동 체결은 하지 않습니다.`
   }
 
-  const result: HqBriefing = { briefing, seasonLabel, alignmentScore, trim, sells, sellBudget, buys, policyTilt, riskChecks, model, aiReason }
+  // 🔎 일회성 진단(원인 규명 후 제거) — 키 **길이만** 노출한다. 값은 절대 내보내지 않는다.
+  //    'Vercel 에 등록돼 있는데 런타임이 못 읽는다'가 값 비어 있음인지 전달 실패인지 가른다.
+  const keyDiag = { paidLen: (process.env.GEMINI_PAID_API_KEY ?? '').length, freeLen: (process.env.GEMINI_API_KEY ?? '').length }
+  const result: HqBriefing = { briefing, seasonLabel, alignmentScore, trim, sells, sellBudget, buys, policyTilt, riskChecks, model, aiReason, keyDiag }
   // 매수 후보가 비었으면(통합추천 콜드/타임아웃) 캐시하지 않음 → 다음 로드에서 통합추천 워밍 후 재생성
   if (buys.length > 0) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
