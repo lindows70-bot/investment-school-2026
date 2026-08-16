@@ -79,7 +79,9 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
   const tk = ticker.trim().toUpperCase()
   // v4: PEG를 app_cache(canon-fund) 직접 읽기로 변경 — selfBase 의존성 제거
   //     selfBase가 undefined여도 canon-fund 캐시에서 SSOT PEG를 가져옴
-  const cacheKey = `jarvis-metrics-v15:${tk}:${market}:${kstDate()}`   // v15: 📋 어닝 서프라이즈 이력(earningsHistory — 약속 이행 프록시) / v14: equity 노출
+  // v16: 📋 earningsHistory 분리 호출 — 적자주(IONQ 등)에서 그 모듈 하나가 전체를 죽여 metrics 가 null 이었다.
+  //      옛 캐시엔 그 실패가 안 박혀 있지만(null 은 캐시 안 함), 이제 값이 생기는 종목이 있으므로 범프한다.
+  const cacheKey = `jarvis-metrics-v16:${tk}:${market}:${kstDate()}`   // v15: 📋 어닝 서프라이즈 이력 / v14: equity 노출
   const cached = await getCache<SignalMetrics>(cacheKey, 12 * 3600_000)
   if (cached) return cached
 
@@ -92,13 +94,25 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let q: any = null
     let sym = tries[0]
+    // ⚠️ earningsHistory 는 **별도 호출**로 뗀다(2026-08-16 실사고). 한 번에 요청하면 그 모듈 하나의
+    //    스키마 검증 실패가 전체를 throw 시켜 종합판정이 통째로 'unsupported' 가 된다 —
+    //    실측: IONQ 는 적자라 history 행에 epsEstimate·surprisePercent 가 없고, yahoo-finance2 가
+    //    required 로 보고 거부한다(TEM·NVDA 는 정상). 하필 **적자 성장주**에서만 터져서,
+    //    가치축 PSR 폴백을 새로 붙인 바로 그 종목군이 화면에 진입조차 못 하고 있었다.
+    //    부가 정보(어닝 서프라이즈 이력)가 없다고 핵심 판정 6축을 버리는 건 잣대가 뒤집힌 것이다.
+    const CORE = ['defaultKeyStatistics', 'financialData', 'summaryDetail', 'assetProfile', 'price', 'earningsTrend']
     for (const s of tries) {
       try {
-        const r = await yf.quoteSummary(s, { modules: ['defaultKeyStatistics', 'financialData', 'summaryDetail', 'assetProfile', 'price', 'earningsTrend', 'earningsHistory'] })
+        const r = await yf.quoteSummary(s, { modules: CORE })
         if (r) { q = r; sym = s; if (r?.assetProfile?.industry) break }
       } catch { /* 다음 심볼 */ }
     }
     if (!q) return null
+    // 📋 어닝 서프라이즈 이력 — 실패해도 나머지는 살린다(없으면 epsBeats 계열이 null 로 남을 뿐)
+    try {
+      const eh = await yf.quoteSummary(sym, { modules: ['earningsHistory'] })
+      if (eh?.earningsHistory) q.earningsHistory = eh.earningsHistory
+    } catch { /* 부가 정보 — 없어도 판정은 계속한다 */ }
 
     const fd = q.financialData ?? {}, ap = q.assetProfile ?? {}, pr = q.price ?? {}
 
