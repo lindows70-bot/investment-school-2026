@@ -31,6 +31,11 @@ export interface ResearchVerdict {
   axes: { season: number; value: number; quality: number; momentum: number; rotation: number; supply: number }
   /** 💰 수급 축이 실측인가 — false 면 중립 50(미집계). 통합추천 카드와 같은 정직 표기(가짜 정밀 금지) */
   supplyKnown: boolean
+  /** ⚖️ 이 판정에 실제로 쓴 6축 가중치(axisWeights SSOT · 시장별). **화면이 리터럴로 적지 않도록** 내보낸다.
+   *  2026-08-16 실측: 각주가 "가치25·모멘텀20·수급10"으로 굳어 있었는데 실제는 가치30·모멘텀25·수급0 이었다
+   *  — 8/14 수급 0% 결정이 이 문구에 전파되지 않아, 바로 위 수급 막대 설명과 한 화면에서 모순이었다.
+   *  통합추천(UnifiedReco)은 이미 data.weights 로 그리고 있었다(같은 패턴으로 통일). */
+  weights: { season: number; value: number; quality: number; momentum: number; rotation: number; supply: number }
   /** 📐 6축 가중합 — 통합추천의 6축과 **같은 값**. axisScore + tilts + penalties = score */
   axisScore: number
   /** ⚙️💵 6축 밖 보정(자본효율·현금창출력) — 통합추천과 **같은 보정**(lib/scoreTilts SSOT) */
@@ -70,7 +75,9 @@ export async function GET(req: Request) {
   // v17: 📐 주도섹터 입력 섹터도 유니버스 우선(같은 SSOT 함수라도 입력이 다르면 결과가 갈린다)
   // v16: 📐 축 점수를 유니버스 SSOT 로(통합추천과 동일) — 점수가 바뀌므로 필수 범프
   // v15: ⚖️ 6축 가중치를 axisWeights SSOT 로 교체(해외는 수급 0·가치 30·모멘텀 25)
-  const cacheKey = `research-verdict-v22:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v22: ⚖️ KR 수급 가중 0%(실측 예측력 0) / v21 이전 이력은 git
+  // v23: ⚖️ weights 필드 추가(화면 각주를 리터럴→데이터로) + 💵 가치축 적자기업 PSR 폴백(universe v16)
+  //      ⚠️ 스키마 확장도 범프한다 — 옛 응답이 서빙되면 새 필드가 undefined 로 와서 각주가 통째로 빈다
+  const cacheKey = `research-verdict-v23:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v22: ⚖️ KR 수급 가중 0%(실측 예측력 0) / v21 이전 이력은 git
   const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -258,6 +265,7 @@ export async function GET(req: Request) {
     ticker, name, market, verdict, score,
     sector: m.sector ?? null, rotationQuad: rotQuad,
     axes: { season: seasonScore, value, quality, momentum, rotation, supply },
+    weights: w,   // ⚖️ 위 axisScore 계산에 실제로 쓴 그 객체 — 화면이 이걸 그려야 값과 설명이 갈리지 않는다
     axisScore, tilts, penalties,
     supplyKnown,
     axisSource: ax ? 'universe' : 'local',

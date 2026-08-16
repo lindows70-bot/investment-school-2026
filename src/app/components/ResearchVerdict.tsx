@@ -134,7 +134,15 @@ export default function ResearchVerdictCard({ ticker, market, name }: { ticker: 
         </div>
 
         <div style={{ color: TK.sub, fontSize: 10, lineHeight: 1.6 }}>
-          ※ 통합추천과 동일한 6축(가치25·퀄리티20·모멘텀20·주도섹터10·수급10·계절15)+리스크 엔진으로 합성한 교육용 판정입니다(WHAT=무엇을 살까). 🚦 기술적 타이밍은 언제 살까(WHEN)를 보는 별도 레이어로, 점수엔 반영되지 않습니다. 상세 근거는 아래 각 카드(역-DCF·수급·내부자·해자·섹터피어 등)에서 확인하세요. 투자 추천이 아닙니다.
+          {/* ⚖️ 가중치는 **응답에서 그린다** — 리터럴로 박아뒀더니 8/14 수급 0% 결정이 전파되지 않아
+              "수급10"이라 적힌 채 바로 위 수급 막대의 '점수 미반영' 설명과 모순이었다(2026-08-16 실측).
+              가중치 0 인 축은 목록에서 빼야 "왜 0인데 적혀 있나"가 안 생긴다. */}
+          ※ 통합추천과 동일한 6축(
+          {([['가치', d.weights?.value], ['퀄리티', d.weights?.quality], ['모멘텀', d.weights?.momentum],
+             ['주도섹터', d.weights?.rotation], ['수급', d.weights?.supply], ['계절', d.weights?.season]] as [string, number | undefined][])
+            .filter(([, w]) => typeof w === 'number' && w > 0)
+            .map(([n, w]) => `${n}${Math.round((w as number) * 100)}`).join('·') || '가중치 정보 없음'}
+          )+리스크 엔진으로 합성한 교육용 판정입니다(WHAT=무엇을 살까). 🚦 기술적 타이밍은 언제 살까(WHEN)를 보는 별도 레이어로, 점수엔 반영되지 않습니다. 상세 근거는 아래 각 카드(역-DCF·수급·내부자·해자·섹터피어 등)에서 확인하세요. 투자 추천이 아닙니다.
         </div>
       </div>
     </div>
