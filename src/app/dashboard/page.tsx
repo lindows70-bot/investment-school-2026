@@ -1542,12 +1542,18 @@ export default function DashboardPage() {
     // ── 2. 포트폴리오 전체 수익률 ────────────────────────────────
     const winners = withRet.filter(d => d.ret > 0).length
     const losers  = withRet.filter(d => d.ret < 0).length
+    // 🏆 스트림도 **총수익률(평가+실현)** 을 먼저 읽는다 — 여기만 평가만 −9.88% 를 '전체 수익률'로
+    //    방송하면 위 카드가 +14.5% 라 해도 학생은 "역시 잃고 있다"로 되돌아간다(같은 실사고의 잔재).
+    const headline = totalReturnAll ?? totalRet
+    const breakdown = `수익 ${winners}종목 · 손실 ${losers}종목 · 보합 ${withRet.length - winners - losers}종목`
     list.push({
-      type: totalRet != null && totalRet >= 0 ? 'success' : 'warning',
+      type: headline != null && headline >= 0 ? 'success' : 'warning',
       label: 'PORTFOLIO',
-      msg: totalRet != null
-        ? `전체 수익률 ${fmtPct(totalRet)} | 수익 ${winners}종목 · 손실 ${losers}종목 · 보합 ${withRet.length - winners - losers}종목`
-        : `총 ${investments.length}개 종목 보유 중`
+      msg: totalReturnAll != null
+        ? `총 수익률 ${fmtPct(totalReturnAll)} (평가+실현) | 평가만 ${fmtPct(totalRet)} | ${breakdown}`
+        : totalRet != null
+          ? `전체 수익률 ${fmtPct(totalRet)} | ${breakdown}`
+          : `총 ${investments.length}개 종목 보유 중`
     })
 
     // ── 3. 주식/ETF — 린치 분류 기반 맥락있는 수익 메시지 ─────────
@@ -1630,7 +1636,7 @@ export default function DashboardPage() {
 
     return list.slice(0, 8)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [investments, pricedInvs, priceMap, totalRet])
+  }, [investments, pricedInvs, priceMap, totalRet, totalReturnAll])
 
   const alertBorder: Record<string, string> = { success:'#16a34a', warning:TK.red600, info:TK.blue600 }
   const alertBg:     Record<string, string> = { success:'rgba(22,163,74,0.08)', warning:'rgba(220,38,38,0.08)', info:'rgba(37,99,235,0.08)' }
