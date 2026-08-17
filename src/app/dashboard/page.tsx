@@ -2129,7 +2129,13 @@ export default function DashboardPage() {
         ]
 
         return (
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:10 }}>
+          // ⚠️ 한 줄 고정(2026-08-17) — 예전엔 auto-fill 이라 **컨테이너 너비**가 열 수를 정했는데,
+          //    카드 개수 자체가 9~10 으로 변한다('총 손익(평가+실현)'이 realizedKrw 있을 때만 붙는 조건부).
+          //    그래서 실현손익이 잡히는 날만 마지막 카드가 줄바꿈돼 "어떤 날은 두 줄"이 됐다.
+          //    → 개수에 맞춰 열을 명시해 항상 한 줄. 좁은 화면에서는 카드를 찌그러뜨리는 대신
+          //       **이 컨테이너 안에서만** 가로 스크롤한다(페이지 본문은 가로로 밀리지 않는다).
+          <div style={{ overflowX: 'auto', margin: '0 -2px', padding: '0 2px 2px' }}>
+          <div style={{ display:'grid', gridTemplateColumns:`repeat(${cards.length},minmax(140px,1fr))`, gap:10 }}>
             {cards.map(({ label, accent, main, sub }) => {
               const isDivCard = label === '월간 예상 배당금'
               return (
@@ -2166,6 +2172,7 @@ export default function DashboardPage() {
                 </div>
               )
             })}
+          </div>
           </div>
         )
       })()}
