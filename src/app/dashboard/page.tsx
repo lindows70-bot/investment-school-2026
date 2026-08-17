@@ -143,11 +143,14 @@ const toKrw = (inv: Investment, price?: number, fx: number = USD_KRW_FALLBACK) =
   const p = price ?? inv.purchase_price
   return p * inv.quantity * (inv.currency === 'USD' ? fx : 1)
 }
+// ⚠️ 절대값으로 판정한다 — 예전엔 `v >= 1e4` 라 **음수만 압축이 안 됐다**. 이익 310만은 `₩310만`(80px)인데
+//    손실 310만은 `₩-3,100,623`(122px)이 돼, 손실이 클수록 카드가 넓어져 KPI 줄이 밀려 잘렸다.
 const fmtKrw = (n: number) => {
   const v = isFinite(n) ? n : 0
-  return v >= 1e8 ? `₩${(v/1e8).toLocaleString('ko-KR', { minimumFractionDigits:1, maximumFractionDigits:1 })}억`
-    : v >= 1e4 ? `₩${Math.round(v/1e4).toLocaleString('ko-KR')}만`
-    : `₩${Math.round(v).toLocaleString('ko-KR')}`
+  const a = Math.abs(v), sign = v < 0 ? '-' : ''
+  return a >= 1e8 ? `₩${sign}${(a/1e8).toLocaleString('ko-KR', { minimumFractionDigits:1, maximumFractionDigits:1 })}억`
+    : a >= 1e4 ? `₩${sign}${Math.round(a/1e4).toLocaleString('ko-KR')}만`
+    : `₩${sign}${Math.round(a).toLocaleString('ko-KR')}`
 }
 /**
  * 소액 정밀 표기 — fmtKrw 는 만 단위로 반올림해서 13,500원이 "₩1만"이 된다(-26% 오차).
@@ -2172,21 +2175,32 @@ export default function DashboardPage() {
           //    그래서 실현손익이 잡히는 날만 마지막 카드가 줄바꿈돼 "어떤 날은 두 줄"이 됐다.
           //    → 개수에 맞춰 열을 명시해 항상 한 줄. 좁은 화면에서는 카드를 찌그러뜨리는 대신
           //       **이 컨테이너 안에서만** 가로 스크롤한다(페이지 본문은 가로로 밀리지 않는다).
+          //    ⚠️ 최소폭 140px 이면 10장일 때 1490px 이라 컨테이너(1097px)를 393px 넘겨 **마지막 배당 카드가
+          //       잘렸다**. 96px 로 낮추면 10장이 1050px 라 한 화면에 다 들어온다. 폰처럼 그래도 좁으면
+          //       스크롤로 떨어지되 카드가 읽을 수 없게 찌그러지진 않는다.
           <div style={{ overflowX: 'auto', margin: '0 -2px', padding: '0 2px 2px' }}>
-          <div style={{ display:'grid', gridTemplateColumns:`repeat(${cards.length},minmax(140px,1fr))`, gap:10 }}>
+          <div style={{ display:'grid', gridTemplateColumns:`repeat(${cards.length},minmax(96px,1fr))`, gap:10 }}>
             {cards.map(({ label, accent, main, sub }) => {
               const isDivCard = label === '월간 예상 배당금'
               return (
                 <div key={label} style={{
                   background: N, boxShadow: SHO,
-                  borderRadius: 12, padding: '12px 14px',
+                  borderRadius: 12, padding: '12px 12px',
                   borderLeft: `3px solid ${accent}`,
                   position: 'relative' as const,
+                  // 카드 폭 기준으로 금액 글자를 줄이려고 컨테이너 쿼리 단위(cqi)를 쓴다
+                  containerType: 'inline-size' as const,
                 }}>
                   <div style={{ fontSize:8, fontWeight:700, color:TK.sub4, textTransform:'uppercase' as const, letterSpacing:'0.1em', marginBottom:6 }}>
                     {label}
                   </div>
-                  <div style={{ fontSize:20, fontWeight:800, color:accent, fontVariantNumeric:'tabular-nums', letterSpacing:'-0.4px', lineHeight:1.1 }}>
+                  {/* 카드가 좁아지면 금액도 같이 줄어든다 — 넓을 땐 기존 크기(FS.xl) 그대로다.
+                      고정 크기면 카드 수가 10장이 되는 날 '₩2,829만'(92px)이 폭을 넘겨 줄바꿈된다. */}
+                  <div style={{
+                    fontSize:`clamp(${FS.body}px, calc(18cqi - 2px), ${FS.xl}px)`,
+                    fontWeight:800, color:accent, fontVariantNumeric:'tabular-nums',
+                    letterSpacing:'-0.4px', lineHeight:1.1, whiteSpace:'nowrap' as const,
+                  }}>
                     {main}
                   </div>
                   {sub && <div style={{ fontSize:10, color:TK.sub4, marginTop:4 }}>{sub}</div>}
