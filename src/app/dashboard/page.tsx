@@ -1230,6 +1230,25 @@ export default function DashboardPage() {
   /** 실현손익(매도 확정) — 없으면 null(로그인 전·매도 이력 없음) */
   const realizedKrw   = pnlSeries?.realized ? pnlSeries.realized.totalKrw : null
   const realizedCount = pnlSeries?.realized?.totalCount ?? 0
+  /** 매도분 원가(원) — 총수익률 분모용. 스쿨 리그와 **같은 SSOT**(buildRealizedTotals)에서 온다 */
+  const soldCostKrw   = pnlSeries?.soldCostKrw ?? 0
+
+  /** 🏆 총 수익률 % = (평가손익 + 실현손익) ÷ (보유원가 + 매도분 원가)
+   *
+   *  ⚠️ 이 값이 없던 시절(2026-08-17 이전) 대시보드는 **평가손익만** 보여줬다. 같은 학생이
+   *     스쿨 리그에선 +22.6% 로 1등인데 대시보드는 −9.86% 라 두 화면이 서로를 부정했다.
+   *     익절로 확정한 수익이 화면에서 통째로 사라져 "계속 잃고 있다"로 읽혔다(교육 목적과 정반대).
+   *  ⚠️ 스쿨 리그(app/api/school-league)와 **같은 공식·같은 분모**여야 한다 — 분모에 매도분 원가를
+   *     넣는 이유는 매도로 회수한 자본도 '투입했던 원금'이기 때문이다. 빼면 매도가 많은 사람일수록
+   *     분모가 작아져 수익률이 부풀려진다.
+   *  ⚠️ 평가손익은 costPricedKrw(현재가가 로드된 종목의 원가)를 쓴다 — totalPnL 과 분모를 맞춰야
+   *     '가격 못 불러온 종목'이 분자엔 없고 분모엔 있는 비대칭이 안 생긴다. */
+  const totalReturnAll = useMemo(() => {
+    if (realizedKrw == null) return null           // 매도 이력 미확인(로그인 전 등) → 표시하지 않는다
+    const denom = costPricedKrw + soldCostKrw
+    if (!(denom > 0)) return null
+    return ((totalPnL + realizedKrw) / denom) * 100
+  }, [realizedKrw, soldCostKrw, costPricedKrw, totalPnL])
 
   /** 차트 기간의 실제 변화율(첫날→마지막날) — '전체 수익률'(매수가 대비)과 다른 값이다 */
   const periodChangePct = useMemo(() => {
@@ -1439,13 +1458,19 @@ export default function DashboardPage() {
   const pnlSeriesData = useMemo(() => {
     if (!pnlSeries?.points?.length) return []
     const realizedMap = new Map((pnlSeries.realized?.byMonth ?? []).map(m => [m.month, m]))
+    // 🏆 누적선도 실현을 포함해야 한다 — cumPnl(평가 누적)만 그리면 익절로 확정한 수익이
+    //    궤적에서 통째로 빠져 "계속 내려가는 점선"이 된다(스쿨 리그 1등인데 화면은 하락 곡선).
+    let cumRealized = 0
     return pnlSeries.points.map(p => {
       const rz = realizedMap.get(p.month)
       const realized = rz?.krw ?? 0
       const total = p.pnl + realized
+      cumRealized += realized
       return {
         ...p,
         realized, realizedCount: rz?.count ?? 0, total,
+        /** 누적 총손익 = 그 달까지의 평가손익 + 그 달까지 확정한 실현손익 */
+        cumTotal: p.cumPnl + cumRealized,
         // ⚠️ 라벨은 막대마다 '자기 값'. 합계는 툴팁에서 본다 —
         //    평가(−)와 실현(+)이 부호가 반대라 한 막대에 합쳐 그릴 수 없다(stackId 로 묶었더니
         //    Recharts 가 height 를 음수로 계산해 막대가 통째로 사라졌다).
@@ -2070,11 +2095,18 @@ export default function DashboardPage() {
             main:  fmtKrw(totalPnL + realizedKrw),
             sub:   `실현 ${realizedKrw >= 0 ? '+' : '−'}${fmtKrw(Math.abs(realizedKrw))} 포함 · 매도 ${realizedCount}건`,
           }] : []),
-          {
+          // 🏆 '수익률'은 **총수익률(평가+실현)** 이다 — 스쿨 리그 랭킹과 같은 잣대.
+          //    예전엔 평가손익만이라 익절로 확정한 수익이 빠져 스쿨 리그와 정반대 부호가 나왔다.
+          //    평가만 본 수익률은 아래 sub 에 병기한다(둘 다 궁금한 값이라 숨기지 않는다).
+          ...(totalReturnAll != null ? [{
+            label: '총 수익률 (평가+실현)', accent: totalReturnAll >= 0 ? TK.red400 : TK.blue400,
+            main:  `${totalReturnAll >= 0 ? '+' : ''}${totalReturnAll.toFixed(2)}%`,
+            sub:   `평가만 ${(totalRet??0) >= 0 ? '+' : ''}${(totalRet??0).toFixed(2)}% · 매도 ${realizedCount}건 포함`,
+          }] : [{
             label: '수익률', accent: (totalRet??0) >= 0 ? TK.red400 : TK.blue400,
             main:  totalRet != null ? `${(totalRet??0) >= 0 ? '+' : ''}${(totalRet??0).toFixed(2)}%` : '—',
             sub:   totalPnL !== 0 ? fmtKrw(totalPnL) : undefined,
-          },
+          }]),
           {
             label: '보유 종목', accent: TK.blue400,
             main:  `${investments.length}개`,
@@ -2650,8 +2682,19 @@ export default function DashboardPage() {
               <>
                 {/* ⚠️ totalRet 은 '매수가 대비 전체' 수익률이다. 예전엔 이걸 '30일 수익률'로
                     라벨링해 차트 기간 변화와 다른 값을 같은 이름으로 보여줬다. 둘 다 병기한다. */}
+                {/* 🏆 총 수익률(평가+실현)을 **맨 앞에** 둔다 — 학생이 가장 먼저 보는 자리에
+                    익절 확정분이 빠진 숫자가 있으면 "계속 잃고 있다"로 읽힌다(스쿨 리그와 반대 부호였다).
+                    평가만 본 수익률은 바로 옆에 병기해 '무엇이 다른지'를 화면이 스스로 설명하게 한다. */}
+                {totalReturnAll != null && (
+                  <div>
+                    <div style={{ fontSize:9, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>총 수익률 (평가+실현)</div>
+                    <div style={{ fontSize:15, fontWeight:800, color:totalReturnAll>=0?TK.red500:TK.blue500, fontVariantNumeric:'tabular-nums' }}>{fmtPct(totalReturnAll)}</div>
+                  </div>
+                )}
                 <div>
-                  <div style={{ fontSize:9, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>전체 수익률</div>
+                  <div style={{ fontSize:9, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>
+                    {totalReturnAll != null ? '평가만(보유분)' : '전체 수익률'}
+                  </div>
                   <div style={{ fontSize:15, fontWeight:800, color:(totalRet??0)>=0?TK.red500:TK.blue500, fontVariantNumeric:'tabular-nums' }}>{fmtPct(totalRet)}</div>
                 </div>
                 {periodChangePct != null && (
@@ -2908,7 +2951,7 @@ export default function DashboardPage() {
               ? [
                   { color:TK.red400, label:'평가손익 변화', dash:false },
                   ...(hasRealized ? [{ color:TK.amber400, label:'실현손익(매도)', dash:false }] : []),
-                  { color:TK.indigo400, label:'누적 평가손익', dash:true },
+                  { color:TK.indigo400, label: hasRealized ? '누적 총손익(평가+실현)' : '누적 평가손익', dash:true },
                 ]
               : [
                   { color:TK.neonLime, label:'Core (ETF·우량주)', dash:false },
@@ -2959,7 +3002,11 @@ export default function DashboardPage() {
                             ['평가손익 변화', d.pnl, d.pnl >= 0 ? TK.red400 : TK.blue400],
                             ...(d.realized !== 0 ? [[`실현손익 (매도 ${d.realizedCount}건)`, d.realized, d.realized >= 0 ? TK.red400 : TK.blue400] as [string, number, string]] : []),
                             ['그 달 성적 (합계)', d.total, d.total >= 0 ? TK.red400 : TK.blue400],
-                            ['누적 평가손익', d.cumPnl, TK.indigo400],
+                            // 실현이 있으면 누적도 '평가+실현'으로 — 위 라인 차트와 같은 값이어야 한다
+                            ...(d.realized !== 0 || d.cumTotal !== d.cumPnl
+                              ? [['누적 총손익 (평가+실현)', d.cumTotal, TK.indigo400] as [string, number, string],
+                                 ['└ 그중 평가손익 누적', d.cumPnl, TK.sub] as [string, number, string]]
+                              : [['누적 평가손익', d.cumPnl, TK.indigo400] as [string, number, string]]),
                             ['월말 평가액', d.valueKrw, TK.sub12]].map(([l, v, c]) => (
                             <div key={l as string} style={{ display:'flex', justifyContent:'space-between', gap:16, fontSize:11, marginBottom:3 }}>
                               <span style={{ color:TK.sub }}>{l as string}</span>
@@ -2972,7 +3019,9 @@ export default function DashboardPage() {
                     }}/>
                     {/* ⚠️ 점선을 막대보다 '먼저' 그린다 — Recharts 는 자식 순서대로 쌓아서,
                         Line 이 뒤에 오면 막대 라벨 위를 덮는다(7월 -442만 겹침 실사고). */}
-                    <Line yAxisId="line" type="monotone" dataKey="cumPnl" name="누적 손익" stroke={TK.indigo400} strokeWidth={2} strokeDasharray="5 3"
+                    {/* 🏆 실현 포함 누적(cumTotal) — 매도 이력이 있으면 그쪽을 그린다.
+                        cumPnl(평가만)을 그리면 익절 확정분이 궤적에서 빠져 계속 내려가는 선이 된다. */}
+                    <Line yAxisId="line" type="monotone" dataKey={hasRealized ? 'cumTotal' : 'cumPnl'} name={hasRealized ? '누적 총손익(평가+실현)' : '누적 손익'} stroke={TK.indigo400} strokeWidth={2} strokeDasharray="5 3"
                       dot={{ r:3, fill:TK.indigo400, stroke:TK.bg3, strokeWidth:1.5 }} activeDot={{ r:5 }} isAnimationActive={true} animationDuration={800}/>
                     {/* ⚠️ stackId 로 묶지 않는다 — 평가(−)와 실현(+)은 부호가 반대라 스택 누적이
                         깨져 height 가 음수가 되고 막대가 통째로 사라진다(실사고). 나란히 그린다. */}

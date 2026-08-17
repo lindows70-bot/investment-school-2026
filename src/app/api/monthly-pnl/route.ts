@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { computeMonthlyPnl, type PnlLot } from '@/lib/monthlyPnl'
 import { getTechCandles } from '@/lib/techChartData'
-import { buildRealizedByMonth, type SellTx } from '@/lib/realizedPnl'
+import { buildRealizedByMonth, buildRealizedTotals, type SellTx } from '@/lib/realizedPnl'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -47,22 +47,31 @@ export async function POST(req: Request) {
   //    +$3,879.93 을 확정해 뒀는데 대시보드는 -541만만 보여줬다.
   //    로트는 body 로 받지만 매도 이력은 서버가 본인 세션으로 직접 읽는다(RLS + 인증).
   let realized: Awaited<ReturnType<typeof buildRealizedByMonth>> | null = null
+  // 💰 매도분 **원가**(soldCostKrw) — 대시보드가 스쿨 리그와 **같은 분모**로 총수익률을 내려면 필요하다.
+  //    ⚠️ 2026-08-17 실사고: 여기서 price·quantity 를 안 읽어서 매도 원가를 못 구했고, 그래서 대시보드는
+    //    분모를 만들 수 없어 '평가손익 ÷ 보유원가'(= −9.86%)만 보여줬다. 같은 학생이 스쿨 리그에선
+  //    +22.6% 로 1등인데 대시보드는 계속 마이너스라 두 화면이 서로를 부정했다(제2원칙 위반).
+  let soldCostKrw = 0
   try {
     const sb = createClient()
     const { data: { user } } = await sb.auth.getUser()
     if (user) {
       const { data: sells } = await sb.from('transactions')
-        .select('ticker,name,market,currency,realized_pnl,transaction_date')
+        .select('ticker,name,market,currency,realized_pnl,transaction_date,price,quantity')
         .eq('user_id', user.id).eq('type', 'sell')
       if (sells?.length) {
         const fxCandles = await getTechCandles('KRW=X', 'US', 'D')
         const latestFx = usdKrwNow ?? fxCandles[fxCandles.length - 1]?.close ?? 0
-        if (latestFx > 0) realized = buildRealizedByMonth(sells as SellTx[], fxCandles, latestFx)
+        if (latestFx > 0) {
+          realized = buildRealizedByMonth(sells as SellTx[], fxCandles, latestFx)
+          // 스쿨 리그와 **같은 SSOT 함수**를 쓴다 — 공식을 복붙하면 두 화면이 또 갈린다
+          soldCostKrw = buildRealizedTotals(sells as SellTx[], fxCandles, latestFx).soldCostKrw
+        }
       } else {
         realized = { byMonth: [], totalKrw: 0, totalCount: 0, fxFallbackCount: 0 }
       }
     }
   } catch { /* 실현손익은 부가 정보 — 실패해도 평가손익 시계열은 그대로 준다 */ }
 
-  return NextResponse.json({ ...result, realized }, { headers: { 'Cache-Control': 'no-store' } })
+  return NextResponse.json({ ...result, realized, soldCostKrw }, { headers: { 'Cache-Control': 'no-store' } })
 }
