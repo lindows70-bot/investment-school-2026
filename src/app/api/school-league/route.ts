@@ -16,7 +16,7 @@ import { createClient as createAdmin }     from '@supabase/supabase-js'
 import { classifyAsset }                   from '@/lib/classifyAsset'
 import { getUsdKrw } from '@/lib/fx'
 import { getTechCandles } from '@/lib/techChartData'
-import { buildRealizedTotals, type SellTx } from '@/lib/realizedPnl'
+import { buildRealizedTotals, totalReturnPct, type SellTx } from '@/lib/realizedPnl'
 import { TK } from '@/lib/theme'
 
 // ── 서비스 롤 클라이언트 (전체 사용자 데이터 조회) ──────────────
@@ -320,9 +320,9 @@ export async function GET(req: Request) {
         : { realizedKrw: 0, soldCostKrw: 0, sellCount: 0, fxFallbackCount: 0 }
       const denom       = totalCost + rt.soldCostKrw
       const unrealized  = totalCurrent - totalCost
-      const totalReturn = denom > 0
-        ? parseFloat(((unrealized + rt.realizedKrw) / denom * 100).toFixed(1))
-        : null
+      // 공식은 lib/realizedPnl 의 totalReturnPct 하나뿐 — 대시보드도 같은 함수를 부른다(제2원칙)
+      const raw         = totalReturnPct(unrealized, totalCost, rt.realizedKrw, rt.soldCostKrw)
+      const totalReturn = raw == null ? null : parseFloat(raw.toFixed(1))
       // 실현이 총수익률에 기여한 %p(같은 분모라 평가 기여분 + 실현 기여분 = 총수익률)
       const realizedPp  = denom > 0
         ? parseFloat((rt.realizedKrw / denom * 100).toFixed(1))

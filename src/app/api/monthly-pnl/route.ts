@@ -52,6 +52,10 @@ export async function POST(req: Request) {
     //    분모를 만들 수 없어 '평가손익 ÷ 보유원가'(= −9.86%)만 보여줬다. 같은 학생이 스쿨 리그에선
   //    +22.6% 로 1등인데 대시보드는 계속 마이너스라 두 화면이 서로를 부정했다(제2원칙 위반).
   let soldCostKrw = 0
+  // ⚠️ 총수익률 분자는 **buildRealizedTotals** 값을 쓴다 — buildRealizedByMonth 는 날짜가 깨진 매도행을
+  //    월에 배치할 수 없어 통째로 버리지만(그래서 차트 전용), totals 는 최신 환율로 세어 금액을 살린다.
+  //    분자를 byMonth 에서 가져오면 스쿨 리그와 또 어긋난다(같은 실사고의 두 번째 균열).
+  let realizedTotalKrw: number | null = null
   try {
     const sb = createClient()
     const { data: { user } } = await sb.auth.getUser()
@@ -65,7 +69,9 @@ export async function POST(req: Request) {
         if (latestFx > 0) {
           realized = buildRealizedByMonth(sells as SellTx[], fxCandles, latestFx)
           // 스쿨 리그와 **같은 SSOT 함수**를 쓴다 — 공식을 복붙하면 두 화면이 또 갈린다
-          soldCostKrw = buildRealizedTotals(sells as SellTx[], fxCandles, latestFx).soldCostKrw
+          const rt = buildRealizedTotals(sells as SellTx[], fxCandles, latestFx)
+          soldCostKrw = rt.soldCostKrw
+          realizedTotalKrw = rt.realizedKrw
         }
       } else {
         realized = { byMonth: [], totalKrw: 0, totalCount: 0, fxFallbackCount: 0 }
@@ -73,5 +79,5 @@ export async function POST(req: Request) {
     }
   } catch { /* 실현손익은 부가 정보 — 실패해도 평가손익 시계열은 그대로 준다 */ }
 
-  return NextResponse.json({ ...result, realized, soldCostKrw }, { headers: { 'Cache-Control': 'no-store' } })
+  return NextResponse.json({ ...result, realized, soldCostKrw, realizedTotalKrw }, { headers: { 'Cache-Control': 'no-store' } })
 }

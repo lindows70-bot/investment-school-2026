@@ -74,6 +74,33 @@ export function buildRealizedTotals(
   }
 }
 
+/**
+ * 🏆 총 수익률 % = (평가손익 + 실현손익) ÷ (보유원가 + 매도분 원가) — **대시보드와 스쿨 리그의 공통 잣대.**
+ *
+ * ⚠️ 2026-08-17 실사고: 같은 학생이 스쿨 리그에선 +22.6% 로 1등인데 대시보드는 −9.86% 였다.
+ *    대시보드가 실현손익을 아예 안 셌던 게 1차 원인이고, 고치는 과정에서 분모를
+ *    'costPricedKrw(현재가 로드된 종목만)'로 잡아 **두 번째 균열**이 생길 뻔했다.
+ *    그래서 공식을 여기 한 곳에 두고 양쪽이 이 함수만 호출한다(제2원칙).
+ *
+ * ⚠️ 분모에 **매도분 원가**를 넣는 이유: 매도로 회수한 자본도 '투입했던 원금'이다.
+ *    빼면 매도가 많은 사람일수록 분모가 작아져 수익률이 부풀려진다(잣대가 사람마다 달라진다).
+ * ⚠️ 분모의 보유원가는 **현재가를 못 불러온 종목까지 포함**한다 — 원금을 넣은 건 사실이고
+ *    수익률만 미상이므로 0% 로 보는 편이 보수적이다. 분모에서 빼면 결측이 많을수록 부풀려진다.
+ *
+ * @param unrealizedKrw 평가손익(원) — 현재가가 있는 종목의 (평가액 − 원가) 합
+ * @param costKrw       보유원가(원) — **전 종목**(가격 결측 포함)
+ */
+export function totalReturnPct(
+  unrealizedKrw: number,
+  costKrw: number,
+  realizedKrw: number,
+  soldCostKrw: number,
+): number | null {
+  const denom = costKrw + soldCostKrw
+  if (!(denom > 0)) return null
+  return ((unrealizedKrw + realizedKrw) / denom) * 100
+}
+
 /** 'YYYY-MM-DD' 이하 가장 최근 종가 — 캔들은 오름차순 */
 function rateAt(fxCandles: TechCandle[], date: string): number | null {
   for (let i = fxCandles.length - 1; i >= 0; i--) {

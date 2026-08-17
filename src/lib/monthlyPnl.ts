@@ -45,6 +45,8 @@ export interface MonthlyPnlResult {
    *  ⚠️ 라우트가 buildRealizedTotals(스쿨 리그와 같은 SSOT)로 채운다. 이게 없어서 대시보드가
    *     분모를 못 만들고 평가손익만 보여줬다(2026-08-17 — 스쿨 리그 +22.6% vs 대시보드 −9.86%). */
   soldCostKrw?: number
+  /** 💰 실현손익 합(원) — **총수익률 분자용**. realized.totalKrw(차트용)와 달리 날짜가 깨진 매도행도 센다. */
+  realizedTotalKrw?: number | null
   asOf: string
 }
 

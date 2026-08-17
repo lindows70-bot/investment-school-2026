@@ -75,6 +75,8 @@ const LynchGhostStockPanel = dynamic(() => import('@/app/components/LynchGhostSt
 // SSOT: 자산 유형 분류는 assetClassifier에서만
 import { getAssetType }          from '@/lib/assetClassifier'
 import { TK, FS, SP } from '@/lib/theme'
+// 총수익률 공식 SSOT — 스쿨 리그(api/school-league)와 **같은 함수**를 부른다(제2원칙)
+import { totalReturnPct } from '@/lib/realizedPnl'
 
 // 탭 전용 컴포넌트의 지연 로딩 표시 — 탭을 처음 열 때 청크를 받는 동안 잠깐 보인다
 // (function 선언 — 위쪽 dynamic() 호출에서 참조되므로 호이스팅이 필요하다)
@@ -1232,23 +1234,21 @@ export default function DashboardPage() {
   const realizedCount = pnlSeries?.realized?.totalCount ?? 0
   /** 매도분 원가(원) — 총수익률 분모용. 스쿨 리그와 **같은 SSOT**(buildRealizedTotals)에서 온다 */
   const soldCostKrw   = pnlSeries?.soldCostKrw ?? 0
+  /** 실현손익 합(원) — **총수익률 분자용**(buildRealizedTotals). 위 realizedKrw 는 차트·표시용이다 */
+  const realizedTotalKrw = pnlSeries?.realizedTotalKrw ?? null
 
-  /** 🏆 총 수익률 % = (평가손익 + 실현손익) ÷ (보유원가 + 매도분 원가)
+  /** 🏆 총 수익률 % — 공식은 lib/realizedPnl 의 totalReturnPct **한 곳**에만 있다(스쿨 리그와 공유).
    *
    *  ⚠️ 이 값이 없던 시절(2026-08-17 이전) 대시보드는 **평가손익만** 보여줬다. 같은 학생이
    *     스쿨 리그에선 +22.6% 로 1등인데 대시보드는 −9.86% 라 두 화면이 서로를 부정했다.
    *     익절로 확정한 수익이 화면에서 통째로 사라져 "계속 잃고 있다"로 읽혔다(교육 목적과 정반대).
-   *  ⚠️ 스쿨 리그(app/api/school-league)와 **같은 공식·같은 분모**여야 한다 — 분모에 매도분 원가를
-   *     넣는 이유는 매도로 회수한 자본도 '투입했던 원금'이기 때문이다. 빼면 매도가 많은 사람일수록
-   *     분모가 작아져 수익률이 부풀려진다.
-   *  ⚠️ 평가손익은 costPricedKrw(현재가가 로드된 종목의 원가)를 쓴다 — totalPnL 과 분모를 맞춰야
-   *     '가격 못 불러온 종목'이 분자엔 없고 분모엔 있는 비대칭이 안 생긴다. */
+   *  ⚠️ 분모는 costPricedKrw 가 아니라 **totalCostKrw(전 종목 원가)** 다 — 스쿨 리그가 그렇게 센다.
+   *     가격 결측 종목을 분모에서 빼면 결측이 많을수록 수익률이 부풀려져 잣대가 사람마다 달라진다.
+   *  ⚠️ 분자의 실현손익도 realized.totalKrw(차트용)가 아니라 realizedTotalKrw(totals)를 쓴다. */
   const totalReturnAll = useMemo(() => {
-    if (realizedKrw == null) return null           // 매도 이력 미확인(로그인 전 등) → 표시하지 않는다
-    const denom = costPricedKrw + soldCostKrw
-    if (!(denom > 0)) return null
-    return ((totalPnL + realizedKrw) / denom) * 100
-  }, [realizedKrw, soldCostKrw, costPricedKrw, totalPnL])
+    if (realizedTotalKrw == null) return null      // 매도 이력 미확인(로그인 전 등) → 표시하지 않는다
+    return totalReturnPct(totalPnL, totalCostKrw, realizedTotalKrw, soldCostKrw)
+  }, [realizedTotalKrw, soldCostKrw, totalCostKrw, totalPnL])
 
   /** 차트 기간의 실제 변화율(첫날→마지막날) — '전체 수익률'(매수가 대비)과 다른 값이다 */
   const periodChangePct = useMemo(() => {
@@ -2687,25 +2687,25 @@ export default function DashboardPage() {
                     평가만 본 수익률은 바로 옆에 병기해 '무엇이 다른지'를 화면이 스스로 설명하게 한다. */}
                 {totalReturnAll != null && (
                   <div>
-                    <div style={{ fontSize:9, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>총 수익률 (평가+실현)</div>
-                    <div style={{ fontSize:15, fontWeight:800, color:totalReturnAll>=0?TK.red500:TK.blue500, fontVariantNumeric:'tabular-nums' }}>{fmtPct(totalReturnAll)}</div>
+                    <div style={{ fontSize:FS.micro, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>총 수익률 (평가+실현)</div>
+                    <div style={{ fontSize:FS.lg, fontWeight:800, color:totalReturnAll>=0?TK.red500:TK.blue500, fontVariantNumeric:'tabular-nums' }}>{fmtPct(totalReturnAll)}</div>
                   </div>
                 )}
                 <div>
-                  <div style={{ fontSize:9, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>
+                  <div style={{ fontSize:FS.micro, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>
                     {totalReturnAll != null ? '평가만(보유분)' : '전체 수익률'}
                   </div>
-                  <div style={{ fontSize:15, fontWeight:800, color:(totalRet??0)>=0?TK.red500:TK.blue500, fontVariantNumeric:'tabular-nums' }}>{fmtPct(totalRet)}</div>
+                  <div style={{ fontSize:FS.lg, fontWeight:800, color:(totalRet??0)>=0?TK.red500:TK.blue500, fontVariantNumeric:'tabular-nums' }}>{fmtPct(totalRet)}</div>
                 </div>
                 {periodChangePct != null && (
                   <div>
-                    <div style={{ fontSize:9, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>기간 변화</div>
-                    <div style={{ fontSize:15, fontWeight:800, color:periodChangePct>=0?TK.red500:TK.blue500, fontVariantNumeric:'tabular-nums' }}>{fmtPct(periodChangePct)}</div>
+                    <div style={{ fontSize:FS.micro, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>기간 변화</div>
+                    <div style={{ fontSize:FS.lg, fontWeight:800, color:periodChangePct>=0?TK.red500:TK.blue500, fontVariantNumeric:'tabular-nums' }}>{fmtPct(periodChangePct)}</div>
                   </div>
                 )}
                 <div>
-                  <div style={{ fontSize:9, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>평가 손익</div>
-                  <div style={{ fontSize:15, fontWeight:800, color:totalPnL>=0?TK.red500:TK.blue500, fontVariantNumeric:'tabular-nums' }}>{fmtKrw(totalPnL)}</div>
+                  <div style={{ fontSize:FS.micro, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>평가 손익</div>
+                  <div style={{ fontSize:FS.lg, fontWeight:800, color:totalPnL>=0?TK.red500:TK.blue500, fontVariantNumeric:'tabular-nums' }}>{fmtKrw(totalPnL)}</div>
                 </div>
                 {trendData.length >= 2 && (() => {
                   const { maxIdx, minIdx } = trendMinMaxIdx
@@ -2715,16 +2715,16 @@ export default function DashboardPage() {
                     <>
                       {maxVal != null && (
                         <div>
-                          <div style={{ fontSize:9, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>기간 최고</div>
-                          <div style={{ fontSize:15, fontWeight:800, color:NEON, fontVariantNumeric:'tabular-nums' }}>
+                          <div style={{ fontSize:FS.micro, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>기간 최고</div>
+                          <div style={{ fontSize:FS.lg, fontWeight:800, color:NEON, fontVariantNumeric:'tabular-nums' }}>
                             {trendMode==='amount' ? fmtKrw(maxVal) : `+${maxVal.toFixed(2)}%`}
                           </div>
                         </div>
                       )}
                       {minVal != null && (
                         <div>
-                          <div style={{ fontSize:9, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>기간 최저</div>
-                          <div style={{ fontSize:15, fontWeight:800, color:TK.sub, fontVariantNumeric:'tabular-nums' }}>
+                          <div style={{ fontSize:FS.micro, color:TK.sub7, textTransform:'uppercase' as const, letterSpacing:'0.06em' }}>기간 최저</div>
+                          <div style={{ fontSize:FS.lg, fontWeight:800, color:TK.sub, fontVariantNumeric:'tabular-nums' }}>
                             {trendMode==='amount' ? fmtKrw(minVal) : `${minVal.toFixed(2)}%`}
                           </div>
                         </div>
