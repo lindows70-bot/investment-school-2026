@@ -800,6 +800,17 @@ export default function DashboardPage() {
   /** 재구성 요청이 실패했는가 — '보유 없음'·'이력 짧음'과 같은 문구를 쓰면 사실이 아닌 주장이 된다 */
   const [pnlSeriesFailed, setPnlSeriesFailed] = useState(false)
   const [showDivDetail,   setShowDivDetail]   = useState(false)  // 배당 상세 팝업
+
+  // ── 📅 시장 휴장일 — MARKET HOURS 가 요일만 보면 설날에도 KRX OPEN 으로 뜬다(2026-08-19) ──
+  //    kr 은 특일 API 활용신청 전이면 null(fail-open: 기존 요일 판정 유지) · us 는 결정론이라 항상 온다
+  const [holidays, setHolidays] = useState<{ kr: { dates: string[]; names: Record<string, string> } | null; us: string[] } | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/market-holidays').then(r => r.ok ? r.json() : null)
+      .then(j => { if (!cancelled && j) setHolidays({ kr: j.kr ?? null, us: j.us ?? [] }) })
+      .catch(() => {})   // 실패해도 배지는 기존 요일 판정으로 동작(fail-open)
+    return () => { cancelled = true }
+  }, [])
   const [dashTab,   setDashTab]   = useState<'live' | 'backtest' | 'mentor' | 'lynch' | 'signal' | 'ghost' | 'macro' | 'earnings' | 'yield' | 'valuation' | 'leverage' | 'balance' | 'schoolflow' | 'correlation' | 'tracer' | 'guidance' | 'macroai' | 'newscatalyst' | 'rebalance' | 'moneyflow' | 'tenbagger' | 'globaltop10' | 'season' | 'quantbuilder' | 'coinlab' | 'alphahunter' | 'dalio' | 'marks' | 'globalcycle' | 'ipocycle' | 'crisis' | 'champions' | 'rotation' | 'quantum' | 'aisemi' | 'power' | 'physai' | 'aibio' | 'defense' | 'financials' | 'energy' | 'materials' | 'industrials' | 'discretionary' | 'staples' | 'healthcare' | 'infotech' | 'communication' | 'utilities' | 'realestate'>('live')
 
   // 🧩 탭 지연 마운트 — 한 번이라도 연 탭만 렌더한다(연 뒤에는 계속 유지 = 재조회 없음·상태 보존).
@@ -2236,13 +2247,18 @@ export default function DashboardPage() {
         const _kst  = new Date(_now.getTime() + 9 * 3_600_000)
         const _kDay = _kst.getUTCDay()
         const _kMin = _kst.getUTCHours() * 60 + _kst.getUTCMinutes()
-        const isKrxOpen  = _kDay >= 1 && _kDay <= 5 && _kMin >= 540 && _kMin < 930
+        // 📅 휴장일 반영 — kr 은 특일 API 등록 전이면 null(요일 판정만), us 는 결정론 규칙이라 항상 적용
+        const _kYmd = _kst.toISOString().slice(0, 10)
+        const _krHolidayName = holidays?.kr?.names?.[_kYmd] ?? null
+        const isKrxOpen  = _kDay >= 1 && _kDay <= 5 && _kMin >= 540 && _kMin < 930 && !_krHolidayName
         const isTseOpen  = _kDay >= 1 && _kDay <= 5 &&
                            ((_kMin >= 540 && _kMin < 690) || (_kMin >= 750 && _kMin < 930))
         const _et   = new Date(_now.getTime() - 4 * 3_600_000)
         const _eDay = _et.getUTCDay()
         const _eMin = _et.getUTCHours() * 60 + _et.getUTCMinutes()
-        const isNyseOpen = _eDay >= 1 && _eDay <= 5 && _eMin >= 570 && _eMin < 960
+        const _eYmd = _et.toISOString().slice(0, 10)
+        const _usHoliday = holidays?.us?.includes(_eYmd) ?? false
+        const isNyseOpen = _eDay >= 1 && _eDay <= 5 && _eMin >= 570 && _eMin < 960 && !_usHoliday
 
         const upCount   = indices.filter(i => i.isUp).length
         const downCount = indices.length - upCount
@@ -2566,9 +2582,9 @@ export default function DashboardPage() {
                     Market Hours
                   </div>
                   {([
-                    { flag: '🇺🇸', name: 'NYSE', isOpen: isNyseOpen },
-                    { flag: '🇰🇷', name: 'KRX',  isOpen: isKrxOpen  },
-                    { flag: '🇯🇵', name: 'TSE',  isOpen: isTseOpen  },
+                    { flag: '🇺🇸', name: 'NYSE', isOpen: isNyseOpen, note: _usHoliday ? '휴장일' : null },
+                    { flag: '🇰🇷', name: 'KRX',  isOpen: isKrxOpen,  note: _krHolidayName },
+                    { flag: '🇯🇵', name: 'TSE',  isOpen: isTseOpen,  note: null },
                   ] as const).map(m => (
                     <div key={m.name} style={{
                       display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7,
@@ -2592,12 +2608,12 @@ export default function DashboardPage() {
                         color: m.isOpen ? TK.green400 : '#8088a8',
                         letterSpacing: '0.04em',
                       }}>
-                        {m.isOpen ? 'OPEN' : 'CLOSED'}
+                        {m.isOpen ? 'OPEN' : m.note ? `휴장 · ${m.note}` : 'CLOSED'}
                       </span>
                     </div>
                   ))}
                   <div style={{ fontSize: 8, color: '#7a7f9a', textAlign: 'center' as const, letterSpacing: '0.04em' }}>
-                    평일 기준 · EDT / KST / JST
+                    {holidays?.kr ? '휴장일 반영(美·韓) · TSE 평일 기준' : holidays ? '휴장일 반영(美) · KRX·TSE 평일 기준' : '평일 기준 · EDT / KST / JST'}
                   </div>
                 </div>
 
