@@ -12,6 +12,7 @@ import { getTechCandles } from '@/lib/techChartData'
 import { flagOf } from '@/lib/marketFlag'
 import { getUsdKrw } from '@/lib/fx'
 import { readSwingSetup, readSwingRegime, readVolumeCaution, SWING_TRACKS, SWING_DAILY_CAP, positionSize, type SwingTrack, type SwingRegime } from '@/lib/swingSetup'
+import { loadRotationBySector, SECTOR_TO_ROT, type RotQuadShared } from '@/lib/rotationShared'
 
 export interface SwingItem {
   ticker: string; name: string; market: 'KR' | 'US'; flag: string; sector: string | null
@@ -20,6 +21,9 @@ export interface SwingItem {
   targetPct: number                      // 참고 목표 — 실측 절사 edge + 같은 기간 baseline
   reasons: string[]
   regime: SwingRegime
+  /** 🧭 이 종목 섹터의 로테이션 상태 — 교차 백테스트(2026-08-19) 근거: 유입(score>0) vs 이탈이
+   *  14/14 칸에서 일관 우위(절사 +0.5~1%p/2주, A트랙 최대). 로테이션 캐시 콜드·섹터 미매핑이면 null(fail-open) */
+  rot: { score: number; quad: RotQuadShared; inflow: boolean } | null
   /** 📉 차트용 최근 60봉 OHLC — 증권사 차트처럼 캔들로 그린다(선 하나로는 하루의 싸움이 안 보인다) */
   candles: { o: number; h: number; l: number; c: number }[]
 }
@@ -107,9 +111,16 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
   const extra = held.filter(h => !uniTickers.has(h.ticker))
     .map(h => ({ ticker: h.ticker, name: h.name, market: h.market, sector: null } as unknown as ScreenedStock))
 
-  const [krIdx, usIdx, usdKrw] = await Promise.all([
+  const [krIdx, usIdx, usdKrw, rotMap] = await Promise.all([
     regimeOfIndex('^KS11', 'US'), regimeOfIndex('^GSPC', 'US'), getUsdKrw(base),
+    loadRotationBySector(),   // 🧭 섹터 로테이션(읽기만·콜드면 null) — 배지·우선순위용
   ])
+  /** 종목 섹터(Yahoo GICS) → 오늘의 로테이션 상태. 못 구하면 null — 배지 생략·순위 중립(fail-open) */
+  const rotOf = (sector: string | null): SwingItem['rot'] => {
+    const key = sector ? SECTOR_TO_ROT[sector] : undefined
+    const r = key ? rotMap?.get(key) : undefined
+    return r ? { score: Math.round(r.score * 10) / 10, quad: r.q, inflow: r.score > 0 } : null
+  }
 
   const items: SwingItem[] = []
   let scanned = 0, okCount = 0
@@ -130,13 +141,20 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
         const stop = stopFor(hit.track, D, i)
         if (stop == null) continue                // 손절선을 못 세우면 내보내지 않는다(⛔ 손절 없는 진입 금지)
         const t = SWING_TRACKS[hit.track]
+        const rot = rotOf(s.sector ?? null)
+        // ⚠️ 이탈 섹터 경고 — 교차 백테스트에서 이탈(score<0) 신호는 절사 −0.6~−1.9%p 로 일관 열위였고
+        //    특히 회복(A) 트랙이 가장 크게 갈렸다(유입 +0.28 vs 이탈 −1.93, 15봉 절사). 숨기지 않고 이유에 싣는다.
+        const reasons = rot && !rot.inflow
+          ? [...hit.reasons, `⚠️ 이 섹터는 지금 자금 이탈 중(로테이션 ${rot.score}) — 같은 신호도 유입 섹터보다 성적이 나빴습니다${hit.track === 'reversion' ? '(회복 신호는 특히)' : ''}`]
+          : hit.reasons
         items.push({
           ticker: s.ticker, name: s.name, market, flag: flagOf(s.market, s.ticker, null),
           sector: s.sector ?? null, track: hit.track, price: hit.price,
           stop: Math.round(stop * 100) / 100,
           stopPct: Math.round((1 - stop / hit.price) * 1000) / 10,
           targetPct: t.edgePp,
-          reasons: hit.reasons, regime: readSwingRegime(D) ?? 'flat',
+          rot,
+          reasons, regime: readSwingRegime(D) ?? 'flat',
           candles: D.slice(-60).map(d => ({
             o: Math.round(d.open * 100) / 100, h: Math.round(d.high * 100) / 100,
             l: Math.round(d.low * 100) / 100, c: Math.round(d.close * 100) / 100,
@@ -146,8 +164,11 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
     }
   }))
 
-  // 손절폭이 좁은 순(같은 리스크로 더 많이 살 수 있는 자리) → 표본 큰 트랙 우선
-  items.sort((a, b) => a.stopPct - b.stopPct)
+  // 손절폭이 좁은 순(같은 리스크로 더 많이 살 수 있는 자리).
+  // 🧭 1차 키는 '이탈 섹터 여부' — 하루 상한 3건에서 잘릴 때 이탈(score<0) 섹터가 먼저 잘리게 한다
+  //    (교차 백테스트 14/14 일관 우위 근거·2026-08-19). 유입과 미확인(null)은 동급(fail-open — 정보 없음을 벌점화하지 않는다).
+  const outRank = (x: SwingItem) => (x.rot && !x.rot.inflow ? 1 : 0)
+  items.sort((a, b) => outRank(a) - outRank(b) || a.stopPct - b.stopPct)
 
   // 🧢 하루 합산 상한 — 하락장 바닥 급등은 몰려서 나오는 날이 있다. 같은 장세에 여러 건을 다 담으면
   //    분산이 아니라 같은 베팅의 반복이다. 잘린 건수는 숨기지 않고 화면에 밝힌다.

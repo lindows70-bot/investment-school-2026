@@ -13,7 +13,8 @@ export async function GET(req: Request) {
   const refresh = new URL(req.url).searchParams.get('refresh') === '1'
   // v11: 채점을 **규칙 준수**(손절선 이탈 시 그 가격에 종료) 기준으로 — recent 에 retHoldPct 필드가 늘어난다
   //      (스키마 확장도 키를 올린다: 옛 응답이 서빙되면 새 필드가 통째로 undefined 로 온다)
-  const key = `swing-radar-v11:${kstDate()}`  // v10: 학생 보유 종목 스캔 포함 / v9: 트랙 D 추격 가드+성적 갱신
+  // v12: 🧭 섹터 로테이션 결합 — items[].rot 필드 신설 + 이탈 섹터 후순위·경고(스키마 확장 = 키 범프)
+  const key = `swing-radar-v12:${kstDate()}`  // v11: 규칙 준수 채점 / v10: 학생 보유 종목 스캔 포함
   if (!refresh) {
     const cached = await getCache<SwingRadar>(key, 12 * 3600_000)
     if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })

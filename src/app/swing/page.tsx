@@ -187,6 +187,19 @@ function SwingCard({ it, equity, usdKrw }: { it: SwingItem; equity: number; usdK
         <b style={{ fontSize: FS.body, color: TK.slate100 }}>{it.name}</b>
         <span style={{ fontSize: FS.micro, color: TK.sub3, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>{it.ticker}</span>
         {it.sector && <span style={{ fontSize: FS.micro, color: TK.sub3 }}>{it.sector}</span>}
+        {/* 🧭 섹터 자금 흐름 배지 — 교차 백테스트(2026-08-19): 유입 vs 이탈이 14/14 칸 일관 우위.
+            rot 이 없으면(로테이션 캐시 콜드·섹터 미매핑) 배지 생략 — 모르는 것을 아는 척하지 않는다 */}
+        {it.rot && (
+          <span
+            title={`섹터 로테이션 쏠림 ${it.rot.score > 0 ? '+' : ''}${it.rot.score} — 같은 신호도 자금 유입 섹터에서 성적이 좋았습니다(5년 백테스트)`}
+            style={{
+              fontSize: FS.micro, fontWeight: 700, padding: '1px 7px', borderRadius: RAD.pill,
+              color: it.rot.inflow ? TK.emerald400 : TK.orange400,
+              border: `1px solid ${it.rot.inflow ? TK.emerald400 : TK.orange400}55`,
+            }}>
+            {it.rot.inflow ? '🔥 섹터 자금 유입' : '❄️ 섹터 자금 이탈'}
+          </span>
+        )}
         <span style={{ marginLeft: 'auto', fontSize: FS.micro, fontWeight: 800, color: TK.green400 }}>{t.icon} {t.label}</span>
       </div>
 
