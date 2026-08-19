@@ -23,6 +23,7 @@ const CACHE = '.margin-trend-obs.json'
 
 const REV_TAGS = ['RevenueFromContractWithCustomerExcludingAssessedTax', 'Revenues', 'SalesRevenueNet', 'RevenueFromContractWithCustomerIncludingAssessedTax']
 const OI_TAGS = ['OperatingIncomeLoss']
+const EPS_TAGS = ['EarningsPerShareDiluted', 'EarningsPerShareBasicAndDiluted', 'EarningsPerShareBasic']
 
 const num = (v) => (typeof v === 'number' && isFinite(v) ? v : null)
 const ymd = (d) => new Date(d).toISOString().slice(0, 10)
@@ -70,16 +71,22 @@ async function one(ticker) {
   const cik = CIK.get(ticker); if (!cik) return { obs: [], fail: 'cik' }
   const rev = await firstOf(cik, REV_TAGS); if (!rev) return { obs: [], fail: 'rev' }
   const oi = await firstOf(cik, OI_TAGS); if (!oi) return { obs: [], fail: 'oi' }
+  const eps = await firstOf(cik, EPS_TAGS)   // 밸류에이션 통제용 — 없으면 그 종목은 밸류 분석에서만 빠진다
 
   const rows = [...rev.keys()].filter((k) => oi.has(k)).sort()
-    .map((k) => ({ fy: k, filed: rev.get(k).filed > oi.get(k).filed ? rev.get(k).filed : oi.get(k).filed, om: rev.get(k).v > 0 ? (oi.get(k).v / rev.get(k).v) * 100 : null }))
+    .map((k) => ({ fy: k, filed: rev.get(k).filed > oi.get(k).filed ? rev.get(k).filed : oi.get(k).filed, om: rev.get(k).v > 0 ? (oi.get(k).v / rev.get(k).v) * 100 : null, eps: eps?.get(k)?.v ?? null }))
     .filter((r) => r.om != null)
   if (rows.length < 3) return { obs: [], fail: 'rows' }
 
-  let bars
+  let bars, splits
   try {
-    const c = await YF.chart(ticker, { period1: '2006-01-01', interval: '1d' })
+    const c = await YF.chart(ticker, { period1: '2006-01-01', interval: '1d', events: 'split' })
     bars = (c?.quotes ?? []).filter((q) => num(q.close) > 0).map((q) => ({ d: ymd(q.date), c: q.close }))
+    // ⚠️ Yahoo 과거 종가는 **분할 조정가**인데 SEC EPS 는 **당시 보고값**이다. 그대로 나누면 4:1 분할한
+    //    종목의 PER 이 1/4 로 찍힌다. 진입일 **이후** 일어난 분할 배수를 곱해 당시 실제 주가로 되돌린다.
+    splits = (c?.events?.splits ?? []).map((s) => ({
+      d: ymd(s.date), r: (s.numerator ?? s.splitRatio?.split?.(':')?.[0] ?? 1) / (s.denominator ?? 1),
+    })).filter((s) => s.r > 0 && isFinite(s.r))
   } catch { return { obs: [], fail: 'chart' } }
   if (bars.length < 500) return { obs: [], fail: 'bars' }
   const at = (dstr) => { let lo = 0, hi = bars.length - 1, a = -1; while (lo <= hi) { const m = (lo + hi) >> 1; if (bars[m].d >= dstr) { a = m; hi = m - 1 } else lo = m + 1 } return a }
@@ -92,7 +99,13 @@ async function one(ticker) {
     const r6 = ei + HOLD[0] < bars.length ? (bars[ei + HOLD[0]].c / e - 1) * 100 : null
     const r12 = ei + HOLD[1] < bars.length ? (bars[ei + HOLD[1]].c / e - 1) * 100 : null
     if (r6 == null && r12 == null) continue
-    obs.push({ sym: ticker, entry: bars[ei].d, fy: c0.fy, om: c0.om, dOm: c0.om - p1.om, dOmPrev: p1.om - p2.om, r6, r12 })
+    // 이익수익률 = 당시 EPS / 당시 실제 주가 — 높을수록 싸다. 적자(EPS<=0)는 별도 버킷.
+    const sf = splits.filter((s) => s.d > bars[ei].d).reduce((a, s) => a * s.r, 1)
+    const px = e * sf
+    obs.push({
+      sym: ticker, entry: bars[ei].d, fy: c0.fy, om: c0.om, dOm: c0.om - p1.om, dOmPrev: p1.om - p2.om, r6, r12,
+      ey: c0.eps != null && px > 0 ? (c0.eps / px) * 100 : null,
+    })
   }
   return { obs, fail: null }
 }
@@ -196,4 +209,48 @@ for (const key of ['r6', 'r12']) {
     if (u && d) console.log(`${''.padEnd(30)}   → 격차 ${f(u.edge - d.edge)}%p (±${Math.sqrt(u.se ** 2 + d.se ** 2).toFixed(2)}) · 절사격차 ${f(u.tr - d.tr)}%p`)
   }
 }
+// ── 💰 밸류에이션 통제: "고마진 열위"가 마진 탓인가, 비싸게 산 탓인가 ─────────────
+//  이익수익률(EPS/주가, 높을수록 쌈)로 3분위를 만들고 **같은 가격대 안에서** 고마진 vs 저마진을 비교한다.
+//  · 같은 가격대 안에서 열위가 사라지면 → 원인은 마진이 아니라 밸류에이션(고품질 프리미엄)이었다.
+//  · 그대로 남으면 → 마진 레벨 가점 자체의 방향이 의심된다.
+const withEy = ALL.filter((o) => o.ey != null)
+console.log(`\n\n💰 이익수익률 확보: ${withEy.length}/${ALL.length}건 (${new Set(withEy.map((o) => o.sym)).size}종목)`)
+const prof = withEy.filter((o) => o.ey > 0)
+const loss = withEy.filter((o) => o.ey <= 0)
+console.log(`   흑자 ${prof.length}건 · 적자(EPS≤0) ${loss.length}건 — 적자는 PER 이 성립하지 않아 별도 취급`)
+
+const eySorted = prof.map((o) => o.ey).sort((a, b) => a - b)
+const eyQ = (p) => eySorted[Math.floor(eySorted.length * p)]
+const [e33, e67] = [eyQ(1 / 3), eyQ(2 / 3)]
+const VAL = [
+  [`비싼편(이익수익률<${e33.toFixed(1)}%)`, (o) => o.ey > 0 && o.ey < e33],
+  [`중간(${e33.toFixed(1)}~${e67.toFixed(1)}%)`, (o) => o.ey >= e33 && o.ey < e67],
+  [`싼편(≥${e67.toFixed(1)}%)`, (o) => o.ey >= e67],
+]
+
+for (const key of ['r6', 'r12']) {
+  const lv = ALL.filter((o) => o[`a_${key}`] != null).map((o) => o.om).sort((x, y) => x - y)
+  const Q = (p) => lv[Math.floor(lv.length * p)]
+  const [m20, m80] = [Q(0.2), Q(0.8)]
+  console.log(`\n═══ 💰 밸류에이션 통제 후 마진 레벨 · 전방 ${key === 'r6' ? '6개월' : '12개월'} ═══`)
+  console.log('(통제 전) 고마진 상위20% vs 저마진 하위20%')
+  const hi0 = row('  고마진(통제 전)', (o) => o.om >= m80, key)
+  const lo0 = row('  저마진(통제 전)', (o) => o.om < m20, key)
+  if (hi0 && lo0) console.log(`${''.padEnd(30)}   → 고−저 ${f(hi0.edge - lo0.edge)}%p`)
+
+  for (const [vn, vsel] of VAL) {
+    console.log(`(통제 후) ${vn}`)
+    const hi = row('  └ 고마진 상위20%', (o) => vsel(o) && o.om >= m80, key)
+    const lo = row('  └ 저마진 하위20%', (o) => vsel(o) && o.om < m20, key)
+    if (hi && lo) console.log(`${''.padEnd(30)}   → 고−저 ${f(hi.edge - lo.edge)}%p (±${Math.sqrt(hi.se ** 2 + lo.se ** 2).toFixed(2)}) · 절사 ${f(hi.tr - lo.tr)}%p`)
+  }
+}
+
+// 메커니즘 직접 확인 — 고마진 기업은 정말 더 비싼가
+const meanBy = (a, g) => { const v = a.filter(g).map((o) => o.ey); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null }
+const lvAll = ALL.map((o) => o.om).sort((x, y) => x - y)
+const M20 = lvAll[Math.floor(lvAll.length * 0.2)], M80 = lvAll[Math.floor(lvAll.length * 0.8)]
+console.log(`\n🔍 메커니즘 확인 — 평균 이익수익률(높을수록 쌈, 흑자만)`)
+console.log(`   고마진 상위20%: ${meanBy(prof, (o) => o.om >= M80)?.toFixed(2)}%  ·  저마진 하위20%: ${meanBy(prof, (o) => o.om < M20)?.toFixed(2)}%`)
+
 console.log(`\n원본: ${CACHE} · 재분석은 --cache`)
