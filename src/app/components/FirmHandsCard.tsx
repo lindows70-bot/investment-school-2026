@@ -68,9 +68,12 @@ export default function FirmHandsCard() {
           {d.knownCount < 3 ? `판정 가능한 ${d.knownCount}조건 중 ${d.strongCount}개 갖춤` : `3조건 중 ${d.strongCount}개 갖춤`}
         </span>
       </div>
-      <div style={{ fontSize: FS.micro, color: TK.sub3, marginTop: 3, lineHeight: 1.55 }}>
-        폭락은 돈이 사라지는 게 아니라 <b style={{ color: TK.sub }}>떨리는 손에서 단단한 손으로 주식이 옮겨가는 과정</b>입니다 — 코스톨라니.
-        단단한 손은 타고나는 게 아니라 <b style={{ color: TK.sub }}>미리 준비할 수 있는 세 가지 조건</b>이에요.
+      {/* 개념 설명 — 학생이 처음 봐도 '떨리는 손'이 뭔지 알게(2026-08-20 사용자: 더 또렷하게·의미 보강) */}
+      <div style={{ fontSize: FS.tiny, color: TK.sub13, marginTop: 5, lineHeight: 1.7 }}>
+        <b style={{ color: TK.red300 }}>떨리는 손</b> = 폭락이 오면 겁에 질려 <b style={{ color: TK.slate200 }}>바닥에서 파는 손</b> ·{' '}
+        <b style={{ color: TK.green300 }}>단단한 손</b> = 미리 준비한 돈으로 <b style={{ color: TK.slate200 }}>그때 사 모으는 손</b>.
+        폭락 때 돈은 사라지는 게 아니라 <b style={{ color: TK.slate200 }}>떨리는 손에서 단단한 손으로 옮겨갑니다</b>(코스톨라니).
+        어느 손이 될지는 배짱이 아니라 <b style={{ color: TK.slate200 }}>아래 세 가지 준비물</b>이 정해요 — 셋 다 지금부터 채울 수 있습니다.
       </div>
 
       {/* 3축 */}
@@ -99,9 +102,17 @@ export default function FirmHandsCard() {
         <b style={{ color: gc }}>지금 국면에서 할 일</b> — {d.action}
       </div>
 
-      <div style={{ fontSize: FS.micro, color: TK.sub4, marginTop: SP.sm, lineHeight: 1.55 }}>
-        ⚠️ 매매 지시가 아니라 <b>내 자금의 상태 점검</b>입니다 · 판정은 기존 지표(현금 포지션·매수 근거 기록·보유일)를 합친 것이며 새로 지어낸 점수가 아닙니다 ·
-        국면(달걀 모델)은 <b>지나고 나서야</b> 어디였는지 알 수 있습니다 — 바닥을 맞히는 도구가 아니에요
+      {/* 읽는 법 + 캐비엇 — micro·흐린 색이라 학생이 안 읽고 지나쳤다(2026-08-20) → tiny·밝게, 문장을 갈라서 */}
+      <div style={{ marginTop: SP.sm, background: TK.bg3, borderRadius: RAD.sm, padding: `${SP.sm}px ${SP.md}px`, fontSize: FS.tiny, color: TK.sub13, lineHeight: 1.75 }}>
+        <b style={{ color: TK.slate200 }}>💡 이 점검을 읽는 법</b>
+        <div>· <b style={{ color: TK.slate200 }}>💰 여유 자금</b> — 폭락이 세일이 되려면 <b style={{ color: TK.slate200 }}>살 돈</b>이 남아 있어야 해요. 다 들어가 있으면 세일 날 구경만 합니다.</div>
+        <div>· <b style={{ color: TK.slate200 }}>🧠 산 이유</b> — 살 때의 근거가 적혀 있어야 폭락 때 <b style={{ color: TK.slate200 }}>&ldquo;이유가 사라졌나?&rdquo;로 판단</b>하고, 없으면 공포로 팝니다.</div>
+        <div>· <b style={{ color: TK.slate200 }}>⏳ 보유 기간</b> — 하락을 견뎌본 시간이에요. 산 지 얼마 안 된 주식일수록 작은 흔들림에도 손이 먼저 나갑니다.</div>
+        <div style={{ marginTop: 4, color: TK.sub3 }}>
+          ⚠️ 이 카드는 <b style={{ color: TK.sub }}>매도·매수 지시가 아니라 내 준비 상태 점검</b>입니다 — 부족한 축을 지금부터 채우라는 뜻이지, 뭘 팔라는 뜻이 아닙니다.
+          판정은 기존 지표(현금 포지션·매수 근거 기록·보유일)를 합친 것이고 새로 지어낸 점수가 아니에요.
+          국면 온도(달걀 모델)는 <b style={{ color: TK.sub }}>지나고 나서야 정답을 아는 지표</b>라 바닥·꼭대기를 맞히는 도구가 아닙니다.
+        </div>
       </div>
     </div>
   )
