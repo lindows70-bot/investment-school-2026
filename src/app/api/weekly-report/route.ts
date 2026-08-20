@@ -31,6 +31,7 @@ import { getEtfComposition } from '@/lib/etfLookThrough'
 import { GICS_SECTOR_META } from '@/lib/gicsSectorMeta'
 import type { ScreenedStock } from '@/lib/macroPhaseScreener'
 import type { MarketCatalystResult } from '@/app/api/market-catalyst/route'
+import { MARKET_CATALYST_KEY } from '@/lib/marketCatalystShared'   // 키 SSOT — writer 와 함께 범프
 import type { EventCalendarResult, CalEvent } from '@/app/api/event-calendar/route'
 import type { MarketInvestorResult } from '@/app/api/market-investor-trend/route'
 import type { ReWeeklyApi } from '@/app/api/re-weekly/route'
@@ -198,7 +199,7 @@ async function buildCommon(base: string): Promise<WrCommon> {
   // 이슈(마켓 카탈리스트) — 캐시 읽기만(콜드면 생략, 무거운 재계산 촉발 금지)
   let catalyst: WrCommon['catalyst'] = null
   try {
-    const mc = await getCache<MarketCatalystResult>(`market-catalyst-v3:${kstDate()}`, 24 * 3600_000)
+    const mc = await getCache<MarketCatalystResult>(MARKET_CATALYST_KEY(kstDate()), 24 * 3600_000)
     if (mc) catalyst = { mood: mc.marketMood ?? null, items: (mc.catalysts ?? []).slice(0, 3).map(c => ({ title: String((c as { title?: string }).title ?? ''), note: String((c as { why?: string; note?: string }).why ?? (c as { note?: string }).note ?? '') })) }
   } catch { /* graceful */ }
 

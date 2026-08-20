@@ -2,6 +2,7 @@
 // Zero Cost: Google News RSS(무인증) + Yahoo trending/quote + market-flow-kr 캐시 재사용 · 3h 캐시(아침 갱신) · 수급 수치는 전부 정량 계산(LLM은 뉴스 요약만)
 import { NextResponse } from 'next/server'
 import { MARKET_FLOW_KR_KEY } from '@/lib/marketFlowKr'
+import { MARKET_CATALYST_KEY } from '@/lib/marketCatalystShared'
 import { getCache, setCache } from '@/lib/appCache'
 import { callGeminiJSON } from '@/lib/gemini'
 import type { MarketFlowKrResult } from '@/lib/marketFlowKr'
@@ -14,7 +15,7 @@ const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0,
 export interface MarketMover {
   ticker: string
   name: string
-  market: 'US' | 'KR'
+  market: 'US' | 'KR' | 'CRYPTO'
   changePct: number | null     // 당일 등락 %
   volRatio: number | null      // 거래량 ÷ 3개월 평균(US) — 2배↑면 수급 블랙홀
   note: string                 // 'KR 외인+기관 쌍끌이 3일' 등 정량 근거
@@ -76,6 +77,32 @@ async function usMovers(): Promise<MarketMover[]> {
   } catch { return [] }
 }
 
+// ── 🪙 암호화폐 무버 — 업비트 KRW 시세(코인 SSOT 소스와 동일 계열). 당일 |등락| ≥3% 만 칩으로 ──
+//    ⚠️ 2026-08-20 실사고: BTC +8% 급등일에 '시장의 눈'이 침묵 — 트렌딩 필터가 코인 심볼을 걸렀고([A-Z.] 정규식은
+//    주식용이라 유지) 코인 전용 수집이 아예 없었다. 주식과 소스를 섞지 않고 업비트로 따로 잰다.
+async function cryptoMovers(): Promise<MarketMover[]> {
+  try {
+    const r = await fetch('https://api.upbit.com/v1/ticker?markets=KRW-BTC,KRW-ETH', {
+      cache: 'no-store', signal: AbortSignal.timeout(8_000),
+    })
+    if (!r.ok) return []
+    const rows = await r.json() as { market: string; signed_change_rate: number }[]
+    const NAME: Record<string, { t: string; n: string }> = { 'KRW-BTC': { t: 'BTC', n: '비트코인' }, 'KRW-ETH': { t: 'ETH', n: '이더리움' } }
+    const out: MarketMover[] = []
+    for (const q of rows) {
+      const chg = Math.round(q.signed_change_rate * 1000) / 10
+      const meta = NAME[q.market]
+      if (!meta || Math.abs(chg) < 3) continue
+      out.push({
+        ticker: meta.t, name: meta.n, market: 'CRYPTO',
+        changePct: chg, volRatio: null,
+        note: `당일 ${chg >= 0 ? '+' : ''}${chg}% (업비트 KRW)`,
+      })
+    }
+    return out
+  } catch { return [] }
+}
+
 // ── KR 수급 블랙홀 — market-flow-kr 캐시 재사용(추가 fetch 0) ──────────────────
 async function krMovers(): Promise<MarketMover[]> {
   let mf: MarketFlowKrResult | null = null
@@ -117,22 +144,24 @@ const GEMINI_SCHEMA = {
 }
 
 export async function GET() {
-  const cacheKey = `market-catalyst-v3:${kstDate()}`   // v3: 영문 글로벌 메가 뉴스 피드 추가 + 우선순위 규칙
+  const cacheKey = MARKET_CATALYST_KEY(kstDate())   // 키 SSOT(lib/marketCatalystShared) — reader(주간 리포트)와 공유
   const cached = await getCache<MarketCatalystResult>(cacheKey, 3 * 3600_000)   // 3h — 아침/오후 갱신
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // ① 정량 수급 + ② 시장 헤드라인 일괄 수집 — 글로벌 메가 이벤트(영문)를 국내 시황보다 앞에(스페이스X 상장급 포착)
-  const [us, kr, hMegaEn, hIpoEn, hBigKo, hUs2, hKr2] = await Promise.all([
-    usMovers(), krMovers(),
+  const [us, kr, cryp, hMegaEn, hCrypEn, hIpoEn, hBigKo, hCrypKo, hUs2, hKr2] = await Promise.all([
+    usMovers(), krMovers(), cryptoMovers(),
     googleNews('stock market when:1d', 8, 'en'),                           // 미국판 당일 마켓 메가 뉴스
+    googleNews('bitcoin OR ethereum OR cryptocurrency when:1d', 6, 'en'),  // 🪙 암호화폐(BTC 급등일 침묵 사고 후 추가)
     googleNews('IPO OR listing OR Nasdaq debut when:2d', 6, 'en'),         // 초대형 상장·데뷔(스페이스X급)
     googleNews('증시 상장 OR FOMC OR 빅테크 when:1d', 6),                  // 한국어 글로벌·정책 뉴스
+    googleNews('비트코인 OR 암호화폐 when:1d', 5),                          // 🪙 국내 암호화폐 헤드라인
     googleNews('미국 증시 특징주 급등'),
     googleNews('코스피 코스닥 특징주'),
   ])
-  const movers = [...us, ...kr]
-  // 글로벌 메가 → 국내 순으로 배치(LLM이 앞쪽을 더 중요하게 인식)
-  const headlines = Array.from(new Set([...hMegaEn, ...hIpoEn, ...hBigKo, ...hUs2, ...hKr2])).slice(0, 28)
+  const movers = [...cryp, ...us, ...kr]   // 코인 무버(±3% 이상만)를 맨 앞에 — 조용한 날은 빈 배열이라 영향 0
+  // 글로벌 메가 → 암호화폐 → 국내 순으로 배치(LLM이 앞쪽을 더 중요하게 인식)
+  const headlines = Array.from(new Set([...hMegaEn, ...hCrypEn, ...hIpoEn, ...hBigKo, ...hCrypKo, ...hUs2, ...hKr2])).slice(0, 34)
 
   // ③ Gemini — 메가 카탈리스트 ≤3건 + 자비스 페르소나 처방(실패 시 movers만으로 graceful)
   let catalysts: MarketCatalyst[] = []
@@ -151,7 +180,8 @@ ${moverText || '(없음)'}
 - 헤드라인에 실제로 있는 사건만 사용. 헤드라인에 없는 사건·수치·날짜를 지어내지 마라.
 - catalysts: 시장 전체 유동성을 움직일 큰 사건 순. title=한국어 한줄 요약, why=어느 섹터/밸류체인으로 수급 쏠림이 생기는지 1~2문장, tickers=관련 종목(헤드라인·수급 데이터에 근거한 것만, 최대 4개). 표기: 미국 종목은 티커(NVDA), 한국 종목은 6자리 코드가 아니라 반드시 한글 종목명(삼성전자·SK하이닉스)으로.
 - jarvisTip: 피터 린치/워런 버핏 관점 한줄 처방. 뇌동매수 경계가 기본 톤 — 급등 뉴스면 "경기순환주 고점 촉매인지 진단 탭 함정 레이더 확인", 대형 IPO면 "축제 첫날 추격보다 밸류체인의 이익 실체 확인" 식으로.
-- 우선순위: ①글로벌 메가 이벤트(초대형 기업 IPO/상장, FOMC·금리 결정, 지정학 급변, 메가 M&A) > ②섹터 단위 수급 쏠림 > ③개별 특징주. 스페이스X 상장급 사건이 있으면 반드시 1순위로. 국내 소형 스팩·공시·반복 시황은 메가 사건을 밀어내면 안 된다.
+- 우선순위: ①글로벌 메가 이벤트(초대형 기업 IPO/상장, FOMC·금리 결정, **암호화폐 급변 — 비트코인 당일 ±5% 이상이면 메가급**, 지정학 급변, 메가 M&A) > ②섹터 단위 수급 쏠림 > ③개별 특징주. 스페이스X 상장급 사건이 있으면 반드시 1순위로. 국내 소형 스팩·공시·반복 시황은 메가 사건을 밀어내면 안 된다.
+- 암호화폐 사건의 tickers 는 BTC·ETH 코인 심볼과 관련 미국 종목(COIN·MSTR·IBIT 등)을 함께 써도 된다. 등락률 수치는 [정량 수급(실측)]에 있는 값만 사용 — 헤드라인의 숫자와 다르면 실측 쪽을 쓴다.
 - 사소한 종목 뉴스·반복 시황은 제외. 진짜 메가급이 1건뿐이면 1건만.
 - marketMood: 오늘 시장 분위기 한 줄(헤드라인 근거).
 - 전부 한국어.`
