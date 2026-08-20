@@ -17,6 +17,7 @@ import { flagOf } from '@/lib/marketFlag'
 import StockActionChips from '@/app/components/StockActionChips'   // 🔗 종목 액션 SSOT
 import DilutionAlertBanner from '@/app/components/DilutionAlertBanner'   // 🚨 희석 경보(대시보드에만 있던 것을 브리핑에도)
 import SwingStopAlertBanner from '@/app/components/SwingStopAlertBanner'   // 🚨 스윙 손절선 이탈 — 진입만 알려주고 이탈을 침묵하면 반쪽이다
+import DayMoverAlertBanner from '@/app/components/DayMoverAlertBanner'   // 🚀 비트코인·보유 종목 당일 ±5% 급등락
 
 const CARD = '#12151f', BORDER = TK.border
 
@@ -146,6 +147,9 @@ export default function BriefingPage() {
 
       {/* 🚨 스윙 손절선 이탈 — 스윙 추천 종목이 손절선 아래로 마감하면 여기 크게 뜬다(없으면 렌더 0) */}
       <SwingStopAlertBanner />
+
+      {/* 🚀 오늘의 급등락 — 비트코인·보유 종목 당일 ±5% 이상(없으면 렌더 0. 사용자 요청 2026-08-20) */}
+      <DayMoverAlertBanner />
 
       {/* ①½ 이번 주 이벤트 — 어닝 D-day·배당락(이벤트 없으면 렌더 0) */}
       <EventCalendarPanel compact />
