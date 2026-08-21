@@ -5,6 +5,7 @@ export const maxDuration = 300
 
 import { NextResponse } from 'next/server'
 import { SECTOR_ROTATION_KEY } from '@/lib/rotationShared'   // 🧭 키 SSOT(reader 전원과 공유 — 범프는 lib 한 줄)
+import { appendQuadSnapshot } from '@/lib/rotationScorecard'   // ⏱️ 성적표 전향 적립(2026-08-21)
 import { getCache, setCache } from '@/lib/appCache'
 import { scoreSubFlow, type SubQ } from '@/lib/subFlow'
 import { etfFor, SECTORS } from '@/lib/sectorConfigs'
@@ -217,6 +218,10 @@ export async function GET(req: Request) {
     mean1w: Math.round(mean1w * 10) / 10, mean1m: Math.round(mean1m * 10) / 10,
     used: secs.length, asOf: new Date().toISOString(),
   }
-  if (secs.length >= 12) await setCache(cacheKey, result)   // 과반 이상 성공 시에만 캐시(부분실패 박제 방지)
+  if (secs.length >= 12) {
+    await setCache(cacheKey, result)   // 과반 이상 성공 시에만 캐시(부분실패 박제 방지)
+    // ⏱️ 성적표 전향 적립 — 신규 계산 성공 시에만(캐시 히트 경로는 self-heal 이 커버). 날짜 중복은 lib 이 막는다
+    try { await appendQuadSnapshot(kstDate(), items) } catch { /* 부가 기능 — 실패해도 시계는 정상 */ }
+  }
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

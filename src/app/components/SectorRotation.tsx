@@ -298,8 +298,92 @@ export default function SectorRotation() {
         <div style={{ fontSize: 11.5, color: TK.sub3, textAlign: 'center', padding: '10px 0' }}>👆 시계의 섹터 점이나 랭킹을 클릭하면 소섹터·대표종목이 여기 펼쳐집니다.</div>
       )}
 
+      {/* ⏱️ 전향 성적표 — "시계대로 하면 기준선을 이기나" 논쟁(2026-08-20)을 오늘부터의 기록으로 정산 */}
+      <RotationScorecardSection full={FULL} />
+
       <div style={{ fontSize: 10.5, color: TK.sub, lineHeight: 1.6, padding: '0 4px' }}>
         ⚠️ 🌱주도(강+가속)·🔥과열(강했으나 둔화·차익경계)·🍂이탈(약+둔화)·❄️태동(약했으나 가속·역발상 매집징후) — 막스 시계추와 같은 철학(과열은 경계, 소외+반등은 기회). 예측 아닌 현재 위치. 섹터 수익률은 섹터 탭과 동일(제2원칙). 교육용, 투자 추천 아님.
+      </div>
+    </div>
+  )
+}
+
+/* ⏱️ 시계 성적표(전향 검증) — 4규칙 자산곡선. 소급 없음·표본 90일 게이트·프록시 명시(가짜 정밀 금지) */
+function RotationScorecardSection({ full }: { full: Record<string, string> }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [d, setD] = useState<any>(null)
+  const [state, setState] = useState<'loading' | 'ok' | 'empty' | 'fail'>('loading')
+  useEffect(() => {
+    let alive = true
+    fetch('/api/rotation-scorecard', { cache: 'no-store' })
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => { if (!alive) return
+        if (!j) setState('fail')
+        else if (j.error === 'no_history') setState('empty')
+        else if (j.error) setState('fail')
+        else { setD(j); setState('ok') } })
+      .catch(() => { if (alive) setState('fail') })
+    return () => { alive = false }
+  }, [])
+
+  const box = { background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '12px 14px' } as const
+  const title = <div style={{ fontSize: 12.5, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>⏱️ 시계 성적표 — 이 시계대로 했으면 실제로 얼마였나 <span style={{ fontSize: 9.5, fontWeight: 700, color: TK.violet300 }}>전향 기록 · 소급 없음</span></div>
+  if (state === 'loading') return <div style={box}>{title}<div style={{ height: 40, background: '#171b26', borderRadius: 8, animation: 'pulse 1.5s infinite' }} /></div>
+  if (state === 'empty') return <div style={box}>{title}<div style={{ fontSize: 11, color: TK.sub3 }}>적립 준비 중 — 시계가 오늘 계산을 마치면 1일차 기록이 쌓입니다. 매일 자동 적립되며 과거는 소급하지 않습니다.</div></div>
+  if (state === 'fail' || !d) return <div style={box}>{title}<div style={{ fontSize: 11, color: TK.sub3 }}>성적표를 불러오지 못했습니다 — 새로고침 해보세요.</div></div>
+
+  const RULES = [
+    { k: 'A', label: '주도∪과열 보유', c: TK.green400 },
+    { k: 'B', label: '태동→주도 매수·이탈 매도', c: TK.sky400 },
+    { k: 'C', label: '17섹터 전부 상시보유 (기준선)', c: TK.sub3 },
+    { k: 'D', label: '반대(이탈∪태동 보유)', c: TK.red400 },
+  ] as const
+  const gateOk = d.days >= d.sampleGate
+  const W = 560, H = 130, PAD = 6
+  const curve = d.curve as { d: string; A: number; B: number; C: number; D: number }[]
+  const vals = curve.flatMap(p => [p.A, p.B, p.C, p.D])
+  const lo = Math.min(...vals), hi = Math.max(...vals)
+  const X = (i: number) => PAD + (curve.length <= 1 ? 0 : (i / (curve.length - 1)) * (W - PAD * 2))
+  const Y = (v: number) => hi === lo ? H / 2 : PAD + (1 - (v - lo) / (hi - lo)) * (H - PAD * 2)
+  const path = (k: 'A' | 'B' | 'C' | 'D') => curve.map((p, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(p[k]).toFixed(1)}`).join(' ')
+
+  return (
+    <div style={box}>
+      {title}
+      <div style={{ fontSize: 10.5, color: TK.sub3, marginBottom: 8 }}>
+        {gateOk
+          ? <>적립 <b style={{ color: TK.slate300 }}>{d.days}일</b> · {d.startDate} 시작</>
+          : <>📊 <b style={{ color: TK.amber400 }}>적립 중 {d.days}/{d.sampleGate}일</b> — 표본이 90일(약 1분기) 쌓이기 전엔 아래 숫자는 통계가 아니라 기록입니다 · {d.startDate} 시작</>}
+      </div>
+
+      {curve.length >= 2 ? (
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block', marginBottom: 8 }}>
+          {RULES.map(r => <path key={r.k} d={path(r.k)} fill="none" stroke={r.c} strokeWidth={r.k === 'C' ? 1.2 : 1.8} strokeDasharray={r.k === 'C' ? '4 3' : undefined} />)}
+        </svg>
+      ) : (
+        <div style={{ fontSize: 10.5, color: TK.sub, padding: '6px 0 10px' }}>곡선은 2일차부터 그려집니다 — 오늘은 시작점만 찍혔습니다.</div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 6, marginBottom: 8 }}>
+        {RULES.map(r => {
+          const s = d.stats[r.k]
+          return (
+            <div key={r.k} style={{ background: TK.bg0, borderRadius: 8, padding: '7px 10px', borderLeft: `3px solid ${r.c}` }}>
+              <div style={{ fontSize: 9.5, color: TK.sub3 }}>{r.label}</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: r.c, fontVariantNumeric: 'tabular-nums' }}>
+                {s.total >= 0 ? '+' : ''}{s.total}% <span style={{ fontSize: 9.5, color: TK.sub, fontWeight: 600 }}>· 낙폭 −{s.mdd}% · 보유 {s.heldNow}</span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <div style={{ fontSize: 10.5, color: TK.sub3, marginBottom: 6 }}>
+        오늘의 A 바스켓(주도∪과열): {(d.basketToday as string[]).map(k => full[k] ?? k).join(' · ') || '없음'}
+      </div>
+      <div style={{ fontSize: 10, color: TK.sub, lineHeight: 1.6 }}>
+        판정은 매일 자동 적립되며 수정할 수 없습니다 · 신호 다음 날 반영 · 수수료 미반영 · {d.proxyNote} ·
+        회색 점선(기준선)을 못 이기면 이 시계는 매수 도구가 아니라 <b style={{ color: TK.sub2 }}>이탈 경고 도구</b>입니다 — 90일 뒤 첫 판정, 1년 뒤 결론.
       </div>
     </div>
   )
