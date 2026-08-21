@@ -54,6 +54,12 @@ export default function CryptoLiquidationPanel() {
         <div style={{ background: TK.bg0, borderRadius: RAD.sm, padding: '8px 11px', borderLeft: `3px solid ${TK.sub4}` }}>
           <div style={{ fontSize: FS.micro, color: TK.sub3 }}>합계 · {d.count.toLocaleString()}건</div>
           <div style={{ fontSize: FS.lg, fontWeight: 800, color: TK.slate200, fontVariantNumeric: 'tabular-nums' }}>{fmtUsd(tot)}</div>
+          {/* 롱:숏 비중 바 — 어느 쪽이 더 크게 당했는지 한눈에 */}
+          <div style={{ display: 'flex', height: 4, borderRadius: 2, overflow: 'hidden', marginTop: 5 }}>
+            <div style={{ width: `${longShare}%`, background: TK.cyan400 }} />
+            <div style={{ width: `${100 - longShare}%`, background: TK.red400 }} />
+          </div>
+          <div style={{ fontSize: FS.micro, color: TK.sub4, marginTop: 2 }}>롱 {longShare.toFixed(0)}% : 숏 {(100 - longShare).toFixed(0)}%</div>
         </div>
       </div>
 
