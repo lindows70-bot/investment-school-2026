@@ -24,8 +24,10 @@ export default function CryptoLiquidationPanel() {
   const box = { background: CARD, border: `1px solid ${TK.border}`, borderRadius: RAD.md, padding: `${SP.md}px ${SP.lg}px` } as const
   const head = (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: SP.sm, flexWrap: 'wrap', marginBottom: 6 }}>
-      <b style={{ fontSize: FS.lg, color: TK.slate100 }}>💥 롱/숏 청산 — 누가 터졌나</b>
-      <span style={{ fontSize: FS.micro, color: TK.sub3 }}>레버리지 포지션이 강제 정리된 금액</span>
+      <b style={{ fontSize: FS.lg, color: TK.slate100 }}>💥 롱/숏 청산 — 오늘 누가 터졌나</b>
+      {/* ⚠️ 24시간짜리는 '오늘 스냅샷'이지 추세가 아니다(2026-08-22 사용자 지적) — 제목·부제에 못박고,
+          중장기는 바로 아래 '현물 vs 선물 수요' 차트(5.7개월)가 담당한다고 화면이 직접 안내한다. */}
+      <span style={{ fontSize: FS.micro, color: TK.sub3 }}>최근 24시간 <b style={{ color: TK.sub2 }}>스냅샷</b> · 중장기 흐름은 아래 수요 차트에서</span>
     </div>
   )
   if (state === 'loading') return <div style={box}>{head}<div style={{ height: 90, background: '#171b26', borderRadius: RAD.sm, animation: 'pulse 1.5s infinite' }} /></div>
@@ -92,17 +94,31 @@ export default function CryptoLiquidationPanel() {
       {/* 30일 롱/숏 계정 비율 — 포지션이 어느 쪽으로 쏠려 있나 */}
       {ls.length >= 5 && (
         <>
+          {/* ⚠️ 이 선이 뭔지 몰라 혼란을 준다는 지적(2026-08-22) — 축 값·기준선·해석을 전부 화면에 적는다.
+              이건 청산 금액이 아니라 **바이낸스 이용자 중 롱을 든 계정의 비율(%)** 이다. */}
           <div style={{ fontSize: FS.micro, color: TK.sub3, marginBottom: 4 }}>
-            30일 롱/숏 계정 비율(바이낸스) — 지금 <b style={{ color: ls[ls.length - 1].longPct >= 50 ? TK.cyan400 : TK.red400 }}>롱 {ls[ls.length - 1].longPct}% · 숏 {ls[ls.length - 1].shortPct}%</b>
-            <span style={{ color: TK.sub4 }}> · 한쪽 쏠림이 심하면 그쪽이 청산 연료가 됩니다</span>
+            <b style={{ color: TK.sub2 }}>30일 포지션 쏠림</b> — 바이낸스 이용자 중 <b style={{ color: TK.cyan400 }}>롱을 든 계정의 비율(%)</b> 추이
+            <span style={{ color: TK.sub4 }}> · 청산 금액이 아니라 &lsquo;군중이 어느 쪽에 서 있나&rsquo;입니다</span>
           </div>
-          <svg viewBox="0 0 560 70" style={{ width: '100%', height: 'auto', display: 'block', marginBottom: 4 }}>
-            <line x1="0" y1={70 - ((50 - lsMin) / Math.max(1, lsMax - lsMin)) * 60 - 5} x2="560" y2={70 - ((50 - lsMin) / Math.max(1, lsMax - lsMin)) * 60 - 5} stroke={TK.sub4} strokeWidth="0.6" strokeDasharray="3 3" />
+          <svg viewBox="0 0 560 76" style={{ width: '100%', height: 'auto', display: 'block', marginBottom: 2 }}>
+            {(() => { const y50 = 70 - ((50 - lsMin) / Math.max(1, lsMax - lsMin)) * 60 - 5
+              return <>
+                <line x1="0" y1={y50} x2="560" y2={y50} stroke={TK.sub4} strokeWidth="0.7" strokeDasharray="3 3" />
+                <text x="558" y={y50 - 3} fill={TK.sub4} fontSize="8" textAnchor="end">50% = 롱·숏 균형</text>
+              </>
+            })()}
             <path d={ls.map((p, i) => `${i ? 'L' : 'M'}${(i / Math.max(1, ls.length - 1)) * 560},${70 - ((p.longPct - lsMin) / Math.max(1, lsMax - lsMin)) * 60 - 5}`).join(' ')}
               fill="none" stroke={TK.cyan400} strokeWidth="1.8" />
+            <text x="2" y="9" fill={TK.sub4} fontSize="8">롱 {lsMax}%</text>
+            <text x="2" y="74" fill={TK.sub4} fontSize="8">롱 {lsMin}%</text>
           </svg>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FS.micro, color: TK.sub4, marginBottom: SP.sm }}>
-            <span>{ls[0].d}</span><span>롱 비율 추이 (점선 = 50%)</span><span>{ls[ls.length - 1].d}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FS.micro, color: TK.sub4, marginBottom: 4 }}>
+            <span>{ls[0].d}</span><span>{ls.length}일</span><span>{ls[ls.length - 1].d}</span>
+          </div>
+          <div style={{ fontSize: FS.micro, color: TK.sub3, marginBottom: SP.sm, lineHeight: 1.6 }}>
+            지금 <b style={{ color: ls[ls.length - 1].longPct >= 50 ? TK.cyan400 : TK.red400 }}>롱 {ls[ls.length - 1].longPct}% · 숏 {ls[ls.length - 1].shortPct}%</b> —
+            선이 <b style={{ color: TK.sub2 }}>위로 치솟으면 다들 상승에 베팅</b>한 상태라 하락 시 <b style={{ color: TK.cyan400 }}>롱 청산</b> 연료가 쌓인 것이고,
+            <b style={{ color: TK.sub2 }}> 아래로 처지면</b> 반대로 <b style={{ color: TK.red400 }}>숏 청산</b>(숏 스퀴즈) 연료가 쌓입니다.
           </div>
         </>
       )}
