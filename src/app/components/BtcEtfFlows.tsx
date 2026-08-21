@@ -97,6 +97,61 @@ export default function BtcEtfFlows() {
         </ResponsiveContainer>
       </div>
 
+      {/* 🏷️ 발행사별 분해 — 어느 창구로 돈이 들어오나(코인글래스 표와 같은 구조, 2026-08-21 사용자 요청).
+          합계 검산(발행사 합 = Total)을 통과한 행만 서버가 내려보낸다 — 컬럼이 밀리면 조용한 거짓말이 되므로. */}
+      {d.issuers?.length > 0 && d.issuerRecent?.length > 0 && (
+        <div style={{ marginTop: 4 }}>
+          <div style={{ fontSize: 11.5, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>
+            🏷️ 발행사별 순유입 <span style={{ fontSize: 9.5, fontWeight: 600, color: TK.sub3 }}>최근 {d.issuerRecent.length}영업일 · 단위 $M · 초록=유입 / 빨강=유출</span>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ borderCollapse: 'collapse', fontSize: 10, fontVariantNumeric: 'tabular-nums', minWidth: 640 }}>
+              <thead>
+                <tr style={{ color: TK.sub3 }}>
+                  <th style={{ textAlign: 'left', padding: '3px 6px', position: 'sticky', left: 0, background: CARD }}>날짜</th>
+                  {d.issuers.map(t => <th key={t} style={{ textAlign: 'right', padding: '3px 6px', fontWeight: 700 }}>{t}</th>)}
+                  <th style={{ textAlign: 'right', padding: '3px 6px', fontWeight: 800, color: TK.slate300 }}>총</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.issuerRecent.map(r => {
+                  const tot = r.v.reduce((a, b) => a + b, 0)
+                  return (
+                    <tr key={r.date} style={{ borderTop: `1px solid ${BORDER}` }}>
+                      <td style={{ padding: '3px 6px', color: TK.sub2, position: 'sticky', left: 0, background: CARD }}>{r.date.slice(5)}</td>
+                      {r.v.map((v, i) => (
+                        <td key={i} style={{ textAlign: 'right', padding: '3px 6px', color: v > 0 ? TK.green400 : v < 0 ? TK.red400 : TK.sub4 }}>
+                          {v === 0 ? '·' : `${v > 0 ? '+' : ''}${v}`}
+                        </td>
+                      ))}
+                      <td style={{ textAlign: 'right', padding: '3px 6px', fontWeight: 800, color: tot > 0 ? TK.green400 : tot < 0 ? TK.red400 : TK.sub4 }}>
+                        {tot > 0 ? '+' : ''}{Math.round(tot * 10) / 10}
+                      </td>
+                    </tr>
+                  )
+                })}
+                {d.issuerTotals?.length === d.issuers.length && (
+                  <tr style={{ borderTop: `2px solid ${BORDER}` }}>
+                    <td style={{ padding: '4px 6px', fontWeight: 800, color: TK.slate300, position: 'sticky', left: 0, background: CARD }}>출범 누적</td>
+                    {d.issuerTotals.map((v, i) => (
+                      <td key={i} style={{ textAlign: 'right', padding: '4px 6px', fontWeight: 700, color: v > 0 ? TK.green400 : v < 0 ? TK.red400 : TK.sub4 }}>
+                        {v >= 1000 || v <= -1000 ? `${v > 0 ? '+' : ''}${(v / 1000).toFixed(1)}B` : `${v > 0 ? '+' : ''}${Math.round(v)}`}
+                      </td>
+                    ))}
+                    <td style={{ textAlign: 'right', padding: '4px 6px', fontWeight: 900, color: TK.slate200 }}>
+                      {d.flowCumulative != null ? `${(d.flowCumulative / 1000).toFixed(1)}B` : '—'}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ fontSize: 9.5, color: TK.sub4, marginTop: 3 }}>
+            누적 행은 십억 달러(B) 표기 · GBTC는 기존 신탁이 ETF로 전환돼 <b style={{ color: TK.sub2 }}>대규모 유출이 정상</b>입니다(신규 창구와 성격이 다름).
+          </div>
+        </div>
+      )}
+
       <div style={{ color: TK.sub, fontSize: 9.5, lineHeight: 1.5 }}>
         ※ 순유입/유출=Farside Investors 공개 데이터(현물 BTC ETF 순창출/환매, 2024 출범~현재 전체 일별) · 누적 거래량=Yahoo Finance 현물 ETF 10종 거래대금 합산(TheBlock과 동일 출처) · 교육용, 투자 추천 아님.
       </div>

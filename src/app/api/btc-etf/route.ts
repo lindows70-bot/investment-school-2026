@@ -31,6 +31,12 @@ export interface BtcEtfResult {
   flow: { date: string; net: number; price: number | null }[]   // 최근 일별 순유입/유출($M) + BTC가격
   flowCumulative: number | null                 // 출범 이후 누적 순유입($M, Farside Total)
   flowWindowDays: number
+  /** 🏷️ 발행사 티커 순서(Farside 헤더에서 파싱 — 발행사 추가·폐지를 코드 수정 없이 따라간다) */
+  issuers: string[]
+  /** 최근 10영업일 발행사별 순유입($M) — v 는 issuers 와 같은 순서. 합계 검산을 통과한 행만 들어온다 */
+  issuerRecent: { date: string; v: number[] }[]
+  /** 발행사별 출범 이후 누적($M) */
+  issuerTotals: number[]
   asOf: string
 }
 
@@ -76,13 +82,25 @@ const parseFlowNum = (s: string): number | null => {
   const n = parseFloat(t.replace(/[(),]/g, ''))
   return isFinite(n) ? (neg ? -n : n) : null
 }
-async function farsideFlow(): Promise<{ flow: { date: string; net: number }[]; cumulative: number | null }> {
+/** 🏷️ 발행사별 컬럼 — Farside 헤더 순서(Date 다음부터 Total 직전까지). 하드코딩이 아니라 **파싱 결과**를 쓴다.
+ *  Phase 0 실측(2026-08-21): 헤더 = Date|IBIT|FBTC|BITB|ARKB|BTCO|EZBC|BRRR|HODL|BTCW|MSBT|GBTC|BTC(+Total),
+ *  일별 행 671개 전부 13셀로 안정 · 앞 12개 합 = 마지막 셀(Total) 검산 통과 → 컬럼 매핑이 맞다는 증거. */
+async function farsideFlow(): Promise<{
+  flow: { date: string; net: number }[]; cumulative: number | null
+  issuers: string[]; byIssuer: { date: string; v: number[] }[]
+}> {
   try {
     // /btc/(최근 2주 요약)가 아니라 all-data 페이지(2024 출범~현재 전체 624일)
     const html = await httpGet('https://farside.co.uk/bitcoin-etf-flow-all-data/')
     const flow: { date: string; net: number }[] = []
     const MON: Record<string, string> = { Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06', Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12' }
     // 각 일별 행: 날짜 + 행 내 마지막 숫자 셀(=Total 순유입)
+    // 헤더에서 발행사 티커 추출(Date 제외) — 발행사가 추가·폐지돼도 코드 수정 없이 따라간다
+    const heads = Array.from(html.matchAll(/<th[^>]*>([\s\S]{0,60}?)<\/th>/g))
+      .map(h => h[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, '').trim()).filter(Boolean)
+    const issuers = heads.filter(h => /^[A-Z]{3,5}$/.test(h))   // Date·Total 등 비티커 제외
+    const byIssuer: { date: string; v: number[] }[] = []
+
     const rows = Array.from(html.matchAll(/(\d{1,2})\s+(\w{3})\s+(\d{4})([\s\S]*?)<\/tr>/g))
     for (const m of rows) {
       const mon = MON[m[2]]; if (!mon) continue
@@ -91,6 +109,12 @@ async function farsideFlow(): Promise<{ flow: { date: string; net: number }[]; c
       if (!cells.length) continue
       const net = parseFlowNum(cells[cells.length - 1])
       if (net != null) flow.push({ date, net })
+      // 발행사별 — **셀 수가 기대와 다르면 그 행은 버린다**(컬럼이 밀린 채 표시되면 조용한 거짓말이 된다)
+      if (issuers.length > 0 && cells.length === issuers.length + 1) {
+        const v = cells.slice(0, issuers.length).map(c => parseFlowNum(c) ?? 0)
+        const sum = v.reduce((a, b) => a + b, 0)
+        if (net == null || Math.abs(sum - net) <= Math.max(0.6, Math.abs(net) * 0.01)) byIssuer.push({ date, v })
+      }
     }
     // 출범 이후 누적(Total 요약행의 마지막 셀)
     let cumulative: number | null = null
@@ -99,12 +123,13 @@ async function farsideFlow(): Promise<{ flow: { date: string; net: number }[]; c
       const cells = Array.from(totalRow[1].matchAll(/>\s*(\(?-?[\d,]+\.?\d*\)?|-)\s*</g)).map(c => c[1])
       if (cells.length) cumulative = parseFlowNum(cells[cells.length - 1])
     }
-    return { flow, cumulative }
-  } catch { return { flow: [], cumulative: null } }
+    return { flow, cumulative, issuers, byIssuer }
+  } catch { return { flow: [], cumulative: null, issuers: [], byIssuer: [] } }
 }
 
 export async function GET() {
-  const cacheKey = `btc-etf-v4:${kstDate()}`   // v4: flow 전체 이력(all-data 624일) + BTC가격 5y + 누적합 직접계산
+  // v5: 🏷️ 발행사별 분해(issuers·issuerRecent·issuerTotals) — 스키마 확장이라 키를 올린다(옛 응답이면 새 필드가 undefined)
+  const cacheKey = `btc-etf-v5:${kstDate()}`   // v4: flow 전체 이력(all-data) + BTC가격 5y + 누적합 직접계산
   const cached = await getCache<BtcEtfResult>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -124,15 +149,21 @@ export async function GET() {
   const latestCumVol = cumAll.length ? cumAll[cumAll.length - 1].cum : 0
 
   // ① 순유입/유출 — Farside 전체 이력(2024~현재) + BTC가격
-  const [{ flow, cumulative }, priceMap] = await Promise.all([farsideFlow(), btcPriceDaily()])
+  const [{ flow, cumulative, issuers, byIssuer }, priceMap] = await Promise.all([farsideFlow(), btcPriceDaily()])
   const flowSorted = flow.filter(f => f.date >= '2024-01-10').sort((a, b) => a.date.localeCompare(b.date))
   const flowOut = flowSorted.map(f => ({ date: f.date, net: f.net, price: priceMap.get(f.date) ?? null }))
   // 출범 이후 누적 순유입 = 전체 일별 합(전체 이력이라 직접 합산이 Total행 스크랩보다 견고). 폴백 Total행.
   const flowCum = flowSorted.length ? Math.round(flowSorted.reduce((s, f) => s + f.net, 0) * 10) / 10 : cumulative
 
+  // 🏷️ 발행사별 최근 10영업일 + 발행사별 출범 이후 누적($M) — 스크린샷(코인글래스)의 표와 같은 구조
+  const issRows = byIssuer.filter(r => r.date >= '2024-01-10').sort((a, b) => a.date.localeCompare(b.date))
+  const issuerTotals = issuers.map((_, i) => Math.round(issRows.reduce((s, r) => s + (r.v[i] ?? 0), 0) * 10) / 10)
+  const issuerRecent = issRows.slice(-10).reverse().map(r => ({ date: r.date, v: r.v.map(x => Math.round(x * 10) / 10) }))
+
   const result: BtcEtfResult = {
     cumVolume, latestCumVol,
     flow: flowOut, flowCumulative: flowCum, flowWindowDays: flowOut.length,
+    issuers, issuerRecent, issuerTotals,
     asOf: new Date().toISOString(),
   }
   // 핵심 데이터(누적 거래량) 있을 때만 캐시(부분실패 박제 방지)

@@ -13,6 +13,7 @@ import CryptoStocksPanel from '@/app/components/CryptoStocksPanel'
 import BtcRainbowChart from '@/app/components/BtcRainbowChart'
 import BtcCycleNavigator from '@/app/components/BtcCycleNavigator'
 import CryptoFundingRadar from '@/app/components/CryptoFundingRadar'
+import CryptoLiquidationPanel from '@/app/components/CryptoLiquidationPanel'   // 💥 롱/숏 청산(2026-08-21)
 import { TK } from '@/lib/theme'
 
 const CARD = TK.bg6, BORDER = TK.border
@@ -272,6 +273,9 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
 
       {/* 🪙 펀딩비·OI 과열 레이더 — 무기한 선물 레버리지 froth */}
       <CryptoFundingRadar />
+
+      {/* 💥 롱/숏 청산 — 레버리지가 실제로 터진 결과(펀딩비=과열 조짐, 청산=이미 터진 것. 나란히 둔다) */}
+      <CryptoLiquidationPanel />
 
       {/* ④ 네트워크 + ⑤ M2 — 2단 배치(풀폭 가로 늘어짐 해소) */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
