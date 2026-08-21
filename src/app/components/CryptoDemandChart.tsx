@@ -89,12 +89,19 @@ export default function CryptoDemandChart() {
         })}
         <path d={P.map((p, i) => p.price == null ? '' : `${i === 0 ? 'M' : 'L'}${(i * bw + bw / 2).toFixed(1)},${yPx(p.price).toFixed(1)}`).join(' ').replace(/^L/, 'M')}
           fill="none" stroke={TK.slate200} strokeWidth="1.4" opacity={0.9} />
-        {/* 0선 라벨 */}
-        <text x="4" y={MID - 4} fill={TK.sub4} fontSize="9">0 (수요 증감 기준선)</text>
-        <text x="4" y="11" fill={TK.sub4} fontSize="9">+{fmtK(amp)} BTC</text>
-        <text x="4" y={H - 3} fill={TK.sub4} fontSize="9">−{fmtK(amp)} BTC</text>
-        <text x={W - 4} y="11" fill={TK.sub4} fontSize="9" textAnchor="end">${Math.round(pMax / 1000)}K</text>
-        <text x={W - 4} y={H - 3} fill={TK.sub4} fontSize="9" textAnchor="end">${Math.round(pMin / 1000)}K</text>
+        {/* 축 라벨 — 막대 위에 얹히므로 어두운 받침을 깔아 가독성을 확보한다(2026-08-22 화면검증) */}
+        {([
+          { x: 3, y: MID - 11, w: 96, t: '0 = 수요 증감 기준선', anchor: 'start' as const },
+          { x: 3, y: 2, w: 60, t: `+${fmtK(amp)} BTC`, anchor: 'start' as const },
+          { x: 3, y: H - 12, w: 60, t: `−${fmtK(amp)} BTC`, anchor: 'start' as const },
+          { x: W - 46, y: 2, w: 43, t: `$${Math.round(pMax / 1000)}K`, anchor: 'end' as const },
+          { x: W - 46, y: H - 12, w: 43, t: `$${Math.round(pMin / 1000)}K`, anchor: 'end' as const },
+        ]).map((l, i) => (
+          <g key={i}>
+            <rect x={l.x} y={l.y} width={l.w} height={11} fill={CARD} opacity={0.82} rx={2} />
+            <text x={l.anchor === 'end' ? l.x + l.w - 3 : l.x + 3} y={l.y + 8.5} fill={TK.sub3} fontSize="8.5" textAnchor={l.anchor}>{l.t}</text>
+          </g>
+        ))}
       </svg>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FS.micro, color: TK.sub4, marginTop: 2, marginBottom: SP.sm }}>
         <span>{P[0]?.d}</span>
