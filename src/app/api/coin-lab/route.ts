@@ -86,6 +86,29 @@ const CYCLE_PHASES = ['제1 상승기', '제2 상승기(정점)', '침체기(Bea
 const CYCLE_PHASE_YEARS = [
   '2016 · 2020 · 2024', '2017 · 2021 · 2025', '2018 · 2022 · 2026', '2019 · 2023 · 2027',
 ]
+/** 🔍 각본 대조용 **일봉 10년** — 사이클 오버레이용 `range=max&interval=1wk` 는 야후가 조용히
+ *  월봉 수준으로 **다운샘플**한다(실측 2026-08-22: 12년치가 144포인트뿐 → 200주선 계산 불가·고점 누락).
+ *  해상도가 필요한 계산은 반드시 이 일봉으로 한다. */
+async function btcDaily10y(): Promise<{ date: string; price: number }[]> {
+  for (const host of ['query1', 'query2']) {
+    try {
+      const r = await fetch(`https://${host}.finance.yahoo.com/v8/finance/chart/BTC-USD?range=10y&interval=1d`, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(12_000) })
+      if (!r.ok) continue
+      const j = await r.json()
+      const res = j?.chart?.result?.[0]
+      const ts: number[] = res?.timestamp ?? []
+      const cl: (number | null)[] = res?.indicators?.quote?.[0]?.close ?? []
+      const out: { date: string; price: number }[] = []
+      for (let i = 0; i < ts.length; i++) {
+        const c = cl[i]
+        if (c != null && isFinite(c) && c > 0) out.push({ date: new Date(ts[i] * 1000).toISOString().slice(0, 10), price: c })
+      }
+      if (out.length > 1000) return out   // 일봉이 맞는지 개수로 확인(다운샘플 방어)
+    } catch { /* 다음 호스트 */ }
+  }
+  return []
+}
+
 async function btcMaxWeekly(): Promise<{ date: string; price: number }[]> {
   for (const host of ['query1', 'query2']) {
     try {
@@ -105,7 +128,7 @@ async function btcMaxWeekly(): Promise<{ date: string; price: number }[]> {
   }
   return []
 }
-function buildCycleNav(weekly: { date: string; price: number }[]): CycleNav | null {
+function buildCycleNav(weekly: { date: string; price: number }[], daily: { date: string; price: number }[] = []): CycleNav | null {
   if (weekly.length < 100) return null
   // 원본 포스터 정렬: 달력 연도 기준 — 침체 연도(2014·2018·2022·2026) 1월 1일부터 4년 창.
   // 실제 역사와도 정합(고점 2017-12·2021-11 직후 침체 시작) — '반감기+2년' 근사는 침체 시작을 4~6개월 늦게 잡아 폐기
@@ -136,20 +159,22 @@ function buildCycleNav(weekly: { date: string; price: number }[]): CycleNav | nu
   const mNow = Math.max(0, Math.round(((Date.now() - new Date(bearStarts[3]).getTime()) / 86400_000 / 30.44) * 2) / 2)
   const nextH = new Date(new Date(HALV).getTime() + 1461 * 86400_000)
 
-  // 🔍 각본 대조 — 같은 주봉 시계열로 '지금이 정말 침체기인가'를 가격으로 재본다
+  // 🔍 각본 대조 — **일봉**으로 '지금이 정말 침체기인가'를 가격으로 재본다(주봉 인자는 다운샘플이라 못 쓴다)
   let reality: CycleNav['reality'] = null
   try {
-    const cur = weekly[weekly.length - 1]
+    if (daily.length < 400) throw new Error('daily too short')
+    const cur = daily[daily.length - 1]
     let ath = 0, athDate = ''
-    for (const w of weekly) if (w.price > ath) { ath = w.price; athDate = w.date }
-    const ma200w = weekly.length >= 200 ? weekly.slice(-200).reduce((s, w) => s + w.price, 0) / 200 : null
+    for (const w of daily) if (w.price > ath) { ath = w.price; athDate = w.date }
+    // 200주 이동평균 ≈ 최근 1,400 거래일 평균(일봉 기준). 과거 침체 바닥은 이 선 아래에서 나왔다.
+    const ma200w = daily.length >= 1400 ? daily.slice(-1400).reduce((s, w) => s + w.price, 0) / 1400 : null
     const ddPct = ath > 0 ? Math.round((1 - cur.price / ath) * 1000) / 10 : 0
     // 과거 침체기의 같은 시점(침체 시작 + mNow 개월)에서의 낙폭
     const past: { year: number; ddPct: number }[] = []
     for (const bs of bearStarts.slice(0, 3)) {
       const t = new Date(new Date(bs).getTime() + mNow * 30.44 * 86400_000).toISOString().slice(0, 10)
-      const upTo = weekly.filter(w => w.date <= t)
-      if (upTo.length < 30) continue
+      const upTo = daily.filter(w => w.date <= t)
+      if (upTo.length < 200) continue   // 일봉 200개 미만이면 그 사이클은 이력 밖(2014 등) — 추정하지 않는다
       let pk = 0; for (const w of upTo) if (w.price > pk) pk = w.price
       const p = upTo[upTo.length - 1]
       if (pk > 0) past.push({ year: Number(bs.slice(0, 4)), ddPct: Math.round((1 - p.price / pk) * 1000) / 10 })
@@ -277,7 +302,8 @@ async function buildCorrelation(): Promise<CoinLabResult['correlation']> {
 
 export async function GET(req: Request) {
   // v17: 🔍 cycleNav.reality 신설(각본 vs 실제 가격 대조) — 스키마 확장이라 키를 올린다(옛 응답이면 undefined)
-  const cacheKey = 'coin-lab-v17'   // v16: note·macroNote의 HTML 엔티티를 실제 곡선 따옴표로
+  // v18: 각본 대조를 **일봉**으로 재계산(v17 은 다운샘플된 주봉을 써서 200주선 null·고점 누락)
+  const cacheKey = 'coin-lab-v18'   // v17: cycleNav.reality 신설 / v16: HTML 엔티티 수정
   const cached = await getCache<CoinLabResult>(cacheKey, 3600_000)   // 1h
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -289,14 +315,15 @@ export async function GET(req: Request) {
   try { const ex = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) }); if (ex.ok) { const j = await ex.json(); if (typeof j.rate === 'number' && j.rate > 0) usdKrw = j.rate } } catch { /* 폴백 */ }
 
   // ── CoinGecko 외 소스: 병렬(서로 다른 호스트라 충돌 없음) ──────────
-  const [fngR, hashR, upbitR, m2R, longR, corrR, maxR] = await Promise.allSettled([
+  const [fngR, hashR, upbitR, m2R, longR, corrR, maxR, dayR] = await Promise.allSettled([
     fetch('https://api.alternative.me/fng/?limit=2', { signal: AbortSignal.timeout(10_000) }).then(r => r.json()),
     fetch('https://mempool.space/api/v1/mining/hashrate/3m', { signal: AbortSignal.timeout(12_000) }).then(r => r.json()),
     fetch('https://api.upbit.com/v1/ticker?markets=KRW-BTC', { signal: AbortSignal.timeout(10_000) }).then(r => r.json()),
     FRED ? fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=M2SL&api_key=${FRED}&file_type=json&sort_order=desc&limit=37`, { signal: AbortSignal.timeout(10_000) }).then(r => r.json()) : Promise.resolve(null),
     btcLongPrices(),
     buildCorrelation(),
-    btcMaxWeekly(),   // 🔄 사이클 오버레이용(range=max — 2016 사이클 시작점 포함)
+    btcMaxWeekly(),   // 🔄 사이클 오버레이용(range=max — 2016 사이클 시작점 포함, 단 다운샘플됨)
+    btcDaily10y(),    // 🔍 각본 대조용 일봉(해상도 필요한 계산 전용)
   ])
   const val = <T,>(r: PromiseSettledResult<T>): T | null => (r.status === 'fulfilled' ? r.value : null)
   const fng = val(fngR) as { data?: { value: string; value_classification: string }[] } | null
@@ -305,7 +332,10 @@ export async function GET(req: Request) {
   const m2j = val(m2R) as { observations?: { date: string; value: string }[] } | null
   const longPts = (val(longR) as { date: string; price: number }[] | null) ?? []
   const correlation = val(corrR) as CoinLabResult['correlation']
-  const cycleNav = buildCycleNav((val(maxR) as { date: string; price: number }[] | null) ?? [])
+  const cycleNav = buildCycleNav(
+    (val(maxR) as { date: string; price: number }[] | null) ?? [],
+    (val(dayR) as { date: string; price: number }[] | null) ?? [],
+  )
 
   // ── CoinGecko: 반드시 순차(무료 API 버스트 429 회피) ──────────────
   const global = await cg<{ data?: Record<string, unknown> }>('/global')
