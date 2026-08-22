@@ -50,6 +50,7 @@ const QuantBuilderLab = dynamic(() => import('@/app/components/QuantBuilderLab')
 import MarketCatalystBanner       from '@/app/components/MarketCatalystBanner'
 import TimingWatchBanner          from '@/app/components/TimingWatchBanner'
 import DilutionAlertBanner        from '@/app/components/DilutionAlertBanner'
+import YieldCurveAlertBanner      from '@/app/components/YieldCurveAlertBanner'
 const PortfolioTimeMachine = dynamic(() => import('@/app/components/PortfolioTimeMachine'), { ssr: false, loading: Loading })
 const CoinLab = dynamic(() => import('@/app/components/CoinLab'), { ssr: false, loading: Loading })
 const AlphaHunter = dynamic(() => import('@/app/components/AlphaHunter'), { ssr: false, loading: Loading })
@@ -1934,6 +1935,8 @@ export default function DashboardPage() {
       <ErrorBoundary label="타점 전환 알림">
         <TimingWatchBanner />
         <DilutionAlertBanner />
+        {/* 🔴 장단기 금리 역전 — 지속 역전(10거래일+)일 때만 렌더(없으면 렌더 0) */}
+        <YieldCurveAlertBanner />
       </ErrorBoundary>
 
       {/* 🤖 Jarvis 모닝 포트폴리오 처방전 (2단계) — 아침에 가장 먼저 보는 AI 비서 브리핑 */}

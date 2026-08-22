@@ -4,9 +4,12 @@ import { NextResponse } from 'next/server'
 import { getTechCandles } from '@/lib/techChartData'
 import { getCache, setCache } from '@/lib/appCache'
 import { buildRealYield, type RealYieldResult } from '@/lib/realYield'
+import { buildCutCycles, type CutCycleResult } from '@/lib/cutCycleHistory'
+import { buildBondCorrelation, type BondCorrResult } from '@/lib/bondCorrelation'
+import { buildJapanYcc, type YccResult } from '@/lib/yccHistory'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 45
+export const maxDuration = 60   // v5 부터 인하사이클(FRED 5계열)·상관(야후 13종)·YCC 가 병렬로 붙는다
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
@@ -32,6 +35,12 @@ export interface BondsResult {
   etfs: BondEtf[]
   /** 🧮 금리 3형제 — 명목 = 실질 + 기대인플레(BEI) 분해(realYield SSOT). 수집 실패 시 null(섹션 접힘) */
   realYield: RealYieldResult | null
+  /** 📉 인하 사이클 역사 — "경기 좋을 때 인하하면?" */
+  cutCycles: CutCycleResult | null
+  /** 🔗 채권 발작 시 상관관계(조건부) */
+  correlation: BondCorrResult | null
+  /** 🎛️ 일드커브 컨트롤 — 일본 실사례 */
+  ycc: YccResult | null
 }
 
 // 채권 ETF + 잘 알려진 수정 듀레이션(근사·참조 상수 — FRED 폴백처럼 허용)
@@ -53,7 +62,7 @@ function retAt(closes: number[], back: number): number | null {
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export async function GET(req: Request) {
-  const cacheKey = `bonds-v4:${kstDate()}`   // v4: 실질 vs BEI 교차(realVsBei) 추가 / v3: 금리 3형제 동승
+  const cacheKey = `bonds-v5:${kstDate()}`   // v5: 인하사이클·조건부상관·YCC 동승 / v4: 실질 vs BEI 교차 / v3: 금리 3형제
   const cached = await getCache<BondsResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -113,14 +122,20 @@ export async function GET(req: Request) {
   const durShort = durationBias === 'long' ? '장기채' : durationBias === 'short' ? '단기채' : '중기채'
   const headline = `🧭 금리 ${rateDirLabel} 국면 — ${durShort} 중심 · ${creditBias === 'govt' ? '국채 선호' : '크레딧 캐리 가능'}`
 
-  const realYield = await buildRealYield().catch(() => null)
+  // 각 축은 독립적으로 실패할 수 있다 — 하나가 죽어도 나머지는 살린다(섹션 단위로 접힘)
+  const [realYield, cutCycles, correlation, ycc] = await Promise.all([
+    buildRealYield().catch(() => null),
+    buildCutCycles().catch(() => null),
+    buildBondCorrelation().catch(() => null),
+    buildJapanYcc().catch(() => null),
+  ])
 
   const result: BondsResult = {
     asOf: new Date().toISOString(),
     macro: { fedRate, rateDir, rateDirLabel, yieldCurve, hySpread, label },
     compass: { durationBias, durationLabel, creditBias, creditLabel, curveNote, headline },
     etfs,
-    realYield,
+    realYield, cutCycles, correlation, ycc,
   }
   if (etfs.some(e => e.price != null)) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })

@@ -5,6 +5,10 @@ import { useEffect, useState, type ReactNode } from 'react'
 import type { BondsResult, BondEtf, DurBias } from '@/app/api/bonds/route'
 import type { RealYieldResult } from '@/lib/realYield'
 import { TK, FS, RAD, SP } from '@/lib/theme'
+import YieldCurvePanel from '@/app/components/YieldCurvePanel'
+import CutCyclePanel from '@/app/components/CutCyclePanel'
+import BondCorrelationPanel from '@/app/components/BondCorrelationPanel'
+import YccPanel from '@/app/components/YccPanel'
 
 // 🧮 금리 3형제 2년 차트 — 외부 라이브러리 없이 SVG 3선(스윙 캔들 차트와 같은 관례)
 //    우측에 0.5%p 간격 금리 눈금, 하단에 날짜 눈금(사용자 요청 2026-08-13)
@@ -98,6 +102,9 @@ export default function BondsDashboard() {
           <a href="/macro-hub?tab=stress" style={{ fontSize: FS.tiny, fontWeight: 700, color: TK.slate200, background: TK.bg3, border: `1px solid ${TK.violet400}55`, borderRadius: RAD.pill, padding: '5px 12px', textDecoration: 'none' }}>⚡ 금리 스트레스 테스트 →</a>
         </div>
       </div>
+
+      {/* 📐 수익률곡선 — 만기 비교 + 장단기 역전 트래킹(자체 API 호출·독립 실패) */}
+      <YieldCurvePanel />
 
       {/* 🧮 금리 3형제 — 명목 = 실질 + 기대인플레(항등식 분해) */}
       {data.realYield && (() => {
@@ -280,6 +287,15 @@ export default function BondsDashboard() {
         tlt={data.etfs.find(e => e.ticker === 'TLT')?.modDur ?? null}
         shy={data.etfs.find(e => e.ticker === 'SHY')?.modDur ?? null} />
 
+      {/* 📉 경기가 좋을 때 인하하면? — 인하 사이클 역사 */}
+      {data.cutCycles && <CutCyclePanel d={data.cutCycles} />}
+
+      {/* 🔗 채권 발작 시 상관관계(조건부) */}
+      {data.correlation && <BondCorrelationPanel d={data.correlation} />}
+
+      {/* 🎛️ 일드커브 컨트롤 — 일본 실사례 + 미국의 사실상 YCC 논쟁 */}
+      {data.ycc && <YccPanel d={data.ycc} />}
+
       <div style={{ fontSize: 9.5, color: TK.sub4, lineHeight: 1.55 }}>
         ⚠️ 나침반은 금리 국면 기반 <b>일반 가이드</b>이지 매매 지시가 아니다. 과거 수익률은 미래를 보장하지 않으며, 개별 채권 ETF의 실제 듀레이션·수익률은 시점마다 다르다. 채권도 금리 급변 시 손실이 날 수 있다(2022년 장기채 −30% 실제).
       </div>
@@ -314,7 +330,10 @@ function BondEdu({ tlt, shy }: { tlt: number | null; shy: number | null }) {
               : <> 장기채(TLT)는 듀레이션이 커서 금리 1%p에 두 자릿수로 움직이고, 단기채(SHY)는 한 자릿수에 그칩니다.</>}
             {' '}<b>긴 채권일수록 금리 베팅의 지렛대가 크고 위험도 큽니다.</b></>} />
           <Row q="💳 국채 vs 회사채 · 크레딧 스프레드는?" a={<>국채는 정부가 갚아 가장 안전, 회사채는 부도위험이 있어 이자를 더 줍니다. 그 <b>추가 이자가 &lsquo;크레딧 스프레드&rsquo;</b>. 스프레드가 <b>낮으면</b> 회사채로 더 높은 이자를 안전하게 먹을 만하고(캐리), <b>급등하면</b> 경제 위기 신호라 안전한 국채로 피신합니다. 특히 <b>하이일드(고위험 회사채)</b>는 위기에 주식처럼 폭락해요.</>} />
-          <Row q="📐 수익률곡선 역전은 왜 무섭나요?" a={<>보통 <b>장기 금리 &gt; 단기 금리</b>(오래 빌려주니 더 받음)인데, 이게 뒤집혀 <b>단기가 더 높아지면(역전)</b> 역사적으로 <b>경기침체 선행 신호</b>였어요. 시장이 &lsquo;곧 경기가 나빠져 금리를 내릴 것&rsquo;이라 보는 것 — 장기채엔 우호적이나 주식엔 경계 신호입니다.</>} />
+          {/* ⚠️ 위 수익률곡선 패널이 "타이밍 도구가 아니다·2022년은 침체가 안 왔다"고 말하는데
+              여기서 "경기침체 선행 신호였어요"로 끝내면 같은 화면의 두 표면이 서로를 부정한다. */}
+          <Row q="📐 수익률곡선 역전은 왜 무섭나요?" a={<>보통 <b>장기 금리 &gt; 단기 금리</b>(오래 빌려주니 더 받음)인데, 이게 뒤집혀 <b>단기가 더 높아지면(역전)</b> 시장이 &lsquo;곧 경기가 나빠져 금리를 내릴 것&rsquo;이라 보는 겁니다. 과거 여러 침체에 앞서 나타났죠.
+            {' '}<b style={{ color: TK.amber400 }}>다만 &lsquo;역전 = 침체&rsquo;는 아닙니다</b> — 침체까지 걸린 시간이 5~34개월로 들쭉날쭉했고, <b>2022~24년 역전은 537일이나 이어졌는데도 침체가 오지 않았습니다.</b> 위 <b>수익률곡선</b> 카드에서 실제 기록을 확인하세요.</>} />
           <div style={{ fontSize: 10.5, color: TK.sub3, lineHeight: 1.55, borderTop: `1px solid ${BORDER}`, paddingTop: 8, marginTop: 2 }}>
             💡 한 줄 요약: <b style={{ color: TK.slate300 }}>금리 내릴 것 같으면 장기채, 오를 것 같으면 단기채</b>. 위기가 오면 하이일드·회사채 대신 <b>국채</b>로. 채권은 주식이 흔들릴 때 받쳐주는 <b>자산배분의 안전판</b>입니다.
           </div>
