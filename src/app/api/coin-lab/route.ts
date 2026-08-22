@@ -78,7 +78,9 @@ export interface CycleNav {
     drawdownPct: number                    // 사상 최고가 대비 현재 낙폭(%)
     athPrice: number; athDate: string
     ma200wRatio: number | null             // 현재가 ÷ 200주 이동평균 (과거 침체 바닥은 1.0 미만)
-    pastBearDrawdowns: { year: number; ddPct: number }[]   // 과거 침체기 같은 시점의 낙폭
+    /** 과거 침체기 — 같은 개월차 낙폭(ddPct)과 그 사이클이 **끝내 도달한 바닥**(troughPct).
+     *  둘을 함께 줘야 "지금 −38%"가 어디쯤인지 학생이 안다(같은 개월차 −66% → 최종 −83%). */
+    pastBearDrawdowns: { year: number; ddPct: number; troughPct: number | null }[]
     matchesBear: boolean                   // 과거 침체기 특징과 부합하는가
   } | null
 }
@@ -170,14 +172,22 @@ function buildCycleNav(weekly: { date: string; price: number }[], daily: { date:
     const ma200w = daily.length >= 1400 ? daily.slice(-1400).reduce((s, w) => s + w.price, 0) / 1400 : null
     const ddPct = ath > 0 ? Math.round((1 - cur.price / ath) * 1000) / 10 : 0
     // 과거 침체기의 같은 시점(침체 시작 + mNow 개월)에서의 낙폭
-    const past: { year: number; ddPct: number }[] = []
+    const past: { year: number; ddPct: number; troughPct: number | null }[] = []
     for (const bs of bearStarts.slice(0, 3)) {
       const t = new Date(new Date(bs).getTime() + mNow * 30.44 * 86400_000).toISOString().slice(0, 10)
       const upTo = daily.filter(w => w.date <= t)
       if (upTo.length < 200) continue   // 일봉 200개 미만이면 그 사이클은 이력 밖(2014 등) — 추정하지 않는다
       let pk = 0; for (const w of upTo) if (w.price > pk) pk = w.price
       const p = upTo[upTo.length - 1]
-      if (pk > 0) past.push({ year: Number(bs.slice(0, 4)), ddPct: Math.round((1 - p.price / pk) * 1000) / 10 })
+      if (!(pk > 0)) continue
+      // 그 침체 사이클이 끝내 도달한 바닥 — 침체 시작 후 18개월 창(다음 준비기 초반까지)에서 최저 종가
+      const endT = new Date(new Date(bs).getTime() + 18 * 30.44 * 86400_000).toISOString().slice(0, 10)
+      let pkAll = 0
+      for (const w of daily) { if (w.date > endT) break; if (w.price > pkAll) pkAll = w.price }
+      let lo = Infinity
+      for (const w of daily) if (w.date >= bs && w.date <= endT && w.price < lo) lo = w.price
+      const troughPct = pkAll > 0 && isFinite(lo) ? Math.round((1 - lo / pkAll) * 1000) / 10 : null
+      past.push({ year: Number(bs.slice(0, 4)), ddPct: Math.round((1 - p.price / pk) * 1000) / 10, troughPct })
     }
     // 과거 침체기 특징 = 낙폭이 과거 최소치 근처 이상 + 200주선 아래. 둘 다여야 '부합'이다.
     const minPast = past.length ? Math.min(...past.map(p => p.ddPct)) : 60
@@ -302,8 +312,8 @@ async function buildCorrelation(): Promise<CoinLabResult['correlation']> {
 
 export async function GET(req: Request) {
   // v17: 🔍 cycleNav.reality 신설(각본 vs 실제 가격 대조) — 스키마 확장이라 키를 올린다(옛 응답이면 undefined)
-  // v18: 각본 대조를 **일봉**으로 재계산(v17 은 다운샘플된 주봉을 써서 200주선 null·고점 누락)
-  const cacheKey = 'coin-lab-v18'   // v17: cycleNav.reality 신설 / v16: HTML 엔티티 수정
+  // v19: pastBearDrawdowns 에 troughPct(그 사이클 최종 바닥) 추가 — 스키마 확장이라 키를 올린다
+  const cacheKey = 'coin-lab-v19'   // v18: 대조를 일봉으로 / v17: reality 신설 / v16: HTML 엔티티
   const cached = await getCache<CoinLabResult>(cacheKey, 3600_000)   // 1h
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

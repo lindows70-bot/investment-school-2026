@@ -8,7 +8,10 @@ import { TK } from '@/lib/theme'
 const CARD = TK.card, BORDER = TK.border
 // 원본 포스터 순서·색: 침체(파랑) → 상승준비(보라) → 제1상승(초록) → 제2상승(노랑)
 const BANDS = [
-  { from: 0, to: 12, name: '침체기 (Bear)', short: '침체기', color: TK.blue400, years: '2014 · 2018 · 2022 · 2026', desc: '고점 후 깊은 조정 — 과거 −70%대 드로다운' },
+  // ⚠️ 낙폭 수치를 리터럴로 박지 않는다(2026-08-22 교차검증) — '−70%대'라 써뒀는데 실측은 2018년 −83.4%·
+  //    2022년 −76.6%였고, 바로 아래 대조 상자의 '같은 개월차 −66%'와도 달라 학생에겐 모순으로 읽혔다.
+  //    숫자는 전부 reality(실측)에서 뽑아 대조 상자가 말한다.
+  { from: 0, to: 12, name: '침체기 (Bear)', short: '침체기', color: TK.blue400, years: '2014 · 2018 · 2022 · 2026', desc: '고점 후 깊은 조정 — 낙폭 실측은 아래 대조' },
   { from: 12, to: 24, name: '상승 준비기 (Pre-Bull)', short: '준비기 · 승부구간', color: TK.violet400, years: '2015 · 2019 · 2023 · 2027', desc: '바닥 다지기·축적 — 원본 포스터의 "승부구간"' },
   { from: 24, to: 36, name: '제1 상승기 (1st Bull)', short: '제1 상승기', color: TK.green400, years: '2016 · 2020 · 2024 · 2028', desc: '반감기 해 — 공급 충격 반영 시작' },
   { from: 36, to: 48, name: '제2 상승기 (2nd Bull)', short: '제2 상승기', color: TK.amber400, years: '2017 · 2021 · 2025 · 2029', desc: '과거 고점은 모두 이 구간' },
@@ -86,7 +89,8 @@ export default function BtcCycleNavigator({ nav }: { nav: CycleNav }) {
             현재 고점 대비 <b style={{ color: TK.slate200 }}>−{nav.reality.drawdownPct}%</b>
             <span style={{ color: TK.sub }}> (최고 ${nav.reality.athPrice.toLocaleString()} · {nav.reality.athDate})</span>
             {nav.reality.pastBearDrawdowns.length > 0 && (
-              <> · 과거 침체기 <b style={{ color: TK.sub3 }}>같은 개월차</b>엔 {nav.reality.pastBearDrawdowns.map(p => `${p.year}년 −${p.ddPct}%`).join(' · ')}</>
+              <> · 과거 침체기 <b style={{ color: TK.sub3 }}>같은 개월차</b>엔 {nav.reality.pastBearDrawdowns.map(p =>
+                `${p.year}년 −${p.ddPct}%${p.troughPct != null ? `(최종 바닥 −${p.troughPct}%)` : ''}`).join(' · ')}</>
             )}
             {nav.reality.ma200wRatio != null && (
               <> · 200주 이동평균의 <b style={{ color: TK.slate200 }}>{nav.reality.ma200wRatio}배</b>
