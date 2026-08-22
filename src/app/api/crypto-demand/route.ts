@@ -70,7 +70,7 @@ export async function GET(req: Request) {
 
   // ③ 현물: 기존 btc-etf 캐시 재사용(제2원칙 — 같은 값). 콜드면 self-fetch 로 워밍 후 재조회
   let etfFlow: { date: string; net: number }[] = []
-  const etfKey = `btc-etf-v5:${kstDate()}`
+  const etfKey = `btc-etf-v6:${kstDate()}`   // ⚠️ writer(btc-etf 라우트)와 반드시 함께 올린다 — 안 그러면 현물 축이 조용히 빈다
   let etf = await getCache<BtcEtfResult>(etfKey, 24 * 3600_000)
   if (!etf) {
     try {

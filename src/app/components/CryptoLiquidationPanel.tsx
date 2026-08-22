@@ -85,8 +85,13 @@ export default function CryptoLiquidationPanel() {
               )
             })}
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FS.micro, color: TK.sub4, marginBottom: SP.md }}>
-            <span>{d.buckets[0]?.hour}</span><span>{d.buckets[d.buckets.length - 1]?.hour}</span>
+          {/* x축 양끝이 '14시 … 14시'로 같아 보여 혼란스럽다 → 날짜를 붙이고, 24시간 롤링이라
+              새로고침마다 값이 바뀐다는 사실도 함께 밝힌다(2026-08-22 화면검증) */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FS.micro, color: TK.sub4, marginBottom: 3 }}>
+            <span>{d.rangeFrom}</span><span>← 24시간 →</span><span>{d.rangeTo}</span>
+          </div>
+          <div style={{ fontSize: FS.micro, color: TK.sub4, marginBottom: SP.md }}>
+            ⏱ <b style={{ color: TK.sub3 }}>흐르는 24시간 창</b>이라 시간이 지나면 오래된 청산이 빠지고 새 청산이 들어옵니다 — 새로고침할 때마다 값이 달라지는 게 정상입니다.
           </div>
         </>
       ) : <div style={{ fontSize: FS.tiny, color: TK.sub3, marginBottom: SP.md }}>최근 24시간 청산 체결이 없습니다(조용한 장).</div>}

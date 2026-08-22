@@ -82,8 +82,9 @@ export default function CryptoDemandChart() {
           const x = i * bw
           return (
             <g key={p.d}>
-              {p.spot != null && <rect x={x} y={p.spot >= 0 ? MID - yBar(p.spot) : MID} width={Math.max(bw - 0.4, 0.6)} height={Math.abs(yBar(p.spot))} fill={TK.sub2} opacity={0.62} />}
-              {p.futures != null && <rect x={x + bw * 0.18} y={p.futures >= 0 ? MID - yBar(p.futures) : MID} width={Math.max(bw * 0.64, 0.5)} height={Math.abs(yBar(p.futures))} fill={TK.violet400} opacity={0.85} />}
+              {/* 회색(현물)을 뒤에 옅게, 보라(선물)를 앞에 진하게 — 겹쳐 그리면 보라가 묻힌다(2026-08-22 화면검증) */}
+              {p.spot != null && <rect x={x} y={p.spot >= 0 ? MID - yBar(p.spot) : MID} width={Math.max(bw - 0.4, 0.6)} height={Math.abs(yBar(p.spot))} fill={TK.sub2} opacity={0.42} />}
+              {p.futures != null && <rect x={x + bw * 0.22} y={p.futures >= 0 ? MID - yBar(p.futures) : MID} width={Math.max(bw * 0.56, 0.5)} height={Math.abs(yBar(p.futures))} fill={TK.violet400} opacity={1} />}
             </g>
           )
         })}

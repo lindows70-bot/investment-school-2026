@@ -111,9 +111,15 @@ async function farsideFlow(): Promise<{
       if (net != null) flow.push({ date, net })
       // 발행사별 — **셀 수가 기대와 다르면 그 행은 버린다**(컬럼이 밀린 채 표시되면 조용한 거짓말이 된다)
       if (issuers.length > 0 && cells.length === issuers.length + 1) {
-        const v = cells.slice(0, issuers.length).map(c => parseFlowNum(c) ?? 0)
-        const sum = v.reduce((a, b) => a + b, 0)
-        if (net == null || Math.abs(sum - net) <= Math.max(0.6, Math.abs(net) * 0.01)) byIssuer.push({ date, v })
+        // ⚠️ 2026-08-22 실사고: Farside 는 아직 집계 안 된 날을 **대시(-)** 로 준다. 그걸 0 으로 파싱해
+        //    표에 "유입 0" 처럼 띄웠다(8/21 원천엔 실제 +307.5 가 있었는데 앱은 전부 0). '없음'과
+        //    '아직 안 나옴'은 다른 사실이다 → **전 셀이 대시인 행은 아예 싣지 않는다**(다음 갱신에 채워진다).
+        const allDash = cells.slice(0, issuers.length).every(c => c.trim() === '-')
+        if (!allDash) {
+          const v = cells.slice(0, issuers.length).map(c => parseFlowNum(c) ?? 0)
+          const sum = v.reduce((a, b) => a + b, 0)
+          if (net == null || Math.abs(sum - net) <= Math.max(0.6, Math.abs(net) * 0.01)) byIssuer.push({ date, v })
+        }
       }
     }
     // 출범 이후 누적(Total 요약행의 마지막 셀)
@@ -129,8 +135,10 @@ async function farsideFlow(): Promise<{
 
 export async function GET() {
   // v5: 🏷️ 발행사별 분해(issuers·issuerRecent·issuerTotals) — 스키마 확장이라 키를 올린다(옛 응답이면 새 필드가 undefined)
-  const cacheKey = `btc-etf-v5:${kstDate()}`   // v4: flow 전체 이력(all-data) + BTC가격 5y + 누적합 직접계산
-  const cached = await getCache<BtcEtfResult>(cacheKey, 24 * 3600_000)
+  const cacheKey = `btc-etf-v6:${kstDate()}`   // v6: 미집계(전 셀 대시) 행 제외 · v5: 발행사별 · v4: flow 전체 이력
+  // ⚠️ 24h → 3h(2026-08-22): Farside 는 그날 행을 몇 시간 뒤에 채운다. 24h 캐시면 '아직 비어 있는 상태'가
+  //    하루 종일 얼어붙어, 실제로 +307.5 가 들어온 날이 화면엔 계속 0 으로 남았다.
+  const cached = await getCache<BtcEtfResult>(cacheKey, 3 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // ② 누적 거래량 — ETF별 Yahoo 순차(버스트 429 회피), 날짜별 거래대금 합산 → 누적

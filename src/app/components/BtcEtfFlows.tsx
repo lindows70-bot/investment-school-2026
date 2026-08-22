@@ -6,6 +6,12 @@ import type { BtcEtfResult } from '@/app/api/btc-etf/route'
 import { TK } from '@/lib/theme'
 
 const CARD = TK.bg6, BORDER = TK.border
+/** 현물 BTC ETF 티커 → 운용사(정적 참조 데이터 — 상품 목록 자체는 Farside 헤더에서 동적으로 온다) */
+const ISSUER_KO: Record<string, string> = {
+  IBIT: '블랙록', FBTC: '피델리티', BITB: '비트와이즈', ARKB: 'ARK·21Shares', BTCO: '인베스코',
+  EZBC: '프랭클린', BRRR: '발키리', HODL: '반에크', BTCW: '위즈덤트리', MSBT: '모건스탠리',
+  GBTC: '그레이스케일', BTC: '그레이스케일 미니',
+}
 const fmtT = (v: number) => v >= 1e12 ? `$${(v / 1e12).toFixed(2)}T` : v >= 1e9 ? `$${(v / 1e9).toFixed(0)}B` : `$${(v / 1e6).toFixed(0)}M`
 const fmtM = (v: number) => `${v >= 0 ? '+' : ''}$${Math.abs(v) >= 1000 ? (v / 1000).toFixed(2) + 'B' : v.toFixed(0) + 'M'}`
 const mmdd = (d: string) => d.slice(5)
@@ -109,7 +115,14 @@ export default function BtcEtfFlows() {
               <thead>
                 <tr style={{ color: TK.sub3 }}>
                   <th style={{ textAlign: 'left', padding: '3px 6px', position: 'sticky', left: 0, background: CARD }}>날짜</th>
-                  {d.issuers.map(t => <th key={t} style={{ textAlign: 'right', padding: '3px 6px', fontWeight: 700 }}>{t}</th>)}
+                  {/* 티커만 있으면 학생은 누구 상품인지 모른다 → 운용사명을 아래 줄에 병기(2026-08-22 화면검증).
+                      ⚠️ 정적 참조 데이터(상품↔운용사)라 제1원칙 예외 — 목록 자체는 Farside 헤더에서 동적으로 온다 */}
+                  {d.issuers.map(t => (
+                    <th key={t} style={{ textAlign: 'right', padding: '3px 6px', fontWeight: 700 }}>
+                      {t}
+                      <div style={{ fontSize: 8, fontWeight: 500, color: TK.sub4 }}>{ISSUER_KO[t] ?? ''}</div>
+                    </th>
+                  ))}
                   <th style={{ textAlign: 'right', padding: '3px 6px', fontWeight: 800, color: TK.slate300 }}>총</th>
                 </tr>
               </thead>
