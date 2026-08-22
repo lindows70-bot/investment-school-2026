@@ -51,6 +51,37 @@ export default function BtcCycleNavigator({ nav }: { nav: CycleNav }) {
         <span style={{ color: TK.sub5 }}> — 과거 3번의 사이클에서 이 자리는 {cur.desc.split(' — ')[0]} 구간이었습니다. 각본이 반복된다는 보장은 없지만, 지금의 하락을 &lsquo;공포&rsquo;가 아니라 &lsquo;사이클의 자리&rsquo;로 읽는 훈련이 목적입니다.</span>
       </div>
 
+      {/* 🔍 각본 대조 — '침체기'는 달력이 붙인 이름이다. 가격이 그 이름에 부합하는지 나란히 보여준다.
+          (2026-08-22 사용자 검증: 3일 +19% 급등 중인데 화면은 '침체기'라 학생에게 모순으로 읽혔다) */}
+      {nav.reality && (
+        <div style={{
+          background: nav.reality.matchesBear ? `${TK.sub4}14` : `${TK.amber400}12`,
+          border: `1px solid ${nav.reality.matchesBear ? BORDER : TK.amber400 + '55'}`,
+          borderRadius: 9, padding: '8px 12px', marginBottom: 12, fontSize: 11, lineHeight: 1.65,
+        }}>
+          <b style={{ color: nav.reality.matchesBear ? TK.sub3 : TK.amber400 }}>
+            🔍 각본 vs 실제 가격 — {nav.reality.matchesBear ? '지금 가격도 침체기 특징과 부합합니다' : '지금 가격은 과거 침체기와 다릅니다'}
+          </b>
+          <div style={{ color: TK.sub5, marginTop: 3 }}>
+            현재 고점 대비 <b style={{ color: TK.slate200 }}>−{nav.reality.drawdownPct}%</b>
+            <span style={{ color: TK.sub }}> (최고 ${nav.reality.athPrice.toLocaleString()} · {nav.reality.athDate})</span>
+            {nav.reality.pastBearDrawdowns.length > 0 && (
+              <> · 과거 침체기 <b style={{ color: TK.sub3 }}>같은 개월차</b>엔 {nav.reality.pastBearDrawdowns.map(p => `${p.year}년 −${p.ddPct}%`).join(' · ')}</>
+            )}
+            {nav.reality.ma200wRatio != null && (
+              <> · 200주 이동평균의 <b style={{ color: TK.slate200 }}>{nav.reality.ma200wRatio}배</b>
+                <span style={{ color: TK.sub }}> (과거 침체 바닥은 200주선 아래=1.0 미만에서 나왔습니다)</span></>
+            )}
+          </div>
+          {!nav.reality.matchesBear && (
+            <div style={{ color: TK.amber400, marginTop: 4 }}>
+              → <b>&lsquo;침체기&rsquo;는 달력(4년 각본)이 붙인 이름</b>이고, 실제 낙폭·이동평균 위치는 과거 침체기보다 뚜렷이 얕습니다.
+              각본을 사실로 읽지 말고 <b>위치 참고</b>로만 쓰세요 — 이 도구는 예측기가 아닙니다.
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 사이클 오버레이 — 침체기 시작=100 정규화·로그축 + 원본식 4색 국면 밴드 */}
       <ResponsiveContainer width="100%" height={320}>
         <LineChart data={nav.overlay} margin={{ top: 20, right: 14, left: 6, bottom: 0 }}>

@@ -71,6 +71,16 @@ export interface CycleNav {
   nextHalving: string; nextDDay: number                 // 다음 반감기(예상) D-day
   overlay: { m: number; c2014?: number; c2018?: number; c2022?: number; c2026?: number }[]   // x=침체기 시작 후 개월, y=시작가=100
   peaks: { cycle: string; peakMult: number; peakMonth: number }[]            // 사이클별 정점(시작가 대비 배수·개월)
+  /** 🔍 각본 대조(2026-08-22 사용자 검증 요청) — '침체기'는 **달력 각본**이 붙인 이름이다.
+   *  실제 가격이 과거 침체기의 특징(고점 대비 −60~70%·200주선 아래)을 충족하는지 함께 보여줘야
+   *  학생이 라벨을 사실로 오해하지 않는다. 값이 어긋나면 그 사실 자체를 화면이 말한다. */
+  reality: {
+    drawdownPct: number                    // 사상 최고가 대비 현재 낙폭(%)
+    athPrice: number; athDate: string
+    ma200wRatio: number | null             // 현재가 ÷ 200주 이동평균 (과거 침체 바닥은 1.0 미만)
+    pastBearDrawdowns: { year: number; ddPct: number }[]   // 과거 침체기 같은 시점의 낙폭
+    matchesBear: boolean                   // 과거 침체기 특징과 부합하는가
+  } | null
 }
 const CYCLE_PHASES = ['제1 상승기', '제2 상승기(정점)', '침체기(Bear)', '상승 준비기(승부구간)']
 const CYCLE_PHASE_YEARS = [
@@ -125,11 +135,40 @@ function buildCycleNav(weekly: { date: string; price: number }[]): CycleNav | nu
   const yearIdx = Math.min(3, Math.floor(daysSince / 365.25))
   const mNow = Math.max(0, Math.round(((Date.now() - new Date(bearStarts[3]).getTime()) / 86400_000 / 30.44) * 2) / 2)
   const nextH = new Date(new Date(HALV).getTime() + 1461 * 86400_000)
+
+  // 🔍 각본 대조 — 같은 주봉 시계열로 '지금이 정말 침체기인가'를 가격으로 재본다
+  let reality: CycleNav['reality'] = null
+  try {
+    const cur = weekly[weekly.length - 1]
+    let ath = 0, athDate = ''
+    for (const w of weekly) if (w.price > ath) { ath = w.price; athDate = w.date }
+    const ma200w = weekly.length >= 200 ? weekly.slice(-200).reduce((s, w) => s + w.price, 0) / 200 : null
+    const ddPct = ath > 0 ? Math.round((1 - cur.price / ath) * 1000) / 10 : 0
+    // 과거 침체기의 같은 시점(침체 시작 + mNow 개월)에서의 낙폭
+    const past: { year: number; ddPct: number }[] = []
+    for (const bs of bearStarts.slice(0, 3)) {
+      const t = new Date(new Date(bs).getTime() + mNow * 30.44 * 86400_000).toISOString().slice(0, 10)
+      const upTo = weekly.filter(w => w.date <= t)
+      if (upTo.length < 30) continue
+      let pk = 0; for (const w of upTo) if (w.price > pk) pk = w.price
+      const p = upTo[upTo.length - 1]
+      if (pk > 0) past.push({ year: Number(bs.slice(0, 4)), ddPct: Math.round((1 - p.price / pk) * 1000) / 10 })
+    }
+    // 과거 침체기 특징 = 낙폭이 과거 최소치 근처 이상 + 200주선 아래. 둘 다여야 '부합'이다.
+    const minPast = past.length ? Math.min(...past.map(p => p.ddPct)) : 60
+    reality = {
+      drawdownPct: ddPct, athPrice: Math.round(ath), athDate,
+      ma200wRatio: ma200w ? Math.round((cur.price / ma200w) * 100) / 100 : null,
+      pastBearDrawdowns: past,
+      matchesBear: ddPct >= minPast - 10 && (ma200w == null || cur.price < ma200w),
+    }
+  } catch { /* 대조 실패 시 각본만 표시(추정 금지) */ }
+
   return {
     daysSince, yearIdx, mNow, phaseName: CYCLE_PHASES[yearIdx], phaseYears: CYCLE_PHASE_YEARS,
     nextHalving: nextH.toISOString().slice(0, 10), nextDDay: Math.max(0, Math.ceil((nextH.getTime() - Date.now()) / 86400_000)),
     overlay: Array.from(rows.values()).sort((a, b) => a.m - b.m),
-    peaks,
+    peaks, reality,
   }
 }
 
@@ -237,7 +276,8 @@ async function buildCorrelation(): Promise<CoinLabResult['correlation']> {
 }
 
 export async function GET(req: Request) {
-  const cacheKey = 'coin-lab-v16'   // v16: note·macroNote의 HTML 엔티티(&lsquo;/&rsquo;)를 실제 곡선 따옴표로(JS 문자열은 엔티티 미디코드 → 리터럴 노출 버그)
+  // v17: 🔍 cycleNav.reality 신설(각본 vs 실제 가격 대조) — 스키마 확장이라 키를 올린다(옛 응답이면 undefined)
+  const cacheKey = 'coin-lab-v17'   // v16: note·macroNote의 HTML 엔티티를 실제 곡선 따옴표로
   const cached = await getCache<CoinLabResult>(cacheKey, 3600_000)   // 1h
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
