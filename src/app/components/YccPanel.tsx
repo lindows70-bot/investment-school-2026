@@ -75,9 +75,24 @@ export default function YccPanel({ d }: { d: YccResult }) {
       </div>
 
       {/* 우리 시장과의 연결 */}
+      {/* 💵 미국 총부채 — 서술만 하던 것을 실데이터로(재무부 일별 공식 통계) */}
+      {d.usDebt && (
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: SP.sm, flexWrap: 'wrap', background: TK.bg0, borderRadius: RAD.sm, padding: '9px 13px', marginBottom: SP.md }}>
+          <span style={{ fontSize: FS.tiny, color: TK.sub3 }}>💵 미국 연방정부 총부채</span>
+          <b style={{ fontSize: FS.xl, color: TK.red400, fontFamily: 'monospace' }}>${(d.usDebt.total / 1e12).toFixed(2)}조</b>
+          {d.usDebt.yoyPct != null && (
+            <span style={{ fontSize: FS.tiny, color: TK.amber400 }}>1년 전 대비 +{d.usDebt.yoyPct}%</span>
+          )}
+          <span style={{ fontSize: FS.micro, color: TK.sub4 }}>{d.usDebt.date} · 미 재무부 일별 공식 통계</span>
+          <span style={{ fontSize: FS.tiny, color: TK.sub3, marginLeft: 'auto' }}>
+            빚이 클수록 <b style={{ color: TK.sub2 }}>이자 부담 때문에 금리를 눌러야 할 이유</b>가 커집니다 — YCC 논의의 출발점입니다.
+          </span>
+        </div>
+      )}
+
       <div style={{ padding: '10px 13px', borderRadius: RAD.sm, background: `${TK.amber400}0e`, border: `1px solid ${TK.amber400}33`, fontSize: FS.tiny, color: TK.sub2, lineHeight: 1.75 }}>
         💡 <b style={{ color: TK.amber400 }}>왜 지금 이걸 알아야 하나</b> — 미국은 YCC를 공식 도입한 적이 없습니다.
-        하지만 국가부채가 불어나 장기금리가 튀면, 재무부가 <b style={{ color: TK.slate200 }}>국채 바이백(되사기) 규모를 늘려</b> 장기물을 직접 사들이는 일이 벌어집니다.
+        하지만 {d.usDebt ? <>국가부채가 <b style={{ color: TK.slate200 }}>${(d.usDebt.total / 1e12).toFixed(1)}조</b>까지 불어난 상태에서 </> : '국가부채가 불어나 '}장기금리가 튀면, 재무부가 <b style={{ color: TK.slate200 }}>국채 바이백(되사기) 규모를 늘려</b> 장기물을 직접 사들이는 일이 벌어집니다.
         기술적으로는 유동성 관리지만, 시장은 이를 <b style={{ color: TK.slate200 }}>&ldquo;사실상의 금리 통제&rdquo;</b>로 읽습니다.
         {d.us30 && <> 지금 미국 30년물은 <b style={{ color: TK.slate200 }}>{d.us30.v.toFixed(2)}%</b>입니다.</>}
         {' '}일본이 보여준 결과는 분명합니다 — <b style={{ color: TK.slate200 }}>금리는 눌렸지만 통화 가치가 대가를 치렀습니다.</b>

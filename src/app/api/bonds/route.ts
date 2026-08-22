@@ -62,7 +62,7 @@ function retAt(closes: number[], back: number): number | null {
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export async function GET(req: Request) {
-  const cacheKey = `bonds-v6:${kstDate()}`   // v6: 침체 판정 창 18개월로 명시(라벨과 잣대 일치) / v5: 인하사이클·조건부상관·YCC 동승 / v4: 실질 vs BEI 교차
+  const cacheKey = `bonds-v7:${kstDate()}`   // v7: YCC 에 미국 총부채(재무부 일별) 동승 / v6: 침체 판정 창 18개월 명시 / v5: 인하사이클·상관·YCC / v4: 실질 vs BEI
   const cached = await getCache<BondsResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -140,5 +140,6 @@ export async function GET(req: Request) {
   if (etfs.some(e => e.price != null)) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }
+
 
 

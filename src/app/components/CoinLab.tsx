@@ -16,6 +16,7 @@ import CryptoFundingRadar from '@/app/components/CryptoFundingRadar'
 import CryptoLiquidationPanel from '@/app/components/CryptoLiquidationPanel'   // 💥 롱/숏 청산(2026-08-21)
 import CryptoDemandChart from '@/app/components/CryptoDemandChart'   // 📊 현물vs선물 수요 30일(2026-08-22)
 import CmeCotPanel from '@/app/components/CmeCotPanel'   // 🏛️ CME 기관 포지셔닝(CFTC 주간·2026-08-23)
+import AssetRankingPanel from '@/app/components/AssetRankingPanel'   // 🏆 전세계 자산 시총 순위(2026-08-23)
 import { TK } from '@/lib/theme'
 
 const CARD = TK.bg6, BORDER = TK.border
@@ -285,6 +286,9 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
       {/* 🏛️ CME 기관 포지셔닝(CFTC 주간) — 위 셋이 전부 '글로벌 개인 레버리지'라면 여기는 '미국 규제권 기관'.
           축이 다르므로 바로 아래 붙여 두 축을 나란히 읽게 한다(2026-08-22 영상 검증에서 갭으로 확인). */}
       <CmeCotPanel />
+
+      {/* 🏆 전세계 자산 시총 순위 — 등락률이 아니라 '덩치'로 위치를 잡는다. 금 대비 비율이 핵심 교육 포인트 */}
+      <AssetRankingPanel />
 
       {/* ④ 네트워크 + ⑤ M2 — 2단 배치(풀폭 가로 늘어짐 해소) */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>

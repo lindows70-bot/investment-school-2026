@@ -47,15 +47,44 @@ export interface YccResult {
   /** 미국 장기금리(비교축) */
   us30: { date: string; v: number } | null
   us10: { date: string; v: number } | null
+  /** 💵 미국 연방정부 총부채 — YCC 논의의 출발점(부채가 커질수록 금리를 눌러야 할 유인이 커진다).
+   *  재무부 Fiscal Data API(일별·키 불필요). 서술만 하던 것을 실데이터로 바꾼다(제1원칙). */
+  usDebt: { date: string; total: number; yoyPct: number | null } | null
+}
+
+/** 미국 총부채(일별) — 재무부 공식. FRED GFDEBTN 은 분기라 최신성이 떨어져 이쪽을 쓴다. */
+async function fetchUsDebt(): Promise<YccResult['usDebt']> {
+  const get = async (params: string) => {
+    const r = await fetch(`https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/debt_to_penny?${params}`,
+      { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(15_000), cache: 'no-store' })
+    if (!r.ok) return null
+    return (await r.json())?.data?.[0] ?? null
+  }
+  try {
+    const latest = await get('sort=-record_date&page[size]=1')
+    if (!latest?.record_date) return null
+    const total = Number(latest.tot_pub_debt_out_amt)
+    // 상식 검산 — 미국 총부채가 10조 미만이거나 200조 초과면 파싱이 틀린 것이다
+    if (!isFinite(total) || total < 10e12 || total > 200e12) return null
+    const y = new Date(new Date(latest.record_date).getTime() - 365 * 864e5).toISOString().slice(0, 10)
+    const prior = await get(`filter=record_date:lte:${y}&sort=-record_date&page[size]=1`)
+    const pv = prior ? Number(prior.tot_pub_debt_out_amt) : NaN
+    return {
+      date: String(latest.record_date).slice(0, 10),
+      total,
+      yoyPct: isFinite(pv) && pv > 0 ? Math.round((total / pv - 1) * 1000) / 10 : null,
+    }
+  } catch { return null }
 }
 
 const avg = (a: number[]) => a.length ? Math.round((a.reduce((s, v) => s + v, 0) / a.length) * 100) / 100 : null
 
 export async function buildJapanYcc(): Promise<YccResult | null> {
-  const [jgbRaw, us30Raw, us10Raw] = await Promise.all([
+  const [jgbRaw, us30Raw, us10Raw, usDebt] = await Promise.all([
     fredSeries('IRLTLT01JPM156N', '2013-01-01'),
     fredSeries('DGS30', new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10)),
     fredSeries('DGS10', new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10)),
+    fetchUsDebt(),
   ])
   if (jgbRaw.length < 24) return null
 
@@ -76,5 +105,6 @@ export async function buildJapanYcc(): Promise<YccResult | null> {
     duringAvg: avg(during), afterAvg: avg(after),
     us30: us30Raw.length ? { date: us30Raw[us30Raw.length - 1].date, v: us30Raw[us30Raw.length - 1].v } : null,
     us10: us10Raw.length ? { date: us10Raw[us10Raw.length - 1].date, v: us10Raw[us10Raw.length - 1].v } : null,
+    usDebt,
   }
 }

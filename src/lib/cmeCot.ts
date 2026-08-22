@@ -16,8 +16,9 @@ const CONTRACT = 'BITCOIN - CHICAGO MERCANTILE EXCHANGE'
 /** 방향 판정 창(주) — 주간 데이터라 1주 변동은 노이즈. 8주 ≈ 2개월. */
 export const COT_WINDOW_W = 8
 
-/** 캐시 키 SSOT — 라우트 파일은 임의 export 를 허용하지 않으므로(Next.js 타입 제약) 키는 lib 에 둔다. */
-export const CME_COT_KEY = (dateKey: string) => `cme-cot-v1:${dateKey}`
+/** 캐시 키 SSOT — 라우트 파일은 임의 export 를 허용하지 않으므로(Next.js 타입 제약) 키는 lib 에 둔다.
+ *  v2: 전 이력 통계(longRecord) 추가 — 응답에 필드가 늘면 키를 올린다(옛 응답이면 undefined 로 온다). */
+export const CME_COT_KEY = (dateKey: string) => `cme-cot-v2:${dateKey}`
 
 export type CotTrend = 'more_long' | 'more_short' | 'flat'
 
@@ -52,6 +53,18 @@ export interface CmeCotResult {
   reading: string
   /** 16주 시계열(차트) */
   series: { date: string; lev: number; asset: number; dealer: number; oi: number }[]
+  /** 📜 전 이력 기록 — "이 숏이 특이한 일인가, 늘 그런가"를 가르는 결정적 맥락.
+   *  다른 곳에서 본 차트와 부호가 달라 보일 때 학생이 스스로 판단할 수 있게 원자료 사실을 준다. */
+  longRecord: {
+    fromDate: string
+    totalWeeks: number
+    /** 레버리지드 펀드가 순롱이었던 주 수 */
+    levLongWeeks: number
+    /** 마지막으로 순롱이었던 날(없으면 null) */
+    levLastLongDate: string | null
+    /** 자산운용사가 순롱이었던 주 수 */
+    assetLongWeeks: number
+  }
   caveats: string[]
 }
 
@@ -61,8 +74,9 @@ const avg = (a: number[]) => a.length ? Math.round(a.reduce((s, v) => s + v, 0) 
 export async function buildCmeCot(): Promise<CmeCotResult | null> {
   let rows: Record<string, unknown>[]
   try {
+    // 전 이력을 받는다 — 최근 몇 주만 보면 "지금 숏이 특이한가"를 판단할 수 없다(2018~ 약 440주, 한 번에 받아진다)
     const url = `${CFTC}?market_and_exchange_names=${encodeURIComponent(CONTRACT)}`
-      + `&$order=report_date_as_yyyy_mm_dd DESC&$limit=40`
+      + `&$order=report_date_as_yyyy_mm_dd DESC&$limit=500`
     const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(20_000), cache: 'no-store' })
     if (!r.ok) return null
     rows = await r.json()
@@ -140,13 +154,27 @@ export async function buildCmeCot(): Promise<CmeCotResult | null> {
     oi: n(x.open_interest_all),
   }))
 
+  // 📜 전 이력 기록 — 실측(2026-08-23): 레버리지드 펀드는 2019-02-05 이후 **단 한 주도 순롱이 없었고**,
+  //    자산운용사는 2024년 이후 138/138주 순롱이었다. 이 대비가 "숏 = 차익거래" 해석의 가장 강한 근거다.
+  const levLongs = asc.filter(x => netOf(x, 'lev') > 0)
+  const longRecord = {
+    fromDate: String(asc[0].report_date_as_yyyy_mm_dd).slice(0, 10),
+    totalWeeks: asc.length,
+    levLongWeeks: levLongs.length,
+    levLastLongDate: levLongs.length ? String(levLongs[levLongs.length - 1].report_date_as_yyyy_mm_dd).slice(0, 10) : null,
+    assetLongWeeks: asc.filter(x => netOf(x, 'asset') > 0).length,
+  }
+
   return {
     asOf: new Date().toISOString(),
     reportDate, staleDays,
     openInterest: n(last.open_interest_all),
     groups, headline, reading: parts.join(' '),
-    series,
+    series, longRecord,
     caveats: [
+      `📜 원자료 기록 — ${longRecord.fromDate} 이후 ${longRecord.totalWeeks}주 중 헤지펀드가 순롱이었던 주는 **${longRecord.levLongWeeks}주**`
+        + `${longRecord.levLastLongDate ? `(마지막 ${longRecord.levLastLongDate})` : ''}이고, 자산운용사는 **${longRecord.assetLongWeeks}주** 순롱이었습니다. `
+        + `헤지펀드의 숏은 이번 국면의 특징이 아니라 **몇 년째 이어진 구조**입니다 — 차익거래 해석의 근거입니다.`,
       `CFTC 주간 보고서는 **화요일 장 마감 기준**이고 금요일에 공표됩니다 — 지금 보시는 값은 ${staleDays}일 전 상태이며 실시간 신호가 아닙니다.`,
       '헤지펀드의 숏 대부분은 **현물 ETF 매수 + 선물 매도**로 이자를 먹는 차익거래입니다. 숏 규모가 크다고 해서 기관이 하락에 베팅한다는 뜻이 아닙니다.',
       '이 표는 CME(미국 규제 거래소) 안의 기관만 봅니다. 바이낸스 등 글로벌 무기한 선물의 개인 레버리지는 위의 펀딩비·OI 레이더가 따로 봅니다 — 두 축은 서로 다른 사람들입니다.',

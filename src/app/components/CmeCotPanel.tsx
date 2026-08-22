@@ -114,6 +114,35 @@ export default function CmeCotPanel() {
         {' '}헤지펀드는 <b style={{ color: TK.slate200 }}>숫자의 크기보다 방향의 변화</b>를 보세요.
       </div>
 
+      {/* 📜 전 이력 기록 — 다른 데서 본 차트와 부호가 달라 보일 때 학생이 스스로 판단할 근거를 준다.
+          (2026-08-23: 사용자가 CryptoQuant 차트를 제시해 대조했고, CFTC 원자료로 이 기록을 확인했다) */}
+      {d.longRecord && (
+        <div style={{ padding: '10px 13px', borderRadius: RAD.sm, background: TK.bg0, border: `1px solid ${TK.line1}`, marginBottom: SP.sm }}>
+          <div style={{ fontSize: FS.tiny, fontWeight: 700, color: TK.slate200, marginBottom: 4 }}>
+            📜 원자료 기록 ({d.longRecord.fromDate} 이후 {d.longRecord.totalWeeks}주)
+          </div>
+          <div style={{ display: 'flex', gap: SP.lg, flexWrap: 'wrap', marginBottom: 5 }}>
+            <div>
+              <div style={{ fontSize: FS.micro, color: TK.sub4 }}>헤지펀드가 순롱이었던 주</div>
+              <b style={{ fontSize: FS.lg, color: TK.red400, fontFamily: 'monospace' }}>{d.longRecord.levLongWeeks}주</b>
+              <span style={{ fontSize: FS.micro, color: TK.sub4 }}> / {d.longRecord.totalWeeks}</span>
+              {d.longRecord.levLastLongDate && <span style={{ fontSize: FS.micro, color: TK.sub4 }}> · 마지막 {d.longRecord.levLastLongDate}</span>}
+            </div>
+            <div>
+              <div style={{ fontSize: FS.micro, color: TK.sub4 }}>자산운용사가 순롱이었던 주</div>
+              <b style={{ fontSize: FS.lg, color: TK.cyan400, fontFamily: 'monospace' }}>{d.longRecord.assetLongWeeks}주</b>
+              <span style={{ fontSize: FS.micro, color: TK.sub4 }}> / {d.longRecord.totalWeeks}</span>
+            </div>
+          </div>
+          <div style={{ fontSize: FS.tiny, color: TK.sub3, lineHeight: 1.7 }}>
+            헤지펀드의 숏은 <b style={{ color: TK.sub2 }}>이번 국면의 특징이 아니라 몇 년째 이어진 구조</b>입니다.
+            {' '}그래서 &ldquo;기관이 하락에 걸었다&rdquo;가 아니라 <b style={{ color: TK.sub2 }}>차익거래</b>로 읽는 것입니다.
+            {' '}<b style={{ color: TK.amber400 }}>다른 곳에서 이 지표가 반대 부호로 그려진 차트를 보셨다면</b>, 재는 대상(주체·계약·단위)이 다른 것이니
+            {' '}여기 숫자는 <b style={{ color: TK.sub2 }}>미국 상품선물거래위원회(CFTC)가 직접 공표한 원자료</b>라는 점을 기준으로 삼으세요.
+          </div>
+        </div>
+      )}
+
       <div style={{ fontSize: FS.tiny, color: TK.sub4, lineHeight: 1.7 }}>
         {d.caveats.map((c, i) => (
           <div key={i} style={{ marginBottom: 2 }}>
