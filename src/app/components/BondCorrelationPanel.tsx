@@ -27,27 +27,27 @@ export default function BondCorrelationPanel({ d }: { d: BondCorrResult }) {
     <div style={box}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: SP.sm, flexWrap: 'wrap', marginBottom: 4 }}>
         <b style={{ fontSize: FS.lg, color: TK.slate100 }}>🔗 채권이 발작하면 다른 자산은?</b>
-        <span style={{ fontSize: FS.micro, color: TK.sub3 }}>{d.from} ~ {d.to} · {d.days}거래일 중 발작 {d.stressDays}일</span>
+        <span style={{ fontSize: FS.tiny, color: TK.sub3 }}>{d.from} ~ {d.to} · {d.days}거래일 중 발작 {d.stressDays}일</span>
       </div>
-      <div style={{ fontSize: FS.micro, color: TK.sub3, marginBottom: SP.md, lineHeight: 1.6 }}>
+      <div style={{ fontSize: FS.tiny, color: TK.sub3, marginBottom: SP.md, lineHeight: 1.6 }}>
         미 장기국채(TLT)와 각 자산이 <b style={{ color: TK.sub2 }}>같이 움직인 정도</b>입니다. 왼쪽은 평상시, 오른쪽은 <b style={{ color: TK.orange400 }}>채권이 크게 흔들린 날만</b> 골라 다시 잰 값입니다.
       </div>
 
       {/* 채권 변동성 국면 */}
       {M && (
         <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm, flexWrap: 'wrap', background: TK.bg0, borderRadius: RAD.sm, padding: '8px 12px', marginBottom: SP.md }}>
-          <span style={{ fontSize: FS.micro, color: TK.sub3 }}>채권 변동성(MOVE)</span>
+          <span style={{ fontSize: FS.tiny, color: TK.sub3 }}>채권 변동성(MOVE)</span>
           <b style={{ fontSize: FS.lg, color: M.regime === 'stress' ? TK.red400 : M.regime === 'calm' ? TK.green400 : TK.amber400, fontFamily: 'monospace' }}>{M.last}</b>
-          <span style={{ fontSize: FS.micro, color: TK.sub4 }}>
+          <span style={{ fontSize: FS.tiny, color: TK.sub4 }}>
             {M.regime === 'stress' ? '발작 국면(120 이상)' : M.regime === 'calm' ? '조용한 국면(80 이하)' : '보통'} · 최근 1년 중 {M.pct1y}% 지점 · {M.date}
           </span>
-          <span style={{ fontSize: FS.micro, color: TK.sub4, marginLeft: 'auto' }}>주식의 VIX에 해당하는 채권 공포지수</span>
+          <span style={{ fontSize: FS.tiny, color: TK.sub4, marginLeft: 'auto' }}>주식의 VIX에 해당하는 채권 공포지수</span>
         </div>
       )}
 
       {/* 상관 표 */}
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', minWidth: 520, borderCollapse: 'collapse', fontSize: FS.micro }}>
+        <table style={{ width: '100%', minWidth: 520, borderCollapse: 'collapse', fontSize: FS.tiny }}>
           <thead>
             <tr style={{ color: TK.sub4 }}>
               {['자산', '평상시', '채권 발작일', '변화', '발작일 평균 등락'].map(h => (
@@ -61,8 +61,8 @@ export default function BondCorrelationPanel({ d }: { d: BondCorrResult }) {
               return (
                 <tr key={r.sym} title={r.what}>
                   <td style={{ padding: '5px 7px', color: TK.slate200 }}>
-                    <span style={{ color: g.c, fontSize: FS.micro }}>■</span> {r.label}
-                    <span style={{ color: TK.sub4, marginLeft: 5, fontFamily: 'monospace', fontSize: FS.micro }}>{r.sym}</span>
+                    <span style={{ color: g.c, fontSize: FS.tiny }}>■</span> {r.label}
+                    <span style={{ color: TK.sub4, marginLeft: 5, fontFamily: 'monospace', fontSize: FS.tiny }}>{r.sym}</span>
                   </td>
                   <td style={{ padding: '5px 7px', textAlign: 'right', fontFamily: 'monospace', color: corrColor(r.all) }}>{r.all != null ? (r.all >= 0 ? '+' : '') + r.all.toFixed(2) : '—'}</td>
                   <td style={{ padding: '5px 7px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 800, color: corrColor(r.stress) }}>{r.stress != null ? (r.stress >= 0 ? '+' : '') + r.stress.toFixed(2) : '—'}</td>
@@ -80,14 +80,14 @@ export default function BondCorrelationPanel({ d }: { d: BondCorrResult }) {
       </div>
 
       {/* 데이터에서 뽑은 결론 */}
-      <div style={{ marginTop: SP.md, padding: '10px 13px', borderRadius: RAD.sm, background: `${TK.orange400}0e`, border: `1px solid ${TK.orange400}33`, fontSize: FS.micro, color: TK.sub2, lineHeight: 1.75 }}>
+      <div style={{ marginTop: SP.md, padding: '10px 13px', borderRadius: RAD.sm, background: `${TK.orange400}0e`, border: `1px solid ${TK.orange400}33`, fontSize: FS.tiny, color: TK.sub2, lineHeight: 1.75 }}>
         💡 <b style={{ color: TK.orange400 }}>읽는 법</b> — 채권 발작일에 <b>{risers.length}개 자산</b>의 상관이 평상시보다 높아졌습니다
         {eqAvgAll != null && eqAvgStress != null && <>(주식군 평균 {eqAvgAll >= 0 ? '+' : ''}{eqAvgAll.toFixed(2)} → <b style={{ color: TK.orange400 }}>{eqAvgStress >= 0 ? '+' : ''}{eqAvgStress.toFixed(2)}</b>)</>}.
         {' '}평소엔 따로 놀던 것들이 <b style={{ color: TK.slate200 }}>채권이 흔들리는 날엔 같이 움직인다</b>는 뜻입니다 —
         정작 분산이 필요한 순간에 분산 효과가 줄어듭니다. &ldquo;여러 자산에 나눠 담았으니 안전하다&rdquo;가 위기의 날엔 덜 통하는 이유입니다.
       </div>
 
-      <div style={{ marginTop: SP.sm, fontSize: FS.micro, color: TK.sub4, lineHeight: 1.7 }}>
+      <div style={{ marginTop: SP.sm, fontSize: FS.tiny, color: TK.sub4, lineHeight: 1.7 }}>
         {d.notes.map((n, i) => <div key={i}>{i === d.notes.length - 1 ? '' : '· '}{n}</div>)}
         <div style={{ marginTop: 3 }}>최근 큰 발작일: {d.recentStress.map(s => `${s.date} (TLT ${s.tltRet >= 0 ? '+' : ''}${s.tltRet}%)`).join(' · ')}</div>
       </div>

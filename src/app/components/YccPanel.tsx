@@ -23,7 +23,7 @@ export default function YccPanel({ d }: { d: YccResult }) {
       <div style={{ display: 'flex', alignItems: 'baseline', gap: SP.sm, flexWrap: 'wrap', marginBottom: 4 }}>
         <b style={{ fontSize: FS.lg, color: TK.slate100 }}>🎛️ 일드커브 컨트롤(YCC) — 중앙은행이 장기금리를 붙잡는다는 것</b>
       </div>
-      <div style={{ fontSize: FS.micro, color: TK.sub3, marginBottom: SP.md, lineHeight: 1.7 }}>
+      <div style={{ fontSize: FS.tiny, color: TK.sub3, marginBottom: SP.md, lineHeight: 1.7 }}>
         보통 중앙은행은 <b style={{ color: TK.sub2 }}>단기금리</b>만 정합니다. 장기금리는 시장이 정하죠.
         YCC는 여기서 한 걸음 더 나아가 <b style={{ color: TK.sub2 }}>&ldquo;10년물 금리가 이 선을 넘지 못하게 하겠다&rdquo;</b>고 선언하고,
         넘으면 <b style={{ color: TK.sub2 }}>돈을 찍어 무제한으로 국채를 사들여</b> 눌러 앉히는 정책입니다.
@@ -56,9 +56,9 @@ export default function YccPanel({ d }: { d: YccResult }) {
           { k: '미국 30년물(비교)', v: d.us30 ? d.us30.v.toFixed(2) + '%' : '—', s: d.us30?.date ?? '', c: TK.sub2 },
         ].map(m => (
           <div key={m.k} style={{ background: TK.bg0, borderRadius: RAD.sm, padding: '8px 12px', minWidth: 120 }}>
-            <div style={{ fontSize: FS.micro, color: TK.sub4 }}>{m.k}</div>
+            <div style={{ fontSize: FS.tiny, color: TK.sub4 }}>{m.k}</div>
             <div style={{ fontSize: FS.xl, fontWeight: 800, color: m.c, fontFamily: 'monospace' }}>{m.v}</div>
-            <div style={{ fontSize: FS.micro, color: TK.sub4 }}>{m.s}</div>
+            <div style={{ fontSize: FS.tiny, color: TK.sub4 }}>{m.s}</div>
           </div>
         ))}
       </div>
@@ -66,7 +66,7 @@ export default function YccPanel({ d }: { d: YccResult }) {
       {/* 연혁 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: SP.md }}>
         {d.milestones.map(m => (
-          <div key={m.date} style={{ display: 'flex', gap: SP.sm, alignItems: 'flex-start', fontSize: FS.micro, lineHeight: 1.6 }}>
+          <div key={m.date} style={{ display: 'flex', gap: SP.sm, alignItems: 'flex-start', fontSize: FS.tiny, lineHeight: 1.6 }}>
             <span style={{ fontFamily: 'monospace', color: TK.violet400, minWidth: 54, fontWeight: 700 }}>{m.date}</span>
             <span style={{ minWidth: 52, fontFamily: 'monospace', color: TK.sub3 }}>{m.jgb10 != null ? m.jgb10.toFixed(2) + '%' : '—'}</span>
             <span style={{ color: TK.sub2 }}><b style={{ color: TK.slate200 }}>{m.title}</b> — {m.body}</span>
@@ -75,7 +75,7 @@ export default function YccPanel({ d }: { d: YccResult }) {
       </div>
 
       {/* 우리 시장과의 연결 */}
-      <div style={{ padding: '10px 13px', borderRadius: RAD.sm, background: `${TK.amber400}0e`, border: `1px solid ${TK.amber400}33`, fontSize: FS.micro, color: TK.sub2, lineHeight: 1.75 }}>
+      <div style={{ padding: '10px 13px', borderRadius: RAD.sm, background: `${TK.amber400}0e`, border: `1px solid ${TK.amber400}33`, fontSize: FS.tiny, color: TK.sub2, lineHeight: 1.75 }}>
         💡 <b style={{ color: TK.amber400 }}>왜 지금 이걸 알아야 하나</b> — 미국은 YCC를 공식 도입한 적이 없습니다.
         하지만 국가부채가 불어나 장기금리가 튀면, 재무부가 <b style={{ color: TK.slate200 }}>국채 바이백(되사기) 규모를 늘려</b> 장기물을 직접 사들이는 일이 벌어집니다.
         기술적으로는 유동성 관리지만, 시장은 이를 <b style={{ color: TK.slate200 }}>&ldquo;사실상의 금리 통제&rdquo;</b>로 읽습니다.

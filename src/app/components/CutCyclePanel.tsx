@@ -20,9 +20,9 @@ export default function CutCyclePanel({ d }: { d: CutCycleResult }) {
     <div style={box}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: SP.sm, flexWrap: 'wrap', marginBottom: 4 }}>
         <b style={{ fontSize: FS.lg, color: TK.slate100 }}>📉 경기가 좋을 때 금리를 내리면?</b>
-        <span style={{ fontSize: FS.micro, color: TK.sub3 }}>1954년 이후 인하 사이클 {d.cycles.length}건</span>
+        <span style={{ fontSize: FS.tiny, color: TK.sub3 }}>1954년 이후 인하 사이클 {d.cycles.length}건</span>
       </div>
-      <div style={{ fontSize: FS.micro, color: TK.sub3, marginBottom: SP.md, lineHeight: 1.6 }}>
+      <div style={{ fontSize: FS.tiny, color: TK.sub3, marginBottom: SP.md, lineHeight: 1.6 }}>
         같은 &lsquo;인하&rsquo;라도 <b style={{ color: TK.green400 }}>경기가 버티는데 미리 내리는 것</b>과 <b style={{ color: TK.red400 }}>이미 나빠져서 어쩔 수 없이 내리는 것</b>은 결과가 다릅니다.
         인하 <b style={{ color: TK.sub2 }}>시점의 경기 상태</b>(실업률과 그 12개월 추세)로 갈랐습니다.
       </div>
@@ -33,7 +33,7 @@ export default function CutCyclePanel({ d }: { d: CutCycleResult }) {
           <div style={{ fontSize: FS.body, fontWeight: 800, color: cur.kind === 'insurance' ? TK.green400 : TK.red400, marginBottom: 3 }}>
             지금 사이클({cur.start.slice(0, 7)}) = {cur.kind === 'insurance' ? '🟢 보험성 인하' : '🔴 위기성 인하'}
           </div>
-          <div style={{ fontSize: FS.micro, color: TK.sub2, lineHeight: 1.65 }}>
+          <div style={{ fontSize: FS.tiny, color: TK.sub2, lineHeight: 1.65 }}>
             시작 시 정책금리 {cur.fedRate}% · 실업률 {cur.unrate}%(12개월 {cur.unrateChg12 != null ? (cur.unrateChg12 >= 0 ? '+' : '') + cur.unrateChg12 : '—'}%p) — {cur.kindNote}
           </div>
         </div>
@@ -44,15 +44,15 @@ export default function CutCyclePanel({ d }: { d: CutCycleResult }) {
         {d.summary.map(s => (
           <div key={s.kind} style={{ background: TK.bg0, borderRadius: RAD.sm, padding: '10px 13px', borderLeft: `3px solid ${s.kind === 'insurance' ? TK.green400 : TK.red400}` }}>
             <div style={{ fontSize: FS.tiny, fontWeight: 700, color: TK.slate200, marginBottom: 5 }}>{s.label}</div>
-            <div style={{ fontSize: FS.micro, color: TK.sub3, marginBottom: 5 }}>사이클 {s.n}건 · 주가 표본 {s.nWithSpx}건</div>
+            <div style={{ fontSize: FS.tiny, color: TK.sub3, marginBottom: 5 }}>사이클 {s.n}건 · 주가 표본 {s.nWithSpx}건</div>
             {s.suppressed ? (
-              <div style={{ fontSize: FS.micro, color: TK.amber400, lineHeight: 1.6 }}>⚠️ {s.suppressed}</div>
+              <div style={{ fontSize: FS.tiny, color: TK.amber400, lineHeight: 1.6 }}>⚠️ {s.suppressed}</div>
             ) : (
               <div style={{ display: 'flex', gap: SP.md, flexWrap: 'wrap' }}>
-                <div><div style={{ fontSize: FS.micro, color: TK.sub4 }}>12개월 주가(중위)</div><b style={{ fontSize: FS.lg, color: pctColor(s.medSpx12), fontFamily: 'monospace' }}>{pctCell(s.medSpx12)}</b></div>
-                <div><div style={{ fontSize: FS.micro, color: TK.sub4 }}>상승 비율</div><b style={{ fontSize: FS.lg, color: TK.slate200, fontFamily: 'monospace' }}>{s.winRate12}%</b></div>
+                <div><div style={{ fontSize: FS.tiny, color: TK.sub4 }}>12개월 주가(중위)</div><b style={{ fontSize: FS.lg, color: pctColor(s.medSpx12), fontFamily: 'monospace' }}>{pctCell(s.medSpx12)}</b></div>
+                <div><div style={{ fontSize: FS.tiny, color: TK.sub4 }}>상승 비율</div><b style={{ fontSize: FS.lg, color: TK.slate200, fontFamily: 'monospace' }}>{s.winRate12}%</b></div>
                 {/* ⚠️ 라벨의 개월수는 판정에 쓴 창(RECESSION_WINDOW_M)에서 뽑는다 — 리터럴로 박으면 창을 바꿀 때 조용히 거짓말이 된다 */}
-                <div><div style={{ fontSize: FS.micro, color: TK.sub4 }}>{RECESSION_WINDOW_M}개월 내 침체</div><b style={{ fontSize: FS.lg, color: s.recessionRate != null && s.recessionRate >= 30 ? TK.amber400 : TK.slate200, fontFamily: 'monospace' }}>{s.recessionRate != null ? s.recessionRate + '%' : '—'}</b></div>
+                <div><div style={{ fontSize: FS.tiny, color: TK.sub4 }}>{RECESSION_WINDOW_M}개월 내 침체</div><b style={{ fontSize: FS.lg, color: s.recessionRate != null && s.recessionRate >= 30 ? TK.amber400 : TK.slate200, fontFamily: 'monospace' }}>{s.recessionRate != null ? s.recessionRate + '%' : '—'}</b></div>
               </div>
             )}
           </div>
@@ -61,7 +61,7 @@ export default function CutCyclePanel({ d }: { d: CutCycleResult }) {
 
       {/* 핵심 교훈 — 데이터에서 뽑는다 */}
       {ins && ins.medSpx12 != null && (
-        <div style={{ padding: '10px 13px', borderRadius: RAD.sm, background: `${TK.amber400}0e`, border: `1px solid ${TK.amber400}33`, fontSize: FS.micro, color: TK.sub2, lineHeight: 1.75, marginBottom: SP.md }}>
+        <div style={{ padding: '10px 13px', borderRadius: RAD.sm, background: `${TK.amber400}0e`, border: `1px solid ${TK.amber400}33`, fontSize: FS.tiny, color: TK.sub2, lineHeight: 1.75, marginBottom: SP.md }}>
           💡 <b style={{ color: TK.amber400 }}>답</b> — 경기가 버티는 가운데 내린 인하(보험성) 뒤 12개월 주가는 중위 <b style={{ color: TK.green400 }}>{pctCell(ins.medSpx12)}</b>,
           {' '}{ins.nWithSpx}번 중 {Math.round((ins.winRate12! / 100) * ins.nWithSpx)}번 올랐습니다.
           {' '}<b style={{ color: TK.slate200 }}>다만 {ins.n}건 중 {falseAlarms.length}건({ins.recessionRate}%)은 {RECESSION_WINDOW_M}개월 안에 침체가 왔습니다</b>
@@ -72,7 +72,7 @@ export default function CutCyclePanel({ d }: { d: CutCycleResult }) {
 
       {/* 전체 표 */}
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', minWidth: 620, borderCollapse: 'collapse', fontSize: FS.micro }}>
+        <table style={{ width: '100%', minWidth: 620, borderCollapse: 'collapse', fontSize: FS.tiny }}>
           <thead>
             <tr style={{ color: TK.sub4 }}>
               {['인하 시작', '정책금리', '실업률(12M변화)', '유형', `이후 침체(${RECESSION_WINDOW_M}개월 내)`, 'S&P 6M', '12M', '24M', '10년물 12M'].map(h => (
@@ -101,7 +101,7 @@ export default function CutCyclePanel({ d }: { d: CutCycleResult }) {
           </tbody>
         </table>
       </div>
-      <div style={{ fontSize: FS.micro, color: TK.sub4, marginTop: SP.sm, lineHeight: 1.7 }}>
+      <div style={{ fontSize: FS.tiny, color: TK.sub4, marginTop: SP.sm, lineHeight: 1.7 }}>
         ⚠️ {d.note} 주가는 배당 제외 지수 기준이며 <b style={{ color: TK.sub2 }}>과거가 미래를 보장하지 않습니다.</b>
         {' '}실업률 12개월 변화 +0.5%p를 &lsquo;나빠지는 중&rsquo;의 경계로 썼습니다(삼 룰과 같은 잣대).
       </div>

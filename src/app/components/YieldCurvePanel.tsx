@@ -3,7 +3,7 @@
 //   사용자 요구 ②단기-중기-장기 비교 ③3M/10Y·2Y/10Y 역전 트래킹.
 //   ⛔ 타이밍 도구가 아니다 — 리드타임 편차와 2022년 오경보를 화면에 상설 표기한다.
 import { useEffect, useState } from 'react'
-import type { YieldCurveResult } from '@/lib/yieldCurve'
+import { HISTORY_MIN_DAYS, type YieldCurveResult } from '@/lib/yieldCurve'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 
 const CARD = TK.bg7
@@ -31,7 +31,7 @@ export default function YieldCurvePanel() {
   const head = (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: SP.sm, flexWrap: 'wrap', marginBottom: 4 }}>
       <b style={{ fontSize: FS.lg, color: TK.slate100 }}>📐 수익률곡선 — 만기별 금리와 장단기 역전</b>
-      <span style={{ fontSize: FS.micro, color: TK.sub3 }}>미 국채 11개 만기 · FRED</span>
+      <span style={{ fontSize: FS.tiny, color: TK.sub3 }}>미 국채 11개 만기 · FRED</span>
     </div>
   )
   if (state === 'loading') return <div style={box}>{head}<div style={{ height: 200, background: TK.bg5, borderRadius: RAD.sm, animation: 'pulse 1.5s infinite' }} /></div>
@@ -53,14 +53,14 @@ export default function YieldCurvePanel() {
   return (
     <div style={box}>
       {head}
-      <div style={{ fontSize: FS.micro, color: TK.sub3, marginBottom: SP.md }}>
+      <div style={{ fontSize: FS.tiny, color: TK.sub3, marginBottom: SP.md }}>
         만기가 길어질수록 금리가 오르는 게 정상입니다. 이 선이 <b style={{ color: TK.sub2 }}>평평해지거나 뒤집히면</b> 시장이 경기 둔화를 보고 있다는 뜻입니다.
       </div>
 
       {/* 경보 헤드라인 */}
       <div style={{ background: A.bg, border: `1px solid ${A.c}44`, borderRadius: RAD.sm, padding: '9px 12px', marginBottom: SP.md }}>
         <div style={{ fontSize: FS.body, fontWeight: 800, color: A.c, marginBottom: 3 }}>{d.alertHeadline}</div>
-        <div style={{ fontSize: FS.micro, color: TK.sub3, lineHeight: 1.65 }}>{d.alertDetail}</div>
+        <div style={{ fontSize: FS.tiny, color: TK.sub3, lineHeight: 1.65 }}>{d.alertDetail}</div>
       </div>
 
       {/* 스프레드 2종 */}
@@ -70,15 +70,15 @@ export default function YieldCurvePanel() {
           const c = neg ? TK.red400 : s.value != null && s.value < 0.25 ? TK.amber400 : TK.green400
           return (
             <div key={s.key} style={{ background: TK.bg0, borderRadius: RAD.sm, padding: '9px 12px', borderLeft: `3px solid ${c}` }}>
-              <div style={{ fontSize: FS.micro, color: TK.sub3, marginBottom: 2 }}>{s.label}</div>
+              <div style={{ fontSize: FS.tiny, color: TK.sub3, marginBottom: 2 }}>{s.label}</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: FS.xl, fontWeight: 800, color: c, fontVariantNumeric: 'tabular-nums' }}>
                   {s.value != null ? `${s.value >= 0 ? '+' : ''}${s.value.toFixed(2)}%p` : '—'}
                 </span>
-                {neg && <span style={{ fontSize: FS.micro, color: TK.red400 }}>역전 {s.invertedDays}거래일째 · 최심 {s.minPp?.toFixed(2)}%p</span>}
-                {!neg && <span style={{ fontSize: FS.micro, color: TK.sub4 }}>1개월 {s.chg1m != null ? (s.chg1m >= 0 ? '+' : '') + s.chg1m.toFixed(2) : '—'} · 3개월 {s.chg3m != null ? (s.chg3m >= 0 ? '+' : '') + s.chg3m.toFixed(2) : '—'}</span>}
+                {neg && <span style={{ fontSize: FS.tiny, color: TK.red400 }}>역전 {s.invertedDays}거래일째 · 최심 {s.minPp?.toFixed(2)}%p</span>}
+                {!neg && <span style={{ fontSize: FS.tiny, color: TK.sub4 }}>1개월 {s.chg1m != null ? (s.chg1m >= 0 ? '+' : '') + s.chg1m.toFixed(2) : '—'} · 3개월 {s.chg3m != null ? (s.chg3m >= 0 ? '+' : '') + s.chg3m.toFixed(2) : '—'}</span>}
               </div>
-              <div style={{ fontSize: FS.micro, color: TK.sub4, marginTop: 3, lineHeight: 1.5 }}>{s.meaning}</div>
+              <div style={{ fontSize: FS.tiny, color: TK.sub4, marginTop: 3, lineHeight: 1.5 }}>{s.meaning}</div>
             </div>
           )
         })}
@@ -105,7 +105,7 @@ export default function YieldCurvePanel() {
           </g>
         ))}
       </svg>
-      <div style={{ display: 'flex', gap: SP.md, fontSize: FS.micro, color: TK.sub4, marginTop: 2, marginBottom: SP.md, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: SP.md, fontSize: FS.tiny, color: TK.sub4, marginTop: 2, marginBottom: SP.md, flexWrap: 'wrap' }}>
         <span><span style={{ color: TK.cyan400 }}>—</span> 오늘({d.curveDate})</span>
         {d.curvePrevDate && <span><span style={{ color: TK.sub4 }}>┄</span> 3개월 전({d.curvePrevDate})</span>}
         <span style={{ marginLeft: 'auto' }}>가로축은 만기(로그 간격)</span>
@@ -117,13 +117,14 @@ export default function YieldCurvePanel() {
       </div>
 
       {/* 역전 이력 대조 */}
-      <div style={{ fontSize: FS.micro, color: TK.sub3, marginBottom: 5 }}>
-        <b style={{ color: TK.slate200, fontSize: FS.tiny }}>📚 과거 지속 역전(10거래일 이상)과 그 뒤 침체</b>
+      <div style={{ fontSize: FS.tiny, color: TK.sub3, marginBottom: 5 }}>
+        {/* 개수·임계는 데이터/상수에서 뽑는다 — 리터럴로 박으면 임계를 바꿀 때 조용히 거짓말이 된다 */}
+        <b style={{ color: TK.slate200, fontSize: FS.tiny }}>📚 과거 지속 역전({HISTORY_MIN_DAYS}거래일 이상)과 그 뒤 침체</b>
         {' '}— 표본 {d.history.length}건 중 침체로 이어진 것 {d.history.filter(h => h.outcome === 'recession').length}건(리드타임 중앙값 {d.leadSummary.medianMonths ?? '—'}개월)
         {' '}· 오경보 {d.leadSummary.noRecession}건 · 이미 침체 중이던 역전 {d.history.filter(h => h.outcome === 'already_in').length}건 · 판단 유보 {d.history.filter(h => h.outcome === 'too_soon').length}건
       </div>
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', minWidth: 480, borderCollapse: 'collapse', fontSize: FS.micro }}>
+        <table style={{ width: '100%', minWidth: 480, borderCollapse: 'collapse', fontSize: FS.tiny }}>
           <thead>
             <tr style={{ color: TK.sub4 }}>
               {['역전 기간', '지속', '최심', '뒤이은 침체', '리드타임'].map(h => (
@@ -147,7 +148,7 @@ export default function YieldCurvePanel() {
           </tbody>
         </table>
       </div>
-      <div style={{ fontSize: FS.micro, color: TK.sub4, marginTop: SP.sm, lineHeight: 1.7 }}>
+      <div style={{ fontSize: FS.tiny, color: TK.sub4, marginTop: SP.sm, lineHeight: 1.7 }}>
         ⚠️ <b style={{ color: TK.sub2 }}>역전은 방향 참고이지 타이밍 도구가 아닙니다.</b> 리드타임이 {d.leadSummary.minMonths}~{d.leadSummary.maxMonths}개월로 편차가 크고,
         {' '}<b style={{ color: TK.amber400 }}>2022~24년 역전은 537일·최심 −1.89%p로 역사상 손꼽히게 깊고 길었는데도 침체가 오지 않았습니다.</b>
         {' '}침체 판정(NBER)은 1년 가까이 지나서 발표되므로 실시간 경보로는 쓸 수 없어, 실시간 대용으로 삼(Sahm) 지표를 함께 봅니다

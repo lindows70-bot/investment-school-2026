@@ -7,8 +7,9 @@ const FRED = 'https://api.stlouisfed.org/fred/series/observations'
 
 /** 캐시 키 SSOT — writer(/api/yield-curve)와 reader가 공유한다.
  *  ⚠️ 라우트 파일은 임의 export 를 허용하지 않으므로(Next.js 타입 제약) 키는 lib 에 둔다. */
-// v2: 역전 결말을 4분류(침체/오경보/이미 침체 중/판단 유보)로 쪼갬 — 응답에 outcome 필드가 추가된다
-export const YIELD_CURVE_KEY = (dateKey: string) => `yield-curve-v2:${dateKey}`
+// v3: 🔴 임계 10→20거래일(2025년 얕은 역전 3건이 red 17일 울리는 남발 실측) — 경보 레벨·문구가 바뀐다
+// v2: 역전 결말을 4분류(침체/오경보/이미 침체 중/판단 유보)로 쪼갬
+export const YIELD_CURVE_KEY = (dateKey: string) => `yield-curve-v3:${dateKey}`
 
 export interface FredPoint { date: string; v: number }
 
@@ -119,8 +120,8 @@ export function findEpisodes(series: FredPoint[], minRun: number): RawEpisode[] 
   return out
 }
 
-/** 현재 진행 중인 역전의 연속 일수와 최심값(마지막 관측이 음수일 때만) */
-function currentRun(series: FredPoint[]): { days: number; minPp: number | null } {
+/** 현재 진행 중인 역전의 연속 일수와 최심값(마지막 관측이 음수일 때만) — 검증 스크립트도 이 함수를 쓴다 */
+export function currentRun(series: FredPoint[]): { days: number; minPp: number | null } {
   let days = 0, min = Infinity
   for (let i = series.length - 1; i >= 0; i--) {
     if (series[i].v >= 0) break
@@ -129,12 +130,30 @@ function currentRun(series: FredPoint[]): { days: number; minPp: number | null }
   return { days, minPp: days > 0 ? Math.round(min * 100) / 100 : null }
 }
 
+/** 경보 판정 SSOT — buildYieldCurve 와 검증 스크립트(truncation 테스트)가 **같은 함수**를 호출한다.
+ *  검증용 별도 구현을 만들면 정의가 어긋나 검증 자체가 무의미해진다(제2원칙). */
+export function curveAlertLevel(spreadValues: (number | null)[], maxInvertedRunDays: number): CurveAlert {
+  const vals = spreadValues.filter((v): v is number => v != null)
+  if (!vals.length) return 'none'
+  const anyInverted = vals.some(v => v < 0)
+  if (anyInverted && maxInvertedRunDays >= RED_MIN_DAYS) return 'red'
+  if (anyInverted) return 'brief'
+  if (vals.some(v => v < FLAT_PP)) return 'watch'
+  return 'none'
+}
+
 const chgBack = (a: FredPoint[], back: number) =>
   a.length > back ? Math.round((a[a.length - 1].v - a[a.length - 1 - back].v) * 100) / 100 : null
 
-/** 🔴 Red Alert 임계 — Phase 0 근거: 침체 선행 역전은 전부 100일+ 였지만 확정까지 기다리면 경보로서 무용하다.
- *  10거래일은 "하루짜리 노이즈"를 거르는 최소선이고, 실제 지속일수를 화면에 숫자로 함께 띄운다. */
-export const RED_MIN_DAYS = 10
+/** 🔴 Red Alert 임계 — 2026-08-22 truncation 스캔으로 확정한 값.
+ *  10거래일로 두면 2025년의 얕은 역전 3건(13~18일·전부 침체 없이 종료)까지 🔴이 **17일** 울린다.
+ *  20거래일(약 1개월)로 올리면 2025년 red 는 0이 되고, 1980년 이후 모든 침체는 그 전의
+ *  장기 역전(56~537일)이 여전히 전부 잡는다(scripts/verify-alert-history.mjs 가 이 두 성질을 검사).
+ *  확정까지 기다리면 무용하고, 당겨오면 남발한다 — 20일이 실측상 그 사이의 자리다. */
+export const RED_MIN_DAYS = 20
+/** 이력 표는 더 짧은 역전(10거래일+)도 보여준다 — 2020-02(10일·리드 0개월)·2007-05(15일) 같은
+ *  '경보로는 못 잡는 케이스'가 있었다는 사실 자체가 교육 내용이다. 경보 임계와 역할이 달라 상수를 분리. */
+export const HISTORY_MIN_DAYS = 10
 /** 🟡 평탄 경계 */
 export const FLAT_PP = 0.25
 
@@ -191,14 +210,10 @@ export async function buildYieldCurve(): Promise<YieldCurveResult | null> {
     },
   ]
 
-  // ── 경보 3단계 (Phase 0: 단순 음수로 울리면 2025년에만 6건이 잡힌다)
+  // ── 경보 3단계 (Phase 0: 단순 음수로 울리면 2025년에만 6건이 잡힌다) — 판정은 curveAlertLevel SSOT
   const vals = spreads.map(s => s.value).filter((v): v is number => v != null)
   const maxRun = Math.max(run2.days, run3.days)
-  const anyInverted = vals.some(v => v < 0)
-  let alert: CurveAlert = 'none'
-  if (anyInverted && maxRun >= RED_MIN_DAYS) alert = 'red'
-  else if (anyInverted) alert = 'brief'
-  else if (vals.some(v => v < FLAT_PP)) alert = 'watch'
+  const alert = curveAlertLevel(spreads.map(s => s.value), maxRun)
 
   const inv = spreads.filter(s => s.value != null && s.value < 0)
   const invNames = inv.map(s => s.label).join(' · ')
@@ -236,7 +251,7 @@ export async function buildYieldCurve(): Promise<YieldCurveResult | null> {
     return { ...e, recessionStart: hit ? next : null, leadMonths: hit ? lead : null, outcome, outcomeLabel }
   }
   // 두 스프레드의 지속 역전을 합치되 시작일이 6개월 내로 겹치면 같은 사건으로 본다
-  const raw = [...findEpisodes(s2Full, RED_MIN_DAYS), ...findEpisodes(s3mFull, RED_MIN_DAYS)]
+  const raw = [...findEpisodes(s2Full, HISTORY_MIN_DAYS), ...findEpisodes(s3mFull, HISTORY_MIN_DAYS)]
     .sort((a, b) => a.from < b.from ? -1 : 1)
   const merged: typeof raw = []
   for (const e of raw) {

@@ -113,7 +113,7 @@ export default function BondsDashboard() {
         return (
           <div style={{ background: TK.card, border: `1px solid ${BORDER}`, borderRadius: RAD.md, padding: '14px 16px' }}>
             <div style={{ fontSize: FS.body, fontWeight: 800, color: TK.slate100 }}>🧮 금리 3형제 — 무엇이 금리를 움직였나</div>
-            <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 4, lineHeight: 1.55 }}>
+            <div style={{ fontSize: FS.tiny, color: TK.sub2, marginTop: 4, lineHeight: 1.55 }}>
               미국채 10년 금리는 둘의 합입니다 — <b style={{ color: TK.violet400 }}>돈의 진짜 값(TIPS 실질금리)</b> +
               <b style={{ color: TK.amber400 }}> 물가 기대(BEI)</b>. 셋은 통계적 상관이 아니라 <b>정의상 항등식</b>이라
               (FRED 실측 오차 0.00%p), 금리가 움직이면 &ldquo;어느 쪽이 끌었나&rdquo;로 쪼개 읽는 게 정확합니다.
@@ -166,12 +166,12 @@ export default function BondsDashboard() {
             </div>
             <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
               {ry.levelNotes.map((n, i) => (
-                <div key={i} style={{ fontSize: FS.micro, color: TK.sub2, lineHeight: 1.6 }}>· {n.replace(/\*\*/g, '')}</div>
+                <div key={i} style={{ fontSize: FS.tiny, color: TK.sub2, lineHeight: 1.6 }}>· {n.replace(/\*\*/g, '')}</div>
               ))}
             </div>
             {/* 📐 실질 vs BEI 교차 — 보라 선이 노랑 선을 넘었나(해석 양면 병기) */}
             {ry.realVsBei && (
-              <div style={{ background: ry.realVsBei.above ? `${TK.violet400}12` : TK.bg1, border: `1px solid ${ry.realVsBei.above ? `${TK.violet400}55` : BORDER}`, borderRadius: RAD.sm, padding: '9px 13px', marginTop: 8, fontSize: FS.micro, color: TK.sub2, lineHeight: 1.6 }}>
+              <div style={{ background: ry.realVsBei.above ? `${TK.violet400}12` : TK.bg1, border: `1px solid ${ry.realVsBei.above ? `${TK.violet400}55` : BORDER}`, borderRadius: RAD.sm, padding: '9px 13px', marginTop: 8, fontSize: FS.tiny, color: TK.sub2, lineHeight: 1.6 }}>
                 {ry.realVsBei.above ? (
                   <>
                     {/* 결론은 크게 — 학생이 이 줄 하나만 읽어도 되게(사용자 요청 2026-08-13) */}
@@ -204,7 +204,7 @@ export default function BondsDashboard() {
               </div>
               <RealYieldChart series={ry.series} />
             </div>
-            <div style={{ fontSize: FS.micro, color: TK.sub4, marginTop: 6, lineHeight: 1.5 }}>
+            <div style={{ fontSize: FS.tiny, color: TK.sub4, marginTop: 6, lineHeight: 1.5 }}>
               ⚠️ BEI에는 유동성·위험 프리미엄이 섞여 순수한 물가 기대보다 조금 왜곡될 수 있습니다.
               수준 판정(긴축적/중립/느슨)은 역사 구간 서술이지 백테스트로 검증된 임계값이 아닙니다.
             </div>
@@ -278,7 +278,7 @@ export default function BondsDashboard() {
             })}
           </tbody>
         </table>
-        <div style={{ fontSize: 9.5, color: TK.sub4, marginTop: 8, lineHeight: 1.5 }}>
+        <div style={{ fontSize: FS.tiny, color: TK.sub4, marginTop: 8, lineHeight: 1.5 }}>
           금리 손익 = −듀레이션 × 금리변화(수정듀레이션 근사). <b>긴 채권(TLT)일수록 금리에 크게 흔들린다</b> — 금리 1%p 내리면 장기채는 +16%대, 단기채는 +2%대. 듀레이션은 근사값(시점마다 변동)·환헤지 미반영.
         </div>
       </div>
@@ -296,7 +296,8 @@ export default function BondsDashboard() {
       {/* 🎛️ 일드커브 컨트롤 — 일본 실사례 + 미국의 사실상 YCC 논쟁 */}
       {data.ycc && <YccPanel d={data.ycc} />}
 
-      <div style={{ fontSize: 9.5, color: TK.sub4, lineHeight: 1.55 }}>
+      {/* 🔆 설명·주의 문구는 각주 크기(9.5)로 쓰지 않는다 — "글자가 작고 흐려 안 보인다"(2026-08-22 사용자) */}
+      <div style={{ fontSize: FS.tiny, color: TK.sub4, lineHeight: 1.55 }}>
         ⚠️ 나침반은 금리 국면 기반 <b>일반 가이드</b>이지 매매 지시가 아니다. 과거 수익률은 미래를 보장하지 않으며, 개별 채권 ETF의 실제 듀레이션·수익률은 시점마다 다르다. 채권도 금리 급변 시 손실이 날 수 있다(2022년 장기채 −30% 실제).
       </div>
     </div>
