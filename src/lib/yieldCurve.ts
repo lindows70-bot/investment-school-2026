@@ -7,7 +7,8 @@ const FRED = 'https://api.stlouisfed.org/fred/series/observations'
 
 /** 캐시 키 SSOT — writer(/api/yield-curve)와 reader가 공유한다.
  *  ⚠️ 라우트 파일은 임의 export 를 허용하지 않으므로(Next.js 타입 제약) 키는 lib 에 둔다. */
-export const YIELD_CURVE_KEY = (dateKey: string) => `yield-curve-v1:${dateKey}`
+// v2: 역전 결말을 4분류(침체/오경보/이미 침체 중/판단 유보)로 쪼갬 — 응답에 outcome 필드가 추가된다
+export const YIELD_CURVE_KEY = (dateKey: string) => `yield-curve-v2:${dateKey}`
 
 export interface FredPoint { date: string; v: number }
 
@@ -57,6 +58,11 @@ export interface SpreadState {
   chg3m: number | null
 }
 
+/** 역전의 결말 — ⚠️ 이 넷을 '침체 없음' 하나로 묶으면 의미가 섞인다(2026-08-22 화면검증에서 발견).
+ *  1982년은 **이미 침체 중**에 난 역전이고, 2025년은 아직 시간이 안 지난 것이며,
+ *  2022년만이 진짜 **오경보**다. 같은 라벨로 쓰면 오경보 건수가 3배로 부풀려진다. */
+export type InversionOutcome = 'recession' | 'false_alarm' | 'already_in' | 'too_soon' | 'ongoing'
+
 export interface InversionEpisode {
   from: string
   to: string
@@ -67,6 +73,8 @@ export interface InversionEpisode {
   recessionStart: string | null
   /** 역전 시작 → 침체 시작까지 개월 수 */
   leadMonths: number | null
+  outcome: InversionOutcome
+  outcomeLabel: string
 }
 
 export interface YieldCurveResult {
@@ -95,8 +103,9 @@ export interface YieldCurveResult {
 }
 
 /** 연속 역전 구간 묶기 — 하루짜리 노이즈를 거르기 위해 minRun 이상만 인정 */
-export function findEpisodes(series: FredPoint[], minRun: number): Omit<InversionEpisode, 'recessionStart' | 'leadMonths'>[] {
-  const out: Omit<InversionEpisode, 'recessionStart' | 'leadMonths'>[] = []
+export type RawEpisode = Pick<InversionEpisode, 'from' | 'to' | 'days' | 'minPp' | 'ongoing'>
+export function findEpisodes(series: FredPoint[], minRun: number): RawEpisode[] {
+  const out: RawEpisode[] = []
   let run: FredPoint[] = []
   const push = (ongoing: boolean) => {
     if (run.length < minRun) return
@@ -206,11 +215,25 @@ export async function buildYieldCurve(): Promise<YieldCurveResult | null> {
   //    "102개월 후"가 표에 찍힌다. 통계에서만 걸러내면 표와 요약이 서로 다른 것을 세게 된다.
   //    36개월을 넘으면 그 역전과 침체는 관련이 없다고 보고 **양쪽 모두에서** 끊는다.
   const LEAD_MAX_M = 36
-  const withRec = (e: Omit<InversionEpisode, 'recessionStart' | 'leadMonths'>): InversionEpisode => {
+  // 역전 시작 시점에 이미 침체 중이었나 — USREC 는 월별이므로 해당 월(이하 최신)로 본다
+  const inRecAt = (d: string) => {
+    const m = recArr.filter(o => o.date <= d).pop()
+    return m?.v === 1
+  }
+  const monthsSince = (d: string) => (Date.now() - new Date(d).getTime()) / 864e5 / 30.44
+  const withRec = (e: RawEpisode): InversionEpisode => {
     const next = recStarts.find(r => r > e.from) ?? null
     const lead = next ? Math.round((new Date(next).getTime() - new Date(e.from).getTime()) / 864e5 / 30.44) : null
-    if (lead == null || lead > LEAD_MAX_M) return { ...e, recessionStart: null, leadMonths: null }
-    return { ...e, recessionStart: next, leadMonths: lead }
+    const hit = lead != null && lead <= LEAD_MAX_M
+    let outcome: InversionOutcome, outcomeLabel: string
+    if (e.ongoing) { outcome = 'ongoing'; outcomeLabel = '진행 중' }
+    else if (hit) { outcome = 'recession'; outcomeLabel = next!.slice(0, 7) }
+    else if (inRecAt(e.from)) { outcome = 'already_in'; outcomeLabel = '이미 침체 중이었음' }
+    // ⚠️ 잣대를 하나로 — 리드타임을 역전 **시작**부터 재므로 판단 유보도 시작부터 잰다.
+    //    종료 기준으로 재면 2022-07 시작 역전(49개월 경과)이 '판단 유보'가 되어 오경보 집계가 0이 된다.
+    else if (monthsSince(e.from) < LEAD_MAX_M) { outcome = 'too_soon'; outcomeLabel = '아직 판단 이름' }
+    else { outcome = 'false_alarm'; outcomeLabel = '침체 오지 않음' }
+    return { ...e, recessionStart: hit ? next : null, leadMonths: hit ? lead : null, outcome, outcomeLabel }
   }
   // 두 스프레드의 지속 역전을 합치되 시작일이 6개월 내로 겹치면 같은 사건으로 본다
   const raw = [...findEpisodes(s2Full, RED_MIN_DAYS), ...findEpisodes(s3mFull, RED_MIN_DAYS)]
@@ -232,7 +255,8 @@ export async function buildYieldCurve(): Promise<YieldCurveResult | null> {
   const leadSummary = {
     n: leads.length, medianMonths: median,
     minMonths: leads[0] ?? null, maxMonths: leads[leads.length - 1] ?? null,
-    noRecession: history.filter(h => h.recessionStart == null && !h.ongoing).length,
+    // ⚠️ '오경보'는 결말이 실제로 false_alarm 인 것만 센다 — '이미 침체 중'·'아직 판단 이름'을 섞으면 3배로 부풀려진다
+    noRecession: history.filter(h => h.outcome === 'false_alarm').length,
   }
 
   // ── 곡선 모양

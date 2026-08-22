@@ -119,7 +119,8 @@ export default function YieldCurvePanel() {
       {/* 역전 이력 대조 */}
       <div style={{ fontSize: FS.micro, color: TK.sub3, marginBottom: 5 }}>
         <b style={{ color: TK.slate200, fontSize: FS.tiny }}>📚 과거 지속 역전(10거래일 이상)과 그 뒤 침체</b>
-        {' '}— 표본 {d.history.length}건 · 리드타임 중앙값 {d.leadSummary.medianMonths ?? '—'}개월
+        {' '}— 표본 {d.history.length}건 중 침체로 이어진 것 {d.history.filter(h => h.outcome === 'recession').length}건(리드타임 중앙값 {d.leadSummary.medianMonths ?? '—'}개월)
+        {' '}· 오경보 {d.leadSummary.noRecession}건 · 이미 침체 중이던 역전 {d.history.filter(h => h.outcome === 'already_in').length}건 · 판단 유보 {d.history.filter(h => h.outcome === 'too_soon').length}건
       </div>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', minWidth: 480, borderCollapse: 'collapse', fontSize: FS.micro }}>
@@ -136,8 +137,9 @@ export default function YieldCurvePanel() {
                 <td style={{ padding: '4px 6px', fontFamily: 'monospace' }}>{h.from} ~ {h.to}{h.ongoing && <b style={{ color: TK.red400 }}> (진행중)</b>}</td>
                 <td style={{ padding: '4px 6px', fontFamily: 'monospace' }}>{h.days}일</td>
                 <td style={{ padding: '4px 6px', fontFamily: 'monospace', color: h.minPp <= -0.5 ? TK.red400 : TK.sub2 }}>{h.minPp.toFixed(2)}%p</td>
-                <td style={{ padding: '4px 6px', color: h.recessionStart ? TK.amber400 : TK.green400 }}>
-                  {h.recessionStart ?? '오지 않음'}
+                {/* ⚠️ '오지 않음' 하나로 덮으면 '이미 침체 중'(1982)·'아직 판단 이름'(최근)까지 오경보로 읽힌다 */}
+                <td style={{ padding: '4px 6px', color: h.outcome === 'recession' ? TK.amber400 : h.outcome === 'false_alarm' ? TK.green400 : TK.sub4 }}>
+                  {h.outcomeLabel}
                 </td>
                 <td style={{ padding: '4px 6px', fontFamily: 'monospace' }}>{h.leadMonths != null ? `${h.leadMonths}개월` : '—'}</td>
               </tr>

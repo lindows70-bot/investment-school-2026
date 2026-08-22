@@ -38,8 +38,10 @@ console.log(`\n  Sahm: ${r.sahm ? `${r.sahm.v} (${r.sahm.date}) 발동=${r.sahm.
 
 console.log(`\n═══ ①② 과거 지속 역전(≥${M.RED_MIN_DAYS}거래일) ${r.history.length}건 ═══`)
 for (const h of r.history) {
-  console.log(`  ${h.from} ~ ${h.to} (${h.days}일, 최심 ${h.minPp.toFixed(2)}%p)${h.ongoing ? ' [진행중]' : ''} → 침체 ${h.recessionStart ?? '없음'}${h.leadMonths != null ? ` (${h.leadMonths}개월)` : ''}`)
+  console.log(`  ${h.from} ~ ${h.to} (${h.days}일, 최심 ${h.minPp.toFixed(2)}%p)${h.ongoing ? ' [진행중]' : ''} → ${h.outcome.padEnd(11)} ${h.outcomeLabel}${h.leadMonths != null ? ` (${h.leadMonths}개월)` : ''}`)
 }
+const cnt = (o) => r.history.filter(h => h.outcome === o).length
+console.log(`\n  결말 분해: 침체 ${cnt('recession')} · 오경보 ${cnt('false_alarm')} · 이미 침체 중 ${cnt('already_in')} · 판단 유보 ${cnt('too_soon')} · 진행중 ${cnt('ongoing')}`)
 const L = r.leadSummary
 console.log(`\n  리드타임: 표본 ${L.n}건 · 중앙값 ${L.medianMonths}개월 · 범위 ${L.minMonths}~${L.maxMonths}개월 · 침체 안 온 역전 ${L.noRecession}건`)
 
@@ -51,7 +53,12 @@ check(r.curve.length === 11, '만기 11종이 한 날짜에 모두 모였다')
 check(r.curve.every(c => c.v > 0 && c.v < 25), '금리 값이 상식 범위(0~25%)')
 check(r.series.length > 200, `스프레드 시계열 ${r.series.length}건(차트용 충분)`)
 const e2022 = r.history.find(h => h.from.startsWith('2022'))
-check(!!e2022 && e2022.recessionStart == null, `2022년 역전이 history 에 있고 침체 없음으로 기록됨 (${e2022 ? `${e2022.days}일·${e2022.minPp}%p` : '없음'})`)
+check(e2022?.outcome === 'false_alarm', `2022년 역전이 **오경보(false_alarm)** 로 분류됨 (${e2022 ? `${e2022.days}일·${e2022.minPp}%p → ${e2022.outcome}` : '없음'})`)
+const e1982 = r.history.find(h => h.from.startsWith('1982'))
+check(e1982?.outcome === 'already_in', `1982년 역전은 '이미 침체 중'으로 분류됨 — 오경보와 섞이면 안 된다 (실제 ${e1982?.outcome})`)
+const e2025 = r.history.find(h => h.from.startsWith('2025'))
+check(e2025?.outcome === 'too_soon', `2025년 역전은 '판단 유보'로 분류됨 (실제 ${e2025?.outcome})`)
+check(L.noRecession === cnt('false_alarm'), `오경보 집계(${L.noRecession})가 실제 false_alarm 건수(${cnt('false_alarm')})와 일치`)
 check(L.n >= 4 && L.medianMonths != null, '리드타임 표본이 4건 이상')
 check(r.history.every(h => h.days >= M.RED_MIN_DAYS), `모든 에피소드가 ${M.RED_MIN_DAYS}거래일 이상(노이즈 제거됨)`)
 // 경보 남발 검사 — 지금이 정상이면 alert 가 red 이면 안 된다
