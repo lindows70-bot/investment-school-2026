@@ -71,3 +71,4 @@
 - [real-yield](real-yield/) — 🧮 금리 3형제(명목=실질+BEI 분해 · FRED 실측 · 채권 축 동승)
 - [preferred-stock](preferred-stock/plan.md) — 🏛️ 우선주 축(Strategy 우선주 4종) · 보통주 배당 잣대 분리 · 2026-08-22
 - [bonds-upgrade](bonds-upgrade/plan.md) — 📜 채권편 강화(곡선·역전 경보·인하 사이클·조건부 상관·YCC) · 2026-08-22
+- [cme-cot](cme-cot/context-notes.md) — 🏛️ CME 기관 포지셔닝(CFTC COT) · 영상 주장 검증 판정표 · 2026-08-23
