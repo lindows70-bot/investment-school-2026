@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import type { DividendProfile } from '@/lib/dividendProfile'
 import type { DividendPortfolioData } from '@/app/api/dividend-portfolio/route'
 import { DIVIDEND_UNIVERSE, BUCKET_META, DIV_TEMPLATES, type DivBucket } from '@/lib/dividendUniverse'
-import { ULTRA_RISKS, ULTRA_UNIVERSE } from '@/lib/ultraDividendUniverse'
+import { ULTRA_RISKS, ULTRA_UNIVERSE, ULTRA_TIER_META } from '@/lib/ultraDividendUniverse'
 import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT
 import type { UltraDividendData, UltraDividendItem } from '@/app/api/ultra-dividend/route'
 import { TK, FS } from '@/lib/theme'
@@ -93,7 +93,7 @@ export default function DividendIncomeLab({ onHoldingsChange }: { onHoldingsChan
   const [holdings, setHoldings] = useState<Holding[]>([])
   const [drip, setDrip] = useState(true)
   const [goalMan, setGoalMan] = useState(300)          // 목표 월배당(만원)
-  const [addBucket, setAddBucket] = useState<DivBucket | 'ultra'>('income')
+  const [addBucket, setAddBucket] = useState<DivBucket | 'ultra' | 'preferred'>('income')
   const [showAdd, setShowAdd] = useState(false)
 
   // 안정 유니버스 + 초고배당 유니버스를 합쳐 byTicker 구성(초고배당형 템플릿용)
@@ -462,17 +462,19 @@ export default function DividendIncomeLab({ onHoldingsChange }: { onHoldingsChan
 
         {/* 추가 패널 */}
         {showAdd && (() => {
-          // 카테고리 메타(안정 3버킷 + 🔥 초고배당)
-          const catMeta = (b: DivBucket | 'ultra') => b === 'ultra'
-            ? { icon: '🔥', label: '초고배당', color: C.red, desc: '커버드콜·옵션 ETF·모기지 리츠·BDC·MLP 등 — 초고위험 초고분배(원금 손실 위험)' }
+          // 카테고리 메타(안정 3버킷 + 🔥 초고배당 + 🏛️ 우선주)
+          //  우선주를 초고배당에 섞으면 "커버드콜·리츠·BDC" 설명이 우선주에도 걸려 성격이 뒤바뀐다 — 축을 갈랐다
+          const catMeta = (b: DivBucket | 'ultra' | 'preferred') =>
+            b === 'ultra' ? { icon: '🔥', label: '초고배당', color: C.red, desc: '커버드콜·옵션 ETF·모기지 리츠·BDC·MLP 등 — 초고위험 초고분배(원금 손실 위험)' }
+            : b === 'preferred' ? { icon: ULTRA_TIER_META.preferred.icon, label: ULTRA_TIER_META.preferred.label, color: PREF_C, desc: ULTRA_TIER_META.preferred.desc }
             : BUCKET_META[b]
-          const cats: (DivBucket | 'ultra')[] = ['income', 'growth', 'future', 'ultra']
-          const list = addBucket === 'ultra'
-            ? ULTRA_UNIVERSE.map(u => ({ ticker: u.ticker, market: u.market, note: u.note }))
+          const cats: (DivBucket | 'ultra' | 'preferred')[] = ['income', 'growth', 'future', 'ultra', 'preferred']
+          const list = addBucket === 'ultra' || addBucket === 'preferred'
+            ? ULTRA_UNIVERSE.filter(u => addBucket === 'preferred' ? u.tier === 'preferred' : u.tier !== 'preferred').map(u => ({ ticker: u.ticker, market: u.market, note: u.note }))
             : DIVIDEND_UNIVERSE.filter(u => u.bucket === addBucket).map(u => ({ ticker: u.ticker, market: u.market, note: u.note }))
           const meta = catMeta(addBucket)
           return (
-            <div style={{ marginBottom: 14, padding: '12px 14px', borderRadius: 12, background: C.card2, border: `1px solid ${addBucket === 'ultra' ? C.red + '44' : C.border}` }}>
+            <div style={{ marginBottom: 14, padding: '12px 14px', borderRadius: 12, background: C.card2, border: `1px solid ${addBucket === 'ultra' ? C.red + '44' : addBucket === 'preferred' ? PREF_C + '44' : C.border}` }}>
               <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
                 {cats.map(b => {
                   const cm = catMeta(b)
@@ -483,15 +485,18 @@ export default function DividendIncomeLab({ onHoldingsChange }: { onHoldingsChan
                   )
                 })}
               </div>
-              <div style={{ fontSize: 9.5, color: addBucket === 'ultra' ? C.orange : C.low, marginBottom: 8 }}>{meta.desc}</div>
+              <div style={{ fontSize: 9.5, color: addBucket === 'ultra' ? C.orange : addBucket === 'preferred' ? PREF_C : C.low, marginBottom: 8 }}>{meta.desc}</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {list.map(u => {
                   const p = byTicker[u.ticker]; const held = heldSet.has(u.ticker); const est = ultraByTicker[u.ticker]?.yieldEstimated
                   return (
                     <button key={u.ticker} disabled={held} onClick={() => addHold(u.ticker)} title={u.note}
                       style={{ width: 148, textAlign: 'left', padding: '8px 10px', borderRadius: 9, border: `1px solid ${held ? C.border : meta.color + '44'}`, background: held ? 'transparent' : C.card, opacity: held ? 0.4 : 1, cursor: held ? 'default' : 'pointer' }}>
+                      {/* ⚠️ 이름만 12자로 자르면 같은 발행사 시리즈가 전부 같은 글자가 된다(우선주 4종이 모두 "Strategy Inc")
+                          — 티커를 함께 찍어야 학생이 어느 것을 담는지 구분할 수 있다 */}
                       <div style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{(p?.name || u.ticker).slice(0, 12)} {flagOf(u.market, u.ticker)}</div>
-                      <div style={{ fontSize: 10, fontFamily: 'monospace', color: addBucket === 'ultra' ? C.red : C.green }}>{p?.dividendYield != null ? (p.dividendYield * 100).toFixed(1) + '%' : '—'}
+                      <div style={{ fontSize: 9, fontFamily: 'monospace', color: C.low, marginTop: 1 }}>{u.ticker}</div>
+                      <div style={{ fontSize: 10, fontFamily: 'monospace', color: addBucket === 'ultra' ? C.red : addBucket === 'preferred' ? PREF_C : C.green }}>{p?.dividendYield != null ? (p.dividendYield * 100).toFixed(1) + '%' : '—'}
                         {est && <span style={{ color: C.red, marginLeft: 3 }}>목표</span>}
                         {p?.dividendGrade && <span style={{ marginLeft: 5 }}>{GRADE_EMOJI[p.dividendGrade]}</span>}
                         {held && <span style={{ color: C.low, marginLeft: 5 }}>담김</span>}</div>
