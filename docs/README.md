@@ -69,3 +69,4 @@
 - `exit-plan/` — 🚪 출구 플랜(보유 종목 매도 계획: 샹들리에 이익 보호선·최후 방어선·매도 압력 집계)
 - [monthly-pnl](monthly-pnl/) — 진짜 월별 손익 시계열(캔들 이력 재구성 · 대시보드 토글)
 - [real-yield](real-yield/) — 🧮 금리 3형제(명목=실질+BEI 분해 · FRED 실측 · 채권 축 동승)
+- [preferred-stock](preferred-stock/plan.md) — 🏛️ 우선주 축(Strategy 우선주 4종) · 보통주 배당 잣대 분리 · 2026-08-22

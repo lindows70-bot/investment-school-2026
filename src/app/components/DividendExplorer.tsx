@@ -400,7 +400,8 @@ function DetailPanel({ profile }: { profile: DividendProfile }) {
         ].map(m => (
           <div key={m.k} style={{ padding: '10px 12px', borderRadius: 10, background: C.card2, border: `1px solid ${C.border}` }}>
             <div style={{ fontSize: 9.5, color: C.textLow, marginBottom: 4 }}>{m.k}</div>
-            <div style={{ fontSize: m.v === '해당 없음' ? 12 : 15, fontWeight: 800, fontFamily: 'monospace', color: m.c }}>{m.v}</div>
+            {/* 한글은 monospace 에서 자간이 벌어져 '해 당 없 음'처럼 읽힌다 — 숫자일 때만 monospace */}
+            <div style={{ fontSize: m.v === '해당 없음' ? 12.5 : 15, fontWeight: 800, fontFamily: m.v === '해당 없음' ? FONT : 'monospace', color: m.c }}>{m.v}</div>
           </div>
         ))}
       </div>
