@@ -24,6 +24,8 @@ export default function BtcCycleNavigator({ nav }: { nav: CycleNav }) {
   // 국면 판정 = 차트 밴드와 동일 기준(침체 연도 1/1 이후 개월 ÷ 12) — 판정과 그림이 항상 일치(제2원칙)
   const bandIdx = Math.min(3, Math.floor(nav.mNow / 12))
   const cur = BANDS[bandIdx]
+  /** 달력 각본과 실제 가격이 어긋나는가 — 어긋나면 배지·헤드라인의 **단언 자체**를 '달력상'으로 바꾼다 */
+  const mismatch = nav.reality != null && !nav.reality.matchesBear
   return (
     <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
@@ -37,7 +39,13 @@ export default function BtcCycleNavigator({ nav }: { nav: CycleNav }) {
           const here = i === bandIdx
           return (
             <div key={p.name} style={{ position: 'relative', background: here ? `${p.color}14` : TK.bg3, border: `1px solid ${here ? p.color : BORDER}`, borderRadius: 9, padding: '8px 11px' }}>
-              {here && <span style={{ position: 'absolute', top: -9, right: 8, background: p.color, color: TK.bg1, fontSize: 9.5, fontWeight: 900, borderRadius: 6, padding: '1px 7px' }}>📍 지금 여기</span>}
+              {/* ⚠️ '지금 여기'는 현재 사실을 단언한다 — 실제 가격이 이 국면과 다르면 배지부터 말을 바꿔야 한다
+                  (배지로 경고만 달고 단언을 남겨두면 학생은 단언을 읽는다 · 2026-08-22 사용자 지적) */}
+              {here && (
+                <span style={{ position: 'absolute', top: -9, right: 8, background: mismatch ? TK.amber400 : p.color, color: TK.bg1, fontSize: 9.5, fontWeight: 900, borderRadius: 6, padding: '1px 7px' }}>
+                  {mismatch ? '📅 각본상 여기' : '📍 지금 여기'}
+                </span>
+              )}
               <div style={{ color: p.color, fontWeight: 800, fontSize: 11.5 }}>{i + 1}. {p.name}</div>
               <div style={{ color: TK.sub, fontSize: 10, marginTop: 2 }}>{p.years}</div>
               <div style={{ color: TK.sub5, fontSize: 10, marginTop: 3, lineHeight: 1.5 }}>{p.desc}</div>
@@ -47,8 +55,20 @@ export default function BtcCycleNavigator({ nav }: { nav: CycleNav }) {
       </div>
 
       <div style={{ background: `${cur.color}10`, border: `1px solid ${cur.color}44`, borderRadius: 9, padding: '8px 12px', marginBottom: 12, fontSize: 11.5, lineHeight: 1.6 }}>
-        <b style={{ color: cur.color }}>📍 지금은 {cur.name} {nav.mNow}개월차</b>
-        <span style={{ color: TK.sub5 }}> — 과거 3번의 사이클에서 이 자리는 {cur.desc.split(' — ')[0]} 구간이었습니다. 각본이 반복된다는 보장은 없지만, 지금의 하락을 &lsquo;공포&rsquo;가 아니라 &lsquo;사이클의 자리&rsquo;로 읽는 훈련이 목적입니다.</span>
+        {/* 헤드라인이 "지금은 침체기"라고 단언하면 아래 반박 상자를 읽기 전에 결론이 박힌다.
+            가격이 각본과 어긋날 땐 문장 자체를 '달력상 자리'로 바꾸고 어긋남을 같은 줄에 붙인다. */}
+        {mismatch ? (
+          <>
+            <b style={{ color: TK.amber400 }}>📅 달력상 지금 자리 = {cur.name} {nav.mNow}개월차</b>
+            <span style={{ color: TK.sub5 }}> — 과거 3번의 사이클에서 <b style={{ color: TK.sub3 }}>이 자리</b>는 {cur.desc.split(' — ')[0]} 구간이었습니다.
+              다만 <b style={{ color: TK.amber400 }}>지금 가격은 그 이름과 맞지 않습니다</b>(아래 대조) — 4년 각본은 달력이지 진단이 아닙니다.</span>
+          </>
+        ) : (
+          <>
+            <b style={{ color: cur.color }}>📍 지금은 {cur.name} {nav.mNow}개월차</b>
+            <span style={{ color: TK.sub5 }}> — 과거 3번의 사이클에서 이 자리는 {cur.desc.split(' — ')[0]} 구간이었습니다. 각본이 반복된다는 보장은 없지만, 지금의 하락을 &lsquo;공포&rsquo;가 아니라 &lsquo;사이클의 자리&rsquo;로 읽는 훈련이 목적입니다.</span>
+          </>
+        )}
       </div>
 
       {/* 🔍 각본 대조 — '침체기'는 달력이 붙인 이름이다. 가격이 그 이름에 부합하는지 나란히 보여준다.
