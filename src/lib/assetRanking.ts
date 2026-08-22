@@ -12,8 +12,9 @@ export const BULLION_STOCK = {
 }
 const TROY_OZ_PER_TONNE = 32_150.7
 
-/** 캐시 키 SSOT — 라우트는 임의 export 를 허용하지 않으므로 lib 에 둔다 */
-export const ASSET_RANK_KEY = (hourKey: string) => `asset-rank-v1:${hourKey}`
+/** 캐시 키 SSOT — 라우트는 임의 export 를 허용하지 않으므로 lib 에 둔다.
+ *  v2: 🔴 해외 상장 시총 통화 환산 버그 수정(아람코 SAR→USD, 3.75배 부풀림) — 값이 바뀌므로 필수 범프 */
+export const ASSET_RANK_KEY = (hourKey: string) => `asset-rank-v2:${hourKey}`
 
 export interface RankedAsset {
   key: string
@@ -51,8 +52,12 @@ async function yahooPrice(sym: string): Promise<number | null> {
   } catch { return null }
 }
 
-/** 주식 시총 — chart meta 에는 marketCap 이 없다(실측 확인). quoteSummary 를 써야 한다. */
-async function stockCap(sym: string): Promise<{ cap: number | null; price: number | null }> {
+/** 주식 시총 — chart meta 에는 marketCap 이 없다(실측 확인). quoteSummary 를 써야 한다.
+ *  🔴 2026-08-23 화면검증에서 잡힌 결함: **해외 상장은 marketCap 도 현지통화로 온다.**
+ *     사우디 아람코가 6.386조 **SAR** 인데 USD 로 착각해 $6.39조(실제 $1.70조)로 3.75배 부풀려져
+ *     엔비디아를 제치고 2위에 올라 있었다. 순위표에서 통화를 안 맞추면 표 전체가 거짓이 된다.
+ *     → currency 를 반드시 읽고 USD 가 아니면 환산한다. 환산 사실은 note 에 남긴다. */
+async function stockCap(sym: string): Promise<{ cap: number | null; price: number | null; currency: string; fx: number }> {
   try {
     const { default: YahooFinance } = await import('yahoo-finance2')
     /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
@@ -60,10 +65,25 @@ async function stockCap(sym: string): Promise<{ cap: number | null; price: numbe
     const q = await yf.quoteSummary(sym, { modules: ['price'] })
     const pr = q?.price ?? {}
     const raw = (v: unknown) => v != null && typeof v === 'object' && 'raw' in (v as object) ? (v as { raw: number }).raw : v
-    const cap = Number(raw(pr.marketCap))
-    const price = Number(raw(pr.regularMarketPrice))
-    return { cap: isFinite(cap) && cap > 0 ? cap : null, price: isFinite(price) && price > 0 ? price : null }
-  } catch { return { cap: null, price: null } }
+    const currency = String(pr.currency ?? 'USD').toUpperCase()
+    let cap = Number(raw(pr.marketCap))
+    let price = Number(raw(pr.regularMarketPrice))
+    let fx = 1
+    if (currency !== 'USD') {
+      const r = await yf.quoteSummary(`${currency}USD=X`, { modules: ['price'] }).catch(() => null)
+      const rate = Number(raw(r?.price?.regularMarketPrice))
+      // 환율을 못 구하면 **값을 버린다** — 환산 안 된 현지통화 값을 USD 표에 올리는 것이 최악이다
+      if (!isFinite(rate) || rate <= 0) return { cap: null, price: null, currency, fx: 1 }
+      fx = rate
+      cap *= rate
+      price *= rate
+    }
+    return {
+      cap: isFinite(cap) && cap > 0 ? cap : null,
+      price: isFinite(price) && price > 0 ? price : null,
+      currency, fx,
+    }
+  } catch { return { cap: null, price: null, currency: 'USD', fx: 1 } }
 }
 
 async function btcSupply(): Promise<number | null> {
@@ -118,9 +138,13 @@ export async function buildAssetRanking(): Promise<AssetRankingResult | null> {
 
   caps.forEach((c, i) => {
     if (c.cap == null) return
+    // 환산한 종목은 그 사실을 note 에 남긴다 — 원값과 환율을 감추면 나중에 같은 버그를 못 잡는다
+    const fxNote = c.currency !== 'USD'
+      ? ` · 현지통화 ${c.currency} 시총을 환율 ${c.fx.toFixed(4)} 로 USD 환산`
+      : ''
     assets.push({
       key: STOCKS[i].sym, name: STOCKS[i].name, kind: 'stock', cap: c.cap, price: c.price, vsBtc: null,
-      note: c.price != null ? `주가 $${c.price.toFixed(2)} 기준 시가총액` : '시가총액',
+      note: (c.price != null ? `주가 $${c.price.toFixed(2)} 기준 시가총액` : '시가총액') + fxNote,
     })
   })
 
@@ -139,6 +163,8 @@ export async function buildAssetRanking(): Promise<AssetRankingResult | null> {
       '주식 시가총액과 코인·금속 가격은 **조회 시점의 실시간 값**입니다 — 순위는 매일 바뀝니다.',
       `금·은은 **가격 × 지상 재고**로 계산합니다. 재고량(금 ${BULLION_STOCK.gold.tonnes.toLocaleString()}톤·은 ${BULLION_STOCK.silver.tonnes.toLocaleString()}톤)은 시장 데이터가 아니라 ${BULLION_STOCK.gold.asOfYear}년 기준 업계 추정치라, 기관마다 조금씩 다릅니다.`,
       '금은 수천 년간 쌓인 재고 전체를 세고, 주식은 상장 주식만 셉니다 — **같은 잣대가 아닙니다.** 크기 감각을 잡는 용도로만 보세요.',
+      '특히 **은은 산업용으로 계속 소비**되어 장신구·부품에 묶인 물량이 많습니다. 여기 수치는 채굴된 전량 기준이라, 실제로 사고팔 수 있는 투자용 물량은 이보다 훨씬 적습니다.',
+      '해외 상장 종목(사우디 아람코 등)은 **현지통화 시가총액을 환율로 USD 환산**해 비교합니다 — 환율이 움직이면 순위도 따라 움직입니다.',
       '⛔ 순위가 높다고 좋은 자산이 아닙니다. 매수 권유가 아니며, 코인은 학생 권장 상한 5%를 지키세요.',
     ],
   }

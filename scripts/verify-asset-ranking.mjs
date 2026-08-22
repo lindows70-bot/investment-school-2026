@@ -45,6 +45,16 @@ check(d.notes.some(n => n.includes('같은 잣대가 아닙니다')), '금/주�
 check(d.notes.some(n => n.includes('5%')), '⛔ 코인 가드 5% 포함')
 check(d.notes.some(n => n.includes('추정치')), '지상 재고가 추정치임을 명시')
 
+// 🔴 통화 회귀 방지 — 아람코가 SAR 시총(6.39조)을 USD 로 착각해 3.75배 부풀려진 적이 있다(2026-08-23)
+const aramco = d.assets.find(a => a.key === '2222.SR')
+check(aramco == null || (aramco.cap / 1e12 > 1.0 && aramco.cap / 1e12 < 3.0),
+  `사우디 아람코 $${aramco ? (aramco.cap / 1e12).toFixed(2) : '—'}조 — 환산 후 1~3조 범위(미환산 SAR 이면 6조대로 튄다)`)
+check(aramco == null || aramco.note.includes('환산'), '환산한 종목은 note 에 환율·원통화를 남긴다')
+const nvda = d.assets.find(a => a.key === 'NVDA')
+check(aramco == null || nvda == null || nvda.cap > aramco.cap,
+  `엔비디아($${nvda ? (nvda.cap/1e12).toFixed(2) : '—'}조) > 아람코($${aramco ? (aramco.cap/1e12).toFixed(2) : '—'}조) — 실제 대소관계`)
+check(d.notes.some(n => n.includes('환율')), '캐비엇에 환율 환산 사실 명시')
+
 rmSync(out, { recursive: true, force: true })
 console.log(`\n${fail === 0 ? '✅ 전부 통과' : `❌ 실패 ${fail}건`}`)
 process.exitCode = fail === 0 ? 0 : 1

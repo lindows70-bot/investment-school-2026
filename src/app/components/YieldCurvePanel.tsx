@@ -39,7 +39,8 @@ export default function YieldCurvePanel() {
 
   const A = ALERT_META[d.alert]
   // ── 곡선 SVG (x = 만기 로그 스케일, y = 금리)
-  const W = 900, H = 210, PL = 44, PR = 16, PT = 16, PB = 26
+  // PL 을 넉넉히 — 첫 만기(1개월)의 값 라벨이 y축 눈금("4.0%")과 겹쳐 "4.0%3.80" 으로 읽혔다(2026-08-23 화면검증)
+  const W = 900, H = 210, PL = 62, PR = 20, PT = 16, PB = 26
   const all = d.curve.concat(d.curvePrev ?? [])
   const lo = Math.min(...all.map(c => c.v)), hi = Math.max(...all.map(c => c.v))
   const pad = Math.max(0.15, (hi - lo) * 0.15)
@@ -97,11 +98,12 @@ export default function YieldCurvePanel() {
         })}
         {d.curvePrev && <path d={path(d.curvePrev)} fill="none" stroke={TK.sub4} strokeWidth="1.4" strokeDasharray="4 3" />}
         <path d={path(d.curve)} fill="none" stroke={TK.cyan400} strokeWidth="2.2" />
-        {d.curve.map(p => (
+        {d.curve.map((p, i) => (
           <g key={p.years}>
             <circle cx={X(p.years)} cy={Y(p.v)} r="3" fill={TK.cyan400} />
-            <text x={X(p.years)} y={H - 14} fill={TK.sub4} fontSize="8.5" textAnchor="middle">{p.label}</text>
-            <text x={X(p.years)} y={Y(p.v) - 7} fill={TK.slate200} fontSize="8.5" textAnchor="middle" fontFamily="monospace">{p.v.toFixed(2)}</text>
+            <text x={X(p.years)} y={H - 14} fill={TK.sub4} fontSize="9" textAnchor={i === 0 ? 'start' : 'middle'}>{p.label}</text>
+            {/* 첫 점은 왼쪽 정렬 — 가운데 정렬하면 라벨 절반이 y축 눈금 위로 넘어간다 */}
+            <text x={X(p.years)} y={Y(p.v) - 8} fill={TK.slate200} fontSize="9" textAnchor={i === 0 ? 'start' : 'middle'} fontFamily="monospace">{p.v.toFixed(2)}</text>
           </g>
         ))}
       </svg>
