@@ -37,7 +37,7 @@ async function fetchUsdKrw(): Promise<number> {
 
 export async function GET() {
   const dateKey = new Date().toISOString().slice(0, 10)
-  const cacheKey = `dividend-portfolio-v1:${dateKey}`
+  const cacheKey = `dividend-portfolio-v2:${dateKey}`   // v2: 프로필에 preferred 필드 추가(DIV_PROFILE_KEY v8→v9와 함께 범프)
   const cached = await getCache<DividendPortfolioData>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

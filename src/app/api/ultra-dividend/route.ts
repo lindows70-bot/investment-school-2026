@@ -31,7 +31,7 @@ export interface UltraDividendData {
 
 export async function GET() {
   const dateKey = new Date().toISOString().slice(0, 10)
-  const cacheKey = `ultra-dividend-v3:${dateKey}`   // v3: 유니버스 확장(모기지리츠·BDC·MLP·YieldMax·KR커버드콜 추가)
+  const cacheKey = `ultra-dividend-v4:${dateKey}`   // v4: 🏛️ 우선주 티어 신설 + Strategy 우선주 4종 등재(응답 항목이 늘고 preferred 필드가 붙는다)
   const cached = await getCache<UltraDividendData>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

@@ -23,6 +23,7 @@ const C = {
 const MONTH_KR = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월']
 const fmtW = (n: number) => Number.isInteger(n) ? n.toFixed(0) : n.toFixed(1)   // 비중% — 소수면 1자리(7.5%), 정수면 그대로
 const UNIV_BY_TICKER = Object.fromEntries(DIVIDEND_UNIVERSE.map(u => [u.ticker, u]))
+const PREF_C = '#a78bfa'   // 🏛️ 우선주 티어 — 커버드콜(빨강)·고배당(주황)과 구분되는 축이라 색을 따로 준다
 const STYLE_LABEL: Record<string, { t: string; c: string }> = {
   high_yield: { t: '💵 고수익', c: C.orange }, growth: { t: '🌱 성장', c: C.green }, balanced: { t: '⚖️ 균형', c: C.cyan },
 }
@@ -517,9 +518,9 @@ export default function DividendIncomeLab({ onHoldingsChange }: { onHoldingsChan
                     {p.dividendGrade && <span title={p.dividendGrade} style={{ marginLeft: 5 }}>{GRADE_EMOJI[p.dividendGrade]}</span>}
                     {p.isTrapWarning && <span title={p.trapReasons.join(', ')} style={{ marginLeft: 5, color: C.orange }}>⚠️</span>}
                   </div>
-                  <div style={{ fontSize: 9.5, color: C.low, fontFamily: 'monospace' }}>{p.ticker} · {ul ? <span style={{ color: C.orange }}>🔥 {ul.sector}</span> : <>{u ? BUCKET_META[u.bucket].icon : ''} {st && <span style={{ color: st.c }}>{st.t}</span>}</>}</div>
+                  <div style={{ fontSize: 9.5, color: C.low, fontFamily: 'monospace' }}>{p.ticker} · {ul ? <span style={{ color: ul.tier === 'preferred' ? PREF_C : C.orange }}>{ul.tier === 'preferred' ? '🏛️' : '🔥'} {ul.sector}</span> : <>{u ? BUCKET_META[u.bucket].icon : ''} {st && <span style={{ color: st.c }}>{st.t}</span>}</>}</div>
                 </div>
-                <div style={{ fontSize: 11, fontFamily: 'monospace', color: ul?.tier === 'covered_call' ? C.red : C.green, minWidth: 52, textAlign: 'right' }}>
+                <div style={{ fontSize: 11, fontFamily: 'monospace', color: ul?.tier === 'covered_call' ? C.red : ul?.tier === 'preferred' ? PREF_C : C.green, minWidth: 52, textAlign: 'right' }}>
                   {p.dividendYield != null ? (p.dividendYield * 100).toFixed(2) + '%' : '—'}
                   {ul?.yieldEstimated && <span style={{ fontSize: 8, color: C.red, marginLeft: 2 }}>목표</span>}
                 </div>

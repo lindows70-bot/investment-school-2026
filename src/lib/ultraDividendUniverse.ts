@@ -3,7 +3,7 @@
 //   단 커버드콜/옵션 ETF 중 Yahoo가 분배율 0을 주는 미국 YieldMax·Roundhill류는 targetYield(운용사 목표·변동 큼)를 '참고'로 표시.
 //   티커·배당률 전부 라이브 dividend-explorer로 실측 검증 완료(2026-07-25).
 
-export type UltraTier = 'high' | 'covered_call'
+export type UltraTier = 'high' | 'covered_call' | 'preferred'
 
 export interface UltraStock {
   ticker: string
@@ -29,6 +29,13 @@ export const ULTRA_TIER_META: Record<UltraTier, { label: string; icon: string; c
     color: '#f87171',
     desc: '콜옵션 매도 프리미엄으로 분배율 극대화 — 원금(NAV) 갉아먹기 위험(초고위험)',
     range: '연 7~80%+',
+  },
+  preferred: {
+    label: '우선주(Preferred)',
+    icon: '🏛️',
+    color: '#a78bfa',
+    desc: '주식이 아니라 채권에 가까운 것 — 쿠폰은 고정이라 오르지 않고, 위험은 전부 발행사 신용에 달려 있다',
+    range: '연 8~15%',
   },
 }
 
@@ -100,7 +107,22 @@ const COVERED_CALL: UltraStock[] = [
     note: 'JPMorgan JEPI — S&P 프리미엄 인컴(7%대). 커버드콜 ETF 중 가장 방어적' },
 ]
 
-export const ULTRA_UNIVERSE: UltraStock[] = [...HIGH, ...COVERED_CALL]
+// ── 🏛️ 우선주 (8~15%, 쿠폰 배당) ────────────────────────────────────────────
+//   쿠폰율·액면·괴리는 전부 dividendProfile SSOT 가 원문에서 파생한다(제1원칙) — 여기엔 '구조'만 적는다.
+//   변제 순서(회사채 → STRF → STRC → STRK → STRD → MSTR 보통주)는 발행 문서 기준 정적 참조.
+//   출처: strategy.com/strk/learn · theblock.co/learn/394455 · SEC FWP(CIK 1050446)
+const PREFERRED: UltraStock[] = [
+  { ticker: 'STRF', market: 'US', tier: 'preferred', sector: 'Strategy 우선주 — 최선순위·누적',
+    note: 'Strife(STRF) — 우선주 4종 중 가장 앞에서 받는다. 누적형이라 회사가 배당을 거르면 밀린 몫이 쌓여 나중에 다 줘야 한다. 전환권은 없다. ⚠️ 그래도 재원은 비트코인 담보 자금조달이다' },
+  { ticker: 'STRC', market: 'US', tier: 'preferred', sector: 'Strategy 우선주 — 변동금리·월지급',
+    note: 'Stretch(STRC) — 유일한 월배당. 누적형이지만 ⚠️ 이율을 회사가 매달 조정한다(가격을 액면 근처에 붙들어두는 설계). 지금 배당률이 계속 간다는 보장이 없다' },
+  { ticker: 'STRK', market: 'US', tier: 'preferred', sector: 'Strategy 우선주 — 전환형·누적',
+    note: 'Strike(STRK) — 1주를 MSTR 보통주 0.1주로 바꿀 수 있어 비트코인 상승을 일부 따라간다. 누적형. 그 대가로 쿠폰이 4종 중 가장 낮다' },
+  { ticker: 'STRD', market: 'US', tier: 'preferred', sector: 'Strategy 우선주 — 최후순위·비누적',
+    note: 'Stride(STRD) — ⚠️ 4종 중 가장 위험하다. 비누적형이라 회사가 배당을 건너뛰면 그 몫은 영영 사라지고, 순서도 맨 뒤다. 배당률이 가장 높은 이유가 바로 이것' },
+]
+
+export const ULTRA_UNIVERSE: UltraStock[] = [...HIGH, ...COVERED_CALL, ...PREFERRED]
 
 // ── 초고배당 공통 리스크 (교육 패널) ─────────────────────────────────────────
 export const ULTRA_RISKS: { icon: string; title: string; body: string }[] = [
@@ -110,6 +132,8 @@ export const ULTRA_RISKS: { icon: string; title: string; body: string }[] = [
     body: '커버드콜 구조는 콜옵션을 팔았기 때문에 기초자산(엔비디아·코인 등)이 폭등해도 그 상승을 다 따라가지 못합니다. "많이 벌 기회"를 팔아서 "매달 현금"으로 바꾼 상품입니다.' },
   { icon: '🧾', title: '과세 부담 (절세 계좌 활용)',
     body: '초고배당 분배금엔 배당소득세 15.4%가 붙습니다. 일반 계좌보다 ISA·연금저축·IRP 계좌를 쓰면 과세이연·분리과세로 절세할 수 있어요.' },
+  { icon: '🏛️', title: '우선주는 "오르지 않는 배당"이다',
+    body: '우선주 쿠폰은 계약으로 고정돼 있어 보통주처럼 매년 인상되지 않습니다. 배당 귀족·Yield on Cost 같은 개념이 아예 성립하지 않아요. 대신 봐야 할 것은 ①액면 대비 지금 가격이 얼마나 할인됐는지(시장이 발행사 신용을 어떻게 보는지) ②누적형인지(거른 배당을 나중에 받는지) ③변제 순서에서 몇 번째인지입니다.' },
   { icon: '🎯', title: '섹터 집중·삭감 리스크',
     body: '개별 초고배당주는 금융·리츠·담배·에너지에 몰려 있어 경기·금리·규제 충격에 함께 흔들립니다. 고배당이 지속 불가능해지면 배당 삭감 → 주가·배당 동반 급락도 흔합니다.' },
 ]

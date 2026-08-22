@@ -35,7 +35,7 @@ const C = {
 const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
 
 // ── 프리셋 탭 정의 ───────────────────────────────────────────────────────────
-type PresetKey = 'aristocrat' | 'growth' | 'monthly' | 'highdiv'
+type PresetKey = 'aristocrat' | 'growth' | 'monthly' | 'highdiv' | 'preferred'
 const PRESETS: Record<PresetKey, { label: string; icon: string; tickers: string[]; accent: string }> = {
   aristocrat: {
     label: '배당 귀족주', icon: '🏆',
@@ -56,6 +56,11 @@ const PRESETS: Record<PresetKey, { label: string; icon: string; tickers: string[
     label: '초고배당/파생 주의', icon: '⚠️',
     tickers: ['MSTY', 'JEPI', 'TSLY'],
     accent: C.orange,
+  },
+  preferred: {   // 🏛️ 우선주 — 쿠폰 고정·발행사 신용. 보통주 배당 잣대가 통하지 않는 상품군
+    label: '우선주', icon: '🏛️',
+    tickers: ['STRF', 'STRC', 'STRK', 'STRD'],
+    accent: '#a78bfa',
   },
 }
 
@@ -135,6 +140,7 @@ function ThumbnailCard({ profile, accent, onClick, isActive }: {
       </div>
       <div style={{ fontSize: 9.5, color: C.textLow, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
         <span style={{ color: FREQ_COLOR[profile.frequency] }}>{FREQ_LABEL[profile.frequency]}</span>
+        {profile.preferred && <span title="우선주 — 쿠폰 고정">🏛️</span>}
         {profile.dividendGrade && <span title={GRADE_META[profile.dividendGrade].desc}>{GRADE_META[profile.dividendGrade].label.split(' ')[0]}</span>}
         {profile.dividendGrowth5y != null && profile.dividendGrowth5y >= 0.05 &&
           <span style={{ color: C.green }}>↑{(profile.dividendGrowth5y * 100).toFixed(0)}%</span>}
@@ -152,15 +158,20 @@ function TrapWarningCard({ profile }: { profile: DividendProfile }) {
       background: 'rgba(251,146,60,0.07)', border: '1px solid rgba(251,146,60,0.4)',
     }}>
       <div style={{ fontSize: 14, fontWeight: 900, color: C.orange, marginBottom: 8 }}>
-        ⚠️ 배당 함정(Dividend Trap) 경보
+        {profile.preferred ? '⚠️ 우선주 — 발행사 신용 경보' : '⚠️ 배당 함정(Dividend Trap) 경보'}
       </div>
       <div style={{ fontSize: 12.5, color: '#fed7aa', lineHeight: 1.75, marginBottom: 10 }}>
-        본 종목은 배당률은 높으나{' '}
-        {profile.isDerivativeEtf
-          ? <><b>파생 옵션 프리미엄을 재원</b>으로 삼고 있어, 주가 우하향 시 원금이 잠식되는 구조입니다.</>
-          : <><b>배당성향이 과도하거나 현금흐름 체력이 약해</b> 배당을 지속하기 어려울 수 있습니다.</>
+        {profile.preferred
+          ? <>이 배당률은 회사가 잘돼서 높아진 것이 아닙니다. 쿠폰은 <b>계약으로 고정</b>돼 있으므로,
+              배당률이 높다는 건 대개 <b>가격이 눌렸다</b>는 뜻입니다.
+              투자학교 학생들은 배당률 숫자가 아닌 <b>발행사가 약속을 지킬 체력이 있는지</b>를 먼저 점검하세요.</>
+          : <>본 종목은 배당률은 높으나{' '}
+              {profile.isDerivativeEtf
+                ? <><b>파생 옵션 프리미엄을 재원</b>으로 삼고 있어, 주가 우하향 시 원금이 잠식되는 구조입니다.</>
+                : <><b>배당성향이 과도하거나 현금흐름 체력이 약해</b> 배당을 지속하기 어려울 수 있습니다.</>
+              }
+              {' '}투자학교 학생들은 배당률 숫자가 아닌 <b>기업의 펀더멘털과 현금흐름 체력</b>을 먼저 점검하세요.</>
         }
-        {' '}투자학교 학생들은 배당률 숫자가 아닌 <b>기업의 펀더멘털과 현금흐름 체력</b>을 먼저 점검하세요.
       </div>
       {profile.trapReasons.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -172,7 +183,11 @@ function TrapWarningCard({ profile }: { profile: DividendProfile }) {
         </div>
       )}
       <div style={{ marginTop: 10, fontSize: 11, color: '#fdba74', fontStyle: 'italic', borderTop: '1px solid rgba(251,146,60,0.25)', paddingTop: 8 }}>
-        &ldquo;높은 배당률은 투자자를 유혹하는 가장 달콤한 함정이다. 진짜 좋은 배당주는 이익 성장으로 배당을 늘리는 기업이다.&rdquo; — 피터 린치
+        {profile.preferred
+          // ⚠️ 우선주에 "배당을 늘리는 기업이 좋다"는 잣대를 대면, 바로 위 패널의 '인상은 해당 없음'과 정면으로 부딪친다.
+          ? <>우선주는 <b>더 벌 기회를 포기하고 먼저 받을 순서를 산 것</b>입니다. 잘돼도 쿠폰만 받고, 잘못되면 보통주보다 먼저 받을 뿐 원금이 보장되지는 않습니다.</>
+          : <>&ldquo;높은 배당률은 투자자를 유혹하는 가장 달콤한 함정이다. 진짜 좋은 배당주는 이익 성장으로 배당을 늘리는 기업이다.&rdquo; — 피터 린치</>
+        }
       </div>
     </div>
   )
@@ -273,6 +288,72 @@ function GrowthPanel({ profile }: { profile: DividendProfile }) {
   )
 }
 
+// ── 🏛️ 우선주 패널 (배당 성장 패널 대체) ──────────────────────────────────────
+//   보통주 축(연속 인상·배당성향·FCF 커버·YoC)은 '데이터 없음'이 아니라 **해당 없음**이다.
+//   빈칸으로 두면 학생이 "배당을 못 올리는 나쁜 배당주"로 읽으므로 그렇게 말해준다.
+function PreferredPanel({ profile }: { profile: DividendProfile }) {
+  const pf = profile.preferred
+  if (!pf) return null
+  const purple = '#a78bfa'
+  const gap = pf.parGapPct
+  const gapColor = gap == null ? C.textLow : gap <= -10 ? C.orange : gap >= 3 ? C.gold : C.green
+  const cells = [
+    { k: '쿠폰(약정 배당률)', v: pf.isVariableRate ? '변동' : pf.couponPct != null ? pf.couponPct.toFixed(2) + '%' : '—',
+      c: pf.isVariableRate ? C.orange : C.text, note: pf.isVariableRate ? '회사가 조정' : '계약 고정 — 오르지 않음' },
+    { k: '액면(추정)', v: pf.parEstimate != null ? '$' + pf.parEstimate.toFixed(0) : '—',
+      c: C.textSub, note: '연배당 ÷ 쿠폰' },
+    { k: '액면 대비 지금 가격', v: gap != null ? (gap >= 0 ? '+' : '') + gap.toFixed(1) + '%' : '—',
+      c: gapColor, note: gap == null ? '—' : gap < 0 ? '할인 — 신용 의심' : '액면 근처' },
+  ]
+  return (
+    <div style={{ marginTop: 12, padding: '14px 16px', borderRadius: 12, background: `linear-gradient(135deg,${TK.bg0},${C.card2})`, border: `1px solid ${purple}44` }}>
+      <div style={{ fontSize: 13, fontWeight: 900, color: purple, marginBottom: 4 }}>🏛️ 우선주 — 주식이 아니라 채권에 가까운 것</div>
+      <div style={{ fontSize: 10.5, color: C.textLow, marginBottom: 11, lineHeight: 1.6 }}>
+        발행사 <b style={{ color: C.textSub }}>{pf.issuerName ?? '—'}</b>가 약속한 <b style={{ color: C.textSub }}>고정 배당</b>을 받는 증권입니다.
+        {pf.seriesLabel && <> 시리즈 <span style={{ fontFamily: 'monospace', color: C.textSub }}>{pf.seriesLabel}</span></>}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 12 }}>
+        {cells.map(m => (
+          <div key={m.k} style={{ padding: '9px 11px', borderRadius: 9, background: C.card, border: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 9, color: C.textLow, marginBottom: 3 }}>{m.k}</div>
+            <div style={{ fontSize: 15, fontWeight: 800, fontFamily: 'monospace', color: m.c }}>{m.v}</div>
+            <div style={{ fontSize: 8.5, color: C.textLow, marginTop: 1 }}>{m.note}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 왜 보통주 지표가 비어 있는지 — 빈칸을 설명으로 채운다 */}
+      <div style={{ padding: '10px 12px', borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, marginBottom: 10 }}>
+        <div style={{ fontSize: 10.5, fontWeight: 700, color: C.textSub, marginBottom: 6 }}>이 종목엔 <b style={{ color: purple }}>해당 없는</b> 지표 (데이터가 없는 게 아닙니다)</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {[
+            ['연속 배당 인상', '쿠폰이 계약으로 고정 — 인상이라는 개념이 없음'],
+            ['배당 성장률·Yield on Cost', '늘어나지 않으므로 복리 효과가 없음'],
+            ['배당성향·FCF 커버', '회사 전체 실적 대비 비율이라 시리즈 단위론 잣대가 안 맞음'],
+            ['배당 안전성 점수', '우선주 신용은 발행사 재무로 봐야 하며 우리 엔진엔 그 축이 없음'],
+          ].map(([k, why]) => (
+            <span key={k} title={why} style={{ fontSize: 10, padding: '3px 9px', borderRadius: 99, background: `${purple}12`, border: `1px solid ${purple}33`, color: C.textLow }}>
+              {k} <b style={{ color: purple }}>해당 없음</b>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ fontSize: 10.5, color: '#ddd6fe', lineHeight: 1.7, padding: '9px 12px', borderRadius: 9, background: `${purple}0e`, border: `1px solid ${purple}33` }}>
+        💡 <b>어디를 봐야 하나</b> — 우선주의 배당률은 <b>회사가 잘돼서</b> 오르는 게 아니라, 대부분 <b>가격이 눌려서</b> 올라갑니다.
+        {gap != null && gap <= -10 && <> 지금 액면보다 <b style={{ color: C.orange }}>{Math.abs(gap).toFixed(1)}% 싸게</b> 거래된다는 건 시장이 발행사가 약속을 지킬지 의심한다는 뜻입니다.</>}
+        {gap != null && gap > -10 && <> 지금은 액면 근처에서 거래돼 시장이 약속 이행을 대체로 믿고 있다는 뜻입니다.</>}
+        {' '}그러니 배당률 숫자보다 <b>발행사가 망하지 않을지</b>를 먼저 보세요 — 회사가 어려워지면 보통주보다 먼저 받긴 하지만, <b>배당은 주가보다 먼저 멈춥니다.</b>
+      </div>
+
+      <div style={{ fontSize: 9, color: C.textLow, marginTop: 8, lineHeight: 1.5 }}>
+        ⚠️ 액면은 <b>연배당금 ÷ 쿠폰율</b>로 계산한 추정치입니다(데이터 제공처가 액면가를 주지 않습니다). 시리즈 표기는 원문이 32자에서 잘려 일부만 보일 수 있습니다.
+      </div>
+    </div>
+  )
+}
+
 // ── 상세 진단 패널 ────────────────────────────────────────────────────────────
 function DetailPanel({ profile }: { profile: DividendProfile }) {
   const isTrap = profile.isTrapWarning
@@ -288,6 +369,11 @@ function DetailPanel({ profile }: { profile: DividendProfile }) {
         {profile.isDerivativeEtf && (
           <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, background: `${C.orange}22`, color: C.orange, fontWeight: 700 }}>파생 ETF</span>
         )}
+        {profile.preferred && (
+          <span title="보통주가 아니라 우선주 — 쿠폰 고정, 위험은 발행사 신용" style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, background: '#a78bfa22', color: '#a78bfa', fontWeight: 700 }}>
+            🏛️ 우선주{profile.preferred.isVariableRate ? '·변동금리' : ''}
+          </span>
+        )}
         <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, background: `${FREQ_COLOR[profile.frequency]}22`, color: FREQ_COLOR[profile.frequency], fontWeight: 700 }}>
           {FREQ_LABEL[profile.frequency]}
         </span>
@@ -302,14 +388,19 @@ function DetailPanel({ profile }: { profile: DividendProfile }) {
             c: profile.dividendYield != null && profile.dividendYield > 0.08 ? C.orange : C.green },
           { k: cur === 'KRW' ? '연간 배당금(₩)' : '연간 배당금',
             v: fmtCurrency(profile.annualDividend, cur), c: C.text },
+          // 🏛️ 우선주는 이 두 축이 존재하지 않는다 — '—'로 두면 '없는 데이터'로 오해되므로 문구를 바꾼다
           { k: '배당성향',
-            v: pct(profile.payoutRatio),
-            c: profile.payoutRatio != null && profile.payoutRatio > 0.8 ? C.orange : C.gold },
-          { k: '연속 성장', v: profile.consecutiveYears != null ? profile.consecutiveYears + '년' : '—', c: C.cyan },
+            v: profile.preferred ? '해당 없음' : pct(profile.payoutRatio),
+            c: profile.preferred ? C.textLow : profile.payoutRatio != null && profile.payoutRatio > 0.8 ? C.orange : C.gold },
+          { k: profile.preferred ? '쿠폰(고정)' : '연속 성장',
+            v: profile.preferred
+              ? (profile.preferred.isVariableRate ? '변동' : profile.preferred.couponPct != null ? profile.preferred.couponPct.toFixed(2) + '%' : '—')
+              : profile.consecutiveYears != null ? profile.consecutiveYears + '년' : '—',
+            c: profile.preferred ? '#a78bfa' : C.cyan },
         ].map(m => (
           <div key={m.k} style={{ padding: '10px 12px', borderRadius: 10, background: C.card2, border: `1px solid ${C.border}` }}>
             <div style={{ fontSize: 9.5, color: C.textLow, marginBottom: 4 }}>{m.k}</div>
-            <div style={{ fontSize: 15, fontWeight: 800, fontFamily: 'monospace', color: m.c }}>{m.v}</div>
+            <div style={{ fontSize: m.v === '해당 없음' ? 12 : 15, fontWeight: 800, fontFamily: 'monospace', color: m.c }}>{m.v}</div>
           </div>
         ))}
       </div>
@@ -322,8 +413,8 @@ function DetailPanel({ profile }: { profile: DividendProfile }) {
         </div>
       )}
 
-      {/* 🌱 배당 성장 프로필 (성장률·안전성·Yield on Cost·바벨) */}
-      <GrowthPanel profile={profile} />
+      {/* 🏛️ 우선주면 전용 패널로 갈아끼운다 — 성장 패널은 축 자체가 성립하지 않는다 */}
+      {profile.preferred ? <PreferredPanel profile={profile} /> : <GrowthPanel profile={profile} />}
 
       {/* 배당 함정 경고 */}
       {isTrap && <TrapWarningCard profile={profile} />}
@@ -343,7 +434,7 @@ function DetailPanel({ profile }: { profile: DividendProfile }) {
 export default function DividendExplorer() {
   const [activePreset, setActivePreset] = useState<PresetKey>('aristocrat')
   const [presetCache, setPresetCache]   = useState<Record<string, DividendProfile>>({})
-  const [presetLoading, setPresetLoading] = useState<Record<PresetKey, boolean>>({ aristocrat: false, growth: false, monthly: false, highdiv: false })
+  const [presetLoading, setPresetLoading] = useState<Record<PresetKey, boolean>>({ aristocrat: false, growth: false, monthly: false, highdiv: false, preferred: false })
   const [query, setQuery]       = useState('')
   const [selected, setSelected] = useState<DividendProfile | null>(null)
   const [searching, setSearching] = useState(false)

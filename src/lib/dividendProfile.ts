@@ -3,11 +3,13 @@
 //   Yahoo quoteSummary + 배당 지급 이력(chart events=div). 캐싱은 호출부(라우트)에서.
 import { getTrueFcf } from '@/lib/trueFcf'          // 💵 FCF 분자 SSOT(현금흐름표 OCF−CapEx)
 import { normalizeCashflow } from '@/lib/finCurrency' // 💱 재무통화→거래통화(배당총액과 같은 잣대로)
+import { analyzePreferred, preferredTrapReasons, isPreferredTrap, type PreferredInfo } from '@/lib/preferredStock' // 🏛️ 우선주 판정 SSOT
 
 /** 배당 프로필 per-ticker 캐시 키 SSOT — writer(dividend-explorer)와 reader(dividend-portfolio)가 공유.
  *  ⚠️ 상수로 묶지 않으면 writer만 범프됐을 때 reader 가 옛 키를 읽어 조용히 옛 값을 서빙한다(v7→v8에서 실제로 발견).
- *  v8: 💵 FCF 를 trueFcf SSOT로 교체 — fcfCover·안전등급이 1.0 경계를 넘나든다 */
-export const DIV_PROFILE_KEY = (ticker: string, market: string) => `div-explorer-v8:${ticker}:${market}`
+ *  v8: 💵 FCF 를 trueFcf SSOT로 교체 — fcfCover·안전등급이 1.0 경계를 넘나든다
+ *  v9: 🏛️ 우선주 축 신설 — `preferred` 필드 추가(옛 응답이면 undefined) + 해당 없는 축이 null 로 바뀐다 */
+export const DIV_PROFILE_KEY = (ticker: string, market: string) => `div-explorer-v9:${ticker}:${market}`
 
 // ── 배당 주기 판정 ────────────────────────────────────────────────────────────
 const MONTHLY_TICKERS = new Set(['O', 'MAIN', 'STAG', 'AGNC', 'NLY', 'GLAD', 'HTGC', 'GOOD',
@@ -69,6 +71,9 @@ export interface DividendProfile {
   fcfCover: number | null
   isReit: boolean
   affoNote: boolean
+  /** 🏛️ 우선주면 상세, 아니면 null. 이 값이 있으면 보통주 배당 축(연속인상·성향·FCF커버·YoC·안전점수)은
+   *  '데이터 없음'이 아니라 **해당 없음**이다 — 화면이 그렇게 말할 수 있도록 구분자로 쓴다. */
+  preferred: PreferredInfo | null
   asOf: string
 }
 
@@ -214,7 +219,7 @@ export function emptyProfile(ticker: string, market: string): DividendProfile {
     dividendGrade: gradeOf(ARISTOCRAT_YEARS[ticker] ?? null), streakEstimated: false,
     safetyScore: null, safetyGrade: null, style: null,
     yocProjRate: null, yoc5y: null, yoc10y: null, fcfCover: null,
-    isReit: REIT_TICKERS.has(ticker), affoNote: REIT_TICKERS.has(ticker),
+    isReit: REIT_TICKERS.has(ticker), affoNote: REIT_TICKERS.has(ticker), preferred: null,
     asOf: new Date().toISOString(),
   }
 }
@@ -243,6 +248,10 @@ export async function getDividendProfile(ticker: string, market: string): Promis
 
     const sd = q?.summaryDetail ?? {}, pr = q?.price ?? {}, fd = q?.financialData ?? {}
     const ks = q?.defaultKeyStatistics ?? {}, ap = q?.assetProfile ?? {}
+    // 🏛️ 우선주 판정용 원본 이름 — shortName(시리즈 포함)과 longName(발행사)을 **분리해** 넘긴다.
+    //    실측상 우선주의 longName 은 보통주와 완전히 동일해서("Strategy Inc") 합쳐 쓰면 판정이 불가능하다.
+    const rawShort = pr.shortName != null ? String(pr.shortName) : null
+    const rawLong = pr.longName != null ? String(pr.longName) : null
     const name = String(pr.shortName || pr.longName || tk).replace(/\.(KS|KQ)$/i, '')
     const price = pick(pr.regularMarketPrice) ?? pick(sd.regularMarketPrice) ?? pick(sd.previousClose)
     const currency = String(pr.currency || (mkt === 'KR' ? 'KRW' : 'USD'))
@@ -294,9 +303,20 @@ export async function getDividendProfile(ticker: string, market: string): Promis
     const isGrower = dividendGrade != null && hist.cagr5 != null && hist.cagr5 >= 0.03
 
     const isReit = detectReit(tk, ap?.industry ?? null, ap?.sector ?? null)
+    // 🏛️ 우선주 판정 — 아래 축들의 성립 여부 자체가 여기서 갈린다
+    const preferred = analyzePreferred({
+      ticker: tk, market: mkt, shortName: rawShort, longName: rawLong,
+      quoteType: pr.quoteType != null ? String(pr.quoteType) : null,
+      marketCap: pick(sd.marketCap) ?? pick(pr.marketCap),
+      annualDividend: dr, price,
+    })
+
     const shares = pick(ks.sharesOutstanding)
     const annualDivTotal = (dr != null && shares != null && shares > 0) ? dr * shares : null
-    const fcfCover = (!isReit && fcf != null && annualDivTotal != null && annualDivTotal > 0) ? Math.round((fcf / annualDivTotal) * 100) / 100 : null
+    // ⚠️ 우선주는 sharesOutstanding 에 **발행사 값이 섞여 온다**(실측: NLY-PF 13.1억주 > 보통주 NLY 7.5억주).
+    //    그대로 나누면 분자는 회사 전체 FCF, 분모는 그 시리즈 배당 — 다른 것을 재게 되고, 값이 온 종목만
+    //    혼자 감점돼 **같은 발행사 4종의 등급이 갈렸다**(STRD 28 vs 나머지 50). 그래서 아예 계산하지 않는다.
+    const fcfCover = (!isReit && !preferred && fcf != null && annualDivTotal != null && annualDivTotal > 0) ? Math.round((fcf / annualDivTotal) * 100) / 100 : null
 
     const { score: safetyScore, grade: safetyGrade } = computeSafety({ payout: payoutRatio, fcfCover, streak: consecutiveYears, cagr: hist.cagr5, isDerivative, isReit })
     const style = styleOf(dy, hist.cagr5)
@@ -308,21 +328,42 @@ export async function getDividendProfile(ticker: string, market: string): Promis
     const paymentMonths = hist.months.length ? hist.months
       : (MONTHLY_TICKERS.has(tk) ? [1,2,3,4,5,6,7,8,9,10,11,12] : mkt === 'KR' ? [12] : [3,6,9,12])
     const frequency = inferFrequency(tk, hist.months.length)
-    const trapReasons = buildTrapReasons(tk, payoutRatio, fcf, isDerivative, isReit, isGrower)
+    const trapReasons = preferred
+      ? preferredTrapReasons(preferred, dy)
+      : buildTrapReasons(tk, payoutRatio, fcf, isDerivative, isReit, isGrower)
+
+    // 🏛️ 우선주는 쿠폰이 고정(또는 회사가 정하는 변동)이라 **보통주 배당 축이 존재하지 않는다.**
+    //    0이나 '데이터 없음'으로 두면 "배당을 못 올리는 나쁜 배당주"로 읽히므로 null 로 내려
+    //    화면이 '해당 없음'이라고 말하게 한다(구분자는 preferred 필드).
+    //    안전성 점수도 입력이 전부 비어 항상 기본값 50 '보통'이 나온다 → 근거 없는 등급이라 매기지 않는다(⛔가짜 정밀).
+    const naPref = preferred != null
 
     return {
       ticker: tk, name, market: mkt, currency, price,
       dividendYield: dy != null ? Math.round(dy * 10000) / 10000 : null,
       annualDividend: dr != null ? Math.round(dr * 100) / 100 : null,
-      payoutRatio, fcf, consecutiveYears, frequency, paymentMonths,
-      isDerivativeEtf: isDerivative, isTrapWarning: trapReasons.length > 0, trapReasons,
-      dividendGrowth5y: hist.cagr5 != null ? Math.round(hist.cagr5 * 10000) / 10000 : null,
-      dividendGrowth1y: hist.g1 != null ? Math.round(hist.g1 * 10000) / 10000 : null,
-      dividendGrade, streakEstimated,
-      safetyScore: dy != null || payoutRatio != null ? safetyScore : null,
-      safetyGrade: dy != null || payoutRatio != null ? safetyGrade : null,
-      style, yocProjRate: hist.cagr5 != null ? yocRate : null, yoc5y, yoc10y, fcfCover,
-      isReit, affoNote: isReit, asOf: new Date().toISOString(),
+      payoutRatio: naPref ? null : payoutRatio,
+      fcf: naPref ? null : fcf,
+      consecutiveYears: naPref ? null : consecutiveYears,
+      frequency, paymentMonths,
+      isDerivativeEtf: isDerivative,
+      isTrapWarning: naPref ? isPreferredTrap(preferred!, dy) : trapReasons.length > 0,
+      trapReasons,
+      dividendGrowth5y: naPref || hist.cagr5 == null ? null : Math.round(hist.cagr5 * 10000) / 10000,
+      dividendGrowth1y: naPref || hist.g1 == null ? null : Math.round(hist.g1 * 10000) / 10000,
+      dividendGrade: naPref ? null : dividendGrade,
+      streakEstimated: naPref ? false : streakEstimated,
+      safetyScore: naPref ? null : (dy != null || payoutRatio != null ? safetyScore : null),
+      safetyGrade: naPref ? null : (dy != null || payoutRatio != null ? safetyGrade : null),
+      style: naPref ? null : style,
+      yocProjRate: naPref || hist.cagr5 == null ? null : yocRate,
+      yoc5y: naPref ? null : yoc5y,
+      yoc10y: naPref ? null : yoc10y,
+      fcfCover,
+      isReit: naPref ? false : isReit,
+      affoNote: naPref ? false : isReit,
+      preferred,
+      asOf: new Date().toISOString(),
     }
   } catch (e) {
     console.warn('[dividendProfile]', tk, (e as Error).message?.slice(0, 50))
