@@ -59,8 +59,15 @@ check(e1982?.outcome === 'already_in', `1982년 역전은 '이미 침체 중'으
 const e2025 = r.history.find(h => h.from.startsWith('2025'))
 check(e2025?.outcome === 'too_soon', `2025년 역전은 '판단 유보'로 분류됨 (실제 ${e2025?.outcome})`)
 check(L.noRecession === cnt('false_alarm'), `오경보 집계(${L.noRecession})가 실제 false_alarm 건수(${cnt('false_alarm')})와 일치`)
+// 🔴 표와 통계의 잣대 일치 — 0개월(2020 코로나)이 빠져 표 12건 vs 통계 11건이던 적이 있다(2026-08-23)
+const leadArr = r.history.filter(h => h.leadMonths != null).map(h => h.leadMonths)
+check(L.n === cnt('recession'), `통계 표본(${L.n}) = 침체 분류 건수(${cnt('recession')}) — 표와 요약이 같은 것을 센다`)
+check(L.minMonths === Math.min(...leadArr) && L.maxMonths === Math.max(...leadArr),
+  `리드타임 범위 ${L.minMonths}~${L.maxMonths} = 실제 ${Math.min(...leadArr)}~${Math.max(...leadArr)}`)
 check(L.n >= 4 && L.medianMonths != null, '리드타임 표본이 4건 이상')
-check(r.history.every(h => h.days >= M.RED_MIN_DAYS), `모든 에피소드가 ${M.RED_MIN_DAYS}거래일 이상(노이즈 제거됨)`)
+// ⚠️ 경보 임계(RED_MIN_DAYS=20)와 이력 임계(HISTORY_MIN_DAYS=10)는 **역할이 다른 상수**다.
+//    이력 표는 "경보로는 못 잡는 짧은 역전"도 보여주는 게 목적이므로 이력 임계로 검사해야 한다.
+check(r.history.every(h => h.days >= M.HISTORY_MIN_DAYS), `모든 에피소드가 ${M.HISTORY_MIN_DAYS}거래일 이상(하루짜리 노이즈 제거됨)`)
 // 경보 남발 검사 — 지금이 정상이면 alert 가 red 이면 안 된다
 const minSpread = Math.min(...r.spreads.map(s => s.value))
 check((minSpread >= M.FLAT_PP) === (r.alert === 'none'), `경보 레벨이 스프레드와 정합 (최소 ${minSpread}%p → ${r.alert})`)

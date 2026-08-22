@@ -151,7 +151,9 @@ export default function YieldCurvePanel() {
         </table>
       </div>
       <div style={{ fontSize: FS.tiny, color: TK.sub4, marginTop: SP.sm, lineHeight: 1.7 }}>
-        ⚠️ <b style={{ color: TK.sub2 }}>역전은 방향 참고이지 타이밍 도구가 아닙니다.</b> 리드타임이 {d.leadSummary.minMonths}~{d.leadSummary.maxMonths}개월로 편차가 크고,
+        ⚠️ <b style={{ color: TK.sub2 }}>역전은 방향 참고이지 타이밍 도구가 아닙니다.</b> 리드타임이 {d.leadSummary.minMonths}~{d.leadSummary.maxMonths}개월로 편차가 크고
+        {/* 최소가 0개월이면 그냥 두면 오해를 부른다 — 그게 무슨 상황이었는지 말해준다 */}
+        {d.leadSummary.minMonths === 0 && <>(가장 짧았던 <b style={{ color: TK.sub2 }}>0개월</b>은 2020년 코로나로, 역전과 침체가 <b style={{ color: TK.sub2 }}>거의 동시에</b> 일어나 미리 알려주는 역할을 하지 못한 경우입니다)</>},
         {' '}<b style={{ color: TK.amber400 }}>2022~24년 역전은 537일·최심 −1.89%p로 역사상 손꼽히게 깊고 길었는데도 침체가 오지 않았습니다.</b>
         {' '}침체 판정(NBER)은 1년 가까이 지나서 발표되므로 실시간 경보로는 쓸 수 없어, 실시간 대용으로 삼(Sahm) 지표를 함께 봅니다
         {d.sahm && <> — 현재 <b style={{ color: d.sahm.triggered ? TK.red400 : TK.sub2 }}>{d.sahm.v.toFixed(2)}</b>({d.sahm.date}, 발동선 0.50) {d.sahm.triggered ? '⚠️ 발동' : '미발동'}</>}.

@@ -7,9 +7,10 @@ const FRED = 'https://api.stlouisfed.org/fred/series/observations'
 
 /** 캐시 키 SSOT — writer(/api/yield-curve)와 reader가 공유한다.
  *  ⚠️ 라우트 파일은 임의 export 를 허용하지 않으므로(Next.js 타입 제약) 키는 lib 에 둔다. */
-// v3: 🔴 임계 10→20거래일(2025년 얕은 역전 3건이 red 17일 울리는 남발 실측) — 경보 레벨·문구가 바뀐다
+// v4: 리드타임 통계에서 0개월(2020 코로나)이 빠져 표 12건 vs 통계 11건으로 잣대가 어긋나던 것 수정
+// v3: 🔴 임계 10→20거래일(2025년 얕은 역전 3건이 red 17일 울리는 남발 실측)
 // v2: 역전 결말을 4분류(침체/오경보/이미 침체 중/판단 유보)로 쪼갬
-export const YIELD_CURVE_KEY = (dateKey: string) => `yield-curve-v3:${dateKey}`
+export const YIELD_CURVE_KEY = (dateKey: string) => `yield-curve-v4:${dateKey}`
 
 export interface FredPoint { date: string; v: number }
 
@@ -265,7 +266,10 @@ export async function buildYieldCurve(): Promise<YieldCurveResult | null> {
     merged.push({ ...e })
   }
   const history = merged.map(withRec)
-  const leads = history.filter(h => h.leadMonths != null && h.leadMonths > 0).map(h => h.leadMonths!).sort((a, b) => a - b)
+  // ⚠️ `> 0` 으로 거르면 **표(12건)와 통계(11건)의 잣대가 어긋난다**(2026-08-23 전수검증에서 발각).
+  //    2020-02 역전은 리드타임 0개월 — 코로나 침체와 사실상 동시에 일어나 선행 신호가 무의미했던 사례다.
+  //    이걸 빼면 "최소 5개월"이 거짓이 되고, 무엇보다 **가장 중요한 반례가 통계에서 사라진다.**
+  const leads = history.filter(h => h.leadMonths != null && h.leadMonths >= 0).map(h => h.leadMonths!).sort((a, b) => a - b)
   const median = leads.length ? (leads.length % 2 ? leads[(leads.length - 1) / 2] : Math.round((leads[leads.length / 2 - 1] + leads[leads.length / 2]) / 2)) : null
   const leadSummary = {
     n: leads.length, medianMonths: median,
