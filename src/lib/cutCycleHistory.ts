@@ -57,8 +57,12 @@ export interface CutCycle {
   inRecessionAtStart: boolean
   kind: CutKind
   kindNote: string
-  /** 결과(원인과 분리) — 인하 후 12개월 내 침체가 시작됐나 */
-  recessionWithin12m: string | null
+  /** 결과(원인과 분리) — 인하 후 RECESSION_WINDOW_M 개월 내에 침체가 시작됐나.
+   *  ⚠️ 라벨과 창을 반드시 같이 쓴다. 예전엔 창이 400일(13.1개월)인데 화면엔 "12개월 내"라고 적혀
+   *     1989-07 사례(13개월)가 열 제목과 어긋났다(2026-08-22 화면검증). */
+  recessionAfter: string | null
+  /** 인하 시작 → 그 침체까지 개월 수 */
+  recessionAfterMonths: number | null
   /** 인하 시작 후 S&P500 성과(%) — 1985년 이후만(^GSPC 이력 한계) */
   spx6m: number | null
   spx12m: number | null
@@ -97,6 +101,8 @@ const avg = (a: number[]) => a.length ? Math.round((a.reduce((s, v) => s + v, 0)
 
 /** 실업률 12개월 변화 임계 — Sahm 룰(0.5%p)과 같은 잣대를 쓴다(잣대를 새로 만들지 않는다) */
 export const UNRATE_STRESS_PP = 0.5
+/** 인하 후 '침체가 뒤따랐다'고 볼 창(개월) — 화면 라벨과 반드시 같은 값을 쓴다 */
+export const RECESSION_WINDOW_M = 18
 
 export async function buildCutCycles(): Promise<CutCycleResult | null> {
   const [ff, rec, un, dgs10, spx] = await Promise.all([
@@ -146,7 +152,8 @@ export async function buildCutCycles(): Promise<CutCycleResult | null> {
 
     const t0 = new Date(s.date).getTime()
     const near = rec.find((r, k) => k > 0 && r.v === 1 && rec[k - 1].v === 0
-      && (new Date(r.date).getTime() - t0) / 864e5 > 0 && (new Date(r.date).getTime() - t0) / 864e5 <= 400)
+      && (new Date(r.date).getTime() - t0) / 864e5 > 0
+      && (new Date(r.date).getTime() - t0) / 864e5 <= RECESSION_WINDOW_M * 30.44)
 
     const d10a = dgs10.find(x => x.date >= s.date)
     const tgt = new Date(t0 + 12 * 30.44 * 864e5).toISOString().slice(0, 10)
@@ -155,7 +162,8 @@ export async function buildCutCycles(): Promise<CutCycleResult | null> {
     return {
       start: s.date, fedRate: s.v, unrate: u0, unrateChg12: du, inRecessionAtStart: inRec,
       kind, kindNote,
-      recessionWithin12m: near?.date ?? null,
+      recessionAfter: near?.date ?? null,
+      recessionAfterMonths: near ? Math.round((new Date(near.date).getTime() - t0) / 864e5 / 30.44) : null,
       spx6m: monthsAfter(spx, s.date, 6), spx12m: monthsAfter(spx, s.date, 12), spx24m: monthsAfter(spx, s.date, 24),
       dgs10Chg12: d10a && d10b && d10b.date > d10a.date ? Math.round((d10b.v - d10a.v) * 100) / 100 : null,
     }
@@ -179,7 +187,7 @@ export async function buildCutCycles(): Promise<CutCycleResult | null> {
       medSpx12: enough ? med(s12) : null,
       winRate12: enough ? Math.round((s12.filter(v => v > 0).length / s12.length) * 100) : null,
       avgDgs10Chg12: d10.length >= MIN_STAT_N ? avg(d10) : null,
-      recessionRate: g.length >= MIN_STAT_N ? Math.round((g.filter(c => c.recessionWithin12m != null).length / g.length) * 100) : null,
+      recessionRate: g.length >= MIN_STAT_N ? Math.round((g.filter(c => c.recessionAfter != null).length / g.length) * 100) : null,
       /** 통계를 못 낸 이유 — 빈칸을 '데이터 없음'으로 오해하지 않도록 */
       suppressed: !enough ? `주가 표본 ${s12.length}건뿐이라 평균·승률을 내지 않았습니다(${kind === 'crisis' ? '위기성 인하는 대부분 1985년 이전이라 S&P500 이력이 없습니다' : '표본 부족'}).` : null,
     }

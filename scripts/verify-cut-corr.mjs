@@ -27,14 +27,14 @@ const check = (ok, msg) => { console.log(`  ${ok ? '✅' : '❌'} ${msg}`); if (
 const c = await CC.buildCutCycles()
 if (!c) { console.error('❌ buildCutCycles() null'); process.exit(1) }
 console.log(`═══ ① 인하 사이클 ${c.cycles.length}건 ═══`)
-console.log('시작월        금리   실업률 Δ12M   침체중 유형        12M내침체   SPX 6M/12M/24M      10Y Δ12M')
+console.log('시작월        금리   실업률 Δ12M   침체중 유형        이후침체    SPX 6M/12M/24M      10Y Δ12M')
 for (const x of c.cycles) {
   const p = (v) => v == null ? '   —  ' : String((v >= 0 ? '+' : '') + v).padStart(6)
-  console.log(`${x.start}  ${String(x.fedRate).padEnd(6)} ${String(x.unrate ?? '—').padEnd(5)} ${String(x.unrateChg12 ?? '—').padStart(5)}  ${x.inRecessionAtStart ? ' Y ' : ' N '}   ${(x.kind === 'insurance' ? '🟢보험성' : '🔴위기성')}  ${(x.recessionWithin12m ?? '—').padEnd(11)} ${p(x.spx6m)}${p(x.spx12m)}${p(x.spx24m)}   ${p(x.dgs10Chg12)}`)
+  console.log(`${x.start}  ${String(x.fedRate).padEnd(6)} ${String(x.unrate ?? '—').padEnd(5)} ${String(x.unrateChg12 ?? '—').padStart(5)}  ${x.inRecessionAtStart ? ' Y ' : ' N '}   ${(x.kind === 'insurance' ? '🟢보험성' : '🔴위기성')}  ${(x.recessionAfter ?? '—').padEnd(11)} ${p(x.spx6m)}${p(x.spx12m)}${p(x.spx24m)}   ${p(x.dgs10Chg12)}`)
 }
 console.log('\n유형별 요약')
 for (const s of c.summary) {
-  console.log(`  ${s.label} — ${s.n}건(주가표본 ${s.nWithSpx}건) · 12개월 SPX 평균 ${s.avgSpx12}% 중위 ${s.medSpx12}% 승률 ${s.winRate12}% · 10Y ${s.avgDgs10Chg12}%p · 12개월내 침체율 ${s.recessionRate}%`)
+  console.log(`  ${s.label} — ${s.n}건(주가표본 ${s.nWithSpx}건) · 12개월 SPX 평균 ${s.avgSpx12}% 중위 ${s.medSpx12}% 승률 ${s.winRate12}% · 10Y ${s.avgDgs10Chg12}%p · 창내 침체율 ${s.recessionRate}%`)
 }
 console.log(`\n현재 사이클: ${c.current?.start} (${c.current?.kind})`)
 
@@ -73,3 +73,5 @@ check(b.notes.some(n => n.includes('2022')), '2022년 통념 붕괴 캐비엇 �
 rmSync(out, { recursive: true, force: true })
 console.log(`\n${fail === 0 ? '✅ 전부 통과' : `❌ 실패 ${fail}건`}`)
 process.exitCode = fail === 0 ? 0 : 1
+
+
