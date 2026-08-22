@@ -4,9 +4,15 @@
  * LeverageRiskSimulator — 레버리지 위험성 교육 시뮬레이터
  *
  * 핵심 교육 목표:
- *   1. 자본시장연구원 통계: 일반 ETF +25% vs 고배율 레버리지 -33%
+ *   1. 변동성 잠식 수학: 하루 ±10% × 20거래일이면 1배 −9.6% vs 3배 −61.1% — 화면 숫자는 계산으로 도출(제1원칙)
  *   2. 횡보장의 덫: 음의 복리(변동성 잠식) 수식 직접 체험
  *   3. 피터 린치 원칙 기반 위험 감내도 자가 진단
+ *
+ * ⚠️ 출처 정정(2026-08-23): 예전 카드의 "자본시장연구원 통계 — 일반 ETF +25% vs 고배율 레버리지 −33%
+ *    투자자 평균 수익률"은 해당 기관 연구보고서 24-02 「ETF 시장의 개인투자자」 원문(74p) 전수 검색 결과
+ *    **존재하지 않는 인용**이라 제거했다(사용자 팩트체크로 발각). −33%는 삼성자산운용 교육 예시
+ *    (±10%×20거래일, 2배 레버리지)와 일치하는 '수학값'이지 투자자 통계가 아니었다.
+ *    실존하는 근거는 아래 인용 스트립의 24-02 실계좌 분석 결론(ETF 효과 −3.33%p·주로 인버스)뿐이다.
  */
 
 import { useState, useMemo } from 'react'
@@ -194,6 +200,13 @@ export default function LeverageRiskSimulator() {
   // 시뮬레이션 연산
   const sim = useMemo(() => simulate(dailyPct, days, scenario), [dailyPct, days, scenario])
 
+  // 상단 카드용 변동성 잠식 수치 — 하루 ±10%가 20거래일(10쌍) 반복될 때. 리터럴로 박지 않고 계산한다(제1원칙).
+  //  1배 (0.99)^10 = −9.6% · 2배 (0.96)^10 = −33.5% · 3배 (0.91)^10 = −61.1%
+  const chop = useMemo(() => {
+    const loss = (lev: number) => (Math.pow((1 + 0.1 * lev) * (1 - 0.1 * lev), 10) - 1) * 100
+    return { base: loss(1), lev2: loss(2), lev3: loss(3) }
+  }, [])
+
   // 횡보장 전용: 1사이클 수식 카드 (교육용)
   const oneCycle = useMemo(() => {
     const x = dailyPct / 100
@@ -241,54 +254,58 @@ export default function LeverageRiskSimulator() {
         </div>
       </div>
 
-      {/* ── SECTION 1: 자본시장연구원 통계 카드 ────────────────────────────── */}
+      {/* ── SECTION 1: 변동성 잠식 — 같은 시장, 배수만 다를 때 ──────────────────
+          ⚠️ 예전의 "자본시장연구원 통계 +25%/−33% 투자자 평균 수익률" 카드는 원문에 없는 인용이라
+             제거했다(2026-08-23, 파일 상단 주석). 아래 숫자는 통계가 아니라 **수학**이며 코드로 계산한다. */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        {/* 일반 ETF */}
+        {/* 기초지수 1배 */}
         <div style={{
           padding: '18px 20px', borderRadius: 12,
           background: C.greenDim, border: `1px solid rgba(34,197,94,0.25)`,
         }}>
           <div style={{ fontSize: 10, color: C.textLow, fontWeight: 700, letterSpacing: '0.08em', marginBottom: 10 }}>
-            자본시장연구원 통계 · 해외주식 일반 ETF
+            횡보장 수학 · 기초지수(1배)
           </div>
           <div style={{ fontSize: 36, fontWeight: 900, color: C.green, fontFamily: 'monospace', marginBottom: 4 }}>
-            +25%
+            {chop.base.toFixed(1)}%
           </div>
           <div style={{ fontSize: 12, color: C.textSub, lineHeight: 1.6 }}>
-            🟢 꾸준히 분산·장기 보유한<br />
-            일반 ETF 투자자 평균 수익률
+            🟢 하루 +10%·−10%를 20거래일 반복 —<br />
+            제자리로 온 것 같아도 이만큼 줄어 있습니다
           </div>
         </div>
 
-        {/* 고배율 레버리지 */}
+        {/* 3배 레버리지 */}
         <div style={{
           padding: '18px 20px', borderRadius: 12,
           background: C.redDim, border: `1px solid rgba(239,68,68,0.3)`,
         }}>
           <div style={{ fontSize: 10, color: C.textLow, fontWeight: 700, letterSpacing: '0.08em', marginBottom: 10 }}>
-            자본시장연구원 통계 · 고배율 레버리지 ETF
+            같은 시장 · 3배 레버리지
           </div>
           <div style={{ fontSize: 36, fontWeight: 900, color: C.red, fontFamily: 'monospace', marginBottom: 4 }}>
-            -33%
+            {chop.lev3.toFixed(1)}%
           </div>
           <div style={{ fontSize: 12, color: C.textSub, lineHeight: 1.6 }}>
-            🔴 시장 타이밍을 노린<br />
-            고배율 레버리지 투자자 평균 수익률
+            🔴 방향을 안 틀려도 흔들림 자체가 원금을 깎습니다<br />
+            (2배는 {chop.lev2.toFixed(1)}%) — 이것이 음의 복리
           </div>
         </div>
       </div>
 
-      {/* 린치 경고 */}
+      {/* 실계좌 연구 근거 — 실존 확인된 인용만(연구보고서 24-02 원문 대조 완료) */}
       <div style={{
         padding: '12px 18px', borderRadius: 10,
         background: C.goldDim, border: `1px solid rgba(245,158,11,0.3)`,
         display: 'flex', gap: 10, alignItems: 'flex-start',
       }}>
-        <span style={{ fontSize: 18, flexShrink: 0 }}>💡</span>
+        <span style={{ fontSize: 18, flexShrink: 0 }}>📄</span>
         <div style={{ fontSize: 12, color: C.gold, lineHeight: 1.7, fontWeight: 500 }}>
-          <strong>&ldquo;시장의 타이밍을 맞추려는 3배 레버리지는 결국 음의 복리로 수렴합니다.&rdquo;</strong>
+          <strong>실계좌 연구도 같은 방향입니다</strong>
           <span style={{ color: C.textSub, fontWeight: 400 }}>
-            {' '}— 횡보하는 시장에서 레버리지는 방향이 맞아도 손실이 납니다.
+            {' '}— 자본시장연구원 연구보고서 24-02 「ETF 시장의 개인투자자」(2024, 김준석·김민기 · 개인 13만 6천 명 실계좌)는
+            레버리지·인버스 ETF를 &ldquo;장기투자 수단으로 부적합한 단기·투기적 목적의 상품&rdquo;으로 평가했고,
+            ETF 보유·거래는 투자성과에 부정적(표본기간 누적 <b style={{ color: C.gold }}>−3.33%p</b> · 주로 인버스에서)이었습니다.
           </span>
         </div>
       </div>
