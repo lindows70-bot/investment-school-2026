@@ -168,6 +168,26 @@ export default function HistoryPage() {
       const today = new Date().toISOString().split('T')[0]
       let reconciled = false
 
+      // 🔴 중복 자동동기화 정리 — **보유 루프 밖에서** 전 티커를 훑는다.
+      //    처음엔 보유 루프 안에 넣었는데, 그러면 **전량 매도된 종목이 순회조차 안 되어** 중복이 남는다
+      //    (2026-08-23 실측: GEV 는 전량 매도됐는데 유령 0.09주×2건이 그대로 있었다).
+      //    자동동기화는 티커당 정확히 1건이면 충분하다 — 보유 여부와 무관한 규칙이다.
+      {
+        const autoByTicker: Record<string, typeof txList> = {}
+        txList.filter(t => t.memo?.includes('자동 동기화')).forEach(t => {
+          const k = t.ticker.toUpperCase()
+          ;(autoByTicker[k] ??= []).push(t)
+        })
+        const dupIds = Object.values(autoByTicker).filter(v => v.length > 1).flatMap(v => v.slice(1).map(t => t.id))
+        if (dupIds.length > 0) {
+          await sb.from('transactions').delete().in('id', dupIds)
+          console.warn(`[History] 중복 자동동기화 ${dupIds.length}건 제거(보유·매도 종목 전체)`)
+          reconciled = true
+          // 이후 로직이 옛 목록을 보지 않도록 메모리에서도 제거
+          for (let i = txList.length - 1; i >= 0; i--) if (dupIds.includes(txList[i].id)) txList.splice(i, 1)
+        }
+      }
+
       for (const inv of invs) {
         const key     = inv.ticker.toUpperCase()
         const txTotal = txQtyByTicker[key]  ?? 0
@@ -186,17 +206,9 @@ export default function HistoryPage() {
           t => t.memo?.includes('자동 동기화') && t.ticker.toUpperCase() === key
         )
 
-        // 🔴 2026-08-23 발견: **중복 자동동기화가 쌓이고 있었다**(0131V0 9주×2건·0091P0 2주×2건·GEV 0.09주×2건).
-        //    `diff` 는 '수동 거래만' 집계한 값과 비교하므로 자동동기화를 아무리 넣어도 diff 가 줄지 않는다.
-        //    그래서 이 함수가 다시 돌 때마다(재방문·StrictMode 이중 실행) 같은 레코드를 또 넣었다.
-        //    → 같은 티커의 자동동기화는 **항상 정확히 1건**만 남긴다. 2건 이상이면 초과분을 먼저 지운다.
-        if (existingAutoSync.length > 1) {
-          const dupIds = existingAutoSync.slice(1).map(t => t.id)
-          await sb.from('transactions').delete().in('id', dupIds)
-          console.warn(`[History] ${inv.ticker}: 중복 자동동기화 ${dupIds.length}건 제거`)
-          reconciled = true
-        }
-
+        // ⓘ 중복 제거는 위쪽 전 티커 패스에서 이미 끝났다(보유하지 않는 종목까지 포함).
+        //   원인: `diff` 를 '수동 거래만' 집계와 비교하므로 자동동기화를 넣어도 diff 가 줄지 않아,
+        //   화면을 다시 열 때마다 같은 레코드를 또 넣었다(2026-08-23 실측 3종).
         const alreadyCorrect = existingAutoSync.some(
           t => Math.abs(t.price - correctPrice) < 1 && Math.abs(t.quantity - diff) < 0.001
         )
