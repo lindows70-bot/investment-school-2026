@@ -5,7 +5,8 @@ export const maxDuration = 120
 
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
-import { roneSeries, RONE_PRICE_TBL, RONE_PRICE_CLS, RONE_VOL_TBL, RONE_VOL_CLS, RONE_VOL_ITM } from '@/lib/rone'
+import { roneSeries, RONE_PRICE_TBL, RONE_PRICE_CLS, RONE_VOL_TBL, RONE_VOL_CLS, RONE_VOL_ITM, HONEYCOMB_KEY } from '@/lib/rone'
+import { bottleneck } from '@/lib/dataFreshness'   // 🕒 가격 ∩ 거래량 병목 규명(2026-08-24)
 
 export type HcPhase = 1 | 2 | 3 | 4 | 5 | 6
 export interface HcRegion {
@@ -19,7 +20,11 @@ export interface HcRegion {
   asOf: string
 }
 export interface HcPhaseChange { name: string; from: string; to: string; date: string }
-export interface HoneycombResult { regions: HcRegion[]; phaseCount: Record<HcPhase, number>; phaseChanges?: HcPhaseChange[]; asOf: string }
+/** 🕒 기준월은 **가격 ∩ 거래량**이라 늦은 쪽이 전체를 끌어내린다.
+ *  실측(2026-08-24): 가격지수 202607(지연 1개월) · 매매거래량 202606(지연 2개월) → 판정은 2026-06.
+ *  배지에 '매매가격지수'만 적으면 "가격이 1개월 늦는데 왜 2개월 전이냐"가 되어 오히려 오해가 커진다. */
+export interface HcFreshness { period: string | null; bottleneck: string | null; note: string; inputs: { label: string; period: string | null; statKey: string }[] }
+export interface HoneycombResult { regions: HcRegion[]; phaseCount: Record<HcPhase, number>; phaseChanges?: HcPhaseChange[]; freshness?: HcFreshness; asOf: string }
 
 // 벌집 6국면(고전 모형) — 가격 방향(3m, ±0.3% 밴드) × 거래량 방향(YoY 부호)
 // ⚠️ route 파일은 GET 등 지정 export만 허용 — 상수는 export 금지(fomcSchedule 교훈)
@@ -37,7 +42,7 @@ function judge(p: number, v: number): HcPhase {
 const ymNow = () => { const d = new Date(Date.now() + 9 * 3600_000); return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}` }
 
 export async function GET() {
-  const cacheKey = 're-honeycomb-v3'   // v3: vol3m·asOf 표시 창을 판정 창(nowM)으로 통일(미발행 달 0 혼입 과소 표기 수정) — reader: re-apt(국면 연동)
+  const cacheKey = HONEYCOMB_KEY   // 🔑 lib/rone SSOT — reader(re-apt·re-watchlist·cronHealth)가 같은 상수를 본다
   const cached = await getCache<HoneycombResult>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -45,6 +50,8 @@ export async function GET() {
   const names = Object.keys(RONE_PRICE_CLS).filter(n => RONE_VOL_CLS[n] != null)   // 두 테이블 공통 지역(전국+17시도)
   // 가격 4년(3m 변화 궤적용) · 거래량 5년(YoY 계산용) — 지역별 2콜, 동시성 4
   const regions: HcRegion[] = []
+  // 🕒 병목 규명용 — 전국의 두 원천 최신월을 그대로 들고 나온다(짐작 금지, 매 호출 실측)
+  let natPriceLast: string | null = null, natVolLast: string | null = null
   const queue = [...names]
   await Promise.all(Array.from({ length: 4 }, async () => {
     for (;;) {
@@ -55,6 +62,7 @@ export async function GET() {
         roneSeries(RONE_VOL_TBL, RONE_VOL_CLS[name], '202101', END, RONE_VOL_ITM),   // 동(호)수만(면적 행 오염 차단)
       ])
       if (price.length < 6 || vol.length < 15) continue
+      if (name === '전국') { natPriceLast = price[price.length - 1].time; natVolLast = vol[vol.length - 1].time }
       const pMap = new Map(price.map(x => [x.time, x.value]))
       const vMap = new Map(vol.map(x => [x.time, x.value]))
       const ymAdd = (ym: string, k: number) => { const y = +ym.slice(0, 4), m = +ym.slice(4) + k; const yy = y + Math.floor((m - 1) / 12); const mm = ((m - 1) % 12 + 12) % 12 + 1; return `${yy}${String(mm).padStart(2, '0')}` }
@@ -118,7 +126,15 @@ export async function GET() {
     if (recent?.changes?.length) phaseChanges = recent.changes
   } catch { /* graceful */ }
 
-  const result: HoneycombResult = { regions, phaseCount, phaseChanges, asOf: new Date().toISOString() }
+  // 🕒 판정 기준월이 왜 그 달인지 — 두 원천 중 늦은 쪽을 이름으로 밝힌다
+  const fInputs = [
+    { label: '매매가격지수', period: natPriceLast, statKey: 'ronePrice' },
+    { label: '아파트 매매거래량', period: natVolLast, statKey: 'roneVolume' },
+  ]
+  const bn = bottleneck(fInputs)
+  const freshness: HcFreshness = { period: bn.period, bottleneck: bn.label, note: bn.note, inputs: fInputs }
+
+  const result: HoneycombResult = { regions, phaseCount, phaseChanges, freshness, asOf: new Date().toISOString() }
   await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

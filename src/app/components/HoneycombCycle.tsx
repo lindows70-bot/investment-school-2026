@@ -3,7 +3,7 @@
 // 부동산판 로테이션 시계: 예측이 아닌 '지금 어느 국면인가' 관측(고전 벌집모형의 결정론 구현).
 import { useState, useEffect, useMemo } from 'react'
 import type { HoneycombResult, HcPhase } from '@/app/api/re-honeycomb/route'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 import DataFreshnessBadge from '@/app/components/DataFreshnessBadge'   // 🕒 기준월·지연 표시(2026-08-23)
 
 const CARD = TK.card, BORDER = TK.border
@@ -199,10 +199,24 @@ export default function HoneycombCycle() {
           <div style={{ background: `${PH[selRegion.phase].color}10`, border: `1px solid ${PH[selRegion.phase].color}44`, borderRadius: 9, padding: '8px 12px', marginTop: 8, fontSize: 11.5, lineHeight: 1.6 }}>
             <b style={{ color: PH[selRegion.phase].color }}>📍 {selRegion.name}: {PH[selRegion.phase].name}</b>
             <span style={{ color: TK.sub5 }}> — 가격 3개월 {selRegion.priceChg3m! > 0 ? '+' : ''}{selRegion.priceChg3m}% · 거래량 YoY {selRegion.volYoY! > 0 ? '+' : ''}{selRegion.volYoY}%(3개월 {selRegion.vol3m?.toLocaleString()}호) · {PH[selRegion.phase].desc}</span>
-            {/* 🕒 "기준 202606"만 쓰면 최신값으로 오해된다 — 지연이 정상인지까지 배지가 말한다(2026-08-23) */}
-            <span style={{ marginLeft: 6, display: 'inline-flex', verticalAlign: 'middle' }}>
-              <DataFreshnessBadge statKey="ronePrice" period={selRegion.asOf} compact />
-            </span>
+          </div>
+        )}
+        {/* 🕒 기준월이 왜 그 달인지 — 벌집은 가격 ∩ 거래량이라 늦은 쪽(거래량)이 전체를 끌어내린다.
+            배지 하나에 '매매가격지수'라고만 적으면 "가격은 1개월 늦는데 왜 2개월 전이냐"가 되어 오해가 커진다(2026-08-24 실측). */}
+        {d?.freshness && (
+          <div style={{ background: TK.bg0, border: `1px solid ${BORDER}`, borderRadius: 9, padding: '9px 12px', marginTop: 8 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 7, marginBottom: 4 }}>
+              <span style={{ fontSize: FS.body, color: TK.sub2, fontWeight: 700 }}>🕒 데이터 기준</span>
+              {d.freshness.inputs.map(i => (
+                <span key={i.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ fontSize: FS.body, color: TK.sub2 }}>{i.label}</span>
+                  <DataFreshnessBadge statKey={i.statKey} period={i.period} compact />
+                </span>
+              ))}
+            </div>
+            <div style={{ fontSize: FS.body, color: TK.sub2, lineHeight: 1.75 }}>
+              {d.freshness.note.split('**').map((s, k) => k % 2 ? <b key={k} style={{ color: TK.amber400 }}>{s}</b> : s)}
+            </div>
           </div>
         )}
       </div>

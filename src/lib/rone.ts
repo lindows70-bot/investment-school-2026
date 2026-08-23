@@ -27,6 +27,12 @@ export async function roneSeries(statblId: string, clsId: string | number | null
   } catch { return [] }
 }
 
+/** 🐝 벌집순환 결과 캐시 키 — **상수로 묶는다.**
+ *  v3 시절 writer 한 곳만 올리면 re-apt·re-watchlist·cronHealth 세 reader 가 조용히 옛 키를 읽는 구조였다
+ *  (CLAUDE.md '캐시' 항목의 최다 재발 함정). 여기 한 곳만 고치면 전부 따라오게 한다.
+ *  v4: freshness(가격 ∩ 거래량 병목) 필드 추가 — 2026-08-24 */
+export const HONEYCOMB_KEY = 're-honeycomb-v4'
+
 /** 거래현황 '동(호)수' 항목 ID(실측) */
 export const RONE_VOL_ITM = '100001'
 

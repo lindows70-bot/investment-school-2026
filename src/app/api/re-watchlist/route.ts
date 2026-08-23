@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getCache } from '@/lib/appCache'
 import { rtmsTradeMonth, rtmsRentMonth, LAWD_SIDO, LAWD_REGIONS, type AptDeal } from '@/lib/rtms'
+import { HONEYCOMB_KEY } from '@/lib/rone'   // 🔑 벌집 캐시 키는 lib SSOT(리터럴 금지 — reader 누락 재발 방지)
 
 export interface ReWatchItem {
   id: number; lawd: string; apt: string; area: number | null
@@ -48,7 +49,7 @@ export async function GET() {
   // 벌집 국면(캐시 읽기만)
   const phases: Record<string, string> = {}
   try {
-    const hc = await getCache<{ regions: { name: string; phaseName: string }[] }>('re-honeycomb-v3', 14 * 86400_000)
+    const hc = await getCache<{ regions: { name: string; phaseName: string }[] }>(HONEYCOMB_KEY, 14 * 86400_000)
     for (const r of hc?.regions ?? []) phases[r.name] = r.phaseName
   } catch { /* graceful */ }
 

@@ -11,6 +11,7 @@ import { ER_INDEX_KEY } from '@/lib/earningsReport'
 import { KR_EARN_INDEX_KEY } from '@/lib/krEarnings'
 import { FUND_CACHE_KEY } from '@/lib/guru13f'
 import { BREADTH_KEY } from '@/lib/marketBreadth'
+import { HONEYCOMB_KEY } from '@/lib/rone'
 
 const GRACE_MS = 45 * 60_000            // 실행 지연 유예(가장 긴 크론 300s의 9배 — 오탐 방지)
 const KST_MS = 9 * 3600_000
@@ -42,7 +43,7 @@ export const CRON_MONITORS: CronMonitor[] = [
   { id: 'schoolIndex', label: '학교 13F 인덱스', kst: '04:00', days: 'daily', artifact: { type: 'table', name: 'school_index_stock_snapshots' }, heal: '/api/cron/school-index' },
   { id: 'macroPicks', label: '거시경제 AI 유니버스(주간)', kst: '04:00', days: 'tue', artifact: { type: 'cache', key: () => UNIVERSE_KEY }, heal: null },
   { id: 'briefing', label: 'Jarvis 모닝 처방전', kst: '05:00', days: 'daily', artifact: { type: 'table', name: 'user_daily_briefings' }, heal: '/api/cron/morning-briefing', heavy: true },
-  { id: 'honeycomb', label: '부동산 벌집 워밍', kst: '05:30', days: 'daily', artifact: { type: 'cache', key: () => 're-honeycomb-v3' }, heal: '/api/re-honeycomb', ttlH: 24 },
+  { id: 'honeycomb', label: '부동산 벌집 워밍', kst: '05:30', days: 'daily', artifact: { type: 'cache', key: () => HONEYCOMB_KEY }, heal: '/api/re-honeycomb', ttlH: 24 },
   { id: 'blackrock', label: '블랙록 13F(주간)', kst: '06:00', days: 'tue', artifact: { type: 'cache', key: () => 'blackrock-13f-v2' }, heal: null },
   { id: 'timingWatch', label: '타점 전환 워처', kst: '08:30', days: 'daily', artifact: { type: 'cache', key: () => 'timing-watch-latest-v2' }, heal: '/api/cron/timing-watch' },
   // ⚠️ heavy = 유니버스 전수 캔들 스캔(수십~180초). 표시하지 않으면 예산이 얼마 안 남았는데도 시도해

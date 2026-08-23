@@ -99,6 +99,9 @@ export function freshness(inp: FreshnessInput): FreshnessResult {
  *  ⛔ 짐작해서 채우지 않는다. 새 지표를 넣을 땐 원천 최신월을 먼저 재고 등록한다. */
 export const TYPICAL_LAG: Record<string, { lagM: number; source: string }> = {
   ronePrice:   { lagM: 1, source: '한국부동산원 월간 매매가격지수' },
+  // 거래량은 신고·집계 때문에 가격지수보다 한 달 더 늦다 — 벌집순환(가격 ∩ 거래량)의 실제 병목이다.
+  //   실측 2026-08-24: 가격 202607(1개월) vs 거래량 202606(2개월).
+  roneVolume:  { lagM: 2, source: '한국부동산원 아파트 매매거래현황' },
   roneJeonse:  { lagM: 1, source: '한국부동산원 월간 전세가격지수' },
   ronePsy:     { lagM: 2, source: '국토연구원 부동산시장 소비심리지수' },
   roneConv:    { lagM: 2, source: '한국부동산원 전월세전환율' },
