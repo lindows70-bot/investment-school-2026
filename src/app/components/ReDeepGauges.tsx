@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { ComposedChart, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, ReferenceLine, Area } from 'recharts'
 import type { ReGaugeResult } from '@/app/api/re-gauge/route'
+import DataFreshnessBadge from '@/app/components/DataFreshnessBadge'   // 🕒 기준월·지연 표시(2026-08-23)
 import { TK } from '@/lib/theme'
 
 const CARD = TK.card, BORDER = TK.border
@@ -64,6 +65,25 @@ export default function ReDeepGauges() {
               <div style={{ color: TK.sub, fontSize: 10 }}>금리↓=근본가치↑ (중력 완화)</div>
             </div>
           </div>
+
+          {/* 🕒 기준월 + 교집합 병목 — "왜 지난달 값이냐"는 오해를 화면이 직접 해소한다(2026-08-23 교차검증) */}
+          {d.bubble.freshness && (
+            <div style={{ background: TK.bg0, border: `1px solid ${BORDER}`, borderRadius: 9, padding: '9px 12px', marginBottom: 10 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 7, marginBottom: 4 }}>
+                <span style={{ fontSize: 13, color: TK.sub2, fontWeight: 700 }}>🕒 데이터 기준</span>
+                {d.bubble.freshness.inputs.map(i => (
+                  <span key={i.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ fontSize: 13, color: TK.sub2 }}>{i.label}</span>
+                    {/* statKey 는 API 가 준다 — 라벨 문자열로 되짚으면 문구 수정 한 번에 기준이 바뀐다 */}
+                    <DataFreshnessBadge statKey={i.statKey} period={i.period} compact />
+                  </span>
+                ))}
+              </div>
+              <div style={{ fontSize: 13, color: TK.sub2, lineHeight: 1.75 }}>
+                {d.bubble.freshness.note.split('**').map((s, k) => k % 2 ? <b key={k} style={{ color: TK.amber400 }}>{s}</b> : s)}
+              </div>
+            </div>
+          )}
           <ResponsiveContainer width="100%" height={260}>
             <ComposedChart data={d.bubble.series} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={TK.grid} strokeDasharray="3 3" />

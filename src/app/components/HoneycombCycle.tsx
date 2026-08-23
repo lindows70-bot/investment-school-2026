@@ -4,6 +4,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import type { HoneycombResult, HcPhase } from '@/app/api/re-honeycomb/route'
 import { TK } from '@/lib/theme'
+import DataFreshnessBadge from '@/app/components/DataFreshnessBadge'   // 🕒 기준월·지연 표시(2026-08-23)
 
 const CARD = TK.card, BORDER = TK.border
 const PH: Record<HcPhase, { name: string; color: string; desc: string }> = {
@@ -197,7 +198,11 @@ export default function HoneycombCycle() {
         {selRegion && (
           <div style={{ background: `${PH[selRegion.phase].color}10`, border: `1px solid ${PH[selRegion.phase].color}44`, borderRadius: 9, padding: '8px 12px', marginTop: 8, fontSize: 11.5, lineHeight: 1.6 }}>
             <b style={{ color: PH[selRegion.phase].color }}>📍 {selRegion.name}: {PH[selRegion.phase].name}</b>
-            <span style={{ color: TK.sub5 }}> — 가격 3개월 {selRegion.priceChg3m! > 0 ? '+' : ''}{selRegion.priceChg3m}% · 거래량 YoY {selRegion.volYoY! > 0 ? '+' : ''}{selRegion.volYoY}%(3개월 {selRegion.vol3m?.toLocaleString()}호) · {PH[selRegion.phase].desc} · 기준 {selRegion.asOf}</span>
+            <span style={{ color: TK.sub5 }}> — 가격 3개월 {selRegion.priceChg3m! > 0 ? '+' : ''}{selRegion.priceChg3m}% · 거래량 YoY {selRegion.volYoY! > 0 ? '+' : ''}{selRegion.volYoY}%(3개월 {selRegion.vol3m?.toLocaleString()}호) · {PH[selRegion.phase].desc}</span>
+            {/* 🕒 "기준 202606"만 쓰면 최신값으로 오해된다 — 지연이 정상인지까지 배지가 말한다(2026-08-23) */}
+            <span style={{ marginLeft: 6, display: 'inline-flex', verticalAlign: 'middle' }}>
+              <DataFreshnessBadge statKey="ronePrice" period={selRegion.asOf} compact />
+            </span>
           </div>
         )}
       </div>

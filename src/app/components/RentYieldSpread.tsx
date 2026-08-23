@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { ComposedChart, Line, Area, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts'
 import { TK } from '@/lib/theme'
 import type { ReRentApi } from '@/app/api/re-rent/route'
+import DataFreshnessBadge from '@/app/components/DataFreshnessBadge'   // 🕒 기준월·지연 표시(2026-08-23)
 
 const CARD = TK.card, BORDER = TK.border
 
@@ -34,7 +35,11 @@ export default function RentYieldSpread() {
       <div style={{ color: TK.slate200, fontWeight: 800, fontSize: 13 }}>💰 월세 수익률 축 — 전월세 전환율 vs 주담대 금리 (아파트)</div>
       <div style={{ color: TK.sub, fontSize: 11, margin: '3px 0 10px', lineHeight: 1.55 }}>
         전환율 = 전세보증금을 월세로 돌릴 때 적용되는 연이율(부동산원 실거래 기반) = <b style={{ color: TK.slate300 }}>임대시장의 금리이자 임대수익률의 상한 프록시</b>.
-        스프레드(전환율−주담대)가 클수록 &lsquo;빌려서 세놓는&rsquo; 캐리가 좋고, 임대인은 전세보다 월세를 선호하게 됩니다{d ? ` · 기준월 ${d.latest.asOfMonth}` : ''}.
+        스프레드(전환율−주담대)가 클수록 &lsquo;빌려서 세놓는&rsquo; 캐리가 좋고, 임대인은 전세보다 월세를 선호하게 됩니다.
+        {/* 🕒 기준월만 쓰면 "왜 지난달 값이냐"가 된다 — 지연이 정상인지까지 배지가 말한다(2026-08-23) */}
+        {d && <span style={{ marginLeft: 6, display: 'inline-flex', gap: 5, verticalAlign: 'middle' }}>
+          <DataFreshnessBadge statKey="roneConv" period={d.latest.asOfMonth} compact />
+        </span>}
       </div>
 
       {!d ? (

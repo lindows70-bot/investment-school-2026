@@ -8,6 +8,7 @@ import ReWatchlist from '@/app/components/ReWatchlist'
 import RePhaseAlert from '@/app/components/RePhaseAlert'
 import RePolicyRadar from '@/app/components/RePolicyRadar'   // 🏛️ 정책은 모든 부동산 지표의 상류라 최상단
 import ReTaxMap from '@/app/components/ReTaxMap'             // 💰 세금은 국민 관심 1순위 — 정책 바로 아래
+import CofixPanel from '@/app/components/CofixPanel'         // 🏦 COFIX — 변동금리 대출 기준금리(2026-08-23)
 import { TK } from '@/lib/theme'
 
 export default function RealEstatePage() {
@@ -27,6 +28,9 @@ export default function RealEstatePage() {
       {/* 🔗 id 는 정책 레이더의 4대 경로 카드가 걸어오는 앵커다(rePolicy.CHANNEL_META.href) —
           세제·금융 경로가 닿는 지표(거래량·미분양·주담대 금리)가 여기 있다 */}
       <div id="re-market"><ReMarketDashboard /></div>
+      {/* 🏦 COFIX — 변동금리 대출의 기준금리. 지금까지 앱은 '주담대 금리'(결과)만 봤고 COFIX(원인)가 없었다.
+          금리 축이 있는 시장 대시보드 바로 아래에 둬서 원인→결과 순으로 읽히게 한다(2026-08-23 교차검증) */}
+      <CofixPanel />
       <ReDeepGauges />
       <RentYieldSpread />
       <HouseVsKospi />

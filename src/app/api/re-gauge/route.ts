@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { ecosSeries } from '@/lib/ecos'
 import { roneSeries, RONE_PSY_TBL, RONE_PSY_CLS } from '@/lib/rone'
+import { bottleneck } from '@/lib/dataFreshness'   // 🕒 교집합 병목 규명(2026-08-23)
 
 export interface GaugePoint { t: string; [k: string]: number | string | null }
 export interface ReGaugeResult {
@@ -15,6 +16,9 @@ export interface ReGaugeResult {
     gapNow: number; gapPercentile: number                                // 현재 괴리·역사 백분위
     verdict: 'hot' | 'warm' | 'neutral' | 'cool'
     rateNow: number | null; base: string
+    /** 🕒 이 지표는 매매지수 ∩ 전세지수 ∩ 주담대금리의 **교집합**이라 가장 늦은 입력이 전체를 끌어내린다.
+     *  "왜 지난달 값이냐"는 오해를 막으려면 병목을 화면이 직접 밝혀야 한다(2026-08-23 교차검증). */
+    freshness: { period: string | null; bottleneck: string | null; note: string; inputs: { label: string; period: string | null; statKey: string }[] }
   } | null
   m2: {
     series: { t: string; m2: number; apt: number }[]   // 1986-01=100 재기준(로그축용)
@@ -36,7 +40,8 @@ export interface ReGaugeResult {
   asOf: string
 }
 
-const CACHE_KEY = 're-gauge-v2'   // v2: ④ 소비심리지수(psyche) 추가
+// v3: 🕒 bubble.freshness(교집합 병목) 추가 — 필드가 늘면 키를 올린다(옛 응답이면 undefined 로 온다)
+const CACHE_KEY = 're-gauge-v3'
 const pct = (v: number) => Math.round(v * 10) / 10
 
 export async function GET(req: Request) {
@@ -93,7 +98,24 @@ export async function GET(req: Request) {
       const below = gaps.filter(g => g <= gapNow).length
       const gapPercentile = Math.round(below / gaps.length * 100)
       const verdict = gapPercentile >= 85 ? 'hot' : gapPercentile >= 65 ? 'warm' : gapPercentile <= 20 ? 'cool' : 'neutral'
-      bubble = { series, gapNow, gapPercentile, verdict, rateNow: rate[rate.length - 1]?.value ?? null, base: `${base.slice(0, 4)}-${base.slice(4)}` }
+      // 🕒 병목 규명 — 세 입력의 **각자 최신월**을 비교해 무엇이 전체를 멈춰 세웠는지 밝힌다.
+      //    실측(2026-08-23): 매매 202607 · 전세 202607 · 주담대금리 202606 → 결과가 202606 에서 멈췄고,
+      //    화면이 그 이유를 말하지 않아 "앱이 한 달 늦었다"는 오해가 나왔다.
+      const lastT = (a: { time: string }[]) => a.length ? a[a.length - 1].time : null
+      //    ⚠️ statKey 를 여기서 박는다 — 화면이 라벨 문자열을 `includes('금리')` 로 되짚어 통상지연을 고르면
+      //       라벨을 한 글자만 바꿔도 조용히 다른 통계의 지연 기준을 쓰게 된다.
+      const inputs = [
+        { label: 'KB 매매지수', period: lastT(saleL), statKey: 'kbPrice' },
+        { label: 'KB 전세지수', period: lastT(jeonseL), statKey: 'kbPrice' },
+        { label: '주담대 금리', period: lastT(rate), statKey: 'mortgageRate' },
+      ]
+      const bn = bottleneck(inputs)
+      bubble = {
+        series, gapNow, gapPercentile, verdict,
+        rateNow: rate[rate.length - 1]?.value ?? null,
+        base: `${base.slice(0, 4)}-${base.slice(4)}`,
+        freshness: { period: bn.period, bottleneck: bn.label, note: bn.note, inputs },
+      }
     }
   }
 
