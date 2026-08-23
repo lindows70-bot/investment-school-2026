@@ -11,6 +11,7 @@ import {
 import TimeMachineNote from '@/app/components/TimeMachineNote'
 import DecisionCalibration from '@/app/components/DecisionCalibration'
 import TaxHarvestHelper from '@/app/components/TaxHarvestHelper'
+import TransactionEditModal, { type EditableTx } from '@/app/components/TransactionEditModal'   // ✏️ 거래 수정·삭제(2026-08-23)
 import { TK } from '@/lib/theme'
 
 type Market = 'US' | 'KR' | 'CRYPTO'
@@ -31,6 +32,8 @@ interface Transaction {
   memo: string | null
   transaction_date: string
   created_at: string
+  /** DB 엔 있는데 타입에서 빠져 있었다 — 거래 수정 시 어느 보유를 갱신할지 찾는 키다 */
+  investment_id: string | null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   snapshot_data?: any   // 📸 매매 시점 블랙박스 스냅샷 (peg·growth_rate·category)
 }
@@ -85,6 +88,7 @@ export default function HistoryPage() {
   const [usdKrw,       setUsdKrw]       = useState(1_350)
   const [activeTab,    setActiveTab]    = useState<'transactions' | 'cashflow' | 'replay' | 'calibration' | 'tax'>('transactions')
   const [filterType,   setFilterType]   = useState<'all' | 'buy' | 'sell'>('all')
+  const [editTx,       setEditTx]       = useState<Transaction | null>(null)   // ✏️ 수정 중인 거래
 
   // USD/KRW rate — localStorage cache (1 hour TTL)
   useEffect(() => {
@@ -181,6 +185,18 @@ export default function HistoryPage() {
         const existingAutoSync = txList.filter(
           t => t.memo?.includes('자동 동기화') && t.ticker.toUpperCase() === key
         )
+
+        // 🔴 2026-08-23 발견: **중복 자동동기화가 쌓이고 있었다**(0131V0 9주×2건·0091P0 2주×2건·GEV 0.09주×2건).
+        //    `diff` 는 '수동 거래만' 집계한 값과 비교하므로 자동동기화를 아무리 넣어도 diff 가 줄지 않는다.
+        //    그래서 이 함수가 다시 돌 때마다(재방문·StrictMode 이중 실행) 같은 레코드를 또 넣었다.
+        //    → 같은 티커의 자동동기화는 **항상 정확히 1건**만 남긴다. 2건 이상이면 초과분을 먼저 지운다.
+        if (existingAutoSync.length > 1) {
+          const dupIds = existingAutoSync.slice(1).map(t => t.id)
+          await sb.from('transactions').delete().in('id', dupIds)
+          console.warn(`[History] ${inv.ticker}: 중복 자동동기화 ${dupIds.length}건 제거`)
+          reconciled = true
+        }
+
         const alreadyCorrect = existingAutoSync.some(
           t => Math.abs(t.price - correctPrice) < 1 && Math.abs(t.quantity - diff) < 0.001
         )
@@ -423,7 +439,7 @@ export default function HistoryPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: '#141728', borderBottom: `1px solid ${TK.line4}` }}>
-                    {['날짜', '구분', '종목명', '단가', '수량', '거래금액', '실현손익', '메모'].map(h => (
+                    {['날짜', '구분', '종목명', '단가', '수량', '거래금액', '실현손익', '메모', ''].map(h => (
                       <th key={h} style={{
                         padding: '11px 14px',
                         textAlign: 'left',
@@ -436,7 +452,7 @@ export default function HistoryPage() {
                 <tbody>
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={8} style={{ padding: '60px 0', textAlign: 'center' }}>
+                      <td colSpan={9} style={{ padding: '60px 0', textAlign: 'center' }}>
                         <div style={{ fontSize: 28, marginBottom: 12 }}>🔄</div>
                         <div style={{ color: TK.sub12, fontSize: 14, fontWeight: 600, marginBottom: 6 }}>
                           아직 거래 내역이 없습니다
@@ -497,6 +513,13 @@ export default function HistoryPage() {
                       {/* 메모 */}
                       <td style={{ padding: '10px 14px', color: TK.sub4, fontSize: 12 }}>
                         {t.memo || '—'}
+                      </td>
+                      {/* ✏️ 수정 — 잘못 기입했을 때 반대매매로 상쇄하지 않아도 되게(2026-08-23 사용자 신고) */}
+                      <td style={{ padding: '10px 14px' }}>
+                        <button onClick={() => setEditTx(t)} title="이 거래 수정·삭제"
+                          style={{ background: 'transparent', border: `1px solid ${TK.line4}`, borderRadius: 6, color: TK.sub2, fontSize: 11, padding: '3px 9px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                          ✏️ 수정
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -651,6 +674,21 @@ export default function HistoryPage() {
 
       {/* Tab 5: 💸 절세 도우미 */}
       {activeTab === 'tax' && <TaxHarvestHelper />}
+
+      {/* ✏️ 거래 수정·삭제 — 저장하면 그 종목의 수량·평단·실현손익을 전부 재계산한다 */}
+      {editTx && (
+        <TransactionEditModal
+          tx={{
+            id: editTx.id, ticker: editTx.ticker, name: editTx.name,
+            type: editTx.type as 'buy' | 'sell',
+            price: Number(editTx.price), quantity: Number(editTx.quantity),
+            transaction_date: editTx.transaction_date, memo: editTx.memo ?? null,
+            currency: editTx.currency, investment_id: editTx.investment_id ?? null,
+          } as EditableTx}
+          onClose={() => setEditTx(null)}
+          onSaved={() => { setEditTx(null); fetchAll() }}
+        />
+      )}
     </div>
   )
 }

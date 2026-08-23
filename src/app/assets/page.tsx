@@ -738,6 +738,12 @@ export default function AssetsPage() {
                       - 추가매도
                     </button>
                   </div>
+                  {/* ✏️ 잘못 기입했을 때 갈 곳 — 여기서 반대매매로 상쇄하면 없던 매도 기록과 실현손익이 남는다
+                      (2026-08-23 사용자 신고: 매수 수량 오기입을 매도로 고치려다 거래 이력이 오염됨) */}
+                  <a href="/history" onClick={e => e.stopPropagation()}
+                    style={{ display:'block', marginTop:5, fontSize:10, color:TK.sub3, textDecoration:'none', textAlign:'center' }}>
+                    잘못 입력했나요? <span style={{ color:TK.blue400, fontWeight:700 }}>투자 기록에서 수정 ↗</span>
+                  </a>
                 </div>
 
                 {/* ── Divider ── */}
