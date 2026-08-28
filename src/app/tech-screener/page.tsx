@@ -115,6 +115,13 @@ export default function TechScreenerPage() {
                 <b style={{ color: TK.sky400 }}> 첫 눌림목은 −0.95 → +0.68 로 부호가 뒤집혔습니다</b>.
                 파란 줄(🔁)이 있는 셋업은 두 측정이 갈린 것이니, <b style={{ color: TK.slate200 }}>한 숫자를 확정으로 읽지 마세요.</b>
               </div>
+              {/* 🔗 표본 숫자를 독립 관측으로 읽으면 확신이 크게 부풀려진다 — 실측(2026-08-28)으로 확인 */}
+              <div style={{ marginTop: 6 }}>
+                🔗 <b style={{ color: TK.slate200 }}>&lsquo;표본&rsquo; 숫자는 겹치는 20일 구간을 센 것입니다</b> — 독립 관측이 그만큼 있다는 뜻이 아닙니다.
+                같은 종목에서 겹친 신호를 하나로 접으면 <b style={{ color: TK.slate200 }}>표본이 6~26%로 줄고</b>,
+                그러면 대부분의 셋업은 <b style={{ color: TK.sky400 }}>우연과 구분하기 어려운 수준(2σ 미만)</b>이 됩니다.
+                게이트가 붙은 조합(🏅 정예 타점)만 그 선을 넘었습니다.
+              </div>
             </div>
           </div>
 
