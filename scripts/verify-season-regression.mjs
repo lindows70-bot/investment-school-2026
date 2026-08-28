@@ -20,13 +20,21 @@ const { data } = await sb.from('app_cache').select('key,payload').ilike('key', '
 const byKey = Object.fromEntries((data ?? []).map(r => [r.key, r.payload]))
 const regions = ['us', 'kr', 'de', 'fr', 'it', 'gb', 'jp', 'cn']
 
-console.log('① v1(옛 수집) vs v2(새 SSOT) — 판정 입력이 한 톨도 안 바뀌었는가\n')
+// ⚠️ ①은 **일회성 마이그레이션 확인**이다. v1 은 reader 가 없어 정리 대상이므로,
+//    사라진 뒤에도 이 스크립트가 실패하면 안 된다 — 없으면 '정리 완료'로 읽고 건너뛴다.
+//    (그래서 이 스크립트는 야간 감사의 상시 불변식에 넣지 않았다 — 상시 참인 명제가 아니다)
+const hasV1 = regions.some(r => byKey[`oecd-cli-${r}-v1`])
+console.log(hasV1
+  ? '① v1(옛 수집) vs v2(새 SSOT) — 판정 입력이 한 톨도 안 바뀌었는가\n'
+  : '① v1 캐시가 정리됨 — 대조는 2026-08-28 에 완료(docs/history 기록). v2 무결성만 확인한다\n')
 for (const r of regions) {
   const a = byKey[`oecd-cli-${r}-v1`], b = byKey[`oecd-cli-${r}-v2`]
-  if (!a || !b) { ok(`${r.toUpperCase()} 두 버전 모두 존재`, false, `v1=${!!a} v2=${!!b}`); continue }
-  ok(`${r.toUpperCase()} cli·cliPrev 완전 일치`,
-    a.cli === b.cli && a.cliPrev === b.cliPrev,
-    `v1 ${a.cli}/${a.cliPrev} · v2 ${b.cli}/${b.cliPrev}`)
+  if (!b) { ok(`${r.toUpperCase()} v2 존재`, false, '아직 수집 전이거나 수집 실패'); continue }
+  if (a) {
+    ok(`${r.toUpperCase()} cli·cliPrev 완전 일치`,
+      a.cli === b.cli && a.cliPrev === b.cliPrev,
+      `v1 ${a.cli}/${a.cliPrev} · v2 ${b.cli}/${b.cliPrev}`)
+  }
   ok(`${r.toUpperCase()} 새 필드가 실제로 기록됨`,
     typeof b.cliNextPrev === 'number' && typeof b.month === 'string', `cliNextPrev=${b.cliNextPrev} month=${b.month}`)
 }

@@ -25,7 +25,16 @@ const out = [`# 🌙 야간 감사 — ${kst}`, '']
 const t0 = Date.now()
 
 /** 각 단계의 성공 여부 — 하나라도 실패면 보고서 최상단에 띄우고 last-head 를 전진시키지 않는다 */
-const status = { codex: 'skip', gemini: 'skip' }
+const status = { codex: 'skip', gemini: 'skip', invariants: 'skip' }
+
+/** 🔒 상시 불변식 — "한 번 고쳤는데 나중에 조용히 어긋나는" 유형만 넣는다(2026-08-28 신설).
+ *  그날 하루에 두 번 당했다: ①킬스위치 임계값이 판정식과 갈릴 수 있음
+ *  ②국면 라벨이 금리 방향을 부정("금리 고점·동결"인데 "기준금리 인상")했는데 빌드·타입체크가 못 잡았다.
+ *  ⛔ 일회성 마이그레이션 확인(verify-season-regression)은 넣지 않는다 — 상시 참인 명제가 아니다. */
+const INVARIANTS = [
+  { file: 'scripts/verify-regime-label.mjs', label: '국면 라벨 × 금리방향 모순' },
+  { file: 'scripts/verify-kill-switch.mjs', label: '킬스위치 임계값 = 판정식' },
+]
 
 /**
  * 도구가 "돌긴 했는데 아무것도 못 했다"를 성공으로 세지 않기 위한 판정.
@@ -100,6 +109,30 @@ try {
   out.push(body || '(출력 없음)')
 } catch (e) { status.gemini = 'fail'; out.push(`- ⚠️ 실패: ${e.message}`) }
 
+// ── ③ 상시 불변식 검증 ────────────────────────────────────────────────────
+out.push('', '## 🔒 불변식 (판정식 ↔ 화면이 어긋났는지)')
+try {
+  const fails = []
+  for (const inv of INVARIANTS) {
+    const r = sh('node', [inv.file], {
+      timeout: 8 * 60_000,
+      // lib 단위검증 레시피 — 별칭(@/) 해석에 프로젝트 node_modules 가 필요하다
+      env: { ...process.env, NODE_PATH: `${process.cwd()}/node_modules` },
+    })
+    const body = `${r.stdout || ''}${r.stderr || ''}`
+      .split('\n').filter(l => !/DeprecationWarning|trace-deprecation|^\s+at /.test(l)).join('\n').trim()
+    // ⚠️ '돌긴 했는데 아무것도 못 했다'를 통과로 세지 않는다 — 통과 문구가 **실제로 찍혔는지**까지 본다
+    const passed = r.status === 0 && !r.error && /전부 통과/.test(body)
+    out.push(`- ${passed ? '✅' : '❌'} **${inv.label}** (\`${inv.file}\`)`)
+    if (!passed) {
+      fails.push(inv.label)
+      out.push('', '```', body.split('\n').filter(l => /❌|원천|실패/.test(l)).slice(0, 12).join('\n') || '(출력 없음)', '```', '')
+    }
+  }
+  status.invariants = fails.length ? 'fail' : 'ok'
+  if (fails.length) out.push('', `> ⚠️ **${fails.join(' · ')}** 가 깨졌습니다 — 화면이 서로 다른 말을 하고 있을 수 있습니다(제2원칙).`, '')
+} catch (e) { status.invariants = 'fail'; out.push(`- ⚠️ 실패: ${e.message}`) }
+
 // ── 보고서 저장 ───────────────────────────────────────────────────────────
 out.push('', '---',
   `_${Math.round((Date.now() - t0) / 1000)}초 · 읽기 전용(코드 변경 없음) · 지적은 재현으로 확인 후 채택할 것_`)
@@ -108,7 +141,7 @@ out.push('', '---',
 const icon = { ok: '✅', fail: '❌', skip: '⏭️' }
 const gap = gapDays()
 const banner = [
-  `**상태** — Codex 리뷰 ${icon[status.codex]} · 캐시 정합성 ${icon[status.gemini]}`,
+  `**상태** — Codex 리뷰 ${icon[status.codex]} · 캐시 정합성 ${icon[status.gemini]} · 불변식 ${icon[status.invariants]}`,
 ]
 if (gap > 1) banner.push(`> ⚠️ **직전 감사가 ${gap}일 전입니다** — 그 사이 감사가 돌지 않았습니다(PC 절전·배터리 등).`)
 if (status.codex === 'fail') banner.push('> ⚠️ Codex 무료 한도 소진 시 실패합니다(2026-08-27까지 알려진 상태). 리뷰 기준점은 전진하지 않으므로 복구되면 자동으로 밀린 구간을 봅니다.')
@@ -121,7 +154,7 @@ writeFileSync('.audit/latest.md', out.join('\n'), 'utf8')
 // ⚠️ 기준점은 **리뷰가 실제로 성공했을 때만** 전진시킨다.
 //    실패해도 갱신하면 그 구간은 영영 리뷰되지 않는다(2026-08-02 에 커밋 50건이 그렇게 유실됐다).
 if (head && status.codex === 'ok') writeFileSync('.audit/last-head', head, 'utf8')
-const summary = `codex=${status.codex} gemini=${status.gemini}${gap > 1 ? ` gap=${gap}일` : ''}`
+const summary = `codex=${status.codex} gemini=${status.gemini} invariants=${status.invariants}${gap > 1 ? ` gap=${gap}일` : ''}`
 console.log(`[nightly-audit] ${path} 작성 완료 (${Math.round((Date.now() - t0) / 1000)}초) · ${summary}`)
 // 실패가 있으면 비정상 종료 — 작업 스케줄러 'LastTaskResult' 에 남아 조용한 실패를 막는다
-if (status.codex === 'fail' || status.gemini === 'fail') process.exitCode = 1
+if (status.codex === 'fail' || status.gemini === 'fail' || status.invariants === 'fail') process.exitCode = 1
