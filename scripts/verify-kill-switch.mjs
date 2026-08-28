@@ -104,6 +104,15 @@ ok('CLI 행이 원천 값을 그대로 쓴다', nowTxt.includes(cli.toFixed(3)) 
 ok('CPI 행이 원천 값을 그대로 쓴다', nowTxt.includes(md.cpiYoY.toFixed(1)))
 ok('제외 사유가 비어 있지 않다', ks.excluded.length >= 3 && ks.excluded.every(e => e.why.length > 10))
 
+// ── ⑦ 표의 각 행이 **혼자서도 참인가** — 경고 상자가 본문을 상쇄하지 못한다(앱 반복 함정) ──
+console.log('\n⑥ 표의 각 행이 혼자 읽어도 참인가')
+if (inf.hot && md.cpiYoY > CPI_HOT_PCT && md.rateDir === 'hike') {
+  const cpiRow = ks.rows.find(x => x.key === 'cpi'), rateRow = ks.rows.find(x => x.key === 'rate')
+  ok('CPI 행이 "이것만으로 바뀐다"고 말하지 않는다', /함께/.test(cpiRow.trip), cpiRow.trip)
+  ok('금리 행이 "이것만으로 바뀐다"고 말하지 않는다', /함께/.test(rateRow.trip), rateRow.trip)
+  ok('성장 행은 단독으로 충분하므로 단서가 없다', !/함께/.test(gapRow.trip), gapRow.trip)
+}
+
 console.log('\n── 킬스위치 표(화면에 나갈 값) ──')
 ks.rows.forEach(x => console.log(`  ${x.lit ? '🔴' : '⚪'} ${x.what}\n      지금 ${x.now}\n      켜짐 ${x.trip}  |  남은 거리 ${x.gap ?? '—'}`))
 console.log(`\n  성장만 켜지면 → ${ks.ifGrowthFlips.seasonKo}`)

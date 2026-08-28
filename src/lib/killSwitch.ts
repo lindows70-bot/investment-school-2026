@@ -80,6 +80,20 @@ export function killSwitch(inp: KillSwitchInput): KillSwitchResult {
   // ── 성장 스위치 — `growthUp` 은 결국 `cli >= cliPrev`. 다음 발표의 비교 기준은 cliNextPrev 다.
   const growthLit = g.dir === 'down'
   const growthGap = inp.cli - inp.cliNextPrev
+
+  // 🔴 물가축이 OR 게이트라, 두 조건이 **동시에** 켜져 있으면 한 줄만 꺼져도 계절은 그대로다.
+  //    그런데 각 행의 '켜지는 지점'을 무조건 "물가 압력 해제"라고 쓰면 **행 자체가 거짓말**이 되고,
+  //    아래 경고 상자와 한 화면에서 서로를 부정한다(배지는 본문을 상쇄하지 못한다 — 앱 반복 함정).
+  //    → 행 문구를 게이트 상태에 따라 분기한다.
+  const cpiHot = inp.cpiYoY > CPI_HOT_PCT
+  const rateHot = inp.rateDir === 'hike'
+  const bothHot = cpiHot && rateHot
+  const cpiTrip = bothHot
+    ? `${CPI_HOT_PCT.toFixed(1)}% 이하 — 다만 금리 인상 종료가 함께 와야 계절이 바뀝니다`
+    : `${CPI_HOT_PCT.toFixed(1)}% 이하로 내려오면 물가축이 뒤집힙니다`
+  const rateTrip = bothHot
+    ? `인상 기조 종료 — 다만 CPI ${CPI_HOT_PCT.toFixed(1)}% 이하가 함께 와야 계절이 바뀝니다`
+    : '인상 기조가 끝나면(동결·인하) 물가축이 뒤집힙니다'
   const rows: KillSwitchRow[] = [
     {
       key: 'growth',
@@ -98,7 +112,7 @@ export function killSwitch(inp: KillSwitchInput): KillSwitchResult {
       where: '앱 매크로 대시보드 · FRED CPIAUCSL',
       cycle: '월 1회',
       now: `${inp.cpiYoY.toFixed(1)}%`,
-      trip: `${CPI_HOT_PCT.toFixed(1)}% 이하로 내려오면 물가 압력 해제`,
+      trip: cpiTrip,
       gap: inp.cpiYoY > CPI_HOT_PCT ? `${pp(inp.cpiYoY - CPI_HOT_PCT)} 하락 시 켜짐` : `이미 ${pp(CPI_HOT_PCT - inp.cpiYoY)} 아래`,
       lit: inp.cpiYoY <= CPI_HOT_PCT,
     },
@@ -108,7 +122,7 @@ export function killSwitch(inp: KillSwitchInput): KillSwitchResult {
       where: '앱 FedWatch(CME 선물)',
       cycle: 'FOMC 때마다',
       now: RATE_KO[inp.rateDir],
-      trip: '인상 기조가 끝나면(동결·인하) 물가 압력 해제',
+      trip: rateTrip,
       gap: null,
       lit: inp.rateDir !== 'hike',
     },
