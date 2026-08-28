@@ -9,6 +9,7 @@ import { getMoneyFlow, type FlowStatus, type MoneyFlowResult } from '@/lib/money
 import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
 import { growthFromCli, inflationFromRegime, seasonOf, holdingFit, SEASON_META, type Quadrant as Season } from '@/lib/seasonNavigator'
 import { fetchMacroData } from '@/lib/macroPhaseScreener'
+import { fetchCli } from '@/lib/oecdCli'   // 📈 CLI 수집 SSOT(2026-08-24 — 여기 있던 복제본을 합침)
 import { classifyLynchMece } from '@/lib/lynchAnalysis'
 import { isInflowNear } from '@/lib/flowShared'
 
@@ -136,18 +137,7 @@ export async function GET(req: Request) {
   try {
     let cpiYoY = 2.5, rateDir: 'cut' | 'hold' | 'hike' = 'hold'
     try { const md = await fetchMacroData(selfBase); cpiYoY = typeof md.cpiYoY === 'number' ? md.cpiYoY : cpiYoY; rateDir = md.rateDir ?? 'hold' } catch { /* graceful */ }
-    const fetchCli = async (sid: string, key: string) => {
-      const c = await getCache<{ cli: number; cliPrev: number }>(key, 12 * 3600_000)
-      if (c) return c
-      try {
-        const r = await fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=${sid}&api_key=${process.env.FRED_API_KEY}&file_type=json&sort_order=desc&limit=4`, { signal: AbortSignal.timeout(10_000) })
-        if (!r.ok) return null
-        const j = await r.json(); const o = (j.observations ?? []).map((x: { value: string }) => parseFloat(x.value)).filter((v: number) => !isNaN(v))
-        if (o.length < 4) return null
-        const out = { cli: o[0], cliPrev: o[3] }; await setCache(key, out); return out
-      } catch { return null }
-    }
-    const [usCli, krCli] = await Promise.all([fetchCli('USALOLITOAASTSAM', 'oecd-cli-us-v1'), fetchCli('KORLOLITOAASTSAM', 'oecd-cli-kr-v1')])
+    const [usCli, krCli] = await Promise.all([fetchCli('US'), fetchCli('KR')])
     const inf = inflationFromRegime(cpiYoY, rateDir)
     usQuad = seasonOf(growthFromCli(usCli?.cli ?? 100, usCli?.cliPrev ?? 100), inf)
     krQuad = seasonOf(growthFromCli(krCli?.cli ?? 100, krCli?.cliPrev ?? 100), inf)

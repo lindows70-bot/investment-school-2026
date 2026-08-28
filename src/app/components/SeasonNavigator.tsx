@@ -7,10 +7,83 @@ import EconomicWaveSimulator from '@/app/components/EconomicWaveSimulator'
 import JuglarCapexTracker from '@/app/components/JuglarCapexTracker'
 import CandlePatternRisk from '@/app/components/CandlePatternRisk'
 import ElliottWaveEducation from '@/app/components/ElliottWaveEducation'
-import { TK } from '@/lib/theme'
+import DataFreshnessBadge from '@/app/components/DataFreshnessBadge'
+import type { KillSwitchResult } from '@/lib/killSwitch'
+import { TK, FS, RAD, SP } from '@/lib/theme'
 import { flagOf } from '@/lib/marketFlag'
 
 const CARD = TK.bg6, BORDER = TK.border
+
+// 🔌 킬스위치 패널 — "이 계절 판정을 언제 버려야 하나"를 표로 못박는다.
+//    ⛔ 예측이 아니다. 임계값은 전부 lib/killSwitch 가 판정식에서 역산한 값이라 화면은 숫자를 만들지 않는다.
+function KillSwitchPanel({ ks, cliMonth, season }: { ks: KillSwitchResult; cliMonth: string | null; season: string }) {
+  const bold = (s: string) => s.split('**').map((t, i) => i % 2 ? <b key={i} style={{ color: TK.amber400 }}>{t}</b> : t)
+  const litCount = ks.rows.filter(r => r.lit).length
+  return (
+    <div style={{ background: CARD, borderRadius: RAD.md, padding: SP.lg, border: `1px solid ${BORDER}` }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: SP.sm, flexWrap: 'wrap', marginBottom: 3 }}>
+        <span style={{ color: TK.slate200, fontWeight: 800, fontSize: FS.lg }}>🔌 킬스위치 — 이 판정을 언제 버려야 하나</span>
+        {cliMonth && <DataFreshnessBadge statKey="oecdCli" period={cliMonth} />}
+      </div>
+      <div style={{ color: TK.sub2, fontSize: FS.body, lineHeight: 1.75, marginBottom: SP.md }}>
+        지금 판정은 <b style={{ color: TK.slate200 }}>{season}</b>입니다. 이 판정을 떠받치는 기둥이 무너지는 지점을 <b style={{ color: TK.slate200 }}>미리</b> 적어 둡니다.
+        다음에 시장이 흔들리면 뉴스 대신 이 표를 열고 <b style={{ color: TK.slate200 }}>몇 개가 켜졌는지만</b> 세면 됩니다.
+        {litCount === 0 && ' 지금은 하나도 켜지지 않았습니다.'}
+      </div>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', minWidth: 620, borderCollapse: 'collapse', fontSize: FS.tiny }}>
+          <thead>
+            <tr style={{ color: TK.sub3 }}>
+              {['무엇을 보나', '지금', '켜지는 지점', '남은 거리', '어디서', '주기'].map(h => (
+                <th key={h} style={{ textAlign: 'left', padding: '6px 8px', borderBottom: `1px solid ${BORDER}`, fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {ks.rows.map(r => (
+              <tr key={r.key} style={{ background: r.lit ? `${TK.red400}12` : undefined }}>
+                <td style={{ padding: '7px 8px', color: TK.slate200, fontWeight: 700 }}>{r.lit ? '🔴 ' : '⚪ '}{r.what}</td>
+                <td style={{ padding: '7px 8px', color: TK.slate300, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{r.now}</td>
+                <td style={{ padding: '7px 8px', color: TK.sub2 }}>{r.trip}</td>
+                <td style={{ padding: '7px 8px', color: r.lit ? TK.red400 : TK.amber400, fontFamily: 'monospace', fontWeight: 700, whiteSpace: 'nowrap' }}>{r.lit ? '켜짐' : (r.gap ?? '—')}</td>
+                <td style={{ padding: '7px 8px', color: TK.sub3 }}>{r.where}</td>
+                <td style={{ padding: '7px 8px', color: TK.sub3, whiteSpace: 'nowrap' }}>{r.cycle}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 🔴 물가축은 OR 게이트 — 한쪽만 꺼져선 계절이 안 바뀐다. 이 사실을 안 쓰면 표가 거짓말이 된다 */}
+      <div style={{ background: `${TK.amber400}0e`, border: `1px solid ${TK.amber400}33`, borderRadius: RAD.sm, padding: '10px 13px', marginTop: SP.md, fontSize: FS.body, color: TK.sub2, lineHeight: 1.75 }}>
+        ⚠️ {bold(ks.inflationGateNote)}
+      </div>
+
+      {/* 켜지면 어느 계절이 되는가 — 2×2 라 결과가 정해져 있다(개수를 세는 투표가 필요 없다) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: SP.sm, marginTop: SP.md }}>
+        {[
+          { t: '성장 스위치만 켜지면', v: ks.ifGrowthFlips },
+          { t: '물가 스위치만 켜지면', v: ks.ifInflationFlips },
+          { t: '둘 다 켜지면', v: ks.ifBothFlip },
+        ].map(x => (
+          <div key={x.t} style={{ background: TK.bg3, borderRadius: RAD.sm, padding: '9px 12px' }}>
+            <div style={{ color: TK.sub3, fontSize: FS.tiny }}>{x.t}</div>
+            <div style={{ color: TK.slate100, fontSize: FS.body, fontWeight: 800, marginTop: 2 }}>→ {x.v.seasonKo}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 뺀 것과 이유 — 고른 이유만 말하면 목록이 자의적으로 보인다 */}
+      <div style={{ marginTop: SP.md, fontSize: FS.tiny, color: TK.sub3, lineHeight: 1.7 }}>
+        <b style={{ color: TK.sub2 }}>감시에서 뺀 것</b> — 계절 판정식에 들어가지 않는 지표는 켜져도 계절이 안 바뀌므로 감시 항목이 아닙니다.
+        {ks.excluded.map(e => (
+          <div key={e.name} style={{ marginTop: 3 }}>· <b style={{ color: TK.sub2 }}>{e.name}</b> — {e.why}</div>
+        ))}
+      </div>
+    </div>
+  )
+}
 // 🛒 매수 후보 테이블 — 퀀트 4축(린치·PEG·영업이익률·FCF) 노출용 그리드·린치 분류 축약 라벨
 const COLS = 'minmax(78px,1fr) 0.65fr 36px 38px 44px 46px 150px 54px 30px'
 
@@ -257,6 +330,10 @@ export default function SeasonNavigator() {
           <div style={{ color: TK.sub8, fontSize: 10.5, marginLeft: 'auto' }}>국면 SSOT: {data.regimeLabel}</div>
         </div>
       </div>
+
+      {/* 🔌 킬스위치 — 이 판정이 무효가 되는 조건을 **미리** 못박는다.
+          판정만 주고 "언제 버려야 하나"를 안 주면 학생은 시장이 흔들릴 때 뉴스에 반응하게 된다. */}
+      {data.killSwitch && <KillSwitchPanel ks={data.killSwitch} cliMonth={data.cliMonth} season={data.seasonKo} />}
 
       {/* 정합성 점수 + 종목별 적합도 (전체 폭) */}
       <div style={{ background: CARD, borderRadius: 12, padding: 16, border: `1px solid ${BORDER}` }}>

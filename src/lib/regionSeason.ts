@@ -11,6 +11,7 @@
 import { getCache, setCache } from '@/lib/appCache'
 import { growthFromCli, inflationFromRegime, seasonOf, type Quadrant } from '@/lib/seasonNavigator'
 import { fetchMacroData, EU_TICKER_SET, JP_TICKER_SET, CN_TICKER_SET } from '@/lib/macroPhaseScreener'
+import { fetchCli, type CliPoint } from '@/lib/oecdCli'   // 📈 CLI 수집 SSOT(3파일 복제를 합침 — 2026-08-24)
 
 export type Origin = 'US' | 'KR' | 'EU' | 'JP' | 'CN'
 
@@ -27,21 +28,6 @@ export function originOf(ticker: string, market: string): Origin {
   if (JP_TICKER_SET.has(ticker)) return 'JP'
   if (CN_TICKER_SET.has(ticker)) return 'CN'
   return market === 'KR' ? 'KR' : 'US'
-}
-
-async function fetchCli(sid: string, key: string): Promise<{ cli: number; cliPrev: number } | null> {
-  const c = await getCache<{ cli: number; cliPrev: number }>(key, 12 * 3600_000)
-  if (c) return c
-  try {
-    const r = await fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=${sid}&api_key=${process.env.FRED_API_KEY}&file_type=json&sort_order=desc&limit=4`, { signal: AbortSignal.timeout(10_000) })
-    if (!r.ok) return null
-    const j = await r.json()
-    const o = (j.observations ?? []).map((x: { value: string }) => parseFloat(x.value)).filter((v: number) => !isNaN(v))
-    if (o.length < 4) return null
-    const out = { cli: o[0], cliPrev: o[3] }
-    await setCache(key, out)
-    return out
-  } catch { return null }
 }
 
 /** 🇪🇺 유로존 HICP(소비자물가) YoY — 유럽 독자 물가축. 실패 시 글로벌(US) 물가로 폴백 */
@@ -71,10 +57,8 @@ export async function getRegionSeasons(base: string): Promise<RegionSeasons> {
   } catch { /* graceful */ }
 
   const [usCli, krCli, deCli, frCli, itCli, gbCli, jpCli, cnCli, euHicp] = await Promise.all([
-    fetchCli('USALOLITOAASTSAM', 'oecd-cli-us-v1'), fetchCli('KORLOLITOAASTSAM', 'oecd-cli-kr-v1'),
-    fetchCli('DEULOLITOAASTSAM', 'oecd-cli-de-v1'), fetchCli('FRALOLITOAASTSAM', 'oecd-cli-fr-v1'),
-    fetchCli('ITALOLITOAASTSAM', 'oecd-cli-it-v1'), fetchCli('GBRLOLITOAASTSAM', 'oecd-cli-gb-v1'),
-    fetchCli('JPNLOLITOAASTSAM', 'oecd-cli-jp-v1'), fetchCli('CHNLOLITOAASTSAM', 'oecd-cli-cn-v1'),
+    fetchCli('US'), fetchCli('KR'), fetchCli('DE'), fetchCli('FR'),
+    fetchCli('IT'), fetchCli('GB'), fetchCli('JP'), fetchCli('CN'),
     fetchEuHicp(),
   ])
   const inf = inflationFromRegime(cpiYoY, rateDir)
@@ -82,7 +66,7 @@ export async function getRegionSeasons(base: string): Promise<RegionSeasons> {
   const KR = seasonOf(growthFromCli(krCli?.cli ?? 100, krCli?.cliPrev ?? 100), inf)
   // 🇪🇺 유로존 통합 CLI(EA19)는 2022 중단(stale)이라 대국(독·프·이·영) 신선 CLI 평균으로 성장축 +
   //    유로존 HICP 로 물가축. 2개국 이상 있을 때만 쓰고, 부족하면 US 국면으로 폴백한다.
-  const euClis = [deCli, frCli, itCli, gbCli].filter((c): c is { cli: number; cliPrev: number } => c != null)
+  const euClis = [deCli, frCli, itCli, gbCli].filter((c): c is CliPoint => c != null)
   const EU = euClis.length >= 2
     ? seasonOf(growthFromCli(avg(euClis.map(c => c.cli)), avg(euClis.map(c => c.cliPrev))), euHicp != null ? inflationFromRegime(euHicp, rateDir) : inf)
     : US

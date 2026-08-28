@@ -111,6 +111,8 @@ export const TYPICAL_LAG: Record<string, { lagM: number; source: string }> = {
   unsold:      { lagM: 2, source: '미분양 주택(ECOS)' },
   mortgageRate:{ lagM: 2, source: '예금은행 주담대 금리(ECOS)' },
   cofix:       { lagM: 1, source: '전국은행연합회 COFIX 공시' },
+  // 📈 OECD 경기선행지수 — 실측 2026-08-24: 최신 관측이 2026-06 이라 지연 2개월(계절 판정의 성장축 원천)
+  oecdCli:     { lagM: 2, source: 'OECD 경기선행지수(FRED)' },
 }
 
 /** 여러 입력의 교집합으로 만들어지는 지표에서 **무엇이 병목인지** 밝힌다.

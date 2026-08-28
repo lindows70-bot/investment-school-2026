@@ -14,6 +14,8 @@ import {
   growthFromCli, inflationFromRegime, seasonOf, holdingFit,
   SEASON_META, type Holding, type Quadrant,
 } from '@/lib/seasonNavigator'
+import { fetchCli } from '@/lib/oecdCli'                                  // 📈 CLI 수집 SSOT
+import { killSwitch, type KillSwitchResult } from '@/lib/killSwitch'      // 🔌 판정 무효화 조건(2026-08-24)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -43,6 +45,10 @@ export interface SeasonNavResult {
     us: MarketSeason
     kr: MarketSeason
   }
+  // 🔌 킬스위치 — 이 계절 판정이 무효가 되는 조건(사전 약속). CLI 미수집이면 null(추정하지 않는다)
+  killSwitch: KillSwitchResult | null
+  /** CLI 기준월 'YYYY-MM' — 2개월 지연이라 화면이 밝혀야 한다 */
+  cliMonth: string | null
   // 무료 조기 경보
   yieldCurveInverted: boolean
   yieldCurve: number | null
@@ -65,25 +71,6 @@ export interface MarketSeason {
   aboveTrend: boolean
 }
 
-// FRED OECD CLI 최신 + 3개월 전 레벨(모멘텀) — 시리즈별 12h 캐시
-async function fetchCli(seriesId: string, cacheKey: string): Promise<{ cli: number; cliPrev: number } | null> {
-  const cached = await getCache<{ cli: number; cliPrev: number }>(cacheKey, 12 * 3600_000)
-  if (cached) return cached
-  const key = process.env.FRED_API_KEY
-  if (!key) return null
-  try {
-    const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${seriesId}&api_key=${key}&file_type=json&sort_order=desc&limit=4`
-    const r = await fetch(url, { signal: AbortSignal.timeout(10_000) })
-    if (!r.ok) return null
-    const j = await r.json()
-    const obs = (j.observations ?? []).map((o: { value: string }) => parseFloat(o.value)).filter((v: number) => !isNaN(v))
-    if (obs.length < 4) return null
-    const out = { cli: obs[0], cliPrev: obs[3] }
-    await setCache(cacheKey, out)
-    return out
-  } catch { return null }
-}
-
 // KR 시장 판별(6자리 코드 또는 market 필드)
 const isKrHolding = (ticker: string, market?: string) => market === 'KR' || /^\d{6}$/.test(ticker.replace(/\.(KS|KQ)$/i, ''))
 
@@ -94,7 +81,8 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `season-navigator-v11:${user.id}:${kstDate()}:${fp}`   // v11: 매수 후보 1M·3M·1Y 미니차트 + 52주 위치
+  // v12: 🔌 killSwitch·cliMonth 추가 — 필드가 늘어도 옛 응답이 서빙되면 undefined 로 온다
+  const cacheKey = `season-navigator-v12:${user.id}:${kstDate()}:${fp}`   // v11: 매수 후보 1M·3M·1Y 미니차트 + 52주 위치
   const cached = await getCache<SeasonNavResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -111,10 +99,7 @@ export async function GET(req: Request) {
   } catch { /* graceful — 폴백 중립값 사용 */ }
 
   // ② 성장축 = OECD CLI(미국·한국 각각). 물가축은 글로벌 공통(KR CPI는 FRED stale → 글로벌 기준 사용)
-  const [usCli, krCli] = await Promise.all([
-    fetchCli('USALOLITOAASTSAM', 'oecd-cli-us-v1'),
-    fetchCli('KORLOLITOAASTSAM', 'oecd-cli-kr-v1'),
-  ])
+  const [usCli, krCli] = await Promise.all([fetchCli('US'), fetchCli('KR')])
   const i = inflationFromRegime(cpiYoY, rateDir)
   const gUs = growthFromCli(usCli?.cli ?? 100, usCli?.cliPrev ?? 100)
   const gKr = growthFromCli(krCli?.cli ?? 100, krCli?.cliPrev ?? 100)
@@ -212,6 +197,10 @@ export async function GET(req: Request) {
     growth: { cli: g.cli, cliPrev: g.cliPrev, dir: g.dir, aboveTrend: g.aboveTrend },
     inflation: { cpiYoY: i.cpiYoY, rateDir: i.rateDir, hot: i.hot },
     regimeLabel,
+    // 🔌 메인 다이어그램이 미국 앵커라 킬스위치도 미국 CLI 로 만든다(같은 판정을 감시해야 한다).
+    //    CLI 가 없으면 성장축 임계선을 만들 수 없으므로 **추정하지 않고 null** — 반쪽 스위치는 거짓말이다.
+    killSwitch: usCli ? killSwitch({ cli: usCli.cli, cliPrev: usCli.cliPrev, cliNextPrev: usCli.cliNextPrev, cpiYoY, rateDir }) : null,
+    cliMonth: usCli?.month ?? null,
     alignmentScore,
     perHolding,
     marketSeasons: { us: mkMeta(usQuad, gUs), kr: mkMeta(krQuad, gKr) },
