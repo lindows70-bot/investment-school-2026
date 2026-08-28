@@ -96,14 +96,25 @@ export default function TechScreenerPage() {
                       <span style={{ color: TK.sub }}>승률 {s.winRate?.toFixed(1) ?? '—'}%</span>
                       <span style={{ color: TK.sub3 }}>표본 {s.sample?.toLocaleString() ?? '—'}</span>
                     </div>
-                    {s.note && <div style={{ fontSize: FS.micro, color: TK.amber500, marginTop: 3, lineHeight: 1.4 }}>{s.note}</div>}
+                    {s.note && <div style={{ fontSize: FS.tiny, color: TK.amber500, marginTop: 3, lineHeight: 1.5 }}>{s.note}</div>}
+                    {/* 🔁 더 큰 창 재측정 — edge20 을 대체하지 않고 **나란히** 보여준다.
+                        창을 바꾸면 부호까지 뒤집히는 셋업이 있어서, 한 숫자만 보여주면 그게 확정처럼 읽힌다 */}
+                    {s.recheck && <div style={{ fontSize: FS.tiny, color: TK.sky400, marginTop: 3, lineHeight: 1.5 }}>{s.recheck}</div>}
                   </button>
                 )
               })}
             </div>
-            <div style={{ fontSize: FS.micro, color: TK.sub8, marginTop: 8, lineHeight: 1.55 }}>
-              ※ 초과수익 = 20거래일 뒤 수익률이 <b>전체 평균보다</b> 얼마나 높았는지(2026-07-26 자체 백테스트 · 60~120종목 · 12,594봉 · 워크포워드).
-              승률 50%가 기준선입니다 — <b>어떤 기법도 승률로는 큰 우위가 없었습니다</b>. 2년 표본(상승장 우세)·거래비용 미반영이라 과최적화 여지가 있습니다.
+            {/* ⚠️ 이 화면에서 가장 중요한 문단이다 — 숫자를 어떻게 읽어야 하는지가 여기 있다.
+                예전엔 micro(9.5px)+흐린 회색이라 사실상 안 읽혔다. body 크기로 올린다(상시 규칙). */}
+            <div style={{ fontSize: FS.body, color: TK.sub2, marginTop: 10, lineHeight: 1.75, background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 9, padding: '11px 14px' }}>
+              ※ 초과수익 = 20거래일 뒤 수익률이 <b style={{ color: TK.slate200 }}>전체 평균보다</b> 얼마나 높았는지.
+              승률 50%가 기준선입니다 — <b style={{ color: TK.slate200 }}>어떤 기법도 승률로는 큰 우위가 없었습니다</b>. 거래비용은 반영돼 있지 않습니다.
+              <div style={{ marginTop: 6 }}>
+                📏 <b style={{ color: TK.slate200 }}>이 숫자들은 측정 기간에 크게 좌우됩니다.</b> 표시값은 2026-07-26 측정(60~120종목 · 12,594봉 · 워크포워드)입니다.
+                2026-08-28 에 <b style={{ color: TK.slate200 }}>약 16배 큰 창</b>(5년 · 200종 · 안 본 종목 120종을 따로 뗀 검정)으로 다시 쟀더니
+                <b style={{ color: TK.sky400 }}> 첫 눌림목은 −0.95 → +0.68 로 부호가 뒤집혔습니다</b>.
+                파란 줄(🔁)이 있는 셋업은 두 측정이 갈린 것이니, <b style={{ color: TK.slate200 }}>한 숫자를 확정으로 읽지 마세요.</b>
+              </div>
             </div>
           </div>
 

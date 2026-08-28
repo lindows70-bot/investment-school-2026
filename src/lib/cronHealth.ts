@@ -12,6 +12,7 @@ import { KR_EARN_INDEX_KEY } from '@/lib/krEarnings'
 import { FUND_CACHE_KEY } from '@/lib/guru13f'
 import { BREADTH_KEY } from '@/lib/marketBreadth'
 import { HONEYCOMB_KEY } from '@/lib/rone'
+import { TECH_SCREENER_KEY } from '@/lib/techScreener'
 
 const GRACE_MS = 45 * 60_000            // 실행 지연 유예(가장 긴 크론 300s의 9배 — 오탐 방지)
 const KST_MS = 9 * 3600_000
@@ -49,7 +50,7 @@ export const CRON_MONITORS: CronMonitor[] = [
   // ⚠️ heavy = 유니버스 전수 캔들 스캔(수십~180초). 표시하지 않으면 예산이 얼마 안 남았는데도 시도해
   //    타임아웃으로 예산만 태우고 실패한다 — 다음 패스로 미루는 게 낫다(2026-08-08 실측으로 4종 추가).
   { id: 'winLose', label: '승패 해부실', kst: '08:50', days: 'daily', artifact: { type: 'cacheDate', key: d => WIN_LOSE_KEY(d) }, heal: '/api/win-lose', heavy: true },
-  { id: 'techScreener', label: '기술 검색기 스캔', kst: '09:10', days: 'daily', artifact: { type: 'cacheDate', key: d => `tech-screener-v1:${d}` }, heal: '/api/tech-screener', heavy: true },
+  { id: 'techScreener', label: '기술 검색기 스캔', kst: '09:10', days: 'daily', artifact: { type: 'cacheDate', key: d => TECH_SCREENER_KEY(d) }, heal: '/api/tech-screener', heavy: true },
   { id: 'krEarnings', label: '한국 실적 카드 수집', kst: '09:15', days: 'daily', artifact: { type: 'cache', key: () => KR_EARN_INDEX_KEY }, heal: '/api/cron/kr-earnings' },
   { id: 'earnReports', label: '실적 리포트 수집', kst: '09:20', days: 'daily', artifact: { type: 'cache', key: () => ER_INDEX_KEY }, heal: '/api/cron/earnings-reports', heavy: true },
   { id: 'hi52', label: '신고가 레이더 스캔', kst: '09:25', days: 'daily', artifact: { type: 'cacheDate', key: d => `hi52-radar-v2:${d}` }, heal: '/api/hi52-radar', heavy: true },

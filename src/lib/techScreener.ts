@@ -22,6 +22,10 @@ export interface SetupMeta {
   edge20: number | null // 20봉 초과수익(%p, baseline 대비). null=미측정
   winRate: number | null// 20봉 승률 %
   sample: number | null // 백테스트 표본 건수
+  /** 🔁 더 큰 창에서 다시 잰 값(2026-08-28 · 5년 · 200종 · 종목분할 hold-out).
+   *  ⚠️ edge20 을 **대체하지 않는다** — 어느 쪽이 진실이 아니라 **다른 창을 재고 있다**.
+   *  창을 바꾸면 부호까지 뒤집히는 셋업이 있어서(눌림목 −0.95 → +0.68) 그 사실 자체를 화면에 남긴다. */
+  recheck?: string
   note?: string         // 한계·주의
 }
 
@@ -38,6 +42,7 @@ export const SCREEN_SETUPS: SetupMeta[] = [
     desc: '평균 변동폭을 압도하는 큰 양봉 = 매수 의지 노출',
     note: '절사 edge는 최고(+2.77)지만 중위는 0 근처 — 평균을 끌어올리는 대박 꼬리형입니다. 후행 확인봉이라 추격 주의.' },
   { key: 'prime', icon: '🏅', label: '정예 타점', edge20: 1.33, winRate: 50.2, sample: 203,
+    recheck: '🔁 안 본 120종에서 재검정(2026-08-28) — +0.54 로 기준(+1.0) 미달. 눌림목 갈래는 +1.16 로 살아남았지만 다이버전스 갈래가 −1.01 로 무너져 합계가 내려갔습니다.',
     desc: '상승 추세가 살아있는 상태에서 눌림·반전이 끝난 자리(합류 조합)',
     note: '⭐ 상승 추세 국면 전용 — 하락장 포함 재측정에서 절사 +1.33 으로 살아남았으나 중위는 −0.4 로 눌렸습니다(원측정 승률 60.7%는 상승장 표본). 국면을 함께 보세요.' },
   { key: 'fibGolden', icon: '📐', label: '골든 되돌림', edge20: 1.12, winRate: 55.0, sample: 989,
@@ -63,18 +68,26 @@ export const SCREEN_SETUPS: SetupMeta[] = [
     desc: '추세 확립 후 첫 되돌림 = 라쉬케가 꼽는 안전한 진입 자리',
     // ⚠️ 재검증 이력(2026-07-29·54종목): 평균 +1.39 였으나 절사 −0.45. 통일 재측정(07-30)에선 −0.95 로 더 나쁨.
     //    '조정 시 거래량 마름' 조건을 붙여도 개선 없음(−0.46·표본만 58% 감소). 거래량 터진 눌림목이 오히려 승률 우위(교과서와 반대).
-    note: '⚠️ 단독으로는 재측정에서 마이너스(−0.95)입니다 — 🏅 정예 타점(정배열+구름 위와 겹칠 때)만 우위가 남습니다. 단독 신호로 쓰지 마세요.' },
+    note: '⚠️ 단독으로는 재측정에서 마이너스(−0.95)입니다 — 🏅 정예 타점(정배열+구름 위와 겹칠 때)만 우위가 남습니다. 단독 신호로 쓰지 마세요.',
+    recheck: '🔁 더 큰 창(5년·200종)에선 +0.68 로 부호가 뒤집혔습니다 — 이 숫자는 측정 기간에 크게 좌우됩니다.' },
   { key: 'greenTurn', icon: '🚦', label: '신호등 green 전환', edge20: -0.36, winRate: 48.4, sample: 161,
     desc: '오늘 정배열+구름 위로 전환 = 구조적 상승 추세 진입',
     note: '⚠️ 재측정 음수 — 전환 당일 추격은 우위가 없습니다. 전환 후 첫 눌림을 기다리는 편이 낫습니다.' },
   { key: 'bullDiv', icon: '🔼', label: '상승 다이버전스', edge20: -0.9, winRate: 49.3, sample: 477,
     desc: '가격은 저점을 낮췄는데 RSI는 저점을 높임 = 하락 에너지 소진(바닥 반전 후보)',
-    note: '⚠️ 하락장 포함 재측정에서 역효과(절사 −0.9) — 단독으론 떨어지는 칼날을 잡습니다. 구조 게이트(정배열+구름)와 합류한 정예 타점만 생존.' },
+    note: '⚠️ 하락장 포함 재측정에서 역효과(절사 −0.9) — 단독으론 떨어지는 칼날을 잡습니다. 구조 게이트(정배열+구름)와 합류한 정예 타점만 생존.',
+    recheck: '🔁 더 큰 창(5년·200종)에선 +0.25. 다만 게이트와 합쳐도 안 본 종목에선 −1.01 로 무너졌습니다(2026-08-28 hold-out) — 이 갈래는 특히 불안정합니다.' },
   { key: 'liqSweep', icon: '💧', label: '유동성 스윕', edge20: -1.42, winRate: 47.5, sample: 177,
     desc: '전저점을 꼬리로 찔러 손절을 털고 종가는 회복(개미 털기 흔적)',
     note: '⚠️ 재측정 역효과(절사 −1.42·승률 −4.5pp) — 관찰 라벨로만 쓰고 매수 신호로 쓰지 마세요.' },
 ]
 export const SETUP_MAP: Record<string, SetupMeta> = Object.fromEntries(SCREEN_SETUPS.map(s => [s.key, s]))
+
+/** 🔑 기술 검색기 캐시 키 — **상수로 묶는다.**
+ *  v1→v2 를 writer(api/tech-screener)만 올렸다가 reader(cronHealth)가 옛 키를 읽는 걸 커밋 훅이 잡았다.
+ *  여기 한 곳만 고치면 둘 다 따라온다(HONEYCOMB_KEY 와 같은 처방).
+ *  v2: SetupMeta.recheck(더 큰 창 재측정) 추가 — 응답에 SCREEN_SETUPS 가 실려 캐시된다. */
+export const TECH_SCREENER_KEY = (dateKey: string) => `tech-screener-v2:${dateKey}`
 
 export interface ScreenHit {
   ticker: string; name: string; market: 'US' | 'KR'

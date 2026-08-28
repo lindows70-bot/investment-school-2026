@@ -18,7 +18,7 @@ export const maxDuration = 300
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { getTechCandles } from '@/lib/techChartData'
-import { evaluateSetups, SCREEN_SETUPS, type ScreenHit, type SetupMeta } from '@/lib/techScreener'
+import { evaluateSetups, SCREEN_SETUPS, TECH_SCREENER_KEY, type ScreenHit, type SetupMeta } from '@/lib/techScreener'
 import { UNIVERSE_KEY, type ScreenedStock } from '@/lib/macroPhaseScreener'
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
@@ -35,7 +35,7 @@ export interface TechScreenerApi {
 
 export async function GET(req: Request) {
   const refresh = new URL(req.url).searchParams.get('refresh') === '1'
-  const key = `tech-screener-v1:${kstDate()}`
+  const key = TECH_SCREENER_KEY(kstDate())   // 🔑 lib SSOT — cronHealth 가 같은 상수를 본다
   if (!refresh) {
     const cached = await getCache<TechScreenerApi>(key, 12 * 3600_000)
     if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
