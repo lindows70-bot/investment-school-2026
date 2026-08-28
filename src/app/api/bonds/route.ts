@@ -62,7 +62,8 @@ function retAt(closes: number[], back: number): number | null {
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export async function GET(req: Request) {
-  const cacheKey = `bonds-v7:${kstDate()}`   // v7: YCC 에 미국 총부채(재무부 일별) 동승 / v6: 침체 판정 창 18개월 명시 / v5: 인하사이클·상관·YCC / v4: 실질 vs BEI
+  // v8: 국면 라벨 SSOT 교정(금리 고점·동결 → rateDir 반영) — 내용만 바뀌어도 키를 올린다
+  const cacheKey = `bonds-v8:${kstDate()}`   // v7: YCC 에 미국 총부채(재무부 일별) 동승 / v6: 침체 판정 창 18개월 명시 / v5: 인하사이클·상관·YCC / v4: 실질 vs BEI
   const cached = await getCache<BondsResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

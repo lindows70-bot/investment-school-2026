@@ -53,7 +53,8 @@ export interface MacroAiResult {
   nextRefreshAt:    string
 }
 
-const CACHE_KEY = 'macro-ai-picks:weekly:v3'   // v2: 유니버스 50→100 확장
+// v4: 국면 라벨 SSOT 교정 — 라벨이 프롬프트와 macroSummary 에 그대로 박히므로 키를 올린다
+const CACHE_KEY = 'macro-ai-picks:weekly:v4'   // v2: 유니버스 50→100 확장
 const PHASE_KEY = 'macro-ai-picks:phase'
 const CACHE_TTL = 7 * 24 * 3600_000   // 7일
 

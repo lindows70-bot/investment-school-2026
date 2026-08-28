@@ -745,9 +745,15 @@ export function detectMacroPhase(d: MacroData): MacroPhaseResult {
   // 5) 금리 인하 초입: FedWatch가 '실제 인하 컨센서스'일 때만 (정적 레벨만으로 단정 금지)
   if (rateDir === 'cut' && fedRate > 2 && cpiYoY < 5 && yieldCurve >= 0)
     return { phase:'rate_cut_early', label:'금리 인하 초입', color:TK.green400, icon:'✂️', description:'FF선물이 인하 사이클 진입을 반영 — 성장주·기술주 리레이팅 기대, 선별적 접근' }
-  // 6) 금리 고점·동결: FedWatch가 동결/소폭 인상을 반영(현재 국면). '인하'로 오표기하지 않음
+  // 6) 금리 고점: FedWatch가 동결/소폭 인상을 반영(현재 국면). '인하'로 오표기하지 않음
+  //    ⚠️ 2026-08-28 — 라벨이 rateDir 과 무관하게 '동결'로 고정돼 있어, FedWatch 가 인상을 반영하는 날
+  //       같은 화면에서 "국면 SSOT: 금리 고점·동결" 과 "기준금리 방향: 인상" 이 **동시에** 떴다(제2원칙 위반).
+  //       바로 아래 description 은 이미 rateDir 로 분기하고 있었다 — SSOT 가 알면서 라벨에만 안 쓴 것이다.
+  //       그 사이 portfolio-reco-kr 과 MacroDashboard 가 각자 우회 라벨을 만들어 표면이 셋으로 갈렸다.
   return {
-    phase:'peak_rate', label:'금리 고점·동결', color:TK.amber500, icon:'🏔️',
+    phase:'peak_rate',
+    label: rateDir === 'hike' ? '금리 고점·인상 경계' : '금리 고점·동결',
+    color:TK.amber500, icon:'🏔️',
     description: rateDir === 'hike'
       ? '시장은 당분간 동결~소폭 인상을 기대 — 이자수익 금융주·FCF 우량주 선호 (점도표상 장기 인하 경로는 참고)'
       : '시장은 당분간 금리 동결을 기대 — 이자수익 금융주·FCF 우량주 선호 (점도표상 장기 인하 경로는 참고)',

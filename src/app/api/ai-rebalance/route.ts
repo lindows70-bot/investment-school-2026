@@ -241,7 +241,8 @@ export async function GET(req: Request) {
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
   // v51: 🔐 개인 데이터 → 유료 키 전용(personal:true) — 유료 키 등록 전에 캐시된 폴백 서술 무효화
-  const cacheKey = `ai-rebalance-v51+${UNIFIED_RECO_V}:${user.id}:${today}:${fp}`   // v50: 🏰 해자 침식 손절 격상 철회(소급 실측 반증) → 정보 제공만
+  // v52: 국면 라벨 SSOT 교정(regimeNote 가 j.label 을 문장에 박아 넣는다) — 내용만 바뀌어도 키를 올린다
+  const cacheKey = `ai-rebalance-v52+${UNIFIED_RECO_V}:${user.id}:${today}:${fp}`   // v50: 🏰 해자 침식 손절 격상 철회(소급 실측 반증) → 정보 제공만
 
   if (!forceRefresh) {
     const cached = await getCache<RebalanceResult>(cacheKey, 24 * 3600_000)

@@ -54,17 +54,16 @@ const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0,
 
 // ★ 매크로 국면 → 권장 매수액 배율(SSOT /api/macro-regime 재사용 — 추가 fetch 0)
 //   위험 국면(스태그플레이션·침체위험)일수록 보수적으로 권장액 축소(자동매매 아닌 '참고 가이드' 조절)
-function regimeMultiplier(phase: string, rateDir: string): { multiplier: number; label: string; guide: string } {
-  if (phase === 'stagflation' || phase === 'recession_risk') {
-    return { multiplier: 0.5, label: phase === 'stagflation' ? '스태그플레이션 경계' : '경기침체 위험',
-      guide: '시장 전체가 위축 국면입니다. 권장 매수액을 절반으로 줄여 더 보수적으로 분할 접근하세요.' }
-  }
-  if (phase === 'peak_rate') {
-    return { multiplier: 0.75, label: rateDir === 'hike' ? '금리 고점·동결(인상 경계)' : '금리 고점·동결',
-      guide: '금리가 당분간 고점에 머물 가능성이 높은 구간입니다. 권장액을 25% 줄여 신중하게 접근하세요.' }
-  }
-  return { multiplier: 1.0, label: phase === 'rate_cut_early' ? '금리 인하 초입' : phase === 'easy_money' ? '유동성 장세' : '중립 국면',
-    guide: '시장 환경이 우호적이거나 중립적입니다. 평소 권장 비율(신규 2%/추가 1%)대로 접근해도 좋습니다.' }
+// ⚠️ 2026-08-28 — 예전엔 여기서 **국면 라벨까지 자체 생산**했다. 그래서 SSOT(detectMacroPhase)가
+//    'peak_rate' 를 무조건 '금리 고점·동결'이라 부르던 시절, 이 파일만 '(인상 경계)'를 붙여 표면이 갈렸다.
+//    라벨은 `/api/macro-regime` 응답(j.label = SSOT)에 **이미 실려 오고 있었다** — 안 쓴 데이터였을 뿐이다.
+//    이 함수는 이제 **배율과 안내 문구만** 만든다(제2원칙: 같은 지표는 전 화면에서 같은 값).
+function regimeMultiplier(phase: string): { multiplier: number; guide: string } {
+  if (phase === 'stagflation' || phase === 'recession_risk')
+    return { multiplier: 0.5, guide: '시장 전체가 위축 국면입니다. 권장 매수액을 절반으로 줄여 더 보수적으로 분할 접근하세요.' }
+  if (phase === 'peak_rate')
+    return { multiplier: 0.75, guide: '금리가 당분간 고점에 머물 가능성이 높은 구간입니다. 권장액을 25% 줄여 신중하게 접근하세요.' }
+  return { multiplier: 1.0, guide: '시장 환경이 우호적이거나 중립적입니다. 평소 권장 비율(신규 2%/추가 1%)대로 접근해도 좋습니다.' }
 }
 
 // ★ 통합 추천 점수(0~100) — PEG 가치 + 수급 강도 + 개인 이탈 가산
@@ -105,7 +104,8 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `portfolio-reco-kr-v7:${user.id}:${kstDate()}:${fp}`   // v7: 기저효과 PEG 가드(pegSuspect)
+  // v8: 국면 라벨을 자체 생산하지 않고 SSOT(j.label)를 그대로 쓰도록 교정
+  const cacheKey = `portfolio-reco-kr-v8:${user.id}:${kstDate()}:${fp}`   // v7: 기저효과 PEG 가드(pegSuspect)
   const cached = await getCache<PortfolioRecoResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -121,8 +121,9 @@ export async function GET(req: Request) {
     const rg = await fetch(`${base}/api/macro-regime`, { signal: AbortSignal.timeout(10_000) })
     if (rg.ok) {
       const j = await rg.json()
-      const { multiplier, label, guide } = regimeMultiplier(j.phase, j.rateDir)
-      regime = { rateDir: j.rateDir, phase: j.phase, label, multiplier, guide }
+      const { multiplier, guide } = regimeMultiplier(j.phase)
+      // 라벨은 SSOT 응답을 그대로 쓴다 — 여기서 다시 만들면 화면끼리 다른 이름을 부르게 된다
+      regime = { rateDir: j.rateDir, phase: j.phase, label: j.label, multiplier, guide }
     }
   } catch { /* graceful — 실패 시 배율 1.0(중립) */ }
   const mult = regime?.multiplier ?? 1.0

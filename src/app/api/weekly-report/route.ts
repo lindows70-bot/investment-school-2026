@@ -157,7 +157,8 @@ const AI_SCHEMA = {
 }
 
 async function buildCommon(base: string): Promise<WrCommon> {
-  const key = `weekly-report-common-v11:${kstDate()}`   // v11: 헤드라인 주어 하나 규칙(두 자산 이어붙임 금지) · v5: 미10Y 스케일 자동판별(÷10 버그)
+  // v12: 국면 라벨 SSOT 교정(macro.label) — 내용만 바뀌어도 키를 올린다
+  const key = `weekly-report-common-v12:${kstDate()}`   // v11: 헤드라인 주어 하나 규칙(두 자산 이어붙임 금지) · v5: 미10Y 스케일 자동판별(÷10 버그)
   const cached = await getCache<WrCommon>(key, 6 * 3600_000)
   if (cached) return cached
 
