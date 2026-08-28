@@ -81,8 +81,10 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
+  // v13: 킬스위치 행 문구 교정(내용만 바뀌어도 키를 올린다 — 스키마가 같으면 커밋 훅이 못 잡고,
+  //      실제로 v12 캐시가 옛 문구를 그대로 서빙해 화면검증에서 발각됐다)
   // v12: 🔌 killSwitch·cliMonth 추가 — 필드가 늘어도 옛 응답이 서빙되면 undefined 로 온다
-  const cacheKey = `season-navigator-v12:${user.id}:${kstDate()}:${fp}`   // v11: 매수 후보 1M·3M·1Y 미니차트 + 52주 위치
+  const cacheKey = `season-navigator-v13:${user.id}:${kstDate()}:${fp}`   // v11: 매수 후보 1M·3M·1Y 미니차트 + 52주 위치
   const cached = await getCache<SeasonNavResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
