@@ -131,7 +131,7 @@ export async function GET(req: Request) {
   const anchor = anchorEvent()
   let { latest, daysSince } = anchor
   const next = anchor.next
-  const cacheKey = `fomc-decoder-v8:${latest.date}:${kstDate()}`   // v8: 존댓말 통일(문체 혼재 교정)
+  const cacheKey = `fomc-decoder-v9:${latest.date}:${kstDate()}`   // v9: temperature 0.3→0.15(문장 흔들림 억제)
   const cached = await getCache<FomcDecoderResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -179,7 +179,9 @@ ${hasDecision
 
   type AiOut = Omit<FomcDecoderResult, 'meetingLabel' | 'meetingDate' | 'eventKind' | 'eventTitle' | 'daysSince' | 'isRecent' | 'nextDate' | 'marketGap' | 'asOf' | 'chairRemarks'>
     & { chairRemarks?: { quote?: string; meaning?: string; srcIdx?: number }[] }
-  const g = await callGeminiJSON<AiOut>(prompt, SCHEMA, { temperature: 0.3 })
+  // temperature 0.3 → 0.15 — 회차마다 문장이 흔들렸다(실측: '중앙은행'→'중앙바람' 오타 · '줄이려던'→'바꾸면서도'로 방향어 소실).
+  // ⚠️ 완화이지 해결이 아니다 — 카드는 6h 마다 다시 뽑히므로 매번 새로 굴린다.
+  const g = await callGeminiJSON<AiOut>(prompt, SCHEMA, { temperature: 0.15 })
   if (!g.ok || !g.data) return NextResponse.json({ error: 'ai_failed' }, { status: 200 })
 
   // 🛡️ 근거 검증 — srcIdx 가 실제 헤드라인을 가리키지 않으면 그 발언을 **버린다**(3개를 채우려 지어낸 것).
