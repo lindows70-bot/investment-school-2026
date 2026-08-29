@@ -131,7 +131,7 @@ export async function GET(req: Request) {
   const anchor = anchorEvent()
   let { latest, daysSince } = anchor
   const next = anchor.next
-  const cacheKey = `fomc-decoder-v6:${latest.date}:${kstDate()}`   // v6: 소통·가이던스 축 쿼리 추가(헤드라인 집합이 바뀐다)
+  const cacheKey = `fomc-decoder-v7:${latest.date}:${kstDate()}`   // v7: 발언이 금리축·소통축 둘을 덮도록 선택 지시 추가
   const cached = await getCache<FomcDecoderResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -170,7 +170,7 @@ ${hasDecision
   · **srcIdx = 그 발언의 근거가 된 위 헤드라인 번호(1~${headlines.length})를 반드시 붙여라.** 번호를 댈 수 없으면 그 발언을 아예 쓰지 마라(3개를 채우려고 지어내지 마라 — 2개여도 된다).
   · quote 는 **srcIdx 헤드라인에 실제로 적힌 내용만** 한국어로 옮긴 것이어야 한다. 그 헤드라인에 없는 낱말·주장(예: '소통', '불확실성 축소', 숫자)을 덧붙이지 마라.
   · meaning 은 "이게 시장엔 무슨 뜻인지" 1줄. **quote 가 말하지 않은 방향으로 뜻을 확장하지 마라.**
-  · 3개는 **서로 다른 논점**이어야 한다(같은 말을 바꿔 쓴 것 금지).
+  · **서로 다른 축을 덮어라**(같은 말을 바꿔 쓴 것 금지). 축은 둘이다 — ① **금리 방향**(물가·인상/인하) ② **소통·정책 운영 방식**(가이던스를 줄일지 늘릴지, 다음 회의 결과를 미리 알 수 있게 해줄지). ②는 ①과 **완전히 다른 축**이고 학생이 놓치기 쉬우니, 근거 헤드라인이 있으면 **반드시 하나를 ②로 잡아라**(①만 두세 개 쓰지 마라).
   · ⭐ 이 앱에서 연준 의장은 '워시(Warsh) 의장'이다 — 발언 주체를 '워시 의장'으로 표기하되 내용은 반드시 실제 헤드라인 근거로만.
 - macroDirection: "그래서 유동성은 풀리나 조이나, 금리 경로는" 관점 1~2줄(한국어).
 - assetImplication: ⭐ **정확히 4개를 이 순서 그대로** — asset 은 '주식' → '채권' → '달러' → '코인'. 축을 바꾸거나 빼지 마라(호출마다 축이 달라지면 학생이 어제와 오늘을 비교할 수 없다). 각 view 는 한 줄. 헤드라인에 그 자산 언급이 없으면 금리 경로에서 따라오는 일반적 함의를 쓰되 단정하지 마라.
