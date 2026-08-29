@@ -10,7 +10,7 @@ import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { callGeminiJSON } from '@/lib/gemini'
 import { FOMC_SCHEDULE } from '@/lib/fomcSchedule'
-import { FED_EVENTS, EVENT_QUERIES, HAS_RATE_DECISION, VENUE_KO, type FedEvent, type FedEventKind } from '@/lib/fedEvents'
+import { FED_EVENTS, EVENT_QUERIES, HAS_RATE_DECISION, VENUE_KO, newsWindowDays, MUST_MATCH, MIN_MATCHES, type FedEvent, type FedEventKind } from '@/lib/fedEvents'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 45
@@ -80,15 +80,33 @@ async function googleNews(query: string, take: number, lang: 'ko' | 'en'): Promi
 
 // 오늘(KST) 기준 **직전 연준 이벤트** + 다음 FOMC — FOMC_SCHEDULE ∪ FED_EVENTS 에서 결정론적으로.
 // 회의든 연설이든 '더 최근에 일어난 것'이 앵커다(그래야 뉴스 창과 이름표가 어긋나지 않는다).
+const fomcAsEvents = (): FedEvent[] =>
+  FOMC_SCHEDULE.map(m => ({ kind: 'fomc', label: m.label, date: m.date, title: 'FOMC 정례회의' }))
+
+const daysBetween = (today: string, date: string) => Math.round((new Date(today).getTime() - new Date(date).getTime()) / 86400_000)
+
 function anchorEvent() {
   const today = kstDate()
-  const fomcAsEvents: FedEvent[] = FOMC_SCHEDULE.map(m => ({ kind: 'fomc', label: m.label, date: m.date, title: 'FOMC 정례회의' }))
-  const all = [...fomcAsEvents, ...FED_EVENTS].sort((a, b) => a.date.localeCompare(b.date))
+  const all = [...fomcAsEvents(), ...FED_EVENTS].sort((a, b) => a.date.localeCompare(b.date))
   const past = all.filter(e => e.date <= today)
   const latest = past.length ? past[past.length - 1] : all[0]
   const next = FOMC_SCHEDULE.filter(m => m.date > today)[0] ?? null   // '다음 회의'는 언제나 FOMC 기준
-  const daysSince = Math.round((new Date(today).getTime() - new Date(latest.date).getTime()) / 86400_000)
-  return { latest, next, daysSince }
+  return { latest, next, daysSince: daysBetween(today, latest.date) }
+}
+
+/** 앵커를 FOMC 회의로 되돌린다 — 비FOMC 이벤트 기사가 말라 그 자리의 해석이라 말할 수 없을 때. */
+function fallbackToFomc() {
+  const today = kstDate()
+  const past = fomcAsEvents().filter(e => e.date <= today)
+  const latest = past.length ? past[past.length - 1] : fomcAsEvents()[0]
+  return { latest, daysSince: daysBetween(today, latest.date) }
+}
+
+/** 한 이벤트에 대한 헤드라인 수집 — 창은 앵커 경과일에서 역산한다(상수 금지). */
+async function collectHeadlines(kind: FedEventKind, daysSince: number): Promise<string[]> {
+  const win = newsWindowDays(daysSince)
+  const groups = await Promise.all(EVENT_QUERIES[kind].map(([q, lang, take]) => googleNews(`${q} when:${win}d`, take, lang)))
+  return Array.from(new Set(groups.flat())).slice(0, 26)
 }
 
 const SCHEMA = {
@@ -106,19 +124,31 @@ const SCHEMA = {
 
 export async function GET(req: Request) {
   const selfBase = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-  const { latest, next, daysSince } = anchorEvent()
+  const anchor = anchorEvent()
+  let { latest, daysSince } = anchor
+  const next = anchor.next
+  const cacheKey = `fomc-decoder-v4:${latest.date}:${kstDate()}`   // v4: 동적 뉴스 창 + 관련성 가드 + 고정 자산축
+  const cached = await getCache<FomcDecoderResult>(cacheKey, 6 * 3600_000)
+  if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
+
+  // 실제 뉴스 — **앵커 종류에 맞는 쿼리 + 앵커에서 역산한 창**으로 판다
+  let headlines = await collectHeadlines(latest.kind, daysSince)
+
+  // 🛡️ 관련성 가드 — 비FOMC 이벤트인데 그 이벤트를 다룬 기사가 말랐다면(시간이 지나 기사가 끊긴 경우)
+  //    남은 기사를 그 자리의 발언이라 부르지 말고 **직전 FOMC 회의로 앵커를 되돌린다**.
+  //    이걸 안 하면 9월 초에 "잭슨홀 기조연설" 이름표로 무관한 최근 기사가 해석된다(같은 버그의 재발).
+  const mm = MUST_MATCH[latest.kind]
+  if (mm && headlines.filter(h => mm.test(h)).length < MIN_MATCHES) {
+    const fb = fallbackToFomc()
+    latest = fb.latest; daysSince = fb.daysSince
+    headlines = await collectHeadlines('fomc', daysSince)
+  }
+  if (headlines.length === 0) return NextResponse.json({ error: 'no_news' }, { status: 200 })
+
   const isRecent = daysSince >= 0 && daysSince <= 14
   const kind = latest.kind
   const venue = VENUE_KO[kind]
   const hasDecision = HAS_RATE_DECISION[kind]
-  const cacheKey = `fomc-decoder-v3:${latest.date}:${kstDate()}`   // v3: 앵커가 이벤트(잭슨홀·증언)까지 확장 — 내용·라벨이 통째로 바뀐다
-  const cached = await getCache<FomcDecoderResult>(cacheKey, 6 * 3600_000)
-  if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
-
-  // 실제 뉴스 — **앵커 이벤트 종류에 맞는 쿼리**로만 판다(회의 쿼리로 연설을 해석하던 어긋남 제거)
-  const groups = await Promise.all(EVENT_QUERIES[kind].map(([q, lang, take]) => googleNews(q, take, lang)))
-  const headlines = Array.from(new Set(groups.flat())).slice(0, 26)
-  if (headlines.length === 0) return NextResponse.json({ error: 'no_news' }, { status: 200 })
 
   const prompt = `너는 투자학교의 AI 연준 분석관이다. 아래 실제 뉴스 헤드라인을 근거로, **${latest.title}(${latest.label}, ${latest.date})** 에서 나온 내용을 학생용으로 해석하라.
 
@@ -134,7 +164,7 @@ ${hasDecision
 - stance: 'hawkish'(매파·긴축 지속) / 'neutral'(중립) / 'dovish'(비둘기·완화) 중 하나. stanceText: 기조 한 줄.
 - chairRemarks: 의장이 **${venue}에서** 한 발언 핵심 2~3개. 각 {quote: 발언 요지(한국어, 헤드라인 근거·창작 금지), meaning: "이게 시장엔 무슨 뜻인지" 1줄}. ⭐ 이 앱에서 연준 의장은 '워시(Warsh) 의장'이다 — 발언 주체를 '워시 의장'으로 표기하되 내용은 반드시 실제 헤드라인 근거로만.
 - macroDirection: "그래서 유동성은 풀리나 조이나, 금리 경로는" 관점 1~2줄(한국어).
-- assetImplication: 자산별 시사점 3~4개. 각 {asset: '주식'|'채권'|'달러'|'코인' 등, view: 한 줄}.
+- assetImplication: ⭐ **정확히 4개를 이 순서 그대로** — asset 은 '주식' → '채권' → '달러' → '코인'. 축을 바꾸거나 빼지 마라(호출마다 축이 달라지면 학생이 어제와 오늘을 비교할 수 없다). 각 view 는 한 줄. 헤드라인에 그 자산 언급이 없으면 금리 경로에서 따라오는 일반적 함의를 쓰되 단정하지 마라.
 - 학생 교육 톤, 전부 한국어. 법률·전문용어 최소화.`
 
   const g = await callGeminiJSON<Omit<FomcDecoderResult, 'meetingLabel' | 'meetingDate' | 'daysSince' | 'isRecent' | 'nextDate' | 'marketGap' | 'asOf'>>(prompt, SCHEMA, { temperature: 0.3 })

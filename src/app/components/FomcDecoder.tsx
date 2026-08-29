@@ -50,8 +50,10 @@ export default function FomcDecoder() {
         {!isMeeting && d.eventTitle && (
           <span style={{ background: `${TK.amber400}1f`, color: TK.amber400, border: `1px solid ${TK.amber400}55`, borderRadius: 8, padding: '2px 9px', fontSize: 11, fontWeight: 700 }}>{d.eventTitle}</span>
         )}
+        {/* ⚠️ '따끈함'이 '다음 회의'를 가리면 안 된다 — 잭슨홀 직후엔 오히려 다음 FOMC 날짜가 요점이다
+            (연설이 "9월에 올릴 수 있다"인데 정작 9/16 이 화면에서 사라졌던 회귀. 2026-08-29 교정) */}
         <span style={{ color: TK.sub2, fontSize: 11 }}>
-          {d.isRecent ? `🔴 ${d.daysSince}일 전 — ${recentWord}` : d.nextDate ? `다음 회의 ${d.nextDate}` : ''}
+          {[d.isRecent ? `🔴 ${d.daysSince}일 전 — ${recentWord}` : null, d.nextDate ? `다음 회의 ${d.nextDate}` : null].filter(Boolean).join(' · ')}
         </span>
         <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, background: `${s.color}1f`, color: s.color, border: `1px solid ${s.color}66`, borderRadius: 999, padding: '4px 13px', fontSize: 13, fontWeight: 800 }}>
           {s.icon} {s.label}

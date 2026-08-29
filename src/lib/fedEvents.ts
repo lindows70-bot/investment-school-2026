@@ -21,26 +21,45 @@ export const FED_EVENTS: FedEvent[] = [
   { kind: 'jacksonhole', label: "잭슨홀 '26", date: '2026-08-28', title: '잭슨홀 심포지엄 · 의장 기조연설' },
 ]
 
-/** 이벤트 종류별 뉴스 쿼리 — [질의, 언어, 건수]. 회의는 성명서·점도표까지, 연설은 연설 자체를 판다. */
+/** 이벤트 종류별 뉴스 쿼리 — [질의(when: 없음), 언어, 건수].
+ *
+ *  ⛔ **`when:` 을 상수로 박지 마라.** 앵커 이벤트가 며칠 전이냐에 따라 창이 달라져야 한다.
+ *     상수 `14d` 로 두었다가 31일 전 회의에 어젯밤 잭슨홀 기사가 붙었고(2026-08-29 실사고),
+ *     `7d` 로 바꿔도 9/5 이후엔 잭슨홀 기사가 창 밖으로 나가 **같은 버그가 반대로 재발**한다.
+ *     창은 `newsWindowDays(daysSince)` 가 앵커에서 역산한다. */
 export const EVENT_QUERIES: Record<FedEventKind, [string, 'ko' | 'en', number][]> = {
   fomc: [
-    ['FOMC statement rate decision when:14d', 'en', 8],
-    ['Federal Reserve Chair press conference remarks when:14d', 'en', 7],
-    ['Fed dot plot projections rate path when:21d', 'en', 5],
-    ['FOMC 연준 기준금리 결정 기자회견 when:14d', 'ko', 7],
+    ['FOMC statement rate decision', 'en', 8],
+    ['Federal Reserve Chair press conference remarks', 'en', 7],
+    ['Fed dot plot projections rate path', 'en', 5],
+    ['FOMC 연준 기준금리 결정 기자회견', 'ko', 7],
   ],
   jacksonhole: [
-    ['Fed Chair Jackson Hole speech when:7d', 'en', 8],
-    ['Jackson Hole symposium Fed inflation rate path when:7d', 'en', 7],
-    ['Jackson Hole speech market reaction bonds when:7d', 'en', 5],
-    ['잭슨홀 연준 의장 연설 when:7d', 'ko', 7],
+    ['Fed Chair Jackson Hole speech', 'en', 8],
+    ['Jackson Hole symposium Fed inflation rate path', 'en', 7],
+    ['Jackson Hole speech market reaction bonds', 'en', 5],
+    ['잭슨홀 연준 의장 연설', 'ko', 7],
   ],
   testimony: [
-    ['Fed Chair congressional testimony when:7d', 'en', 8],
-    ['Federal Reserve semiannual monetary policy report testimony when:7d', 'en', 7],
-    ['연준 의장 의회 증언 when:7d', 'ko', 7],
+    ['Fed Chair congressional testimony', 'en', 8],
+    ['Federal Reserve semiannual monetary policy report testimony', 'en', 7],
+    ['연준 의장 의회 증언', 'ko', 7],
   ],
 }
+
+/** 뉴스 창(일) — **앵커 이벤트를 반드시 포함**하도록 경과일에서 역산(+2일 여유). 3~35일로 클램프. */
+export const newsWindowDays = (daysSince: number) => Math.min(35, Math.max(3, daysSince + 2))
+
+/** 이 이벤트를 실제로 다룬 기사인지 가리는 표식 — 없으면 그 자리의 해석이라고 말할 수 없다.
+ *  fomc 는 회의가 그 날 확실히 열렸으므로 표식 검사를 하지 않는다(null). */
+export const MUST_MATCH: Record<FedEventKind, RegExp | null> = {
+  fomc: null,
+  jacksonhole: /jackson hole|잭슨홀/i,
+  testimony: /testimony|testif|의회 ?증언|증언/i,
+}
+
+/** 표식이 이 건수 미만이면 그 이벤트 해석을 포기하고 직전 FOMC 회의로 되돌린다. */
+export const MIN_MATCHES = 2
 
 /** 이 자리에서 금리가 결정되는가 — 연설·증언은 결정이 없다(가짜 결정 생성 방지). */
 export const HAS_RATE_DECISION: Record<FedEventKind, boolean> = {
