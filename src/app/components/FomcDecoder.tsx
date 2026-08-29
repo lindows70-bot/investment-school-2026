@@ -98,6 +98,8 @@ export default function FomcDecoder() {
               <div key={i} style={{ background: TK.bg3, borderRadius: 9, padding: '9px 12px', borderLeft: `3px solid ${s.color}` }}>
                 <div style={{ color: TK.slate200, fontSize: 12, lineHeight: 1.6 }}>“{q.quote}”</div>
                 <div style={{ color: TK.sub13, fontSize: 11, marginTop: 4, lineHeight: 1.6 }}>→ {q.meaning}</div>
+                {/* 📎 근거 헤드라인 — 학생이 직접 대조할 수 있어야 한다. 근거 없는 발언은 서버가 이미 버렸다. */}
+                {q.src && <div style={{ color: TK.slate500, fontSize: 10, marginTop: 5, lineHeight: 1.5 }}>📎 {q.src}</div>}
               </div>
             ))}
           </div>

@@ -18,7 +18,11 @@ export const maxDuration = 45
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 export type Stance = 'hawkish' | 'neutral' | 'dovish'
 
-export interface FomcQuote { quote: string; meaning: string }   // 의장 발언 핵심 + 해석
+/** 의장 발언 핵심 + 해석. `src` = 이 발언의 **근거 헤드라인**(매체명 포함 원문).
+ *  ⚠️ 근거를 못 대는 발언은 응답에서 버린다 — "규칙을 더 쓰지 말고 원문 값을 주라"(실적 리포트 금액 오독 교훈).
+ *  실사고: 헤드라인이 `advocates for 'quieter' central bank` 뿐인데 화면이
+ *  "시장과 소통하겠습니다 → 정책 불확실성을 낮추겠다는 의지"로 나갔다(소통·불확실성 근거 0건 · 뜻은 정반대). */
+export interface FomcQuote { quote: string; meaning: string; src?: string }
 export type GapKind = 'aligned' | 'partial' | 'diverge'
 export interface MarketGap {
   rateDir: 'cut' | 'hold' | 'hike'
@@ -115,7 +119,7 @@ const SCHEMA = {
     decision: { type: 'STRING' },
     stance: { type: 'STRING', enum: ['hawkish', 'neutral', 'dovish'] },
     stanceText: { type: 'STRING' },
-    chairRemarks: { type: 'ARRAY', items: { type: 'OBJECT', properties: { quote: { type: 'STRING' }, meaning: { type: 'STRING' } }, required: ['quote', 'meaning'] } },
+    chairRemarks: { type: 'ARRAY', items: { type: 'OBJECT', properties: { quote: { type: 'STRING' }, meaning: { type: 'STRING' }, srcIdx: { type: 'INTEGER' } }, required: ['quote', 'meaning', 'srcIdx'] } },
     macroDirection: { type: 'STRING' },
     assetImplication: { type: 'ARRAY', items: { type: 'OBJECT', properties: { asset: { type: 'STRING' }, view: { type: 'STRING' } }, required: ['asset', 'view'] } },
   },
@@ -127,7 +131,7 @@ export async function GET(req: Request) {
   const anchor = anchorEvent()
   let { latest, daysSince } = anchor
   const next = anchor.next
-  const cacheKey = `fomc-decoder-v4:${latest.date}:${kstDate()}`   // v4: 동적 뉴스 창 + 관련성 가드 + 고정 자산축
+  const cacheKey = `fomc-decoder-v5:${latest.date}:${kstDate()}`   // v5: 발언마다 근거 헤드라인(src) 실림 — 근거 없는 발언은 버린다
   const cached = await getCache<FomcDecoderResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -162,13 +166,33 @@ ${hasDecision
   ? `- decision: 기준금리 결정(동결/인하/인상)과 레벨을 헤드라인 근거로 한 줄(한국어). 근거 약하면 "헤드라인상 명확한 금리 변경 신호 없음(동결 추정)".`
   : `- ⚠️ **이 자리에서는 기준금리를 결정하지 않는다**(${venue}이다). decision 에는 금리 결정을 지어내지 말고, "금리 결정이 없는 ${venue} — " 로 시작해 **연설의 핵심 메시지**를 한 줄로 써라(한국어).`}
 - stance: 'hawkish'(매파·긴축 지속) / 'neutral'(중립) / 'dovish'(비둘기·완화) 중 하나. stanceText: 기조 한 줄.
-- chairRemarks: 의장이 **${venue}에서** 한 발언 핵심 2~3개. 각 {quote: 발언 요지(한국어, 헤드라인 근거·창작 금지), meaning: "이게 시장엔 무슨 뜻인지" 1줄}. ⭐ 이 앱에서 연준 의장은 '워시(Warsh) 의장'이다 — 발언 주체를 '워시 의장'으로 표기하되 내용은 반드시 실제 헤드라인 근거로만.
+- chairRemarks: 의장이 **${venue}에서** 한 발언 핵심 2~3개. 각 {quote, meaning, **srcIdx**}.
+  · **srcIdx = 그 발언의 근거가 된 위 헤드라인 번호(1~${headlines.length})를 반드시 붙여라.** 번호를 댈 수 없으면 그 발언을 아예 쓰지 마라(3개를 채우려고 지어내지 마라 — 2개여도 된다).
+  · quote 는 **srcIdx 헤드라인에 실제로 적힌 내용만** 한국어로 옮긴 것이어야 한다. 그 헤드라인에 없는 낱말·주장(예: '소통', '불확실성 축소', 숫자)을 덧붙이지 마라.
+  · meaning 은 "이게 시장엔 무슨 뜻인지" 1줄. **quote 가 말하지 않은 방향으로 뜻을 확장하지 마라.**
+  · 3개는 **서로 다른 논점**이어야 한다(같은 말을 바꿔 쓴 것 금지).
+  · ⭐ 이 앱에서 연준 의장은 '워시(Warsh) 의장'이다 — 발언 주체를 '워시 의장'으로 표기하되 내용은 반드시 실제 헤드라인 근거로만.
 - macroDirection: "그래서 유동성은 풀리나 조이나, 금리 경로는" 관점 1~2줄(한국어).
 - assetImplication: ⭐ **정확히 4개를 이 순서 그대로** — asset 은 '주식' → '채권' → '달러' → '코인'. 축을 바꾸거나 빼지 마라(호출마다 축이 달라지면 학생이 어제와 오늘을 비교할 수 없다). 각 view 는 한 줄. 헤드라인에 그 자산 언급이 없으면 금리 경로에서 따라오는 일반적 함의를 쓰되 단정하지 마라.
 - 학생 교육 톤, 전부 한국어. 법률·전문용어 최소화.`
 
-  const g = await callGeminiJSON<Omit<FomcDecoderResult, 'meetingLabel' | 'meetingDate' | 'daysSince' | 'isRecent' | 'nextDate' | 'marketGap' | 'asOf'>>(prompt, SCHEMA, { temperature: 0.3 })
+  type AiOut = Omit<FomcDecoderResult, 'meetingLabel' | 'meetingDate' | 'eventKind' | 'eventTitle' | 'daysSince' | 'isRecent' | 'nextDate' | 'marketGap' | 'asOf' | 'chairRemarks'>
+    & { chairRemarks?: { quote?: string; meaning?: string; srcIdx?: number }[] }
+  const g = await callGeminiJSON<AiOut>(prompt, SCHEMA, { temperature: 0.3 })
   if (!g.ok || !g.data) return NextResponse.json({ error: 'ai_failed' }, { status: 200 })
+
+  // 🛡️ 근거 검증 — srcIdx 가 실제 헤드라인을 가리키지 않으면 그 발언을 **버린다**(3개를 채우려 지어낸 것).
+  //    통과한 발언에는 근거 헤드라인을 실어 화면이 출처를 보여주게 한다(학생이 직접 대조할 수 있어야 한다).
+  const remarks: FomcQuote[] = (g.data.chairRemarks ?? [])
+    .map((r): FomcQuote | null => {
+      const i = Number(r?.srcIdx)
+      const src = Number.isInteger(i) && i >= 1 && i <= headlines.length ? headlines[i - 1] : null
+      return r?.quote && r?.meaning && src ? { quote: r.quote, meaning: r.meaning, src } : null
+    })
+    .filter((r): r is FomcQuote => r !== null)
+    .slice(0, 3)
+  const droppedRemarks = (g.data.chairRemarks ?? []).length - remarks.length
+  if (droppedRemarks > 0) console.warn(`[fomc-decoder] 근거 없는 발언 ${droppedRemarks}건 제외(${latest.label})`)
 
   // 🆚 시장(FF선물) 금리 방향 — macro-regime SSOT(rateDir) 재사용해 의장 기조와 대조
   let marketGap: MarketGap | null = null
@@ -191,7 +215,7 @@ ${hasDecision
     decision: g.data.decision ?? '',
     stance: g.data.stance ?? 'neutral',
     stanceText: g.data.stanceText ?? '',
-    chairRemarks: (g.data.chairRemarks ?? []).slice(0, 3),
+    chairRemarks: remarks,
     macroDirection: g.data.macroDirection ?? '',
     assetImplication: (g.data.assetImplication ?? []).slice(0, 4),
     marketGap,
