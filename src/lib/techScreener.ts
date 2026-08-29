@@ -10,7 +10,7 @@ import { timingFromCandles } from '@/lib/entryTiming'
 import type { TechCandle } from '@/lib/techChartData'
 import {
   readFibRetracement, readTimeCorrection, readWedge, detectStealthBars,
-  detectElephantBar, detectLiquidity, calcRSI,
+  detectElephantBar, detectLiquidity, calcRSI, calcCCI,
 } from '@/lib/techSignals'
 
 /** 셋업 메타 — 라벨·설명·백테스트 성적. API와 UI가 같은 정의를 쓴다(제2원칙) */
@@ -77,6 +77,16 @@ export const SCREEN_SETUPS: SetupMeta[] = [
     desc: '가격은 저점을 낮췄는데 RSI는 저점을 높임 = 하락 에너지 소진(바닥 반전 후보)',
     note: '⚠️ 하락장 포함 재측정에서 역효과(절사 −0.9) — 단독으론 떨어지는 칼날을 잡습니다. 구조 게이트(정배열+구름)와 합류한 정예 타점만 생존.',
     recheck: '🔁 더 큰 창(5년·200종)에선 +0.25. 다만 게이트와 합쳐도 안 본 종목에선 −1.01 로 무너졌습니다(2026-08-28 hold-out) — 이 갈래는 특히 불안정합니다.' },
+  { key: 'cciCross100', icon: '📐', label: 'CCI +100 돌파', edge20: -0.24, winRate: 50.8, sample: 6009,
+    desc: '평균(이평선)에서 위로 크게 벌어져 상승에 속도가 붙은 자리',
+    recheck: '🔁 자기상관 보정(겹치는 20봉을 한 에피소드로 접음) 후 n=3,083 · edge −0.00 · **−0.02σ**',
+    note: '⚠️ 이 앱에서 **가장 확실하게 아무것도 아닌 신호**입니다(2026-08-29 측정 · 5년 · 100종 · 최다점유 2%). '
+        + '겹침을 걷어내면 edge 가 정확히 0이고 승률 50.8%는 baseline 52.1%보다 오히려 낮습니다. '
+        + '하향이탈(매도 쪽)도 edge −0.46 · 접은 뒤 −0.87σ 로 마찬가지입니다. '
+        + '📐 CCI 는 "가격이 이평선에서 얼마나 벌어졌나"를 재는 자(같은 길이면 CCI 영선 = 그 이평선)이니 '
+        + '**상태를 읽는 용도로만 쓰고 진입 신호로 쓰지 마세요.** '
+        + '참고: 유튜브식 2단 확인(+100 돌파 → CCI 고점 → 재돌파)까지 재봤지만 −0.42σ 로 더 나빴고, '
+        + '이평선 이탈 청산까지 태우면 −8.4σ 였습니다 — 일봉에선 진입가가 이평선 위 **중위 +12%** 라 손절이 그만큼 멉니다.' },
   { key: 'liqSweep', icon: '💧', label: '유동성 스윕', edge20: -1.42, winRate: 47.5, sample: 177,
     desc: '전저점을 꼬리로 찔러 손절을 털고 종가는 회복(개미 털기 흔적)',
     note: '⚠️ 재측정 역효과(절사 −1.42·승률 −4.5pp) — 관찰 라벨로만 쓰고 매수 신호로 쓰지 마세요.' },
@@ -86,8 +96,9 @@ export const SETUP_MAP: Record<string, SetupMeta> = Object.fromEntries(SCREEN_SE
 /** 🔑 기술 검색기 캐시 키 — **상수로 묶는다.**
  *  v1→v2 를 writer(api/tech-screener)만 올렸다가 reader(cronHealth)가 옛 키를 읽는 걸 커밋 훅이 잡았다.
  *  여기 한 곳만 고치면 둘 다 따라온다(HONEYCOMB_KEY 와 같은 처방).
- *  v2: SetupMeta.recheck(더 큰 창 재측정) 추가 — 응답에 SCREEN_SETUPS 가 실려 캐시된다. */
-export const TECH_SCREENER_KEY = (dateKey: string) => `tech-screener-v2:${dateKey}`
+ *  v2: SetupMeta.recheck(더 큰 창 재측정) 추가 — 응답에 SCREEN_SETUPS 가 실려 캐시된다.
+ *  v3: cciCross100 셋업 신규 등재(음수 반증) — 목록·판정이 함께 바뀐다. */
+export const TECH_SCREENER_KEY = (dateKey: string) => `tech-screener-v3:${dateKey}`
 
 export interface ScreenHit {
   ticker: string; name: string; market: 'US' | 'KR'
@@ -135,6 +146,11 @@ export function evaluateSetups(D: TechCandle[]): Omit<ScreenHit, 'ticker' | 'nam
   const el = detectElephantBar(ohlc); if (el?.type === 'bull' && el.barsAgo === 0) setups.push('elephantBull')
   const liq = detectLiquidity(ohlc)
   if (liq.some(l => l.type === 'low' && l.swept && l.endIdx === ohlc.length - 1)) setups.push('liqSweep')
+  // 📐 CCI +100 상향돌파(오늘) — SignalReader 가 이걸 '매수 이벤트'로 띄우고 있었는데 **측정된 적이 없었다**.
+  //    2026-08-29 재보니 접은 뒤 −0.02σ(사실상 0). 지우지 않고 성적을 붙여 노출한다(음수도 학습 자료).
+  const cciArr = calcCCI(ohlc)
+  const cciN = cciArr[cciArr.length - 1], cciP = cciArr[cciArr.length - 2]
+  if (cciP != null && cciN != null && cciP <= 100 && cciN > 100) setups.push('cciCross100')
 
   if (!setups.length) return null
 

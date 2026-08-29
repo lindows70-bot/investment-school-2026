@@ -143,8 +143,10 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   if (sig.rsiCross70 != null) sellEvts.push(`RSI 70 하향이탈(${sig.rsiCross70}봉 전)`)
   if (sig.stochCross?.type === 'golden' && sig.stochCross.zone === 'low') buyEvts.push('스토캐스틱 과매도 골든크로스')
   if (sig.stochCross?.type === 'dead' && sig.stochCross.zone === 'high') sellEvts.push('스토캐스틱 과매수 데드크로스')
-  if (sig.cciCross100?.type === 'up') buyEvts.push(`CCI +100 상향돌파(${sig.cciCross100.barsAgo}봉 전)`)
-  if (sig.cciCross100?.type === 'down') sellEvts.push(`CCI +100 하향이탈(${sig.cciCross100.barsAgo}봉 전)`)
+  // 📐 CCI ±100 — 2026-08-29 실측(5년·100종)에서 **엣지가 0**이었다(접은 뒤 −0.02σ / −0.87σ).
+  //    지우지 않고 성적을 문구에 병기한다 — 표시만 하면 학생은 매수 근거로 읽는다(가짜 정밀 금지).
+  if (sig.cciCross100?.type === 'up') buyEvts.push(`CCI +100 상향돌파(${sig.cciCross100.barsAgo}봉 전) ⚠️ 실측 엣지 0 — 근거로 쓰지 마세요`)
+  if (sig.cciCross100?.type === 'down') sellEvts.push(`CCI +100 하향이탈(${sig.cciCross100.barsAgo}봉 전) ⚠️ 실측 엣지 0 — 근거로 쓰지 마세요`)
 
   /* ── 펀더멘탈 크로스체크(전부 stock-info SSOT) ── */
   const f = fund === 'loading' || fund == null ? null : fund

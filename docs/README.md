@@ -74,3 +74,4 @@
 - [cme-cot](cme-cot/context-notes.md) — 🏛️ CME 기관 포지셔닝(CFTC COT) · 영상 주장 검증 판정표 · 2026-08-23
 - [dmi-video](dmi-video/context-notes.md) — 🧭 DMI 매매법 영상 주장 검증(일봉·60분봉 2프레임 · 기각 판정표) · 2026-08-29
 - [fed-decoder](fed-decoder/context-notes.md) — 🏛️ 연준 디코더(FOMC→잭슨홀·증언 앵커 확장) · 결정·한계·⏳9/16 할 일 · 2026-08-29
+- [cci-video](cci-video/context-notes.md) — 📐 CCI×이평선 영상 검증(기각) + 앱의 미검증 cciCross100 발견 · 2026-08-29
