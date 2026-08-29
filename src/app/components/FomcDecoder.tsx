@@ -29,20 +29,29 @@ export default function FomcDecoder() {
     return () => { alive = false }
   }, [])
 
-  if (loading) return <div style={{ background: CARD, borderRadius: 12, padding: 20, border: `1px solid ${BORDER}`, color: TK.sub, fontSize: 12 }}>🏛️ 직전 FOMC 회의 내용을 해석하는 중…</div>
+  if (loading) return <div style={{ background: CARD, borderRadius: 12, padding: 20, border: `1px solid ${BORDER}`, color: TK.sub, fontSize: 12 }}>🏛️ 직전 연준 이벤트(회의·연설)를 해석하는 중…</div>
   if (!d) return <div style={{ background: CARD, borderRadius: 12, padding: 20, border: `1px solid ${BORDER}`, color: TK.sub, fontSize: 12 }}>FOMC 해석 데이터를 불러오지 못했습니다 — 잠시 후 새로고침해주세요.</div>
 
   const s = STANCE[d.stance]
+  // 🏛️ 앵커가 회의가 아닐 수 있다(잭슨홀 기조연설·의회 증언) — 제목·부제·본문 라벨을 그 자리에 맞춘다.
+  //    ⚠️ 예전엔 무조건 'FOMC 회의'라고 써서, 잭슨홀 발언에 한 달 전 회의 이름표가 붙었다(2026-08-29 교정).
+  const isMeeting = (d.eventKind ?? 'fomc') === 'fomc'
+  const cardTitle = isMeeting ? 'FOMC 디코더' : '연준 디코더'
+  const decisionLabel = isMeeting ? '📋 이번 회의 결정' : '📋 이번 발언의 핵심'
+  const recentWord = isMeeting ? '따끈한 결정' : '따끈한 발언'
 
   return (
     <div style={{ background: `linear-gradient(135deg, ${s.color}14, rgba(96,165,250,0.05))`, border: `1px solid ${s.color}55`, borderRadius: 14, padding: '15px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* 헤더 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 20 }}>🏛️</span>
-        <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 16 }}>FOMC 디코더</span>
+        <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 16 }}>{cardTitle}</span>
         <span style={{ background: TK.bg3, color: TK.slate300, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '2px 9px', fontSize: 11, fontWeight: 700 }}>{d.meetingLabel} · {d.meetingDate}</span>
+        {!isMeeting && d.eventTitle && (
+          <span style={{ background: `${TK.amber400}1f`, color: TK.amber400, border: `1px solid ${TK.amber400}55`, borderRadius: 8, padding: '2px 9px', fontSize: 11, fontWeight: 700 }}>{d.eventTitle}</span>
+        )}
         <span style={{ color: TK.sub2, fontSize: 11 }}>
-          {d.isRecent ? `🔴 ${d.daysSince}일 전 회의 — 따끈한 결정` : d.nextDate ? `다음 회의 ${d.nextDate}` : ''}
+          {d.isRecent ? `🔴 ${d.daysSince}일 전 — ${recentWord}` : d.nextDate ? `다음 회의 ${d.nextDate}` : ''}
         </span>
         <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, background: `${s.color}1f`, color: s.color, border: `1px solid ${s.color}66`, borderRadius: 999, padding: '4px 13px', fontSize: 13, fontWeight: 800 }}>
           {s.icon} {s.label}
@@ -51,7 +60,7 @@ export default function FomcDecoder() {
 
       {/* 결정 + 기조 */}
       <div style={{ background: TK.bg3, borderRadius: 10, padding: '11px 14px' }}>
-        <div style={{ color: TK.slate400, fontSize: 10.5, marginBottom: 3 }}>📋 이번 회의 결정</div>
+        <div style={{ color: TK.slate400, fontSize: 10.5, marginBottom: 3 }}>{decisionLabel}</div>
         <div style={{ color: TK.slate200, fontSize: 13.5, fontWeight: 700, lineHeight: 1.6 }}>{d.decision}</div>
         {d.stanceText && <div style={{ color: TK.sub5, fontSize: 11.5, marginTop: 4, lineHeight: 1.6 }}>{d.stanceText}</div>}
       </div>
@@ -112,7 +121,7 @@ export default function FomcDecoder() {
       )}
 
       <div style={{ color: TK.sub, fontSize: 9.5, lineHeight: 1.6 }}>
-        ※ 실제 FOMC 성명서·기자회견 뉴스(Google News)를 AI가 해석 — 발언은 헤드라인 근거이며 정확한 원문은 연준 공식 발표로 확인하세요. 교육용이며 투자 추천이 아닙니다.
+        ※ {isMeeting ? 'FOMC 성명서·기자회견' : d.eventTitle} 관련 실제 뉴스(Google News)를 AI가 해석 — 발언은 헤드라인 근거이며 정확한 원문은 연준 공식 발표로 확인하세요. 교육용이며 투자 추천이 아닙니다.
       </div>
     </div>
   )

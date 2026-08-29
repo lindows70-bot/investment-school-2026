@@ -1,10 +1,16 @@
-// 🏛️ FOMC 디코더 — 직전 연준 회의(성명서·점도표·금리결정 + 의장 기자회견)를 실제 뉴스로 가져와
+// 🏛️ 연준 디코더 — **직전 연준 이벤트**(FOMC 정례회의 / 잭슨홀 기조연설 / 의회 증언)를 실제 뉴스로 가져와
 //  "무엇을 결정했고 / 의장은 뭐라 했고 / 그래서 유동성은 어디로" 를 해석. 화면은 앱 설정대로 '워시 의장' 프레이밍.
 // Zero Cost: Google News RSS(무인증) + Gemini 구조화 해석. 환각 가드(헤드라인 근거만) · 6h 캐시.
+//
+// ⚠️ 2026-08-29 교정 — 앵커를 FOMC 회의로만 잡던 시절, **뉴스 창(when:14d)과 앵커가 서로 몰라서**
+//    31일 전 회의(Jul '26)에 어젯밤 잭슨홀 연설 헤드라인이 붙었다. 화면은 잭슨홀 발언
+//    ("We have work to do" · "stubborn inflation may require rate hikes")을 **7/29 FOMC 기자회견
+//    발언으로 라벨링**했다. 이제 앵커가 이벤트 종류까지 고르고, 뉴스 쿼리·프롬프트가 그 앵커를 따른다.
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { callGeminiJSON } from '@/lib/gemini'
 import { FOMC_SCHEDULE } from '@/lib/fomcSchedule'
+import { FED_EVENTS, EVENT_QUERIES, HAS_RATE_DECISION, VENUE_KO, type FedEvent, type FedEventKind } from '@/lib/fedEvents'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 45
@@ -21,12 +27,14 @@ export interface MarketGap {
   text: string               // 한 줄 해석
 }
 export interface FomcDecoderResult {
-  meetingLabel: string       // "Jun '26" (결정론 — FOMC_SCHEDULE)
+  meetingLabel: string       // "Jun '26" / "잭슨홀 '26" (결정론 — FOMC_SCHEDULE ∪ FED_EVENTS)
   meetingDate: string        // 2026-06-17
-  daysSince: number          // 회의 후 경과일(음수면 예정 회의까지 D-)
-  isRecent: boolean          // 최근 14일 내 회의 = '방금 회의' 모드
-  nextDate: string | null    // 다음 회의일
-  decision: string           // 금리 동결/인하/인상 + 레벨(AI, 헤드라인 근거)
+  eventKind: FedEventKind    // 🆕 이 해석이 어느 자리의 것인가 — 회의/연설/증언
+  eventTitle: string         // 🆕 "잭슨홀 심포지엄 · 의장 기조연설" (fomc 면 "FOMC 정례회의")
+  daysSince: number          // 이벤트 후 경과일
+  isRecent: boolean          // 최근 14일 내 = '따끈한' 모드
+  nextDate: string | null    // 다음 FOMC 회의일(연설이 앵커여도 '다음 회의'는 FOMC 기준)
+  decision: string           // 금리 동결/인하/인상 + 레벨 — ⚠️ 연설·증언엔 결정이 없다(문구로 명시)
   stance: Stance             // 매파/중립/비둘기
   stanceText: string         // 기조 한 줄
   chairRemarks: FomcQuote[]  // 의장(워시) 발언 핵심 2~3
@@ -70,13 +78,15 @@ async function googleNews(query: string, take: number, lang: 'ko' | 'en'): Promi
   } catch { return [] }
 }
 
-// 오늘(KST) 기준 직전 회의 + 다음 회의 — FOMC_SCHEDULE에서 결정론적으로
-function anchorMeeting() {
+// 오늘(KST) 기준 **직전 연준 이벤트** + 다음 FOMC — FOMC_SCHEDULE ∪ FED_EVENTS 에서 결정론적으로.
+// 회의든 연설이든 '더 최근에 일어난 것'이 앵커다(그래야 뉴스 창과 이름표가 어긋나지 않는다).
+function anchorEvent() {
   const today = kstDate()
-  const past = FOMC_SCHEDULE.filter(m => m.date <= today)
-  const future = FOMC_SCHEDULE.filter(m => m.date > today)
-  const latest = past.length ? past[past.length - 1] : FOMC_SCHEDULE[0]
-  const next = future.length ? future[0] : null
+  const fomcAsEvents: FedEvent[] = FOMC_SCHEDULE.map(m => ({ kind: 'fomc', label: m.label, date: m.date, title: 'FOMC 정례회의' }))
+  const all = [...fomcAsEvents, ...FED_EVENTS].sort((a, b) => a.date.localeCompare(b.date))
+  const past = all.filter(e => e.date <= today)
+  const latest = past.length ? past[past.length - 1] : all[0]
+  const next = FOMC_SCHEDULE.filter(m => m.date > today)[0] ?? null   // '다음 회의'는 언제나 FOMC 기준
   const daysSince = Math.round((new Date(today).getTime() - new Date(latest.date).getTime()) / 86400_000)
   return { latest, next, daysSince }
 }
@@ -96,32 +106,33 @@ const SCHEMA = {
 
 export async function GET(req: Request) {
   const selfBase = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-  const { latest, next, daysSince } = anchorMeeting()
+  const { latest, next, daysSince } = anchorEvent()
   const isRecent = daysSince >= 0 && daysSince <= 14
-  const cacheKey = `fomc-decoder-v2:${latest.date}:${kstDate()}`   // v2: 의장 기조 vs 시장(FF선물) 갭 추가
+  const kind = latest.kind
+  const venue = VENUE_KO[kind]
+  const hasDecision = HAS_RATE_DECISION[kind]
+  const cacheKey = `fomc-decoder-v3:${latest.date}:${kstDate()}`   // v3: 앵커가 이벤트(잭슨홀·증언)까지 확장 — 내용·라벨이 통째로 바뀐다
   const cached = await getCache<FomcDecoderResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
-  // 실제 뉴스: ① 성명서·점도표·금리결정(사실 백본) ② 의장 기자회견 발언(해석 레이어)
-  const [enStmt, enChair, enDots, koFomc] = await Promise.all([
-    googleNews('FOMC statement rate decision when:14d', 8, 'en'),
-    googleNews('Federal Reserve Chair press conference remarks when:14d', 7, 'en'),
-    googleNews('Fed dot plot projections rate path when:21d', 5, 'en'),
-    googleNews('FOMC 연준 기준금리 결정 기자회견 when:14d', 7, 'ko'),
-  ])
-  const headlines = Array.from(new Set([...enStmt, ...enChair, ...enDots, ...koFomc])).slice(0, 26)
+  // 실제 뉴스 — **앵커 이벤트 종류에 맞는 쿼리**로만 판다(회의 쿼리로 연설을 해석하던 어긋남 제거)
+  const groups = await Promise.all(EVENT_QUERIES[kind].map(([q, lang, take]) => googleNews(q, take, lang)))
+  const headlines = Array.from(new Set(groups.flat())).slice(0, 26)
   if (headlines.length === 0) return NextResponse.json({ error: 'no_news' }, { status: 200 })
 
-  const prompt = `너는 투자학교의 AI 연준 분석관이다. 아래 실제 뉴스 헤드라인을 근거로, 가장 최근 FOMC 회의(${latest.label}, ${latest.date})의 결정과 의장 발언을 학생용으로 해석하라.
+  const prompt = `너는 투자학교의 AI 연준 분석관이다. 아래 실제 뉴스 헤드라인을 근거로, **${latest.title}(${latest.label}, ${latest.date})** 에서 나온 내용을 학생용으로 해석하라.
 
 [헤드라인]
 ${headlines.map((h, i) => `${i + 1}. ${h}`).join('\n')}
 
 [규칙 — 절대 엄수]
 - 헤드라인에 실제로 있는 내용만 사용하라. 없는 수치·발언·표결·점도표 숫자를 지어내지 마라(불확실하면 일반적 표현으로).
-- decision: 기준금리 결정(동결/인하/인상)과 레벨을 헤드라인 근거로 한 줄(한국어). 근거 약하면 "헤드라인상 명확한 금리 변경 신호 없음(동결 추정)".
+- ⛔ 이 해석의 대상은 **${latest.title}(${latest.date})** 이다. 헤드라인 중 **다른 자리**(예: 지난 FOMC 회의, 다른 인사의 발언)의 내용을 이 자리의 것처럼 옮겨 쓰지 마라.
+${hasDecision
+  ? `- decision: 기준금리 결정(동결/인하/인상)과 레벨을 헤드라인 근거로 한 줄(한국어). 근거 약하면 "헤드라인상 명확한 금리 변경 신호 없음(동결 추정)".`
+  : `- ⚠️ **이 자리에서는 기준금리를 결정하지 않는다**(${venue}이다). decision 에는 금리 결정을 지어내지 말고, "금리 결정이 없는 ${venue} — " 로 시작해 **연설의 핵심 메시지**를 한 줄로 써라(한국어).`}
 - stance: 'hawkish'(매파·긴축 지속) / 'neutral'(중립) / 'dovish'(비둘기·완화) 중 하나. stanceText: 기조 한 줄.
-- chairRemarks: 의장 기자회견 발언 핵심 2~3개. 각 {quote: 발언 요지(한국어, 헤드라인 근거·창작 금지), meaning: "이게 시장엔 무슨 뜻인지" 1줄}. ⭐ 이 앱에서 연준 의장은 '워시(Warsh) 의장'이다 — 발언 주체를 '워시 의장'으로 표기하되 내용은 반드시 실제 헤드라인 근거로만.
+- chairRemarks: 의장이 **${venue}에서** 한 발언 핵심 2~3개. 각 {quote: 발언 요지(한국어, 헤드라인 근거·창작 금지), meaning: "이게 시장엔 무슨 뜻인지" 1줄}. ⭐ 이 앱에서 연준 의장은 '워시(Warsh) 의장'이다 — 발언 주체를 '워시 의장'으로 표기하되 내용은 반드시 실제 헤드라인 근거로만.
 - macroDirection: "그래서 유동성은 풀리나 조이나, 금리 경로는" 관점 1~2줄(한국어).
 - assetImplication: 자산별 시사점 3~4개. 각 {asset: '주식'|'채권'|'달러'|'코인' 등, view: 한 줄}.
 - 학생 교육 톤, 전부 한국어. 법률·전문용어 최소화.`
@@ -142,6 +153,8 @@ ${headlines.map((h, i) => `${i + 1}. ${h}`).join('\n')}
   const result: FomcDecoderResult = {
     meetingLabel: latest.label,
     meetingDate: latest.date,
+    eventKind: kind,
+    eventTitle: latest.title,
     daysSince,
     isRecent,
     nextDate: next?.date ?? null,
