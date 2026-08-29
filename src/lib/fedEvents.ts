@@ -36,6 +36,11 @@ export const EVENT_QUERIES: Record<FedEventKind, [string, 'ko' | 'en', number][]
   ],
   jacksonhole: [
     ['Fed Chair Jackson Hole speech', 'en', 8],
+    // 📡 소통·가이던스 축 — 금리 방향(매파/비둘기)과 **다른 축**이라 따로 파야 잡힌다.
+    //    이게 없어서 화면이 'quieter central bank' 를 "소통을 늘려 불확실성을 낮추겠다"로
+    //    **정반대로** 해석했다(2026-08-29). 실제 근거는 이 쿼리에 있다:
+    //    "skip September and December rate signals" · "stays quiet on interest rates".
+    ['Warsh quieter Fed forward guidance rate signals', 'en', 6],
     ['Jackson Hole symposium Fed inflation rate path', 'en', 7],
     ['Jackson Hole speech market reaction bonds', 'en', 5],
     ['잭슨홀 연준 의장 연설', 'ko', 7],

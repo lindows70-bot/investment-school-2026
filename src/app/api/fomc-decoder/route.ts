@@ -110,7 +110,7 @@ function fallbackToFomc() {
 async function collectHeadlines(kind: FedEventKind, daysSince: number): Promise<string[]> {
   const win = newsWindowDays(daysSince)
   const groups = await Promise.all(EVENT_QUERIES[kind].map(([q, lang, take]) => googleNews(`${q} when:${win}d`, take, lang)))
-  return Array.from(new Set(groups.flat())).slice(0, 26)
+  return Array.from(new Set(groups.flat())).slice(0, 30)   // 쿼리 축이 늘어 26 이면 뒤쪽 그룹이 잘린다
 }
 
 const SCHEMA = {
@@ -131,7 +131,7 @@ export async function GET(req: Request) {
   const anchor = anchorEvent()
   let { latest, daysSince } = anchor
   const next = anchor.next
-  const cacheKey = `fomc-decoder-v5:${latest.date}:${kstDate()}`   // v5: 발언마다 근거 헤드라인(src) 실림 — 근거 없는 발언은 버린다
+  const cacheKey = `fomc-decoder-v6:${latest.date}:${kstDate()}`   // v6: 소통·가이던스 축 쿼리 추가(헤드라인 집합이 바뀐다)
   const cached = await getCache<FomcDecoderResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
