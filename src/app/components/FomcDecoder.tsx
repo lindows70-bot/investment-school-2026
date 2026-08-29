@@ -2,7 +2,7 @@
 // 🏛️ FOMC 디코더 — 직전 연준 회의 결정 + 워시 의장 발언 해석 + 매크로 방향(Fed Watch 탭 최상단 서사 카드)
 import { useState, useEffect } from 'react'
 import type { FomcDecoderResult, Stance, GapKind } from '@/app/api/fomc-decoder/route'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 
 const CARD = TK.bg6, BORDER = TK.border
 const STANCE: Record<Stance, { label: string; color: string; icon: string }> = {
@@ -98,8 +98,9 @@ export default function FomcDecoder() {
               <div key={i} style={{ background: TK.bg3, borderRadius: 9, padding: '9px 12px', borderLeft: `3px solid ${s.color}` }}>
                 <div style={{ color: TK.slate200, fontSize: 12, lineHeight: 1.6 }}>“{q.quote}”</div>
                 <div style={{ color: TK.sub13, fontSize: 11, marginTop: 4, lineHeight: 1.6 }}>→ {q.meaning}</div>
-                {/* 📎 근거 헤드라인 — 학생이 직접 대조할 수 있어야 한다. 근거 없는 발언은 서버가 이미 버렸다. */}
-                {q.src && <div style={{ color: TK.slate500, fontSize: 10, marginTop: 5, lineHeight: 1.5 }}>📎 {q.src}</div>}
+                {/* 📎 근거 헤드라인 — 학생이 **직접 대조하라고** 넣은 줄이다. 근거 없는 발언은 서버가 이미 버렸다.
+                    ⚠️ 읽으라고 만든 줄을 10px 흐린 회색으로 두면 안 읽힌다(제1-b: 리터럴 금지 + 사용자 지시). FS.tiny·slate400. */}
+                {q.src && <div style={{ color: TK.slate400, fontSize: FS.tiny, marginTop: 5, lineHeight: 1.5 }}>📎 {q.src}</div>}
               </div>
             ))}
           </div>

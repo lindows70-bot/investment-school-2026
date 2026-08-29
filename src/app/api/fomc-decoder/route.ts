@@ -131,7 +131,7 @@ export async function GET(req: Request) {
   const anchor = anchorEvent()
   let { latest, daysSince } = anchor
   const next = anchor.next
-  const cacheKey = `fomc-decoder-v7:${latest.date}:${kstDate()}`   // v7: 발언이 금리축·소통축 둘을 덮도록 선택 지시 추가
+  const cacheKey = `fomc-decoder-v8:${latest.date}:${kstDate()}`   // v8: 존댓말 통일(문체 혼재 교정)
   const cached = await getCache<FomcDecoderResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -174,7 +174,8 @@ ${hasDecision
   · ⭐ 이 앱에서 연준 의장은 '워시(Warsh) 의장'이다 — 발언 주체를 '워시 의장'으로 표기하되 내용은 반드시 실제 헤드라인 근거로만.
 - macroDirection: "그래서 유동성은 풀리나 조이나, 금리 경로는" 관점 1~2줄(한국어).
 - assetImplication: ⭐ **정확히 4개를 이 순서 그대로** — asset 은 '주식' → '채권' → '달러' → '코인'. 축을 바꾸거나 빼지 마라(호출마다 축이 달라지면 학생이 어제와 오늘을 비교할 수 없다). 각 view 는 한 줄. 헤드라인에 그 자산 언급이 없으면 금리 경로에서 따라오는 일반적 함의를 쓰되 단정하지 마라.
-- 학생 교육 톤, 전부 한국어. 법률·전문용어 최소화.`
+- 학생 교육 톤, 전부 한국어. 법률·전문용어 최소화.
+- ⭐ **모든 문장을 '~합니다/~입니다' 존댓말로 끝내라**(decision·stanceText·chairRemarks.meaning·macroDirection·assetImplication.view 전부). 카드의 다른 문구가 존댓말이라 '~다' 평서체가 섞이면 한 카드 안에서 말투가 갈린다. 명사형 종결('~한 연설.')도 쓰지 마라.`
 
   type AiOut = Omit<FomcDecoderResult, 'meetingLabel' | 'meetingDate' | 'eventKind' | 'eventTitle' | 'daysSince' | 'isRecent' | 'nextDate' | 'marketGap' | 'asOf' | 'chairRemarks'>
     & { chairRemarks?: { quote?: string; meaning?: string; srcIdx?: number }[] }
