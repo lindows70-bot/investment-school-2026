@@ -72,3 +72,5 @@
 - [preferred-stock](preferred-stock/plan.md) — 🏛️ 우선주 축(Strategy 우선주 4종) · 보통주 배당 잣대 분리 · 2026-08-22
 - [bonds-upgrade](bonds-upgrade/plan.md) — 📜 채권편 강화(곡선·역전 경보·인하 사이클·조건부 상관·YCC) · 2026-08-22
 - [cme-cot](cme-cot/context-notes.md) — 🏛️ CME 기관 포지셔닝(CFTC COT) · 영상 주장 검증 판정표 · 2026-08-23
+- [dmi-video](dmi-video/context-notes.md) — 🧭 DMI 매매법 영상 주장 검증(일봉·60분봉 2프레임 · 기각 판정표) · 2026-08-29
+- [fed-decoder](fed-decoder/context-notes.md) — 🏛️ 연준 디코더(FOMC→잭슨홀·증언 앵커 확장) · 결정·한계·⏳9/16 할 일 · 2026-08-29
