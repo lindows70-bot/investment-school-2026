@@ -54,7 +54,7 @@ export interface MacroAiResult {
 }
 
 // v4: 국면 라벨 SSOT 교정 — 라벨이 프롬프트와 macroSummary 에 그대로 박히므로 키를 올린다
-const CACHE_KEY = 'macro-ai-picks:weekly:v4'   // v2: 유니버스 50→100 확장
+const CACHE_KEY = 'macro-ai-picks:weekly:v5'   // v5: aiScore 가 통계 점수가 아님을 프롬프트에 명시(응답 문구 변경)
 const PHASE_KEY = 'macro-ai-picks:phase'
 const CACHE_TTL = 7 * 24 * 3600_000   // 7일
 
