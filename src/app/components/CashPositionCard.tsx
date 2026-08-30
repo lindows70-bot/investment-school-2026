@@ -1,5 +1,5 @@
 'use client'
-// 💰 현금 포지션 카드 — 예수금·CMA를 등록해 실제 현금 비중을 막스 권장 밴드와 비교(자산 관리 상단)
+// 💰 현금 포지션 카드 — 예수금·CMA를 등록해 실제 현금 비중을 앱 기준 밴드와 비교(자산 관리 상단)
 //    앱이 알아낼 수 없는 유일한 자산이라 직접 입력. ⛔ 현금 조절 지시 아님 — 밴드 대비 위치 관측만.
 import { useEffect, useState, useCallback } from 'react'
 import { TK } from '@/lib/theme'
@@ -65,7 +65,7 @@ export default function CashPositionCard() {
     <div style={{ background: '#12151f', border: `1px solid ${TK.border}`, borderRadius: 12, padding: '14px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 14, fontWeight: 800, color: TK.slate100 }}>💰 현금 포지션</span>
-        <span style={{ fontSize: 11, color: TK.sub2 }}>예수금·CMA·파킹통장 — 막스 권장 밴드와 비교</span>
+        <span style={{ fontSize: 11, color: TK.sub2 }}>예수금·CMA·파킹통장 — 앱 기준 밴드와 비교(막스 온도에서 파생)</span>
         <button onClick={() => setEdit(e => !e)} style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: TK.indigo400, background: 'none', border: `1px solid ${TK.border}`, borderRadius: 7, padding: '3px 10px', cursor: 'pointer' }}>
           {edit ? '취소' : has ? '수정' : '현금 등록'}
         </button>

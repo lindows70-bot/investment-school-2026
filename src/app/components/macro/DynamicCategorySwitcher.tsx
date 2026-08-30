@@ -23,7 +23,7 @@ export interface StockFundamental {
   debtRatio:         number   // 부채비율 (%)
   divYield:          number   // 배당수익률 (%)
   netCashRatio:      number   // 순현금/시총 비율 (%)
-  correlation:       number   // 매크로 지수 상관계수 (0~1)
+  correlation:       number   // 매크로 지수 상관계수 (0~1) — ⚠️ 실측 아님, estimateCorrelation 추정 테이블
   // ★ DB에 저장된 실제 린치 카테고리 (영문 key) — 있으면 알고리즘보다 우선
   dbLynchCategory?:  string | null
 }
@@ -192,7 +192,7 @@ export default function DynamicCategorySwitcher({ stocksFundamentalData }: Props
                 </div>
                 <div className="flex justify-between text-[11px]">
                   <span className="text-zinc-500">부채비율: {stock.debtRatio}%</span>
-                  <span className="text-zinc-500">상관계수: {stock.correlation.toFixed(2)}</span>
+                  <span className="text-zinc-500">매크로 상관계수(앱 추정): {stock.correlation.toFixed(2)}</span>
                 </div>
               </div>
 

@@ -475,6 +475,9 @@ export function estimateBeta(
     ? peNum / pegNum
     : (market === 'CRYPTO' ? 30 : market === 'KR' ? 20 : 15)
 
+  // ⚠️ 이건 회귀로 구한 실제 베타가 아니라 **성장률에서 만든 앱 자체 추정치**다(2026-08-30 감사).
+  //    ÷20 과 폴백(CRYPTO 30·KR 20·US 15)은 앱 설정이며 출처가 없다. 화면에 'Beta' 로만 적지 말고
+  //    '앱 추정 금리민감도'로 표기하라 — 회귀 실측 용어를 빌리면 학생이 측정치로 읽는다.
   return parseFloat(Math.max(0.5, Math.min(2.5, growthEst / 20)).toFixed(2))
 }
 
@@ -505,6 +508,8 @@ export function estimateBasePeg(pe: number, peg: number): number {
  *  - US stalwart: 0.45
  *  - 고성장·바이오: 개별 변수 강함 → 0.35
  */
+/** ⚠️ **실측 상관계수가 아니다** — 시장×분류 조합별 앱 자체 추정 테이블이다(2026-08-30 감사).
+ *  회귀·이력 계산 없이 손으로 정한 값이므로 화면에 소수 둘째 자리로 띄울 때 반드시 '추정'을 병기하라. */
 export function estimateCorrelation(
   market:   string | undefined,
   category: string | null | undefined,

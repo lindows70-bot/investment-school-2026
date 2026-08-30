@@ -859,7 +859,8 @@ export default function TechnicalChartPro({ data, market, avgPrice = null }: {
           <div style={{ backgroundColor: C.panel, border: `1px solid ${C.grid}`, borderRadius: 12, padding: 12 }}>
             <div style={{ fontWeight: 700, color: TK.amber500, marginBottom: 4 }}>🔥 TTM Squeeze 읽는 법 — 변동성 응축→폭발</div>
             <p style={{ lineHeight: 1.6, color: C.textLow, margin: 0 }}>
-              시장은 <b style={{ color: C.text }}>80% 횡보 + 20% 추세</b>를 반복합니다. 볼린저밴드가 켈트너 채널 안으로 쏙 들어가면(<b style={{ color: TK.red500 }}>빨강 점</b>) = 변동성이 극도로 눌린 <b style={{ color: TK.amber500 }}>화약고 응축(스퀴즈 ON)</b> — 지루함에 팔지 말고 <b style={{ color: C.text }}>방향 분출을 대기</b>하세요. 밴드가 채널 밖으로 튀면(<b style={{ color: TK.green500 }}>초록 점</b>) = 폭발(Fired). 아래 <b style={{ color: '#8b5cf6' }}>막대(모멘텀)</b>가 위(초록)면 상방, 아래(빨강)면 하방 분출 에너지입니다. 압축이 길수록 분출이 큽니다. 방향 확정은 신호등·라쉬케와 함께.
+              {/* ⚠️ '80% 횡보 + 20% 추세'는 표본·기간·출처 없는 트레이딩 속설이었다(2026-08-30 감사). 비율 주장을 뺀다. */}
+              시장은 <b style={{ color: C.text }}>대부분 횡보하다 가끔 추세</b>를 냅니다. 볼린저밴드가 켈트너 채널 안으로 쏙 들어가면(<b style={{ color: TK.red500 }}>빨강 점</b>) = 변동성이 극도로 눌린 <b style={{ color: TK.amber500 }}>화약고 응축(스퀴즈 ON)</b> — 지루함에 팔지 말고 <b style={{ color: C.text }}>방향 분출을 대기</b>하세요. 밴드가 채널 밖으로 튀면(<b style={{ color: TK.green500 }}>초록 점</b>) = 폭발(Fired). 아래 <b style={{ color: '#8b5cf6' }}>막대(모멘텀)</b>가 위(초록)면 상방, 아래(빨강)면 하방 분출 에너지입니다. 압축이 길수록 분출이 큽니다. 방향 확정은 신호등·라쉬케와 함께.
             </p>
           </div>
         )}

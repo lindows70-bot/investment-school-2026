@@ -1631,7 +1631,8 @@ export default function DashboardPage() {
         // 코인 소폭 수익: HODL 격려
         const hodlMsg = isBtcEth
           ? '디지털 금 특성 — HODL 전략, 단기 변동에 흔들리지 마세요'
-          : '코인 보유 중 — 포트폴리오 비중 5~10% 유지, 리스크 관리 필수'
+          // ⚠️ 이전 문구 '5~10% 유지'는 앱의 ⛔ 코인 가드(권장 상한 5%·≥10% 위험)와 정면 모순이었다(2026-08-30 감사).
+          : '코인 보유 중 — 포트폴리오 비중 5% 이내 권장(10% 이상은 위험), 리스크 관리 필수'
         list.push({ type:'success', label:'CRYPTO HOLD',
           msg:`₿ ${name} ${fmtPct(ret)} — ${hodlMsg}` })
       }

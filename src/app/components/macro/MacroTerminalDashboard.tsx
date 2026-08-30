@@ -117,56 +117,62 @@ export default function MacroTerminalDashboard({
       const res = await fetch(`/api/macro-fundamentals?${params}`, { cache: 'no-store' })
       if (!res.ok) throw new Error(`macro-fundamentals ${res.status}`)
       const apiData: Record<string, {
-        epsGrowth: number; revenueGrowth: number; debtRatio: number
-        divYield: number; netCashRatio: number; correlation: number
+        epsGrowth: number | null; revenueGrowth: number | null; debtRatio: number | null
+        divYield: number; netCashRatio: number | null; correlation: number
       }> = await res.json()
 
-      setFundamentalData(stocks.map(inv => {
-        const d   = apiData[inv.ticker] ?? {}
+      // ⚠️ 2026-08-30 감사 — 예전엔 `?? 15`·`?? 60` 같은 **지어낸 기본값**으로 빈칸을 채워
+      //    조회 실패 종목이 실측처럼 렌더됐다(⛔ 출처 없는 수치 금지). 이제 실측이 없으면 **정직 제외**한다.
+      setFundamentalData(stocks.flatMap(inv => {
+        const d   = apiData[inv.ticker]
+        if (!d || d.epsGrowth == null || d.revenueGrowth == null || d.debtRatio == null) return []
         const div = dividendMap[inv.ticker.toUpperCase()] ?? {}
         const dy  = safeNumber(div.dividendYield)
         const divYield = dy > 0 ? (dy < 1 ? parseFloat((dy * 100).toFixed(2)) : dy) : (d.divYield ?? 0)
-        return {
+        return [{
           ticker:          inv.ticker,
           name:            inv.name ?? inv.ticker,
-          epsGrowth:       d.epsGrowth     ?? 15,
-          revenueGrowth:   d.revenueGrowth ?? 12,
-          debtRatio:       d.debtRatio     ?? (inv.market === 'KR' ? 60 : 50),
+          epsGrowth:       d.epsGrowth,
+          revenueGrowth:   d.revenueGrowth,
+          debtRatio:       d.debtRatio,
           divYield,
-          netCashRatio:    d.netCashRatio  ?? 10,
-          // SSOT: correlation — lynchAnalysis
-          correlation:     d.correlation  ?? estimateCorrelation(inv.market, inv.lynch_category),
+          netCashRatio:    d.netCashRatio ?? 0,
+          // SSOT: correlation — lynchAnalysis (⚠️ 실측 아님, 앱 추정 테이블)
+          correlation:     d.correlation ?? estimateCorrelation(inv.market, inv.lynch_category),
           dbLynchCategory: inv.lynch_category ?? null,
-        }
+        }]
       }))
     } catch {
       // 폴백: dividendMap PE/PEG 기반
-      setFundamentalData(investments.filter(inv => isIndividualStock(inv)).map(inv => {
+      // 폴백도 같은 원칙 — PE/PEG·성장률이 없으면 숫자를 만들지 말고 제외한다.
+      setFundamentalData(investments.filter(inv => isIndividualStock(inv)).flatMap(inv => {
         const div = dividendMap[inv.ticker.toUpperCase()] ?? {}
         const pe  = safeNumber(div.pe)
         const peg = safeNumber(div.peg)
-        return {
+        const egRaw = safeNumber(div.earningsGrowth)
+        const hasG = (pe > 0 && peg > 0) || egRaw > 0
+        if (!hasG) return []
+        return [{
           ticker:          inv.ticker,
           name:            inv.name ?? inv.ticker,
           // earningsGrowth 폴백: PE/PEG 없는 신규 종목도 합리적 G값 추출
           epsGrowth: (() => {
             if (pe > 0 && peg > 0) return Math.round(pe / peg)
             const eg = safeNumber(div.earningsGrowth)
-            if (eg > 0) return Math.round(eg < 2 ? eg * 100 : eg)
-            return 15
+            return Math.round(eg < 2 ? eg * 100 : eg)
           })(),
           revenueGrowth: (() => {
             if (pe > 0 && peg > 0) return Math.round((pe / peg) * 0.85)
             const eg = safeNumber(div.earningsGrowth)
-            if (eg > 0) return Math.round((eg < 2 ? eg * 100 : eg) * 0.85)
-            return 12
+            return Math.round((eg < 2 ? eg * 100 : eg) * 0.85)
           })(),
-          debtRatio:       inv.market === 'KR' ? 60 : 50,
+          // 부채·순현금은 이 폴백 경로에 원천이 없다 — 0 으로 두고 화면이 판정에 쓰지 않게 한다.
+          debtRatio:       0,
           divYield:        safeNumber(div.dividendYield),
-          netCashRatio:    10,
+          netCashRatio:    0,
           correlation:     estimateCorrelation(inv.market, inv.lynch_category),
           dbLynchCategory: inv.lynch_category ?? null,
-        }
+        }]
       }))
     } finally {
       setFundamentalLoading(false)

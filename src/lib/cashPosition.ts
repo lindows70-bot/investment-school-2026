@@ -1,7 +1,7 @@
 // 💰 현금 포지션 SSOT — 학생이 등록한 현금(원화·달러) vs 자산 평가액 → 실제 현금 비중
 //    현금은 앱이 알아낼 원천이 없는 유일한 자산이라 직접 입력(Zero-Input 원칙의 명시적 예외).
 //    평가액은 기존 SSOT 재사용(stock-price 배치 40청크 + currency 환산 + 라이브 실패 시 원가 폴백 — ai-rebalance 0% 붕괴 교훈).
-//    ⛔ "현금 늘려라/줄여라" 지시 아님 — 막스 권장 밴드 대비 위치 관측만.
+//    ⛔ "현금 늘려라/줄여라" 지시 아님 — 앱 기준 밴드 대비 위치 관측만.
 
 export interface CashInput { krw: number; usd: number; memo?: string | null; updatedAt?: string | null }
 
@@ -17,14 +17,17 @@ export interface CashPosition {
   costFallback: number       // 원가 폴백 종목수(정직 표기)
   memo: string | null
   updatedAt: string | null
-  band: { min: number; max: number } | null       // 막스 권장 현금 밴드(marks-cycle SSOT)
+  band: { min: number; max: number } | null       // 앱 기준 현금 밴드(막스 온도에서 파생 — 밴드 %는 앱 설정)
   temp: number | null                              // 막스 탐욕 온도
   verdict: 'aggressive' | 'inband' | 'defensive' | null   // 밴드 대비 위치
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-/** 막스 온도 → 권장 현금 밴드 (브리핑·MarksCycle과 동일 관례 — 여기가 SSOT) */
+/** 막스 온도 → 권장 현금 밴드 (브리핑·MarksCycle과 동일 관례 — 여기가 SSOT)
+ *  ⚠️ **이 밴드 숫자는 하워드 막스가 제시한 것이 아니라 이 앱이 정한 기준이다**(2026-08-30 감사).
+ *  막스에게서 온 것은 '사이클 온도가 높을수록 방어적으로'라는 방향뿐이고, 30~40% 같은 구체 %와
+ *  온도 임계(75/58/42/25)는 앱 자체 설정이다. 화면에서 '막스 권장'으로 부르지 마라 — 허위 권위다. */
 export function cashBandOf(temp: number): { min: number; max: number } {
   if (temp >= 75) return { min: 30, max: 40 }
   if (temp >= 58) return { min: 20, max: 30 }

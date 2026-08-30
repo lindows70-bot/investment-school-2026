@@ -89,7 +89,9 @@ export default function DualMandateDashboard() {
             <span style={{ position: 'absolute', left: `${sahmThreshold}%`, top: -16, transform: 'translateX(-50%)', color: TK.red400, fontSize: 9, whiteSpace: 'nowrap' }}>침체 0.5</span>
           </div>
           <div style={{ color: TK.sub8, fontSize: 10.5, marginTop: 7, lineHeight: 1.5 }}>
-            실업률 3개월 평균이 12개월 최저 대비 0.5%p 오르면 침체 진입(역사적 적중률 100%). 현재 임계까지 <b style={{ color: d.sahm.gap > 0.2 ? TK.green400 : TK.amber400 }}>{d.sahm.gap}%p</b> 여유.
+            {/* ⚠️ '역사적 적중률 100%'를 삭제했다 — 기간·표본·국가 없는 통계 단정이었고, 2024-07 발동 후 침체가
+                오지 않아 사실도 아니게 됐다(2026-08-30 감사·⛔ 출처 없는 수치 금지). 정의만 남긴다. */}
+            실업률 3개월 평균이 12개월 최저 대비 0.5%p 오르면 침체 신호로 봅니다(Sahm Rule 정의). 현재 임계까지 <b style={{ color: d.sahm.gap > 0.2 ? TK.green400 : TK.amber400 }}>{d.sahm.gap}%p</b> 여유.
           </div>
         </div>
       </div>

@@ -1,10 +1,10 @@
 'use client'
 
 /**
- * PortfolioBalanceRadar — ⚖️ 피터 린치 포트폴리오 황금비율 로드맵 (비밀병기 1단계)
+ * PortfolioBalanceRadar — ⚖️ 유형별 균형 로드맵(앱 기준 비중) (비밀병기 1단계)
  *
  * 학생 개인의 6대 분류 비중을 레이더 차트로 시각화하고,
- * 피터 린치의 이상적 권장 비율과 비교하여 자동 진단 코멘트를 생성한다.
+ * 앱이 정한 기준 비중과 비교하여 자동 진단 코멘트를 생성한다(⚠️ 린치가 제시한 %표가 아님).
  *
  * 제1원칙: DB의 lynch_category(정통 6대 분류) + purchase_price 실데이터만 사용.
  *          getAssetType() SSOT로 ETF·코인·원자재 제외.
@@ -35,7 +35,10 @@ interface Props {
   usdKrw?:     number   // USD→KRW 환율 (기본 1350) — 통화 통일 합산용
 }
 
-// ── 피터 린치의 이상적 포트폴리오 권장 비중 (%) ────────────────────────────────
+// ── 앱 기준 포트폴리오 권장 비중 (%) ──────────────────────────────────────────
+//    ⚠️ **린치가 제시한 수치가 아니다**(2026-08-30 감사). 린치는 『전설로 떠나는 월가의 영웅』에서
+//    유형별 분산을 권했을 뿐 이런 정확한 %표를 준 적이 없다. 아래 숫자는 **이 앱이 정한 기준**이므로
+//    화면에서 '린치의 황금비율'로 부르지 마라 — 허위 권위 부여다.
 const IDEAL_RATIOS = {
   stalwart:    35,   // 대형 우량주 — 안전판·하방 경직성
   fast_grower: 30,   // 고성장주 — 알파 창출의 핵심
@@ -127,7 +130,7 @@ export default function PortfolioBalanceRadar({ investments, usdKrw = USD_KRW_FA
       return { icon: '🐢', color: TK.sub9, text: '저성장주 비중이 꽤 높습니다. 고배당 목적이 아니라면 포트폴리오 전체의 성장 활력이 떨어질 수 있습니다.' }
     if (top.subject === '회생주' && top.myRatio > 25)
       return { icon: '🔥', color: TK.red400, text: '회생주 비중이 높습니다. 하이리스크 구간이므로 흑자전환 여부와 재무 건전성을 반드시 확인하세요.' }
-    return { icon: '✅', color: TK.green400, text: '훌륭합니다! 린치의 권장 비율과 유사한 안정적인 밸런스를 유지하고 있습니다.' }
+    return { icon: '✅', color: TK.green400, text: '훌륭합니다! 앱 기준 비중과 유사한 안정적인 밸런스를 유지하고 있습니다.' }
   }, [chartData])
 
   const C = {
@@ -149,7 +152,7 @@ export default function PortfolioBalanceRadar({ investments, usdKrw = USD_KRW_FA
         <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.7 }}>
           {stockCount > 0
             ? '보유 종목의 린치 분류가 아직 완료되지 않았습니다. 잠시 후 다시 확인해주세요.'
-            : '자산관리 탭에서 개별 주식을 추가하면 포트폴리오 황금비율 진단이 시작됩니다.'}
+            : '자산관리 탭에서 개별 주식을 추가하면 유형별 균형 진단이 시작됩니다.'}
         </div>
       </div>
     )
@@ -171,7 +174,7 @@ export default function PortfolioBalanceRadar({ investments, usdKrw = USD_KRW_FA
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
           <span style={{ fontSize: 18 }}>⚖️</span>
           <span style={{ fontSize: 15, fontWeight: 900, color: C.text }}>
-            피터 린치 포트폴리오 황금비율 로드맵
+            유형별 균형 로드맵 (린치 6대 분류)
           </span>
           <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20,
             background: 'rgba(16,185,129,0.12)', color: TK.emerald500, fontWeight: 700 }}>
@@ -179,7 +182,7 @@ export default function PortfolioBalanceRadar({ investments, usdKrw = USD_KRW_FA
           </span>
         </div>
         <div style={{ fontSize: 11, color: C.low }}>
-          내 6대 분류 비중을 린치의 이상적 비율과 비교 · 투자원금 {(totalStockValue >= 1e8 ? `₩${(totalStockValue/1e8).toFixed(1)}억` : `₩${Math.round(totalStockValue/1e4).toLocaleString('ko-KR')}만`)} 기준
+          내 6대 분류 비중을 앱 기준 비중과 비교 · 투자원금 {(totalStockValue >= 1e8 ? `₩${(totalStockValue/1e8).toFixed(1)}억` : `₩${Math.round(totalStockValue/1e4).toLocaleString('ko-KR')}만`)} 기준
         </div>
       </div>
 
@@ -201,7 +204,7 @@ export default function PortfolioBalanceRadar({ investments, usdKrw = USD_KRW_FA
                   formatter={((v: any) => `${v}%`) as any}
                 />
                 <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-                <Radar name="린치 권장 비중 (%)" dataKey="idealRatio"
+                <Radar name="앱 기준 비중 (%)" dataKey="idealRatio"
                   stroke={TK.sub7} fill={TK.sub7} fillOpacity={0.3} isAnimationActive={false} />
                 <Radar name="내 포트폴리오 (%)" dataKey="myRatio"
                   stroke={TK.emerald500} fill={TK.emerald500} fillOpacity={0.55} isAnimationActive={false} />
@@ -268,7 +271,7 @@ export default function PortfolioBalanceRadar({ investments, usdKrw = USD_KRW_FA
         </div>
       )}
 
-      {/* ── 린치 권장 비율 설명 ── */}
+      {/* ── 앱 기준 비중 설명 ── */}
       <div style={{
         padding: '12px 16px', borderRadius: 10, background: '#0d1420', border: `1px solid ${C.border}`,
         fontSize: 10, color: C.low, lineHeight: 1.7,

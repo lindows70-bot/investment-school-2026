@@ -70,159 +70,18 @@ interface ValuationMetrics {
   // FCF
   fcfYield?:        number | null   // FCF 수익률 %
   // 메타
-  dataSource: 'known' | 'estimated'
+  dataSource: 'api'
   note?: string
 }
 
-/**
- * 티커별 가치평가 세부 지표 매퍼
- * dividendMap API 실데이터 + 공시 기반 보완 데이터
- */
-const KNOWN_VALUATION: Record<string, Partial<ValuationMetrics>> = {
-  // ── 고성장주 (fast_grower)
-  'NVDA': {
-    earningsGrowth: 102,
-    pbr: 30.2,
-    fcfYield: 2.8,
-    dataSource: 'known',
-    note: 'AI 데이터센터 수요로 EPS 3년 연속 100%+ 성장',
-  },
-  'PLTR': {
-    earningsGrowth: 35,
-    debtRatio: 12,
-    interestCoverage: 48,
-    pbr: 22.5,
-    dataSource: 'known',
-    note: '정부·기업 AI 계약 급증, 흑자전환 완료',
-  },
-  'TEM': {
-    earningsGrowth: 55,
-    debtRatio: 85,
-    interestCoverage: 3.2,
-    recentEps: -0.45,
-    prevEps: -1.20,
-    dataSource: 'known',
-    note: '매출 급성장, 적자 축소 중 → 흑자전환 임박',
-  },
-  'GEV': {
-    earningsGrowth: 40,
-    pbr: 8.5,
-    fcfYield: 1.2,
-    dataSource: 'known',
-    note: 'GE Vernova 분사 후 에너지 전환 수혜',
-  },
-  'IONQ': {
-    earningsGrowth: 80,
-    debtRatio: 30,
-    interestCoverage: -2.1,  // 영업손실
-    recentEps: -0.18,
-    prevEps: -0.28,
-    dataSource: 'known',
-    note: '양자컴퓨팅 선두주자, 적자 축소 중',
-  },
-  // ── 중성장 우량주 (stalwart)
-  'GOOGL': {
-    earningsGrowth: 15,
-    pbr: 6.8,
-    fcfYield: 4.1,
-    dataSource: 'known',
-    note: 'AI 통합 검색·클라우드 성장, 강한 FCF',
-  },
-  'ETN': {
-    earningsGrowth: 14,
-    pbr: 5.2,
-    fcfYield: 5.0,
-    payoutRatio: 0.31,
-    dataSource: 'known',
-    note: '전력 인프라 수혜 대형주, 꾸준한 FCF',
-  },
-  'IBB': {
-    earningsGrowth: 8,
-    pbr: 3.1,
-    fcfYield: 3.5,
-    dataSource: 'known',
-    note: '바이오테크 ETF — 린치 분류 참고용',
-  },
-  // ── 경기순환주 (cyclical)
-  '000660': {   // SK하이닉스
-    earningsGrowth: 220,
-    pbr: 1.85,
-    pbrHistMin: 0.85,
-    pbrHistMax: 3.50,
-    pbrHistAvg: 1.80,
-    debtRatio: 48,
-    dataSource: 'known',
-    note: 'HBM3E 수요 급증으로 역대급 이익 회복 사이클',
-  },
-  '034020': {   // 두산에너빌리티
-    pbr: 0.92,
-    pbrHistMin: 0.40,
-    pbrHistMax: 2.80,
-    pbrHistAvg: 1.20,
-    debtRatio: 210,
-    dataSource: 'known',
-    note: '원전 수출 모멘텀, PBR 역사적 저점권',
-  },
-  '329180': {   // HD현대중공업
-    pbr: 1.35,
-    pbrHistMin: 0.55,
-    pbrHistMax: 2.20,
-    pbrHistAvg: 1.10,
-    debtRatio: 180,
-    dataSource: 'known',
-    note: 'LNG선 수주 호조, 조선 사이클 업',
-  },
-  '012450': {   // 한화에어로스페이스
-    earningsGrowth: 65,
-    pbr: 3.20,
-    pbrHistMin: 0.80,
-    pbrHistMax: 4.50,
-    pbrHistAvg: 1.80,
-    debtRatio: 120,
-    dataSource: 'known',
-    note: 'K-방산 수출 급성장, PBR 고점 접근 주의',
-  },
-  '017960': {   // 한국카본
-    pbr: 0.75,
-    pbrHistMin: 0.40,
-    pbrHistMax: 1.80,
-    pbrHistAvg: 0.90,
-    debtRatio: 95,
-    dataSource: 'known',
-    note: 'LNG탱크 소재, 조선 사이클 동반 수혜',
-  },
-  // ── 회생주 (turnaround)
-  '189300': {   // 인텔리안테크
-    debtRatio: 155,
-    interestCoverage: 2.8,
-    recentEps: 1250,
-    prevEps: -3420,
-    dataSource: 'known',
-    note: '해상 위성통신 수요 회복, 흑자전환 완료',
-  },
-  // ── 저성장 배당주 (slow_grower)
-  '0131V0': {   // KODEX 국고채
-    payoutRatio: 0.95,
-    dividendYield: 3.2,
-    fcfYield: 3.2,
-    dataSource: 'known',
-    note: 'ETF 특성상 배당성향 거의 100%',
-  },
-  'XBI': {
-    payoutRatio: 0.10,
-    fcfYield: 1.2,
-    dataSource: 'known',
-    note: '성장형 바이오ETF, 배당보다 시세차익 중심',
-  },
-}
+// ⚠️ 2026-08-30 감사 — 종목별 재무 수치·서사를 손으로 박아둔 KNOWN_VALUATION 표를 삭제했다.
+//    출처·기준일이 없는데 dataSource:'known' 라벨로 실측처럼 표시됐고, 갱신되지 않으면 조용히 낡은 거짓이 된다
+//    (제1원칙 '데이터 하드코딩 금지' · ⛔ 출처 없는 수치 금지). 이제 지표는 dividendMap API 실데이터만 쓴다.
 
 function getValuationMetrics(
   ticker: string,
   div: DividendEntry,
 ): ValuationMetrics {
-  const key = ticker.toUpperCase()
-  const known = KNOWN_VALUATION[key]
-
   const base: ValuationMetrics = {
     pe:              safeNumber(div.pe)             || null,
     peg:             safeNumber(div.peg)            || null,
@@ -235,22 +94,10 @@ function getValuationMetrics(
       const eg = safeNumber(div.earningsGrowth)
       return eg > 0 ? parseFloat((eg * 100).toFixed(1)) : null
     })(),
-    dataSource: 'estimated',
+    // 전부 dividendMap API 실데이터에서 온다 — 손으로 박은 보완표는 삭제했다(2026-08-30 감사).
+    dataSource: 'api',
   }
-
-  if (!known) return base
-
-  return {
-    ...base,
-    ...known,
-    // dividendMap 실데이터가 있으면 우선
-    pe:             base.pe  ?? known.pe  ?? null,
-    peg:            base.peg ?? known.peg ?? null,
-    dividendYield:  base.dividendYield ?? known.dividendYield ?? null,
-    payoutRatio:    base.payoutRatio   ?? known.payoutRatio   ?? null,
-    earningsGrowth: base.earningsGrowth ?? known.earningsGrowth ?? null,
-    dataSource: 'known',
-  } as ValuationMetrics
+  return base
 }
 
 // ── 디자인 토큰 ──────────────────────────────────────────────────────────────
@@ -506,9 +353,12 @@ function StalwartPanel({ m, name }: { m: ValuationMetrics; name: string }) {
 /** ③ 경기순환주 — PBR 밴드 */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function CyclicalPanel({ m, currentPrice, name }: { m: ValuationMetrics; currentPrice: number; name: string }) {
+  // ⚠️ 예전엔 없는 값을 0.5/3.0 임의 기본값으로 채워 '역사적 최저/최고 PBR'이라는 **사실 라벨**로 표시했다.
+  //    출처 없는 숫자는 라벨링이 아니라 삭제 — 이력이 없으면 밴드 자체를 렌더하지 않는다(2026-08-30 감사).
   const pbr    = m.pbr ?? null
-  const minPbr = m.pbrHistMin ?? 0.5
-  const maxPbr = m.pbrHistMax ?? 3.0
+  const hasBand = m.pbrHistMin != null && m.pbrHistMax != null
+  const minPbr = m.pbrHistMin ?? 0
+  const maxPbr = m.pbrHistMax ?? 0
   const avgPbr = m.pbrHistAvg ?? ((minPbr + maxPbr) / 2)
 
   // PBR 밴드에서 현재 위치 (0~100%)
@@ -517,13 +367,13 @@ function CyclicalPanel({ m, currentPrice, name }: { m: ValuationMetrics; current
     ? Math.max(0, Math.min(100, ((pbr - minPbr) / range) * 100))
     : null
 
-  const pbrZone = pbr == null ? '—'
+  const pbrZone = pbr == null || !hasBand ? '—'
     : pbr <= minPbr * 1.1 ? '🟢 역사적 저점 (진바닥 신호)'
     : pbr <= avgPbr ? '🟡 평균 이하 (저평가 구간)'
     : pbr <= avgPbr * 1.3 ? '⚪ 평균 (중립)'
     : '🔴 고점 접근 (주의)'
 
-  const pbrColor = pbr == null ? C.textLow
+  const pbrColor = pbr == null || !hasBand ? C.textLow
     : pbr <= minPbr * 1.1 ? C.green
     : pbr <= avgPbr ? C.gold
     : pbr <= avgPbr * 1.3 ? C.textSub
@@ -533,16 +383,18 @@ function CyclicalPanel({ m, currentPrice, name }: { m: ValuationMetrics; current
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <MetricCard label="현재 PBR" value={pbr != null ? pbr.toFixed(2) : '—'} sub={pbrZone} color={pbrColor} />
-        <MetricCard label="역사적 최저 PBR" value={minPbr.toFixed(2)} sub="과거 바닥 구간" color={C.green} />
-        <MetricCard label="역사적 평균 PBR" value={avgPbr.toFixed(2)} sub="중기 평균" color={C.gold} />
-        <MetricCard label="역사적 최고 PBR" value={maxPbr.toFixed(2)} sub="과거 고점 구간" color={C.red} />
+        {hasBand && <>
+          <MetricCard label="역사적 최저 PBR" value={minPbr.toFixed(2)} sub="과거 바닥 구간" color={C.green} />
+          <MetricCard label="역사적 평균 PBR" value={avgPbr.toFixed(2)} sub="중기 평균" color={C.gold} />
+          <MetricCard label="역사적 최고 PBR" value={maxPbr.toFixed(2)} sub="과거 고점 구간" color={C.red} />
+        </>}
         {m.debtRatio != null && (
           <MetricCard label="부채비율" value={`${m.debtRatio}%`} sub="경기침체 버팀력" color={m.debtRatio > 200 ? C.red : m.debtRatio > 100 ? C.gold : C.green} />
         )}
       </div>
 
-      {/* PBR 밴드 시각화 */}
-      <div style={{ padding: '16px 20px', borderRadius: 10, background: C.card2, border: `1px solid ${C.border}` }}>
+      {/* PBR 밴드 시각화 — 이력(min/max)이 실제로 있을 때만. 없으면 통째로 미렌더(임의 기본값 금지) */}
+      {hasBand && <div style={{ padding: '16px 20px', borderRadius: 10, background: C.card2, border: `1px solid ${C.border}` }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: C.textSub, marginBottom: 12 }}>
           역사적 PBR 밴드 — 현재 위치
         </div>
@@ -585,7 +437,7 @@ function CyclicalPanel({ m, currentPrice, name }: { m: ValuationMetrics; current
             현재 PBR {pbr.toFixed(2)}x — {pbrZone}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* 린치 경기순환주 황금 경고 */}
       <div style={{
@@ -930,9 +782,7 @@ export default function LynchValuationEngine({
             </div>
             <div style={{ fontSize: 11, color: C.textLow, fontFamily: 'monospace', marginTop: 2 }}>
               {selected.ticker} · {selected.market}
-              {metrics?.dataSource === 'estimated' && (
-                <span style={{ marginLeft: 8, color: TK.sub3 }}>(추정 데이터)</span>
-              )}
+              <span style={{ marginLeft: 8, color: TK.sub3 }}>(지표 출처: dividendMap API)</span>
             </div>
           </div>
 

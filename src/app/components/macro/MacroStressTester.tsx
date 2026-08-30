@@ -142,7 +142,7 @@ export default function MacroStressTester({ portfolioData }: Props) {
             <tr className="border-b border-zinc-800 text-xs text-zinc-400">
               <th className="pb-3 font-medium">종목 (티커)</th>
               <th className="pb-3 font-medium">린치 카테고리</th>
-              <th className="pb-3 font-medium text-right">민감도 (Beta)</th>
+              <th className="pb-3 font-medium text-right">금리민감도 (앱 추정)</th>
               <th className="pb-3 font-medium text-right">기본 PEG</th>
               <th className={`pb-3 font-medium text-right text-[${TK.neonLime}]`}>시나리오 PEG</th>
               <th className="pb-3 font-medium text-center">매크로 위험도</th>

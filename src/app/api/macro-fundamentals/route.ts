@@ -42,12 +42,13 @@ function estimateCorrelation(market: string, category: string | null): number {
 interface FundamentalResult {
   ticker:        string
   name:          string
-  epsGrowth:     number   // % — /api/financials YoY 실제값
-  revenueGrowth: number   // % — /api/financials YoY 실제값
-  debtRatio:     number   // % — /api/stock-info 실제값 (없으면 시장별 추정)
-  divYield:      number   // % — /api/stock-info 실제값
-  netCashRatio:  number   // % — 추정 (공개 API 한계)
-  correlation:   number   // 0-1 — 섹터 추정 (공개 API 한계)
+  // ⚠️ null = 조회 실패 = '데이터 없음'. 지어낸 기본값으로 채우지 마라(2026-08-30 감사).
+  epsGrowth:     number | null   // % — /api/financials YoY 실제값
+  revenueGrowth: number | null   // % — /api/financials YoY 실제값
+  debtRatio:     number | null   // % — /api/stock-info 실제값
+  divYield:      number          // % — /api/stock-info 실제값 (없으면 0 = 무배당)
+  netCashRatio:  number | null   // % — 실측 실패 시 null
+  correlation:   number          // 0-1 — ⚠️ 실측 아님, estimateCorrelation 앱 추정 테이블
   dataQuality:   'real' | 'partial' | 'estimated'  // 데이터 품질 표시
 }
 
@@ -73,11 +74,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       const name     = decodeURIComponent(names[i] ?? ticker)
       const category = categories[i] ?? null
 
-      let epsGrowth      = 15   // 폴백 기본값
-      let revenueGrowth  = 12
-      let debtRatio      = market === 'KR' ? 60 : 50
-      let divYield       = 0
-      let netCashRatio   = 10
+      // ⚠️ 2026-08-30 감사 — 예전엔 15·12·60/50·10 같은 **지어낸 기본값**이 조회 실패 시 그대로 발동해
+      //    화면에 실측처럼 렌더됐다(⛔ 출처 없는 수치 금지). 없으면 null 로 두고 화면이 '데이터 없음'을 그린다.
+      let epsGrowth: number | null      = null
+      let revenueGrowth: number | null  = null
+      let debtRatio: number | null      = null
+      let divYield                      = 0
+      let netCashRatio: number | null   = null
       let dataQuality: FundamentalResult['dataQuality'] = 'estimated'
 
       try {
@@ -122,7 +125,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           if (typeof f?.earningsGrowth === 'number' && isFinite(f.earningsGrowth)) {
             const stockInfoEps = Math.round(Math.abs(f.earningsGrowth) * 100)
             // 두 소스 중 절대값이 더 작은 값을 우선 (이상값 방어)
-            if (stockInfoEps < Math.abs(epsGrowth) || dataQuality !== 'real') {
+            if (epsGrowth == null || stockInfoEps < Math.abs(epsGrowth) || dataQuality !== 'real') {
               epsGrowth   = f.earningsGrowth >= 0 ? stockInfoEps : -stockInfoEps
               dataQuality = 'real'
             }

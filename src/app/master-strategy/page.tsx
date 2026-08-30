@@ -86,8 +86,6 @@ const SECTOR_PALETTE = [
 ]
 
 const TOTAL_SLIDES  = 5
-const STRATEGY_AMT  = '₩1억'
-const STRATEGY_STOCKS = 18
 
 const ROADMAP = [
   { q:'Q1 2026', title:'포트폴리오 구축',   items:['Core ETF 편입 완료','반도체 32% 달성','분산 구조 확립'], done:true  },
@@ -184,9 +182,10 @@ function Slide1_Title() {
       {/* KPI */}
       <motion.div variants={fadeUp} style={{ display:'flex', gap:14, flexWrap:'wrap', justifyContent:'center' }}>
         {[
-          { label:'전략 포트폴리오', v:STRATEGY_AMT,            c:D.neon   },
-          { label:'전략 종목',       v:`${STRATEGY_STOCKS}개`,  c:D.blue   },
-          { label:'슬라이드',        v:'5 Decks',               c:D.indigo },
+          // ⚠️ '₩1억'·'18개'는 출처 없는 리터럴이라 제거했다(2026-08-30 감사 · ⛔ 출처 없는 수치 금지).
+          //    표지에는 데이터에서 파생되는 것만 남긴다.
+          { label:'자산배분',  v:'Core–Satellite', c:D.neon   },
+          { label:'슬라이드',  v:`${TOTAL_SLIDES} Decks`, c:D.indigo },
         ].map(k => (
           <div key={k.label} style={{ background:D.cardHi, border:`1px solid ${k.c}22`,
             borderRadius:14, padding:'16px 28px', minWidth:138, textAlign:'center' }}>
@@ -278,17 +277,14 @@ function Slide2_Philosophy({
 // ═══════════════════════════════════════════════════════════════
 //  SLIDE 3 — CAPITAL STRUCTURE
 // ═══════════════════════════════════════════════════════════════
-function Slide3_Capital({ corePct, satPct }: { corePct:number; satPct:number }) {
+// ⚠️ 2026-08-30 감사 — 이 슬라이드의 '자산군 비중' 도넛(국내ETF 31%…)과 스탯(ETF 59%·개별주 35%·대체 6%)은
+//    어떤 데이터에서도 파생되지 않는 리터럴이었다. 출처를 특정할 수 없으므로 삭제하고 DB(strategy_configs)에서
+//    실제로 오는 값만 남긴다(⛔ 출처 없는 수치 금지).
+function Slide3_Capital({ corePct, satPct, coreStocks, satelliteStocks }:
+  { corePct:number; satPct:number; coreStocks:string[]; satelliteStocks:string[] }) {
   const donutA = [
     { name:'Core',      value:corePct, color:TK.blue500 },
     { name:'Satellite', value:satPct,  color:D.neon    },
-  ]
-  const donutB = [
-    { name:'국내 ETF',   value:31, color:D.blue    },
-    { name:'해외 ETF',   value:28, color:D.neon    },
-    { name:'국내 개별주', value:24, color:D.indigo  },
-    { name:'해외 개별주', value:11, color:D.gold    },
-    { name:'코인·대체',  value: 6, color:TK.orange400 },
   ]
   const RADIAN = Math.PI / 180
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -301,20 +297,19 @@ function Slide3_Capital({ corePct, satPct }: { corePct:number; satPct:number }) 
     )
   }
   const stat = [
-    { l:'ETF 비중',  v:'59%', c:D.neon    },
-    { l:'개별주',    v:'35%', c:D.blue    },
-    { l:'대체자산',  v:'6%',  c:D.gold    },
-    { l:'전략 종목', v:`${STRATEGY_STOCKS}개`, c:D.indigo },
+    { l:'Core 비중',    v:`${corePct}%`, c:TK.blue500 },
+    { l:'Satellite',    v:`${satPct}%`,  c:D.neon     },
+    { l:'Core 종목',    v:`${coreStocks.length}개`,      c:D.indigo },
+    { l:'Satellite 종목', v:`${satelliteStocks.length}개`, c:D.gold  },
   ]
   return (
     <motion.div variants={stagger} initial="hidden" animate="show"
       style={{ display:'flex', flexDirection:'column', gap:18, height:'100%' }}>
       <SlideHeader num="03" label="Capital Structure" title="자산 구조 분석" />
       <motion.div variants={fadeUp}
-        style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, flex:1, minHeight:0 }}>
+        style={{ display:'grid', gridTemplateColumns:'1fr', gap:14, flex:1, minHeight:0 }}>
         {[
           { title:'CORE vs SATELLITE', data:donutA, border:TK.blue500 },
-          { title:'자산군 비중',        data:donutB, border:D.neon     },
         ].map(chart => (
           <div key={chart.title} style={{ background:D.cardHi, border:`1px solid ${chart.border}18`,
             borderRadius:16, padding:18, display:'flex', flexDirection:'column', alignItems:'center' }}>
@@ -1106,7 +1101,7 @@ export default function MasterStrategyPage() {
       case 1: return <Slide2_Philosophy
                   corePct={config.core_pct} satPct={config.satellite_pct}
                   coreStocks={config.core_stocks ?? []} satelliteStocks={config.satellite_stocks ?? []} />
-      case 2: return <Slide3_Capital    corePct={config.core_pct} satPct={config.satellite_pct} />
+      case 2: return <Slide3_Capital    corePct={config.core_pct} satPct={config.satellite_pct} coreStocks={config.core_stocks ?? []} satelliteStocks={config.satellite_stocks ?? []} />
       case 3: return <Slide4_Sector     sectorData={config.sector_data} />
       case 4: return <Slide5_Roadmap />
       default: return null

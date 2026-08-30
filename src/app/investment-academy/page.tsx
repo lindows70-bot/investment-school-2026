@@ -18,7 +18,8 @@ const LYNCH_TYPES = [
     emoji: '🛡️', name: '대형우량주', en: 'Stalwarts',
     color: TK.blue400,
     desc: '연 10~12% 안정 성장. 포트폴리오의 방패. 코카콜라·P&G 등.',
-    tip: 'PER 20~25배에 매수, 30~35배엔 차익 실현',
+    // ⚠️ 'PER 20~25 매수 / 30~35 차익실현'은 린치 원전에 없고 앱 자체 CAP(stalwart 20배)과도 모순이었다(2026-08-30 감사).
+    tip: '급등을 노리기보다 20~30% 수익에서 차익 실현하고 다른 저평가 우량주로 갈아타는 방식(린치)',
   },
   {
     emoji: '🚀', name: '고성장주', en: 'Fast Growers',
@@ -297,7 +298,9 @@ export default function InvestmentAcademyPage() {
             <p style={{ fontSize: 13, color: TK.slate400, lineHeight: 1.7, margin: 0, maxWidth: 560 }}>
               기업의 <strong style={{ color: TK.slate100 }}>내재 가치(Intrinsic Value)</strong>보다
               충분히 싼 가격에 매수함으로써 판단 오류와 시장 변동성에 대한 안전장치를 확보하는 원칙.
-              버핏은 통상 내재 가치 대비 <strong style={{ color: TK.amber400 }}>30~40% 할인된 가격</strong>을 목표로 한다.
+              {/* ⚠️ '버핏은 30~40% 할인을 목표' 는 버핏이 공표한 기록이 없는 2차 요약이었다(2026-08-30 감사).
+                  출처가 분명한 그레이엄의 원칙으로 대체한다(『현명한 투자자』— 내재가치의 2/3 이하 매수). */}
+              이 개념을 만든 벤저민 그레이엄은 『현명한 투자자』에서 내재 가치의 <strong style={{ color: TK.amber400 }}>3분의 2 이하</strong>에 사라는 기준을 제시했다.
             </p>
           </div>
           <div style={{

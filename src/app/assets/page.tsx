@@ -475,7 +475,7 @@ export default function AssetsPage() {
       {/* 🤲 단단한 손 점검 — 코스톨라니 3조건(돈·생각·인내)을 한자리에. 현금 카드 바로 위(돈 축의 상세가 아래에 이어짐) */}
       {!dbLoading && <FirmHandsCard />}
 
-      {/* 💰 현금 포지션 — 예수금·CMA 등록 → 실제 현금 비중 vs 막스 권장 밴드 */}
+      {/* 💰 현금 포지션 — 예수금·CMA 등록 → 실제 현금 비중 vs 앱 기준 밴드 */}
       {!dbLoading && <CashPositionCard />}
       {!dbLoading && <FxAttributionCard />}
 

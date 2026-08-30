@@ -182,12 +182,13 @@ function computeSignal(raw: AnyRecord): StockSignal {
   // ║  2. 대형우량주 — PER 과부담 + 수익률 과도       ║
   // ╚═══════════════════════════════════════════════════╝
   else if (lynchType === '대형우량주') {
-    const stalwartAvgPer = 22  // 대형우량주 역사적 평균 PER 기준
+    // ⚠️ '역사적 평균'이라 부를 근거(시장·기간·모집단)가 없다 — 앱이 정한 기준선이다(2026-08-30 감사).
+    const stalwartAvgPer = 22  // 대형우량주 판정 기준 PER(앱 설정 · LYNCH_MULTIPLE_CAP stalwart 20 과 같은 계열)
     const perPremium = per > 0 ? ((per - stalwartAvgPer) / stalwartAvgPer * 100) : 0
 
     if (per > stalwartAvgPer * 1.3) {
       status    = 'danger'
-      headline  = `PER ${per.toFixed(1)}배 — 역사적 평균 대비 ${perPremium.toFixed(0)}% 프리미엄`
+      headline  = `PER ${per.toFixed(1)}배 — 앱 기준(${stalwartAvgPer}배) 대비 ${perPremium.toFixed(0)}% 프리미엄`
       triggers.push(`PER ${per.toFixed(1)} > 기준 PER의 130% (${(stalwartAvgPer * 1.3).toFixed(0)}배)`)
       if (returnPct !== undefined && returnPct > 50) {
         triggers.push(`수익률 +${returnPct}% — 이익선 대비 과도한 오버슈팅`)
@@ -334,8 +335,8 @@ function computeSignal(raw: AnyRecord): StockSignal {
     gaugePos = Math.min(95, Math.max(3, ((ratio - 0.5) / 1.1) * 100))
     const overshoot = ((ratio - 1) * 100).toFixed(0)
     gaugeText = ratio > 1
-      ? `PER ${per.toFixed(1)}배 (역사적 평균 22배 대비 +${overshoot}% 오버슈팅)`
-      : `PER ${per.toFixed(1)}배 (역사적 평균 22배 대비 ${overshoot}% 할인)`
+      ? `PER ${per.toFixed(1)}배 (앱 기준 22배 대비 +${overshoot}% 오버슈팅)`
+      : `PER ${per.toFixed(1)}배 (앱 기준 22배 대비 ${overshoot}% 할인)`
 
   } else if (lynchType === '경기순환주' && per > 0) {
     // 사이클주 역설: PER 낮을수록 고점(위험) — 역방향 매핑
