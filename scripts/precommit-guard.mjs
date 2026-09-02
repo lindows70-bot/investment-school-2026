@@ -7,9 +7,14 @@
 //
 // 설계 원칙
 //  · **staged diff의 추가 라인만** 검사한다 — 기존 하드코딩까지 훑으면 매 커밋이 경고 스팸이 된다.
-//  · 기본은 **경고(통과)**, 심각한 것만 차단. 스타일 검사가 커밋을 막아 우회(--no-verify)를 습관화시키면
-//    아예 없는 것보다 나쁘다. 차단은 '조용히 깨지는' 캐시 키 불일치 하나만.
-//  · 우회: git commit --no-verify
+//  · **기존 파일 수정은 경고(통과)** — 스타일 검사가 레거시 수정을 막으면 우회(--no-verify)가 습관이 되어
+//    아예 없는 것보다 나쁘다. 이 판단은 유지한다.
+//  · **신규 파일은 차단** (2026-09-02 추가). 경고만으로는 안 지켜진다는 게 실측으로 드러났다 —
+//    문서에 제1-b 를 적어둔 뒤로도 색상 하드코딩 645 → 885 → **946**, fontSize 리터럴 4,211 → **4,786**
+//    (39종)으로 계속 늘었고 FS 토큰은 663곳(14%)뿐이다. 새로 태어나는 파일만이라도 원천 차단한다.
+//    (근거: "규칙 문서는 에이전트가 실수로 안 따른다 — 구조로 강제해야 한다" · /design 스킬 검토 2026-09-02)
+//  · 차단 대상은 둘 — 신규 파일의 디자인 값 하드코딩 · '조용히 깨지는' 캐시 키 불일치.
+//  · 우회: 그 줄에 `토큰예외: <이유>` 를 적거나(권장), 최후에 git commit --no-verify
 import { execSync } from 'child_process'
 
 const sh = (c) => { try { return execSync(c, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }) } catch { return '' } }
@@ -20,6 +25,32 @@ const diff = sh('git diff --cached -U0 -- src/')
 const added = diff.split('\n').filter(l => l.startsWith('+') && !l.startsWith('+++')).map(l => l.slice(1))
 const stagedFiles = sh('git diff --cached --name-only -- src/').trim().split('\n').filter(Boolean)
 if (added.length === 0) process.exit(0)
+
+// ── 신규 파일 판별 + 파일별 추가 라인 ──────────────────────────────────────
+//  경고만으로는 안 지켜진다는 게 실측으로 드러났다(2026-09-02): 문서에 제1-b 를 적어둔 뒤로도
+//  색상 하드코딩 645 → 885 → **946**, fontSize 리터럴 4,211 → **4,786**(39종)으로 계속 늘었다.
+//  FS 토큰은 663곳(리터럴의 14%)뿐이다. 규칙 문서는 에이전트가 그냥 안 따른다.
+//  → **신규 파일만** 차단한다. 기존 파일 수정은 경고 그대로 두어 `--no-verify` 습관화를 피한다
+//    (이 훅이 원래 세운 판단을 유지하면서, 새로 유입되는 것만 원천 차단).
+const newFiles = new Set(
+  sh('git diff --cached --name-status --diff-filter=A -- src/').trim().split('\n')
+    .filter(Boolean).map(l => l.split('\t').pop()).filter(f => f && !f.endsWith('src/lib/theme.ts')),
+)
+/** 파일 → 이번에 추가된 라인들 */
+const addedByFile = new Map()
+{
+  let cur = null
+  for (const l of diff.split('\n')) {
+    const m = l.match(/^\+\+\+ b\/(.+)$/)
+    if (m) { cur = m[1]; continue }
+    if (cur && l.startsWith('+') && !l.startsWith('+++')) {
+      if (!addedByFile.has(cur)) addedByFile.set(cur, [])
+      addedByFile.get(cur).push(l.slice(1))
+    }
+  }
+}
+/** 토큰을 못 쓰는 정당한 사유가 있으면 그 줄에 `토큰예외: 이유` 를 적는다(침묵 우회 대신 이유를 남기게). */
+const EXEMPT = /토큰예외:/
 
 let blocked = false
 const warn = (t) => console.log(`${C.y}⚠️  ${t}${C.x}`)
@@ -41,6 +72,29 @@ if (fs.length) {
   warn(`fontSize 리터럴 ${fs.length}줄 추가됨 (제1-b: FS 스케일 사용)`)
   fs.slice(0, 3).forEach(l => console.log(`${C.d}      ${l.trim().slice(0, 100)}${C.x}`))
   console.log(`${C.d}      → FS.micro/tiny/body/lg/xl/h2/h1. 0.5px 단위 새 값은 위계를 만들지 못하고 파편화만 남깁니다.${C.x}`)
+}
+
+// ── ②-b 신규 파일은 토큰만 허용 → 차단 ──────────────────────────────────────
+//    "규칙 문서로는 안 지켜지고 구조로 강제해야 한다"(2026-09-02 검토) — 새로 태어나는 파일만이라도
+//    처음부터 깨끗하게 둔다. 기존 946곳·4,786곳은 건드리지 않으므로 리팩터 부담도 없다.
+const newViolations = []
+for (const f of newFiles) {
+  for (const l of (addedByFile.get(f) ?? [])) {
+    if (EXEMPT.test(l)) continue
+    if (/#[0-9a-fA-F]{6}\b/.test(l)) newViolations.push({ f, l, why: '색상 하드코딩 → TK' })
+    else if (/fontSize:\s*[0-9]/.test(l)) newViolations.push({ f, l, why: 'fontSize 리터럴 → FS' })
+  }
+}
+if (newViolations.length) {
+  blocked = true
+  console.log(`${C.r}${C.b}⛔ 신규 파일에 디자인 값 하드코딩 (제1-b) — ${newViolations.length}건${C.x}`)
+  for (const v of newViolations.slice(0, 8)) {
+    console.log(`${C.r}   ${v.f} — ${v.why}${C.x}`)
+    console.log(`${C.d}      ${v.l.trim().slice(0, 110)}${C.x}`)
+  }
+  if (newViolations.length > 8) console.log(`${C.d}      … 외 ${newViolations.length - 8}건${C.x}`)
+  console.log(`${C.d}   → 신규 파일은 TK(색)·FS(글자) 토큰만 씁니다. 기존 파일 수정은 경고만 하니 리팩터 부담은 없습니다.${C.x}`)
+  console.log(`${C.d}     토큰으로 표현 못 할 정당한 사유가 있으면 그 줄에 "토큰예외: <이유>" 를 적으세요(침묵 우회 대신 이유를 남깁니다).${C.x}`)
 }
 
 // ── ③ 캐시 키 버전업 시 옛 키를 참조하는 reader 잔존 → 차단 ────────────────
