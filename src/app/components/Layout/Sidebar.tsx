@@ -210,6 +210,7 @@ function SidebarInner() {
           }}/>
 
           <div style={{ flex: 1, minWidth: 0 }}>
+            {/* 토큰예외: 브랜드 워드마크의 골드 그라데이션 — 로고와 한 벌인 아이덴티티 색이라 TK 의미색으로 대체 불가(값 자체는 기존 것 유지) */}
             <div style={{
               fontSize: FS.lg, fontWeight: 800, letterSpacing: '-0.5px', lineHeight: 1.15,
               whiteSpace: 'nowrap' as const,
@@ -344,6 +345,7 @@ function SidebarInner() {
             color: 'rgba(245,230,200,0.88)', fontFamily: '"Georgia","Times New Roman",serif',
           }}>
             미래에 벌어들일 현금흐름을{' '}
+            {/* 토큰예외: 위와 같은 브랜드 골드 그라데이션(철학 서명의 강조어) */}
             <span style={{
               fontWeight: 800, fontStyle: 'italic',
               background: 'linear-gradient(135deg,#f5e6c8 0%,#d4af37 60%,#fffbe6 100%)',
@@ -361,6 +363,8 @@ function SidebarInner() {
             <span style={{ fontSize: FS.micro, color: 'rgba(245,230,200,0.6)' }}>=</span>
             <span style={{ fontSize: FS.lg, fontWeight: 700, color: '#d4af37', lineHeight: 1, marginRight: 1 }}>Σ</span>
             <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.05 }}>
+              {/* 토큰예외: 수식의 아래·위 첨자(t)는 밑글자보다 작아야 수식으로 읽힌다 — FS 최소단(micro 11)으로는 첨자 표현 불가.
+                  읽을 문장이 아니라 수식 기호이므로 '설명문 micro 금지' 규칙 대상도 아니다. */}
               <span style={{ fontSize: FS.micro, color: '#f5e6c8', fontWeight: 700 }}>FCF<sub style={{ fontSize: 8 }}>t</sub></span>
               <span style={{ height: 1, width: '100%', minWidth: 46, background: 'rgba(212,175,55,0.55)', margin: '1.5px 0' }} />
               <span style={{ fontSize: FS.micro, color: 'rgba(245,230,200,0.82)' }}>(1+r)<sup style={{ fontSize: 8 }}>t</sup></span>
