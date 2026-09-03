@@ -4,7 +4,7 @@
 //   수량 = (포트폴리오 × 리스크%) ÷ (진입가 − ATR손절가) = 매매 단위 리스크 패리티. 전부 결정론·교육용·자동주문 없음.
 import { useState, useEffect } from 'react'
 import type { EntryTiming } from '@/lib/entryTiming'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 import { curFromCode } from '@/lib/globalTickers'
 import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(1350/1380 분열 제거)
 
@@ -70,24 +70,24 @@ export default function TradePlanCard({ market, timing, portfolioKrw, currency, 
     <div style={{ marginTop: 6 }}>
       <button onClick={() => setOpen(o => !o)} style={{
         display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 7,
-        fontSize: 10.5, fontWeight: 700, cursor: 'pointer',
+        fontSize: FS.tiny, fontWeight: 700, cursor: 'pointer',
         background: open ? 'rgba(196,181,253,0.18)' : 'rgba(196,181,253,0.08)',
         color: TK.violet300, border: `1px solid ${open ? `${TK.violet400}66` : `${TK.violet400}33`}`,
       }}>📋 {open ? '매매 플랜 접기' : '매매 플랜 — 지금 살까? 몇 주?'}</button>
 
       {open && (
-        <div style={{ marginTop: 6, background: '#12101c', border: `1px solid ${TK.violet400}44`, borderRadius: 10, padding: '11px 13px', fontSize: 11, lineHeight: 1.6 }}>
+        <div style={{ marginTop: 6, background: '#12101c', border: `1px solid ${TK.violet400}44`, borderRadius: 10, padding: '11px 13px', fontSize: FS.tiny, lineHeight: 1.6 }}>
           {/* 🎯 오늘의 행동 — 큰 결론 */}
           <div style={{ background: `${v.tone}14`, border: `1px solid ${v.tone}66`, borderRadius: 9, padding: '9px 12px', marginBottom: 9 }}>
-            <div style={{ color: v.tone, fontWeight: 900, fontSize: 13.5 }}>{v.title}</div>
-            <div style={{ color: TK.slate300, fontSize: 10.5, marginTop: 3, lineHeight: 1.55 }}>{v.sub}</div>
+            <div style={{ color: v.tone, fontWeight: 900, fontSize: FS.body }}>{v.title}</div>
+            <div style={{ color: TK.slate300, fontSize: FS.tiny, marginTop: 3, lineHeight: 1.55 }}>{v.sub}</div>
           </div>
 
           {/* 🌪️ 국가 시장 극단 변동 — 갭 리스크 경고. 1%룰은 손절 체결을 가정하므로 지수 갭다운 국면엔 수량을 줄여야 함 */}
           {volWarn && (
             <div style={{ background: '#2a1010', border: `1px solid ${TK.red400}55`, borderRadius: 9, padding: '9px 12px', marginBottom: 9 }}>
-              <div style={{ color: TK.red400, fontWeight: 800, fontSize: 11.5 }}>🌪️ {volWarn.flag} {volWarn.label} 극단 변동 — 손절이 갭에 뚫릴 수 있습니다</div>
-              <div style={{ color: '#fecaca', fontSize: 10.5, marginTop: 3, lineHeight: 1.55 }}>
+              <div style={{ color: TK.red400, fontWeight: 800, fontSize: FS.tiny }}>🌪️ {volWarn.flag} {volWarn.label} 극단 변동 — 손절이 갭에 뚫릴 수 있습니다</div>
+              <div style={{ color: '#fecaca', fontSize: FS.tiny, marginTop: 3, lineHeight: 1.55 }}>
                 20일 변동성 {volWarn.vol20}%(자국 5년 백분위 {volWarn.pctile}%) · 최근 20일 중 <b>{volWarn.big3}일이 ±3% 급변동</b>.
                 아래 수량은 <b>손절가에 정상 체결</b>되는 걸 가정한 값입니다. 지수가 통째로 갭다운하면 그 가격에 못 팔아 손실이 계산보다 커집니다 —
                 <b> 계산 수량의 절반 이하로, 반드시 나눠서</b> 진입하세요.
@@ -100,28 +100,28 @@ export default function TradePlanCard({ market, timing, portfolioKrw, currency, 
             <span style={{ color: TK.sub2 }}>🛒 지금 담을 양</span>
             <span style={{ color: v.now > 0 ? TK.green400 : TK.slate400, fontWeight: 800, fontFamily: 'monospace' }}>
               {v.now > 0 ? `${v.now.toLocaleString()}주 (≈${fmtW(nowKrw)})` : '0주 — 대기'}
-              {v.now > 0 && qty > v.now && <span style={{ color: TK.sub2, fontFamily: 'inherit', fontWeight: 600, fontSize: 10 }}> · 최종 목표 {qty.toLocaleString()}주까지 분할</span>}
+              {v.now > 0 && qty > v.now && <span style={{ color: TK.sub2, fontFamily: 'inherit', fontWeight: 600, fontSize: FS.tiny }}> · 최종 목표 {qty.toLocaleString()}주까지 분할</span>}
             </span>
 
             <span style={{ color: TK.sub2 }}>🛡 손절선</span>
-            <span style={{ color: TK.red400, fontWeight: 800, fontFamily: 'monospace' }}>{fmtP(t.atrStop)} <span style={{ color: TK.sub2, fontFamily: 'inherit', fontWeight: 600, fontSize: 10 }}>— 여기 깨지면 계획대로 정리(감정 X)</span></span>
+            <span style={{ color: TK.red400, fontWeight: 800, fontFamily: 'monospace' }}>{fmtP(t.atrStop)} <span style={{ color: TK.sub2, fontFamily: 'inherit', fontWeight: 600, fontSize: FS.tiny }}>— 여기 깨지면 계획대로 정리(감정 X)</span></span>
 
             <span style={{ color: TK.sub2 }}>🧮 감당 리스크</span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <span style={{ display: 'inline-flex', border: `1px solid ${BORDER}`, borderRadius: 6, overflow: 'hidden' }}>
                 {[0.5, 1, 2].map(p => (
                   <button key={p} onClick={() => setRiskPct(p)} style={{
-                    padding: '2px 9px', fontSize: 10, fontWeight: 800, cursor: 'pointer', border: 'none',
+                    padding: '2px 9px', fontSize: FS.tiny, fontWeight: 800, cursor: 'pointer', border: 'none',
                     background: riskPct === p ? '#7c3aed' : 'transparent', color: riskPct === p ? '#fff' : TK.sub3,
                   }}>{p}%</button>
                 ))}
               </span>
-              <span style={{ color: TK.slate200, fontFamily: 'monospace', fontSize: 10.5 }}>= {fmtW(riskBudgetKrw)} 최대 손실</span>
+              <span style={{ color: TK.slate200, fontFamily: 'monospace', fontSize: FS.tiny }}>= {fmtW(riskBudgetKrw)} 최대 손실</span>
             </span>
           </div>
 
           {nominalHeavy && (
-            <div style={{ color: TK.orange400, fontSize: 10, marginBottom: 8, lineHeight: 1.5 }}>
+            <div style={{ color: TK.orange400, fontSize: FS.tiny, marginBottom: 8, lineHeight: 1.5 }}>
               ⚠️ 최종 목표({qty.toLocaleString()}주)가 포트의 {Math.round(totalKrw / portfolioKrw * 1000) / 10}%로 큽니다 — 갭 하락 시 손절선을 건너뛸 수 있으니 한 종목 15% 이내를 권합니다.
             </div>
           )}
@@ -129,14 +129,14 @@ export default function TradePlanCard({ market, timing, portfolioKrw, currency, 
           {/* 🔬 상세 근거 — 접어둠(계산·익절선·모멘텀) */}
           <button onClick={() => setDetail(d => !d)} style={{
             display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 6,
-            fontSize: 10, fontWeight: 700, cursor: 'pointer', background: 'transparent',
+            fontSize: FS.tiny, fontWeight: 700, cursor: 'pointer', background: 'transparent',
             color: TK.sub3, border: `1px solid ${BORDER}`,
           }}>🔬 계산 근거·익절선·모멘텀 {detail ? '접기 ▲' : '펼치기 ▼'}</button>
 
           {detail && (
             <div style={{ marginTop: 8 }}>
               {/* 계산 산식 */}
-              <div style={{ background: TK.bg3, borderRadius: 8, padding: '9px 11px', marginBottom: 8, display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 12, rowGap: 3, fontSize: 10.5 }}>
+              <div style={{ background: TK.bg3, borderRadius: 8, padding: '9px 11px', marginBottom: 8, display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 12, rowGap: 3, fontSize: FS.tiny }}>
                 <span style={{ color: TK.sub2 }}>주당 리스크</span>
                 <span style={{ color: TK.slate200, fontFamily: 'monospace' }}>진입 {fmtP(t.price)} − 🛡손절 {fmtP(t.atrStop)} = <b>{fmtP(perShareRisk)}</b></span>
                 <span style={{ color: TK.sub2 }}>수량 산식</span>
@@ -154,7 +154,7 @@ export default function TradePlanCard({ market, timing, portfolioKrw, currency, 
                     : `추세 확립 + 고점 대비 ${rk.pullbackPct}% 되돌림 — 라쉬케가 꼽는 ${t.light === 'green' ? '추가 진입(불타기)' : '1차 진입'} 적기.`
                   const c = rk.parabolicRun ? TK.orange400 : TK.green400
                   return (
-                    <div style={{ background: `${c}0d`, border: `1px solid ${c}44`, borderRadius: 8, padding: '7px 10px', marginBottom: 6, fontSize: 10.5, lineHeight: 1.55 }}>
+                    <div style={{ background: `${c}0d`, border: `1px solid ${c}44`, borderRadius: 8, padding: '7px 10px', marginBottom: 6, fontSize: FS.tiny, lineHeight: 1.55 }}>
                       <b style={{ color: TK.fuchsia300 }}>🎼 라쉬케</b> <span style={{ color: c, fontWeight: 800 }}>📍 첫 눌림목(최적 타점)</span>
                       <span style={{ color: TK.sub5 }}> — {g}</span>
                     </div>
@@ -162,7 +162,7 @@ export default function TradePlanCard({ market, timing, portfolioKrw, currency, 
                 }
                 if (t.light === 'green') {
                   return (
-                    <div style={{ background: `${TK.green400}09`, border: `1px solid ${TK.green400}33`, borderRadius: 8, padding: '7px 10px', marginBottom: 6, fontSize: 10.5, lineHeight: 1.55 }}>
+                    <div style={{ background: `${TK.green400}09`, border: `1px solid ${TK.green400}33`, borderRadius: 8, padding: '7px 10px', marginBottom: 6, fontSize: FS.tiny, lineHeight: 1.55 }}>
                       <b style={{ color: TK.fuchsia300 }}>🎼 라쉬케</b> <span style={{ color: TK.sub3, fontWeight: 700 }}>추세 이미 진행 중</span>
                       <span style={{ color: TK.sub5 }}> — 위 계획대로 진입하되, <b>첫 눌림목(숨 고르기)</b>이 오면 그때가 추가 진입 최적.</span>
                     </div>
@@ -176,7 +176,7 @@ export default function TradePlanCard({ market, timing, portfolioKrw, currency, 
                 }
                 const s = stageMap[rk.stage]
                 return (
-                  <div style={{ background: `${s.c}0d`, border: `1px solid ${s.c}44`, borderRadius: 8, padding: '7px 10px', marginBottom: 6, fontSize: 10.5, lineHeight: 1.55 }}>
+                  <div style={{ background: `${s.c}0d`, border: `1px solid ${s.c}44`, borderRadius: 8, padding: '7px 10px', marginBottom: 6, fontSize: FS.tiny, lineHeight: 1.55 }}>
                     <b style={{ color: TK.fuchsia300 }}>🎼 라쉬케 연쇄</b> <span style={{ color: s.c, fontWeight: 800 }}>{s.t}</span>
                     <span style={{ color: TK.sub5 }}> — {s.g}</span>
                   </div>
@@ -191,7 +191,7 @@ export default function TradePlanCard({ market, timing, portfolioKrw, currency, 
                 const col = chop ? TK.slate400 : strong ? TK.sky400 : extended ? TK.amber500 : weak ? TK.orange400 : TK.slate400
                 const head = chop ? '관망(추세 강도 약함)' : strong ? '지지 탄탄' : extended ? '과대이격(지지선 멀다)' : weak ? '지지 약함' : '혼조'
                 return (
-                  <div style={{ background: `${col}0d`, border: `1px solid ${col}44`, borderRadius: 8, padding: '7px 10px', marginBottom: 6, fontSize: 10.5, lineHeight: 1.55 }}>
+                  <div style={{ background: `${col}0d`, border: `1px solid ${col}44`, borderRadius: 8, padding: '7px 10px', marginBottom: 6, fontSize: FS.tiny, lineHeight: 1.55 }}>
                     <b style={{ color: TK.sky400 }}>📊 매물·평단</b> <span style={{ color: col, fontWeight: 800 }}>{head}</span>
                     <span style={{ color: TK.sub5 }}>
                       {' — '}
@@ -213,7 +213,7 @@ export default function TradePlanCard({ market, timing, portfolioKrw, currency, 
             </div>
           )}
 
-          <div style={{ color: TK.sub, fontSize: 9.5, borderTop: `1px solid ${BORDER}`, paddingTop: 6, marginTop: 8 }}>
+          <div style={{ color: TK.sub, fontSize: FS.tiny, borderTop: `1px solid ${BORDER}`, paddingTop: 6, marginTop: 8 }}>
             💡 수량을 &lsquo;감당할 손실&rsquo;에서 역산 — 변동성 큰 종목은 자동으로 적게 담게 됩니다. 1%룰이면 10번 연속 틀려도 −10%로 생존. 가격은 최근 종가 기준·자동 주문 없음·교육용.
           </div>
         </div>

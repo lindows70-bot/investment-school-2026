@@ -2,7 +2,7 @@
 // 🚦 타점 신호등 배지 — 추천 카드 공용(통합추천·리밸런싱·퀀트빌더·로테이션). 점수와 무관한 WHEN 정보 레이어.
 import type { EntryTiming } from '@/lib/entryTiming'
 import { curSymbol } from '@/lib/globalTickers'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 
 const COL: Record<string, { c: string; bg: string; bd: string }> = {
   green: { c: TK.green400, bg: '#14532d33', bd: `${TK.green500}55` },
@@ -19,7 +19,7 @@ export default function TimingBadge({ t, market, ticker, compact = false }: { t:
   if (compact) {
     const lightChip = (
       <span title={`${t.guide}${t.atrStop != null ? ` · 🛡ATR손절 ${fmtStop(t.atrStop)}` : ''}`}
-        style={{ fontSize: 9.5, fontWeight: 800, color: s.c, background: s.bg, border: `1px solid ${s.bd}`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>
+        style={{ fontSize: FS.tiny, fontWeight: 800, color: s.c, background: s.bg, border: `1px solid ${s.bd}`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>
         {t.label}
       </span>
     )
@@ -36,13 +36,13 @@ export default function TimingBadge({ t, market, ticker, compact = false }: { t:
       <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
         {lightChip}
         {pm && <span title={`정예 타점 — ${pm.trigger === 'divergence' ? '상승 다이버전스' : '첫 눌림목'} × 정배열+구름 위. 자체 백테스트 표본 323건·42종목, 20봉 승률 60.7%(기준 50.1%). 점수 미반영·배지 전용`}
-          style={{ fontSize: 9.5, fontWeight: 900, color: TK.bg1, background: TK.amber500, border: `1px solid ${TK.amber500}`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>🏅정예 타점</span>}
+          style={{ fontSize: FS.tiny, fontWeight: 900, color: TK.bg1, background: TK.amber500, border: `1px solid ${TK.amber500}`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>🏅정예 타점</span>}
         {chop && <span title={`추세 강도 약함(ADX ${t.supply!.adx}) — 방향 확신 낮아 돌파도 가짜(휩쏘) 가능, 방향 확정 후 진입`}
-          style={{ fontSize: 9.5, fontWeight: 800, color: TK.slate400, background: `${TK.slate400}18`, border: `1px solid ${TK.slate400}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>⬛관망</span>}
+          style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate400, background: `${TK.slate400}18`, border: `1px solid ${TK.slate400}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>⬛관망</span>}
         {sd && <span title={`${sd.highBarsAgo === 0 ? '오늘' : `${sd.highBarsAgo}거래일 전`} 고점에서 ${Math.abs(sd.dropFromHigh!)}% 급락 — 추세 구조는 살아있으나 지금 진입은 칼받이 위험. 반등·지지 확인 후 분할로`}
-          style={{ fontSize: 9.5, fontWeight: 900, color: TK.red400, background: `${TK.red400}22`, border: `1px solid ${TK.red400}88`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>📉급락 {sd.dropFromHigh}%</span>}
+          style={{ fontSize: FS.tiny, fontWeight: 900, color: TK.red400, background: `${TK.red400}22`, border: `1px solid ${TK.red400}88`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>📉급락 {sd.dropFromHigh}%</span>}
         {vx && <span title={vx.dir === 'up' ? '기관평단(VWAP) 위로 복귀 — 주도권 교체 후보(확인 캔들·신호등과 함께)' : 'VWAP 아래로 이탈 — 본전 매도 압력 구간(주도권 교체 후보·단독 신호 아님)'}
-          style={{ fontSize: 9.5, fontWeight: 800, color: vx.dir === 'up' ? TK.green400 : TK.red400, background: `${vx.dir === 'up' ? TK.green400 : TK.red400}18`, border: `1px solid ${vx.dir === 'up' ? TK.green400 : TK.red400}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>
+          style={{ fontSize: FS.tiny, fontWeight: 800, color: vx.dir === 'up' ? TK.green400 : TK.red400, background: `${vx.dir === 'up' ? TK.green400 : TK.red400}18`, border: `1px solid ${vx.dir === 'up' ? TK.green400 : TK.red400}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>
           ⚓{vx.dir === 'up' ? '평단 회복' : '평단 이탈'}</span>}
       </span>
     )
@@ -102,22 +102,22 @@ export default function TimingBadge({ t, market, ticker, compact = false }: { t:
       : { label: `⚓ 평단 이탈(${ago})`, c: TK.red400, tip: 'VWAP 아래로 이탈 — 본전 매도 압력 구간 진입(주도권 교체 후보·단독 신호 아님)' }
   }
   return (
-    <div style={{ background: s.bg, border: `1px solid ${s.bd}`, borderRadius: 8, padding: '6px 10px', fontSize: 10.5, lineHeight: 1.55 }}>
+    <div style={{ background: s.bg, border: `1px solid ${s.bd}`, borderRadius: 8, padding: '6px 10px', fontSize: FS.tiny, lineHeight: 1.55 }}>
       <b style={{ color: s.c }}>{t.label}</b>
       {t.prime && <span title={`재측정 2026-07(84종목·하락장 포함) 절사 초과 +1.3%p · 상승장 원측정 승률 60.7%(기준 50.1%) · 중위 초과 +3.4%p. 2년 단일 상승장 표본·거래비용 미반영. 점수 미반영·배지 전용`}
-        style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 900, color: TK.bg1, background: TK.amber500, borderRadius: 5, padding: '1px 7px', whiteSpace: 'nowrap' }}>
+        style={{ marginLeft: 6, fontSize: FS.tiny, fontWeight: 900, color: TK.bg1, background: TK.amber500, borderRadius: 5, padding: '1px 7px', whiteSpace: 'nowrap' }}>
         🏅 정예 타점 · {t.prime.trigger === 'divergence' ? '다이버전스' : '첫 눌림목'}</span>}
-      {rkChip && <span title="라쉬케 모멘텀 연쇄 — 상세는 매매 플랜에서" style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 800, color: rkChip.c, background: `${rkChip.c}18`, border: `1px solid ${rkChip.c}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{rkChip.label}</span>}
-      {spChip && <span title={spChip.tip} style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 800, color: spChip.c, background: `${spChip.c}18`, border: `1px solid ${spChip.c}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{spChip.label}</span>}
-      {vwChip && <span title={vwChip.tip} style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 800, color: vwChip.c, background: `${vwChip.c}18`, border: `1px solid ${vwChip.c}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{vwChip.label}</span>}
-      {dropChip && <span title={dropChip.tip} style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 900, color: dropChip.c, background: `${dropChip.c}22`, border: `1px solid ${dropChip.c}88`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{dropChip.label}</span>}
+      {rkChip && <span title="라쉬케 모멘텀 연쇄 — 상세는 매매 플랜에서" style={{ marginLeft: 6, fontSize: FS.tiny, fontWeight: 800, color: rkChip.c, background: `${rkChip.c}18`, border: `1px solid ${rkChip.c}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{rkChip.label}</span>}
+      {spChip && <span title={spChip.tip} style={{ marginLeft: 6, fontSize: FS.tiny, fontWeight: 800, color: spChip.c, background: `${spChip.c}18`, border: `1px solid ${spChip.c}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{spChip.label}</span>}
+      {vwChip && <span title={vwChip.tip} style={{ marginLeft: 6, fontSize: FS.tiny, fontWeight: 800, color: vwChip.c, background: `${vwChip.c}18`, border: `1px solid ${vwChip.c}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{vwChip.label}</span>}
+      {dropChip && <span title={dropChip.tip} style={{ marginLeft: 6, fontSize: FS.tiny, fontWeight: 900, color: dropChip.c, background: `${dropChip.c}22`, border: `1px solid ${dropChip.c}88`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{dropChip.label}</span>}
       <span style={{ color: TK.sub5 }}> — {t.guide}</span>
-      {t.prime && <div style={{ fontSize: 9.5, color: TK.amber400, marginTop: 3, lineHeight: 1.5 }}>
+      {t.prime && <div style={{ fontSize: FS.tiny, color: TK.amber400, marginTop: 3, lineHeight: 1.5 }}>
         🏅 추세가 살아있는 상태에서 {t.prime.trigger === 'divergence' ? '하락 에너지 소진(상승 다이버전스)' : '되돌림 완료(첫 눌림목)'}이 겹쳤습니다 — 자체 백테스트에서 20봉 승률 60.7%(기준 50.1%)로 가장 우위였던 조합입니다.
         {t.prime.parabolic && ' ⚠️ 직전 급등 이력이 있어 첫 눌림목이 함정일 수 있으니 분할로.'}
       </div>}
       {t.atrStop != null && <span style={{ color: TK.violet300 }}> · 🛡 손절 참고 {fmtStop(t.atrStop)}</span>}
-      {rkLine && <div style={{ color: TK.fuchsia300, marginTop: 3, fontSize: 10 }}>{rkLine}</div>}
+      {rkLine && <div style={{ color: TK.fuchsia300, marginTop: 3, fontSize: FS.tiny }}>{rkLine}</div>}
     </div>
   )
 }

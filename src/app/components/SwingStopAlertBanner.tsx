@@ -30,7 +30,7 @@ export default function SwingStopAlertBanner() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontSize: FS.body }}>📉</span>
           <b style={{ fontSize: FS.tiny, color: TK.amber400 }}>스윙 거래량 경고</b>
-          <span style={{ fontSize: FS.micro, color: TK.sub2 }}>
+          <span style={{ fontSize: FS.tiny, color: TK.sub2 }}>
             {cautions.map(c => `${c.flag} ${c.name}`).join(' · ')} — 급등 직후 첫 하락일에 거래가 몰렸습니다.
             실측에서 이런 날 이후 2주가 평소보다 약했습니다(스윙 타점 화면에서 손절선을 확인하세요).
           </span>
@@ -45,7 +45,7 @@ export default function SwingStopAlertBanner() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <span style={{ fontSize: FS.xl }}>🚨</span>
         <b style={{ fontSize: FS.lg, color: TK.red400 }}>스윙 손절선 이탈 — 오늘 정리를 검토하세요</b>
-        <span style={{ fontSize: FS.micro, color: TK.sub2 }}>스윙 타점이 추천했던 종목이 손절선 아래로 <b>마감</b>했습니다</span>
+        <span style={{ fontSize: FS.tiny, color: TK.sub2 }}>스윙 타점이 추천했던 종목이 손절선 아래로 <b>마감</b>했습니다</span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
         {alerts.map((a, i) => {
@@ -65,7 +65,7 @@ export default function SwingStopAlertBanner() {
           )
         })}
       </div>
-      <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 8, lineHeight: 1.6 }}>
+      <div style={{ fontSize: FS.tiny, color: TK.sub2, marginTop: 8, lineHeight: 1.6 }}>
         진입 근거(구조선)가 깨졌습니다 — 이 기법은 <b>여기서 정리하고 다음 자리를 기다리는 것</b>까지가 한 세트입니다.
         ⛔ 추가 매수(물타기)로 평단을 낮추는 대응은 이 기법이 아닙니다. · 매도 지시가 아닌 교육용 알림입니다.
       </div>

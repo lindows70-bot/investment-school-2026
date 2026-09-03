@@ -41,7 +41,7 @@ export default function DayMoverAlertBanner() {
       </div>
       {d.surges.map(m => row(m, true))}
       {d.drops.map(m => row(m, false))}
-      <div style={{ fontSize: FS.micro, color: TK.sub4 }}>
+      <div style={{ fontSize: FS.tiny, color: TK.sub4 }}>
         {d.checked}종목 확인{d.failed > 0 ? ` · ⚠️ ${d.failed}종목은 가격을 못 받아 판정 제외` : ''} · {d.asOf} ·
         급등은 추격 매수 신호가 아니고, 급락은 손절 지시가 아닙니다 — 이유(뉴스·공시)를 먼저 확인하세요.
       </div>

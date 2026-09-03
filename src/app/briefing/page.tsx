@@ -12,7 +12,7 @@ import type { WatchSig } from '@/app/api/cron/timing-watch/route'
 import { type WLApi, splitGroups, factorStats, buildLesson, WL_PERIOD_LABEL } from '@/lib/winLose'
 import { cashBandOf } from '@/lib/cashPosition'
 import { LYNCH_CATEGORY_KR } from '@/lib/lynchAnalysis'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 import { flagOf } from '@/lib/marketFlag'
 import StockActionChips from '@/app/components/StockActionChips'   // 🔗 종목 액션 SSOT
 import DilutionAlertBanner from '@/app/components/DilutionAlertBanner'   // 🚨 희석 경보(대시보드에만 있던 것을 브리핑에도)
@@ -40,13 +40,13 @@ function useFetch<T>(url: string): { d: T | null; loading: boolean; unauth: bool
   return { d, loading, unauth }
 }
 
-const Sec = ({ no, title, sub, link, linkLabel, children }: { no: string; title: string; sub: string; link?: string; linkLabel?: string; children: React.ReactNode }) => (
-  <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
-      <span style={{ fontSize: 12, fontWeight: 900, color: '#7c8db0', background: '#1b2130', borderRadius: 6, padding: '2px 8px' }}>{no}</span>
-      <span style={{ fontSize: 15.5, fontWeight: 800, color: TK.slate100 }}>{title}</span>
-      <span style={{ fontSize: 11, color: TK.sub2 }}>{sub}</span>
-      {link && <a href={link} style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: TK.indigo400, textDecoration: 'none' }}>{linkLabel ?? '상세 보기'} →</a>}
+const Sec = ({ id, no, title, sub, link, linkLabel, children }: { id?: string; no: string; title: string; sub: string; link?: string; linkLabel?: string; children: React.ReactNode }) => (
+  <div id={id} style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px', scrollMarginTop: 16 }}>
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+      <span style={{ fontSize: FS.tiny, fontWeight: 900, color: '#7c8db0', background: '#1b2130', borderRadius: 6, padding: '2px 8px' }}>{no}</span>
+      <span style={{ fontSize: FS.lg, fontWeight: 800, color: TK.slate100 }}>{title}</span>
+      <span style={{ fontSize: FS.tiny, color: TK.sub2 }}>{sub}</span>
+      {link && <a href={link} style={{ marginLeft: 'auto', fontSize: FS.tiny, fontWeight: 700, color: TK.indigo400, textDecoration: 'none' }}>{linkLabel ?? '상세 보기'} →</a>}
     </div>
     {children}
   </div>
@@ -93,29 +93,102 @@ export default function BriefingPage() {
 
   return (
     <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 1100, margin: '0 auto' }}>
-      {/* 헤더 */}
-      <div style={{ background: `linear-gradient(135deg,#1a1f30,${TK.bg1})`, border: '1px solid #33415588', borderRadius: 14, padding: '18px 20px' }}>
-        <div style={{ fontSize: 19, fontWeight: 900, color: TK.slate100 }}>🎯 오늘의 매매 브리핑</div>
-        <div style={{ fontSize: 12, color: TK.sub3, marginTop: 5, lineHeight: 1.6 }}>
-          매일 아침 <b style={{ color: TK.slate300 }}>이 한 페이지</b>면 충분합니다 — <b style={{ color: TK.red400 }}>① 신호</b> → <b style={{ color: TK.amber400 }}>② 정리</b> → <b style={{ color: TK.green400 }}>③ 매수</b> → <b style={{ color: TK.sky400 }}>④ 판 읽기</b> → <b style={{ color: TK.violet300 }}>⑤ 스탠스</b>.
-          근거가 궁금할 때만 각 섹션의 &lsquo;상세&rsquo;로 들어가세요.
-        </div>
-      </div>
+      {/* ── 🎯 오늘 한 줄 — 이 화면이 답해야 할 질문("오늘 나는 뭘 하지?")의 답 ────────────────
+          예전 헤더는 '① 신호 → ② 정리 → ③ 매수 → ④ 판 읽기 → ⑤ 스탠스'라는 **목차**였다. 목차는
+          답이 아니다. 여기 쓰는 값은 전부 아래 섹션이 이미 불러온 것을 **세기만** 한다(신규 fetch·계산 0).
+          ⚠️ 못 불러온 축은 0 으로 세지 않는다 — '없음'과 '못 불러옴'은 다른 사실이다(앱 반복 함정). */}
+      {(() => {
+        const anyLoading = watch.loading || reb.loading || reco.loading || marks.loading
+        // null = 아직 모름(로딩·실패·비로그인). 0 = 확인했고 없음.
+        const nSig  = watch.d ? (watch.d.sigs?.length ?? 0) : null
+        const nSell = reb.d   ? sells.length : null
+        const nBuy  = reco.d  ? buys.length  : null
+        const unknown = [nSig, nSell, nBuy].filter(v => v === null).length
+        const unauth  = reco.unauth || reb.unauth
+
+        const jobs: string[] = []
+        if (nSell) jobs.push(`정리 ${nSell}종`)
+        if (nBuy)  jobs.push(`담을 것 ${nBuy}종`)
+        if (nSig)  jobs.push(`새 신호 ${nSig}건`)
+
+        const headline = anyLoading ? '오늘 할 일을 모으는 중…'
+          : unauth ? '로그인하면 오늘 할 일이 표시됩니다'
+          : jobs.length ? `오늘 ${jobs.join(' · ')}`
+          : unknown ? '오늘 할 일을 일부 확인하지 못했습니다'
+          : '오늘은 손댈 것이 없습니다'
+
+        const sub = anyLoading ? null
+          : unauth ? '내 포트폴리오 기준이라 로그인이 필요합니다.'
+          : jobs.length ? '아래 섹션에서 근거를 확인하고 결정하세요 — 이 화면은 지시가 아니라 검토 목록입니다.'
+          : unknown ? '일부 데이터를 불러오지 못했습니다(없다는 뜻이 아닙니다) — 각 섹션에서 확인하세요.'
+          : '조용한 날엔 아무것도 안 하는 것도 실력입니다.'
+
+        // 스탠스 = '얼마나 공격적으로' — 오늘의 태도를 한 줄로(막스 온도 + 권장 현금 + 내 현금)
+        const stance = temp == null ? null : (
+          <>
+            시장 온도 <b style={{ color: temp >= 58 ? TK.red400 : temp <= 42 ? TK.green400 : TK.slate200, fontVariantNumeric: 'tabular-nums' }}>{temp}</b>
+            {marks.d?.stance && <> · <b style={{ color: TK.slate200 }}>{marks.d.stance}</b></>}
+            {cashBand && <> — 권장 현금 <b style={{ color: TK.violet300, fontVariantNumeric: 'tabular-nums' }}>{cashBand}</b></>}
+            {cash.d?.verdict && typeof cash.d.cashPct === 'number' && (
+              <> · 내 현금 <b style={{ color: cash.d.verdict === 'inband' ? TK.green400 : cash.d.verdict === 'aggressive' ? TK.amber400 : TK.sky400, fontVariantNumeric: 'tabular-nums' }}>{cash.d.cashPct}%</b></>
+            )}
+          </>
+        )
+
+        const jump: { id: string; label: string; n: number | null; color: string }[] = [
+          { id: 'sec-1', label: '신호',    n: nSig,  color: TK.red400 },
+          { id: 'sec-2', label: '정리할 것', n: nSell, color: TK.amber400 },
+          { id: 'sec-3', label: '담을 것',  n: nBuy,  color: TK.green400 },
+        ]
+
+        return (
+          <div style={{ background: `linear-gradient(135deg,#1a1f30,${TK.bg1})`, border: '1px solid #33415588', borderRadius: 14, padding: '20px 22px' }}>
+            <div style={{ fontSize: FS.tiny, fontWeight: 700, color: TK.sub3, letterSpacing: '0.08em' }}>🎯 오늘의 매매 브리핑</div>
+            <div style={{ fontSize: FS.h2, fontWeight: 900, color: TK.slate100, marginTop: 6, lineHeight: 1.3, letterSpacing: '-0.5px' }}>
+              {headline}
+            </div>
+            {sub && <div style={{ fontSize: FS.body, color: TK.sub3, marginTop: 8, lineHeight: 1.6 }}>{sub}</div>}
+            {stance && (
+              <div style={{ fontSize: FS.body, color: TK.sub3, marginTop: 10, lineHeight: 1.6, paddingTop: 10, borderTop: `1px solid ${TK.border}` }}>
+                {stance}
+              </div>
+            )}
+            {/* 아래로 바로 가기 — 숫자가 곧 링크(0 이거나 모르면 링크로 만들지 않는다) */}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+              {jump.map(j => (
+                <a key={j.id} href={j.n ? `#${j.id}` : undefined}
+                  style={{
+                    display: 'inline-flex', alignItems: 'baseline', gap: 6,
+                    background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8,
+                    padding: '5px 11px', textDecoration: 'none',
+                    fontSize: FS.tiny, color: TK.sub2, cursor: j.n ? 'pointer' : 'default',
+                    opacity: j.n ? 1 : 0.6,
+                  }}>
+                  {j.label}
+                  <b style={{ fontSize: FS.body, color: j.n ? j.color : TK.sub, fontVariantNumeric: 'tabular-nums' }}>
+                    {j.n === null ? '—' : j.n}
+                  </b>
+                </a>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* 🚨 크론 헬스 — 오늘 안 돈 자동 갱신이 있으면 빨간 한 줄(없으면 렌더 0) */}
       {staleCrons.length > 0 && (
         <div style={{ background: '#2a1215', border: `1px solid ${TK.red400}66`, borderRadius: 10, padding: '10px 14px' }}>
-          <div style={{ fontSize: 12.5, fontWeight: 800, color: TK.red400 }}>
+          <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.red400 }}>
             ⚠️ 오늘 실행되지 않은 자동 갱신 {staleCrons.length}건 — {staleCrons.map(c => c.label).join(' · ')}
           </div>
-          <div style={{ fontSize: 11, color: TK.sub3, marginTop: 3 }}>
+          <div style={{ fontSize: FS.tiny, color: TK.sub3, marginTop: 3 }}>
             해당 데이터는 어제(직전 실행) 기준일 수 있습니다. 아침 자동 점검(09:40)이 경량 갱신은 스스로 복구합니다.
           </div>
         </div>
       )}
 
       {/* ① 오늘 신호 */}
-      <Sec no="①" title="오늘 신호" sub="어제 대비 매수/매도 타점 전환(신호등·라쉬케·스퀴즈·매물평단) — 내 보유 종목만">
+      <Sec id="sec-1" no="①" title="오늘 신호" sub="어제 대비 매수/매도 타점 전환(신호등·라쉬케·스퀴즈·매물평단) — 내 보유 종목만">
         {watch.loading ? <Skel h={36} /> : watch.d?.sigs?.length ? (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {watch.d.sigs.map((s, i) => {
@@ -129,16 +202,16 @@ export default function BriefingPage() {
                 // 🔗 칩 전체가 차트 링크 — 신호를 보고 확인하러 가는 게 한 번의 클릭이어야 한다(대시보드 배너와 동일 규약)
                 <a key={s.ticker + s.market + i} href={`/tech-chart?ticker=${encodeURIComponent(s.ticker)}&market=${s.market}`}
                   title={`${clash ? `${s.detail} · ${clashTip}` : s.detail}\n\n클릭하면 이 종목 차트로 이동합니다`}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: TK.bg3, border: `1px solid ${c}55`, borderRadius: 7, padding: '4px 10px', fontSize: 11.5, textDecoration: 'none' }}>
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: TK.bg3, border: `1px solid ${c}55`, borderRadius: 7, padding: '4px 10px', fontSize: FS.tiny, textDecoration: 'none' }}>
                   <b style={{ color: TK.slate200 }}>{flagOf(s.market, s.ticker)} {s.name}</b>
-                  <span style={{ color: TK.sub, fontSize: 10, fontFamily: 'monospace', fontWeight: 700 }}>{s.ticker}</span>
+                  <span style={{ color: TK.sub, fontSize: FS.tiny, fontFamily: 'monospace', fontWeight: 700 }}>{s.ticker}</span>
                   <b style={{ color: c }}>{s.icon} {s.label}</b>
-                  {clash && <b style={{ color: s.kind === 'buy' ? TK.red400 : TK.green400, fontSize: 10, borderLeft: `1px solid ${TK.border}`, paddingLeft: 5 }}>{clashTxt}</b>}
+                  {clash && <b style={{ color: s.kind === 'buy' ? TK.red400 : TK.green400, fontSize: FS.tiny, borderLeft: `1px solid ${TK.border}`, paddingLeft: 5 }}>{clashTxt}</b>}
                 </a>
               )
             })}
           </div>
-        ) : <div style={{ fontSize: 12, color: TK.sub2 }}>오늘은 보유 종목의 타점 전환이 없습니다 — 조용한 날엔 아무것도 안 하는 것도 실력.</div>}
+        ) : <div style={{ fontSize: FS.tiny, color: TK.sub2 }}>오늘은 보유 종목의 타점 전환이 없습니다 — 조용한 날엔 아무것도 안 하는 것도 실력.</div>}
       </Sec>
 
       {/* 🚨 희석 경보(유상증자·CB) — 대시보드 live 탭에만 있어서, 사이드바 첫 항목인 브리핑만 보는 학생은
@@ -164,28 +237,28 @@ export default function BriefingPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             {earnRows.map(r => (
               <div key={`${r.ticker}:${r.market}`} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: '#171b26', borderRadius: 8, padding: '8px 12px', borderLeft: `3px solid ${r.beat === true ? TK.green400 : r.beat === false ? TK.red400 : TK.sub3}` }}>
-                <span style={{ fontSize: 12.5, fontWeight: 800, color: TK.slate100 }}>{r.name}</span>
-                <span style={{ fontSize: 10.5, color: TK.sub3 }}>{r.daysAgo === 0 ? '오늘' : `${r.daysAgo}일 전`} 발표</span>
-                <span style={{ fontSize: 11.5, color: r.beat === true ? TK.green400 : r.beat === false ? TK.red400 : TK.sub2, fontWeight: 700 }}>{r.summary}</span>
-                <a href={`/research?q=${encodeURIComponent(r.ticker)}`} style={{ marginLeft: 'auto', fontSize: 10.5, fontWeight: 700, color: TK.indigo400, textDecoration: 'none' }}>Jarvis 어닝콜 →</a>
+                <span style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate100 }}>{r.name}</span>
+                <span style={{ fontSize: FS.tiny, color: TK.sub3 }}>{r.daysAgo === 0 ? '오늘' : `${r.daysAgo}일 전`} 발표</span>
+                <span style={{ fontSize: FS.tiny, color: r.beat === true ? TK.green400 : r.beat === false ? TK.red400 : TK.sub2, fontWeight: 700 }}>{r.summary}</span>
+                <a href={`/research?q=${encodeURIComponent(r.ticker)}`} style={{ marginLeft: 'auto', fontSize: FS.tiny, fontWeight: 700, color: TK.indigo400, textDecoration: 'none' }}>Jarvis 어닝콜 →</a>
               </div>
             ))}
           </div>
-          <div style={{ fontSize: 10, color: TK.sub3, marginTop: 6 }}>서프라이즈는 EPS 컨센서스 대비(가이던스·실적의 질은 어닝콜 분석에서) · 발표 당일은 주가 반응 집계 전일 수 있음</div>
+          <div style={{ fontSize: FS.tiny, color: TK.sub3, marginTop: 6 }}>서프라이즈는 EPS 컨센서스 대비(가이던스·실적의 질은 어닝콜 분석에서) · 발표 당일은 주가 반응 집계 전일 수 있음</div>
         </Sec>
       )}
 
       {/* ② 정리할 것 */}
-      <Sec no="②" title="정리할 것" sub="AI 리밸런싱의 버릴/줄일 상위" link="/dashboard?tab=rebalance" linkLabel="AI 리밸런싱 상세">
+      <Sec id="sec-2" no="②" title="정리할 것" sub="AI 리밸런싱의 버릴/줄일 상위" link="/dashboard?tab=rebalance" linkLabel="AI 리밸런싱 상세">
         {reb.loading ? <Skel h={80} /> : sells.length ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {sells.map((s: any, i: number) => (
               <div key={s.ticker + i} style={{ display: 'flex', alignItems: 'baseline', gap: 8, background: TK.bg3, borderRadius: 8, padding: '7px 11px', flexWrap: 'wrap' }}>
-                <b style={{ fontSize: 10, color: s.kc, minWidth: 42 }}>{s.kind}</b>
-                <b style={{ fontSize: 12.5, color: TK.slate200 }}>{s.name}</b>
-                <span style={{ fontSize: 10.5, color: TK.sub2, fontFamily: 'monospace' }}>{s.trimPct ? `−${s.trimPct}%p` : `비중 ${s.weightPct}%`}</span>
+                <b style={{ fontSize: FS.tiny, color: s.kc, minWidth: 42 }}>{s.kind}</b>
+                <b style={{ fontSize: FS.tiny, color: TK.slate200 }}>{s.name}</b>
+                <span style={{ fontSize: FS.tiny, color: TK.sub2, fontFamily: 'monospace' }}>{s.trimPct ? `−${s.trimPct}%p` : `비중 ${s.weightPct}%`}</span>
                 {earnDday.has(s.ticker) && (
-                  <b title="실적 발표 직전·직후는 갭 변동성이 크다 — 정리하더라도 발표 전후 분할·시점 분산 고려" style={{ fontSize: 10, color: TK.amber400 }}>
+                  <b title="실적 발표 직전·직후는 갭 변동성이 크다 — 정리하더라도 발표 전후 분할·시점 분산 고려" style={{ fontSize: FS.tiny, color: TK.amber400 }}>
                     📅 실적 {earnDday.get(s.ticker) === 0 ? '오늘' : `D-${earnDday.get(s.ticker)}`} · 갭 주의
                   </b>
                 )}
@@ -197,11 +270,11 @@ export default function BriefingPage() {
                   return (<>
                     {ex.signals.length > 0 && (
                       <b title={`출구 플랜 매도 압력: ${ex.signals.map(x => `${x.icon} ${x.label}`).join(' · ')} — 상세는 자산 관리 → 출구 플랜`}
-                        style={{ fontSize: 10, color: TK.amber400 }}>🚪 출구신호 {ex.signals.length}</b>
+                        style={{ fontSize: FS.tiny, color: TK.amber400 }}>🚪 출구신호 {ex.signals.length}</b>
                     )}
                     {bf && bf.level !== 'na' && (
                       <b title={bf.headline}
-                        style={{ fontSize: 10, color: bf.level === 'strong' ? TK.red400 : bf.level === 'watch' ? TK.amber400 : TK.green400 }}>
+                        style={{ fontSize: FS.tiny, color: bf.level === 'strong' ? TK.red400 : bf.level === 'watch' ? TK.amber400 : TK.green400 }}>
                         {bf.level === 'strong' ? '🏰 기업 변질' : bf.level === 'watch' ? '🏰 기업 주의' : '🏰 기업은 그대로'}
                       </b>
                     )}
@@ -215,7 +288,7 @@ export default function BriefingPage() {
                   const head = g >= 0 ? r.slice(0, g).replace(/[\s·]+$/, '') : r
                   const guard = g >= 0 ? r.slice(g) : ''
                   return (
-                    <span style={{ fontSize: 10.5, color: TK.sub13, flex: 1, minWidth: 200 }}>
+                    <span style={{ fontSize: FS.tiny, color: TK.sub13, flex: 1, minWidth: 200 }}>
                       {head.length > 90 ? head.slice(0, 90) + '…' : head}
                       {guard && <b style={{ color: TK.amber400 }}> {guard}</b>}
                     </span>
@@ -227,38 +300,38 @@ export default function BriefingPage() {
               </div>
             ))}
           </div>
-        ) : <div style={{ fontSize: 12, color: TK.sub2 }}>{reb.d ? '지금 정리할 종목이 없습니다 — 포트폴리오 건강.' : reb.unauth ? '내 포트폴리오 기준이라 로그인하면 보입니다.' : '리밸런싱 데이터 로드 실패 — 상세 탭에서 확인해주세요.'}</div>}
+        ) : <div style={{ fontSize: FS.tiny, color: TK.sub2 }}>{reb.d ? '지금 정리할 종목이 없습니다 — 포트폴리오 건강.' : reb.unauth ? '내 포트폴리오 기준이라 로그인하면 보입니다.' : '리밸런싱 데이터 로드 실패 — 상세 탭에서 확인해주세요.'}</div>}
         {/* 🏰 정리 목록에 없어도 기업 변질 감시 종목은 여기서 알린다 — 비중(리밸런싱)과 기업(버핏)은 다른 축이라
             리밸런싱이 조용해도 버핏 축이 켜질 수 있다. 반대로 정리 후보인데 버핏 🟢이면 '기업이 아니라 비중 문제'다. */}
         {buffettAlerts.length > 0 && (
-          <div style={{ fontSize: 10.5, color: TK.sub13, lineHeight: 1.6, marginTop: 7, background: '#2a1f0a55', border: `1px solid ${TK.amber400}33`, borderRadius: 8, padding: '6px 10px' }}>
+          <div style={{ fontSize: FS.tiny, color: TK.sub13, lineHeight: 1.6, marginTop: 7, background: '#2a1f0a55', border: `1px solid ${TK.amber400}33`, borderRadius: 8, padding: '6px 10px' }}>
             🏰 <b style={{ color: TK.amber400 }}>버핏 기업 점검 감시</b> — {buffettAlerts.map(it => `${it.name}(${it.buffett!.level === 'strong' ? '🔴 변질 신호 다수' : '🟡 신호 1개'})`).join(' · ')}
             <span style={{ color: TK.sub3 }}> · 가격이 아니라 기업이 변했는지의 축 — 근거는 </span>
             <a href="/assets" style={{ color: TK.indigo400, textDecoration: 'none', fontWeight: 700 }}>출구 플랜 →</a>
           </div>
         )}
         {exitp.d && exitp.d.items.length > 0 && (
-          <div style={{ fontSize: 10, color: TK.sub3, marginTop: 5 }}>
+          <div style={{ fontSize: FS.tiny, color: TK.sub3, marginTop: 5 }}>
             🚪 정리 판단의 근거 3축 — 비중(리밸런싱)·타이밍(출구신호)·기업(버핏 점검)을 함께 보세요. 참고선·3축 상세는 <a href="/assets" style={{ color: TK.indigo400, textDecoration: 'none' }}>자산 관리 → 출구 플랜</a>
           </div>
         )}
       </Sec>
 
       {/* ③ 담을 것 */}
-      <Sec no="③" title="담을 것" sub="통합추천 Top 5 — 6축 점수 + 🚦타점 + 📋플랜" link="/dashboard?tab=moneyflow&view=unified" linkLabel={`통합추천 전체(${reco.d?.items?.length ?? 0}종)`}>
+      <Sec id="sec-3" no="③" title="담을 것" sub="통합추천 Top 5 — 6축 점수 + 🚦타점 + 📋플랜" link="/dashboard?tab=moneyflow&view=unified" linkLabel={`통합추천 전체(${reco.d?.items?.length ?? 0}종)`}>
         {reco.loading ? <Skel h={160} /> : buys.length ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {buys.map(it => (
               <div key={it.ticker + it.market} style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 13px' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-                  <b style={{ fontSize: 13, color: TK.slate100 }}>{flagOf(it.market, it.ticker)} {it.name}</b>
-                  <span style={{ fontSize: 10.5, color: TK.sub2 }}>{it.sector}</span>
-                  <b style={{ marginLeft: 'auto', fontSize: 15, color: TK.green400, fontFamily: 'monospace' }}>{it.combined}<span style={{ fontSize: 9, color: TK.sub2 }}> 통합</span></b>
+                  <b style={{ fontSize: FS.body, color: TK.slate100 }}>{flagOf(it.market, it.ticker)} {it.name}</b>
+                  <span style={{ fontSize: FS.tiny, color: TK.sub2 }}>{it.sector}</span>
+                  <b style={{ marginLeft: 'auto', fontSize: FS.lg, color: TK.green400, fontFamily: 'monospace' }}>{it.combined}<span style={{ fontSize: FS.tiny, color: TK.sub2 }}> 통합</span></b>
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 5 }}>
-                  {it.suggestWon > 0 && <span style={{ fontSize: 10, color: TK.green300, background: '#14532d33', borderRadius: 5, padding: '1px 7px' }}>💰 권장 {Math.round(it.suggestWon / 1e4).toLocaleString()}만원</span>}
+                  {it.suggestWon > 0 && <span style={{ fontSize: FS.tiny, color: TK.green300, background: '#14532d33', borderRadius: 5, padding: '1px 7px' }}>💰 권장 {Math.round(it.suggestWon / 1e4).toLocaleString()}만원</span>}
                   {it.timing && <TimingBadge t={it.timing} market={it.market} compact />}
-                  {it.badges.slice(0, 3).map(b => <span key={b} style={{ fontSize: 9.5, color: TK.sub13, background: '#1b2130', borderRadius: 5, padding: '1px 6px' }}>{b}</span>)}
+                  {it.badges.slice(0, 3).map(b => <span key={b} style={{ fontSize: FS.tiny, color: TK.sub13, background: '#1b2130', borderRadius: 5, padding: '1px 6px' }}>{b}</span>)}
                 </div>
                 {/* 🔗 다음 행동 — 배지 3개만 보여주고 링크가 없어서, 근거를 더 보려면 통합추천 탭에서 같은 종목을
                     다시 찾아야 했고 사려면 티커를 손으로 타이핑해야 했다(2026-08-08 연결 조직) */}
@@ -271,13 +344,13 @@ export default function BriefingPage() {
               </div>
             ))}
             {overlapBuys.length > 0 && (
-              <div style={{ fontSize: 10.5, color: TK.amber400, lineHeight: 1.55, background: '#2a1f0a55', border: `1px solid ${TK.amber400}33`, borderRadius: 8, padding: '7px 11px' }}>
+              <div style={{ fontSize: FS.tiny, color: TK.amber400, lineHeight: 1.55, background: '#2a1f0a55', border: `1px solid ${TK.amber400}33`, borderRadius: 8, padding: '7px 11px' }}>
                 ⚖️ ②에서 <b>{Array.from(overCats).join('·')} 비중 과다</b>로 줄이는 중인데 {overlapBuys.map(b => b.name).join('·')}도 같은 분류입니다 —
                 ③은 시장 전체 랭킹(내 보유 제외)이라 내 분산 상황을 모릅니다. &lsquo;더 담기&rsquo;보다 <b>교체(줄인 자리를 더 나은 종목으로)</b> 관점으로 보세요.
               </div>
             )}
           </div>
-        ) : <div style={{ fontSize: 12, color: TK.sub2 }}>{reco.unauth ? '권장 편입액이 내 포트폴리오 기준이라 로그인하면 보입니다.' : '추천 데이터 로드 실패 — 통합추천 탭에서 확인해주세요.'}</div>}
+        ) : <div style={{ fontSize: FS.tiny, color: TK.sub2 }}>{reco.unauth ? '권장 편입액이 내 포트폴리오 기준이라 로그인하면 보입니다.' : '추천 데이터 로드 실패 — 통합추천 탭에서 확인해주세요.'}</div>}
       </Sec>
 
       {/* ④ 판 읽기 */}
@@ -285,55 +358,55 @@ export default function BriefingPage() {
         {rot.loading ? <Skel h={70} /> : rot.d ? (
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 200px' }}>
-              <b style={{ fontSize: 11, color: TK.green400 }}>🔥 돈 몰림</b>
-              {rot.d.inflow.map((s, i) => <div key={s.key} style={{ fontSize: 12, color: TK.slate300, marginTop: 3 }}>{i + 1}. {s.emoji} {s.label.replace(/\s*\(.*\)/, '')} <b style={{ color: TK.green400, fontFamily: 'monospace' }}>+{s.score}</b></div>)}
+              <b style={{ fontSize: FS.tiny, color: TK.green400 }}>🔥 돈 몰림</b>
+              {rot.d.inflow.map((s, i) => <div key={s.key} style={{ fontSize: FS.tiny, color: TK.slate300, marginTop: 3 }}>{i + 1}. {s.emoji} {s.label.replace(/\s*\(.*\)/, '')} <b style={{ color: TK.green400, fontFamily: 'monospace' }}>+{s.score}</b></div>)}
             </div>
             <div style={{ flex: '1 1 200px' }}>
-              <b style={{ fontSize: 11, color: TK.slate400 }}>❄️ 돈 빠짐</b>
-              {rot.d.outflow.map((s, i) => <div key={s.key} style={{ fontSize: 12, color: TK.slate300, marginTop: 3 }}>{i + 1}. {s.emoji} {s.label.replace(/\s*\(.*\)/, '')} <b style={{ color: TK.red400, fontFamily: 'monospace' }}>{s.score}</b></div>)}
+              <b style={{ fontSize: FS.tiny, color: TK.slate400 }}>❄️ 돈 빠짐</b>
+              {rot.d.outflow.map((s, i) => <div key={s.key} style={{ fontSize: FS.tiny, color: TK.slate300, marginTop: 3 }}>{i + 1}. {s.emoji} {s.label.replace(/\s*\(.*\)/, '')} <b style={{ color: TK.red400, fontFamily: 'monospace' }}>{s.score}</b></div>)}
             </div>
             {rot.d.buys?.[0] && (
               <div style={{ flex: '1 1 240px', background: '#10241a55', border: `1px solid ${TK.green500}33`, borderRadius: 9, padding: '8px 11px' }}>
-                <b style={{ fontSize: 11, color: TK.green400 }}>🎯 소섹터 매수 1위</b>
-                <div style={{ fontSize: 12.5, color: TK.slate200, marginTop: 3 }}>{rot.d.buys[0].sectorEmoji}{rot.d.buys[0].sectorLabel} › <b>{rot.d.buys[0].subEmoji}{rot.d.buys[0].subLabel}</b></div>
+                <b style={{ fontSize: FS.tiny, color: TK.green400 }}>🎯 소섹터 매수 1위</b>
+                <div style={{ fontSize: FS.tiny, color: TK.slate200, marginTop: 3 }}>{rot.d.buys[0].sectorEmoji}{rot.d.buys[0].sectorLabel} › <b>{rot.d.buys[0].subEmoji}{rot.d.buys[0].subLabel}</b></div>
                 <div style={{ display: 'flex', gap: 5, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-                  {rot.d.buys[0].etfUs && <b style={{ fontSize: 10, color: TK.green400, background: '#14532d', borderRadius: 5, padding: '1px 7px' }}>🇺🇸 {rot.d.buys[0].etfUs}</b>}
-                  {rot.d.buys[0].etfKr && <b style={{ fontSize: 10, color: TK.green400, background: '#14532d', borderRadius: 5, padding: '1px 7px' }}>🇰🇷 {rot.d.buys[0].etfKr}</b>}
+                  {rot.d.buys[0].etfUs && <b style={{ fontSize: FS.tiny, color: TK.green400, background: '#14532d', borderRadius: 5, padding: '1px 7px' }}>🇺🇸 {rot.d.buys[0].etfUs}</b>}
+                  {rot.d.buys[0].etfKr && <b style={{ fontSize: FS.tiny, color: TK.green400, background: '#14532d', borderRadius: 5, padding: '1px 7px' }}>🇰🇷 {rot.d.buys[0].etfKr}</b>}
                   {rot.d.buys[0].etfTiming && <TimingBadge t={rot.d.buys[0].etfTiming} compact />}
                 </div>
               </div>
             )}
           </div>
-        ) : <div style={{ fontSize: 12, color: TK.sub2 }}>{rot.unauth ? '로그인하면 보입니다.' : '로테이션 데이터 로드 실패.'}</div>}
+        ) : <div style={{ fontSize: FS.tiny, color: TK.sub2 }}>{rot.unauth ? '로그인하면 보입니다.' : '로테이션 데이터 로드 실패.'}</div>}
       </Sec>
 
       {/* ④½ ⚔️ 승패 해부 — 지금 장에서 뭐가 통하나(시장의 채점 기준) */}
       <Sec no="⚔️" title="승패 해부" sub="지금 장에서 오르는 종목 vs 떨어지는 종목 — 무엇이 갈랐나" link="/win-lose" linkLabel="해부실 상세">
         {wl.loading ? <Skel h={48} /> : wl.d?.rows?.length ? (() => {
           const { win, lose } = splitGroups(wl.d.rows, '1m')
-          if (win.length < 3 || lose.length < 3) return <div style={{ fontSize: 12, color: TK.sub2 }}>표본 부족 — 해부실에서 기간을 바꿔 보세요.</div>
+          if (win.length < 3 || lose.length < 3) return <div style={{ fontSize: FS.tiny, color: TK.sub2 }}>표본 부족 — 해부실에서 기간을 바꿔 보세요.</div>
           const lesson = buildLesson(factorStats(win, lose), WL_PERIOD_LABEL['1m'])
           return (
             <div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 7, fontSize: 12 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 7, fontSize: FS.tiny }}>
                 <span style={{ background: '#0d2818', border: `1px solid ${TK.green500}44`, borderRadius: 7, padding: '4px 10px' }}>🔺 오르는 <b style={{ color: TK.green400, fontFamily: 'monospace' }}>{win.length}</b></span>
                 <span style={{ background: '#2a0f12', border: `1px solid ${TK.red500}44`, borderRadius: 7, padding: '4px 10px' }}>🔻 떨어지는 <b style={{ color: TK.red400, fontFamily: 'monospace' }}>{lose.length}</b></span>
                 {lesson.top.map(s => (
-                  <span key={s.key} style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 7, padding: '4px 10px', fontSize: 11 }}>
+                  <span key={s.key} style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 7, padding: '4px 10px', fontSize: FS.tiny }}>
                     {s.icon} {s.label.replace(/\(.*\)/, '').trim()} <b style={{ color: TK.green400, fontFamily: 'monospace' }}>{s.winDisp}</b><span style={{ color: TK.sub2 }}> vs </span><b style={{ color: TK.red400, fontFamily: 'monospace' }}>{s.loseDisp}</b>
                   </span>
                 ))}
               </div>
-              <div style={{ fontSize: 12, color: TK.slate300, lineHeight: 1.55 }}>🎓 {lesson.text}</div>
+              <div style={{ fontSize: FS.tiny, color: TK.slate300, lineHeight: 1.55 }}>🎓 {lesson.text}</div>
             </div>
           )
-        })() : <div style={{ fontSize: 12, color: TK.sub2 }}>승패 데이터 준비 중(매일 08:50 자동 계산).</div>}
+        })() : <div style={{ fontSize: FS.tiny, color: TK.sub2 }}>승패 데이터 준비 중(매일 08:50 자동 계산).</div>}
       </Sec>
 
       {/* ⑤ 오늘의 스탠스 */}
       <Sec no="⑤" title="오늘의 스탠스" sub="얼마나 공격적으로 — 막스 온도 + 계절" link="/dashboard?tab=marks" linkLabel="막스 시계추 상세">
         {marks.loading ? <Skel h={36} /> : (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 12 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: FS.tiny }}>
             {temp != null && (<>
               <span style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 7, padding: '5px 11px' }}>🕰️ 탐욕 온도 <b style={{ color: temp >= 58 ? TK.red400 : temp <= 42 ? TK.green400 : TK.slate200, fontFamily: 'monospace' }}>{temp}</b> · <b style={{ color: TK.slate300 }}>{marks.d.stance}</b></span>
               <span style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 7, padding: '5px 11px' }}>
@@ -362,7 +435,7 @@ export default function BriefingPage() {
         )}
       </Sec>
 
-      <div style={{ fontSize: 10.5, color: TK.sub, lineHeight: 1.6, padding: '0 4px' }}>
+      <div style={{ fontSize: FS.tiny, color: TK.sub, lineHeight: 1.6, padding: '0 4px' }}>
         ⚠️ 모든 수치는 각 상세 화면과 동일한 SSOT(제2원칙) — 이 페이지는 요약 뷰입니다. 교육용 시뮬레이션이며 투자 추천이 아닙니다. 자동 주문 없음.
       </div>
     </div>
