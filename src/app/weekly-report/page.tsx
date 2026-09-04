@@ -411,7 +411,7 @@ export default function WeeklyReportPage() {
 
       {/* ① 한국 증시 + 수급 */}
       <Sec no="①" title="한국 증시 — 코스피·코스닥" right={relNote(ix('kospi')?.spark?.length)}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px,3fr) minmax(220px,2fr)', gap: 14 }}>
+        <div className="m-1col" style={{ display: 'grid', gridTemplateColumns: 'minmax(280px,3fr) minmax(220px,2fr)', gap: 14 }}>
           <RelChart series={[{ name: '코스피', color: TK.blue400, data: ix('kospi')?.spark ?? [] }, { name: '코스닥', color: '#eb6834', data: ix('kosdaq')?.spark ?? [] }]} />
           <div>
             {kf ? (
@@ -431,7 +431,7 @@ export default function WeeklyReportPage() {
             <div style={{ fontSize: FS.micro, color: TK.sub8, marginTop: 4 }}>단위 조원 · 코스피 투자자별 순매수(수급 레이더 SSOT)</div>
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px,1fr) minmax(240px,1fr)', gap: 14, marginTop: 10 }}>
+        <div className="m-1col" style={{ display: 'grid', gridTemplateColumns: 'minmax(240px,1fr) minmax(240px,1fr)', gap: 14, marginTop: 10 }}>
           {c.bigCaps && (
             <div>
               <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>대형주 — 코스피 시총 상위</div>
@@ -461,7 +461,7 @@ export default function WeeklyReportPage() {
 
       {/* ② 미국·글로벌 + 매크로 스냅샷 */}
       <Sec no="②" title="미국·글로벌 — 매크로 스냅샷" right={relNote(ix('sp500')?.spark?.length)}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px,3fr) minmax(220px,2fr)', gap: 14 }}>
+        <div className="m-1col" style={{ display: 'grid', gridTemplateColumns: 'minmax(280px,3fr) minmax(220px,2fr)', gap: 14 }}>
           <RelChart series={[{ name: 'S&P 500', color: TK.blue400, data: ix('sp500')?.spark ?? [] }, { name: '나스닥', color: '#1baf7a', data: ix('nasdaq')?.spark ?? [] }, { name: '다우', color: '#eda100', data: ix('dow')?.spark ?? [] }]} />
           <div>
             <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
@@ -487,7 +487,7 @@ export default function WeeklyReportPage() {
             🌪️ <b>극단 변동 시장</b>: {extremes.map(v => `${v.flag} ${v.label}`).join(' · ')} — 손절이 갭에 뚫릴 수 있는 국면입니다. 비중 축소·분할 진입 원칙을 지키세요.
           </div>
         )}
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(250px,1fr) minmax(250px,1fr)', gap: 14, marginTop: 10 }}>
+        <div className="m-1col" style={{ display: 'grid', gridTemplateColumns: 'minmax(250px,1fr) minmax(250px,1fr)', gap: 14, marginTop: 10 }}>
           <div>
             <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>주요 지수·원자재 주간 등락률</div>
             <MiniBars rows={(['kospi', 'kosdaq', 'sp500', 'nasdaq', 'dow', 'gold', 'silver', 'wti'] as const)
@@ -509,7 +509,7 @@ export default function WeeklyReportPage() {
       {/* ✦ 안전자산 — 금·은 상대추이(원본 3페이지 대응) */}
       {goldIx && silverIx && goldIx.spark.length >= 2 && (
         <Sec no="✦" title="안전자산 — 금 · 은" right={relNote(goldIx.spark.length)}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px,3fr) minmax(200px,2fr)', gap: 14 }}>
+          <div className="m-1col" style={{ display: 'grid', gridTemplateColumns: 'minmax(280px,3fr) minmax(200px,2fr)', gap: 14 }}>
             <RelChart h={110} series={[{ name: '금', color: '#eda100', data: goldIx.spark }, { name: '은', color: TK.slate400, data: silverIx.spark }]} />
             <div style={{ fontSize: FS.tiny, color: TK.slate300, lineHeight: 1.65 }}>
               <b style={{ color: TK.slate200 }}>주간</b> 금 <b style={{ color: pcol(goldIx.weekPct) }}>{pct(goldIx.weekPct)}</b>({num(goldIx.close)}$) · 은 <b style={{ color: pcol(silverIx.weekPct) }}>{pct(silverIx.weekPct)}</b>({num(silverIx.close)}$).
@@ -554,7 +554,7 @@ export default function WeeklyReportPage() {
 
       {/* ③ 암호화폐 */}
       <Sec no="③" title="암호화폐 — BTC·ETH·XRP·SOL" right={relNote(ix('btc')?.spark?.length)}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px,3fr) minmax(200px,2fr)', gap: 14 }}>
+        <div className="m-1col" style={{ display: 'grid', gridTemplateColumns: 'minmax(280px,3fr) minmax(200px,2fr)', gap: 14 }}>
           <RelChart series={[
             { name: 'BTC', color: '#eda100', data: ix('btc')?.spark ?? [] },
             { name: 'ETH', color: TK.blue400, data: ix('eth')?.spark ?? [] },
@@ -588,7 +588,7 @@ export default function WeeklyReportPage() {
               </div>
             ))}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(250px,1fr) minmax(250px,1fr)', gap: 14, marginTop: 10 }}>
+          <div className="m-1col" style={{ display: 'grid', gridTemplateColumns: 'minmax(250px,1fr) minmax(250px,1fr)', gap: 14, marginTop: 10 }}>
             {c.reRank && c.reRank.length > 0 && (
               <div>
                 <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>지역별 주간 변동 — 강세 · 약세</div>

@@ -2347,7 +2347,9 @@ export default function DashboardPage() {
         const SHI = `inset 4px 4px 10px ${TK.bg2}, inset -3px -3px 8px ${TK.line2}`  // 오목(inset)
 
         return (
-          <div style={{
+          // 📱 m-stack — 375px 에서 우측 '오늘의 시장'(214px 고정·flexShrink 0)이 버티는 바람에
+          //    좌측 지수 6카드가 **83px** 로 눌렸다(실측 계산). 모바일에선 세로로 쌓는다.
+          <div className="m-stack" style={{
             background: N, borderRadius: 18,
             boxShadow: '10px 10px 28px #0b0d1a, -6px -6px 18px #2b2f46',
             padding: '16px',
@@ -2570,7 +2572,7 @@ export default function DashboardPage() {
             </div>
 
             {/* ═══ 오른쪽: 오늘의 시장 패널 ═══ */}
-            <div style={{ width: 214, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="m-wauto" style={{ width: 214, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
               {/* 섹션 레이블 */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -2749,7 +2751,7 @@ export default function DashboardPage() {
       </Card>
 
       {/* ── 3. 자산 추이 + 비중 도넛 2단 ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'6fr 4fr', gap:16 }}>
+      <div className="m-1col" style={{ display:'grid', gridTemplateColumns:'6fr 4fr', gap:16 }}>
 
         {/* 좌: 30일 자산 추이 (업그레이드) */}
         <Card>
@@ -3324,7 +3326,7 @@ export default function DashboardPage() {
       />
 
       {/* ── 5. 보유 자산 테이블 + 알림 패널 ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'6fr 4fr', gap:16 }}>
+      <div className="m-1col" style={{ display:'grid', gridTemplateColumns:'6fr 4fr', gap:16 }}>
 
         {/* 좌: 보유 자산 테이블 */}
         <Card>

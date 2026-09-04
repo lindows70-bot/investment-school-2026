@@ -213,7 +213,7 @@ export default function WinLosePage() {
                 학생 전체 보유(주식+ETF+코인 {sch.length}종) — {WL_PERIOD_LABEL[period]} 기준 · 위 유니버스와 <b style={{ color: TK.slate300 }}>같은 임계 ±{th}%</b>(보합 {flat.length}종 제외) · 보유자 표시 없음 · <Coin size={11} /> = 내 보유 · 📈정배열 📉역배열
               </span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))', gap: 14, marginTop: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(330px, 100%), 1fr))', gap: 14, marginTop: 10 }}>
               <div>
                 <b style={{ fontSize: 12, color: TK.red400 }}>🔺 오르는 {up.length}종</b>
                 <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -338,7 +338,7 @@ export default function WinLosePage() {
           </div>
 
           {/* ── 🏆/💀 개별 랭킹 ─────────────────────────────── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))', gap: 14 }}>
             {([['🏆 상승 Top 8', win.slice(0, 8), TK.red400], ['💀 하락 Top 8', lose.slice(0, 8), TK.blue400]] as const).map(([title, arr, color]) => (
               <div key={title} style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '14px 16px' }}>
                 <b style={{ fontSize: 13.5, color }}>{title}</b>

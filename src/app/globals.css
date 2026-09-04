@@ -71,6 +71,25 @@
   .dot-down { @apply w-2 h-2 rounded-full bg-down shrink-0; }
 }
 
+/* 📱 모바일 레이아웃 유틸 (2026-09-04)
+   이 앱은 인라인 style 위주라 화면마다 @media 를 쓸 자리가 없었다 — 실측 결과 자주 보는 6화면에
+   @media·isMobile·matchMedia 가 **0건**이었고(반응형은 1단계에서 고친 셸에만 있었다),
+   그래서 375px 에서 대시보드 좌열이 83px 로 눌리고 자산 보유 행은 재무 58%가 잘리며
+   캔들차트는 폭 0 으로 사라졌다.
+   → 클래스 몇 개를 여기 한 곳에 두고 각 화면은 className 만 붙인다.
+   ⚠️ 인라인 style 을 이겨야 하므로 !important 가 필요하다(이 파일 밖에서 쓰지 말 것).
+   ⚠️ auto-fit/minmax 로 바꾸면 안 되는 자리가 있다 — 6fr/4fr 같은 **비율 그리드는 비율이 소멸**한다.
+      그런 곳은 미디어쿼리로 1열을 만들어야 데스크톱이 그대로 남는다. */
+@media (max-width: 768px) {
+  .m-stack  { flex-direction: column !important; }
+  .m-wrap   { flex-wrap: wrap !important; }
+  .m-1col   { grid-template-columns: 1fr !important; }
+  .m-full   { width: 100% !important; flex-basis: 100% !important; }
+  .m-wauto  { width: auto !important; }
+  .m-hide   { display: none !important; }
+  .m-scroll { overflow-x: auto !important; }
+}
+
 @layer utilities {
   .text-up   { @apply text-up-DEFAULT; }
   .text-down { @apply text-down-DEFAULT; }

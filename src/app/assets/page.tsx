@@ -641,6 +641,7 @@ export default function AssetsPage() {
               <div
                 key={inv.id}
                 onClick={() => openEditModal(inv)}
+                className="m-wrap"
                 style={{
                   background: N, boxShadow: SHO,
                   borderRadius: 14, overflow: 'hidden',
@@ -652,7 +653,7 @@ export default function AssetsPage() {
                 onMouseLeave={e => { const el=e.currentTarget as HTMLDivElement; el.style.boxShadow=SHO }}
               >
                 {/* ── Section 1: 종목 정보 (220px) ── */}
-                <div style={{ width:220, flexShrink:0, padding:'14px 16px', display:'flex', flexDirection:'column', gap:5 }}>
+                <div className="m-full" style={{ width:220, flexShrink:0, padding:'14px 16px', display:'flex', flexDirection:'column', gap:5 }}>
                   {/* 종목명 + 배지 — ⚠️ 예전엔 이름과 배지가 **좌우로** 나뉘어 있었다(space-between).
                       배지 쪽이 flexShrink:0 이라 220px 칸에서 이름 몫이 **77px** 밖에 안 남았고,
                       "ALPHABET INC."(116px 필요)조차 잘렸다(2026-09-04 실측 16종). 글자 크기를
@@ -793,10 +794,10 @@ export default function AssetsPage() {
                 </div>
 
                 {/* ── Divider ── */}
-                <div style={{ width:1, background:TK.bg9, flexShrink:0, margin:'10px 0' }}/>
+                <div className="m-hide" style={{ width:1, background:TK.bg9, flexShrink:0, margin:'10px 0' }}/>
 
                 {/* ── Section 2: 포트폴리오 + 재무 (280px) ── */}
-                <div style={{ width:280, flexShrink:0, padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
+                <div className="m-full" style={{ width:280, flexShrink:0, padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
                   {/* Portfolio performance */}
                   <div>
                     <div style={{ fontSize:FS.tiny, fontWeight:800, color:TK.sub10, letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:7 }}>포트폴리오</div>
@@ -856,10 +857,10 @@ export default function AssetsPage() {
                 </div>
 
                 {/* ── Divider ── */}
-                <div style={{ width:1, background:TK.bg9, flexShrink:0, margin:'10px 0' }}/>
+                <div className="m-hide" style={{ width:1, background:TK.bg9, flexShrink:0, margin:'10px 0' }}/>
 
                 {/* ── Section 3: 캔들차트 (flex:1) ── */}
-                <div style={{ flex:1, minWidth:0, padding:'10px 12px 8px', display:'flex', flexDirection:'column' }}>
+                <div className="m-full" style={{ flex:1, minWidth:0, padding:'10px 12px 8px', display:'flex', flexDirection:'column' }}>
                   {/* Timeframe tabs */}
                   <div style={{ display:'flex', gap:5, marginBottom:6 }}>
                     {(FRAMES).map(t => (

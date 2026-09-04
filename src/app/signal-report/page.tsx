@@ -246,6 +246,9 @@ export default function SignalReportPage() {
               <b style={{ color: TK.slate200 }}> 종목 칩</b>은 <b>신호일 최근순 3개</b>(대표·최고 성과가 아닙니다 — 전체 건수는 칩 왼쪽에)
               <br />모든 숫자는 <b style={{ color: TK.slate200 }}>신호일 → 오늘</b> 기준으로 통일했습니다(세 축을 같은 잣대로 비교하려고) · <b>한 달 뒤 고정 성적</b>은 아래 &lsquo;신호 하나하나 보기&rsquo;의 <b>30일 후</b> 열에 있습니다
             </div>
+            {/* 📱 첫 열에 종목 칩이 3행 들어가 375px 에서 표 최소폭이 카드(309px)를 넘는다
+                → 표를 가로 스크롤 컨테이너로 감싼다(대시보드·주간이 이미 쓰는 패턴). 데스크톱 무변경. */}
+            <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ fontSize: 10.5, color: TK.sub4 }}>
@@ -282,6 +285,7 @@ export default function SignalReportPage() {
                 })}
               </tbody>
             </table>
+            </div>
 
             {/* ⚠️ 이 표가 실제로 말하는 것 — 배너 주장과 표가 어긋나면 문구가 숫자에 반박당한다 */}
             <div style={{ fontSize: 11, color: TK.sub4, marginTop: 10, lineHeight: 1.7, borderTop: `1px solid ${TK.border}`, paddingTop: 9, display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -393,7 +397,7 @@ export default function SignalReportPage() {
             <summary style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 800, color: TK.sub11 }}>
               🔬 신호 하나하나 보기 <span style={{ fontWeight: 400, color: TK.sub4 }}>· 최근 기록·평균·시장 비교</span>
             </summary>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 10, marginTop: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))', gap: 10, marginTop: 12 }}>
               {data.groups.map(g => <DetailCard key={`${g.src}:${g.kind}`} g={g} />)}
             </div>
           </details>
