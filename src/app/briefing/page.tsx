@@ -380,11 +380,11 @@ export default function BriefingPage() {
           return (
             <div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 7, fontSize: FS.tiny }}>
-                <span style={{ background: '#0d2818', border: `1px solid ${TK.green500}44`, borderRadius: 7, padding: '4px 10px' }}>🔺 오르는 <b style={{ color: TK.green400, fontFamily: 'monospace' }}>{win.length}</b></span>
-                <span style={{ background: '#2a0f12', border: `1px solid ${TK.red500}44`, borderRadius: 7, padding: '4px 10px' }}>🔻 떨어지는 <b style={{ color: TK.red400, fontFamily: 'monospace' }}>{lose.length}</b></span>
+                <span style={{ background: `${TK.red500}1a`, border: `1px solid ${TK.red500}44`, borderRadius: 7, padding: '4px 10px' }}>🔺 오르는 <b style={{ color: TK.red400, fontFamily: 'monospace' }}>{win.length}</b></span>
+                <span style={{ background: `${TK.blue500}1a`, border: `1px solid ${TK.blue400}44`, borderRadius: 7, padding: '4px 10px' }}>🔻 떨어지는 <b style={{ color: TK.blue400, fontFamily: 'monospace' }}>{lose.length}</b></span>
                 {lesson.top.map(s => (
                   <span key={s.key} style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 7, padding: '4px 10px', fontSize: FS.tiny }}>
-                    {s.icon} {s.label.replace(/\(.*\)/, '').trim()} <b style={{ color: TK.green400, fontFamily: 'monospace' }}>{s.winDisp}</b><span style={{ color: TK.sub2 }}> vs </span><b style={{ color: TK.red400, fontFamily: 'monospace' }}>{s.loseDisp}</b>
+                    {s.icon} {s.label.replace(/\(.*\)/, '').trim()} <b style={{ color: s.betterSide === 'win' ? TK.slate100 : TK.slate300, fontWeight: s.betterSide === 'win' ? 900 : 600, fontFamily: 'monospace' }}>{s.winDisp}</b><span style={{ color: TK.sub2 }}> vs </span><b style={{ color: s.betterSide === 'lose' ? TK.slate100 : TK.slate300, fontWeight: s.betterSide === 'lose' ? 900 : 600, fontFamily: 'monospace' }}>{s.loseDisp}</b>
                   </span>
                 ))}
               </div>

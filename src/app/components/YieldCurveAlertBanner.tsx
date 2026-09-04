@@ -30,16 +30,17 @@ export default function YieldCurveAlertBanner({ initial }: { initial?: YieldCurv
 
   return (
     <div style={{
-      background: `linear-gradient(135deg,${TK.red400}18,${TK.bg1})`, border: `1px solid ${TK.red400}66`,
+      // 위험 경보는 주황 — 이 배너가 뜨는 브리핑/대시보드에서 빨강은 '상승/플러스 손익'이다(한국식)
+      background: `linear-gradient(135deg,${TK.orange400}18,${TK.bg1})`, border: `1px solid ${TK.orange400}66`,
       borderRadius: RAD.md, padding: `${SP.sm}px ${SP.lg}px`, display: 'flex', flexDirection: 'column', gap: 5,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: FS.body, fontWeight: 800, color: TK.red400 }}>🔴 장단기 금리 역전 경보</span>
+        <span style={{ fontSize: FS.body, fontWeight: 800, color: TK.orange400 }}>⚠️ 장단기 금리 역전 경보</span>
         {inv.map(s => (
           <span key={s.key} title={s.meaning}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#7f1d1d22', border: `1px solid ${TK.red400}55`, borderRadius: 7, padding: '3px 9px', fontSize: FS.tiny, whiteSpace: 'nowrap' }}>
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: `${TK.orange400}1a`, border: `1px solid ${TK.orange400}55`, borderRadius: 7, padding: '3px 9px', fontSize: FS.tiny, whiteSpace: 'nowrap' }}>
             <b style={{ color: TK.slate200 }}>{s.label}</b>
-            <b style={{ color: TK.red400, fontFamily: 'monospace' }}>{s.value!.toFixed(2)}%p</b>
+            <b style={{ color: TK.orange400, fontFamily: 'monospace' }}>{s.value!.toFixed(2)}%p</b>
             <span style={{ color: TK.sub2, fontSize: FS.tiny }}>{s.invertedDays}거래일째</span>
           </span>
         ))}

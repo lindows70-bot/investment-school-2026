@@ -464,6 +464,10 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore, coreProfile, satPro
   // 바 색상
   const CORE_CLR = TK.sky400
   const SAT_CLR  = TK.orange400
+  // 토큰예외: 경고를 TK.orange400 으로 쓸 수 없다 — 바로 위 SAT_CLR 가 orange400 이라
+  //   같은 위젯 안에서 '경고'와 'Satellite 진영'이 한 색이 된다(실제로 한 번 그렇게 만들었다가 되돌렸다).
+  //   TK 에 orange500 이 없어 임의 추가하지 않고 기존 값을 유지한다. 근본 해결은 Satellite 계열색을
+  //   주황 밖으로 옮기는 것이고, 그건 앱 전역 규약이라 별건이다.
   const WARN_CLR = '#f97316'
 
   return (
@@ -617,7 +621,7 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore, coreProfile, satPro
               }}>
                 <span style={{ fontSize: 18 }}>{coreIsOver ? '📊' : '📉'}</span>
                 <div>
-                  <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.orange400 }}>
+                  <div style={{ fontSize: FS.tiny, fontWeight: 800, color: WARN_CLR }}>
                     {coreIsOver ? `Core +${absGap.toFixed(1)}%p 쏠림` : `Satellite +${absGap.toFixed(1)}%p 쏠림`}
                   </div>
                   <div style={{ fontSize: 10, color: TK.sub2, marginTop: 1 }}>
@@ -681,7 +685,7 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore, coreProfile, satPro
                   <>
                     지금 <span style={{ color: coreIsOver ? CORE_CLR : SAT_CLR, fontWeight: 700 }}>{overName}</span>
                     {over.totalCount > 0 ? ` ${over.totalCount}종목은 전부 손실 구간`: '은 수익 종목이 없는 상태'}입니다.
-                    여기서 팔면 <b style={{ color: TK.orange400 }}>수익 확정이 아니라 손실 확정</b>입니다.
+                    여기서 팔면 <b style={{ color: WARN_CLR }}>수익 확정이 아니라 손실 확정</b>입니다.
                     비중은 <b style={{ color: TK.slate300 }}>신규 자금을 {underName}에 배정</b>해 맞추고,
                     매도는 <b style={{ color: TK.slate300 }}>매수 근거가 깨진 종목에 한해</b> 개별로 판단하세요.
                   </>
@@ -3173,10 +3177,12 @@ export default function DashboardPage() {
                     <stop offset="0%"   stopColor={TK.neonLime} stopOpacity={0.95}/>
                     <stop offset="100%" stopColor={TK.neonLime} stopOpacity={0.55}/>
                   </linearGradient>
-                  {/* Core 손실 그라데이션 */}
+                  {/* Core 손실 그라데이션 — 한국식(손실=파랑).
+                      ⚠️ 빨강이었을 땐 **바로 그 막대의 툴팁**(3249)이 red400 을 'Core 수익'으로 쓰고 있어,
+                         손실 막대에 마우스를 올리면 막대는 빨강·툴팁 숫자는 파랑으로 갈렸다(같은 순간·같은 값). */}
                   <linearGradient id="coreLoss" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%"   stopColor={TK.red400} stopOpacity={0.90}/>
-                    <stop offset="100%" stopColor={TK.red400} stopOpacity={0.50}/>
+                    <stop offset="0%"   stopColor={TK.blue400} stopOpacity={0.90}/>
+                    <stop offset="100%" stopColor={TK.blue400} stopOpacity={0.50}/>
                   </linearGradient>
                   {/* Sat 수익 그라데이션 */}
                   <linearGradient id="satProfit" x1="0" y1="0" x2="0" y2="1">

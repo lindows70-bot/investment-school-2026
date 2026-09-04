@@ -41,10 +41,11 @@ export default function SwingStopAlertBanner() {
   if (!alerts.length) return null
 
   return (
-    <div style={{ background: `${TK.red400}14`, border: `2px solid ${TK.red400}`, borderRadius: RAD.md, padding: '14px 16px' }}>
+    // 위험 경보는 주황 — 같은 화면(브리핑)에서 빨강은 '상승/플러스 손익'을 뜻한다(한국식)
+    <div style={{ background: `${TK.orange400}14`, border: `2px solid ${TK.orange400}`, borderRadius: RAD.md, padding: '14px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <span style={{ fontSize: FS.xl }}>🚨</span>
-        <b style={{ fontSize: FS.lg, color: TK.red400 }}>스윙 손절선 이탈 — 오늘 정리를 검토하세요</b>
+        <b style={{ fontSize: FS.lg, color: TK.orange400 }}>스윙 손절선 이탈 — 오늘 정리를 검토하세요</b>
         <span style={{ fontSize: FS.tiny, color: TK.sub2 }}>스윙 타점이 추천했던 종목이 손절선 아래로 <b>마감</b>했습니다</span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
