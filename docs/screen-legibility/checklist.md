@@ -25,7 +25,7 @@
 - [x] 자산 화면 글자 크기 이관 (≤10.5px 53% → 11%, 남은 11%는 캔들차트 SVG 축 라벨)
 - [x] 등락 색 규약 통일 — weekly pcol/pc 51곳 + jcol 분리, 같은 카드 자기모순 2건
 - [x] Pretendard 실측 — OFL-1.1 · variable 통짜 2.0MB · dynamic-subset 92조각 3.1MB (도입 가능)
-- [ ] Pretendard 도입 + 인라인 fontFamily 제거 (⚠️ 글자 폭이 바뀌므로 레이아웃 재검증 필요)
+- [x] Pretendard 도입 + 인라인 fontFamily 59곳 → `FONT_STACK` (실전송 브리핑 643KB · 로그인 203KB · 레이아웃 회귀 0)
 - [ ] 위험색 red → orange400 재배치 (사용자 승인 완료 · red400 74곳에서 '어느 빨강이 위험인가' 선별 필요)
 - [ ] 회색 18종 → 4단 수렴 (slate100 / slate300 / sub / slate500)
 - [ ] 액센트 차트 전용 격리 (대시보드 글자색 43종)
