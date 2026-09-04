@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 interface Props {
   /** 페이지 제목 (로고 옆 표시) */
@@ -68,7 +68,7 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
       top: 0,
       zIndex: 50,
       backdropFilter: 'blur(12px)',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      fontFamily: FONT_STACK,
     }}>
       <div style={{
         maxWidth,

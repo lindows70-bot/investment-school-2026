@@ -12,7 +12,7 @@
 
 import { useState, useEffect } from 'react'
 import { getMoatBreach, type MoatResult } from '@/app/actions/getMoatBreach'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 interface Props { ticker: string; name: string; market: string }
 
@@ -21,7 +21,7 @@ const C = {
   gold: TK.amber500, green: TK.green400, red: TK.red400, blue: TK.blue400, cyan: TK.cyan400, purple: TK.violet400,
   text: TK.slate100, textSub: TK.slate400, textLow: TK.sub3,
 }
-const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
+const FONT = FONT_STACK
 
 const VERDICT: Record<MoatResult['verdict'], { label: string; emoji: string; color: string }> = {
   intact:   { label: '해자 견고',      emoji: '🏰', color: C.green },

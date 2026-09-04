@@ -14,7 +14,7 @@ import { useState, useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { getAssetType } from '@/lib/assetClassifier'
 import { calcDCF, deriveDcfInputs } from '@/lib/buffettDcf'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ── Props 타입 ────────────────────────────────────────────────────────────────
 interface Investment {
@@ -651,7 +651,7 @@ export default function BuffettAnalysisPanel({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16,
-      fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+      fontFamily: FONT_STACK }}>
 
       {/* ── 헤더 + 종목 선택 ─────────────────────────────────────────────── */}
       <div style={{

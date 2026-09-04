@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Sidebar from './Sidebar'
 import TopHeader from './TopHeader'
-import { TK, FS } from '@/lib/theme'
+import { TK, FS, FONT_STACK } from '@/lib/theme'
 
 // 사이드바 레이아웃을 적용하지 않는 경로
 const NO_LAYOUT = ['/login', '/signup']
@@ -46,7 +46,7 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
         height: '100vh',
         background: '#0a0a0a',
         overflow: 'hidden',
-        fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+        fontFamily: FONT_STACK,
       }}>
         {/* ── 사이드바 ── */}
         <div className="sidebar-wrap" style={{ flexShrink: 0 }}>
@@ -102,7 +102,7 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
         position: 'fixed', bottom: 0, left: 0, right: 0,
         background: TK.gray900, borderTop: `1px solid ${TK.gray800}`,
         display: 'flex', zIndex: 100,
-        fontFamily: '-apple-system,sans-serif',
+        fontFamily: FONT_STACK,
       }}>
         {[
           { href: '/briefing',  icon: '🎯', label: '브리핑' },

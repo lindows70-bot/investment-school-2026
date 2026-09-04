@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { TK, FS } from '@/lib/theme'
+import { TK, FS, FONT_STACK } from '@/lib/theme'
 
 // ── 용도 기반 그룹 — "매일 보는 것"이 맨 위, 나머지는 사전(레퍼런스) ──
 //    ⭐ export 이유: 상단바(TopHeader)가 페이지 제목을 여기서 파생한다. 예전엔 제목 표가 따로 있어
@@ -194,7 +194,7 @@ function SidebarInner() {
       borderRight: `1px solid ${TK.gray800}`,
       display: 'flex', flexDirection: 'column',
       height: '100%', overflowY: 'auto',
-      fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+      fontFamily: FONT_STACK,
     }}>
 
       {/* ── 로고 & 브랜딩 — 한 줄 압축(2026-09-03) ─────────────────
@@ -214,7 +214,7 @@ function SidebarInner() {
             <div style={{
               fontSize: FS.lg, fontWeight: 800, letterSpacing: '-0.5px', lineHeight: 1.15,
               whiteSpace: 'nowrap' as const,
-              fontFamily: '-apple-system, "SF Pro Display", "Helvetica Neue", sans-serif',
+              fontFamily: FONT_STACK,
               background: 'linear-gradient(135deg, #ffffff 0%, #f5e6c8 35%, #d4af37 65%, #f0f0f0 100%)',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
             }}>

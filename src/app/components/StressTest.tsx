@@ -22,7 +22,7 @@ import {
   Shield, TrendingDown, Clock, AlertTriangle,
   BookOpen, Zap, Activity,
 } from 'lucide-react'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ── 컬러 시스템 ───────────────────────────────────────────────
 const C = {
@@ -322,7 +322,7 @@ export default function StressTest() {
       style={{
         background:  C.bg,
         color:       C.textHi,
-        fontFamily:  '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        fontFamily:  FONT_STACK,
       }}
       className="p-4 md:p-6 space-y-5"
     >

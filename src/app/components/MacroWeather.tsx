@@ -12,7 +12,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 interface Investment { ticker: string; name?: string; lynch_category?: string | null }
 interface Props { investments?: Investment[] }
@@ -37,7 +37,7 @@ const C = {
   gold: TK.amber500, green: TK.green400, red: TK.red400, blue: TK.blue400,
   text: TK.slate100, textSub: TK.slate400, textLow: TK.sub3,
 }
-const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
+const FONT = FONT_STACK
 
 const TONE: Record<WeatherData['weather'], { color: string; bg: string }> = {
   clear:  { color: C.green, bg: 'rgba(74,222,128,0.08)' },

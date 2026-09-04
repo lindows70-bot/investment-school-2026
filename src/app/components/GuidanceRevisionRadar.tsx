@@ -13,7 +13,7 @@
 
 import { useState, useEffect } from 'react'
 import type { GuidanceRadarResult, GuidanceItem, MomentumSignal } from '@/app/api/guidance-radar/route'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ── 색상 토큰 ─────────────────────────────────────────────────────────────────
 const C = {
@@ -25,7 +25,7 @@ const C = {
   decel: TK.orange400,   // 가이던스 축소
   neutral: TK.blue400, // 중립
 }
-const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
+const FONT = FONT_STACK
 
 // ── 시그널 메타 ───────────────────────────────────────────────────────────────
 const SIGNAL_META: Record<MomentumSignal, { label: string; color: string; bg: string }> = {

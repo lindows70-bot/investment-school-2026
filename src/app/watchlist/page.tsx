@@ -7,7 +7,7 @@ import FullCandleChart from '@/app/components/FullCandleChart'
 import MoneyFlowRadar from '@/app/components/MoneyFlowRadar'
 import { getAssetType } from '@/lib/assetClassifier'
 import type { Candle } from '@/app/components/CandleChart'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 const N   = TK.bg8
 const SHO = `7px 7px 18px ${TK.bg2}, -4px -4px 12px ${TK.line2}`
@@ -152,7 +152,7 @@ export default function WatchlistPage() {
   )
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:14, fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+    <div style={{ display:'flex', flexDirection:'column', gap:14, fontFamily:FONT_STACK }}>
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}`}</style>
 
       {/* ── 헤더 ── */}

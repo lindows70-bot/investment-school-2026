@@ -13,7 +13,7 @@
 
 import { useState, useEffect } from 'react'
 import { getEarningsInsight, type JarvisInsight, type JarvisFacts } from '@/app/actions/getEarningsInsight'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 interface Props {
   ticker: string
@@ -36,7 +36,7 @@ const C = {
   textSub: TK.slate400,
   textLow: TK.sub3,
 }
-const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
+const FONT = FONT_STACK
 
 // 감성 점수(0~100) → 색/라벨 (높을수록 긍정)
 function sentiment(score: number): { color: string; label: string; emoji: string } {

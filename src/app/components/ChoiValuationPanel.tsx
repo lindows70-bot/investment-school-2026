@@ -29,7 +29,7 @@ import {
   Tooltip as RTooltip, ResponsiveContainer, Legend, ReferenceLine, ReferenceDot,
   BarChart, Bar, Cell as BarCell, LabelList,
 } from 'recharts'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ── 디자인 토큰 ──────────────────────────────────────────────────────────────
 const T = {
@@ -735,7 +735,7 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
   return (
     <div style={{
       minHeight: '100vh', background: T.bg, color: T.txt,
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      fontFamily: FONT_STACK,
       padding: embedded ? 0 : '28px 24px 80px',
       ...(embedded ? { minHeight: undefined as unknown as string, background: 'transparent' } : null),
     }}>

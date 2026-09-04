@@ -11,7 +11,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 interface Rec { ticker: string; name: string; reason: string; peg: number | null; opMargin: number | null }
 interface Briefing {
@@ -29,7 +29,7 @@ const C = {
   gold: TK.amber500, green: TK.green400, red: TK.red400, blue: TK.blue400, cyan: TK.cyan400, purple: TK.violet400,
   text: TK.slate100, textSub: TK.slate400, textLow: TK.sub3,
 }
-const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
+const FONT = FONT_STACK
 const SIG: Record<'SELL' | 'BUY', { label: string; emoji: string; color: string }> = {
   SELL: { label: '매도 검토', emoji: '⚠️', color: C.red },
   BUY:  { label: '매수 기회', emoji: '📈', color: C.green },

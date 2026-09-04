@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Tab = 'login' | 'signup'
@@ -18,7 +18,7 @@ const S = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: '24px 16px',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    fontFamily: FONT_STACK,
   } as React.CSSProperties,
 
   // subtle dot-grid pattern overlay

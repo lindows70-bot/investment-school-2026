@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase/client'
 import BuffettAnalysisPanel from '@/app/components/BuffettAnalysisPanel'
 // SSOT: 자산 유형 분류 (STOCK / ETF / CRYPTO / COMMODITY)
 import { getAssetType } from '@/lib/assetClassifier'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Market   = 'US' | 'KR' | 'CRYPTO'
@@ -421,7 +421,7 @@ function AnalysisContent() {
   const td = { padding:'10px 14px', borderTop:`1px solid ${C.border}` }
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:20, fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+    <div style={{ display:'flex', flexDirection:'column', gap:20, fontFamily:FONT_STACK }}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
       {/* ── 헤더 ── */}

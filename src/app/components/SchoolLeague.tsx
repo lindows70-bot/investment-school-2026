@@ -27,7 +27,7 @@ import {
   ChevronUp, ChevronDown, Minus, Loader2, AlertCircle,
 } from 'lucide-react'
 import type { TrendingStock, SchoolLeagueData, LynchKey } from '@/app/api/school-league/route'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ── 디자인 토큰 ──────────────────────────────────────────────────
 const C = {
@@ -547,12 +547,12 @@ export default function SchoolLeague() {
 
   // ── 렌더링 ─────────────────────────────────────────────────────
   if (loading) return (
-    <div style={{ background: C.bg, minHeight: '60vh', fontFamily: '-apple-system,sans-serif' }}>
+    <div style={{ background: C.bg, minHeight: '60vh', fontFamily: FONT_STACK }}>
       <LoadingSpinner msg={loadingMsg} />
     </div>
   )
   if (error) return (
-    <div style={{ background: C.bg, minHeight: '60vh', fontFamily: '-apple-system,sans-serif' }}>
+    <div style={{ background: C.bg, minHeight: '60vh', fontFamily: FONT_STACK }}>
       <ErrorView msg={error} />
     </div>
   )
@@ -561,7 +561,7 @@ export default function SchoolLeague() {
     <div
       style={{
         background: C.bg, color: C.textHi,
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        fontFamily: FONT_STACK,
         minHeight:  '100vh',
       }}
       className="p-4 md:p-6 space-y-5"

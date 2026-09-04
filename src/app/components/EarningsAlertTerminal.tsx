@@ -23,7 +23,7 @@ import {
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { calcFairMultiple, safeNumber, LYNCH_CATEGORY_KR } from '@/lib/lynchAnalysis'
 import { getAssetType } from '@/lib/assetClassifier'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ── 타입
 interface PortfolioItem {
@@ -454,7 +454,7 @@ export default function EarningsAlertTerminal({
   )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, fontFamily: FONT_STACK }}>
 
       {/* ── 헤더 */}
       <div style={{

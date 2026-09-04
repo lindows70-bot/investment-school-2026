@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ── 디자인 토큰 ──────────────────────────────────────────────────────────────
 const N   = TK.bg8
@@ -232,7 +232,7 @@ export default function SchoolLoungePage() {
 
   // ══ 렌더 ════════════════════════════════════════════════════════════════════
   return (
-    <div style={{ padding: '36px 28px 60px', fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', color: TK.sub12, maxWidth: 1100 }}>
+    <div style={{ padding: '36px 28px 60px', fontFamily: FONT_STACK, color: TK.sub12, maxWidth: 1100 }}>
       <style>{`
         textarea:focus,input:focus,select:focus{outline:none}
         @keyframes glow{0%,100%{box-shadow:${SHO},0 0 12px rgba(251,191,36,.25)}50%{box-shadow:${SHO},0 0 24px rgba(251,191,36,.45)}}

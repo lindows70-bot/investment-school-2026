@@ -20,7 +20,7 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, ReferenceLine, Legend,
 } from 'recharts'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ── 디자인 토큰 ──────────────────────────────────────────────────────────────
 const C = {
@@ -230,7 +230,7 @@ export default function LeverageRiskSimulator() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20,
-      fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+      fontFamily: FONT_STACK }}>
 
       {/* ── 헤더 ──────────────────────────────────────────────────────────── */}
       <div style={{

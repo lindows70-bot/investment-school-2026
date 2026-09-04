@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { bustServerCache } from '@/lib/bustCache'
 import { classifyAsset } from '@/lib/classifyAsset'
-import { TK, FS } from '@/lib/theme'
+import { TK, FS, FONT_STACK } from '@/lib/theme'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Market   = 'US' | 'KR' | 'CRYPTO'
@@ -52,7 +52,7 @@ const S = {
     borderRadius: 18, width: '100%', maxWidth: 500,
     maxHeight: '88vh', overflowY: 'auto' as const,
     boxShadow: '0 24px 64px rgba(0,0,0,0.75)',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    fontFamily: FONT_STACK,
     animation: 'slideUp 0.2s ease-out',
   },
   body:    { padding: '20px 24px 28px' },

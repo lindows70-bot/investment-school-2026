@@ -17,7 +17,7 @@ import {
   ResponsiveContainer, Tooltip, Legend,
 } from 'recharts'
 import { getAssetType } from '@/lib/assetClassifier'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ── 타입 (기존 DB 스키마 기준) ────────────────────────────────────────────────
 interface Investment {
@@ -163,7 +163,7 @@ export default function PortfolioBalanceRadar({ investments, usdKrw = USD_KRW_FA
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16,
-      fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+      fontFamily: FONT_STACK }}>
 
       {/* ── 헤더 ── */}
       <div style={{

@@ -1,5 +1,5 @@
 'use client'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 /**
  * ⏳ CashRunwayTimer — 좀비 생존 타이머 (킬러 기능 8단계)
@@ -29,7 +29,7 @@ const C = {
   gold: TK.amber500, green: TK.green400, red: TK.red400, blue: TK.blue400, orange: TK.orange400,
   text: TK.slate100, textSub: TK.slate400, textLow: TK.sub3,
 }
-const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
+const FONT = FONT_STACK
 
 function money(n: number, cur: string): string {
   const krw = cur === 'KRW'

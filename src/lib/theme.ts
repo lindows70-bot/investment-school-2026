@@ -108,6 +108,15 @@ export const FS = {
 }
 // 인접 배율 1.18 / 1.15 / 1.20 / 1.22 / 1.27 / 1.29 — 전 구간 1.15배 이상(구 램프는 하위 3단이 1.16/1.18로
 // 붙어 있으면서 값 자체가 작아 '평평하고 흐리다'는 인상을 만들었다). 제목/본문 비 = 36/15 = 2.4배.
+// 🔤 폰트 스택 SSOT (2026-09-04) — 한글 웹폰트가 실제로 **적용되게** 하는 한 곳.
+//    예전엔 화면마다 `fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'` 를
+//    인라인으로 박아 두었고, 그게 layout 의 Inter 를 덮어써 **웹폰트가 한 번도 로드되지 않았다**
+//    (런타임 실측: document.fonts = `__Inter:unloaded`). 한국 학생은 전부 맑은 고딕으로 봤다.
+//    → 스택을 여기 한 곳에 두고, 화면의 인라인 fontFamily 는 지운다(body 에서 상속받는다).
+//    ⚠️ 새 화면에 fontFamily 를 인라인으로 다시 박지 마라 — 그러면 같은 일이 반복된다.
+export const FONT_STACK =
+  '"Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif'
+
 // 라운드 — 실측 20종(2/4/5/6/7/8/9/10/12/14/20/999…)에서 구분 가능한 5단만
 export const RAD = { xs: 4, sm: 8, md: 12, lg: 16, pill: 999 }
 // 여백 — 4px 그리드

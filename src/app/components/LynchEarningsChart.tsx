@@ -26,7 +26,7 @@ import {
 } from 'lucide-react'
 // SSOT: 자산 분류는 assetClassifier에서만 — 컴포넌트 내 인라인 파싱 금지
 import { getAssetType } from '@/lib/assetClassifier'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ────────────────────────────────────────────────────────────
 // 타입 정의
@@ -608,7 +608,7 @@ export default function LynchEarningsChart(props: any) {
   return (
     <div style={{
       background:C.bg, minHeight:'100%',
-      fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+      fontFamily:FONT_STACK,
       padding:'0 0 24px',
     }}>
 

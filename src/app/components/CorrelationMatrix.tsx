@@ -15,7 +15,7 @@
 
 import { useState, useEffect } from 'react'
 import type { CorrelationResult } from '@/app/api/correlation-matrix/route'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ── 색상 토큰 ─────────────────────────────────────────────────────────────────
 const C = {
@@ -23,7 +23,7 @@ const C = {
   text: TK.slate100, textSub: '#b0bec8', textLow: TK.sub3,
   green: TK.green400, red: TK.red400, gold: TK.amber500, cyan: TK.cyan400,
 }
-const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
+const FONT = FONT_STACK
 
 // ── 상관계수 → 배경색 (다크모드 최적화, WCAG AA) ────────────────────────────
 function corrColor(r: number | null, isDiag: boolean): { bg: string; text: string } {

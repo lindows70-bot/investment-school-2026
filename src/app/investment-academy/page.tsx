@@ -1,5 +1,5 @@
 'use client'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ── 디자인 토큰 ──────────────────────────────────────────────────────────────
 const N   = TK.bg8
@@ -130,7 +130,7 @@ export default function InvestmentAcademyPage() {
   return (
     <div style={{
       padding: '36px 28px 60px',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      fontFamily: FONT_STACK,
       color: TK.sub12,
       maxWidth: 1080,
     }}>

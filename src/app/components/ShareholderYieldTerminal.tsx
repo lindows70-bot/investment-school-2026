@@ -21,7 +21,7 @@ import {
 } from 'recharts'
 import { getAssetType } from '@/lib/assetClassifier'
 import { safeNumber, LYNCH_CATEGORY_KR } from '@/lib/lynchAnalysis'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ── 타입
 interface PortfolioInvestment {
@@ -313,7 +313,7 @@ export default function ShareholderYieldTerminal({
   )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, fontFamily: FONT_STACK }}>
 
       {/* ── 헤더 */}
       <div style={{

@@ -10,7 +10,7 @@
  */
 
 import { useMemo } from 'react'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 interface SnapshotData {
@@ -77,7 +77,7 @@ export default function TimeMachineNote({ sellHistory, priceMap }: Props) {
 
   return (
     <div style={{ background: N, boxShadow: `7px 7px 18px ${TK.bg2}, -4px -4px 12px ${TK.line2}`, borderRadius: 14, padding: '20px 22px',
-      fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+      fontFamily: FONT_STACK }}>
       {/* 헤더 */}
       <div style={{ marginBottom: 18 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

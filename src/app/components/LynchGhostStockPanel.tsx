@@ -16,7 +16,7 @@
 
 import { useState, useEffect } from 'react'
 import { RefreshCw, AlertTriangle } from 'lucide-react'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 import { flagOf } from '@/lib/marketFlag'
 
 // ── 타입 (API 계약 — 기존과 동일) ──────────────────────────────
@@ -160,7 +160,7 @@ export default function LynchGhostStockPanel() {
   const sel = [...records, ...discovery].find(r => r.ticker === selected) ?? null
 
   return (
-    <div style={{ fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+    <div style={{ fontFamily: FONT_STACK }}>
 
       {/* ── 헤더 ── */}
       <div style={{ padding: '16px 20px 12px', borderBottom: `1px solid ${C.border}` }}>

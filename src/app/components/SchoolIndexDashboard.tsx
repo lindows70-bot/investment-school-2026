@@ -12,7 +12,7 @@
 
 import { useState, useEffect } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ── 데이터 타입 ───────────────────────────────────────────────────────────────
 interface StockSnapshot {
@@ -34,7 +34,7 @@ const C = {
   gold: TK.amber500, green: TK.green400, red: TK.red400, blue: TK.blue400, cyan: TK.cyan400, purple: TK.violet400,
   text: TK.slate100, textSub: TK.slate400, textLow: TK.sub3,
 }
-const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
+const FONT = FONT_STACK
 const SECTOR_COLORS = [TK.cyan400, TK.blue400, TK.violet400, TK.green400, TK.amber500, TK.pink400, TK.orange400, TK.emerald400, TK.indigo400, TK.red400]
 
 // 한국식 등락 색: 상승=빨강▲ / 하락=파랑▼

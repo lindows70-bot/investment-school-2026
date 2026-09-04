@@ -12,7 +12,7 @@ import TimeMachineNote from '@/app/components/TimeMachineNote'
 import DecisionCalibration from '@/app/components/DecisionCalibration'
 import TaxHarvestHelper from '@/app/components/TaxHarvestHelper'
 import TransactionEditModal, { type EditableTx } from '@/app/components/TransactionEditModal'   // ✏️ 거래 수정·삭제(2026-08-23)
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 type Market = 'US' | 'KR' | 'CRYPTO'
 
@@ -404,7 +404,7 @@ export default function HistoryPage() {
   ]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, fontFamily: FONT_STACK }}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
       {/* Tabs */}

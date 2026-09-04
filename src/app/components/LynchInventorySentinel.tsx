@@ -21,7 +21,7 @@ import {
   AlertTriangle, ShieldAlert, CheckCircle2,
   PackageOpen, RefreshCw, Info, Database, AlertCircle,
 } from 'lucide-react'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ────────────────────────────────────────────────────────────
 // 타입
@@ -375,7 +375,7 @@ export default function LynchInventorySentinel() {
   // 렌더링
   // ────────────────────────────────────────────────────────
   return (
-    <div style={{ marginTop:32, fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+    <div style={{ marginTop:32, fontFamily:FONT_STACK }}>
 
       {/* 헤더 */}
       <div style={{ padding:'14px 20px 12px', background:C.surface, border:`1px solid ${C.border}`, borderRadius:'12px 12px 0 0', display:'flex', alignItems:'center', gap:12 }}>

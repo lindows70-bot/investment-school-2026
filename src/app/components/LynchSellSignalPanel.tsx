@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 // SSOT: 자산 분류는 assetClassifier에서만 (컴포넌트 내 인라인 감지 금지)
 import { getAssetClassification, type AssetType } from '@/lib/assetClassifier'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ────────────────────────────────────────────────────────────
 // 타입 정의
@@ -836,7 +836,7 @@ export default function LynchSellSignalPanel(props: any) {
   // 포트폴리오 비어있음
   if (rawPortfolio.length === 0) {
     return (
-      <div style={{ padding:'16px 0', fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+      <div style={{ padding:'16px 0', fontFamily:FONT_STACK }}>
         <EmptyState />
       </div>
     )
@@ -844,7 +844,7 @@ export default function LynchSellSignalPanel(props: any) {
 
   return (
     <div style={{
-      fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+      fontFamily:FONT_STACK,
       display:'flex', flexDirection:'column', gap:0,
     }}>
 

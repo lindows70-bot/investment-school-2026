@@ -24,7 +24,7 @@ import {
   BookOpen, HelpCircle, ChevronDown, ChevronUp,
   Zap, BarChart2, Activity, DollarSign,
 } from 'lucide-react'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ── 디자인 토큰 (기존 macro-hub 팔레트 통일) ──────────────────────────────
 const C = {
@@ -194,7 +194,7 @@ export default function BondSimulator() {
   const cardStyle = { background: C.card, borderColor: C.border }
 
   return (
-    <div style={{ background: C.bg, color: C.textHi, minHeight: '100vh', fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}
+    <div style={{ background: C.bg, color: C.textHi, minHeight: '100vh', fontFamily: FONT_STACK }}
       className="p-4 md:p-6 space-y-6">
 
       {/* ── 헤더 ────────────────────────────────────────────── */}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { GuruPortfolioResult, GuruPosition } from '@/app/api/guru-portfolio/route'
 import GuruConsensusPanel from '@/app/components/GuruConsensusPanel'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 const CARD: React.CSSProperties = { background: TK.bg8, borderRadius: 14, padding: '16px 18px', border: `1px solid ${TK.border}` }
 const BUFFETT = '0001067983'
@@ -32,7 +32,7 @@ export default function GuruPortfolioPage() {
   const funds = data?.funds ?? []
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, fontFamily: FONT_STACK }}>
       <div>
         <div style={{ fontSize: 18, fontWeight: 900, color: TK.slate100 }}>🐳 거인의 포트폴리오</div>
         <div style={{ fontSize: 12, color: TK.sub4, marginTop: 4, lineHeight: 1.6 }}>

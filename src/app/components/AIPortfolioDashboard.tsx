@@ -18,7 +18,7 @@ import {
   ZAxis, ReferenceLine, Tooltip,
 } from 'recharts'
 import { BarChart2 } from 'lucide-react'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ── 다크모드 컬러 시스템 ─────────────────────────────────────
 const C = {
@@ -244,7 +244,7 @@ export default function AIPortfolioDashboard(props: any) {
   if (rawInput.length === 0) return <EmptyState />
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:16, fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+    <div style={{ display:'flex', flexDirection:'column', gap:16, fontFamily:FONT_STACK }}>
 
       {/* ── 린치 분류 미완료 안내 (분류가 하나도 안 된 경우) */}
       {stocks.every(s => s.lynchType === '해당없음') && (

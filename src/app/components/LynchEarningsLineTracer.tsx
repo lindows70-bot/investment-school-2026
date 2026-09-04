@@ -20,7 +20,7 @@ import {
   Tooltip, Legend, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
 import type { TracerResult, TracerPoint } from '@/app/api/lynch-earnings-tracer/route'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ── 색상 토큰 ─────────────────────────────────────────────────────────────────
 const C = {
@@ -40,7 +40,7 @@ const C = {
   green:   TK.green400,
   red:     TK.red400,
 }
-const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
+const FONT = FONT_STACK
 
 // ── 포맷 유틸 ─────────────────────────────────────────────────────────────────
 const fmtPrice = (n: number, cur: string) =>

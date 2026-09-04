@@ -20,7 +20,7 @@ import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList,
 } from 'recharts'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ═══════════════════════════════════════════════════════════════
 //  DESIGN SYSTEM
@@ -1142,7 +1142,7 @@ export default function MasterStrategyPage() {
 
   return (
     <div style={{ minHeight:'100vh', background:D.bg, color:D.text,
-      fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+      fontFamily:FONT_STACK,
       display:'flex', flexDirection:'column', padding:'16px 20px 18px', boxSizing:'border-box' }}>
 
       {/* ── 툴바 ── */}

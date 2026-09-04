@@ -13,7 +13,7 @@
 import { useState, useEffect } from 'react'
 import { getSectorPeers, type SectorPeerResult } from '@/app/actions/getSectorPeers'
 import { isHoldingCompany } from '@/lib/assetClassifier'   // 🏢 지주사 — 섹터 비교 부적합(NAV 평가)
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 interface Props { ticker: string; name: string; market: string }
 
@@ -22,7 +22,7 @@ const C = {
   gold: TK.amber500, green: TK.green400, red: TK.red400, blue: TK.blue400, cyan: TK.cyan400,
   text: TK.slate100, textSub: TK.slate400, textLow: TK.sub3,
 }
-const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
+const FONT = FONT_STACK
 
 // PEG 색상: 낮을수록 저평가(좋음)
 const pegColor = (p: number | null) => p == null || p <= 0 ? C.textLow : p < 1 ? C.green : p < 1.5 ? C.blue : p < 2 ? C.gold : C.red

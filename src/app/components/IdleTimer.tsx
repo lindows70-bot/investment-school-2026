@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const IDLE_MS   = 30 * 60 * 1000   // 30분 비활동 → 자동 로그아웃
@@ -128,7 +128,7 @@ export default function IdleTimer() {
         background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: 16,
-        fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+        fontFamily: FONT_STACK,
       }}>
         <div style={{
           background: '#141414', border: `1px solid ${TK.flat1}`,

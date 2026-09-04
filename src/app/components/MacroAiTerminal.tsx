@@ -15,7 +15,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { MacroAiResult, AiRecommendation } from '@/app/api/macro-ai-picks/route'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 const C = {
   bg:      TK.slate950,
@@ -31,7 +31,7 @@ const C = {
   cyan:    TK.cyan400,
   purple:  TK.violet400,
 }
-const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
+const FONT = FONT_STACK
 const MONO = 'ui-monospace,SFMono-Regular,Menlo,Consolas,monospace'
 
 const LYNCH_KR: Record<string, string> = {

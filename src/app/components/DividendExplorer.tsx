@@ -13,7 +13,7 @@
 
 import { useState, useCallback } from 'react'
 import type { DividendProfile } from '@/app/api/dividend-explorer/route'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ── 색상 (기존 프로젝트 다크 테마 계승) ──────────────────────────────────────
 const C = {
@@ -32,7 +32,7 @@ const C = {
   cyan:    TK.cyan400,
   pink:    TK.pink400,
 }
-const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
+const FONT = FONT_STACK
 
 // ── 프리셋 탭 정의 ───────────────────────────────────────────────────────────
 type PresetKey = 'aristocrat' | 'growth' | 'monthly' | 'highdiv' | 'preferred'

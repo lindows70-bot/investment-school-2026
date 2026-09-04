@@ -13,7 +13,7 @@
 
 import { useState, useEffect } from 'react'
 import { getInsiderSignal, type InsiderSignal } from '@/app/actions/getInsiderSignal'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 interface Props { ticker: string; name: string; market: string }
 
@@ -28,7 +28,7 @@ const C = {
   textSub: TK.slate400,
   textLow: TK.sub3,
 }
-const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
+const FONT = FONT_STACK
 const usd = (n: number) =>
   n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${Math.round(n)}`
 const krw = (n: number) =>

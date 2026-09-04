@@ -76,7 +76,7 @@ const LynchGhostStockPanel = dynamic(() => import('@/app/components/LynchGhostSt
 // SSOT: 자산 유형 분류는 assetClassifier에서만
 import { getAssetType }          from '@/lib/assetClassifier'
 import { Verdict } from '@/app/components/ui/Screen'   // 🎯 화면의 답(페이지당 하나) — 공용 프리미티브
-import { TK, FS, SP } from '@/lib/theme'
+import { TK, FS, SP, FONT_STACK } from '@/lib/theme'
 // 총수익률 공식 SSOT — 스쿨 리그(api/school-league)와 **같은 함수**를 부른다(제2원칙)
 import { totalReturnPct } from '@/lib/realizedPnl'
 
@@ -1670,7 +1670,7 @@ export default function DashboardPage() {
 
   // ──────────────────────────────────────────────────────────────
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:16, fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+    <div style={{ display:'flex', flexDirection:'column', gap:16, fontFamily:FONT_STACK }}>
       <style>{`
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
         .hover-row:hover td{background:rgba(255,255,255,0.03)!important}

@@ -12,14 +12,14 @@
 
 import { useState, useEffect } from 'react'
 import type { NpsDashboardResult } from '@/app/api/nps-portfolio/route'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 const C = {
   card: TK.bg7, card2: TK.bg5, border: TK.line1,
   gold: TK.amber500, green: TK.green400, red: TK.red400, blue: TK.blue400, cyan: TK.cyan400, purple: TK.violet400, pink: TK.pink400,
   text: TK.slate100, textSub: TK.slate400, textLow: TK.sub3,
 }
-const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
+const FONT = FONT_STACK
 
 const won = (n: number) => n >= 1e12 ? `₩${(n / 1e12).toFixed(2)}조` : n >= 1e8 ? `₩${Math.round(n / 1e8).toLocaleString()}억` : `₩${Math.round(n / 1e4).toLocaleString()}만`
 const usd = (n: number) => n >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(0)}M` : `$${Math.round(n / 1e3)}K`

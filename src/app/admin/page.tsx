@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Market   = 'US' | 'KR' | 'CRYPTO'
@@ -161,7 +161,7 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
 
   return (
     <div
-      style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: FONT_STACK }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
       <div style={{ background: TK.bg8, boxShadow: '0 24px 64px rgba(0,0,0,0.8), 10px 10px 28px #0b0d1a, -6px -6px 18px #2b2f46', border: 'none', borderRadius: 18, width: '100%', maxWidth: 920, maxHeight: '90vh', overflowY: 'auto', animation: 'slideUp 0.2s ease-out' }}>
@@ -640,7 +640,7 @@ export default function AdminPage() {
         tr.hoverable:hover td { background: rgba(30,30,30,0.8) !important }
       `}</style>
 
-      <div style={{ minHeight: '100vh', background: '#13151f', color: TK.slate100, fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+      <div style={{ minHeight: '100vh', background: '#13151f', color: TK.slate100, fontFamily: FONT_STACK }}>
 
         {/* 사이드바 레이아웃이 헤더를 제공합니다 */}
 

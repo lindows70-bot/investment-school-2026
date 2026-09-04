@@ -11,7 +11,7 @@
 
 import { useState, useEffect } from 'react'
 import { LineChart, Line, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 interface PartyData {
   partyScore: number
@@ -164,7 +164,7 @@ export default function CocktailPartyGauge() {
       background: `linear-gradient(135deg, ${TK.bg0} 0%, ${TK.gray900} 100%)`,
       border: `1px solid ${color}44`, borderRadius: 14, padding: '20px 22px',
       boxShadow: `0 0 30px ${color}11`,
-      fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+      fontFamily: FONT_STACK,
     }}>
       {/* 헤더 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>

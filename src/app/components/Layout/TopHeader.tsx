@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
-import { TK, FS } from '@/lib/theme'
+import { TK, FS, FONT_STACK } from '@/lib/theme'
 import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(상수 분열 방지)
 import { GROUPS } from './Sidebar'            // 🏷️ 페이지 제목 = 사이드바 라벨(이름은 한 곳에서만 정의)
 
@@ -89,7 +89,7 @@ export default function TopHeader() {
       padding: '0 24px',
       justifyContent: 'space-between',
       flexShrink: 0,
-      fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+      fontFamily: FONT_STACK,
     }}>
       {/* 모바일 전용 브랜드 로고 (PC에서는 사이드바가 담당하므로 숨김) */}
       <div className="mobile-brand-header" style={{ display: 'none', alignItems: 'center', gap: 8 }}>

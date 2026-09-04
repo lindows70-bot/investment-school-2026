@@ -30,7 +30,7 @@ import {
 import InflationChart                               from './macro/InflationChart'
 import DotPlotPanel                                 from './macro/DotPlotPanel'
 import BalanceSheetChart, { isQtOngoing }           from './macro/BalanceSheetChart'
-import { TK } from '@/lib/theme'
+import { TK, FONT_STACK } from '@/lib/theme'
 
 // ── FOMC 다음 일정 (수동 갱신)
 const NEXT_FOMC = { date: '집계 중…', dDay: 0 }   // 로딩 폴백 — 실제 값은 /api/macro-regime(FedWatch 일정)에서
@@ -286,7 +286,7 @@ export default function MacroDashboard() {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', gap: 20,
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      fontFamily: FONT_STACK,
     }}>
 
       {/* ── 컨텍스트 배너 */}

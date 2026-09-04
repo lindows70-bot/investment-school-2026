@@ -11,10 +11,10 @@ import { DIVIDEND_UNIVERSE, BUCKET_META, DIV_TEMPLATES, type DivBucket } from '@
 import { ULTRA_RISKS, ULTRA_UNIVERSE, ULTRA_TIER_META } from '@/lib/ultraDividendUniverse'
 import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT
 import type { UltraDividendData, UltraDividendItem } from '@/app/api/ultra-dividend/route'
-import { TK, FS } from '@/lib/theme'
+import { TK, FS, FONT_STACK } from '@/lib/theme'
 import { flagOf } from '@/lib/marketFlag'
 
-const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
+const FONT = FONT_STACK
 const C = {
   bg: TK.slate950, card: TK.bg7, card2: TK.bg5, border: TK.line1,
   text: TK.slate100, sub: '#b0bec8', low: '#8a9db5',

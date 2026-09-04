@@ -334,7 +334,7 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
                         fontSize: 8,
                         fontWeight: 700,
                         fill: col,
-                        fontFamily: '-apple-system, sans-serif',
+                        fontFamily: FONT_STACK,
                         letterSpacing: '0.03em',
                         pointerEvents: 'none',
                         // 텍스트 외곽선으로 가독성 확보
@@ -355,7 +355,7 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
                         style={{
                           fontSize: 7,
                           fill: col,
-                          fontFamily: '-apple-system, sans-serif',
+                          fontFamily: FONT_STACK,
                           fontVariantNumeric: 'tabular-nums',
                           pointerEvents: 'none',
                           paintOrder: 'stroke',
@@ -580,7 +580,7 @@ function CompareChart({ api, loading }: { api: MacroApi | null; loading: boolean
       layout: {
         background:  { type: ColorType.Solid, color: C.card },
         textColor:   C.sub,
-        fontFamily:  '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        fontFamily:  FONT_STACK,
         fontSize:    10,
       },
       grid: {
@@ -790,7 +790,7 @@ function CompareChart({ api, loading }: { api: MacroApi | null; loading: boolean
 // ═══════════════════════════════════════════════════════════════
 import BondSimulator from '@/app/components/BondSimulator'
 import StressTest    from '@/app/components/StressTest'
-import { TK, FS, RAD } from '@/lib/theme'
+import { TK, FS, RAD, FONT_STACK } from '@/lib/theme'
 
 export default function MacroHubPage() {
   const [api,         setApi]         = useState<MacroApi | null>(null)
@@ -826,7 +826,7 @@ export default function MacroHubPage() {
   return (
     <div style={{
       minHeight:'100vh', background:C.bg, color:C.text,
-      fontFamily:'-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      fontFamily:FONT_STACK,
       padding:'20px', boxSizing:'border-box',
     }}>
       <style>{`

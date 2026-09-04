@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react'
 import type { SignalReportResult, GroupStat, SigEvent } from '@/app/api/signal-report/route'
 import { Verdict } from '@/app/components/ui/Screen'   // 🎯 화면의 답(페이지당 하나) — 공용 프리미티브
-import { TK, FS } from '@/lib/theme'
+import { TK, FS, FONT_STACK } from '@/lib/theme'
 import { flagOf } from '@/lib/marketFlag'
 
 const CARD: React.CSSProperties = { background: TK.bg8, borderRadius: 14, padding: '16px 18px', border: `1px solid ${TK.border}` }
@@ -192,7 +192,7 @@ export default function SignalReportPage() {
   const sellThickest = AXES.map(a => ({ a, g: find(a.src, 'sell') })).filter(x => x.g).sort((x, y) => (y.g!.n7 ?? 0) - (x.g!.n7 ?? 0))[0]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: FONT_STACK }}>
       {err && <div style={{ ...CARD, color: TK.sub4, fontSize: FS.tiny }}>성적표를 불러오지 못했습니다 — 새로고침해 주세요.</div>}
       {!data && !err && <div style={{ ...CARD, color: TK.sub4, fontSize: FS.tiny }}>📋 신호 이력을 채점하는 중… (첫 로드는 수십 초 걸릴 수 있어요)</div>}
 
