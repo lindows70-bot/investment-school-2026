@@ -10,7 +10,8 @@ import {
   type WLApi, type WLRow, type WLPeriod, type WLQuad,
   WL_THRESH, WL_PERIOD_LABEL, retOf, splitGroups, factorStats, buildLesson,
 } from '@/lib/winLose'
-import { TK } from '@/lib/theme'
+import { Verdict } from '@/app/components/ui/Screen'   // 🎯 화면의 답(페이지당 하나) — 공용 프리미티브
+import { TK, FS } from '@/lib/theme'
 
 const CARD = '#12151f', BORDER = '#232838'
 const QUAD_META: Record<WLQuad, { icon: string; label: string; color: string; order: number }> = {
@@ -92,6 +93,52 @@ export default function WinLosePage() {
   return (
     <div style={{ padding: '18px 20px', maxWidth: 1180, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
       <style>{MINE_CSS}</style>
+
+      {/* ── 🎯 이 화면의 답: "지금 장에서 오른 종목과 떨어진 종목을 가른 건 무엇인가" ──────────
+          결론(lesson.text)은 원래 헤더 카드 **셋째 줄 13px 보라 박스**에 있었다 — 화면에서 5번째로
+          큰 글자였고, 스코어보드의 '몇 종이 올랐나'(16px)가 '왜 갈렸나'보다 커 보였다.
+          ⚠️ lesson.text 전문은 최대 170자라 28px 헤드라인에 3~4줄이 된다 → **1위 요인만** 헤드라인,
+             2·3위와 무변별 요인은 아래 보라 박스(전문)에 그대로 남긴다(요약은 상세의 부분집합).
+          ⚠️ 숫자·요인명은 전부 buildLesson()/factorStats() 파생 — 리터럴 금지.
+          ⚠️ '내 보유'는 여기 쓰지 않는다 — mine.size 는 미로그인·조회실패·보유0종이 전부 0 이라
+             셋을 구분하지 못한다(page.tsx 의 보유 조회는 미로그인 시 조용히 빠져나간다). */}
+      {(() => {
+        const strip = (s: string) => s.replace(/\(.*\)/, '').trim()
+        const t0 = lesson.top[0]
+        const enough = win.length >= 3 && lose.length >= 3   // 아래 분석 섹션 렌더 조건과 같은 기준
+        const thin   = win.length < 10 || lose.length < 10   // 10건 미만은 통계가 아니라 일화
+        const headline =
+          loading            ? '오늘 승패를 세는 중…'
+          : !data            ? '오늘 해부 결과를 못 불러왔습니다'
+          : !enough          ? `${WL_PERIOD_LABEL[period]}엔 ±${th}%를 넘긴 종목이 너무 적어 승패를 가를 수 없습니다`
+          : !t0              ? `${WL_PERIOD_LABEL[period]}, 뚜렷하게 승패를 가른 요인이 없습니다`
+          : `${WL_PERIOD_LABEL[period]}, 승패를 가른 건 ${strip(t0.label)}입니다${t0.betterSide === 'lose' ? ' (역전 — 떨어진 쪽이 더 높음)' : ''}`
+        const sub =
+          loading  ? '유니버스 시세를 모으는 중입니다.'
+          : !data  ? '첫 계산은 1~2분 걸립니다 — 잠시 후 새로고침하세요.'
+          : !enough ? <>오른 {win.length}종 · 떨어진 {lose.length}종 · 보합 {mid.length}종 — 위 기간 탭을 더 긴 기간으로 바꾸면 비교할 종목이 늘어납니다.</>
+          : !t0    ? '종목별 개별 재료로 움직인 장입니다 — 아래 대전표에서 요인들이 모두 비슷한지 확인해 보세요.'
+          : <>
+              {strip(t0.label)} — 오른 쪽 <b style={{ color: TK.red400 }}>{t0.winDisp}</b> vs 떨어진 쪽 <b style={{ color: TK.blue400 }}>{t0.loseDisp}</b>
+              <span style={{ color: TK.sub2 }}> (오른 {win.length}종 · 떨어진 {lose.length}종 기준)</span>
+              {lesson.top.length > 1 && <> · 그다음은 {lesson.top.slice(1).map(s => strip(s.label)).join('·')}</>}
+              {thin && <> · <b style={{ color: TK.amber400 }}>표본이 적어 아직 통계가 아니라 그날의 이야기입니다.</b></>}
+            </>
+        return (
+          <Verdict
+            eyebrow="⚔️ 승패 해부실"
+            headline={headline}
+            sub={sub}
+            chips={data && enough ? [
+              { label: '가른 요인',    value: lesson.top.length,  color: TK.violet300 },
+              { label: '못 가른 요인', value: lesson.flat.length, color: TK.slate400 },
+              // ⚠️ data 가 없으면 0(없음)이 아니라 null(모름)로 넘긴다 — Verdict 가 둘을 다르게 그린다
+              { label: '유니버스',     value: data ? `${rows.length}종` : null, color: TK.slate100 },
+            ] : undefined}
+          />
+        )
+      })()}
+
       {/* ── 헤더: 스코어보드 + 기간 토글 ───────────────────────── */}
       <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -116,10 +163,12 @@ export default function WinLosePage() {
               <span style={{ background: `${TK.blue500}1a`, border: `1px solid ${TK.blue400}44`, borderRadius: 9, padding: '7px 14px', fontSize: 13 }}>🔻 떨어지는 <b style={{ color: TK.blue400, fontFamily: 'monospace', fontSize: 16 }}>{lose.length}</b><span style={{ color: TK.sub2, fontSize: 10 }}> (평균 {fmt1(lose.length ? lose.reduce((s, r) => s + retOf(r, period)!, 0) / lose.length : null)})</span></span>
               <span style={{ fontSize: 10, color: TK.sub2, alignSelf: 'center' }}>유니버스 {rows.length}종(추천 후보 풀+학교 종목) · 임계 ±{th}%</span>
             </div>
-            {/* 🎓 오늘의 교훈 — 결정론 자동 생성 */}
+            {/* 🎓 오늘의 교훈 — 결정론 자동 생성.
+                위 Verdict 가 1위 요인만 요약하므로 여기는 **전문**(1~3위 + 못 가른 요인)을 담는 상세다.
+                해석 문장이 본문(15px)보다 작으면 안 되므로 13 → FS.body 로 키웠다. */}
             <div style={{ marginTop: 12, background: '#1a1330', border: '1px solid #7c3aed55', borderRadius: 10, padding: '10px 14px' }}>
-              <b style={{ fontSize: 12, color: TK.violet300 }}>🎓 오늘의 교훈</b>
-              <div style={{ fontSize: 13, color: TK.slate200, marginTop: 4, lineHeight: 1.6 }}>{lesson.text}</div>
+              <b style={{ fontSize: FS.tiny, color: TK.violet300 }}>🎓 오늘의 교훈 — 자세히</b>
+              <div style={{ fontSize: FS.body, color: TK.slate200, marginTop: 4, lineHeight: 1.6 }}>{lesson.text}</div>
             </div>
           </>
         )}

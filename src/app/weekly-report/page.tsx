@@ -4,6 +4,7 @@
 //   🖨️ PDF 저장=라이트 인쇄 문서(새 창 window.print). 상승 초록·하락 빨강(앱 규칙 통일). 서사는 Gemini(실측 숫자만 주입)·실패 시 결정론 폴백.
 import { useEffect, useState } from 'react'
 import type { WeeklyReportResult, WrHolding, WrIndex } from '@/app/api/weekly-report/route'
+import { Verdict } from '@/app/components/ui/Screen'   // 🎯 화면의 답(페이지당 하나) — 공용 프리미티브
 import { TK, FS } from '@/lib/theme'
 
 const CARD = TK.bg6, BORDER = TK.border
@@ -334,10 +335,49 @@ export default function WeeklyReportPage() {
         </div>
       </div>
 
-      {/* 헤드라인 배너 */}
+      {/* ── 🎯 이 화면의 답: "이번 주 시장이 내 계좌를 얼마나 움직였나" ─────────────────────
+          이 화면은 질문이 둘이다 — 시장(①~⑦)과 내 계좌(⑧~⑪). 그런데 화면 최대 글자는
+          ai.headline(**시장** 이야기)이었고, 개인 답(m.kpi.weekPct)은 세로 14번째 블록에 있었다.
+          시장은 배경이고 내 계좌가 주인공이다 → 개인 답을 위로 올리고 시장 배너는 아래로 강등.
+          ⚠️ weekPct 의 null 은 **0%가 아니라 '못 쟀음'** 이다(보유별 주간 등락이 하나도 없을 때).
+             0 으로 그리면 '이번 주 변동 없음'이라는 거짓말이 된다.
+          ⚠️ liveCoverage < 100 이면 나머지는 매입가로 계산돼 주간 변동이 **실제보다 작게** 나온다 → footer 로 밝힌다.
+          ⚠️ 색은 이 화면의 pcol() 을 그대로 쓴다 — pcol 은 초록=상승(미국식)이라 프로젝트 규약
+             ('주가 등락·내 손익'은 한국식)과 반대지만, 22곳이 이미 그 규약이라 헤드라인만 뒤집으면
+             바로 아래 KPI 와 정반대로 읽힌다. 규약 통일은 3단계 색 작업에서 화면 단위로 한다. */}
+      {(() => {
+        const wp = m.kpi.weekPct
+        // 시장이 내 계좌로 들어온 통로 — 기여도(%p) 절대값이 가장 큰 섹터. contrib null 은 미집계.
+        const lead = (m.sectorImpact ?? [])
+          .filter(s => s.contrib != null)
+          .sort((a, b) => Math.abs(b.contrib!) - Math.abs(a.contrib!))[0]
+        const headline =
+          !m.hasPortfolio ? '이번 주 리포트는 시장 편만 있습니다'
+          : wp == null    ? '이번 주 내 계좌 변동을 계산하지 못했습니다'
+          : <>이번 주 내 계좌 <span style={{ color: pcol(wp), fontVariantNumeric: 'tabular-nums' }}>{pct(wp)}</span>{lead && <span style={{ color: TK.sub3 }}> · 가장 크게 움직인 건 {lead.sector}</span>}</>
+        const sub =
+          !m.hasPortfolio ? <>자산 관리에서 보유 종목을 등록하면 다음 리포트부터 <b style={{ color: TK.slate300 }}>내 계좌 편</b>(종목 진단·섹터 기여·리스크 점검)이 함께 나옵니다 — <a href="/assets" style={{ color: TK.blue400, textDecoration: 'none', fontWeight: 700 }}>자산 관리 →</a></>
+          : wp == null    ? <>보유 종목의 주간 등락을 하나도 불러오지 못했습니다(없다는 뜻이 아닙니다) — 평가액 {won(m.kpi.totalKrw)} · {m.kpi.count}종목은 아래 ⑧에서 확인하세요.</>
+          : <>평가액 <b style={{ color: TK.slate300 }}>{won(m.kpi.totalKrw)}</b> · 누적 손익 <b style={{ color: pcol(m.kpi.pnlPct) }}>{pct(m.kpi.pnlPct)}</b> · {m.kpi.count}종목
+              {lead?.contrib != null && <> · {lead.sector}가 <b style={{ color: pcol(lead.contrib) }}>{pct(lead.contrib)}p</b> 기여</>}</>
+        return (
+          <Verdict
+            eyebrow={`📄 주간 리포트 — ${m.name} 님`}
+            headline={headline}
+            sub={sub}
+            footer={m.hasPortfolio && m.kpi.liveCoverage < 100
+              ? <>⚠️ 보유 중 <b style={{ color: TK.amber400 }}>{Math.round(m.kpi.liveCoverage)}%</b>만 현재가를 불러왔습니다 — 나머지는 매입가로 계산돼 주간 변동이 실제보다 작게 나옵니다.</>
+              : undefined}
+          />
+        )
+      })()}
+
+      {/* 📈 이번 주 시장 — 위 '내 계좌'가 답이고 이건 그 배경이다(그래서 h2 → lg 로 강등).
+          ai 생성이 실패하면 이 배너가 통째로 사라지는데, 이제 위 Verdict 가 항상 있어 결론 0개가 되지 않는다. */}
       {ai && (
         <div style={{ background: 'linear-gradient(120deg,#12284C,#1d3a63)', borderRadius: 12, border: `1px solid ${TK.blue400}44`, padding: '14px 18px' }}>
-          <div style={{ fontSize: FS.h2, fontWeight: 900, color: '#fff' }}>{ai.headline}</div>
+          <div style={{ fontSize: FS.micro, fontWeight: 700, color: '#8ea4c4', letterSpacing: '0.08em', marginBottom: 3 }}>📈 이번 주 시장</div>
+          <div style={{ fontSize: FS.lg, fontWeight: 900, color: '#fff' }}>{ai.headline}</div>
           <div style={{ fontSize: FS.body, color: '#dbe4f0', marginTop: 5, lineHeight: 1.65 }}>{ai.sub}</div>
           {ai.source === 'fallback' && <div style={{ fontSize: FS.micro, color: '#8ea4c4', marginTop: 4 }}>※ 규칙 기반 자동 요약(AI 미사용)</div>}
         </div>
