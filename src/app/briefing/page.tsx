@@ -117,7 +117,7 @@ export default function BriefingPage() {
         // 스탠스 = '얼마나 공격적으로' — 오늘의 태도를 한 줄로(막스 온도 + 권장 현금 + 내 현금)
         const stance = temp == null ? null : (
           <>
-            시장 온도 <b style={{ color: temp >= 58 ? TK.red400 : temp <= 42 ? TK.green400 : TK.slate200, fontVariantNumeric: 'tabular-nums' }}>{temp}</b>
+            시장 온도 <b style={{ color: temp >= 58 ? TK.orange400 : temp <= 42 ? TK.green400 : TK.slate200, fontVariantNumeric: 'tabular-nums' }}>{temp}</b>
             {marks.d?.stance && <> · <b style={{ color: TK.slate200 }}>{marks.d.stance}</b></>}
             {cashBand && <> — 권장 현금 <b style={{ color: TK.violet300, fontVariantNumeric: 'tabular-nums' }}>{cashBand}</b></>}
             {cash.d?.verdict && typeof cash.d.cashPct === 'number' && (
@@ -168,8 +168,8 @@ export default function BriefingPage() {
 
       {/* 🚨 크론 헬스 — 오늘 안 돈 자동 갱신이 있으면 빨간 한 줄(없으면 렌더 0) */}
       {staleCrons.length > 0 && (
-        <div style={{ background: '#2a1215', border: `1px solid ${TK.red400}66`, borderRadius: 10, padding: '10px 14px' }}>
-          <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.red400 }}>
+        <div style={{ background: `${TK.orange400}14`, border: `1px solid ${TK.orange400}66`, borderRadius: 10, padding: '10px 14px' }}>
+          <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.orange400 }}>
             ⚠️ 오늘 실행되지 않은 자동 갱신 {staleCrons.length}건 — {staleCrons.map(c => c.label).join(' · ')}
           </div>
           <div style={{ fontSize: FS.tiny, color: TK.sub3, marginTop: 3 }}>
@@ -197,7 +197,7 @@ export default function BriefingPage() {
                   <b style={{ color: TK.slate200 }}>{flagOf(s.market, s.ticker)} {s.name}</b>
                   <span style={{ color: TK.sub, fontSize: FS.tiny, fontFamily: 'monospace', fontWeight: 700 }}>{s.ticker}</span>
                   <b style={{ color: c }}>{s.icon} {s.label}</b>
-                  {clash && <b style={{ color: s.kind === 'buy' ? TK.red400 : TK.green400, fontSize: FS.tiny, borderLeft: `1px solid ${TK.border}`, paddingLeft: 5 }}>{clashTxt}</b>}
+                  {clash && <b style={{ color: s.kind === 'buy' ? TK.orange400 : TK.green400, fontSize: FS.tiny, borderLeft: `1px solid ${TK.border}`, paddingLeft: 5 }}>{clashTxt}</b>}
                 </a>
               )
             })}
@@ -265,7 +265,7 @@ export default function BriefingPage() {
                     )}
                     {bf && bf.level !== 'na' && (
                       <b title={bf.headline}
-                        style={{ fontSize: FS.tiny, color: bf.level === 'strong' ? TK.red400 : bf.level === 'watch' ? TK.amber400 : TK.green400 }}>
+                        style={{ fontSize: FS.tiny, color: bf.level === 'strong' ? TK.orange400 : bf.level === 'watch' ? TK.amber400 : TK.green400 }}>
                         {bf.level === 'strong' ? '🏰 기업 변질' : bf.level === 'watch' ? '🏰 기업 주의' : '🏰 기업은 그대로'}
                       </b>
                     )}
@@ -399,7 +399,7 @@ export default function BriefingPage() {
         {marks.loading ? <Skel h={36} /> : (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: FS.tiny }}>
             {temp != null && (<>
-              <span style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 7, padding: '5px 11px' }}>🕰️ 탐욕 온도 <b style={{ color: temp >= 58 ? TK.red400 : temp <= 42 ? TK.green400 : TK.slate200, fontFamily: 'monospace' }}>{temp}</b> · <b style={{ color: TK.slate300 }}>{marks.d.stance}</b></span>
+              <span style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 7, padding: '5px 11px' }}>🕰️ 탐욕 온도 <b style={{ color: temp >= 58 ? TK.orange400 : temp <= 42 ? TK.green400 : TK.slate200, fontFamily: 'monospace' }}>{temp}</b> · <b style={{ color: TK.slate300 }}>{marks.d.stance}</b></span>
               <span style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 7, padding: '5px 11px' }}>
                 💰 권장 현금 <b style={{ color: TK.violet300, fontFamily: 'monospace' }}>{cashBand}</b>
                 {cash.d?.verdict && typeof cash.d.cashPct === 'number' ? (
@@ -409,7 +409,7 @@ export default function BriefingPage() {
                 ) : null}
               </span>
               {typeof marks.d.requiredMos === 'number' && (
-                <span title="탐욕일수록 더 큰 할인을 요구 — 신규 매수는 공정가치 대비 이만큼 싼 가격에서만(모닝스타 별점 할인율과 비교)" style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 7, padding: '5px 11px' }}>🎯 요구 안전마진 <b style={{ color: temp >= 58 ? TK.red400 : temp <= 42 ? TK.green400 : TK.amber400, fontFamily: 'monospace' }}>{marks.d.requiredMos}%</b></span>
+                <span title="탐욕일수록 더 큰 할인을 요구 — 신규 매수는 공정가치 대비 이만큼 싼 가격에서만(모닝스타 별점 할인율과 비교)" style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 7, padding: '5px 11px' }}>🎯 요구 안전마진 <b style={{ color: temp >= 58 ? TK.orange400 : temp <= 42 ? TK.green400 : TK.amber400, fontFamily: 'monospace' }}>{marks.d.requiredMos}%</b></span>
               )}
             </>)}
             {reco.d && (

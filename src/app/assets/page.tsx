@@ -77,7 +77,8 @@ const LYNCH_META: Record<string, { label: string; color: string }> = {
   asset_play:  { label: '자산 보유주',   color: TK.purple400 },
   na:          { label: 'N/A',           color: TK.sub7 },
 }
-const MARKET_COLOR: Record<Market, string> = { US:TK.emerald400, KR:TK.blue400, CRYPTO:TK.orange400 }
+// CRYPTO 는 비트코인 공식 오렌지로 — orange400 은 경고 축이라 시장 식별색과 뜻이 겹친다
+const MARKET_COLOR: Record<Market, string> = { US:TK.emerald400, KR:TK.blue400, CRYPTO:TK.btcOrange }
 const ETF_BRANDS = ['TIGER','KODEX','ACE','PLUS','KBSTAR','ARIRANG','HANARO','SOL']
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -535,7 +536,7 @@ export default function AssetsPage() {
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="종목명 / 티커" style={{ width:'100%',padding:'7px 10px 7px 26px',background:N,boxShadow:SHI,border:'none',borderRadius:8,color:TK.slate100,fontSize:FS.tiny,outline:'none',boxSizing:'border-box' }} onFocus={e=>{e.currentTarget.style.boxShadow=`${SHI}, 0 0 0 1px ${TK.blue600}`}} onBlur={e=>{e.currentTarget.style.boxShadow=SHI}}/>
         </div>
         {(['all','US','KR','CRYPTO'] as const).map(m=>(
-          <button key={m} onClick={()=>setFilterMarket(m)} style={{ padding:'6px 11px',borderRadius:99,fontSize:FS.tiny,fontWeight:600,cursor:'pointer',border:'none',transition:'all 0.12s', background:filterMarket===m?(m==='all'?'rgba(255,255,255,0.06)':`${({US:TK.emerald400,KR:TK.blue400,CRYPTO:TK.orange400} as Record<string,string>)[m]}18`):N, color:filterMarket===m?(m==='all'?TK.slate100:({US:TK.emerald400,KR:TK.blue400,CRYPTO:TK.orange400} as Record<string,string>)[m]):TK.sub7, boxShadow:filterMarket===m?SHI:SHO }}>
+          <button key={m} onClick={()=>setFilterMarket(m)} style={{ padding:'6px 11px',borderRadius:99,fontSize:FS.tiny,fontWeight:600,cursor:'pointer',border:'none',transition:'all 0.12s', background:filterMarket===m?(m==='all'?'rgba(255,255,255,0.06)':`${MARKET_COLOR[m as Market]}18`):N, color:filterMarket===m?(m==='all'?TK.slate100:MARKET_COLOR[m as Market]):TK.sub7, boxShadow:filterMarket===m?SHI:SHO }}>
             {m==='all'?'전체':m}
           </button>
         ))}

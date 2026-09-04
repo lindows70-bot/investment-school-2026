@@ -26,7 +26,9 @@
 - [x] 등락 색 규약 통일 — weekly pcol/pc 51곳 + jcol 분리, 같은 카드 자기모순 2건
 - [x] Pretendard 실측 — OFL-1.1 · variable 통짜 2.0MB · dynamic-subset 92조각 3.1MB (도입 가능)
 - [x] Pretendard 도입 + 인라인 fontFamily 59곳 → `FONT_STACK` (실전송 브리핑 643KB · 로그인 203KB · 레이아웃 회귀 0)
-- [ ] 위험색 red → orange400 재배치 (사용자 승인 완료 · red400 74곳에서 '어느 빨강이 위험인가' 선별 필요)
+- [x] 위험색 재배치 — 93곳 전수 분류(A-등락 50 / B-위험 28 / C-계열색 9) 후 **충돌하는 14곳만** 이동.
+      ⚠️ orange400 전용화는 **포기** — Satellite 계열색이 앱 전역 규약이라 비울 수 없다(사유는 context-notes).
+- [ ] 브리핑 실적 요약 문자열 분리 (판정 / 주가반응 — 색으로는 못 고친다 · `earnResults.ts:138`)
 - [ ] 회색 18종 → 4단 수렴 (slate100 / slate300 / sub / slate500)
 - [ ] 액센트 차트 전용 격리 (대시보드 글자색 43종)
 - [ ] 검증: 대시보드 색 **43→12 이하** · 한글 폰트 loaded · 375px 가로 스크롤 0

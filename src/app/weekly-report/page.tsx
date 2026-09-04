@@ -22,7 +22,7 @@ const jo = (eok: number) => `${eok >= 0 ? '+' : ''}${(eok / 1e4).toFixed(2)}조`
 const num = (n: number | null) => n == null ? '—' : n >= 1000 ? Math.round(n).toLocaleString() : String(n)
 
 const SIG_META: Record<string, { label: string; c: string }> = {
-  SELL: { label: '매도검토', c: TK.red400 }, BUY: { label: '매수기회', c: TK.green400 }, HOLD: { label: '보유', c: TK.slate400 },
+  SELL: { label: '매도검토', c: TK.orange400 }, BUY: { label: '매수기회', c: TK.green400 }, HOLD: { label: '보유', c: TK.slate400 },
 }
 const LIGHT_META: Record<string, string> = { green: '🟢', yellow: '🟡', red: '🔴' }
 const RISK_META: Record<string, { label: string; c: string }> = {

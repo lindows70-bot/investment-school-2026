@@ -136,7 +136,8 @@ const LYNCH_META: Record<string, { label: string; color: string }> = {
   asset_play:  { label: '자산 보유주',   color: TK.purple400 },
   na:          { label: 'N/A',           color: TK.sub6 },
 }
-const MKT_COLOR: Record<Market, string> = { US:TK.emerald400, KR:TK.blue400, CRYPTO:TK.orange400 }
+// CRYPTO 는 비트코인 공식 오렌지로 — orange400 은 경고·Satellite 로 이미 겸직 중이라 뜻이 흐려진다
+const MKT_COLOR: Record<Market, string> = { US:TK.emerald400, KR:TK.blue400, CRYPTO:TK.btcOrange }
 // 🌍 국가 라벨 — X-Ray 의 realCountries 코드(US·KR·JP·CN·HK·CRYPTO·기타)를 한국어로
 const MKT_KO: Record<string, string> = { US:'🇺🇸 미국', KR:'🇰🇷 한국', JP:'🇯🇵 일본', CN:'🇨🇳 중국', HK:'🇭🇰 홍콩', CRYPTO:'🪙 코인', 기타:'🌐 기타' }
 
@@ -616,7 +617,7 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore, coreProfile, satPro
               }}>
                 <span style={{ fontSize: 18 }}>{coreIsOver ? '📊' : '📉'}</span>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: TK.red400 }}>
+                  <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.orange400 }}>
                     {coreIsOver ? `Core +${absGap.toFixed(1)}%p 쏠림` : `Satellite +${absGap.toFixed(1)}%p 쏠림`}
                   </div>
                   <div style={{ fontSize: 10, color: TK.sub2, marginTop: 1 }}>
@@ -680,7 +681,7 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore, coreProfile, satPro
                   <>
                     지금 <span style={{ color: coreIsOver ? CORE_CLR : SAT_CLR, fontWeight: 700 }}>{overName}</span>
                     {over.totalCount > 0 ? ` ${over.totalCount}종목은 전부 손실 구간`: '은 수익 종목이 없는 상태'}입니다.
-                    여기서 팔면 <b style={{ color: TK.red400 }}>수익 확정이 아니라 손실 확정</b>입니다.
+                    여기서 팔면 <b style={{ color: TK.orange400 }}>수익 확정이 아니라 손실 확정</b>입니다.
                     비중은 <b style={{ color: TK.slate300 }}>신규 자금을 {underName}에 배정</b>해 맞추고,
                     매도는 <b style={{ color: TK.slate300 }}>매수 근거가 깨진 종목에 한해</b> 개별로 판단하세요.
                   </>
@@ -1655,8 +1656,9 @@ export default function DashboardPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [investments, pricedInvs, priceMap, totalRet, totalReturnAll])
 
-  const alertBorder: Record<string, string> = { success:'#16a34a', warning:TK.red600, info:TK.blue600 }
-  const alertBg:     Record<string, string> = { success:'rgba(22,163,74,0.08)', warning:'rgba(220,38,38,0.08)', info:'rgba(37,99,235,0.08)' }
+  // ⚠️ warning 은 '위험'이라 등락 빨강과 겹치면 안 된다 → 주황. 배경도 같이 옮긴다(보더만 바꾸면 어긋난다)
+  const alertBorder: Record<string, string> = { success:'#16a34a', warning:TK.orange400, info:TK.blue600 }
+  const alertBg:     Record<string, string> = { success:'rgba(22,163,74,0.08)', warning:'rgba(251,146,60,0.10)', info:'rgba(37,99,235,0.08)' }
   const alertIcon:   Record<string, string> = { success:'✅', warning:'⚠️', info:'ℹ️' }
 
   if (loading) return (
@@ -2203,9 +2205,12 @@ export default function DashboardPage() {
             // ⛔ 코인 가드(권장 상한 5%, ≥10% 위험)는 CoinLab 에만 있고 대시보드엔 없었다.
             //    11.7% 가 2% 와 똑같은 색·서식으로 보이면 경고가 아니다.
             label: '코인 비중',
-            accent: cryptoVal === 0 ? TK.orange400
-              : cryptoPct >= 10 ? TK.red400
-              : cryptoPct >  5   ? TK.orange400
+            // ⚠️ 이 카드만 red=위험이면 같은 KPI 줄의 다른 카드(red=플러스 손익)와 정면 충돌한다.
+            //    → 램프를 한 칸씩 올린다: 없음 회색 / 안전 emerald / 주의 amber / 위험 orange.
+            //    라벨('🚨 위험'·'⚠️ 권장 5% 초과')이 색을 보강하므로 amber~orange 인접은 문제가 안 된다.
+            accent: cryptoVal === 0 ? TK.sub6
+              : cryptoPct >= 10 ? TK.orange400
+              : cryptoPct >  5   ? TK.amber400
               : TK.emerald400,
             main:  pricedInvs.length ? `${cryptoPct.toFixed(1)}%` : '—',
             sub:   cryptoVal === 0 ? '코인 없음'
