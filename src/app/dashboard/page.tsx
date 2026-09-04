@@ -3237,7 +3237,7 @@ export default function DashboardPage() {
                       </div>
                       {/* Core / Satellite 분리 */}
                       {[
-                        { label:'Core', value: d.corePnl, color: d.corePnl >= 0 ? TK.neonLime : TK.red400 },
+                        { label:'Core', value: d.corePnl, color: d.corePnl >= 0 ? TK.red400 : TK.blue400 },   /* 내 손익 — 한국식 */
                         { label:'Satellite', value: d.satPnl, color: d.satPnl >= 0 ? TK.sky400 : TK.orange400 },
                       ].map(({ label, value, color }) => (
                         <div key={label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:5 }}>
@@ -3254,7 +3254,7 @@ export default function DashboardPage() {
                       <div style={{ marginTop:8, paddingTop:8, borderTop:'1px solid #1e2a40', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                         <span style={{ fontSize:11, color:TK.sub, fontWeight:600 }}>합계</span>
                         <div style={{ textAlign:'right' as const }}>
-                          <div style={{ fontWeight:900, color: d.isUp ? TK.neonLime : TK.red400, fontSize:15, fontVariantNumeric:'tabular-nums' }}>
+                          <div style={{ fontWeight:900, color: d.isUp ? TK.red400 : TK.blue400, fontSize:15, fontVariantNumeric:'tabular-nums' }}>
                             {fmtAmt(d.totalPnl)}
                           </div>
                           <div style={{ fontSize:10, color:TK.sub7, marginTop:1 }}>

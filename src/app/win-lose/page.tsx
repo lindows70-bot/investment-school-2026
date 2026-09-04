@@ -248,7 +248,7 @@ export default function WinLosePage() {
               return (
                 <div key={s.key} style={{ display: 'grid', gridTemplateColumns: '1fr 190px 1fr', alignItems: 'center', gap: 8, padding: '5px 0', opacity: dim ? 0.45 : 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 7 }}>
-                    <b style={{ fontSize: 12, color: s.betterSide === 'win' && !dim ? TK.green400 : TK.slate300, fontFamily: 'monospace' }}>{s.winDisp}</b>
+                    <b style={{ fontSize: 12, color: s.betterSide === 'win' && !dim ? TK.slate100 : TK.slate300, fontWeight: s.betterSide === 'win' && !dim ? 900 : 600, fontFamily: 'monospace' }}>{s.winDisp}</b>
                     <div style={{ width: '55%', height: 10, background: TK.bg3, borderRadius: 5, overflow: 'hidden', display: 'flex', justifyContent: 'flex-end' }}>
                       <div style={{ width: `${s.winBar}%`, background: dim ? '#3f4a5c' : TK.green500, borderRadius: 5 }} />
                     </div>
@@ -260,7 +260,7 @@ export default function WinLosePage() {
                     <div style={{ width: '55%', height: 10, background: TK.bg3, borderRadius: 5, overflow: 'hidden' }}>
                       <div style={{ width: `${s.loseBar}%`, background: dim ? '#3f4a5c' : TK.red500, borderRadius: 5 }} />
                     </div>
-                    <b style={{ fontSize: 12, color: s.betterSide === 'lose' && !dim ? TK.red400 : TK.slate300, fontFamily: 'monospace' }}>{s.loseDisp}</b>
+                    <b style={{ fontSize: 12, color: s.betterSide === 'lose' && !dim ? TK.slate100 : TK.slate300, fontWeight: s.betterSide === 'lose' && !dim ? 900 : 600, fontFamily: 'monospace' }}>{s.loseDisp}</b>
                   </div>
                 </div>
               )

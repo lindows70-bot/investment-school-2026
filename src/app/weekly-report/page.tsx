@@ -10,7 +10,13 @@ import { TK, FS } from '@/lib/theme'
 const CARD = TK.bg6, BORDER = TK.border
 const pct = (v: number | null | undefined, d = 1) => v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(d)}%`
 const bp = (v: number | null | undefined) => v == null ? '—' : `${v > 0 ? '+' : ''}${Math.round(v)}bp`
-const pcol = (v: number | null | undefined) => v == null ? TK.sub : v > 0 ? TK.green400 : v < 0 ? TK.red400 : TK.slate300
+// 📈 등락·손익 — **한국식**(빨강=플러스·파랑=마이너스). '가격 등락률'과 '내 보유 손익' 전용.
+//    2026-09-04 교정: 원래 초록=상승(미국식)이라 대시보드 보유표·승패 해부실과 **정반대**였다.
+//    같은 −8.6% 가 어느 화면에선 빨강, 여기선 초록이면 학생은 부호를 거꾸로 읽는다.
+const pcol = (v: number | null | undefined) => v == null ? TK.sub : v > 0 ? TK.red400 : v < 0 ? TK.blue400 : TK.slate300
+// ⚖️ 판정 지표 — 초록=좋음. **가격이 아닌 값**(수급 순매수·전월세 스프레드 등)에만 쓴다.
+//    등락 규약(빨강=상승)은 가격에만 적용된다 — 이 둘을 한 함수로 묶으면 한쪽이 반드시 틀린다.
+const jcol = (v: number | null | undefined) => v == null ? TK.sub : v > 0 ? TK.green400 : v < 0 ? TK.red400 : TK.slate300
 const won = (n: number) => n >= 1e8 ? `${(n / 1e8).toFixed(2)}억원` : `${Math.round(n / 1e4).toLocaleString()}만원`
 const jo = (eok: number) => `${eok >= 0 ? '+' : ''}${(eok / 1e4).toFixed(2)}조`
 const num = (n: number | null) => n == null ? '—' : n >= 1000 ? Math.round(n).toLocaleString() : String(n)
@@ -98,7 +104,7 @@ function MiniBars({ rows, fmt = (v: number | null) => pct(v), labelW = 62 }: { r
             <span style={{ width: labelW, color: TK.sub2, flexShrink: 0 }}>{r.label}</span>
             <div style={{ flex: 1, height: 9, background: TK.bg3, borderRadius: 3, position: 'relative', overflow: 'hidden' }}>
               <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 1, background: TK.border }} />
-              {r.v != null && <div style={{ position: 'absolute', top: 1, bottom: 1, borderRadius: 2, background: r.v > 0 ? TK.green400 : TK.red400, left: r.v > 0 ? '50%' : `${50 - w}%`, width: `${w}%` }} />}
+              {r.v != null && <div style={{ position: 'absolute', top: 1, bottom: 1, borderRadius: 2, background: r.v > 0 ? TK.red400 : TK.blue400, left: r.v > 0 ? '50%' : `${50 - w}%`, width: `${w}%` }} />}
             </div>
             <span style={{ width: 52, textAlign: 'right', fontFamily: 'monospace', color: pcol(r.v), fontWeight: 700 }}>{fmt(r.v)}</span>
           </div>
@@ -150,7 +156,10 @@ function relSvgStr(series: { name: string; color: string; data: number[] }[], h 
 function printReport(d: WeeklyReportResult) {
   const m = d.me, c = d.common, ai = c.ai
   const p = (v: number | null | undefined) => v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)}%`
-  const pc = (v: number | null | undefined) => v == null ? '#666' : v > 0 ? '#0a8a3c' : v < 0 ? '#c02b2b' : '#333'
+  // 등락·손익 — 화면 pcol 과 같은 한국식(빨강=플러스). ⚠️ 인쇄본은 **흰 배경**이라
+  // 다크 토큰(TK.red400 등)을 그대로 쓰면 종이에서 흐리다 → 인쇄용 진한 값으로 따로 둔다.
+  // 토큰예외: 라이트 배경 인쇄물 전용 색 — TK 는 다크 스킨 기준이라 대체 불가
+  const pc = (v: number | null | undefined) => v == null ? '#666' : v > 0 ? '#c02b2b' : v < 0 ? '#1a4f9c' : '#333'
   const ix = (k: string) => c.indices.find(i => i.key === k)
   const dateStr = c.weekOf.replace(/-/g, '')
   const kpiKeys = ['kospi', 'kosdaq', 'sp500', 'nasdaq', 'btc', 'gold', 'wti', 'usdkrw']
@@ -193,7 +202,7 @@ function printReport(d: WeeklyReportResult) {
     return `<div class="bars">${rows.map(r => {
       const w = r.v == null ? 0 : Math.abs(r.v) / mx * 48
       const left = r.v != null && r.v > 0 ? 50 : 50 - w
-      return `<div class="bw"><span class="bl">${r.label}</span><span class="bt"><i style="left:${left}%;width:${w}%;background:${r.v != null && r.v > 0 ? '#0a8a3c' : '#c02b2b'}"></i></span><span class="bv" style="color:${pc(r.v)}">${fmt(r.v)}</span></div>`
+      return `<div class="bw"><span class="bl">${r.label}</span><span class="bt"><i style="left:${left}%;width:${w}%;background:${r.v != null && r.v > 0 ? '#c02b2b' : '#1a4f9c'}"></i></span><span class="bv" style="color:${pc(r.v)}">${fmt(r.v)}</span></div>`
     }).join('')}</div>`
   }
   const capsTbl = c.bigCaps ? `<table><tr><th>대형주</th><th class="n">종가</th><th class="n">주간</th></tr>${c.bigCaps.map(b => `<tr><td>${b.name} <span class="mut">${b.ticker}</span></td><td class="n">${b.close != null ? Math.round(b.close).toLocaleString() + '원' : '—'}</td><td class="n" style="color:${pc(b.weekPct)}"><b>${p(b.weekPct)}</b></td></tr>`).join('')}</table>` : ''
@@ -243,7 +252,7 @@ function printReport(d: WeeklyReportResult) {
  .ckl b{color:#B8860B;font-size:10px} .ckl div{margin-top:4px} .ckl span{margin-right:12px;color:#4c5866}
 </style></head><body>
 <div class="mast"><div class="brand">2026 투자학교 · WEEKLY ASSET REPORT</div><h1>자산 전반 주간 리포트 — 주식·코인·금·부동산</h1>
-<div class="mut">${issueLine(c.weekOf, c.weekRange)} · ${c.anchorNote} · 상승 <span style="color:#0a8a3c">초록</span>/하락 <span style="color:#c02b2b">빨강</span></div>
+<div class="mut">${issueLine(c.weekOf, c.weekRange)} · ${c.anchorNote} · 상승 <span style="color:#c02b2b">빨강</span>/하락 <span style="color:#1a4f9c">파랑</span></div>
 <div class="who">${m.name} 님 · 개인 맞춤본</div></div>
 ${ai ? `<div class="hb"><h2>${ai.headline}</h2><p>${ai.sub}</p></div>` : ''}
 <div class="kpis">${kpi}</div>
@@ -342,9 +351,8 @@ export default function WeeklyReportPage() {
           ⚠️ weekPct 의 null 은 **0%가 아니라 '못 쟀음'** 이다(보유별 주간 등락이 하나도 없을 때).
              0 으로 그리면 '이번 주 변동 없음'이라는 거짓말이 된다.
           ⚠️ liveCoverage < 100 이면 나머지는 매입가로 계산돼 주간 변동이 **실제보다 작게** 나온다 → footer 로 밝힌다.
-          ⚠️ 색은 이 화면의 pcol() 을 그대로 쓴다 — pcol 은 초록=상승(미국식)이라 프로젝트 규약
-             ('주가 등락·내 손익'은 한국식)과 반대지만, 22곳이 이미 그 규약이라 헤드라인만 뒤집으면
-             바로 아래 KPI 와 정반대로 읽힌다. 규약 통일은 3단계 색 작업에서 화면 단위로 한다. */}
+          ✅ 색: pcol() 이 2026-09-04 에 한국식(빨강=플러스)으로 교정됐다 — 이 화면 전체가 함께
+             바뀌었으므로 헤드라인과 아래 KPI 가 같은 규약이다(인쇄본 pc() 도 같이 뒤집었다). */}
       {(() => {
         const wp = m.kpi.weekPct
         // 시장이 내 계좌로 들어온 통로 — 기여도(%p) 절대값이 가장 큰 섹터. contrib null 은 미집계.
@@ -421,8 +429,8 @@ export default function WeeklyReportPage() {
                   {([['외국인', kf.day.foreign, kf.w5.foreign], ['기관', kf.day.institution, kf.w5.institution], ['개인', kf.day.personal, kf.w5.personal]] as const).map(([l, d1, w5]) => (
                     <tr key={l as string} style={{ borderBottom: `1px solid ${TK.bg3}` }}>
                       <td style={{ padding: '5px 6px', color: TK.slate300 }}>{l}</td>
-                      <td style={{ padding: '5px 6px', textAlign: 'right', color: pcol(d1 as number), fontFamily: 'monospace' }}>{jo(d1 as number)}</td>
-                      <td style={{ padding: '5px 6px', textAlign: 'right', color: pcol(w5 as number), fontFamily: 'monospace', fontWeight: 800 }}>{jo(w5 as number)}</td>
+                      <td style={{ padding: '5px 6px', textAlign: 'right', color: jcol(d1 as number), fontFamily: 'monospace' }}>{jo(d1 as number)}</td>
+                      <td style={{ padding: '5px 6px', textAlign: 'right', color: jcol(w5 as number), fontFamily: 'monospace', fontWeight: 800 }}>{jo(w5 as number)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -609,7 +617,7 @@ export default function WeeklyReportPage() {
                       <tr key={r.name} style={{ borderBottom: `1px solid ${TK.bg3}` }}>
                         <td style={{ padding: '4px 5px', color: TK.slate300 }}>{r.name}</td>
                         <td style={{ padding: '4px 5px', textAlign: 'right', fontFamily: 'monospace', color: TK.slate200 }}>{r.conv.toFixed(2)}%</td>
-                        <td style={{ padding: '4px 5px', textAlign: 'right', fontFamily: 'monospace', color: pcol(r.spread), fontWeight: 700 }}>{r.spread > 0 ? '+' : ''}{r.spread.toFixed(2)}%p</td>
+                        <td style={{ padding: '4px 5px', textAlign: 'right', fontFamily: 'monospace', color: jcol(r.spread), fontWeight: 700 }}>{r.spread > 0 ? '+' : ''}{r.spread.toFixed(2)}%p</td>
                       </tr>
                     ))}
                   </tbody>
