@@ -8,7 +8,8 @@ import type { FxAttribution } from '@/lib/fxAttribution'
 const C = {
   card: '#12151f', card2: TK.bg5, border: TK.border,
   text: TK.slate100, sub: '#b0bec8', low: '#8a9db5',
-  green: TK.green400, red: TK.red400, gold: TK.amber400, cyan: TK.cyan400,
+  // red 는 제거했다 — 설명문의 '−1%'(하락)에 쓰이고 있었는데, 아래 col() 이 이미 한국식 SSOT다
+  green: TK.green400, gold: TK.amber400, cyan: TK.cyan400,
 }
 
 const won = (n: number) => n >= 1e8 ? `₩${(n / 1e8).toFixed(1)}억`
@@ -57,7 +58,7 @@ export default function FxAttributionCard() {
         <div style={{ fontSize: FS.tiny, color: C.sub, marginTop: 7, background: TK.bg3, borderRadius: 7, padding: '7px 10px', lineHeight: 1.7 }}>
           <b style={{ color: C.text }}>예를 들면</b> — $100짜리 주식이 $110이 되면 달러로는 <b style={{ color: C.green }}>+10%</b>입니다.
           그런데 살 때 <b>1,500원</b>이던 환율이 <b>1,350원</b>이 되면, 15만원 넣은 돈이 14.85만원이 되어
-          원화로는 오히려 <b style={{ color: C.red }}>−1%</b>입니다. <span style={{ color: C.low }}>주가는 올랐는데 계좌는 마이너스인 것 — 환율이 수익을 먹은 겁니다.</span>
+          원화로는 오히려 <b style={{ color: col(-1) }}>−1%</b>입니다. <span style={{ color: C.low }}>주가는 올랐는데 계좌는 마이너스인 것 — 환율이 수익을 먹은 겁니다.</span>
         </div>
       </div>
 
