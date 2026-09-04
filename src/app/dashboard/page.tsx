@@ -75,6 +75,7 @@ const MacroTerminalDashboard = dynamic(() => import('@/app/components/macro/Macr
 const LynchGhostStockPanel = dynamic(() => import('@/app/components/LynchGhostStockPanel'), { ssr: false, loading: Loading })
 // SSOT: 자산 유형 분류는 assetClassifier에서만
 import { getAssetType }          from '@/lib/assetClassifier'
+import { Verdict } from '@/app/components/ui/Screen'   // 🎯 화면의 답(페이지당 하나) — 공용 프리미티브
 import { TK, FS, SP } from '@/lib/theme'
 // 총수익률 공식 SSOT — 스쿨 리그(api/school-league)와 **같은 함수**를 부른다(제2원칙)
 import { totalReturnPct } from '@/lib/realizedPnl'
@@ -1926,6 +1927,63 @@ export default function DashboardPage() {
 
       {/* ── 실시간 대시보드 탭 ── */}
       <div id="tab-live" style={{ display: dashTab==='live' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
+
+      {/* ── 🎯 이 화면의 답: "내 계좌는 지금 어떤가" ──────────────────────────────────────
+          실측(2026-09-03): 화면에서 가장 큰 글자는 S&P·나스닥 지수값(22px/900)이었고, 정작 내 수익률은
+          가로 스크롤되는 9칸 KPI 스트립 안의 작은 숫자였다. 지수는 배경이고 내 계좌가 주인공이다.
+          ⚠️ 신규 계산 0 — totalCurrKrw·totalPnL·realizedKrw·totalReturnAll 전부 위(1143~1263)에서
+             이미 계산된 SSOT 값이다. 아래 KPI 스트립이 같은 값의 상세다(요약은 상세의 부분집합). */}
+      {(() => {
+        if (investments.length === 0) return (
+          <Verdict
+            eyebrow="📊 내 포트폴리오"
+            headline="아직 등록한 종목이 없습니다"
+            sub={<>보유 종목을 등록하면 여기에 총 자산과 손익이 표시됩니다 — <a href="/assets" style={{ color: TK.indigo400, textDecoration: 'none', fontWeight: 700 }}>자산 관리에서 추가 →</a></>}
+          />
+        )
+        const hasPrice  = pricedInvs.length > 0
+        const unpriced  = investments.length - pricedInvs.length
+        const pnlAll    = realizedKrw != null ? totalPnL + realizedKrw : totalPnL
+        const pctShown  = totalReturnAll ?? totalRet
+        const col       = (pctShown ?? 0) >= 0 ? TK.red400 : TK.blue400   // 내 손익은 한국식(빨강=플러스)
+        return (
+          <Verdict
+            eyebrow="📊 내 포트폴리오"
+            headline={
+              hasPrice ? (
+                <>
+                  총 {fmtKrw(totalCurrKrw)}
+                  <span style={{ color: TK.sub3 }}> · {realizedKrw != null ? '총 손익' : '평가 손익'} </span>
+                  <span style={{ color: col, fontVariantNumeric: 'tabular-nums' }}>
+                    {/* ⚠️ 부호는 한 글자로 통일 — toFixed() 하이픈(-)과 마이너스기호(−)가 한 줄에 섞이지 않게 */}
+                    {pnlAll >= 0 ? '+' : '−'}{fmtKrw(Math.abs(pnlAll))}
+                    {pctShown != null && <> ({pctShown > 0 ? '+' : pctShown < 0 ? '−' : ''}{Math.abs(pctShown).toFixed(1)}%)</>}
+                  </span>
+                </>
+              ) : (
+                // 시세가 하나도 없으면 평가 손익을 그리지 않는다 — 0 을 보여주면 '본전'이라는 거짓말이 된다.
+                // 실현 손익은 시세와 무관하게 확정된 값이라 sub 에서 따로 밝힌다.
+                <>총 {fmtKrw(totalCostKrw)} <span style={{ color: TK.sub3 }}>· 평가 손익 집계 전</span></>
+              )
+            }
+            sub={
+              hasPrice ? (
+                <>
+                  {realizedKrw != null
+                    ? <>이미 판 종목의 <b style={{ color: TK.slate300 }}>실현 손익까지 합친</b> 성적입니다(매도 {realizedCount}건) · 평가만 보면 {(totalRet ?? 0) > 0 ? '+' : (totalRet ?? 0) < 0 ? '−' : ''}{Math.abs(totalRet ?? 0).toFixed(1)}%</>
+                    : <>지금 보유분의 평가 기준입니다.</>}
+                  {unpriced > 0 && <> · ⚠️ {unpriced}종은 현재가를 못 불러와 <b style={{ color: TK.amber400 }}>합계에서 빠져 있습니다</b>.</>}
+                </>
+              ) : (
+                <>
+                  <b style={{ color: TK.amber400 }}>현재가를 아직 못 불러왔습니다</b> — 총액은 매수가 기준이고, 평가 손익은 시세가 들어오면 표시됩니다.
+                  {realizedKrw != null && <> 이미 확정된 <b style={{ color: TK.slate300 }}>실현 손익 {realizedKrw >= 0 ? '+' : '−'}{fmtKrw(Math.abs(realizedKrw))}</b>(매도 {realizedCount}건)은 시세와 무관합니다.</>}
+                </>
+              )
+            }
+          />
+        )
+      })()}
 
       {/* 🔥 오늘 시장의 눈 — 마켓 카탈리스트(메가 뉴스 + 수급 블랙홀). 데이터 없으면 자동 숨김 */}
       <ErrorBoundary label="마켓 카탈리스트">

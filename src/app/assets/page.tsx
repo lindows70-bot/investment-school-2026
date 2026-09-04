@@ -19,6 +19,7 @@ import FirmHandsCard from '@/app/components/FirmHandsCard'
 import FxAttributionCard from '@/app/components/FxAttributionCard'
 import StockActionChips from '@/app/components/StockActionChips'   // 🔗 종목 액션 SSOT(보유 → 근거·차트)
 import { type Candle } from '@/app/components/CandleChart'
+import { Verdict } from '@/app/components/ui/Screen'   // 🎯 화면의 답(페이지당 하나) — 공용 프리미티브
 import { TK } from '@/lib/theme'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -443,6 +444,28 @@ export default function AssetsPage() {
     : n >= 1e4 ? `₩${Math.round(n/1e4).toLocaleString('ko-KR')}만`
     : `₩${Math.round(n).toLocaleString('ko-KR')}`
 
+  // ── 🎯 이 화면의 답: "내 자산은 지금 총 얼마이고, 얼마를 벌었거나 잃었나" ──────────────
+  //    구 요약 스트립은 **개수와 원금만** 보여줬다(보유 20개 · 총 투자금액 ₩3,302만 · 수익 8개 · 손실 12개).
+  //    'CLAUDE.md 반복 함정: 개수는 크기를 담지 못한다' 가 정작 가장 자주 여는 화면에 그대로 있었다.
+  //    ⚠️ 신규 계산 아님 — 위 evalKrw()·toKrwTotal() 을 그대로 합산한다(섹션 배지와 같은 잣대).
+  const totalEvalKrw = investments.reduce((s, i) => s + evalKrw(i), 0)
+  const totalPnlKrw  = totalEvalKrw - totalCostKrw
+  const totalPnlPct  = totalCostKrw > 0 ? (totalPnlKrw / totalCostKrw) * 100 : null
+  // ⚠️ evalKrw 는 현재가가 없으면 **매입가로 폴백**한다 → 그 종목은 손익 0 으로 잡힌다.
+  //    시세가 하나도 안 왔을 때 이 값을 그대로 쓰면 헤드라인이 **"평가손익 ₩0 (0.0%)"** 라고
+  //    단언한다(2026-09-04 화면검증에서 실제로 나왔다). 학생은 "본전이구나"로 읽는다 —
+  //    '없음'과 '못 불러옴'을 같은 문구로 쓰지 마라는 이 앱의 반복 함정 그대로다.
+  //    priceStatus 는 이미 idle/loading/done/error 4상태로 있었다('있는데 안 쓴 데이터').
+  //    → 시세를 못 믿을 땐 **손익 숫자를 아예 그리지 않는다.** 배지로 상쇄하려 들지 않는다.
+  const unpricedCount = investments.filter(i => !getLive(i)).length
+  const pricedCount   = investments.length - unpricedCount
+  const pnlTrustable  = priceStatus === 'done' && pricedCount > 0
+  const pnlBlockedWhy =
+    priceStatus === 'loading' || priceStatus === 'idle' ? '시세를 불러오는 중입니다'
+    : priceStatus === 'error'                           ? '시세를 불러오지 못했습니다'
+    : pricedCount === 0                                 ? '시세가 들어온 종목이 없습니다'
+    : null
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const sortLabel: Record<SortOption, string> = {
     eval:   '평가금액 ↓',
@@ -454,22 +477,42 @@ export default function AssetsPage() {
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}input::placeholder{color:${TK.sub6}}select option{background:${TK.gray800}}`}</style>
 
-      {/* 요약 스트립 */}
-      {!dbLoading && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))', gap:10 }}>
-          {[
-            { label:'보유 종목',   value:`${investments.length}개`,                                                                                               accent:TK.slate100 },
-            { label:'총 투자금액', value:fmtKrwVal(totalCostKrw), sub:hasUsd?'USD 환산 포함':undefined,                                                           accent:TK.sub9 },
-            { label:'수익 종목',   value:`${investments.filter(i=>getLive(i)&&getLive(i)!.currentPrice>i.purchase_price).length}개`,                               accent:TK.red500 },
-            { label:'손실 종목',   value:`${investments.filter(i=>getLive(i)&&getLive(i)!.currentPrice<i.purchase_price).length}개`,                               accent:TK.blue500 },
-          ].map(({label,value,sub,accent})=>(
-            <div key={label} style={{ background:N, boxShadow:SHO, borderRadius:10, padding:'12px 14px' }}>
-              <div style={{ fontSize:9, fontWeight:600, color:TK.sub7, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>{label}</div>
-              <div style={{ fontSize:18, fontWeight:800, color:accent, fontVariantNumeric:'tabular-nums' }}>{value}</div>
-              {sub&&<div style={{ fontSize:9, color:TK.sub6, marginTop:2 }}>{sub}</div>}
-            </div>
-          ))}
-        </div>
+      {/* 🎯 이 화면의 답 — 총 평가금액과 총 손익. 구 스트립(개수·원금)은 chips 로 내렸다. */}
+      {!dbLoading && investments.length > 0 && (
+        <Verdict
+          eyebrow="💼 내 자산"
+          headline={
+            pnlTrustable ? (
+              <>
+                총 {fmtEval(totalEvalKrw)}
+                <span style={{ color: TK.sub3 }}> · 평가손익 </span>
+                {/* 등락·내 손익은 한국식 — 빨강=플러스, 파랑=마이너스 */}
+                <span style={{ color: totalPnlKrw > 0 ? TK.red500 : totalPnlKrw < 0 ? TK.blue500 : TK.slate200, fontVariantNumeric: 'tabular-nums' }}>
+                  {/* ⚠️ 부호는 한 글자로 통일 — toFixed() 는 하이픈(-)을 내고 금액은 마이너스기호(−)라
+                      한 줄 안에서 '−₩283만 (-8.6%)' 처럼 두 종류가 섞였다(2026-09-04 화면검증). */}
+                  {totalPnlKrw > 0 ? '+' : totalPnlKrw < 0 ? '−' : ''}{fmtEval(Math.abs(totalPnlKrw))}
+                  {totalPnlPct != null && <> ({totalPnlPct > 0 ? '+' : totalPnlPct < 0 ? '−' : ''}{Math.abs(totalPnlPct).toFixed(1)}%)</>}
+                </span>
+              </>
+            ) : (
+              // 손익을 못 믿을 땐 **숫자를 그리지 않는다** — 0 을 보여주면 '본전'이라는 거짓말이 된다
+              <>원금 {fmtEval(totalCostKrw)} · <span style={{ color: TK.sub3 }}>손익 집계 전</span></>
+            )
+          }
+          sub={
+            pnlTrustable
+              ? <>원금 {fmtEval(totalCostKrw)}{hasUsd ? ' · USD는 현재 환율로 환산' : ''} · <b style={{ color: TK.slate300 }}>지금 보유분만</b>입니다 — 이미 판 종목의 실현 손익은 <a href="/history" style={{ color: TK.indigo400, textDecoration: 'none', fontWeight: 700 }}>투자 기록 →</a></>
+              : <><b style={{ color: TK.amber400 }}>{pnlBlockedWhy}</b> — 현재가가 없으면 손익을 계산할 수 없어 <b style={{ color: TK.slate300 }}>매입가(원금)만</b> 보여드립니다{priceStatus === 'error' ? <> · 위 🔄 버튼으로 다시 시도해 보세요</> : null}</>
+          }
+          chips={[
+            { label: '보유', value: `${investments.length}개`, color: TK.slate100 },
+            { label: '수익', value: `${investments.filter(i=>getLive(i)&&getLive(i)!.currentPrice>i.purchase_price).length}개`, color: TK.red500 },
+            { label: '손실', value: `${investments.filter(i=>getLive(i)&&getLive(i)!.currentPrice<i.purchase_price).length}개`, color: TK.blue500 },
+          ]}
+          footer={pnlTrustable && unpricedCount > 0
+            ? <>⚠️ {unpricedCount}종은 현재가를 불러오지 못해 <b style={{ color: TK.amber400 }}>매입가로 계산</b>했습니다 — 그만큼 손익이 실제보다 작게 보입니다.</>
+            : undefined}
+        />
       )}
 
       {/* 🤲 단단한 손 점검 — 코스톨라니 3조건(돈·생각·인내)을 한자리에. 현금 카드 바로 위(돈 축의 상세가 아래에 이어짐) */}

@@ -52,12 +52,21 @@ const addedByFile = new Map()
 /** 토큰을 못 쓰는 정당한 사유가 있으면 그 줄에 `토큰예외: 이유` 를 적는다(침묵 우회 대신 이유를 남기게). */
 const EXEMPT = /토큰예외:/
 
+//  💬 주석 줄은 검사 대상이 아니다 — 이 프로젝트는 주석에 **실측 근거**를 적는 문화라
+//     "구 카드 배경이 '#12151f' 였다" 같은 서술이 스타일 값으로 오탐된다(2026-09-04 실제 차단).
+//     주석에 적힌 hex 는 화면을 칠하지 않는다. 단 코드 **뒤에 붙은** 주석은 앞부분이 코드이므로
+//     여전히 걸린다(줄 **시작**이 주석일 때만 제외한다).
+const isCommentLine = (l) => {
+  const t = l.trim()
+  return t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')
+}
+
 let blocked = false
 const warn = (t) => console.log(`${C.y}⚠️  ${t}${C.x}`)
 
 // ── ① 제1-b: 색상 하드코딩(theme.ts 자신은 예외 — 토큰 정의처) ─────────────
 if (!stagedFiles.every(f => f.endsWith('src/lib/theme.ts'))) {
-  const hex = added.filter(l => /#[0-9a-fA-F]{6}\b/.test(l) && !/theme\.ts/.test(l))
+  const hex = added.filter(l => !isCommentLine(l) && /#[0-9a-fA-F]{6}\b/.test(l) && !/theme\.ts/.test(l))
   const inTheme = stagedFiles.length === 1 && stagedFiles[0].endsWith('src/lib/theme.ts')
   if (hex.length && !inTheme) {
     warn(`색상 하드코딩 ${hex.length}줄 추가됨 (제1-b: TK 토큰 사용)`)
@@ -67,7 +76,7 @@ if (!stagedFiles.every(f => f.endsWith('src/lib/theme.ts'))) {
 }
 
 // ── ② 제1-b: 글자 크기 리터럴(FS 스케일 사용) ──────────────────────────────
-const fs = added.filter(l => /fontSize:\s*[0-9]/.test(l))
+const fs = added.filter(l => !isCommentLine(l) && /fontSize:\s*[0-9]/.test(l))
 if (fs.length) {
   warn(`fontSize 리터럴 ${fs.length}줄 추가됨 (제1-b: FS 스케일 사용)`)
   fs.slice(0, 3).forEach(l => console.log(`${C.d}      ${l.trim().slice(0, 100)}${C.x}`))
@@ -80,7 +89,7 @@ if (fs.length) {
 const newViolations = []
 for (const f of newFiles) {
   for (const l of (addedByFile.get(f) ?? [])) {
-    if (EXEMPT.test(l)) continue
+    if (EXEMPT.test(l) || isCommentLine(l)) continue
     if (/#[0-9a-fA-F]{6}\b/.test(l)) newViolations.push({ f, l, why: '색상 하드코딩 → TK' })
     else if (/fontSize:\s*[0-9]/.test(l)) newViolations.push({ f, l, why: 'fontSize 리터럴 → FS' })
   }

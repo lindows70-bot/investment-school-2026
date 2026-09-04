@@ -6,6 +6,7 @@
 //    30일 후 상승 확률 0%(0/23)·평균 −16.6%였다. 국면을 신호 탓으로 돌리지 않으려면 기준선을 같이 보여야 한다.
 import { useEffect, useState } from 'react'
 import type { SignalReportResult, GroupStat, SigEvent } from '@/app/api/signal-report/route'
+import { Verdict } from '@/app/components/ui/Screen'   // 🎯 화면의 답(페이지당 하나) — 공용 프리미티브
 import { TK, FS } from '@/lib/theme'
 import { flagOf } from '@/lib/marketFlag'
 
@@ -192,29 +193,49 @@ export default function SignalReportPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
-      <div>
-        <div style={{ fontSize: 18, fontWeight: 900, color: TK.slate100 }}>📋 앱 신호 성적표</div>
-        <div style={{ fontSize: 12, color: TK.sub4, marginTop: 4, lineHeight: 1.6 }}>
-          이 앱이 낸 신호를 실제 주가로 <b style={{ color: TK.slate200 }}>스스로 채점</b>합니다 — 답하는 질문은 하나,
-          <b style={{ color: TK.slate200 }}> &ldquo;앱 말을 믿어도 되나&rdquo;</b>.
-          {data && <span style={{ color: TK.sub2 }}> · {data.jarvisSince}~ · {data.tickers}종목</span>}
-        </div>
-      </div>
-
-      {err && <div style={{ ...CARD, color: TK.sub4, fontSize: 12.5 }}>성적표를 불러오지 못했습니다 — 새로고침해 주세요.</div>}
-      {!data && !err && <div style={{ ...CARD, color: TK.sub4, fontSize: 12.5 }}>📋 신호 이력을 채점하는 중… (첫 로드는 수십 초 걸릴 수 있어요)</div>}
+      {err && <div style={{ ...CARD, color: TK.sub4, fontSize: FS.tiny }}>성적표를 불러오지 못했습니다 — 새로고침해 주세요.</div>}
+      {!data && !err && <div style={{ ...CARD, color: TK.sub4, fontSize: FS.tiny }}>📋 신호 이력을 채점하는 중… (첫 로드는 수십 초 걸릴 수 있어요)</div>}
 
       {data && (
         <>
-          {/* 🏆 결론 — 궁극의 기준 하나 */}
-          <div style={{ background: `${TK.amber400}12`, border: `1.5px solid ${TK.amber400}66`, borderRadius: 14, padding: '14px 18px' }}>
-            <div style={{ fontSize: 15, fontWeight: 900, color: TK.amber400 }}>🏆 궁극의 기준은 하나 — ⭐ 이중 확인</div>
-            <div style={{ fontSize: 12.5, color: TK.sub11, marginTop: 6, lineHeight: 1.7 }}>
-              <b style={{ color: TK.slate200 }}>가치</b>(싸고 좋은 회사인가)와 <b style={{ color: TK.slate200 }}>타이밍</b>(지금 들어갈 자리인가) —
-              성격이 다른 두 엔진이 <b style={{ color: TK.amber400 }}>같은 방향으로 겹칠 때만</b> 움직이세요.
-              겹치는 순간만 잡히니 <b>드물게(귀하게)</b> 나옵니다.
-            </div>
-          </div>
+          {/* ── 🎯 이 화면의 답: "앱 말을 믿어도 되나" ───────────────────────────────────
+              구 배너는 가장 눈에 띄는 자리에서 **"⭐ 이중 확인 하나만 보세요"라고 처방**하고 있었는데,
+              바로 아래 표의 이중 확인 행은 시장 대비 매수 −0.2%p·매도 −1.4%p(2026-09-03 실측)였다 —
+              **화면이 스스로를 반박**했다. 헤드라인은 처방이 아니라 데이터가 낸 판정이어야 한다.
+              ⚠️ 문구는 edgeSpan()/winRange() 에서 파생한다(리터럴 금지) — 표와 같은 함수, 같은 잣대.
+              ⭐ '이중 확인' 원칙은 지우지 않았다. 다만 **이 표가 아니라 별도 백테스트가 근거**라는
+                 사실을 함께 적는다(2026-08-02 교훈: 원칙 주장과 데이터 주장은 다르다). */}
+          {(() => {
+            const good = (e: typeof buyEdge) => e?.allPlus === true
+            const bad  = (e: typeof buyEdge) => e?.allMinus === true
+            const line =
+              !buyEdge && !sellEdge  ? '아직 채점할 신호가 충분히 모이지 않았습니다'
+              : good(sellEdge) && !good(buyEdge) ? '매도 신호는 시장을 이겼고, 매수 신호는 아직 증명 전입니다'
+              : good(buyEdge) && good(sellEdge)  ? '매수·매도 신호 모두 시장을 이겼습니다'
+              : bad(buyEdge) && bad(sellEdge)    ? '지금 표본에선 매수·매도 모두 시장을 못 이겼습니다'
+              : good(buyEdge) && !good(sellEdge) ? '매수 신호는 시장을 이겼고, 매도 신호는 아직 증명 전입니다'
+              : '축마다 성적이 갈립니다 — 아래 표에서 축별로 보세요'
+            return (
+              <Verdict
+                eyebrow="📋 앱 신호 성적표"
+                headline={line}
+                sub={
+                  <>
+                    이 앱이 낸 신호를 실제 주가로 <b style={{ color: TK.slate200 }}>스스로 채점</b>한 결과입니다
+                    {buyEdge && <> · 매수 <b style={{ color: TK.slate200 }}>시장 대비 {buyEdge.text}</b>({buyEdge.n}축)</>}
+                    {sellEdge && <> · 매도 <b style={{ color: TK.slate200 }}>시장 대비 {sellEdge.text}</b>({sellEdge.n}축)</>}
+                    <span style={{ color: TK.sub2 }}> · {data.jarvisSince}~ · {data.tickers}종목</span>
+                  </>
+                }
+                footer={
+                  <>
+                    ⭐ <b style={{ color: TK.amber400 }}>이중 확인</b>(가치와 타이밍이 같은 방향으로 겹칠 때만 움직이기)을 앱이 권하는 근거는
+                    <b style={{ color: TK.slate300 }}> 이 표가 아니라 별도 백테스트</b>입니다 — 여기 이중 확인 행은 아직 표본이 얇습니다.
+                  </>
+                }
+              />
+            )
+          })()}
 
           {/* 📊 표 1개 + 종목 칩 */}
           <div style={{ ...CARD, padding: '14px 16px' }}>
