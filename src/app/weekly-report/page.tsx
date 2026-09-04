@@ -4,7 +4,7 @@
 //   🖨️ PDF 저장=라이트 인쇄 문서(새 창 window.print). 상승 초록·하락 빨강(앱 규칙 통일). 서사는 Gemini(실측 숫자만 주입)·실패 시 결정론 폴백.
 import { useEffect, useState } from 'react'
 import type { WeeklyReportResult, WrHolding, WrIndex } from '@/app/api/weekly-report/route'
-import { Verdict } from '@/app/components/ui/Screen'   // 🎯 화면의 답(페이지당 하나) — 공용 프리미티브
+import { Verdict, Section } from '@/app/components/ui/Screen'   // 🎯 화면의 답 · 섹션 — 공용 프리미티브
 import { TK, FS } from '@/lib/theme'
 
 const CARD = TK.bg6, BORDER = TK.border
@@ -117,18 +117,6 @@ function MiniBars({ rows, fmt = (v: number | null) => pct(v), labelW = 62 }: { r
 function relNote(len: number | undefined) {
   if (!len || len < 2) return undefined
   return <span style={{ fontSize: FS.micro, color: TK.sub }}>최근 {len}거래일 상대추이(시작=100)</span>
-}
-function Sec({ no, title, right, children }: { no: string; title: string; right?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <span style={{ fontSize: FS.tiny, fontWeight: 900, color: TK.amber500, background: `${TK.amber500}18`, border: `1px solid ${TK.amber500}44`, borderRadius: 6, padding: '1px 7px' }}>{no}</span>
-        <span style={{ fontSize: FS.lg, fontWeight: 800, color: TK.slate200 }}>{title}</span>
-        {right && <span style={{ marginLeft: 'auto' }}>{right}</span>}
-      </div>
-      {children}
-    </div>
-  )
 }
 
 // ── 🖨️ 인쇄용 라이트 문서(매거진형 미러) ─────────────────────────────────────
@@ -405,7 +393,7 @@ export default function WeeklyReportPage() {
 
       {/* ✦ 핵심 요약 */}
       {ai && ai.bullets.length > 0 && (
-        <Sec no="✦" title="이번 주 핵심 요약">
+        <Section no="✦" title="이번 주 핵심 요약">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {ai.bullets.map((b, i) => (
               <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: FS.body, color: TK.slate300, lineHeight: 1.6 }}>
@@ -414,11 +402,11 @@ export default function WeeklyReportPage() {
               </div>
             ))}
           </div>
-        </Sec>
+        </Section>
       )}
 
       {/* ① 한국 증시 + 수급 */}
-      <Sec no="①" title="한국 증시 — 코스피·코스닥" right={relNote(ix('kospi')?.spark?.length)}>
+      <Section no="①" title="한국 증시 — 코스피·코스닥" right={relNote(ix('kospi')?.spark?.length)}>
         <div className="m-1col" style={{ display: 'grid', gridTemplateColumns: 'minmax(280px,3fr) minmax(220px,2fr)', gap: 14 }}>
           <RelChart series={[{ name: '코스피', color: TK.blue400, data: ix('kospi')?.spark ?? [] }, { name: '코스닥', color: '#eb6834', data: ix('kosdaq')?.spark ?? [] }]} />
           <div>
@@ -465,10 +453,10 @@ export default function WeeklyReportPage() {
             </div>
           )}
         </div>
-      </Sec>
+      </Section>
 
       {/* ② 미국·글로벌 + 매크로 스냅샷 */}
-      <Sec no="②" title="미국·글로벌 — 매크로 스냅샷" right={relNote(ix('sp500')?.spark?.length)}>
+      <Section no="②" title="미국·글로벌 — 매크로 스냅샷" right={relNote(ix('sp500')?.spark?.length)}>
         <div className="m-1col" style={{ display: 'grid', gridTemplateColumns: 'minmax(280px,3fr) minmax(220px,2fr)', gap: 14 }}>
           <RelChart series={[{ name: 'S&P 500', color: TK.blue400, data: ix('sp500')?.spark ?? [] }, { name: '나스닥', color: '#1baf7a', data: ix('nasdaq')?.spark ?? [] }, { name: '다우', color: '#eda100', data: ix('dow')?.spark ?? [] }]} />
           <div>
@@ -512,11 +500,11 @@ export default function WeeklyReportPage() {
             </div>
           )}
         </div>
-      </Sec>
+      </Section>
 
       {/* ✦ 안전자산 — 금·은 상대추이(원본 3페이지 대응) */}
       {goldIx && silverIx && goldIx.spark.length >= 2 && (
-        <Sec no="✦" title="안전자산 — 금 · 은" right={relNote(goldIx.spark.length)}>
+        <Section no="✦" title="안전자산 — 금 · 은" right={relNote(goldIx.spark.length)}>
           <div className="m-1col" style={{ display: 'grid', gridTemplateColumns: 'minmax(280px,3fr) minmax(200px,2fr)', gap: 14 }}>
             <RelChart h={110} series={[{ name: '금', color: '#eda100', data: goldIx.spark }, { name: '은', color: TK.slate400, data: silverIx.spark }]} />
             <div style={{ fontSize: FS.tiny, color: TK.slate300, lineHeight: 1.65 }}>
@@ -525,11 +513,11 @@ export default function WeeklyReportPage() {
               <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 5 }}>은은 산업 수요가 겹쳐 금보다 탄력이 큰 편입니다. 주식 급락기에 포트폴리오 헤지 역할을 하는지 확인하는 축입니다.</div>
             </div>
           </div>
-        </Sec>
+        </Section>
       )}
 
       {/* ✦ 자산군 스코어보드 */}
-      <Sec no="✦" title="자산군 스코어보드 — 주간 한눈에">
+      <Section no="✦" title="자산군 스코어보드 — 주간 한눈에">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 7 }}>
           {([['📈 주식', ['kospi', 'sp500', 'nasdaq']], ['🥇 원자재', ['gold', 'silver', 'wti']], ['🪙 암호화폐', ['btc', 'eth', 'sol']]] as const).map(([g, keys]) => (
             <div key={g} style={{ background: TK.bg3, borderRadius: 9, border: `1px solid ${BORDER}`, padding: '8px 11px' }}>
@@ -558,10 +546,10 @@ export default function WeeklyReportPage() {
               </div>) : null })}
           </div>
         </div>
-      </Sec>
+      </Section>
 
       {/* ③ 암호화폐 */}
-      <Sec no="③" title="암호화폐 — BTC·ETH·XRP·SOL" right={relNote(ix('btc')?.spark?.length)}>
+      <Section no="③" title="암호화폐 — BTC·ETH·XRP·SOL" right={relNote(ix('btc')?.spark?.length)}>
         <div className="m-1col" style={{ display: 'grid', gridTemplateColumns: 'minmax(280px,3fr) minmax(200px,2fr)', gap: 14 }}>
           <RelChart series={[
             { name: 'BTC', color: '#eda100', data: ix('btc')?.spark ?? [] },
@@ -582,11 +570,11 @@ export default function WeeklyReportPage() {
             </tbody>
           </table>
         </div>
-      </Sec>
+      </Section>
 
       {/* ④ 부동산 */}
       {c.realestate && (
-        <Sec no="④" title="부동산 — 부동산원 주간 아파트 매매지수">
+        <Section no="④" title="부동산 — 부동산원 주간 아파트 매매지수">
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {c.realestate.map(r => (
               <div key={r.name} style={{ background: TK.bg3, borderRadius: 9, border: `1px solid ${BORDER}`, padding: '8px 14px' }}>
@@ -627,12 +615,12 @@ export default function WeeklyReportPage() {
             )}
           </div>
           <div style={{ fontSize: FS.micro, color: TK.sub8, marginTop: 6 }}>부동산원 주간 매매가격지수(주간 펄스 SSOT) + 전월세 전환율(월간). 자치구 단위 시세는 부동산 → 단지 리서치에서.</div>
-        </Sec>
+        </Section>
       )}
 
       {/* ⑤ 이슈 */}
       {((ai?.issue?.length ?? 0) > 0 || (c.catalyst?.items?.length ?? 0) > 0) && (
-        <Sec no="⑤" title="이슈 분석 — 이번 주 시장 구조">
+        <Section no="⑤" title="이슈 분석 — 이번 주 시장 구조">
           {c.catalyst?.mood && <div style={{ fontSize: FS.tiny, color: TK.sub2, marginBottom: 6 }}>{c.catalyst.mood}</div>}
           {ai && ai.issue?.length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 8, marginBottom: 9 }}>
@@ -651,12 +639,12 @@ export default function WeeklyReportPage() {
               </div>
             ))}
           </div>
-        </Sec>
+        </Section>
       )}
 
       {/* ⑥ 자산배분 실전 전략 */}
       {ai && ai.strategy.length > 0 && (
-        <Sec no="⑥" title="2026 투자학교 — 자산배분 실전 전략" right={<span style={{ fontSize: FS.micro, color: TK.sub }}>{ai.source === 'gemini' ? 'AI 요약(실측 수치만 주입)' : '규칙 기반'}</span>}>
+        <Section no="⑥" title="2026 투자학교 — 자산배분 실전 전략" right={<span style={{ fontSize: FS.micro, color: TK.sub }}>{ai.source === 'gemini' ? 'AI 요약(실측 수치만 주입)' : '규칙 기반'}</span>}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 7 }}>
             {ai.strategy.map((s, i) => (
               <div key={i} style={{ background: TK.bg3, borderRadius: 9, border: `1px solid ${BORDER}`, borderLeft: `4px solid ${TK.amber500}`, padding: '8px 12px' }}>
@@ -676,12 +664,12 @@ export default function WeeklyReportPage() {
             </div>
           </div>
           <div style={{ fontSize: FS.micro, color: TK.sub8, marginTop: 7 }}>※ 매수·매도 지시가 아닌 교육용 점검 프레임입니다. 실행 판단·책임은 본인에게 있습니다.</div>
-        </Sec>
+        </Section>
       )}
 
       {/* ⑦ 다음 주 체크포인트 */}
       {ai && ai.checkpoints.length > 0 && (
-        <Sec no="⑦" title="다음 주 체크포인트">
+        <Section no="⑦" title="다음 주 체크포인트">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {ai.checkpoints.map((x, i) => (
               <div key={i} style={{ display: 'flex', gap: 10, background: TK.bg3, borderRadius: 8, border: `1px solid ${BORDER}`, padding: '6px 11px', fontSize: FS.tiny }}>
@@ -690,11 +678,11 @@ export default function WeeklyReportPage() {
               </div>
             ))}
           </div>
-        </Sec>
+        </Section>
       )}
 
       {/* ⑧ 내 포트폴리오 */}
-      <Sec no="⑧" title={`내 포트폴리오 — ${m.name} 님`}>
+      <Section no="⑧" title={`내 포트폴리오 — ${m.name} 님`}>
         {!m.hasPortfolio ? (
           <div style={{ fontSize: FS.body, color: TK.sub2, padding: '14px 4px', lineHeight: 1.7 }}>
             아직 등록된 포트폴리오가 없습니다. <b style={{ color: TK.slate300 }}>자산 관리</b>에서 보유 종목을 등록하면 다음 리포트부터 개인 분석(종목 진단·섹터 기여·리스크 점검)이 시작됩니다.
@@ -748,12 +736,12 @@ export default function WeeklyReportPage() {
             </div>
           </>
         )}
-      </Sec>
+      </Section>
 
       {m.hasPortfolio && (
         <>
           {/* ⑨ 섹터 기여 */}
-          <Sec no="⑨" title="이번 주 시장이 내 계좌에 미친 영향 — 섹터 기여">
+          <Section no="⑨" title="이번 주 시장이 내 계좌에 미친 영향 — 섹터 기여">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               {m.sectorImpact.map(s => (
                 <div key={s.sector} style={{ display: 'flex', alignItems: 'center', gap: 9, background: TK.bg3, borderRadius: 8, border: `1px solid ${BORDER}`, padding: '6px 11px', fontSize: FS.tiny }}>
@@ -765,10 +753,10 @@ export default function WeeklyReportPage() {
               ))}
             </div>
             <div style={{ fontSize: FS.micro, color: TK.sub8, marginTop: 6 }}>기여도 = 비중 × 주간 등락. 위 ①·② 시장 등락이 내 계좌의 어느 섹터를 통해 얼마나 들어왔는지 보여줍니다.</div>
-          </Sec>
+          </Section>
 
           {/* ⑩ 리스크 점검 */}
-          <Sec no="⑩" title="리스크 점검 — 포트폴리오 구조 진단">
+          <Section no="⑩" title="리스크 점검 — 포트폴리오 구조 진단">
             {m.krExtreme && (
               <div style={{ marginBottom: 8, background: '#2a1010', border: `1px solid ${TK.red400}55`, borderRadius: 8, padding: '8px 12px', fontSize: FS.tiny, color: '#fca5a5', lineHeight: 1.55 }}>
                 🌪️ <b>코스피 극단 변동 국면 + 한국 종목 보유</b> — 이번 주 신규 진입은 계산 수량의 절반 이하·분할을 권장합니다.
@@ -790,10 +778,10 @@ export default function WeeklyReportPage() {
               })}
             </div>
             <div style={{ fontSize: FS.micro, color: TK.sub8, marginTop: 6 }}>※ 규칙 기반 자동 진단 — 매매 권유가 아니라 비중·분산·구조를 스스로 점검하는 교육용 지표입니다.</div>
-          </Sec>
+          </Section>
 
           {/* ⑪ 캘린더 */}
-          <Sec no="⑪" title="다음 2주 내 캘린더 — 어닝·배당">
+          <Section no="⑪" title="다음 2주 내 캘린더 — 어닝·배당">
             {m.calendar && m.calendar.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                 {m.calendar.map((e, i) => (
@@ -808,7 +796,7 @@ export default function WeeklyReportPage() {
             ) : (
               <div style={{ fontSize: FS.tiny, color: TK.sub2 }}>{m.calendarNote ?? '다음 2주 내 예정된 이벤트가 없습니다.'}</div>
             )}
-          </Sec>
+          </Section>
         </>
       )}
 

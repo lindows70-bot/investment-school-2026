@@ -99,14 +99,19 @@ export function Verdict({ eyebrow, headline, sub, chips, footer }: {
   )
 }
 
-/** 📄 섹션 카드 — 번호·제목·부제·상세 링크가 한 규격. */
-export function Section({ id, no, title, sub, link, linkLabel, children }: {
+/**
+ * 📄 섹션 카드 — 번호·제목·부제·우측 슬롯이 한 규격.
+ * 우측은 두 가지로 쓴다 — `link`(상세로 가는 링크, 최다 패턴) 또는 `right`(자유 노드).
+ * `right` 는 주간 리포트가 헤더 우측에 기준일·범례를 넣으려고 쓰던 모양을 흡수한 것이다.
+ */
+export function Section({ id, no, title, sub, link, linkLabel, right, children }: {
   id?: string
   no?: string
   title: string
   sub?: string
   link?: string
   linkLabel?: string
+  right?: ReactNode
   children: ReactNode
 }) {
   return (
@@ -129,6 +134,7 @@ export function Section({ id, no, title, sub, link, linkLabel, children }: {
             color: TK.indigo400, textDecoration: 'none',
           }}>{linkLabel ?? '상세 보기'} →</a>
         )}
+        {!link && right && <span style={{ marginLeft: 'auto' }}>{right}</span>}
       </div>
       {children}
     </div>

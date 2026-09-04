@@ -12,6 +12,7 @@ import type { WatchSig } from '@/app/api/cron/timing-watch/route'
 import { type WLApi, splitGroups, factorStats, buildLesson, WL_PERIOD_LABEL } from '@/lib/winLose'
 import { cashBandOf } from '@/lib/cashPosition'
 import { LYNCH_CATEGORY_KR } from '@/lib/lynchAnalysis'
+import { Section, Note } from '@/app/components/ui/Screen'   // 🧱 섹션·각주 — 공용 프리미티브(로컬 Sec 중복 제거)
 import { TK, FS } from '@/lib/theme'
 import { flagOf } from '@/lib/marketFlag'
 import StockActionChips from '@/app/components/StockActionChips'   // 🔗 종목 액션 SSOT
@@ -20,7 +21,8 @@ import SwingStopAlertBanner from '@/app/components/SwingStopAlertBanner'   // �
 import DayMoverAlertBanner from '@/app/components/DayMoverAlertBanner'   // 🚀 비트코인·보유 종목 당일 ±5% 급등락
 import YieldCurveAlertBanner from '@/app/components/YieldCurveAlertBanner'   // 🔴 장단기 금리 역전(지속 역전에서만 렌더)
 
-const CARD = '#12151f', BORDER = TK.border
+// CARD 는 공용 Section 이 TK.card 로 대신하므로 제거했다(내 변경이 만든 고아 — 남기면 죽은 코드다)
+const BORDER = TK.border
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // ⚠️ 401(비로그인)을 일반 실패와 같은 null로 뭉개면 '로드 실패'라는 거짓 문구가 나간다
@@ -40,17 +42,6 @@ function useFetch<T>(url: string): { d: T | null; loading: boolean; unauth: bool
   return { d, loading, unauth }
 }
 
-const Sec = ({ id, no, title, sub, link, linkLabel, children }: { id?: string; no: string; title: string; sub: string; link?: string; linkLabel?: string; children: React.ReactNode }) => (
-  <div id={id} style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px', scrollMarginTop: 16 }}>
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
-      <span style={{ fontSize: FS.tiny, fontWeight: 900, color: '#7c8db0', background: '#1b2130', borderRadius: 6, padding: '2px 8px' }}>{no}</span>
-      <span style={{ fontSize: FS.lg, fontWeight: 800, color: TK.slate100 }}>{title}</span>
-      <span style={{ fontSize: FS.tiny, color: TK.sub2 }}>{sub}</span>
-      {link && <a href={link} style={{ marginLeft: 'auto', fontSize: FS.tiny, fontWeight: 700, color: TK.indigo400, textDecoration: 'none' }}>{linkLabel ?? '상세 보기'} →</a>}
-    </div>
-    {children}
-  </div>
-)
 const Skel = ({ h = 60 }: { h?: number }) => <div style={{ height: h, background: '#171b26', borderRadius: 8, animation: 'pulse 1.5s infinite' }} />
 
 
@@ -188,7 +179,7 @@ export default function BriefingPage() {
       )}
 
       {/* ① 오늘 신호 */}
-      <Sec id="sec-1" no="①" title="오늘 신호" sub="어제 대비 매수/매도 타점 전환(신호등·라쉬케·스퀴즈·매물평단) — 내 보유 종목만">
+      <Section id="sec-1" no="①" title="오늘 신호" sub="어제 대비 매수/매도 타점 전환(신호등·라쉬케·스퀴즈·매물평단) — 내 보유 종목만">
         {watch.loading ? <Skel h={36} /> : watch.d?.sigs?.length ? (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {watch.d.sigs.map((s, i) => {
@@ -212,7 +203,7 @@ export default function BriefingPage() {
             })}
           </div>
         ) : <div style={{ fontSize: FS.tiny, color: TK.sub2 }}>오늘은 보유 종목의 타점 전환이 없습니다 — 조용한 날엔 아무것도 안 하는 것도 실력.</div>}
-      </Sec>
+      </Section>
 
       {/* 🚨 희석 경보(유상증자·CB) — 대시보드 live 탭에만 있어서, 사이드바 첫 항목인 브리핑만 보는 학생은
           자기 KR 보유 종목의 유상증자 공시를 영영 못 봤다(2026-08-08 조사). 경보는 학생이 있는 곳에 있어야 한다.
@@ -233,7 +224,7 @@ export default function BriefingPage() {
 
       {/* 📰 실적 발표 결과(최근 3일) — 보유 종목 발표가 없으면 렌더 0 */}
       {earnRows.length > 0 && (
-        <Sec no="①¾" title="📰 실적 발표 결과" sub="내 보유 종목 최근 3일 발표 — 컨센서스 대비 + 발표 후 주가">
+        <Section no="①¾" title="📰 실적 발표 결과" sub="내 보유 종목 최근 3일 발표 — 컨센서스 대비 + 발표 후 주가">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             {earnRows.map(r => (
               <div key={`${r.ticker}:${r.market}`} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: '#171b26', borderRadius: 8, padding: '8px 12px', borderLeft: `3px solid ${r.beat === true ? TK.green400 : r.beat === false ? TK.red400 : TK.sub3}` }}>
@@ -245,11 +236,11 @@ export default function BriefingPage() {
             ))}
           </div>
           <div style={{ fontSize: FS.tiny, color: TK.sub3, marginTop: 6 }}>서프라이즈는 EPS 컨센서스 대비(가이던스·실적의 질은 어닝콜 분석에서) · 발표 당일은 주가 반응 집계 전일 수 있음</div>
-        </Sec>
+        </Section>
       )}
 
       {/* ② 정리할 것 */}
-      <Sec id="sec-2" no="②" title="정리할 것" sub="AI 리밸런싱의 버릴/줄일 상위" link="/dashboard?tab=rebalance" linkLabel="AI 리밸런싱 상세">
+      <Section id="sec-2" no="②" title="정리할 것" sub="AI 리밸런싱의 버릴/줄일 상위" link="/dashboard?tab=rebalance" linkLabel="AI 리밸런싱 상세">
         {reb.loading ? <Skel h={80} /> : sells.length ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {sells.map((s: any, i: number) => (
@@ -315,10 +306,10 @@ export default function BriefingPage() {
             🚪 정리 판단의 근거 3축 — 비중(리밸런싱)·타이밍(출구신호)·기업(버핏 점검)을 함께 보세요. 참고선·3축 상세는 <a href="/assets" style={{ color: TK.indigo400, textDecoration: 'none' }}>자산 관리 → 출구 플랜</a>
           </div>
         )}
-      </Sec>
+      </Section>
 
       {/* ③ 담을 것 */}
-      <Sec id="sec-3" no="③" title="담을 것" sub="통합추천 Top 5 — 6축 점수 + 🚦타점 + 📋플랜" link="/dashboard?tab=moneyflow&view=unified" linkLabel={`통합추천 전체(${reco.d?.items?.length ?? 0}종)`}>
+      <Section id="sec-3" no="③" title="담을 것" sub="통합추천 Top 5 — 6축 점수 + 🚦타점 + 📋플랜" link="/dashboard?tab=moneyflow&view=unified" linkLabel={`통합추천 전체(${reco.d?.items?.length ?? 0}종)`}>
         {reco.loading ? <Skel h={160} /> : buys.length ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {buys.map(it => (
@@ -351,10 +342,10 @@ export default function BriefingPage() {
             )}
           </div>
         ) : <div style={{ fontSize: FS.tiny, color: TK.sub2 }}>{reco.unauth ? '권장 편입액이 내 포트폴리오 기준이라 로그인하면 보입니다.' : '추천 데이터 로드 실패 — 통합추천 탭에서 확인해주세요.'}</div>}
-      </Sec>
+      </Section>
 
       {/* ④ 판 읽기 */}
-      <Sec no="④" title="판 읽기" sub="섹터 자금 순환 — 돈이 어디서 나와 어디로 가나" link="/dashboard?tab=rotation" linkLabel="로테이션 시계 상세">
+      <Section no="④" title="판 읽기" sub="섹터 자금 순환 — 돈이 어디서 나와 어디로 가나" link="/dashboard?tab=rotation" linkLabel="로테이션 시계 상세">
         {rot.loading ? <Skel h={70} /> : rot.d ? (
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 200px' }}>
@@ -378,10 +369,10 @@ export default function BriefingPage() {
             )}
           </div>
         ) : <div style={{ fontSize: FS.tiny, color: TK.sub2 }}>{rot.unauth ? '로그인하면 보입니다.' : '로테이션 데이터 로드 실패.'}</div>}
-      </Sec>
+      </Section>
 
       {/* ④½ ⚔️ 승패 해부 — 지금 장에서 뭐가 통하나(시장의 채점 기준) */}
-      <Sec no="⚔️" title="승패 해부" sub="지금 장에서 오르는 종목 vs 떨어지는 종목 — 무엇이 갈랐나" link="/win-lose" linkLabel="해부실 상세">
+      <Section no="⚔️" title="승패 해부" sub="지금 장에서 오르는 종목 vs 떨어지는 종목 — 무엇이 갈랐나" link="/win-lose" linkLabel="해부실 상세">
         {wl.loading ? <Skel h={48} /> : wl.d?.rows?.length ? (() => {
           const { win, lose } = splitGroups(wl.d.rows, '1m')
           if (win.length < 3 || lose.length < 3) return <div style={{ fontSize: FS.tiny, color: TK.sub2 }}>표본 부족 — 해부실에서 기간을 바꿔 보세요.</div>
@@ -401,10 +392,10 @@ export default function BriefingPage() {
             </div>
           )
         })() : <div style={{ fontSize: FS.tiny, color: TK.sub2 }}>승패 데이터 준비 중(매일 08:50 자동 계산).</div>}
-      </Sec>
+      </Section>
 
       {/* ⑤ 오늘의 스탠스 */}
-      <Sec no="⑤" title="오늘의 스탠스" sub="얼마나 공격적으로 — 막스 온도 + 계절" link="/dashboard?tab=marks" linkLabel="막스 시계추 상세">
+      <Section no="⑤" title="오늘의 스탠스" sub="얼마나 공격적으로 — 막스 온도 + 계절" link="/dashboard?tab=marks" linkLabel="막스 시계추 상세">
         {marks.loading ? <Skel h={36} /> : (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: FS.tiny }}>
             {temp != null && (<>
@@ -433,11 +424,13 @@ export default function BriefingPage() {
             )}
           </div>
         )}
-      </Sec>
+      </Section>
 
-      <div style={{ fontSize: FS.tiny, color: TK.sub, lineHeight: 1.6, padding: '0 4px' }}>
-        ⚠️ 모든 수치는 각 상세 화면과 동일한 SSOT(제2원칙) — 이 페이지는 요약 뷰입니다. 교육용 시뮬레이션이며 투자 추천이 아닙니다. 자동 주문 없음.
-      </div>
+      {/* ⚠️ 'SSOT(제2원칙)'은 만든 사람 언어였다 — 학생 화면에 개발 용어를 남기지 않는다(2026-09-04) */}
+      <Note>
+        ⚠️ 여기 숫자는 각 상세 화면과 <b style={{ color: TK.slate300 }}>같은 값</b>입니다(이 페이지는 요약이라 계산을 따로 하지 않습니다).
+        교육용이며 투자 추천이 아닙니다 · 주문은 절대 나가지 않습니다.
+      </Note>
     </div>
   )
 }
