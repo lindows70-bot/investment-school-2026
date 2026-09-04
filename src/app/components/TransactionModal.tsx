@@ -28,7 +28,7 @@ import { classifyAsset } from '@/lib/classifyAsset'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { bustServerCache } from '@/lib/bustCache'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 
 type Market    = 'US' | 'KR' | 'CRYPTO'
 type LynchKey  = 'slow_grower' | 'stalwart' | 'fast_grower' | 'cyclical' | 'turnaround' | 'asset_play' | 'na'
@@ -73,14 +73,14 @@ const inputStyle: React.CSSProperties = {
   borderRadius: 9,
   padding: '10px 13px',
   color: TK.sub12,
-  fontSize: 14,
+  fontSize: FS.body,
   outline: 'none',
   width: '100%',
   boxSizing: 'border-box',
 }
 
 const labelStyle: React.CSSProperties = {
-  fontSize: 11,
+  fontSize: FS.tiny,
   fontWeight: 700,
   color: TK.sub4,
   textTransform: 'uppercase',
@@ -90,7 +90,7 @@ const labelStyle: React.CSSProperties = {
 }
 
 const hintStyle: React.CSSProperties = {
-  fontSize: 11,
+  fontSize: FS.tiny,
   color: TK.sub10,
   marginTop: 5,
   lineHeight: 1.5,
@@ -422,20 +422,20 @@ export default function TransactionModal({
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
             <div>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: TK.sub12 }}>
+              <h2 style={{ margin: 0, fontSize: FS.lg, fontWeight: 700, color: TK.sub12 }}>
                 {mode === 'buy' ? '추가매수 기록' : '추가매도 기록'}
               </h2>
-              <div style={{ fontSize: 12, color: TK.sub4, marginTop: 3 }}>{investment.name}</div>
+              <div style={{ fontSize: FS.tiny, color: TK.sub4, marginTop: 3 }}>{investment.name}</div>
             </div>
             <button
               onClick={onClose}
-              style={{ background: 'none', border: 'none', color: TK.sub4, fontSize: 22, cursor: 'pointer', lineHeight: 1, padding: '0 4px' }}
+              style={{ background: 'none', border: 'none', color: TK.sub4, fontSize: FS.xl, cursor: 'pointer', lineHeight: 1, padding: '0 4px' }}
               aria-label="닫기"
             >×</button>
           </div>
 
           {/* 현재 보유 정보 */}
-          <div style={{ background: TK.bg0, boxShadow: SHI, borderRadius: 10, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: TK.sub14 }}>
+          <div style={{ background: TK.bg0, boxShadow: SHI, borderRadius: 10, padding: '10px 14px', marginBottom: 20, fontSize: FS.body, color: TK.sub14 }}>
             보유{' '}
             <strong style={{ color: TK.sub12 }}>{investment.quantity.toLocaleString()}주</strong>
             &nbsp;|&nbsp;현재 평단{' '}
@@ -463,7 +463,7 @@ export default function TransactionModal({
                   onClick={() => { setMode(m); setError(null); setPriceInput('') }}
                   style={{
                     flex: 1, padding: '10px 0', borderRadius: 9, border: 'none',
-                    cursor: 'pointer', fontWeight: 700, fontSize: 14, transition: 'all 0.15s',
+                    cursor: 'pointer', fontWeight: 700, fontSize: FS.body, transition: 'all 0.15s',
                     ...(isActive
                       ? { background: N, boxShadow: SHO, color: activeColor, borderLeft: `3px solid ${activeColor}` }
                       : { background: TK.bg0, boxShadow: SHI, color: TK.sub4, borderLeft: '3px solid transparent' }
@@ -488,7 +488,7 @@ export default function TransactionModal({
                     거래 후 최종 평단가
                     <span style={{ color: TK.red500, marginLeft: 4 }}>*</span>
                   </label>
-                  <div style={{ fontSize: 11, color: '#6366f1', fontWeight: 600, marginBottom: 8 }}>
+                  <div style={{ fontSize: FS.tiny, color: '#6366f1', fontWeight: 600, marginBottom: 8 }}>
                     📱 증권사 앱에 업데이트된 최종 평단가를 입력하세요
                   </div>
                 </>
@@ -504,7 +504,7 @@ export default function TransactionModal({
 
               <div style={{ display: 'flex', gap: 8 }}>
                 <div style={{ flex: 1, position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: TK.sub4, fontSize: 13, pointerEvents: 'none' }}>
+                  <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: TK.sub4, fontSize: FS.body, pointerEvents: 'none' }}>
                     {currSym}
                   </span>
                   <input
@@ -523,7 +523,7 @@ export default function TransactionModal({
                   style={{
                     background: TK.bg0, boxShadow: priceLoading ? SHI : SHO,
                     border: 'none', borderRadius: 9, color: TK.sub14,
-                    fontSize: 12, fontWeight: 600, padding: '0 14px',
+                    fontSize: FS.tiny, fontWeight: 600, padding: '0 14px',
                     cursor: priceLoading ? 'wait' : 'pointer', whiteSpace: 'nowrap',
                   }}
                 >
@@ -557,7 +557,7 @@ export default function TransactionModal({
                     <button
                       type="button"
                       onClick={() => setQuantity(String(investment.quantity))}
-                      style={{ marginLeft: 'auto', background: qtyNum >= investment.quantity ? `linear-gradient(135deg,${TK.blue700},${TK.blue500})` : TK.bg0, boxShadow: qtyNum >= investment.quantity ? 'none' : SHO, border: 'none', borderRadius: 7, color: qtyNum >= investment.quantity ? '#fff' : TK.sub14, fontSize: 11, fontWeight: 700, padding: '4px 12px', cursor: 'pointer', textTransform: 'none', letterSpacing: 0 }}
+                      style={{ marginLeft: 'auto', background: qtyNum >= investment.quantity ? `linear-gradient(135deg,${TK.blue700},${TK.blue500})` : TK.bg0, boxShadow: qtyNum >= investment.quantity ? 'none' : SHO, border: 'none', borderRadius: 7, color: qtyNum >= investment.quantity ? '#fff' : TK.sub14, fontSize: FS.tiny, fontWeight: 700, padding: '4px 12px', cursor: 'pointer', textTransform: 'none', letterSpacing: 0 }}
                     >
                       전량매도
                     </button>
@@ -605,35 +605,35 @@ export default function TransactionModal({
               background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.3)',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
-                <span style={{ fontSize: 15 }}>📸</span>
-                <span style={{ fontSize: 13, fontWeight: 800, color: TK.indigo300 }}>
+                <span style={{ fontSize: FS.lg }}>📸</span>
+                <span style={{ fontSize: FS.body, fontWeight: 800, color: TK.indigo300 }}>
                   시스템 자동 기록 중 (블랙박스)
                 </span>
-                {snapLoading && <span style={{ fontSize: 10, color: '#6366f1' }}>수집 중…</span>}
+                {snapLoading && <span style={{ fontSize: FS.tiny, color: '#6366f1' }}>수집 중…</span>}
               </div>
-              <div style={{ fontSize: 11, color: TK.sub14, marginBottom: 12, lineHeight: 1.6 }}>
+              <div style={{ fontSize: FS.tiny, color: TK.sub14, marginBottom: 12, lineHeight: 1.6 }}>
                 학생님의 번거로움을 덜기 위해, 지금 이 순간의 핵심 지표가 복기 노트에 자동 보존됩니다.
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
                 {/* 분류 */}
                 <div style={{ background: TK.bg0, borderRadius: 8, padding: '9px 6px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 9, color: TK.sub4, marginBottom: 4 }}>린치 분류</div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: TK.sub12 }}>
+                  <div style={{ fontSize: FS.tiny, color: TK.sub4, marginBottom: 4 }}>린치 분류</div>
+                  <div style={{ fontSize: FS.tiny, fontWeight: 700, color: TK.sub12 }}>
                     {snapshot.category ? (LYNCH_KR[snapshot.category] ?? snapshot.category) : '미분류'}
                   </div>
                 </div>
                 {/* PEG */}
                 <div style={{ background: TK.bg0, borderRadius: 8, padding: '9px 6px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 9, color: TK.sub4, marginBottom: 4 }}>현재 PEG</div>
-                  <div style={{ fontSize: 12, fontWeight: 700,
+                  <div style={{ fontSize: FS.tiny, color: TK.sub4, marginBottom: 4 }}>현재 PEG</div>
+                  <div style={{ fontSize: FS.tiny, fontWeight: 700,
                     color: snapshot.peg == null ? TK.sub4 : snapshot.peg < 1 ? TK.emerald400 : TK.red400 }}>
                     {snapshot.peg != null ? snapshot.peg.toFixed(2) : 'N/A'}
                   </div>
                 </div>
                 {/* 성장률 G */}
                 <div style={{ background: TK.bg0, borderRadius: 8, padding: '9px 6px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 9, color: TK.sub4, marginBottom: 4 }}>예상 성장률(G)</div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: snapshot.growth != null ? TK.amber400 : TK.sub4 }}>
+                  <div style={{ fontSize: FS.tiny, color: TK.sub4, marginBottom: 4 }}>예상 성장률(G)</div>
+                  <div style={{ fontSize: FS.tiny, fontWeight: 700, color: snapshot.growth != null ? TK.amber400 : TK.sub4 }}>
                     {snapshot.growth != null ? `${snapshot.growth.toFixed(1)}%` : 'N/A'}
                   </div>
                 </div>
@@ -648,7 +648,7 @@ export default function TransactionModal({
                 <label style={{ ...labelStyle, margin: 0 }}>자산 포지션 전략</label>
                 {/* 자동 분류 여부 뱃지 */}
                 <span style={{
-                  fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 4,
+                  fontSize: FS.tiny, fontWeight: 700, padding: '2px 7px', borderRadius: 4,
                   background: investment.asset_role
                     ? 'rgba(251,191,36,0.12)' : 'rgba(56,189,248,0.12)',
                   color: investment.asset_role ? TK.amber400 : TK.sky400,
@@ -665,7 +665,7 @@ export default function TransactionModal({
                   <button key={role} onClick={() => setAssetRole(role)} type="button"
                     style={{
                       flex: 1, padding: '9px 4px', borderRadius: 9, border: 'none', cursor: 'pointer',
-                      fontSize: 12, fontWeight: 700, transition: 'all 0.15s',
+                      fontSize: FS.tiny, fontWeight: 700, transition: 'all 0.15s',
                       background: assetRole === role ? N : TK.bg0,
                       boxShadow:  assetRole === role ? SHO : SHI,
                       color:      assetRole === role
@@ -689,14 +689,14 @@ export default function TransactionModal({
           )}
 
           {/* ── 거래 요약 박스 ── */}
-          <div style={{ background: TK.bg0, boxShadow: SHI, borderRadius: 10, padding: '14px 16px', marginTop: 20, fontSize: 13, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ background: TK.bg0, boxShadow: SHI, borderRadius: 10, padding: '14px 16px', marginTop: 20, fontSize: FS.body, display: 'flex', flexDirection: 'column', gap: 8 }}>
 
             {/* 매수 요약 */}
             {mode === 'buy' && buyCalc && (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: TK.sub4 }}>역산된 실제 체결가</span>
-                  <span style={{ color: TK.red500, fontWeight: 800, fontVariantNumeric: 'tabular-nums', fontSize: 15 }}>
+                  <span style={{ color: TK.red500, fontWeight: 800, fontVariantNumeric: 'tabular-nums', fontSize: FS.lg }}>
                     {currSym}{formatNum(buyCalc.execPrice, investment.currency === 'KRW' ? 0 : 2)}
                   </span>
                 </div>
@@ -721,10 +721,10 @@ export default function TransactionModal({
 
                 {/* 역산 검증 표시 */}
                 <div style={{ marginTop: 4, padding: '8px 10px', borderRadius: 7, background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)' }}>
-                  <div style={{ fontSize: 11, color: '#6366f1', fontWeight: 600, marginBottom: 3 }}>
+                  <div style={{ fontSize: FS.tiny, color: '#6366f1', fontWeight: 600, marginBottom: 3 }}>
                     ✔ 역산 검증
                   </div>
-                  <div style={{ fontSize: 11, color: TK.sub4, lineHeight: 1.6 }}>
+                  <div style={{ fontSize: FS.tiny, color: TK.sub4, lineHeight: 1.6 }}>
                     기존 {investment.quantity}주 @ {currSym}{formatNum(investment.purchase_price, 0)}{' '}
                     + 추가 {qtyNum}주 @ {currSym}{formatNum(buyCalc.execPrice, 0)}{' '}
                     = 평단 {currSym}{formatNum(buyCalc.newAvg, 0)}
@@ -736,7 +736,7 @@ export default function TransactionModal({
             {/* 매수 입력 오류 안내 */}
             {mode === 'buy' && priceNum > 0 && qtyNum > 0 && !buyCalc && (
               <div style={{ padding: '8px 10px', borderRadius: 7, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)' }}>
-                <div style={{ fontSize: 12, color: TK.red400, lineHeight: 1.6 }}>
+                <div style={{ fontSize: FS.tiny, color: TK.red400, lineHeight: 1.6 }}>
                   ⚠️ 입력한 최종 평단가가 올바르지 않습니다.<br />
                   추가 매수 후의 평단가는 기존 평단 ({currSym}{formatNum(investment.purchase_price, 0)})과<br />
                   이번 체결가의 가중평균이어야 합니다.
@@ -775,7 +775,7 @@ export default function TransactionModal({
                   </span>
                 </div>
                 {sellCalc.isFullSell && (
-                  <div style={{ marginTop: 4, padding: '8px 10px', borderRadius: 7, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: TK.red400, fontSize: 12 }}>
+                  <div style={{ marginTop: 4, padding: '8px 10px', borderRadius: 7, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: TK.red400, fontSize: FS.tiny }}>
                     ⚠️ 전량 매도 — 보유 종목에서 삭제됩니다
                   </div>
                 )}
@@ -785,7 +785,7 @@ export default function TransactionModal({
             {/* 입력 대기 안내 */}
             {((mode === 'buy'  && (!priceNum || !qtyNum)) ||
               (mode === 'sell' && (!priceNum || !qtyNum))) && (
-              <div style={{ color: TK.sub10, fontSize: 12, textAlign: 'center', padding: '6px 0' }}>
+              <div style={{ color: TK.sub10, fontSize: FS.tiny, textAlign: 'center', padding: '6px 0' }}>
                 {mode === 'buy'
                   ? '거래 후 최종 평단가와 추가 수량을 입력하면 체결가가 자동 계산됩니다'
                   : '매도 체결가와 수량을 입력하면 손익이 계산됩니다'}
@@ -795,7 +795,7 @@ export default function TransactionModal({
 
           {/* 오류 메시지 */}
           {error && (
-            <div style={{ marginTop: 14, padding: '10px 13px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: TK.red400, fontSize: 13, whiteSpace: 'pre-line' }}>
+            <div style={{ marginTop: 14, padding: '10px 13px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: TK.red400, fontSize: FS.body, whiteSpace: 'pre-line' }}>
               {error}
             </div>
           )}
@@ -805,7 +805,7 @@ export default function TransactionModal({
             <button
               onClick={onClose}
               disabled={loading}
-              style={{ flex: 1, padding: '12px 0', borderRadius: 9, border: 'none', cursor: 'pointer', background: TK.bg0, boxShadow: SHI, color: TK.sub4, fontWeight: 600, fontSize: 14 }}
+              style={{ flex: 1, padding: '12px 0', borderRadius: 9, border: 'none', cursor: 'pointer', background: TK.bg0, boxShadow: SHI, color: TK.sub4, fontWeight: 600, fontSize: FS.body }}
             >
               취소
             </button>
@@ -818,7 +818,7 @@ export default function TransactionModal({
                 background: mode === 'buy'
                   ? `linear-gradient(135deg,${TK.red600},${TK.red500})`
                   : `linear-gradient(135deg,${TK.blue700},${TK.blue500})`,
-                color: '#fff', fontWeight: 700, fontSize: 14,
+                color: '#fff', fontWeight: 700, fontSize: FS.body,
                 opacity: (loading || (mode === 'buy' ? !buyCalc : !sellCalc)) ? 0.5 : 1,
                 transition: 'opacity 0.15s',
               }}

@@ -20,7 +20,7 @@ import FxAttributionCard from '@/app/components/FxAttributionCard'
 import StockActionChips from '@/app/components/StockActionChips'   // 🔗 종목 액션 SSOT(보유 → 근거·차트)
 import { type Candle } from '@/app/components/CandleChart'
 import { Verdict } from '@/app/components/ui/Screen'   // 🎯 화면의 답(페이지당 하나) — 공용 프리미티브
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Market    = 'US' | 'KR' | 'CRYPTO'
@@ -532,23 +532,23 @@ export default function AssetsPage() {
       <div style={{ display:'flex', flexWrap:'wrap', gap:8, alignItems:'center' }}>
         <div style={{ position:'relative', flexGrow:1, minWidth:150, maxWidth:260 }}>
           <svg style={{ position:'absolute',left:9,top:'50%',transform:'translateY(-50%)',color:TK.sub7,pointerEvents:'none' }} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="종목명 / 티커" style={{ width:'100%',padding:'7px 10px 7px 26px',background:N,boxShadow:SHI,border:'none',borderRadius:8,color:TK.slate100,fontSize:12,outline:'none',boxSizing:'border-box' }} onFocus={e=>{e.currentTarget.style.boxShadow=`${SHI}, 0 0 0 1px ${TK.blue600}`}} onBlur={e=>{e.currentTarget.style.boxShadow=SHI}}/>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="종목명 / 티커" style={{ width:'100%',padding:'7px 10px 7px 26px',background:N,boxShadow:SHI,border:'none',borderRadius:8,color:TK.slate100,fontSize:FS.tiny,outline:'none',boxSizing:'border-box' }} onFocus={e=>{e.currentTarget.style.boxShadow=`${SHI}, 0 0 0 1px ${TK.blue600}`}} onBlur={e=>{e.currentTarget.style.boxShadow=SHI}}/>
         </div>
         {(['all','US','KR','CRYPTO'] as const).map(m=>(
-          <button key={m} onClick={()=>setFilterMarket(m)} style={{ padding:'6px 11px',borderRadius:99,fontSize:11,fontWeight:600,cursor:'pointer',border:'none',transition:'all 0.12s', background:filterMarket===m?(m==='all'?'rgba(255,255,255,0.06)':`${({US:TK.emerald400,KR:TK.blue400,CRYPTO:TK.orange400} as Record<string,string>)[m]}18`):N, color:filterMarket===m?(m==='all'?TK.slate100:({US:TK.emerald400,KR:TK.blue400,CRYPTO:TK.orange400} as Record<string,string>)[m]):TK.sub7, boxShadow:filterMarket===m?SHI:SHO }}>
+          <button key={m} onClick={()=>setFilterMarket(m)} style={{ padding:'6px 11px',borderRadius:99,fontSize:FS.tiny,fontWeight:600,cursor:'pointer',border:'none',transition:'all 0.12s', background:filterMarket===m?(m==='all'?'rgba(255,255,255,0.06)':`${({US:TK.emerald400,KR:TK.blue400,CRYPTO:TK.orange400} as Record<string,string>)[m]}18`):N, color:filterMarket===m?(m==='all'?TK.slate100:({US:TK.emerald400,KR:TK.blue400,CRYPTO:TK.orange400} as Record<string,string>)[m]):TK.sub7, boxShadow:filterMarket===m?SHI:SHO }}>
             {m==='all'?'전체':m}
           </button>
         ))}
-        <select value={sortBy} onChange={e=>setSortBy(e.target.value as SortKey)} style={{ padding:'7px 9px',background:N,boxShadow:SHI,border:'none',borderRadius:8,color:TK.sub7,fontSize:11,outline:'none',cursor:'pointer' }}>
+        <select value={sortBy} onChange={e=>setSortBy(e.target.value as SortKey)} style={{ padding:'7px 9px',background:N,boxShadow:SHI,border:'none',borderRadius:8,color:TK.sub7,fontSize:FS.tiny,outline:'none',cursor:'pointer' }}>
           <option value="return">수익률순</option>
           <option value="name">이름순</option>
           <option value="invested">투자금액순</option>
         </select>
-        <button onClick={()=>fetchPrices(investments)} disabled={priceStatus==='loading'||!investments.length} style={{ padding:'7px 10px',background:N,boxShadow:SHO,border:'none',borderRadius:8,color:TK.sub7,cursor:'pointer',display:'flex',alignItems:'center',gap:4,fontSize:11,opacity:priceStatus==='loading'?0.5:1,transition:'color 0.15s,box-shadow 0.15s' }} onMouseEnter={e=>{(e.currentTarget as HTMLButtonElement).style.color=TK.slate100;(e.currentTarget as HTMLButtonElement).style.boxShadow=`9px 9px 22px ${TK.bg2}, -5px -5px 15px ${TK.line2}`}} onMouseLeave={e=>{(e.currentTarget as HTMLButtonElement).style.color=TK.sub7;(e.currentTarget as HTMLButtonElement).style.boxShadow=SHO}}>
+        <button onClick={()=>fetchPrices(investments)} disabled={priceStatus==='loading'||!investments.length} style={{ padding:'7px 10px',background:N,boxShadow:SHO,border:'none',borderRadius:8,color:TK.sub7,cursor:'pointer',display:'flex',alignItems:'center',gap:4,fontSize:FS.tiny,opacity:priceStatus==='loading'?0.5:1,transition:'color 0.15s,box-shadow 0.15s' }} onMouseEnter={e=>{(e.currentTarget as HTMLButtonElement).style.color=TK.slate100;(e.currentTarget as HTMLButtonElement).style.boxShadow=`9px 9px 22px ${TK.bg2}, -5px -5px 15px ${TK.line2}`}} onMouseLeave={e=>{(e.currentTarget as HTMLButtonElement).style.color=TK.sub7;(e.currentTarget as HTMLButtonElement).style.boxShadow=SHO}}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation:priceStatus==='loading'?'spin 0.8s linear infinite':'none' }}><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/></svg>
           현재가
         </button>
-        <button onClick={()=>{setEditTarget(null);setModalOpen(true)}} style={{ marginLeft:'auto',display:'flex',alignItems:'center',gap:5,padding:'8px 14px',background:`linear-gradient(135deg,${TK.blue600},${TK.blue700})`,border:'none',borderRadius:9,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',boxShadow:'0 0 20px rgba(37,99,235,0.3)',flexShrink:0 }}>
+        <button onClick={()=>{setEditTarget(null);setModalOpen(true)}} style={{ marginLeft:'auto',display:'flex',alignItems:'center',gap:5,padding:'8px 14px',background:`linear-gradient(135deg,${TK.blue600},${TK.blue700})`,border:'none',borderRadius:9,color:'#fff',fontSize:FS.body,fontWeight:600,cursor:'pointer',boxShadow:'0 0 20px rgba(37,99,235,0.3)',flexShrink:0 }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
           종목 추가
         </button>
@@ -563,13 +563,13 @@ export default function AssetsPage() {
         </div>
       ) : investments.length === 0 ? (
         <div style={{ display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 0',gap:14 }}>
-          <div style={{ fontSize:36 }}>💼</div>
-          <div style={{ fontWeight:700,fontSize:16,color:TK.sub }}>포트폴리오가 비어있습니다</div>
-          <div style={{ fontSize:13,color:TK.sub6 }}>첫 번째 종목을 추가해 투자 현황을 추적하세요</div>
-          <button onClick={()=>{setEditTarget(null);setModalOpen(true)}} style={{ padding:'10px 24px',background:`linear-gradient(135deg,${TK.blue600},${TK.blue700})`,border:'none',borderRadius:10,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer' }}>+ 종목 추가하기</button>
+          <div style={{ fontSize:FS.h1 }}>💼</div>
+          <div style={{ fontWeight:700,fontSize:FS.lg,color:TK.sub }}>포트폴리오가 비어있습니다</div>
+          <div style={{ fontSize:FS.body,color:TK.sub6 }}>첫 번째 종목을 추가해 투자 현황을 추적하세요</div>
+          <button onClick={()=>{setEditTarget(null);setModalOpen(true)}} style={{ padding:'10px 24px',background:`linear-gradient(135deg,${TK.blue600},${TK.blue700})`,border:'none',borderRadius:10,color:'#fff',fontSize:FS.body,fontWeight:600,cursor:'pointer' }}>+ 종목 추가하기</button>
         </div>
       ) : filtered.length === 0 ? (
-        <div style={{ textAlign:'center',padding:'48px 0',color:TK.sub6,fontSize:13 }}>검색 결과가 없습니다</div>
+        <div style={{ textAlign:'center',padding:'48px 0',color:TK.sub6,fontSize:FS.body }}>검색 결과가 없습니다</div>
       ) : (
         /* ── 섹션별 그룹 렌더 ── */
         <div style={{ display:'flex', flexDirection:'column', gap:24 }}>
@@ -592,17 +592,17 @@ export default function AssetsPage() {
                 {/* 섹션 헤더 */}
                 <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10, flexWrap:'wrap' }}>
                   {/* 타이틀 */}
-                  <span style={{ fontSize:14, fontWeight:800, color:TK.sub12 }}>{flag} {label}</span>
-                  <span style={{ fontSize:11, color:TK.sub4 }}>({group.length}종목)</span>
+                  <span style={{ fontSize:FS.body, fontWeight:800, color:TK.sub12 }}>{flag} {label}</span>
+                  <span style={{ fontSize:FS.tiny, color:TK.sub4 }}>({group.length}종목)</span>
 
                   {/* 요약 배지 */}
-                  <span style={{ padding:'2px 10px', borderRadius:99, background:TK.bg0, boxShadow:SHI, fontSize:11, fontWeight:600, color:TK.purple400 }}>
+                  <span style={{ padding:'2px 10px', borderRadius:99, background:TK.bg0, boxShadow:SHI, fontSize:FS.tiny, fontWeight:600, color:TK.purple400 }}>
                     {fmtEval(summary.totalEval)}
                   </span>
                   {summary.avgRet !== null && (
                     <span style={{
                       padding:'2px 10px', borderRadius:99, background:TK.bg0, boxShadow:SHI,
-                      fontSize:11, fontWeight:700,
+                      fontSize:FS.tiny, fontWeight:700,
                       color: summary.avgRet >= 0 ? TK.red400 : TK.blue400,
                     }}>
                       {summary.avgRet >= 0 ? '+' : ''}{summary.avgRet.toFixed(2)}%
@@ -614,7 +614,7 @@ export default function AssetsPage() {
                     value={sort}
                     onChange={e => setSort(e.target.value as SortOption)}
                     onClick={e => e.stopPropagation()}
-                    style={{ marginLeft:'auto', padding:'4px 9px', background:N, boxShadow:SHI, border:'none', borderRadius:8, color:TK.sub9, fontSize:11, outline:'none', cursor:'pointer' }}
+                    style={{ marginLeft:'auto', padding:'4px 9px', background:N, boxShadow:SHI, border:'none', borderRadius:8, color:TK.sub9, fontSize:FS.tiny, outline:'none', cursor:'pointer' }}
                   >
                     <option value="eval">평가금액 높은 순</option>
                     <option value="return">수익률 높은 순</option>
@@ -653,29 +653,32 @@ export default function AssetsPage() {
               >
                 {/* ── Section 1: 종목 정보 (220px) ── */}
                 <div style={{ width:220, flexShrink:0, padding:'14px 16px', display:'flex', flexDirection:'column', gap:5 }}>
-                  {/* Name + market */}
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-                    <div style={{ minWidth:0 }}>
-                      <div style={{ fontSize:13, fontWeight:800, color:TK.sub12, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{inv.name}</div>
-                      <div style={{ fontSize:9, color:TK.sub4, fontFamily:'monospace', marginTop:1 }}>{inv.ticker}</div>
-                    </div>
-                    <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:3, flexShrink:0, marginLeft:4 }}>
-                      <span style={{ fontSize:8, fontWeight:700, color:MARKET_COLOR[inv.market], border:`1px solid ${MARKET_COLOR[inv.market]}44`, borderRadius:4, padding:'1px 5px' }}>{inv.market}</span>
-                      {/* ★ 자산 포지션 배지 + 변경 버튼 */}
-                      <button
-                        onClick={e => { e.stopPropagation(); setRoleModal(inv) }}
-                        title="자산 포지션 변경"
-                        style={{
-                          display:'flex', alignItems:'center', gap:3, padding:'1px 6px',
-                          borderRadius:4, border:'none', cursor:'pointer', fontSize:8, fontWeight:700,
-                          background: inv.asset_role === 'CORE' ? 'rgba(52,211,153,0.15)' : 'rgba(251,191,36,0.15)',
-                          color:      inv.asset_role === 'CORE' ? TK.emerald400 : TK.amber400,
-                        }}
-                      >
-                        {inv.asset_role === 'CORE' ? '🏛 CORE' : '🛰 SATELLITE'}
-                        <span style={{ opacity:0.6 }}>✎</span>
-                      </button>
-                    </div>
+                  {/* 종목명 + 배지 — ⚠️ 예전엔 이름과 배지가 **좌우로** 나뉘어 있었다(space-between).
+                      배지 쪽이 flexShrink:0 이라 220px 칸에서 이름 몫이 **77px** 밖에 안 남았고,
+                      "ALPHABET INC."(116px 필요)조차 잘렸다(2026-09-04 실측 16종). 글자 크기를
+                      토큰으로 올리자 배지가 커져 더 심해졌다 — **내 이관이 만든 회귀**다.
+                      → 이름을 **한 줄 전체 폭**(약 188px)으로 올리고 배지는 아래 줄로 내린다.
+                      종목명은 이 화면의 핵심 식별자라 잘리면 안 된다. 배지는 짧은 라벨이라 micro. */}
+                  <div style={{ minWidth:0 }}>
+                    <div style={{ fontSize:FS.body, fontWeight:800, color:TK.sub12, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={inv.name}>{inv.name}</div>
+                    <div style={{ fontSize:FS.tiny, color:TK.sub4, fontFamily:'monospace', marginTop:1 }}>{inv.ticker}</div>
+                  </div>
+                  <div style={{ display:'flex', alignItems:'center', gap:4, flexWrap:'wrap' }}>
+                    <span style={{ fontSize:FS.micro, fontWeight:700, color:MARKET_COLOR[inv.market], border:`1px solid ${MARKET_COLOR[inv.market]}44`, borderRadius:4, padding:'1px 5px' }}>{inv.market}</span>
+                    {/* ★ 자산 포지션 배지 + 변경 버튼 */}
+                    <button
+                      onClick={e => { e.stopPropagation(); setRoleModal(inv) }}
+                      title="자산 포지션 변경"
+                      style={{
+                        display:'flex', alignItems:'center', gap:3, padding:'1px 6px',
+                        borderRadius:4, border:'none', cursor:'pointer', fontSize:FS.micro, fontWeight:700,
+                        background: inv.asset_role === 'CORE' ? 'rgba(52,211,153,0.15)' : 'rgba(251,191,36,0.15)',
+                        color:      inv.asset_role === 'CORE' ? TK.emerald400 : TK.amber400,
+                      }}
+                    >
+                      {inv.asset_role === 'CORE' ? '🏛 CORE' : '🛰 SATELLITE'}
+                      <span style={{ opacity:0.6 }}>✎</span>
+                    </button>
                   </div>
 
                   {/* 🔗 내 종목 → 근거·차트 — 보유 화면에서 리서치·차트로 가는 링크가 0건이었다(2026-08-08 조사).
@@ -687,22 +690,22 @@ export default function AssetsPage() {
 
                   {/* Lynch badge */}
                   {!isNA && lynchMeta && (
-                    <span style={{ display:'inline-flex', alignItems:'center', gap:3, padding:'2px 7px', borderRadius:99, fontSize:10, fontWeight:500, color:lynchMeta.color, background:`${lynchMeta.color}15`, border:`1px solid ${lynchMeta.color}35`, alignSelf:'flex-start' }}>
+                    <span style={{ display:'inline-flex', alignItems:'center', gap:3, padding:'2px 7px', borderRadius:99, fontSize:FS.tiny, fontWeight:500, color:lynchMeta.color, background:`${lynchMeta.color}15`, border:`1px solid ${lynchMeta.color}35`, alignSelf:'flex-start' }}>
                       {lynchMeta.label}
                     </span>
                   )}
                   {!isNA && !inv.lynch_category && !classifyDone.has(inv.id) && (
-                    <span style={{ fontSize:9, color:TK.sub6, alignSelf:'flex-start' }}>분류 중…</span>
+                    <span style={{ fontSize:FS.tiny, color:TK.sub6, alignSelf:'flex-start' }}>분류 중…</span>
                   )}
-                  {isNA && <span style={{ fontSize:9, color:TK.sub7, background:TK.gray800, padding:'2px 7px', borderRadius:4, border:`1px solid ${TK.sub6}`, alignSelf:'flex-start' }}>N/A</span>}
+                  {isNA && <span style={{ fontSize:FS.tiny, color:TK.sub7, background:TK.gray800, padding:'2px 7px', borderRadius:4, border:`1px solid ${TK.sub6}`, alignSelf:'flex-start' }}>N/A</span>}
 
                   {/* Current price + change */}
                   {livePrice && (
                     <div style={{ marginTop:2 }}>
-                      <div style={{ fontSize:17, fontWeight:800, color:TK.sub12, fontVariantNumeric:'tabular-nums', letterSpacing:'-0.3px' }}>
+                      <div style={{ fontSize:FS.lg, fontWeight:800, color:TK.sub12, fontVariantNumeric:'tabular-nums', letterSpacing:'-0.3px' }}>
                         {inv.currency==='KRW' ? `₩${Math.round(livePrice.currentPrice).toLocaleString('ko-KR')}` : `$${livePrice.currentPrice.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`}
                       </div>
-                      <div style={{ fontSize:11, fontWeight:700, color:Cs }}>
+                      <div style={{ fontSize:FS.tiny, fontWeight:700, color:Cs }}>
                         {isUp ? '▲' : '▼'} {Math.abs(livePrice.changePct).toFixed(2)}%
                         <span style={{ color:TK.sub4, marginLeft:5, fontWeight:400 }}>
                           {livePrice.change >= 0 ? '+' : ''}{inv.currency==='KRW' ? `₩${Math.round(livePrice.change).toLocaleString('ko-KR')}` : `$${livePrice.change.toFixed(2)}`}
@@ -734,17 +737,17 @@ export default function AssetsPage() {
                     return (
                       <div style={{ background:TK.bg0, boxShadow:SHI, borderRadius:7, padding:'6px 9px' }}>
                         <div style={{ display:'flex', alignItems:'center', gap:4, marginBottom: hasDividend ? 4 : 0 }}>
-                          <span style={{ fontSize:10 }}>💰</span>
+                          <span style={{ fontSize:FS.tiny }}>💰</span>
                           {hasDividend ? (
-                            <span style={{ fontSize:11, fontWeight:800, color:TK.emerald400 }}>
+                            <span style={{ fontSize:FS.tiny, fontWeight:800, color:TK.emerald400 }}>
                               {(dy * 100).toFixed(2)}%
                             </span>
                           ) : (
-                            <span style={{ fontSize:9, color:TK.sub10 }}>배당 없음</span>
+                            <span style={{ fontSize:FS.tiny, color:TK.sub10 }}>배당 없음</span>
                           )}
                           {/* 주당 배당금 서브텍스트 */}
                           {annDiv && annDiv > 0 && (
-                            <span style={{ fontSize:8, color:'#4b5568', marginLeft:2 }}>
+                            <span style={{ fontSize:FS.tiny, color:'#4b5568', marginLeft:2 }}>
                               {inv.currency === 'USD' ? `$${annDiv.toFixed(2)}/주` : `₩${Math.round(annDiv).toLocaleString('ko-KR')}/주`}
                             </span>
                           )}
@@ -752,14 +755,14 @@ export default function AssetsPage() {
                         {/* 예상 총 배당금 (연/월) */}
                         {hasDividend && annualTotal > 0 && (
                           <div style={{ display:'flex', alignItems:'baseline', gap:5 }}>
-                            <span style={{ fontSize:11, fontWeight:800, color:TK.sub12, fontVariantNumeric:'tabular-nums' }}>
+                            <span style={{ fontSize:FS.tiny, fontWeight:800, color:TK.sub12, fontVariantNumeric:'tabular-nums' }}>
                               {fmtSmall(annualTotal)}
                             </span>
-                            <span style={{ fontSize:8, color:TK.sub4 }}>연</span>
-                            <span style={{ fontSize:9, color:TK.emerald400, fontVariantNumeric:'tabular-nums' }}>
+                            <span style={{ fontSize:FS.tiny, color:TK.sub4 }}>연</span>
+                            <span style={{ fontSize:FS.tiny, color:TK.emerald400, fontVariantNumeric:'tabular-nums' }}>
                               {fmtSmall(monthlyTotal)}
                             </span>
-                            <span style={{ fontSize:8, color:TK.sub4 }}>월</span>
+                            <span style={{ fontSize:FS.tiny, color:TK.sub4 }}>월</span>
                           </div>
                         )}
                       </div>
@@ -771,20 +774,20 @@ export default function AssetsPage() {
                     <button
                       onClick={e => { e.stopPropagation(); openBuyModal(inv) }}
                       style={{ flex:1, padding:'6px 0', borderRadius:7, border:'none', cursor:'pointer',
-                        background:`linear-gradient(135deg,#7f1d1d,${TK.red600})`, color:'#fff', fontSize:10, fontWeight:700 }}>
+                        background:`linear-gradient(135deg,#7f1d1d,${TK.red600})`, color:'#fff', fontSize:FS.tiny, fontWeight:700 }}>
                       + 추가매수
                     </button>
                     <button
                       onClick={e => { e.stopPropagation(); openSellModal(inv) }}
                       style={{ flex:1, padding:'6px 0', borderRadius:7, border:'none', cursor:'pointer',
-                        background:`linear-gradient(135deg,#1e3a8a,${TK.blue500})`, color:'#fff', fontSize:10, fontWeight:700 }}>
+                        background:`linear-gradient(135deg,#1e3a8a,${TK.blue500})`, color:'#fff', fontSize:FS.tiny, fontWeight:700 }}>
                       - 추가매도
                     </button>
                   </div>
                   {/* ✏️ 잘못 기입했을 때 갈 곳 — 여기서 반대매매로 상쇄하면 없던 매도 기록과 실현손익이 남는다
                       (2026-08-23 사용자 신고: 매수 수량 오기입을 매도로 고치려다 거래 이력이 오염됨) */}
                   <a href="/history" onClick={e => e.stopPropagation()}
-                    style={{ display:'block', marginTop:5, fontSize:10, color:TK.sub3, textDecoration:'none', textAlign:'center' }}>
+                    style={{ display:'block', marginTop:5, fontSize:FS.tiny, color:TK.sub3, textDecoration:'none', textAlign:'center' }}>
                     잘못 입력했나요? <span style={{ color:TK.blue400, fontWeight:700 }}>투자 기록에서 수정 ↗</span>
                   </a>
                 </div>
@@ -796,7 +799,7 @@ export default function AssetsPage() {
                 <div style={{ width:280, flexShrink:0, padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
                   {/* Portfolio performance */}
                   <div>
-                    <div style={{ fontSize:8, fontWeight:800, color:TK.sub10, letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:7 }}>포트폴리오</div>
+                    <div style={{ fontSize:FS.tiny, fontWeight:800, color:TK.sub10, letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:7 }}>포트폴리오</div>
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:5, marginBottom:8 }}>
                       {[
                         { label:'현재가',  val: livePrice ? (inv.currency==='KRW' ? `₩${Math.round(livePrice.currentPrice).toLocaleString('ko-KR')}` : `$${livePrice.currentPrice.toFixed(2)}`) : '—', color:TK.sub12 },
@@ -808,8 +811,8 @@ export default function AssetsPage() {
                         { label:'수익률',  val: livePrice ? `${ret >= 0 ? '+' : ''}${ret.toFixed(2)}%` : '—', color: ret >= 0 ? TK.red400 : TK.blue400 },
                       ].map(({ label, val, color }) => (
                         <div key={label} style={{ background:TK.bg0, boxShadow:SHI, borderRadius:7, padding:'6px 9px' }}>
-                          <div style={{ fontSize:8, color:TK.sub10, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>{label}</div>
-                          <div style={{ fontSize:11, fontWeight:700, color, fontVariantNumeric:'tabular-nums' }}>{val}</div>
+                          <div style={{ fontSize:FS.tiny, color:TK.sub10, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>{label}</div>
+                          <div style={{ fontSize:FS.tiny, fontWeight:700, color, fontVariantNumeric:'tabular-nums' }}>{val}</div>
                         </div>
                       ))}
                     </div>
@@ -817,7 +820,7 @@ export default function AssetsPage() {
 
                   {/* Financial metrics */}
                   <div>
-                    <div style={{ fontSize:8, fontWeight:800, color:TK.sub10, letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:7 }}>핵심 지표</div>
+                    <div style={{ fontSize:FS.tiny, fontWeight:800, color:TK.sub10, letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:7 }}>핵심 지표</div>
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:5 }}>
                       {[
                         { label:'PER',      val: livePrice?.per        != null ? livePrice.per.toFixed(1)                                                                        : '—' },
@@ -844,8 +847,8 @@ export default function AssetsPage() {
                         },
                       ].map(({ label, val }) => (
                         <div key={label} style={{ background:TK.bg0, boxShadow:SHI, borderRadius:7, padding:'5px 8px' }}>
-                          <div style={{ fontSize:7, color:TK.sub10, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>{label}</div>
-                          <div style={{ fontSize:10, fontWeight:700, color:TK.sub9, fontVariantNumeric:'tabular-nums', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{val}</div>
+                          <div style={{ fontSize:FS.tiny, color:TK.sub10, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>{label}</div>
+                          <div style={{ fontSize:FS.tiny, fontWeight:700, color:TK.sub9, fontVariantNumeric:'tabular-nums', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{val}</div>
                         </div>
                       ))}
                     </div>
@@ -863,13 +866,13 @@ export default function AssetsPage() {
                       <button key={t} onClick={e => { e.stopPropagation(); setTf(inv.ticker, t) }}
                         style={{
                           padding:'3px 10px', borderRadius:6, border:'none', cursor:'pointer',
-                          fontSize:11, fontWeight:700, transition:'all 0.15s',
+                          fontSize:FS.tiny, fontWeight:700, transition:'all 0.15s',
                           background: getTf(inv.ticker) === t ? TK.amber400 : N,
                           boxShadow:  getTf(inv.ticker) === t ? '0 2px 8px rgba(251,191,36,0.3)' : SHI,
                           color:      getTf(inv.ticker) === t ? TK.bg8 : TK.sub4,
                         }}>{t}</button>
                     ))}
-                    <span style={{ marginLeft:'auto', fontSize:9, color:TK.sub10, alignSelf:'center' }}>
+                    <span style={{ marginLeft:'auto', fontSize:FS.tiny, color:TK.sub10, alignSelf:'center' }}>
                       {ohlc.length > 0 ? `${ohlc.length}캔들` : ''}
                     </span>
                   </div>
@@ -892,7 +895,7 @@ export default function AssetsPage() {
                         }
                       />
                     ) : (
-                      <div style={{ height:220, display:'flex', alignItems:'center', justifyContent:'center', color:TK.sub10, fontSize:11 }}>
+                      <div style={{ height:220, display:'flex', alignItems:'center', justifyContent:'center', color:TK.sub10, fontSize:FS.tiny }}>
                         {priceStatus === 'loading' ? '로딩 중…' : `${getTf(inv.ticker)} 차트 없음`}
                       </div>
                     )}
@@ -991,14 +994,14 @@ function AssetRoleModal({
         >
           {/* 타이틀 */}
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
-            <h3 style={{ margin:0, fontSize:16, fontWeight:800 }}>🏷 자산 포지션 변경</h3>
-            <button onClick={onClose} style={{ background:'none', border:'none', color:TK.sub4, fontSize:20, cursor:'pointer' }}>×</button>
+            <h3 style={{ margin:0, fontSize:FS.lg, fontWeight:800 }}>🏷 자산 포지션 변경</h3>
+            <button onClick={onClose} style={{ background:'none', border:'none', color:TK.sub4, fontSize:FS.xl, cursor:'pointer' }}>×</button>
           </div>
 
           {/* 종목 정보 */}
-          <div style={{ background:TK.bg0, boxShadow:SHI, borderRadius:10, padding:'9px 13px', marginBottom:20, fontSize:13, color:TK.sub14 }}>
+          <div style={{ background:TK.bg0, boxShadow:SHI, borderRadius:10, padding:'9px 13px', marginBottom:20, fontSize:FS.body, color:TK.sub14 }}>
             <strong style={{ color:TK.sub12 }}>{investment.name}</strong>
-            <span style={{ marginLeft:8, fontFamily:'monospace', fontSize:11 }}>{investment.ticker}</span>
+            <span style={{ marginLeft:8, fontFamily:'monospace', fontSize:FS.tiny }}>{investment.ticker}</span>
           </div>
 
           {/* 포지션 선택 */}
@@ -1021,10 +1024,10 @@ function AssetRoleModal({
                   transition: 'all 0.15s',
                 }}
               >
-                <span style={{ fontSize:22, flexShrink:0 }}>{icon}</span>
+                <span style={{ fontSize:FS.xl, flexShrink:0 }}>{icon}</span>
                 <div>
-                  <div style={{ fontSize:13, fontWeight:700, color: selected === role ? TK.sub12 : TK.sub, marginBottom:3 }}>{label}</div>
-                  <div style={{ fontSize:11, color:TK.sub4, lineHeight:1.5 }}>{desc}</div>
+                  <div style={{ fontSize:FS.body, fontWeight:700, color: selected === role ? TK.sub12 : TK.sub, marginBottom:3 }}>{label}</div>
+                  <div style={{ fontSize:FS.tiny, color:TK.sub4, lineHeight:1.5 }}>{desc}</div>
                 </div>
                 <div style={{ marginLeft:'auto', flexShrink:0, paddingTop:2 }}>
                   <div style={{
@@ -1042,7 +1045,7 @@ function AssetRoleModal({
           <div style={{ display:'flex', gap:10 }}>
             <button onClick={onClose} disabled={loading}
               style={{ flex:1, padding:'11px 0', borderRadius:9, border:'none', cursor:'pointer',
-                background:TK.bg0, boxShadow:SHI, color:TK.sub4, fontWeight:600, fontSize:14 }}>
+                background:TK.bg0, boxShadow:SHI, color:TK.sub4, fontWeight:600, fontSize:FS.body }}>
               취소
             </button>
             <button onClick={() => onConfirm(selected)} disabled={loading || selected === investment.asset_role}
@@ -1051,7 +1054,7 @@ function AssetRoleModal({
                 background: selected === 'CORE'
                   ? `linear-gradient(135deg,#065f46,${TK.emerald400})`
                   : `linear-gradient(135deg,#78350f,${TK.amber400})`,
-                color:'#fff', fontWeight:700, fontSize:14,
+                color:'#fff', fontWeight:700, fontSize:FS.body,
                 opacity:(loading || selected === investment.asset_role) ? 0.5 : 1,
               }}>
               {loading ? '저장 중…' : '변경 완료'}

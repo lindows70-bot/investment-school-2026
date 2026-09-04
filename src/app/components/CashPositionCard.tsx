@@ -2,7 +2,7 @@
 // 💰 현금 포지션 카드 — 예수금·CMA를 등록해 실제 현금 비중을 앱 기준 밴드와 비교(자산 관리 상단)
 //    앱이 알아낼 수 없는 유일한 자산이라 직접 입력. ⛔ 현금 조절 지시 아님 — 밴드 대비 위치 관측만.
 import { useEffect, useState, useCallback } from 'react'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 import type { CashPosition } from '@/lib/cashPosition'
 
 type Api = Partial<CashPosition> & { needsSetup?: boolean; asOf?: string; error?: string }
@@ -51,7 +51,7 @@ export default function CashPositionCard() {
   if (!d) return null
 
   if (d.needsSetup) return (
-    <div style={{ background: '#12151f', border: `1px solid ${TK.border}`, borderRadius: 12, padding: '12px 16px', fontSize: 11.5, color: TK.sub2 }}>
+    <div style={{ background: '#12151f', border: `1px solid ${TK.border}`, borderRadius: 12, padding: '12px 16px', fontSize: FS.tiny, color: TK.sub2 }}>
       💰 현금 등록 기능이 준비되지 않았습니다 — 관리자가 <code style={{ color: TK.slate300 }}>supabase/user_cash.sql</code>을 1회 실행하면 활성화됩니다.
     </div>
   )
@@ -64,43 +64,43 @@ export default function CashPositionCard() {
   return (
     <div style={{ background: '#12151f', border: `1px solid ${TK.border}`, borderRadius: 12, padding: '14px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 14, fontWeight: 800, color: TK.slate100 }}>💰 현금 포지션</span>
-        <span style={{ fontSize: 11, color: TK.sub2 }}>예수금·CMA·파킹통장 — 앱 기준 밴드와 비교(막스 온도에서 파생)</span>
-        <button onClick={() => setEdit(e => !e)} style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: TK.indigo400, background: 'none', border: `1px solid ${TK.border}`, borderRadius: 7, padding: '3px 10px', cursor: 'pointer' }}>
+        <span style={{ fontSize: FS.body, fontWeight: 800, color: TK.slate100 }}>💰 현금 포지션</span>
+        <span style={{ fontSize: FS.tiny, color: TK.sub2 }}>예수금·CMA·파킹통장 — 앱 기준 밴드와 비교(막스 온도에서 파생)</span>
+        <button onClick={() => setEdit(e => !e)} style={{ marginLeft: 'auto', fontSize: FS.tiny, fontWeight: 700, color: TK.indigo400, background: 'none', border: `1px solid ${TK.border}`, borderRadius: 7, padding: '3px 10px', cursor: 'pointer' }}>
           {edit ? '취소' : has ? '수정' : '현금 등록'}
         </button>
       </div>
 
       {edit ? (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 10 }}>
-          <label style={{ fontSize: 11, color: TK.sub2 }}>원화 ₩
+          <label style={{ fontSize: FS.tiny, color: TK.sub2 }}>원화 ₩
             <input value={krw} onChange={e => setKrw(e.target.value)} inputMode="numeric" placeholder="0"
-              style={{ marginLeft: 6, width: 130, background: TK.bg3, border: `1px solid ${TK.border}`, borderRadius: 6, padding: '5px 8px', color: TK.slate100, fontSize: 12 }} />
+              style={{ marginLeft: 6, width: 130, background: TK.bg3, border: `1px solid ${TK.border}`, borderRadius: 6, padding: '5px 8px', color: TK.slate100, fontSize: FS.tiny }} />
           </label>
-          <label style={{ fontSize: 11, color: TK.sub2 }}>달러 $
+          <label style={{ fontSize: FS.tiny, color: TK.sub2 }}>달러 $
             <input value={usd} onChange={e => setUsd(e.target.value)} inputMode="decimal" placeholder="0"
-              style={{ marginLeft: 6, width: 100, background: TK.bg3, border: `1px solid ${TK.border}`, borderRadius: 6, padding: '5px 8px', color: TK.slate100, fontSize: 12 }} />
+              style={{ marginLeft: 6, width: 100, background: TK.bg3, border: `1px solid ${TK.border}`, borderRadius: 6, padding: '5px 8px', color: TK.slate100, fontSize: FS.tiny }} />
           </label>
-          <label style={{ fontSize: 11, color: TK.sub2 }}>메모
+          <label style={{ fontSize: FS.tiny, color: TK.sub2 }}>메모
             <input value={memo} onChange={e => setMemo(e.target.value)} placeholder="예: 증권사 예수금+파킹통장"
-              style={{ marginLeft: 6, width: 190, background: TK.bg3, border: `1px solid ${TK.border}`, borderRadius: 6, padding: '5px 8px', color: TK.slate100, fontSize: 12 }} />
+              style={{ marginLeft: 6, width: 190, background: TK.bg3, border: `1px solid ${TK.border}`, borderRadius: 6, padding: '5px 8px', color: TK.slate100, fontSize: FS.tiny }} />
           </label>
-          <button onClick={save} disabled={saving} style={{ fontSize: 11.5, fontWeight: 800, color: TK.bg0, background: TK.green400, border: 'none', borderRadius: 7, padding: '6px 14px', cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
+          <button onClick={save} disabled={saving} style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.bg0, background: TK.green400, border: 'none', borderRadius: 7, padding: '6px 14px', cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
             {saving ? '저장 중…' : '저장'}
           </button>
         </div>
       ) : !has ? (
-        <div style={{ fontSize: 11.5, color: TK.sub2, marginTop: 8, lineHeight: 1.6 }}>
+        <div style={{ fontSize: FS.tiny, color: TK.sub2, marginTop: 8, lineHeight: 1.6 }}>
           아직 등록된 현금이 없습니다. 증권사 예수금·CMA·파킹통장 잔고를 넣으면 <b style={{ color: TK.slate300 }}>내 실제 현금 비중</b>이 계산되어 막스 시계추의 권장 밴드와 비교됩니다.
           <br />앱은 계좌에 접속하지 않으므로 현금만은 직접 입력해야 합니다(자동 연동 없음).
         </div>
       ) : (
         <>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
-            <span style={{ fontSize: 24, fontWeight: 900, color: v?.color ?? TK.slate100 }}>{pct}%</span>
-            <span style={{ fontSize: 11.5, color: TK.sub2 }}>현금 비중</span>
-            {band && <span style={{ fontSize: 11, color: TK.sub2 }}>· 권장 <b style={{ color: TK.violet300 }}>{band.min}~{band.max}%</b>{d.temp != null && <span style={{ color: TK.sub3 }}> (탐욕 온도 {d.temp})</span>}</span>}
-            {v && <span style={{ fontSize: 11, fontWeight: 800, color: v.color, background: `${v.color}18`, borderRadius: 6, padding: '2px 8px' }}>{v.label}</span>}
+            <span style={{ fontSize: FS.h2, fontWeight: 900, color: v?.color ?? TK.slate100 }}>{pct}%</span>
+            <span style={{ fontSize: FS.tiny, color: TK.sub2 }}>현금 비중</span>
+            {band && <span style={{ fontSize: FS.tiny, color: TK.sub2 }}>· 권장 <b style={{ color: TK.violet300 }}>{band.min}~{band.max}%</b>{d.temp != null && <span style={{ color: TK.sub3 }}> (탐욕 온도 {d.temp})</span>}</span>}
+            {v && <span style={{ fontSize: FS.tiny, fontWeight: 800, color: v.color, background: `${v.color}18`, borderRadius: 6, padding: '2px 8px' }}>{v.label}</span>}
           </div>
 
           {/* 비중 바 + 권장 밴드 구간 */}
@@ -108,7 +108,7 @@ export default function CashPositionCard() {
             {band && <div style={{ position: 'absolute', left: `${band.min}%`, width: `${Math.max(1, band.max - band.min)}%`, top: 0, bottom: 0, background: `${TK.violet300}44` }} />}
             <div style={{ position: 'absolute', left: 0, width: `${Math.min(100, pct)}%`, top: 0, bottom: 0, background: v?.color ?? TK.slate300, opacity: 0.85 }} />
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9.5, color: TK.sub3, marginTop: 2 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FS.tiny, color: TK.sub3, marginTop: 2 }}>
             <span>0%</span><span>보라 구간 = 지금 국면의 권장 현금 밴드</span><span>100%</span>
           </div>
 
@@ -119,9 +119,9 @@ export default function CashPositionCard() {
             <Chip label="총자산" value={`₩${won(d.totalKrw ?? 0)}`} color={TK.slate100} />
           </div>
 
-          {v && <div style={{ fontSize: 11.5, color: TK.sub2, marginTop: 8, lineHeight: 1.55 }}>{v.note}</div>}
+          {v && <div style={{ fontSize: FS.tiny, color: TK.sub2, marginTop: 8, lineHeight: 1.55 }}>{v.note}</div>}
 
-          <div style={{ fontSize: 9.5, color: TK.sub3, marginTop: 8, lineHeight: 1.5 }}>
+          <div style={{ fontSize: FS.tiny, color: TK.sub3, marginTop: 8, lineHeight: 1.5 }}>
             내가 입력한 값 기준(자동 연동 없음{d.updatedAt ? ` · 갱신 ${String(d.updatedAt).slice(0, 10)}` : ''}){d.memo ? ` · ${d.memo}` : ''} · 환율 ₩{Math.round(d.usdKrw ?? 0).toLocaleString()}
             {(d.costFallback ?? 0) > 0 && ` · 시세 미수신 ${d.costFallback}종은 매입가로 평가`}
             <br />부동산·연금 등 앱에 없는 자산은 포함되지 않습니다 · 권장 밴드는 사이클 위치 가이드이며 강제가 아닙니다.
@@ -133,7 +133,7 @@ export default function CashPositionCard() {
 }
 
 const Chip = ({ label, value, color }: { label: string; value: string; color?: string }) => (
-  <span style={{ fontSize: 10.5, background: '#1b2130', borderRadius: 6, padding: '3px 8px', color: TK.sub2 }}>
+  <span style={{ fontSize: FS.tiny, background: '#1b2130', borderRadius: 6, padding: '3px 8px', color: TK.sub2 }}>
     {label} <b style={{ color: color ?? TK.slate300 }}>{value}</b>
   </span>
 )
