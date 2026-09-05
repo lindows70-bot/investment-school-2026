@@ -3064,8 +3064,8 @@ export default function DashboardPage() {
                   { color:TK.indigo400, label: hasRealized ? '누적 총손익(평가+실현)' : '누적 평가손익', dash:true },
                 ]
               : [
-                  { color:TK.neonLime, label:'Core (ETF·우량주)', dash:false },
-                  { color:TK.sky400, label:'Satellite (성장·테마)', dash:false },
+                  { color:TK.sky400, label:'Core (ETF·우량주)', dash:false },
+                  { color:TK.orange400, label:'Satellite (성장·테마)', dash:false },
                   { color:TK.indigo400, label:'누적 합계(전체 손익)', dash:true },
                 ]
             ).map(({ color, label, dash }) => (
@@ -3173,27 +3173,27 @@ export default function DashboardPage() {
             <ResponsiveContainer width="100%" height={250}>
               <ComposedChart data={monthlyPnL} margin={{ top:24, right:16, bottom:0, left:8 }} barCategoryGap="32%">
                 <defs>
-                  {/* Core 수익 그라데이션 */}
+                  {/* 🎨 이 차트의 색 규칙 — **한 채널에 한 뜻**.
+                        · 색   = 진영(Core=sky400 · Satellite=orange400) — 30px 아래 보유표 배지·리밸런싱 위젯과 같은 짝
+                        · 부호 = 0선 위/아래 위치 + 명도(수익 진하게 0.95 / 손실 흐리게 0.45)
+                      예전엔 색이 진영과 부호를 동시에 말하려 해서 셋이 서로 모순이었다 —
+                      범례는 Satellite=sky400 인데 배지는 Core=sky400, Core 수익 막대는 neonLime 인데
+                      **그 막대의 툴팁**은 red400 을 'Core 수익'으로 썼다(같은 순간·같은 값). */}
                   <linearGradient id="coreProfit" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%"   stopColor={TK.neonLime} stopOpacity={0.95}/>
-                    <stop offset="100%" stopColor={TK.neonLime} stopOpacity={0.55}/>
-                  </linearGradient>
-                  {/* Core 손실 그라데이션 — 한국식(손실=파랑).
-                      ⚠️ 빨강이었을 땐 **바로 그 막대의 툴팁**(3249)이 red400 을 'Core 수익'으로 쓰고 있어,
-                         손실 막대에 마우스를 올리면 막대는 빨강·툴팁 숫자는 파랑으로 갈렸다(같은 순간·같은 값). */}
-                  <linearGradient id="coreLoss" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%"   stopColor={TK.blue400} stopOpacity={0.90}/>
-                    <stop offset="100%" stopColor={TK.blue400} stopOpacity={0.50}/>
-                  </linearGradient>
-                  {/* Sat 수익 그라데이션 */}
-                  <linearGradient id="satProfit" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%"   stopColor={TK.sky400} stopOpacity={0.95}/>
                     <stop offset="100%" stopColor={TK.sky400} stopOpacity={0.55}/>
                   </linearGradient>
-                  {/* Sat 손실 그라데이션 */}
+                  <linearGradient id="coreLoss" x1="0" y1="1" x2="0" y2="0">
+                    <stop offset="0%"   stopColor={TK.sky400} stopOpacity={0.45}/>
+                    <stop offset="100%" stopColor={TK.sky400} stopOpacity={0.22}/>
+                  </linearGradient>
+                  <linearGradient id="satProfit" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%"   stopColor={TK.orange400} stopOpacity={0.95}/>
+                    <stop offset="100%" stopColor={TK.orange400} stopOpacity={0.55}/>
+                  </linearGradient>
                   <linearGradient id="satLoss" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%"   stopColor={TK.orange400} stopOpacity={0.90}/>
-                    <stop offset="100%" stopColor={TK.orange400} stopOpacity={0.50}/>
+                    <stop offset="0%"   stopColor={TK.orange400} stopOpacity={0.45}/>
+                    <stop offset="100%" stopColor={TK.orange400} stopOpacity={0.22}/>
                   </linearGradient>
                 </defs>
 
@@ -3249,8 +3249,9 @@ export default function DashboardPage() {
                       </div>
                       {/* Core / Satellite 분리 */}
                       {[
-                        { label:'Core', value: d.corePnl, color: d.corePnl >= 0 ? TK.red400 : TK.blue400 },   /* 내 손익 — 한국식 */
-                        { label:'Satellite', value: d.satPnl, color: d.satPnl >= 0 ? TK.sky400 : TK.orange400 },
+                        /* 막대와 같은 진영색 — 부호는 금액의 +/- 가 말한다(색이 진영과 부호를 겸하면 막대와 어긋난다) */
+                        { label:'Core', value: d.corePnl, color: TK.sky400 },
+                        { label:'Satellite', value: d.satPnl, color: TK.orange400 },
                       ].map(({ label, value, color }) => (
                         <div key={label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:5 }}>
                           <span style={{ fontSize:11, color:TK.sub, display:'flex', alignItems:'center', gap:5 }}>

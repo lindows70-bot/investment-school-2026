@@ -43,8 +43,12 @@
 - [x] 감사 2차(6화면 + 항상 렌더되는 컴포넌트 20개) — **저널에서 미검증 지적 44건 복구**해 직접 재현 확인 후 20곳 수정.
       ⚠️ 워크플로는 `survivors: 0` 을 반환했지만 70개 에이전트 중 **47개가 세션 한도로 실패**했다 — 반증이 아니라 미검증이다.
 - [ ] 남은 것 ①: `LynchInventorySentinel` 403·429 — 조회 실패·수집 오류 카운트가 red400(판정 짝 아님). 정확한 문자열 미확인이라 보류.
-- [ ] 남은 것 ②: 대시보드 Core/Satellite 차트(3067·3146·3177·3189) — 진영 계열색과 부호 색이 한 채널에 섞여 있다.
-      `TenbaggerRadar` 와 같은 부류라 램프를 먼저 정하고 한 번에 옮겨야 한다.
+- [x] 남은 것 ②: 대시보드 Core/Satellite 차트 — **한 채널에 한 뜻**으로 정리했다.
+      색 = 진영(Core `sky400` · Satellite `orange400`, 보유표 배지·리밸런싱 위젯과 같은 짝) ·
+      부호 = 0선 위/아래 + 명도(수익 0.95 / 손실 0.45). 범례·막대·툴팁 셋을 한 규칙으로 통일.
+      **스택 막대**라 진영을 색으로 구분해야 하고 부호는 위치가 이미 말한다 — 그래서 색을 부호에서 뗐다.
+      해소된 모순 3건: 범례 Satellite=sky400 ↔ 배지 Core=sky400 · Core 수익 막대 neonLime ↔ 툴팁 red400 ·
+      Core 손실 막대 ↔ 툴팁이 서로 다른 색.
 - [ ] 남은 것 ③: near-identical-hue 파편화 14건(assets 75·76·678·872 · weekly 32 · win-lose 125·179 · EventCalendarPanel 38·85 ·
       YieldCurve 53 · MarketCatalyst 32 · signal-report 381 · LynchInventorySentinel 487 · briefing 412).
       **오독이 아니라 팔레트 위생**이라 ⛔ 일괄 치환 금지 원칙에 따라 이번엔 손대지 않았다.
