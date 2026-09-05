@@ -510,7 +510,8 @@ export default function WeeklyReportPage() {
             <div style={{ fontSize: FS.tiny, color: TK.slate300, lineHeight: 1.65 }}>
               <b style={{ color: TK.slate200 }}>주간</b> 금 <b style={{ color: pcol(goldIx.weekPct) }}>{pct(goldIx.weekPct)}</b>({num(goldIx.close)}$) · 은 <b style={{ color: pcol(silverIx.weekPct) }}>{pct(silverIx.weekPct)}</b>({num(silverIx.close)}$).
               <div style={{ fontSize: FS.micro, color: TK.sub8, marginTop: 2 }}>※ 왼쪽 차트의 끝 숫자는 최근 {goldIx.spark.length}거래일 누적이라 주간 등락과 부호가 다를 수 있습니다.</div>
-              <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 5 }}>은은 산업 수요가 겹쳐 금보다 탄력이 큰 편입니다. 주식 급락기에 포트폴리오 헤지 역할을 하는지 확인하는 축입니다.</div>
+              {/* 설명 문장은 각주 크기로 쓰지 않는다(사용자 상설 규칙) — 색은 유지 */}
+              <div style={{ fontSize: FS.tiny, color: TK.sub2, marginTop: 5 }}>은은 산업 수요가 겹쳐 금보다 탄력이 큰 편입니다. 주식 급락기에 포트폴리오 헤지 역할을 하는지 확인하는 축입니다.</div>
             </div>
           </div>
         </Section>
@@ -610,7 +611,7 @@ export default function WeeklyReportPage() {
                     ))}
                   </tbody>
                 </table>
-                <div style={{ fontSize: FS.micro, color: TK.sub8, marginTop: 3 }}>전환율이 주담대 금리보다 높을수록 임대인이 월세를 선호할 유인이 커집니다(월간 지표).</div>
+                <div style={{ fontSize: FS.tiny, color: TK.sub8, marginTop: 3 }}>전환율이 주담대 금리보다 높을수록 임대인이 월세를 선호할 유인이 커집니다(월간 지표).</div>
               </div>
             )}
           </div>
@@ -752,7 +753,7 @@ export default function WeeklyReportPage() {
                 </div>
               ))}
             </div>
-            <div style={{ fontSize: FS.micro, color: TK.sub8, marginTop: 6 }}>기여도 = 비중 × 주간 등락. 위 ①·② 시장 등락이 내 계좌의 어느 섹터를 통해 얼마나 들어왔는지 보여줍니다.</div>
+            <div style={{ fontSize: FS.tiny, color: TK.sub8, marginTop: 6 }}>기여도 = 비중 × 주간 등락. 위 ①·② 시장 등락이 내 계좌의 어느 섹터를 통해 얼마나 들어왔는지 보여줍니다.</div>
           </Section>
 
           {/* ⑩ 리스크 점검 */}

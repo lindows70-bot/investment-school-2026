@@ -88,9 +88,11 @@ export default function FirmHandsCard() {
                 <b style={{ marginLeft: 'auto', fontSize: FS.tiny, color: lv.c, fontFamily: 'monospace' }}>{a.value}</b>
                 <span style={{ fontSize: FS.micro, color: lv.c }}>{lv.mark}</span>
               </div>
-              <div style={{ fontSize: FS.micro, color: TK.sub13, lineHeight: 1.55, marginTop: 4 }}>{a.detail}</div>
+              {/* ⚠️ 판정 근거와 처방은 **설명 문장**이다 — FS.micro(각주 크기)로 쓰지 않는다(사용자 상설 규칙).
+                  색은 그대로 둔다(⛔ 회색 또 밝히기 금지 — 대비는 이미 WCAG AA 통과, 문제는 크기였다). */}
+              <div style={{ fontSize: FS.tiny, color: TK.sub13, lineHeight: 1.55, marginTop: 4 }}>{a.detail}</div>
               {a.fix && (
-                <div style={{ fontSize: FS.micro, color: TK.sky400, lineHeight: 1.5, marginTop: 4 }}>→ {a.fix}</div>
+                <div style={{ fontSize: FS.tiny, color: TK.sky400, lineHeight: 1.5, marginTop: 4 }}>→ {a.fix}</div>
               )}
             </div>
           )
