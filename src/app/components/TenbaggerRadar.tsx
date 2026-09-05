@@ -60,7 +60,8 @@ function getDefaultEmoji(market: string, currency: string): string {
 // 마일스톤 (배수 기준)
 // ────────────────────────────────────────────────────────────────
 const MILESTONES = [
-  { label: '1배(원금)', sublabel: '±0%',   pct: 0,   barPos: 10, color: TK.blue400 },
+  // ⚠️ 1배(원금)은 '본전' 눈금이다 — 파랑을 쓰면 손실 막대(blue400)와 뜻이 겹친다 → 중립 회색
+  { label: '1배(원금)', sublabel: '±0%',   pct: 0,   barPos: 10, color: TK.sub3 },
   { label: '2배(2루타)', sublabel: '+100%', pct: 100, barPos: 35, color: TK.emerald400 },
   { label: '5배(홈런)',  sublabel: '+400%', pct: 400, barPos: 63, color: TK.orange400 },
   { label: '10배🏆',    sublabel: '+900%', pct: 900, barPos: 90, color: TK.amber400 },
@@ -77,12 +78,18 @@ function getBarPosition(returnPct: number): number {
   return Math.min(100, 90 + ((returnPct - 900) / 500) * 10)
 }
 
+/**
+ * 막대 색 = **내 보유 손익의 부호**(한국식: 빨강=플러스 · 파랑=마이너스).
+ *
+ * ⚠️ 2026-09-06 수정: 예전엔 색 하나로 부호와 '몇 루타냐'를 동시에 말하려 했다
+ *    (`<0 red500 / <100 blue400 / <400 emerald400 …`). 그래서 같은 대시보드에서
+ *    **-47.5% 가 KPI 카드에선 파랑, 이 카드에선 빨강**으로 나왔다(앱 반복 함정:
+ *    "컴포넌트 하나만 미국식이면 바로 옆 표와 정반대로 읽힌다").
+ *    단계(1루·2루·홈런·10배)는 **막대 위치 + 마일스톤 눈금 + 이모지·문구**가 이미 말하므로
+ *    색까지 겸할 필요가 없다. 한 채널에 한 뜻.
+ */
 function getBarColor(returnPct: number): string {
-  if (returnPct < 0)   return TK.red500
-  if (returnPct < 100) return TK.blue400
-  if (returnPct < 400) return TK.emerald400
-  if (returnPct < 900) return TK.orange400
-  return TK.amber400
+  return returnPct < 0 ? TK.blue400 : TK.red400
 }
 
 /** 원금 회복에 필요한 상승률 — -50%는 +50%가 아니라 +100%가 있어야 돌아온다 */
@@ -92,23 +99,26 @@ function recoveryPct(returnPct: number): number {
 }
 
 function getLynchMessage(returnPct: number): { text: string; color: string } {
+  // 🎨 색은 **부호**만 말한다(한국식: 빨강=플러스·파랑=마이너스). 단계·심각도는 이모지와 문장이 말한다.
+  //    예전엔 손실이 red400(미국식)이고 수익이 blue→emerald→orange 로 올라가, 한 채널이 부호와 단계를
+  //    동시에 말하려다 같은 화면 KPI 와 정반대가 됐다. 10배만 금색(amber)을 남긴다 — 축하 배지라서다.
   // ⚠️ 예전엔 음수 전체가 한 버킷이라 -0.1% 와 -48% 가 똑같이 "펀더멘탈을 믿고 버텨라"를
   //    받았다. 같은 화면의 급락 경보와 정면으로 모순됐다. 손실 깊이에 따라 나누고,
   //    위로 대신 '회복에 필요한 상승률'이라는 사실을 보여준다.
-  if (returnPct < -50) return { color: TK.red400,
+  if (returnPct < -50) return { color: TK.blue400,
     text: `🩹 반토막 구간 — 원금 회복에 +${recoveryPct(returnPct).toFixed(0)}%가 필요합니다. 추가 매수 전에 매수 근거가 아직 살아 있는지부터 확인하세요.` }
-  if (returnPct < -25) return { color: TK.red400,
+  if (returnPct < -25) return { color: TK.blue400,
     text: `🧭 조정이 깊습니다 — 원금 회복에 +${recoveryPct(returnPct).toFixed(0)}%가 필요합니다. 주가가 아니라 실적·점유율이 꺾였는지를 보세요.` }
-  if (returnPct < -10) return { color: TK.orange400,
+  if (returnPct < -10) return { color: TK.blue400,
     text: '📉 조정 구간 — 살 때의 이유가 그대로인지 점검할 시점입니다. 이유가 살아 있으면 흔들림은 소음입니다.' }
   if (returnPct < -0.5) return { color: TK.sub2,
     text: '⚾ 흔한 등락 폭입니다. 좋은 공을 기다리는 타자의 심정으로 기다리세요.' }
   // ±0.5% 는 사실상 본전 — 여기에 "1루 진출 성공"을 붙이면 성과를 과장하게 된다
   if (returnPct <= 0.5) return { color: TK.sub2,
     text: '⚾ 아직 본전 구간입니다. 타석에 들어섰을 뿐, 성과를 논하기엔 이릅니다.' }
-  if (returnPct < 100) return { color: TK.blue400, text: '🏃‍♂️ 1루 진출 성공! 주가 흔들림에 털리지 말고 2루타를 향해 전진하세요.' }
-  if (returnPct < 400) return { color: TK.emerald400, text: '🥈 대형 안타 작렬! 이미 원금은 확보되었습니다. 복리의 마법이 시작됩니다.' }
-  if (returnPct < 900) return { color: TK.orange400, text: '🔥 홈런성 타구! 텐배거가 눈앞에 보입니다. 절대 중간에 내리지 마세요.' }
+  if (returnPct < 100) return { color: TK.red400, text: '🏃‍♂️ 1루 진출 성공! 주가 흔들림에 털리지 말고 2루타를 향해 전진하세요.' }
+  if (returnPct < 400) return { color: TK.red400, text: '🥈 대형 안타 작렬! 이미 원금은 확보되었습니다. 복리의 마법이 시작됩니다.' }
+  if (returnPct < 900) return { color: TK.red400, text: '🔥 홈런성 타구! 텐배거가 눈앞에 보입니다. 절대 중간에 내리지 마세요.' }
   return { color: TK.amber400, text: '🏆 텐배거 달성! 피터 린치조차 감탄할 위대한 10루타의 주역이 되셨습니다!' }
 }
 
@@ -163,8 +173,10 @@ function ProgressBar({
           style={{
             left:0, top:'50%', height:12, transform:'translateY(-50%)',
             width: `${Math.max(0.5, barPos)}%`,
+            // ⚠️ 음수 분기가 barColor 를 건너뛰고 빨강을 직접 그리고 있었다 — 한국식(손실=파랑)과 정반대.
+            //    이제 양쪽 다 barColor(부호 색)를 쓴다.
             background: returnPct < 0
-              ? 'linear-gradient(90deg,rgba(239,68,68,0.25) 0%,rgba(239,68,68,0.7) 100%)'
+              ? `linear-gradient(90deg,${barColor}40 0%,${barColor}b3 100%)`
               : `linear-gradient(90deg,#0f1e30 0%,${barColor}cc 100%)`,
             boxShadow: returnPct >= 0 ? `0 0 10px ${barColor}50` : 'none',
           }}
@@ -189,8 +201,6 @@ function ProgressBar({
             fontSize: isTenbagger ? 11 : 9,
             background: isTenbagger
               ? `radial-gradient(circle at 35% 35%,#fde68a,${TK.amber500})`
-              : returnPct < 0
-              ? `radial-gradient(circle at 35% 35%,${TK.red300},${TK.red500})`
               : `radial-gradient(circle at 35% 35%,white 0%,${barColor} 100%)`,
             border:`2px solid ${isTenbagger ? TK.amber500 : barColor}`,
             boxShadow:`0 2px 8px ${barColor}90,0 0 0 2px rgba(0,0,0,0.5)`,
@@ -329,8 +339,9 @@ function StockCard({
           {/* 현재가 + 수익률 */}
           <div className="flex flex-col gap-1 rounded-lg px-3 py-2 transition-colors duration-300"
             style={{
-              background: hasPrice ? (isWin ? 'rgba(16,185,129,0.05)' : 'rgba(239,68,68,0.05)') : 'rgba(10,18,32,0.8)',
-              border: hasPrice ? (isWin ? '1px solid rgba(16,185,129,0.18)' : '1px solid rgba(239,68,68,0.18)') : '1px solid rgba(25,38,58,1)',
+              // 카드 틴트도 한국식 — 수익 빨강 / 손실 파랑(예전엔 초록/빨강 미국식이었다)
+              background: hasPrice ? (isWin ? `${TK.red400}0d` : `${TK.blue400}0d`) : 'rgba(10,18,32,0.8)',
+              border: hasPrice ? (isWin ? `1px solid ${TK.red400}2e` : `1px solid ${TK.blue400}2e`) : '1px solid rgba(25,38,58,1)',
             }}>
             <span className="text-[10px] font-medium" style={{ color:TK.sub6 }}>현재가 / 수익률</span>
             {hasPrice ? (
@@ -339,7 +350,7 @@ function StockCard({
                   {fmtPrice(currentPrice!, stock.currency)}
                 </span>
                 <span className="text-xs font-mono font-bold"
-                  style={{ color: isWin ? TK.emerald400 : TK.red400 }}>
+                  style={{ color: isWin ? TK.red400 : TK.blue400 }}>   {/* 내 손익 — 한국식 */}
                   {isWin ? '+' : ''}{returnPct.toFixed(1)}%
                 </span>
               </div>
@@ -474,7 +485,7 @@ export default function TenbaggerRadar({ priceMap, investments, loading }: Tenba
               { label: '수익 종목',   val: `${winners} / ${stocks.length}`, color: TK.emerald400 },
               { label: '텐배거 달성',     val: `${tenbaggers}건`,            color: TK.amber400 },
               { label: '평균 수익률',     val: `${avgRet >= 0 ? '+' : ''}${avgRet.toFixed(1)}%`,
-                color: avgRet >= 0 ? TK.emerald400 : TK.red400 },
+                color: avgRet >= 0 ? TK.red400 : TK.blue400 },   /* 평균 수익률 — 한국식 */
             ].map(item => (
               <div key={item.label} className="text-center">
                 <div className="text-base font-mono font-bold leading-none" style={{ color:item.color }}>
