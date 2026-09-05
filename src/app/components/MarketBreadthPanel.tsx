@@ -3,7 +3,8 @@
 //    "지수만 보지 말고 속살을 보라" — 소수 대형주 장세와 진짜 강세장을 구분. ⛔ 점수·추천 미반영(관측 전용).
 import { useEffect, useState } from 'react'
 import { ComposedChart, Area, Line, XAxis, YAxis, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
+import { freshnessLabel } from '@/lib/freshness'   // 🕒 갱신 시각 표기 SSOT
 import type { BreadthResult, BreadthMarket } from '@/lib/marketBreadth'
 
 const BAND_META: Record<BreadthMarket['band'], { label: string; icon: string; color: string; desc: string }> = {
@@ -23,7 +24,13 @@ function MarketCard({ d }: { d: BreadthMarket }) {
         <span style={{ fontSize: 22, fontWeight: 900, color: meta.color }}>{d.pctAbove200}%</span>
         <span style={{ fontSize: 11, color: TK.sub2 }}>가 200일선 위</span>
         <span style={{ fontSize: 11, fontWeight: 800, color: meta.color, background: `${meta.color}18`, borderRadius: 6, padding: '2px 8px' }}>{meta.icon} {meta.label}</span>
-        <span style={{ fontSize: 10.5, color: TK.sub3 }}>최근 1년 중 백분위 {d.pctile}%</span>
+        <span style={{ fontSize: FS.micro, color: TK.sub3 }}>최근 1년 중 백분위 {d.pctile}%</span>
+      </div>
+      {/* 📏 표본·기준·갱신 시각을 **카드 상단**에 — 각주에만 두면 학생은 646종을 전 시장으로 읽는다.
+          갱신 시각은 API 의 asOf(실제 스캔 시각)에서 온다. 없으면 아예 안 쓴다('지금'으로 채우지 않는다). */}
+      <div style={{ fontSize: FS.micro, color: TK.sub3, marginTop: 3 }}>
+        표본 {d.scanned}종(추천 유니버스 · 전 시장 아님) · 기준 200일선/50일선
+        {freshnessLabel(d.asOf) ? ` · ${freshnessLabel(d.asOf)}` : ''}
       </div>
       <div style={{ fontSize: 11, color: TK.sub2, marginTop: 4 }}>{meta.desc}</div>
 
@@ -64,7 +71,8 @@ function MarketCard({ d }: { d: BreadthMarket }) {
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-      <div style={{ fontSize: 9.5, color: TK.sub3, marginTop: 2 }}>실선=200일선 위 종목 비율(좌) · 점선=지수(우·기준 100) — 두 선이 갈라지면 다이버전스</div>
+      {/* 차트 읽는 법을 알려주는 **설명문**이다 — FS.micro(각주)보다도 작은 9.5 는 쓰지 않는다(사용자 상설 규칙) */}
+      <div style={{ fontSize: FS.tiny, color: TK.sub3, marginTop: 2 }}>실선=200일선 위 종목 비율(좌) · 점선=지수(우·기준 100) — 두 선이 갈라지면 다이버전스</div>
     </div>
   )
 }

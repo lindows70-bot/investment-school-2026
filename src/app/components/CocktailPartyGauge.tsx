@@ -11,7 +11,8 @@
 
 import { useState, useEffect } from 'react'
 import { LineChart, Line, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
-import { TK, FONT_STACK } from '@/lib/theme'
+import { TK, FS, FONT_STACK } from '@/lib/theme'
+import { freshnessLabel } from '@/lib/freshness'   // 🕒 갱신 시각 표기 SSOT
 
 interface PartyData {
   partyScore: number
@@ -287,7 +288,10 @@ export default function CocktailPartyGauge() {
         </div>
       </div>
 
-      <div style={{ marginTop: 12, fontSize: 9, color: TK.sub6, lineHeight: 1.6 }}>
+      {/* 🕒 갱신 시각 — `asOf` 는 예전부터 응답에 실려 있었는데 타입에만 선언돼 있고 화면엔 안 나왔다
+          ('있는데 안 쓴 데이터'). '매시간 자동 갱신'이라는 말만으로는 지금 값이 언제 것인지 알 수 없다. */}
+      <div style={{ marginTop: 12, fontSize: FS.micro, color: TK.sub6, lineHeight: 1.6 }}>
+        {freshnessLabel(data.asOf) ? `${freshnessLabel(data.asOf)} · ` : ''}
         {data.source === 'cnn'
           ? '* CNN 공포-탐욕 지수(7개 지표 종합)를 사용합니다. 매시간 자동 갱신 · 투자 참고용이며 매매 권유가 아닙니다.'
           : '* CNN 데이터 일시 불가 → VIX·S&P500 자체 계산으로 대체 표시 중입니다. 투자 참고용입니다.'}

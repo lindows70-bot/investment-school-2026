@@ -21,7 +21,7 @@ import {
   AlertTriangle, ShieldAlert, CheckCircle2,
   PackageOpen, RefreshCw, Info, Database, AlertCircle,
 } from 'lucide-react'
-import { TK, FONT_STACK } from '@/lib/theme'
+import { TK, FS, FONT_STACK } from '@/lib/theme'
 
 // ────────────────────────────────────────────────────────────
 // 타입
@@ -400,7 +400,9 @@ export default function LynchInventorySentinel() {
 
         {/* 에러 */}
         {listError && (
-          <div style={{ padding:'10px 14px', borderRadius:9, background:'rgba(248,113,113,.1)', border:'1px solid rgba(248,113,113,.3)', fontSize:11, color:C.red }}>
+          {/* 조회 실패는 DANGER/HEALTHY 판정 짝이 아니라 **시스템 오류**다 — 이 화면(대시보드)에서
+              빨강은 '상승/플러스'이므로 경고색으로 옮긴다. C.red 는 판정 짝(75·243행)에만 남긴다. */}
+          <div style={{ padding:'10px 14px', borderRadius:9, background:`${TK.orange400}1a`, border:`1px solid ${TK.orange400}4d`, fontSize:FS.tiny, color:TK.orange400 }}>
             ⚠️ {listError}
           </div>
         )}
@@ -426,7 +428,8 @@ export default function LynchInventorySentinel() {
             <Database size={12} color={C.blue} />
             <div style={{ fontSize:10, color:C.textLow }}>
               {loadingCount > 0 && <span style={{ color:C.yellow }}>⏳ {loadingCount}개 수집 중 </span>}
-              {errorCount  > 0 && <span style={{ color:C.red }}>· ⚠️ {errorCount}개 데이터 제한 </span>}
+              {/* 수집 오류 개수도 판정이 아니다. 같은 뜻인 '데이터 제한'이 224·494행에서는 C.yellow 라 색이 갈렸었다 → 통일 */}
+              {errorCount  > 0 && <span style={{ color:C.yellow }}>· ⚠️ {errorCount}개 데이터 제한 </span>}
               <span>· 완료: {allResults.length}/{stockList.length}개</span>
             </div>
           </div>

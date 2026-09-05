@@ -13,7 +13,9 @@ const fmtW = (n: number) => {
   return `${v < 0 ? '−' : ''}₩${s}`
 }
 const EV_META: Record<CalEvent['type'], { icon: string; label: string; color: string }> = {
-  earnings: { icon: '🎯', label: '실적 발표', color: TK.amber400 },
+  // ⚠️ amber400 을 쓰지 않는다 — 85행이 같은 amber400 으로 '⚠️ 어닝 갭 주의' **경고**를 쓴다.
+  //    한 칩 줄에서 카테고리 식별색과 경고색이 같으면 학생은 실적 발표 전부를 경고로 읽는다.
+  earnings: { icon: '🎯', label: '실적 발표', color: TK.violet400 },
   exDiv: { icon: '💰', label: '배당락', color: TK.sky400 },
   payDiv: { icon: '💵', label: '배당 지급', color: TK.green400 },
 }
