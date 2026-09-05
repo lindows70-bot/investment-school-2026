@@ -14,7 +14,7 @@ const BAND_META: Record<BreadthMarket['band'], { label: string; icon: string; co
   washout: { label: '침체·관심', icon: '🧊', color: TK.sky400, desc: '대부분이 추세 아래 — 역사적으로 바닥권에서 나오던 수치(시점 보장은 없음)' },
 }
 
-function MarketCard({ d }: { d: BreadthMarket }) {
+function MarketCard({ d, asOf }: { d: BreadthMarket; asOf: string | null }) {
   const meta = BAND_META[d.band]
   const flag = d.market === 'US' ? '🇺🇸 미국' : '🇰🇷 한국'
   return (
@@ -29,8 +29,8 @@ function MarketCard({ d }: { d: BreadthMarket }) {
       {/* 📏 표본·기준·갱신 시각을 **카드 상단**에 — 각주에만 두면 학생은 646종을 전 시장으로 읽는다.
           갱신 시각은 API 의 asOf(실제 스캔 시각)에서 온다. 없으면 아예 안 쓴다('지금'으로 채우지 않는다). */}
       <div style={{ fontSize: FS.micro, color: TK.sub3, marginTop: 3 }}>
-        표본 {d.scanned}종(추천 유니버스 · 전 시장 아님) · 기준 200일선/50일선
-        {freshnessLabel(d.asOf) ? ` · ${freshnessLabel(d.asOf)}` : ''}
+        표본 {d.n}종(추천 유니버스 · 전 시장 아님) · 기준 200일선/50일선 · 데이터 {d.asOfDate}
+        {freshnessLabel(asOf) ? ` · ${freshnessLabel(asOf)}` : ''}
       </div>
       <div style={{ fontSize: 11, color: TK.sub2, marginTop: 4 }}>{meta.desc}</div>
 
@@ -108,8 +108,8 @@ export default function MarketBreadthPanel() {
         시계추(심리·밸류)가 &lsquo;바깥 온도&rsquo;라면 시장 폭은 &lsquo;몸속 체온&rsquo;입니다. 지수가 올라도 200일선 위 종목이 줄면 소수 대형주 장세 — 내 종목이 지수를 못 따라가는 이유가 여기서 보입니다.
       </div>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12 }}>
-        {d.us && <MarketCard d={d.us} />}
-        {d.kr && <MarketCard d={d.kr} />}
+        {d.us && <MarketCard d={d.us} asOf={d.asOf} />}
+        {d.kr && <MarketCard d={d.kr} asOf={d.asOf} />}
       </div>
       <div style={{ fontSize: 10, color: TK.sub3, marginTop: 10, lineHeight: 1.5 }}>
         표본 = 추천 유니버스 {d.scanned}종(전 시장 전수 아님) · 신고/신저는 종가 기준 · 백분위는 자기 역사 약 250거래일 · 예측이 아닌 현재 구조 관측 — 매매 판단은 6축(WHAT)·신호등(WHEN)과 함께.

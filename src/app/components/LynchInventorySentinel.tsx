@@ -399,9 +399,10 @@ export default function LynchInventorySentinel() {
       <div style={{ padding:'14px 20px', background:C.card, border:`1px solid ${C.border}`, borderTop:'none', borderRadius:'0 0 12px 12px', display:'flex', flexDirection:'column', gap:12 }}>
 
         {/* 에러 */}
+        {/* 조회 실패는 DANGER/HEALTHY 판정 짝이 아니라 **시스템 오류**다 — 이 화면(대시보드)에서
+            빨강은 '상승/플러스'이므로 경고색으로 옮긴다. C.red 는 판정 짝(75·243행)에만 남긴다.
+            ⚠️ 이 주석을 `{listError && (` 안쪽으로 넣지 마라 — 표현식 위치라 JSX 주석이 파싱 에러가 된다. */}
         {listError && (
-          {/* 조회 실패는 DANGER/HEALTHY 판정 짝이 아니라 **시스템 오류**다 — 이 화면(대시보드)에서
-              빨강은 '상승/플러스'이므로 경고색으로 옮긴다. C.red 는 판정 짝(75·243행)에만 남긴다. */}
           <div style={{ padding:'10px 14px', borderRadius:9, background:`${TK.orange400}1a`, border:`1px solid ${TK.orange400}4d`, fontSize:FS.tiny, color:TK.orange400 }}>
             ⚠️ {listError}
           </div>

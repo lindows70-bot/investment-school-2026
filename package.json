@@ -7,7 +7,7 @@
     "dev:quick": "next dev",
     "build": "next build",
     "check": "npx tsc --noEmit && next lint",
-    "check:build": "cross-env NEXT_DIST_DIR=.next-build next build",
+    "check:build": "node scripts/check-build.js",
     "deploy": "npx vercel --prod --yes",
     "start": "next start",
     "lint": "next lint",
