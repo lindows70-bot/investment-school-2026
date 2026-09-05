@@ -91,6 +91,7 @@ Next.js 14 (App Router) + Supabase + Tailwind CSS + TypeScript 로 구축한
 ### 빌드·배포
 - **`npm run check` 통과 ≠ `next build` 통과** — JSX 텍스트의 곧은 따옴표(`react/no-unescaped-entities`), 타입캐스트+연산자(`(w as number) >= 10` 괄호 필수)는 빌드에서만 잡힌다. 반드시 `npm run check:build`.
 - **검증 명령에 파이프 금지** — `... | tail`은 exit code를 가려 실패한 빌드가 커밋·배포까지 흘러간다. **`&&` 체이닝**으로.
+- **⛔ `check:build` 가 거짓 green 을 준다 — lint 캐시를 지우고 돌려야 한다**(2026-09-05 실사고). JSX 파싱 에러(`{cond && ( {/* 주석 */} …)}` — 괄호 **안쪽**은 표현식 위치라 JSX 주석이 못 온다)가 로컬 `check:build` 를 통과하고 Vercel 에서야 죽었다. 원인은 `.next-build/cache/eslint` — Next 가 파일별 lint 결과를 캐시하는데 **로컬은 재사용하고 Vercel 은 캐시 없이 새로 돈다.** 이 프로젝트는 "check:build 통과 = 배포 안전"을 전제로 커밋·배포하므로 전제가 깨져 있었다. → `scripts/check-build.js` 가 빌드 전에 lint 캐시만 지운다(721MB 중 0.4MB — swc/webpack 캐시는 남겨 시간 유지). 파싱 에러를 일부러 되돌려 넣어 red(EXIT=1)→green(EXIT=0)을 확인했다.
 - **로컬 `npm run build` 절대 금지** — dev 서버의 `.next`를 덮어써 흰 화면. `check:build`가 `.next-build`로 분리 빌드한다. **dev 서버가 떠 있을 때 같은 폴더에서 `next build` 금지.**
 - **"배포 성공" ≠ "내 코드가 배포됨"** — `vercel --prod`는 git이 아니라 작업 디렉토리를 올린다. 커밋이 조용히 실패했을 수 있으니 **배포 후 `git log --oneline -1` 확인**.
 - **`git add -A` 금지** — 병렬 세션 산출물까지 쓸어담는다. 파일을 명시할 것.
@@ -226,6 +227,7 @@ Next.js 14 (App Router) + Supabase + Tailwind CSS + TypeScript 로 구축한
 |---|---|---|
 | **턴 종료** | `scripts/stop-guard.mjs` (Stop 훅 · `.claude/settings.json`) | 타입 오류(재시도해도 막힘·연속 3회면 교착 방지로 해제) · 캐시 키 범프 누락(1회 알림) |
 | **커밋** | `scripts/precommit-guard.mjs` (`.husky/pre-commit`) | **신규 파일**의 디자인 값 하드코딩 · 캐시 키 reader 잔존 |
+| **배포 전** | `scripts/check-build.js` (`npm run check:build`) | 타입·JSX 파싱 에러. ⚠️ **lint 캐시를 지우고** 빌드한다 — 안 지우면 거짓 green |
 | **푸시** | `.husky/pre-push` | tsc + lint |
 
 - Stop 훅은 **코드를 안 건드린 턴은 0.5초에 통과**한다(스탬프 mtime 비교) — 대화만 한 턴에 13초를 쓰지 않는다.
