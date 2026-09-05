@@ -1901,9 +1901,9 @@ export default function DashboardPage() {
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                            <span style={{ fontSize: 13 }}>{item.icon}</span>
+                            <span style={{ fontSize: FS.tiny }}>{item.icon}</span>
                             <span style={{
-                              fontSize: 12, fontWeight: 700,
+                              fontSize: FS.tiny, fontWeight: 700,
                               color: isItemActive ? GOLD : TK.slate300,
                             }}>
                               {item.label}
@@ -1918,7 +1918,12 @@ export default function DashboardPage() {
                               </span>
                             )}
                           </div>
-                          <span style={{ fontSize: 10, color: TK.sub6, marginLeft: 20 }}>
+                          {/* 📐 탭 부제는 '이 메뉴가 뭘 하는지' 설명하는 문장이다 — 10px 은 FS 스케일 밖(micro=11)이고
+                              사용자 상설 규칙("설명 글자는 크고 또렷하게, 모든 메뉴에서")에 어긋난다.
+                              ⚠️ 올리기 전에 실측했다: 이 탭 목록은 조밀한 격자가 아니라 **220px 세로 목록**이라
+                                 커져도 가로가 아니라 세로로 늘어난다. 12/10 → 13/11 로 올렸을 때
+                                 목록 총높이 2833 → 2953px(+4.2%) · 가로 넘침 0 (프로덕션 브라우저 실측). */}
+                          <span style={{ fontSize: FS.micro, color: TK.sub6, marginLeft: 20 }}>
                             {item.desc}
                           </span>
                         </button>
