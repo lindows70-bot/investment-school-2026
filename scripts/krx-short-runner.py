@@ -99,6 +99,7 @@ def main():
 
     payload = {'date': f'{day[:4]}-{day[4:6]}-{day[6:]}', 'marketTop': market_top, 'holdings': holdings,
                'asOf': datetime.datetime.now().isoformat()}
+    # ⚠️ 이 키는 src/lib/localRunners.ts 의 KRX_SHORT_KEY 와 같아야 한다(러너는 .py 라 TS 를 import 못 한다).
     supa_req('POST', '/rest/v1/app_cache?on_conflict=key',
              [{'key': 'krx-short-daily', 'payload': payload, 'updated_at': datetime.datetime.utcnow().isoformat() + 'Z'}],
              prefer='resolution=merge-duplicates')

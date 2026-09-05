@@ -50,6 +50,8 @@ async function main() {
   const res = await fetch(`${SUPA}/rest/v1/app_cache?on_conflict=key`, {
     method: 'POST',
     headers: { apikey: SVC, Authorization: `Bearer ${SVC}`, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates' },
+    // ⚠️ 이 키는 src/lib/localRunners.ts 의 FACTSET_FWD_KEY 와 같아야 한다(러너는 .mjs 라 TS 를 import 못 한다).
+    //    바꾸면 세 곳 함께: 여기 · localRunners.ts · (읽는 쪽은 그 상수를 쓰므로 자동 추종)
     body: JSON.stringify([{ key: 'factset-forward-pe', payload: result, updated_at: new Date().toISOString() }]),
   })
   console.log(res.ok ? '✅ Supabase 적재 완료' : `적재 실패 ${res.status} ${await res.text()}`)

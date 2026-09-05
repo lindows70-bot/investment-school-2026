@@ -3,6 +3,7 @@
 // ⚠️ 제미나이/구글의 하드코딩 숫자(41.6배 등) 대신 실데이터 계산(제1원칙). 임계 밴드는 공개 방법론 상수(교육용).
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
+import { FACTSET_FWD_KEY } from '@/lib/localRunners'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -53,7 +54,7 @@ async function multpl(path: string): Promise<number | null> {
 // ⚠️ Vercel 서버는 FactSet CDN이 데이터센터 IP 차단으로 직접 파싱 불가 → 선생님 PC 러너 경유(KRX·토스 러너와 동일 보안·경로).
 interface FactsetFwd { fwd: number; avg5: number | null; avg10: number | null; trailing?: number | null; date: string }
 async function factsetForward(): Promise<FactsetFwd | null> {
-  return await getCache<FactsetFwd>('factset-forward-pe', 30 * 24 * 3600_000)   // 러너 적재분(주간 갱신, 30일 유효)
+  return await getCache<FactsetFwd>(FACTSET_FWD_KEY, 30 * 24 * 3600_000)   // 러너 적재분(주간 갱신, 30일 유효)
 }
 
 const MON: Record<string, string> = { Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06', Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12' }

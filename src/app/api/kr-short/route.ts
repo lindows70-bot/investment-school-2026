@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getCache } from '@/lib/appCache'
+import { KRX_SHORT_KEY } from '@/lib/localRunners'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,7 +32,7 @@ function judge(h: KrShortHolding): KrShortSignal {
 
 export async function GET() {
   // 러너가 일 1회 갱신 — 주말·연휴 포함 7일까지는 최신 거래일 데이터로 유효
-  const data = await getCache<KrShortResult>('krx-short-daily', 7 * 24 * 3600_000)
+  const data = await getCache<KrShortResult>(KRX_SHORT_KEY, 7 * 24 * 3600_000)
   if (!data) return NextResponse.json({ error: '러너 미적재 — 선생님 PC에서 krx-short-runner.py 실행 필요' }, { status: 503 })
 
   // ⚠️ 러너는 전체 학생 합집합을 수집(공유 캐시) — 서빙 시 로그인 사용자의 보유 종목으로 필터('내 종목' 의미 보장).

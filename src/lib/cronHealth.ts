@@ -13,6 +13,7 @@ import { FUND_CACHE_KEY } from '@/lib/guru13f'
 import { BREADTH_KEY } from '@/lib/marketBreadth'
 import { HONEYCOMB_KEY } from '@/lib/rone'
 import { TECH_SCREENER_KEY } from '@/lib/techScreener'
+import { FACTSET_FWD_KEY, KRX_SHORT_KEY } from '@/lib/localRunners'
 
 const GRACE_MS = 45 * 60_000            // 실행 지연 유예(가장 긴 크론 300s의 9배 — 오탐 방지)
 const KST_MS = 9 * 3600_000
@@ -60,6 +61,14 @@ export const CRON_MONITORS: CronMonitor[] = [
   { id: 'marketFlowKr', label: '국내 시장 수급 워밍', kst: '20:00', days: 'weekday', artifact: { type: 'cacheDate', key: d => MARKET_FLOW_KR_KEY(d) }, heal: '/api/market-flow-kr' },
   // ⭐ 핵심 추천 전향 적립 — 적립 0건인 날도 run 마커를 남기므로 cacheDate 로 실행 여부만 본다(무신호≠실패)
   { id: 'coreReco', label: '핵심 추천·축 성적 적립', kst: '17:00', days: 'daily', artifact: { type: 'cacheDate', key: d => `core-reco-run-v1:${d}` }, heal: '/api/cron/core-reco' },
+
+  // ── 🖥️ 선생님 PC 로컬 러너(Vercel 크론이 아니다) ───────────────────────────────────
+  // ⚠️ 2026-09-05: 이 둘이 **두 달간 한 번도 성공 못 했는데 헬스는 초록불이었다** — 목록에 없었기 때문이다.
+  //    작업 스케줄러 인자가 과잉 이스케이프돼 cmd 가 실행 파일 경로를 못 읽었고, 로그엔 같은 에러만 44회 쌓였다.
+  // ⛔ heal 은 반드시 null — 서버가 선생님 PC 의 작업 스케줄러를 부를 수 없다. 여기는 **보고 전용**이다.
+  // 🕒 ttlH(나이 기준)로 판정한다: 주말·하루 결행에는 안 울리고 며칠째 죽은 것만 잡는다(경보 피로 회피).
+  { id: 'factsetFwd', label: '선행 PER 수집(PC·주 1회)', kst: '21:00', days: 'daily', artifact: { type: 'cache', key: () => FACTSET_FWD_KEY }, heal: null, ttlH: 168 },
+  { id: 'krxShort', label: '공매도 수집(PC·매일)', kst: '20:00', days: 'daily', artifact: { type: 'cache', key: () => KRX_SHORT_KEY }, heal: null, ttlH: 24 },
 ]
 
 export interface HealthCheck {
