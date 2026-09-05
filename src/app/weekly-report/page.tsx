@@ -479,7 +479,7 @@ export default function WeeklyReportPage() {
           ))}
         </div>
         {extremes.length > 0 && (
-          <div style={{ marginTop: 8, background: '#2a1010', border: `1px solid ${TK.red400}55`, borderRadius: 8, padding: '8px 12px', fontSize: FS.tiny, color: '#fca5a5', lineHeight: 1.55 }}>
+          <div style={{ marginTop: 8, background: `${TK.orange400}14`, border: `1px solid ${TK.orange400}55`, borderRadius: 8, padding: '8px 12px', fontSize: FS.tiny, color: TK.orange400, lineHeight: 1.55 }}>
             🌪️ <b>극단 변동 시장</b>: {extremes.map(v => `${v.flag} ${v.label}`).join(' · ')} — 손절이 갭에 뚫릴 수 있는 국면입니다. 비중 축소·분할 진입 원칙을 지키세요.
           </div>
         )}
@@ -758,7 +758,7 @@ export default function WeeklyReportPage() {
           {/* ⑩ 리스크 점검 */}
           <Section no="⑩" title="리스크 점검 — 포트폴리오 구조 진단">
             {m.krExtreme && (
-              <div style={{ marginBottom: 8, background: '#2a1010', border: `1px solid ${TK.red400}55`, borderRadius: 8, padding: '8px 12px', fontSize: FS.tiny, color: '#fca5a5', lineHeight: 1.55 }}>
+              <div style={{ marginBottom: 8, background: `${TK.orange400}14`, border: `1px solid ${TK.orange400}55`, borderRadius: 8, padding: '8px 12px', fontSize: FS.tiny, color: TK.orange400, lineHeight: 1.55 }}>
                 🌪️ <b>코스피 극단 변동 국면 + 한국 종목 보유</b> — 이번 주 신규 진입은 계산 수량의 절반 이하·분할을 권장합니다.
               </div>
             )}

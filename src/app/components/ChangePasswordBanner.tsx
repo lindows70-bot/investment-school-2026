@@ -139,7 +139,7 @@ export default function ChangePasswordBanner() {
           )}
 
           {status === 'error' && (
-            <div style={{ marginTop: 8, fontSize: 12, color: TK.red400 }}>⚠ {msg}</div>
+            <div style={{ marginTop: 8, fontSize: 12, color: TK.orange400 }}>⚠ {msg}</div>
           )}
         </div>
 

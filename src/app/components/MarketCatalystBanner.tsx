@@ -66,9 +66,9 @@ export default function MarketCatalystBanner() {
           <span style={{ color: TK.sub, fontSize: 10.5, fontWeight: 700 }}>📡 수급 블랙홀:</span>
           {d.movers.map(m => (
             <span key={`${m.market}:${m.ticker}`} title={m.note}
-              style={{ background: CARD, border: `1px solid ${(m.volRatio ?? 0) >= 3 ? `${TK.red400}55` : BORDER}`, borderRadius: 6, padding: '2px 9px', fontSize: 10.5, color: TK.slate300, display: 'inline-flex', gap: 5, alignItems: 'center' }}>
+              style={{ background: CARD, border: `1px solid ${(m.volRatio ?? 0) >= 3 ? `${TK.orange400}55` : BORDER}`, borderRadius: 6, padding: '2px 9px', fontSize: 10.5, color: TK.slate300, display: 'inline-flex', gap: 5, alignItems: 'center' }}>
               {flagOf(m.market, m.ticker)} <b>{m.market === 'KR' ? m.name.slice(0, 8) : m.ticker}</b>
-              {m.volRatio != null && <span style={{ color: m.volRatio >= 3 ? TK.red400 : TK.orange400, fontWeight: 800 }}>거래량 {m.volRatio}배</span>}
+              {m.volRatio != null && <span style={{ color: m.volRatio >= 3 ? TK.orange400 : TK.amber400, fontWeight: 800 }}>거래량 {m.volRatio}배</span>}
               {/* ⚠️ 색은 앱 전체와 같은 한국식(빨강=상승·파랑=하락). 예전엔 여기만 미국식이라
                      -6% 가 빨강으로 찍혀 바로 위 보유표와 정반대로 읽혔다. */}
               {m.changePct != null && <span style={{ color: m.changePct > 0 ? TK.red400 : TK.blue400 }}>{m.changePct > 0 ? '+' : ''}{m.changePct}%</span>}

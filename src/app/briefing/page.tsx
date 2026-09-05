@@ -20,7 +20,7 @@ import StockActionChips from '@/app/components/StockActionChips'   // 🔗 종�
 import DilutionAlertBanner from '@/app/components/DilutionAlertBanner'   // 🚨 희석 경보(대시보드에만 있던 것을 브리핑에도)
 import SwingStopAlertBanner from '@/app/components/SwingStopAlertBanner'   // 🚨 스윙 손절선 이탈 — 진입만 알려주고 이탈을 침묵하면 반쪽이다
 import DayMoverAlertBanner from '@/app/components/DayMoverAlertBanner'   // 🚀 비트코인·보유 종목 당일 ±5% 급등락
-import YieldCurveAlertBanner from '@/app/components/YieldCurveAlertBanner'   // 🔴 장단기 금리 역전(지속 역전에서만 렌더)
+import YieldCurveAlertBanner from '@/app/components/YieldCurveAlertBanner'   // ⚠️ 장단기 금리 역전(지속 역전에서만 렌더)
 
 // CARD 는 공용 Section 이 TK.card 로 대신하므로 제거했다(내 변경이 만든 고아 — 남기면 죽은 코드다)
 const BORDER = TK.border
@@ -300,7 +300,7 @@ export default function BriefingPage() {
             리밸런싱이 조용해도 버핏 축이 켜질 수 있다. 반대로 정리 후보인데 버핏 🟢이면 '기업이 아니라 비중 문제'다. */}
         {buffettAlerts.length > 0 && (
           <div style={{ fontSize: FS.tiny, color: TK.sub13, lineHeight: 1.6, marginTop: 7, background: '#2a1f0a55', border: `1px solid ${TK.amber400}33`, borderRadius: 8, padding: '6px 10px' }}>
-            🏰 <b style={{ color: TK.amber400 }}>버핏 기업 점검 감시</b> — {buffettAlerts.map(it => `${it.name}(${it.buffett!.level === 'strong' ? '🔴 변질 신호 다수' : '🟡 신호 1개'})`).join(' · ')}
+            🏰 <b style={{ color: TK.amber400 }}>버핏 기업 점검 감시</b> — {buffettAlerts.map(it => `${it.name}(${it.buffett!.level === 'strong' ? '🟠 변질 신호 다수' : '🟡 신호 1개'})`).join(' · ')}
             <span style={{ color: TK.sub3 }}> · 가격이 아니라 기업이 변했는지의 축 — 근거는 </span>
             <a href="/assets" style={{ color: TK.indigo400, textDecoration: 'none', fontWeight: 700 }}>출구 플랜 →</a>
           </div>

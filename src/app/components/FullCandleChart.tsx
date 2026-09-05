@@ -184,7 +184,7 @@ export default function FullCandleChart({
               const tagX = W - padR + 1
               const gapPct = avgGap!
               const gapStr = `${gapPct >= 0 ? '+' : ''}${gapPct.toFixed(1)}%`
-              const gapColor = gapPct >= 0 ? TK.green400 : TK.red400
+              const gapColor = gapPct >= 0 ? TK.red400 : TK.blue400   // 내 보유 손익 → 한국식(같은 SVG 의 전일 대비 등락과 동일)
               return (
                 <g>
                   {/* 평단가 태그 */}

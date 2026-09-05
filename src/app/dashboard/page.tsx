@@ -616,8 +616,9 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore, coreProfile, satPro
                 gap:        8,
                 padding:    '8px 12px',
                 borderRadius: 8,
-                background: 'rgba(239,68,68,0.08)',
-                border:     '1px solid rgba(239,68,68,0.2)',
+                // 경고 틴트도 WARN_CLR(#f97316)과 맞춘다 — 글자만 주황이고 상자가 빨강이면 같은 박스가 두 말을 한다
+                background: 'rgba(249,115,22,0.08)',
+                border:     '1px solid rgba(249,115,22,0.2)',
               }}>
                 <span style={{ fontSize: 18 }}>{coreIsOver ? '📊' : '📉'}</span>
                 <div>
@@ -1606,7 +1607,7 @@ export default function DashboardPage() {
       const cycNote = cat === 'cyclical' ? ' (경기 순환주 — 사이클 하락 구간 확인 필요)' : ''
       if (worstStock.ret <= -20) {
         list.push({ type:'warning', label:'RISK ALERT',
-          msg:`🔴 ${name} ${fmtPct(worstStock.ret)}${cycNote} — 급락 구간 진입, 분산 전략 재검토 권장` })
+          msg:`${name} ${fmtPct(worstStock.ret)}${cycNote} — 급락 구간 진입, 분산 전략 재검토 권장` })
       } else {
         list.push({ type:'warning', label:'WATCH',
           msg:`⚠️ ${name} ${fmtPct(worstStock.ret)}${cycNote} — 하락 지속 중, 투자 전략 점검 권장` })
@@ -1622,7 +1623,7 @@ export default function DashboardPage() {
       if (ret <= -30) {
         // -30% 이상 하락: 코인에서도 급락 경고
         list.push({ type:'warning', label:'CRYPTO RISK',
-          msg:`🔴 ${name} ${fmtPct(ret)} — 급락 구간. 포지션 비중·손절 기준 재검토 권장` })
+          msg:`${name} ${fmtPct(ret)} — 급락 구간. 포지션 비중·손절 기준 재검토 권장` })
       } else if (ret < -15) {
         // -15~-30%: 코인 변동성 내 정상 조정
         list.push({ type:'info', label:'CRYPTO DIP',

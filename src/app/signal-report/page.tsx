@@ -241,7 +241,7 @@ export default function SignalReportPage() {
           <div style={{ ...CARD, padding: '14px 16px' }}>
             <div style={{ fontSize: 13, fontWeight: 800, color: TK.slate200 }}>신호별 적중률</div>
             <div style={{ fontSize: 11, color: TK.sub4, margin: '3px 0 10px' }}>
-              매수는 <b style={{ color: TK.green400 }}>오르면</b> 적중 · 매도는 <b style={{ color: TK.red400 }}>떨어지면</b> 적중(그때 팔았으면 면한 손실) ·
+              매수는 <b style={{ color: TK.red400 }}>오르면</b> 적중 · 매도는 <b style={{ color: TK.blue400 }}>떨어지면</b> 적중(그때 팔았으면 면한 손실) ·
               <b style={{ color: TK.slate200 }}> 시장 대비</b>가 +면 국면을 이긴 것 ·
               <b style={{ color: TK.slate200 }}> 종목 칩</b>은 <b>신호일 최근순 3개</b>(대표·최고 성과가 아닙니다 — 전체 건수는 칩 왼쪽에)
               <br />모든 숫자는 <b style={{ color: TK.slate200 }}>신호일 → 오늘</b> 기준으로 통일했습니다(세 축을 같은 잣대로 비교하려고) · <b>한 달 뒤 고정 성적</b>은 아래 &lsquo;신호 하나하나 보기&rsquo;의 <b>30일 후</b> 열에 있습니다
@@ -272,9 +272,9 @@ export default function SignalReportPage() {
                             건수 없이 3개만 두면 학생이 '대표종목'이나 '최고 성과'로 오해한다(사용자 질문). */}
                         {(hitB.length > 0 || hitS.length > 0 || missB.length > 0) && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 7 }}>
-                            <ChipRow label="매수 적중" color={TK.green400} list={hitB} total={gb?.hitN ?? 0} ok />
+                            <ChipRow label="매수 적중" color={TK.red400} list={hitB} total={gb?.hitN ?? 0} ok />
                             <ChipRow label="매수 빗나감" color={TK.sub4} list={missB} total={gb?.missN ?? 0} ok={false} />
-                            <ChipRow label="매도 적중" color={TK.red400} list={hitS} total={gs?.hitN ?? 0} ok />
+                            <ChipRow label="매도 적중" color={TK.blue400} list={hitS} total={gs?.hitN ?? 0} ok />
                           </div>
                         )}
                       </td>

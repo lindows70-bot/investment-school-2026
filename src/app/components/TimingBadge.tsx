@@ -40,7 +40,7 @@ export default function TimingBadge({ t, market, ticker, compact = false }: { t:
         {chop && <span title={`추세 강도 약함(ADX ${t.supply!.adx}) — 방향 확신 낮아 돌파도 가짜(휩쏘) 가능, 방향 확정 후 진입`}
           style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate400, background: `${TK.slate400}18`, border: `1px solid ${TK.slate400}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>⬛관망</span>}
         {sd && <span title={`${sd.highBarsAgo === 0 ? '오늘' : `${sd.highBarsAgo}거래일 전`} 고점에서 ${Math.abs(sd.dropFromHigh!)}% 급락 — 추세 구조는 살아있으나 지금 진입은 칼받이 위험. 반등·지지 확인 후 분할로`}
-          style={{ fontSize: FS.tiny, fontWeight: 900, color: TK.red400, background: `${TK.red400}22`, border: `1px solid ${TK.red400}88`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>📉급락 {sd.dropFromHigh}%</span>}
+          style={{ fontSize: FS.tiny, fontWeight: 900, color: TK.orange400, background: `${TK.orange400}22`, border: `1px solid ${TK.orange400}88`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>📉급락 {sd.dropFromHigh}%</span>}
         {vx && <span title={vx.dir === 'up' ? '기관평단(VWAP) 위로 복귀 — 주도권 교체 후보(확인 캔들·신호등과 함께)' : 'VWAP 아래로 이탈 — 본전 매도 압력 구간(주도권 교체 후보·단독 신호 아님)'}
           style={{ fontSize: FS.tiny, fontWeight: 800, color: vx.dir === 'up' ? TK.green400 : TK.red400, background: `${vx.dir === 'up' ? TK.green400 : TK.red400}18`, border: `1px solid ${vx.dir === 'up' ? TK.green400 : TK.red400}55`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>
           ⚓{vx.dir === 'up' ? '평단 회복' : '평단 이탈'}</span>}
@@ -89,7 +89,8 @@ export default function TimingBadge({ t, market, ticker, compact = false }: { t:
     const ago = sp.highBarsAgo === 0 ? '오늘' : `${sp.highBarsAgo}거래일 전`
     dropChip = {
       label: `📉 급락(고점 대비 ${sp.dropFromHigh}%)`,
-      c: TK.red400,
+      // 음수 등락률을 빨강으로 찍으면 한국식(빨강=상승)과 정면 충돌 — 뜻이 경고이므로 경고색
+      c: TK.orange400,
       tip: `${ago} 고점에서 ${Math.abs(sp.dropFromHigh)}% 급락 — 추세 구조는 아직 살아있으나 지금 진입은 칼받이가 될 수 있습니다. 반등·지지 확인 후 분할로.`,
     }
   }
