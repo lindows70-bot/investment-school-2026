@@ -78,7 +78,8 @@ async function multplSeries(path: string): Promise<{ date: string; v: number }[]
 }
 
 export async function GET() {
-  const cacheKey = 'crisis-radar-v8'   // v8: explain 의 작성시점 하드코딩 제거 + 허위 인용 제거(내용만 바뀌어도 키를 올린다)
+  // v9: 선행 PER 미수집 시 후행으로 **축을 함께** 전환(라벨·판정·게이지) — 옛 응답엔 잘못된 판정이 박혀 있어 반드시 범프
+  const cacheKey = 'crisis-radar-v9'   // v8: explain 의 작성시점 하드코딩 제거 + 허위 인용 제거(내용만 바뀌어도 키를 올린다)
   const cached = await getCache<CrisisRadarResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -134,21 +135,38 @@ export async function GET() {
     history: [{ label: '2000 닷컴', value: buffettAt('2000-03-31') }, { label: '2008 위기 전', value: buffettAt('2007-09-30') }, { label: '2020 팬데믹', value: buffettAt('2020-03-31') }],
   })
 
-  // ③ S&P 500 PER (후행 — 선행PER은 유료 컨센서스라 후행으로 대체·명시)
+  // ③ S&P 500 PER — 선행(FactSet 러너 실측)이 원칙, 없으면 **후행으로 축을 바꿔** 표시한다.
+  //
+  // ⚠️ 2026-09-05 실사고: 예전엔 러너가 없으면 `fwd ? fwd.fwd : pe` 로 후행 값을 넣고도
+  //    **선행 임계(18/22)로 판정**했다. 성장 기대가 있으면 후행 > 선행이 정상이라(실측 후행 26.5 vs 선행 19.5)
+  //    폴백 상태에선 거의 항상 22를 넘어 'danger' 가 떴고, 경보문은 `고평가 (예상이익 기준)` 이라고
+  //    **확정이익 숫자에 예상이익 이름표**를 달았다. 게다가 러너가 두 달간 죽어 있었는데 문구는 '일시 조회 실패'였다.
+  //    → 폴백은 **판정에 넣지 않는다**(앱 규칙: 결과 배지는 원천 값 존재를 확인한 뒤에만).
+  //       값은 그대로 보여주되 라벨·잣대·게이지를 **후행 규격으로 함께** 바꾼다.
+  //    후행 규격 16/25 는 지어낸 값이 아니라 이 카드의 차트 기준선이 이미 쓰던 값이다
+  //    (CrisisRadar.tsx 의 `m.key === 'pe'` 분기 — 평균16·위험25).
   metrics.push({
-    key: 'pe', label: 'S&P 500 선행 PER', icon: '💰', measure: '주가 vs 향후 12개월 예상이익',
+    key: 'pe',
+    label: fwd ? 'S&P 500 선행 PER' : 'S&P 500 후행 PER',
+    icon: '💰',
+    measure: fwd ? '주가 vs 향후 12개월 예상이익' : '주가 vs 지난 12개월 확정이익',
     value: fwd ? fwd.fwd : pe, unit: '배',
-    mean: fwd?.avg10 ?? 18, norm: fwd ? `FactSet 5년평균 ${fwd.avg5}·10년평균 ${fwd.avg10}` : '역사평균 ≈ 16~18배',
+    mean: fwd?.avg10 ?? 16,
+    norm: fwd ? `FactSet 5년평균 ${fwd.avg5}·10년평균 ${fwd.avg10}` : '후행 30년 평균 ≈ 16배 · 25배↑ 과열',
     // 선행 PER 임계(FactSet 기준): <18 안전 / 18~22 주의 / 22↑ 위험
-    signal: (() => { const v = fwd ? fwd.fwd : pe; return v == null ? 'caution' : v >= 22 ? 'danger' : v >= 18 ? 'caution' : 'safe' })(),
+    // 선행이 없으면 **판정 보류** — 다른 잣대(후행)로 잰 값에 선행 판정을 붙이지 않는다.
+    signal: fwd == null ? 'caution' : fwd.fwd >= 22 ? 'danger' : fwd.fwd >= 18 ? 'caution' : 'safe',
     note: fwd
       ? `선행 ${fwd.fwd}배(FactSet ${fwd.date} 실측) — 향후 1년 예상이익 기준. 5년평균 ${fwd.avg5}·10년평균 ${fwd.avg10}보다 높아 '주의'. 참고: 후행(확정이익) PER은 ${pe ?? '—'}배로 더 비쌈(성장 기대가 큰 만큼 선행이 낮게 나옴).`
-      : (pe == null ? '데이터 조회 실패' : `FactSet 선행 PER 일시 조회 실패 → 후행 ${pe}배로 대체 표시(더 보수적).`),
+      : (pe == null ? '데이터 조회 실패' : `선행 PER 미수집(선생님 PC 러너가 주 1회 적재) → 지금 보이는 ${pe}배는 **후행**(확정이익) 값이고, 선행 기준 판정은 보류했습니다.`),
     explain: fwd
       ? `주가를 **향후 1년 예상이익**으로 나눈 값(월가 애널리스트 컨센서스). 뉴스에서 가장 많이 인용하는 밸류에이션. 현재 ${fwd.fwd}배 = FactSet(권위 원천)의 매주 발표치. 5년평균 ${fwd.avg5}배보다 조금 높아 '주의'. 후행 PER(확정이익 기준 ${pe}배)보다 낮은 건, 시장이 앞으로 이익이 크게 늘 것으로 기대(AI 등)하기 때문입니다.`
-      : `주가를 향후 1년 예상이익으로 나눈 값. FactSet 주간 발표치를 실측하나 일시 실패 시 후행 PER로 대체합니다.`,
-    alertText: (() => { const v = fwd ? fwd.fwd : pe; return v != null && v >= 22 ? '고평가 (예상이익 기준)' : v != null && v >= 18 ? '주의 (5년평균 상회·실적 기대 선반영)' : '보통' })(),
-    gauge: { min: 10, max: 30, t1: 18, t2: 22, invert: false },
+      : `지금은 **후행 PER**입니다 — 주가를 **지난 1년 확정이익**으로 나눈 값. 원래 보여주려던 선행 PER(향후 1년 예상이익 기준)은 FactSet 주간 발표치라 선생님 PC 러너가 적재하는데, 아직 안 들어왔습니다. 두 숫자는 잣대가 달라(보통 후행이 더 큽니다) 선행 기준 판정은 붙이지 않았습니다.`,
+    alertText: fwd == null
+      ? '선행 PER 미수집 — 판정 보류'
+      : fwd.fwd >= 22 ? '고평가 (예상이익 기준)' : fwd.fwd >= 18 ? '주의 (5년평균 상회·실적 기대 선반영)' : '보통',
+    // 게이지 눈금도 축을 따라간다 — 후행 값에 선행 임계 밴드를 그리면 문구로 상쇄되지 않는다
+    gauge: fwd ? { min: 10, max: 30, t1: 18, t2: 22, invert: false } : { min: 10, max: 35, t1: 16, t2: 25, invert: false },
     series: peSer,   // 차트는 후행 PER 30년(선행 장기 시계열은 무료 미제공) — 카드에 라벨 명시
   })
 
