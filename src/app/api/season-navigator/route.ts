@@ -35,7 +35,7 @@ export interface SeasonNavResult {
   favored: string[]
   // 축 진단(투명성)
   growth: { cli: number; cliPrev: number; dir: 'up' | 'down'; aboveTrend: boolean }
-  inflation: { cpiYoY: number; rateDir: string; hot: boolean }
+  inflation: { cpiYoY: number; cpiMonth: string | null; rateDir: string; hot: boolean }
   regimeLabel: string         // macro-regime이 말하는 국면 라벨(SSOT 일치 확인용)
   // 보유 정합성
   alignmentScore: number
@@ -84,17 +84,20 @@ export async function GET(req: Request) {
   // v13: 킬스위치 행 문구 교정(내용만 바뀌어도 키를 올린다 — 스키마가 같으면 커밋 훅이 못 잡고,
   //      실제로 v12 캐시가 옛 문구를 그대로 서빙해 화면검증에서 발각됐다)
   // v12: 🔌 killSwitch·cliMonth 추가 — 필드가 늘어도 옛 응답이 서빙되면 undefined 로 온다
-  const cacheKey = `season-navigator-v14:${user.id}:${kstDate()}:${fp}`   // v14: 국면 라벨 SSOT 교정 / v11: 매수 후보 미니차트
+  // v15: inflation.cpiMonth 신설 + CPI 값 자체가 바뀜(13개월 차분 버그 수정) — 필드 추가여도 옛 응답은 undefined 로 온다
+  const cacheKey = `season-navigator-v15:${user.id}:${kstDate()}:${fp}`   // v14: 국면 라벨 SSOT 교정 / v11: 매수 후보 미니차트
   const cached = await getCache<SeasonNavResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // ① 물가/금리축 + 역전경보 = macro SSOT를 ★in-process로 직접 호출(HTTP 자기호출 제거)
   //    이유: /api/macro-regime HTTP 자기호출이 실패하면 조용히 기본값(2.5,hold)→골디락스 오판. CPI는 FRED 직접이라 신뢰
   let cpiYoY = 2.5, rateDir: 'cut' | 'hold' | 'hike' = 'hold', regimeLabel = '—'
+  let cpiMonth: string | null = null   // CPI 기준월 — 화면이 '언제 기준'인지 말할 수 있어야 한다
   let yieldCurve: number | null = null
   try {
     const md = await fetchMacroData(base)
     cpiYoY = typeof md.cpiYoY === 'number' ? md.cpiYoY : cpiYoY
+    cpiMonth = md.cpiMonth ?? null
     rateDir = md.rateDir ?? 'hold'
     yieldCurve = typeof md.yieldCurve === 'number' ? md.yieldCurve : null
     regimeLabel = detectMacroPhase(md).label
@@ -197,7 +200,7 @@ export async function GET(req: Request) {
     quadrant: meta.quadrant, seasonKo: meta.seasonKo, icon: meta.icon, label: meta.label,
     guide: meta.guide, cashHint: meta.cashHint, favored: meta.favored,
     growth: { cli: g.cli, cliPrev: g.cliPrev, dir: g.dir, aboveTrend: g.aboveTrend },
-    inflation: { cpiYoY: i.cpiYoY, rateDir: i.rateDir, hot: i.hot },
+    inflation: { cpiYoY: i.cpiYoY, cpiMonth, rateDir: i.rateDir, hot: i.hot },
     regimeLabel,
     // 🔌 메인 다이어그램이 미국 앵커라 킬스위치도 미국 CLI 로 만든다(같은 판정을 감시해야 한다).
     //    CLI 가 없으면 성장축 임계선을 만들 수 없으므로 **추정하지 않고 null** — 반쪽 스위치는 거짓말이다.

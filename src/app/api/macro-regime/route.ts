@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   const phase = detectMacroPhase(data)
   const rateDirLabel = data.rateDir === 'cut' ? '인하' : data.rateDir === 'hike' ? '인상' : '동결'
   return NextResponse.json(
-    { fedRate: data.fedRate, cpiYoY: data.cpiYoY, yieldCurve: data.yieldCurve, hySpread: data.hySpread, rateDir: data.rateDir, rateDirLabel, nextFomc: fmtFomc(data.nextFomc), ...phase },
+    { fedRate: data.fedRate, cpiYoY: data.cpiYoY, cpiMonth: data.cpiMonth, yieldCurve: data.yieldCurve, hySpread: data.hySpread, rateDir: data.rateDir, rateDirLabel, nextFomc: fmtFomc(data.nextFomc), ...phase },
     { headers: { 'Cache-Control': 'no-store' } },
   )
 }

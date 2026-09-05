@@ -224,7 +224,9 @@ export default function SeasonNavigator() {
   const accent = Q_COLOR[data.quadrant] ?? TK.sub
   const growthTxt = `${data.growth.cli.toFixed(1)} ${data.growth.dir === 'up' ? '▲ 상승' : '▼ 하강'}${data.growth.aboveTrend ? ' · 추세 상회' : ' · 추세 하회'}`
   // 물가축은 'CPI 사실' 위주로 표기 — 금리 방향(rateDir) 직역은 국면 SSOT 라벨과 충돌하므로 제외
-  const infTxt = `CPI ${data.inflation.cpiYoY.toFixed(1)}% · ${data.inflation.hot ? '고물가 압력' : '물가 안정'}`
+  // 기준월을 병기한다 — 같은 'CPI 3.3%' 라도 어느 달 기준인지 없으면 다른 화면과 대조할 수 없다(2026-09-05)
+  const cpiMon = data.inflation.cpiMonth ? ` (${data.inflation.cpiMonth} 기준)` : ''
+  const infTxt = `CPI ${data.inflation.cpiYoY.toFixed(1)}%${cpiMon} · ${data.inflation.hot ? '고물가 압력' : '물가 안정'}`
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

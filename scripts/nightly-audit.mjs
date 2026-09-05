@@ -34,6 +34,9 @@ const status = { codex: 'skip', gemini: 'skip', invariants: 'skip' }
 const INVARIANTS = [
   { file: 'scripts/verify-regime-label.mjs', label: '국면 라벨 × 금리방향 모순' },
   { file: 'scripts/verify-kill-switch.mjs', label: '킬스위치 임계값 = 판정식' },
+  // 2026-09-05 신설 — CPI 가 화면마다 달랐다(3.5% vs 3.3%). 인덱스 산술로 12개월을 세다가
+  //   결측(2025-10)에 밀려 13개월 차분이 됐는데 빌드·타입체크·화면검증이 전부 통과했다.
+  { file: 'scripts/verify-cpi-consistency.mjs', label: 'CPI 화면 간 값·기준월 일치' },
 ]
 
 /**

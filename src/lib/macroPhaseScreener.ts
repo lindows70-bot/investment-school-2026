@@ -34,7 +34,8 @@ export type LynchCategory = 'fast_grower' | 'stalwart' | 'cyclical' | 'turnaroun
 
 export interface MacroData {
   fedRate:    number      // 현재 기준금리 % = FRED FEDFUNDS(EFFR, ≈3.64) — FedWatch와 동일 출처(SSOT)
-  cpiYoY:     number      // CPI 전년대비 % (e.g. 3.95)
+  cpiYoY:     number      // CPI 전년동월비 % — FRED CPIAUCSL `units=pc1`(fed-charts 와 같은 규약·SSOT)
+  cpiMonth:   string | null   // 그 값의 기준월 'YYYY-MM' — 화면에 반드시 병기(이름표 없는 숫자 금지)
   yieldCurve: number      // 10Y-2Y %p (양수=정상, 음수=역전)
   hySpread:   number      // HY 스프레드 % (낮을수록 risk-on)
   rateDir:    'cut' | 'hold' | 'hike'   // FedWatch FF선물 net 방향(SSOT) — 국면 판정의 실제 금리 방향
@@ -762,9 +763,9 @@ export function detectMacroPhase(d: MacroData): MacroPhaseResult {
 
 // ── FRED 데이터 수집 (24h 캐시) ──────────────────────────────────────────────
 const FRED_KEY = process.env.FRED_API_KEY
-async function fredLatest(series: string, count = 14): Promise<{ date: string; v: number }[]> {
+async function fredLatest(series: string, count = 14, extra = ''): Promise<{ date: string; v: number }[]> {
   if (!FRED_KEY) return []
-  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${series}&api_key=${FRED_KEY}&file_type=json&sort_order=desc&limit=${count}`
+  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${series}&api_key=${FRED_KEY}&file_type=json&sort_order=desc&limit=${count}${extra}`
   try {
     const r = await fetch(url, { cache: 'no-store' })
     if (!r.ok) return []
@@ -792,27 +793,35 @@ async function fetchRateDirection(currentRate: number, selfBase?: string): Promi
 }
 
 export async function fetchMacroData(selfBase?: string): Promise<MacroData> {
-  const cacheKey = 'macro-phase-data-v3'   // v3: FEDFUNDS 기준금리 + FedWatch 방향 + 다음 FOMC 날짜
+  // v4: CPI 를 FRED units=pc1 로 전환(13개월 차분 버그 수정) + cpiMonth 신설 — 값이 바뀌므로 반드시 범프
+  const cacheKey = 'macro-phase-data-v4'   // v3: FEDFUNDS 기준금리 + FedWatch 방향 + 다음 FOMC 날짜
   const cached = await getCache<MacroData>(cacheKey, 24 * 3600_000)
   if (cached) return cached
 
   const [fedArr, cpiArr, yc2Arr, yc10Arr, hyArr] = await Promise.all([
     fredLatest('FEDFUNDS', 3),   // EFFR(실효 기준금리 midpoint) — FedWatch currentRate와 동일 출처
-    fredLatest('CPIAUCSL', 14),
+    // ⚠️ 2026-09-05 실사고: 예전엔 원지수 14개를 받아 `[0] 대비 [12]` 로 직접 YoY 를 냈다.
+    //    그런데 결측(2025-10 — 셧다운으로 미발표)을 filter 로 걸러내면 **인덱스가 밀린다**.
+    //    실측: [0]=2026-07 · [11]=2025-07(진짜 12개월 전) · [12]=2025-06 → 코드는 **13개월 차분**을 하고 있었다.
+    //    그 결과 앱이 CPI 3.5% 를 표시했지만 정답은 3.3% 였고, 연준 차트보드(units=pc1)와 0.2%p 어긋났다.
+    //    → **인덱스로 기간을 세지 않는다.** FRED 의 `units=pc1`(전년동월비)에 계산을 맡기면
+    //       전년동월을 FRED 가 날짜로 잡으므로 결측이 생겨도 어긋나지 않는다(fed-charts 와 같은 규약 = 제2원칙).
+    fredLatest('CPIAUCSL', 3, '&units=pc1'),
     fredLatest('DGS2', 3),
     fredLatest('GS10', 3),
     fredLatest('BAMLH0A0HYM2', 3),
   ])
   const fedRate = Math.round((fedArr[0]?.v ?? 3.64) * 100) / 100
-  const cpiYoY = cpiArr.length >= 13
-    ? Math.round(((cpiArr[0].v - cpiArr[12].v) / cpiArr[12].v) * 1000) / 10
-    : 4.0
+  // FRED 가 이미 전년동월비로 준다 — 우리가 다시 계산하지 않는다(오프바이원 원천 차단).
+  const cpiYoY = cpiArr[0]?.v != null ? Math.round(cpiArr[0].v * 10) / 10 : 4.0
+  // 기준월 — 화면이 "언제 기준 CPI 인가"를 말할 수 있어야 한다(이름표 없는 숫자 금지)
+  const cpiMonth = cpiArr[0]?.date ? cpiArr[0].date.slice(0, 7) : null
   const yieldCurve = (yc10Arr[0]?.v != null && yc2Arr[0]?.v != null)
     ? Math.round((yc10Arr[0].v - yc2Arr[0].v) * 100) / 100
     : 0.4
   const hySpread = hyArr[0]?.v ?? 3.0
   const { dir: rateDir, nextFomc } = await fetchRateDirection(fedRate, selfBase)
-  const data: MacroData = { fedRate, cpiYoY, yieldCurve, hySpread, rateDir, nextFomc }
+  const data: MacroData = { fedRate, cpiYoY, cpiMonth, yieldCurve, hySpread, rateDir, nextFomc }
   await setCache(cacheKey, data)
   return data
 }
