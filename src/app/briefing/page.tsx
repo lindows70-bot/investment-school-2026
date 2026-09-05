@@ -11,6 +11,7 @@ import type { RotationResult } from '@/app/api/sector-rotation/route'
 import type { WatchSig } from '@/app/api/cron/timing-watch/route'
 import { type WLApi, splitGroups, factorStats, buildLesson, WL_PERIOD_LABEL } from '@/lib/winLose'
 import { cashBandOf } from '@/lib/cashPosition'
+import { earnVerdictText, earnReactionText } from '@/lib/earnResultsShared'   // 📰 실적 문구 SSOT — 판정/주가 두 조각
 import { LYNCH_CATEGORY_KR } from '@/lib/lynchAnalysis'
 import { Section, Note } from '@/app/components/ui/Screen'   // 🧱 섹션·각주 — 공용 프리미티브(로컬 Sec 중복 제거)
 import { TK, FS } from '@/lib/theme'
@@ -55,7 +56,7 @@ export default function BriefingPage() {
   const wl = useFetch<WLApi>('/api/win-lose')
   const health = useFetch<{ staleCount: number; checks: { id: string; label: string; status: string }[] }>('/api/cron-health')
   const staleCrons = (health.d?.checks ?? []).filter(c => c.status === 'stale')
-  const earn = useFetch<{ rows: { ticker: string; name: string; market: string; reportDate: string; daysAgo: number; beat: boolean | null; reactionPct: number | null; summary: string }[] }>('/api/earnings-results')
+  const earn = useFetch<{ rows: { ticker: string; name: string; market: string; reportDate: string; daysAgo: number; beat: boolean | null; surprisePct: number | null; reactionPct: number | null; summary: string }[] }>('/api/earnings-results')
   const earnRows = earn.d?.rows ?? []
   const breadth = useFetch<{ us: { pctAbove200: number } | null; kr: { pctAbove200: number } | null }>('/api/market-breadth')
   const cash = useFetch<{ needsSetup?: boolean; cashPct?: number; cashKrw?: number; verdict?: 'aggressive' | 'inband' | 'defensive' | null }>('/api/cash-position')
@@ -230,7 +231,10 @@ export default function BriefingPage() {
               <div key={`${r.ticker}:${r.market}`} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: '#171b26', borderRadius: 8, padding: '8px 12px', borderLeft: `3px solid ${r.beat === true ? TK.green400 : r.beat === false ? TK.red400 : TK.sub3}` }}>
                 <span style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate100 }}>{r.name}</span>
                 <span style={{ fontSize: FS.tiny, color: TK.sub3 }}>{r.daysAgo === 0 ? '오늘' : `${r.daysAgo}일 전`} 발표</span>
-                <span style={{ fontSize: FS.tiny, color: r.beat === true ? TK.green400 : r.beat === false ? TK.red400 : TK.sub2, fontWeight: 700 }}>{r.summary}</span>
+                {/* 판정(좋다/나쁘다 = 초록/빨강)과 주가 반응(한국식 = 빨강 상승/파랑 하락)은 축이 다르다 —
+                    summary 한 문자열을 beat 로 칠하면 '주가 +4.1%'가 미달 색을 입는다. 두 조각을 따로. */}
+                <span style={{ fontSize: FS.tiny, color: r.beat === true ? TK.green400 : r.beat === false ? TK.red400 : TK.sub2, fontWeight: 700 }}>{earnVerdictText(r.beat, r.surprisePct)}</span>
+                <span style={{ fontSize: FS.tiny, color: r.reactionPct == null ? TK.sub2 : r.reactionPct >= 0 ? TK.red400 : TK.blue400, fontWeight: 700 }}>{earnReactionText(r.reactionPct)}</span>
                 <a href={`/research?q=${encodeURIComponent(r.ticker)}`} style={{ marginLeft: 'auto', fontSize: FS.tiny, fontWeight: 700, color: TK.indigo400, textDecoration: 'none' }}>Jarvis 어닝콜 →</a>
               </div>
             ))}

@@ -4,6 +4,7 @@
 //    beat/miss는 Yahoo surprisePercent 제공값 사용(재계산 금지 — 제2원칙). AI 미사용·전부 결정론.
 import { getCache, setCache } from '@/lib/appCache'
 import { getTechCandles } from '@/lib/techChartData'
+import { earnVerdictText, earnReactionText } from '@/lib/earnResultsShared'
 
 export const EARN_DATES_KEY = 'earn-dates-v1'   // 공유 적립 맵: { "TICKER:MKT": { date, name } }
 
@@ -134,17 +135,11 @@ export async function buildEarningsResults(holdings: Holding[], map: EarnDatesMa
         } catch { /* 반응 미집계 */ }
 
         const daysAgo = Math.max(0, Math.round((todayMs - Date.parse(date)) / 86_400_000))
-        const parts: string[] = []
-        if (beat === true) parts.push(`컨센서스 ${surprisePct != null ? `+${surprisePct}% ` : ''}상회`)
-        else if (beat === false) parts.push(`컨센서스 ${surprisePct != null ? `${surprisePct}% ` : ''}미달`)
-        else parts.push('결과 집계 중(발표 직후)')
-        if (reactionPct != null) parts.push(`발표 후 주가 ${reactionPct >= 0 ? '+' : ''}${reactionPct}%`)
-        else parts.push('주가 반응 집계 전')
-
+        // 문구는 earnResultsShared 가 SSOT — 화면(브리핑)이 같은 함수로 두 조각을 따로 색칠한다
         rows.push({
           ticker: h.ticker, name: h.name, market: h.market, reportDate: date, daysAgo,
           epsActual, epsEstimate, surprisePct, beat, reactionPct,
-          summary: parts.join(' · '),
+          summary: `${earnVerdictText(beat, surprisePct)} · ${earnReactionText(reactionPct)}`,
         })
       } catch { /* 종목 실패 — 정직 생략 */ }
     }
