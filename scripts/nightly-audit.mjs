@@ -45,6 +45,33 @@ const looksFailed = (r, body) =>
   r?.error != null || r?.status !== 0 ||
   /failed to output a response|rate.?limit|quota|usage limit|not authenticated|command not found/i.test(body)
 
+/** ⏳ Codex 무료 한도 쿨다운 (2026-09-05 신설)
+ *  실측: 한도가 소진되면 응답이 **복구 시각을 알려준다**
+ *    `Codex error: You've hit your usage limit. ... try again at Sep 10th, 2026 10:51 PM.`
+ *  그런데 그 값을 아무도 안 썼다('있는데 안 쓴 데이터' — 이 프로젝트 최다 결함 유형).
+ *  결과로 두 가지가 났다:
+ *    ① 한도가 없는 걸 알면서 **매일 리뷰를 걸고 타임아웃까지 기다렸다**(로그 실측 585·426·242초).
+ *       9/5 실행은 그러다 강제 종료(0xC000013A)돼 보고서가 아예 안 써졌다.
+ *    ② 보고서 배너에 `2026-08-27까지` 라는 **하드코딩 날짜**가 박혀 있어, 읽는 사람이 언제 풀리는지 몰랐다.
+ *  → 복구 시각을 파일에 적어 두고 그 전에는 **시도조차 하지 않는다**. 배너 날짜도 이 값에서 나온다.
+ *  ⚠️ 쿨다운이어도 last-head 는 전진시키지 않는다 — 미리뷰 구간은 그대로 남아야 한다. */
+const COOLDOWN = '.audit/codex-cooldown.json'
+function readCooldown() {
+  try {
+    const j = JSON.parse(readFileSync(COOLDOWN, 'utf8'))
+    return Number.isFinite(j?.at) ? j : null
+  } catch { return null }
+}
+/** 응답에서 복구 시각을 뽑는다 — 못 뽑으면 null(그때는 쿨다운을 새로 쓰지 않는다). */
+function parseResumeAt(body) {
+  const m = /try again at ([A-Z][a-z]{2}\.? \d{1,2}(?:st|nd|rd|th)?,? \d{4},? \d{1,2}:\d{2}\s?[AP]M)/i.exec(body || '')
+  if (!m) return null
+  const raw = m[1]
+  // "Sep 10th, 2026 10:51 PM" → 서수 접미사를 떼야 Date.parse 가 읽는다. 타임존 표기가 없으므로 로컬(KST)로 해석된다.
+  const at = Date.parse(raw.replace(/(\d+)(st|nd|rd|th)/i, '$1'))
+  return Number.isFinite(at) ? { at, raw } : null
+}
+
 /** 마지막 감사 이후 며칠 비었는지 — 감사가 조용히 멈춘 걸 아침에 알아채는 유일한 단서 */
 function gapDays() {
   try {
@@ -75,8 +102,17 @@ try {
 
   const n = base ? Number(sh('git', ['rev-list', '--count', `${base}..HEAD`]).stdout.trim() || 0) : 0
 
+  const cool = readCooldown()
+
   if (!base) out.push('- 기준 커밋을 찾지 못했습니다(저장소 이력 부족). 건너뜀.')
   else if (n === 0) { out.push('- 지난 감사 이후 새 커밋 없음 → 리뷰 건너뜀(한도 절약).'); status.codex = 'ok' }
+  else if (cool && cool.at > Date.now()) {
+    // 한도가 아직 안 풀렸다 — 부르지 않는다(불러 봐야 같은 에러를 받고 시간만 태운다).
+    status.codex = 'cooldown'
+    out.push(`- ⏳ **Codex 무료 한도 소진 — \`${cool.raw}\` 이후 재시도합니다.**`,
+      '  (한도 응답이 알려준 시각입니다. 그 전에는 호출하지 않습니다 — 매번 타임아웃까지 기다리던 것을 없앴습니다)',
+      `  미리뷰 커밋 ${n}건은 그대로 쌓여 있고, 기준점(last-head)은 전진시키지 않았습니다.`, '')
+  }
   else {
     out.push(`- 지난 감사 이후 커밋 ${n}건 리뷰 (\`${base.slice(0, 7)}..HEAD\`)`, '')
     const r = sh('node', [
@@ -88,6 +124,12 @@ try {
       .join('\n').trim()
     if (looksFailed(r, body)) {
       status.codex = 'fail'
+      // 한도 응답이면 복구 시각을 적어 둔다 → 그때까지 다시 부르지 않는다
+      const resume = parseResumeAt(`${r.stdout || ''}${r.stderr || ''}`)
+      if (resume) {
+        writeFileSync(COOLDOWN, JSON.stringify({ ...resume, seenAt: new Date().toISOString() }, null, 2), 'utf8')
+        out.push(`- ⏳ 한도 소진 — \`${resume.raw}\` 이후 재시도하도록 기록했습니다(\`${COOLDOWN}\`).`)
+      }
       out.push(`- ❌ **리뷰 실패 — 커밋 ${n}건은 아직 검토되지 않았습니다.**`,
         '  (다음 감사가 같은 구간을 다시 시도합니다 — 기준점을 전진시키지 않았습니다)', '')
     } else status.codex = 'ok'
@@ -138,13 +180,21 @@ out.push('', '---',
   `_${Math.round((Date.now() - t0) / 1000)}초 · 읽기 전용(코드 변경 없음) · 지적은 재현으로 확인 후 채택할 것_`)
 
 // 최상단 상태 배너 — 보고서가 '있다'는 것과 '제대로 돌았다'는 건 다른 말이다.
-const icon = { ok: '✅', fail: '❌', skip: '⏭️' }
+const icon = { ok: '✅', fail: '❌', skip: '⏭️', cooldown: '⏳' }
 const gap = gapDays()
 const banner = [
   `**상태** — Codex 리뷰 ${icon[status.codex]} · 캐시 정합성 ${icon[status.gemini]} · 불변식 ${icon[status.invariants]}`,
 ]
 if (gap > 1) banner.push(`> ⚠️ **직전 감사가 ${gap}일 전입니다** — 그 사이 감사가 돌지 않았습니다(PC 절전·배터리 등).`)
-if (status.codex === 'fail') banner.push('> ⚠️ Codex 무료 한도 소진 시 실패합니다(2026-08-27까지 알려진 상태). 리뷰 기준점은 전진하지 않으므로 복구되면 자동으로 밀린 구간을 봅니다.')
+// ⚠️ 날짜를 하드코딩하지 마라 — '2026-08-27까지'가 박혀 있어 한도가 풀린 뒤에도 그렇게 읽혔다.
+//    복구 시각은 한도 응답이 알려주므로 그 값에서 뽑는다(제1원칙: 화면 숫자는 데이터에서).
+{
+  const c = readCooldown()
+  if (status.codex === 'cooldown' && c)
+    banner.push(`> ⏳ **Codex 무료 한도 소진** — \`${c.raw}\` 이후 자동 재시도합니다. 기준점을 전진시키지 않으므로 밀린 구간은 그대로 다시 봅니다.`)
+  else if (status.codex === 'fail')
+    banner.push('> ⚠️ Codex 리뷰가 실패했습니다. 리뷰 기준점은 전진하지 않으므로 복구되면 자동으로 밀린 구간을 봅니다.')
+}
 out.splice(1, 0, ...banner, '')
 
 mkdirSync('.audit', { recursive: true })
@@ -157,4 +207,6 @@ if (head && status.codex === 'ok') writeFileSync('.audit/last-head', head, 'utf8
 const summary = `codex=${status.codex} gemini=${status.gemini} invariants=${status.invariants}${gap > 1 ? ` gap=${gap}일` : ''}`
 console.log(`[nightly-audit] ${path} 작성 완료 (${Math.round((Date.now() - t0) / 1000)}초) · ${summary}`)
 // 실패가 있으면 비정상 종료 — 작업 스케줄러 'LastTaskResult' 에 남아 조용한 실패를 막는다
+// ⏳ 'cooldown' 은 여기 넣지 않는다 — 알려진 날짜가 있고 스스로 풀리며 보고서가 그 사실을 말한다.
+//    닷새 내내 비정상 종료를 남기면 진짜 실패가 묻힌다(경보 피로).
 if (status.codex === 'fail' || status.gemini === 'fail' || status.invariants === 'fail') process.exitCode = 1
