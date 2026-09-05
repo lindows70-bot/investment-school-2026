@@ -2,7 +2,7 @@
 // 🔥 오늘 시장의 눈 — 마켓 카탈리스트 배너(메가 뉴스 ≤3 + 수급 블랙홀 레이더 + 자비스 한줄 처방)
 import { useState, useEffect } from 'react'
 import type { MarketCatalystResult } from '@/app/api/market-catalyst/route'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 import { flagOf } from '@/lib/marketFlag'
 
 const CARD = TK.bg6, BORDER = TK.border
@@ -66,7 +66,7 @@ export default function MarketCatalystBanner() {
           <span style={{ color: TK.sub, fontSize: 10.5, fontWeight: 700 }}>📡 수급 블랙홀:</span>
           {d.movers.map(m => (
             <span key={`${m.market}:${m.ticker}`} title={m.note}
-              style={{ background: CARD, border: `1px solid ${(m.volRatio ?? 0) >= 3 ? `${TK.orange400}55` : BORDER}`, borderRadius: 6, padding: '2px 9px', fontSize: 10.5, color: TK.slate300, display: 'inline-flex', gap: 5, alignItems: 'center' }}>
+              style={{ background: CARD, border: `1px solid ${(m.volRatio ?? 0) >= 3 ? `${TK.orange400}55` : BORDER}`, borderRadius: 6, padding: '2px 9px', fontSize: FS.micro, color: TK.slate300, display: 'inline-flex', gap: 5, alignItems: 'center' }}>
               {flagOf(m.market, m.ticker)} <b>{m.market === 'KR' ? m.name.slice(0, 8) : m.ticker}</b>
               {m.volRatio != null && <span style={{ color: m.volRatio >= 3 ? TK.orange400 : TK.amber400, fontWeight: 800 }}>거래량 {m.volRatio}배</span>}
               {/* ⚠️ 색은 앱 전체와 같은 한국식(빨강=상승·파랑=하락). 예전엔 여기만 미국식이라

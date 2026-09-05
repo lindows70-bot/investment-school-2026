@@ -9,7 +9,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 
 // 임시 비밀번호 패턴 감지: localStorage에 플래그 저장
 const TEMP_PW_FLAG = 'needs_pw_change'
@@ -139,7 +139,7 @@ export default function ChangePasswordBanner() {
           )}
 
           {status === 'error' && (
-            <div style={{ marginTop: 8, fontSize: 12, color: TK.orange400 }}>⚠ {msg}</div>
+            <div style={{ marginTop: 8, fontSize: FS.tiny, color: TK.orange400 }}>⚠ {msg}</div>
           )}
         </div>
 
