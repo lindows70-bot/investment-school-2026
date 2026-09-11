@@ -37,3 +37,4 @@
 - [ ] 하루 상한 3건 절단 **뒤**에 `tracks.on` 계산 → 신호등이 "조건 채운 종목 없음"이라 거짓말할 수 있음
 - [ ] cron-health 가 "아침 크론 실패 + 저녁 방문자 재생성"을 ok 로 봄
 - [ ] 학생 보유 병합 시 `market:'US'` = '한국 아님' → 독일 종목(DHL.DE)이 미국 추세 트랙에 들어감
+- [ ] ⚠️ **같은 결함 의심(스윙 밖)** — `entryTiming`·`hi52Radar`·`tech-screener`·`marketBreadth`·`signal-report` 도 일봉 마지막 봉을 종가로 판정. 각각 실측 후 `dropIncompleteBar` 적용 여부 결정(Codex 리뷰 지목 + grep 확인)
