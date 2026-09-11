@@ -2382,7 +2382,8 @@ export default function DashboardPage() {
                 </span>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+              {/* 📱 m-2col: 375px 에서 3열이면 카드 93px — 지수 숫자 6개 전부 잘렸다(2026-09-11 실측) */}
+              <div className="m-2col" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
                 {indicesLoading && indices.length === 0
                   ? [0,1,2,3,4,5].map(i => (
                       <div key={i} style={{ height: 168, borderRadius: 14, background: N, boxShadow: SHO, animation: 'pulse 1.5s infinite' }}/>

@@ -43,7 +43,10 @@ const MARKETS: { id: Market; label: string; flag: string; currency: 'USD' | 'KRW
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const S = {
   overlay: {
-    position: 'fixed' as const, inset: 0, zIndex: 100,
+    // ⚠️ 모바일 하단 탭바(SidebarLayout .bottom-tabs)가 zIndex 100 이고 DOM 뒤에 있어, 같은 100 이면
+    //    탭바가 모달 위에 그려진다 — 실측(2026-09-11 · 375px) '종목 추가' 저장 버튼(y 737~784)이 탭바(737~812)에
+    //    통째로 덮여 휴대폰에서 종목을 추가할 수 없었다. TransactionModal 과 같은 1000 으로.
+    position: 'fixed' as const, inset: 0, zIndex: 1000,
     background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(5px)',
     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
   },

@@ -408,12 +408,14 @@ export default function HistoryPage() {
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 0 }}>
+      {/* 📱 375px 실측(2026-09-11): 탭 5개가 61px 폭으로 눌려 글자가 한 자씩 세로로 내려갔다(174px 높이).
+          줄바꿈을 막고 가로 스크롤(.m-scroll)로 — 데스크톱은 폭이 남아 그대로다. */}
+      <div className="m-scroll" style={{ display: 'flex', gap: 10, marginBottom: 0 }}>
         {tabs.map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id as 'transactions' | 'cashflow' | 'replay' | 'calibration' | 'tax')}
             style={{
               padding: '9px 20px', borderRadius: 10, border: 'none', cursor: 'pointer',
-              fontSize: 13, fontWeight: 700,
+              fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0,
               background: activeTab === tab.id ? N : TK.bg0,
               boxShadow: activeTab === tab.id ? SHO : SHI,
               color: activeTab === tab.id ? TK.sub12 : TK.sub4,
@@ -447,8 +449,10 @@ export default function HistoryPage() {
 
           {/* Table */}
           <div style={{ background: N, boxShadow: SHO, borderRadius: 14, overflow: 'hidden' }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            {/* 📱 375px 실측(2026-09-11): width 100% 만 있으면 9열이 376px 에 눌려 종목명이 5줄·'매수' 칩이 두 줄로 깨졌다.
+                최소 폭을 주면 셀은 데스크톱 모양 그대로고 좁은 화면에선 옆으로 민다(스크롤 힌트는 아래 캡션). */}
+            <div className="m-scroll-hint" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: '#141728', borderBottom: `1px solid ${TK.line4}` }}>
                     {['날짜', '구분', '종목명', '단가', '수량', '거래금액', '실현손익', '메모', ''].map(h => (
@@ -483,7 +487,7 @@ export default function HistoryPage() {
                       {/* 구분 */}
                       <td style={{ padding: '10px 14px' }}>
                         <span style={{
-                          fontSize: 10, fontWeight: 700,
+                          fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap',
                           color: t.type === 'buy' ? TK.red500 : TK.blue500,
                           border: `1px solid ${t.type === 'buy' ? `${TK.red500}44` : `${TK.blue500}44`}`,
                           borderRadius: 4, padding: '2px 6px',
@@ -491,8 +495,8 @@ export default function HistoryPage() {
                           {t.type === 'buy' ? '매수' : '매도'}
                         </span>
                       </td>
-                      {/* 종목명 */}
-                      <td style={{ padding: '10px 14px' }}>
+                      {/* 종목명 — 좁은 화면에서 긴 ETF 이름이 4~5줄로 늘어지지 않게 최소 폭 */}
+                      <td style={{ padding: '10px 14px', minWidth: 200 }}>
                         <div style={{ color: TK.slate100, fontWeight: 600, fontSize: 13 }}>{t.name}</div>
                         <div style={{ color: TK.sub4, fontFamily: 'monospace', fontSize: 11 }}>{t.ticker}</div>
                       </td>

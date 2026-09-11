@@ -127,6 +127,22 @@ export default function AssetsPage() {
   const getTf  = (ticker: string): TimeFrame => tfMap[ticker] ?? '1D'
   const setTf  = (ticker: string, tf: TimeFrame) => setTfMap(prev => ({ ...prev, [ticker]: tf }))
 
+  // 📱 모바일에선 캔들차트·수급 섹션(카드당 약 1,000px)을 접어 둔다 — 375px 실측(2026-09-11) 보유 17종에
+  //    화면 36.5장(29,694px)이었고 그중 절반이 이 섹션이었다. 접힌 동안은 렌더 자체를 안 하므로
+  //    MoneyFlowRadar 의 fetch 도 열 때까지 안 나간다. 데스크톱은 그대로(isMobile=false).
+  //    초기값 false 로 두고 마운트 뒤에 재야 서버 HTML 과 첫 렌더가 어긋나지 않는다.
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    const apply = () => setIsMobile(mq.matches)
+    apply(); mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [])
+  const [openCharts, setOpenCharts] = useState<Set<string>>(new Set())
+  const toggleChart = (ticker: string) => setOpenCharts(prev => {
+    const next = new Set(prev); if (next.has(ticker)) next.delete(ticker); else next.add(ticker); return next
+  })
+
   useEffect(() => {
     if (!dbLoading) return
     const t = setTimeout(() => setDbLoading(false), 5000)
@@ -860,7 +876,20 @@ export default function AssetsPage() {
                 {/* ── Divider ── */}
                 <div className="m-hide" style={{ width:1, background:TK.bg9, flexShrink:0, margin:'10px 0' }}/>
 
-                {/* ── Section 3: 캔들차트 (flex:1) ── */}
+                {/* 📱 모바일 전용 접기 버튼 — 차트·수급은 눌러야 열린다 */}
+                {isMobile && (
+                  <button type="button" onClick={e => { e.stopPropagation(); toggleChart(inv.ticker) }}
+                    style={{
+                      width:'100%', margin:'0 0 4px', padding:'10px 12px', border:'none', cursor:'pointer',
+                      background: N, boxShadow: SHI, borderRadius: 10,
+                      color: openCharts.has(inv.ticker) ? TK.amber400 : TK.sub4, fontSize: FS.tiny, fontWeight: 700, textAlign:'left',
+                    }}>
+                    {openCharts.has(inv.ticker) ? '▲ 차트·수급 접기' : '▼ 차트·수급 보기'}
+                  </button>
+                )}
+
+                {/* ── Section 3: 캔들차트 (flex:1) — 모바일은 열었을 때만 렌더 ── */}
+                {(!isMobile || openCharts.has(inv.ticker)) && (
                 <div className="m-full" style={{ flex:1, minWidth:0, padding:'10px 12px 8px', display:'flex', flexDirection:'column' }}>
                   {/* Timeframe tabs */}
                   <div style={{ display:'flex', gap:5, marginBottom:6 }}>
@@ -908,6 +937,7 @@ export default function AssetsPage() {
                     </div>
                   )}
                 </div>
+                )}
               </div>
             )
           })}
