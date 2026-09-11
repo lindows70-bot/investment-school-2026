@@ -193,7 +193,7 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
         ? '지수 국면을 확인하지 못했습니다'
         : idx !== t.regime
           ? `지금 ${t.market} 지수는 ${idx === 'up' ? '상승' : idx === 'down' ? '하락' : '중립'} 국면입니다 — 이 기법은 ${t.regime === 'down' ? '하락' : '상승'} 국면에서만 우위가 있었습니다`
-          : '국면은 맞지만 오늘 조건을 채운 종목이 없습니다'
+          : '국면은 맞지만 판정 기준일 종가로 조건을 채운 종목이 없습니다'   // '오늘'이라 쓰면 전날 봉으로 판정한 아침엔 거짓(Codex 리뷰)
     return { key: t.key, on, why }
   })
 

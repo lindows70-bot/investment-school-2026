@@ -53,8 +53,10 @@ function weekKey(date: string): string {
 
 /** 같은 종목·같은 트랙이 보유 기간 안에 다시 담기지 않게 — 한 자리를 두 번 세지 않는다 */
 export function shouldAppend(hist: SwingHistEntry[], e: SwingHistEntry, dayDiff: (a: string, b: string) => number): boolean {
+  // ⚠️ 절대값 — 2026-09-11 이전 항목은 '만든 날짜'(KST)로 적혀 있어 미국 신호는 실제 봉보다 하루 뒤 날짜다.
+  //    새 항목(신호 봉 날짜)이 그보다 앞설 수 있는데, 음수 차이는 무조건 < 임계라 같은 창 판정이 한쪽으로만 기울었다(Codex 리뷰).
   return !hist.some(h =>
-    h.ticker === e.ticker && h.track === e.track && dayDiff(h.date, e.date) < h.holdBars * 1.6)
+    h.ticker === e.ticker && h.track === e.track && Math.abs(dayDiff(h.date, e.date)) < h.holdBars * 1.6)
 }
 
 export interface ScoredRow { entry: SwingHistEntry; retPct: number | null; stopHit: boolean }
