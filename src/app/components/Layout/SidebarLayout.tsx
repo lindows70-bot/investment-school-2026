@@ -25,9 +25,13 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
       <style>{`
         @media (max-width: 768px) {
           .sidebar-wrap { display: none !important }
-          /* 하단 고정 탭바(약 62px)에 본문 끝이 가리던 문제 — 아래 여백을 탭바 높이 이상으로 */
-          .main-content { padding: 16px 16px 96px !important }
+          /* 하단 고정 탭바(약 62px)에 본문 끝이 가리던 문제 — 아래 여백을 탭바 높이 이상으로.
+             iPhone 홈 바(safe-area) 만큼 더 — 탭바도 같은 값으로 내려앉는다(아래 .bottom-tabs). */
+          .main-content { padding: 16px 16px calc(96px + env(safe-area-inset-bottom, 0px)) !important }
+          .bottom-tabs  { padding-bottom: env(safe-area-inset-bottom, 0px) }
         }
+        /* iOS Safari: 주소창이 보일 때 100vh 가 화면보다 커서 하단 탭바가 아래로 밀린다 → dvh 를 지원하면 그걸로 */
+        @supports (height: 100dvh) { .app-shell { height: 100dvh !important } }
         @media (min-width: 769px) {
           .bottom-tabs { display: none !important }
           .nav-drawer  { display: none !important }
@@ -41,7 +45,7 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
         @media (prefers-reduced-motion: reduce) { .nav-drawer-panel { animation: none !important } }
       `}</style>
 
-      <div style={{
+      <div className="app-shell" style={{
         display: 'flex',
         height: '100vh',
         background: '#0a0a0a',

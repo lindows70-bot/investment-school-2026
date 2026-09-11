@@ -20,7 +20,8 @@ export const metadata: Metadata = {
   icons: { icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }] },
 }
 
-export const viewport: Viewport = { themeColor: '#080B11' }
+// viewportFit cover 가 없으면 iOS 에서 env(safe-area-inset-bottom) 이 항상 0 — 하단 탭바 safe-area 패딩의 전제
+export const viewport: Viewport = { themeColor: '#080B11', viewportFit: 'cover' }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
