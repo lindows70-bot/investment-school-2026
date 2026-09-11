@@ -38,6 +38,16 @@ export interface SwingGrade {
   firstDate: string | null
 }
 
+/** 📜 규칙 변경 이력 — 성적표에 섞인 '옛 규칙' 표본을 학생이 구분할 수 있게 항목마다 표시한다(숨기면 성적이 부풀거나 억울해진다).
+ *  date 이전(미만)에 적립된 항목에 붙는다. track 'all' 은 전 트랙. */
+export const SWING_RULE_CHANGES: { date: string; track: SwingHistEntry['track'] | 'all'; mark: string; note: string }[] = [
+  { date: '2026-08-14', track: 'spike', mark: '옛 규칙', note: '2026-08-14 추격 가드(20일 저점 대비 +30% 초과 제외) 이전 규칙으로 뽑힌 건' },
+  { date: '2026-09-11', track: 'all', mark: '장중가', note: '2026-09-11 이전엔 만든 시각의 장중가를 진입가로 적었다 — 재현 불가 가격이라 참고용' },
+]
+export function legacyMarks(e: Pick<SwingHistEntry, 'date' | 'track'>): { mark: string; note: string }[] {
+  return SWING_RULE_CHANGES.filter(r => e.date < r.date && (r.track === 'all' || r.track === e.track)).map(({ mark, note }) => ({ mark, note }))
+}
+
 /** 채점 최소 표본 — 10건 미만은 통계가 아니라 일화(앱 공통 원칙). 시점도 2주 이상 갈려야 한다. */
 export const SWING_MIN_SAMPLE = 10
 export const SWING_MIN_COHORTS = 2

@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react'
 import type { SwingRadar, SwingItem } from '@/lib/swingRadar'
 import { SWING_TRACKS, positionSize, SWING_RISK_PCT, SWING_BEST_REF, VOL_CAUTION_REF, type SwingRegime } from '@/lib/swingSetup'
-import { SWING_MIN_SAMPLE, type SwingGrade } from '@/lib/swingHistory'
+import { SWING_MIN_SAMPLE, legacyMarks, type SwingGrade } from '@/lib/swingHistory'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 
 const CARD = TK.card, BORDER = TK.border
@@ -64,9 +64,20 @@ export default function SwingPage() {
                       <span style={{ marginLeft: 'auto', fontSize: FS.micro, fontWeight: 800, color: on ? TK.green400 : TK.sub3 }}>{on ? '자리 있음' : '대기'}</span>
                     </div>
                     <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 5, lineHeight: 1.55 }}>{t.note}</div>
+                    {/* ⚠️ 백테스트와 실제 적립은 다른 숫자다 — 같은 화면 아래 성적표가 25% 인데 여기만 62% 면 서로를 부정한다(2026-09-11 검토).
+                        라벨에 '백테스트'를 박고, 실적이 있으면 옆에 병기한다. */}
                     <div style={{ fontSize: FS.micro, color: TK.sub3, marginTop: 5, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
-                      시장 대비 <b style={{ color: TK.green400 }}>+{t.edgePp}%p</b> · 승률 {t.winRate}% · 표본 {t.sample}건 · 보유 {t.holdLabel}
+                      백테스트(5년) 시장 대비 <b style={{ color: TK.green400 }}>+{t.edgePp}%p</b> · 승률 {t.winRate}% · 표본 {t.sample}건 · 보유 {t.holdLabel}
                     </div>
+                    {(() => {
+                      const g = d.grades.find(x => x.track === t.key)
+                      if (!g || g.n === 0) return null
+                      return (
+                        <div style={{ fontSize: FS.micro, marginTop: 3, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', color: g.thin ? TK.sub3 : (g.winRate ?? 0) >= 50 ? TK.green400 : TK.orange400 }}>
+                          실제 적립 승률 <b>{g.winRate}%</b> · {g.n}건{g.thin ? ' · 아직 참고용' : ''}
+                        </div>
+                      )
+                    })()}
                     <div style={{ fontSize: FS.micro, color: TK.sub3, marginTop: 4 }}>
                       지금 지수: <b style={{ color: idx ? REGIME_C[idx] : TK.sub3 }}>{idx ? `${REGIME_KO[idx]}장` : '확인 못 함'}</b>
                     </div>
@@ -213,7 +224,7 @@ function SwingCard({ it, equity, usdKrw }: { it: SwingItem; equity: number; usdK
         <Cell label="지금 가격" value={`${cur}${fmt(it.price)}`} />
         <Cell label="손절선" value={`${cur}${fmt(it.stop)}`} sub={`−${it.stopPct}%`} c={TK.orange400} />
         <Cell label="보유 기간" value={t.holdLabel} sub={`${t.holdBars}거래일`} />
-        <Cell label="이 기법 성적" value={`+${t.edgePp}%p`} sub={`승률 ${t.winRate}% · ${t.sample}건`} c={TK.green400} />
+        <Cell label="백테스트 성적(5년)" value={`+${t.edgePp}%p`} sub={`승률 ${t.winRate}% · ${t.sample}건`} c={TK.green400} />
       </div>
 
       {ps ? (
@@ -399,7 +410,8 @@ function SwingRecord({ d }: { d: SwingRadar }) {
         <div style={{ marginTop: 10 }}>
           <div style={{ fontSize: FS.micro, color: TK.sub3, marginBottom: 5 }}>
             최근 추천 내역 — 승률만 보고 믿지 마시고 개별 건을 확인하세요
-            <br /><span style={{ color: TK.sub4 }}>수익률은 <b>손절선을 지켰을 때</b> 기준입니다. 🛡 표시는 손절선이 깨져 그 자리에서 정리된 건이고, 괄호는 그때 안 팔고 끝까지 들고 갔을 경우입니다.</span>
+            <br /><span style={{ color: TK.sub4 }}>수익률은 <b>손절선을 지켰을 때</b> 기준입니다. 🛡 표시는 손절선이 깨져 그 자리에서 정리된 건이고, 괄호는 그때 안 팔고 끝까지 들고 갔을 경우입니다.
+            {' '}<b>장중가</b> 표시는 2026-09-11 이전 기록(진입가가 그 시각 장중가라 재현 불가 — 참고용), <b>옛 규칙</b> 은 추격 가드(08-14) 이전 급등 건입니다.</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 200, overflowY: 'auto' }}>
             {d.recent.map((r, i) => (
@@ -408,6 +420,10 @@ function SwingRecord({ d }: { d: SwingRadar }) {
                 <span>{r.flag}</span>
                 <span style={{ color: TK.slate300, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
                 <span style={{ color: TK.sub4 }}>{SWING_TRACKS[r.track].icon}</span>
+                {/* 📜 옛 규칙·장중가 기록 표시 — 규칙이 바뀌기 전 표본을 지금 규칙의 성적으로 읽지 않게 */}
+                {legacyMarks(r).map(m => (
+                  <span key={m.mark} title={m.note} style={{ color: TK.sub4, border: `1px solid ${BORDER}`, borderRadius: RAD.xs, padding: '0 4px' }}>{m.mark}</span>
+                ))}
                 {r.stopHit && <span style={{ color: TK.orange400 }} title="손절선이 깨져 그 가격에 정리된 것으로 채점했습니다">🛡</span>}
                 {/* 손절이 지켜준(또는 깎은) 폭 — 두 값이 실제로 다를 때만 보여준다(같으면 소음) */}
                 {r.stopHit && r.retHoldPct != null && r.retHoldPct !== r.retPct && (
