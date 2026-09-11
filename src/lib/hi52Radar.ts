@@ -9,7 +9,7 @@
 import { UNIVERSE_KEY } from '@/lib/macroPhaseScreener'
 import { WIN_LOSE_KEY } from '@/lib/winLose'
 import { getCache } from './appCache'
-import { getTechCandles } from './techChartData'
+import { getTechCandles, dropIncompleteBar } from './techChartData'
 import { timingFromCandles } from './entryTiming'
 import { EU_TICKER_SET, JP_TICKER_SET, CN_TICKER_SET, type ScreenedStock } from './macroPhaseScreener'
 import { SECTOR_TO_ROT, loadRotationBySector, type RotQuadShared } from './rotationShared'
@@ -73,7 +73,8 @@ export async function buildHi52Radar(): Promise<Hi52Radar | { error: string; not
     while (q.length) {
       const s = q.shift(); if (!s) break
       try {
-        const D = await getTechCandles(s.ticker, s.market, 'D')
+        // 🕯️ 완성 봉만 — 크론이 09:25 KST 라 한국은 개장 25분짜리 봉이었다. 장중 반짝 고가가 '갓 돌파'로 잡힌다(2026-09-11)
+        const D = dropIncompleteBar(await getTechCandles(s.ticker, s.market, 'D'), s.market === 'KR' ? 'KR' : 'US')
         if (!D || D.length < 260) continue          // 52주(252봉) 미만 신규상장은 '신고가' 의미 약함 → 정직 생략
         okCount++
         const N = D.length, last = D[N - 1]

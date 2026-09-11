@@ -3,10 +3,11 @@
 //    데이터 전부 기존 캐시 재사용(UNIVERSE_KEY + getTechCandles 일별 캐시 — 검색기 크론이 워밍). 신규 수집 0.
 //    ⛔ 점수·선정 미반영(관측 전용 — WHAT/WHEN 분리). 신고/신저는 종가 기준(캐비엇 병기).
 import { getCache } from '@/lib/appCache'
-import { getTechCandles, type TechCandle } from '@/lib/techChartData'
+import { getTechCandles, dropIncompleteBar, type TechCandle } from '@/lib/techChartData'
 import { UNIVERSE_KEY } from '@/lib/macroPhaseScreener'
 
-export const BREADTH_KEY = (dateKst: string) => `market-breadth-v1:${dateKst}`   // 일별 캐시(route·크론 헬스 공유 SSOT)
+// v2: 🕯️ 완성 봉만 집계(진행 중인 오늘 봉 제거) — 200/50일선 위 비율·신고가 수가 장중가로 세어지고 있었다(2026-09-11)
+export const BREADTH_KEY = (dateKst: string) => `market-breadth-v2:${dateKst}`   // 일별 캐시(route·크론 헬스 공유 SSOT)
 
 const SERIES_DAYS = 250          // 표시·백분위 창(자기 역사)
 const HI_LO_WINDOW = 252         // 52주 신고/신저 창
@@ -131,7 +132,7 @@ export async function computeMarketBreadth(): Promise<BreadthResult | null> {
     for (;;) {
       const s = queue.shift(); if (!s) break
       try {
-        const candles = await getTechCandles(s.ticker, s.market, 'D')
+        const candles = dropIncompleteBar(await getTechCandles(s.ticker, s.market, 'D'), s.market)
         const m = perStock(candles)
         if (m) { maps[s.market].push(m); okCount++ }
       } catch { /* 종목 실패 — 정직 제외 */ }
@@ -139,8 +140,8 @@ export async function computeMarketBreadth(): Promise<BreadthResult | null> {
   }))
 
   const [idxUs, idxKr] = await Promise.all([
-    getTechCandles('^GSPC', 'US', 'D').catch(() => [] as TechCandle[]),
-    getTechCandles('^KS11', 'US', 'D').catch(() => [] as TechCandle[]),   // 지수는 Yahoo 경로(US)로 해석
+    getTechCandles('^GSPC', 'US', 'D').then(d => dropIncompleteBar(d, 'US')).catch(() => [] as TechCandle[]),
+    getTechCandles('^KS11', 'US', 'D').then(d => dropIncompleteBar(d, 'KR')).catch(() => [] as TechCandle[]),   // 지수는 Yahoo 경로(US)로 받되 세션은 KR
   ])
 
   return {

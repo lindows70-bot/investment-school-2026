@@ -17,7 +17,7 @@ export const maxDuration = 300
 
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
-import { getTechCandles } from '@/lib/techChartData'
+import { getTechCandles, dropIncompleteBar } from '@/lib/techChartData'
 import { evaluateSetups, SCREEN_SETUPS, TECH_SCREENER_KEY, type ScreenHit, type SetupMeta } from '@/lib/techScreener'
 import { UNIVERSE_KEY, type ScreenedStock } from '@/lib/macroPhaseScreener'
 
@@ -54,7 +54,8 @@ export async function GET(req: Request) {
     while (q.length) {
       const s = q.shift(); if (!s) break
       try {
-        const D = await getTechCandles(s.ticker, s.market, 'D')
+        // 🕯️ 완성 봉만 — 크론 09:10 KST 는 한국 개장 10분 뒤라 셋업 판정이 장중가로 이뤄지고 있었다(2026-09-11)
+        const D = dropIncompleteBar(await getTechCandles(s.ticker, s.market, 'D'), s.market === 'KR' ? 'KR' : 'US')
         if (!D || D.length < 130) continue
         scanned++
         const ev = evaluateSetups(D)

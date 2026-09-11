@@ -54,7 +54,7 @@ export const CRON_MONITORS: CronMonitor[] = [
   { id: 'techScreener', label: '기술 검색기 스캔', kst: '09:10', days: 'daily', artifact: { type: 'cacheDate', key: d => TECH_SCREENER_KEY(d) }, heal: '/api/tech-screener', heavy: true },
   { id: 'krEarnings', label: '한국 실적 카드 수집', kst: '09:15', days: 'daily', artifact: { type: 'cache', key: () => KR_EARN_INDEX_KEY }, heal: '/api/cron/kr-earnings' },
   { id: 'earnReports', label: '실적 리포트 수집', kst: '09:20', days: 'daily', artifact: { type: 'cache', key: () => ER_INDEX_KEY }, heal: '/api/cron/earnings-reports', heavy: true },
-  { id: 'hi52', label: '신고가 레이더 스캔', kst: '09:25', days: 'daily', artifact: { type: 'cacheDate', key: d => `hi52-radar-v2:${d}` }, heal: '/api/hi52-radar', heavy: true },
+  { id: 'hi52', label: '신고가 레이더 스캔', kst: '09:25', days: 'daily', artifact: { type: 'cacheDate', key: d => `hi52-radar-v3:${d}` }, heal: '/api/hi52-radar', heavy: true },
   { id: 'breadth', label: '시장 폭 레이더 스캔', kst: '09:35', days: 'daily', artifact: { type: 'cacheDate', key: d => BREADTH_KEY(d) }, heal: '/api/market-breadth', heavy: true },
   // 🎯 스윙 스캔 — 성적 적립이 여기 붙어 있다. 조용히 멈추면 **추천 기록 자체가 비므로** 감시가 필수다
   //   🕯️ 06:15 KST — 한국 전날·미국 당일 새벽 봉이 모두 완성된 뒤(09:35 였을 땐 한국 35분짜리 장중 봉으로 판정했다)

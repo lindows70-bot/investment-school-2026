@@ -98,7 +98,7 @@ export const SETUP_MAP: Record<string, SetupMeta> = Object.fromEntries(SCREEN_SE
  *  여기 한 곳만 고치면 둘 다 따라온다(HONEYCOMB_KEY 와 같은 처방).
  *  v2: SetupMeta.recheck(더 큰 창 재측정) 추가 — 응답에 SCREEN_SETUPS 가 실려 캐시된다.
  *  v3: cciCross100 셋업 신규 등재(음수 반증) — 목록·판정이 함께 바뀐다. */
-export const TECH_SCREENER_KEY = (dateKey: string) => `tech-screener-v3:${dateKey}`
+export const TECH_SCREENER_KEY = (dateKey: string) => `tech-screener-v4:${dateKey}`   // v4: 🕯️ 완성 봉만 판정(장중 봉 제거)
 
 export interface ScreenHit {
   ticker: string; name: string; market: 'US' | 'KR'

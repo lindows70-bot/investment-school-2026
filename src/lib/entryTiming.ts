@@ -1,7 +1,7 @@
 // 🚦 타점 신호등 SSOT — "WHAT은 펀더멘탈, WHEN은 기술" 분리 레이어.
 // EMA112·224 정배열 + 일목 구름 위치 + ATR 손절선을 결정론 판정(기술차트 화면과 동일 계산).
 // ⛔ 원칙: 추천 '점수·선정·정렬'에는 절대 미반영 — 카드에 배지(정보)로만 표시. 자동매매 없음.
-import { getTechCandles, type TechCandle } from '@/lib/techChartData'
+import { getTechCandles, dropIncompleteBar, type TechCandle } from '@/lib/techChartData'
 import { calcATR, calcADX, readRaschke, computeAnchoredVWAP, computePOC, computeTTMSqueeze, detectFVG, readPrimeSetup, computeChandelier, type PrimeSetup } from '@/lib/techSignals'
 
 export type TimingLight = 'green' | 'yellow' | 'red'
@@ -180,7 +180,9 @@ export function timingFromCandles(D: TechCandle[]): EntryTiming | null {
 /** 단일 종목 타점(일봉 fetch — tech-chart와 캐시 공유) */
 export async function getEntryTiming(ticker: string, market: 'KR' | 'US'): Promise<EntryTiming | null> {
   try {
-    const candles = await getTechCandles(ticker, market, 'D')
+    // 🕯️ 완성 봉만 — 네이버·야후 일봉의 마지막 행은 진행 중인 오늘 봉이라, 그대로 쓰면 신호등이 장중가로 켜진다
+    //    (스윙에서 실측된 결함 2026-09-11 · techChartData.dropIncompleteBar 주석). 이 함수가 11개 소비처의 입구다.
+    const candles = dropIncompleteBar(await getTechCandles(ticker, market, 'D'), market)
     return timingFromCandles(candles)
   } catch { return null }
 }
