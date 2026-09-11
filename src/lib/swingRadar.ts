@@ -8,7 +8,7 @@ import { UNIVERSE_KEY, type ScreenedStock } from '@/lib/macroPhaseScreener'
 import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache } from '@/lib/appCache'
 import { SWING_HIST_KEY, shouldAppend, gradeSwing, type SwingHistEntry, type SwingGrade, type ScoredRow } from '@/lib/swingHistory'
-import { getTechCandles } from '@/lib/techChartData'
+import { getTechCandles, dropIncompleteBar } from '@/lib/techChartData'
 import { flagOf } from '@/lib/marketFlag'
 import { getUsdKrw } from '@/lib/fx'
 import { readSwingSetup, readSwingRegime, readVolumeCaution, SWING_TRACKS, SWING_DAILY_CAP, positionSize, type SwingTrack, type SwingRegime } from '@/lib/swingSetup'
@@ -17,6 +17,8 @@ import { loadRotationBySector, SECTOR_TO_ROT, type RotQuadShared } from '@/lib/r
 export interface SwingItem {
   ticker: string; name: string; market: 'KR' | 'US'; flag: string; sector: string | null
   track: SwingTrack; price: number
+  /** 🕯️ 신호가 난 **완성 봉**의 날짜 — price 는 이 봉의 종가다(장중가 아님). 성적 적립의 진입일도 이 날짜 */
+  signalDate: string
   stop: number; stopPct: number          // 손절 — 트랙별 구조선(아래 stopFor)
   targetPct: number                      // 참고 목표 — 실측 절사 edge + 같은 기간 baseline
   reasons: string[]
@@ -34,6 +36,8 @@ export interface SwingRadar {
    *  1천만원으로 172만 달러를 사라는 값이 나온다(2026-08-11 화면검증에서 실제로 나왔다). */
   usdKrw: number
   indexRegime: { KR: SwingRegime | null; US: SwingRegime | null }
+  /** 🕯️ 판정에 쓴 마지막 완성 봉 날짜(시장별) — 화면이 "어느 종가로 판정했나"를 말할 수 있게. 못 구하면 null */
+  barDate: { KR: string | null; US: string | null }
   items: SwingItem[]
   /** 🧢 하루 상한(3건)에 걸려 잘린 신호 수 — 숨기면 "오늘 3건뿐"이 거짓말이 된다 */
   cappedOut: number
@@ -75,9 +79,10 @@ function stopFor(track: SwingTrack, D: { close: number; low: number }[], i: numb
   return Math.min(line, close(i) * (1 - STOP_MIN_PCT / 100))         // 최소 2.5% 여유(노이즈 컷 방지)
 }
 
-async function regimeOfIndex(symbol: string, market: 'KR' | 'US'): Promise<SwingRegime | null> {
+/** 지수 국면 — fetch 경로(market)는 야후라 'US' 지만, 완성 봉 판정(session)은 그 지수의 거래소 기준이어야 한다(^KS11 = KR) */
+async function regimeOfIndex(symbol: string, market: 'KR' | 'US', session: 'KR' | 'US'): Promise<SwingRegime | null> {
   try {
-    const d = await getTechCandles(symbol, market, 'D')
+    const d = dropIncompleteBar(await getTechCandles(symbol, market, 'D'), session)
     return d && d.length >= 80 ? readSwingRegime(d) : null
   } catch { return null }
 }
@@ -112,7 +117,7 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
     .map(h => ({ ticker: h.ticker, name: h.name, market: h.market, sector: null } as unknown as ScreenedStock))
 
   const [krIdx, usIdx, usdKrw, rotMap] = await Promise.all([
-    regimeOfIndex('^KS11', 'US'), regimeOfIndex('^GSPC', 'US'), getUsdKrw(base),
+    regimeOfIndex('^KS11', 'US', 'KR'), regimeOfIndex('^GSPC', 'US', 'US'), getUsdKrw(base),
     loadRotationBySector(),   // 🧭 섹터 로테이션(읽기만·콜드면 null) — 배지·우선순위용
   ])
   /** 종목 섹터(Yahoo GICS) → 오늘의 로테이션 상태. 못 구하면 null — 배지 생략·순위 중립(fail-open) */
@@ -124,6 +129,7 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
 
   const items: SwingItem[] = []
   let scanned = 0, okCount = 0
+  const barDate: SwingRadar['barDate'] = { KR: null, US: null }
   const q = [...uni, ...extra]
   const CONC = 10
   await Promise.all(Array.from({ length: CONC }, async () => {
@@ -131,10 +137,13 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
       const s = q.shift(); if (!s) break
       scanned++
       try {
-        const D = await getTechCandles(s.ticker, s.market, 'D')
+        const market: 'KR' | 'US' = s.market === 'KR' ? 'KR' : 'US'
+        // 🕯️ 완성 봉만 — 진행 중인 오늘 봉은 버린다(장중가 판정 금지 · 백테스트와 같은 잣대)
+        const D = dropIncompleteBar(await getTechCandles(s.ticker, s.market, 'D'), market)
         if (!D || D.length < 260) continue        // 224일선 + 여유. 신규 상장은 정직 생략
         okCount++
-        const market: 'KR' | 'US' = s.market === 'KR' ? 'KR' : 'US'
+        const lastDate = String(D[D.length - 1].date).slice(0, 10)
+        if (!barDate[market] || lastDate > barDate[market]!) barDate[market] = lastDate
         const hit = readSwingSetup(D, market)
         if (!hit) continue
         const i = D.length - 1
@@ -149,7 +158,7 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
           : hit.reasons
         items.push({
           ticker: s.ticker, name: s.name, market, flag: flagOf(s.market, s.ticker, null),
-          sector: s.sector ?? null, track: hit.track, price: hit.price,
+          sector: s.sector ?? null, track: hit.track, price: hit.price, signalDate: lastDate,
           stop: Math.round(stop * 100) / 100,
           stopPct: Math.round((1 - stop / hit.price) * 1000) / 10,
           targetPct: t.edgePp,
@@ -190,7 +199,8 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
 
   // ── 📋 성적 적립·채점 ─────────────────────────────────────────────────────
   //   ⛔ 소급 금지 — 오늘부터 쌓는다. 과거를 소급하면 "지금 규칙으로 과거를 고른" 셈이라 성적이 부풀려진다.
-  const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
+  //   🕯️ 진입일 = **신호 봉 날짜**(만든 날짜가 아니다) · 진입가 = 그 봉 종가. 전에는 만든 시각의 장중가를 적어
+  //      학생이 재현할 수 없는 가격으로 채점했다(2026-09-11 실측 — dropIncompleteBar 주석 참조).
   const dayDiff = (a: string, b: string) =>
     Math.round((new Date(`${b}T00:00:00Z`).getTime() - new Date(`${a}T00:00:00Z`).getTime()) / 86400_000)
 
@@ -198,7 +208,7 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
   const fresh: SwingHistEntry[] = []
   for (const it of items) {
     const e: SwingHistEntry = {
-      date: today, ticker: it.ticker, name: it.name, market: it.market, track: it.track,
+      date: it.signalDate, ticker: it.ticker, name: it.name, market: it.market, track: it.track,
       entry: it.price, stop: it.stop, holdBars: SWING_TRACKS[it.track].holdBars,
     }
     if (shouldAppend([...hist, ...fresh], e, dayDiff)) fresh.push(e)
@@ -220,7 +230,8 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
   for (const e of allHist) {
     let retPct: number | null = null, retHoldPct: number | null = null, stopHit = false
     try {
-      const D = await getTechCandles(e.ticker, e.market, 'D')
+      // 🕯️ 채점·손절 경보도 완성 봉만 — '종가 이탈'이라 써놓고 장중가로 경보하면 그 원칙이 거짓이 된다
+      const D = dropIncompleteBar(await getTechCandles(e.ticker, e.market, 'D'), e.market)
       if (D && D.length) {
         const idx = D.findIndex(d => String(d.date ?? '').slice(0, 10) >= e.date)
         if (idx >= 0) {
@@ -312,7 +323,7 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
 
   return {
     asOf: new Date().toISOString(), scanned, okCount, usdKrw,
-    indexRegime: { KR: krIdx, US: usIdx }, items, cappedOut, tracks,
+    indexRegime: { KR: krIdx, US: usIdx }, barDate, items, cappedOut, tracks,
     grades, recent: recent.slice(0, 20), stopAlerts, volCautions, horizons, peak,
   }
 }

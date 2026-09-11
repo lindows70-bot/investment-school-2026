@@ -108,6 +108,12 @@ export default function SwingPage() {
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
               <span style={{ fontSize: FS.body, fontWeight: 800, color: TK.slate100 }}>🎯 오늘의 자리</span>
               <span style={{ fontSize: FS.micro, color: TK.sub3 }}>{d.scanned}종 스캔 · 캔들 확보 {d.okCount}종</span>
+              {/* 🕯️ 어느 종가로 판정했나 — 장중가가 아니라 완성 봉이라는 사실을 학생이 알아야 진입 시점을 맞출 수 있다 */}
+              {d.barDate && (
+                <span style={{ fontSize: FS.micro, color: TK.sub3 }}>
+                  · 판정 기준 종가 🇰🇷 {d.barDate.KR ?? '—'} · 🇺🇸 {d.barDate.US ?? '—'} (장중가 아님 · 다음 장 시가 진입)
+                </span>
+              )}
               {d.cappedOut > 0 && (
                 <span style={{ fontSize: FS.micro, color: TK.amber400 }}>
                   🧢 {d.cappedOut}건은 하루 상한(3건)에 걸려 뺐습니다 — 같은 장세에 여러 건은 분산이 아니라 같은 베팅의 반복이라서요
