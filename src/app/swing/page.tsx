@@ -16,6 +16,10 @@ export default function SwingPage() {
   const [d, setD] = useState<SwingRadar | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [equity, setEquity] = useState(10_000_000)
+  // 💰 투자금 출처 — 'saved'(학생이 고친 값·localStorage) > 'auto'(내 총 평가금액·현금 포함) > 'default'(1천만원 자리표시)
+  //    앱은 총 평가금액을 이미 알고 있는데(대시보드·현금 포지션) 여기선 매번 1천만원으로 초기화됐다("있는데 안 쓴 데이터").
+  const [equitySrc, setEquitySrc] = useState<'default' | 'auto' | 'saved'>('default')
+  const EQUITY_LS = 'swing-equity-v1'
 
   useEffect(() => {
     let alive = true
@@ -23,8 +27,22 @@ export default function SwingPage() {
       .then(r => r.json())
       .then(j => { if (!alive) return; if (j.error) setErr(j.note ?? j.error); else setD(j) })
       .catch(() => { if (alive) setErr('스윙 레이더를 불러오지 못했습니다 — 잠시 후 새로고침해 주세요.') })
+    // 투자금: 저장값이 있으면 그걸로, 없으면 내 총 평가금액으로 채운다(실패하면 기본값 유지 — 지어내지 않는다)
+    try {
+      const saved = Number(localStorage.getItem(EQUITY_LS))
+      if (saved > 0) { setEquity(saved); setEquitySrc('saved') }
+      else {
+        fetch('/api/cash-position', { cache: 'no-store' }).then(r => r.ok ? r.json() : null)
+          .then(c => { if (alive && typeof c?.totalKrw === 'number' && c.totalKrw > 0) { setEquity(Math.round(c.totalKrw)); setEquitySrc('auto') } })
+          .catch(() => { /* 기본값 유지 */ })
+      }
+    } catch { /* localStorage 불가 환경 — 기본값 유지 */ }
     return () => { alive = false }
   }, [])
+  const onEquityChange = (v: number) => {
+    setEquity(v); setEquitySrc('saved')
+    try { localStorage.setItem(EQUITY_LS, String(v)) } catch { /* 저장 불가면 세션 안에서만 유지 */ }
+  }
 
   return (
     <div style={{ padding: '20px 22px', maxWidth: 1180, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: SP.md }}>
@@ -63,7 +81,7 @@ export default function SwingPage() {
                       <span style={{ fontSize: FS.micro, color: TK.sub3 }}>{t.market === 'KR' ? '🇰🇷 한국' : '🇺🇸 미국'} · {REGIME_KO[t.regime]}장</span>
                       <span style={{ marginLeft: 'auto', fontSize: FS.micro, fontWeight: 800, color: on ? TK.green400 : TK.sub3 }}>{on ? '자리 있음' : '대기'}</span>
                     </div>
-                    <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 5, lineHeight: 1.55 }}>{t.note}</div>
+                    <div style={{ fontSize: FS.tiny, color: TK.sub2, marginTop: 5, lineHeight: 1.55 }}>{t.note}</div>
                     {/* ⚠️ 백테스트와 실제 적립은 다른 숫자다 — 같은 화면 아래 성적표가 25% 인데 여기만 62% 면 서로를 부정한다(2026-09-11 검토).
                         라벨에 '백테스트'를 박고, 실적이 있으면 옆에 병기한다. */}
                     <div style={{ fontSize: FS.micro, color: TK.sub3, marginTop: 5, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
@@ -106,7 +124,7 @@ export default function SwingPage() {
                   </div>
                 ))}
               </div>
-              <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 8, lineHeight: 1.6 }}>
+              <div style={{ fontSize: FS.tiny, color: TK.sub2, marginTop: 8, lineHeight: 1.6 }}>
                 큰 양봉 다음의 첫 하락일에도 거래가 몰리면, 우리 실측에서 이후 2주 성적이 평소보다 나빴습니다
                 (시장 대비 🇰🇷 {VOL_CAUTION_REF.kr.edge10Pp}%p·{VOL_CAUTION_REF.kr.sample}건 / 🇺🇸 {VOL_CAUTION_REF.us.edge10Pp}%p·{VOL_CAUTION_REF.us.sample}건).
                 다만 승률 {VOL_CAUTION_REF.kr.winRate}%지 0%가 아닙니다 — <b>매도 지시가 아니라</b> 손절선을 다시 확인하라는 신호입니다.
@@ -126,8 +144,13 @@ export default function SwingPage() {
                 </span>
               )}
               {d.cappedOut > 0 && (
-                <span style={{ fontSize: FS.micro, color: TK.amber400 }}>
+                <span style={{ fontSize: FS.tiny, color: TK.amber400 }}>
                   🧢 {d.cappedOut}건은 하루 상한(3건)에 걸려 뺐습니다 — 같은 장세에 여러 건은 분산이 아니라 같은 베팅의 반복이라서요
+                </span>
+              )}
+              {(d.skippedForeign ?? 0) > 0 && (
+                <span style={{ fontSize: FS.micro, color: TK.sub4 }} title="미국 트랙은 미국 40종으로만 검증됐습니다 — 검증 안 된 모집단엔 성적을 매기지 않습니다">
+                  · 해외 상장(독일·홍콩·일본 등) {d.skippedForeign}종은 검증 밖이라 스캔에서 뺐습니다
                 </span>
               )}
             </div>
@@ -143,7 +166,7 @@ export default function SwingPage() {
                 </div>
                 <div style={{ marginTop: 9, display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {d.tracks.map(t => (
-                    <div key={t.key} style={{ fontSize: FS.micro, color: TK.sub3 }}>
+                    <div key={t.key} style={{ fontSize: FS.tiny, color: TK.sub3 }}>
                       {SWING_TRACKS[t.key].icon} <b style={{ color: TK.sub2 }}>{SWING_TRACKS[t.key].label}</b> — {t.why}
                     </div>
                   ))}
@@ -162,20 +185,25 @@ export default function SwingPage() {
           {/* 💰 포지션 계산기 — 자리가 없는 날에도 쓰는 유일한 도구라 상시 노출 */}
           <div style={{ background: CARD, border: `1px solid ${TK.indigo400}33`, borderRadius: RAD.md, padding: '14px 16px' }}>
             <div style={{ fontSize: FS.body, fontWeight: 800, color: TK.slate100 }}>💰 얼마나 살까 — 잃을 금액부터 정합니다</div>
-            <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 4, lineHeight: 1.6 }}>
+            <div style={{ fontSize: FS.tiny, color: TK.sub2, marginTop: 4, lineHeight: 1.6 }}>
               수량을 먼저 정하지 않습니다. <b>한 번에 잃어도 되는 금액</b>(자산의 {SWING_RISK_PCT}%)을 정하고,
               손절까지의 거리로 나눠 수량을 역산합니다 — <b>손절폭이 넓은 종목은 자동으로 적게 사게</b> 됩니다.
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
               <span style={{ fontSize: FS.tiny, color: TK.sub2 }}>내 투자금</span>
-              <input type="number" value={equity} onChange={e => setEquity(Math.max(0, Number(e.target.value) || 0))}
+              <input type="number" value={equity} onChange={e => onEquityChange(Math.max(0, Number(e.target.value) || 0))}
                 style={{ background: TK.bg0, border: `1px solid ${BORDER}`, borderRadius: RAD.xs, padding: '6px 10px', color: TK.slate100, fontSize: FS.tiny, width: 160, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }} />
-              <span style={{ fontSize: FS.micro, color: TK.sub3 }}>원 · 한 번에 잃을 금액 <b style={{ color: TK.orange400 }}>{Math.round(equity * SWING_RISK_PCT / 100).toLocaleString()}원</b></span>
+              <span style={{ fontSize: FS.tiny, color: TK.sub3 }}>원 · 한 번에 잃을 금액 <b style={{ color: TK.orange400 }}>{Math.round(equity * SWING_RISK_PCT / 100).toLocaleString()}원</b></span>
+              <span style={{ fontSize: FS.micro, color: TK.sub4 }}>
+                {equitySrc === 'auto' ? '내 총 평가금액(보유+현금)으로 채웠습니다 — 고치면 이 브라우저에 기억됩니다'
+                  : equitySrc === 'saved' ? '지난번 입력값입니다(이 브라우저에 저장)'
+                  : '기본값 1,000만원 — 로그인 상태면 내 총 평가금액으로 자동 채워집니다'}
+              </span>
             </div>
           </div>
 
           {/* 캐비엇 */}
-          <div style={{ fontSize: FS.micro, color: TK.sub4, lineHeight: 1.75 }}>
+          <div style={{ fontSize: FS.tiny, color: TK.sub4, lineHeight: 1.75 }}>
             ⚠️ 위 <b>+%p는 &lsquo;시장 대비&rsquo;</b>입니다 — 같은 기간 시장이 0.8% 오를 때 그보다 그만큼 더 났다는 뜻이지,
             5~20% 수익을 뜻하지 않습니다. 승률·표본은 <b>그 표본·그 국면의 기록</b>이며 다음 거래를 보장하지 않습니다.
             <b> 세금·수수료·슬리피지는 반영돼 있지 않습니다</b>(단기매매에서 이 비용이 성적을 크게 깎습니다).
@@ -228,7 +256,7 @@ function SwingCard({ it, equity, usdKrw }: { it: SwingItem; equity: number; usdK
       </div>
 
       {ps ? (
-        <div style={{ marginTop: 9, background: TK.bg0, borderRadius: RAD.xs, padding: '8px 11px', fontSize: FS.micro, color: TK.sub2, lineHeight: 1.6 }}>
+        <div style={{ marginTop: 9, background: TK.bg0, borderRadius: RAD.xs, padding: '8px 11px', fontSize: FS.tiny, color: TK.sub2, lineHeight: 1.6 }}>
           💰 투자금 {equity.toLocaleString()}원 기준 — <b style={{ color: TK.slate200 }}>{ps.qty.toLocaleString()}주</b>
           <span style={{ color: TK.sub3 }}> (약 {money(ps.positionValue)}
             {!isKr && <> · 원화로 약 {Math.round(ps.positionValue * usdKrw).toLocaleString()}원</>}
@@ -245,14 +273,14 @@ function SwingCard({ it, equity, usdKrw }: { it: SwingItem; equity: number; usdK
           </div>
         </div>
       ) : (
-        <div style={{ marginTop: 9, fontSize: FS.micro, color: TK.sub3 }}>
+        <div style={{ marginTop: 9, fontSize: FS.tiny, color: TK.sub3 }}>
           💰 지금 투자금으로는 <b>한 주도 살 수 없는 자리</b>입니다 — 손절폭 대비 금액이 모자랍니다.
         </div>
       )}
 
       <SetupChart it={it} />
 
-      <ul style={{ margin: '9px 0 0', paddingLeft: 17, fontSize: FS.micro, color: TK.sub2, lineHeight: 1.7 }}>
+      <ul style={{ margin: '9px 0 0', paddingLeft: 17, fontSize: FS.tiny, color: TK.sub2, lineHeight: 1.7 }}>
         {it.reasons.map((r, i) => <li key={i}>{r}</li>)}
       </ul>
 
@@ -316,7 +344,7 @@ function SetupChart({ it }: { it: SwingItem }) {
         <span style={{ color: TK.green400 }}><b>┅ 목표 +10%</b></span>
         <span style={{ color: TK.sub4 }}>· 최근 60일 캔들(<span style={{ color: TK.red400 }}>빨강=상승</span>·<span style={{ color: TK.blue400 }}>파랑=하락</span>)</span>
       </div>
-      <div style={{ fontSize: FS.micro, color: TK.sub4, marginTop: 3, lineHeight: 1.6 }}>
+      <div style={{ fontSize: FS.tiny, color: TK.sub4, marginTop: 3, lineHeight: 1.6 }}>
         🎯 초록 선은 <b>목표 기준선</b>입니다 — 과거 같은 자리에서 {t.holdLabel} 안에
         <b> +5%는 10번 중 약 {Math.round(t.ge5Rate / 10)}번, +10%는 약 {Math.max(1, Math.round(t.ge10Rate / 10))}번</b> 걸렸습니다(실측 {t.ge5Rate}%·{t.ge10Rate}%).
         닿으면 익절하고, <b>{t.holdBars}거래일이 지나면 도달 여부와 무관하게 정리</b>합니다 — 스윙은 시간이 비용입니다.
@@ -339,7 +367,7 @@ function SwingRecord({ d }: { d: SwingRadar }) {
         </span>
       </div>
       {/* 🛡️ 잣대 선언 — 앱이 "손절선 없으면 추천도 안 한다"고 해놓고 성적은 손절 무시로 매기던 결함을 고쳤다(2026-08-15) */}
-      <div style={{ fontSize: FS.micro, color: TK.sub3, marginTop: 4, lineHeight: 1.6 }}>
+      <div style={{ fontSize: FS.tiny, color: TK.sub3, marginTop: 4, lineHeight: 1.6 }}>
         🛡 채점 기준은 <b style={{ color: TK.slate300 }}>제시한 손절선을 지켰을 때</b>입니다 — 손절선이 깨진 건은 그 자리에서 정리한 것으로 계산합니다.
         추천할 때 손절선을 함께 준 이상, 성적도 같은 규칙으로 재는 게 맞습니다.
         손절선 아래로 <b>갭 하락해서 열린 날</b>은 손절선이 아니라 <b>그날 시가</b>로 계산합니다 — 실제로는 그 가격에 팔리기 때문입니다.
@@ -357,7 +385,7 @@ function SwingRecord({ d }: { d: SwingRadar }) {
             {d.grades.map(g => <GradeCell key={g.track} g={g} />)}
           </div>
           {all.thin && (
-            <div style={{ marginTop: 8, background: `${TK.amber400}12`, border: `1px solid ${TK.amber400}44`, borderRadius: RAD.xs, padding: '7px 10px', fontSize: FS.micro, color: TK.amber400, lineHeight: 1.6 }}>
+            <div style={{ marginTop: 8, background: `${TK.amber400}12`, border: `1px solid ${TK.amber400}44`, borderRadius: RAD.xs, padding: '7px 10px', fontSize: FS.tiny, color: TK.amber400, lineHeight: 1.6 }}>
               ⚠️ 아직 <b>통계로 볼 수준이 아닙니다</b> — {all.n < SWING_MIN_SAMPLE ? `${SWING_MIN_SAMPLE}건 이상` : '서로 다른 주(週) 2개 이상'}이 모여야 합니다
               (현재 {all.n}건 · {all.cohorts}개 주). 그때까지 이 숫자는 <b>참고용</b>입니다.
             </div>
@@ -370,7 +398,7 @@ function SwingRecord({ d }: { d: SwingRadar }) {
         <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate200 }}>🔬 보유 기간 실험 — 1주·2주·3주·1달을 전부 추적 중</div>
         {/* ⚠️ 이 표와 🏔️ 최고점은 **손절을 적용하지 않은** 순수 가격 경로다 — 목적이 '얼마나 갔나'라서 그렇다.
             위쪽 성적표(승률·평균·수익 인자)는 반대로 **손절선을 지킨** 기준이다. 잣대가 다르니 반드시 밝힌다. */}
-        <div style={{ fontSize: FS.micro, color: TK.sub4, marginTop: 3 }}>
+        <div style={{ fontSize: FS.tiny, color: TK.sub4, marginTop: 3 }}>
           이 표는 <b>손절선 없이</b> 가격이 어디까지 갔는지만 봅니다(적정 보유 기간을 찾는 게 목적). 위 성적표는 손절선을 지킨 기준이라 숫자가 다를 수 있습니다.
         </div>
         {d.horizons.some(h => h.n > 0) ? (
@@ -391,14 +419,14 @@ function SwingRecord({ d }: { d: SwingRadar }) {
               </tbody>
             </table>
             {d.peak.n > 0 && (
-              <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 6, lineHeight: 1.6 }}>
+              <div style={{ fontSize: FS.tiny, color: TK.sub2, marginTop: 6, lineHeight: 1.6 }}>
                 🏔️ 보유 중 <b>최고점</b>(고가 기준·최대 1달): 평균 <b style={{ color: TK.green400 }}>+{d.peak.avgPct}%</b> · 중위 +{d.peak.medPct}%
                 · +10% 터치 {d.peak.ge10Rate}% · 평균 <b>{d.peak.avgBar}일째</b>가 고점이었습니다 — 끝값과의 차이가 곧 &lsquo;매도 타이밍의 값&rsquo;입니다.
               </div>
             )}
           </div>
         ) : (
-          <div style={{ fontSize: FS.micro, color: TK.sub2, marginTop: 5, lineHeight: 1.7 }}>
+          <div style={{ fontSize: FS.tiny, color: TK.sub2, marginTop: 5, lineHeight: 1.7 }}>
             아직 1주가 안 지나 채점된 구간이 없습니다. 구간이 차는 대로 여기서 <b>최적 보유 기간이 데이터로 드러납니다</b>.
             <br />참고(백테스트 {SWING_BEST_REF.asOf} · 최적 시점 매도 <b>가정</b>의 상한): 회복 트랙 최고점 중위 +{SWING_BEST_REF.reversion.medBestPct}% · +10% 도달 {SWING_BEST_REF.reversion.ge10Rate}%({SWING_BEST_REF.reversion.sample}건) /
             추세 트랙 +{SWING_BEST_REF.trend.medBestPct}% · {SWING_BEST_REF.trend.ge10Rate}%({SWING_BEST_REF.trend.sample}건).
@@ -408,7 +436,7 @@ function SwingRecord({ d }: { d: SwingRadar }) {
 
       {d.recent.length > 0 && (
         <div style={{ marginTop: 10 }}>
-          <div style={{ fontSize: FS.micro, color: TK.sub3, marginBottom: 5 }}>
+          <div style={{ fontSize: FS.tiny, color: TK.sub3, marginBottom: 5 }}>
             최근 추천 내역 — 승률만 보고 믿지 마시고 개별 건을 확인하세요
             <br /><span style={{ color: TK.sub4 }}>수익률은 <b>손절선을 지켰을 때</b> 기준입니다. 🛡 표시는 손절선이 깨져 그 자리에서 정리된 건이고, 괄호는 그때 안 팔고 끝까지 들고 갔을 경우입니다.
             {' '}<b>장중가</b> 표시는 2026-09-11 이전 기록(진입가가 그 시각 장중가라 재현 불가 — 참고용), <b>옛 규칙</b> 은 추격 가드(08-14) 이전 급등 건입니다.</span>
@@ -457,7 +485,7 @@ function GradeCell({ g }: { g: SwingGrade }) {
           <div style={{ fontSize: FS.lg, fontWeight: 900, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', color: g.thin ? TK.sub3 : (g.winRate ?? 0) >= 50 ? TK.green400 : TK.orange400 }}>
             {g.winRate}%
           </div>
-          <div style={{ fontSize: FS.micro, color: TK.sub3, lineHeight: 1.5 }}>
+          <div style={{ fontSize: FS.tiny, color: TK.sub3, lineHeight: 1.5 }}>
             {g.n}건{g.pending > 0 && ` · ${g.pending} 대기`} · 평균 {g.avgPct}% · 중위 {g.medPct}%
             {g.stopHitRate != null && <> · 손절로 끝난 건 {g.stopHitRate}%</>}
             {/* PF = 총이익÷총손실 — 승률이 높아도 이게 1 아래면 지는 시스템이다(큰 손실이 다 까먹는 구조) */}

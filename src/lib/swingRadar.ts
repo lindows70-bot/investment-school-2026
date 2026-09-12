@@ -41,6 +41,8 @@ export interface SwingRadar {
   items: SwingItem[]
   /** 🧢 하루 상한(3건)에 걸려 잘린 신호 수 — 숨기면 "오늘 3건뿐"이 거짓말이 된다 */
   cappedOut: number
+  /** 🌍 거래소 접미사 해외 상장(DHL.DE·2628.HK 등) — 미국 트랙은 미국 40종 검증이라 스캔에서 뺀 수 */
+  skippedForeign: number
   /** 트랙별로 지금 켜졌는지 + 왜 — 화면이 빈 목록을 설명할 수 있게 */
   tracks: { key: SwingTrack; on: boolean; why: string }[]
   /** 📋 이 기능이 추천한 것의 **실제 성적**(오늘부터 전향 적립·소급 없음) */
@@ -130,7 +132,13 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
   const items: SwingItem[] = []
   let scanned = 0, okCount = 0
   const barDate: SwingRadar['barDate'] = { KR: null, US: null }
-  const q = [...uni, ...extra]
+  // 🌍 미국 트랙은 **미국 40종**으로만 검증됐다. market 'US' 는 '한국 아님'이라 독일(DHL.DE)·홍콩·일본 상장이 섞여
+  //    들어왔다(2026-09-11 검토 — 학생 보유 병합 DHL.DE 가 추세 트랙에 적립됨). 거래소 접미사가 붙은 해외 상장은 뺀다.
+  //    검증 안 된 모집단에 성적을 매기면 그 성적이 무엇의 성적인지 알 수 없다. 뺀 수는 화면에 밝힌다.
+  const isForeignListing = (s: { ticker: string; market: string }) => s.market !== 'KR' && /\.[A-Z]{1,2}$/.test(s.ticker)
+  const all = [...uni, ...extra]
+  const skippedForeign = all.filter(isForeignListing).length
+  const q = all.filter(s => !isForeignListing(s))
   const CONC = 10
   await Promise.all(Array.from({ length: CONC }, async () => {
     for (;;) {
@@ -181,14 +189,19 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
 
   // 🧢 하루 합산 상한 — 하락장 바닥 급등은 몰려서 나오는 날이 있다. 같은 장세에 여러 건을 다 담으면
   //    분산이 아니라 같은 베팅의 반복이다. 잘린 건수는 숨기지 않고 화면에 밝힌다.
+  //    ⚠️ 트랙 '켜짐' 판정은 **자르기 전** 목록으로 — 한 트랙 신호가 전부 잘리면 신호등이 "조건을 채운 종목이
+  //    없다"고 거짓말했다(2026-09-11 검토). 잘린 트랙은 '자리 있음(상한에 걸려 미표시)'이 사실이다.
+  const hadTrack = new Set(items.map(i => i.track))
   const cappedOut = Math.max(0, items.length - SWING_DAILY_CAP)
   if (cappedOut > 0) items.splice(SWING_DAILY_CAP)
 
   const tracks = (Object.values(SWING_TRACKS)).map(t => {
     const idx = t.market === 'KR' ? krIdx : usIdx
-    const on = items.some(i => i.track === t.key)
+    const on = hadTrack.has(t.key)
     const why = on
-      ? `${t.market} ${t.regime === 'down' ? '하락' : '상승'} 국면 종목에서 자리가 나왔습니다`
+      ? items.some(i => i.track === t.key)
+        ? `${t.market} ${t.regime === 'down' ? '하락' : '상승'} 국면 종목에서 자리가 나왔습니다`
+        : `자리가 나왔지만 하루 상한(${SWING_DAILY_CAP}건)에 걸려 오늘 목록에는 빠졌습니다`
       : idx == null
         ? '지수 국면을 확인하지 못했습니다'
         : idx !== t.regime
@@ -323,7 +336,7 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
 
   return {
     asOf: new Date().toISOString(), scanned, okCount, usdKrw,
-    indexRegime: { KR: krIdx, US: usIdx }, barDate, items, cappedOut, tracks,
+    indexRegime: { KR: krIdx, US: usIdx }, barDate, items, cappedOut, skippedForeign, tracks,
     grades, recent: recent.slice(0, 20), stopAlerts, volCautions, horizons, peak,
   }
 }

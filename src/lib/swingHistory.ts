@@ -9,6 +9,9 @@
 //
 // ⛔ 소급 채점 금지 — 오늘부터 쌓는다. 과거를 소급하면 "지금 규칙으로 과거를 고른" 셈이 되어 성적이 부풀려진다.
 export const SWING_HIST_KEY = 'swing-history-v1'
+/** 🕰️ 크론 실행 마커 키(일자) — 결과 캐시와 별개. cronHealth 가 이걸 봐야 '아침 크론 실패 + 저녁 방문자 재생성'을 ok 로 안 본다.
+ *  여기(순수 모듈)에 두는 이유: cronHealth 가 swingRadar(supabase·로테이션 의존)를 끌어오지 않게. */
+export const SWING_CRON_MARK = (dateKst: string) => `swing-cron-run-v1:${dateKst}`
 
 export interface SwingHistEntry {
   date: string                     // 추천일(KST)

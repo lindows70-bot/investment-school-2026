@@ -14,6 +14,7 @@ import { BREADTH_KEY } from '@/lib/marketBreadth'
 import { HONEYCOMB_KEY } from '@/lib/rone'
 import { TECH_SCREENER_KEY } from '@/lib/techScreener'
 import { FACTSET_FWD_KEY, KRX_SHORT_KEY } from '@/lib/localRunners'
+import { SWING_CRON_MARK } from '@/lib/swingHistory'
 
 const GRACE_MS = 45 * 60_000            // 실행 지연 유예(가장 긴 크론 300s의 9배 — 오탐 방지)
 const KST_MS = 9 * 3600_000
@@ -58,7 +59,9 @@ export const CRON_MONITORS: CronMonitor[] = [
   { id: 'breadth', label: '시장 폭 레이더 스캔', kst: '09:35', days: 'daily', artifact: { type: 'cacheDate', key: d => BREADTH_KEY(d) }, heal: '/api/market-breadth', heavy: true },
   // 🎯 스윙 스캔 — 성적 적립이 여기 붙어 있다. 조용히 멈추면 **추천 기록 자체가 비므로** 감시가 필수다
   //   🕯️ 06:15 KST — 한국 전날·미국 당일 새벽 봉이 모두 완성된 뒤(09:35 였을 땐 한국 35분짜리 장중 봉으로 판정했다)
-  { id: 'swing', label: '스윙 타점 스캔·성적 적립', kst: '06:15', days: 'daily', artifact: { type: 'cacheDate', key: d => `swing-radar-v13:${d}` }, heal: '/api/swing-radar', heavy: true },
+  //   🕰️ 산출물이 아니라 **크론 실행 마커**를 본다 — 산출물 캐시는 방문자 재생성에 덮여 크론 실패를 숨겼다(2026-09-11).
+  //   heal 도 refresh=1 로 불러 마커를 남긴다(자동 복구 = 예정 파이프라인의 일부이지 방문자 재생성이 아니다).
+  { id: 'swing', label: '스윙 타점 스캔·성적 적립', kst: '06:15', days: 'daily', artifact: { type: 'cacheDate', key: d => SWING_CRON_MARK(d) }, heal: '/api/swing-radar?refresh=1', heavy: true },
   { id: 'marketFlowKr', label: '국내 시장 수급 워밍', kst: '20:00', days: 'weekday', artifact: { type: 'cacheDate', key: d => MARKET_FLOW_KR_KEY(d) }, heal: '/api/market-flow-kr' },
   // ⭐ 핵심 추천 전향 적립 — 적립 0건인 날도 run 마커를 남기므로 cacheDate 로 실행 여부만 본다(무신호≠실패)
   { id: 'coreReco', label: '핵심 추천·축 성적 적립', kst: '17:00', days: 'daily', artifact: { type: 'cacheDate', key: d => `core-reco-run-v1:${d}` }, heal: '/api/cron/core-reco' },
