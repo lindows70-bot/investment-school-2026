@@ -117,10 +117,16 @@ try {
       `  미리뷰 커밋 ${n}건은 그대로 쌓여 있고, 기준점(last-head)은 전진시키지 않았습니다.`, '')
   }
   else {
-    out.push(`- 지난 감사 이후 커밋 ${n}건 리뷰 (\`${base.slice(0, 7)}..HEAD\`)`, '')
+    // 🧢 한 번에 보내는 구간 상한(2026-09-13 실사고) — 밀린 465건·473건을 통째로 보내 **월 한도**를 한 방에 태웠다
+    //    (9/5 → 9/10 복구, 9/13 → 10/11 복구). 최신 REVIEW_CAP 건만 보내고, 그 앞은 미리뷰로 **정직하게 남긴다**.
+    //    last-head 는 성공 시 HEAD 로 전진하므로 앞 구간은 다시 안 본다 — '리뷰 안 된 구간이 있다'는 사실만 보고서에 남는다.
+    const REVIEW_CAP = 12
+    const capped = n > REVIEW_CAP
+    const reviewBase = capped ? sh('git', ['rev-parse', `HEAD~${REVIEW_CAP}`]).stdout.trim() || base : base
+    out.push(`- 지난 감사 이후 커밋 ${n}건 (\`${base.slice(0, 7)}..HEAD\`)${capped ? ` — 한도 배려로 **최신 ${REVIEW_CAP}건만** 리뷰(\`${reviewBase.slice(0, 7)}..HEAD\`) · 앞 ${n - REVIEW_CAP}건은 미리뷰로 남김` : ' 리뷰'}`, '')
     const r = sh('node', [
       '"C:/Users/lindo/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/codex-companion.mjs"',
-      'review', '--wait', '--scope', 'branch', '--base', base,
+      'review', '--wait', '--scope', 'branch', '--base', reviewBase,
     ], { timeout: 15 * 60_000 })
     const body = `${r.stdout || ''}${r.stderr || ''}`
       .split('\n').filter(l => !/^\[codex\]|DeprecationWarning|trace-deprecation|^\s+at /.test(l))

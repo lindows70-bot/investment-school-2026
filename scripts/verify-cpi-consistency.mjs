@@ -77,4 +77,6 @@ try {
   fail(`검증 실행 실패: ${e.message}`)
 }
 
-if (!process.exitCode) console.log('\n🔒 CPI 불변식 통과')
+// ⚠️ 야간 감사는 exit 0 에 더해 본문의 '전부 통과' 문구까지 본다(다른 verify-*.mjs 와 같은 관례).
+//    '🔒 CPI 불변식 통과' 라고만 찍어서 2026-09-06·09-09·09-13 감사가 매번 ❌ 로 보고했다(실제로는 통과) — 거짓 빨강.
+if (!process.exitCode) console.log('\n✅ 전부 통과 (🔒 CPI 불변식)')
