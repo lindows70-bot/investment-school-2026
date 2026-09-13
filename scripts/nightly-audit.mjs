@@ -107,6 +107,28 @@ try {
 
   const cool = readCooldown()
 
+  // 🧢 한 번에 보내는 구간 상한(2026-09-13 실사고) — 밀린 465건·473건을 통째로 보내 **월 한도**를 한 방에 태웠다
+  //    (9/5 → 9/10 복구, 9/13 → 10/11 복구). 최신 REVIEW_CAP 건만 보내고, 그 앞은 미리뷰로 **정직하게 남긴다**.
+  //    last-head 는 성공 시 HEAD 로 전진하므로 앞 구간은 다시 안 본다 — '리뷰 안 된 구간이 있다'는 사실만 보고서에 남는다.
+  const REVIEW_CAP = 12
+  const capped = n > REVIEW_CAP
+  const reviewBase = base && capped ? (sh('git', ['rev-parse', `HEAD~${REVIEW_CAP}`]).stdout.trim() || base) : base
+  const rangeNote = base ? `커밋 ${n}건 (\`${base.slice(0, 7)}..HEAD\`)${capped ? ` — 한도 배려로 **최신 ${REVIEW_CAP}건만**(\`${reviewBase.slice(0, 7)}..HEAD\`) · 앞 ${n - REVIEW_CAP}건은 미리뷰로 남김` : ''}` : ''
+
+  /** 🔁 Gemini 폴백 — Codex 가 쿨다운·실패면 같은 구간을 gemini-review.mjs 로 본다(2026-09-13 신설).
+   *  Codex 대체가 아니라 공백 메우기다. 성공하면 status.codex 를 'gemini' 로 두어 배너에 폴백이었음을 남기고 last-head 를 전진시킨다
+   *  (전진 안 하면 밀린 구간이 매일 다시 쌓여 상한에 계속 걸린다). 실패하면 Codex 상태를 그대로 둔다. */
+  const geminiFallback = (reason) => {
+    out.push(`- 🔁 **Gemini 폴백 리뷰**(${reason}) — 같은 구간을 gemini-2.5-flash 로 봅니다. Codex 보다 얕다는 것을 알고 읽을 것.`, '')
+    const g = sh('node', ['scripts/gemini-review.mjs', '--base', reviewBase], { timeout: 8 * 60_000 })
+    const gb = `${g.stdout || ''}${g.stderr || ''}`.split('\n').filter(l => !/DeprecationWarning|trace-deprecation|^\s+at /.test(l)).join('\n').trim()
+    const ok = g.status === 0 && !g.error && /리뷰 완료/.test(gb)
+    if (ok) status.codex = 'gemini'
+    else out.push('- ❌ **Gemini 폴백도 실패 — 이 구간은 검토되지 않았습니다.**', '')
+    out.push(gb || '(출력 없음)')
+    return ok
+  }
+
   if (!base) out.push('- 기준 커밋을 찾지 못했습니다(저장소 이력 부족). 건너뜀.')
   else if (n === 0) { out.push('- 지난 감사 이후 새 커밋 없음 → 리뷰 건너뜀(한도 절약).'); status.codex = 'ok' }
   else if (cool && cool.at > Date.now()) {
@@ -114,16 +136,11 @@ try {
     status.codex = 'cooldown'
     out.push(`- ⏳ **Codex 무료 한도 소진 — \`${cool.raw}\` 이후 재시도합니다.**`,
       '  (한도 응답이 알려준 시각입니다. 그 전에는 호출하지 않습니다 — 매번 타임아웃까지 기다리던 것을 없앴습니다)',
-      `  미리뷰 커밋 ${n}건은 그대로 쌓여 있고, 기준점(last-head)은 전진시키지 않았습니다.`, '')
+      `- ${rangeNote}`, '')
+    geminiFallback('Codex 쿨다운')
   }
   else {
-    // 🧢 한 번에 보내는 구간 상한(2026-09-13 실사고) — 밀린 465건·473건을 통째로 보내 **월 한도**를 한 방에 태웠다
-    //    (9/5 → 9/10 복구, 9/13 → 10/11 복구). 최신 REVIEW_CAP 건만 보내고, 그 앞은 미리뷰로 **정직하게 남긴다**.
-    //    last-head 는 성공 시 HEAD 로 전진하므로 앞 구간은 다시 안 본다 — '리뷰 안 된 구간이 있다'는 사실만 보고서에 남는다.
-    const REVIEW_CAP = 12
-    const capped = n > REVIEW_CAP
-    const reviewBase = capped ? sh('git', ['rev-parse', `HEAD~${REVIEW_CAP}`]).stdout.trim() || base : base
-    out.push(`- 지난 감사 이후 커밋 ${n}건 (\`${base.slice(0, 7)}..HEAD\`)${capped ? ` — 한도 배려로 **최신 ${REVIEW_CAP}건만** 리뷰(\`${reviewBase.slice(0, 7)}..HEAD\`) · 앞 ${n - REVIEW_CAP}건은 미리뷰로 남김` : ' 리뷰'}`, '')
+    out.push(`- ${rangeNote} 리뷰`, '')
     const r = sh('node', [
       '"C:/Users/lindo/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/codex-companion.mjs"',
       'review', '--wait', '--scope', 'branch', '--base', reviewBase,
@@ -139,10 +156,9 @@ try {
         writeFileSync(COOLDOWN, JSON.stringify({ ...resume, seenAt: new Date().toISOString() }, null, 2), 'utf8')
         out.push(`- ⏳ 한도 소진 — \`${resume.raw}\` 이후 재시도하도록 기록했습니다(\`${COOLDOWN}\`).`)
       }
-      out.push(`- ❌ **리뷰 실패 — 커밋 ${n}건은 아직 검토되지 않았습니다.**`,
-        '  (다음 감사가 같은 구간을 다시 시도합니다 — 기준점을 전진시키지 않았습니다)', '')
-    } else status.codex = 'ok'
-    out.push(body || '(출력 없음)')
+      out.push(`- ❌ **Codex 리뷰 실패.**`, '', body || '(출력 없음)', '')
+      geminiFallback('Codex 실패')
+    } else { status.codex = 'ok'; out.push(body || '(출력 없음)') }
   }
 } catch (e) { status.codex = 'fail'; out.push(`- ⚠️ 실패: ${e.message}`) }
 
@@ -189,18 +205,22 @@ out.push('', '---',
   `_${Math.round((Date.now() - t0) / 1000)}초 · 읽기 전용(코드 변경 없음) · 지적은 재현으로 확인 후 채택할 것_`)
 
 // 최상단 상태 배너 — 보고서가 '있다'는 것과 '제대로 돌았다'는 건 다른 말이다.
-const icon = { ok: '✅', fail: '❌', skip: '⏭️', cooldown: '⏳' }
+const icon = { ok: '✅', fail: '❌', skip: '⏭️', cooldown: '⏳', gemini: '🔁' }
 const gap = gapDays()
 const banner = [
-  `**상태** — Codex 리뷰 ${icon[status.codex]} · 캐시 정합성 ${icon[status.gemini]} · 불변식 ${icon[status.invariants]}`,
+  `**상태** — 코드 리뷰 ${icon[status.codex]}${status.codex === 'gemini' ? '(Gemini 폴백)' : status.codex === 'ok' ? '(Codex)' : ''} · 캐시 정합성 ${icon[status.gemini]} · 불변식 ${icon[status.invariants]}`,
 ]
 if (gap > 1) banner.push(`> ⚠️ **직전 감사가 ${gap}일 전입니다** — 그 사이 감사가 돌지 않았습니다(PC 절전·배터리 등).`)
 // ⚠️ 날짜를 하드코딩하지 마라 — '2026-08-27까지'가 박혀 있어 한도가 풀린 뒤에도 그렇게 읽혔다.
 //    복구 시각은 한도 응답이 알려주므로 그 값에서 뽑는다(제1원칙: 화면 숫자는 데이터에서).
 {
   const c = readCooldown()
-  if (status.codex === 'cooldown' && c)
-    banner.push(`> ⏳ **Codex 무료 한도 소진** — \`${c.raw}\` 이후 자동 재시도합니다. 기준점을 전진시키지 않으므로 밀린 구간은 그대로 다시 봅니다.`)
+  if (status.codex === 'gemini' && c && c.at > Date.now())
+    banner.push(`> 🔁 **Codex 쿨다운(\`${c.raw}\` 까지) — 이 회차는 Gemini 폴백으로 리뷰했습니다.** Codex 보다 얕으니 P1 만 믿고 나머지는 참고로.`)
+  else if (status.codex === 'gemini')
+    banner.push('> 🔁 Codex 가 실패해 **Gemini 폴백**으로 리뷰했습니다. Codex 보다 얕으니 P1 만 믿고 나머지는 참고로.')
+  else if (status.codex === 'cooldown' && c)
+    banner.push(`> ⏳ **Codex 무료 한도 소진** — \`${c.raw}\` 이후 자동 재시도합니다. Gemini 폴백도 실패해 이 구간은 미리뷰입니다.`)
   else if (status.codex === 'fail')
     banner.push('> ⚠️ Codex 리뷰가 실패했습니다. 리뷰 기준점은 전진하지 않으므로 복구되면 자동으로 밀린 구간을 봅니다.')
 }
@@ -212,7 +232,8 @@ writeFileSync(path, out.join('\n'), 'utf8')
 writeFileSync('.audit/latest.md', out.join('\n'), 'utf8')
 // ⚠️ 기준점은 **리뷰가 실제로 성공했을 때만** 전진시킨다.
 //    실패해도 갱신하면 그 구간은 영영 리뷰되지 않는다(2026-08-02 에 커밋 50건이 그렇게 유실됐다).
-if (head && status.codex === 'ok') writeFileSync('.audit/last-head', head, 'utf8')
+//    Gemini 폴백 성공도 '리뷰됨'으로 쳐서 전진한다 — 안 그러면 쿨다운 한 달 내내 같은 구간이 매일 다시 쌓여 상한에 걸린다.
+if (head && (status.codex === 'ok' || status.codex === 'gemini')) writeFileSync('.audit/last-head', head, 'utf8')
 const summary = `codex=${status.codex} gemini=${status.gemini} invariants=${status.invariants}${gap > 1 ? ` gap=${gap}일` : ''}`
 console.log(`[nightly-audit] ${path} 작성 완료 (${Math.round((Date.now() - t0) / 1000)}초) · ${summary}`)
 // 실패가 있으면 비정상 종료 — 작업 스케줄러 'LastTaskResult' 에 남아 조용한 실패를 막는다

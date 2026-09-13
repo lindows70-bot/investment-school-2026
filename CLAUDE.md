@@ -212,7 +212,7 @@ Next.js 14 (App Router) + Supabase + Tailwind CSS + TypeScript 로 구축한
 |---|---|---|
 | **Claude(나)** | 구현·검증 | 항상 |
 | **Codex** (`/codex:review`) | 코드 리뷰 = 로직 결함·설계 가정 | 새 판정 로직·임계값 / 캐시·SSOT 구조 변경 / 공유 lib 수정 / "이 가정이 맞나" 싶을 때. ⛔ 문구 교체·검증된 패턴 반복엔 쓰지 않음 |
-| **Gemini** (`scripts/gemini-audit.mjs`) | 정합성 = **파일 간 모순** | SSOT 지표·캐시 키 전수 점검. ⛔ 세 번째 코드 리뷰어로 쓰지 말 것 |
+| **Gemini** (`scripts/gemini-audit.mjs`) | 정합성 = **파일 간 모순** | SSOT 지표·캐시 키 전수 점검. ⛔ 세 번째 코드 리뷰어로 쓰지 말 것 — **예외: Codex 쿨다운·실패 시 야간 감사가 `scripts/gemini-review.mjs` 로 같은 구간을 폴백 리뷰**(2026-09-13). 대체가 아니라 공백 메우기. 실측: 설계상 의도를 결함으로 읽고 근거 없는 추측을 P2 로 냄 — 배너대로 P1 만 믿는다. 오픈모델(메타·Grok·Groq) 대체안은 이 PC(내장 GPU·VRAM 1GB)와 무료 한도(Groq 8k 토큰/일) 때문에 기각 |
 | **야간 감사** (`scripts/nightly-audit.mjs`) | 읽기 전용 보고서 | 매일 02:00 → `.audit/latest.md` |
 | **크로스 세션** (내장 · `claude --name verify` + `/list-agents`) | 세션 간 **전송로** — 새 역할이 아니다 | `impl`(구현) + `verify`(로그인 브라우저 실측) 분리. 2026-09-06 실측: Windows 네임드 파이프로 즉시 전달 · CLI **2.1.234+** 필요(2.1.138 은 없음) · 새 CLI 세션은 `/login` 별도 · **피어 없이 시작한 세션은 받기만 된다**(`SendMessage` 가 빠지면 안 돌아온다). ⛔ **채널이지 책임이 아니다** — 넘긴 작업이 조용히 증발한 실사고(텐배거 세션 커밋 0). 넘긴 뒤 산출물을 git 으로 확인한다. 상세는 `~/Downloads/RUFLO_TRIAL_투자학교앱_v3.md` 3-B |
 
