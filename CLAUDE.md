@@ -13,6 +13,7 @@ Next.js 14(App Router) + Supabase + Vercel(icn1). 투자학교 학생용 **포�
 | **왜 그렇게 만들었나 · 무엇을 기각했나** | `docs/history/2026-0N.md` (274개 섹션 전량 보존) |
 | 기능별 설계·데이터 실측 판정표 | `docs/<기능>/plan.md`·`context-notes.md` (`docs/README.md` 인덱스) |
 | 배포 절차 · 백테스트 해부 · 기능 착수 | `.claude/skills/` (deploy-verify · backtest-autopsy · feature-kickoff) |
+| 린치 엔진 알고리즘 · 테이블 · 외부 소스 · 캐시 키 표 | `docs/reference/` (정적 참조 — 필요할 때만) |
 
 - `docs/history/2026-05.md` — 앱 뼈대·린치/버핏 분석기·비밀병기 1~7단계
 - `docs/history/2026-06.md` — 비밀병기 완성·AI 리밸런싱·수급 레이더·4계절 내비게이터
@@ -231,10 +232,11 @@ Next.js 14 (App Router) + Supabase + Tailwind CSS + TypeScript 로 구축한
 | **커밋** | `scripts/precommit-guard.mjs` (`.husky/pre-commit`) | **신규 파일**의 디자인 값 하드코딩 · 캐시 키 reader 잔존 |
 | **배포 전** | `scripts/check-build.js` (`npm run check:build`) | 타입·JSX 파싱 에러. ⚠️ **lint 캐시를 지우고** 빌드한다 — 안 지우면 거짓 green |
 | **푸시** | `.husky/pre-push` | tsc + lint |
+| **백테스트 결론** | `scripts/autopsy.mjs` (`backtest-swing.mjs` 가 import) | 4관문(종목 분산·최다 점유·시점·절사 edge)을 사람이 세지 않는다 — 스킬은 판단만, 계산은 코드 |
 
 - Stop 훅은 **코드를 안 건드린 턴은 0.5초에 통과**한다(스탬프 mtime 비교) — 대화만 한 턴에 13초를 쓰지 않는다.
 - ⛔ **PR merge gate 는 도입하지 않았다** — 1인 개발이고 `vercel --prod` 가 작업 디렉토리를 올리므로 게이트가 배포 경로를 못 막는다. 반복 속도만 죽인다.
-- ⚠️ **CLAUDE.md 를 짧게 줄이라는 조언은 우리한텐 반만 맞다** — Anthropic 이 빼라는 건 *"깨끗한 코드를 써라"* 같은 **자명한 조언**이고, 여기 있는 건 대부분 실측 근거가 붙은 구체적 함정이다(그런 건 넣으라고 돼 있다). 이미 `docs/history/` 분리로 4,066 → 448줄로 줄였다. **길이가 아니라 종류가 기준이다.**
+- ⚠️ **CLAUDE.md 를 짧게 줄이라는 조언은 우리한텐 반만 맞다** — Anthropic 이 빼라는 건 *"깨끗한 코드를 써라"* 같은 **자명한 조언**이고, 여기 있는 건 대부분 실측 근거가 붙은 구체적 함정이다(그런 건 넣으라고 돼 있다). 이미 `docs/history/` 분리로 4,066 → 448줄, 2026-09-17 정적 참조(`docs/reference/`) 분리로 → 370줄로 줄였다. **길이가 아니라 종류가 기준이다** — 함정은 남기고, 세션마다 안 쓰는 알고리즘·표만 내린다.
 
 ⚠️ **Codex 무료 한도가 소진되면 날짜를 여기 적지 마라 — 낡는다.** 실측 2026-09-05: 이 줄에 '2026-08-27까지'가 박혀 있었는데 한도는 이미 풀렸다 재소진돼 실제 복구 시각은 **9/10 22:51** 이었다. 한도 응답이 복구 시각을 알려주므로(`try again at Sep 10th, 2026 10:51 PM`) 야간 감사가 그 값을 `.audit/codex-cooldown.json` 에 적고 그 전엔 호출조차 하지 않는다. **현재 상태는 `.audit/latest.md` 배너에서 본다**(⏳ = 쿨다운). 그때까지 리뷰는 자체 검증 + Gemini.
   🧢 **밀린 커밋을 한 방에 보내지 마라**(2026-09-13 재발) — 쿨다운이 풀린 첫 감사가 473건을 통째로 보내 **월 한도**가 다시 나갔다(복구 10/11). 9/5 의 465건과 같은 모양. 야간 감사는 이제 **최신 12건만** 보내고 앞 구간은 '미리뷰'로 정직하게 남긴다(`REVIEW_CAP`).
@@ -279,15 +281,7 @@ Next.js 14 (App Router) + Supabase + Tailwind CSS + TypeScript 로 구축한
 3. **폴백은 SSOT 내부에서만**: 데이터 소스 폴백(FMP→Yahoo→Naver 등)은 SSOT 함수 내부에서만 처리. 호출부가 직접 다른 소스를 시도하는 것 금지.
 4. **표시값 = 저장값 = 비교값**: 화면에 보이는 값, DB에 저장되는 값, 룰 판정에 쓰이는 값이 모두 동일해야 한다.
 
-### 현재 구현 (2026-06-03 기준)
-
-| 지표 | SSOT 소스 | 캐시 키 | 적용 화면 |
-|---|---|---|---|
-| **PEG** | `canonicalFundamentals.ts` → `/api/stock-info` | `canon-fund:TICKER:MKT` (6h) | 분석·브리핑·섹터피어·AI멘토·밸류에이션·매도시그널 |
-| **PER** | `/api/stock-info` (US=FMP/Yahoo, KR=Naver) | stock-info 내부 캐시 | 전 화면 |
-| **EPS·성장률** | `/api/stock-info` → `dividendMap` → 컴포넌트 | stock-info 내부 캐시 | 전 화면 |
-| **총마진·OM** | Yahoo `fundamentalsTimeSeries` | `jarvis-metrics-v3:*` (12h) | 해자경보기·브리핑 |
-| **P/S 시계열** | Yahoo `chart` + `fundamentalsTimeSeries` | `getPairSignal` 6h 캐시 | 페어-트레이딩 |
+지표별 SSOT 소스·캐시 키 표와 알려진 한계 → `docs/reference/data-model.md`.
 
 ### 위반 시 대응 절차
 
@@ -296,13 +290,7 @@ Next.js 14 (App Router) + Supabase + Tailwind CSS + TypeScript 로 구축한
 3. **SSOT 지정**: 더 신뢰할 수 있는 소스를 SSOT로 결정 (KR=Naver PER 우선, US=FMP→Yahoo)
 4. **캐시 통합**: SSOT 값을 `app_cache`에 저장, 나머지 호출부를 캐시 조회로 교체
 5. **캐시 버전 업**: 기존 잘못된 값이 캐시에 남지 않도록 캐시 키 버전 증가 (e.g., `v3`→`v4`)
-6. **CLAUDE.md 기록**: 어떤 지표가 어디서 깨졌고 어떻게 통일했는지 상세 기록
-
-### 알려진 한계 (정직하게)
-
-- `lynch-classify`의 Yahoo `pegRatio`는 **6대 분류 판정 로직**에만 사용 (화면 표시 X, 지표 표시와 분리)
-- `stock-price` 라우트의 `peg` 필드는 **표시 미사용** (가격 전용 라우트로 분리)
-- 유럽 종목(EUR, GBP)은 미지원 — 현재 US/KR만 SSOT 보장
+6. **기록**: 어떤 지표가 어디서 깨졌고 어떻게 통일했는지 해당 월 `docs/history/` 에 기록
 
 ---
 
@@ -315,100 +303,11 @@ Next.js 14 (App Router) + Supabase + Tailwind CSS + TypeScript 로 구축한
 
 ---
 
-## 핵심 SSOT 모듈 (`src/lib/lynchAnalysis.ts`)
+## 린치 엔진 · 데이터 모델 — 정적 참조
 
-> **모든 Lynch 분석 로직의 유일한 진실 소스** — 컴포넌트마다 중복 계산 금지
-
-| 함수/상수 | 처리하는 예외 케이스 |
-|-----------|-------------------|
-| `safeNumber(val)` | "N/A", null, NaN, Infinity → 0 |
-| `sanitizeEps(eps, price, cat)` | 음수 EPS→0, 이상값(API 단위 오류) → minPE 클램핑 |
-| `calcFairMultiple(pe, peg, cat, market)` | PE/PEG→Lynch공식, 카테고리 캡(30/20/14…), 폴백 |
-| `calcGap(price, eps, multiple)` | Lynch Line=0(적자) → null 반환, ∞% 방지 |
-| `analyzeEpsMode(...)` | **3단계 EPS 모드**: actual / forward(턴어라운드) / revenue(혁신성장) / loss |
-| `estimateBeta(pe, peg, market)` | PE/PEG→금리민감도, 0.5~2.5 클램핑 |
-| `estimateCorrelation(market, cat)` | 시장+카테고리 조합 (반도체 KR=0.85 등) |
-| `classifyLynchCategory(input)` | DB값 우선, 알고리즘 폴백 (경기순환 우선 체크) |
-| `LYNCH_MULTIPLE_CAP` | fast_grower 30, stalwart 20, cyclical 14 등 |
-| `LYNCH_CATEGORY_KR` | 영문 DB 키 → 한글 레이블 |
-
----
-
-## EPS 분석 3단계 모드 (아이온큐·TEM 등 혁신기업 지원)
-
-```
-Mode 1: ACTUAL  — 흑자 기업 → 실제 EPS × Multiple
-Mode 2: FORWARD — 적자→흑자 전환 중 → forwardEPS × 턴어라운드Multiple (20배)
-Mode 3: REVENUE — 순적자 + 매출 폭발 (IonQ류) → P/S 기반 목표가
-Mode 4: LOSS    — 전망도 없는 적자 → "적자 구간" 표시 (계산 불가)
-
-REVENUE 모드 기준: forwardEPS ≤ 0 AND revenueGrowth > 50%
-targetP/S = min(revenueGrowth / 10, 30)
-```
-
----
-
-## 피터린치 6대 분류 알고리즘 (2026-05-31 전면 교정)
-
-### `/api/lynch-classify` — `classify()` 9단계 우선순위
-
-> **정통 6대 분류 통일**: '완만한 성장주' 명칭 완전 제거 → '저성장주'로 마이그레이션 (7개 파일 + SSOT)
-
-```
-① 부동산·리츠 → 자산주
-② PER<0 또는 이익<-10% → 회생주
-③ 통신·유틸리티 섹터 → 저성장주
-④ 경기민감 섹터 → 경기순환주
-   └ ★ 반도체·조선/기자재는 시총·성장률 무관 무조건 cyclical (삼성전자 포함)
-   └ 그 외 사이클 섹터는 25%+ 초고성장이면 빠른성장주
-⑤ EPS/매출 20%+ → 빠른성장주
-⑥ 거대 시총(5B+) → 대형우량주 (고배당+저성장이면 저성장주)
-⑦ 중소형 고배당 → 저성장주
-⑧ PEG 폴백
-⑨ 기본값 = stalwart (★ 과거 소형주→fast_grower 남발 버그 수정)
-```
-
-**섹터 세분화 (KR_INDUSTRY):**
-- `통신` → Telecommunications (저성장) / `전력·가스·발전·난방·수도` → Utilities (저성장)
-- `반도체` → Semiconductors / `가전·디스플레이` → Consumer Durables / `자동차` → Auto / `철강` → Steel / `화학` → Chemical (전부 경기민감)
-- `보험·화재·생명` → Financial Services (우량주)
-
-**하드코딩 보강:** 적자 매출고성장 신생(TEM·IONQ·RGTI 등 AI/양자) → fast_grower / 에너지·반도체(OXY·TXN·COHR) → cyclical / 적자회생(PLUG·FCEL) → turnaround
-
-### 전체 학생 DB 재분류 결과 (2026-05-31)
-- **Before**: 개별주식 46개 중 28개(78%)가 fast_grower 오분류 🚨
-- **After**: 저성장주 2 · 대형우량주 7 · 빠른성장주 10 · 경기순환주 16 · 회생주 1 · 자산보유주 1 = **37개 100% 분류 완료**
-- 재분류 스크립트(service_role PATCH)로 14개 종목 교정 (삼성전자→cyclical, SK텔레콤→slow, LG전자→cyclical, 삼성화재→stalwart 등)
-- **데이터 오류 수정**: TSLL(레버리지 ETF)의 이름이 "TENARIS SA ADR"로 잘못 저장됨 → 정정 + `assetClassifier`에 레버리지 ETF 티커(TSLL·NVDL·SOXL 등) 등록하여 개별주식 분석 제외
-
----
-
-## Supabase 데이터베이스
-
-### 테이블 목록
-| 테이블 | 설명 | 주요 컬럼 |
-|--------|------|-----------|
-| `profiles` | 사용자 프로필 | `id, email, full_name, role('teacher'|'student')` |
-| `investments` | 보유 종목 | `user_id, ticker, name, market, currency, purchase_price, quantity, purchase_date, lynch_category, asset_role('CORE'|'SATELLITE')` |
-| `transactions` | 거래 내역 | `user_id, investment_id, ticker, type('buy'|'sell'), price, quantity, realized_pnl` |
-| `watchlist` | 관심 종목 | `user_id, ticker, name, market` |
-| `lounge_posts` | 게시글 | `user_id, author_name, content, is_admin_post` |
-| `lounge_comments` | 댓글 | `post_id, user_id, content` |
-| `notices` | 공지사항 | `title, content, tag` |
-| `strategy_configs` | 최일 전략 설정 | `core_pct, satellite_pct, core_stocks[], pdf_url` |
-| `earnings_insights` | 🤖 Jarvis 어닝 분석 캐시 | `ticker, quarter, summary_text(JSON), sentiment_score, created_at` · PK(ticker,quarter) |
-| `insider_signals` | 🕵️ CEO의 장바구니(내부자 매수) 캐시 | `ticker(PK), cluster, buyer_count, total_value, payload(JSON), as_of` · 24h 신선도 |
-
-### 현재 학생 현황 (2026-05-29 기준)
-| 이름 | 이메일 | 종목 등록 | 비고 |
-|------|--------|----------|------|
-| 김상균 | lindows70@gmail.com | 19개 | teacher 겸임 |
-| 이근행 | rmsgod00@naver.com | 25개 | |
-| 유 | yjy7575@naver.com | 3개 | |
-| 이민행 | alsgod00@naver.com | 3개 | |
-| 송승규 | sksean23@naver.com | 0개 | 미등록 |
-| 김선아 | def72@naver.com | 0개 | 미등록 |
-| Elena YU | elenayu.mit@gmail.com | 0개 | 비밀번호 재설정 이슈 해결 완료 |
+세션마다 필요 없는 알고리즘·표는 `docs/reference/` 로 내렸다(2026-09-17, 내용 무손실). 린치 분류·EPS 모드·테이블·외부 소스를 건드릴 때만 읽는다.
+- `docs/reference/lynch-engine.md` — `lynchAnalysis.ts` SSOT 함수 표 · EPS 3단계 모드 · 6대 분류 9단계 우선순위 · 2026-05-31 재분류 결과
+- `docs/reference/data-model.md` — Supabase 테이블 · 학생 현황(2026-05-29) · 외부 데이터 소스 · 지표별 SSOT 캐시 키
 
 ---
 
@@ -429,20 +328,6 @@ GEMINI_API_KEY=...       # 🤖 Jarvis 어닝콜 애널리스트 (Gemini 2.5 Fla
 ```
 
 **Vercel 환경변수 추가 필수**: `FRED_API_KEY` (서버 사이드 전용, `NEXT_PUBLIC_` 없음)
-
----
-
-## 외부 데이터 소스
-
-| 서비스 | 용도 | 비용 | 제한 |
-|--------|------|------|------|
-| Naver 증권 | KR 실시간 주가 | 무료 | Rate limit |
-| Yahoo Finance v8 | US 주가·지수·차트 | 무료 | 401 차단 가능 |
-| FMP | 미국 재무제표 + EPS | 무료 250회/일 | |
-| DART OpenAPI | 한국 사업보고서 + EPS | 무료 10,000회/일 | |
-| FRED API | 인플레이션·금리·QT | 무료 120,000회/일 | 서버사이드 전용 |
-| CME FF Futures (Yahoo) | 금리 확률 (FedWatch) | 무료 | 30분 캐시 |
-| 업비트 API | 암호화폐 KRW 시세 | 무료 | |
 
 ---
 

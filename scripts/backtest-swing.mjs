@@ -7,6 +7,7 @@ import { createRequire } from 'module'
 import { writeFileSync, mkdirSync } from 'fs'
 import { execSync } from 'child_process'
 import Module from 'module'
+import { autopsy, formatAutopsy } from './autopsy.mjs'
 
 const ROOT = 'C:/Users/lindo/investment-school-portfolio'
 const OUT = `${ROOT}/.bt-swing`
@@ -166,8 +167,8 @@ function report(title, rows) {
   const yr = {}; for (const r of rows) { const y = r.ym.slice(0, 4); yr[y] = (yr[y] ?? 0) + 1 }
   const maxYr = Object.entries(yr).sort((a, b) => b[1] - a[1])[0]
   console.log(`  신호 ${rows.length}건 · 종목 ${Object.keys(tk).length}종 · 최다 ${top[0]} ${Math.round(top[1] / rows.length * 100)}% · ${months}개월 분산 · 최다 연도 ${maxYr[0]} ${Math.round(maxYr[1] / rows.length * 100)}%`)
-  const a1 = Object.keys(tk).length >= 10, a2 = top[1] / rows.length <= 0.30
-  console.log(`  autopsy ①종목분산 ${a1 ? '✅' : '❌ 기각'} ②최다점유 ${a2 ? '✅' : '❌ 기각'}`)
+  // 4관문은 scripts/autopsy.mjs 한 곳에서 판정한다(스킬·하네스 같은 함수 — 2026-09-17)
+  console.log(formatAutopsy(autopsy(rows, base, 10)))
 
   for (const mk of ['KR', 'US']) {
     const g = rows.filter(r => r.market === mk)
