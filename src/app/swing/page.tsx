@@ -439,7 +439,7 @@ function SwingRecord({ d }: { d: SwingRadar }) {
           <div style={{ fontSize: FS.tiny, color: TK.sub3, marginBottom: 5 }}>
             최근 추천 내역 — 승률만 보고 믿지 마시고 개별 건을 확인하세요
             <br /><span style={{ color: TK.sub4 }}>수익률은 <b>손절선을 지켰을 때</b> 기준입니다. 🛡 표시는 손절선이 깨져 그 자리에서 정리된 건이고, 괄호는 그때 안 팔고 끝까지 들고 갔을 경우입니다.
-            {' '}<b>장중가</b> 표시는 2026-09-11 이전 기록(진입가가 그 시각 장중가라 재현 불가 — 참고용), <b>옛 규칙</b> 은 추격 가드(08-14) 이전 급등 건입니다.</span>
+            {' '}<b>장중가</b> 표시는 2026-09-11 이전 기록(진입가가 그 시각 장중가라 재현 불가 — 참고용), <b>시간외가</b> 는 09-17 기록(한국 시간외 세션 중 값이라 종가와 100원 안팎 다를 수 있음), <b>옛 규칙</b> 은 추격 가드(08-14) 이전 급등 건입니다.</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 200, overflowY: 'auto' }}>
             {d.recent.map((r, i) => (

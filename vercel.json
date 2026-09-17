@@ -157,7 +157,7 @@
     },
     {
       "path": "/api/swing-radar?refresh=1",
-      "schedule": "15 21 * * *"
+      "schedule": "40 21 * * *"
     },
     {
       "path": "/api/market-breadth?refresh=1",

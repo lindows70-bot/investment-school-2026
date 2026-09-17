@@ -58,10 +58,11 @@ export const CRON_MONITORS: CronMonitor[] = [
   { id: 'hi52', label: '신고가 레이더 스캔', kst: '09:25', days: 'daily', artifact: { type: 'cacheDate', key: d => `hi52-radar-v3:${d}` }, heal: '/api/hi52-radar', heavy: true },
   { id: 'breadth', label: '시장 폭 레이더 스캔', kst: '09:35', days: 'daily', artifact: { type: 'cacheDate', key: d => BREADTH_KEY(d) }, heal: '/api/market-breadth', heavy: true },
   // 🎯 스윙 스캔 — 성적 적립이 여기 붙어 있다. 조용히 멈추면 **추천 기록 자체가 비므로** 감시가 필수다
-  //   🕯️ 06:15 KST — 한국 전날·미국 당일 새벽 봉이 모두 완성된 뒤(09:35 였을 땐 한국 35분짜리 장중 봉으로 판정했다)
+  //   🕯️ 06:40 KST — 한국 전날·미국 당일 새벽 봉이 모두 완성된 뒤(09:35 였을 땐 한국 35분짜리 장중 봉으로 판정했다).
+  //      06:15 → 06:40(2026-09-17): dropIncompleteBar 가 마감 +35분(캔들 캐시 TTL)까지 미완성으로 보므로 EST 마감(21:00Z)+35분 뒤.
   //   🕰️ 산출물이 아니라 **크론 실행 마커**를 본다 — 산출물 캐시는 방문자 재생성에 덮여 크론 실패를 숨겼다(2026-09-11).
   //   heal 도 refresh=1 로 불러 마커를 남긴다(자동 복구 = 예정 파이프라인의 일부이지 방문자 재생성이 아니다).
-  { id: 'swing', label: '스윙 타점 스캔·성적 적립', kst: '06:15', days: 'daily', artifact: { type: 'cacheDate', key: d => SWING_CRON_MARK(d) }, heal: '/api/swing-radar?refresh=1', heavy: true },
+  { id: 'swing', label: '스윙 타점 스캔·성적 적립', kst: '06:40', days: 'daily', artifact: { type: 'cacheDate', key: d => SWING_CRON_MARK(d) }, heal: '/api/swing-radar?refresh=1', heavy: true },
   { id: 'marketFlowKr', label: '국내 시장 수급 워밍', kst: '20:00', days: 'weekday', artifact: { type: 'cacheDate', key: d => MARKET_FLOW_KR_KEY(d) }, heal: '/api/market-flow-kr' },
   // ⭐ 핵심 추천 전향 적립 — 적립 0건인 날도 run 마커를 남기므로 cacheDate 로 실행 여부만 본다(무신호≠실패)
   { id: 'coreReco', label: '핵심 추천·축 성적 적립', kst: '17:00', days: 'daily', artifact: { type: 'cacheDate', key: d => `core-reco-run-v1:${d}` }, heal: '/api/cron/core-reco' },

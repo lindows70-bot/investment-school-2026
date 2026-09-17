@@ -84,12 +84,15 @@ export async function getKrName(code: string): Promise<string | null> {
 /** 🕯️ 진행 중인 마지막 봉을 버린다 — 네이버·야후 일봉은 둘 다 **오늘 진행 중인 봉**을 마지막 행으로 준다.
  *  그 봉을 종가로 쓰면 판정이 장중가로 이뤄진다(2026-09-11 실측: 이수페타시스 09-02 진입 기록 115,200 vs 종가 112,000 ·
  *  롯데케미칼 09-04 '급등' 추천이 종가 −1.6%·거래량 1.45배 — 조건 미달). 백테스트는 완성 종가로 쟀으므로 잣대를 맞춘다.
- *  session = 그 봉의 시장(정규장 마감 기준): KR 15:30 KST(+5분 여유) · US 16:00 ET — EST 기준 21:00 UTC 로 잡아 EDT 땐 1시간 늦게
- *  '완성'으로 본다(안전 쪽으로). 봉 날짜는 네이버=KST 날짜, 야후=세션 시작 UTC 날짜(미국 ET 날짜·^KS11 은 KST 날짜)라 그대로 쓴다. */
+ *  session = 그 봉의 시장. 봉 날짜는 네이버=KST 날짜, 야후=세션 시작 UTC 날짜(미국 ET 날짜·^KS11 은 KST 날짜)라 그대로 쓴다.
+ *  ⏰ 완성 시각 — KR 은 정규장 15:30 이 아니라 **NXT 애프터마켓 20:00 KST** (2026-09-17 실측: 쎄트렉아이 네이버 일봉 종가가
+ *     19:48 79,100 → 19:50 79,000 으로 시간외에 계속 바뀌었고 폴링 API 는 marketSessionType=afterMarket 를 줬다.
+ *     19:42 에 만든 레이더가 79,100 을 진입가로 적었다). US 는 16:00 ET — EST 기준 21:00 UTC 로 잡아 EDT 땐 1시간 늦게 본다.
+ *     둘 다 +35분 여유 = getTechCandles 캐시 TTL(30분) + 5분 — 마감 직전에 받아 캐시된 장중 봉이 마감 직후 '완성'으로 통과하지 않게. */
 export function dropIncompleteBar<T extends { date: string }>(D: T[], session: 'KR' | 'US', now = Date.now()): T[] {
   if (!D.length) return D
   const last = String(D[D.length - 1].date).slice(0, 10)
-  const closeUtc = Date.parse(session === 'KR' ? `${last}T06:35:00Z` : `${last}T21:05:00Z`)
+  const closeUtc = Date.parse(session === 'KR' ? `${last}T11:35:00Z` : `${last}T21:35:00Z`)
   return isFinite(closeUtc) && now < closeUtc ? D.slice(0, -1) : D
 }
 

@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   // v12: 🧭 섹터 로테이션 결합 — items[].rot 필드 신설 + 이탈 섹터 후순위·경고(스키마 확장 = 키 범프)
   // v13: 🕯️ 완성 봉만 판정(진행 중 봉 제거) · 진입일=신호 봉 날짜 · barDate/signalDate 필드 신설 — 판정 결과가 바뀌므로 범프
   // v14: 트랙 켜짐을 상한 절단 전 목록으로 판정 · 해외 상장 제외(skippedForeign 필드) · 크론 실행 마커
-  const key = `swing-radar-v14:${kstDate()}`  // v13: 완성 봉만 판정 / v11: 규칙 준수 채점 / v10: 학생 보유 종목 스캔 포함
+  const key = `swing-radar-v15:${kstDate()}`  // v15: 한국 완성 = 20:35 KST(NXT 시간외 반영) / v13: 완성 봉만 판정 / v11: 규칙 준수 채점 / v10: 학생 보유 종목 스캔 포함
   if (!refresh) {
     const cached = await getCache<SwingRadar>(key, 12 * 3600_000)
     if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
