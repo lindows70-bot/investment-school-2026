@@ -301,10 +301,18 @@ function LoginContent() {
   }, [isRecoveryMode])
 
   // ── URL ?type=recovery 감지 (이메일 링크에서 직접 접근 시 모드 전환) ─────────
+  //   🔑 token_hash 가 있으면 verifyOtp 로 **이 브라우저에** 세션을 만든다(2026-09-19 실사고: PC 는 되는데 모바일만 실패).
+  //   기본 PKCE 흐름은 '비밀번호 찾기를 누른 브라우저'에만 code_verifier 가 있어서, 폰에서 메일 앱이 링크를 다른(인앱) 브라우저로
+  //   열면 세션이 안 생기고 updateUser 가 "Auth session missing" 으로 죽는다. 이메일 템플릿이 token_hash 를 넘기면 어느 브라우저든 된다.
   useEffect(() => {
-    if (searchParams.get('type') === 'recovery') {
-      setIsRecoveryMode(true)
-    }
+    if (searchParams.get('type') !== 'recovery') return
+    setIsRecoveryMode(true)
+    const tokenHash = searchParams.get('token_hash')
+    if (!tokenHash) return
+    const sb = createClient()
+    sb.auth.verifyOtp({ type: 'recovery', token_hash: tokenHash }).then(({ error }) => {
+      if (error) { setNewPwStatus('error'); setNewPwMsg('재설정 링크가 만료됐거나 이미 사용됐습니다. 로그인 화면에서 비밀번호 찾기를 다시 요청해주세요.') }
+    })
   }, [searchParams])
 
   // ── 새 비밀번호 설정 핸들러 ────────────────────────────────────────────────
@@ -315,10 +323,17 @@ function LoginContent() {
     }
     setNewPwStatus('loading'); setNewPwMsg('')
     const sb = createClient()
+    // 세션이 없으면 updateUser 가 실패한다 — 원인을 '링크 만료'로 뭉뚱그리지 않고 갈라서 말한다
+    const { data: { session } } = await sb.auth.getSession()
+    if (!session) {
+      setNewPwStatus('error')
+      setNewPwMsg('이 브라우저에는 재설정 요청 기록이 없어 변경할 수 없습니다. 폰에서는 메일 앱이 링크를 다른 브라우저로 열 때 이렇게 됩니다 — 비밀번호 찾기를 누른 바로 그 브라우저(또는 PC)에서 링크를 열어주세요. 아니면 지금 이 화면에서 비밀번호 찾기를 다시 요청한 뒤, 같은 브라우저에서 메일 링크를 열면 됩니다.')
+      return
+    }
     const { error } = await sb.auth.updateUser({ password: newPassword })
     if (error) {
       setNewPwStatus('error')
-      setNewPwMsg('비밀번호 변경에 실패했습니다. 링크가 만료되었을 수 있습니다. 다시 요청해주세요.')
+      setNewPwMsg(/same_password|different from the old/i.test(error.message) ? '이전과 같은 비밀번호입니다. 다른 비밀번호를 입력해주세요.' : `비밀번호 변경에 실패했습니다 (${error.message}). 링크가 만료되었을 수 있습니다 — 다시 요청해주세요.`)
       return
     }
     setNewPwStatus('success')
