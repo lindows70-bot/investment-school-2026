@@ -56,6 +56,7 @@
 | `connective-tissue` | 🔗 연결 조직 (화면 사이의 다리 — 종목 액션 칩·딥링크) | ✅ | ✅ | |
 | `fcf-nature` | 💵 고FCF 성격 구분 (mirage·volatile — TTM vs 다년 평균) | ✅ | ✅ | ✅ |
 | `unified-reco` | 🎯 통합 추천 엔진 | ✅ | | ✅ |
+| `us-smart-money` | 🇺🇸 미국 스마트머니 — 큰돈은 어디로 (1절 내부자 매수 스캐너 · 4개 보고서 순차) | ✅ | ✅ | ✅ |
 | `weekly-student-report` | 📄 학생별 주간 리포트 | ✅ | | |
 | `win-lose` | ⚔️ 승패 해부실 | ✅ | | |
 
