@@ -100,6 +100,12 @@
     },
     "src/app/api/cron/kr-earnings/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/cron/insider-scan/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/insider-market/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -186,6 +192,14 @@
     {
       "path": "/api/cron/core-reco",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/insider-scan",
+      "schedule": "20 * * * *"
+    },
+    {
+      "path": "/api/insider-market?refresh=1",
+      "schedule": "50 21 * * *"
     }
   ],
   "headers": [

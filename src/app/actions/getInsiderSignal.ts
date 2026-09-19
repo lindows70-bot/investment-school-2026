@@ -15,9 +15,9 @@
  */
 
 import { createClient as createAdmin } from '@supabase/supabase-js'
-import https from 'node:https'
-import zlib from 'node:zlib'
 import { dartBuf, unzipFirst, dartJson, getCorpCode, krPrice } from '@/lib/dart'
+// 🏛️ SEC HTTP·Form 4 파서는 lib/secForm4 SSOT(2026-09-19 추출 — 시장 전체 스캐너 insiderMarket 과 같은 파서)
+import { secGet, isJson, isForm4, parseForm4Xml } from '@/lib/secForm4'
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 export interface InsiderBuy {
@@ -54,52 +54,6 @@ function adminClient() {
   )
 }
 
-// SEC는 연락처가 포함된 User-Agent를 요구 (봇 정책)
-const SEC_UA = 'Investment School Edu (contact: lindows70@gmail.com)'
-
-/**
- * SEC 전용 HTTP GET — Node https 모듈 사용 (undici fetch 금지).
- *  ⚠️ 핵심: undici fetch는 Accept-Encoding을 자동 부착 → SEC gzip 응답을
- *     제대로 풀지 못해 XML 태그가 깨짐(파싱 0건 버그). https는 Accept-Encoding을
- *     보내지 않아 SEC가 평문으로 응답 → 안정. (혹시 gzip이면 매직바이트로 직접 해제)
- */
-function rawGet(url: string): Promise<{ status: number; text: string }> {
-  return new Promise((resolve, reject) => {
-    const u = new URL(url)
-    const req = https.get(
-      { hostname: u.hostname, path: u.pathname + u.search, headers: { 'User-Agent': SEC_UA } },
-      r => {
-        const chunks: Buffer[] = []
-        r.on('data', d => chunks.push(d as Buffer))
-        r.on('end', () => {
-          let b = Buffer.concat(chunks)
-          if (b.slice(0, 2).toString('hex') === '1f8b') { try { b = zlib.gunzipSync(b) } catch { /* keep raw */ } }
-          resolve({ status: r.statusCode ?? 0, text: b.toString('utf8') })
-        })
-      }
-    )
-    req.on('error', reject)
-    req.setTimeout(12000, () => req.destroy(new Error('SEC timeout')))
-  })
-}
-
-/**
- * SEC GET + 재시도. SEC는 과다요청 시 200 응답에 '손상된 본문'(태그 깨짐)을 주기도 함.
- * `valid(text)`로 무결성을 검사해 실패 시 백오프 재시도(throttle 회복).
- */
-async function secGet(url: string, valid?: (t: string) => boolean): Promise<{ status: number; text: string }> {
-  let last = { status: 0, text: '' }
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      last = await rawGet(url)
-      if (last.status === 200 && (!valid || valid(last.text))) return last
-    } catch { /* 네트워크 오류 → 재시도 */ }
-    await new Promise(r => setTimeout(r, 1000 * (attempt + 1)))
-  }
-  return last
-}
-const isJson = (t: string) => { const s = t.trimStart(); return s.startsWith('{') || s.startsWith('[') }
-const isForm4 = (t: string) => /<rptOwnerName>[\s\S]*?<\/rptOwnerName>/i.test(t)
 const WINDOW_DAYS = 90
 const CACHE_TTL = 24 * 3600_000          // 24h 신선도
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
@@ -143,24 +97,7 @@ async function getCik(ticker: string): Promise<string | null> {
   return CIK_MAP?.get(ticker.toUpperCase()) ?? null
 }
 
-// ── Form 4 raw XML 1건 파싱 → 장내매수면 InsiderBuy 반환 ─────────────────────
-function pick(xml: string, tag: string): string {
-  const m = xml.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, 'i'))
-  return m ? m[1].replace(/<[^>]+>/g, '').trim() : ''
-}
-function pickVal(block: string, tag: string): string {
-  const m = block.match(new RegExp(`<${tag}>[\\s\\S]*?<value>([\\s\\S]*?)</value>`, 'i'))
-  return m ? m[1].replace(/<[^>]+>/g, '').trim() : ''
-}
-function roleLabel(xml: string): string {
-  const title = pick(xml, 'officerTitle')
-  if (title) return title
-  if (/<isOfficer>\s*(1|true)\s*<\/isOfficer>/i.test(xml)) return '임원'
-  if (/<isDirector>\s*(1|true)\s*<\/isDirector>/i.test(xml)) return '이사'
-  if (/<isTenPercentOwner>\s*(1|true)\s*<\/isTenPercentOwner>/i.test(xml)) return '10% 주주'
-  return '내부자'
-}
-
+// ── Form 4 raw XML 1건 파싱 → 장내매수면 InsiderBuy 반환 (파서는 lib/secForm4.parseForm4Xml — 스캐너와 동일) ──
 async function parseForm4(cikInt: string, accNoDash: string, primaryDoc: string, fallbackDate: string): Promise<InsiderBuy | null> {
   // primaryDocument = 'xslF345X06/wk-form4_xxx.xml' → basename이 raw XML
   const xmlName = primaryDoc.includes('/') ? primaryDoc.split('/').pop()! : primaryDoc
@@ -168,24 +105,9 @@ async function parseForm4(cikInt: string, accNoDash: string, primaryDoc: string,
   try {
     const res = await secGet(url, isForm4)
     if (res.status !== 200) return null
-    const xml = res.text
-    const name = pick(xml, 'rptOwnerName')
-    if (!name) return null
-
-    let shares = 0, value = 0, date = ''
-    for (const b of xml.split('<nonDerivativeTransaction>').slice(1)) {
-      const code = pick(b, 'transactionCode')               // 직접 텍스트
-      const ad   = pickVal(b, 'transactionAcquiredDisposedCode')
-      if (code !== 'P' || ad !== 'A') continue               // ★ 장내매수(취득)만
-      const sh = parseFloat(pickVal(b, 'transactionShares') || '0')
-      const px = parseFloat(pickVal(b, 'transactionPricePerShare') || '0')
-      if (!isFinite(sh) || sh <= 0) continue
-      shares += sh; value += sh * (isFinite(px) ? px : 0)
-      const td = pickVal(b, 'transactionDate')
-      if (td && !date) date = td
-    }
-    if (shares <= 0) return null
-    return { name, role: roleLabel(xml), date: date || fallbackDate, shares, value }
+    const p = parseForm4Xml(res.text)
+    if (!p) return null
+    return { name: p.owner, role: p.role, date: p.date || fallbackDate, shares: p.shares, value: p.value }
   } catch { return null }
 }
 

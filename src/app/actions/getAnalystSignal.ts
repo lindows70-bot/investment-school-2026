@@ -15,6 +15,8 @@
  * Lazy Caching: in-memory 6h (추정치는 전환이 느림) · Zero Input · US 위주
  */
 
+import { revisionSignalOf } from '@/lib/analystShared'
+
 interface RecTrend { period: string; strongBuy: number; buy: number; hold: number; sell: number; strongSell: number }
 
 export interface AnalystSignal {
@@ -227,12 +229,8 @@ export async function getAnalystSignal(input: { ticker: string; name?: string; m
     const revDown30 = num(rev.downLast30days)
     const growth    = yr?.growth != null && isFinite(yr.growth) ? pct(yr.growth * 100) : null
 
-    let revisionSignal: AnalystSignal['revisionSignal'] = null
-    if (revUp30 != null && revDown30 != null) {
-      if (revUp30 >= revDown30 * 2 && revUp30 >= 3) revisionSignal = 'up'
-      else if (revDown30 >= revUp30 * 2 && revDown30 >= 3) revisionSignal = 'down'
-      else revisionSignal = 'mixed'
-    }
+    // 규칙은 lib/analystShared.revisionSignalOf 한 곳(내부자 스캐너와 공유 — 2026-09-19)
+    const revisionSignal: AnalystSignal['revisionSignal'] = revisionSignalOf(revUp30, revDown30)
 
     // ③ 컨센서스 표류
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

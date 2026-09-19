@@ -58,6 +58,7 @@ export const GROUPS: NavGroup[] = [
     title: '🌍 시장 탐구', color: TK.violet400,
     items: [
       { href: '/macro-hub', icon: '🌐', label: 'Macro Hub — 계절·막스·위기' },
+      { href: '/us-smart-money', icon: '🇺🇸', label: '미국 스마트머니 — 큰돈은 어디로' },
     ],
   },
   {
