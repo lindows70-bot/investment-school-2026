@@ -108,7 +108,7 @@ export default function UsSmartMoneyPage() {
           )}
 
           <div style={{ fontSize: FS.tiny, color: TK.sub3, lineHeight: 1.7, borderTop: `1px solid ${BORDER}`, paddingTop: 8 }}>
-            읽는 법 — 🔥 <b>함께 샀다</b>는 서로 다른 내부자 {LIMITS.cluster}명 이상이 각자 ${(LIMITS.minPerBuyer / 1000).toFixed(0)}K 넘게 자기 돈으로 장내매수한 회사(옵션 행사·보너스 주식·우리사주 소액 매수는 제외). 📉 <b>저가 근처</b>는 현재가가 52주 저가에서 +{LIMITS.nearLowPct}% 안. ✅ <b>추정치 상향</b>은 최근 30일 애널리스트 EPS 추정치가 상향 우세(노이즈 캔슬러와 같은 규칙). ⚠️ <b>적자</b>는 최근 4분기 EPS 가 마이너스.
+            읽는 법 — 🔥 <b>함께 샀다</b>는 서로 다른 <b>경영진·이사</b> {LIMITS.cluster}명 이상이 각자 ${(LIMITS.minPerBuyer / 1000).toFixed(0)}K 넘게 자기 돈으로 장내매수한 회사(옵션 행사·보너스 주식·우리사주 소액 매수는 제외 · 10% 주주·펀드는 금액엔 넣되 인원엔 안 셉니다 — 같은 운용사 펀드 둘이 2명으로 세어지는 걸 막기 위해). 같은 사람·같은 날·같은 주식수의 재제출은 한 건으로. 📉 <b>저가 근처</b>는 현재가가 52주 저가에서 +{LIMITS.nearLowPct}% 안. ✅ <b>추정치 상향</b>은 최근 30일 애널리스트 EPS 추정치가 상향 우세(노이즈 캔슬러와 같은 규칙). ⚠️ <b>적자</b>는 최근 4분기 EPS 가 마이너스.
             <br />기준($100K·시총 0.1%·2명·+15%)은 보고서의 값이며 <b>우리 표본으로 검증된 숫자가 아닙니다</b>. 내부자 매수는 통계적으로 우위가 보고된 지표지만 매도 신호는 없습니다(파는 이유는 수만 가지). 기관 수급은 무료 데이터가 없어 보지 않습니다. 단가가 공시에 없는 매수는 금액 합계에서 빠져 있습니다(표시: 단가 미상). 공시 단가와 현재가가 {LIMITS.maxGapPct}% 넘게 어긋나는 종목(해외 원주 단가로 적힌 ADR 등)은 금액을 믿을 수 없어 뺐습니다.
           </div>
         </section>
@@ -308,13 +308,13 @@ function InsiderCard({ it }: { it: InsiderMarketItem }) {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(100px,1fr))', gap: 8 }}>   {/* 100px: 폰(카드 폭 ~260)에서 2열 유지 */}
         <Cell label="내부자 매수 합계" value={it.value > 0 ? usd(it.value) : '단가 미상'} sub={it.unpriced && it.value > 0 ? '+ 단가 미상 건' : it.mcapPct != null ? `시총의 ${it.mcapPct}%` : undefined} />
-        <Cell label="누가" value={`${it.buyers}명`} sub={it.roles.join(' · ')} />
-        <Cell label="평균 매수단가" value={it.avgPx != null ? `$${it.avgPx.toLocaleString()}` : '—'} sub={`${md(it.firstDate)}${it.firstDate !== it.lastDate ? `~${md(it.lastDate)}` : ''}`} />
+        <Cell label="경영진·이사" value={`${it.buyers}명`} sub={(it.holders10 ? `+ 10% 주주·펀드 ${it.holders10} · ` : '') + it.roles.filter(r => r !== '10% 주주').join(' · ')} />
+        <Cell label="평균 매수단가" value={it.avgPx != null ? `$${it.avgPx.toFixed(2)}` : '—'} sub={`${md(it.firstDate)}${it.firstDate !== it.lastDate ? `~${md(it.lastDate)}` : ''}`} />
         <Cell label="현재가" value={it.price != null ? `$${it.price.toLocaleString()}` : '—'} sub={it.gapPct != null ? `매수단가 대비 ${it.gapPct >= 0 ? '+' : ''}${it.gapPct}%` : undefined} c={gapC} />
       </div>
       {it.buys.length > 0 && (
         <div style={{ fontSize: FS.tiny, color: TK.sub2, lineHeight: 1.6 }}>
-          {it.buys.slice(0, 3).map((b, i) => <span key={i}>{i > 0 && ' · '}{b.owner}({b.role}) {b.unpriced ? '단가 미상' : usd(b.value)} {md(b.date)}</span>)}
+          {it.buys.slice(0, 3).map((b, i) => <span key={i}>{i > 0 && ' · '}{b.owner}({b.role}) {b.unpriced ? '단가 미상' : usd(b.value)}{b.n > 1 ? ` ${b.n}회` : ''} ~{md(b.date)}</span>)}
         </div>
       )}
     </a>

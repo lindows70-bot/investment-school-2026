@@ -13,7 +13,8 @@ export interface InsiderMarketItem {
   avgPx: number | null; price: number | null; gapPct: number | null       // 평균 매수단가 대비 현재가 괴리
   mcap: number | null; mcapPct: number | null                              // 시총 대비 매수 비중 %
   cluster: boolean; nearLow: boolean; revision: RevisionSignal; loss: boolean
-  buys: { owner: string; role: string; date: string; value: number; unpriced: boolean }[]
+  holders10: number                                                        // 10% 주주·펀드(인원엔 안 세고 금액엔 포함)
+  buys: { owner: string; role: string; date: string; value: number; unpriced: boolean; n: number }[]   // 사람별 합산 · n = 공시 건수
 }
 export interface InsiderMarket {
   asOf: string

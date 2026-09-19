@@ -114,26 +114,34 @@ export async function buildInsiderMarket(): Promise<InsiderMarket> {
   const daysPartial = docs.filter(d => !d.complete && d.done.length > 0).length
   const from = iso(etDay(WINDOW_DAYS - 1))
   // 창은 **거래일** 기준 — 제출은 이번 달인데 매수는 넉 달 전인 늑장 공시(실측: 09-18 제출·05-20 매수)가 "이번 달 매수"로 섞이지 않게
-  const rows = docs.flatMap(d => d.buys).filter(b => b.ticker && b.ticker !== 'NONE' && /^[A-Z.\-]{1,6}$/.test(b.ticker) && b.date >= from)
+  const rows0 = docs.flatMap(d => d.buys).filter(b => b.ticker && b.ticker !== 'NONE' && /^[A-Z.\-]{1,6}$/.test(b.ticker) && b.date >= from)
+  // 같은 사람·같은 날·같은 주식수는 한 건 — 재제출·정정(4/A)이 다른 accession 으로 두 번 잡힌다(실측 GPUS 09-03 2,148,691주 $406K 가 09-08·09-09 두 번)
+  const dupKey = new Set<string>()
+  const rows = rows0.filter(b => { const k = `${b.ticker}|${b.owner.toUpperCase()}|${b.date}|${b.shares}`; if (dupKey.has(k)) return false; dupKey.add(k); return true })
+  const isHolder10 = (r: DayBuyRow) => r.role === '10% 주주' || /\b(FUND|L\.?P\.?|LLC|CAPITAL|HOLDINGS|PARTNERS|MANAGEMENT|TRUST)\b/i.test(r.owner)
 
   // 종목별 합산 — 같은 내부자의 여러 제출은 한 사람으로 센다(클러스터는 '서로 다른 사람' 수)
   const byT = new Map<string, DayBuyRow[]>()
   for (const r of rows) { const a = byT.get(r.ticker) ?? []; a.push(r); byT.set(r.ticker, a) }
-  type Agg = { ticker: string; issuer: string; buyers: Set<string>; value: number; pricedShares: number; shares: number; unpriced: boolean; roles: Set<string>; rows: DayBuyRow[] }
+  type Agg = { ticker: string; issuer: string; buyers: Set<string>; holders10: number; value: number; pricedShares: number; shares: number; unpriced: boolean; roles: Set<string>; rows: DayBuyRow[] }
   const aggs: Agg[] = []
   for (const [ticker, rs] of Array.from(byT.entries())) {
-    const a: Agg = { ticker, issuer: rs[0].issuer, buyers: new Set(), value: 0, pricedShares: 0, shares: 0, unpriced: false, roles: new Set(), rows: rs }
-    // '함께 샀다'는 **자기 돈을 유의미하게** 넣은 사람 수 — 1인당 $10K 미만(우리사주·소액 정기매수)은 세지 않는다.
+    const a: Agg = { ticker, issuer: rs[0].issuer, buyers: new Set(), holders10: 0, value: 0, pricedShares: 0, shares: 0, unpriced: false, roles: new Set(), rows: rs }
+    // '함께 샀다'는 **경영진·이사가 자기 돈을 유의미하게** 넣은 사람 수 — 1인당 $10K 미만(우리사주·소액 정기매수)은 세지 않고,
+    //   10% 주주·펀드(같은 운용사의 펀드 둘이 '2명'이 되던 실측 XBP)는 세지 않는다(금액엔 넣고 화면에 따로 표시).
     //   실측: TSM 이 30명·합계 $12만으로 1위에 올랐다(직원 소액 매수) — 보고서가 말하는 클러스터가 아니다.
-    const perOwner = new Map<string, { v: number; unpriced: boolean }>()
+    const perOwner = new Map<string, { v: number; unpriced: boolean; holder: boolean }>()
     for (const r of rs) {
-      const k = r.owner.toUpperCase(); const o = perOwner.get(k) ?? { v: 0, unpriced: false }
+      const k = r.owner.toUpperCase(); const o = perOwner.get(k) ?? { v: 0, unpriced: false, holder: isHolder10(r) }
       o.v += r.unpriced ? 0 : r.value; o.unpriced ||= r.unpriced; perOwner.set(k, o)
       a.roles.add(r.role); a.shares += r.shares
       if (r.unpriced) a.unpriced = true
       else { a.value += r.value; a.pricedShares += r.shares }
     }
-    for (const [k, o] of Array.from(perOwner.entries())) if (o.v >= LIMITS.minPerBuyer || o.unpriced) a.buyers.add(k)
+    for (const [k, o] of Array.from(perOwner.entries())) {
+      if (o.holder) { a.holders10++; continue }
+      if (o.v >= LIMITS.minPerBuyer || o.unpriced) a.buyers.add(k)
+    }
     aggs.push(a)
   }
   // 1차 거름(시총 없이 알 수 있는 것) — 금액 $100K↑ 또는 2인↑. 그 밖은 시총 비율로도 못 살리는 규모라 보강 비용을 쓰지 않는다
@@ -187,7 +195,13 @@ export async function buildInsiderMarket(): Promise<InsiderMarket> {
       mcap: e.mcap, mcapPct: mcapPct != null ? Math.round(mcapPct * 1000) / 1000 : null,
       cluster, nearLow: !!(e.price && e.low52 && e.price <= e.low52 * (1 + LIMITS.nearLowPct / 100)),
       revision: revisionSignalOf(e.up, e.down), loss: e.eps != null && e.eps < 0,
-      buys: a.rows.sort((x, y) => y.value - x.value).slice(0, 6).map(r => ({ owner: r.owner, role: r.role, date: r.date, value: Math.round(r.value), unpriced: r.unpriced })),
+      holders10: a.holders10,
+      // 사람별로 합쳐서(같은 사람이 세 줄로 나오던 실측 GPUS) 금액 순 상위 6명
+      buys: Array.from(a.rows.reduce((m, r) => {
+        const k = r.owner.toUpperCase(); const o = m.get(k) ?? { owner: r.owner, role: r.role, date: r.date, value: 0, unpriced: false, n: 0 }
+        o.value += r.unpriced ? 0 : r.value; o.unpriced ||= r.unpriced; o.n++; if (r.date > o.date) o.date = r.date; m.set(k, o); return m
+      }, new Map<string, { owner: string; role: string; date: string; value: number; unpriced: boolean; n: number }>()).values())
+        .sort((x, y) => y.value - x.value).slice(0, 6).map(o => ({ owner: o.owner, role: o.role, date: o.date, value: Math.round(o.value), unpriced: o.unpriced, n: o.n })),
     })
   }
   // 순위: 클러스터 인원 → 시총 대비 비중 → 금액
