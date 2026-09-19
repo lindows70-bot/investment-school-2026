@@ -194,8 +194,16 @@
       "schedule": "0 8 * * *"
     },
     {
-      "path": "/api/cron/insider-scan",
-      "schedule": "20 * * * *"
+      "path": "/api/cron/insider-scan?slot=1",
+      "schedule": "20 2 * * *"
+    },
+    {
+      "path": "/api/cron/insider-scan?slot=2",
+      "schedule": "20 10 * * *"
+    },
+    {
+      "path": "/api/cron/insider-scan?slot=3",
+      "schedule": "20 21 * * *"
     },
     {
       "path": "/api/insider-market?refresh=1",

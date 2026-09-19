@@ -31,6 +31,6 @@
 - `src/lib/secForm4.ts` — SEC GET(https·gzip·재시도)·`parseForm4Xml`·일별 인덱스 파서 (getInsiderSignal 이 import)
 - `src/lib/analystShared.ts` — `revisionSignalOf(up, down)` (getAnalystSignal 이 import)
 - `src/lib/insiderMarket.ts` — 일별 스캔(커서=처리 accession 집합, 회당 예산) · 30일 집계·필터·보강 · 키 `INSIDER_DAY_KEY`·`INSIDER_MARKET_KEY`·`INSIDER_SCAN_MARK`
-- `/api/cron/insider-scan` 매시간(예산 600건 · 최근 2일 + 미완료 날) · `/api/insider-market` 집계(06:50 KST 크론, 12h 캐시, refresh=1 마커)
+- `/api/cron/insider-scan` 하루 3회 02:20·10:20·21:20 UTC(Vercel Hobby 는 매시간 불가 — 배포 거부 실측) · 회당 1,500건·240초 · 미완료 날부터 · `/api/insider-market` 집계(06:50 KST 크론, 12h 캐시, refresh=1 마커)
 - `/us-smart-money` 화면 + 사이드바(🌍 시장 탐구) · cronHealth 2줄 · `scripts/insider-backfill.mjs`(30일 초기 적재, PC)
 - 성적 적립은 **이번엔 안 한다** — 표본이 쌓인 뒤 스윙과 같은 관례로 붙인다(체크리스트에 남김).
