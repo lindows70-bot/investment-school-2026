@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { LIMITS, WINDOW_DAYS, type InsiderMarket, type InsiderMarketItem } from '@/lib/insiderMarketShared'   // 순수 모듈 — 서버 전용 lib 를 클라이언트 번들에 끌어오지 않는다
 import type { UsLiquidity, Gauge, Tone } from '@/lib/usLiquidity'   // type-only — 번들에 안 실린다
 import type { EtfFlow, EtfFlowItem } from '@/lib/etfFlow'
+import type { AnalystRerating, ReratingItem } from '@/lib/analystRerating'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 
 const TONE_C: Record<Tone, string> = { good: TK.green400, warn: TK.amber400, bad: TK.orange400, neutral: TK.slate300 }
@@ -22,6 +23,8 @@ export default function UsSmartMoneyPage() {
   const [liqErr, setLiqErr] = useState<string | null>(null)
   const [flow, setFlow] = useState<EtfFlow | null>(null)
   const [flowErr, setFlowErr] = useState<string | null>(null)
+  const [an, setAn] = useState<AnalystRerating | null>(null)
+  const [anErr, setAnErr] = useState<string | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -32,6 +35,9 @@ export default function UsSmartMoneyPage() {
     fetch('/api/etf-flow', { cache: 'no-store' }).then(r => r.json())
       .then(j => { if (!alive) return; if (j.error) setFlowErr(String(j.error)); else setFlow(j) })
       .catch(() => { if (alive) setFlowErr('ETF 자금 흐름을 불러오지 못했습니다 — 잠시 후 새로고침해 주세요.') })
+    fetch('/api/analyst-rerating', { cache: 'no-store' }).then(r => r.json())
+      .then(j => { if (!alive) return; if (j.error) setAnErr(j.note ?? String(j.error)); else setAn(j) })
+      .catch(() => { if (alive) setAnErr('애널리스트 리레이팅을 불러오지 못했습니다 — 잠시 후 새로고침해 주세요.') })
     fetch('/api/insider-market', { cache: 'no-store' }).then(r => r.json())
       .then(j => { if (!alive) return; if (j.error) setErr(String(j.error)); else setD(j) })
       .catch(() => { if (alive) setErr('내부자 매수 데이터를 불러오지 못했습니다 — 잠시 후 새로고침해 주세요.') })
@@ -107,7 +113,61 @@ export default function UsSmartMoneyPage() {
           </div>
         </section>
       )}
+
+      {/* ── 절 4 · 전문가들이 마음을 바꾼 회사는 (등급 상향 3곳↑ × EPS 리비전 — TipRanks 대신 노이즈 캔슬러 규칙) ── */}
+      {anErr && <div style={{ background: CARD, border: `1px solid ${TK.amber400}44`, borderRadius: RAD.sm, padding: '10px 14px', fontSize: FS.tiny, color: TK.sub2 }}>⚠️ {anErr}</div>}
+      {!an && !anErr && <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: RAD.sm, padding: '10px 14px', fontSize: FS.tiny, color: TK.sub }}>애널리스트 등급 변경을 훑는 중…</div>}
+      {an && <ReratingSection a={an} />}
     </div>
+  )
+}
+
+/** 절 4 — 진짜 리레이팅 / 목표가 소음 / 무더기 하향 세 묶음. 별점·승률(유료)은 없고, 그 자리를 '실적 전망이 같이 올랐나'가 맡는다. */
+function ReratingSection({ a }: { a: AnalystRerating }) {
+  const [showAll, setShowAll] = useState(false)
+  const groups: { key: ReratingItem['verdict']; title: string; c: string; note: string }[] = [
+    { key: 'rerating', title: '✅ 진짜 리레이팅', c: TK.green400, note: '증권사 3곳 이상 상향 + EPS 추정치 상향 우세 + 목표가 여력 15% 이상' },
+    { key: 'noise', title: '🎧 목표가만 오른 소음', c: TK.amber400, note: '등급은 올렸는데 실적 추정치는 안 오르거나 여력이 작음 — 린치: 목표가는 소음, 실적이 신호' },
+    { key: 'downgrade', title: '⬇️ 무더기 하향', c: TK.orange400, note: '증권사 3곳 이상이 30일 안에 등급을 내림' },
+  ]
+  return (
+    <section style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: RAD.md, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: SP.sm }}>
+      <div style={{ fontSize: FS.lg, fontWeight: 800, color: TK.slate100 }}>🎧 전문가들이 마음을 바꾼 회사는</div>
+      <div style={{ fontSize: FS.body, color: TK.slate200, lineHeight: 1.6 }}>{a.answer}</div>
+      <div style={{ fontSize: FS.micro, color: TK.sub3 }}>Yahoo 등급 변경 이력·EPS 추정치 · 미국 {a.scanned}종 스캔(주간 유니버스 + 내부자 통과 종목) · 조회 성공 {a.okCount}종 · 최근 30일</div>
+      {groups.map(g => {
+        const rows = a.items.filter(i => i.verdict === g.key)
+        if (!rows.length) return null
+        const shown = showAll || g.key !== 'noise' ? rows.slice(0, showAll ? rows.length : 7) : rows.slice(0, 3)
+        return (
+          <div key={g.key} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+              <b style={{ fontSize: FS.tiny, color: g.c }}>{g.title} {rows.length}곳</b>
+              <span style={{ fontSize: FS.micro, color: TK.sub3 }}>{g.note}</span>
+            </div>
+            {shown.map(i => (
+              <a key={i.ticker} href={`/research?q=${encodeURIComponent(i.ticker)}`} style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: TK.bg3, border: `1px solid ${g.c}33`, borderRadius: RAD.sm, padding: '8px 12px', fontSize: FS.tiny }}>
+                <b style={{ color: TK.slate100, fontSize: FS.body }}>{i.name}</b>
+                <span style={{ color: TK.sub3, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: FS.micro }}>{i.ticker}</span>
+                {i.sectorKo && <span style={{ color: TK.sub3, fontSize: FS.micro }}>{i.sectorKo}</span>}
+                <span style={{ marginLeft: 'auto', display: 'flex', gap: 10, flexWrap: 'wrap', fontVariantNumeric: 'tabular-nums' }}>
+                  <span style={{ color: TK.slate200 }}>상향 <b>{i.upgrades}</b>곳{i.downgrades ? ` · 하향 ${i.downgrades}` : ''}</span>
+                  <span style={{ color: i.revision === 'up' ? TK.green400 : i.revision === 'down' ? TK.orange400 : TK.sub }}>추정치 {i.revUp ?? '—'}↑ {i.revDown ?? '—'}↓</span>
+                  {i.upsidePct != null && <span style={{ color: TK.slate200 }}>목표가 ${i.target?.toFixed(2)} · 여력 <b style={{ color: i.upsidePct >= 0 ? TK.red400 : TK.blue400 }}>{i.upsidePct >= 0 ? '+' : ''}{i.upsidePct}%</b></span>}
+                </span>
+                {i.firms.length > 0 && <span style={{ width: '100%', fontSize: FS.micro, color: TK.sub }}>{i.firms.join(' · ')}</span>}
+              </a>
+            ))}
+          </div>
+        )
+      })}
+      {a.items.length > 10 && (
+        <button onClick={() => setShowAll(v => !v)} style={{ minHeight: 44, background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: RAD.sm, color: TK.slate300, fontSize: FS.tiny, fontWeight: 700, cursor: 'pointer' }}>{showAll ? '접기' : '전부 보기'}</button>
+      )}
+      <div style={{ fontSize: FS.tiny, color: TK.sub3, lineHeight: 1.7, borderTop: `1px solid ${BORDER}`, paddingTop: 8 }}>
+        보고서가 요구한 애널리스트 별점·승률(TipRanks)은 유료라 보지 못합니다. 그 자리를 <b>실적 전망이 같이 올랐나</b>가 맡습니다 — 목표가는 소음이고 실적 추정치가 신호라는 앱의 노이즈 캔슬러 규칙 그대로입니다. 3곳·15% 는 보고서의 값이며 우리 표본으로 검증된 숫자가 아닙니다. 상향 이유(실적·신제품·마진·M&A)는 무료 데이터에 없어 태깅하지 않습니다.
+      </div>
+    </section>
   )
 }
 
