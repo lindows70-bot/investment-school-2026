@@ -27,6 +27,17 @@
 - **달러 인덱스(DXY)·BTC 를 새 심볼로** — 상관 레이더가 UUP·BTC-USD·SPY 를 쓴다. 같은 축을 다른 심볼로 재지 않는다(제2원칙).
 - 신규 수집은 FRED DRTSCILM(은행 대출태도, 분기) 하나뿐. 나머지 넷은 기존 라우트 응답 조립.
 
+## 절 2 ETF 흐름 — Phase 0 판정표·기각안 (2026-09-19)
+| 소스 | 결과 |
+|---|---|
+| Yahoo `defaultKeyStatistics.sharesOutstanding` (ETF) | ❌ SPY·QQQ·XLK·IWM·TQQQ 전부 undefined |
+| Yahoo `summaryDetail.totalAssets`·`navPrice` | ✅ SPY $811.9B · nav 762.63 (가격 761.69) — 순자산·NAV 로 순유입 역산 가능 |
+| iShares 상품 CSV(`…/1467271812596.ajax?fileType=csv`) | ❌ HTML 2.2MB 반환(봇 차단) |
+| Farside | BTC ETF 만(이미 코인 랩에 있음) |
+- **역산 공식** flow(d) = AUM(d) − AUM(d−1)×NAV(d)/NAV(d−1). 운용사 공식 집계와 다를 수 있음을 화면에 명시. **미검증 가정**: Yahoo totalAssets 가 매일 갱신되는가 — 1주 뒤 SPY·QQQ 를 etf.com 과 대조(체크리스트).
+- 기각: 발행사별 스크래핑(iShares·SPDR·Vanguard 셋 다 구조가 다르고 깨지기 쉬움) · 유료 API · "1개월 유입 상위"를 첫날부터 보여주기(적립 전엔 없다 — 값의 흐름만 보여주고 '모으는 중'을 적는다).
+- 원화 표기(보고서 요구)는 fx SSOT `getUsdKrw` 로 괄호 병기.
+
 ## 임계값 근거
 - $100K · 0.1% 시총 · 2인 · 52주 저가 +15% — **전부 보고서 값**, 우리 백테스트 검증 아님. 화면에 그렇게 적는다. 표본 쌓인 뒤 autopsy 로 잰다.
 - 추정치 상향 규칙(상향 ≥ 하향×2 이고 ≥3) — 노이즈 캔슬러와 같은 함수(`revisionSignalOf`).

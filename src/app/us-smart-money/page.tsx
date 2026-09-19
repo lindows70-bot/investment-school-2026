@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react'
 import { LIMITS, WINDOW_DAYS, type InsiderMarket, type InsiderMarketItem } from '@/lib/insiderMarketShared'   // 순수 모듈 — 서버 전용 lib 를 클라이언트 번들에 끌어오지 않는다
 import type { UsLiquidity, Gauge, Tone } from '@/lib/usLiquidity'   // type-only — 번들에 안 실린다
+import type { EtfFlow, EtfFlowItem } from '@/lib/etfFlow'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 
 const TONE_C: Record<Tone, string> = { good: TK.green400, warn: TK.amber400, bad: TK.orange400, neutral: TK.slate300 }
@@ -19,6 +20,8 @@ export default function UsSmartMoneyPage() {
   const [showAll, setShowAll] = useState(false)
   const [liq, setLiq] = useState<UsLiquidity | null>(null)
   const [liqErr, setLiqErr] = useState<string | null>(null)
+  const [flow, setFlow] = useState<EtfFlow | null>(null)
+  const [flowErr, setFlowErr] = useState<string | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -26,6 +29,9 @@ export default function UsSmartMoneyPage() {
     fetch('/api/us-liquidity', { cache: 'no-store' }).then(r => r.json())
       .then(j => { if (!alive) return; if (j.error) setLiqErr(String(j.error)); else setLiq(j) })
       .catch(() => { if (alive) setLiqErr('유동성 지표를 불러오지 못했습니다 — 잠시 후 새로고침해 주세요.') })
+    fetch('/api/etf-flow', { cache: 'no-store' }).then(r => r.json())
+      .then(j => { if (!alive) return; if (j.error) setFlowErr(String(j.error)); else setFlow(j) })
+      .catch(() => { if (alive) setFlowErr('ETF 자금 흐름을 불러오지 못했습니다 — 잠시 후 새로고침해 주세요.') })
     fetch('/api/insider-market', { cache: 'no-store' }).then(r => r.json())
       .then(j => { if (!alive) return; if (j.error) setErr(String(j.error)); else setD(j) })
       .catch(() => { if (alive) setErr('내부자 매수 데이터를 불러오지 못했습니다 — 잠시 후 새로고침해 주세요.') })
@@ -47,6 +53,11 @@ export default function UsSmartMoneyPage() {
       {liqErr && <div style={{ background: CARD, border: `1px solid ${TK.amber400}44`, borderRadius: RAD.sm, padding: '10px 14px', fontSize: FS.tiny, color: TK.sub2 }}>⚠️ {liqErr}</div>}
       {!liq && !liqErr && <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: RAD.sm, padding: '10px 14px', fontSize: FS.tiny, color: TK.sub }}>유동성 지표를 모으는 중…</div>}
       {liq && <LiquiditySection q={liq} />}
+
+      {/* ── 절 2 · 돈이 어느 섹터로 가고 있나 (ETF 순자산 스냅샷 역산 — 첫 1주는 값의 흐름만) ── */}
+      {flowErr && <div style={{ background: CARD, border: `1px solid ${TK.amber400}44`, borderRadius: RAD.sm, padding: '10px 14px', fontSize: FS.tiny, color: TK.sub2 }}>⚠️ {flowErr}</div>}
+      {!flow && !flowErr && <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: RAD.sm, padding: '10px 14px', fontSize: FS.tiny, color: TK.sub }}>ETF 자금 흐름을 계산하는 중…</div>}
+      {flow && <FlowSection f={flow} />}
 
       {/* ── 절 3 · 회사를 제일 잘 아는 사람들이 사고 있는 회사는 ── */}
       {err && <div style={{ background: CARD, border: `1px solid ${TK.amber400}44`, borderRadius: RAD.sm, padding: '10px 14px', fontSize: FS.tiny, color: TK.sub2 }}>⚠️ {err}</div>}
@@ -138,6 +149,74 @@ function LiquiditySection({ q }: { q: UsLiquidity }) {
       </div>
       <div style={{ fontSize: FS.micro, color: TK.sub3 }}>출처 {q.sources.join(' · ')} · 판정은 앱의 매크로 날씨·수익률곡선·4계절 SSOT 와 같은 값 · 3개월 확률 시나리오는 근거가 없어 만들지 않습니다</div>
     </section>
+  )
+}
+/** 절 2 — 그룹별 표(섹터·스타일·지역·테마·채권·레버리지 vs 지수형). 순유입은 스냅샷이 5개 쌓인 뒤부터, 그 전엔 1개월 등락·거래량만. */
+function FlowSection({ f }: { f: EtfFlow }) {
+  const [open, setOpen] = useState<string | null>('sector')
+  const money = (v: number) => {
+    const abs = Math.abs(v), sign = v >= 0 ? '+' : '−'
+    const usd = abs >= 1e9 ? `$${(abs / 1e9).toFixed(1)}B` : `$${Math.round(abs / 1e6)}M`
+    const krw = f.usdKrw ? (abs * f.usdKrw >= 1e12 ? ` (${(abs * f.usdKrw / 1e12).toFixed(1)}조원)` : ` (${Math.round(abs * f.usdKrw / 1e8).toLocaleString()}억원)`) : ''
+    return sign + usd + krw
+  }
+  const haveFlow = f.items.some(i => i.flow1w != null)
+  const groups = f.groups.filter(g => f.items.some(i => i.group === g.group))
+  return (
+    <section style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: RAD.md, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: SP.sm }}>
+      <div style={{ fontSize: FS.lg, fontWeight: 800, color: TK.slate100 }}>🧭 돈이 어느 섹터로 가고 있나</div>
+      <div style={{ fontSize: FS.body, color: TK.slate200, lineHeight: 1.6 }}>{f.answer}</div>
+      <div style={{ fontSize: FS.micro, color: TK.sub3 }}>
+        {f.items.length}개 대표 ETF · 순자산 스냅샷 {f.daysCollected}일{f.firstDay ? ` (${f.firstDay.slice(5)}~${f.lastDay?.slice(5)})` : ''} · 순유입 = 순자산 변화 − 시장 등락분(역산 추정, 운용사 공식 집계와 다를 수 있음)
+      </div>
+      {!haveFlow && (
+        <div style={{ background: `${TK.amber400}12`, border: `1px solid ${TK.amber400}44`, borderRadius: RAD.xs, padding: '7px 10px', fontSize: FS.tiny, color: TK.amber400, lineHeight: 1.6 }}>
+          ⏳ 자금 흐름은 매일 하나씩 쌓입니다 — 1주 순유입은 스냅샷 6개(약 1주), 1개월은 21개부터 보입니다. 그 전엔 값의 흐름(1개월 등락·거래량)만 보여드립니다.
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {groups.map(g => {
+          const rows = f.items.filter(i => i.group === g.group).sort((a, b) => ((b.flow1w ?? b.ret1m ?? 0) - (a.flow1w ?? a.ret1m ?? 0)))
+          const isOpen = open === g.group
+          return (
+            <div key={g.group} style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: RAD.sm }}>
+              <button onClick={() => setOpen(isOpen ? null : g.group)} style={{ width: '100%', minHeight: 44, display: 'flex', alignItems: 'center', gap: 10, background: 'transparent', border: 'none', color: TK.slate200, padding: '8px 12px', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
+                <b style={{ fontSize: FS.tiny, flexGrow: 1 }}>{g.ko}</b>
+                {g.flow1w != null && <span style={{ fontSize: FS.tiny, color: g.flow1w >= 0 ? TK.red400 : TK.blue400, fontVariantNumeric: 'tabular-nums' }}>1주 {money(g.flow1w)}</span>}
+                {g.ret1m != null && <span style={{ fontSize: FS.tiny, color: g.ret1m >= 0 ? TK.red400 : TK.blue400, fontVariantNumeric: 'tabular-nums' }}>1개월 평균 {g.ret1m >= 0 ? '+' : ''}{g.ret1m}%</span>}
+                <span style={{ fontSize: FS.micro, color: TK.sub3 }}>{isOpen ? '▲' : '▼'}</span>
+              </button>
+              {isOpen && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '0 12px 10px' }}>
+                  {rows.map(i => <FlowRow key={i.t} i={i} money={money} />)}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      <div style={{ fontSize: FS.tiny, color: TK.sub3, lineHeight: 1.7, borderTop: `1px solid ${BORDER}`, paddingTop: 8 }}>
+        읽는 법 — 🔺 <b>가속</b>은 이번 주 하루 평균 유입이 한 달 평균의 1.5배 이상. ↔️ <b>괴리</b>는 돈은 들어오는데 값이 내리거나(반전 후보) 돈은 나가는데 값이 오르는 곳(차익 실현 후보). 📢 <b>거래량</b>은 최근 5일 평균이 20일 평균의 몇 배인지 — 2배 넘으면 손바뀜.
+        레버리지·인버스는 단기 투기 자금, 지수형은 장기 기관 자금으로 읽는 게 관례지만 증명된 건 아닙니다. 값의 상대강도는 <a href="/dashboard?tab=rotation" style={{ color: TK.amber400 }}>섹터 로테이션 시계</a>가 따로 봅니다.
+      </div>
+    </section>
+  )
+}
+function FlowRow({ i, money }: { i: EtfFlowItem; money: (v: number) => string }) {
+  const c = (v: number | null) => v == null ? TK.sub3 : v >= 0 ? TK.red400 : TK.blue400
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: TK.bg0, borderRadius: RAD.xs, padding: '6px 10px', fontSize: FS.tiny }}>
+      <b style={{ color: TK.slate100, minWidth: 96 }}>{i.name}</b>
+      <span style={{ color: TK.sub3, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: FS.micro }}>{i.t}</span>
+      <span style={{ marginLeft: 'auto', display: 'flex', gap: 10, flexWrap: 'wrap', fontVariantNumeric: 'tabular-nums' }}>
+        {i.flow1w != null ? <span style={{ color: c(i.flow1w) }}>1주 {money(i.flow1w)}{i.flow1wPct != null ? ` · 자산의 ${i.flow1wPct}%` : ''}</span> : null}
+        {i.flow1m != null ? <span style={{ color: c(i.flow1m) }}>1개월 {money(i.flow1m)}</span> : null}
+        <span style={{ color: c(i.ret1m) }}>값 1개월 {i.ret1m == null ? '—' : `${i.ret1m >= 0 ? '+' : ''}${i.ret1m}%`}</span>
+        {i.volX != null && <span style={{ color: i.volX >= 2 ? TK.amber400 : TK.sub }}>{i.volX >= 2 ? '📢 ' : ''}거래량 {i.volX}배</span>}
+        {i.accel && <span style={{ color: TK.amber400, fontWeight: 700 }}>🔺 가속</span>}
+        {i.divergence && <span style={{ color: TK.cyan400, fontWeight: 700 }}>↔️ {i.divergence === 'inflow-down' ? '유입인데 하락' : '유출인데 상승'}</span>}
+      </span>
+    </div>
   )
 }
 function GaugeCard({ g }: { g: Gauge }) {

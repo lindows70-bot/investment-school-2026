@@ -16,6 +16,7 @@ import { TECH_SCREENER_KEY } from '@/lib/techScreener'
 import { FACTSET_FWD_KEY, KRX_SHORT_KEY } from '@/lib/localRunners'
 import { SWING_CRON_MARK } from '@/lib/swingHistory'
 import { INSIDER_SCAN_MARK, INSIDER_MARKET_KEY } from '@/lib/insiderMarket'
+import { ETF_SNAP_MARK } from '@/lib/etfFlow'
 
 const GRACE_MS = 45 * 60_000            // 실행 지연 유예(가장 긴 크론 300s의 9배 — 오탐 방지)
 const KST_MS = 9 * 3600_000
@@ -61,6 +62,9 @@ export const CRON_MONITORS: CronMonitor[] = [
   // 🇺🇸 내부자 매수 — 수집(하루 3회 증분 11:20·19:20·06:20 KST, 마커는 오류율 <20% 일 때만)과 집계(06:50 KST)를 따로 본다. 수집이 멈추면 집계는 옛 문서로 조용히 '성공'하기 때문.
   { id: 'insiderScan', label: '미국 내부자 매수 수집(하루 3회)', kst: '11:20', days: 'daily', artifact: { type: 'cacheDate', key: d => INSIDER_SCAN_MARK(d) }, heal: '/api/cron/insider-scan', heavy: true },
   { id: 'insiderMarket', label: '미국 내부자 매수 집계', kst: '06:50', days: 'daily', artifact: { type: 'cacheDate', key: d => INSIDER_MARKET_KEY(d) }, heal: '/api/insider-market?refresh=1', heavy: true },
+  // 🧭 ETF 순자산 스냅샷 — 화~토 19:20 KST(미국 전날 마감 뒤). 하루 빠지면 그 주의 순유입 역산이 한 칸 빈다.
+  //    일·월요일엔 크론이 없어 stale → heal 이 부르면 snapshotEtfs 가 '주말 스킵'으로 마커만 남긴다(금요일 값 중복 저장 방지)
+  { id: 'etfSnap', label: '미국 ETF 순자산 스냅샷', kst: '19:20', days: 'daily', artifact: { type: 'cacheDate', key: d => ETF_SNAP_MARK(d) }, heal: '/api/cron/etf-snap' },
   // 🎯 스윙 스캔 — 성적 적립이 여기 붙어 있다. 조용히 멈추면 **추천 기록 자체가 비므로** 감시가 필수다
   //   🕯️ 06:40 KST — 한국 전날·미국 당일 새벽 봉이 모두 완성된 뒤(09:35 였을 땐 한국 35분짜리 장중 봉으로 판정했다).
   //      06:15 → 06:40(2026-09-17): dropIncompleteBar 가 마감 +35분(캔들 캐시 TTL)까지 미완성으로 보므로 EST 마감(21:00Z)+35분 뒤.

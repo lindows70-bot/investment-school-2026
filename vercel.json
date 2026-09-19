@@ -106,6 +106,15 @@
     },
     "src/app/api/insider-market/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/cron/etf-snap/route.ts": {
+      "maxDuration": 120
+    },
+    "src/app/api/etf-flow/route.ts": {
+      "maxDuration": 120
+    },
+    "src/app/api/us-liquidity/route.ts": {
+      "maxDuration": 120
     }
   },
   "crons": [
@@ -208,6 +217,14 @@
     {
       "path": "/api/insider-market?refresh=1",
       "schedule": "50 21 * * *"
+    },
+    {
+      "path": "/api/cron/etf-snap",
+      "schedule": "20 10 * * 2-6"
+    },
+    {
+      "path": "/api/etf-flow?refresh=1",
+      "schedule": "35 10 * * 2-6"
     }
   ],
   "headers": [
