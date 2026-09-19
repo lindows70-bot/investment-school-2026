@@ -4,7 +4,10 @@
 //   설계: docs/us-smart-money/plan.md · ⛔ 종합 점수·추천 없음(잣대가 다른 것을 합치면 가짜 정밀) · ⛔ 매도 신호 없음
 import { useEffect, useState } from 'react'
 import { LIMITS, WINDOW_DAYS, type InsiderMarket, type InsiderMarketItem } from '@/lib/insiderMarketShared'   // 순수 모듈 — 서버 전용 lib 를 클라이언트 번들에 끌어오지 않는다
+import type { UsLiquidity, Gauge, Tone } from '@/lib/usLiquidity'   // type-only — 번들에 안 실린다
 import { TK, FS, RAD, SP } from '@/lib/theme'
+
+const TONE_C: Record<Tone, string> = { good: TK.green400, warn: TK.amber400, bad: TK.orange400, neutral: TK.slate300 }
 
 const CARD = TK.card, BORDER = TK.border
 const usd = (n: number) => n >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${Math.round(n / 1e3)}K` : `$${Math.round(n)}`
@@ -14,9 +17,15 @@ export default function UsSmartMoneyPage() {
   const [d, setD] = useState<InsiderMarket | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
+  const [liq, setLiq] = useState<UsLiquidity | null>(null)
+  const [liqErr, setLiqErr] = useState<string | null>(null)
 
   useEffect(() => {
     let alive = true
+    // 절마다 따로 부른다 — 한 절이 느려도 다른 절이 먼저 뜬다(상태 3종은 각 절의 가드 안에서 확정)
+    fetch('/api/us-liquidity', { cache: 'no-store' }).then(r => r.json())
+      .then(j => { if (!alive) return; if (j.error) setLiqErr(String(j.error)); else setLiq(j) })
+      .catch(() => { if (alive) setLiqErr('유동성 지표를 불러오지 못했습니다 — 잠시 후 새로고침해 주세요.') })
     fetch('/api/insider-market', { cache: 'no-store' }).then(r => r.json())
       .then(j => { if (!alive) return; if (j.error) setErr(String(j.error)); else setD(j) })
       .catch(() => { if (alive) setErr('내부자 매수 데이터를 불러오지 못했습니다 — 잠시 후 새로고침해 주세요.') })
@@ -34,6 +43,12 @@ export default function UsSmartMoneyPage() {
         </div>
       </div>
 
+      {/* ── 절 1 · 지금 돈이 풀리고 있나, 마르고 있나 (기존 SSOT 조립) ── */}
+      {liqErr && <div style={{ background: CARD, border: `1px solid ${TK.amber400}44`, borderRadius: RAD.sm, padding: '10px 14px', fontSize: FS.tiny, color: TK.sub2 }}>⚠️ {liqErr}</div>}
+      {!liq && !liqErr && <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: RAD.sm, padding: '10px 14px', fontSize: FS.tiny, color: TK.sub }}>유동성 지표를 모으는 중…</div>}
+      {liq && <LiquiditySection q={liq} />}
+
+      {/* ── 절 3 · 회사를 제일 잘 아는 사람들이 사고 있는 회사는 ── */}
       {err && <div style={{ background: CARD, border: `1px solid ${TK.amber400}44`, borderRadius: RAD.sm, padding: '10px 14px', fontSize: FS.tiny, color: TK.sub2 }}>⚠️ {err}</div>}
       {!d && !err && <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: RAD.sm, padding: '10px 14px', fontSize: FS.tiny, color: TK.sub }}>지난 {WINDOW_DAYS}일 공시를 모으는 중…</div>}
 
@@ -81,6 +96,58 @@ export default function UsSmartMoneyPage() {
           </div>
         </section>
       )}
+    </div>
+  )
+}
+
+/** 절 1 — 질문 하나·답 한 줄·계기판 5개·계절이 말하는 유리/불리 섹터·교차 자산 사실 3줄. 확률 시나리오는 없다(가짜 정밀). */
+function LiquiditySection({ q }: { q: UsLiquidity }) {
+  return (
+    <section style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: RAD.md, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: SP.sm }}>
+      <div style={{ fontSize: FS.lg, fontWeight: 800, color: TK.slate100 }}>💧 지금 돈이 풀리고 있나, 마르고 있나</div>
+      <div style={{ fontSize: FS.body, color: TK.slate200, lineHeight: 1.6 }}>{q.answer}</div>
+      {q.weather && <div style={{ fontSize: FS.tiny, color: TK.sub, lineHeight: 1.6 }}>{q.weather.advice}</div>}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 8 }}>
+        {q.gauges.map(g => <GaugeCard key={g.key} g={g} />)}
+      </div>
+      {q.missing.length > 0 && <div style={{ fontSize: FS.micro, color: TK.amber400 }}>못 구한 지표: {q.missing.join(' · ')} — 빈 칸은 빈 칸으로 둡니다.</div>}
+
+      {q.season && (
+        <div style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: RAD.sm, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ fontSize: FS.tiny, color: TK.sub }}>이 국면에서 유리한 곳·불리한 곳 — <b style={{ color: TK.slate200 }}>미국 4계절 {q.season.ko}</b> 기준(앱의 계절 SSOT, 새 판정 아님)</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: FS.tiny, color: TK.green400, fontWeight: 700 }}>유리</span>
+            {q.season.favored.map(s => <span key={s.sector} style={{ fontSize: FS.tiny, color: TK.slate200, background: TK.bg1, border: `1px solid ${TK.green400}44`, borderRadius: RAD.pill, padding: '3px 10px' }}>{s.icon} {s.ko}</span>)}
+            <span style={{ fontSize: FS.tiny, color: TK.orange400, fontWeight: 700, marginLeft: 6 }}>불리</span>
+            {q.season.unfavored.map(s => <span key={s.sector} style={{ fontSize: FS.tiny, color: TK.slate200, background: TK.bg1, border: `1px solid ${TK.orange400}44`, borderRadius: RAD.pill, padding: '3px 10px' }}>{s.icon} {s.ko}</span>)}
+          </div>
+          <div style={{ fontSize: FS.tiny, color: TK.sub2, lineHeight: 1.55 }}>{q.season.guide}</div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {q.cross.map(c => (
+          <div key={c.label} style={{ flex: '1 1 160px', background: TK.bg0, borderRadius: RAD.xs, padding: '7px 10px' }}>
+            <div style={{ fontSize: FS.micro, color: TK.sub3 }}>{c.label} · 4주</div>
+            {/* 🇰🇷 등락 색 — 자산 가격 변화라 빨강↑ 파랑↓ */}
+            <div style={{ fontSize: FS.lg, fontWeight: 700, color: c.chg4wPct == null ? TK.sub3 : c.chg4wPct >= 0 ? TK.red400 : TK.blue400, fontVariantNumeric: 'tabular-nums' }}>{c.chg4wPct == null ? '—' : `${c.chg4wPct >= 0 ? '+' : ''}${c.chg4wPct}%`}</div>
+            <div style={{ fontSize: FS.micro, color: TK.sub }}>{c.note}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize: FS.micro, color: TK.sub3 }}>출처 {q.sources.join(' · ')} · 판정은 앱의 매크로 날씨·수익률곡선·4계절 SSOT 와 같은 값 · 3개월 확률 시나리오는 근거가 없어 만들지 않습니다</div>
+    </section>
+  )
+}
+function GaugeCard({ g }: { g: Gauge }) {
+  const c = TONE_C[g.tone]
+  return (
+    <div style={{ background: TK.bg3, border: `1px solid ${c}44`, borderRadius: RAD.sm, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <span style={{ fontSize: FS.tiny, color: TK.sub }}>{g.label}</span>
+      <span style={{ fontSize: FS.xl, fontWeight: 800, color: c, fontVariantNumeric: 'tabular-nums' }}>{g.value}</span>
+      {g.sub && <span style={{ fontSize: FS.micro, color: TK.sub3 }}>{g.sub}</span>}
+      <span style={{ fontSize: FS.tiny, color: TK.slate300, lineHeight: 1.55, marginTop: 2 }}>{g.meaning}</span>
     </div>
   )
 }
