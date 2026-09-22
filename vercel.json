@@ -118,6 +118,9 @@
     },
     "src/app/api/analyst-rerating/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/usm-record/route.ts": {
+      "maxDuration": 120
     }
   },
   "crons": [
@@ -232,6 +235,10 @@
     {
       "path": "/api/analyst-rerating?refresh=1",
       "schedule": "10 22 * * *"
+    },
+    {
+      "path": "/api/usm-record?refresh=1",
+      "schedule": "30 22 * * *"
     }
   ],
   "headers": [

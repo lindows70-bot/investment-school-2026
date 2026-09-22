@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { buildAnalystRerating, ANALYST_RERATING_KEY, type AnalystRerating } from '@/lib/analystRerating'
+import { appendUsmHistory } from '@/lib/usSmartHistory'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -16,5 +17,12 @@ export async function GET(req: Request) {
   const out = await buildAnalystRerating()
   if ('error' in out) return NextResponse.json(out, { status: 200 })
   if (out.okCount >= out.scanned * 0.7) await setCache(key, out)   // 부분실패 박제 금지
+  // 📋 성적 적립 — 크론(refresh=1)에서만, '진짜 리레이팅'만(목표가 소음·하향은 매수 신호가 아니다)
+  if (refresh && out.okCount >= out.scanned * 0.7) {
+    await appendUsmHistory(out.items.filter(i => i.verdict === 'rerating').map(i => ({
+      src: 'rerating' as const, ticker: i.ticker, name: i.name,
+      note: `증권사 ${i.upgrades}곳 상향 · 추정치 ${i.revUp ?? '—'}↑${i.upsidePct != null ? ` · 여력 ${i.upsidePct}%` : ''}`,
+    })))
+  }
   return NextResponse.json(out, { headers: { 'Cache-Control': 'no-store' } })
 }

@@ -62,6 +62,8 @@ export default function BriefingPage() {
   const cash = useFetch<{ needsSetup?: boolean; cashPct?: number; cashKrw?: number; verdict?: 'aggressive' | 'inband' | 'defensive' | null }>('/api/cash-position')
 
   const cal = useFetch<{ events: { type: string; dDay: number; ticker: string }[] }>('/api/event-calendar')
+  // 🇺🇸 미국 스마트머니 — 캐시만 읽는 가벼운 요약(계산·외부 호출 0). 차가우면 null 이 와서 줄 자체가 안 뜬다
+  const usm = useFetch<{ weather: { emoji: string; label: string; answer: string } | null; insider: { clusters: number; total: number; topSector: string | null } | null; rerating: { real: number; down: number; top: string | null } | null; etf: { days: number; hasFlow: boolean } | null }>('/api/us-smart-money-brief')
 
   // 🚪 출구 플랜 조인 — ② 정리 후보 옆에 '기술 출구신호(WHEN)'와 '버핏 기업 점검(WHAT)'을 나란히.
   //    리밸런싱(비중)·출구신호(타이밍)·버핏(기업)은 축이 다르므로 병기해야 학생이 "왜 정리인가"를 축별로 읽는다.
@@ -373,6 +375,20 @@ export default function BriefingPage() {
             )}
           </div>
         ) : <div style={{ fontSize: FS.tiny, color: TK.sub2 }}>{rot.unauth ? '로그인하면 보입니다.' : '로테이션 데이터 로드 실패.'}</div>}
+
+        {/* 🇺🇸 미국 스마트머니 한 줄 — 같은 질문('돈이 어디로')의 미국 판. 학생이 매일 여는 곳은 브리핑이지 새 메뉴가 아니다.
+            ⚠️ 무거운 3개 라우트를 각각 부르지 않고 캐시만 읽는 요약 1개(/api/us-smart-money-brief)로 — 대시보드 42개 동시 호출 사고 참고 */}
+        {usm.d && (usm.d.weather || usm.d.insider || usm.d.rerating) && (
+          <div style={{ marginTop: 9, background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 9, padding: '8px 11px', fontSize: FS.tiny, color: TK.slate300, lineHeight: 1.7 }}>
+            🇺🇸 <b style={{ color: TK.slate200 }}>미국 스마트머니</b>
+            {usm.d.weather && <> — 유동성 {usm.d.weather.emoji} {usm.d.weather.label.split(' — ')[0]}</>}
+            {usm.d.insider && <> · 내부자가 <b style={{ color: TK.amber400 }}>함께 산 곳 {usm.d.insider.clusters}곳</b>{usm.d.insider.topSector ? `(${usm.d.insider.topSector} 집중)` : ''}</>}
+            {usm.d.rerating && <> · 증권사 무더기 상향 <b style={{ color: TK.green400 }}>{usm.d.rerating.real}곳</b>{usm.d.rerating.down ? ` · 하향 ${usm.d.rerating.down}곳` : ''}</>}
+            {usm.d.etf && !usm.d.etf.hasFlow && <span style={{ color: TK.sub3 }}> · ETF 자금 흐름은 {usm.d.etf.days}일째 적립 중</span>}
+            {' '}<a href="/us-smart-money" style={{ color: TK.indigo400, textDecoration: 'none', fontWeight: 700 }}>자세히 →</a>
+            <div style={{ color: TK.sub3 }}>추천이 아니라 출발점입니다 — 종목은 리서치에서 다시 확인하세요.</div>
+          </div>
+        )}
       </Section>
 
       {/* ④½ ⚔️ 승패 해부 — 지금 장에서 뭐가 통하나(시장의 채점 기준) */}

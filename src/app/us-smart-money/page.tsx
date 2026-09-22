@@ -7,12 +7,16 @@ import { LIMITS, WINDOW_DAYS, type InsiderMarket, type InsiderMarketItem } from 
 import type { UsLiquidity, Gauge, Tone } from '@/lib/usLiquidity'   // type-only — 번들에 안 실린다
 import type { EtfFlow, EtfFlowItem } from '@/lib/etfFlow'
 import type { AnalystRerating, ReratingItem } from '@/lib/analystRerating'
+import type { gradeUsm } from '@/lib/usSmartHistory'
+type UsmRecord = Awaited<ReturnType<typeof gradeUsm>>
 import { TK, FS, RAD, SP } from '@/lib/theme'
 
 const TONE_C: Record<Tone, string> = { good: TK.green400, warn: TK.amber400, bad: TK.orange400, neutral: TK.slate300 }
 
 const CARD = TK.card, BORDER = TK.border
 const usd = (n: number) => n >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${Math.round(n / 1e3)}K` : `$${Math.round(n)}`
+/** 그룹 합계가 일부만 더해진 경우에만 '(3/11개)' 를 붙인다 — 전부면 군더더기 */
+const partOf = (of: string | null) => { if (!of) return ''; const [n, tot] = of.split('/'); return n === tot ? '' : ` (${n}/${tot}개)` }
 const md = (d: string) => d ? d.slice(5).replace('-', '/') : '—'
 
 export default function UsSmartMoneyPage() {
@@ -25,6 +29,7 @@ export default function UsSmartMoneyPage() {
   const [flowErr, setFlowErr] = useState<string | null>(null)
   const [an, setAn] = useState<AnalystRerating | null>(null)
   const [anErr, setAnErr] = useState<string | null>(null)
+  const [rec, setRec] = useState<UsmRecord | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -38,6 +43,8 @@ export default function UsSmartMoneyPage() {
     fetch('/api/analyst-rerating', { cache: 'no-store' }).then(r => r.json())
       .then(j => { if (!alive) return; if (j.error) setAnErr(j.note ?? String(j.error)); else setAn(j) })
       .catch(() => { if (alive) setAnErr('애널리스트 리레이팅을 불러오지 못했습니다 — 잠시 후 새로고침해 주세요.') })
+    // 성적표는 실패해도 화면의 다른 절을 막지 않는다(없으면 섹션 자체가 안 뜬다)
+    fetch('/api/usm-record', { cache: 'no-store' }).then(r => r.json()).then(j => { if (alive && !j.error) setRec(j) }).catch(() => { /* 조용히 생략 */ })
     fetch('/api/insider-market', { cache: 'no-store' }).then(r => r.json())
       .then(j => { if (!alive) return; if (j.error) setErr(String(j.error)); else setD(j) })
       .catch(() => { if (alive) setErr('내부자 매수 데이터를 불러오지 못했습니다 — 잠시 후 새로고침해 주세요.') })
@@ -118,7 +125,69 @@ export default function UsSmartMoneyPage() {
       {anErr && <div style={{ background: CARD, border: `1px solid ${TK.amber400}44`, borderRadius: RAD.sm, padding: '10px 14px', fontSize: FS.tiny, color: TK.sub2 }}>⚠️ {anErr}</div>}
       {!an && !anErr && <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: RAD.sm, padding: '10px 14px', fontSize: FS.tiny, color: TK.sub }}>애널리스트 등급 변경을 훑는 중…</div>}
       {an && <ReratingSection a={an} />}
+
+      {/* ── 📋 이 화면의 실제 성적 — 목록을 보여주는 이상 학생은 추천으로 읽는다. 그러면 성적도 함께 보여야 정직하다 ── */}
+      {rec && <RecordSection r={rec} />}
     </div>
+  )
+}
+
+/** 📋 적립 성적 — 스윙 성적표와 같은 관례: 소급 없음 · 진입가는 등재일 완성 종가 · 표본 10건·2주 미만이면 '참고용' */
+function RecordSection({ r }: { r: UsmRecord }) {
+  const all = r.grades.filter(g => g.src === 'all')
+  if (!all.length) return null
+  const lab: Record<string, string> = { insider: '🕵️ 내부자 클러스터', rerating: '🎧 진짜 리레이팅', all: '📋 전체' }
+  const started = all[0].firstDate
+  const pending = all[0].pending
+  const scored = all.some(g => g.n > 0)
+  return (
+    <section style={{ background: CARD, border: `1px solid ${TK.indigo400}33`, borderRadius: RAD.md, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: SP.sm }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: FS.lg, fontWeight: 800, color: TK.slate100 }}>📋 이 화면에 오른 종목의 실제 성적</span>
+        <span style={{ fontSize: FS.micro, color: TK.sub3 }}>{started ? `${started}부터 적립 중` : '아직 적립 이력이 없습니다'} · 소급 채점 없음</span>
+      </div>
+      <div style={{ fontSize: FS.tiny, color: TK.sub, lineHeight: 1.6 }}>
+        진입가는 <b>목록에 오른 날의 완성 종가</b>입니다(장중가 아님). 매도 신호가 없는 화면이라 손절 채점도 없고, 같은 기간 <b>시장(SPY)</b>과의 차이(초과분)를 함께 잽니다 — 오른 게 이 신호 덕인지 장 덕인지 갈라야 하니까요.
+      </div>
+      {!scored ? (
+        <div style={{ background: TK.bg3, border: `1px dashed ${BORDER}`, borderRadius: RAD.sm, padding: '14px', fontSize: FS.tiny, color: TK.sub2, lineHeight: 1.7 }}>
+          {pending > 0
+            ? <>지금 <b>{pending}건</b>이 기간을 채우는 중입니다 — 20거래일(약 한 달)이 지나야 첫 숫자가 나옵니다. <b>아직 숫자를 말할 수 없습니다.</b></>
+            : <>적립을 막 시작했습니다. 내일 크론부터 하나씩 쌓입니다.</>}
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 8 }}>
+          {r.grades.filter(g => g.n > 0 || g.pending > 0).map(g => (
+            <div key={`${g.src}-${g.bars}`} style={{ background: TK.bg3, borderRadius: RAD.sm, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <span style={{ fontSize: FS.micro, color: TK.sub3 }}>{lab[g.src]} · {g.bars}거래일</span>
+              {g.n === 0 ? <span style={{ fontSize: FS.tiny, color: TK.sub2 }}>{g.pending}건 기간 미경과</span> : (<>
+                <span style={{ fontSize: FS.xl, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: g.thin ? TK.sub3 : (g.edgePp ?? 0) > 0 ? TK.green400 : TK.orange400 }}>
+                  {g.edgePp == null ? '—' : `${g.edgePp > 0 ? '+' : ''}${g.edgePp}%p`}
+                </span>
+                <span style={{ fontSize: FS.micro, color: TK.sub }}>시장 대비 · 평균 {g.avgPct}% vs 시장 {g.benchAvgPct}% · 승률 {g.winRate}% · {g.n}건{g.pending ? ` (+${g.pending} 진행)` : ''}</span>
+                {g.thin && <span style={{ fontSize: FS.micro, color: TK.amber400 }}>⚠️ 표본 {g.n}건·{g.cohorts}개 주 — 통계가 아니라 기록입니다</span>}
+              </>)}
+            </div>
+          ))}
+        </div>
+      )}
+      {r.recent.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: FS.tiny, color: TK.sub }}>최근 적립 — 승률만 보지 말고 개별 건을 확인하세요</span>
+          {r.recent.slice(0, 6).map((x, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: TK.bg0, borderRadius: RAD.xs, padding: '6px 10px', fontSize: FS.tiny }}>
+              <span style={{ color: TK.sub3, width: 44 }}>{x.date.slice(5)}</span>
+              <span>{x.src === 'insider' ? '🕵️' : '🎧'}</span>
+              <b style={{ color: TK.slate100 }}>{x.name}</b>
+              <span style={{ color: TK.sub3, fontSize: FS.micro }}>{x.note}</span>
+              <span style={{ marginLeft: 'auto', fontVariantNumeric: 'tabular-nums', color: x.retPct == null ? TK.sub3 : x.retPct >= 0 ? TK.red400 : TK.blue400 }}>
+                {x.retPct == null ? '—' : `${x.retPct >= 0 ? '+' : ''}${x.retPct}%`}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -228,6 +297,7 @@ function FlowSection({ f }: { f: EtfFlow }) {
       <div style={{ fontSize: FS.body, color: TK.slate200, lineHeight: 1.6 }}>{f.answer}</div>
       <div style={{ fontSize: FS.micro, color: TK.sub3 }}>
         {f.items.length}개 대표 ETF · 순자산 스냅샷 {f.daysCollected}일{f.firstDay ? ` (${f.firstDay.slice(5)}~${f.lastDay?.slice(5)})` : ''} · 순유입 = 순자산 변화 − 시장 등락분(역산 추정, 운용사 공식 집계와 다를 수 있음)
+        {haveFlow && <> · 각 수치에 마우스를 올리면 <b>실제로 잰 구간</b>이 나옵니다 — 스냅샷이 빠져 기간이 벌어진 종목은 값을 비웁니다(‘1주’가 3주가 되지 않게)</>}
       </div>
       {!haveFlow && (
         <div style={{ background: `${TK.amber400}12`, border: `1px solid ${TK.amber400}44`, borderRadius: RAD.xs, padding: '7px 10px', fontSize: FS.tiny, color: TK.amber400, lineHeight: 1.6 }}>
@@ -242,7 +312,7 @@ function FlowSection({ f }: { f: EtfFlow }) {
             <div key={g.group} style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: RAD.sm }}>
               <button onClick={() => setOpen(isOpen ? null : g.group)} style={{ width: '100%', minHeight: 44, display: 'flex', alignItems: 'center', gap: 10, background: 'transparent', border: 'none', color: TK.slate200, padding: '8px 12px', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
                 <b style={{ fontSize: FS.tiny, flexGrow: 1 }}>{g.ko}</b>
-                {g.flow1w != null && <span style={{ fontSize: FS.tiny, color: g.flow1w >= 0 ? TK.red400 : TK.blue400, fontVariantNumeric: 'tabular-nums' }}>1주 {money(g.flow1w)}</span>}
+                {g.flow1w != null && <span style={{ fontSize: FS.tiny, color: g.flow1w >= 0 ? TK.red400 : TK.blue400, fontVariantNumeric: 'tabular-nums' }}>1주 {money(g.flow1w)}{partOf(g.flow1wOf)}</span>}
                 {g.ret1m != null && <span style={{ fontSize: FS.tiny, color: g.ret1m >= 0 ? TK.red400 : TK.blue400, fontVariantNumeric: 'tabular-nums' }}>1개월 평균 {g.ret1m >= 0 ? '+' : ''}{g.ret1m}%</span>}
                 <span style={{ fontSize: FS.micro, color: TK.sub3 }}>{isOpen ? '▲' : '▼'}</span>
               </button>
@@ -269,8 +339,8 @@ function FlowRow({ i, money }: { i: EtfFlowItem; money: (v: number) => string })
       <b style={{ color: TK.slate100, minWidth: 96 }}>{i.name}</b>
       <span style={{ color: TK.sub3, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: FS.micro }}>{i.t}</span>
       <span style={{ marginLeft: 'auto', display: 'flex', gap: 10, flexWrap: 'wrap', fontVariantNumeric: 'tabular-nums' }}>
-        {i.flow1w != null ? <span style={{ color: c(i.flow1w) }}>1주 {money(i.flow1w)}{i.flow1wPct != null ? ` · 자산의 ${i.flow1wPct}%` : ''}</span> : null}
-        {i.flow1m != null ? <span style={{ color: c(i.flow1m) }}>1개월 {money(i.flow1m)}</span> : null}
+        {i.flow1w != null ? <span style={{ color: c(i.flow1w) }} title={`실제로 잰 구간 ${i.flow1wRange}`}>1주 {money(i.flow1w)}{i.flow1wPct != null ? ` · 자산의 ${i.flow1wPct}%` : ''}</span> : null}
+        {i.flow1m != null ? <span style={{ color: c(i.flow1m) }} title={`실제로 잰 구간 ${i.flow1mRange}`}>1개월 {money(i.flow1m)}</span> : null}
         <span style={{ color: c(i.ret1m) }}>값 1개월 {i.ret1m == null ? '—' : `${i.ret1m >= 0 ? '+' : ''}${i.ret1m}%`}</span>
         {i.volX != null && <span style={{ color: i.volX >= 2 ? TK.amber400 : TK.sub }}>{i.volX >= 2 ? '📢 ' : ''}거래량 {i.volX}배</span>}
         {i.accel && <span style={{ color: TK.amber400, fontWeight: 700 }}>🔺 가속</span>}

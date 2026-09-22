@@ -30,6 +30,15 @@ const LENSES: Lens[] = [
     basis: '지금 돈이 몰려 오르는 섹터·소섹터의 대표 ETF. 근거 = 상대강도 × 모멘텀(자금 흐름의 국면). 개별 종목보다 "흐름".' },
   { icon: '🐎', name: '신고가 레이더', color: TK.orange400, href: '/hi52-radar',
     basis: '52주 신고가권(달리는 말)을 모집단으로, 자체 백테스트로 검증된 눌림 트리거가 온 자리만 골라낸다. 갓 돌파 추격은 실측에서 나빠 배제. 근거 = 추세 × 타점.' },
+  // 2026-09-22 등록 — 8월에 만든 뒤 이 지도에 빠져 있었다(사이드바에만 있어 '모든 추천 입구'라는 이름이 거짓이었다)
+  { icon: '🎯', name: '스윙 타점', color: TK.green400, href: '/swing',
+    basis: '1~2주 단기 매매 전용 트랙. 5년 백테스트에서 살아남은 3기법(눌린 값 회복·추세 올라타기·바닥 급등)만, 그 기법이 통한 국면에서만 자리를 연다. 대부분의 날은 "자리 없음"이 정답. 근거 = 완성 종가 × 국면 × 손절선.' },
+]
+
+// 추천이 아니라 '출발점'인 화면 — 같은 지도에 두되 위계를 분명히 한다(여기 것을 6축 점수에 섞지 않는다)
+const STARTERS: Lens[] = [
+  { icon: '🇺🇸', name: '미국 스마트머니', color: '#38bdf8', href: '/us-smart-money',
+    basis: '미국 시장 전체의 공시·자금 흐름에서 "누가 무엇을 사고 있나"만 추린다 — 유동성 → 섹터 → 내부자 매수 → 애널리스트 리레이팅. ⛔ 추천·점수가 아니라 **모집단**: 여기서 고른 종목은 종목 리서치에서 다시 판정한다.' },
 ]
 
 // 파이프라인 단계 노드
@@ -163,6 +172,14 @@ export default function RecoHub() {
         <div style={{ fontSize: 11.5, fontWeight: 900, color: TK.sub2, letterSpacing: '0.05em', margin: '4px 2px 9px' }}>🔍 특수 렌즈 — 각기 다른 근거(참고용)</div>
         <div style={{ display: 'flex', gap: 11, flexWrap: 'wrap' }}>
           {LENSES.map(l => <LensCard key={l.name} l={l} />)}
+        </div>
+      </div>
+
+      {/* 출발점 — 추천이 아니라 모집단(위계상 렌즈보다 앞) */}
+      <div>
+        <div style={{ fontSize: 11.5, fontWeight: 900, color: TK.sub2, letterSpacing: '0.05em', margin: '4px 2px 9px' }}>🧭 출발점 — 추천이 아니라 &lsquo;어디를 볼까&rsquo;</div>
+        <div style={{ display: 'flex', gap: 11, flexWrap: 'wrap' }}>
+          {STARTERS.map(l => <LensCard key={l.name} l={l} />)}
         </div>
       </div>
 

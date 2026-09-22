@@ -62,7 +62,8 @@ export async function snapshotEtfs(): Promise<{ day: string; ok: number; fail: s
 export interface EtfFlowItem {
   t: string; name: string; group: EtfGroup; groupKo: string
   aum: number                               // 최신 순자산(USD)
-  flow1w: number | null; flow1m: number | null   // 역산 순유입(USD) — 스냅샷이 모자라면 null
+  flow1w: number | null; flow1m: number | null   // 역산 순유입(USD) — 스냅샷이 모자라거나 기간이 벌어지면 null
+  flow1wRange: string | null; flow1mRange: string | null   // 실제로 잰 구간(MM-DD~MM-DD) — '1주'라는 라벨이 거짓이 되지 않게 함께 보여준다
   flow1wPct: number | null                  // 1주 순유입 / 순자산 %
   accel: boolean                            // 1주 일평균 유입이 1개월 일평균의 1.5배 이상(그리고 양수)
   ret1m: number | null; volX: number | null // 1개월 등락 % · 최근 5일 평균 거래량 / 20일 평균 배수
@@ -72,7 +73,7 @@ export interface EtfFlow {
   asOf: string
   daysCollected: number; firstDay: string | null; lastDay: string | null
   items: EtfFlowItem[]
-  groups: { group: EtfGroup; ko: string; flow1w: number | null; flow1m: number | null; ret1m: number | null }[]
+  groups: { group: EtfGroup; ko: string; flow1w: number | null; flow1wOf: string | null; flow1m: number | null; flow1mOf: string | null; ret1m: number | null }[]
   answer: string
   usdKrw: number | null
 }
@@ -82,12 +83,17 @@ export async function buildEtfFlow(usdKrw: number | null): Promise<EtfFlow> {
   const snaps: EtfSnapDoc[] = []
   for (let off = 0; off < 45; off++) { const d = await getCache<EtfSnapDoc>(ETF_SNAP_KEY(etDay(off)), 400 * 86400_000); if (d) snaps.push(d) }
   snaps.sort((a, b) => a.day.localeCompare(b.day))
-  const flowOver = (t: string, n: number): number | null => {
+  // ⚠️ 기간은 **달력으로** 확인한다 — 스냅샷 개수로만 세면 하루 빠진 날에 '1주'가 조용히 2~3주가 된다
+  //    (CLAUDE.md 인덱스 산술 함정 · CPI 13개월 차분 사고와 같은 모양). 허용 간격을 넘으면 값을 내지 않는다.
+  const flowOver = (t: string, n: number): { v: number; from: string; to: string; span: number } | null => {
     const s = snaps.filter(x => x.etfs[t]).slice(-(n + 1))
     if (s.length < n + 1) return null
+    const from = s[0].day, to = s[s.length - 1].day
+    const span = Math.round((Date.parse(to) - Date.parse(from)) / 86400_000)
+    if (span > n * 1.6 + 4) return null      // n 거래일 ≈ n×1.4 달력일 + 여유. 구멍이 크면 기간을 속이느니 비운다
     let f = 0
     for (let i = 1; i < s.length; i++) { const a = s[i - 1].etfs[t], b = s[i].etfs[t]; f += b.aum - a.aum * (b.nav / a.nav) }
-    return f
+    return { v: f, from, to, span }
   }
   const items: EtfFlowItem[] = []
   for (const e of ETF_UNIVERSE) {
@@ -99,16 +105,22 @@ export async function buildEtfFlow(usdKrw: number | null): Promise<EtfFlow> {
       if (D.length > 25) { const v = (k: number, n: number) => D.slice(D.length - k - n, D.length - k).reduce((s, x) => s + (x.volume ?? 0), 0) / n; const base = v(5, 20); volX = base > 0 ? Math.round(v(0, 5) / base * 100) / 100 : null }
     } catch { /* 캔들 실패 — 칸을 비운다 */ }
     if (!latest) continue
-    const flow1w = flowOver(e.t, 5), flow1m = flowOver(e.t, 20)
-    const accel = flow1w != null && flow1m != null && flow1w > 0 && flow1w / 5 >= (flow1m / 20) * 1.5
+    const w = flowOver(e.t, 5), m = flowOver(e.t, 20)
+    const flow1w = w?.v ?? null, flow1m = m?.v ?? null
+    const accel = w != null && m != null && w.v > 0 && w.v / 5 >= (m.v / 20) * 1.5
     const divergence = flow1m != null && ret1m != null ? (flow1m > 0 && ret1m < -2 ? 'inflow-down' : flow1m < 0 && ret1m > 2 ? 'outflow-up' : null) : null
-    items.push({ t: e.t, name: e.name, group: e.group, groupKo: GROUP_KO[e.group], aum: latest.aum, flow1w, flow1m, flow1wPct: flow1w != null ? Math.round(flow1w / latest.aum * 1000) / 10 : null, accel, ret1m, volX, divergence })
+    items.push({ t: e.t, name: e.name, group: e.group, groupKo: GROUP_KO[e.group], aum: latest.aum, flow1w, flow1m,
+      flow1wRange: w ? `${w.from.slice(5)}~${w.to.slice(5)}` : null, flow1mRange: m ? `${m.from.slice(5)}~${m.to.slice(5)}` : null,
+      flow1wPct: flow1w != null ? Math.round(flow1w / latest.aum * 1000) / 10 : null, accel, ret1m, volX, divergence })
   }
   const groups = (Object.keys(GROUP_KO) as EtfGroup[]).map(g => {
     const xs = items.filter(i => i.group === g)
-    const sum = (k: 'flow1w' | 'flow1m') => xs.some(i => i[k] != null) ? xs.reduce((s, i) => s + (i[k] ?? 0), 0) : null
+    // ⚠️ 그룹 합계는 **값이 있는 것만 더하고 몇 개인지 밝힌다** — 절반이 빠진 합계를 전체인 양 보여주면 그 자체가 거짓말이다
+    const sum = (k: 'flow1w' | 'flow1m') => { const v = xs.filter(i => i[k] != null); return v.length ? { v: v.reduce((s, i) => s + (i[k] ?? 0), 0), n: v.length } : null }
     const rets = xs.map(i => i.ret1m).filter((v): v is number => v != null)
-    return { group: g, ko: GROUP_KO[g], flow1w: sum('flow1w'), flow1m: sum('flow1m'), ret1m: rets.length ? Math.round(rets.reduce((s, v) => s + v, 0) / rets.length * 10) / 10 : null }
+    const w = sum('flow1w'), m = sum('flow1m')
+    return { group: g, ko: GROUP_KO[g], flow1w: w?.v ?? null, flow1wOf: w ? `${w.n}/${xs.length}` : null, flow1m: m?.v ?? null, flow1mOf: m ? `${m.n}/${xs.length}` : null,
+      ret1m: rets.length ? Math.round(rets.reduce((s, v) => s + v, 0) / rets.length * 10) / 10 : null }
   })
   const days = snaps.length
   const haveW = items.some(i => i.flow1w != null)
