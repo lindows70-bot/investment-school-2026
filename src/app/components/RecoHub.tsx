@@ -2,7 +2,7 @@
 // 🗺️ 종목 추천 지도 — 여러 곳이 각기 다른 근거로 추천하는 걸 한 곳에 모아 위계·근거를 인포그래픽으로 설명(정적 안내 지도)
 //    엔진 재구축 0(SSOT 무손상) · 데이터 fetch 0 · 추천 파이프라인 시각화 + 렌즈 메달리온 카드. 학생 혼란 해소.
 import type { ReactNode } from 'react'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 
 const BORDER = '#2a2f3a'
 
@@ -37,7 +37,7 @@ const LENSES: Lens[] = [
 
 // 추천이 아니라 '출발점'인 화면 — 같은 지도에 두되 위계를 분명히 한다(여기 것을 6축 점수에 섞지 않는다)
 const STARTERS: Lens[] = [
-  { icon: '🇺🇸', name: '미국 스마트머니', color: '#38bdf8', href: '/us-smart-money',
+  { icon: '🇺🇸', name: '미국 스마트머니', color: TK.sky400, href: '/us-smart-money',
     basis: '미국 시장 전체의 공시·자금 흐름에서 "누가 무엇을 사고 있나"만 추린다 — 유동성 → 섹터 → 내부자 매수 → 애널리스트 리레이팅. ⛔ 추천·점수가 아니라 **모집단**: 여기서 고른 종목은 종목 리서치에서 다시 판정한다.' },
 ]
 
@@ -177,7 +177,8 @@ export default function RecoHub() {
 
       {/* 출발점 — 추천이 아니라 모집단(위계상 렌즈보다 앞) */}
       <div>
-        <div style={{ fontSize: 11.5, fontWeight: 900, color: TK.sub2, letterSpacing: '0.05em', margin: '4px 2px 9px' }}>🧭 출발점 — 추천이 아니라 &lsquo;어디를 볼까&rsquo;</div>
+        {/* 옆 섹션 라벨들은 11.5 리터럴이지만 신규 줄은 토큰을 쓴다(0.5px 차이는 눈에 안 보인다 — 제1-b) */}
+        <div style={{ fontSize: FS.micro, fontWeight: 900, color: TK.sub2, letterSpacing: '0.05em', margin: '4px 2px 9px' }}>🧭 출발점 — 추천이 아니라 &lsquo;어디를 볼까&rsquo;</div>
         <div style={{ display: 'flex', gap: 11, flexWrap: 'wrap' }}>
           {STARTERS.map(l => <LensCard key={l.name} l={l} />)}
         </div>
