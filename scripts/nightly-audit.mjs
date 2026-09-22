@@ -136,7 +136,9 @@ try {
   }
 
   if (!base) out.push('- 기준 커밋을 찾지 못했습니다(저장소 이력 부족). 건너뜀.')
-  else if (n === 0) { out.push('- 지난 감사 이후 새 커밋 없음 → 리뷰 건너뜀(한도 절약).'); status.codex = 'ok' }
+  // ⚠️ '볼 게 없어서 안 봤다'를 '봤는데 깨끗하다'로 적으면 안 된다 — 배너가 ✅(Codex) 로 나와
+  //    읽는 사람은 리뷰가 통과했다고 읽는다(2026-09-22 실제 보고서에서 확인). skip 은 skip 으로.
+  else if (n === 0) { out.push('- 지난 감사 이후 새 커밋 없음 → 리뷰할 것이 없습니다(한도 절약).'); status.codex = 'nocommit' }
   else if (cool && cool.at > Date.now()) {
     // 한도가 아직 안 풀렸다 — 부르지 않는다(불러 봐야 같은 에러를 받고 시간만 태운다).
     status.codex = 'cooldown'
@@ -211,10 +213,11 @@ out.push('', '---',
   `_${Math.round((Date.now() - t0) / 1000)}초 · 읽기 전용(코드 변경 없음) · 지적은 재현으로 확인 후 채택할 것_`)
 
 // 최상단 상태 배너 — 보고서가 '있다'는 것과 '제대로 돌았다'는 건 다른 말이다.
-const icon = { ok: '✅', fail: '❌', skip: '⏭️', cooldown: '⏳', gemini: '🔁' }
+const icon = { ok: '✅', fail: '❌', skip: '⏭️', nocommit: '⏭️', cooldown: '⏳', gemini: '🔁' }
+const codexTag = { gemini: '(Gemini 폴백)', ok: '(Codex)', nocommit: '(새 커밋 없음)' }[status.codex] ?? ''
 const gap = gapDays()
 const banner = [
-  `**상태** — 코드 리뷰 ${icon[status.codex]}${status.codex === 'gemini' ? '(Gemini 폴백)' : status.codex === 'ok' ? '(Codex)' : ''} · 캐시 정합성 ${icon[status.gemini]} · 불변식 ${icon[status.invariants]}`,
+  `**상태** — 코드 리뷰 ${icon[status.codex]}${codexTag} · 캐시 정합성 ${icon[status.gemini]} · 불변식 ${icon[status.invariants]}`,
 ]
 if (gap > 1) banner.push(`> ⚠️ **직전 감사가 ${gap}일 전입니다** — 그 사이 감사가 돌지 않았습니다(PC 절전·배터리 등).`)
 // ⚠️ 날짜를 하드코딩하지 마라 — '2026-08-27까지'가 박혀 있어 한도가 풀린 뒤에도 그렇게 읽혔다.
