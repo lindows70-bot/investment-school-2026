@@ -401,7 +401,7 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
             </div>
             <div style={{ height: 170 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={series} margin={{ top: 4, right: 6, left: -16, bottom: 0 }}>
+                <LineChart data={series} margin={{ top: 4, right: 6, left: 0, bottom: 0 }}>
                   <XAxis dataKey="date" tick={{ fill: TK.sub2, fontSize: FS.micro }} tickFormatter={(s: string) => s.slice(0, 4)} ticks={yearTicksOf(series)} interval={0} axisLine={{ stroke: BORDER }} tickLine={false} />
                   <YAxis scale="log" tick={{ fill: TK.sub2, fontSize: FS.micro }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={38} tickFormatter={(v: number) => `${v}`} />
                   <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: FS.tiny }}
