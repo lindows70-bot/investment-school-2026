@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts'
 import type { StablecoinResult, StableRisk } from '@/app/api/stablecoin/route'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 
 const CARD = TK.bg6, BORDER = TK.border
 const RISK: Record<StableRisk, { c: string; ko: string }> = {
@@ -62,8 +62,8 @@ export default function StablecoinRadar() {
         <ResponsiveContainer width="100%" height={190}>
           <AreaChart data={d.mcapSeries} margin={{ top: 6, right: 10, left: 6, bottom: 2 }}>
             <defs><linearGradient id="stbl" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#26a17b" stopOpacity={0.4} /><stop offset="100%" stopColor="#26a17b" stopOpacity={0.02} /></linearGradient></defs>
-            <XAxis dataKey="date" tickFormatter={(v: string) => v.slice(0, 7)} tick={{ fill: TK.sub3, fontSize: 10 }} minTickGap={44} />
-            <YAxis tick={{ fill: TK.sub3, fontSize: 10 }} tickFormatter={fmtB} width={48} />
+            <XAxis dataKey="date" tickFormatter={(v: string) => v.slice(0, 7)} tick={{ fill: TK.sub3, fontSize: FS.micro }} minTickGap={44} />
+            <YAxis tick={{ fill: TK.sub3, fontSize: FS.micro }} tickFormatter={fmtB} width={48} />
             <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 12 }} formatter={mcapTip} labelStyle={{ color: TK.slate300 }} />
             <Area dataKey="mcap" stroke="#26a17b" strokeWidth={2} fill="url(#stbl)" />
           </AreaChart>
@@ -93,14 +93,14 @@ export default function StablecoinRadar() {
             <div style={{ position: 'relative', height: 12, background: `linear-gradient(90deg,${TK.red500},${TK.amber400},${TK.green500})`, borderRadius: 6, opacity: 0.85, marginBottom: 4 }}>
               <div style={{ position: 'absolute', left: `${pos}%`, top: -3, transform: 'translateX(-50%)', width: 4, height: 18, background: TK.slate200, borderRadius: 2, boxShadow: '0 0 4px #000' }} />
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9.5, color: TK.sub, marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FS.micro, color: TK.sub, marginBottom: 8 }}>
               <span>5% 현금소진(과열)</span><span>~10% 중립</span><span>16% 현금풍부(공포)</span>
             </div>
             <div style={{ background: `${zc}12`, border: `1px solid ${zc}33`, borderRadius: 8, padding: '8px 12px' }}>
               <div style={{ color: zc, fontWeight: 800, fontSize: 12, marginBottom: 2 }}>{zlabel}</div>
               <div style={{ color: TK.slate300, fontSize: 11, lineHeight: 1.6 }}>{zdesc}</div>
             </div>
-            <div style={{ color: TK.sub, fontSize: 9.5, marginTop: 6 }}>※ 주식의 &lsquo;현금 비중·칵테일 파티 지수&rsquo;와 같은 역발상 지표 — 전체 암호 시총 {d.cryptoMcap != null ? fmtB(d.cryptoMcap) : '—'} 기준. 절대 매매 신호 아님(교육용).</div>
+            <div style={{ color: TK.sub, fontSize: FS.micro, marginTop: 6 }}>※ 주식의 &lsquo;현금 비중·칵테일 파티 지수&rsquo;와 같은 역발상 지표 — 전체 암호 시총 {d.cryptoMcap != null ? fmtB(d.cryptoMcap) : '—'} 기준. 절대 매매 신호 아님(교육용).</div>
           </div>
         )
       })()}
@@ -110,13 +110,13 @@ export default function StablecoinRadar() {
         {/* 종류별 위험도 */}
         <div style={{ flex: '1 1 300px', background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '13px 15px' }}>
           <div style={{ color: TK.slate200, fontWeight: 800, fontSize: 13, marginBottom: 3 }}>🔍 담보 종류별 위험도</div>
-          <div style={{ color: TK.sub2, fontSize: 10.5, marginBottom: 10 }}>무엇으로 1달러를 보증하나 — 담보 구조가 안전도를 가른다</div>
+          <div style={{ color: TK.sub2, fontSize: FS.tiny, marginBottom: 10 }}>무엇으로 1달러를 보증하나 — 담보 구조가 안전도를 가른다</div>
           {d.byMech.map(m => (
             <div key={m.mechanism} style={{ marginBottom: 9 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 3 }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: RISK[m.risk].c, display: 'inline-block' }} />
                 <span style={{ color: TK.slate200, fontWeight: 700, fontSize: 12 }}>{m.ko}</span>
-                <span style={{ color: RISK[m.risk].c, fontSize: 10, fontWeight: 700 }}>{RISK[m.risk].ko}</span>
+                <span style={{ color: RISK[m.risk].c, fontSize: FS.tiny, fontWeight: 700 }}>{RISK[m.risk].ko}</span>
                 <span style={{ marginLeft: 'auto', color: TK.slate300, fontSize: 11.5, fontWeight: 700, fontFamily: 'monospace' }}>{fmtB(m.mcap)} · {m.share}%</span>
               </div>
               <div style={{ height: 7, background: TK.bg3, borderRadius: 4, overflow: 'hidden' }}>
@@ -124,7 +124,7 @@ export default function StablecoinRadar() {
               </div>
             </div>
           ))}
-          <div style={{ color: TK.sub, fontSize: 9.5, lineHeight: 1.5, marginTop: 4 }}>
+          <div style={{ color: TK.sub, fontSize: FS.micro, lineHeight: 1.5, marginTop: 4 }}>
             법정담보(USDT·USDC)=현금·국채 보유 → 상대 안전 · 알고리즘(무담보)=코드로 페그 유지 → <b style={{ color: TK.red400 }}>테라(UST) 붕괴의 주범</b>. 알고리즘 비중이 0%에 가까운 건 시장이 위험을 학습한 결과.
           </div>
         </div>
@@ -135,7 +135,7 @@ export default function StablecoinRadar() {
             <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 13 }}>🎯 페그 안정성 모니터</span>
             <span style={{ marginLeft: 'auto', color: d.depegAlerts.length ? TK.red400 : TK.green400, fontSize: 11, fontWeight: 700 }}>{d.depegAlerts.length ? `⚠️ ${d.depegAlerts.length}종 이탈` : '✓ 주요 코인 페그 안정'}</span>
           </div>
-          <div style={{ color: TK.sub2, fontSize: 10.5, marginBottom: 9 }}>$1 페그 유지 여부 — 0.5%↑ 벗어나면 경보(USDC SVB 사태 $0.87)</div>
+          <div style={{ color: TK.sub2, fontSize: FS.tiny, marginBottom: 9 }}>$1 페그 유지 여부 — 0.5%↑ 벗어나면 경보(USDC SVB 사태 $0.87)</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {d.coins.slice(0, 7).map(c => {
               const dev = c.depegPct ?? 0
@@ -147,15 +147,15 @@ export default function StablecoinRadar() {
                   style={{ display: 'flex', alignItems: 'center', gap: 8, background: TK.bg3, border: `1px solid ${alert ? `${TK.red500}55` : BORDER}`, borderRadius: 8, padding: '6px 11px' }}>
                   <span style={{ color: TK.slate200, fontWeight: 700, fontSize: 12, minWidth: 52 }}>{c.symbol}</span>
                   <span style={{ width: 7, height: 7, borderRadius: '50%', background: RISK[c.risk].c, display: 'inline-block' }} title={c.mechKo} />
-                  {isYield && <span style={{ color: TK.violet400, fontSize: 9, fontWeight: 700 }}>이자형</span>}
-                  <span style={{ color: TK.sub, fontSize: 10.5 }}>{fmtB(c.mcap)} · {c.share}%</span>
+                  {isYield && <span style={{ color: TK.violet400, fontSize: FS.micro, fontWeight: 700 }}>이자형</span>}
+                  <span style={{ color: TK.sub, fontSize: FS.tiny }}>{fmtB(c.mcap)} · {c.share}%</span>
                   <span style={{ marginLeft: 'auto', color: TK.slate300, fontSize: 11, fontFamily: 'monospace' }}>${c.price != null ? c.price.toFixed(4) : '—'}</span>
-                  <span style={{ color: alert ? TK.red400 : isYield ? TK.violet400 : TK.sub, fontSize: 10.5, fontWeight: 700, fontFamily: 'monospace', minWidth: 48, textAlign: 'right' }}>{dev >= 0 ? '+' : ''}{dev}%</span>
+                  <span style={{ color: alert ? TK.red400 : isYield ? TK.violet400 : TK.sub, fontSize: FS.tiny, fontWeight: 700, fontFamily: 'monospace', minWidth: 48, textAlign: 'right' }}>{dev >= 0 ? '+' : ''}{dev}%</span>
                 </div>
               )
             })}
           </div>
-          <div style={{ color: TK.sub, fontSize: 9.5, marginTop: 6 }}>상위 2종(USDT·USDC) 점유율 {concentration.toFixed(0)}% — 소수 집중도 자체가 시스템 리스크(한 곳 흔들리면 전체 충격).</div>
+          <div style={{ color: TK.sub, fontSize: FS.micro, marginTop: 6 }}>상위 2종(USDT·USDC) 점유율 {concentration.toFixed(0)}% — 소수 집중도 자체가 시스템 리스크(한 곳 흔들리면 전체 충격).</div>
         </div>
       </div>
 
@@ -185,7 +185,7 @@ export default function StablecoinRadar() {
                 </div>
               ))}
             </div>
-            <div style={{ color: TK.sub, fontSize: 9.5, marginTop: 7, lineHeight: 1.5 }}>이더리움·트론이 양대 축(USDT는 트론에서 송금·USDC는 이더리움 중심) · 신생 체인(솔라나·Base) 비중 증가 = 그쪽으로 자금·활동이 이동 중이라는 신호.</div>
+            <div style={{ color: TK.sub, fontSize: FS.micro, marginTop: 7, lineHeight: 1.5 }}>이더리움·트론이 양대 축(USDT는 트론에서 송금·USDC는 이더리움 중심) · 신생 체인(솔라나·Base) 비중 증가 = 그쪽으로 자금·활동이 이동 중이라는 신호.</div>
           </div>
         )
       })()}
@@ -193,7 +193,7 @@ export default function StablecoinRadar() {
       {/* ③ 디페깅 스트레스 시뮬레이터 */}
       <DepegSimulator />
 
-      <div style={{ color: TK.sub, fontSize: 9.5, lineHeight: 1.5 }}>
+      <div style={{ color: TK.sub, fontSize: FS.micro, lineHeight: 1.5 }}>
         ※ 데이터=DefiLlama 스테이블코인(무료·무키, USD 페그 기준) · 6h 캐시 · 담보 상세 구성(국채 vs 현금 %)은 분기 공시(attestation)라 종류·페그로 대체 · 교육용, 투자 추천 아님.
       </div>
     </div>
@@ -235,7 +235,7 @@ function DepegSimulator() {
         <b style={{ color: price >= 0.97 ? TK.green400 : price >= 0.5 ? TK.amber400 : TK.red400 }}>{fmtMan(remainWon)}원 남음</b>
         {lossPct > 0 && <span style={{ color: TK.red400 }}> (−{fmtMan(amount * 1e4 - remainWon)}원)</span>}
       </div>
-      <div style={{ color: TK.sub, fontSize: 10, lineHeight: 1.5, marginTop: 4 }}>{note}</div>
+      <div style={{ color: TK.sub, fontSize: FS.tiny, lineHeight: 1.5, marginTop: 4 }}>{note}</div>
     </div>
   )}
 

@@ -8,6 +8,8 @@ import { getCache, setCache } from '@/lib/appCache'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
+/** 🪙 브리핑 한 줄용 요약 캐시 키 — writer 는 이 라우트, reader 는 /api/coin-brief (라우트 파일은 임의 export 가 막혀 그쪽은 같은 리터럴을 적는다 — 올릴 땐 두 곳 함께) */
+const COIN_BRIEF_KEY = 'coin-brief-v1'
 const HALVING = '2024-04-20'   // 4차 반감기(블록 840,000)
 const CYCLE_DAYS = 1461        // 4년 ≈ 다음 반감기까지
 const STABLES = new Set(['USDT', 'USDC', 'DAI', 'USDE', 'FDUSD', 'TUSD', 'USDS', 'PYUSD'])
@@ -31,7 +33,42 @@ export interface CoinLabResult {
   prescription: { regime: string; tone: 'accumulate' | 'caution' | 'neutral'; text: string }
   guardrailNote: string
   cycleNav?: CycleNav | null   // 🔄 4년 사이클 내비게이터(국면 + 과거 사이클 오버레이)
+  /** 📈 가격 변화 — 야후 일봉의 **완성 봉** 종가 대비(1주·1개월·3개월). 날짜로 찾는다(인덱스 산술 금지) */
+  change: { w1: number | null; m1: number | null; m3: number | null }
+  /** 🎯 답 한 줄 — 측정값(고점 낙폭·3개월 흐름·심리·200일/200주 잣대)만으로 조립. 새 점수 없음. 처방 tone 과 같은 임계라 서로 모순될 수 없다 */
+  answer: { line: string; action: string; verdict: string }
   asOf: string
+}
+
+/** 🎯 답 한 줄 조립 — 이 화면이 답해야 할 질문은 "지금 사도 되나 / 너무 늦었나"다.
+ *  달력 각본(침체기)·나침반(인내기)·레인보우(저렴)·심리(탐욕)·처방(중립)이 각자 맞는 말을 해도 학생에겐 다섯 개의 다른 말이다(2026-09-24 검토).
+ *  규칙: ① 위치(고점 대비) ② 흐름(3개월) ③ 심리 ④ 장기 잣대(200일·200주) 를 **숫자 그대로** 나열하고, 결론은 처방 tone 과 같은 임계로만 가른다. */
+function buildAnswer(i: {
+  usd: number | null; ath: number | null; athDate: string | null; ddPct: number | null
+  m3: number | null; fng: number | null; mayer: number | null; ma200wRatio: number | null
+  tone: 'accumulate' | 'caution' | 'neutral'; calendarPhase: string | null; matchesBear: boolean | null
+}): CoinLabResult['answer'] {
+  const s = (n: number) => `${n >= 0 ? '+' : ''}${Math.round(n)}%`
+  const parts: string[] = []
+  if (i.ddPct != null && i.ath != null) parts.push(`고점(${i.athDate?.slice(0, 7) ?? ''} $${Math.round(i.ath).toLocaleString()}) 대비 −${Math.round(i.ddPct)}%`)
+  if (i.m3 != null) parts.push(`3개월 ${s(i.m3)} ${i.m3 >= 5 ? '반등 중' : i.m3 <= -5 ? '하락 중' : '횡보'}`)
+  if (i.fng != null) parts.push(`심리 ${i.fng <= 25 ? '극공포' : i.fng <= 45 ? '공포' : i.fng <= 55 ? '중립' : i.fng <= 75 ? '탐욕' : '극탐욕'} ${i.fng}`)
+  const scale: string[] = []
+  if (i.mayer != null) scale.push(`200일선의 ${i.mayer}배`)
+  if (i.ma200wRatio != null) scale.push(`200주선의 ${i.ma200wRatio}배`)
+  if (scale.length) parts.push(scale.join('·'))
+  const verdict = i.tone === 'accumulate' ? '역사적 저평가·공포' : i.tone === 'caution' ? '과열·탐욕' : (i.fng ?? 0) >= 60 ? '값은 중간, 심리는 탐욕 쪽' : '싸지도 비싸지도 않은 중간'
+  const action = i.tone === 'accumulate'
+    ? '과거엔 분할 축적에 유리했던 자리 — 그래도 한 번에 몰빵은 금물, 정해둔 비중(5%) 안에서 나눠서.'
+    : i.tone === 'caution'
+      ? '대중이 환호하는 구간 — 신규 진입보다 내 비중이 5%를 넘었는지 먼저 보세요.'
+      : (i.fng ?? 0) >= 60
+        ? '값 자체는 극단이 아닌데 심리가 앞서 있습니다 — 오르는 걸 보고 쫓아 사는 것만 피하고, 정해둔 비중 안에서 나눠서.'
+        : '뚜렷한 극단 신호가 없습니다 — 정해둔 비중 안에서 나눠서 접근하세요.'
+  let line = `${verdict} — ${parts.join(' · ')}`
+  // 달력 각본과 실제가 어긋나면 그 사실을 답에 넣는다(배지로만 달아두면 학생은 각본 라벨을 읽는다)
+  if (i.calendarPhase && i.matchesBear === false && /침체/.test(i.calendarPhase)) line += `. 달력 각본은 ‘${i.calendarPhase}’지만 가격은 그 특징(고점 −60% 이상·200주선 아래)이 아닙니다`
+  return { line, action, verdict }
 }
 
 // 비트코인 반감기(채굴보상 절반 — 약 4년/21만 블록 주기). 차트 세로선 마커용
@@ -313,7 +350,8 @@ async function buildCorrelation(): Promise<CoinLabResult['correlation']> {
 export async function GET(req: Request) {
   // v17: 🔍 cycleNav.reality 신설(각본 vs 실제 가격 대조) — 스키마 확장이라 키를 올린다(옛 응답이면 undefined)
   // v19: pastBearDrawdowns 에 troughPct(그 사이클 최종 바닥) 추가 — 스키마 확장이라 키를 올린다
-  const cacheKey = 'coin-lab-v19'   // v18: 대조를 일봉으로 / v17: reality 신설 / v16: HTML 엔티티
+  // v20: change·answer 신설 + 메이어를 야후 일봉으로(스키마·값 둘 다 바뀌어 키를 올린다)
+  const cacheKey = 'coin-lab-v20'   // v19: troughPct / v18: 대조를 일봉으로 / v17: reality 신설 / v16: HTML 엔티티
   const cached = await getCache<CoinLabResult>(cacheKey, 3600_000)   // 1h
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -342,24 +380,34 @@ export async function GET(req: Request) {
   const m2j = val(m2R) as { observations?: { date: string; value: string }[] } | null
   const longPts = (val(longR) as { date: string; price: number }[] | null) ?? []
   const correlation = val(corrR) as CoinLabResult['correlation']
-  const cycleNav = buildCycleNav(
-    (val(maxR) as { date: string; price: number }[] | null) ?? [],
-    (val(dayR) as { date: string; price: number }[] | null) ?? [],
-  )
+  const daily = (val(dayR) as { date: string; price: number }[] | null) ?? []
+  const cycleNav = buildCycleNav((val(maxR) as { date: string; price: number }[] | null) ?? [], daily)
 
-  // ── CoinGecko: 반드시 순차(무료 API 버스트 429 회피) ──────────────
+  // ── CoinGecko: 반드시 순차(무료 API 버스트 429 회피). 2회로 줄였다 — 아래 참조 ──
   const global = await cg<{ data?: Record<string, unknown> }>('/global')
   const markets = await cg<Record<string, unknown>[]>('/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=12&page=1&price_change_percentage=24h,7d')
-  const chart = await cg<{ prices?: [number, number][] }>('/coins/bitcoin/market_chart?vs_currency=usd&days=300&interval=daily')
 
   // ── 가격·메이어멀티플·김치프리미엄 ──────────────────────────────
   const btcKrw = num(upbit?.[0]?.trade_price)
   const cgBtcUsd = num((markets?.find(m => m.symbol === 'btc') as { current_price?: number })?.current_price)
   // CoinGecko 실패 시 업비트÷환율로 폴백(헤드라인 가격은 항상 표시)
   const btcUsd = cgBtcUsd ?? (btcKrw != null ? Math.round(btcKrw / usdKrw) : null)
-  const closes = (chart?.prices ?? []).map(p => p[1]).filter(v => isFinite(v))
-  const ma200 = closes.length >= 200 ? closes.slice(-200).reduce((a, b) => a + b, 0) / 200 : null
+  // 📐 200일선·메이어 — **야후 일봉**으로 계산한다(2026-09-24 실측: CoinGecko 세 번째 호출 market_chart 가 Vercel 공유 IP 에서
+  //    스로틀돼 프로덕션의 mayer 가 null 로 박제됐고 처방이 "메이어 —" 로 나갔다. PC 에선 200). 이 라우트가 이미 받는 일봉이라
+  //    호출 하나가 줄고, 10년 차트의 200주선과 출처도 같아진다(제2원칙). 마지막 봉(진행 중)은 평균에서 뺀다.
+  const todayUtc = new Date().toISOString().slice(0, 10)
+  const done = daily.length && daily[daily.length - 1].date === todayUtc ? daily.slice(0, -1) : daily
+  const ma200 = done.length >= 200 ? done.slice(-200).reduce((a, b) => a + b.price, 0) / 200 : null
   const mayer = btcUsd != null && ma200 ? Math.round((btcUsd / ma200) * 100) / 100 : null
+  // 📈 1주·1개월·3개월 변화 — 날짜로 찾는다(인덱스 산술 금지: 결측 하루에 기간이 밀린다). 완성 봉 종가 대비 현재가
+  const pxAgo = (days: number): number | null => {
+    const cut = new Date(Date.now() - days * 86400_000).toISOString().slice(0, 10)
+    let p: number | null = null
+    for (const b of done) { if (b.date <= cut) p = b.price; else break }
+    return p
+  }
+  const chg = (days: number) => { const p = pxAgo(days); return btcUsd != null && p ? Math.round((btcUsd / p - 1) * 1000) / 10 : null }
+  const change = { w1: chg(7), m1: chg(30), m3: chg(91) }
   const kimchiPct = btcUsd != null && btcKrw != null ? Math.round(((btcKrw / (btcUsd * usdKrw)) - 1) * 1000) / 10 : null
 
   // ── 반감기 사이클 ──────────────────────────────────────────────
@@ -433,6 +481,12 @@ export async function GET(req: Request) {
 
   const guardrailNote = '⚠️ 비트코인은 이자·배당·이익이 없는 자산입니다. 포트폴리오의 로켓 연료로 소량만 — 권장 상한 5%, 절대 잃어도 되는 돈만. 변동성 -80% 드로다운은 코인 역사에서 정상 범위입니다.'
 
+  const answer = buildAnswer({
+    usd: btcUsd, ath: cycleNav?.reality?.athPrice ?? null, athDate: cycleNav?.reality?.athDate ?? null, ddPct: cycleNav?.reality?.drawdownPct ?? null,
+    m3: change.m3, fng: fngV, mayer, ma200wRatio: cycleNav?.reality?.ma200wRatio ?? null,
+    tone, calendarPhase: cycleNav?.phaseName ?? null, matchesBear: cycleNav?.reality?.matchesBear ?? null,
+  })
+
   const result: CoinLabResult = {
     price: { usd: btcUsd, krw: btcKrw, ma200: ma200 ? Math.round(ma200) : null, mayer, kimchiPct },
     cycle: { halving: HALVING, daysSince, cyclePct, phase, phaseDesc },
@@ -447,9 +501,14 @@ export async function GET(req: Request) {
     prescription: { regime, tone, text },
     guardrailNote,
     cycleNav,
+    change, answer,
     asOf: new Date().toISOString(),
   }
-  // CoinGecko 핵심(가격+도미넌스)까지 살아야 캐시 — 부분 실패(429 등) 결과를 1h 박제하지 않음
-  if (btcUsd != null && btcDom != null) await setCache(cacheKey, result)
+  // 가격·도미넌스·**메이어**까지 살아야 캐시 — 부분 실패 결과를 1h 박제하지 않음(메이어 null 이 박제되던 것이 2026-09-24 실사고)
+  if (btcUsd != null && btcDom != null && mayer != null) {
+    await setCache(cacheKey, result)
+    // 🪙 브리핑용 한 줄 요약(캐시만 읽는 /api/coin-brief 가 본다) — 본 응답은 ~100KB 라 브리핑이 직접 부르면 무겁다
+    await setCache(COIN_BRIEF_KEY, { usd: btcUsd, krw: btcKrw, change, fng: fngV, mayer, ddPct: cycleNav?.reality?.drawdownPct ?? null, kimchiPct, answer, tone, asOf: result.asOf })
+  }
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

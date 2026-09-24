@@ -37,6 +37,7 @@
 | `bonds` | 📜 채권 축 (듀레이션 나침반) | ✅ | | |
 | `blackrock-tracker` | 🏛️ 블랙록 13F 트래커 | ✅ | | |
 | `correlation-radar` | 🕸️ 이종 자산 상관 수렴 레이더 | ✅ | | |
+| `coin-lab` | 🪙 코인 랩 보강 — 답 한 줄·메이어 야후 일봉·브리핑 🪙 줄·글자 토큰 (2026-09-24) | | | ✅ |
 | `crypto-funding` | 🪙 크립토 펀딩비·OI 과열 레이더 | ✅ | | |
 | `dilution-alert` | 🚨 DART 희석 경보 | ✅ | ✅ | |
 | `etf-alternative` | 🔬 ETF 분산 대안 | ✅ | ✅ | ✅ |

@@ -3,7 +3,7 @@
 // 사이클 4개(2014·2018·2022·2026 시작) 오버레이(시작가=100·로그축). 표본 4개 = 통계 아닌 역사적 참고(정직 캐비엇).
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, ReferenceLine, ReferenceArea } from 'recharts'
 import type { CycleNav } from '@/app/api/coin-lab/route'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 
 const CARD = TK.card, BORDER = TK.border
 // 원본 포스터 순서·색: 침체(파랑) → 상승준비(보라) → 제1상승(초록) → 제2상승(노랑)
@@ -45,13 +45,13 @@ export default function BtcCycleNavigator({ nav }: { nav: CycleNav }) {
               {/* ⚠️ '지금 여기'는 현재 사실을 단언한다 — 실제 가격이 이 국면과 다르면 배지부터 말을 바꿔야 한다
                   (배지로 경고만 달고 단언을 남겨두면 학생은 단언을 읽는다 · 2026-08-22 사용자 지적) */}
               {here && (
-                <span style={{ position: 'absolute', top: -9, right: 8, background: mismatch ? TK.amber400 : p.color, color: TK.bg1, fontSize: 9.5, fontWeight: 900, borderRadius: 6, padding: '1px 7px' }}>
+                <span style={{ position: 'absolute', top: -9, right: 8, background: mismatch ? TK.amber400 : p.color, color: TK.bg1, fontSize: FS.micro, fontWeight: 900, borderRadius: 6, padding: '1px 7px' }}>
                   {mismatch ? '📅 각본상 여기' : '📍 지금 여기'}
                 </span>
               )}
               <div style={{ color: p.color, fontWeight: 800, fontSize: 11.5 }}>{i + 1}. {p.name}</div>
-              <div style={{ color: TK.sub, fontSize: 10, marginTop: 2 }}>{p.years}</div>
-              <div style={{ color: TK.sub5, fontSize: 10, marginTop: 3, lineHeight: 1.5 }}>{p.desc}</div>
+              <div style={{ color: TK.sub, fontSize: FS.tiny, marginTop: 2 }}>{p.years}</div>
+              <div style={{ color: TK.sub5, fontSize: FS.tiny, marginTop: 3, lineHeight: 1.5 }}>{p.desc}</div>
             </div>
           )
         })}
@@ -116,8 +116,8 @@ export default function BtcCycleNavigator({ nav }: { nav: CycleNav }) {
           ))}
           <CartesianGrid stroke={TK.grid} strokeDasharray="3 3" />
           <XAxis dataKey="m" type="number" domain={[0, 48]} ticks={[0, 6, 12, 18, 24, 30, 36, 42, 48]}
-            tick={{ fill: TK.sub, fontSize: 10.5 }} tickFormatter={v => `${v}개월`} />
-          <YAxis scale="log" domain={['auto', 'auto']} tick={{ fill: TK.sub, fontSize: 10.5 }} width={48}
+            tick={{ fill: TK.sub, fontSize: FS.micro }} tickFormatter={v => `${v}개월`} />
+          <YAxis scale="log" domain={['auto', 'auto']} tick={{ fill: TK.sub, fontSize: FS.micro }} width={48}
             tickFormatter={v => `${((v as number) / 100).toFixed((v as number) < 300 ? 1 : 0)}×`} />
           <Tooltip
             contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }}
@@ -127,7 +127,7 @@ export default function BtcCycleNavigator({ nav }: { nav: CycleNav }) {
           />
           <Legend wrapperStyle={{ fontSize: 11 }} />
           <ReferenceLine x={nav.mNow} stroke={TK.slate100} strokeDasharray="5 3"
-            label={{ value: '◀ 현재', position: 'insideTopRight', fill: TK.slate100, fontSize: 10 }} />
+            label={{ value: '◀ 현재', position: 'insideTopRight', fill: TK.slate100, fontSize: FS.micro }} />
           {LINES.map(l => (
             <Line key={l.key} type="monotone" dataKey={l.key} name={l.name}
               stroke={l.color} strokeWidth={l.w} strokeDasharray={l.dash} dot={false} connectNulls />
@@ -135,7 +135,7 @@ export default function BtcCycleNavigator({ nav }: { nav: CycleNav }) {
         </LineChart>
       </ResponsiveContainer>
 
-      <div style={{ color: TK.sub, fontSize: 10.5, marginTop: 6, lineHeight: 1.65 }}>
+      <div style={{ color: TK.sub, fontSize: FS.tiny, marginTop: 6, lineHeight: 1.65 }}>
         {nav.peaks.filter(p => !p.cycle.startsWith('2026')).map(p => `⭐ ${p.cycle} 사이클 정점: 침체 연도 시작 후 ${p.peakMonth}개월 · ${p.peakMult}×`).join('  /  ')}
         <span> · ⓘ 2014 사이클 선은 데이터가 2014-09부터(야후 한계) — 앞부분 일부 공백</span>
         <br />⚠️ <b style={{ color: TK.slate300 }}>표본이 4개뿐</b>(현재 사이클은 막 시작) — 통계가 아닌 역사적 참고입니다. 현물 ETF 시대엔 기관 자금이 반감기와 무관하게 움직여 &lsquo;사이클이 짧아지거나 사라진다&rsquo;는 반론도 유력합니다.

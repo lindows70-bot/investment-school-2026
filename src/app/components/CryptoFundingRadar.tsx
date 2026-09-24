@@ -3,7 +3,7 @@
 //    펀딩 高양(+)=롱 과열(청산 위험) / 음(−)=숏 과밀(역발상 반등). 코인 랩 ₿ 뷰. 경보만.
 import { useEffect, useState, type ReactNode } from 'react'
 import type { CryptoFundingResult, CoinFroth, FundVerdict } from '@/app/api/crypto-funding/route'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 
 const BORDER = '#2a2f3a'
 const V_META: Record<FundVerdict, { color: string; label: string }> = {
@@ -46,7 +46,7 @@ function CoinCard({ c }: { c: CoinFroth }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
         <span style={{ fontSize: 16 }}>{c.emoji}</span>
         <b style={{ fontSize: 13.5, color: TK.slate100 }}>{c.name}</b>
-        <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 800, color: m.color, background: `${m.color}22`, border: `1px solid ${m.color}55`, borderRadius: 6, padding: '2px 7px' }}>
+        <span style={{ marginLeft: 'auto', fontSize: FS.tiny, fontWeight: 800, color: m.color, background: `${m.color}22`, border: `1px solid ${m.color}55`, borderRadius: 6, padding: '2px 7px' }}>
           {c.severity === 'high' ? '🔥 ' : ''}{m.label}
         </span>
       </div>
@@ -56,7 +56,7 @@ function CoinCard({ c }: { c: CoinFroth }) {
         <span style={{ fontSize: 22, fontWeight: 800, color: c.fundingAnnual >= 30 ? TK.red400 : c.fundingAnnual <= -5 ? '#38bdf8' : TK.slate100, fontFamily: 'monospace' }}>
           {c.fundingAnnual > 0 ? '+' : ''}{c.fundingAnnual.toFixed(1)}%
         </span>
-        <span style={{ fontSize: 10, color: TK.sub3 }}>연율 펀딩비</span>
+        <span style={{ fontSize: FS.tiny, color: TK.sub3 }}>연율 펀딩비</span>
       </div>
       {/* 게이지 */}
       <div style={{ position: 'relative', height: 6, background: TK.bg1, borderRadius: 3, margin: '6px 0 8px' }}>
@@ -64,11 +64,11 @@ function CoinCard({ c }: { c: CoinFroth }) {
         <div style={{ position: 'absolute', left: `${Math.min(gPct, 50 / 150 * 100)}%`, width: `${Math.abs(gPct - 50 / 150 * 100)}%`, height: 6, borderRadius: 3, background: c.fundingAnnual >= 0 ? TK.red400 : '#38bdf8' }} />
       </div>
 
-      <div style={{ display: 'flex', gap: 10, fontSize: 10.5, color: TK.sub2, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 10, fontSize: FS.tiny, color: TK.sub2, flexWrap: 'wrap' }}>
         <span title="최근 30일 평균 펀딩비(연율). 지금 값이 일시적인지 추세인지 비교용">30일평균 <b style={{ color: TK.slate300 }}>{c.fundingAvg30 > 0 ? '+' : ''}{c.fundingAvg30.toFixed(1)}%</b></span>
         <span title="지금 펀딩비가 과거 이력에서 어느 높이인가(65%=과거보다 낮았던 날이 65%). 90%+면 역사적으로도 뜨거움">백분위 <b style={{ color: TK.slate300 }}>{c.fundingPctile}%</b></span>
       </div>
-      <div style={{ display: 'flex', gap: 10, fontSize: 10.5, color: TK.sub2, marginTop: 3, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 10, fontSize: FS.tiny, color: TK.sub2, marginTop: 3, flexWrap: 'wrap' }}>
         <span title="미결제약정 = 아직 청산 안 된 선물 계약 총액 = 시장에 깔린 레버리지(빚) 총량">OI <b style={{ color: TK.slate300 }}>{fmtUsd(c.oiValueUsd)}</b></span>
         {c.oiChange30 != null && (
           <span title="OI 30일 변화. +25%↑(🔥)=새 빚 급증(레버리지 빌드업) / −=빚 정리(디레버리징)">30일 <b style={{ color: c.oiBuildup ? TK.amber400 : (c.oiChange30 >= 0 ? TK.green400 : TK.slate400) }}>{c.oiChange30 > 0 ? '+' : ''}{c.oiChange30}%</b>{c.oiBuildup ? ' 🔥' : ''}</span>
@@ -102,7 +102,7 @@ function EduBlock() {
           <Row q="📈 미결제약정(OI)이란?" a={<>아직 청산 안 된 선물 계약의 <b>총 규모($)</b> = <b>시장에 깔린 레버리지(빚) 총량</b>이에요. OI가 <b>급증</b>하면 새 빚이 계속 들어오는 것(사이클 후반 과열 주의), <b>감소</b>하면 빚을 정리하는 것(디레버리징). 가격이 오르는데 OI도 늘면 &lsquo;새 돈이 들어온 진짜 상승&rsquo;, 가격만 오르고 OI는 그대로면 &lsquo;힘 약한 상승&rsquo;일 수 있어요.</>} />
           <Row q="🎚️ &lsquo;백분위 65%&rsquo;는?" a={<>지금 펀딩비가 <b>과거 이력에서 어느 높이인가</b>예요. 65% = &lsquo;과거 날들 중 지금보다 낮았던 날이 65%&rsquo; = 평범~약간 높은 편. 90%+면 역사적으로도 뜨거운 상태입니다.</>} />
           <Row q="🚦 판정 색은 어떻게 읽나요?" a={<><b style={{ color: TK.green500 }}>🟢 정상</b> = 레버리지 붐빔 낮음. <b style={{ color: TK.red400 }}>🔴 롱 과열</b> = 다들 빚내서 롱 → 조금만 빠져도 강제청산이 도미노로 터질 수 있음, <b>추격매수 자제</b>. <b style={{ color: '#38bdf8' }}>🔵 숏 과밀</b> = 다들 하락에 베팅한 공포 극단 → 반등 시 숏스퀴즈 가능(단 하락 추세면 함정이니 현물·추세와 함께).</>} />
-          <div style={{ fontSize: 10.5, color: TK.sub3, lineHeight: 1.55, borderTop: `1px solid ${BORDER}`, paddingTop: 8, marginTop: 2 }}>
+          <div style={{ fontSize: FS.tiny, color: TK.sub3, lineHeight: 1.55, borderTop: `1px solid ${BORDER}`, paddingTop: 8, marginTop: 2 }}>
             💡 한 줄 요약: <b style={{ color: TK.slate300 }}>펀딩비 = 롱·숏 어디가 붐비나(온도), OI = 빚이 얼마나 쌓였나(총량)</b>. 둘 다 높으면 &lsquo;레버리지가 잔뜩 낀 과열&rsquo;이라 작은 충격에도 크게 흔들려요. <b>가격 차트만으론 안 보이는 위험</b>을 미리 보는 도구입니다.
           </div>
         </div>
@@ -152,7 +152,7 @@ export default function CryptoFundingRadar() {
       {/* 🎓 학생용 용어 교육 — 비유로 풀이(기본 펼침) */}
       <EduBlock />
 
-      <div style={{ fontSize: 9.5, color: TK.sub4, lineHeight: 1.55 }}>
+      <div style={{ fontSize: FS.micro, color: TK.sub4, lineHeight: 1.55 }}>
         연율 펀딩 = 8h 펀딩비 × 3 × 365. 🔴 ≥30% 롱 과열 / 🔵 ≤−5% 숏 과밀. OI = 미결제약정 명목가(레버리지 총량). ⚠️ 펀딩비는 후행·단기 지표이며 과열이 곧 하락은 아니다(고펀딩 지속 랠리도 흔함) — 경보는 비중·레버리지 점검 신호이지 매매 지시가 아니다. 코인은 ≤5% 소액·잃어도 되는 돈만.
       </div>
     </div>

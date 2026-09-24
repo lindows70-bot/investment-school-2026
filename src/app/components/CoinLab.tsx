@@ -17,9 +17,10 @@ import CryptoLiquidationPanel from '@/app/components/CryptoLiquidationPanel'   /
 import CryptoDemandChart from '@/app/components/CryptoDemandChart'   // 📊 현물vs선물 수요 30일(2026-08-22)
 import CmeCotPanel from '@/app/components/CmeCotPanel'   // 🏛️ CME 기관 포지셔닝(CFTC 주간·2026-08-23)
 import AssetRankingPanel from '@/app/components/AssetRankingPanel'   // 🏆 전세계 자산 시총 순위(2026-08-23)
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 
 const CARD = TK.bg6, BORDER = TK.border
+const pct = (n: number | null) => n == null ? '—' : `${n >= 0 ? '+' : ''}${n}%`
 const fmtUsd = (n: number | null) => n == null ? '—' : `$${Math.round(n).toLocaleString()}`
 const fmtKrw = (n: number | null) => n == null ? '—' : `₩${Math.round(n).toLocaleString()}`
 
@@ -32,7 +33,7 @@ function Panel({ title, sub, children }: { title: string; sub?: string; children
     <div style={{ flex: '1 1 360px', minWidth: 300, background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '13px 15px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
         <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 13 }}>{title}</span>
-        {sub && <span style={{ color: TK.sub, fontSize: 10.5 }}>{sub}</span>}
+        {sub && <span style={{ color: TK.sub, fontSize: FS.tiny }}>{sub}</span>}
       </div>
       {children}
     </div>
@@ -102,18 +103,39 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
             </span>
           )}
         </div>
-        {/* ₿ 비트코인(디지털 금) ↔ 🔷 알트코인(네트워크 자산) — 성격이 다른 자산이라 분리 */}
-        <div style={{ display: 'inline-flex', gap: 4, background: TK.bg3, padding: 4, borderRadius: 9, border: `1px solid ${BORDER}`, marginTop: 10 }}>
+        {/* ₿ 비트코인(디지털 금) ↔ 🔷 알트코인(네트워크 자산) — 성격이 다른 자산이라 분리.
+            flexWrap — 4개 합이 390px 를 넘어 폰에서 오른쪽 버튼이 잘렸다(2026-09-24). 줄바꿈되면 2×2 로 선다 */}
+        <div style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 4, background: TK.bg3, padding: 4, borderRadius: 9, border: `1px solid ${BORDER}`, marginTop: 10, maxWidth: '100%' }}>
           {([['btc', '₿ 비트코인', TK.btcOrange], ['alt', '🔷 알트코인 (ETH·SOL·XRP)', '#627eea'], ['stable', '💵 스테이블코인', '#26a17b'], ['stocks', '🏢 코인 관련 주식', TK.amber500]] as const).map(([k, label, c]) => (
             <button key={k} type="button" onClick={() => setView(k)}
-              style={{ padding: '5px 13px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 11.5, fontWeight: 700,
+              style={{ padding: '5px 13px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: FS.tiny, fontWeight: 700,
                 background: view === k ? TK.border : 'transparent', color: view === k ? c : TK.sub3 }}>{label}</button>
           ))}
         </div>
       </div>
 
+      {/* 🎯 답 한 줄 — "지금 사도 되나, 너무 늦었나". 아래 패널 다섯 개(달력·나침반·레인보우·심리·처방)가 각자 옳은 말을 해도
+          학생에겐 다섯 가지 다른 말이라, 서버가 측정값만으로 한 문장을 조립한다(새 점수 없음 · 처방과 같은 임계). 비트코인 뷰에만 */}
+      {view === 'btc' && d.answer && (
+        <div style={{ background: `${toneColor}12`, border: `1px solid ${toneColor}55`, borderRadius: 12, padding: '14px 18px' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
+            <span style={{ color: TK.slate100, fontWeight: 800, fontSize: FS.lg }}>지금 비트코인은</span>
+            <span style={{ color: toneColor, fontWeight: 900, fontSize: FS.lg }}>{d.answer.verdict}</span>
+            {d.change && (
+              <span style={{ marginLeft: 'auto', display: 'flex', gap: 10, fontSize: FS.tiny, fontFamily: 'monospace', color: TK.sub }}>
+                {([['1주', d.change.w1], ['1개월', d.change.m1], ['3개월', d.change.m3]] as const).map(([k, v]) => (
+                  <span key={k}>{k} <b style={{ color: v == null ? TK.sub : v >= 0 ? TK.red400 : TK.blue400 }}>{pct(v)}</b></span>
+                ))}
+              </span>
+            )}
+          </div>
+          <div style={{ color: TK.slate200, fontSize: FS.body, lineHeight: 1.7 }}>{d.answer.line.replace(/^[^—]+— /, '')}</div>
+          <div style={{ color: toneColor, fontSize: FS.body, fontWeight: 700, lineHeight: 1.7, marginTop: 6 }}>👉 {d.answer.action}</div>
+        </div>
+      )}
+
       {/* 🛡️ 가드레일 — 항상 최상단(학생 보호) */}
-      <div style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '10px 14px', color: TK.red300, fontSize: 11.5, lineHeight: 1.7 }}>
+      <div style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '10px 14px', color: TK.red300, fontSize: FS.tiny, lineHeight: 1.7 }}>
         {d.guardrailNote}
         {myCryptoPct != null && (
           <div style={{ marginTop: 4, color: overWeight ? TK.red400 : TK.green300, fontWeight: 700 }}>
@@ -148,12 +170,12 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
           <div style={{ position: 'relative', height: 9, background: TK.bg3, borderRadius: 5, overflow: 'hidden', border: `1px solid ${BORDER}`, margin: '8px 0' }}>
             <div style={{ width: `${d.cycle.cyclePct}%`, height: '100%', background: `linear-gradient(90deg,${TK.green500},${TK.amber400},${TK.red500})` }} />
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: TK.sub }}><span>반감기</span><span>다음 반감기(~4년)</span></div>
-          <div style={{ color: TK.sub8, fontSize: 10.5, lineHeight: 1.6, marginTop: 8 }}>{d.cycle.phaseDesc}</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FS.micro, color: TK.sub }}><span>반감기</span><span>다음 반감기(~4년)</span></div>
+          <div style={{ color: TK.sub8, fontSize: FS.tiny, lineHeight: 1.6, marginTop: 8 }}>{d.cycle.phaseDesc}</div>
           {d.price.mayer != null && (
-            <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${BORDER}`, fontSize: 11, color: TK.sub5 }}>
+            <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${BORDER}`, fontSize: FS.tiny, color: TK.sub5 }}>
               📐 <b>메이어 멀티플 {d.price.mayer}</b> (가격÷200일 이평 {fmtUsd(d.price.ma200)}) — <span style={{ color: d.price.mayer > 2.4 ? TK.red500 : d.price.mayer < 1 ? TK.green500 : TK.amber400 }}>{d.price.mayer > 2.4 ? '과열(>2.4)' : d.price.mayer < 1 ? '저평가(<1.0)' : '중립'}</span>
-              <div style={{ color: TK.sub, fontSize: 9.5, marginTop: 2 }}>※ 유료 MVRV 대신 무료 계산 가능한 메이어 멀티플로 거품도 측정</div>
+              <div style={{ color: TK.sub, fontSize: FS.micro, marginTop: 2 }}>※ 유료 MVRV 대신 무료 계산 가능한 메이어 멀티플로 거품도 측정</div>
             </div>
           )}
         </Panel>
@@ -164,31 +186,31 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
             <div style={{ textAlign: 'center' }}>
               <div style={{ color: fngColor(d.sentiment.fng), fontWeight: 900, fontSize: 30, fontFamily: 'monospace', lineHeight: 1 }}>{d.sentiment.fng ?? '—'}</div>
               <div style={{ color: fngColor(d.sentiment.fng), fontWeight: 800, fontSize: 12 }}>{fngKo(d.sentiment.fng)}</div>
-              <div style={{ color: TK.sub, fontSize: 9.5 }}>어제 {d.sentiment.fngYesterday ?? '—'}</div>
+              <div style={{ color: TK.sub, fontSize: FS.micro }}>어제 {d.sentiment.fngYesterday ?? '—'}</div>
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ position: 'relative', height: 8, borderRadius: 4, background: `linear-gradient(90deg,${TK.green500},${TK.lime400},${TK.amber400},${TK.orange400},${TK.red500})` }}>
                 {d.sentiment.fng != null && <div style={{ position: 'absolute', left: `calc(${d.sentiment.fng}% - 2px)`, top: -3, width: 4, height: 14, background: '#fff', borderRadius: 2 }} />}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: TK.sub, marginTop: 3 }}><span>0 극공포</span><span>극탐욕 100</span></div>
-              <div style={{ marginTop: 8, fontSize: 11, color: TK.sub5, lineHeight: 1.5 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FS.micro, color: TK.sub, marginTop: 3 }}><span>0 극공포</span><span>극탐욕 100</span></div>
+              <div style={{ marginTop: 8, fontSize: FS.tiny, color: TK.sub5, lineHeight: 1.5 }}>
                 BTC 도미넌스 <b style={{ color: TK.btcOrange }}>{d.sentiment.btcDom ?? '—'}%</b> · ETH <b style={{ color: TK.blue400 }}>{d.sentiment.ethDom ?? '—'}%</b>
               </div>
             </div>
           </div>
-          <div style={{ marginTop: 8, fontSize: 10.5, color: TK.sub8, lineHeight: 1.6 }}>{d.sentiment.altHint} · &ldquo;탐욕에 팔고 공포에 사라&rdquo;</div>
+          <div style={{ marginTop: 8, fontSize: FS.tiny, color: TK.sub8, lineHeight: 1.6 }}>{d.sentiment.altHint} · &ldquo;탐욕에 팔고 공포에 사라&rdquo;</div>
         </Panel>
 
         {/* ③ 시장 개요 */}
         <Panel title="③ 시장 개요" sub={`전체 시총 $${d.market.totalMcapUsdT ?? '—'}T · 스테이블 ${d.market.stablecoinPct ?? '—'}%(대기자금)`}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {d.market.top.slice(0, 6).map((c, i) => (
-              <div key={c.symbol} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, padding: '2px 0', borderTop: i > 0 ? `1px solid ${BORDER}` : 'none' }}>
+              <div key={c.symbol} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: FS.tiny, padding: '2px 0', borderTop: i > 0 ? `1px solid ${BORDER}` : 'none' }}>
                 <span style={{ color: TK.sub, width: 14 }}>{i + 1}</span>
                 <span style={{ color: TK.slate200, fontWeight: 700, width: 48 }}>{c.symbol}</span>
                 <span style={{ color: TK.sub, fontFamily: 'monospace' }}>{c.price >= 1 ? `$${c.price.toLocaleString()}` : `$${c.price}`}</span>
                 <span style={{ marginLeft: 'auto', color: (c.ch24 ?? 0) >= 0 ? TK.green500 : TK.red500, fontFamily: 'monospace' }}>{c.ch24 != null ? `${c.ch24 >= 0 ? '+' : ''}${c.ch24.toFixed(1)}%` : '—'}</span>
-                <span style={{ color: TK.sub, fontSize: 9.5, width: 56, textAlign: 'right' }}>${c.mcapB}B</span>
+                <span style={{ color: TK.sub, fontSize: FS.micro, width: 56, textAlign: 'right' }}>${c.mcapB}B</span>
               </div>
             ))}
           </div>
@@ -196,7 +218,7 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
           {d.supply && (
             <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${BORDER}` }}>
               <SupplyBar pct={d.supply.pct} note="최대 발행량 대비 유통률" />
-              <div style={{ color: TK.sub, fontSize: 9.5, marginTop: 4, lineHeight: 1.5 }}>BTC {d.supply.circulatingM}M / 최대 {d.supply.maxM}M — 신규 공급은 반감기로 계속 줄어 결국 2,100만 개에서 멈춥니다(언락 덤핑 리스크 없음).</div>
+              <div style={{ color: TK.sub, fontSize: FS.micro, marginTop: 4, lineHeight: 1.5 }}>BTC {d.supply.circulatingM}M / 최대 {d.supply.maxM}M — 신규 공급은 반감기로 계속 줄어 결국 2,100만 개에서 멈춥니다(언락 덤핑 리스크 없음).</div>
             </div>
           )}
         </Panel>
@@ -214,25 +236,25 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
         <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
             <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 13 }}>📈 비트코인 10년 차트 × 반감기 사이클</span>
-            <span style={{ color: TK.sub, fontSize: 10.5 }}>로그 스케일(반로그 ½decade 눈금) · 세로 점선 = 반감기 · <span style={{ color: TK.blue400 }}>파란선 = 200주 이동평균</span></span>
+            <span style={{ color: TK.sub, fontSize: FS.tiny }}>로그 스케일(반로그 ½decade 눈금) · 세로 점선 = 반감기 · <span style={{ color: TK.blue400 }}>파란선 = 200주 이동평균</span></span>
           </div>
           {/* 📐 로그 축 교육 — '왜 중간이 $50k가 아니라 $10k인가' 오해 방지 */}
-          <div style={{ background: 'rgba(96,165,250,0.07)', border: '1px solid rgba(96,165,250,0.25)', borderRadius: 8, padding: '7px 11px', marginBottom: 8, color: TK.sub5, fontSize: 10.5, lineHeight: 1.6 }}>
+          <div style={{ background: 'rgba(96,165,250,0.07)', border: '1px solid rgba(96,165,250,0.25)', borderRadius: 8, padding: '7px 11px', marginBottom: 8, color: TK.sub5, fontSize: FS.tiny, lineHeight: 1.6 }}>
             📐 <b style={{ color: TK.blue300 }}>로그(log) 축</b> — 한 칸이 <b>10배</b>를 뜻합니다($1k→$10k와 $10k→$100k가 같은 거리라 중간값이 $50k가 아니라 <b>$10k</b>). 비트코인은 10년간 약 250배 움직여, 선형 축이면 2016~2020 구간이 바닥에 깔려 안 보입니다 — 그래서 <b>변동성 큰 장기 자산은 로그가 표준</b>(TheBlock·트레이딩뷰도 동일).
           </div>
           <div style={{ height: 460 }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={longData} margin={{ top: 18, right: 14, left: 2, bottom: 0 }}>
-                <XAxis dataKey="date" tick={{ fill: TK.sub2, fontSize: 9.5 }} tickFormatter={(s: string) => s.slice(0, 4)} minTickGap={48} axisLine={{ stroke: BORDER }} tickLine={false} />
-                <YAxis scale="log" domain={['auto', 'auto']} tick={{ fill: TK.sub2, fontSize: 9.5 }} axisLine={false} tickLine={false} width={50}
+                <XAxis dataKey="date" tick={{ fill: TK.sub2, fontSize: FS.micro }} tickFormatter={(s: string) => s.slice(0, 4)} minTickGap={48} axisLine={{ stroke: BORDER }} tickLine={false} />
+                <YAxis scale="log" domain={['auto', 'auto']} tick={{ fill: TK.sub2, fontSize: FS.micro }} axisLine={false} tickLine={false} width={50}
                   tickFormatter={(v: number) => v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${v}`} ticks={[300, 1000, 3000, 10000, 30000, 100000]} />
-                <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }} labelStyle={{ color: TK.sub }}
+                <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: FS.tiny }} labelStyle={{ color: TK.sub }}
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   formatter={(v: any, n: any) => [`$${Number(v).toLocaleString()}`, n === 'ma200' ? '200주 이평' : 'BTC']} />
                 {d.longChart.halvings.map(h => (
                   <ReferenceLine key={h.date} x={d.longChart.points.reduce((best, p) => Math.abs(new Date(p.date).getTime() - new Date(h.date).getTime()) < Math.abs(new Date(best).getTime() - new Date(h.date).getTime()) ? p.date : best, d.longChart.points[0].date)}
                     stroke={TK.btcOrange} strokeDasharray="4 3" strokeWidth={1.2}
-                    label={{ value: `⛏️${h.date.slice(0, 4)}`, fill: TK.btcOrange, fontSize: 9.5, fontWeight: 700, position: 'insideTop' }} />
+                    label={{ value: `⛏️${h.date.slice(0, 4)}`, fill: TK.btcOrange, fontSize: FS.micro, fontWeight: 700, position: 'insideTop' }} />
                 ))}
                 <Line type="monotone" dataKey="price" name="BTC" stroke={TK.btcOrange} strokeWidth={1.8} dot={false} isAnimationActive={false} />
                 <Line type="monotone" dataKey="ma200" name="ma200" stroke={TK.blue400} strokeWidth={1.6} dot={false} connectNulls isAnimationActive={false} />
@@ -242,8 +264,8 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
           {/* 🎓 반감기란? 교육 아코디언 */}
           <button onClick={() => setEduOpen(o => !o)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, background: 'transparent', border: 'none', cursor: 'pointer', padding: '8px 0 4px', textAlign: 'left' }}>
             <span style={{ color: TK.btcOrange, fontWeight: 800, fontSize: 12 }}>🎓 비트코인 반감기(Halving)란?</span>
-            <span style={{ color: TK.sub, fontSize: 10.5 }}>왜 4년마다 시장이 요동치고, 왜 &lsquo;디지털 금&rsquo;이라 불리나</span>
-            <span style={{ marginLeft: 'auto', color: TK.sub, fontSize: 11 }}>{eduOpen ? '▲ 접기' : '▼ 펼치기'}</span>
+            <span style={{ color: TK.sub, fontSize: FS.tiny }}>왜 4년마다 시장이 요동치고, 왜 &lsquo;디지털 금&rsquo;이라 불리나</span>
+            <span style={{ marginLeft: 'auto', color: TK.sub, fontSize: FS.tiny }}>{eduOpen ? '▲ 접기' : '▼ 펼치기'}</span>
           </button>
           {eduOpen && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
@@ -253,11 +275,11 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
                 ['③ 희소성 경제학 — 디지털 금', '금이 가치 저장 수단인 이유는 매년 채굴량이 한정돼 희소하기 때문입니다. 비트코인은 총 발행량이 2,100만 개로 코드에 못박혀 있고, 반감기로 신규 공급이 계속 줄어 결국 0에 수렴합니다 — 그래서 인플레이션 헤지 &lsquo;디지털 금&rsquo;으로 불립니다.'],
               ].map(([t, b]) => (
                 <div key={t} style={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 9, padding: '9px 12px' }}>
-                  <div style={{ color: TK.slate200, fontWeight: 700, fontSize: 11.5, marginBottom: 3 }}>{t}</div>
-                  <div style={{ color: TK.sub5, fontSize: 11, lineHeight: 1.65 }}>{b}</div>
+                  <div style={{ color: TK.slate200, fontWeight: 700, fontSize: FS.tiny, marginBottom: 3 }}>{t}</div>
+                  <div style={{ color: TK.sub5, fontSize: FS.tiny, lineHeight: 1.65 }}>{b}</div>
                 </div>
               ))}
-              <div style={{ background: 'rgba(247,147,26,0.07)', border: '1px solid rgba(247,147,26,0.3)', borderRadius: 9, padding: '9px 12px', color: TK.sub15, fontSize: 11, lineHeight: 1.7 }}>
+              <div style={{ background: 'rgba(247,147,26,0.07)', border: '1px solid rgba(247,147,26,0.3)', borderRadius: 9, padding: '9px 12px', color: TK.sub15, fontSize: FS.tiny, lineHeight: 1.7 }}>
                 🎓 <b style={{ color: TK.btcOrange }}>최일 쌤의 한마디</b> — 위 차트를 로그 스케일로 보면, 변동성에 가려 보이지 않던 &lsquo;반감기마다 한 계단 올라서는&rsquo; 장기 추세가 드러납니다. 단기 캔들에 휩쓸리지 말고, 지금이 4년 사이클의 어디인지(패널 ①)를 먼저 보세요.
               </div>
             </div>
@@ -296,7 +318,7 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
         <Panel title="④ 네트워크 건강(온체인)" sub="비트코인 = 기업 아닌 네트워크">
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
             <span style={{ color: TK.slate200, fontWeight: 900, fontSize: 22, fontFamily: 'monospace' }}>{d.network.hashrateEH ?? '—'}</span>
-            <span style={{ color: TK.sub, fontSize: 11 }}>EH/s 해시레이트</span>
+            <span style={{ color: TK.sub, fontSize: FS.tiny }}>EH/s 해시레이트</span>
             <span style={{ color: d.network.trend === 'up' ? TK.green500 : d.network.trend === 'down' ? TK.red500 : TK.slate400, fontSize: 12, fontWeight: 700 }}>
               {d.network.trend === 'up' ? '▲ 강화' : d.network.trend === 'down' ? '▼ 약화' : '— 유지'}
             </span>
@@ -312,7 +334,7 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
                     </linearGradient>
                   </defs>
                   <YAxis domain={['dataMin', 'dataMax']} hide />
-                  <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }} labelFormatter={() => ''}
+                  <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: FS.tiny }} labelFormatter={() => ''}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     formatter={(v: any) => [`${Math.round(v)} EH/s`, '해시레이트']} />
                   <Area type="monotone" dataKey="v" stroke={TK.btcOrange} strokeWidth={1.8} fill="url(#hashGrad)" isAnimationActive={false} />
@@ -320,7 +342,7 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
               </ResponsiveContainer>
             </div>
           )}
-          <div style={{ color: TK.sub8, fontSize: 10.5, lineHeight: 1.6, marginTop: 8 }}>
+          <div style={{ color: TK.sub8, fontSize: FS.tiny, lineHeight: 1.6, marginTop: 8 }}>
             난이도 {d.network.difficultyT ?? '—'}T · 해시레이트는 네트워크 보안의 척도입니다. <b>가격이 빠져도 해시레이트가 오르면 &ldquo;네트워크는 더 튼튼해지는 중&rdquo;</b> — 코인의 펀더멘탈.
           </div>
         </Panel>
@@ -331,19 +353,19 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
             <div style={{ height: 200 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={d.macro.points} margin={{ top: 6, right: 4, left: 4, bottom: 0 }}>
-                  <XAxis dataKey="date" tick={{ fill: TK.sub2, fontSize: 9.5 }} tickFormatter={(m: string) => m.slice(2)} minTickGap={44} axisLine={{ stroke: BORDER }} tickLine={false} />
-                  <YAxis yAxisId="m2" tick={{ fill: TK.cyan400, fontSize: 9 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={42} tickFormatter={(v: number) => `$${(v / 1000).toFixed(1)}T`} />
-                  <YAxis yAxisId="btc" orientation="right" tick={{ fill: TK.btcOrange, fontSize: 9 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={40} tickFormatter={(v: number) => v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${v}`} />
-                  <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }}
+                  <XAxis dataKey="date" tick={{ fill: TK.sub2, fontSize: FS.micro }} tickFormatter={(m: string) => m.slice(2)} minTickGap={44} axisLine={{ stroke: BORDER }} tickLine={false} />
+                  <YAxis yAxisId="m2" tick={{ fill: TK.cyan400, fontSize: FS.micro }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={42} tickFormatter={(v: number) => `$${(v / 1000).toFixed(1)}T`} />
+                  <YAxis yAxisId="btc" orientation="right" tick={{ fill: TK.btcOrange, fontSize: FS.micro }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={40} tickFormatter={(v: number) => v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${v}`} />
+                  <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: FS.tiny }}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     formatter={(v: any, name: any) => name === '미국 M2 통화량' ? [`$${(v / 1000).toFixed(2)}T`, name] : [`$${Number(v).toLocaleString()}`, name]} />
-                  <Legend wrapperStyle={{ fontSize: 10 }} />
+                  <Legend wrapperStyle={{ fontSize: FS.micro }} />
                   <Line yAxisId="m2" name="미국 M2 통화량" dataKey="m2" stroke={TK.cyan400} strokeWidth={1.8} dot={false} connectNulls />
                   <Line yAxisId="btc" name="비트코인" dataKey="btc" stroke={TK.btcOrange} strokeWidth={2.2} dot={false} connectNulls />
                 </LineChart>
               </ResponsiveContainer>
             </div>
-            <div style={{ color: TK.sub8, fontSize: 10.5, lineHeight: 1.6, marginTop: 6 }}>{d.macro.note}</div>
+            <div style={{ color: TK.sub8, fontSize: FS.tiny, lineHeight: 1.6, marginTop: 6 }}>{d.macro.note}</div>
           </Panel>
         )}
       </div>
@@ -365,17 +387,17 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
         const Overlay = ({ other, dataKey, color, corr }: { other: string; dataKey: 'nasdaq' | 'gold'; color: string; corr: number | null }) => (
           <div style={{ flex: '1 1 320px', minWidth: 280, background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 9, padding: '8px 10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 11.5, fontWeight: 700 }}>{dot(TK.btcOrange)}<span style={{ color: TK.btcOrange }}>비트코인</span></span>
-              <span style={{ color: TK.sub, fontSize: 11 }}>vs</span>
-              <span style={{ fontSize: 11.5, fontWeight: 700 }}>{dot(color)}<span style={{ color }}>{other}</span></span>
-              {corr != null && <span style={{ marginLeft: 'auto', color: Math.abs(corr) >= 0.6 ? TK.red400 : Math.abs(corr) >= 0.35 ? TK.amber400 : TK.green400, fontWeight: 800, fontSize: 11, fontFamily: 'monospace' }}>상관 {corr.toFixed(2)}</span>}
+              <span style={{ fontSize: FS.tiny, fontWeight: 700 }}>{dot(TK.btcOrange)}<span style={{ color: TK.btcOrange }}>비트코인</span></span>
+              <span style={{ color: TK.sub, fontSize: FS.tiny }}>vs</span>
+              <span style={{ fontSize: FS.tiny, fontWeight: 700 }}>{dot(color)}<span style={{ color }}>{other}</span></span>
+              {corr != null && <span style={{ marginLeft: 'auto', color: Math.abs(corr) >= 0.6 ? TK.red400 : Math.abs(corr) >= 0.35 ? TK.amber400 : TK.green400, fontWeight: 800, fontSize: FS.tiny, fontFamily: 'monospace' }}>상관 {corr.toFixed(2)}</span>}
             </div>
             <div style={{ height: 170 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={series} margin={{ top: 4, right: 6, left: -16, bottom: 0 }}>
-                  <XAxis dataKey="date" tick={{ fill: TK.sub2, fontSize: 8.5 }} tickFormatter={(s: string) => s.slice(0, 4)} minTickGap={44} axisLine={{ stroke: BORDER }} tickLine={false} />
-                  <YAxis scale="log" tick={{ fill: TK.sub2, fontSize: 8.5 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={34} tickFormatter={(v: number) => `${v}`} />
-                  <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 10.5 }}
+                  <XAxis dataKey="date" tick={{ fill: TK.sub2, fontSize: FS.micro }} tickFormatter={(s: string) => s.slice(0, 4)} minTickGap={44} axisLine={{ stroke: BORDER }} tickLine={false} />
+                  <YAxis scale="log" tick={{ fill: TK.sub2, fontSize: FS.micro }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={38} tickFormatter={(v: number) => `${v}`} />
+                  <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: FS.tiny }}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     formatter={(v: any, n: any) => [`${v}`, n === 'btc' ? '비트코인' : other]} />
                   <Line type="monotone" dataKey="btc" name="btc" stroke={TK.btcOrange} strokeWidth={1.8} dot={false} isAnimationActive={false} />
@@ -389,29 +411,29 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
           <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
               <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 13 }}>⑥ 상관관계 히트맵 — 비트코인 vs 증시·금</span>
-              <span style={{ color: TK.sub, fontSize: 10.5 }}>1.0=완전 동조 · {d.correlation!.window}</span>
+              <span style={{ color: TK.sub, fontSize: FS.tiny }}>1.0=완전 동조 · {d.correlation!.window}</span>
             </div>
             {/* 히트맵(상단) */}
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ borderCollapse: 'separate', borderSpacing: 3, fontSize: 11, fontFamily: 'monospace' }}>
+                <table style={{ borderCollapse: 'separate', borderSpacing: 3, fontSize: FS.tiny, fontFamily: 'monospace' }}>
                   <thead>
                     <tr>
                       <th />
-                      {labels.map(l => <th key={l} style={{ color: TK.sub, fontWeight: 700, fontSize: 10, padding: '2px 6px', minWidth: 52 }}>{l}</th>)}
+                      {labels.map(l => <th key={l} style={{ color: TK.sub, fontWeight: 700, fontSize: FS.tiny, padding: '2px 6px', minWidth: 52 }}>{l}</th>)}
                     </tr>
                   </thead>
                   <tbody>
                     {matrix.map((row, i) => (
                       <tr key={labels[i]}>
-                        <td style={{ color: TK.sub, fontWeight: 700, fontSize: 10, padding: '2px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>{labels[i]}</td>
+                        <td style={{ color: TK.sub, fontWeight: 700, fontSize: FS.tiny, padding: '2px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>{labels[i]}</td>
                         {row.map((v, j) => { const s = cell(v, i === j); return <td key={j} style={{ background: s.bg, color: s.c, fontWeight: 800, textAlign: 'center', padding: '7px 6px', borderRadius: 6 }}>{s.t}</td> })}
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <div style={{ display: 'flex', gap: 12, fontSize: 9.5, color: TK.sub, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 12, fontSize: FS.micro, color: TK.sub, flexWrap: 'wrap' }}>
                 <span><span style={{ color: TK.red400 }}>■</span> 0.6↑ 강한 동조</span>
                 <span><span style={{ color: TK.amber400 }}>■</span> 0.35~0.6 보통</span>
                 <span><span style={{ color: TK.green400 }}>■</span> 0.35↓ 약함(분산)</span>
@@ -424,7 +446,7 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
                 <Overlay other="금" dataKey="gold" color={TK.amber400} corr={matrix[0]?.[3] ?? null} />
               </div>
             )}
-            <div style={{ color: TK.sub8, fontSize: 10.5, lineHeight: 1.6, marginTop: 8 }}>{d.correlation!.note} <span style={{ color: TK.sub }}>(비교 차트: 시작점 100 기준 정규화·로그 스케일 — 주황=비트코인)</span></div>
+            <div style={{ color: TK.sub8, fontSize: FS.tiny, lineHeight: 1.6, marginTop: 8 }}>{d.correlation!.note} <span style={{ color: TK.sub }}>(비교 차트: 시작점 100 기준 정규화·로그 스케일 — 주황=비트코인)</span></div>
           </div>
         )
       })()}
@@ -437,13 +459,13 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
           <span style={{ color: d.price.kimchiPct >= 3 ? TK.red500 : d.price.kimchiPct <= -1 ? TK.green500 : TK.amber400, fontWeight: 900, fontSize: 20, fontFamily: 'monospace' }}>
             {d.price.kimchiPct >= 0 ? '+' : ''}{d.price.kimchiPct}%
           </span>
-          <span style={{ color: TK.sub8, fontSize: 11, lineHeight: 1.5, flex: 1, minWidth: 200 }}>
+          <span style={{ color: TK.sub8, fontSize: FS.tiny, lineHeight: 1.5, flex: 1, minWidth: 200 }}>
             업비트(KRW) vs 글로벌(USD) 가격차. {d.price.kimchiPct >= 3 ? '국내 과열·투기 수요 신호(고플 때 신규 진입 주의).' : d.price.kimchiPct <= -1 ? '역프리미엄 — 국내 수요 위축.' : '정상 범위.'}
           </span>
         </div>
       )}
 
-      <div style={{ color: TK.sub, fontSize: 10, lineHeight: 1.6 }}>
+      <div style={{ color: TK.sub, fontSize: FS.tiny, lineHeight: 1.6 }}>
         ※ 데이터: CoinGecko·alternative.me(공포탐욕)·mempool.space(해시레이트)·업비트(KRW)·FRED(M2) — 전부 무료 공개 API · 1h 캐시 · 메이어 멀티플은 유료 MVRV의 무료 대체 지표 · 비트코인은 주식과 달리 EPS·PER이 없어 사이클·심리·네트워크로 분석합니다 · 교육용이며 투자 추천이 아닙니다.
       </div>
       </>)}

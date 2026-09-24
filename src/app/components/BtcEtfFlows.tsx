@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { ResponsiveContainer, ComposedChart, AreaChart, Area, Bar, Line, Cell, XAxis, YAxis, Tooltip, ReferenceLine, Legend } from 'recharts'
 import type { BtcEtfResult } from '@/app/api/btc-etf/route'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 
 const CARD = TK.bg6, BORDER = TK.border
 /** 현물 BTC ETF 티커 → 운용사(정적 참조 데이터 — 상품 목록 자체는 Farside 헤더에서 동적으로 온다) */
@@ -58,12 +58,12 @@ export default function BtcEtfFlows() {
         {flowHasData ? (
           <ResponsiveContainer width="100%" height={210}>
             <ComposedChart data={d.flow} margin={{ top: 6, right: 8, left: 4, bottom: 2 }}>
-              <XAxis dataKey="date" tickFormatter={d.flowWindowDays > 30 ? (v: string) => v.slice(0, 7) : mmdd} tick={{ fill: TK.sub3, fontSize: 10 }} minTickGap={d.flowWindowDays > 30 ? 48 : 8} />
-              <YAxis yAxisId="flow" tick={{ fill: TK.sub3, fontSize: 10 }} tickFormatter={(v: number) => `${v}M`} width={48} />
-              <YAxis yAxisId="px" orientation="right" domain={['auto', 'auto']} tick={{ fill: TK.amber400, fontSize: 10 }} tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`} width={42} />
+              <XAxis dataKey="date" tickFormatter={d.flowWindowDays > 30 ? (v: string) => v.slice(0, 7) : mmdd} tick={{ fill: TK.sub3, fontSize: FS.micro }} minTickGap={d.flowWindowDays > 30 ? 48 : 8} />
+              <YAxis yAxisId="flow" tick={{ fill: TK.sub3, fontSize: FS.micro }} tickFormatter={(v: number) => `${v}M`} width={48} />
+              <YAxis yAxisId="px" orientation="right" domain={['auto', 'auto']} tick={{ fill: TK.amber400, fontSize: FS.micro }} tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`} width={42} />
               <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 12 }}
                 formatter={flowTip} labelStyle={{ color: TK.slate300 }} />
-              <Legend wrapperStyle={{ fontSize: 10.5 }} />
+              <Legend wrapperStyle={{ fontSize: FS.micro }} />
               <ReferenceLine yAxisId="flow" y={0} stroke={TK.slate600} />
               <Bar yAxisId="flow" dataKey="net" name="순유입/유출" radius={[2, 2, 0, 0]}>
                 {d.flow.map((f, i) => <Cell key={i} fill={f.net >= 0 ? TK.green500 : TK.red500} />)}
@@ -94,8 +94,8 @@ export default function BtcEtfFlows() {
                 <stop offset="100%" stopColor={TK.blue500} stopOpacity={0.02} />
               </linearGradient>
             </defs>
-            <XAxis dataKey="date" tickFormatter={(v: string) => v.slice(0, 7)} tick={{ fill: TK.sub3, fontSize: 10 }} minTickGap={40} />
-            <YAxis tick={{ fill: TK.sub3, fontSize: 10 }} tickFormatter={fmtT} width={48} />
+            <XAxis dataKey="date" tickFormatter={(v: string) => v.slice(0, 7)} tick={{ fill: TK.sub3, fontSize: FS.micro }} minTickGap={40} />
+            <YAxis tick={{ fill: TK.sub3, fontSize: FS.micro }} tickFormatter={fmtT} width={48} />
             <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 12 }}
               formatter={cumTip} labelStyle={{ color: TK.slate300 }} />
             <Area dataKey="cum" stroke={TK.blue400} strokeWidth={2} fill="url(#cumVol)" />
@@ -108,10 +108,10 @@ export default function BtcEtfFlows() {
       {d.issuers?.length > 0 && d.issuerRecent?.length > 0 && (
         <div style={{ marginTop: 4 }}>
           <div style={{ fontSize: 11.5, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>
-            🏷️ 발행사별 순유입 <span style={{ fontSize: 9.5, fontWeight: 600, color: TK.sub3 }}>최근 {d.issuerRecent.length}영업일 · 단위 $M · 초록=유입 / 빨강=유출</span>
+            🏷️ 발행사별 순유입 <span style={{ fontSize: FS.micro, fontWeight: 600, color: TK.sub3 }}>최근 {d.issuerRecent.length}영업일 · 단위 $M · 초록=유입 / 빨강=유출</span>
           </div>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ borderCollapse: 'collapse', fontSize: 10, fontVariantNumeric: 'tabular-nums', minWidth: 640 }}>
+            <table style={{ borderCollapse: 'collapse', fontSize: FS.tiny, fontVariantNumeric: 'tabular-nums', minWidth: 640 }}>
               <thead>
                 <tr style={{ color: TK.sub3 }}>
                   <th style={{ textAlign: 'left', padding: '3px 6px', position: 'sticky', left: 0, background: CARD }}>날짜</th>
@@ -120,7 +120,7 @@ export default function BtcEtfFlows() {
                   {d.issuers.map(t => (
                     <th key={t} style={{ textAlign: 'right', padding: '3px 6px', fontWeight: 700 }}>
                       {t}
-                      <div style={{ fontSize: 8, fontWeight: 500, color: TK.sub4 }}>{ISSUER_KO[t] ?? ''}</div>
+                      <div style={{ fontSize: FS.micro, fontWeight: 500, color: TK.sub4 }}>{ISSUER_KO[t] ?? ''}</div>
                     </th>
                   ))}
                   <th style={{ textAlign: 'right', padding: '3px 6px', fontWeight: 800, color: TK.slate300 }}>총</th>
@@ -159,13 +159,13 @@ export default function BtcEtfFlows() {
               </tbody>
             </table>
           </div>
-          <div style={{ fontSize: 9.5, color: TK.sub4, marginTop: 3 }}>
+          <div style={{ fontSize: FS.micro, color: TK.sub4, marginTop: 3 }}>
             누적 행은 십억 달러(B) 표기 · GBTC는 기존 신탁이 ETF로 전환돼 <b style={{ color: TK.sub2 }}>대규모 유출이 정상</b>입니다(신규 창구와 성격이 다름).
           </div>
         </div>
       )}
 
-      <div style={{ color: TK.sub, fontSize: 9.5, lineHeight: 1.5 }}>
+      <div style={{ color: TK.sub, fontSize: FS.micro, lineHeight: 1.5 }}>
         ※ 순유입/유출=Farside Investors 공개 데이터(현물 BTC ETF 순창출/환매, 2024 출범~현재 전체 일별) · 누적 거래량=Yahoo Finance 현물 ETF 10종 거래대금 합산(TheBlock과 동일 출처) · 교육용, 투자 추천 아님.
       </div>
     </div>

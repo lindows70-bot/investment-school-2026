@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { ResponsiveContainer, ComposedChart, Line, Area, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts'
 import type { AltcoinsResult, AltCoin } from '@/app/api/altcoins/route'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 
 const CARD = TK.bg6, BORDER = TK.border
 const SYM_COLOR: Record<string, string> = { ETH: '#627eea', SOL: '#14f195', XRP: '#23a8c8' }
@@ -20,11 +20,11 @@ const fmtNet = (v: number, unit: string) => unit === 'M' ? `$${v}M` : `${v}${uni
 
 // 🔓 유통량 게이지 — 유통률 낮으면 미유통 물량(언락) 대기 = 가격 희석 리스크
 export function SupplyBar({ pct, note }: { pct: number | null; note: string }) {
-  if (pct == null) return <div style={{ color: TK.sub, fontSize: 10, lineHeight: 1.5 }}>🔓 유통량: <b style={{ color: TK.slate400 }}>발행 상한 없음</b> — {note.replace('발행 상한 없음(하드캡 X) — ', '')}</div>
+  if (pct == null) return <div style={{ color: TK.sub, fontSize: FS.tiny, lineHeight: 1.5 }}>🔓 유통량: <b style={{ color: TK.slate400 }}>발행 상한 없음</b> — {note.replace('발행 상한 없음(하드캡 X) — ', '')}</div>
   const col = pct >= 90 ? TK.green500 : pct >= 70 ? TK.amber400 : TK.red500
   const tag = pct >= 90 ? '희석 리스크 낮음' : pct >= 70 ? '일부 미유통' : `미유통 ${Math.round(100 - pct)}% 대기 — 희석 주의`
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: FS.tiny }}>
       <span style={{ color: TK.sub, whiteSpace: 'nowrap' }}>🔓 유통률</span>
       <span style={{ position: 'relative', flex: 1, height: 6, background: TK.bg3, borderRadius: 3, overflow: 'hidden', minWidth: 80 }}>
         <span style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${pct}%`, background: col, borderRadius: 3 }} />
@@ -48,11 +48,11 @@ function CoinChart({ c }: { c: AltCoin }) {
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
         <span style={{ color: col, fontWeight: 900, fontSize: 15 }}>{c.symbol}</span>
         <span style={{ color: TK.slate200, fontWeight: 700, fontSize: 13 }}>{c.name}</span>
-        <span style={{ color: TK.sub, fontSize: 10.5 }}>{c.tagline}</span>
+        <span style={{ color: TK.sub, fontSize: FS.tiny }}>{c.tagline}</span>
         <span style={{ marginLeft: 'auto', color: TK.slate300, fontFamily: 'monospace', fontSize: 13 }}>{c.price != null ? fmtP(c.price) : '—'}</span>
-        <span style={{ background: `${dv.c}1a`, color: dv.c, border: `1px solid ${dv.c}55`, borderRadius: 999, padding: '1px 9px', fontSize: 10, fontWeight: 800 }}>{dv.label}</span>
+        <span style={{ background: `${dv.c}1a`, color: dv.c, border: `1px solid ${dv.c}55`, borderRadius: 999, padding: '1px 9px', fontSize: FS.tiny, fontWeight: 800 }}>{dv.label}</span>
       </div>
-      <div style={{ color: TK.sub, fontSize: 10.5, marginBottom: 6 }}>
+      <div style={{ color: TK.sub, fontSize: FS.tiny, marginBottom: 6 }}>
         3년 가격 <b style={{ color: (c.priceChgPct ?? 0) >= 0 ? TK.green500 : TK.red500 }}>{c.priceChgPct != null ? `${c.priceChgPct >= 0 ? '+' : ''}${c.priceChgPct}%` : '—'}</b>
         {' · '}{c.netLabel} <b style={{ color: (c.netChgPct ?? 0) >= 0 ? TK.green500 : TK.red500 }}>{c.netChgPct != null ? `${c.netChgPct >= 0 ? '+' : ''}${c.netChgPct}%` : '—'}</b>
       </div>
@@ -63,13 +63,13 @@ function CoinChart({ c }: { c: AltCoin }) {
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={c.points} margin={{ top: 6, right: 6, left: -14, bottom: 0 }}>
             <CartesianGrid strokeDasharray="2 4" stroke="#1a2035" vertical={false} />
-            <XAxis dataKey="date" ticks={monthTicks} tick={{ fill: TK.sub2, fontSize: 9 }} tickFormatter={fmtYm} axisLine={{ stroke: BORDER }} tickLine={false} />
-            <YAxis yAxisId="p" tick={{ fill: TK.sub2, fontSize: 9 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={44} tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v / 1000)}k` : `${v}`} />
-            <YAxis yAxisId="n" orientation="right" tick={{ fill: TK.sub2, fontSize: 9 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={44} tickFormatter={(v: number) => fmtNet(v, c.netUnit)} />
+            <XAxis dataKey="date" ticks={monthTicks} tick={{ fill: TK.sub2, fontSize: FS.micro }} tickFormatter={fmtYm} axisLine={{ stroke: BORDER }} tickLine={false} />
+            <YAxis yAxisId="p" tick={{ fill: TK.sub2, fontSize: FS.micro }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={44} tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v / 1000)}k` : `${v}`} />
+            <YAxis yAxisId="n" orientation="right" tick={{ fill: TK.sub2, fontSize: FS.micro }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={44} tickFormatter={(v: number) => fmtNet(v, c.netUnit)} />
             <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 11 }} labelStyle={{ color: TK.sub }}
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               formatter={(v: any, name: any) => name === '가격' ? [fmtP(v), '가격'] : [fmtNet(v, c.netUnit), c.netLabel]} />
-            <Legend wrapperStyle={{ fontSize: 10 }} />
+            <Legend wrapperStyle={{ fontSize: FS.micro }} />
             {hasNet && <Area yAxisId="n" type="monotone" dataKey="net" name={c.netLabel} stroke={`${col}88`} fill={`${col}1f`} strokeWidth={1.4} connectNulls isAnimationActive={false} />}
             <Line yAxisId="p" type="monotone" dataKey="price" name="가격" stroke={col} strokeWidth={2.2} dot={false} isAnimationActive={false} />
           </ComposedChart>
@@ -78,7 +78,7 @@ function CoinChart({ c }: { c: AltCoin }) {
       <div style={{ marginTop: 8, background: `${dv.c}10`, border: `1px solid ${dv.c}33`, borderRadius: 8, padding: '8px 11px', color: TK.sub15, fontSize: 11, lineHeight: 1.65 }}>
         🤖 <b style={{ color: dv.c }}>자비스 한줄 처방</b> — {c.jarvisTip}
       </div>
-      <div style={{ color: TK.sub, fontSize: 9.5, lineHeight: 1.5, marginTop: 5 }}>{c.desc}</div>
+      <div style={{ color: TK.sub, fontSize: FS.micro, lineHeight: 1.5, marginTop: 5 }}>{c.desc}</div>
     </div>
   )
 }
@@ -109,7 +109,7 @@ export default function AltcoinNetworkChart() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {d.coins.map(c => <CoinChart key={c.id} c={c} />)}
       </div>
-      <div style={{ color: TK.sub, fontSize: 10, lineHeight: 1.6 }}>
+      <div style={{ color: TK.sub, fontSize: FS.tiny, lineHeight: 1.6 }}>
         ※ 가격 = CoinGecko · 활성주소(DAU) = CoinMetrics 커뮤니티 · 일일 수수료 = DefiLlama — 전부 무료·무키 공개 API · 12h 캐시 · 솔라나 DAU는 무료 미제공이라 실사용량 동행 지표인 일일 수수료로 대체 · 교육용이며 투자 추천이 아닙니다.
       </div>
     </div>

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, Tooltip } from 'recharts'
 import type { CoinLabResult } from '@/app/api/coin-lab/route'
-import { TK } from '@/lib/theme'
+import { TK, FS } from '@/lib/theme'
 
 const CARD = TK.bg4, BORDER = TK.line3
 
@@ -36,7 +36,7 @@ export default function BtcRainbowChart({ rainbow }: { rainbow: NonNullable<Coin
     <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
         <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 13 }}>🌈 비트코인 레인보우 차트</span>
-        <span style={{ color: TK.sub, fontSize: 10.5 }}>로그 회귀 9밴드 · 파랑(저평가·축적) → 빨강(과열·버블) · 흰선 = 실제 가격</span>
+        <span style={{ color: TK.sub, fontSize: FS.tiny }}>로그 회귀 9밴드 · 파랑(저평가·축적) → 빨강(과열·버블) · 흰선 = 실제 가격</span>
       </div>
 
       {/* 현재 위치 배너 */}
@@ -52,9 +52,9 @@ export default function BtcRainbowChart({ rainbow }: { rainbow: NonNullable<Coin
       <div style={{ height: 460 }}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={points} margin={{ top: 12, right: 14, left: 2, bottom: 0 }}>
-            <XAxis dataKey="date" tick={{ fill: TK.sub2, fontSize: 9.5 }} tickFormatter={(s: string) => String(s).slice(0, 4)}
+            <XAxis dataKey="date" tick={{ fill: TK.sub2, fontSize: FS.micro }} tickFormatter={(s: string) => String(s).slice(0, 4)}
               ticks={yearTicks} axisLine={{ stroke: BORDER }} tickLine={false} />
-            <YAxis scale="log" domain={[yMin, yMax]} ticks={ticks} allowDataOverflow tick={{ fill: TK.sub2, fontSize: 9.5 }}
+            <YAxis scale="log" domain={[yMin, yMax]} ticks={ticks} allowDataOverflow tick={{ fill: TK.sub2, fontSize: FS.micro }}
               axisLine={false} tickLine={false} width={52}
               tickFormatter={(v: number) => v >= 1000000 ? `$${v / 1e6}M` : v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${v}`} />
             {/* 밴드: 위(빨강·큰값)부터 그려 아래(파랑·작은값)가 덮어쓰며 색대 형성 */}
@@ -75,7 +75,7 @@ export default function BtcRainbowChart({ rainbow }: { rainbow: NonNullable<Coin
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
         {bands.map((b, i) => (
           <span key={i} style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, padding: '3px 8px', borderRadius: 6,
+            display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: FS.tiny, padding: '3px 8px', borderRadius: 6,
             background: current && current.index === i ? `${b.color}33` : 'transparent',
             border: current && current.index === i ? `1px solid ${b.color}` : '1px solid transparent',
             color: current && current.index === i ? TK.slate200 : TK.sub4, fontWeight: current && current.index === i ? 800 : 500 }}>
@@ -87,7 +87,7 @@ export default function BtcRainbowChart({ rainbow }: { rainbow: NonNullable<Coin
       {/* 🎓 교육 + 정직성 캐비엇 */}
       <button onClick={() => setEduOpen(o => !o)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, background: 'transparent', border: 'none', cursor: 'pointer', padding: '10px 0 2px', textAlign: 'left' }}>
         <span style={{ color: TK.btcOrange, fontWeight: 800, fontSize: 12 }}>🎓 레인보우 차트란?</span>
-        <span style={{ color: TK.sub, fontSize: 10.5 }}>로그 회귀로 &lsquo;싸다/비싸다&rsquo;를 색으로</span>
+        <span style={{ color: TK.sub, fontSize: FS.tiny }}>로그 회귀로 &lsquo;싸다/비싸다&rsquo;를 색으로</span>
         <span style={{ marginLeft: 'auto', color: TK.sub, fontSize: 11 }}>{eduOpen ? '▲ 접기' : '▼ 펼치기'}</span>
       </button>
       {eduOpen && (
