@@ -73,5 +73,29 @@ const idx = f.groups.find(g => g.group === 'index')
 check('한 종목만 구멍 → 그룹 합계에 1/2 표기', idx?.flow1wOf === '1/2', `flow1wOf=${idx?.flow1wOf}`)
 check('  구멍 난 종목(QQQ)은 값 없음', f.items.find(i => i.t === 'QQQ')?.flow1w === null)
 
+// ⑥ 발행주수 실측표(sharesProbe) — 옛 스냅샷(필드 없음)은 '못 물어봄'으로 제외, 값이 매일 바뀌면 daily, 안 바뀌면 stale, 5일 미만이면 collecting
+const seedShares = (spyShares, ibitShares = null) => {
+  SNAPS.clear()
+  spyShares.forEach((v, i) => {
+    const off = spyShares.length - 1 - i, k = ETF_SNAP_KEY(day(off))
+    // v === undefined 는 '발행주수를 안 물어본 옛 스냅샷' — 그날은 IBIT 에도 필드를 넣지 않는다
+    SNAPS.set(k, { day: day(off), at: '', etfs: { SPY: { aum: 1e11, nav: 600, price: 600, ...(v === undefined ? {} : { shares: v }) }, IBIT: { aum: 6e10, nav: 60, price: 60, ...(v === undefined ? {} : { shares: ibitShares }) } } })
+  })
+}
+seedShares([undefined, undefined, undefined])
+f = await buildEtfFlow(null)
+check('옛 스냅샷(필드 없음) → askedDays 0 · collecting', f.sharesProbe.askedDays === 0 && f.sharesProbe.verdict === 'collecting', JSON.stringify(f.sharesProbe))
+seedShares([100, 101, 102, 103, 104, 105])
+f = await buildEtfFlow(null)
+check('6일 매일 바뀜 → daily', f.sharesProbe.verdict === 'daily' && f.sharesProbe.items[0]?.changed === 5, JSON.stringify(f.sharesProbe))
+check('  야후가 안 준 종목(IBIT null)은 none 에', f.sharesProbe.none.includes('IBIT'))
+seedShares([100, 100, 100, 100, 100, 100])
+f = await buildEtfFlow(null)
+check('6일 동결 → stale', f.sharesProbe.verdict === 'stale' && f.sharesProbe.items[0]?.distinct === 1, JSON.stringify(f.sharesProbe))
+seedShares([100, 101, 102])
+f = await buildEtfFlow(null)
+check('3일뿐 → collecting(판정 보류)', f.sharesProbe.verdict === 'collecting')
+check('  실측표는 순유입 값에 영향 없음', spy(f)?.flow1w === null)
+
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (🔒 ETF 순유입 기간 불변식)')
 process.exit(fail ? 1 : 0)

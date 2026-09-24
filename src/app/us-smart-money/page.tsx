@@ -301,7 +301,10 @@ function FlowSection({ f }: { f: EtfFlow }) {
       </div>
       {!haveFlow && (
         <div style={{ background: `${TK.amber400}12`, border: `1px solid ${TK.amber400}44`, borderRadius: RAD.xs, padding: '7px 10px', fontSize: FS.tiny, color: TK.amber400, lineHeight: 1.6 }}>
-          ⏳ 자금 흐름은 매일 하나씩 쌓입니다 — 1주 순유입은 스냅샷 6개(약 1주), 1개월은 21개부터 보입니다. 그 전엔 값의 흐름(1개월 등락·거래량)만 보여드립니다.
+          {f.daysCollected >= 6
+            // ⚠️ "1주 뒤면 보인다"는 약속을 지우고 상태를 그대로 — 출처(야후)의 순자산이 여러 날 같은 값으로 와서(2026-09-24 실측) 역산하면 가짜 유출이 생겨 값을 비운다
+            ? <>⏸️ 순유입은 지금 비어 있습니다 — 출처의 순자산이 여러 날 같은 값으로 와서, 그대로 계산하면 없는 유출이 생기기 때문에 값을 비웁니다. 발행주수로 계산할 수 있는지 재는 중입니다({f.sharesProbe?.askedDays ?? 0}일째 · 5일 이상 모이면 판정). 그 전엔 값의 흐름(1개월 등락·거래량)만 보여드립니다.</>
+            : <>⏳ 자금 흐름은 매일 하나씩 쌓입니다 — 1주 순유입은 스냅샷 6개(약 1주), 1개월은 21개부터 보입니다. 그 전엔 값의 흐름(1개월 등락·거래량)만 보여드립니다.</>}
         </div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

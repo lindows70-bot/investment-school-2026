@@ -7,7 +7,7 @@ import { getCache, setCache } from '@/lib/appCache'
 import { getTechCandles, dropIncompleteBar } from '@/lib/techChartData'
 
 export const ETF_SNAP_KEY = (day: string) => `etf-snap-v1:${day}`          // day = YYYY-MM-DD (미국 동부)
-export const ETF_FLOW_KEY = (kst: string) => `etf-flow-v2:${kst}`   // v2: 순자산 동결 구간 null(내용이 바뀌어 올린다)
+export const ETF_FLOW_KEY = (kst: string) => `etf-flow-v3:${kst}`   // v3: sharesProbe 필드 추가(필드가 늘어도 올린다) · v2: 순자산 동결 구간 null
 export const ETF_SNAP_MARK = (kst: string) => `etf-snap-run-v1:${kst}`
 
 export type EtfGroup = 'index' | 'sector' | 'style' | 'geo' | 'theme' | 'bond' | 'lever'
@@ -26,7 +26,12 @@ export const ETF_UNIVERSE: EtfDef[] = [
 ]
 export const GROUP_KO: Record<EtfGroup, string> = { index: '지수형(기관 장기자금)', sector: '섹터', style: '스타일', geo: '지역', theme: '테마', bond: '채권·현금', lever: '레버리지·인버스(단기 투기)' }
 
-export interface EtfSnap { aum: number; nav: number; price: number | null }
+export interface EtfSnap {
+  aum: number; nav: number; price: number | null
+  /** 발행주수(`quote().sharesOutstanding`) — 2026-09-24 실측: SPY·GBTC 엔 오고 IBIT·FBTC 엔 없다. null = 야후가 안 줌 · 없음(undefined) = 그날 못 물어봄(옛 스냅샷·배치 실패).
+   *  ⚠️ 아직 계산에 쓰지 않는다 — 매일 갱신되는지 며칠 적립해 `sharesProbe` 로 본 뒤 Δ주수×NAV 전환 여부를 결정한다(순자산 동결 사고 재발 방지). */
+  shares?: number | null
+}
 export type EtfSnapDoc = { day: string; at: string; etfs: Record<string, EtfSnap> }
 
 const etDay = (off = 0) => new Date(Date.now() - 5 * 3600_000 - off * 86400_000).toISOString().slice(0, 10)
@@ -54,9 +59,42 @@ export async function snapshotEtfs(): Promise<{ day: string; ok: number; fail: s
       } catch { fail.push(e.t) }
     }))
   }
+  // 발행주수 — quote() 는 배치 한 번(40심볼). 실패해도 스냅샷은 살린다(순자산·NAV 가 본체). 배치가 실패하면 shares 를 아예 안 적어 '못 물어봄'으로 남긴다
+  try {
+    const qs = await yf.quote(ETF_UNIVERSE.map(e => e.t))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const byT = new Map<string, any>((Array.isArray(qs) ? qs : [qs]).map((q: any) => [q?.symbol, q]))
+    for (const t of Object.keys(doc.etfs)) {
+      const so = byT.get(t)?.sharesOutstanding
+      doc.etfs[t].shares = typeof so === 'number' && so > 0 ? so : null
+    }
+  } catch { /* 발행주수만 비운다 */ }
   const ok = Object.keys(doc.etfs).length
   if (ok >= ETF_UNIVERSE.length * 0.8) await setCache(ETF_SNAP_KEY(day), doc)   // 부분실패 박제 금지
   return { day, ok, fail }
+}
+
+/** 발행주수 실측표 — "야후 발행주수가 매일 바뀌는가"에 답하기 위한 진단. 순유입 계산엔 쓰지 않는다. */
+export interface EtfSharesProbe {
+  askedDays: number                         // shares 를 물어본 스냅샷 날 수(옛 스냅샷은 필드가 없어 제외)
+  items: { t: string; days: number; distinct: number; changed: number; first: number; last: number }[]   // 값이 온 종목만 · changed = 연속 스냅샷 사이 값이 바뀐 횟수
+  none: string[]                            // 물어봤는데 야후가 한 번도 안 준 종목
+  verdict: 'collecting' | 'daily' | 'stale'  // 표본 5일 미만 = collecting · 온 종목 절반 이상이 절반 이상 날에 바뀜 = daily · 아니면 stale
+}
+export function probeShares(snaps: EtfSnapDoc[]): EtfSharesProbe {
+  const asked = snaps.filter(s => Object.values(s.etfs).some(e => e.shares !== undefined))
+  const items: EtfSharesProbe['items'] = [], none: string[] = []
+  for (const e of ETF_UNIVERSE) {
+    const vals = asked.map(s => s.etfs[e.t]?.shares).filter((v): v is number => typeof v === 'number')
+    if (!vals.length) { if (asked.some(s => s.etfs[e.t]?.shares === null)) none.push(e.t); continue }
+    let changed = 0
+    for (let i = 1; i < vals.length; i++) if (vals[i] !== vals[i - 1]) changed++
+    items.push({ t: e.t, days: vals.length, distinct: new Set(vals).size, changed, first: vals[0], last: vals[vals.length - 1] })
+  }
+  const enough = items.filter(i => i.days >= 5)
+  const daily = enough.filter(i => i.changed >= (i.days - 1) / 2)
+  const verdict: EtfSharesProbe['verdict'] = asked.length < 5 || !enough.length ? 'collecting' : daily.length * 2 >= enough.length ? 'daily' : 'stale'
+  return { askedDays: asked.length, items, none, verdict }
 }
 
 export interface EtfFlowItem {
@@ -76,6 +114,7 @@ export interface EtfFlow {
   groups: { group: EtfGroup; ko: string; flow1w: number | null; flow1wOf: string | null; flow1m: number | null; flow1mOf: string | null; ret1m: number | null }[]
   answer: string
   usdKrw: number | null
+  sharesProbe: EtfSharesProbe               // 발행주수 일별 갱신 실측(진단용 — 화면 순유입엔 미반영)
 }
 
 export async function buildEtfFlow(usdKrw: number | null): Promise<EtfFlow> {
@@ -130,14 +169,18 @@ export async function buildEtfFlow(usdKrw: number | null): Promise<EtfFlow> {
   })
   const days = snaps.length
   const haveW = items.some(i => i.flow1w != null)
+  const sharesProbe = probeShares(snaps)
   let answer: string
   if (!haveW) {
     const top = [...items].filter(i => i.ret1m != null).sort((a, b) => (b.ret1m ?? 0) - (a.ret1m ?? 0))
-    answer = `자금 흐름은 ${days}일째 모으는 중(1주 뒤부터 순유입이 보입니다) · 지금 볼 수 있는 건 값의 흐름 — 1개월 가장 오른 곳 ${top[0] ? `${top[0].name} ${top[0].ret1m! >= 0 ? '+' : ''}${top[0].ret1m}%` : '—'}, 가장 내린 곳 ${top[top.length - 1] ? `${top[top.length - 1].name} ${top[top.length - 1].ret1m}%` : '—'}`
+    // ⚠️ "1주 뒤부터 보입니다"라고 약속하지 않는다 — 2026-09-24 실측으로 순자산 역산이 멈춰 있어(동결 구간 null) 그 약속은 거짓이 된다.
+    //    지금 상태(비어 있음 · 왜 · 무엇을 재는 중)를 그대로 적는다
+    const why = days >= 6 ? `순유입은 비어 있음(출처의 순자산이 여러 날 같은 값이라 역산을 멈춤 · 발행주수 방식 실측 ${sharesProbe.askedDays}일째)` : `순유입은 ${days}일째 모으는 중`
+    answer = `${why} · 지금 볼 수 있는 건 값의 흐름 — 1개월 가장 오른 곳 ${top[0] ? `${top[0].name} ${top[0].ret1m! >= 0 ? '+' : ''}${top[0].ret1m}%` : '—'}, 가장 내린 곳 ${top[top.length - 1] ? `${top[top.length - 1].name} ${top[top.length - 1].ret1m}%` : '—'}`
   } else {
     const sec = items.filter(i => i.group === 'sector' && i.flow1w != null).sort((a, b) => (b.flow1w ?? 0) - (a.flow1w ?? 0))
     const acc = items.filter(i => i.accel)
     answer = `이번 주 돈이 가장 들어온 섹터 ${sec[0]?.name ?? '—'}, 가장 나간 섹터 ${sec[sec.length - 1]?.name ?? '—'}` + (acc.length ? ` · 유입이 빨라지는 곳 ${acc.slice(0, 3).map(a => a.name).join('·')}` : '')
   }
-  return { asOf: new Date().toISOString(), daysCollected: days, firstDay: snaps[0]?.day ?? null, lastDay: snaps[snaps.length - 1]?.day ?? null, items, groups, answer, usdKrw }
+  return { asOf: new Date().toISOString(), daysCollected: days, firstDay: snaps[0]?.day ?? null, lastDay: snaps[snaps.length - 1]?.day ?? null, items, groups, answer, usdKrw, sharesProbe }
 }

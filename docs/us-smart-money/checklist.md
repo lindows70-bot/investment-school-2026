@@ -33,7 +33,8 @@
 - [x] `/api/cron/etf-snap` 화~토 19:20 KST(주말 스킵 가드) · `/api/etf-flow` 6h · cronHealth 1줄 · 화면 절 2(그룹 접기, 첫 1주는 값·거래량만)
 - [x] 첫 스냅샷 40/40 (09-18 분) · 프로덕션 적재 시작
 - [x] ~~**검증(1주 뒤 09-26)**~~ → **09-24 조기 기각**: Yahoo totalAssets 가 09-18~09-24 내내 동일(IBIT·SPY) — 역산이 가짜 유출을 만든다. 동결 구간 null 가드(`etf-flow-v2`). 순유입 축은 표시 없음
-- [ ] 발행주수(`quote().sharesOutstanding`, SPY 등 일부만 제공)가 매일 갱신되는지 며칠 스냅샷으로 실측 → Δ주수×NAV 전환 여부 결정
+- [x] 발행주수(`quote().sharesOutstanding`) **적립 시작**(2026-09-24, 클라우드 세션) — 일별 스냅샷에 `shares` 필드(배치 quote 1회 · 실패해도 스냅샷은 저장) + `/api/etf-flow` 의 `sharesProbe`(askedDays·종목별 distinct/changed·verdict) · 키 `etf-flow-v3` · 불변식 ⑥ 6검사 추가 · 화면 "1주 뒤면 보인다" 약속 → 실제 상태 문구
+- [ ] `sharesProbe.verdict` 가 `daily` 면 Δ주수×NAV 로 순유입 전환(오는 종목만 · `none` 은 '없음') · `stale` 이면 절 2 순유입 축은 표시 없음으로 확정하고 스냅샷 크론 축소 검토. **판정은 5일 이상(askedDays ≥ 5) 뒤** — 배포일 기준 약 09-30~10-01
 
 ## 절 4 — 전문가들이 마음을 바꾼 회사는 (2026-09-19)
 - [x] `lib/analystRerating.ts` — 유니버스 미국 종목 + 내부자 통과 종목(470종) × Yahoo `upgradeDowngradeHistory`(30일 상향/하향 증권사 수)·`earningsTrend`(EPS 리비전)·`financialData`(목표가 여력)
@@ -44,7 +45,7 @@
 
 ## 전체 (4절 완료 2026-09-19)
 - [x] Vercel SEC 속도 — 09-22 실측: 미처리 잔량 0, 09-21분 391건 전량 완료(크론이 따라잡음). 속도 자체는 못 쟀으나 목적 달성
-- [ ] ETF 순유입 vs etf.com(09-26 첫 1주값) · 절 4 표본이 늘 0~5곳이면 임계 완화 검토(2곳?)
+- [ ] ~~ETF 순유입 vs etf.com(09-26 첫 1주값)~~ → 순자산 방식 기각(09-24) · 발행주수 방식은 위 `sharesProbe` 판정 뒤 대조 · 절 4 표본이 늘 0~5곳이면 임계 완화 검토(2곳?)
 - [x] 성적 적립 — `lib/usSmartHistory.ts` · 20·60거래일 × SPY 초과분 · 첫 표본 88건(09-21) · `/api/usm-record` 07:30 KST 크론 · cronHealth 1줄
 
 ## 09-22 점검 (배포 3일차)
