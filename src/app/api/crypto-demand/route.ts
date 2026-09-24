@@ -70,7 +70,7 @@ export async function GET(req: Request) {
 
   // ③ 현물: 기존 btc-etf 캐시 재사용(제2원칙 — 같은 값). 콜드면 self-fetch 로 워밍 후 재조회
   let etfFlow: { date: string; net: number }[] = []
-  const etfKey = `btc-etf-v7:${kstDate()}`   // ⚠️ writer(btc-etf 라우트)와 반드시 함께 올린다 — 안 그러면 현물 축이 조용히 빈다
+  const etfKey = `btc-etf-v8:${kstDate()}`   // ⚠️ writer(btc-etf 라우트)와 반드시 함께 올린다 — 안 그러면 현물 축이 조용히 빈다
   // v7 부터 flow 가 '마지막 성공분'(flowStale)일 수 있다 — 그 뒤 날짜는 flowByDate 에 없어 아래 60% 규칙이 spot 을 null 로 비운다(거짓 합계 없음)
   let etf = await getCache<BtcEtfResult>(etfKey, 24 * 3600_000)
   if (!etf) {

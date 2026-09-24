@@ -32,7 +32,8 @@
 - [x] `lib/etfFlow.ts` — 40개 대표 ETF(지수·섹터 11·스타일·지역·테마·채권·레버리지) · flow = ΔAUM − 시장 등락분 · 1주 가속 · 가격-자금 괴리 · 거래량 5일/20일
 - [x] `/api/cron/etf-snap` 화~토 19:20 KST(주말 스킵 가드) · `/api/etf-flow` 6h · cronHealth 1줄 · 화면 절 2(그룹 접기, 첫 1주는 값·거래량만)
 - [x] 첫 스냅샷 40/40 (09-18 분) · 프로덕션 적재 시작
-- [ ] **검증(1주 뒤 09-26)** — SPY·QQQ 1주 역산 순유입을 공개 집계(etf.com Fund Flows)와 대조. 부호·자릿수가 맞아야 표시 유지. Yahoo totalAssets 가 매일 안 바뀌면(주간 갱신) 이 절은 '주간 흐름'으로 격하
+- [x] ~~**검증(1주 뒤 09-26)**~~ → **09-24 조기 기각**: Yahoo totalAssets 가 09-18~09-24 내내 동일(IBIT·SPY) — 역산이 가짜 유출을 만든다. 동결 구간 null 가드(`etf-flow-v2`). 순유입 축은 표시 없음
+- [ ] 발행주수(`quote().sharesOutstanding`, SPY 등 일부만 제공)가 매일 갱신되는지 며칠 스냅샷으로 실측 → Δ주수×NAV 전환 여부 결정
 
 ## 절 4 — 전문가들이 마음을 바꾼 회사는 (2026-09-19)
 - [x] `lib/analystRerating.ts` — 유니버스 미국 종목 + 내부자 통과 종목(470종) × Yahoo `upgradeDowngradeHistory`(30일 상향/하향 증권사 수)·`earningsTrend`(EPS 리비전)·`financialData`(목표가 여력)

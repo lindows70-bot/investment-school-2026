@@ -7,7 +7,7 @@ import { getCache, setCache } from '@/lib/appCache'
 import { getTechCandles, dropIncompleteBar } from '@/lib/techChartData'
 
 export const ETF_SNAP_KEY = (day: string) => `etf-snap-v1:${day}`          // day = YYYY-MM-DD (미국 동부)
-export const ETF_FLOW_KEY = (kst: string) => `etf-flow-v1:${kst}`
+export const ETF_FLOW_KEY = (kst: string) => `etf-flow-v2:${kst}`   // v2: 순자산 동결 구간 null(내용이 바뀌어 올린다)
 export const ETF_SNAP_MARK = (kst: string) => `etf-snap-run-v1:${kst}`
 
 export type EtfGroup = 'index' | 'sector' | 'style' | 'geo' | 'theme' | 'bond' | 'lever'
@@ -92,7 +92,13 @@ export async function buildEtfFlow(usdKrw: number | null): Promise<EtfFlow> {
     const span = Math.round((Date.parse(to) - Date.parse(from)) / 86400_000)
     if (span > n * 1.6 + 4) return null      // n 거래일 ≈ n×1.4 달력일 + 여유. 구멍이 크면 기간을 속이느니 비운다
     let f = 0
-    for (let i = 1; i < s.length; i++) { const a = s[i - 1].etfs[t], b = s[i].etfs[t]; f += b.aum - a.aum * (b.nav / a.nav) }
+    for (let i = 1; i < s.length; i++) {
+      const a = s[i - 1].etfs[t], b = s[i].etfs[t]
+      // ⛔ 2026-09-24 실측: Yahoo totalAssets 가 **여러 날 한 푼도 안 바뀐 채**(IBIT 61,435,101,184 · SPY 811,937,040,000 — 09-18·21·22·24 동일) NAV 만 움직였다.
+      //    그대로 계산하면 'ΔAUM 0 − 시장 등락분' = 시장이 오른 만큼이 가짜 유출로 찍힌다(IBIT −3.7B). 순자산이 그대로인데 NAV 가 움직인 구간은 역산 불가 → null
+      if (b.aum === a.aum && b.nav !== a.nav) return null
+      f += b.aum - a.aum * (b.nav / a.nav)
+    }
     return { v: f, from, to, span }
   }
   const items: EtfFlowItem[] = []

@@ -45,7 +45,7 @@ export default function BtcEtfFlows() {
       <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
           <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 13.5 }}>🏦 현물 ETF 순유입/유출</span>
-          <span style={{ color: TK.sub, fontSize: 11 }}>{d.flowWindowDays > 30 ? '2024 출범~현재' : `최근 ${d.flowWindowDays}거래일`} · Farside</span>
+          <span style={{ color: TK.sub, fontSize: 11 }}>{d.flowWindowDays > 30 ? '2024 출범~현재' : `최근 ${d.flowWindowDays}거래일`} · {d.flowSource === 'theblock' ? 'TheBlock' : 'Farside'}{d.flowAsOf ? ` · 마지막 ${d.flowAsOf.slice(5).replace('-', '/')}` : ''}</span>
           {d.flowCumulative != null && (
             <span style={{ marginLeft: 'auto', color: d.flowCumulative >= 0 ? TK.green400 : TK.red400, fontWeight: 800, fontSize: 12 }}>
               출범 이후 누적 순유입 {fmtM(d.flowCumulative)}
@@ -58,7 +58,7 @@ export default function BtcEtfFlows() {
         {/* 🧊 Farside 가 서버를 막아(Cloudflare 챌린지) 새 행을 못 받는 동안 — '없음'이 아니라 '그날까지'라고 정직하게 */}
         {d.flowStale && d.flowAsOf && (
           <div style={{ background: `${TK.amber400}14`, border: `1px solid ${TK.amber400}55`, borderRadius: 8, padding: '7px 11px', marginBottom: 8, color: TK.amber400, fontSize: FS.tiny, fontWeight: 700, lineHeight: 1.5 }}>
-            ⏸️ {d.flowAsOf.slice(5).replace('-', '/')}까지의 자료입니다 — 그 뒤 순유입은 출처(Farside)가 자동 수집을 막아 아직 못 받았습니다. 최근 며칠의 유입·유출은 여기서 판단하지 마세요.
+            ⏸️ {d.flowAsOf.slice(5).replace('-', '/')}까지의 자료입니다 — 그 뒤 순유입은 출처가 자동 수집을 막아 아직 못 받았습니다. 최근 며칠의 유입·유출은 여기서 판단하지 마세요.
           </div>
         )}
         {flowHasData ? (
@@ -172,7 +172,7 @@ export default function BtcEtfFlows() {
       )}
 
       <div style={{ color: TK.sub, fontSize: FS.micro, lineHeight: 1.5 }}>
-        ※ 순유입/유출=Farside Investors 공개 데이터(현물 BTC ETF 순창출/환매, 2024 출범~현재 전체 일별) · 누적 거래량=Yahoo Finance 현물 ETF 10종 거래대금 합산(TheBlock과 동일 출처) · 교육용, 투자 추천 아님.
+        ※ 순유입/유출={d.flowSource === 'theblock' ? 'TheBlock 데이터 대시보드(발행사 12종 일별 순창출/환매, 2024 출범~현재 · 약 2거래일 지연)' : 'Farside Investors 공개 데이터(현물 BTC ETF 순창출/환매, 2024 출범~현재 전체 일별)'} · 누적 거래량=Yahoo Finance 현물 ETF 10종 거래대금 합산(TheBlock과 동일 출처) · 교육용, 투자 추천 아님.
       </div>
     </div>
   )

@@ -37,7 +37,23 @@
 - 화면검증(사용자 로그인 크롬, 2026-09-24): 답 카드·프로덕션 메이어 1.19·브리핑 🪙 줄 정상. 토글은 헤더 폭 356px 에서 2줄로 접히고 overflow 없음(DOM 폭 강제로 측정). 발행사 표 852px/컨테이너 1410px.
 - 🔴 **Farside 가 Cloudflare 봇 챌린지(403 "Just a moment")로 서버를 막았다** — 서버와 같은 node:https 경로·풀 브라우저 헤더 둘 다 403. 마지막 성공 수집은 09-06(09-04분까지, `btc-etf-v6:2026-09-06`). 그 뒤 화면은 "최근 0거래일 · 일시적으로 불러오지 못했습니다"였고, 캐시 조건이 누적 거래량만 봐서 빈 flow 가 3h 씩 박제됐다(메이어 null 박제와 같은 모양 — **"핵심 데이터"의 정의가 좁으면 나머지 실패가 조용히 박제된다**).
   → 챌린지 우회는 하지 않는다(봇 차단 우회 금지). 대신 TTL 없는 '마지막 성공분'(`btc-etf-flow-lastgood-v1`)을 폴백으로 내려보내고 `flowStale`·`flowAsOf` 로 화면에 "09/04까지의 자료 — 그 뒤는 못 받음" 배너. 시드는 `scripts/seed-btc-etf-lastgood.mjs`(1회 실행 완료). crypto-demand 는 v7 키로 함께 올렸고, 60% 규칙이 빈 날짜의 spot 을 null 로 비운다.
-  ⏭️ 남은 일: 현물 ETF 순유입의 **대체 무료 출처 Phase 0 실측**(후보: SoSoValue·CoinGlass 는 키 필요, TheBlock 은 유료). 없으면 이 절은 '09-04까지'로 정직하게 멈춘다.
+  ⏭️ ~~남은 일: 대체 출처 Phase 0~~ → 아래 판정표(같은 날 실측 완료).
+
+## 현물 ETF 순유입 대체 출처 — Phase 0 판정표 (2026-09-24)
+| 소스 | 결과 | 비고 |
+|---|---|---|
+| Farside `/btc/`·`/bitcoin-etf-flow-all-data/` | ❌ 403 Cloudflare 챌린지 | node:https·풀 브라우저 헤더 둘 다. 우회 안 함 |
+| CoinMarketCap `data-api/v3/etf/*` | ❌ 404 | 경로 추정이 틀렸거나 없음 |
+| CoinGlass `open-api-v4` | ❌ 401 API key missing | 무료 키라도 가입 필요 |
+| Yahoo `summaryDetail.totalAssets` (ΔAUM 역산) | ❌ **5일간 값 동결**(IBIT 61,435,101,184) | 일별 순유입 역산 불가 — 절 2 ETF 흐름에도 같은 결함(위 기록) |
+| Yahoo `quote().sharesOutstanding` | △ GBTC·SPY 만 · IBIT·FBTC 없음 | 보편 출처 아님 |
+| iShares IBIT CSV | ❌ HTML 1.3MB(봇 차단) | 2026-09-19 실측과 동일 |
+| GitHub `kodokzx/btc-etf` JSON | △ 200 · 09-18분까지(3일 지연) | 개인 저장소 — 끊길 수 있음. 폴백 후보로만 |
+| **TheBlock `api/charts/chart/etfs/bitcoin-etf/spot-bitcoin-etf-flows`** | ✅ **200 · JSON · 무키** · 발행사 12종(IBIT·GBTC·FBTC·ARKB·BITB·EZBC·BTCW·BTCO·BRRR·HODL·BTC·MSBT) 일별 USD · 2024-01-11~ 675행 | `…/spot-bitcoin-etf-total-net-flow` 도 있음. 마지막 행 09-21(약 2거래일 지연) |
+
+**TheBlock 값 대조(3곳·소수점까지 일치)** — 09-21 총 999.0M·IBIT 381.4·ARKB 289.1·FBTC 238.8 = 뉴스/SoSoValue · 08-21 총 307.5 = Farside 원천(CLAUDE.md 실사고 기록) · 09-04 총 174.6·IBIT 117.4·FBTC 57.2 = Farside 발행사 표(마지막 성공분). 합계 = 발행사 합(6일 전부).
+→ **채택: TheBlock 1순위 → Farside 2순위 → 마지막 성공분.** 단위 USD→$M 변환, 스키마는 그대로. 화면 출처 표기 `flowSource` 로 동적. 키 v8(crypto-demand 함께).
+⚠️ 비공식 프론트 엔드포인트라 예고 없이 바뀔 수 있다 — 그때는 마지막 성공분 폴백이 받는다(⏸️ 배너).
 - ③ 시장 개요의 24h 등락이 초록/빨강(미국식)이라 바로 위 답 카드(빨강=상승)와 한 화면에서 갈렸다 → 빨강/파랑으로 통일.
 - ✅ **Vercel 자체 계산 확인** — 1h 캐시 만료 뒤 프로덕션 `asOf` 06:01Z(로컬 시드 04:57Z 이후)에서 `mayer 1.19 · ma200 70,673` 유지. CoinGecko 의존을 뺀 것이 프로덕션에서도 통한다.
 - X축 연도 중복("2018 2018 2019 2019") — `minTickGap` 은 격주·일별 데이터에서 같은 연도를 두 번 찍는다. 레인보우 차트가 이미 쓰던 '연도당 첫 포인트' 규칙(`yearTicksOf` + `interval=0`)을 10년 차트·상관 오버레이에도 적용. 오버레이 Y축 숫자가 "00/70/50"으로 잘리던 것(왼쪽 여백 −16)도 함께 제거.
