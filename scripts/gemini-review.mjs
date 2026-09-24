@@ -6,6 +6,9 @@
 //   메타/Grok/Groq 오픈모델 검토(9/13)는 이 PC(내장 GPU·VRAM 1GB)와 무료 한도(Groq 8k 토큰/일) 때문에 기각됐다.
 //
 // 설계는 gemini-audit.mjs 와 같다 — **요청 1회**. 증거(diff)를 로컬에서 만들어 한 번에 넘기고 판단만 시킨다.
+// ⚠️ 커밋 제목(=작성자의 결론)은 프롬프트에 넣지 않는다(2026-09-24) — "리뷰어에게 CLAIM 을 넘기면 동의 쪽으로 기운다"
+//   (addyosmani/agent-skills doubt-driven-development 에서 가져온 규칙). 건수만 알리고 diff·stat 으로만 판단시킨다.
+//   Codex 는 codex-companion 이 프롬프트를 만들어 여기서 손댈 수 없다 — agent-roles 스킬에 같은 원칙을 적어 둔다.
 //   무료 티어는 하루 20회라 재시도 폭주가 한도를 태운 전례가 있다(재시도 최대 2회·503 만).
 //
 // 사용: node scripts/gemini-review.mjs --base <sha> [--head <sha>]
@@ -55,8 +58,8 @@ const prompt = `너는 이 저장소(Next.js 14 · Supabase · TypeScript 투자
 ⛔ diff 에 없는 파일·줄을 지어내지 마라. 확신이 없으면 "확인 필요"로 표시하라.
 발견이 없으면 "발견 없음"이라고만 답하라. 억지로 만들지 마라.
 ${truncated ? '\n⚠️ diff 가 상한을 넘어 앞부분만 전달됐다. 그 사실을 서두에 밝혀라.\n' : ''}
-=== 커밋 목록 ===
-${log}
+=== 리뷰 구간 ===
+커밋 ${log.split('\n').length}건(제목은 일부러 뺐다 — 작성자의 결론을 넘기면 리뷰어가 동의 쪽으로 기운다. diff 만 보고 판단하라)
 
 === 변경 통계 ===
 ${stat}
