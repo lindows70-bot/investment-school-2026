@@ -1,5 +1,5 @@
 'use client'
-// 🏦 비트코인 현물 ETF — ① 순유입/유출(Farside·최근 일별) ② 누적 거래량(Yahoo 전체·TheBlock 재현)
+// 🏦 비트코인 현물 ETF — ① 순유입/유출(TheBlock 1순위 → Farside → 마지막 성공분·일별) ② 누적 거래량(Yahoo 전체·TheBlock 재현)
 import { useState, useEffect } from 'react'
 import { ResponsiveContainer, ComposedChart, AreaChart, Area, Bar, Line, Cell, XAxis, YAxis, Tooltip, ReferenceLine, Legend } from 'recharts'
 import type { BtcEtfResult } from '@/app/api/btc-etf/route'
@@ -33,7 +33,7 @@ export default function BtcEtfFlows() {
     return () => { alive = false }
   }, [])
 
-  if (loading) return <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px', color: TK.sub, fontSize: 12 }}>🏦 비트코인 현물 ETF 데이터를 불러오는 중…</div>
+  if (loading) return <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px', color: TK.sub, fontSize: FS.tiny }}>🏦 비트코인 현물 ETF 데이터를 불러오는 중…</div>
   if (!d || d.cumVolume.length === 0) return null
 
   const flowHasData = d.flow.length > 0
@@ -44,15 +44,15 @@ export default function BtcEtfFlows() {
       {/* ① 순유입/유출 — Farside 최근 일별 */}
       <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
-          <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 13.5 }}>🏦 현물 ETF 순유입/유출</span>
-          <span style={{ color: TK.sub, fontSize: 11 }}>{d.flowWindowDays > 30 ? '2024 출범~현재' : `최근 ${d.flowWindowDays}거래일`} · {d.flowSource === 'theblock' ? 'TheBlock' : 'Farside'}{d.flowAsOf ? ` · 마지막 ${d.flowAsOf.slice(5).replace('-', '/')}` : ''}</span>
+          <span style={{ color: TK.slate200, fontWeight: 800, fontSize: FS.body }}>🏦 현물 ETF 순유입/유출</span>
+          <span style={{ color: TK.sub, fontSize: FS.tiny }}>{d.flowWindowDays > 30 ? '2024 출범~현재' : `최근 ${d.flowWindowDays}거래일`} · {d.flowSource === 'theblock' ? 'TheBlock' : 'Farside'}{d.flowAsOf ? ` · 마지막 ${d.flowAsOf.slice(5).replace('-', '/')}` : ''}</span>
           {d.flowCumulative != null && (
-            <span style={{ marginLeft: 'auto', color: d.flowCumulative >= 0 ? TK.green400 : TK.red400, fontWeight: 800, fontSize: 12 }}>
+            <span style={{ marginLeft: 'auto', color: d.flowCumulative >= 0 ? TK.green400 : TK.red400, fontWeight: 800, fontSize: FS.tiny }}>
               출범 이후 누적 순유입 {fmtM(d.flowCumulative)}
             </span>
           )}
         </div>
-        <div style={{ color: TK.sub2, fontSize: 11, marginBottom: 8, lineHeight: 1.5 }}>
+        <div style={{ color: TK.sub2, fontSize: FS.tiny, marginBottom: 8, lineHeight: 1.5 }}>
           🟢 유입(기관 자금 들어옴) / 🔴 유출 · 노란선=BTC 가격. <b style={{ color: TK.sub5 }}>가격의 방향이 아니라 &lsquo;연료&rsquo;</b>를 봅니다 — 지속 유입은 제도권 수요, 유출 전환은 수요 둔화 신호.
         </div>
         {/* 🧊 Farside 가 서버를 막아(Cloudflare 챌린지) 새 행을 못 받는 동안 — '없음'이 아니라 '그날까지'라고 정직하게 */}
@@ -67,7 +67,7 @@ export default function BtcEtfFlows() {
               <XAxis dataKey="date" tickFormatter={d.flowWindowDays > 30 ? (v: string) => v.slice(0, 7) : mmdd} tick={{ fill: TK.sub3, fontSize: FS.micro }} minTickGap={d.flowWindowDays > 30 ? 48 : 8} />
               <YAxis yAxisId="flow" tick={{ fill: TK.sub3, fontSize: FS.micro }} tickFormatter={(v: number) => `${v}M`} width={48} />
               <YAxis yAxisId="px" orientation="right" domain={['auto', 'auto']} tick={{ fill: TK.amber400, fontSize: FS.micro }} tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`} width={42} />
-              <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 12 }}
+              <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: FS.tiny }}
                 formatter={flowTip} labelStyle={{ color: TK.slate300 }} />
               <Legend wrapperStyle={{ fontSize: FS.micro }} />
               <ReferenceLine yAxisId="flow" y={0} stroke={TK.slate600} />
@@ -78,18 +78,18 @@ export default function BtcEtfFlows() {
             </ComposedChart>
           </ResponsiveContainer>
         ) : (
-          <div style={{ color: TK.sub, fontSize: 11.5, padding: '8px 0' }}>일별 유입/유출 데이터를 일시적으로 불러오지 못했습니다(누적 순유입 {d.flowCumulative != null ? fmtM(d.flowCumulative) : '—'}만 표시).</div>
+          <div style={{ color: TK.sub, fontSize: FS.tiny, padding: '8px 0' }}>일별 유입/유출 데이터를 일시적으로 불러오지 못했습니다(누적 순유입 {d.flowCumulative != null ? fmtM(d.flowCumulative) : '—'}만 표시).</div>
         )}
       </div>
 
       {/* ② 누적 거래량 — Yahoo 전체 이력 */}
       <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '14px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
-          <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 13.5 }}>📈 현물 ETF 누적 거래량</span>
-          <span style={{ color: TK.sub, fontSize: 11 }}>2024 출범~현재 · Yahoo</span>
-          <span style={{ marginLeft: 'auto', color: TK.blue400, fontWeight: 800, fontSize: 13 }}>{fmtT(cumLatest)}</span>
+          <span style={{ color: TK.slate200, fontWeight: 800, fontSize: FS.body }}>📈 현물 ETF 누적 거래량</span>
+          <span style={{ color: TK.sub, fontSize: FS.tiny }}>2024 출범~현재 · Yahoo</span>
+          <span style={{ marginLeft: 'auto', color: TK.blue400, fontWeight: 800, fontSize: FS.body }}>{fmtT(cumLatest)}</span>
         </div>
-        <div style={{ color: TK.sub2, fontSize: 11, marginBottom: 8, lineHeight: 1.5 }}>
+        <div style={{ color: TK.sub2, fontSize: FS.tiny, marginBottom: 8, lineHeight: 1.5 }}>
           출범 이후 거래대금 누적 합계 — 우상향이 가팔라질수록 <b style={{ color: TK.sub5 }}>제도권 거래가 활발</b>해진다는 의미(시장 성숙도).
         </div>
         <ResponsiveContainer width="100%" height={200}>
@@ -102,7 +102,7 @@ export default function BtcEtfFlows() {
             </defs>
             <XAxis dataKey="date" tickFormatter={(v: string) => v.slice(0, 7)} tick={{ fill: TK.sub3, fontSize: FS.micro }} minTickGap={40} />
             <YAxis tick={{ fill: TK.sub3, fontSize: FS.micro }} tickFormatter={fmtT} width={48} />
-            <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 12 }}
+            <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: FS.tiny }}
               formatter={cumTip} labelStyle={{ color: TK.slate300 }} />
             <Area dataKey="cum" stroke={TK.blue400} strokeWidth={2} fill="url(#cumVol)" />
           </AreaChart>
@@ -113,7 +113,7 @@ export default function BtcEtfFlows() {
           합계 검산(발행사 합 = Total)을 통과한 행만 서버가 내려보낸다 — 컬럼이 밀리면 조용한 거짓말이 되므로. */}
       {d.issuers?.length > 0 && d.issuerRecent?.length > 0 && (
         <div style={{ marginTop: 4 }}>
-          <div style={{ fontSize: 11.5, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>
+          <div style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate200, marginBottom: 4 }}>
             🏷️ 발행사별 순유입 <span style={{ fontSize: FS.micro, fontWeight: 600, color: TK.sub3 }}>최근 {d.issuerRecent.length}영업일 · 단위 $M · 초록=유입 / 빨강=유출</span>
           </div>
           <div style={{ overflowX: 'auto' }}>
