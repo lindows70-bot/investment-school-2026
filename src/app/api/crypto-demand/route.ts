@@ -42,7 +42,7 @@ const j = async (u: string) => {
 }
 
 export async function GET(req: Request) {
-  const key = `crypto-demand-v1:${kstDate()}`
+  const key = `crypto-demand-v2:${kstDate()}`   // v2: 현물 축이 TheBlock 순유입(btc-etf v8)으로 — 옛 문서는 Farside 09-04 까지라 spot 이 null 로 박제돼 있었다
   const cached = await getCache<CryptoDemandApi>(key, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
