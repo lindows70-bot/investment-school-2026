@@ -52,6 +52,9 @@ scripts/logs/
 # 스윙 백테스트 임시 컴파일 산출물
 .bt-swing/
 .bt-swing.tsconfig.json
+# ETF 순유입 불변식(verify-etf-flow-window) 임시 컴파일 산출물
+.bt-etfflow/
+.bt-etfflow.tsconfig.json
 
 # 유튜브용 앱 화면 캡처(captureforyoutube.mjs 산출물) — 포트폴리오 화면이 담긴다
 youtube-captures/
