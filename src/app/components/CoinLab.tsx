@@ -209,7 +209,8 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
                 <span style={{ color: TK.sub, width: 14 }}>{i + 1}</span>
                 <span style={{ color: TK.slate200, fontWeight: 700, width: 48 }}>{c.symbol}</span>
                 <span style={{ color: TK.sub, fontFamily: 'monospace' }}>{c.price >= 1 ? `$${c.price.toLocaleString()}` : `$${c.price}`}</span>
-                <span style={{ marginLeft: 'auto', color: (c.ch24 ?? 0) >= 0 ? TK.green500 : TK.red500, fontFamily: 'monospace' }}>{c.ch24 != null ? `${c.ch24 >= 0 ? '+' : ''}${c.ch24.toFixed(1)}%` : '—'}</span>
+                {/* 가격 등락은 한국식(빨강=상승·파랑=하락) — 바로 위 답 카드의 1주·1개월 등락과 같은 규약이어야 한 화면에서 안 갈린다(2026-09-24 화면검증) */}
+                <span style={{ marginLeft: 'auto', color: (c.ch24 ?? 0) >= 0 ? TK.red400 : TK.blue400, fontFamily: 'monospace' }}>{c.ch24 != null ? `${c.ch24 >= 0 ? '+' : ''}${c.ch24.toFixed(1)}%` : '—'}</span>
                 <span style={{ color: TK.sub, fontSize: FS.micro, width: 56, textAlign: 'right' }}>${c.mcapB}B</span>
               </div>
             ))}

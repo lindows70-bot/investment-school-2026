@@ -55,6 +55,12 @@ export default function BtcEtfFlows() {
         <div style={{ color: TK.sub2, fontSize: 11, marginBottom: 8, lineHeight: 1.5 }}>
           🟢 유입(기관 자금 들어옴) / 🔴 유출 · 노란선=BTC 가격. <b style={{ color: TK.sub5 }}>가격의 방향이 아니라 &lsquo;연료&rsquo;</b>를 봅니다 — 지속 유입은 제도권 수요, 유출 전환은 수요 둔화 신호.
         </div>
+        {/* 🧊 Farside 가 서버를 막아(Cloudflare 챌린지) 새 행을 못 받는 동안 — '없음'이 아니라 '그날까지'라고 정직하게 */}
+        {d.flowStale && d.flowAsOf && (
+          <div style={{ background: `${TK.amber400}14`, border: `1px solid ${TK.amber400}55`, borderRadius: 8, padding: '7px 11px', marginBottom: 8, color: TK.amber400, fontSize: FS.tiny, fontWeight: 700, lineHeight: 1.5 }}>
+            ⏸️ {d.flowAsOf.slice(5).replace('-', '/')}까지의 자료입니다 — 그 뒤 순유입은 출처(Farside)가 자동 수집을 막아 아직 못 받았습니다. 최근 며칠의 유입·유출은 여기서 판단하지 마세요.
+          </div>
+        )}
         {flowHasData ? (
           <ResponsiveContainer width="100%" height={210}>
             <ComposedChart data={d.flow} margin={{ top: 6, right: 8, left: 4, bottom: 2 }}>

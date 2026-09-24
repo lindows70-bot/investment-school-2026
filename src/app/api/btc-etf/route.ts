@@ -37,8 +37,15 @@ export interface BtcEtfResult {
   issuerRecent: { date: string; v: number[] }[]
   /** 발행사별 출범 이후 누적($M) */
   issuerTotals: number[]
+  /** 🧊 flow 가 '마지막으로 성공한 수집'의 복사본이면 true — Farside 가 Cloudflare 챌린지로 서버를 막았을 때(2026-09-24 실측 403 "Just a moment").
+   *  '없음'(0거래일)이 아니라 '그날까지는 있음'이 사실이라 마지막 데이터를 날짜와 함께 보여준다. flowAsOf = 그 마지막 거래일 */
+  flowStale: boolean
+  flowAsOf: string | null
   asOf: string
 }
+/** 마지막 성공 수집(일자 키와 별개·TTL 없이 덮어쓰기) — Farside 가 막힌 동안 여기서 읽는다 */
+const LAST_GOOD_KEY = 'btc-etf-flow-lastgood-v1'
+type LastGood = Pick<BtcEtfResult, 'flow' | 'flowCumulative' | 'issuers' | 'issuerRecent' | 'issuerTotals'> & { flowAsOf: string }
 
 interface YfDaily { date: string; volUsd: number }
 async function yfVolume(ticker: string): Promise<YfDaily[]> {
@@ -135,7 +142,7 @@ async function farsideFlow(): Promise<{
 
 export async function GET() {
   // v5: 🏷️ 발행사별 분해(issuers·issuerRecent·issuerTotals) — 스키마 확장이라 키를 올린다(옛 응답이면 새 필드가 undefined)
-  const cacheKey = `btc-etf-v6:${kstDate()}`   // v6: 미집계(전 셀 대시) 행 제외 · v5: 발행사별 · v4: flow 전체 이력
+  const cacheKey = `btc-etf-v7:${kstDate()}`   // v7: flowStale·flowAsOf(마지막 성공분 폴백) · v6: 미집계(전 셀 대시) 행 제외 · v5: 발행사별 · v4: flow 전체 이력
   // ⚠️ 24h → 3h(2026-08-22): Farside 는 그날 행을 몇 시간 뒤에 채운다. 24h 캐시면 '아직 비어 있는 상태'가
   //    하루 종일 얼어붙어, 실제로 +307.5 가 들어온 날이 화면엔 계속 0 으로 남았다.
   const cached = await getCache<BtcEtfResult>(cacheKey, 3 * 3600_000)
@@ -168,10 +175,20 @@ export async function GET() {
   const issuerTotals = issuers.map((_, i) => Math.round(issRows.reduce((s, r) => s + (r.v[i] ?? 0), 0) * 10) / 10)
   const issuerRecent = issRows.slice(-10).reverse().map(r => ({ date: r.date, v: r.v.map(x => Math.round(x * 10) / 10) }))
 
+  // 🧊 Farside 가 비면 마지막 성공분으로 — 그리고 성공했으면 그걸 마지막 성공분으로 저장(TTL 없음)
+  let fl: LastGood & { stale: boolean } = { flow: flowOut, flowCumulative: flowCum, issuers, issuerRecent, issuerTotals, flowAsOf: flowOut.length ? flowOut[flowOut.length - 1].date : '', stale: false }
+  if (flowOut.length > 0) {
+    await setCache(LAST_GOOD_KEY, { flow: flowOut, flowCumulative: flowCum, issuers, issuerRecent, issuerTotals, flowAsOf: fl.flowAsOf } satisfies LastGood)
+  } else {
+    const lg = await getCache<LastGood>(LAST_GOOD_KEY, 400 * 86400_000)
+    if (lg?.flow?.length) fl = { ...lg, stale: true }
+  }
+
   const result: BtcEtfResult = {
     cumVolume, latestCumVol,
-    flow: flowOut, flowCumulative: flowCum, flowWindowDays: flowOut.length,
-    issuers, issuerRecent, issuerTotals,
+    flow: fl.flow, flowCumulative: fl.flowCumulative, flowWindowDays: fl.flow.length,
+    issuers: fl.issuers, issuerRecent: fl.issuerRecent, issuerTotals: fl.issuerTotals,
+    flowStale: fl.stale, flowAsOf: fl.flowAsOf || null,
     asOf: new Date().toISOString(),
   }
   // 핵심 데이터(누적 거래량) 있을 때만 캐시(부분실패 박제 방지)
