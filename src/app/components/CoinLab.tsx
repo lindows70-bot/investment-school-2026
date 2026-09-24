@@ -21,6 +21,12 @@ import { TK, FS } from '@/lib/theme'
 
 const CARD = TK.bg6, BORDER = TK.border
 const pct = (n: number | null) => n == null ? '—' : `${n >= 0 ? '+' : ''}${n}%`
+/** X축 연도 눈금 — 연도당 첫 포인트만(격주·일별 데이터에서 minTickGap 은 같은 연도를 두 번 찍는다 "2018 2018 2019 2019"). 레인보우 차트와 같은 규칙 */
+const yearTicksOf = (points: { date: string }[]): string[] => {
+  const seen = new Set<string>(); const out: string[] = []
+  for (const p of points) { const y = p.date.slice(0, 4); if (!seen.has(y)) { seen.add(y); out.push(p.date) } }
+  return out
+}
 const fmtUsd = (n: number | null) => n == null ? '—' : `$${Math.round(n).toLocaleString()}`
 const fmtKrw = (n: number | null) => n == null ? '—' : `₩${Math.round(n).toLocaleString()}`
 
@@ -246,7 +252,7 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
           <div style={{ height: 460 }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={longData} margin={{ top: 18, right: 14, left: 2, bottom: 0 }}>
-                <XAxis dataKey="date" tick={{ fill: TK.sub2, fontSize: FS.micro }} tickFormatter={(s: string) => s.slice(0, 4)} minTickGap={48} axisLine={{ stroke: BORDER }} tickLine={false} />
+                <XAxis dataKey="date" tick={{ fill: TK.sub2, fontSize: FS.micro }} tickFormatter={(s: string) => s.slice(0, 4)} ticks={yearTicksOf(longData)} interval={0} axisLine={{ stroke: BORDER }} tickLine={false} />
                 <YAxis scale="log" domain={['auto', 'auto']} tick={{ fill: TK.sub2, fontSize: FS.micro }} axisLine={false} tickLine={false} width={50}
                   tickFormatter={(v: number) => v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${v}`} ticks={[300, 1000, 3000, 10000, 30000, 100000]} />
                 <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: FS.tiny }} labelStyle={{ color: TK.sub }}
@@ -396,7 +402,7 @@ export default function CoinLab({ myCryptoPct }: { myCryptoPct?: number }) {
             <div style={{ height: 170 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={series} margin={{ top: 4, right: 6, left: -16, bottom: 0 }}>
-                  <XAxis dataKey="date" tick={{ fill: TK.sub2, fontSize: FS.micro }} tickFormatter={(s: string) => s.slice(0, 4)} minTickGap={44} axisLine={{ stroke: BORDER }} tickLine={false} />
+                  <XAxis dataKey="date" tick={{ fill: TK.sub2, fontSize: FS.micro }} tickFormatter={(s: string) => s.slice(0, 4)} ticks={yearTicksOf(series)} interval={0} axisLine={{ stroke: BORDER }} tickLine={false} />
                   <YAxis scale="log" tick={{ fill: TK.sub2, fontSize: FS.micro }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={38} tickFormatter={(v: number) => `${v}`} />
                   <Tooltip contentStyle={{ background: TK.bg3, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: FS.tiny }}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
