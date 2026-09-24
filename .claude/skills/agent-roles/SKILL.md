@@ -64,3 +64,7 @@ node scripts/gemini-audit.mjs contradiction 매수 추천
 2. **한도를 나눠 쓴다.** Codex=ChatGPT 구독 한도, Gemini=구글 계정 1,000회/일. 매 커밋마다 돌리면 정작 필요할 때 막힌다.
 3. **감사는 읽기 전용.** `gemini-audit.mjs`는 `--approval-mode plan`으로 강제한다. 에이전트가 코드를 고치게 두지 마라 — 고치는 것은 내 몫이고, 고친 뒤엔 내가 검증한다.
 4. **사용자에게 매번 묻지 않는다.** 2026-07-28에 판단을 위임받았다. 기준에 걸리면 조용히 돌리고 결과만 보고한다.
+5. **리뷰어에게 내 결론을 넘기지 않는다**(2026-09-24 추가 — addyosmani/agent-skills `doubt-driven-development`: "Do NOT pass the CLAIM. Handing the reviewer your conclusion biases it toward agreement"). 리뷰어가 받는 것은 **산출물(diff)과 계약(무엇을 해야 하는가)** 뿐이고, "왜 이렇게 했다"는 내 설명은 빼야 독립된 시선이 된다.
+   - `gemini-review.mjs` 는 커밋 제목을 프롬프트에서 뺐다(건수만).
+   - Codex 는 `codex-companion` 이 프롬프트를 만들어 손댈 수 없다. 대신 **대화로 Codex 를 부를 때**(`/codex:review`) "이건 X 를 고친 것"이라는 요약을 앞에 붙이지 마라 — 파일 범위만 준다.
+   - 리뷰 3회를 돌려도 실질 지적이 계속 나오면 그 산출물은 아직 덜 된 것이다. 지적을 하나씩 막는 대신 설계를 다시 본다.
