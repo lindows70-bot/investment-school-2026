@@ -61,8 +61,9 @@ export async function GET(req: Request) {
     upbitMarkets(),
     cryptoVolumes(),
   ])
-  const stocksFailed = naverOrig === null && (eq === q || naverAlias === null)
   const stocks = mergeStockLists(parseNaverItems(naverOrig ?? []), parseNaverItems(naverAlias ?? []))
+  // 한쪽이라도 실패했는데 결과가 0건이면 '없음'이 아니라 '못 불러옴'이다
+  const stocksFailed = (naverOrig === null || (eq !== q && naverAlias === null)) && stocks.length === 0
   const crypto = rankCrypto(matchUpbit(upbit ?? [], q), q, volume)
   const failedSources: string[] = []
   if (stocksFailed) failedSources.push('stocks')
