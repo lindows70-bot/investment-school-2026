@@ -21,25 +21,30 @@ const pct = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n).toF
 const upDown = (n: number | null) => n == null || Math.abs(n) < 0.05 ? TK.sub : n > 0 ? TK.red400 : TK.blue400
 // 달러는 소수 둘째 자리까지, 원화는 100원 미만(소액 코인)만 소수를 남긴다
 const money = (n: number, currency: 'USD' | 'KRW' | null) => currency === 'USD'
-  ? `$${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+  ? `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   : `${n.toLocaleString('ko-KR', { maximumFractionDigits: n < 100 ? 2 : 0 })}원`
 const qtyText = (q: number, market: string) => `${q.toLocaleString('ko-KR', { maximumFractionDigits: 8 })}${market === 'CRYPTO' ? '개' : '주'}`
 
 // ⚠️ charts 의 키 이름은 기간이 아니다 — KR·US 는 1D=일봉 60(약 3개월)·1W=주봉 60(약 14개월)·1M=월봉 60(5년),
 //    코인은 1D=시간봉 24·1W=일봉 7·1M=일봉 30. 그래서 버튼 이름은 데이터의 실제 시작~끝 간격에서 뽑는다.
 const FRAME_KEYS: FrameKey[] = ['1D', '1W', '1M']
+// 간격 = 끝−시작 + 봉 하나(중앙값) — 일봉 7개는 6일이 아니라 7일 치다
 const spanLabel = (pts: PricePoint[]) => {
-  const d = (pts[pts.length - 1].t - pts[0].t) / 86_400_000
+  const steps = pts.slice(1).map((p, i) => p.t - pts[i].t).sort((a, b) => a - b)
+  const step = steps.length ? steps[Math.floor(steps.length / 2)] : 0
+  const d = (pts[pts.length - 1].t - pts[0].t + step) / 86_400_000
   if (d < 1.5) return '최근 하루'
   if (d < 45) return `최근 ${Math.round(d)}일`
   if (d < 700) return `최근 ${Math.round(d / 30.44)}개월`
   return `최근 ${Math.round(d / 365.25)}년`
 }
-// 유효한 점만 — 그리고 전부 같은 값이면 버린다(코인 조회 실패 시 API 가 현재가로 만든 직선을 채워 보낸다)
-const cleanPts = (raw: unknown): PricePoint[] => {
+// 유효한 점만. 코인은 전부 같은 값이면 버린다 — 업비트 조회 실패 시 API 가 현재가로 만든 직선을 채워 보낸다.
+//   (KR·US 는 그런 가짜 직선이 없고 거래정지 종목은 실제로 평평할 수 있어 그대로 둔다)
+const cleanPts = (raw: unknown, isCrypto: boolean): PricePoint[] => {
   if (!Array.isArray(raw)) return []
   const pts = raw.filter((p): p is PricePoint => !!p && Number.isFinite(p.t) && Number.isFinite(p.v) && p.v > 0)
-  return pts.length > 1 && pts.some(p => p.v !== pts[0].v) ? pts : []
+  if (pts.length < 2) return []
+  return isCrypto && pts.every(p => p.v === pts[0].v) ? [] : pts
 }
 
 const card = { background: TK.card, border: `1px solid ${TK.border}`, borderRadius: RAD.md, padding: SP.lg } as const
@@ -71,6 +76,8 @@ export default function StudentStock() {
   const [frame, setFrame] = useState<FrameKey | null>(null)
   // 거래 기록: undefined = 불러오는 중 · 'failed' = 못 불러옴 · 배열 = 받음(빈 배열 = 기록 없음)
   const [txs, setTxs] = useState<Tx[] | 'failed' | undefined>(undefined)
+  const [txMore, setTxMore] = useState(false)
+  const [retry, setRetry] = useState(0)
 
   useEffect(() => {
     if (!hTicker || !hMarket) return
@@ -88,7 +95,7 @@ export default function StudentStock() {
         const e = list.find(x => typeof x?.ticker === 'string' && x.ticker.toUpperCase() === hTicker.toUpperCase()) ?? list[0]
         // 조회 실패 + 캐시도 없음 → API 가 빈 차트를 채워 보낸다. '기록 없음'이 아니라 '못 가져옴'이다
         if (!e || !e.charts || (e.error && e.source !== 'cache')) { setCharts(null); return }
-        setCharts(Object.fromEntries(FRAME_KEYS.map(k => [k, cleanPts(e.charts?.[k])])) as Charts)
+        setCharts(Object.fromEntries(FRAME_KEYS.map(k => [k, cleanPts(e.charts?.[k], hMarket === 'CRYPTO')])) as Charts)
         setChartsStale(!!e.error && e.source === 'cache')
       })
       .catch(() => { if (!cancelled) setCharts(null) })
@@ -101,12 +108,16 @@ export default function StudentStock() {
       const { data, error } = await sb.from('transactions')
         .select('id,type,price,quantity,transaction_date,currency')
         .eq('user_id', user.id).eq('ticker', hTicker)
-        .order('transaction_date', { ascending: false }).limit(20)
-      if (!cancelled) setTxs(error ? 'failed' : (data ?? []) as Tx[])
+        .order('transaction_date', { ascending: false }).order('created_at', { ascending: false })
+        .limit(21)  // 21건째가 오면 '더 있다'는 뜻 — 화면엔 20건
+      if (cancelled) return
+      if (error) { setTxs('failed'); return }
+      const rows = (data ?? []) as Tx[]
+      setTxMore(rows.length > 20); setTxs(rows.slice(0, 20))
     })().catch(() => { if (!cancelled) setTxs('failed') })
 
     return () => { cancelled = true }
-  }, [hTicker, hMarket])
+  }, [hTicker, hMarket, retry])
 
   const back = <Link href="/s/assets" style={{ display: 'inline-flex', alignItems: 'center', height: 44, color: TK.slate300, fontSize: FS.body, textDecoration: 'none' }}>‹ 내 자산</Link>
   const msg = (text: string) => <p style={{ color: TK.sub, fontSize: FS.body }}>{text}</p>
@@ -123,8 +134,16 @@ export default function StudentStock() {
   )
   if (!holding || !row) return <div>{back}{msg('이 종목은 내 보유 목록에 없어요.')}</div>
 
-  // ── 가격 흐름 ──
-  const available = charts ? FRAME_KEYS.filter(k => (charts[k]?.length ?? 0) > 1) : []
+  // ── 가격 흐름 ── 같은 간격 이름이 둘이면 하나만(버튼이 같은 말을 두 번 하지 않게)
+  const labels: Partial<Record<FrameKey, string>> = {}
+  const available: FrameKey[] = []
+  if (charts) for (const k of FRAME_KEYS) {
+    const kp = charts[k] ?? []
+    if (kp.length < 2) continue
+    const l = spanLabel(kp)
+    if (Object.values(labels).includes(l)) continue
+    labels[k] = l; available.push(k)
+  }
   const active: FrameKey | null = frame && available.includes(frame) ? frame : available.includes('1W') ? '1W' : available[0] ?? null
   const pts = charts && active ? charts[active] ?? [] : []
   const vals = pts.map(p => p.v)
@@ -145,6 +164,7 @@ export default function StudentStock() {
     </div>
   )
   const priced = row.priced && row.currentPrice != null
+  const retryBtn = <button type="button" onClick={() => setRetry(n => n + 1)} style={reloadBtn}>다시 불러오기</button>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg, maxWidth: 560 }}>
@@ -155,7 +175,7 @@ export default function StudentStock() {
           <h1 style={{ margin: 0, fontSize: FS.xl, fontWeight: 700, color: TK.slate100 }}>{holding.name}</h1>
           <span style={{ display: 'flex', alignItems: 'center', gap: SP.xs, fontSize: FS.tiny, color: TK.sub }}>
             {holding.ticker}
-            <span style={{ padding: `0 ${SP.xs + 2}px`, borderRadius: RAD.pill, background: row.role === 'CORE' ? `${TK.sky400}24` : `${TK.orange400}24`, color: row.role === 'CORE' ? TK.sky400 : TK.orange400, fontWeight: 600 }}>{row.role === 'CORE' ? '코어' : '위성'}</span>
+            <span style={{ padding: `0 ${SP.sm}px`, borderRadius: RAD.pill, background: row.role === 'CORE' ? `${TK.sky400}24` : `${TK.orange400}24`, color: row.role === 'CORE' ? TK.sky400 : TK.orange400, fontWeight: 600 }}>{row.role === 'CORE' ? '코어' : '위성'}</span>
           </span>
         </div>
       </div>
@@ -174,22 +194,25 @@ export default function StudentStock() {
       <section style={{ display: 'flex', flexDirection: 'column', gap: SP.sm }}>
         <h2 style={{ margin: 0, fontSize: FS.body, fontWeight: 700, color: TK.slate100 }}>가격 흐름</h2>
         {charts === undefined ? <span style={{ fontSize: FS.tiny, color: TK.sub }}>가격 흐름을 불러오는 중이에요…</span>
-          : charts === null ? <span style={{ fontSize: FS.tiny, color: TK.sub }}>가격 흐름을 못 가져왔어요.</span>
-          : !active ? <span style={{ fontSize: FS.tiny, color: TK.sub }}>이 종목의 가격 기록이 없어요.</span>
+          // KR·US 차트 실패는 시세가 성공해도 빈 배열로 온다 — 쓸 수 있는 기간이 없으면 '기록 없음'이 아니라 '못 가져옴'
+          : charts === null || !active ? <>
+            <span style={{ fontSize: FS.tiny, color: TK.sub }}>가격 흐름을 못 가져왔어요.</span>
+            {retryBtn}
+          </>
           : (<>
-            <svg width="100%" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${holding.name} ${spanLabel(pts)} 가격 흐름`}>
+            <svg width="100%" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${holding.name} ${labels[active]} 가격 흐름`}>
               {showAvg && <path d={`M0,${y(avg).toFixed(1)} H${W}`} stroke={TK.sub} strokeDasharray="3 5" />}
               <path d={path} fill="none" stroke={TK.slate300} strokeWidth={2} />
             </svg>
             <span style={{ fontSize: FS.micro, color: TK.sub }}>
-              {spanLabel(pts)} · {showAvg ? '점선 = 내 평균 매수가' : '평균 매수가가 이 기간 범위 밖이에요'}
+              {labels[active]} · {showAvg ? '점선 = 내 평균 매수가' : '평균 매수가가 이 기간 범위 밖이에요'}
             </span>
             {chartsStale && <span style={{ fontSize: FS.tiny, color: TK.amber400 }}>지금 시세 조회가 안 돼서 지난 기록을 보여 드려요.</span>}
             {available.length > 1 && (
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(${available.length}, minmax(0, 1fr))`, gap: SP.xs }}>
                 {available.map(k => {
                   const on = k === active
-                  return <button key={k} type="button" onClick={() => setFrame(k)} aria-pressed={on} style={{ height: 36, borderRadius: RAD.pill, border: on ? 'none' : `1px solid ${TK.border}`, background: on ? TK.slate100 : 'transparent', color: on ? TK.bg0 : TK.sub, fontSize: FS.tiny, fontWeight: on ? 700 : 500, cursor: 'pointer' }}>{spanLabel(charts[k] ?? [])}</button>
+                  return <button key={k} type="button" onClick={() => setFrame(k)} aria-pressed={on} style={{ height: 44, borderRadius: RAD.pill, border: on ? 'none' : `1px solid ${TK.border}`, background: on ? TK.slate100 : 'transparent', color: on ? TK.bg0 : TK.sub, fontSize: FS.tiny, fontWeight: on ? 700 : 500, cursor: 'pointer' }}>{labels[k]}</button>
                 })}
               </div>
             )}
@@ -202,13 +225,16 @@ export default function StudentStock() {
         {stat('평가금액', won(row.evalKrw), TK.slate100, priced ? undefined : '매수가로 계산')}
         {stat('평가손익', priced ? signWon(row.pnlKrw) : '—', priced ? upDown(row.pnlPct) : TK.sub)}
         {stat('수익률', priced && row.pnlPct != null ? pct(row.pnlPct) : '—', priced ? upDown(row.pnlPct) : TK.sub)}
-        {stat('내 자산 중 비중', `${row.weightPct.toFixed(1)}%`)}
+        {stat('내 자산 중 비중', `${row.weightPct.toFixed(1)}%`, TK.slate100, priced ? undefined : '매수가로 계산')}
       </section>
 
       <section style={{ display: 'flex', flexDirection: 'column' }}>
         <h2 style={{ margin: 0, fontSize: FS.body, fontWeight: 700, color: TK.slate100, paddingBottom: SP.sm }}>내 거래 기록</h2>
         {txs === undefined ? <span style={{ fontSize: FS.tiny, color: TK.sub }}>불러오는 중이에요…</span>
-          : txs === 'failed' ? <span style={{ fontSize: FS.tiny, color: TK.sub }}>거래 기록을 불러오지 못했어요.</span>
+          : txs === 'failed' ? <div style={{ display: 'flex', flexDirection: 'column', gap: SP.sm }}>
+            <span style={{ fontSize: FS.tiny, color: TK.sub }}>거래 기록을 불러오지 못했어요.</span>
+            {retryBtn}
+          </div>
           : txs.length === 0 ? <span style={{ fontSize: FS.tiny, color: TK.sub }}>기록된 거래가 없어요.</span>
           : (<>
             {txs.map(t => (
@@ -222,7 +248,7 @@ export default function StudentStock() {
                 <span style={{ fontSize: FS.body, color: TK.slate300, whiteSpace: 'nowrap', flexShrink: 0 }}>{money(t.price, t.currency ?? holding.currency)}</span>
               </div>
             ))}
-            {txs.length === 20 && <span style={{ fontSize: FS.tiny, color: TK.sub, paddingTop: SP.sm }}>최근 20건만 보여요.</span>}
+            {txMore && <span style={{ fontSize: FS.tiny, color: TK.sub, paddingTop: SP.sm }}>최근 20건만 보여요.</span>}
           </>)}
       </section>
 
