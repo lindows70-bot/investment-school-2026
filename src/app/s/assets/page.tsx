@@ -82,7 +82,7 @@ export default function StudentAssets() {
             <span style={{ fontSize: FS.tiny, color: TK.sub }}>지금까지 불어난 돈</span>
             {summary.allUnpriced
               ? <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.sub }}>—</span>
-              : <span style={{ fontSize: FS.body, fontWeight: 700, color: upDown(summary.pnlPct) }}>{signWon(summary.pnlKrw)}{summary.pnlPct != null ? ` (${pct(summary.pnlPct)})` : ''}</span>}
+              : <span style={{ fontSize: FS.body, fontWeight: 700, color: upDown(summary.pnlPct), whiteSpace: 'nowrap' }}>{signWon(summary.pnlKrw)}{summary.pnlPct != null ? ` (${pct(summary.pnlPct)})` : ''}</span>}
           </div>
         </div>
         {!pricesFailed && summary.unpricedCount > 0 && <span style={{ fontSize: FS.tiny, color: TK.amber400 }}>시세를 못 가져온 종목 {summary.unpricedCount}개는 매수가로 계산했어요.</span>}
@@ -92,7 +92,7 @@ export default function StudentAssets() {
 
       <section style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: SP.sm }}>
-          <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate100 }}>내 투자 구성</span>
+          <h2 style={{ margin: 0, fontSize: FS.body, fontWeight: 700, color: TK.slate100 }}>내 투자 구성</h2>
           {targetCorePct != null && <span style={{ fontSize: FS.tiny, color: TK.sub }}>목표 코어 {targetCorePct}% · 위성 {100 - targetCorePct}%</span>}
         </div>
         <div style={{ display: 'flex', height: 10, borderRadius: RAD.pill, overflow: 'hidden', gap: 2 }}>
@@ -101,13 +101,13 @@ export default function StudentAssets() {
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FS.tiny }}>
           <span style={{ color: TK.sky400, fontWeight: 700 }}>코어 {Math.round(summary.corePct)}%</span>
-          <span style={{ color: TK.orange400, fontWeight: 700 }}>위성 {Math.round(summary.satPct)}%</span>
+          <span style={{ color: TK.orange400, fontWeight: 700 }}>위성 {coreW > 0 && summary.satPct > 0 ? 100 - Math.round(summary.corePct) : Math.round(summary.satPct)}%</span>
         </div>
       </section>
 
       {check && (
         <section style={{ ...card, border: `1px solid ${TK.sky400}`, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
-          <span style={{ fontSize: FS.tiny, fontWeight: 700, color: TK.sky400 }}>오늘의 투자 체크</span>
+          <h2 style={{ margin: 0, fontSize: FS.tiny, fontWeight: 700, color: TK.sky400 }}>오늘의 투자 체크</h2>
           <span style={{ fontSize: FS.body, color: TK.slate100 }}>
             {check.kind === 'balanced' ? '코어·위성이 목표 비율 안에 있어요.' : check.kind === 'core-short' ? `코어가 목표보다 ${check.gapPp}%p 적어요.` : `위성이 목표보다 ${check.gapPp}%p 적어요.`}
           </span>
@@ -116,7 +116,7 @@ export default function StudentAssets() {
       )}
 
       <section style={{ display: 'flex', flexDirection: 'column' }}>
-        <span style={{ fontSize: FS.lg, fontWeight: 700, color: TK.slate100, paddingBottom: SP.sm }}>내 종목</span>
+        <h2 style={{ margin: 0, fontSize: FS.lg, fontWeight: 700, color: TK.slate100, paddingBottom: SP.sm }}>내 종목</h2>
         {/* summary.rows 는 portfolioSummary 가 이미 평가액 내림차순으로 정렬해 준다 */}
         {summary.rows.map(r => (
           <Link key={r.id} href={`/s/stock/${encodeURIComponent(r.ticker)}`} style={{ display: 'flex', alignItems: 'center', gap: SP.md, minHeight: 64, borderTop: `1px solid ${TK.border}`, color: TK.slate200, textDecoration: 'none' }}>
@@ -125,12 +125,13 @@ export default function StudentAssets() {
               <span style={{ fontSize: FS.body, color: TK.slate100, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: SP.xs, fontSize: FS.tiny, color: TK.sub }}>
                 <span style={{ padding: `0 ${SP.xs + 2}px`, borderRadius: RAD.pill, background: r.role === 'CORE' ? `${TK.sky400}24` : `${TK.orange400}24`, color: r.role === 'CORE' ? TK.sky400 : TK.orange400, fontWeight: 600 }}>{r.role === 'CORE' ? '코어' : '위성'}</span>
+                {/* 지난 시세의 등락은 오늘 것이 아닐 수 있다 — '오늘'로 쓰지 않는다 */}
                 {r.priced && r.changePct != null
-                  ? <span>오늘 <span style={{ color: upDown(r.changePct) }}>{pct(r.changePct)}</span>{r.stale ? ' · 지난 시세' : ''}</span>
-                  : '지금 시세를 못 가져왔어요'}
+                  ? <span>{r.stale ? '지난 시세' : '오늘'} <span style={{ color: upDown(r.changePct) }}>{pct(r.changePct)}</span></span>
+                  : '지금 시세를 못 가져왔어요 · 매수가로 계산'}
               </span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, whiteSpace: 'nowrap', flexShrink: 0 }}>
               <span style={{ fontSize: FS.body, color: TK.slate100 }}>{won(r.evalKrw)}</span>
               {r.priced && r.pnlPct != null && <span style={{ fontSize: FS.tiny, fontWeight: 700, color: upDown(r.pnlPct) }}>{pct(r.pnlPct)}</span>}
             </div>
