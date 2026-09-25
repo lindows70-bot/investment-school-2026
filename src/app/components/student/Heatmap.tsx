@@ -65,9 +65,10 @@ export default function Heatmap({ rows, corePct, height = 240 }: { rows: Holding
           const big = pos.height > 90 && pos.width > 90
           const hasPct = row.priced && row.changePct != null
           // '지난 시세' 꼬리표는 % 옆에 들어갈 폭이 있을 때만(좁으면 잘려 보인다 — aria-label 에는 항상 들어간다)
+          // 읽기 라벨은 화면 문구와 같은 말 — 지난 시세의 등락을 '오늘'로 읽지 않는다
           const label = hasPct
-            ? `${row.name} 오늘 ${pct(row.changePct as number)}${row.stale ? '(지난 시세)' : ''} · ${won(row.evalKrw)}`
-            : `${row.name} 시세 없음 · 매수가 기준 ${won(row.evalKrw)}`
+            ? `${row.name} ${row.stale ? '지난 시세' : '오늘'} ${pct(row.changePct as number)} · ${won(row.evalKrw)}`
+            : `${row.name} 시세 못 가져옴 · 매수가로 계산 · ${won(row.evalKrw)}`
           return (
             <Link key={row.id} href={`/s/stock/${encodeURIComponent(row.ticker)}`} title={row.name} aria-label={label}
               style={{
