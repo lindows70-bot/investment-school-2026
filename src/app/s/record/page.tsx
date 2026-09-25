@@ -66,7 +66,7 @@ function RecordForm() {
   const [date, setDate] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [locked, setLocked] = useState(false)   // 부분 기록 뒤엔 다시 저장하지 못하게 잠근다(거래가 두 번 적힌다)
+  const [locked, setLocked] = useState(false)   // 부분 기록 뒤엔 다시 저장하지 못하게 잠근다(보유 수량이 두 번 빠진다)
   const busy = useRef(false)
   const paramApplied = useRef(false)
 
@@ -192,7 +192,7 @@ function RecordForm() {
       const res = await executeTrade(sb, plan)
       if (!res.ok) {
         setError(res.message)
-        // 거래는 적혔는데 보유 반영이 실패 — 다시 저장하면 거래가 두 번 적힌다. 잠그고 내 종목을 새로 읽는다
+        // 보유 수량은 반영됐는데 거래 기록이 실패 — 다시 저장하면 수량이 두 번 빠진다. 잠그고 내 종목을 새로 읽는다
         if (res.partial) { partial = true; setLocked(true); reload() }
         return
       }
@@ -334,7 +334,7 @@ function RecordForm() {
           : problem && <p style={{ margin: 0, fontSize: FS.tiny, color: marketClash || (mode === 'sell' && existing && qtyNum > existing.quantity) ? TK.amber400 : TK.sub }}>{problem}</p>}
       </div>
       {locked
-        // 부분 기록 — 다시 저장하면 거래가 두 번 적힌다. 내 자산으로만 보낸다
+        // 부분 기록 — 다시 저장하면 보유 수량이 두 번 빠진다. 내 자산으로만 보낸다
         ? <Link href="/s/assets" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 56, borderRadius: RAD.md, border: `1px solid ${TK.line1}`, color: TK.slate100, fontSize: FS.lg, fontWeight: 700, textDecoration: 'none' }}>내 자산으로</Link>
         : <button type="button" onClick={save} disabled={saving || !!problem}
             style={{ height: 56, borderRadius: RAD.md, border: 'none', background: TK.blue600, color: TK.slate100, fontSize: FS.lg, fontWeight: 700, opacity: saving || problem ? 0.5 : 1, cursor: saving || problem ? 'default' : 'pointer' }}>

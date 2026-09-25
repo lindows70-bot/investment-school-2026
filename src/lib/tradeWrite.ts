@@ -25,7 +25,7 @@ export type TradeError = { kind: 'error'; message: string }
 // 다른 탭이 그새 수량을 바꿨으면 0행이 되게 한다(낡은 화면이 새 수량을 덮어쓰지 못하게)
 export type BuyPlan = { kind: 'new'; insert: InvestmentInsert; tx: TxBase } | { kind: 'dca'; investmentId: string; baseQuantity: number; update: { quantity: number; purchase_price: number }; tx: TxRow } | TradeError
 export type SellPlan = { kind: 'sell'; investmentId: string; baseQuantity: number; after: { type: 'delete' } | { type: 'update'; quantity: number }; tx: TxRow } | TradeError
-/** partial = 거래 행은 써졌는데 보유 반영이 실패 — 화면은 다시 저장하게 두면 안 된다(거래가 두 번 적힌다) */
+/** partial = 매도의 보유 반영은 됐는데 거래 기록이 실패 — 화면은 다시 저장하게 두면 안 된다(수량이 두 번 빠진다) */
 export type TradeResult = { ok: true } | { ok: false; message: string; partial: boolean }
 
 const r2 = (n: number) => Math.round(n * 100) / 100
@@ -34,7 +34,7 @@ const roundAvg = (n: number) => n >= 100 ? r2(n) : Number(n.toPrecision(8))
 // 수량 표시 — 부동소수 잡음 없이 소수 8자리까지(끝 0 제거)
 const fmtQty = (q: number) => q.toLocaleString('ko-KR', { maximumFractionDigits: 8 })
 const STALE_MSG = '이 종목 정보가 바뀌었어요 — 새로고침 후 다시 기록해 주세요.'
-const HALF_MSG = '거래는 기록됐지만 보유 수량 반영에 실패했어요 — 선생님께 알려 주세요'
+const HALF_MSG = '보유 수량은 반영됐지만 거래 기록 저장에 실패했어요 — 선생님께 알려 주세요'
 
 function invalid(i: TradeInput): TradeError | null {
   if (!i.ticker.trim()) return { kind: 'error', message: '종목을 골라 주세요.' }
@@ -145,12 +145,17 @@ export async function executeTrade(sb: SupabaseClient, plan: BuyPlan | SellPlan)
     if (txErr) console.warn('[tradeWrite] 거래 기록 실패(보유는 저장됨):', txErr.message)
     return afterSuccess()
   }
-  const { error: txErr } = await sb.from('transactions').insert({ ...plan.tx, snapshot_data })
-  if (txErr) return fail(`저장 실패: ${txErr.message}`)
+  // 매도는 보유 반영(기준 수량 조건)을 먼저 확인하고 거래를 적는다 — 선생님 TransactionModal 은 거래→삭제 순서지만,
+  // 여기선 다른 탭 충돌로 0행이 날 수 있어 거래를 먼저 쓰면 보유와 안 맞는 고아 거래가 남는다
   const { data, error } = plan.after.type === 'delete'
     ? await sb.from('investments').delete().eq('id', plan.investmentId).eq('quantity', plan.baseQuantity).select('id')
     : await sb.from('investments').update({ quantity: plan.after.quantity }).eq('id', plan.investmentId).eq('quantity', plan.baseQuantity).select('id')
-  if (error) return fail(`${HALF_MSG} (${error.message})`, true)
-  if (!one(data)) return fail(`${HALF_MSG} (${STALE_MSG})`, true)
+  if (error) return fail(`저장 실패: ${error.message}`)
+  if (!one(data)) return fail(STALE_MSG)
+  // 전량 매도는 보유 행이 이미 지워졌다 — investment_id 가 FK(on delete set null)라 지운 id 를 걸면 insert 가 실패한다.
+  // 예전 순서(거래→삭제)도 삭제 때 null 이 되므로 최종 상태는 같다
+  const investment_id = plan.after.type === 'delete' ? null : plan.tx.investment_id
+  const { error: txErr } = await sb.from('transactions').insert({ ...plan.tx, investment_id, snapshot_data })
+  if (txErr) return fail(`${HALF_MSG} (${txErr.message})`, true)
   return afterSuccess()
 }
