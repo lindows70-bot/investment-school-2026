@@ -24,6 +24,22 @@ export interface PortfolioSummary {
   allUnpriced: boolean
 }
 
+/** 자산 관리 화면(assets/page.tsx fetchInvestments)과 같은 중복 제거 — id 로 한 번, 티커(대문자)로 한 번, 먼저 온 것을 남긴다.
+ *  호출부는 created_at 내림차순으로 넘겨야 두 화면의 합계가 같아진다(같은 티커면 최신 행이 남는다). */
+export function dedupeHoldings<T extends { id: string; ticker: string }>(rows: T[]): T[] {
+  const seenId = new Set<string>(), seenTicker = new Set<string>()
+  return rows.filter(r => {
+    if (seenId.has(r.id)) return false
+    seenId.add(r.id)
+    return true
+  }).filter(r => {
+    const key = r.ticker.toUpperCase()
+    if (seenTicker.has(key)) return false
+    seenTicker.add(key)
+    return true
+  })
+}
+
 export function isPriced(p: PriceInput | null | undefined): p is PriceInput {
   return !!p && !p.error && Number.isFinite(p.currentPrice) && p.currentPrice > 0
     && Number.isFinite(p.change) && Number.isFinite(p.changePct)

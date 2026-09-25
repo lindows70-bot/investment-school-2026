@@ -77,5 +77,12 @@ let threwOnZeroFx = false
 try { P.summarizePortfolio([H({ t: 'NVDA', m: 'US', c: 'USD', p: 100, q: 1 })], {}, 0) } catch { threwOnZeroFx = true }
 check('달러 보유 + 환율 0 → throw', threwOnZeroFx)
 
+// ── 중복 제거 — 자산 관리 화면과 같은 규칙(id → 티커 대문자, 먼저 온 것 유지) ──────────────
+const d1 = P.dedupeHoldings([{ id: 'a', ticker: 'NVDA' }, { id: 'a', ticker: 'NVDA' }, { id: 'b', ticker: 'AAPL' }])
+check('중복: 같은 id 는 하나만', d1.length === 2 && d1.map(r => r.id).join() === 'a,b')
+const d2 = P.dedupeHoldings([{ id: 'new', ticker: 'nvda', q: 3 }, { id: 'old', ticker: 'NVDA', q: 1 }, { id: 'k', ticker: '005930' }])
+check('중복: 티커는 대소문자 무시·먼저 온(최신) 행 유지', d2.length === 2 && d2[0].id === 'new' && d2[0].q === 3 && d2[1].id === 'k')
+check('중복: 빈 배열 → 빈 배열', P.dedupeHoldings([]).length === 0)
+
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (보유 요약 SSOT)')
 process.exit(fail ? 1 : 0)
