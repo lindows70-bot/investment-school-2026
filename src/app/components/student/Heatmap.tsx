@@ -7,7 +7,7 @@ import { squarify, splitGroups, heatFill, type Rect } from '@/lib/treemap'
 import type { HoldingRow } from '@/lib/portfolioSummary'
 
 const won = (n: number) => `${Math.round(n).toLocaleString('ko-KR')}원`
-const pct = (n: number) => `${n > 0 ? '+' : ''}${n.toFixed(1)}%`
+const pct = (n: number) => Math.abs(n) < 0.05 ? '0.0%' : `${n > 0 ? '+' : ''}${n.toFixed(1)}%`   // −0.0% 방지(보합 경계와 일치)
 const GAP = 3          // 칸 사이 틈 — 보합(회색) 칸끼리도 경계가 보이게
 const LABEL_MIN_W = 60 // 이보다 좁은 묶음은 이름표를 숨긴다(옆 이름표와 겹침)
 
@@ -39,12 +39,14 @@ export default function Heatmap({ rows, corePct, height = 240 }: { rows: Holding
   const tiles = [
     ...squarify(core.map(r => r.evalKrw), g.core).map((rect, i) => ({ rect, row: core[i] })),
     ...squarify(sat.map(r => r.evalKrw), g.sat).map((rect, i) => ({ rect, row: sat[i] })),
-  ].filter(t => t.rect.w * t.rect.h > 0)   // 평가금액 0 인 칸(0×0)은 그리지 않는다 — 테두리만 점으로 남는다
+  ].map(t => ({ ...t, pos: snap(t.rect) }))
+    // 반올림 뒤 폭·높이가 0 인 칸은 그리지 않는다 — 테두리만 점으로 남고, 보이지 않는 링크가 탭 순서에 끼어든다
+    .filter(t => t.pos.width > 0 && t.pos.height > 0)
 
   // 두 묶음이 다 있을 때만 corePct 를 나눠 적고, 한쪽뿐이면 그쪽이 100%다
   const both = coreVal > 0 && satVal > 0
   const coreLabel = both ? Math.round(corePct) : 100
-  const satLabel = both ? Math.round(100 - corePct) : 100
+  const satLabel = both ? 100 - coreLabel : 100   // 두 이름표 합이 늘 100
 
   return (
     <section aria-label="한눈에 보는 내 종목" style={{ display: 'flex', flexDirection: 'column', gap: SP.sm }}>
@@ -59,14 +61,14 @@ export default function Heatmap({ rows, corePct, height = 240 }: { rows: Holding
         {w > 0 && g.sat.w >= LABEL_MIN_W && (
           <span style={{ position: 'absolute', left: Math.round(g.sat.x) + 2, top: 0, fontSize: FS.micro, fontWeight: 700, color: TK.orange400 }}>위성 {satLabel}%</span>
         )}
-        {w > 0 && tiles.map(({ rect, row }) => {
+        {w > 0 && tiles.map(({ row, pos }) => {
           const fill = heatFill(row.priced ? row.changePct : null, { red500: TK.red500, blue500: TK.blue500, flat2: TK.line1 })
-          const pos = snap(rect)
           const showText = pos.width >= 44 && pos.height >= 28
           const big = pos.height > 90 && pos.width > 90
           const hasPct = row.priced && row.changePct != null
+          // '지난 시세' 꼬리표는 % 옆에 들어갈 폭이 있을 때만(좁으면 잘려 보인다 — aria-label 에는 항상 들어간다)
           const label = hasPct
-            ? `${row.name} 오늘 ${pct(row.changePct as number)} · ${won(row.evalKrw)}`
+            ? `${row.name} 오늘 ${pct(row.changePct as number)}${row.stale ? '(지난 시세)' : ''} · ${won(row.evalKrw)}`
             : `${row.name} 시세 없음 · 매수가 기준 ${won(row.evalKrw)}`
           return (
             <Link key={row.id} href={`/s/stock/${encodeURIComponent(row.ticker)}`} title={row.name} aria-label={label}
@@ -79,9 +81,12 @@ export default function Heatmap({ rows, corePct, height = 240 }: { rows: Holding
               {showText && <>
                 <span style={{ fontSize: FS.tiny, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.name}</span>
                 {hasPct
-                  ? <span style={{ fontSize: big ? FS.lg : FS.tiny, fontWeight: 800 }}>{pct(row.changePct as number)}</span>
+                  ? <span style={{ fontSize: big ? FS.lg : FS.tiny, fontWeight: 800, whiteSpace: 'nowrap' }}>
+                      {pct(row.changePct as number)}
+                      {row.stale && pos.width >= (big ? 130 : 110) && <span style={{ fontSize: FS.tiny, fontWeight: 600, color: TK.slate100 }}> 지난 시세</span>}
+                    </span>
                   : pos.height > 48 && <span style={{ fontSize: FS.tiny, color: TK.sub }}>시세 못 가져옴 · 매수가로 계산</span>}
-                {pos.height > 76 && <span style={{ fontSize: FS.tiny, color: TK.slate300 }}>{won(row.evalKrw)}</span>}
+                {pos.height > 76 && <span style={{ fontSize: FS.tiny, color: TK.slate100 }}>{won(row.evalKrw)}</span>}
               </>}
             </Link>
           )

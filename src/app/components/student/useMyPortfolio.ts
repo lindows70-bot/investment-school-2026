@@ -1,6 +1,8 @@
 'use client'
 // 학생 화면 공용 — 내 보유·시세·환율을 불러와 portfolioSummary 로 요약한다(로딩·실패·빈 보유를 구분)
 //   합계 원칙은 자산 관리 화면(assets/page.tsx)과 같다: created_at 내림차순 → dedupeHoldings → 요약.
+//   (지난 캐시 시세도 선생님 화면처럼 쓴다.) 다른 경우는 시세가 아예 없는 종목 하나 — 선생님 화면은 0원(별도 추적 중인 결함),
+//   여기선 매수가로 평가하고 '시세 못 가져옴'으로 밝힌다.
 //   개인 데이터라 공유 캐시를 쓰지 않는다 — 브라우저 Supabase(RLS) + 기존 시세·환율 엔드포인트만 쓴다.
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -36,7 +38,7 @@ export function useMyPortfolio(): MyPortfolio {
     // 실패는 한 곳에서 확정한다 — 옛 요약이 남아 '실패'와 함께 보이지 않도록 summary 도 비운다
     const fail = (reason: FailReason, hs: HoldingInput[] = []) => {
       if (cancelled) return
-      setHoldings(hs); setSummary(null); setPricesFailed(false); setFailReason(reason); setState('failed')
+      setHoldings(hs); setSummary(null); setUsdKrw(null); setTarget(null); setPricesFailed(false); setFailReason(reason); setState('failed')
     }
     ;(async () => {
       const sb = createClient()
@@ -69,8 +71,13 @@ export function useMyPortfolio(): MyPortfolio {
           if (Array.isArray(list)) {
             pricesOk = true
             const entries: [string, PriceInput][] = []
-            list.forEach((p: { ticker?: unknown } & PriceInput) => {
-              if (p && typeof p.ticker === 'string') entries.push([p.ticker.toUpperCase(), p])
+            list.forEach((p: { ticker?: unknown; source?: unknown } & Omit<PriceInput, 'source'>) => {
+              if (!p || typeof p.ticker !== 'string') return
+              // source 는 지난 시세(캐시) 판정에 쓰이므로 문자열일 때만 넘긴다
+              entries.push([p.ticker.toUpperCase(), {
+                currentPrice: p.currentPrice, change: p.change, changePct: p.changePct, error: p.error,
+                source: typeof p.source === 'string' ? p.source : undefined,
+              }])
             })
             priceMap = Object.fromEntries(entries)
           }
