@@ -41,6 +41,12 @@ check('보유보다 많이 팔기 → 오류', over.kind === 'error')
 check('보유 없는 매도 → 오류', T.planSell('u1', null, IN).kind === 'error')
 check('가격 0 → 오류', T.planBuy('u1', null, { ...IN, price: 0 }).kind === 'error')
 
+const dust = { id: 'inv3', quantity: 1.0, purchase_price: 50000000, name: '비트코인', asset_role: 'SATELLITE' }
+const dustSell = T.planSell('u1', dust, { ...IN, price: 60000000, quantity: 0.99995 })
+check('코인 먼지 매도(0.99995/1.0) → 전량 삭제(TransactionModal 기준 0.0001)', dustSell.after.type === 'delete')
+const tinyOver = T.planSell('u1', ex, { ...IN, quantity: 10.0000000001 })
+check('보유보다 부동소수 오차만큼만 많이 팔기 → 오류(엡실론 없음)', tinyOver.kind === 'error')
+
 const snap = T.snapshotOf({ peg: 1.2, growth: 15, category: 'stalwart', opMargin: 10, sector: 'IT', flow: 'IN', mfi: 55, seasonTag: 's', season: 'x', fomcStance: 'h', rateDir: 'up' }, 70000)
 check('스냅샷 필드 = 모달과 같은 이름', snap.peg === 1.2 && snap.growth_rate === 15 && snap.price_at_record === 70000 && 'recorded_at' in snap && snap.rateDir === 'up')
 check('스냅샷 없음 → null', T.snapshotOf(null, 70000) === null)

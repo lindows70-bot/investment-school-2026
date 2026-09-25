@@ -57,11 +57,12 @@ export function planBuy(userId: string, existing: ExistingHolding | null, i: Tra
 export function planSell(userId: string, existing: ExistingHolding | null, i: TradeInput): SellPlan {
   const bad = invalid(i); if (bad) return bad
   if (!existing) return { kind: 'error', message: '갖고 있지 않은 종목은 팔 수 없어요.' }
-  if (i.quantity > existing.quantity + 1e-9) return { kind: 'error', message: `최대 ${existing.quantity}주까지 팔 수 있어요.` }
+  if (i.quantity > existing.quantity) return { kind: 'error', message: `최대 ${existing.quantity}주까지 팔 수 있어요.` }
   const remaining = existing.quantity - i.quantity
   return {
     kind: 'sell', investmentId: existing.id,
-    after: remaining <= 1e-9 ? { type: 'delete' } : { type: 'update', quantity: remaining },
+    // 전량 매도 판정은 TransactionModal.tsx:217 과 같은 기준(0.0001) — 코인 등 소수 잔량도 삭제로 처리
+    after: remaining <= 0.0001 ? { type: 'delete' } : { type: 'update', quantity: remaining },
     tx: { ...txBase(userId, i, 'sell', '매도'), investment_id: existing.id, realized_pnl: r2((i.price - existing.purchase_price) * i.quantity), avg_cost_basis: existing.purchase_price },
   }
 }
