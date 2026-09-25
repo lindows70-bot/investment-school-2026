@@ -10,9 +10,11 @@ interface Props {
   title?: string
   /** 최대 너비 (기본 1200) */
   maxWidth?: number
+  /** nav 에 붙일 클래스 — 모바일 숨김(.m-hide) 등 globals.css 유틸용 */
+  className?: string
 }
 
-export default function AppHeader({ title, maxWidth = 1200 }: Props) {
+export default function AppHeader({ title, maxWidth = 1200, className }: Props) {
   const router   = useRouter()
   const pathname = usePathname()
 
@@ -61,7 +63,7 @@ export default function AppHeader({ title, maxWidth = 1200 }: Props) {
   const avatarChar = (email?.[0] ?? '?').toUpperCase()
 
   return (
-    <nav style={{
+    <nav className={className} style={{
       background: '#111',
       borderBottom: `1px solid ${TK.flat2}`,
       position: 'sticky',

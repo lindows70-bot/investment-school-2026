@@ -610,15 +610,15 @@ export default function SchoolLeague() {
           subtitle={`누적 수익률 = 평가손익 + 매도로 확정한 손익(익절·손절) ÷ 총 투입 원금 · 미등록자 최하단 배치`}
         />
 
-        {/* 테이블 헤더 */}
-        <div style={{
+        {/* 테이블 헤더 — 📱 375px 에선 3열(.m-cols-rank) + 비중 라벨은 다음 줄 전체 폭(.m-span). 행과 같은 규칙 */}
+        <div className="m-cols-rank" style={{
           display: 'grid',
           gridTemplateColumns: '44px 1fr 130px 180px',
           gap: 8, padding: '6px 12px',
           borderRadius: 8, background: C.surface, marginBottom: 6,
         }}>
-          {['순위', '이름', '수익률', 'Core / Satellite 비중'].map(h => (
-            <div key={h} style={{ fontSize: 9, fontWeight: 700, color: C.textLow, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+          {['순위', '이름', '수익률', 'Core / Satellite 비중'].map((h, i) => (
+            <div key={h} className={i === 3 ? 'm-span' : undefined} style={{ fontSize: 9, fontWeight: 700, color: C.textLow, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
               {h}
             </div>
           ))}
@@ -633,6 +633,7 @@ export default function SchoolLeague() {
             return (
               <div
                 key={s.userId}
+                className="m-cols-rank"
                 style={{
                   display:    'grid',
                   gridTemplateColumns: '44px 1fr 130px 180px',
@@ -688,6 +689,7 @@ export default function SchoolLeague() {
                   {s.isRegistered && (s.sellCount ?? 0) > 0 && (
                     <div
                       title={`매도 ${s.sellCount}건으로 확정한 손익이 총 수익률에 ${(s.realizedPp ?? 0) >= 0 ? '+' : ''}${s.realizedPp}%p 기여했습니다. 익절·손절 모두 성적에 포함됩니다.`}
+                      className="m-wrap-text"
                       style={{ fontSize: 9.5, color: C.textLow, marginTop: 2, cursor: 'help', whiteSpace: 'nowrap' }}
                     >
                       💰 실현 {(s.realizedPp ?? 0) >= 0 ? '+' : ''}{s.realizedPp}%p 포함 <span style={{ opacity: 0.7 }}>({s.sellCount}건)</span>
@@ -695,8 +697,8 @@ export default function SchoolLeague() {
                   )}
                 </div>
 
-                {/* Core/Sat 비중 */}
-                <div style={{ padding: '0 4px' }}>
+                {/* Core/Sat 비중 — 📱 모바일에선 다음 줄 전체 폭 */}
+                <div className="m-span" style={{ padding: '0 4px' }}>
                   {s.isRegistered
                     ? <CoreSatBar core={s.coreRatio} sat={s.satelliteRatio} height={7} />
                     : (
@@ -758,7 +760,7 @@ export default function SchoolLeague() {
       {/* ══════════════════════════════════════════════════════════
           SECTION 2: 상위권 포트폴리오 엿보기 (등록자 기준 Top 1·2)
       ══════════════════════════════════════════════════════════ */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="m-1col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         {[top1, top2].map((s, idx) => {
           if (!s || !s.isRegistered) return (
             <Card key={idx}>
@@ -877,7 +879,7 @@ export default function SchoolLeague() {
       {/* ══════════════════════════════════════════════════════════
           SECTION 3 + 4: 인기 종목 & 스쿨 평균 vs 나
       ══════════════════════════════════════════════════════════ */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="m-1col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
         {/* SECTION 3: 인기 종목 (등록자 데이터만 집계) */}
         <Card>
@@ -1094,7 +1096,7 @@ export default function SchoolLeague() {
           />
 
           {/* ── 현재 자산 현황 요약 ────────────────────────────── */}
-          <div style={{
+          <div className="m-1col" style={{
             display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 16,
           }}>
             {[
@@ -1584,7 +1586,7 @@ export default function SchoolLeague() {
                 </div>
               )}
 
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
+              <div className="m-1col" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
                 {LYNCH_META.map(m => {
                   const schoolPct = schoolAvg[m.key] ?? 0
                   const myPct     = myDist?.[m.key]  ?? 0

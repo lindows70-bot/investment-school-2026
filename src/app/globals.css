@@ -97,6 +97,12 @@
     content: '← 표를 옆으로 밀면 나머지 열이 보입니다';
     display: block; padding: 6px 14px 8px; font-size: 12px; color: #8a9db5;
   }
+  /* 2026-09-25 스쿨 리그 실측 추가 — 리더보드 '44px 1fr 130px 180px' 는 고정폭만 378px 라 375px(칸 264px)에서
+     이름 열이 0px 이 되고 Core/Sat 바가 카드 밖으로 126px 나갔다. 순위·이름·수익률 3열로 줄이고
+     4번째 셀(비중 바)은 다음 줄에 전체 폭으로 내린다(.m-span). nowrap 보조 문구는 줄바꿈 허용(.m-wrap-text). */
+  .m-cols-rank { grid-template-columns: 32px 1fr 100px !important; }
+  .m-span      { grid-column: 1 / -1 !important; }
+  .m-wrap-text { white-space: normal !important; }
 }
 
 @layer utilities {
