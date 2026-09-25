@@ -15,6 +15,7 @@ export const revalidate = 0
 
 import { NextResponse } from 'next/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 
 export interface SchoolIndexStock {
   ticker: string; stock_name: string | null; gics_sector: string | null
@@ -34,6 +35,11 @@ function admin() {
 }
 
 export async function GET() {
+  // 🔒 '로그인 학생 모두에게' 노출이 의도 — 비로그인 요청은 막는다(2026-09-25, 비로그인 200 실측)
+  const sb = createClient()
+  const { data: { user } } = await sb.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+
   const empty: SchoolIndexResponse = { baseDate: null, stocks: [], sectors: [] }
   try {
     const db = admin()

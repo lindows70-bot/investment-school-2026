@@ -13,6 +13,7 @@ export const revalidate = 0
 
 import { NextResponse }                    from 'next/server'
 import { createClient as createAdmin }     from '@supabase/supabase-js'
+import { createClient }                    from '@/lib/supabase/server'
 import { classifyAsset }                   from '@/lib/classifyAsset'
 import { getUsdKrw } from '@/lib/fx'
 import { getTechCandles } from '@/lib/techChartData'
@@ -152,6 +153,12 @@ async function migrateAssetRoles(
 
 // ── Route Handler ────────────────────────────────────────────────
 export async function GET(req: Request) {
+  // 🔒 실명·수익률·보유종목을 서비스롤로 모으므로 로그인 학생에게만 연다(2026-09-25).
+  //    이전엔 비로그인 curl 에도 200 으로 학생 9명 실명이 나갔다 — 화면 보호(middleware)는 API 를 막지 않는다.
+  const userSb = createClient()
+  const { data: { user } } = await userSb.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+
   try {
     const sb = adminClient()
     // 내부 stock-price 호출용 base — 요청 origin 사용(로컬·프로덕션 별칭 모두 정확).
