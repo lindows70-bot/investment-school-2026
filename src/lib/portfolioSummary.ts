@@ -20,13 +20,21 @@ export interface PortfolioSummary {
   totalCostKrw: number; totalEvalKrw: number; pnlKrw: number; pnlPct: number | null
   todayKrw: number; todayPct: number | null
   corePct: number; satPct: number; unpricedCount: number
+  /** true iff 보유는 있는데(rows.length > 0) 전부 시세 실패 — 이때 pnlPct 는 항상 null(0.0% 오해 방지) */
+  allUnpriced: boolean
 }
 
 export function isPriced(p: PriceInput | null | undefined): p is PriceInput {
   return !!p && !p.error && Number.isFinite(p.currentPrice) && p.currentPrice > 0
+    && Number.isFinite(p.change) && Number.isFinite(p.changePct)
 }
 
+// 콜러가 환율을 추측하면 안 된다 — 달러 보유가 있는데 usdKrw 가 유효하지 않으면 즉시 실패한다
+// (호출부가 침묵하는 0%가 아니라 실제 실패 상태를 보여주게 한다).
 export function summarizePortfolio(holdings: HoldingInput[], priceMap: Record<string, PriceInput | undefined>, usdKrw: number): PortfolioSummary {
+  if (holdings.some(h => h.currency === 'USD') && !(Number.isFinite(usdKrw) && usdKrw > 0)) {
+    throw new Error('usdKrw 가 필요합니다 — 달러 보유가 있는데 환율이 없습니다')
+  }
   let totalCost = 0, totalEval = 0, today = 0, prevPriced = 0, coreEval = 0, unpriced = 0
   const rows: HoldingRow[] = holdings.map(h => {
     const fx = h.currency === 'USD' ? usdKrw : 1
@@ -35,7 +43,7 @@ export function summarizePortfolio(holdings: HoldingInput[], priceMap: Record<st
     const cost = h.purchase_price * h.quantity * fx
     const val = (priced ? p.currentPrice : h.purchase_price) * h.quantity * fx
     const todayKrw = priced ? p.change * h.quantity * fx : null
-    const role: Role = h.asset_role ?? 'CORE'   // 자산 화면·추가 모달의 기본값과 같다
+    const role: Role = h.asset_role ?? 'CORE'   // DB 컬럼은 NOT NULL DEFAULT 'CORE'(supabase-asset-role-migration.sql) — null 은 타입 레벨 방어일 뿐
     totalCost += cost; totalEval += val
     if (priced) { today += todayKrw as number; prevPriced += (p.currentPrice - p.change) * h.quantity * fx } else unpriced++
     if (role === 'CORE') coreEval += val
@@ -49,19 +57,22 @@ export function summarizePortfolio(holdings: HoldingInput[], priceMap: Record<st
   rows.forEach(r => { r.weightPct = totalEval > 0 ? r.evalKrw / totalEval * 100 : 0 })
   rows.sort((a, b) => b.evalKrw - a.evalKrw)
   const corePct = totalEval > 0 ? coreEval / totalEval * 100 : 0
+  const allUnpriced = rows.length > 0 && unpriced === rows.length
   return {
     rows, totalCostKrw: totalCost, totalEvalKrw: totalEval,
-    pnlKrw: totalEval - totalCost, pnlPct: totalCost > 0 ? (totalEval - totalCost) / totalCost * 100 : null,
+    pnlKrw: totalEval - totalCost,
+    pnlPct: (totalCost > 0 && !allUnpriced) ? (totalEval - totalCost) / totalCost * 100 : null,
     todayKrw: today, todayPct: prevPriced > 0 ? today / prevPriced * 100 : null,
-    corePct, satPct: totalEval > 0 ? 100 - corePct : 0, unpricedCount: unpriced,
+    corePct, satPct: totalEval > 0 ? 100 - corePct : 0, unpricedCount: unpriced, allUnpriced,
   }
 }
 
-/** 오늘의 투자 체크 — 사실만 말하고 팔라고 하지 않는다(HOLD 원칙). ±3%p 안은 균형(스쿨 리그 진단과 같은 폭). */
+/** 오늘의 투자 체크 — 사실만 말하고 팔라고 하지 않는다(HOLD 원칙). ±3%p 안은 균형(스쿨 리그 진단과 같은 폭).
+ *  경계는 반올림한 gap 으로 판정한다 — 표시 숫자와 kind 가 서로 다른 말을 하지 않도록. */
 export type RebalanceCheck = { kind: 'core-short' | 'sat-short'; gapPp: number } | { kind: 'balanced'; gapPp: number }
 export function rebalanceCheck(corePct: number, targetCorePct: number | null): RebalanceCheck | null {
   if (targetCorePct == null || !(targetCorePct > 0)) return null
   const gap = Math.round(targetCorePct - corePct)
-  if (Math.abs(targetCorePct - corePct) <= 3) return { kind: 'balanced', gapPp: Math.abs(gap) }
+  if (Math.abs(gap) <= 3) return { kind: 'balanced', gapPp: Math.abs(gap) }
   return gap > 0 ? { kind: 'core-short', gapPp: gap } : { kind: 'sat-short', gapPp: -gap }
 }
