@@ -41,10 +41,11 @@ export async function middleware(request: NextRequest) {
     '/briefing', '/weekly-report', '/win-lose', '/signal-report', '/reco-hub',
     '/tech-chart', '/tech-screener', '/earnings-reports', '/hi52-radar',
     '/dividend', '/bonds', '/guru-portfolio', '/real-estate',
+    '/s/', // 🎒 학생 간단 모드
   ]
   const authPaths = ['/login', '/signup']
 
-  if (!user && protectedPaths.some(p => pathname.startsWith(p))) {
+  if (!user && (pathname === '/s' || protectedPaths.some(p => pathname.startsWith(p)))) {
     const loginUrl = new URL('/login', request.url)
     return NextResponse.redirect(loginUrl)
   }

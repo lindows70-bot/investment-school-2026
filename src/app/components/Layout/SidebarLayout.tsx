@@ -12,6 +12,7 @@ const NO_LAYOUT = ['/login', '/signup']
 export default function SidebarLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const noLayout = NO_LAYOUT.some(p => pathname === p || pathname.startsWith(p + '?'))
+    || pathname === '/s' || pathname.startsWith('/s/')   // 🎒 학생 간단 모드는 자기 셸(StudentShell)을 쓴다
 
   // 📱 모바일 전체 메뉴 서랍 — 하단 탭 4개로는 📌 매일 5개 중 4개에 갈 길이 없었다(2026-09-03 실측).
   //    탭을 더 늘리는 대신 사이드바를 그대로 서랍으로 띄운다 → 33개 항목 전부 도달 가능.
