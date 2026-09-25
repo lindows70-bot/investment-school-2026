@@ -124,7 +124,7 @@ export default function StudentAssets() {
             <div style={{ flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
               <span style={{ fontSize: FS.body, color: TK.slate100, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: SP.xs, fontSize: FS.tiny, color: TK.sub }}>
-                <span style={{ padding: `0 ${SP.xs + 2}px`, borderRadius: RAD.pill, background: r.role === 'CORE' ? `${TK.sky400}24` : `${TK.orange400}24`, color: r.role === 'CORE' ? TK.sky400 : TK.orange400, fontWeight: 600 }}>{r.role === 'CORE' ? '코어' : '위성'}</span>
+                <span style={{ padding: `0 ${SP.xs + 2}px`, borderRadius: RAD.pill, background: r.role === 'CORE' ? `${TK.sky400}24` : `${TK.orange400}24`, color: r.role === 'CORE' ? TK.sky400 : TK.orange400, fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}>{r.role === 'CORE' ? '코어' : '위성'}</span>
                 {/* 지난 시세의 등락은 오늘 것이 아닐 수 있다 — '오늘'로 쓰지 않는다 */}
                 {r.priced && r.changePct != null
                   ? <span>{r.stale ? '지난 시세' : '오늘'} <span style={{ color: upDown(r.changePct) }}>{pct(r.changePct)}</span></span>
