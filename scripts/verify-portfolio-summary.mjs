@@ -84,5 +84,21 @@ const d2 = P.dedupeHoldings([{ id: 'new', ticker: 'nvda', q: 3 }, { id: 'old', t
 check('중복: 티커는 대소문자 무시·먼저 온(최신) 행 유지', d2.length === 2 && d2[0].id === 'new' && d2[0].q === 3 && d2[1].id === 'k')
 check('중복: 빈 배열 → 빈 배열', P.dedupeHoldings([]).length === 0)
 
+// ── 지난 시세(캐시) — 조회 실패 뒤 서버 캐시 값이 오면 선생님 화면처럼 평가에 쓰고 stale 로 밝힌다 ──
+const s9 = P.summarizePortfolio(
+  [H({ t: '005930', p: 60000, q: 10 }), H({ t: 'BTC', m: 'CRYPTO', p: 100000000, q: 0.01 }), H({ t: '360750', p: 20000, q: 10 })],
+  {
+    '005930': { currentPrice: 65000, change: 500, changePct: 0.78, source: 'cache', error: 'timeout' },
+    BTC: { currentPrice: 0, change: 0, changePct: 0, source: 'live', error: 'timeout' },
+    '360750': { currentPrice: 21000, change: 100, changePct: 0.48, source: 'live' },
+  },
+  1350)
+const r9 = (t) => s9.rows.find(r => r.ticker === t)
+check('지난 시세(cache+error, 가격>0) → priced · stale', r9('005930').priced === true && r9('005930').stale === true && r9('005930').evalKrw === 650000)
+check('error + 가격 0 → 시세 없음(매수가 평가) · stale false', r9('BTC').priced === false && r9('BTC').stale === false && r9('BTC').evalKrw === 1000000)
+check('정상 시세 → stale false · 개수 staleCount 1 · unpricedCount 1', r9('360750').stale === false && s9.staleCount === 1 && s9.unpricedCount === 1)
+const s10 = P.summarizePortfolio([H({ t: '005930', p: 60000, q: 10 })], { '005930': { currentPrice: 65000, change: 500, changePct: 0.78, error: 'timeout' } }, 1350)
+check('error 인데 source 가 cache 가 아니면 → 시세 없음', s10.rows[0].priced === false && s10.staleCount === 0)
+
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (보유 요약 SSOT)')
 process.exit(fail ? 1 : 0)
