@@ -3,10 +3,12 @@
 export type Market = 'US' | 'KR' | 'CRYPTO'
 export interface SearchResult { ticker: string; name: string; market: Market; currency: 'USD' | 'KRW'; exchange: string }
 
+// 실측(2026-09-26): 옛 브랜드(KINDEX·KBSTAR·ARIRANG)는 네이버가 더 이상 안 돌려준다 → 현재 이름(ACE·RISE·PLUS)으로
 const BRAND_ALIAS: [string, string][] = [
-  ['타이거', 'TIGER'], ['코덱스', 'KODEX'], ['에이스', 'ACE'], ['라이즈', 'RISE'], ['킨덱스', 'KINDEX'],
-  ['하나로', 'HANARO'], ['아리랑', 'ARIRANG'], ['플러스', 'PLUS'], ['케이비스타', 'KBSTAR'], ['쏠', 'SOL'],
+  ['타이거', 'TIGER'], ['코덱스', 'KODEX'], ['에이스', 'ACE'], ['라이즈', 'RISE'], ['킨덱스', 'ACE'],
+  ['하나로', 'HANARO'], ['아리랑', 'PLUS'], ['플러스', 'PLUS'], ['케이비스타', 'RISE'], ['쏠', 'SOL'],
 ]
+// ⚠️ 앞글자만 보고 치환하므로 "에이스침대→ACE침대"처럼 일반 종목과 겹친다 — 호출부는 원문 검색도 함께 돌려 mergeStockLists 로 합친다
 export function expandQuery(q: string): string {
   const t = q.trim()
   for (const [ko, en] of BRAND_ALIAS) if (t.startsWith(ko)) return en + t.slice(ko.length)
@@ -20,6 +22,17 @@ export function parseNaverItems(items: any[]): SearchResult[] {
     .map(i => i.nationCode === 'KOR'
       ? { ticker: String(i.code), name: String(i.name), market: 'KR' as const, currency: 'KRW' as const, exchange: String(i.typeName ?? i.typeCode ?? '') }
       : { ticker: String(i.code).toUpperCase(), name: String(i.name), market: 'US' as const, currency: 'USD' as const, exchange: String(i.typeName ?? i.typeCode ?? '') })
+}
+
+// 원문 검색 결과(a)를 먼저, 별칭 검색 결과(b)를 뒤에 — market:ticker 로 중복 제거
+export function mergeStockLists(a: SearchResult[], b: SearchResult[]): SearchResult[] {
+  const seen = new Set<string>(); const out: SearchResult[] = []
+  for (const r of a.concat(b)) {
+    const k = `${r.market}:${r.ticker}`
+    if (seen.has(k)) continue
+    seen.add(k); out.push(r)
+  }
+  return out
 }
 
 // 실측: 업비트 마켓 목록은 관련도·거래량 순이 아니라 임의 순서다(KRW-BTC 가 289개 중 268번째)

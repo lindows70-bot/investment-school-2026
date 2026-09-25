@@ -61,6 +61,19 @@ function check(label, cond) {
 check('별칭: 타이거 미국 → TIGER 미국', S.expandQuery('타이거 미국') === 'TIGER 미국')
 check('별칭: 코덱스200 → KODEX200', S.expandQuery('코덱스200') === 'KODEX200')
 check('별칭 없는 말은 그대로', S.expandQuery('삼성') === '삼성')
+// 실측(2026-09-26): 옛 브랜드는 네이버가 더 이상 안 돌려준다 → 현재 이름으로
+check('별칭: 킨덱스 → ACE (옛 KINDEX)', S.expandQuery('킨덱스 미국') === 'ACE 미국')
+check('별칭: 케이비스타 → RISE (옛 KBSTAR)', S.expandQuery('케이비스타200') === 'RISE200')
+check('별칭: 아리랑 → PLUS (옛 ARIRANG)', S.expandQuery('아리랑 고배당') === 'PLUS 고배당')
+
+// 별칭이 일반 종목과 겹친다(에이스침대→ACE침대) → 원문 결과를 먼저, 별칭 결과를 뒤에, 중복 제거
+const aceBed = { ticker: '003800', name: '에이스침대', market: 'KR', currency: 'KRW', exchange: '코스닥' }
+const aceEtf = { ticker: '360200', name: 'ACE 미국S&P500', market: 'KR', currency: 'KRW', exchange: '코스피' }
+const ms = S.mergeStockLists([aceBed, aceEtf], [aceEtf, { ...aceBed }])
+check('mergeStockLists: 원문 결과 먼저 + market:ticker 중복 제거', ms.length === 2 && ms[0].ticker === '003800' && ms[1].ticker === '360200')
+const ms2 = S.mergeStockLists([], [aceEtf])
+check('mergeStockLists: 원문이 비면 별칭 결과만', ms2.length === 1 && ms2[0].ticker === '360200')
+check('mergeStockLists: 같은 티커라도 시장이 다르면 둘 다', S.mergeStockLists([aceEtf], [{ ...aceEtf, market: 'US' }]).length === 2)
 
 const naver = [
   { code: '005930', name: '삼성전자', typeCode: 'KOSPI', typeName: '코스피', nationCode: 'KOR', category: 'stock' },
