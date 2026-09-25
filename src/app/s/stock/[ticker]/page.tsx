@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 import { useMyPortfolio, type FailReason } from '@/app/components/student/useMyPortfolio'
+import { won, signWon, pct, upDown, money, qtyText } from '@/lib/studentFormat'
 
 // transactions 실제 컬럼(tradeWrite.ts TxBase 기준) — type 은 소문자 'buy' | 'sell'
 interface Tx { id: string; type: 'buy' | 'sell'; price: number; quantity: number; transaction_date: string; currency: 'USD' | 'KRW' | null }
@@ -13,17 +14,6 @@ interface Tx { id: string; type: 'buy' | 'sell'; price: number; quantity: number
 interface PricePoint { t: number; v: number }
 type FrameKey = '1D' | '1W' | '1M'
 type Charts = Partial<Record<FrameKey, PricePoint[]>>
-
-const won = (n: number) => `${Math.round(n).toLocaleString('ko-KR')}원`
-const signWon = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(Math.round(n)).toLocaleString('ko-KR')}원`
-const pct = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n).toFixed(1)}%`
-// 한국식 — 오름 빨강 · 내림 파랑 · 보합(±0.05% 안)과 값 없음은 회색
-const upDown = (n: number | null) => n == null || Math.abs(n) < 0.05 ? TK.sub : n > 0 ? TK.red400 : TK.blue400
-// 달러는 소수 둘째 자리까지, 원화는 100원 미만(소액 코인)만 소수를 남긴다
-const money = (n: number, currency: 'USD' | 'KRW' | null) => currency === 'USD'
-  ? `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  : `${n.toLocaleString('ko-KR', { maximumFractionDigits: n < 100 ? 2 : 0 })}원`
-const qtyText = (q: number, market: string) => `${q.toLocaleString('ko-KR', { maximumFractionDigits: 8 })}${market === 'CRYPTO' ? '개' : '주'}`
 
 // ⚠️ charts 의 키 이름은 기간이 아니다 — KR·US 는 1D=일봉 60(약 3개월)·1W=주봉 60(약 14개월)·1M=월봉 60(5년),
 //    코인은 1D=시간봉 24·1W=일봉 7·1M=일봉 30. 그래서 버튼 이름은 데이터의 실제 시작~끝 간격에서 뽑는다.

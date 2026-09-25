@@ -5,9 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 import { squarify, splitGroups, heatFill, type Rect } from '@/lib/treemap'
 import type { HoldingRow } from '@/lib/portfolioSummary'
-
-const won = (n: number) => `${Math.round(n).toLocaleString('ko-KR')}원`
-const pct = (n: number) => Math.abs(n) < 0.05 ? '0.0%' : `${n > 0 ? '+' : ''}${n.toFixed(1)}%`   // −0.0% 방지(보합 경계와 일치)
+import { won, pct } from '@/lib/studentFormat'
 const GAP = 3          // 칸 사이 틈 — 보합(회색) 칸끼리도 경계가 보이게
 const LABEL_MIN_W = 60 // 이보다 좁은 묶음은 이름표를 숨긴다(옆 이름표와 겹침)
 

@@ -5,12 +5,8 @@ import { TK, FS, RAD, SP } from '@/lib/theme'
 import { useMyPortfolio, type FailReason } from '@/app/components/student/useMyPortfolio'
 import Heatmap from '@/app/components/student/Heatmap'
 import { rebalanceCheck } from '@/lib/portfolioSummary'
+import { won, signWon, pct, upDown } from '@/lib/studentFormat'
 
-const won = (n: number) => `${Math.round(n).toLocaleString('ko-KR')}원`
-const signWon = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(Math.round(n)).toLocaleString('ko-KR')}원`
-const pct = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n).toFixed(1)}%`
-// 한국식 — 오름 빨강 ·내림 파랑 · 보합(±0.05% 안)과 값 없음은 회색
-const upDown = (n: number | null) => n == null || Math.abs(n) < 0.05 ? TK.sub : n > 0 ? TK.red400 : TK.blue400
 const card = { background: TK.card, border: `1px solid ${TK.border}`, borderRadius: RAD.md, padding: SP.lg } as const
 const reloadBtn = { alignSelf: 'flex-start', height: 40, padding: `0 ${SP.lg}px`, borderRadius: RAD.sm, border: `1px solid ${TK.line1}`, background: 'transparent', color: TK.slate200, fontSize: FS.tiny, cursor: 'pointer' } as const
 

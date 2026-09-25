@@ -9,6 +9,7 @@ import { useMyPortfolio } from '@/app/components/student/useMyPortfolio'
 import { planBuy, planSell, executeTrade, type TradeInput, type ExistingHolding } from '@/lib/tradeWrite'
 import { classifyAsset } from '@/lib/classifyAsset'
 import type { SearchResult } from '@/lib/stockSearch'
+import { money, qtyText } from '@/lib/studentFormat'
 
 // schoolIndex.kstDate 와 같은 식 — schoolIndex 는 yahoo-finance2(서버 전용 fs)를 끌고 와 브라우저 번들이 깨진다
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)   // Asia/Seoul 달력일
@@ -21,11 +22,6 @@ const stepBtn = { width: 48, height: 48, flexShrink: 0, borderRadius: RAD.sm, bo
 const smallBtn = { height: 44, padding: `0 ${SP.lg}px`, borderRadius: RAD.sm, border: `1px solid ${TK.line1}`, background: 'transparent', color: TK.slate200, fontSize: FS.tiny, cursor: 'pointer' } as const
 const note = (color: string = TK.sub) => ({ fontSize: FS.tiny, color })
 
-// 달러는 소수 둘째 자리까지. 원화는 1원 미만(소액 코인)은 유효숫자 8자리, 100원 미만은 소수 둘째 자리, 그 위는 정수
-const money = (n: number, currency: 'USD' | 'KRW') => currency === 'USD'
-  ? `$${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
-  : `${n > 0 && n < 1 ? n.toLocaleString('ko-KR', { maximumSignificantDigits: 8 }) : n.toLocaleString('ko-KR', { maximumFractionDigits: n < 100 ? 2 : 0 })}원`
-const qtyText = (q: number, market: string) => `${q.toLocaleString('ko-KR', { maximumFractionDigits: 8 })}${market === 'CRYPTO' ? '개' : '주'}`
 // 숫자와 소수점 하나만 — 지수(1e5)·16진수(0x10)·빈 칸은 NaN. Number() 가 그런 것도 받아 주므로 형식을 먼저 본다
 const parseStrict = (s: string) => /^(\d+\.?\d*|\.\d+)$/.test(s) ? Number(s) : NaN
 // 쉼표는 천 단위 자리에만('1,5' 는 NaN) — 공백·'원'·'$' 를 걷어 내고, 쉼표 위치를 본 뒤 지운다
@@ -327,7 +323,7 @@ function RecordForm() {
       <section style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: SP.sm, padding: SP.lg, background: TK.card, border: `1px solid ${TK.line1}`, borderRadius: RAD.md }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
           <span style={note()}>{mode === 'buy' ? '총 매수 금액' : '총 매도 금액'}</span>
-          <span style={note()}>{total > 0 ? `${money(priceNum, currency)} × ${qtyNum.toLocaleString('ko-KR', { maximumFractionDigits: 8 })}${unit}` : '가격과 수량을 적으면 계산돼요'}</span>
+          <span style={note()}>{total > 0 ? `${money(priceNum, currency)} × ${qtyText(qtyNum, picked?.market ?? '')}` : '가격과 수량을 적으면 계산돼요'}</span>
         </div>
         <span style={{ fontSize: FS.xl, fontWeight: 800, color: TK.slate100, whiteSpace: 'nowrap' }}>{total > 0 ? money(total, currency) : '—'}</span>
       </section>
