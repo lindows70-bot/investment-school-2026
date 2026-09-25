@@ -28,7 +28,8 @@ const money = (n: number, currency: 'USD' | 'KRW') => currency === 'USD'
 const qtyText = (q: number, market: string) => `${q.toLocaleString('ko-KR', { maximumFractionDigits: 8 })}${market === 'CRYPTO' ? '개' : '주'}`
 // 숫자와 소수점 하나만 — 지수(1e5)·16진수(0x10)·빈 칸은 NaN. Number() 가 그런 것도 받아 주므로 형식을 먼저 본다
 const parseStrict = (s: string) => /^(\d+\.?\d*|\.\d+)$/.test(s) ? Number(s) : NaN
-const parsePrice = (s: string) => parseStrict(s.replace(/[,\s원$]/g, ''))   // 쉼표·공백·'원'·'$' 는 걷어 내고 읽는다
+// 쉼표는 천 단위 자리에만('1,5' 는 NaN) — 공백·'원'·'$' 를 걷어 내고, 쉼표 위치를 본 뒤 지운다
+const parsePrice = (s: string) => { const t = s.replace(/[\s원$]/g, ''); return t.includes(',') && !/^\d{1,3}(,\d{3})*(\.\d+)?$/.test(t) ? NaN : parseStrict(t.replace(/,/g, '')) }
 const parseQty = (s: string) => parseStrict(s.trim())                        // 수량엔 쉼표를 안 받는다('1,0' 이 10 으로 읽히지 않게)
 // 미리 채우는 시세를 입력 칸 형식으로 — String(1e-7) 은 '1e-7' 이 되어 위 검사에 걸린다
 const plainNum = (n: number) => n >= 1e-6 ? String(n) : n.toFixed(12).replace(/\.?0+$/, '')
@@ -155,16 +156,17 @@ function RecordForm() {
     if (mode === 'sell' && !existing) return '갖고 있지 않은 종목은 팔 수 없어요.'
     // 소수 수량은 막지 않는다 — 기존 두 모달이 모든 시장에서 소수를 받는다(규칙 일치)
     if (!(Number.isFinite(qtyNum) && qtyNum > 0)) return '수량을 적어 주세요.'
-    if (!(Number.isFinite(priceNum) && priceNum > 0)) return '가격을 적어 주세요.'
+    if (!(Number.isFinite(priceNum) && priceNum > 0)) return price.trim() && !Number.isFinite(priceNum) ? '가격을 숫자로 적어 주세요. 쉼표는 천 단위에만 써요(예: 1,234).' : '가격을 적어 주세요.'
     if (!date || date < MIN_DATE) return '날짜를 확인해 주세요.'
     if (today && date > today) return '오늘보다 뒤 날짜는 적을 수 없어요.'
     const preview = mode === 'buy' ? planBuy('preview', ex, inp) : planSell('preview', ex, inp)
     return preview.kind === 'error' ? preview.message : null
   })()
 
-  const choose = (r: SearchResult) => { paramApplied.current = true; setPicked(r); setError(null) }
+  // 부분 기록 뒤(locked)엔 '선생님께 알려 주세요' 문구를 지우지 않는다
+  const choose = (r: SearchResult) => { paramApplied.current = true; setPicked(r); if (!locked) setError(null) }
   const switchMode = (m: Mode) => {
-    setMode(m); setError(null)
+    setMode(m); if (!locked) setError(null)
     if (m === 'sell') {
       setQ(''); setResults([])
       if (picked && !existing) setPicked(null)   // 팔기는 내 종목만

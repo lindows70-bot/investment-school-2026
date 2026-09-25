@@ -21,8 +21,10 @@ export interface InvestmentInsert {
   purchase_price: number; quantity: number; purchase_date: string; lynch_category: null; asset_role: Role
 }
 export type TradeError = { kind: 'error'; message: string }
-export type BuyPlan = { kind: 'new'; insert: InvestmentInsert; tx: TxBase } | { kind: 'dca'; investmentId: string; update: { quantity: number; purchase_price: number }; tx: TxRow } | TradeError
-export type SellPlan = { kind: 'sell'; investmentId: string; after: { type: 'delete' } | { type: 'update'; quantity: number }; tx: TxRow } | TradeError
+// baseQuantity = 계획이 기준으로 삼은 보유 수량(DB 에서 읽은 값 그대로 — 계산 금지). 쓰기 때 .eq('quantity', …) 로 걸어
+// 다른 탭이 그새 수량을 바꿨으면 0행이 되게 한다(낡은 화면이 새 수량을 덮어쓰지 못하게)
+export type BuyPlan = { kind: 'new'; insert: InvestmentInsert; tx: TxBase } | { kind: 'dca'; investmentId: string; baseQuantity: number; update: { quantity: number; purchase_price: number }; tx: TxRow } | TradeError
+export type SellPlan = { kind: 'sell'; investmentId: string; baseQuantity: number; after: { type: 'delete' } | { type: 'update'; quantity: number }; tx: TxRow } | TradeError
 /** partial = 거래 행은 써졌는데 보유 반영이 실패 — 화면은 다시 저장하게 두면 안 된다(거래가 두 번 적힌다) */
 export type TradeResult = { ok: true } | { ok: false; message: string; partial: boolean }
 
@@ -61,7 +63,7 @@ export function planBuy(userId: string, existing: ExistingHolding | null, i: Tra
   }
   const qty = existing.quantity + i.quantity
   const avg = (existing.quantity * existing.purchase_price + i.quantity * i.price) / qty
-  return { kind: 'dca', investmentId: existing.id, update: { quantity: qty, purchase_price: roundAvg(avg) }, tx: { ...txBase(userId, i, 'buy', '추가 매수'), investment_id: existing.id } }
+  return { kind: 'dca', investmentId: existing.id, baseQuantity: existing.quantity, update: { quantity: qty, purchase_price: roundAvg(avg) }, tx: { ...txBase(userId, i, 'buy', '추가 매수'), investment_id: existing.id } }
 }
 
 export function planSell(userId: string, existing: ExistingHolding | null, i: TradeInput): SellPlan {
@@ -70,7 +72,7 @@ export function planSell(userId: string, existing: ExistingHolding | null, i: Tr
   if (i.quantity > existing.quantity) return { kind: 'error', message: `최대 ${fmtQty(existing.quantity)}${i.market === 'CRYPTO' ? '개' : '주'}까지 팔 수 있어요.` }
   const remaining = existing.quantity - i.quantity
   return {
-    kind: 'sell', investmentId: existing.id,
+    kind: 'sell', investmentId: existing.id, baseQuantity: existing.quantity,
     // 전량 매도 판정은 TransactionModal.tsx:217 과 같은 기준(0.0001) — 코인 등 소수 잔량도 삭제로 처리
     after: remaining <= 0.0001 ? { type: 'delete' } : { type: 'update', quantity: remaining },
     tx: { ...txBase(userId, i, 'sell', '매도'), investment_id: existing.id, realized_pnl: r2((i.price - existing.purchase_price) * i.quantity), avg_cost_basis: existing.purchase_price },
@@ -136,7 +138,7 @@ export async function executeTrade(sb: SupabaseClient, plan: BuyPlan | SellPlan)
     return afterSuccess()
   }
   if (plan.kind === 'dca') {
-    const { data, error } = await sb.from('investments').update(plan.update).eq('id', plan.investmentId).select('id')
+    const { data, error } = await sb.from('investments').update(plan.update).eq('id', plan.investmentId).eq('quantity', plan.baseQuantity).select('id')
     if (error) return fail(`저장 실패: ${error.message}`)
     if (!one(data)) return fail(STALE_MSG)
     const { error: txErr } = await sb.from('transactions').insert({ ...plan.tx, snapshot_data })
@@ -146,8 +148,8 @@ export async function executeTrade(sb: SupabaseClient, plan: BuyPlan | SellPlan)
   const { error: txErr } = await sb.from('transactions').insert({ ...plan.tx, snapshot_data })
   if (txErr) return fail(`저장 실패: ${txErr.message}`)
   const { data, error } = plan.after.type === 'delete'
-    ? await sb.from('investments').delete().eq('id', plan.investmentId).select('id')
-    : await sb.from('investments').update({ quantity: plan.after.quantity }).eq('id', plan.investmentId).select('id')
+    ? await sb.from('investments').delete().eq('id', plan.investmentId).eq('quantity', plan.baseQuantity).select('id')
+    : await sb.from('investments').update({ quantity: plan.after.quantity }).eq('id', plan.investmentId).eq('quantity', plan.baseQuantity).select('id')
   if (error) return fail(`${HALF_MSG} (${error.message})`, true)
   if (!one(data)) return fail(`${HALF_MSG} (${STALE_MSG})`, true)
   return afterSuccess()

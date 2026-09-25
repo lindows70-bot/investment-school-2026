@@ -80,7 +80,7 @@ function makeFakeSb(overrides = {}) {
       then: (res, rej) => Promise.resolve(result).then(res, rej),
       select: () => { log.push(`${tag}.select`); return self },
       single: () => self,
-      eq: () => self,
+      eq: (col, val) => { log.push(`${tag}.eq:${col}=${val}`); return self },
     }
     return self
   }
@@ -94,7 +94,7 @@ function makeFakeSb(overrides = {}) {
   return { sb, log }
 }
 
-const ops = (log) => log.filter((x) => !x.endsWith('.select'))   // 순서 검사는 쓰기 연산만
+const ops = (log) => log.filter((x) => /^\w+\.(insert|update|delete)$/.test(x))   // 순서 검사는 쓰기 연산만(.select·.eq 기록 제외)
 const { sb: sbA, log: logA } = makeFakeSb()
 const rA = await T.executeTrade(sbA, n)
 check('executeTrade 신규 → investments.insert 후 transactions.insert · ok', rA.ok === true && ops(logA)[0] === 'investments.insert' && ops(logA)[1] === 'transactions.insert')
@@ -139,6 +139,12 @@ await T.executeTrade(sbM, all)
 const { sb: sbN, log: logN } = makeFakeSb()
 await T.executeTrade(sbN, s)
 check('update·delete 는 모두 .select 로 반영 행을 돌려받는다(DCA·전량·일부 매도)', logL.includes('investments.update.select') && logM.includes('investments.delete.select') && logN.includes('investments.update.select'))
+check('다른 탭 덮어쓰기 방지 — DCA·전량·일부 매도가 id + 계획 기준 수량(10)으로 거른다',
+  logL.includes('investments.update.eq:id=inv1') && logL.includes('investments.update.eq:quantity=10')
+  && logM.includes('investments.delete.eq:id=inv1') && logM.includes('investments.delete.eq:quantity=10')
+  && logN.includes('investments.update.eq:quantity=10'))
+check('  기준 수량은 DB 값 그대로(계산 없음) — 코인 0.1+0.2 보유도 그 값 그대로', T.planSell('u1', coinEx, { ...IN, ticker: 'BTC', market: 'CRYPTO', quantity: 0.1 }).baseQuantity === coinEx.quantity
+  && d.baseQuantity === ex.quantity && s.baseQuantity === ex.quantity)
 check('DCA 반영 결과 없음(null) → 실패(1행 아님)', rJ.ok === false && rJ.message === STALE)
 const { sb: sbK } = makeFakeSb({ 'investments.update': { data: [{ id: 'a' }, { id: 'b' }], error: null } })
 const rK = await T.executeTrade(sbK, d)
