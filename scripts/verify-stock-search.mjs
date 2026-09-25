@@ -84,7 +84,24 @@ check('업비트: 빈 검색어 → 없음', S.matchUpbit(upbit, ' ').length ===
 
 const m = S.mergeResults(st, cr, 10)
 check('병합: 주식 먼저, 코인 뒤, 중복 없음', m.length === 3 && m[2].market === 'CRYPTO')
-check('병합: 개수 상한', S.mergeResults(st, cr, 2).length === 2)
+// 실측: "비트" → 네이버가 주식 10개로 상한을 채워 비트코인이 사라짐 → 코인 자리 최대 3개 예약
+check('병합: 개수 상한(코인 자리 보장 — 주식2+코인1을 2로 제한하면 주식1+코인1)', (() => {
+  const limited = S.mergeResults(st, cr, 2)
+  return limited.length === 2 && limited[0].market !== 'CRYPTO' && limited[1].market === 'CRYPTO'
+})())
+
+const tenStocks = Array.from({ length: 10 }, (_, i) => ({
+  ticker: String(i).padStart(6, '0'), name: `종목${i}`, market: 'KR', currency: 'KRW', exchange: '코스피',
+}))
+const btcOnly = [{ ticker: 'BTC', name: '비트코인', market: 'CRYPTO', currency: 'KRW', exchange: '업비트' }]
+const capped = S.mergeResults(tenStocks, btcOnly, 10)
+check('병합: 주식 10개도 코인 1개는 끝에 남긴다', capped.length === 10 && capped[9].ticker === 'BTC')
+
+const fiveCrypto = Array.from({ length: 5 }, (_, i) => ({
+  ticker: `C${i}`, name: `코인${i}`, market: 'CRYPTO', currency: 'KRW', exchange: '업비트',
+}))
+const few = S.mergeResults(st, fiveCrypto, 10)
+check('병합: 주식이 모자라면 코인이 남은 자리를 채운다', few.length === 7)
 
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (종목 이름 검색)')
 process.exit(fail ? 1 : 0)

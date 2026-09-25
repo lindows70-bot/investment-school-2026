@@ -32,13 +32,23 @@ export function matchUpbit(markets: UpbitMarket[], q: string): SearchResult[] {
     .map(m => ({ ticker: m.market.slice(4), name: m.korean_name, market: 'CRYPTO' as const, currency: 'KRW' as const, exchange: '업비트' }))
 }
 
+// 실측(2026-09-25): "비트" → 네이버가 주식 이름 매치 10개로 상한을 채워 비트코인이 사라짐
+//   → 코인 자리를 최대 3개까지 예약해두고(주식이 그보다 적으면 코인이 남은 자리를 더 채운다), 그 다음 주식으로 나머지를 채운다.
 export function mergeResults(stocks: SearchResult[], crypto: SearchResult[], limit: number): SearchResult[] {
+  const reserved = Math.min(crypto.length, 3, limit)
+  const stockBudget = limit - reserved
   const seen = new Set<string>(); const out: SearchResult[] = []
-  for (const r of [...stocks, ...crypto]) {
+  for (const r of stocks) {
+    if (out.length >= stockBudget) break
     const k = `${r.market}:${r.ticker}`
     if (seen.has(k)) continue
     seen.add(k); out.push(r)
+  }
+  for (const r of crypto) {
     if (out.length >= limit) break
+    const k = `${r.market}:${r.ticker}`
+    if (seen.has(k)) continue
+    seen.add(k); out.push(r)
   }
   return out
 }
