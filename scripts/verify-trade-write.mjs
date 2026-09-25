@@ -1,13 +1,16 @@
 // 매수·매도 쓰기 계획 검증 — 기존 두 모달과 같은 규칙인지(가중평단·실현손익·전량매도 삭제·과매도 거부·저장 후 사이드이펙트)
 import { createRequire } from 'module'
-import { writeFileSync, mkdirSync, existsSync } from 'fs'
+import { writeFileSync, mkdirSync, existsSync, rmSync } from 'fs'
 import { execSync } from 'child_process'
 import Module from 'module'
 const ROOT = 'C:/Users/lindo/investment-school-portfolio'
 const OUT = `${ROOT}/.bt-trade`
+// 이전 실행의 컴파일 결과를 먼저 지운다 — 안 지우면 이번 컴파일이 타입 에러로 아무것도 못 내놔도
+// existsSync가 옛 .js를 발견해 거짓 green을 낸다.
+rmSync(OUT, { recursive: true, force: true })
 mkdirSync(OUT, { recursive: true })
 writeFileSync(`${OUT}.tsconfig.json`, JSON.stringify({ extends: `${ROOT}/tsconfig.json`, compilerOptions: { outDir: OUT, module: 'commonjs', moduleResolution: 'node', noEmit: false, declaration: false, incremental: false, noEmitOnError: true, target: 'es2020', rootDir: `${ROOT}/src` }, include: [`${ROOT}/src/lib/tradeWrite.ts`, `${ROOT}/src/lib/bustCache.ts`] }, null, 2))
-try { execSync(`npx tsc -p "${OUT}.tsconfig.json"`, { cwd: ROOT, stdio: 'pipe' }) } catch (e) { console.log('tsc:', String(e.stdout ?? e).slice(0, 400)) }
+try { execSync(`npx tsc -p "${OUT}.tsconfig.json"`, { cwd: ROOT, stdio: 'pipe' }) } catch (e) { console.log('tsc:', String(e.stdout ?? e).slice(0, 400)); process.exit(1) }
 const outFile = `${OUT}/lib/tradeWrite.js`
 if (!existsSync(outFile)) { console.log('❌ 컴파일 결과 없음'); process.exit(1) }
 const require2 = createRequire(`${ROOT}/package.json`)

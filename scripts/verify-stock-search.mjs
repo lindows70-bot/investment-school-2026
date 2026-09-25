@@ -1,6 +1,6 @@
 // 종목 검색 파서 검증 — 네이버 자동완성·업비트 목록 실측 모양으로 필터·별칭·병합을 확인
 import { execSync } from 'node:child_process'
-import { existsSync, writeFileSync } from 'node:fs'
+import { existsSync, writeFileSync, rmSync } from 'node:fs'
 
 const ROOT = 'C:/Users/lindo/investment-school-portfolio'
 const OUT = `${ROOT}/.bt-search`
@@ -22,11 +22,15 @@ const tsconfig = {
 }
 writeFileSync(`${ROOT}/.bt-search.tsconfig.json`, JSON.stringify(tsconfig, null, 2))
 
+// 이전 실행의 컴파일 결과를 먼저 지운다 — 안 지우면 이번 컴파일이 타입 에러로 아무것도 못 내놔도
+// existsSync가 옛 .js를 발견해 거짓 green을 낸다.
+rmSync(OUT, { recursive: true, force: true })
 try {
   execSync(`npx tsc -p "${ROOT}/.bt-search.tsconfig.json"`, { stdio: 'pipe' })
 } catch (e) {
   console.log(e.stdout?.toString() ?? '')
   console.log(e.stderr?.toString() ?? '')
+  process.exit(1)
 }
 
 if (!existsSync(`${OUT}/lib/stockSearch.js`)) {

@@ -1,6 +1,6 @@
 // 히트맵 배치 검증 — 칸 면적이 값에 비례하고 상자 밖으로 안 나가며, 색이 등락 규칙을 따르는지
 import { execSync } from 'node:child_process'
-import { existsSync, writeFileSync } from 'node:fs'
+import { existsSync, writeFileSync, rmSync } from 'node:fs'
 
 const ROOT = 'C:/Users/lindo/investment-school-portfolio'
 const OUT = `${ROOT}/.bt-treemap`
@@ -22,11 +22,15 @@ const tsconfig = {
 }
 writeFileSync(`${ROOT}/.bt-treemap.tsconfig.json`, JSON.stringify(tsconfig, null, 2))
 
+// 이전 실행의 컴파일 결과를 먼저 지운다 — 안 지우면 이번 컴파일이 타입 에러로 아무것도 못 내놔도
+// existsSync가 옛 .js를 발견해 거짓 green을 낸다.
+rmSync(OUT, { recursive: true, force: true })
 try {
   execSync(`npx tsc -p "${ROOT}/.bt-treemap.tsconfig.json"`, { stdio: 'pipe' })
 } catch (e) {
   console.log(e.stdout?.toString() ?? '')
   console.log(e.stderr?.toString() ?? '')
+  process.exit(1)
 }
 
 if (!existsSync(`${OUT}/lib/treemap.js`)) {
