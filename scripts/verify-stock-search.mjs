@@ -103,5 +103,20 @@ const fiveCrypto = Array.from({ length: 5 }, (_, i) => ({
 const few = S.mergeResults(st, fiveCrypto, 10)
 check('병합: 주식이 모자라면 코인이 남은 자리를 채운다', few.length === 7)
 
+// 실측: 업비트 마켓 목록은 관련도·거래량 순이 아니라 임의 순서(KRW-BTC 가 289개 중 268번째) — 24h 거래대금으로 재정렬해야 한다
+const bch = { ticker: 'BCH', name: '비트코인캐시', market: 'CRYPTO', currency: 'KRW', exchange: '업비트' }
+const arb = { ticker: 'ARB', name: '아비트럼', market: 'CRYPTO', currency: 'KRW', exchange: '업비트' }
+const tao = { ticker: 'TAO', name: '비트텐서', market: 'CRYPTO', currency: 'KRW', exchange: '업비트' }
+const btc = { ticker: 'BTC', name: '비트코인', market: 'CRYPTO', currency: 'KRW', exchange: '업비트' }
+const cryptoInput = [bch, arb, tao, btc]
+const volumes = { BTC: 5e11, BCH: 1e10, TAO: 3e9, ARB: 2e10 }
+const ranked = S.rankCrypto(cryptoInput, '비트', volumes)
+check('rankCrypto: 앞글자 일치 우선 + 거래대금 내림차순 (ARB는 포함만 돼서 꼴찌)', ranked.map(r => r.ticker).join(',') === 'BTC,BCH,TAO,ARB')
+
+const rankedNoVolume = S.rankCrypto(cryptoInput, '비트', {})
+const arbIdxNoVol = rankedNoVolume.findIndex(r => r.ticker === 'ARB')
+check('rankCrypto: 거래량 없어도 앞글자 일치 그룹이 ARB보다 앞', arbIdxNoVol === rankedNoVolume.length - 1)
+check('rankCrypto: 거래량 없으면 짧은 이름이 앞(비트코인캐시=6자 는 맨 뒤 앞글자 그룹)', rankedNoVolume.findIndex(r => r.ticker === 'BCH') === 2)
+
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (종목 이름 검색)')
 process.exit(fail ? 1 : 0)

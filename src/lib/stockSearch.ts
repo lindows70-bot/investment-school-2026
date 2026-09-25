@@ -22,6 +22,22 @@ export function parseNaverItems(items: any[]): SearchResult[] {
       : { ticker: String(i.code).toUpperCase(), name: String(i.name), market: 'US' as const, currency: 'USD' as const, exchange: String(i.typeName ?? i.typeCode ?? '') })
 }
 
+// 실측: 업비트 마켓 목록은 관련도·거래량 순이 아니라 임의 순서다(KRW-BTC 가 289개 중 268번째)
+//   → 이름이 검색어로 시작하는(또는 티커가 검색어와 정확히 같은) 것을 먼저, 그 안에서 24시간 거래대금 내림차순, 마지막으로 짧은 이름 우선으로 재정렬한다.
+export function rankCrypto(results: SearchResult[], q: string, volume: Record<string, number>): SearchResult[] {
+  const t = q.trim()
+  const up = t.toUpperCase()
+  return [...results].sort((a, b) => {
+    const aPrefix = a.name.startsWith(t) || a.ticker.toUpperCase() === up
+    const bPrefix = b.name.startsWith(t) || b.ticker.toUpperCase() === up
+    if (aPrefix !== bPrefix) return aPrefix ? -1 : 1
+    const aVol = volume[a.ticker] ?? 0
+    const bVol = volume[b.ticker] ?? 0
+    if (aVol !== bVol) return bVol - aVol
+    return a.name.length - b.name.length
+  })
+}
+
 export interface UpbitMarket { market: string; korean_name: string; english_name: string }
 export function matchUpbit(markets: UpbitMarket[], q: string): SearchResult[] {
   const t = q.trim(); if (!t) return []
