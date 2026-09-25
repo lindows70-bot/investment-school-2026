@@ -37,6 +37,13 @@ check('  가중평단 65,000 · 수량 20', d.update.purchase_price === 65000 &&
 check('  거래 investment_id 연결 · 메모 추가 매수', d.tx.investment_id === 'inv1' && d.tx.memo === '추가 매수')
 const odd = T.planBuy('u1', { ...ex, quantity: 3, purchase_price: 100 }, { ...IN, price: 101, quantity: 4 })
 check('  평단 소수 둘째 자리 반올림', odd.update.purchase_price === Math.round((3 * 100 + 4 * 101) / 7 * 100) / 100)
+const microEx = { id: 'm1', quantity: 1000, purchase_price: 0.015, name: '소액코인', asset_role: 'SATELLITE' }
+const micro = T.planBuy('u1', microEx, { ...IN, ticker: 'XYZ', market: 'CRYPTO', price: 0.015, quantity: 1000 })
+check('  소액 코인 평단 0.015원 → 0.015 유지(0.02 로 망가지지 않음)', micro.update.purchase_price === 0.015)
+const micro2 = T.planBuy('u1', microEx, { ...IN, ticker: 'XYZ', market: 'CRYPTO', price: 0.016, quantity: 2000 })
+check('  소액 코인 가중평단 (15+32)/3000 = 0.015666667 (유효숫자 8)', micro2.update.purchase_price === Number((47 / 3000).toPrecision(8)))
+const mid = T.planBuy('u1', { ...ex, quantity: 3, purchase_price: 50 }, { ...IN, price: 51, quantity: 4 })
+check('  100 미만 평단 → 유효숫자 8자리', mid.update.purchase_price === Number(((150 + 204) / 7).toPrecision(8)))
 
 const s = T.planSell('u1', ex, { ...IN, price: 66000, quantity: 4 })
 check('일부 매도 → 잔여 6주 update', s.kind === 'sell' && s.after.type === 'update' && s.after.quantity === 6)
@@ -44,7 +51,10 @@ check('  실현손익 (66,000−60,000)×4 = 24,000 · 평단 기록', s.tx.real
 const all = T.planSell('u1', ex, { ...IN, price: 50000, quantity: 10 })
 check('전량 매도 → 보유 삭제 · 손실 −100,000', all.after.type === 'delete' && all.tx.realized_pnl === -100000)
 const over = T.planSell('u1', ex, { ...IN, quantity: 11 })
-check('보유보다 많이 팔기 → 오류', over.kind === 'error')
+check('보유보다 많이 팔기 → 오류 · 주식은 "주"', over.kind === 'error' && over.message === '최대 10주까지 팔 수 있어요.')
+const coinEx = { id: 'c1', quantity: 0.1 + 0.2, purchase_price: 50000000, name: '비트코인', asset_role: 'SATELLITE' }
+const coinOver = T.planSell('u1', coinEx, { ...IN, ticker: 'BTC', market: 'CRYPTO', quantity: 1 })
+check('코인 과매도 → "개" · 부동소수 잡음 없이(0.3)', coinOver.kind === 'error' && coinOver.message === '최대 0.3개까지 팔 수 있어요.')
 check('보유 없는 매도 → 오류', T.planSell('u1', null, IN).kind === 'error')
 check('가격 0 → 오류', T.planBuy('u1', null, { ...IN, price: 0 }).kind === 'error')
 
@@ -62,11 +72,13 @@ check('스냅샷 없음 → null', T.snapshotOf(null, 70000) === null)
 // 각 연산은 table.op 문자열을 log 에 남기고, select/eq/single 체이닝은 같은 결과로 흘려보낸다(thenable + 체이닝 겸용)
 function makeFakeSb(overrides = {}) {
   const log = []
-  const canned = (table, op) => overrides[`${table}.${op}`] ?? { data: table === 'investments' && op === 'insert' ? { id: 'newId' } : null, error: null }
-  const leaf = (result) => {
+  const defaultData = (table, op) => table === 'investments' && op === 'insert' ? { id: 'newId' } : (op === 'update' || op === 'delete') ? [{ id: 'row' }] : null
+  const canned = (table, op) => overrides[`${table}.${op}`] ?? { data: defaultData(table, op), error: null }
+  // select 가 불렸는지도 남긴다 — 안 부르면 실제 Supabase 는 update·delete 의 반영 행을 돌려주지 않는다
+  const leaf = (result, tag) => {
     const self = {
       then: (res, rej) => Promise.resolve(result).then(res, rej),
-      select: () => self,
+      select: () => { log.push(`${tag}.select`); return self },
       single: () => self,
       eq: () => self,
     }
@@ -74,37 +86,63 @@ function makeFakeSb(overrides = {}) {
   }
   const sb = {
     from: (table) => ({
-      insert: () => { log.push(`${table}.insert`); return leaf(canned(table, 'insert')) },
-      update: () => { log.push(`${table}.update`); return leaf(canned(table, 'update')) },
-      delete: () => { log.push(`${table}.delete`); return leaf(canned(table, 'delete')) },
+      insert: () => { log.push(`${table}.insert`); return leaf(canned(table, 'insert'), `${table}.insert`) },
+      update: () => { log.push(`${table}.update`); return leaf(canned(table, 'update'), `${table}.update`) },
+      delete: () => { log.push(`${table}.delete`); return leaf(canned(table, 'delete'), `${table}.delete`) },
     }),
   }
   return { sb, log }
 }
 
+const ops = (log) => log.filter((x) => !x.endsWith('.select'))   // 순서 검사는 쓰기 연산만
 const { sb: sbA, log: logA } = makeFakeSb()
 const rA = await T.executeTrade(sbA, n)
-check('executeTrade 신규 → investments.insert 후 transactions.insert · null 반환', rA === null && logA[0] === 'investments.insert' && logA[1] === 'transactions.insert')
+check('executeTrade 신규 → investments.insert 후 transactions.insert · ok', rA.ok === true && ops(logA)[0] === 'investments.insert' && ops(logA)[1] === 'transactions.insert')
 
 const { sb: sbB, log: logB } = makeFakeSb()
 const rB = await T.executeTrade(sbB, d)
-check('executeTrade DCA → investments.update 후 transactions.insert · null 반환', rB === null && logB[0] === 'investments.update' && logB[1] === 'transactions.insert')
+check('executeTrade DCA → investments.update 후 transactions.insert · ok', rB.ok === true && ops(logB)[0] === 'investments.update' && ops(logB)[1] === 'transactions.insert')
 
 const { sb: sbC, log: logC } = makeFakeSb()
 const rC = await T.executeTrade(sbC, all)
-check('executeTrade 전량매도 → transactions.insert 후 investments.delete · null 반환', rC === null && logC[0] === 'transactions.insert' && logC[1] === 'investments.delete')
+check('executeTrade 전량매도 → transactions.insert 후 investments.delete · ok', rC.ok === true && ops(logC)[0] === 'transactions.insert' && ops(logC)[1] === 'investments.delete')
 
 const { sb: sbD, log: logD } = makeFakeSb({ 'transactions.insert': { data: null, error: { message: 'tx insert boom' } } })
 const rD = await T.executeTrade(sbD, all)
-check('executeTrade 매도 중 거래기록 실패 → 메시지 반환 · investments 쓰기 없음', typeof rD === 'string' && !logD.some((x) => x.startsWith('investments.')))
+check('executeTrade 매도 중 거래기록 실패 → 실패 · partial 아님 · investments 쓰기 없음', rD.ok === false && rD.partial === false && typeof rD.message === 'string' && !logD.some((x) => x.startsWith('investments.')))
 
 const { sb: sbE } = makeFakeSb({ 'investments.delete': { data: null, error: { message: 'delete boom' } } })
 const rE = await T.executeTrade(sbE, all)
-check('executeTrade 매도 중 보유삭제 실패 → 절반기록 메시지', rE === '거래는 기록됐지만 보유 수량 반영에 실패했어요 — 선생님께 알려 주세요 (delete boom)')
+check('executeTrade 매도 중 보유삭제 실패 → 절반기록 메시지 · partial', rE.ok === false && rE.partial === true && rE.message === '거래는 기록됐지만 보유 수량 반영에 실패했어요 — 선생님께 알려 주세요 (delete boom)')
 
 const { sb: sbF, log: logF } = makeFakeSb()
 const rF = await T.executeTrade(sbF, over)
-check('executeTrade 오류 계획 → DB 호출 0 · 메시지 그대로', rF === over.message && logF.length === 0)
+check('executeTrade 오류 계획 → DB 호출 0 · 메시지 그대로', rF.ok === false && rF.partial === false && rF.message === over.message && logF.length === 0)
+
+// ── 반영 0행 — 다른 탭에서 지웠거나 RLS 가 막으면 update·delete 가 오류 없이 0행을 돌려준다 ─────────
+const STALE = '이 종목 정보가 바뀌었어요 — 새로고침 후 다시 기록해 주세요.'
+const { sb: sbG, log: logG } = makeFakeSb({ 'investments.update': { data: [], error: null } })
+const rG = await T.executeTrade(sbG, d)
+check('DCA 반영 0행 → 실패(바뀜 안내) · partial 아님 · 거래 기록 안 씀', rG.ok === false && rG.partial === false && rG.message === STALE && !logG.includes('transactions.insert'))
+const { sb: sbH } = makeFakeSb({ 'investments.delete': { data: [], error: null } })
+const rH = await T.executeTrade(sbH, all)
+check('전량매도 삭제 0행 → 절반기록 메시지 · partial', rH.ok === false && rH.partial === true && rH.message.startsWith('거래는 기록됐지만') && rH.message.includes(STALE))
+const { sb: sbI } = makeFakeSb({ 'investments.update': { data: [], error: null } })
+const rI = await T.executeTrade(sbI, s)
+check('일부매도 수량 반영 0행 → 절반기록 메시지 · partial', rI.ok === false && rI.partial === true && rI.message.startsWith('거래는 기록됐지만'))
+const { sb: sbJ } = makeFakeSb({ 'investments.update': { data: null, error: null } })
+const rJ = await T.executeTrade(sbJ, d)
+const { sb: sbL, log: logL } = makeFakeSb()
+await T.executeTrade(sbL, d)
+const { sb: sbM, log: logM } = makeFakeSb()
+await T.executeTrade(sbM, all)
+const { sb: sbN, log: logN } = makeFakeSb()
+await T.executeTrade(sbN, s)
+check('update·delete 는 모두 .select 로 반영 행을 돌려받는다(DCA·전량·일부 매도)', logL.includes('investments.update.select') && logM.includes('investments.delete.select') && logN.includes('investments.update.select'))
+check('DCA 반영 결과 없음(null) → 실패(1행 아님)', rJ.ok === false && rJ.message === STALE)
+const { sb: sbK } = makeFakeSb({ 'investments.update': { data: [{ id: 'a' }, { id: 'b' }], error: null } })
+const rK = await T.executeTrade(sbK, d)
+check('DCA 반영 2행 → 실패(정확히 1행이어야)', rK.ok === false)
 
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (매수·매도 쓰기 규칙)')
 process.exit(fail ? 1 : 0)

@@ -1,5 +1,5 @@
 // 학생 기록하기가 쓰는 매수·매도 → DB 쓰기 규칙 SSOT — 기존 두 모달(AddInvestmentModal·TransactionModal)과 같은 규칙
-//   ① 같은 종목 추가 매수 = 가중평단(소수 둘째 자리) + 수량 합산  ② 새 종목 = investments insert → 거래 insert
+//   ① 같은 종목 추가 매수 = 가중평단(100 이상은 소수 둘째 자리 · 그 아래는 유효숫자 8자리) + 수량 합산  ② 새 종목 = investments insert → 거래 insert
 //   ③ 매도 = 실현손익 (매도가−평단)×수량, avg_cost_basis 기록, 전량이면 보유 행 삭제
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { bustServerCache } from '@/lib/bustCache'
@@ -23,8 +23,16 @@ export interface InvestmentInsert {
 export type TradeError = { kind: 'error'; message: string }
 export type BuyPlan = { kind: 'new'; insert: InvestmentInsert; tx: TxBase } | { kind: 'dca'; investmentId: string; update: { quantity: number; purchase_price: number }; tx: TxRow } | TradeError
 export type SellPlan = { kind: 'sell'; investmentId: string; after: { type: 'delete' } | { type: 'update'; quantity: number }; tx: TxRow } | TradeError
+/** partial = 거래 행은 써졌는데 보유 반영이 실패 — 화면은 다시 저장하게 두면 안 된다(거래가 두 번 적힌다) */
+export type TradeResult = { ok: true } | { ok: false; message: string; partial: boolean }
 
 const r2 = (n: number) => Math.round(n * 100) / 100
+// 평단 반올림 — 100 이상은 소수 둘째 자리(모달과 같음), 그 아래(소액 코인 0.015원 등)는 유효숫자 8자리. r2 는 0.015 → 0.02 로 망가뜨린다
+const roundAvg = (n: number) => n >= 100 ? r2(n) : Number(n.toPrecision(8))
+// 수량 표시 — 부동소수 잡음 없이 소수 8자리까지(끝 0 제거)
+const fmtQty = (q: number) => q.toLocaleString('ko-KR', { maximumFractionDigits: 8 })
+const STALE_MSG = '이 종목 정보가 바뀌었어요 — 새로고침 후 다시 기록해 주세요.'
+const HALF_MSG = '거래는 기록됐지만 보유 수량 반영에 실패했어요 — 선생님께 알려 주세요'
 
 function invalid(i: TradeInput): TradeError | null {
   if (!i.ticker.trim()) return { kind: 'error', message: '종목을 골라 주세요.' }
@@ -53,13 +61,13 @@ export function planBuy(userId: string, existing: ExistingHolding | null, i: Tra
   }
   const qty = existing.quantity + i.quantity
   const avg = (existing.quantity * existing.purchase_price + i.quantity * i.price) / qty
-  return { kind: 'dca', investmentId: existing.id, update: { quantity: qty, purchase_price: r2(avg) }, tx: { ...txBase(userId, i, 'buy', '추가 매수'), investment_id: existing.id } }
+  return { kind: 'dca', investmentId: existing.id, update: { quantity: qty, purchase_price: roundAvg(avg) }, tx: { ...txBase(userId, i, 'buy', '추가 매수'), investment_id: existing.id } }
 }
 
 export function planSell(userId: string, existing: ExistingHolding | null, i: TradeInput): SellPlan {
   const bad = invalid(i); if (bad) return bad
   if (!existing) return { kind: 'error', message: '갖고 있지 않은 종목은 팔 수 없어요.' }
-  if (i.quantity > existing.quantity) return { kind: 'error', message: `최대 ${existing.quantity}주까지 팔 수 있어요.` }
+  if (i.quantity > existing.quantity) return { kind: 'error', message: `최대 ${fmtQty(existing.quantity)}${i.market === 'CRYPTO' ? '개' : '주'}까지 팔 수 있어요.` }
   const remaining = existing.quantity - i.quantity
   return {
     kind: 'sell', investmentId: existing.id,
@@ -82,33 +90,36 @@ export function snapshotOf(sig: any, price: number) {
 }
 
 /**
- * 계획을 DB 에 쓴다. 실패하면 사람이 읽을 문장을 돌려준다(성공 = null).
+ * 계획을 DB 에 쓴다. 실패하면 사람이 읽을 문장 + 부분 기록 여부를 돌려준다.
+ * update·delete 는 반영된 행을 돌려받아 정확히 1행인지 본다 — 0행(다른 탭에서 지웠거나 RLS 가 막음)을 성공으로 보지 않는다.
  * userId 는 항상 로그인한 학생 본인이어야 한다 — 이 함수는 그 자체를 검사하지 않고 Supabase RLS 가 최종 방어선이다.
  */
-export async function executeTrade(sb: SupabaseClient, plan: BuyPlan | SellPlan): Promise<string | null> {
-  if (plan.kind === 'error') return plan.message
+export async function executeTrade(sb: SupabaseClient, plan: BuyPlan | SellPlan): Promise<TradeResult> {
+  if (plan.kind === 'error') return { ok: false, message: plan.message, partial: false }
   const t = plan.tx
   let sig = null
   try {
-    const r = await fetch(`/api/decision-snapshot?ticker=${encodeURIComponent(t.ticker)}&market=${t.market}&name=${encodeURIComponent(t.name)}`)
+    const r = await fetch(`/api/decision-snapshot?ticker=${encodeURIComponent(t.ticker)}&market=${t.market}&name=${encodeURIComponent(t.name)}`, { signal: AbortSignal.timeout(5000) })
     if (r.ok) sig = await r.json()
-  } catch { /* 스냅샷 실패해도 거래는 진행 — 모달과 같다 */ }
+  } catch { /* 스냅샷 실패·5초 초과여도 거래는 진행 — 모달과 같다 */ }
   const snapshot_data = snapshotOf(sig, t.price)
 
   // 저장이 실제로 성공했을 때만 — 기존 두 모달이 저장 뒤 항상 하던 일(서버 캐시 무효화 + 전역 동기화 이벤트)
-  const afterSuccess = async (): Promise<null> => {
+  const afterSuccess = async (): Promise<TradeResult> => {
     await bustServerCache()
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('portfolio-updated', {
         detail: { source: 'student-record', type: t.type, ticker: t.ticker, quantity: t.quantity },
       }))
     }
-    return null
+    return { ok: true }
   }
+  const fail = (message: string, partial = false): TradeResult => ({ ok: false, message, partial })
+  const one = (data: unknown) => Array.isArray(data) && data.length === 1
 
   if (plan.kind === 'new') {
     const { data: created, error } = await sb.from('investments').insert(plan.insert).select('id').single()
-    if (error || !created) return error?.code === '23505' ? '이미 가진 종목이에요. 새로고침 후 다시 해 주세요.' : `저장 실패: ${error?.message ?? '알 수 없음'}`
+    if (error || !created) return fail(error?.code === '23505' ? '이미 가진 종목이에요. 새로고침 후 다시 해 주세요.' : `저장 실패: ${error?.message ?? '알 수 없음'}`)
     const { error: txErr } = await sb.from('transactions').insert({ ...plan.tx, investment_id: created.id, snapshot_data })
     if (txErr) console.warn('[tradeWrite] 거래 기록 실패(보유는 저장됨):', txErr.message)
     if (plan.insert.market !== 'CRYPTO') {
@@ -125,17 +136,19 @@ export async function executeTrade(sb: SupabaseClient, plan: BuyPlan | SellPlan)
     return afterSuccess()
   }
   if (plan.kind === 'dca') {
-    const { error } = await sb.from('investments').update(plan.update).eq('id', plan.investmentId)
-    if (error) return `저장 실패: ${error.message}`
+    const { data, error } = await sb.from('investments').update(plan.update).eq('id', plan.investmentId).select('id')
+    if (error) return fail(`저장 실패: ${error.message}`)
+    if (!one(data)) return fail(STALE_MSG)
     const { error: txErr } = await sb.from('transactions').insert({ ...plan.tx, snapshot_data })
     if (txErr) console.warn('[tradeWrite] 거래 기록 실패(보유는 저장됨):', txErr.message)
     return afterSuccess()
   }
   const { error: txErr } = await sb.from('transactions').insert({ ...plan.tx, snapshot_data })
-  if (txErr) return `저장 실패: ${txErr.message}`
-  const { error } = plan.after.type === 'delete'
-    ? await sb.from('investments').delete().eq('id', plan.investmentId)
-    : await sb.from('investments').update({ quantity: plan.after.quantity }).eq('id', plan.investmentId)
-  if (error) return `거래는 기록됐지만 보유 수량 반영에 실패했어요 — 선생님께 알려 주세요 (${error.message})`
+  if (txErr) return fail(`저장 실패: ${txErr.message}`)
+  const { data, error } = plan.after.type === 'delete'
+    ? await sb.from('investments').delete().eq('id', plan.investmentId).select('id')
+    : await sb.from('investments').update({ quantity: plan.after.quantity }).eq('id', plan.investmentId).select('id')
+  if (error) return fail(`${HALF_MSG} (${error.message})`, true)
+  if (!one(data)) return fail(`${HALF_MSG} (${STALE_MSG})`, true)
   return afterSuccess()
 }

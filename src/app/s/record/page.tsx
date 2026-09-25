@@ -176,8 +176,8 @@ function RecordForm() {
       if (!user) { setError('로그인이 필요해요.'); return }
       const plan = mode === 'buy' ? planBuy(user.id, ex, inp) : planSell(user.id, ex, inp)
       // 성공하면 executeTrade 가 서버 캐시 무효화 + 'portfolio-updated' 이벤트까지 한다
-      const err = await executeTrade(sb, plan)
-      if (err) { setError(err); return }
+      const res = await executeTrade(sb, plan)
+      if (!res.ok) { setError(res.message); return }
       ok = true
       router.push('/s/assets')
     } catch {
