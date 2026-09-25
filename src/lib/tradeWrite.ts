@@ -2,10 +2,12 @@
 //   ① 같은 종목 추가 매수 = 가중평단(소수 둘째 자리) + 수량 합산  ② 새 종목 = investments insert → 거래 insert
 //   ③ 매도 = 실현손익 (매도가−평단)×수량, avg_cost_basis 기록, 전량이면 보유 행 삭제
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { bustServerCache } from '@/lib/bustCache'
 
 export type Market = 'US' | 'KR' | 'CRYPTO'
 export type Role = 'CORE' | 'SATELLITE'
 export interface TradeInput { ticker: string; name: string; market: Market; currency: 'USD' | 'KRW'; price: number; quantity: number; date: string; role: Role }
+// name·asset_role 은 DCA 때 바뀌지 않는다(AddInvestmentModal 기준 — 학생 화면은 기존 보유의 역할을 수정하지 않는다)
 export interface ExistingHolding { id: string; quantity: number; purchase_price: number; name: string; asset_role: Role | null }
 
 interface TxBase {
@@ -34,7 +36,7 @@ function invalid(i: TradeInput): TradeError | null {
 
 function txBase(userId: string, i: TradeInput, type: 'buy' | 'sell', memo: string): TxBase {
   return {
-    user_id: userId, ticker: i.ticker.toUpperCase(), name: i.name, market: i.market, currency: i.currency,
+    user_id: userId, ticker: i.ticker.trim().toUpperCase(), name: i.name, market: i.market, currency: i.currency,
     type, price: i.price, quantity: i.quantity, total_amount: i.price * i.quantity, fee: 0,
     memo, transaction_date: i.date, realized_pnl: null, avg_cost_basis: null,
   }
@@ -45,7 +47,7 @@ export function planBuy(userId: string, existing: ExistingHolding | null, i: Tra
   if (!existing) {
     return {
       kind: 'new',
-      insert: { user_id: userId, ticker: i.ticker.toUpperCase(), name: i.name, market: i.market, currency: i.currency, purchase_price: i.price, quantity: i.quantity, purchase_date: i.date, lynch_category: null, asset_role: i.role },
+      insert: { user_id: userId, ticker: i.ticker.trim().toUpperCase(), name: i.name, market: i.market, currency: i.currency, purchase_price: i.price, quantity: i.quantity, purchase_date: i.date, lynch_category: null, asset_role: i.role },
       tx: txBase(userId, i, 'buy', '최초 매수'),
     }
   }
@@ -79,7 +81,10 @@ export function snapshotOf(sig: any, price: number) {
   }
 }
 
-/** 계획을 DB 에 쓴다. 실패하면 사람이 읽을 문장을 돌려준다(성공 = null). */
+/**
+ * 계획을 DB 에 쓴다. 실패하면 사람이 읽을 문장을 돌려준다(성공 = null).
+ * userId 는 항상 로그인한 학생 본인이어야 한다 — 이 함수는 그 자체를 검사하지 않고 Supabase RLS 가 최종 방어선이다.
+ */
 export async function executeTrade(sb: SupabaseClient, plan: BuyPlan | SellPlan): Promise<string | null> {
   if (plan.kind === 'error') return plan.message
   const t = plan.tx
@@ -89,6 +94,17 @@ export async function executeTrade(sb: SupabaseClient, plan: BuyPlan | SellPlan)
     if (r.ok) sig = await r.json()
   } catch { /* 스냅샷 실패해도 거래는 진행 — 모달과 같다 */ }
   const snapshot_data = snapshotOf(sig, t.price)
+
+  // 저장이 실제로 성공했을 때만 — 기존 두 모달이 저장 뒤 항상 하던 일(서버 캐시 무효화 + 전역 동기화 이벤트)
+  const afterSuccess = async (): Promise<null> => {
+    await bustServerCache()
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('portfolio-updated', {
+        detail: { source: 'student-record', type: t.type, ticker: t.ticker, quantity: t.quantity },
+      }))
+    }
+    return null
+  }
 
   if (plan.kind === 'new') {
     const { data: created, error } = await sb.from('investments').insert(plan.insert).select('id').single()
@@ -106,19 +122,20 @@ export async function executeTrade(sb: SupabaseClient, plan: BuyPlan | SellPlan)
         } catch { /* 분류 실패해도 종목은 저장됨 — 모달과 같다 */ }
       })()
     }
-    return null
+    return afterSuccess()
   }
   if (plan.kind === 'dca') {
     const { error } = await sb.from('investments').update(plan.update).eq('id', plan.investmentId)
     if (error) return `저장 실패: ${error.message}`
     const { error: txErr } = await sb.from('transactions').insert({ ...plan.tx, snapshot_data })
     if (txErr) console.warn('[tradeWrite] 거래 기록 실패(보유는 저장됨):', txErr.message)
-    return null
+    return afterSuccess()
   }
   const { error: txErr } = await sb.from('transactions').insert({ ...plan.tx, snapshot_data })
   if (txErr) return `저장 실패: ${txErr.message}`
   const { error } = plan.after.type === 'delete'
     ? await sb.from('investments').delete().eq('id', plan.investmentId)
     : await sb.from('investments').update({ quantity: plan.after.quantity }).eq('id', plan.investmentId)
-  return error ? `보유 수량 반영 실패: ${error.message}` : null
+  if (error) return `거래는 기록됐지만 보유 수량 반영에 실패했어요 — 선생님께 알려 주세요 (${error.message})`
+  return afterSuccess()
 }

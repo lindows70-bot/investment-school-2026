@@ -1,4 +1,4 @@
-// 매수·매도 쓰기 계획 검증 — 기존 두 모달과 같은 규칙인지(가중평단·실현손익·전량매도 삭제·과매도 거부)
+// 매수·매도 쓰기 계획 검증 — 기존 두 모달과 같은 규칙인지(가중평단·실현손익·전량매도 삭제·과매도 거부·저장 후 사이드이펙트)
 import { createRequire } from 'module'
 import { writeFileSync, mkdirSync, existsSync } from 'fs'
 import { execSync } from 'child_process'
@@ -6,13 +6,14 @@ import Module from 'module'
 const ROOT = 'C:/Users/lindo/investment-school-portfolio'
 const OUT = `${ROOT}/.bt-trade`
 mkdirSync(OUT, { recursive: true })
-writeFileSync(`${OUT}.tsconfig.json`, JSON.stringify({ extends: `${ROOT}/tsconfig.json`, compilerOptions: { outDir: OUT, module: 'commonjs', moduleResolution: 'node', noEmit: false, declaration: false, incremental: false, target: 'es2020', rootDir: `${ROOT}/src` }, include: [`${ROOT}/src/lib/tradeWrite.ts`] }, null, 2))
+writeFileSync(`${OUT}.tsconfig.json`, JSON.stringify({ extends: `${ROOT}/tsconfig.json`, compilerOptions: { outDir: OUT, module: 'commonjs', moduleResolution: 'node', noEmit: false, declaration: false, incremental: false, noEmitOnError: true, target: 'es2020', rootDir: `${ROOT}/src` }, include: [`${ROOT}/src/lib/tradeWrite.ts`, `${ROOT}/src/lib/bustCache.ts`] }, null, 2))
 try { execSync(`npx tsc -p "${OUT}.tsconfig.json"`, { cwd: ROOT, stdio: 'pipe' }) } catch (e) { console.log('tsc:', String(e.stdout ?? e).slice(0, 400)) }
 const outFile = `${OUT}/lib/tradeWrite.js`
 if (!existsSync(outFile)) { console.log('❌ 컴파일 결과 없음'); process.exit(1) }
 const require2 = createRequire(`${ROOT}/package.json`)
 const orig = Module._resolveFilename
-Module._resolveFilename = function (r, ...a) { return orig.call(this, r.startsWith('@/') ? `${ROOT}/src/${r.slice(2)}` : r, ...a) }
+// '@/x' → 컴파일된 .bt-trade/x (소스 .ts 가 아니라 tsc 출력 .js 로 매핑해야 require 가 성공한다)
+Module._resolveFilename = function (r, ...a) { return orig.call(this, r.startsWith('@/') ? `${OUT}/${r.slice(2)}` : r, ...a) }
 const T = require2(outFile)
 let fail = 0
 const check = (name, ok) => { console.log(`${ok ? '✅' : '❌'} ${name}`); if (!ok) fail++ }
@@ -22,6 +23,9 @@ const n = T.planBuy('u1', null, IN)
 check('새 종목 → kind new', n.kind === 'new')
 check('  investments insert 필드', n.insert.purchase_price === 70000 && n.insert.quantity === 10 && n.insert.asset_role === 'SATELLITE' && n.insert.lynch_category === null && n.insert.purchase_date === '2026-09-26')
 check('  거래 = buy · 총액 700,000 · 메모 최초 매수', n.tx.type === 'buy' && n.tx.total_amount === 700000 && n.tx.memo === '최초 매수' && n.tx.fee === 0)
+
+const trimmed = T.planBuy('u1', null, { ...IN, ticker: ' 005930 ' })
+check('티커 공백 trim + 대문자 (모달과 같음)', trimmed.insert.ticker === '005930' && trimmed.tx.ticker === '005930')
 
 const ex = { id: 'inv1', quantity: 10, purchase_price: 60000, name: '삼성전자', asset_role: 'SATELLITE' }
 const d = T.planBuy('u1', ex, IN)
@@ -50,6 +54,54 @@ check('보유보다 부동소수 오차만큼만 많이 팔기 → 오류(엡실
 const snap = T.snapshotOf({ peg: 1.2, growth: 15, category: 'stalwart', opMargin: 10, sector: 'IT', flow: 'IN', mfi: 55, seasonTag: 's', season: 'x', fomcStance: 'h', rateDir: 'up' }, 70000)
 check('스냅샷 필드 = 모달과 같은 이름', snap.peg === 1.2 && snap.growth_rate === 15 && snap.price_at_record === 70000 && 'recorded_at' in snap && snap.rateDir === 'up')
 check('스냅샷 없음 → null', T.snapshotOf(null, 70000) === null)
+
+// ── executeTrade — 실제 DB 없이 가짜 Supabase 로 순서·오류 분기 검증 ─────────
+// 각 연산은 table.op 문자열을 log 에 남기고, select/eq/single 체이닝은 같은 결과로 흘려보낸다(thenable + 체이닝 겸용)
+function makeFakeSb(overrides = {}) {
+  const log = []
+  const canned = (table, op) => overrides[`${table}.${op}`] ?? { data: table === 'investments' && op === 'insert' ? { id: 'newId' } : null, error: null }
+  const leaf = (result) => {
+    const self = {
+      then: (res, rej) => Promise.resolve(result).then(res, rej),
+      select: () => self,
+      single: () => self,
+      eq: () => self,
+    }
+    return self
+  }
+  const sb = {
+    from: (table) => ({
+      insert: () => { log.push(`${table}.insert`); return leaf(canned(table, 'insert')) },
+      update: () => { log.push(`${table}.update`); return leaf(canned(table, 'update')) },
+      delete: () => { log.push(`${table}.delete`); return leaf(canned(table, 'delete')) },
+    }),
+  }
+  return { sb, log }
+}
+
+const { sb: sbA, log: logA } = makeFakeSb()
+const rA = await T.executeTrade(sbA, n)
+check('executeTrade 신규 → investments.insert 후 transactions.insert · null 반환', rA === null && logA[0] === 'investments.insert' && logA[1] === 'transactions.insert')
+
+const { sb: sbB, log: logB } = makeFakeSb()
+const rB = await T.executeTrade(sbB, d)
+check('executeTrade DCA → investments.update 후 transactions.insert · null 반환', rB === null && logB[0] === 'investments.update' && logB[1] === 'transactions.insert')
+
+const { sb: sbC, log: logC } = makeFakeSb()
+const rC = await T.executeTrade(sbC, all)
+check('executeTrade 전량매도 → transactions.insert 후 investments.delete · null 반환', rC === null && logC[0] === 'transactions.insert' && logC[1] === 'investments.delete')
+
+const { sb: sbD, log: logD } = makeFakeSb({ 'transactions.insert': { data: null, error: { message: 'tx insert boom' } } })
+const rD = await T.executeTrade(sbD, all)
+check('executeTrade 매도 중 거래기록 실패 → 메시지 반환 · investments 쓰기 없음', typeof rD === 'string' && !logD.some((x) => x.startsWith('investments.')))
+
+const { sb: sbE } = makeFakeSb({ 'investments.delete': { data: null, error: { message: 'delete boom' } } })
+const rE = await T.executeTrade(sbE, all)
+check('executeTrade 매도 중 보유삭제 실패 → 절반기록 메시지', rE === '거래는 기록됐지만 보유 수량 반영에 실패했어요 — 선생님께 알려 주세요 (delete boom)')
+
+const { sb: sbF, log: logF } = makeFakeSb()
+const rF = await T.executeTrade(sbF, over)
+check('executeTrade 오류 계획 → DB 호출 0 · 메시지 그대로', rF === over.message && logF.length === 0)
 
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (매수·매도 쓰기 규칙)')
 process.exit(fail ? 1 : 0)
