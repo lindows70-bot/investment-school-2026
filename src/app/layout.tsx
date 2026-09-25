@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import SidebarLayout from '@/app/components/Layout/SidebarLayout'
 import IdleTimer from '@/app/components/IdleTimer'
+import VisitBeacon from '@/app/components/VisitBeacon'
 import { TK, FONT_STACK } from '@/lib/theme'
 
 // 🔤 한글 웹폰트 — Pretendard Variable (SIL OFL 1.1 · public/fonts/pretendard/LICENSE.txt)
@@ -39,6 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
         </SidebarLayout>
         <IdleTimer />
+        <VisitBeacon />
       </body>
     </html>
   )
