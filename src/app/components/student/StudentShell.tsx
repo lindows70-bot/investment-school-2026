@@ -23,6 +23,9 @@ export default function StudentShell({ children }: { children: React.ReactNode }
       <style>{`
         @media (max-width: 768px) { .st-rail { display: none !important } .st-main { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important } }
         @media (min-width: 769px) { .st-tabs { display: none !important } }
+        ::-webkit-scrollbar { width: 5px; height: 5px }
+        ::-webkit-scrollbar-track { background: ${TK.bg0} }
+        ::-webkit-scrollbar-thumb { background: ${TK.gray800}; border-radius: 99px }
       `}</style>
       <nav className="st-rail" aria-label="학생 메뉴" style={{ width: 220, flexShrink: 0, padding: `${SP.xl}px ${SP.lg}px`, background: TK.bg0, borderRight: `1px solid ${TK.border}`, display: 'flex', flexDirection: 'column', gap: SP.xs, position: 'sticky', top: 0, height: '100dvh', boxSizing: 'border-box' }}>
         <div style={{ fontSize: FS.body, fontWeight: 800, color: TK.slate100, padding: `0 ${SP.sm}px ${SP.xl}px` }}>투자학교</div>
@@ -38,7 +41,7 @@ export default function StudentShell({ children }: { children: React.ReactNode }
         <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', height: 44, padding: `0 ${SP.md}px`, borderRadius: RAD.sm, border: `1px solid ${TK.border}`, color: TK.sub, fontSize: FS.tiny, textDecoration: 'none' }}>분석 화면 전체 보기</Link>
       </nav>
       <main className="st-main" style={{ flexGrow: 1, minWidth: 0, maxWidth: 1080, margin: '0 auto', padding: SP.lg, boxSizing: 'border-box' }}>{children}</main>
-      <nav className="st-tabs" aria-label="학생 메뉴" style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 100, display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', height: 72, paddingBottom: 'env(safe-area-inset-bottom, 0px)', background: TK.bg0, borderTop: `1px solid ${TK.border}` }}>
+      <nav className="st-tabs" aria-label="학생 메뉴" style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 100, display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', height: 'calc(72px + env(safe-area-inset-bottom, 0px))', paddingBottom: 'env(safe-area-inset-bottom, 0px)', background: TK.bg0, borderTop: `1px solid ${TK.border}` }}>
         {TABS.map(t => {
           const on = isActive(pathname, t.href)
           return (
