@@ -56,6 +56,7 @@
 | `tax-helper` | 💸 연말 절세 도우미 | ✅ | ✅ | ✅ |
 | `connective-tissue` | 🔗 연결 조직 (화면 사이의 다리 — 종목 액션 칩·딥링크) | ✅ | ✅ | |
 | `fcf-nature` | 💵 고FCF 성격 구분 (mirage·volatile — TTM vs 다년 평균) | ✅ | ✅ | ✅ |
+| `student-mode` | 🎒 학생 간단 모드 `/s` — 홈·내 자산·리그·배우기·기록하기·역할별 착지·폰 앱 (1~5단계, phase1~4-plan · 측정 `scripts/student-mode-report.mjs`) | ✅ | ✅ | ✅ |
 | `unified-reco` | 🎯 통합 추천 엔진 | ✅ | | ✅ |
 | `us-smart-money` | 🇺🇸 미국 스마트머니 — 큰돈은 어디로 (1절 내부자 매수 스캐너 · 4개 보고서 순차) | ✅ | ✅ | ✅ |
 | `weekly-student-report` | 📄 학생별 주간 리포트 | ✅ | | |
