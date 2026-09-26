@@ -69,8 +69,12 @@ export default function StudentStock() {
   const row = summary?.rows.find(r => r.ticker.toUpperCase() === ticker) ?? null
   const hTicker = holding?.ticker ?? null
   const hMarket = holding?.market ?? null
+  // 환율만 못 받은 실패는 보유 목록은 받은 상태다(/s/record 의 holdingsKnown 과 같은 판정) — 종목 화면을 막지 않고
+  //  원화 평가(평가금액·손익·비중)만 빼고 보여 준다. 추정 환율로 계산하지 않는다
+  const fxOnly = state === 'failed' && failReason === 'fx'
+  const holdingsKnown = state === 'ready' || fxOnly
   // 보유 목록을 실제로 받은 뒤에만 '보유 안 함'이라 판단한다(못 불러왔을 때 '없다'고 하지 않는다)
-  const notHeld = state === 'ready' && !holding
+  const notHeld = holdingsKnown && !holding
   const cTicker = hTicker ?? (notHeld && qMarket ? decoded : null)
   const cMarket = hMarket ?? (notHeld ? qMarket : null)
 
@@ -137,11 +141,12 @@ export default function StudentStock() {
     return () => { cancelled = true }
   }, [cTicker, cMarket, hTicker, retry])
 
-  const back = <Link href="/s/assets" style={{ display: 'inline-flex', alignItems: 'center', height: 44, color: TK.slate300, fontSize: FS.body, textDecoration: 'none' }}>‹ 내 자산</Link>
+  // 보유 안 한 종목은 홈 검색에서 왔다 — 홈으로 돌려보낸다
+  const back = <Link href={notHeld ? '/s' : '/s/assets'} style={{ display: 'inline-flex', alignItems: 'center', height: 44, color: TK.slate300, fontSize: FS.body, textDecoration: 'none' }}>{notHeld ? '‹ 홈' : '‹ 내 자산'}</Link>
   const msg = (text: string) => <p style={{ color: TK.sub, fontSize: FS.body }}>{text}</p>
   if (state === 'loading') return <div>{back}{msg('불러오는 중이에요…')}</div>
   if (state === 'unauth') return <div>{back}{msg('로그인하면 내 종목이 보여요.')}</div>
-  if (state === 'failed' || !summary) return (
+  if (!fxOnly && (state === 'failed' || !summary)) return (
     <div>{back}
       <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
         <span style={{ fontSize: FS.body, color: TK.slate100 }}>{FAIL_TEXT[failReason ?? 'unknown']}</span>
@@ -155,7 +160,7 @@ export default function StudentStock() {
       <Link href="/s" style={{ display: 'inline-flex', alignItems: 'center', height: 44, color: TK.slate200, fontSize: FS.body, textDecoration: 'none' }}>홈에서 찾기 ›</Link>
     </div>
   )
-  if (holding && !row) return <div>{back}{msg('이 종목은 내 보유 목록에 없어요.')}</div>
+  if (holding && !row && !fxOnly) return <div>{back}{msg('이 종목은 내 보유 목록에 없어요.')}</div>
   // 이름·티커·통화 — 보유 종목이면 내 기록, 아니면 검색이 넘긴 이름(n) → 시세 응답 이름 → 티커
   const displayName = holding?.name ?? nParam ?? quote?.name ?? decoded
   const displayTicker = holding?.ticker ?? decoded
@@ -216,7 +221,7 @@ export default function StudentStock() {
           ? <span style={{ fontSize: FS.lg, fontWeight: 700, color: TK.sub }}>불러오는 중이에요…</span>
           : priced
           ? <span style={{ fontSize: FS.h2, fontWeight: 800, color: TK.slate100, whiteSpace: 'nowrap' }}>{money(curPrice, currency)}</span>
-          : <span style={{ fontSize: FS.lg, fontWeight: 700, color: TK.sub }}>지금 시세를 못 가져왔어요{holding ? ' · 매수가로 계산' : ''}</span>}
+          : <span style={{ fontSize: FS.lg, fontWeight: 700, color: TK.sub }}>지금 시세를 못 가져왔어요{row ? ' · 매수가로 계산' : ''}</span>}
         {/* 지난 시세의 등락은 오늘 것이 아닐 수 있다 — '오늘'로 쓰지 않는다 */}
         {priced && curChg != null && (
           <span style={{ fontSize: FS.body, fontWeight: 600, color: TK.sub }}>{curStale ? '지난 시세' : '오늘'} <span style={{ color: upDown(curChg) }}>{pct(curChg)}</span></span>
@@ -251,14 +256,22 @@ export default function StudentStock() {
           </>)}
       </section>
 
-      {holding && row ? (<>
+      {holding ? (<>
       <section style={{ ...card, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: SP.md }}>
         {stat('보유 수량', qtyText(holding.quantity, holding.market))}
         {stat('평균 매수가', money(holding.purchase_price, holding.currency))}
+        {row ? (<>
         {stat('평가금액', won(row.evalKrw), TK.slate100, priced ? undefined : '매수가로 계산')}
         {stat('평가손익', priced ? signWon(row.pnlKrw) : '—', priced ? upDown(row.pnlPct) : TK.sub)}
         {stat('수익률', priced && row.pnlPct != null ? pct(row.pnlPct) : '—', priced ? upDown(row.pnlPct) : TK.sub)}
         {stat('내 자산 중 비중', `${row.weightPct.toFixed(1)}%`, TK.slate100, priced ? undefined : '매수가로 계산')}
+        </>) : (
+          // 환율만 못 받음(fxOnly) — 원화 평가·손익·비중은 추정 환율로 채우지 않는다
+          <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: SP.sm }}>
+            <span style={{ fontSize: FS.body, color: TK.amber400 }}>환율을 못 가져와 원화 평가는 못 해요.</span>
+            <button type="button" onClick={reload} style={reloadBtn}>다시 불러오기</button>
+          </div>
+        )}
       </section>
 
       <section style={{ display: 'flex', flexDirection: 'column' }}>
