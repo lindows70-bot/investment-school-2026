@@ -1,5 +1,5 @@
 // 진짜 월별 손익 시계열 API — 로트를 body 로 받아 서버에서 캔들 재구성 후 반환
-// ⚠️ 개인 포트폴리오 데이터: 결과를 공유 캐시에 저장하지 않는다(캔들만 tech-chart-v1 공유 캐시).
+// ⚠️ 개인 포트폴리오 데이터: 결과를 공유 캐시에 저장하지 않는다(캔들만 tech-chart-v2 공유 캐시).
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { computeMonthlyPnl, type PnlLot } from '@/lib/monthlyPnl'
