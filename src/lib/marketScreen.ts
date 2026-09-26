@@ -1,0 +1,252 @@
+// 학생 시장 화면(/s/market)의 순수 규칙 — 원천 조각 상태·기준 시각 문구·몇 시간 전·순매매 배지·시장 합치기·등락 수 설명·업종 막대·걸러낸 개수 문구·분야 국면 말
+//   화면(tsx)은 그리기만 하고, 판정·정렬·문구는 여기서 만든다 → scripts/verify-market-screen.mjs 가 실제 이 파일을 컴파일해 검증한다.
+//   ⚠️ 서버 lib 에서는 **타입만** 가져온다(브라우저 번들에 서버 코드가 끌려오지 않게).
+import type { Part } from './marketBoardShared'
+import type { KrIndexQuote, IntradayPoint, InvestorTotals, UpDownCount, KrMover, MoverList, KrIndustry, KrNews, KrIndexCode, KrMarket, KrMoverKind } from './krMarketBoard'
+import type { FlowTopRow, FlowBoardSide, Investor } from './foreignOrgFlow'
+import type { UsEtfIntraday, UsMover, UsMoverKind } from './usMarketBoard'
+import type { CoinBoard } from './upbitMarket'
+import type { CnnFngYear } from './cnnFng'
+import type { CryptoFngYear } from './cryptoFng'
+import type { FxTrend } from './fxTrend'
+import type { StrongSectorsResult } from './strongSectors'
+import type { RotQuadShared } from './rotationShared'
+
+// ── 응답 모양(/api/market-board/*) — 화면이 쓰는 필드만 ─────────────────────
+export interface KrBoardResp {
+  indices: Part<KrIndexQuote[]>
+  charts: Record<KrIndexCode, Part<IntradayPoint[]>>
+  investorsAndBreadth: Record<KrMarket, Part<{ investors: InvestorTotals | null; upDown: UpDownCount | null }>>
+  movers: Record<KrMarket, Record<KrMoverKind, Part<MoverList<KrMover>>>>
+  industry: Part<{ items: KrIndustry[]; marketStatus: string | null; total: number | null }>
+  news: Part<KrNews[]>
+}
+export interface FlowBoardResp {
+  basis?: string
+  individual?: { available: boolean; note: string }
+  trends?: Part<{ checked: number }>
+  markets: Record<KrMarket, Record<Investor, Part<{ bizdate: string | null } & FlowBoardSide>>>
+}
+export interface UsBoardResp {
+  etfs: { SPY: Part<UsEtfIntraday>; QQQ: Part<UsEtfIntraday> }
+  movers: Record<UsMoverKind, Part<MoverList<UsMover>>>
+  rules?: { minCapUsd?: number; newListingDays?: number }
+}
+export interface CoinBoardResp { board: Part<CoinBoard> }
+export interface OverviewResp {
+  fng: { cnn: Part<CnnFngYear>; crypto: Part<CryptoFngYear> }
+  fx: Part<FxTrend>
+  strongSectors: Part<StrongSectorsResult>
+}
+
+// ── 원천 조각 → 화면 상태 ───────────────────────────────────────────────────
+/** 카드 하나가 보는 상태 — 불러오는 중 / 못 가져옴(요청 실패 또는 그 원천만 ok:false) / 받음 */
+export type View<T> = { kind: 'loading' } | { kind: 'failed' } | { kind: 'ok'; data: T; asOf: string | null }
+
+/** useJson 결과(state·data)에서 원천 조각 하나를 골라 상태로. pick 이 던지거나(모양이 다름) 조각이 ok:true 가 아니면 못 가져옴 */
+export function viewOf<R, T>(res: { state: string; data: R | null }, pick: (d: R) => unknown): View<T> {
+  if (res.state === 'idle' || res.state === 'loading') return { kind: 'loading' }
+  if (res.state !== 'ok' || res.data == null) return { kind: 'failed' }
+  let p: unknown
+  try { p = pick(res.data) } catch { return { kind: 'failed' } }
+  const o = p as { ok?: unknown; data?: unknown; asOf?: unknown } | null | undefined
+  if (!o || o.ok !== true || o.data == null) return { kind: 'failed' }
+  return { kind: 'ok', data: o.data as T, asOf: typeof o.asOf === 'string' ? o.asOf : null }
+}
+
+// ── 날짜·시각 문구 ──────────────────────────────────────────────────────────
+const DOW = ['일', '월', '화', '수', '목', '금', '토']
+const YMD_RE = /^(\d{4})-(\d{2})-(\d{2})$/
+
+/** 'YYYY-MM-DD' → '9/23(수)'. 못 읽으면 null */
+export function mdDow(ymd: string): string | null {
+  const m = YMD_RE.exec(ymd)
+  if (!m) return null
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])]
+  const dow = new Date(Date.UTC(y, mo - 1, d)).getUTCDay()
+  return `${mo}/${d}(${DOW[dow]})`
+}
+/** 'YYYY-MM-DD' → '2025.11.20' (연간 고저 날짜처럼 해를 넘길 수 있는 날짜) */
+export function ymdDot(ymd: string): string | null {
+  const m = YMD_RE.exec(ymd)
+  return m ? `${m[1]}.${Number(m[2])}.${Number(m[3])}` : null
+}
+
+/** 한국 시각 날짜·시:분 */
+export function kstParts(ms: number): { ymd: string; hm: string } {
+  const s = new Date(ms + 9 * 3600_000).toISOString()
+  return { ymd: s.slice(0, 10), hm: s.slice(11, 16) }
+}
+/** 뉴욕 날짜(미국 장 마감일은 미국 날짜로 적는다 — 9/25 마감은 한국 시각으로 9/26 새벽이다) */
+export function nyYmd(ms: number): string | null {
+  try {
+    const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms))
+    return YMD_RE.test(p) ? p : null
+  } catch { return null }
+}
+
+/** 원천 기준 시각 → 화면 문구.
+ *  장중(status OPEN) = 'HH:mm 기준'(한국 시각) · 마감(CLOSE/CLOSED) = '9/23(수) 장 마감' · 모름 = '9/23(수) HH:mm 기준'.
+ *  zone 'NY' 는 마감일을 미국 날짜로 적고 장중 시각엔 '한국 시각'을 붙인다. iso 가 날짜만('YYYY-MM-DD')이면 날짜만. 못 읽으면 null(지어내지 않는다) */
+export function asOfLabel(iso: string | null | undefined, status: string | null | undefined, zone: 'KST' | 'NY' = 'KST'): string | null {
+  if (!iso) return null
+  const st = status === 'OPEN' ? 'open' : status === 'CLOSE' || status === 'CLOSED' ? 'closed' : 'unknown'
+  if (YMD_RE.test(iso)) {
+    const d = mdDow(iso)
+    return d ? (st === 'closed' ? `${d} 장 마감` : `${d} 기준`) : null
+  }
+  const t = Date.parse(iso)
+  if (!Number.isFinite(t)) return null
+  const k = kstParts(t)
+  if (st === 'open') return zone === 'NY' ? `한국 시각 ${k.hm} 기준` : `${k.hm} 기준`
+  if (st === 'closed') {
+    const day = zone === 'NY' ? nyYmd(t) : k.ymd
+    const d = day ? mdDow(day) : null
+    if (!d) return null
+    return zone === 'NY' ? `미국 ${d} 장 마감` : `${d} 장 마감`
+  }
+  const d = mdDow(k.ymd)
+  return d ? `${d} ${k.hm} 기준` : null
+}
+
+/** 뉴스 시각 → '방금'·'N분 전'·'N시간 전'·'9/23(수)'. nowMs 는 **마운트 뒤** 값만 넘긴다(렌더 중 new Date() 금지). 못 읽으면 null */
+export function agoText(iso: string | null | undefined, nowMs: number): string | null {
+  if (!iso) return null
+  const t = Date.parse(iso)
+  if (!Number.isFinite(t)) return null
+  const diff = nowMs - t
+  if (diff < 60_000) return '방금'   // 기기 시계가 몇 분 빠른 경우도 '방금'
+  if (diff < 3600_000) return `${Math.floor(diff / 60_000)}분 전`
+  if (diff < 24 * 3600_000) return `${Math.floor(diff / 3600_000)}시간 전`
+  return mdDow(kstParts(t).ymd)
+}
+
+// ── 내 종목 겹침(브라우저에서만) ───────────────────────────────────────────
+/** 보유·목록을 같은 키로 — 시장 + 티커(대문자·공백 제거). 기록하기 화면의 보유 판정과 같은 정규화 */
+export const holdingKey = (market: string, ticker: string) => `${market}:${ticker.trim().toUpperCase()}`
+
+// ── 주체별 순매매 ───────────────────────────────────────────────────────────
+export type FlowSide = 'buy' | 'sell'
+export type FlowBadgeKey = 'mine' | 'streak' | 'together' | 'contrarian' | 'etf' | 'limit'
+export interface FlowBadge { key: FlowBadgeKey; text: string }
+
+/** 연속일 배지는 2일째부터 — 1일째는 '오늘 처음'이라 따로 말할 게 없다 */
+export const STREAK_MIN = 2
+
+/** 한 줄의 배지. 며칠째는 **그 목록의 주체**(외국인이면 외국인 연속일)·**그 목록의 방향**과 같을 때만, 모르면(null) 생략.
+ *  함께 = 외국인·기관이 그날 같은 방향(목록 방향과 같을 때만). 주가와 반대 = 산 날 내림·판 날 오름 */
+export function flowBadges(
+  row: Pick<FlowTopRow, 'foreignStreak' | 'organStreak' | 'together' | 'contrarian' | 'etf' | 'priceLimitBreak'>,
+  side: FlowSide, investor: Investor, mine: boolean,
+): FlowBadge[] {
+  const out: FlowBadge[] = []
+  if (mine) out.push({ key: 'mine', text: '내 종목' })
+  const s = investor === 'FOREIGNER' ? row.foreignStreak : row.organStreak
+  if (s && Math.abs(s.n) >= STREAK_MIN && (side === 'buy' ? s.n > 0 : s.n < 0)) {
+    out.push({ key: 'streak', text: `${Math.abs(s.n)}일째${s.capped ? ' 이상' : ''}` })
+  }
+  if (row.together === side) out.push({ key: 'together', text: side === 'buy' ? '함께 샀어요' : '함께 팔았어요' })
+  if (row.contrarian === true) out.push({ key: 'contrarian', text: '주가와 반대' })
+  if (row.etf) out.push({ key: 'etf', text: 'ETF' })
+  if (row.priceLimitBreak) out.push({ key: 'limit', text: '±30% 넘음' })
+  return out
+}
+
+/** 코스피·코스닥 Top n 을 금액 크기로 합친다. 두 시장 각각의 Top n 을 합쳐 다시 n 개를 고르면 **합친 시장의 정확한 Top n** 이다
+ *  (합친 Top n 에 드는 종목은 반드시 자기 시장 Top n 안에 있다). 한 시장을 못 가져오면 missing 에 넣고 남은 시장만으로 — 화면이 그 사실을 적는다 */
+export function mergeFlowTop<R extends { netEok: number }>(parts: { market: KrMarket; rows: R[] | null }[], n: number): { rows: (R & { market: KrMarket })[]; missing: KrMarket[] } {
+  const missing = parts.filter(p => p.rows == null).map(p => p.market)
+  const all = parts.flatMap(p => (p.rows ?? []).map(r => ({ ...r, market: p.market })))
+  all.sort((a, b) => Math.abs(b.netEok) - Math.abs(a.netEok))
+  return { rows: all.slice(0, n), missing }
+}
+
+// ── 등락 종목 수 ────────────────────────────────────────────────────────────
+/** 개수는 크기를 담지 못한다 — 지수 등락과 종목 수 방향이 어긋나면 그 사실을 한 줄로. 맞으면(또는 모르면) null.
+ *  상승·하락 수만 비교한다(원천이 상한을 상승에 포함하는지 밝히지 않아 더하지 않는다) */
+export function breadthNote(ud: Pick<UpDownCount, 'rise' | 'fall'> | null, indexPct: number | null): string | null {
+  if (!ud || ud.rise == null || ud.fall == null || indexPct == null) return null
+  if (indexPct >= 0.05 && ud.fall > ud.rise) return '지수는 올랐지만 내린 종목이 더 많아요 — 지수는 시가총액이 큰 회사 영향을 더 받아요.'
+  if (indexPct <= -0.05 && ud.rise > ud.fall) return '지수는 내렸지만 오른 종목이 더 많아요 — 지수는 시가총액이 큰 회사 영향을 더 받아요.'
+  return null
+}
+
+// ── 특징종목 걸러낸 사실 ─────────────────────────────────────────────────────
+/** 국내: 가격제한폭(±30%) 밖이라 뺀 주식 수 → 문구. 0 이면 null */
+export function krMoverFilterNote(filtered: Record<string, number> | null | undefined): string | null {
+  const n = filtered?.priceLimitBreak ?? 0
+  return n > 0 ? `하루 ±30%를 넘은 ${n}종목(상장 첫날·거래 재개·정리매매)은 뺐어요.` : null
+}
+
+/** 미국: 뺀 이유별 개수 → 문구. 빼 낸 게 없어도 규칙은 적는다(3억 달러 = 300,000,000) */
+export function usMoverFilterNote(
+  filtered: Record<string, number> | null | undefined, scanned: number | null | undefined,
+  minCapUsd: number, newDays: number,
+): string {
+  const cap = `시가총액 ${minCapUsd / 1e8}억 달러 미만`
+  const fresh = `상장 ${newDays}일 이내`
+  const f = filtered ?? {}
+  const parts: string[] = []
+  if ((f.smallCap ?? 0) > 0) parts.push(`${cap} ${f.smallCap}`)
+  if ((f.newListing ?? 0) > 0) parts.push(`${fresh} ${f.newListing}`)
+  if ((f.rightsUnits ?? 0) > 0) parts.push(`권리·유닛 ${f.rightsUnits}`)
+  const pre = scanned ? `순위 ${scanned}위 안에서 ` : ''
+  return parts.length ? `${pre}${parts.join(' · ')}종목은 뺐어요.` : `${cap}·${fresh}는 빼고 보여줘요.`
+}
+
+// ── 업종 ───────────────────────────────────────────────────────────────────
+/** 등락률 순 상위 n(오른 순 = 오른 업종만 큰 값부터, 내린 순 = 내린 업종만 작은 값부터). 등락률 없는·보합(0) 업종은 뺀다 —
+ *  모두 오른 날 '많이 내린 업종'에 +0.3% 업종이 뜨지 않게(없으면 빈 목록 → 화면이 '오늘 내린 업종이 없어요') */
+export function topIndustries(items: KrIndustry[], dir: 'up' | 'down', n: number): KrIndustry[] {
+  const withPct = items.filter((i): i is KrIndustry & { changePct: number } =>
+    typeof i.changePct === 'number' && Number.isFinite(i.changePct) && (dir === 'up' ? i.changePct > 0 : i.changePct < 0))
+  withPct.sort((a, b) => (dir === 'up' ? b.changePct - a.changePct : a.changePct - b.changePct))
+  return withPct.slice(0, n)
+}
+
+/** 막대 폭(%) — 보이는 업종 중 가장 크게 움직인 것(±30% 넘는 의심 업종 제외)을 100 으로. 의심 업종은 100(넘침),
+ *  움직였으면 최소 2(안 보이는 막대 방지), 0% 는 0 */
+export function industryBars(items: Pick<KrIndustry, 'changePct' | 'limitBreakSuspect'>[]): number[] {
+  const max = Math.max(0, ...items.filter(i => !i.limitBreakSuspect && i.changePct != null).map(i => Math.abs(i.changePct as number)))
+  return items.map(i => {
+    if (i.changePct == null) return 0
+    if (i.limitBreakSuspect) return 100
+    const a = Math.abs(i.changePct)
+    if (a === 0 || max === 0) return 0
+    return Math.max(2, Math.min(100, Math.round(a / max * 100)))
+  })
+}
+
+// ── 요즘 강한 분야 ──────────────────────────────────────────────────────────
+/** 섹터 로테이션 국면을 학생 말로 — 강하다·약하다 = 다른 분야 평균과 견준 1달 흐름, 더 강해지는·식는 = 최근 1주 흐름.
+ *  (로테이션 화면의 '주도·과열·태동·이탈'은 '자금 유입'을 함께 말해 쓰지 않는다 — 주가 계산이지 돈 흐름이 아니다) */
+export const QUAD_TEXT: Record<RotQuadShared, string> = {
+  leading: '강하고 더 강해지는 중',
+  weakening: '강했지만 식는 중',
+  improving: '약했지만 살아나는 중',
+  lagging: '약하고 더 약해지는 중',
+}
+
+// ── 공포·탐욕 1년 ───────────────────────────────────────────────────────────
+/** 기록 기간 이름 — 1년치면 '1년', 아니면 '2025.11.20~2026.9.26'(원천 기록이 1년에 못 미칠 때 '연간'이라 부르지 않는다) */
+export function fngRangeName(range: { from: string; to: string; fullYear: boolean } | null | undefined): string | null {
+  if (!range) return null
+  if (range.fullYear) return '1년'
+  const a = ymdDot(range.from), b = ymdDot(range.to)
+  return a && b ? `${a}~${b}` : null
+}
+
+/** 연간 고저에 '지금' 값을 반영 — 1년 요약(30분 캐시)보다 지금 값(다른 요청)이 새것일 수 있다.
+ *  지금 값이 최고를 넘으면(또는 같으면) 최고 = 지금(date null), 최저도 같게. 둘 다 없으면 null */
+export function fngExtremes(
+  now: number | null,
+  high: { v: number; date: string } | null, low: { v: number; date: string } | null,
+): { high: { v: number; date: string | null } | null; low: { v: number; date: string | null } | null } {
+  let h: { v: number; date: string | null } | null = high
+  let l: { v: number; date: string | null } | null = low
+  if (now != null) {
+    if (h && now >= h.v) h = { v: now, date: null }
+    if (l && now <= l.v) l = { v: now, date: null }
+  }
+  return { high: h, low: l }
+}
