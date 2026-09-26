@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { TK, FS, RAD, SP, FONT_STACK } from '@/lib/theme'
+import LogoutButton from '@/app/components/student/LogoutButton'
+import { setViewMode } from '@/lib/viewMode'
 
 const TABS = [
   { href: '/s', label: '홈', icon: 'M3 10.5 12 3l9 7.5M5 9.5V20h14V9.5' },
@@ -39,7 +41,9 @@ export default function StudentShell({ children }: { children: React.ReactNode }
           )
         })}
         <div style={{ flexGrow: 1 }} />
-        <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', height: 44, padding: `0 ${SP.md}px`, borderRadius: RAD.sm, border: `1px solid ${TK.border}`, color: TK.sub, fontSize: FS.tiny, textDecoration: 'none' }}>분석 화면 전체 보기</Link>
+        {/* 분석 화면으로 가면 그 선택을 쿠키에 남긴다 — 다음 로그인·앱 아이콘(/start)도 분석 화면으로 연다(홈 인사 줄 링크와 같은 규칙) */}
+        <Link href="/dashboard" onClick={() => setViewMode('full')} style={{ display: 'flex', alignItems: 'center', height: 44, padding: `0 ${SP.md}px`, borderRadius: RAD.sm, border: `1px solid ${TK.border}`, color: TK.sub, fontSize: FS.tiny, textDecoration: 'none' }}>분석 화면 전체 보기</Link>
+        <LogoutButton style={{ display: 'flex', alignItems: 'center', height: 44, padding: `0 ${SP.md}px`, borderRadius: RAD.sm, border: 'none', background: 'transparent', color: TK.sub, fontSize: FS.tiny, textAlign: 'left' }} />
       </nav>
       <main className="st-main" style={{ flexGrow: 1, minWidth: 0, maxWidth: 1080, margin: '0 auto', padding: SP.lg, boxSizing: 'border-box' }}>{children}</main>
       <nav className="st-tabs" aria-label="학생 메뉴" style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 100, display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', height: 'calc(72px + env(safe-area-inset-bottom, 0px))', paddingBottom: 'env(safe-area-inset-bottom, 0px)', background: TK.bg0, borderTop: `1px solid ${TK.border}` }}>
