@@ -1,4 +1,4 @@
-// 코인 공포·탐욕 지수(alternative.me)를 지금·어제·1주 전·1달 전 값으로 읽는 공개 데이터 lib
+// 코인 공포·탐욕 지수(alternative.me)를 지금·어제·1주 전·1달 전 값과 1년 요약(1년 전·연간 최고/최저)으로 읽는 공개 데이터 lib
 //   원천 실측(2026-09-26): data 는 최신순, value 는 문자열 정수, timestamp 는 유닉스 '초'(UTC 자정 = 그날 기준일)
 
 export interface CryptoFng {
@@ -60,6 +60,67 @@ export async function fetchCryptoFng(limit = 40): Promise<CryptoFng | null> {
     })
     if (!r.ok) return null
     return parseFng(await r.json())
+  } catch {
+    return null
+  }
+}
+
+// ── 1년 요약(시장 탭) ──────────────────────────────────────────────────────
+export interface CryptoFngYear {
+  now: number
+  date: string | null                                  // data[0] 기준일(KST)
+  yearAgo: number | null                               // 정확히 365일 전 행(없으면 null — 이웃 날로 메우지 않는다)
+  yearAgoDate: string | null
+  yearHigh: { v: number; date: string } | null         // 기준일 포함 지난 365일 최고(같은 값이면 가장 최근 날짜)
+  yearLow: { v: number; date: string } | null
+  points: number                                       // 고저 계산에 쓴 날 수
+  /** 고저를 잰 실제 기간(KST). fullYear=false 면 기록이 1년에 못 미친다 — '연간' 대신 from~to 로 적는다 */
+  range: { from: string; to: string; fullYear: boolean } | null
+}
+
+/** alternative.me limit=366 응답 → 1년 요약. 1년 전·고저 모두 줄 번호가 아니라 **날짜**(timestamp)로 찾는다 */
+export function parseFngYear(json: unknown): CryptoFngYear | null {
+  const data = (json as { data?: unknown } | null)?.data
+  if (!Array.isArray(data) || data.length === 0) return null
+  type Row = { value?: unknown; timestamp?: unknown }
+  const first = data[0] as Row | undefined
+  const now = toNum(first?.value)
+  const ts0 = toNum(first?.timestamp)
+  if (now == null || ts0 == null) return null
+  const byTs = new Map<number, number>()
+  data.forEach((row: Row | undefined) => {
+    const ts = toNum(row?.timestamp); const v = toNum(row?.value)
+    if (ts != null && v != null && !byTs.has(ts)) byTs.set(ts, v)
+  })
+  const fromTs = ts0 - 365 * DAY
+  const series = Array.from(byTs.entries()).filter(([ts]) => ts >= fromTs && ts <= ts0).sort((a, b) => a[0] - b[0])
+  let hi: [number, number] | null = null, lo: [number, number] | null = null
+  for (const e of series) {
+    if (!hi || e[1] >= hi[1]) hi = e   // >= : 같은 값이면 최근 날짜
+    if (!lo || e[1] <= lo[1]) lo = e
+  }
+  const ya = byTs.get(fromTs) ?? null
+  return {
+    now, date: kstDate(ts0),
+    yearAgo: ya, yearAgoDate: ya != null ? kstDate(fromTs) : null,
+    yearHigh: hi ? { v: hi[1], date: kstDate(hi[0]) as string } : null,
+    yearLow: lo ? { v: lo[1], date: kstDate(lo[0]) as string } : null,
+    points: series.length,
+    range: series.length
+      ? { from: kstDate(series[0][0]) as string, to: kstDate(ts0) as string, fullYear: series[0][0] <= fromTs + 7 * DAY }
+      : null,
+  }
+}
+
+/** 1년치(366행 — 365일 전 행까지 받는다). 실패는 null */
+export async function fetchCryptoFngYear(): Promise<CryptoFngYear | null> {
+  try {
+    const r = await fetch('https://api.alternative.me/fng/?limit=366&format=json', {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!r.ok) return null
+    return parseFngYear(await r.json())
   } catch {
     return null
   }

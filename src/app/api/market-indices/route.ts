@@ -8,6 +8,8 @@
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
+import { fetchKrIndices, fetchKrIndexMinute, type KrIndexQuote, type IntradayPoint } from '@/lib/krMarketBoard'
+import type { Part } from '@/lib/marketBoardShared'
 
 export interface IndexData {
   id:        string    // 'sp500' | 'nasdaq' | 'dowjones' | 'nikkei' | 'kospi' | 'kosdaq'
@@ -85,6 +87,26 @@ async function fetchYahooIndex(
   return null
 }
 
+// ─── KOSPI·KOSDAQ 값은 네이버(KR 등락 SSOT)로 ───────────────────────
+// ⚠️ 야후 ^KQ11 의 chartPreviousClose 가 휴장 뒤 이틀 전 종가(836.27)라 코스닥 +1.21% 를 +0.98% 로 적었다(2026-09-23 실측).
+//    값·등락·시가/고가/저가와 장중 차트를 네이버 polling·분봉으로 덮는다. 네이버가 실패하면 예전처럼 야후 값을 그대로 쓴다.
+function withNaver(yahoo: IndexData | null, id: string, name: string, q: KrIndexQuote | undefined, minute: Part<IntradayPoint[]>): IndexData | null {
+  if (!q) return yahoo
+  const change = q.change ?? yahoo?.change ?? 0
+  return {
+    id, name, currency: 'KRW',
+    value: q.value,
+    change,
+    changePct: q.changePct ?? yahoo?.changePct ?? 0,
+    isUp: change >= 0,
+    open: q.open ?? yahoo?.open ?? q.value,
+    high: q.high ?? yahoo?.high ?? q.value,
+    low: q.low ?? yahoo?.low ?? q.value,
+    chartData: minute.ok && minute.data.length ? minute.data : (yahoo?.chartData ?? []),
+    updatedAt: new Date().toISOString(),
+  }
+}
+
 // ─── Route handler ────────────────────────────────────────────────
 export async function GET() {
   const cacheKey = 'indices'
@@ -93,14 +115,20 @@ export async function GET() {
     return NextResponse.json(cached.data, { headers: { 'X-Cache': 'HIT' } })
   }
 
-  const [sp500, nasdaq, dowjones, nikkei, kospi, kosdaq] = await Promise.all([
+  const [sp500, nasdaq, dowjones, nikkei, kospiYf, kosdaqYf, naverQ, kospiMin, kosdaqMin] = await Promise.all([
     fetchYahooIndex('^GSPC',  'sp500',    'S&P 500'),
     fetchYahooIndex('^IXIC',  'nasdaq',   'NASDAQ'),
     fetchYahooIndex('^DJI',   'dowjones', '다우존스'),
     fetchYahooIndex('^N225',  'nikkei',   '닛케이225', 'JPY'),
-    fetchYahooIndex('^KS11',  'kospi',    'KOSPI',     'KRW'),  // Naver→Yahoo로 교체 (차트 지원)
-    fetchYahooIndex('^KQ11',  'kosdaq',   'KOSDAQ',    'KRW'),  // Naver→Yahoo로 교체 (차트 지원)
+    fetchYahooIndex('^KS11',  'kospi',    'KOSPI',     'KRW'),  // 네이버 실패 시 폴백
+    fetchYahooIndex('^KQ11',  'kosdaq',   'KOSDAQ',    'KRW'),  // 네이버 실패 시 폴백
+    fetchKrIndices(),
+    fetchKrIndexMinute('KOSPI', 400),    // 1분봉 해상도 유지(야후 1분봉과 같은 촘촘함, 동시호가 포함)
+    fetchKrIndexMinute('KOSDAQ', 400),
   ])
+  const nq = (code: string) => naverQ.ok ? naverQ.data.find(x => x.code === code) : undefined
+  const kospi = withNaver(kospiYf, 'kospi', 'KOSPI', nq('KOSPI'), kospiMin)
+  const kosdaq = withNaver(kosdaqYf, 'kosdaq', 'KOSDAQ', nq('KOSDAQ'), kosdaqMin)
 
   const results = [sp500, nasdaq, dowjones, nikkei, kospi, kosdaq].filter((d): d is IndexData => d !== null)
 

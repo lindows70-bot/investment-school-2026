@@ -8,15 +8,14 @@ import { SECTOR_ROTATION_KEY } from '@/lib/rotationShared'   // 🧭 키 SSOT(re
 import { appendQuadSnapshot } from '@/lib/rotationScorecard'   // ⏱️ 성적표 전향 적립(2026-08-21)
 import { getCache, setCache } from '@/lib/appCache'
 import { scoreSubFlow, type SubQ } from '@/lib/subFlow'
-import { etfFor, SECTORS } from '@/lib/sectorConfigs'
+import { etfFor, SECTORS, sectorCacheKey } from '@/lib/sectorConfigs'
 import { getEntryTimings, type EntryTiming } from '@/lib/entryTiming'
 import { computeSector, type SectorResult } from '@/lib/sectorEngine'
 
 // /api/sector와 동일한 캐시 키 — in-process 호출이 HTTP 라우트와 캐시를 공유(제2원칙)
-const fpTk = (tickers: string[]) => { let h = 0; for (const c of tickers.join(',')) h = (h * 31 + c.charCodeAt(0)) | 0; return (h >>> 0).toString(36) }
 async function loadSector(key: string): Promise<SectorResult | null> {
   const cfg = SECTORS[key]; if (!cfg) return null
-  const ck = `sector-v3:${key}:${cfg.stocks.length}:${fpTk(cfg.stocks.map(s => s.ticker))}`   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — /api/sector 와 같은 키
+  const ck = sectorCacheKey(key) as string   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — /api/sector 와 같은 키(SSOT = sectorConfigs)
   const cached = await getCache<SectorResult>(ck, 6 * 3600_000, { sameKstDay: true })
   if (cached) return cached
   try {

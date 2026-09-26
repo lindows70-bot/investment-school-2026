@@ -800,6 +800,14 @@ export const SECTORS: Record<string, SectorConfig> = {
 }
 export const SECTOR_LIST = Object.values(SECTORS).map(s => ({ key: s.key, label: s.label, emoji: s.emoji }))
 
+// 섹터 결과 캐시 키(sector-v3) — writer(/api/sector·sector-rotation 의 loadSector)와 reader(시장 탭 '요즘 강한 분야' 대표 종목)가 함께 쓴다.
+//   유니버스 지문을 붙여 종목 추가/제거 시 키가 저절로 바뀐다. 🗓️ 날짜 없는 키 — 읽는 쪽이 오늘(KST)·TTL 로 거른다.
+const sectorFp = (tickers: string[]) => { let h = 0; for (const c of tickers.join(',')) h = (h * 31 + c.charCodeAt(0)) | 0; return (h >>> 0).toString(36) }
+export function sectorCacheKey(key: string): string | null {
+  const cfg = SECTORS[key]
+  return cfg ? `sector-v3:${key}:${cfg.stocks.length}:${sectorFp(cfg.stocks.map(s => s.ticker))}` : null
+}
+
 // 💰 소섹터 대표 ETF — 돈 몰리는 소섹터를 개별주 대신 ETF로 태우기 위한 매핑(전수 실측 검증됨).
 //    조회: `${sectorKey}:${subKey}` 우선 → 없으면 `${sectorKey}` 섹터 폴백. 없으면 개별종목 참고(정직).
 export interface SectorEtf { us?: { t: string; name: string }; kr?: { t: string; name: string } }
