@@ -143,7 +143,10 @@ export function buildLeagueMix(rows: LeagueHoldingRow[]): LeagueMixResult {
     .slice(0, 3)
     .map(b => ({ key: b.key, label: b.label, weightPct: round1(b.value / total * 100) }))
 
-  const mixOtherPct = Math.max(0, round1(100 - mix.reduce((s, m) => s + m.weightPct, 0)))
+  // 묶음이 3개 이하면 나머지는 없다 — 반올림 자투리(99.9 → '나머지 0.1%')를 만들지 않는다(otherPct 와 같은 규칙)
+  const mixOtherPct = buckets.size > 3
+    ? Math.max(0, round1(100 - mix.reduce((s, m) => s + m.weightPct, 0)))
+    : 0
 
   return { topHoldings, otherPct, otherCount, mix, mixOtherPct, pricedAll }
 }

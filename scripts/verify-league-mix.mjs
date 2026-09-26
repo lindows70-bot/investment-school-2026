@@ -135,6 +135,12 @@ check('mixOtherPct: full 묶음 4종 중 3종 → 나머지 10%(미국 상장 ET
 check('mixOtherPct: 묶음 1개 → 0', etfUs.mixOtherPct === 0)
 check('mixOtherPct: 합계 0 → 0', z.mixOtherPct === 0 && e.mixOtherPct === 0)
 check('mixOtherPct: 1/7 × 7(한 묶음) → 0', seven.mixOtherPct === 0)
+const three = M.buildLeagueMix([
+  { ticker: '005930', name: '삼성전자', market: 'KR', value: 1, priced: true },
+  { ticker: 'AAPL', name: '애플', market: 'US', value: 1, priced: true },
+  { ticker: 'KRW-BTC', name: '비트코인', market: 'CRYPTO', value: 1, priced: true },
+])
+check('mixOtherPct: 같은 크기 묶음 3개(33.3×3=99.9) → 0(자투리 0.1% 없음)', three.mix.length === 3 && near(three.mix.reduce((s, m) => s + m.weightPct, 0), 99.9) && three.mixOtherPct === 0)
 
 // ⑦ pricedAll 은 실제로 합친 행만 — 티커 없는 행(합치기에서 빠짐)은 시세 판정에 안 들어간다
 const noTicker = M.buildLeagueMix([
