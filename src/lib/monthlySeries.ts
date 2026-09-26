@@ -60,6 +60,24 @@ export function heldAt(lot: PnlLot, m: string): boolean {
   return !lot.sold_date || lot.sold_date.slice(0, 7) > m
 }
 
+// 최초 매수월 ~ 현재월. 단 최근 MAX_MONTHS 개월로 제한한다.
+// ⚠️ 예전엔 최초 매수월부터 세며 36 에서 끊어서, 오래 보유한 학생은 '최신 달'이 잘렸다
+//    (3년 전 매수 → 2026-04 에서 끝남). 상한은 반드시 '최근' 쪽에서 잡는다.
+const MAX_MONTHS = 36
+/** 그리는 창의 첫 달('YYYY-MM') — 이보다 앞 달은 계산하지 않는다 */
+export function windowStart(nowMonth: string): string { return addMonths(nowMonth, -(MAX_MONTHS - 1)) }
+/** 창이 시작되기 전(또는 그 달)에 판 로트 — 창 안 어느 월말에도 없다 */
+function soldBeforeWindow(lot: PnlLot, capStart: string): boolean {
+  return !!lot.sold_date && lot.sold_date.slice(0, 7) <= capStart
+}
+/**
+ * 시세를 모아야 하는 로트인가(computeMonthlyPnl) — 어느 월말에 들고 있었고, 창이 시작되기 전에 팔지 않은 것.
+ * sold_date 가 없는 로트(대시보드)는 늘 true 라 대시보드의 시세 수집은 예전과 같다.
+ */
+export function needsCandles(lot: PnlLot, nowMonth: string): boolean {
+  return heldAt(lot, lot.purchase_date.slice(0, 7)) && !soldBeforeWindow(lot, windowStart(nowMonth))
+}
+
 /** 순수 계산 — 캔들 맵을 받아 월별 시계열을 만든다(테스트 가능) */
 export function buildMonthlySeries(
   lots: PnlLot[],
@@ -73,18 +91,18 @@ export function buildMonthlySeries(
 ): { points: MonthlyPnlPoint[]; skipped: string[]; truncated: MonthlyTruncated } {
   // 같은 달에 사고 판 로트는 어느 월말에도 없다 — 계산·시세 수집 대상에서 뺀다(sold_date 없는 대시보드 입력엔 해당 없음)
   const relevant = lots.filter(l => heldAt(l, l.purchase_date.slice(0, 7)))
+  // 창(최근 36개월) 시작 전에 판 로트는 시세를 모으지 않는다(needsCandles) — '시세 못 가져옴'에 넣지 않고 계산에서도 빼되,
+  // 그 기간이 그려지지 않았다는 사실은 잘린 구간(firstMonth)에 남긴다
+  const capStart = windowStart(nowMonth)
+  const early = relevant.filter(l => soldBeforeWindow(l, capStart))
+  const inWin = relevant.filter(l => !soldBeforeWindow(l, capStart))
   const skipped = Array.from(new Set(
-    relevant.filter(l => !(candleMap.get(l.ticker.toUpperCase())?.length)).map(l => l.ticker.toUpperCase())
+    inWin.filter(l => !(candleMap.get(l.ticker.toUpperCase())?.length)).map(l => l.ticker.toUpperCase())
   ))
-  const usable = relevant.filter(l => candleMap.get(l.ticker.toUpperCase())?.length)
+  const usable = inWin.filter(l => candleMap.get(l.ticker.toUpperCase())?.length)
   if (!usable.length) return { points: [], skipped, truncated: null }
 
-  // 최초 매수월 ~ 현재월. 단 최근 MAX_MONTHS 개월로 제한한다.
-  // ⚠️ 예전엔 최초 매수월부터 세며 36 에서 끊어서, 오래 보유한 학생은 '최신 달'이 잘렸다
-  //    (3년 전 매수 → 2026-04 에서 끝남). 상한은 반드시 '최근' 쪽에서 잡는다.
-  const MAX_MONTHS = 36
-  const firstMonth = usable.map(l => l.purchase_date.slice(0, 7)).sort()[0]
-  const capStart = addMonths(nowMonth, -(MAX_MONTHS - 1))
+  const firstMonth = usable.concat(early).map(l => l.purchase_date.slice(0, 7)).sort()[0]
   const startMonth = firstMonth > capStart ? firstMonth : capStart
   const months: string[] = []
   for (let m = startMonth; m <= nowMonth; m = addMonths(m, 1)) months.push(m)

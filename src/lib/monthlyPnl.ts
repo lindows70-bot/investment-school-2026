@@ -3,7 +3,7 @@
 import { getTechCandles, type TechCandle } from '@/lib/techChartData'
 import { getCache, setCache } from '@/lib/appCache'
 // 로트·시점 타입과 순수 계산은 monthlySeries.ts(서버 의존 없음 — 단위검증용)로 옮겼다. 기존 import 경로는 그대로 쓴다
-import { buildMonthlySeries, type PnlLot, type MonthlyPnlPoint, type MonthlyTruncated } from '@/lib/monthlySeries'
+import { buildMonthlySeries, needsCandles, windowStart, type PnlLot, type MonthlyPnlPoint, type MonthlyTruncated } from '@/lib/monthlySeries'
 export { buildMonthlySeries }
 export type { PnlLot, MonthlyPnlPoint }
 
@@ -72,23 +72,28 @@ async function cryptoCandles(ticker: string, needFrom: string): Promise<TechCand
 
 /** 수집 + 계산 오케스트레이션 (라우트에서 호출) */
 export async function computeMonthlyPnl(lots: PnlLot[], usdKrwNow?: number | null): Promise<MonthlyPnlResult> {
-  const tickers = Array.from(new Set(lots.map(l => l.ticker.toUpperCase())))
+  const nowMonth = kstDate().slice(0, 7)
+  // 그리는 창(최근 36개월) 안 어느 월말에도 없는 로트(창 전에 판 것·같은 달 사고 판 것)는 시세를 모으지 않는다 — 판 종목이 늘수록 60초 한도에 걸린다.
+  // sold_date 가 없는 로트(대시보드)는 전부 모은다(예전과 같음)
+  const need = lots.filter(l => needsCandles(l, nowMonth))
+  const winFrom = `${windowStart(nowMonth)}-01`
+  const tickers = Array.from(new Set(need.map(l => l.ticker.toUpperCase())))
   const candleMap = new Map<string, TechCandle[]>()
   // 순차+소배치 — 외부 API 부하 방지(업비트·네이버 rate limit)
   const BATCH = 5
   for (let i = 0; i < tickers.length; i += BATCH) {
     await Promise.all(tickers.slice(i, i + BATCH).map(async t => {
-      const lot = lots.find(l => l.ticker.toUpperCase() === t)!
-      // 그 티커의 가장 이른 매수일까지만 거슬러 올라가면 된다(크립토 페이지네이션 기준)
-      const needFrom = lots.filter(l => l.ticker.toUpperCase() === t)
+      const lot = need.find(l => l.ticker.toUpperCase() === t)!
+      // 그 티커의 가장 이른 매수일까지만 거슬러 올라가면 된다(크립토 페이지네이션 기준) — 창 첫 달 1일보다 앞은 안 그리므로 거기서 멈춘다
+      const earliest = need.filter(l => l.ticker.toUpperCase() === t)
         .map(l => l.purchase_date.slice(0, 10)).sort()[0]
+      const needFrom = earliest > winFrom ? earliest : winFrom
       const candles = lot.market === 'CRYPTO' ? await cryptoCandles(t, needFrom)
         : await getTechCandles(t, lot.market === 'KR' ? 'KR' : 'US', 'D')
       candleMap.set(t, candles)
     }))
   }
   const fxCandles = await getTechCandles('KRW=X', 'US', 'D')
-  const nowMonth = kstDate().slice(0, 7)
   const { points, skipped, truncated } = buildMonthlySeries(lots, candleMap, fxCandles, nowMonth, usdKrwNow)
   return { points, skipped, truncated, asOf: new Date().toISOString() }
 }

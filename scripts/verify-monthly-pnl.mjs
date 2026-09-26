@@ -133,5 +133,16 @@ check('같은 달 매수·매도 로트 무시 → 2025-05 부터 · 잘림 없�
 const rf = run(C, [{ ticker: 'NOPE', market: 'KR', currency: 'KRW', purchase_price: 1, quantity: 1, purchase_date: '2025-02-03', sold_date: '2025-02-25' }])
 check('같은 달 매수·매도뿐 + 캔들 없음 → 빈 결과 · skipped 에도 안 넣음', rf.points.length === 0 && rf.skipped.length === 0 && rf.truncated === null)
 
+// ── ⑥ 창(최근 36개월) 시작 전에 판 로트 — 시세를 안 모으고(needsCandles), '못 가져옴'에도 안 넣고, 잘린 구간엔 남긴다 ──
+const early = { ticker: 'GONE', market: 'KR', currency: 'KRW', purchase_price: 5, quantity: 3, purchase_date: '2021-03-02', sold_date: '2023-05-10' }
+const lateSold = { ...early, ticker: 'LATE', sold_date: '2023-11-10' }   // 창 첫 달(2023-10) 이후에 판 것 → 필요
+check('needsCandles: 창 전(2023-05)에 판 로트 false · 창 안(2023-11)에 판 로트 true', M.needsCandles(early, '2026-09') === false && M.needsCandles(lateSold, '2026-09') === true)
+check('needsCandles: 창 첫 달(2023-10)에 판 로트 false(그 달 말엔 이미 없다)', M.needsCandles({ ...early, sold_date: '2023-10-31' }, '2026-09') === false && M.windowStart('2026-09') === '2023-10')
+check('needsCandles: 판 날 없는 로트(대시보드)는 늘 true — 창 전 매수·미래 날짜도', [...A.lots, ...B.lots, { ...A.lots[0], purchase_date: '2027-01-01' }].every(l => M.needsCandles(l, '2026-09')))
+check('needsCandles: 같은 달에 사고 판 로트 false', M.needsCandles({ ...early, purchase_date: '2025-02-01', sold_date: '2025-02-20' }, '2026-09') === false)
+const rh = run(B, [...B.lots, early])   // GONE 은 캔들이 없다(안 모았으니까)
+check('창 전에 판 로트(캔들 없음) → skipped 아님 · 점은 판 로트 없을 때와 같다 · 잘림은 그 매수월(2021-03)부터',
+  rh.skipped.length === 0 && JSON.stringify(rh.points) === JSON.stringify(rb.points) && rh.truncated?.from === '2021-03' && rh.truncated?.to === '2023-09')
+
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (월별 자산 흐름)')
 process.exit(fail ? 1 : 0)
