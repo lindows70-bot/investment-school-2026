@@ -101,7 +101,9 @@ function perTip(inputs: TipInputs, day: number, fb: boolean): Tip | null {
     const side = (v: number) => times(v) === times(m) ? 0 : v < m ? -1 : 1
     // 두 PER 이 중앙값의 서로 다른 쪽이면 어느 쪽이라고 말할 수 없다 → 비슷해요
     const s = side(pe) === side(sb as number) ? side(pe) : 0
-    const head = ` 비슷한 기업 ${x.perCount}곳의 중앙값 ${times(m)}배`
+    // 국내 종목의 동종 기업 목록은 대부분 해외 기업이다(getSectorPeers 큐레이션 맵·야후 추천) → 밝혀 둔다
+    const overseas = (x.market ?? '').toUpperCase() === 'KR' ? '(해외 기업 포함)' : ''
+    const head = ` 비슷한 기업 ${x.perCount}곳${overseas}의 중앙값 ${times(m)}배`
     body += s === 0 ? `${head}${waGwa('배')} 비슷해요.`
       : s < 0 ? `${head}보다 낮아서, 버는 돈에 비해 비슷한 기업들보다 덜 비싸게 거래되고 있어요.`
       : `${head}보다 높아서, 버는 돈에 비해 비슷한 기업들보다 비싸게 거래되고 있어요.`
@@ -135,7 +137,7 @@ function vsIndexTip(inputs: TipInputs, day: number, fb: boolean, todayKst: strin
   }
 }
 
-const EX_TEXT = (money: string) => `이날 전날까지 사 둔 사람이 이번 ${money}을 받아요(이날 팔아도 받아요).`
+const EX_TEXT = (money: string) => `이날 전 거래일까지 사 둔 사람이 이번 ${money}을 받아요(이날 팔아도 받아요).`
 function eventText(type: 'earnings' | 'exDiv' | 'payDiv', isEtf: boolean): { label: string; body: string } {
   if (type === 'earnings') return { label: '실적 발표', body: '회사가 최근 성적(매출·이익)을 알리는 날이에요. 예정일이라 바뀔 수 있어요.' }
   // ETF 는 '배당' 이 아니라 '분배금'
