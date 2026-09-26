@@ -15,7 +15,7 @@
 
 import { headers } from 'next/headers'
 import { getCanonicalPeg } from '@/lib/canonicalFundamentals'
-import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT
+import { fetchUsdKrw, USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 SSOT(폴백 여부까지 — 폴백이면 캐시하지 않는다)
 import { peerPerMedian } from '@/lib/peerPerMedian'
 
 export interface PeerMetric {
@@ -56,8 +56,7 @@ const CACHE = new Map<string, { data: SectorPeerResult; expiresAt: number }>()
 const CACHE_TTL = 6 * 3600_000
 const num = (v: unknown) => typeof v === 'number' && isFinite(v) ? v : null
 // 체급(시총) 비교용 환율 — 비율 지표는 환율 무관이지만 '시총 체급'만 USD로 통일해 글로벌 1등과 비교.
-// 💱 폴백은 SSOT 상수(과거 자체 1380 이 다른 화면의 1350 과 갈라져 있었다)
-const USDKRW_APPROX = USD_KRW_FALLBACK
+// 💱 라이브 환율(fetchUsdKrw)을 getSectorPeers 가 한 번 받아 넘긴다 — 예전엔 상수(1,400)만 썼다(제1원칙)
 
 // ── 글로벌 GICS 동종업계 피어 맵 (Yahoo industry 문자열 → 대표 글로벌 종목 US+KR) ──
 // 비율 지표(PEG·영업이익률·부채/시총)는 통화 무관 → 환율 변환 없이 KR↔US 직접 비교
@@ -115,7 +114,7 @@ async function fetchPeers(symbol: string): Promise<string[]> {
 
 // ── 종목별 비교지표 ──────────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchMetric(yf: any, symbol: string, isTarget: boolean, base?: string): Promise<PeerMetric | null> {
+async function fetchMetric(yf: any, symbol: string, isTarget: boolean, usdKrw: number, base?: string): Promise<PeerMetric | null> {
   try {
     const s = await yf.quoteSummary(symbol, { modules: ['financialData', 'summaryDetail', 'defaultKeyStatistics', 'price', 'assetProfile'] })
     const fd = s?.financialData ?? {}, sd = s?.summaryDetail ?? {}, ks = s?.defaultKeyStatistics ?? {}, pr = s?.price ?? {}, ap = s?.assetProfile ?? {}
@@ -149,7 +148,7 @@ async function fetchMetric(yf: any, symbol: string, isTarget: boolean, base?: st
     const debtRatio = (num(fd.totalDebt) != null && mc) ? Math.round((fd.totalDebt / mc) * 100) : null
     // 체급 비교: 시총을 USD로 통일 (KRW면 대략 환산) — 글로벌 1등 대비 국내 기업 위치를 한눈에
     const currency = String(pr.currency || sd.currency || (/\.(KS|KQ)$/i.test(symbol) ? 'KRW' : 'USD')).toUpperCase()
-    const mcapUsd = mc != null ? Math.round(currency === 'KRW' ? mc / USDKRW_APPROX : mc) : null
+    const mcapUsd = mc != null ? Math.round(currency === 'KRW' ? mc / usdKrw : mc) : null
     const name = String(pr.shortName || pr.longName || symbol).replace(/\.(KS|KQ)$/i, '')
     const industry = ap.industry ? String(ap.industry) : null
     const psr = num(sd.priceToSalesTrailing12Months)
@@ -181,6 +180,8 @@ export async function getSectorPeers(input: { ticker: string; name?: string; mar
     // PEG SSOT(stock-info) 호출용 base — 요청 호스트(서버액션)
     let base: string | undefined
     try { const h = headers(); const host = h.get('host'); if (host) base = `${h.get('x-forwarded-proto') ?? 'https'}://${host}` } catch { /* base 없으면 Yahoo 폴백 */ }
+    // 💱 시총 체급 환산용 — base 가 없으면 조회할 곳이 없어 폴백(live=false → 결과를 캐시하지 않는다)
+    const fx = base ? await fetchUsdKrw(base) : { rate: USD_KRW_FALLBACK, live: false }
     // KR은 .KS(코스피)→.KQ(코스닥) 폴백 — 코스닥 종목이 .KS로만 시도하면 실패
     const codeK = ticker.replace(/\D/g, '')
     const symTries = market === 'KR' ? [`${codeK}.KS`, `${codeK}.KQ`] : [ticker]
@@ -188,7 +189,7 @@ export async function getSectorPeers(input: { ticker: string; name?: string; mar
     // ① 대상 먼저 조회 → 업종 파악
     let targetMetric: PeerMetric | null = null
     let yfSym = symTries[0]
-    for (const sym of symTries) { const m = await fetchMetric(yf, sym, true, base); if (m) { targetMetric = m; yfSym = sym; if (m.industry) break } }
+    for (const sym of symTries) { const m = await fetchMetric(yf, sym, true, fx.rate, base); if (m) { targetMetric = m; yfSym = sym; if (m.industry) break } }
     if (!targetMetric) return empty('error', '종목 정보를 불러오지 못했습니다.')
 
     // ★ 티커 오버라이드(한국 조선·전력기기) 우선 → 없으면 Yahoo 업종
@@ -213,7 +214,7 @@ export async function getSectorPeers(input: { ticker: string; name?: string; mar
     if (!peerSyms.length) return empty('none', market === 'KR' ? '국내 종목은 동종업계 비교 데이터가 제한적입니다.' : '동종업계(피어) 데이터를 찾지 못했습니다.')
 
     // ③ 피어 지표 동시 조회
-    const peerMetrics = await Promise.all(peerSyms.map(p => fetchMetric(yf, p, false, base)))
+    const peerMetrics = await Promise.all(peerSyms.map(p => fetchMetric(yf, p, false, fx.rate, base)))
     const peers = [targetMetric, ...peerMetrics].filter((m): m is PeerMetric => m != null && (m.peg != null || m.opMargin != null))
     const target = peers.find(p => p.isTarget)
     if (!target || peers.length < 2) return empty('none', '비교 가능한 경쟁사 데이터가 부족합니다.')
@@ -274,7 +275,7 @@ export async function getSectorPeers(input: { ticker: string; name?: string; mar
         : `${target.name}은 같은 업종 경쟁사와 비교해 가성비가 평범한 편이야. 이 표에서 '더 싸면서 더 잘 버는' 동일업종 기업이 없는지 직접 비교해봐.`
 
     const result: SectorPeerResult = { ticker, source, targetIndustry, sameIndCount, peers, bestValue, psrMedian, perMedian, perCount, targetPe: target.pe, verdict, rivalTicker: rival?.ticker ?? null, lynchComment, status: 'ok', asOf }
-    CACHE.set(ticker, { data: result, expiresAt: Date.now() + CACHE_TTL })
+    if (fx.live) CACHE.set(ticker, { data: result, expiresAt: Date.now() + CACHE_TTL })   // 고정 환율로 잰 시총 체급은 박제 금지(다음 호출이 실제 환율로 스스로 낫는다)
     return result
   } catch (e) {
     console.warn('[sector-peers]', (e as Error).message)

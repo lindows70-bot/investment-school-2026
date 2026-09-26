@@ -5,7 +5,7 @@ export const revalidate = 0
 export const maxDuration = 60
 
 import { NextResponse } from 'next/server'
-import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
+import { fetchUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT(폴백 여부까지 — 폴백이면 캐시하지 않는다)
 import { getCache, setCache } from '@/lib/appCache'
 import { getAssetType } from '@/lib/assetClassifier'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
@@ -32,8 +32,6 @@ export interface TenbaggerResult {
   marketCapUsd: number | null
   cachedAt:    string
 }
-
-const USD_KRW = USD_KRW_FALLBACK   // 💱 폴백 SSOT
 
 // stock-info에서 종목명(특히 KR 한글명)과 PEG SSOT만 — 숫자는 buildSignalMetrics가 SSOT
 async function fetchStockMeta(ticker: string, market: string, base: string): Promise<{ name: string | null; peg: number | null; opMargin: number | null } | null> {
@@ -62,16 +60,17 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: '개별 주식만 검증할 수 있습니다 (ETF·코인·원자재 제외)' }, { status: 400 })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-  const cacheKey = `tenbagger-v5:${code}:${market}`
+  const cacheKey = `tenbagger-v6:${code}:${market}`   // v6: KR 시총 USD 환산을 상수 1,400 → 라이브 환율(fetchUsdKrw)로 — 시총 룸 판정·점수가 바뀐다
   const cached = await getCache<TenbaggerResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // ── 실데이터 병렬 수집 (숫자는 buildSignalMetrics SSOT, 이름은 stock-info) ──
-  const [meta, metrics, analyst, insider] = await Promise.all([
+  const [meta, metrics, analyst, insider, fx] = await Promise.all([
     fetchStockMeta(code, market, base),
     buildSignalMetrics(code, market, '', base).catch(() => null),
     getAnalystSignal({ ticker: code, market }).catch(() => null),
     getInsiderSignal({ ticker: code, market }).catch(() => null),
+    market === 'KR' ? fetchUsdKrw(base) : null,   // KR 시총(원화)만 환산 — US 는 환율이 필요 없다
   ])
 
   if (!metrics && !meta) return NextResponse.json({ error: '종목 데이터를 불러오지 못했습니다. 코드를 확인하세요.' }, { status: 404 })
@@ -80,7 +79,7 @@ export async function GET(req: Request) {
 
   // 시총(USD 환산) — buildSignalMetrics SSOT. KR 시총은 KRW이므로 항상 환산
   let mcUsd = metrics?.marketCap ?? null
-  if (mcUsd != null && market === 'KR') mcUsd = mcUsd / USD_KRW
+  if (mcUsd != null && fx) mcUsd = mcUsd / fx.rate
   // 성장률(%) — 매출성장(Yahoo 소수) 우선: 적자 하이퍼그로스(IONQ 755%) 정확 포착. 없으면 PEG 역산 생략
   const revG = metrics?.revenueGrowth ?? null
   const growthPct = revG != null ? revG * 100 : null
@@ -169,7 +168,7 @@ export async function GET(req: Request) {
     ticker: code, name, market, score, isCandidate, criteria, verdict,
     marketCapUsd: mcUsd, cachedAt: new Date().toISOString(),
   }
-  await setCache(cacheKey, result)
+  if (!fx || fx.live) await setCache(cacheKey, result)   // 고정 환율로 환산한 시총 판정은 박제 금지(다음 요청이 실제 환율로 스스로 낫는다)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }
 
