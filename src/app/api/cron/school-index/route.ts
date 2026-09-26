@@ -15,7 +15,7 @@
 import { NextResponse } from 'next/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
-import { getUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT — 상수 하드코딩 금지(제1원칙)
+import { fetchUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT — 상수 하드코딩 금지(제1원칙) · 폴백이면 그날 적재를 건너뛴다
 import {
   aggregateSchoolIndex, getSector, kstDate,
   type Inv, type StockSnapshotRow, type SectorSnapshotRow,
@@ -110,7 +110,14 @@ export async function GET(req: Request) {
 
     // ── 집계 ──
     // 💱 라이브 환율 주입 — 상수(1350)를 쓰면 USD 보유 학생의 분모가 통째로 틀어져 종목 평균 비중·순위가 바뀐다
-    const usdKrw = await getUsdKrw(selfBase)
+    // 고정 상수로 환산한 비중을 그날 스냅샷으로 박제하지 않는다 — 건너뛰면 cron-health 가 base_date 로 stale 을 보고 다음 패스에서 다시 돈다.
+    // 하류(/api/school-index)는 '최신 base_date' 만 읽으므로 하루가 비어도 전날 스냅샷이 그대로 보인다(공백이 화면을 깨지 않는다).
+    const fx = await fetchUsdKrw(selfBase)
+    if (!fx.live) {
+      summary.ms = Date.now() - t0
+      return NextResponse.json({ ok: false, cached: false, fxLive: false, skipped: 'fx', error: '환율을 못 받아(고정 상수) 오늘 스냅샷 적재를 건너뜀', ...summary }, { headers: { 'Cache-Control': 'no-store' } })
+    }
+    const usdKrw = fx.rate
     const { stockRows, sectorRows, registered } = aggregateSchoolIndex(invs, priceMap, sectorMap, prevStockWeight, baseDate, usdKrw)
     summary.registered = registered
     summary.stockRows = stockRows.length
