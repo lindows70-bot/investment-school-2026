@@ -30,8 +30,10 @@ export default function LeagueLine({ userId }: { userId: string | null | undefin
       .sort((a, b) => (b.totalReturn as number) - (a.totalReturn as number))
     const me = students.find(s => s?.userId === userId)
     const idx = ranked.findIndex(s => s.userId === userId)
-    if (!me || me.isRegistered !== true) {
-      content = <span style={{ fontSize: FS.body, color: TK.slate200 }}>종목을 기록하면 리그에 참여돼요</span>
+    if (!me) {
+      content = <span style={noteStyle()}>리그 명단에서 내 계정을 찾지 못했어요.</span>
+    } else if (me.isRegistered !== true) {
+      content = <span style={{ fontSize: FS.body, color: TK.slate200 }}>종목을 기록하면 리그에 들어와요</span>
     } else if (idx < 0) {
       content = <span style={noteStyle()}>내 수익률을 아직 계산하지 못했어요.</span>
     } else {

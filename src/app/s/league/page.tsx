@@ -81,17 +81,18 @@ const nowrap = { whiteSpace: 'nowrap' } as const
 const ellipsis = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const
 
 /** 계산 도움말 — 사실은 전부 src/lib/realizedPnl.ts(totalReturnPct · 달러 종목 환율 처리 · 시세 결측 처리)에서 옮겼다 */
-function HelpBox() {
+/*  닫혀 있어도 늘 그려 두고 hidden 으로 숨긴다 — ? 버튼의 aria-controls 가 가리킬 대상이 항상 있어야 한다 */
+function HelpBox({ open }: { open: boolean }) {
   const li = { fontSize: FS.tiny, color: TK.slate300, lineHeight: 1.6 } as const
   return (
-    <div id="league-help" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
+    <div id="league-help" hidden={!open} style={{ ...card, display: open ? 'flex' : 'none', flexDirection: 'column', gap: SP.sm }}>
       <span style={{ fontSize: FS.body, color: TK.slate100, lineHeight: 1.6 }}>
-        누적 수익률 = (지금 가진 종목의 손익 + 이미 판 종목에서 확정된 손익) ÷ 지금까지 넣은 돈
+        누적 수익률 = (지금 가진 종목의 손익 + 판 종목에서 확정된 손익) ÷ (지금 가진 종목을 산 돈 + 판 종목을 산 돈)
       </span>
       <ul style={{ margin: 0, paddingLeft: SP.lg, display: 'flex', flexDirection: 'column', gap: SP.xs }}>
-        <li style={li}>돈을 언제 더 넣었는지는 따지지 않아요(최근에 큰돈을 넣으면 수익률이 낮게 보일 수 있어요).</li>
+        <li style={li}>돈을 언제 더 넣었는지는 따지지 않아요. 최근에 큰돈을 넣으면 수익률이 0%에 가깝게 보일 수 있어요.</li>
         <li style={li}>시세를 못 가져온 종목은 산 가격으로 계산해요.</li>
-        <li style={li}>달러 종목은 원금과 평가를 같은 오늘 환율로 계산해서 환율 변화는 빠져요.</li>
+        <li style={li}>지금 가진 달러 종목은 원금과 평가를 같은 오늘 환율로 계산해서 환율 변화는 빠져요.</li>
       </ul>
     </div>
   )
@@ -131,7 +132,7 @@ function MyRank({ me, ranked, myId }: { me: Student | undefined; ranked: Student
             <span style={{ fontSize: FS.xl, fontWeight: 800, color: upDown(r), ...nowrap }}>{pct(r)}</span>
           </span>
           <span style={{ fontSize: FS.body, color: TK.slate200 }}>
-            {gap == null ? '1위예요' : `${idx}위와 ${gap.toFixed(1)}%p 차이`}
+            {gap == null ? '1위예요' : gap === 0 ? `${idx}위와 같은 수익률이에요` : `${idx}위와 ${gap.toFixed(1)}%p 차이`}
           </span>
           <span style={noteStyle()}>판 종목에서 확정된 손익까지 더한 수익률이에요.</span>
         </>
@@ -140,7 +141,7 @@ function MyRank({ me, ranked, myId }: { me: Student | undefined; ranked: Student
   }
   return (
     <section style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
-      <span style={{ fontSize: FS.tiny, color: TK.sub }}>내 순위</span>
+      <h2 style={{ margin: 0, fontSize: FS.tiny, fontWeight: 400, color: TK.sub }}>내 순위</h2>
       {body}
     </section>
   )
@@ -175,6 +176,7 @@ function RankTable({ ranked, myId, unregistered, uncomputed }: { ranked: Student
             })}
           </ol>
         )}
+      {ranked.length > 1 && <span style={noteStyle()}>수익률이 같으면 먼저 가입한 순서로 놓았어요.</span>}
       {unregistered > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, paddingTop: SP.sm, borderTop: `1px solid ${TK.border}` }}>
           <span style={{ fontSize: FS.tiny, color: TK.slate300 }}>아직 종목을 안 넣은 친구 {unregistered}명</span>
@@ -190,16 +192,18 @@ function RankTable({ ranked, myId, unregistered, uncomputed }: { ranked: Student
 function FriendCard({ s, rank }: { s: Student; rank: number }) {
   const r = s.totalReturn as number
   const count = s.topHoldings.length + s.otherCount   // 티커별로 합친 종목 수(holdingCount 는 분할매수 행까지 센다)
+  const meta = [
+    ...(s.topHoldings.length > 0 ? [`${count}종목`] : []),   // 비중을 못 받았으면 0종목이라 적지 않는다
+    ...(s.coreRatio != null && s.satelliteRatio != null ? [`코어 ${s.coreRatio}% : 위성 ${s.satelliteRatio}%`] : []),
+  ]
   const chip = { display: 'inline-flex', alignItems: 'baseline', gap: SP.xs, maxWidth: '100%', padding: `${SP.xs}px ${SP.sm}px`, borderRadius: RAD.sm, background: TK.bg3, border: `1px solid ${TK.line1}`, fontSize: FS.tiny, color: TK.slate200 } as const
   return (
     <section style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.md }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm }}>
         <Avatar name={s.name} color={s.avatarColor} />
         <span style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate100, ...ellipsis }}>{s.name} · {rank}위</span>
-          <span style={{ fontSize: FS.tiny, color: TK.sub, ...ellipsis }}>
-            {count}종목{s.coreRatio != null && s.satelliteRatio != null ? ` · 코어 ${s.coreRatio}% : 위성 ${s.satelliteRatio}%` : ''}
-          </span>
+          <h3 style={{ margin: 0, fontSize: FS.body, fontWeight: 700, color: TK.slate100, ...ellipsis }}>{s.name} · {rank}위</h3>
+          {meta.length > 0 && <span style={{ fontSize: FS.tiny, color: TK.sub, ...ellipsis }}>{meta.join(' · ')}</span>}
         </span>
         <span style={{ flexShrink: 0, fontSize: FS.lg, fontWeight: 800, color: upDown(r), ...nowrap }}>{pct(r)}</span>
       </div>
@@ -270,8 +274,9 @@ export default function StudentLeague() {
     const ranked = students.filter(s => s.isRegistered && s.totalReturn != null)
       .sort((a, b) => (b.totalReturn as number) - (a.totalReturn as number))
     const me = students.find(s => s.userId === myId)
-    const unregistered = students.filter(s => !s.isRegistered).length
-    const uncomputed = students.filter(s => s.isRegistered && s.totalReturn == null).length
+    // '친구' 수라 나는 뺀다(내 상태는 내 순위 카드가 말한다)
+    const unregistered = students.filter(s => s.userId !== myId && !s.isRegistered).length
+    const uncomputed = students.filter(s => s.userId !== myId && s.isRegistered && s.totalReturn == null).length
     // 친구 포트폴리오 = 나를 뺀 상위 2명(서버가 보유 구성을 채워 보낸 학생만 — 1~3위와 나만 채운다)
     const friends = ranked.map((s, i) => ({ s, rank: i + 1 }))
       .filter(({ s }) => s.userId !== myId && s.detail)
@@ -308,7 +313,7 @@ export default function StudentLeague() {
           style={{ width: 44, height: 44, flexShrink: 0, borderRadius: RAD.pill, border: `1px solid ${TK.line1}`, background: help ? TK.bg10 : 'transparent', color: TK.slate200, fontSize: FS.body, fontWeight: 800, cursor: 'pointer' }}
         >?</button>
       </header>
-      {help && <HelpBox />}
+      <HelpBox open={help} />
       {content}
     </div>
   )
