@@ -13,6 +13,7 @@ import DecisionCalibration from '@/app/components/DecisionCalibration'
 import TaxHarvestHelper from '@/app/components/TaxHarvestHelper'
 import TransactionEditModal, { type EditableTx } from '@/app/components/TransactionEditModal'   // ✏️ 거래 수정·삭제(2026-08-23)
 import { TK, FONT_STACK } from '@/lib/theme'
+import { acceptFx } from '@/lib/fxAccept'   // 환율 채택 SSOT — 고정 상수는 localStorage 에 안 넣는다
 
 type Market = 'US' | 'KR' | 'CRYPTO'
 
@@ -104,11 +105,13 @@ export default function HistoryPage() {
         }
         const res = await fetch('/api/exchange-rate')
         if (res.ok) {
-          const { rate } = await res.json() as { rate: number }
+          const j = await res.json() as { rate: number }
+          const { rate } = j
           if (rate > 0) {
             const rounded = Math.round(rate)
             setUsdKrw(rounded)
-            localStorage.setItem(CACHE_KEY, JSON.stringify({ rate: rounded, savedAt: new Date().toISOString() }))
+            // 고정 상수(stale-constant)는 1시간 공유 캐시에 넣지 않는다 — TopHeader·대시보드가 같은 키를 읽는다
+            if (acceptFx(j) != null) localStorage.setItem(CACHE_KEY, JSON.stringify({ rate: rounded, savedAt: new Date().toISOString() }))
           }
         }
       } catch { /* keep default */ }
