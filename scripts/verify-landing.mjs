@@ -100,13 +100,17 @@ check('차단: /start', no('/start'))
 check('차단: /start?next=/s', no('/start?next=/s'))
 check('차단: /start/', no('/start/'))
 
-// ── 역할 조회 실패 ──
-check('조회 성공 · 선생님 → 대시보드', M.landingAfterLookup('teacher', null, undefined) === '/dashboard')
-check('조회 성공 · 학생 → 학생 홈', M.landingAfterLookup('student', null, null) === '/s')
-check('행 없음(PGRST116) → 학생 홈', M.landingAfterLookup(null, null, 'PGRST116') === '/s')
-check('그 밖의 조회 오류 → 대시보드(예전 착지 — 선생님 경계 유지)', M.landingAfterLookup(null, null, '57014') === '/dashboard')
-check('조회 오류여도 고른 모드 simple → 학생 홈', M.landingAfterLookup(null, 'simple', '57014') === '/s')
-check('조회 오류여도 고른 모드 full → 대시보드', M.landingAfterLookup(null, 'full', 'PGRST116') === '/dashboard')
+// ── 역할 조회 실패 — code 문자열이 아니라 오류 '존재'로 가른다 ──
+check('조회 성공 · 선생님 → 대시보드', M.landingAfterLookup('teacher', null, null) === '/dashboard')
+check('조회 성공 · 학생 → 학생 홈', M.landingAfterLookup('student', null, undefined) === '/s')
+check('행 없음(PGRST116) → 학생 홈', M.landingAfterLookup(null, null, { code: 'PGRST116' }) === '/s')
+check('그 밖의 조회 오류 → 대시보드(예전 착지 — 선생님 경계 유지)', M.landingAfterLookup(null, null, { code: '57014' }) === '/dashboard')
+check('fetch 실패·타임아웃(code "") → 대시보드', M.landingAfterLookup(null, null, { code: '' }) === '/dashboard')
+check('게이트웨이 HTML 5xx(code undefined) → 대시보드', M.landingAfterLookup(null, null, { code: undefined }) === '/dashboard')
+check('code 필드 자체가 없는 오류 → 대시보드', M.landingAfterLookup(null, null, {}) === '/dashboard')
+check('오류 객체가 있으면 함께 온 역할은 믿지 않는다(학생 역할 + 빈 code → 대시보드)', M.landingAfterLookup('student', null, { code: '' }) === '/dashboard')
+check('조회 오류여도 고른 모드 simple → 학생 홈', M.landingAfterLookup(null, 'simple', { code: '' }) === '/s')
+check('조회 오류여도 고른 모드 full → 대시보드', M.landingAfterLookup(null, 'full', { code: 'PGRST116' }) === '/dashboard')
 
 // ── getUser 실패 갈래(장애면 /login 으로 보내지 않는다 — 무한 이동 방지) ──
 check('오류 없음(세션 없음) → invalid', M.authFailureKind(null) === 'invalid')
@@ -119,6 +123,10 @@ check('AuthRetryableFetchError 503 → outage', M.authFailureKind({ name: 'AuthR
 check('500 → outage', M.authFailureKind({ name: 'AuthApiError', status: 500 }) === 'outage')
 check('429(요청 제한) → outage', M.authFailureKind({ name: 'AuthApiError', status: 429 }) === 'outage')
 check('status 없는 알 수 없는 오류 → outage(쿠키 안 지움)', M.authFailureKind({ name: 'AuthUnknownError' }) === 'outage')
+check('400 기타 → outage', M.authFailureKind({ name: 'AuthApiError', status: 400, code: 'validation_failed' }) === 'outage')
+for (const code of ['refresh_token_not_found', 'refresh_token_already_used', 'session_not_found', 'bad_jwt']) {
+  check(`400 + ${code} → invalid(세션 무효 — '연결 불안정'이 아니다)`, M.authFailureKind({ name: 'AuthApiError', status: 400, code }) === 'invalid')
+}
 
 // ── 로그인 토큰 쿠키만 센다 ──
 check('auth-token → 있음', M.hasAuthTokenCookie(['sb-abc-auth-token']))
@@ -126,6 +134,15 @@ check('쪼개진 auth-token.0 → 있음', M.hasAuthTokenCookie(['x', 'sb-abc-au
 check('code-verifier 만 → 없음', !M.hasAuthTokenCookie(['sb-abc-auth-token-code-verifier']))
 check('view_mode 만 → 없음', !M.hasAuthTokenCookie(['view_mode']))
 check('빈 목록 → 없음', !M.hasAuthTokenCookie([]))
+check('토큰 쿠키 이름만 골라낸다(조각 포함, code-verifier·view_mode 제외)',
+  JSON.stringify(M.authTokenCookieNames(['sb-a-auth-token.0', 'sb-a-auth-token.1', 'sb-a-auth-token-code-verifier', 'view_mode'])) === JSON.stringify(['sb-a-auth-token.0', 'sb-a-auth-token.1']))
+
+// ── 장애 안내 '다시 열기' 주소 ──
+check('다시 열기: next 없음 → /start', M.retryHref(null) === '/start')
+check('다시 열기: next 유지(인코딩)', M.retryHref('/s/assets') === '/start?next=%2Fs%2Fassets')
+check('다시 열기: 쿼리 & 가 있어도 인코딩돼 속성이 안 깨진다', M.retryHref('/dashboard?tab=a&b="<x>') === '/start?next=' + encodeURIComponent('/dashboard?tab=a&b="<x>'))
+check('다시 열기: 외부 주소 next → /start', M.retryHref('//evil.com') === '/start')
+check(`속성 이스케이프 & " < > '`,M.escapeHtmlAttr(`a&b"c<d>e'`) === 'a&amp;b&quot;c&lt;d&gt;e&#39;')
 
 // ── 되돌이 경로(정규화된 pathname 기준) ──
 check('isLoopPath /start', M.isLoopPath('/start'))

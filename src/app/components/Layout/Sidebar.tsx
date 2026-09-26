@@ -338,7 +338,7 @@ function SidebarInner() {
 
         {/* 🎒 간편 화면(학생 홈)으로 — 모드를 쿠키에 남겨 다음 로그인도 간편 화면으로 착지한다(선생님도 보인다) */}
         <div style={{ height: 1, background: TK.gray800, margin: `${SP.md}px ${SP.xs}px` }}/>
-        {/* 토큰예외: 세로 여백 9·라운드 10·아이콘 칸 20 은 바로 위 메뉴 항목들과 같은 모양을 맞추려는 값(SP·RAD 에 없음) */}
+        {/* 토큰예외: 세로 여백 9·라운드 10·아이콘 칸 20·왼쪽 테두리 3px 은 바로 위 메뉴 항목들과 같은 모양을 맞추려는 값(SP·RAD 에 없음) */}
         <a href="/s" onClick={() => setViewMode('simple')} style={{
           display: 'flex', alignItems: 'center', gap: SP.md,
           padding: `9px ${SP.md}px`, borderRadius: 10, textDecoration: 'none',

@@ -13,36 +13,62 @@ export function landingPath(role: string | null, mode: string | null): '/s' | '/
 
 /**
  * 역할 조회 결과까지 반영한 착지. 본인이 고른 모드(쿠키)는 언제나 먼저.
+ * - 오류 없음 → 역할대로
  * - 행 없음(PostgREST PGRST116) → 역할 모름 → 학생 홈
- * - 그 밖의 조회 오류 → 예전 착지(대시보드) — 선생님이 오류 때문에 조용히 학생 홈으로 가지 않게
+ * - 그 밖의 모든 조회 오류 → 예전 착지(대시보드) — 선생님이 오류 때문에 조용히 학생 홈으로 가지 않게.
+ *   ⚠️ code 문자열이 아니라 오류 '존재'로 가른다 — postgrest-js 는 fetch 실패·타임아웃이면 code "",
+ *   게이트웨이 HTML 5xx 면 code undefined 를 준다(가장 흔한 장애가 '오류 없음'으로 읽히면 안 된다).
  */
 export function landingAfterLookup(
   role: string | null,
   mode: string | null,
-  errorCode: string | null | undefined,
+  lookupError: { code?: string } | null | undefined,
 ): '/s' | '/dashboard' {
-  if (errorCode && errorCode !== 'PGRST116' && mode !== 'simple' && mode !== 'full') return '/dashboard'
-  return landingPath(errorCode ? null : role, mode)
+  if (!lookupError) return landingPath(role, mode)
+  if (mode === 'simple' || mode === 'full') return landingPath(null, mode)
+  return lookupError.code === 'PGRST116' ? '/s' : '/dashboard'
 }
+
+// 400 이어도 '세션이 무효'라는 뜻인 오류 코드 — auth-js 가 이미 세션을 지운 뒤라 '연결 불안정'이 아니다
+const INVALID_SESSION_CODES = ['refresh_token_not_found', 'refresh_token_already_used', 'session_not_found', 'bad_jwt']
 
 /**
  * getUser 실패를 두 갈래로 나눈다.
- * - 'invalid': 세션이 없거나 서버가 세션을 인정하지 않음(401·403·404) → 로그인 쿠키 정리 + /login
- * - 'outage' : 네트워크·5xx·429·알 수 없는 오류 → 쿠키를 지우지도 /login 으로 보내지도 않는다
+ * - 'invalid': 세션이 없거나 서버가 세션을 인정하지 않음(401·403·404, 무효 세션 코드) → 로그인 쿠키 정리 + /login
+ * - 'outage' : 네트워크·5xx·429·그 밖의 알 수 없는 오류 → 쿠키를 지우지도 /login 으로 보내지도 않는다
  *   (보내면 미들웨어가 쿠키만 보고 다시 /start 로 돌려보내 무한 이동이 된다)
  */
-export function authFailureKind(err: { name?: string; status?: number } | null | undefined): 'invalid' | 'outage' {
+export function authFailureKind(
+  err: { name?: string; status?: number; code?: string } | null | undefined,
+): 'invalid' | 'outage' {
   if (!err) return 'invalid'
   if (err.name === 'AuthRetryableFetchError') return 'outage'
   if (err.name === 'AuthSessionMissingError') return 'invalid'
+  if (err.code && INVALID_SESSION_CODES.includes(err.code)) return 'invalid'
   const st = err.status
   if (st === 401 || st === 403 || st === 404) return 'invalid'
   return 'outage'
 }
 
-/** Supabase 로그인 토큰 쿠키(쪼개진 조각 .0 .1 포함)가 있는가 — code-verifier 같은 다른 쿠키는 세지 않는다 */
+/** Supabase 로그인 토큰 쿠키 이름만 골라낸다(쪼개진 조각 .0 .1 포함) — code-verifier 같은 다른 쿠키는 빼고 */
+export function authTokenCookieNames(names: string[]): string[] {
+  return names.filter(n => /^sb-.+-auth-token(\.\d+)?$/.test(n))
+}
+
+/** Supabase 로그인 토큰 쿠키가 하나라도 있는가 */
 export function hasAuthTokenCookie(names: string[]): boolean {
-  return names.some(n => /^sb-.+-auth-token(\.\d+)?$/.test(n))
+  return authTokenCookieNames(names).length > 0
+}
+
+/** HTML 속성값 이스케이프(& " < > ') */
+export function escapeHtmlAttr(v: string): string {
+  return v.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;')
+}
+
+/** 장애 안내 화면의 '다시 열기' 주소 — safeNext 를 통과한 next 가 있으면 잃지 않게 붙인다(속성에 넣을 수 있게 이스케이프까지) */
+export function retryHref(next: string | null): string {
+  const safe = safeNext(next)
+  return escapeHtmlAttr(safe ? `/start?next=${encodeURIComponent(safe)}` : '/start')
 }
 
 // 로그인·가입·착지 자신으로 되돌아가면 빙빙 돈다
