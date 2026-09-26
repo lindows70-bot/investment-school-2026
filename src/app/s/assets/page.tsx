@@ -178,7 +178,7 @@ export default function StudentAssets() {
         <h2 style={{ margin: 0, fontSize: FS.lg, fontWeight: 700, color: TK.slate100, paddingBottom: SP.sm }}>내 종목</h2>
         {/* summary.rows 는 portfolioSummary 가 이미 평가액 내림차순으로 정렬해 준다 */}
         {summary.rows.map(r => (
-          <Link key={r.id} href={`/s/stock/${encodeURIComponent(r.ticker)}`} style={{ display: 'flex', alignItems: 'center', gap: SP.md, minHeight: 64, borderTop: `1px solid ${TK.border}`, color: TK.slate200, textDecoration: 'none' }}>
+          <Link key={r.id} href={`/s/stock/${encodeURIComponent(r.ticker)}?m=${r.market}`} style={{ display: 'flex', alignItems: 'center', gap: SP.md, minHeight: 64, borderTop: `1px solid ${TK.border}`, color: TK.slate200, textDecoration: 'none' }}>
             <div aria-hidden style={{ width: 40, height: 40, flexShrink: 0, borderRadius: RAD.pill, background: TK.bg7, border: `1px solid ${TK.line1}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: FS.tiny, fontWeight: 700, color: TK.slate300 }}>{r.name.slice(0, 1)}</div>
             <div style={{ flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
               <span style={{ fontSize: FS.body, color: TK.slate100, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>

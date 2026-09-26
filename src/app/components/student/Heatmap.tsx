@@ -70,7 +70,7 @@ export default function Heatmap({ rows, corePct, height = 240 }: { rows: Holding
             ? `${row.name} ${row.stale ? '지난 시세' : '오늘'} ${pct(row.changePct as number)} · ${won(row.evalKrw)}`
             : `${row.name} 시세 못 가져옴 · 매수가로 계산 · ${won(row.evalKrw)}`
           return (
-            <Link key={row.id} href={`/s/stock/${encodeURIComponent(row.ticker)}`} title={row.name} aria-label={label}
+            <Link key={row.id} href={`/s/stock/${encodeURIComponent(row.ticker)}?m=${row.market}`} title={row.name} aria-label={label}
               style={{
                 // globals.css 가 모바일에서 a[href] 에 min-height 44px 를 건다 — 작은 칸이 상자 밖으로 늘어나지 않게 푼다
                 position: 'absolute', ...pos, minHeight: 0, minWidth: 0, boxSizing: 'border-box',
