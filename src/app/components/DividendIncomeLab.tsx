@@ -546,7 +546,7 @@ export default function DividendIncomeLab({ onHoldingsChange }: { onHoldingsChan
 
       {/* 푸터 */}
       <div style={{ fontSize: 9.5, color: C.low, lineHeight: 1.7, padding: '0 4px' }}>
-        💵 배당률·성장률·안전성·지급월은 Yahoo·Naver 실데이터(배당 익스플로러와 동일 엔진) · 배당률은 통화 무관이라 US·KR 혼합 계산에 환율 불필요(자산 표기 환율 {usdKrw.toLocaleString()}원) ·
+        💵 배당률·성장률·안전성·지급월은 Yahoo·Naver 실데이터(배당 익스플로러와 동일 엔진) · 배당률은 통화 무관이라 US·KR 혼합 계산에 환율 불필요(자산 표기 환율 {usdKrw.toLocaleString()}원{data?.fxLive === false && <span style={{ color: TK.amber400 }}> (기본값 — 지금 환율을 못 가져왔어요)</span>}) ·
         한국 개별주는 대부분 연 1회 배당이라 매달 현금흐름은 미국 분기·월배당이 채웁니다 · <b>세션 설계 도구(저장 안 함)</b> · 세전 기준(배당소득세·양도세 별도) · 교육용이며 투자 추천이 아닙니다.
       </div>
       <style>{`

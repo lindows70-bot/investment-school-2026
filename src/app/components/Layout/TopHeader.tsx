@@ -36,6 +36,7 @@ const HOUR_MS   = 60 * 60 * 1000
 export default function TopHeader() {
   const pathname = usePathname()
   const [usdKrw, setUsdKrw] = useState<number | null>(null)
+  const [fxLive, setFxLive] = useState(true)   // false = 환율을 못 가져와 SSOT 기본값을 보여주는 중 — 숫자 옆에 '기본값'을 밝힌다
   // 📅 날짜는 마운트 후에만 — 렌더 중 new Date() 는 서버(UTC)와 클라이언트(KST)의 날짜가
   //    자정~오전 9시(KST) 사이 하루 어긋나, 전 페이지 하이드레이션 불일치(React #425)를 일으켰다.
   //    스쿨 리그가 '집계 중…'에서 얼어붙은 사고의 뿌리 — 낮에는 두 날짜가 같아 안 보였다.
@@ -65,19 +66,19 @@ export default function TopHeader() {
       try {
         const res = await fetch('/api/exchange-rate')
         if (res.ok) {
-          const j = await res.json() as { rate: number }
-          const { rate } = j
-          if (typeof rate === 'number' && rate > 0) {
+          // 고정 상수(stale-constant)는 실제 환율이 아니다 — acceptFx 를 통과한 값만 쓰고 1시간 공유 캐시에 넣는다(대시보드가 같은 키를 읽는다)
+          const rate = acceptFx(await res.json())
+          if (rate != null) {
             const rounded = Math.round(rate)
             setUsdKrw(rounded)
-            // 고정 상수(stale-constant)는 1시간 공유 캐시에 넣지 않는다 — 대시보드가 같은 키를 읽는다
-            if (acceptFx(j) != null) localStorage.setItem(CACHE_KEY, JSON.stringify({ rate: rounded, savedAt: new Date().toISOString() }))
+            try { localStorage.setItem(CACHE_KEY, JSON.stringify({ rate: rounded, savedAt: new Date().toISOString() })) } catch { /* 저장 불가 환경 — 받은 환율은 그대로 쓴다 */ }
             return
           }
         }
       } catch { /* fallback */ }
 
       setUsdKrw(USD_KRW_FALLBACK)   // 💱 폴백도 SSOT — 화면마다 다른 숫자를 쓰면 표끼리 어긋난다
+      setFxLive(false)
     }
 
     load()
@@ -123,6 +124,9 @@ export default function TopHeader() {
             <span style={{ fontSize: FS.tiny, color: TK.emerald500, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
               ₩{usdKrw.toLocaleString('ko-KR')}
             </span>
+            {!fxLive && (
+              <span title="환율을 못 가져와 기본값(고정 환율)으로 보여주고 있어요" style={{ fontSize: FS.micro, color: TK.amber400, fontWeight: 600 }}>기본값</span>
+            )}
           </div>
         )}
 

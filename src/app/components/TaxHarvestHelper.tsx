@@ -42,7 +42,7 @@ export default function TaxHarvestHelper() {
         <div style={CARD}>
           <div style={{ fontSize: 11, color: TK.sub4, marginBottom: 4 }}>올해 확정 양도차익 (해외)</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: d.realizedUsKrw >= 0 ? TK.red400 : TK.blue400 }}>{fmtW(d.realizedUsKrw)}</div>
-          <div style={{ fontSize: 10.5, color: TK.sub2, marginTop: 3 }}>${d.realizedUsUsd.toLocaleString('en-US')} · 매도 {d.usSellCount}건 · 환율 {Math.round(d.usdKrw).toLocaleString()}원 환산(추정)</div>
+          <div style={{ fontSize: 10.5, color: TK.sub2, marginTop: 3 }}>${d.realizedUsUsd.toLocaleString('en-US')} · 매도 {d.usSellCount}건 · 환율 {Math.round(d.usdKrw).toLocaleString()}원 환산(추정){d.fxLive === false && <span style={{ color: TK.amber400 }}> (기본값 — 지금 환율을 못 가져왔어요)</span>}</div>
         </div>
         <div style={CARD}>
           <div style={{ fontSize: 11, color: TK.sub4, marginBottom: 4 }}>기본공제 250만원 사용률</div>

@@ -98,7 +98,7 @@ export default function GlobalTop10() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
           <span style={{ fontSize: 18 }}>🌍</span>
           <span style={{ color: TK.slate200, fontWeight: 800, fontSize: 15 }}>글로벌 시총 거인 터미널</span>
-          {data && <span style={{ marginLeft: 'auto', color: TK.slate500, fontSize: 10 }}>USD/KRW {data.usdKrw.toLocaleString()} · {new Date(data.asOf).toLocaleString('ko-KR')}</span>}
+          {data && <span style={{ marginLeft: 'auto', color: TK.slate500, fontSize: 10 }}>USD/KRW {data.usdKrw.toLocaleString()}{data.fxLive === false && <span style={{ color: TK.amber400 }}> (기본값 — 지금 환율을 못 가져왔어요)</span>} · {new Date(data.asOf).toLocaleString('ko-KR')}</span>}
         </div>
         {ratio && (
           <div style={{ color: TK.sub5, fontSize: 12, lineHeight: 1.6 }}>

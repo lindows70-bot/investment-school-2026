@@ -14,7 +14,12 @@ const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0,
 const isMissingTable = (e: { code?: string; message?: string } | null) =>
   !!e && (e.code === '42P01' || e.code === 'PGRST205' || /user_cash.*(does not exist|schema cache)/i.test(e.message ?? ''))
 
-export interface CashApi extends Partial<CashPosition> { needsSetup?: boolean; asOf: string }
+export interface CashApi extends Partial<CashPosition> {
+  needsSetup?: boolean
+  /** 이번 환율이 실제 환율인가(fx.ts readUsdKrw) — false 면 화면이 '기본값(고정 환율)'임을 밝힌다. 저장본은 live 일 때만 쓰여 true, 이 필드가 생기기 전 저장본엔 없다(undefined = 경고 안 함) */
+  fxLive?: boolean
+  asOf: string
+}
 
 /** 막스 탐욕 온도(권장 현금 밴드 SSOT) — 캐시 읽기만, 실패 시 밴드 없이 비중만 */
 async function marksTemp(base: string): Promise<number | null> {
@@ -50,7 +55,7 @@ export async function GET(req: Request) {
     { krw: Number(cashRow?.krw ?? 0), usd: Number(cashRow?.usd ?? 0), memo: cashRow?.memo ?? null, updatedAt: cashRow?.updated_at ?? null },
     assets, usdKrw, temp,
   )
-  const result: CashApi = { ...pos, asOf: new Date().toISOString() }
+  const result: CashApi = { ...pos, fxLive, asOf: new Date().toISOString() }
   // 평가액이 통째로 0(가격·원가 모두 실패)이면 박제 금지
   // 시세 못 받은 종목(원가로 평가)이 있거나 고정 환율로 환산했으면 박제 금지 — 다음 요청이 스스로 낫는다(ai-rebalance와 같은 규칙)
   if (pos.totalKrw > 0 && assets.costFallback === 0 && fxLive) await setCache(cacheKey, result)

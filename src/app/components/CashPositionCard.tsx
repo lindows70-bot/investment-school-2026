@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { TK, FS } from '@/lib/theme'
 import type { CashPosition } from '@/lib/cashPosition'
 
-type Api = Partial<CashPosition> & { needsSetup?: boolean; asOf?: string; error?: string }
+type Api = Partial<CashPosition> & { needsSetup?: boolean; fxLive?: boolean; asOf?: string; error?: string }
 
 const won = (n: number) => n >= 1e8 ? `${(n / 1e8).toFixed(n >= 1e9 ? 0 : 1)}억` : n >= 1e4 ? `${Math.round(n / 1e4).toLocaleString()}만` : `${Math.round(n).toLocaleString()}`
 
@@ -123,6 +123,7 @@ export default function CashPositionCard() {
 
           <div style={{ fontSize: FS.tiny, color: TK.sub3, marginTop: 8, lineHeight: 1.5 }}>
             내가 입력한 값 기준(자동 연동 없음{d.updatedAt ? ` · 갱신 ${String(d.updatedAt).slice(0, 10)}` : ''}){d.memo ? ` · ${d.memo}` : ''} · 환율 ₩{Math.round(d.usdKrw ?? 0).toLocaleString()}
+            {d.fxLive === false && <span style={{ color: TK.amber400 }}> (기본값 — 지금 환율을 못 가져왔어요)</span>}
             {(d.costFallback ?? 0) > 0 && ` · 시세 미수신 ${d.costFallback}종은 매입가로 평가`}
             <br />부동산·연금 등 앱에 없는 자산은 포함되지 않습니다 · 권장 밴드는 사이클 위치 가이드이며 강제가 아닙니다.
           </div>

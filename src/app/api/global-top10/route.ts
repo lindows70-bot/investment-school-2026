@@ -22,6 +22,8 @@ export interface GlobalTop10Result {
   kr: TopEntry[]
   us: TopEntry[]
   usdKrw: number
+  /** 이번 환율이 실제 환율인가(fx.ts readUsdKrw) — false 면 화면이 '기본값(고정 환율)'임을 밝힌다. 저장본은 live 일 때만 쓰여 true, 이 필드가 생기기 전 저장본엔 없다(undefined = 경고 안 함) */
+  fxLive?: boolean
   asOf: string
 }
 
@@ -143,7 +145,7 @@ export async function GET(req: Request) {
   const { rate: usdKrw, live: fxLive } = await fetchUsdKrw(selfBase)
 
   const [kr, us] = await Promise.all([fetchKrTop10(usdKrw), fetchUsTop10(usdKrw)])
-  const result: GlobalTop10Result = { kr, us, usdKrw, asOf: new Date().toISOString() }
+  const result: GlobalTop10Result = { kr, us, usdKrw, fxLive, asOf: new Date().toISOString() }
   // 고정 환율로 환산한 시총(KR→$·US→₩)은 하루 키에 박제하지 않는다 — 다음 요청이 실제 환율로 다시 만든다
   if (kr.length > 0 && us.length > 0 && fxLive) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })

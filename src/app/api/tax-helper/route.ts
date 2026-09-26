@@ -39,6 +39,8 @@ export interface TaxHelperResult {
   year: number
   daysLeft: number           // 12/31까지 남은 일수(KST)
   usdKrw: number
+  /** 이번 환율이 실제 환율인가(fx.ts readUsdKrw) — false 면 화면이 '기본값(고정 환율)'임을 밝힌다. 저장본은 live 일 때만 쓰여 true, 이 필드가 생기기 전 저장본엔 없다(undefined = 경고 안 함) */
+  fxLive?: boolean
   realizedUsUsd: number      // 올해 해외 확정 손익($)
   realizedUsKrw: number      // 〃 ₩ 환산(추정)
   usSellCount: number
@@ -156,7 +158,7 @@ export async function GET(req: Request) {
   gainHarvest.sort((a, b) => b.useKrw - a.useKrw)
 
   const result: TaxHelperResult = {
-    year, daysLeft, usdKrw,
+    year, daysLeft, usdKrw, fxLive,
     realizedUsUsd: Math.round(realizedUsUsd * 100) / 100, realizedUsKrw, usSellCount,
     realizedKrKrw: Math.round(realizedKrKrw), krSellCount, krEtfSellCount, cryptoSellCount,
     deductionKrw: TAX.DEDUCTION_KRW, taxableKrw, estTaxKrw, roomKrw,

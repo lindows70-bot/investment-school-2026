@@ -13,7 +13,7 @@ const REGIME_KO: Record<SwingRegime, string> = { up: '상승', down: '하락', f
 const REGIME_C: Record<SwingRegime, string> = { up: TK.green400, down: TK.orange400, flat: TK.sub3 }
 
 export default function SwingPage() {
-  const [d, setD] = useState<SwingRadar | null>(null)
+  const [d, setD] = useState<(SwingRadar & { fxLive?: boolean }) | null>(null)   // fxLive — 새로 계산한 응답에만 실린다(저장본엔 없음 = 실제 환율로 만든 것만 저장)
   const [err, setErr] = useState<string | null>(null)
   const [equity, setEquity] = useState(10_000_000)
   // 💰 투자금 출처 — 'saved'(학생이 고친 값·localStorage) > 'auto'(내 총 평가금액·현금 포함) > 'default'(1천만원 자리표시)
@@ -174,7 +174,7 @@ export default function SwingPage() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: SP.sm }}>
-                {d.items.map(it => <SwingCard key={`${it.track}:${it.ticker}`} it={it} equity={equity} usdKrw={d.usdKrw} />)}
+                {d.items.map(it => <SwingCard key={`${it.track}:${it.ticker}`} it={it} equity={equity} usdKrw={d.usdKrw} fxLive={d.fxLive} />)}
               </div>
             )}
           </div>
@@ -215,7 +215,7 @@ export default function SwingPage() {
   )
 }
 
-function SwingCard({ it, equity, usdKrw }: { it: SwingItem; equity: number; usdKrw: number }) {
+function SwingCard({ it, equity, usdKrw, fxLive }: { it: SwingItem; equity: number; usdKrw: number; fxLive?: boolean }) {
   const t = SWING_TRACKS[it.track]
   // 💱 **투자금을 종목 통화로 맞춘 뒤** 수량을 낸다 — 원화를 달러 주가로 나누면
   //    1천만원으로 172만 달러를 사라는 값이 나온다(화면검증에서 실제로 나왔다).
@@ -261,7 +261,7 @@ function SwingCard({ it, equity, usdKrw }: { it: SwingItem; equity: number; usdK
           <span style={{ color: TK.sub3 }}> (약 {money(ps.positionValue)}
             {!isKr && <> · 원화로 약 {Math.round(ps.positionValue * usdKrw).toLocaleString()}원</>}
             {' '}· 손절 시 손실 {money(ps.riskAmount)}{ps.capped ? '' : ` = 투자금의 ${SWING_RISK_PCT}%`})</span>
-          {!isKr && <span style={{ color: TK.sub4 }}> · 환율 ₩{Math.round(usdKrw).toLocaleString()} 적용</span>}
+          {!isKr && <span style={{ color: TK.sub4 }}> · 환율 ₩{Math.round(usdKrw).toLocaleString()} 적용{fxLive === false && <span style={{ color: TK.amber400 }}> (기본값 — 지금 환율을 못 가져왔어요)</span>}</span>}
           {ps.capped && (
             <div style={{ color: TK.amber400, marginTop: 3 }}>
               🧢 손절폭이 좁아 수량이 커질 자리라, <b>한 종목 상한(투자금의 20%)</b>으로 잘랐습니다 — 몰빵 방지.
