@@ -40,7 +40,7 @@ const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFin
 const monthDiff = (a: string, b: string) => (Number(b.slice(0, 4)) * 12 + Number(b.slice(5, 7))) - (Number(a.slice(0, 4)) * 12 + Number(a.slice(5, 7)))
 const MAX_MONTHS = 36   // monthlySeries.ts 의 상한(최근 36개월)과 같은 값 — 잘린 이유를 가를 때만 쓴다
 const PAGE = 1000       // Supabase select 기본 상한 — 이 크기로 끝까지 넘겨 읽는다(안 넘기면 1,000건 뒤 거래가 조용히 빠진다)
-const TX_COLS = 'ticker,name,market,currency,type,price,quantity,transaction_date,created_at'
+const TX_COLS = 'ticker,name,market,currency,type,price,quantity,transaction_date,created_at,memo'   // memo = '자동 동기화' 행 가려내기(lotsFromTrades)
 
 // 범위 — 원천이 월말 값뿐이라 '1달'은 없다(점 1~2개). 앞 범위와 같은 점 수가 되는 범위는 숨긴다
 const RANGES = [{ key: '6m', label: '6달', n: 6 }, { key: '1y', label: '1년', n: 12 }, { key: 'all', label: '전체', n: Infinity }] as const
@@ -110,7 +110,9 @@ export default function GrowthChart({ holdings, rows, usdKrw }: { holdings: MyHo
   // 거래 기록으로 못 그린 종목 — ①보유 한 줄로 대신 그린 것 ②대신 그릴 매수일도 없어 뺀 것 ③기록상 남았는데 지금 보유엔 없어 뺀 것
   const holdByTicker = new Map(holdings.map(h => [h.ticker.trim().toUpperCase(), h]))
   const fb = plan?.fallback ?? []
-  const fbDrawn = fb.filter(f => YMD.test(holdByTicker.get(f.ticker)?.purchase_date ?? ''))
+  const drawn = fb.filter(f => YMD.test(holdByTicker.get(f.ticker)?.purchase_date ?? ''))
+  const fbDrawn = drawn.filter(f => f.reason !== 'synthetic')
+  const fbSynth = drawn.filter(f => f.reason === 'synthetic')
   const fbNoDate = fb.filter(f => { const h = holdByTicker.get(f.ticker); return h != null && !YMD.test(h.purchase_date ?? '') })
   const fbNotHeld = fb.filter(f => !holdByTicker.has(f.ticker))
   const nameOf = (t: string) => holdByTicker.get(t.toUpperCase())?.name
@@ -204,6 +206,7 @@ export default function GrowthChart({ holdings, rows, usdKrw }: { holdings: MyHo
       {plan != null && plan.body.lots.length > 0 && (
         <>
           {fbDrawn.length > 0 && <span style={noteStyle(TK.amber400)}>거래 기록이 없거나 보유 수량과 안 맞는 {fbDrawn.length}종목({names(fbDrawn)})은 지금 수량을 처음 산 달부터 가졌다고 보고 그렸어요.</span>}
+          {fbSynth.length > 0 && <span style={noteStyle(TK.amber400)}>자동으로 맞춘 기록이 섞인 {fbSynth.length}종목({names(fbSynth)})은 지금 수량을 처음 산 달부터 가졌다고 보고 그렸어요.</span>}
           {fbNoDate.length > 0 && <span style={noteStyle(TK.amber400)}>거래 기록이 없거나 안 맞고 매수일도 없는 {fbNoDate.length}종목({names(fbNoDate)})은 뺐어요.</span>}
           {fbNotHeld.length > 0 && <span style={noteStyle(TK.amber400)}>거래 기록엔 남아 있는데 지금 보유엔 없는 {fbNotHeld.length}종목({names(fbNotHeld)})은 뺐어요.</span>}
         </>

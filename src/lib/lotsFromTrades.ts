@@ -10,6 +10,8 @@ export interface TradeRow {
   price: number | string; quantity: number | string
   transaction_date: string        // 'YYYY-MM-DD'
   created_at: string
+  /** 거래 내역 화면(history/page.tsx)의 '자동 동기화' 행 판별용 — 없으면 사람이 적은 기록으로 본다 */
+  memo?: string | null
 }
 /** 지금 보유 한 줄(useMyPortfolio) — currentPrice 는 '지금 시세'일 때만(지난 캐시 시세는 넘기지 않는다) */
 export interface HoldingForLots {
@@ -17,7 +19,7 @@ export interface HoldingForLots {
   quantity: number; purchase_price: number; purchase_date: string | null
   currentPrice?: number | null
 }
-export type LotFallbackReason = 'no-trades' | 'mismatch'
+export type LotFallbackReason = 'no-trades' | 'mismatch' | 'synthetic'
 export interface LotsFromTradesResult {
   lots: PnlLot[]
   /** 거래 기록으로 못 그린 종목 — 보유가 있고 매수일이 있으면 '지금 수량을 처음 산 날부터' 한 로트로 대신 넣었다(보유가 없으면 로트 없음) */
@@ -28,6 +30,11 @@ export interface LotsFromTradesResult {
 
 /** tradeWrite.planSell 의 전량 매도 기준 — 이 이하로 남으면 앱이 보유 행을 지웠다(다음 매수는 새 평단으로 시작) */
 const FULL_SELL_EPS = 0.0001
+/**
+ * 거래 내역 화면이 보유와 거래 수량이 어긋나면 '방문한 날짜 · 역산한 가격'으로 매수 행을 끼워 넣는다(history/page.tsx 자동 복구).
+ * 그 행이 섞이면 되짚은 수량이 보유와 '만들어서' 맞으므로 대조가 무의미하고, 날짜·가격은 실제 거래가 아니다 → 되짚지 않는다.
+ */
+const SYNTHETIC_MEMO = '자동 동기화'
 /** 기본 상한 = /api/monthly-pnl 이 받는 로트 수 */
 const DEFAULT_MAX_LOTS = 400
 const YMD = /^\d{4}-\d{2}-\d{2}$/
@@ -130,6 +137,11 @@ export function lotsFromTrades(trades: TradeRow[], holdings: HoldingForLots[], o
       String(a.transaction_date).localeCompare(String(b.transaction_date)) || String(a.created_at).localeCompare(String(b.created_at)))
     const last = sorted[sorted.length - 1]
     const name = h?.name ?? last.name
+    if (sorted.some(t => typeof t.memo === 'string' && t.memo.includes(SYNTHETIC_MEMO))) {
+      fallback.push({ ticker: k, name, reason: 'synthetic' })
+      if (h) holdingLot(k, h)
+      continue
+    }
     const r = replay(sorted)
     const openQty = r ? r.open.reduce((s, l) => s + l.qty, 0) : NaN
     if (!r || !sameQty(openQty, h?.quantity ?? 0)) {

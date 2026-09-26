@@ -97,6 +97,14 @@ const r6 = L.lotsFromTrades([], [H('EEE', 7, 20, '2025-05-05'), H('FFF', 1, 5, n
 check('기록 없는 보유 → no-trades 2건', r6.fallback.length === 2 && r6.fallback.every(f => f.reason === 'no-trades'))
 check('기록 없는 보유 → 매수일 있는 것만 로트(EEE), 없는 것(FFF)은 로트 없음', r6.lots.length === 1 && r6.lots[0].ticker === 'EEE' && r6.lots[0].quantity === 7 && r6.lots[0].currentPrice === 999)
 
+// ⑥-b '자동 동기화' 행(거래 내역 화면이 방문일·역산가로 끼워 넣은 매수)이 섞이면 되짚지 않는다 — 수량이 '만들어서' 맞기 때문
+const syn = { ...T('JJJ', 'buy', 123, 2, '2026-09-20'), memo: '자동 동기화 (편집으로 누락된 거래 복구)' }
+const r6b = L.lotsFromTrades([T('JJJ', 'buy', 100, 3, '2025-01-02'), syn], [H('JJJ', 5, 110, '2025-01-02')])
+check('자동 동기화 행이 섞인 종목 → synthetic · 수량이 맞아도 되짚지 않고 보유 한 줄(5주·매수일 2025-01-02)',
+  r6b.fallback.length === 1 && r6b.fallback[0].reason === 'synthetic' && r6b.lots.length === 1 && r6b.lots[0].quantity === 5 && r6b.lots[0].purchase_date === '2025-01-02')
+const r6c = L.lotsFromTrades([{ ...T('JJJ', 'buy', 100, 5, '2025-01-02'), memo: '최초 매수' }], [H('JJJ', 5, 100, '2025-01-02')])
+check('보통 메모(최초 매수)는 그대로 되짚는다', r6c.fallback.length === 0 && r6c.lots.length === 1)
+
 // ⑦ 부동소수 — 0.1 + 0.2 를 사서 보유 0.3
 const r7 = L.lotsFromTrades([T('ETH', 'buy', 100, 0.1, '2025-01-02'), T('ETH', 'buy', 110, 0.2, '2025-01-03')], [H('ETH', 0.3, 106.67, '2025-01-02')])
 check('0.1 + 0.2 vs 보유 0.3 → 같은 수량으로 본다', r7.fallback.length === 0 && open(r7, 'ETH').length === 2)
