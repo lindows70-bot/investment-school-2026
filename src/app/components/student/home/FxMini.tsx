@@ -1,5 +1,6 @@
 'use client'
 // 학생 홈 원·달러 환율 한 줄 + 1달 미니 선 — 하나은행 매매기준율(overview.fx, 홈 page 가 한 번 불러 나눠 준다). 자세한 건 시장 화면
+//   '직전 고시보다' — 비교 대상은 바로 앞 확정 고시일이다(주말·휴일을 건너뛰면 '전날'이 아니다)
 //   ⚠️ 한눈 시황·내 자산은 아직 앱 환율(/api/exchange-rate)을 쓴다 — 기준이 달라 값이 조금 다를 수 있다는 사실을 적는다(4단계에서 전환).
 //   환율 오르내림은 좋고 나쁨이 아니라 등락색을 쓰지 않는다.
 import { TK, FS, SP } from '@/lib/theme'
@@ -27,11 +28,11 @@ export default function FxMini({ overview }: { overview: JsonResult<OverviewResp
             <span style={{ fontSize: FS.lg, fontWeight: 700, color: TK.slate100, whiteSpace: 'nowrap' }}>{fxWon(fx.latest.v)}</span>
             {fx.latest.change != null && (
               <span style={{ fontSize: FS.tiny, color: TK.slate300, whiteSpace: 'nowrap' }}>
-                전날 고시보다 {signFx(fx.latest.change)}{fx.latest.changePct != null ? ` (${pct(fx.latest.changePct)})` : ''}
+                직전 고시보다 {signFx(fx.latest.change)}{fx.latest.changePct != null ? ` (${pct(fx.latest.changePct)})` : ''}
               </span>
             )}
           </div>
-          {pts.length >= 2 && <div aria-hidden style={{ height: 48, minWidth: 0 }}><LinePlot points={pts} color={TK.slate100} tFmt={tDay} vFmt={fxWon} /></div>}
+          {pts.length >= 2 && <div aria-hidden style={{ height: 48, minWidth: 0 }}><LinePlot points={pts} color={TK.slate100} tFmt={tDay} vFmt={fxWon} a11y={false} /></div>}
           <span style={noteStyle()}>{pts.length >= 2 ? '최근 1달 · ' : ''}하나은행 매매기준율 · {mdDow(fx.latest.date) ?? fx.latest.date} 고시</span>
           <span style={noteStyle()}>한눈 시황·내 자산의 환율과는 기준이 달라 조금 다를 수 있어요.</span>
         </>
