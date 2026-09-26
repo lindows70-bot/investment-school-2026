@@ -894,5 +894,7 @@ delete from public.app_cache where key in (
 -- C. (선택) 디스크 반환 — delete 한 공간은 재사용만 되고 대시보드 크기는 그대로다.
 --    vacuum full 은 테이블을 새로 써서 공간을 돌려준다(남은 데이터만큼 여유 공간 필요 · 도는 동안 app_cache 잠김 → 앱 캐시 조회가 잠시 멈춘다).
 --    이 문장만 단독으로 실행한다(트랜잭션 안에서는 못 돈다). 한가한 시간에.
+--    SQL Editor 에서 "VACUUM cannot run inside a transaction block" 오류가 나면 생략해도 된다 —
+--    자동 vacuum 이 지운 공간을 재사용하므로 app_cache 가 다시 커지지는 않는다(대시보드 숫자만 바로 안 줄 뿐).
 -- ════════════════════════════════════════════════════════════════════
 -- vacuum full public.app_cache;
