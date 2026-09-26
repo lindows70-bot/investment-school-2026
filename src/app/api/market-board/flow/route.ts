@@ -11,7 +11,7 @@ import {
 import { okPart, failPart, krSessionTtlMs } from '@/lib/marketBoardShared'
 import { boardCached } from '@/lib/marketBoardCache'
 
-const KEY = 'market-board-flow-v1'   // 🗓️ 날짜 없는 키 — 장중 10분(잠정치)·그 밖 60분
+const KEY = 'market-board-flow-v2'   // 🗓️ 날짜 없는 키 — 장중 10분(잠정치)·그 밖 60분 · v2: priceLimitBreak·capped 규칙(개발 중 v1 행이 옛 모양으로 저장됨)
 const MARKETS: KrMarket[] = ['KOSPI', 'KOSDAQ']
 const INVESTORS: Investor[] = ['FOREIGNER', 'ORGANIZATION']
 const TOP = 5

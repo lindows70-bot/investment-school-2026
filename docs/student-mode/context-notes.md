@@ -156,6 +156,6 @@
 | 업비트 목록·시세 캐시를 `lib/upbitMarket` 로 | 종목 검색 라우트 안에 있어 재사용 불가였다(동작 불변) |
 | 부분 실패 결과는 app_cache 에 저장하지 않고 30초 메모리만 | 한 번의 타임아웃이 TTL 내내 빈 카드가 되는 것 방지 |
 
-- 캐시 키(날짜 없음): `market-board-kr-v1`(장중 3분·그 밖 30분) · `-flow-v1`(10분·60분) · `-us-v1`(미국 정규장 3분·30분) · `-overview-v1`(30분). 코인은 업비트 60초 메모리.
+- 캐시 키(날짜 없음): `market-board-kr-v1`(장중 3분·그 밖 30분) · `-flow-v2`(10분·60분) · `-us-v1`(미국 정규장 3분·30분) · `-overview-v1`(30분). 코인은 업비트 60초 메모리.
 - 감시: `scripts/verify-market-board-sources.mjs`(야간 감사 INVARIANTS — 원천 16항목 형식·원 단위·신선도). 파서 검증: `scripts/verify-market-board.mjs` + `scripts/fixtures/market-board.json`(실측 스냅샷).
 - **Vercel 도달은 아직 미확인** — 프리뷰 배포 후 `/api/market-board/probe` 의 `allOk`·`region` 으로 판정.
