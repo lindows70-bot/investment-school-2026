@@ -149,9 +149,16 @@ if (stale.length) {
 // ── ④ 캐시 키에 날짜 — 정리 목록(PURGE_RULES)에 없는 접두어면 차단 ─────────────
 //    app_cache 에는 지우는 장치가 없어 날짜 키가 영구 누적된다(2026-09-26 tech-chart 926 MB → DB 한도 초과·읽기 전용).
 //    CLAUDE.md 문장만으로는 새 날짜 키가 계속 태어난다 — 판정은 scripts/cacheDateGuard.mjs(검증: verify-cache-purge.mjs).
-{
-  const rulePrefixes = parseRulePrefixes(sh('git show :src/lib/cachePurge.ts'))
-  const resolve = (name) => prefixFromDefinition(name, sh(`git grep -h --cached -E "\\b${name}\\s*(:[^=]+)?=" -- src/`).split('\n'))
+const rulePrefixes = parseRulePrefixes(sh('git show :src/lib/cachePurge.ts'))
+if (rulePrefixes.size === 0) {
+  // 규칙 파일을 못 읽으면(이름 변경·파서 불일치) 이 검사만 건너뛴다 — 훅 전체를 막으면 --no-verify 가 습관이 된다
+  warn('캐시 날짜 키 검사 건너뜀 — src/lib/cachePurge.ts 의 PURGE_RULES 를 읽지 못했습니다(0종)')
+} else {
+  const defCache = new Map()   // 상수 이름 → 정의 git grep 결과(같은 상수를 여러 줄이 부르면 한 번만)
+  const resolve = (name) => {
+    if (!defCache.has(name)) defCache.set(name, prefixFromDefinition(name, sh(`git grep -h --cached -E "\\b${name}\\s*(:[^=]+)?=" -- src/`).split('\n')))
+    return defCache.get(name)
+  }
   const { violations, unresolved } = findDatedCacheKeys(addedByFile, rulePrefixes, resolve)
   if (unresolved.length) {
     warn(`날짜가 든 캐시 키 상수 ${unresolved.length}곳 — 정의를 못 찾아 접두어를 확인하지 못했습니다`)
@@ -159,9 +166,9 @@ if (stale.length) {
   }
   if (violations.length) {
     blocked = true
-    console.log(`${C.r}${C.b}⛔ 캐시 키에 날짜 — 정리 목록(PURGE_RULES)에 없는 접두어 ${violations.length}건${C.x}`)
+    console.log(`${C.r}${C.b}⛔ 캐시 키에 날짜 — 정리 장치(PURGE_RULES)가 못 지우는 키 ${violations.length}건${C.x}`)
     for (const v of violations.slice(0, 8)) {
-      console.log(`${C.r}   ${v.f} — ${v.prefix}${C.x}`)
+      console.log(`${C.r}   ${v.f} — ${v.prefix} (${v.why})${C.x}`)
       console.log(`${C.d}      ${v.l.trim().slice(0, 110)}${C.x}`)
     }
     if (violations.length > 8) console.log(`${C.d}      … 외 ${violations.length - 8}건${C.x}`)

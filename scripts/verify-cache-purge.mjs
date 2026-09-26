@@ -210,8 +210,15 @@ check('훅 ① 목록 밖 날짜 키 신규 추가 → 차단(kstDate · ${today
   "await setCache(`probe-new-v1:${new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)}`, out)",
   'const k = `probe-new-v2:${lawd}:${new Date().toISOString().slice(0, 7)}`',
   "const cacheKey = 'probe-new-v1:' + kstDate()",
+  "const cacheKey = 'probe-new-v1:' + today",
+  "await setCache('probe-new-v1:' + dateKey, out)",
+  "const k = `probe-new-v1:${new Date().toISOString().split('T')[0]}`",
   'const radarKey = `probe-radar:${user.id}:${dateKey}:${fp}`',
 ].every(l => blockedBy([l])))
+const pipe = G(['const k = `win-lose-v9|${kstDate()}`'])
+check("훅 ① 규칙에 있는 접두어라도 구분자 '|' 날짜 키 → 차단(shouldPurge 는 `접두어:` 만 지운다)",
+  pipe.violations.length === 1 && /\|/.test(pipe.violations[0].why) && !P.shouldPurge('win-lose-v9|2026-09-01', ANCIENT, NOW))
+check('훅 한계(의도) — 한 글자 변수 `${d}` 는 잡지 않는다(오탐 방지)', !blockedBy(['const cacheKey = `probe-new-v1:${d}`']))
 check('훅 ① 상수 함수 키 — 정의를 찾아 목록 밖이면 차단', findDatedCacheKeys(new Map([['src/x.ts', ['const v = await getCache(PROBE_KEY(kstDate()), 1)']]]), RP,
   n => prefixFromDefinition(n, ['export const PROBE_KEY = (d: string) => `probe-new-v1:${d}`'])).violations.length === 1)
 check('훅 ② PURGE_RULES 에 있는 접두어 → 통과(일별·사용자별·상수 결합·상수 함수)', [
@@ -227,10 +234,14 @@ check('훅 ④ 날짜 없는 키 → 통과', [
   "const cached = await getCache<X>('probe-new-v1', 6 * 3600_000, { sameKstDay: true })",
   'const key = `tech-chart-v2:${t}:${m}:${iv}`',
 ].every(l => !blockedBy([l])))
-check('훅 오탐 없음 — URL·경로·React key·주석 줄·로그 문자열', [
+check('훅 오탐 없음 — URL·경로·JSX key={}·브라우저 저장소·주석 줄·로그 문자열', [
   'const r = await fetch(`https://api.example.com/v1:${kstDate()}`)',
   'fetch(`${base}/api/x?date=${today}`)',
-  ".map(d => ({ key: `fomc:${d}`, date: d, label: 'x' }))",
+  '<li key={`row:${date}`}>',
+  '{rows.map(r => <Row key={`row:${r.id}:${today}`} />)}',
+  'const storageKey = `dismissed:${today}`',
+  "localStorage.setItem(`seen-v1:${today}`, '1')",
+  'sessionStorage.setItem(`tab-v2:${kstDate()}`, t)',
   '  // 옛 키는 `probe-new-v1:${kstDate()}` 였다',
   'console.log(`done:${today}`)',
 ].every(l => !blockedBy([l])))
@@ -246,8 +257,14 @@ check('규칙 파일을 못 읽으면 파서가 0종을 돌려준다(훅은 이�
   const tmp = mkdtempSync(`${tmpdir()}/cdg-`)
   const env = { ...process.env, GIT_INDEX_FILE: `${tmp}/index` }
   const git = (args, input) => spawnSync('git', args, { cwd: ROOT, env, input, encoding: 'utf8' })
-  const hook = (body) => {
+  // 규칙은 작업 트리의 cachePurge.ts 로(커밋 전 규칙 변경도 반영) · noRules 면 규칙 파일을 인덱스에서 뺀다(fail-open 확인)
+  const hook = (body, { noRules = false } = {}) => {
     git(['read-tree', 'HEAD'])
+    if (noRules) git(['update-index', '--force-remove', 'src/lib/cachePurge.ts'])
+    else {
+      const rb = git(['hash-object', '-w', '--stdin'], purgeSrc).stdout.trim()
+      git(['update-index', '--add', '--cacheinfo', `100644,${rb},src/lib/cachePurge.ts`])
+    }
     const blob = git(['hash-object', '-w', '--stdin'], body).stdout.trim()
     git(['update-index', '--add', '--cacheinfo', `100644,${blob},src/__cache_date_probe__.ts`])
     return spawnSync(process.execPath, ['scripts/precommit-guard.mjs'], { cwd: ROOT, env, encoding: 'utf8' })
@@ -263,6 +280,12 @@ check('규칙 파일을 못 읽으면 파서가 0종을 돌려준다(훅은 이�
     check('훅 끝에서 끝 ③ 예외 주석 → exit 0', r3.status === 0)
     const r4 = hook("const cacheKey = 'probe-new-v1'\n")
     check('훅 끝에서 끝 ④ 날짜 없는 키 → exit 0', r4.status === 0)
+    const r5 = hook('export const A = () => <li key={`row:${date}`}>x</li>\nconst storageKey = `dismissed:${today}`\n')
+    check('훅 끝에서 끝 오탐 없음 — JSX key={} · storageKey → exit 0', r5.status === 0 && !/날짜 키는 영구 누적/.test(r5.stdout))
+    const r6 = hook('const etfKey = `btc-etf-v8:${kstDate()}`   // 주석만 고친 옛 줄\n')
+    check('훅 끝에서 끝 btc-etf-v8 옛 줄(주석만 수정) → exit 0(규칙 편입)', r6.status === 0)
+    const r7 = hook('const cacheKey = `probe-new-v1:${kstDate()}`\n', { noRules: true })
+    check('훅 끝에서 끝 규칙 파일을 못 읽으면 이 검사만 경고 후 건너뜀 → exit 0', r7.status === 0 && /캐시 날짜 키 검사 건너뜀/.test(r7.stdout))
   } finally { rmSync(tmp, { recursive: true, force: true }) }
 }
 
