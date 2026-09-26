@@ -1,9 +1,13 @@
 'use client'
 // 학생 홈 공포·탐욕 카드 — 탭 [코인 | 미국 주식]. 구간 이름은 원천이 준 분류를 번역만 한다(우리가 임계값을 새로 정하지 않는다)
+//   1년 전·최근 1년 최고/최저는 시장 화면과 같은 응답(overview — 홈 page 가 한 번 불러 나눠 준다)·같은 함수(fngYearSummary)로 — 두 화면이 같은 값
 import { useState } from 'react'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 import { useJson } from '@/app/components/student/useJson'
-import type { CryptoFng } from '@/lib/cryptoFng'
+import type { CryptoFng, CryptoFngYear } from '@/lib/cryptoFng'
+import type { CnnFngYear } from '@/lib/cnnFng'
+import { viewOf, fngYearSummary, fngYearLine, type OverviewResp } from '@/lib/marketScreen'
+import type { JsonResult } from '@/app/components/student/useJson'
 import { card, CardHead, FailRow, noteStyle } from './homeUi'
 
 type Tab = 'coin' | 'us'
@@ -14,7 +18,7 @@ const CLASS_KO: Record<string, string> = { 'extreme fear': '극단 공포', fear
 const classKo = (c: unknown) => typeof c === 'string' ? CLASS_KO[c.trim().toLowerCase()] ?? null : null
 const num = (n: unknown): number | null => typeof n === 'number' && Number.isFinite(n) ? n : null
 
-function Gauge({ value, cls, past, source }: { value: number; cls: string | null; past: { label: string; v: number | null }[]; source: string }) {
+function Gauge({ value, cls, past, source, year }: { value: number; cls: string | null; past: { label: string; v: number | null }[]; source: string; year: React.ReactNode }) {
   const v = Math.max(0, Math.min(100, value))
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.sm }}>
@@ -29,20 +33,23 @@ function Gauge({ value, cls, past, source }: { value: number; cls: string | null
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FS.micro, color: TK.sub }}>
         <span>0 극단 공포</span><span>100 극단 탐욕</span>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: SP.sm }}>
+      {/* 한 칸 60px 밑으로 줄지 않고 다음 줄로(좁은 두 칸 배치에서 4칸 넘침 방지) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(60px, 1fr))', gap: SP.sm }}>
         {past.map(p => (
           <div key={p.label} style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, minWidth: 0 }}>
             <span style={{ fontSize: FS.micro, color: TK.sub, whiteSpace: 'nowrap' }}>{p.label}</span>
-            <span style={{ fontSize: FS.body, fontWeight: 700, color: p.v == null ? TK.sub : TK.slate200 }}>{p.v == null ? '—' : Math.round(p.v)}</span>
+            <span style={{ fontSize: p.v == null ? FS.tiny : FS.body, fontWeight: 700, color: p.v == null ? TK.sub : TK.slate200 }}>{p.v == null ? '없음' : Math.round(p.v)}</span>
           </div>
         ))}
       </div>
+      {year}
       <span style={{ fontSize: FS.micro, color: TK.sub }}>{source}</span>
     </div>
   )
 }
 
-export default function FearGreed() {
+/** overview = 홈 page 가 카드가 보일 때 부르는 요약(1년 값). 못 가져오면 1년 줄만 '못 가져옴' */
+export default function FearGreed({ overview }: { overview: JsonResult<OverviewResp> }) {
   const [tab, setTab] = useState<Tab>('coin')
   const [usOpened, setUsOpened] = useState(false)   // 미국 탭은 처음 누를 때 부른다(열어 본 뒤엔 그대로 둔다)
   const coin = useJson<{ fng?: CryptoFng | null; failed?: boolean }>('/api/coin-fng')
@@ -51,6 +58,19 @@ export default function FearGreed() {
   const pick = (t: Tab) => { setTab(t); if (t === 'us') setUsOpened(true) }
   const tabBtn = (on: boolean) => ({ height: 44, flex: 1, borderRadius: RAD.sm, border: 'none', background: on ? TK.bg7 : 'transparent', color: on ? TK.slate100 : TK.sub, fontSize: FS.tiny, fontWeight: on ? 700 : 500, cursor: 'pointer' })
 
+  // ── 1년(1년 전 칸 + 최고·최저 한 줄) ──
+  const yv = tab === 'us'
+    ? viewOf<OverviewResp, CnnFngYear>(overview, d => d.fng.cnn)
+    : viewOf<OverviewResp, CryptoFngYear>(overview, d => d.fng.crypto)
+  const yearAgo = yv.kind === 'ok' ? [{ label: '1년 전', v: (yv.data as CnnFngYear | CryptoFngYear).yearAgo }] : []
+  const yearNode = (now: number) => {
+    if (yv.kind === 'loading') return <span style={noteStyle()}>1년 기록을 불러오는 중…</span>
+    if (yv.kind === 'failed') return <FailRow text="1년 기록(1년 전·최고·최저)을 못 가져왔어요." onRetry={overview.reload} retryLabel="공포·탐욕 1년 기록 다시 불러오기" />
+    const y = yv.data as CnnFngYear | CryptoFngYear
+    const s = fngYearSummary(now, { yearHigh: y.yearHigh, yearLow: y.yearLow, range: y.range })
+    return <span style={noteStyle(TK.slate300)}>{s ? fngYearLine(s) : '최근 1년 최고·최저 기록이 없어요.'}</span>
+  }
+
   let body: React.ReactNode
   if (tab === 'coin') {
     const f = coin.data?.fng
@@ -58,7 +78,8 @@ export default function FearGreed() {
     else if (coin.state !== 'ok' || !f || num(f.now) == null) body = <FailRow text="코인 공포·탐욕 지수를 못 가져왔어요." onRetry={coin.reload} retryLabel="코인 공포·탐욕 지수 다시 불러오기" />
     else body = (
       <Gauge value={f.now as number} cls={classKo(f.cls)}
-        past={[{ label: '어제', v: num(f.yesterday) }, { label: '1주 전', v: num(f.weekAgo) }, { label: '1달 전', v: num(f.monthAgo) }]}
+        past={[{ label: '어제', v: num(f.yesterday) }, { label: '1주 전', v: num(f.weekAgo) }, { label: '1달 전', v: num(f.monthAgo) }, ...yearAgo]}
+        year={yearNode(Math.round(f.now as number))}
         source={`출처: alternative.me${f.date ? ` · ${f.date}` : ''}`} />
     )
   } else {
@@ -69,7 +90,8 @@ export default function FearGreed() {
     else if (d.source !== 'cnn' || num(d.partyScore) == null) body = <FailRow text="CNN 지수를 못 가져왔어요." onRetry={us.reload} retryLabel="미국 주식 공포·탐욕 지수 다시 불러오기" />
     else body = (
       <Gauge value={d.partyScore as number} cls={classKo(d.rating)}
-        past={[{ label: '전 거래일', v: num(d.prevClose) }, { label: '1주 전', v: num(d.prev1Week) }, { label: '1달 전', v: num(d.prev1Month) }]}
+        past={[{ label: '전 거래일', v: num(d.prevClose) }, { label: '1주 전', v: num(d.prev1Week) }, { label: '1달 전', v: num(d.prev1Month) }, ...yearAgo]}
+        year={yearNode(Math.round(d.partyScore as number))}
         source="출처: CNN Fear & Greed" />
     )
   }
