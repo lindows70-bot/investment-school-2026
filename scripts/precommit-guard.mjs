@@ -13,9 +13,11 @@
 //    문서에 제1-b 를 적어둔 뒤로도 색상 하드코딩 645 → 885 → **946**, fontSize 리터럴 4,211 → **4,786**
 //    (39종)으로 계속 늘었고 FS 토큰은 663곳(14%)뿐이다. 새로 태어나는 파일만이라도 원천 차단한다.
 //    (근거: "규칙 문서는 에이전트가 실수로 안 따른다 — 구조로 강제해야 한다" · /design 스킬 검토 2026-09-02)
-//  · 차단 대상은 둘 — 신규 파일의 디자인 값 하드코딩 · '조용히 깨지는' 캐시 키 불일치.
-//  · 우회: 그 줄에 `토큰예외: <이유>` 를 적거나(권장), 최후에 git commit --no-verify
+//  · 차단 대상은 셋 — 신규 파일의 디자인 값 하드코딩 · '조용히 깨지는' 캐시 키 불일치 ·
+//    정리 목록에 없는 날짜 캐시 키(2026-09-27 — 영구 누적으로 DB 한도 초과 사고).
+//  · 우회: 그 줄에 `토큰예외: <이유>`(날짜 키는 `캐시날짜예외: <이유>`)를 적거나(권장), 최후에 git commit --no-verify
 import { execSync } from 'child_process'
+import { findDatedCacheKeys, parseRulePrefixes, prefixFromDefinition } from './cacheDateGuard.mjs'
 
 const sh = (c) => { try { return execSync(c, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }) } catch { return '' } }
 const C = { r: '\x1b[31m', y: '\x1b[33m', g: '\x1b[32m', d: '\x1b[2m', b: '\x1b[1m', x: '\x1b[0m' }
@@ -142,6 +144,30 @@ if (stale.length) {
   }
   console.log(`${C.d}   → writer만 올리면 reader는 옛 키를 읽어 신호가 조용히 죽습니다(sector-rotation v9→v11 사건).${C.x}`)
   console.log(`${C.d}     grep -rnE "${stale[0].name}-v[0-9]+" src/ 로 전수 확인 후 함께 올리세요.${C.x}`)
+}
+
+// ── ④ 캐시 키에 날짜 — 정리 목록(PURGE_RULES)에 없는 접두어면 차단 ─────────────
+//    app_cache 에는 지우는 장치가 없어 날짜 키가 영구 누적된다(2026-09-26 tech-chart 926 MB → DB 한도 초과·읽기 전용).
+//    CLAUDE.md 문장만으로는 새 날짜 키가 계속 태어난다 — 판정은 scripts/cacheDateGuard.mjs(검증: verify-cache-purge.mjs).
+{
+  const rulePrefixes = parseRulePrefixes(sh('git show :src/lib/cachePurge.ts'))
+  const resolve = (name) => prefixFromDefinition(name, sh(`git grep -h --cached -E "\\b${name}\\s*(:[^=]+)?=" -- src/`).split('\n'))
+  const { violations, unresolved } = findDatedCacheKeys(addedByFile, rulePrefixes, resolve)
+  if (unresolved.length) {
+    warn(`날짜가 든 캐시 키 상수 ${unresolved.length}곳 — 정의를 못 찾아 접두어를 확인하지 못했습니다`)
+    unresolved.slice(0, 3).forEach(u => console.log(`${C.d}      ${u.f} — ${u.name} · ${u.l.trim().slice(0, 90)}${C.x}`))
+  }
+  if (violations.length) {
+    blocked = true
+    console.log(`${C.r}${C.b}⛔ 캐시 키에 날짜 — 정리 목록(PURGE_RULES)에 없는 접두어 ${violations.length}건${C.x}`)
+    for (const v of violations.slice(0, 8)) {
+      console.log(`${C.r}   ${v.f} — ${v.prefix}${C.x}`)
+      console.log(`${C.d}      ${v.l.trim().slice(0, 110)}${C.x}`)
+    }
+    if (violations.length > 8) console.log(`${C.d}      … 외 ${violations.length - 8}건${C.x}`)
+    console.log(`${C.d}   → 날짜 키는 영구 누적 — 날짜를 빼고 TTL/sameKstDay 로, 꼭 필요하면 cachePurge.ts PURGE_RULES 에 keepDays 와 함께 등록하세요.${C.x}`)
+    console.log(`${C.d}     정당한 사유가 있으면 그 줄에 "캐시날짜예외: <이유>" 를 적으세요(침묵 우회 대신 이유를 남깁니다).${C.x}`)
+  }
 }
 
 if (blocked) {

@@ -1,7 +1,9 @@
 // app_cache 정리 검증 — 허용 목록 밖 키는 절대 안 지우고, 보존 기간(날짜) 판정이 정확한지
-import { execSync } from 'node:child_process'
-import { existsSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
+import { execSync, spawnSync } from 'node:child_process'
+import { existsSync, writeFileSync, rmSync, readFileSync, mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import Module from 'node:module'
+import { findDatedCacheKeys, parseRulePrefixes, prefixFromDefinition } from './cacheDateGuard.mjs'
 
 const ROOT = 'C:/Users/lindo/investment-school-portfolio'
 const OUT = `${ROOT}/.bt-cache-purge`
@@ -184,6 +186,77 @@ check(`SQL A 섹션 토큰을 읽었다(${aTokens.length}개)`, aTokens.length >
 const aHits = aTokens.flatMap(t => usedIn(t.includes(':') ? exactKey(t) : keyUse(t)).map(f => `${t}@${f}`))
 check(`SQL A 섹션의 접두어·키가 코드에서 0건${aHits.length ? ' — 걸림: ' + aHits.slice(0, 8).join(', ') : ''}`, aHits.length === 0)
 check('SQL A 섹션에 허용 목록(현재) 접두어가 없다', !aTokens.some(t => P.PURGE_RULES.some(r => r.prefix === t)))
+
+// ── ⑧ 커밋 훅: 캐시 키에 날짜(scripts/cacheDateGuard.mjs · precommit-guard ④) ──
+const purgeSrc = readFileSync(`${ROOT}/src/lib/cachePurge.ts`, 'utf8')
+const RP = parseRulePrefixes(purgeSrc)
+const RPres = new Set(Array.from(RP).map(p => p.replace('${UNIFIED_RECO_V}', R.UNIFIED_RECO_V)))
+check(`훅의 규칙 파서 = 실제 PURGE_RULES(${RP.size}종 · 상수 결합 키 포함)`,
+  RP.size === P.PURGE_RULES.length && P.PURGE_RULES.every(r => RPres.has(r.prefix)))
+const srcLines = corpus.filter(c => c.f.startsWith('src/')).flatMap(c => c.s.split(/\r?\n/))
+const resolveReal = n => prefixFromDefinition(n, srcLines)
+const G = (lines, f = 'src/x.ts') => findDatedCacheKeys(new Map([[f, lines]]), RP, resolveReal)
+const blockedBy = lines => G(lines).violations.length > 0
+check('훅 ① 목록 밖 날짜 키 신규 추가 → 차단(kstDate · ${today} · toISOString · 월 키 · 따옴표+연결 · 키 없는 버전 변수 대입)', [
+  'const cacheKey = `probe-new-v1:${kstDate()}`',
+  'const cached = await getCache<X>(`probe-new-v1:${user.id}:${today}:${fp}`, 6 * 3600_000)',
+  "await setCache(`probe-new-v1:${new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)}`, out)",
+  'const k = `probe-new-v2:${lawd}:${new Date().toISOString().slice(0, 7)}`',
+  "const cacheKey = 'probe-new-v1:' + kstDate()",
+  'const radarKey = `probe-radar:${user.id}:${dateKey}:${fp}`',
+].every(l => blockedBy([l])))
+check('훅 ① 상수 함수 키 — 정의를 찾아 목록 밖이면 차단', findDatedCacheKeys(new Map([['src/x.ts', ['const v = await getCache(PROBE_KEY(kstDate()), 1)']]]), RP,
+  n => prefixFromDefinition(n, ['export const PROBE_KEY = (d: string) => `probe-new-v1:${d}`'])).violations.length === 1)
+check('훅 ② PURGE_RULES 에 있는 접두어 → 통과(일별·사용자별·상수 결합·상수 함수)', [
+  'const cacheKey = `win-lose-v9:${kstDate()}`',
+  'const radarKey = `guidance-radar:${user.id}:${today}:${fp}`',
+  'const cacheKey = `ai-rebalance-v52+${UNIFIED_RECO_V}:${user.id}:${kstDate()}:${fp}`',
+  'let mf = await getCache<MarketFlowKrResult>(MARKET_FLOW_KR_KEY(kstDate()), 24 * 3600_000)',
+  'const v = await getCache(SECTOR_ROTATION_KEY(today), 1)',
+].every(l => !blockedBy([l])))
+check('훅 ③ 예외 주석 → 통과', !blockedBy(['const cacheKey = `probe-new-v1:${kstDate()}`   // 캐시날짜예외: 시험용']))
+check('훅 ④ 날짜 없는 키 → 통과', [
+  'const cacheKey = `probe-new-v1:${ticker}:${market}`',
+  "const cached = await getCache<X>('probe-new-v1', 6 * 3600_000, { sameKstDay: true })",
+  'const key = `tech-chart-v2:${t}:${m}:${iv}`',
+].every(l => !blockedBy([l])))
+check('훅 오탐 없음 — URL·경로·React key·주석 줄·로그 문자열', [
+  'const r = await fetch(`https://api.example.com/v1:${kstDate()}`)',
+  'fetch(`${base}/api/x?date=${today}`)',
+  ".map(d => ({ key: `fomc:${d}`, date: d, label: 'x' }))",
+  '  // 옛 키는 `probe-new-v1:${kstDate()}` 였다',
+  'console.log(`done:${today}`)',
+].every(l => !blockedBy([l])))
+// 현재 코드 전체를 '추가된 줄'로 보면 btc-etf-v8(의도적 제외 — 옛 일자 문서를 like 로 읽는 seed 스크립트) 두 줄만 걸려야 한다
+const whole = findDatedCacheKeys(new Map(corpus.filter(c => /^src\/.*\.tsx?$/.test(c.f)).map(c => [c.f, c.s.split(/\r?\n/)])), RP, resolveReal)
+const wholeP = Array.from(new Set(whole.violations.map(v => v.prefix)))
+check(`현재 src 전체에서 목록 밖 날짜 키 = btc-etf-v8 뿐(걸림: ${wholeP.join(', ') || '없음'} · 못 푼 상수 ${whole.unresolved.length})`,
+  wholeP.length === 1 && wholeP[0] === 'btc-etf-v8' && whole.unresolved.length === 0)
+
+// 끝에서 끝 — 임시 인덱스(HEAD + 합성 파일)로 실제 훅을 돌린다. 작업 트리·실제 인덱스는 건드리지 않는다
+{
+  const tmp = mkdtempSync(`${tmpdir()}/cdg-`)
+  const env = { ...process.env, GIT_INDEX_FILE: `${tmp}/index` }
+  const git = (args, input) => spawnSync('git', args, { cwd: ROOT, env, input, encoding: 'utf8' })
+  const hook = (body) => {
+    git(['read-tree', 'HEAD'])
+    const blob = git(['hash-object', '-w', '--stdin'], body).stdout.trim()
+    git(['update-index', '--add', '--cacheinfo', `100644,${blob},src/__cache_date_probe__.ts`])
+    return spawnSync(process.execPath, ['scripts/precommit-guard.mjs'], { cwd: ROOT, env, encoding: 'utf8' })
+  }
+  try {
+    const r1 = hook('const cacheKey = `probe-new-v1:${kstDate()}`\n')
+    check('훅 끝에서 끝 ① 목록 밖 날짜 키 → exit 1 + 이유 문구', r1.status === 1 && /날짜 키는 영구 누적/.test(r1.stdout) && /probe-new-v1/.test(r1.stdout))
+    const r1b = hook('export const PROBE_KEY = (d: string) => `probe-new-v1:${d}`\nexport const x = () => getCache(PROBE_KEY(kstDate()), 1)\n')
+    check('훅 끝에서 끝 ① 상수 함수 키(정의를 인덱스에서 찾음) → exit 1', r1b.status === 1 && /probe-new-v1/.test(r1b.stdout))
+    const r2 = hook('const radarKey = `guidance-radar:${user.id}:${today}:${fp}`\nconst mf = getCache(MARKET_FLOW_KR_KEY(kstDate()), 1)\n')
+    check('훅 끝에서 끝 ② 목록에 있는 접두어 → exit 0', r2.status === 0 && !/날짜 키는 영구 누적/.test(r2.stdout))
+    const r3 = hook('const cacheKey = `probe-new-v1:${kstDate()}`   // 캐시날짜예외: 시험용\n')
+    check('훅 끝에서 끝 ③ 예외 주석 → exit 0', r3.status === 0)
+    const r4 = hook("const cacheKey = 'probe-new-v1'\n")
+    check('훅 끝에서 끝 ④ 날짜 없는 키 → exit 0', r4.status === 0)
+  } finally { rmSync(tmp, { recursive: true, force: true }) }
+}
 
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (캐시 정리)')
 process.exit(fail ? 1 : 0)
