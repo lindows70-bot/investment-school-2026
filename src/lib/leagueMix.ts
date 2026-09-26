@@ -2,7 +2,8 @@
 //
 // ◆ 입력 = 보유 행(평가액은 원화 환산 · 시세 없으면 매수원가로 대신한 값) · 출력 = 비중(%)만
 // ◆ 국가 = flagOf(market, ticker) — origin 은 넘기지 않는다(investments 테이블에 origin 이 없다).
-//   그래서 **상장 국가** 기준이다: TIGER 미국S&P500 같은 KR 상장 해외 ETF 는 '한국 ETF' 로 센다.
+//   그래서 **상장 국가** 기준이다: TIGER 미국S&P500(담은 건 미국 기업 94.7%)은 '한국 상장 ETF' 로 센다.
+//   라벨도 그래서 ETF 는 '○○ 상장 ETF' 다 — 담은 자산의 국적을 주장하지 않는다.
 //   담은 자산의 실질 국가(ETF 투시)는 etfLookThrough 의 몫이고, 여기서 추정해 바꾸지 않는다.
 // ◆ 자산 종류 = getAssetType(ticker, name, market) SSOT
 
@@ -58,7 +59,8 @@ function mixBucket(ticker: string, name: string, market: LeagueMarket, assetType
   const flag    = flagOf(market, ticker)
   const country = flag === '🇰🇷' ? 'KR' : flag === '🇺🇸' ? 'US' : 'OTHER'
   const cLabel  = country === 'KR' ? '한국' : country === 'US' ? '미국' : '기타 국가'
-  const tLabel  = assetType === 'ETF' ? 'ETF' : '주식'
+  // ETF 는 '상장 시장'으로만 이름 붙인다 — '한국 ETF'라 쓰면 담은 자산이 한국 것처럼 읽힌다(상장 시장 ≠ 자산의 국적)
+  const tLabel  = assetType === 'ETF' ? '상장 ETF' : '주식'
   return { key: `${country}_${assetType}`, label: `${cLabel} ${tLabel}` }
 }
 

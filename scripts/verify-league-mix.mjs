@@ -86,7 +86,7 @@ check('구성: 상위 3개만', r1.mix.length === 3)
 check('구성: 내림차순', r1.mix.every((m, i, a) => i === 0 || a[i - 1].weightPct >= m.weightPct))
 check('구성: 미국 주식 35%', near(labels['미국 주식'], 35))
 check('구성: 한국 주식 30%', near(labels['한국 주식'], 30))
-check('구성: 한국 ETF 20%', near(labels['한국 ETF'], 20))
+check('구성: 한국 상장 ETF 20%', near(labels['한국 상장 ETF'], 20))
 const full = M.buildLeagueMix([
   { ticker: 'KRW-BTC', name: '비트코인', market: 'CRYPTO', value: 40, priced: true },
   { ticker: 'GLD', name: 'SPDR Gold Shares', market: 'US', value: 30, priced: true },
@@ -98,10 +98,13 @@ check('구성: 코인 라벨', fl[0] === '코인' && full.mix[0].key === 'CRYPTO
 check('구성: 원자재 라벨(GLD)', fl[1] === '원자재')
 check('구성: 일본 접미사(.T) → 기타 국가 주식', fl[2] === '기타 국가 주식')
 const etfUs = M.buildLeagueMix([{ ticker: 'SPY', name: 'SPDR S&P 500 ETF', market: 'US', value: 10, priced: true }])
-check('구성: SPY → 미국 ETF', etfUs.mix[0]?.label === '미국 ETF' && etfUs.mix[0]?.key === 'US_ETF')
+check('구성: SPY → 미국 상장 ETF(키 US_ETF)', etfUs.mix[0]?.label === '미국 상장 ETF' && etfUs.mix[0]?.key === 'US_ETF')
 // 상장 국가 기준(문서화된 선택): KR 상장 해외 ETF 는 한국 ETF
 const krUsEtf = M.buildLeagueMix([{ ticker: '360750', name: 'TIGER 미국S&P500', market: 'KR', value: 10, priced: true }])
-check('구성: TIGER 미국S&P500 → 한국 ETF(상장 국가 기준)', krUsEtf.mix[0]?.label === '한국 ETF')
+check('구성: TIGER 미국S&P500 → 한국 상장 ETF(키 KR_ETF · 담은 자산 국적 아님)', krUsEtf.mix[0]?.label === '한국 상장 ETF' && krUsEtf.mix[0]?.key === 'KR_ETF')
+const foreignEtf = M.buildLeagueMix([{ ticker: 'VUSA.L', name: 'Vanguard S&P 500 UCITS ETF', market: 'US', value: 10, priced: true }])
+check('구성: 런던 상장 ETF → 기타 국가 상장 ETF(키 OTHER_ETF)', foreignEtf.mix[0]?.label === '기타 국가 상장 ETF' && foreignEtf.mix[0]?.key === 'OTHER_ETF')
+check('구성: ETF 라벨은 전부 "상장 ETF"(자산 국적 주장 없음)', [r1, etfUs, krUsEtf, foreignEtf].every(r => r.mix.every(m => !m.key.endsWith('_ETF') || m.label.endsWith('상장 ETF'))))
 
 // ③ 합계 0 → 빈 배열
 const z = M.buildLeagueMix([{ ticker: 'AAPL', name: '애플', market: 'US', value: 0, priced: true }])
