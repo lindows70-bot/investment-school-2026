@@ -2,6 +2,7 @@
 // 학생 셸의 로그아웃 버튼 — 세션을 끊고 로그인 화면으로 새로 연다(PC 왼쪽 메뉴·배우기 '내 계정'이 함께 쓴다)
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { clearViewMode } from '@/lib/viewMode'
 
 // 세션 쿠키 이름 — @supabase/ssr 0.10 이 document.cookie 로 path=/ · samesite=lax · httpOnly 아님으로 쓴다
 // (sb-<프로젝트>-auth-token, 길면 .0 .1 … 조각). code-verifier 쿠키는 일부러 안 걸린다.
@@ -35,6 +36,7 @@ export default function LogoutButton({ style }: { style: React.CSSProperties }) 
       console.error('[logout] signOut 예외 — 이 기기 세션을 직접 지운다', e)
       clearLocalSession()
     }
+    clearViewMode() // 공용 PC 에서 내 화면 모드 선택이 다음 학생에게 남지 않게
     // 하드 이동 — 클라이언트 캐시에 남은 내 화면이 뒤로 가기로 다시 보이지 않게
     window.location.href = '/login'
   }

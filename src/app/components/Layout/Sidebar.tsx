@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, Suspense } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { TK, FS, SP, FONT_STACK } from '@/lib/theme'
-import { setViewMode } from '@/lib/viewMode'
+import { setViewMode, clearViewMode } from '@/lib/viewMode'
 
 // ── 용도 기반 그룹 — "매일 보는 것"이 맨 위, 나머지는 사전(레퍼런스) ──
 //    ⭐ export 이유: 상단바(TopHeader)가 페이지 제목을 여기서 파생한다. 예전엔 제목 표가 따로 있어
@@ -137,6 +137,7 @@ function SidebarInner() {
 
   const handleLogout = async () => {
     await createClient().auth.signOut({ scope: 'global' })
+    clearViewMode() // 공용 PC 에서 화면 모드 선택이 다음 사람에게 남지 않게
     router.push('/login')
     router.refresh()
   }

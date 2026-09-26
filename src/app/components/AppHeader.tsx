@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { clearViewMode } from '@/lib/viewMode'
 import { TK, FONT_STACK } from '@/lib/theme'
 
 interface Props {
@@ -53,6 +54,7 @@ export default function AppHeader({ title, maxWidth = 1200, className }: Props) 
 
     // 공공장소 대비 — 모든 기기의 세션 제거
     await createClient().auth.signOut({ scope: 'global' })
+    clearViewMode() // 공용 PC 에서 화면 모드 선택이 다음 사람에게 남지 않게
 
     router.push('/login')
     router.refresh()

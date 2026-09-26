@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { clearViewMode } from '@/lib/viewMode'
 import { TK, FONT_STACK } from '@/lib/theme'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -49,6 +50,7 @@ export default function IdleTimer() {
     setShowWarning(false)
     // 이 기기만 끊는다 — global 이면 PC 탭 하나를 30분 방치해도 폰에 설치한 앱까지 로그아웃된다(2026-09-26 결정)
     await createClient().auth.signOut({ scope: 'local' })
+    clearViewMode() // 공용 PC 에서 화면 모드 선택이 다음 사람에게 남지 않게
     router.push('/login?reason=idle')
     router.refresh()
   }, [router])
