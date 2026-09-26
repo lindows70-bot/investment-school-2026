@@ -12,8 +12,12 @@ import {
 // pc = 터치 기기가 아닌 컴퓨터(폰에서 열라고 안내) · other = 그 밖의 폰 브라우저
 type Mode = 'hidden' | 'prompt' | 'ios' | 'android' | 'pc' | 'other'
 
-// 마우스가 주 입력이면 컴퓨터로 본다 — PC 크롬에서 "크롬에서 열면"이라고 안내하던 거짓 문구를 막는다
-const isPc = () => !window.matchMedia('(pointer: coarse)').matches
+// 폰·태블릿 UA 가 아니면 컴퓨터로 본다 — PC 크롬에서 "크롬에서 열면"이라고 안내하던 거짓 문구를 막는다.
+// (pointer: coarse) 로 가르면 터치스크린 윈도우 노트북이 폰으로 잡힌다(2026-09-26 실측: maxTouchPoints 10 · coarse true)
+const isPc = () => {
+  const ua = navigator.userAgent
+  return !/Mobi|Android|iPhone|iPad|iPod/.test(ua) && !(/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
+}
 
 function detect(): Mode {
   const nav = navigator as Navigator & { standalone?: boolean }
