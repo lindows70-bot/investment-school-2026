@@ -4,19 +4,9 @@
 import https from 'node:https'
 import zlib from 'node:zlib'
 import { getCache, setCache } from '@/lib/appCache'
-
-// ── 추적 대상: 전설적 투자자 9인 (CIK 검증 완료) ──────────────────────────────────
-export const FUNDS: { cik: string; mgr: string; fund: string }[] = [
-  { cik: '0001067983', mgr: '워런 버핏',      fund: '버크셔 해서웨이' },
-  { cik: '0001336528', mgr: '빌 애크먼',      fund: '퍼싱스퀘어' },
-  { cik: '0001536411', mgr: '스탠리 드러켄밀러', fund: '듀케인 패밀리오피스' },
-  { cik: '0001350694', mgr: '레이 달리오',     fund: '브리지워터' },
-  { cik: '0001166559', mgr: '빌 게이츠',       fund: '게이츠 재단' },
-  { cik: '0001061165', mgr: '스티브 맨델',     fund: '론파인 캐피털' },
-  { cik: '0001709323', mgr: '리 루',          fund: '히말라야 캐피털' },
-  { cik: '0001603466', mgr: '스티브 코언',     fund: '포인트72' },
-  { cik: '0001656456', mgr: '데이비드 테퍼',   fund: '아팔루사' },
-]
+// 거장 목록은 브라우저에서도 쓰도록 import 없는 lib 로 분리 — 기존 `import { FUNDS } from '@/lib/guru13f'` 는 그대로 동작
+import { FUNDS } from '@/lib/guruFunds'
+export { FUNDS }
 
 export interface Holding { name: string; cusip: string; sh: number; val: number }   // cusip=종목 고유번호(분기 불변) — 이름 드리프트에 안 흔들리는 매칭 키
 export interface FundData { mgr: string; fund: string; cur: Holding[]; prev: Holding[]; total: number; asOf: string }
