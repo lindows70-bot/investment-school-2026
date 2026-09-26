@@ -15,6 +15,8 @@ import KrMovers from '@/app/components/student/market/KrMovers'
 import KrIndustry from '@/app/components/student/market/KrIndustry'
 import KrNews from '@/app/components/student/market/KrNews'
 import StrongSectors from '@/app/components/student/market/StrongSectors'
+import UsPanel from '@/app/components/student/market/UsPanel'
+import CoinPanel from '@/app/components/student/market/CoinPanel'
 
 type Tab = 'kr' | 'us' | 'coin'
 const TABS: { key: Tab; label: string }[] = [{ key: 'kr', label: '국내' }, { key: 'us', label: '미국' }, { key: 'coin', label: '코인' }]
@@ -67,6 +69,8 @@ function MarketScreen() {
       </div>
 
       {opened.includes('kr') && <div style={panel('kr')}><KrPanel overview={overview} ovRef={ovRefA} /></div>}
+      {opened.includes('us') && <div style={panel('us')}><UsPanel /></div>}
+      {opened.includes('coin') && <div style={panel('coin')}><CoinPanel /></div>}
     </div>
   )
 }

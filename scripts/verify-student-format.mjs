@@ -88,6 +88,10 @@ check('signEok(-14649) — 조 단위도 부호', F.signEok(-14649), '−1조 4,
 check('signEok(0.3) — 0억은 부호 없음', F.signEok(0.3), '0억')
 check('fxWon(1359) — 환율은 소수 둘째 자리', F.fxWon(1359), '1,359.00원')
 check('fxWon(1361.5) — 끝 0 유지', F.fxWon(1361.5), '1,361.50원')
+check('usdBig(4.32e12) — 조 달러 소수 한 자리', F.usdBig(4.32e12), '4.3조 달러')
+check('usdBig(3e12) — 끝 .0 없음', F.usdBig(3e12), '3조 달러')
+check('usdBig(3.5e11) — 억 달러', F.usdBig(3.5e11), '3,500억 달러')
+check('usdBig(5e7) — 1억 달러 미만은 달러', F.usdBig(5e7), '$50,000,000.00')
 
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (학생 화면 숫자 표기)')
 process.exit(fail ? 1 : 0)

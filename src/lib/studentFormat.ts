@@ -58,3 +58,12 @@ export const signEok = (n: number) => {
 
 /** 환율(원/달러) — 고시값 그대로 소수 둘째 자리(1,359.00원) */
 export const fxWon = (n: number) => `${n.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}원`
+
+/** 큰 달러 금액(시가총액) — 1조 달러 이상은 '4.3조 달러'(소수 한 자리까지), 1억 달러 이상은 '3,500억 달러', 그 밑은 usd() */
+export function usdBig(n: number): string {
+  const a = Math.abs(n)
+  const body = a >= 1e12 ? `${(a / 1e12).toLocaleString('ko-KR', { maximumFractionDigits: 1 })}조 달러`
+    : a >= 1e8 ? `${Math.round(a / 1e8).toLocaleString('ko-KR')}억 달러`
+    : usd(a)
+  return n < 0 ? `${MINUS}${body}` : body
+}
