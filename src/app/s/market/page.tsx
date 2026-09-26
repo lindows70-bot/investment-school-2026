@@ -17,6 +17,8 @@ import KrNews from '@/app/components/student/market/KrNews'
 import StrongSectors from '@/app/components/student/market/StrongSectors'
 import UsPanel from '@/app/components/student/market/UsPanel'
 import CoinPanel from '@/app/components/student/market/CoinPanel'
+import FearGreedYear from '@/app/components/student/market/FearGreedYear'
+import FxTrendCard from '@/app/components/student/market/FxTrendCard'
 
 type Tab = 'kr' | 'us' | 'coin'
 const TABS: { key: Tab; label: string }[] = [{ key: 'kr', label: '국내' }, { key: 'us', label: '미국' }, { key: 'coin', label: '코인' }]
@@ -51,7 +53,8 @@ function MarketScreen() {
 
   // 요즘 강한 분야(국내)와 아래 요약 카드가 같은 응답을 쓴다 — 둘 중 하나가 화면에 들어오면 한 번 부른다
   const [ovRefA, seenA] = useInView<HTMLElement>()
-  const overview = useJson<OverviewResp>('/api/market-board/overview', { enabled: seenA })
+  const [ovRefB, seenB] = useInView<HTMLDivElement>()
+  const overview = useJson<OverviewResp>('/api/market-board/overview', { enabled: seenA || seenB })
 
   const panel = (t: Tab) => ({ display: tab === t ? 'flex' : 'none', flexDirection: 'column', gap: SP.lg } as const)
 
@@ -71,6 +74,12 @@ function MarketScreen() {
       {opened.includes('kr') && <div style={panel('kr')}><KrPanel overview={overview} ovRef={ovRefA} /></div>}
       {opened.includes('us') && <div style={panel('us')}><UsPanel /></div>}
       {opened.includes('coin') && <div style={panel('coin')}><CoinPanel /></div>}
+
+      {/* 세 탭 공통 — 공포·탐욕(국내·미국 탭은 미국 주식, 코인 탭은 코인이 먼저) · 환율 추이 */}
+      <div ref={ovRefB} className="mk-two">
+        <FearGreedYear overview={overview} active={seenB} defaultSide={tab === 'coin' ? 'coin' : 'us'} />
+        <FxTrendCard overview={overview} />
+      </div>
     </div>
   )
 }

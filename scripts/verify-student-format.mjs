@@ -92,6 +92,9 @@ check('usdBig(4.32e12) — 조 달러 소수 한 자리', F.usdBig(4.32e12), '4.
 check('usdBig(3e12) — 끝 .0 없음', F.usdBig(3e12), '3조 달러')
 check('usdBig(3.5e11) — 억 달러', F.usdBig(3.5e11), '3,500억 달러')
 check('usdBig(5e7) — 1억 달러 미만은 달러', F.usdBig(5e7), '$50,000,000.00')
+check('signFx(3.5) — 환율 차이 +', F.signFx(3.5), '+3.50원')
+check('signFx(-2.3) — 음수 U+2212', F.signFx(-2.3), '−2.30원')
+check('signFx(-0.001) — 0 은 부호 없음', F.signFx(-0.001), '0.00원')
 
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (학생 화면 숫자 표기)')
 process.exit(fail ? 1 : 0)

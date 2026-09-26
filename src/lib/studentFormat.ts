@@ -67,3 +67,9 @@ export function usdBig(n: number): string {
     : usd(a)
   return n < 0 ? `${MINUS}${body}` : body
 }
+
+/** 부호 붙은 환율 차이(원) — 소수 둘째 자리, 음수 부호 '−', 0 은 부호 없이 */
+export const signFx = (n: number) => {
+  const r = Math.round(n * 100) / 100
+  return `${sign(r)}${fxWon(Math.abs(r))}`
+}

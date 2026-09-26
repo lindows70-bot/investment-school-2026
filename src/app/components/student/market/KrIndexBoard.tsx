@@ -89,7 +89,7 @@ export default function KrIndexBoard({ kr }: { kr: JsonResult<KrBoardResp> }) {
                 {([['개인', integ.data.investors.personal], ['외국인', integ.data.investors.foreign], ['기관', integ.data.investors.institutional]] as const).map(([name, v]) => (
                   <div key={name} style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, minWidth: 0 }}>
                     <span style={{ fontSize: FS.tiny, color: TK.sub }}>{name}</span>
-                    <span style={{ fontSize: FS.body, fontWeight: 700, color: v == null ? TK.sub : upDown(v), overflowWrap: 'anywhere' }}>{v == null ? '모름' : signEok(v)}</span>
+                    <span style={{ fontSize: FS.body, fontWeight: 700, color: v == null ? TK.sub : upDown(v), overflowWrap: 'break-word' }}>{v == null ? '모름' : signEok(v)}</span>
                   </div>
                 ))}
               </div>
