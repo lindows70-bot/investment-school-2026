@@ -49,11 +49,14 @@ export default function StudentHome() {
       {/* 폰이 기본, 769px↑ 만 덮어쓴다 — 기본값 + min-width 하나라 두 조건이 정확한 여집합이다 */}
       <style>{`
         .sh-idx-grid { grid-template-columns: minmax(0, 1fr) }
-        .sh-idx { display: flex; flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: wrap }
+        .sh-idx { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center }
+        .sh-spark { height: 32px; min-width: 0 }
         .sh-two { display: grid; grid-template-columns: minmax(0, 1fr); gap: ${SP.lg}px; align-items: start }
         @media (min-width: 769px) {
           .sh-idx-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) }
-          .sh-idx { flex-direction: column; align-items: flex-start; justify-content: flex-start }
+          .sh-idx { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start }
+          .sh-spark { order: 3; height: 40px }
+          .sh-idx-v { justify-content: flex-start !important }
           .sh-two { grid-template-columns: repeat(2, minmax(0, 1fr)) }
         }
       `}</style>

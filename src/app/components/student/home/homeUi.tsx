@@ -45,7 +45,7 @@ export function FailRow({ text, onRetry, retryLabel }: { text: string; onRetry?:
 export const retryBtn = { height: 44, padding: `0 ${SP.lg}px`, borderRadius: RAD.sm, border: `1px solid ${TK.line1}`, background: 'transparent', color: TK.slate200, fontSize: FS.tiny, cursor: 'pointer', flexShrink: 0 } as const
 
 // 홈 페이지가 한 번 불러 여러 카드에 나눠 주는 응답(같은 원천을 두 번 부르지 않게) — 쓰는 필드만 적는다
-export interface IndexRow { id: string; value: number; changePct: number }
+export interface IndexRow { id: string; value: number; changePct: number; change?: number; chartData?: unknown }   // chartData = 장중 점(지수 카드 미니 선) — 모양은 sparkSeries 가 검사
 export interface CalEventRow { type: string; date: string; ticker: string; name: string }   // dDay 는 캐시 시점 기준이라 안 쓴다 — 날짜로 거른다
 export interface CalendarResp { events?: CalEventRow[] }
 export interface FxResp { rate?: unknown; source?: unknown }
