@@ -57,5 +57,5 @@ quotes.md 51개를 **글자 그대로** 옮긴다: `{ id, person, ko, original, 
 검증 스크립트 전부 · `check:build` · 화면 실측(크롬 · 3100 build-check) · 기록 · 배포.
 
 ## 범위 밖(따로 알림)
-- `/api/school-league` GET 이 `asset_role` 을 `classifyAsset` 으로 **덮어쓴다**(수동 코어/위성 선택이 되돌아감) — 기존 동작, 별도 작업.
+- `/api/school-league` GET 이 `asset_role` 을 `classifyAsset` 으로 **덮어쓴다**(수동 코어/위성 선택이 되돌아감) — 기존 동작, 별도 작업. → 2026-09-26 `migrateAssetRoles` 제거로 해결.
 - `analysis/page.tsx:873-877` 의 버핏 "Rule No.1" 은 quotes.md 가 **원문 미확인으로 제외**한 문구 — 별도 작업.

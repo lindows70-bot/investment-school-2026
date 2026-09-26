@@ -85,7 +85,6 @@ export interface SchoolLeagueData {
   trendingStocks:   TrendingStock[]
   schoolLynchAvg:   LynchDistribution  // 등록자 전체 Satellite Lynch 평균 비중
   computedAt:       string
-  migratedCount:    number
 }
 
 // ── Lynch 분포 초기값 ────────────────────────────────────────────
@@ -136,36 +135,6 @@ const TICKER_COLORS = [
   TK.orange400,TK.purple400,TK.red400,TK.indigo400,TK.emerald400,
 ]
 
-// ── 인라인 마이그레이션 헬퍼 ─────────────────────────────────────
-// school-league 집계 전 asset_role 소급 정정 (불일치 항목만 업데이트)
-async function migrateAssetRoles(
-  sb: ReturnType<typeof adminClient>,
-  investments: { id: string; ticker: string | null; name: string | null; market: string | null; asset_role: string | null }[]
-): Promise<{ updated: number }> {
-  const toUpdate: { id: string; asset_role: 'CORE' | 'SATELLITE' }[] = []
-
-  for (const inv of investments) {
-    const market     = (inv.market ?? 'KR') as 'US' | 'KR' | 'CRYPTO'
-    const classified = classifyAsset(inv.ticker ?? '', inv.name ?? '', market)
-    if (inv.asset_role !== classified) {
-      toUpdate.push({ id: inv.id, asset_role: classified })
-    }
-  }
-
-  if (toUpdate.length === 0) return { updated: 0 }
-
-  // ★ update().eq() 방식 — upsert는 NOT NULL 컬럼을 덮어써 데이터 손상 위험
-  const results = await Promise.allSettled(
-    toUpdate.map(({ id, asset_role }) =>
-      sb.from('investments').update({ asset_role }).eq('id', id)
-    )
-  )
-  const updated = results.filter(r => r.status === 'fulfilled' && !(r as PromiseFulfilledResult<{error:unknown}>).value.error).length
-
-  console.log(`[school-league] asset_role 소급 정정: ${updated}/${toUpdate.length}개 업데이트`)
-  return { updated }
-}
-
 // ── Route Handler ────────────────────────────────────────────────
 export async function GET(req: Request) {
   // 🔒 실명·수익률·보유종목을 서비스롤로 모으므로 로그인 학생에게만 연다(2026-09-25).
@@ -198,19 +167,10 @@ export async function GET(req: Request) {
       .select('id, user_id, ticker, name, market, currency, purchase_price, quantity, asset_role, lynch_category')
 
     if (invErr) throw invErr
-    let investments = allInvestments ?? []
-
-    // ── 2-b. asset_role 소급 정정 (classifyAsset 기준 불일치 항목 업데이트) ──
-    // 집계 전 DB를 먼저 정정하고, 정정된 값으로 stats 계산
-    let migratedCount = 0
-    ;({ updated: migratedCount } = await migrateAssetRoles(sb, investments))
-    if (migratedCount > 0) {
-      // 업데이트가 발생했으면 최신 데이터 다시 조회
-      const { data: refreshed } = await sb
-        .from('investments')
-        .select('id, user_id, ticker, name, market, currency, purchase_price, quantity, asset_role, lynch_category')
-      if (refreshed) investments = refreshed
-    }
+    // ⚠️ 여기서 asset_role 을 classifyAsset 으로 덮어쓰던 '소급 정정'(migrateAssetRoles)을 없앴다(2026-09-26).
+    //    GET 마다 전 학생 행을 서비스롤로 고쳐 써서, 자산 화면에서 고른 코어/위성이 누가 리그·학생 홈을 열 때마다 되돌아갔다.
+    //    읽을 때는 DB 값만 쓴다(신규 행은 입력 시점에 classifyAsset 이 붙는다).
+    const investments = allInvestments ?? []
 
     // user_id별 투자 목록 그룹핑
     const invByUser: Record<string, typeof investments> = {}
@@ -424,7 +384,6 @@ export async function GET(req: Request) {
       trendingStocks,
       schoolLynchAvg,
       computedAt:    new Date().toISOString(),
-      migratedCount,
     }
 
     return NextResponse.json(result, {
