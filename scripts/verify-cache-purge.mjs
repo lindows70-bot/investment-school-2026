@@ -146,7 +146,8 @@ check("경계 일치: '+' 결합 키 — 앞 버전을 올리면 옛 규칙이 �
   formsOf(`ai-rebalance-v52+${R.UNIFIED_RECO_V}`).some(f => keyUse(f).test('`ai-rebalance-v52+${UNIFIED_RECO_V}:${user.id}`')) &&
   !formsOf(`ai-rebalance-v52+${R.UNIFIED_RECO_V}`).some(f => keyUse(f).test('`ai-rebalance-v53+${UNIFIED_RECO_V}:${user.id}`')))
 
-const SELF = ['src/lib/cachePurge.ts', 'scripts/verify-cache-purge.mjs', 'supabase/app-cache-purge.sql']
+// app-cache-purge-rest.sql 은 A-2~A-27 을 한 문장으로 묶은 일회성 사본이라 같은 옛 접두어를 담는다
+const SELF = ['src/lib/cachePurge.ts', 'scripts/verify-cache-purge.mjs', 'supabase/app-cache-purge.sql', 'supabase/app-cache-purge-rest.sql']
 const files = execSync('git ls-files src scripts supabase', { cwd: ROOT, stdio: 'pipe' }).toString().trim().split('\n')
   .filter(f => /\.(ts|tsx|js|mjs|cjs|py|sql)$/.test(f) && !SELF.includes(f))
 const corpus = files.map(f => ({ f, s: readFileSync(`${ROOT}/${f}`, 'utf8') }))
