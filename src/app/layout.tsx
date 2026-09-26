@@ -18,7 +18,11 @@ import { TK, FONT_STACK } from '@/lib/theme'
 export const metadata: Metadata = {
   title: { default: '2026 투자학교', template: '%s · 2026 투자학교' },
   description: '투자학교 포트폴리오 관리 · 피터 린치 6대 분류 · 수익률 분석',
-  icons: { icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }] },
+  icons: { icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }], apple: '/icons/apple-touch-icon.png' },
+  // 아이폰 '홈 화면에 추가' — 주소창 없이 앱처럼 열린다.
+  // 상태 표시줄은 'black'(화면이 그 아래에서 시작) — 'black-translucent' 는 화면을 시계·노치 **밑으로** 겹치는데,
+  // 앱 어디에도 env(safe-area-inset-top) 여백이 없어(2026-09-26 grep 0건) 제목이 시계에 가려진다.
+  appleWebApp: { capable: true, title: '투자학교', statusBarStyle: 'black' },
 }
 
 // viewportFit cover 가 없으면 iOS 에서 env(safe-area-inset-bottom) 이 항상 0 — 하단 탭바 safe-area 패딩의 전제
