@@ -878,21 +878,21 @@ export default function DashboardPage() {
       try {
         const res = await fetch('/api/exchange-rate')
         if (res.ok) {
-          const j = await res.json() as { rate: number }
-          const { rate } = j
-          if (typeof rate === 'number' && rate > 0) {
+          // 고정 상수(stale-constant)는 '실시간'이 아니다 — acceptFx 를 통과한 값만 실시간으로 표기하고 1시간 공유 캐시에 넣는다(TopHeader 가 같은 키를 읽는다)
+          const rate = acceptFx(await res.json())
+          if (rate != null) {
             const rounded = Math.round(rate)
             setUsdKrw(rounded)
             setRateSource('실시간 환율 (1시간 갱신)')
-            // 고정 상수(stale-constant)는 1시간 공유 캐시에 넣지 않는다 — TopHeader 가 같은 키를 읽는다
-            if (acceptFx(j) != null) localStorage.setItem(CACHE_KEY, JSON.stringify({ rate: rounded, savedAt: new Date().toISOString() }))
+            try { localStorage.setItem(CACHE_KEY, JSON.stringify({ rate: rounded, savedAt: new Date().toISOString() })) } catch { /* 저장 불가 환경 — 받은 환율은 그대로 쓴다('못 가져옴'으로 떨어지지 않게) */ }
             return
           }
         }
       } catch { /* fallback */ }
 
       setUsdKrw(USD_KRW_FALLBACK)
-      setRateSource('기본값 ₩1,350')
+      // 값은 상수에서 뽑는다(리터럴 금지 — 예전 문구 '기본값 ₩1,350' 은 SSOT 1,400 과 달랐다)
+      setRateSource(`환율을 못 가져와 기본값 ₩${USD_KRW_FALLBACK.toLocaleString('ko-KR')}으로 계산 중`)
     }
 
     fetchRate()
