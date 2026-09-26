@@ -1,7 +1,8 @@
 'use client'
 // 학생 홈 지수 카드 3개 — 코스피·S&P 500(market-indices) · 비트코인(stock-price 업비트 원화) + 칸마다 미니 선. 폰은 한 줄씩, PC 는 3칸
 //   미니 선은 이미 받는 응답을 쓴다(새 요청 없음): 지수 = market-indices 의 장중 chartData(코스피는 네이버 분봉), 비트코인 = stock-price 의 1D(지난 24시간 1시간봉).
-//   점선 = 전날 종가(값 − 등락). 비트코인은 등락 기준(오전 9시)과 선의 시작(24시간 전)이 달라 기준선을 긋지 않는다.
+//   점선 = 전날 종가(값 − 등락). 비트코인은 등락 기준(오전 9시)과 선의 시작(24시간 전)이 달라 기준선을 긋지 않고,
+//   선 색도 등락색이 아니라 중립색이다(등락률은 올랐는데 24시간 선은 내려가는 모양일 수 있다).
 import Link from 'next/link'
 import { TK, FS, SP } from '@/lib/theme'
 import { useJson, type JsonResult } from '@/app/components/student/useJson'
@@ -11,7 +12,8 @@ import { LinePlot } from '@/app/components/student/market/marketUi'
 import { card, noteStyle, retryBtn, type IndexRow } from './homeUi'
 
 type Spark = { t: number; v: number }[] | null
-type Cell = { kind: 'loading' } | { kind: 'failed' } | { kind: 'ok'; value: string; changePct: number; spark: Spark; baseline: number | null; vFmt: (v: number) => string }
+/** lineColor = 미니 선 색 — 지수는 등락색(선과 등락의 기준이 같은 전날 종가), 비트코인은 중립색 */
+type Cell = { kind: 'loading' } | { kind: 'failed' } | { kind: 'ok'; value: string; changePct: number; spark: Spark; baseline: number | null; lineColor: string; vFmt: (v: number) => string }
 interface PriceRow { ticker?: unknown; currentPrice?: unknown; changePct?: unknown; error?: unknown; charts?: { '1D'?: unknown } }
 const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)
 const BTC_BODY = [{ ticker: 'BTC', market: 'CRYPTO' }]
@@ -24,7 +26,7 @@ function IndexCard({ label, cell, onRetry }: { label: string; cell: Cell; onRetr
       {/* 미니 선 — 못 그리면(점 부족·가짜 평평선) 빈 자리. 축 없음 */}
       <div className="sh-spark" aria-hidden>
         {cell.kind === 'ok' && cell.spark && (
-          <LinePlot points={cell.spark} color={upDown(cell.changePct)} baseline={cell.baseline} tFmt={hm} vFmt={cell.vFmt} />
+          <LinePlot points={cell.spark} color={cell.lineColor} baseline={cell.baseline} tFmt={hm} vFmt={cell.vFmt} a11y={false} />
         )}
       </div>
       {cell.kind === 'loading' && <span style={noteStyle()}>불러오는 중…</span>}
@@ -53,7 +55,7 @@ export default function IndexCards({ indices }: { indices: JsonResult<IndexRow[]
     const row = indices.state === 'ok' && Array.isArray(indices.data) ? indices.data.find(x => x?.id === id) : undefined
     if (!(row && isNum(row.value) && row.value > 0 && isNum(row.changePct))) return { kind: 'failed' }
     return {
-      kind: 'ok', value: points(row.value), changePct: row.changePct, vFmt: points,
+      kind: 'ok', value: points(row.value), changePct: row.changePct, vFmt: points, lineColor: upDown(row.changePct),
       spark: sparkSeries(row.chartData), baseline: isNum(row.change) ? row.value - row.change : null,
     }
   }
@@ -62,7 +64,7 @@ export default function IndexCards({ indices }: { indices: JsonResult<IndexRow[]
     const row = btc.state === 'ok' && Array.isArray(btc.data) ? btc.data.find(x => typeof x?.ticker === 'string' && x.ticker.toUpperCase() === 'BTC') : undefined
     // error 가 붙은 행은 지난 캐시 시세이거나 실패 폴백(가격 0) — 지금 가격이 아니다
     if (!(row && !row.error && isNum(row.currentPrice) && row.currentPrice > 0 && isNum(row.changePct))) return { kind: 'failed' }
-    return { kind: 'ok', value: won(row.currentPrice), changePct: row.changePct, vFmt: won, spark: sparkSeries(row.charts?.['1D']), baseline: null }
+    return { kind: 'ok', value: won(row.currentPrice), changePct: row.changePct, vFmt: won, spark: sparkSeries(row.charts?.['1D']), baseline: null, lineColor: TK.slate300 }
   })()
 
   return (

@@ -12,6 +12,8 @@ export interface LinePlotProps {
   baseline?: number | null
   tFmt: (t: number) => string
   vFmt: (v: number) => string
+  /** false = 장식용 미니 선 — recharts 접근성 층(키보드 포커스·낭독)을 끈다. 값은 옆 글자가 말한다(홈 지수·환율 미니 선) */
+  a11y?: boolean
 }
 
 function Tip({ active, payload, tFmt, vFmt }: { active?: boolean; payload?: ReadonlyArray<{ payload?: PlotPoint }>; tFmt: (t: number) => string; vFmt: (v: number) => string }) {
@@ -24,14 +26,14 @@ function Tip({ active, payload, tFmt, vFmt }: { active?: boolean; payload?: Read
   )
 }
 
-export default function LinePlot({ points, color, baseline, tFmt, vFmt }: LinePlotProps) {
+export default function LinePlot({ points, color, baseline, tFmt, vFmt, a11y = true }: LinePlotProps) {
   const vs = points.map(p => p.v)
   if (baseline != null) vs.push(baseline)   // 기준선이 늘 보이게 세로 범위에 넣는다
   const lo = Math.min(...vs), hi = Math.max(...vs)
   const pad = (hi - lo) * 0.08 || Math.abs(hi) * 0.001 || 1
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={points} margin={{ top: SP.xs, right: SP.xs, bottom: SP.xs, left: SP.xs }}>
+      <LineChart data={points} margin={{ top: SP.xs, right: SP.xs, bottom: SP.xs, left: SP.xs }} accessibilityLayer={a11y}>
         <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} hide />
         <YAxis domain={[lo - pad, hi + pad]} hide />
         {baseline != null && <ReferenceLine y={baseline} stroke={TK.sub} strokeDasharray="4 4" />}
