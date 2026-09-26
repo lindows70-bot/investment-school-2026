@@ -81,8 +81,9 @@ function earningsPart(events: HomeBriefInput['events']): Part {
   return { text: n > 0 ? `실적 발표 7일 안 ${n}건` : '7일 안 실적 발표 없음' }
 }
 
-function moverParts(m: HomeBriefInput['movers']): Part[] {
-  if (m == null) return [{ text: '움직임 못 가져옴', tone: 'muted' }]
+/** 움직임 — 조각 묶음들. 일부 확인 실패는 마지막 종목에 붙어 보이지 않게 따로 떨어진 묶음으로 */
+function moverGroups(m: HomeBriefInput['movers']): Part[][] {
+  if (m == null) return [[{ text: '움직임 못 가져옴', tone: 'muted' }]]
   const big = m.held
     .filter(h => isNum(h.changePct) && Math.abs(h.changePct) >= MOVE_MIN)
     .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))
@@ -96,30 +97,34 @@ function moverParts(m: HomeBriefInput['movers']): Part[] {
     })
     if (big.length > 2) parts.push({ text: ` 외 ${big.length - 2}` })
   }
-  if (isNum(m.failed) && m.failed > 0) parts.push({ text: ' (일부 확인 못 함)', tone: 'warn' })
-  return parts
+  const groups = [parts]
+  if (isNum(m.failed) && m.failed > 0) groups.push([{ text: '일부 종목은 확인 못 함', tone: 'warn' }])
+  return groups
 }
 
 function mineLine(input: HomeBriefInput, today: string): Line {
-  return { parts: [{ text: '내 종목: ' }, ...joinParts([[signalPart(input.signals, today)], [earningsPart(input.events)], moverParts(input.movers)])] }
+  return { parts: [{ text: '내 종목: ' }, ...joinParts([[signalPart(input.signals, today)], [earningsPart(input.events)], ...moverGroups(input.movers)])] }
 }
 
 function upcomingLine(input: HomeBriefInput, today: string): Line {
-  const groups: Part[][] = []
+  const dated: { date: string; part: Part }[] = []   // 날짜 있는 일정 — 날짜순으로 낸다
+  const unknown: Part[] = []                          // 못 가져온 원천 — 날짜순 뒤에
   // FOMC — 오늘 포함 이후 첫 회의. 회의 간격(6~7주)이 30일보다 길어 창을 두지 않는다
   if (input.fomcDates == null) {
-    groups.push([{ text: 'FOMC 일정 못 가져옴', tone: 'muted' }])
+    unknown.push({ text: 'FOMC 일정 못 가져옴', tone: 'muted' })
   } else {
     const next = input.fomcDates.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= today).sort()[0]
-    if (next) groups.push([{ text: `${md(next)} FOMC 금리 결정` }])
+    if (next) dated.push({ date: next, part: { text: `${md(next)} FOMC 금리 결정` } })
   }
   // 내 종목 실적 — 30일 안 가장 가까운 1건(7일 넘어도 여기엔 나온다)
   if (input.events == null) {
-    groups.push([{ text: '일정 못 가져옴', tone: 'muted' }])
+    unknown.push({ text: '일정 못 가져옴', tone: 'muted' })
   } else {
     const e = earningsWithin(input.events, UPCOMING_DAYS)[0]
-    if (e) groups.push([{ text: `${md(e.date)} ${e.name} 실적` }])
+    if (e) dated.push({ date: e.date, part: { text: `${md(e.date)} ${e.name} 실적` } })
   }
+  dated.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
+  const groups: Part[][] = [...dated.map(d => [d.part]), ...unknown.map(u => [u])]
   if (groups.length === 0) groups.push([{ text: `${UPCOMING_DAYS}일 안에 잡힌 일정이 없어요` }])
   return { parts: [{ text: '다가오는 일정: ' }, ...joinParts(groups)] }
 }
