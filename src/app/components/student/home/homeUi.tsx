@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { TK, FS, RAD, SP } from '@/lib/theme'
-import type { Tone } from '@/lib/homeBrief'
+import type { Tone, HomeBriefInput } from '@/lib/homeBrief'
 import { MACRO_RELEASES } from '@/lib/macroReleases'
 import type { JsonResult } from '@/app/components/student/useJson'
 
@@ -51,6 +51,40 @@ export interface CalendarResp { events?: CalEventRow[] }
 export interface FxResp { rate?: unknown; source?: unknown }
 export interface MacroResp { events?: unknown; failed?: unknown; unscheduled?: unknown }
 export interface MacroRow { kind: string; label: string; kstDate: string; kstTime: string }
+
+export interface MoverRow { ticker?: unknown; name?: unknown; market?: unknown; changePct?: unknown; held?: unknown }
+export interface MoversResp { surges?: MoverRow[]; drops?: MoverRow[]; failed?: unknown; checked?: unknown; heldChecked?: unknown; heldFailed?: unknown; asOf?: unknown }
+export interface WatchResp { asOf?: unknown; sigs?: unknown }
+
+const isFiniteNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)
+
+// 한눈 시황 '내 종목' 줄 입력 — 홈(MarketBrief)과 배우기 화면이 같은 검사로 만든다.
+//  실패·로그인 필요·모양이 틀림 = null(못 가져옴) — 0 으로 채우지 않는다
+export function briefSignals(watch: JsonResult<WatchResp>): HomeBriefInput['signals'] {
+  return watch.state === 'ok' && Array.isArray(watch.data?.sigs)
+    ? { asOf: typeof watch.data?.asOf === 'string' ? watch.data.asOf : null, count: watch.data.sigs.length }
+    : null
+}
+export function briefEvents(calendar: JsonResult<CalendarResp>): HomeBriefInput['events'] {
+  return calendar.state === 'ok' && Array.isArray(calendar.data?.events)
+    ? calendar.data.events.filter(e => e && typeof e.date === 'string' && typeof e.type === 'string' && typeof e.name === 'string' && typeof e.ticker === 'string').map(e => ({ type: e.type, date: e.date, name: e.name, ticker: e.ticker }))
+    : null
+}
+/** day-movers 는 보유하지 않아도 비트코인을 늘 넣는다 — 내 종목(held=true)만, 개수도 내 종목만 센 heldChecked·heldFailed 로.
+ *  그 두 필드가 없으면(옛 응답) 전체 checked·failed 로 대신하지 않고 '못 가져옴' — 비트코인 실패가 섞인 수라 틀린 말이 된다 */
+export function briefMovers(movers: JsonResult<MoversResp>): HomeBriefInput['movers'] {
+  const md = movers.data
+  const mChecked = md?.heldChecked
+  const mFailed = md?.heldFailed
+  return movers.state === 'ok' && md && Array.isArray(md.surges) && Array.isArray(md.drops) && isFiniteNum(mFailed) && isFiniteNum(mChecked)
+    ? {
+        held: [...md.surges, ...md.drops]
+          .filter((m): m is { name: string; changePct: number; held: true } => m?.held === true && typeof m.name === 'string' && isFiniteNum(m.changePct))
+          .map(m => ({ name: m.name, changePct: m.changePct })),
+        checked: mChecked, failed: mFailed,
+      }
+    : null
+}
 
 const MACRO_YMD = /^\d{4}-\d{2}-\d{2}$/
 /** '21:30' → '밤 9:30' — 저녁(13~23시)이 아니거나 못 읽으면 null(시각을 지어내지 않는다) */

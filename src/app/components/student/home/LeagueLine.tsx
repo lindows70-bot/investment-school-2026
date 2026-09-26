@@ -30,8 +30,10 @@ export default function LeagueLine({ userId }: { userId: string | null | undefin
       .sort((a, b) => (b.totalReturn as number) - (a.totalReturn as number))
     const me = students.find(s => s?.userId === userId)
     const idx = ranked.findIndex(s => s.userId === userId)
-    if (!me || me.isRegistered !== true) {
-      content = <span style={{ fontSize: FS.body, color: TK.slate200 }}>종목을 기록하면 리그에 참여돼요</span>
+    if (!me) {
+      content = <span style={noteStyle()}>리그 명단에서 내 계정을 찾지 못했어요.</span>
+    } else if (me.isRegistered !== true) {
+      content = <span style={{ fontSize: FS.body, color: TK.slate200 }}>종목을 기록하면 리그에 들어와요</span>
     } else if (idx < 0) {
       content = <span style={noteStyle()}>내 수익률을 아직 계산하지 못했어요.</span>
     } else {
@@ -54,13 +56,13 @@ export default function LeagueLine({ userId }: { userId: string | null | undefin
     </div>
   )
   // 실패 줄엔 '다시' 버튼이 있어 링크로 감싸지 않는다(링크 안 버튼은 잘못된 HTML)
-  //  학생용 리그 화면(/s/league)이 생기기 전까지는 선생님 리그 화면으로 보낸다
+  //  학생용 리그 화면(/s/league)으로 보낸다
   return (
     <div ref={ref}>
       {failed
         ? <div style={card}>{inner}</div>
         : (
-          <Link href="/school-league" style={{ ...card, display: 'flex', alignItems: 'center', gap: SP.sm, color: TK.slate200, textDecoration: 'none' }}>
+          <Link href="/s/league" style={{ ...card, display: 'flex', alignItems: 'center', gap: SP.sm, color: TK.slate200, textDecoration: 'none' }}>
             {inner}
             <span aria-hidden style={{ fontSize: FS.lg, color: TK.sub, flexShrink: 0 }}>›</span>
           </Link>
