@@ -48,6 +48,8 @@ export interface SectorPeerResult {
   rivalTicker: string | null   // 대상보다 더 싸고 탄탄한 '동일업종' 경쟁사(있으면)
   lynchComment: string
   status:    'ok' | 'none' | 'unsupported' | 'error'
+  /** 체급(mcapUsd) 환산 환율이 실제 환율인가 — false 면 화면이 '기본값'임을 밝히고 이 결과를 저장하는 곳(research-report)은 저장하지 않는다. 결과가 없는 응답(empty)엔 없다 */
+  fxLive?:   boolean
   message?:  string
   asOf:      string
 }
@@ -277,7 +279,7 @@ export async function getSectorPeers(input: { ticker: string; name?: string; mar
         : `${target.name}은 같은 업종 경쟁사와 비교해 가성비가 평범한 편이야. 이 표에서 '더 싸면서 더 잘 버는' 동일업종 기업이 없는지 직접 비교해봐.`
 
     const fx = await fxP   // 이미 fetchMetric 이 받아 둔 값(fetchUsdKrw 는 실패해도 reject 하지 않고 폴백을 준다)
-    const result: SectorPeerResult = { ticker, source, targetIndustry, sameIndCount, peers, bestValue, psrMedian, perMedian, perCount, targetPe: target.pe, verdict, rivalTicker: rival?.ticker ?? null, lynchComment, status: 'ok', asOf }
+    const result: SectorPeerResult = { ticker, source, targetIndustry, sameIndCount, peers, bestValue, psrMedian, perMedian, perCount, targetPe: target.pe, verdict, rivalTicker: rival?.ticker ?? null, lynchComment, status: 'ok', fxLive: fx.live, asOf }
     if (fx.live) CACHE.set(ticker, { data: result, expiresAt: Date.now() + CACHE_TTL })   // 고정 환율로 잰 시총 체급은 박제 금지(다음 호출이 실제 환율로 스스로 낫는다)
     return result
   } catch (e) {

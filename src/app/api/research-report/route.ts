@@ -131,6 +131,7 @@ export async function GET(req: Request) {
     chart: { points: wk.map(c => ({ d: c.date, c: c.close })), pct1y, pos52, low52, high52 },
     action: { verdict: verdict.verdict, score: verdict.score, oneLiner: verdict.oneLiner, pros: verdict.pros, cons: verdict.cons, timingLabel: verdict.timing?.label ?? null, flags },
   }
-  await setCache(cacheKey, report)
+  // 경쟁사 체급(mcapUsd)을 고정 환율로 잰 보고서는 박제 금지 — undefined(피어 없음·옛 형식)는 환율과 무관하니 저장한다
+  if (peersRes?.fxLive !== false) await setCache(cacheKey, report)
   return NextResponse.json(report, { headers: { 'Cache-Control': 'no-store' } })
 }
