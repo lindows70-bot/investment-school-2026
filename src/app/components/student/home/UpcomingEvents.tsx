@@ -4,7 +4,7 @@ import { TK, FS, RAD, SP } from '@/lib/theme'
 import { FOMC_SCHEDULE } from '@/lib/fomcSchedule'
 import { addDays, fomcKstDates } from '@/lib/homeBrief'
 import type { JsonResult } from '@/app/components/student/useJson'
-import { card, CardHead, FailRow, noteStyle, macroRows, macroFailedLabels, type CalendarResp, type MacroResp } from './homeUi'
+import { card, CardHead, FailRow, noteStyle, macroRows, macroFailedLabels, macroUnscheduledLabels, macroNightText, type CalendarResp, type MacroResp } from './homeUi'
 
 const TYPE_KO: Record<string, string> = { earnings: '실적 발표', exDiv: '배당락', payDiv: '배당 지급' }
 const YMD = /^\d{4}-\d{2}-\d{2}$/
@@ -21,13 +21,6 @@ function dateText(ymd: string, today: string) {
   return `${m}/${d}(${WEEK[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]})`
 }
 
-/** '21:30' → '밤 9:30' — 12시 전이거나 못 읽으면 null(시각을 지어내지 않는다) */
-function nightText(hhmm: string): string | null {
-  const m = /^(\d{2}):(\d{2})$/.exec(hhmm)
-  const h = m ? Number(m[1]) : NaN
-  return m && h >= 13 && h <= 23 ? `밤 ${h - 12}:${m[2]}` : null
-}
-
 /** today = KST 'YYYY-MM-DD'(페이지가 마운트 뒤 useKstToday 로 준다 — 그 전엔 null). macro = /api/macro-releases(페이지가 한 번 불러 한눈 시황과 나눈다) */
 export default function UpcomingEvents({ calendar, macro, today }: { calendar: JsonResult<CalendarResp>; macro: JsonResult<MacroResp>; today: string | null }) {
 
@@ -42,12 +35,13 @@ export default function UpcomingEvents({ calendar, macro, today }: { calendar: J
   // 미국 지표 — 8:30(미국 동부) 발표라 한국은 같은 날 밤 9:30(서머타임)·10:30. 30일 안만
   const macroList = macroRows(macro)
   const macroItems: Item[] = (macroList ?? []).flatMap(m => {
-    const t = nightText(m.kstTime)
-    return t && YMD.test(m.kstDate) && m.kstDate >= today && m.kstDate <= last
+    const t = macroNightText(m.kstTime)   // macroRows 가 이미 걸렀으므로 늘 값이 있다 — 타입 좁히기용
+    return t && m.kstDate >= today && m.kstDate <= last
       ? [{ key: `macro:${m.kind}:${m.kstDate}`, date: m.kstDate, label: `${t} · ${m.label} 발표`, mine: false }]
       : []
   })
   const macroFailed = macroFailedLabels(macro)
+  const macroUnscheduled = macroUnscheduledLabels(macro)
   const mineItems: Item[] | null = calendar.state === 'ok' && Array.isArray(calendar.data?.events)
     ? Array.from(new Map(calendar.data.events
         .filter(e => e && TYPE_KO[e.type] && typeof e.name === 'string' && typeof e.date === 'string' && YMD.test(e.date) && e.date >= today && e.date <= last)
@@ -73,12 +67,13 @@ export default function UpcomingEvents({ calendar, macro, today }: { calendar: J
       {more > 0 && <span style={noteStyle()}>외 {more}건{moreAllMine ? ' — 전체는 배당·실적 일정에서' : ''}</span>}
       {fomc.length === 0 && <span style={noteStyle()}>FOMC 일정 못 가져옴</span>}
       {(macro.state === 'loading' || macro.state === 'idle') && <span style={noteStyle()}>지표 발표일을 불러오는 중…</span>}
-      {macroFailed.length > 0 && <span style={noteStyle()}>{macroFailed.join('·')} 발표일 못 가져왔어요.</span>}
+      {macroFailed.length > 0 && <FailRow text={`${macroFailed.join('·')} 발표일 못 가져왔어요.`} onRetry={macro.reload} retryLabel="지표 발표일 다시 불러오기" />}
+      {macroUnscheduled.length > 0 && <span style={noteStyle()}>{macroUnscheduled.join('·')}: FRED에 아직 다음 발표일이 없어요</span>}
       {(calendar.state === 'loading' || calendar.state === 'idle') && <span style={noteStyle()}>내 종목 일정을 불러오는 중…</span>}
       {calendar.state === 'unauth' && <span style={noteStyle()}>로그인하면 내 종목 일정이 보여요.</span>}
       {(calendar.state === 'failed' || (calendar.state === 'ok' && mineItems == null)) && <FailRow text="내 종목 일정 못 가져옴" onRetry={calendar.reload} retryLabel="내 종목 일정 다시 불러오기" />}
       {mineItems != null && mineItems.length === 0 && <span style={noteStyle()}>{WINDOW_DAYS}일 안에 잡힌 내 종목 실적·배당 일정이 없어요.</span>}
-      {macroList != null && <span style={{ fontSize: FS.micro, color: TK.sub }}>지표 발표일 출처: FRED(세인트루이스 연준) 공식 일정 · 한국 시각</span>}
+      {macroList != null && <span style={{ fontSize: FS.micro, color: TK.sub }}>발표일: FRED 공식 일정 · 시각: BLS·BEA 발표 시각(미국 동부 8:30)을 한국 시각으로</span>}
     </section>
   )
 }

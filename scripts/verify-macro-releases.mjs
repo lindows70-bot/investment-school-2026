@@ -75,6 +75,15 @@ check('날짜 형식 틀림 → null', M.parseReleaseDates({ release_dates: [{ d
 check('없는 날짜(2026-02-30) → null', M.parseReleaseDates({ release_dates: [{ date: '2026-02-30' }] }) === null)
 check('행이 null → null', M.parseReleaseDates({ release_dates: [null] }) === null)
 
+// 분류 — 읽었는데 앞으로 날짜가 없으면 unscheduled(실패 아님)
+const c1 = M.classifyRelease(['2026-12-10'], '2026-12-11')
+check('분류: 지난 날짜만 → unscheduled', c1.kind === 'unscheduled')
+check('분류: 빈 목록 → unscheduled', M.classifyRelease([], '2026-12-11').kind === 'unscheduled')
+const c2 = M.classifyRelease(['2026-09-25', '2026-09-30', '2026-10-29'], '2026-09-26')
+check('분류: 지난 것 빼고 앞으로 날짜만 ok', c2.kind === 'ok' && JSON.stringify(c2.dates) === JSON.stringify(['2026-09-30', '2026-10-29']))
+const c3 = M.classifyRelease(['2026-09-30'], '2026-09-30')
+check('분류: UTC 오늘 발표는 포함(한국 같은 날 밤)', c3.kind === 'ok' && c3.dates[0] === '2026-09-30')
+
 check('MACRO_RELEASES: CPI 10 · JOBS 50 · PCE 54', JSON.stringify(M.MACRO_RELEASES.map(r => [r.id, r.kind])) === JSON.stringify([[10, 'CPI'], [50, 'JOBS'], [54, 'PCE']]))
 
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (거시 발표일)')

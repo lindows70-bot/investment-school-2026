@@ -54,3 +54,12 @@ export function parseReleaseDates(json: unknown): string[] | null {
   }
   return Array.from(new Set(out)).sort()
 }
+
+export type ReleaseClass = { kind: 'ok'; dates: string[] } | { kind: 'unscheduled' }
+
+/** 읽어낸 날짜 → 오늘(UTC) 이후가 있으면 ok, 없으면 unscheduled(FRED 에 다음 일정이 아직 안 올라온 것 — 못 읽은 것과 다르다).
+ *  UTC 오늘로 자르는 이유: 한국 오늘 ≥ UTC 오늘이라 한국 날짜 기준 오늘 발표를 놓치지 않는다. 지난 것은 화면이 한국 오늘로 한 번 더 거른다 */
+export function classifyRelease(dates: string[], todayUtc: string): ReleaseClass {
+  const next = dates.filter(d => d >= todayUtc)
+  return next.length > 0 ? { kind: 'ok', dates: next } : { kind: 'unscheduled' }
+}
