@@ -11,10 +11,12 @@ import { summarizePortfolio, dedupeHoldings, type HoldingInput, type PriceInput,
 export type LoadState = 'loading' | 'ready' | 'failed' | 'unauth'
 /** db = 보유 조회 실패 · fx = 달러 보유가 있는데 환율을 못 받음 · other = 그 밖의 예외 */
 export type FailReason = 'db' | 'fx' | 'other'
+/** 보유 한 줄 + 매수일 — 자산 성장 차트(/api/monthly-pnl)가 로트를 만들 때 쓴다. 요약(portfolioSummary)은 매수일을 모른다 */
+export type MyHolding = HoldingInput & { purchase_date: string | null }
 export interface MyPortfolio {
   state: LoadState
   failReason: FailReason | null
-  holdings: HoldingInput[]
+  holdings: MyHolding[]
   summary: PortfolioSummary | null
   usdKrw: number | null
   targetCorePct: number | null
@@ -26,7 +28,7 @@ export interface MyPortfolio {
 export function useMyPortfolio(): MyPortfolio {
   const [state, setState] = useState<LoadState>('loading')
   const [failReason, setFailReason] = useState<FailReason | null>(null)
-  const [holdings, setHoldings] = useState<HoldingInput[]>([])
+  const [holdings, setHoldings] = useState<MyHolding[]>([])
   const [summary, setSummary] = useState<PortfolioSummary | null>(null)
   const [usdKrw, setUsdKrw] = useState<number | null>(null)
   const [targetCorePct, setTarget] = useState<number | null>(null)
@@ -36,7 +38,7 @@ export function useMyPortfolio(): MyPortfolio {
   useEffect(() => {
     let cancelled = false
     // 실패는 한 곳에서 확정한다 — 옛 요약이 남아 '실패'와 함께 보이지 않도록 summary 도 비운다
-    const fail = (reason: FailReason, hs: HoldingInput[] = []) => {
+    const fail = (reason: FailReason, hs: MyHolding[] = []) => {
       if (cancelled) return
       setHoldings(hs); setSummary(null); setUsdKrw(null); setTarget(null); setPricesFailed(false); setFailReason(reason); setState('failed')
     }
@@ -48,14 +50,14 @@ export function useMyPortfolio(): MyPortfolio {
         return
       }
       const [{ data, error }, fxRes, cfg] = await Promise.all([
-        sb.from('investments').select('id,ticker,name,market,currency,purchase_price,quantity,asset_role')
+        sb.from('investments').select('id,ticker,name,market,currency,purchase_price,quantity,purchase_date,asset_role')
           .eq('user_id', user.id).order('created_at', { ascending: false }),
         fetch('/api/exchange-rate', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
         // 선생님 권장 코어 비중(싱글턴 행) — 못 읽어도 실패로 보지 않는다(투자 체크만 빠진다)
         sb.from('strategy_configs').select('core_pct').limit(1).maybeSingle(),
       ])
       if (error) { fail('db'); return }
-      const hs = dedupeHoldings((data ?? []) as HoldingInput[])
+      const hs = dedupeHoldings((data ?? []) as MyHolding[])
       // 환율 라우트는 모든 원천이 죽으면 고정 상수(source 'stale-constant')를 준다 — 지금 환율이 아니므로 못 받은 것으로 본다
       const fx: number | null = typeof fxRes?.rate === 'number' && fxRes.rate > 500 && fxRes.source !== 'stale-constant' ? fxRes.rate : null
 
