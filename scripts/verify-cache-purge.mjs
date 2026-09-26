@@ -71,10 +71,11 @@ const M1_TTL_H = {
   'alpha-hunter-v3': 24, 'earn-results-v1': 6, 'fx-attribution-v2': 6, 'guidance-radar': 24, 'lynch-matrix-v2': 12,
   'morningstar-rating-v6': 24, 'permanent-loss-v2': 12, 'portfolio-backtest-v5': 12, 'portfolio-flow-v12': 12,
   'portfolio-reco-kr-v8': 12, 'tax-helper-v1': 6, 'weekly-report-me-v6': 6,                       // 사용자별 — 날짜 키 유지
+  'corr-matrix-v2': 24,                                                                              // 사용자별 — M1 목록 밖, 전수 스캔에서 발견
   'bonds-v8': 6, 'crypto-demand-v2': 6, 'dividend-portfolio-v2': 12, 'ultra-dividend-v4': 12, 'cofix-v1': 12,   // 날짜 뺀 공유 문서
 }
 const m1Bad = Object.entries(M1_TTL_H).filter(([p, h]) => !rule(p) || rule(p).keepDays * 24 <= h).map(([p]) => p)
-check(`M1 17종이 전부 규칙에 있고 keepDays > reader TTL${m1Bad.length ? ' — 문제: ' + m1Bad.join(', ') : ''}`, m1Bad.length === 0)
+check(`M1 17종(+corr-matrix-v2)이 전부 규칙에 있고 keepDays > reader TTL${m1Bad.length ? ' — 문제: ' + m1Bad.join(', ') : ''}`, m1Bad.length === 0)
 check('btc-etf-v8 은 허용 목록에 없다(seed-btc-etf-lastgood 가 옛 일자 문서를 like 로 읽는다)', !rule('btc-etf-v8'))
 
 // ── ② 허용 목록 밖은 아무리 오래돼도 안 지운다 ──
