@@ -72,7 +72,8 @@ export default function Heatmap({ rows, corePct, height = 240 }: { rows: Holding
           return (
             <Link key={row.id} href={`/s/stock/${encodeURIComponent(row.ticker)}`} title={row.name} aria-label={label}
               style={{
-                position: 'absolute', ...pos, boxSizing: 'border-box',
+                // globals.css 가 모바일에서 a[href] 에 min-height 44px 를 건다 — 작은 칸이 상자 밖으로 늘어나지 않게 푼다
+                position: 'absolute', ...pos, minHeight: 0, minWidth: 0, boxSizing: 'border-box',
                 padding: pos.height < 48 ? SP.xs : SP.sm, borderRadius: RAD.xs, overflow: 'hidden',
                 background: fill ?? TK.card, border: fill ? 'none' : `1px dashed ${TK.sub}`,
                 color: TK.slate100, textDecoration: 'none', display: 'flex', flexDirection: 'column', gap: 2,
@@ -85,7 +86,8 @@ export default function Heatmap({ rows, corePct, height = 240 }: { rows: Holding
                       {row.stale && pos.width >= (big ? 130 : 110) && <span style={{ fontSize: FS.tiny, fontWeight: 600, color: TK.slate100 }}> 지난 시세</span>}
                     </span>
                   : pos.height > 48 && <span style={{ fontSize: FS.tiny, color: TK.sub }}>시세 못 가져옴 · 매수가로 계산</span>}
-                {pos.height > 76 && <span style={{ fontSize: FS.tiny, color: TK.slate100 }}>{won(row.evalKrw)}</span>}
+                {/* 금액은 칸 폭에 다 들어갈 때만(글자당 약 8px + 좌우 여백) — 줄바꿈·잘림 방지 */}
+                {pos.height > 76 && pos.width >= won(row.evalKrw).length * 8 + 16 && <span style={{ fontSize: FS.tiny, color: TK.slate100, whiteSpace: 'nowrap' }}>{won(row.evalKrw)}</span>}
               </>}
             </Link>
           )
