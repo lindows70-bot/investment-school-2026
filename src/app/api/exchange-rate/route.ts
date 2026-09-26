@@ -42,7 +42,8 @@ export async function GET() {
   try {
     const res = await fetch(
       'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json',
-      { next: { revalidate: 3600 } }
+      // ⏱ 3초 — 소비측은 이 라우트를 8초 타임아웃으로 부른다. 외부 둘이 매달리면 last-good 에 닿기 전에 소비측이 먼저 끊고 상수로 떨어진다
+      { next: { revalidate: 3600 }, signal: AbortSignal.timeout(3000) }
     )
     if (res.ok) {
       const data = await res.json()
@@ -57,7 +58,7 @@ export async function GET() {
 
   // ── 2순위: exchangerate-api.com (USD 베이스 → 동일 크로스) ──────
   try {
-    const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD', { next: { revalidate: 3600 } })
+    const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD', { next: { revalidate: 3600 }, signal: AbortSignal.timeout(3000) })
     if (res.ok) {
       const data = await res.json()
       const r = data?.rates
