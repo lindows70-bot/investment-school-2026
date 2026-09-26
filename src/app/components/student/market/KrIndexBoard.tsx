@@ -40,13 +40,13 @@ export default function KrIndexBoard({ kr }: { kr: JsonResult<KrBoardResp> }) {
                 <button key={i.code} type="button" aria-pressed={on} onClick={() => setSel(i.code)}
                   style={{
                     display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: SP.xs, minWidth: 0, minHeight: 44,
-                    padding: SP.sm, borderRadius: RAD.sm, border: `1px solid ${on ? TK.line4 : TK.border}`,
+                    padding: `${SP.sm}px ${SP.xs}px`, borderRadius: RAD.sm, border: `1px solid ${on ? TK.line4 : TK.border}`,
                     background: on ? TK.bg7 : 'transparent', cursor: 'pointer', textAlign: 'left',
                   }}>
                   <span style={{ fontSize: FS.tiny, color: on ? TK.slate100 : TK.sub, fontWeight: on ? 700 : 500, whiteSpace: 'nowrap' }}>{i.label}</span>
                   {x ? (
                     <>
-                      <span className="mk-idx-v" style={{ fontWeight: 700, color: TK.slate100, whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{points(x.value)}</span>
+                      <span className="mk-idx-v" style={{ fontWeight: 700, color: TK.slate100, whiteSpace: 'nowrap' }}>{points(x.value)}</span>
                       <span style={{ fontSize: FS.tiny, fontWeight: 700, color: upDown(x.changePct), whiteSpace: 'nowrap' }}>{x.changePct == null ? '등락 모름' : pct(x.changePct)}</span>
                     </>
                   ) : <span style={noteStyle(TK.amber400)}>못 가져옴</span>}
@@ -89,7 +89,8 @@ export default function KrIndexBoard({ kr }: { kr: JsonResult<KrBoardResp> }) {
                 {([['개인', integ.data.investors.personal], ['외국인', integ.data.investors.foreign], ['기관', integ.data.investors.institutional]] as const).map(([name, v]) => (
                   <div key={name} style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, minWidth: 0 }}>
                     <span style={{ fontSize: FS.tiny, color: TK.sub }}>{name}</span>
-                    <span style={{ fontSize: FS.body, fontWeight: 700, color: v == null ? TK.sub : upDown(v), overflowWrap: 'break-word' }}>{v == null ? '모름' : signEok(v)}</span>
+                    {/* 무색 — 빨강·파랑은 가격 등락·내 손익에만(CLAUDE.md). 순매수 금액이 좋고 나쁨이 아니다 — 순매매 목록 금액과 같은 규칙 */}
+                    <span style={{ fontSize: FS.body, fontWeight: 700, color: v == null ? TK.sub : TK.slate100, overflowWrap: 'break-word' }}>{v == null ? '모름' : signEok(v)}</span>
                   </div>
                 ))}
               </div>
@@ -121,7 +122,8 @@ function Breadth({ view, market, indexPct, onRetry }: { view: View<{ investors: 
       <Pending view={view} loading="종목 수를 불러오는 중…" fail="종목 수를 못 가져왔어요." onRetry={onRetry} retryLabel="오른 종목·내린 종목 수 다시 불러오기" />
       {view.kind === 'ok' && (ud ? (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: SP.xs }}>
+          {/* 좁은 두 칸 배치(769~850px)에선 한 칸 56px 밑으로 줄지 않고 다음 줄로(5칸 → 3+2) */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(56px, 1fr))', gap: SP.xs }}>
             {cells.map(([name, v, c]) => (
               <div key={name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: SP.xs, minWidth: 0 }}>
                 <span style={{ fontSize: FS.tiny, color: TK.sub }}>{name}</span>

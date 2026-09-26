@@ -75,7 +75,7 @@ function UsMovers({ us }: { us: JsonResult<UsBoardResp> }) {
       {view.kind === 'ok' && <MoreToggle open={open} total={Math.min(MAX, view.data.items.length)} shown={SHOW} onToggle={() => setOpen(o => !o)} />}
       {view.kind === 'ok' && (
         <>
-          <span style={noteStyle()}>{KIND_NOTE[kind]} · 주식만 나와요(ETF 없음) · 네이버 해외 순위(기준 시각 표시 없음)</span>
+          <span style={noteStyle()}>{KIND_NOTE[kind]} · 이 순위엔 ETF 가 안 나와요(폐쇄형 펀드는 &lsquo;펀드&rsquo; 배지) · 네이버 해외 순위(기준 시각 표시 없음)</span>
           {filterNote && <span style={noteStyle(TK.slate300)}>{filterNote}</span>}
         </>
       )}
