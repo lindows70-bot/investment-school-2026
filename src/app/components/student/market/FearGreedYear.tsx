@@ -4,7 +4,7 @@
 //   구간 이름은 원천 분류를 번역만 한다(우리 임계값 없음). 미국은 CNN 값일 때만 숫자를 보인다(폴백 50 금지).
 import { useEffect, useState } from 'react'
 import { TK, FS, RAD, SP } from '@/lib/theme'
-import { viewOf, fngRangeName, fngExtremes, ymdDot, mdDow, nyYmd, type OverviewResp } from '@/lib/marketScreen'
+import { viewOf, fngYearSummary, mdDow, nyYmd, type OverviewResp } from '@/lib/marketScreen'
 import type { CnnFngYear } from '@/lib/cnnFng'
 import type { CryptoFng, CryptoFngYear } from '@/lib/cryptoFng'
 import { useJson, type JsonResult } from '@/app/components/student/useJson'
@@ -66,8 +66,8 @@ export default function FearGreedYear({ overview, active, defaultSide }: { overv
 
   const now = short?.now ?? year?.now ?? null   // 지금 값: 홈 카드와 같은 원천 먼저, 못 받으면 1년 요약에 실린 같은 원천의 지금 값
   const cls = short?.cls ?? (side === 'us' && yv.kind === 'ok' ? classKo((yv.data as CnnFngYear).rating) : null)
-  const ext = year ? fngExtremes(now, year.high, year.low) : null
-  const rangeName = year ? fngRangeName(year.range) : null
+  // 연간 고저·기간 이름은 홈 공포·탐욕 카드와 같은 함수로(제2원칙 — 두 화면이 같은 값·같은 날짜)
+  const ys = year ? fngYearSummary(now, { yearHigh: year.high, yearLow: year.low, range: year.range }) : null
   const bothLoading = shortLoading && yv.kind === 'loading'
   const date = short?.date ?? year?.date ?? null
 
@@ -115,11 +115,11 @@ export default function FearGreedYear({ overview, active, defaultSide }: { overv
         {now != null && yv.kind === 'failed' && (
           <FailRow text="1년 기록(1년 전·최고·최저)을 못 가져왔어요." onRetry={overview.reload} retryLabel="공포·탐욕 1년 기록 다시 불러오기" />
         )}
-        {ext && (ext.high || ext.low) && (
+        {ys && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, padding: SP.md, borderRadius: RAD.sm, background: TK.bg3 }}>
-            {rangeName && <span style={noteStyle()}>{rangeName === '1년' ? '최근 1년(연간) 동안' : `기록이 있는 기간(${rangeName}) 동안 — 1년치가 안 돼요`}</span>}
-            {ext.high && <span style={{ fontSize: FS.tiny, color: TK.slate200 }}>가장 높았을 때 <b>{ext.high.v}</b> · {ext.high.date ? ymdDot(ext.high.date) : '지금'}</span>}
-            {ext.low && <span style={{ fontSize: FS.tiny, color: TK.slate200 }}>가장 낮았을 때 <b>{ext.low.v}</b> · {ext.low.date ? ymdDot(ext.low.date) : '지금'}</span>}
+            {ys.rangeText && <span style={noteStyle()}>{ys.fullYear ? '최근 1년(연간) 동안' : `${ys.rangeText} 동안 — 1년치가 안 돼요`}</span>}
+            {ys.high && <span style={{ fontSize: FS.tiny, color: TK.slate200 }}>가장 높았을 때 <b>{ys.high.v}</b> · {ys.high.when}</span>}
+            {ys.low && <span style={{ fontSize: FS.tiny, color: TK.slate200 }}>가장 낮았을 때 <b>{ys.low.v}</b> · {ys.low.when}</span>}
           </div>
         )}
         {now != null && (
