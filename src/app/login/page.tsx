@@ -275,12 +275,15 @@ function LoginContent() {
   // ── 안정적인 리다이렉트 함수 ────────────────────────────────────────────────
   // router.push()는 Next.js RSC fetch로 동작 → 미들웨어 쿠키 race condition 발생
   // window.location.href (hard redirect)를 사용해 브라우저가 fresh cookie를 전송하도록 함
-  const redirectToDashboard = () => {
+  // 착지는 /start 한 곳에서 정한다(역할·화면 모드 쿠키). 원래 가려던 곳(?next=)이 있으면 넘기고,
+  // 같은 사이트 내부 경로인지는 /start 가 확인한다.
+  const redirectAfterLogin = () => {
     if (redirectingRef.current) return
     redirectingRef.current = true
+    const next = new URLSearchParams(window.location.search).get('next')
     // Next.js 서버 상태 새로고침 후 hard redirect
     router.refresh()
-    window.location.href = '/dashboard'
+    window.location.href = next ? `/start?next=${encodeURIComponent(next)}` : '/start'
   }
 
   // ── onAuthStateChange 리스너 ────────────────────────────────────────────────
@@ -288,7 +291,7 @@ function LoginContent() {
     const sb = createClient()
     const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session && !isRecoveryMode) {
-        redirectToDashboard()
+        redirectAfterLogin()
       }
       // ★ PASSWORD_RECOVERY: 재설정 링크 클릭 시 — 새 비밀번호 입력 화면으로 전환
       if (event === 'PASSWORD_RECOVERY') {
@@ -413,8 +416,8 @@ function LoginContent() {
     // (onAuthStateChange 리스너가 SIGNED_IN 이벤트로도 동작하므로 어느 쪽이든 리다이렉트)
     if (data.session) {
       setStatus('success')
-      setMessage('로그인 성공! 대시보드로 이동합니다…')
-      redirectToDashboard()
+      setMessage('로그인 성공! 이동합니다…')
+      redirectAfterLogin()
     }
   }
 
@@ -474,12 +477,12 @@ function LoginContent() {
     }
 
     // ── 이메일 인증 여부에 따라 분기 ──────────────────────────
-    // session이 있으면 → 인증 불필요, 바로 대시보드 이동
+    // session이 있으면 → 인증 불필요, 바로 착지(/start)로 이동
     // session이 없으면 → 인증 메일 발송됨, 안내 메시지 표시
     if (data.session) {
       setStatus('success')
-      setMessage('가입 완료! 대시보드로 이동합니다…')
-      redirectToDashboard()
+      setMessage('가입 완료! 이동합니다…')
+      redirectAfterLogin()
     } else {
       setStatus('success')
       setMessage('가입 완료! 이메일로 발송된 인증 링크를 클릭한 후 로그인해주세요.')
