@@ -40,6 +40,8 @@ export default function LeagueLine({ userId }: { userId: string | null | undefin
         <span style={{ display: 'flex', alignItems: 'baseline', gap: SP.sm, flexWrap: 'wrap' }}>
           <span style={{ fontSize: FS.lg, fontWeight: 800, color: TK.slate100, whiteSpace: 'nowrap' }}>{idx + 1}위 / {ranked.length}명</span>
           <span style={{ fontSize: FS.body, fontWeight: 700, color: upDown(r), whiteSpace: 'nowrap' }}>{pct(r)}</span>
+          {/* school-league totalReturn 은 판 종목의 실현 손익까지 더한 값 — 내 자산(지금 보유만)과 다른 숫자인 이유를 밝힌다 */}
+          <span style={noteStyle()}>(판 종목 포함)</span>
         </span>
       )
     }
@@ -52,12 +54,13 @@ export default function LeagueLine({ userId }: { userId: string | null | undefin
     </div>
   )
   // 실패 줄엔 '다시' 버튼이 있어 링크로 감싸지 않는다(링크 안 버튼은 잘못된 HTML)
+  //  학생용 리그 화면(/s/league)이 생기기 전까지는 선생님 리그 화면으로 보낸다
   return (
     <div ref={ref}>
       {failed
         ? <div style={card}>{inner}</div>
         : (
-          <Link href="/s/league" style={{ ...card, display: 'flex', alignItems: 'center', gap: SP.sm, color: TK.slate200, textDecoration: 'none' }}>
+          <Link href="/school-league" style={{ ...card, display: 'flex', alignItems: 'center', gap: SP.sm, color: TK.slate200, textDecoration: 'none' }}>
             {inner}
             <span aria-hidden style={{ fontSize: FS.lg, color: TK.sub, flexShrink: 0 }}>›</span>
           </Link>
