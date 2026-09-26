@@ -10,9 +10,10 @@ import type { JsonResult } from '@/app/components/student/useJson'
 import { card, CardHead, noteStyle } from '@/app/components/student/home/homeUi'
 import { Pending, HelpButton, HelpBox } from './marketUi'
 
+// 국면 = 섹터 로테이션의 rs(1달 수익률 − 전체 평균) · mom(1주 수익률 − 전체 평균) 부호(sector-rotation QUAD)
 const HELP = [
-  '강하다·약하다 = 최근 1달 주가 흐름을 다른 분야 평균과 견준 거예요.',
-  '더 강해지는·식는 = 최근 1주 흐름이 그 힘을 키우는지 줄이는지예요.',
+  '강하다·약하다 = 최근 1달 주가 흐름이 다른 분야 평균보다 좋은지 나쁜지예요.',
+  '더 강해지는·식는·살아나는 = 최근 1주 주가 흐름이 다른 분야 평균보다 좋은지 나쁜지예요.',
   '대표 종목 = 그 분야 종목 중 최근 1주에 많이 오른 종목이에요.',
   '주가가 오른 분야일 뿐, 앞으로도 오른다는 뜻은 아니에요.',
 ]
@@ -28,6 +29,11 @@ function Pct({ label, v }: { label: string; v: number | null }) {
 export default function StrongSectors({ overview, inViewRef }: { overview: JsonResult<OverviewResp>; inViewRef: (el: HTMLElement | null) => void }) {
   const [help, setHelp] = useState(false)
   const view = viewOf<OverviewResp, StrongSectorsResult>(overview, d => d.strongSectors)
+  // 대표 종목을 못 실은 분야가 있으면 이유를 한 줄로(서버 repsReason — 계산일이 다름 / 계산 결과 없음)
+  const noReps = view.kind === 'ok' ? view.data.items.find(s => s.reps == null) : undefined
+  const noRepsText = noReps
+    ? (noReps.repsReason ?? '').includes('계산일') ? '대표 종목은 계산일이 달라 생략했어요.' : '대표 종목은 계산 결과가 없어 생략했어요.'
+    : null
   return (
     <section ref={inViewRef} aria-label="요즘 강한 분야" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
       <CardHead title="요즘 강한 분야" extra={<HelpButton open={help} onToggle={() => setHelp(h => !h)} label="요즘 강한 분야 설명 보기" />} />
@@ -62,7 +68,9 @@ export default function StrongSectors({ overview, inViewRef }: { overview: JsonR
               view.data.mean1w != null && view.data.mean1m != null ? `전체 평균 1주 ${pct(view.data.mean1w)} · 1달 ${pct(view.data.mean1m)}` : null,
               `${mdDow(view.data.calcDate) ?? view.data.calcDate} 계산`].filter(Boolean).join(' · ')}
           </span>
-          <span style={noteStyle(TK.slate300)}>주가 흐름으로 나눈 것이에요 — 실제로 돈이 들어왔다는 뜻은 아니에요.</span>
+          <span style={noteStyle()}>강한 순 = 다른 분야 평균과 견준 1달 흐름(60%)과 1주 흐름(40%)을 섞은 점수 순이에요.</span>
+          {noRepsText && <span style={noteStyle()}>{noRepsText}</span>}
+          <span style={noteStyle(TK.slate300)}>미국·한국 종목을 함께 본 계산이에요 · 주가 흐름으로 나눈 것이에요 — 실제로 돈이 들어왔다는 뜻은 아니에요.</span>
         </>
       )}
     </section>

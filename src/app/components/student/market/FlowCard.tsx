@@ -23,7 +23,7 @@ const SIDE_NAME: Record<FlowSide, string> = { buy: '순매수', sell: '순매도
 const TONE: Record<FlowBadgeKey, BadgeTone> = { mine: 'mine', streak: 'plain', together: 'plain', contrarian: 'warn', etf: 'plain', limit: 'warn' }
 const HELP = [
   '순매수 = 산 돈이 판 돈보다 많아요. 순매도 = 판 돈이 더 많아요.',
-  'N일째 = 오늘까지 며칠 연속 같은 쪽(사거나 팔거나)이었는지예요. 2일째부터 보여요.',
+  'N일째 = 마지막 거래일까지 며칠 연속 같은 쪽(사거나 팔거나)이었는지예요. 2일째부터 보여요.',
   '함께 샀어요·함께 팔았어요 = 그날 외국인과 기관이 둘 다 같은 쪽이었어요.',
   '주가와 반대 = 주가가 내린 날 샀거나, 오른 날 팔았어요.',
   'ETF = 여러 종목을 한데 묶은 상품이에요.',

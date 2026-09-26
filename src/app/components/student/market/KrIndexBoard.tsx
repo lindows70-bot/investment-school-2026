@@ -70,7 +70,7 @@ export default function KrIndexBoard({ kr }: { kr: JsonResult<KrBoardResp> }) {
                 </div>
               </>
             ) : chart.kind === 'ok'
-              ? <span style={noteStyle()}>오늘 장중 흐름 점이 아직 없어요.</span>
+              ? <span style={noteStyle()}>장중 흐름 점이 아직 없어요.</span>
               : <Pending view={chart} loading="장중 흐름을 불러오는 중…" fail="장중 흐름을 못 가져왔어요." onRetry={kr.reload} retryLabel="장중 흐름 다시 불러오기" />}
             <span style={noteStyle()}>
               {[q ? asOfLabel(q.asOf, q.marketStatus) : null, '네이버 증권'].filter(Boolean).join(' · ')}
@@ -114,6 +114,7 @@ function Breadth({ view, market, indexPct, onRetry }: { view: View<{ investors: 
     : []
   const tot = (ud?.rise ?? 0) + (ud?.steady ?? 0) + (ud?.fall ?? 0)
   const note = breadthNote(ud, indexPct)
+  const day = view.kind === 'ok' && view.asOf ? mdDow(view.asOf) : null   // 원천 기준일(투자자별 bizdate) — 휴장일에 '오늘'이라 쓰지 않게
   return (
     <section aria-label={`${MK_NAME[market]} 오른 종목·내린 종목 수`} style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
       <CardHead title={`${MK_NAME[market]} 오른 종목·내린 종목`} />
@@ -136,7 +137,7 @@ function Breadth({ view, market, indexPct, onRetry }: { view: View<{ investors: 
             </div>
           )}
           <span style={noteStyle()}>
-            {MK_NAME[market]} 지수 <span style={{ color: upDown(indexPct), fontWeight: 700 }}>{indexPct == null ? '등락 모름' : pct(indexPct)}</span> · 시장 전체 종목의 오늘 등락이에요.
+            {MK_NAME[market]} 지수 <span style={{ color: upDown(indexPct), fontWeight: 700 }}>{indexPct == null ? '등락 모름' : pct(indexPct)}</span> · {day ? `${day} 시장 전체 종목의 등락이에요.` : '시장 전체 종목의 등락이에요(기준일 표시 없음).'}
           </span>
           {note && <span style={noteStyle(TK.slate300)}>{note}</span>}
         </>
