@@ -22,7 +22,8 @@ function IndexCard({ label, cell, onRetry }: { label: string; cell: Cell; onRetr
         </span>
       )}
       {cell.kind === 'ok' && (
-        <span className="sh-idx-v" style={{ display: 'flex', alignItems: 'baseline', gap: SP.sm, minWidth: 0 }}>
+        // 좁은 3칸(769~900px, 왼쪽 메뉴 220px)에선 '114,309,000원 +0.6%' 이 칸을 15px 넘쳤다(2026-09-26 실측) — 등락률을 다음 줄로 내린다
+        <span className="sh-idx-v" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: SP.sm, minWidth: 0 }}>
           <span style={{ fontSize: FS.lg, fontWeight: 700, color: TK.slate100, whiteSpace: 'nowrap' }}>{cell.value}</span>
           <span style={{ fontSize: FS.tiny, fontWeight: 700, color: upDown(cell.changePct), whiteSpace: 'nowrap' }}>{pct(cell.changePct)}</span>
         </span>
