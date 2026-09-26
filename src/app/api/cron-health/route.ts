@@ -53,7 +53,9 @@ export async function GET(req: Request) {
           cache: 'no-store',
           signal: AbortSignal.timeout(Math.min(remain - 10_000, 180_000)),
         })
-        if (r.ok) healed.push(c.id)
+        // HTTP 200 이어도 산출물 저장을 건너뛰었으면(`cached: false` — 고정 환율·부분실패) 복구가 아니다
+        const j = r.ok ? await r.json().catch(() => null) as { cached?: unknown } | null : null
+        if (r.ok && j?.cached !== false) healed.push(c.id)
         else healFailed.push(c.id)
       } catch { healFailed.push(c.id) }
     }

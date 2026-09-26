@@ -29,11 +29,13 @@ export async function GET(req: Request) {
   if ('error' in out) return NextResponse.json(out, { status: 200 })
   // ⚠️ 부분실패 박제 금지 — 캔들 성공률이 낮으면 "자리 없음"이 하루 박제된다(빈 목록은 사실이어야 한다)
   //    고정 환율도 같다 — '환율 ₩○ 적용' 원화 환산을 하루 박제하지 않는다
-  if (out.okCount >= 300 && fx.live) {
+  const cached = out.okCount >= 300 && fx.live
+  if (cached) {
     await setCache(key, out)
     // 🕰️ 크론 실행 마커 — 결과 캐시의 updated_at 은 저녁 방문자 재생성에 덮여 "아침 크론이 실패했다"를 못 가른다
     //    (2026-09-11 실사고: 06:15 산출물 없이 22:38 방문자가 만들었는데 헬스는 ok). 크론(refresh=1)만 이 마커를 남긴다.
     if (refresh) await setCache(SWING_CRON_MARK(kstDate()), { at: out.asOf })
   }
-  return NextResponse.json(out, { headers: { 'Cache-Control': 'no-store' } })
+  // cached·fxLive 는 이번 응답에만 싣는다(저장본 out 에는 없음 — 캐시 스키마 불변). cached:false 면 cron-health 가 복구 실패로 센다
+  return NextResponse.json({ ...out, cached, fxLive: fx.live }, { headers: { 'Cache-Control': 'no-store' } })
 }

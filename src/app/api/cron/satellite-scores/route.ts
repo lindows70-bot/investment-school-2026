@@ -20,9 +20,11 @@ export async function GET(req: Request) {
   const fx = await fetchUsdKrw(base)
   const scored = await computeSatelliteScores(base, fx.rate)
   // 고정 환율로 잰 KR 시총(→$)은 시총룸 점수 구간을 바꾼다 — 36h 박제하지 않는다(헬스가 산출물 없음으로 잡아 재실행)
-  if (scored.length && fx.live) await setCache(SAT_SCORE_KEY, scored)
+  const cached = scored.length > 0 && fx.live
+  if (cached) await setCache(SAT_SCORE_KEY, scored)
+  // cached:false 면 cron-health 가 복구 실패로 센다(200 이어도 산출물이 없다)
   return NextResponse.json(
-    { ok: true, scored: scored.length, top: scored.slice(0, 8).map(s => `${s.ticker}:${s.tenScore}`), ms: Date.now() - t0 },
+    { ok: cached, cached, fxLive: fx.live, scored: scored.length, top: scored.slice(0, 8).map(s => `${s.ticker}:${s.tenScore}`), ms: Date.now() - t0 },
     { headers: { 'Cache-Control': 'no-store' } },
   )
 }
