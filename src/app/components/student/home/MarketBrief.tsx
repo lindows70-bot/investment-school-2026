@@ -7,7 +7,7 @@ import { buildHomeBrief, type HomeBriefInput, type Line } from '@/lib/homeBrief'
 import { FOMC_SCHEDULE } from '@/lib/fomcSchedule'
 import { acceptFx } from '@/lib/fxAccept'
 import { useJson, type JsonResult, type JsonState } from '@/app/components/student/useJson'
-import { card, CardHead, toneColor, noteStyle, retryBtn, type IndexRow, type CalendarResp, type FxResp } from './homeUi'
+import { card, CardHead, toneColor, noteStyle, retryBtn, macroRows, type IndexRow, type CalendarResp, type FxResp, type MacroResp } from './homeUi'
 
 interface MoverRow { name?: unknown; changePct?: unknown; held?: unknown }
 interface MoversResp { surges?: MoverRow[]; drops?: MoverRow[]; failed?: unknown; checked?: unknown; heldFailed?: unknown; heldChecked?: unknown }
@@ -40,8 +40,8 @@ function BriefLine({ line, loadingText }: { line: Line | null; loadingText: stri
   )
 }
 
-/** today = KST 'YYYY-MM-DD'(페이지의 useKstToday — 마운트 전엔 null). indices·calendar·fx 는 페이지가 한 번 불러 나눠 준다 */
-export default function MarketBrief({ indices, calendar, fx, today }: { indices: JsonResult<IndexRow[]>; calendar: JsonResult<CalendarResp>; fx: JsonResult<FxResp>; today: string | null }) {
+/** today = KST 'YYYY-MM-DD'(페이지의 useKstToday — 마운트 전엔 null). indices·calendar·fx·macro 는 페이지가 한 번 불러 나눠 준다 */
+export default function MarketBrief({ indices, calendar, fx, macro, today }: { indices: JsonResult<IndexRow[]>; calendar: JsonResult<CalendarResp>; fx: JsonResult<FxResp>; macro: JsonResult<MacroResp>; today: string | null }) {
   const watch = useJson<{ asOf?: unknown; sigs?: unknown }>('/api/timing-watch')
   const movers = useJson<MoversResp>('/api/day-movers')
   const hol = useJson<{ kr?: { dates?: unknown } | null }>('/api/market-holidays')
@@ -80,15 +80,15 @@ export default function MarketBrief({ indices, calendar, fx, today }: { indices:
       }
     : null
 
-  const brief = today ? buildHomeBrief({ indices: indicesIn, usdKrw, signals, events, movers: moversIn, fomcDates: FOMC_DATES }, today) : null
+  const brief = today ? buildHomeBrief({ indices: indicesIn, usdKrw, signals, events, movers: moversIn, fomcDates: FOMC_DATES, macro: macroRows(macro) }, today) : null
   const marketReady = brief && !pending(indices.state) && !pending(fx.state)
   const mineReady = brief && !pending(watch.state) && !pending(calendar.state) && !pending(movers.state)
-  const upcomingReady = brief && !pending(calendar.state)
+  const upcomingReady = brief && !pending(calendar.state) && !pending(macro.state)
 
   const holidays = hol.state === 'ok' && Array.isArray(hol.data?.kr?.dates) ? (hol.data.kr.dates as unknown[]).filter((d): d is string => typeof d === 'string') : null
   const status = now != null && !pending(hol.state) ? krxStatus(now, holidays) : null
 
-  const failed = [indices, fx, watch, calendar, movers].filter(s => s.state === 'failed')
+  const failed = [indices, fx, watch, calendar, movers, macro].filter(s => s.state === 'failed')
 
   return (
     <section style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>

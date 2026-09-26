@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { SP } from '@/lib/theme'
 import { useJson } from '@/app/components/student/useJson'
-import { useKstToday, type IndexRow, type CalendarResp, type FxResp } from '@/app/components/student/home/homeUi'
+import { useKstToday, type IndexRow, type CalendarResp, type FxResp, type MacroResp } from '@/app/components/student/home/homeUi'
 import Greeting from '@/app/components/student/home/Greeting'
 import HomeSearch from '@/app/components/student/home/HomeSearch'
 import Shortcuts from '@/app/components/student/home/Shortcuts'
@@ -42,6 +42,7 @@ export default function StudentHome() {
   const indices = useJson<IndexRow[]>('/api/market-indices')
   const calendar = useJson<CalendarResp>('/api/event-calendar')
   const fx = useJson<FxResp>('/api/exchange-rate')   // 내 자산 한 줄(useMyPortfolio)은 자기 조회를 쓰되 같은 규칙(고정 상수 거부)
+  const macro = useJson<MacroResp>('/api/macro-releases')   // 미국 CPI·고용·PCE 발표일(FRED 공식 일정) — 한눈 시황·주요 일정이 함께 쓴다
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
@@ -60,11 +61,11 @@ export default function StudentHome() {
       <HomeSearch />
       <Shortcuts />
       <MyAssetsLine />
-      <MarketBrief indices={indices} calendar={calendar} fx={fx} today={today} />
+      <MarketBrief indices={indices} calendar={calendar} fx={fx} macro={macro} today={today} />
       <IndexCards indices={indices} />
       <div className="sh-two">
         <FearGreed />
-        <UpcomingEvents calendar={calendar} today={today} />
+        <UpcomingEvents calendar={calendar} macro={macro} today={today} />
       </div>
       <MyNews />
       <GuruCard />
