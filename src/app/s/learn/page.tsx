@@ -1,5 +1,5 @@
 'use client'
-// 학생 배우기 — 오늘의 명언 · 오늘 알려드려요(규칙 4종 순환, 필요한 원천만) · 매매 브리핑 한 줄 · 수업 자료 · 더 알아보기(분석 화면)
+// 학생 배우기 — 오늘의 명언 · 오늘 알려드려요(규칙 4종 순환, 필요한 원천만) · 매매 브리핑 한 줄 · 수업 자료 · 더 알아보기(분석 화면) · 폰 앱 설치 · 내 계정(분석 화면으로 바꾸기·로그아웃)
 import Link from 'next/link'
 import { useCallback, useState } from 'react'
 import { TK, FS, RAD, SP } from '@/lib/theme'
@@ -15,6 +15,9 @@ import {
   briefSignals, briefEvents, briefMovers, type CalendarResp, type MoversResp, type WatchResp,
 } from '@/app/components/student/home/homeUi'
 import { useTodayTip, type TodayTip } from '@/app/components/student/learn/useTodayTip'
+import InstallCard from '@/app/components/student/InstallCard'
+import LogoutButton from '@/app/components/student/LogoutButton'
+import { setViewMode } from '@/lib/viewMode'
 
 const pending = (s: JsonState) => s === 'loading' || s === 'idle'
 const linkBtn = { alignSelf: 'flex-start', minHeight: 44, display: 'flex', alignItems: 'center', padding: `0 ${SP.lg}px`, borderRadius: RAD.sm, background: TK.blue600, color: TK.slate100, fontSize: FS.body, fontWeight: 700, textDecoration: 'none' } as const
@@ -247,6 +250,18 @@ export default function StudentLearn() {
               ))}
             </nav>
           ))}
+        </div>
+      </section>
+
+      <InstallCard />
+
+      {/* 내 계정 — 폰에는 왼쪽 메뉴가 없어 여기가 나가는 길이다 */}
+      <section aria-labelledby="learn-account" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
+        <h2 id="learn-account" style={{ margin: 0, fontSize: FS.body, fontWeight: 700, color: TK.slate100 }}>내 계정</h2>
+        <div style={{ display: 'flex', gap: SP.sm, flexWrap: 'wrap' }}>
+          {/* 선택을 쿠키에 남긴다 — 다음 로그인·앱 아이콘(/start)도 분석 화면으로 연다 */}
+          <button type="button" onClick={() => { setViewMode('full'); window.location.href = '/dashboard' }} style={{ ...retryBtn, fontSize: FS.body }}>분석 화면으로 바꾸기</button>
+          <LogoutButton style={{ ...retryBtn, fontSize: FS.body }} />
         </div>
       </section>
     </div>

@@ -4,8 +4,6 @@ import { getCache, setCache } from '@/lib/appCache'
 export interface TechCandle { date: string; open: number; high: number; low: number; close: number; volume: number }
 export type TechTf = 'D' | 'W' | 'M'
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
-
 /** KR — 네이버 fchart OHLCV (일 480 / 주 320 / 월 240) */
 async function krCandles(code: string, tf: TechTf): Promise<TechCandle[]> {
   const m = { D: { timeframe: 'day', count: 480 }, W: { timeframe: 'week', count: 320 }, M: { timeframe: 'month', count: 240 } }[tf]
@@ -96,9 +94,11 @@ export function dropIncompleteBar<T extends { date: string }>(D: T[], session: '
   return isFinite(closeUtc) && now < closeUtc ? D.slice(0, -1) : D
 }
 
-/** 캐시 공유 getter — tech-chart 라우트와 동일 키(tech-chart-v1) */
+/** 캐시 공유 getter — tech-chart 라우트와 동일 키(tech-chart-v2) */
 export async function getTechCandles(ticker: string, market: 'KR' | 'US', tf: TechTf = 'D'): Promise<TechCandle[]> {
-  const cacheKey = `tech-chart-v1:${ticker.toUpperCase()}:${market}:${tf}:${kstDate()}`
+  // 키에 날짜를 넣지 않는다 — v1 은 날짜별로 새 행을 쌓아 82일 만에 4.7만 행·DB 900MB+ 로 무료 한도(500MB)를 넘겼다(2026-09-26 실측).
+  // 신선도는 30분 TTL(updated_at)이 판정하므로 종목·시장·봉 단위 한 행을 덮어쓰면 충분하다.
+  const cacheKey = `tech-chart-v2:${ticker.toUpperCase()}:${market}:${tf}`
   const cached = await getCache<{ candles: TechCandle[] }>(cacheKey, 30 * 60_000)
   if (cached?.candles?.length) return cached.candles
   const candles = market === 'KR' ? await krCandles(ticker, tf) : await usCandles(ticker, tf)

@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { TK, FS, FONT_STACK } from '@/lib/theme'
+import { TK, FS, SP, FONT_STACK } from '@/lib/theme'
+import { setViewMode } from '@/lib/viewMode'
 
 // ── 용도 기반 그룹 — "매일 보는 것"이 맨 위, 나머지는 사전(레퍼런스) ──
 //    ⭐ export 이유: 상단바(TopHeader)가 페이지 제목을 여기서 파생한다. 예전엔 제목 표가 따로 있어
@@ -334,6 +335,24 @@ function SidebarInner() {
             </a>
           </>
         )}
+
+        {/* 🎒 간편 화면(학생 홈)으로 — 모드를 쿠키에 남겨 다음 로그인도 간편 화면으로 착지한다(선생님도 보인다) */}
+        <div style={{ height: 1, background: TK.gray800, margin: `${SP.md}px ${SP.xs}px` }}/>
+        {/* 토큰예외: 세로 여백 9·라운드 10·아이콘 칸 20·왼쪽 테두리 3px 은 바로 위 메뉴 항목들과 같은 모양을 맞추려는 값(SP·RAD 에 없음) */}
+        <a href="/s" onClick={() => setViewMode('simple')} style={{
+          display: 'flex', alignItems: 'center', gap: SP.md,
+          padding: `9px ${SP.md}px`, borderRadius: 10, textDecoration: 'none',
+          color: TK.sub, background: 'transparent',
+          borderLeft: '3px solid transparent',
+          fontSize: FS.body, fontWeight: 400,
+          transition: 'all 0.12s',
+        }}
+          onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = TK.gray900; (e.currentTarget as HTMLAnchorElement).style.color = TK.slate100 }}
+          onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; (e.currentTarget as HTMLAnchorElement).style.color = TK.sub }}
+        >
+          <span style={{ fontSize: FS.lg, lineHeight: 1, minWidth: 20, textAlign: 'center' as const }}>🎒</span>
+          간편 화면
+        </a>
       </nav>
 
       {/* ── 💵 시그니처 — DCF 철학(미래 현금흐름을 현재가치로 할인) ──────────

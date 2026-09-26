@@ -45,14 +45,20 @@ export async function middleware(request: NextRequest) {
   ]
   const authPaths = ['/login', '/signup']
 
+  // 원래 가려던 주소를 next 로 기억한다 — 로그인 뒤 /start 가 같은 사이트 내부 경로인지 확인하고 되돌려 보낸다
+  // (/start 는 이 목록에 넣지 않는다 — 스스로 로그인을 확인하고 /login 으로 보낸다)
   if (!user && (pathname === '/s' || protectedPaths.some(p => pathname.startsWith(p)))) {
     const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('next', pathname + request.nextUrl.search)
     return NextResponse.redirect(loginUrl)
   }
 
-  // ── 2. 이미 로그인 → /login, /signup 접근 시 대시보드로 ─────────────────────
+  // ── 2. 이미 로그인 → /login, /signup 접근 시 착지(/start)로 — next 가 있으면 넘긴다 ──
   if (user && authPaths.some(p => pathname === p || pathname.startsWith(p + '?'))) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    const startUrl = new URL('/start', request.url)
+    const next = request.nextUrl.searchParams.get('next')
+    if (next) startUrl.searchParams.set('next', next)
+    return NextResponse.redirect(startUrl)
   }
 
   // ── 3. /admin → teacher 전용 (DB 조회로 role 검증) ─────────────────────────
