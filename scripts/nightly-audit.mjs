@@ -46,6 +46,9 @@ const INVARIANTS = [
   // 2026-09-26 신설 — app_cache 에 지우는 장치가 없어 DB 무료 한도를 넘겼다. 정리 허용 목록이 키 버전업을
   //   따라가지 못하면 조용히 아무것도 안 지우거나(누적 재발), 옛 버전 접두어를 코드가 다시 읽게 된다.
   { file: 'scripts/verify-cache-purge.mjs', label: 'app_cache 정리 허용 목록 = 코드의 현재 키' },
+  // 2026-09-27 신설 — 환율 라우트의 고정 상수(stale-constant)가 HTTP 200 이라 '실제 환율(live)'로 판정돼
+  //   폴백으로 잰 결과가 캐시에 박제될 수 있었다. 판정이 다시 느슨해지면 값은 그럴듯해 화면검증으로 안 잡힌다.
+  { file: 'scripts/verify-fx-live.mjs', label: '환율 live 판정(고정 상수 ≠ 실제 환율)' },
 ]
 
 /**
