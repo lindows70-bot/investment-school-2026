@@ -20,8 +20,9 @@ export default function StudentShell({ children }: { children: React.ReactNode }
   const pathname = usePathname()
   return (
     <div className="st-shell" style={{ display: 'flex', minHeight: '100dvh', background: TK.bg1, color: TK.slate200, fontFamily: FONT_STACK }}>
+      {/* 두 조건은 정확한 여집합이어야 한다 — max-width:768 / min-width:769 로 두면 화면 확대(폭 768.4px 등)에서 둘 다 안 맞아 탭과 왼쪽 메뉴가 함께 뜬다(실측) */}
       <style>{`
-        @media (max-width: 768px) { .st-rail { display: none !important } .st-main { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important } }
+        @media not all and (min-width: 769px) { .st-rail { display: none !important } .st-main { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important } }
         @media (min-width: 769px) { .st-tabs { display: none !important } }
         ::-webkit-scrollbar { width: 5px; height: 5px }
         ::-webkit-scrollbar-track { background: ${TK.bg0} }
