@@ -7,10 +7,7 @@ import { buildHomeBrief, type HomeBriefInput, type Line } from '@/lib/homeBrief'
 import { FOMC_SCHEDULE } from '@/lib/fomcSchedule'
 import { acceptFx } from '@/lib/fxAccept'
 import { useJson, type JsonResult, type JsonState } from '@/app/components/student/useJson'
-import { card, CardHead, toneColor, noteStyle, retryBtn, macroRows, macroFailedLabels, type IndexRow, type CalendarResp, type FxResp, type MacroResp } from './homeUi'
-
-interface MoverRow { name?: unknown; changePct?: unknown; held?: unknown }
-interface MoversResp { surges?: MoverRow[]; drops?: MoverRow[]; failed?: unknown; checked?: unknown; heldFailed?: unknown; heldChecked?: unknown }
+import { card, CardHead, toneColor, noteStyle, retryBtn, macroRows, macroFailedLabels, briefSignals, briefEvents, briefMovers, type IndexRow, type CalendarResp, type FxResp, type MacroResp, type MoversResp, type WatchResp } from './homeUi'
 
 const FOMC_DATES = FOMC_SCHEDULE.map(m => m.date)
 const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)
@@ -42,7 +39,7 @@ function BriefLine({ line, loadingText }: { line: Line | null; loadingText: stri
 
 /** today = KST 'YYYY-MM-DD'(페이지의 useKstToday — 마운트 전엔 null). indices·calendar·fx·macro 는 페이지가 한 번 불러 나눠 준다 */
 export default function MarketBrief({ indices, calendar, fx, macro, today }: { indices: JsonResult<IndexRow[]>; calendar: JsonResult<CalendarResp>; fx: JsonResult<FxResp>; macro: JsonResult<MacroResp>; today: string | null }) {
-  const watch = useJson<{ asOf?: unknown; sigs?: unknown }>('/api/timing-watch')
+  const watch = useJson<WatchResp>('/api/timing-watch')
   const movers = useJson<MoversResp>('/api/day-movers')
   const hol = useJson<{ kr?: { dates?: unknown } | null }>('/api/market-holidays')
 
@@ -60,25 +57,9 @@ export default function MarketBrief({ indices, calendar, fx, macro, today }: { i
     : null
   // 환율 라우트는 모든 원천이 죽으면 고정 상수(stale-constant)를 준다 — 지금 환율이 아니므로 '못 가져옴'(내 자산과 같은 acceptFx)
   const usdKrw = fx.state === 'ok' ? acceptFx(fx.data) : null
-  const signals: HomeBriefInput['signals'] = watch.state === 'ok' && Array.isArray(watch.data?.sigs)
-    ? { asOf: typeof watch.data?.asOf === 'string' ? watch.data.asOf : null, count: watch.data.sigs.length }
-    : null
-  const events: HomeBriefInput['events'] = calendar.state === 'ok' && Array.isArray(calendar.data?.events)
-    ? calendar.data.events.filter(e => e && typeof e.date === 'string' && typeof e.type === 'string' && typeof e.name === 'string' && typeof e.ticker === 'string').map(e => ({ type: e.type, date: e.date, name: e.name, ticker: e.ticker }))
-    : null
-  const md = movers.data
-  // day-movers 는 보유하지 않아도 비트코인을 늘 넣는다 — 내 종목(held=true)만, 개수도 내 종목만 센 heldChecked·heldFailed 로.
-  //  그 두 필드가 없으면(옛 응답) 전체 checked·failed 로 대신하지 않고 '못 가져옴' — 비트코인 실패가 섞인 수라 틀린 말이 된다
-  const mChecked = md?.heldChecked
-  const mFailed = md?.heldFailed
-  const moversIn: HomeBriefInput['movers'] = movers.state === 'ok' && md && Array.isArray(md.surges) && Array.isArray(md.drops) && isNum(mFailed) && isNum(mChecked)
-    ? {
-        held: [...md.surges, ...md.drops]
-          .filter((m): m is { name: string; changePct: number; held: true } => m?.held === true && typeof m.name === 'string' && isNum(m.changePct))
-          .map(m => ({ name: m.name, changePct: m.changePct })),
-        checked: mChecked, failed: mFailed,
-      }
-    : null
+  const signals = briefSignals(watch)
+  const events = briefEvents(calendar)
+  const moversIn = briefMovers(movers)
 
   // 지표가 하나라도 빠졌으면 '가장 가까운 발표'라 말할 수 없다 — 남은 것 중 가장 가까운 것을 내면 실제로 더 가까운 발표를 건너뛸 수 있다
   const macroIn: HomeBriefInput['macro'] = macroFailedLabels(macro).length > 0 ? null : macroRows(macro)
