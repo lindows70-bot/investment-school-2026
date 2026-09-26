@@ -47,7 +47,8 @@ export default function IdleTimer() {
   const doLogout = useCallback(async () => {
     clearAllTimers()
     setShowWarning(false)
-    await createClient().auth.signOut({ scope: 'global' })
+    // 이 기기만 끊는다 — global 이면 PC 탭 하나를 30분 방치해도 폰에 설치한 앱까지 로그아웃된다(2026-09-26 결정)
+    await createClient().auth.signOut({ scope: 'local' })
     router.push('/login?reason=idle')
     router.refresh()
   }, [router])
