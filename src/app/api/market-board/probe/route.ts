@@ -1,10 +1,12 @@
 // 시장 탭 원천 도달 확인 — 이 라우트가 도는 서버(Vercel icn1)에서 새 원천 호스트마다 한 번씩 불러 성공·시간·기준 시각을 돌려준다
 //   배경: stock.naver.com/api·m.stock.naver.com/front-api 는 로컬에서만 200 을 확인했다(해외 IP·데이터센터 차단 여부 미확인).
-//   가벼운 요청만(목록 3줄·첫 쪽) — 캐시하지 않는다. 공개 시장 데이터라 로그인 불필요.
+//   가벼운 요청만(목록 3줄·첫 쪽). 🔒 선생님 세션(profiles.role === 'teacher') 또는 CRON_SECRET(Authorization: Bearer)만 —
+//   누구나 부를 수 있으면 한 번에 원천 14곳을 두드리는 증폭기가 된다. 결과는 인스턴스 메모리에 60초.
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
 import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 import { fetchKrIndices, fetchKrIndexMinute, fetchKrIntegration, fetchKrMovers, fetchKrIndustry, fetchKrMainNews } from '@/lib/krMarketBoard'
 import { fetchFlowRank, fetchStockTrend } from '@/lib/foreignOrgFlow'
 import { fetchUsMovers, fetchUsEtfIntraday } from '@/lib/usMarketBoard'
@@ -29,7 +31,25 @@ async function timed(name: string, host: string, fn: () => Promise<{ ok: boolean
 const fromPart = (p: { ok: boolean; asOf?: string | null; reason?: string }, what: string) =>
   ({ ok: p.ok, detail: p.ok ? what : (p.reason ?? '실패'), asOf: p.ok ? p.asOf ?? null : null })
 
-export async function GET() {
+/** 선생님 세션 또는 크론 비밀값. 둘 다 아니면 false */
+async function allowed(req: Request): Promise<boolean> {
+  const secret = process.env.CRON_SECRET
+  if (secret && req.headers.get('authorization') === `Bearer ${secret}`) return true
+  try {
+    const sb = createClient()
+    const { data: { user } } = await sb.auth.getUser()
+    if (!user) return false
+    const { data, error } = await sb.from('profiles').select('role').eq('id', user.id).single()
+    return !error && data?.role === 'teacher'
+  } catch { return false }
+}
+
+let memo: { at: number; body: unknown } | null = null
+
+export async function GET(req: Request) {
+  if (!(await allowed(req))) return NextResponse.json({ error: 'unauthorized' }, { status: 401, headers: { 'Cache-Control': 'no-store' } })
+  if (memo && Date.now() - memo.at < 60_000) return NextResponse.json({ ...(memo.body as object), cache: 'memory' }, { headers: { 'Cache-Control': 'no-store' } })
+
   const checks = await Promise.all([
     timed('국내 지수(polling)', 'polling.finance.naver.com', async () => fromPart(await fetchKrIndices(), '지수 3종')),
     timed('지수 분봉', 'api.stock.naver.com', async () => fromPart(await fetchKrIndexMinute('KOSPI'), '분봉')),
@@ -58,11 +78,13 @@ export async function GET() {
     }),
   ])
   const failed = checks.filter(c => !c.ok).map(c => c.name)
-  return NextResponse.json({
+  const body = {
     region: process.env.VERCEL_REGION ?? 'local',
     at: new Date().toISOString(),
     allOk: failed.length === 0,
     failed,
     checks,
-  }, { headers: { 'Cache-Control': 'no-store' } })
+  }
+  memo = { at: Date.now(), body }
+  return NextResponse.json({ ...body, cache: 'miss' }, { headers: { 'Cache-Control': 'no-store' } })
 }
