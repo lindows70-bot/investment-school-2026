@@ -131,5 +131,26 @@ try {
     j.error ? `error: ${j.error}` : `${j.series.length}일 · 최신 ${j.current?.date}`)
 } catch (e) { check('프로덕션 /api/leverage-radar', false, String(e)) }
 
-console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (🔒 네이버 신규 원천 — 투자자별 매매동향·증시자금동향)')
+// ── ③ 업종 목록(코드→이름) — 승패 해부실 KR 업종 라벨 원천 ──
+//   앱이 하는 조인 그대로 본다: 종목 integration 의 industryCode → 업종 목록의 no. 체계가 갈라지면 라벨이 조용히 빈다
+//   (옛 목록은 2026-09-03 캐시가 7일 뒤 만료된 뒤로 빈 맵이었다 — 아무 경고 없이 KR 종목이 '미분류'로 남았다)
+console.log('\n── 업종 목록(m.stock.naver.com stocks/industry) ──')
+try {
+  const j = await getJson('https://m.stock.naver.com/api/stocks/industry?page=1&pageSize=100')
+  const map = new Map((j?.groups ?? []).filter(g => g.no != null && g.name).map(g => [String(g.no), String(g.name)]))
+  check('업종 목록 한 번에 전부', map.size >= 30 && map.size === Number(j?.totalCount), `${map.size}/${j?.totalCount}업종`)
+  // 시장·업종이 서로 다른 표본(코스피 대형·코스닥) — 특정 종목 판정이 아니라 조인 계약 확인용
+  const SAMPLE = ['005930', '000660', '035420', '068270', '247540', '196170']
+  const miss = []
+  for (const code of SAMPLE) {
+    try {
+      const ig = await getJson(`https://m.stock.naver.com/api/stock/${code}/integration`)
+      const ic = ig?.industryCode != null ? String(ig.industryCode) : null
+      if (!ic || !map.has(ic)) miss.push(`${code}→${ic ?? '없음'}`)
+    } catch (e) { miss.push(`${code}→${e}`) }
+  }
+  check('종목 industryCode → 업종명 조인', miss.length === 0, miss.length ? `실패 ${miss.join(' · ')}` : `${SAMPLE.length}/${SAMPLE.length}종목`)
+} catch (e) { check('업종 목록 조회', false, String(e)) }
+
+console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (🔒 네이버 신규 원천 — 투자자별 매매동향·증시자금동향·업종 목록)')
 process.exit(fail ? 1 : 0)

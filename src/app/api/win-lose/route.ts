@@ -83,22 +83,25 @@ function etfRoleLabel(ticker: string, name: string, market: string): SubLabel {
   if (r.role === 'BLOCKED') return { label: '레버리지·고위험', emoji: '⚠️', color: TK.red400, sector: 'ROLE' }
   return { label: '테마·기타 ETF', emoji: '📦', color: TK.sub3, sector: 'ROLE' }
 }
-// KR 주식: 네이버 업종코드→업종명 맵(목록 페이지 1콜·EUC-KR·7일 캐시) — Yahoo가 섹터를 안 주는 코스닥주 커버
+const NAVER_UA = { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148', Referer: 'https://m.stock.naver.com/' }
+// KR 주식: 네이버 업종코드→업종명 맵(업종 목록 1콜·JSON·7일 캐시) — Yahoo가 섹터를 안 주는 코스닥주 커버
+//   💥 2026-09-27: 옛 PC 목록(sise_group.naver?type=upjong)이 신규 사이트로 302 리다이렉트돼 정규식 0건 → 빈 맵(캐시 만료 후 조용히 미분류).
+//   신규 m.stock.naver.com/api/stocks/industry 의 no 는 종목 integration 의 industryCode 와 같은 체계
+//   (실측 278 = 반도체와반도체장비 = 삼성전자 industryCode) · 79업종(pageSize 100 이면 한 번에). 코드→이름 내용이 같아 캐시 키는 그대로 둔다.
 async function naverUpjongMap(): Promise<Map<string, string>> {
   const cached = await getCache<Record<string, string>>('naver-upjong-map-v1', 7 * 24 * 3600_000)
   if (cached) return new Map(Object.entries(cached))
   try {
-    const r = await fetch('https://finance.naver.com/sise/sise_group.naver?type=upjong', { headers: { 'User-Agent': 'Mozilla/5.0' } })
-    const html = new TextDecoder('euc-kr').decode(Buffer.from(await r.arrayBuffer()))
-    const m = Array.from(html.matchAll(/no=(\d+)"[^>]*>([^<]+)</g))
+    const r = await fetch('https://m.stock.naver.com/api/stocks/industry?page=1&pageSize=100', { headers: NAVER_UA, cache: 'no-store' })
+    const groups: { no?: number | string; name?: string }[] = r.ok ? (await r.json())?.groups ?? [] : []
+    const m = groups.filter(g => g.no != null && g.name)
     if (m.length < 30) return new Map()
     const obj: Record<string, string> = {}
-    for (const x of m) obj[x[1]] = x[2].trim()
+    for (const g of m) obj[String(g.no)] = String(g.name).trim()
     await setCache('naver-upjong-map-v1', obj)
     return new Map(Object.entries(obj))
   } catch { return new Map() }
 }
-const NAVER_UA = { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148', Referer: 'https://m.stock.naver.com/' }
 async function krIndustryOf(code: string, upjong: Map<string, string>): Promise<string | null> {
   try {
     const r = await fetch(`https://m.stock.naver.com/api/stock/${code}/integration`, { headers: NAVER_UA })
