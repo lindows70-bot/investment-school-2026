@@ -92,28 +92,62 @@ export function returnSince(buyPrice: number, currentPrice: number | null | unde
 }
 
 /**
- * 비교할 지수 — 국기 SSOT(flagOf: 티커 접미사 → 6자리 숫자 → market) 가 🇰🇷 이면 코스피, 코인은 없음(null), 나머지는 미국 S&P 500.
+ * 비교할 지수 — 국기 SSOT(flagOf: 티커 접미사 → 6자리 숫자 → market) 가 🇰🇷 이면 코스피, 🇺🇸 이면 미국 S&P 500, 그 밖(🇯🇵·🇳🇱·코인 등)은 null.
  * ETF 는 singleBuyHoldings 가 미리 뺀다(한국 상장 해외 ETF 가 🇰🇷 → 코스피로 비교되는 오해 방지).
- * ⚠️ 한계: 유럽·일본 종목도 S&P 500 과 비교된다(앱에 그 나라 지수 캔들 경로를 따로 두지 않았다).
+ * ⚠️ 한계: ① 코스닥 종목도 코스피와 비교된다(티커로 시장을 못 가른다 — 화면 본문에 '코스피 기준'을 적는다).
+ *    ② 접미사 없는 미국 상장 외국 기업(ADR: 쉘 SHEL 등)은 origin 을 안 받으므로 🇺🇸 로 보고 S&P 500 과 비교된다.
  */
 export function indexFor(ticker: string, market: string): IndexChoice | null {
-  if ((market ?? '').toUpperCase() === 'CRYPTO') return null
-  return flagOf(market, ticker) === '🇰🇷' ? { symbol: '^KS11', name: '코스피' } : { symbol: '^GSPC', name: '미국 S&P 500' }
+  const f = flagOf(market, ticker)
+  return f === '🇰🇷' ? { symbol: '^KS11', name: '코스피' } : f === '🇺🇸' ? { symbol: '^GSPC', name: '미국 S&P 500' } : null
 }
 
 /**
- * vsIndex 입력 한 줄 — 산 날 지수 종가(그날 또는 직전 거래일)와 오늘(또는 직전 거래일) 종가로 지수 수익률을 잰다.
+ * 봉이 완성됐나 — techChartData.dropIncompleteBar 와 같은 규칙을 순수하게 다시 쓴 것(그 파일은 appCache 를 불러 여기서 못 쓴다).
+ * 봉 날짜의 마감 + 35분(KR 20:00 KST NXT 애프터마켓 → 11:35Z · US 16:00 ET(EST) → 21:35Z)이 지나야 완성. 규칙을 바꾸면 둘 다 바꿔라.
+ * 지수 세션: ^KS11 = KR(봉 날짜가 KST), ^GSPC = US.
+ */
+export function isBarComplete(date: string, session: 'KR' | 'US', nowMs: number): boolean {
+  const closeUtc = Date.parse(session === 'KR' ? `${date.slice(0, 10)}T11:35:00Z` : `${date.slice(0, 10)}T21:35:00Z`)
+  return isFinite(closeUtc) && nowMs >= closeUtc
+}
+
+export interface VsIndexRow {
+  ticker: string; name: string; market: string
+  buyDate: string
+  /** 내 수익률 — 지금 시세 기준 */
+  returnPct: number
+  indexName: string
+  indexReturnPct: number
+  /** 지수 시작 봉 날짜(산 날 또는 그 직전 거래일) */
+  indexStartDate: string
+  /** 지수 끝 봉 날짜(오늘 또는 그 직전 거래일) */
+  endDate: string
+  /** 끝 봉이 완성된 종가인가 — false 면 오늘 진행 중인 봉이라 '종가'라고 부르지 않는다 */
+  endComplete: boolean
+}
+
+/**
+ * vsIndex 입력 한 줄 — 산 날 지수 종가(그날 또는 직전 거래일)부터 가장 최근 봉까지의 지수 수익률.
+ * ⚠️ 일봉만 넣어라(tech-chart tf=D). 주봉은 봉 날짜가 주 첫날이라 날짜로 찾으면 다른 주의 종가를 집는다.
+ * 오늘 진행 중인 봉은 버리지 않고 '완성 아님'(endComplete=false)으로 표시한다 — 내 수익률이 지금 시세라
+ * 지수 끝을 어제 종가로 자르면 두 수익률의 끝 시점이 하루 어긋난다. 화면은 그때 '종가' 대신 날짜 기준만 적는다.
  * 산 날이 오늘이거나 미래 · 시세 없음 · 지수 봉을 날짜로 못 찾으면 null.
- * 내 수익률은 체결가 기준이고 지수는 그날 종가 기준이다(같은 날 안의 차이는 남는다).
+ * 내 수익률은 체결가 기준이고 지수 시작은 그날 종가 기준이다(같은 날 안의 차이는 남는다).
  */
 export function buildVsIndexRow(
-  b: SingleBuy, currentPrice: number | null | undefined, idx: IndexChoice, indexCandles: DatedClose[], todayKst: string,
-): { ticker: string; name: string; market: string; buyDate: string; returnPct: number; indexName: string; indexReturnPct: number } | null {
+  b: SingleBuy, currentPrice: number | null | undefined, idx: IndexChoice, dailyIndexCandles: DatedClose[], todayKst: string, nowMs: number,
+): VsIndexRow | null {
   if (!YMD.test(todayKst) || !(b.buyDate < todayKst)) return null
   const own = returnSince(b.buyPrice, currentPrice)
   if (own == null) return null
-  const start = closeOnOrBefore(indexCandles, b.buyDate)
-  const end = closeOnOrBefore(indexCandles, todayKst)
+  const start = closeOnOrBefore(dailyIndexCandles, b.buyDate)
+  const end = closeOnOrBefore(dailyIndexCandles, todayKst)
   if (!start || !end || !(end.date > start.date)) return null
-  return { ticker: b.ticker, name: b.name, market: b.market, buyDate: b.buyDate, returnPct: own, indexName: idx.name, indexReturnPct: (end.close / start.close - 1) * 100 }
+  return {
+    ticker: b.ticker, name: b.name, market: b.market, buyDate: b.buyDate, returnPct: own,
+    indexName: idx.name, indexReturnPct: (end.close / start.close - 1) * 100,
+    indexStartDate: start.date, endDate: end.date,
+    endComplete: isBarComplete(end.date, idx.symbol === '^KS11' ? 'KR' : 'US', nowMs),
+  }
 }
