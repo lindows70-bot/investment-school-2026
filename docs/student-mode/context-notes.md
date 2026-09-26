@@ -116,3 +116,23 @@
 
 - 학생은 매매를 드물게 한다 → 홈은 '보기' 중심, 기록은 짧게. 4주 접속 기록으로 확인.
 - 학생도 폰에서 주로 본다 → 폰 우선 설계, PC 는 같은 화면을 가운데 폭 제한.
+
+## 시장 탭 Phase 0 (2026-09-27, 읽기 전용 실측 — 한국 9/23·미국 9/25 마감값)
+
+| 요소 | 판정 | 원천 | 실측·주의 |
+|---|---|---|---|
+| 국내 지수 3종·장중 | 🟡 | `polling.finance.naver.com/api/realtime/domestic/index/KOSPI,KOSDAQ,KPI200` · 분봉 `api.stock.naver.com/chart/domestic/index/{..}/minute` | 코스닥 +1.21%(앱 야후 +0.98% — `chartPreviousClose` 가 이틀 전 836.27). 기준 시각은 `localTradedAt`. 야후 1분봉은 15:00 끝(동시호가 빠짐) |
+| 투자자별 합계 | 🟡 | `m.stock.naver.com/api/index/KOSPI/integration` → `dealTrendInfo` | 개인 −14,649 · 외국인 −4,942 · 기관 +3,189 억원. 단위: trend/daily 8000 코드 원 단위와 대조 |
+| 등락 수 | 🟡 | 같은 응답 `upDownStockInfo` | 코스피 상승 311·보합 55·하락 548. 앱 market-breadth(148종·200일선)와 다른 지표 — 섞지 말 것 |
+| 주요 뉴스 | 🟡 | `m.stock.naver.com/front-api/news/category?category=mainnews` (pageSize ≥10) | 원문 제목·언론사·시각. market-catalyst 는 Gemini 재작성이라 부적합 |
+| 특징종목 | 🟡 | `m.stock.naver.com/api/stocks/{up,down,quantTop,priceTop,high52week}/{KOSPI,KOSDAQ}` · 미국 `stock.naver.com/api/foreign/market/stock/global` · 코인 업비트 ticker/all | 상장 첫날 +280%·초소형 +309% 가 1위 → 필터 필요. 미국 52주 신고가 목록 없음 |
+| 업종 | 🟡 | `m.stock.naver.com/api/stocks/industry` | 시총가중(테마는 단순평균) — 공식 다름 |
+| 주체별 순매매 | 🟡 | `stock.naver.com/api/domestic/market/trend/trendForeignOrg` + 종목별 `m.stock.naver.com/api/stock/{code}/trend` | 삼성 외국인 +12,833억(수량×가격 재계산 일치). **개인 전체 순위 원천 없음**. WEEK 목록 `prevChangeRate` 는 그날 등락. KRX/NXT 분리 → 'KRX 기준' |
+| 강한 분야 | 🟡 | `/api/sector-rotation` 캐시 | **가격 수익률 계산**(자금 데이터 아님) → 이름 "요즘 강한 분야". 성적표 26/90일 |
+| SPY·QQQ | 🟡 | 야후 chart 5m | stock-price 의 charts.1D 는 일봉. ^IXIC ≠ 나스닥100 |
+| 공포탐욕 1년 | 🟡 | CNN graphdata(이미 받음, `previous_1_year`·historical 251개) · alternative.me limit=366 | CNN 1년 전 50.66 · 연간 최고 71.17(5/1)·최저 5.17(2025-11-20) · 코인 1년 전 28 |
+| 환율 추이 | 🟡 | `stock.naver.com/api/securityService/marketindex/exchange/FX_USDKRW/prices` | 하나은행 9/23 1,359.0 vs 앱 SSOT 1,361.27 vs 야후 1,354.4. 야후 고저는 이상값(3%↑ 봉 12개) — 사용 불가 |
+
+- **Vercel 미확인**: `stock.naver.com/api/*`, `m.stock.naver.com/front-api/*` — 로컬만 200. 배포 전 확인.
+- **발견(별도 작업으로 올림)**: 네이버 옛 PC 페이지 410/리다이렉트로 market-investor-trend·index-flow·leverage-radar·win-lose 업종 맵이 죽어 있다. market-flow-kr 등락률이 네이버와 다르다(전일 closePrice 가 NXT 통합 추정).
+- **결정(사용자)**: 테마 카드 = "요즘 강한 분야" · 환율 기준을 하나은행 매매기준율로 전환 · 하단 탭 '시장' 추가 · AI 한 줄 이유 제외.
