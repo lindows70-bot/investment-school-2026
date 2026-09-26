@@ -92,5 +92,44 @@ try {
   check('프로덕션 /api/index-flow', !j.error && (j.days?.length ?? 0) >= 200, j.error ? `error: ${j.error}` : `${j.days.length}일 · 최신 ${j.days.at(-1)?.d}`)
 } catch (e) { check('프로덕션 /api/index-flow', false, String(e)) }
 
-console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (🔒 네이버 신규 원천 — 투자자별 매매동향)')
+// ── ② 증시자금동향(고객예탁금·신용잔고) — 빚투 레이더 원천 ──
+console.log('\n── 고객예탁금·신용잔고(stock.naver.com trendDeposit) ──')
+let dep = []
+try {
+  const j = await getJson('https://stock.naver.com/api/domestic/market/trendDeposit?startIdx=0&pageSize=200')
+  dep = (j?.content ?? []).map(x => ({ date: iso8(String(x.bizdate)), deposit: Number(x.customerDeposit), margin: Number(x.creditLoan) }))
+    .filter(x => x.deposit > 0 && x.margin > 0)
+} catch (e) { console.log(`   조회 예외: ${e}`) }
+check('예탁금·신용잔고 200행 수집', dep.length >= 150, `${dep.length}행`)
+if (dep.length) check('예탁금 최신일 신선도', ageDays(dep[0].date) <= FRESH_DAYS, `${dep[0].date}(${ageDays(dep[0].date)}일 전)`)
+// 독립 원천 — 금융투자협회 FreeSIS(천원). 예탁금은 같은 날 억 단위까지 같다(실측 9/21 981,386억 · 28일 중 26일).
+//   어긋난 이틀은 정정 차이로 보인다(9/17 27억 · 8/28 1.1조 — 어느 쪽이 맞는지 셋째 원천이 없다) → 다수결.
+//   신용잔고는 FreeSIS 신용거래융자 합계보다 1.2~1.6% 작다(정의 차이) → 비율 범위로 단위(×10·÷10)만 잡는다
+const kofia = async (obj) => {
+  const fmt = (d) => d.toISOString().slice(0, 10).replace(/-/g, '')
+  const end = new Date(), start = new Date(Date.now() - 45 * 86_400_000)
+  const r = await fetch('https://freesis.kofia.or.kr/meta/getMetaDataList.do', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...UA }, signal: AbortSignal.timeout(20_000),
+    body: JSON.stringify({ dmSearch: { tmpV40: '1000', tmpV41: '1', tmpV1: 'D', tmpV45: fmt(start), tmpV46: fmt(end), OBJ_NM: obj } }),
+  })
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  return new Map(((await r.json())?.ds1 ?? []).map(x => [iso8(String(x.TMPV1)), Number(x.TMPV2) / 1e5]))   // 천원 → 억원
+}
+try {
+  const kd = await kofia('STATSCU0100000060BO')
+  const pairs = dep.filter(d => kd.has(d.date))
+  const exact = pairs.filter(d => Math.abs(d.deposit - kd.get(d.date)) <= 2)
+  check('예탁금 = 금투협 투자자예탁금(억 단위)', pairs.length >= 10 && exact.length / pairs.length >= 0.8, `${exact.length}/${pairs.length}일 일치`)
+  const km = await kofia('STATSCU0100000070BO')
+  const ratios = dep.filter(d => km.has(d.date)).map(d => d.margin / km.get(d.date)).sort((a, b) => a - b)
+  const med = ratios.length ? ratios[Math.floor(ratios.length / 2)] : NaN
+  check('신용잔고 / 금투협 신용거래융자 비율 0.9~1.05', ratios.length >= 10 && med >= 0.9 && med <= 1.05, `중위 ${med.toFixed(3)} · ${ratios.length}일`)
+} catch (e) { console.log(`⚠️ 금투협 대조 생략 — 조회 실패(${e}) · 독립 원천 쪽 문제라 실패로 세지 않는다`) }
+try {
+  const j = await getJson(`${PROD}/api/leverage-radar`, UA, 60_000)
+  check('프로덕션 /api/leverage-radar', !j.error && (j.series?.length ?? 0) >= 100 && ageDays(j.current?.date ?? '1970-01-01') <= FRESH_DAYS,
+    j.error ? `error: ${j.error}` : `${j.series.length}일 · 최신 ${j.current?.date}`)
+} catch (e) { check('프로덕션 /api/leverage-radar', false, String(e)) }
+
+console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (🔒 네이버 신규 원천 — 투자자별 매매동향·증시자금동향)')
 process.exit(fail ? 1 : 0)

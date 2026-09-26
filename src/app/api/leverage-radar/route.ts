@@ -1,4 +1,4 @@
-// 🚨 개인 빚투 레이더 — 네이버 증권 일별 고객예탁금·신용잔고(억원) 파싱 → 빚투 비율·역사적 백분위 경보.
+// 🚨 개인 빚투 레이더 — 네이버 증권 일별 고객예탁금·신용잔고(억원 · stock.naver.com 신규 API) → 빚투 비율·역사적 백분위 경보.
 // 판정은 절대 임계 하드코딩 대신 최근 이력 분포(백분위)로 결정론 산출. 시뮬레이터 없음 — 실데이터 표시 전용.
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
@@ -27,27 +27,28 @@ export interface LeverageRadarResult {
   asOf: string
 }
 
-// 네이버 sise_deposit 1페이지 파싱(EUC-KR) — 행: [날짜, 예탁금, 증감, 신용잔고, 증감, …]
-async function fetchPage(page: number): Promise<{ date: string; deposit: number; margin: number }[]> {
+// 네이버 증시자금동향(stock.naver.com 신규 API · 무인증 JSON) — 고객예탁금·신용잔고(억원) 일별
+//   💥 2026-09-27: 옛 PC 페이지 sise_deposit.naver 가 신규 사이트로 302 리다이렉트돼 파싱 0행 → 502 '데이터 부족'.
+//   실측: /api/domestic/market/trendDeposit?startIdx=<페이지 번호>&pageSize=<≤200> · customerDeposit·creditLoan 은 억원 문자열.
+//   같은 시계열 확인 — 2026-07-01 예탁금 1,200,837억·신용 367,436억 = 옛 페이지 검증값과 완전 일치.
+//   독립 원천 대조 — 예탁금은 금융투자협회 FreeSIS 투자자예탁금(천원)과 같은 날 억 단위까지 일치(9/21 981,386억).
+//   신용잔고는 FreeSIS 신용거래융자 합계보다 1.2~1.6% 작다(정의 차이 · 옛 페이지도 같은 값이었다).
+//   Vercel(icn1)에서 도달 확인(프리뷰 프로브 HTTP 200).
+async function fetchPage(page: number): Promise<{ date: string; deposit: number; margin: number }[] | null> {
   try {
-    const r = await fetch(`https://finance.naver.com/sise/sise_deposit.naver?page=${page}`, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10_000) })
-    if (!r.ok) return []
-    const buf = await r.arrayBuffer()
-    const html = new TextDecoder('euc-kr').decode(buf)
+    const r = await fetch(`https://stock.naver.com/api/domestic/market/trendDeposit?startIdx=${page}&pageSize=200`,
+      { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10_000), cache: 'no-store' })
+    if (!r.ok) return null
+    const content: { bizdate?: string; customerDeposit?: string; creditLoan?: string }[] = (await r.json())?.content ?? []
     const out: { date: string; deposit: number; margin: number }[] = []
-    const rowRe = /<tr[^>]*>([\s\S]*?)<\/tr>/g
-    let m: RegExpExecArray | null
-    while ((m = rowRe.exec(html)) !== null) {
-      const cells = Array.from(m[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g), c => c[1].replace(/<[^>]+>/g, '').replace(/&nbsp;|,/g, '').trim())
-      if (cells.length < 5) continue
-      const dm = cells[0].match(/^(\d{2})\.(\d{2})\.(\d{2})$/)
-      if (!dm) continue
-      const deposit = parseFloat(cells[1]), margin = parseFloat(cells[3])
-      if (!isFinite(deposit) || !isFinite(margin) || deposit <= 0 || margin <= 0) continue
-      out.push({ date: `20${dm[1]}-${dm[2]}-${dm[3]}`, deposit, margin })
+    for (const x of content) {
+      const bd = String(x.bizdate ?? '')
+      const deposit = Number(x.customerDeposit), margin = Number(x.creditLoan)
+      if (!/^\d{8}$/.test(bd) || !isFinite(deposit) || !isFinite(margin) || deposit <= 0 || margin <= 0) continue
+      out.push({ date: `${bd.slice(0, 4)}-${bd.slice(4, 6)}-${bd.slice(6, 8)}`, deposit, margin })
     }
     return out
-  } catch { return [] }
+  } catch { return null }
 }
 
 const pct = (arr: number[], v: number) => Math.round((arr.filter(x => x <= v).length / arr.length) * 100)
@@ -84,13 +85,16 @@ export async function GET() {
   const cached = await getCache<LeverageRadarResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
-  // 40페이지 ≈ 3년+ 일별 이력(동시성 8 청크) — KOFIA 미수금은 병렬 시작
+  // 200행 × 4페이지 ≈ 3년+ 일별 이력 — KOFIA 미수금은 병렬 시작.
+  //   차례로 넘기고 첫 실패에서 멈춘다 — 중간 페이지만 빠지면 20거래일 변화율(인덱스로 센다)이 조용히 다른 기간이 된다
   const misuPromise = fetchKofiaMisu()
-  const PAGES = 40, CHUNK = 8
+  const PAGES = 4
   const rows: { date: string; deposit: number; margin: number }[] = []
-  for (let i = 1; i <= PAGES; i += CHUNK) {
-    const batch = await Promise.all(Array.from({ length: Math.min(CHUNK, PAGES - i + 1) }, (_, k) => fetchPage(i + k)))
-    batch.forEach(b => rows.push(...b))
+  for (let p = 0; p < PAGES; p++) {
+    const page = await fetchPage(p)
+    if (!page?.length) break
+    rows.push(...page)
+    if (page.length < 200) break
   }
   const byDate = new Map(rows.map(r => [r.date, r]))
   const series: LeverageDay[] = Array.from(byDate.values())
