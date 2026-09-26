@@ -19,6 +19,24 @@ const NAME_MAP = {
   피셔: '필립 피셔',
 }
 
+/**
+ * source 원문에서 화면에 보일 문구만 뽑아낸다(source 자체는 안 건드리고 그대로 둔다).
+ * quotes.md 전수 스캔 결과(2026-09-26) 제거 대상은 이 두 가지뿐이다:
+ *   ① 마크다운 강조 기호 **, __, ` — B22 "**그레이엄의 말을 버핏이 인용**" 하나뿐
+ *   ② "(화면에 ... 표기)" 형태의 편집 지시 괄호 — B22 "(화면에 그렇게 표기)" 하나뿐
+ * (책 제목 안의 괄호 — 예: L01 "『One Up on Wall Street』" 의 영문 원제 괄호, C01 『Poor Charlie's
+ *  Almanack』 — 는 출처의 일부이므로 건드리지 않는다. "화면에" 가 없는 괄호는 전부 보존한다.)
+ */
+function toSourceLabel(source) {
+  let label = source
+    .replace(/\*\*/g, '')
+    .replace(/__/g, '')
+    .replace(/`/g, '')
+    .replace(/\(화면에[^)]*\)/g, '')
+  label = label.replace(/\s+/g, ' ').trim()
+  return label
+}
+
 let person = null
 let headingNote = null // 소제목에만 있고 표 각 행 출처엔 없는 맥락(예: 템플턴 "16 Rules ... (1993)")
 const quotes = []
@@ -57,7 +75,7 @@ for (const line of lines) {
     const original = originalRaw.trim()
     const source = sourceRaw.trim()
 
-    const q = { id, person, ko, original, source }
+    const q = { id, person, ko, original, source, sourceLabel: toSourceLabel(source) }
 
     // 표 각 행 출처에 4자리 연도가 없으면(=소제목에만 있으면) 소제목 맥락을 note 로 그대로 옮긴다
     if (headingNote && !/\d{4}/.test(source)) {
@@ -90,6 +108,7 @@ const body = quotes
       `ko: ${JSON.stringify(q.ko)}`,
       `original: ${JSON.stringify(q.original)}`,
       `source: ${JSON.stringify(q.source)}`,
+      `sourceLabel: ${JSON.stringify(q.sourceLabel)}`,
     ]
     if (q.quotedBy) fields.push(`quotedBy: ${JSON.stringify(q.quotedBy)}`)
     if (q.note) fields.push(`note: ${JSON.stringify(q.note)}`)
@@ -104,6 +123,8 @@ export interface Quote {
   ko: string
   original: string
   source: string
+  /** 화면 표시용 — source 에서 마크다운 강조 기호와 "(화면에 ... 표기)" 같은 편집 지시 괄호를 뺀 문구 */
+  sourceLabel: string
   /** B22 처럼 person 이 실제로 한 말을 다른 사람이 인용한 경우, 인용한 사람 */
   quotedBy?: string
   /** 표 각 행 출처엔 없고 소제목에만 있는 맥락(예: 템플턴 "16 Rules for Investment Success (1993)") */

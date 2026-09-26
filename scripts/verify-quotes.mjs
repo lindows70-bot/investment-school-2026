@@ -142,6 +142,18 @@ const b22 = M.QUOTES.find((q) => q.id === 'B22')
 check('B22 person = 벤저민 그레이엄', b22?.person === '벤저민 그레이엄')
 check('B22 quotedBy = 워런 버핏', b22?.quotedBy === '워런 버핏')
 
+// ── sourceLabel: source 는 원문 그대로, sourceLabel 은 화면용으로 마크다운·편집 지시를 뺀 문구 ──
+check('sourceLabel 전부 비어있지 않음', M.QUOTES.every((q) => typeof q.sourceLabel === 'string' && q.sourceLabel.length > 0))
+check("sourceLabel 에 '**' 없음", M.QUOTES.every((q) => !q.sourceLabel.includes('**')))
+check("sourceLabel 에 '__' 없음", M.QUOTES.every((q) => !q.sourceLabel.includes('__')))
+check('sourceLabel 에 백틱 없음', M.QUOTES.every((q) => !q.sourceLabel.includes('`')))
+check("sourceLabel 에 '화면에' 없음", M.QUOTES.every((q) => !q.sourceLabel.includes('화면에')))
+check('B22 sourceLabel = "2008 주주서한 — 그레이엄의 말을 버핏이 인용"', b22?.sourceLabel === '2008 주주서한 — 그레이엄의 말을 버핏이 인용')
+
+const labelDiffers = M.QUOTES.filter((q) => q.sourceLabel !== q.source)
+console.log(`ℹ️ sourceLabel ≠ source 인 행: ${labelDiffers.map((q) => q.id).join(', ') || '없음'}`)
+check('sourceLabel ≠ source 는 B22 하나뿐(quotes.md 전수 스캔 결과와 일치)', labelDiffers.length === 1 && labelDiffers[0].id === 'B22')
+
 // ── 제외 목록("다시 넣지 말 것")의 문구가 하나도 쓰이지 않았는지 ──
 const exclSectionIdx = mdLines.findIndex((l) => /^## .*\(다시 넣지 말 것\)/.test(l))
 const exclLines = mdLines.slice(exclSectionIdx + 1)
