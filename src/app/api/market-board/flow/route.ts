@@ -11,10 +11,17 @@ import {
 import { okPart, failPart, krSessionTtlMs } from '@/lib/marketBoardShared'
 import { boardCached } from '@/lib/marketBoardCache'
 
-const KEY = 'market-board-flow-v2'   // 🗓️ 날짜 없는 키 — 장중 10분(잠정치)·그 밖 60분 · v2: priceLimitBreak·capped 규칙(개발 중 v1 행이 옛 모양으로 저장됨)
+const KEY = 'market-board-flow-v3'   // 🗓️ 날짜 없는 키 — 장중 10분(잠정치)·그 밖 60분 · v3: together false(함께 아님)·역행 양방향·ETF 는 가격제한 표시 제외
 const MARKETS: KrMarket[] = ['KOSPI', 'KOSDAQ']
 const INVESTORS: Investor[] = ['FOREIGNER', 'ORGANIZATION']
 const TOP = 5
+// ⏱️ 시간 예산 — maxDuration 30초 안에 app_cache 읽기·쓰기까지 끝나야 한다.
+//    순위 4건(동시, 최대 6초) → 종목별 추이 최대 40종(동시 10, 건당 최대 5초·남은 시간 안에서).
+//    예산이 바닥나면 남은 종목 추이는 부르지 않고 null('며칠째 못 셈')로 둔다 — 부분 실패라 저장되지 않는다(짧게만).
+const BUDGET_MS = 24_000
+const RANK_TIMEOUT_MS = 6_000
+const TREND_TIMEOUT_MS = 5_000
+const TREND_CONCURRENCY = 10
 
 /** 동시에 limit 개씩만 — 종목별 추이를 최대 40종 부르므로 원천에 한꺼번에 몰리지 않게 */
 async function pool<T, R>(items: T[], limit: number, fn: (x: T) => Promise<R>): Promise<R[]> {
@@ -27,9 +34,15 @@ async function pool<T, R>(items: T[], limit: number, fn: (x: T) => Promise<R>): 
 }
 
 async function build() {
-  const ranks = await Promise.all(MARKETS.flatMap(m => INVESTORS.map(async inv => ({ m, inv, part: await fetchFlowRank(inv, m, 10) }))))
+  const deadline = Date.now() + BUDGET_MS
+  const ranks = await Promise.all(MARKETS.flatMap(m => INVESTORS.map(async inv => ({ m, inv, part: await fetchFlowRank(inv, m, 10, RANK_TIMEOUT_MS) }))))
   const codes = Array.from(new Set(ranks.flatMap(r => r.part.ok ? [...r.part.data.buy.slice(0, TOP), ...r.part.data.sell.slice(0, TOP)].map(x => x.code) : [])))
-  const trendRows = await pool(codes, 8, c => fetchStockTrend(c))
+  let skipped = 0
+  const trendRows = await pool(codes, TREND_CONCURRENCY, c => {
+    const left = deadline - Date.now()
+    if (left < 1_000) { skipped++; return Promise.resolve(null) }   // 시간 예산 소진 — 부르지 않는다
+    return fetchStockTrend(c, undefined, Math.min(TREND_TIMEOUT_MS, left))
+  })
   const trends = new Map<string, TrendDay[] | null>(codes.map((c, i) => [c, trendRows[i]]))
   const trendFailed = trendRows.filter(x => !x).length
 
@@ -47,7 +60,7 @@ async function build() {
     streakRule: '며칠째 = 기준일부터 거슬러 같은 방향(순매수 +/순매도 −)이 이어진 날 수(종목별 일별 수량). 기준일 행이 없으면 null. capped = 받은 30일이 전부 같은 방향',
     // 종목별 추이가 하나라도 빠지면 부분 실패 — 저장하지 않는다(빠진 종목의 '며칠째'가 TTL 내내 비어 보이지 않게)
     trends: trendFailed > 0
-      ? failPart<{ checked: number }>(`${codes.length}종 중 ${trendFailed}종 추이 못 가져옴`, SRC_TREND)
+      ? failPart<{ checked: number }>(`${codes.length}종 중 ${trendFailed}종 추이 못 가져옴${skipped ? `(시간 예산 소진으로 ${skipped}종 건너뜀)` : ''} — 그 종목의 며칠째·함께는 null`, SRC_TREND)
       : okPart({ checked: codes.length }, null, SRC_TREND),
     markets,
   }

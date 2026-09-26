@@ -3,7 +3,7 @@
 //   단위: 순위 원천 accTradeAmount 는 **원** → 억원(÷1e8). 검증: 수량(accTradeVolume) × 가격(nowPrice) 독립 재계산과 ±5% 안(체결가 평균 ≠ 종가).
 //   ⚠️ 개인 전체 순위는 원천이 없다(외국인·기관만). ⚠️ KRX 만 — NXT 체결은 빠진다('KRX 기준').
 import { type Part, okPart, failPart, num, kstCompactToIso, getJson } from './marketBoardShared'
-import { KR_PRICE_LIMIT_PCT, type KrMarket } from './krMarketBoard'
+import { isLimitBreak, type KrMarket } from './krMarketBoard'
 
 export type Investor = 'FOREIGNER' | 'ORGANIZATION'
 
@@ -19,7 +19,8 @@ export interface FlowRow {
   estimated: boolean        // 원천 estimated(장중 잠정치)
   /** 수량×가격 재계산 대비 금액 비율(1 에 가까워야 원 단위가 맞다) — 단위 검증용 */
   unitRatio: number | null
-  /** 그날 등락이 ±30%(KRX 가격제한폭) 밖 — 상장 첫날 등. 순위에서 빼지 않고 표시만(특징종목과 같은 규칙) */
+  /** 주식(type ST)의 그날 등락이 ±30%(KRX 가격제한폭) 밖 — 상장 첫날·정리매매 등. 순위에서 빼지 않고 표시만(특징종목과 같은 규칙).
+   *  ETF(EF) 등은 레버리지 배율만큼 제한폭이 넓어 판정하지 않는다(늘 false) */
   priceLimitBreak: boolean
 }
 export interface FlowRank { bizdate: string | null; buy: FlowRow[]; sell: FlowRow[] }
@@ -41,7 +42,7 @@ function parseRow(x: Record<string, unknown>): FlowRow | null {
     etf: x.type === 'EF', type: typeof x.type === 'string' ? x.type : null,
     estimated: x.estimated === true,
     unitRatio: recompute && recompute !== 0 ? amt / recompute : null,
-    priceLimitBreak: chg != null && Math.abs(chg) > KR_PRICE_LIMIT_PCT + 0.05,
+    priceLimitBreak: x.type === 'ST' && isLimitBreak(chg),
   }
 }
 
@@ -94,24 +95,26 @@ export function streakFrom(days: TrendDay[], bizdate: string, who: 'foreign' | '
 export interface FlowTopRow extends FlowRow {
   foreignStreak: { n: number; capped: boolean } | null
   organStreak: { n: number; capped: boolean } | null
-  /** 그날 외국인·기관이 함께 순매수(buy) / 함께 순매도(sell) — 종목별 일별 원천으로 판정 */
-  together: 'buy' | 'sell' | null
-  /** 주가 역행: 그날 주가가 내렸는데(prevChangeRate < 0) 순매수 */
-  contrarian: boolean
+  /** 그날 외국인·기관이 함께 순매수(buy) / 함께 순매도(sell) / 함께가 아님(false) — 종목별 일별 원천으로 판정.
+   *  null = 그날 추이 행이 없어 모름('함께 아님'과 다르다) */
+  together: 'buy' | 'sell' | false | null
+  /** 주가 역행: 내렸는데 순매수(순매수 목록) · 올랐는데 순매도(순매도 목록). 등락률이 없으면 null */
+  contrarian: boolean | null
 }
 
 /** 순위 행 + 그 종목의 일별 추이 → Top 행(연속일·함께·역행). trend 가 없으면 연속일·함께는 null */
 export function enrichTop(row: FlowRow, days: TrendDay[] | null, bizdate: string | null): FlowTopRow {
   const day = days && bizdate ? days.find(d => d.date === bizdate) ?? null : null
   const together = day && day.foreign != null && day.organ != null
-    ? day.foreign > 0 && day.organ > 0 ? 'buy' : day.foreign < 0 && day.organ < 0 ? 'sell' : null
+    ? day.foreign > 0 && day.organ > 0 ? 'buy' : day.foreign < 0 && day.organ < 0 ? 'sell' : false
     : null
+  const c = row.changePct
   return {
     ...row,
     foreignStreak: days && bizdate ? streakFrom(days, bizdate, 'foreign') : null,
     organStreak: days && bizdate ? streakFrom(days, bizdate, 'organ') : null,
     together,
-    contrarian: row.netEok > 0 && row.changePct != null && row.changePct < 0,
+    contrarian: c == null ? null : (row.netQty > 0 && c < 0) || (row.netQty < 0 && c > 0),
   }
 }
 
@@ -119,17 +122,17 @@ export function enrichTop(row: FlowRow, days: TrendDay[] | null, bizdate: string
 const SRC_RANK = 'naver stock.naver.com trendForeignOrg(KRX·DAY)'
 export const SRC_TREND = 'naver m.stock stock trend'
 
-export async function fetchFlowRank(investor: Investor, mk: KrMarket, size = 10): Promise<Part<FlowRank>> {
+export async function fetchFlowRank(investor: Investor, mk: KrMarket, size = 10, timeoutMs = 8000): Promise<Part<FlowRank>> {
   const u = `https://stock.naver.com/api/domestic/market/trend/trendForeignOrg?investorType=${investor}&tradeType=KRX&marketType=${mk}&startIdx=0&pageSize=${size}&periodType=DAY`
-  const r = await getJson(u)
+  const r = await getJson(u, { timeoutMs })
   if (!r.ok) return failPart(r.reason, SRC_RANK)
   const p = parseTrendForeignOrg(r.json)
   if (!p) return failPart('목록 형식이 다름', SRC_RANK)
   return okPart(p, p.bizdate, SRC_RANK)
 }
 
-export async function fetchStockTrend(code: string, rows = TREND_ROWS): Promise<TrendDay[] | null> {
-  const r = await getJson(`https://m.stock.naver.com/api/stock/${encodeURIComponent(code)}/trend?pageSize=${rows}`, { timeoutMs: 6000 })
+export async function fetchStockTrend(code: string, rows = TREND_ROWS, timeoutMs = 6000): Promise<TrendDay[] | null> {
+  const r = await getJson(`https://m.stock.naver.com/api/stock/${encodeURIComponent(code)}/trend?pageSize=${rows}`, { timeoutMs })
   return r.ok ? parseStockTrend(r.json) : null
 }
 
