@@ -92,6 +92,23 @@ check('되짚은 수량 3 ≠ 보유 8 → mismatch · 보유 한 줄', r5b.fall
 const r5c = L.lotsFromTrades([T('DDD', 'buy', 10, 3, '2025-01-02')], [])
 check('보유 없음 + 기록상 3주 남음 → mismatch · 로트 없음 · soldOut 아님', r5c.fallback[0]?.reason === 'mismatch' && r5c.lots.length === 0 && r5c.soldOut.length === 0)
 
+// ⑤-b 수량은 맞는데 평단이 다르다(보유를 손으로 고친 경우) → mismatch
+const r5d = L.lotsFromTrades([T('KKK', 'buy', 100, 10, '2025-03-10'), T('KKK', 'buy', 130, 5, '2025-11-05')], [H('KKK', 15, 120, '2025-03-10')])
+check('수량 15 는 맞지만 보유 평단 120 ≠ 되짚은 평단 110 → mismatch · 보유 한 줄', r5d.fallback[0]?.reason === 'mismatch' && r5d.lots.length === 1 && r5d.lots[0].purchase_price === 120)
+const r5e = L.lotsFromTrades([T('KKK', 'buy', 100, 10, '2025-03-10'), T('KKK', 'buy', 130, 5, '2025-11-05')], [H('KKK', 15, 110.004, '2025-03-10')])
+check('평단 차이 0.004(반올림 범위) → 되짚은 로트 그대로', r5e.fallback.length === 0 && r5e.lots.length === 2)
+const r5f = L.lotsFromTrades([T('KKK', 'buy', 100, 10, '2025-03-10'), T('KKK', 'buy', 130, 5, '2025-11-05')], [H('KKK', 15, 110.01, '2025-03-10')])
+check('평단 차이 0.01 → mismatch', r5f.fallback[0]?.reason === 'mismatch')
+// 앱은 매수마다 평단을 반올림해 저장한다 — 여러 번 쌓인 반올림(앱 저장값)과 같으면 통과
+{
+  const buys = [[101.333, 3], [99.777, 7], [100.555, 1], [102.111, 9], [98.999, 2]]
+  let q = 0, a = 0, c = 0
+  for (const [p, n] of buys) { a = q === 0 ? p : (Math.round(((q * a + n * p) / (q + n)) * 100) / 100); q += n; c += p * n }
+  const trs = buys.map(([p, n], i) => T('RND', 'buy', p, n, `2025-0${i + 1}-10`))
+  const rr = L.lotsFromTrades(trs, [H('RND', q, a, '2025-01-10')])
+  check(`여러 번 반올림된 앱 평단(${a}, 정확값 ${(c / q).toFixed(4)})도 통과`, rr.fallback.length === 0)
+}
+
 // ⑥ 거래 기록이 없는 보유 → no-trades · 보유 한 줄
 const r6 = L.lotsFromTrades([], [H('EEE', 7, 20, '2025-05-05'), H('FFF', 1, 5, null)])
 check('기록 없는 보유 → no-trades 2건', r6.fallback.length === 2 && r6.fallback.every(f => f.reason === 'no-trades'))
@@ -134,8 +151,9 @@ for (let d = 1; d <= 20; d++) many.push(T('III', 'buy', 100 + d, 1 + d / 10, `20
 for (let d = 1; d <= 20; d++) many.push(T('III', 'buy', 90 + d, 1, `2025-03-${String(d).padStart(2, '0')}`))
 many.push(T('III', 'sell', 130, 5, '2025-06-10'), T('III', 'sell', 130, 5, '2025-06-20'), T('III', 'sell', 140, 3, '2025-09-03'))
 const heldQ = (() => { let q = 0; for (const t of many) q += t.type === 'buy' ? t.quantity : -t.quantity; return q })()
-const full = L.lotsFromTrades(many, [H('III', heldQ, 100, '2025-02-01', { currentPrice: 150 })])
-const small = L.lotsFromTrades(many, [H('III', heldQ, 100, '2025-02-01', { currentPrice: 150 })], { maxLots: 10 })
+const avgIII = (() => { let q = 0, c = 0; for (const t of many) if (t.type === 'buy') { q += t.quantity; c += t.quantity * t.price } return c / q })()   // 매도는 평단을 안 바꾼다
+const full = L.lotsFromTrades(many, [H('III', heldQ, avgIII, '2025-02-01', { currentPrice: 150 })])
+const small = L.lotsFromTrades(many, [H('III', heldQ, avgIII, '2025-02-01', { currentPrice: 150 })], { maxLots: 10 })
 check(`상한 전: 로트 ${full.lots.length}개 · 상한 10 → ${small.lots.length}개로 합쳐짐`, full.fallback.length === 0 && full.lots.length > 10 && small.lots.length <= 10)
 check('합쳐도 수량 합·원가 합 그대로', near(sumQ(full.lots), sumQ(small.lots)) && near(sumC(full.lots), sumC(small.lots), 1e-6))
 const addM = (m, d) => { const [y, mo] = m.split('-').map(Number); const t = y * 12 + mo - 1 + d; return `${Math.floor(t / 12)}-${String(t % 12 + 1).padStart(2, '0')}` }
