@@ -12,6 +12,7 @@ import BuffettAnalysisPanel from '@/app/components/BuffettAnalysisPanel'
 // SSOT: 자산 유형 분류 (STOCK / ETF / CRYPTO / COMMODITY)
 import { getAssetType } from '@/lib/assetClassifier'
 import { TK, FS, FONT_STACK } from '@/lib/theme'
+import { isPriced } from '@/lib/portfolioSummary'   // 시세 판정 SSOT — 자산·대시보드·학생 화면과 같은 규칙
 import { QUOTES } from '@/lib/quotes'
 
 // 가치투자 원칙 카드의 인용 — 원문(1989 주주서한)이 확인된 목록에서만 고른다
@@ -28,7 +29,8 @@ interface Investment {
   purchase_date: string; lynch_category: LynchKey|null
 }
 
-interface LivePrice { currentPrice: number }
+// /api/stock-price 응답 중 쓰는 필드 — 조회 실패 행은 currentPrice 0 + error 로 온다(isPriced 가 거른다)
+interface LivePrice { currentPrice: number; change: number; changePct: number; error?: string; source?: string }
 
 interface Fundamentals {
   pe:             number | 'N/A' | null
@@ -164,7 +166,9 @@ function AnalysisContent() {
     return () => { alive = false }
   }, [])
 
-  const live = (inv: Investment) => priceMap[inv.ticker.toUpperCase()] ?? null
+  // 수익률 통계(평균·손실 수·승률·종목별 점수)는 시세가 있는 종목만 — 조회 실패 행을 −100% 로 세면
+  //   한 종목 실패가 '손실 종목'과 평균 수익률을 왜곡한다. 이 화면의 금액 합계(린치 분류 비중)는 원래 매수가 기준이다.
+  const live = (inv: Investment) => { const lv = priceMap[inv.ticker.toUpperCase()]; return isPriced(lv) ? lv : null }
   const toKrw = (inv: Investment, price?: number) => (price??inv.purchase_price)*inv.quantity*(inv.currency==='USD'?usdKrw:1)
   const getRet = (inv: Investment) => { const lv=live(inv); return lv ? ((lv.currentPrice-inv.purchase_price)/inv.purchase_price)*100 : null }
 

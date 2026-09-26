@@ -79,6 +79,7 @@ import { Verdict } from '@/app/components/ui/Screen'   // 🎯 화면의 답(페
 import { TK, FS, SP, FONT_STACK } from '@/lib/theme'
 // 총수익률 공식 SSOT — 스쿨 리그(api/school-league)와 **같은 함수**를 부른다(제2원칙)
 import { totalReturnPct } from '@/lib/realizedPnl'
+import { isPriced } from '@/lib/portfolioSummary'   // 시세 판정 SSOT — 자산 화면·학생 화면과 같은 규칙
 
 // 탭 전용 컴포넌트의 지연 로딩 표시 — 탭을 처음 열 때 청크를 받는 동안 잠깐 보인다
 // (function 선언 — 위쪽 dynamic() 호출에서 참조되므로 호이스팅이 필요하다)
@@ -1145,17 +1146,19 @@ export default function DashboardPage() {
   }, [investments, usdKrw, pricedCount])
 
   // ── Derived values ─────────────────────────────────────────────
-  const live = (inv: Investment) => priceMap[inv.ticker.toUpperCase()] ?? null
+  // 가격으로 쓸 수 있는 행만 — 조회 실패 행(currentPrice 0 + error)이 0원·−100% 로 합계에 들어가던 결함(2026-09-26).
+  const live = (inv: Investment) => { const lv = priceMap[inv.ticker.toUpperCase()]; return isPriced(lv) ? lv : null }
 
+  // pricedInvs = 시세가 있는 종목 — 수익률 통계(최고·최저·수익/손실 수·오늘 등락)만 여기서 센다.
+  // 합계(총평가·손익·비중)는 전 종목이고, 시세가 없는 종목은 **매수가로 계산**한다(자산·학생·스쿨 리그와 같은 규칙).
   const pricedInvs = investments.filter(i => live(i))
   const totalCostKrw = investments.reduce((s,i) => s + toKrw(i, undefined, usdKrw), 0)
-  const totalCurrKrw = pricedInvs.reduce((s,i) => {
+  const totalCurrKrw = investments.reduce((s,i) => {
     const lv = live(i)
     return s + (lv ? toKrw(i, lv.currentPrice, usdKrw) : toKrw(i, undefined, usdKrw))
   }, 0)
-  const costPricedKrw = pricedInvs.reduce((s,i) => s + toKrw(i, undefined, usdKrw), 0)
-  const totalPnL  = totalCurrKrw - costPricedKrw
-  const totalRet  = costPricedKrw > 0 ? (totalPnL / costPricedKrw) * 100 : null
+  const totalPnL  = totalCurrKrw - totalCostKrw
+  const totalRet  = totalCostKrw > 0 ? (totalPnL / totalCostKrw) * 100 : null
 
   // ── Treemap data ───────────────────────────────────────────────
   const treemapData = useMemo(() => {
@@ -1222,7 +1225,7 @@ export default function DashboardPage() {
 
     return days.map(([day, t]) => {
       let total = 0
-      pricedInvs.forEach(inv => {
+      investments.forEach(inv => {   // 시세 없는 종목은 차트가 비어 매수가로 — 총평가와 같은 규칙
         const chart = priceMap[inv.ticker.toUpperCase()]?.charts?.['1M'] ?? []
         if (!chart.length) { total += toKrw(inv, undefined, usdKrw); return }
         const closest = chart.reduce((a,b) => Math.abs(b.t-t) < Math.abs(a.t-t) ? b : a)
@@ -1235,7 +1238,7 @@ export default function DashboardPage() {
       }
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pricedInvs, priceMap])
+  }, [investments, pricedInvs, priceMap])
 
   // ── 트렌드 차트 토글 & 파생 데이터 ────────────────────────────────────────
   const [trendMode, setTrendMode] = useState<'amount' | 'pct'>('amount')
@@ -1360,15 +1363,14 @@ export default function DashboardPage() {
   // ── 현재 Core/Satellite 비중 계산 (평가금액 기준) ─────────────
   const currentCorePct = useMemo(() => {
     if (pricedInvs.length === 0 || totalCurrKrw === 0) return 0
-    const coreVal = pricedInvs.reduce((s, inv) => {
+    const coreVal = investments.reduce((s, inv) => {   // 시세 없는 종목은 매수가 — 분모 totalCurrKrw 와 같은 모수
       const lv  = live(inv)
-      if (!lv) return s
-      const val = toKrw(inv, lv.currentPrice, usdKrw)
+      const val = toKrw(inv, lv ? lv.currentPrice : undefined, usdKrw)
       return isCoreInv(inv) ? s + val : s
     }, 0)
     return (coreVal / totalCurrKrw) * 100
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pricedInvs, priceMap, usdKrw])
+  }, [investments, pricedInvs, priceMap, usdKrw])
 
   // ── Core / Satellite 각 진영의 손익 구성 ────────────────────────────────
   // ⛔ 리밸런싱 처방이 "일부 매도(수익 확정)"를 손익과 무관하게 권하던 문제 때문에 필요하다.
@@ -1426,22 +1428,21 @@ export default function DashboardPage() {
   // 🪙 코인 랩 가드레일용 — 내 포트폴리오의 암호화폐 비중(%). 보유 없으면 undefined
   const myCryptoPct = useMemo(() => {
     if (pricedInvs.length === 0 || totalCurrKrw === 0) return undefined
-    const cv = pricedInvs.filter(i => i.market === 'CRYPTO').reduce((s, i) => s + toKrw(i, live(i)?.currentPrice ?? i.purchase_price, usdKrw), 0)
+    const cv = investments.filter(i => i.market === 'CRYPTO').reduce((s, i) => s + toKrw(i, live(i)?.currentPrice ?? i.purchase_price, usdKrw), 0)
     return Math.round((cv / totalCurrKrw) * 1000) / 10
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pricedInvs, priceMap, usdKrw])
+  }, [investments, pricedInvs, priceMap, usdKrw])
 
   const monthlyPnL = useMemo(() => {
     type MonthBucket = { coreCost:number; coreCurr:number; satCost:number; satCurr:number; count:number }
     const map: Record<string, MonthBucket> = {}
 
-    pricedInvs.forEach(inv => {
+    investments.forEach(inv => {   // 시세 없는 종목은 매수가(손익 0) — 총평가와 같은 규칙
       const lv = live(inv)
-      if (!lv) return
       const month  = inv.purchase_date.slice(0, 7)
       const exRate = inv.currency === 'USD' ? usdKrw : 1
       const cost   = inv.purchase_price * inv.quantity * exRate
-      const curr   = lv.currentPrice    * inv.quantity * exRate
+      const curr   = (lv ? lv.currentPrice : inv.purchase_price) * inv.quantity * exRate
       if (!map[month]) map[month] = { coreCost:0, coreCurr:0, satCost:0, satCurr:0, count:0 }
       if (isCoreInv(inv)) { map[month].coreCost += cost; map[month].coreCurr += curr }
       else                { map[month].satCost  += cost; map[month].satCurr  += curr }
@@ -1470,7 +1471,7 @@ export default function DashboardPage() {
     let cumulative = 0
     return rows.map(r => { cumulative += r.totalPnl; return { ...r, cumulative } })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pricedInvs, priceMap, usdKrw])
+  }, [investments, pricedInvs, priceMap, usdKrw])
 
   /**
    * 시계열 차트 데이터 — 평가손익 변화 + 그 달 실현손익 = 그 달 실제 성적.
@@ -1984,7 +1985,7 @@ export default function DashboardPage() {
                   {realizedKrw != null
                     ? <>이미 판 종목의 <b style={{ color: TK.slate300 }}>실현 손익까지 합친</b> 성적입니다(매도 {realizedCount}건) · 평가만 보면 {(totalRet ?? 0) > 0 ? '+' : (totalRet ?? 0) < 0 ? '−' : ''}{Math.abs(totalRet ?? 0).toFixed(1)}%</>
                     : <>지금 보유분의 평가 기준입니다.</>}
-                  {unpriced > 0 && <> · ⚠️ {unpriced}종은 현재가를 못 불러와 <b style={{ color: TK.amber400 }}>합계에서 빠져 있습니다</b>.</>}
+                  {unpriced > 0 && <> · ⚠️ {unpriced}종은 시세를 못 가져와 <b style={{ color: TK.amber400 }}>매수가로 계산</b>했어요 — 그만큼 손익이 실제와 다를 수 있습니다.</>}
                 </>
               ) : (
                 <>
@@ -2137,7 +2138,7 @@ export default function DashboardPage() {
       {(() => {
         // ── 추가 파생값 계산 ──────────────────────────────────────
         // 코인 비중
-        const cryptoVal  = pricedInvs
+        const cryptoVal  = investments
           .filter(i => i.market === 'CRYPTO')
           .reduce((s,i) => s + toKrw(i, live(i)?.currentPrice ?? i.purchase_price, usdKrw), 0)
         const cryptoPct  = totalCurrKrw > 0 ? (cryptoVal / totalCurrKrw) * 100 : 0

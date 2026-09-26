@@ -21,6 +21,7 @@ import StockActionChips from '@/app/components/StockActionChips'   // 🔗 종�
 import { type Candle } from '@/app/components/CandleChart'
 import { Verdict } from '@/app/components/ui/Screen'   // 🎯 화면의 답(페이지당 하나) — 공용 프리미티브
 import { TK, FS } from '@/lib/theme'
+import { isPriced } from '@/lib/portfolioSummary'   // 시세 판정 SSOT — 학생 화면과 같은 규칙
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Market    = 'US' | 'KR' | 'CRYPTO'
@@ -410,7 +411,10 @@ export default function AssetsPage() {
   }, [])
 
   const getLive   = (inv: Investment) => priceMap[inv.ticker.toUpperCase()] ?? null
-  const getReturn = (inv: Investment) => { const lv=getLive(inv); if (!lv) return null; return ((lv.currentPrice-inv.purchase_price)/inv.purchase_price)*100 }
+  // 가격으로 쓸 수 있는 행만 — 조회 실패 행(currentPrice 0 + error)은 null 이라 합계가 매수가로 계산된다.
+  //   getLive 는 PER·PEG 등 stock-info 재무용으로 그대로 둔다(가격이 실패해도 재무는 올 수 있다).
+  const getPx     = (inv: Investment) => { const lv = getLive(inv); return isPriced(lv) ? lv : null }
+  const getReturn = (inv: Investment) => { const lv=getPx(inv); if (!lv) return null; return ((lv.currentPrice-inv.purchase_price)/inv.purchase_price)*100 }
 
   const toKrwTotal = (inv: Investment) => inv.purchase_price*inv.quantity*(inv.currency==='USD'?usdKrw:1)
   const totalCostKrw = investments.reduce((s,i)=>s+toKrwTotal(i),0)
@@ -428,7 +432,7 @@ export default function AssetsPage() {
 
   /** 평가금액(원화) */
   const evalKrw = (inv: Investment) => {
-    const lv = getLive(inv)
+    const lv = getPx(inv)
     const price = lv ? lv.currentPrice : inv.purchase_price
     return price * inv.quantity * (inv.currency === 'USD' ? usdKrw : 1)
   }
@@ -474,7 +478,7 @@ export default function AssetsPage() {
   //    '없음'과 '못 불러옴'을 같은 문구로 쓰지 마라는 이 앱의 반복 함정 그대로다.
   //    priceStatus 는 이미 idle/loading/done/error 4상태로 있었다('있는데 안 쓴 데이터').
   //    → 시세를 못 믿을 땐 **손익 숫자를 아예 그리지 않는다.** 배지로 상쇄하려 들지 않는다.
-  const unpricedCount = investments.filter(i => !getLive(i)).length
+  const unpricedCount = investments.filter(i => !getPx(i)).length
   const pricedCount   = investments.length - unpricedCount
   const pnlTrustable  = priceStatus === 'done' && pricedCount > 0
   const pnlBlockedWhy =
@@ -523,8 +527,8 @@ export default function AssetsPage() {
           }
           chips={[
             { label: '보유', value: `${investments.length}개`, color: TK.slate100 },
-            { label: '수익', value: `${investments.filter(i=>getLive(i)&&getLive(i)!.currentPrice>i.purchase_price).length}개`, color: TK.red500 },
-            { label: '손실', value: `${investments.filter(i=>getLive(i)&&getLive(i)!.currentPrice<i.purchase_price).length}개`, color: TK.blue500 },
+            { label: '수익', value: `${investments.filter(i=>getPx(i)&&getPx(i)!.currentPrice>i.purchase_price).length}개`, color: TK.red500 },
+            { label: '손실', value: `${investments.filter(i=>getPx(i)&&getPx(i)!.currentPrice<i.purchase_price).length}개`, color: TK.blue500 },
           ]}
           footer={pnlTrustable && unpricedCount > 0
             ? <>⚠️ {unpricedCount}종은 현재가를 불러오지 못해 <b style={{ color: TK.amber400 }}>매입가로 계산</b>했습니다 — 그만큼 손익이 실제보다 작게 보입니다.</>
@@ -642,17 +646,18 @@ export default function AssetsPage() {
                 {/* 해당 섹션 종목 카드 목록 */}
                 <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                   {group.map(inv => {
-            const livePrice = getLive(inv)
+            const livePrice = getLive(inv)   // 재무(PER·PEG·배당)용
+            const pricedLive = getPx(inv)    // 가격·손익용 — 조회 실패면 null(₩0·−100% 를 그리지 않는다)
             const isETF  = ETF_BRANDS.some(k => inv.name.toUpperCase().includes(k))
             const isNA   = inv.market === 'CRYPTO' || isETF
             const lynchMeta = inv.lynch_category && !isNA && inv.lynch_category !== 'na'
               ? LYNCH_META[inv.lynch_category] ?? null : null
-            const isUp  = (livePrice?.changePct ?? 0) >= 0
+            const isUp  = (pricedLive?.changePct ?? 0) >= 0
             const C     = isUp ? TK.red500 : TK.blue500
             const Cs    = isUp ? TK.red400 : TK.blue400
-            const ret   = livePrice ? ((livePrice.currentPrice - inv.purchase_price) / inv.purchase_price) * 100 : 0
+            const ret   = pricedLive ? ((pricedLive.currentPrice - inv.purchase_price) / inv.purchase_price) * 100 : 0
             const ohlc  = (priceMap[inv.ticker.toUpperCase()]?.ohlcCharts ?? {} as Record<TimeFrame, Candle[]>)[getTf(inv.ticker)] ?? []
-            const prevClose = livePrice ? livePrice.currentPrice - livePrice.change : undefined
+            const prevClose = pricedLive ? pricedLive.currentPrice - pricedLive.change : undefined
 
             return (
               <div
@@ -718,15 +723,15 @@ export default function AssetsPage() {
                   {isNA && <span style={{ fontSize:FS.tiny, color:TK.sub7, background:TK.gray800, padding:'2px 7px', borderRadius:4, border:`1px solid ${TK.sub6}`, alignSelf:'flex-start' }}>N/A</span>}
 
                   {/* Current price + change */}
-                  {livePrice && (
+                  {pricedLive && (
                     <div style={{ marginTop:2 }}>
                       <div style={{ fontSize:FS.lg, fontWeight:800, color:TK.sub12, fontVariantNumeric:'tabular-nums', letterSpacing:'-0.3px' }}>
-                        {inv.currency==='KRW' ? `₩${Math.round(livePrice.currentPrice).toLocaleString('ko-KR')}` : `$${livePrice.currentPrice.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`}
+                        {inv.currency==='KRW' ? `₩${Math.round(pricedLive.currentPrice).toLocaleString('ko-KR')}` : `$${pricedLive.currentPrice.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`}
                       </div>
                       <div style={{ fontSize:FS.tiny, fontWeight:700, color:Cs }}>
-                        {isUp ? '▲' : '▼'} {Math.abs(livePrice.changePct).toFixed(2)}%
+                        {isUp ? '▲' : '▼'} {Math.abs(pricedLive.changePct).toFixed(2)}%
                         <span style={{ color:TK.sub4, marginLeft:5, fontWeight:400 }}>
-                          {livePrice.change >= 0 ? '+' : ''}{inv.currency==='KRW' ? `₩${Math.round(livePrice.change).toLocaleString('ko-KR')}` : `$${livePrice.change.toFixed(2)}`}
+                          {pricedLive.change >= 0 ? '+' : ''}{inv.currency==='KRW' ? `₩${Math.round(pricedLive.change).toLocaleString('ko-KR')}` : `$${pricedLive.change.toFixed(2)}`}
                         </span>
                       </div>
                     </div>
@@ -736,7 +741,7 @@ export default function AssetsPage() {
                   {(() => {
                     const dy    = livePrice?.dividendYield ?? 0
                     const annDiv = livePrice?.annualDividend ?? null
-                    const curPrice = livePrice?.currentPrice ?? inv.purchase_price
+                    const curPrice = pricedLive?.currentPrice ?? inv.purchase_price
                     const exRate   = inv.currency === 'USD' ? usdKrw : 1
                     // 연간 총 배당금 (원화)
                     const annualTotal = annDiv && annDiv > 0
@@ -820,13 +825,13 @@ export default function AssetsPage() {
                     <div style={{ fontSize:FS.tiny, fontWeight:800, color:TK.sub10, letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:7 }}>포트폴리오</div>
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:5, marginBottom:8 }}>
                       {[
-                        { label:'현재가',  val: livePrice ? (inv.currency==='KRW' ? `₩${Math.round(livePrice.currentPrice).toLocaleString('ko-KR')}` : `$${livePrice.currentPrice.toFixed(2)}`) : '—', color:TK.sub12 },
+                        { label:'현재가',  val: pricedLive ? (inv.currency==='KRW' ? `₩${Math.round(pricedLive.currentPrice).toLocaleString('ko-KR')}` : `$${pricedLive.currentPrice.toFixed(2)}`) : '—', color:TK.sub12 },
                         { label:'매수가',  val: inv.currency==='KRW' ? `₩${Math.round(inv.purchase_price).toLocaleString('ko-KR')}` : `$${inv.purchase_price.toFixed(2)}`, color:TK.sub9 },
                         /* ★ 매수수량 — 자산관리 카드 중앙 영역에 추가 */
                         { label:'매수수량', val: `${inv.quantity.toLocaleString('ko-KR')}주`, color:TK.blue400 },
-                        { label:'보유금액', val: livePrice ? (inv.currency==='KRW' ? fmtKrwVal(livePrice.currentPrice*inv.quantity) : `$${(livePrice.currentPrice*inv.quantity).toFixed(0)}`) : fmtKrwVal(inv.purchase_price*inv.quantity*(inv.currency==='USD'?usdKrw:1)), color:TK.purple400 },
-                        { label:'평가손익', val: livePrice ? (inv.currency==='KRW' ? ((livePrice.currentPrice-inv.purchase_price)*inv.quantity>=0?'+':'')+`₩${Math.round((livePrice.currentPrice-inv.purchase_price)*inv.quantity).toLocaleString('ko-KR')}` : ((livePrice.currentPrice-inv.purchase_price)*inv.quantity>=0?'+':'')+'$'+(Math.abs((livePrice.currentPrice-inv.purchase_price)*inv.quantity)).toFixed(2)) : '—', color: livePrice && livePrice.currentPrice >= inv.purchase_price ? TK.red400 : TK.blue400 },
-                        { label:'수익률',  val: livePrice ? `${ret >= 0 ? '+' : ''}${ret.toFixed(2)}%` : '—', color: ret >= 0 ? TK.red400 : TK.blue400 },
+                        { label:'보유금액', val: pricedLive ? (inv.currency==='KRW' ? fmtKrwVal(pricedLive.currentPrice*inv.quantity) : `$${(pricedLive.currentPrice*inv.quantity).toFixed(0)}`) : fmtKrwVal(inv.purchase_price*inv.quantity*(inv.currency==='USD'?usdKrw:1)), color:TK.purple400 },
+                        { label:'평가손익', val: pricedLive ? (inv.currency==='KRW' ? ((pricedLive.currentPrice-inv.purchase_price)*inv.quantity>=0?'+':'')+`₩${Math.round((pricedLive.currentPrice-inv.purchase_price)*inv.quantity).toLocaleString('ko-KR')}` : ((pricedLive.currentPrice-inv.purchase_price)*inv.quantity>=0?'+':'')+'$'+(Math.abs((pricedLive.currentPrice-inv.purchase_price)*inv.quantity)).toFixed(2)) : '—', color: pricedLive && pricedLive.currentPrice >= inv.purchase_price ? TK.red400 : TK.blue400 },
+                        { label:'수익률',  val: pricedLive ? `${ret >= 0 ? '+' : ''}${ret.toFixed(2)}%` : '—', color: ret >= 0 ? TK.red400 : TK.blue400 },
                       ].map(({ label, val, color }) => (
                         <div key={label} style={{ background:TK.bg0, boxShadow:SHI, borderRadius:7, padding:'6px 9px' }}>
                           <div style={{ fontSize:FS.tiny, color:TK.sub10, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>{label}</div>
@@ -853,7 +858,7 @@ export default function AssetsPage() {
                           val: (() => {
                             const annDiv = livePrice?.annualDividend ?? null
                             const dy     = livePrice?.dividendYield ?? 0
-                            const price  = livePrice?.currentPrice ?? inv.purchase_price
+                            const price  = pricedLive?.currentPrice ?? inv.purchase_price
                             const exRate = inv.currency === 'USD' ? usdKrw : 1
                             const monthly = annDiv && annDiv > 0
                               ? annDiv * inv.quantity * exRate / 12

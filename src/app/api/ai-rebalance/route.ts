@@ -27,6 +27,7 @@ import { classifyAssetRole, type AssetRole } from '@/lib/portfolioRole'   // P2:
 import { getCurrentSeason } from '@/lib/currentSeason'
 import { holdingFit } from '@/lib/seasonNavigator'   // 보강: 계절 적합도(불리 종목 트림)
 import { getMoneyFlow } from '@/lib/moneyFlow'        // 보강: 수급 이탈(CROWDED) 트림
+import { isPriced, type PriceInput } from '@/lib/portfolioSummary'   // 시세 판정 SSOT — 조회 실패 행(0원+error)을 가격으로 쓰지 않는다
 import { computeMoatErosion } from '@/lib/buffettSell'   // 🏰 버핏 해자 침식(연간 마진 구조 하락 — 출구 플랜과 동일 SSOT)
 
 // 코어 목표 밴드(40~70%) — 위험 계절·매파일수록 코어(지수+채권) ↑
@@ -260,7 +261,7 @@ export async function GET(req: Request) {
   }
 
   // ② 현재가 배치 → 평가액·비중·손익률
-  let prices: Record<string, number> = {}
+  let prices: Record<string, PriceInput> = {}
   try {
     const pr = await fetch(`${base}/api/stock-price`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -268,10 +269,10 @@ export async function GET(req: Request) {
       signal: AbortSignal.timeout(30_000),
     })
     if (pr.ok) {
-      const arr = await pr.json() as Array<{ ticker: string; currentPrice: number }>
-      prices = Object.fromEntries(arr.map(d => [d.ticker.toUpperCase(), d.currentPrice]))
+      const arr = await pr.json() as Array<{ ticker: string } & PriceInput>
+      prices = Object.fromEntries(arr.map(d => [d.ticker.toUpperCase(), d]))
     }
-  } catch { /* graceful — 비중 계산 불가 종목은 0 */ }
+  } catch { /* graceful — 시세를 못 받은 종목은 아래에서 매수가로 평가 */ }
 
   // ⭐ 통화 통일(원화 환산) — KR(₩)·US($) 혼합 포트폴리오의 비중 왜곡 방지
   //    (버그: 환산 없이 합산하면 ₩가격(수십만)이 $가격(수백)을 압도해 국내종목이 비중 독식)
@@ -283,10 +284,12 @@ export async function GET(req: Request) {
   const toKrw = (market: string | null) => (market === 'KR' ? 1 : usdKrw)   // 종목 통화 → 원화 배율
 
   const valued = holds.map(h => {
-    const price = prices[h.ticker.toUpperCase()] ?? 0
+    const p = prices[h.ticker.toUpperCase()]
+    const price = isPriced(p) ? p.currentPrice : 0
     const qty = Number(h.quantity) || 0
     const buy = Number(h.purchase_price) || 0
-    const mv = price * qty * toKrw(h.market ?? 'US')   // 원화 환산 평가액
+    // 원화 환산 평가액 — 시세가 없으면 매수가(앱 공통 규칙). 예전엔 0 이라 그 종목 비중이 0% 로 LLM 에 갔다
+    const mv = (price > 0 ? price : buy) * qty * toKrw(h.market ?? 'US')
     const pnlPct = buy > 0 && price > 0 ? Math.round(((price - buy) / buy) * 1000) / 10 : null
     return { ...h, price, mv, pnlPct }
   })
