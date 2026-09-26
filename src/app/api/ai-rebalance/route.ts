@@ -277,9 +277,10 @@ export async function GET(req: Request) {
   // ⭐ 통화 통일(원화 환산) — KR(₩)·US($) 혼합 포트폴리오의 비중 왜곡 방지
   //    (버그: 환산 없이 합산하면 ₩가격(수십만)이 $가격(수백)을 압도해 국내종목이 비중 독식)
   let usdKrw = USD_KRW_FALLBACK   // 폴백(SSOT — 화면별 상수 분열 방지)
+  let fxLive = false              // 폴백 상수로 계산했으면 아래에서 캐시하지 않는다(부분실패 박제 금지)
   try {
     const fx = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8000) })
-    if (fx.ok) { const j = await fx.json(); if (typeof j.rate === 'number' && j.rate > 0) usdKrw = j.rate }
+    if (fx.ok) { const j = await fx.json(); if (typeof j.rate === 'number' && j.rate > 0) { usdKrw = j.rate; fxLive = true } }
   } catch { /* 폴백 사용 */ }
   const toKrw = (market: string | null) => (market === 'KR' ? 1 : usdKrw)   // 종목 통화 → 원화 배율
 
@@ -294,6 +295,7 @@ export async function GET(req: Request) {
     return { ...h, price, mv, pnlPct }
   })
   const totalMv = valued.reduce((s, v) => s + v.mv, 0) || 1
+  const unpricedCount = valued.filter(v => !(v.price > 0)).length   // 시세 못 받은 종목(매수가로 평가) — 있으면 캐시하지 않는다
 
   // ③ 매도 진단 (jarvisBriefing 재사용) — 동시성 6
   const heldSet = new Set(holds.map(h => h.ticker.toUpperCase()))
@@ -513,7 +515,8 @@ export async function GET(req: Request) {
   }
   // ⚠️ 부분실패 박제 금지 — 통합추천을 못 받은 결과를 24h 캐시하면 '보강 카드'가 하루 종일 빈다.
   //    fetch 시도 자체가 통합추천 캐시를 데우므로, 캐시를 생략하면 다음 요청에서 온전한 결과로 수렴한다.
-  if (!buysUnavailable) await setCache(cacheKey, result)
+  //    시세·환율도 같다 — 매수가·고정 환율로 잰 비중을 24h 박제하면 시세가 돌아와도 하루 종일 옛 비중으로 조언한다(2026-09-27)
+  if (!buysUnavailable && unpricedCount === 0 && fxLive) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }
 
