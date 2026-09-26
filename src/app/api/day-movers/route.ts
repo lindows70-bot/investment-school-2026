@@ -20,6 +20,8 @@ export interface DayMoversApi {
   drops: DayMover[]      // ≤ −5%
   checked: number        // 평가한 종목 수(비트코인 포함) — "알림 없음"이 "안 봤음"이 아니게
   failed: number         // 가격을 못 받은 종목 수 — 0이 아니면 화면이 밝힌다
+  heldChecked: number    // 본인 보유 종목만 센 평가 수(보유 안 한 바로미터 BTC 제외) — 학생 홈 시황용
+  heldFailed: number     // 그중 등락률을 못 받은 수(응답에서 빠진 행 포함) — BTC 만 성공하고 보유 전부 실패해도 '없음'이 되지 않게
   threshold: number
   asOf: string
 }
@@ -73,8 +75,12 @@ export async function GET(req: Request) {
   const surges = movers.filter(m => m.changePct >= MOVE_PCT).sort((a, b) => b.changePct - a.changePct)
   const drops = movers.filter(m => m.changePct <= -MOVE_PCT).sort((a, b) => a.changePct - b.changePct)
 
+  // 보유 종목만의 확인·실패 수 — 등락률을 실제로 손에 쥔 종목만 성공으로 센다(movers 필터와 같은 기준)
+  const heldList = list.filter(s => s.ticker !== 'BTC' || btcHeld)
+  const heldFailed = heldList.filter(s => { const v = byTicker.get(s.ticker); return !(typeof v === 'number' && isFinite(v)) }).length
+
   const out: DayMoversApi = {
-    surges, drops, checked: list.length, failed, threshold: MOVE_PCT,
+    surges, drops, checked: list.length, failed, heldChecked: heldList.length, heldFailed, threshold: MOVE_PCT,
     asOf: new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 16).replace('T', ' ') + ' KST',
   }
   return NextResponse.json(out, { headers: { 'Cache-Control': 'no-store' } })

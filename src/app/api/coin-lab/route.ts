@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
 import { getCache, setCache } from '@/lib/appCache'
+import { fetchCryptoFng } from '@/lib/cryptoFng'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -364,7 +365,7 @@ export async function GET(req: Request) {
 
   // ── CoinGecko 외 소스: 병렬(서로 다른 호스트라 충돌 없음) ──────────
   const [fngR, hashR, upbitR, m2R, longR, corrR, maxR, dayR] = await Promise.allSettled([
-    fetch('https://api.alternative.me/fng/?limit=2', { signal: AbortSignal.timeout(10_000) }).then(r => r.json()),
+    fetchCryptoFng(),   // 공포·탐욕 SSOT(/api/coin-fng 와 같은 lib) — 여기선 지금·어제만 쓴다
     fetch('https://mempool.space/api/v1/mining/hashrate/3m', { signal: AbortSignal.timeout(12_000) }).then(r => r.json()),
     fetch('https://api.upbit.com/v1/ticker?markets=KRW-BTC', { signal: AbortSignal.timeout(10_000) }).then(r => r.json()),
     FRED ? fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=M2SL&api_key=${FRED}&file_type=json&sort_order=desc&limit=37`, { signal: AbortSignal.timeout(10_000) }).then(r => r.json()) : Promise.resolve(null),
@@ -374,7 +375,7 @@ export async function GET(req: Request) {
     btcDaily10y(),    // 🔍 각본 대조용 일봉(해상도 필요한 계산 전용)
   ])
   const val = <T,>(r: PromiseSettledResult<T>): T | null => (r.status === 'fulfilled' ? r.value : null)
-  const fng = val(fngR) as { data?: { value: string; value_classification: string }[] } | null
+  const fng = val(fngR)
   const hash = val(hashR) as { currentHashrate?: number; currentDifficulty?: number; hashrates?: { avgHashrate: number }[] } | null
   const upbit = val(upbitR) as { trade_price: number }[] | null
   const m2j = val(m2R) as { observations?: { date: string; value: string }[] } | null
@@ -421,9 +422,9 @@ export async function GET(req: Request) {
     : ['바닥 다지기 (다음 사이클 전)', '다음 반감기 전 저점을 다지던 구간. 역사적 축적 기회였으나 확신 금물.']
 
   // ── 심리·도미넌스 ──────────────────────────────────────────────
-  const fngV = fng?.data?.[0] ? parseInt(fng.data[0].value) : null
-  const fngClass = fng?.data?.[0]?.value_classification ?? '—'
-  const fngY = fng?.data?.[1] ? parseInt(fng.data[1].value) : null
+  const fngV = fng?.now ?? null
+  const fngClass = fng?.cls ?? '—'
+  const fngY = fng?.yesterday ?? null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const gd = (global as any)?.data
   const btcDom = num(gd?.market_cap_percentage?.btc) != null ? Math.round(gd.market_cap_percentage.btc * 10) / 10 : null

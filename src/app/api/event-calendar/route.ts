@@ -57,9 +57,11 @@ export async function GET(req: Request) {
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   let usdKrw = FALLBACK_KRW
+  // 지금 환율을 받았는가 — 폴백 상수(여기서 쓴 FALLBACK_KRW, 또는 환율 라우트의 source 'stale-constant')면 false
+  let fxLive = false
   try {
     const ex = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) })
-    if (ex.ok) { const j = await ex.json(); if (typeof j.rate === 'number' && j.rate > 0) usdKrw = j.rate }
+    if (ex.ok) { const j = await ex.json(); if (typeof j.rate === 'number' && j.rate > 0) { usdKrw = j.rate; fxLive = j.source !== 'stale-constant' } }
   } catch { /* 폴백 */ }
 
   const { data: rows } = await sb.from('investments')
@@ -181,6 +183,9 @@ export async function GET(req: Request) {
     divHoldings, monthly, scanned: list.length,
     krNoEarnings: list.some(h => h.market === 'KR' && h.isStock) && !krEarningsFound,
   }
-  if (list.length > 0) await setCache(cacheKey, result)
+  // 달러 배당이 폴백 환율로 원화 환산됐으면 캐시하지 않는다 — 12h 박제되면 환율이 돌아와도 오늘 내내 틀린 원화가 나간다.
+  //  (응답 모양은 그대로 — 다음 요청이 스스로 다시 계산해 낫는다)
+  const fxGuessed = !fxLive && divHoldings.some(h => h.market === 'US')
+  if (list.length > 0 && !fxGuessed) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }
