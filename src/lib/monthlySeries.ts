@@ -54,8 +54,8 @@ function closeAtOrBefore(candles: SeriesCandle[], dateMax: string): number | nul
   return null
 }
 
-/** m 월 말에 이 로트를 들고 있었나 — 산 달 ≤ m 이고, 안 팔았거나 판 달 > m */
-function heldAt(lot: PnlLot, m: string): boolean {
+/** m 월 말에 이 로트를 들고 있었나 — 산 달 ≤ m 이고, 안 팔았거나 판 달 > m (lotsFromTrades 의 구간 묶기도 이 판정을 쓴다) */
+export function heldAt(lot: PnlLot, m: string): boolean {
   if (lot.purchase_date.slice(0, 7) > m) return false
   return !lot.sold_date || lot.sold_date.slice(0, 7) > m
 }

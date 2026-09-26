@@ -32,7 +32,7 @@ interface Point { month?: unknown; valueKrw?: unknown; cumPnl?: unknown }
 interface PnlResp { points?: Point[]; skipped?: unknown; truncated?: { from?: unknown; to?: unknown } | null }
 interface PnlBody { usdKrwNow: number | null; lots: PnlLot[] }
 type TxState = { state: 'loading' | 'ok' | 'failed' | 'unauth'; trades: TradeRow[]; forKey: string }
-type Plan = { body: PnlBody; fallback: LotsFromTradesResult['fallback'] }
+type Plan = { body: PnlBody; fallback: LotsFromTradesResult['fallback']; tooMany: boolean }
 
 const YM = /^\d{4}-\d{2}$/
 const YMD = /^\d{4}-\d{2}-\d{2}/
@@ -102,10 +102,10 @@ export default function GrowthChart({ holdings, rows, usdKrw }: { holdings: MyHo
         currentPrice: r?.priced && !r.stale ? r.currentPrice : null,
       }
     }))
-    setPlan({ body: { usdKrwNow: usdKrw, lots: built.lots }, fallback: built.fallback })
+    setPlan({ body: { usdKrwNow: usdKrw, lots: built.lots }, fallback: built.fallback, tooMany: built.tooMany })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seen, lotsKey, txFp])
-  const res = useJson<PnlResp>('/api/monthly-pnl', { method: 'POST', body: plan?.body, enabled: plan != null && plan.body.lots.length > 0 })
+  const res = useJson<PnlResp>('/api/monthly-pnl', { method: 'POST', body: plan?.body, enabled: plan != null && plan.body.lots.length > 0 && !plan.tooMany })
 
   // 거래 기록으로 못 그린 종목 — ①보유 한 줄로 대신 그린 것 ②대신 그릴 매수일도 없어 뺀 것 ③기록상 남았는데 지금 보유엔 없어 뺀 것
   const holdByTicker = new Map(holdings.map(h => [h.ticker.trim().toUpperCase(), h]))
@@ -130,6 +130,9 @@ export default function GrowthChart({ holdings, rows, usdKrw }: { holdings: MyHo
     content = <span style={noteStyle()}>로그인하면 내 자산 흐름이 보여요.</span>
   } else if (!seen || tx.state === 'loading') {
     content = <span style={noteStyle()}>거래 기록을 불러오는 중이에요…</span>
+  } else if (plan?.tooMany) {
+    // 라우트 상한(로트 400)을 넘는다 — 보내면 400 으로 '못 가져왔어요'가 되고 다시 눌러도 안 낫는다
+    content = <span style={noteStyle()}>거래가 많아 한 번에 못 그려요.</span>
   } else if (plan != null && plan.body.lots.length === 0) {
     content = <span style={noteStyle()}>거래 기록도 매수일도 없어 그릴 수 없어요.</span>
   } else if (plan == null || res.state === 'idle' || res.state === 'loading') {

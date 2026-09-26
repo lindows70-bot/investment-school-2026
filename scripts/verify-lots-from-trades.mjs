@@ -152,7 +152,13 @@ const r9 = L.lotsFromTrades([T('HHH', 'buy', 10, 1, '2025-03-01'), T('HHH', 'buy
 check('같은 날·같은 가격 두 번 매수 → 한 로트(수량 3) · 가격 다른 건 따로', r9.lots.length === 2 && r9.lots.some(l => l.purchase_price === 10 && l.quantity === 3))
 check('티커는 대소문자·공백을 무시하고 같은 종목으로 본다', L.lotsFromTrades([T(' aaa ', 'buy', 1, 2, '2025-01-01')], [H('AAA', 2, 1, '2025-01-01')]).fallback.length === 0)
 
-// ⑩ 상한을 넘으면 같은 달 로트를 가중평단으로 합친다 — 월별 계산 결과는 그대로여야 한다
+// ⑩ 상한을 넘으면 종목마다 '월말 상태가 같은 구간'을 한 로트로 — 월별 계산 결과는 그대로여야 한다
+const addM = (m, d) => { const [y, mo] = m.split('-').map(Number); const t = y * 12 + mo - 1 + d; return `${Math.floor(t / 12)}-${String(t % 12 + 1).padStart(2, '0')}` }
+const heldEnd = (l, m) => l.purchase_date.slice(0, 7) <= m && (!l.sold_date || l.sold_date.slice(0, 7) > m)
+/** 종목·월마다 월말 (수량 합, 원가 합) — 월별 계산이 로트에서 쓰는 것은 이것뿐이다 */
+const stateOf = (lots, from, to) => { const o = {}; for (const t of new Set(lots.map(l => l.ticker))) for (let m = from; m <= to; m = addM(m, 1)) { const h = lots.filter(l => l.ticker === t && heldEnd(l, m)); o[`${t}|${m}`] = [h.reduce((s, l) => s + l.quantity, 0), h.reduce((s, l) => s + l.quantity * l.purchase_price, 0)] } return o }
+const sameState = (a, b) => Object.keys({ ...a, ...b }).every(k => { const x = a[k] ?? [0, 0], y = b[k] ?? [0, 0]; return Math.abs(x[0] - y[0]) <= 1e-6 * Math.max(1, x[0]) && Math.abs(x[1] - y[1]) <= 1e-6 * Math.max(1, x[1]) })
+
 const many = []
 for (let d = 1; d <= 20; d++) many.push(T('III', 'buy', 100 + d, 1 + d / 10, `2025-02-${String(d).padStart(2, '0')}`))
 for (let d = 1; d <= 20; d++) many.push(T('III', 'buy', 90 + d, 1, `2025-03-${String(d).padStart(2, '0')}`))
@@ -161,16 +167,55 @@ const heldQ = (() => { let q = 0; for (const t of many) q += t.type === 'buy' ? 
 const avgIII = (() => { let q = 0, c = 0; for (const t of many) if (t.type === 'buy') { q += t.quantity; c += t.quantity * t.price } return c / q })()   // 매도는 평단을 안 바꾼다
 const full = L.lotsFromTrades(many, [H('III', heldQ, avgIII, '2025-02-01', { currentPrice: 150 })])
 const small = L.lotsFromTrades(many, [H('III', heldQ, avgIII, '2025-02-01', { currentPrice: 150 })], { maxLots: 10 })
-check(`상한 전: 로트 ${full.lots.length}개 · 상한 10 → ${small.lots.length}개로 합쳐짐`, full.fallback.length === 0 && full.lots.length > 10 && small.lots.length <= 10)
-check('합쳐도 수량 합·원가 합 그대로', near(sumQ(full.lots), sumQ(small.lots)) && near(sumC(full.lots), sumC(small.lots), 1e-6))
-const addM = (m, d) => { const [y, mo] = m.split('-').map(Number); const t = y * 12 + mo - 1 + d; return `${Math.floor(t / 12)}-${String(t % 12 + 1).padStart(2, '0')}` }
+check(`상한 전: 로트 ${full.lots.length}개 · 상한 10 → ${small.lots.length}개(거래 있던 달 4개 이하)`, full.fallback.length === 0 && full.lots.length > 10 && small.lots.length <= 4 && !small.tooMany && !full.tooMany)
+check('묶어도 월말 수량·원가 합 그대로(2025-01~2026-09)', sameState(stateOf(full.lots, '2025-01', '2026-09'), stateOf(small.lots, '2025-01', '2026-09')))
+check('묶은 로트: 산 날은 실제 첫 매수일(2025-02-01) · 들고 있는 구간만 현재가', small.lots[0].purchase_date === '2025-02-01' && small.lots.filter(l => !l.sold_date).every(l => l.currentPrice === 150) && small.lots.filter(l => l.sold_date).every(l => l.currentPrice === null))
 const candles = []; { let k = 0; for (let m = '2025-01'; m <= '2026-09'; m = addM(m, 1), k++) candles.push({ date: `${m}-20`, close: 100 + k * 1.7 }) }
 const fx = [{ date: '2025-01-01', close: 1300 }]
 const sf = S.buildMonthlySeries(full.lots, new Map([['III', candles]]), fx, '2026-09', null)
 const ss = S.buildMonthlySeries(small.lots, new Map([['III', candles]]), fx, '2026-09', null)
-check('합친 로트로 그린 월별 흐름 = 합치기 전(평가액·누적손익 ±1원)',
+check('묶은 로트로 그린 월별 흐름 = 묶기 전(평가액·누적손익 ±1원)',
   sf.points.length === ss.points.length && sf.points.length > 0 && sf.points.every((p, i) => p.month === ss.points[i].month && Math.abs(p.valueKrw - ss.points[i].valueKrw) <= 1 && Math.abs(p.cumPnl - ss.points[i].cumPnl) <= 1))
-check('합친 로트도 판 날 ≥ 산 날(라우트 검증 통과)', small.lots.every(l => !l.sold_date || l.sold_date >= l.purchase_date))
+check('묶은 로트도 판 날 ≥ 산 날(라우트 검증 통과)', small.lots.every(l => !l.sold_date || l.sold_date >= l.purchase_date))
+
+// ⑩-b 무작위 거래 300세트 — 매달 적립 + 주기적 매도(로트가 개월²로 불어나는 모양)에서도 묶기가 정확하고 상한 안에 든다
+{
+  let seed = 7
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648 }
+  let bad = 0, worst = 0, maxFull = 0, tooMany = 0
+  for (let n = 0; n < 300; n++) {
+    const trs = [], hs = []
+    for (const tk of ['P1', 'P2', 'P3']) {
+      let q = 0, avg = 0
+      for (let m = '2023-01'; m <= '2026-09'; m = addM(m, 1)) {
+        const r = rnd()
+        if (r < 0.7) {                                             // 적립(같은 달 두 번도)
+          const times = r < 0.15 ? 2 : 1
+          for (let k = 0; k < times; k++) {
+            const p = Math.round((50 + rnd() * 100) * 100) / 100, qty = 1 + Math.floor(rnd() * 5)
+            avg = q <= 0.0001 ? p : (q * avg + qty * p) / (q + qty); q += qty
+            trs.push(T(tk, 'buy', p, qty, `${m}-${String(3 + k * 10).padStart(2, '0')}`))
+          }
+        }
+        if (q > 0 && rnd() < 0.25) {                               // 일부·전량 매도
+          const qty = rnd() < 0.2 ? q : Math.round(q * (0.1 + rnd() * 0.5) * 1000) / 1000
+          if (qty > 0) { trs.push(T(tk, 'sell', 100, qty, `${m}-25`)); q -= qty; if (q <= 0.0001) { q = 0; avg = 0 } }
+        }
+      }
+      if (q > 0) hs.push(H(tk, q, avg, '2023-01-03'))
+    }
+    const f = L.lotsFromTrades(trs, hs, { maxLots: Infinity })
+    const c = L.lotsFromTrades(trs, hs, { maxLots: 1 })
+    maxFull = Math.max(maxFull, f.lots.length)
+    if (f.fallback.length) { bad++; continue }
+    if (!sameState(stateOf(f.lots, '2023-01', '2026-09'), stateOf(c.lots, '2023-01', '2026-09'))) bad++
+    if (c.lots.some(l => l.sold_date && l.sold_date < l.purchase_date)) bad++
+    worst = Math.max(worst, c.lots.length)
+    if (L.lotsFromTrades(trs, hs).tooMany) tooMany++
+  }
+  check(`무작위 300세트: 묶기 전 최대 ${maxFull}개 → 묶은 뒤 최대 ${worst}개 · 월말 상태 전부 일치 · 기본 상한 400 초과 ${tooMany}건`, bad === 0 && worst <= 3 * 45 && tooMany === 0)
+}
+check('묶어도 상한을 넘으면 tooMany', L.lotsFromTrades(many, [H('III', heldQ, avgIII, '2025-02-01')], { maxLots: 2 }).tooMany === true)
 
 // ⑪ 거래 기록 로트를 월별 계산에 넣으면: 판 달 말부터 빠진다(두 lib 연결)
 const g = S.buildMonthlySeries(r3.lots, new Map([['AAA', candles]]), fx, '2026-09', null)

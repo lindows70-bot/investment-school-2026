@@ -1,7 +1,7 @@
 // 거래 기록(매수·매도)을 평균단가법으로 되짚어 월별 자산 흐름용 로트(산 날·판 날)를 만든다 — 보유 수량과 안 맞는 종목은 지금 보유 한 줄로 대신하고 그 사실을 돌려준다
 //   규칙은 tradeWrite(planBuy·planSell)와 같다: 매수 = 가중평단, 매도 = 수량만 줄고 평단 그대로, 남은 수량 ≤ 0.0001 이면 전량 매도(보유 행 삭제).
 //   매도는 열린 로트 '전부'를 같은 비율로 줄인다 — 그래야 남은 로트들의 원가 합 = 남은 수량 × 평단이 정확히 유지된다(선입선출이면 평단이 바뀐다).
-import type { PnlLot } from '@/lib/monthlySeries'
+import { heldAt, type PnlLot } from '@/lib/monthlySeries'
 
 /** transactions 한 줄 — Supabase numeric 이 문자열로 올 수도 있어 숫자는 Number() 로 읽는다 */
 export interface TradeRow {
@@ -26,6 +26,8 @@ export interface LotsFromTradesResult {
   fallback: { ticker: string; name: string; reason: LotFallbackReason }[]
   /** 거래 기록상 다 팔았고 지금 보유도 없는 종목 — 판 로트(이력)만 들어 있다 */
   soldOut: string[]
+  /** 구간으로 묶어도 로트가 상한(라우트 400)을 넘는다 — 호출부는 보내지 말고 '거래가 많아 못 그려요'를 말한다 */
+  tooMany: boolean
 }
 
 /** tradeWrite.planSell 의 전량 매도 기준 — 이 이하로 남으면 앱이 보유 행을 지웠다(다음 매수는 새 평단으로 시작) */
@@ -99,22 +101,37 @@ function mergeSame(lots: PnlLot[]): PnlLot[] {
 }
 
 /**
- * 상한을 넘을 때만 — 같은 종목·산 달·판 달 로트를 가중평단 한 로트로 합친다.
- * 월별 계산(monthlySeries)은 날짜를 '달'로만 보므로 결과가 바뀌지 않는다: 수량 합 같고, Σ(종가−p)q = (종가−가중평단)×Σq.
- * 산 날은 가장 이른 날(크립토 시세 수집 시작점), 판 날은 가장 늦은 날(같은 달이라 계산엔 무관)을 쓴다.
+ * 상한을 넘을 때만 — 종목마다 '월말 상태(보유 수량·원가 합)가 같은 연속 구간'을 로트 하나로 바꾼다.
+ * 월별 계산(monthlySeries)은 월말마다 들고 있는 로트의 수량 합·원가 합만 쓰므로 결과가 바뀌지 않는다
+ * (평가액 = 종가×Σq, 누적손익 = 종가×Σq − Σ원가). 로트 수는 종목별 '거래가 있었던 달' 수 이하로 묶인다.
+ * 산 날 = 구간 첫 달의 가장 이른 실제 매수일(없으면 그 달 1일 — 크립토 시세 수집 시작점이 앞당겨지지 않게),
+ * 판 날 = 구간이 끝난 다음 달 1일(계속 들고 있으면 없음).
  */
-function mergeByMonth(lots: PnlLot[]): PnlLot[] {
-  const m = new Map<string, PnlLot & { cost: number }>()
-  for (const l of lots) {
-    const k = `${l.ticker}|${l.purchase_date.slice(0, 7)}|${l.sold_date ? l.sold_date.slice(0, 7) : ''}`
-    const prev = m.get(k)
-    if (!prev) { m.set(k, { ...l, cost: l.purchase_price * l.quantity }); continue }
-    prev.cost += l.purchase_price * l.quantity
-    prev.quantity += l.quantity
-    if (l.purchase_date < prev.purchase_date) prev.purchase_date = l.purchase_date
-    if (l.sold_date && prev.sold_date && l.sold_date > prev.sold_date) prev.sold_date = l.sold_date
-  }
-  return Array.from(m.values()).map(({ cost, ...l }) => ({ ...l, purchase_price: cost / l.quantity }))
+function compactByInterval(lots: PnlLot[]): PnlLot[] {
+  const byT = new Map<string, PnlLot[]>()
+  for (const l of lots) { const arr = byT.get(l.ticker); if (arr) arr.push(l); else byT.set(l.ticker, [l]) }
+  const out: PnlLot[] = []
+  byT.forEach((ls, ticker) => {
+    const { market, currency } = ls[0]
+    const cp = ls.find(l => !l.sold_date)?.currentPrice ?? null
+    const events = Array.from(new Set(ls.map(l => l.purchase_date.slice(0, 7))
+      .concat(ls.filter(l => l.sold_date).map(l => (l.sold_date as string).slice(0, 7))))).sort()
+    let cur: { q: number; c: number; date: string } | null = null
+    const close = (sold: string | null) => {
+      if (cur) out.push({ ticker, market, currency, quantity: cur.q, purchase_price: cur.c / cur.q, purchase_date: cur.date, sold_date: sold, currentPrice: sold ? null : cp })
+    }
+    for (const m of events) {
+      const held = ls.filter(l => heldAt(l, m))
+      const q = held.reduce((s, l) => s + l.quantity, 0)
+      const c = held.reduce((s, l) => s + l.quantity * l.purchase_price, 0)
+      if (cur && sameQty(q, cur.q) && sameQty(c, cur.c)) continue          // 상태가 그대로면 구간을 늘린다
+      close(`${m}-01`)
+      const bought = held.filter(l => l.purchase_date.slice(0, 7) === m).map(l => l.purchase_date).sort()
+      cur = q > 0 ? { q, c, date: bought[0] ?? `${m}-01` } : null
+    }
+    close(null)
+  })
+  return out
 }
 
 export function lotsFromTrades(trades: TradeRow[], holdings: HoldingForLots[], opts?: { maxLots?: number }): LotsFromTradesResult {
@@ -190,7 +207,7 @@ export function lotsFromTrades(trades: TradeRow[], holdings: HoldingForLots[], o
   }
 
   let out = mergeSame(lots.filter(l => l.quantity > 0))
-  if (out.length > maxLots) out = mergeByMonth(out)
+  if (out.length > maxLots) out = compactByInterval(out)
   out.sort((a, b) => a.ticker.localeCompare(b.ticker) || a.purchase_date.localeCompare(b.purchase_date) || (a.sold_date ?? '9').localeCompare(b.sold_date ?? '9'))
-  return { lots: out, fallback, soldOut }
+  return { lots: out, fallback, soldOut, tooMany: out.length > maxLots }
 }
