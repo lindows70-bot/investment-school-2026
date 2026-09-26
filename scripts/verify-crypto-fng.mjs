@@ -38,12 +38,6 @@ if (!existsSync(`${OUT}/lib/cryptoFng.js`)) {
 }
 
 const { createRequire } = await import('node:module')
-const Module = (await import('node:module')).default
-const origResolve = Module._resolveFilename
-Module._resolveFilename = function (req, ...rest) {
-  if (req.startsWith('@/')) req = `${OUT}/${req.slice(2)}`
-  return origResolve.call(this, req, ...rest)
-}
 const require = createRequire(import.meta.url)
 const M = require(`${OUT}/lib/cryptoFng.js`)
 
@@ -57,7 +51,7 @@ function check(label, cond) {
   }
 }
 
-// 실측 모양(최신순, 문자열 값, 초 단위 timestamp). 값 = 100 - i 로 인덱스를 드러낸다
+// 실측 모양(최신순, 문자열 값, 초 단위 UTC 자정 timestamp, 하루 1행 연속). 값 = 100 - (며칠 전) 로 어느 날을 골랐는지 드러낸다
 const DAY = 86400
 const T0 = 1790380800   // 2026-09-26T00:00:00Z (2026-09-26 실측 data[0])
 const mk = (n) => ({
@@ -68,9 +62,9 @@ const mk = (n) => ({
 
 const full = M.parseFng(mk(31))
 check('31개 → now = data[0]', full?.now === 100)
-check('31개 → yesterday = data[1]', full?.yesterday === 99)
-check('31개 → weekAgo = data[7]', full?.weekAgo === 93)
-check('31개 → monthAgo = data[30]', full?.monthAgo === 70)
+check('31개(연속) → yesterday = 1일 전', full?.yesterday === 99)
+check('31개(연속) → weekAgo = 7일 전', full?.weekAgo === 93)
+check('31개(연속) → monthAgo = 30일 전', full?.monthAgo === 70)
 check('31개 → cls = data[0] 분류', full?.cls === 'Greed')
 check('실측 timestamp 1790380800 → 2026-09-26', full?.date === '2026-09-26')
 
@@ -81,6 +75,24 @@ check('5개뿐 → monthAgo null', short?.monthAgo === null)
 
 const one = M.parseFng(mk(1))
 check('1개뿐 → yesterday null', one?.now === 100 && one?.yesterday === null)
+
+// 빠진 날 — 원천 이력에 실제로 있다(2024-10-26, 2018-04-14~16). 줄 번호로 세면 기간이 조용히 밀린다
+const without = (n, ...daysAgo) => {
+  const j = mk(n)
+  j.data = j.data.filter(r => !daysAgo.includes((T0 - Number(r.timestamp)) / DAY))
+  return j
+}
+const g3 = M.parseFng(without(40, 3))
+check('3일 전이 빠져도 weekAgo = 정확히 7일 전 값(93)', g3?.weekAgo === 93)
+check('3일 전이 빠져도 monthAgo = 정확히 30일 전 값(70)', g3?.monthAgo === 70)
+check('3일 전이 빠져도 yesterday = 1일 전 값(99)', g3?.yesterday === 99)
+const g7 = M.parseFng(without(40, 7))
+check('7일 전이 빠지면 weekAgo null(6·8일 전으로 메우지 않음)', g7?.weekAgo === null)
+check('7일 전이 빠져도 monthAgo 는 그대로(70)', g7?.monthAgo === 70)
+const g1 = M.parseFng(without(40, 1))
+check('1일 전이 빠지면 yesterday null(2일 전 98 아님)', g1?.yesterday === null)
+const g30 = M.parseFng(without(40, 30))
+check('30일 전이 빠지면 monthAgo null(31일 전 69 아님)', g30?.monthAgo === null)
 
 const bad = mk(31)
 bad.data[1].value = 'abc'
