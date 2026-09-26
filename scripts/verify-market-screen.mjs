@@ -58,6 +58,10 @@ eq('viewOf 요청 실패', M.viewOf({ state: 'failed', data: null }, pick), { ki
 eq('viewOf 원천 ok:false = 못 가져옴', M.viewOf({ state: 'ok', data: { a: { ok: false, reason: 'x', source: 's' } } }, pick), { kind: 'failed' })
 eq('viewOf 모양이 다름(조각 없음) = 못 가져옴', M.viewOf({ state: 'ok', data: {} }, pick), { kind: 'failed' })
 eq('viewOf pick 이 던짐 = 못 가져옴', M.viewOf({ state: 'ok', data: {} }, d => d.x.y), { kind: 'failed' })
+const OKP = { a: { ok: true, data: [1], asOf: 'x', source: 's' } }
+eq('viewOf 다시 부르는 중 — 이전에 받은 조각은 그대로(다른 카드 깜빡임 방지)', M.viewOf({ state: 'loading', data: OKP }, pick), { kind: 'ok', data: [1], asOf: 'x' })
+eq('viewOf 다시 부르는 중 — 이전에 못 가져온 조각은 불러오는 중', M.viewOf({ state: 'loading', data: { a: { ok: false, reason: 'x', source: 's' } } }, pick), { kind: 'loading' })
+eq('viewOf 다시 부르다 요청 실패 = 못 가져옴(옛 데이터로 성공인 척 안 함)', M.viewOf({ state: 'failed', data: OKP }, pick), { kind: 'failed' })
 eq('viewOf ok 빈 목록 = 받음(없음은 화면이 사실대로)', M.viewOf({ state: 'ok', data: { a: { ok: true, data: [], asOf: null, source: 's' } } }, pick), { kind: 'ok', data: [], asOf: null })
 
 // ── 날짜·시각 ──
@@ -82,6 +86,8 @@ eq('agoText 59분', M.agoText('2026-09-27T11:00:30+09:00', NOW), '59분 전')
 eq('agoText 3시간', M.agoText('2026-09-27T08:40:00+09:00', NOW), '3시간 전')
 eq('agoText 하루 넘으면 날짜', M.agoText('2026-09-25T18:00:00+09:00', NOW), '9/25(금)')
 eq('agoText null', M.agoText(null, NOW), null)
+eq('agoText 5분 넘게 미래 = null(틀린 시각)', M.agoText('2026-09-27T12:06:00+09:00', NOW), null)
+eq('agoText 5분 미래까지는 방금', M.agoText('2026-09-27T12:05:00+09:00', NOW), '방금')
 
 eq('holdingKey 대문자·공백 제거', M.holdingKey('US', ' nvda '), 'US:NVDA')
 
@@ -134,11 +140,25 @@ const ind = [
   { no: 4, name: '없음', changePct: null, limitBreakSuspect: false },
   { no: 5, name: '보험', changePct: 0, limitBreakSuspect: false },
 ]
-eq('오른 순(오른 업종만 — 보합·등락 모름 제외)', M.topIndustries(ind, 'up', 3).map(i => i.name), ['가정용품', '반도체'])
+eq('오른 순(±30% 의심·보합·등락 모름 제외)', M.topIndustries(ind, 'up', 3).map(i => i.name), ['반도체'])
+eq('보합 경계 |x|<0.05 는 순위에서 빠짐(0.04 빠짐 · 0.05 들어감)', M.topIndustries([{ no: 1, name: 'a', changePct: 0.04, limitBreakSuspect: false }, { no: 2, name: 'b', changePct: 0.05, limitBreakSuspect: false }, { no: 3, name: 'c', changePct: -0.04, limitBreakSuspect: false }], 'up', 5).map(i => i.name).concat(M.topIndustries([{ no: 3, name: 'c', changePct: -0.04, limitBreakSuspect: false }], 'down', 5).map(i => i.name)), ['b'])
+eq('의심 업종은 그 방향만 따로', [M.suspectIndustries(ind, 'up').map(i => i.name), M.suspectIndustries(ind, 'down').map(i => i.name)], [['가정용품'], []])
+eq('뺀 업종 문구', M.suspectIndustryText({ name: '가정용품', changePct: 162.34, count: 12, rise: 4, fall: 5 }), '가정용품 +162.3%(12종목 중 오른 4·내린 5)')
+eq('뺀 업종 문구 — 종목 수 모름', M.suspectIndustryText({ name: 'x', changePct: -31.2, count: null, rise: null, fall: null }), 'x \u221231.2%')
 eq('내린 순(내린 업종만)', M.topIndustries(ind, 'down', 2).map(i => i.name), ['은행'])
 eq('모두 오른 날 내린 순 = 빈 목록', M.topIndustries([{ no: 1, name: 'a', changePct: 0.3, limitBreakSuspect: false }], 'down', 5), [])
 eq('막대 폭 — 의심 업종 제외한 최대가 100, 의심은 100, 0% 는 0', M.industryBars(ind.slice(0, 3).concat([ind[4]])), [100, 100, 50, 0])
 eq('막대 최소 2', M.industryBars([{ changePct: 10, limitBreakSuspect: false }, { changePct: 0.05, limitBreakSuspect: false }]), [100, 2])
+
+// ── ETF·ETN ──
+const mv = [{ code: '1', etp: 'ETN' }, { code: '2', etp: null }, { code: '3', etp: 'ETF' }, { code: '4', etp: null }]
+eq('기본 = 주식만 + 뺀 개수', (r => [r.items.map(i => i.code), r.removed])(M.filterEtp(mv, false)), [['2', '4'], 2])
+eq('ETF·ETN 포함 = 그대로', (r => [r.items.map(i => i.code), r.removed])(M.filterEtp(mv, true)), [['1', '2', '3', '4'], 0])
+
+// ── 순매매 범위 ──
+eq('합침 둘 다', M.flowScopeText(['KOSPI', 'KOSDAQ'], []), '코스피·코스닥을 합친')
+eq('합침 한 시장 실패 = 실제 범위', M.flowScopeText(['KOSPI', 'KOSDAQ'], ['KOSDAQ']), '코스피만 본(코스닥 못 가져옴)')
+eq('한 시장 선택', M.flowScopeText(['KOSDAQ'], []), '코스닥')
 
 // ── 국면·공포탐욕 ──
 eq('국면 말 4종', Object.keys(M.QUAD_TEXT).sort(), ['improving', 'lagging', 'leading', 'weakening'])

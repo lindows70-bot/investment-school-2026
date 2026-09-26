@@ -39,7 +39,7 @@ export default function FxTrendCard({ overview }: { overview: JsonResult<Overvie
             )}
           </div>
           <span style={noteStyle()}>1달러를 사려면 드는 원화예요 · 하나은행 매매기준율 · {mdDow(latest.date) ?? latest.date} 고시</span>
-          {prov && <span style={noteStyle(TK.slate300)}>오늘({mdDow(prov.date) ?? prov.date}) 고시는 진행 중이에요 — 지금 {fxWon(prov.v)}, 바뀔 수 있어요.</span>}
+          {prov && <span style={noteStyle(TK.slate300)}>{mdDow(prov.date) ?? prov.date} 고시는 아직 진행 중이에요 — 지금 {fxWon(prov.v)}, 바뀔 수 있어요.</span>}
           <ChipRow label="기간" value={range} onChange={setRange} options={RANGES} />
           {pts.length >= 2
             ? <div style={{ height: 160, minWidth: 0 }}><LinePlot points={pts} color={TK.slate100} tFmt={tDay} vFmt={fxWon} /></div>

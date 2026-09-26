@@ -5,7 +5,7 @@
 import { useState } from 'react'
 import { TK, SP } from '@/lib/theme'
 import { pct, upDown, eok } from '@/lib/studentFormat'
-import { viewOf, mdDow, flowBadges, mergeFlowTop, holdingKey, type FlowBoardResp, type FlowSide, type FlowBadgeKey, type View } from '@/lib/marketScreen'
+import { viewOf, mdDow, flowBadges, mergeFlowTop, holdingKey, flowScopeText, type FlowBoardResp, type FlowSide, type FlowBadgeKey, type View } from '@/lib/marketScreen'
 import type { FlowBoardSide, FlowTopRow, Investor } from '@/lib/foreignOrgFlow'
 import type { KrMarket } from '@/lib/krMarketBoard'
 import { useJson } from '@/app/components/student/useJson'
@@ -23,7 +23,7 @@ const SIDE_NAME: Record<FlowSide, string> = { buy: '순매수', sell: '순매도
 const TONE: Record<FlowBadgeKey, BadgeTone> = { mine: 'mine', streak: 'plain', together: 'plain', contrarian: 'warn', etf: 'plain', limit: 'warn' }
 const HELP = [
   '순매수 = 산 돈이 판 돈보다 많아요. 순매도 = 판 돈이 더 많아요.',
-  'N일째 = 오늘까지 며칠 연속 같은 쪽(사거나 팔거나)이었는지예요. 2일째부터 보여요.',
+  'N일째 = 마지막 거래일까지 며칠 연속 같은 쪽(사거나 팔거나)이었는지예요. 2일째부터 보여요.',
   '함께 샀어요·함께 팔았어요 = 그날 외국인과 기관이 둘 다 같은 쪽이었어요.',
   '주가와 반대 = 주가가 내린 날 샀거나, 오른 날 팔았어요.',
   'ETF = 여러 종목을 한데 묶은 상품이에요.',
@@ -37,7 +37,7 @@ type SideView = View<{ bizdate: string | null } & FlowBoardSide>
 export default function FlowCard() {
   const [ref, seen] = useInView<HTMLElement>()
   const flow = useJson<FlowBoardResp>('/api/market-board/flow', { enabled: seen })
-  const mine = useMyTickers(seen)
+  const my = useMyTickers(seen)
   const [who, setWho] = useState<Who>('FOREIGNER')
   const [side, setSide] = useState<FlowSide>('buy')
   const [mk, setMk] = useState<Mk>('ALL')
@@ -56,7 +56,7 @@ export default function FlowCard() {
   const bizdate = okView?.data.bizdate ?? null
   const estimated = merged.rows.some(r => r.estimated)
   const trendsFailed = flow.state === 'ok' && flow.data?.trends?.ok === false
-  const scope = mk === 'ALL' ? '코스피·코스닥을 합친' : MK_NAME[mk]
+  const scope = flowScopeText(shownMarkets, merged.missing)   // 한 시장을 못 가져왔으면 실제로 본 범위만
 
   let body: React.ReactNode
   if (who === 'PERSONAL') {
@@ -81,7 +81,7 @@ export default function FlowCard() {
             <StockRow key={`${r.market}-${r.code}`} rank={i + 1}
               href={`/s/stock/${encodeURIComponent(r.code)}?m=KR&n=${encodeURIComponent(r.name)}`}
               name={r.name} tag={mk === 'ALL' ? MK_NAME[r.market] : null}
-              badges={flowBadges(r, side, inv, mine?.has(holdingKey('KR', r.code)) ?? false).map(b => ({ text: b.text, tone: TONE[b.key] }))}
+              badges={flowBadges(r, side, inv, my.keys?.has(holdingKey('KR', r.code)) ?? false).map(b => ({ text: b.text, tone: TONE[b.key] }))}
               main={eok(Math.abs(r.netEok))}
               sub={r.changePct == null ? '주가 등락 모름' : `주가 ${pct(r.changePct)}`} subColor={upDown(r.changePct)} />
           ))}
@@ -110,6 +110,7 @@ export default function FlowCard() {
           </span>
           {estimated && <span style={noteStyle()}>장 중 잠정 숫자예요 — 장이 끝난 뒤 바뀔 수 있어요.</span>}
           {trendsFailed && <span style={noteStyle(TK.amber400)}>몇몇 종목은 며칠째·함께 여부를 못 셌어요(그 배지만 빠졌어요).</span>}
+          {my.state === 'failed' && <span style={noteStyle(TK.amber400)}>내 종목 표시를 못 불러왔어요(목록은 그대로예요).</span>}
         </>
       )}
       <span style={noteStyle(TK.slate300)}>누가 샀는지는 지켜본 사실일 뿐이에요 — 따라 사라는 뜻이 아니에요.</span>
