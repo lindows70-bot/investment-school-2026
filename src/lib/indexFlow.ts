@@ -2,8 +2,9 @@
 //   근거 실측(2026-08-14, scripts/probe-index-flow.mjs · 1,150일): 당일 동행 상관 +0.470 /
 //   과거 수급 → 미래 지수 예측 상관 0±(20일→60일 −0.38) — 그래서 이 차트는 '예측 도구'가 아니라
 //   '지금 외국인이 한국 시장을 어떻게 대하고 있나'를 읽는 관찰 도구다. 화면은 이 한계를 반드시 병기한다.
-//   데이터: 네이버 투자자별 매매동향(코스피 전체·억원·일별) + ^KS11 종가 · 약 1년
+//   데이터: 네이버 투자자별 매매동향(코스피 전체·억원·일별 · lib/naverInvestorTrend SSOT) + ^KS11 종가 · 약 2년
 import { getTechCandles } from '@/lib/techChartData'
+import { fetchInvestorDaily } from '@/lib/naverInvestorTrend'
 
 export interface IndexFlowDay {
   d: string; kospi: number
@@ -24,41 +25,16 @@ export interface IndexFlowResult {
   totalEtcEok: number
 }
 
-const num = (s: unknown) => parseFloat(String(s ?? '').replace(/[,+\s]/g, '')) || 0
-
 type DailyFlow = { f: number; o: number; i: number }
-/** 코스피 전체 일별 순매수(억원·개인/외국인/기관계) — investorDealTrendDay 를 bizdate 커서로 과거로 넘긴다 */
-async function fetchInvestorDaily(days: number): Promise<Map<string, DailyFlow>> {
-  const flow = new Map<string, DailyFlow>()
-  let cursor = new Date()
-  const pages = Math.ceil(days / 9) + 2          // 페이지당 ~10행
-  for (let p = 0; p < pages && flow.size < days; p++) {
-    const bd = cursor.toISOString().slice(0, 10).replace(/-/g, '')
-    try {
-      const r = await fetch(`https://finance.naver.com/sise/investorDealTrendDay.naver?bizdate=${bd}&sosok=01`,
-        { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(12_000), cache: 'no-store' })
-      if (!r.ok) break
-      const t = new TextDecoder('euc-kr').decode(await r.arrayBuffer())
-      // 열 순서(실측): 날짜 | 개인 | 외국인 | 기관계 | ...
-      const rows = Array.from(t.matchAll(/date2">(\d{2}\.\d{2}\.\d{2})<\/td>\s*<td[^>]*>([-\d,]+)<\/td>\s*<td[^>]*>([-\d,]+)<\/td>\s*<td[^>]*>([-\d,]+)<\/td>/g))
-      if (!rows.length) break
-      let oldest: string | null = null
-      for (const m of rows) {
-        const iso = `20${m[1].replace(/\./g, '-')}`
-        if (!flow.has(iso)) flow.set(iso, { i: num(m[2]), f: num(m[3]), o: num(m[4]) })
-        oldest = iso
-      }
-      if (!oldest) break
-      cursor = new Date(new Date(`${oldest}T00:00:00Z`).getTime() - 86_400_000)
-    } catch { break }
-    await new Promise(res => setTimeout(res, 80))
-  }
-  return flow
+/** 코스피 전체 일별 순매수(억원·개인/외국인/기관계) — 투자자별 매매동향 SSOT(naverInvestorTrend)에서 날짜 → 값 */
+async function fetchFlowByDate(days: number): Promise<Map<string, DailyFlow>> {
+  const rows = await fetchInvestorDaily('KOSPI', days)
+  return new Map(rows.map(r => [r.date, { f: r.foreign, o: r.institution, i: r.personal }]))
 }
 
 export async function buildIndexFlow(days = 500): Promise<IndexFlowResult | null> {
   const [flow, candles] = await Promise.all([
-    fetchInvestorDaily(days),
+    fetchFlowByDate(days),
     getTechCandles('^KS11', 'US', 'D').catch(() => null),
   ])
   if (!flow.size || !candles || candles.length < 60) return null
