@@ -114,7 +114,7 @@ async function fetchPeers(symbol: string): Promise<string[]> {
 
 // ── 종목별 비교지표 ──────────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchMetric(yf: any, symbol: string, isTarget: boolean, usdKrw: number, base?: string): Promise<PeerMetric | null> {
+async function fetchMetric(yf: any, symbol: string, isTarget: boolean, fxP: Promise<{ rate: number }>, base?: string): Promise<PeerMetric | null> {
   try {
     const s = await yf.quoteSummary(symbol, { modules: ['financialData', 'summaryDetail', 'defaultKeyStatistics', 'price', 'assetProfile'] })
     const fd = s?.financialData ?? {}, sd = s?.summaryDetail ?? {}, ks = s?.defaultKeyStatistics ?? {}, pr = s?.price ?? {}, ap = s?.assetProfile ?? {}
@@ -148,6 +148,7 @@ async function fetchMetric(yf: any, symbol: string, isTarget: boolean, usdKrw: n
     const debtRatio = (num(fd.totalDebt) != null && mc) ? Math.round((fd.totalDebt / mc) * 100) : null
     // 체급 비교: 시총을 USD로 통일 (KRW면 대략 환산) — 글로벌 1등 대비 국내 기업 위치를 한눈에
     const currency = String(pr.currency || sd.currency || (/\.(KS|KQ)$/i.test(symbol) ? 'KRW' : 'USD')).toUpperCase()
+    const usdKrw = (await fxP).rate   // 환율 조회는 호출부가 먼저 시작해 둔다 — 시세 조회와 겹쳐 돌아 기다림이 없다
     const mcapUsd = mc != null ? Math.round(currency === 'KRW' ? mc / usdKrw : mc) : null
     const name = String(pr.shortName || pr.longName || symbol).replace(/\.(KS|KQ)$/i, '')
     const industry = ap.industry ? String(ap.industry) : null
@@ -177,11 +178,12 @@ export async function getSectorPeers(input: { ticker: string; name?: string; mar
     const { default: YahooFinance } = await import('yahoo-finance2')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const yf = new (YahooFinance as any)({ suppressNotices: ['yahooSurvey'] })
-    // PEG SSOT(stock-info) 호출용 base — 요청 호스트(서버액션)
-    let base: string | undefined
-    try { const h = headers(); const host = h.get('host'); if (host) base = `${h.get('x-forwarded-proto') ?? 'https'}://${host}` } catch { /* base 없으면 Yahoo 폴백 */ }
-    // 💱 시총 체급 환산용 — base 가 없으면 조회할 곳이 없어 폴백(live=false → 결과를 캐시하지 않는다)
-    const fx = base ? await fetchUsdKrw(base) : { rate: USD_KRW_FALLBACK, live: false }
+    // PEG SSOT(stock-info)·환율 호출용 base — 다른 라우트 관례대로 설정값(NEXT_PUBLIC_APP_URL) 먼저, 없을 때만 요청 호스트
+    //   (Host 헤더를 먼저 믿으면 조작된 호스트의 가짜 환율·PEG 가 6h 메모리 캐시에 들어갈 수 있다)
+    let base: string | undefined = process.env.NEXT_PUBLIC_APP_URL || undefined
+    if (!base) { try { const h = headers(); const host = h.get('host'); if (host) base = `${h.get('x-forwarded-proto') ?? 'https'}://${host}` } catch { /* base 없으면 Yahoo 폴백 */ } }
+    // 💱 시총 체급 환산용 — 기다리지 않고 시작만 해 두고 fetchMetric 이 필요할 때 받는다. base 가 없으면 폴백(live=false → 결과를 캐시하지 않는다)
+    const fxP: Promise<{ rate: number; live: boolean }> = base ? fetchUsdKrw(base) : Promise.resolve({ rate: USD_KRW_FALLBACK, live: false })
     // KR은 .KS(코스피)→.KQ(코스닥) 폴백 — 코스닥 종목이 .KS로만 시도하면 실패
     const codeK = ticker.replace(/\D/g, '')
     const symTries = market === 'KR' ? [`${codeK}.KS`, `${codeK}.KQ`] : [ticker]
@@ -189,7 +191,7 @@ export async function getSectorPeers(input: { ticker: string; name?: string; mar
     // ① 대상 먼저 조회 → 업종 파악
     let targetMetric: PeerMetric | null = null
     let yfSym = symTries[0]
-    for (const sym of symTries) { const m = await fetchMetric(yf, sym, true, fx.rate, base); if (m) { targetMetric = m; yfSym = sym; if (m.industry) break } }
+    for (const sym of symTries) { const m = await fetchMetric(yf, sym, true, fxP, base); if (m) { targetMetric = m; yfSym = sym; if (m.industry) break } }
     if (!targetMetric) return empty('error', '종목 정보를 불러오지 못했습니다.')
 
     // ★ 티커 오버라이드(한국 조선·전력기기) 우선 → 없으면 Yahoo 업종
@@ -214,7 +216,7 @@ export async function getSectorPeers(input: { ticker: string; name?: string; mar
     if (!peerSyms.length) return empty('none', market === 'KR' ? '국내 종목은 동종업계 비교 데이터가 제한적입니다.' : '동종업계(피어) 데이터를 찾지 못했습니다.')
 
     // ③ 피어 지표 동시 조회
-    const peerMetrics = await Promise.all(peerSyms.map(p => fetchMetric(yf, p, false, fx.rate, base)))
+    const peerMetrics = await Promise.all(peerSyms.map(p => fetchMetric(yf, p, false, fxP, base)))
     const peers = [targetMetric, ...peerMetrics].filter((m): m is PeerMetric => m != null && (m.peg != null || m.opMargin != null))
     const target = peers.find(p => p.isTarget)
     if (!target || peers.length < 2) return empty('none', '비교 가능한 경쟁사 데이터가 부족합니다.')
@@ -274,6 +276,7 @@ export async function getSectorPeers(input: { ticker: string; name?: string; mar
         ? `좋은 선택이야! ${target.name}은 같은 업종 경쟁사 중 PEG가 가장 낮아(가장 저평가). 린치가 말한 "업종 내 가장 싸고 탄탄한 기업"에 가깝지. 영업이익률·부채도 1등인지 같이 확인해.`
         : `${target.name}은 같은 업종 경쟁사와 비교해 가성비가 평범한 편이야. 이 표에서 '더 싸면서 더 잘 버는' 동일업종 기업이 없는지 직접 비교해봐.`
 
+    const fx = await fxP   // 이미 fetchMetric 이 받아 둔 값(fetchUsdKrw 는 실패해도 reject 하지 않고 폴백을 준다)
     const result: SectorPeerResult = { ticker, source, targetIndustry, sameIndCount, peers, bestValue, psrMedian, perMedian, perCount, targetPe: target.pe, verdict, rivalTicker: rival?.ticker ?? null, lynchComment, status: 'ok', asOf }
     if (fx.live) CACHE.set(ticker, { data: result, expiresAt: Date.now() + CACHE_TTL })   // 고정 환율로 잰 시총 체급은 박제 금지(다음 호출이 실제 환율로 스스로 낫는다)
     return result
