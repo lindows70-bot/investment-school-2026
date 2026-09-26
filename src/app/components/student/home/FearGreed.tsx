@@ -31,7 +31,7 @@ function Gauge({ value, cls, past, source }: { value: number; cls: string | null
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: SP.sm }}>
         {past.map(p => (
-          <div key={p.label} style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+          <div key={p.label} style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, minWidth: 0 }}>
             <span style={{ fontSize: FS.micro, color: TK.sub, whiteSpace: 'nowrap' }}>{p.label}</span>
             <span style={{ fontSize: FS.body, fontWeight: 700, color: p.v == null ? TK.sub : TK.slate200 }}>{p.v == null ? '—' : Math.round(p.v)}</span>
           </div>
@@ -55,7 +55,7 @@ export default function FearGreed() {
   if (tab === 'coin') {
     const f = coin.data?.fng
     if (coin.state === 'loading' || coin.state === 'idle') body = <span style={noteStyle()}>코인 공포·탐욕 지수를 불러오는 중…</span>
-    else if (coin.state !== 'ok' || !f || num(f.now) == null) body = <FailRow text="코인 공포·탐욕 지수를 못 가져왔어요." onRetry={coin.reload} />
+    else if (coin.state !== 'ok' || !f || num(f.now) == null) body = <FailRow text="코인 공포·탐욕 지수를 못 가져왔어요." onRetry={coin.reload} retryLabel="코인 공포·탐욕 지수 다시 불러오기" />
     else body = (
       <Gauge value={f.now as number} cls={classKo(f.cls)}
         past={[{ label: '어제', v: num(f.yesterday) }, { label: '1주 전', v: num(f.weekAgo) }, { label: '1달 전', v: num(f.monthAgo) }]}
@@ -64,9 +64,9 @@ export default function FearGreed() {
   } else {
     const d = us.data
     if (us.state === 'loading' || us.state === 'idle') body = <span style={noteStyle()}>미국 주식 공포·탐욕 지수를 불러오는 중…</span>
-    else if (us.state !== 'ok' || !d) body = <FailRow text="미국 주식 공포·탐욕 지수를 못 가져왔어요." onRetry={us.reload} />
+    else if (us.state !== 'ok' || !d) body = <FailRow text="미국 주식 공포·탐욕 지수를 못 가져왔어요." onRetry={us.reload} retryLabel="미국 주식 공포·탐욕 지수 다시 불러오기" />
     // CNN 이 아니면(자체 계산·폴백 50) 숫자를 보이지 않는다 — 같은 이름으로 다른 지수를 보이게 된다
-    else if (d.source !== 'cnn' || num(d.partyScore) == null) body = <FailRow text="CNN 지수를 못 가져왔어요." onRetry={us.reload} />
+    else if (d.source !== 'cnn' || num(d.partyScore) == null) body = <FailRow text="CNN 지수를 못 가져왔어요." onRetry={us.reload} retryLabel="미국 주식 공포·탐욕 지수 다시 불러오기" />
     else body = (
       <Gauge value={d.partyScore as number} cls={classKo(d.rating)}
         past={[{ label: '전 거래일', v: num(d.prevClose) }, { label: '1주 전', v: num(d.prev1Week) }, { label: '1달 전', v: num(d.prev1Month) }]}
@@ -77,11 +77,11 @@ export default function FearGreed() {
   return (
     <section style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
       <CardHead title="공포·탐욕 지수" />
-      <div role="tablist" aria-label="공포·탐욕 지수 종류" style={{ display: 'flex', gap: SP.xs, padding: SP.xs, borderRadius: RAD.md, background: TK.bg3 }}>
-        <button type="button" role="tab" aria-selected={tab === 'coin'} onClick={() => pick('coin')} style={tabBtn(tab === 'coin')}>코인</button>
-        <button type="button" role="tab" aria-selected={tab === 'us'} onClick={() => pick('us')} style={tabBtn(tab === 'us')}>미국 주식</button>
+      <div role="group" aria-label="공포·탐욕 지수 종류" style={{ display: 'flex', gap: SP.xs, padding: SP.xs, borderRadius: RAD.md, background: TK.bg3 }}>
+        <button type="button" aria-pressed={tab === 'coin'} onClick={() => pick('coin')} style={tabBtn(tab === 'coin')}>코인</button>
+        <button type="button" aria-pressed={tab === 'us'} onClick={() => pick('us')} style={tabBtn(tab === 'us')}>미국 주식</button>
       </div>
-      <div role="tabpanel">{body}</div>
+      <div aria-live="polite">{body}</div>
     </section>
   )
 }

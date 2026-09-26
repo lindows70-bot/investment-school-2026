@@ -14,7 +14,7 @@ export default function MyAssetsLine() {
   if (state === 'failed' || !summary) {
     return (
       <div style={card}>
-        <FailRow onRetry={reload} text={failReason === 'fx' ? '환율을 못 가져와서 달러 종목을 원화로 바꿀 수 없어요.' : failReason === 'db' ? '내 종목 목록을 불러오지 못했어요.' : '내 자산을 불러오지 못했어요.'} />
+        <FailRow onRetry={reload} retryLabel="내 자산 다시 불러오기" text={failReason === 'fx' ? '환율을 못 가져와서 달러 종목을 원화로 바꿀 수 없어요.' : failReason === 'db' ? '내 종목 목록을 불러오지 못했어요.' : '내 자산을 불러오지 못했어요.'} />
       </div>
     )
   }
@@ -31,7 +31,7 @@ export default function MyAssetsLine() {
   const noToday = summary.allUnpriced || summary.todayPct == null
   return (
     <Link href="/s/assets" style={{ ...card, display: 'flex', alignItems: 'center', gap: SP.sm, color: TK.slate200, textDecoration: 'none' }}>
-      <div style={{ flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <div style={{ flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: SP.xs }}>
         <span style={noteStyle()}>내 종목 평가금액{pricesFailed ? ' · 시세를 못 가져와 매수가 기준' : ''}</span>
         <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: SP.sm }}>
           <span style={{ fontSize: FS.lg, fontWeight: 800, color: TK.slate100, whiteSpace: 'nowrap' }}>{won(summary.totalEvalKrw)}</span>

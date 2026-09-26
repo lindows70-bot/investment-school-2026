@@ -23,7 +23,7 @@ export default function LeagueLine({ userId }: { userId: string | null | undefin
     content = <span style={noteStyle()}>로그인하면 리그 순위가 보여요.</span>
   } else if (league.state === 'failed' || !Array.isArray(league.data?.students)) {
     failed = true
-    content = <FailRow text="리그 순위를 못 가져왔어요." onRetry={league.reload} />
+    content = <FailRow text="리그 순위를 못 가져왔어요." onRetry={league.reload} retryLabel="리그 순위 다시 불러오기" />
   } else {
     const students = league.data.students
     const ranked = students.filter(s => s?.isRegistered === true && isNum(s.totalReturn))

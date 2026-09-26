@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { SP } from '@/lib/theme'
 import { useJson } from '@/app/components/student/useJson'
-import type { IndexRow, CalendarResp } from '@/app/components/student/home/homeUi'
+import { useKstToday, type IndexRow, type CalendarResp, type FxResp } from '@/app/components/student/home/homeUi'
 import Greeting from '@/app/components/student/home/Greeting'
 import HomeSearch from '@/app/components/student/home/HomeSearch'
 import Shortcuts from '@/app/components/student/home/Shortcuts'
@@ -37,9 +37,11 @@ function useMe() {
 
 export default function StudentHome() {
   const me = useMe()
+  const today = useKstToday()   // 마운트 뒤에만 정해지고 자정에 넘어간다 — 한눈 시황·주요 일정이 같은 '오늘'을 본다
   // 두 카드가 함께 쓰는 원천은 여기서 한 번만 부른다(일정 원천은 콜드 20초대 — 두 번 부르면 서버가 두 번 계산한다)
   const indices = useJson<IndexRow[]>('/api/market-indices')
   const calendar = useJson<CalendarResp>('/api/event-calendar')
+  const fx = useJson<FxResp>('/api/exchange-rate')   // 내 자산 한 줄(useMyPortfolio)은 자기 조회를 쓰되 같은 규칙(고정 상수 거부)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
@@ -58,11 +60,11 @@ export default function StudentHome() {
       <HomeSearch />
       <Shortcuts />
       <MyAssetsLine />
-      <MarketBrief indices={indices} calendar={calendar} />
+      <MarketBrief indices={indices} calendar={calendar} fx={fx} today={today} />
       <IndexCards indices={indices} />
       <div className="sh-two">
         <FearGreed />
-        <UpcomingEvents calendar={calendar} />
+        <UpcomingEvents calendar={calendar} today={today} />
       </div>
       <MyNews />
       <GuruCard />

@@ -29,8 +29,8 @@ export default function MyNews() {
       <CardHead title="내 종목 뉴스" href="/dashboard" linkText="더 보기 ›" />
       {(news.state === 'idle' || news.state === 'loading') && <span style={noteStyle()}>내 종목 뉴스를 모으는 중… 조금 걸려요.</span>}
       {news.state === 'unauth' && <span style={noteStyle()}>로그인하면 내 종목 뉴스가 보여요.</span>}
-      {(news.state === 'failed' || (news.state === 'ok' && list == null)) && <FailRow text="뉴스를 못 가져왔어요." onRetry={news.reload} />}
-      {list != null && list.length === 0 && <span style={noteStyle()}>새 뉴스가 없어요. (ETF·코인은 뉴스를 모으지 않아요)</span>}
+      {(news.state === 'failed' || (news.state === 'ok' && list == null)) && <FailRow text="뉴스를 못 가져왔어요." onRetry={news.reload} retryLabel="내 종목 뉴스 다시 불러오기" />}
+      {list != null && list.length === 0 && <span style={noteStyle()}>모인 뉴스 제목이 없어요. (ETF·코인은 뉴스를 모으지 않아요)</span>}
       {list != null && list.map(c => (
         <div key={c.ticker || c.name} style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, paddingTop: SP.sm, borderTop: `1px solid ${TK.border}`, minWidth: 0 }}>
           <span style={{ fontSize: FS.tiny, fontWeight: 700, color: TK.sky400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
@@ -39,7 +39,7 @@ export default function MyNews() {
           ))}
         </div>
       ))}
-      {list != null && list.length > 0 && <span style={{ fontSize: FS.micro, color: TK.sub }}>제목만 모았어요 · 자세한 해석은 분석 화면에서</span>}
+      {list != null && list.length > 0 && <span style={noteStyle()}>제목만 모았어요 · 자세한 해석은 분석 화면에서</span>}
     </section>
   )
 }
