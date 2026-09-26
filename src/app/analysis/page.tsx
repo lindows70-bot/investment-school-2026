@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase/client'
 import BuffettAnalysisPanel from '@/app/components/BuffettAnalysisPanel'
 // SSOT: 자산 유형 분류 (STOCK / ETF / CRYPTO / COMMODITY)
 import { getAssetType } from '@/lib/assetClassifier'
-import { TK, FONT_STACK } from '@/lib/theme'
+import { TK, FS, FONT_STACK } from '@/lib/theme'
 import { QUOTES } from '@/lib/quotes'
 
 // 가치투자 원칙 카드의 인용 — 원문(1989 주주서한)이 확인된 목록에서만 고른다
@@ -881,7 +881,7 @@ function AnalysisContent() {
                 <div style={{ fontSize:12, color:'#a7f3d0', fontStyle:'italic', lineHeight:1.6 }}>
                   &quot;{BUFFETT_INSIGHT.original}&quot;
                 </div>
-                <div style={{ fontSize:11, color:C.sub, marginTop:4, lineHeight:1.5 }}>{BUFFETT_INSIGHT.ko} — {BUFFETT_INSIGHT.sourceLabel}</div>
+                <div style={{ fontSize:FS.tiny, color:C.sub, marginTop:4, lineHeight:1.5 }}>{BUFFETT_INSIGHT.ko} — {BUFFETT_INSIGHT.sourceLabel}</div>
               </div>
             </div>
           </div>
