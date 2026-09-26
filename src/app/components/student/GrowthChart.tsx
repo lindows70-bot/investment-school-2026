@@ -39,7 +39,7 @@ const YMD = /^\d{4}-\d{2}-\d{2}/
 const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)
 const monthDiff = (a: string, b: string) => (Number(b.slice(0, 4)) * 12 + Number(b.slice(5, 7))) - (Number(a.slice(0, 4)) * 12 + Number(a.slice(5, 7)))
 const MAX_MONTHS = 36   // monthlySeries.ts 의 상한(최근 36개월)과 같은 값 — 잘린 이유를 가를 때만 쓴다
-const PAGE = 1000       // Supabase select 기본 상한 — 이 크기로 끝까지 넘겨 읽는다(안 넘기면 1,000건 뒤 거래가 조용히 빠진다)
+const PAGE = 1000       // Supabase select 기본 상한 — 페이지로 끝까지 넘겨 읽는다(안 넘기면 1,000건 뒤 거래가 조용히 빠진다)
 const TX_COLS = 'ticker,name,market,currency,type,price,quantity,transaction_date,created_at,memo'   // memo = '자동 동기화' 행 가려내기(lotsFromTrades)
 
 // 범위 — 원천이 월말 값뿐이라 '1달'은 없다(점 1~2개). 앞 범위와 같은 점 수가 되는 범위는 숨긴다
@@ -65,15 +65,17 @@ export default function GrowthChart({ holdings, rows, usdKrw }: { holdings: MyHo
       const { data: { user } } = await sb.auth.getUser()
       if (!user) { if (!cancelled) setTx({ state: 'unauth', trades: [], forKey: holdKey }); return }
       const all: TradeRow[] = []
-      for (let from = 0; ; from += PAGE) {
+      // 빈 페이지가 올 때까지 읽고, 다음 시작점은 '받은 만큼'만 민다 — 서버 상한이 PAGE 보다 작으면 짧은 페이지가 끝이 아니다
+      for (let from = 0; ;) {
         // 정렬 키에 id 까지 — 같은 거래일·시각이어도 페이지 경계에서 겹치거나 빠지지 않게
         const { data, error } = await sb.from('transactions').select(TX_COLS).eq('user_id', user.id)
           .order('transaction_date', { ascending: true }).order('created_at', { ascending: true }).order('id', { ascending: true })
           .range(from, from + PAGE - 1)
         if (error) throw error
         const page = (data ?? []) as TradeRow[]
+        if (page.length === 0) break
         for (const r of page) all.push(r)
-        if (page.length < PAGE) break
+        from += page.length
       }
       if (!cancelled) setTx({ state: 'ok', trades: all, forKey: holdKey })
     })().catch(() => { if (!cancelled) setTx({ state: 'failed', trades: [], forKey: holdKey }) })
