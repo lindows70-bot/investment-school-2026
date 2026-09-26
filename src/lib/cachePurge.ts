@@ -87,6 +87,10 @@ export const PURGE_RULES: PurgeRule[] = [
   DAILY('marks-cycle-v4', '12h(scoreTilts — 오늘 키만)'),
   DAILY('mkt-investor-v4', '6h'),
   DAILY('etf-flow-v3', '6h'),
+  // btc-etf-v8(2026-09-27 편입): 앱 reader 는 오늘 키만(btc-etf 3h · crypto-demand 24h). scripts/seed-btc-etf-lastgood.mjs 는
+  //   like 'btc-etf-v%' 최신 60행 중 flow 가 가장 늦은 문서 **하나**만 고르고, lastgood 보다 새것일 때만 쓴다 — 옛 문서가 지워져도
+  //   lastgood(btc-etf-flow-lastgood-v1 · 라우트가 성공마다 갱신 · 규칙 밖)을 되돌리지 못한다. 옛 버전 v1~v7 문서는 접두어가 달라 남는다.
+  DAILY('btc-etf-v8', '24h(crypto-demand) · seed 는 최신 1건만'),
   DAILY('core-reco-run-v1', 'cronHealth 마커'),
   DAILY('swing-cron-run-v1', 'cronHealth 마커'),
   DAILY('etf-snap-run-v1', 'cronHealth 마커'),

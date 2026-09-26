@@ -78,7 +78,14 @@ const M1_TTL_H = {
 }
 const m1Bad = Object.entries(M1_TTL_H).filter(([p, h]) => !rule(p) || rule(p).keepDays * 24 <= h).map(([p]) => p)
 check(`M1 17종(+corr-matrix-v2)이 전부 규칙에 있고 keepDays > reader TTL${m1Bad.length ? ' — 문제: ' + m1Bad.join(', ') : ''}`, m1Bad.length === 0)
-check('btc-etf-v8 은 허용 목록에 없다(seed-btc-etf-lastgood 가 옛 일자 문서를 like 로 읽는다)', !rule('btc-etf-v8'))
+// btc-etf-v8 — 앱 reader 는 오늘 키만(btc-etf 3h · crypto-demand 24h). seed 스크립트는 like 'btc-etf-v%' 최신 60행 중 flow 가 가장 늦은
+//   문서 하나만 쓰고 lastgood 보다 새것일 때만 쓴다(되돌리지 않는다) → 옛 일자 문서를 지워도 결과가 나빠지지 않는다. 그 전제를 코드에서 확인한다
+const seedSrc = readFileSync(`${ROOT}/scripts/seed-btc-etf-lastgood.mjs`, 'utf8')
+check('btc-etf-v8 규칙 keepDays ≥ 10(> reader 24h) · seed 의 전제(최신 1건 선택·lastgood 보다 새것일 때만 씀) 그대로 · lastgood 키는 규칙 밖',
+  rule('btc-etf-v8')?.keepDays >= 10 &&
+  /\.sort\(\(a, b\) => b\.flow\[b\.flow\.length - 1\]\.date\.localeCompare/.test(seedSrc) && /\)\[0\]/.test(seedSrc) &&
+  /cur\?\.payload\?\.flowAsOf >= flowAsOf/.test(seedSrc) &&
+  !P.shouldPurge('btc-etf-flow-lastgood-v1', ANCIENT, NOW) && !P.shouldPurge('btc-etf-v7:2026-09-24', ANCIENT, NOW))
 
 // ── ② 허용 목록 밖은 아무리 오래돼도 안 지운다 ──
 const NEVER = [
@@ -227,11 +234,12 @@ check('훅 오탐 없음 — URL·경로·React key·주석 줄·로그 문자�
   '  // 옛 키는 `probe-new-v1:${kstDate()}` 였다',
   'console.log(`done:${today}`)',
 ].every(l => !blockedBy([l])))
-// 현재 코드 전체를 '추가된 줄'로 보면 btc-etf-v8(의도적 제외 — 옛 일자 문서를 like 로 읽는 seed 스크립트) 두 줄만 걸려야 한다
+// 현재 코드 전체를 '추가된 줄'로 보면 한 줄도 걸리지 않아야 한다(btc-etf-v8 도 2026-09-27 규칙에 편입 — 옛 줄을 고쳐도 막히지 않는다)
 const whole = findDatedCacheKeys(new Map(corpus.filter(c => /^src\/.*\.tsx?$/.test(c.f)).map(c => [c.f, c.s.split(/\r?\n/)])), RP, resolveReal)
 const wholeP = Array.from(new Set(whole.violations.map(v => v.prefix)))
-check(`현재 src 전체에서 목록 밖 날짜 키 = btc-etf-v8 뿐(걸림: ${wholeP.join(', ') || '없음'} · 못 푼 상수 ${whole.unresolved.length})`,
-  wholeP.length === 1 && wholeP[0] === 'btc-etf-v8' && whole.unresolved.length === 0)
+check(`현재 src 전체에서 정리 못 되는 날짜 키 0건(걸림: ${wholeP.join(', ') || '없음'} · 못 푼 상수 ${whole.unresolved.length})`,
+  wholeP.length === 0 && whole.unresolved.length === 0)
+check('규칙 파일을 못 읽으면 파서가 0종을 돌려준다(훅은 이때 이 검사만 건너뛴다)', parseRulePrefixes('').size === 0 && parseRulePrefixes('const x = 1').size === 0)
 
 // 끝에서 끝 — 임시 인덱스(HEAD + 합성 파일)로 실제 훅을 돌린다. 작업 트리·실제 인덱스는 건드리지 않는다
 {
