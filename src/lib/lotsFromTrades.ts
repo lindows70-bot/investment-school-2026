@@ -31,6 +31,9 @@ export interface LotsFromTradesResult {
   /** 수량은 맞고 평단만 1% 안에서 다른 종목(보유를 나중에 손으로 고친 경우) — 되짚은 로트를 쓰되 열린 로트 가격을 지금 평단에 맞춰 늘이거나 줄였다.
    *  gapPct = (지금 평단 − 되짚은 평단) / 되짚은 평단 × 100 */
   adjusted: { ticker: string; name: string; gapPct: number }[]
+  /** 지금 보유엔 없는 종목을 '다 판 것'으로 보고 그렸는데 기록이 딱 맞지 않은 것 — synthetic = 자동 동기화 행이 섞임,
+   *  residual = 기록상 수량이 남거나 모자라 마지막 매도를 전량 매도로 봤다 */
+  approxSold: { ticker: string; name: string; reason: 'synthetic' | 'residual' }[]
 }
 
 /** tradeWrite.planSell 의 전량 매도 기준 — 이 이하로 남으면 앱이 보유 행을 지웠다(다음 매수는 새 평단으로 시작) */
@@ -66,9 +69,9 @@ const sameAvg = (a: number, b: number) => Math.abs(a - b) <= Math.max(0.006, 1e-
  * appAvg = 앱이 보유 행에 저장했을 평단(planBuy 처럼 매수 때마다 roundAvg · 새 보유는 매수가 그대로 · 매도는 그대로)
  * avg2dp = 선생님 AddInvestmentModal 추가 매수 경로처럼 가격과 무관하게 매수마다 소수 둘째 자리로 반올림한 평단(첫 매수가는 그대로)
  */
-function replay(trades: TradeRow[]): { open: Seg[]; closed: Seg[]; appAvg: number; avg2dp: number } | null {
+function replay(trades: TradeRow[], clampOversell = false): { open: Seg[]; closed: Seg[]; appAvg: number; avg2dp: number; clamped: boolean } | null {
   const open: Seg[] = [], closed: Seg[] = []
-  let appAvg = 0, avg2dp = 0
+  let appAvg = 0, avg2dp = 0, clamped = false
   for (const t of trades) {
     const price = Number(t.price), qty = Number(t.quantity), date = String(t.transaction_date ?? '').slice(0, 10)
     if (!YMD.test(date) || !(price > 0) || !(qty > 0) || !isFinite(price) || !isFinite(qty)) return null
@@ -81,8 +84,11 @@ function replay(trades: TradeRow[]): { open: Seg[]; closed: Seg[]; appAvg: numbe
     }
     if (t.type !== 'sell') return null
     const total = open.reduce((s, l) => s + l.qty, 0)
-    if (!(total > 0) || (qty > total && !sameQty(qty, total))) return null   // 가진 것보다 많이 팔았다 — 기록이 빠졌다
-    const remaining = total - qty
+    const over = !(total > 0) || (qty > total && !sameQty(qty, total))   // 가진 것보다 많이 팔았다 — 기록이 빠졌다
+    if (over && !clampOversell) return null
+    // clampOversell(이미 판 종목): 가진 것을 전부 판 것으로 본다(가진 게 없으면 넘어간다)
+    if (over) { clamped = true; if (!(total > 0)) continue }
+    const remaining = over ? 0 : total - qty
     if (remaining <= FULL_SELL_EPS) {
       // 전량 매도 — 앱은 보유 행을 지웠다. 자투리까지 이 날 판 것으로 닫는다
       for (const l of open) closed.push({ ...l, sold: date })
@@ -96,7 +102,7 @@ function replay(trades: TradeRow[]): { open: Seg[]; closed: Seg[]; appAvg: numbe
       l.qty -= soldQty
     }
   }
-  return { open, closed, appAvg, avg2dp }
+  return { open, closed, appAvg, avg2dp, clamped }
 }
 
 /** 같은 종목·산 날·판 날·가격인 로트를 합친다(수량 합) */
@@ -174,6 +180,7 @@ export function lotsFromTrades(trades: TradeRow[], holdings: HoldingForLots[], o
   const fallback: LotsFromTradesResult['fallback'] = []
   const soldOut: string[] = []
   const adjusted: LotsFromTradesResult['adjusted'] = []
+  const approxSold: LotsFromTradesResult['approxSold'] = []
   // 지금 보유 한 줄로 대신 — '지금 수량을 처음 산 날부터 가졌다'는 예전 가정. 매수일이 없으면 못 그린다(호출부가 따로 알린다)
   const holdingLot = (k: string, h: HoldingForLots) => {
     if (typeof h.purchase_date !== 'string' || !YMD.test(h.purchase_date.slice(0, 10))) return
@@ -193,9 +200,25 @@ export function lotsFromTrades(trades: TradeRow[], holdings: HoldingForLots[], o
       String(a.transaction_date).localeCompare(String(b.transaction_date)) || String(a.created_at).localeCompare(String(b.created_at)))
     const last = sorted[sorted.length - 1]
     const name = h?.name ?? last.name
-    if (sorted.some(t => typeof t.memo === 'string' && t.memo.includes(SYNTHETIC_MEMO))) {
+    const synthetic = sorted.some(t => typeof t.memo === 'string' && t.memo.includes(SYNTHETIC_MEMO))
+    if (!h) {
+      // ── 지금 보유엔 없는 종목 = 앱이 보유 행을 지웠다 = 다 팔았다. 대조할 보유가 없으니 기록을 되짚되,
+      //    자투리가 남거나(첫 매수 이중 기록 등) 가진 것보다 많이 팔았으면 마지막 매도를 전량 매도로 본다.
+      //    매도가 아예 없거나 마지막 매도 뒤에 산 기록이 남으면 언제 팔았는지 알 수 없어 뺀다(mismatch · 로트 없음)
+      const lastSell = sorted.filter(t => t.type === 'sell').map(t => String(t.transaction_date).slice(0, 10)).pop()
+      const r = lastSell ? replay(sorted, true) : null
+      if (!r || !lastSell || r.open.some(l => l.date > lastSell)) { fallback.push({ ticker: k, name, reason: 'mismatch' }); continue }
+      const residual = r.open.length > 0
+      for (const l of r.open) r.closed.push({ ...l, sold: lastSell })
+      for (const s2 of r.closed) lots.push({ ticker: k, market: last.market, currency: last.currency, purchase_price: s2.price, quantity: s2.qty, purchase_date: s2.date, sold_date: s2.sold, currentPrice: null })
+      soldOut.push(k)
+      if (residual || r.clamped) approxSold.push({ ticker: k, name, reason: 'residual' })
+      else if (synthetic) approxSold.push({ ticker: k, name, reason: 'synthetic' })
+      continue
+    }
+    if (synthetic) {
       fallback.push({ ticker: k, name, reason: 'synthetic' })
-      if (h) holdingLot(k, h)
+      holdingLot(k, h)
       continue
     }
     const r = replay(sorted)
@@ -203,28 +226,24 @@ export function lotsFromTrades(trades: TradeRow[], holdings: HoldingForLots[], o
     // 수량만 맞고 평단이 다르면(보유를 손으로 고친 경우 등) 로트 가격이 보유와 달라 '넣은 돈'이 위 카드와 어긋난다 → 대조에 평단도 넣는다.
     // 비교 대상은 정확한 가중평단과 앱이 반올림해 저장했을 평단 두 가지(tradeWrite 규칙 · AddInvestmentModal 의 늘 둘째 자리) — 매수마다 반올림이 쌓인다
     const exactAvg = r && openQty > 0 ? r.open.reduce((s, l) => s + l.qty * l.price, 0) / openQty : NaN
-    const avgOk = !h || (r != null && openQty > 0 && (sameAvg(exactAvg, h.purchase_price) || sameAvg(r.appAvg, h.purchase_price) || sameAvg(r.avg2dp, h.purchase_price)))
-    const qtyOk = r != null && sameQty(openQty, h?.quantity ?? 0)
+    const avgOk = (r != null && openQty > 0 && (sameAvg(exactAvg, h.purchase_price) || sameAvg(r.appAvg, h.purchase_price) || sameAvg(r.avg2dp, h.purchase_price)))
+    const qtyOk = r != null && sameQty(openQty, h.quantity)
     // 평단만 조금(1% 이내) 다르면 보정 배율 — 열린 로트 원가 합이 정확히 수량 × 지금 평단이 된다(판 로트는 그대로)
-    const scale = qtyOk && !avgOk && h && h.purchase_price > 0 && exactAvg > 0 && Math.abs(exactAvg - h.purchase_price) / h.purchase_price <= ADJUST_MAX_GAP
+    const scale = qtyOk && !avgOk && h.purchase_price > 0 && exactAvg > 0 && Math.abs(exactAvg - h.purchase_price) / h.purchase_price <= ADJUST_MAX_GAP
       ? h.purchase_price / exactAvg : null
     if (!r || !qtyOk || (!avgOk && scale == null)) {
       fallback.push({ ticker: k, name, reason: 'mismatch' })
-      if (h) holdingLot(k, h)
+      holdingLot(k, h)
       continue
     }
     if (scale != null) adjusted.push({ ticker: k, name, gapPct: (scale - 1) * 100 })
-    const market = h?.market ?? last.market, currency = h?.currency ?? last.currency
+    const { market, currency } = h
     for (const s of r.closed) lots.push({ ticker: k, market, currency, purchase_price: s.price, quantity: s.qty, purchase_date: s.date, sold_date: s.sold, currentPrice: null })
-    if (h) {
-      for (const s of r.open) lots.push({ ticker: k, market, currency, purchase_price: s.price * (scale ?? 1), quantity: s.qty, purchase_date: s.date, sold_date: null, currentPrice: h.currentPrice ?? null })
-    } else {
-      soldOut.push(k)   // 남은 수량 ≈ 0 — 열린 로트는 부동소수 자투리뿐이라 넣지 않는다
-    }
+    for (const s of r.open) lots.push({ ticker: k, market, currency, purchase_price: s.price * (scale ?? 1), quantity: s.qty, purchase_date: s.date, sold_date: null, currentPrice: h.currentPrice ?? null })
   }
 
   let out = mergeSame(lots.filter(l => l.quantity > 0))
   if (out.length > maxLots) out = compactByInterval(out)
   out.sort((a, b) => a.ticker.localeCompare(b.ticker) || a.purchase_date.localeCompare(b.purchase_date) || (a.sold_date ?? '9').localeCompare(b.sold_date ?? '9'))
-  return { lots: out, fallback, soldOut, tooMany: out.length > maxLots, adjusted }
+  return { lots: out, fallback, soldOut, tooMany: out.length > maxLots, adjusted, approxSold }
 }

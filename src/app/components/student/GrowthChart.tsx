@@ -32,7 +32,7 @@ interface Point { month?: unknown; valueKrw?: unknown; cumPnl?: unknown }
 interface PnlResp { points?: Point[]; skipped?: unknown; truncated?: { from?: unknown; to?: unknown } | null }
 interface PnlBody { usdKrwNow: number | null; lots: PnlLot[] }
 type TxState = { state: 'loading' | 'ok' | 'failed' | 'unauth'; trades: TradeRow[]; forKey: string }
-type Plan = { body: PnlBody; fallback: LotsFromTradesResult['fallback']; tooMany: boolean; adjusted: LotsFromTradesResult['adjusted'] }
+type Plan = { body: PnlBody; fallback: LotsFromTradesResult['fallback']; tooMany: boolean; adjusted: LotsFromTradesResult['adjusted']; approxSold: LotsFromTradesResult['approxSold'] }
 
 const YM = /^\d{4}-\d{2}$/
 const YMD = /^\d{4}-\d{2}-\d{2}/
@@ -104,7 +104,7 @@ export default function GrowthChart({ holdings, rows, usdKrw }: { holdings: MyHo
         currentPrice: r?.priced && !r.stale ? r.currentPrice : null,
       }
     }))
-    setPlan({ body: { usdKrwNow: usdKrw, lots: built.lots }, fallback: built.fallback, tooMany: built.tooMany, adjusted: built.adjusted })
+    setPlan({ body: { usdKrwNow: usdKrw, lots: built.lots }, fallback: built.fallback, tooMany: built.tooMany, adjusted: built.adjusted, approxSold: built.approxSold })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seen, lotsKey, txFp])
   const res = useJson<PnlResp>('/api/monthly-pnl', { method: 'POST', body: plan?.body, enabled: plan != null && plan.body.lots.length > 0 && !plan.tooMany })
@@ -116,9 +116,8 @@ export default function GrowthChart({ holdings, rows, usdKrw }: { holdings: MyHo
   const fbDrawn = drawn.filter(f => f.reason !== 'synthetic')
   const fbSynth = drawn.filter(f => f.reason === 'synthetic')
   const fbNoDate = fb.filter(f => { const h = holdByTicker.get(f.ticker); return h != null && !YMD.test(h.purchase_date ?? '') })
-  // 지금 보유엔 없는 종목 — 자동 동기화 행이 섞인 판 종목은 '기록엔 남아 있는' 게 아니라 기록 자체를 못 믿는 것이라 따로 말한다
-  const fbNotHeld = fb.filter(f => !holdByTicker.has(f.ticker) && f.reason !== 'synthetic')
-  const fbSynthSold = fb.filter(f => !holdByTicker.has(f.ticker) && f.reason === 'synthetic')
+  // 지금 보유엔 없는데 언제 팔았는지 알 수 없는 종목(매도 기록이 없거나 마지막 매도 뒤에 산 기록이 남음) — 판 종목 중 추정해 그린 것은 plan.approxSold
+  const fbNotHeld = fb.filter(f => !holdByTicker.has(f.ticker))
   const nameOf = (t: string) => holdByTicker.get(t.toUpperCase())?.name
     ?? tx.trades.find(r => r.ticker.trim().toUpperCase() === t.toUpperCase())?.name ?? t
   // 이름은 셋까지만 — 기록이 없는 옛 학생은 전 종목이 여기 걸려 줄이 끝없이 길어진다
@@ -218,8 +217,8 @@ export default function GrowthChart({ holdings, rows, usdKrw }: { holdings: MyHo
           {fbNoDate.length > 0 && <span style={noteStyle(TK.amber400)}>거래 기록이 없거나 안 맞고 매수일도 없는 {fbNoDate.length}종목({names(fbNoDate)})은 뺐어요.</span>}
           {/* 평단만 1% 안에서 보정 — 기록대로 그린 것이라 경고색이 아니라 보조 글자색 */}
           {plan.adjusted.length > 0 && <span style={noteStyle()}>평단을 나중에 고친 {plan.adjusted.length}종목({names(plan.adjusted)})은 지금 평단에 맞춰 조금 보정했어요.</span>}
-          {fbSynthSold.length > 0 && <span style={noteStyle(TK.amber400)}>자동으로 맞춘 기록이 섞인 판 종목 {fbSynthSold.length}개({names(fbSynthSold)})는 뺐어요.</span>}
-          {fbNotHeld.length > 0 && <span style={noteStyle(TK.amber400)}>거래 기록엔 남아 있는데 지금 보유엔 없는 {fbNotHeld.length}종목({names(fbNotHeld)})은 뺐어요.</span>}
+          {plan.approxSold.length > 0 && <span style={noteStyle()}>판 종목 {plan.approxSold.length}개({names(plan.approxSold)})는 기록 수량이 딱 맞지 않아 마지막 매도를 전량 매도로 보고 그렸어요.</span>}
+          {fbNotHeld.length > 0 && <span style={noteStyle(TK.amber400)}>지금 보유엔 없는데 언제 팔았는지 기록으로 알 수 없는 {fbNotHeld.length}종목({names(fbNotHeld)})은 뺐어요.</span>}
         </>
       )}
     </section>

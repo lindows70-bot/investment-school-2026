@@ -131,6 +131,44 @@ check('평단 차이 0.01(0.009%) → mismatch 아님 · 1% 이내 보정(adjust
   check(`둘째 자리로 12번 반올림된 평단(${a}) vs 정확값 ${(c / q).toFixed(4)} — 차이 ${Math.abs(a - c / q).toFixed(4)} 도 통과`, Math.abs(a - c / q) > 0.012 && rr.fallback.length === 0 && rr.lots.length === 12)
 }
 
+// ⑤-c 이미 판 종목(지금 보유 없음) — 대조할 보유가 없으니 기록을 되짚고, 안 맞으면 마지막 매도를 전량 매도로 본다
+{
+  // GE 버노바 모양: 자동 동기화 매수가 섞였지만 그걸 넣으면 딱 0 으로 끝난다 → 그린다(synthetic)
+  const gev = L.lotsFromTrades([
+    T('GEV', 'buy', 400, 1.20093, '2025-03-05'),
+    { ...T('GEV', 'buy', 610, 0.094543, '2025-06-21'), memo: '자동 동기화 (편집으로 누락된 거래 복구)' },
+    T('GEV', 'sell', 650, 1.295474, '2025-07-15'),
+  ], [])
+  check('판 종목 + 자동 동기화 행(끝이 0) → 그린다 · 전부 7/15 에 판 로트 · approxSold synthetic · fallback 아님',
+    gev.fallback.length === 0 && gev.soldOut.join() === 'GEV' && gev.lots.length === 2 && gev.lots.every(l => l.sold_date === '2025-07-15')
+    && gev.approxSold.length === 1 && gev.approxSold[0].reason === 'synthetic')
+  // 이튼 모양: 첫 매수가 두 번 기록(최초 매수 · 기존 포트폴리오 이전) → 다 팔았는데 기록상 0.953 이 남는다 → 마지막 매도일에 전량 매도로
+  const etnTr = [
+    { ...T('ETN', 'buy', 427.49, 1.201567, '2025-04-02', '2025-04-02T05:13:56Z'), memo: '최초 매수' },
+    { ...T('ETN', 'buy', 427.49, 1.201567, '2025-04-02', '2025-04-02T05:16:44Z'), memo: '기존 포트폴리오 이전' },
+    T('ETN', 'buy', 300, 0.157324, '2025-04-20'), T('ETN', 'buy', 310, 0.299222, '2025-05-02'), T('ETN', 'buy', 320, 0.237505, '2025-05-20'),
+    T('ETN', 'sell', 350, 1.143838, '2025-06-15', '2025-06-15T01:00:00Z'), T('ETN', 'sell', 350, 1, '2025-06-15', '2025-06-15T02:00:00Z'),
+  ]
+  const etn = L.lotsFromTrades(etnTr, [])
+  const bought = 1.201567 * 2 + 0.157324 + 0.299222 + 0.237505
+  check('판 종목 + 기록상 0.953 남음 → 남은 몫까지 마지막 매도일(6/15)에 전량 매도 · approxSold residual',
+    etn.fallback.length === 0 && etn.lots.length > 0 && etn.lots.every(l => l.sold_date === '2025-06-15') && near(sumQ(etn.lots), bought) && etn.approxSold[0]?.reason === 'residual' && etn.soldOut.join() === 'ETN')
+  // 가진 것보다 많이 판 판 종목 → 가진 것을 전부 그 매도에 판 것으로(뒤 매도는 넘어감)
+  const over = L.lotsFromTrades([T('OVR', 'buy', 10, 2, '2025-01-02'), T('OVR', 'sell', 12, 3, '2025-02-01'), T('OVR', 'sell', 12, 1, '2025-03-01')], [])
+  check('판 종목 + 가진 것보다 많이 매도 → 2/1 에 전량 매도 · residual', over.fallback.length === 0 && over.lots.length === 1 && over.lots[0].sold_date === '2025-02-01' && over.lots[0].quantity === 2 && over.approxSold[0]?.reason === 'residual')
+  // 판 종목인데 매도가 하나도 없다 → 언제 팔았는지 알 수 없어 뺀다
+  const nosell = L.lotsFromTrades([T('NOS', 'buy', 10, 2, '2025-01-02')], [])
+  check('판 종목 + 매도 기록 없음 → mismatch · 로트 없음 · approxSold 아님', nosell.fallback[0]?.reason === 'mismatch' && nosell.lots.length === 0 && nosell.approxSold.length === 0)
+  // 마지막 매도 뒤에 산 기록이 남았다 → 그 몫을 언제 팔았는지 모른다 → 뺀다
+  const after = L.lotsFromTrades([T('AFT', 'buy', 10, 2, '2025-01-02'), T('AFT', 'sell', 12, 2, '2025-02-01'), T('AFT', 'buy', 11, 1, '2025-03-01')], [])
+  check('판 종목 + 마지막 매도 뒤 매수 → mismatch · 로트 없음', after.fallback[0]?.reason === 'mismatch' && after.lots.length === 0)
+  // 깔끔하게 다 판 종목은 approxSold 에 안 넣는다
+  check('기록대로 딱 0 으로 끝난 판 종목 → approxSold 없음', r4.approxSold.length === 0)
+  // 지금 들고 있는 종목은 그대로 — 자동 동기화 행이 있으면 synthetic 대체
+  const heldSyn = L.lotsFromTrades([T('GEV', 'buy', 400, 1, '2025-03-05'), { ...T('GEV', 'buy', 610, 1, '2025-06-21'), memo: '자동 동기화 (편집으로 누락된 거래 복구)' }], [H('GEV', 2, 505, '2025-03-05')])
+  check('보유 중 + 자동 동기화 → 여전히 synthetic 대체(되짚지 않음)', heldSyn.fallback[0]?.reason === 'synthetic' && heldSyn.approxSold.length === 0 && heldSyn.lots.length === 1)
+}
+
 // ⑥ 거래 기록이 없는 보유 → no-trades · 보유 한 줄
 const r6 = L.lotsFromTrades([], [H('EEE', 7, 20, '2025-05-05'), H('FFF', 1, 5, null)])
 check('기록 없는 보유 → no-trades 2건', r6.fallback.length === 2 && r6.fallback.every(f => f.reason === 'no-trades'))
