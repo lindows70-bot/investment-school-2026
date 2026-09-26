@@ -55,16 +55,18 @@ const sameAvg = (a: number, b: number) => Math.abs(a - b) <= Math.max(0.006, 1e-
 /**
  * 한 종목의 거래를 되짚는다 — 모양이 틀린 거래나 가진 것보다 많이 판 매도가 있으면 null.
  * appAvg = 앱이 보유 행에 저장했을 평단(planBuy 처럼 매수 때마다 roundAvg · 새 보유는 매수가 그대로 · 매도는 그대로)
+ * avg2dp = 선생님 AddInvestmentModal 추가 매수 경로처럼 가격과 무관하게 매수마다 소수 둘째 자리로 반올림한 평단(첫 매수가는 그대로)
  */
-function replay(trades: TradeRow[]): { open: Seg[]; closed: Seg[]; appAvg: number } | null {
+function replay(trades: TradeRow[]): { open: Seg[]; closed: Seg[]; appAvg: number; avg2dp: number } | null {
   const open: Seg[] = [], closed: Seg[] = []
-  let appAvg = 0
+  let appAvg = 0, avg2dp = 0
   for (const t of trades) {
     const price = Number(t.price), qty = Number(t.quantity), date = String(t.transaction_date ?? '').slice(0, 10)
     if (!YMD.test(date) || !(price > 0) || !(qty > 0) || !isFinite(price) || !isFinite(qty)) return null
     if (t.type === 'buy') {
       const held = open.reduce((s, l) => s + l.qty, 0)
       appAvg = open.length === 0 ? price : roundAvg((held * appAvg + qty * price) / (held + qty))
+      avg2dp = open.length === 0 ? price : Math.round(((held * avg2dp + qty * price) / (held + qty)) * 100) / 100
       open.push({ date, price, qty, sold: null })
       continue
     }
@@ -85,7 +87,7 @@ function replay(trades: TradeRow[]): { open: Seg[]; closed: Seg[]; appAvg: numbe
       l.qty -= soldQty
     }
   }
-  return { open, closed, appAvg }
+  return { open, closed, appAvg, avg2dp }
 }
 
 /** 같은 종목·산 날·판 날·가격인 로트를 합친다(수량 합) */
@@ -189,9 +191,9 @@ export function lotsFromTrades(trades: TradeRow[], holdings: HoldingForLots[], o
     const r = replay(sorted)
     const openQty = r ? r.open.reduce((s, l) => s + l.qty, 0) : NaN
     // 수량만 맞고 평단이 다르면(보유를 손으로 고친 경우 등) 로트 가격이 보유와 달라 '넣은 돈'이 위 카드와 어긋난다 → 대조에 평단도 넣는다.
-    // 비교 대상은 정확한 가중평단과 앱이 반올림해 저장했을 평단 둘 다(매수마다 반올림이 쌓인다)
+    // 비교 대상은 정확한 가중평단과 앱이 반올림해 저장했을 평단 두 가지(tradeWrite 규칙 · AddInvestmentModal 의 늘 둘째 자리) — 매수마다 반올림이 쌓인다
     const exactAvg = r && openQty > 0 ? r.open.reduce((s, l) => s + l.qty * l.price, 0) / openQty : NaN
-    const avgOk = !h || (r != null && openQty > 0 && (sameAvg(exactAvg, h.purchase_price) || sameAvg(r.appAvg, h.purchase_price)))
+    const avgOk = !h || (r != null && openQty > 0 && (sameAvg(exactAvg, h.purchase_price) || sameAvg(r.appAvg, h.purchase_price) || sameAvg(r.avg2dp, h.purchase_price)))
     if (!r || !sameQty(openQty, h?.quantity ?? 0) || !avgOk) {
       fallback.push({ ticker: k, name, reason: 'mismatch' })
       if (h) holdingLot(k, h)

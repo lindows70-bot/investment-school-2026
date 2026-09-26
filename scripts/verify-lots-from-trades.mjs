@@ -109,6 +109,16 @@ check('평단 차이 0.01 → mismatch', r5f.fallback[0]?.reason === 'mismatch')
   check(`여러 번 반올림된 앱 평단(${a}, 정확값 ${(c / q).toFixed(4)})도 통과`, rr.fallback.length === 0)
 }
 
+// 선생님 AddInvestmentModal 추가 매수는 가격과 무관하게 매번 소수 둘째 자리 — $37~57 적립 12번이면 정확값과 0.0139 벌어진다
+{
+  const buys = [[44.7, 8.796], [43.23, 6.603], [50.5, 8.222], [37.99, 2.871], [56.74, 1.62], [45.12, 4.278], [42.7, 5.254], [55.02, 6.994], [50.41, 8.689], [51.11, 5.739], [54.71, 1.74], [44.67, 2.48]]
+  let q = 0, a = 0, c = 0
+  for (const [p, n] of buys) { a = q === 0 ? p : Math.round(((q * a + n * p) / (q + n)) * 100) / 100; q += n; c += p * n }
+  const trs = buys.map(([p, n], i) => ({ ...T('DCA2', 'buy', p, n, `2025-${String(i + 1).padStart(2, '0')}-10`), currency: 'USD', market: 'US' }))
+  const rr = L.lotsFromTrades(trs, [H('DCA2', q, a, '2025-01-10', { currency: 'USD', market: 'US' })])
+  check(`둘째 자리로 12번 반올림된 평단(${a}) vs 정확값 ${(c / q).toFixed(4)} — 차이 ${Math.abs(a - c / q).toFixed(4)} 도 통과`, Math.abs(a - c / q) > 0.012 && rr.fallback.length === 0 && rr.lots.length === 12)
+}
+
 // ⑥ 거래 기록이 없는 보유 → no-trades · 보유 한 줄
 const r6 = L.lotsFromTrades([], [H('EEE', 7, 20, '2025-05-05'), H('FFF', 1, 5, null)])
 check('기록 없는 보유 → no-trades 2건', r6.fallback.length === 2 && r6.fallback.every(f => f.reason === 'no-trades'))

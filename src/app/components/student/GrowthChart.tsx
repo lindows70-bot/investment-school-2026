@@ -116,7 +116,9 @@ export default function GrowthChart({ holdings, rows, usdKrw }: { holdings: MyHo
   const fbDrawn = drawn.filter(f => f.reason !== 'synthetic')
   const fbSynth = drawn.filter(f => f.reason === 'synthetic')
   const fbNoDate = fb.filter(f => { const h = holdByTicker.get(f.ticker); return h != null && !YMD.test(h.purchase_date ?? '') })
-  const fbNotHeld = fb.filter(f => !holdByTicker.has(f.ticker))
+  // 지금 보유엔 없는 종목 — 자동 동기화 행이 섞인 판 종목은 '기록엔 남아 있는' 게 아니라 기록 자체를 못 믿는 것이라 따로 말한다
+  const fbNotHeld = fb.filter(f => !holdByTicker.has(f.ticker) && f.reason !== 'synthetic')
+  const fbSynthSold = fb.filter(f => !holdByTicker.has(f.ticker) && f.reason === 'synthetic')
   const nameOf = (t: string) => holdByTicker.get(t.toUpperCase())?.name
     ?? tx.trades.find(r => r.ticker.trim().toUpperCase() === t.toUpperCase())?.name ?? t
   // 이름은 셋까지만 — 기록이 없는 옛 학생은 전 종목이 여기 걸려 줄이 끝없이 길어진다
@@ -214,6 +216,7 @@ export default function GrowthChart({ holdings, rows, usdKrw }: { holdings: MyHo
           {fbDrawn.length > 0 && <span style={noteStyle(TK.amber400)}>거래 기록이 없거나 보유 수량과 안 맞는 {fbDrawn.length}종목({names(fbDrawn)})은 지금 수량을 처음 산 달부터 가졌다고 보고 그렸어요.</span>}
           {fbSynth.length > 0 && <span style={noteStyle(TK.amber400)}>자동으로 맞춘 기록이 섞인 {fbSynth.length}종목({names(fbSynth)})은 지금 수량을 처음 산 달부터 가졌다고 보고 그렸어요.</span>}
           {fbNoDate.length > 0 && <span style={noteStyle(TK.amber400)}>거래 기록이 없거나 안 맞고 매수일도 없는 {fbNoDate.length}종목({names(fbNoDate)})은 뺐어요.</span>}
+          {fbSynthSold.length > 0 && <span style={noteStyle(TK.amber400)}>자동으로 맞춘 기록이 섞인 판 종목 {fbSynthSold.length}개({names(fbSynthSold)})는 뺐어요.</span>}
           {fbNotHeld.length > 0 && <span style={noteStyle(TK.amber400)}>거래 기록엔 남아 있는데 지금 보유엔 없는 {fbNotHeld.length}종목({names(fbNotHeld)})은 뺐어요.</span>}
         </>
       )}
