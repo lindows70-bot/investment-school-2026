@@ -1,4 +1,4 @@
-// 학생 간단 모드 화면(내 자산·종목 상세·기록하기·히트맵·홈)이 함께 쓰는 숫자 표기 SSOT — 원화·달러·부호·등락률·등락 색·수량·지수 포인트
+// 학생 간단 모드 화면(내 자산·종목 상세·기록하기·히트맵·홈·시장)이 함께 쓰는 숫자 표기 SSOT — 원화·달러·부호·등락률·등락 색·수량·지수 포인트·억원·환율
 import { TK } from '@/lib/theme'
 
 const MINUS = '−'   // 음수 부호는 하이픈(-)이 아니라 수학 기호 '−'
@@ -40,3 +40,21 @@ export const upDown = (n: number | null) => n == null || Math.abs(n) < 0.05 ? TK
 
 /** 수량 — 부동소수 잡음 없이 소수 8자리까지(끝 0 제거) + 코인은 '개', 나머지는 '주' */
 export const qtyText = (q: number, market: string) => `${q.toLocaleString('ko-KR', { maximumFractionDigits: 8 })}${market === 'CRYPTO' ? '개' : '주'}`
+
+/** 억원 금액 — 억 단위로 반올림, 1조 이상은 '1조 4,649억'(조 아래가 0이면 '2조'), 음수 부호는 '−'. 부호 없는 양수(거래대금 등) */
+export function eok(n: number): string {
+  const r = Math.round(Math.abs(n))
+  const jo = Math.floor(r / 10_000)
+  const rest = r % 10_000
+  const body = jo > 0 ? `${jo.toLocaleString('ko-KR')}조${rest ? ` ${rest.toLocaleString('ko-KR')}억` : ''}` : `${rest.toLocaleString('ko-KR')}억`
+  return n < 0 && r > 0 ? `${MINUS}${body}` : body
+}
+
+/** 부호 붙은 억원 — 순매수 +, 순매도 −. 반올림해 0억이면 부호 없이 '0억' */
+export const signEok = (n: number) => {
+  const r = Math.round(n)
+  return `${sign(r)}${eok(Math.abs(r))}`
+}
+
+/** 환율(원/달러) — 고시값 그대로 소수 둘째 자리(1,359.00원) */
+export const fxWon = (n: number) => `${n.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}원`
