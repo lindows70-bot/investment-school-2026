@@ -86,7 +86,7 @@ function RecordForm() {
     // 내 종목에 없으면 — 검색에서 온 종목(?m=시장&n=이름)을 새로 산 종목으로 고른다(팔기는 내 종목만이라 매수 모드일 때만)
     const qm = params.get('m'), qn = params.get('n')?.trim()
     if (mode === 'buy' && qn && (qm === 'KR' || qm === 'US' || qm === 'CRYPTO'))
-      setPicked({ ticker: t, name: qn, market: qm, currency: qm === 'US' ? 'USD' : 'KRW', exchange: '' })
+      setPicked({ ticker: normT(t), name: qn, market: qm, currency: qm === 'US' ? 'USD' : 'KRW', exchange: '' })
   }, [params, mine, holdingsKnown, mode])
 
   useEffect(() => {   // 이름 검색 — 300ms 멈추면 부른다. 늦게 온 옛 응답은 버린다
