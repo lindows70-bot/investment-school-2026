@@ -106,7 +106,7 @@ Next.js 14 (App Router) + Supabase + Tailwind CSS + TypeScript 로 구축한
 - **읽기 전용 폴백이 있는 캐시를 범프하면 워밍까지가 한 세트** — 안 데우면 하류가 에러 없이 폴백으로 계산해 **자기 캐시에 박제**한다(marks-cycle 2주 사망).
 - **부분실패한 결과를 캐시하지 마라** — "통합추천을 못 불러왔다"는 경고가 붙은 응답을 24h 캐시해서, 한 번의 타임아웃이 **하루짜리 빈 카드**가 됐다. 실패 플래그가 서 있으면 `setCache` 를 건너뛴다(다음 요청이 스스로 낫는다).
 - **⛔ 캐시 키에 날짜를 넣지 마라 — app_cache 에는 지우는 장치가 없다**(2026-09-26 실사고). `tech-chart-v1:…:{KST날짜}` 가 82일간 47,129행·926 MB 로 Supabase 무료 한도(500 MB)를 넘겨 **DB 가 읽기 전용·10분 정지**됐다. 신선도는 `getCache(maxAgeMs)` TTL 로 판정하고 키는 대상 단위로 덮어써라. 그리고 **디스크가 찬 DB 에서 delete 로 정리하지 마라**(WAL 이 남은 공간을 먹어 Postgres 가 멈춘다) — 로컬 백업 → `truncate` → 복원. 상세 `docs/history/2026-09.md`.
-  🛡️ 커밋 훅이 막는다(precommit-guard) — `PURGE_RULES` 에 없는 접두어의 날짜 키를 추가하면 차단, 우회는 그 줄에 `캐시날짜예외: <이유>`.
+  🛡️ 커밋 훅이 막는다(precommit-guard) — `PURGE_RULES` 에 없는 접두어의 날짜 키를 추가하면 차단, 우회는 그 줄에 `캐시날짜예외: <이유>`(src/ 만 본다 — scripts·로컬 러너는 사각지대).
 - **Next.js Data Cache가 GET을 박제**(9건) — App Router 라우트의 모든 외부/supabase GET에 **`cache: 'no-store'`**. "refresh를 해도 옛 값"이면 앱 캐시가 아니라 이걸 먼저 의심.
 - **무인자 GET 라우트는 `export const dynamic = 'force-dynamic'`** — 없으면 빌드 시 정적 생성되어 외부 API가 느린 날 빌드가 죽고, 빌드 시점 데이터가 박제된다.
 
