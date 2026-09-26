@@ -5,7 +5,7 @@ import Module from 'node:module'
 
 const ROOT = 'C:/Users/lindo/investment-school-portfolio'
 const OUT = `${ROOT}/.bt-market-board`
-const LIBS = ['marketBoardShared', 'krMarketBoard', 'foreignOrgFlow', 'usMarketBoard', 'upbitMarket', 'cnnFng', 'cryptoFng', 'fxTrend', 'strongSectors']
+const LIBS = ['marketBoardShared', 'marketBoardCache', 'krMarketBoard', 'foreignOrgFlow', 'usMarketBoard', 'upbitMarket', 'cnnFng', 'cryptoFng', 'fxTrend', 'strongSectors']
 
 const tsconfig = {
   extends: `${ROOT}/tsconfig.json`,
@@ -50,6 +50,7 @@ const CNN = require(`${OUT}/lib/cnnFng.js`)
 const CF = require(`${OUT}/lib/cryptoFng.js`)
 const FX = require(`${OUT}/lib/fxTrend.js`)
 const SS = require(`${OUT}/lib/strongSectors.js`)
+const MC = require(`${OUT}/lib/marketBoardCache.js`)
 
 const F = JSON.parse(readFileSync(`${ROOT}/scripts/fixtures/market-board.json`, 'utf8'))
 
@@ -77,6 +78,8 @@ const near = (a, b, eps = 1e-6) => a != null && b != null && Math.abs(a - b) <= 
   const flat = KR.parseIndexPolling({ datas: [{ itemCode: 'X', closePriceRaw: '100', compareToPreviousClosePriceRaw: '0', fluctuationsRatioRaw: '0.00', compareToPreviousPrice: { code: '3' } }] })[0]
   check('보합 코드(3)면 0', flat.change === 0 && flat.changePct === 0)
   check('빈 응답 → 빈 배열(지어내지 않음)', KR.parseIndexPolling(null).length === 0 && KR.parseIndexPolling({ datas: [{}] }).length === 0)
+  const pre = KR.parseIndexPolling({ datas: [{ itemCode: 'X', closePriceRaw: '100', openPriceRaw: '0', highPriceRaw: '0', lowPriceRaw: '0', compareToPreviousPrice: { code: '3' } }] })[0]
+  check('장 시작 전 시가·고가·저가 "0" → null(저가 0 이 되지 않음)', pre.open === null && pre.high === null && pre.low === null)
 
   const m = KR.parseIndexMinute(F.indexMinuteKospi, 90)
   const raw = F.indexMinuteKospi
@@ -110,6 +113,12 @@ const near = (a, b, eps = 1e-6) => a != null && b != null && Math.abs(a - b) <= 
   const breaks = F.upKosdaq.stocks.filter(s => Math.abs(n(s.fluctuationsRatio)) > 30.05)
   check(`가격제한폭(±30%) 밖 ${breaks.length}종(와이즈플래닛컴퍼니 +280.83% — 상장 첫날)을 걸러 개수 기록`, breaks.length >= 1 && up.filtered.priceLimitBreak === breaks.length && !up.items.some(i => i.name === '와이즈플래닛컴퍼니'))
   check('정확히 +30.00%(상한가)는 남긴다', up.items.some(i => i.changePct === 30))
+  const lev = KR.parseKrMovers({ stocks: [
+    { itemCode: 'A', stockName: '레버리지2X', stockEndType: 'etf', fluctuationsRatio: '45.10', compareToPreviousPrice: { code: '2' } },
+    { itemCode: 'B', stockName: '레버리지ETN', stockEndType: 'etn', fluctuationsRatio: '-52.00', compareToPreviousPrice: { code: '5' } },
+    { itemCode: 'C', stockName: '신규상장주', stockEndType: 'stock', fluctuationsRatio: '45.10', compareToPreviousPrice: { code: '2' } },
+  ] }, 10)
+  check('2X ETF +45%·ETN −52% 는 남기고(제한폭이 배율만큼 넓다) 주식 +45% 만 거른다', lev.items.map(i => i.code).join() === 'A,B' && lev.filtered.priceLimitBreak === 1)
   check('limit 개수 지킴 · 받은 줄 수 기록', up.items.length === 10 && up.scanned === F.upKosdaq.stocks.length)
   const s0 = F.upKosdaq.stocks.find(s => s.itemCode === up.items[0].code)
   check('거래대금·시총 = 원천 원 ÷ 1e8(억원)', up.items[0].tradeValueEok === Math.round(n(s0.accumulatedTradingValueRaw) / 1e8) && up.items[0].marketCapEok === Math.round(n(s0.marketValueRaw) / 1e8))
@@ -148,6 +157,11 @@ const near = (a, b, eps = 1e-6) => a != null && b != null && Math.abs(a - b) <= 
   const org = FL.parseTrendForeignOrg(F.flowOrganKosdaq)
   const wise = org.sell.find(r => r.name === '와이즈플래닛컴퍼니')
   check('상장 첫날(+280%) 종목은 순위에 남기되 priceLimitBreak 표시', wise && wise.priceLimitBreak === true && org.sell.filter(r => r.priceLimitBreak).length === 1)
+  const lev = FL.parseTrendForeignOrg({ sections: { buyRankList: [
+    { itemcode: 'A', itemname: '2X ETF', accTradeAmount: '100', accTradeVolume: '1', nowPrice: '100', prevChangeRate: '45.2', type: 'EF', bizdateTo: '20260923' },
+    { itemcode: 'B', itemname: '주식', accTradeAmount: '100', accTradeVolume: '1', nowPrice: '100', prevChangeRate: '45.2', type: 'ST', bizdateTo: '20260923' },
+  ], sellRankList: [] } })
+  check('순매매: ETF(EF) +45% 는 priceLimitBreak 아님 · 주식(ST) +45% 는 표시', lev.buy[0].priceLimitBreak === false && lev.buy[1].priceLimitBreak === true)
   const efs = [...org.buy, ...org.sell].filter(r => r.etf)
   check('ETF 표시 = 원천 type EF', efs.every(r => r.type === 'EF') && [...org.buy, ...org.sell].filter(r => r.type === 'EF').length === efs.length)
 
@@ -173,8 +187,14 @@ const near = (a, b, eps = 1e-6) => a != null && b != null && Math.abs(a - b) <= 
   const top = FL.enrichTop(rank.buy[0], T['005930'], rank.bizdate)
   check('삼성전자: 외국인·기관 함께 순매수(together=buy)', top.together === 'buy')
   const samyang = rank.buy.find(r => r.name === '삼양식품')
-  check('주가 역행: 하락(−2.72%)인데 순매수', samyang && FL.enrichTop(samyang, null, rank.bizdate).contrarian === true && FL.enrichTop(rank.buy[0], null, rank.bizdate).contrarian === false)
-  check('추이가 없으면 연속일·함께 = null', (() => { const e = FL.enrichTop(rank.buy[0], null, rank.bizdate); return e.foreignStreak === null && e.together === null })())
+  check('주가 역행(순매수 목록): 하락(−2.72%)인데 순매수', samyang && FL.enrichTop(samyang, null, rank.bizdate).contrarian === true && FL.enrichTop(rank.buy[0], null, rank.bizdate).contrarian === false)
+  const hynix = rank.sell.find(r => r.name === 'SK하이닉스')
+  check('주가 역행(순매도 목록): 상승(+1.25%)인데 순매도', hynix && hynix.changePct > 0 && FL.enrichTop(hynix, null, rank.bizdate).contrarian === true
+    && FL.enrichTop(rank.sell.find(r => r.changePct < 0), null, rank.bizdate).contrarian === false)
+  check('등락률이 없으면 역행 = null', FL.enrichTop({ ...rank.buy[0], changePct: null }, null, rank.bizdate).contrarian === null)
+  check('추이가 없으면 연속일·함께 = null(모름)', (() => { const e = FL.enrichTop(rank.buy[0], null, rank.bizdate); return e.foreignStreak === null && e.together === null })())
+  const notTogether = FL.enrichTop(rank.buy[0], [{ date: '2026-09-23', foreign: 5, organ: -3 }], rank.bizdate)
+  check('추이는 있는데 방향이 갈리면 함께 = false(모름과 구분)', notTogether.together === false)
 }
 
 // ── ⑤ 미국 특징종목 필터 · SPY ────────────────────────────────────────────
@@ -221,6 +241,12 @@ const near = (a, b, eps = 1e-6) => a != null && b != null && Math.abs(a - b) <= 
   const tie = CNN.parseCnnFngYear({ fear_and_greed: { score: 50 }, fear_and_greed_historical: { data: [{ x: Date.parse('2026-01-02'), y: 80 }, { x: Date.parse('2026-03-02'), y: 80 }, { x: Date.parse('2026-02-02'), y: 10 }, { x: Date.parse('2026-04-02'), y: 10 }] } })
   check('CNN 동점이면 가장 최근 날짜', tie.yearHigh.date === '2026-03-02' && tie.yearLow.date === '2026-04-02')
   check('CNN 점수 없음 → null(가짜 50 없음)', CNN.parseCnnFngYear({ fear_and_greed: {} }) === null)
+  check(`CNN 기록 기간 ${c.range.from}~${c.range.to} = 1년치(fullYear)`, c.range.fullYear === true && c.range.to === '2026-09-25')
+  const hist = [{ x: Date.parse('2025-10-01'), y: 40 }, { x: Date.parse('2026-06-01'), y: 60 }, { x: Date.parse('2026-09-24'), y: 55 }]
+  const nowHi = CNN.parseCnnFngYear({ fear_and_greed: { score: 82, timestamp: '2026-09-25T23:59:59+00:00' }, fear_and_greed_historical: { data: hist } })
+  check('지금 값이 이력 최고보다 높으면 연간 최고 = 지금(그날 날짜)', nowHi.yearHigh.v === 82 && nowHi.yearHigh.date === '2026-09-25' && nowHi.now === 82)
+  const short = CNN.parseCnnFngYear({ fear_and_greed: { score: 50, timestamp: '2026-09-25T23:59:59+00:00' }, fear_and_greed_historical: { data: [{ x: Date.parse('2026-06-01'), y: 60 }] } })
+  check('기록이 1년에 못 미치면 fullYear=false(화면은 기간을 적는다)', short.range.fullYear === false && short.range.from === '2026-06-01')
 
   const y = CF.parseFngYear(F.cryptoFng)
   const rows = F.cryptoFng.data.map(r => ({ ts: Number(r.timestamp), v: Number(r.value) }))
@@ -233,14 +259,19 @@ const near = (a, b, eps = 1e-6) => a != null && b != null && Math.abs(a - b) <= 
   check(`코인 연간 최고 ${y.yearHigh.v}(${y.yearHigh.date})·최저 ${y.yearLow.v}(${y.yearLow.date}) = 독립 재계산`, y.yearHigh.v === h2.v && y.yearHigh.date === kd(h2.ts) && y.yearLow.v === l2.v && y.yearLow.date === kd(l2.ts))
   const gap = CF.parseFngYear({ data: F.cryptoFng.data.filter(r => Number(r.timestamp) !== ts0 - 365 * 86400) })
   check('365일 전 행이 빠지면 1년 전 = null(이웃 날로 메우지 않음)', gap.yearAgo === null && gap.yearAgoDate === null)
+  check('코인 기록 기간 = 1년치', y.range.fullYear === true && y.range.to === y.date)
+  check('코인 기록이 짧으면 fullYear=false', CF.parseFngYear({ data: F.cryptoFng.data.slice(0, 30) }).range.fullYear === false)
 }
 
 // ── ⑦ 환율 추이(하나은행) — 날짜로 자르기·고저 ─────────────────────────────
 {
   const rows = FX.parseFxPages(F.fxPages)
   check(`5쪽 × 60행 → 날짜 중복 없이 ${rows.length}행, 오름차순`, rows.length === 300 && rows.every((r, i) => i === 0 || r.date > rows[i - 1].date))
-  const t = FX.buildFxTrend(rows)
-  check('최신 고시일 2026-09-23 · 1,359.0 · 전일 대비 +3.5', t.latest.date === '2026-09-23' && t.latest.v === 1359 && t.latest.change === 3.5)
+  const t = FX.buildFxTrend(rows, '2026-09-24')
+  check('최신 고시일 2026-09-23 · 1,359.0 · 전일 대비 +3.5(오늘이 9/24 → 9/23 은 확정)', t.latest.date === '2026-09-23' && t.latest.v === 1359 && t.latest.change === 3.5 && t.provisional === null)
+  const tp = FX.buildFxTrend(rows, '2026-09-23')
+  check('오늘(9/23) 행은 확정 전 — 고시일·고저·시계열에서 빼고 provisional 로만', tp.latest.date === '2026-09-22' && tp.provisional.date === '2026-09-23' && tp.provisional.v === 1359
+    && tp.y1.points.every(r => r.date < '2026-09-23') && tp.m1.to === '2026-09-22')
   check('1달 = 2026-08-23 초과 ~ 9/23(날짜로 자름)', t.m1.from === '2026-08-23' && t.m1.points[0].date > '2026-08-23' && t.m1.points.at(-1).date === '2026-09-23')
   const indep = (m) => {
     const from = new Date(Date.UTC(2026, 8 - m, 23)).toISOString().slice(0, 10)
@@ -254,7 +285,7 @@ const near = (a, b, eps = 1e-6) => a != null && b != null && Math.abs(a - b) <= 
     check(`${k} 고점 ${t[k].high.v}(${t[k].high.date})·저점 ${t[k].low.v}(${t[k].low.date}) = 독립 재계산(${i.n}일)`,
       t[k].points.length === i.n && t[k].high.v === i.hi.v && t[k].high.date === i.hi.date && t[k].low.v === i.lo.v && t[k].low.date === i.lo.date)
   }
-  check('1쪽(3달치)만 있으면 1년 추이 = null(짧은 기간을 1년이라 부르지 않음)', FX.buildFxTrend(FX.parseFxPages([F.fxPages[0]])) === null)
+  check('1쪽(3달치)만 있으면 1년 추이 = null(짧은 기간을 1년이라 부르지 않음)', FX.buildFxTrend(FX.parseFxPages([F.fxPages[0]]), '2026-09-24') === null)
   const hl = S.highLow([{ date: '2026-01-01', v: 5 }, { date: '2026-01-02', v: 5 }])
   check('고저 동점 → 가장 최근 날짜', hl.high.date === '2026-01-02' && hl.low.date === '2026-01-02')
 }
@@ -279,6 +310,11 @@ const near = (a, b, eps = 1e-6) => a != null && b != null && Math.abs(a - b) <= 
     { ticker: 'X', name: 'X', market: 'US', ret1w: null },
   ], 2)
   check('대표 종목 = 1주 수익률 상위(없는 값 제외) · 국기는 flagOf', reps.length === 2 && reps[0].ticker === 'SHEL' && reps[1].flag === '🇰🇷' && reps[1].ret1w === 3.1)
+  const st = [{ ticker: 'SHEL', name: 'Shell', market: 'US', ret1w: 9 }]
+  check('대표 종목: 섹터 종목 계산일(KST)이 로테이션 계산일과 같을 때만', SS.repsFor({ stocks: st, asOf: '2026-09-26T17:54:00Z' }, '2026-09-27', 2).reps?.length === 1
+    && SS.repsFor({ stocks: st, asOf: '2026-09-26T10:00:00Z' }, '2026-09-27', 2).reps === null
+    && /다름/.test(SS.repsFor({ stocks: st, asOf: '2026-09-26T10:00:00Z' }, '2026-09-27', 2).repsReason)
+    && SS.repsFor(null, '2026-09-27', 2).reps === null)
 
   const failed = S.collectFailed({ a: { ok: true, source: 's', data: { x: { ok: false, source: 't' } } }, b: { c: { ok: false, source: 'u', reason: 'r' } }, d: [{ ok: false, source: 'v' }] })
   check('실패 경로 모으기(성공 원천 안은 들여다보지 않음)', failed.join() === 'b.c')
@@ -288,6 +324,22 @@ const near = (a, b, eps = 1e-6) => a != null && b != null && Math.abs(a - b) <= 
     S.krSessionTtlMs(kst('2026-09-22T10:00:00+09:00'), 1, 2) === 1 && S.krSessionTtlMs(kst('2026-09-22T20:30:00+09:00'), 1, 2) === 2 && S.krSessionTtlMs(kst('2026-09-27T10:00:00+09:00'), 1, 2) === 2)
   check('미국 캐시: 화 10시(뉴욕) 짧게 · 토요일 길게',
     S.usSessionTtlMs(kst('2026-09-22T10:00:00-04:00'), 1, 2) === 1 && S.usSessionTtlMs(kst('2026-09-26T10:00:00-04:00'), 1, 2) === 2)
+}
+
+// ── ⑨ 응답 캐시 — 진행 중 빌드 공유·메모리·부분 실패 ─────────────────────────
+//   (DB 환경변수가 없으면 app_cache 는 조용히 null/no-op — 메모리·single-flight 만 검증된다)
+{
+  let calls = 0
+  const slow = async () => { calls++; await new Promise(r => setTimeout(r, 50)); return { a: { ok: true, data: 1, asOf: null, source: 's' } } }
+  const [x, y] = await Promise.all([MC.boardCached('t-single', 60_000, slow), MC.boardCached('t-single', 60_000, slow)])
+  check('동시에 온 두 요청 → 빌드 1번(single-flight)', calls === 1 && x.builtAt === y.builtAt)
+  const z = await MC.boardCached('t-single', 60_000, slow)
+  check('성공 결과는 메모리에서(빌드 안 함)', calls === 1 && z.cache === 'memory')
+  let pc = 0
+  const part = async () => { pc++; return { a: { ok: false, reason: 'x', source: 's' } } }
+  const p1 = await MC.boardCached('t-part', 180_000, part)
+  const p2 = await MC.boardCached('t-part', 180_000, part)
+  check('부분 실패도 failed 표시를 실어 돌려주고 30초 메모리', p1.failed.join() === 'a' && p2.cache === 'memory' && p2.failed.join() === 'a' && pc === 1)
 }
 
 console.log('')

@@ -156,6 +156,19 @@
 | 업비트 목록·시세 캐시를 `lib/upbitMarket` 로 | 종목 검색 라우트 안에 있어 재사용 불가였다(동작 불변) |
 | 부분 실패 결과는 app_cache 에 저장하지 않고 30초 메모리만 | 한 번의 타임아웃이 TTL 내내 빈 카드가 되는 것 방지 |
 
-- 캐시 키(날짜 없음): `market-board-kr-v1`(장중 3분·그 밖 30분) · `-flow-v2`(10분·60분) · `-us-v1`(미국 정규장 3분·30분) · `-overview-v1`(30분). 코인은 업비트 60초 메모리.
+- 캐시 키(날짜 없음): `market-board-kr-v2`(장중 3분·그 밖 30분) · `-flow-v3`(10분·60분) · `-us-v1`(미국 정규장 3분·30분) · `-overview-v2`(30분). 코인은 업비트 60초 메모리.
 - 감시: `scripts/verify-market-board-sources.mjs`(야간 감사 INVARIANTS — 원천 16항목 형식·원 단위·신선도). 파서 검증: `scripts/verify-market-board.mjs` + `scripts/fixtures/market-board.json`(실측 스냅샷).
 - **Vercel 도달은 아직 미확인** — 프리뷰 배포 후 `/api/market-board/probe` 의 `allOk`·`region` 으로 판정.
+
+### 1단계 독립 검토 반영 (2026-09-27)
+| 지적 | 처리 | 이유 |
+|---|---|---|
+| I-1 레버리지 ETF/ETN 오필터 | ±30% 판정은 **주식만**(특징종목 `etp == null`, 순매매 `type === 'ST'`) · 문구에 정리매매 포함 | 레버리지 상품은 제한폭이 배율만큼 넓다(2X = ±60%) — 2X ETF +45% 는 정상 거래 |
+| I-2 probe 공개 | 선생님 세션(profiles.role) 또는 `Authorization: Bearer CRON_SECRET` 만, 아니면 401 · 60초 메모리 | 누구나 부르면 원천 14곳을 두드리는 증폭기 |
+| I-3 캐시 | single-flight(`Map<key, Promise>`) · 성공도 min(ttl, 60초) 메모리 · 부분 실패는 **같은 키에 저장하되 읽을 때 3분 넘으면 버림**(failed 표시 유지) | 저장을 아예 안 하면 원천 하나가 계속 죽어 있는 동안 요청마다 전체 빌드(kr 20여 호출)가 돈다. 원천별 캐시는 키가 20개로 늘어 정리·감시 부담만 커져 택하지 않음 |
+| I-4 flow 최악 38초 | 예산 24초(순위 6초 → 추이 동시 10·건당 ≤5초·남은 시간 안) · 소진 시 남은 종목 추이 null + 사유 | maxDuration 30초 안에 app_cache 읽기·쓰기까지. 실측 빌드는 2.6초(순위 2.0 + 추이 30종 0.6) |
+| CNN 기록 기간 | `range{from,to,fullYear}`(첫 기록이 1년 창 시작 + 7일보다 늦으면 fullYear=false) · 지금 값(score)을 그날 값으로 넣어 고저에 반영 | 이력이 하루 늦게 따라오면 '지금이 연간 최고'인 날 고저가 지금을 빠뜨린다. 코인도 같은 range |
+| 환율 진행 중 행 | 오늘(KST) 날짜 행은 `provisional` 로만 — 고시일·고저·시계열은 어제까지 | 원천에 회차·확정 표시가 없다. 하나은행은 하루 여러 회차 고시 → 오늘 행은 바뀔 수 있다(오늘 저녁 마지막 고시 뒤에도 보수적으로 다음 날까지 '진행 중') |
+| together·contrarian | together = 'buy'/'sell'/false(함께 아님)/null(추이 없음) · 역행 = 순매수인데 하락 **또는** 순매도인데 상승, 등락률 없으면 null | '모름'과 '아님'을 가른다 |
+| 대표 종목 기준일 | sector-v3 `asOf` 의 KST 날짜 = 로테이션 calcDate 일 때만, 아니면 `reps:null` + `repsReason` | 한 카드 안에서 1주 수익률 기준일이 어긋나지 않게 |
+| 캐시 키 | `kr-v2`·`flow-v3`·`overview-v2`(내용 규칙이 바뀌어 올림) | 개발 중 저장된 옛 행이 새 규칙 없이 서빙되지 않게 |
