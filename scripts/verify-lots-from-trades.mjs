@@ -98,7 +98,19 @@ check('수량 15 는 맞지만 보유 평단 120 ≠ 되짚은 평단 110 → mi
 const r5e = L.lotsFromTrades([T('KKK', 'buy', 100, 10, '2025-03-10'), T('KKK', 'buy', 130, 5, '2025-11-05')], [H('KKK', 15, 110.004, '2025-03-10')])
 check('평단 차이 0.004(반올림 범위) → 되짚은 로트 그대로', r5e.fallback.length === 0 && r5e.lots.length === 2)
 const r5f = L.lotsFromTrades([T('KKK', 'buy', 100, 10, '2025-03-10'), T('KKK', 'buy', 130, 5, '2025-11-05')], [H('KKK', 15, 110.01, '2025-03-10')])
-check('평단 차이 0.01 → mismatch', r5f.fallback[0]?.reason === 'mismatch')
+check('평단 차이 0.01(0.009%) → mismatch 아님 · 1% 이내 보정(adjusted)', r5f.fallback.length === 0 && r5f.adjusted.length === 1 && r5f.adjusted[0].ticker === 'KKK')
+// 평단을 나중에 손으로 고친 경우 — 1% 이내면 되짚은 로트를 지금 평단에 맞춰 보정(판 로트는 그대로), 넘으면 mismatch
+{
+  const trs = [T('ADJ', 'buy', 100, 10, '2025-03-10'), T('ADJ', 'buy', 130, 5, '2025-11-05'), T('ADJ', 'sell', 150, 6, '2026-02-02')]   // 되짚은 평단 110 · 남은 9주
+  const hAvg = 110 * 1.0025                                                                                                          // 0.25% 높게 고침
+  const ra = L.lotsFromTrades(trs, [H('ADJ', 9, hAvg, '2025-03-10')])
+  check('평단 0.25% 차이 → adjusted(gapPct≈0.25) · fallback 아님', ra.fallback.length === 0 && ra.adjusted.length === 1 && near(ra.adjusted[0].gapPct, 0.25, 1e-9) && ra.adjusted[0].name === 'ADJ보유')
+  check('보정 후 열린 로트 원가 합 = 9주 × 지금 평단(정확히)', near(sumC(open(ra, 'ADJ')), 9 * hAvg, 1e-9) && near(sumQ(open(ra, 'ADJ')), 9))
+  check('보정해도 산 날·판 로트(가격 100·130, 판 날 2026-02-02)는 그대로', closed(ra, 'ADJ').every(l => (l.purchase_price === 100 || l.purchase_price === 130) && l.sold_date === '2026-02-02') && open(ra, 'ADJ').map(l => l.purchase_date).join() === '2025-03-10,2025-11-05')
+  const rm = L.lotsFromTrades(trs, [H('ADJ', 9, 110 * 1.015, '2025-03-10')])
+  check('평단 1.5% 차이 → mismatch · 보정 안 함', rm.fallback[0]?.reason === 'mismatch' && rm.adjusted.length === 0 && rm.lots.length === 1)
+  check('평단이 반올림 범위로 맞으면 adjusted 에 안 넣는다', L.lotsFromTrades(trs, [H('ADJ', 9, 110.004, '2025-03-10')]).adjusted.length === 0)
+}
 // 앱은 매수마다 평단을 반올림해 저장한다 — 여러 번 쌓인 반올림(앱 저장값)과 같으면 통과
 {
   const buys = [[101.333, 3], [99.777, 7], [100.555, 1], [102.111, 9], [98.999, 2]]

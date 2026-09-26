@@ -32,7 +32,7 @@ interface Point { month?: unknown; valueKrw?: unknown; cumPnl?: unknown }
 interface PnlResp { points?: Point[]; skipped?: unknown; truncated?: { from?: unknown; to?: unknown } | null }
 interface PnlBody { usdKrwNow: number | null; lots: PnlLot[] }
 type TxState = { state: 'loading' | 'ok' | 'failed' | 'unauth'; trades: TradeRow[]; forKey: string }
-type Plan = { body: PnlBody; fallback: LotsFromTradesResult['fallback']; tooMany: boolean }
+type Plan = { body: PnlBody; fallback: LotsFromTradesResult['fallback']; tooMany: boolean; adjusted: LotsFromTradesResult['adjusted'] }
 
 const YM = /^\d{4}-\d{2}$/
 const YMD = /^\d{4}-\d{2}-\d{2}/
@@ -104,7 +104,7 @@ export default function GrowthChart({ holdings, rows, usdKrw }: { holdings: MyHo
         currentPrice: r?.priced && !r.stale ? r.currentPrice : null,
       }
     }))
-    setPlan({ body: { usdKrwNow: usdKrw, lots: built.lots }, fallback: built.fallback, tooMany: built.tooMany })
+    setPlan({ body: { usdKrwNow: usdKrw, lots: built.lots }, fallback: built.fallback, tooMany: built.tooMany, adjusted: built.adjusted })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seen, lotsKey, txFp])
   const res = useJson<PnlResp>('/api/monthly-pnl', { method: 'POST', body: plan?.body, enabled: plan != null && plan.body.lots.length > 0 && !plan.tooMany })
@@ -216,6 +216,8 @@ export default function GrowthChart({ holdings, rows, usdKrw }: { holdings: MyHo
           {fbDrawn.length > 0 && <span style={noteStyle(TK.amber400)}>거래 기록이 없거나 보유 수량과 안 맞는 {fbDrawn.length}종목({names(fbDrawn)})은 지금 수량을 처음 산 달부터 가졌다고 보고 그렸어요.</span>}
           {fbSynth.length > 0 && <span style={noteStyle(TK.amber400)}>자동으로 맞춘 기록이 섞인 {fbSynth.length}종목({names(fbSynth)})은 지금 수량을 처음 산 달부터 가졌다고 보고 그렸어요.</span>}
           {fbNoDate.length > 0 && <span style={noteStyle(TK.amber400)}>거래 기록이 없거나 안 맞고 매수일도 없는 {fbNoDate.length}종목({names(fbNoDate)})은 뺐어요.</span>}
+          {/* 평단만 1% 안에서 보정 — 기록대로 그린 것이라 경고색이 아니라 보조 글자색 */}
+          {plan.adjusted.length > 0 && <span style={noteStyle()}>평단을 나중에 고친 {plan.adjusted.length}종목({names(plan.adjusted)})은 지금 평단에 맞춰 조금 보정했어요.</span>}
           {fbSynthSold.length > 0 && <span style={noteStyle(TK.amber400)}>자동으로 맞춘 기록이 섞인 판 종목 {fbSynthSold.length}개({names(fbSynthSold)})는 뺐어요.</span>}
           {fbNotHeld.length > 0 && <span style={noteStyle(TK.amber400)}>거래 기록엔 남아 있는데 지금 보유엔 없는 {fbNotHeld.length}종목({names(fbNotHeld)})은 뺐어요.</span>}
         </>

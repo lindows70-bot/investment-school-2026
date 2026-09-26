@@ -28,6 +28,9 @@ export interface LotsFromTradesResult {
   soldOut: string[]
   /** 구간으로 묶어도 로트가 상한(라우트 400)을 넘는다 — 호출부는 보내지 말고 '거래가 많아 못 그려요'를 말한다 */
   tooMany: boolean
+  /** 수량은 맞고 평단만 1% 안에서 다른 종목(보유를 나중에 손으로 고친 경우) — 되짚은 로트를 쓰되 열린 로트 가격을 지금 평단에 맞춰 늘이거나 줄였다.
+   *  gapPct = (지금 평단 − 되짚은 평단) / 되짚은 평단 × 100 */
+  adjusted: { ticker: string; name: string; gapPct: number }[]
 }
 
 /** tradeWrite.planSell 의 전량 매도 기준 — 이 이하로 남으면 앱이 보유 행을 지웠다(다음 매수는 새 평단으로 시작) */
@@ -37,6 +40,12 @@ const FULL_SELL_EPS = 0.0001
  * 그 행이 섞이면 되짚은 수량이 보유와 '만들어서' 맞으므로 대조가 무의미하고, 날짜·가격은 실제 거래가 아니다 → 되짚지 않는다.
  */
 const SYNTHETIC_MEMO = '자동 동기화'
+/**
+ * 수량은 맞는데 평단이 이만큼(1%) 안에서만 다르면 되짚은 기록을 버리지 않고 열린 로트 가격을 비례로 맞춘다.
+ * 실측(2026-09-26): 선생님 계정 TIGER 미국S&P500 0.016%·알파벳 0.25% — 나중의 수동 수정('일부매도 반영'·'수량 잘못기입') 탓이었다.
+ * 보유 한 줄로 대신하면(지금 수량을 처음 산 날부터) 훨씬 부정확하다. 1% 를 넘으면 기록을 못 믿으므로 mismatch.
+ */
+const ADJUST_MAX_GAP = 0.01
 /** 기본 상한 = /api/monthly-pnl 이 받는 로트 수 */
 const DEFAULT_MAX_LOTS = 400
 const YMD = /^\d{4}-\d{2}-\d{2}$/
@@ -164,6 +173,7 @@ export function lotsFromTrades(trades: TradeRow[], holdings: HoldingForLots[], o
   const lots: PnlLot[] = []
   const fallback: LotsFromTradesResult['fallback'] = []
   const soldOut: string[] = []
+  const adjusted: LotsFromTradesResult['adjusted'] = []
   // 지금 보유 한 줄로 대신 — '지금 수량을 처음 산 날부터 가졌다'는 예전 가정. 매수일이 없으면 못 그린다(호출부가 따로 알린다)
   const holdingLot = (k: string, h: HoldingForLots) => {
     if (typeof h.purchase_date !== 'string' || !YMD.test(h.purchase_date.slice(0, 10))) return
@@ -194,15 +204,20 @@ export function lotsFromTrades(trades: TradeRow[], holdings: HoldingForLots[], o
     // 비교 대상은 정확한 가중평단과 앱이 반올림해 저장했을 평단 두 가지(tradeWrite 규칙 · AddInvestmentModal 의 늘 둘째 자리) — 매수마다 반올림이 쌓인다
     const exactAvg = r && openQty > 0 ? r.open.reduce((s, l) => s + l.qty * l.price, 0) / openQty : NaN
     const avgOk = !h || (r != null && openQty > 0 && (sameAvg(exactAvg, h.purchase_price) || sameAvg(r.appAvg, h.purchase_price) || sameAvg(r.avg2dp, h.purchase_price)))
-    if (!r || !sameQty(openQty, h?.quantity ?? 0) || !avgOk) {
+    const qtyOk = r != null && sameQty(openQty, h?.quantity ?? 0)
+    // 평단만 조금(1% 이내) 다르면 보정 배율 — 열린 로트 원가 합이 정확히 수량 × 지금 평단이 된다(판 로트는 그대로)
+    const scale = qtyOk && !avgOk && h && h.purchase_price > 0 && exactAvg > 0 && Math.abs(exactAvg - h.purchase_price) / h.purchase_price <= ADJUST_MAX_GAP
+      ? h.purchase_price / exactAvg : null
+    if (!r || !qtyOk || (!avgOk && scale == null)) {
       fallback.push({ ticker: k, name, reason: 'mismatch' })
       if (h) holdingLot(k, h)
       continue
     }
+    if (scale != null) adjusted.push({ ticker: k, name, gapPct: (scale - 1) * 100 })
     const market = h?.market ?? last.market, currency = h?.currency ?? last.currency
     for (const s of r.closed) lots.push({ ticker: k, market, currency, purchase_price: s.price, quantity: s.qty, purchase_date: s.date, sold_date: s.sold, currentPrice: null })
     if (h) {
-      for (const s of r.open) lots.push({ ticker: k, market, currency, purchase_price: s.price, quantity: s.qty, purchase_date: s.date, sold_date: null, currentPrice: h.currentPrice ?? null })
+      for (const s of r.open) lots.push({ ticker: k, market, currency, purchase_price: s.price * (scale ?? 1), quantity: s.qty, purchase_date: s.date, sold_date: null, currentPrice: h.currentPrice ?? null })
     } else {
       soldOut.push(k)   // 남은 수량 ≈ 0 — 열린 로트는 부동소수 자투리뿐이라 넣지 않는다
     }
@@ -211,5 +226,5 @@ export function lotsFromTrades(trades: TradeRow[], holdings: HoldingForLots[], o
   let out = mergeSame(lots.filter(l => l.quantity > 0))
   if (out.length > maxLots) out = compactByInterval(out)
   out.sort((a, b) => a.ticker.localeCompare(b.ticker) || a.purchase_date.localeCompare(b.purchase_date) || (a.sold_date ?? '9').localeCompare(b.sold_date ?? '9'))
-  return { lots: out, fallback, soldOut, tooMany: out.length > maxLots }
+  return { lots: out, fallback, soldOut, tooMany: out.length > maxLots, adjusted }
 }
