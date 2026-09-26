@@ -10,10 +10,12 @@ export interface HomeBriefInput {
   indices: { id: string; changePct: number }[] | null
   usdKrw: number | null
   signals: { asOf: string | null; count: number } | null
-  /** 날짜(date, KST 'YYYY-MM-DD')로 거른다 — 캐시된 dDay 는 하루 지나면 틀리므로 안 쓴다 */
+  /** 날짜(date 'YYYY-MM-DD')로 거른다 — 캐시된 dDay 는 하루 지나면 틀리므로 안 쓴다.
+   *  event-calendar 의 date 는 야후 타임스탬프의 UTC 날짜다(미국 실적 = 미국 날짜, KST 아님) — 오늘(KST)과 하루 어긋날 수 있다 */
   events: { type: string; date: string; name: string; ticker: string }[] | null
   /** ⚠️ held 에는 보유 종목(held===true)만 넣는다 — day-movers 는 보유가 아니어도 BTC 를 항상 싣는다.
-   *  checked = 확인을 시도한 종목 수, failed = 그중 시세를 못 받은 수(day-movers 응답 그대로) */
+   *  checked·failed 에는 day-movers 의 heldChecked·heldFailed(보유 종목만 센 수)를 넣는다 — checked·failed 가 아니다.
+   *  그쪽은 보유 안 한 BTC 를 포함해, 보유 전부 실패·BTC 만 성공이면 '없음 · 일부'로 거짓말하게 된다 */
   movers: { held: { name: string; changePct: number }[]; checked: number; failed: number } | null
   /** FOMC_SCHEDULE 의 성명 발표일(미국 날짜, 'YYYY-MM-DD'), 순서 무관. 한국엔 다음 날 새벽에 나온다 */
   fomcDates: string[] | null
