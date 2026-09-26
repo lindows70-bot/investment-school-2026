@@ -1,56 +1,42 @@
 'use client'
-// 학생 내 자산 '자산 성장' 차트 — 화면에 들어오면 /api/monthly-pnl 로 월말 평가액을 받아 내 자산·넣은 돈 두 선을 그린다(Recharts)
+// 학생 내 자산 '지금 내 종목들의 지난 흐름' — 화면에 들어오면 /api/monthly-pnl 로 월말 값을 받아 월말 값·산 값 두 선을 그린다
+//   ⚠️ 원천은 '지금 가진 수량을 처음 산 달부터 가졌다'고 보고 계산한다(나중에 더 산 것·판 것은 반영 안 됨) — 그래서 '내 자산·넣은 돈'이라 부르지 않는다.
+//   이 파일은 껍데기(보일 때 불러오기·상태 문구)만 — Recharts 는 GrowthPlot 을 next/dynamic 으로 데이터가 온 뒤에만 불러온다.
 //   입력은 선생님 대시보드(dashboard/page.tsx 1107~1145)와 같다: { usdKrwNow, lots[{ticker,market,currency,purchase_price,quantity,purchase_date,currentPrice}] }.
 //   개인 데이터(보유)는 우리 라우트로만 간다 — 라우트는 결과를 공유 캐시에 넣지 않는다.
 import { useEffect, useState } from 'react'
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
+import dynamic from 'next/dynamic'
 import { TK, FS, RAD, SP } from '@/lib/theme'
-import { won, signWon, manWon, upDown } from '@/lib/studentFormat'
 import type { HoldingRow } from '@/lib/portfolioSummary'
 import type { MyHolding } from '@/app/components/student/useMyPortfolio'
 import { useJson } from '@/app/components/student/useJson'
 import { useInView } from '@/app/components/student/useInView'
 import { card, CardHead, FailRow, noteStyle } from '@/app/components/student/home/homeUi'
+import type { GrowthDatum } from '@/app/components/student/GrowthPlot'
 
 // 색 — 이 화면에서 sky400 = 코어, orange400 = 위성이라 그 둘은 피한다. 등락색(빨강·파랑)도 '오름/내림'이라 안 쓴다.
-//   내 자산 = 가장 밝은 글자색 실선, 넣은 돈 = 보조 글자색 점선(기준선 느낌)
-const C_VALUE = TK.slate100
-const C_COST = TK.sub
+//   월말 값 = 가장 밝은 글자색 실선, 산 값 = 보조 글자색 점선(기준선 느낌). GrowthPlot 도 이 값을 쓴다
+export const C_VALUE = TK.slate100
+export const C_COST = TK.sub
+export const ymText = (ym: string) => `${ym.slice(0, 4)}년 ${parseInt(ym.slice(5, 7), 10)}월`
+
+// dynamic() 은 이 자리에서 바로 평가된다 — loading 은 호이스팅되는 function 선언이어야 한다(const 화살표는 TDZ)
+const GrowthPlot = dynamic(() => import('@/app/components/student/GrowthPlot'), { ssr: false, loading: PlotLoading })
+function PlotLoading() { return <div style={{ height: 220 }} /> }
 
 interface Point { month?: unknown; valueKrw?: unknown; cumPnl?: unknown }
 interface PnlResp { points?: Point[]; skipped?: unknown; truncated?: { from?: unknown; to?: unknown } | null }
-interface Datum { month: string; value: number; cost: number; pnl: number }
 interface PnlBody { usdKrwNow: number | null; lots: { ticker: string; market: string; currency: string; purchase_price: number; quantity: number; purchase_date: string; currentPrice: number | null }[] }
 
 const YM = /^\d{4}-\d{2}$/
 const YMD = /^\d{4}-\d{2}-\d{2}/
 const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)
-const ymText = (ym: string) => `${ym.slice(0, 4)}년 ${parseInt(ym.slice(5, 7), 10)}월`
 const monthDiff = (a: string, b: string) => (Number(b.slice(0, 4)) * 12 + Number(b.slice(5, 7))) - (Number(a.slice(0, 4)) * 12 + Number(a.slice(5, 7)))
 const MAX_MONTHS = 36   // monthlyPnl.ts 의 상한(최근 36개월)과 같은 값 — 잘린 이유를 가를 때만 쓴다
 
 // 범위 — 원천이 월말 값뿐이라 '1달'은 없다(점 1~2개). 앞 범위와 같은 점 수가 되는 범위는 숨긴다
 const RANGES = [{ key: '6m', label: '6달', n: 6 }, { key: '1y', label: '1년', n: 12 }, { key: 'all', label: '전체', n: Infinity }] as const
 type RangeKey = typeof RANGES[number]['key']
-
-/** 축 눈금 — 공백 없이(좁은 축에서 줄바꿈 방지). 첫 칸과 1월만 연도를 붙인다 */
-const tickText = (ym: string, i: number) => {
-  const m = parseInt(ym.slice(5, 7), 10)
-  return i === 0 || m === 1 ? `${ym.slice(2, 4)}년${m}월` : `${m}월`
-}
-
-function Tip({ active, payload, lastMonth }: { active?: boolean; payload?: ReadonlyArray<{ payload?: Datum }>; lastMonth: string }) {
-  const d = payload?.[0]?.payload
-  if (!active || !d) return null
-  return (
-    <div style={{ background: TK.bg7, border: `1px solid ${TK.line1}`, borderRadius: RAD.sm, padding: SP.sm, display: 'flex', flexDirection: 'column', gap: 2, fontSize: FS.tiny }}>
-      <span style={{ color: TK.sub }}>{ymText(d.month)} {d.month === lastMonth ? '· 지금 시세' : '말'}</span>
-      <span style={{ color: C_VALUE }}>내 자산 {won(d.value)}</span>
-      <span style={{ color: C_COST }}>넣은 돈 {won(d.cost)}</span>
-      <span style={{ color: upDown(d.pnl) }}>불어난 돈 {signWon(d.pnl)}</span>
-    </div>
-  )
-}
 
 /** holdings = useMyPortfolio 보유(매수일 포함) · rows = 같은 요약의 행(현재가) · usdKrw = 같은 훅의 환율(null 이면 라우트가 캔들 환율) */
 export default function GrowthChart({ holdings, rows, usdKrw }: { holdings: MyHolding[]; rows: HoldingRow[]; usdKrw: number | null }) {
@@ -82,19 +68,19 @@ export default function GrowthChart({ holdings, rows, usdKrw }: { holdings: MyHo
   const noDateCount = holdings.length - (body?.lots.length ?? holdings.length)
   const res = useJson<PnlResp>('/api/monthly-pnl', { method: 'POST', body: body ?? undefined, enabled: body != null && body.lots.length > 0 })
 
-  const head = <CardHead title="자산 성장" />
-  const sub = <span style={noteStyle()}>지금 가진 종목의 월말 값이에요.</span>
+  const head = <CardHead title="지금 내 종목들의 지난 흐름" />
+  const sub = <span style={noteStyle()}>지금 가진 수량을 처음 산 달부터 가졌다고 보고 그린 값이에요 · 나중에 더 사거나 판 건 반영되지 않아요</span>
   let content: React.ReactNode
   if (!seen || body == null || res.state === 'idle' || res.state === 'loading') {
     content = body != null && body.lots.length === 0
       ? <span style={noteStyle()}>매수일이 적힌 종목이 없어 그릴 수 없어요.</span>
       : <span style={noteStyle()}>월말 시세를 모으는 중이에요… (조금 걸려요)</span>
   } else if (res.state === 'unauth') {
-    content = <span style={noteStyle()}>로그인하면 자산 성장이 보여요.</span>
+    content = <span style={noteStyle()}>로그인하면 지난 흐름이 보여요.</span>
   } else if (res.state === 'failed' || !Array.isArray(res.data?.points)) {
-    content = <FailRow text="자산 성장 기록을 못 가져왔어요." onRetry={res.reload} retryLabel="자산 성장 다시 불러오기" />
+    content = <FailRow text="지난 흐름을 못 가져왔어요." onRetry={res.reload} retryLabel="지난 흐름 다시 불러오기" />
   } else {
-    const data: Datum[] = res.data.points
+    const data: GrowthDatum[] = res.data.points
       .filter(p => typeof p?.month === 'string' && YM.test(p.month) && isNum(p.valueKrw) && isNum(p.cumPnl))
       .map(p => ({ month: p.month as string, value: p.valueKrw as number, cost: (p.valueKrw as number) - (p.cumPnl as number), pnl: p.cumPnl as number }))
     const skipped = Array.isArray(res.data.skipped) ? res.data.skipped.filter((t): t is string => typeof t === 'string') : []
@@ -115,14 +101,16 @@ export default function GrowthChart({ holdings, rows, usdKrw }: { holdings: MyHo
 
     content = (
       <>
-        {data.length === 0 && <span style={{ fontSize: FS.body, color: TK.slate200 }}>그릴 월말 기록이 아직 없어요.</span>}
+        {/* 점이 0개인데 뺀 종목이 있으면 '기록 없음'이 아니라 '시세 이력을 못 가져옴' */}
+        {data.length === 0 && skipped.length > 0 && <FailRow text="시세 이력을 못 가져와 그릴 수 없어요." onRetry={res.reload} retryLabel="지난 흐름 다시 불러오기" />}
+        {data.length === 0 && skipped.length === 0 && <span style={{ fontSize: FS.body, color: TK.slate200 }}>그릴 월말 기록이 아직 없어요.</span>}
         {data.length === 1 && <span style={{ fontSize: FS.body, color: TK.slate200 }}>월말 기록이 아직 한 달뿐이라 선을 그릴 수 없어요.</span>}
         {data.length >= 2 && (
           <>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.sm, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: SP.md, fontSize: FS.tiny }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: SP.xs, color: C_VALUE }}><span aria-hidden style={{ width: 16, borderTop: `2px solid ${C_VALUE}` }} />내 자산</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: SP.xs, color: C_COST }}><span aria-hidden style={{ width: 16, borderTop: `2px dashed ${C_COST}` }} />넣은 돈</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: SP.xs, color: C_VALUE }}><span aria-hidden style={{ width: 16, borderTop: `2px solid ${C_VALUE}` }} />월말 값</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: SP.xs, color: C_COST }}><span aria-hidden style={{ width: 16, borderTop: `2px dashed ${C_COST}` }} />산 값</span>
               </div>
               {opts.length >= 2 && (
                 <div role="group" aria-label="기간" style={{ display: 'flex', gap: SP.xs }}>
@@ -138,20 +126,7 @@ export default function GrowthChart({ holdings, rows, usdKrw }: { holdings: MyHo
                 </div>
               )}
             </div>
-            <div style={{ width: '100%', height: 220, minWidth: 0 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={shown} margin={{ top: SP.sm, right: SP.sm, bottom: 0, left: 0 }}>
-                  <CartesianGrid stroke={TK.grid} vertical={false} />
-                  <XAxis dataKey="month" tickFormatter={tickText} interval="preserveStartEnd" minTickGap={16}
-                    tick={{ fill: TK.sub, fontSize: FS.micro }} axisLine={{ stroke: TK.border }} tickLine={false} />
-                  <YAxis tickFormatter={manWon} width={56} domain={['auto', 'auto']}
-                    tick={{ fill: TK.sub, fontSize: FS.micro }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<Tip lastMonth={lastMonth} />} cursor={{ stroke: TK.line4 }} />
-                  <Line type="monotone" dataKey="cost" name="넣은 돈" stroke={C_COST} strokeWidth={2} strokeDasharray="5 4" dot={false} isAnimationActive={false} />
-                  <Line type="monotone" dataKey="value" name="내 자산" stroke={C_VALUE} strokeWidth={2} dot={false} isAnimationActive={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+            <GrowthPlot data={shown} lastMonth={lastMonth} />
           </>
         )}
         {truncated && (
@@ -161,7 +136,7 @@ export default function GrowthChart({ holdings, rows, usdKrw }: { holdings: MyHo
             : <span style={noteStyle()}>{ymText(data[0].month)} 이전은 시세 이력이 없어 뺐어요.</span>
         )}
         {skipped.length > 0 && <span style={noteStyle(TK.amber400)}>시세 이력을 못 가져와 뺀 종목 {skipped.length}개 · {skippedNames.join(', ')}</span>}
-        {data.length >= 1 && hasUsd && <span style={noteStyle()}>달러 종목의 넣은 돈은 그달 말 환율로 바꿔 계산해서, 환율에 따라 조금씩 움직여요.</span>}
+        {data.length >= 1 && hasUsd && <span style={noteStyle()}>달러 종목의 산 값은 그달 말 환율로 바꿔 계산해서, 환율에 따라 조금씩 움직여요.</span>}
       </>
     )
   }
