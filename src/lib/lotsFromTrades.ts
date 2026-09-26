@@ -126,8 +126,21 @@ export function lotsFromTrades(trades: TradeRow[], holdings: HoldingForLots[], o
     const arr = byTicker.get(k)
     if (arr) arr.push(t); else byTicker.set(k, [t])
   }
+  // 같은 티커 보유가 여러 줄이면(옛 데이터) 합친다 — 수량 합·가중평단·가장 이른 매수일. 첫 줄만 보면 나머지 수량이 '안 맞음'으로 둔갑한다
   const holdMap = new Map<string, HoldingForLots>()
-  for (const h of holdings) { const k = keyOf(h.ticker); if (!holdMap.has(k)) holdMap.set(k, h) }
+  for (const h of holdings) {
+    const k = keyOf(h.ticker)
+    const prev = holdMap.get(k)
+    if (!prev) { holdMap.set(k, { ...h }); continue }
+    const q = prev.quantity + h.quantity
+    const dates = [prev.purchase_date, h.purchase_date].filter((d): d is string => typeof d === 'string' && YMD.test(d.slice(0, 10))).sort()
+    holdMap.set(k, {
+      ...prev, quantity: q,
+      purchase_price: q > 0 ? (prev.quantity * prev.purchase_price + h.quantity * h.purchase_price) / q : prev.purchase_price,
+      purchase_date: dates[0] ?? prev.purchase_date,
+      currentPrice: prev.currentPrice ?? h.currentPrice ?? null,
+    })
+  }
 
   const lots: PnlLot[] = []
   const fallback: LotsFromTradesResult['fallback'] = []

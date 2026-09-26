@@ -122,6 +122,13 @@ check('자동 동기화 행이 섞인 종목 → synthetic · 수량이 맞아�
 const r6c = L.lotsFromTrades([{ ...T('JJJ', 'buy', 100, 5, '2025-01-02'), memo: '최초 매수' }], [H('JJJ', 5, 100, '2025-01-02')])
 check('보통 메모(최초 매수)는 그대로 되짚는다', r6c.fallback.length === 0 && r6c.lots.length === 1)
 
+// ⑥-c 같은 티커 보유가 두 줄(옛 데이터) → 합쳐서 대조(수량 합·가중평단)
+const r6d = L.lotsFromTrades([T('MMM', 'buy', 100, 10, '2025-03-10'), T('MMM', 'buy', 130, 5, '2025-11-05')],
+  [H('MMM', 10, 100, '2025-03-10'), H('mmm', 5, 130, '2025-11-05', { currentPrice: null })])
+check('보유 두 줄(10주@100 + 5주@130) → 15주@110 으로 합쳐 대조 · 되짚은 로트 그대로', r6d.fallback.length === 0 && r6d.lots.length === 2 && r6d.lots.every(l => l.currentPrice === 999))
+const r6e = L.lotsFromTrades([], [H('MMM', 10, 100, '2025-03-10'), H('MMM', 5, 130, '2024-11-05')])
+check('기록 없는 보유 두 줄 → 한 로트 15주 · 가중평단 110 · 이른 매수일 2024-11-05', r6e.lots.length === 1 && r6e.lots[0].quantity === 15 && near(r6e.lots[0].purchase_price, 110) && r6e.lots[0].purchase_date === '2024-11-05')
+
 // ⑦ 부동소수 — 0.1 + 0.2 를 사서 보유 0.3
 const r7 = L.lotsFromTrades([T('ETH', 'buy', 100, 0.1, '2025-01-02'), T('ETH', 'buy', 110, 0.2, '2025-01-03')], [H('ETH', 0.3, 106.67, '2025-01-02')])
 check('0.1 + 0.2 vs 보유 0.3 → 같은 수량으로 본다', r7.fallback.length === 0 && open(r7, 'ETH').length === 2)
