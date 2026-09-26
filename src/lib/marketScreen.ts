@@ -336,8 +336,9 @@ export function fngYearSummary(
   }
 }
 
-/** 홈 한 줄 — '최근 1년 최고 71(2026.5.1) · 최저 5(2025.11.20)'. 기록이 1년에 못 미치면 '기록 기간(…) 최고 …' */
+/** 홈 한 줄 — '최근 1년 최고 71(2026.5.1) · 최저 5(2025.11.20)'. 기록이 1년에 못 미치면 '기록 기간(…) 최고 …',
+ *  기간 자체를 모르면(range null) '기록 기간 최고 …' — 기간 이름 없이 '최고'만 두면 전체 역사의 최고로 읽힌다 */
 export function fngYearLine(s: NonNullable<ReturnType<typeof fngYearSummary>>): string {
   const parts = [s.high ? `최고 ${s.high.v}(${s.high.when})` : null, s.low ? `최저 ${s.low.v}(${s.low.when})` : null].filter(Boolean).join(' · ')
-  return s.rangeText ? `${s.rangeText} ${parts}` : parts
+  return `${s.rangeText ?? '기록 기간'} ${parts}`
 }

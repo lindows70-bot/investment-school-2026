@@ -175,6 +175,7 @@ eq('홈 한 줄', M.fngYearLine(S1), '최근 1년 최고 71(2026.5.1) · 최저 
 eq('1년 요약 — 지금이 최고를 넘으면 최고 = 지금', M.fngYearSummary(80, YR).high, { v: 80, when: '지금' })
 eq('1년 요약 — 기록이 1년에 못 미침', M.fngYearLine(M.fngYearSummary(50, { ...YR, range: { from: '2025-11-20', to: '2026-09-26', fullYear: false } })), '기록 기간(2025.11.20~2026.9.26) 최고 71(2026.5.1) · 최저 5(2025.11.20)')
 eq('1년 요약 — 고저 없음 null', M.fngYearSummary(50, { yearHigh: null, yearLow: null, range: null }), null)
+eq('홈 한 줄 — 기간 모름(range null)이면 기록 기간', M.fngYearLine(M.fngYearSummary(50, { ...YR, range: null })), '기록 기간 최고 71(2026.5.1) · 최저 5(2025.11.20)')
 
 // ── 국면·공포탐욕 ──
 eq('국면 말 4종', Object.keys(M.QUAD_TEXT).sort(), ['improving', 'lagging', 'leading', 'weakening'])

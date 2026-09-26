@@ -18,7 +18,8 @@ const CLASS_KO: Record<string, string> = { 'extreme fear': '극단 공포', fear
 const classKo = (c: unknown) => typeof c === 'string' ? CLASS_KO[c.trim().toLowerCase()] ?? null : null
 const num = (n: unknown): number | null => typeof n === 'number' && Number.isFinite(n) ? n : null
 
-function Gauge({ value, cls, past, source, year }: { value: number; cls: string | null; past: { label: string; v: number | null }[]; source: string; year: React.ReactNode }) {
+/** past 의 pending = 아직 불러오는 칸('…') — 도착했을 때 칸이 새로 생겨 줄이 밀리지 않게 자리를 먼저 잡는다 */
+function Gauge({ value, cls, past, source, year }: { value: number; cls: string | null; past: { label: string; v: number | null; pending?: boolean }[]; source: string; year: React.ReactNode }) {
   const v = Math.max(0, Math.min(100, value))
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.sm }}>
@@ -38,11 +39,12 @@ function Gauge({ value, cls, past, source, year }: { value: number; cls: string 
         {past.map(p => (
           <div key={p.label} style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, minWidth: 0 }}>
             <span style={{ fontSize: FS.micro, color: TK.sub, whiteSpace: 'nowrap' }}>{p.label}</span>
-            <span style={{ fontSize: p.v == null ? FS.tiny : FS.body, fontWeight: 700, color: p.v == null ? TK.sub : TK.slate200 }}>{p.v == null ? '없음' : Math.round(p.v)}</span>
+            <span style={{ fontSize: p.v == null ? FS.tiny : FS.body, fontWeight: 700, color: p.v == null ? TK.sub : TK.slate200 }}>{p.pending ? '…' : p.v == null ? '없음' : Math.round(p.v)}</span>
           </div>
         ))}
       </div>
-      {year}
+      {/* 1년 줄 자리 — 불러오는 중·결과·못 가져옴이 같은 자리에 온다 */}
+      <div style={{ minHeight: 20 }}>{year}</div>
       <span style={{ fontSize: FS.micro, color: TK.sub }}>{source}</span>
     </div>
   )
@@ -62,7 +64,8 @@ export default function FearGreed({ overview }: { overview: JsonResult<OverviewR
   const yv = tab === 'us'
     ? viewOf<OverviewResp, CnnFngYear>(overview, d => d.fng.cnn)
     : viewOf<OverviewResp, CryptoFngYear>(overview, d => d.fng.crypto)
-  const yearAgo = yv.kind === 'ok' ? [{ label: '1년 전', v: (yv.data as CnnFngYear | CryptoFngYear).yearAgo }] : []
+  const yearAgo = yv.kind === 'ok' ? [{ label: '1년 전', v: (yv.data as CnnFngYear | CryptoFngYear).yearAgo }]
+    : yv.kind === 'loading' ? [{ label: '1년 전', v: null, pending: true }] : []
   const yearNode = (now: number) => {
     if (yv.kind === 'loading') return <span style={noteStyle()}>1년 기록을 불러오는 중…</span>
     if (yv.kind === 'failed') return <FailRow text="1년 기록(1년 전·최고·최저)을 못 가져왔어요." onRetry={overview.reload} retryLabel="공포·탐욕 1년 기록 다시 불러오기" />
