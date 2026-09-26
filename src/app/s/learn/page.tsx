@@ -18,7 +18,9 @@ import { useTodayTip, type TodayTip } from '@/app/components/student/learn/useTo
 
 const pending = (s: JsonState) => s === 'loading' || s === 'idle'
 const linkBtn = { alignSelf: 'flex-start', minHeight: 44, display: 'flex', alignItems: 'center', padding: `0 ${SP.lg}px`, borderRadius: RAD.sm, background: TK.blue600, color: TK.slate100, fontSize: FS.body, fontWeight: 700, textDecoration: 'none' } as const
-const moreLink = { display: 'flex', alignItems: 'center', minHeight: 44, fontSize: FS.tiny, color: TK.sky400, textDecoration: 'none', whiteSpace: 'nowrap' } as const
+// 긴 종목 이름도 375px 에서 넘치지 않게 — 링크는 줄어들 수 있고(minWidth 0) 글자는 안쪽 span 에서 말줄임
+const moreLink = { display: 'flex', alignItems: 'center', minHeight: 44, minWidth: 0, maxWidth: '100%', fontSize: FS.tiny, color: TK.sky400, textDecoration: 'none' } as const
+const ellipsis = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const
 
 /** 'YYYY-MM-DD' → M/D (올해가 아니면 연도/M/D) — learnTips 와 같은 표기 */
 const md = (ymd: string, today: string) => `${ymd.slice(0, 4) === today.slice(0, 4) ? '' : `${ymd.slice(0, 4)}/`}${+ymd.slice(5, 7)}/${+ymd.slice(8, 10)}`
@@ -98,10 +100,11 @@ function TipCard({ t, today }: { t: TodayTip; today: string | null }) {
     body = (
       <>
         <TipTitle tip={tip} />
-        <p style={{ margin: 0, fontSize: FS.body, lineHeight: 1.6, color: TK.slate200, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{tip.body}</p>
+        {/* 본문이 빈 경우 = ETF·코인 등락처럼 뉴스를 찾아보지 않은 이야기 — 빈 줄을 그리지 않는다 */}
+        {tip.body && <p style={{ margin: 0, fontSize: FS.body, lineHeight: 1.6, color: TK.slate200, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{tip.body}</p>}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.sm, flexWrap: 'wrap', paddingTop: SP.xs, borderTop: `1px solid ${TK.border}` }}>
           <span style={{ fontSize: FS.micro, color: TK.sub, minWidth: 0, overflowWrap: 'anywhere' }}>{prefix}{tip.source}</span>
-          {href && <Link href={href} style={moreLink}>{name ?? tip.ticker} 자세히 ›</Link>}
+          {href && <Link href={href} style={moreLink}><span style={ellipsis}>{name ?? tip.ticker} 자세히 ›</span></Link>}
         </div>
       </>
     )
@@ -138,7 +141,7 @@ function BriefCard({ sectionRef, seen, calendar, movers, today }: {
         {failed.length > 0
           ? <button type="button" onClick={() => failed.forEach(s => s.reload())} aria-label="매매 브리핑에서 못 가져온 것 다시 불러오기" style={retryBtn}>못 가져온 것 다시</button>
           : <span />}
-        <Link href="/briefing" style={moreLink}>오늘의 매매 브리핑 전체 ›</Link>
+        <Link href="/briefing" style={moreLink}><span style={ellipsis}>오늘의 매매 브리핑 전체 ›</span></Link>
       </div>
     </section>
   )

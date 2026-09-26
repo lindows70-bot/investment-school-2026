@@ -27,7 +27,11 @@ export interface TipInputs {
   vsIndex: VsIndexRow[] | null
   events: { type: 'earnings' | 'exDiv' | 'payDiv'; date: string; ticker: string; name: string; market?: string }[] | null
   movers: {
-    ticker: string; name: string; market: string; changePct: number; headline: string | null
+    ticker: string; name: string; market: string; changePct: number
+    /** 최근 뉴스 제목 — undefined = 찾아보지 않음(ETF·코인은 뉴스를 모으지 않는다 → 뉴스 문장을 뺀다) · null·빈 문자열 = 찾았는데 없음 */
+    headline?: string | null
+    /** 뉴스를 찾아보려 했는데 원천을 못 가져왔다 — '없음'이 아니라 '못 가져옴'으로 말한다 */
+    newsFailed?: boolean
     /** 이 등락이 일어난 거래일(YYYY-MM-DD) — 모르면 null */
     tradeDate: string | null
     /** 내가 가진 종목인가 — false 는 버린다 */
@@ -168,12 +172,17 @@ function moverTip(inputs: TipInputs, day: number, fb: boolean, todayKst: string)
   const top = Math.max(...xs.map(m => Math.abs(m.changePct)))
   const m = rotatePick(xs.filter(x => Math.abs(x.changePct) === top), byTicker, day, fb)
   const headline = typeof m.headline === 'string' && m.headline.trim() ? m.headline.trim() : null
+  // 뉴스 문장 — 제목 있음 · 못 가져옴 · 찾았는데 없음 · 찾아보지 않음(빈 본문 — 화면이 줄을 숨긴다)
+  const body = headline ? `최근 뉴스 제목: "${headline}"`
+    : m.newsFailed === true ? '뉴스 제목을 못 가져왔어요.'
+    : m.headline === undefined ? ''
+    : '관련 뉴스 제목을 못 찾았어요.'
   const td = typeof m.tradeDate === 'string' && YMD.test(m.tradeDate) ? m.tradeDate : null
   // 등락이 일어난 날을 제목에 — 오늘이 아니면 그날 날짜, 모르면 '최근 거래일'
   const when = td == null ? '최근 거래일' : td === todayKst ? '오늘' : md(td, todayKst)
   return {
     kind: 'mover', title: `${m.name} ${when} ${pct(m.changePct)}`,
-    body: headline ? `최근 뉴스 제목: "${headline}"` : '관련 뉴스 제목을 못 찾았어요.',
+    body,
     source: '하루 등락 · 뉴스 제목(시각 미확인)', ticker: m.ticker, market: m.market, tone: toneOf(m.changePct),
     ...(td ? { asOf: td } : {}),
   }
