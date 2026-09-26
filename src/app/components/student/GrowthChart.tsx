@@ -59,7 +59,8 @@ export default function GrowthChart({ holdings, rows, usdKrw }: { holdings: MyHo
           ticker: h.ticker, market: h.market, currency: h.currency,
           purchase_price: h.purchase_price, quantity: h.quantity, purchase_date: h.purchase_date as string,
           // 이번 달 끝점을 위 '내 종목 평가금액'과 같은 현재가로 — 시세를 못 받은 종목은 라우트가 일봉 종가를 쓴다
-          currentPrice: r?.priced ? r.currentPrice : null,
+          //  지난 캐시 시세(stale)는 '지금 시세'가 아니므로 넘기지 않는다
+          currentPrice: r?.priced && !r.stale ? r.currentPrice : null,
         }
       }),
     })
