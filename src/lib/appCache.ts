@@ -16,6 +16,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
+import { PURGE_RULES, shouldPurge, cutoffIso } from '@/lib/cachePurge'
 
 function admin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -83,6 +84,40 @@ export async function holdingsFingerprint(userId: string): Promise<string> {
     for (let i = 0; i < sig.length; i++) h = (Math.imul(h, 31) + sig.charCodeAt(i)) | 0
     return (h >>> 0).toString(36)
   } catch { return 'na' }
+}
+
+/**
+ * 허용 목록(cachePurge.PURGE_RULES) 접두어의 오래된 행을 작은 묶음으로 지운다 — cron-health 가 하루 한 번 부른다.
+ * 후보를 먼저 읽어 shouldPurge 로 다시 거른 뒤 지우고, delete 에도 updated_at 조건을 한 번 더 건다
+ * (그 사이 다시 저장된 행은 안 지운다). 예산을 넘기면 멈추고, 실패는 세기만 하고 조용히 넘어간다.
+ */
+export async function purgeStaleCache(budgetMs: number, batch = 100): Promise<{ deleted: number; byPrefix: Record<string, number>; errors: number; done: boolean }> {
+  const out = { deleted: 0, byPrefix: {} as Record<string, number>, errors: 0, done: false }
+  const db = admin()
+  if (!db) return out
+  const started = Date.now()
+  for (const rule of PURGE_RULES) {
+    const cutoff = cutoffIso(rule, started)
+    for (;;) {
+      if (Date.now() - started > budgetMs) return out
+      try {
+        const { data, error } = await db.from('app_cache').select('key, updated_at')
+          .like('key', `${rule.prefix}:%`).lt('updated_at', cutoff).limit(batch)
+        if (error) { out.errors++; break }
+        const rows = data ?? []
+        const keys = rows.filter(r => shouldPurge(String(r.key), String(r.updated_at), started)).map(r => String(r.key))
+        if (!keys.length) break
+        const { data: del, error: e2 } = await db.from('app_cache').delete().in('key', keys).lt('updated_at', cutoff).select('key')
+        if (e2) { out.errors++; break }
+        const n = del?.length ?? 0
+        out.deleted += n
+        if (n) out.byPrefix[rule.prefix] = (out.byPrefix[rule.prefix] ?? 0) + n
+        if (n === 0 || rows.length < batch) break   // 진행이 0이면 멈춘다(같은 후보를 무한 반복하지 않게)
+      } catch { out.errors++; break }
+    }
+  }
+  out.done = true
+  return out
 }
 
 export async function bustUserCache(userId: string): Promise<number> {

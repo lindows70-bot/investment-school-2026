@@ -5,12 +5,16 @@
 //    브리핑 페이지가 이 API를 읽어 stale이 있으면 상단 빨간 줄 표시.
 import { NextResponse } from 'next/server'
 import { runHealthChecks, CRON_MONITORS, type HealthCheck } from '@/lib/cronHealth'
-import { setCache } from '@/lib/appCache'
+import { setCache, purgeStaleCache } from '@/lib/appCache'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
 const HEAL_BUDGET_MS = 240_000
+// 🧹 app_cache 정리 — 3번째 패스(15:40 KST)에서만, 복구가 끝난 뒤 남은 시간 안에서(허용 목록 접두어의 오래된 행만 · lib/cachePurge)
+//    2026-09-26: 지우는 장치가 없어 날짜 키가 쌓여 DB 무료 한도(500 MB)를 넘겼다. 새 크론을 늘리지 않고 여기 붙인다.
+const PURGE_BUDGET_MS = 20_000
+const PURGE_DEADLINE_MS = 280_000   // maxDuration 300s 안에서 끝낸다
 
 export async function GET(req: Request) {
   const started = Date.now()
@@ -60,6 +64,14 @@ export async function GET(req: Request) {
     }
   }
 
+  // 정리는 헬스 판정과 무관 — 실패해도 조용히(결과만 남긴다)
+  let purge: Awaited<ReturnType<typeof purgeStaleCache>> | null = null
+  const pass = new URL(req.url).searchParams.get('pass')
+  if (isCron && pass === '3') {
+    const remain = PURGE_DEADLINE_MS - (Date.now() - started)
+    if (remain > 5_000) purge = await purgeStaleCache(Math.min(PURGE_BUDGET_MS, remain)).catch(() => null)
+  }
+
   const withHealed: HealthCheck[] = checks.map(c => healed.includes(c.id) ? { ...c, healed: true } : c)
   const staleCount = withHealed.filter(c => c.status === 'stale').length
   const result = {
@@ -68,6 +80,7 @@ export async function GET(req: Request) {
     healed,
     healFailed,
     checks: withHealed,
+    purge,
   }
 
   // 최신 보고 저장(운영 추적용 — 브리핑은 라이브 판정을 씀)
