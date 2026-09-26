@@ -56,7 +56,8 @@ export function useMyPortfolio(): MyPortfolio {
       ])
       if (error) { fail('db'); return }
       const hs = dedupeHoldings((data ?? []) as HoldingInput[])
-      const fx: number | null = typeof fxRes?.rate === 'number' && fxRes.rate > 500 ? fxRes.rate : null
+      // 환율 라우트는 모든 원천이 죽으면 고정 상수(source 'stale-constant')를 준다 — 지금 환율이 아니므로 못 받은 것으로 본다
+      const fx: number | null = typeof fxRes?.rate === 'number' && fxRes.rate > 500 && fxRes.source !== 'stale-constant' ? fxRes.rate : null
 
       let priceMap: Record<string, PriceInput> = {}
       let pricesOk = true
