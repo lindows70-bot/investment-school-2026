@@ -2,6 +2,7 @@
 //   ⚠️ 기간은 인덱스로 세지 않는다(CLAUDE.md — CPI 13개월 차분 사고). 봉 배열에 휴장·결측이 있어도 '산 날'을 날짜로 찾는다.
 import type { TradeRow, HoldingForLots } from '@/lib/lotsFromTrades'
 import { flagOf } from '@/lib/marketFlag'
+import { getAssetType } from '@/lib/assetClassifier'
 
 /** 날짜 + 종가만 있으면 된다(techChartData.TechCandle 이 그대로 들어온다) */
 export interface DatedClose { date: string; close: number }
@@ -50,6 +51,8 @@ export function closeOnOrBefore(candles: DatedClose[], date: string, maxGapDays 
  * 한 번만 사고 판 적 없는 종목 — 거래 기록이 매수 1건뿐이고, 그 수량이 지금 보유와 같고, 가격이 평단과 1% 안인 것.
  * 나눠 산 종목은 '산 날'이 하나가 아니라 지수와의 비교가 틀리므로 뺀다(보유의 purchase_date 는 첫 매수일일 뿐이다).
  * 같은 티커 보유가 여러 줄이거나 자동 동기화 행이 섞였으면 기록을 못 믿으므로 뺀다.
+ * 개별 주식(getAssetType === 'STOCK')만 — ETF 는 상장 시장과 담은 자산의 나라가 달라(TIGER 미국S&P500 = 한국 상장·미국 기업)
+ * 국기로 고른 지수와 비교하면 오해를 부른다. 원자재·코인은 비교할 주가지수가 없다.
  */
 export function singleBuyHoldings(trades: TradeRow[], holdings: HoldingForLots[]): SingleBuy[] {
   const byTicker = new Map<string, TradeRow[]>()
@@ -66,6 +69,7 @@ export function singleBuyHoldings(trades: TradeRow[], holdings: HoldingForLots[]
   for (const h of holdings) {
     const k = keyOf(h.ticker)
     if (holdCount.get(k) !== 1) continue
+    if (getAssetType(h.ticker, h.name ?? '', h.market) !== 'STOCK') continue
     const trs = byTicker.get(k) ?? []
     if (trs.length !== 1) continue                       // 기록 없음 · 나눠 삼 · 판 적 있음
     const t = trs[0]
@@ -89,8 +93,8 @@ export function returnSince(buyPrice: number, currentPrice: number | null | unde
 
 /**
  * 비교할 지수 — 국기 SSOT(flagOf: 티커 접미사 → 6자리 숫자 → market) 가 🇰🇷 이면 코스피, 코인은 없음(null), 나머지는 미국 S&P 500.
- * ⚠️ 한계: 한국에 상장된 해외 ETF(TIGER 미국S&P500 등)도 🇰🇷 라 코스피와 비교된다 — 담은 자산 국적은 ETF 투시경 데이터가 있어야 안다.
- *    유럽·일본 종목도 S&P 500 과 비교된다(앱에 그 나라 지수 캔들 경로를 따로 두지 않았다).
+ * ETF 는 singleBuyHoldings 가 미리 뺀다(한국 상장 해외 ETF 가 🇰🇷 → 코스피로 비교되는 오해 방지).
+ * ⚠️ 한계: 유럽·일본 종목도 S&P 500 과 비교된다(앱에 그 나라 지수 캔들 경로를 따로 두지 않았다).
  */
 export function indexFor(ticker: string, market: string): IndexChoice | null {
   if ((market ?? '').toUpperCase() === 'CRYPTO') return null

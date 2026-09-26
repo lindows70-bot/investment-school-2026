@@ -199,6 +199,29 @@ const only = (k, arr) => ({ per: null, vsIndex: null, events: null, movers: null
     !sb.some(s => ['DCA', 'SOLD', 'QTY', 'SYN', 'PRC', 'NOREC', 'DUP'].includes(s.ticker)))
 }
 
+// ── 8-b. 지수 비교는 개별 주식만 (상장 시장 ≠ 자산의 국적) ───────────────
+{
+  const tr = (ticker, name, market) => ({ ticker, name, market, currency: market === 'KR' ? 'KRW' : 'USD', type: 'buy', price: 100, quantity: 1, transaction_date: '2026-03-02', created_at: '2026-03-02T00:00:00Z', memo: null })
+  const hold = (ticker, name, market) => ({ ticker, name, market, currency: market === 'KR' ? 'KRW' : 'USD', quantity: 1, purchase_price: 100, purchase_date: '2026-03-02' })
+  const rows = [
+    ['360750', 'TIGER 미국S&P500', 'KR'],     // 한국 상장 · 미국 기업 ETF
+    ['005930', '삼성전자', 'KR'],
+    ['AAPL', '애플', 'US'],
+    ['HEIA.AS', '하이네켄', 'US'],             // 해외 접미사 주식
+    ['KRW-BTC', '비트코인', 'CRYPTO'],
+    ['SPY', 'SPDR S&P 500 ETF', 'US'],
+  ]
+  const sb = D.singleBuyHoldings(rows.map(r => tr(...r)), rows.map(r => hold(...r)))
+  const got = sb.map(s => s.ticker)
+  check(`한국 상장 미국 ETF(TIGER 미국S&P500) 제외 (${got.join(',')})`, !got.includes('360750'))
+  check('미국 ETF(SPY)·코인도 제외', !got.includes('SPY') && !got.includes('KRW-BTC'))
+  check('개별 주식 3종(한국·미국·해외 접미사)은 남는다', ['005930', 'AAPL', 'HEIA.AS'].every(t => got.includes(t)) && got.length === 3)
+  const idxOf = t => D.indexFor(t, sb.find(s => s.ticker === t).market)?.name
+  check('한국 주식 → 코스피', idxOf('005930') === '코스피')
+  check('미국 주식 → 미국 S&P 500', idxOf('AAPL') === '미국 S&P 500')
+  check('해외 접미사 주식(HEIA.AS) → 미국 S&P 500 (문서화된 한계)', idxOf('HEIA.AS') === '미국 S&P 500')
+}
+
 // ── 9. 수익률 · 지수 고르기 · vsIndex 한 줄 ──────────────────────────────
 {
   check('returnSince 10%', Math.abs(D.returnSince(100, 110) - 10) < 1e-9)
