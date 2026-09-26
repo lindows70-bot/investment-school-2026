@@ -11,7 +11,7 @@ export const revalidate = 0
 export const maxDuration = 120
 
 import { NextResponse } from 'next/server'
-import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
+import { fetchUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT — 예전엔 야후 KRW=X 를 직접 받아 다른 화면과 환율이 갈렸다(제2원칙)
 import { getCache, setCache } from '@/lib/appCache'
 import { getDividendProfile, DIV_PROFILE_KEY, type DividendProfile } from '@/lib/dividendProfile'
 import { DIVIDEND_UNIVERSE } from '@/lib/dividendUniverse'
@@ -20,28 +20,20 @@ export interface DividendPortfolioData {
   status: 'ok' | 'error'
   stocks: DividendProfile[]
   usdKrw: number
+  /** 이번 환율이 실제 환율인가(fx.ts readUsdKrw). 저장본은 live 일 때만 쓰이므로 true — 이 필드가 없는 옛 저장본(야후 환율)은 읽지 않는다 */
+  fxLive?: boolean
   asOf: string
 }
 
-async function fetchUsdKrw(): Promise<{ rate: number; live: boolean }> {
-  try {
-    const { default: YahooFinance } = await import('yahoo-finance2')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const yf = new (YahooFinance as any)({ suppressNotices: ['yahooSurvey'] })
-    const q = await yf.quote('KRW=X')
-    const r = q?.regularMarketPrice
-    if (typeof r === 'number' && r > 500 && r < 3000) return { rate: Math.round(r * 100) / 100, live: true }
-  } catch { /* 폴백 */ }
-  return { rate: USD_KRW_FALLBACK, live: false }   // 폴백이면 아래에서 캐시하지 않는다
-}
-
-export async function GET() {
+export async function GET(req: Request) {
   const cacheKey = 'dividend-portfolio-v2'   // 🗓️ 날짜 없는 키 + 오늘(KST)만(옛 키는 UTC 날짜였다) — 날짜 키는 영구 누적 · v2: 프로필에 preferred 필드 추가(DIV_PROFILE_KEY v8→v9와 함께 범프)
   const cached = await getCache<DividendPortfolioData>(cacheKey, 12 * 3600_000, { sameKstDay: true })
-  if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
+  // fxLive 가 없는 저장본 = 야후 환율로 만든 옛 문서 → 읽지 않고 같은 키에 새로 쓴다(키 범프와 같은 효과 · 정리 규칙 UNDATED('dividend-portfolio-v2') 유지)
+  if (cached?.fxLive === true) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
-  const [{ rate: usdKrw, live: fxLive }, stocks] = await Promise.all([
-    fetchUsdKrw(),
+  const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
+  const [fx, stocks] = await Promise.all([
+    fetchUsdKrw(base),
     // 동시성 6으로 유니버스 배치 — per-ticker 캐시(익스플로러와 공유) 우선
     (async () => {
       const out: DividendProfile[] = []
@@ -63,7 +55,8 @@ export async function GET() {
   ])
 
   const okCount = stocks.filter(s => s.dividendYield != null).length
-  const result: DividendPortfolioData = { status: okCount >= 10 ? 'ok' : 'error', stocks, usdKrw, asOf: new Date().toISOString() }
-  if (okCount >= 10 && fxLive) await setCache(cacheKey, result)   // 절반 이상 성공 + 실제 환율일 때만 캐시(부분 실패 박제 방지)
+  const usdKrw = Math.round(fx.rate * 100) / 100   // 표기 자릿수는 예전과 같게(소수 둘째 자리) — 이 값은 표기 전용
+  const result: DividendPortfolioData = { status: okCount >= 10 ? 'ok' : 'error', stocks, usdKrw, fxLive: fx.live, asOf: new Date().toISOString() }
+  if (okCount >= 10 && fx.live) await setCache(cacheKey, result)   // 절반 이상 성공 + 실제 환율일 때만 캐시(부분 실패 박제 방지)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }
