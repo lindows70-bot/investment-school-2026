@@ -1,6 +1,6 @@
 // app_cache 정리 검증 — 허용 목록 밖 키는 절대 안 지우고, 보존 기간(날짜) 판정이 정확한지
 import { execSync } from 'node:child_process'
-import { existsSync, writeFileSync, rmSync } from 'node:fs'
+import { existsSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
 import Module from 'node:module'
 
 const ROOT = 'C:/Users/lindo/investment-school-portfolio'
@@ -107,15 +107,65 @@ check('KST 23:59:59 와 다음날 00:00 은 다른 날', !A.sameKstDay(t('2026-0
 check('KST 00:00 과 23:59:59 는 같은 날', A.sameKstDay(t('2026-09-25T15:00:00Z'), t('2026-09-26T14:59:59Z')))
 check('UTC 날짜가 달라도 KST 같은 날이면 같다(08:59 KST vs 09:00 KST)', A.sameKstDay(t('2026-09-25T23:59:00Z'), t('2026-09-26T00:00:00Z')))
 
-// ── ⑥ 허용 목록 접두어가 실제 코드에 있다(버전을 올리고 목록을 안 고치면 여기서 걸린다) ──
-const missing = []
-for (const r of P.PURGE_RULES) {
-  if (r.prefix.includes('+') || r.prefix.startsWith('unified-reco-v')) continue   // 버전 상수 결합 — 코드엔 템플릿으로 있다
-  let hit = ''
-  try { hit = execSync(`git grep -l -F "${r.prefix}" -- src ":!src/lib/cachePurge.ts"`, { cwd: ROOT, stdio: 'pipe' }).toString().trim() } catch { hit = '' }
-  if (!hit) missing.push(r.prefix)
+// ── ⑥ 정리 묶음 — 규칙 순서 돌리기·규칙당 묶음 상한·URL 크기 ──
+const n = P.PURGE_RULES.length
+const o1 = P.purgeOrder(n, Date.parse('2026-09-26T06:40:00Z')), o2 = P.purgeOrder(n, Date.parse('2026-09-27T06:40:00Z'))
+check('규칙 순서: 하루에 모든 규칙을 한 번씩(빠짐·중복 없음)', o1.length === n && new Set(o1).size === n && o1.every(i => i >= 0 && i < n))
+check('규칙 순서: 다음 날 시작 규칙이 한 칸 돈다', o2[0] === (o1[0] + 1) % n)
+check('규칙 순서: KST 날짜 기준(같은 KST 날 00:10 과 23:50 은 같은 시작)', P.purgeOrder(n, Date.parse('2026-09-25T15:10:00Z'))[0] === P.purgeOrder(n, Date.parse('2026-09-26T14:50:00Z'))[0])
+check('규칙 순서: n 일 안에 모든 규칙이 한 번씩 맨 앞에 온다(맨 끝 rtms-rent-v2 도)',
+  new Set(Array.from({ length: n }, (_, d) => P.purgeOrder(n, Date.parse('2026-01-01T03:00:00Z') + d * DAY)[0])).size === n)
+check('규칙 순서: 규칙 0개면 빈 배열', P.purgeOrder(0, NOW).length === 0)
+check('규칙당 묶음 상한 1~10(앞 규칙이 예산을 독식하지 않게)', P.MAX_BATCHES_PER_RULE >= 1 && P.MAX_BATCHES_PER_RULE <= 10)
+const enc = ks => ks.reduce((s, k) => s + encodeURIComponent(`"${k}"`).length + 3, 0)
+const longKeys = Array.from({ length: 100 }, (_, i) => `portfolio-xray-v5:04d455c3-d95e-4376-b038-616c53ac585d:2026-09-${String(i % 30).padStart(2, '0')}:8dby4o${i}`)
+const lc = P.chunkKeys(longKeys)
+check('in(keys) 묶음: 긴 키 100개는 8 KB 넘지 않게 잘린다', lc.length > 1 && lc.every(c => enc(c) <= 8192))
+check('in(keys) 묶음: 잘라도 키를 잃거나 겹치지 않는다', lc.flat().length === 100 && new Set(lc.flat()).size === 100 && lc.flat().every((k, i) => k === longKeys[i]))
+const sc = P.chunkKeys(Array.from({ length: 250 }, (_, i) => `k-v1:${i}`))
+check('in(keys) 묶음: 짧은 키는 개수 100 으로 자른다', sc.length === 3 && sc[0].length === 100 && sc[2].length === 50)
+const huge = 'x-v1:' + 'a'.repeat(9000)
+check('in(keys) 묶음: 혼자 상한을 넘는 키도 버리지 않는다', P.chunkKeys(['a-v1:1', huge, 'a-v1:2']).flat().length === 3)
+check('in(keys) 묶음: 빈 입력 → 빈 결과', P.chunkKeys([]).length === 0)
+
+// ── ⑦ 코드와의 대조 — '키로 쓰이는' 경계 일치만 센다(부분 문자열이면 sector-v3 가 season-sector-v3 로 통과한다) ──
+const R = require(`${OUT}/lib/recoCacheVersion.js`)
+const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+// 따옴표로 시작해 접두어 뒤에 키 구분자(: |)·따옴표·결합(+)·like(%)·템플릿(${)가 오는 경우만 '키로 쓰임'
+const keyUse = form => new RegExp(`['"\`]${esc(form)}(?=[:|'"\`+%]|\\$\\{)`)
+const exactKey = key => new RegExp(`['"\`]${esc(key)}['"\`]`)
+const formsOf = prefix => {
+  const f = [prefix]
+  if (prefix.endsWith(R.UNIFIED_RECO_V)) f.push(`${prefix.slice(0, -R.UNIFIED_RECO_V.length)}\${UNIFIED_RECO_V}`)   // 버전 상수 결합 키
+  return f
 }
-check(`허용 목록 접두어가 전부 코드에 있다${missing.length ? ' — 없음: ' + missing.join(', ') : ''}`, missing.length === 0)
+check('경계 일치: sector-v3 는 season-sector-v3 에 안 걸린다', !keyUse('sector-v3').test("'season-sector-v3'") && keyUse('sector-v3').test('`sector-v3:${key}`'))
+check('경계 일치: 옛 v1 은 v17 에 안 걸린다', !keyUse('jarvis-metrics-v1').test('`jarvis-metrics-v17:${tk}`'))
+check('경계 일치: 경로 문자열(/api/news-catalyst)은 키가 아니다', !keyUse('news-catalyst').test("fetch('/api/news-catalyst')"))
+check("경계 일치: '+' 결합 키 — 앞 버전을 올리면 옛 규칙이 코드에서 사라진 것으로 잡힌다",
+  formsOf(`ai-rebalance-v52+${R.UNIFIED_RECO_V}`).some(f => keyUse(f).test('`ai-rebalance-v52+${UNIFIED_RECO_V}:${user.id}`')) &&
+  !formsOf(`ai-rebalance-v52+${R.UNIFIED_RECO_V}`).some(f => keyUse(f).test('`ai-rebalance-v53+${UNIFIED_RECO_V}:${user.id}`')))
+
+const SELF = ['src/lib/cachePurge.ts', 'scripts/verify-cache-purge.mjs', 'supabase/app-cache-purge.sql']
+const files = execSync('git ls-files src scripts supabase', { cwd: ROOT, stdio: 'pipe' }).toString().trim().split('\n')
+  .filter(f => /\.(ts|tsx|js|mjs|cjs|py|sql)$/.test(f) && !SELF.includes(f))
+const corpus = files.map(f => ({ f, s: readFileSync(`${ROOT}/${f}`, 'utf8') }))
+const usedIn = re => corpus.filter(c => re.test(c.s)).map(c => c.f)
+
+const missing = P.PURGE_RULES.filter(r => !formsOf(r.prefix).some(f => usedIn(keyUse(f)).length)).map(r => r.prefix)
+check(`허용 목록 접두어가 전부 코드에서 키로 쓰인다('+' 결합 키 포함)${missing.length ? ' — 없음: ' + missing.join(', ') : ''}`, missing.length === 0)
+
+// SQL 파일 A 섹션(옛 버전 삭제) — 거기 적힌 접두어·키를 코드가 하나도 안 읽어야 한다
+const sql = readFileSync(`${ROOT}/supabase/app-cache-purge.sql`, 'utf8')
+const aStart = sql.indexOf('-- A. 옛 버전'), aEnd = sql.indexOf('-- B. 보존 기간 초과')
+check('SQL 파일에서 A·B 섹션을 찾았다', aStart > 0 && aEnd > aStart)
+// 주석 줄은 뺀다(제외 사유 설명에 btc-etf-v% 같은 문자열이 있다) — SQL 문장 속 토큰만
+const aSql = sql.slice(aStart, aEnd).split(/\r?\n/).filter(l => !l.trim().startsWith('--')).join('\n')
+const aTokens = Array.from(new Set(Array.from(aSql.matchAll(/'([^']+)'/g)).map(m => m[1]).filter(t => t !== ':' && t !== '|')))
+check(`SQL A 섹션 토큰을 읽었다(${aTokens.length}개)`, aTokens.length > 300)
+const aHits = aTokens.flatMap(t => usedIn(t.includes(':') ? exactKey(t) : keyUse(t)).map(f => `${t}@${f}`))
+check(`SQL A 섹션의 접두어·키가 코드에서 0건${aHits.length ? ' — 걸림: ' + aHits.slice(0, 8).join(', ') : ''}`, aHits.length === 0)
+check('SQL A 섹션에 허용 목록(현재) 접두어가 없다', !aTokens.some(t => P.PURGE_RULES.some(r => r.prefix === t)))
 
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (캐시 정리)')
 process.exit(fail ? 1 : 0)

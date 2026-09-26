@@ -43,6 +43,9 @@ const INVARIANTS = [
   // 2026-09-22 신설 — 거래가 멈춘 종목(GREE)의 마지막 완성 봉이 두 달 전이라 그 날짜로 적립됐다.
   //   성적 적립의 1원칙(⛔ 소급 금지)이 조용히 깨지는 유일한 경로라 기계로 감시한다.
   { file: 'scripts/verify-usm-no-backdate.mjs', label: '미국 스마트머니 소급 적립 없음' },
+  // 2026-09-26 신설 — app_cache 에 지우는 장치가 없어 DB 무료 한도를 넘겼다. 정리 허용 목록이 키 버전업을
+  //   따라가지 못하면 조용히 아무것도 안 지우거나(누적 재발), 옛 버전 접두어를 코드가 다시 읽게 된다.
+  { file: 'scripts/verify-cache-purge.mjs', label: 'app_cache 정리 허용 목록 = 코드의 현재 키' },
 ]
 
 /**

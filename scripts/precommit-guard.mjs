@@ -109,7 +109,8 @@ if (newViolations.length) {
 // ── ③ 캐시 키 버전업 시 옛 키를 참조하는 reader 잔존 → 차단 ────────────────
 //    writer만 올리면 reader가 옛 키를 읽어 조용히 죽는다(실제 발생). 이건 경고로는 부족하다.
 const newKeys = new Set()
-for (const l of added) for (const m of l.matchAll(/['"`]([a-z][a-z0-9-]*?)-v(\d+)[:'"`]/g)) newKeys.add(`${m[1]}|${m[2]}`)
+//    `+` 도 본다 — `ai-rebalance-v52+${UNIFIED_RECO_V}` 같은 결합 키의 앞 버전을 올릴 때(정리 허용 목록 잔존까지 잡힌다)
+for (const l of added) for (const m of l.matchAll(/['"`]([a-z][a-z0-9-]*?)-v(\d+)[:'"`+]/g)) newKeys.add(`${m[1]}|${m[2]}`)
 const stale = []
 for (const k of newKeys) {
   const [name, ver] = k.split('|')
