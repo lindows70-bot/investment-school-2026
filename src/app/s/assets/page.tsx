@@ -64,7 +64,8 @@ export default function StudentAssets() {
         </div>
       )}
       <section style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
-        <span style={{ fontSize: FS.body, color: TK.sub }}>총자산</span>
+        {/* 선생님 자산 화면의 '총자산'은 예수금까지 더한 값이다 — 같은 말로 다른 숫자를 보이지 않게 보유 종목만이라고 쓴다 */}
+        <span style={{ fontSize: FS.body, color: TK.sub }}>내 종목 평가금액</span>
         <span style={{ fontSize: FS.h1, fontWeight: 800, color: TK.slate100 }}>{won(summary.totalEvalKrw)}</span>
         <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: SP.sm }}>
           {noToday
