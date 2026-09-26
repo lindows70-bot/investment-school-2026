@@ -134,7 +134,8 @@ export default function GrowthChart({ holdings, rows, usdKrw }: { holdings: MyHo
     // 라우트 상한(로트 400)을 넘는다 — 보내면 400 으로 '못 가져왔어요'가 되고 다시 눌러도 안 낫는다
     content = <span style={noteStyle()}>거래가 많아 한 번에 못 그려요.</span>
   } else if (plan != null && plan.body.lots.length === 0) {
-    content = <span style={noteStyle()}>거래 기록도 매수일도 없어 그릴 수 없어요.</span>
+    // 기록이 있는데 못 그린 것과 아예 없는 것은 다른 사실이다 — 못 그린 이유는 아래 안내 줄이 말한다
+    content = <span style={noteStyle()}>{tx.trades.length > 0 ? '거래 기록은 있지만 그릴 수 있는 종목이 없어요.' : '거래 기록도 매수일도 없어 그릴 수 없어요.'}</span>
   } else if (plan == null || res.state === 'idle' || res.state === 'loading') {
     content = <span style={noteStyle()}>월말 시세를 모으는 중이에요… (조금 걸려요)</span>
   } else if (res.state === 'failed' || !Array.isArray(res.data?.points)) {
@@ -206,7 +207,7 @@ export default function GrowthChart({ holdings, rows, usdKrw }: { holdings: MyHo
       {head}
       {sub}
       {content}
-      {plan != null && plan.body.lots.length > 0 && (
+      {plan != null && (
         <>
           {fbDrawn.length > 0 && <span style={noteStyle(TK.amber400)}>거래 기록이 없거나 보유 수량과 안 맞는 {fbDrawn.length}종목({names(fbDrawn)})은 지금 수량을 처음 산 달부터 가졌다고 보고 그렸어요.</span>}
           {fbSynth.length > 0 && <span style={noteStyle(TK.amber400)}>자동으로 맞춘 기록이 섞인 {fbSynth.length}종목({names(fbSynth)})은 지금 수량을 처음 산 달부터 가졌다고 보고 그렸어요.</span>}
