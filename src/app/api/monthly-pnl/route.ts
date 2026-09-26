@@ -13,9 +13,10 @@ export async function POST(req: Request) {
   let body: { lots?: unknown }
   try { body = await req.json() } catch { return NextResponse.json({ error: 'invalid json' }, { status: 400 }) }
 
+  // 상한 400 — 학생 차트는 거래 기록으로 로트를 만들고, 부분 매도마다 로트가 '판 몫/남은 몫'으로 나뉘어 개수가 늘어난다(lotsFromTrades)
   const raw = Array.isArray(body?.lots) ? body.lots : null
-  if (!raw || raw.length === 0 || raw.length > 200) {
-    return NextResponse.json({ error: 'lots must be 1~200 items' }, { status: 400 })
+  if (!raw || raw.length === 0 || raw.length > 400) {
+    return NextResponse.json({ error: 'lots must be 1~400 items' }, { status: 400 })
   }
   const lots: PnlLot[] = []
   for (const r of raw as Record<string, unknown>[]) {
@@ -25,12 +26,19 @@ export async function POST(req: Request) {
     const purchase_date = typeof r.purchase_date === 'string' ? r.purchase_date.slice(0, 10) : ''
     if (!ticker || !/^\d{4}-\d{2}-\d{2}/.test(purchase_date)) continue
     if (!isFinite(purchase_price) || purchase_price <= 0 || !isFinite(quantity) || quantity <= 0) continue
+    // 판 날(선택) — 'YYYY-MM-DD' 이고 산 날 이후여야 한다. 모양이 틀리면 로트를 버린다(조용히 '안 판 것'으로 바꾸면 판 종목이 지금까지 남는다)
+    let sold_date: string | null = null
+    if (r.sold_date != null) {
+      const sd = typeof r.sold_date === 'string' ? r.sold_date.slice(0, 10) : ''
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(sd) || sd < purchase_date.slice(0, 10)) continue
+      sold_date = sd
+    }
     const cp = Number(r.currentPrice)
     lots.push({
       ticker,
       market: typeof r.market === 'string' ? r.market : 'US',
       currency: r.currency === 'USD' ? 'USD' : 'KRW',
-      purchase_price, quantity, purchase_date,
+      purchase_price, quantity, purchase_date, sold_date,
       currentPrice: isFinite(cp) && cp > 0 ? cp : null,
     })
   }

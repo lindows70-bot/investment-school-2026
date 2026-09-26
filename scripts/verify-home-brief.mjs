@@ -68,6 +68,7 @@ const base = {
   events: [],
   movers: { held: [], checked: 20, failed: 0 },
   fomcDates: FOMC,
+  macro: [],   // 기존 검사는 지표 발표 없이(빈 목록 = 30일 안 없음) — 지표 검사는 아래에서 따로
 }
 const run = (patch, today = TODAY) => M.buildHomeBrief({ ...base, ...patch }, today)
 
@@ -158,6 +159,26 @@ const bEvNull = run({ events: null })
 check("일정: events null → '실적 일정 못 가져옴'", part(bEvNull.upcoming, '실적 일정 못 가져옴')?.tone === 'muted' && !T(bEvNull.upcoming).includes('없어요'))
 check('일정: 둘 다 null → 둘 다 못 가져옴', T(run({ events: null, fomcDates: null }).upcoming) === '다가오는 일정: FOMC 일정 못 가져옴 · 실적 일정 못 가져옴')
 
+// ── 3줄 — 미국 지표 발표(FRED 공식 일정 → 한국 날짜·시각). 2026-09-26 실측 일정 모양
+const MACRO = [
+  { kind: 'PCE', label: '미국 PCE 물가', kstDate: '2026-09-30', kstTime: '21:30' },
+  { kind: 'JOBS', label: '미국 고용보고서', kstDate: '2026-10-02', kstTime: '21:30' },
+  { kind: 'CPI', label: '미국 CPI(소비자물가)', kstDate: '2026-10-14', kstTime: '21:30' },
+  { kind: 'PCE', label: '미국 PCE 물가', kstDate: '2026-10-29', kstTime: '21:30' },
+]
+check('지표: 가장 가까운 1건(9/30 PCE)만', has(run({ macro: MACRO }).upcoming, '9/30 밤 미국 PCE 물가 발표') && !T(run({ macro: MACRO }).upcoming).includes('고용보고서'))
+check('지표: 정렬 안 된 입력에서도 가장 가까운 것', has(run({ macro: [MACRO[2], MACRO[1]] }).upcoming, '10/2 밤 미국 고용보고서 발표'))
+check("지표: 오늘 발표 → '오늘 밤 …'", has(run({ macro: [{ ...MACRO[2], kstDate: TODAY }] }).upcoming, '오늘 밤 미국 CPI(소비자물가) 발표'))
+check('지표: 어제 것은 지나서 제외 → 다음 것', has(run({ macro: [{ ...MACRO[0], kstDate: '2026-09-25' }, MACRO[1]] }).upcoming, '10/2 밤 미국 고용보고서 발표'))
+check('지표: 30일째(10/26)는 포함', has(run({ macro: [{ ...MACRO[3], kstDate: '2026-10-26' }] }).upcoming, '10/26 밤 미국 PCE 물가 발표'))
+check('지표: 31일 뒤(10/27~)만 있음 → 안 나옴(FOMC 만)', T(run({ macro: [MACRO[3]] }).upcoming) === '다가오는 일정: 10/29 새벽 FOMC 금리 발표')
+const bMacNull = run({ macro: null })
+check("지표: null → '지표 발표일 못 가져옴'(muted)", part(bMacNull.upcoming, '지표 발표일 못 가져옴')?.tone === 'muted' && T(bMacNull.upcoming) === '다가오는 일정: 10/29 새벽 FOMC 금리 발표 · 지표 발표일 못 가져옴')
+check('지표: 실적·FOMC 와 날짜순 섞임(9/29 실적 → 9/30 지표 → 10/29 FOMC)', T(run({ events: ev, macro: MACRO }).upcoming) === '다가오는 일정: 9/29 마이크론 실적 · 9/30 밤 미국 PCE 물가 발표 · 10/29 새벽 FOMC 금리 발표')
+check('지표: FOMC(9/28) 가 지표(9/30)보다 먼저', T(run({ fomcDates: ['2026-09-27'], macro: MACRO }).upcoming) === '다가오는 일정: 9/28 새벽 FOMC 금리 발표 · 9/30 밤 미국 PCE 물가 발표')
+check('지표: 못 가져옴 3종은 날짜 뒤에, FOMC·실적·지표 순', T(run({ fomcDates: null, events: null, macro: null }).upcoming) === '다가오는 일정: FOMC 일정 못 가져옴 · 실적 일정 못 가져옴 · 지표 발표일 못 가져옴')
+check('지표: 날짜 형식 틀린 값은 버린다', T(run({ macro: [{ ...MACRO[0], kstDate: '2026/09/30' }] }).upcoming) === '다가오는 일정: 10/29 새벽 FOMC 금리 발표')
+
 // ── 공용 도우미(주요 일정 카드도 같은 함수를 쓴다)
 check('addDays: 월말·연말 넘김', M.addDays('2026-09-30', 1) === '2026-10-01' && M.addDays('2026-12-31', 1) === '2027-01-01' && M.addDays('2026-10-01', -1) === '2026-09-30')
 check('fomcKstDates: 미국 날짜 +1, 오늘 이후만, 정렬', JSON.stringify(M.fomcKstDates(['2026-12-09', '2026-09-16', '2026-10-28', '2026-09-25'], TODAY)) === JSON.stringify(['2026-09-26', '2026-10-29', '2026-12-10']))
@@ -172,6 +193,7 @@ const sample = M.buildHomeBrief({
   events: [ev[0], ev[2], ev[3]],
   movers: { held: [{ name: 'TIGER 코리아원자력', changePct: -5.8 }, { name: '삼성전자', changePct: 1.2 }], checked: 21, failed: 1 },
   fomcDates: FOMC,
+  macro: MACRO,
 }, TODAY)
 console.log(`\n  ${T(sample.market)}\n  ${T(sample.mine)}\n  ${T(sample.upcoming)}`)
 
