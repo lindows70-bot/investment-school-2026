@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { TK, FS, FONT_STACK } from '@/lib/theme'
 import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(상수 분열 방지)
+import { acceptFx } from '@/lib/fxAccept'
 import { GROUPS } from './Sidebar'            // 🏷️ 페이지 제목 = 사이드바 라벨(이름은 한 곳에서만 정의)
 
 // 경로 → 제목. 사이드바 메뉴 라벨에서 파생한다 — 예전엔 표를 따로 들고 있어 5개만 등록돼 있었고
@@ -64,11 +65,13 @@ export default function TopHeader() {
       try {
         const res = await fetch('/api/exchange-rate')
         if (res.ok) {
-          const { rate } = await res.json() as { rate: number }
+          const j = await res.json() as { rate: number }
+          const { rate } = j
           if (typeof rate === 'number' && rate > 0) {
             const rounded = Math.round(rate)
             setUsdKrw(rounded)
-            localStorage.setItem(CACHE_KEY, JSON.stringify({ rate: rounded, savedAt: new Date().toISOString() }))
+            // 고정 상수(stale-constant)는 1시간 공유 캐시에 넣지 않는다 — 대시보드가 같은 키를 읽는다
+            if (acceptFx(j) != null) localStorage.setItem(CACHE_KEY, JSON.stringify({ rate: rounded, savedAt: new Date().toISOString() }))
             return
           }
         }

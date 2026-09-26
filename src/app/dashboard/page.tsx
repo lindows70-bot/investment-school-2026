@@ -77,6 +77,7 @@ const LynchGhostStockPanel = dynamic(() => import('@/app/components/LynchGhostSt
 import { getAssetType }          from '@/lib/assetClassifier'
 import { Verdict } from '@/app/components/ui/Screen'   // 🎯 화면의 답(페이지당 하나) — 공용 프리미티브
 import { TK, FS, SP, FONT_STACK } from '@/lib/theme'
+import { acceptFx } from '@/lib/fxAccept'   // 환율 채택 SSOT — 고정 상수는 localStorage 에 안 넣는다
 // 총수익률 공식 SSOT — 스쿨 리그(api/school-league)와 **같은 함수**를 부른다(제2원칙)
 import { totalReturnPct } from '@/lib/realizedPnl'
 import { isPriced } from '@/lib/portfolioSummary'   // 시세 판정 SSOT — 자산 화면·학생 화면과 같은 규칙
@@ -877,12 +878,14 @@ export default function DashboardPage() {
       try {
         const res = await fetch('/api/exchange-rate')
         if (res.ok) {
-          const { rate } = await res.json() as { rate: number }
+          const j = await res.json() as { rate: number }
+          const { rate } = j
           if (typeof rate === 'number' && rate > 0) {
             const rounded = Math.round(rate)
             setUsdKrw(rounded)
             setRateSource('실시간 환율 (1시간 갱신)')
-            localStorage.setItem(CACHE_KEY, JSON.stringify({ rate: rounded, savedAt: new Date().toISOString() }))
+            // 고정 상수(stale-constant)는 1시간 공유 캐시에 넣지 않는다 — TopHeader 가 같은 키를 읽는다
+            if (acceptFx(j) != null) localStorage.setItem(CACHE_KEY, JSON.stringify({ rate: rounded, savedAt: new Date().toISOString() }))
             return
           }
         }
