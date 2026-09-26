@@ -2,7 +2,7 @@
 //    소스: Yahoo calendarEvents(어닝·배당락 — sectorEngine 검증 패턴)·summaryDetail(연배당)·chart events=div(지급 이력 12M 투영)
 //    ⚠️ 정직: 어닝일은 수시 변경·KR 실적일 무료 미제공·월별 배당은 과거 패턴 투영 추정(캐비엇 UI 명시). Zero-Input·결정론.
 import { NextResponse } from 'next/server'
-import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
+import { fetchUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT(폴백 여부까지 — 폴백이면 캐시하지 않는다)
 import { createClient } from '@/lib/supabase/server'
 import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
@@ -11,7 +11,6 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
-const FALLBACK_KRW = USD_KRW_FALLBACK
 
 export type EventType = 'earnings' | 'exDiv' | 'payDiv'
 export interface CalEvent {
@@ -56,13 +55,8 @@ export async function GET(req: Request) {
   const cached = await getCache<EventCalendarResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
-  let usdKrw = FALLBACK_KRW
-  // 지금 환율을 받았는가 — 폴백 상수(여기서 쓴 FALLBACK_KRW, 또는 환율 라우트의 source 'stale-constant')면 false
-  let fxLive = false
-  try {
-    const ex = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) })
-    if (ex.ok) { const j = await ex.json(); if (typeof j.rate === 'number' && j.rate > 0) { usdKrw = j.rate; fxLive = j.source !== 'stale-constant' } }
-  } catch { /* 폴백 */ }
+  // 지금 환율을 받았는가 — 폴백 상수(조회 실패, 또는 환율 라우트의 source 'stale-constant')면 false
+  const { rate: usdKrw, live: fxLive } = await fetchUsdKrw(base)
 
   const { data: rows } = await sb.from('investments')
     .select('ticker,name,market,currency,quantity').eq('user_id', user.id)

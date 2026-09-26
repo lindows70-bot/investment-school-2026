@@ -10,7 +10,6 @@ import { getCache, setCache } from '@/lib/appCache'
 import { SWING_HIST_KEY, shouldAppend, gradeSwing, type SwingHistEntry, type SwingGrade, type ScoredRow } from '@/lib/swingHistory'
 import { getTechCandles, dropIncompleteBar } from '@/lib/techChartData'
 import { flagOf } from '@/lib/marketFlag'
-import { getUsdKrw } from '@/lib/fx'
 import { readSwingSetup, readSwingRegime, readVolumeCaution, SWING_TRACKS, SWING_DAILY_CAP, positionSize, type SwingTrack, type SwingRegime } from '@/lib/swingSetup'
 import { loadRotationBySector, SECTOR_TO_ROT, type RotQuadShared } from '@/lib/rotationShared'
 
@@ -109,7 +108,8 @@ async function studentHoldings(): Promise<{ ticker: string; name: string; market
   } catch { return [] }
 }
 
-export async function buildSwingRadar(base: string): Promise<SwingRadar | { error: string; note: string }> {
+/** usdKrw — 호출부(라우트)가 fetchUsdKrw 로 받아 넘긴다. 폴백 환율이었는지는 호출부가 알고 캐시 여부를 정한다 */
+export async function buildSwingRadar(usdKrw: number): Promise<SwingRadar | { error: string; note: string }> {
   const uni = (await getCache<ScreenedStock[]>(UNIVERSE_KEY, 8 * 24 * 3600_000)) ?? []
   if (!uni.length) return { error: 'universe_cold', note: '유니버스 캐시가 비었습니다. 주간 스크리너 크론 이후 다시 시도하세요.' }
   // 👥 학생 보유 종목을 스캔 목록에 병합(유니버스에 없는 것만 추가 — 중복 스캔 방지)
@@ -118,8 +118,8 @@ export async function buildSwingRadar(base: string): Promise<SwingRadar | { erro
   const extra = held.filter(h => !uniTickers.has(h.ticker))
     .map(h => ({ ticker: h.ticker, name: h.name, market: h.market, sector: null } as unknown as ScreenedStock))
 
-  const [krIdx, usIdx, usdKrw, rotMap] = await Promise.all([
-    regimeOfIndex('^KS11', 'US', 'KR'), regimeOfIndex('^GSPC', 'US', 'US'), getUsdKrw(base),
+  const [krIdx, usIdx, rotMap] = await Promise.all([
+    regimeOfIndex('^KS11', 'US', 'KR'), regimeOfIndex('^GSPC', 'US', 'US'),
     loadRotationBySector(),   // 🧭 섹터 로테이션(읽기만·콜드면 null) — 배지·우선순위용
   ])
   /** 종목 섹터(Yahoo GICS) → 오늘의 로테이션 상태. 못 구하면 null — 배지 생략·순위 중립(fail-open) */

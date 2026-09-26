@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
-import { getUsdKrw } from '@/lib/fx'
+import { fetchUsdKrw } from '@/lib/fx'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { getMoneyFlow, type FlowStatus, type MoneyFlowResult } from '@/lib/moneyFlow'
 import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
@@ -127,7 +127,7 @@ export async function GET(req: Request) {
   const selfBase = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
 
   // 원가 기준 비중(히트맵용) — 통화 정규화(USD→KRW). 환율은 라이브 SSOT(제1원칙: 하드코딩 금지)
-  const usdKrw = await getUsdKrw(selfBase)
+  const { rate: usdKrw, live: fxLive } = await fetchUsdKrw(selfBase)   // 폴백이면 아래에서 결과를 캐시하지 않는다
   const costKrw = (s: typeof stocks[number]) => (s.purchase_price ?? 0) * (s.quantity ?? 0) * (s.currency === 'USD' ? usdKrw : 1)
   const totalCost = stocks.reduce((sum, s) => sum + costKrw(s), 0) || 1
   const weightOf = (s: typeof stocks[number]) => Math.round((costKrw(s) / totalCost) * 1000) / 10
@@ -220,6 +220,6 @@ export async function GET(req: Request) {
     season: { us: brief(usQuad), kr: brief(krQuad) },
     asOf: new Date().toISOString(),
   }
-  await setCache(cacheKey, result)
+  if (fxLive) await setCache(cacheKey, result)   // 고정 환율로 잰 원가 비중은 박제 금지(동행지수 추이는 개수 기준이라 환율 무관 — 위에서 그대로 적립)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
-import { getUsdKrw } from '@/lib/fx'
+import { fetchUsdKrw } from '@/lib/fx'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { MARKET_FLOW_KR_KEY, computeMarketFlowKr, type MarketFlowKrResult, type MarketFlowEntry } from '@/lib/marketFlowKr'
 
@@ -132,7 +132,7 @@ export async function GET(req: Request) {
   const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
   const { data: rows } = await admin.from('investments').select('ticker,name,market,purchase_price,quantity,currency').eq('user_id', user.id)
   const krStocks = (rows ?? []).filter(r => r.market === 'KR' && getAssetType(r.ticker, r.name ?? '', 'KR') === 'STOCK')
-  const usdKrw = await getUsdKrw(base)   // 라이브 환율(제1원칙: 하드코딩 금지)
+  const { rate: usdKrw, live: fxLive } = await fetchUsdKrw(base)   // 라이브 환율(제1원칙: 하드코딩 금지) — 폴백이면 아래에서 캐시하지 않는다
   const portfolioKrw = (rows ?? []).reduce((s, r) => {
     const rate = (r.currency === 'USD') ? usdKrw : 1
     return s + (r.purchase_price ?? 0) * (r.quantity ?? 0) * rate
@@ -221,6 +221,6 @@ export async function GET(req: Request) {
     fillGap, pearl, addMore, near, riskAlert,
     heldSectors: Array.from(heldSectorsSet), portfolioKrw, regime, asOf: new Date().toISOString(),
   }
-  await setCache(cacheKey, result)
+  if (fxLive) await setCache(cacheKey, result)   // 고정 환율로 잰 포트 총액은 박제 금지
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

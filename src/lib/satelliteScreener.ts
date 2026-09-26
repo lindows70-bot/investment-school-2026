@@ -2,7 +2,7 @@
 import { getCache, setCache } from '@/lib/appCache'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
 import { isPegBaseEffect } from '@/lib/canonicalFundamentals'   // 기저효과 PEG 가드(코어와 동일 SSOT)
-import { getUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT — 상수 하드코딩 금지(제1원칙)
+import { fetchUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT — 상수 하드코딩 금지(제1원칙) · 폴백이면 점수를 캐시하지 않는다
 
 export const SAT_SCORE_KEY = 'satellite-scores-v4'   // 위성 100종목 점수 — 크론이 매일 적재 (v4: sector 필드 추가·섹터 배지용)
 
@@ -126,9 +126,9 @@ export const SATELLITE_UNIVERSE: { ticker: string; market: 'US' | 'KR'; name: st
 ]
 
 // 풀 일부를 라이브 채점(배치6). 크론(전체)·콜드폴백(소수) 공용
-async function scoreSatellitePool(pool: typeof SATELLITE_UNIVERSE, base: string): Promise<SatelliteScore[]> {
+//  usdKrw — 호출부가 fetchUsdKrw 로 받아 넘긴다(KR 시총 → USD 환산, 풀 전체 1회). 폴백이었으면 호출부가 캐시하지 않는다
+async function scoreSatellitePool(pool: typeof SATELLITE_UNIVERSE, base: string, usdKrw: number): Promise<SatelliteScore[]> {
   const scored: SatelliteScore[] = []
-  const usdKrw = await getUsdKrw(base)   // 💱 KR 시총 → USD 환산용(풀 전체 1회 조회)
   for (let i = 0; i < pool.length; i += 6) {
     const batch = pool.slice(i, i + 6)
     const rs = await Promise.all(batch.map(async s => {
@@ -166,8 +166,8 @@ async function scoreSatellitePool(pool: typeof SATELLITE_UNIVERSE, base: string)
 }
 
 // 크론용: 전체 100종목 채점 → 점수순 정렬 (cron/satellite-scores가 SAT_SCORE_KEY에 적재)
-export async function computeSatelliteScores(base: string): Promise<SatelliteScore[]> {
-  const scored = await scoreSatellitePool(SATELLITE_UNIVERSE, base)
+export async function computeSatelliteScores(base: string, usdKrw: number): Promise<SatelliteScore[]> {
+  const scored = await scoreSatellitePool(SATELLITE_UNIVERSE, base, usdKrw)
   return scored.sort((a, b) => b.tenScore - a.tenScore)
 }
 
@@ -175,8 +175,9 @@ export async function computeSatelliteScores(base: string): Promise<SatelliteSco
 export async function screenSatellite(base: string, heldSet: Set<string>, maxPick: number): Promise<SatelliteScore[]> {
   let scored = await getCache<SatelliteScore[]>(SAT_SCORE_KEY, 36 * 3600_000)
   if (!scored || scored.length === 0) {
-    scored = (await scoreSatellitePool(SATELLITE_UNIVERSE.slice(0, 30), base)).sort((a, b) => b.tenScore - a.tenScore)
-    if (scored.length) await setCache(SAT_SCORE_KEY, scored)
+    const fx = await fetchUsdKrw(base)
+    scored = (await scoreSatellitePool(SATELLITE_UNIVERSE.slice(0, 30), base, fx.rate)).sort((a, b) => b.tenScore - a.tenScore)
+    if (scored.length && fx.live) await setCache(SAT_SCORE_KEY, scored)   // 고정 환율로 잰 시총룸 점수는 박제 금지
   }
   // 🔪 떨어지는 칼날 제외(통합추천과 동일 철학) + 보유 제외
   return scored.filter(s => !s.knife && !heldSet.has(s.ticker.toUpperCase())).slice(0, maxPick)

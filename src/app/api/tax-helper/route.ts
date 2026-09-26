@@ -2,7 +2,7 @@
 //    손실 매도(loss harvesting)·공제 여유 익절(gain harvesting) 기회를 결정론 산출 (Zero-Input·자동매매 없음)
 //    ⚠️ realized_pnl은 종목 통화 기준(USD/KRW — history 페이지와 동일 관례) → 현재 환율 일괄 환산(추정치, 캐비엇 명시)
 import { NextResponse } from 'next/server'
-import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
+import { fetchUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT(폴백 여부까지 — 폴백이면 캐시하지 않는다)
 import { createClient } from '@/lib/supabase/server'
 import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
@@ -16,7 +16,6 @@ const TAX = {
   RATE: 0.22,                 // 양도소득세 20% + 지방소득세 2%
 } as const
 
-const FALLBACK_KRW = USD_KRW_FALLBACK
 const kstNow = () => new Date(Date.now() + 9 * 3600_000)
 const kstDate = () => kstNow().toISOString().slice(0, 10)
 
@@ -72,11 +71,8 @@ export async function GET(req: Request) {
   const daysLeft = Math.max(0, Math.ceil((Date.UTC(year, 11, 31) - Date.UTC(year, now.getUTCMonth(), now.getUTCDate())) / 86_400_000))
 
   // ── 환율·매도내역·보유내역 병렬 조회(전부 독립 — async-parallel, 환율 8s 타임아웃이 전체를 막지 않게) ──
-  let usdKrw = FALLBACK_KRW
-  const [exRate, { data: sells }, { data: holdings }] = await Promise.all([
-    fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) })
-      .then(r => r.ok ? r.json() : null).then(j => (typeof j?.rate === 'number' && j.rate > 0 ? j.rate as number : null))
-      .catch(() => null),
+  const [{ rate: usdKrw, live: fxLive }, { data: sells }, { data: holdings }] = await Promise.all([
+    fetchUsdKrw(base),
     sb.from('transactions')
       .select('ticker,name,market,currency,realized_pnl,transaction_date')
       .eq('user_id', user.id).eq('type', 'sell')
@@ -85,7 +81,6 @@ export async function GET(req: Request) {
       .select('ticker,name,market,currency,purchase_price,quantity')
       .eq('user_id', user.id),
   ])
-  if (exRate != null) usdKrw = exRate
 
   let realizedUsUsd = 0, realizedKrKrw = 0
   let usSellCount = 0, krSellCount = 0, krEtfSellCount = 0, cryptoSellCount = 0
@@ -155,6 +150,8 @@ export async function GET(req: Request) {
       })
     }
   }
+  // 시세를 못 받은 보유 US 종목은 후보에서 빠진다 — 그 결과를 박제하면 시세가 돌아와도 후보가 하루 종일 빈다
+  const unpricedCount = Array.from(merged.values()).filter(m => m.qty > 0 && !prices[m.ticker.toUpperCase()]).length
   harvest.sort((a, b) => b.saveKrw - a.saveKrw)
   gainHarvest.sort((a, b) => b.useKrw - a.useKrw)
 
@@ -166,6 +163,7 @@ export async function GET(req: Request) {
     harvest: harvest.slice(0, 10), gainHarvest: gainHarvest.slice(0, 6),
     asOf: new Date().toISOString(),
   }
-  await setCache(cacheKey, result)
+  // 고정 환율(양도세 환산)·시세 실패로 계산한 결과는 박제 금지 — 다음 요청이 스스로 낫는다(ai-rebalance와 같은 규칙)
+  if (fxLive && unpricedCount === 0) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

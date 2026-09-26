@@ -1,6 +1,6 @@
 // 🌍 글로벌 시총 Top 10 — KR(네이버 marketValue) + US(yahoo-finance2). ETF 차단, 12h 캐시
 import { NextResponse } from 'next/server'
-import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
+import { fetchUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT(폴백 여부까지 — 폴백이면 캐시하지 않는다)
 import { getCache, setCache } from '@/lib/appCache'
 import { getAssetType } from '@/lib/assetClassifier'
 
@@ -140,14 +140,11 @@ export async function GET(req: Request) {
 
   // 환율
   const selfBase = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-  let usdKrw = USD_KRW_FALLBACK
-  try {
-    const er = await fetch(`${selfBase}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) })
-    if (er.ok) { const j = await er.json(); usdKrw = j.rate ?? USD_KRW_FALLBACK }
-  } catch { /* graceful */ }
+  const { rate: usdKrw, live: fxLive } = await fetchUsdKrw(selfBase)
 
   const [kr, us] = await Promise.all([fetchKrTop10(usdKrw), fetchUsTop10(usdKrw)])
   const result: GlobalTop10Result = { kr, us, usdKrw, asOf: new Date().toISOString() }
-  if (kr.length > 0 && us.length > 0) await setCache(cacheKey, result)
+  // 고정 환율로 환산한 시총(KR→$·US→₩)은 하루 키에 박제하지 않는다 — 다음 요청이 실제 환율로 다시 만든다
+  if (kr.length > 0 && us.length > 0 && fxLive) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

@@ -4,7 +4,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
-import { getUsdKrw } from '@/lib/fx'
+import { fetchUsdKrw } from '@/lib/fx'
 import { buildFxAttribution, type FxLot, type FxAttribution } from '@/lib/fxAttribution'
 
 export const dynamic = 'force-dynamic'
@@ -47,8 +47,8 @@ export async function GET(req: Request) {
     } catch { /* graceful */ }
   }
 
-  const [fxNow, fxSeries] = await Promise.all([
-    getUsdKrw(base),
+  const [{ rate: fxNow, live: fxLive }, fxSeries] = await Promise.all([
+    fetchUsdKrw(base),
     (async () => {
       const { default: YF } = await import('yahoo-finance2')
       const yf = new (YF as any)({ suppressNotices: ['yahooSurvey'] })
@@ -97,7 +97,7 @@ export async function GET(req: Request) {
   const result = buildFxAttribution(lots, fxSeries, fxNow, totalKrw, cashUsd)
   if (!result) return NextResponse.json({ empty: true }, { headers: { 'Cache-Control': 'no-store' } })
 
-  // 라이브 가격을 충분히 확보했을 때만 캐시(부분실패 박제 금지)
-  if (lots.length >= usd.length * 0.6) await setCache(cacheKey, result)
+  // 라이브 가격을 충분히 확보했을 때만 캐시(부분실패 박제 금지) — 현재 환율이 폴백 상수면 환율 기여 자체가 틀리므로 캐시하지 않는다
+  if (lots.length >= usd.length * 0.6 && fxLive) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

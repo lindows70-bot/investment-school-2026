@@ -1,7 +1,7 @@
 // 🔬 포트폴리오 X-Ray API — 보유 ETF를 구성종목·섹터로 분해해 '실질 노출도' 합산
 // 직접보유 NVDA + QQQ 속 NVDA를 중복 합산 → 숨은 몰빵 발견. 섹터는 ETF 네이티브 비중(왜곡 0)
 import { NextResponse } from 'next/server'
-import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
+import { fetchUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT(폴백 여부까지 — 폴백이면 캐시하지 않는다)
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
@@ -70,8 +70,7 @@ export async function GET(req: Request) {
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // 보유 전체(₩ 환산 비중) — STOCK·ETF 모두 포함
-  let usdKrw = USD_KRW_FALLBACK
-  try { const ex = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) }); if (ex.ok) { const j = await ex.json(); if (typeof j.rate === 'number' && j.rate > 0) usdKrw = j.rate } } catch { /* 폴백 */ }
+  const { rate: usdKrw, live: fxLive } = await fetchUsdKrw(base)
   const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
   const { data: rows } = await admin.from('investments').select('ticker,name,market,purchase_price,quantity,currency').eq('user_id', user.id)
   const all = (rows ?? []).map(r => ({
@@ -202,6 +201,6 @@ export async function GET(req: Request) {
     etfTotalWeight: r1(etfs.reduce((s, h) => s + h.krw / totalKrw * 100, 0)),
     asOf: new Date().toISOString(),
   }
-  await setCache(cacheKey, result)
+  if (fxLive) await setCache(cacheKey, result)   // 고정 환율로 잰 원가 비중은 박제 금지(다음 요청이 스스로 낫는다)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

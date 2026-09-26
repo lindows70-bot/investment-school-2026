@@ -2,7 +2,7 @@
 // 4축: 사이클(반감기·메이어멀티플) · 심리(공포탐욕·도미넌스) · 온체인(해시레이트) · 유동성(M2) + 김치프리미엄
 // 전부 무료·무인증 소스(CoinGecko·alternative.me·mempool.space·업비트·FRED) · 1h 캐시 · 추정치 금지(없으면 null)
 import { NextResponse } from 'next/server'
-import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
+import { fetchUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT(폴백 여부까지 — 폴백이면 캐시하지 않는다)
 import { getCache, setCache } from '@/lib/appCache'
 import { fetchCryptoFng } from '@/lib/cryptoFng'
 
@@ -360,8 +360,7 @@ export async function GET(req: Request) {
   const FRED = process.env.FRED_API_KEY
 
   // 환율(김치프리미엄)
-  let usdKrw = USD_KRW_FALLBACK
-  try { const ex = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) }); if (ex.ok) { const j = await ex.json(); if (typeof j.rate === 'number' && j.rate > 0) usdKrw = j.rate } } catch { /* 폴백 */ }
+  const { rate: usdKrw, live: fxLive } = await fetchUsdKrw(base)
 
   // ── CoinGecko 외 소스: 병렬(서로 다른 호스트라 충돌 없음) ──────────
   const [fngR, hashR, upbitR, m2R, longR, corrR, maxR, dayR] = await Promise.allSettled([
@@ -506,7 +505,8 @@ export async function GET(req: Request) {
     asOf: new Date().toISOString(),
   }
   // 가격·도미넌스·**메이어**까지 살아야 캐시 — 부분 실패 결과를 1h 박제하지 않음(메이어 null 이 박제되던 것이 2026-09-24 실사고)
-  if (btcUsd != null && btcDom != null && mayer != null) {
+  // 환율도 같다 — 김치프리미엄은 환율 1%가 곧 1%p 라 고정 환율로 잰 값을 브리핑까지 박제하지 않는다
+  if (btcUsd != null && btcDom != null && mayer != null && fxLive) {
     await setCache(cacheKey, result)
     // 🪙 브리핑용 한 줄 요약(캐시만 읽는 /api/coin-brief 가 본다) — 본 응답은 ~100KB 라 브리핑이 직접 부르면 무겁다
     await setCache(COIN_BRIEF_KEY, { usd: btcUsd, krw: btcKrw, change, fng: fngV, mayer, ddPct: cycleNav?.reality?.drawdownPct ?? null, kimchiPct, answer, tone, asOf: result.asOf })

@@ -2,7 +2,7 @@
 // 핵심 가드: ①티커 병합(분할매수 여러 행→1종목) ②카테고리 단판 우선순위(사용자 지정>펀더멘탈 자동>미분류)
 // ③함정 레이더 = canonicalFundamentals.isPegBaseEffect SSOT 재사용(BP 0.01 사건과 동일 기준 — 제2원칙)
 import { NextResponse } from 'next/server'
-import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
+import { fetchUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT(폴백 여부까지 — 폴백이면 캐시하지 않는다)
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
@@ -13,7 +13,6 @@ import { LYNCH_CATEGORY_KR, classifyLynchMece, type LynchCategoryKey } from '@/l
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const FALLBACK_KRW = USD_KRW_FALLBACK
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 export interface LynchMatrixItem {
@@ -53,11 +52,7 @@ export async function GET(req: Request) {
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // 환율(₩환산 비중) — season-navigator와 동일 패턴
-  let usdKrw = FALLBACK_KRW
-  try {
-    const ex = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) })
-    if (ex.ok) { const j = await ex.json(); if (typeof j.rate === 'number' && j.rate > 0) usdKrw = j.rate }
-  } catch { /* 폴백 1350 */ }
+  const { rate: usdKrw, live: fxLive } = await fetchUsdKrw(base)
 
   const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
   const { data: rows } = await admin.from('investments')
@@ -97,6 +92,7 @@ export async function GET(req: Request) {
     }
   }
   const holdings = Array.from(merged.values())
+  const unpricedCount = stocks.filter(r => !((prices[r.ticker.toUpperCase()] ?? 0) > 0)).length   // 원가로 평가한 행 — 있으면 캐시하지 않는다
   const totalW = holdings.reduce((s, h) => s + h.weight, 0) || 1
 
   // ② SSOT 펀더멘탈 병렬 수집(canon-fund 캐시 공유 → 대부분 즉시)
@@ -136,6 +132,7 @@ export async function GET(req: Request) {
     .sort((a, b) => b.weightPct - a.weightPct)
 
   const result: LynchMatrixResult = { categories, traps, totalStocks: holdings.length, asOf: new Date().toISOString() }
-  if (holdings.length > 0) await setCache(cacheKey, result)   // 빈 포폴 박제 금지
+  // 빈 포폴·시세 못 받은 종목(원가 비중)·고정 환율 비중은 박제 금지 — 다음 요청이 스스로 낫는다(ai-rebalance와 같은 규칙)
+  if (holdings.length > 0 && unpricedCount === 0 && fxLive) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

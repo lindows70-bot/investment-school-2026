@@ -6,7 +6,7 @@ export const revalidate = 0
 export const maxDuration = 120
 
 import { UNIFIED_RECO_V } from '@/lib/recoCacheVersion'   // ⚠️ 통합추천 출력이 바뀌면 이 캐시도 함께 무효화(옛 추천 종목 박제 방지)
-import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
+import { fetchUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT(폴백 여부까지 — 폴백이면 캐시하지 않는다)
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
@@ -276,12 +276,8 @@ export async function GET(req: Request) {
 
   // ⭐ 통화 통일(원화 환산) — KR(₩)·US($) 혼합 포트폴리오의 비중 왜곡 방지
   //    (버그: 환산 없이 합산하면 ₩가격(수십만)이 $가격(수백)을 압도해 국내종목이 비중 독식)
-  let usdKrw = USD_KRW_FALLBACK   // 폴백(SSOT — 화면별 상수 분열 방지)
-  let fxLive = false              // 폴백 상수로 계산했으면 아래에서 캐시하지 않는다(부분실패 박제 금지)
-  try {
-    const fx = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8000) })
-    if (fx.ok) { const j = await fx.json(); if (typeof j.rate === 'number' && j.rate > 0) { usdKrw = j.rate; fxLive = true } }
-  } catch { /* 폴백 사용 */ }
+  //    폴백 상수(환율 라우트의 'stale-constant' 포함)로 계산했으면 아래에서 캐시하지 않는다(부분실패 박제 금지)
+  const { rate: usdKrw, live: fxLive } = await fetchUsdKrw(base)
   const toKrw = (market: string | null) => (market === 'KR' ? 1 : usdKrw)   // 종목 통화 → 원화 배율
 
   const valued = holds.map(h => {

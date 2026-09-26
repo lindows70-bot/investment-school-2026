@@ -18,6 +18,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
+import { fetchUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT(폴백 여부까지 — 폴백이면 개인 리포트를 캐시하지 않는다)
 import { getAssetType } from '@/lib/assetClassifier'
 import { fetchMacroData, detectMacroPhase, UNIVERSE_KEY } from '@/lib/macroPhaseScreener'
 import { computeCountryVol } from '@/lib/countryVol'
@@ -438,7 +439,7 @@ const ETF_SECTOR_REV: Map<string, string> = (() => {
   return m
 })()
 
-async function buildMe(uid: string, name: string, selfCalendar: boolean, cookie: string, base: string): Promise<WrMe> {
+async function buildMe(uid: string, name: string, selfCalendar: boolean, cookie: string, base: string, usdKrw: number): Promise<WrMe> {
   const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
   const { data: raw } = await admin.from('investments').select('ticker,name,market,purchase_price,quantity,currency').eq('user_id', uid)
   const rows = (raw ?? []) as InvRow[]
@@ -459,9 +460,7 @@ async function buildMe(uid: string, name: string, selfCalendar: boolean, cookie:
     return { userId: uid, name, hasPortfolio: false, kpi: { totalKrw: 0, costKrw: 0, pnlPct: null, weekPct: null, count: 0, liveCoverage: 0 }, byClass: [], holdings: [], sectorImpact: [], risks: [], krExtreme: false, calendar: null, calendarNote: '포트폴리오를 등록하면 개인 분석이 시작됩니다.' }
   }
 
-  // 환율(₩ 환산)
-  let usdKrw = 1400
-  try { const ex = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000), cache: 'no-store' }); if (ex.ok) { const j = await ex.json(); if (typeof j.rate === 'number' && j.rate > 500) usdKrw = j.rate } } catch { /* 폴백 */ }
+  // 환율(₩ 환산) — 호출부가 fetchUsdKrw 로 받아 넘긴다(폴백이었으면 호출부가 캐시하지 않는다)
 
   // 현재가 배치(앱 가격 SSOT /api/stock-price — KR·US·CRYPTO 전부 처리, 40개 청크)
   const priceMap = new Map<string, { price: number; krw: boolean }>()
@@ -702,8 +701,10 @@ export async function GET(req: Request) {
   let me = await getCache<WrMe>(meKey, 6 * 3600_000)
   const common = await buildCommon(base)
   if (!me) {
-    me = await buildMe(targetId, targetName, selfView, cookie, base)
-    if (me.hasPortfolio && me.kpi.liveCoverage >= 50) await setCache(meKey, me)   // 가격 과반 실패 시 박제 금지
+    const fx = await fetchUsdKrw(base)
+    me = await buildMe(targetId, targetName, selfView, cookie, base, fx.rate)
+    // 가격 과반 실패 시 박제 금지 · 고정 환율로 잰 평가액·환노출도 박제 금지(다음 요청이 스스로 낫는다)
+    if (me.hasPortfolio && me.kpi.liveCoverage >= 50 && fx.live) await setCache(meKey, me)
   }
 
   // teacher 로스터(보유 있는 학생 우선 정렬)

@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { buildSwingRadar, type SwingRadar } from '@/lib/swingRadar'
 import { SWING_CRON_MARK } from '@/lib/swingHistory'
+import { fetchUsdKrw } from '@/lib/fx'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -23,10 +24,12 @@ export async function GET(req: Request) {
     if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
   }
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-  const out = await buildSwingRadar(base)
+  const fx = await fetchUsdKrw(base)   // 미국 종목 포지션 원화 환산용 — 폴백이면 아래에서 캐시하지 않는다
+  const out = await buildSwingRadar(fx.rate)
   if ('error' in out) return NextResponse.json(out, { status: 200 })
   // ⚠️ 부분실패 박제 금지 — 캔들 성공률이 낮으면 "자리 없음"이 하루 박제된다(빈 목록은 사실이어야 한다)
-  if (out.okCount >= 300) {
+  //    고정 환율도 같다 — '환율 ₩○ 적용' 원화 환산을 하루 박제하지 않는다
+  if (out.okCount >= 300 && fx.live) {
     await setCache(key, out)
     // 🕰️ 크론 실행 마커 — 결과 캐시의 updated_at 은 저녁 방문자 재생성에 덮여 "아침 크론이 실패했다"를 못 가른다
     //    (2026-09-11 실사고: 06:15 산출물 없이 22:38 방문자가 만들었는데 헬스는 ok). 크론(refresh=1)만 이 마커를 남긴다.

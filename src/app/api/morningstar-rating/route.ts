@@ -9,7 +9,7 @@ import { getMoatBreach } from '@/app/actions/getMoatBreach'
 import { calcDCF, deriveDcfInputs } from '@/lib/buffettDcf'
 import { computeStarRating, type StarResult } from '@/lib/morningstarRating'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
-import { getUsdKrw } from '@/lib/fx'
+import { fetchUsdKrw } from '@/lib/fx'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -48,7 +48,7 @@ export async function GET(req: Request) {
   const selfBase = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
 
   // 원가 기준 비중(통화 정규화) — 환율은 라이브 SSOT(제1원칙: 하드코딩 금지)
-  const usdKrw = await getUsdKrw(selfBase)
+  const { rate: usdKrw, live: fxLive } = await fetchUsdKrw(selfBase)   // 폴백이면 아래에서 캐시하지 않는다
   const costKrw = (s: typeof stocks[number]) => (s.purchase_price ?? 0) * (s.quantity ?? 0) * (s.currency === 'USD' ? usdKrw : 1)
   const totalCost = stocks.reduce((sum, s) => sum + costKrw(s), 0) || 1
   const weightOf = (s: typeof stocks[number]) => Math.round((costKrw(s) / totalCost) * 1000) / 10
@@ -123,6 +123,6 @@ export async function GET(req: Request) {
   const avgStars = rated.length ? +(rated.reduce((s, e) => s + (e.stars ?? 0), 0) / rated.length).toFixed(1) : null
 
   const result: MorningstarResult = { entries, total: entries.length, avgStars, asOf: new Date().toISOString() }
-  if (entries.length) await setCache(cacheKey, result)
+  if (entries.length && fxLive) await setCache(cacheKey, result)   // 고정 환율로 잰 원가 비중은 박제 금지
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

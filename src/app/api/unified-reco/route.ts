@@ -1,7 +1,7 @@
 // 🎯 통합 3축 추천 — 계절(매크로 방향)×펀더멘탈(가치)×수급(연료)을 하나의 점수로 융합
 // 4계절 내비게이터(방향) + 수급 레이더 맞춤추천(연료)을 단일 기준으로 통합. 기존 엔진 전부 재사용
 import { NextResponse } from 'next/server'
-import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
+import { fetchUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT(폴백 여부까지 — 폴백이면 캐시하지 않는다)
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
@@ -165,8 +165,7 @@ export async function GET(req: Request) {
   const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
   const { data: rows } = await admin.from('investments').select('ticker,name,market,purchase_price,quantity,currency').eq('user_id', user.id)
   const held = new Set((rows ?? []).filter(r => getAssetType(r.ticker, r.name ?? '', r.market ?? '') === 'STOCK').map(r => (r.market === 'KR' || /^\d/.test(r.ticker)) ? code6(r.ticker) : r.ticker.toUpperCase()))
-  let usdKrw = USD_KRW_FALLBACK
-  try { const ex = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) }); if (ex.ok) { const j = await ex.json(); if (typeof j.rate === 'number' && j.rate > 0) usdKrw = j.rate } } catch { /* 폴백 */ }
+  const { rate: usdKrw, live: fxLive } = await fetchUsdKrw(base)
   const portfolioKrw = (rows ?? []).reduce((s, r) => s + (r.purchase_price ?? 0) * (r.quantity ?? 0) * (r.currency === 'USD' ? usdKrw : 1), 0)
 
   // ★ 증거 기반 매크로 오버라이드 게이트 — 계절 신뢰도 낮음(섹터 성적표 diverge) + 빅테크 CapEx 급증(주글라르 surge)일 때만,
@@ -570,6 +569,6 @@ export async function GET(req: Request) {
     cnSeason: { quadrant: cnQuad, label: SEASON_META[cnQuad].label, favored: SEASON_META[cnQuad].favored },
     items, reference, volByOrigin, selectionRule, portfolioKrw, regimeMult, momCrash, watchlist, asOf: new Date().toISOString(),
   }
-  await setCache(cacheKey, result)
+  if (fxLive) await setCache(cacheKey, result)   // 고정 환율로 잰 포트 총액(권장 편입액의 분모)은 박제 금지
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

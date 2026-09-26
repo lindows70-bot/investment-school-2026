@@ -23,16 +23,16 @@ export interface DividendPortfolioData {
   asOf: string
 }
 
-async function fetchUsdKrw(): Promise<number> {
+async function fetchUsdKrw(): Promise<{ rate: number; live: boolean }> {
   try {
     const { default: YahooFinance } = await import('yahoo-finance2')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const yf = new (YahooFinance as any)({ suppressNotices: ['yahooSurvey'] })
     const q = await yf.quote('KRW=X')
     const r = q?.regularMarketPrice
-    if (typeof r === 'number' && r > 500 && r < 3000) return Math.round(r * 100) / 100
+    if (typeof r === 'number' && r > 500 && r < 3000) return { rate: Math.round(r * 100) / 100, live: true }
   } catch { /* 폴백 */ }
-  return USD_KRW_FALLBACK
+  return { rate: USD_KRW_FALLBACK, live: false }   // 폴백이면 아래에서 캐시하지 않는다
 }
 
 export async function GET() {
@@ -40,7 +40,7 @@ export async function GET() {
   const cached = await getCache<DividendPortfolioData>(cacheKey, 12 * 3600_000, { sameKstDay: true })
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
-  const [usdKrw, stocks] = await Promise.all([
+  const [{ rate: usdKrw, live: fxLive }, stocks] = await Promise.all([
     fetchUsdKrw(),
     // 동시성 6으로 유니버스 배치 — per-ticker 캐시(익스플로러와 공유) 우선
     (async () => {
@@ -64,6 +64,6 @@ export async function GET() {
 
   const okCount = stocks.filter(s => s.dividendYield != null).length
   const result: DividendPortfolioData = { status: okCount >= 10 ? 'ok' : 'error', stocks, usdKrw, asOf: new Date().toISOString() }
-  if (okCount >= 10) await setCache(cacheKey, result)   // 절반 이상 성공 시만 캐시(부분 실패 박제 방지)
+  if (okCount >= 10 && fxLive) await setCache(cacheKey, result)   // 절반 이상 성공 + 실제 환율일 때만 캐시(부분 실패 박제 방지)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

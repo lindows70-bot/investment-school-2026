@@ -1,7 +1,7 @@
 // 🧭 4계절 매크로 내비게이터 API — macro-regime SSOT + OECD CLI를 2×2로 번역 + 보유 계절 적합도
 // 제2원칙. 매크로 결론은 macro-regime SSOT 단일출처를 그대로 읽고, 성장축만 CLI로 보강(새 판정기 아님)
 import { NextResponse } from 'next/server'
-import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면별 상수 분열 방지)
+import { fetchUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT(폴백 여부까지 — 폴백이면 캐시하지 않는다)
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
@@ -20,7 +20,6 @@ import { killSwitch, type KillSwitchResult } from '@/lib/killSwitch'      // �
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const FALLBACK_KRW = USD_KRW_FALLBACK
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 type LynchCat = Holding['lynchCategory']
@@ -119,11 +118,7 @@ export async function GET(req: Request) {
   })
 
   // ③ 보유 종목 → ₩환산 비중 + 섹터(재사용) → 정합성 점수
-  let usdKrw = FALLBACK_KRW
-  try {
-    const ex = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(8_000) })
-    if (ex.ok) { const j = await ex.json(); if (typeof j.rate === 'number' && j.rate > 0) usdKrw = j.rate }
-  } catch { /* 폴백 1350 */ }
+  const { rate: usdKrw, live: fxLive } = await fetchUsdKrw(base)
 
   const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
   const { data: rows } = await admin.from('investments')
@@ -215,6 +210,6 @@ export async function GET(req: Request) {
     asOf: new Date().toISOString(),
   }
 
-  await setCache(cacheKey, result)
+  if (fxLive) await setCache(cacheKey, result)   // 고정 환율로 잰 원가 비중은 박제 금지(다음 요청이 스스로 낫는다)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }
