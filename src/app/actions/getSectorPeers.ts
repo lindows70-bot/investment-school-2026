@@ -16,6 +16,7 @@
 import { headers } from 'next/headers'
 import { getCanonicalPeg } from '@/lib/canonicalFundamentals'
 import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT
+import { peerPerMedian } from '@/lib/peerPerMedian'
 
 export interface PeerMetric {
   ticker:    string
@@ -41,7 +42,8 @@ export interface SectorPeerResult {
   bestValue: string | null     // 가장 싸고 탄탄한 종목 티커
   psrMedian: number | null     // 동종 피어 PSR 중앙값 — 상대 판정 기준(절대 임계 X)
   perMedian: number | null     // 동일업종 경쟁사 PER 중앙값 — 대상 종목 제외 · 양수만 · 3곳 미만이면 null(학생 '오늘 알려드려요' ①)
-  perCount:  number            // perMedian 에 쓴 경쟁사 수(중앙값이 null 이어도 실제로 PER 이 있던 곳 수)
+  perCount:  number            // perMedian 에 쓴 경쟁사 수(중앙값이 null 이어도 실제로 PER 이 있던 곳 수 · 같은 회사 다른 주식은 1곳)
+  targetPe:  number | null     // 대상 종목 자신의 Yahoo trailingPE — perMedian 과 같은 잣대. 화면 PER(stock-info, 네이버 우선)과 원천이 달라 대조용
   verdict:   'hold_best' | 'consider_rotate' | 'neutral' | 'early_stage'
   rivalTicker: string | null   // 대상보다 더 싸고 탄탄한 '동일업종' 경쟁사(있으면)
   lynchComment: string
@@ -162,7 +164,7 @@ export async function getSectorPeers(input: { ticker: string; name?: string; mar
   const market = input.market
   const asOf = new Date().toISOString()
   const empty = (status: SectorPeerResult['status'], message?: string): SectorPeerResult => ({
-    ticker, source: 'curated', targetIndustry: null, sameIndCount: 0, peers: [], bestValue: null, psrMedian: null, perMedian: null, perCount: 0, verdict: 'neutral', rivalTicker: null, lynchComment: '', status, message, asOf,
+    ticker, source: 'curated', targetIndustry: null, sameIndCount: 0, peers: [], bestValue: null, psrMedian: null, perMedian: null, perCount: 0, targetPe: null, verdict: 'neutral', rivalTicker: null, lynchComment: '', status, message, asOf,
   })
 
   // 개별 주식만 (백스톱)
@@ -245,10 +247,8 @@ export async function getSectorPeers(input: { ticker: string; name?: string; mar
     const psrVals = sameIndPeers.concat(target).map(p => p.psr).filter((v): v is number => v != null && v > 0).sort((a, b) => a - b)
     const psrMedian = psrVals.length >= 2 ? +(psrVals.length % 2 ? psrVals[(psrVals.length - 1) / 2] : (psrVals[psrVals.length / 2 - 1] + psrVals[psrVals.length / 2]) / 2).toFixed(2) : null
 
-    // 동일업종 경쟁사 PER 중앙값 — 대상은 빼고(자기 자신과 비교하지 않게) 양수 PER 만. 3곳 미만은 중앙값이라 부르기 어려워 null
-    const perVals = sameIndPeers.map(p => p.pe).filter((v): v is number => v != null && isFinite(v) && v > 0).sort((a, b) => a - b)
-    const perCount = perVals.length
-    const perMedian = perCount >= 3 ? +(perCount % 2 ? perVals[(perCount - 1) / 2] : (perVals[perCount / 2 - 1] + perVals[perCount / 2]) / 2).toFixed(2) : null
+    // 동일업종 경쟁사 PER 중앙값 — 대상 제외 · 양수만 · 같은 회사 다른 주식(GOOG/GOOGL)은 한 곳 · 3곳 미만 null (peerPerMedian SSOT)
+    const { perMedian, perCount } = peerPerMedian(target.name, sameIndPeers)
 
     // ★ 초기(이익 없는) 기업: PEG 없음 + 영업적자 → PEG·이익률 비교 무의미
     const earlyStage = (target.peg == null || target.peg <= 0) && (target.opMargin == null || target.opMargin < 0)
@@ -273,7 +273,7 @@ export async function getSectorPeers(input: { ticker: string; name?: string; mar
         ? `좋은 선택이야! ${target.name}은 같은 업종 경쟁사 중 PEG가 가장 낮아(가장 저평가). 린치가 말한 "업종 내 가장 싸고 탄탄한 기업"에 가깝지. 영업이익률·부채도 1등인지 같이 확인해.`
         : `${target.name}은 같은 업종 경쟁사와 비교해 가성비가 평범한 편이야. 이 표에서 '더 싸면서 더 잘 버는' 동일업종 기업이 없는지 직접 비교해봐.`
 
-    const result: SectorPeerResult = { ticker, source, targetIndustry, sameIndCount, peers, bestValue, psrMedian, perMedian, perCount, verdict, rivalTicker: rival?.ticker ?? null, lynchComment, status: 'ok', asOf }
+    const result: SectorPeerResult = { ticker, source, targetIndustry, sameIndCount, peers, bestValue, psrMedian, perMedian, perCount, targetPe: target.pe, verdict, rivalTicker: rival?.ticker ?? null, lynchComment, status: 'ok', asOf }
     CACHE.set(ticker, { data: result, expiresAt: Date.now() + CACHE_TTL })
     return result
   } catch (e) {
