@@ -10,9 +10,19 @@ export async function GET(request: NextRequest) {
   // 다른 API 와 같은 서버 클라이언트 — 세션 쿠키가 갱신되면 Next 가 이 응답(리다이렉트)에 붙여 준다
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.redirect(new URL('/login', request.url))
-
   const next = safeNext(request.nextUrl.searchParams.get('next'))
+  if (!user) {
+    // 쿠키엔 세션이 남아 있는데 서버가 인정하지 않는 경우(다른 기기에서 전체 로그아웃 등) — 미들웨어는 쿠키만 보고
+    // /login 을 다시 /start 로 돌려보내 무한 왕복이 된다. 이 기기의 세션 쿠키를 지워 고리를 끊는다.
+    // (네트워크 오류면 signOut 이 쿠키를 지우지 않는다 — 오류 401·403·404 일 때만 지운다)
+    if (request.cookies.getAll().some(c => c.name.startsWith('sb-'))) {
+      await supabase.auth.signOut({ scope: 'local' })
+    }
+    const loginUrl = new URL('/login', request.url)
+    if (next) loginUrl.searchParams.set('next', next) // 로그인 뒤 다시 여기로 — 원래 가려던 곳을 잃지 않게
+    return NextResponse.redirect(loginUrl)
+  }
+
   if (next) {
     const dest = new URL(next, request.url)
     // 이중 안전장치 — 규칙을 통과했어도 해석 결과가 다른 사이트면 버린다
