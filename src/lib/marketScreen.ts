@@ -2,6 +2,7 @@
 //   화면(tsx)은 그리기만 하고, 판정·정렬·문구는 여기서 만든다 → scripts/verify-market-screen.mjs 가 실제 이 파일을 컴파일해 검증한다.
 //   ⚠️ 서버 lib 에서는 **타입만** 가져온다(브라우저 번들에 서버 코드가 끌려오지 않게).
 import type { Part } from './marketBoardShared'
+import { pct } from './studentFormat'
 import type { KrIndexQuote, IntradayPoint, InvestorTotals, UpDownCount, KrMover, MoverList, KrIndustry, KrNews, KrIndexCode, KrMarket, KrMoverKind } from './krMarketBoard'
 import type { FlowTopRow, FlowBoardSide, Investor } from './foreignOrgFlow'
 import type { UsEtfIntraday, UsMover, UsMoverKind } from './usMarketBoard'
@@ -43,15 +44,22 @@ export interface OverviewResp {
 /** 카드 하나가 보는 상태 — 불러오는 중 / 못 가져옴(요청 실패 또는 그 원천만 ok:false) / 받음 */
 export type View<T> = { kind: 'loading' } | { kind: 'failed' } | { kind: 'ok'; data: T; asOf: string | null }
 
-/** useJson 결과(state·data)에서 원천 조각 하나를 골라 상태로. pick 이 던지거나(모양이 다름) 조각이 ok:true 가 아니면 못 가져옴 */
+/** useJson 결과(state·data)에서 원천 조각 하나를 골라 상태로. pick 이 던지거나(모양이 다름) 조각이 ok:true 가 아니면 못 가져옴.
+ *  '다시'로 다시 부르는 동안(state loading 인데 이전 data 가 남아 있음) 이전에 받은 조각은 그대로 보인다 —
+ *  한 카드의 '다시'가 같은 응답을 쓰는 다른 카드까지 깜빡이게 하지 않게. 이전에 못 가져온 조각만 '불러오는 중'이 된다 */
 export function viewOf<R, T>(res: { state: string; data: R | null }, pick: (d: R) => unknown): View<T> {
-  if (res.state === 'idle' || res.state === 'loading') return { kind: 'loading' }
-  if (res.state !== 'ok' || res.data == null) return { kind: 'failed' }
-  let p: unknown
-  try { p = pick(res.data) } catch { return { kind: 'failed' } }
-  const o = p as { ok?: unknown; data?: unknown; asOf?: unknown } | null | undefined
-  if (!o || o.ok !== true || o.data == null) return { kind: 'failed' }
-  return { kind: 'ok', data: o.data as T, asOf: typeof o.asOf === 'string' ? o.asOf : null }
+  const okOf = (): View<T> | null => {
+    if (res.data == null) return null
+    let p: unknown
+    try { p = pick(res.data) } catch { return null }
+    const o = p as { ok?: unknown; data?: unknown; asOf?: unknown } | null | undefined
+    if (!o || o.ok !== true || o.data == null) return null
+    return { kind: 'ok', data: o.data as T, asOf: typeof o.asOf === 'string' ? o.asOf : null }
+  }
+  if (res.state === 'idle') return { kind: 'loading' }
+  if (res.state === 'loading') return okOf() ?? { kind: 'loading' }
+  if (res.state !== 'ok') return { kind: 'failed' }
+  return okOf() ?? { kind: 'failed' }
 }
 
 // ── 날짜·시각 문구 ──────────────────────────────────────────────────────────
@@ -109,13 +117,16 @@ export function asOfLabel(iso: string | null | undefined, status: string | null 
   return d ? `${d} ${k.hm} 기준` : null
 }
 
-/** 뉴스 시각 → '방금'·'N분 전'·'N시간 전'·'9/23(수)'. nowMs 는 **마운트 뒤** 값만 넘긴다(렌더 중 new Date() 금지). 못 읽으면 null */
+/** 기기 시계가 이만큼까지 느려도 '방금'으로 본다. 이보다 더 미래 시각이면 틀린 값이라 표시하지 않는다(null) */
+export const AGO_FUTURE_SLACK_MS = 5 * 60_000
+/** 뉴스 시각 → '방금'·'N분 전'·'N시간 전'·'9/23(수)'. nowMs 는 **마운트 뒤** 값만 넘긴다(렌더 중 new Date() 금지). 못 읽거나 5분 넘게 미래면 null */
 export function agoText(iso: string | null | undefined, nowMs: number): string | null {
   if (!iso) return null
   const t = Date.parse(iso)
   if (!Number.isFinite(t)) return null
   const diff = nowMs - t
-  if (diff < 60_000) return '방금'   // 기기 시계가 몇 분 빠른 경우도 '방금'
+  if (diff < -AGO_FUTURE_SLACK_MS) return null
+  if (diff < 60_000) return '방금'   // 기기 시계가 몇 분 느린 경우도 '방금'
   if (diff < 3600_000) return `${Math.floor(diff / 60_000)}분 전`
   if (diff < 24 * 3600_000) return `${Math.floor(diff / 3600_000)}시간 전`
   return mdDow(kstParts(t).ymd)
@@ -130,7 +141,7 @@ export type FlowSide = 'buy' | 'sell'
 export type FlowBadgeKey = 'mine' | 'streak' | 'together' | 'contrarian' | 'etf' | 'limit'
 export interface FlowBadge { key: FlowBadgeKey; text: string }
 
-/** 연속일 배지는 2일째부터 — 1일째는 '오늘 처음'이라 따로 말할 게 없다 */
+/** 연속일 배지는 2일째부터 — 1일째는 '그날 처음'이라 따로 말할 게 없다 */
 export const STREAK_MIN = 2
 
 /** 한 줄의 배지. 며칠째는 **그 목록의 주체**(외국인이면 외국인 연속일)·**그 목록의 방향**과 같을 때만, 모르면(null) 생략.
@@ -194,14 +205,42 @@ export function usMoverFilterNote(
   return parts.length ? `${pre}${parts.join(' · ')}종목은 뺐어요.` : `${cap}·${fresh}는 빼고 보여줘요.`
 }
 
+// ── 특징종목 ETF·ETN ────────────────────────────────────────────────────────
+/** 국내 특징종목에서 ETF·ETN 을 뺄지 — 기본은 주식만(레버리지 ETN 이 상승률 상위를 채운다: 2026-09 실측 코스피 상승 Top5 중 3개).
+ *  removed = 받은 목록 안에서 뺀 개수(원천 전체 순위가 아니라 받은 상위 N개 기준) */
+export function filterEtp<T extends { etp: 'ETF' | 'ETN' | null }>(items: T[], includeEtp: boolean): { items: T[]; removed: number } {
+  if (includeEtp) return { items: items.slice(), removed: 0 }
+  const kept = items.filter(i => i.etp == null)
+  return { items: kept, removed: items.length - kept.length }
+}
+
 // ── 업종 ───────────────────────────────────────────────────────────────────
-/** 등락률 순 상위 n(오른 순 = 오른 업종만 큰 값부터, 내린 순 = 내린 업종만 작은 값부터). 등락률 없는·보합(0) 업종은 뺀다 —
- *  모두 오른 날 '많이 내린 업종'에 +0.3% 업종이 뜨지 않게(없으면 빈 목록 → 화면이 '오늘 내린 업종이 없어요') */
+/** 보합 경계 — studentFormat.pct·upDown 과 같은 ±0.05% */
+export const FLAT_PCT = 0.05
+/** 등락률 순 상위 n(오른 순 = 오른 업종만 큰 값부터, 내린 순 = 내린 업종만 작은 값부터).
+ *  등락률 없는·보합(|x|<0.05 — 화면에서 '0.0%' 회색)·±30% 의심 업종은 순위에서 뺀다 —
+ *  모두 오른 날 '많이 내린 업종'에 +0.3% 업종이 뜨지 않게(없으면 빈 목록 → 화면이 '그날 내린 업종이 없어요'),
+ *  상장 첫날 한 종목 탓인 +162% 업종이 1위가 되지 않게(의심 업종은 suspectIndustries 로 따로 보인다) */
 export function topIndustries(items: KrIndustry[], dir: 'up' | 'down', n: number): KrIndustry[] {
   const withPct = items.filter((i): i is KrIndustry & { changePct: number } =>
-    typeof i.changePct === 'number' && Number.isFinite(i.changePct) && (dir === 'up' ? i.changePct > 0 : i.changePct < 0))
+    !i.limitBreakSuspect && typeof i.changePct === 'number' && Number.isFinite(i.changePct)
+    && (dir === 'up' ? i.changePct >= FLAT_PCT : i.changePct <= -FLAT_PCT))
   withPct.sort((a, b) => (dir === 'up' ? b.changePct - a.changePct : a.changePct - b.changePct))
   return withPct.slice(0, n)
+}
+
+/** ±30% 넘는 종목이 섞여 순위에서 뺀 업종(그 방향만 — 오른 순엔 오른 의심 업종). 등락이 큰 순 */
+export function suspectIndustries(items: KrIndustry[], dir: 'up' | 'down'): KrIndustry[] {
+  return items
+    .filter((i): i is KrIndustry & { changePct: number } => i.limitBreakSuspect && typeof i.changePct === 'number' && (dir === 'up' ? i.changePct > 0 : i.changePct < 0))
+    .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))
+}
+/** 뺀 업종 한 조각 — '가정용품 +162.3%(12종목 중 오른 4·내린 5)'. 종목 수를 모르면 괄호를 줄인다 */
+export function suspectIndustryText(g: Pick<KrIndustry, 'name' | 'changePct' | 'count' | 'rise' | 'fall'>): string {
+  const p = g.changePct == null ? '' : ` ${pct(g.changePct)}`
+  const inner = [g.rise != null ? `오른 ${g.rise}` : null, g.fall != null ? `내린 ${g.fall}` : null].filter(Boolean).join('·')
+  const paren = g.count != null ? `(${g.count}종목${inner ? ` 중 ${inner}` : ''})` : inner ? `(${inner})` : ''
+  return `${g.name}${p}${paren}`
 }
 
 /** 막대 폭(%) — 보이는 업종 중 가장 크게 움직인 것(±30% 넘는 의심 업종 제외)을 100 으로. 의심 업종은 100(넘침),
@@ -249,4 +288,13 @@ export function fngExtremes(
     if (l && now <= l.v) l = { v: now, date: null }
   }
   return { high: h, low: l }
+}
+
+/** 순매매 각주의 범위 — 실제로 목록에 들어간 시장만. 합침인데 한 시장을 못 가져왔으면 그 사실을 범위에 적는다 */
+export function flowScopeText(shown: KrMarket[], missing: KrMarket[]): string {
+  const NAME: Record<KrMarket, string> = { KOSPI: '코스피', KOSDAQ: '코스닥' }
+  const got = shown.filter(m => !missing.includes(m))
+  if (got.length >= 2) return '코스피·코스닥을 합친'
+  if (got.length === 1) return shown.length >= 2 ? `${NAME[got[0]]}만 본(${missing.map(m => NAME[m]).join('·')} 못 가져옴)` : NAME[got[0]]
+  return ''
 }
