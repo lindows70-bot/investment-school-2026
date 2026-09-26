@@ -21,16 +21,19 @@ const n = (v: unknown): number | null => (typeof v === 'number' && Number.isFini
 interface Short { now: number | null; cls: string | null; past: { label: string; v: number | null }[]; date: string | null }
 interface Year { now: number; yearAgo: number | null; high: { v: number; date: string } | null; low: { v: number; date: string } | null; range: { from: string; to: string; fullYear: boolean } | null; date: string | null }
 
-/** active = 카드가 화면에 들어왔다(그때 짧은 기간 값을 부른다) · defaultSide = 탭에 맞춘 처음 선택(사용자가 고르면 그걸 유지) */
+/** active = 카드가 화면에 들어왔다 · defaultSide = 탭에 맞춘 처음 선택(사용자가 고르면 그걸 유지).
+ *  짧은 기간 값은 카드가 보이거나 **1년 요약(overview)을 이미 부르기 시작했으면** 함께 부른다 —
+ *  요즘 강한 분야 카드가 overview 를 먼저 불러 '지금'·'1년 전'만 뜨고 어제·1주·1달이 비어 있던 실측(카드가 화면 밖이라 요청이 안 나감) */
 export default function FearGreedYear({ overview, active, defaultSide }: { overview: JsonResult<OverviewResp>; active: boolean; defaultSide: FngSide }) {
   const [picked, setPicked] = useState<FngSide | null>(null)
   const side = picked ?? defaultSide
   const [wantUs, setWantUs] = useState(false)
   const [wantCoin, setWantCoin] = useState(false)
+  const go = active || overview.state !== 'idle'
   useEffect(() => {
-    if (!active) return
+    if (!go) return
     if (side === 'us') setWantUs(true); else setWantCoin(true)   // 한 번 연 쪽은 그대로 둔다(다시 부르지 않음)
-  }, [active, side])
+  }, [go, side])
   const cnn = useJson<CnnResp>('/api/cocktail-party', { enabled: wantUs })
   const coin = useJson<{ fng?: CryptoFng | null }>('/api/coin-fng', { enabled: wantCoin })
 
@@ -90,19 +93,23 @@ export default function FearGreedYear({ overview, active, defaultSide }: { overv
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FS.micro, color: TK.sub }}>
               <span>0 극단 공포</span><span>100 극단 탐욕</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: SP.sm }}>
-              {[...(short?.past ?? [{ label: side === 'us' ? '전 거래일' : '어제', v: null }, { label: '1주 전', v: null }, { label: '1달 전', v: null }]),
-                { label: '1년 전', v: year?.yearAgo ?? null }].map(p => (
-                <div key={p.label} style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, minWidth: 0 }}>
-                  <span style={{ fontSize: FS.micro, color: TK.sub, whiteSpace: 'nowrap' }}>{p.label}</span>
-                  <span style={{ fontSize: FS.body, fontWeight: 700, color: p.v == null ? TK.sub : TK.slate200 }}>{p.v == null ? '—' : Math.round(p.v)}</span>
-                </div>
-              ))}
-            </div>
+            {/* 받은 값만 칸으로 — 아직 못 받은 쪽은 칸 대신 아래 줄에 '불러오는 중'·'못 가져옴'. 원천이 그날 값을 안 준 칸만 '없음'.
+                좁은 칸(769~850px 두 줄 배치)에선 한 칸 60px 밑으로 줄지 않고 다음 줄로 넘긴다 */}
+            {(short || year) && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(60px, 1fr))', gap: SP.sm }}>
+                {[...(short?.past ?? []), ...(year ? [{ label: '1년 전', v: year.yearAgo }] : [])].map(p => (
+                  <div key={p.label} style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, minWidth: 0 }}>
+                    <span style={{ fontSize: FS.micro, color: TK.sub, whiteSpace: 'nowrap' }}>{p.label}</span>
+                    <span style={{ fontSize: p.v == null ? FS.tiny : FS.body, fontWeight: 700, color: p.v == null ? TK.sub : TK.slate200 }}>{p.v == null ? '없음' : Math.round(p.v)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         )}
+        {now != null && !short && shortLoading && <span style={noteStyle()}>{side === 'us' ? '전 거래일' : '어제'}·1주·1달 전 값을 불러오는 중…</span>}
         {now != null && !short && !shortLoading && (
-          <FailRow text="어제·1주·1달 전 값을 못 가져왔어요." onRetry={shortRes.reload} retryLabel="공포·탐욕 지난 값 다시 불러오기" />
+          <FailRow text={`${side === 'us' ? '전 거래일' : '어제'}·1주·1달 전 값을 못 가져왔어요.`} onRetry={shortRes.reload} retryLabel="공포·탐욕 지난 값 다시 불러오기" />
         )}
         {now != null && yv.kind === 'loading' && <span style={noteStyle()}>1년 기록을 불러오는 중…</span>}
         {now != null && yv.kind === 'failed' && (
