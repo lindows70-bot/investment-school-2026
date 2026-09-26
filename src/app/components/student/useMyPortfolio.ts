@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { summarizePortfolio, dedupeHoldings, type HoldingInput, type PriceInput, type PortfolioSummary } from '@/lib/portfolioSummary'
+import { acceptFx } from '@/lib/fxAccept'
 
 export type LoadState = 'loading' | 'ready' | 'failed' | 'unauth'
 /** db = 보유 조회 실패 · fx = 달러 보유가 있는데 환율을 못 받음 · other = 그 밖의 예외 */
@@ -58,8 +59,8 @@ export function useMyPortfolio(): MyPortfolio {
       ])
       if (error) { fail('db'); return }
       const hs = dedupeHoldings((data ?? []) as MyHolding[])
-      // 환율 라우트는 모든 원천이 죽으면 고정 상수(source 'stale-constant')를 준다 — 지금 환율이 아니므로 못 받은 것으로 본다
-      const fx: number | null = typeof fxRes?.rate === 'number' && fxRes.rate > 500 && fxRes.source !== 'stale-constant' ? fxRes.rate : null
+      // 환율 라우트는 모든 원천이 죽으면 고정 상수(source 'stale-constant')를 준다 — 지금 환율이 아니므로 못 받은 것으로 본다(acceptFx)
+      const fx: number | null = acceptFx(fxRes)
 
       let priceMap: Record<string, PriceInput> = {}
       let pricesOk = true

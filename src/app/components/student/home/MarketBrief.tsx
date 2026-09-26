@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 import { buildHomeBrief, type HomeBriefInput, type Line } from '@/lib/homeBrief'
 import { FOMC_SCHEDULE } from '@/lib/fomcSchedule'
+import { acceptFx } from '@/lib/fxAccept'
 import { useJson, type JsonResult, type JsonState } from '@/app/components/student/useJson'
 import { card, CardHead, toneColor, noteStyle, retryBtn, type IndexRow, type CalendarResp, type FxResp } from './homeUi'
 
@@ -57,8 +58,8 @@ export default function MarketBrief({ indices, calendar, fx, today }: { indices:
   const indicesIn: HomeBriefInput['indices'] = indices.state === 'ok' && Array.isArray(indices.data)
     ? indices.data.filter(x => x && typeof x.id === 'string' && isNum(x.changePct)).map(x => ({ id: x.id, changePct: x.changePct }))
     : null
-  // 환율 라우트는 모든 원천이 죽으면 고정 상수(stale-constant)를 준다 — 지금 환율이 아니므로 '못 가져옴'
-  const usdKrw = fx.state === 'ok' && isNum(fx.data?.rate) && fx.data?.source !== 'stale-constant' ? fx.data.rate : null
+  // 환율 라우트는 모든 원천이 죽으면 고정 상수(stale-constant)를 준다 — 지금 환율이 아니므로 '못 가져옴'(내 자산과 같은 acceptFx)
+  const usdKrw = fx.state === 'ok' ? acceptFx(fx.data) : null
   const signals: HomeBriefInput['signals'] = watch.state === 'ok' && Array.isArray(watch.data?.sigs)
     ? { asOf: typeof watch.data?.asOf === 'string' ? watch.data.asOf : null, count: watch.data.sigs.length }
     : null
