@@ -113,8 +113,9 @@ export async function GET(req: Request) {
       const bk = `${keyOf(h)}|${decision.type}`
       if (briefByKey.has(bk)) return briefByKey.get(bk)!
       // v6: PEG SSOT canon-fund 직접 읽기로 변경 — selfBase 의존성 제거
-      const cacheKey = `jarvis-brief-v6:${m.ticker}:${m.market}:${decision.type}:${baseDate}`
-      const cached = await getCache<BriefingText>(cacheKey, 20 * 3600_000)
+      // 🗓️ 날짜 없는 키 + 오늘(KST)만 — baseDate 는 kstDate() 라 같은 뜻이다(날짜 키는 영구 누적)
+      const cacheKey = `jarvis-brief-v6:${m.ticker}:${m.market}:${decision.type}`
+      const cached = await getCache<BriefingText>(cacheKey, 20 * 3600_000, { sameKstDay: true })
       const b = cached ?? await generateBriefing(decision, m, recs)
       if (!cached) await setCache(cacheKey, b)
       briefByKey.set(bk, b); return b

@@ -41,8 +41,8 @@ const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0,
  *    최초 매수월까지 거슬러 올라간다. 안 하면 6.6개월 이전 매수분이 통째로 누락된다.
  */
 async function cryptoCandles(ticker: string, needFrom: string): Promise<TechCandle[]> {
-  const key = `crypto-candles-v2:${ticker.toUpperCase()}:${needFrom}:${kstDate()}`
-  const cached = await getCache<{ candles: TechCandle[] }>(key, 30 * 60_000)
+  const key = `crypto-candles-v2:${ticker.toUpperCase()}:${needFrom}`   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 영구 누적
+  const cached = await getCache<{ candles: TechCandle[] }>(key, 30 * 60_000, { sameKstDay: true })
   if (cached?.candles?.length) return cached.candles
   const out: TechCandle[] = []
   let to: string | null = null

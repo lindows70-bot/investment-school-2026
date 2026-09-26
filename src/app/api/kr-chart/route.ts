@@ -9,8 +9,8 @@ const UA = 'Mozilla/5.0'
 
 // 분봉 → 종가 시계열(다운샘플 ~28포인트)
 async function intradaySeries(code: string): Promise<number[]> {
-  const key = `kr-intraday-v1:${code}:${new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)}`
-  const cached = await getCache<number[]>(key, 3 * 3600_000)
+  const key = `kr-intraday-v1:${code}`   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 영구 누적
+  const cached = await getCache<number[]>(key, 3 * 3600_000, { sameKstDay: true })
   if (cached) return cached
   try {
     const r = await fetch(`https://api.stock.naver.com/chart/domestic/item/${code}/minute?cnt=400`, {

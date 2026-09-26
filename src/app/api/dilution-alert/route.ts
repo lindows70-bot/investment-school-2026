@@ -35,8 +35,8 @@ const typeOf = (nm: string): DilutionType =>
 /** 종목 1개 스캔(일별 공유 캐시) — 실패·비상장·ETF는 빈 배열 */
 async function scanTicker(ticker: string, name: string): Promise<DilutionAlert[]> {
   const day = kstDate()
-  const key = `dilution-v1:${ticker}:${day}`
-  const cached = await getCache<DilutionAlert[]>(key, 24 * 3600_000)
+  const key = `dilution-v1:${ticker}`   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 영구 누적
+  const cached = await getCache<DilutionAlert[]>(key, 24 * 3600_000, { sameKstDay: true })
   if (cached) return cached
   const cc = await getCorpCode(ticker)
   if (!cc || !DART_KEY) return []

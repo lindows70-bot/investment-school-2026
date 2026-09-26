@@ -24,7 +24,6 @@ export interface TimelineResult {
 }
 
 const eok = (q: number, close: number) => Math.round((q * close) / 1e8 * 10) / 10
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 export async function GET(req: Request) {
   const sp = new URL(req.url).searchParams
@@ -35,8 +34,8 @@ export async function GET(req: Request) {
   if (getAssetType(ticker, name, 'KR') !== 'STOCK') return NextResponse.json({ error: '개별 주식 전용' }, { status: 400 })
 
   const days = Math.min(260, Math.max(5, parseInt(sp.get('days') ?? '20', 10) || 20))
-  const cacheKey = `mf-timeline-v1:${code}:${days}:${kstDate()}`
-  const cached = await getCache<TimelineResult>(cacheKey, 24 * 3600_000)
+  const cacheKey = `mf-timeline-v1:${code}:${days}`   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 영구 누적
+  const cached = await getCache<TimelineResult>(cacheKey, 24 * 3600_000, { sameKstDay: true })
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   try {

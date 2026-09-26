@@ -262,9 +262,9 @@ keyFact·actionGuide·relevantMetric·newsItems.summary는 반드시 한국어�
 
 // ── 캐시 키 ───────────────────────────────────────────────────────────────────
 // v6: 유형별 뉴스 2~3건(newsItems) 추가 — 구조 변경으로 무효화
+// 🗓️ 날짜 없는 키 — 신선도는 3h TTL 이 판정한다(옛 키의 UTC 날짜 경계는 3h 보다 느슨해 뺐다 · 날짜 키는 영구 누적)
 function cacheKey(ticker: string, market: string): string {
-  const yyyymmdd = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-  return `news-catalyst-v7:${ticker.toUpperCase()}:${market}:${yyyymmdd}`
+  return `news-catalyst-v7:${ticker.toUpperCase()}:${market}`
 }
 
 // ── 단일 ticker 분석 ──────────────────────────────────────────────────────────

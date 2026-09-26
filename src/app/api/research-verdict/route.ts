@@ -21,7 +21,6 @@ import { getEntryTiming, type EntryTiming } from '@/lib/entryTiming'
 import type { RotationResult, Quadrant as RotQuad } from '@/app/api/sector-rotation/route'
 
 const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 export interface ResearchVerdict {
   ticker: string; name: string; market: 'KR' | 'US'
@@ -77,8 +76,9 @@ export async function GET(req: Request) {
   // v15: ⚖️ 6축 가중치를 axisWeights SSOT 로 교체(해외는 수급 0·가치 30·모멘텀 25)
   // v23: ⚖️ weights 필드 추가(화면 각주를 리터럴→데이터로) + 💵 가치축 적자기업 PSR 폴백(universe v16)
   //      ⚠️ 스키마 확장도 범프한다 — 옛 응답이 서빙되면 새 필드가 undefined 로 와서 각주가 통째로 빈다
-  const cacheKey = `research-verdict-v25:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v24: 💵 자체 폴백 경로에도 적자 PSR 가치축(유니버스 밖 IONQ 등) / v22: ⚖️ KR 수급 가중 0%
-  const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000)
+  // 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 지우는 장치 없이 영구 누적(2026-09-26 DB 한도 사고)
+  const cacheKey = `research-verdict-v25:${ticker.toUpperCase()}:${market}`   // v24: 💵 자체 폴백 경로에도 적자 PSR 가치축(유니버스 밖 IONQ 등) / v22: ⚖️ KR 수급 가중 0%
+  const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000, { sameKstDay: true })
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // ── 전 신호 동시 발사(async-api-routes: start early, await late) — 보조 신호·로테이션 캐시는 m과 무관하므로

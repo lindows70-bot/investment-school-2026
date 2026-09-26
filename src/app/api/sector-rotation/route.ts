@@ -16,8 +16,8 @@ import { computeSector, type SectorResult } from '@/lib/sectorEngine'
 const fpTk = (tickers: string[]) => { let h = 0; for (const c of tickers.join(',')) h = (h * 31 + c.charCodeAt(0)) | 0; return (h >>> 0).toString(36) }
 async function loadSector(key: string): Promise<SectorResult | null> {
   const cfg = SECTORS[key]; if (!cfg) return null
-  const ck = `sector-v3:${key}:${cfg.stocks.length}:${fpTk(cfg.stocks.map(s => s.ticker))}:${kstDate()}`
-  const cached = await getCache<SectorResult>(ck, 6 * 3600_000)
+  const ck = `sector-v3:${key}:${cfg.stocks.length}:${fpTk(cfg.stocks.map(s => s.ticker))}`   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — /api/sector 와 같은 키
+  const cached = await getCache<SectorResult>(ck, 6 * 3600_000, { sameKstDay: true })
   if (cached) return cached
   try {
     const result = await computeSector(cfg)

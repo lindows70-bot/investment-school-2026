@@ -29,14 +29,26 @@ function admin() {
   })
 }
 
-/** 캐시 조회 — maxAgeMs 이내 신선하면 payload, 아니면 null (테이블 없어도 null) */
-export async function getCache<T>(key: string, maxAgeMs: number): Promise<T | null> {
+/** 두 시각이 같은 KST 날짜인가 — 키에서 날짜를 뺀 캐시가 '오늘 만든 것만' 읽게 한다 */
+export function sameKstDay(aMs: number, bMs: number): boolean {
+  const d = (ms: number) => new Date(ms + 9 * 3600_000).toISOString().slice(0, 10)
+  return d(aMs) === d(bMs)
+}
+
+/**
+ * 캐시 조회 — maxAgeMs 이내 신선하면 payload, 아니면 null (테이블 없어도 null)
+ * sameKstDay: 저장 시각이 오늘(KST)이어야 한다 — 키에 날짜를 넣지 않고도 '날짜가 바뀌면 새로 계산'을 지킨다.
+ *   ⛔ 키에 날짜를 넣지 마라: 지우는 장치가 없어 날마다 새 행이 쌓인다(2026-09-26 DB 한도 초과 사고).
+ */
+export async function getCache<T>(key: string, maxAgeMs: number, opts?: { sameKstDay?: boolean }): Promise<T | null> {
   try {
     const db = admin()
     if (!db) return null
     const { data } = await db.from('app_cache').select('payload, updated_at').eq('key', key).maybeSingle()
     if (!data) return null
-    if (Date.now() - new Date(data.updated_at as string).getTime() > maxAgeMs) return null
+    const at = new Date(data.updated_at as string).getTime()
+    if (Date.now() - at > maxAgeMs) return null
+    if (opts?.sameKstDay && !sameKstDay(at, Date.now())) return null
     return data.payload as T
   } catch { return null }
 }

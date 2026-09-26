@@ -13,7 +13,6 @@ import { computeCommittee, type CommitteeInput, type CommitteeResult } from '@/l
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 export interface CommitteeDebate {
   statements: { id: 'buffett' | 'munger' | 'duan' | 'lilu'; text: string }[]
@@ -71,12 +70,13 @@ export async function GET(req: NextRequest) {
   // v12: 💱 FTS 현금흐름 통화 판별 — 두산밥캣류(KRX 상장·USD 보고) FCF 이중 환산 차단(fcfYield·DCF 입력이 바뀐다)
   // v13: ⛔ 옛 FCF 필드 폴백 제거(Gemini 감사) — trueFcf 결측 시 DCF 보류로 바뀌므로 밴드가 달라질 수 있다
   // v14: 📈 stock-fcf 응답에 roeTrend 필드 추가(위원회가 stock-fcf 를 소비하므로 옛 응답이면 undefined 로 온다)
-  const fullKey  = `masters-committee-v14:${ticker}:${market}:${kstDate()}`
-  const briefKey = `masters-brief-v14:${ticker}:${market}:${kstDate()}`
-  const full = await getCache<MastersVerdictResponse>(fullKey, 24 * 3600_000)
+  // 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 지우는 장치 없이 영구 누적(2026-09-26 DB 한도 사고)
+  const fullKey  = `masters-committee-v14:${ticker}:${market}`
+  const briefKey = `masters-brief-v14:${ticker}:${market}`
+  const full = await getCache<MastersVerdictResponse>(fullKey, 24 * 3600_000, { sameKstDay: true })
   if (full) return NextResponse.json(full, { headers: { 'Cache-Control': 'no-store' } })   // 토론 포함 = 어느 모드든 충분
   if (brief) {
-    const b = await getCache<MastersVerdictResponse>(briefKey, 24 * 3600_000)
+    const b = await getCache<MastersVerdictResponse>(briefKey, 24 * 3600_000, { sameKstDay: true })
     if (b) return NextResponse.json(b, { headers: { 'Cache-Control': 'no-store' } })
   }
 

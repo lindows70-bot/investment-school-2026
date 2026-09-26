@@ -28,8 +28,8 @@ const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0,
 const rawNum = (v: any): number | null => (v instanceof Date ? Math.round(v.getTime() / 1000) : typeof v === 'number' && isFinite(v) ? v : null)
 
 async function fetchShort(ticker: string): Promise<Omit<ShortEntry, 'name' | 'signal'> | null> {
-  const key = `short-int-v1:${ticker}:${kstDate()}`
-  const cached = await getCache<Omit<ShortEntry, 'name' | 'signal'>>(key, 24 * 3600_000)
+  const key = `short-int-v1:${ticker}`   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 영구 누적
+  const cached = await getCache<Omit<ShortEntry, 'name' | 'signal'>>(key, 24 * 3600_000, { sameKstDay: true })
   if (cached) return cached
   try {
     const { default: YF } = await import('yahoo-finance2')

@@ -86,8 +86,9 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
   //     selfBase가 undefined여도 canon-fund 캐시에서 SSOT PEG를 가져옴
   // v16: 📋 earningsHistory 분리 호출 — 적자주(IONQ 등)에서 그 모듈 하나가 전체를 죽여 metrics 가 null 이었다.
   //      옛 캐시엔 그 실패가 안 박혀 있지만(null 은 캐시 안 함), 이제 값이 생기는 종목이 있으므로 범프한다.
-  const cacheKey = `jarvis-metrics-v17:${tk}:${market}:${kstDate()}`   // v17: 💵 psr 필드 추가(적자 가치축 폴백 입력 — 없으면 폴백이 조용히 무효) / v15: 어닝 서프라이즈 이력
-  const cached = await getCache<SignalMetrics>(cacheKey, 12 * 3600_000)
+  // 🗓️ 키에 날짜 없음 — 종목당 한 행을 덮어쓰고 '오늘(KST) 만든 것만' 읽는다(날짜 키는 지우는 장치 없이 영구 누적)
+  const cacheKey = `jarvis-metrics-v17:${tk}:${market}`   // v17: 💵 psr 필드 추가(적자 가치축 폴백 입력 — 없으면 폴백이 조용히 무효) / v15: 어닝 서프라이즈 이력
+  const cached = await getCache<SignalMetrics>(cacheKey, 12 * 3600_000, { sameKstDay: true })
   if (cached) return cached
 
   try {

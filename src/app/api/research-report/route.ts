@@ -14,7 +14,6 @@ import type { ResearchVerdict } from '@/app/api/research-verdict/route'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 const r1 = (n: number) => Math.round(n * 10) / 10
 const SECTOR_KO: Record<string, string> = {
   'Technology': '기술', 'Financial Services': '금융', 'Healthcare': '헬스케어', 'Consumer Cyclical': '자유소비재',
@@ -50,8 +49,8 @@ export async function GET(req: Request) {
     return NextResponse.json({ unsupported: true, reason: '개별 주식 전용 리포트입니다(ETF·코인·원자재 제외).' }, { headers: { 'Cache-Control': 'no-store' } })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-  const cacheKey = `research-report-v4:${ticker.toUpperCase()}:${market}:${kstDate()}`
-  const cached = await getCache<ResearchReport>(cacheKey, 6 * 3600_000)
+  const cacheKey = `research-report-v4:${ticker.toUpperCase()}:${market}`   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 영구 누적
+  const cached = await getCache<ResearchReport>(cacheKey, 6 * 3600_000, { sameKstDay: true })
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // 병렬 — 전부 기존 SSOT (섹터·로테이션·계절·밸류·타점=research-verdict / 경쟁사=피어 / 주가=캔들 / 어닝=Jarvis)

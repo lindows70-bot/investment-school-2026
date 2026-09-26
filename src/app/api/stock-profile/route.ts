@@ -7,7 +7,6 @@ import { buildStockProfile } from '@/lib/stockProfile'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 45
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -18,8 +17,8 @@ export async function GET(req: Request) {
   // 개별 주식 전용(ETF·코인·원자재는 해자·공정가치 개념 부적합 — getAssetType SSOT)
   if (getAssetType(ticker, '', market) !== 'STOCK') return NextResponse.json({ error: 'unsupported' }, { status: 200 })
 
-  const cacheKey = `stock-profile-v5:${ticker.toUpperCase()}:${market}:${kstDate()}`   // v5: 자본배분 ROIC 반영(morningstar와 동일 SSOT)
-  const cached = await getCache<unknown>(cacheKey, 6 * 3600_000)
+  const cacheKey = `stock-profile-v5:${ticker.toUpperCase()}:${market}`   // v5: 자본배분 ROIC 반영(morningstar와 동일 SSOT) · 🗓️ 날짜 없는 키 + 오늘(KST)만
+  const cached = await getCache<unknown>(cacheKey, 6 * 3600_000, { sameKstDay: true })
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin

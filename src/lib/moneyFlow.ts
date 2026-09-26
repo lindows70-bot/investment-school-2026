@@ -157,7 +157,6 @@ function judgeKr(f: FlowActor, o: FlowActor, ind: FlowActor, foreignHold: number
   }
 }
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 // ── US 프록시 ────────────────────────────────────────────────────────────────
 // Yahoo 일봉(3개월)에서 MFI(14) 계산 + 60일 고점 근접 여부
@@ -297,8 +296,8 @@ function judgeUs(us: UsFlow, nearHigh: boolean): { status: FlowStatus; badges: s
 }
 
 async function getUsFlow(ticker: string, name: string, base: MoneyFlowResult, selfBase?: string): Promise<MoneyFlowResult> {
-  const cacheKey = `money-flow-v7:${ticker.toUpperCase()}:US:${kstDate()}`
-  const cached = await getCache<MoneyFlowResult>(cacheKey, 24 * 3600_000)
+  const cacheKey = `money-flow-v7:${ticker.toUpperCase()}:US`   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 영구 누적
+  const cached = await getCache<MoneyFlowResult>(cacheKey, 24 * 3600_000, { sameKstDay: true })
   if (cached) return cached
   try {
     const [mfiRes, insider, f13, inst] = await Promise.all([
@@ -341,8 +340,8 @@ export async function getMoneyFlow(ticker: string, market: 'KR' | 'US', name: st
   const code6 = (ticker.match(/\d{6}/)?.[0]) ?? ''
   if (!code6) return { ...base, status: 'UNSUPPORTED', note: '종목 코드를 확인할 수 없습니다.' }
 
-  const cacheKey = `money-flow-v7:${code6}:KR:${kstDate()}`   // v7: 외인+기관 이탈+개미독박=하락신호(CROWDED, 고점 무관)
-  const cached = await getCache<MoneyFlowResult>(cacheKey, 24 * 3600_000)
+  const cacheKey = `money-flow-v7:${code6}:KR`   // v7: 외인+기관 이탈+개미독박=하락신호(CROWDED, 고점 무관) · 🗓️ 날짜 없는 키 + 오늘(KST)만
+  const cached = await getCache<MoneyFlowResult>(cacheKey, 24 * 3600_000, { sameKstDay: true })
   if (cached) return cached
 
   try {
