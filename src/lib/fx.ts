@@ -6,21 +6,30 @@
 //       먼저 쓰므로, 여기까지 내려오는 건 앱이 30일 넘게 환율을 한 번도 못 받은 경우뿐이다.
 //       ⛔ 클라이언트도 자체 숫자(1380 등)를 쓰지 말고 이 상수를 import 하라 — 화면마다 환율이 다르면 같은 종목의
 //          원화 환산액이 표마다 어긋난다(실측 2026-08-08: 1350 vs 1380 이 6파일에 공존).
+import { acceptFx } from '@/lib/fxAccept'
+
 export const USD_KRW_FALLBACK = 1400
+
+/**
+ * /api/exchange-rate 응답 → 환산에 쓸 환율 + '지금 환율을 받았는가'(live).
+ * 채택 규칙은 학생 화면과 같은 acceptFx — 환율 라우트의 최후 상수(source 'stale-constant')는 HTTP 200 이어도 live 가 아니다.
+ * ⚠️ live=false 로 계산한 결과는 캐시하지 마라(부분실패 박제 금지 — 다음 요청이 실제 환율로 스스로 낫는다).
+ */
+export function readUsdKrw(resp: unknown): { rate: number; live: boolean } {
+  const rate = acceptFx(resp)
+  return rate != null ? { rate, live: true } : { rate: USD_KRW_FALLBACK, live: false }
+}
 
 /** 라이브 환율(실패 시 폴백) */
 export async function getUsdKrw(base: string, timeoutMs = 8000): Promise<number> {
   return (await fetchUsdKrw(base, timeoutMs)).rate
 }
 
-/** 라이브 환율 + 출처(폴백 여부) */
+/** 라이브 환율 + 출처(폴백 여부) — live=false 면 그 결과를 캐시하지 마라 */
 export async function fetchUsdKrw(base: string, timeoutMs = 8000): Promise<{ rate: number; live: boolean }> {
   try {
     const r = await fetch(`${base}/api/exchange-rate`, { signal: AbortSignal.timeout(timeoutMs), cache: 'no-store' })
-    if (r.ok) {
-      const j = await r.json()
-      if (typeof j?.rate === 'number' && j.rate > 500) return { rate: j.rate, live: true }
-    }
+    if (r.ok) return readUsdKrw(await r.json())
   } catch { /* 폴백 */ }
   return { rate: USD_KRW_FALLBACK, live: false }
 }
