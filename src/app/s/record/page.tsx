@@ -303,7 +303,7 @@ function RecordForm() {
         {picked && (
           <span style={note()}>
             {priceState === 'loading' ? '지금 시세를 가져오는 중…'
-              : priceState === 'ok' && marketPrice != null ? `지금 시세 ${money(marketPrice, currency)}를 미리 넣어 뒀어요. 증권사에서 실제로 체결된 가격이 다르면 고쳐 주세요.`
+              : priceState === 'ok' && marketPrice != null ? `지금 시세(${money(marketPrice, currency)})를 미리 넣어 뒀어요. 증권사에서 실제로 체결된 가격이 다르면 고쳐 주세요.`
               : '지금 시세를 못 가져왔어요. 증권사에서 체결된 가격을 적어 주세요.'}
           </span>
         )}
