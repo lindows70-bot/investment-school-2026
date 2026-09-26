@@ -1,4 +1,4 @@
-// 학생 간단 모드 화면(내 자산·종목 상세·기록하기·히트맵)이 함께 쓰는 숫자 표기 SSOT — 원화·달러·부호·등락률·등락 색·수량
+// 학생 간단 모드 화면(내 자산·종목 상세·기록하기·히트맵·홈)이 함께 쓰는 숫자 표기 SSOT — 원화·달러·부호·등락률·등락 색·수량·지수 포인트
 import { TK } from '@/lib/theme'
 
 const MINUS = '−'   // 음수 부호는 하이픈(-)이 아니라 수학 기호 '−'
@@ -21,6 +21,9 @@ export const money = (n: number, currency: 'USD' | 'KRW' | null) => currency ===
 
 /** 부호 붙은 원화 — 0 은 부호 없이 '0원' */
 export const signWon = (n: number) => `${sign(n)}${won(Math.abs(n))}`
+
+/** 지수 포인트 — 소수 둘째 자리(2,650.31) */
+export const points = (n: number) => n.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 /** 등락률 — 보합(±0.05% 안)은 '0.0%'(−0.0%·+0.0% 방지, upDown 회색 경계와 같음) */
 export const pct = (n: number) => Math.abs(n) < 0.05 ? '0.0%' : `${sign(n)}${Math.abs(n).toFixed(1)}%`
