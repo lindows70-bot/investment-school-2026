@@ -7,6 +7,14 @@
       "runtimeArgs": ["run", "dev"],
       "port": 3000,
       "autoPort": false
+    },
+    {
+      "name": "build-check",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["next", "start", "-p", "3100"],
+      "env": { "NEXT_DIST_DIR": ".next-build" },
+      "port": 3100,
+      "autoPort": false
     }
   ]
 }
