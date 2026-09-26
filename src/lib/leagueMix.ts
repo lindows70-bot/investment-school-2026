@@ -5,6 +5,7 @@
 //   그래서 **상장 국가** 기준이다: TIGER 미국S&P500(담은 건 미국 기업 94.7%)은 '한국 상장 ETF' 로 센다.
 //   라벨도 그래서 ETF 는 '○○ 상장 ETF' 다 — 담은 자산의 국적을 주장하지 않는다.
 //   담은 자산의 실질 국가(ETF 투시)는 etfLookThrough 의 몫이고, 여기서 추정해 바꾸지 않는다.
+// ◆ 노출 최소: 종목 비중은 리그 1~3위와 요청한 본인에게만 싣는다(detailIds) — 나머지는 emptyLeagueDetail()
 // ◆ 자산 종류 = getAssetType(ticker, name, market) SSOT
 
 import { getAssetType, type AssetType } from '@/lib/assetClassifier'
@@ -42,7 +43,31 @@ export interface LeagueMixResult {
   otherPct:    number
   otherCount:  number
   mix:         LeagueMixSlice[]
+  /** 100 − 보여준 구성(상위 3 묶음) 비중 합 · 1자리 · ≥0 */
+  mixOtherPct: number
   pricedAll:   boolean
+}
+
+/** 비중을 싣지 않는 학생에게 주는 빈 값(금액·종목 모두 없음) */
+export function emptyLeagueDetail(): LeagueMixResult & { detail: false } {
+  return { topHoldings: [], otherPct: 0, otherCount: 0, mix: [], mixOtherPct: 0, pricedAll: true, detail: false }
+}
+
+/** 종목 비중을 실어 보낼 학생 = 리그 1~3위 + 요청한 본인.
+ *  순위 규칙은 화면(SchoolLeague.tsx)과 같다 — 등록자 중 수익률이 유한값인 학생을 내림차순 정렬.
+ *  동률은 입력 순서(프로필 생성순 · 안정 정렬)대로 앞 사람이 먼저라 경계 동률이어도 정확히 3명이다.
+ *  수익률 null(시세 전멸 등)은 순위에 넣지 않는다. 본인은 명단에 있을 때만 넣는다. */
+export function detailIds(
+  students: { userId: string; isRegistered: boolean; totalReturn: number | null }[],
+  meId: string | null | undefined,
+): Set<string> {
+  const ranked = students
+    .filter(s => s.isRegistered && typeof s.totalReturn === 'number' && Number.isFinite(s.totalReturn))
+    .slice()
+    .sort((a, b) => (b.totalReturn as number) - (a.totalReturn as number))
+  const ids = new Set(ranked.slice(0, 3).map(s => s.userId))
+  if (meId && students.some(s => s.userId === meId)) ids.add(meId)
+  return ids
 }
 
 const round1 = (v: number) => Math.round(v * 10) / 10
@@ -65,8 +90,6 @@ function mixBucket(ticker: string, name: string, market: LeagueMarket, assetType
 }
 
 export function buildLeagueMix(rows: LeagueHoldingRow[]): LeagueMixResult {
-  const pricedAll = rows.every(r => r.priced)
-
   // 1) 티커(대문자)로 합친다 — 분할매수로 같은 종목이 여러 행이면 한 종목이다
   const merged = new Map<string, { ticker: string; name: string; market: LeagueMarket; value: number; priced: boolean }>()
   for (const r of rows) {
@@ -82,10 +105,13 @@ export function buildLeagueMix(rows: LeagueHoldingRow[]): LeagueMixResult {
     }
   }
 
+  // 시세 여부는 실제로 합친 행만 본다(티커 없는 행은 위에서 빠졌다)
+  const pricedAll = Array.from(merged.values()).every(h => h.priced)
+
   // 평가액 0 인 종목은 비중이 없으므로 뺀다
   const holdings = Array.from(merged.values()).filter(h => h.value > 0)
   const total = holdings.reduce((s, h) => s + h.value, 0)
-  if (!(total > 0)) return { topHoldings: [], otherPct: 0, otherCount: 0, mix: [], pricedAll }
+  if (!(total > 0)) return { topHoldings: [], otherPct: 0, otherCount: 0, mix: [], mixOtherPct: 0, pricedAll }
 
   holdings.sort((a, b) => b.value - a.value)
 
@@ -117,5 +143,7 @@ export function buildLeagueMix(rows: LeagueHoldingRow[]): LeagueMixResult {
     .slice(0, 3)
     .map(b => ({ key: b.key, label: b.label, weightPct: round1(b.value / total * 100) }))
 
-  return { topHoldings, otherPct, otherCount, mix, pricedAll }
+  const mixOtherPct = Math.max(0, round1(100 - mix.reduce((s, m) => s + m.weightPct, 0)))
+
+  return { topHoldings, otherPct, otherCount, mix, mixOtherPct, pricedAll }
 }

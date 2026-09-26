@@ -128,5 +128,39 @@ check('전부 시세 있음 → pricedAll true', r1.pricedAll === true)
 const seven = M.buildLeagueMix(Array.from({ length: 7 }, (_, i) => ({ ticker: `T${i}`, name: `T${i}`, market: 'US', value: 1, priced: true })))
 check('1/7 × 7: 상위3 + 기타 = 100(±0.1)', near(sumTop(seven), 100) && seven.otherCount === 4)
 
+// ⑥ 구성 나머지 비율(mixOtherPct) — 보여준 묶음 + 나머지 = 100
+const mixSum = r => r.mix.reduce((s, m) => s + m.weightPct, 0) + r.mixOtherPct
+check('mixOtherPct: r1 묶음 5종 중 3종 표시 → 나머지 15%', near(r1.mixOtherPct, 15) && near(mixSum(r1), 100))
+check('mixOtherPct: full 묶음 4종 중 3종 → 나머지 10%(미국 상장 ETF)', full.mix.length === 3 && near(full.mixOtherPct, 10) && near(mixSum(full), 100))
+check('mixOtherPct: 묶음 1개 → 0', etfUs.mixOtherPct === 0)
+check('mixOtherPct: 합계 0 → 0', z.mixOtherPct === 0 && e.mixOtherPct === 0)
+check('mixOtherPct: 1/7 × 7(한 묶음) → 0', seven.mixOtherPct === 0)
+
+// ⑦ pricedAll 은 실제로 합친 행만 — 티커 없는 행(합치기에서 빠짐)은 시세 판정에 안 들어간다
+const noTicker = M.buildLeagueMix([
+  { ticker: 'AAPL', name: '애플', market: 'US', value: 100, priced: true },
+  { ticker: '  ', name: '빈 티커', market: 'US', value: 50, priced: false },
+])
+check('pricedAll: 티커 없는 행의 시세 없음은 무시', noTicker.pricedAll === true && noTicker.topHoldings.length === 1)
+
+// ⑧ 노출 최소 — 1~3위 + 본인만
+const S = (userId, totalReturn, isRegistered = true) => ({ userId, totalReturn, isRegistered })
+const roster = [
+  S('a', 5.0), S('b', 12.3), S('c', null), S('d', -2.0), S('e', 8.1), S('f', 8.1), S('g', null, false), S('h', 20.0),
+]
+const ids1 = M.detailIds(roster, 'd')
+check('detailIds: 1~3위(h 20.0 · b 12.3 · e 8.1) + 본인 d', [...ids1].sort().join(',') === 'b,d,e,h')
+check('detailIds: 경계 동률(e·f 8.1) → 입력 순서 앞(e)만 · 정확히 3명', ids1.has('e') && !ids1.has('f'))
+check('detailIds: 수익률 null 은 순위 밖', !ids1.has('c'))
+check('detailIds: 본인이 이미 3위 안 → 3명', M.detailIds(roster, 'b').size === 3)
+check('detailIds: 본인이 명단에 없음 → 1~3위만', M.detailIds(roster, 'zzz').size === 3 && !M.detailIds(roster, 'zzz').has('zzz'))
+check('detailIds: 본인 null → 1~3위만', M.detailIds(roster, null).size === 3)
+check('detailIds: 순위 가능 2명뿐 → 2명', M.detailIds([S('x', 1), S('y', null), S('z', 3)], null).size === 2)
+const odd = M.detailIds([S('x', NaN), S('y', Infinity), S('z', 1)], null)
+check('detailIds: NaN/Infinity 는 순위 밖', !odd.has('x') && !odd.has('y') && odd.has('z'))
+const em = M.emptyLeagueDetail()
+check('emptyLeagueDetail: 빈 값 + detail false', em.topHoldings.length === 0 && em.mix.length === 0 && em.otherPct === 0 && em.otherCount === 0 && em.mixOtherPct === 0 && em.pricedAll === true && em.detail === false)
+check('emptyLeagueDetail: 매번 새 배열(공유 참조 없음)', M.emptyLeagueDetail().mix !== M.emptyLeagueDetail().mix)
+
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (리그 구성 비중)')
 process.exit(fail ? 1 : 0)

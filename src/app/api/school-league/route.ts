@@ -19,7 +19,7 @@ import { getUsdKrw } from '@/lib/fx'
 import { getTechCandles } from '@/lib/techChartData'
 import { buildRealizedTotals, totalReturnPct, type SellTx } from '@/lib/realizedPnl'
 import { TK } from '@/lib/theme'
-import { buildLeagueMix, type LeagueTopHolding, type LeagueMixSlice, type LeagueHoldingRow } from '@/lib/leagueMix'
+import { buildLeagueMix, detailIds, emptyLeagueDetail, type LeagueTopHolding, type LeagueMixSlice, type LeagueHoldingRow } from '@/lib/leagueMix'
 
 // ── 서비스 롤 클라이언트 (전체 사용자 데이터 조회) ──────────────
 function adminClient() {
@@ -63,8 +63,12 @@ export interface StudentPortfolio {
   otherCount:       number
   /** 국가(상장 국가) × 자산 종류 묶음 비중 상위 3 — '왜 수익률이 달랐을까' 용 */
   mix:              LeagueMixSlice[]
+  /** 100 − mix 비중 합(보여주지 않은 묶음의 몫) */
+  mixOtherPct:      number
   /** 모든 보유 종목의 현재가를 받았는가(false = 일부는 매수원가로 대신함) */
   pricedAll:        boolean
+  /** 위 종목 비중 필드를 실었는가 — 🔒 리그 1~3위와 요청한 본인만 true, 나머지는 빈 값 */
+  detail:           boolean
 }
 
 // ── 인기 종목 집계 타입 ──────────────────────────────────────────
@@ -272,7 +276,7 @@ export async function GET(req: Request) {
     }
 
     // ── 4. 학생별 지표 계산 ──────────────────────────────────────
-    const students: StudentPortfolio[] = profiles.map((profile, idx) => {
+    const allStudents: StudentPortfolio[] = profiles.map((profile, idx) => {
       const userInvs   = invByUser[profile.id] ?? []
       const isRegistered = userInvs.length > 0
       const displayName  = profile.full_name ?? profile.email?.split('@')[0] ?? '알 수 없음'
@@ -294,11 +298,7 @@ export async function GET(req: Request) {
           topStocks:         [],
           holdingCount:      0,
           lynchDistribution: emptyLynch(),
-          topHoldings:       [],
-          otherPct:          0,
-          otherCount:        0,
-          mix:               [],
-          pricedAll:         true,
+          ...emptyLeagueDetail(),
         }
       }
 
@@ -383,8 +383,15 @@ export async function GET(req: Request) {
         holdingCount:      userInvs.length,
         lynchDistribution,
         ...leagueMix,
+        detail:            true,
       }
     })
+
+    // 🔒 종목 비중은 리그 1~3위와 요청한 본인만 싣는다 — 로그인한 누구나 전원의 보유 구성을 받던 노출을 줄인다
+    const shownIds = detailIds(allStudents, user.id)
+    const students: StudentPortfolio[] = allStudents.map(s =>
+      shownIds.has(s.userId) ? s : { ...s, ...emptyLeagueDetail() }
+    )
 
     // ── 5. 인기 종목 집계 (등록 학생 기준) ───────────────────────
     // ★ '보유 N명'은 고유 보유자(distinct user) 수여야 함. 과거엔 투자 '행' 수를 세어,
