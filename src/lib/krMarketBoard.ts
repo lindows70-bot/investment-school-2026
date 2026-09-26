@@ -10,6 +10,7 @@ export type KrIndexCode = typeof KR_INDEX_CODES[number]
 export type KrMarket = 'KOSPI' | 'KOSDAQ'
 
 // ── 지수 현재값 ───────────────────────────────────────────────────────────
+const pos = (v: number | null): number | null => (v != null && v > 0 ? v : null)
 export interface KrIndexQuote {
   code: string; name: string
   value: number; change: number | null; changePct: number | null
@@ -34,7 +35,8 @@ export function parseIndexPolling(json: unknown): KrIndexQuote[] {
       value,
       change: signByCode(num(d.compareToPreviousClosePriceRaw ?? d.compareToPreviousClosePrice), cc),
       changePct: signByCode(num(d.fluctuationsRatioRaw ?? d.fluctuationsRatio), cc),
-      open: num(d.openPriceRaw ?? d.openPrice), high: num(d.highPriceRaw ?? d.highPrice), low: num(d.lowPriceRaw ?? d.lowPrice),
+      // 장 시작 전엔 시가·고가·저가가 "0" 으로 온다 — 0 을 값으로 쓰면 '저가 0' 이 된다(없음 = null)
+      open: pos(num(d.openPriceRaw ?? d.openPrice)), high: pos(num(d.highPriceRaw ?? d.highPrice)), low: pos(num(d.lowPriceRaw ?? d.lowPrice)),
       marketStatus: typeof d.marketStatus === 'string' ? d.marketStatus : null,
       asOf: typeof d.localTradedAt === 'string' ? d.localTradedAt : null,
     })
@@ -91,10 +93,13 @@ export function parseIntegration(json: unknown): { investors: InvestorTotals | n
 export const KR_MOVER_KINDS = ['up', 'down', 'quantTop', 'priceTop', 'high52week'] as const
 export type KrMoverKind = typeof KR_MOVER_KINDS[number]
 
-/** KRX 가격제한폭 ±30% — 이걸 넘는 등락은 '기준가가 새로 정해진 날'(상장 첫날·거래 재개·재상장)에만 나온다.
- *  원천에 상장일 필드가 없어(m.stock 목록·integration 모두 실측 없음) 이 규칙으로 판정한다.
+/** KRX 가격제한폭 ±30%(주식) — 주식이 이걸 넘는 등락은 가격제한폭이 없는 날에만 나온다:
+ *  상장 첫날·거래 재개·재상장(기준가가 새로 정해진 날)과 정리매매. 원천에 상장일 필드가 없어(m.stock 목록·integration 모두 실측 없음) 이 규칙으로 판정한다.
+ *  ⛔ **주식에만** 쓴다 — 레버리지 ETF/ETN 은 제한폭이 배율만큼 넓다(2X = ±60%). 2X ETF +45% 는 정상 거래다.
  *  ⚠️ 한계: 상장 첫날이라도 등락이 ±30% 안이면(공모가 대비 +20% 등) 걸러지지 않는다 */
 export const KR_PRICE_LIMIT_PCT = 30
+/** 주식 등락이 가격제한폭 밖인가(반올림 여유 0.05%p) — 호출부가 '주식인지' 먼저 가린다 */
+export const isLimitBreak = (pct: number | null): boolean => pct != null && Math.abs(pct) > KR_PRICE_LIMIT_PCT + 0.05
 
 export interface KrMover {
   code: string; name: string
@@ -123,17 +128,18 @@ export function parseKrMovers(json: unknown, limit = 10): MoverList<KrMover> | n
     if (!code) continue
     const cc = (s.compareToPreviousPrice as { code?: unknown } | undefined)?.code
     const changePct = signByCode(num(s.fluctuationsRatio), cc)
-    if (changePct != null && Math.abs(changePct) > KR_PRICE_LIMIT_PCT + 0.05) { limitBreak++; continue }
+    const end = typeof s.stockEndType === 'string' ? s.stockEndType.toLowerCase() : ''
+    const etp = end === 'etf' ? 'ETF' : end === 'etn' ? 'ETN' : null
+    if (etp == null && isLimitBreak(changePct)) { limitBreak++; continue }
     if (items.length >= limit) continue
     const tv = num(s.accumulatedTradingValueRaw)
     const mv = num(s.marketValueRaw)
-    const end = typeof s.stockEndType === 'string' ? s.stockEndType.toLowerCase() : ''
     items.push({
       code, name: typeof s.stockName === 'string' ? s.stockName : code,
       price: num(s.closePriceRaw ?? s.closePrice), changePct,
       tradeValueEok: tv != null ? Math.round(tv / 1e8) : null,
       marketCapEok: mv != null ? Math.round(mv / 1e8) : null,
-      etp: end === 'etf' ? 'ETF' : end === 'etn' ? 'ETN' : null,
+      etp,
       asOf: typeof s.localTradedAt === 'string' ? s.localTradedAt : null,
     })
   }
@@ -152,7 +158,7 @@ export const latestAsOf = (items: { asOf: string | null }[]): string | null =>
 export interface KrIndustry {
   no: number; name: string; changePct: number | null
   count: number | null; rise: number | null; fall: number | null; steady: number | null
-  /** 업종 등락이 ±30% 를 넘는다 = 가격제한폭 밖 종목(상장 첫날 등)이 섞였다 — 시총가중 평균은 구성 종목 등락 범위를 못 넘는다 */
+  /** 업종 등락이 ±30% 를 넘는다 = 가격제한폭 밖 종목(상장 첫날·정리매매 등)이 섞였다 — 시총가중 평균은 구성 종목 등락 범위를 못 넘는다(업종은 주식만) */
   limitBreakSuspect: boolean
 }
 /** m.stock.naver.com/api/stocks/industry → 업종(시총가중 등락률 — 테마는 단순평균이라 공식이 다르다) */
@@ -167,7 +173,7 @@ export function parseIndustry(json: unknown): { items: KrIndustry[]; marketStatu
     items.push({
       no, name, changePct,
       count: num(g.totalCount), rise: num(g.riseCount), fall: num(g.fallCount), steady: num(g.steadyCount),
-      limitBreakSuspect: changePct != null && Math.abs(changePct) > KR_PRICE_LIMIT_PCT + 0.05,
+      limitBreakSuspect: isLimitBreak(changePct),
     })
   }
   return { items, marketStatus: typeof j!.marketStatus === 'string' ? j!.marketStatus : null, total: num(j!.totalCount) }
