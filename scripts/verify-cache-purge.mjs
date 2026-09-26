@@ -66,6 +66,16 @@ const DAILY = ['market-flow-kr-v10', 'sector-rotation-v15', 'win-lose-v9', 'mark
 check('일별 문서·cronHealth 마커는 10일 이상 보존(cronHealth 8일 역탐색 · 최장 look-back 6일)', DAILY.every(p => rule(p) && rule(p).keepDays >= 10))
 check('긴 TTL 기록은 TTL 보다 길게(guidance-snap 35d · etf-snap/insider-day 400d · rtms-rent 30d)',
   rule('guidance-snap').keepDays > 35 && rule('etf-snap-v1').keepDays > 400 && rule('insider-day-v1').keepDays > 400 && rule('rtms-rent-v2').keepDays > 30)
+// M1(2026-09-27) — 날짜 키인데 목록에 없던 17종. 값 = 그 접두어를 읽는 유일한 getCache 의 maxAge(시간) — 전부 라우트 1곳(git grep 전수)
+const M1_TTL_H = {
+  'alpha-hunter-v3': 24, 'earn-results-v1': 6, 'fx-attribution-v2': 6, 'guidance-radar': 24, 'lynch-matrix-v2': 12,
+  'morningstar-rating-v6': 24, 'permanent-loss-v2': 12, 'portfolio-backtest-v5': 12, 'portfolio-flow-v12': 12,
+  'portfolio-reco-kr-v8': 12, 'tax-helper-v1': 6, 'weekly-report-me-v6': 6,                       // 사용자별 — 날짜 키 유지
+  'bonds-v8': 6, 'crypto-demand-v2': 6, 'dividend-portfolio-v2': 12, 'ultra-dividend-v4': 12, 'cofix-v1': 12,   // 날짜 뺀 공유 문서
+}
+const m1Bad = Object.entries(M1_TTL_H).filter(([p, h]) => !rule(p) || rule(p).keepDays * 24 <= h).map(([p]) => p)
+check(`M1 17종이 전부 규칙에 있고 keepDays > reader TTL${m1Bad.length ? ' — 문제: ' + m1Bad.join(', ') : ''}`, m1Bad.length === 0)
+check('btc-etf-v8 은 허용 목록에 없다(seed-btc-etf-lastgood 가 옛 일자 문서를 like 로 읽는다)', !rule('btc-etf-v8'))
 
 // ── ② 허용 목록 밖은 아무리 오래돼도 안 지운다 ──
 const NEVER = [
@@ -77,6 +87,9 @@ const NEVER = [
 ]
 check('허용 목록 밖 키 15종은 2000년 행이어도 안 지운다', NEVER.every(k => !P.shouldPurge(k, ANCIENT, NOW)))
 check('rtms-trade-v2 는 허용 목록에 없다(나이 안 보는 reader)', !rule('rtms-trade-v2'))
+const UNDATED5 = ['bonds-v8', 'crypto-demand-v2', 'dividend-portfolio-v2', 'ultra-dividend-v4', 'cofix-v1']
+check('날짜 뺀 새 키(콜론 없음)는 2000년 행이어도 안 지우고, 옛 날짜 키는 4일 전이면 지운다',
+  UNDATED5.every(p => !P.shouldPurge(p, ANCIENT, NOW) && P.shouldPurge(`${p}:2026-09-20`, ago(4), NOW)))
 check('tech-chart-v2 는 허용 목록에 없다(날짜 없는 키 — 덮어쓴다)', !rule('tech-chart-v2'))
 
 // ── ③ 접두어 경계 ──
@@ -155,6 +168,9 @@ const usedIn = re => corpus.filter(c => re.test(c.s)).map(c => c.f)
 
 const missing = P.PURGE_RULES.filter(r => !formsOf(r.prefix).some(f => usedIn(keyUse(f)).length)).map(r => r.prefix)
 check(`허용 목록 접두어가 전부 코드에서 키로 쓰인다('+' 결합 키 포함)${missing.length ? ' — 없음: ' + missing.join(', ') : ''}`, missing.length === 0)
+// 날짜를 뺀 5종 — 옛 `${prefix}:{날짜}` 를 쓰거나 읽는 코드가 남아 있으면 새 키와 갈라진다
+const undatedLeft = UNDATED5.flatMap(p => usedIn(new RegExp(`['"\`]${esc(p)}:`)).map(f => `${p}@${f}`))
+check(`날짜 뺀 5종의 옛 날짜 키(prefix:…) 참조가 코드에 0건${undatedLeft.length ? ' — 남음: ' + undatedLeft.join(', ') : ''}`, undatedLeft.length === 0)
 
 // SQL 파일 A 섹션(옛 버전 삭제) — 거기 적힌 접두어·키를 코드가 하나도 안 읽어야 한다
 const sql = readFileSync(`${ROOT}/supabase/app-cache-purge.sql`, 'utf8')

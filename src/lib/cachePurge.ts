@@ -33,6 +33,8 @@ const PER_TICKER = (prefix: string, ttl: string): PurgeRule => ({ prefix, keepDa
 const DAILY = (prefix: string, ttl: string): PurgeRule => ({ prefix, keepDays: 10, why: `일별 · reader ${ttl}` })
 // 사용자별 일자 캐시 — reader 24h 이하(보유가 바뀌면 fp 가 바뀌어 새 키 — 옛 키는 버려진다)
 const PER_USER = (prefix: string, ttl: string): PurgeRule => ({ prefix, keepDays: 3, why: `사용자별 · reader ${ttl}` })
+// 키에서 날짜를 뺀 공유 문서 — 새 키엔 ':' 가 없어 대상이 아니다. 옛 날짜 행 잔여분만(reader 24h 이하 + 오늘(KST)만)
+const UNDATED = (prefix: string, ttl: string): PurgeRule => ({ prefix, keepDays: 3, why: `날짜 뺀 공유 문서 · 옛 날짜 행만 · reader ${ttl}` })
 
 export const PURGE_RULES: PurgeRule[] = [
   PER_TICKER('jarvis-metrics-v17', '12h'),
@@ -100,6 +102,26 @@ export const PURGE_RULES: PurgeRule[] = [
   PER_USER(`hq-briefing-v18+${UNIFIED_RECO_V}`, '12h'),
   PER_USER(`unified-reco-${UNIFIED_RECO_V}`, '12h · core-reco 는 오늘 키만 like 조회'),
   PER_USER(`quant-builder-v8+${UNIFIED_RECO_V}`, '12h'),
+  // 2026-09-27 추가(M1) — 날짜 키인데 목록에 없던 사용자별 12종. fp 가 바뀌면 어차피 옛 키가 버려져 정리 규칙이 필요하다
+  PER_USER('alpha-hunter-v3', '24h'),
+  PER_USER('earn-results-v1', '6h'),
+  PER_USER('fx-attribution-v2', '6h'),
+  PER_USER('guidance-radar', '24h'),
+  PER_USER('lynch-matrix-v2', '12h'),
+  PER_USER('morningstar-rating-v6', '24h'),
+  PER_USER('permanent-loss-v2', '12h'),
+  PER_USER('portfolio-backtest-v5', '12h'),
+  PER_USER('portfolio-flow-v12', '12h'),
+  PER_USER('portfolio-reco-kr-v8', '12h'),
+  PER_USER('tax-helper-v1', '6h'),
+  PER_USER('weekly-report-me-v6', '6h(교사 열람 키 포함)'),
+
+  // 키에서 날짜를 뺀 공유 문서 5종(2026-09-27)
+  UNDATED('bonds-v8', '6h'),
+  UNDATED('crypto-demand-v2', '6h'),
+  UNDATED('dividend-portfolio-v2', '12h'),
+  UNDATED('ultra-dividend-v4', '12h'),
+  UNDATED('cofix-v1', '12h'),
 
   // 오래 남기는 기록 — reader TTL 이 길다. 그 TTL 을 넘긴 행만(어차피 읽히지 않는다)
   { prefix: 'guidance-snap', keepDays: 40, why: '30일 전 스냅샷 비교 · reader 35d' },
