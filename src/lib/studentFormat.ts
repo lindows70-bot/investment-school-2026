@@ -19,6 +19,9 @@ export const usd = (n: number) => `$${n.toLocaleString('en-US', { minimumFractio
 /** 종목 통화대로 — USD 가 아니면(값 없음 포함) 원화 */
 export const money = (n: number, currency: 'USD' | 'KRW' | null) => currency === 'USD' ? usd(n) : won(n)
 
+/** 차트 축 눈금용 만원 단위 — 29,985,275 → '2,999만'(반올림). 1만 원 미만은 won() 그대로 */
+export const manWon = (n: number) => Math.abs(n) >= 10_000 ? `${Math.round(n / 10_000).toLocaleString('ko-KR')}만` : won(n)
+
 /** 부호 붙은 원화 — 0 은 부호 없이 '0원' */
 export const signWon = (n: number) => `${sign(n)}${won(Math.abs(n))}`
 

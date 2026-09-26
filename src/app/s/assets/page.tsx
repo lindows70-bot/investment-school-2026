@@ -1,9 +1,13 @@
 'use client'
-// 학생 내 자산 — 총자산·오늘·원금·불어난 돈 → 히트맵 → 투자 구성 → 오늘의 투자 체크 → 종목 목록 (+ 기록)
+// 학생 내 자산 — 총자산·오늘·원금·불어난 돈 → 히트맵 → 자산 성장 → 투자 구성 → 오늘의 투자 체크 → 이달 예상 배당 → 종목 목록 (+ 기록)
 import Link from 'next/link'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 import { useMyPortfolio, type FailReason } from '@/app/components/student/useMyPortfolio'
 import Heatmap from '@/app/components/student/Heatmap'
+import GrowthChart from '@/app/components/student/GrowthChart'
+import { useJson } from '@/app/components/student/useJson'
+import { useInView } from '@/app/components/student/useInView'
+import { FailRow, noteStyle, useKstToday } from '@/app/components/student/home/homeUi'
 import { rebalanceCheck } from '@/lib/portfolioSummary'
 import { won, signWon, pct, upDown } from '@/lib/studentFormat'
 
@@ -18,8 +22,53 @@ const FAIL_TEXT: Record<FailReason | 'unknown', { title: string; detail: string 
   unknown: { title: '내 자산을 불러오지 못했어요.', detail: '시세나 환율 서버가 잠시 응답하지 않았을 수 있어요.' },
 }
 
+interface CalendarMonthly { monthly?: { month?: unknown; krw?: unknown }[] }
+
+/** 이달 예상 배당 한 줄 — event-calendar 는 콜드 20초대라 보일 때 부른다.
+ *  monthly 는 작년 배당 이력을 1년 뒤로 옮긴 추정이고, 이번 달은 '오늘부터 남은 것'만 담긴다(route.ts: 오늘 이전 지급분 제외).
+ *  이번 달은 마운트 뒤에 정한다(렌더 중 new Date() 는 하이드레이션을 깨뜨린다) */
+function MonthDividend() {
+  const [ref, seen] = useInView<HTMLDivElement>()
+  const cal = useJson<CalendarMonthly>('/api/event-calendar', { enabled: seen })
+  const today = useKstToday()
+  const month = today?.slice(0, 7) ?? null
+
+  let body: React.ReactNode
+  let linked = false
+  if (!seen || month == null || cal.state === 'idle' || cal.state === 'loading') {
+    body = <span style={noteStyle()}>이달 예상 배당을 불러오는 중…</span>
+  } else if (cal.state === 'unauth') {
+    body = <span style={noteStyle()}>로그인하면 이달 예상 배당이 보여요.</span>
+  } else {
+    const hit = cal.state === 'ok' && Array.isArray(cal.data?.monthly)
+      ? cal.data.monthly.find(m => m?.month === month && typeof m.krw === 'number' && Number.isFinite(m.krw))
+      : undefined
+    if (!hit) {
+      // 응답이 없거나 이번 달 칸이 없으면 '없음'이 아니라 '못 가져옴'
+      body = <FailRow text="배당 일정 못 가져왔어요." onRetry={cal.reload} retryLabel="이달 예상 배당 다시 불러오기" />
+    } else {
+      linked = true
+      const krw = hit.krw as number
+      body = krw > 0
+        ? <span style={{ fontSize: FS.body, color: TK.slate200 }}>이달 남은 예상 배당금 <b style={{ color: TK.slate100 }}>{won(krw)}</b> <span style={{ fontSize: FS.tiny, color: TK.sub }}>· 작년 배당 기준 추정</span></span>
+        : <span style={{ fontSize: FS.body, color: TK.slate200 }}>이달 남은 예상 배당 없음 <span style={{ fontSize: FS.tiny, color: TK.sub }}>· 작년 배당 기준</span></span>
+    }
+  }
+  // 실패 줄엔 '다시' 버튼이 있어 링크로 감싸지 않는다(링크 안 버튼은 잘못된 HTML)
+  return (
+    <div ref={ref}>
+      {linked
+        ? <Link href="/assets" style={{ ...card, display: 'flex', alignItems: 'center', gap: SP.sm, minHeight: 44, color: TK.slate200, textDecoration: 'none' }}>
+            <div style={{ flexGrow: 1, minWidth: 0 }}>{body}</div>
+            <span aria-hidden style={{ fontSize: FS.lg, color: TK.sub, flexShrink: 0 }}>›</span>
+          </Link>
+        : <div style={card}>{body}</div>}
+    </div>
+  )
+}
+
 export default function StudentAssets() {
-  const { state, summary, targetCorePct, pricesFailed, failReason, reload } = useMyPortfolio()
+  const { state, holdings, summary, usdKrw, targetCorePct, pricesFailed, failReason, reload } = useMyPortfolio()
   const header = (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 48 }}>
       <h1 style={{ margin: 0, fontSize: FS.xl, fontWeight: 800, color: TK.slate100 }}>내 자산</h1>
@@ -87,6 +136,8 @@ export default function StudentAssets() {
 
       <Heatmap rows={summary.rows} corePct={summary.corePct} />
 
+      <GrowthChart holdings={holdings} rows={summary.rows} usdKrw={usdKrw} />
+
       <section style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: SP.sm }}>
           <h2 style={{ margin: 0, fontSize: FS.body, fontWeight: 700, color: TK.slate100 }}>내 투자 구성</h2>
@@ -111,6 +162,8 @@ export default function StudentAssets() {
           {check.kind !== 'balanced' && <span style={{ fontSize: FS.tiny, color: TK.sub }}>새로 넣는 돈이 {check.kind === 'core-short' ? '코어' : '위성'} 종목으로 가면 팔지 않고도 목표에 가까워져요.</span>}
         </section>
       )}
+
+      <MonthDividend />
 
       <section style={{ display: 'flex', flexDirection: 'column' }}>
         <h2 style={{ margin: 0, fontSize: FS.lg, fontWeight: 700, color: TK.slate100, paddingBottom: SP.sm }}>내 종목</h2>
