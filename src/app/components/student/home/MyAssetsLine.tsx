@@ -32,7 +32,12 @@ export default function MyAssetsLine() {
   return (
     <Link href="/s/assets" style={{ ...card, display: 'flex', alignItems: 'center', gap: SP.sm, color: TK.slate200, textDecoration: 'none' }}>
       <div style={{ flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: SP.xs }}>
-        <span style={noteStyle()}>내 종목 평가금액{pricesFailed ? ' · 시세를 못 가져와 매수가 기준' : ''}</span>
+        {/* 내 자산 화면이 밝히는 단서(지난 시세·매수가로 계산한 종목)를 한 줄에서도 — 같은 합계에 같은 단서 */}
+        <span style={noteStyle()}>
+          내 종목 평가금액{pricesFailed ? ' · 시세를 못 가져와 매수가 기준' : ''}
+          {summary.staleCount > 0 && <span style={{ color: TK.amber400 }}>{` · ${summary.staleCount}종목 지난 시세`}</span>}
+          {!pricesFailed && summary.unpricedCount > 0 && <span style={{ color: TK.amber400 }}>{` · ${summary.unpricedCount}종목 매수가로 계산`}</span>}
+        </span>
         <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: SP.sm }}>
           <span style={{ fontSize: FS.lg, fontWeight: 800, color: TK.slate100, whiteSpace: 'nowrap' }}>{won(summary.totalEvalKrw)}</span>
           {noToday
