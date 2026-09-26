@@ -12,6 +12,10 @@ import BuffettAnalysisPanel from '@/app/components/BuffettAnalysisPanel'
 // SSOT: 자산 유형 분류 (STOCK / ETF / CRYPTO / COMMODITY)
 import { getAssetType } from '@/lib/assetClassifier'
 import { TK, FONT_STACK } from '@/lib/theme'
+import { QUOTES } from '@/lib/quotes'
+
+// 가치투자 원칙 카드의 인용 — 원문(1989 주주서한)이 확인된 목록에서만 고른다
+const BUFFETT_INSIGHT = QUOTES.find(q => q.id === 'B05')!
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Market   = 'US' | 'KR' | 'CRYPTO'
@@ -873,9 +877,11 @@ function AnalysisContent() {
               {/* 버핏 명언 */}
               <div style={{ marginTop:14, padding:'12px 14px', background:'rgba(16,185,129,0.06)', borderRadius:10, border:'1px solid rgba(16,185,129,0.2)' }}>
                 <div style={{ fontSize:10, fontWeight:700, color:TK.emerald500, letterSpacing:'0.08em', marginBottom:5 }}>💬 BUFFETT&apos;S INSIGHT</div>
+                {/* 'Rule No.1: Never lose money' 는 1977~2025 주주서한·오너스 매뉴얼에서 원문 확인이 안 된다(docs/student-mode/quotes.md) — 원문 확인된 B05 로 교체 */}
                 <div style={{ fontSize:12, color:'#a7f3d0', fontStyle:'italic', lineHeight:1.6 }}>
-                  &quot;Rule No.1: Never lose money.<br/>Rule No.2: Never forget Rule No.1.&quot;
+                  &quot;{BUFFETT_INSIGHT.original}&quot;
                 </div>
+                <div style={{ fontSize:11, color:C.sub, marginTop:4, lineHeight:1.5 }}>{BUFFETT_INSIGHT.ko} — {BUFFETT_INSIGHT.sourceLabel}</div>
               </div>
             </div>
           </div>
