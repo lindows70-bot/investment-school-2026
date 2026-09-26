@@ -29,7 +29,7 @@ export default function KrIndustry({ kr }: { kr: JsonResult<KrBoardResp> }) {
       <div aria-live="polite" style={{ display: 'flex', flexDirection: 'column' }}>
         <Pending view={view} loading="업종을 불러오는 중…" fail="업종을 못 가져왔어요." onRetry={kr.reload} retryLabel="업종 다시 불러오기" />
         {view.kind === 'ok' && (shown.length === 0
-          ? <span style={noteStyle()}>네이버 업종 목록이 비어 있어요.</span>
+          ? <span style={noteStyle()}>{view.data.items.length === 0 ? '네이버 업종 목록이 비어 있어요.' : dir === 'up' ? '오늘 오른 업종이 없어요.' : '오늘 내린 업종이 없어요.'}</span>
           : shown.map((g, i) => (
             <div key={g.no} style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, padding: `${SP.sm}px 0`, borderTop: `1px solid ${TK.border}`, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: SP.sm, minWidth: 0 }}>

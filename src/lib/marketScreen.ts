@@ -195,9 +195,11 @@ export function usMoverFilterNote(
 }
 
 // ── 업종 ───────────────────────────────────────────────────────────────────
-/** 등락률 순 상위 n(오른 순 = 큰 값부터, 내린 순 = 작은 값부터). 등락률 없는 업종은 뺀다 */
+/** 등락률 순 상위 n(오른 순 = 오른 업종만 큰 값부터, 내린 순 = 내린 업종만 작은 값부터). 등락률 없는·보합(0) 업종은 뺀다 —
+ *  모두 오른 날 '많이 내린 업종'에 +0.3% 업종이 뜨지 않게(없으면 빈 목록 → 화면이 '오늘 내린 업종이 없어요') */
 export function topIndustries(items: KrIndustry[], dir: 'up' | 'down', n: number): KrIndustry[] {
-  const withPct = items.filter((i): i is KrIndustry & { changePct: number } => typeof i.changePct === 'number' && Number.isFinite(i.changePct))
+  const withPct = items.filter((i): i is KrIndustry & { changePct: number } =>
+    typeof i.changePct === 'number' && Number.isFinite(i.changePct) && (dir === 'up' ? i.changePct > 0 : i.changePct < 0))
   withPct.sort((a, b) => (dir === 'up' ? b.changePct - a.changePct : a.changePct - b.changePct))
   return withPct.slice(0, n)
 }

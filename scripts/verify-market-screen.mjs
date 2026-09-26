@@ -134,8 +134,9 @@ const ind = [
   { no: 4, name: '없음', changePct: null, limitBreakSuspect: false },
   { no: 5, name: '보험', changePct: 0, limitBreakSuspect: false },
 ]
-eq('오른 순', M.topIndustries(ind, 'up', 3).map(i => i.name), ['가정용품', '반도체', '보험'])
-eq('내린 순(등락률 없는 업종 제외)', M.topIndustries(ind, 'down', 2).map(i => i.name), ['은행', '보험'])
+eq('오른 순(오른 업종만 — 보합·등락 모름 제외)', M.topIndustries(ind, 'up', 3).map(i => i.name), ['가정용품', '반도체'])
+eq('내린 순(내린 업종만)', M.topIndustries(ind, 'down', 2).map(i => i.name), ['은행'])
+eq('모두 오른 날 내린 순 = 빈 목록', M.topIndustries([{ no: 1, name: 'a', changePct: 0.3, limitBreakSuspect: false }], 'down', 5), [])
 eq('막대 폭 — 의심 업종 제외한 최대가 100, 의심은 100, 0% 는 0', M.industryBars(ind.slice(0, 3).concat([ind[4]])), [100, 100, 50, 0])
 eq('막대 최소 2', M.industryBars([{ changePct: 10, limitBreakSuspect: false }, { changePct: 0.05, limitBreakSuspect: false }]), [100, 2])
 
