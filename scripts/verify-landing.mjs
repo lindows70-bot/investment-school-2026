@@ -100,5 +100,39 @@ check('차단: /start', no('/start'))
 check('차단: /start?next=/s', no('/start?next=/s'))
 check('차단: /start/', no('/start/'))
 
+// ── 역할 조회 실패 ──
+check('조회 성공 · 선생님 → 대시보드', M.landingAfterLookup('teacher', null, undefined) === '/dashboard')
+check('조회 성공 · 학생 → 학생 홈', M.landingAfterLookup('student', null, null) === '/s')
+check('행 없음(PGRST116) → 학생 홈', M.landingAfterLookup(null, null, 'PGRST116') === '/s')
+check('그 밖의 조회 오류 → 대시보드(예전 착지 — 선생님 경계 유지)', M.landingAfterLookup(null, null, '57014') === '/dashboard')
+check('조회 오류여도 고른 모드 simple → 학생 홈', M.landingAfterLookup(null, 'simple', '57014') === '/s')
+check('조회 오류여도 고른 모드 full → 대시보드', M.landingAfterLookup(null, 'full', 'PGRST116') === '/dashboard')
+
+// ── getUser 실패 갈래(장애면 /login 으로 보내지 않는다 — 무한 이동 방지) ──
+check('오류 없음(세션 없음) → invalid', M.authFailureKind(null) === 'invalid')
+check('AuthSessionMissingError → invalid', M.authFailureKind({ name: 'AuthSessionMissingError', status: 400 }) === 'invalid')
+check('401 → invalid', M.authFailureKind({ name: 'AuthApiError', status: 401 }) === 'invalid')
+check('403 → invalid', M.authFailureKind({ name: 'AuthApiError', status: 403 }) === 'invalid')
+check('404(사용자 삭제) → invalid', M.authFailureKind({ name: 'AuthApiError', status: 404 }) === 'invalid')
+check('AuthRetryableFetchError(네트워크, status 0) → outage', M.authFailureKind({ name: 'AuthRetryableFetchError', status: 0 }) === 'outage')
+check('AuthRetryableFetchError 503 → outage', M.authFailureKind({ name: 'AuthRetryableFetchError', status: 503 }) === 'outage')
+check('500 → outage', M.authFailureKind({ name: 'AuthApiError', status: 500 }) === 'outage')
+check('429(요청 제한) → outage', M.authFailureKind({ name: 'AuthApiError', status: 429 }) === 'outage')
+check('status 없는 알 수 없는 오류 → outage(쿠키 안 지움)', M.authFailureKind({ name: 'AuthUnknownError' }) === 'outage')
+
+// ── 로그인 토큰 쿠키만 센다 ──
+check('auth-token → 있음', M.hasAuthTokenCookie(['sb-abc-auth-token']))
+check('쪼개진 auth-token.0 → 있음', M.hasAuthTokenCookie(['x', 'sb-abc-auth-token.0']))
+check('code-verifier 만 → 없음', !M.hasAuthTokenCookie(['sb-abc-auth-token-code-verifier']))
+check('view_mode 만 → 없음', !M.hasAuthTokenCookie(['view_mode']))
+check('빈 목록 → 없음', !M.hasAuthTokenCookie([]))
+
+// ── 되돌이 경로(정규화된 pathname 기준) ──
+check('isLoopPath /start', M.isLoopPath('/start'))
+check('isLoopPath /Login/', M.isLoopPath('/Login/'))
+check('isLoopPath /signup/x', M.isLoopPath('/signup/x'))
+check('isLoopPath /s → 아님', !M.isLoopPath('/s'))
+check('isLoopPath /starter → 아님', !M.isLoopPath('/starter'))
+
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (로그인 착지)')
 process.exit(fail ? 1 : 0)
