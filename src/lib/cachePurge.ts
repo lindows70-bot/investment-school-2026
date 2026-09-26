@@ -136,3 +136,37 @@ export function shouldPurge(key: string, updatedAtIso: string, nowMs: number, ru
 export function cutoffIso(rule: PurgeRule, nowMs: number): string {
   return new Date(nowMs - rule.keepDays * DAY_MS).toISOString()
 }
+
+/** 한 번 실행에서 규칙 하나가 쓸 수 있는 묶음 수 — 앞 규칙의 밀린 행이 예산을 다 먹지 않게 */
+export const MAX_BATCHES_PER_RULE = 5
+
+/**
+ * 오늘 규칙을 도는 순서(인덱스) — 시작점을 KST 연중 일자로 날마다 한 칸씩 돌린다.
+ * 매번 0번부터 돌면 20초 예산을 앞 규칙이 다 써서 맨 끝(rtms-rent-v2 — 행당 최대)이 영영 밀린다.
+ */
+export function purgeOrder(n: number, nowMs: number): number[] {
+  if (n <= 0) return []
+  const kst = new Date(nowMs + 9 * 3600_000)
+  const dayOfYear = Math.floor((Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate()) - Date.UTC(kst.getUTCFullYear(), 0, 1)) / DAY_MS)
+  const start = dayOfYear % n
+  return Array.from({ length: n }, (_, i) => (start + i) % n)
+}
+
+/**
+ * delete 의 in(keys) 묶음 — 개수(maxCount)와 URL 바이트(maxBytes, 인코딩 후)를 둘 다 넘지 않게 자른다.
+ * PostgREST 는 `key=in.("k1","k2")` 로 URL 에 싣는다 — 사용자 id 가 든 긴 키 100개면 8 KB 를 넘을 수 있다.
+ * 키 하나가 혼자 상한을 넘으면 그 키만 한 묶음으로 둔다(버리지 않는다 — 판정은 이미 끝났다).
+ */
+export function chunkKeys(keys: string[], maxCount = 100, maxBytes = 8 * 1024): string[][] {
+  const out: string[][] = []
+  let cur: string[] = []
+  let bytes = 0
+  for (const k of keys) {
+    const b = encodeURIComponent(`"${k}"`).length + 3   // 구분자 ',' 인코딩(%2C)
+    if (cur.length && (cur.length >= maxCount || bytes + b > maxBytes)) { out.push(cur); cur = []; bytes = 0 }
+    cur.push(k)
+    bytes += b
+  }
+  if (cur.length) out.push(cur)
+  return out
+}
