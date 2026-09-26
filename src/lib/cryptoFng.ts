@@ -74,6 +74,8 @@ export interface CryptoFngYear {
   yearHigh: { v: number; date: string } | null         // 기준일 포함 지난 365일 최고(같은 값이면 가장 최근 날짜)
   yearLow: { v: number; date: string } | null
   points: number                                       // 고저 계산에 쓴 날 수
+  /** 고저를 잰 실제 기간(KST). fullYear=false 면 기록이 1년에 못 미친다 — '연간' 대신 from~to 로 적는다 */
+  range: { from: string; to: string; fullYear: boolean } | null
 }
 
 /** alternative.me limit=366 응답 → 1년 요약. 1년 전·고저 모두 줄 번호가 아니라 **날짜**(timestamp)로 찾는다 */
@@ -104,6 +106,9 @@ export function parseFngYear(json: unknown): CryptoFngYear | null {
     yearHigh: hi ? { v: hi[1], date: kstDate(hi[0]) as string } : null,
     yearLow: lo ? { v: lo[1], date: kstDate(lo[0]) as string } : null,
     points: series.length,
+    range: series.length
+      ? { from: kstDate(series[0][0]) as string, to: kstDate(ts0) as string, fullYear: series[0][0] <= fromTs + 7 * DAY }
+      : null,
   }
 }
 

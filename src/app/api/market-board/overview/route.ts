@@ -11,7 +11,7 @@ import { loadStrongSectors } from '@/lib/strongSectors'
 import { okPart, failPart } from '@/lib/marketBoardShared'
 import { boardCached } from '@/lib/marketBoardCache'
 
-const KEY = 'market-board-overview-v1'   // 🗓️ 날짜 없는 키 — 30분(셋 다 하루 한 번 바뀌는 값)
+const KEY = 'market-board-overview-v2'   // 🗓️ 날짜 없는 키 — 30분(셋 다 하루 한 번 바뀌는 값) · v2: 공포탐욕 기록 기간(range)·환율 진행 중 행(provisional)·대표 종목 계산일 확인
 
 async function build() {
   const [cnn, crypto, fx, sectors] = await Promise.all([

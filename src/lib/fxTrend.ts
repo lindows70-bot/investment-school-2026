@@ -3,7 +3,7 @@
 //   실측(2026-09-27): 한 쪽 60행 = 영업일 60일(주말·휴일 없음), 5쪽이면 2025-07 까지 → 1년치를 덮는다.
 //   ⚠️ 이 lib 는 추이 표시용이다. 앱 환율 SSOT(/api/exchange-rate)는 바꾸지 않는다(4단계에서 전환).
 //   ⚠️ 기간은 줄 수가 아니라 **날짜**로 자른다(인덱스 산술 금지 — CPI 13개월 차분 사고).
-import { type Part, okPart, failPart, num, getJson, highLow, addMonthsYmd } from './marketBoardShared'
+import { type Part, okPart, failPart, num, getJson, highLow, addMonthsYmd, kstYmd } from './marketBoardShared'
 
 export interface FxDay { date: string; v: number }
 export interface FxRange {
@@ -13,7 +13,10 @@ export interface FxRange {
   low: { v: number; date: string } | null
 }
 export interface FxTrend {
-  latest: { date: string; v: number; change: number | null; changePct: number | null }   // 고시일 = latest.date
+  latest: { date: string; v: number; change: number | null; changePct: number | null }   // 확정 고시일 = latest.date
+  /** 오늘(KST) 날짜 행 — 하나은행은 하루 여러 회차 고시하고 원천엔 회차·확정 표시가 없다. 오늘 행은 장중에 계속 바뀔 수 있어
+   *  고저·고시일·시계열에서 빼고 여기만 싣는다('진행 중'). 없으면 null */
+  provisional: { date: string; v: number } | null
   m1: FxRange; m3: FxRange; y1: FxRange
 }
 
@@ -38,8 +41,11 @@ function rangeOf(rows: FxDay[], latest: string, months: number): FxRange {
   return { from, to: latest, points, high: hl?.high ?? null, low: hl?.low ?? null }
 }
 
-/** 일별 → 최신값·전일 대비·1달·3달·1년. 1년 구간의 첫 날이 원천 범위 안에 없으면(쪽을 덜 받음) null — 짧은 기간을 1년이라 부르지 않는다 */
-export function buildFxTrend(rows: FxDay[]): FxTrend | null {
+/** 일별 → 최신값·전일 대비·1달·3달·1년. 1년 구간의 첫 날이 원천 범위 안에 없으면(쪽을 덜 받음) null — 짧은 기간을 1년이라 부르지 않는다.
+ *  todayKst 날짜(이후) 행은 확정 전일 수 있어 provisional 로만 싣는다 */
+export function buildFxTrend(allRows: FxDay[], todayKst: string): FxTrend | null {
+  const prov = allRows.filter(r => r.date >= todayKst)
+  const rows = allRows.filter(r => r.date < todayKst)
   if (!rows.length) return null
   const last = rows[rows.length - 1]
   const prev = rows.length >= 2 ? rows[rows.length - 2] : null
@@ -48,6 +54,7 @@ export function buildFxTrend(rows: FxDay[]): FxTrend | null {
   const change = prev ? Math.round((last.v - prev.v) * 100) / 100 : null
   return {
     latest: { date: last.date, v: last.v, change, changePct: prev && prev.v ? Math.round((last.v - prev.v) / prev.v * 10000) / 100 : null },
+    provisional: prov.length ? { date: prov[prov.length - 1].date, v: prov[prov.length - 1].v } : null,
     m1: rangeOf(rows, last.date, 1), m3: rangeOf(rows, last.date, 3), y1,
   }
 }
@@ -59,7 +66,7 @@ export async function fetchFxTrend(): Promise<Part<FxTrend>> {
   const bad = pages.find(p => !p.ok)
   if (bad && !bad.ok) return failPart(bad.reason, SRC)   // 한 쪽이라도 빠지면 1년 고저가 틀린다 — 부분 결과를 내지 않는다
   const rows = parseFxPages(pages.map(p => (p.ok ? p.json : null)))
-  const t = buildFxTrend(rows)
+  const t = buildFxTrend(rows, kstYmd(Date.now()))
   if (!t) return failPart(rows.length ? '1년치가 모자람' : '환율 행 없음', SRC)
   return okPart(t, t.latest.date, SRC)
 }

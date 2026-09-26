@@ -8,9 +8,11 @@ export interface CnnFngYear {
   now: number
   rating: string | null
   yearAgo: number | null                        // 원천 previous_1_year
-  yearHigh: { v: number; date: string } | null  // 지난 1년 최고(같은 값이면 가장 최근 날짜)
+  yearHigh: { v: number; date: string } | null  // 기록 기간(range) 최고(같은 값이면 가장 최근 날짜) — 지금 값 포함
   yearLow: { v: number; date: string } | null
   points: number                                // 고저 계산에 쓴 날 수
+  /** 고저를 잰 실제 기간. fullYear=false 면 원천 기록이 1년에 못 미친다 — 화면은 '연간' 대신 from~to 를 적는다 */
+  range: { from: string; to: string; fullYear: boolean } | null
   asOf: string | null                           // 원천 fear_and_greed.timestamp
 }
 
@@ -29,11 +31,19 @@ export function parseCnnFngYear(json: unknown): CnnFngYear | null {
       .sort((a, b) => a.x - b.x)
     for (const p of rows) byDate.set(new Date(p.x).toISOString().slice(0, 10), p.y)   // 같은 날이면 뒤 값이 덮는다
   }
+  // 지금 값(score)을 그날(원천 timestamp 의 UTC 날짜)의 값으로 넣는다 — 이력이 하루 늦게 따라와도
+  // '지금이 연간 최고'인 날에 고저가 지금 값을 빠뜨리지 않게(규칙: 지금 값이 이력 같은 날 값을 덮는다)
+  const nowDate = typeof f.timestamp === 'string' && Number.isFinite(Date.parse(f.timestamp)) ? new Date(Date.parse(f.timestamp)).toISOString().slice(0, 10) : null
+  if (nowDate) byDate.set(nowDate, now)
   const dates = Array.from(byDate.keys()).sort()
   const last = dates[dates.length - 1]
   const from = last ? addDaysYmd(last, -365) : null
   const series = dates.filter(d => from != null && d >= from).map(d => ({ date: d, v: byDate.get(d) as number }))
   const hl = highLow(series)
+  // 창의 첫날보다 7일 넘게 늦게 기록이 시작되면 1년치가 아니다(원천이 짧게 줄 때)
+  const range = series.length && from
+    ? { from: series[0].date, to: series[series.length - 1].date, fullYear: series[0].date <= addDaysYmd(from, 7) }
+    : null
   // 정수로 반올림 — /api/cocktail-party(홈 공포·탐욕 카드)가 score 를 Math.round 로 보여준다(같은 값이 화면마다 달라지지 않게)
   const roundI = (v: number) => Math.round(v)
   const ya = num(f.previous_1_year)
@@ -43,6 +53,7 @@ export function parseCnnFngYear(json: unknown): CnnFngYear | null {
     yearHigh: hl ? { v: roundI(hl.high.v), date: hl.high.date } : null,
     yearLow: hl ? { v: roundI(hl.low.v), date: hl.low.date } : null,
     points: series.length,
+    range,
     asOf: typeof f.timestamp === 'string' ? f.timestamp : null,
   }
 }

@@ -20,7 +20,8 @@ export interface StrongSector {
   key: string; label: string; emoji: string; group: 'gics' | 'theme'
   quadrant: RotQuadShared; score: number
   ret1w: number | null; ret1m: number | null; count: number
-  reps: StrongRep[] | null   // null = 섹터 종목 캐시를 못 읽음(대표 종목 모름) · [] = 1주 수익률 있는 종목 없음
+  reps: StrongRep[] | null   // null = 대표 종목 모름(repsReason) · [] = 1주 수익률 있는 종목 없음
+  repsReason: string | null
 }
 
 /** 쏠림점수(score) 내림차순 상위 n */
@@ -35,6 +36,15 @@ export function pickReps(stocks: SectorStockLite[], k: number): StrongRep[] {
     .sort((a, b) => b.ret1w - a.ret1w)
     .slice(0, k)
     .map(s => ({ ticker: s.ticker, name: s.name, market: s.market, flag: flagOf(s.market, s.ticker), ret1w: Math.round(s.ret1w * 10) / 10 }))
+}
+
+/** 섹터 종목 캐시 → 대표 종목. 대표 종목의 1주 수익률이 섹터 1주 수익률과 다른 날 계산이면 한 카드 안에서 기준일이 어긋난다 —
+ *  섹터 종목 계산일(asOf 의 KST 날짜)이 로테이션 계산일과 같을 때만 쓴다 */
+export function repsFor(sec: { stocks?: SectorStockLite[]; asOf?: string } | null, calcDate: string, k: number): { reps: StrongRep[] | null; repsReason: string | null } {
+  if (!sec?.stocks) return { reps: null, repsReason: '섹터 종목 계산 결과가 없음' }
+  const secDay = typeof sec.asOf === 'string' && Number.isFinite(Date.parse(sec.asOf)) ? kstYmd(Date.parse(sec.asOf)) : null
+  if (secDay !== calcDate) return { reps: null, repsReason: `섹터 종목 계산일(${secDay ?? '모름'})이 로테이션 계산일(${calcDate})과 다름` }
+  return { reps: pickReps(sec.stocks, k), repsReason: null }
 }
 
 export interface StrongSectorsResult {
@@ -57,12 +67,12 @@ export async function loadStrongSectors(n = 5, repsPerSector = 2): Promise<Stron
     const items = await Promise.all(top.map(async (it): Promise<StrongSector> => {
       const ck = sectorCacheKey(it.key)
       // 24h — sector-v3 정리 규칙(keepDays 3)보다 짧게(정리 원칙 ②)
-      const sec = ck ? await getCache<{ stocks?: SectorStockLite[] }>(ck, 24 * 3600_000).catch(() => null) : null
-      return {
+      const sec = ck ? await getCache<{ stocks?: SectorStockLite[]; asOf?: string }>(ck, 24 * 3600_000).catch(() => null) : null
+      const base = {
         key: it.key, label: it.label, emoji: it.emoji, group: it.group,
         quadrant: it.quadrant, score: it.score, ret1w: it.ret1w, ret1m: it.ret1m, count: it.count,
-        reps: sec?.stocks ? pickReps(sec.stocks, repsPerSector) : null,
       }
+      return { ...base, ...repsFor(sec, d, repsPerSector) }
     }))
     return {
       calcDate: d, asOf: typeof rot.asOf === 'string' ? rot.asOf : null,
