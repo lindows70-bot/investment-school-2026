@@ -19,12 +19,14 @@ export interface HomeBriefInput {
   movers: { held: { name: string; changePct: number }[]; checked: number; failed: number } | null
   /** FOMC_SCHEDULE 의 성명 발표일(미국 날짜, 'YYYY-MM-DD'), 순서 무관. 한국엔 다음 날 새벽에 나온다 */
   fomcDates: string[] | null
+  /** 미국 지표 발표일(/api/macro-releases — FRED 공식 일정을 한국 날짜·시각으로 바꾼 것). null = 못 가져옴 */
+  macro: { kind: string; label: string; kstDate: string; kstTime: string }[] | null
 }
 
 const SEP: Part = { text: ' · ', tone: 'muted' }
 const MOVE_MIN = 5          // day-movers 임계와 같은 5%
 const EARN_SOON_DAYS = 7    // 2줄: 7일 안 실적
-const UPCOMING_DAYS = 30    // 3줄: 30일 안 실적(홈 '주요 일정' 카드와 같은 창)
+const UPCOMING_DAYS = 30    // 3줄: 30일 안 실적·미국 지표 발표(홈 '주요 일정' 카드와 같은 창)
 const YMD = /^\d{4}-\d{2}-\d{2}$/
 
 const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)
@@ -145,6 +147,15 @@ function upcomingLine(input: HomeBriefInput, today: string): Line {
   } else {
     const e = earningsWithin(input.events, today, UPCOMING_DAYS)[0]
     if (e) dated.push({ date: e.date, part: { text: `${dayLabel(e.date, today)} ${e.name} 실적` } })
+  }
+  // 미국 지표 발표 — 30일 안 가장 이른 1건. 8:30(미국 동부)이라 한국은 같은 날 밤
+  if (input.macro == null) {
+    unknown.push({ text: '지표 발표일 못 가져옴', tone: 'muted' })
+  } else {
+    const last = addDays(today, UPCOMING_DAYS)
+    const m = input.macro.filter(x => YMD.test(x.kstDate) && x.kstDate >= today && x.kstDate <= last)
+      .sort((a, b) => a.kstDate < b.kstDate ? -1 : a.kstDate > b.kstDate ? 1 : 0)[0]
+    if (m) dated.push({ date: m.kstDate, part: { text: `${dayLabel(m.kstDate, today)} 밤 ${m.label} 발표` } })
   }
   dated.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
   // FOMC 가 늘 날짜나 '못 가져옴'을 내므로 이 줄은 비지 않는다('30일 안 일정 없음' 문구가 필요 없다)
