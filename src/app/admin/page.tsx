@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { TK, FONT_STACK } from '@/lib/theme'
+import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면마다 1,350·1,400 으로 갈리던 상수를 한 값으로)
+import { acceptFx } from '@/lib/fxAccept'     // 환율 채택 SSOT — 고정 상수는 실제 환율로 쓰지 않는다
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Market   = 'US' | 'KR' | 'CRYPTO'
@@ -40,8 +42,7 @@ interface StudentRow extends Profile {
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-// ⚠️ 폴백 전용 — 실제 환산은 usdKrw state(/api/exchange-rate). 제1원칙: 환율 하드코딩 금지
-const USD_KRW_FALLBACK = 1_350
+// ⚠️ 폴백(USD_KRW_FALLBACK)은 fx.ts SSOT 에서 가져온다 — 실제 환산은 usdKrw state(/api/exchange-rate). 제1원칙: 환율 하드코딩 금지
 
 const LYNCH_META: Record<string, { label: string; color: string }> = {
   slow_grower: { label: '저성장주', color: TK.sub9 },
@@ -72,7 +73,7 @@ function toKrw(inv: Investment, usdKrw: number = USD_KRW_FALLBACK) {
 function StudentModal({ student, onClose }: { student: StudentRow; onClose: () => void }) {
   const invs = student.investments
 
-  // ── 실시간 환율 (localStorage 캐시 → 없으면 1,350 기본값) ──
+  // ── 실시간 환율 (localStorage 캐시 → 없으면 SSOT 기본값) ──
   const [usdKrw, setUsdKrw] = useState(USD_KRW_FALLBACK)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [priceMap, setPriceMap] = useState<Record<string, any>>({})
@@ -89,7 +90,7 @@ function StudentModal({ student, onClose }: { student: StudentRow; onClose: () =
     } catch { /* 기본값 유지 */ }
     let alive = true
     fetch('/api/exchange-rate').then(r => r.ok ? r.json() : null)
-      .then(j => { if (alive && typeof j?.rate === 'number' && j.rate > 500) setUsdKrw(j.rate) })
+      .then(j => { const r = acceptFx(j); if (alive && r != null) setUsdKrw(r) })   // 고정 상수(stale-constant)는 받지 않는다 — 폴백 유지
       .catch(() => { /* 폴백 유지 */ })
     return () => { alive = false }
   }, [])
@@ -381,7 +382,7 @@ export default function AdminPage() {
   useEffect(() => {
     let alive = true
     fetch('/api/exchange-rate').then(r => r.ok ? r.json() : null)
-      .then(j => { if (alive && typeof j?.rate === 'number' && j.rate > 500) setUsdKrw(j.rate) })
+      .then(j => { const r = acceptFx(j); if (alive && r != null) setUsdKrw(r) })   // 고정 상수(stale-constant)는 받지 않는다 — 폴백 유지
       .catch(() => { /* 폴백 유지 */ })
     return () => { alive = false }
   }, [])
@@ -727,7 +728,7 @@ export default function AdminPage() {
               {[
                 { label: '전체 학생 수',    value: `${totalStudents}명`,           accent: TK.slate100 },
                 { label: '전체 보유 종목',   value: `${totalHoldings}개`,           accent: TK.blue400 },
-                { label: '총 투자금액',      value: fmtKrw(totalInvested),         accent: TK.emerald400, note: 'USD×1,350 환산 포함' },
+                { label: '총 투자금액',      value: fmtKrw(totalInvested),         accent: TK.emerald400, note: `USD×₩${Math.round(usdKrw).toLocaleString('ko-KR')} 환산 포함` },   // 문구도 계산에 쓴 환율에서(예전 리터럴 1,350 은 라이브 환율과 달랐다)
                 { label: '린치 분류 완료',   value: `${lynchDone}개`,              accent: TK.orange400 },
               ].map(({ label, value, accent, note }) => (
                 <div key={label} style={{ background: TK.bg8, boxShadow: `7px 7px 18px ${TK.bg2}, -4px -4px 12px ${TK.line2}`, border: 'none', borderRadius: 12, padding: '16px 18px' }}>

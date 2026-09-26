@@ -12,6 +12,8 @@ import BuffettAnalysisPanel from '@/app/components/BuffettAnalysisPanel'
 // SSOT: 자산 유형 분류 (STOCK / ETF / CRYPTO / COMMODITY)
 import { getAssetType } from '@/lib/assetClassifier'
 import { TK, FS, FONT_STACK } from '@/lib/theme'
+import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면마다 1,350·1,400 으로 갈리던 상수를 한 값으로)
+import { acceptFx } from '@/lib/fxAccept'     // 환율 채택 SSOT — 고정 상수는 실제 환율로 쓰지 않는다
 import { isPriced } from '@/lib/portfolioSummary'   // 시세 판정 SSOT — 자산·대시보드·학생 화면과 같은 규칙
 import { QUOTES } from '@/lib/quotes'
 
@@ -48,8 +50,7 @@ interface Fundamentals {
   grossMargins?:      number | null
 }
 
-// ⚠️ 폴백 전용 — 실제 환산은 /api/exchange-rate 라이브 값(usdKrw state). 제1원칙: 환율 하드코딩 금지
-const USD_KRW_FALLBACK = 1_350
+// ⚠️ 폴백(USD_KRW_FALLBACK)은 fx.ts SSOT 에서 가져온다 — 실제 환산은 /api/exchange-rate 라이브 값(usdKrw state). 제1원칙: 환율 하드코딩 금지
 
 const LYNCH_META: Record<string,{ label:string; color:string; moat:string; buffett:number }> = {
   slow_grower: { label:'저성장주', color:TK.sub9, moat:'배당형 해자',   buffett:65 },
@@ -157,11 +158,11 @@ function AnalysisContent() {
   }, [router])
 
   useEffect(()=>{ fetchData() },[fetchData])
-  // 💱 라이브 환율 — 폴백(1,350)은 조회 실패 시에만
+  // 💱 라이브 환율 — 폴백(SSOT 상수)은 조회 실패 시에만
   useEffect(() => {
     let alive = true
     fetch('/api/exchange-rate').then(r => r.ok ? r.json() : null)
-      .then(j => { if (alive && typeof j?.rate === 'number' && j.rate > 500) setUsdKrw(j.rate) })
+      .then(j => { const r = acceptFx(j); if (alive && r != null) setUsdKrw(r) })   // 고정 상수(stale-constant)는 받지 않는다 — 폴백 유지
       .catch(() => { /* 폴백 유지 */ })
     return () => { alive = false }
   }, [])

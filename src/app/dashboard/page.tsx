@@ -78,6 +78,7 @@ import { getAssetType }          from '@/lib/assetClassifier'
 import { Verdict } from '@/app/components/ui/Screen'   // 🎯 화면의 답(페이지당 하나) — 공용 프리미티브
 import { TK, FS, SP, FONT_STACK } from '@/lib/theme'
 import { acceptFx } from '@/lib/fxAccept'   // 환율 채택 SSOT — 고정 상수는 localStorage 에 안 넣는다
+import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면마다 1,350·1,400 으로 갈리던 상수를 한 값으로)
 // 총수익률 공식 SSOT — 스쿨 리그(api/school-league)와 **같은 함수**를 부른다(제2원칙)
 import { totalReturnPct } from '@/lib/realizedPnl'
 import { isPriced } from '@/lib/portfolioSummary'   // 시세 판정 SSOT — 자산 화면·학생 화면과 같은 규칙
@@ -126,8 +127,7 @@ interface LivePrice {
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-// ⚠️ 폴백 전용 — 실제 환산은 usdKrw state(/api/exchange-rate 라이브). 제1원칙: 환율 하드코딩 금지
-const USD_KRW_FALLBACK = 1_350
+// ⚠️ 폴백(USD_KRW_FALLBACK)은 fx.ts SSOT 에서 가져온다 — 실제 환산은 usdKrw state(/api/exchange-rate 라이브). 제1원칙: 환율 하드코딩 금지
 
 const LYNCH_META: Record<string, { label: string; color: string }> = {
   slow_grower: { label: '저성장주', color: TK.sub9 },

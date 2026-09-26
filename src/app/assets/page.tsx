@@ -21,6 +21,8 @@ import StockActionChips from '@/app/components/StockActionChips'   // 🔗 종�
 import { type Candle } from '@/app/components/CandleChart'
 import { Verdict } from '@/app/components/ui/Screen'   // 🎯 화면의 답(페이지당 하나) — 공용 프리미티브
 import { TK, FS } from '@/lib/theme'
+import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면마다 1,350·1,400 으로 갈리던 상수를 한 값으로)
+import { acceptFx } from '@/lib/fxAccept'     // 환율 채택 SSOT — 고정 상수는 실제 환율로 쓰지 않는다
 import { isPriced } from '@/lib/portfolioSummary'   // 시세 판정 SSOT — 학생 화면과 같은 규칙
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -63,10 +65,9 @@ const SHO = `7px 7px 18px ${TK.bg2}, -4px -4px 12px ${TK.line2}`
 const SHI = `inset 4px 4px 10px ${TK.bg2}, inset -3px -3px 8px ${TK.line2}`
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-// ⚠️ 폴백 전용 상수 — 실제 환산은 /api/exchange-rate 라이브 값(usdKrw state)을 쓴다.
+// ⚠️ 폴백 상수(USD_KRW_FALLBACK)는 fx.ts SSOT 에서 가져온다 — 실제 환산은 /api/exchange-rate 라이브 값(usdKrw state)을 쓴다.
 //    (제1원칙: 하드코딩 1,350을 그대로 쓰면 실제 1,445 대비 7% 과소 표기 + 같은 화면의
 //     현금 포지션 카드는 라이브 환율이라 두 수치가 어긋난다 = 제2원칙 위반)
-const USD_KRW_FALLBACK = 1_350
 const FRAMES: TimeFrame[] = ['1D','1W','1M','1Y']
 
 const LYNCH_META: Record<string, { label: string; color: string }> = {
@@ -170,11 +171,11 @@ export default function AssetsPage() {
     window.history.replaceState({}, '', '/assets')
   }, [])
 
-  // 💱 라이브 환율 — 하드코딩 폴백(1,350)은 조회 실패 시에만. 현금 포지션 카드와 같은 원천을 써야 화면 안에서 수치가 어긋나지 않는다.
+  // 💱 라이브 환율 — 폴백(SSOT 상수)은 조회 실패 시에만. 현금 포지션 카드와 같은 원천을 써야 화면 안에서 수치가 어긋나지 않는다.
   useEffect(() => {
     let alive = true
     fetch('/api/exchange-rate').then(r => r.ok ? r.json() : null)
-      .then(j => { if (alive && typeof j?.rate === 'number' && j.rate > 500) setUsdKrw(j.rate) })
+      .then(j => { const r = acceptFx(j); if (alive && r != null) setUsdKrw(r) })   // 고정 상수(stale-constant)는 받지 않는다 — 폴백 유지
       .catch(() => { /* 폴백 유지 */ })
     return () => { alive = false }
   }, [])
