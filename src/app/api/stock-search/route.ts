@@ -1,48 +1,11 @@
 // 종목 검색 API — ?q= 로 한국·미국 주식·ETF(네이버 자동완성)와 코인(업비트)을 함께 찾는다
 import { NextResponse } from 'next/server'
-import { expandQuery, parseNaverItems, matchUpbit, mergeResults, mergeStockLists, rankCrypto, type UpbitMarket } from '@/lib/stockSearch'
+import { expandQuery, parseNaverItems, matchUpbit, mergeResults, mergeStockLists, rankCrypto } from '@/lib/stockSearch'
+// 업비트 목록(6시간)·거래대금(60초) 캐시는 시장 탭 코인 특징종목과 함께 쓴다
+import { upbitMarkets, upbitVolumes as cryptoVolumes } from '@/lib/upbitMarket'
 
 export const dynamic = 'force-dynamic'
 const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36' }
-let upbitCache: { at: number; list: UpbitMarket[] } | null = null   // 목록은 하루에 몇 번 안 바뀐다 — 6시간
-
-// 실패 시 옛 목록이 있으면 그것을, 없으면 null(= 조회 실패). 실패는 캐시하지 않는다.
-async function upbitMarkets(): Promise<UpbitMarket[] | null> {
-  if (upbitCache && Date.now() - upbitCache.at < 6 * 3600_000) return upbitCache.list
-  try {
-    const r = await fetch('https://api.upbit.com/v1/market/all?isDetails=false', { cache: 'no-store', signal: AbortSignal.timeout(6000) })
-    if (!r.ok) return upbitCache?.list ?? null
-    const list = await r.json()
-    if (!Array.isArray(list)) return upbitCache?.list ?? null
-    upbitCache = { at: Date.now(), list: list as UpbitMarket[] }
-    return upbitCache.list
-  } catch {
-    return upbitCache?.list ?? null
-  }
-}
-
-// 거래대금은 정렬에만 쓴다 — 글자마다 부르는 검색이 업비트 전체 시세를 매번 받지 않게 60초 기억(성공한 응답만)
-let volumeCache: { at: number; volume: Record<string, number> } | null = null
-
-// 원화 마켓 전체의 24시간 거래대금 — 한 번에 조회. 실패하면 빈 표(정렬만 약해지고 검색은 된다)
-async function cryptoVolumes(): Promise<Record<string, number>> {
-  if (volumeCache && Date.now() - volumeCache.at < 60_000) return volumeCache.volume
-  try {
-    const r = await fetch('https://api.upbit.com/v1/ticker/all?quote_currencies=KRW', { cache: 'no-store', signal: AbortSignal.timeout(6000) })
-    if (!r.ok) return {}
-    const data = await r.json()
-    if (!Array.isArray(data)) return {}
-    const volume: Record<string, number> = {}
-    for (const d of data as { market: string; acc_trade_price_24h: number }[]) {
-      if (typeof d?.market === 'string' && d.market.startsWith('KRW-')) volume[d.market.slice(4)] = Number(d.acc_trade_price_24h) || 0
-    }
-    volumeCache = { at: Date.now(), volume }
-    return volume
-  } catch {
-    return {}
-  }
-}
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function naverItems(eq: string): Promise<any[] | null> {
   try {
