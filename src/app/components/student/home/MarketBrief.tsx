@@ -7,7 +7,7 @@ import { buildHomeBrief, type HomeBriefInput, type Line } from '@/lib/homeBrief'
 import { FOMC_SCHEDULE } from '@/lib/fomcSchedule'
 import { acceptFx } from '@/lib/fxAccept'
 import { useJson, type JsonResult, type JsonState } from '@/app/components/student/useJson'
-import { card, CardHead, toneColor, noteStyle, retryBtn, macroRows, type IndexRow, type CalendarResp, type FxResp, type MacroResp } from './homeUi'
+import { card, CardHead, toneColor, noteStyle, retryBtn, macroRows, macroFailedLabels, type IndexRow, type CalendarResp, type FxResp, type MacroResp } from './homeUi'
 
 interface MoverRow { name?: unknown; changePct?: unknown; held?: unknown }
 interface MoversResp { surges?: MoverRow[]; drops?: MoverRow[]; failed?: unknown; checked?: unknown; heldFailed?: unknown; heldChecked?: unknown }
@@ -80,7 +80,9 @@ export default function MarketBrief({ indices, calendar, fx, macro, today }: { i
       }
     : null
 
-  const brief = today ? buildHomeBrief({ indices: indicesIn, usdKrw, signals, events, movers: moversIn, fomcDates: FOMC_DATES, macro: macroRows(macro) }, today) : null
+  // 지표가 하나라도 빠졌으면 '가장 가까운 발표'라 말할 수 없다 — 남은 것 중 가장 가까운 것을 내면 실제로 더 가까운 발표를 건너뛸 수 있다
+  const macroIn: HomeBriefInput['macro'] = macroFailedLabels(macro).length > 0 ? null : macroRows(macro)
+  const brief = today ? buildHomeBrief({ indices: indicesIn, usdKrw, signals, events, movers: moversIn, fomcDates: FOMC_DATES, macro: macroIn }, today) : null
   const marketReady = brief && !pending(indices.state) && !pending(fx.state)
   const mineReady = brief && !pending(watch.state) && !pending(calendar.state) && !pending(movers.state)
   const upcomingReady = brief && !pending(calendar.state) && !pending(macro.state)

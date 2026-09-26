@@ -57,6 +57,8 @@ export default function UpcomingEvents({ calendar, macro, today }: { calendar: J
   const all = [...fomc, ...macroItems, ...(mineItems ?? [])].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
   const items = all.slice(0, MAX_ITEMS)
   const more = all.length - items.length
+  // 넘친 것이 전부 내 종목 일정일 때만 '배당·실적 일정에서' 안내 — FOMC·지표는 그 화면에 없다
+  const moreAllMine = all.slice(MAX_ITEMS).every(it => it.mine)
 
   return (
     <section style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.xs }}>
@@ -68,7 +70,7 @@ export default function UpcomingEvents({ calendar, macro, today }: { calendar: J
           {it.mine && <span style={{ flexShrink: 0, padding: `0 ${SP.sm}px`, borderRadius: RAD.pill, background: `${TK.sky400}24`, color: TK.sky400, fontSize: FS.micro, fontWeight: 700, whiteSpace: 'nowrap' }}>내 종목</span>}
         </div>
       ))}
-      {more > 0 && <span style={noteStyle()}>외 {more}건 — 전체는 배당·실적 일정에서</span>}
+      {more > 0 && <span style={noteStyle()}>외 {more}건{moreAllMine ? ' — 전체는 배당·실적 일정에서' : ''}</span>}
       {fomc.length === 0 && <span style={noteStyle()}>FOMC 일정 못 가져옴</span>}
       {(macro.state === 'loading' || macro.state === 'idle') && <span style={noteStyle()}>지표 발표일을 불러오는 중…</span>}
       {macroFailed.length > 0 && <span style={noteStyle()}>{macroFailed.join('·')} 발표일 못 가져왔어요.</span>}
