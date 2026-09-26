@@ -17,7 +17,7 @@ import { createClient }                    from '@/lib/supabase/server'
 import { classifyAsset }                   from '@/lib/classifyAsset'
 import { getUsdKrw } from '@/lib/fx'
 import { getTechCandles } from '@/lib/techChartData'
-import { buildRealizedTotals, totalReturnPct, type SellTx } from '@/lib/realizedPnl'
+import { studentTotalReturn, type SellTx } from '@/lib/realizedPnl'
 import { TK } from '@/lib/theme'
 import { buildLeagueMix, detailIds, emptyLeagueDetail, type LeagueTopHolding, type LeagueMixSlice, type LeagueHoldingRow } from '@/lib/leagueMix'
 
@@ -339,19 +339,10 @@ export async function GET(req: Request) {
       // 🏆 총 수익률 = (평가손익 + 실현손익) ÷ (보유원가 + 매도분 원가)
       //    분모에 매도분 원가를 넣는 이유: 매도로 회수한 자본도 '투입했던 원금'이다. 빼면
       //    매도가 많은 학생일수록 분모가 작아져 수익률이 부풀려진다(잣대가 사람마다 달라짐).
-      const mySells = sellsByUser[profile.id] ?? []
-      const rt = mySells.length
-        ? buildRealizedTotals(mySells, fxCandles, usdKrw)
-        : { realizedKrw: 0, soldCostKrw: 0, sellCount: 0, fxFallbackCount: 0 }
-      const denom       = totalCost + rt.soldCostKrw
-      const unrealized  = totalCurrent - totalCost
-      // 공식은 lib/realizedPnl 의 totalReturnPct 하나뿐 — 대시보드도 같은 함수를 부른다(제2원칙)
-      const raw         = totalReturnPct(unrealized, totalCost, rt.realizedKrw, rt.soldCostKrw)
-      const totalReturn = raw == null ? null : parseFloat(raw.toFixed(1))
-      // 실현이 총수익률에 기여한 %p(같은 분모라 평가 기여분 + 실현 기여분 = 총수익률)
-      const realizedPp  = denom > 0
-        ? parseFloat((rt.realizedKrw / denom * 100).toFixed(1))
-        : 0
+      //    공식은 lib/realizedPnl 의 studentTotalReturn 하나뿐 — 학생 '내 자산' 화면도 같은 함수를 부른다(제2원칙)
+      //    realizedPp = 실현이 총수익률에 기여한 %p(같은 분모라 평가 기여분 + 실현 기여분 = 총수익률)
+      const { totalReturn, realizedPp, realized: rt } =
+        studentTotalReturn(totalCost, totalCurrent, sellsByUser[profile.id] ?? [], fxCandles, usdKrw)
 
       // 효자 종목 Top 3 (평가금액 기준 내림차순)
       const topStocks = holdingValues

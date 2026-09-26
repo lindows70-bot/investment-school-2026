@@ -101,6 +101,37 @@ export function totalReturnPct(
   return ((unrealizedKrw + realizedKrw) / denom) * 100
 }
 
+/** 학생 한 명의 총수익률 — 스쿨 리그 랭킹(totalReturn·realizedPp)과 학생 '내 자산' 한 줄이 **같이 부른다**(2026-09-26).
+ *  ⚠️ 두 화면이 각자 계산하면 반올림·분모가 또 갈린다(리그 +14.9% vs 내 자산 −6.6% 가 서로 다른 말을 했다).
+ *  입력 규약(리그 라우트와 같아야 한다): costKrw·evalKrw 는 보유 전 종목(시세 결측은 평가 = 원가),
+ *  달러 보유는 둘 다 **현재 환율** · sells 는 본인 매도 전부 · fxCandles 는 getTechCandles('KRW=X','US','D') ·
+ *  latestFx 는 /api/exchange-rate 환율(매도일 환율을 못 찾은 행에만 쓴다). */
+export interface StudentTotalReturn {
+  /** 총수익률 %(소수 1자리로 반올림 — 리그 표시값) · 분모 0 이면 null */
+  totalReturn: number | null
+  /** 확정 손익이 기여한 %p(같은 분모) · 분모 0 이면 0 */
+  realizedPp: number
+  realized: RealizedTotals
+}
+export function studentTotalReturn(
+  costKrw: number,
+  evalKrw: number,
+  sells: SellTx[],
+  fxCandles: TechCandle[],
+  latestFx: number,
+): StudentTotalReturn {
+  const rt = sells.length
+    ? buildRealizedTotals(sells, fxCandles, latestFx)
+    : { realizedKrw: 0, soldCostKrw: 0, sellCount: 0, fxFallbackCount: 0 }
+  const denom = costKrw + rt.soldCostKrw
+  const raw = totalReturnPct(evalKrw - costKrw, costKrw, rt.realizedKrw, rt.soldCostKrw)
+  return {
+    totalReturn: raw == null ? null : parseFloat(raw.toFixed(1)),
+    realizedPp: denom > 0 ? parseFloat((rt.realizedKrw / denom * 100).toFixed(1)) : 0,
+    realized: rt,
+  }
+}
+
 /** 'YYYY-MM-DD' 이하 가장 최근 종가 — 캔들은 오름차순 */
 function rateAt(fxCandles: TechCandle[], date: string): number | null {
   for (let i = fxCandles.length - 1; i >= 0; i--) {

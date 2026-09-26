@@ -10,6 +10,8 @@ import { useInView } from '@/app/components/student/useInView'
 import { FailRow, noteStyle, useKstToday } from '@/app/components/student/home/homeUi'
 import { rebalanceCheck } from '@/lib/portfolioSummary'
 import { won, signWon, pct, upDown } from '@/lib/studentFormat'
+import { studentTotalReturn } from '@/lib/realizedPnl'
+import { useMySells, type MySells } from '@/app/components/student/useMySells'
 
 const card = { background: TK.card, border: `1px solid ${TK.border}`, borderRadius: RAD.md, padding: SP.lg } as const
 const reloadBtn = { alignSelf: 'flex-start', height: 40, padding: `0 ${SP.lg}px`, borderRadius: RAD.sm, border: `1px solid ${TK.line1}`, background: 'transparent', color: TK.slate200, fontSize: FS.tiny, cursor: 'pointer' } as const
@@ -76,8 +78,32 @@ function MonthDividend() {
   )
 }
 
+/** '지금까지 불어난 돈' 아래 한 줄 — 판 종목에서 확정한 손익까지 더한 수익률. 스쿨 리그와 **같은 함수**(studentTotalReturn)·같은 입력으로 센다(제2원칙).
+ *  판 기록이 없으면 숨긴다(위 줄과 같은 말이다) · 못 읽으면 0 으로 두지 않고 '못 가져왔어요' */
+function SoldLine({ sold, costKrw, evalKrw, usdKrw, onReloadFx }: { sold: MySells; costKrw: number; evalKrw: number; usdKrw: number | null; onReloadFx: () => void }) {
+  if (sold.state === 'idle') return null
+  if (sold.state === 'loading') return <span style={noteStyle()}>판 종목 손익을 확인하는 중…</span>
+  if (sold.state === 'failed') return <FailRow text="판 종목 손익을 못 가져왔어요." onRetry={sold.reload} retryLabel="판 종목 손익 다시 불러오기" />
+  if (sold.sells.length === 0) return null
+  // 달러로 판 기록이 있는데 지금 환율이 없으면 짐작한 환율로 세지 않는다
+  if (usdKrw == null && sold.sells.some(s => s.currency === 'USD')) return <FailRow text="환율을 못 가져와서 판 종목 손익을 셀 수 없어요." onRetry={onReloadFx} retryLabel="환율 다시 불러오기" />
+  const r = studentTotalReturn(costKrw, evalKrw, sold.sells, sold.fxCandles, usdKrw ?? 0)
+  if (r.totalReturn == null) return null
+  const realized = r.realized.realizedKrw
+  return (
+    <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <span style={{ fontSize: FS.tiny, color: TK.sub }}>
+        판 종목에서 확정한 손익 <b style={{ color: upDown(realized) }}>{signWon(realized)}</b>까지 더하면 <b style={{ fontSize: FS.body, color: upDown(r.totalReturn) }}>{pct(r.totalReturn)}</b> · 리그와 같은 계산
+      </span>
+      {r.realized.fxFallbackCount > 0 && <span style={noteStyle()}>달러로 판 {r.realized.fxFallbackCount}건은 판 날 환율을 못 찾아 지금 환율로 셌어요.</span>}
+    </span>
+  )
+}
+
 export default function StudentAssets() {
   const { state, holdings, summary, usdKrw, targetCorePct, pricesFailed, failReason, reload } = useMyPortfolio()
+  // 시세를 못 가져왔으면(위 줄도 '—' 이거나 매수가 기준) 합산 % 를 내지 않는다 — 읽지도 않는다
+  const sold = useMySells(state === 'ready' && !!summary && summary.rows.length > 0 && !pricesFailed && !summary.allUnpriced)
   const header = (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 48 }}>
       <h1 style={{ margin: 0, fontSize: FS.xl, fontWeight: 800, color: TK.slate100 }}>내 자산</h1>
@@ -140,6 +166,7 @@ export default function StudentAssets() {
               : <span style={{ fontSize: FS.body, fontWeight: 700, color: upDown(summary.pnlPct), whiteSpace: 'nowrap' }}>{signWon(summary.pnlKrw)}{summary.pnlPct != null ? ` (${pct(summary.pnlPct)})` : ''}</span>}
           </div>
         </div>
+        <SoldLine sold={sold} costKrw={summary.totalCostKrw} evalKrw={summary.totalEvalKrw} usdKrw={usdKrw} onReloadFx={reload} />
         {!pricesFailed && summary.unpricedCount > 0 && <span style={{ fontSize: FS.tiny, color: TK.amber400 }}>시세를 못 가져온 종목 {summary.unpricedCount}개는 매수가로 계산했어요.</span>}
       </section>
 
