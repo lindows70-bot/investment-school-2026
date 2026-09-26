@@ -134,7 +134,8 @@ check("움직임: 전부 실패(failed=checked) → '움직임 못 가져옴' �
 const bHeldAllFail = run({ movers: { held: [], checked: 4, failed: 4 } })
 check("움직임: 보유 4종 전부 실패(BTC 만 성공 — held 수 4/4) → '움직임 못 가져옴'", T(bHeldAllFail.mine).endsWith(' · 움직임 못 가져옴') && !T(bHeldAllFail.mine).includes('일부'))
 check("움직임: checked 0·failed 3 → '움직임 못 가져옴'", has(run({ movers: { held: [], checked: 0, failed: 3 } }).mine, '움직임 못 가져옴'))
-check("움직임: checked 0·failed 0(확인할 보유 없음) → '없음'", has(run({ movers: { held: [], checked: 0, failed: 0 } }).mine, '5% 넘게 움직인 종목 없음'))
+const bNoHold = run({ movers: { held: [], checked: 0, failed: 0 } })
+check("움직임: checked 0·failed 0(확인할 보유 없음) → '기록한 종목이 없어요'(muted), '움직인 종목 없음' 아님", part(bNoHold.mine, '기록한 종목이 없어요')?.tone === 'muted' && !T(bNoHold.mine).includes('움직인 종목 없음'))
 check('움직임: failed 0 → 경고 없음', !T(b0.mine).includes('확인 못 함'))
 check('움직임: movers null → "움직임 못 가져옴"', part(run({ movers: null }).mine, '움직임 못 가져옴')?.tone === 'muted')
 check('내 종목: 머리말', T(b0.mine).startsWith('내 종목: '))
@@ -156,6 +157,12 @@ check('일정: 실적 31일 뒤(10/27)는 30일 창 밖 → FOMC 만', T(run({ e
 const bEvNull = run({ events: null })
 check("일정: events null → '실적 일정 못 가져옴'", part(bEvNull.upcoming, '실적 일정 못 가져옴')?.tone === 'muted' && !T(bEvNull.upcoming).includes('없어요'))
 check('일정: 둘 다 null → 둘 다 못 가져옴', T(run({ events: null, fomcDates: null }).upcoming) === '다가오는 일정: FOMC 일정 못 가져옴 · 실적 일정 못 가져옴')
+
+// ── 공용 도우미(주요 일정 카드도 같은 함수를 쓴다)
+check('addDays: 월말·연말 넘김', M.addDays('2026-09-30', 1) === '2026-10-01' && M.addDays('2026-12-31', 1) === '2027-01-01' && M.addDays('2026-10-01', -1) === '2026-09-30')
+check('fomcKstDates: 미국 날짜 +1, 오늘 이후만, 정렬', JSON.stringify(M.fomcKstDates(['2026-12-09', '2026-09-16', '2026-10-28', '2026-09-25'], TODAY)) === JSON.stringify(['2026-09-26', '2026-10-29', '2026-12-10']))
+check('fomcKstDates: 형식 틀린 값은 버린다 · 표 소진이면 빈 배열', M.fomcKstDates(['2026/10/28', 'x'], TODAY).length === 0 && M.fomcKstDates(FOMC, '2027-02-01').length === 0)
+check('fomcKstDates: 3줄의 FOMC 날짜 = fomcKstDates 첫 값', has(run({}).upcoming, `${Number(M.fomcKstDates(FOMC, TODAY)[0].slice(5, 7))}/${Number(M.fomcKstDates(FOMC, TODAY)[0].slice(8))} 새벽 FOMC 금리 발표`))
 
 // 실제에 가까운 입력 한 벌 — 눈으로 확인용
 const sample = M.buildHomeBrief({

@@ -33,9 +33,14 @@ const toneOf = (n: number): Tone => Math.abs(n) < 0.05 ? 'flat' : n > 0 ? 'up' :
 const joinParts = (groups: Part[][]): Part[] => groups.flatMap((g, i) => i === 0 ? g : [SEP, ...g])
 
 /** 'YYYY-MM-DD' 에 days 를 더한 날짜(달력 산술만 — 시계 안 봄) */
-function addDays(ymd: string, days: number): string {
+export function addDays(ymd: string, days: number): string {
   const [y, m, d] = ymd.split('-').map(Number)
   return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10)
+}
+/** FOMC 성명 발표일(미국 날짜) → 한국에서 보는 날짜(다음 날 새벽 3~4시). 오늘(KST) 이후만, 날짜순.
+ *  홈 한눈 시황 3줄과 '주요 일정' 카드가 같은 규칙을 쓰도록 여기 한 곳에 둔다 */
+export function fomcKstDates(fomcDates: string[], todayKst: string): string[] {
+  return fomcDates.filter(d => YMD.test(d)).map(d => addDays(d, 1)).filter(d => d >= todayKst).sort()
 }
 /** ISO 시각 → KST 날짜. 못 읽으면 null */
 function kstDate(iso: string): string | null {
@@ -101,6 +106,8 @@ function moverGroups(m: HomeBriefInput['movers']): Part[][] {
   const checked = isNum(m.checked) ? m.checked : 0
   // 전부 실패 — '없음'이라 하면 모름을 0 으로 쓰는 것이다
   if (failed >= checked && (checked > 0 || failed > 0)) return unknown
+  // 확인할 보유가 하나도 없음 — '움직인 종목 없음'이 아니라 기록이 없는 것이다
+  if (checked === 0 && failed === 0) return [[{ text: '기록한 종목이 없어요', tone: 'muted' }]]
   const big = m.held
     .filter(h => isNum(h.changePct) && Math.abs(h.changePct) >= MOVE_MIN)
     .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))
@@ -129,8 +136,7 @@ function upcomingLine(input: HomeBriefInput, today: string): Line {
   // FOMC — 미국 성명 발표일의 다음 날(한국 새벽 3~4시)이 한국 날짜. 그 날이 오늘 이후인 첫 회의.
   //  회의 간격(6~7주)이 30일보다 길어 창을 두지 않는다. 표(연 1회 수동)가 끝나 다음 회의가 없으면 '못 가져옴'
   //  — '일정 없음'이라 하면 표가 낡은 것을 FOMC 가 없는 것으로 말하게 된다.
-  const nextFomc = input.fomcDates == null ? undefined
-    : input.fomcDates.filter(d => YMD.test(d)).map(d => addDays(d, 1)).filter(d => d >= today).sort()[0]
+  const nextFomc = input.fomcDates == null ? undefined : fomcKstDates(input.fomcDates, today)[0]
   if (nextFomc) dated.push({ date: nextFomc, part: { text: `${dayLabel(nextFomc, today)} 새벽 FOMC 금리 발표` } })
   else unknown.push({ text: 'FOMC 일정 못 가져옴', tone: 'muted' })
   // 내 종목 실적 — 30일 안 가장 이른 1건(7일 넘어도 여기엔 나온다)

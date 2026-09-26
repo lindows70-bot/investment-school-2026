@@ -39,7 +39,7 @@ export default function HomeSearch() {
   }, [q, tick])
 
   const cryptoDown = failedSources.includes('crypto'), stocksDown = failedSources.includes('stocks')
-  const go = (r: SearchResult) => router.push(`/s/stock/${encodeURIComponent(r.ticker)}?m=${r.market}`)
+  const go = (r: SearchResult) => router.push(`/s/stock/${encodeURIComponent(r.ticker)}?m=${r.market}&n=${encodeURIComponent(r.name)}`)
 
   return (
     <section style={{ display: 'flex', flexDirection: 'column', gap: SP.sm }}>

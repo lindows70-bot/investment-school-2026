@@ -1,17 +1,21 @@
 'use client'
 // 학생 종목 상세 — 지금 가격·등락·가격 흐름(평단 점선)·내 보유(수량·평단·평가·손익·비중)·내 거래 기록 → 이 종목 기록하기
+//   보유하지 않은 종목(홈 검색 ?m=시장&n=이름)은 가격·등락·가격 흐름만 보이고 기록하기로 이어 준다
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 import { useMyPortfolio, type FailReason } from '@/app/components/student/useMyPortfolio'
+import { isPriced, type Market, type PriceInput } from '@/lib/portfolioSummary'
 import { won, signWon, pct, upDown, money, qtyText } from '@/lib/studentFormat'
 
 // transactions 실제 컬럼(tradeWrite.ts TxBase 기준) — type 은 소문자 'buy' | 'sell'
 interface Tx { id: string; type: 'buy' | 'sell'; price: number; quantity: number; transaction_date: string; currency: 'USD' | 'KRW' | null }
 // /api/stock-price 의 charts 한 점 — t = epoch ms, v = 종가
 interface PricePoint { t: number; v: number }
+// 보유하지 않은 종목의 시세(stock-price 한 줄) — price null = 시세 못 가져옴 · stale = 조회 실패 뒤 캐시에 남은 지난 시세
+interface Quote { name: string | null; price: number | null; changePct: number | null; stale: boolean }
 type FrameKey = '1D' | '1W' | '1M'
 type Charts = Partial<Record<FrameKey, PricePoint[]>>
 
@@ -38,6 +42,7 @@ const cleanPts = (raw: unknown, isCrypto: boolean): PricePoint[] => {
 }
 
 const card = { background: TK.card, border: `1px solid ${TK.border}`, borderRadius: RAD.md, padding: SP.lg } as const
+const recordBtn = { display: 'flex', alignItems: 'center', justifyContent: 'center', height: 56, borderRadius: RAD.md, background: TK.blue600, color: TK.slate100, fontSize: FS.lg, fontWeight: 700, textDecoration: 'none' } as const
 const reloadBtn = { alignSelf: 'flex-start', height: 40, padding: `0 ${SP.lg}px`, borderRadius: RAD.sm, border: `1px solid ${TK.line1}`, background: 'transparent', color: TK.slate200, fontSize: FS.tiny, cursor: 'pointer' } as const
 // 실패 이유마다 다른 문장 — 내 자산 화면과 같은 말
 const FAIL_TEXT: Record<FailReason | 'unknown', string> = {
@@ -50,16 +55,27 @@ const FAIL_TEXT: Record<FailReason | 'unknown', string> = {
 export default function StudentStock() {
   const params = useParams<{ ticker: string | string[] }>()
   const rawParam = Array.isArray(params?.ticker) ? params.ticker[0] : params?.ticker ?? ''
-  let ticker = rawParam
-  try { ticker = decodeURIComponent(rawParam) } catch { /* 이미 풀린 값 */ }
-  ticker = ticker.toUpperCase()
+  let decoded = rawParam
+  try { decoded = decodeURIComponent(rawParam) } catch { /* 이미 풀린 값 */ }
+  const ticker = decoded.toUpperCase()
+  // 홈 검색에서 오면 ?m=시장&n=이름 — 보유하지 않은 종목은 이것으로 시세를 부른다
+  const sp = useSearchParams()
+  const mParam = sp?.get('m') ?? ''
+  const qMarket: Market | null = mParam === 'KR' || mParam === 'US' || mParam === 'CRYPTO' ? mParam : null
+  const nParam = sp?.get('n')?.trim() || null
 
   const { state, holdings, summary, failReason, reload } = useMyPortfolio()
   const holding = holdings.find(h => h.ticker.toUpperCase() === ticker) ?? null
   const row = summary?.rows.find(r => r.ticker.toUpperCase() === ticker) ?? null
   const hTicker = holding?.ticker ?? null
   const hMarket = holding?.market ?? null
+  // 보유 목록을 실제로 받은 뒤에만 '보유 안 함'이라 판단한다(못 불러왔을 때 '없다'고 하지 않는다)
+  const notHeld = state === 'ready' && !holding
+  const cTicker = hTicker ?? (notHeld && qMarket ? decoded : null)
+  const cMarket = hMarket ?? (notHeld ? qMarket : null)
 
+  // 보유 안 한 종목의 시세: undefined = 불러오는 중 · null = 못 가져옴 · 객체 = 받음
+  const [quote, setQuote] = useState<Quote | null | undefined>(undefined)
   // 가격 흐름: undefined = 불러오는 중 · null = 못 가져옴 · 객체 = 받음
   const [charts, setCharts] = useState<Charts | null | undefined>(undefined)
   const [chartsStale, setChartsStale] = useState(false)
@@ -70,27 +86,39 @@ export default function StudentStock() {
   const [retry, setRetry] = useState(0)
 
   useEffect(() => {
-    if (!hTicker || !hMarket) return
+    if (!cTicker || !cMarket) return
     let cancelled = false
-    setCharts(undefined); setChartsStale(false); setTxs(undefined)
+    setCharts(undefined); setChartsStale(false); setTxs(undefined); setQuote(undefined)
 
     fetch('/api/stock-price', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store',
-      body: JSON.stringify([{ ticker: hTicker, market: hMarket }]),
+      body: JSON.stringify([{ ticker: cTicker, market: cMarket }]),
     })
       .then(r => r.ok ? r.json() : null)
       .then((j: unknown) => {
         if (cancelled) return
-        const list = Array.isArray(j) ? j as { ticker?: unknown; charts?: Record<string, unknown>; error?: unknown; source?: unknown }[] : []
-        const e = list.find(x => typeof x?.ticker === 'string' && x.ticker.toUpperCase() === hTicker.toUpperCase()) ?? list[0]
+        const list = Array.isArray(j) ? j as { ticker?: unknown; name?: unknown; currentPrice?: unknown; changePct?: unknown; charts?: Record<string, unknown>; error?: unknown; source?: unknown }[] : []
+        const e = list.find(x => typeof x?.ticker === 'string' && x.ticker.toUpperCase() === cTicker.toUpperCase()) ?? list[0]
+        // 시세 판정은 내 자산과 같은 규칙(isPriced) — 지난 캐시 시세는 쓰되 stale 로 밝히고, 값이 0 이면 '못 가져옴'
+        if (!e) setQuote(null)
+        else {
+          const ok = isPriced(e as unknown as PriceInput)
+          setQuote({
+            name: typeof e.name === 'string' && e.name.trim() ? e.name.trim() : null,
+            price: ok ? e.currentPrice as number : null,
+            changePct: ok ? e.changePct as number : null,
+            stale: ok && !!e.error,
+          })
+        }
         // 조회 실패 + 캐시도 없음 → API 가 빈 차트를 채워 보낸다. '기록 없음'이 아니라 '못 가져옴'이다
         if (!e || !e.charts || (e.error && e.source !== 'cache')) { setCharts(null); return }
-        setCharts(Object.fromEntries(FRAME_KEYS.map(k => [k, cleanPts(e.charts?.[k], hMarket === 'CRYPTO')])) as Charts)
+        setCharts(Object.fromEntries(FRAME_KEYS.map(k => [k, cleanPts(e.charts?.[k], cMarket === 'CRYPTO')])) as Charts)
         setChartsStale(!!e.error && e.source === 'cache')
       })
-      .catch(() => { if (!cancelled) setCharts(null) })
+      .catch(() => { if (!cancelled) { setCharts(null); setQuote(null) } })
 
-    ;(async () => {
+    // 보유하지 않은 종목은 내 거래 기록이 없다 — 부르지 않는다
+    if (hTicker) (async () => {
       const sb = createClient()
       const { data: { user } } = await sb.auth.getUser()
       if (!user) { if (!cancelled) setTxs('failed'); return }
@@ -107,7 +135,7 @@ export default function StudentStock() {
     })().catch(() => { if (!cancelled) setTxs('failed') })
 
     return () => { cancelled = true }
-  }, [hTicker, hMarket, retry])
+  }, [cTicker, cMarket, hTicker, retry])
 
   const back = <Link href="/s/assets" style={{ display: 'inline-flex', alignItems: 'center', height: 44, color: TK.slate300, fontSize: FS.body, textDecoration: 'none' }}>‹ 내 자산</Link>
   const msg = (text: string) => <p style={{ color: TK.sub, fontSize: FS.body }}>{text}</p>
@@ -122,7 +150,16 @@ export default function StudentStock() {
       </div>
     </div>
   )
-  if (!holding || !row) return <div>{back}{msg('이 종목은 내 보유 목록에 없어요.')}</div>
+  if (!holding && !qMarket) return (
+    <div>{back}{msg('어느 시장 종목인지 몰라요 — 검색에서 다시 골라 주세요.')}
+      <Link href="/s" style={{ display: 'inline-flex', alignItems: 'center', height: 44, color: TK.slate200, fontSize: FS.body, textDecoration: 'none' }}>홈에서 찾기 ›</Link>
+    </div>
+  )
+  if (holding && !row) return <div>{back}{msg('이 종목은 내 보유 목록에 없어요.')}</div>
+  // 이름·티커·통화 — 보유 종목이면 내 기록, 아니면 검색이 넘긴 이름(n) → 시세 응답 이름 → 티커
+  const displayName = holding?.name ?? nParam ?? quote?.name ?? decoded
+  const displayTicker = holding?.ticker ?? decoded
+  const currency = holding?.currency ?? (qMarket === 'US' ? 'USD' : 'KRW')
 
   // ── 가격 흐름 ── 같은 간격 이름이 둘이면 하나만(버튼이 같은 말을 두 번 하지 않게)
   const labels: Partial<Record<FrameKey, string>> = {}
@@ -138,7 +175,7 @@ export default function StudentStock() {
   const pts = charts && active ? charts[active] ?? [] : []
   const vals = pts.map(p => p.v)
   const vMin = vals.length ? Math.min(...vals) : 0, vMax = vals.length ? Math.max(...vals) : 0
-  const avg = holding.purchase_price
+  const avg = holding?.purchase_price ?? NaN   // 보유하지 않은 종목은 평단 점선이 없다
   // 평단이 차트 범위에서 너무 멀면 선 하나 때문에 가격 흐름이 납작해진다 — 그때는 그리지 않고 말로 밝힌다
   const showAvg = Number.isFinite(avg) && avg > 0 && avg >= vMin * 0.5 && avg <= vMax * 2
   const min = showAvg ? Math.min(vMin, avg) : vMin, max = showAvg ? Math.max(vMax, avg) : vMax
@@ -153,31 +190,36 @@ export default function StudentStock() {
       {note && <span style={{ fontSize: FS.tiny, color: TK.amber400 }}>{note}</span>}
     </div>
   )
-  const priced = row.priced && row.currentPrice != null
+  // 지금 가격 — 보유 종목은 내 자산 요약(row), 아니면 직접 부른 시세(quote). undefined = 아직 불러오는 중
+  const px: Quote | null | undefined = row ? { name: null, price: row.priced ? row.currentPrice : null, changePct: row.changePct, stale: row.stale } : quote
+  const curPrice = px?.price ?? null, curChg = px?.changePct ?? null, curStale = !!px?.stale
+  const priced = curPrice != null
   const retryBtn = <button type="button" onClick={() => setRetry(n => n + 1)} style={reloadBtn}>다시 불러오기</button>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg, maxWidth: 560 }}>
       {back}
       <div style={{ display: 'flex', alignItems: 'center', gap: SP.md }}>
-        <div aria-hidden style={{ width: 48, height: 48, flexShrink: 0, borderRadius: RAD.pill, background: TK.bg7, border: `1px solid ${TK.line1}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: FS.lg, fontWeight: 700, color: TK.slate300 }}>{holding.name.slice(0, 1)}</div>
+        <div aria-hidden style={{ width: 48, height: 48, flexShrink: 0, borderRadius: RAD.pill, background: TK.bg7, border: `1px solid ${TK.line1}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: FS.lg, fontWeight: 700, color: TK.slate300 }}>{displayName.slice(0, 1)}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, minWidth: 0 }}>
-          <h1 style={{ margin: 0, fontSize: FS.xl, fontWeight: 700, color: TK.slate100 }}>{holding.name}</h1>
+          <h1 style={{ margin: 0, fontSize: FS.xl, fontWeight: 700, color: TK.slate100 }}>{displayName}</h1>
           <span style={{ display: 'flex', alignItems: 'center', gap: SP.xs, fontSize: FS.tiny, color: TK.sub }}>
-            {holding.ticker}
-            <span style={{ padding: `0 ${SP.sm}px`, borderRadius: RAD.pill, background: row.role === 'CORE' ? `${TK.sky400}24` : `${TK.orange400}24`, color: row.role === 'CORE' ? TK.sky400 : TK.orange400, fontWeight: 600 }}>{row.role === 'CORE' ? '코어' : '위성'}</span>
+            {displayTicker}
+            {row && <span style={{ padding: `0 ${SP.sm}px`, borderRadius: RAD.pill, background: row.role === 'CORE' ? `${TK.sky400}24` : `${TK.orange400}24`, color: row.role === 'CORE' ? TK.sky400 : TK.orange400, fontWeight: 600 }}>{row.role === 'CORE' ? '코어' : '위성'}</span>}
           </span>
         </div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
-        <span style={{ fontSize: FS.tiny, color: TK.sub }}>{priced && row.stale ? '마지막으로 가져온 가격' : '지금 가격'}</span>
-        {priced
-          ? <span style={{ fontSize: FS.h2, fontWeight: 800, color: TK.slate100, whiteSpace: 'nowrap' }}>{money(row.currentPrice as number, holding.currency)}</span>
-          : <span style={{ fontSize: FS.lg, fontWeight: 700, color: TK.sub }}>지금 시세를 못 가져왔어요 · 매수가로 계산</span>}
+        <span style={{ fontSize: FS.tiny, color: TK.sub }}>{priced && curStale ? '마지막으로 가져온 가격' : '지금 가격'}</span>
+        {px === undefined
+          ? <span style={{ fontSize: FS.lg, fontWeight: 700, color: TK.sub }}>불러오는 중이에요…</span>
+          : priced
+          ? <span style={{ fontSize: FS.h2, fontWeight: 800, color: TK.slate100, whiteSpace: 'nowrap' }}>{money(curPrice, currency)}</span>
+          : <span style={{ fontSize: FS.lg, fontWeight: 700, color: TK.sub }}>지금 시세를 못 가져왔어요{holding ? ' · 매수가로 계산' : ''}</span>}
         {/* 지난 시세의 등락은 오늘 것이 아닐 수 있다 — '오늘'로 쓰지 않는다 */}
-        {priced && row.changePct != null && (
-          <span style={{ fontSize: FS.body, fontWeight: 600, color: TK.sub }}>{row.stale ? '지난 시세' : '오늘'} <span style={{ color: upDown(row.changePct) }}>{pct(row.changePct)}</span></span>
+        {priced && curChg != null && (
+          <span style={{ fontSize: FS.body, fontWeight: 600, color: TK.sub }}>{curStale ? '지난 시세' : '오늘'} <span style={{ color: upDown(curChg) }}>{pct(curChg)}</span></span>
         )}
       </div>
 
@@ -190,12 +232,12 @@ export default function StudentStock() {
             {retryBtn}
           </>
           : (<>
-            <svg width="100%" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${holding.name} ${labels[active]} 가격 흐름`}>
+            <svg width="100%" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${displayName} ${labels[active]} 가격 흐름`}>
               {showAvg && <path d={`M0,${y(avg).toFixed(1)} H${W}`} stroke={TK.sub} strokeDasharray="3 5" />}
               <path d={path} fill="none" stroke={TK.slate300} strokeWidth={2} />
             </svg>
             <span style={{ fontSize: FS.micro, color: TK.sub }}>
-              {labels[active]} · {showAvg ? '점선 = 내 평균 매수가' : '평균 매수가가 이 기간 범위 밖이에요'}
+              {labels[active]}{holding && (showAvg ? ' · 점선 = 내 평균 매수가' : ' · 평균 매수가가 이 기간 범위 밖이에요')}
             </span>
             {chartsStale && <span style={{ fontSize: FS.tiny, color: TK.amber400 }}>지금 시세 조회가 안 돼서 지난 기록을 보여 드려요.</span>}
             {available.length > 1 && (
@@ -209,6 +251,7 @@ export default function StudentStock() {
           </>)}
       </section>
 
+      {holding && row ? (<>
       <section style={{ ...card, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: SP.md }}>
         {stat('보유 수량', qtyText(holding.quantity, holding.market))}
         {stat('평균 매수가', money(holding.purchase_price, holding.currency))}
@@ -241,10 +284,17 @@ export default function StudentStock() {
             {txMore && <span style={{ fontSize: FS.tiny, color: TK.sub, paddingTop: SP.sm }}>최근 20건만 보여요.</span>}
           </>)}
       </section>
+      </>) : (
+        // 보유·거래 섹션 대신 — 기록하기로 이어 준다(시장·이름을 넘겨 기록하기가 미리 고르게)
+        <section style={{ display: 'flex', flexDirection: 'column', gap: SP.md }}>
+          <span style={{ fontSize: FS.body, color: TK.slate200 }}>아직 기록한 적 없는 종목이에요.</span>
+          <Link href={`/s/record?ticker=${encodeURIComponent(displayTicker)}&m=${qMarket}&n=${encodeURIComponent(displayName)}`} style={recordBtn}>이 종목 샀어요 — 기록하기</Link>
+        </section>
+      )}
 
       {/* /research 는 ?q= 로 자동 검색한다(?ticker= 는 읽지 않음) */}
-      <Link href={`/research?q=${encodeURIComponent(holding.ticker)}`} style={{ padding: SP.lg, border: `1px solid ${TK.border}`, borderRadius: RAD.md, color: TK.slate200, fontSize: FS.body, textDecoration: 'none' }}>이 종목 더 깊이 보기 — 분석 화면에서 열려요 ›</Link>
-      <Link href={`/s/record?ticker=${encodeURIComponent(holding.ticker)}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 56, borderRadius: RAD.md, background: TK.blue600, color: TK.slate100, fontSize: FS.lg, fontWeight: 700, textDecoration: 'none' }}>이 종목 매매 기록하기</Link>
+      <Link href={`/research?q=${encodeURIComponent(displayTicker)}`} style={{ padding: SP.lg, border: `1px solid ${TK.border}`, borderRadius: RAD.md, color: TK.slate200, fontSize: FS.body, textDecoration: 'none' }}>이 종목 더 깊이 보기 — 분석 화면에서 열려요 ›</Link>
+      {holding && <Link href={`/s/record?ticker=${encodeURIComponent(holding.ticker)}`} style={recordBtn}>이 종목 매매 기록하기</Link>}
     </div>
   )
 }
