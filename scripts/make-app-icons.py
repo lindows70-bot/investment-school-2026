@@ -6,7 +6,7 @@
 # 왜 셋이 다른가
 #  · icon-192/512 — 로고 그대로(둥근 모서리 바깥은 투명). 안드로이드 설치 목록·스플래시용.
 #  · maskable 512 — 안드로이드 런처가 원·물방울 등으로 **잘라낸다**. 안전 영역은 가운데 지름 80% 원이라
-#    로고를 80%로 줄여 가운데 두고, 바깥은 로고 배경색으로 꽉 채운다(투명이면 잘린 가장자리가 검게 뜬다).
+#    로고를 70%로 줄여(안전 영역 80% 안에 여유를 두고) 가운데 두고, 바깥은 로고 배경색으로 꽉 채운다(투명이면 잘린 가장자리가 검게 뜬다).
 #  · apple-touch 180 — iOS 는 투명 부분을 검정으로 칠하고 자기 모서리를 따로 씌운다 → 배경색으로 꽉 채운다.
 # 배경색은 하드코딩하지 않고 로고 SVG 의 배경 사각형 fill 에서 읽는다(로고를 바꾸면 따라온다).
 import os
@@ -63,5 +63,5 @@ def save(pix: 'fitz.Pixmap', size: int, name: str) -> None:
 os.makedirs(OUT, exist_ok=True)
 plain(192, 'icon-192.png')
 plain(512, 'icon-512.png')
-filled(512, 0.8, 'icon-maskable-512.png')
+filled(512, 0.7, 'icon-maskable-512.png')
 filled(180, 1.0, 'apple-touch-icon.png')

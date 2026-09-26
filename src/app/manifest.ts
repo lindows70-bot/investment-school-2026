@@ -7,6 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     name: '2026 투자학교',
     short_name: '투자학교',
     description: '내 포트폴리오 · 리그 · 오늘의 투자 공부를 한 번에',
+    // 앱 신원 고정 — 나중에 start_url 을 바꿔도 이미 설치한 폰에서 다른 앱으로 취급되지 않게
+    id: '/start',
     // 설치 아이콘을 누르면 로그인·역할·화면 모드에 맞는 곳으로 — 학생은 /s, 선생님은 /dashboard
     start_url: '/start',
     scope: '/',

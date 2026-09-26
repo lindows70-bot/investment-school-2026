@@ -23,6 +23,8 @@ export const metadata: Metadata = {
   // 상태 표시줄은 'black'(화면이 그 아래에서 시작) — 'black-translucent' 는 화면을 시계·노치 **밑으로** 겹치는데,
   // 앱 어디에도 env(safe-area-inset-top) 여백이 없어(2026-09-26 grep 0건) 제목이 시계에 가려진다.
   appleWebApp: { capable: true, title: '투자학교', statusBarStyle: 'black' },
+  // appleWebApp 은 apple-mobile-web-app-capable 만 내보낸다 — 크롬은 그걸 deprecated 로 경고하고 이 표준 이름을 찾는다
+  other: { 'mobile-web-app-capable': 'yes' },
 }
 
 // viewportFit cover 가 없으면 iOS 에서 env(safe-area-inset-bottom) 이 항상 0 — 하단 탭바 safe-area 패딩의 전제
