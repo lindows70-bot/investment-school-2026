@@ -178,15 +178,27 @@ function moverTip(inputs: TipInputs, day: number, fb: boolean, todayKst: string)
 }
 
 /**
+ * 오늘 규칙을 시도하는 순서 — RULES[(날 수 mod 4)] 부터 한 바퀴. pickTip 이 이 순서로 돈다.
+ * 화면은 이 순서대로 한 규칙씩 원천을 불러, 문장이 나오는 첫 규칙에서 멈춘다(무거운 원천을 한꺼번에 부르지 않게).
+ * 날짜 형식이 틀리면 빈 배열.
+ */
+export function tipRuleOrder(todayKst: string): TipKind[] {
+  if (!YMD.test(todayKst)) return []
+  const day = dayNum(todayKst)
+  const start = ((day % RULES.length) + RULES.length) % RULES.length
+  return RULES.map((_, i) => RULES[(start + i) % RULES.length])
+}
+
+/**
  * 오늘의 한 줄 — 같은 날 같은 입력이면 늘 같은 결과.
  * 시작 규칙 = RULES[(날 수 mod 4)] 에서 시작해 입력이 없는 규칙은 건너뛴다. 전부 없으면 null(화면이 '오늘은 알려드릴 게 없어요'를 말한다).
  */
 export function pickTip(todayKst: string, inputs: TipInputs): Tip | null {
   if (!YMD.test(todayKst)) return null
   const day = dayNum(todayKst)
-  const start = ((day % RULES.length) + RULES.length) % RULES.length
-  for (let i = 0; i < RULES.length; i++) {
-    const kind = RULES[(start + i) % RULES.length]
+  const order = tipRuleOrder(todayKst)
+  for (let i = 0; i < order.length; i++) {
+    const kind = order[i]
     const fb = i > 0
     const tip = kind === 'per' ? perTip(inputs, day, fb)
       : kind === 'vsIndex' ? vsIndexTip(inputs, day, fb, todayKst)

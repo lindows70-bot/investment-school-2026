@@ -88,6 +88,30 @@ check('전부 null → null', T.pickTip(TODAY, { per: null, vsIndex: null, event
 check('전부 빈 배열 → null', T.pickTip(TODAY, { per: [], vsIndex: [], events: [], movers: [] }) === null)
 check('날짜 형식이 틀리면 null', T.pickTip('2026/09/26', all()) === null)
 
+// ── 2-b. 규칙 순서(tipRuleOrder) — 화면이 이 순서로 한 규칙씩 불러 첫 문장에서 멈춘다 ──
+{
+  const FIELD = { per: 'per', vsIndex: 'vsIndex', event: 'events', mover: 'movers' }
+  // 화면의 지연 불러오기 흉내 — 순서대로 한 규칙 입력만 더하고, 문장이 나오면 멈춘다
+  const lazy = (d, full) => {
+    const acc = { per: null, vsIndex: null, events: null, movers: null }
+    for (const k of T.tipRuleOrder(d)) {
+      acc[FIELD[k]] = full[FIELD[k]]
+      const t = T.pickTip(d, acc)
+      if (t) return { tip: t, loaded: k }
+    }
+    return { tip: null, loaded: null }
+  }
+  for (const d of days4) {
+    const o = T.tipRuleOrder(d)
+    check(`${d}: 순서는 4규칙 한 바퀴 (${o.join(',')})`, o.length === 4 && new Set(o).size === 4 && RULES.every(k => o.includes(k)))
+    check(`${d}: 순서의 첫 규칙 = pickTip 시작 규칙`, o[0] === T.pickTip(d, all()).kind)
+    check(`${d}: 한 규칙씩 불러도 전부 넣은 것과 같은 결과`, JSON.stringify(lazy(d, all()).tip) === JSON.stringify(T.pickTip(d, all())))
+    const sparse = all(); sparse.per = []; sparse.events = null
+    check(`${d}: 빈 규칙이 섞여도 같은 결과`, JSON.stringify(lazy(d, sparse).tip) === JSON.stringify(T.pickTip(d, sparse)))
+  }
+  check('날짜 형식이 틀리면 빈 순서', T.tipRuleOrder('2026/09/26').length === 0)
+}
+
 // ── 3. ① PER ─────────────────────────────────────────────────────────────
 const DEF = 'PER은 주가가 회사가 1년 동안 번 1주당 이익의 몇 배인지를 뜻해요.'
 {
