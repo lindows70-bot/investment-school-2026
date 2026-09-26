@@ -34,7 +34,7 @@ export default function FxTrendCard({ overview }: { overview: JsonResult<Overvie
             <span style={{ fontSize: FS.h2, fontWeight: 800, color: TK.slate100, whiteSpace: 'nowrap' }}>{fxWon(latest.v)}</span>
             {latest.change != null && (
               <span style={{ fontSize: FS.tiny, color: TK.slate300, whiteSpace: 'nowrap' }}>
-                전날 고시보다 {signFx(latest.change)}{latest.changePct != null ? ` (${pct(latest.changePct)})` : ''}
+                직전 고시보다 {signFx(latest.change)}{latest.changePct != null ? ` (${pct(latest.changePct)})` : ''}
               </span>
             )}
           </div>

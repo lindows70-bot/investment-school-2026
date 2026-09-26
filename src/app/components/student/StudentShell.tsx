@@ -1,5 +1,5 @@
 'use client'
-// 학생 간단 모드 셸 — 폰·태블릿은 하단 탭 4개, PC(769px↑)는 왼쪽 메뉴. 기존 35개 화면은 '분석' 링크로 그대로 연다.
+// 학생 간단 모드 셸 — 폰·태블릿은 하단 탭 5개(홈·시장·내 자산·리그·배우기), PC(769px↑)는 왼쪽 메뉴. 기존 35개 화면은 '분석' 링크로 그대로 연다.
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { TK, FS, RAD, SP, FONT_STACK } from '@/lib/theme'
@@ -8,11 +8,13 @@ import { setViewMode } from '@/lib/viewMode'
 
 const TABS = [
   { href: '/s', label: '홈', icon: 'M3 10.5 12 3l9 7.5M5 9.5V20h14V9.5' },
+  { href: '/s/market', label: '시장', icon: 'M3 3v18h18M7 15l4-4 3 3 6-7' },
   { href: '/s/assets', label: '내 자산', icon: 'M12 3v9l7.8 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0' },
   { href: '/s/league', label: '리그', icon: 'M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3' },
   { href: '/s/learn', label: '배우기', icon: 'M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 19V5' },
 ]
-const isActive = (pathname: string, href: string) => href === '/s' ? pathname === '/s' : pathname.startsWith(href)
+// 홈은 정확히 '/s' 만, 나머지는 그 경로와 하위 경로(/s/market?tab=… 는 쿼리라 pathname 에 안 들어온다)
+const isActive = (pathname: string, href: string) => href === '/s' ? pathname === '/s' : pathname === href || pathname.startsWith(`${href}/`)
 
 function Icon({ d, size = 22 }: { d: string; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d={d} /></svg>
@@ -46,11 +48,11 @@ export default function StudentShell({ children }: { children: React.ReactNode }
         <LogoutButton style={{ display: 'flex', alignItems: 'center', height: 44, padding: `0 ${SP.md}px`, borderRadius: RAD.sm, border: 'none', background: 'transparent', color: TK.sub, fontSize: FS.tiny, textAlign: 'left' }} />
       </nav>
       <main className="st-main" style={{ flexGrow: 1, minWidth: 0, maxWidth: 1080, margin: '0 auto', padding: SP.lg, boxSizing: 'border-box' }}>{children}</main>
-      <nav className="st-tabs" aria-label="학생 메뉴" style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 100, display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', height: 'calc(72px + env(safe-area-inset-bottom, 0px))', paddingBottom: 'env(safe-area-inset-bottom, 0px)', background: TK.bg0, borderTop: `1px solid ${TK.border}` }}>
+      <nav className="st-tabs" aria-label="학생 메뉴" style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 100, display: 'grid', gridTemplateColumns: `repeat(${TABS.length}, minmax(0, 1fr))`, height: 'calc(72px + env(safe-area-inset-bottom, 0px))', paddingBottom: 'env(safe-area-inset-bottom, 0px)', background: TK.bg0, borderTop: `1px solid ${TK.border}` }}>
         {TABS.map(t => {
           const on = isActive(pathname, t.href)
           return (
-            <Link key={t.href} href={t.href} aria-current={on ? 'page' : undefined} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: SP.xs, fontSize: FS.tiny, fontWeight: on ? 700 : 500, color: on ? TK.slate100 : TK.sub, textDecoration: 'none' }}>
+            <Link key={t.href} href={t.href} aria-current={on ? 'page' : undefined} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: SP.xs, minWidth: 0, fontSize: FS.tiny, fontWeight: on ? 700 : 500, color: on ? TK.slate100 : TK.sub, textDecoration: 'none', whiteSpace: 'nowrap' }}>
               <Icon d={t.icon} />{t.label}
             </Link>
           )

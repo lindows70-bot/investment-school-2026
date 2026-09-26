@@ -298,3 +298,47 @@ export function flowScopeText(shown: KrMarket[], missing: KrMarket[]): string {
   if (got.length === 1) return shown.length >= 2 ? `${NAME[got[0]]}만 본(${missing.map(m => NAME[m]).join('·')} 못 가져옴)` : NAME[got[0]]
   return ''
 }
+
+// ── 홈 요약 ─────────────────────────────────────────────────────────────────
+/** 미니 선(스파크라인)에 쓸 점 — 값이 있는 점만 시간순으로 max 개 이하. 2점 미만이거나 **모든 값이 같으면 null**
+ *  (업비트 차트가 실패하면 stock-price 가 지금 가격으로 가짜 평평선을 채운다 — 평평한 선은 '움직임 없음'이 아니라 '못 가져옴') */
+export function sparkSeries(points: unknown, max = 80): { t: number; v: number }[] | null {
+  if (!Array.isArray(points)) return null
+  const pts = (points as { t?: unknown; v?: unknown }[])
+    .filter((p): p is { t: number; v: number } => !!p && typeof p.t === 'number' && Number.isFinite(p.t) && typeof p.v === 'number' && Number.isFinite(p.v))
+    .map(p => ({ t: p.t, v: p.v }))
+    .sort((a, b) => a.t - b.t)
+  if (pts.length < 2) return null
+  if (pts.every(p => p.v === pts[0].v)) return null
+  if (pts.length <= max) return pts
+  const step = Math.ceil(pts.length / (max - 1))
+  const out: { t: number; v: number }[] = []
+  for (let i = 0; i < pts.length - 1; i += step) out.push(pts[i])
+  out.push(pts[pts.length - 1])   // 지금 값은 반드시 남긴다
+  return out
+}
+
+/** 공포·탐욕 1년 요약 — 시장 화면(FearGreedYear)과 홈(FearGreed)이 **같은 값·같은 날짜·같은 기간 이름**을 쓰게 한 곳에서 만든다(제2원칙).
+ *  now = 지금 값(홈 카드와 같은 원천 우선) · y = overview 의 cnn/crypto 1년 요약. 고저가 없으면 null */
+export function fngYearSummary(
+  now: number | null,
+  y: { yearHigh: { v: number; date: string } | null; yearLow: { v: number; date: string } | null; range: { from: string; to: string; fullYear: boolean } | null },
+): { fullYear: boolean; rangeText: string | null; high: { v: number; when: string } | null; low: { v: number; when: string } | null } | null {
+  const ext = fngExtremes(now, y.yearHigh, y.yearLow)
+  if (!ext.high && !ext.low) return null
+  const name = fngRangeName(y.range)
+  const when = (d: string | null) => (d ? ymdDot(d) ?? d : '지금')
+  return {
+    fullYear: name === '1년',
+    rangeText: name == null ? null : name === '1년' ? '최근 1년' : `기록 기간(${name})`,
+    high: ext.high ? { v: ext.high.v, when: when(ext.high.date) } : null,
+    low: ext.low ? { v: ext.low.v, when: when(ext.low.date) } : null,
+  }
+}
+
+/** 홈 한 줄 — '최근 1년 최고 71(2026.5.1) · 최저 5(2025.11.20)'. 기록이 1년에 못 미치면 '기록 기간(…) 최고 …',
+ *  기간 자체를 모르면(range null) '기록 기간 최고 …' — 기간 이름 없이 '최고'만 두면 전체 역사의 최고로 읽힌다 */
+export function fngYearLine(s: NonNullable<ReturnType<typeof fngYearSummary>>): string {
+  const parts = [s.high ? `최고 ${s.high.v}(${s.high.when})` : null, s.low ? `최저 ${s.low.v}(${s.low.when})` : null].filter(Boolean).join(' · ')
+  return `${s.rangeText ?? '기록 기간'} ${parts}`
+}

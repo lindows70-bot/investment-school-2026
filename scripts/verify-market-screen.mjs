@@ -160,6 +160,23 @@ eq('합침 둘 다', M.flowScopeText(['KOSPI', 'KOSDAQ'], []), '코스피·코�
 eq('합침 한 시장 실패 = 실제 범위', M.flowScopeText(['KOSPI', 'KOSDAQ'], ['KOSDAQ']), '코스피만 본(코스닥 못 가져옴)')
 eq('한 시장 선택', M.flowScopeText(['KOSDAQ'], []), '코스닥')
 
+// ── 홈 요약 ──
+eq('스파크 — 값 없는 점 버리고 시간순', M.sparkSeries([{ t: 3, v: 2 }, { t: 1, v: 1 }, { t: 2, v: null }]), [{ t: 1, v: 1 }, { t: 3, v: 2 }])
+eq('스파크 — 모든 값이 같으면(가짜 평평선) null', M.sparkSeries([{ t: 1, v: 5 }, { t: 2, v: 5 }, { t: 3, v: 5 }]), null)
+eq('스파크 — 2점 미만 null', M.sparkSeries([{ t: 1, v: 5 }]), null)
+eq('스파크 — 배열 아님 null', M.sparkSeries(undefined), null)
+const many = Array.from({ length: 400 }, (_, i) => ({ t: i, v: i % 7 }))
+const sp = M.sparkSeries(many, 80)
+eq('스파크 — 400점 → 80 이하 + 마지막 점 유지', [sp.length <= 80, sp[sp.length - 1].t], [true, 399])
+const YR = { yearHigh: { v: 71, date: '2026-05-01' }, yearLow: { v: 5, date: '2025-11-20' }, range: { from: '2025-09-26', to: '2026-09-26', fullYear: true } }
+const S1 = M.fngYearSummary(50, YR)
+eq('1년 요약 — 1년치', S1, { fullYear: true, rangeText: '최근 1년', high: { v: 71, when: '2026.5.1' }, low: { v: 5, when: '2025.11.20' } })
+eq('홈 한 줄', M.fngYearLine(S1), '최근 1년 최고 71(2026.5.1) · 최저 5(2025.11.20)')
+eq('1년 요약 — 지금이 최고를 넘으면 최고 = 지금', M.fngYearSummary(80, YR).high, { v: 80, when: '지금' })
+eq('1년 요약 — 기록이 1년에 못 미침', M.fngYearLine(M.fngYearSummary(50, { ...YR, range: { from: '2025-11-20', to: '2026-09-26', fullYear: false } })), '기록 기간(2025.11.20~2026.9.26) 최고 71(2026.5.1) · 최저 5(2025.11.20)')
+eq('1년 요약 — 고저 없음 null', M.fngYearSummary(50, { yearHigh: null, yearLow: null, range: null }), null)
+eq('홈 한 줄 — 기간 모름(range null)이면 기록 기간', M.fngYearLine(M.fngYearSummary(50, { ...YR, range: null })), '기록 기간 최고 71(2026.5.1) · 최저 5(2025.11.20)')
+
 // ── 국면·공포탐욕 ──
 eq('국면 말 4종', Object.keys(M.QUAD_TEXT).sort(), ['improving', 'lagging', 'leading', 'weakening'])
 eq('기간 1년치', M.fngRangeName({ from: '2025-09-26', to: '2026-09-26', fullYear: true }), '1년')
