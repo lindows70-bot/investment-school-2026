@@ -36,9 +36,8 @@ async function fetchUsdKrw(): Promise<number> {
 }
 
 export async function GET() {
-  const dateKey = new Date().toISOString().slice(0, 10)
-  const cacheKey = `dividend-portfolio-v2:${dateKey}`   // v2: 프로필에 preferred 필드 추가(DIV_PROFILE_KEY v8→v9와 함께 범프)
-  const cached = await getCache<DividendPortfolioData>(cacheKey, 12 * 3600_000)
+  const cacheKey = 'dividend-portfolio-v2'   // 🗓️ 날짜 없는 키 + 오늘(KST)만(옛 키는 UTC 날짜였다) — 날짜 키는 영구 누적 · v2: 프로필에 preferred 필드 추가(DIV_PROFILE_KEY v8→v9와 함께 범프)
+  const cached = await getCache<DividendPortfolioData>(cacheKey, 12 * 3600_000, { sameKstDay: true })
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   const [usdKrw, stocks] = await Promise.all([

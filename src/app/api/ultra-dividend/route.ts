@@ -30,9 +30,8 @@ export interface UltraDividendData {
 }
 
 export async function GET() {
-  const dateKey = new Date().toISOString().slice(0, 10)
-  const cacheKey = `ultra-dividend-v4:${dateKey}`   // v4: 🏛️ 우선주 티어 신설 + Strategy 우선주 4종 등재(응답 항목이 늘고 preferred 필드가 붙는다)
-  const cached = await getCache<UltraDividendData>(cacheKey, 12 * 3600_000)
+  const cacheKey = 'ultra-dividend-v4'   // 🗓️ 날짜 없는 키 + 오늘(KST)만(옛 키는 UTC 날짜였다) — 날짜 키는 영구 누적 · v4: 🏛️ 우선주 티어 신설 + Strategy 우선주 4종 등재(응답 항목이 늘고 preferred 필드가 붙는다)
+  const cached = await getCache<UltraDividendData>(cacheKey, 12 * 3600_000, { sameKstDay: true })
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   const items: UltraDividendItem[] = []

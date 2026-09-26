@@ -16,8 +16,8 @@ const UA = {
   'Accept-Language': 'ko-KR,ko;q=0.9',
 }
 
-/** 캐시 키 SSOT — 라우트는 임의 export 를 허용하지 않으므로 lib 에 둔다 */
-export const COFIX_KEY = (dateKey: string) => `cofix-v1:${dateKey}`
+/** 캐시 키 SSOT — 라우트는 임의 export 를 허용하지 않으므로 lib 에 둔다 · 🗓️ 날짜 없는 키(오늘 KST 만은 reader 의 sameKstDay 가 지킨다 — 날짜 키는 영구 누적) */
+export const COFIX_KEY = 'cofix-v1'
 
 export interface CofixMonthly {
   /** 공시일 YYYY-MM-DD */

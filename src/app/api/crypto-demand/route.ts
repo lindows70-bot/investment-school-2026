@@ -42,8 +42,8 @@ const j = async (u: string) => {
 }
 
 export async function GET(req: Request) {
-  const key = `crypto-demand-v2:${kstDate()}`   // v2: 현물 축이 TheBlock 순유입(btc-etf v8)으로 — 옛 문서는 Farside 09-04 까지라 spot 이 null 로 박제돼 있었다
-  const cached = await getCache<CryptoDemandApi>(key, 6 * 3600_000)
+  const key = 'crypto-demand-v2'   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 영구 누적 · v2: 현물 축이 TheBlock 순유입(btc-etf v8)으로 — 옛 문서는 Farside 09-04 까지라 spot 이 null 로 박제돼 있었다
+  const cached = await getCache<CryptoDemandApi>(key, 6 * 3600_000, { sameKstDay: true })
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // ① 선물: 바이비트 무기한 OI 일별(BTC 단위 — 실측 확인) 200일

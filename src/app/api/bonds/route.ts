@@ -11,7 +11,6 @@ import { buildJapanYcc, type YccResult } from '@/lib/yccHistory'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60   // v5 부터 인하사이클(FRED 5계열)·상관(야후 13종)·YCC 가 병렬로 붙는다
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 export type DurBias = 'short' | 'mid' | 'long'
 export type CreditBias = 'govt' | 'credit'
@@ -63,8 +62,8 @@ function retAt(closes: number[], back: number): number | null {
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export async function GET(req: Request) {
   // v8: 국면 라벨 SSOT 교정(금리 고점·동결 → rateDir 반영) — 내용만 바뀌어도 키를 올린다
-  const cacheKey = `bonds-v8:${kstDate()}`   // v7: YCC 에 미국 총부채(재무부 일별) 동승 / v6: 침체 판정 창 18개월 명시 / v5: 인하사이클·상관·YCC / v4: 실질 vs BEI
-  const cached = await getCache<BondsResult>(cacheKey, 6 * 3600_000)
+  const cacheKey = 'bonds-v8'   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 영구 누적 · v7: YCC 에 미국 총부채(재무부 일별) 동승 / v6: 침체 판정 창 18개월 명시 / v5: 인하사이클·상관·YCC / v4: 실질 vs BEI
+  const cached = await getCache<BondsResult>(cacheKey, 6 * 3600_000, { sameKstDay: true })
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin

@@ -8,9 +8,8 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
 export async function GET() {
-  const dateKey = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)   // KST 기준일
-  const key = COFIX_KEY(dateKey)
-  const cached = await getCache<CofixResult>(key, 12 * 3600_000)
+  const key = COFIX_KEY
+  const cached = await getCache<CofixResult>(key, 12 * 3600_000, { sameKstDay: true })   // KST 기준일 — 날짜가 바뀌면 새로
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   const r = await buildCofix().catch(() => null)
