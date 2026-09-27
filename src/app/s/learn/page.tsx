@@ -1,5 +1,6 @@
 'use client'
-// 학생 배우기 — 오늘의 명언 · 오늘 알려드려요(배움 규칙 5종 순환: PER·지수 대비·집중도·환율 효과·코어위성) · 오늘 내 종목 소식(신호·실적·등락+뉴스 링크 3줄) · 수업 자료 · 더 알아보기(분석 화면) · 폰 앱 설치 · 내 계정
+// 학생 배우기 — 오늘의 명언 · 오늘 알려드려요(배움 규칙 5종 순환: PER·지수 대비·집중도·환율 효과·코어위성) · 오늘 내 종목 소식(신호·실적·등락+뉴스 링크 3줄) · 수업 자료 · 폰 앱 설치 · 내 계정
+//   5단계(2026-09-27): '더 알아보기' 16개(분석 화면 링크)를 뺐다 — 간편 화면에서 누른 건 간편 안에서 끝난다(phase5-plan)
 //   2026-09-27 재설계: 두 카드가 같은 등락 이야기를 하던 것을 '배움'(내 숫자로 개념) / '소식'(오늘 일어난 일)로 갈랐다.
 import Link from 'next/link'
 import { useState } from 'react'
@@ -216,29 +217,6 @@ const ACADEMY = [
   { href: '/school-lounge', title: '스쿨 라운지', sub: '질문하고 이야기하기' },
 ]
 
-// ── 5. 더 알아보기 5묶음(선생님 분석 화면으로 열린다) — 이름은 사이드바 메뉴 이름을 줄인 것 ──
-const MORE: { title: string; links: { href: string; label: string }[] }[] = [
-  { title: '종목 분석', links: [
-    { href: '/research', label: '종목 리서치' }, { href: '/earnings-reports', label: '실적 리포트' },
-    { href: '/tech-chart', label: '기술적 차트' }, { href: '/valuation', label: '최일 가치분석' },
-  ] },
-  { title: '종목 추천', links: [
-    { href: '/reco-hub', label: '추천 지도' }, { href: '/hi52-radar', label: '신고가 레이더' },
-    { href: '/dashboard?tab=rotation', label: '섹터 로테이션 시계' },
-  ] },
-  { title: '시장·경제 흐름', links: [
-    { href: '/macro-hub', label: '매크로 허브' }, { href: '/us-smart-money', label: '미국 스마트머니' },
-  ] },
-  { title: '배당·채권·코인', links: [
-    { href: '/dividend', label: '배당 인컴 랩' }, { href: '/bonds', label: '채권 듀레이션 나침반' },
-    { href: '/dashboard?tab=coinlab&cv=btc', label: '코인 랩' },
-  ] },
-  { title: '부동산', links: [
-    { href: '/real-estate', label: '부동산 시장 대시보드' }, { href: '/real-estate/honeycomb', label: '벌집순환모형(지역 사이클)' },
-    { href: '/real-estate/apt', label: '아파트 단지 리서치' },
-  ] },
-]
-
 const sectionTitle = { margin: 0, fontSize: FS.lg, fontWeight: 700, color: TK.slate100 } as const
 
 export default function StudentLearn() {
@@ -256,11 +234,9 @@ export default function StudentLearn() {
       <style>{`
         .sl-two { display: grid; grid-template-columns: minmax(0, 1fr); gap: ${SP.lg}px; align-items: start }
         .sl-academy { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: ${SP.sm}px }
-        .sl-more { display: grid; grid-template-columns: minmax(0, 1fr); gap: ${SP.md}px; align-items: start }
         @media (min-width: 769px) {
           .sl-two { grid-template-columns: repeat(2, minmax(0, 1fr)) }
           .sl-academy { grid-template-columns: repeat(4, minmax(0, 1fr)) }
-          .sl-more { grid-template-columns: repeat(2, minmax(0, 1fr)) }
         }
       `}</style>
       <header style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
@@ -285,26 +261,6 @@ export default function StudentLearn() {
             </Link>
           ))}
         </nav>
-      </section>
-
-      <section aria-labelledby="learn-more" style={{ display: 'flex', flexDirection: 'column', gap: SP.sm }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: SP.sm, flexWrap: 'wrap' }}>
-          <h2 id="learn-more" style={sectionTitle}>더 알아보기</h2>
-          <span style={noteStyle()}>분석 화면으로 열려요</span>
-        </div>
-        <div className="sl-more">
-          {MORE.map(g => (
-            <nav key={g.title} aria-label={g.title} style={{ ...card, display: 'flex', flexDirection: 'column', paddingTop: SP.md, paddingBottom: SP.xs }}>
-              <h3 style={{ margin: 0, paddingBottom: SP.xs, fontSize: FS.body, fontWeight: 700, color: TK.slate100 }}>{g.title}</h3>
-              {g.links.map(l => (
-                <Link key={l.href} href={l.href} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.sm, minHeight: 44, borderTop: `1px solid ${TK.border}`, fontSize: FS.body, color: TK.slate200, textDecoration: 'none', minWidth: 0 }}>
-                  <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{l.label}</span>
-                  <span aria-hidden style={{ color: TK.sub, flexShrink: 0 }}>›</span>
-                </Link>
-              ))}
-            </nav>
-          ))}
-        </div>
       </section>
 
       <InstallCard />
