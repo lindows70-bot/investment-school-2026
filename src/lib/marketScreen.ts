@@ -402,11 +402,12 @@ export function hourTicks(t0: number, t1: number, stepH = 2): number[] {
   for (let t = Math.ceil(t0 / H) * H; t <= t1; t += stepH * H) out.push(t)
   return out
 }
-/** 날짜 가로 눈금 — 45일 이하면 안쪽 4곳을 'M.D' 로, 400일 넘으면 해마다 1월 1일을 'YYYY년' 으로, 그 사이는 매달 1일을 'N월' 로(7개 넘으면 두 달마다) */
+/** 날짜 가로 눈금 — 45일 이하면 안쪽 4곳을 'M.D' 로, 900일 넘으면 해마다 1월 1일을 'YYYY년' 으로, 그 사이는 매달 1일을 'N월' 로(7개 넘으면 두 달마다) */
 export function dayTicks(t0: number, t1: number): { ticks: number[]; fmt: (t: number) => string } {
   const md = (t: number) => { const [, m, d] = kstParts(t).ymd.split('-'); return `${Number(m)}.${Number(d)}` }
   if (!(t1 > t0)) return { ticks: [], fmt: md }
-  if (t1 - t0 > 400 * 86_400_000) {
+  // 연도 눈금은 2년 반 넘을 때만 — 14개월(주봉 60)을 연도로 나누면 '2026년' 하나뿐이었다(2026-09-27 실측)
+  if (t1 - t0 > 900 * 86_400_000) {
     const years: number[] = []
     for (let y = Number(kstParts(t0).ymd.slice(0, 4)) + 1; ; y++) {
       const t = Date.parse(`${y}-01-01T00:00:00+09:00`)
