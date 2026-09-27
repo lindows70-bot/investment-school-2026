@@ -1,5 +1,6 @@
 'use client'
 // 학생 종목 상세 — 지금 가격·등락·가격 흐름(평단 점선)·내 보유(수량·평단·평가·손익·비중)·내 거래 기록 → 이 종목 기록하기
+//   가격 흐름은 홈·시장과 같은 차트 부품(LinePlot) — 오른쪽 가격 눈금·아래 시간(하루는 6시간·달·해) 눈금·그라데이션·끝점(2026-09-27 사용자 요청)
 //   보유하지 않은 종목(홈 검색 ?m=시장&n=이름)은 가격·등락·가격 흐름만 보이고 기록하기로 이어 준다
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
@@ -9,6 +10,8 @@ import { TK, FS, RAD, SP } from '@/lib/theme'
 import { useMyPortfolio, type FailReason } from '@/app/components/student/useMyPortfolio'
 import { isPriced, type Market, type PriceInput } from '@/lib/portfolioSummary'
 import { won, signWon, pct, upDown, money, qtyText } from '@/lib/studentFormat'
+import { niceTicks, hourTicks, dayTicks, kstParts, ymdDot } from '@/lib/marketScreen'
+import { LinePlot } from '@/app/components/student/market/marketUi'
 
 // transactions 실제 컬럼(tradeWrite.ts TxBase 기준) — type 은 소문자 'buy' | 'sell'
 interface Tx { id: string; type: 'buy' | 'sell'; price: number; quantity: number; transaction_date: string; currency: 'USD' | 'KRW' | null }
@@ -40,6 +43,13 @@ const cleanPts = (raw: unknown, isCrypto: boolean): PricePoint[] => {
   if (pts.length < 2) return []
   return isCrypto && pts.every(p => p.v === pts[0].v) ? [] : pts
 }
+
+// 눈금 글자 — 원화는 1천만 넘으면 '만' 단위(비트코인 115,270,000 은 눈금 칸에 안 들어간다), 달러는 100 넘으면 정수
+const yFmtFor = (currency: 'USD' | 'KRW', max: number) => (v: number) =>
+  currency === 'USD' ? (max >= 100 ? `$${Math.round(v).toLocaleString('en-US')}` : `$${v.toFixed(2)}`)
+    : max >= 10_000_000 ? `${Math.round(v / 10_000).toLocaleString('ko-KR')}만` : Math.round(v).toLocaleString('ko-KR')
+const hm = (t: number) => kstParts(t).hm
+const tDay = (t: number) => ymdDot(kstParts(t).ymd) ?? ''
 
 const card = { background: TK.card, border: `1px solid ${TK.border}`, borderRadius: RAD.md, padding: SP.lg } as const
 const recordBtn = { display: 'flex', alignItems: 'center', justifyContent: 'center', height: 56, borderRadius: RAD.md, background: TK.blue600, color: TK.slate100, fontSize: FS.lg, fontWeight: 700, textDecoration: 'none' } as const
@@ -184,9 +194,10 @@ export default function StudentStock() {
   // 평단이 차트 범위에서 너무 멀면 선 하나 때문에 가격 흐름이 납작해진다 — 그때는 그리지 않고 말로 밝힌다
   const showAvg = Number.isFinite(avg) && avg > 0 && avg >= vMin * 0.5 && avg <= vMax * 2
   const min = showAvg ? Math.min(vMin, avg) : vMin, max = showAvg ? Math.max(vMax, avg) : vMax
-  const W = 358, H = 120
-  const y = (v: number) => max === min ? H / 2 : H - (v - min) / (max - min) * (H - 8) - 4
-  const path = pts.map((p, i) => `${i ? 'L' : 'M'}${(i / Math.max(pts.length - 1, 1) * W).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ')
+  // 가로 눈금 — 하루(코인 시간봉)는 6시간 간격 시각, 그 밖은 날짜(M.D · N월 · YYYY년)
+  const sorted = [...pts].sort((a, b) => a.t - b.t)
+  const intraday = sorted.length >= 2 && sorted[sorted.length - 1].t - sorted[0].t < 1.5 * 86_400_000
+  const xt = sorted.length >= 2 ? (intraday ? { ticks: hourTicks(sorted[0].t, sorted[sorted.length - 1].t, 6), fmt: hm } : dayTicks(sorted[0].t, sorted[sorted.length - 1].t)) : { ticks: [], fmt: tDay }
 
   const stat = (label: string, value: string, color: string = TK.slate100, note?: string) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
@@ -237,12 +248,12 @@ export default function StudentStock() {
             {retryBtn}
           </>
           : (<>
-            <svg width="100%" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${displayName} ${labels[active]} 가격 흐름`}>
-              {showAvg && <path d={`M0,${y(avg).toFixed(1)} H${W}`} stroke={TK.sub} strokeDasharray="3 5" />}
-              <path d={path} fill="none" stroke={TK.slate300} strokeWidth={2} />
-            </svg>
+            <div role="img" aria-label={`${displayName} ${labels[active]} 가격 흐름`} style={{ height: 180, minWidth: 0 }}>
+              <LinePlot points={sorted} color={TK.slate300} baseline={showAvg ? avg : null} tFmt={intraday ? hm : tDay} vFmt={v => money(v, currency)} a11y={false}
+                area endDot yAxis="right" yTicks={niceTicks(min, max, 4)} yFmt={yFmtFor(currency, max)} xTicks={xt.ticks} xFmt={xt.fmt} />
+            </div>
             <span style={{ fontSize: FS.micro, color: TK.sub }}>
-              {labels[active]}{holding && (showAvg ? ' · 점선 = 내 평균 매수가' : ' · 평균 매수가가 이 기간 범위 밖이에요')}
+              {labels[active]}{intraday ? ' · 한국 시각' : ''}{holding && (showAvg ? ' · 점선 = 내 평균 매수가' : ' · 평균 매수가가 이 기간 범위 밖이에요')}{currency === 'KRW' && max >= 10_000_000 ? ' · 눈금은 만원' : ''}
             </span>
             {chartsStale && <span style={{ fontSize: FS.tiny, color: TK.amber400 }}>지금 시세 조회가 안 돼서 지난 기록을 보여 드려요.</span>}
             {available.length > 1 && (

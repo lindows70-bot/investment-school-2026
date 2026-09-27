@@ -402,10 +402,19 @@ export function hourTicks(t0: number, t1: number, stepH = 2): number[] {
   for (let t = Math.ceil(t0 / H) * H; t <= t1; t += stepH * H) out.push(t)
   return out
 }
-/** 날짜 가로 눈금 — 45일 이하면 안쪽 4곳을 'M.D' 로, 그보다 길면 매달 1일을 'N월' 로(7개 넘으면 두 달마다) */
+/** 날짜 가로 눈금 — 45일 이하면 안쪽 4곳을 'M.D' 로, 400일 넘으면 해마다 1월 1일을 'YYYY년' 으로, 그 사이는 매달 1일을 'N월' 로(7개 넘으면 두 달마다) */
 export function dayTicks(t0: number, t1: number): { ticks: number[]; fmt: (t: number) => string } {
   const md = (t: number) => { const [, m, d] = kstParts(t).ymd.split('-'); return `${Number(m)}.${Number(d)}` }
   if (!(t1 > t0)) return { ticks: [], fmt: md }
+  if (t1 - t0 > 400 * 86_400_000) {
+    const years: number[] = []
+    for (let y = Number(kstParts(t0).ymd.slice(0, 4)) + 1; ; y++) {
+      const t = Date.parse(`${y}-01-01T00:00:00+09:00`)
+      if (t > t1) break
+      years.push(t)
+    }
+    return { ticks: years, fmt: t => `${kstParts(t).ymd.slice(0, 4)}년` }
+  }
   if (t1 - t0 <= 45 * 86_400_000) return { ticks: [1, 3, 5, 7].map(k => Math.round(t0 + ((t1 - t0) * k) / 8)), fmt: md }
   const months: number[] = []
   const [y0, m0] = kstParts(t0).ymd.split('-').map(Number)
