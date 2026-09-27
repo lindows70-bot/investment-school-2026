@@ -206,6 +206,13 @@ eq('100 → 초록(green500)', M.fngColor(100), 'rgb(34, 197, 94)')
 eq('범위 밖(−5·130)은 끝 색', [M.fngColor(-5), M.fngColor(130)], ['rgb(239, 68, 68)', 'rgb(34, 197, 94)'])
 eq('24 와 26 은 거의 같은 색(경계에서 튀지 않음)', (() => { const p = s => s.match(/\d+/g).map(Number); const a = p(M.fngColor(24)), b = p(M.fngColor(26)); return a.every((c, k) => Math.abs(c - b[k]) < 12) })(), true)
 
+// ── investorSumNote — 넷의 합 ──
+eq('넷 합 0 → 판 만큼 샀다', M.investorSumNote({ personal: -14649, foreign: -4942, institutional: 3189, otherCorp: 16403 }), '넷을 더하면 0이에요 — 누가 판 만큼 누가 샀다는 뜻이에요.')
+eq('반올림 1억 차이도 0 으로', M.investorSumNote({ personal: -14649, foreign: -4942, institutional: 3189, otherCorp: 16402 }), '넷을 더하면 0이에요 — 누가 판 만큼 누가 샀다는 뜻이에요.')
+eq('기타법인 없음(폴백 원천) → 셋만으론 0 이 안 된다고', M.investorSumNote({ personal: -14649, foreign: -4942, institutional: 3189, otherCorp: null }), '기타법인 값을 못 받아 셋만 더하면 0이 안 돼요.')
+eq('합이 크게 어긋나면 값 그대로 밝힘', M.investorSumNote({ personal: 100, foreign: 50, institutional: -20, otherCorp: 0 }), '넷을 더하면 +130억 — 원천 값 그대로예요.')
+eq('셋 중 하나라도 없으면 문구 없음', M.investorSumNote({ personal: null, foreign: -4942, institutional: 3189, otherCorp: 16403 }), null)
+
 // ── 차트 눈금 ──
 eq('세로 눈금 7,017~7,137 → 둥근 값', M.niceTicks(7017.91, 7137, 5), [7025, 7050, 7075, 7100, 7125])
 eq('환율 1,338~1,392 → 3개 안팎', M.niceTicks(1338, 1392, 3), [1350, 1375])

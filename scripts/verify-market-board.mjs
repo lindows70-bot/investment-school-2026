@@ -105,6 +105,17 @@ const near = (a, b, eps = 1e-6) => a != null && b != null && Math.abs(a - b) <= 
   const turnoverEok = n(F.integrationKospiTurnoverMillion.replace('백만', '')) / 100
   check(`투자자별 |값| ≤ 그날 거래대금(${Math.round(turnoverEok).toLocaleString()}억)`, [p.investors.personal, p.investors.foreign, p.investors.institutional].every(v => Math.abs(v) <= turnoverEok))
   check('빈 응답 → 둘 다 null(0 으로 메우지 않음)', (() => { const e = KR.parseIntegration({}); return e.investors === null && e.upDown === null })())
+  // 4주체(trend/daily KRX) — 기타법인까지 더하면 0 · 개인·외국인·기관은 integration 과 같은 값(같은 KRX 기준)
+  const d4 = KR.parseInvestorDaily(F.investorDailyKospi)
+  const raw = F.investorDailyKospi.content[0].netAmounts
+  const wonOf = code => Number(raw.find(x => x.investorGubun === code)?.diffValue ?? 0)
+  check('4주체 기준일 = bizdate → 2026-09-23', d4 && d4.bizdate === '2026-09-23')
+  check('4주체 개인·외국인·기관 = integration 값(개인 −14,649 · 외국인 −4,942 · 기관 +3,189)', d4 && d4.personal === p.investors.personal && d4.foreign === p.investors.foreign && d4.institutional === p.investors.institutional)
+  check('기타법인 = 7100 원 ÷ 1e8 반올림(+16,403억)', d4 && d4.otherCorp === Math.round(wonOf('7100') / 1e8) && d4.otherCorp === 16403)
+  check('외국인 = 9000 + 9001(기타외국인) · 기관 = 1000~7000 합', d4 && d4.foreign === Math.round((wonOf('9000') + wonOf('9001')) / 1e8) && d4.institutional === Math.round(['1000','2000','3000','3100','4000','5000','6000','7000'].reduce((a, c) => a + wonOf(c), 0) / 1e8))
+  check('넷을 더하면 0(±1억 반올림)', d4 && Math.abs(d4.personal + d4.foreign + d4.institutional + d4.otherCorp) <= 1)
+  check('개인(8000) 코드가 없으면 null(0 으로 메우지 않음)', KR.parseInvestorDaily({ content: [{ bizdate: '20260923', netAmounts: raw.filter(x => x.investorGubun !== '8000') }] }) === null)
+  check('빈 응답·모양 다름 → null', KR.parseInvestorDaily({}) === null && KR.parseInvestorDaily({ content: [] }) === null && KR.parseInvestorDaily(null) === null)
 }
 
 // ── ③ 국내 특징종목 · 업종 · 뉴스 ─────────────────────────────────────────

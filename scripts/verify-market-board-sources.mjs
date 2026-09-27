@@ -51,8 +51,9 @@ const ageDays = iso => (Date.now() - Date.parse(iso)) / DAY
 const KR_STALE = 10, US_STALE = 7
 const why = p => (p.ok ? '' : p.reason)
 
-const [idx, min, integK, integQ, mv, ind, news, rankF, trend, usMv, spy, cnn, cfng, fx, coin] = await Promise.all([
+const [idx, min, integK, integQ, dailyK, dailyQ, mv, ind, news, rankF, trend, usMv, spy, cnn, cfng, fx, coin] = await Promise.all([
   KR.fetchKrIndices(), KR.fetchKrIndexMinute('KOSDAQ'), KR.fetchKrIntegration('KOSPI'), KR.fetchKrIntegration('KOSDAQ'),
+  KR.fetchKrInvestorsDaily('KOSPI'), KR.fetchKrInvestorsDaily('KOSDAQ'),
   KR.fetchKrMovers('priceTop', 'KOSPI', 10), KR.fetchKrIndustry(79), KR.fetchKrMainNews(10),
   FL.fetchFlowRank('FOREIGNER', 'KOSPI', 10), FL.fetchStockTrend('005930', 5),
   US.fetchUsMovers('quantTop', 10), US.fetchUsEtfIntraday('SPY'),
@@ -69,6 +70,14 @@ check('국내 지수 3종(polling)', idx.ok && idx.data.length === 3, why(idx))
 check(`국내 지수 기준 시각 ${KR_STALE}일 이내`, idx.ok && idx.asOf && ageDays(idx.asOf) < KR_STALE, idx.ok ? idx.asOf : why(idx))
 check('지수 분봉(api.stock.naver.com)', min.ok && min.data.length > 10, why(min))
 check('투자자별·등락 수(코스피·코스닥)', integK.ok && integQ.ok && integK.data.investors && integK.data.upDown && integQ.data.upDown, why(integK) || why(integQ))
+for (const [mk, d, g] of [['코스피', dailyK, integK], ['코스닥', dailyQ, integQ]]) {
+  const inv = d.ok ? d.data : null
+  const sum = inv ? inv.personal + inv.foreign + inv.institutional + inv.otherCorp : NaN
+  check(`${mk} 4주체(기타법인 포함) 합 = 0`, inv && Math.abs(sum) <= 1, inv ? `합 ${sum}` : why(d))
+  const same = inv && g.ok && g.data.investors && inv.bizdate === g.data.investors.bizdate
+    ? ['personal', 'foreign', 'institutional'].every(k => inv[k] === g.data.investors[k]) : null
+  check(`${mk} 4주체 원천의 개인·외국인·기관 = integration 값(같은 KRX 기준)`, same !== false, same === null ? '기준일이 달라 비교 못 함' : `daily ${JSON.stringify(inv)} vs integ ${JSON.stringify(g.ok && g.data.investors)}`)
+}
 check('특징종목 목록(m.stock)', mv.ok && mv.data.items.length > 0 && mv.data.items.every(i => i.tradeValueEok != null), why(mv))
 check('업종(m.stock industry)', ind.ok && ind.data.items.length > 20, why(ind))
 check('주요 뉴스(front-api)', news.ok && news.data.length >= 5 && news.data.every(n => n.title && n.url), why(news))

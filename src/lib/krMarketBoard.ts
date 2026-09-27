@@ -64,8 +64,35 @@ export function parseIndexMinute(json: unknown, max = 90): { points: IntradayPoi
 }
 
 // ── 투자자별 합계 · 등락 종목 수 ─────────────────────────────────────────────
-/** 단위: 억원(원천 dealTrendInfo — 네이버 화면 라벨 '억원'). 개인·외국인·기관 */
-export interface InvestorTotals { bizdate: string | null; personal: number | null; foreign: number | null; institutional: number | null }
+/** 단위: 억원. 개인·외국인·기관·기타법인 — 넷을 더하면 0(누가 판 만큼 누가 샀다). KRX 기준(넥스트레이드 제외).
+ *  1순위 원천 trend/daily(4주체) · 폴백 integration(3주체, otherCorp null) — 실측 2026-09-23 코스피: 둘의 개인·외국인·기관이 정확히 같다 */
+export interface InvestorTotals { bizdate: string | null; personal: number | null; foreign: number | null; institutional: number | null; otherCorp: number | null }
+
+/** 투자자 코드(네이버 프런트 번들 표) — 8000 개인 · 9000 외국인(+9001 기타외국인) · 1000~7000 기관계(금융투자·보험·투신·사모·은행·기타금융·연기금·국가) · 7100 기타법인 */
+const INVESTOR_CODES = {
+  personal: ['8000'], foreign: ['9000', '9001'],
+  institutional: ['1000', '2000', '3000', '3100', '4000', '5000', '6000', '7000'], otherCorp: ['7100'],
+} as const
+
+/** stock.naver.com/api/domestic/market/trend/daily?marketType=…&tradeType=KRX&startIdx=0&pageSize=1 → content[0].netAmounts[{investorGubun, diffValue(원)}]
+ *  개인·외국인 코드가 없으면 null(0 으로 채우면 '매매 없음'이라는 거짓). 원 → 억원 반올림 */
+export function parseInvestorDaily(json: unknown): InvestorTotals | null {
+  const row = (json as { content?: unknown } | null)?.content
+  const r = Array.isArray(row) ? (row[0] as { bizdate?: unknown; netAmounts?: unknown } | undefined) : undefined
+  if (!r || !Array.isArray(r.netAmounts)) return null
+  const won = new Map<string, number>()
+  for (const x of r.netAmounts as { investorGubun?: unknown; diffValue?: unknown }[]) {
+    const v = num(x?.diffValue)
+    if (typeof x?.investorGubun === 'string' && v != null) won.set(x.investorGubun, v)
+  }
+  if (!won.has('8000') || !won.has('9000')) return null
+  const eok = (codes: readonly string[]) => codes.some(c => won.has(c)) ? Math.round(codes.reduce((s, c) => s + (won.get(c) ?? 0), 0) / 1e8) : null
+  return {
+    bizdate: kstCompactToIso(r.bizdate),
+    personal: eok(INVESTOR_CODES.personal), foreign: eok(INVESTOR_CODES.foreign),
+    institutional: eok(INVESTOR_CODES.institutional), otherCorp: eok(INVESTOR_CODES.otherCorp),
+  }
+}
 export interface UpDownCount { upper: number | null; rise: number | null; steady: number | null; fall: number | null; lower: number | null }
 
 /** m.stock.naver.com/api/index/{KOSPI|KOSDAQ}/integration → dealTrendInfo·upDownStockInfo.
@@ -77,6 +104,7 @@ export function parseIntegration(json: unknown): { investors: InvestorTotals | n
     ? {
         bizdate: kstCompactToIso(d.bizdate),
         personal: num(d.personalValue), foreign: num(d.foreignValue), institutional: num(d.institutionalValue),
+        otherCorp: null,   // 이 원천엔 기타법인이 없다(폴백일 때만 쓰인다)
       }
     : null
   const u = j?.upDownStockInfo
@@ -212,6 +240,7 @@ const SRC = {
   poll: 'naver polling(realtime index)',
   minute: 'naver api.stock chart minute',
   integ: 'naver m.stock index integration',
+  investorDaily: 'naver stock.naver.com market trend daily(KRX)',
   movers: 'naver m.stock stocks',
   industry: 'naver m.stock industry',
   news: 'naver m.stock front-api mainnews',
@@ -231,6 +260,25 @@ export async function fetchKrIndexMinute(code: KrIndexCode, max = 90): Promise<P
   const p = parseIndexMinute(r.json, max)
   if (!p) return failPart('분봉 없음', SRC.minute)
   return okPart(p.points, p.asOf, SRC.minute)
+}
+
+/** 4주체 당일 합계(기타법인 포함) — 가장 최근 거래일 1행 */
+export async function fetchKrInvestorsDaily(mk: KrMarket): Promise<Part<InvestorTotals>> {
+  const r = await getJson(`https://stock.naver.com/api/domestic/market/trend/daily?marketType=${mk}&tradeType=KRX&startIdx=0&pageSize=1`)
+  if (!r.ok) return failPart(r.reason, SRC.investorDaily)
+  const p = parseInvestorDaily(r.json)
+  if (!p) return failPart('투자자별 행이 응답에 없음', SRC.investorDaily)
+  return okPart(p, p.bizdate, SRC.investorDaily)
+}
+
+/** 화면이 쓰는 묶음 — 투자자별은 4주체 원천을 먼저, 못 받으면 integration 의 3주체(기타법인 '모름')로. 등락 수는 integration */
+export async function fetchKrInvestorsAndBreadth(mk: KrMarket): Promise<Part<{ investors: InvestorTotals | null; upDown: UpDownCount | null }>> {
+  const [daily, integ] = await Promise.all([fetchKrInvestorsDaily(mk), fetchKrIntegration(mk)])
+  if (!integ.ok && !daily.ok) return integ
+  const investors = daily.ok ? daily.data : integ.ok ? integ.data.investors : null
+  const upDown = integ.ok ? integ.data.upDown : null
+  const asOf = investors?.bizdate ?? (integ.ok ? integ.asOf : null)
+  return okPart({ investors, upDown }, asOf, daily.ok ? `${SRC.investorDaily} + ${SRC.integ}` : SRC.integ)
 }
 
 export async function fetchKrIntegration(mk: KrMarket): Promise<Part<{ investors: InvestorTotals | null; upDown: UpDownCount | null }>> {

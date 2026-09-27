@@ -370,6 +370,15 @@ export function fngColor(v: number): string {
   return `rgb(${a.map((c, k) => Math.round(c + (b[k] - c) * t)).join(', ')})`
 }
 
+// ── 투자자별 합 ──────────────────────────────────────────────────────────────
+/** 개인·외국인·기관·기타법인 넷의 합 한 줄 — 0 이면 '누가 판 만큼 누가 샀다', 기타법인을 못 받았으면 그 사실. 셋 중 하나라도 없으면 null */
+export function investorSumNote(inv: { personal: number | null; foreign: number | null; institutional: number | null; otherCorp: number | null } | null | undefined): string | null {
+  if (!inv || inv.personal == null || inv.foreign == null || inv.institutional == null) return null
+  if (inv.otherCorp == null) return '기타법인 값을 못 받아 셋만 더하면 0이 안 돼요.'
+  const sum = inv.personal + inv.foreign + inv.institutional + inv.otherCorp
+  return Math.abs(sum) <= 1 ? '넷을 더하면 0이에요 — 누가 판 만큼 누가 샀다는 뜻이에요.' : `넷을 더하면 ${sum > 0 ? '+' : '−'}${Math.abs(sum).toLocaleString('ko-KR')}억 — 원천 값 그대로예요.`
+}
+
 // ── 차트 눈금 ────────────────────────────────────────────────────────────────
 /** 보기 좋은 세로 눈금 — lo~hi 안에 1·2·2.5·5×10^k 간격으로 n 개 안팎(네이버·증권 앱처럼 7,011 대신 7,020 같은 둥근 값) */
 export function niceTicks(lo: number, hi: number, n = 5): number[] {

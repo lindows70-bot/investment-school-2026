@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 import { pct, upDown, points, signEok } from '@/lib/studentFormat'
-import { viewOf, asOfLabel, kstParts, mdDow, breadthNote, niceTicks, hourTicks, type KrBoardResp, type View } from '@/lib/marketScreen'
+import { viewOf, asOfLabel, kstParts, mdDow, breadthNote, investorSumNote, niceTicks, hourTicks, type KrBoardResp, type View } from '@/lib/marketScreen'
 import type { KrIndexQuote, IntradayPoint, InvestorTotals, UpDownCount, KrIndexCode, KrMarket } from '@/lib/krMarketBoard'
 import type { JsonResult } from '@/app/components/student/useJson'
 import { card, CardHead, noteStyle } from '@/app/components/student/home/homeUi'
@@ -90,8 +90,9 @@ export default function KrIndexBoard({ kr }: { kr: JsonResult<KrBoardResp> }) {
           <Pending view={integ} loading="투자자별 금액을 불러오는 중…" fail="투자자별 금액을 못 가져왔어요." onRetry={kr.reload} retryLabel="투자자별 금액 다시 불러오기" />
           {integ.kind === 'ok' && (integ.data.investors ? (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: SP.sm }}>
-                {([['개인', integ.data.investors.personal], ['외국인', integ.data.investors.foreign], ['기관', integ.data.investors.institutional]] as const).map(([name, v]) => (
+              {/* 4칸 — 폰(311px)은 2×2, 넓으면 한 줄. 기타법인까지 넷이어야 합이 0 이 된다(2026-09-27 사용자 지적: 셋만 더하면 −1조 6,402억) */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: SP.sm }}>
+                {([['개인', integ.data.investors.personal], ['외국인', integ.data.investors.foreign], ['기관', integ.data.investors.institutional], ['기타법인', integ.data.investors.otherCorp]] as const).map(([name, v]) => (
                   <div key={name} style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, minWidth: 0 }}>
                     <span style={{ fontSize: FS.tiny, color: TK.sub }}>{name}</span>
                     {/* 순매수 + 빨강 · − 파랑(2026-09-27 사용자 결정 — 네이버 증시현황과 같은 관례. 색 원칙의 예외) */}
@@ -100,8 +101,9 @@ export default function KrIndexBoard({ kr }: { kr: JsonResult<KrBoardResp> }) {
                 ))}
               </div>
               <span style={noteStyle()}>
-                + 는 산 돈이 더 많음, − 는 판 돈이 더 많음 · {[integ.data.investors.bizdate ? mdDow(integ.data.investors.bizdate) : null, '억원', '네이버'].filter(Boolean).join(' · ')}
+                + 는 산 돈이 더 많음, − 는 판 돈이 더 많음 · {[integ.data.investors.bizdate ? mdDow(integ.data.investors.bizdate) : null, '억원', 'KRX 기준(넥스트레이드 제외)', '네이버'].filter(Boolean).join(' · ')}
               </span>
+              {investorSumNote(integ.data.investors) && <span style={noteStyle(TK.slate300)}>{investorSumNote(integ.data.investors)}</span>}
               {open && <span style={noteStyle()}>장이 열려 있는 동안 숫자가 계속 바뀌어요.</span>}
             </>
           ) : <span style={noteStyle()}>투자자별 금액이 원천에 없어요.</span>)}
