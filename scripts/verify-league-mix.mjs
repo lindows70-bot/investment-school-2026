@@ -149,21 +149,16 @@ const noTicker = M.buildLeagueMix([
 ])
 check('pricedAll: 티커 없는 행의 시세 없음은 무시', noTicker.pricedAll === true && noTicker.topHoldings.length === 1)
 
-// ⑧ 노출 최소 — 1~3위 + 본인만
+// ⑧ 종목 비중은 등록한 전원(2026-09-27 — 처음의 '1~3위 + 본인' 을 반이 작아 전원으로)
 const S = (userId, totalReturn, isRegistered = true) => ({ userId, totalReturn, isRegistered })
 const roster = [
   S('a', 5.0), S('b', 12.3), S('c', null), S('d', -2.0), S('e', 8.1), S('f', 8.1), S('g', null, false), S('h', 20.0),
 ]
 const ids1 = M.detailIds(roster, 'd')
-check('detailIds: 1~3위(h 20.0 · b 12.3 · e 8.1) + 본인 d', [...ids1].sort().join(',') === 'b,d,e,h')
-check('detailIds: 경계 동률(e·f 8.1) → 입력 순서 앞(e)만 · 정확히 3명', ids1.has('e') && !ids1.has('f'))
-check('detailIds: 수익률 null 은 순위 밖', !ids1.has('c'))
-check('detailIds: 본인이 이미 3위 안 → 3명', M.detailIds(roster, 'b').size === 3)
-check('detailIds: 본인이 명단에 없음 → 1~3위만', M.detailIds(roster, 'zzz').size === 3 && !M.detailIds(roster, 'zzz').has('zzz'))
-check('detailIds: 본인 null → 1~3위만', M.detailIds(roster, null).size === 3)
-check('detailIds: 순위 가능 2명뿐 → 2명', M.detailIds([S('x', 1), S('y', null), S('z', 3)], null).size === 2)
-const odd = M.detailIds([S('x', NaN), S('y', Infinity), S('z', 1)], null)
-check('detailIds: NaN/Infinity 는 순위 밖', !odd.has('x') && !odd.has('y') && odd.has('z'))
+check('detailIds: 등록한 전원(수익률 null 인 c 포함) · 미등록 g 는 제외', [...ids1].sort().join(',') === 'a,b,c,d,e,f,h')
+check('detailIds: 본인이 명단에 없으면 더하지 않음', !M.detailIds(roster, 'zzz').has('zzz'))
+check('detailIds: 본인 null 이어도 등록한 전원', M.detailIds(roster, null).size === 7)
+check('detailIds: 미등록뿐이면 빈 집합', M.detailIds([S('x', null, false)], null).size === 0)
 const em = M.emptyLeagueDetail()
 check('emptyLeagueDetail: 빈 값 + detail false', em.topHoldings.length === 0 && em.mix.length === 0 && em.otherPct === 0 && em.otherCount === 0 && em.mixOtherPct === 0 && em.pricedAll === true && em.detail === false)
 check('emptyLeagueDetail: 매번 새 배열(공유 참조 없음)', M.emptyLeagueDetail().mix !== M.emptyLeagueDetail().mix)

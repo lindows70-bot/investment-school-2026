@@ -1,5 +1,5 @@
 'use client'
-// 학생 스쿨 리그 — 내 순위 · 계산 도움말 · 순위표(수익률만) · 친구 포트폴리오(1·2위, 비중만 — 금액 없음)
+// 학생 스쿨 리그 — 내 순위 · 계산 도움말 · 순위표(수익률만) · 친구 포트폴리오(나를 뺀 순위 전원, 비중만 — 금액 없음 · 2026-09-27 상위 2명 → 전원)
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { TK, FS, RAD, SP } from '@/lib/theme'
@@ -277,17 +277,16 @@ export default function StudentLeague() {
     // '친구' 수라 나는 뺀다(내 상태는 내 순위 카드가 말한다)
     const unregistered = students.filter(s => s.userId !== myId && !s.isRegistered).length
     const uncomputed = students.filter(s => s.userId !== myId && s.isRegistered && s.totalReturn == null).length
-    // 친구 포트폴리오 = 나를 뺀 상위 2명(서버가 보유 구성을 채워 보낸 학생만 — 1~3위와 나만 채운다)
+    // 친구 포트폴리오 = 나를 뺀 순위 전원(순위 순). 서버가 보유 구성을 채워 보낸 학생만(등록한 전원)
     const friends = ranked.map((s, i) => ({ s, rank: i + 1 }))
       .filter(({ s }) => s.userId !== myId && s.detail)
-      .slice(0, 2)
     content = (
       <>
         <MyRank me={me} ranked={ranked} myId={myId} />
         <RankTable ranked={ranked} myId={myId} unregistered={unregistered} uncomputed={uncomputed} />
         <section style={{ display: 'flex', flexDirection: 'column', gap: SP.sm }}>
           <h2 style={{ margin: 0, fontSize: FS.lg, fontWeight: 700, color: TK.slate100 }}>친구 포트폴리오</h2>
-          <span style={noteStyle()}>상위 친구의 종목 비중이에요. 금액은 보이지 않아요.</span>
+          <span style={noteStyle()}>순위 순으로 친구 {friends.length}명의 종목 비중이에요. 금액은 보이지 않아요.</span>
           {friends.length === 0
             ? <div style={card}><span style={noteStyle()}>보여 줄 친구 포트폴리오가 없어요.</span></div>
             : <div className="sl-two">{friends.map(f => <FriendCard key={f.s.userId} s={f.s} rank={f.rank} />)}</div>}

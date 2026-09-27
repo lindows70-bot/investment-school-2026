@@ -5,7 +5,8 @@
 //   그래서 **상장 국가** 기준이다: TIGER 미국S&P500(담은 건 미국 기업 94.7%)은 '한국 상장 ETF' 로 센다.
 //   라벨도 그래서 ETF 는 '○○ 상장 ETF' 다 — 담은 자산의 국적을 주장하지 않는다.
 //   담은 자산의 실질 국가(ETF 투시)는 etfLookThrough 의 몫이고, 여기서 추정해 바꾸지 않는다.
-// ◆ 노출 최소: 종목 비중은 리그 1~3위와 요청한 본인에게만 싣는다(detailIds) — 나머지는 emptyLeagueDetail()
+// ◆ 종목 비중은 **등록한 학생 전원**에게 싣는다(detailIds — 2026-09-27 사용자 결정: 반이 작아 전원을 보여 준다. 금액은 여전히 없다).
+//   처음엔 리그 1~3위 + 본인만이었다(노출 최소) — 학생 6명 반에서 친구가 2명만 보여 되돌렸다. 미등록(보유 0)은 emptyLeagueDetail()
 // ◆ 자산 종류 = getAssetType(ticker, name, market) SSOT
 
 import { getAssetType, type AssetType } from '@/lib/assetClassifier'
@@ -53,19 +54,13 @@ export function emptyLeagueDetail(): LeagueMixResult & { detail: false } {
   return { topHoldings: [], otherPct: 0, otherCount: 0, mix: [], mixOtherPct: 0, pricedAll: true, detail: false }
 }
 
-/** 종목 비중을 실어 보낼 학생 = 리그 1~3위 + 요청한 본인.
- *  순위 규칙은 화면(SchoolLeague.tsx)과 같다 — 등록자 중 수익률이 유한값인 학생을 내림차순 정렬.
- *  동률은 입력 순서(프로필 생성순 · 안정 정렬)대로 앞 사람이 먼저라 경계 동률이어도 정확히 3명이다.
- *  수익률 null(시세 전멸 등)은 순위에 넣지 않는다. 본인은 명단에 있을 때만 넣는다. */
+/** 종목 비중을 실어 보낼 학생 = 등록한(보유가 있는) 학생 전원 + 요청한 본인(명단에 있을 때).
+ *  수익률이 null 이어도 등록했으면 싣는다 — 화면이 순위표에 넣을지는 따로 정한다. 금액은 어디에도 없다. */
 export function detailIds(
   students: { userId: string; isRegistered: boolean; totalReturn: number | null }[],
   meId: string | null | undefined,
 ): Set<string> {
-  const ranked = students
-    .filter(s => s.isRegistered && typeof s.totalReturn === 'number' && Number.isFinite(s.totalReturn))
-    .slice()
-    .sort((a, b) => (b.totalReturn as number) - (a.totalReturn as number))
-  const ids = new Set(ranked.slice(0, 3).map(s => s.userId))
+  const ids = new Set(students.filter(s => s.isRegistered).map(s => s.userId))
   if (meId && students.some(s => s.userId === meId)) ids.add(meId)
   return ids
 }

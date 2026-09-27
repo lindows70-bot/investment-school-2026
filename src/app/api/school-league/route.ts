@@ -67,7 +67,7 @@ export interface StudentPortfolio {
   mixOtherPct:      number
   /** 모든 보유 종목의 현재가를 받았는가(false = 일부는 매수원가로 대신함) */
   pricedAll:        boolean
-  /** 위 종목 비중 필드를 실었는가 — 🔒 리그 1~3위와 요청한 본인만 true, 나머지는 빈 값 */
+  /** 위 종목 비중 필드를 실었는가 — 등록한 학생은 true, 미등록(보유 0)은 빈 값 */
   detail:           boolean
 }
 
@@ -338,7 +338,7 @@ export async function GET(req: Request) {
       }
     })
 
-    // 🔒 종목 비중은 리그 1~3위와 요청한 본인만 싣는다 — 로그인한 누구나 전원의 보유 구성을 받던 노출을 줄인다
+    // 종목 비중(금액 없음)은 등록한 학생 전원에게 싣는다 — 2026-09-27 사용자 결정(반이 작아 친구 전원을 보여 준다). 미등록은 빈 값
     const shownIds = detailIds(allStudents, user.id)
     const students: StudentPortfolio[] = allStudents.map(s =>
       shownIds.has(s.userId) ? s : { ...s, ...emptyLeagueDetail() }
