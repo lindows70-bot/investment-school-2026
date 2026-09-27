@@ -4,6 +4,7 @@
 import type { Part } from './marketBoardShared'
 import { pct, fxWon } from './studentFormat'
 import { acceptFx } from './fxAccept'
+import { TK } from './theme'
 import type { KrIndexQuote, IntradayPoint, InvestorTotals, UpDownCount, KrMover, MoverList, KrIndustry, KrNews, KrIndexCode, KrMarket, KrMoverKind } from './krMarketBoard'
 import type { FlowTopRow, FlowBoardSide, Investor } from './foreignOrgFlow'
 import type { UsEtfIntraday, UsMover, UsMoverKind } from './usMarketBoard'
@@ -353,4 +354,18 @@ export function fxBasisNote(app: unknown, shownV: number): string | null {
   return (app as { source?: unknown }).source === 'hana'
     ? `한눈 시황·내 자산은 같은 하나은행 고시의 다른 시각 값(${fxWon(rate)})으로 계산해요 — 고시는 하루에도 여러 번 바뀌어요.`
     : `지금은 하나은행 고시를 새로 못 받아 한눈 시황·내 자산은 다른 환율(${fxWon(rate)})로 계산 중이에요 — 조금 다를 수 있어요.`
+}
+
+// ── 공포·탐욕 색 ────────────────────────────────────────────────────────────
+/** 0(극단 공포) 빨강 → 25 주황 → 50 노랑 → 75 연두 → 100(극단 탐욕) 초록. 값 위치로 **연속** 보간한다 —
+ *  CNN·alternative.me 의 구간 경계가 서로 달라(예: CNN 공포 25~45) 칸을 나누면 우리 임계값이 되므로 경계를 긋지 않는다.
+ *  ⚠️ 이 색은 가격 등락(한국식 빨강=상승)과 무관한 공포·탐욕 전용 척도다. */
+const FNG_STOPS = [TK.red500, TK.orange400, TK.yellow500, TK.lime400, TK.green500]
+const rgbOf = (hex: string) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16))
+export function fngColor(v: number): string {
+  const x = (Math.max(0, Math.min(100, Number.isFinite(v) ? v : 50)) / 100) * (FNG_STOPS.length - 1)
+  const i = Math.min(FNG_STOPS.length - 2, Math.floor(x))
+  const t = x - i
+  const a = rgbOf(FNG_STOPS[i]), b = rgbOf(FNG_STOPS[i + 1])
+  return `rgb(${a.map((c, k) => Math.round(c + (b[k] - c) * t)).join(', ')})`
 }

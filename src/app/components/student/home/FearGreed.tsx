@@ -7,6 +7,7 @@ import { useJson } from '@/app/components/student/useJson'
 import type { CryptoFng, CryptoFngYear } from '@/lib/cryptoFng'
 import type { CnnFngYear } from '@/lib/cnnFng'
 import { viewOf, fngYearSummary, fngYearLine, type OverviewResp } from '@/lib/marketScreen'
+import { FngHero, FngVal } from '@/app/components/student/market/FngGauge'
 import type { JsonResult } from '@/app/components/student/useJson'
 import { card, CardHead, FailRow, noteStyle } from './homeUi'
 
@@ -20,20 +21,10 @@ const num = (n: unknown): number | null => typeof n === 'number' && Number.isFin
 
 /** past 의 pending = 아직 불러오는 칸('…') — 도착했을 때 칸이 새로 생겨 줄이 밀리지 않게 자리를 먼저 잡는다 */
 function Gauge({ value, cls, past, source, year }: { value: number; cls: string | null; past: { label: string; v: number | null; pending?: boolean }[]; source: string; year: React.ReactNode }) {
-  const v = Math.max(0, Math.min(100, value))
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.sm }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: SP.sm }}>
-        <span style={{ fontSize: FS.h2, fontWeight: 800, color: TK.slate100 }}>{Math.round(value)}</span>
-        {cls && <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate200 }}>{cls}</span>}
-      </div>
-      {/* 0~100 막대 + 지금 위치. 색 구간은 두지 않는다 — 두 원천의 구간 경계가 달라 우리 임계값이 된다 */}
-      <div role="img" aria-label={`0부터 100 사이에서 ${Math.round(value)}`} style={{ position: 'relative', height: 8, borderRadius: RAD.pill, background: TK.line1 }}>
-        <div style={{ position: 'absolute', top: -4, left: `calc(${v}% - 2px)`, width: 4, height: 16, borderRadius: RAD.xs, background: TK.slate100 }} />
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FS.micro, color: TK.sub }}>
-        <span>0 극단 공포</span><span>100 극단 탐욕</span>
-      </div>
+      {/* 반원 게이지 — 색은 값 위치로 연속(칸 경계 없음 — 두 원천의 구간 경계가 달라 우리 임계값이 된다) */}
+      <FngHero value={value} cls={cls} />
       {/* 한 칸 60px 밑으로 줄지 않고 다음 줄로(좁은 두 칸 배치에서 4칸 넘침 방지) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(60px, 1fr))', gap: SP.sm }}>
         {past.map(p => (
@@ -71,7 +62,16 @@ export default function FearGreed({ overview }: { overview: JsonResult<OverviewR
     if (yv.kind === 'failed') return <FailRow text="1년 기록(1년 전·최고·최저)을 못 가져왔어요." onRetry={overview.reload} retryLabel="공포·탐욕 1년 기록 다시 불러오기" />
     const y = yv.data as CnnFngYear | CryptoFngYear
     const s = fngYearSummary(now, { yearHigh: y.yearHigh, yearLow: y.yearLow, range: y.range })
-    return <span style={noteStyle(TK.slate300)}>{s ? fngYearLine(s) : '최근 1년 최고·최저 기록이 없어요.'}</span>
+    if (!s) return <span style={noteStyle(TK.slate300)}>최근 1년 최고·최저 기록이 없어요.</span>
+    // fngYearLine(검증된 문장 SSOT)과 같은 문장 — 최고·최저 값만 같은 색 척도로 칠하고, 읽어 주는 문장은 그 함수 값 그대로
+    return (
+      <span aria-label={fngYearLine(s)} style={noteStyle(TK.slate300)}>
+        {s.rangeText ?? '기록 기간'}
+        {s.high && <> 최고 <FngVal v={s.high.v} />({s.high.when})</>}
+        {s.high && s.low && ' ·'}
+        {s.low && <> 최저 <FngVal v={s.low.v} />({s.low.when})</>}
+      </span>
+    )
   }
 
   let body: React.ReactNode

@@ -199,5 +199,12 @@ eq('다른 원천이어도 값이 같으면 → 문구 없음(설명할 차이�
 eq('고정 상수(stale-constant) → 문구 없음(앱 환율을 못 받음 — 그 화면이 밝힌다)', M.fxBasisNote({ rate: 1400, source: 'stale-constant' }, 1359), null)
 eq('앱 환율 응답 없음 → 문구 없음', M.fxBasisNote(null, 1359), null)
 
+// ── fngColor — 0 빨강 · 50 노랑 · 100 초록, 사이는 연속(칸 경계 없음) ──
+eq('0 → 빨강(red500)', M.fngColor(0), 'rgb(239, 68, 68)')
+eq('50 → 노랑(yellow500)', M.fngColor(50), 'rgb(234, 179, 8)')
+eq('100 → 초록(green500)', M.fngColor(100), 'rgb(34, 197, 94)')
+eq('범위 밖(−5·130)은 끝 색', [M.fngColor(-5), M.fngColor(130)], ['rgb(239, 68, 68)', 'rgb(34, 197, 94)'])
+eq('24 와 26 은 거의 같은 색(경계에서 튀지 않음)', (() => { const p = s => s.match(/\d+/g).map(Number); const a = p(M.fngColor(24)), b = p(M.fngColor(26)); return a.every((c, k) => Math.abs(c - b[k]) < 12) })(), true)
+
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (학생 시장 화면 규칙)')
 process.exit(fail ? 1 : 0)

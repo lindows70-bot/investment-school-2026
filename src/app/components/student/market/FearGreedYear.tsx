@@ -10,6 +10,7 @@ import type { CryptoFng, CryptoFngYear } from '@/lib/cryptoFng'
 import { useJson, type JsonResult } from '@/app/components/student/useJson'
 import { card, CardHead, FailRow, noteStyle } from '@/app/components/student/home/homeUi'
 import { ChipRow } from './marketUi'
+import { FngHero, FngVal } from './FngGauge'
 
 export type FngSide = 'us' | 'coin'
 interface CnnResp { partyScore?: unknown; prevClose?: unknown; prev1Week?: unknown; prev1Month?: unknown; rating?: unknown; source?: unknown }
@@ -82,17 +83,8 @@ export default function FearGreedYear({ overview, active, defaultSide }: { overv
         )}
         {now != null && (
           <>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: SP.sm }}>
-              <span style={{ fontSize: FS.h2, fontWeight: 800, color: TK.slate100 }}>{now}</span>
-              {cls && <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate200 }}>{cls}</span>}
-            </div>
-            {/* 0~100 막대 + 지금 위치. 색 구간은 두지 않는다 — 두 원천의 구간 경계가 달라 우리 임계값이 된다 */}
-            <div role="img" aria-label={`0부터 100 사이에서 ${now}`} style={{ position: 'relative', height: 8, borderRadius: RAD.pill, background: TK.line1 }}>
-              <div style={{ position: 'absolute', top: -4, left: `calc(${Math.max(0, Math.min(100, now))}% - 2px)`, width: 4, height: 16, borderRadius: RAD.xs, background: TK.slate100 }} />
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FS.micro, color: TK.sub }}>
-              <span>0 극단 공포</span><span>100 극단 탐욕</span>
-            </div>
+            {/* 반원 게이지 — 색은 값 위치로 연속(칸 경계 없음 — 두 원천의 구간 경계가 달라 우리 임계값이 된다) */}
+            <FngHero value={now} cls={cls} />
             {/* 받은 값만 칸으로 — 아직 못 받은 쪽은 칸 대신 아래 줄에 '불러오는 중'·'못 가져옴'. 원천이 그날 값을 안 준 칸만 '없음'.
                 좁은 칸(769~850px 두 줄 배치)에선 한 칸 60px 밑으로 줄지 않고 다음 줄로 넘긴다 */}
             {(short || year) && (
@@ -118,8 +110,8 @@ export default function FearGreedYear({ overview, active, defaultSide }: { overv
         {ys && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, padding: SP.md, borderRadius: RAD.sm, background: TK.bg3 }}>
             {ys.rangeText && <span style={noteStyle()}>{ys.fullYear ? '최근 1년(연간) 동안' : `${ys.rangeText} 동안 — 1년치가 안 돼요`}</span>}
-            {ys.high && <span style={{ fontSize: FS.tiny, color: TK.slate200 }}>가장 높았을 때 <b>{ys.high.v}</b> · {ys.high.when}</span>}
-            {ys.low && <span style={{ fontSize: FS.tiny, color: TK.slate200 }}>가장 낮았을 때 <b>{ys.low.v}</b> · {ys.low.when}</span>}
+            {ys.high && <span style={{ fontSize: FS.tiny, color: TK.slate200 }}>가장 높았을 때 <FngVal v={ys.high.v} /> · {ys.high.when}</span>}
+            {ys.low && <span style={{ fontSize: FS.tiny, color: TK.slate200 }}>가장 낮았을 때 <FngVal v={ys.low.v} /> · {ys.low.when}</span>}
           </div>
         )}
         {now != null && (
