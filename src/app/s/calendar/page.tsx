@@ -10,6 +10,7 @@ import { card, FailRow, noteStyle, useKstToday, macroRows, macroFailedLabels, ma
 
 const WINDOW_DAYS = 30
 const WEEK_DAYS = 7
+const FOMC_MAX = 2   // 홈 카드와 같이 다음 2회 — 30일 밖이어도 싣는다(한눈 시황 줄이 다음 FOMC 를 말한다)
 const back = <Link href="/s" style={{ display: 'inline-flex', alignItems: 'center', height: 44, color: TK.slate300, fontSize: FS.body, textDecoration: 'none' }}>‹ 홈</Link>
 
 function Row({ it, today }: { it: CalItem; today: string }) {
@@ -34,7 +35,7 @@ export default function StudentCalendar() {
   let body: React.ReactNode
   if (!today) body = <span style={noteStyle()}>일정을 불러오는 중…</span>
   else {
-    const fomcKst = fomcKstDates(FOMC_SCHEDULE.map(m => m.date), today)
+    const fomcKst = fomcKstDates(FOMC_SCHEDULE.map(m => m.date), today).slice(0, FOMC_MAX)
     const macroList = macroRows(macro)
     const mineOk = calendar.state === 'ok' && Array.isArray(calendar.data?.events)
     const items = buildCalendarItems({ today, windowDays: WINDOW_DAYS, fomcKst, macro: macroList ?? [], events: mineOk ? calendar.data!.events! : [] })
@@ -51,7 +52,7 @@ export default function StudentCalendar() {
           {thisWeek.length === 0 ? <span style={noteStyle()}>이번 주엔 잡힌 일정이 없어요.</span> : thisWeek.map(it => <Row key={it.key} it={it} today={today} />)}
         </section>
         <section aria-label="그다음" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.xs }}>
-          <h2 style={{ margin: 0, fontSize: FS.body, fontWeight: 700, color: TK.slate100 }}>그다음 <span style={{ fontSize: FS.tiny, fontWeight: 500, color: TK.sub }}>{WINDOW_DAYS}일 안</span></h2>
+          <h2 style={{ margin: 0, fontSize: FS.body, fontWeight: 700, color: TK.slate100 }}>그다음 <span style={{ fontSize: FS.tiny, fontWeight: 500, color: TK.sub }}>{WINDOW_DAYS}일 안 · FOMC는 다음 {FOMC_MAX}회</span></h2>
           {later.length === 0 ? <span style={noteStyle()}>{WINDOW_DAYS}일 안에 더 잡힌 일정이 없어요.</span> : later.map(it => <Row key={it.key} it={it} today={today} />)}
         </section>
         <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>

@@ -141,11 +141,12 @@ export function useKstToday(): string | null {
 export const CAL_TYPE_KO: Record<string, string> = { earnings: '실적 발표', exDiv: '배당락', payDiv: '배당 지급' }
 export interface CalItem { key: string; date: string; label: string; mine: boolean; kind: 'fomc' | 'macro' | 'mine'; ticker?: string; name?: string }
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
-/** today 부터 windowDays 안 일정을 날짜순으로. macro·events 는 못 가져왔으면 빈 배열로 넘긴다(그 사실은 호출부가 따로 말한다) */
+/** today 부터 windowDays 안 일정을 날짜순으로. macro·events 는 못 가져왔으면 빈 배열로 넘긴다(그 사실은 호출부가 따로 말한다).
+ *  FOMC 는 창으로 자르지 않는다 — 한눈 시황 줄이 '다음 FOMC'를 늘 말하므로(요약이 상세에 없으면 안 된다) 호출부가 넘긴 회차를 그대로 싣는다 */
 export function buildCalendarItems(input: { today: string; windowDays: number; fomcKst: string[]; macro: MacroRow[]; events: CalEventRow[] }): CalItem[] {
   const { today, windowDays } = input
   const last = addDays(today, windowDays)
-  const fomc: CalItem[] = input.fomcKst.filter(d => d >= today && d <= last).map(d => ({ key: `fomc:${d}`, date: d, label: '새벽 FOMC 금리 발표', mine: false, kind: 'fomc' }))
+  const fomc: CalItem[] = input.fomcKst.filter(d => d >= today).map(d => ({ key: `fomc:${d}`, date: d, label: '새벽 FOMC 금리 발표', mine: false, kind: 'fomc' }))
   const macro: CalItem[] = input.macro.flatMap(m => {
     const t = macroNightText(m.kstTime)
     return t && m.kstDate >= today && m.kstDate <= last ? [{ key: `macro:${m.kind}:${m.kstDate}`, date: m.kstDate, label: `${t} · ${m.label} 발표`, mine: false, kind: 'macro' as const }] : []

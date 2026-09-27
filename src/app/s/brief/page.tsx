@@ -61,8 +61,8 @@ export default function StudentBrief() {
         .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))
     : []
 
-  // ③ 다가오는 일정 — 30일 안 5개(전체는 /s/calendar)
-  const upcoming = today ? buildCalendarItems({ today, windowDays: 30, fomcKst: fomcKstDates(FOMC_DATES, today), macro: macroRows(macro) ?? [], events: calendar.state === 'ok' && Array.isArray(calendar.data?.events) ? calendar.data.events! : [] }).slice(0, 5) : []
+  // ③ 다가오는 일정 — 30일 안 전부 + 다음 FOMC(한 줄이 말한 것은 목록에도 있어야 한다 — 자르지 않는다)
+  const upcoming = today ? buildCalendarItems({ today, windowDays: 30, fomcKst: fomcKstDates(FOMC_DATES, today).slice(0, 1), macro: macroRows(macro) ?? [], events: calendar.state === 'ok' && Array.isArray(calendar.data?.events) ? calendar.data.events! : [] }) : []
 
   const failed = [indices, fx, watch, calendar, movers, macro].filter(s => s.state === 'failed')
 

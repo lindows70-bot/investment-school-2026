@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { TK, FS, RAD, SP, FONT_STACK } from '@/lib/theme'
 import LogoutButton from '@/app/components/student/LogoutButton'
 import { setViewMode } from '@/lib/viewMode'
+import { BrandMark, DcfSignature } from '@/app/components/Brand'
 
 const TABS = [
   { href: '/s', label: '홈', icon: 'M3 10.5 12 3l9 7.5M5 9.5V20h14V9.5' },
@@ -27,13 +28,14 @@ export default function StudentShell({ children }: { children: React.ReactNode }
       {/* 두 조건은 정확한 여집합이어야 한다 — max-width:768 / min-width:769 로 두면 화면 확대(폭 768.4px 등)에서 둘 다 안 맞아 탭과 왼쪽 메뉴가 함께 뜬다(실측) */}
       <style>{`
         @media not all and (min-width: 769px) { .st-rail { display: none !important } .st-main { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important } }
-        @media (min-width: 769px) { .st-tabs { display: none !important } }
+        @media (min-width: 769px) { .st-tabs, .st-top, .st-foot { display: none !important } }
         ::-webkit-scrollbar { width: 5px; height: 5px }
         ::-webkit-scrollbar-track { background: ${TK.bg0} }
         ::-webkit-scrollbar-thumb { background: ${TK.gray800}; border-radius: 99px }
       `}</style>
       <nav className="st-rail" aria-label="학생 메뉴" style={{ width: 220, flexShrink: 0, padding: `${SP.xl}px ${SP.lg}px`, background: TK.bg0, borderRight: `1px solid ${TK.border}`, display: 'flex', flexDirection: 'column', gap: SP.xs, position: 'sticky', top: 0, height: '100dvh', boxSizing: 'border-box' }}>
-        <div style={{ fontSize: FS.body, fontWeight: 800, color: TK.slate100, padding: `0 ${SP.sm}px ${SP.xl}px` }}>투자학교</div>
+        {/* 브랜드 — 분석 화면 왼쪽 메뉴와 같은 로고·워드마크(components/Brand) */}
+        <Link href="/s" aria-label="홈" style={{ display: 'block', padding: `0 ${SP.sm}px ${SP.xl}px`, textDecoration: 'none', minHeight: 0 }}><BrandMark /></Link>
         {TABS.map(t => {
           const on = isActive(pathname, t.href)
           return (
@@ -43,11 +45,18 @@ export default function StudentShell({ children }: { children: React.ReactNode }
           )
         })}
         <div style={{ flexGrow: 1 }} />
+        {/* 철학 서명 — 분석 화면 왼쪽 메뉴 발치와 같은 자리 */}
+        <div style={{ padding: `${SP.md}px ${SP.sm}px`, borderTop: '1px solid rgba(212,175,55,0.18)' }}><DcfSignature /></div>
         {/* 분석 화면으로 가면 그 선택을 쿠키에 남긴다 — 다음 로그인·앱 아이콘(/start)도 분석 화면으로 연다(홈 인사 줄 링크와 같은 규칙) */}
         <Link href="/dashboard" onClick={() => setViewMode('full')} style={{ display: 'flex', alignItems: 'center', height: 44, padding: `0 ${SP.md}px`, borderRadius: RAD.sm, border: `1px solid ${TK.border}`, color: TK.sub, fontSize: FS.tiny, textDecoration: 'none' }}>분석 화면 전체 보기</Link>
         <LogoutButton style={{ display: 'flex', alignItems: 'center', height: 44, padding: `0 ${SP.md}px`, borderRadius: RAD.sm, border: 'none', background: 'transparent', color: TK.sub, fontSize: FS.tiny, textAlign: 'left' }} />
       </nav>
-      <main className="st-main" style={{ flexGrow: 1, minWidth: 0, maxWidth: 1080, margin: '0 auto', padding: SP.lg, boxSizing: 'border-box' }}>{children}</main>
+      <main className="st-main" style={{ flexGrow: 1, minWidth: 0, maxWidth: 1080, margin: '0 auto', padding: SP.lg, boxSizing: 'border-box' }}>
+        {/* 폰·태블릿 — 왼쪽 메뉴가 없으니 맨 위 브랜드 한 줄, 맨 아래 철학 서명(PC 는 왼쪽 메뉴가 들고 있어 숨긴다) */}
+        <Link href="/s" className="st-top" aria-label="홈" style={{ display: 'block', paddingBottom: SP.lg, textDecoration: 'none', minHeight: 0 }}><BrandMark compact /></Link>
+        {children}
+        <div className="st-foot" style={{ maxWidth: 260, margin: `${SP.xl}px auto 0`, paddingTop: SP.lg, borderTop: '1px solid rgba(212,175,55,0.18)' }}><DcfSignature /></div>
+      </main>
       <nav className="st-tabs" aria-label="학생 메뉴" style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 100, display: 'grid', gridTemplateColumns: `repeat(${TABS.length}, minmax(0, 1fr))`, height: 'calc(72px + env(safe-area-inset-bottom, 0px))', paddingBottom: 'env(safe-area-inset-bottom, 0px)', background: TK.bg0, borderTop: `1px solid ${TK.border}` }}>
         {TABS.map(t => {
           const on = isActive(pathname, t.href)

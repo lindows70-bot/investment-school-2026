@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { TK, FS, SP, FONT_STACK } from '@/lib/theme'
 import { setViewMode, clearViewMode } from '@/lib/viewMode'
+import { BrandMark, DcfSignature } from '@/app/components/Brand'
 
 // ── 용도 기반 그룹 — "매일 보는 것"이 맨 위, 나머지는 사전(레퍼런스) ──
 //    ⭐ export 이유: 상단바(TopHeader)가 페이지 제목을 여기서 파생한다. 예전엔 제목 표가 따로 있어
@@ -203,35 +204,10 @@ function SidebarInner() {
       {/* ── 로고 & 브랜딩 — 한 줄 압축(2026-09-03) ─────────────────
           구 블록(유리카드 + 슬로건 + DCF 공식 + 캡션)은 사이드바 높이의 **34%(264px)** 를 차지해
           첫 메뉴가 그 아래에서 시작했고, 메뉴 33개 중 스크롤 없이 보이는 건 9개뿐이었다(실측).
-          ⚠️ DCF 철학 서명은 **지우지 않고 하단(프로필 위)으로 옮겼다** — 브랜드는 남기고 자리만 내준다. */}
+          ⚠️ DCF 철학 서명은 **지우지 않고 하단(프로필 위)으로 옮겼다** — 브랜드는 남기고 자리만 내준다.
+          마크업은 간편 화면과 한 벌로 `components/Brand.tsx`(2026-09-28). */}
       <div style={{ padding: '16px 16px 12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-icon.svg" alt="IS" style={{
-            width: 34, height: 34, flexShrink: 0,
-            filter: 'drop-shadow(0 0 8px rgba(212,175,55,0.42))',
-          }}/>
-
-          <div style={{ flex: 1, minWidth: 0 }}>
-            {/* 토큰예외: 브랜드 워드마크의 골드 그라데이션 — 로고와 한 벌인 아이덴티티 색이라 TK 의미색으로 대체 불가(값 자체는 기존 것 유지) */}
-            <div style={{
-              fontSize: FS.lg, fontWeight: 800, letterSpacing: '-0.5px', lineHeight: 1.15,
-              whiteSpace: 'nowrap' as const,
-              fontFamily: FONT_STACK,
-              background: 'linear-gradient(135deg, #ffffff 0%, #f5e6c8 35%, #d4af37 65%, #f0f0f0 100%)',
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-            }}>
-              2026 투자학교
-            </div>
-            <div style={{
-              marginTop: 1, fontSize: FS.micro, fontWeight: 300, fontStyle: 'italic',
-              letterSpacing: '0.12em', color: 'rgba(212,175,55,0.8)',
-              fontFamily: '"Georgia", "Times New Roman", serif', whiteSpace: 'nowrap' as const,
-            }}>
-              Get Rich Slowly
-            </div>
-          </div>
-        </div>
+        <BrandMark />
 
         {/* 교사 배지 — 260px 안에서 브랜드명과 같은 줄에 두면 '2026 투자학 / 교'로 줄바꿈된다 */}
         {isTeacher && (
@@ -361,36 +337,7 @@ function SidebarInner() {
           매일 쓰는 메뉴가 그 아래에서 시작하던 것만이 문제였다. 이제 메뉴가 먼저, 서명이 발치에 있다. */}
       <div style={{ padding: '0 16px 14px' }}>
         <div style={{ paddingTop: 12, borderTop: '1px solid rgba(212,175,55,0.18)' }}>
-          <div style={{
-            fontSize: FS.micro, fontWeight: 600, lineHeight: 1.55, letterSpacing: '0.01em',
-            color: 'rgba(245,230,200,0.88)', fontFamily: '"Georgia","Times New Roman",serif',
-          }}>
-            미래에 벌어들일 현금흐름을{' '}
-            {/* 토큰예외: 위와 같은 브랜드 골드 그라데이션(철학 서명의 강조어) */}
-            <span style={{
-              fontWeight: 800, fontStyle: 'italic',
-              background: 'linear-gradient(135deg,#f5e6c8 0%,#d4af37 60%,#fffbe6 100%)',
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-            }}>할인한다</span>
-          </div>
-          {/* 공식 — PV = Σ FCFₜ / (1+r)ᵗ (실제 분수 표기) */}
-          <div style={{
-            marginTop: 7, padding: '6px 10px', borderRadius: 9,
-            background: 'rgba(0,0,0,0.28)', border: '1px solid rgba(212,175,55,0.22)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-            fontFamily: '"Cambria Math","Georgia",serif', userSelect: 'none' as const,
-          }}>
-            <span style={{ fontSize: FS.tiny, fontWeight: 800, color: '#d4af37', fontStyle: 'italic' }}>PV</span>
-            <span style={{ fontSize: FS.micro, color: 'rgba(245,230,200,0.6)' }}>=</span>
-            <span style={{ fontSize: FS.lg, fontWeight: 700, color: '#d4af37', lineHeight: 1, marginRight: 1 }}>Σ</span>
-            <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.05 }}>
-              {/* 토큰예외: 수식의 아래·위 첨자(t)는 밑글자보다 작아야 수식으로 읽힌다 — FS 최소단(micro 11)으로는 첨자 표현 불가.
-                  읽을 문장이 아니라 수식 기호이므로 '설명문 micro 금지' 규칙 대상도 아니다. */}
-              <span style={{ fontSize: FS.micro, color: '#f5e6c8', fontWeight: 700 }}>FCF<sub style={{ fontSize: 8 }}>t</sub></span>
-              <span style={{ height: 1, width: '100%', minWidth: 46, background: 'rgba(212,175,55,0.55)', margin: '1.5px 0' }} />
-              <span style={{ fontSize: FS.micro, color: 'rgba(245,230,200,0.82)' }}>(1+r)<sup style={{ fontSize: 8 }}>t</sup></span>
-            </span>
-          </div>
+          <DcfSignature />
         </div>
       </div>
 
