@@ -3589,152 +3589,182 @@
    {
     "bizdate": "20260923",
     "foreignerPureBuyQuant": "+4,513,767",
-    "organPureBuyQuant": "+1,346,883"
+    "organPureBuyQuant": "+1,346,883",
+    "individualPureBuyQuant": "-7,630,126"
    },
    {
     "bizdate": "20260922",
     "foreignerPureBuyQuant": "+659,851",
-    "organPureBuyQuant": "+259,459"
+    "organPureBuyQuant": "+259,459",
+    "individualPureBuyQuant": "-2,707,452"
    },
    {
     "bizdate": "20260921",
     "foreignerPureBuyQuant": "+4,080,410",
-    "organPureBuyQuant": "+4,186,614"
+    "organPureBuyQuant": "+4,186,614",
+    "individualPureBuyQuant": "-10,152,588"
    },
    {
     "bizdate": "20260918",
     "foreignerPureBuyQuant": "-1,673,323",
-    "organPureBuyQuant": "+2,746,972"
+    "organPureBuyQuant": "+2,746,972",
+    "individualPureBuyQuant": "-2,975,813"
    },
    {
     "bizdate": "20260917",
     "foreignerPureBuyQuant": "-2,170,687",
-    "organPureBuyQuant": "+196,838"
+    "organPureBuyQuant": "+196,838",
+    "individualPureBuyQuant": "-39,299"
    },
    {
     "bizdate": "20260916",
     "foreignerPureBuyQuant": "-1,906,839",
-    "organPureBuyQuant": "+1,660,246"
+    "organPureBuyQuant": "+1,660,246",
+    "individualPureBuyQuant": "-1,730,267"
    },
    {
     "bizdate": "20260915",
     "foreignerPureBuyQuant": "-1,088,039",
-    "organPureBuyQuant": "-2,321,959"
+    "organPureBuyQuant": "-2,321,959",
+    "individualPureBuyQuant": "+1,379,866"
    },
    {
     "bizdate": "20260914",
     "foreignerPureBuyQuant": "-3,466,765",
-    "organPureBuyQuant": "-1,817,020"
+    "organPureBuyQuant": "-1,817,020",
+    "individualPureBuyQuant": "+3,570,705"
    },
    {
     "bizdate": "20260911",
     "foreignerPureBuyQuant": "-3,531,147",
-    "organPureBuyQuant": "-2,208,594"
+    "organPureBuyQuant": "-2,208,594",
+    "individualPureBuyQuant": "+3,643,746"
    },
    {
     "bizdate": "20260910",
     "foreignerPureBuyQuant": "-5,769,453",
-    "organPureBuyQuant": "+4,266,985"
+    "organPureBuyQuant": "+4,266,985",
+    "individualPureBuyQuant": "-434,111"
    },
    {
     "bizdate": "20260909",
     "foreignerPureBuyQuant": "-2,884,161",
-    "organPureBuyQuant": "+1,740,154"
+    "organPureBuyQuant": "+1,740,154",
+    "individualPureBuyQuant": "-920,131"
    },
    {
     "bizdate": "20260908",
     "foreignerPureBuyQuant": "+3,332,528",
-    "organPureBuyQuant": "+2,406,250"
+    "organPureBuyQuant": "+2,406,250",
+    "individualPureBuyQuant": "-7,674,481"
    },
    {
     "bizdate": "20260907",
     "foreignerPureBuyQuant": "+3,246,247",
-    "organPureBuyQuant": "+4,568,427"
+    "organPureBuyQuant": "+4,568,427",
+    "individualPureBuyQuant": "-9,648,846"
    },
    {
     "bizdate": "20260904",
     "foreignerPureBuyQuant": "-115,377",
-    "organPureBuyQuant": "+2,489,812"
+    "organPureBuyQuant": "+2,489,812",
+    "individualPureBuyQuant": "-4,343,948"
    },
    {
     "bizdate": "20260903",
     "foreignerPureBuyQuant": "+91,825",
-    "organPureBuyQuant": "-839,601"
+    "organPureBuyQuant": "-839,601",
+    "individualPureBuyQuant": "-1,234,260"
    },
    {
     "bizdate": "20260902",
     "foreignerPureBuyQuant": "-1,321,536",
-    "organPureBuyQuant": "-2,977,902"
+    "organPureBuyQuant": "-2,977,902",
+    "individualPureBuyQuant": "+2,332,837"
    },
    {
     "bizdate": "20260901",
     "foreignerPureBuyQuant": "-707,536",
-    "organPureBuyQuant": "-339,843"
+    "organPureBuyQuant": "-339,843",
+    "individualPureBuyQuant": "-935,990"
    },
    {
     "bizdate": "20260831",
     "foreignerPureBuyQuant": "-2,293",
-    "organPureBuyQuant": "-2,349,842"
+    "organPureBuyQuant": "-2,349,842",
+    "individualPureBuyQuant": "+333,167"
    },
    {
     "bizdate": "20260828",
     "foreignerPureBuyQuant": "-1,927,155",
-    "organPureBuyQuant": "-1,652,437"
+    "organPureBuyQuant": "-1,652,437",
+    "individualPureBuyQuant": "+1,589,169"
    },
    {
     "bizdate": "20260827",
     "foreignerPureBuyQuant": "+1,381,786",
-    "organPureBuyQuant": "-97,433"
+    "organPureBuyQuant": "-97,433",
+    "individualPureBuyQuant": "-3,223,427"
    },
    {
     "bizdate": "20260826",
     "foreignerPureBuyQuant": "+2,518,326",
-    "organPureBuyQuant": "+503,532"
+    "organPureBuyQuant": "+503,532",
+    "individualPureBuyQuant": "-4,862,846"
    },
    {
     "bizdate": "20260825",
     "foreignerPureBuyQuant": "-5,003,317",
-    "organPureBuyQuant": "+203,484"
+    "organPureBuyQuant": "+203,484",
+    "individualPureBuyQuant": "+2,784,825"
    },
    {
     "bizdate": "20260824",
     "foreignerPureBuyQuant": "-6,882,379",
-    "organPureBuyQuant": "-6,269,240"
+    "organPureBuyQuant": "-6,269,240",
+    "individualPureBuyQuant": "+11,125,505"
    },
    {
     "bizdate": "20260821",
     "foreignerPureBuyQuant": "+1,567,349",
-    "organPureBuyQuant": "+1,306,652"
+    "organPureBuyQuant": "+1,306,652",
+    "individualPureBuyQuant": "-2,671,260"
    },
    {
     "bizdate": "20260820",
     "foreignerPureBuyQuant": "+4,221,606",
-    "organPureBuyQuant": "+599,886"
+    "organPureBuyQuant": "+599,886",
+    "individualPureBuyQuant": "-4,742,281"
    },
    {
     "bizdate": "20260819",
     "foreignerPureBuyQuant": "-4,177,513",
-    "organPureBuyQuant": "-2,923,301"
+    "organPureBuyQuant": "-2,923,301",
+    "individualPureBuyQuant": "+6,797,682"
    },
    {
     "bizdate": "20260818",
     "foreignerPureBuyQuant": "+577,859",
-    "organPureBuyQuant": "-941,461"
+    "organPureBuyQuant": "-941,461",
+    "individualPureBuyQuant": "+410,513"
    },
    {
     "bizdate": "20260814",
     "foreignerPureBuyQuant": "+4,913,433",
-    "organPureBuyQuant": "-1,830,920"
+    "organPureBuyQuant": "-1,830,920",
+    "individualPureBuyQuant": "-3,049,225"
    },
    {
     "bizdate": "20260813",
     "foreignerPureBuyQuant": "-401,379",
-    "organPureBuyQuant": "+5,544,777"
+    "organPureBuyQuant": "+5,544,777",
+    "individualPureBuyQuant": "-5,097,051"
    },
    {
     "bizdate": "20260812",
     "foreignerPureBuyQuant": "+5,802,466",
-    "organPureBuyQuant": "+776,871"
+    "organPureBuyQuant": "+776,871",
+    "individualPureBuyQuant": "-6,022,669"
    }
   ],
   "034020": [

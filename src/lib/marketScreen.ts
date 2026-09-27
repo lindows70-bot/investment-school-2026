@@ -6,7 +6,7 @@ import { pct, fxWon } from './studentFormat'
 import { acceptFx } from './fxAccept'
 import { TK } from './theme'
 import type { KrIndexQuote, IntradayPoint, InvestorTotals, UpDownCount, KrMover, MoverList, KrIndustry, KrNews, KrIndexCode, KrMarket, KrMoverKind } from './krMarketBoard'
-import type { FlowTopRow, FlowBoardSide, Investor } from './foreignOrgFlow'
+import type { FlowTopRow, FlowBoardSide, FlowWho } from './foreignOrgFlow'
 import type { UsEtfIntraday, UsMover, UsMoverKind } from './usMarketBoard'
 import type { CoinBoard } from './upbitMarket'
 import type { CnnFngYear } from './cnnFng'
@@ -26,9 +26,9 @@ export interface KrBoardResp {
 }
 export interface FlowBoardResp {
   basis?: string
-  individual?: { available: boolean; note: string }
+  individual?: { available: boolean; note: string; poolSize?: number | null; dataDate?: string | null }
   trends?: Part<{ checked: number }>
-  markets: Record<KrMarket, Record<Investor, Part<{ bizdate: string | null } & FlowBoardSide>>>
+  markets: Record<KrMarket, Partial<Record<FlowWho, Part<{ bizdate: string | null } & FlowBoardSide>>>>
 }
 export interface UsBoardResp {
   etfs: { SPY: Part<UsEtfIntraday>; QQQ: Part<UsEtfIntraday> }
@@ -147,18 +147,21 @@ export interface FlowBadge { key: FlowBadgeKey; text: string }
 export const STREAK_MIN = 2
 
 /** 한 줄의 배지. 며칠째는 **그 목록의 주체**(외국인이면 외국인 연속일)·**그 목록의 방향**과 같을 때만, 모르면(null) 생략.
- *  함께 = 외국인·기관이 그날 같은 방향(목록 방향과 같을 때만). 주가와 반대 = 산 날 내림·판 날 오름 */
+ *  함께 = 외국인·기관이 그날 같은 방향(목록 방향과 같을 때만). 개인 목록에선 반대로 — 외국인·기관이 둘 다 개인과 반대 방향이면 그 사실.
+ *  주가와 반대 = 산 날 내림·판 날 오름 */
 export function flowBadges(
-  row: Pick<FlowTopRow, 'foreignStreak' | 'organStreak' | 'together' | 'contrarian' | 'etf' | 'priceLimitBreak'>,
-  side: FlowSide, investor: Investor, mine: boolean,
+  row: Pick<FlowTopRow, 'foreignStreak' | 'organStreak' | 'together' | 'contrarian' | 'etf' | 'priceLimitBreak'> & { individualStreak?: FlowTopRow['individualStreak'] },
+  side: FlowSide, investor: FlowWho, mine: boolean,
 ): FlowBadge[] {
   const out: FlowBadge[] = []
   if (mine) out.push({ key: 'mine', text: '내 종목' })
-  const s = investor === 'FOREIGNER' ? row.foreignStreak : row.organStreak
+  const s = investor === 'FOREIGNER' ? row.foreignStreak : investor === 'ORGANIZATION' ? row.organStreak : row.individualStreak ?? null
   if (s && Math.abs(s.n) >= STREAK_MIN && (side === 'buy' ? s.n > 0 : s.n < 0)) {
     out.push({ key: 'streak', text: `${Math.abs(s.n)}일째${s.capped ? ' 이상' : ''}` })
   }
-  if (row.together === side) out.push({ key: 'together', text: side === 'buy' ? '함께 샀어요' : '함께 팔았어요' })
+  if (investor === 'INDIVIDUAL') {
+    if (row.together && row.together !== side) out.push({ key: 'together', text: side === 'buy' ? '외국인·기관은 팔았어요' : '외국인·기관은 샀어요' })
+  } else if (row.together === side) out.push({ key: 'together', text: side === 'buy' ? '함께 샀어요' : '함께 팔았어요' })
   if (row.contrarian === true) out.push({ key: 'contrarian', text: '주가와 반대' })
   if (row.etf) out.push({ key: 'etf', text: 'ETF' })
   if (row.priceLimitBreak) out.push({ key: 'limit', text: '±30% 넘음' })

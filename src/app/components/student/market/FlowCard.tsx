@@ -1,12 +1,13 @@
 'use client'
 // 시장 화면 '외국인·기관은 무엇을 샀나' — 외국인/기관 × 순매수/순매도 × 시장(합침·코스피·코스닥) 상위 5 + 며칠째·함께·주가와 반대·ETF·내 종목 배지
-//   원천 = /api/market-board/flow(네이버 KRX 순위 + 종목별 일별 추이). 화면에 들어올 때 부른다. 개인 순위는 원천이 없어 그 사실을 적는다.
+//   원천 = /api/market-board/flow(네이버 KRX 순위 + 종목별 일별 추이). 화면에 들어올 때 부른다.
+//   개인 순위는 원천이 없어 앱의 주요 종목(113개) 수급 캐시로 만든다 — '주요 종목 안에서'를 적는다(2026-09-27 사용자 요청: 예전 수급 레이더엔 개인이 있었다).
 //   ⛔ 관찰일 뿐 — 따라 사라는 권유 문구를 쓰지 않는다. '내 종목'은 브라우저에서만 겹친다(useMyTickers).
 import { useState } from 'react'
 import { TK, SP } from '@/lib/theme'
 import { pct, upDown, eok } from '@/lib/studentFormat'
 import { viewOf, mdDow, flowBadges, mergeFlowTop, holdingKey, flowScopeText, type FlowBoardResp, type FlowSide, type FlowBadgeKey, type View } from '@/lib/marketScreen'
-import type { FlowBoardSide, FlowTopRow, Investor } from '@/lib/foreignOrgFlow'
+import type { FlowBoardSide, FlowTopRow, FlowWho } from '@/lib/foreignOrgFlow'
 import type { KrMarket } from '@/lib/krMarketBoard'
 import { useJson } from '@/app/components/student/useJson'
 import { useInView } from '@/app/components/student/useInView'
@@ -14,17 +15,18 @@ import { card, CardHead, FailRow, noteStyle } from '@/app/components/student/hom
 import { ChipRow, StockRow, HelpButton, HelpBox, type BadgeTone } from './marketUi'
 import { useMyTickers } from './useMyTickers'
 
-type Who = Investor | 'PERSONAL'
+type Who = FlowWho
 type Mk = 'ALL' | KrMarket
 const TOP = 5
-const WHO_NAME: Record<Who, string> = { FOREIGNER: '외국인', ORGANIZATION: '기관', PERSONAL: '개인' }
+const WHO_NAME: Record<Who, string> = { FOREIGNER: '외국인', ORGANIZATION: '기관', INDIVIDUAL: '개인' }
 const MK_NAME: Record<KrMarket, string> = { KOSPI: '코스피', KOSDAQ: '코스닥' }
 const SIDE_NAME: Record<FlowSide, string> = { buy: '순매수', sell: '순매도' }
 const TONE: Record<FlowBadgeKey, BadgeTone> = { mine: 'mine', streak: 'plain', together: 'plain', contrarian: 'warn', etf: 'plain', limit: 'warn' }
 const HELP = [
   '순매수 = 산 돈이 판 돈보다 많아요. 순매도 = 판 돈이 더 많아요.',
   'N일째 = 마지막 거래일까지 며칠 연속 같은 쪽(사거나 팔거나)이었는지예요. 2일째부터 보여요.',
-  '함께 샀어요·함께 팔았어요 = 그날 외국인과 기관이 둘 다 같은 쪽이었어요.',
+  '함께 샀어요·함께 팔았어요 = 그날 외국인과 기관이 둘 다 같은 쪽이었어요. 개인 목록에선 외국인·기관이 둘 다 반대쪽이었을 때 그 사실을 적어요.',
+  '개인 목록은 앱이 지켜보는 주요 종목(코스피·코스닥 대형주 113개) 안에서만 뽑아요 — 시장 전체 순위가 아니에요.',
   '주가와 반대 = 주가가 내린 날 샀거나, 오른 날 팔았어요.',
   'ETF = 여러 종목을 한데 묶은 상품이에요.',
   '±30% 넘음 = 하루에 30% 넘게 움직였어요 — 상장 첫날·거래 재개 같은 특별한 날에만 나와요.',
@@ -43,11 +45,12 @@ export default function FlowCard() {
   const [mk, setMk] = useState<Mk>('ALL')
   const [help, setHelp] = useState(false)
 
-  const inv: Investor = who === 'PERSONAL' ? 'FOREIGNER' : who
+  const inv: Who = who
   const views: Record<KrMarket, SideView> = {
-    KOSPI: viewOf(flow, d => d.markets.KOSPI[inv]),
-    KOSDAQ: viewOf(flow, d => d.markets.KOSDAQ[inv]),
+    KOSPI: viewOf(flow, d => d.markets.KOSPI[inv] ?? null),
+    KOSDAQ: viewOf(flow, d => d.markets.KOSDAQ[inv] ?? null),
   }
+  const indivScope = flow.state === 'ok' && typeof flow.data?.individual?.poolSize === 'number' ? flow.data.individual.poolSize : null
   const shownMarkets: KrMarket[] = mk === 'ALL' ? ['KOSPI', 'KOSDAQ'] : [mk]
   const merged = mergeFlowTop<FlowTopRow>(shownMarkets.map(m => ({ market: m, rows: views[m].kind === 'ok' ? (views[m] as Extract<SideView, { kind: 'ok' }>).data[side] : null })), TOP)
   const anyLoading = shownMarkets.some(m => views[m].kind === 'loading')
@@ -59,13 +62,7 @@ export default function FlowCard() {
   const scope = flowScopeText(shownMarkets, merged.missing)   // 한 시장을 못 가져왔으면 실제로 본 범위만
 
   let body: React.ReactNode
-  if (who === 'PERSONAL') {
-    body = (
-      <span style={noteStyle(TK.slate300)}>
-        개인이 어떤 종목을 사고 팔았는지 순위는 네이버가 주지 않아요. 개인 전체 금액은 위 &lsquo;누가 사고 팔았나&rsquo;에서 볼 수 있어요.
-      </span>
-    )
-  } else if (anyLoading) {
+  if (anyLoading) {
     body = <span style={noteStyle()}>순매매 목록을 불러오는 중…</span>
   } else if (allFailed) {
     body = <FailRow text={`${WHO_NAME[who]} ${SIDE_NAME[side]} 목록을 못 가져왔어요.`} onRetry={flow.reload} retryLabel="순매매 목록 다시 불러오기" />
@@ -94,8 +91,8 @@ export default function FlowCard() {
       <CardHead title="외국인·기관은 무엇을 샀나" extra={<HelpButton open={help} onToggle={() => setHelp(h => !h)} label="배지 뜻 보기" />} />
       {help && <HelpBox lines={HELP} />}
       <ChipRow label="누가" value={who} onChange={setWho}
-        options={[{ key: 'FOREIGNER', label: '외국인' }, { key: 'ORGANIZATION', label: '기관' }, { key: 'PERSONAL', label: '개인', dim: true }]} />
-      {who !== 'PERSONAL' && (
+        options={[{ key: 'FOREIGNER', label: '외국인' }, { key: 'ORGANIZATION', label: '기관' }, { key: 'INDIVIDUAL', label: '개인' }]} />
+      {(
         <>
           <ChipRow label="샀나 팔았나" value={side} onChange={setSide} options={[{ key: 'buy', label: '순매수' }, { key: 'sell', label: '순매도' }]} />
           <ChipRow label="시장" value={mk} onChange={setMk}
@@ -103,11 +100,12 @@ export default function FlowCard() {
         </>
       )}
       <div aria-live="polite">{body}</div>
-      {who !== 'PERSONAL' && !anyLoading && !allFailed && (
+      {!anyLoading && !allFailed && (
         <>
           <span style={noteStyle()}>
-            {[`${scope} ${WHO_NAME[who]} ${SIDE_NAME[side]} 금액 상위 ${TOP}`, bizdate ? mdDow(bizdate) : null, 'KRX 기준 · 네이버'].filter(Boolean).join(' · ')}
+            {[`${scope} ${WHO_NAME[who]} ${SIDE_NAME[side]} 금액 상위 ${TOP}`, bizdate ? mdDow(bizdate) : null, who === 'INDIVIDUAL' ? '종목별 일별 수급(수량×종가) · KRX 기준 · 네이버' : 'KRX 기준 · 네이버'].filter(Boolean).join(' · ')}
           </span>
+          {who === 'INDIVIDUAL' && <span style={noteStyle(TK.slate300)}>개인 순위는 네이버가 주지 않아 앱이 지켜보는 주요 종목{indivScope != null ? ` ${indivScope}개` : ''} 안에서 뽑았어요 — 시장 전체 순위는 아니에요.</span>}
           {estimated && <span style={noteStyle()}>장 중 잠정 숫자예요 — 장이 끝난 뒤 바뀔 수 있어요.</span>}
           {trendsFailed && <span style={noteStyle(TK.amber400)}>몇몇 종목은 며칠째·함께 여부를 못 셌어요(그 배지만 빠졌어요).</span>}
           {my.state === 'failed' && <span style={noteStyle(TK.amber400)}>내 종목 표시를 못 불러왔어요(목록은 그대로예요).</span>}

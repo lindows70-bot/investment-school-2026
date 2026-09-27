@@ -105,6 +105,10 @@ eq('함께 샀어요(순매수 목록)', texts(M.flowBadges({ ...base, together:
 eq('함께 팔았어요(순매도 목록)', texts(M.flowBadges({ ...base, together: 'sell' }, 'sell', 'ORGANIZATION', false)), ['함께 팔았어요'])
 eq('함께 아님(false)·목록과 다른 방향은 생략', texts(M.flowBadges({ ...base, together: false }, 'buy', 'FOREIGNER', false)).concat(texts(M.flowBadges({ ...base, together: 'sell' }, 'buy', 'FOREIGNER', false))), [])
 eq('주가와 반대 · ETF · ±30%', texts(M.flowBadges({ ...base, contrarian: true, etf: true, priceLimitBreak: true }, 'buy', 'FOREIGNER', false)), ['주가와 반대', 'ETF', '±30% 넘음'])
+eq('개인 목록은 개인 연속일을 본다(외국인 5일째 무시)', texts(M.flowBadges({ ...base, foreignStreak: { n: 5, capped: false }, individualStreak: { n: 3, capped: false } }, 'buy', 'INDIVIDUAL', false)), ['3일째'])
+eq('개인 순매수 목록에서 외국인·기관이 둘 다 팔았으면 그 사실', texts(M.flowBadges({ ...base, together: 'sell' }, 'buy', 'INDIVIDUAL', false)), ['외국인·기관은 팔았어요'])
+eq('개인 순매도 목록에서 외국인·기관이 둘 다 샀으면 그 사실', texts(M.flowBadges({ ...base, together: 'buy' }, 'sell', 'INDIVIDUAL', false)), ['외국인·기관은 샀어요'])
+eq('개인 목록에서 외국인·기관이 같은 쪽·엇갈림·모름이면 배지 없음', texts(M.flowBadges({ ...base, together: 'buy' }, 'buy', 'INDIVIDUAL', false)).concat(texts(M.flowBadges({ ...base, together: false }, 'buy', 'INDIVIDUAL', false)), texts(M.flowBadges(base, 'buy', 'INDIVIDUAL', false))), [])
 eq('역행 null(등락 모름)은 생략', texts(M.flowBadges({ ...base, contrarian: null }, 'buy', 'FOREIGNER', false)), [])
 eq('내 종목이 맨 앞', texts(M.flowBadges({ ...base, foreignStreak: { n: 2, capped: false } }, 'buy', 'FOREIGNER', true)), ['내 종목', '2일째'])
 

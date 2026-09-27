@@ -190,6 +190,23 @@ const near = (a, b, eps = 1e-6) => a != null && b != null && Math.abs(a - b) <= 
   }
   const T = Object.fromEntries(Object.entries(F.trend).map(([c, rows]) => [c, FL.parseStockTrend(rows)]))
   const sam = FL.streakFrom(T['005930'], '2026-09-23', 'foreign'), samO = FL.streakFrom(T['005930'], '2026-09-23', 'organ')
+  // 개인 — 종목별 일별 원천의 individualPureBuyQuant 로 센다(외국인·기관과 같은 행)
+  const samI = FL.streakFrom(T['005930'], '2026-09-23', 'individual')
+  const rawI = F.trend['005930'].map(r => Number(String(r.individualPureBuyQuant).replace(/,/g, '')))
+  let expI = 0; for (const v of rawI) { if (Math.sign(v) !== Math.sign(rawI[0])) break; expI++ }
+  check(`개인 연속일(삼성전자) = 원천 개인 수량 부호로 센 값(${samI?.n})`, samI && samI.n === Math.sign(rawI[0]) * expI)
+  // 개인 순위 — 주요 종목 캐시(market-flow-kr entries) 에서 시장별 순매수·순매도 상위
+  const mf = { dataDate: '2026-09-23', poolSize: 5, entries: [
+    { ticker: '005930', name: '삼성전자', market: 'KOSPI', close: 286500, changePct: 3.6, individual: { d1: -2186e8 } },
+    { ticker: '034020', name: '두산에너빌리티', market: 'KOSPI', close: 100000, changePct: -1.2, individual: { d1: 1987e8 } },
+    { ticker: '035420', name: 'NAVER', market: 'KOSPI', close: 196000, changePct: -2.5, individual: { d1: 1430e8 } },
+    { ticker: '058470', name: '리노공업', market: 'KOSDAQ', close: 300000, changePct: 0.5, individual: { d1: 448e8 } },
+    { ticker: '000660', name: 'SK하이닉스', market: 'KOSPI', close: 1863000, changePct: 1.3, individual: null },
+  ] }
+  const ik = FL.buildIndividualRank(mf, 'KOSPI', 10), iq = FL.buildIndividualRank(mf, 'KOSDAQ', 10)
+  check('개인 코스피 순매수 = 금액 내림차순(두산에너빌리티 1,987 → NAVER 1,430) · 순매도 = 삼성전자 −2,186', ik.buy.map(r => r.name).join() === '두산에너빌리티,NAVER' && ik.buy[0].netEok === 1987 && ik.sell.map(r => r.netEok).join() === '-2186')
+  check('개인 수량 = 금액 ÷ 종가 · 기준일 = 캐시 dataDate · 코스닥은 그 시장만', ik.sell[0].netQty === Math.round(-2186e8 / 286500) && ik.bizdate === '2026-09-23' && iq.buy.map(r => r.name).join() === '리노공업' && iq.sell.length === 0)
+  check('개인 값이 없는 종목(SK하이닉스)은 순위에서 뺀다 · 주가 역행은 buildFlowSide 가 판정(두산 −1.2% 산 날 내림 → 반대)', !ik.buy.some(r => r.code === '000660') && FL.buildFlowSide(ik, new Map(), 5).buy[0].contrarian === true)
   check(`삼성전자 외국인 ${sam.n}일째 순매수 = 독립 재계산 ${indep(F.trend['005930'], '2026-09-23', 'foreignerPureBuyQuant')}`, sam.n === indep(F.trend['005930'], '2026-09-23', 'foreignerPureBuyQuant') && sam.n === 3)
   check(`삼성전자 기관 ${samO.n}일째 순매수 = 독립 재계산`, samO.n === indep(F.trend['005930'], '2026-09-23', 'organPureBuyQuant') && samO.n === 6)
   const dsn = FL.streakFrom(T['034020'], '2026-09-23', 'foreign')
