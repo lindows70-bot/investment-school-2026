@@ -1,4 +1,4 @@
-// '오늘 알려드려요' 규칙 검증 — 날짜 순환·빈 규칙 건너뛰기·문구 분기·날짜로 종가 찾기·한 번만 산 종목 고르기·동종 PER 중앙값
+// '오늘 알려드려요' 규칙 검증 — 날짜 순환(5규칙)·빈 규칙 건너뛰기·문구 분기(PER·지수 대비·집중도·환율 효과·코어위성)·날짜로 종가 찾기·한 번만 산 종목 고르기·동종 PER 중앙값
 import { execSync } from 'node:child_process'
 import { existsSync, writeFileSync, rmSync } from 'node:fs'
 import Module from 'node:module'
@@ -44,28 +44,33 @@ const TODAY = '2026-09-26'
 const addDays = (ymd, n) => new Date(Date.UTC(+ymd.slice(0, 4), +ymd.slice(5, 7) - 1, +ymd.slice(8, 10) + n)).toISOString().slice(0, 10)
 const perRow = (o = {}) => ({ ticker: 'AAPL', name: '애플', market: 'US', pe: 20, targetPeSameBasis: 21, perMedian: 30, perCount: 5, peBasis: 'trailing', asOf: null, ...o })
 const vsRow = (o = {}) => ({ ticker: '005930', name: '삼성전자', market: 'KR', buyDate: '2026-09-01', returnPct: 5.2, indexName: '코스피', indexReturnPct: 3.0, indexStartDate: '2026-09-01', endDate: '2026-09-25', endComplete: true, ...o })
-const mvRow = (o = {}) => ({ ticker: 'NVDA', name: '엔비디아', market: 'US', changePct: -4.3, headline: 'Nvidia shares slide', tradeDate: '2026-09-25', held: true, ...o })
+const concIn = (rows) => ({ rows })
+const cRow = (o = {}) => ({ ticker: '000660', name: 'SK하이닉스', market: 'KR', weightPct: 76.5, ...o })
+const fxIn = (o = {}) => ({ count: 3, retUsd: 10.0, retKrw: 7.4, exposurePct: 45.3, fxNow: 1359, ...o })
+const csIn = (o = {}) => ({ corePct: 60, satPct: 40, coreCount: 2, satCount: 3, ...o })
 const all = () => ({
   per: [perRow(), perRow({ ticker: 'MSFT', name: '마이크로소프트', pe: 40, targetPeSameBasis: 41 })],
   vsIndex: [vsRow()],
-  events: [{ type: 'earnings', date: addDays(TODAY, 10), ticker: 'AAPL', name: '애플', market: 'US' }],
-  movers: [mvRow()],
+  concentration: concIn([cRow(), cRow({ ticker: '005930', name: '삼성전자', weightPct: 23.5 })]),
+  fx: fxIn(),
+  coreSat: csIn(),
 })
-const only = (k, arr) => ({ per: null, vsIndex: null, events: null, movers: null, [k]: arr })
+const only = (k, v) => ({ per: null, vsIndex: null, concentration: null, fx: null, coreSat: null, [k]: v })
+const N = 5   // 규칙 수
 
 // ── 1. 날짜 순환 ─────────────────────────────────────────────────────────
-const days4 = [0, 1, 2, 3].map(i => addDays(TODAY, i))
+const days4 = [0, 1, 2, 3, 4].map(i => addDays(TODAY, i))   // 이름은 그대로 두고 5일(규칙 수만큼)
 const kinds4 = days4.map(d => T.pickTip(d, all())?.kind)
-check(`연속 4일 → 시작 규칙 4가지 모두 다름 (${kinds4.join(',')})`, new Set(kinds4).size === 4 && kinds4.every(Boolean))
-check('5일째는 1일째와 같은 규칙', T.pickTip(addDays(TODAY, 4), all())?.kind === kinds4[0])
+check(`연속 5일 → 시작 규칙 5가지 모두 다름 (${kinds4.join(',')})`, new Set(kinds4).size === N && kinds4.every(Boolean))
+check('6일째는 1일째와 같은 규칙', T.pickTip(addDays(TODAY, N), all())?.kind === kinds4[0])
 check('같은 날 같은 입력 → 같은 결과', JSON.stringify(T.pickTip(TODAY, all())) === JSON.stringify(T.pickTip(TODAY, all())))
 const perDay = days4[kinds4.indexOf('per')]
 const rev = all(); rev.per.reverse()
 check('입력 순서가 바뀌어도 같은 종목', T.pickTip(perDay, all()).ticker === T.pickTip(perDay, rev).ticker)
-// 시작 규칙일 때: 4일마다 한 칸
-const perPicks = [0, 4, 8, 12].map(n => T.pickTip(addDays(perDay, n), all()).ticker)
-check(`시작 규칙이면 4일마다 종목이 넘어간다 (${perPicks.join(',')})`, perPicks[0] !== perPicks[1] && perPicks[0] === perPicks[2] && new Set(perPicks).size === 2)
-// 다음 규칙으로 넘어와 매일 쓰일 때: 매일 한 칸(day % n) — per 만 있으면 4일 중 3일이 fallback
+// 시작 규칙일 때: 규칙 수(5)일마다 한 칸
+const perPicks = [0, N, 2 * N, 3 * N].map(n => T.pickTip(addDays(perDay, n), all()).ticker)
+check(`시작 규칙이면 5일마다 종목이 넘어간다 (${perPicks.join(',')})`, perPicks[0] !== perPicks[1] && perPicks[0] === perPicks[2] && new Set(perPicks).size === 2)
+// 다음 규칙으로 넘어와 매일 쓰일 때: 매일 한 칸(day % n) — per 만 있으면 5일 중 4일이 fallback
 {
   const fbDays = [1, 2, 3].map(n => addDays(perDay, n))
   const picks = fbDays.map(d => T.pickTip(d, only('per', all().per)).ticker)
@@ -73,29 +78,28 @@ check(`시작 규칙이면 4일마다 종목이 넘어간다 (${perPicks.join(',
 }
 
 // ── 2. 빈 규칙 건너뛰기 · 전부 없음 ──────────────────────────────────────
-const RULES = ['per', 'vsIndex', 'event', 'mover']
-const nextOf = k => RULES[(RULES.indexOf(k) + 1) % 4]
+const RULES = ['per', 'vsIndex', 'concentration', 'fx', 'coreSat']
+const nextOf = k => RULES[(RULES.indexOf(k) + 1) % N]
 for (const d of days4) {
   const k = T.pickTip(d, all()).kind
-  const inp = all(); inp[k === 'event' ? 'events' : k === 'mover' ? 'movers' : k] = null
+  const inp = all(); inp[k] = null
   check(`${d}: 시작 규칙 ${k} 입력 null → 다음 규칙 ${nextOf(k)}`, T.pickTip(d, inp)?.kind === nextOf(k))
 }
 {
   const inp = all(); inp.per = []; inp.vsIndex = []
-  check('per·vsIndex 가 빈 배열 → event', T.pickTip(perDay, inp)?.kind === 'event')
+  check('per·vsIndex 가 빈 배열 → concentration', T.pickTip(perDay, inp)?.kind === 'concentration')
 }
-check('전부 null → null', T.pickTip(TODAY, { per: null, vsIndex: null, events: null, movers: null }) === null)
-check('전부 빈 배열 → null', T.pickTip(TODAY, { per: [], vsIndex: [], events: [], movers: [] }) === null)
+check('전부 null → null', T.pickTip(TODAY, { per: null, vsIndex: null, concentration: null, fx: null, coreSat: null }) === null)
+check('전부 빈 값(종목 0·달러 0·역할 0) → null', T.pickTip(TODAY, { per: [], vsIndex: [], concentration: concIn([]), fx: fxIn({ count: 0 }), coreSat: csIn({ coreCount: 0, satCount: 0 }) }) === null)
 check('날짜 형식이 틀리면 null', T.pickTip('2026/09/26', all()) === null)
 
 // ── 2-b. 규칙 순서(tipRuleOrder) — 화면이 이 순서로 한 규칙씩 불러 첫 문장에서 멈춘다 ──
 {
-  const FIELD = { per: 'per', vsIndex: 'vsIndex', event: 'events', mover: 'movers' }
   // 화면의 지연 불러오기 흉내 — 순서대로 한 규칙 입력만 더하고, 문장이 나오면 멈춘다
   const lazy = (d, full) => {
-    const acc = { per: null, vsIndex: null, events: null, movers: null }
+    const acc = { per: null, vsIndex: null, concentration: null, fx: null, coreSat: null }
     for (const k of T.tipRuleOrder(d)) {
-      acc[FIELD[k]] = full[FIELD[k]]
+      acc[k] = full[k]
       const t = T.pickTip(d, acc)
       if (t) return { tip: t, loaded: k }
     }
@@ -103,10 +107,10 @@ check('날짜 형식이 틀리면 null', T.pickTip('2026/09/26', all()) === null
   }
   for (const d of days4) {
     const o = T.tipRuleOrder(d)
-    check(`${d}: 순서는 4규칙 한 바퀴 (${o.join(',')})`, o.length === 4 && new Set(o).size === 4 && RULES.every(k => o.includes(k)))
+    check(`${d}: 순서는 5규칙 한 바퀴 (${o.join(',')})`, o.length === N && new Set(o).size === N && RULES.every(k => o.includes(k)))
     check(`${d}: 순서의 첫 규칙 = pickTip 시작 규칙`, o[0] === T.pickTip(d, all()).kind)
     check(`${d}: 한 규칙씩 불러도 전부 넣은 것과 같은 결과`, JSON.stringify(lazy(d, all()).tip) === JSON.stringify(T.pickTip(d, all())))
-    const sparse = all(); sparse.per = []; sparse.events = null
+    const sparse = all(); sparse.per = []; sparse.fx = null
     check(`${d}: 빈 규칙이 섞여도 같은 결과`, JSON.stringify(lazy(d, sparse).tip) === JSON.stringify(T.pickTip(d, sparse)))
   }
   check('날짜 형식이 틀리면 빈 순서', T.tipRuleOrder('2026/09/26').length === 0)
@@ -205,53 +209,48 @@ const DEF = 'PER은 주가가 회사가 1년 동안 번 1주당 이익의 몇 �
   check('카카오 → 는', title('카카오').startsWith('카카오는'))
 }
 
-// ── 5. ③ 일정 ────────────────────────────────────────────────────────────
+// ── 5. ③ 집중도 ──────────────────────────────────────────────────────────
 {
-  const ev = only('events', [
-    { type: 'earnings', date: addDays(TODAY, -1), ticker: 'OLD', name: '어제기업', market: 'US' },     // 지난 일정
-    { type: 'payDiv', date: addDays(TODAY, 20), ticker: 'KO', name: '코카콜라', market: 'US' },
-    { type: 'exDiv', date: addDays(TODAY, 5), ticker: 'JNJ', name: '존슨앤드존슨', market: 'US' },
-    { type: 'earnings', date: addDays(TODAY, 31), ticker: 'FAR', name: '먼기업', market: 'US' },       // 30일 밖
-  ])
-  const e = T.pickTip(TODAY, ev)
-  check('가장 가까운 일정(지난 것 제외)', e.title === '10/1 존슨앤드존슨 배당락')
-  check('배당락 설명 + 며칠 뒤', e.body === '이날 전 거래일까지 사 둔 사람이 이번 배당을 받아요(이날 팔아도 받아요). 오늘부터 5일 뒤예요.')
-  check('일정 asOf = 그 날짜', e.asOf === '2026-10-01')
-  check('지난 일정·30일 밖만 있으면 → null', T.pickTip(TODAY, only('events', [ev.events[0], ev.events[3]])) === null)
-  const today = T.pickTip(TODAY, only('events', [{ type: 'earnings', date: TODAY, ticker: 'AAPL', name: '애플', market: 'US' }]))
-  check('오늘 일정 포함 · 실적 문구', today.title === '9/26 애플 실적 발표' && today.body.endsWith('바로 오늘이에요.') && today.body.includes('예정일'))
-  const d30 = T.pickTip(TODAY, only('events', [{ type: 'payDiv', date: addDays(TODAY, 30), ticker: 'KO', name: '코카콜라', market: 'US' }]))
-  check('정확히 30일 뒤 포함 · 배당 지급', d30?.title === '10/26 코카콜라 배당 지급')
-  const etfEx = T.pickTip(TODAY, only('events', [{ type: 'exDiv', date: addDays(TODAY, 3), ticker: '360750', name: 'TIGER 미국S&P500', market: 'KR' }]))
-  check('ETF 배당락 → 분배락 · 분배금', etfEx.title === '9/29 TIGER 미국S&P500 분배락' && etfEx.body.startsWith('이날 전 거래일까지 사 둔 사람이 이번 분배금을 받아요(이날 팔아도 받아요).'))
-  const etfPay = T.pickTip(TODAY, only('events', [{ type: 'payDiv', date: addDays(TODAY, 3), ticker: 'SCHD', name: 'Schwab US Dividend Equity ETF', market: 'US' }]))
-  check('ETF 지급 → 분배금 지급', etfPay.title.endsWith('분배금 지급') && etfPay.body.startsWith('분배금이 들어오는 날이에요.'))
-  const nextYear = T.pickTip('2026-12-20', only('events', [{ type: 'earnings', date: '2027-01-10', ticker: 'AAPL', name: '애플', market: 'US' }]))
-  check('해가 바뀌면 연도 표기', nextYear.title === '2027/1/10 애플 실적 발표')
+  const half = T.pickTip(TODAY, only('concentration', concIn([cRow(), cRow({ ticker: '005930', name: '삼성전자', weightPct: 23.5 })])))
+  check('절반 넘게 → "내 자산의 76.5%가 SK하이닉스 한 종목이에요"', half.title === '내 자산의 76.5%가 SK하이닉스 한 종목이에요' && half.ticker === '000660' && half.market === 'KR')
+  check('절반 넘게 본문 — 분산 설명 + 사라·팔라는 뜻 아님', half.body.startsWith('한 종목이 절반 넘게 차지하면') && half.body.endsWith('사라는 뜻도 팔라는 뜻도 아니에요.'))
+  check('출처 = 종목 수 · 평가액 기준', half.source === '내 자산 2종목 · 지금 평가액 기준')
+  const big = T.pickTip(TODAY, only('concentration', concIn([cRow({ weightPct: 41.8 }), cRow({ ticker: '005930', name: '삼성전자', weightPct: 41.1 }), cRow({ ticker: 'PLTR', name: 'PALANTIR', market: 'US', weightPct: 12.3 })])))
+  check('30% 넘게 → 같은 제목꼴 · 30% 본문', big.title === '내 자산의 41.8%가 SK하이닉스 한 종목이에요' && big.body.startsWith('한 종목이 30%를 넘으면'))
+  const spread = T.pickTip(TODAY, only('concentration', concIn([cRow({ weightPct: 28 }), cRow({ ticker: 'A', name: 'A', weightPct: 26 }), cRow({ ticker: 'B', name: 'B', weightPct: 24 }), cRow({ ticker: 'C', name: 'C', weightPct: 22 })])))
+  check('30% 미만 → "가장 큰 종목은 …" · 나눠 있어요 본문', spread.title === '가장 큰 종목은 SK하이닉스, 내 자산의 28%예요' && spread.body.startsWith('가장 큰 종목도 30%가 안 돼서'))
+  check('가장 큰 종목 하나만(입력 순서 무관)', T.pickTip(TODAY, only('concentration', concIn([cRow({ ticker: 'X', name: 'X', weightPct: 10 }), cRow({ weightPct: 90 })]))).ticker === '000660')
+  check('비중 0·NaN 뿐이면 → null', T.pickTip(TODAY, only('concentration', concIn([cRow({ weightPct: 0 }), cRow({ weightPct: NaN })]))) === null)
+  check('종목 없음 → null', T.pickTip(TODAY, only('concentration', concIn([]))) === null)
+  check('tone 없음(등락 이야기가 아니다)', !('tone' in half))
 }
 
-// ── 6. ④ 크게 움직인 종목 ────────────────────────────────────────────────
+// ── 6. ④ 환율 효과 ────────────────────────────────────────────────────────
 {
-  const mv = T.pickTip(TODAY, only('movers', [mvRow({ ticker: 'AAPL', name: '애플', changePct: 1.2, headline: null }), mvRow({ tradeDate: TODAY, headline: '  Nvidia shares slide  ' })]))
-  check('가장 크게 움직인 종목 · 오늘 거래일 → "오늘"', mv.title === '엔비디아 오늘 −4.3%' && mv.tone === 'down' && mv.asOf === TODAY)
-  check('뉴스 제목 있음 → 따옴표로', mv.body === '최근 뉴스 제목: "Nvidia shares slide"')
-  check('출처 = 시각 미확인', mv.source === '하루 등락 · 뉴스 제목(시각 미확인)')
-  const past = T.pickTip(TODAY, only('movers', [mvRow()]))
-  check('거래일이 오늘이 아니면 → 그 날짜', past.title === '엔비디아 9/25 −4.3%' && past.asOf === '2026-09-25')
-  const unk = T.pickTip(TODAY, only('movers', [mvRow({ tradeDate: null })]))
-  check('거래일 모름 → 최근 거래일 · asOf 생략', unk.title === '엔비디아 최근 거래일 −4.3%' && !('asOf' in unk))
-  const nh = T.pickTip(TODAY, only('movers', [mvRow({ ticker: 'AAPL', name: '애플', changePct: 2.4, headline: '', tradeDate: TODAY })]))
-  check('뉴스 제목 없음(빈 문자열) → 못 찾았어요', nh.body === '관련 뉴스 제목을 못 찾았어요.' && nh.title === '애플 오늘 +2.4%' && nh.tone === 'up')
-  const nl = T.pickTip(TODAY, only('movers', [mvRow({ headline: undefined })]))
-  check('뉴스를 찾아보지 않음(undefined — ETF·코인) → 뉴스 문장 없음', nl.body === '')
-  const nf = T.pickTip(TODAY, only('movers', [mvRow({ headline: null, newsFailed: true })]))
-  check('뉴스 원천 실패 → 못 가져왔어요(없음과 다름)', nf.body === '뉴스 제목을 못 가져왔어요.')
-  const nn = T.pickTip(TODAY, only('movers', [mvRow({ headline: null })]))
-  check('찾았는데 없음(null) → 못 찾았어요', nn.body === '관련 뉴스 제목을 못 찾았어요.')
-  const notHeld = T.pickTip(TODAY, only('movers', [mvRow({ held: false, changePct: -9 }), mvRow({ ticker: 'AAPL', name: '애플', changePct: 1.0 })]))
-  check('안 가진 종목(held=false)은 버린다 — 더 크게 움직였어도', notHeld.ticker === 'AAPL')
-  check('안 가진 종목만 있으면 → null', T.pickTip(TODAY, only('movers', [mvRow({ held: false })])) === null)
-  check('보합(0.04%)만 있으면 → null', T.pickTip(TODAY, only('movers', [mvRow({ changePct: 0.04 })])) === null)
+  const cut = T.pickTip(TODAY, only('fx', fxIn()))
+  check('원화 7.4% − 달러 10.0% = −2.6%p → 깎았어요 · tone down', cut.title === '환율이 내 달러 종목 수익률을 2.6%p 깎았어요' && cut.tone === 'down')
+  check('본문 — 달러/원화 수익률 · 달러가 싸져서 · 노출 45%', cut.body === '달러로 보면 +10.0%, 원화로 바꾸면 +7.4%예요 — 그 차이가 환율 효과예요. 산 날보다 원·달러가 내려서(달러가 싸져서) 생긴 차이예요. 내 자산의 45%가 환율에 노출돼 있어요. 환율은 맞힐 수 없어서 지난 일만 봤어요.')
+  check('출처 = 종목 수 · 지금 환율', cut.source === '내 달러 종목 3종 · 매입일 환율 대비 지금 1,359.00원')
+  const lift = T.pickTip(TODAY, only('fx', fxIn({ retUsd: -3.0, retKrw: 1.2, exposurePct: null })))
+  check('원화가 더 높으면 → 올렸어요(4.2%p) · 달러가 비싸져서 · 노출 문장 없음 · tone up', lift.title === '환율이 내 달러 종목 수익률을 4.2%p 올렸어요' && lift.body.includes('올라서(달러가 비싸져서)') && !lift.body.includes('노출') && lift.tone === 'up')
+  const flat = T.pickTip(TODAY, only('fx', fxIn({ retUsd: 5.0, retKrw: 5.02 })))
+  check('차이 0.05%p 미만 → 거의 안 움직였어요 · 비슷해서 · tone flat', flat.title === '환율은 내 달러 종목 수익률을 거의 안 움직였어요' && flat.body.includes('거의 같아요') && flat.tone === 'flat')
+  check('달러 종목 없음(count 0) → null', T.pickTip(TODAY, only('fx', fxIn({ count: 0 }))) === null)
+  check('환율 0·NaN → null', T.pickTip(TODAY, only('fx', fxIn({ fxNow: 0 }))) === null && T.pickTip(TODAY, only('fx', fxIn({ retKrw: NaN }))) === null)
+}
+
+// ── 6-b. ⑤ 코어·위성 ──────────────────────────────────────────────────────
+{
+  const mix = T.pickTip(TODAY, only('coreSat', csIn()))
+  check('섞여 있음 → "코어 60% · 위성 40%" · 최일 전략으로', mix.title === '내 자산은 코어 60% · 위성 40%예요' && mix.body.endsWith("'최일 전략' 수업의 코어·위성 원칙을 보세요."))
+  check('본문 앞 = 코어/위성 뜻 + 내가 정한 것', mix.body.startsWith('코어는 오래 들고 갈 큰 회사·지수 ETF, 위성은 더 크게 오르내릴 수 있는 종목이에요. 어느 쪽인지는 기록할 때 내가 정한 거예요.'))
+  const allSat = T.pickTip(TODAY, only('coreSat', csIn({ corePct: 0, satPct: 100, coreCount: 0, satCount: 2 })))
+  check('전부 위성 → 종목 수 · 크게 흔들릴 수 있어요', allSat.title === '내 자산은 전부 위성(2종목)이에요' && allSat.body.endsWith('코어가 없으면 자산 전체가 위성처럼 크게 흔들릴 수 있어요.'))
+  const allCore = T.pickTip(TODAY, only('coreSat', csIn({ corePct: 100, satPct: 0, coreCount: 3, satCount: 0 })))
+  check('전부 코어 → 기회도 적어요', allCore.title === '내 자산은 전부 코어(3종목)예요' && allCore.body.endsWith('크게 오를 기회도 그만큼 적어요.'))
+  check('비중 반올림(59.6 → 60)', T.pickTip(TODAY, only('coreSat', csIn({ corePct: 59.6, satPct: 40.4 }))).title === '내 자산은 코어 60% · 위성 40%예요')
+  check('종목 0 → null', T.pickTip(TODAY, only('coreSat', csIn({ coreCount: 0, satCount: 0 }))) === null)
+  check('tone 없음 · 종목 링크 없음', !('tone' in mix) && !('ticker' in mix))
 }
 
 // ── 7. 날짜로 종가 찾기 ──────────────────────────────────────────────────

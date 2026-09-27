@@ -1,11 +1,13 @@
 'use client'
-// 학생 배우기 — 오늘의 명언 · 오늘 알려드려요(규칙 4종 순환, 필요한 원천만) · 매매 브리핑 한 줄 · 수업 자료 · 더 알아보기(분석 화면) · 폰 앱 설치 · 내 계정(분석 화면으로 바꾸기·로그아웃)
+// 학생 배우기 — 오늘의 명언 · 오늘 알려드려요(배움 규칙 5종 순환: PER·지수 대비·집중도·환율 효과·코어위성) · 오늘 내 종목 소식(신호·실적·등락+뉴스 링크 3줄) · 수업 자료 · 더 알아보기(분석 화면) · 폰 앱 설치 · 내 계정
+//   2026-09-27 재설계: 두 카드가 같은 등락 이야기를 하던 것을 '배움'(내 숫자로 개념) / '소식'(오늘 일어난 일)로 갈랐다.
 import Link from 'next/link'
-import { useCallback, useState } from 'react'
+import { useState } from 'react'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 import { quoteOfDay } from '@/lib/quotes'
-import { buildHomeBrief } from '@/lib/homeBrief'
-import { upDown } from '@/lib/studentFormat'
+import { mineParts, MOVE_MIN } from '@/lib/homeBrief'
+import { upDown, pct } from '@/lib/studentFormat'
+import { getAssetType } from '@/lib/assetClassifier'
 import type { Tip } from '@/lib/learnTips'
 import { useJson, type JsonResult, type JsonState } from '@/app/components/student/useJson'
 import { useInView } from '@/app/components/student/useInView'
@@ -95,7 +97,7 @@ function TipCard({ t, today }: { t: TodayTip; today: string | null }) {
     const tip = t.tip
     const asOfMd = tip.asOf ? md(tip.asOf, today) : null
     // 기준일은 출처 옆에 — 일정 이야기의 날짜는 기준일이 아니라 일정 날짜(제목에 있다)이고, 출처에 이미 같은 기준일이 있으면 두 번 쓰지 않는다
-    const prefix = asOfMd && tip.kind !== 'event' && !tip.source.includes(`${asOfMd} 기준`) ? `${asOfMd} 기준 · ` : ''
+    const prefix = asOfMd && !tip.source.includes(`${asOfMd} 기준`) ? `${asOfMd} 기준 · ` : ''
     const name = tip.ticker ? t.nameOf(tip.ticker) : null
     const href = tip.ticker
       ? `/s/stock/${encodeURIComponent(tip.ticker)}?${[tip.market ? `m=${encodeURIComponent(tip.market)}` : '', name ? `n=${encodeURIComponent(name)}` : ''].filter(Boolean).join('&')}`
@@ -120,29 +122,85 @@ function TipCard({ t, today }: { t: TodayTip; today: string | null }) {
   )
 }
 
-// ── 3. 오늘의 매매 브리핑 한 줄(홈 한눈 시황의 '내 종목' 줄과 같은 규칙) ─────────
-function BriefCard({ sectionRef, seen, calendar, movers, today }: {
+// ── 3. 오늘 내 종목 소식 — 홈 한눈 시황 '내 종목' 줄과 같은 규칙(mineParts)을 세 줄로 펼치고, 크게 움직인 종목엔 기사 링크를 붙인다 ─────
+interface NewsLink { title: string; url: string | null }
+interface CatalystRow { ticker?: unknown; links?: unknown }
+const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)
+const rowStyle = { display: 'flex', flexDirection: 'column', gap: 2, paddingTop: SP.sm, borderTop: `1px solid ${TK.border}` } as const
+const labelStyle = { fontSize: FS.micro, color: TK.sub } as const
+
+function NewsCard({ sectionRef, seen, calendar, movers, today }: {
   sectionRef: (el: HTMLElement | null) => void; seen: boolean
   calendar: JsonResult<CalendarResp>; movers: JsonResult<MoversResp>; today: string | null
 }) {
   const watch = useJson<WatchResp>('/api/timing-watch', { enabled: seen })
   const ready = today != null && !pending(watch.state) && !pending(calendar.state) && !pending(movers.state)
-  // '내 종목' 줄만 쓴다 — 시장·일정 줄의 원천은 넘기지 않는다(null)
-  const mine = ready
-    ? buildHomeBrief({ indices: null, usdKrw: null, signals: briefSignals(watch), events: briefEvents(calendar), movers: briefMovers(movers), fomcDates: null, macro: null }, today).mine
-    : null
+  const parts = ready ? mineParts({ signals: briefSignals(watch), events: briefEvents(calendar), movers: briefMovers(movers) }, today) : null
+  // 크게 움직인 내 종목(±5%) — 티커·시장까지 든 행(뉴스 링크·종목 링크용). 이름·등락만 주는 briefMovers 와 같은 문턱(MOVE_MIN)
+  const md = movers.data
+  const big = movers.state === 'ok' && md && Array.isArray(md.surges) && Array.isArray(md.drops)
+    ? [...md.surges, ...md.drops]
+        .filter((m): m is { ticker: string; name: string; market?: unknown; changePct: number; held: true } => m?.held === true && typeof m.ticker === 'string' && typeof m.name === 'string' && isNum(m.changePct) && Math.abs(m.changePct) >= MOVE_MIN)
+        .map(m => ({ ticker: m.ticker, name: m.name, market: typeof m.market === 'string' ? m.market : 'US', changePct: m.changePct }))
+        .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))
+    : []
+  // 뉴스는 개별 주식만 모은다(ETF·코인은 찾아보지 않는다) — 그런 종목이 있을 때만 부른다
+  const wantNews = big.some(m => getAssetType(m.ticker, m.name, m.market) === 'STOCK')
+  const news = useJson<{ catalysts?: CatalystRow[] }>('/api/news-catalyst', { enabled: wantNews })
+  const linkFor = (ticker: string): NewsLink | null => {
+    if (news.state !== 'ok' || !Array.isArray(news.data?.catalysts)) return null
+    const c = news.data.catalysts.find(x => typeof x?.ticker === 'string' && x.ticker.toUpperCase() === ticker.toUpperCase())
+    const l = Array.isArray(c?.links) ? (c.links as { title?: unknown; url?: unknown }[]).find(x => typeof x?.title === 'string' && x.title.trim()) : undefined
+    return l ? { title: (l.title as string).trim(), url: typeof l.url === 'string' && /^https?:\/\//.test(l.url) ? l.url : null } : null
+  }
   const failed = [watch, calendar, movers].filter(s => s.state === 'failed')
   return (
     <section ref={sectionRef} style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
-      <CardHead title="오늘의 매매 브리핑" />
-      {!mine ? <span style={noteStyle()}>내 종목 소식을 불러오는 중…</span> : (
-        <p style={{ margin: 0, fontSize: FS.body, lineHeight: 1.6, color: TK.slate200, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-          {mine.parts.map((p, i) => <span key={i} style={{ color: toneColor(p.tone) }}>{p.text}</span>)}
-        </p>
+      <CardHead title="오늘 내 종목 소식" />
+      {!parts ? <span style={noteStyle()}>내 종목 소식을 불러오는 중…</span> : (
+        <>
+          <div style={rowStyle}>
+            <span style={labelStyle}>매매 신호</span>
+            <span style={{ fontSize: FS.body, color: toneColor(parts.signal.tone) }}>{parts.signal.text}</span>
+          </div>
+          <div style={rowStyle}>
+            <span style={labelStyle}>실적 발표</span>
+            <span style={{ fontSize: FS.body, color: toneColor(parts.earnings.tone) }}>{parts.earnings.text}</span>
+          </div>
+          <div style={rowStyle}>
+            <span style={labelStyle}>크게 움직인 종목(하루 ±{MOVE_MIN}% 넘게)</span>
+            {big.length === 0
+              ? <span style={{ fontSize: FS.body, color: toneColor(parts.movers[0]?.[0]?.tone) }}>{parts.movers[0]?.map(p => p.text).join('') ?? '—'}</span>
+              : big.map(m => {
+                const stock = getAssetType(m.ticker, m.name, m.market) === 'STOCK'
+                const link = stock ? linkFor(m.ticker) : null
+                const href = `/s/stock/${encodeURIComponent(m.ticker)}?m=${encodeURIComponent(m.market)}&n=${encodeURIComponent(m.name)}`
+                return (
+                  <div key={m.ticker} style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                    <Link href={href} style={{ display: 'flex', alignItems: 'baseline', gap: SP.sm, minHeight: 44, fontSize: FS.body, color: TK.slate100, textDecoration: 'none', minWidth: 0 }}>
+                      <span style={ellipsis}>{m.name}</span>
+                      <span style={{ fontWeight: 700, color: upDown(m.changePct), whiteSpace: 'nowrap' }}>{pct(m.changePct)}</span>
+                    </Link>
+                    {/* 뉴스 — 개별 주식만: 제목 있으면 기사 링크(주소 없으면 글자만), 불러오는 중, 못 가져옴, 없음 */}
+                    {stock && (news.state === 'loading' || news.state === 'idle'
+                      ? <span style={noteStyle()}>뉴스 제목 찾는 중…</span>
+                      : news.state !== 'ok' ? <span style={noteStyle(TK.amber400)}>뉴스 제목을 못 가져왔어요.</span>
+                      : link
+                      ? link.url
+                        ? <a href={link.url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', minHeight: 44, fontSize: FS.tiny, color: TK.slate300, textDecoration: 'none', overflowWrap: 'anywhere' }}>{link.title}<span aria-hidden style={{ color: TK.sub, marginLeft: SP.xs, flexShrink: 0 }}>›</span></a>
+                        : <span style={{ fontSize: FS.tiny, color: TK.slate300, overflowWrap: 'anywhere' }}>{link.title}</span>
+                      : <span style={noteStyle()}>관련 뉴스 제목을 못 찾았어요.</span>)}
+                  </div>
+                )
+              })}
+            {/* 일부 종목 확인 실패 등 두 번째 묶음(경고) */}
+            {parts.movers.slice(1).map((g, i) => <span key={i} style={noteStyle(TK.amber400)}>{g.map(p => p.text).join('')}</span>)}
+          </div>
+        </>
       )}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.sm, flexWrap: 'wrap', paddingTop: SP.xs, borderTop: `1px solid ${TK.border}` }}>
         {failed.length > 0
-          ? <button type="button" onClick={() => failed.forEach(s => s.reload())} aria-label="매매 브리핑에서 못 가져온 것 다시 불러오기" style={retryBtn}>못 가져온 것 다시</button>
+          ? <button type="button" onClick={() => failed.forEach(s => s.reload())} aria-label="내 종목 소식에서 못 가져온 것 다시 불러오기" style={retryBtn}>못 가져온 것 다시</button>
           : <span />}
         <Link href="/briefing" style={moreLink}><span style={ellipsis}>오늘의 매매 브리핑 전체 ›</span></Link>
       </div>
@@ -187,14 +245,10 @@ export default function StudentLearn() {
   const today = useKstToday()   // 마운트 뒤에만 정해진다(렌더 중 날짜 금지 — 서버 UTC·브라우저 KST 가 다른 날을 본다)
   const pf = useMyPortfolio()
   const [briefRef, briefSeen] = useInView<HTMLElement>()
-  // 일정·등락 원천은 매매 브리핑 카드와 '오늘 알려드려요' ③·④ 가 함께 쓴다 — 둘 중 먼저 필요해진 쪽이 켜고, 한 번 켜면 끄지 않는다
-  const [wantCal, setWantCal] = useState(false)
-  const [wantMov, setWantMov] = useState(false)
-  const calendar = useJson<CalendarResp>('/api/event-calendar', { enabled: briefSeen || wantCal })
-  const movers = useJson<MoversResp>('/api/day-movers', { enabled: briefSeen || wantMov })
-  const wantCalendar = useCallback(() => setWantCal(true), [])
-  const wantMovers = useCallback(() => setWantMov(true), [])
-  const tip = useTodayTip({ today, pf, calendar, movers, wantCalendar, wantMovers })
+  // 일정·등락 원천은 소식 카드가 화면에 들어올 때 부른다('오늘 알려드려요'는 이제 이 원천을 안 쓴다)
+  const calendar = useJson<CalendarResp>('/api/event-calendar', { enabled: briefSeen })
+  const movers = useJson<MoversResp>('/api/day-movers', { enabled: briefSeen })
+  const tip = useTodayTip({ today, pf })
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
@@ -219,7 +273,7 @@ export default function StudentLearn() {
         <TipCard t={tip} today={today} />
       </div>
 
-      <BriefCard sectionRef={briefRef} seen={briefSeen} calendar={calendar} movers={movers} today={today} />
+      <NewsCard sectionRef={briefRef} seen={briefSeen} calendar={calendar} movers={movers} today={today} />
 
       <section aria-labelledby="learn-academy" style={{ display: 'flex', flexDirection: 'column', gap: SP.sm }}>
         <h2 id="learn-academy" style={sectionTitle}>수업 자료</h2>

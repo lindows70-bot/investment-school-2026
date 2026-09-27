@@ -24,7 +24,7 @@ export interface HomeBriefInput {
 }
 
 const SEP: Part = { text: ' · ', tone: 'muted' }
-const MOVE_MIN = 5          // day-movers 임계와 같은 5%
+export const MOVE_MIN = 5   // day-movers 임계와 같은 5% — 배우기 '오늘 내 종목 소식'도 같은 문턱
 const EARN_SOON_DAYS = 7    // 2줄: 7일 안 실적
 const UPCOMING_DAYS = 30    // 3줄: 30일 안 실적·미국 지표 발표(홈 '주요 일정' 카드와 같은 창)
 const YMD = /^\d{4}-\d{2}-\d{2}$/
@@ -128,8 +128,13 @@ function moverGroups(m: HomeBriefInput['movers']): Part[][] {
   return groups
 }
 
+/** '내 종목' 줄의 조각 — 신호 · 7일 안 실적 · 움직임(묶음들). 홈은 한 줄로 잇고, 배우기 '오늘 내 종목 소식'은 세 줄로 펼친다(같은 규칙·같은 말) */
+export function mineParts(input: Pick<HomeBriefInput, 'signals' | 'events' | 'movers'>, today: string): { signal: Part; earnings: Part; movers: Part[][] } {
+  return { signal: signalPart(input.signals, today), earnings: earningsPart(input.events, today), movers: moverGroups(input.movers) }
+}
 function mineLine(input: HomeBriefInput, today: string): Line {
-  return { parts: [{ text: '내 종목: ' }, ...joinParts([[signalPart(input.signals, today)], [earningsPart(input.events, today)], ...moverGroups(input.movers)])] }
+  const m = mineParts(input, today)
+  return { parts: [{ text: '내 종목: ' }, ...joinParts([[m.signal], [m.earnings], ...m.movers])] }
 }
 
 function upcomingLine(input: HomeBriefInput, today: string): Line {

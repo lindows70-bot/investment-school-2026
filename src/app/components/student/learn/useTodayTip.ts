@@ -1,8 +1,8 @@
 'use client'
 // 배우기 '오늘 알려드려요' — 오늘 규칙 순서(tipRuleOrder)대로 한 규칙씩 원천을 불러, 문장이 나오는 첫 규칙에서 멈춘다(무거운 원천을 한꺼번에 부르지 않는다)
 //   ① PER: 개별 주식 최대 5종 stock-info → 고른 한 종목(미국)만 동종 기업 비교 ② 산 뒤 대 지수: 내 거래 기록(본인 것만) + 필요한 지수 일봉
-//   ③ 일정: event-calendar ④ 크게 움직인 종목: day-movers + (고른 종목이 개별 주식이면) news-catalyst 한 번
-//   ③·④ 원천은 페이지가 매매 브리핑 카드와 함께 쓴다(같은 원천을 두 번 부르지 않게) — want* 로 켜 달라고 알린다.
+//   ③ 집중도 ⑤ 코어·위성: 내 자산 요약(useMyPortfolio — 브라우저에서 계산, 새 요청 없음) ④ 환율 효과: /api/fx-attribution(본인 세션)
+//   2026-09-27 재설계: 등락·일정 규칙은 '오늘 내 종목 소식' 카드로 옮겼다(같은 말을 두 카드가 하지 않게).
 //   개인 데이터(보유·거래)는 브라우저 Supabase(RLS) + user_id 로만 읽고 공유 캐시에 두지 않는다.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -12,8 +12,6 @@ import { dayNum, singleBuyHoldings, indexFor, buildVsIndexRow, type DatedClose, 
 import type { TradeRow } from '@/lib/lotsFromTrades'
 import { getSectorPeers } from '@/app/actions/getSectorPeers'
 import type { MyPortfolio } from '@/app/components/student/useMyPortfolio'
-import type { JsonResult, JsonState } from '@/app/components/student/useJson'
-import { briefMovers, type CalendarResp, type MoversResp } from '@/app/components/student/home/homeUi'
 
 export type TipStatus = 'waiting' | 'unauth' | 'noHoldings' | 'loading' | 'tip' | 'none' | 'failed'
 export interface TodayTip {
@@ -26,16 +24,12 @@ export interface TodayTip {
   retry: () => void
 }
 
-type Field = 'per' | 'vsIndex' | 'events' | 'movers'
-const FIELD: Record<TipKind, Field> = { per: 'per', vsIndex: 'vsIndex', event: 'events', mover: 'movers' }
-const EMPTY: TipInputs = { per: null, vsIndex: null, events: null, movers: null }
+const EMPTY: TipInputs = { per: null, vsIndex: null, concentration: null, fx: null, coreSat: null }
 const PER_MAX = 5          // PER 은 개별 주식 최대 5종만 부른다
 const PAGE = 1000          // Supabase select 기본 상한 — 빈 페이지가 올 때까지 넘긴다
 const TX_COLS = 'ticker,name,market,currency,type,price,quantity,transaction_date,created_at,memo'
-const EVENT_TYPES = new Set(['earnings', 'exDiv', 'payDiv'])
 
 const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)
-const pending = (s: JsonState) => s === 'loading' || s === 'idle'
 const up = (t: string) => t.trim().toUpperCase()
 /** 규칙 원천을 못 가져왔다 — 다음 규칙으로 넘어가되 '못 가져옴'으로 센다 */
 class SourceFailed extends Error {}
@@ -150,53 +144,35 @@ async function loadVsIndex(pf: MyPortfolio, today: string, signal: AbortSignal):
   return { value, partial: candles.size < symbols.length }
 }
 
-/** ③ 일정 — event-calendar 응답을 모양 검사해 옮긴다. 못 가져오면 null */
-function eventsFrom(calendar: JsonResult<CalendarResp>): TipInputs['events'] {
-  if (calendar.state !== 'ok' || !Array.isArray(calendar.data?.events)) return null
-  return (calendar.data.events as unknown[]).flatMap(x => {
-    const e = x as Record<string, unknown> | null
-    if (!e || typeof e.type !== 'string' || !EVENT_TYPES.has(e.type) || typeof e.date !== 'string' || typeof e.ticker !== 'string' || typeof e.name !== 'string') return []
-    return [{ type: e.type as 'earnings' | 'exDiv' | 'payDiv', date: e.date, ticker: e.ticker, name: e.name, ...(typeof e.market === 'string' ? { market: e.market } : {}) }]
-  })
+/** ③ 집중도 — 내 자산 요약의 종목별 비중(지금 평가액, 시세 없는 종목은 매수가). 요약을 못 만들었으면(시세·환율 실패) 못 가져옴 */
+function concentrationFrom(pf: MyPortfolio): Loaded<NonNullable<TipInputs['concentration']>> {
+  if (pf.state !== 'ready' || !pf.summary) throw new SourceFailed('concentration')
+  const rows = pf.summary.rows.map(r => ({ ticker: r.ticker, name: r.name, market: r.market, weightPct: r.weightPct }))
+  return { value: { rows }, partial: pf.summary.unpricedCount > 0 }
 }
 
-/** ④ 크게 움직인 내 종목 — 홈 한눈 시황과 같은 관문(briefMovers: 내 종목 확인 수가 없거나 전부 실패면 '못 가져옴').
- *  day-movers 는 ±5% 넘은 것만 싣는다. 비트코인(보유 안 함)은 held=false 라 빠진다.
- *  asOf 는 요청 시각이지 등락이 일어난 거래일이 아니다(주말·장 전엔 지난 거래일 등락) → tradeDate 는 모름(null).
- *  headline 은 넣지 않는다(undefined = 찾아보지 않음) — 고른 종목에만 뉴스를 붙인다 */
-function moversFrom(movers: JsonResult<MoversResp>): Loaded<NonNullable<TipInputs['movers']>> | null {
-  const gate = briefMovers(movers)
-  const md = movers.data
-  if (gate == null || !md || !Array.isArray(md.surges) || !Array.isArray(md.drops)) return null
-  if (gate.checked > 0 && gate.failed >= gate.checked) return null   // 내 종목 전부 실패 — '없음'이라 하면 모름을 0 으로 쓰는 것
-  const value = [...md.surges, ...md.drops].flatMap(m => m && m.held === true && typeof m.ticker === 'string' && typeof m.name === 'string' && isNum(m.changePct)
-    ? [{ ticker: m.ticker, name: m.name, market: typeof m.market === 'string' ? m.market : 'US', changePct: m.changePct, tradeDate: null, held: true }]
-    : [])
-  return { value, partial: gate.failed > 0 }
+/** ⑤ 코어·위성 — 요약의 corePct·satPct + 역할별 종목 수 */
+function coreSatFrom(pf: MyPortfolio): Loaded<NonNullable<TipInputs['coreSat']>> {
+  if (pf.state !== 'ready' || !pf.summary) throw new SourceFailed('coreSat')
+  const s = pf.summary
+  return {
+    value: { corePct: s.corePct, satPct: s.satPct, coreCount: s.rows.filter(r => r.role === 'CORE').length, satCount: s.rows.filter(r => r.role !== 'CORE').length },
+    partial: s.unpricedCount > 0,
+  }
 }
 
-/** 고른 종목의 최근 뉴스 제목 1개 — news-catalyst 는 내 개별 주식 전체를 한 번에 준다. 없으면 null, 못 가져오면 failed */
-async function firstHeadline(ticker: string, signal: AbortSignal): Promise<{ headline: string | null; failed: boolean }> {
-  try {
-    const r = await fetch('/api/news-catalyst', { cache: 'no-store', signal })
-    if (!r.ok) return { headline: null, failed: true }
-    const j = await r.json().catch(() => null) as { catalysts?: unknown } | null
-    if (!j || !Array.isArray(j.catalysts)) return { headline: null, failed: true }
-    const c = (j.catalysts as { ticker?: unknown; headlines?: unknown }[]).find(x => typeof x?.ticker === 'string' && up(x.ticker) === up(ticker))
-    const h = Array.isArray(c?.headlines) ? (c.headlines as unknown[]).find((s): s is string => typeof s === 'string' && s.trim() !== '') : undefined
-    return { headline: h ?? null, failed: false }
-  } catch { return { headline: null, failed: true } }
+/** ④ 환율 효과 — /api/fx-attribution(본인 세션). { empty } = 달러 종목 없음(count 0) · 못 받으면 못 가져옴 */
+async function loadFx(signal: AbortSignal): Promise<Loaded<NonNullable<TipInputs['fx']>>> {
+  const r = await fetch('/api/fx-attribution', { cache: 'no-store', signal }).catch(() => null)
+  if (!r || !r.ok) throw new SourceFailed('fx')
+  const j = await r.json().catch(() => null) as { empty?: unknown; rows?: unknown; retUsd?: unknown; retKrw?: unknown; fxExposurePct?: unknown; fxNow?: unknown } | null
+  if (!j) throw new SourceFailed('fx')
+  if (j.empty === true) return { value: { count: 0, retUsd: 0, retKrw: 0, exposurePct: null, fxNow: 0 }, partial: false }
+  if (!Array.isArray(j.rows) || !isNum(j.retUsd) || !isNum(j.retKrw) || !isNum(j.fxNow)) throw new SourceFailed('fx')
+  return { value: { count: j.rows.length, retUsd: j.retUsd, retKrw: j.retKrw, exposurePct: isNum(j.fxExposurePct) ? j.fxExposurePct : null, fxNow: j.fxNow }, partial: false }
 }
 
-export function useTodayTip({ today, pf, calendar, movers, wantCalendar, wantMovers }: {
-  today: string | null
-  pf: MyPortfolio
-  calendar: JsonResult<CalendarResp>
-  movers: JsonResult<MoversResp>
-  /** 이 규칙 차례가 오면 페이지에 원천을 켜 달라고 알린다(한 번 켜면 끄지 않는다 — 끄면 매매 브리핑이 쓰던 응답도 사라진다) */
-  wantCalendar: () => void
-  wantMovers: () => void
-}): TodayTip {
+export function useTodayTip({ today, pf }: { today: string | null; pf: MyPortfolio }): TodayTip {
   const [tick, setTick] = useState(0)
   const holdKey = pf.holdings.map(h => `${h.id}|${h.ticker}|${h.quantity}|${h.purchase_price}`).join(',')
   const active = today != null && (pf.state === 'ready' || pf.state === 'failed') && !(pf.state === 'ready' && pf.holdings.length === 0)
@@ -209,12 +185,12 @@ export function useTodayTip({ today, pf, calendar, movers, wantCalendar, wantMov
   keyRef.current = key
 
   // 한 규칙 결과를 넣고 다음으로 — 그 사이 날짜·보유·다시 시도가 바뀌었으면(키가 다르면) 버린다
-  const settle = useCallback((forKey: string, k: TipKind, value: TipInputs[Field] | null, didFail: boolean, partial = false) => {
+  const settle = useCallback((forKey: string, k: TipKind, value: TipInputs[TipKind] | null, didFail: boolean, partial = false) => {
     if (!today || forKey !== keyRef.current) return   // 날짜·보유·다시 시도가 바뀐 뒤 도착한 옛 결과
     setRun(prev => {
       const base: Run = prev.key === forKey ? prev : fresh(forKey)
       if (base.done || tipRuleOrder(today)[base.step] !== k) return base
-      const inputs = { ...base.inputs, [FIELD[k]]: value } as TipInputs
+      const inputs = { ...base.inputs, [k]: value } as TipInputs
       const failed = didFail ? base.failed.concat(k) : base.failed
       // 앞 규칙들은 이미 문장이 없었으니 여기서 나오는 문장은 이 규칙 것이다(전부 넣은 pickTip 과 같은 결과 — verify-learn-tips 2-b)
       const tip = pickTip(today, inputs)
@@ -223,74 +199,33 @@ export function useTodayTip({ today, pf, calendar, movers, wantCalendar, wantMov
     })
   }, [today])
 
-  // 다시 시도 직후엔 원천 상태가 아직 '실패'로 남아 있다 — 새로 불러오기 시작할 때까지(실패가 아닌 상태가 한 번 올 때까지) 기다린다
-  const calWait = useRef(false)
-  const movWait = useRef(false)
-  useEffect(() => { if (calendar.state !== 'failed') calWait.current = false }, [calendar.state])
-  useEffect(() => { if (movers.state !== 'failed') movWait.current = false }, [movers.state])
-
-  // ① ② — 이 파일이 직접 부른다. 날짜·보유가 바뀌거나 화면을 떠나면 요청을 취소한다
+  // 규칙 하나씩 — 날짜·보유가 바뀌거나 화면을 떠나면 요청을 취소한다
   useEffect(() => {
-    if (!today || (kind !== 'per' && kind !== 'vsIndex')) return
+    if (!today || !kind) return
     const ctrl = new AbortController()
     const forKey = key
-    const noHoldings = pf.state === 'failed' && pf.holdings.length === 0   // 보유를 못 읽었다 — 두 규칙 모두 쓸 것이 없다
-    const job: Promise<Loaded<TipInputs[Field]>> = noHoldings ? Promise.reject(new SourceFailed(kind))
-      : kind === 'per' ? loadPer(pf.holdings, today, cur.inputs, ctrl.signal) : loadVsIndex(pf, today, ctrl.signal)
+    const noHoldings = pf.state === 'failed' && pf.holdings.length === 0   // 보유를 못 읽었다 — 어느 규칙도 쓸 것이 없다
+    const job: Promise<Loaded<TipInputs[TipKind]>> = noHoldings ? Promise.reject(new SourceFailed(kind))
+      : kind === 'per' ? loadPer(pf.holdings, today, cur.inputs, ctrl.signal)
+      : kind === 'vsIndex' ? loadVsIndex(pf, today, ctrl.signal)
+      : kind === 'concentration' ? Promise.resolve().then(() => concentrationFrom(pf))
+      : kind === 'coreSat' ? Promise.resolve().then(() => coreSatFrom(pf))
+      : loadFx(ctrl.signal)
     job.then(r => { if (!ctrl.signal.aborted) settle(forKey, kind, r.value, false, r.partial) })
       .catch(() => { if (!ctrl.signal.aborted) settle(forKey, kind, null, true) })
     return () => ctrl.abort()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, kind])
 
-  // ③ — 페이지의 event-calendar 응답을 기다린다
-  useEffect(() => {
-    if (kind !== 'event') return
-    wantCalendar()
-    if (calWait.current || pending(calendar.state)) return
-    const ev = eventsFrom(calendar)
-    settle(key, 'event', ev, ev == null)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, kind, calendar.state, calendar.data])
-
-  // ④ — 페이지의 day-movers 응답 + 고른 종목이 개별 주식이면 뉴스 제목 한 번
-  useEffect(() => {
-    if (kind !== 'mover' || !today) return
-    wantMovers()
-    if (movWait.current || pending(movers.state)) return
-    const got = moversFrom(movers)
-    if (got == null) { settle(key, 'mover', null, true); return }
-    const rows = got.value
-    // 제목 없이 먼저 골라 본다(고르는 규칙은 제목과 무관) — 고른 종목에만 뉴스를 붙인다
-    const pre = pickTip(today, { ...cur.inputs, movers: rows })
-    const h = pre?.kind === 'mover' && pre.ticker ? pf.holdings.find(x => up(x.ticker) === up(pre.ticker as string)) : undefined
-    // news-catalyst 는 개별 주식만 모은다 — ETF·코인이면 부르지 않는다(headline undefined → 뉴스 문장 생략)
-    if (!pre || pre.kind !== 'mover' || !pre.ticker || !h || getAssetType(h.ticker, h.name ?? '', h.market) !== 'STOCK') {
-      settle(key, 'mover', rows, false, got.partial); return
-    }
-    const ctrl = new AbortController()
-    const forKey = key, ticker = pre.ticker
-    firstHeadline(ticker, ctrl.signal).then(n => {
-      if (ctrl.signal.aborted) return
-      settle(forKey, 'mover', rows.map(r => up(r.ticker) === up(ticker) ? { ...r, headline: n.headline, newsFailed: n.failed } : r), false, got.partial || n.failed)
-    })
-    return () => ctrl.abort()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, kind, movers.state, movers.data])
-
   const retry = useCallback(() => {
-    if (calendar.state === 'failed') { calWait.current = true; calendar.reload() }
-    if (movers.state === 'failed') { movWait.current = true; movers.reload() }
     if (pf.state === 'failed') pf.reload()
     setTick(t => t + 1)
-  }, [calendar, movers, pf])
+  }, [pf])
 
   const nameOf = useCallback((ticker: string) => {
     const h = pf.holdings.find(x => up(x.ticker) === up(ticker))
     if (h?.name) return h.name
-    const rows: { ticker: string; name: string }[] = [
-      ...(cur.inputs.per ?? []), ...(cur.inputs.vsIndex ?? []), ...(cur.inputs.events ?? []), ...(cur.inputs.movers ?? []),
-    ]
+    const rows: { ticker: string; name: string }[] = [...(cur.inputs.per ?? []), ...(cur.inputs.vsIndex ?? []), ...(cur.inputs.concentration?.rows ?? [])]
     return rows.find(r => up(r.ticker) === up(ticker))?.name || null
   }, [pf.holdings, cur.inputs])
 
