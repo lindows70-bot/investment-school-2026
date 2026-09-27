@@ -273,3 +273,11 @@
 - **구조**: `parseInvestorDaily`·`fetchKrInvestorsDaily`(4주체) → `fetchKrInvestorsAndBreadth` 가 4주체를 먼저, 못 받으면 integration 3주체(기타법인 null → "기타법인 값을 못 받아…")로 폴백. `market-board-kr-v4`(필드 추가). 병렬 브랜치(네이버 PC 페이지 복구)의 `naverInvestorTrend.ts` 가 같은 원천을 코드표까지 같이 쓴다 — 그 브랜치가 합쳐지면 파서를 하나로 합칠 것.
 - **화면**: 4칸(폰 2×2) + "넷을 더하면 0이에요 — 누가 판 만큼 누가 샀다는 뜻이에요"(`investorSumNote`) + 'KRX 기준(넥스트레이드 제외)'.
 - **감시**: 야간 원천 검사에 '4주체 합 = 0'·'daily 3값 = integration 3값' 불변식 · probe 에 원천 16번째.
+
+## 홈 '내 종목 뉴스' 제목 → 기사 링크 (2026-09-27, 사용자 요청)
+
+- **원인**: news-catalyst 가 세 원천(네이버 종목 뉴스 API·야후 RSS·구글 뉴스 RSS)에서 제목만 꺼내고 주소를 버렸다. 실측: 네이버 `mobileNewsUrl`(n.news.naver.com) · 야후·구글 `<link>` 모두 있다(구글은 news.google.com 을 거쳐 기사로).
+- **구조**: `HeadlineLink { title, url|null }` 로 수집 → `headlines`(제목, 프롬프트·기존 소비자용)는 그대로, `links` 를 응답에 추가. `news-catalyst-v8`. 주소가 http(s) 가 아니면 null(지어내지 않음) → 화면은 글자만.
+- **화면**: `<a target=_blank rel=noopener noreferrer>` · 터치 규칙대로 44px · 안내 문구 "제목을 누르면 기사가 새 창으로 열려요". 대시보드 뉴스 레이더(`NewsCatalystRadar`)는 아직 제목만 — 같은 `links` 를 쓰면 되니 필요하면 다음에.
+- **프로덕션 실측(375/768/1280)**: 6/6 제목이 실제 기사 주소 · 넘침 0.
+- **투자자별 기타법인 실측(375/768/1280)**: 폰 2×2 · 태블릿 한 줄 4칸 · PC(카드 504px) 2×2 · 넘침 0 · 파랑/빨강 · "넷을 더하면 0이에요" · KRX 기준 표기.
