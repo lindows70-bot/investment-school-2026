@@ -35,7 +35,7 @@ export default function FxMini({ overview, appFx }: { overview: JsonResult<Overv
               </span>
             )}
           </div>
-          {pts.length >= 2 && <div aria-hidden style={{ height: 48, minWidth: 0 }}><LinePlot points={pts} color={TK.slate100} tFmt={tDay} vFmt={fxWon} a11y={false} /></div>}
+          {pts.length >= 2 && <div aria-hidden style={{ height: 48, minWidth: 0 }}><LinePlot points={pts} color={TK.teal400} tFmt={tDay} vFmt={fxWon} a11y={false} area endDot /></div>}
           <span style={noteStyle()}>{pts.length >= 2 ? '최근 1달 · ' : ''}하나은행 매매기준율 · {mdDow(fx.latest.date) ?? fx.latest.date} 고시</span>
           {basis && <span style={noteStyle()}>{basis}</span>}
         </>

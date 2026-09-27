@@ -369,3 +369,40 @@ export function fngColor(v: number): string {
   const a = rgbOf(FNG_STOPS[i]), b = rgbOf(FNG_STOPS[i + 1])
   return `rgb(${a.map((c, k) => Math.round(c + (b[k] - c) * t)).join(', ')})`
 }
+
+// ── 차트 눈금 ────────────────────────────────────────────────────────────────
+/** 보기 좋은 세로 눈금 — lo~hi 안에 1·2·2.5·5×10^k 간격으로 n 개 안팎(네이버·증권 앱처럼 7,011 대신 7,020 같은 둥근 값) */
+export function niceTicks(lo: number, hi: number, n = 5): number[] {
+  if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo || n < 2) return []
+  const raw = (hi - lo) / (n - 1)
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)))
+  // 간격 = raw 를 넘지 않는 가장 큰 둥근 값 → lo~hi 안에 n-1 ~ 2n 개(위로 올리면 7,017~7,137 에 선이 2개뿐이었다)
+  const step = [5, 2.5, 2, 1].map(m => m * mag).find(s => s <= raw) ?? mag
+  const out: number[] = []
+  for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step) out.push(Math.round(v / step) * step)
+  return out
+}
+/** 장중 가로 눈금 — 첫 점 뒤 첫 정각부터 stepH 시간마다(국내 9·11·13·15시). 한국 시각은 UTC+9 정시라 UTC 정각과 같다 */
+export function hourTicks(t0: number, t1: number, stepH = 2): number[] {
+  const H = 3_600_000
+  const out: number[] = []
+  if (!(t1 > t0)) return out
+  for (let t = Math.ceil(t0 / H) * H; t <= t1; t += stepH * H) out.push(t)
+  return out
+}
+/** 날짜 가로 눈금 — 45일 이하면 안쪽 4곳을 'M.D' 로, 그보다 길면 매달 1일을 'N월' 로(7개 넘으면 두 달마다) */
+export function dayTicks(t0: number, t1: number): { ticks: number[]; fmt: (t: number) => string } {
+  const md = (t: number) => { const [, m, d] = kstParts(t).ymd.split('-'); return `${Number(m)}.${Number(d)}` }
+  if (!(t1 > t0)) return { ticks: [], fmt: md }
+  if (t1 - t0 <= 45 * 86_400_000) return { ticks: [1, 3, 5, 7].map(k => Math.round(t0 + ((t1 - t0) * k) / 8)), fmt: md }
+  const months: number[] = []
+  const [y0, m0] = kstParts(t0).ymd.split('-').map(Number)
+  for (let y = y0, m = m0 + 1; ; m++) {
+    if (m > 12) { m = 1; y++ }
+    const t = Date.parse(`${y}-${String(m).padStart(2, '0')}-01T00:00:00+09:00`)
+    if (t > t1) break
+    months.push(t)
+  }
+  const ticks = months.length > 6 ? months.filter((_, i) => i % 2 === 0) : months
+  return { ticks, fmt: t => `${Number(kstParts(t).ymd.slice(5, 7))}월` }
+}

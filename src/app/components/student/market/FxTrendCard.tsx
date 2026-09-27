@@ -6,16 +6,19 @@
 import { useState } from 'react'
 import { TK, FS, SP } from '@/lib/theme'
 import { fxWon, signFx, pct } from '@/lib/studentFormat'
-import { viewOf, mdDow, ymdDot, kstParts, fxBasisNote, type OverviewResp } from '@/lib/marketScreen'
+import { viewOf, mdDow, ymdDot, kstParts, fxBasisNote, niceTicks, dayTicks, type OverviewResp } from '@/lib/marketScreen'
 import type { FxTrend } from '@/lib/fxTrend'
 import type { JsonResult } from '@/app/components/student/useJson'
 import { card, CardHead, noteStyle, type FxResp } from '@/app/components/student/home/homeUi'
 import { ChipRow, LinePlot, Pending } from './marketUi'
+import type { PlotMark } from './LinePlot'
 
 type Range = 'm1' | 'm3' | 'y1'
 const RANGES: { key: Range; label: string }[] = [{ key: 'm1', label: '1달' }, { key: 'm3', label: '3달' }, { key: 'y1', label: '1년' }]
 const dayMs = (ymd: string) => Date.parse(`${ymd}T00:00:00+09:00`)
 const tDay = (t: number) => ymdDot(kstParts(t).ymd) ?? ''
+const int = (v: number) => Math.round(v).toLocaleString('ko-KR')
+const md = (ymd: string) => { const [, m, d] = ymd.split('-'); return `${Number(m)}.${Number(d)}` }
 
 /** appFx = /api/exchange-rate(내 자산 등 다른 화면이 쓰는 앱 환율) — 이 카드 값과 다를 때만 이유를 적는 데 쓴다 */
 export default function FxTrendCard({ overview, appFx }: { overview: JsonResult<OverviewResp>; appFx: JsonResult<FxResp> }) {
@@ -24,6 +27,12 @@ export default function FxTrendCard({ overview, appFx }: { overview: JsonResult<
   const r = view.kind === 'ok' ? view.data[range] : null
   const pts = r ? r.points.map(p => ({ t: dayMs(p.date), v: p.v })).filter(p => Number.isFinite(p.t)) : []
   const latest = view.kind === 'ok' ? view.data.latest : null
+  const dt = pts.length >= 2 ? dayTicks(pts[0].t, pts[pts.length - 1].t) : { ticks: [], fmt: tDay }
+  // 차트 말풍선 — 기간 최고·최저(원천 계산값 그대로, 표시는 원 단위 반올림)
+  const marks: PlotMark[] = []
+  if (r?.high) marks.push({ t: dayMs(r.high.date), v: r.high.v, name: '고점', value: int(r.high.v), when: md(r.high.date), place: 'above' })
+  if (r?.low) marks.push({ t: dayMs(r.low.date), v: r.low.v, name: '저점', value: int(r.low.v), when: md(r.low.date), place: 'below' })
+  const highLowText = [r?.high ? `기간 최고 ${fxWon(r.high.v)}(${ymdDot(r.high.date) ?? r.high.date})` : null, r?.low ? `기간 최저 ${fxWon(r.low.v)}(${ymdDot(r.low.date) ?? r.low.date})` : null].filter(Boolean).join(' · ')
   const prov = view.kind === 'ok' ? view.data.provisional : null
   // 비교 대상 = 이 카드가 보여 주는 가장 새 값(오늘 진행 중이면 그 값, 아니면 확정일 값)
   const basis = latest && appFx.state === 'ok' ? fxBasisNote(appFx.data, prov ? prov.v : latest.v) : null
@@ -35,7 +44,7 @@ export default function FxTrendCard({ overview, appFx }: { overview: JsonResult<
       {latest && r && (
         <>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: SP.sm }}>
-            <span style={{ fontSize: FS.h2, fontWeight: 800, color: TK.slate100, whiteSpace: 'nowrap' }}>{fxWon(latest.v)}</span>
+            <span style={{ fontSize: FS.h1, fontWeight: 800, color: TK.slate100, whiteSpace: 'nowrap', lineHeight: 1.1 }}>{fxWon(latest.v)}</span>
             {latest.change != null && (
               <span style={{ fontSize: FS.tiny, color: TK.slate300, whiteSpace: 'nowrap' }}>
                 직전 고시보다 {signFx(latest.change)}{latest.changePct != null ? ` (${pct(latest.changePct)})` : ''}
@@ -46,17 +55,13 @@ export default function FxTrendCard({ overview, appFx }: { overview: JsonResult<
           {prov && <span style={noteStyle(TK.slate300)}>{mdDow(prov.date) ?? prov.date} 고시는 아직 진행 중이에요 — 지금 {fxWon(prov.v)}, 바뀔 수 있어요.</span>}
           <ChipRow label="기간" value={range} onChange={setRange} options={RANGES} />
           {pts.length >= 2
-            ? <div style={{ height: 160, minWidth: 0 }}><LinePlot points={pts} color={TK.slate100} tFmt={tDay} vFmt={fxWon} /></div>
-            : <span style={noteStyle()}>이 기간에 고시가 두 번 미만이라 선을 그릴 수 없어요.</span>}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: SP.sm }}>
-            {([['기간 최고', r.high], ['기간 최저', r.low]] as const).map(([label, x]) => (
-              <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, minWidth: 0 }}>
-                <span style={{ fontSize: FS.micro, color: TK.sub }}>{label}</span>
-                <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate200, whiteSpace: 'nowrap' }}>{x ? fxWon(x.v) : '—'}</span>
-                {x && <span style={noteStyle()}>{ymdDot(x.date) ?? x.date}</span>}
+            // 고점·저점은 차트 위 말풍선으로(값·날짜) — 읽어 주는 문장은 정확한 값(소수 둘째 자리)으로 따로 둔다
+            ? <div aria-label={highLowText} style={{ height: 210, minWidth: 0 }}>
+                <LinePlot points={pts} color={TK.teal400} tFmt={tDay} vFmt={fxWon}
+                  area grid endDot yAxis="left" yTicks={niceTicks(Math.min(...pts.map(p => p.v)), Math.max(...pts.map(p => p.v)), 3)} yFmt={int}
+                  xTicks={dt.ticks} xFmt={dt.fmt} marks={marks} />
               </div>
-            ))}
-          </div>
+            : <span style={noteStyle()}>이 기간에 고시가 두 번 미만이라 선을 그릴 수 없어요.</span>}
           <span style={noteStyle()}>{r.points.length ? `${ymdDot(r.points[0].date) ?? r.points[0].date} ~ ${ymdDot(r.to) ?? r.to} 고시 ${r.points.length}번 · ` : ''}네이버</span>
           {basis && <span style={noteStyle()}>{basis}</span>}
         </>

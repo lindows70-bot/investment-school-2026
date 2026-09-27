@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 import { pct, upDown, points, signEok } from '@/lib/studentFormat'
-import { viewOf, asOfLabel, kstParts, mdDow, breadthNote, type KrBoardResp, type View } from '@/lib/marketScreen'
+import { viewOf, asOfLabel, kstParts, mdDow, breadthNote, niceTicks, hourTicks, type KrBoardResp, type View } from '@/lib/marketScreen'
 import type { KrIndexQuote, IntradayPoint, InvestorTotals, UpDownCount, KrIndexCode, KrMarket } from '@/lib/krMarketBoard'
 import type { JsonResult } from '@/app/components/student/useJson'
 import { card, CardHead, noteStyle } from '@/app/components/student/home/homeUi'
@@ -16,6 +16,7 @@ const IDX: { code: KrIndexCode; label: string }[] = [
 ]
 const MK_NAME: Record<KrMarket, string> = { KOSPI: '코스피', KOSDAQ: '코스닥' }
 const hm = (t: number) => kstParts(t).hm
+const int = (v: number) => Math.round(v).toLocaleString('ko-KR')
 
 export default function KrIndexBoard({ kr }: { kr: JsonResult<KrBoardResp> }) {
   const [sel, setSel] = useState<KrIndexCode>('KOSPI')
@@ -26,22 +27,24 @@ export default function KrIndexBoard({ kr }: { kr: JsonResult<KrBoardResp> }) {
   const q = quotes.kind === 'ok' ? quotes.data.find(x => x.code === sel) ?? null : null
   const mkQuote = quotes.kind === 'ok' ? quotes.data.find(x => x.code === mk) ?? null : null
   const open = mkQuote?.marketStatus === 'OPEN'
+  const base = q && q.change != null ? q.value - q.change : null
+  const vals = chart.kind === 'ok' ? [...chart.data.map(p => p.v), ...(base != null ? [base] : [])] : []
 
   return (
     <>
       <section aria-label="국내 지수" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.md }}>
         <Pending view={quotes} loading="지수를 불러오는 중…" fail="지수를 못 가져왔어요." onRetry={kr.reload} retryLabel="국내 지수 다시 불러오기" />
         {quotes.kind === 'ok' && (
-          <div role="group" aria-label="장중 차트로 볼 지수" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: SP.sm }}>
+          <div role="group" aria-label="장중 차트로 볼 지수" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: SP.xs, padding: SP.xs, borderRadius: RAD.md, background: TK.bg3 }}>
             {IDX.map(i => {
               const x = quotes.data.find(r => r.code === i.code)
               const on = sel === i.code
               return (
                 <button key={i.code} type="button" aria-pressed={on} onClick={() => setSel(i.code)}
                   style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: SP.xs, minWidth: 0, minHeight: 44,
-                    padding: `${SP.sm}px ${SP.xs}px`, borderRadius: RAD.sm, border: `1px solid ${on ? TK.line4 : TK.border}`,
-                    background: on ? TK.bg7 : 'transparent', cursor: 'pointer', textAlign: 'left',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: SP.xs, minWidth: 0, minHeight: 44,
+                    padding: `${SP.md}px ${SP.xs}px`, borderRadius: RAD.md, border: `1px solid ${on ? TK.line4 : 'transparent'}`,
+                    background: on ? TK.bg7 : 'transparent', cursor: 'pointer', textAlign: 'center',
                   }}>
                   <span style={{ fontSize: FS.tiny, color: on ? TK.slate100 : TK.sub, fontWeight: on ? 700 : 500, whiteSpace: 'nowrap' }}>{i.label}</span>
                   {x ? (
@@ -60,13 +63,15 @@ export default function KrIndexBoard({ kr }: { kr: JsonResult<KrBoardResp> }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
             {chart.kind === 'ok' && chart.data.length >= 2 ? (
               <>
-                <div style={{ height: 160, minWidth: 0 }}>
-                  <LinePlot points={chart.data} color={upDown(q?.changePct ?? null)}
-                    baseline={q && q.change != null ? q.value - q.change : null} tFmt={hm} vFmt={points} />
+                {/* 네이버 증시현황처럼 — 오른쪽 값 눈금 · 2시간 눈금 · 선 아래 그라데이션 · 점선 = 전날 종가 · 끝점 */}
+                <div style={{ height: 210, minWidth: 0 }}>
+                  <LinePlot points={chart.data} color={upDown(q?.changePct ?? null)} baseline={base} tFmt={hm} vFmt={points}
+                    area endDot yAxis="right" yTicks={niceTicks(Math.min(...vals), Math.max(...vals), 5)} yFmt={int}
+                    xTicks={hourTicks(chart.data[0].t, chart.data[chart.data.length - 1].t)} xFmt={hm} />
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: SP.sm, flexWrap: 'wrap' }}>
                   <span style={noteStyle()}>{hm(chart.data[0].t)} ~ {hm(chart.data[chart.data.length - 1].t)}</span>
-                  {q && q.change != null && <span style={noteStyle()}>점선 = 전날 종가 {points(q.value - q.change)}</span>}
+                  {base != null && <span style={noteStyle()}>점선 = 전날 종가 {points(base)}</span>}
                 </div>
               </>
             ) : chart.kind === 'ok'
@@ -111,7 +116,7 @@ export default function KrIndexBoard({ kr }: { kr: JsonResult<KrBoardResp> }) {
 function Breadth({ view, market, indexPct, onRetry }: { view: View<{ investors: InvestorTotals | null; upDown: UpDownCount | null }>; market: KrMarket; indexPct: number | null; onRetry: () => void }) {
   const ud = view.kind === 'ok' ? view.data.upDown : null
   const cells: [string, number | null, string][] = ud
-    ? [['상한', ud.upper, TK.red400], ['상승', ud.rise, TK.red400], ['보합', ud.steady, TK.sub], ['하락', ud.fall, TK.blue400], ['하한', ud.lower, TK.blue400]]
+    ? [['⬆ 상한', ud.upper, TK.red400], ['▲ 상승', ud.rise, TK.red400], ['— 보합', ud.steady, TK.sub], ['▼ 하락', ud.fall, TK.blue400], ['⬇ 하한', ud.lower, TK.blue400]]
     : []
   const tot = (ud?.rise ?? 0) + (ud?.steady ?? 0) + (ud?.fall ?? 0)
   const note = breadthNote(ud, indexPct)

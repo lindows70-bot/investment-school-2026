@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { TK, FS, SP } from '@/lib/theme'
 import { usd, usdBig, pct, upDown } from '@/lib/studentFormat'
-import { viewOf, asOfLabel, kstParts, usMoverFilterNote, type UsBoardResp } from '@/lib/marketScreen'
+import { viewOf, asOfLabel, kstParts, usMoverFilterNote, hourTicks, type UsBoardResp } from '@/lib/marketScreen'
 import type { UsEtfIntraday, UsMover, UsMoverKind } from '@/lib/usMarketBoard'
 import type { MoverList } from '@/lib/krMarketBoard'
 import { useJson, type JsonResult } from '@/app/components/student/useJson'
@@ -39,7 +39,10 @@ function EtfTile({ us, sym, desc }: { us: JsonResult<UsBoardResp>; sym: 'SPY' | 
             <span style={{ fontSize: FS.tiny, fontWeight: 700, color: upDown(v.data.changePct), whiteSpace: 'nowrap' }}>{v.data.changePct == null ? '등락 모름' : pct(v.data.changePct)}</span>
           </span>
           {v.data.points.length >= 2
-            ? <div style={{ height: 72, minWidth: 0 }}><LinePlot points={v.data.points} color={upDown(v.data.changePct)} baseline={v.data.prevClose} tFmt={hm} vFmt={usd} /></div>
+            ? <div style={{ height: 110, minWidth: 0 }}>
+                <LinePlot points={v.data.points} color={upDown(v.data.changePct)} baseline={v.data.prevClose} tFmt={hm} vFmt={usd}
+                  area endDot xTicks={hourTicks(v.data.points[0].t, v.data.points[v.data.points.length - 1].t, 3)} xFmt={hm} />
+              </div>
             : <span style={noteStyle()}>장중 흐름 점이 아직 없어요.</span>}
           <span style={noteStyle()}>{[asOfLabel(v.asOf, v.data.marketStatus, 'NY'), '점선 = 전날 종가'].filter(Boolean).join(' · ')}</span>
         </>
