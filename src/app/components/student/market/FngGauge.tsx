@@ -39,9 +39,10 @@ export function FngHero({ value, cls }: { value: number; cls: string | null }) {
   const c = fngColor(value)
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.md, flexWrap: 'wrap' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: SP.sm }}>
+      {/* 이름은 숫자 아래 — 옆에 두면 '극단 탐욕'처럼 긴 이름에서 폰(343px 카드) 게이지가 다음 줄로 밀렸다 */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
         <span style={{ fontSize: FS.h1, fontWeight: 800, color: TK.slate100, lineHeight: 1 }}>{Math.round(value)}</span>
-        {cls && <span style={{ fontSize: FS.lg, fontWeight: 700, color: c }}>{cls}</span>}
+        {cls && <span style={{ fontSize: FS.lg, fontWeight: 700, color: c, whiteSpace: 'nowrap' }}>{cls}</span>}
       </div>
       <div style={{ width: 176, maxWidth: '100%', display: 'flex', flexDirection: 'column', gap: SP.xs }}>
         <FngGauge value={value} />
