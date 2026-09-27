@@ -27,7 +27,8 @@ export interface ChipOpt<K extends string> { key: K; label: string; dim?: boolea
 /** 칩 줄 — 넘치면 가로로 밀어 본다(줄바꿈 없음). 버튼은 44px */
 export function ChipRow<K extends string>({ label, options, value, onChange }: { label: string; options: ChipOpt<K>[]; value: K; onChange: (k: K) => void }) {
   return (
-    <div role="group" aria-label={label} style={{ display: 'flex', gap: SP.xs, overflowX: 'auto', flexWrap: 'nowrap', minWidth: 0, scrollbarWidth: 'none' }}>
+    // 넘치면 다음 줄로 — 가로 스크롤은 폰(375px)에서 '거래대금' 칩이 반쯤 잘려 보였고, 밀어야 한다는 표시가 없었다(2026-09-27 실측)
+    <div role="group" aria-label={label} style={{ display: 'flex', gap: SP.xs, flexWrap: 'wrap', minWidth: 0 }}>
       {options.map(o => {
         const on = o.key === value
         return (

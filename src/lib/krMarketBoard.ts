@@ -123,6 +123,7 @@ export function parseKrMovers(json: unknown, limit = 10): MoverList<KrMover> | n
   const rows = j!.stocks as Record<string, unknown>[]
   let limitBreak = 0
   const items: KrMover[] = []
+  let stocks = 0
   for (const s of rows) {
     const code = typeof s?.itemCode === 'string' ? s.itemCode : null
     if (!code) continue
@@ -131,7 +132,10 @@ export function parseKrMovers(json: unknown, limit = 10): MoverList<KrMover> | n
     const end = typeof s.stockEndType === 'string' ? s.stockEndType.toLowerCase() : ''
     const etp = end === 'etf' ? 'ETF' : end === 'etn' ? 'ETN' : null
     if (etp == null && isLimitBreak(changePct)) { limitBreak++; continue }
-    if (items.length >= limit) continue
+    // 앞 limit 개(ETF·ETN 포함 보기)에 더해 **주식이 limit 개 모일 때까지** 담는다 — 화면 기본이 '주식만'이라
+    //   앞 10개만 담으면 ETF·ETN 이 상위를 채운 날 주식이 2개만 남았다(2026-09-27 실측: 코스피 상승률 10개 중 ETF·ETN 8개)
+    if (items.length >= limit && (etp != null || stocks >= limit)) continue
+    if (etp == null) stocks++
     const tv = num(s.accumulatedTradingValueRaw)
     const mv = num(s.marketValueRaw)
     items.push({
@@ -238,8 +242,8 @@ export async function fetchKrIntegration(mk: KrMarket): Promise<Part<{ investors
 }
 
 export async function fetchKrMovers(kind: KrMoverKind, mk: KrMarket, limit = 10): Promise<Part<MoverList<KrMover>>> {
-  // 걸러낼 몫을 생각해 limit 의 3배를 받는다(최대 40)
-  const r = await getJson(`https://m.stock.naver.com/api/stocks/${kind}/${mk}?page=1&pageSize=${Math.min(40, limit * 3)}`)
+  // 걸러낼 몫(ETF·ETN·가격제한폭 밖)을 생각해 limit 의 4배를 받는다(최대 40)
+  const r = await getJson(`https://m.stock.naver.com/api/stocks/${kind}/${mk}?page=1&pageSize=${Math.min(40, limit * 4)}`)
   if (!r.ok) return failPart(r.reason, SRC.movers)
   const p = parseKrMovers(r.json, limit)
   if (!p) return failPart('목록 형식이 다름', SRC.movers)

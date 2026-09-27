@@ -119,7 +119,12 @@ const near = (a, b, eps = 1e-6) => a != null && b != null && Math.abs(a - b) <= 
     { itemCode: 'C', stockName: '신규상장주', stockEndType: 'stock', fluctuationsRatio: '45.10', compareToPreviousPrice: { code: '2' } },
   ] }, 10)
   check('2X ETF +45%·ETN −52% 는 남기고(제한폭이 배율만큼 넓다) 주식 +45% 만 거른다', lev.items.map(i => i.code).join() === 'A,B' && lev.filtered.priceLimitBreak === 1)
-  check('limit 개수 지킴 · 받은 줄 수 기록', up.items.length === 10 && up.scanned === F.upKosdaq.stocks.length)
+  check('주식 limit 개 · 앞 limit 개(ETF·ETN 포함) 모두 담음 · 받은 줄 수 기록', up.items.filter(i => !i.etp).length === 10 && up.items.slice(0, 10).length === 10 && up.scanned === F.upKosdaq.stocks.length)
+  const etpHeavy = KR.parseKrMovers({ stocks: [
+    ...Array.from({ length: 8 }, (_, k) => ({ itemCode: `E${k}`, stockName: `ETN${k}`, stockEndType: 'etn', fluctuationsRatio: '20', compareToPreviousPrice: { code: '2' } })),
+    ...Array.from({ length: 15 }, (_, k) => ({ itemCode: `S${k}`, stockName: `주식${k}`, stockEndType: 'stock', fluctuationsRatio: '10', compareToPreviousPrice: { code: '2' } })),
+  ] }, 10)
+  check('ETF·ETN 이 상위를 채운 날(8/10) → 주식 10개까지 담고 그 뒤 ETF·ETN 은 안 담음', etpHeavy.items.filter(i => !i.etp).length === 10 && etpHeavy.items.length === 18 && etpHeavy.items.slice(0, 10).filter(i => i.etp).length === 8)
   const s0 = F.upKosdaq.stocks.find(s => s.itemCode === up.items[0].code)
   check('거래대금·시총 = 원천 원 ÷ 1e8(억원)', up.items[0].tradeValueEok === Math.round(n(s0.accumulatedTradingValueRaw) / 1e8) && up.items[0].marketCapEok === Math.round(n(s0.marketValueRaw) / 1e8))
   const q = KR.parseKrMovers(F.quantKospi, 20)

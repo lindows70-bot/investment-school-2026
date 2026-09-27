@@ -11,7 +11,7 @@ import {
 import { krSessionTtlMs } from '@/lib/marketBoardShared'
 import { boardCached } from '@/lib/marketBoardCache'
 
-const KEY = 'market-board-kr-v2'   // 🗓️ 날짜 없는 키 — TTL 로 신선도(장중 3분·그 밖 30분) · v2: ETF/ETN 은 가격제한 필터 제외·시고저 0 → null
+const KEY = 'market-board-kr-v3'   // 🗓️ 날짜 없는 키 — TTL 로 신선도(장중 3분·그 밖 30분) · v2: ETF/ETN 은 가격제한 필터 제외·시고저 0 → null · v3: 특징종목을 주식 10개 모일 때까지 담음
 const MARKETS: KrMarket[] = ['KOSPI', 'KOSDAQ']
 
 async function build() {
