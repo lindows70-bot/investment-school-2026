@@ -54,6 +54,9 @@ const INVARIANTS = [
   { file: 'scripts/verify-market-board-sources.mjs', label: '시장 탭 원천 생존·단위·신선도' },
   // 2026-09-27 — 수급 표 등락률이 이전 행 종가로 나눠 네이버와 달랐다(삼성전자 +3.24% vs +3.62%) · 라이브 대조 포함
   { file: 'scripts/verify-kr-day-change.mjs', label: '국내 당일 등락률 = 네이버' },
+  // 2026-09-27 신설 — 네이버가 옛 PC 페이지를 폐기(410·리다이렉트)했는데 라우트가 200 + 빈 응답이라 아무 감시에도 안 걸렸다.
+  //   원천 형식·코드표·단위(독립 원천 대조)·신선도와 **프로덕션 응답**까지 본다 — 로컬에서 살아 있어도 Vercel 이 못 닿으면 화면은 빈다.
+  { file: 'scripts/verify-naver-market-sources.mjs', label: '네이버 신규 원천(투자자 매매동향·증시자금동향·업종 목록) 형식·단위·프로덕션 응답' },
 ]
 
 /**
