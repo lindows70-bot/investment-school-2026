@@ -52,6 +52,8 @@ const INVARIANTS = [
   // 2026-09-27 신설 — 시장 탭 원천 11종(네이버 polling·m.stock·front-api·stock.naver.com·업비트·CNN·alternative.me·야후)은
   //   크론 산출물이 아니라 cron-health 가 못 본다(감시 목록에 없는 것은 죽어도 모른다). 형식·금액 단위(원)·신선도를 매일 본다.
   { file: 'scripts/verify-market-board-sources.mjs', label: '시장 탭 원천 생존·단위·신선도' },
+  // 2026-09-27 — 수급 표 등락률이 이전 행 종가로 나눠 네이버와 달랐다(삼성전자 +3.24% vs +3.62%) · 라이브 대조 포함
+  { file: 'scripts/verify-kr-day-change.mjs', label: '국내 당일 등락률 = 네이버' },
 ]
 
 /**

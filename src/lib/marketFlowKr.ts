@@ -2,12 +2,13 @@
 // 검증된 per-ticker trend(moneyFlow.fetchKrTrend) 재사용 · ETF는 큐레이션(STOCK)으로 원천차단 · Zero Cost
 import { fetchKrTrend, trendNum as num } from '@/lib/moneyFlow'
 import { getCanonicalFundamentals, isPegBaseEffect } from '@/lib/canonicalFundamentals'
+import { krDayChangePct } from '@/lib/krDayChange'
 
 /** 🔑 KR 수급 캐시 키 SSOT — writer(크론·API)와 reader(통합추천·맞춤추천·마켓카탈리스트)가 **반드시 같은 키**를 쓴다.
  *  ⚠️ 과거엔 각 파일이 키를 따로 적어, 크론이 v5 를 데우는데 화면은 v10 을 읽어
  *     **크론 워밍이 화면에 아무 효과가 없었다**(매일 첫 접속마다 느린 스크랩). 버전은 여기 한 곳에서만 올린다.
- *  v10: 추세속도 MA10·±15 상한(MA20 이상치 폭증 롤백) */
-export const MARKET_FLOW_KR_KEY = (dateKst: string) => `market-flow-kr-v10:${dateKst}`
+ *  v10: 추세속도 MA10·±15 상한(MA20 이상치 폭증 롤백) · v11: 당일 등락률을 네이버 '전일 대비'로(krDayChange) */
+export const MARKET_FLOW_KR_KEY = (dateKst: string) => `market-flow-kr-v11:${dateKst}`
 
 export type Period = 'd1' | 'd5' | 'd20'
 
@@ -144,8 +145,8 @@ function entryOf(p: { t: string; n: string; s: string }, rows: { foreignerPureBu
   // 쌍끌이 연속일수: 오늘부터 외인>0 AND 기관>0 연속
   let streak = 0
   for (const r of rows) { if (num(r.foreignerPureBuyQuant) > 0 && num(r.organPureBuyQuant) > 0) streak++; else break }
-  const prevClose = rows[1] ? num(rows[1].closePrice) : 0
-  const changePct = prevClose > 0 ? Math.round(((close - prevClose) / prevClose) * 1000) / 10 : null
+  // 당일 등락률 = 네이버 '전일 대비'로(krDayChange SSOT) — 이전 행 종가로 나누면 공식 전일 종가가 아니라 네이버와 어긋났다(삼성전자 +3.24% vs +3.62%)
+  const changePct = krDayChangePct(rows[0])
   const closes = rows.slice(0, 30).map(r => num(r.closePrice)).filter(c => c > 0).reverse()   // 오래된→최신(MA20 추세속도용 30개)
   return {
     ticker: p.t, name: p.n, sector: p.s, market: krMarketOf(p.t), close, changePct, dualStreak: streak, peg: null, closes,

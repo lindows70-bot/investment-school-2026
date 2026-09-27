@@ -63,7 +63,7 @@ check('규칙 검사가 LIKE 와일드카드를 잡는다', P.validateRules([{ p
 check('규칙 검사가 구분자·빈 접두어를 잡는다', P.validateRules([{ prefix: 'a:b', keepDays: 5, why: '' }]).length === 1 && P.validateRules([{ prefix: '', keepDays: 5, why: '' }]).length === 1)
 check('규칙 검사가 짧은 보존·중복을 잡는다', P.validateRules([{ prefix: 'x', keepDays: 1, why: '' }]).length === 1 && P.validateRules([{ prefix: 'x', keepDays: 3, why: '' }, { prefix: 'x', keepDays: 3, why: '' }]).length === 1)
 const rule = p => P.PURGE_RULES.find(r => r.prefix === p)
-const DAILY = ['market-flow-kr-v10', 'sector-rotation-v15', 'win-lose-v9', 'market-breadth-v2', 'tech-screener-v4', 'hi52-radar-v3',
+const DAILY = ['market-flow-kr-v11', 'sector-rotation-v15', 'win-lose-v9', 'market-breadth-v2', 'tech-screener-v4', 'hi52-radar-v3',
   'insider-market-v1', 'analyst-rerating-v1', 'usm-grade-v1', 'core-reco-run-v1', 'swing-cron-run-v1', 'etf-snap-run-v1', 'insider-scan-run-v1', 'covered-call-xray-v2']
 check('일별 문서·cronHealth 마커는 10일 이상 보존(cronHealth 8일 역탐색 · 최장 look-back 6일)', DAILY.every(p => rule(p) && rule(p).keepDays >= 10))
 check('긴 TTL 기록은 TTL 보다 길게(guidance-snap 35d · etf-snap/insider-day 400d · rtms-rent 30d)',

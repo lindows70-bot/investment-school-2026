@@ -53,7 +53,7 @@ export const PURGE_RULES: PurgeRule[] = [
   PER_TICKER('crypto-candles-v2', '30m'),
   PER_TICKER('sector-v3', '6h'),
 
-  DAILY('market-flow-kr-v10', '6d(supplyScore·unified-reco·market-catalyst)'),
+  DAILY('market-flow-kr-v11', '6d(supplyScore·unified-reco·market-catalyst)'),
   DAILY('sector-rotation-v15', '3d(rotationShared·unified-reco·win-lose·research-verdict)'),
   DAILY('win-lose-v9', '2d(unified-reco·hi52Radar)'),
   DAILY('market-breadth-v2', '4d'),
