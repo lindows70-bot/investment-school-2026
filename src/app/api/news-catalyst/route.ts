@@ -27,6 +27,9 @@ export interface NewsItem {
   summary:  string   // 헤드라인 근거 1줄 요약
 }
 
+/** 헤드라인 + 기사 주소. 네이버 = mobileNewsUrl(n.news.naver.com) · 야후·구글 뉴스 RSS = <link>(구글은 news.google.com 을 거쳐 기사로 넘어간다) */
+export interface HeadlineLink { title: string; url: string | null }
+
 export interface TickerCatalyst {
   ticker:         string
   name:           string
@@ -38,6 +41,7 @@ export interface TickerCatalyst {
   riskLevel:      RiskLevel
   relevantMetric: string          // 연결되는 재무 지표 (예: "영업이익률")
   headlines:      string[]        // 분석에 사용한 헤드라인
+  links:          HeadlineLink[]  // 같은 헤드라인의 기사 주소(원천이 안 주면 url null) — 학생 홈 '내 종목 뉴스'가 누르면 기사로 간다
   isNoise:        boolean         // 주가 시황성 기사 필터
   peg:            number | null   // PEG SSOT (canonicalFundamentals)
   valuationTier:  ValuationTier   // 가격 축 (고/적정/저평가)
@@ -75,9 +79,15 @@ export interface NewsCatalystResult {
 
 // ── 뉴스 수집 ─────────────────────────────────────────────────────────────────
 const RSS_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+/** RSS <item> 의 <link> — CDATA 또는 그대로. http(s) 가 아니면 null(지어내지 않는다) */
+function rssLink(item: string): string | null {
+  const raw = item.match(/<link><!\[CDATA\[(.*?)\]\]><\/link>/)?.[1] ?? item.match(/<link>(.*?)<\/link>/)?.[1] ?? ''
+  const u = raw.replace(/&amp;/g, '&').trim()
+  return /^https?:\/\//.test(u) ? u : null
+}
 
 /** Yahoo Finance RSS — US 종목 (기존 getEarningsInsight 검증 패턴) */
-async function fetchYahooRss(ticker: string): Promise<string[]> {
+async function fetchYahooRss(ticker: string): Promise<HeadlineLink[]> {
   try {
     const url = `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${encodeURIComponent(ticker)}&region=US&lang=en-US`
     const r = await fetch(url, { headers: { 'User-Agent': RSS_UA }, signal: AbortSignal.timeout(8000) })
@@ -86,13 +96,13 @@ async function fetchYahooRss(ticker: string): Promise<string[]> {
     const items = xml.match(/<item>[\s\S]*?<\/item>/g) ?? []
     return items.slice(0, 5).map(it => {
       const t = it.match(/<title><!\[CDATA\[(.*?)\]\]>/)?.[1] ?? it.match(/<title>(.*?)<\/title>/)?.[1] ?? ''
-      return t.trim()
-    }).filter(Boolean)
+      return { title: t.trim(), url: rssLink(it) }
+    }).filter(h => h.title)
   } catch { return [] }
 }
 
 /** Google News RSS — KR 종목 (무료·무인증) */
-async function fetchGoogleNewsRss(name: string): Promise<string[]> {
+async function fetchGoogleNewsRss(name: string): Promise<HeadlineLink[]> {
   try {
     const q = encodeURIComponent(`${name} 실적 주가`)
     const url = `https://news.google.com/rss/search?q=${q}&hl=ko&gl=KR&ceid=KR:ko`
@@ -102,13 +112,13 @@ async function fetchGoogleNewsRss(name: string): Promise<string[]> {
     const items = xml.match(/<item>[\s\S]*?<\/item>/g) ?? []
     return items.slice(0, 5).map(it => {
       const t = it.match(/<title><!\[CDATA\[(.*?)\]\]>/)?.[1] ?? it.match(/<title>(.*?)<\/title>/)?.[1] ?? ''
-      return t.replace(/ - [^-]+$/, '').trim()  // 미디어명 제거
-    }).filter(Boolean)
+      return { title: t.replace(/ - [^-]+$/, '').trim(), url: rssLink(it) }  // 미디어명 제거
+    }).filter(h => h.title)
   } catch { return [] }
 }
 
 /** KR 종목도 Yahoo KS/KQ RSS 시도 */
-async function fetchYahooKrRss(ticker: string): Promise<string[]> {
+async function fetchYahooKrRss(ticker: string): Promise<HeadlineLink[]> {
   const suffixes = [`${ticker}.KS`, `${ticker}.KQ`]
   for (const sym of suffixes) {
     const headlines = await fetchYahooRss(sym)
@@ -118,29 +128,30 @@ async function fetchYahooKrRss(ticker: string): Promise<string[]> {
 }
 
 /** 네이버 증권 종목별 뉴스 — KR 종목 (종목코드 직결, 가장 종목 특화) */
-async function fetchNaverNews(ticker: string): Promise<string[]> {
+async function fetchNaverNews(ticker: string): Promise<HeadlineLink[]> {
   try {
     const stock6 = ticker.replace(/\.(KS|KQ)$/i, '').replace(/\D/g, '')
     if (stock6.length !== 6) return []
     const url = `https://m.stock.naver.com/api/news/stock/${stock6}?pageSize=10&page=1`
     const r = await fetch(url, { headers: { 'User-Agent': RSS_UA, Referer: 'https://m.stock.naver.com/' }, signal: AbortSignal.timeout(8000) })
     if (!r.ok) return []
-    const groups = await r.json() as Array<{ items?: Array<{ title?: string }> }>
-    const titles: string[] = []
+    const groups = await r.json() as Array<{ items?: Array<{ title?: string; mobileNewsUrl?: unknown }> }>
+    const titles: HeadlineLink[] = []
     for (const g of groups ?? [])
       for (const it of g.items ?? [])
-        if (it.title) titles.push(
-          it.title
+        if (it.title) titles.push({
+          title: it.title
             .replace(/<[^>]+>/g, '')                    // HTML 태그 제거
             .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
             .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-            .trim()
-        )
+            .trim(),
+          url: typeof it.mobileNewsUrl === 'string' && /^https?:\/\//.test(it.mobileNewsUrl) ? it.mobileNewsUrl : null,
+        })
     return titles.slice(0, 6)
   } catch { return [] }
 }
 
-async function fetchHeadlines(ticker: string, name: string, market: string): Promise<string[]> {
+async function fetchHeadlines(ticker: string, name: string, market: string): Promise<HeadlineLink[]> {
   if (market === 'KR') {
     const [naver, google, yahoo] = await Promise.all([
       fetchNaverNews(ticker),
@@ -149,14 +160,14 @@ async function fetchHeadlines(ticker: string, name: string, market: string): Pro
     ])
     // 네이버·Google을 번갈아 인터리브(대형주는 네이버 거시뉴스, 소형주는 네이버 특화 → 둘 다 반영)
     // → Yahoo(백업)
-    const interleaved: string[] = []
+    const interleaved: HeadlineLink[] = []
     for (let i = 0; i < Math.max(naver.length, google.length); i++) {
       if (naver[i]) interleaved.push(naver[i])
       if (google[i]) interleaved.push(google[i])
     }
     const merged = [...interleaved, ...yahoo]
     const seen = new Set<string>()
-    return merged.filter(h => { if (seen.has(h)) return false; seen.add(h); return true }).slice(0, 6)
+    return merged.filter(h => { if (seen.has(h.title)) return false; seen.add(h.title); return true }).slice(0, 6)
   }
   return fetchYahooRss(ticker)
 }
@@ -261,10 +272,10 @@ keyFact·actionGuide·relevantMetric·newsItems.summary는 반드시 한국어�
 }
 
 // ── 캐시 키 ───────────────────────────────────────────────────────────────────
-// v6: 유형별 뉴스 2~3건(newsItems) 추가 — 구조 변경으로 무효화
+// v6: 유형별 뉴스 2~3건(newsItems) 추가 — 구조 변경으로 무효화 · v8: 기사 주소(links) 추가
 // 🗓️ 날짜 없는 키 — 신선도는 3h TTL 이 판정한다(옛 키의 UTC 날짜 경계는 3h 보다 느슨해 뺐다 · 날짜 키는 영구 누적)
 function cacheKey(ticker: string, market: string): string {
-  return `news-catalyst-v7:${ticker.toUpperCase()}:${market}`
+  return `news-catalyst-v8:${ticker.toUpperCase()}:${market}`
 }
 
 // ── 단일 ticker 분석 ──────────────────────────────────────────────────────────
@@ -281,10 +292,11 @@ async function analyzeTicker(
   if (cached) return { ...cached, fromCache: true }
 
   // 뉴스 + 재무 SSOT 병렬 수집 (canon-fund 6h 공유 캐시 → 대개 히트)
-  const [headlines, fund] = await Promise.all([
+  const [links, fund] = await Promise.all([
     fetchHeadlines(ticker, name, market),
     getCanonicalFundamentals(ticker, market, base).catch(() => null),
   ])
+  const headlines = links.map(l => l.title)   // 프롬프트·기존 소비자는 제목만
   const peg = fund?.peg ?? null
   const valuationTier = valuationOf(peg, fund?.opMargin ?? null, fund?.roe ?? null, fund?.fcf ?? null)
 
@@ -319,6 +331,7 @@ async function analyzeTicker(
       riskLevel,
       relevantMetric: result.data.relevantMetric || '영업이익률',
       headlines:      headlines.slice(0, 5),
+      links:          links.slice(0, 5),
       isNoise:        result.data.isNoise        ?? false,
       peg, valuationTier,
       cachedAt: now,
@@ -335,6 +348,7 @@ async function analyzeTicker(
       riskLevel:      'MEDIUM',
       relevantMetric: '—',
       headlines:      headlines.slice(0, 5),
+      links:          links.slice(0, 5),
       isNoise:        false,
       peg, valuationTier,
       cachedAt: now,

@@ -40,7 +40,7 @@ export const PURGE_RULES: PurgeRule[] = [
   PER_TICKER('jarvis-metrics-v17', '12h'),
   PER_TICKER('money-flow-v7', '24h'),
   PER_TICKER('jarvis-brief-v6', '20h'),
-  PER_TICKER('news-catalyst-v7', '3h'),
+  PER_TICKER('news-catalyst-v8', '3h'),
   PER_TICKER('kr-intraday-v1', '3h'),
   PER_TICKER('dilution-v1', '24h'),
   PER_TICKER('masters-committee-v14', '24h'),
