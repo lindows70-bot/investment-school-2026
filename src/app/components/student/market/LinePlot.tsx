@@ -92,6 +92,7 @@ export default function LinePlot({ points, color, baseline, tFmt, vFmt, a11y = t
   const t0 = points[0]?.t ?? 0, t1 = points[points.length - 1]?.t ?? 1
   const last = points[points.length - 1]
   const tickStyle = { fontSize: FS.micro, fill: TK.sub }
+  const yW = yAxis ? Math.max(36, Math.max(0, ...(yTicks ?? []).map(v => textW((yFmt ?? String)(v), FS.micro))) + SP.sm) : 0
   return (
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={points} margin={{ top: SP.xs, right: yAxis === 'right' ? 0 : endDot ? SP.md : SP.xs, bottom: SP.xs, left: yAxis === 'left' ? 0 : SP.xs }} accessibilityLayer={a11y}>
@@ -107,7 +108,7 @@ export default function LinePlot({ points, color, baseline, tFmt, vFmt, a11y = t
         <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} hide={!xTicks}
           ticks={xTicks} tick={<XTick t0={t0} t1={t1} fmt={xFmt} />} axisLine={false} tickLine={false} interval={0} height={xTicks ? 22 : 0} />
         <YAxis domain={[lo - pad, hi + pad]} hide={!yAxis} orientation={yAxis ?? 'left'} ticks={yTicks} tickFormatter={yFmt}
-          tick={tickStyle} axisLine={false} tickLine={false} width={yAxis ? 44 : 0} />
+          tick={tickStyle} axisLine={false} tickLine={false} width={yW} />
         {baseline != null && <ReferenceLine y={baseline} stroke={TK.sub} strokeDasharray="4 4" />}
         <Tooltip content={<Tip tFmt={tFmt} vFmt={vFmt} />} cursor={{ stroke: TK.line4 }} />
         {area

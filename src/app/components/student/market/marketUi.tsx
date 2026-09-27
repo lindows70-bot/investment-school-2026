@@ -47,6 +47,26 @@ export function ChipRow<K extends string>({ label, options, value, onChange }: {
   )
 }
 
+/** 카드 제목 줄의 기간 탭 — 참고 앱처럼 제목 오른쪽에 붙는 작은 묶음(1달/3달/1년). 버튼 높이는 터치 규칙대로 44 */
+export function RangeTabs<K extends string>({ label, options, value, onChange }: { label: string; options: ChipOpt<K>[]; value: K; onChange: (k: K) => void }) {
+  return (
+    <div role="group" aria-label={label} style={{ display: 'flex', gap: 2, padding: 2, borderRadius: RAD.sm, background: TK.bg3, flexShrink: 0 }}>
+      {options.map(o => {
+        const on = o.key === value
+        return (
+          <button key={o.key} type="button" aria-pressed={on} onClick={() => onChange(o.key)}
+            style={{
+              height: 40, padding: `0 ${SP.sm + 2}px`, borderRadius: RAD.sm - 2, border: 'none', background: on ? TK.bg8 : 'transparent',
+              color: on ? TK.slate100 : TK.sub, fontSize: FS.tiny, fontWeight: on ? 700 : 500, cursor: 'pointer', whiteSpace: 'nowrap',
+            }}>
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export type BadgeTone = 'mine' | 'plain' | 'warn'
 const BADGE_C: Record<BadgeTone, { c: string; b: string }> = {
   mine: { c: TK.teal400, b: TK.teal400 },
