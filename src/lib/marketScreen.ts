@@ -2,7 +2,8 @@
 //   화면(tsx)은 그리기만 하고, 판정·정렬·문구는 여기서 만든다 → scripts/verify-market-screen.mjs 가 실제 이 파일을 컴파일해 검증한다.
 //   ⚠️ 서버 lib 에서는 **타입만** 가져온다(브라우저 번들에 서버 코드가 끌려오지 않게).
 import type { Part } from './marketBoardShared'
-import { pct } from './studentFormat'
+import { pct, fxWon } from './studentFormat'
+import { acceptFx } from './fxAccept'
 import type { KrIndexQuote, IntradayPoint, InvestorTotals, UpDownCount, KrMover, MoverList, KrIndustry, KrNews, KrIndexCode, KrMarket, KrMoverKind } from './krMarketBoard'
 import type { FlowTopRow, FlowBoardSide, Investor } from './foreignOrgFlow'
 import type { UsEtfIntraday, UsMover, UsMoverKind } from './usMarketBoard'
@@ -341,4 +342,15 @@ export function fngYearSummary(
 export function fngYearLine(s: NonNullable<ReturnType<typeof fngYearSummary>>): string {
   const parts = [s.high ? `최고 ${s.high.v}(${s.high.when})` : null, s.low ? `최저 ${s.low.v}(${s.low.when})` : null].filter(Boolean).join(' · ')
   return `${s.rangeText ?? '기록 기간'} ${parts}`
+}
+
+/** 하나은행 환율 카드 한 줄 — 카드가 보여 주는 값(shownV)과 앱 환율(/api/exchange-rate: 한눈 시황·내 자산이 쓰는 값)이 **다를 때만** 이유를 말한다.
+ *  앱 환율도 하나은행이 1순위라 보통은 같다. 다른 경우는 둘뿐 — ①하나은행을 못 받아 앱이 다른 원천·마지막 성공값으로 떨어짐
+ *  ②같은 하나은행이지만 다른 시각의 고시(하루에도 여러 번 바뀌고, 카드는 확정된 날 값을 크게 보인다). 앱 환율을 못 받았으면 null(그 화면이 스스로 밝힌다) */
+export function fxBasisNote(app: unknown, shownV: number): string | null {
+  const rate = acceptFx(app)
+  if (rate == null || Math.abs(rate - shownV) < 0.005) return null
+  return (app as { source?: unknown }).source === 'hana'
+    ? `한눈 시황·내 자산은 같은 하나은행 고시의 다른 시각 값(${fxWon(rate)})으로 계산해요 — 고시는 하루에도 여러 번 바뀌어요.`
+    : `지금은 하나은행 고시를 새로 못 받아 한눈 시황·내 자산은 다른 환율(${fxWon(rate)})로 계산 중이에요 — 조금 다를 수 있어요.`
 }

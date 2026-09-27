@@ -1,5 +1,5 @@
 // 시장 탭·홈 요약 공개 데이터 — 공포·탐욕 1년(CNN·코인) · 원·달러 환율 추이(하나은행 매매기준율) · 요즘 강한 분야(섹터 로테이션 캐시 읽기만)
-//   ⚠️ 환율 추이는 표시용이다 — 앱 환율 SSOT(/api/exchange-rate)는 바꾸지 않는다(4단계).
+//   환율 추이도 앱 환율 SSOT(/api/exchange-rate) 1순위와 같은 하나은행 매매기준율이다(4단계 전환) — 여기서는 일별 확정 고시로 추이만 그린다.
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
@@ -11,7 +11,7 @@ import { loadStrongSectors } from '@/lib/strongSectors'
 import { okPart, failPart } from '@/lib/marketBoardShared'
 import { boardCached } from '@/lib/marketBoardCache'
 
-const KEY = 'market-board-overview-v2'   // 🗓️ 날짜 없는 키 — 30분(셋 다 하루 한 번 바뀌는 값) · v2: 공포탐욕 기록 기간(range)·환율 진행 중 행(provisional)·대표 종목 계산일 확인
+const KEY = 'market-board-overview-v3'   // 🗓️ 날짜 없는 키 — 30분(셋 다 하루 한 번 바뀌는 값) · v2: 공포탐욕 기록 기간(range)·환율 진행 중 행(provisional)·대표 종목 계산일 확인 · v3: notes.fx 문구(앱 환율도 하나은행)
 
 async function build() {
   const [cnn, crypto, fx, sectors] = await Promise.all([
@@ -30,7 +30,7 @@ async function build() {
     strongSectors: sectors,
     notes: {
       strongSectors: '주가 수익률로 잰 섹터 강도(쏠림점수 = 0.6×1달 상대강도 + 0.4×1주 모멘텀)입니다 — 실제 자금 흐름 데이터가 아닙니다. 대표 종목은 그 섹터 종목 중 1주 수익률 상위입니다.',
-      fx: '하나은행 매매기준율(네이버 고시) — 앱의 다른 화면 환율(/api/exchange-rate)과 기준이 다를 수 있습니다.',
+      fx: '하나은행 매매기준율(네이버 고시)의 일별 확정값입니다 — 앱 환율(/api/exchange-rate)도 하나은행이 1순위라 같은 원천입니다(오늘 진행 중 회차·하나은행 실패로 다른 원천일 때만 값이 다릅니다).',
       cnnYearAgo: 'CNN 1년 전 값은 원천(previous_1_year)이 준 값입니다.',
     },
   }

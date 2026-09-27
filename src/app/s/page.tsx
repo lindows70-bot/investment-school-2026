@@ -79,7 +79,7 @@ export default function StudentHome() {
           <FearGreed overview={overview} />
         </div>
         <div className="sh-two">
-          <FxMini overview={overview} />
+          <FxMini overview={overview} appFx={fx} />
           <UpcomingEvents calendar={calendar} macro={macro} today={today} />
         </div>
       </div>

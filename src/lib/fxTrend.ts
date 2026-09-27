@@ -1,7 +1,7 @@
 // 원·달러 환율 추이 — 하나은행 매매기준율(네이버 FX_USDKRW 일별 고시)로 1달·3달·1년 시계열과 기간 고점·저점(값·날짜)을 만드는 서버 lib
 //   원천: stock.naver.com/api/securityService/marketindex/exchange/FX_USDKRW/prices?page=N&pageSize=60(최대 60 — 넘기면 400)
 //   실측(2026-09-27): 한 쪽 60행 = 영업일 60일(주말·휴일 없음), 5쪽이면 2025-07 까지 → 1년치를 덮는다.
-//   ⚠️ 이 lib 는 추이 표시용이다. 앱 환율 SSOT(/api/exchange-rate)는 바꾸지 않는다(4단계에서 전환).
+//   앱 환율 SSOT(/api/exchange-rate)도 4단계부터 같은 하나은행이 1순위다(fxHana.ts — 지금 회차 값). 이 lib 는 일별 확정 고시로 추이만 만든다.
 //   ⚠️ 기간은 줄 수가 아니라 **날짜**로 자른다(인덱스 산술 금지 — CPI 13개월 차분 사고).
 import { type Part, okPart, failPart, num, getJson, highLow, addMonthsYmd, kstYmd } from './marketBoardShared'
 

@@ -8,7 +8,7 @@ import { TK, FS, RAD, SP } from '@/lib/theme'
 import type { KrBoardResp, OverviewResp } from '@/lib/marketScreen'
 import { useJson, type JsonResult } from '@/app/components/student/useJson'
 import { useInView } from '@/app/components/student/useInView'
-import { noteStyle } from '@/app/components/student/home/homeUi'
+import { noteStyle, type FxResp } from '@/app/components/student/home/homeUi'
 import KrIndexBoard from '@/app/components/student/market/KrIndexBoard'
 import FlowCard from '@/app/components/student/market/FlowCard'
 import KrMovers from '@/app/components/student/market/KrMovers'
@@ -55,6 +55,7 @@ function MarketScreen() {
   const [ovRefA, seenA] = useInView<HTMLElement>()
   const [ovRefB, seenB] = useInView<HTMLDivElement>()
   const overview = useJson<OverviewResp>('/api/market-board/overview', { enabled: seenA || seenB })
+  const appFx = useJson<FxResp>('/api/exchange-rate', { enabled: seenB })   // 환율 카드가 '내 자산 등 다른 화면' 환율과 다를 때만 이유를 적는다
 
   const panel = (t: Tab) => ({ display: tab === t ? 'flex' : 'none', flexDirection: 'column', gap: SP.lg } as const)
 
@@ -78,7 +79,7 @@ function MarketScreen() {
       {/* 세 탭 공통 — 공포·탐욕(국내·미국 탭은 미국 주식, 코인 탭은 코인이 먼저) · 환율 추이 */}
       <div ref={ovRefB} className="mk-two">
         <FearGreedYear overview={overview} active={seenB} defaultSide={tab === 'coin' ? 'coin' : 'us'} />
-        <FxTrendCard overview={overview} />
+        <FxTrendCard overview={overview} appFx={appFx} />
       </div>
     </div>
   )

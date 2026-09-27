@@ -1,7 +1,7 @@
 // 시장 탭 원천 도달 확인 — 이 라우트가 도는 서버(Vercel icn1)에서 새 원천 호스트마다 한 번씩 불러 성공·시간·기준 시각을 돌려준다
 //   배경: stock.naver.com/api·m.stock.naver.com/front-api 는 로컬에서만 200 을 확인했다(해외 IP·데이터센터 차단 여부 미확인).
 //   가벼운 요청만(목록 3줄·첫 쪽). 🔒 선생님 세션(profiles.role === 'teacher') 또는 CRON_SECRET(Authorization: Bearer)만 —
-//   누구나 부를 수 있으면 한 번에 원천 14곳을 두드리는 증폭기가 된다. 결과는 인스턴스 메모리에 60초.
+//   누구나 부를 수 있으면 한 번에 원천 15곳을 두드리는 증폭기가 된다. 결과는 인스턴스 메모리에 60초.
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
@@ -15,6 +15,7 @@ import { fetchCnnFngYear } from '@/lib/cnnFng'
 import { fetchCryptoFngYear } from '@/lib/cryptoFng'
 import { getJson } from '@/lib/marketBoardShared'
 import { parseFxPages } from '@/lib/fxTrend'
+import { fetchHanaFx, FX_NEED } from '@/lib/fxHana'
 
 type Check = { name: string; host: string; ok: boolean; ms: number; detail: string; asOf: string | null }
 
@@ -68,6 +69,10 @@ export async function GET(req: Request) {
       if (!r.ok) return { ok: false, detail: r.reason }
       const rows = parseFxPages([r.json])
       return { ok: rows.length > 0, detail: rows.length ? `${rows.length}행` : '행 없음', asOf: rows[rows.length - 1]?.date ?? null }
+    }),
+    timed('앱 환율(하나은행 전 통화)', 'api.stock.naver.com', async () => {
+      const h = await fetchHanaFx(FX_NEED, 8000)   // /api/exchange-rate 1순위 — 못 받으면 앱이 2순위 원천으로 떨어진다
+      return { ok: !!h, detail: h ? `${FX_NEED.length + 1}통화 · 회차 ${h.noticeRound ?? '?'}` : '못 받음(통화 누락·고시 멈춤 포함)', asOf: h?.noticeDate ?? null }
     }),
     timed('SPY 5분봉', 'query1.finance.yahoo.com', async () => fromPart(await fetchUsEtfIntraday('SPY'), 'SPY')),
     timed('코인 시세', 'api.upbit.com', async () => fromPart(await fetchCoinBoard(3), 'ticker/all')),

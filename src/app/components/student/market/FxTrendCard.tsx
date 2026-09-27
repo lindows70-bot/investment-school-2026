@@ -1,14 +1,15 @@
 'use client'
 // 시장 화면 원·달러 환율 추이 — 1달/3달/1년 선 차트 · 기간 최고·최저(값·날짜) · 최근 확정 고시와 전날 대비 · 오늘 고시는 '진행 중'으로만
-//   원천 = /api/market-board/overview 의 fx(하나은행 매매기준율, 네이버). ⚠️ 앱의 다른 화면 환율(/api/exchange-rate)과 기준이 다를 수 있어 그 사실을 적는다.
+//   원천 = /api/market-board/overview 의 fx(하나은행 매매기준율, 네이버). 앱 환율(/api/exchange-rate)도 하나은행이 1순위라 보통 같다 —
+//   다를 때만(하나은행 실패로 다른 원천 · 다른 시각 고시) 이유를 적는다(fxBasisNote).
 //   환율 오르내림은 좋고 나쁨이 아니라 등락색(빨강·파랑)을 쓰지 않는다.
 import { useState } from 'react'
 import { TK, FS, SP } from '@/lib/theme'
 import { fxWon, signFx, pct } from '@/lib/studentFormat'
-import { viewOf, mdDow, ymdDot, kstParts, type OverviewResp } from '@/lib/marketScreen'
+import { viewOf, mdDow, ymdDot, kstParts, fxBasisNote, type OverviewResp } from '@/lib/marketScreen'
 import type { FxTrend } from '@/lib/fxTrend'
 import type { JsonResult } from '@/app/components/student/useJson'
-import { card, CardHead, noteStyle } from '@/app/components/student/home/homeUi'
+import { card, CardHead, noteStyle, type FxResp } from '@/app/components/student/home/homeUi'
 import { ChipRow, LinePlot, Pending } from './marketUi'
 
 type Range = 'm1' | 'm3' | 'y1'
@@ -16,13 +17,16 @@ const RANGES: { key: Range; label: string }[] = [{ key: 'm1', label: '1달' }, {
 const dayMs = (ymd: string) => Date.parse(`${ymd}T00:00:00+09:00`)
 const tDay = (t: number) => ymdDot(kstParts(t).ymd) ?? ''
 
-export default function FxTrendCard({ overview }: { overview: JsonResult<OverviewResp> }) {
+/** appFx = /api/exchange-rate(내 자산 등 다른 화면이 쓰는 앱 환율) — 이 카드 값과 다를 때만 이유를 적는 데 쓴다 */
+export default function FxTrendCard({ overview, appFx }: { overview: JsonResult<OverviewResp>; appFx: JsonResult<FxResp> }) {
   const [range, setRange] = useState<Range>('m1')
   const view = viewOf<OverviewResp, FxTrend>(overview, d => d.fx)
   const r = view.kind === 'ok' ? view.data[range] : null
   const pts = r ? r.points.map(p => ({ t: dayMs(p.date), v: p.v })).filter(p => Number.isFinite(p.t)) : []
   const latest = view.kind === 'ok' ? view.data.latest : null
   const prov = view.kind === 'ok' ? view.data.provisional : null
+  // 비교 대상 = 이 카드가 보여 주는 가장 새 값(오늘 진행 중이면 그 값, 아니면 확정일 값)
+  const basis = latest && appFx.state === 'ok' ? fxBasisNote(appFx.data, prov ? prov.v : latest.v) : null
 
   return (
     <section aria-label="원·달러 환율" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
@@ -53,7 +57,8 @@ export default function FxTrendCard({ overview }: { overview: JsonResult<Overvie
               </div>
             ))}
           </div>
-          <span style={noteStyle()}>{r.points.length ? `${ymdDot(r.points[0].date) ?? r.points[0].date} ~ ${ymdDot(r.to) ?? r.to} 고시 ${r.points.length}번 · ` : ''}네이버 · 앱의 다른 화면(내 자산 등) 환율과 기준이 다를 수 있어요.</span>
+          <span style={noteStyle()}>{r.points.length ? `${ymdDot(r.points[0].date) ?? r.points[0].date} ~ ${ymdDot(r.to) ?? r.to} 고시 ${r.points.length}번 · ` : ''}네이버</span>
+          {basis && <span style={noteStyle()}>{basis}</span>}
         </>
       )}
     </section>

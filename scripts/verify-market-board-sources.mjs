@@ -6,7 +6,7 @@ import Module from 'node:module'
 
 const ROOT = 'C:/Users/lindo/investment-school-portfolio'
 const OUT = `${ROOT}/.bt-market-board-live`
-const LIBS = ['krMarketBoard', 'foreignOrgFlow', 'usMarketBoard', 'upbitMarket', 'cnnFng', 'cryptoFng', 'fxTrend']
+const LIBS = ['krMarketBoard', 'foreignOrgFlow', 'usMarketBoard', 'upbitMarket', 'cnnFng', 'cryptoFng', 'fxTrend', 'fxHana']
 
 writeFileSync(`${ROOT}/.bt-market-board-live.tsconfig.json`, JSON.stringify({
   extends: `${ROOT}/tsconfig.json`,
@@ -14,7 +14,7 @@ writeFileSync(`${ROOT}/.bt-market-board-live.tsconfig.json`, JSON.stringify({
     outDir: OUT, module: 'commonjs', moduleResolution: 'node', noEmit: false, declaration: false,
     incremental: false, noEmitOnError: true, target: 'es2020', rootDir: `${ROOT}/src`,
   },
-  include: LIBS.map(l => `${ROOT}/src/lib/${l}.ts`),
+  include: [`${ROOT}/next-env.d.ts`, ...LIBS.map(l => `${ROOT}/src/lib/${l}.ts`)],   // next-env: fxHana 의 fetch next.revalidate 타입
 }, null, 2))
 
 // 이전 실행의 컴파일 결과를 먼저 지운다 — 안 지우면 컴파일 실패 때 옛 .js 로 거짓 green
@@ -38,6 +38,7 @@ const UP = require(`${OUT}/lib/upbitMarket.js`)
 const CNN = require(`${OUT}/lib/cnnFng.js`)
 const CF = require(`${OUT}/lib/cryptoFng.js`)
 const FX = require(`${OUT}/lib/fxTrend.js`)
+const FXH = require(`${OUT}/lib/fxHana.js`)
 
 let fail = 0
 function check(label, cond, why = '') {
@@ -56,6 +57,12 @@ const [idx, min, integK, integQ, mv, ind, news, rankF, trend, usMv, spy, cnn, cf
   FL.fetchFlowRank('FOREIGNER', 'KOSPI', 10), FL.fetchStockTrend('005930', 5),
   US.fetchUsMovers('quantTop', 10), US.fetchUsEtfIntraday('SPY'),
   CNN.fetchCnnFngYear(), CF.fetchCryptoFngYear(), FX.fetchFxTrend(), UP.fetchCoinBoard(5),
+])
+// 앱 환율 SSOT 1순위(하나은행) + 독립 대조용 2순위 원천(fawazahmed0 — 통화별 값 차이로 단위·100엔당 같은 스케일 변화를 잡는다)
+const [hana, fz] = await Promise.all([
+  FXH.fetchHanaFx(FXH.FX_NEED, 8000),
+  fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json', { signal: AbortSignal.timeout(8000) })
+    .then(r => (r.ok ? r.json() : null)).catch(() => null),
 ])
 
 check('국내 지수 3종(polling)', idx.ok && idx.data.length === 3, why(idx))
@@ -76,6 +83,17 @@ check(`CNN 공포·탐욕 1년 · 기준 시각 ${US_STALE}일 이내`, cnn.ok &
 check('코인 공포·탐욕 1년(alternative.me)', !!cfng && cfng.points > 300 && cfng.yearHigh != null, cfng ? '' : '실패')
 check(`환율 추이(하나은행) 1년 · 고시일 ${KR_STALE}일 이내`, fx.ok && fx.data.y1.points.length > 200 && ageDays(`${fx.data.latest.date}T00:00:00+09:00`) < KR_STALE, why(fx))
 check('업비트 원화 시세', coin.ok && coin.data.scanned > 50, why(coin))
+check(`앱 환율 1순위(하나은행 매매기준율) 전 통화 · 고시일 ${KR_STALE}일 이내`,
+  !!hana && hana.noticeDate && ageDays(`${hana.noticeDate}T00:00:00+09:00`) < KR_STALE && FXH.FX_NEED.every(c => hana.rates[c] > 0),
+  hana ? `고시일 ${hana.noticeDate ?? '확인 못 함'}` : '못 받음(→ 앱이 2순위 원천으로 떨어진다)')
+const usd = fz?.usd
+const gaps = hana && usd?.krw ? ['USD', ...FXH.FX_NEED].map(c => {
+  const other = c === 'USD' ? usd.krw : usd.krw / usd[c.toLowerCase()]
+  return { c, gapPct: Math.abs(hana.rates[c] / other - 1) * 100 }
+}) : []
+const worst = gaps.reduce((a, g) => (g.gapPct > (a?.gapPct ?? -1) ? g : a), null)
+check(`하나은행 환율 단위 = 다른 원천과 3% 안(최대 ${worst ? `${worst.c} ${worst.gapPct.toFixed(2)}%` : '대조 못 함'})`,
+  gaps.length === FXH.FX_NEED.length + 1 && gaps.every(g => g.gapPct < 3))
 
 console.log('')
 if (fail) {

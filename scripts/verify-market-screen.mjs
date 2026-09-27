@@ -188,5 +188,16 @@ eq('지금이 최고를 넘음 → 최고 = 지금', M.fngExtremes(72, H, L).hig
 eq('지금이 최저 이하 → 최저 = 지금', M.fngExtremes(5, H, L).low, { v: 5, date: null })
 eq('지금 모름 → 그대로', M.fngExtremes(null, H, L), { high: H, low: L })
 
+// ── fxBasisNote — 하나은행 카드와 앱 환율(한눈 시황·내 자산)이 다를 때만 이유 한 줄 ──
+eq('앱도 하나은행·같은 값 → 문구 없음', M.fxBasisNote({ rate: 1359, source: 'hana' }, 1359), null)
+eq('앱이 하나은행 오늘 회차(1,362.3) vs 카드 확정일(1,359) → 다른 시각 값', M.fxBasisNote({ rate: 1362.3, source: 'hana' }, 1359),
+  '한눈 시황·내 자산은 같은 하나은행 고시의 다른 시각 값(1,362.30원)으로 계산해요 — 고시는 하루에도 여러 번 바뀌어요.')
+eq('하나은행 실패 → 다른 원천(fawazahmed0 1,361.27) → 다를 수 있음', M.fxBasisNote({ rate: 1361.27, source: 'fawazahmed0' }, 1359),
+  '지금은 하나은행 고시를 새로 못 받아 한눈 시황·내 자산은 다른 환율(1,361.27원)로 계산 중이에요 — 조금 다를 수 있어요.')
+eq('마지막 성공값(last-good)도 하나은행 새 값이 아님 → 다를 수 있음', M.fxBasisNote({ rate: 1355.5, source: 'last-good' }, 1359) != null, true)
+eq('다른 원천이어도 값이 같으면 → 문구 없음(설명할 차이가 없다)', M.fxBasisNote({ rate: 1359, source: 'last-good' }, 1359), null)
+eq('고정 상수(stale-constant) → 문구 없음(앱 환율을 못 받음 — 그 화면이 밝힌다)', M.fxBasisNote({ rate: 1400, source: 'stale-constant' }, 1359), null)
+eq('앱 환율 응답 없음 → 문구 없음', M.fxBasisNote(null, 1359), null)
+
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (학생 시장 화면 규칙)')
 process.exit(fail ? 1 : 0)
