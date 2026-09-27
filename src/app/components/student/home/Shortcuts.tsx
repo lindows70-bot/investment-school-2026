@@ -1,14 +1,14 @@
 'use client'
-// 학생 홈 바로가기 4칸 — 배당·실적 일정 · 거장 · 코인 · 부동산
+// 학생 홈 바로가기 4칸 — 일정 · 거장 · 코인 · 부동산
 //   ⏳ 목적지는 아직 분석 화면 — phase5-plan 2·3단계에서 /s/calendar·/s/gurus·/s/coin·/s/realestate 로 바꾼다(verify-simple-mode-exits 임시 허용)
 import Link from 'next/link'
 import { Bitcoin, Building2, CalendarDays, Crown } from 'lucide-react'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 
-// 경로는 phase2-plan '캔버스와 달라지는 것' 표 그대로 — 배당·실적 일정은 /assets 의 일정 패널 한 곳
+// 5단계: 목적지는 전부 간편 화면(/s/…) — 분석 화면으로 새지 않는다(코인·부동산은 3단계에서 옮긴다)
 const ITEMS = [
-  { href: '/assets', label: '배당·실적 일정', Icon: CalendarDays },
-  { href: '/guru-portfolio', label: '거장', Icon: Crown },
+  { href: '/s/calendar', label: '일정', Icon: CalendarDays },
+  { href: '/s/gurus', label: '거장', Icon: Crown },
   { href: '/dashboard?tab=coinlab&cv=btc', label: '코인', Icon: Bitcoin },
   { href: '/real-estate', label: '부동산', Icon: Building2 },
 ]

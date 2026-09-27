@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { TK, FS, RAD, SP } from '@/lib/theme'
-import type { Tone, HomeBriefInput } from '@/lib/homeBrief'
+import { addDays, type Tone, type HomeBriefInput } from '@/lib/homeBrief'
 import { MACRO_RELEASES } from '@/lib/macroReleases'
 import type { JsonResult } from '@/app/components/student/useJson'
 
@@ -135,4 +135,30 @@ export function useKstToday(): string | null {
     return () => clearInterval(id)
   }, [])
   return today
+}
+
+// ── 일정 항목 — 홈 '주요 일정' 카드와 /s/calendar 가 같은 함수로 만든다(FOMC 새벽 · 미국 지표 밤 · 내 종목 실적/배당) ──
+export const CAL_TYPE_KO: Record<string, string> = { earnings: '실적 발표', exDiv: '배당락', payDiv: '배당 지급' }
+export interface CalItem { key: string; date: string; label: string; mine: boolean; kind: 'fomc' | 'macro' | 'mine'; ticker?: string; name?: string }
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
+/** today 부터 windowDays 안 일정을 날짜순으로. macro·events 는 못 가져왔으면 빈 배열로 넘긴다(그 사실은 호출부가 따로 말한다) */
+export function buildCalendarItems(input: { today: string; windowDays: number; fomcKst: string[]; macro: MacroRow[]; events: CalEventRow[] }): CalItem[] {
+  const { today, windowDays } = input
+  const last = addDays(today, windowDays)
+  const fomc: CalItem[] = input.fomcKst.filter(d => d >= today && d <= last).map(d => ({ key: `fomc:${d}`, date: d, label: '새벽 FOMC 금리 발표', mine: false, kind: 'fomc' }))
+  const macro: CalItem[] = input.macro.flatMap(m => {
+    const t = macroNightText(m.kstTime)
+    return t && m.kstDate >= today && m.kstDate <= last ? [{ key: `macro:${m.kind}:${m.kstDate}`, date: m.kstDate, label: `${t} · ${m.label} 발표`, mine: false, kind: 'macro' as const }] : []
+  })
+  // 같은 종목·종류·날짜는 한 번
+  const mine = Array.from(new Map(input.events
+    .filter(e => e && CAL_TYPE_KO[e.type] && typeof e.name === 'string' && typeof e.date === 'string' && YMD_RE.test(e.date) && e.date >= today && e.date <= last)
+    .map(e => [`${e.type}:${e.ticker}:${e.date}`, { key: `${e.type}:${e.ticker}:${e.date}`, date: e.date, label: `${e.name} ${CAL_TYPE_KO[e.type]}`, mine: true, kind: 'mine' as const, ticker: e.ticker, name: e.name }] as [string, CalItem])).values())
+  return [...fomc, ...macro, ...mine].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
+}
+/** 'YYYY-MM-DD' → '오늘' 또는 'M/D(요일)' — 문자열 산술만(시계 안 봄) */
+export function calDateText(ymd: string, today: string): string {
+  if (ymd === today) return '오늘'
+  const [y, m, d] = ymd.split('-').map(Number)
+  return `${m}/${d}(${['일', '월', '화', '수', '목', '금', '토'][new Date(Date.UTC(y, m - 1, d)).getUTCDay()]})`
 }

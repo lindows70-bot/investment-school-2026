@@ -203,7 +203,7 @@ function NewsCard({ sectionRef, seen, calendar, movers, today }: {
         {failed.length > 0
           ? <button type="button" onClick={() => failed.forEach(s => s.reload())} aria-label="내 종목 소식에서 못 가져온 것 다시 불러오기" style={retryBtn}>못 가져온 것 다시</button>
           : <span />}
-        <Link href="/briefing" style={moreLink}><span style={ellipsis}>오늘의 매매 브리핑 전체 ›</span></Link>
+        <Link href="/s/brief" style={moreLink}><span style={ellipsis}>오늘의 매매 브리핑 전체 ›</span></Link>
       </div>
     </section>
   )

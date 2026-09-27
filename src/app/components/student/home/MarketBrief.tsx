@@ -85,7 +85,7 @@ export default function MarketBrief({ indices, calendar, fx, macro, today }: { i
         {failed.length > 0
           ? <button type="button" onClick={() => failed.forEach(s => s.reload())} aria-label="시황에서 못 가져온 것 다시 불러오기" style={retryBtn}>못 가져온 것 다시</button>
           : <span />}
-        <Link href="/briefing" style={{ display: 'flex', alignItems: 'center', minHeight: 44, fontSize: FS.tiny, color: TK.sky400, textDecoration: 'none', whiteSpace: 'nowrap' }}>오늘의 매매 브리핑 전체 ›</Link>
+        <Link href="/s/brief" style={{ display: 'flex', alignItems: 'center', minHeight: 44, fontSize: FS.tiny, color: TK.sky400, textDecoration: 'none', whiteSpace: 'nowrap' }}>오늘의 매매 브리핑 전체 ›</Link>
       </div>
     </section>
   )

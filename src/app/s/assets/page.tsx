@@ -69,7 +69,7 @@ function MonthDividend() {
   return (
     <div ref={ref}>
       {linked
-        ? <Link href="/assets" style={{ ...card, display: 'flex', alignItems: 'center', gap: SP.sm, minHeight: 44, color: TK.slate200, textDecoration: 'none' }}>
+        ? <Link href="/s/calendar" style={{ ...card, display: 'flex', alignItems: 'center', gap: SP.sm, minHeight: 44, color: TK.slate200, textDecoration: 'none' }}>
             <div style={{ flexGrow: 1, minWidth: 0 }}>{body}</div>
             <span aria-hidden style={{ fontSize: FS.lg, color: TK.sub, flexShrink: 0 }}>›</span>
           </Link>

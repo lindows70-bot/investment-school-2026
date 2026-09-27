@@ -33,7 +33,7 @@ export default function MyNews() {
 
   return (
     <section ref={ref} style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
-      <CardHead title="내 종목 뉴스" href="/dashboard" linkText="더 보기 ›" />
+      <CardHead title="내 종목 뉴스" href="/s/news" linkText="더 보기 ›" />
       {(news.state === 'idle' || news.state === 'loading') && <span style={noteStyle()}>내 종목 뉴스를 모으는 중… 조금 걸려요.</span>}
       {news.state === 'unauth' && <span style={noteStyle()}>로그인하면 내 종목 뉴스가 보여요.</span>}
       {(news.state === 'failed' || (news.state === 'ok' && list == null)) && <FailRow text="뉴스를 못 가져왔어요." onRetry={news.reload} retryLabel="내 종목 뉴스 다시 불러오기" />}

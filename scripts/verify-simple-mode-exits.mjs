@@ -15,16 +15,8 @@ const PERMANENT = [
 ]
 /** 임시 허용 — phase5-plan 의 단계가 끝나면 그 줄을 지운다(지우면 이 검사가 그 출구를 잡는다) */
 const TEMPORARY = [
-  { file: 'src/app/components/student/home/Shortcuts.tsx', href: '/assets', until: '2단계 /s/calendar' },
-  { file: 'src/app/components/student/home/UpcomingEvents.tsx', href: '/assets', until: '2단계 /s/calendar' },
-  { file: 'src/app/s/assets/page.tsx', href: '/assets', until: '2단계 /s/calendar' },
-  { file: 'src/app/components/student/home/Shortcuts.tsx', href: '/guru-portfolio', until: '2단계 /s/gurus' },
-  { file: 'src/app/components/student/home/GuruCard.tsx', href: '/guru-portfolio', until: '2단계 /s/gurus' },
   { file: 'src/app/components/student/home/Shortcuts.tsx', href: '/dashboard?tab=coinlab&cv=btc', until: '3단계 /s/coin' },
   { file: 'src/app/components/student/home/Shortcuts.tsx', href: '/real-estate', until: '3단계 /s/realestate' },
-  { file: 'src/app/components/student/home/MarketBrief.tsx', href: '/briefing', until: '2단계 /s/brief' },
-  { file: 'src/app/s/learn/page.tsx', href: '/briefing', until: '2단계 /s/brief' },
-  { file: 'src/app/components/student/home/MyNews.tsx', href: '/dashboard', until: '2단계 /s/news' },
   { file: 'src/app/s/stock/[ticker]/page.tsx', href: '/research?q=', until: '4단계 종목 상세 더 알아보기' },
   { file: 'src/app/s/learn/page.tsx', href: '/investment-academy', until: '5단계 수업 자료 껍데기' },
   { file: 'src/app/s/learn/page.tsx', href: '/master-strategy', until: '5단계 수업 자료 껍데기' },
