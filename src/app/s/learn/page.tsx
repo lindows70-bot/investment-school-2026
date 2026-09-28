@@ -217,6 +217,12 @@ const ACADEMY = [
   { href: '/school-lounge', title: '스쿨 라운지', sub: '질문하고 이야기하기' },
 ]
 
+// ── 5. 테마(부동산·코인) — 5단계-3: 간편 화면 안의 부동산·코인 입구(사용자 결정: 둘 다 중요한 자산, 배우기에 둔다)
+const THEMES = [
+  { href: '/s/realestate', title: '부동산', sub: '아파트 단지 리서치 — 실거래로 찾기' },
+  { href: '/s/coin', title: '코인', sub: '대표 4종 시세 · 규제 · ETF 자금' },
+]
+
 const sectionTitle = { margin: 0, fontSize: FS.lg, fontWeight: 700, color: TK.slate100 } as const
 
 export default function StudentLearn() {
@@ -234,6 +240,7 @@ export default function StudentLearn() {
       <style>{`
         .sl-two { display: grid; grid-template-columns: minmax(0, 1fr); gap: ${SP.lg}px; align-items: start }
         .sl-academy { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: ${SP.sm}px }
+        .sl-themes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: ${SP.sm}px }
         @media (min-width: 769px) {
           .sl-two { grid-template-columns: repeat(2, minmax(0, 1fr)) }
           .sl-academy { grid-template-columns: repeat(4, minmax(0, 1fr)) }
@@ -255,6 +262,18 @@ export default function StudentLearn() {
         <h2 id="learn-academy" style={sectionTitle}>수업 자료</h2>
         <nav aria-label="수업 자료" className="sl-academy">
           {ACADEMY.map(a => (
+            <Link key={a.href} href={a.href} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: SP.xs, minHeight: 72, padding: SP.md, borderRadius: RAD.md, background: TK.card, border: `1px solid ${TK.border}`, textDecoration: 'none', minWidth: 0 }}>
+              <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate100, wordBreak: 'keep-all' }}>{a.title}</span>
+              <span style={{ fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{a.sub}</span>
+            </Link>
+          ))}
+        </nav>
+      </section>
+
+      <section aria-labelledby="learn-themes" style={{ display: 'flex', flexDirection: 'column', gap: SP.sm }}>
+        <h2 id="learn-themes" style={sectionTitle}>부동산 · 코인</h2>
+        <nav aria-label="부동산·코인" className="sl-themes">
+          {THEMES.map(a => (
             <Link key={a.href} href={a.href} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: SP.xs, minHeight: 72, padding: SP.md, borderRadius: RAD.md, background: TK.card, border: `1px solid ${TK.border}`, textDecoration: 'none', minWidth: 0 }}>
               <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate100, wordBreak: 'keep-all' }}>{a.title}</span>
               <span style={{ fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{a.sub}</span>
