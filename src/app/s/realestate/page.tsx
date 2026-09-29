@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 import { LAWD_REGIONS } from '@/lib/rtms'
-import { niceTicks, dayTicks } from '@/lib/marketScreen'
+import { niceTicks } from '@/lib/marketScreen'
 import { useJson, type JsonState } from '@/app/components/student/useJson'
 import { LinePlot } from '@/app/components/student/market/marketUi'
 import { card, FailRow, noteStyle, retryBtn } from '@/app/components/student/home/homeUi'
@@ -91,7 +91,10 @@ export default function StudentRealEstate() {
   const linePts = sel ? sel.monthly.filter(m => isNum(m.sale) && m.sale! > 0).map(m => ({ t: Date.UTC(Number(m.ym.slice(0, 4)), Number(m.ym.slice(5, 7)) - 1, 15), v: m.sale as number })) : []
   const vals = linePts.map(p => p.v)
   const min = vals.length ? Math.min(...vals) : 0, max = vals.length ? Math.max(...vals) : 0
-  const xt = linePts.length >= 2 ? dayTicks(linePts[0].t, linePts[linePts.length - 1].t) : { ticks: [] as number[], fmt: () => '' }
+  // 가로 눈금 — 마지막 달부터 6개월 간격, 'YYYY.M'(24개월에 달만 두 달 간격으로 적으면 폰에서 12개가 겹치고 어느 해인지 모른다 — 2026-09-29 실측)
+  const monthNo = (t: number) => { const dt = new Date(t); return dt.getUTCFullYear() * 12 + dt.getUTCMonth() }
+  const lastMonth = linePts.length ? monthNo(linePts[linePts.length - 1].t) : 0
+  const xt = { ticks: linePts.filter(p => (lastMonth - monthNo(p.t)) % 6 === 0).map(p => p.t), fmt: (t: number) => { const dt = new Date(t); return `${dt.getUTCFullYear()}.${dt.getUTCMonth() + 1}` } }
   const monthsWithDeals = linePts.length
   const deals = sel ? sel.deals : []
   const v = sel?.value

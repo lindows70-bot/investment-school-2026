@@ -80,7 +80,10 @@ function getCached(key: string): StockData | null {
   return Date.now() < e.expiresAt ? e.data : null
 }
 function getCachedFallback(key: string) { return CACHE.get(key)?.data ?? null }
+/** 일부를 폴백(현재가 직선)으로 채운 응답 — 캐시하지 않는다(다음 요청이 스스로 낫게). 응답 모양은 그대로 */
+const PARTIAL = new WeakSet<StockData>()
 function setCache(key: string, data: StockData) {
+  if (PARTIAL.has(data)) return
   CACHE.set(key, { data, expiresAt: Date.now() + CACHE_TTL })
 }
 function nullFundamentals(): Fundamentals {
@@ -627,13 +630,28 @@ function flatLine(price: number, points = 24): PricePoint[] {
   }))
 }
 
+// ⚠️ 업비트 시세 API 는 IP 당 초당 10회(그룹별)다. 코인 4종을 한 번에 부르면 예전엔 코인당 8회 × 4 = 32회가 동시에 나가
+//    SOL·XRP 차트가 429 로 떨어지고 현재가 직선으로 채워진 채 60초 캐시에 들어갔다(2026-09-29 /s/coin 실측 — 4종 중 2종 직선).
+//    → 호출 시작 간격을 벌리고(초당 약 8회), 429 면 1초 뒤 한 번 더 부른다. 요청 수도 코인당 5회로 줄였다(아래 fetchCrypto).
+const UPBIT_GAP_MS = 120
+let upbitNext = 0
+async function upbitGet(url: string, retry = true): Promise<Response> {
+  const now = Date.now()
+  const wait = Math.max(0, upbitNext - now)
+  upbitNext = Math.max(now, upbitNext) + UPBIT_GAP_MS
+  if (wait > 0) await new Promise(r => setTimeout(r, wait))
+  const res = await fetch(url, { headers: UPBIT_H, next: { revalidate: 0 } })
+  if (res.status === 429 && retry) {
+    await new Promise(r => setTimeout(r, 1000))
+    return upbitGet(url, false)
+  }
+  return res
+}
+
 /** 업비트 현재가 조회 */
 async function upbitQuote(ticker: string) {
   const market = upbitMarket(ticker)
-  const res = await fetch(
-    `https://api.upbit.com/v1/ticker?markets=${market}`,
-    { headers: UPBIT_H, next: { revalidate: 0 } }
-  )
+  const res = await upbitGet(`https://api.upbit.com/v1/ticker?markets=${market}`)
   if (!res.ok) throw new Error(`업비트 시세 조회 실패 (${res.status}): ${market}`)
 
   const arr = await res.json()
@@ -649,102 +667,71 @@ async function upbitQuote(ticker: string) {
   }
 }
 
-/** 업비트 캔들 → PricePoint[]
- *  업비트 응답은 최신 데이터 먼저(내림차순) → reverse()로 오름차순 정렬
- */
-async function upbitChart(ticker: string, tf: TimeFrame): Promise<PricePoint[]> {
-  const market = upbitMarket(ticker)
-
-  // 1D: 1시간봉 24개 / 1W: 일봉 7개 / 1M: 일봉 30개
-  const url =
-    tf === '1D'
-      ? `https://api.upbit.com/v1/candles/minutes/60?market=${market}&count=24`
-      : `https://api.upbit.com/v1/candles/days?market=${market}&count=${tf === '1W' ? 7 : 30}`
-
-  const res = await fetch(url, { headers: UPBIT_H, next: { revalidate: 0 } })
-  if (!res.ok) throw new Error(`업비트 차트 조회 실패 (${res.status}): ${market} ${tf}`)
-
-  const candles: { timestamp: number; trade_price: number }[] = await res.json()
-  if (!Array.isArray(candles)) return []
-
-  return candles
-    .reverse()                               // 최신→과거 순서를 과거→최신으로
-    .map(c => ({ t: c.timestamp, v: c.trade_price }))
-    .filter(p => p.v > 0 && isFinite(p.t))
-}
-
-/** CRYPTO OHLC 캔들 데이터 (업비트 → Candle[]) */
-async function upbitOhlcChart(ticker: string, tf: TimeFrame): Promise<Candle[]> {
-  const market = upbitMarket(ticker)
-  // 캔들 밀도 최적화
-  const url =
-    tf === '1D' ? `https://api.upbit.com/v1/candles/minutes/10?market=${market}&count=72`  // 10분봉 72개 ≈ 12시간
-    : tf === '1W' ? `https://api.upbit.com/v1/candles/days?market=${market}&count=40`      // 일봉 40개
-    : tf === '1Y' ? `https://api.upbit.com/v1/candles/weeks?market=${market}&count=52`     // 주봉 52개
-    : `https://api.upbit.com/v1/candles/days?market=${market}&count=90`                    // 1M: 일봉 90개
-
+/** 업비트 캔들 원본 — 최신이 먼저(내림차순)로 온다. 실패는 null(빈 배열과 구분: 빈 배열은 '거래 없음') */
+interface UpbitCandle { timestamp: number; trade_price: number; opening_price: number; high_price: number; low_price: number; candle_acc_trade_volume?: number; candle_date_time_kst?: string }
+async function upbitCandles(path: string, market: string, count: number): Promise<UpbitCandle[] | null> {
   try {
-    const res = await fetch(url, { headers: UPBIT_H, next: { revalidate: 0 } })
-    if (!res.ok) return []
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data: any[] = await res.json()
-    if (!Array.isArray(data)) return []
-
-    return data
-      .reverse()   // 업비트: 최신→과거 순, 과거→최신으로 뒤집기
-      .map(d => ({
-        date:   String(d.candle_date_time_kst ?? '').slice(0, 10),
-        open:   d.opening_price  as number,
-        high:   d.high_price     as number,
-        low:    d.low_price      as number,
-        close:  d.trade_price    as number,
-        volume: d.candle_acc_trade_volume as number ?? 0,
-      }))
-      .filter((c: Candle) => isFinite(c.close) && c.close > 0)
-  } catch { return [] }
+    const res = await upbitGet(`https://api.upbit.com/v1/candles/${path}?market=${market}&count=${count}`)
+    if (!res.ok) return null
+    const data = await res.json()
+    return Array.isArray(data) ? data as UpbitCandle[] : null
+  } catch { return null }
+}
+/** 캔들 → 선(과거→최신). last = 마지막 N개만 */
+function toLine(c: UpbitCandle[], last?: number): PricePoint[] {
+  const pts = [...c].reverse().map(x => ({ t: x.timestamp, v: x.trade_price })).filter(p => p.v > 0 && isFinite(p.t))
+  return last ? pts.slice(-last) : pts
+}
+/** 캔들 → OHLC(과거→최신) */
+function toOhlc(c: UpbitCandle[], last?: number): Candle[] {
+  const out = [...c].reverse().map(d => ({
+    date:   String(d.candle_date_time_kst ?? '').slice(0, 10),
+    open:   d.opening_price,
+    high:   d.high_price,
+    low:    d.low_price,
+    close:  d.trade_price,
+    volume: d.candle_acc_trade_volume ?? 0,
+  })).filter(c => isFinite(c.close) && c.close > 0)
+  return last ? out.slice(-last) : out
 }
 
 async function fetchCrypto(ticker: string): Promise<StockData> {
-  const [chartResults, ohlcResults, quote] = await Promise.all([
-    Promise.allSettled([
-      upbitChart(ticker, '1D'),
-      upbitChart(ticker, '1W'),
-      upbitChart(ticker, '1M'),
-    ]),
-    Promise.allSettled([
-      upbitOhlcChart(ticker, '1D'),
-      upbitOhlcChart(ticker, '1W'),
-      upbitOhlcChart(ticker, '1M'),
-      upbitOhlcChart(ticker, '1Y'),
-    ]),
+  const market = upbitMarket(ticker)
+  // 코인당 5회 — 예전 8회(선 3 + 캔들 4 + 시세)에서 일봉 셋(7·30·40·90개)을 90개 한 번으로 합쳤다(같은 엔드포인트의 앞부분이라 값이 같다)
+  //   선: 1D=시간봉 24 · 1W=일봉 최근 7 · 1M=일봉 최근 30 / 캔들: 1D=10분봉 72(≈12시간) · 1W=일봉 40 · 1M=일봉 90 · 1Y=주봉 52
+  const [hourly, min10, days, weeks, quote] = await Promise.all([
+    upbitCandles('minutes/60', market, 24),
+    upbitCandles('minutes/10', market, 72),
+    upbitCandles('days', market, 90),
+    upbitCandles('weeks', market, 52),
     upbitQuote(ticker),
   ])
-  const [r1D, r1W, r1M] = chartResults
 
-  const to1D = r1D.status === 'fulfilled' && r1D.value.length > 0
-    ? r1D.value : flatLine(quote.currentPrice, 24)
-  const to1W = r1W.status === 'fulfilled' && r1W.value.length > 0
-    ? r1W.value : flatLine(quote.currentPrice, 7)
-  const to1M = r1M.status === 'fulfilled' && r1M.value.length > 0
-    ? r1M.value : flatLine(quote.currentPrice, 30)
+  const l1D = hourly ? toLine(hourly) : []
+  const l1W = days ? toLine(days, 7) : []
+  const l1M = days ? toLine(days, 30) : []
+  // 빈 선은 현재가 직선으로 채운다(기존 화면 호환) — 대신 그 응답은 캐시하지 않는다
+  const partial = !l1D.length || !l1W.length || !l1M.length
 
-  const [co1D, co1W, co1M, co1Y] = ohlcResults
-  const ohlcCharts: Record<TimeFrame, Candle[]> = {
-    '1D': co1D.status === 'fulfilled' ? co1D.value : [],
-    '1W': co1W.status === 'fulfilled' ? co1W.value : [],
-    '1M': co1M.status === 'fulfilled' ? co1M.value : [],
-    '1Y': co1Y.status === 'fulfilled' ? co1Y.value : [],
-  }
-
-  return {
+  const data: StockData = {
     ticker:       ticker.toUpperCase(),
     name:         ticker.toUpperCase(),
     currentPrice: quote.currentPrice,
     currency:     'KRW',           // ← USD → KRW
     change:       quote.change,
     changePct:    quote.changePct,
-    charts:       { '1D': to1D, '1W': to1W, '1M': to1M, '1Y': [] },
-    ohlcCharts,
+    charts: {
+      '1D': l1D.length ? l1D : flatLine(quote.currentPrice, 24),
+      '1W': l1W.length ? l1W : flatLine(quote.currentPrice, 7),
+      '1M': l1M.length ? l1M : flatLine(quote.currentPrice, 30),
+      '1Y': [],
+    },
+    ohlcCharts: {
+      '1D': min10 ? toOhlc(min10) : [],
+      '1W': days ? toOhlc(days, 40) : [],
+      '1M': days ? toOhlc(days) : [],
+      '1Y': weeks ? toOhlc(weeks) : [],
+    },
     fundamentals: {
       pe: 'N/A', peg: 'N/A',
       marketCap: null, volume: quote.volume,
@@ -755,6 +742,8 @@ async function fetchCrypto(ticker: string): Promise<StockData> {
     updatedAt: new Date().toISOString(),
     source:    'live',
   }
+  if (partial || !min10 || !days || !weeks) PARTIAL.add(data)
+  return data
 }
 
 // ═══════════════════════════════════════════════════════════════
