@@ -12,12 +12,12 @@
 - [x] `src/lib/scale.ts` 순수 조립 · `scripts/verify-scale.mjs` 26건(야간 감사 등록)
 - [x] `/api/scale`(scale-v1 · 1h · 숫자 칸이 하나라도 비면 캐시 안 함)
 - [x] `/s/scale` 화면 · 배우기 '더 알아보기'에 입구 카드
-- [ ] 배포 · 프로덕션 세 폭 실측
+- [x] 배포 · 프로덕션 세 폭 실측(9f129cce)
 
 ## 2단계 — 필드 추가(③열·주담대)
-- [ ] `regionSeason` 에 cpiMonth·cliMonth·폴백 플래그(지금은 CPI 못 받으면 2.5%, CLI 못 받으면 100 으로 조용히 채움)
-- [ ] macro-regime rateDir 실패 플래그 · re-market kpi asOfMortgage(v3 + reader)
-- [ ] ③열 계절 이름 + 근거 숫자
+- [x] `regionSeason` meta(기준월·폴백 표시) · macro `rateDirOk` + 부분실패 캐시 금지(박제된 '동결' 결함 수정)
+- [x] re-market kpi asOfBase·asOfMortgage(v3, 키 상수화)
+- [x] ③열 계절 이름 + 재료 기준월 · 폴백이면 판정 쉼 · 프로덕션 세 폭(4c994384)
 
 ## 3단계 — 선생님 원칙
 - [ ] 계절 × 자산 순풍/역풍 표 — **선생님 승인 후에만** ③ 칩
