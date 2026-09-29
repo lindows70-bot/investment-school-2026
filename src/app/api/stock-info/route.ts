@@ -643,10 +643,14 @@ async function krInfo(ticker: string): Promise<StockInfo> {
   const code = ticker.replace(/\.(KS|KQ)$/i, '')
 
   // 시가총액은 polling API에서 marketValueFullRaw로 가져옴
-  const [basicRes, annualRes, pollingRes] = await Promise.all([
+  // ⚠️ 2026-09-29 실측: 네이버 basic 응답에서 high52week·low52week·industryCodeType 필드가 사라졌다 —
+  //    그래서 모든 국내 종목의 52주 최고·최저가 null 이었다(거장 위원회 '가격 위치'가 국내만 '데이터 없음').
+  //    52주 값은 integration.totalInfos(highPriceOf52Weeks·lowPriceOf52Weeks, "380,000" 문자열)에 그대로 있다.
+  const [basicRes, annualRes, pollingRes, integRes] = await Promise.all([
     fetch(`https://m.stock.naver.com/api/stock/${code}/basic`,          { headers: NAVER_H, next:{ revalidate:3600 } }),
     fetch(`https://m.stock.naver.com/api/stock/${code}/finance/annual`, { headers: NAVER_H, next:{ revalidate:3600 } }),
     fetch(`https://polling.finance.naver.com/api/realtime/domestic/stock/${code}`, { headers: NAVER_H, next:{ revalidate:0 } }),
+    fetch(`https://m.stock.naver.com/api/stock/${code}/integration`,    { headers: NAVER_H, next:{ revalidate:3600 } }).catch(() => null),
   ])
 
   if (!basicRes.ok) throw new Error(`네이버 KR 조회 실패 (${basicRes.status}): ${code}`)
@@ -691,6 +695,19 @@ async function krInfo(ticker: string): Promise<StockInfo> {
   let annualDividend: number | null = null
   let krHasCash:      boolean | null = null   // 순현금 여부 (자동 계산)
 
+  // 52주 최고·최저 — integration 우선, 옛 basic 필드는 폴백(돌아오면 쓴다). 둘 다 없으면 null(지어내지 않는다)
+  try {
+    const integ = integRes && integRes.ok ? await integRes.json() : null
+    const infos: { code?: string; value?: string }[] = Array.isArray(integ?.totalInfos) ? integ.totalInfos : []
+    const pick = (c: string) => {
+      const v = infos.find(x => x?.code === c)?.value
+      const n = typeof v === 'string' ? parseFloat(v.replace(/[^\d.]/g, '')) : NaN
+      return Number.isFinite(n) && n > 0 ? n : null
+    }
+    high52w = pick('highPriceOf52Weeks') ?? (typeof d.high52week === 'number' ? d.high52week : null)
+    low52w  = pick('lowPriceOf52Weeks')  ?? (typeof d.low52week  === 'number' ? d.low52week  : null)
+  } catch { /* 52주는 참고값 — 실패해도 나머지 지표는 그대로 */ }
+
   if (annualRes.ok) {
     try {
       const fin = await annualRes.json()
@@ -708,9 +725,6 @@ async function krInfo(ticker: string): Promise<StockInfo> {
       const perVal = getAnnualVal(rowList, 'PER', lastKey)
       if (perVal !== null && perVal > 0) per = perVal
 
-      // 고/저가 (basic API fallback)
-      high52w = typeof d.high52week === 'number' ? d.high52week : null
-      low52w  = typeof d.low52week  === 'number' ? d.low52week  : null
 
       // EPS 성장률: 다양한 항목명 시도 (회사마다 다를 수 있음)
       const epsGrowth = calcGrowth(rowList, 'EPS', actual)
