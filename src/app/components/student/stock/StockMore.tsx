@@ -46,8 +46,10 @@ export default function StockMore({ ticker, market, price, currency }: { ticker:
     <details onToggle={e => setOpen((e.currentTarget as HTMLDetailsElement).open)} style={{ border: `1px solid ${TK.border}`, borderRadius: RAD.md, padding: `0 ${SP.lg}px` }}>
       {/* 폰은 두 칸, 769px↑ 는 세 칸 — 기본값 + min-width 하나(정확한 여집합) */}
       <style>{`.sm-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: ${SP.sm}px } @media (min-width: 769px) { .sm-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) } } details > summary::-webkit-details-marker { display: none }`}</style>
-      <summary style={{ display: 'flex', alignItems: 'center', minHeight: 52, fontSize: FS.body, fontWeight: 700, color: TK.slate100, cursor: 'pointer', listStyle: 'none' }}>
-        더 알아보기 <span style={{ marginLeft: SP.sm, fontSize: FS.tiny, fontWeight: 500, color: TK.sub }}>{crypto ? '거래 정보' : 'PER · PEG · 시가총액 · 52주 위치 · 업종 · 배당'}</span>
+      {/* 제목은 한 줄 고정, 설명은 아랫줄 — 옆에 두면 폰(375px)에서 제목이 '더 알아보 / 기'로 깨졌다(2026-09-29 실측) */}
+      <summary style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2, minHeight: 52, padding: `${SP.sm}px 0`, cursor: 'pointer', listStyle: 'none' }}>
+        <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate100, whiteSpace: 'nowrap' }}>더 알아보기 ›</span>
+        <span style={{ fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all' }}>{crypto ? '거래 정보' : 'PER · PEG · 시가총액 · 52주 위치 · 업종 · 배당'}</span>
       </summary>
       <div style={{ display: 'flex', flexDirection: 'column', gap: SP.sm, paddingBottom: SP.lg }}>
         {(r.state === 'idle' || r.state === 'loading') && <span style={noteStyle()}>종목 정보를 불러오는 중…</span>}
