@@ -8,6 +8,7 @@ import { getCache, setCache } from '@/lib/appCache'
 import { rtmsTradeMonth, rtmsRentMonth, LAWD_SIDO, LAWD_REGIONS, type AptDeal } from '@/lib/rtms'
 import { roneSeries, RONE_JEONSE_TBL, RONE_PRICE_CLS, HONEYCOMB_KEY } from '@/lib/rone'
 import { getSeoulAptMaster, matchAptMaster } from '@/lib/seoulApt'
+import { RE_MARKET_KEY } from '@/lib/reMarketKey'
 
 export interface AptComplex { name: string; dealCount: number; lastPrice: number; lastYm: string; buildYear: number | null }
 export interface AptOverview { households: number | null; dongs: number | null; aprv: string | null; park: number | null; parkPerHh: number | null; heat: string | null }
@@ -140,7 +141,7 @@ export async function GET(req: Request) {
     } catch { /* graceful */ }
     let mortgageRate: number | null = null
     try {
-      const rm = await getCache<{ kpi: { mortgageRate: number | null } }>('re-market-v2', 14 * 86400_000)
+      const rm = await getCache<{ kpi: { mortgageRate: number | null } }>(RE_MARKET_KEY, 14 * 86400_000)
       mortgageRate = rm?.kpi.mortgageRate ?? null
     } catch { /* graceful */ }
     // 💸 갭투자 X-Ray — 시도 아파트 전세지수(A_2024_00053) 역사 최대 낙폭(실측·30일 캐시). 하락 가정이 아니라 그 시도의 실제 최악 낙폭

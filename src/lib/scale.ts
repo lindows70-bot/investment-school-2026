@@ -20,11 +20,20 @@ export interface ScaleCell {
 export interface ScaleRow { asset: ScaleAsset; name: string; cells: [ScaleCell, ScaleCell, ScaleCell] }
 export interface ScaleResult { rows: ScaleRow[]; oldestDate: string | null; asOf: string }
 
+export type Quad = 'goldilocks' | 'inflation' | 'stagflation' | 'recession' | 'shoulder'
+
 export interface ScaleInput {
   today: string   // KST 'YYYY-MM-DD'
   realYield: { nominal: { v: number; date: string }; real: { v: number; date: string }; bei: { v: number; date: string } } | null
   factset: { fwd: number; avg5: number | null; avg10: number | null; date: string } | null
-  kb: { yoy: number; asOf: string } | null
+  kb: { yoy: number; asOf: string; mortgage: { v: number; asOf: string } | null } | null
+  /** 계절 재료 — regionSeason SSOT. ok=false 인 재료는 폴백(진짜 값 아님)이라 그 계절은 말하지 않는다 */
+  season: {
+    us: { quad: Quad; cliMonth: string | null; cliOk: boolean }
+    kr: { quad: Quad; cliMonth: string | null; cliOk: boolean }
+    cpiYoY: number; cpiMonth: string | null; cpiOk: boolean
+    rateDir: 'cut' | 'hold' | 'hike'; rateDirOk: boolean; nextFomc: string | null
+  } | null
   gold: { last: { date: string; close: number }; yearAgo: { date: string; close: number } | null } | null
   fng: { now: number | null; weekAgo: number | null; monthAgo: number | null; cls: string | null; date: string | null } | null
 }
@@ -48,8 +57,32 @@ const cell = (q: ScaleQ, status: ScaleStatus, sentence: string, o: Partial<Omit<
   ({ q, status, sentence, chip: o.chip ?? null, source: o.source ?? null, date: o.date ?? null, detail: o.detail ?? null, href: o.href ?? null })
 const hold = (q: ScaleQ, what: string) => cell(q, 'hold', `${what} 자료가 아직 안 들어왔어요. 출처·날짜가 없는 숫자는 쓰지 않아서 이 칸은 잠시 비워 둬요.`)
 
-// ③ 계절 — 2단계(계절 재료의 기준월·폴백 표시)가 붙기 전까지는 가짜 계절을 넣지 않는다
-const SEASON_SOON = cell('season', 'hold', '곧 열려요. 경기와 물가가 오르는지 내리는지(계절)를 자료 날짜와 함께 보여 드릴게요.')
+// ③ 계절 — 투자학교 4계절(성장=OECD 경기선행지수 × 물가=미국 CPI 3% 초과 또는 금리 인상 예상). 순풍/역풍 칩은 선생님 원칙 승인 전까지 없다
+const QUAD_KO: Record<Quad, string> = {
+  goldilocks: '🌸 봄(경기↑ 물가↓)', inflation: '☀️ 여름(경기↑ 물가↑)', stagflation: '🍁 가을(경기↓ 물가↑)',
+  recession: '❄️ 겨울(경기↓ 물가↓)', shoulder: '🌗 간절기',
+}
+const RATE_KO = { cut: '인하', hold: '동결', hike: '인상' } as const
+const SEASON_DETAIL = '계절 = 경기(OECD 경기선행지수가 오르나)와 물가(미국 CPI 3% 초과·금리 인상 예상)로 나눈 4칸 · 이 계절에 어느 자산이 순풍인지는 선생님 수업 원칙이 정해지면 붙어요'
+type Season = NonNullable<ScaleInput['season']>
+/** 물가축이 진짜 값인가 — CPI 를 받았고, CPI 가 3% 이하일 땐 금리 예상(FedWatch)까지 받아야 판정이 선다 */
+const inflationKnown = (s: Season) => s.cpiOk && (s.cpiYoY > 3 || s.rateDirOk)
+/** 한 지역 계절 문구 — 재료가 폴백이면 null */
+function seasonPhrase(s: Season, region: 'us' | 'kr'): string | null {
+  const r = s[region]
+  if (!r.cliOk || !inflationKnown(s)) return null
+  return r.quad === 'shoulder' ? '🌗 간절기(계절이 바뀌는 중 — 지표가 서로 다르게 말해요)' : QUAD_KO[r.quad]
+}
+function missingMaterial(s: Season | null, region: 'us' | 'kr'): string {
+  if (!s) return '계절'
+  const m = [!s[region].cliOk ? `${region === 'us' ? '미국' : '한국'} 경기선행지수` : null, !s.cpiOk ? '미국 물가' : null, s.cpiOk && s.cpiYoY <= 3 && !s.rateDirOk ? '금리 예상' : null].filter(Boolean)
+  return m.join('·') || '계절'
+}
+const seasonHold = (s: Season | null, region: 'us' | 'kr') => cell('season', 'hold', `계절 판정에 쓰는 ${missingMaterial(s, region)} 자료가 아직 안 들어와서 판정을 쉬어요.`)
+/** 재료 기준월 중 가장 오래된 것(이름표 날짜) */
+const oldestMonth = (...ms: (string | null)[]) => ms.filter((m): m is string => !!m).sort()[0] ?? null
+const seasonSource = (s: Season, region: 'us' | 'kr') =>
+  `투자학교 4계절 · OECD ${region === 'us' ? '미국' : '한국'} 경기선행 ${s[region].cliMonth ?? '?'} · 미국 CPI ${s.cpiMonth ?? '?'}${s.rateDirOk ? ' · FedWatch' : ''}`
 
 const FNG_KO: Record<string, string> = { 'Extreme Fear': '극도의 공포', Fear: '공포', Neutral: '중립', Greed: '탐욕', 'Extreme Greed': '극도의 탐욕' }
 
@@ -60,6 +93,27 @@ export function buildScale(inp: ScaleInput): ScaleResult {
   const kb = inp.kb && isNum(inp.kb.yoy) && inp.kb.asOf ? inp.kb : null
   const gold = inp.gold && isNum(inp.gold.last?.close) && inp.gold.last.date ? inp.gold : null
   const fng = inp.fng && isNum(inp.fng.now) && inp.fng.date ? inp.fng : null
+  const sz = inp.season
+  const us = sz ? seasonPhrase(sz, 'us') : null
+  const kr = sz ? seasonPhrase(sz, 'kr') : null
+  const usCell = (text: (p: string, s: Season) => string, detail = SEASON_DETAIL) => sz && us
+    ? cell('season', 'ok', text(us, sz), { source: seasonSource(sz, 'us'), date: oldestMonth(sz.us.cliMonth, sz.cpiMonth), detail })
+    : seasonHold(sz, 'us')
+  const rateLine = (s: Season) => s.rateDirOk ? ` 시장은 앞으로 금리 '${RATE_KO[s.rateDir]}'을 예상해요${s.nextFomc ? `(다음 결정 ${dot(s.nextFomc)})` : ''}.` : ''
+  const bondSeason = usCell((p, s) => `미국은 지금 ${p}이에요.${rateLine(s)}`)
+  const stockSeason = sz && us
+    ? cell('season', 'ok', `미국 ${us}${kr ? ` · 한국 ${kr}` : ''}이에요.`, {
+        source: `${seasonSource(sz, 'us')}${kr ? ` · OECD 한국 경기선행 ${sz.kr.cliMonth ?? '?'}` : ''}`,
+        date: oldestMonth(sz.us.cliMonth, sz.cpiMonth, kr ? sz.kr.cliMonth : null),
+        detail: `${kr ? '한국 계절은 한국 경기선행지수에 미국 물가(세계 물가의 기준)를 써서 판정해요 · ' : '한국 경기선행지수가 아직 안 들어와 한국 계절은 쉬어요 · '}${SEASON_DETAIL}` })
+    : seasonHold(sz, 'us')
+  const reSeason = sz && kr
+    ? cell('season', 'ok', `한국은 지금 ${kr}이에요. 금리가 오르면 집값을 누르는 힘(중력)이 세져요.`, {
+        source: seasonSource(sz, 'kr'), date: oldestMonth(sz.kr.cliMonth, sz.cpiMonth),
+        detail: `한국 계절은 한국 경기선행지수에 미국 물가(세계 물가의 기준)를 써서 판정해요 · ${SEASON_DETAIL}` })
+    : seasonHold(sz, 'kr')
+  const goldSeason = usCell((p, s) => `미국은 지금 ${p}이에요. 미국 물가는 1년 전보다 ${Math.abs(s.cpiYoY).toFixed(1)}% ${s.cpiYoY >= 0 ? '올랐어요' : '내렸어요'}${s.cpiMonth ? `(${dot(s.cpiMonth)})` : ''}.`)
+  const coinSeason = usCell(p => `미국은 지금 ${p}이에요.`, `시중에 풀린 돈의 양(M2)과 견주는 칸은 곧 붙어요 · ${SEASON_DETAIL}`)
 
   // ── 채권 — 이자가 나머지 네 자산을 재는 잣대(r)라 맨 위 ──
   const bond: ScaleRow = {
@@ -72,7 +126,7 @@ export function buildScale(inp: ScaleInput): ScaleResult {
         { source: 'FRED DGS10 · DFII10(물가연동국채)', date: ry.real.date,
           detail: isNum(ry.bei?.v) && ry.bei.date ? `시장이 예상하는 물가 오름 ${pct2(ry.bei.v)}(FRED T10YIE · ${dot(ry.bei.date)}) — 받는 이자 = 물가 뺀 이자 + 예상 물가` : null })
         : hold('price', '물가를 뺀 국채 이자'),
-      SEASON_SOON,
+      bondSeason,
     ],
   }
 
@@ -89,7 +143,7 @@ export function buildScale(inp: ScaleInput): ScaleResult {
         { chip: stockChip, source: 'FactSet Earnings Insight(S&P 500 선행 PER)', date: fs.date,
           detail: [isNum(fs.avg10) ? `10년 평균 ${fs.avg10}배` : null, ey != null && ry ? `1년 예상이익÷가격 ${ey.toFixed(1)}% vs 미국 10년 국채 이자 ${pct2(ry.nominal.v)}(${dot(ry.nominal.date)})` : null].filter(Boolean).join(' · ') || null })
         : hold('price', '미국 대표 주식의 가격 배수'),
-      SEASON_SOON,
+      stockSeason,
     ],
   }
 
@@ -99,10 +153,11 @@ export function buildScale(inp: ScaleInput): ScaleResult {
     cells: [
       cell('cash', 'text', '집이 버는 돈은 월세예요(전세라면 집주인이 보증금을 굴려서 벌어요). 전국 숫자는 아직 없어서, 관심 단지를 고르면 그 단지 전세가가 매매가의 몇 %인지 보여 드려요.',
         { chip: '있음', href: '/s/realestate' }),
-      kb ? cell('price', 'ok', `${staleLead(kb.asOf, today, STALE_DAYS.kb)}전국 아파트값은 1년 전보다 ${moved(kb.yoy)}.`,
-        { source: 'KB 아파트 매매가격지수(전국) · 한국은행 ECOS', date: kb.asOf, detail: '월간 통계라 약 한 달 늦게 나와요. 대출 금리와 견주는 칸은 곧 붙어요.' })
+      kb ? cell('price', 'ok', `${staleLead(kb.asOf, today, STALE_DAYS.kb)}${kb.mortgage ? `새로 받는 주택담보대출 금리는 ${pct2(kb.mortgage.v)}예요. ` : ''}전국 아파트값은 1년 전보다 ${moved(kb.yoy)}.`,
+        { source: `KB 아파트 매매가격지수(전국) ${kb.asOf}${kb.mortgage ? ` · 한국은행 주담대 금리(신규취급) ${kb.mortgage.asOf}` : ''}`, date: oldestMonth(kb.asOf, kb.mortgage?.asOf ?? null) ?? kb.asOf,
+          detail: `${kb.mortgage ? `1억을 빌리면 1년 이자가 약 ${Math.round(kb.mortgage.v * 100).toLocaleString('ko-KR')}만원(단순 계산) · ` : ''}월간 통계라 약 한 달 늦게 나와요` })
         : hold('price', '전국 아파트값'),
-      SEASON_SOON,
+      reSeason,
     ],
   }
 
@@ -116,7 +171,7 @@ export function buildScale(inp: ScaleInput): ScaleResult {
         { chip: '비교 기준 없음', source: 'FRED DFII10 · 야후 금 선물(GC=F) 종가', date: gold.last.date,
           detail: `포기하는 이자가 클수록 금을 들고 있기가 무거워요(원칙이지 예측이 아님) · 금값 비교 ${dot(gold.yearAgo!.date)} → ${dot(gold.last.date)} · 물가 뺀 이자 FRED DFII10 ${dot(ry.real.date)}` })
         : hold('price', ry ? '금값' : '물가를 뺀 국채 이자'),
-      SEASON_SOON,
+      goldSeason,
     ],
   }
 
@@ -128,7 +183,7 @@ export function buildScale(inp: ScaleInput): ScaleResult {
       fng ? cell('price', 'ok', `${staleLead(fng.date!, today, STALE_DAYS.fng)}버는 돈이 없어서 금리와 견줄 수도, 적정 가격을 계산할 수도 없어요. 대신 사람들 마음 온도를 봐요. 지금은 ${fng.now}점${isNum(fng.weekAgo) ? `, 1주 전 ${fng.weekAgo}점` : ''}${isNum(fng.monthAgo) ? `, 1달 전 ${fng.monthAgo}점` : ''}이에요.`,
         { chip: fng.cls && FNG_KO[fng.cls] ? FNG_KO[fng.cls] : null, source: 'alternative.me 공포·탐욕 지수(0~100)', date: fng.date, detail: '0에 가까울수록 공포, 100에 가까울수록 탐욕 · ETF 자금 흐름은 코인 화면에서', href: '/s/coin' })
         : hold('price', '코인 공포·탐욕 지수'),
-      SEASON_SOON,
+      coinSeason,
     ],
   }
 

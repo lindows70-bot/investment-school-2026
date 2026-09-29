@@ -19,6 +19,13 @@ export interface RegionSeasons {
   quad: Record<Origin, Quadrant>
   cpiYoY: number
   rateDir: 'cut' | 'hold' | 'hike'
+  /** 🏷️ 재료의 기준월·폴백 여부(2026-09-29 추가 — 저울 ③ 칸이 이름표를 달기 위해). 기존 호출부는 안 읽어도 된다.
+   *  폴백이면 그 축은 진짜 값이 아니다: CPI 못 받음 → cpiYoY 2.5(여기)·4.0(macro) · CLI 못 받음 → 100 · FedWatch 못 받음 → 'hold' */
+  meta: {
+    cpiMonth: string | null; cpiOk: boolean
+    rateDirOk: boolean; nextFomc: string | null
+    cli: Record<'US' | 'KR', { month: string | null; ok: boolean }>
+  }
 }
 
 /** 🌍 종목의 '자산 국적' — 상장 시장(market)이 아니라 origin 으로 계절을 고른다.
@@ -50,10 +57,14 @@ const avg = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length
 /** 🌦️ 5개 지역 계절을 한 번에 산출. CLI 캐시(12h)·HICP 캐시(24h)를 공유하므로 호출 비용은 사실상 0. */
 export async function getRegionSeasons(base: string): Promise<RegionSeasons> {
   let cpiYoY = 2.5, rateDir: 'cut' | 'hold' | 'hike' = 'hold'
+  let cpiMonth: string | null = null, rateDirOk = false, nextFomc: string | null = null
   try {
     const md = await fetchMacroData(base)
     cpiYoY = typeof md.cpiYoY === 'number' ? md.cpiYoY : cpiYoY
     rateDir = md.rateDir ?? 'hold'
+    cpiMonth = md.cpiMonth ?? null   // null 이면 macro 가 CPI 를 못 받아 4.0 으로 채운 것
+    rateDirOk = md.rateDirOk === true
+    nextFomc = md.nextFomc ?? null
   } catch { /* graceful */ }
 
   const [usCli, krCli, deCli, frCli, itCli, gbCli, jpCli, cnCli, euHicp] = await Promise.all([
@@ -74,5 +85,11 @@ export async function getRegionSeasons(base: string): Promise<RegionSeasons> {
   const JP = jpCli ? seasonOf(growthFromCli(jpCli.cli, jpCli.cliPrev), inf) : US
   const CN = cnCli ? seasonOf(growthFromCli(cnCli.cli, cnCli.cliPrev), inf) : US
 
-  return { quad: { US, KR, EU, JP, CN }, cpiYoY, rateDir }
+  return {
+    quad: { US, KR, EU, JP, CN }, cpiYoY, rateDir,
+    meta: {
+      cpiMonth, cpiOk: cpiMonth != null, rateDirOk, nextFomc,
+      cli: { US: { month: usCli?.month ?? null, ok: usCli != null }, KR: { month: krCli?.month ?? null, ok: krCli != null } },
+    },
+  }
 }

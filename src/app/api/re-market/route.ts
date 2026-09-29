@@ -6,6 +6,7 @@ export const maxDuration = 60
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { ecosSeries } from '@/lib/ecos'
+import { RE_MARKET_KEY } from '@/lib/reMarketKey'
 
 export interface ReMarketResult {
   kpi: {
@@ -15,6 +16,7 @@ export interface ReMarketResult {
     unsold: number | null              // 미분양(전국, 호)
     unsoldPercentile: number | null    // 미분양 역사 백분위(2007~, 높을수록 재고 많음)
     asOfKb: string | null; asOfUnsold: string | null
+    asOfBase: string | null; asOfMortgage: string | null   // 기준금리·주담대 기준월(v3) — 화면에 금리를 쓸 때 반드시 병기
   }
   kbChart: { date: string; sale: number | null; jeonse: number | null; saleSeoul: number | null; baseRate: number | null }[]
   rtChart: { date: string; nation: number | null; seoul: number | null; capital: number | null }[]
@@ -41,7 +43,7 @@ async function fredSeries(id: string, start: string): Promise<{ date: string; va
 }
 
 export async function GET() {
-  const cacheKey = 're-market-v2'   // v2: 전세 항목코드 P63AC→P64AC 교정
+  const cacheKey = RE_MARKET_KEY
   const cached = await getCache<ReMarketResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -100,6 +102,7 @@ export async function GET() {
       mortgageRate: last(mort)?.value ?? null,
       kbAptYoY, unsold: lastUns?.value ?? null, unsoldPercentile,
       asOfKb: lastKb ? fmtYm(lastKb.time) : null, asOfUnsold: lastUns ? fmtYm(lastUns.time) : null,
+      asOfBase: last(base) ? fmtYm(last(base)!.time) : null, asOfMortgage: last(mort) ? fmtYm(last(mort)!.time) : null,
     },
     kbChart, rtChart, unsoldChart, usChart,
     asOf: new Date().toISOString(),
