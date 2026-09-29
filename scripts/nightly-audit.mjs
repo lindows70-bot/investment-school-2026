@@ -56,6 +56,7 @@ const INVARIANTS = [
   { file: 'scripts/verify-kr-day-change.mjs', label: '국내 당일 등락률 = 네이버' },
   // 2026-09-27 — 간편 화면(/s)에서 분석 화면으로 새는 링크가 30개까지 쌓였다(단계마다 '일단 링크로'). 문은 전환 버튼 2곳뿐이어야 한다
   { file: 'scripts/verify-simple-mode-exits.mjs', label: '간편 화면 출구 = 전환 버튼 2곳(+단계별 임시 허용)' },
+  { file: 'scripts/verify-scale.mjs', label: '투자학교 저울 — 숫자 칸 전부 출처·날짜 이름표 · 원천 빈 칸 0(라이브)' },
   // 2026-09-27 신설 — 네이버가 옛 PC 페이지를 폐기(410·리다이렉트)했는데 라우트가 200 + 빈 응답이라 아무 감시에도 안 걸렸다.
   //   원천 형식·코드표·단위(독립 원천 대조)·신선도와 **프로덕션 응답**까지 본다 — 로컬에서 살아 있어도 Vercel 이 못 닿으면 화면은 빈다.
   { file: 'scripts/verify-naver-market-sources.mjs', label: '네이버 신규 원천(투자자 매매동향·증시자금동향·업종 목록) 형식·단위·프로덕션 응답' },

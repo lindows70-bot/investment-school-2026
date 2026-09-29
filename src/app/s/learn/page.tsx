@@ -271,7 +271,12 @@ export default function StudentLearn() {
       </section>
 
       <section aria-labelledby="learn-themes" style={{ display: 'flex', flexDirection: 'column', gap: SP.sm }}>
-        <h2 id="learn-themes" style={sectionTitle}>부동산 · 코인</h2>
+        <h2 id="learn-themes" style={sectionTitle}>더 알아보기</h2>
+        {/* 투자학교 저울 — '더 알아보기' 빈자리의 주인공(docs/student-mode/scale-plan.md). 5단계-1 에서 뺀 분석 화면 링크 16개 대신 간편 안에서 끝나는 입구 */}
+        <Link href="/s/scale" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: SP.xs, minHeight: 72, padding: SP.md, borderRadius: RAD.md, background: TK.card, border: `1px solid ${TK.line1}`, textDecoration: 'none', minWidth: 0 }}>
+          <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate100, wordBreak: 'keep-all' }}>오늘의 저울 ›</span>
+          <span style={{ fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>채권·주식·부동산·금·코인을 같은 세 질문으로 — 돈을 만드나 · 지금 비싼가 · 지금 계절은</span>
+        </Link>
         <nav aria-label="부동산·코인" className="sl-themes">
           {THEMES.map(a => (
             <Link key={a.href} href={a.href} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: SP.xs, minHeight: 72, padding: SP.md, borderRadius: RAD.md, background: TK.card, border: `1px solid ${TK.border}`, textDecoration: 'none', minWidth: 0 }}>
