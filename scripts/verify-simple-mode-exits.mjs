@@ -6,7 +6,8 @@ import { join, relative, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const SCAN = ['src/app/s', 'src/app/components/student']
+// components/lessons 는 분석 화면과 간편 화면(/s/learn/academy 등)이 함께 쓴다 — 간편에서 열리므로 출구 검사 대상(simple 분기로 간편 경로를 가리켜야 한다)
+const SCAN = ['src/app/s', 'src/app/components/student', 'src/app/components/lessons']
 
 /** 영구 허용 — 분석 화면으로 가는 유일한 문(사용자 결정 2026-09-27: 문은 하나, 막지는 않는다) */
 const PERMANENT = [
@@ -15,10 +16,6 @@ const PERMANENT = [
 ]
 /** 임시 허용 — phase5-plan 의 단계가 끝나면 그 줄을 지운다(지우면 이 검사가 그 출구를 잡는다) */
 const TEMPORARY = [
-  { file: 'src/app/s/learn/page.tsx', href: '/investment-academy', until: '5단계 수업 자료 껍데기' },
-  { file: 'src/app/s/learn/page.tsx', href: '/master-strategy', until: '5단계 수업 자료 껍데기' },
-  { file: 'src/app/s/learn/page.tsx', href: '/weekly-report', until: "5단계 내 자산 '이번 주'" },
-  { file: 'src/app/s/learn/page.tsx', href: '/school-lounge', until: '5단계 /s/lounge' },
 ]
 
 function walk(dir, out = []) {
