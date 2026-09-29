@@ -36,12 +36,14 @@ function Cell({ c }: { c: ScaleCell }) {
 export default function StudentScale() {
   const r = useJson<ScaleResult>('/api/scale')
   const ok = r.state === 'ok' && Array.isArray(r.data?.rows) && r.data!.rows.length > 0
+  // ③ 계절이 다섯 줄 모두 준비 중이면 같은 문장을 다섯 번 쓰지 않고 한 줄 안내로 합친다(폰에서 화면만 길어진다 — 2026-09-29 실측 3,063px)
+  const seasonSoon = ok && r.data!.rows.every(row => row.cells[2]?.status === 'hold')
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg, maxWidth: 960 }}>
       {/* 폰·태블릿은 칸을 세로로, 769px↑ 는 한 줄에 세 칸 — 기본값 + min-width 하나(정확한 여집합) */}
       <style>{`
         .sk-cells { display: grid; grid-template-columns: minmax(0, 1fr); gap: ${SP.sm}px }
-        @media (min-width: 769px) { .sk-cells { grid-template-columns: repeat(3, minmax(0, 1fr)) } }
+        @media (min-width: 769px) { .sk-cells { grid-template-columns: repeat(3, minmax(0, 1fr)) } .sk-cells.sk-two { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
         details > summary { list-style: none } details > summary::-webkit-details-marker { display: none }
       `}</style>
       {back}
@@ -55,13 +57,15 @@ export default function StudentScale() {
         <span style={{ fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all' }}>앱 서명 “미래에 벌어들일 현금흐름을 할인한다”를 세 칸으로 나눈 거예요. 채권이 맨 위인 건 채권 이자가 나머지를 재는 잣대라서예요.</span>
       </section>
 
+      {seasonSoon && <span style={{ ...noteStyle(), wordBreak: 'keep-all' }}>③ 지금 계절은 — {r.data!.rows[0].cells[2].sentence}</span>}
+
       {(r.state === 'idle' || r.state === 'loading') && <div style={card}><span style={noteStyle()}>다섯 자산을 재는 중…</span></div>}
       {(r.state === 'failed' || r.state === 'unauth' || (r.state === 'ok' && !ok)) && <div style={card}><FailRow text="저울을 못 불러왔어요." onRetry={r.reload} retryLabel="저울 다시 불러오기" /></div>}
 
       {ok && r.data!.rows.map(row => (
         <section key={row.asset} aria-label={row.name} style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
           <h2 style={{ margin: 0, fontSize: FS.lg, fontWeight: 700, color: TK.slate100 }}>{row.name}</h2>
-          <div className="sk-cells">{row.cells.map(c => <Cell key={c.q} c={c} />)}</div>
+          <div className={seasonSoon ? 'sk-cells sk-two' : 'sk-cells'}>{row.cells.filter(c => !(seasonSoon && c.q === 'season')).map(c => <Cell key={c.q} c={c} />)}</div>
         </section>
       ))}
 
