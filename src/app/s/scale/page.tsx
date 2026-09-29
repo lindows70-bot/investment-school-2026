@@ -62,7 +62,7 @@ function ScoreCard({ s, loading }: { s: ScaleScore | null; loading: boolean }) {
       {!loading && !s && <span style={noteStyle(TK.amber400)}>성적표를 못 불러왔어요.</span>}
       {s && !s.gateOpen && (
         <span style={{ fontSize: FS.body, color: TK.slate200, wordBreak: 'keep-all' }}>
-          적립 {s.days}일째 · 채점된 달 {s.comparable}/10{s.firstResultMonth ? ` · 첫 성적은 ${ymKo(s.firstResultMonth)}쯤` : ''}. 서로 다른 달이 10개 모이기 전엔 통계가 아니라 일화라서 숫자를 보여주지 않아요.
+          {s.days > 0 ? `적립 ${s.days}일 · 채점된 달 ${s.comparable}/10` : '적립 시작 전 — ③ 칸이 다 판정된 날부터 하루 한 장씩 적어요'}{s.firstResultMonth ? ` · 첫 성적은 ${ymKo(s.firstResultMonth)}쯤` : ''}. 서로 다른 달이 10개 모이기 전엔 통계가 아니라 일화라서 숫자를 보여주지 않아요.
         </span>
       )}
       {s && s.gateOpen && s.stats && (
