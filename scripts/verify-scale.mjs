@@ -13,7 +13,7 @@ writeFileSync(`${ROOT}/.bt-scale.tsconfig.json`, JSON.stringify({
     outDir: OUT, module: 'commonjs', moduleResolution: 'node', noEmit: false, declaration: false,
     incremental: false, noEmitOnError: true, target: 'es2020', rootDir: `${ROOT}/src`,
   },
-  include: [`${ROOT}/src/lib/scale.ts`, `${ROOT}/src/lib/seasonNavigator.ts`],
+  include: [`${ROOT}/src/lib/scale.ts`, `${ROOT}/src/lib/seasonNavigator.ts`, `${ROOT}/src/lib/scaleHoldings.ts`, `${ROOT}/src/lib/assetClassifier.ts`],
 }, null, 2))
 
 // 이전 실행의 컴파일 결과를 먼저 지운다 — 안 지우면 컴파일이 실패해도 옛 .js 로 거짓 green 을 낸다
@@ -28,7 +28,8 @@ try {
 }
 if (!existsSync(`${OUT}/lib/scale.js`)) { console.log('❌ 컴파일 결과 없음'); process.exit(1) }
 const require = Module.createRequire(import.meta.url)
-const { buildScale, goldPoints } = require(`${OUT}/lib/scale.js`)
+const { buildScale, goldPoints, chipsOf, diffChips, rollSnap } = require(`${OUT}/lib/scale.js`)
+const { scaleAssetOf, countByScaleAsset } = require(`${OUT}/lib/scaleHoldings.js`)
 
 let fail = 0
 const check = (label, cond, why = '') => { if (cond) console.log(`✅ ${label}`); else { fail++; console.log(`❌ ${label}${why ? ` — ${why}` : ''}`) } }
@@ -112,6 +113,37 @@ check(`금 마지막 봉 2026-09-25(금요일) · 1년 전 = 2025-09-25 이전 �
 const holed = bars.filter(b => !(b.date >= '2025-09-01' && b.date <= '2025-09-30'))   // 1년 전 근처 한 달 구멍
 check('1년 전 근처에 이력 구멍(10일 넘음) → 비교하지 않는다(이웃 날로 메우지 않음)', goldPoints(holed).yearAgo === null)
 check('1년 전 비교가 없으면 금 ② hold', cellOf(buildScale({ ...FULL, gold: { ...FULL.gold, yearAgo: null } }), 'gold', 'price').status === 'hold')
+
+// ── 4단계: 오늘 바뀐 칸 ──
+const c1 = chipsOf(r)
+check('칩 스냅샷 = 칩 있는 칸만(쉬는 칸·칩 없는 칸 제외 — 채권 ②·부동산 ② 는 칩 없음 → 13칸)', Object.keys(c1).length === 13 && c1['bond:season'] === '역풍' && !('bond:price' in c1))
+const s1 = rollSnap(null, '2026-09-28', c1)
+check('첫 스냅샷 → 비교 기준 없음(바뀐 칸 0)', s1.prevChips === null && diffChips(s1.prevChips, c1, r.rows).length === 0)
+const s1b = rollSnap(s1, '2026-09-28', c1)
+check('같은 날 다시 계산 → 비교 기준을 오늘 칩으로 덮지 않는다', s1b.prevDay === null && s1b.prevChips === null)
+const autumn = buildScale({ ...FULL, season: { ...FULL.season, us: { ...FULL.season.us, quad: 'stagflation' } } })
+const c2 = chipsOf(autumn)
+const s2 = rollSnap(s1, '2026-09-29', c2)
+const ch = diffChips(s2.prevChips, c2, autumn.rows)
+check(`다음 날 미국만 가을로 → 바뀐 칸 = 주식 ③(보통 → 미국 역풍 · 한국 보통)·코인 ③(보통→역풍) · 부동산(한국 여름)은 그대로 · 비교 날짜 9/28 (${ch.map(x => x.name + ':' + x.to).join(',')})`, s2.prevDay === '2026-09-28' && ch.length === 2 && ch.every(x => x.q === 'season' && x.from === '보통') && ch.find(x => x.asset === 'stock')?.to === '미국 역풍 · 한국 보통' && ch.find(x => x.asset === 'coin')?.to === '역풍')
+const s2b = rollSnap(s2, '2026-09-29', chipsOf(autumn))
+check('같은 날 두 번째 계산에도 비교 기준(9/28)이 유지된다', s2b.prevDay === '2026-09-28' && diffChips(s2b.prevChips, chipsOf(autumn), autumn.rows).length === 2)
+const heldOut = buildScale({ ...FULL, fng: null })
+check('쉬는 칸(원천 실패)은 바뀜으로 세지 않는다', diffChips(c1, chipsOf(heldOut), heldOut.rows).length === 0)
+
+// ── 4단계: 내가 가진 줄(보유 → 저울 줄) ──
+const H = [
+  ['BTC', '비트코인', 'CRYPTO', 'coin'], ['005930', '삼성전자', 'KR', 'stock'], ['AAPL', 'Apple', 'US', 'stock'],
+  ['TLT', 'iShares 20+ Year Treasury Bond ETF', 'US', 'bond'], ['148070', 'KOSEF 국고채10년', 'KR', 'bond'],
+  ['GLD', 'SPDR Gold Shares', 'US', 'gold'], ['411060', 'ACE KRX금현물', 'KR', 'gold'],
+  ['329200', 'TIGER 리츠부동산인프라', 'KR', 'realestate'], ['VNQ', 'Vanguard Real Estate ETF', 'US', 'realestate'],
+  ['360750', 'TIGER 미국S&P500', 'KR', 'stock'], ['USO', 'United States Oil Fund', 'US', null],
+  ['091170', 'KODEX 은행', 'KR', 'stock'], ['139270', 'TIGER 200 금융', 'KR', 'stock'],
+]
+const wrong = H.filter(([t, n, m, want]) => scaleAssetOf(t, n, m) !== want).map(([t, n, m, want]) => `${n}→${scaleAssetOf(t, n, m)}(기대 ${want})`)
+check(`보유 → 저울 줄 ${H.length}종(금융·은행은 금 아님 · 원유는 줄 없음)`, wrong.length === 0, wrong.join(' · '))
+const cnt = countByScaleAsset(H.map(([t, n, m]) => ({ ticker: t, name: n, market: m })))
+check('줄마다 종목 수 — 주식 5·채권 2·금 2·부동산 2·코인 1(원유 제외)', cnt.stock === 5 && cnt.bond === 2 && cnt.gold === 2 && cnt.realestate === 2 && cnt.coin === 1)
 
 // ── (라이브) 프로덕션 /api/scale ──
 try {

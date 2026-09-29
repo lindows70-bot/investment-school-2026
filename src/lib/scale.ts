@@ -20,7 +20,13 @@ export interface ScaleCell {
   href: string | null        // 간편 화면 안의 더 보기(없으면 null)
 }
 export interface ScaleRow { asset: ScaleAsset; name: string; cells: [ScaleCell, ScaleCell, ScaleCell] }
-export interface ScaleResult { rows: ScaleRow[]; oldestDate: string | null; asOf: string }
+/** 지난 날짜와 비교해 칩이 바뀐 칸 — 숫자가 아니라 칩(상태)만 비교한다 */
+export interface ScaleChange { asset: ScaleAsset; name: string; q: ScaleQ; from: string; to: string }
+export interface ScaleResult {
+  rows: ScaleRow[]; oldestDate: string | null; asOf: string
+  /** 오늘 바뀐 칸(라우트가 채운다 — 지난 날짜 스냅샷이 없으면 빈 배열) · changedSince = 비교한 지난 날짜(KST) */
+  changes?: ScaleChange[]; changedSince?: string | null
+}
 
 export type Quad = 'goldilocks' | 'inflation' | 'stagflation' | 'recession' | 'shoulder'
 
@@ -207,4 +213,28 @@ export function goldPoints(candles: { date: string; close: number }[]): ScaleInp
   const yearAgo = before.length ? before[before.length - 1] : null
   // 1년 전 봉이 목표일에서 10일 넘게 떨어져 있으면(이력 구멍) 비교하지 않는다
   return { last: { date: last.date, close: last.close }, yearAgo: yearAgo && daysBetween(yearAgo.date, target) <= 10 ? { date: yearAgo.date, close: yearAgo.close } : null }
+}
+
+/** 칩 스냅샷 — 'asset:q' → 칩. 쉬는 칸(hold)·칩 없는 칸은 싣지 않는다(쉬었다 돌아온 것을 '바뀜'으로 세지 않게) */
+export function chipsOf(r: ScaleResult): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const row of r.rows) for (const c of row.cells) if (c.status !== 'hold' && c.chip) out[`${row.asset}:${c.q}`] = c.chip
+  return out
+}
+/** 지난 스냅샷 대비 바뀐 칸 — 양쪽에 다 있는 칸만 비교 */
+export function diffChips(prev: Record<string, string> | null, now: Record<string, string>, rows: ScaleRow[]): ScaleChange[] {
+  if (!prev) return []
+  const out: ScaleChange[] = []
+  for (const row of rows) for (const c of row.cells) {
+    const k = `${row.asset}:${c.q}`
+    if (prev[k] && now[k] && prev[k] !== now[k]) out.push({ asset: row.asset, name: row.name, q: c.q, from: prev[k], to: now[k] })
+  }
+  return out
+}
+/** 스냅샷 한 행을 날짜에 맞춰 넘긴다 — 같은 날이면 비교 기준(prev)을 유지, 날이 바뀌면 어제 칩이 비교 기준이 된다 */
+export interface ChipSnap { day: string; chips: Record<string, string>; prevDay: string | null; prevChips: Record<string, string> | null }
+export function rollSnap(snap: ChipSnap | null, today: string, now: Record<string, string>): ChipSnap {
+  if (!snap) return { day: today, chips: now, prevDay: null, prevChips: null }
+  if (snap.day === today) return { day: today, chips: { ...snap.chips, ...now }, prevDay: snap.prevDay, prevChips: snap.prevChips }
+  return { day: today, chips: { ...snap.chips, ...now }, prevDay: snap.day, prevChips: snap.chips }
 }

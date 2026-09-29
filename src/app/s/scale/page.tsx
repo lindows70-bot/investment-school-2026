@@ -5,8 +5,24 @@
 import Link from 'next/link'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 import { useJson } from '@/app/components/student/useJson'
+import { useMyPortfolio } from '@/app/components/student/useMyPortfolio'
+import { countByScaleAsset } from '@/lib/scaleHoldings'
 import { card, FailRow, noteStyle } from '@/app/components/student/home/homeUi'
 import type { ScaleResult, ScaleCell, ScaleQ } from '@/lib/scale'
+
+// 저울의 용어 — 가나다순이 아니라 수업 순서(현금흐름 → 할인 → 금리 → 물가 뺀 이자 → 배수·전세가율·마음 온도 → 계절 → 순풍·역풍 → 코어·위성)
+const TERMS: { term: string; mean: string; href?: string; hrefText?: string }[] = [
+  { term: '현금흐름', mean: '자산이 들고만 있어도 벌어다 주는 돈이에요. 이자·배당·월세가 그것이고, 금과 코인은 없어요.' },
+  { term: '할인(지금 가치)', mean: '미래에 받을 돈을 오늘 값으로 바꾸는 계산이에요. 금리가 높을수록 먼 미래의 돈은 오늘 덜 쳐줘요.' },
+  { term: '국채 금리', mean: '나라에 돈을 빌려주고 받는 이자예요. 떼일 걱정이 가장 적어서 다른 자산을 재는 기준 잣대가 돼요.' },
+  { term: '물가 뺀 이자(실질금리)', mean: '받는 이자에서 물가가 오른 만큼을 뺀 진짜 이자예요. 이게 클수록 이자 없는 금을 들고 있기가 무거워져요.' },
+  { term: '예상이익 배수(선행 PER)', mean: '주가가 앞으로 1년 예상이익의 몇 배인지예요. 높을수록 같은 이익을 더 비싸게 사는 거예요.' },
+  { term: '전세가율', mean: '전세금이 집값의 몇 %인지예요. 높을수록 집이 버는 돈(쓰임새)에 비해 집값이 덜 부풀었다고 봐요.', href: '/s/realestate', hrefText: '관심 단지에서 보기' },
+  { term: '공포·탐욕 지수', mean: '사람들 마음 온도를 0(공포)~100(탐욕)으로 잰 거예요. 버는 돈이 없는 코인은 이걸로 분위기를 봐요.', href: '/s/coin', hrefText: '코인 화면에서 보기' },
+  { term: '계절(4계절)', mean: '경기와 물가가 오르는지 내리는지로 나눈 4칸이에요. 봄(경기↑ 물가↓)·여름(둘 다↑)·가을(경기↓ 물가↑)·겨울(둘 다↓).' },
+  { term: '순풍·역풍', mean: '그 계절에 그 자산이 과거에 대체로 유리했나 불리했나예요. 투자학교 수업 원칙이고 약속이 아니에요.' },
+  { term: '코어·위성', mean: '오래 들고 갈 중심 자산이 코어, 기회를 노리는 작은 몫이 위성이에요. 기록할 때 정한 역할로 내 비중을 볼 수 있어요.', href: '/s/assets', hrefText: '내 자산에서 보기' },
+]
 
 const Q_LABEL: Record<ScaleQ, string> = { cash: '① 돈을 만드나', price: '② 지금 비싼가', season: '③ 지금 계절은' }
 const dot = (s: string) => s.length === 7 ? `${s.slice(0, 4)}.${Number(s.slice(5, 7))}` : `${s.slice(0, 4)}.${Number(s.slice(5, 7))}.${Number(s.slice(8, 10))}`
@@ -35,6 +51,9 @@ function Cell({ c }: { c: ScaleCell }) {
 
 export default function StudentScale() {
   const r = useJson<ScaleResult>('/api/scale')
+  // 내가 가진 줄 — 보유를 저울 다섯 줄로 나눠 센다(브라우저에서만 · 서버로 보내지 않는다). 못 불러오면 표시만 빠진다
+  const pf = useMyPortfolio()
+  const mine = pf.state === 'ready' || (pf.state === 'failed' && pf.failReason === 'fx') ? countByScaleAsset(pf.holdings) : null
   const ok = r.state === 'ok' && Array.isArray(r.data?.rows) && r.data!.rows.length > 0
   // ③ 계절이 다섯 줄 모두 준비 중이면 같은 문장을 다섯 번 쓰지 않고 한 줄 안내로 합친다(폰에서 화면만 길어진다 — 2026-09-29 실측 3,063px)
   const seasonSoon = ok && r.data!.rows.every(row => row.cells[2]?.status === 'hold')
@@ -60,15 +79,37 @@ export default function StudentScale() {
 
       {seasonSoon && <span style={{ ...noteStyle(), wordBreak: 'keep-all' }}>③ 지금 계절은 — {r.data!.rows[0].cells[2].sentence}</span>}
 
+      {ok && (r.data!.changes?.length ?? 0) > 0 && (
+        <section aria-label="바뀐 칸" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.xs }}>
+          <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate100 }}>{r.data!.changedSince ? `${dot(r.data!.changedSince)}보다 ` : ''}바뀐 칸 {r.data!.changes!.length}개</span>
+          {r.data!.changes!.map(c => <span key={`${c.asset}${c.q}`} style={{ fontSize: FS.tiny, color: TK.slate200, wordBreak: 'keep-all' }}>{c.name} {Q_LABEL[c.q]} — {c.from} → {c.to}</span>)}
+        </section>
+      )}
+
       {(r.state === 'idle' || r.state === 'loading') && <div style={card}><span style={noteStyle()}>다섯 자산을 재는 중…</span></div>}
       {(r.state === 'failed' || r.state === 'unauth' || (r.state === 'ok' && !ok)) && <div style={card}><FailRow text="저울을 못 불러왔어요." onRetry={r.reload} retryLabel="저울 다시 불러오기" /></div>}
 
       {ok && r.data!.rows.map(row => (
         <section key={row.asset} aria-label={row.name} style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
-          <h2 style={{ margin: 0, fontSize: FS.lg, fontWeight: 700, color: TK.slate100 }}>{row.name}</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm, minWidth: 0 }}>
+            <h2 style={{ margin: 0, fontSize: FS.lg, fontWeight: 700, color: TK.slate100 }}>{row.name}</h2>
+            {mine && (mine[row.asset] ?? 0) > 0 && <span style={{ padding: `0 ${SP.sm}px`, borderRadius: RAD.pill, background: `${TK.sky400}24`, color: TK.sky400, fontSize: FS.micro, fontWeight: 700, whiteSpace: 'nowrap' }}>내 자산 {mine[row.asset]}종</span>}
+          </div>
           <div className={seasonSoon ? 'sk-cells sk-two' : 'sk-cells'}>{row.cells.filter(c => !(seasonSoon && c.q === 'season')).map(c => <Cell key={c.q} c={c} />)}</div>
         </section>
       ))}
+
+      <section id="terms" aria-labelledby="scale-terms" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.xs }}>
+        <h2 id="scale-terms" style={{ margin: 0, fontSize: FS.lg, fontWeight: 700, color: TK.slate100 }}>저울의 용어</h2>
+        <span style={noteStyle()}>수업 순서대로 — 위에서부터 읽으면 저울 표가 풀려요.</span>
+        {TERMS.map(t => (
+          <details key={t.term} style={{ borderTop: `1px solid ${TK.border}` }}>
+            <summary style={{ display: 'flex', alignItems: 'center', minHeight: 44, fontSize: FS.body, fontWeight: 600, color: TK.slate100, cursor: 'pointer' }}>{t.term}</summary>
+            <p style={{ margin: `0 0 ${SP.sm}px`, fontSize: FS.tiny, lineHeight: 1.6, color: TK.slate300, wordBreak: 'keep-all' }}>{t.mean}</p>
+            {t.href && <Link href={t.href} style={{ display: 'flex', alignItems: 'center', minHeight: 44, fontSize: FS.tiny, color: TK.sky400, textDecoration: 'none' }}>{t.hrefText} ›</Link>}
+          </details>
+        ))}
+      </section>
 
       {ok && (
         <span style={noteStyle()}>

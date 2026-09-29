@@ -8,7 +8,7 @@ import { buildRealYield, type RealYieldResult } from '@/lib/realYield'
 import { FACTSET_FWD_KEY } from '@/lib/localRunners'
 import { getTechCandles, dropIncompleteBar } from '@/lib/techChartData'
 import { fetchCryptoFng } from '@/lib/cryptoFng'
-import { buildScale, goldPoints, type ScaleInput, type ScaleResult } from '@/lib/scale'
+import { buildScale, goldPoints, chipsOf, diffChips, rollSnap, type ScaleInput, type ScaleResult, type ChipSnap } from '@/lib/scale'
 import type { ReMarketResult } from '@/app/api/re-market/route'
 import { RE_MARKET_KEY } from '@/lib/reMarketKey'
 import { getRegionSeasons } from '@/lib/regionSeason'
@@ -16,8 +16,10 @@ import { getRegionSeasons } from '@/lib/regionSeason'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const CACHE_KEY = 'scale-v3'   // v3: ③ 순풍·보통·역풍 칩(선생님 승인 원칙) · v2: ③ 계절 칸 + 주담대(기준월) — 필드·내용이 바뀌면 키를 올린다   // 날짜 없는 키 — 신선도는 TTL 로(날짜 키는 영구 누적)
+const CACHE_KEY = 'scale-v4'   // v4: changes·changedSince(오늘 바뀐 칸) · v3: ③ 순풍·보통·역풍 칩(선생님 승인 원칙) · v2: ③ 계절 칸 + 주담대(기준월) — 필드·내용이 바뀌면 키를 올린다   // 날짜 없는 키 — 신선도는 TTL 로(날짜 키는 영구 누적)
 const TTL = 3600_000
+// 칩 스냅샷 — 날짜 없는 키 한 행을 덮어쓴다(오늘 칩 + 비교 기준이 될 지난 날 칩). 날짜 키는 영구 누적이라 쓰지 않는다
+const SNAP_KEY = 'scale-chips-v1'
 const kstToday = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 export async function GET(req: Request) {
@@ -58,6 +60,12 @@ export async function GET(req: Request) {
   })
   // 한 칸이라도 원천이 비어 쉬면 캐시하지 않는다 — 한 번의 실패가 한 시간짜리 빈칸이 되지 않게(부분실패 박제 금지)
   const anyHold = result.rows.some(r => r.cells.some(c => c.status === 'hold'))
-  if (!anyHold) await setCache(CACHE_KEY, result)
+  // 오늘 바뀐 칸 — 칩만 비교. 스냅샷은 칸이 다 찬 결과로만 넘긴다(쉬는 칸이 있는 날의 칩으로 기준을 바꾸지 않게)
+  const now = chipsOf(result)
+  const snap = await getCache<ChipSnap>(SNAP_KEY, 400 * 86400_000)
+  const next = rollSnap(snap, kstToday(), now)
+  result.changes = diffChips(next.prevChips, now, result.rows)
+  result.changedSince = next.prevDay
+  if (!anyHold) { await setCache(SNAP_KEY, next); await setCache(CACHE_KEY, result) }
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }
