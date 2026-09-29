@@ -16,7 +16,7 @@ import { getRegionSeasons } from '@/lib/regionSeason'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const CACHE_KEY = 'scale-v2'   // v2: ③ 계절 칸 + 주담대(기준월) — 필드·내용이 바뀌면 키를 올린다   // 날짜 없는 키 — 신선도는 TTL 로(날짜 키는 영구 누적)
+const CACHE_KEY = 'scale-v3'   // v3: ③ 순풍·보통·역풍 칩(선생님 승인 원칙) · v2: ③ 계절 칸 + 주담대(기준월) — 필드·내용이 바뀌면 키를 올린다   // 날짜 없는 키 — 신선도는 TTL 로(날짜 키는 영구 누적)
 const TTL = 3600_000
 const kstToday = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 

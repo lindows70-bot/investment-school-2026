@@ -55,6 +55,7 @@ export default function StudentScale() {
       <section aria-label="저울의 공식" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.xs }}>
         <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate100, wordBreak: 'keep-all' }}>미래에 벌 돈(①) ÷ 금리의 무게(②) — 그 둘을 움직이는 계절(③)</span>
         <span style={{ fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all' }}>앱 서명 “미래에 벌어들일 현금흐름을 할인한다”를 세 칸으로 나눈 거예요. 채권이 맨 위인 건 채권 이자가 나머지를 재는 잣대라서예요.</span>
+        <span style={{ fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all' }}>③ 칸의 순풍·보통·역풍은 투자학교 수업 원칙이에요 — 과거에 그랬던 경향이지 약속이 아니에요.</span>
       </section>
 
       {seasonSoon && <span style={{ ...noteStyle(), wordBreak: 'keep-all' }}>③ 지금 계절은 — {r.data!.rows[0].cells[2].sentence}</span>}

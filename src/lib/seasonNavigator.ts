@@ -110,6 +110,25 @@ export const SEASON_META: Record<Quadrant, SeasonMeta> = {
   },
 }
 
+// ── 계절 × 자산군 순풍/역풍 — 투자학교 수업 원칙(선생님 승인 2026-09-29) ─────────────────
+//   투자학교 저울 ③ 칸의 칩. 통계·백테스트가 아니라 **수업 원칙**이다 — 화면은 "과거 경향이지 약속이 아님"을 함께 적는다.
+//   근거(승인 초안): 채권 = 물가·금리가 내릴 때(겨울) 오르고 오를 때(여름·가을) 눌린다 · 주식 = 경기↑ 물가 안정(봄)이 가장 좋고 경기가 꺾이면(가을·겨울) 어렵다 ·
+//   부동산 = 금리의 중력(봄 순풍, 가을 역풍) · 금 = 물가가 높을 때(여름·가을) 가치 보관, 봄엔 뒤처지기 쉽다 · 코인 = 돈이 풀리는 위험 선호(봄)에 강하고 돈줄이 조이면(가을·겨울) 약하다.
+//   간절기는 판정하지 않는다(지표가 엇갈림). ⛔ 이 표를 바꾸려면 선생님 승인이 먼저다.
+export type AssetClass = 'bond' | 'stock' | 'realestate' | 'gold' | 'coin'
+export type SeasonWind = 'tail' | 'neutral' | 'head'
+export const ASSET_SEASON_WIND: Record<Exclude<Quadrant, 'shoulder'>, Record<AssetClass, SeasonWind>> = {
+  goldilocks:  { bond: 'neutral', stock: 'tail',    realestate: 'tail',    gold: 'head',    coin: 'tail' },
+  inflation:   { bond: 'head',    stock: 'neutral', realestate: 'neutral', gold: 'tail',    coin: 'neutral' },
+  stagflation: { bond: 'head',    stock: 'head',    realestate: 'head',    gold: 'tail',    coin: 'head' },
+  recession:   { bond: 'tail',    stock: 'head',    realestate: 'neutral', gold: 'neutral', coin: 'head' },
+}
+export const WIND_KO: Record<SeasonWind, string> = { tail: '순풍', neutral: '보통', head: '역풍' }
+/** 계절 × 자산 → 칩 글자. 간절기는 null(판정 안 함) */
+export function seasonWind(quad: Quadrant, asset: AssetClass): string | null {
+  return quad === 'shoulder' ? null : WIND_KO[ASSET_SEASON_WIND[quad][asset]]
+}
+
 // ── 계절 × 보유 적합도 매트릭스 (린치 6대 분류 기반 0~1) ──────────────────────────
 type LynchCat = 'slow_grower' | 'stalwart' | 'fast_grower' | 'cyclical' | 'turnaround' | 'asset_play'
 

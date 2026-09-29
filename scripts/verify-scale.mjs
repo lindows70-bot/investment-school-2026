@@ -13,7 +13,7 @@ writeFileSync(`${ROOT}/.bt-scale.tsconfig.json`, JSON.stringify({
     outDir: OUT, module: 'commonjs', moduleResolution: 'node', noEmit: false, declaration: false,
     incremental: false, noEmitOnError: true, target: 'es2020', rootDir: `${ROOT}/src`,
   },
-  include: [`${ROOT}/src/lib/scale.ts`],
+  include: [`${ROOT}/src/lib/scale.ts`, `${ROOT}/src/lib/seasonNavigator.ts`],
 }, null, 2))
 
 // 이전 실행의 컴파일 결과를 먼저 지운다 — 안 지우면 컴파일이 실패해도 옛 .js 로 거짓 green 을 낸다
@@ -55,7 +55,11 @@ const oks = r.rows.flatMap(x => x.cells).filter(c => c.status === 'ok')
 check(`숫자 칸(ok ${oks.length}개 = ①② 7 + ③ 5)은 전부 출처·날짜 이름표가 있다`, oks.length === 12 && oks.every(c => c.source && c.date))
 check('금·코인 ① = 없음(현금흐름이 없다는 사실)', ['gold', 'coin'].every(a => cellOf(r, a, 'cash').status === 'none' && cellOf(r, a, 'cash').chip === '없음'))
 check('부동산 ① = 숫자 없는 설명(전국 전세가율 원천이 없다) + 부동산 화면 링크', cellOf(r, 'realestate', 'cash').status === 'text' && cellOf(r, 'realestate', 'cash').href === '/s/realestate' && !/\d/.test(cellOf(r, 'realestate', 'cash').sentence))
-check('③ 계절 다섯 칸 모두 ok · 순풍/역풍 칩 없음(선생님 원칙 승인 전)', r.rows.every(x => x.cells[2].status === 'ok' && x.cells[2].chip === null))
+check('③ 계절 다섯 칸 모두 ok · 여름 칩 = 승인 표(채권 역풍·주식 보통·부동산 보통·금 순풍·코인 보통)', r.rows.every(x => x.cells[2].status === 'ok') && r.rows.map(x => x.cells[2].chip).join(',') === '역풍,보통,보통,순풍,보통')
+check('봄이면 채권 보통·주식 순풍·부동산 순풍·금 역풍·코인 순풍', (() => { const b = buildScale({ ...FULL, season: { ...FULL.season, us: { ...FULL.season.us, quad: 'goldilocks' }, kr: { ...FULL.season.kr, quad: 'goldilocks' } } }); return b.rows.map(x => x.cells[2].chip).join(',') === '보통,순풍,순풍,역풍,순풍' })())
+check('미국·한국 계절이 다르면 주식 칩에 둘 다(미국 겨울 역풍 · 한국 봄 순풍)', cellOf(buildScale({ ...FULL, season: { ...FULL.season, us: { ...FULL.season.us, quad: 'recession' }, kr: { ...FULL.season.kr, quad: 'goldilocks' } } }), 'stock', 'season').chip === '미국 역풍 · 한국 순풍')
+check('부동산 칩은 한국 계절로(미국 가을·한국 겨울 → 보통)', cellOf(buildScale({ ...FULL, season: { ...FULL.season, us: { ...FULL.season.us, quad: 'stagflation' }, kr: { ...FULL.season.kr, quad: 'recession' } } }), 'realestate', 'season').chip === '보통')
+check('상세에 "수업 원칙 · 과거 경향이지 약속이 아님"', cellOf(r, 'bond', 'season').detail.includes('과거 경향이지 약속이 아님'))
 check('채권 ③ = 미국 여름 + FedWatch 금리 예상(인상 · 다음 결정 날짜)', cellOf(r, 'bond', 'season').sentence === "미국은 지금 ☀️ 여름(경기↑ 물가↑)이에요. 시장은 앞으로 금리 '인상'을 예상해요(다음 결정 2026.10.28).")
 check('주식 ③ = 미국·한국 둘 다 · 상세에 "한국 계절은 미국 물가를 써서" 밝힘', /미국 ☀️ 여름.*한국 ☀️ 여름/.test(cellOf(r, 'stock', 'season').sentence) && cellOf(r, 'stock', 'season').detail.includes('미국 물가(세계 물가의 기준)'))
 check('부동산 ③ = 한국 계절 + 금리의 중력 · 이름표에 OECD 한국 경기선행 기준월', cellOf(r, 'realestate', 'season').sentence.startsWith('한국은 지금 ☀️ 여름') && cellOf(r, 'realestate', 'season').source.includes('OECD 한국 경기선행 2026-08'))
@@ -68,7 +72,7 @@ check('한국 경기선행지수만 폴백 → 부동산 ③ hold · 주식 ③ 
 check('CPI 폴백 → 계절 hold("미국 물가")', cellOf(sCase({ cpiOk: false, cpiMonth: null }), 'bond', 'season').sentence.includes('미국 물가 자료'))
 check('CPI 3.4%(>3) + FedWatch 실패 → 물가축은 확정이라 계절은 말하되 금리 예상 문장은 뺀다', (() => { const c = cellOf(sCase({ rateDirOk: false }), 'bond', 'season'); return c.status === 'ok' && !c.sentence.includes('예상해요') && !c.source.includes('FedWatch') })())
 check('CPI 2.8%(≤3) + FedWatch 실패 → 물가축이 폴백 hold 에 걸려 있어 계절을 말하지 않는다("금리 예상")', cellOf(sCase({ cpiYoY: 2.8, rateDirOk: false }), 'bond', 'season').sentence.includes('금리 예상 자료'))
-check('간절기 → "계절이 바뀌는 중" 문구', cellOf(sCase({ us: { ...S0.us, quad: 'shoulder' } }), 'bond', 'season').sentence.includes('간절기(계절이 바뀌는 중'))
+check('간절기 → "계절이 바뀌는 중" 문구 · 칩 없음(판정 안 함)', cellOf(sCase({ us: { ...S0.us, quad: 'shoulder' } }), 'bond', 'season').sentence.includes('간절기(계절이 바뀌는 중') && cellOf(sCase({ us: { ...S0.us, quad: 'shoulder' } }), 'bond', 'season').chip === null)
 check('부동산 ② 주담대 4.48% + 이름표에 주담대 기준월 2026-08 · 날짜 = 두 월 중 오래된 것', cellOf(r, 'realestate', 'price').sentence.includes('4.48%') && cellOf(r, 'realestate', 'price').source.includes('주담대 금리(신규취급) 2026-08') && cellOf(r, 'realestate', 'price').date === '2026-08' && cellOf(r, 'realestate', 'price').detail.includes('약 448만원'))
 check('주담대 기준월이 없으면 금리 문장을 빼고 KB 만', !cellOf(buildScale({ ...FULL, kb: { ...FULL.kb, mortgage: null } }), 'realestate', 'price').sentence.includes('주택담보대출'))
 check('채권 ① 문장에 원천 값 5.17%', cellOf(r, 'bond', 'cash').sentence.includes('5.17%'))

@@ -1,6 +1,8 @@
 // 투자학교 저울 SSOT — 다섯 자산(채권·주식·부동산·금·코인)을 같은 세 질문(①돈을 만드나 ②지금 비싼가 ③지금 계절은)으로 재는 칸 조립(순수 함수, 외부 호출 0)
 //   기획 = docs/student-mode/scale-plan.md. 규칙: 출처·날짜 이름표가 없는 숫자는 칸에 넣지 않는다(status 'hold' 로 비우고 이유를 적는다) ·
 //   사라·팔라 없이 상태만 · 비교 칩은 원천이 가진 비교 기준으로만(임의 경계 없음) · 오래된 값은 문장 맨 앞에 날짜를 밝힌다.
+//   ③ 칩(순풍·보통·역풍)은 seasonNavigator.ASSET_SEASON_WIND — 선생님이 승인한 수업 원칙(통계 아님)
+import { seasonWind } from './seasonNavigator'   // 상대 경로 — 검증 스크립트가 이 파일을 별칭 없이 컴파일한다
 
 export type ScaleQ = 'cash' | 'price' | 'season'
 export type ScaleAsset = 'bond' | 'stock' | 'realestate' | 'gold' | 'coin'
@@ -63,7 +65,7 @@ const QUAD_KO: Record<Quad, string> = {
   recession: '❄️ 겨울(경기↓ 물가↓)', shoulder: '🌗 간절기',
 }
 const RATE_KO = { cut: '인하', hold: '동결', hike: '인상' } as const
-const SEASON_DETAIL = '계절 = 경기(OECD 경기선행지수가 오르나)와 물가(미국 CPI 3% 초과·금리 인상 예상)로 나눈 4칸 · 이 계절에 어느 자산이 순풍인지는 선생님 수업 원칙이 정해지면 붙어요'
+const SEASON_DETAIL = '계절 = 경기(OECD 경기선행지수가 오르나)와 물가(미국 CPI 3% 초과·금리 인상 예상)로 나눈 4칸 · 순풍·보통·역풍은 투자학교 수업 원칙이에요(과거 경향이지 약속이 아님)'
 type Season = NonNullable<ScaleInput['season']>
 /** 물가축이 진짜 값인가 — CPI 를 받았고, CPI 가 3% 이하일 땐 금리 예상(FedWatch)까지 받아야 판정이 선다 */
 const inflationKnown = (s: Season) => s.cpiOk && (s.cpiYoY > 3 || s.rateDirOk)
@@ -96,24 +98,26 @@ export function buildScale(inp: ScaleInput): ScaleResult {
   const sz = inp.season
   const us = sz ? seasonPhrase(sz, 'us') : null
   const kr = sz ? seasonPhrase(sz, 'kr') : null
-  const usCell = (text: (p: string, s: Season) => string, detail = SEASON_DETAIL) => sz && us
-    ? cell('season', 'ok', text(us, sz), { source: seasonSource(sz, 'us'), date: oldestMonth(sz.us.cliMonth, sz.cpiMonth), detail })
+  const usCell = (asset: 'bond' | 'gold' | 'coin', text: (p: string, s: Season) => string, detail = SEASON_DETAIL) => sz && us
+    ? cell('season', 'ok', text(us, sz), { chip: seasonWind(sz.us.quad, asset), source: seasonSource(sz, 'us'), date: oldestMonth(sz.us.cliMonth, sz.cpiMonth), detail })
     : seasonHold(sz, 'us')
   const rateLine = (s: Season) => s.rateDirOk ? ` 시장은 앞으로 금리 '${RATE_KO[s.rateDir]}'을 예상해요${s.nextFomc ? `(다음 결정 ${dot(s.nextFomc)})` : ''}.` : ''
-  const bondSeason = usCell((p, s) => `미국은 지금 ${p}이에요.${rateLine(s)}`)
+  const bondSeason = usCell('bond', (p, s) => `미국은 지금 ${p}이에요.${rateLine(s)}`)
   const stockSeason = sz && us
     ? cell('season', 'ok', `미국 ${us}${kr ? ` · 한국 ${kr}` : ''}이에요.`, {
+        chip: (() => { const u = seasonWind(sz.us.quad, 'stock'), k = kr ? seasonWind(sz.kr.quad, 'stock') : null; return k && u !== k ? `미국 ${u ?? '—'} · 한국 ${k}` : u })(),
         source: `${seasonSource(sz, 'us')}${kr ? ` · OECD 한국 경기선행 ${sz.kr.cliMonth ?? '?'}` : ''}`,
         date: oldestMonth(sz.us.cliMonth, sz.cpiMonth, kr ? sz.kr.cliMonth : null),
         detail: `${kr ? '한국 계절은 한국 경기선행지수에 미국 물가(세계 물가의 기준)를 써서 판정해요 · ' : '한국 경기선행지수가 아직 안 들어와 한국 계절은 쉬어요 · '}${SEASON_DETAIL}` })
     : seasonHold(sz, 'us')
   const reSeason = sz && kr
     ? cell('season', 'ok', `한국은 지금 ${kr}이에요. 금리가 오르면 집값을 누르는 힘(중력)이 세져요.`, {
+        chip: seasonWind(sz.kr.quad, 'realestate'),
         source: seasonSource(sz, 'kr'), date: oldestMonth(sz.kr.cliMonth, sz.cpiMonth),
         detail: `한국 계절은 한국 경기선행지수에 미국 물가(세계 물가의 기준)를 써서 판정해요 · ${SEASON_DETAIL}` })
     : seasonHold(sz, 'kr')
-  const goldSeason = usCell((p, s) => `미국은 지금 ${p}이에요. 미국 물가는 1년 전보다 ${Math.abs(s.cpiYoY).toFixed(1)}% ${s.cpiYoY >= 0 ? '올랐어요' : '내렸어요'}${s.cpiMonth ? `(${dot(s.cpiMonth)})` : ''}.`)
-  const coinSeason = usCell(p => `미국은 지금 ${p}이에요.`, `시중에 풀린 돈의 양(M2)과 견주는 칸은 곧 붙어요 · ${SEASON_DETAIL}`)
+  const goldSeason = usCell('gold', (p, s) => `미국은 지금 ${p}이에요. 미국 물가는 1년 전보다 ${Math.abs(s.cpiYoY).toFixed(1)}% ${s.cpiYoY >= 0 ? '올랐어요' : '내렸어요'}${s.cpiMonth ? `(${dot(s.cpiMonth)})` : ''}.`)
+  const coinSeason = usCell('coin', p => `미국은 지금 ${p}이에요.`, `시중에 풀린 돈의 양(M2)과 견주는 칸은 곧 붙어요 · ${SEASON_DETAIL}`)
 
   // ── 채권 — 이자가 나머지 네 자산을 재는 잣대(r)라 맨 위 ──
   const bond: ScaleRow = {
