@@ -40,6 +40,8 @@ export interface MacroData {
   hySpread:   number      // HY 스프레드 % (낮을수록 risk-on)
   rateDir:    'cut' | 'hold' | 'hike'   // FedWatch FF선물 net 방향(SSOT) — 국면 판정의 실제 금리 방향
   nextFomc:   string | null             // 다음 FOMC 날짜(ISO) — FedWatch 회의 일정에서(하드코딩 제거)
+  /** FedWatch 컨센서스를 실제로 받아 rateDir 을 계산했나 — false 면 rateDir 은 'hold' 폴백이다(화면이 '동결'이라고 단정하면 안 된다) */
+  rateDirOk:  boolean
 }
 
 export interface MacroPhaseResult {
@@ -775,26 +777,28 @@ async function fredLatest(series: string, count = 14, extra = ''): Promise<{ dat
 }
 
 // FedWatch FF선물 컨센서스로 '실제 금리 방향' + '다음 FOMC 날짜' 산출 — FedWatch와 동일 출처(제2원칙)
-async function fetchRateDirection(currentRate: number, selfBase?: string): Promise<{ dir: 'cut' | 'hold' | 'hike'; nextFomc: string | null }> {
-  if (!selfBase) return { dir: 'hold', nextFomc: null }
+// ⚠️ 실패는 ok:false 로 알린다 — 예전엔 조용히 'hold' 를 돌려주고 그 값이 24h 캐시에 박제됐다(2026-09-29 실측: FedWatch 는 +0.75%p = 인상인데
+//    앱 전체가 '금리 고점·동결'을 말하고 있었다. nextFomc:null 이 실패의 흔적이었다).
+async function fetchRateDirection(currentRate: number, selfBase?: string): Promise<{ dir: 'cut' | 'hold' | 'hike'; nextFomc: string | null; ok: boolean }> {
+  if (!selfBase) return { dir: 'hold', nextFomc: null, ok: false }
   try {
     const r = await fetch(`${selfBase}/api/fedwatch?currentRate=${currentRate.toFixed(4)}`, { signal: AbortSignal.timeout(12_000) })
-    if (!r.ok) return { dir: 'hold', nextFomc: null }
+    if (!r.ok) return { dir: 'hold', nextFomc: null, ok: false }
     const j = await r.json()
     const meetings: { consensusRate: number | null; date: string }[] = j?.meetings ?? []
     const today = new Date().toISOString().slice(0, 10)
     const nextFomc = meetings.find(m => m?.date && m.date >= today)?.date ?? meetings[0]?.date ?? null
     const last = [...meetings].reverse().find(m => m?.consensusRate != null)   // 가장 먼 회의의 컨센서스
-    if (!last || last.consensusRate == null) return { dir: 'hold', nextFomc }
+    if (!last || last.consensusRate == null) return { dir: 'hold', nextFomc, ok: false }
     const net = last.consensusRate - currentRate     // 양수=인상, 음수=인하 (25bp의 절반=0.125 임계)
     const dir: 'cut' | 'hold' | 'hike' = net <= -0.13 ? 'cut' : net >= 0.13 ? 'hike' : 'hold'
-    return { dir, nextFomc }
-  } catch { return { dir: 'hold', nextFomc: null } }
+    return { dir, nextFomc, ok: true }
+  } catch { return { dir: 'hold', nextFomc: null, ok: false } }
 }
 
 export async function fetchMacroData(selfBase?: string): Promise<MacroData> {
   // v4: CPI 를 FRED units=pc1 로 전환(13개월 차분 버그 수정) + cpiMonth 신설 — 값이 바뀌므로 반드시 범프
-  const cacheKey = 'macro-phase-data-v4'   // v3: FEDFUNDS 기준금리 + FedWatch 방향 + 다음 FOMC 날짜
+  const cacheKey = 'macro-phase-data-v5'   // v5: rateDirOk + 부분실패(FedWatch·CPI) 캐시 금지 — v4 에 FedWatch 실패로 박제된 'hold' 를 버린다 · v3: FEDFUNDS 기준금리 + FedWatch 방향 + 다음 FOMC 날짜
   const cached = await getCache<MacroData>(cacheKey, 24 * 3600_000)
   if (cached) return cached
 
@@ -820,9 +824,10 @@ export async function fetchMacroData(selfBase?: string): Promise<MacroData> {
     ? Math.round((yc10Arr[0].v - yc2Arr[0].v) * 100) / 100
     : 0.4
   const hySpread = hyArr[0]?.v ?? 3.0
-  const { dir: rateDir, nextFomc } = await fetchRateDirection(fedRate, selfBase)
-  const data: MacroData = { fedRate, cpiYoY, cpiMonth, yieldCurve, hySpread, rateDir, nextFomc }
-  await setCache(cacheKey, data)
+  const { dir: rateDir, nextFomc, ok: rateDirOk } = await fetchRateDirection(fedRate, selfBase)
+  const data: MacroData = { fedRate, cpiYoY, cpiMonth, yieldCurve, hySpread, rateDir, nextFomc, rateDirOk }
+  // 부분실패는 캐시하지 않는다 — 한 번의 FedWatch 타임아웃이 하루짜리 '동결'이 되지 않게(다음 요청이 스스로 낫는다)
+  if (rateDirOk && cpiMonth) await setCache(cacheKey, data)
   return data
 }
 
