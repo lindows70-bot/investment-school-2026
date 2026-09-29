@@ -309,7 +309,9 @@ export default function WeeklyReport({ simple = false }: { simple?: boolean } = 
   const kf = c.krFlow
 
   return (
-    <div style={{ maxWidth: 1020, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '8px 0 40px' }}>
+    // 📱 width 100% — 가운데 정렬(margin auto)된 flex 항목은 폭이 '내용물 최소 폭'으로 잡혀, 8열 보유 표(~409px) 때문에
+    //    리포트 전체가 375px 폰에서 104px 넘쳤다(2026-09-29 간편 화면 실측). 폭을 부모에 맞추면 그 표만 자기 스크롤 틀 안에서 밀린다
+    <div style={{ width: '100%', maxWidth: 1020, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '8px 0 40px', minWidth: 0 }}>
       {/* 마스트헤드 */}
       <div style={{ background: 'linear-gradient(135deg,rgba(184,134,11,0.13),rgba(18,40,76,0.35))', border: `1px solid ${TK.amber500}44`, borderRadius: 12, padding: '13px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -712,7 +714,7 @@ export default function WeeklyReport({ simple = false }: { simple?: boolean } = 
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: FS.micro, color: TK.sub2, marginBottom: 10 }}>
               {m.byClass.map((b, i) => <span key={b.cls}><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: [TK.blue400, '#eb6834', '#1baf7a', '#eda100', TK.slate400][i % 5], marginRight: 4 }} />{b.cls} {b.weight.toFixed(1)}%</span>)}
             </div>
-            <div style={{ overflowX: 'auto' }}>
+            <div className="m-scroll-hint" style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS.tiny }}>
                 <thead><tr style={{ color: TK.sub, fontSize: FS.tiny }}>
                   {['종목', '자산군', '비중', '누적', '주간', '기여', '신호', '타점'].map(h => <th key={h} style={{ textAlign: h === '종목' || h === '자산군' ? 'left' : 'right', padding: '4px 7px', borderBottom: `1px solid ${BORDER}` }}>{h}</th>)}

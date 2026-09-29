@@ -261,7 +261,8 @@ export default function SchoolLounge({ simple = false }: { simple?: boolean } = 
       {error && <div style={{ background: 'rgba(239,68,68,.1)', border: '1px solid rgba(239,68,68,.3)', borderRadius: 10, padding: '12px 16px', marginBottom: 20, fontSize: 13, color: TK.red400 }}>⚠️ {error} — <button onClick={fetchAll} style={{ background: 'none', border: 'none', cursor: 'pointer', color: TK.red400, textDecoration: 'underline', fontSize: 13 }}>재시도</button></div>}
 
       {/* 2컬럼 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '290px 1fr', gap: 20, alignItems: 'start' }}>
+      {/* 📱 m-1col — 폰(768px↓)에선 공지·게시판 1열. '290px 1fr' 고정이라 375px 에서 128px 넘쳤다(2026-09-29 간편 화면 실측) */}
+      <div className="m-1col" style={{ display: 'grid', gridTemplateColumns: '290px 1fr', gap: 20, alignItems: 'start' }}>
 
         {/* ════ 좌측: 공지사항 ════ */}
         <div>
