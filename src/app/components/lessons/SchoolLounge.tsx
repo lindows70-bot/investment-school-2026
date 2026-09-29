@@ -1,4 +1,5 @@
 'use client'
+// ⬇️ 2026-09-29 페이지 파일에서 옮겨 왔다(내용 그대로) — 분석 화면(/school-lounge)과 간편 화면(/s/lounge)이 같은 원본을 쓴다. simple = 간편 화면 안(바깥 여백을 간편 껍데기에 맡긴다)
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -42,7 +43,7 @@ const fmtDate = (s: string) =>
   new Date(s).toLocaleString('ko-KR', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
 
 // ══════════════════════════════════════════════════════════════════════════════
-export default function SchoolLoungePage() {
+export default function SchoolLounge({ simple = false }: { simple?: boolean } = {}) {
   const sb = createClient()
 
   // ── 인증 / 권한 ──
@@ -232,7 +233,7 @@ export default function SchoolLoungePage() {
 
   // ══ 렌더 ════════════════════════════════════════════════════════════════════
   return (
-    <div style={{ padding: '36px 28px 60px', fontFamily: FONT_STACK, color: TK.sub12, maxWidth: 1100 }}>
+    <div style={{ padding: simple ? 0 : '36px 28px 60px', fontFamily: FONT_STACK, color: TK.sub12, maxWidth: 1100 }}>
       <style>{`
         textarea:focus,input:focus,select:focus{outline:none}
         @keyframes glow{0%,100%{box-shadow:${SHO},0 0 12px rgba(251,191,36,.25)}50%{box-shadow:${SHO},0 0 24px rgba(251,191,36,.45)}}

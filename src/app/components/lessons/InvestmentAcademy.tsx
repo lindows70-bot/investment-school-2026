@@ -1,4 +1,5 @@
 'use client'
+// ⬇️ 2026-09-29 페이지 파일에서 옮겨 왔다(내용 그대로) — 분석 화면(/investment-academy)과 간편 화면(/s/learn/academy)이 같은 원본을 쓴다. simple = 간편 화면 안(바깥 여백을 간편 껍데기에 맡긴다)
 import { TK, FONT_STACK } from '@/lib/theme'
 
 // ── 디자인 토큰 ──────────────────────────────────────────────────────────────
@@ -126,10 +127,10 @@ const COMPARE = [
   { label: '대표 종목',   lynch: 'Hanes·Taco Bell 초기', buffett: '코카콜라·BNSF·애플' },
 ]
 
-export default function InvestmentAcademyPage() {
+export default function InvestmentAcademy({ simple = false }: { simple?: boolean } = {}) {
   return (
     <div style={{
-      padding: '36px 28px 60px',
+      padding: simple ? 0 : '36px 28px 60px',
       fontFamily: FONT_STACK,
       color: TK.sub12,
       maxWidth: 1080,

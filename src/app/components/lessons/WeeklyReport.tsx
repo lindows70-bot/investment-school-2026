@@ -1,4 +1,5 @@
 'use client'
+// ⬇️ 2026-09-29 페이지 파일에서 옮겨 왔다(내용 그대로) — 분석 화면(/weekly-report)과 간편 화면(/s/weekly)이 같은 원본을 쓴다. simple = 간편 화면 안('자산 관리' 링크를 간편 기록하기로)
 // 📄 주간 자산 리포트 — 클라우드 코워크 리포트(build_v4) 디자인·내용 이식판(앱 다크 테마).
 //   헤드라인 배너 + KPI 8종 스파크라인 + ✦핵심요약 + 한국(수급)·미국·자산군 스코어보드·코인·부동산·이슈·전략·체크포인트 + 개인 섹션.
 //   🖨️ PDF 저장=라이트 인쇄 문서(새 창 window.print). 상승 초록·하락 빨강(앱 규칙 통일). 서사는 Gemini(실측 숫자만 주입)·실패 시 결정론 폴백.
@@ -277,7 +278,7 @@ ${calRows ? `<h2>⑪ 다음 2주 내 캘린더</h2><table><tr><th>D-day</th><th>
   setTimeout(() => { w.focus(); w.print() }, 500)
 }
 
-export default function WeeklyReportPage() {
+export default function WeeklyReport({ simple = false }: { simple?: boolean } = {}) {
   const [data, setData] = useState<WeeklyReportResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
@@ -352,7 +353,7 @@ export default function WeeklyReportPage() {
           : wp == null    ? '이번 주 내 계좌 변동을 계산하지 못했습니다'
           : <>이번 주 내 계좌 <span style={{ color: pcol(wp), fontVariantNumeric: 'tabular-nums' }}>{pct(wp)}</span>{lead && <span style={{ color: TK.sub3 }}> · 가장 크게 움직인 건 {lead.sector}</span>}</>
         const sub =
-          !m.hasPortfolio ? <>자산 관리에서 보유 종목을 등록하면 다음 리포트부터 <b style={{ color: TK.slate300 }}>내 계좌 편</b>(종목 진단·섹터 기여·리스크 점검)이 함께 나옵니다 — <a href="/assets" style={{ color: TK.blue400, textDecoration: 'none', fontWeight: 700 }}>자산 관리 →</a></>
+          !m.hasPortfolio ? <>자산 관리에서 보유 종목을 등록하면 다음 리포트부터 <b style={{ color: TK.slate300 }}>내 계좌 편</b>(종목 진단·섹터 기여·리스크 점검)이 함께 나옵니다 — <a href={simple ? '/s/record' : '/assets'} style={{ color: TK.blue400, textDecoration: 'none', fontWeight: 700 }}>{simple ? '기록하기 →' : '자산 관리 →'}</a></>
           : wp == null    ? <>보유 종목의 주간 등락을 하나도 불러오지 못했습니다(없다는 뜻이 아닙니다) — 평가액 {won(m.kpi.totalKrw)} · {m.kpi.count}종목은 아래 ⑧에서 확인하세요.</>
           : <>평가액 <b style={{ color: TK.slate300 }}>{won(m.kpi.totalKrw)}</b> · 누적 손익 <b style={{ color: pcol(m.kpi.pnlPct) }}>{pct(m.kpi.pnlPct)}</b> · {m.kpi.count}종목
               {lead?.contrib != null && <> · {lead.sector}가 <b style={{ color: pcol(lead.contrib) }}>{pct(lead.contrib)}p</b> 기여</>}</>
