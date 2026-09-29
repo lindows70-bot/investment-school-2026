@@ -12,6 +12,7 @@ import { isPriced, type Market, type PriceInput } from '@/lib/portfolioSummary'
 import { won, signWon, pct, upDown, money, qtyText } from '@/lib/studentFormat'
 import { niceTicks, hourTicks, dayTicks, kstParts, ymdDot } from '@/lib/marketScreen'
 import { LinePlot } from '@/app/components/student/market/marketUi'
+import StockMore from '@/app/components/student/stock/StockMore'
 
 // transactions 실제 컬럼(tradeWrite.ts TxBase 기준) — type 은 소문자 'buy' | 'sell'
 interface Tx { id: string; type: 'buy' | 'sell'; price: number; quantity: number; transaction_date: string; currency: 'USD' | 'KRW' | null }
@@ -316,8 +317,8 @@ export default function StudentStock() {
         </section>
       )}
 
-      {/* /research 는 ?q= 로 자동 검색한다(?ticker= 는 읽지 않음) */}
-      <Link href={`/research?q=${encodeURIComponent(displayTicker)}`} style={{ padding: SP.lg, border: `1px solid ${TK.border}`, borderRadius: RAD.md, color: TK.slate200, fontSize: FS.body, textDecoration: 'none' }}>이 종목 더 깊이 보기 — 분석 화면에서 열려요 ›</Link>
+      {/* 더 알아보기 — 분석 화면(/research)으로 나가던 링크를 간편 안의 접이식 정보로(5단계-4). 코인은 이익·배당이 없어 그리지 않는다 */}
+      {cMarket && cMarket !== 'CRYPTO' && cTicker && <StockMore ticker={cTicker} market={cMarket} price={curPrice} currency={currency} />}
       {holding && <Link href={`/s/record?ticker=${encodeURIComponent(holding.ticker)}`} style={recordBtn}>이 종목 매매 기록하기</Link>}
     </div>
   )

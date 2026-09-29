@@ -15,7 +15,6 @@ const PERMANENT = [
 ]
 /** 임시 허용 — phase5-plan 의 단계가 끝나면 그 줄을 지운다(지우면 이 검사가 그 출구를 잡는다) */
 const TEMPORARY = [
-  { file: 'src/app/s/stock/[ticker]/page.tsx', href: '/research?q=', until: '4단계 종목 상세 더 알아보기' },
   { file: 'src/app/s/learn/page.tsx', href: '/investment-academy', until: '5단계 수업 자료 껍데기' },
   { file: 'src/app/s/learn/page.tsx', href: '/master-strategy', until: '5단계 수업 자료 껍데기' },
   { file: 'src/app/s/learn/page.tsx', href: '/weekly-report', until: "5단계 내 자산 '이번 주'" },
