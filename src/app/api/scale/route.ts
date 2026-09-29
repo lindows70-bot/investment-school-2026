@@ -12,6 +12,7 @@ import { buildScale, goldPoints, chipsOf, diffChips, rollSnap, type ScaleInput, 
 import type { ReMarketResult } from '@/app/api/re-market/route'
 import { RE_MARKET_KEY } from '@/lib/reMarketKey'
 import { getRegionSeasons } from '@/lib/regionSeason'
+import { SCALE_HIST_KEY, snapOf, addSnap, type ScaleSnap } from '@/lib/scaleScore'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -67,5 +68,16 @@ export async function GET(req: Request) {
   result.changes = diffChips(next.prevChips, now, result.rows)
   result.changedSince = next.prevDay
   if (!anyHold) { await setCache(SNAP_KEY, next); await setCache(CACHE_KEY, result) }
+  // 채점표 적립 — 오늘 한 장(불변). ③ 다섯 칸이 모두 칩으로 판정된 날만(간절기·재료 폴백이면 적지 않는다). 소급 없음(docs/scale/scoring-plan.md)
+  try {
+    const seasonsValid = result.rows.every(r => r.cells[2].status === 'ok' && !!r.cells[2].chip)
+    const stockChip = result.rows.find(r => r.asset === 'stock')?.cells[1].chip ?? null
+    const snap = seasons ? snapOf(kstToday(), seasons.quad.US, seasons.quad.KR, seasonsValid, stockChip, fng?.now ?? null) : null
+    if (snap) {
+      const hist = (await getCache<ScaleSnap[]>(SCALE_HIST_KEY, 3650 * 86400_000)) ?? []
+      const nextHist = addSnap(hist, snap)
+      if (nextHist) await setCache(SCALE_HIST_KEY, nextHist)
+    }
+  } catch { /* 채점표는 부가 기능 — 실패해도 저울 응답은 그대로 */ }
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

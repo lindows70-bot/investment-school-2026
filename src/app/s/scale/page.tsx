@@ -9,6 +9,7 @@ import { useMyPortfolio } from '@/app/components/student/useMyPortfolio'
 import { countByScaleAsset } from '@/lib/scaleHoldings'
 import { card, FailRow, noteStyle } from '@/app/components/student/home/homeUi'
 import type { ScaleResult, ScaleCell, ScaleQ } from '@/lib/scale'
+import type { ScaleScore } from '@/lib/scaleScore'
 
 // 저울의 용어 — 가나다순이 아니라 수업 순서(현금흐름 → 할인 → 금리 → 물가 뺀 이자 → 배수·전세가율·마음 온도 → 계절 → 순풍·역풍 → 코어·위성)
 const TERMS: { term: string; mean: string; href?: string; hrefText?: string }[] = [
@@ -49,8 +50,40 @@ function Cell({ c }: { c: ScaleCell }) {
   )
 }
 
+// 저울 성적표 — ③ 수업 원칙이 맞았나(docs/scale/scoring-plan.md). 서로 다른 달 10개 전엔 숫자 없이 적립 현황만
+const signPp = (x: number) => `${x > 0 ? '+' : x < 0 ? '−' : ''}${Math.abs(x * 100).toFixed(1)}%p`
+const ymKo = (ym: string) => `${ym.slice(0, 4)}년 ${Number(ym.slice(5, 7))}월`
+function ScoreCard({ s, loading }: { s: ScaleScore | null; loading: boolean }) {
+  return (
+    <section aria-label="저울 성적표" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.xs }}>
+      <h2 style={{ margin: 0, fontSize: FS.lg, fontWeight: 700, color: TK.slate100 }}>저울 성적표</h2>
+      <span style={{ fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all' }}>③ 칸의 순풍 자산이 역풍 자산보다 3개월 뒤 정말 나았나 — 오늘부터 앞으로만 적어서 채점해요(지난 일에 맞춰 고치지 않아요).</span>
+      {loading && <span style={noteStyle()}>성적표를 불러오는 중…</span>}
+      {!loading && !s && <span style={noteStyle(TK.amber400)}>성적표를 못 불러왔어요.</span>}
+      {s && !s.gateOpen && (
+        <span style={{ fontSize: FS.body, color: TK.slate200, wordBreak: 'keep-all' }}>
+          적립 {s.days}일째 · 채점된 달 {s.comparable}/10{s.firstResultMonth ? ` · 첫 성적은 ${ymKo(s.firstResultMonth)}쯤` : ''}. 서로 다른 달이 10개 모이기 전엔 통계가 아니라 일화라서 숫자를 보여주지 않아요.
+        </span>
+      )}
+      {s && s.gateOpen && s.stats && (
+        <>
+          <span style={{ fontSize: FS.body, color: TK.slate200, wordBreak: 'keep-all' }}>
+            순풍 자산이 역풍 자산보다 3개월 뒤 평균 <b>{signPp(s.stats.meanSpread)}</b>(중간값 {signPp(s.stats.medianSpread)}) · 맞은 달 {s.stats.hits}/{s.stats.n} · 다섯 자산 평균보다 {signPp(s.stats.meanVsBase)}
+          </span>
+          <span style={noteStyle()}>
+            {s.stats.trimmedMeanSpread != null ? `가장 큰 달을 빼면 ${signPp(s.stats.trimmedMeanSpread)} · ` : ''}
+            {s.stats.topAsset ? `차이의 ${Math.round(s.stats.topAsset.share * 100)}%를 ${s.stats.topAsset.name}이 만들었어요 · ` : ''}
+            {s.stats.seasons.length === 1 ? '한 계절에서만 검증됐어요 · ' : ''}서로 다른 달 {s.stats.n}개 · 대표 가격 IEF·SPY(분배금 포함)·금 선물·비트코인·KB 아파트 지수, 자산마다 자기 통화
+          </span>
+        </>
+      )}
+    </section>
+  )
+}
+
 export default function StudentScale() {
   const r = useJson<ScaleResult>('/api/scale')
+  const sc = useJson<ScaleScore>('/api/scale-score')
   // 내가 가진 줄 — 보유를 저울 다섯 줄로 나눠 센다(브라우저에서만 · 서버로 보내지 않는다). 못 불러오면 표시만 빠진다
   const pf = useMyPortfolio()
   const mine = pf.state === 'ready' || (pf.state === 'failed' && pf.failReason === 'fx') ? countByScaleAsset(pf.holdings) : null
@@ -98,6 +131,8 @@ export default function StudentScale() {
           <div className={seasonSoon ? 'sk-cells sk-two' : 'sk-cells'}>{row.cells.filter(c => !(seasonSoon && c.q === 'season')).map(c => <Cell key={c.q} c={c} />)}</div>
         </section>
       ))}
+
+      <ScoreCard s={sc.state === 'ok' ? sc.data : null} loading={sc.state === 'idle' || sc.state === 'loading'} />
 
       <section id="terms" aria-labelledby="scale-terms" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.xs }}>
         <h2 id="scale-terms" style={{ margin: 0, fontSize: FS.lg, fontWeight: 700, color: TK.slate100 }}>저울의 용어</h2>

@@ -13,7 +13,7 @@ writeFileSync(`${ROOT}/.bt-scale.tsconfig.json`, JSON.stringify({
     outDir: OUT, module: 'commonjs', moduleResolution: 'node', noEmit: false, declaration: false,
     incremental: false, noEmitOnError: true, target: 'es2020', rootDir: `${ROOT}/src`,
   },
-  include: [`${ROOT}/src/lib/scale.ts`, `${ROOT}/src/lib/seasonNavigator.ts`, `${ROOT}/src/lib/scaleHoldings.ts`, `${ROOT}/src/lib/assetClassifier.ts`],
+  include: [`${ROOT}/src/lib/scale.ts`, `${ROOT}/src/lib/seasonNavigator.ts`, `${ROOT}/src/lib/scaleHoldings.ts`, `${ROOT}/src/lib/assetClassifier.ts`, `${ROOT}/src/lib/scaleScore.ts`],
 }, null, 2))
 
 // 이전 실행의 컴파일 결과를 먼저 지운다 — 안 지우면 컴파일이 실패해도 옛 .js 로 거짓 green 을 낸다
@@ -30,6 +30,7 @@ if (!existsSync(`${OUT}/lib/scale.js`)) { console.log('❌ 컴파일 결과 없�
 const require = Module.createRequire(import.meta.url)
 const { buildScale, goldPoints, chipsOf, diffChips, rollSnap } = require(`${OUT}/lib/scale.js`)
 const { scaleAssetOf, countByScaleAsset } = require(`${OUT}/lib/scaleHoldings.js`)
+const { snapOf, addSnap, computeScaleScore, COHORT_GATE } = require(`${OUT}/lib/scaleScore.js`)
 
 let fail = 0
 const check = (label, cond, why = '') => { if (cond) console.log(`✅ ${label}`); else { fail++; console.log(`❌ ${label}${why ? ` — ${why}` : ''}`) } }
@@ -144,6 +145,35 @@ const wrong = H.filter(([t, n, m, want]) => scaleAssetOf(t, n, m) !== want).map(
 check(`보유 → 저울 줄 ${H.length}종(금융·은행은 금 아님 · 원유는 줄 없음)`, wrong.length === 0, wrong.join(' · '))
 const cnt = countByScaleAsset(H.map(([t, n, m]) => ({ ticker: t, name: n, market: m })))
 check('줄마다 종목 수 — 주식 5·채권 2·금 2·부동산 2·코인 1(원유 제외)', cnt.stock === 5 && cnt.bond === 2 && cnt.gold === 2 && cnt.realestate === 2 && cnt.coin === 1)
+
+// ── 5단계: 채점표 ──
+const sn = snapOf('2026-10-01', 'inflation', 'inflation', true, '5년 평균보다 낮음', 73)
+check('여름 스냅샷 = 승인 표(채권 역풍·주식 보통·부동산 보통·금 순풍·코인 보통)', sn && ['bond', 'stock', 'realestate', 'gold', 'coin'].map(a => sn.wind[a]).join(',') === 'head,neutral,neutral,tail,neutral')
+check('부동산은 한국 계절로(미국 여름·한국 겨울 → 부동산 보통, 주식은 미국 여름 보통)', snapOf('2026-10-01', 'inflation', 'recession', true, null, null).wind.realestate === 'neutral')
+check('간절기·계절 재료 폴백이면 적지 않는다', snapOf('2026-10-01', 'shoulder', 'inflation', true, null, null) === null && snapOf('2026-10-01', 'inflation', 'inflation', false, null, null) === null)
+const h1 = addSnap([], sn)
+check('같은 날 두 번째 적립은 무시(불변 기록)', h1.length === 1 && addSnap(h1, { ...sn, fng: 10 }) === null)
+// 가짜 시세 — 금 매일 +0.1%, 채권 매일 −0.03%, 주식·코인 보합, KB 월 +0.5%
+const days = [], gold = [], bond = [], flat = []
+for (let t = Date.parse('2026-09-15T00:00:00Z'), i = 0; t <= Date.parse('2028-03-31T00:00:00Z'); t += 86_400_000, i++) {
+  days.push(new Date(t).toISOString().slice(0, 10)); gold.push(100 * 1.001 ** i); bond.push(100 * 0.9997 ** i); flat.push(100)
+}
+const kbD = [], kbV = []
+for (let m = 0; m < 20; m++) { const d = new Date(Date.UTC(2026, 8 + m, 1)); kbD.push(d.toISOString().slice(0, 7)); kbV.push(100 * 1.005 ** m) }
+const SER = { gold: { dates: days, values: gold }, bond: { dates: days, values: bond }, stock: { dates: days, values: flat }, coin: { dates: days, values: flat }, realestate: { dates: kbD, values: kbV } }
+// 12달 × 달마다 여러 장(매주) — 달마다 첫 장만 진입으로 세야 한다
+const SH = []
+for (let m = 0; m < 12; m++) for (const dd of [1, 8, 15, 22]) { const d = new Date(Date.UTC(2026, 9 + m, dd)).toISOString().slice(0, 10); SH.push({ ...sn, d }) }
+const early = computeScaleScore(SH, SER, '2026-12-15')
+check(`3개월이 안 지난 달은 채점하지 않는다(12/15 기준 성숙 0) · 진입 달 ${early.cohortsStarted} · 첫 성적 ${early.firstResultMonth}(2026-10 + 9달 + 3달 = 2027-10)`, early.matured === 0 && early.cohortsStarted === 12 && early.firstResultMonth === '2027-10' && !early.gateOpen && early.stats === null)
+const mid = computeScaleScore(SH, SER, '2027-09-10')   // 2026-10~2027-06 진입 9달 성숙
+check(`게이트 전(성숙·비교 가능 ${mid.comparable}달 < ${COHORT_GATE}) → 숫자 없음`, mid.comparable === 9 && !mid.gateOpen && mid.stats === null)
+const late = computeScaleScore(SH, SER, '2028-01-31')
+check(`달마다 한 번만 센다(적립 ${late.days}장 → 채점 ${late.comparable}달)`, late.days === 48 && late.comparable === 12)
+check(`금(순풍) − 채권(역풍) 3개월 차이 > 0 · 맞은 달 ${late.stats?.hits}/12 · 평균 ${(late.stats?.meanSpread * 100).toFixed(2)}%p`, late.gateOpen && late.stats.hits === 12 && late.stats.meanSpread > 0.09 && late.stats.meanSpread < 0.13)
+check(`차이 대부분을 금이 만들었다고 밝힌다(${late.stats?.topAsset?.name} ${Math.round((late.stats?.topAsset?.share ?? 0) * 100)}%) · 한 계절(여름)에서만 검증`, late.stats.topAsset?.asset === 'gold' && late.stats.topAsset.share > 0.5 && late.stats.seasons.length === 1)
+const kbMissing = computeScaleScore(SH, { ...SER, realestate: { dates: kbD.slice(0, 9), values: kbV.slice(0, 9) } }, '2028-01-31')
+check('KB 지수가 청산 달에 아직 없으면 그 달은 미성숙(추정으로 메우지 않는다)', kbMissing.comparable < 12)
 
 // ── (라이브) 프로덕션 /api/scale ──
 try {
