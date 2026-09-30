@@ -71,3 +71,7 @@
 - [x] 4. 종목 상세 접이식 '더 알아보기'(stock-info — PER·PEG·시총·업종·배당·52주 위치) · 국내 52주 null 결함 수정(네이버 basic 필드 소멸 → integration) · [x] 국내 업종 null — integration.industryCode → 업종 목록 79개 표(lib/naverUpjong SSOT, 승패 해부실과 공유) → 야후 11개 섹터 · 세부 업종 병기 · verify-naver-upjong 야간 등록(30dfe505)
 - [x] 5. 수업 자료 간편 안에서(`/s/learn/academy`·`/s/learn/strategy`·`/s/weekly`·`/s/lounge` — 같은 원본 components/lessons, 사용자 결정) · 폰 넘침 2건 수정 · [ ] 내 자산 '이번 주' 줄(API 없음 — /s/weekly 로 대신, 필요하면 나중에)
 - [x] 6. 출구 검증 허용 목록 = 상단 전환 버튼 2곳만(임시 0) · 기록
+
+## 배우기 — 오늘 알려드려요 규칙 확장(2026-10-01)
+- [x] ⑥ 저울 연결 · ⑦ 배당 · ⑧ 52주 위치(사용자 결정: 세 개 · 보유 기간·매매 빈도·7일 다시 보기는 제외) · verify-learn-tips 8규칙 + 야간 등록
+- [ ] 프로덕션 세 폭 실측 · 선생님 계정에서 8일 연속 서로 다른 규칙(10/8까지 관찰)
