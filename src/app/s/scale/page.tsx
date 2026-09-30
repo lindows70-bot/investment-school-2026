@@ -129,6 +129,8 @@ export default function StudentScale() {
             {mine && (mine[row.asset] ?? 0) > 0 && <span style={{ padding: `0 ${SP.sm}px`, borderRadius: RAD.pill, background: `${TK.sky400}24`, color: TK.sky400, fontSize: FS.micro, fontWeight: 700, whiteSpace: 'nowrap' }}>내 자산 {mine[row.asset]}종</span>}
           </div>
           <div className={seasonSoon ? 'sk-cells sk-two' : 'sk-cells'}>{row.cells.filter(c => !(seasonSoon && c.q === 'season')).map(c => <Cell key={c.q} c={c} />)}</div>
+          {/* 줄 끝 꼬리표(코어·위성) — 다른 설명 줄과 같은 크기·색. 뜻은 아래 '저울의 용어' */}
+          {typeof row.tail === 'string' && row.tail && <span style={{ ...noteStyle(), wordBreak: 'keep-all' }}>{row.tail} · <a href="#terms" style={{ color: TK.sub, textDecoration: 'underline', minHeight: 0 }}>코어·위성이란</a></span>}
         </section>
       ))}
 

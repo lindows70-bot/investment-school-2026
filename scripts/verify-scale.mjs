@@ -56,6 +56,11 @@ check('모든 줄이 세 칸(①②③)', r.rows.every(x => x.cells.map(c => c.q
 const oks = r.rows.flatMap(x => x.cells).filter(c => c.status === 'ok')
 check(`숫자 칸(ok ${oks.length}개 = ①② 7 + ③ 5)은 전부 출처·날짜 이름표가 있다`, oks.length === 12 && oks.every(c => c.source && c.date))
 check('금·코인 ① = 없음(현금흐름이 없다는 사실)', ['gold', 'coin'].every(a => cellOf(r, a, 'cash').status === 'none' && cellOf(r, a, 'cash').chip === '없음'))
+// 줄 끝 꼬리표 — ① 칸의 사실과 어긋나지 않아야 한다(있음 ↔ 코어 · 없음 ↔ 위성). 코인만 5% 수업 원칙
+check('꼬리표 5줄 전부 있고 ① 있음 줄은 코어, 없음 줄은 위성', r.rows.every(x => typeof x.tail === 'string' && x.tail.length > 0)
+  && r.rows.filter(x => x.cells[0].chip === '있음').every(x => /코어/.test(x.tail)) && r.rows.filter(x => x.cells[0].chip === '없음').every(x => /위성/.test(x.tail) && !/코어/.test(x.tail)))
+check('코인 줄에만 5% 수업 원칙 · 경고 어휘(위험·주의·경고) 없음', /5%/.test(r.rows.find(x => x.asset === 'coin').tail) && r.rows.filter(x => x.asset !== 'coin').every(x => !/5%/.test(x.tail)) && r.rows.every(x => !/위험|주의|경고/.test(x.tail)))
+check('주식 줄 꼬리표는 지수 ETF(코어)와 개별 종목(위성)을 가른다', /지수 ETF/.test(r.rows.find(x => x.asset === 'stock').tail) && /개별 종목/.test(r.rows.find(x => x.asset === 'stock').tail))
 check('부동산 ① = 숫자 없는 설명(전국 전세가율 원천이 없다) + 부동산 화면 링크', cellOf(r, 'realestate', 'cash').status === 'text' && cellOf(r, 'realestate', 'cash').href === '/s/realestate' && !/\d/.test(cellOf(r, 'realestate', 'cash').sentence))
 check('③ 계절 다섯 칸 모두 ok · 여름 칩 = 승인 표(채권 역풍·주식 보통·부동산 보통·금 순풍·코인 보통)', r.rows.every(x => x.cells[2].status === 'ok') && r.rows.map(x => x.cells[2].chip).join(',') === '역풍,보통,보통,순풍,보통')
 check('봄이면 채권 보통·주식 순풍·부동산 순풍·금 역풍·코인 순풍', (() => { const b = buildScale({ ...FULL, season: { ...FULL.season, us: { ...FULL.season.us, quad: 'goldilocks' }, kr: { ...FULL.season.kr, quad: 'goldilocks' } } }); return b.rows.map(x => x.cells[2].chip).join(',') === '보통,순풍,순풍,역풍,순풍' })())

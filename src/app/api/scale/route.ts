@@ -17,7 +17,7 @@ import { SCALE_HIST_KEY, snapOf, addSnap, type ScaleSnap } from '@/lib/scaleScor
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const CACHE_KEY = 'scale-v4'   // v4: changes·changedSince(오늘 바뀐 칸) · v3: ③ 순풍·보통·역풍 칩(선생님 승인 원칙) · v2: ③ 계절 칸 + 주담대(기준월) — 필드·내용이 바뀌면 키를 올린다   // 날짜 없는 키 — 신선도는 TTL 로(날짜 키는 영구 누적)
+const CACHE_KEY = 'scale-v5'   // v5: 줄 끝 코어·위성 꼬리표(tail) · v4: changes·changedSince(오늘 바뀐 칸) · v3: ③ 순풍·보통·역풍 칩(선생님 승인 원칙) · v2: ③ 계절 칸 + 주담대(기준월) — 필드·내용이 바뀌면 키를 올린다   // 날짜 없는 키 — 신선도는 TTL 로(날짜 키는 영구 누적)
 const TTL = 3600_000
 // 칩 스냅샷 — 날짜 없는 키 한 행을 덮어쓴다(오늘 칩 + 비교 기준이 될 지난 날 칩). 날짜 키는 영구 누적이라 쓰지 않는다
 const SNAP_KEY = 'scale-chips-v1'

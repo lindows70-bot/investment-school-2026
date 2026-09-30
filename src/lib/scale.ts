@@ -19,7 +19,15 @@ export interface ScaleCell {
   detail: string | null      // 눌러서 펼치는 한 줄(숫자 최대 두 개 규칙의 나머지)
   href: string | null        // 간편 화면 안의 더 보기(없으면 null)
 }
-export interface ScaleRow { asset: ScaleAsset; name: string; cells: [ScaleCell, ScaleCell, ScaleCell] }
+export interface ScaleRow { asset: ScaleAsset; name: string; cells: [ScaleCell, ScaleCell, ScaleCell]; tail: string }   // tail = 줄 끝 코어·위성 꼬리표(ROLE_TAIL)
+/** 줄 끝 꼬리표 — 수업 원칙(사용자 승인 2026-09-30). ① 칸의 사실(현금흐름 있음·없음)에서 코어·위성이 갈린다. 다른 설명 줄과 같은 크기·같은 색으로만(경고색·훈계 없음) */
+export const ROLE_TAIL: Record<ScaleAsset, string> = {
+  bond: '이자가 있어요 → 코어의 재료',
+  stock: '배당·이익이 있어요 → 지수 ETF 는 코어, 개별 종목은 위성의 재료',
+  realestate: '월세가 있어요 → 코어의 재료',
+  gold: '이자·배당이 없어요 → 위성의 재료',
+  coin: '이자·배당이 없어요 → 위성의 재료 · 수업 원칙은 위성 안에서도 전체의 5% 안',
+}
 /** 지난 날짜와 비교해 칩이 바뀐 칸 — 숫자가 아니라 칩(상태)만 비교한다 */
 export interface ScaleChange { asset: ScaleAsset; name: string; q: ScaleQ; from: string; to: string }
 export interface ScaleResult {
@@ -127,7 +135,7 @@ export function buildScale(inp: ScaleInput): ScaleResult {
 
   // ── 채권 — 이자가 나머지 네 자산을 재는 잣대(r)라 맨 위 ──
   const bond: ScaleRow = {
-    asset: 'bond', name: '채권',
+    asset: 'bond', name: '채권', tail: ROLE_TAIL.bond,
     cells: [
       ry ? cell('cash', 'ok', `${staleLead(ry.nominal.date, today, STALE_DAYS.fred)}빌려준 돈에 이자를 줘요. 만기까지 들고 있으면 받을 이자는 처음부터 정해져 있어요. 미국 10년 국채는 연 ${pct2(ry.nominal.v)}예요.`,
         { chip: '있음', source: 'FRED 미국 10년 국채 금리(DGS10)', date: ry.nominal.date })
@@ -144,7 +152,7 @@ export function buildScale(inp: ScaleInput): ScaleResult {
   const ey = fs ? Math.round(10000 / fs.fwd) / 100 : null   // 이익수익률 = 100 ÷ 선행 PER(%)
   const stockChip = !fs || !isNum(fs.avg5) ? '비교 기준 없음' : Math.abs(fs.fwd - fs.avg5) < 0.05 ? '5년 평균과 같음' : fs.fwd > fs.avg5 ? '5년 평균보다 높음' : '5년 평균보다 낮음'
   const stock: ScaleRow = {
-    asset: 'stock', name: '주식',
+    asset: 'stock', name: '주식', tail: ROLE_TAIL.stock,
     cells: [
       fs && ey != null ? cell('cash', 'ok', `${staleLead(fs.date, today, STALE_DAYS.factset)}회사가 버는 이익이 주식의 현금흐름이에요. 미국 대표 500개 회사는 주가 100원어치가 앞으로 1년에 약 ${ey.toFixed(1)}원을 벌 것으로 예상돼요. 채권 이자처럼 약속된 돈은 아니에요.`,
         { chip: '있음', source: 'FactSet 선행 PER(S&P 500) · 계산 100÷PER', date: fs.date })
@@ -159,7 +167,7 @@ export function buildScale(inp: ScaleInput): ScaleResult {
 
   // ── 부동산 — 전국 전세가율 원천이 없다: ① 은 설명만, 값은 관심 단지에서 ──
   const realestate: ScaleRow = {
-    asset: 'realestate', name: '부동산',
+    asset: 'realestate', name: '부동산', tail: ROLE_TAIL.realestate,
     cells: [
       cell('cash', 'text', '집이 버는 돈은 월세예요(전세라면 집주인이 보증금을 굴려서 벌어요). 전국 숫자는 아직 없어서, 관심 단지를 고르면 그 단지 전세가가 매매가의 몇 %인지 보여 드려요.',
         { chip: '있음', href: '/s/realestate' }),
@@ -174,7 +182,7 @@ export function buildScale(inp: ScaleInput): ScaleResult {
   // ── 금 — 현금흐름 없음. 비싼가는 '포기하는 이자'와 나란히(관계는 원칙 문장) ──
   const gy = gold?.yearAgo && isNum(gold.yearAgo.close) && gold.yearAgo.close > 0 ? (gold.last.close / gold.yearAgo.close - 1) * 100 : null
   const goldRow: ScaleRow = {
-    asset: 'gold', name: '금',
+    asset: 'gold', name: '금', tail: ROLE_TAIL.gold,
     cells: [
       cell('cash', 'none', '금은 이자도 배당도 주지 않아요. 들고 있는 동안 버는 돈은 0이에요. 값이 오를 때만 벌어요.', { chip: '없음' }),
       ry && gold && gy != null ? cell('price', 'ok', `${staleLead(gold.last.date, today, STALE_DAYS.gold)}금을 들고 있으면 물가를 뺀 국채 이자 ${pct2(ry.real.v)}를 포기하는 셈이에요. 금값은 1년 전보다 ${moved(gy)}.`,
@@ -187,7 +195,7 @@ export function buildScale(inp: ScaleInput): ScaleResult {
 
   // ── 코인 — 현금흐름 없음. 금리와 견줄 수 없어 사람들 마음 온도로 ──
   const coin: ScaleRow = {
-    asset: 'coin', name: '코인',
+    asset: 'coin', name: '코인', tail: ROLE_TAIL.coin,
     cells: [
       cell('cash', 'none', '비트코인은 이자·배당·월세가 없어요. 값이 오르는 것만 수익이에요.', { chip: '없음' }),
       fng ? cell('price', 'ok', `${staleLead(fng.date!, today, STALE_DAYS.fng)}버는 돈이 없어서 금리와 견줄 수도, 적정 가격을 계산할 수도 없어요. 대신 사람들 마음 온도를 봐요. 지금은 ${fng.now}점${isNum(fng.weekAgo) ? `, 1주 전 ${fng.weekAgo}점` : ''}${isNum(fng.monthAgo) ? `, 1달 전 ${fng.monthAgo}점` : ''}이에요.`,
