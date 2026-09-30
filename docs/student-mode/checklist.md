@@ -68,6 +68,6 @@
 - [x] 로고·시그니처를 간편 화면에(77462c2, `components/Brand` 한 벌) · FOMC 창 회귀 수정
 - [x] 3. 코인 `/s/coin`(4종 차트·규제 레이더·ETF 발행사별 순유입) · 부동산 `/s/realestate`(아파트 단지 리서치 중심) + 배우기 카드 + 홈 바로가기 · 세 폭 검수·배포(ed9329da · 업비트 한도 결함 44ee6d29) · [ ] 명언 풀 확장(철학가 후보 → 사용자 확인)
 - [x] 코인 화면 비트코인 ETF 표 원천 지연(TheBlock 약 2거래일) — 사용자 결정: 그대로 둔다(2026-09-29)
-- [x] 4. 종목 상세 접이식 '더 알아보기'(stock-info — PER·PEG·시총·업종·배당·52주 위치) · 국내 52주 null 결함 수정(네이버 basic 필드 소멸 → integration) · [ ] 국내 업종 null(별도 조사)
+- [x] 4. 종목 상세 접이식 '더 알아보기'(stock-info — PER·PEG·시총·업종·배당·52주 위치) · 국내 52주 null 결함 수정(네이버 basic 필드 소멸 → integration) · [x] 국내 업종 null — integration.industryCode → 업종 목록 79개 표(lib/naverUpjong SSOT, 승패 해부실과 공유) → 야후 11개 섹터 · 세부 업종 병기 · verify-naver-upjong 야간 등록(30dfe505)
 - [x] 5. 수업 자료 간편 안에서(`/s/learn/academy`·`/s/learn/strategy`·`/s/weekly`·`/s/lounge` — 같은 원본 components/lessons, 사용자 결정) · 폰 넘침 2건 수정 · [ ] 내 자산 '이번 주' 줄(API 없음 — /s/weekly 로 대신, 필요하면 나중에)
 - [x] 6. 출구 검증 허용 목록 = 상단 전환 버튼 2곳만(임시 0) · 기록
