@@ -47,14 +47,19 @@ function QuoteCard({ today }: { today: string | null }) {
           <span style={{ fontSize: FS.tiny, color: TK.slate300, lineHeight: 1.5, overflowWrap: 'anywhere' }}>
             — {q.person}{quoted} · {q.sourceLabel}{q.note ? ` · ${q.note}` : ''}
           </span>
-          <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} aria-controls="learn-quote-original"
-            style={{ ...retryBtn, alignSelf: 'flex-start', padding: `0 ${SP.md}px` }}>
-            {open ? '원문 닫기' : '원문 보기'}
-          </button>
-          <p id="learn-quote-original" lang="en" hidden={!open}
-            style={{ margin: 0, fontSize: FS.tiny, lineHeight: 1.6, color: TK.slate300, fontStyle: 'italic', overflowWrap: 'anywhere' }}>
-            {q.original}
-          </p>
+          {/* 사진첩의 한국어 글은 원문이 없다(빈 문자열) — 빈 '원문 보기'를 내밀지 않는다 */}
+          {q.original && (
+            <>
+              <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} aria-controls="learn-quote-original"
+                style={{ ...retryBtn, alignSelf: 'flex-start', padding: `0 ${SP.md}px` }}>
+                {open ? '원문 닫기' : '원문 보기'}
+              </button>
+              <p id="learn-quote-original" hidden={!open}
+                style={{ margin: 0, fontSize: FS.tiny, lineHeight: 1.6, color: TK.slate300, fontStyle: 'italic', overflowWrap: 'anywhere' }}>
+                {q.original}
+              </p>
+            </>
+          )}
         </>
       )}
     </section>

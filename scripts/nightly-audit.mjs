@@ -64,6 +64,8 @@ const INVARIANTS = [
   { file: 'scripts/verify-naver-upjong.mjs', label: '국내 업종 SSOT — 업종명→섹터 전수(기타 제외 0 미분류) · 프로덕션 /api/stock-info 업종' },
   // 2026-09-30 신설 — 규제 레이더 항목마다 근거 기사 링크(srcIdx 서버 검증). 가드가 무력해지면 링크 없는 요약으로 조용히 돌아간다
   { file: 'scripts/verify-crypto-regulation.mjs', label: '규제 레이더 — 항목마다 근거 기사 1개 이상 · 링크 http(s) · 프로덕션' },
+  // 2026-09-30 등록 — 명언 상수 = quotes.md 글자 그대로 · 원문 미확인 귀속은 작자 미상 · 투자·삶 명언이 섞여 순환
+  { file: 'scripts/verify-quotes.mjs', label: '오늘의 명언 — 상수 = quotes.md 원문 · 미확인 귀속 0 · 순환 섞임' },
 ]
 
 /**

@@ -54,10 +54,11 @@ function check(label, cond) {
 
 // ── quotes.md 를 독립적으로 다시 파싱한다(생성 스크립트를 신뢰하지 않고, 원문과 직접 대조) ──
 const md = readFileSync(`${ROOT}/docs/student-mode/quotes.md`, 'utf8')
-const mdLines = md.split('\n')
+const mdLines = md.split(/\r?\n/)   // CRLF 허용(생성기와 같은 규칙)
 
 let person = null
 let headingNote = null
+let expected = 0
 const mdQuotes = new Map() // id -> { person, ko, original, source, note? }
 
 for (const line of mdLines) {
@@ -75,6 +76,7 @@ for (const line of mdLines) {
       headingNote = null
       continue
     }
+    expected += Number(countMatch[1])
     const withoutCount = text.slice(0, countMatch.index).trim()
     const dashIdx = withoutCount.indexOf('—')
     if (dashIdx === -1) {
@@ -84,6 +86,12 @@ for (const line of mdLines) {
       person = withoutCount.slice(0, dashIdx).trim()
       headingNote = withoutCount.slice(dashIdx + 1).trim()
     }
+    continue
+  }
+  const row5 = line.match(/^\|\s*(S[0-9]{3})\s*\|(.*)\|(.*)\|(.*)\|(.*)\|\s*$/)
+  if (row5 && person) {
+    const [, id, personRaw, koRaw, originalRaw, sourceRaw] = row5
+    mdQuotes.set(id, { person: personRaw.trim(), ko: koRaw.trim(), original: originalRaw.trim(), source: sourceRaw.trim() })
     continue
   }
   const row = line.match(/^\|\s*([A-Z][0-9]{2})\s*\|(.*)\|(.*)\|(.*)\|\s*$/)
@@ -96,8 +104,8 @@ for (const line of mdLines) {
   }
 }
 
-check('quotes.md 에 51개 행', mdQuotes.size === 51)
-check('QUOTES 도 51개', M.QUOTES.length === 51)
+check(`quotes.md 행 수 = 소제목 합계(${expected}) · 51개 이상`, mdQuotes.size === expected && mdQuotes.size >= 51)
+check(`QUOTES 도 ${expected}개`, M.QUOTES.length === expected)
 
 // ── id 중복 없음 ──
 const ids = M.QUOTES.map((q) => q.id)
@@ -128,6 +136,10 @@ for (const q of M.QUOTES) {
     console.log(`❌ ${q.id}: note 불일치\n  코드: ${q.note}\n  원문: ${ref.note}`)
     mismatch++
   }
+  if (q.id.startsWith('S') && q.person !== ref.person) {
+    console.log(`❌ ${q.id}: person 불일치\n  코드: ${q.person}\n  원문: ${ref.person}`)
+    mismatch++
+  }
 }
 for (const id of mdQuotes.keys()) {
   if (!ids.includes(id)) {
@@ -135,7 +147,17 @@ for (const id of mdQuotes.keys()) {
     mismatch++
   }
 }
-check('ko/original/source/note 51개 전부 원문과 글자 그대로 일치', mismatch === 0)
+check(`ko/original/source/note(+사진첩 person) ${M.QUOTES.length}개 전부 원문과 글자 그대로 일치`, mismatch === 0)
+
+// ── 사진첩(S): 원문 미확인 귀속은 작자 미상 · 투자 명언과 고르게 섞였는지(같은 종류가 4개 넘게 연달아 오지 않음 · 양쪽 다 있음) ──
+const life = M.QUOTES.filter((q) => q.id.startsWith('S'))
+check(`사진첩 ${life.length}개 · 투자 ${M.QUOTES.length - life.length}개 둘 다 있음`, life.length > 0 && M.QUOTES.length - life.length === 51)
+check("출처에 '원문 미확인'이 있으면 person 은 작자 미상(확인 못 한 귀속을 인물로 박지 않는다)", life.every((q) => !q.source.includes('원문 미확인') || q.person === '작자 미상'))
+check('원문 칸이 있으면 한국어와 다르다(원문 자리에 한국어를 복사하지 않았다)', life.every((q) => !q.original || q.original !== q.ko))
+let maxRun = 0, run = 0, prev = null
+for (const q of M.QUOTES) { const kind = q.id.startsWith('S') ? 'S' : 'I'; run = kind === prev ? run + 1 : 1; prev = kind; if (run > maxRun) maxRun = run }
+check(`순환 순서가 섞여 있다(같은 종류 최대 연속 ${maxRun}개 ≤ 3)`, maxRun <= 3)
+check('첫 30일 안에 투자 명언이 8개 이상', M.QUOTES.slice(0, 30).filter((q) => !q.id.startsWith('S')).length >= 8)
 
 // ── B22: 그레이엄의 말을 버핏이 인용 — 표시용 귀속이 코드에 있는지 ──
 const b22 = M.QUOTES.find((q) => q.id === 'B22')
@@ -183,7 +205,8 @@ check('같은 날짜 → 같은 명언(다른 순서로 재호출해도)', (() =
   return a.id === b.id
 })())
 
-// ── 연속 51일 → 51개 전부 다름(어느 시작일에서 재도 51일이면 한 바퀴) ──
+// ── 연속 N일(N = QUOTES.length) → N개 전부 다름(어느 시작일에서 재도 N일이면 한 바퀴) ──
+const N = M.QUOTES.length
 function addDaysKst(dateStr, n) {
   const [y, m, d] = dateStr.split('-').map(Number)
   const dt = new Date(Date.UTC(y, m - 1, d))
@@ -196,14 +219,14 @@ function addDaysKst(dateStr, n) {
 
 for (const start of ['2026-01-01', '2026-09-26', '2027-01-01']) {
   const seen = new Set()
-  for (let i = 0; i < 51; i++) {
+  for (let i = 0; i < N; i++) {
     seen.add(M.quoteOfDay(addDaysKst(start, i)).id)
   }
-  check(`연속 51일(${start} 부터) → 51개 전부 다른 id`, seen.size === 51)
+  check(`연속 ${N}일(${start} 부터) → ${N}개 전부 다른 id`, seen.size === N)
 }
 
 // ── 52일째는 시작일과 같은 명언으로 되돌아온다(순환 확인) ──
-check('52일째 = 시작일과 같은 명언(순환)', M.quoteOfDay(addDaysKst('2026-09-26', 51)).id === M.quoteOfDay('2026-09-26').id)
+check(`${N + 1}일째 = 시작일과 같은 명언(순환)`, M.quoteOfDay(addDaysKst('2026-09-26', N)).id === M.quoteOfDay('2026-09-26').id)
 
 // ── 월/연도 경계 날짜도 동작(예외 없이 유효한 id 반환) ──
 const boundaryDates = ['2026-01-31', '2026-02-01', '2026-12-31', '2027-01-01', '2028-02-29', '2028-03-01']

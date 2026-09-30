@@ -1,11 +1,13 @@
-// docs/student-mode/quotes.md 표를 그대로 파싱해 src/lib/quotes.ts 를 생성하는 1회성 스크립트 — 명언 텍스트를 손으로 옮기지 않는다
+// docs/student-mode/quotes.md 표를 그대로 파싱해 src/lib/quotes.ts 를 생성하는 스크립트 — 명언 텍스트를 손으로 옮기지 않는다
+//   2026-09-30: '선생님 사진첩' 절은 5열(인물 열)이라 S 번호 행은 인물을 행에서 읽는다. 출력 순서는 투자 명언(4열 절)과 사진첩(5열 절)을 비율대로 끼워 넣어
+//   quoteOfDay 가 단순 나머지 순환이어도 두 종류가 고르게 섞이게 한다(투자 51 : 삶 122 → 이틀에 한 번꼴로 투자 명언).
 import { readFileSync, writeFileSync } from 'node:fs'
 
 const ROOT = 'C:/Users/lindo/investment-school-portfolio'
 const MD_PATH = `${ROOT}/docs/student-mode/quotes.md`
 const OUT_PATH = `${ROOT}/src/lib/quotes.ts`
 
-const lines = readFileSync(MD_PATH, 'utf8').split('\n')
+const lines = readFileSync(MD_PATH, 'utf8').split(/\r?\n/)   // CRLF 로 저장돼도 읽는다(2026-09-30 편집 도구가 CRLF 로 써서 0개 파싱된 적 있음)
 
 /** 인물 소제목의 짧은 성만으로 전체 이름을 되찾기 (B22 처럼 '~의 말을 ~이 인용' 문구에서만 쓴다) */
 const NAME_MAP = {
@@ -40,6 +42,7 @@ function toSourceLabel(source) {
 let person = null
 let headingNote = null // 소제목에만 있고 표 각 행 출처엔 없는 맥락(예: 템플턴 "16 Rules ... (1993)")
 const quotes = []
+let expected = 0   // 소제목 '(N)' 의 합 — 파싱 개수와 같아야 한다
 
 for (const line of lines) {
   const h = line.match(/^## (.+)$/)
@@ -56,6 +59,7 @@ for (const line of lines) {
       headingNote = null
       continue
     }
+    expected += Number(countMatch[1])
     const withoutCount = text.slice(0, countMatch.index).trim()
     const dashIdx = withoutCount.indexOf('—')
     if (dashIdx === -1) {
@@ -65,6 +69,15 @@ for (const line of lines) {
       person = withoutCount.slice(0, dashIdx).trim()
       headingNote = withoutCount.slice(dashIdx + 1).trim()
     }
+    continue
+  }
+
+  // 5열(사진첩): | S001 | 인물 | 한국어 | 원문 | 출처 |
+  const row5 = line.match(/^\|\s*(S[0-9]{3})\s*\|(.*)\|(.*)\|(.*)\|(.*)\|\s*$/)
+  if (row5 && person) {
+    const [, id, personRaw, koRaw, originalRaw, sourceRaw] = row5
+    const source = sourceRaw.trim()
+    quotes.push({ id, person: personRaw.trim(), ko: koRaw.trim(), original: originalRaw.trim(), source, sourceLabel: toSourceLabel(source) })
     continue
   }
 
@@ -95,12 +108,22 @@ for (const line of lines) {
   }
 }
 
-if (quotes.length !== 51) {
-  console.error(`❌ 51개가 아니라 ${quotes.length}개 파싱됨 — quotes.md 표 형식을 확인하라`)
+if (quotes.length !== expected || quotes.length < 51) {
+  console.error(`❌ 소제목 합계 ${expected}개인데 ${quotes.length}개 파싱됨 — quotes.md 표 형식을 확인하라`)
   process.exit(1)
 }
 
-const body = quotes
+// 출력 순서 — 투자 명언과 사진첩을 비율대로 끼워 넣는다(브레젠험식: 덜 소진된 쪽을 먼저)
+const invest = quotes.filter((q) => !q.id.startsWith('S'))
+const life = quotes.filter((q) => q.id.startsWith('S'))
+const merged = []
+let i = 0, j = 0
+while (i < invest.length || j < life.length) {
+  const takeInvest = j >= life.length || (i < invest.length && i / invest.length <= j / life.length)
+  merged.push(takeInvest ? invest[i++] : life[j++])
+}
+
+const body = merged
   .map((q) => {
     const fields = [
       `id: ${JSON.stringify(q.id)}`,
@@ -116,11 +139,12 @@ const body = quotes
   })
   .join('\n')
 
-const ts = `// 오늘의 명언 51개 상수 — docs/student-mode/quotes.md 원문 확인 목록에서 scripts/generate-quotes.mjs 로 그대로 옮김(손으로 옮기지 않음)
+const ts = `// 오늘의 명언 ${quotes.length}개 상수(투자 ${invest.length} + 선생님 사진첩 ${life.length}, 비율대로 섞음) — docs/student-mode/quotes.md 원문 확인 목록에서 scripts/generate-quotes.mjs 로 그대로 옮김(손으로 옮기지 않음)
 export interface Quote {
   id: string
   person: string
   ko: string
+  /** 원문(영문·한문·시). 사진첩의 한국어 글은 원문이 없어 빈 문자열 — 화면은 이때 '원문 보기'를 숨긴다 */
   original: string
   source: string
   /** 화면 표시용 — source 에서 마크다운 강조 기호와 "(화면에 ... 표기)" 같은 편집 지시 괄호를 뺀 문구 */
@@ -138,7 +162,7 @@ ${body}
 const EPOCH_UTC = Date.UTC(2026, 0, 1) // 2026-01-01 고정 기준일 — 이 값을 바꾸면 기존에 나간 날짜별 명언이 전부 바뀐다
 const DAY_MS = 24 * 60 * 60 * 1000
 
-/** todayKst 는 'YYYY-MM-DD' 형식의 KST 날짜 문자열. Date.now() 를 쓰지 않는 순수 함수 — 기준일부터 며칠째인지를 51로 나눈 나머지로 순환한다 */
+/** todayKst 는 'YYYY-MM-DD' 형식의 KST 날짜 문자열. Date.now() 를 쓰지 않는 순수 함수 — 기준일부터 며칠째인지를 QUOTES.length 로 나눈 나머지로 순환한다(배열이 투자·삶을 섞어 둔 순서라 단순 순환으로 고르게 섞인다) */
 export function quoteOfDay(todayKst: string): Quote {
   const m = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(todayKst)
   if (!m) throw new Error(\`quoteOfDay: 잘못된 날짜 형식 "\${todayKst}" (YYYY-MM-DD 필요)\`)
