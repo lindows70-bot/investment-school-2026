@@ -34,7 +34,7 @@
 - [x] 첫 스냅샷 40/40 (09-18 분) · 프로덕션 적재 시작
 - [x] ~~**검증(1주 뒤 09-26)**~~ → **09-24 조기 기각**: Yahoo totalAssets 가 09-18~09-24 내내 동일(IBIT·SPY) — 역산이 가짜 유출을 만든다. 동결 구간 null 가드(`etf-flow-v2`). 순유입 축은 표시 없음
 - [x] 발행주수(`quote().sharesOutstanding`) **적립 시작**(2026-09-24, 클라우드 세션) — 일별 스냅샷에 `shares` 필드(배치 quote 1회 · 실패해도 스냅샷은 저장) + `/api/etf-flow` 의 `sharesProbe`(askedDays·종목별 distinct/changed·verdict) · 키 `etf-flow-v3` · 불변식 ⑥ 6검사 추가 · 화면 "1주 뒤면 보인다" 약속 → 실제 상태 문구
-- [ ] `sharesProbe.verdict` 가 `daily` 면 Δ주수×NAV 로 순유입 전환(오는 종목만 · `none` 은 '없음') · `stale` 이면 절 2 순유입 축은 표시 없음으로 확정하고 스냅샷 크론 축소 검토. **판정은 5일 이상(askedDays ≥ 5) 뒤** — 배포일 기준 약 09-30~10-01
+- [x] **2026-09-30 판정 `stale`** — askedDays 5 · 발행주수 온 27종 **전부 distinct 1·changed 0**(SPY 917,782,016 그대로) · 안 온 13종. 야후 발행주수도 일별이 아니다 → 절 2 순유입 축 **표시 없음 확정**(`etf-flow-v4` · answer·배너·헤더 문구를 "재는 중"에서 "표시하지 않음"으로). 스냅샷 크론은 유지(하루 41회 호출 — 값이 갱신되기 시작하면 probe 가 `daily` 로 바뀌어 알 수 있다). Δ주수×NAV 전환은 하지 않는다
 
 ## 절 4 — 전문가들이 마음을 바꾼 회사는 (2026-09-19)
 - [x] `lib/analystRerating.ts` — 유니버스 미국 종목 + 내부자 통과 종목(470종) × Yahoo `upgradeDowngradeHistory`(30일 상향/하향 증권사 수)·`earningsTrend`(EPS 리비전)·`financialData`(목표가 여력)
