@@ -66,6 +66,8 @@ const INVARIANTS = [
   { file: 'scripts/verify-crypto-regulation.mjs', label: '규제 레이더 — 항목마다 근거 기사 1개 이상 · 링크 http(s) · 프로덕션' },
   // 2026-09-30 등록 — 명언 상수 = quotes.md 글자 그대로 · 원문 미확인 귀속은 작자 미상 · 투자·삶 명언이 섞여 순환
   { file: 'scripts/verify-quotes.mjs', label: '오늘의 명언 — 상수 = quotes.md 원문 · 미확인 귀속 0 · 순환 섞임' },
+  // 2026-10-01 등록 — '오늘 알려드려요' 8규칙 순환·빈 규칙 건너뛰기·문구 분기(명령 문구 0)
+  { file: 'scripts/verify-learn-tips.mjs', label: '오늘 알려드려요 — 8규칙 순환 · 빈 규칙 건너뜀 · 문구 분기' },
 ]
 
 /**

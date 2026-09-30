@@ -1,15 +1,18 @@
-// 학생 배우기 화면 '오늘 알려드려요' 한 줄을 고르는 순수 규칙 — 날짜로 ①PER ②산 뒤 대 지수 ③집중도 ④환율 효과 ⑤코어·위성을 돌리고, 데이터가 없으면 다음 규칙
+// 학생 배우기 화면 '오늘 알려드려요' 한 줄을 고르는 순수 규칙 — 날짜로 ①PER ②산 뒤 대 지수 ③집중도 ④환율 효과 ⑤코어·위성 ⑥저울 연결 ⑦배당 ⑧52주 위치를 돌리고, 데이터가 없으면 다음 규칙
+//   2026-09-30 확장(사용자 결정): 종목이 적은 학생은 규칙 2~3개만 만나 같은 말이 반복됐다 → 거의 늘 자료가 있는 ⑥⑦⑧을 더했다(새 원천 없음 · 사실만 · 개인 데이터는 브라우저 안).
 //   2026-09-27 재설계: 등락·일정 규칙은 '오늘 내 종목 소식' 카드와 같은 말이 돼 뺐다 — 이 카드는 '내 숫자로 개념 하나 배우기', 소식 카드는 '오늘 일어난 일'.
 //   숫자는 전부 입력에서만 나온다(지어내지 않는다) · 명령이 아니라 사실만 말한다 · 등락 표기는 studentFormat SSOT.
-import { pct, fxWon } from '@/lib/studentFormat'
+import { pct, fxWon, money } from '@/lib/studentFormat'
 import { dayNum, type VsIndexRow } from '@/lib/learnTipsData'
 
-export type TipKind = 'per' | 'vsIndex' | 'concentration' | 'fx' | 'coreSat'
+export type TipKind = 'per' | 'vsIndex' | 'concentration' | 'fx' | 'coreSat' | 'scale' | 'dividend' | 'hi52'
 export interface Tip {
   kind: TipKind; title: string; body: string; source: string
   ticker?: string; market?: string; tone?: 'up' | 'down' | 'flat'
   /** 기준일(YYYY-MM-DD) — 화면이 출처 옆에 적는다. 모르면 없음 */
   asOf?: string
+  /** 종목이 아닌 화면으로 가는 링크(저울 등) — ticker 가 없을 때 카드가 이걸 쓴다 */
+  link?: { href: string; label: string }
 }
 export interface TipInputs {
   per: {
@@ -31,10 +34,16 @@ export interface TipInputs {
   fx: { count: number; retUsd: number; retKrw: number; exposurePct: number | null; fxNow: number } | null
   /** 코어·위성 비중(%)과 종목 수 — 기록할 때 정한 역할 */
   coreSat: { corePct: number; satPct: number; coreCount: number; satCount: number } | null
+  /** ⑥ 저울 연결 — 내 종목의 저울 줄별 개수(scaleHoldings.countByScaleAsset) + 오늘 저울 ③ 계절 칸(칩 없으면 그 줄은 쉬는 날) */
+  scale?: { counts: Partial<Record<string, number>>; rows: { asset: string; name: string; ok: boolean; chip: string | null }[]; asOf?: string | null } | null
+  /** ⑦ 배당 — 종목별 배당수익률(소수, /api/stock-info dividendYield — '더 알아보기'와 같은 값). null·0 = 배당 없음 */
+  dividend?: { ticker: string; name: string; market: string; dividendYield: number | null; asOf?: string | null }[] | null
+  /** ⑧ 52주 위치 — 지금 시세 + 52주 최고·최저(/api/stock-info). 통화는 표기용 */
+  hi52?: { ticker: string; name: string; market: string; currency: 'USD' | 'KRW'; price: number; high52w: number | null; low52w: number | null; asOf?: string | null }[] | null
 }
 
-/** 규칙 순서 — 오늘의 시작 규칙은 (날 수 mod 5) 번째, 매일 한 칸씩 밀린다 */
-const RULES: TipKind[] = ['per', 'vsIndex', 'concentration', 'fx', 'coreSat']
+/** 규칙 순서 — 오늘의 시작 규칙은 (날 수 mod 규칙 수) 번째, 매일 한 칸씩 밀린다 */
+const RULES: TipKind[] = ['per', 'vsIndex', 'concentration', 'fx', 'coreSat', 'scale', 'dividend', 'hi52']
 const YMD = /^\d{4}-\d{2}-\d{2}$/
 /** 동종 기업 중앙값과 비교하려면 최소 이만큼 있어야 한다(getSectorPeers.perMedian 과 같은 기준) */
 const PER_MIN_PEERS = 3
@@ -70,6 +79,8 @@ function hasBatchim(word: string): boolean | null {
 }
 const eunNeun = (w: string) => { const b = hasBatchim(w); return b == null ? '은(는)' : b ? '은' : '는' }
 const waGwa = (w: string) => { const b = hasBatchim(w); return b == null ? '와(과)' : b ? '과' : '와' }
+/** '~이에요/예요' — 금액 뒤(269,500원 → 이에요 · $230 → 영=받침 → 이에요) */
+const ieyo = (w: string) => { const b = hasBatchim(w); return b == null ? '(이)에요' : b ? '이에요' : '예요' }
 
 /**
  * 같은 규칙 안에서 고를 것 — 입력 순서와 무관하게 key 순으로 정렬해 고른다.
@@ -185,8 +196,63 @@ function coreSatTip(inputs: TipInputs): Tip | null {
   }
 }
 
+/** ⑥ 저울 연결 — 내 종목이 가장 많은 저울 줄과 오늘 그 줄의 계절 칸. 칩이 없는(쉬는) 줄이면 다음으로 많은 줄. 어느 줄도 못 대면 없음 */
+function scaleTip(inputs: TipInputs): Tip | null {
+  const s = inputs.scale
+  if (!s || !s.rows?.length) return null
+  const order = Object.entries(s.counts ?? {}).filter(([, n]) => isNum(n) && n > 0).sort((a, b) => (b[1] as number) - (a[1] as number) || a[0].localeCompare(b[0]))
+  for (const [asset, n] of order) {
+    const row = s.rows.find(r => r.asset === asset && r.ok && r.chip)
+    if (!row) continue
+    const others = order.filter(([a]) => a !== asset).map(([a, k]) => { const nm = s.rows.find(r => r.asset === a)?.name; return nm ? `${nm} ${k}종` : null }).filter(Boolean)
+    const asOf = typeof s.asOf === 'string' && YMD.test(s.asOf.slice(0, 10)) ? s.asOf.slice(0, 10) : undefined
+    return {
+      kind: 'scale',
+      title: `내 자산 ${n}종은 저울의 ${row.name} 줄이에요`,
+      body: `오늘 ${row.name} 줄의 계절 칸은 '${row.chip}'이에요. 순풍·역풍은 지금 계절이 그 자산에 유리한지 불리한지를 말하는 수업 원칙이고, 사라는 뜻도 팔라는 뜻도 아니에요.${others.length ? ` 그 밖에 ${others.join(' · ')}도 있어요.` : ''}`,
+      source: '투자학교 저울 · 오늘 ③ 계절 칸', link: { href: '/s/scale', label: '저울 보기 ›' },
+      ...(asOf ? { asOf } : {}),
+    }
+  }
+  return null
+}
+
+/** ⑦ 배당 — 배당수익률이 있는 종목 하나(티커순 순환). 값은 종목 정보와 같고, 최근 배당을 1년치로 잡은 값이라고 밝힌다 */
+function dividendTip(inputs: TipInputs, day: number, fb: boolean): Tip | null {
+  const all = inputs.dividend ?? []
+  const xs = all.filter(x => isNum(x.dividendYield) && x.dividendYield > 0)
+  if (!xs.length) return null
+  const x = rotatePick(xs, byTicker, day, fb)
+  const dy = (x.dividendYield as number) * 100
+  const asOf = typeof x.asOf === 'string' && YMD.test(x.asOf.slice(0, 10)) ? x.asOf.slice(0, 10) : undefined
+  return {
+    kind: 'dividend',
+    title: `${x.name} 배당수익률은 ${dy.toFixed(2)}%예요`,
+    body: `배당은 회사가 번 돈의 일부를 주주에게 나눠 주는 거예요. 1년 배당금을 주가로 나눈 것이 배당수익률이에요. 살펴본 내 종목 ${all.length}종 중 ${xs.length}종이 배당을 줘요. 최근 배당을 1년치로 잡은 값이라 배당이 막 오른 종목은 지난 1년 실제보다 높게 나와요.`,
+    source: '앱 종목 정보(더 알아보기와 같은 값)', ticker: x.ticker, market: x.market,
+    ...(asOf ? { asOf } : {}),
+  }
+}
+
+/** ⑧ 52주 위치 — 지금 시세가 1년 최저~최고 사이 어디인지(0% = 최저, 100% = 최고). 자리일 뿐 비싸다·싸다를 말하지 않는다 */
+function hi52Tip(inputs: TipInputs, day: number, fb: boolean): Tip | null {
+  const xs = (inputs.hi52 ?? []).filter(x => isNum(x.price) && x.price > 0 && isNum(x.high52w) && isNum(x.low52w) && x.high52w > x.low52w && x.low52w > 0)
+  if (!xs.length) return null
+  const x = rotatePick(xs, byTicker, day, fb)
+  const hi = x.high52w as number, lo = x.low52w as number
+  const pos = Math.round(Math.max(0, Math.min(100, ((x.price - lo) / (hi - lo)) * 100)))
+  const asOf = typeof x.asOf === 'string' && YMD.test(x.asOf.slice(0, 10)) ? x.asOf.slice(0, 10) : undefined
+  return {
+    kind: 'hi52',
+    title: `${x.name}${eunNeun(x.name)} 1년 최저~최고 사이 ${pos}% 지점이에요`,
+    body: `지난 1년 최저 ${money(lo, x.currency)} · 최고 ${money(hi, x.currency)}, 지금 ${money(x.price, x.currency)}${ieyo(money(x.price, x.currency))}(0% = 최저, 100% = 최고). 높은 지점이라 비싸다는 뜻도, 낮은 지점이라 싸다는 뜻도 아니에요 — 지난 1년 안에서 어디쯤인지만 말해요.`,
+    source: '앱 종목 정보 · 지금 시세', ticker: x.ticker, market: x.market,
+    ...(asOf ? { asOf } : {}),
+  }
+}
+
 /**
- * 오늘 규칙을 시도하는 순서 — RULES[(날 수 mod 5)] 부터 한 바퀴. pickTip 이 이 순서로 돈다.
+ * 오늘 규칙을 시도하는 순서 — RULES[(날 수 mod 규칙 수)] 부터 한 바퀴. pickTip 이 이 순서로 돈다.
  * 화면은 이 순서대로 한 규칙씩 원천을 불러, 문장이 나오는 첫 규칙에서 멈춘다(무거운 원천을 한꺼번에 부르지 않게).
  * 날짜 형식이 틀리면 빈 배열.
  */
@@ -199,7 +265,7 @@ export function tipRuleOrder(todayKst: string): TipKind[] {
 
 /**
  * 오늘의 한 줄 — 같은 날 같은 입력이면 늘 같은 결과.
- * 시작 규칙 = RULES[(날 수 mod 5)] 에서 시작해 입력이 없는 규칙은 건너뛴다. 전부 없으면 null(화면이 '오늘은 알려드릴 게 없어요'를 말한다).
+ * 시작 규칙 = RULES[(날 수 mod 규칙 수)] 에서 시작해 입력이 없는 규칙은 건너뛴다. 전부 없으면 null(화면이 '오늘은 알려드릴 게 없어요'를 말한다).
  */
 export function pickTip(todayKst: string, inputs: TipInputs): Tip | null {
   if (!YMD.test(todayKst)) return null
@@ -212,7 +278,10 @@ export function pickTip(todayKst: string, inputs: TipInputs): Tip | null {
       : kind === 'vsIndex' ? vsIndexTip(inputs, day, fb, todayKst)
       : kind === 'concentration' ? concentrationTip(inputs)
       : kind === 'fx' ? fxTip(inputs)
-      : coreSatTip(inputs)
+      : kind === 'coreSat' ? coreSatTip(inputs)
+      : kind === 'scale' ? scaleTip(inputs)
+      : kind === 'dividend' ? dividendTip(inputs, day, fb)
+      : hi52Tip(inputs, day, fb)
     if (tip) return tip
   }
   return null

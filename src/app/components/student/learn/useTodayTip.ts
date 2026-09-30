@@ -2,6 +2,7 @@
 // 배우기 '오늘 알려드려요' — 오늘 규칙 순서(tipRuleOrder)대로 한 규칙씩 원천을 불러, 문장이 나오는 첫 규칙에서 멈춘다(무거운 원천을 한꺼번에 부르지 않는다)
 //   ① PER: 개별 주식 최대 5종 stock-info → 고른 한 종목(미국)만 동종 기업 비교 ② 산 뒤 대 지수: 내 거래 기록(본인 것만) + 필요한 지수 일봉
 //   ③ 집중도 ⑤ 코어·위성: 내 자산 요약(useMyPortfolio — 브라우저에서 계산, 새 요청 없음) ④ 환율 효과: /api/fx-attribution(본인 세션)
+//   ⑥ 저울 연결: /api/scale(공개 시장 데이터) + 줄별 개수는 브라우저에서 ⑦ 배당 ⑧ 52주 위치: stock-info(①과 같은 응답을 같은 날 한 번만 받아 나눠 쓴다)
 //   2026-09-27 재설계: 등락·일정 규칙은 '오늘 내 종목 소식' 카드로 옮겼다(같은 말을 두 카드가 하지 않게).
 //   개인 데이터(보유·거래)는 브라우저 Supabase(RLS) + user_id 로만 읽고 공유 캐시에 두지 않는다.
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -9,6 +10,7 @@ import { createClient } from '@/lib/supabase/client'
 import { getAssetType } from '@/lib/assetClassifier'
 import { pickTip, tipRuleOrder, type Tip, type TipInputs, type TipKind } from '@/lib/learnTips'
 import { dayNum, singleBuyHoldings, indexFor, buildVsIndexRow, type DatedClose, type IndexChoice } from '@/lib/learnTipsData'
+import { countByScaleAsset } from '@/lib/scaleHoldings'
 import type { TradeRow } from '@/lib/lotsFromTrades'
 import { getSectorPeers } from '@/app/actions/getSectorPeers'
 import type { MyPortfolio } from '@/app/components/student/useMyPortfolio'
@@ -24,13 +26,43 @@ export interface TodayTip {
   retry: () => void
 }
 
-const EMPTY: TipInputs = { per: null, vsIndex: null, concentration: null, fx: null, coreSat: null }
+const EMPTY: TipInputs = { per: null, vsIndex: null, concentration: null, fx: null, coreSat: null, scale: null, dividend: null, hi52: null }
 const PER_MAX = 5          // PER 은 개별 주식 최대 5종만 부른다
 const PAGE = 1000          // Supabase select 기본 상한 — 빈 페이지가 올 때까지 넘긴다
 const TX_COLS = 'ticker,name,market,currency,type,price,quantity,transaction_date,created_at,memo'
 
 const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)
 const up = (t: string) => t.trim().toUpperCase()
+/** stock-info 한 종목의 필요한 값만 — ①⑦⑧ 이 같은 날 같은 종목을 두 번 부르지 않게 브라우저 메모리에 둔다(날짜가 바뀌면 키가 바뀐다) */
+interface InfoLite { pe: number | null; dividendYield: number | null; high52w: number | null; low52w: number | null }
+const infoCache = new Map<string, InfoLite | null>()
+async function fetchInfo(h: { ticker: string; market: string }, today: string, signal: AbortSignal): Promise<InfoLite | null> {
+  const key = `${today}|${up(h.ticker)}|${h.market}`
+  if (infoCache.has(key)) return infoCache.get(key) ?? null
+  try {
+    const r = await fetch(`/api/stock-info?ticker=${encodeURIComponent(h.ticker)}&market=${encodeURIComponent(h.market)}`, { cache: 'no-store', signal })
+    if (!r.ok) return null
+    const j = await r.json().catch(() => null) as { fundamentals?: { pe?: unknown; dividendYield?: unknown; high52w?: unknown; low52w?: unknown } } | null
+    if (!j) return null
+    const f = j.fundamentals ?? {}
+    const v: InfoLite = {
+      pe: isNum(f.pe) && f.pe > 0 ? f.pe : null,
+      dividendYield: isNum(f.dividendYield) && f.dividendYield > 0 ? f.dividendYield : null,
+      high52w: isNum(f.high52w) && f.high52w > 0 ? f.high52w : null,
+      low52w: isNum(f.low52w) && f.low52w > 0 ? f.low52w : null,
+    }
+    infoCache.set(key, v)
+    return v
+  } catch { return null }   // 취소·실패는 캐시하지 않는다(다시 시도가 다시 부른다)
+}
+/** 티커순으로 줄 세워 날마다 시작점을 옮겨 최대 PER_MAX 종 — ①⑦⑧ 이 같은 규칙으로 고르므로 같은 날 같은 종목을 받는다 */
+function pickFew<T extends { ticker: string }>(xs: T[], today: string): T[] {
+  const seen = new Set<string>()
+  const sorted = xs.filter(h => { const k = up(h.ticker); if (seen.has(k)) return false; seen.add(k); return true }).sort((a, b) => up(a.ticker).localeCompare(up(b.ticker)))
+  if (!sorted.length) return []
+  const off = ((dayNum(today) % sorted.length) + sorted.length) % sorted.length
+  return sorted.slice(off).concat(sorted.slice(0, off)).slice(0, PER_MAX)
+}
 /** 규칙 원천을 못 가져왔다 — 다음 규칙으로 넘어가되 '못 가져옴'으로 센다 */
 class SourceFailed extends Error {}
 /** 규칙 결과 — partial = 일부 종목·지수를 못 가져왔다(나머지로 계산했다) */
@@ -50,25 +82,12 @@ const fresh = (key: string): Run => ({ key, step: 0, inputs: EMPTY, failed: [], 
 /** ① PER — 개별 주식만(ETF·코인은 PER 이 없다), 티커순으로 줄 세워 날마다 시작점을 옮겨 5종의 PER 만 먼저 받는다.
  *  그걸로 오늘 고를 종목을 정한 뒤(고르는 규칙은 동종 비교와 무관 — 티커 순환), 그 종목이 미국이면 그 한 종목만 동종 기업 비교를 부른다 */
 async function loadPer(holdings: MyPortfolio['holdings'], today: string, prior: TipInputs, signal: AbortSignal): Promise<Loaded<NonNullable<TipInputs['per']>>> {
-  const seen = new Set<string>()
-  const stocks = holdings
-    .filter(h => getAssetType(h.ticker, h.name ?? '', h.market) === 'STOCK')
-    .filter(h => { const k = up(h.ticker); if (seen.has(k)) return false; seen.add(k); return true })
-    .sort((a, b) => up(a.ticker).localeCompare(up(b.ticker)))
-  if (!stocks.length) return { value: [], partial: false }
-  const off = ((dayNum(today) % stocks.length) + stocks.length) % stocks.length
-  const pick = stocks.slice(off).concat(stocks.slice(0, off)).slice(0, PER_MAX)
+  const pick = pickFew(holdings.filter(h => getAssetType(h.ticker, h.name ?? '', h.market) === 'STOCK'), today)
+  if (!pick.length) return { value: [], partial: false }
   const got = await Promise.all(pick.map(async h => {
-    try {
-      const r = await fetch(`/api/stock-info?ticker=${encodeURIComponent(h.ticker)}&market=${encodeURIComponent(h.market)}`, { cache: 'no-store', signal })
-      if (!r.ok) return null
-      const j = await r.json().catch(() => null) as { fundamentals?: { pe?: unknown } } | null
-      if (!j) return null
-      // pe 는 숫자 또는 'N/A' — 양수만 PER 로 본다. 무슨 이익 기준인지 응답이 말하지 않으므로 peBasis 는 넣지 않는다
-      const rawPe = j.fundamentals?.pe
-      const pe = isNum(rawPe) && rawPe > 0 ? rawPe : null
-      return { ticker: h.ticker, name: h.name, market: h.market, pe, perMedian: null as number | null, perCount: 0, targetPeSameBasis: null as number | null }
-    } catch { return null }
+    // pe 는 숫자 또는 'N/A' — 양수만 PER 로 본다. 무슨 이익 기준인지 응답이 말하지 않으므로 peBasis 는 넣지 않는다
+    const info = await fetchInfo(h, today, signal)
+    return info ? { ticker: h.ticker, name: h.name, market: h.market, pe: info.pe, perMedian: null as number | null, perCount: 0, targetPeSameBasis: null as number | null } : null
   }))
   const rows = got.filter((x): x is NonNullable<typeof x> => x != null)
   if (!rows.length) throw new SourceFailed('per')
@@ -161,6 +180,54 @@ function coreSatFrom(pf: MyPortfolio): Loaded<NonNullable<TipInputs['coreSat']>>
   }
 }
 
+/** ⑥ 저울 연결 — /api/scale(공개 시장 데이터) 의 ③ 계절 칸 + 내 종목의 줄별 개수(브라우저에서만) */
+async function loadScale(holdings: MyPortfolio['holdings'], signal: AbortSignal): Promise<Loaded<NonNullable<TipInputs['scale']>>> {
+  const counts = countByScaleAsset(holdings.map(h => ({ ticker: h.ticker, name: h.name ?? '', market: h.market })))
+  if (!Object.values(counts).some(n => (n ?? 0) > 0)) return { value: { counts: {}, rows: [] }, partial: false }
+  const r = await fetch('/api/scale', { cache: 'no-store', signal }).catch(() => null)
+  if (!r || !r.ok) throw new SourceFailed('scale')
+  const j = await r.json().catch(() => null) as { rows?: { asset?: unknown; name?: unknown; cells?: { q?: unknown; status?: unknown; chip?: unknown }[] }[]; asOf?: unknown } | null
+  if (!j || !Array.isArray(j.rows)) throw new SourceFailed('scale')
+  const rows = j.rows.flatMap(x => {
+    const c = Array.isArray(x.cells) ? x.cells.find(y => y?.q === 'season') : undefined
+    return typeof x.asset === 'string' && typeof x.name === 'string'
+      ? [{ asset: x.asset, name: x.name, ok: c?.status === 'ok', chip: typeof c?.chip === 'string' ? c.chip : null }] : []
+  })
+  return { value: { counts, rows, asOf: typeof j.asOf === 'string' ? j.asOf : null }, partial: false }
+}
+
+/** ⑦ 배당 — 코인을 뺀 종목(ETF 포함) 최대 5종의 배당수익률(①과 같은 stock-info 응답) */
+async function loadDividend(holdings: MyPortfolio['holdings'], today: string, signal: AbortSignal): Promise<Loaded<NonNullable<TipInputs['dividend']>>> {
+  const pick = pickFew(holdings.filter(h => getAssetType(h.ticker, h.name ?? '', h.market) !== 'CRYPTO'), today)
+  if (!pick.length) return { value: [], partial: false }
+  const got = await Promise.all(pick.map(async h => {
+    const info = await fetchInfo(h, today, signal)
+    return info ? { ticker: h.ticker, name: h.name, market: h.market, dividendYield: info.dividendYield } : null
+  }))
+  const rows = got.filter((x): x is NonNullable<typeof x> => x != null)
+  if (!rows.length) throw new SourceFailed('dividend')
+  return { value: rows, partial: rows.length < pick.length }
+}
+
+/** ⑧ 52주 위치 — 지금 시세가 있는(지난 시세 아님) 코인 뺀 종목 최대 5종 + 52주 최고·최저(①과 같은 stock-info 응답) */
+async function loadHi52(pf: MyPortfolio, today: string, signal: AbortSignal): Promise<Loaded<NonNullable<TipInputs['hi52']>>> {
+  if (pf.state !== 'ready' || !pf.summary) throw new SourceFailed('hi52')
+  const rowBy = new Map(pf.summary.rows.map(r => [up(r.ticker), r]))
+  const cands = pf.holdings.filter(h => getAssetType(h.ticker, h.name ?? '', h.market) !== 'CRYPTO').filter(h => { const r = rowBy.get(up(h.ticker)); return !!r && r.priced && !r.stale && isNum(r.currentPrice) && r.currentPrice > 0 })
+  const pick = pickFew(cands, today)
+  if (!pick.length) { if (pf.pricesFailed) throw new SourceFailed('hi52'); return { value: [], partial: false } }
+  const got = await Promise.all(pick.map(async h => {
+    const info = await fetchInfo(h, today, signal)
+    const r = rowBy.get(up(h.ticker))
+    return info && r && isNum(r.currentPrice)
+      ? { ticker: h.ticker, name: h.name, market: h.market, currency: h.currency === 'USD' ? 'USD' as const : 'KRW' as const, price: r.currentPrice, high52w: info.high52w, low52w: info.low52w }
+      : null
+  }))
+  const rows = got.filter((x): x is NonNullable<typeof x> => x != null)
+  if (!rows.length) throw new SourceFailed('hi52')
+  return { value: rows, partial: rows.length < pick.length }
+}
+
 /** ④ 환율 효과 — /api/fx-attribution(본인 세션). { empty } = 달러 종목 없음(count 0) · 못 받으면 못 가져옴 */
 async function loadFx(signal: AbortSignal): Promise<Loaded<NonNullable<TipInputs['fx']>>> {
   const r = await fetch('/api/fx-attribution', { cache: 'no-store', signal }).catch(() => null)
@@ -210,6 +277,9 @@ export function useTodayTip({ today, pf }: { today: string | null; pf: MyPortfol
       : kind === 'vsIndex' ? loadVsIndex(pf, today, ctrl.signal)
       : kind === 'concentration' ? Promise.resolve().then(() => concentrationFrom(pf))
       : kind === 'coreSat' ? Promise.resolve().then(() => coreSatFrom(pf))
+      : kind === 'scale' ? loadScale(pf.holdings, ctrl.signal)
+      : kind === 'dividend' ? loadDividend(pf.holdings, today, ctrl.signal)
+      : kind === 'hi52' ? loadHi52(pf, today, ctrl.signal)
       : loadFx(ctrl.signal)
     job.then(r => { if (!ctrl.signal.aborted) settle(forKey, kind, r.value, false, r.partial) })
       .catch(() => { if (!ctrl.signal.aborted) settle(forKey, kind, null, true) })
@@ -225,7 +295,7 @@ export function useTodayTip({ today, pf }: { today: string | null; pf: MyPortfol
   const nameOf = useCallback((ticker: string) => {
     const h = pf.holdings.find(x => up(x.ticker) === up(ticker))
     if (h?.name) return h.name
-    const rows: { ticker: string; name: string }[] = [...(cur.inputs.per ?? []), ...(cur.inputs.vsIndex ?? []), ...(cur.inputs.concentration?.rows ?? [])]
+    const rows: { ticker: string; name: string }[] = [...(cur.inputs.per ?? []), ...(cur.inputs.vsIndex ?? []), ...(cur.inputs.concentration?.rows ?? []), ...(cur.inputs.dividend ?? []), ...(cur.inputs.hi52 ?? [])]
     return rows.find(r => up(r.ticker) === up(ticker))?.name || null
   }, [pf.holdings, cur.inputs])
 

@@ -117,6 +117,7 @@ function TipCard({ t, today }: { t: TodayTip; today: string | null }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.sm, flexWrap: 'wrap', paddingTop: SP.xs, borderTop: `1px solid ${TK.border}` }}>
           <span style={{ fontSize: FS.micro, color: TK.sub, minWidth: 0, overflowWrap: 'anywhere' }}>{prefix}{tip.source}</span>
           {href && <Link href={href} style={moreLink}><span style={ellipsis}>{name ?? tip.ticker} 자세히 ›</span></Link>}
+          {!href && tip.link && <Link href={tip.link.href} style={moreLink}><span style={ellipsis}>{tip.link.label}</span></Link>}
         </div>
       </>
     )
