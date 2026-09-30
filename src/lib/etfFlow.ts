@@ -7,7 +7,7 @@ import { getCache, setCache } from '@/lib/appCache'
 import { getTechCandles, dropIncompleteBar } from '@/lib/techChartData'
 
 export const ETF_SNAP_KEY = (day: string) => `etf-snap-v1:${day}`          // day = YYYY-MM-DD (미국 동부)
-export const ETF_FLOW_KEY = (kst: string) => `etf-flow-v3:${kst}`   // v3: sharesProbe 필드 추가(필드가 늘어도 올린다) · v2: 순자산 동결 구간 null
+export const ETF_FLOW_KEY = (kst: string) => `etf-flow-v4:${kst}`   // v4: stale 판정 문구(내용이 바뀌어 올린다) · v3: sharesProbe 필드 추가 · v2: 순자산 동결 구간 null
 export const ETF_SNAP_MARK = (kst: string) => `etf-snap-run-v1:${kst}`
 
 export type EtfGroup = 'index' | 'sector' | 'style' | 'geo' | 'theme' | 'bond' | 'lever'
@@ -175,7 +175,10 @@ export async function buildEtfFlow(usdKrw: number | null): Promise<EtfFlow> {
     const top = [...items].filter(i => i.ret1m != null).sort((a, b) => (b.ret1m ?? 0) - (a.ret1m ?? 0))
     // ⚠️ "1주 뒤부터 보입니다"라고 약속하지 않는다 — 2026-09-24 실측으로 순자산 역산이 멈춰 있어(동결 구간 null) 그 약속은 거짓이 된다.
     //    지금 상태(비어 있음 · 왜 · 무엇을 재는 중)를 그대로 적는다
-    const why = days >= 6 ? `순유입은 비어 있음(출처의 순자산이 여러 날 같은 값이라 역산을 멈춤 · 발행주수 방식 실측 ${sharesProbe.askedDays}일째)` : `순유입은 ${days}일째 모으는 중`
+    // 2026-09-30 판정: 발행주수도 5일 내내 동결(27종 전부 distinct 1) → stale. 순자산·발행주수 둘 다 일별이 아니라 무료 출처로는 순유입을 계산할 수 없다 — '표시 없음'으로 확정
+    const why = sharesProbe.verdict === 'stale'
+      ? '순유입은 표시하지 않음(출처의 순자산·발행주수가 모두 며칠째 같은 값 — 무료 출처로는 계산할 수 없음)'
+      : days >= 6 ? `순유입은 비어 있음(출처의 순자산이 여러 날 같은 값이라 역산을 멈춤 · 발행주수 방식 실측 ${sharesProbe.askedDays}일째)` : `순유입은 ${days}일째 모으는 중`
     answer = `${why} · 지금 볼 수 있는 건 값의 흐름 — 1개월 가장 오른 곳 ${top[0] ? `${top[0].name} ${top[0].ret1m! >= 0 ? '+' : ''}${top[0].ret1m}%` : '—'}, 가장 내린 곳 ${top[top.length - 1] ? `${top[top.length - 1].name} ${top[top.length - 1].ret1m}%` : '—'}`
   } else {
     const sec = items.filter(i => i.group === 'sector' && i.flow1w != null).sort((a, b) => (b.flow1w ?? 0) - (a.flow1w ?? 0))

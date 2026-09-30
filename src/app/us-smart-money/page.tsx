@@ -296,14 +296,17 @@ function FlowSection({ f }: { f: EtfFlow }) {
       <div style={{ fontSize: FS.lg, fontWeight: 800, color: TK.slate100 }}>🧭 돈이 어느 섹터로 가고 있나</div>
       <div style={{ fontSize: FS.body, color: TK.slate200, lineHeight: 1.6 }}>{f.answer}</div>
       <div style={{ fontSize: FS.micro, color: TK.sub3 }}>
-        {f.items.length}개 대표 ETF · 순자산 스냅샷 {f.daysCollected}일{f.firstDay ? ` (${f.firstDay.slice(5)}~${f.lastDay?.slice(5)})` : ''} · 순유입 = 순자산 변화 − 시장 등락분(역산 추정, 운용사 공식 집계와 다를 수 있음)
+        {f.items.length}개 대표 ETF · 순자산 스냅샷 {f.daysCollected}일{f.firstDay ? ` (${f.firstDay.slice(5)}~${f.lastDay?.slice(5)})` : ''}{f.sharesProbe?.verdict === 'stale' ? ' · 순유입 없음(출처 값이 일별로 갱신되지 않음) · 등락·거래량은 캔들 원천' : ' · 순유입 = 순자산 변화 − 시장 등락분(역산 추정, 운용사 공식 집계와 다를 수 있음)'}
         {haveFlow && <> · 각 수치에 마우스를 올리면 <b>실제로 잰 구간</b>이 나옵니다 — 스냅샷이 빠져 기간이 벌어진 종목은 값을 비웁니다(‘1주’가 3주가 되지 않게)</>}
       </div>
       {!haveFlow && (
         <div style={{ background: `${TK.amber400}12`, border: `1px solid ${TK.amber400}44`, borderRadius: RAD.xs, padding: '7px 10px', fontSize: FS.tiny, color: TK.amber400, lineHeight: 1.6 }}>
           {f.daysCollected >= 6
             // ⚠️ "1주 뒤면 보인다"는 약속을 지우고 상태를 그대로 — 출처(야후)의 순자산이 여러 날 같은 값으로 와서(2026-09-24 실측) 역산하면 가짜 유출이 생겨 값을 비운다
-            ? <>⏸️ 순유입은 지금 비어 있습니다 — 출처의 순자산이 여러 날 같은 값으로 와서, 그대로 계산하면 없는 유출이 생기기 때문에 값을 비웁니다. 발행주수로 계산할 수 있는지 재는 중입니다({f.sharesProbe?.askedDays ?? 0}일째 · 5일 이상 모이면 판정). 그 전엔 값의 흐름(1개월 등락·거래량)만 보여드립니다.</>
+            ? f.sharesProbe?.verdict === 'stale'
+              // 2026-09-30 판정: 순자산(09-24)에 이어 발행주수도 5일 동결(27종 전부) — 무료 출처로는 순유입을 계산할 수 없다. 재는 중이라는 말을 지우고 사실만
+              ? <>⏸️ 순유입은 표시하지 않습니다 — 출처(야후)의 순자산도 발행주수도 며칠째 같은 값으로 와서 계산할 수 없습니다(2026-09 실측). 무료로 받을 수 있는 순유입 자료가 없어, 값의 흐름(1개월 등락·거래량)만 보여드립니다.</>
+              : <>⏸️ 순유입은 지금 비어 있습니다 — 출처의 순자산이 여러 날 같은 값으로 와서, 그대로 계산하면 없는 유출이 생기기 때문에 값을 비웁니다. 발행주수로 계산할 수 있는지 재는 중입니다({f.sharesProbe?.askedDays ?? 0}일째 · 5일 이상 모이면 판정). 그 전엔 값의 흐름(1개월 등락·거래량)만 보여드립니다.</>
             : <>⏳ 자금 흐름은 매일 하나씩 쌓입니다 — 1주 순유입은 스냅샷 6개(약 1주), 1개월은 21개부터 보입니다. 그 전엔 값의 흐름(1개월 등락·거래량)만 보여드립니다.</>}
         </div>
       )}
