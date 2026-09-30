@@ -40,7 +40,8 @@ export type Quad = 'goldilocks' | 'inflation' | 'stagflation' | 'recession' | 's
 
 export interface ScaleInput {
   today: string   // KST 'YYYY-MM-DD'
-  realYield: { nominal: { v: number; date: string }; real: { v: number; date: string }; bei: { v: number; date: string } } | null
+  /** avg10 = 물가 뺀 이자(DFII10)의 지난 10년 월평균(lib/fredScaleInputs) — 채권·금 ② 칩의 비교 기준. 없으면 칩 = 비교 기준 없음 */
+  realYield: { nominal: { v: number; date: string }; real: { v: number; date: string }; bei: { v: number; date: string }; avg10?: { v: number; from: string; to: string } | null } | null
   factset: { fwd: number; avg5: number | null; avg10: number | null; date: string } | null
   kb: { yoy: number; asOf: string; mortgage: { v: number; asOf: string } | null } | null
   /** 계절 재료 — regionSeason SSOT. ok=false 인 재료는 폴백(진짜 값 아님)이라 그 계절은 말하지 않는다 */
@@ -52,6 +53,8 @@ export interface ScaleInput {
   } | null
   gold: { last: { date: string; close: number }; yearAgo: { date: string; close: number } | null } | null
   fng: { now: number | null; weekAgo: number | null; monthAgo: number | null; cls: string | null; date: string | null } | null
+  /** M2 전년동월비(FRED M2SL units=pc1) + 기준월 — 코인 ③ 문장. 없으면 문장은 계절만 말한다(약속 문구 없음) */
+  m2?: { yoy: number; month: string } | null
 }
 
 // 원천별 '오래됐다'고 말하는 기준(일) — 발표 주기 + 여유. FactSet 은 주간(금 발표·토 적재), KB·ECOS 는 월간(약 한 달 늦게 발표)
@@ -131,18 +134,29 @@ export function buildScale(inp: ScaleInput): ScaleResult {
         detail: `한국 계절은 한국 경기선행지수에 미국 물가(세계 물가의 기준)를 써서 판정해요 · ${SEASON_DETAIL}` })
     : seasonHold(sz, 'kr')
   const goldSeason = usCell('gold', (p, s) => `미국은 지금 ${p}이에요. 미국 물가는 1년 전보다 ${Math.abs(s.cpiYoY).toFixed(1)}% ${s.cpiYoY >= 0 ? '올랐어요' : '내렸어요'}${s.cpiMonth ? `(${dot(s.cpiMonth)})` : ''}.`)
-  const coinSeason = usCell('coin', p => `미국은 지금 ${p}이에요.`, `시중에 풀린 돈의 양(M2)과 견주는 칸은 곧 붙어요 · ${SEASON_DETAIL}`)
+  const m2 = inp.m2 && isNum(inp.m2.yoy) && inp.m2.month ? inp.m2 : null
+  const coinSeason = sz && us
+    ? cell('season', 'ok', `미국은 지금 ${us}이에요.${m2 ? ` 시중에 풀린 돈(M2)은 1년 전보다 ${Math.abs(m2.yoy).toFixed(1)}% ${m2.yoy >= 0 ? '늘었어요' : '줄었어요'}(${dot(m2.month)}).` : ''}`, {
+        chip: seasonWind(sz.us.quad, 'coin'),
+        source: `${seasonSource(sz, 'us')}${m2 ? ' · FRED M2(M2SL) 전년동월비' : ''}`,
+        date: oldestMonth(sz.us.cliMonth, sz.cpiMonth, m2?.month ?? null),
+        detail: `${m2 ? '돈이 많이 풀릴수록 코인 같은 위험자산에 물이 차기 쉬워요(원칙이지 예측이 아님) · ' : 'M2(시중에 풀린 돈) 자료가 아직 안 들어와 이 문장은 계절만 말해요 · '}${SEASON_DETAIL}` })
+    : seasonHold(sz, 'us')
 
   // ── 채권 — 이자가 나머지 네 자산을 재는 잣대(r)라 맨 위 ──
+  // ② 칩 = 물가 뺀 이자를 지난 10년 월평균과 견줌(주식 칸의 '5년 평균' 과 같은 방식 — 원천이 준 기준으로만, 임의 경계 없음)
+  const avg10 = ry?.avg10 && isNum(ry.avg10.v) && ry.avg10.from && ry.avg10.to ? ry.avg10 : null
+  const realChip = !ry || !avg10 ? '비교 기준 없음' : Math.abs(ry.real.v - avg10.v) < 0.05 ? '10년 평균과 같음' : ry.real.v > avg10.v ? '10년 평균보다 높음' : '10년 평균보다 낮음'
   const bond: ScaleRow = {
     asset: 'bond', name: '채권', tail: ROLE_TAIL.bond,
     cells: [
       ry ? cell('cash', 'ok', `${staleLead(ry.nominal.date, today, STALE_DAYS.fred)}빌려준 돈에 이자를 줘요. 만기까지 들고 있으면 받을 이자는 처음부터 정해져 있어요. 미국 10년 국채는 연 ${pct2(ry.nominal.v)}예요.`,
         { chip: '있음', source: 'FRED 미국 10년 국채 금리(DGS10)', date: ry.nominal.date })
         : hold('cash', '미국 국채 금리'),
-      ry ? cell('price', 'ok', `${staleLead(ry.real.date, today, STALE_DAYS.fred)}받는 이자 ${pct2(ry.nominal.v)}에서 물가 오름을 빼면 ${pct2(ry.real.v)}가 남아요. 물가를 빼고도 남는 이자가 클수록 채권값은 싼 편이에요.`,
-        { source: 'FRED DGS10 · DFII10(물가연동국채)', date: ry.real.date,
-          detail: isNum(ry.bei?.v) && ry.bei.date ? `시장이 예상하는 물가 오름 ${pct2(ry.bei.v)}(FRED T10YIE · ${dot(ry.bei.date)}) — 받는 이자 = 물가 뺀 이자 + 예상 물가` : null })
+      ry ? cell('price', 'ok', `${staleLead(ry.real.date, today, STALE_DAYS.fred)}받는 이자 ${pct2(ry.nominal.v)}에서 물가 오름을 빼면 ${pct2(ry.real.v)}가 남아요.${avg10 ? ` 지난 10년 평균은 ${pct2(avg10.v)}예요.` : ''} 물가를 빼고도 남는 이자가 클수록 채권값은 싼 편이에요.`,
+        { chip: realChip, source: `FRED DGS10 · DFII10(물가연동국채)${avg10 ? ' · 10년 평균 = DFII10 월평균' : ''}`, date: ry.real.date,
+          detail: [isNum(ry.bei?.v) && ry.bei.date ? `시장이 예상하는 물가 오름 ${pct2(ry.bei.v)}(FRED T10YIE · ${dot(ry.bei.date)}) — 받는 이자 = 물가 뺀 이자 + 예상 물가` : null,
+            avg10 ? `10년 평균 ${pct2(avg10.v)} = ${dot(avg10.from)}~${dot(avg10.to)} 월평균의 평균` : null].filter(Boolean).join(' · ') || null })
         : hold('price', '물가를 뺀 국채 이자'),
       bondSeason,
     ],
@@ -186,8 +200,9 @@ export function buildScale(inp: ScaleInput): ScaleResult {
     cells: [
       cell('cash', 'none', '금은 이자도 배당도 주지 않아요. 들고 있는 동안 버는 돈은 0이에요. 값이 오를 때만 벌어요.', { chip: '없음' }),
       ry && gold && gy != null ? cell('price', 'ok', `${staleLead(gold.last.date, today, STALE_DAYS.gold)}금을 들고 있으면 물가를 뺀 국채 이자 ${pct2(ry.real.v)}를 포기하는 셈이에요. 금값은 1년 전보다 ${moved(gy)}.`,
-        { chip: '비교 기준 없음', source: 'FRED DFII10 · 야후 금 선물(GC=F) 종가', date: gold.last.date,
-          detail: `포기하는 이자가 클수록 금을 들고 있기가 무거워요(원칙이지 예측이 아님) · 금값 비교 ${dot(gold.yearAgo!.date)} → ${dot(gold.last.date)} · 물가 뺀 이자 FRED DFII10 ${dot(ry.real.date)}` })
+        { chip: !avg10 ? '비교 기준 없음' : Math.abs(ry.real.v - avg10.v) < 0.05 ? '포기하는 이자가 10년 평균과 같음' : ry.real.v > avg10.v ? '포기하는 이자가 10년 평균보다 큼' : '포기하는 이자가 10년 평균보다 작음',
+          source: `FRED DFII10 · 야후 금 선물(GC=F) 종가${avg10 ? ' · 10년 평균 = DFII10 월평균' : ''}`, date: gold.last.date,
+          detail: `포기하는 이자가 클수록 금을 들고 있기가 무거워요(원칙이지 예측이 아님)${avg10 ? ` · 지난 10년 평균 ${pct2(avg10.v)}(${dot(avg10.from)}~${dot(avg10.to)})` : ''} · 금값 비교 ${dot(gold.yearAgo!.date)} → ${dot(gold.last.date)} · 물가 뺀 이자 FRED DFII10 ${dot(ry.real.date)}` })
         : hold('price', ry ? '금값' : '물가를 뺀 국채 이자'),
       goldSeason,
     ],

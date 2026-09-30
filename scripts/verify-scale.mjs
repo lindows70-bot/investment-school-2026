@@ -38,7 +38,8 @@ const check = (label, cond, why = '') => { if (cond) console.log(`✅ ${label}`)
 // ── 입력(2026-09-29 프로덕션 실측값) ──
 const FULL = {
   today: '2026-09-29',
-  realYield: { nominal: { v: 5.17, date: '2026-09-25' }, real: { v: 2.83, date: '2026-09-25' }, bei: { v: 2.34, date: '2026-09-28' } },
+  realYield: { nominal: { v: 5.17, date: '2026-09-25' }, real: { v: 2.83, date: '2026-09-25' }, bei: { v: 2.34, date: '2026-09-28' }, avg10: { v: 0.77, from: '2016-09', to: '2026-08' } },
+  m2: { yoy: 5.66, month: '2026-08' },
   factset: { fwd: 19.2, avg5: 19.8, avg10: 19, date: '2026-09-25' },
   kb: { yoy: 4.4, asOf: '2026-09', mortgage: { v: 4.48, asOf: '2026-08' } },
   season: {
@@ -122,7 +123,7 @@ check('1년 전 비교가 없으면 금 ② hold', cellOf(buildScale({ ...FULL, 
 
 // ── 4단계: 오늘 바뀐 칸 ──
 const c1 = chipsOf(r)
-check('칩 스냅샷 = 칩 있는 칸만(쉬는 칸·칩 없는 칸 제외 — 채권 ②·부동산 ② 는 칩 없음 → 13칸)', Object.keys(c1).length === 13 && c1['bond:season'] === '역풍' && !('bond:price' in c1))
+check('칩 스냅샷 = 칩 있는 칸만(쉬는 칸·칩 없는 칸 제외 — 부동산 ② 만 칩 없음 → 14칸 · 채권 ② 는 6차부터 칩 있음)', Object.keys(c1).length === 14 && c1['bond:season'] === '역풍' && c1['bond:price'] === '10년 평균보다 높음' && !('realestate:price' in c1))
 const s1 = rollSnap(null, '2026-09-28', c1)
 check('첫 스냅샷 → 비교 기준 없음(바뀐 칸 0)', s1.prevChips === null && diffChips(s1.prevChips, c1, r.rows).length === 0)
 const s1b = rollSnap(s1, '2026-09-28', c1)
@@ -179,6 +180,19 @@ check(`금(순풍) − 채권(역풍) 3개월 차이 > 0 · 맞은 달 ${late.st
 check(`차이 대부분을 금이 만들었다고 밝힌다(${late.stats?.topAsset?.name} ${Math.round((late.stats?.topAsset?.share ?? 0) * 100)}%) · 한 계절(여름)에서만 검증`, late.stats.topAsset?.asset === 'gold' && late.stats.topAsset.share > 0.5 && late.stats.seasons.length === 1)
 const kbMissing = computeScaleScore(SH, { ...SER, realestate: { dates: kbD.slice(0, 9), values: kbV.slice(0, 9) } }, '2028-01-31')
 check('KB 지수가 청산 달에 아직 없으면 그 달은 미성숙(추정으로 메우지 않는다)', kbMissing.comparable < 12)
+
+// ── 6차: 채권·금 ② 비교 기준(DFII10 10년 평균) · 코인 ③ M2 ──
+check('채권 ② 칩 = 10년 평균(0.77)과 견줌 → 2.83 은 높음 · 문장에 10년 평균 병기', cellOf(r, 'bond', 'price').chip === '10년 평균보다 높음' && cellOf(r, 'bond', 'price').sentence.includes('지난 10년 평균은 0.77%'))
+check('채권 ② 출처·상세에 평균의 기간(2016.9~2026.8)이 있다', /10년 평균/.test(cellOf(r, 'bond', 'price').source) && /2016\.9~2026\.8/.test(cellOf(r, 'bond', 'price').detail ?? ''))
+check('금 ② 칩 = 포기하는 이자가 10년 평균보다 큼', cellOf(r, 'gold', 'price').chip === '포기하는 이자가 10년 평균보다 큼')
+const noAvg = buildScale({ ...FULL, realYield: { ...FULL.realYield, avg10: null } })
+check('10년 평균이 없으면 채권·금 ② 칩 = 비교 기준 없음(임의 경계 금지)', cellOf(noAvg, 'bond', 'price').chip === '비교 기준 없음' && cellOf(noAvg, 'gold', 'price').chip === '비교 기준 없음' && !cellOf(noAvg, 'bond', 'price').sentence.includes('10년 평균'))
+check('0.77 vs 0.80 (차이 < 0.05) → 10년 평균과 같음', cellOf(buildScale({ ...FULL, realYield: { ...FULL.realYield, real: { v: 0.80, date: '2026-09-25' } } }), 'bond', 'price').chip === '10년 평균과 같음')
+check('코인 ③ 문장에 M2 전년비 + 기준월 · 출처에 M2SL · 이름표 날짜는 가장 오래된 재료(2026-08)', cellOf(r, 'coin', 'season').sentence.includes('시중에 풀린 돈(M2)은 1년 전보다 5.7% 늘었어요(2026.8)') && /M2SL/.test(cellOf(r, 'coin', 'season').source) && cellOf(r, 'coin', 'season').date === '2026-08')
+const noM2 = buildScale({ ...FULL, m2: null })
+check('M2 가 없으면 코인 ③ 은 계절만 말하고 약속 문구가 없다', !cellOf(noM2, 'coin', 'season').sentence.includes('M2') && cellOf(noM2, 'coin', 'season').status === 'ok' && /자료가 아직 안 들어와/.test(cellOf(noM2, 'coin', 'season').detail ?? ''))
+check("'곧 붙어요' 같은 약속 문구가 어느 칸에도 없다", [r, noM2, noAvg].every(x => x.rows.flatMap(y => y.cells).every(c => !/곧 붙어요|곧 열려요/.test(`${c.sentence} ${c.detail ?? ''}`))))
+check('M2 −1.2% → 줄었어요', cellOf(buildScale({ ...FULL, m2: { yoy: -1.2, month: '2026-08' } }), 'coin', 'season').sentence.includes('1.2% 줄었어요'))
 
 // ── (라이브) 프로덕션 /api/scale ──
 try {

@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { buildRealYield, type RealYieldResult } from '@/lib/realYield'
+import { fetchDfii10Avg10, fetchM2Yoy } from '@/lib/fredScaleInputs'   // 채권·금 ② 비교 기준(10년 평균) · 코인 ③ M2
 import { FACTSET_FWD_KEY } from '@/lib/localRunners'
 import { getTechCandles, dropIncompleteBar } from '@/lib/techChartData'
 import { fetchCryptoFng } from '@/lib/cryptoFng'
@@ -17,7 +18,7 @@ import { SCALE_HIST_KEY, snapOf, addSnap, type ScaleSnap } from '@/lib/scaleScor
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const CACHE_KEY = 'scale-v5'   // v5: 줄 끝 코어·위성 꼬리표(tail) · v4: changes·changedSince(오늘 바뀐 칸) · v3: ③ 순풍·보통·역풍 칩(선생님 승인 원칙) · v2: ③ 계절 칸 + 주담대(기준월) — 필드·내용이 바뀌면 키를 올린다   // 날짜 없는 키 — 신선도는 TTL 로(날짜 키는 영구 누적)
+const CACHE_KEY = 'scale-v6'   // v6: 채권·금 ② 칩(DFII10 10년 평균) + 코인 ③ M2 문장 · v5: 줄 끝 코어·위성 꼬리표(tail) · v4: changes·changedSince(오늘 바뀐 칸) · v3: ③ 순풍·보통·역풍 칩(선생님 승인 원칙) · v2: ③ 계절 칸 + 주담대(기준월) — 필드·내용이 바뀌면 키를 올린다   // 날짜 없는 키 — 신선도는 TTL 로(날짜 키는 영구 누적)
 const TTL = 3600_000
 // 칩 스냅샷 — 날짜 없는 키 한 행을 덮어쓴다(오늘 칩 + 비교 기준이 될 지난 날 칩). 날짜 키는 영구 누적이라 쓰지 않는다
 const SNAP_KEY = 'scale-chips-v1'
@@ -28,7 +29,7 @@ export async function GET(req: Request) {
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   const origin = new URL(req.url).origin
-  const [realYield, factset, kb, gold, fng, seasons] = await Promise.all([
+  const [realYield, factset, kb, gold, fng, seasons, avg10, m2] = await Promise.all([
     (async (): Promise<RealYieldResult | null> => {
       const b = await getCache<{ realYield: RealYieldResult | null }>('bonds-v8', 6 * 3600_000, { sameKstDay: true })
       return b?.realYield ?? await buildRealYield().catch(() => null)
@@ -46,12 +47,14 @@ export async function GET(req: Request) {
     getTechCandles('GC=F', 'US', 'D').then(c => goldPoints(dropIncompleteBar(c, 'US'))).catch(() => null),
     fetchCryptoFng(),
     getRegionSeasons(origin).catch(() => null),
+    fetchDfii10Avg10().catch(() => null),
+    fetchM2Yoy().catch(() => null),
   ])
 
   const result = buildScale({
     today: kstToday(),
-    realYield: realYield ? { nominal: realYield.nominal, real: realYield.real, bei: realYield.bei } : null,
-    factset, kb, gold, fng,
+    realYield: realYield ? { nominal: realYield.nominal, real: realYield.real, bei: realYield.bei, avg10 } : null,
+    factset, kb, gold, fng, m2,
     season: seasons ? {
       us: { quad: seasons.quad.US, cliMonth: seasons.meta.cli.US.month, cliOk: seasons.meta.cli.US.ok },
       kr: { quad: seasons.quad.KR, cliMonth: seasons.meta.cli.KR.month, cliOk: seasons.meta.cli.KR.ok },
@@ -67,7 +70,8 @@ export async function GET(req: Request) {
   const next = rollSnap(snap, kstToday(), now)
   result.changes = diffChips(next.prevChips, now, result.rows)
   result.changedSince = next.prevDay
-  if (!anyHold) { await setCache(SNAP_KEY, next); await setCache(CACHE_KEY, result) }
+  // 보조 재료(10년 평균·M2)가 빠진 응답은 캐시하지 않는다 — 한 번의 FRED 실패가 한 시간짜리 '비교 기준 없음'으로 박제되지 않게(부분실패 캐시 금지)
+  if (!anyHold) { await setCache(SNAP_KEY, next); if (avg10 && m2) await setCache(CACHE_KEY, result) }
   // 채점표 적립 — 오늘 한 장(불변). ③ 다섯 칸이 모두 칩으로 판정된 날만(간절기·재료 폴백이면 적지 않는다). 소급 없음(docs/scale/scoring-plan.md)
   try {
     const seasonsValid = result.rows.every(r => r.cells[2].status === 'ok' && !!r.cells[2].chip)
