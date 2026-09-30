@@ -60,3 +60,20 @@ export function upjongToGics(u: string | null): string | null {
   for (const [re, sec] of RULES) if (re.test(t)) return sec
   return null
 }
+
+// 린치 분류용 — 저성장(통신서비스)·경기민감 세분(반도체·철강·화학·자동차·가전)은 야후 11개보다 곱게 본다(lynch-classify 의 SLOW/CYCLICAL 목록과 같은 라벨).
+//   통신장비는 통신서비스가 아니라 Technology(옛 표가 /통신/ 으로 둘을 섞어 통신장비를 저성장주로 보냈다). 나머지는 upjongToGics 와 같다
+const LYNCH_FINE: [RegExp, string][] = [
+  [/통신서비스/, 'Telecommunications'],
+  [/반도체/, 'Semiconductors'],
+  [/철강|비철금속/, 'Steel'],
+  [/화학/, 'Chemical'],
+  [/자동차/, 'Auto'],
+  [/가전|디스플레이|전자제품|가정용기기/, 'Consumer Durables'],
+]
+export function upjongToLynchSector(u: string | null): string | null {
+  if (!u) return null
+  const t = u.replace(/\s/g, '')
+  for (const [re, sec] of LYNCH_FINE) if (re.test(t)) return sec
+  return upjongToGics(t)
+}

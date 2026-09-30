@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { naverUpjongMap, industryNameOf, upjongToGics } from '@/lib/naverUpjong'   // 🏷️ 국내 업종 SSOT(stock-info·승패 해부실과 같은 표)
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type Market    = 'US' | 'KR' | 'CRYPTO'
@@ -307,16 +308,22 @@ function krSectorToLynchSector(industryName: string | null): string | null {
 
 /** 네이버 기본정보 → Fundamentals */
 async function naverFundamentals(code: string): Promise<Fundamentals> {
-  const basic = await naverBasic(code)
-  if (!basic) return nullFundamentals()
+  // 업종 — basic 의 industryCodeType 은 사라졌다(2026-09-30 실측). integration.industryCode → 업종 표(lib/naverUpjong) → 야후 11개 섹터
+  const [basic, integ, upjong] = await Promise.all([
+    naverBasic(code),
+    naverFetch(`https://m.stock.naver.com/api/stock/${code}/integration`).then(r => (r.ok ? r.json() : null)).catch(() => null),
+    naverUpjongMap(),
+  ])
+  const integIndustry = industryNameOf(integ, upjong)
+  if (!basic) return { ...nullFundamentals(), sector: upjongToGics(integIndustry) }
 
   const per = typeof basic.per === 'number'  ? basic.per  : null
   const eps = typeof basic.eps === 'number'  ? basic.eps  : null
   const dy  = typeof basic.dividendYield === 'number' ? basic.dividendYield / 100 : null
   const mc  = typeof basic.marketValue === 'number'   ? basic.marketValue : null
 
-  const industryName: string | null = basic.industryCodeType?.name ?? null
-  const sector = krSectorToLynchSector(industryName) ?? industryName
+  const industryName: string | null = integIndustry ?? basic.industryCodeType?.name ?? null
+  const sector = upjongToGics(industryName) ?? krSectorToLynchSector(industryName) ?? industryName
 
   // 간단한 성장률 추정: EPS가 양수면 기본 성장 가정, 음수면 회생
   // 실제 YoY EPS 성장률은 별도 API 필요 — 여기서는 null 처리

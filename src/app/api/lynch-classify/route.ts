@@ -11,6 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { naverUpjongMap, industryNameOf, upjongToLynchSector } from '@/lib/naverUpjong'   // 🏷️ 국내 업종 SSOT — basic 의 업종 필드가 사라져(2026-09-30) integration 으로
 
 export type LynchKey =
   | 'slow_grower' | 'stalwart' | 'fast_grower'
@@ -328,10 +329,12 @@ async function classifyKR(ticker: string): Promise<ClassifyResult> {
   if (KR_KNOWN[code]) return { category: KR_KNOWN[code], isEtf: false, source: 'hardcoded' }
 
   try {
-    const res = await fetchWithTimeout(
-      `https://m.stock.naver.com/api/stock/${code}/basic`,
-      { headers: NAVER_H, next: { revalidate: 3600 } as RequestInit['next'] }
-    )
+    const [res, integ, upjong] = await Promise.all([
+      fetchWithTimeout(`https://m.stock.naver.com/api/stock/${code}/basic`, { headers: NAVER_H, next: { revalidate: 3600 } as RequestInit['next'] }),
+      fetchWithTimeout(`https://m.stock.naver.com/api/stock/${code}/integration`, { headers: NAVER_H, next: { revalidate: 3600 } as RequestInit['next'] })
+        .then(r => (r.ok ? r.json() : null)).catch(() => null),
+      naverUpjongMap(),
+    ])
     if (!res.ok) throw new Error(`naver ${res.status}`)
     const d = await res.json()
     if (!d) throw new Error('naver empty')
@@ -343,11 +346,11 @@ async function classifyKR(ticker: string): Promise<ClassifyResult> {
     if (stockEndType === 'etf' || ETF_NAME_RE.test(stockName))
       return { category: 'na', isEtf: true, source: 'naver-etf' }
 
-    // ── 업종(sector) 추출: industryCodeType.name 또는 종목명 패턴 매칭 ──
-    const industryName: string|null = d.industryCodeType?.name ?? null
-    let sector: string|null = industryName
-      ? (KR_INDUSTRY.find(([re]) => re.test(industryName))?.[1] ?? null)
-      : null
+    // ── 업종(sector) 추출: integration 업종(79개 표 → 린치 세분 라벨) → 옛 basic 필드(돌아오면 옛 표) → 종목명 패턴 ──
+    const integIndustry = industryNameOf(integ, upjong)
+    const oldIndustry: string|null = d.industryCodeType?.name ?? null
+    let sector: string|null = upjongToLynchSector(integIndustry)
+      ?? (oldIndustry ? (KR_INDUSTRY.find(([re]) => re.test(oldIndustry))?.[1] ?? null) : null)
 
     // industryCodeType 없는 경우: 종목명으로 추가 추론 (정밀화)
     if (!sector) {

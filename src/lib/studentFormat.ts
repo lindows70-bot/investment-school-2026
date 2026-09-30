@@ -41,6 +41,14 @@ export const upDown = (n: number | null) => n == null || Math.abs(n) < 0.05 ? TK
 /** 수량 — 부동소수 잡음 없이 소수 8자리까지(끝 0 제거) + 코인은 '개', 나머지는 '주' */
 export const qtyText = (q: number, market: string) => `${q.toLocaleString('ko-KR', { maximumFractionDigits: 8 })}${market === 'CRYPTO' ? '개' : '주'}`
 
+/** 억원 금액을 짧게 — 1조 이상은 조 단위 반올림('1,576조'), 그 아래는 eok 과 같다. 좁은 칸(종목 상세 시가총액)용 */
+export function eokRound(n: number): string {
+  const r = Math.abs(n)
+  if (r < 10_000) return eok(n)
+  const body = `${Math.round(r / 10_000).toLocaleString('ko-KR')}조`
+  return n < 0 ? `${MINUS}${body}` : body
+}
+
 /** 억원 금액 — 억 단위로 반올림, 1조 이상은 '1조 4,649억'(조 아래가 0이면 '2조'), 음수 부호는 '−'. 부호 없는 양수(거래대금 등) */
 export function eok(n: number): string {
   const r = Math.round(Math.abs(n))
