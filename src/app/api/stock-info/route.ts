@@ -16,6 +16,7 @@ import type { Market, Fundamentals } from '@/app/api/stock-price/route'
 import { curCodeFromTicker } from '@/lib/globalTickers'
 import { getTrueFcf } from '@/lib/trueFcf'   // 💵 FCF 분자 SSOT(현금흐름표 OCF−CapEx) — fd.freeCashflow 는 부호까지 틀린다
 import { correctPsr } from '@/lib/finCurrency'   // 💱 PSR ADR 통화 교정 SSOT
+import { naverUpjongMap, industryNameOf, upjongToGics } from '@/lib/naverUpjong'   // 🏷️ 국내 업종 SSOT(승패 해부실과 같은 표)
 
 export interface StockInfo {
   ticker:       string
@@ -26,6 +27,8 @@ export interface StockInfo {
   /** 순현금 여부: true=현금>부채, false=부채>현금, null=데이터없음 */
   hasCash?:     boolean | null
   source:       'live' | 'cache'
+  /** 원천 업종명 — KR = 네이버 업종(79개, '반도체와반도체장비'). fundamentals.sector(야후 11개)보다 세분. 없으면 없음 */
+  industry?:    string | null
   error?:       string
 }
 
@@ -646,19 +649,25 @@ async function krInfo(ticker: string): Promise<StockInfo> {
   // ⚠️ 2026-09-29 실측: 네이버 basic 응답에서 high52week·low52week·industryCodeType 필드가 사라졌다 —
   //    그래서 모든 국내 종목의 52주 최고·최저가 null 이었다(거장 위원회 '가격 위치'가 국내만 '데이터 없음').
   //    52주 값은 integration.totalInfos(highPriceOf52Weeks·lowPriceOf52Weeks, "380,000" 문자열)에 그대로 있다.
-  const [basicRes, annualRes, pollingRes, integRes] = await Promise.all([
+  const [basicRes, annualRes, pollingRes, integRes, upjong] = await Promise.all([
     fetch(`https://m.stock.naver.com/api/stock/${code}/basic`,          { headers: NAVER_H, next:{ revalidate:3600 } }),
     fetch(`https://m.stock.naver.com/api/stock/${code}/finance/annual`, { headers: NAVER_H, next:{ revalidate:3600 } }),
     fetch(`https://polling.finance.naver.com/api/realtime/domestic/stock/${code}`, { headers: NAVER_H, next:{ revalidate:0 } }),
     fetch(`https://m.stock.naver.com/api/stock/${code}/integration`,    { headers: NAVER_H, next:{ revalidate:3600 } }).catch(() => null),
+    naverUpjongMap(),
   ])
 
   if (!basicRes.ok) throw new Error(`네이버 KR 조회 실패 (${basicRes.status}): ${code}`)
   const d = await basicRes.json()
   if (!d?.stockName) throw new Error(`KR 종목 없음: ${code}`)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let integ: any = null
+  try { integ = integRes && integRes.ok ? await integRes.json() : null } catch { integ = null }
 
-  const industryName: string | null = d.industryCodeType?.name ?? null
-  const sector   = krSector(industryName)
+  // 업종 — integration.industryCode → 업종명(lib/naverUpjong 표) → 야후 11개 섹터. 옛 basic 필드(industryCodeType)는 돌아오면 폴백
+  //   2026-09-30 실측: basic 에서 사라져 국내 전 종목 업종이 null('더 알아보기' 업종 '모름')이었다
+  const industryName: string | null = industryNameOf(integ, upjong) ?? d.industryCodeType?.name ?? null
+  const sector   = upjongToGics(industryName) ?? krSector(industryName)
 
   // 시가총액: polling API의 marketValueFullRaw (raw KRW 원화 값)
   let mc: number | null = null
@@ -697,7 +706,6 @@ async function krInfo(ticker: string): Promise<StockInfo> {
 
   // 52주 최고·최저 — integration 우선, 옛 basic 필드는 폴백(돌아오면 쓴다). 둘 다 없으면 null(지어내지 않는다)
   try {
-    const integ = integRes && integRes.ok ? await integRes.json() : null
     const infos: { code?: string; value?: string }[] = Array.isArray(integ?.totalInfos) ? integ.totalInfos : []
     const pick = (c: string) => {
       const v = infos.find(x => x?.code === c)?.value
@@ -863,6 +871,7 @@ async function krInfo(ticker: string): Promise<StockInfo> {
     ticker: code, name: d.stockName as string,
     market: 'KR', currency: 'KRW',
     hasCash: krHasCash,
+    industry: isEtf ? null : industryName,
     fundamentals: {
       pe: per, peg, marketCap: mc, volume: null,
       high52w, low52w, sector, earningsGrowth, growthSource: growthSourceKr, dividendYield, isEtf,

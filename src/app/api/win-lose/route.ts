@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server'
 import { SECTOR_ROTATION_KEY, SECTOR_TO_ROT } from '@/lib/rotationShared'   // 🧭 로테이션 SSOT
 import { createClient } from '@supabase/supabase-js'
 import { getCache, setCache } from '@/lib/appCache'
+import { naverUpjongMap, krIndustryOf, upjongToGics } from '@/lib/naverUpjong'
 import { getAssetType } from '@/lib/assetClassifier'
 import { SECTORS, SECTOR_ETF } from '@/lib/sectorConfigs'
 import { GICS_SECTOR_META } from '@/lib/gicsSectorMeta'
@@ -23,27 +24,7 @@ const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0,
 const code6 = (t: string) => t.replace(/\.(KS|KQ)$/i, '')
 const normKey = (market: string, ticker: string) => `${market}:${market === 'KR' ? code6(ticker) : ticker.toUpperCase()}`
 
-// SECTOR_TO_ROT — rotationShared(SSOT)에서 import
-// 네이버 업종명 → Yahoo GICS 11 영문 섹터(키워드 매칭) — 전장 지도 sector-null 패치 전용(Yahoo가 섹터 안 주는 코스닥주 커버)
-function upjongToGics(u: string | null): string | null {
-  if (!u) return null
-  const t = u.replace(/\s/g, '')
-  const RULES: [RegExp, string][] = [
-    [/반도체|디스플레이|전자장비|컴퓨터|소프트웨어|IT서비스|통신장비|핸드셋|사무용전자/, 'Technology'],
-    [/게임|엔터테인먼트|미디어|방송|광고|출판|통신서비스/, 'Communication Services'],
-    [/은행|증권|보험|카드|창업투자|금융|자산운용/, 'Financial Services'],
-    [/제약|생물공학|바이오|건강관리|생명과학|의료/, 'Healthcare'],
-    [/유틸리티|수도|전력생산/, 'Utilities'],
-    [/석유|가스|에너지장비/, 'Energy'],
-    [/화학|금속|광물|종이|목재|포장재/, 'Basic Materials'],
-    [/부동산|리츠/, 'Real Estate'],
-    [/음료|식품|담배|화장품|가정용품|개인용품/, 'Consumer Defensive'],
-    [/자동차|호텔|레저|레스토랑|섬유|의류|신발|호화품|백화점|판매|소매|교육|내구소비재|가구/, 'Consumer Cyclical'],
-    [/조선|기계|복합기업|건설|건축|우주항공|국방|방산|운송|항공|해운|철도|전기장비|전기제품|상업서비스|무역|물류/, 'Industrials'],
-  ]
-  for (const [re, sec] of RULES) if (re.test(t)) return sec
-  return null
-}
+// SECTOR_TO_ROT — rotationShared(SSOT)에서 import · 네이버 업종 표·업종명→섹터 = lib/naverUpjong(stock-info 와 공유, 2026-09-30)
 
 type RotLite = { items?: { key: string; quadrant: WLQuad; score: number }[] }
 type SubLabel = { label: string; emoji: string; color: string; sector: string }
@@ -83,35 +64,6 @@ function etfRoleLabel(ticker: string, name: string, market: string): SubLabel {
   if (r.role === 'BLOCKED') return { label: '레버리지·고위험', emoji: '⚠️', color: TK.red400, sector: 'ROLE' }
   return { label: '테마·기타 ETF', emoji: '📦', color: TK.sub3, sector: 'ROLE' }
 }
-const NAVER_UA = { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148', Referer: 'https://m.stock.naver.com/' }
-// KR 주식: 네이버 업종코드→업종명 맵(업종 목록 1콜·JSON·7일 캐시) — Yahoo가 섹터를 안 주는 코스닥주 커버
-//   💥 2026-09-27: 옛 PC 목록(sise_group.naver?type=upjong)이 신규 사이트로 302 리다이렉트돼 정규식 0건 → 빈 맵(캐시 만료 후 조용히 미분류).
-//   신규 m.stock.naver.com/api/stocks/industry 의 no 는 종목 integration 의 industryCode 와 같은 체계
-//   (실측 278 = 반도체와반도체장비 = 삼성전자 industryCode) · 79업종(pageSize 100 이면 한 번에). 코드→이름 내용이 같아 캐시 키는 그대로 둔다.
-async function naverUpjongMap(): Promise<Map<string, string>> {
-  const cached = await getCache<Record<string, string>>('naver-upjong-map-v1', 7 * 24 * 3600_000)
-  if (cached) return new Map(Object.entries(cached))
-  try {
-    const r = await fetch('https://m.stock.naver.com/api/stocks/industry?page=1&pageSize=100', { headers: NAVER_UA, cache: 'no-store' })
-    const groups: { no?: number | string; name?: string }[] = r.ok ? (await r.json())?.groups ?? [] : []
-    const m = groups.filter(g => g.no != null && g.name)
-    if (m.length < 30) return new Map()
-    const obj: Record<string, string> = {}
-    for (const g of m) obj[String(g.no)] = String(g.name).trim()
-    await setCache('naver-upjong-map-v1', obj)
-    return new Map(Object.entries(obj))
-  } catch { return new Map() }
-}
-async function krIndustryOf(code: string, upjong: Map<string, string>): Promise<string | null> {
-  try {
-    const r = await fetch(`https://m.stock.naver.com/api/stock/${code}/integration`, { headers: NAVER_UA })
-    if (!r.ok) return null
-    const j = await r.json()
-    const ic = j?.industryCode != null ? String(j.industryCode) : null
-    return ic ? upjong.get(ic) ?? null : null
-  } catch { return null }
-}
-
 // Supabase service-role — Next Data Cache 박제 방지 no-store 강제(appCache 교훈)
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!,
