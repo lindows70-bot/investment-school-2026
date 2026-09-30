@@ -62,6 +62,8 @@ const INVARIANTS = [
   { file: 'scripts/verify-naver-market-sources.mjs', label: '네이버 신규 원천(투자자 매매동향·증시자금동향·업종 목록) 형식·단위·프로덕션 응답' },
   // 2026-09-30 신설 — 네이버 basic 의 업종 필드가 사라져 국내 전 종목 업종이 '모름'이었다(빌드·타입체크 통과). 업종 목록 79개 → 섹터 전수 · 프로덕션 응답
   { file: 'scripts/verify-naver-upjong.mjs', label: '국내 업종 SSOT — 업종명→섹터 전수(기타 제외 0 미분류) · 프로덕션 /api/stock-info 업종' },
+  // 2026-09-30 신설 — 규제 레이더 항목마다 근거 기사 링크(srcIdx 서버 검증). 가드가 무력해지면 링크 없는 요약으로 조용히 돌아간다
+  { file: 'scripts/verify-crypto-regulation.mjs', label: '규제 레이더 — 항목마다 근거 기사 1개 이상 · 링크 http(s) · 프로덕션' },
 ]
 
 /**

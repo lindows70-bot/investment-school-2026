@@ -108,11 +108,19 @@ function Regulation() {
               <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate100, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{b.title} <span style={{ fontWeight: 500, color: TK.sub, fontSize: FS.tiny }}>{typeof b.status === 'string' ? b.status : ''}</span></span>
               {typeof b.summary === 'string' && b.summary && <span style={{ fontSize: FS.tiny, color: TK.slate300, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{b.summary}</span>}
               {Array.isArray(b.assets) && b.assets.length > 0 && <span style={{ fontSize: FS.micro, color: TK.sub }}>관련: {b.assets.filter(a => typeof a === 'string').join(' · ')}</span>}
+              {/* 근거 기사 — 서버가 번호를 검증한 헤드라인만 온다. 학생이 직접 대조하도록 원문 링크(새 창) */}
+              {Array.isArray(b.sources) && b.sources.length > 0 && (
+                <span style={{ display: 'flex', flexWrap: 'wrap', gap: `2px ${SP.sm}px`, fontSize: FS.micro, color: TK.sub, minWidth: 0 }}>
+                  근거 {b.sources.filter(s => s && typeof s.url === 'string' && typeof s.title === 'string').map((s, k) => (
+                    <a key={s.url + k} href={s.url} target="_blank" rel="noopener noreferrer" title={s.title} style={{ color: TK.blue400, textDecoration: 'underline', minHeight: 0, wordBreak: 'keep-all' }}>기사 {k + 1} ↗</a>
+                  ))}
+                </span>
+              )}
             </div>
           </div>
         )
       })}
-      {ok && <span style={noteStyle()}>구글 뉴스 헤드라인(최근 45~120일)을 근거로 AI가 정리 · 헤드라인에 없는 내용은 쓰지 않아요 · 6시간마다 갱신{typeof r.data!.asOf === 'string' ? ` · ${ymdDot(r.data!.asOf.slice(0, 10)) ?? ''} 기준` : ''}</span>}
+      {ok && <span style={noteStyle()}>구글 뉴스 헤드라인(최근 45~120일)을 근거로 AI가 정리 · 근거 기사를 못 댄 항목은 버려요 · 6시간마다 갱신{typeof r.data!.asOf === 'string' ? ` · ${ymdDot(r.data!.asOf.slice(0, 10)) ?? ''} 기준` : ''}</span>}
     </section>
   )
 }

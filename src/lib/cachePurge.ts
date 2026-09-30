@@ -64,7 +64,7 @@ export const PURGE_RULES: PurgeRule[] = [
   DAILY('market-catalyst-v4', '24h(weekly-report)'),
   DAILY('cme-cot-v2', '12h'),
   DAILY('crypto-funding-v1', '1h'),
-  DAILY('crypto-regulation-v2', '6h'),
+  DAILY('crypto-regulation-v3', '6h'),   // v3(2026-09-30): 근거 기사 링크. 옛 v2 행은 접두어가 달라 남는다(하루 1행 · 며칠치)
   DAILY('stablecoin-v5', '6h'),
   DAILY('country-vol-v2', '6h'),
   DAILY('us-liquidity-v1', '6h'),
