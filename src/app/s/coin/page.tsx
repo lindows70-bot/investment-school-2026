@@ -112,7 +112,7 @@ function Regulation() {
               {Array.isArray(b.sources) && b.sources.length > 0 && (
                 <span style={{ display: 'flex', flexWrap: 'wrap', gap: `2px ${SP.sm}px`, fontSize: FS.micro, color: TK.sub, minWidth: 0 }}>
                   근거 {b.sources.filter(s => s && typeof s.url === 'string' && typeof s.title === 'string').map((s, k) => (
-                    <a key={s.url + k} href={s.url} target="_blank" rel="noopener noreferrer" title={s.title} style={{ color: TK.blue400, textDecoration: 'underline', minHeight: 0, wordBreak: 'keep-all' }}>기사 {k + 1} ↗</a>
+                    <a key={s.url + k} href={s.url} target="_blank" rel="noopener noreferrer" title={s.title} style={{ display: 'inline-flex', alignItems: 'center', minHeight: 28, padding: `0 ${SP.xs}px`, color: TK.blue400, textDecoration: 'underline', wordBreak: 'keep-all' }}>기사 {k + 1} ↗</a>
                   ))}
                 </span>
               )}
