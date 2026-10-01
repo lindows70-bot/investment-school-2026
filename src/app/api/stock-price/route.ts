@@ -32,6 +32,8 @@ export interface Fundamentals {
   isEtf:          boolean
   // 추가 재무 지표
   eps:            number | null
+  /** 국내 EPS 의 기준 — 'ttm' 최근 4분기(네이버 화면과 같은 값) · 'fy' 직전 결산 연도(integration 을 못 받았을 때). 미국은 없음(trailing) */
+  epsBasis?:      'ttm' | 'fy' | null
   pbr:            number | null
   forwardEps:     number | null
   payoutRatio:    number | null   // 배당성향 (0.25 = 25%)

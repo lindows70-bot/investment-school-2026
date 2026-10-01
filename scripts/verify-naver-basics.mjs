@@ -63,6 +63,10 @@ try {
   check(`두 표면 PER 3% 안에서 일치(${a.pe} vs ${c.pe})`, typeof c.pe === 'number' && typeof a.pe === 'number' && Math.abs(a.pe - c.pe) / c.pe < 0.03)
   const nv = parseNaverBasics(await fetch('https://m.stock.naver.com/api/stock/005930/integration', { headers: UA }).then(r => r.json()))
   check(`종목 정보 PER = 네이버 화면 PER 3% 안(${c.pe} vs ${nv.per})`, nv.per != null && Math.abs(c.pe - nv.per) / nv.per < 0.03)
+  // 2026-10-01 — EPS·PBR 도 재무제표 '직전 결산 연도' 행(PBR 은 작년 말 주가 기준)이었다. PER 과 같은 기준이어야 PER × EPS 가 주가와 맞는다
+  check(`종목 정보 EPS 기준 = 최근 4분기(epsBasis ${c.epsBasis}) · 네이버 화면 EPS 와 같음(${c.eps} = ${nv.eps})`, c.epsBasis === 'ttm' && c.eps === nv.eps)
+  check(`종목 정보 PBR = 네이버 화면 PBR 3% 안(${c.pbr} vs ${nv.pbr})`, typeof c.pbr === 'number' && nv.pbr != null && Math.abs(c.pbr - nv.pbr) / nv.pbr < 0.03)
+  check(`PER × EPS 가 지금 주가와 3% 안(${c.pe} × ${c.eps} = ${Math.round(c.pe * c.eps)} vs ${sp.currentPrice})`, typeof sp.currentPrice === 'number' && Math.abs(c.pe * c.eps - sp.currentPrice) / sp.currentPrice < 0.03)
   check(`PEG = PER ÷ 성장률(${c.peg} = ${c.pe} ÷ ${c.earningsGrowth != null ? (c.earningsGrowth * 100).toFixed(1) : null})`, typeof c.peg !== 'number' || (c.earningsGrowth > 0 && Math.abs(c.peg - c.pe / (c.earningsGrowth * 100)) < 0.02))
 } catch (e) { fail++; console.log(`❌ 프로덕션 호출 실패 — ${e.message}`) }
 

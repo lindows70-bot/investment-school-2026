@@ -831,6 +831,15 @@ async function krInfo(ticker: string): Promise<StockInfo> {
   // basic API PER fallback
   if (per === 'N/A' && typeof d.per === 'number' && d.per > 0) per = d.per
 
+  // EPS·PBR — PER 과 같은 기준(네이버 화면 = 최근 4분기 EPS · 지금 주가 기준 PBR)으로 내보낸다. 미국 종목(trailing)과 같은 기준.
+  //   ⚠️ 2026-10-01 실측(국내 보유 21종): 재무제표 '직전 결산 연도' 행을 쓰던 시절 PBR 15종·EPS 12종이 네이버 화면과 20% 넘게 달랐다 —
+  //   PBR 행은 PER 행처럼 **작년 말 주가**로 계산돼 있고(LS ELECTRIC 6.61 vs 14.39), EPS 는 9달 묵은 이익이었다(삼성전자 6,564 vs 22,292).
+  //   위쪽의 예상이익 성장률·배당성향 역산은 결산 연도끼리 견주는 계산이라 결산 EPS 로 이미 끝났다 — 여기서 바꾸는 건 내보내는 값뿐.
+  //   integration 을 못 받으면 결산 연도 값 그대로('fy') — 기준을 응답에 싣는다.
+  let epsBasis: 'ttm' | 'fy' | null = eps != null ? 'fy' : null
+  if (nb.eps != null) { eps = nb.eps; epsBasis = 'ttm' }
+  if (nb.pbr != null) pbr = nb.pbr
+
   // ETF이거나 배당 데이터 없으면 다중 소스 폴백
   if (dividendYield == null || (isEtf && annualDividend == null)) {
     if (isEtf) {
@@ -879,7 +888,7 @@ async function krInfo(ticker: string): Promise<StockInfo> {
     fundamentals: {
       pe: per, peBasis, peg, marketCap: mc, volume: null,
       high52w, low52w, sector, earningsGrowth, growthSource: growthSourceKr, dividendYield, isEtf,
-      eps, pbr, forwardEps, payoutRatio, annualDividend,
+      eps, epsBasis, pbr, forwardEps, payoutRatio, annualDividend,
       // DCF 실데이터
       freeCashflow:      dcf.freeCashflow,
       sharesOutstanding: dcf.sharesOutstanding,
