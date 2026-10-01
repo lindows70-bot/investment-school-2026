@@ -267,7 +267,8 @@ export default function LynchLineTerminal({
       </div>
 
       {/* ── KPI 4개 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      {/* md(768)에서 4칸이면 왼쪽 메뉴를 뺀 본문이 398px 이라 칸이 88px — 가격이 칸을 넘쳤다(2026-10-02 실측). 4칸은 xl 부터 */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
         <div className="p-3 bg-zinc-950 border border-zinc-900 rounded-lg">
           <div className="text-[10px] text-zinc-500 font-bold mb-1">린치 기질 분류</div>
           <div className="text-sm font-bold text-zinc-300">{ctx.category}</div>

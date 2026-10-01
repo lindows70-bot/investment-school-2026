@@ -1468,7 +1468,7 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
             <div>
               {/* ── 판정 제목 + 자동 하향 배지 ─────────────────────────── */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-                <div style={{ fontSize:22, fontWeight:900, color:scoreData.verdict.color }}>{scoreData.verdict.text}</div>
+                <div style={{ fontSize:22, fontWeight:900, color:scoreData.verdict.color, wordBreak:'keep-all' }}>{scoreData.verdict.text}</div>
                 {/* 5% 이상 고평가 → 자동 하향 배지 */}
                 {scoreData.isSignificantlyOver && (
                   <div style={{

@@ -945,12 +945,13 @@ export default function LynchEarningsChart(props: any) {
             </div>
 
             {/* ── KPI 카드 4개 ───────────────────────────── */}
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginTop:14 }}>
+            {/* 4칸 고정(repeat(4,1fr))은 태블릿 폭(본문 448px)에서 네 번째 칸이 틀 밖으로 나갔다(2026-10-02 실측) — 칸이 좁아지면 2×2 로 접는다 */}
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:10, marginTop:14 }}>
               {[
                 { label: nowPriceLive ? '현재 주가' : `${latest?.year ?? ''}년 평균 주가`, value: latestPrice > 0 ? fmtPrice(latestPrice, currency) : '—', color:C.price },
                 { label:'린치 적정가치', value: latestFair  > 0 ? fmtPrice(latestFair,  currency) : '—', color:C.fair },
-                { label: nowEpsLive ? '최근 EPS(직전 4분기)' : `${latest?.year ?? ''}년 EPS`, value: latestEps ? fmtEps(latestEps, currency) : '—', color:C.textHi },
-                { label:'판정 배수(분류 기준)', value:`${ssot.multiple}×`, color:C.textHi },
+                { label: nowEpsLive ? '최근 4분기 EPS' : `${latest?.year ?? ''}년 EPS`, value: latestEps ? fmtEps(latestEps, currency) : '—', color:C.textHi },
+                { label:'판정 배수', value:`${ssot.multiple}×`, color:C.textHi },
               ].map(item => (
                 <div key={item.label} style={{
                   padding:'12px 14px', borderRadius:10, textAlign:'center',
