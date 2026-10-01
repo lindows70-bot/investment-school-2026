@@ -26,8 +26,9 @@ import {
 } from 'lucide-react'
 // SSOT: 자산 분류는 assetClassifier에서만 — 컴포넌트 내 인라인 파싱 금지
 import { getAssetType } from '@/lib/assetClassifier'
+import { lynchFairValue } from '@/lib/lynchAnalysis'   // 린치 적정가 SSOT — 진단 칸은 다른 화면과 같은 값
 import { TK, FONT_STACK } from '@/lib/theme'
-import { isPegBaseEffectPct, PEG_JUMP_DESC } from '@/lib/pegBaseEffect'   // 이익 급증(기저효과) 가드 SSOT — 추천·점수 계산과 같은 기준
+import { PEG_JUMP_DESC } from '@/lib/pegBaseEffect'   // 이익 급증(기저효과) 가드 SSOT — 추천·점수 계산과 같은 기준
 
 // ────────────────────────────────────────────────────────────
 // 타입 정의
@@ -272,23 +273,20 @@ function ChartTooltip({ active, payload, label, currency }: any) {
 // 괴리율 진단 패널
 // ────────────────────────────────────────────────────────────
 function ValuationPanel({
-  price, fair, ticker, model, growthRate, currency, jump,
+  price, fair, ticker, currency, jump, basis,
 }: {
+  basis:      string    // 적정가 근거("EPS … × N배") — SSOT 가 준 문장 그대로
   jump:       boolean   // 이익 급증(PEG<0.3 & 측정 성장률>100%) — 저평가 쪽 문구를 쓰지 않는다
   price:      number
   fair:       number
   ticker:     string
-  model:      PerModel
-  growthRate: number
   currency:   string
 }) {
   const gap    = ((price - fair) / fair) * 100
   const absGap = Math.abs(gap)
   const isUnder = gap < 0
 
-  const modelDesc =
-    model === 'growth'  ? `이익성장률(G≈${growthRate}%) 기준` :
-    model === 'avg5y'   ? '5년 평균 PER 기준' : '고정 PER 15배 기준'
+  const modelDesc = `${basis} · 분류 기준 배수`
 
   let severity = ''
   let guide = ''
@@ -388,6 +386,7 @@ export default function LynchEarningsChart(props: any) {
   const [rawGrowthRate,     setRawGrowthRate]     = useState(15)  // 캡핑 전 원본 성장률
   const [avg5yPer,          setAvg5yPer]          = useState(20)
   const [currentPrice,      setCurrentPrice]      = useState(0)
+  const [siPePeg,           setSiPePeg]           = useState<{ pe: number; peg: number; growthPct: number | null }>({ pe: 0, peg: 0, growthPct: null })   // 종목 정보 PER·PEG·성장률(%) — 적정가 SSOT 입력
   const [currentEps,        setCurrentEps]        = useState(0)   // 종목 정보의 최근(trailing) EPS — 진단 패널의 '지금' 기준
   const [noEpsReason,       setNoEpsReason]       = useState<string | null>(null)
   // 통화 — 종목 선택 시 업데이트
@@ -455,6 +454,8 @@ export default function LynchEarningsChart(props: any) {
       // fallback: earningsGrowth (소수 or 백분율)
       const siPe  = Number(infoData?.pe  ?? infoData?.fundamentals?.pe  ?? 0)
       const siPeg = Number(infoData?.peg ?? infoData?.fundamentals?.peg ?? 0)
+      const egRaw = infoData?.fundamentals?.earningsGrowth   // 소수(1.17 = +117%) — 린치 자동 분석·매크로 터미널과 같은 값으로 급증을 판정
+      setSiPePeg({ pe: Number.isFinite(siPe) ? siPe : 0, peg: Number.isFinite(siPeg) ? siPeg : 0, growthPct: typeof egRaw === 'number' && Number.isFinite(egRaw) ? egRaw * 100 : null })
       let g = 15
       if (siPe > 0 && siPeg > 0) {
         g = Math.round(siPe / siPeg)
@@ -583,7 +584,10 @@ export default function LynchEarningsChart(props: any) {
   const nowEpsLive   = currentEps > 0
   const latestPrice  = nowPriceLive ? currentPrice : (latest?.price ?? 0)
   const latestEps    = nowEpsLive ? currentEps : (latest?.ttmEps ?? 0)
-  const latestFair   = latestEps > 0 ? latestEps * fairPer : 0
+  // 판정은 SSOT(분류별 배수) — 위 세 모델 버튼은 '이 가정이면 선이 어떻게 그려지나'를 보는 비교 도구라 판정에 쓰지 않는다
+  //   (2026-10-01: 성장률 모델이 SK하이닉스 적정가를 ₩11,215,650 으로 내고 다른 화면은 ₩2,691,756 이었다)
+  const ssot         = lynchFairValue({ eps: latestEps, pe: siPePeg.pe, peg: siPePeg.peg, growthPct: siPePeg.growthPct, category: selectedStock?.lynch_category, market: selectedStock?.market, price: latestPrice })
+  const latestFair   = ssot.fairPrice ?? 0
   const gap         = latestFair > 0 && latestPrice > 0
     ? ((latestPrice - latestFair) / latestFair) * 100
     : null
@@ -794,7 +798,7 @@ export default function LynchEarningsChart(props: any) {
             display:'flex', alignItems:'center', gap:6,
           }}>
             <Info size={12} color={C.fair} />
-            <span style={{ fontSize:11, color:C.textMid }}>적정 PER:</span>
+            <span style={{ fontSize:11, color:C.textMid }}>선을 그리는 배수(모델):</span>
             <span style={{ fontSize:13, fontWeight:900, color:C.fair, fontFamily:'monospace' }}>{fairPer}×</span>
           </div>
         </div>
@@ -946,7 +950,7 @@ export default function LynchEarningsChart(props: any) {
                 { label: nowPriceLive ? '현재 주가' : `${latest?.year ?? ''}년 평균 주가`, value: latestPrice > 0 ? fmtPrice(latestPrice, currency) : '—', color:C.price },
                 { label:'린치 적정가치', value: latestFair  > 0 ? fmtPrice(latestFair,  currency) : '—', color:C.fair },
                 { label: nowEpsLive ? '최근 EPS(직전 4분기)' : `${latest?.year ?? ''}년 EPS`, value: latestEps ? fmtEps(latestEps, currency) : '—', color:C.textHi },
-                { label:'적용 PER',      value:`${fairPer}×`, color:C.textHi },
+                { label:'판정 배수(분류 기준)', value:`${ssot.multiple}×`, color:C.textHi },
               ].map(item => (
                 <div key={item.label} style={{
                   padding:'12px 14px', borderRadius:10, textAlign:'center',
@@ -965,8 +969,7 @@ export default function LynchEarningsChart(props: any) {
               <ValuationPanel
                 price={latestPrice} fair={latestFair}
                 ticker={selectedStock?.ticker ?? ''}
-                model={perModel} growthRate={growthRate}
-                jump={isPegBaseEffectPct(latestEps > 0 && rawGrowthRate > 0 ? latestPrice / latestEps / rawGrowthRate : null, rawGrowthRate)}
+                jump={ssot.jump} basis={ssot.basis}
                 currency={currency}
               />
             )}

@@ -1,14 +1,11 @@
 'use client'
 // 🔍 피터린치 자동 분석 — 검색 종목 1개를 6대 분류·PEG 해석·이익선 이격·종합 판정으로 자동 분석(위저드 없음)
-import { LYNCH_CATEGORY_KR } from '@/lib/lynchAnalysis'
+import { LYNCH_CATEGORY_KR, lynchFairValue } from '@/lib/lynchAnalysis'
 import { isHoldingCompany, isFinancialCompany } from '@/lib/assetClassifier'   // 🏢 지주사·🏦 금융주 — EPS·PEG·이익선 왜곡(지분법이익·투자손익)
 import { TK } from '@/lib/theme'
 import { isPegBaseEffectPct, PEG_JUMP_LABEL, PEG_JUMP_DESC } from '@/lib/pegBaseEffect'   // 이익 급증(기저효과) 가드 SSOT — 추천·점수 계산과 같은 기준
 
 const CARD = TK.bg6, BORDER = TK.border
-
-// 카테고리별 린치 적정 PER(이익선 멀티플) — 고성장은 성장률 연동(린치: 적정PER≈성장률), 나머지는 캡
-const CAT_MULT: Record<string, number> = { fast_grower: 25, stalwart: 16, cyclical: 12, slow_grower: 10, turnaround: 15, asset_play: 12 }
 
 export interface LynchAutoProps {
   ticker: string; name: string; market: string
@@ -43,12 +40,12 @@ export default function LynchAutoPanel(p: LynchAutoProps) {
     : { label: '🔴 매도 검토', color: TK.red500, desc: `성장 대비 고평가(PEG ${peg.toFixed(2)} > 2.2).` }
 
   // 이익선(Lynch Line) 이격 — EPS × 카테고리 적정PER
-  const mult: number = (cat ? CAT_MULT[cat] : undefined) ?? 15
-  const fairMult: number = cat === 'fast_grower' && g != null && g > 0 ? Math.min(30, Math.max(15, g)) : mult
+  //   적정가는 SSOT(lynchAnalysis.lynchFairValue) — 이 패널만의 배수표(순환주 12·우량주 16…)를 쓰던 시절 매크로 터미널과 값이 달랐다(2026-10-01)
   const eps = p.eps ?? null
   const price = p.currentPrice ?? null
-  const fairPrice = eps != null && eps > 0 ? eps * fairMult : null
-  const gapPct = fairPrice != null && price != null && price > 0 ? Math.round((price / fairPrice - 1) * 1000) / 10 : null
+  const fair = lynchFairValue({ eps, pe: p.per, peg, growthPct: g, category: cat, market: p.market, price })
+  const fairPrice = fair.fairPrice
+  const gapPct = fair.gapPct
   const lineView = holding ? { color: TK.violet400, t: '🏢 지주사 — EPS 기반 이익선 비교 부적합(자회사 지분법이익이 EPS를 왜곡). NAV·SOTP로 평가' }
     : financial ? { color: TK.sky400, t: '🏦 금융주(보험·은행) — EPS 기반 이익선 비교 부적합(이익이 투자손익·대손에 휘둘림). P/B·ROE·내재가치(EV)로 평가' }
     : fairPrice == null ? null
@@ -102,7 +99,7 @@ export default function LynchAutoPanel(p: LynchAutoProps) {
           ) : fairPrice != null && lineView ? (
             <>
               <div style={{ color: lineView.color, fontWeight: 800, fontSize: 13.5 }}>{lineView.t}</div>
-              <div style={{ color: TK.sub13, fontSize: 10.5, marginTop: 3, fontFamily: 'monospace' }}>이익선 {fmtPrice(fairPrice)} (EPS×{fairMult.toFixed(0)}) {price != null ? `· 현재 ${fmtPrice(price)}` : ''}</div>
+              <div style={{ color: TK.sub13, fontSize: 10.5, marginTop: 3, fontFamily: 'monospace' }}>이익선 {fmtPrice(fairPrice)} ({fair.basis}) {price != null ? `· 현재 ${fmtPrice(price)}` : ''}</div>
             </>
           ) : <div style={{ color: TK.sub, fontSize: 11.5 }}>EPS·가격 데이터 부족 — 적자/혁신성장주는 이익선 계산 제한</div>}
         </Box>

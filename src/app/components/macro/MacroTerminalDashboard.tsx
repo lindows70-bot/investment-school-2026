@@ -18,7 +18,7 @@ import LynchLineTerminal,       { type LivePriceMap, type LynchTerminalData } fr
 import { Activity } from 'lucide-react'
 import { getAssetType } from '@/lib/assetClassifier'
 import {
-  calcFairMultiple,
+  lynchFairValue,
   estimateBeta,
   estimateBasePeg,
   estimateCorrelation,
@@ -26,7 +26,6 @@ import {
   LYNCH_CATEGORY_KR,
 } from '@/lib/lynchAnalysis'
 import { TK } from '@/lib/theme'
-import { isPegBaseEffectPct } from '@/lib/pegBaseEffect'   // 이익 급증(기저효과) 가드 SSOT
 
 const toMacroFactor = (r: number) => parseFloat((1 + r * -0.3).toFixed(4))
 
@@ -48,8 +47,9 @@ interface DividendEntry {
   annualDividend?:  number | null
   dividendYield?:   number | null
   pe?:              number | null
-  earningsGrowth?:  number | null  // 0~1 소수 또는 % 정수
+  earningsGrowth?:  number | null  // %(대시보드가 소수를 % 로 바꿔 넘긴다 — 55 = +55%)
   peg?:            number | null
+  eps?:            number | null   // 최근(trailing) EPS — 종목 정보 값 그대로
 }
 
 interface Props {
@@ -206,15 +206,18 @@ export default function MacroTerminalDashboard({
       const category  = inv?.lynch_category
         ? (LYNCH_CATEGORY_KR[inv.lynch_category] ?? inv.lynch_category)
         : undefined
-      // SSOT: calcFairMultiple — 캐시의 multiple을 덮어씀
+      // SSOT: lynchFairValue — 배수와 '현재' 노드의 EPS 를 종목 분석 화면과 같은 값으로(캐시의 multiple·예상 EPS 를 덮어씀)
+      //   EPS = 종목 정보의 최근 EPS(없으면 지금 주가 ÷ PER). 흑자일 때만 넘긴다 — 적자 종목은 터미널의 기존 EPS 모드(예상·매출) 그대로
       const div      = dividendMap[ticker.toUpperCase()] ?? {}
-      const multiple = calcFairMultiple(safeNumber(div.pe), safeNumber(div.peg), inv?.lynch_category, inv?.market)
+      const pe       = safeNumber(div.pe)
+      const fair     = lynchFairValue({ eps: div.eps ?? (pe > 0 && livePrice > 0 ? livePrice / pe : null), pe, peg: safeNumber(div.peg), growthPct: div.earningsGrowth ?? null, category: inv?.lynch_category, market: inv?.market, price: livePrice })
+      const multiple = fair.multiple
       result[ticker] = {
         name:         stock.name,
         category:     category ?? '미분류',
         multiple,
-        // 성장률은 대시보드의 다른 패널과 같은 방식(PER ÷ PEG)으로 — 급증 구간이면 괴리율을 '저평가'로 칠하지 않는다
-        pegJump:      isPegBaseEffectPct(safeNumber(div.peg) || null, safeNumber(div.pe) > 0 && safeNumber(div.peg) > 0 ? safeNumber(div.pe) / safeNumber(div.peg) : null),
+        pegJump:      fair.jump,   // 급증 구간이면 괴리율을 '저평가'로 칠하지 않는다
+        ...(fair.fairPrice != null ? { eps: fair.eps } : {}),
         isKrw:        stock.isKrw,
         currentPrice: livePrice,
         history:      stock.history,

@@ -1,4 +1,5 @@
 import { TK } from '@/lib/theme'
+import { isPegBaseEffectPct } from '@/lib/pegBaseEffect'   // 이익 급증 가드 SSOT(순수 함수)
 /**
  * lynchAnalysis.ts — 피터 린치 분석 SSOT (Single Source of Truth)
  *
@@ -260,6 +261,47 @@ export function calcGap(
   const gapDisplay    = isUndervalued ? `−${abs}%` : `+${abs}%`
 
   return { isLossCompany: false, lynchLine, gapPct, isUndervalued, gapDisplay }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5-b. 린치 적정가(SSOT) — '린치 적정가'라는 이름으로 숫자를 내는 화면은 전부 이 함수만 부른다
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface LynchFairValue {
+  fairPrice: number | null   // 적정가(적자·EPS 없음이면 null)
+  eps:       number          // 실제로 곱한 EPS(이상값 보정 후) — 적자면 0
+  multiple:  number          // 실제로 곱한 배수
+  gapPct:    number | null   // (지금 주가 − 적정가) ÷ 적정가 × 100, 소수 1자리. 음수 = 적정가보다 아래
+  jump:      boolean         // 이익 급증(PEG<0.3 & 성장률>100%) — 배수를 상한이 아니라 기본값으로 낮췄고, '저평가'로 읽지 않는다
+  basis:     string          // "EPS 224,313 × 12배" — 화면에 그대로 병기
+}
+
+/**
+ * 린치 적정가 = 최근(trailing) EPS × 분류별 배수.
+ *
+ * 2026-10-01: 같은 종목의 적정가가 화면마다 달랐다(SK하이닉스 — 린치 자동 분석 ₩2,691,756 · 매크로 터미널 ₩4,908,064 ·
+ * 이익 차트 ₩11,215,650). EPS(최근 4분기 / 내년 예상)와 배수표(세 벌)가 화면마다 따로였다.
+ *  - EPS: 종목 정보의 최근 EPS(국내 최근 4분기 · 미국 trailing). 0 이하면 적정가 없음(예상 EPS 로 대신하지 않는다).
+ *  - 배수: calcFairMultiple(PER÷PEG, 분류 상한). 이익 급증이면 PEG 가 0 에 붙어 상한까지 올라가므로 분류 기본값으로 둔다.
+ * growthPct 는 %(100 = +100%). 없으면 PER ÷ PEG 로 본다.
+ */
+export function lynchFairValue(i: {
+  eps: number | null | undefined; pe: number | string | null | undefined; peg: number | string | null | undefined
+  growthPct?: number | null; category: string | null | undefined; market: string | undefined; price: number | null | undefined
+}): LynchFairValue {
+  const cat    = (i.category as LynchCategoryKey) ?? 'na'
+  const pe     = safeNumber(i.pe), peg = safeNumber(i.peg)
+  const price  = safeNumber(i.price)
+  const growth = i.growthPct != null && Number.isFinite(i.growthPct) ? i.growthPct : (pe > 0 && peg > 0 ? pe / peg : null)
+  const jump   = isPegBaseEffectPct(peg > 0 ? peg : null, growth)
+  const multiple = jump ? (LYNCH_MULTIPLE_DEFAULT[cat] ?? (i.market === 'KR' ? 12 : 15)) : calcFairMultiple(pe, peg, cat, i.market)
+  const rawEps = safeNumber(i.eps)
+  if (rawEps <= 0) return { fairPrice: null, eps: 0, multiple, gapPct: null, jump, basis: '적자 — 적정가 없음' }
+  const eps = price > 0 ? sanitizeEps(rawEps, price, cat) : rawEps
+  const fairPrice = eps * multiple
+  const gapPct = price > 0 && fairPrice > 0 ? Math.round((price / fairPrice - 1) * 1000) / 10 : null
+  const epsTxt = eps >= 1000 ? Math.round(eps).toLocaleString('ko-KR') : eps.toFixed(2)
+  return { fairPrice, eps, multiple, gapPct, jump, basis: `EPS ${epsTxt} × ${multiple}배` }
 }
 
 // ────────────────────────────────────────────────────────────────────────────

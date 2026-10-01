@@ -69,3 +69,5 @@ youtube-captures/
 .bt-*.tsconfig.json
 .bt-lynch-known/
 .bt-lynch-known.tsconfig.json
+.bt-lynch-fair/
+.bt-lynch-fair.tsconfig.json

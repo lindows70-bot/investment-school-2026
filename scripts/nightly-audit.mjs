@@ -72,6 +72,8 @@ const INVARIANTS = [
   { file: 'scripts/verify-naver-basics.mjs', label: '국내 기본 지표 — 네이버 integration 형식 · 주가 라우트 지표가 비지 않고 종목 정보와 같은 값' },
   // 2026-10-01 신설 — 같은 종목의 린치 분류가 분류 라우트와 스크리너 두 곳에 따로 적혀 94종 중 25종이 달랐다(값이 그럴듯해 화면검증으로는 안 잡힌다)
   { file: 'scripts/verify-lynch-known.mjs', label: '린치 고정 분류표 — 스크리너 유니버스 표와 어긋남 0 · 분류 라우트가 같은 표' },
+  // 2026-10-01 신설 — 같은 종목의 린치 적정가가 화면마다 달랐다(EPS·배수표가 화면마다 따로). 세 화면이 한 함수만 부르는지 본다
+  { file: 'scripts/verify-lynch-fair.mjs', label: '린치 적정가 SSOT — 계산 규칙 · 세 화면이 lynchFairValue 만 호출' },
 ]
 
 /**

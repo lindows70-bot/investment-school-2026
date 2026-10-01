@@ -1,0 +1,70 @@
+// 린치 적정가 SSOT(lib/lynchAnalysis.lynchFairValue) 검증 — 계산 규칙 · 세 화면이 그 함수를 부르는지(자기 배수표를 다시 만들지 않았는지) · 프로덕션 종목 정보로 계산이 성립하는지
+//   2026-10-01 신설 — 같은 종목의 적정가가 화면마다 달랐다(SK하이닉스 ₩2,691,756 / ₩4,908,064 / ₩11,215,650). EPS 와 배수표가 화면마다 따로였고, 값이 그럴듯해 빌드·화면검증으로는 안 잡혔다.
+import { execSync } from 'node:child_process'
+import { existsSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
+import Module from 'node:module'
+
+const ROOT = 'C:/Users/lindo/investment-school-portfolio'
+const OUT = `${ROOT}/.bt-lynch-fair`
+writeFileSync(`${OUT}.tsconfig.json`, JSON.stringify({
+  extends: `${ROOT}/tsconfig.json`,
+  compilerOptions: { outDir: OUT, module: 'commonjs', moduleResolution: 'node', noEmit: false, declaration: false, incremental: false, noEmitOnError: true, target: 'es2020', rootDir: `${ROOT}/src` },
+  include: [`${ROOT}/src/lib/lynchAnalysis.ts`],
+}, null, 2))
+rmSync(OUT, { recursive: true, force: true })
+try { execSync(`npx tsc -p "${OUT}.tsconfig.json"`, { cwd: ROOT, stdio: 'pipe' }) }
+catch (e) { console.log('❌ 컴파일 실패'); console.log(e.stdout?.toString() ?? ''); process.exit(1) }
+if (!existsSync(`${OUT}/lib/lynchAnalysis.js`)) { console.log('❌ 컴파일 결과 없음'); process.exit(1) }
+const _res = Module._resolveFilename
+Module._resolveFilename = function (req, ...rest) { if (req.startsWith('@/')) req = `${OUT}/${req.slice(2)}`; return _res.call(this, req, ...rest) }
+const require = Module.createRequire(`${ROOT}/package.json`)
+const L = require(`${OUT}/lib/lynchAnalysis.js`)
+
+let fail = 0
+const check = (label, cond, why = '') => { if (cond) console.log(`✅ ${label}`); else { fail++; console.log(`❌ ${label}${why ? ` — ${why}` : ''}`) } }
+
+// ── 계산 규칙 ──
+// 보통 종목: 배수 = PER ÷ PEG(성장률), 분류 상한 안에서
+const a = L.lynchFairValue({ eps: 100, pe: 20, peg: 2, category: 'stalwart', market: 'US', price: 2000 })
+check(`보통 종목 — 배수 = PER ÷ PEG(20÷2 = 10) · 적정가 = EPS × 배수(${a.fairPrice}) · 괴리 ${a.gapPct}%`, a.multiple === 10 && a.fairPrice === 1000 && a.gapPct === 100 && a.jump === false)
+const b = L.lynchFairValue({ eps: 100, pe: 40, peg: 0.5, category: 'stalwart', market: 'US', price: 4000 })
+check(`성장률이 높아도 분류 상한에서 멈춤(우량주 상한 ${L.LYNCH_MULTIPLE_CAP.stalwart} → ${b.multiple})`, b.multiple === L.LYNCH_MULTIPLE_CAP.stalwart && b.jump === false)
+// 이익 급증: PEG<0.3 & 성장>100% → 상한이 아니라 기본값
+const c = L.lynchFairValue({ eps: 224313, pe: 8.15, peg: 0.07, category: 'cyclical', market: 'KR', price: 1828000 })
+check(`이익 급증(PEG 0.07 · 성장 ${Math.round(8.15 / 0.07)}%) — 배수는 상한 ${L.LYNCH_MULTIPLE_CAP.cyclical} 이 아니라 기본 ${L.LYNCH_MULTIPLE_DEFAULT.cyclical}(${c.multiple}) · jump`, c.jump === true && c.multiple === L.LYNCH_MULTIPLE_DEFAULT.cyclical && c.fairPrice === 224313 * L.LYNCH_MULTIPLE_DEFAULT.cyclical)
+check(`근거 문장에 EPS 와 배수가 들어감("${c.basis}")`, c.basis.includes('224,313') && c.basis.includes(`${c.multiple}배`))
+// 성장률을 따로 주면 그 값으로 급증 판정(PER÷PEG 와 달라도)
+const d = L.lynchFairValue({ eps: 100, pe: 20, peg: 0.2, growthPct: 50, category: 'cyclical', market: 'KR', price: 2000 })
+check('성장률을 따로 주면 그 값으로 판정 — PEG 0.2 라도 성장 50% 면 급증 아님', d.jump === false)
+// 적자·EPS 없음
+const e = L.lynchFairValue({ eps: -500, pe: 0, peg: 0, category: 'turnaround', market: 'KR', price: 10000 })
+const n = L.lynchFairValue({ eps: null, pe: 0, peg: 0, category: null, market: 'US', price: 100 })
+check('적자·EPS 없음 — 적정가·괴리 null(예상 EPS 로 대신 만들지 않는다)', e.fairPrice === null && e.gapPct === null && n.fairPrice === null)
+// EPS 이상값 보정은 기존 sanitizeEps 그대로
+const s = L.lynchFairValue({ eps: 1000, pe: 0, peg: 0, category: 'stalwart', market: 'US', price: 1000 })
+check(`EPS 이상값(주가 ÷ EPS = 1배)은 sanitizeEps 로 보정(${s.eps} = ${L.sanitizeEps(1000, 1000, 'stalwart')})`, s.eps === L.sanitizeEps(1000, 1000, 'stalwart') && s.eps < 1000)
+
+// ── 화면이 SSOT 를 부르는가(자기 배수표를 다시 만들지 않았는가) ──
+const src = f => readFileSync(`${ROOT}/src/${f}`, 'utf8')
+const auto = src('app/components/LynchAutoPanel.tsx'), mtd = src('app/components/macro/MacroTerminalDashboard.tsx'), lec = src('app/components/LynchEarningsChart.tsx')
+check('린치 자동 분석 — lynchFairValue 호출 · 자체 배수표(CAT_MULT) 없음', /lynchFairValue\(/.test(auto) && !/CAT_MULT/.test(auto))
+check('매크로 터미널 — lynchFairValue 호출 · calcFairMultiple 직접 호출 없음', /lynchFairValue\(/.test(mtd) && !/calcFairMultiple\(/.test(mtd))
+check('린치 이익 차트 — 진단 칸 적정가가 lynchFairValue(모델 배수 × EPS 가 아님)', /const ssot\s*=\s*lynchFairValue\(/.test(lec) && /const latestFair\s*=\s*ssot\.fairPrice/.test(lec))
+
+// ── 라이브: 프로덕션 종목 정보로 계산이 성립 ──
+try {
+  const B = 'https://investment-school-2026.vercel.app'
+  for (const [t, mk, cat] of [['005930', 'KR', 'cyclical'], ['GOOGL', 'US', 'stalwart']]) {
+    const [si, sp] = await Promise.all([
+      fetch(`${B}/api/stock-info?ticker=${t}&market=${mk}`, { signal: AbortSignal.timeout(40_000) }).then(r => r.json()),
+      fetch(`${B}/api/stock-price?ticker=${t}&market=${mk}`, { signal: AbortSignal.timeout(40_000) }).then(r => r.json()),
+    ])
+    const f = si?.fundamentals ?? {}
+    const v = L.lynchFairValue({ eps: f.eps, pe: f.pe, peg: f.peg, growthPct: typeof f.earningsGrowth === 'number' ? f.earningsGrowth * 100 : null, category: cat, market: mk, price: sp?.currentPrice })
+    check(`프로덕션 ${t} — ${v.basis} = ${v.fairPrice != null ? Math.round(v.fairPrice).toLocaleString('ko-KR') : null} · 지금 ${sp?.currentPrice} · 괴리 ${v.gapPct}%`,
+      v.fairPrice != null && v.fairPrice > 0 && v.gapPct != null && v.multiple >= 8 && v.multiple <= L.LYNCH_MULTIPLE_CAP[cat] && Math.abs(v.fairPrice - v.eps * v.multiple) < 1e-6)
+  }
+} catch (err) { fail++; console.log(`❌ 프로덕션 호출 실패 — ${err.message}`) }
+
+console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (린치 적정가 SSOT)')
+process.exitCode = fail ? 1 : 0
