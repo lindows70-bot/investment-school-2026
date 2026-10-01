@@ -19,6 +19,8 @@ export interface Candle {
 
 export interface Fundamentals {
   pe:             number | 'N/A'
+  /** 국내 PER 의 이익 기준 — 'ttm' 최근 4분기(네이버 화면과 같은 값) · 'fy-now' 지금 주가 ÷ 직전 결산 EPS(폴백). 미국은 없음(trailing) */
+  peBasis?:       'ttm' | 'fy-now' | null
   peg:            number | 'N/A'
   marketCap:      number | null
   volume:         number | null

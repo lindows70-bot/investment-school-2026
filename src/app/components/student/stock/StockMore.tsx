@@ -9,7 +9,7 @@ import { FailRow, noteStyle } from '@/app/components/student/home/homeUi'
 import { eokRound, usdBig, money } from '@/lib/studentFormat'
 import { sectorKo } from '@/lib/sectorNames'
 
-interface Fund { pe?: unknown; peg?: unknown; marketCap?: unknown; high52w?: unknown; low52w?: unknown; sector?: unknown; dividendYield?: unknown; earningsGrowth?: unknown; growthSource?: unknown; isEtf?: unknown }
+interface Fund { pe?: unknown; peBasis?: unknown; peg?: unknown; marketCap?: unknown; high52w?: unknown; low52w?: unknown; sector?: unknown; dividendYield?: unknown; earningsGrowth?: unknown; growthSource?: unknown; isEtf?: unknown }
 interface Info { currency?: unknown; fundamentals?: Fund; industry?: unknown; source?: unknown; error?: unknown }
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
 const GROWTH_KO: Record<string, string> = { eps: '이익', revenue: '매출', 'fwd-eps': '예상이익' }
@@ -58,7 +58,7 @@ export default function StockMore({ ticker, market, price, currency }: { ticker:
         {f && (
           <>
             <div className="sm-grid">
-              {!crypto && !isEtf && <Box label="PER" value={pe != null && pe > 0 ? `${pe.toFixed(1)}배` : '모름'} note="주가가 최근 확정 이익의 몇 배인지 — 높을수록 이익에 비해 비싸게 사는 거예요" />}
+              {!crypto && !isEtf && <Box label="PER" value={pe != null && pe > 0 ? `${pe.toFixed(1)}배` : '모름'} note={`주가가 ${f.peBasis === 'ttm' ? '최근 4분기' : f.peBasis === 'fy-now' ? '직전 결산 연도' : '최근 확정'} 이익의 몇 배인지 — 높을수록 이익에 비해 비싸게 사는 거예요`} />}
               {!crypto && !isEtf && <Box label="PEG" value={peg != null && peg > 0 ? peg.toFixed(2) : '모름'} note={`PER ÷ ${gSrc ?? '이익'} 성장률${g != null ? `(${(g * 100).toFixed(1)}%)` : ''} — 1보다 낮으면 성장에 비해 싼 편이라고 봐요(피터 린치의 잣대)`} />}
               {!crypto && <Box label="시가총액" value={mc != null && mc > 0 ? (currency === 'KRW' ? eokRound(mc / 1e8) : usdBig(mc)) : '모름'} note="주가 × 주식 수 — 이 회사 전체를 사려면 드는 돈이에요" />}
               {!crypto && !isEtf && <Box label="업종" value={sector ?? '모름'} note={`${industry ? `세부 업종은 ${industry} · ` : ''}같은 업종끼리 PER 을 견주면 비싼지 싼지 가늠하기 쉬워요`} />}

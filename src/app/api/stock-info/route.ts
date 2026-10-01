@@ -16,7 +16,7 @@ import type { Market, Fundamentals } from '@/app/api/stock-price/route'
 import { curCodeFromTicker } from '@/lib/globalTickers'
 import { getTrueFcf } from '@/lib/trueFcf'   // 💵 FCF 분자 SSOT(현금흐름표 OCF−CapEx) — fd.freeCashflow 는 부호까지 틀린다
 import { correctPsr } from '@/lib/finCurrency'   // 💱 PSR ADR 통화 교정 SSOT
-import { parseNaverBasics } from '@/lib/naverIntegration'   // 52주 최고·최저 파싱 SSOT(stock-price·lynch-classify 와 같은 파서)
+import { parseNaverBasics, numOf } from '@/lib/naverIntegration'   // 국내 PER(최근 4분기)·52주 파싱 SSOT(stock-price·lynch-classify 와 같은 파서)
 import { naverUpjongMap, industryNameOf, upjongToGics } from '@/lib/naverUpjong'   // 🏷️ 국내 업종 SSOT(승패 해부실과 같은 표)
 
 export interface StockInfo {
@@ -706,11 +706,16 @@ async function krInfo(ticker: string): Promise<StockInfo> {
   let krHasCash:      boolean | null = null   // 순현금 여부 (자동 계산)
 
   // 52주 최고·최저 — integration 우선, 옛 basic 필드는 폴백(돌아오면 쓴다). 둘 다 없으면 null(지어내지 않는다)
-  try {
-    const nb = parseNaverBasics(integ)
-    high52w = nb.high52w ?? (typeof d.high52week === 'number' ? d.high52week : null)
-    low52w  = nb.low52w  ?? (typeof d.low52week  === 'number' ? d.low52week  : null)
-  } catch { /* 52주는 참고값 — 실패해도 나머지 지표는 그대로 */ }
+  const nb = parseNaverBasics(integ)   // 순수 파서 — 모양이 달라도 던지지 않고 null
+  high52w = nb.high52w ?? (typeof d.high52week === 'number' ? d.high52week : null)
+  low52w  = nb.low52w  ?? (typeof d.low52week  === 'number' ? d.low52week  : null)
+
+  // PER — 네이버 화면과 같은 최근 4분기 기준(지금 주가 ÷ 최근 4분기 EPS). 미국 종목(trailing)과 같은 기준이다.
+  //   ⚠️ 2026-10-01 실측: 예전엔 재무제표 '직전 결산 연도' PER 행을 썼는데 그 값은 **작년 말 주가**로 계산돼 있다 —
+  //   삼성전자 18.3배(앱) vs 12.2배(네이버) · 한미반도체 57배 vs 114배. 국내 주식 18종 중 14종이 20% 넘게 달랐다(주가가 9달 움직인 만큼).
+  //   'ttm' = 최근 4분기 · 'fy-now' = integration 을 못 받았을 때만: 지금 주가 ÷ 직전 결산 EPS(작년 말 주가는 쓰지 않는다)
+  let peBasis: 'ttm' | 'fy-now' | null = null
+  if (nb.per != null) { per = nb.per; peBasis = 'ttm' }
 
   if (annualRes.ok) {
     try {
@@ -725,9 +730,12 @@ async function krInfo(ticker: string): Promise<StockInfo> {
       const lastKey        = actual[actual.length - 1]
       const firstConsensus = consensus[0]   // 가장 가까운 예측 연도
 
-      // PER (가장 최근 실제 연도)
-      const perVal = getAnnualVal(rowList, 'PER', lastKey)
-      if (perVal !== null && perVal > 0) per = perVal
+      // PER 폴백 — integration 을 아예 못 받았을 때만(최근 4분기가 적자라 PER 이 없는 종목에 묵은 결산 이익으로 PER 을 만들지 않는다)
+      if (per === 'N/A' && nb.per == null && nb.eps == null) {
+        const fyEps = getAnnualVal(rowList, 'EPS', lastKey)
+        const nowPrice = numOf(typeof d.closePrice === 'string' ? d.closePrice : null)
+        if (fyEps !== null && fyEps > 0 && nowPrice !== null && nowPrice > 0) { per = Math.round(nowPrice / fyEps * 100) / 100; peBasis = 'fy-now' }
+      }
 
 
       // EPS 성장률: 다양한 항목명 시도 (회사마다 다를 수 있음)
@@ -869,7 +877,7 @@ async function krInfo(ticker: string): Promise<StockInfo> {
     hasCash: krHasCash,
     industry: isEtf ? null : industryName,
     fundamentals: {
-      pe: per, peg, marketCap: mc, volume: null,
+      pe: per, peBasis, peg, marketCap: mc, volume: null,
       high52w, low52w, sector, earningsGrowth, growthSource: growthSourceKr, dividendYield, isEtf,
       eps, pbr, forwardEps, payoutRatio, annualDividend,
       // DCF 실데이터

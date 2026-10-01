@@ -25,7 +25,7 @@ const TTL = 6 * 3600_000
 
 /** 캐시 키 SSOT — 직접 리터럴로 읽는 reader(jarvisBriefing)가 있어 함수로 묶는다(writer만 올리면 reader가 조용히 죽는다).
  *  v2(2026-08-16): PSR ADR 통화 교정 — 옛 캐시엔 TSM 0.5·SONY 0.01 같은 틀린 psr 이 박혀 있다. */
-export const CANON_FUND_KEY = (code: string, mkt: string) => `canon-fund-v2:${code}:${mkt}`
+export const CANON_FUND_KEY = (code: string, mkt: string) => `canon-fund-v3:${code}:${mkt}`   // v3(2026-10-01): 국내 PER 을 최근 4분기 기준으로(작년 말 주가 기준 PER 폐기) — PE·PEG 값이 바뀐다
 
 /** 티커('NVDA' / '000660' / '000660.KS')를 (코드, market)으로 정규화 */
 function normalize(ticker: string, market?: string): { code: string; market: 'US' | 'KR' } {

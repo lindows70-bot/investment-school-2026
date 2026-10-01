@@ -58,6 +58,12 @@ try {
   check(`두 표면 52주 최고·최저 일치(${a.high52w}/${a.low52w} = ${c.high52w}/${c.low52w})`, a.high52w === c.high52w && a.low52w === c.low52w)
   check(`두 표면 시가총액 1% 안에서 일치(${a.marketCap} vs ${c.marketCap})`, typeof c.marketCap === 'number' && Math.abs(a.marketCap - c.marketCap) / c.marketCap < 0.01)
   check(`두 표면 배당수익률 0.1%p 안에서 일치(${a.dividendYield} vs ${c.dividendYield})`, typeof c.dividendYield === 'number' && Math.abs(a.dividendYield - c.dividendYield) < 0.001)
+  // 2026-10-01 — 종목 정보의 국내 PER 이 '작년 말 주가' 기준(재무제표 행)이었다. 이제 두 표면·네이버 화면이 같은 최근 4분기 기준이어야 한다
+  check(`종목 정보 PER 기준 = 최근 4분기(peBasis ${c.peBasis})`, c.peBasis === 'ttm')
+  check(`두 표면 PER 3% 안에서 일치(${a.pe} vs ${c.pe})`, typeof c.pe === 'number' && typeof a.pe === 'number' && Math.abs(a.pe - c.pe) / c.pe < 0.03)
+  const nv = parseNaverBasics(await fetch('https://m.stock.naver.com/api/stock/005930/integration', { headers: UA }).then(r => r.json()))
+  check(`종목 정보 PER = 네이버 화면 PER 3% 안(${c.pe} vs ${nv.per})`, nv.per != null && Math.abs(c.pe - nv.per) / nv.per < 0.03)
+  check(`PEG = PER ÷ 성장률(${c.peg} = ${c.pe} ÷ ${c.earningsGrowth != null ? (c.earningsGrowth * 100).toFixed(1) : null})`, typeof c.peg !== 'number' || (c.earningsGrowth > 0 && Math.abs(c.peg - c.pe / (c.earningsGrowth * 100)) < 0.02))
 } catch (e) { fail++; console.log(`❌ 프로덕션 호출 실패 — ${e.message}`) }
 
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (국내 기본 지표)')
