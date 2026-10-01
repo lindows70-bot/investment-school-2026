@@ -1,12 +1,14 @@
-// 저울 보조 재료(FRED) — ① 물가 뺀 국채 이자(DFII10)의 지난 10년 월평균: 채권·금 ② 칩의 비교 기준 · ② M2 전년동월비(units=pc1): 코인 ③ 문장
+// 저울 보조 재료(FRED · ECOS) — ③ 주택담보대출 금리의 지난 10년 월평균(ECOS): 부동산 ② 칩의 비교 기준 · ① 물가 뺀 국채 이자(DFII10)의 지난 10년 월평균: 채권·금 ② 칩의 비교 기준 · ② M2 전년동월비(units=pc1): 코인 ③ 문장
 //   2026-09-30 실측: DFII10 은 2003-01 부터 월평균 285개 · 10년(2016-09~2026-08) 평균 0.77% vs 지금 2.83% · M2SL pc1 최신 2026-08 = 5.66%(월간, 약 4주 늦게).
 //   기간은 인덱스 산술이 아니라 날짜로 자른다(CPI 13개월 차분 사고의 교훈) · 진행 중인 달은 평균에서 뺀다(부분 달 금지) · 둘 다 하루 캐시(날짜 없는 키)
 import { getCache, setCache } from './appCache'
+import { ecosSeries } from './ecos'
 
 const FRED = 'https://api.stlouisfed.org/fred/series/observations'
 const DAY_MS = 86_400_000
 export const DFII10_AVG10_KEY = 'dfii10-avg10-v1'
 export const M2_YOY_KEY = 'm2-yoy-v1'
+export const MORTGAGE_AVG10_KEY = 'mortgage-avg10-v1'
 
 export interface Avg10 { v: number; from: string; to: string; n: number }   // 'YYYY-MM' 월 범위 · n = 평균에 든 달 수
 export interface M2Yoy { yoy: number; month: string }                        // 전년동월비 % · 기준월 'YYYY-MM'
@@ -50,6 +52,31 @@ export async function fetchM2Yoy(): Promise<M2Yoy | null> {
     if (!o) return null
     const out: M2Yoy = { yoy: Math.round(o.yoy * 100) / 100, month: o.month }
     await setCache(M2_YOY_KEY, out)
+    return out
+  } catch { return null }
+}
+
+/**
+ * 주택담보대출 금리(한국은행 ECOS 121Y006 · 예금은행 신규취급액 기준)의 지난 10년 월평균 — 부동산 ② 칩의 비교 기준.
+ *   2026-10-02 실측: 2006-01 부터 248개월 · 빠진 달 없음 · 직전 120개월(2016-08~2026-07) 평균 3.52% vs 최신(2026-08) 4.66%.
+ *   re-market 과 같은 통계·항목코드(BECBLA0302). 기간은 인덱스가 아니라 **달**로 자른다 — 가장 최근 발표 달까지의 120개월.
+ *   100개월 미만이면 null(반쪽 평균을 비교 기준으로 쓰지 않는다).
+ */
+export async function fetchMortgageAvg10(): Promise<Avg10 | null> {
+  const cached = await getCache<Avg10>(MORTGAGE_AVG10_KEY, 24 * 3600_000)
+  if (cached) return cached
+  try {
+    const now = new Date(Date.now() + 9 * 3600_000)
+    const ym = (y: number, m: number) => `${y}${String(m).padStart(2, '0')}`   // m: 1~12
+    const idx = (t: string) => Number(t.slice(0, 4)) * 12 + Number(t.slice(4, 6)) - 1
+    const rows = await ecosSeries('121Y006', 'M', ym(now.getUTCFullYear() - 11, now.getUTCMonth() + 1), ym(now.getUTCFullYear(), now.getUTCMonth() + 1), 'BECBLA0302')
+    if (!rows.length) return null
+    const last = idx(rows[rows.length - 1].time)
+    const win = rows.filter(r => /^\d{6}$/.test(r.time) && idx(r.time) > last - 120 && idx(r.time) <= last)
+    if (win.length < 100) return null
+    const dash = (t: string) => `${t.slice(0, 4)}-${t.slice(4, 6)}`
+    const out: Avg10 = { v: Math.round(win.reduce((a, r) => a + r.value, 0) / win.length * 100) / 100, from: dash(win[0].time), to: dash(win[win.length - 1].time), n: win.length }
+    await setCache(MORTGAGE_AVG10_KEY, out)
     return out
   } catch { return null }
 }

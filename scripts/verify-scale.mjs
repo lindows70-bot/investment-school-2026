@@ -41,7 +41,7 @@ const FULL = {
   realYield: { nominal: { v: 5.17, date: '2026-09-25' }, real: { v: 2.83, date: '2026-09-25' }, bei: { v: 2.34, date: '2026-09-28' }, avg10: { v: 0.77, from: '2016-09', to: '2026-08' } },
   m2: { yoy: 5.66, month: '2026-08' },
   factset: { fwd: 19.2, avg5: 19.8, avg10: 19, date: '2026-09-25' },
-  kb: { yoy: 4.4, asOf: '2026-09', mortgage: { v: 4.48, asOf: '2026-08' } },
+  kb: { yoy: 4.4, asOf: '2026-09', mortgage: { v: 4.48, asOf: '2026-08', avg10: { v: 3.52, from: '2016-08', to: '2026-07' } } },
   season: {
     us: { quad: 'inflation', cliMonth: '2026-08', cliOk: true }, kr: { quad: 'inflation', cliMonth: '2026-08', cliOk: true },
     cpiYoY: 3.4, cpiMonth: '2026-08', cpiOk: true, rateDir: 'hike', rateDirOk: true, nextFomc: '2026-10-28',
@@ -82,6 +82,13 @@ check('CPI 3.4%(>3) + FedWatch 실패 → 물가축은 확정이라 계절은 �
 check('CPI 2.8%(≤3) + FedWatch 실패 → 물가축이 폴백 hold 에 걸려 있어 계절을 말하지 않는다("금리 예상")', cellOf(sCase({ cpiYoY: 2.8, rateDirOk: false }), 'bond', 'season').sentence.includes('금리 예상 자료'))
 check('간절기 → "계절이 바뀌는 중" 문구 · 칩 없음(판정 안 함)', cellOf(sCase({ us: { ...S0.us, quad: 'shoulder' } }), 'bond', 'season').sentence.includes('간절기(계절이 바뀌는 중') && cellOf(sCase({ us: { ...S0.us, quad: 'shoulder' } }), 'bond', 'season').chip === null)
 check('부동산 ② 주담대 4.48% + 이름표에 주담대 기준월 2026-08 · 날짜 = 두 월 중 오래된 것', cellOf(r, 'realestate', 'price').sentence.includes('4.48%') && cellOf(r, 'realestate', 'price').source.includes('주담대 금리(신규취급) 2026-08') && cellOf(r, 'realestate', 'price').date === '2026-08' && cellOf(r, 'realestate', 'price').detail.includes('약 448만원'))
+// 7차 — 부동산 ② 칩(주담대 금리 vs 10년 평균)
+const reP = cellOf(r, 'realestate', 'price')
+check('부동산 ② 칩 = 대출 이자가 10년 평균보다 높음(4.48 vs 3.52) · 문장에 평균 · 상세에 기간(2016.8~2026.7)', reP.chip === '대출 이자가 10년 평균보다 높음' && reP.sentence.includes('지난 10년 평균은 3.52%') && reP.detail.includes('2016.8~2026.7'))
+const reWith = (m) => cellOf(buildScale({ ...FULL, kb: { ...FULL.kb, mortgage: m } }), 'realestate', 'price')
+check('부동산 ② 칩 — 낮음(3.0 vs 3.52) · 같음(차이 0.05 미만)', reWith({ v: 3.0, asOf: '2026-08', avg10: FULL.kb.mortgage.avg10 }).chip === '대출 이자가 10년 평균보다 낮음' && reWith({ v: 3.55, asOf: '2026-08', avg10: FULL.kb.mortgage.avg10 }).chip === '대출 이자가 10년 평균과 같음')
+check('10년 평균을 못 받으면 칩 = 비교 기준 없음 · 문장에 평균 없음', reWith({ v: 4.48, asOf: '2026-08', avg10: null }).chip === '비교 기준 없음' && !reWith({ v: 4.48, asOf: '2026-08' }).sentence.includes('10년 평균'))
+check('주담대 금리가 없으면 칩도 없다(KB 전년비만으로는 견줄 기준이 없다)', reWith(null).chip === null)
 check('주담대 기준월이 없으면 금리 문장을 빼고 KB 만', !cellOf(buildScale({ ...FULL, kb: { ...FULL.kb, mortgage: null } }), 'realestate', 'price').sentence.includes('주택담보대출'))
 check('채권 ① 문장에 원천 값 5.17%', cellOf(r, 'bond', 'cash').sentence.includes('5.17%'))
 check('채권 ② = 명목 5.17% → 물가 뺀 2.83%, 상세에 예상 물가 2.34%(자기 날짜 병기)', /5\.17%.*2\.83%/.test(cellOf(r, 'bond', 'price').sentence) && cellOf(r, 'bond', 'price').detail.includes('2.34%') && cellOf(r, 'bond', 'price').detail.includes('2026.9.28'))
@@ -123,7 +130,7 @@ check('1년 전 비교가 없으면 금 ② hold', cellOf(buildScale({ ...FULL, 
 
 // ── 4단계: 오늘 바뀐 칸 ──
 const c1 = chipsOf(r)
-check('칩 스냅샷 = 칩 있는 칸만(쉬는 칸·칩 없는 칸 제외 — 부동산 ② 만 칩 없음 → 14칸 · 채권 ② 는 6차부터 칩 있음)', Object.keys(c1).length === 14 && c1['bond:season'] === '역풍' && c1['bond:price'] === '10년 평균보다 높음' && !('realestate:price' in c1))
+check('칩 스냅샷 = 칩 있는 칸만(쉬는 칸·칩 없는 칸 제외 — 15칸 전부 · 채권 ② 는 6차부터 · 부동산 ② 는 7차부터 칩 있음)', Object.keys(c1).length === 15 && c1['bond:season'] === '역풍' && c1['bond:price'] === '10년 평균보다 높음' && c1['realestate:price'] === '대출 이자가 10년 평균보다 높음')
 const s1 = rollSnap(null, '2026-09-28', c1)
 check('첫 스냅샷 → 비교 기준 없음(바뀐 칸 0)', s1.prevChips === null && diffChips(s1.prevChips, c1, r.rows).length === 0)
 const s1b = rollSnap(s1, '2026-09-28', c1)

@@ -43,7 +43,8 @@ export interface ScaleInput {
   /** avg10 = 물가 뺀 이자(DFII10)의 지난 10년 월평균(lib/fredScaleInputs) — 채권·금 ② 칩의 비교 기준. 없으면 칩 = 비교 기준 없음 */
   realYield: { nominal: { v: number; date: string }; real: { v: number; date: string }; bei: { v: number; date: string }; avg10?: { v: number; from: string; to: string } | null } | null
   factset: { fwd: number; avg5: number | null; avg10: number | null; date: string } | null
-  kb: { yoy: number; asOf: string; mortgage: { v: number; asOf: string } | null } | null
+  /** mortgage.avg10 = 주담대 금리의 지난 10년 월평균(lib/fredScaleInputs.fetchMortgageAvg10) — 부동산 ② 칩의 비교 기준. 없으면 칩 = 비교 기준 없음 */
+  kb: { yoy: number; asOf: string; mortgage: { v: number; asOf: string; avg10?: { v: number; from: string; to: string } | null } | null } | null
   /** 계절 재료 — regionSeason SSOT. ok=false 인 재료는 폴백(진짜 값 아님)이라 그 계절은 말하지 않는다 */
   season: {
     us: { quad: Quad; cliMonth: string | null; cliOk: boolean }
@@ -180,14 +181,19 @@ export function buildScale(inp: ScaleInput): ScaleResult {
   }
 
   // ── 부동산 — 전국 전세가율 원천이 없다: ① 은 설명만, 값은 관심 단지에서 ──
+  // ② 칩 = 대출 이자를 지난 10년 평균과 견줌(채권·금 ② 와 같은 방식 — 원천이 준 기준으로만). 집값이 비싼지를 직접 재는 숫자가 아니라 '빌리는 값'이다.
+  //   주담대 금리가 없으면 칩도 없다(KB 전년비만으로는 견줄 기준이 없다)
+  const mAvg = kb?.mortgage?.avg10 && isNum(kb.mortgage.avg10.v) && kb.mortgage.avg10.from && kb.mortgage.avg10.to ? kb.mortgage.avg10 : null
+  const reChip = !kb?.mortgage ? null : !mAvg ? '비교 기준 없음'
+    : Math.abs(kb.mortgage.v - mAvg.v) < 0.05 ? '대출 이자가 10년 평균과 같음' : kb.mortgage.v > mAvg.v ? '대출 이자가 10년 평균보다 높음' : '대출 이자가 10년 평균보다 낮음'
   const realestate: ScaleRow = {
     asset: 'realestate', name: '부동산', tail: ROLE_TAIL.realestate,
     cells: [
       cell('cash', 'text', '집이 버는 돈은 월세예요(전세라면 집주인이 보증금을 굴려서 벌어요). 전국 숫자는 아직 없어서, 관심 단지를 고르면 그 단지 전세가가 매매가의 몇 %인지 보여 드려요.',
         { chip: '있음', href: '/s/realestate' }),
-      kb ? cell('price', 'ok', `${staleLead(kb.asOf, today, STALE_DAYS.kb)}${kb.mortgage ? `새로 받는 주택담보대출 금리는 ${pct2(kb.mortgage.v)}예요. ` : ''}전국 아파트값은 1년 전보다 ${moved(kb.yoy)}.`,
-        { source: `KB 아파트 매매가격지수(전국) ${kb.asOf}${kb.mortgage ? ` · 한국은행 주담대 금리(신규취급) ${kb.mortgage.asOf}` : ''}`, date: oldestMonth(kb.asOf, kb.mortgage?.asOf ?? null) ?? kb.asOf,
-          detail: `${kb.mortgage ? `1억을 빌리면 1년 이자가 약 ${Math.round(kb.mortgage.v * 100).toLocaleString('ko-KR')}만원(단순 계산) · ` : ''}월간 통계라 약 한 달 늦게 나와요` })
+      kb ? cell('price', 'ok', `${staleLead(kb.asOf, today, STALE_DAYS.kb)}${kb.mortgage ? `새로 받는 주택담보대출 금리는 ${pct2(kb.mortgage.v)}예요.${mAvg ? ` 지난 10년 평균은 ${pct2(mAvg.v)}예요.` : ''} ` : ''}전국 아파트값은 1년 전보다 ${moved(kb.yoy)}.`,
+        { chip: reChip, source: `KB 아파트 매매가격지수(전국) ${kb.asOf}${kb.mortgage ? ` · 한국은행 주담대 금리(신규취급) ${kb.mortgage.asOf}` : ''}`, date: oldestMonth(kb.asOf, kb.mortgage?.asOf ?? null) ?? kb.asOf,
+          detail: `${kb.mortgage ? `1억을 빌리면 1년 이자가 약 ${Math.round(kb.mortgage.v * 100).toLocaleString('ko-KR')}만원(단순 계산) · ` : ''}${mAvg ? `10년 평균 ${pct2(mAvg.v)} = ${dot(mAvg.from)}~${dot(mAvg.to)} 월평균의 평균 · ` : ''}월간 통계라 약 한 달 늦게 나와요` })
         : hold('price', '전국 아파트값'),
       reSeason,
     ],
