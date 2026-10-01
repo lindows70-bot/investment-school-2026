@@ -388,6 +388,7 @@ export default function LynchEarningsChart(props: any) {
   const [rawGrowthRate,     setRawGrowthRate]     = useState(15)  // 캡핑 전 원본 성장률
   const [avg5yPer,          setAvg5yPer]          = useState(20)
   const [currentPrice,      setCurrentPrice]      = useState(0)
+  const [currentEps,        setCurrentEps]        = useState(0)   // 종목 정보의 최근(trailing) EPS — 진단 패널의 '지금' 기준
   const [noEpsReason,       setNoEpsReason]       = useState<string | null>(null)
   // 통화 — 종목 선택 시 업데이트
   const [currency,      setCurrency]      = useState('USD')
@@ -401,6 +402,7 @@ export default function LynchEarningsChart(props: any) {
     setNoEpsReason(null)
     setRawPoints([])
     setCurrentPrice(0)
+    setCurrentEps(0)
 
     const { ticker, market = 'US' } = stock
     const detectedCurrency = stock.currency ?? (market === 'KR' ? 'KRW' : 'USD')
@@ -445,6 +447,8 @@ export default function LynchEarningsChart(props: any) {
       // ── 현재 주가 ─────────────────────────────────────────
       const cp = Number(priceData?.currentPrice ?? infoData?.price ?? 0)
       setCurrentPrice(cp)
+      const ce = Number(infoData?.fundamentals?.eps ?? 0)
+      setCurrentEps(Number.isFinite(ce) ? ce : 0)
 
       // ── 이익성장률(G) 추출 ─────────────────────────────────
       // stock-info: pe, peg → G = pe/peg
@@ -571,8 +575,15 @@ export default function LynchEarningsChart(props: any) {
     return withPrice[withPrice.length - 1] ?? null
   }, [chartData])
 
-  const latestPrice = latest?.price ?? currentPrice ?? 0
-  const latestFair  = (latest?.ttmEps ?? 0) > 0 ? (latest!.ttmEps * fairPer) : 0
+  // 진단 패널·KPI 는 '지금'을 잰다 — 지금 주가 × 최근(trailing) EPS.
+  //   ⚠️ 2026-10-01 실측: 예전엔 차트 마지막 점(직전 결산 연도의 **연평균 주가**·결산 EPS)을 '현재 주가'라고 불렀다 —
+  //   SK하이닉스가 '현재가 ₩323,675'(실제 ₩1,828,000)로 나가고 괴리율도 그 값으로 계산됐다. 차트 자체는 연간 시계열 그대로.
+  //   지금 값을 못 받았을 때만 마지막 연도 값으로 내려가고, 그때는 라벨이 연도를 밝힌다.
+  const nowPriceLive = currentPrice > 0
+  const nowEpsLive   = currentEps > 0
+  const latestPrice  = nowPriceLive ? currentPrice : (latest?.price ?? 0)
+  const latestEps    = nowEpsLive ? currentEps : (latest?.ttmEps ?? 0)
+  const latestFair   = latestEps > 0 ? latestEps * fairPer : 0
   const gap         = latestFair > 0 && latestPrice > 0
     ? ((latestPrice - latestFair) / latestFair) * 100
     : null
@@ -932,9 +943,9 @@ export default function LynchEarningsChart(props: any) {
             {/* ── KPI 카드 4개 ───────────────────────────── */}
             <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginTop:14 }}>
               {[
-                { label:'현재 주가',     value: latestPrice > 0 ? fmtPrice(latestPrice, currency) : '—', color:C.price },
+                { label: nowPriceLive ? '현재 주가' : `${latest?.year ?? ''}년 평균 주가`, value: latestPrice > 0 ? fmtPrice(latestPrice, currency) : '—', color:C.price },
                 { label:'린치 적정가치', value: latestFair  > 0 ? fmtPrice(latestFair,  currency) : '—', color:C.fair },
-                { label:'최근 EPS',      value: latest?.ttmEps ? fmtEps(latest.ttmEps,  currency) : '—', color:C.textHi },
+                { label: nowEpsLive ? '최근 EPS(직전 4분기)' : `${latest?.year ?? ''}년 EPS`, value: latestEps ? fmtEps(latestEps, currency) : '—', color:C.textHi },
                 { label:'적용 PER',      value:`${fairPer}×`, color:C.textHi },
               ].map(item => (
                 <div key={item.label} style={{
@@ -955,7 +966,7 @@ export default function LynchEarningsChart(props: any) {
                 price={latestPrice} fair={latestFair}
                 ticker={selectedStock?.ticker ?? ''}
                 model={perModel} growthRate={growthRate}
-                jump={isPegBaseEffectPct((latest?.ttmEps ?? 0) > 0 && rawGrowthRate > 0 ? latestPrice / latest!.ttmEps / rawGrowthRate : null, rawGrowthRate)}
+                jump={isPegBaseEffectPct(latestEps > 0 && rawGrowthRate > 0 ? latestPrice / latestEps / rawGrowthRate : null, rawGrowthRate)}
                 currency={currency}
               />
             )}
