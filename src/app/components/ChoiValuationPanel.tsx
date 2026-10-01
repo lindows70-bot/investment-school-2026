@@ -713,7 +713,7 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
     if (surgeHold) reasons.push('이익이 한 해에 두 배 넘게 뛴 구간이라 매수 판정을 보류 — 상승여력·성장 가속 점수도 같은 급증에서 나온 값입니다')
     const verdict = (isSignificantlyOver && isBuyVerdict)
       ? { text: '보유 (Hold)', bg: '#2d1c00', color: T.gld }
-      : surgeHold ? { text: '판단 보류 (이익 급증)', bg: '#2d1c00', color: T.gld }
+      : surgeHold ? { text: '판단 보류 (이익\u00A0급증)',   /* 줄바꿈이 괄호 중간에서 나지 않게(375 폭 실측) */ bg: '#2d1c00', color: T.gld }
       : rawVerdict
 
     // ── 안내 라벨 트리거 플래그 ───────────────────────────────────────────
