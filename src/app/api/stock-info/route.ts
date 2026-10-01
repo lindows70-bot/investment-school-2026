@@ -16,6 +16,7 @@ import type { Market, Fundamentals } from '@/app/api/stock-price/route'
 import { curCodeFromTicker } from '@/lib/globalTickers'
 import { getTrueFcf } from '@/lib/trueFcf'   // 💵 FCF 분자 SSOT(현금흐름표 OCF−CapEx) — fd.freeCashflow 는 부호까지 틀린다
 import { correctPsr } from '@/lib/finCurrency'   // 💱 PSR ADR 통화 교정 SSOT
+import { parseNaverBasics } from '@/lib/naverIntegration'   // 52주 최고·최저 파싱 SSOT(stock-price·lynch-classify 와 같은 파서)
 import { naverUpjongMap, industryNameOf, upjongToGics } from '@/lib/naverUpjong'   // 🏷️ 국내 업종 SSOT(승패 해부실과 같은 표)
 
 export interface StockInfo {
@@ -706,14 +707,9 @@ async function krInfo(ticker: string): Promise<StockInfo> {
 
   // 52주 최고·최저 — integration 우선, 옛 basic 필드는 폴백(돌아오면 쓴다). 둘 다 없으면 null(지어내지 않는다)
   try {
-    const infos: { code?: string; value?: string }[] = Array.isArray(integ?.totalInfos) ? integ.totalInfos : []
-    const pick = (c: string) => {
-      const v = infos.find(x => x?.code === c)?.value
-      const n = typeof v === 'string' ? parseFloat(v.replace(/[^\d.]/g, '')) : NaN
-      return Number.isFinite(n) && n > 0 ? n : null
-    }
-    high52w = pick('highPriceOf52Weeks') ?? (typeof d.high52week === 'number' ? d.high52week : null)
-    low52w  = pick('lowPriceOf52Weeks')  ?? (typeof d.low52week  === 'number' ? d.low52week  : null)
+    const nb = parseNaverBasics(integ)
+    high52w = nb.high52w ?? (typeof d.high52week === 'number' ? d.high52week : null)
+    low52w  = nb.low52w  ?? (typeof d.low52week  === 'number' ? d.low52week  : null)
   } catch { /* 52주는 참고값 — 실패해도 나머지 지표는 그대로 */ }
 
   if (annualRes.ok) {

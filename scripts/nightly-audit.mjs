@@ -68,6 +68,8 @@ const INVARIANTS = [
   { file: 'scripts/verify-quotes.mjs', label: '오늘의 명언 — 상수 = quotes.md 원문 · 미확인 귀속 0 · 순환 섞임' },
   // 2026-10-01 등록 — '오늘 알려드려요' 8규칙 순환·빈 규칙 건너뛰기·문구 분기(명령 문구 0)
   { file: 'scripts/verify-learn-tips.mjs', label: '오늘 알려드려요 — 8규칙 순환 · 빈 규칙 건너뜀 · 문구 분기' },
+  // 2026-10-01 신설 — 네이버 basic 에서 per·eps·배당·시총·52주가 사라져 주가 라우트·린치 분류의 국내 지표가 통째로 null 이었다(null 은 조용해서 아무 검사에도 안 걸렸다)
+  { file: 'scripts/verify-naver-basics.mjs', label: '국내 기본 지표 — 네이버 integration 형식 · 주가 라우트 지표가 비지 않고 종목 정보와 같은 값' },
 ]
 
 /**

@@ -11,6 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { parseNaverBasics } from '@/lib/naverIntegration'   // 📊 PER·EPS·배당·시총 — basic 에서 사라져(2026-10-01) integration 으로
 import { naverUpjongMap, industryNameOf, upjongToLynchSector } from '@/lib/naverUpjong'   // 🏷️ 국내 업종 SSOT — basic 의 업종 필드가 사라져(2026-09-30) integration 으로
 
 export type LynchKey =
@@ -374,13 +375,16 @@ async function classifyKR(ticker: string): Promise<ClassifyResult> {
       }
     }
 
-    const per = typeof d.per === 'number' ? d.per : null
-    const eps = typeof d.eps === 'number' ? d.eps : null
-    const dy  = typeof d.dividendYield === 'number' ? d.dividendYield / 100 : null
+    // integration 우선(basic 의 per·eps·배당·시총은 사라졌다 — 전부 null 이라 적자 기업 판정(EPS<0 → 회생주)이 죽어 있었다). 옛 필드는 돌아오면 폴백
+    const nb = parseNaverBasics(integ)
+    const per = nb.per ?? (typeof d.per === 'number' ? d.per : null)
+    const eps = nb.eps ?? (typeof d.eps === 'number' ? d.eps : null)
+    const dy  = nb.dividendYield ?? (typeof d.dividendYield === 'number' ? d.dividendYield / 100 : null)
     // marketValue가 없을 경우 closePrice × 상장주식수로 추정 불가 → null 허용
-    const mc  = typeof d.marketValue   === 'number' ? d.marketValue
+    const mc  = nb.marketCap
+              ?? (typeof d.marketValue === 'number' ? d.marketValue
               : typeof d.marketValueFullRaw === 'number' ? d.marketValueFullRaw
-              : null
+              : null)
 
     // EPS 음수면 turnaround 후보
     const earningsGrowth = eps !== null && eps < 0 ? -0.5 : null

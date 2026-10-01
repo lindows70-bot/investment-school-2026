@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { parseNaverBasics } from '@/lib/naverIntegration'   // 📊 국내 기본 지표(PER·EPS·배당·시총·52주) — basic 에서 사라져 integration 으로
 import { naverUpjongMap, industryNameOf, upjongToGics } from '@/lib/naverUpjong'   // 🏷️ 국내 업종 SSOT(stock-info·승패 해부실과 같은 표)
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -315,14 +316,17 @@ async function naverFundamentals(code: string): Promise<Fundamentals> {
     naverUpjongMap(),
   ])
   const integIndustry = industryNameOf(integ, upjong)
-  if (!basic) return { ...nullFundamentals(), sector: upjongToGics(integIndustry) }
+  // 기본 지표 — integration.totalInfos 우선, 옛 basic 필드는 돌아오면 폴백(2026-10-01 실측: basic 에서 per·eps·배당·시총·52주가 전부 사라져 국내 지표가 통째로 null 이었다)
+  const nb = parseNaverBasics(integ)
+  if (!basic && !integ) return { ...nullFundamentals(), sector: upjongToGics(integIndustry) }
+  const old = basic ?? {}
 
-  const per = typeof basic.per === 'number'  ? basic.per  : null
-  const eps = typeof basic.eps === 'number'  ? basic.eps  : null
-  const dy  = typeof basic.dividendYield === 'number' ? basic.dividendYield / 100 : null
-  const mc  = typeof basic.marketValue === 'number'   ? basic.marketValue : null
+  const per = nb.per ?? (typeof old.per === 'number' && old.per > 0 ? old.per : null)
+  const eps = nb.eps ?? (typeof old.eps === 'number' ? old.eps : null)
+  const dy  = nb.dividendYield ?? (typeof old.dividendYield === 'number' ? old.dividendYield / 100 : null)
+  const mc  = nb.marketCap ?? (typeof old.marketValue === 'number' ? old.marketValue : null)
 
-  const industryName: string | null = integIndustry ?? basic.industryCodeType?.name ?? null
+  const industryName: string | null = integIndustry ?? old.industryCodeType?.name ?? null
   const sector = upjongToGics(industryName) ?? krSectorToLynchSector(industryName) ?? industryName
 
   // 간단한 성장률 추정: EPS가 양수면 기본 성장 가정, 음수면 회생
@@ -334,17 +338,17 @@ async function naverFundamentals(code: string): Promise<Fundamentals> {
     peg:            'N/A',
     marketCap:      mc,
     volume:         null,
-    high52w:        typeof basic.high52week === 'number' ? basic.high52week : null,
-    low52w:         typeof basic.low52week  === 'number' ? basic.low52week  : null,
+    high52w:        nb.high52w ?? (typeof old.high52week === 'number' ? old.high52week : null),
+    low52w:         nb.low52w  ?? (typeof old.low52week  === 'number' ? old.low52week  : null),
     sector,
     earningsGrowth,
     dividendYield:  dy,
     isEtf:          false,
-    eps:        null,
-    pbr:        null,
+    eps,
+    pbr:        nb.pbr,
     forwardEps: null,
     payoutRatio:    null,   // Naver에서 배당성향 별도 미제공
-    annualDividend: null,
+    annualDividend: nb.annualDividend,
   }
 }
 
