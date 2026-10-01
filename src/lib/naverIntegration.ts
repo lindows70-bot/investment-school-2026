@@ -2,7 +2,7 @@
 //   2026-10-01 실측: m.stock.naver.com/api/stock/{code}/basic 에서 per·eps·dividendYield·marketValue·high52week·low52week·industryCodeType 이
 //   전부 사라졌다(업종만 9/30 에 먼저 발견). 그래서 basic 에 기대던 주가 라우트(stock-price)와 린치 분류(lynch-classify)의 국내 지표가 통째로 null 이었다.
 //   같은 종목의 integration.totalInfos 에 값이 그대로 있다 — code 로 찾고 "12.25배"·"22,292원"·"0.61%"·"1,596조 341억" 문자열을 숫자로 푼다.
-//   ⚠️ 여기 PER·EPS 는 네이버 화면의 최근 4분기 기준이다. 종목 정보(stock-info)의 PER 은 재무제표 '직전 결산 연도' 기준이라 값이 다르다(둘 다 맞고 기준이 다름).
+//   여기 PER·EPS 는 네이버 화면의 최근 4분기 기준이다. 종목 정보(stock-info)의 PER 도 이 값을 쓴다(2026-10-01 — 재무제표 PER 행은 작년 말 주가 기준이라 폐기).
 
 export interface NaverBasics {
   per: number | null            // 배(음수·N/A 는 null — 적자 판정은 eps 로)

@@ -7,7 +7,7 @@
 | 지표 | SSOT 소스 | 캐시 키 | 적용 화면 |
 |---|---|---|---|
 | **PEG** | `canonicalFundamentals.ts` → `/api/stock-info` | `canon-fund:TICKER:MKT` (6h) | 분석·브리핑·섹터피어·AI멘토·밸류에이션·매도시그널 |
-| **PER** | `/api/stock-info` (US=FMP/Yahoo, KR=Naver) | stock-info 내부 캐시 | 전 화면 |
+| **PER** | `/api/stock-info` (US=FMP/Yahoo trailing, KR=네이버 integration 최근 4분기 — `peBasis`, 2026-10-01) | stock-info 내부 캐시 | 전 화면 |
 | **EPS·성장률** | `/api/stock-info` → `dividendMap` → 컴포넌트 | stock-info 내부 캐시 | 전 화면 |
 | **총마진·OM** | Yahoo `fundamentalsTimeSeries` | `jarvis-metrics-v3:*` (12h) | 해자경보기·브리핑 |
 | **P/S 시계열** | Yahoo `chart` + `fundamentalsTimeSeries` | `getPairSignal` 6h 캐시 | 페어-트레이딩 |
