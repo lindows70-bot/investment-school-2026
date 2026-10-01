@@ -15,6 +15,7 @@
 
 import { getCache, setCache } from '@/lib/appCache'
 import { isPegBaseEffect } from '@/lib/canonicalFundamentals'
+import { knownLynch } from '@/lib/lynchKnown'   // 📌 린치 고정 분류표 SSOT — 겹치는 종목은 유니버스 표의 lynch 대신 이 값을 쓴다
 import { isFinancialCompany } from '@/lib/assetClassifier'
 import { TK } from '@/lib/theme'
 import { GLOBAL_LUXURY, EU_MAJORS, curCodeFromTicker } from '@/lib/globalTickers'
@@ -105,32 +106,32 @@ const US_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'NVDA', lynch:'fast_grower', name:'NVIDIA' },
   { ticker:'MSFT', lynch:'stalwart',   name:'Microsoft' },
   { ticker:'AAPL', lynch:'stalwart',   name:'Apple' },
-  { ticker:'GOOGL',lynch:'fast_grower',name:'Alphabet' },
+  { ticker:'GOOGL',lynch:'stalwart',   name:'Alphabet' },
   { ticker:'AMZN', lynch:'fast_grower',name:'Amazon' },
   { ticker:'META', lynch:'fast_grower',name:'Meta' },
   { ticker:'V',    lynch:'stalwart',   name:'Visa' },
   { ticker:'MA',   lynch:'stalwart',   name:'Mastercard' },
-  { ticker:'JPM',  lynch:'cyclical',   name:'JPMorgan' },
+  { ticker:'JPM',  lynch:'stalwart',   name:'JPMorgan' },
   { ticker:'JNJ',  lynch:'stalwart',   name:'Johnson & Johnson' },
-  { ticker:'KO',   lynch:'slow_grower',name:'Coca-Cola' },
+  { ticker:'KO',   lynch:'stalwart',   name:'Coca-Cola' },
   { ticker:'PLTR', lynch:'fast_grower',name:'Palantir' },
   { ticker:'ETN',  lynch:'cyclical',   name:'Eaton' },
   { ticker:'GEV',  lynch:'fast_grower',name:'GE Vernova' },
-  { ticker:'ASML', lynch:'fast_grower',name:'ASML' },
+  { ticker:'ASML', lynch:'stalwart',   name:'ASML' },
   // ── 코어 풀 확장(2026-06) — 섹터 다변화(헬스케어·필수소비재·산업재·에너지·금융) ──
-  { ticker:'LLY',  lynch:'fast_grower',name:'Eli Lilly' },
+  { ticker:'LLY',  lynch:'stalwart',   name:'Eli Lilly' },
   { ticker:'UNH',  lynch:'stalwart',   name:'UnitedHealth' },
   { ticker:'ABBV', lynch:'stalwart',   name:'AbbVie' },
   { ticker:'COST', lynch:'stalwart',   name:'Costco' },
-  { ticker:'PG',   lynch:'slow_grower',name:'Procter & Gamble' },
+  { ticker:'PG',   lynch:'stalwart',   name:'Procter & Gamble' },
   { ticker:'WMT',  lynch:'stalwart',   name:'Walmart' },
   { ticker:'HD',   lynch:'stalwart',   name:'Home Depot' },
   { ticker:'CAT',  lynch:'cyclical',   name:'Caterpillar' },
   { ticker:'XOM',  lynch:'cyclical',   name:'Exxon Mobil' },
   { ticker:'CVX',  lynch:'cyclical',   name:'Chevron' },
   { ticker:'BAC',  lynch:'cyclical',   name:'Bank of America' },
-  { ticker:'AVGO', lynch:'fast_grower',name:'Broadcom' },
-  { ticker:'CRM',  lynch:'fast_grower',name:'Salesforce' },
+  { ticker:'AVGO', lynch:'stalwart',   name:'Broadcom' },
+  { ticker:'CRM',  lynch:'stalwart',   name:'Salesforce' },
   { ticker:'NOW',  lynch:'fast_grower',name:'ServiceNow' },
   { ticker:'AMD',  lynch:'fast_grower',name:'AMD' },
   // ── 코어 풀 2차 확장(2026-06) US 30→60 — 반도체·SW·헬스케어·금융·산업재 폭 확대 ──
@@ -139,7 +140,7 @@ const US_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'MU',   lynch:'cyclical',   name:'Micron' },
   { ticker:'INTC', lynch:'turnaround', name:'Intel' },
   { ticker:'ORCL', lynch:'stalwart',   name:'Oracle' },
-  { ticker:'ADBE', lynch:'fast_grower',name:'Adobe' },
+  { ticker:'ADBE', lynch:'stalwart',   name:'Adobe' },
   { ticker:'CRWD', lynch:'fast_grower',name:'CrowdStrike' },
   { ticker:'PANW', lynch:'fast_grower',name:'Palo Alto Networks' },
   { ticker:'ANET', lynch:'fast_grower',name:'Arista Networks' },
@@ -160,7 +161,7 @@ const US_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'SCHW', lynch:'cyclical',   name:'Charles Schwab' },
   { ticker:'BLK',  lynch:'stalwart',   name:'BlackRock' },
   { ticker:'AXP',  lynch:'cyclical',   name:'American Express' },
-  { ticker:'BA',   lynch:'turnaround', name:'Boeing' },
+  { ticker:'BA',   lynch:'cyclical',   name:'Boeing' },
   { ticker:'HON',  lynch:'stalwart',   name:'Honeywell' },
   { ticker:'DE',   lynch:'cyclical',   name:'Deere' },
   { ticker:'COP',  lynch:'cyclical',   name:'ConocoPhillips' },
@@ -228,7 +229,7 @@ const US_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'MPC',  lynch:'cyclical',   name:'Marathon Petroleum' },
   { ticker:'FCX',  lynch:'cyclical',   name:'Freeport-McMoRan' },
   { ticker:'NUE',  lynch:'cyclical',   name:'Nucor' },
-  { ticker:'TMUS', lynch:'stalwart',   name:'T-Mobile' },
+  { ticker:'TMUS', lynch:'slow_grower', name:'T-Mobile' },
   { ticker:'CMCSA',lynch:'slow_grower',name:'Comcast' },
   { ticker:'CL', lynch:'stalwart',    name:'Colgate-Palmolive' },
   { ticker:'KMB', lynch:'stalwart',    name:'Kimberly-Clark' },
@@ -286,9 +287,9 @@ const US_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'PPG', lynch:'stalwart',    name:'PPG Industries' },
   { ticker:'CTVA', lynch:'stalwart',    name:'Corteva' },
   { ticker:'IFF', lynch:'stalwart',    name:'International Flavors & Fragran' },
-  { ticker:'NEE', lynch:'stalwart',    name:'NextEra Energy' },
-  { ticker:'DUK', lynch:'stalwart',    name:'Duke Energy Corporation (Holdin' },
-  { ticker:'SO', lynch:'stalwart',    name:'Southern Company (The)' },
+  { ticker:'NEE', lynch:'slow_grower', name:'NextEra Energy' },
+  { ticker:'DUK', lynch:'slow_grower', name:'Duke Energy Corporation (Holdin' },
+  { ticker:'SO', lynch:'slow_grower', name:'Southern Company (The)' },
   { ticker:'D', lynch:'stalwart',    name:'Dominion Energy' },
   { ticker:'AEP', lynch:'stalwart',    name:'American Electric Power' },
   { ticker:'XEL', lynch:'stalwart',    name:'Xcel Energy' },
@@ -329,7 +330,7 @@ const US_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'PATH', lynch:'fast_grower', name:'UiPath' },
   { ticker:'APP', lynch:'fast_grower', name:'Applovin' },
   { ticker:'U', lynch:'fast_grower', name:'Unity Software' },
-  { ticker:'SNAP', lynch:'fast_grower', name:'Snap' },
+  { ticker:'SNAP', lynch:'turnaround',  name:'Snap' },
   { ticker:'SPOT', lynch:'fast_grower', name:'Spotify Technology' },
   { ticker:'RDDT', lynch:'fast_grower', name:'Reddit' },
   { ticker:'TTD', lynch:'fast_grower', name:'The Trade Desk' },
@@ -366,7 +367,7 @@ const US_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'ONTO', lynch:'fast_grower', name:'Onto Innovation' },
   { ticker:'LSCC', lynch:'fast_grower', name:'Lattice Semiconductor Corporati' },
   { ticker:'ALGM', lynch:'fast_grower', name:'Allegro MicroSystems' },
-  { ticker:'COHR', lynch:'fast_grower', name:'Coherent' },
+  { ticker:'COHR', lynch:'cyclical',    name:'Coherent' },
   { ticker:'AMKR', lynch:'fast_grower', name:'Amkor Technology' },
   { ticker:'MCHP', lynch:'fast_grower', name:'Microchip Technology Incorporat' },
   { ticker:'SWKS', lynch:'fast_grower', name:'Skyworks Solutions' },
@@ -376,7 +377,7 @@ const US_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'SLAB', lynch:'fast_grower', name:'Silicon Laboratories' },
   { ticker:'RMBS', lynch:'fast_grower', name:'Rambus' },
   { ticker:'MTSI', lynch:'fast_grower', name:'MACOM Technology Solutions Hold' },
-  { ticker:'TSM', lynch:'fast_grower', name:'Taiwan Semiconductor Manufactur' },
+  { ticker:'TSM', lynch:'stalwart',    name:'Taiwan Semiconductor Manufactur' },
   { ticker:'ROST', lynch:'cyclical',    name:'Ross Stores' },
   { ticker:'ORLY', lynch:'cyclical',    name:'OReilly Automotive' },
   { ticker:'AZO', lynch:'cyclical',    name:'AutoZone' },
@@ -437,7 +438,7 @@ const US_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'LUV', lynch:'cyclical',    name:'Southwest Airlines' },
 ]
 const KR_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
-  { ticker:'005930',lynch:'stalwart',   name:'삼성전자' },
+  { ticker:'005930',lynch:'cyclical',   name:'삼성전자' },
   { ticker:'000660',lynch:'cyclical',   name:'SK하이닉스' },
   { ticker:'035420',lynch:'fast_grower',name:'NAVER' },
   { ticker:'207940',lynch:'fast_grower',name:'삼성바이오로직스' },
@@ -448,8 +449,8 @@ const KR_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'033780',lynch:'slow_grower',name:'KT&G' },
   { ticker:'005490',lynch:'cyclical',   name:'POSCO홀딩스' },
   // ── 코어 풀 확장(2026-06) — 금융·바이오·방산·2차전지·인터넷 ──
-  { ticker:'105560',lynch:'cyclical',   name:'KB금융' },
-  { ticker:'055550',lynch:'cyclical',   name:'신한지주' },
+  { ticker:'105560',lynch:'stalwart',   name:'KB금융' },
+  { ticker:'055550',lynch:'stalwart',   name:'신한지주' },
   { ticker:'012450',lynch:'fast_grower',name:'한화에어로스페이스' },
   { ticker:'373220',lynch:'fast_grower',name:'LG에너지솔루션' },
   { ticker:'006400',lynch:'cyclical',   name:'삼성SDI' },
@@ -461,7 +462,7 @@ const KR_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   // ── 코어 풀 2차 확장(2026-06) KR 20→40 — 금융·통신·바이오·소재·조선·전자 폭 확대 ──
   { ticker:'000810',lynch:'stalwart',   name:'삼성화재' },
   { ticker:'086790',lynch:'cyclical',   name:'하나금융지주' },
-  { ticker:'316140',lynch:'cyclical',   name:'우리금융지주' },
+  { ticker:'316140',lynch:'stalwart',   name:'우리금융지주' },
   { ticker:'015760',lynch:'slow_grower',name:'한국전력' },
   { ticker:'034730',lynch:'stalwart',   name:'SK' },
   { ticker:'017670',lynch:'slow_grower',name:'SK텔레콤' },
@@ -487,7 +488,7 @@ const KR_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'097950',lynch:'stalwart',   name:'CJ제일제당' },
   { ticker:'271560',lynch:'stalwart',   name:'오리온' },
   { ticker:'139480',lynch:'cyclical',   name:'이마트' },
-  { ticker:'012330',lynch:'cyclical',   name:'현대모비스' },
+  { ticker:'012330',lynch:'stalwart',   name:'현대모비스' },
   { ticker:'086280',lynch:'cyclical',   name:'현대글로비스' },
   { ticker:'011070',lynch:'cyclical',   name:'LG이노텍' },
   { ticker:'009830',lynch:'cyclical',   name:'한화솔루션' },
@@ -500,7 +501,7 @@ const KR_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'047810',lynch:'fast_grower',name:'한국항공우주' },
   { ticker:'079550',lynch:'fast_grower',name:'LIG넥스원' },
   { ticker:'267260',lynch:'fast_grower',name:'HD현대일렉트릭' },
-  { ticker:'010120',lynch:'fast_grower',name:'LS ELECTRIC' },
+  { ticker:'010120',lynch:'cyclical',   name:'LS ELECTRIC' },
   { ticker:'454910',lynch:'fast_grower',name:'두산로보틱스' },
   { ticker:'006800',lynch:'cyclical',   name:'미래에셋증권' },
   { ticker:'016360',lynch:'cyclical',   name:'삼성증권' },
@@ -588,8 +589,8 @@ const KR_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'004020', lynch:'cyclical',    name:'현대제철' },
   { ticker:'000880', lynch:'cyclical',    name:'한화' },
   { ticker:'001040', lynch:'cyclical',    name:'CJ' },
-  { ticker:'032640', lynch:'cyclical',    name:'LG유플러스' },
-  { ticker:'036460', lynch:'cyclical',    name:'한국가스공사' },
+  { ticker:'032640', lynch:'slow_grower', name:'LG유플러스' },
+  { ticker:'036460', lynch:'slow_grower', name:'한국가스공사' },
   { ticker:'005830', lynch:'cyclical',    name:'DB손해보험' },
   { ticker:'001450', lynch:'cyclical',    name:'현대해상' },
   { ticker:'039490', lynch:'cyclical',    name:'키움증권' },
@@ -1037,13 +1038,14 @@ export async function runScreener(phase: MacroPhase): Promise<{ us: ScreenedStoc
   const all: ScreenedStock[] = []
   // 동시성 8 — 유니버스 ~510종 확장(2026-07) 대응(120s→300s 함께 상향). Yahoo 스로틀은 screenOne catch + 재시도 패스로 graceful
   const CONC = 8
+  // 분류는 고정표(lib/lynchKnown)가 기준 — 유니버스 표의 lynch 는 고정표에 없는 종목에만 쓰인다(2026-10-01: 두 표가 25종 달랐다)
   const universe = [
     ...US_UNIVERSE.map(s => ({ ...s, market: 'US' as const })),
     ...EU_UNIVERSE.map(s => ({ ...s, market: 'US' as const })),   // 🇪🇺 유럽 메이저 — 글로벌 파이프라인(접미사 티커 그대로 야후 fetch)
     ...JP_UNIVERSE.map(s => ({ ...s, market: 'US' as const })),   // 🇯🇵 일본(.T) — 글로벌 파이프라인
     ...CN_UNIVERSE.map(s => ({ ...s, market: 'US' as const })),   // 🇨🇳 중국(.HK·ADR·본토) — 글로벌 파이프라인
     ...KR_UNIVERSE.map(s => ({ ...s, market: 'KR' as const })),
-  ]
+  ].map(s => ({ ...s, lynch: knownLynch(s.ticker, s.market) ?? s.lynch }))
   for (let i = 0; i < universe.length; i += CONC) {
     const batch = universe.slice(i, i + CONC)
     const results = await Promise.all(batch.map(s => screenOne(s.ticker, s.market, s.lynch, s.name, phase).catch(() => null)))

@@ -67,3 +67,5 @@ youtube-captures/
 # 🧪 lib 단위검증 임시 산출물(scripts/verify-*.mjs 가 만든다) — 커밋·배포 대상 아님
 .bt-*/
 .bt-*.tsconfig.json
+.bt-lynch-known/
+.bt-lynch-known.tsconfig.json

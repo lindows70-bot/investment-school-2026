@@ -70,6 +70,8 @@ const INVARIANTS = [
   { file: 'scripts/verify-learn-tips.mjs', label: '오늘 알려드려요 — 8규칙 순환 · 빈 규칙 건너뜀 · 문구 분기' },
   // 2026-10-01 신설 — 네이버 basic 에서 per·eps·배당·시총·52주가 사라져 주가 라우트·린치 분류의 국내 지표가 통째로 null 이었다(null 은 조용해서 아무 검사에도 안 걸렸다)
   { file: 'scripts/verify-naver-basics.mjs', label: '국내 기본 지표 — 네이버 integration 형식 · 주가 라우트 지표가 비지 않고 종목 정보와 같은 값' },
+  // 2026-10-01 신설 — 같은 종목의 린치 분류가 분류 라우트와 스크리너 두 곳에 따로 적혀 94종 중 25종이 달랐다(값이 그럴듯해 화면검증으로는 안 잡힌다)
+  { file: 'scripts/verify-lynch-known.mjs', label: '린치 고정 분류표 — 스크리너 유니버스 표와 어긋남 0 · 분류 라우트가 같은 표' },
 ]
 
 /**
