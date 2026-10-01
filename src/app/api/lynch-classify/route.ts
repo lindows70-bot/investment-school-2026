@@ -68,6 +68,7 @@ const US_KNOWN: Record<string, LynchKey> = {
 const KR_KNOWN: Record<string, LynchKey> = {
   // 대형 우량주
   '055550':'stalwart',    // 신한지주
+  '035720':'stalwart',    // 카카오 (최근 4분기 EPS +783원 흑자·시총 약 14.9조. 2026-10-01 turnaround 에서 옮김 — 회생이 끝난 대형주)
   '105560':'stalwart',    // KB금융
   '012330':'stalwart',    // 현대모비스
   '028260':'stalwart',    // 삼성물산
@@ -106,13 +107,12 @@ const KR_KNOWN: Record<string, LynchKey> = {
   '068270':'fast_grower', // 셀트리온
   '012450':'fast_grower', // 한화에어로스페이스 (방산 고성장)
   '278470':'fast_grower', // 에이피알 (K뷰티 고성장)
-  '440110':'fast_grower', // 파두 (AI칩 팹리스 신생 — 적자 매출고성장)
   // 회생 기업주
-  '035720':'turnaround',  // 카카오
+  '440110':'turnaround',  // 파두 (AI칩 팹리스 — 최근 4분기 EPS −1,985원 적자. 2026-10-01 fast_grower 에서 옮김: 적자면 회생주라는 자동 판정 규칙과 같은 기준)
+  '010170':'turnaround',  // 대한광통신 (최근 4분기 EPS −166원 적자·무배당. 2026-10-01 slow_grower 에서 옮김)
   // 자산 보유주
   '017960':'asset_play',  // 한국카본 (특수소재)
   // 저성장주
-  '010170':'slow_grower', // 대한광통신 (통신인프라 안정성장)
   '189300':'fast_grower', // 인텔리안테크 (위성안테나 성장)
   // 반도체 밸류체인 (소재·기판·장비) → 메모리 사이클 영향 = 경기순환주
   '007660':'cyclical',    // ★ 이수페타시스 (반도체 PCB 기판)
