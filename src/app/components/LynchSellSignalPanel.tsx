@@ -23,6 +23,7 @@ import {
 // SSOT: 자산 분류는 assetClassifier에서만 (컴포넌트 내 인라인 감지 금지)
 import { getAssetClassification, type AssetType } from '@/lib/assetClassifier'
 import { TK, FONT_STACK } from '@/lib/theme'
+import { isPegBaseEffectPct, PEG_JUMP_DESC } from '@/lib/pegBaseEffect'   // 이익 급증(기저효과) 가드 SSOT — 추천·점수 계산과 같은 기준
 
 // ────────────────────────────────────────────────────────────
 // 타입 정의
@@ -125,7 +126,7 @@ function computeSignal(raw: AnyRecord): StockSignal {
   // 공통 지표 구성
   const baseMetrics: Metric[] = [
     ...(per > 0        ? [{ label:'PER',      value:`${per.toFixed(1)}배`,       highlight: per > 30 ? 'red' : per > 22 ? 'yellow' : 'green' }] : []) as Metric[],
-    ...(peg > 0        ? [{ label:'PEG',      value:peg.toFixed(2),              highlight: peg > 1.5 ? 'red' : peg > 1.0 ? 'yellow' : 'green' }] : []) as Metric[],
+    ...(peg > 0        ? [{ label:'PEG',      value:peg.toFixed(2),              highlight: peg > 1.5 ? 'red' : peg > 1.0 || isPegBaseEffectPct(peg, growthRate) ? 'yellow' : 'green' }] : []) as Metric[],
     ...(growthRate > 0 ? [{ label:'성장률',   value:`${growthRate.toFixed(1)}%`,  highlight: growthRate > 25 ? 'green' : growthRate < 5 ? 'yellow' : 'gray' }] : []) as Metric[],
     ...(divYield > 0   ? [{ label:'배당수익률',value:`${(divYield * 100).toFixed(2)}%`, highlight: 'gray' }] : []) as Metric[],
     ...(returnPct !== undefined ? [{ label:'수익률', value:`${returnPct > 0 ? '+' : ''}${returnPct}%`, highlight: returnPct > 50 ? 'red' : returnPct > 20 ? 'yellow' : returnPct > 0 ? 'green' : 'red' }] : []) as Metric[],
@@ -170,6 +171,10 @@ function computeSignal(raw: AnyRecord): StockSignal {
       headline  = `성장률 ${growthRate.toFixed(1)}% — 고성장 유지 의문`
       triggers.push(`이익성장률 ${growthRate.toFixed(1)}% < 15% (고성장주 기준 하회)`)
       lynchAdvice = `"고성장주의 성장이 둔화되기 시작하면 주가는 멀티플 압축으로 더 빠르게 떨어집니다. 스토리가 여전히 살아있는지 재확인이 필요합니다."`
+    } else if (isPegBaseEffectPct(peg, growthRate)) {
+      // 이익 급증으로 PEG 가 0 에 붙은 경우 — '저평가'라고 말하지 않는다(매도 신호는 아니라 상태는 그대로)
+      headline   = `PEG ${peg.toFixed(2)} — 이익 급증 구간(성장 ${growthRate.toFixed(0)}%)`
+      lynchAdvice = `이 PEG 는 ${PEG_JUMP_DESC}. 다음 실적에서 성장이 이어지는지 확인하기 전까지는 싸다는 근거로 삼지 마세요.`
     } else if (peg > 0 && peg <= 1.0) {
       headline   = `PEG ${peg.toFixed(2)} — 저평가 고성장 유지`
       lynchAdvice = `"10루타를 치려면 인내가 필요합니다. PEG 1.0 이하의 고성장주는 린치가 가장 사랑하는 구간입니다. 스토리가 변하기 전까지 보유를 유지하세요."`

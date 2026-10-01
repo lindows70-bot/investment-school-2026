@@ -9,3 +9,12 @@
 export function isPegBaseEffect(peg: number | null, growth: number | null): boolean {
   return peg != null && peg > 0 && peg < 0.3 && growth != null && growth > 1.0
 }
+
+/** 성장률이 %(100 = +100%) 단위인 화면용 — 기준은 위와 같다 */
+export function isPegBaseEffectPct(peg: number | null | undefined, growthPct: number | null | undefined): boolean {
+  return isPegBaseEffect(peg ?? null, growthPct != null ? growthPct / 100 : null)
+}
+
+// 분석 화면 공용 문구 — 화면마다 다른 말을 하지 않게 한 곳에서(2026-10-01: 가드가 PEG 한 칸에만 있어 같은 패널의 이익선은 '저평가(매수 영역)'라고 말하고 있었다)
+export const PEG_JUMP_LABEL = '⚠️ 기저효과 착시'
+export const PEG_JUMP_DESC = '이익이 한 해에 두 배 넘게 뛴 구간이라 저평가 근거로 쓸 수 없습니다(린치의 경기순환 함정)'

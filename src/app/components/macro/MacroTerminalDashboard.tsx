@@ -26,6 +26,7 @@ import {
   LYNCH_CATEGORY_KR,
 } from '@/lib/lynchAnalysis'
 import { TK } from '@/lib/theme'
+import { isPegBaseEffectPct } from '@/lib/pegBaseEffect'   // 이익 급증(기저효과) 가드 SSOT
 
 const toMacroFactor = (r: number) => parseFloat((1 + r * -0.3).toFixed(4))
 
@@ -212,6 +213,8 @@ export default function MacroTerminalDashboard({
         name:         stock.name,
         category:     category ?? '미분류',
         multiple,
+        // 성장률은 대시보드의 다른 패널과 같은 방식(PER ÷ PEG)으로 — 급증 구간이면 괴리율을 '저평가'로 칠하지 않는다
+        pegJump:      isPegBaseEffectPct(safeNumber(div.peg) || null, safeNumber(div.pe) > 0 && safeNumber(div.peg) > 0 ? safeNumber(div.pe) / safeNumber(div.peg) : null),
         isKrw:        stock.isKrw,
         currentPrice: livePrice,
         history:      stock.history,

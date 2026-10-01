@@ -26,6 +26,7 @@ import ChoiValuationPanel from '@/app/components/ChoiValuationPanel'
 import { getAssetType } from '@/lib/assetClassifier'
 import type { Candle } from '@/app/components/CandleChart'
 import { TK, FS, FONT_STACK } from '@/lib/theme'
+import { isPegBaseEffectPct, PEG_JUMP_LABEL, PEG_JUMP_DESC } from '@/lib/pegBaseEffect'   // 이익 급증(기저효과) 가드 SSOT — 추천·점수 계산과 같은 기준
 
 const N   = TK.bg8
 const SHO = `7px 7px 18px ${TK.bg2}, -4px -4px 12px ${TK.line2}`
@@ -569,13 +570,14 @@ export default function ResearchPage() {
 
             {/* PEG 해석 */}
             <div style={{ background: TK.bg0, boxShadow: SHI, borderRadius: 10, padding: '12px 14px',
-              borderLeft: `3px solid ${stockInfo.peg != null ? (stockInfo.peg <= 1 ? TK.emerald500 : stockInfo.peg <= 2 ? TK.blue400 : TK.red400) : TK.sub10}` }}>
+              borderLeft: `3px solid ${stockInfo.peg != null ? (isPegBaseEffectPct(stockInfo.peg, stockInfo.epsGrowth) ? TK.amber500 : stockInfo.peg <= 1 ? TK.emerald500 : stockInfo.peg <= 2 ? TK.blue400 : TK.red400) : TK.sub10}` }}>
               <div style={{ fontSize: 9, color: TK.sub4, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>PEG 해석</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: stockInfo.peg != null ? (stockInfo.peg <= 1 ? TK.emerald500 : stockInfo.peg <= 2 ? TK.blue400 : TK.red400) : TK.sub10 }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: stockInfo.peg != null ? (isPegBaseEffectPct(stockInfo.peg, stockInfo.epsGrowth) ? TK.amber500 : stockInfo.peg <= 1 ? TK.emerald500 : stockInfo.peg <= 2 ? TK.blue400 : TK.red400) : TK.sub10 }}>
                 {stockInfo.peg != null ? stockInfo.peg.toFixed(2) : '—'}
               </div>
               <div style={{ fontSize: 10, color: TK.sub10, marginTop: 4 }}>
                 {stockInfo.peg == null ? 'PEG 데이터 없음' :
+                 isPegBaseEffectPct(stockInfo.peg, stockInfo.epsGrowth) ? `${PEG_JUMP_LABEL} — ${PEG_JUMP_DESC}` :
                  stockInfo.peg <= 1 ? '✅ 강력 매수 구간. 성장 대비 저평가.' :
                  stockInfo.peg <= 2 ? '🔵 적정 가격 수준.' :
                  '⚠️ 가격 부담 큼. 고성장 지속 필요.'}

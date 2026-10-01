@@ -3,6 +3,7 @@
 import { LYNCH_CATEGORY_KR } from '@/lib/lynchAnalysis'
 import { isHoldingCompany, isFinancialCompany } from '@/lib/assetClassifier'   // 🏢 지주사·🏦 금융주 — EPS·PEG·이익선 왜곡(지분법이익·투자손익)
 import { TK } from '@/lib/theme'
+import { isPegBaseEffectPct, PEG_JUMP_LABEL, PEG_JUMP_DESC } from '@/lib/pegBaseEffect'   // 이익 급증(기저효과) 가드 SSOT — 추천·점수 계산과 같은 기준
 
 const CARD = TK.bg6, BORDER = TK.border
 
@@ -25,7 +26,7 @@ export default function LynchAutoPanel(p: LynchAutoProps) {
   const fmtPrice = (v: number) => won ? `₩${Math.round(v).toLocaleString()}` : `$${v.toFixed(2)}`
 
   // 기저효과 가드(SSOT 철학) — 작년 이익 붕괴 후 회복으로 PEG가 0에 수렴한 착시
-  const pegSuspect = peg != null && peg > 0 && peg < 0.3 && g != null && g > 100
+  const pegSuspect = isPegBaseEffectPct(peg, g)
   // 🏢 지주사 — EPS가 자회사 지분법이익(예: SK스퀘어→SK하이닉스)에 휘둘려 PEG·이익선 비교가 왜곡 → NAV·SOTP로 평가
   const holding = isHoldingCompany(p.ticker, p.name)
   // 🏦 금융주(보험·은행) — EPS가 투자손익·대손에 휘둘려 이익선(EPS×PER)이 왜곡(보험은 PBR 0.45처럼 저PBR이라 이익선=고평가, 실제 가치는 P/B·내재가치) → 지주사가 아닐 때만
@@ -34,7 +35,7 @@ export default function LynchAutoPanel(p: LynchAutoProps) {
 
   // PEG 해석
   const pegView = peg == null ? { label: 'PEG 데이터 없음', color: TK.sub, desc: '성장률·PER 데이터가 부족합니다.' }
-    : pegSuspect ? { label: '⚠️ 기저효과 착시', color: TK.amber500, desc: `PEG ${peg.toFixed(2)}는 작년 이익 붕괴 후 회복(성장 ${g!.toFixed(0)}%)으로 0에 수렴한 착시 — 저평가 근거로 쓸 수 없습니다.` }
+    : pegSuspect ? { label: PEG_JUMP_LABEL, color: TK.amber500, desc: `PEG ${peg.toFixed(2)}는 작년 이익 붕괴 후 회복(성장 ${g!.toFixed(0)}%)으로 0에 수렴한 착시 — 저평가 근거로 쓸 수 없습니다.` }
     : peg <= 0.5 ? { label: '✅ 강력 매수 구간', color: TK.green500, desc: '성장 대비 크게 저평가(PEG ≤ 0.5).' }
     : peg <= 1.0 ? { label: '🟢 매수 적정', color: TK.green500, desc: '성장 대비 합리적 저평가(PEG ≤ 1.0 = 린치 기준선).' }
     : peg <= 1.5 ? { label: '🔵 합리적 보유', color: TK.blue400, desc: '적정~약간 고평가 구간(PEG 1.0~1.5).' }
@@ -52,6 +53,8 @@ export default function LynchAutoPanel(p: LynchAutoProps) {
     : financial ? { color: TK.sky400, t: '🏦 금융주(보험·은행) — EPS 기반 이익선 비교 부적합(이익이 투자손익·대손에 휘둘림). P/B·ROE·내재가치(EV)로 평가' }
     : fairPrice == null ? null
     : gapPct == null ? null
+    // 이익 급증 구간은 EPS 가 부풀어 이익선도 함께 높아진다 — '아래'라는 사실은 보여주되 저평가라고 말하지 않는다(고평가 쪽은 보수적이라 그대로)
+    : pegSuspect && gapPct < 0 ? { color: TK.amber500, t: `이익선 대비 ${Math.abs(gapPct)}% 아래 — 다만 ${PEG_JUMP_DESC}` }
     : gapPct <= -20 ? { color: TK.green500, t: `이익선 대비 ${Math.abs(gapPct)}% 아래 — 저평가(매수 영역)` }
     : gapPct >= 20 ? { color: TK.red500, t: `이익선 대비 +${gapPct}% 위 — 고평가(차익 영역)` }
     : { color: TK.blue400, t: `이익선 ±${Math.abs(gapPct)}% — 적정 부근` }

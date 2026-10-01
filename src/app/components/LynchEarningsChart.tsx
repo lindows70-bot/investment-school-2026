@@ -27,6 +27,7 @@ import {
 // SSOT: 자산 분류는 assetClassifier에서만 — 컴포넌트 내 인라인 파싱 금지
 import { getAssetType } from '@/lib/assetClassifier'
 import { TK, FONT_STACK } from '@/lib/theme'
+import { isPegBaseEffectPct, PEG_JUMP_DESC } from '@/lib/pegBaseEffect'   // 이익 급증(기저효과) 가드 SSOT — 추천·점수 계산과 같은 기준
 
 // ────────────────────────────────────────────────────────────
 // 타입 정의
@@ -271,8 +272,9 @@ function ChartTooltip({ active, payload, label, currency }: any) {
 // 괴리율 진단 패널
 // ────────────────────────────────────────────────────────────
 function ValuationPanel({
-  price, fair, ticker, model, growthRate, currency,
+  price, fair, ticker, model, growthRate, currency, jump,
 }: {
+  jump:       boolean   // 이익 급증(PEG<0.3 & 측정 성장률>100%) — 저평가 쪽 문구를 쓰지 않는다
   price:      number
   fair:       number
   ticker:     string
@@ -290,7 +292,11 @@ function ValuationPanel({
 
   let severity = ''
   let guide = ''
-  if (gap <= -30) {
+  const hold = jump && isUnder
+  if (hold) {
+    severity = `${gap.toFixed(1)}% — 판단 보류(이익 급증)`
+    guide = `${ticker}는 적정가치보다 ${absGap.toFixed(0)}% 낮게 나오지만, ${PEG_JUMP_DESC}. 이익이 정점인지, 다음 해에도 이어질 성장인지부터 확인하세요.`
+  } else if (gap <= -30) {
     severity = `${gap.toFixed(1)}% 극단적 저평가`
     guide = `${ticker}는 현재 린치 적정가치 대비 ${absGap.toFixed(0)}% 저평가입니다. 피터 린치는 이 구간을 "역사적 매수 황금 타이밍"으로 정의합니다. EPS 성장 모멘텀이 유지되는지 반드시 확인하세요.`
   } else if (gap <= -15) {
@@ -310,14 +316,14 @@ function ValuationPanel({
     guide = `적정가치 대비 ${absGap.toFixed(0)}% 이상 고평가 상태입니다. 실적이 기대에 미치지 못할 경우 급격한 주가 조정 위험이 있습니다.`
   }
 
-  const accentColor = isUnder ? C.under : C.over
+  const accentColor = hold ? TK.amber400 : isUnder ? C.under : C.over
   const Icon = isUnder ? (absGap > 20 ? TrendingDown : Minus) : (absGap > 20 ? TrendingUp : Minus)
 
   return (
     <div style={{
       marginTop:16, padding:'16px 20px', borderRadius:12,
-      background: isUnder ? 'rgba(16,185,129,0.07)' : 'rgba(248,113,113,0.07)',
-      border: `1px solid ${isUnder ? 'rgba(16,185,129,0.3)' : 'rgba(248,113,113,0.3)'}`,
+      background: hold ? 'rgba(251,191,36,0.07)' : isUnder ? 'rgba(16,185,129,0.07)' : 'rgba(248,113,113,0.07)',
+      border: `1px solid ${hold ? 'rgba(251,191,36,0.3)' : isUnder ? 'rgba(16,185,129,0.3)' : 'rgba(248,113,113,0.3)'}`,
       display:'flex', gap:16, alignItems:'flex-start',
     }}>
       <div style={{
@@ -329,7 +335,7 @@ function ValuationPanel({
         <div style={{ fontSize:18, fontWeight:900, color:accentColor, fontFamily:'monospace' }}>
           {gap > 0 ? '+' : ''}{gap.toFixed(1)}%
         </div>
-        <div style={{ fontSize:9, color:C.textLow, marginTop:2 }}>{isUnder ? '저평가' : '고평가'}</div>
+        <div style={{ fontSize:9, color:C.textLow, marginTop:2 }}>{hold ? '판단 보류' : isUnder ? '저평가' : '고평가'}</div>
       </div>
       <div style={{ flex:1 }}>
         <div style={{ fontSize:13, fontWeight:800, color:accentColor, marginBottom:4 }}>{severity}</div>
@@ -949,6 +955,7 @@ export default function LynchEarningsChart(props: any) {
                 price={latestPrice} fair={latestFair}
                 ticker={selectedStock?.ticker ?? ''}
                 model={perModel} growthRate={growthRate}
+                jump={isPegBaseEffectPct((latest?.ttmEps ?? 0) > 0 && rawGrowthRate > 0 ? latestPrice / latest!.ttmEps / rawGrowthRate : null, rawGrowthRate)}
                 currency={currency}
               />
             )}

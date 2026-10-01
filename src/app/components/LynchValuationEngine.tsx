@@ -19,6 +19,7 @@ import { useState, useMemo } from 'react'
 import { getAssetType } from '@/lib/assetClassifier'
 import { safeNumber, LYNCH_CATEGORY_KR } from '@/lib/lynchAnalysis'
 import { TK, FONT_STACK } from '@/lib/theme'
+import { isPegBaseEffectPct, PEG_JUMP_LABEL, PEG_JUMP_DESC } from '@/lib/pegBaseEffect'   // 이익 급증(기저효과) 가드 SSOT — 추천·점수 계산과 같은 기준
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
 interface PortfolioInvestment {
@@ -218,15 +219,18 @@ function FastGrowerPanel({ m, name }: { m: ValuationMetrics; name: string }) {
   const peg = m.peg ?? (G > 0 && pe > 0 ? parseFloat((pe / G).toFixed(2)) : null)
   // 적자기업(PER 없음): G는 EPS가 아닌 매출 성장률 → 라벨·설명을 정직하게 분기
   const isLoss = pe <= 0
+  const jump = !isLoss && isPegBaseEffectPct(peg, G)   // 이익 급증으로 PEG 가 0 에 붙은 경우 — '초저평가'라고 말하지 않는다
 
   const pegPct  = peg != null ? Math.min(100, (peg / 2) * 100) : 0
   const pegColor = peg == null ? C.textLow
+    : jump ? C.gold
     : peg <= 0.5 ? C.green
     : peg <= 1.0 ? TK.emerald400
     : peg <= 1.5 ? C.gold
     : C.red
 
   const pegLabel = peg == null ? '—'
+    : jump ? PEG_JUMP_LABEL
     : peg <= 0.5 ? '🟢 초저평가'
     : peg <= 1.0 ? '🟢 저평가'
     : peg <= 1.5 ? '🟡 적정가'
@@ -275,6 +279,8 @@ function FastGrowerPanel({ m, name }: { m: ValuationMetrics; name: string }) {
       {/* 린치 공식 설명 — 적자기업은 PEG/PER 계산 불가하므로 다르게 안내 */}
       {isLoss ? (
         <LynchAdvice text={`${name}는 아직 영업적자 단계라 PER·PEG를 계산할 수 없습니다(이익이 없으면 분모가 성립 안 됨). 위 ${G > 0 ? `${G.toFixed(0)}%는 EPS가 아닌 매출 성장률입니다. ` : ''}피터 린치라면 "성장 스토리"에 취하기 전에 ① 흑자 전환 시점 ② 현금 소진 속도(런웨이)를 먼저 확인했을 것입니다. 매출만 빠른 적자 기업은 '증명되지 않은 회생주'로 보수적으로 접근하세요.`} />
+      ) : jump ? (
+        <LynchAdvice text={`${name}의 PEG ${peg != null ? peg.toFixed(2) : '—'}는 이익성장률 ${G.toFixed(0)}%로 나눈 값입니다. ${PEG_JUMP_DESC}. 이익이 정점인지, 다음 해에도 이어질 성장인지부터 확인하세요.`} />
       ) : (
         <LynchAdvice text={`피터 린치의 핵심 공식: PEG = PER ÷ 이익성장률(G). ${name}의 이익성장률이 ${G}%일 때, 합리적 PER은 약 ${G}배 수준입니다. PEG 1.0 미만이면 저평가, 1.5 이상이면 성장 프리미엄 과부과 상태입니다.`} />
       )}

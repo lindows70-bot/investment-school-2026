@@ -30,6 +30,7 @@ import {
   BarChart, Bar, Cell as BarCell, LabelList,
 } from 'recharts'
 import { TK, FONT_STACK } from '@/lib/theme'
+import { isPegBaseEffectPct } from '@/lib/pegBaseEffect'   // 이익 급증(기저효과) 가드 SSOT — 추천·점수 계산과 같은 기준
 
 // ── 디자인 토큰 ──────────────────────────────────────────────────────────────
 const T = {
@@ -73,9 +74,11 @@ function calcCagr(s: number | null, e: number | null, yrs: number): number | nul
 }
 
 // ── PEG 등급 ─────────────────────────────────────────────────────────────────
-function pegRating(peg: number | null) {
+function pegRating(peg: number | null, jump = false) {
   if (peg == null || !isFinite(peg) || peg <= 0)
     return { label: '계산불가',          color: T.mut,     emoji: '⚪' }
+  // 이익 급증(성장률 100% 초과)으로 PEG 가 0.3 아래로 내려온 경우 — 저평가라고 말하지 않는다(추천·점수 계산과 같은 기준)
+  if (jump) return { label: '판단 보류 (이익 급증)', color: T.gld,     emoji: '⚠️' }
   if (peg < 1.0) return { label: '저평가 (강력 매수)', color: T.grn,     emoji: '🟢' }
   if (peg < 1.5) return { label: '적정 수준',          color: T.gld,     emoji: '🟡' }
   if (peg < 2.0) return { label: '약간 고평가',         color: TK.orange400, emoji: '🟠' }
@@ -445,8 +448,9 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
 
     const mkScenario = (per: number, scenLabel: string) => {
       const peg    = cagrEps && cagrEps > 0 ? +(per / cagrEps).toFixed(2) : null
-      const rating = pegRating(peg)
-      return { scenLabel, per, peg, ratingLabel: rating.label, color: rating.color, emoji: rating.emoji }
+      const jump   = isPegBaseEffectPct(peg, cagrEps)
+      const rating = pegRating(peg, jump)
+      return { scenLabel, per, peg, jump, ratingLabel: rating.label, color: rating.color, emoji: rating.emoji }
     }
 
     const fvEPS = fwdEps > 0 ? fwdEps * perMkt : 0
@@ -634,7 +638,9 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
     // ── PEG 항목 (40점) ────────────────────────────────────────────────────
     const peg = analysis.scenarios[3].peg
     if (peg != null) {
-      if      (peg < 1.0) { pts += 40; reasons.push(`PEG ${peg}로 저평가 (+40점)`) }
+      // 이익 급증 구간의 저PEG 는 만점(+40) 대신 중립(+20) — 스크리너가 같은 경우 중립 점수를 주는 것과 같은 처리(2026-10-01)
+      if      (analysis.scenarios[3].jump) { pts += 20; reasons.push(`PEG ${peg}는 이익 급증 구간이라 중립 처리 (+20점)`) }
+      else if (peg < 1.0) { pts += 40; reasons.push(`PEG ${peg}로 저평가 (+40점)`) }
       else if (peg < 1.5) { pts += 30; reasons.push(`PEG ${peg}로 적정 수준 (+30점)`) }
       else if (peg < 2.0) { pts += 15; reasons.push(`PEG ${peg}로 약간 고평가 (+15점)`) }
       else                             reasons.push(`PEG ${peg}로 고평가 (0점)`)
