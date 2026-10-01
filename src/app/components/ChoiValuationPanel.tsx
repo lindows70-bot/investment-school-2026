@@ -446,9 +446,12 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
       }
     }
 
+    // 이익 급증 판정은 **시장 PER** 기준 한 번 — 급증이면 성장률 자체를 믿기 어려우므로, 가정 PER(15·25·50) 시나리오도 '저평가'라고 말하지 않는다
+    //   (2026-10-01 실측: SK하이닉스 PER 50 시나리오가 PEG 0.43 이라 가드(0.3 미만) 밖에서 '저평가 (강력 매수)'로 남았다)
+    const surge = isPegBaseEffectPct(cagrEps && cagrEps > 0 && perMkt > 0 ? perMkt / cagrEps : null, cagrEps)
     const mkScenario = (per: number, scenLabel: string) => {
       const peg    = cagrEps && cagrEps > 0 ? +(per / cagrEps).toFixed(2) : null
-      const jump   = isPegBaseEffectPct(peg, cagrEps)
+      const jump   = surge && peg != null && peg < 1.0
       const rating = pegRating(peg, jump)
       return { scenLabel, per, peg, jump, ratingLabel: rating.label, color: rating.color, emoji: rating.emoji }
     }
@@ -703,8 +706,14 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
     //    영문 판정 키워드 (Buy, Accumulate) 로만 비교
     const isBuyVerdict =
       rawVerdict.text.includes('(Buy)') || rawVerdict.text.includes('(Accumulate)')
+    // ── 이익 급증이면 매수 계열 판정을 보류(점수는 그대로 보여준다) ─────────────
+    //   PEG 항목만 중립으로 낮춰도 상승여력(+30)·성장 가속(+30)이 같은 급증에서 나와 80점 '강력 매수'가 그대로였다(2026-10-01 실측).
+    //   모닝스타 별점이 같은 경우 저평가 방향 별점을 보류하는 것과 같은 처리 — 고평가 쪽 판정은 건드리지 않는다.
+    const surgeHold = analysis.scenarios[3].jump && isBuyVerdict && !isSignificantlyOver
+    if (surgeHold) reasons.push('이익이 한 해에 두 배 넘게 뛴 구간이라 매수 판정을 보류 — 상승여력·성장 가속 점수도 같은 급증에서 나온 값입니다')
     const verdict = (isSignificantlyOver && isBuyVerdict)
       ? { text: '보유 (Hold)', bg: '#2d1c00', color: T.gld }
+      : surgeHold ? { text: '판단 보류 (이익 급증)', bg: '#2d1c00', color: T.gld }
       : rawVerdict
 
     // ── 안내 라벨 트리거 플래그 ───────────────────────────────────────────

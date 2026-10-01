@@ -492,7 +492,15 @@ export default function ResearchPage() {
                 </div>
               )}
               {/* ⚠️ 나란히 놓인 숫자는 학생이 나눗셈을 시도한다 — 잣대가 다르면 그 사실을 화면이 말해야 한다 */}
-              {stockInfo?.peg != null && stockInfo?.epsGrowth != null && (
+              {/* 2026-10-01: 국내 종목은 PEG = PER ÷ 바로 위 성장률이다(SK하이닉스 8.15 ÷ 116.9 = 0.07) — '나눈 값이 아닙니다'가 사실이 아니었다.
+                  시장으로 가르지 않고 **값으로** 확인한다: PER ÷ 성장률이 PEG 와 5% 안이면 '나눈 값'이라고 말한다. */}
+              {stockInfo?.peg != null && stockInfo?.epsGrowth != null && stockInfo.per != null && stockInfo.epsGrowth > 0
+                && Math.abs(stockInfo.per / stockInfo.epsGrowth - stockInfo.peg) <= Math.max(0.01, stockInfo.peg * 0.05) ? (
+                <div style={{ marginTop: 8, fontSize: FS.micro, color: TK.sub4, lineHeight: 1.6 }}>
+                  ※ 이 종목의 <b>PEG는 PER을 위 성장률로 나눈 값</b>입니다({stockInfo.per.toFixed(2)} ÷ {stockInfo.epsGrowth.toFixed(1)} = {stockInfo.peg.toFixed(2)}).
+                  성장률이 한 해에 크게 뛰면 PEG도 그만큼 낮아지니, 성장률이 이어질 수 있는 숫자인지 함께 보세요.
+                </div>
+              ) : stockInfo?.peg != null && stockInfo?.epsGrowth != null && (
                 <div style={{ marginTop: 8, fontSize: FS.micro, color: TK.sub4, lineHeight: 1.6 }}>
                   ※ <b>PEG는 위 성장률로 나눈 값이 아닙니다</b> — PEG는 <b>앞으로 몇 년</b>의 성장 전망을,
                   위 성장률은 <b>이미 지나간 기간</b>을 재는 숫자예요. 두 값이 어긋나 보이면 회사가 그만큼 <b>변하고 있다</b>는 뜻입니다.
