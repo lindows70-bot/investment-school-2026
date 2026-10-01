@@ -443,7 +443,7 @@ const KR_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'207940',lynch:'fast_grower',name:'삼성바이오로직스' },
   { ticker:'005380',lynch:'cyclical',   name:'현대차' },
   { ticker:'000270',lynch:'cyclical',   name:'기아' },
-  { ticker:'035720',lynch:'fast_grower',name:'카카오' },
+  { ticker:'035720',lynch:'stalwart',   name:'카카오' },   // 2026-10-01 fast_grower 에서 옮김 — lynch-classify 고정표와 같은 분류로
   { ticker:'068270',lynch:'fast_grower',name:'셀트리온' },
   { ticker:'033780',lynch:'slow_grower',name:'KT&G' },
   { ticker:'005490',lynch:'cyclical',   name:'POSCO홀딩스' },
