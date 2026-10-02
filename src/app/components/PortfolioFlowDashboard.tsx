@@ -65,7 +65,7 @@ function Sparkline({ data }: { data: { date: string; rate: number }[] }) {
 
 function Row({ e, near }: { e: FlowEntry; near?: boolean }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: TK.bg3, borderRadius: 8, fontSize: 12 }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, padding: '7px 10px', background: TK.bg3, borderRadius: 8, fontSize: 12 }}>
       <span style={{ color: TK.slate200, fontWeight: 700, minWidth: 70 }}>{dnm(e)}</span>
       <span style={{ color: TK.sub, fontSize: 10, fontFamily: 'monospace' }}>{e.weight}%</span>
       {near
