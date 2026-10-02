@@ -1801,7 +1801,8 @@ export default function DashboardPage() {
 
         return (
           <div
-            style={{ position: 'relative', display: 'flex', gap: 4,
+            // 좁은 폭에선 대분류 버튼을 여러 줄로 접는다 — 한 줄(약 1,046px)로 두면 본문 전체가 옆으로 밀린다(375 폭에서 769px, 모든 탭 · 2026-10-03 실측)
+            style={{ position: 'relative', display: 'flex', flexWrap: 'wrap', gap: 4, maxWidth: '100%',
               background: TK.bg0, padding: '4px 6px',
               borderRadius: 12, border: `1px solid ${TK.border}`,
               alignSelf: 'flex-start', zIndex: 50,
@@ -1856,8 +1857,8 @@ export default function DashboardPage() {
                     )}
                   </button>
 
-                  {/* ── 드롭다운 패널 ── */}
-                  <div style={{
+                  {/* ── 드롭다운 패널 ── (닫힌 패널도 자리를 차지해 오른쪽 끝 묶음에서 본문을 밀기 때문에, 좁은 폭에선 닫히면 아예 뺀다 — globals.css .dash-dd) */}
+                  <div className="dash-dd" data-open={isOpen ? 'true' : 'false'} style={{
                     position: 'absolute', top: 'calc(100% + 6px)', left: 0,
                     minWidth: 220,
                     background: TK.bg3,
