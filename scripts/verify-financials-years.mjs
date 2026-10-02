@@ -1,3 +1,12 @@
+    const k = c.split ?? 1
+    const bad = Object.entries(c.dart).filter(([y, v]) => !(fin[y]?.eps !== 0 && fin[y].eps / (v / k) > 0 && Math.abs(fin[y].eps / (v / k) - 1) <= c.tol)).map(([y, v]) => `${y}: ${fin[y]?.eps} vs DART ${v}${k !== 1 ? ` ÷ ${k}` : ''}`)
+    check(`${c.name} — 빈 해를 채운 EPS 가 네이버 잣대(${Object.keys(c.dart).map(y => `${y} ${fin[y]?.eps}`).join(' · ')} · DART 원값${k !== 1 ? ` ÷ ${k}` : ''} 의 ±${c.tol * 100}%)`, bad.length === 0, bad.join(' / '))
+    // 네이버가 주는 해는 네이버 값 그대로여야 한다(DART 로 덮지 않는다)
+    const nv = await fetch(`https://m.stock.naver.com/api/stock/${c.t}/finance/annual`, { headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://m.stock.naver.com/' } }).then(r => r.json()).catch(() => null)
+    const epsRow = nv?.financeInfo?.rowList?.find(r => r.title === 'EPS')
+    const nvYears = (nv?.financeInfo?.trTitleList ?? []).filter(t => t.isConsensus === 'N').map(t => t.key)
+    const mism = nvYears.map(key => [key.slice(0, 4), parseFloat(String(epsRow?.columns?.[key]?.value ?? '').replace(/,/g, ''))]).filter(([y, v]) => Number.isFinite(v) && v !== 0 && fin[y] && fin[y].eps !== v).map(([y, v]) => `${y}: ${fin[y].eps} ≠ 네이버 ${v}`)
+    check(`${c.name} — 네이버가 주는 해(${nvYears.map(k2 => k2.slice(0, 4)).join('·')})는 네이버 EPS 그대로`, nvYears.length > 0 && mism.length === 0, mism.join(' / '))
 // 재무 API(/api/financials) 국내 확정 연도 검증 — 5개 확정 연도의 EPS·매출이 비어(0) 있지 않은지 · DART 사업보고서 값과 같은지
 //   2026-10-02 신설 — DART 수집이 ①올해(보고서가 없는 해)를 기준으로 불러 2022~2024 만 닿았고 ②손익을 포괄손익계산서 한 장(CIS)으로 내는 회사는 통째로 버려,
 //   SK하이닉스 2021·2022 가 0 으로 나갔다. 0 은 '자료 없음'인데 이익 차트가 '적자 구간'으로 그렸다. 값이 0 이라 빌드·타입체크는 전부 통과한다.
@@ -5,11 +14,14 @@ const B = 'https://investment-school-2026.vercel.app'
 let fail = 0
 const check = (label, cond, why = '') => { if (cond) console.log(`✅ ${label}`); else { fail++; console.log(`❌ ${label}${why ? ` — ${why}` : ''}`) } }
 
-// 기대값 = DART 사업보고서 연결재무제표의 기본주당이익(원) — 2026-10-02 fnlttSinglAcntAll 실측(2023년 보고서의 전기·전전기 열). 확정된 과거라 바뀌지 않는다.
+// 과거 EPS 는 네이버 잣대(지금 주식 수 기준)로 나가야 한다 — DART 원값(보고서를 낸 시점의 EPS)은 액면분할 뒤 몇 배 다르다.
+//   dart = DART 사업보고서 기본주당이익(2026-10-02 fnlttSinglAcntAll 실측) · tol = 네이버 잣대로 옮긴 값이 DART 원값과 이 비율 안이어야 한다(정의 차이)
+//   split = 액면분할 종목: 옮긴 값이 DART 원값의 1/split 근처여야 한다(LS ELECTRIC — 네이버 1,911 vs DART 9,647)
 const CASES = [
-  { t: '000660', name: 'SK하이닉스(손익이 CIS 한 장)', eps: { 2021: 13989, 2022: 3242, 2023: -13244 } },
-  { t: '005930', name: '삼성전자(IS·CIS 둘 다)', eps: { 2021: 5777, 2022: 8057, 2023: 2131 } },
-  { t: '329180', name: 'HD현대중공업(CIS · 과거 적자)', eps: { 2021: -10713, 2022: -3966, 2023: 278 } },
+  { t: '000660', name: 'SK하이닉스(손익이 CIS 한 장)', dart: { 2021: 13989, 2022: 3242 }, tol: 0.1 },
+  { t: '005930', name: '삼성전자(IS·CIS 둘 다)', dart: { 2021: 5777, 2022: 8057 }, tol: 0.05 },
+  { t: '329180', name: 'HD현대중공업(CIS · 과거 적자)', dart: { 2021: -10713, 2022: -3966 }, tol: 0.05 },
+  { t: '010120', name: 'LS ELECTRIC(액면분할 — DART 원값을 그대로 쓰면 5배)', dart: { 2021: 2890, 2022: 3077 }, tol: 0.1, split: 5 },
 ]
 const cy = new Date(Date.now() + 9 * 3600_000).getUTCFullYear()
 // 영업이익(억원) — 계정 부분일치로 '기타이익'을 영업이익으로 잡던 결함 감시. 기대값 = DART 2025년 사업보고서 영업이익(dart_OperatingIncomeLoss) ÷ 1억

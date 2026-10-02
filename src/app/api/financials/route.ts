@@ -389,6 +389,15 @@ async function fetchDARTFinancials(
   if (recent.size === 0) { base = cy - 2; recent = await fetchDARTYear(corpCode, base) }
   const older = recent.size > 0 ? await fetchDARTYear(corpCode, base - 2) : new Map<number, { rev: number; oi: number; eps: number }>()
 
+  // 두 보고서의 주당이익 잣대를 맞춘다 — 보고서는 '낸 시점의 주식 수'로 EPS 를 적으므로, 그 사이 액면분할·무상증자가 있으면 옛 보고서 값이 몇 배 크다.
+  //   겹치는 해(base-2)는 두 보고서에 다 있다 → 그 비율로 옛 보고서의 EPS 를 최근 보고서 기준으로 옮긴다. 겹치는 해가 없거나 부호가 다르면 옛 EPS 는 버린다(틀린 값보다 빈칸).
+  const rOv = recent.get(base - 2)?.eps ?? 0, oOv = older.get(base - 2)?.eps ?? 0
+  const chain = rOv !== 0 && oOv !== 0 && rOv / oOv > 0 ? rOv / oOv : null
+  for (const [yr, v] of Array.from(older)) {
+    if (recent.has(yr)) continue
+    older.set(yr, { ...v, eps: chain == null ? 0 : Math.abs(chain - 1) < 0.02 ? v.eps : v.eps * chain })
+  }
+
   for (const [yr, v] of [...Array.from(older), ...Array.from(recent)]) {   // recent 가 older 를 덮어씀
     const prev = merged.get(yr)
     if (!prev) {
@@ -782,6 +791,23 @@ async function fetchKR(code: string) {
   const yearKeys = makeYearKeys(cy)
   const fin: typeof result.financials = {}
 
+  // ── EPS 잣대 맞추기: 네이버가 먼저, DART 는 빈 해만 ──────────────────────────
+  //   네이버 EPS 는 지금 주식 수 기준(최근 EPS·주가와 같은 잣대)이고, DART 는 보고서를 낸 시점의 값이다.
+  //   ⚠️ 2026-10-02 실측: DART 를 먼저 쓰자 LS ELECTRIC 2025 EPS 가 9,647(네이버 1,911 — 액면분할 전 값)로 나갔다. 삼성화재·두산은 정의 차이로 16~20% 달랐다.
+  //   → 두 원천이 겹치는 해의 비율(네이버 ÷ DART)이 일정하면(흩어짐 15% 안) 그 비율로 DART 의 빈 해 값을 옮겨 넣고, 일정하지 않으면 넣지 않는다(빈칸 = 자료 없음).
+  //   네이버가 한 해도 없으면 DART 만으로 한 잣대이므로 그대로 쓴다.
+  const kRatios: number[] = []
+  for (const [yr, nv] of Array.from(actByYear)) {
+    const d = dartData.get(yr)?.eps ?? 0
+    if (nv.eps !== 0 && d !== 0 && nv.eps / d > 0) kRatios.push(nv.eps / d)
+  }
+  kRatios.sort((a, b) => a - b)
+  const kMed = kRatios.length ? kRatios[Math.floor((kRatios.length - 1) / 2)] : null
+  const kStable = kMed != null && (kRatios[kRatios.length - 1] - kRatios[0]) / kMed <= 0.15
+  const naverHasEps = Array.from(actByYear.values()).some(v => v.eps !== 0)
+  const dartEpsOnNaverBasis = (d: number): number =>
+    !naverHasEps ? d : (kStable && kMed != null ? Math.round(d * kMed) : 0)
+
   for (const key of yearKeys) {
     const isEst = key.endsWith('E')
     const yr    = parseInt(key, 10)
@@ -790,10 +816,10 @@ async function fetchKR(code: string) {
       const dart  = dartData.get(yr)
       const naver = actByYear.get(yr)
 
-      // 실적 EPS: DART 우선 → Naver 폴백
-      const eps = (dart?.eps && dart.eps !== 0)
-        ? dart.eps
-        : (naver?.eps ?? 0)
+      // 실적 EPS: 네이버 우선 → 빈 해만 DART(네이버 잣대로 옮겨서)
+      const eps = (naver?.eps && naver.eps !== 0)
+        ? naver.eps
+        : (dart?.eps && dart.eps !== 0 ? dartEpsOnNaverBasis(dart.eps) : 0)
 
       // 영업이익/매출: DART 우선 → Naver 폴백
       const oi  = (dart?.oi  && dart.oi  !== 0) ? dart.oi  : (naver?.oi  ?? 0)
