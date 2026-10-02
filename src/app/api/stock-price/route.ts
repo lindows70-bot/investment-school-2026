@@ -34,6 +34,8 @@ export interface Fundamentals {
   eps:            number | null
   /** 국내 EPS 의 기준 — 'ttm' 최근 4분기(네이버 화면과 같은 값) · 'fy' 직전 결산 연도(integration 을 못 받았을 때). 미국은 없음(trailing) */
   epsBasis?:      'ttm' | 'fy' | null
+  /** 국내 — 확정 결산 연도 EPS 의 최고치와 기간(경기순환주 정점 표시의 비교 기준). 미국은 없음 */
+  fyEps?:         { max: number; from: string; to: string; n: number } | null
   pbr:            number | null
   forwardEps:     number | null
   payoutRatio:    number | null   // 배당성향 (0.25 = 25%)

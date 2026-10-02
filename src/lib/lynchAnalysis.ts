@@ -1,5 +1,5 @@
 import { TK } from '@/lib/theme'
-import { isPegBaseEffectPct } from '@/lib/pegBaseEffect'   // 이익 급증 가드 SSOT(순수 함수)
+import { isPegBaseEffectPct, PEG_JUMP_DESC } from '@/lib/pegBaseEffect'   // 이익 급증 가드 SSOT(순수 함수)
 /**
  * lynchAnalysis.ts — 피터 린치 분석 SSOT (Single Source of Truth)
  *
@@ -273,6 +273,8 @@ export interface LynchFairValue {
   multiple:  number          // 실제로 곱한 배수
   gapPct:    number | null   // (지금 주가 − 적정가) ÷ 적정가 × 100, 소수 1자리. 음수 = 적정가보다 아래
   jump:      boolean         // 이익 급증(PEG<0.3 & 성장률>100%) — 배수를 상한이 아니라 기본값으로 낮췄고, '저평가'로 읽지 않는다
+  peak:      boolean         // 경기순환주 정점 의심 — 최근 EPS 가 확정 결산 연도 EPS 의 최고치보다 크다. '저평가'로 읽지 않는다(가격은 그대로)
+  holdNote:  string | null   // jump·peak 일 때 화면에 그대로 쓰는 이유 문장(둘 다면 jump 가 먼저) — 주가가 적정가보다 낮을 때만 쓴다
   basis:     string          // "EPS 224,313 × 12배" — 화면에 그대로 병기
 }
 
@@ -288,6 +290,8 @@ export interface LynchFairValue {
 export function lynchFairValue(i: {
   eps: number | null | undefined; pe: number | string | null | undefined; peg: number | string | null | undefined
   growthPct?: number | null; category: string | null | undefined; market: string | undefined; price: number | null | undefined
+  /** 확정 결산 연도 EPS 의 최고치와 기간(종목 정보 fyEps) — 경기순환주 정점 표시. 없으면 판정하지 않는다 */
+  fyEps?: { max: number; from: string; to: string; n: number } | null
 }): LynchFairValue {
   const cat    = (i.category as LynchCategoryKey) ?? 'na'
   const pe     = safeNumber(i.pe), peg = safeNumber(i.peg)
@@ -296,12 +300,19 @@ export function lynchFairValue(i: {
   const jump   = isPegBaseEffectPct(peg > 0 ? peg : null, growth)
   const multiple = jump ? (LYNCH_MULTIPLE_DEFAULT[cat] ?? (i.market === 'KR' ? 12 : 15)) : calcFairMultiple(pe, peg, cat, i.market)
   const rawEps = safeNumber(i.eps)
-  if (rawEps <= 0) return { fairPrice: null, eps: 0, multiple, gapPct: null, jump, basis: '적자 — 적정가 없음' }
+  if (rawEps <= 0) return { fairPrice: null, eps: 0, multiple, gapPct: null, jump, peak: false, holdNote: null, basis: '적자 — 적정가 없음' }
+  // 정점 의심 — 경기순환주만. 여러 해 평균으로 가격을 다시 재는 안은 실측에서 기각했다(있는 해가 바닥→상승 구간이라 +400~900% 고평가가 된다, 2026-10-02).
+  //   그래서 가격은 건드리지 않고 '지금 이익이 가진 기록 중 최고'라는 사실만 말한다. 비교한 연도 수와 기간을 문장에 밝힌다(3~5년뿐이다).
+  const fy = i.fyEps && Number.isFinite(i.fyEps.max) && i.fyEps.n >= 3 ? i.fyEps : null
+  const peak = cat === 'cyclical' && fy != null && rawEps > fy.max
+  const holdNote = jump ? PEG_JUMP_DESC
+    : peak ? `최근 4분기 이익이 최근 ${fy!.n}개 결산 연도(${fy!.from}~${fy!.to}) 중 어느 해보다 큽니다 — 경기순환주는 이익이 가장 좋을 때 가장 싸 보여서 저평가 근거로 쓸 수 없습니다(린치의 경기순환 함정)`
+    : null
   const eps = price > 0 ? sanitizeEps(rawEps, price, cat) : rawEps
   const fairPrice = eps * multiple
   const gapPct = price > 0 && fairPrice > 0 ? Math.round((price / fairPrice - 1) * 1000) / 10 : null
   const epsTxt = eps >= 1000 ? Math.round(eps).toLocaleString('ko-KR') : eps.toFixed(2)
-  return { fairPrice, eps, multiple, gapPct, jump, basis: `EPS ${epsTxt} × ${multiple}배` }
+  return { fairPrice, eps, multiple, gapPct, jump, peak, holdNote, basis: `EPS ${epsTxt} × ${multiple}배` }
 }
 
 // ────────────────────────────────────────────────────────────────────────────

@@ -44,6 +44,16 @@ check('적자·EPS 없음 — 적정가·괴리 null(예상 EPS 로 대신 만�
 const s = L.lynchFairValue({ eps: 1000, pe: 0, peg: 0, category: 'stalwart', market: 'US', price: 1000 })
 check(`EPS 이상값(주가 ÷ EPS = 1배)은 sanitizeEps 로 보정(${s.eps} = ${L.sanitizeEps(1000, 1000, 'stalwart')})`, s.eps === L.sanitizeEps(1000, 1000, 'stalwart') && s.eps < 1000)
 
+// ── 경기순환주 정점 표시(2026-10-02) — 가격은 그대로 두고 '최근 이익이 확정 연도 최고치를 넘었다'는 사실만 ──
+const FY = { max: 6564, from: '2023', to: '2025', n: 3 }
+const pk = L.lynchFairValue({ eps: 22292, pe: 12.38, peg: 0.38, category: 'cyclical', market: 'KR', price: 276000, fyEps: FY })
+const pkNo = L.lynchFairValue({ eps: 22292, pe: 12.38, peg: 0.38, category: 'cyclical', market: 'KR', price: 276000 })
+check(`경기순환주 + 최근 EPS(22,292) > 확정 연도 최고(6,564) → peak · 이유 문장에 연도 수와 기간 · 적정가는 그대로(${pk.fairPrice} = ${pkNo.fairPrice})`, pk.peak === true && pk.jump === false && pk.holdNote.includes('3개 결산 연도(2023~2025)') && pk.fairPrice === pkNo.fairPrice && pkNo.peak === false && pkNo.holdNote === null)
+check('최근 EPS 가 과거 최고보다 낮으면 peak 아님(현대차: 30,697 < 46,042)', L.lynchFairValue({ eps: 30697, pe: 11.3, peg: 1.77, category: 'cyclical', market: 'KR', price: 347000, fyEps: { max: 46042, from: '2023', to: '2025', n: 3 } }).peak === false)
+check('경기순환주가 아니면 peak 아님(성장주의 최고 이익은 정상이다) · 비교 연도가 3개 미만이면 판정하지 않음', L.lynchFairValue({ eps: 22292, pe: 12, peg: 0.5, category: 'fast_grower', market: 'KR', price: 276000, fyEps: FY }).peak === false && L.lynchFairValue({ eps: 22292, pe: 12, peg: 0.5, category: 'cyclical', market: 'KR', price: 276000, fyEps: { ...FY, n: 2 } }).peak === false)
+const both = L.lynchFairValue({ eps: 224313, pe: 8.15, peg: 0.07, category: 'cyclical', market: 'KR', price: 1828000, fyEps: { max: 58955, from: '2023', to: '2025', n: 3 } })
+check('이익 급증과 정점이 겹치면 이유 문장은 급증 쪽(먼저 걸리는 가드)', both.jump === true && both.peak === true && !both.holdNote.includes('결산 연도'))
+
 // ── 화면이 SSOT 를 부르는가(자기 배수표를 다시 만들지 않았는가) ──
 const src = f => readFileSync(`${ROOT}/src/${f}`, 'utf8')
 const auto = src('app/components/LynchAutoPanel.tsx'), mtd = src('app/components/macro/MacroTerminalDashboard.tsx'), lec = src('app/components/LynchEarningsChart.tsx')
@@ -64,6 +74,8 @@ try {
     check(`프로덕션 ${t} — ${v.basis} = ${v.fairPrice != null ? Math.round(v.fairPrice).toLocaleString('ko-KR') : null} · 지금 ${sp?.currentPrice} · 괴리 ${v.gapPct}%`,
       v.fairPrice != null && v.fairPrice > 0 && v.gapPct != null && v.multiple >= 8 && v.multiple <= L.LYNCH_MULTIPLE_CAP[cat] && Math.abs(v.fairPrice - v.eps * v.multiple) < 1e-6)
   }
+  const fy = (await fetch(`${B}/api/stock-info?ticker=005930&market=KR`, { signal: AbortSignal.timeout(40_000) }).then(r => r.json()))?.fundamentals?.fyEps
+  check(`프로덕션 종목 정보에 확정 연도 EPS 최고치가 실림(삼성전자 ${fy ? `${fy.max} · ${fy.from}~${fy.to} · ${fy.n}년` : fy})`, !!fy && fy.max > 0 && fy.n >= 3 && fy.from < fy.to)
 } catch (err) { fail++; console.log(`❌ 프로덕션 호출 실패 — ${err.message}`) }
 
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (린치 적정가 SSOT)')

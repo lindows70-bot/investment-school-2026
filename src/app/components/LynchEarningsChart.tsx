@@ -273,8 +273,10 @@ function ChartTooltip({ active, payload, label, currency }: any) {
 // 괴리율 진단 패널
 // ────────────────────────────────────────────────────────────
 function ValuationPanel({
-  price, fair, ticker, currency, jump, basis,
+  price, fair, ticker, currency, jump, basis, holdNote, holdTag,
 }: {
+  holdNote:   string    // 판단 보류 이유(적정가 SSOT 가 준 문장)
+  holdTag:    string    // '이익 급증' | '이익 정점 의심'
   basis:      string    // 적정가 근거("EPS … × N배") — SSOT 가 준 문장 그대로
   jump:       boolean   // 이익 급증(PEG<0.3 & 측정 성장률>100%) — 저평가 쪽 문구를 쓰지 않는다
   price:      number
@@ -292,8 +294,8 @@ function ValuationPanel({
   let guide = ''
   const hold = jump && isUnder
   if (hold) {
-    severity = `${gap.toFixed(1)}% — 판단 보류(이익 급증)`
-    guide = `${ticker}는 적정가치보다 ${absGap.toFixed(0)}% 낮게 나오지만, ${PEG_JUMP_DESC}. 이익이 정점인지, 다음 해에도 이어질 성장인지부터 확인하세요.`
+    severity = `${gap.toFixed(1)}% — 판단 보류(${holdTag})`
+    guide = `${ticker}는 적정가치보다 ${absGap.toFixed(0)}% 낮게 나오지만, ${holdNote}. 이익이 정점인지, 다음 해에도 이어질 성장인지부터 확인하세요.`
   } else if (gap <= -30) {
     severity = `${gap.toFixed(1)}% 극단적 저평가`
     guide = `${ticker}는 현재 린치 적정가치 대비 ${absGap.toFixed(0)}% 저평가입니다. 피터 린치는 이 구간을 "역사적 매수 황금 타이밍"으로 정의합니다. EPS 성장 모멘텀이 유지되는지 반드시 확인하세요.`
@@ -386,7 +388,7 @@ export default function LynchEarningsChart(props: any) {
   const [rawGrowthRate,     setRawGrowthRate]     = useState(15)  // 캡핑 전 원본 성장률
   const [avg5yPer,          setAvg5yPer]          = useState(20)
   const [currentPrice,      setCurrentPrice]      = useState(0)
-  const [siPePeg,           setSiPePeg]           = useState<{ pe: number; peg: number; growthPct: number | null }>({ pe: 0, peg: 0, growthPct: null })   // 종목 정보 PER·PEG·성장률(%) — 적정가 SSOT 입력
+  const [siPePeg,           setSiPePeg]           = useState<{ pe: number; peg: number; growthPct: number | null; fyEps: { max: number; from: string; to: string; n: number } | null }>({ pe: 0, peg: 0, growthPct: null, fyEps: null })   // 종목 정보 PER·PEG·성장률(%) — 적정가 SSOT 입력
   const [currentEps,        setCurrentEps]        = useState(0)   // 종목 정보의 최근(trailing) EPS — 진단 패널의 '지금' 기준
   const [noEpsReason,       setNoEpsReason]       = useState<string | null>(null)
   const [missingYears,      setMissingYears]      = useState<string[]>([])   // EPS 자료가 없는 확정 연도(재무 API 가 0 으로 보낸 해) — 적자가 아니다
@@ -457,7 +459,8 @@ export default function LynchEarningsChart(props: any) {
       const siPe  = Number(infoData?.pe  ?? infoData?.fundamentals?.pe  ?? 0)
       const siPeg = Number(infoData?.peg ?? infoData?.fundamentals?.peg ?? 0)
       const egRaw = infoData?.fundamentals?.earningsGrowth   // 소수(1.17 = +117%) — 린치 자동 분석·매크로 터미널과 같은 값으로 급증을 판정
-      setSiPePeg({ pe: Number.isFinite(siPe) ? siPe : 0, peg: Number.isFinite(siPeg) ? siPeg : 0, growthPct: typeof egRaw === 'number' && Number.isFinite(egRaw) ? egRaw * 100 : null })
+      setSiPePeg({ pe: Number.isFinite(siPe) ? siPe : 0, peg: Number.isFinite(siPeg) ? siPeg : 0, growthPct: typeof egRaw === 'number' && Number.isFinite(egRaw) ? egRaw * 100 : null,
+        fyEps: infoData?.fundamentals?.fyEps && typeof infoData.fundamentals.fyEps.max === 'number' ? infoData.fundamentals.fyEps : null })
       let g = 15
       if (siPe > 0 && siPeg > 0) {
         g = Math.round(siPe / siPeg)
@@ -592,7 +595,7 @@ export default function LynchEarningsChart(props: any) {
   const latestEps    = nowEpsLive ? currentEps : (latest?.ttmEps ?? 0)
   // 판정은 SSOT(분류별 배수) — 위 세 모델 버튼은 '이 가정이면 선이 어떻게 그려지나'를 보는 비교 도구라 판정에 쓰지 않는다
   //   (2026-10-01: 성장률 모델이 SK하이닉스 적정가를 ₩11,215,650 으로 내고 다른 화면은 ₩2,691,756 이었다)
-  const ssot         = lynchFairValue({ eps: latestEps, pe: siPePeg.pe, peg: siPePeg.peg, growthPct: siPePeg.growthPct, category: selectedStock?.lynch_category, market: selectedStock?.market, price: latestPrice })
+  const ssot         = lynchFairValue({ eps: latestEps, pe: siPePeg.pe, peg: siPePeg.peg, growthPct: siPePeg.growthPct, fyEps: siPePeg.fyEps, category: selectedStock?.lynch_category, market: selectedStock?.market, price: latestPrice })
   const latestFair   = ssot.fairPrice ?? 0
   const gap         = latestFair > 0 && latestPrice > 0
     ? ((latestPrice - latestFair) / latestFair) * 100
@@ -983,7 +986,7 @@ export default function LynchEarningsChart(props: any) {
               <ValuationPanel
                 price={latestPrice} fair={latestFair}
                 ticker={selectedStock?.ticker ?? ''}
-                jump={ssot.jump} basis={ssot.basis}
+                jump={ssot.jump || ssot.peak} holdNote={ssot.holdNote ?? PEG_JUMP_DESC} holdTag={ssot.jump ? '이익 급증' : '이익 정점 의심'} basis={ssot.basis}
                 currency={currency}
               />
             )}

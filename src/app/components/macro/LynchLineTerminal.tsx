@@ -35,7 +35,8 @@ export interface LynchStockData {
   name:          string
   category?:     string
   multiple?:     number
-  pegJump?:      boolean   // 이익 급증(PEG<0.3 & 성장>100%) — 괴리율을 '저평가'로 읽지 않는다
+  pegJump?:      boolean   // 이익 급증·정점 의심 — 괴리율을 '저평가'로 읽지 않는다
+  holdNote?:     string    // 그 이유(적정가 SSOT 가 준 문장)
   // EPS 모드 정보 (API에서 전달)
   epsMode?:      string   // 'actual'|'forward'|'revenue'|'loss'
   badgeText?:    string
@@ -193,6 +194,7 @@ export default function LynchLineTerminal({
       isLiveOverride:  trueLivePrice > 0,
       isLossCompany,
       pegJump:        stock.pegJump === true && isUnder,
+      holdNote:       stock.holdNote ?? '이익 급증 구간 — 적정가가 부풀어 저평가 근거로 쓸 수 없음',
       // EPS 모드 정보 pass-through (stock에서 직접 참조)
       epsMode:       stock.epsMode,
       badgeText:     stock.badgeText,
@@ -309,7 +311,7 @@ export default function LynchLineTerminal({
           ) : ctx.pegJump ? (
             <div>
               <div className="text-xl font-mono font-bold text-amber-400">{ctx.gapDisp}%{' '}<span className="text-sm">판단 보류</span></div>
-              <div className="text-[10px] text-zinc-500 mt-0.5 leading-tight">이익 급증 구간 — 적정가가 부풀어 저평가 근거로 쓸 수 없음</div>
+              <div className="text-[10px] text-zinc-500 mt-0.5 leading-tight">{ctx.holdNote}</div>
             </div>
           ) : (
             <div className={`text-xl font-mono font-bold ${ctx.isUnder ? 'text-emerald-400' : 'text-rose-400'}`}>

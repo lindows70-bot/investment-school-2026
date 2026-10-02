@@ -54,6 +54,7 @@ interface StockInfo {
   per?: number | null
   pbr?: number | null
   eps?: number | null
+  fyEps?: { max: number; from: string; to: string; n: number } | null
   epsGrowth?: number | null
   forwardEps?: number | null
   peg?: number | null
@@ -175,6 +176,7 @@ export default function ResearchPage() {
             per:           toNum(f.pe),
             pbr:           toNum(f.pbr),
             eps:           toNum(f.eps),
+            fyEps:         f.fyEps && typeof f.fyEps.max === 'number' ? f.fyEps : null,
             // earningsGrowth: 소수(0.18) → % 변환. KR annual은 이미 % 단위일 수도 있으므로 방어
             epsGrowth:     toNum(f.earningsGrowth) != null
               ? (Math.abs(f.earningsGrowth) < 20   // 소수 형태 (0.18 = 18%)
@@ -651,6 +653,7 @@ export default function ResearchPage() {
           per={stockInfo.per} peg={stockInfo.peg} eps={stockInfo.eps} epsGrowth={stockInfo.epsGrowth}
           currentPrice={priceData?.currentPrice ?? null} currency={stockInfo.currency}
           lynchCategory={stockInfo.lynchCategory} lynchLabel={stockInfo.lynchLabel}
+          fyEps={stockInfo.fyEps}
         />
         <JarvisInsight ticker={stockInfo.ticker} name={stockInfo.name} market={stockInfo.market}
           facts={{ per: stockInfo.per, peg: stockInfo.peg, eps: stockInfo.eps, epsGrowth: stockInfo.epsGrowth,

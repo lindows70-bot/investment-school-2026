@@ -12,6 +12,7 @@ export interface LynchAutoProps {
   per?: number | null; peg?: number | null; eps?: number | null
   epsGrowth?: number | null; currentPrice?: number | null; currency?: string
   lynchCategory?: string | null; lynchLabel?: string | null
+  fyEps?: { max: number; from: string; to: string; n: number } | null   // 확정 결산 연도 EPS 최고치(종목 정보) — 경기순환주 정점 표시
 }
 
 export default function LynchAutoPanel(p: LynchAutoProps) {
@@ -43,7 +44,7 @@ export default function LynchAutoPanel(p: LynchAutoProps) {
   //   적정가는 SSOT(lynchAnalysis.lynchFairValue) — 이 패널만의 배수표(순환주 12·우량주 16…)를 쓰던 시절 매크로 터미널과 값이 달랐다(2026-10-01)
   const eps = p.eps ?? null
   const price = p.currentPrice ?? null
-  const fair = lynchFairValue({ eps, pe: p.per, peg, growthPct: g, category: cat, market: p.market, price })
+  const fair = lynchFairValue({ eps, pe: p.per, peg, growthPct: g, category: cat, market: p.market, price, fyEps: p.fyEps })
   const fairPrice = fair.fairPrice
   const gapPct = fair.gapPct
   const lineView = holding ? { color: TK.violet400, t: '🏢 지주사 — EPS 기반 이익선 비교 부적합(자회사 지분법이익이 EPS를 왜곡). NAV·SOTP로 평가' }
@@ -52,6 +53,7 @@ export default function LynchAutoPanel(p: LynchAutoProps) {
     : gapPct == null ? null
     // 이익 급증 구간은 EPS 가 부풀어 이익선도 함께 높아진다 — '아래'라는 사실은 보여주되 저평가라고 말하지 않는다(고평가 쪽은 보수적이라 그대로)
     : pegSuspect && gapPct < 0 ? { color: TK.amber500, t: `이익선 대비 ${Math.abs(gapPct)}% 아래 — 다만 ${PEG_JUMP_DESC}` }
+    : fair.peak && gapPct < 0 ? { color: TK.amber500, t: `이익선 대비 ${Math.abs(gapPct)}% 아래 — 다만 ${fair.holdNote}` }
     : gapPct <= -20 ? { color: TK.green500, t: `이익선 대비 ${Math.abs(gapPct)}% 아래 — 저평가(매수 영역)` }
     : gapPct >= 20 ? { color: TK.red500, t: `이익선 대비 +${gapPct}% 위 — 고평가(차익 영역)` }
     : { color: TK.blue400, t: `이익선 ±${Math.abs(gapPct)}% — 적정 부근` }

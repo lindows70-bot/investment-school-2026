@@ -50,6 +50,7 @@ interface DividendEntry {
   earningsGrowth?:  number | null  // %(대시보드가 소수를 % 로 바꿔 넘긴다 — 55 = +55%)
   peg?:            number | null
   eps?:            number | null   // 최근(trailing) EPS — 종목 정보 값 그대로
+  fyEps?:          { max: number; from: string; to: string; n: number } | null
 }
 
 interface Props {
@@ -210,13 +211,14 @@ export default function MacroTerminalDashboard({
       //   EPS = 종목 정보의 최근 EPS(없으면 지금 주가 ÷ PER). 흑자일 때만 넘긴다 — 적자 종목은 터미널의 기존 EPS 모드(예상·매출) 그대로
       const div      = dividendMap[ticker.toUpperCase()] ?? {}
       const pe       = safeNumber(div.pe)
-      const fair     = lynchFairValue({ eps: div.eps ?? (pe > 0 && livePrice > 0 ? livePrice / pe : null), pe, peg: safeNumber(div.peg), growthPct: div.earningsGrowth ?? null, category: inv?.lynch_category, market: inv?.market, price: livePrice })
+      const fair     = lynchFairValue({ eps: div.eps ?? (pe > 0 && livePrice > 0 ? livePrice / pe : null), pe, peg: safeNumber(div.peg), growthPct: div.earningsGrowth ?? null, fyEps: div.fyEps, category: inv?.lynch_category, market: inv?.market, price: livePrice })
       const multiple = fair.multiple
       result[ticker] = {
         name:         stock.name,
         category:     category ?? '미분류',
         multiple,
-        pegJump:      fair.jump,   // 급증 구간이면 괴리율을 '저평가'로 칠하지 않는다
+        pegJump:      fair.jump || fair.peak,   // 이익 급증·정점 의심이면 괴리율을 '저평가'로 칠하지 않는다
+        holdNote:     fair.holdNote ?? undefined,
         ...(fair.fairPrice != null ? { eps: fair.eps } : {}),
         isKrw:        stock.isKrw,
         currentPrice: livePrice,

@@ -704,6 +704,8 @@ async function krInfo(ticker: string): Promise<StockInfo> {
   let payoutRatio:    number | null = null
   let annualDividend: number | null = null
   let krHasCash:      boolean | null = null   // 순현금 여부 (자동 계산)
+  // 확정 결산 연도 EPS 의 최고치(네이버 연간 재무 — 최근 EPS 와 같은 잣대) — 경기순환주 정점 표시의 비교 기준. 3개 연도 미만이면 null
+  let fyEps: { max: number; from: string; to: string; n: number } | null = null
 
   // 52주 최고·최저 — integration 우선, 옛 basic 필드는 폴백(돌아오면 쓴다). 둘 다 없으면 null(지어내지 않는다)
   const nb = parseNaverBasics(integ)   // 순수 파서 — 모양이 달라도 던지지 않고 null
@@ -755,6 +757,8 @@ async function krInfo(ticker: string): Promise<StockInfo> {
       // EPS (가장 최근 실제 연도)
       const epsVal = getAnnualVal(rowList, 'EPS', lastKey)
       if (epsVal !== null) eps = epsVal
+      const fyList = actual.map(k => ({ y: k.slice(0, 4), v: getAnnualVal(rowList, 'EPS', k) })).filter((o): o is { y: string; v: number } => o.v !== null)
+      if (fyList.length >= 3) fyEps = { max: Math.max(...fyList.map(o => o.v)), from: fyList[0].y, to: fyList[fyList.length - 1].y, n: fyList.length }
 
       // Forward EPS (가장 가까운 컨센서스 예측 연도 EPS)
       if (firstConsensus) {
@@ -888,7 +892,7 @@ async function krInfo(ticker: string): Promise<StockInfo> {
     fundamentals: {
       pe: per, peBasis, peg, marketCap: mc, volume: null,
       high52w, low52w, sector, earningsGrowth, growthSource: growthSourceKr, dividendYield, isEtf,
-      eps, epsBasis, pbr, forwardEps, payoutRatio, annualDividend,
+      eps, epsBasis, fyEps, pbr, forwardEps, payoutRatio, annualDividend,
       // DCF 실데이터
       freeCashflow:      dcf.freeCashflow,
       sharesOutstanding: dcf.sharesOutstanding,

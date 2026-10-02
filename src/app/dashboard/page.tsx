@@ -798,6 +798,7 @@ export default function DashboardPage() {
     pe?:             number | null   // AI 멘토 차트용
     earningsGrowth?: number | null   // 적자 기업 성장률 (TEM 등)
     peg?:           number | null   // AI 멘토 차트용
+    fyEps?:         { max: number; from: string; to: string; n: number } | null   // 확정 결산 연도 EPS 최고치 — 경기순환주 정점 표시
     eps?:           number | null   // 최근(trailing) EPS — 린치 적정가 SSOT 입력(매크로 터미널이 종목 분석 화면과 같은 값을 쓰도록)
   }>>({})
   const [dividendLoading, setDividendLoading] = useState(false)
@@ -1080,6 +1081,7 @@ export default function DashboardPage() {
               pe:              peNum,
               peg:             pegNum,
               eps:             typeof f?.eps === 'number' && isFinite(f.eps) ? f.eps : null,
+              fyEps:           f?.fyEps && typeof f.fyEps.max === 'number' ? f.fyEps : null,
               // 적자 기업(TEM 등) earningsGrowth 수집 — AI 멘토 차트에서 growthRate 대체 사용
               earningsGrowth:  (() => {
                 const eg = f?.earningsGrowth
