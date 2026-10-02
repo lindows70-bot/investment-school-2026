@@ -83,7 +83,7 @@
 @media (max-width: 768px) {
   .m-stack  { flex-direction: column !important; }
   .m-wrap   { flex-wrap: wrap !important; }
-  .m-1col   { grid-template-columns: minmax(0, 1fr) !important; }   /* 1fr = minmax(auto,1fr) — 넓은 표가 칸을 밀어 본문 전체가 옆으로 밀렸다(2026-10-03 실측) */
+  /* .m-1col 은 아래 별도 블록(900px 까지) */
   .m-full   { width: 100% !important; flex-basis: 100% !important; }
   .m-wauto  { width: auto !important; }
   .m-hide   { display: none !important; }
@@ -154,4 +154,11 @@
    넓은 화면에선 열고 닫는 전환(opacity·transform)을 그대로 두고, 접히는 폭에서만 닫힌 패널을 뺀다. 열린 패널이 화면을 넘는 것은 dashboard/page 의 ref 가 당겨 맞춘다. */
 @media (max-width: 1200px) {
   .dash-dd[data-open="false"] { display: none !important; }
+}
+
+/* 1단 격자(.m-1col) — 다른 m-* 도우미(768px)보다 넓은 900px 까지.
+   769~900px 은 왼쪽 메뉴가 남아 본문이 470~600px 뿐인데 2단 격자가 그대로라 넘쳤다(2026-10-03 실측 768 폭 — 주간 리포트 57px · 스쿨 리그 99px).
+   minmax(0, 1fr): 1fr 은 minmax(auto,1fr) 이라 넓은 표가 칸을 밀어 본문 전체가 옆으로 밀린다. */
+@media (max-width: 900px) {
+  .m-1col { grid-template-columns: minmax(0, 1fr) !important; }
 }
