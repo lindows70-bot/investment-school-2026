@@ -508,8 +508,9 @@ async function fetchUS(ticker: string) {
     }
   }
 
-  // ② 그것도 없을 때만 incomeStatementHistory(순이익 ÷ 지금 주식 수 — 근사, 적자는 0 으로 남는다)
-  if (!hasFMP && !usedTS && d?.incomeStatementHistory) {
+  // ② incomeStatementHistory — 시계열이 없으면 전부(순이익 ÷ 지금 주식 수 근사, 적자는 0 으로 남는다),
+  //    시계열이 있으면 **그것이 안 덮는 더 옛 해의 매출만** 보탠다(EPS 근사는 섞지 않는다 — 한 표에 잣대가 둘이 된다)
+  if (!hasFMP && d?.incomeStatementHistory) {
     const sharesOut = result.shares > 0 ? result.shares : 1
     const isRows: Array<{ endDate: Date; totalRevenue: number; netIncome: number }> =
       d.incomeStatementHistory?.incomeStatementHistory ?? []
@@ -521,7 +522,8 @@ async function fetchUS(ticker: string) {
           : new Date(toNum(row.endDate) * 1000).getFullYear()
         const rev = typeof row.totalRevenue === 'number' ? row.totalRevenue : 0
         const ni  = typeof row.netIncome    === 'number' ? row.netIncome    : 0
-        const eps = ni > 0 ? +(ni / sharesOut).toFixed(2) : 0
+        if (usedTS && fmpData.has(yr)) continue
+        const eps = !usedTS && ni > 0 ? +(ni / sharesOut).toFixed(2) : 0
         fmpData.set(yr, {
           eps,
           oi:  0,
