@@ -435,17 +435,25 @@ async function fetchUS(ticker: string) {
 
   try {
     yf = await getYF()
-    d  = await yf.quoteSummary(ticker, {
-      modules: [
-        'earningsTrend',
-        'earningsHistory',
-        'defaultKeyStatistics',
-        'summaryDetail',
-        'financialData',
-        // FMP가 없을 때 역사적 데이터 폴백용
-        ...(hasFMP ? [] : ['incomeStatementHistory']),
-      ],
-    })
+    const modules = [
+      'earningsTrend',
+      'earningsHistory',
+      'defaultKeyStatistics',
+      'summaryDetail',
+      'financialData',
+      // FMP가 없을 때 역사적 데이터 폴백용
+      ...(hasFMP ? [] : ['incomeStatementHistory']),
+    ]
+    try {
+      d = await yf.quoteSummary(ticker, { modules })
+    } catch (e1) {
+      // 형식 검증 실패는 '데이터가 없다'가 아니다 — 신규 상장주(SPCX)는 earningsHistory 행에 추정치 칸(epsEstimate 등)이 없어
+      //   라이브러리 검증에서 떨어지고, 그 한 모듈 때문에 현재가·주식 수·매출까지 통째로 실패해 응답이 전부 0 이었다(2026-10-03 실측).
+      //   검증을 끄고 다시 받는다 — 아래 파싱은 칸마다 타입을 확인하므로(typeof … === 'number') 빠진 칸은 그냥 건너뛴다.
+      if (!/validation/i.test((e1 as Error).message ?? '')) throw e1
+      console.warn('[fetchUS] 야후 형식 검증 실패 → 검증 없이 재조회:', ticker)
+      d = await yf.quoteSummary(ticker, { modules }, { validateResult: false })
+    }
   } catch (e) {
     const msg = (e as Error).message ?? ''
     if (!hasFMP) {

@@ -64,5 +64,14 @@ for (const c of US_CASES) {
   } catch (e) { fail++; console.log(`❌ ${c.name} 호출 실패 — ${e.message}`) }
 }
 
+// ── 야후 형식 검증에서 떨어지는 종목(신규 상장 SPCX — earningsHistory 행에 추정치 칸이 없다)도 통째로 실패하지 않는가 ──
+//   2026-10-03 — 그 한 모듈 때문에 요청 전체가 실패해 응답이 success:false · 전부 0 이었다. 기대값 = 야후 연간 시계열 2023~2025(2026-10-03 실측)
+try {
+  const j = await fetch(`${B}/api/financials?ticker=SPCX&market=US`, { signal: AbortSignal.timeout(60_000) }).then(r => r.json())
+  const f = j?.financials ?? {}
+  check(`SPCX — 형식 검증 실패에도 응답 성공 · 현재가 ${j?.currentPrice} · 2024 매출 ${f['2024']?.revenue} · 2025 EPS ${f['2025']?.eps}`,
+    j?.success === true && j.currentPrice > 0 && Math.abs((f['2024']?.revenue ?? 0) - 14015) < 2 && Math.abs((f['2025']?.eps ?? 0) - -0.51) < 0.011)
+} catch (e) { fail++; console.log(`❌ SPCX 호출 실패 — ${e.message}`) }
+
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (재무 API 확정 연도)')
 process.exitCode = fail ? 1 : 0
