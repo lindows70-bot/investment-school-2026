@@ -477,8 +477,39 @@ async function fetchUS(ticker: string) {
   result.currentPER = toNum(det?.trailingPE ?? det?.forwardPE)
   result.success    = true
 
-  // FMP 데이터가 없을 때 Yahoo incomeStatementHistory 폴백
-  if (!hasFMP && d?.incomeStatementHistory) {
+  // FMP 데이터가 없을 때 ① 야후 연간 시계열(fundamentalsTimeSeries) — 회사가 보고한 희석 EPS·영업이익·매출 그대로(적자 포함)
+  //   ⚠️ 2026-10-02 실측(미국 보유 15종): FMP 무료 플랜은 10종이 402. 그 종목들의 옛 폴백(아래 ②)은 EPS = 순이익 ÷ **지금** 주식 수이고
+  //   **적자를 0 으로** 만들었다 — COHR 2023·2024(실제 −2.93·−1.84)·IONQ·PLUG·TEM 의 적자 연도가 전부 0('자료 없음')으로 나갔다.
+  //   과거 영업이익은 전부 0, 최근 연도만 'TTM 영업이익률 × TTM 매출'(OXY 10,873 vs 실제 3,722)이었다.
+  //   연도 = 회계연도 종료일의 연도(FMP fiscalYear 와 같은 매핑 — AAPL 9월·NVDA 1월·COHR 6월 결산 실측).
+  let usedTS = false
+  if (!hasFMP && yf) {
+    try {
+      const fts = await yf.fundamentalsTimeSeries(ticker, { period1: `${new Date().getFullYear() - 6}-01-01`, type: 'annual', module: 'financials' })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const arr: any[] = Array.isArray(fts) ? fts : (fts?.timeSeries ?? [])
+      for (const r of arr) {
+        const dt = r?.date instanceof Date ? r.date : new Date(r?.date)
+        const yr = dt.getUTCFullYear()
+        if (!(yr > 2000)) continue
+        const e = typeof r.dilutedEPS === 'number' ? r.dilutedEPS : (typeof r.basicEPS === 'number' ? r.basicEPS : null)
+        const o = typeof r.operatingIncome === 'number' ? r.operatingIncome : null
+        const v = typeof r.totalRevenue === 'number' ? r.totalRevenue : null
+        if (e == null && v == null) continue   // 빈 행(값 없는 연도)
+        fmpData.set(yr, {
+          eps: e != null && isFinite(e) ? +e.toFixed(4) : 0,
+          oi:  o != null && isFinite(o) ? +(o / 1e6).toFixed(2) : 0,
+          rev: v != null && v > 0 ? +(v / 1e6).toFixed(2) : 0,
+        })
+        usedTS = true
+      }
+    } catch (e) {
+      console.warn('[fetchUS] 연간 시계열 실패 → incomeStatementHistory 폴백:', (e as Error).message)
+    }
+  }
+
+  // ② 그것도 없을 때만 incomeStatementHistory(순이익 ÷ 지금 주식 수 — 근사, 적자는 0 으로 남는다)
+  if (!hasFMP && !usedTS && d?.incomeStatementHistory) {
     const sharesOut = result.shares > 0 ? result.shares : 1
     const isRows: Array<{ endDate: Date; totalRevenue: number; netIncome: number }> =
       d.incomeStatementHistory?.incomeStatementHistory ?? []
@@ -574,13 +605,15 @@ async function fetchUS(ticker: string) {
         ? fmp.eps
         : (typeof epsYF === 'number' ? +(epsYF).toFixed(2) : 0)
       const isMostRecent = yr === maxActualYr
-      const finalEps = (isMostRecent && trailingEps > 0 && epsBase === 0)
+      // 최근 연도에 최근 12개월 EPS 를 넣는 폴백은 연간 값이 아예 없을 때만(회계연도 EPS 가 아니다 — COHR 2025: TTM 2.45 vs 회계연도 −0.52)
+      const finalEps = (isMostRecent && trailingEps > 0 && epsBase === 0 && !fmp)
         ? trailingEps : epsBase
 
-      // 영업이익: FMP operatingIncome → TTM 폴백(최근년만)
-      const oi = fmp?.oi && fmp.oi > 0
+      // 영업이익: 원천 값(영업손실은 음수 그대로) → 원천이 아예 없을 때만 TTM 폴백(최근년)
+      //   '> 0' 이던 시절 영업손실이 0(자료 없음)으로 나갔다(PLTR 2022 −161). 연간 값이 있으면 TTM 근사로 덮지 않는다.
+      const oi = fmp?.oi && fmp.oi !== 0
         ? fmp.oi
-        : (isMostRecent ? ttmOI : 0)
+        : (isMostRecent && !fmp ? ttmOI : 0)
 
       fin[key] = {
         eps:             finalEps,
@@ -628,7 +661,7 @@ async function fetchUS(ticker: string) {
           if (row && (row.eps !== 0 || row.rev > 0)) {
             fin[key] = {
               eps:             row.eps !== 0 ? row.eps : fin[key].eps,
-              operatingProfit: row.oi  >  0  ? row.oi  : fin[key].operatingProfit,
+              operatingProfit: row.oi  !== 0 ? row.oi  : fin[key].operatingProfit,
               revenue:         row.rev >  0  ? row.rev : fin[key].revenue,
             }
             console.log(`[fetchUS] FMP 갭 보충: ${key} → EPS:${fin[key].eps} OI:${fin[key].operatingProfit} Rev:${fin[key].revenue}`)

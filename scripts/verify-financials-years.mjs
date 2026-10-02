@@ -1,4 +1,4 @@
-// 재무 API(/api/financials) 국내 확정 연도 검증 — 5개 확정 연도의 EPS·매출이 비어(0) 있지 않은지 · DART 사업보고서 값과 같은지
+// 재무 API(/api/financials) 확정 연도 검증(국내 + 미국) — 5개 확정 연도의 EPS·매출이 비어(0) 있지 않은지 · DART 사업보고서 값과 같은지
 //   2026-10-02 신설 — DART 수집이 ①올해(보고서가 없는 해)를 기준으로 불러 2022~2024 만 닿았고 ②손익을 포괄손익계산서 한 장(CIS)으로 내는 회사는 통째로 버려,
 //   SK하이닉스 2021·2022 가 0 으로 나갔다. 0 은 '자료 없음'인데 이익 차트가 '적자 구간'으로 그렸다. 값이 0 이라 빌드·타입체크는 전부 통과한다.
 const B = 'https://investment-school-2026.vercel.app'
@@ -42,6 +42,25 @@ for (const c of CASES) {
     const nvYears = (nv?.financeInfo?.trTitleList ?? []).filter(t => t.isConsensus === 'N').map(t => t.key)
     const mism = nvYears.map(key => [key.slice(0, 4), parseFloat(String(epsRow?.columns?.[key]?.value ?? '').replace(/,/g, ''))]).filter(([y, v]) => Number.isFinite(v) && v !== 0 && fin[y] && fin[y].eps !== v).map(([y, v]) => `${y}: ${fin[y].eps} ≠ 네이버 ${v}`)
     check(`${c.name} — 네이버가 주는 해(${nvYears.map(k2 => k2.slice(0, 4)).join('·')})는 네이버 EPS 그대로`, nvYears.length > 0 && mism.length === 0, mism.join(' / '))
+  } catch (e) { fail++; console.log(`❌ ${c.name} 호출 실패 — ${e.message}`) }
+}
+
+// ── 미국: 적자·영업손실이 0(자료 없음)으로 가려지지 않는가 ──
+//   2026-10-02 — FMP 무료 플랜이 거절(402)하는 종목은 야후 폴백이 EPS = 순이익 ÷ 지금 주식 수(적자는 0)였고 과거 영업이익은 전부 0 이었다.
+//   기대값 = 회사가 보고한 회계연도 값(야후 fundamentalsTimeSeries 연간 · 2026-10-02 실측). 확정된 과거라 바뀌지 않는다. tol = 원천 반올림 여유
+const US_CASES = [
+  { t: 'COHR', name: 'COHR(6월 결산 · 2023·2024 적자)', eps: { 2023: -2.93, 2024: -1.84 }, op: { 2024: 123 } },
+  { t: 'TXN', name: 'TXN(예전엔 순이익 ÷ 지금 주식 수 = 9.58)', eps: { 2022: 9.41, 2023: 7.07 }, op: { 2022: 10397, 2023: 7331 } },
+  { t: 'PLTR', name: 'PLTR(FMP 경로 · 2022 영업손실)', eps: { 2022: -0.18 }, op: { 2022: -161 } },
+]
+for (const c of US_CASES) {
+  try {
+    const j = await fetch(`${B}/api/financials?ticker=${c.t}&market=US`, { signal: AbortSignal.timeout(60_000) }).then(r => r.json())
+    const fin = j?.financials ?? {}
+    const near = (x, v, tol) => typeof x === 'number' && Math.abs(x - v) <= Math.max(tol, Math.abs(v) * 0.02)
+    const badE = Object.entries(c.eps).filter(([y, v]) => !near(fin[y]?.eps, v, 0.011)).map(([y, v]) => `${y} EPS ${fin[y]?.eps} ≠ ${v}`)
+    const badO = Object.entries(c.op).filter(([y, v]) => !near(fin[y]?.operatingProfit, v, 1)).map(([y, v]) => `${y} 영업이익 ${fin[y]?.operatingProfit} ≠ ${v}`)
+    check(`${c.name} — 회계연도 EPS(${Object.entries(c.eps).map(([y, v]) => `${y} ${v}`).join(' · ')}) · 영업이익(${Object.entries(c.op).map(([y, v]) => `${y} ${v}`).join(' · ')}백만 달러)`, badE.length + badO.length === 0, [...badE, ...badO].join(' / '))
   } catch (e) { fail++; console.log(`❌ ${c.name} 호출 실패 — ${e.message}`) }
 }
 
