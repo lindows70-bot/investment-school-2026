@@ -104,7 +104,7 @@ export default function PortfolioTimeMachine() {
       </div>
 
       {/* 요약 카드 */}
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cards.length},1fr)`, gap: 10, padding: '14px 20px 0' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))'   /* N칸 고정이라 5장이 좁은 폭에서 넘쳤다 → 안 들어가면 다음 줄 */, gap: 10, padding: '14px 20px 0' }}>
         {cards.map(c => (
           <div key={c.k} style={{ padding: '10px 12px', borderRadius: 10, background: TK.slate900, border: `1.5px solid ${c.color}33` }}>
             <div style={{ fontSize: 10, color: TK.sub2, marginBottom: 4 }}>{c.label}</div>

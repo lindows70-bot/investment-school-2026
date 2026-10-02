@@ -3057,7 +3057,7 @@ export default function DashboardPage() {
                 : <>각 막대 = 그 달에 <b style={{ color:TK.sub9 }}>매수한</b> 종목들의 <b style={{ color:TK.sub9 }}>지금</b> 손익 — 그 달의 성과가 아닙니다</>}
             </div>
           </div>
-          <div style={{ display:'flex', gap:12, flexShrink:0, alignItems:'center', flexWrap:'wrap' }}>
+          <div style={{ display:'flex', gap:12, minWidth:0, alignItems:'center', flexWrap:'wrap' }}>
             {/* 뷰 토글 */}
             <div style={{ display:'flex', gap:2, background:TK.bg0, borderRadius:8, padding:2 }}>
               {([['series','월별 손익'],['byPurchase','매수 시기별']] as const).map(([v, l]) => (
@@ -3353,7 +3353,8 @@ export default function DashboardPage() {
       />
 
       {/* ── 5. 보유 자산 테이블 + 알림 패널 ── */}
-      <div className="m-1col" style={{ display:'grid', gridTemplateColumns:'6fr 4fr', gap:16 }}>
+      {/* minmax(0, …) — 표는 자기 상자(overflowX:auto) 안에서만 옆으로 넘어가야 한다. '6fr 4fr' 은 칸이 표 최소 폭(726px)까지 늘어나 태블릿 폭에서 본문 전체가 밀렸다(2026-10-03) */}
+      <div className="m-1col" style={{ display:'grid', gridTemplateColumns:'minmax(0,6fr) minmax(0,4fr)', gap:16 }}>
 
         {/* 좌: 보유 자산 테이블 */}
         <Card>

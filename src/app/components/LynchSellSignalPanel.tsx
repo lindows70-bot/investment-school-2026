@@ -549,10 +549,11 @@ function SignalCard({ signal, idx }: { signal: StockSignal; idx: number }) {
     >
       {/* ══ 카드 본문: 3단 Flex 레이아웃 ══════════════════════════ */}
       {/* [좌: 아이콘+종목정보] [중앙: 게이지바] [우: 상태배지+펼치기] */}
-      <div style={{ display:'flex', alignItems:'center', gap:12, minWidth:0 }}>
+      {/* 좁은 폭(휴대폰·태블릿 본문 448px)에선 세 칸(300+160+90)이 한 줄에 안 들어가 본문을 밀었다 — 줄바꿈 허용(2026-10-03) */}
+      <div style={{ display:'flex', alignItems:'center', gap:12, minWidth:0, flexWrap:'wrap' }}>
 
         {/* ── 좌측: 상태 아이콘 + 종목 정보 (너비 확대: 220 → 300, 긴 종목명 잘림 방지) ── */}
-        <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0, width:300, minWidth:260 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, flex:'1 1 260px', maxWidth:300, minWidth:0 }}>
           {/* 상태 아이콘 원 */}
           <div style={{
             flexShrink:0, width:38, height:38, borderRadius:9,

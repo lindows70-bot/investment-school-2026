@@ -55,7 +55,7 @@ export default function H1Champions() {
         </div>
 
         {/* 랭킹보드 + 상세 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 1fr) minmax(300px, 1.2fr)', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))'   /* 최소 폭 280+300 고정이라 좁은 폭에서 본문을 밀었다 → 안 들어가면 1단 */, gap: 12 }}>
           {/* Top10 랭킹 */}
           <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '12px 14px' }}>
             <div style={{ color: TK.slate200, fontWeight: 800, fontSize: 13, marginBottom: 8 }}>{MK_META[mk].flag} {MK_META[mk].ko} Top 10</div>

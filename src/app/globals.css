@@ -83,7 +83,7 @@
 @media (max-width: 768px) {
   .m-stack  { flex-direction: column !important; }
   .m-wrap   { flex-wrap: wrap !important; }
-  .m-1col   { grid-template-columns: 1fr !important; }
+  .m-1col   { grid-template-columns: minmax(0, 1fr) !important; }   /* 1fr = minmax(auto,1fr) — 넓은 표가 칸을 밀어 본문 전체가 옆으로 밀렸다(2026-10-03 실측) */
   .m-full   { width: 100% !important; flex-basis: 100% !important; }
   .m-wauto  { width: auto !important; }
   .m-hide   { display: none !important; }

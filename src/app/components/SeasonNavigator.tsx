@@ -422,6 +422,8 @@ export default function SeasonNavigator() {
           <div style={{ color: TK.sub5, fontSize: 11.5, lineHeight: 1.5, marginBottom: 10 }}>
             지금 계절({data.seasonKo.replace(/^.. /, '')})에 유리한 섹터의 종목을 우리 유니버스(100+)에서 추려, <b>퀀트 점수</b>(린치가중 35% + PEG 35% + 영업이익률 20% + FCF 10%)순으로 보여줍니다. 이미 보유한 종목은 제외했습니다.
           </div>
+          {/* 9칸 표(고정 폭 칸 합 약 500px) — 좁은 폭에선 이 표만 옆으로 넘겨 본다(본문 전체가 밀리지 않게) */}
+          <div style={{ overflowX: 'auto' }}><div style={{ minWidth: 560 }}>
           {/* 헤더 — 퀀트 4축(린치·PEG·영업이익률·FCF)을 다 노출 */}
           <div style={{ display: 'grid', gridTemplateColumns: COLS, gap: 8, alignItems: 'center', padding: '0 2px 5px', borderBottom: `1px solid ${BORDER}`, color: TK.sub, fontSize: 10 }}>
             <span>종목</span><span>섹터</span><span style={{ textAlign: 'center' }}>린치</span><span style={{ textAlign: 'right' }}>PEG</span><span style={{ textAlign: 'right' }}>영업익률</span><span style={{ textAlign: 'right' }}>FCF수익</span><span style={{ textAlign: 'center' }}>추세 (1M·3M·1Y)</span><span style={{ textAlign: 'center' }}>52주</span><span style={{ textAlign: 'right' }}>점수</span>
@@ -454,6 +456,7 @@ export default function SeasonNavigator() {
               )
             })}
           </div>
+          </div></div>
           <div style={{ color: TK.sub8, fontSize: 10, marginTop: 8, lineHeight: 1.5 }}>
             ※ 점수 = 린치가중 35% + PEG 35% + 영업이익률 20% + FCF 10%. 저PEG·고FCF수익률(≥5%)은 초록, FCF 현금 대비 고평가(&lt;1%)는 주황↓, 이익-현금 괴리는 빨강. 🏦금융주는 FCF 무의미(—). <b>추세</b> = 1개월·3개월·1년 주봉 미니차트(초록=상승·빨강=하락) · <b>52주</b> = 1년 밴드 내 현재 위치(0=저점·100=고점, 저점권 초록·신고가권 주황=추격 주의). 주가 예측 아님 · 위성/소형주는 10배거 헌터에서 검증.
           </div>

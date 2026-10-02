@@ -137,7 +137,7 @@ export default function SchoolIndexDashboard() {
       </div>
 
       {/* 위젯 1·2 (2단) */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.35fr', gap: 16 }} className="si-grid">
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1.35fr)', gap: 16 }} className="si-grid">
         {/* 위젯 1: 섹터 파이 */}
         {Card(<>
           {Title('🥧', '학교 자산배분 현황', '섹터별 평균 비중')}
@@ -245,7 +245,7 @@ export default function SchoolIndexDashboard() {
         🏫 동일가중(개인별 포트 비중 평균) · 2명 이상 공동보유만 노출(단독보유는 ETC로 익명화) · 매일 새벽 자동 집계 · 교육용 참고이며 투자 추천이 아닙니다.
       </div>
 
-      <style>{`@media(max-width:760px){.si-grid{grid-template-columns:1fr!important}.si-flow{grid-template-columns:1fr!important}}`}</style>
+      <style>{`@media(max-width:900px){.si-grid{grid-template-columns:minmax(0,1fr)!important}.si-flow{grid-template-columns:minmax(0,1fr)!important}}`}</style>
     </div>
   )
 }
