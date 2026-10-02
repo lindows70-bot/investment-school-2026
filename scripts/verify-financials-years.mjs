@@ -12,6 +12,15 @@ const CASES = [
   { t: '329180', name: 'HD현대중공업(CIS · 과거 적자)', eps: { 2021: -10713, 2022: -3966, 2023: 278 } },
 ]
 const cy = new Date(Date.now() + 9 * 3600_000).getUTCFullYear()
+// 영업이익(억원) — 계정 부분일치로 '기타이익'을 영업이익으로 잡던 결함 감시. 기대값 = DART 2025년 사업보고서 영업이익(dart_OperatingIncomeLoss) ÷ 1억
+const OP_CASES = [{ t: '010140', name: '삼성중공업(기타이익 행이 영업이익보다 먼저 온다)', op: { 2023: 2333, 2024: 5027, 2025: 8622 } }]
+for (const c of OP_CASES) {
+  try {
+    const j = await fetch(`${B}/api/financials?ticker=${c.t}&market=KR`, { signal: AbortSignal.timeout(60_000) }).then(r => r.json())
+    const bad = Object.entries(c.op).filter(([y, v]) => j?.financials?.[y]?.operatingProfit !== v).map(([y, v]) => `${y}: ${j?.financials?.[y]?.operatingProfit} ≠ ${v}`)
+    check(`${c.name} — 영업이익이 DART 영업이익 행과 같음(${Object.entries(c.op).map(([y, v]) => `${y} ${v}억`).join(' · ')})`, bad.length === 0, bad.join(' / '))
+  } catch (e) { fail++; console.log(`❌ ${c.name} 호출 실패 — ${e.message}`) }
+}
 for (const c of CASES) {
   try {
     const j = await fetch(`${B}/api/financials?ticker=${c.t}&market=KR`, { signal: AbortSignal.timeout(60_000) }).then(r => r.json())

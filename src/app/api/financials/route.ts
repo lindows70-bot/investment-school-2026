@@ -313,21 +313,27 @@ async function fetchDARTYear(
       const id = row.account_id ?? ''
 
       // 해당하는 계정인지 확인
+      //   ⚠️ 부분일치는 이웃 계정을 잡는다(2026-10-02 실측): 'OperatingIncome' ⊂ dart_NonOperatingIncome(기타이익) — 표에서 영업이익보다 먼저 와
+      //   삼성중공업 2024 영업이익이 5,027억 → 54,252억으로 나갔다. '영업이익' ⊂ '계속영업이익', '주당이익' ⊂ '우선주…주당이익'도 같은 꼴.
+      //   → 계정 ID 는 꼬리까지 맞추고, 이름은 앞머리로 맞춘다. 우선주·희석 EPS 는 받지 않는다(보통주 기본주당이익만).
+      const nmT = nm.replace(/\s/g, '')
       const isRevenue =
-        id.includes('Revenue') ||
-        nm.includes('매출액') ||
-        nm.startsWith('수익(')
+        id === 'ifrs-full_Revenue' ||
+        nmT.startsWith('매출액') ||
+        nmT.startsWith('수익(') ||
+        nmT === '영업수익'
       const isOI =
-        id.includes('OperatingIncome') ||
-        id.includes('OperatingProfit') ||
-        nm.includes('영업이익') ||
-        nm.includes('영업손익')
+        /(^|_)OperatingIncomeLoss$/.test(id) ||
+        /(^|_)OperatingProfit(Loss)?$/.test(id) ||
+        /^영업(이익|손익|손실)/.test(nmT)
+      // '기본및희석주당이익'처럼 한 줄로 내는 회사가 있다 — 희석은 이름에 '기본'이 없을 때만 버린다
+      const dilutedOnly = (/Diluted/.test(id) || /희석/.test(nmT)) && !/기본/.test(nmT) && !/Basic/.test(id)
       const isEPS =
-        id.includes('EarningsPerShare') ||
-        id.includes('BasicEarnings') ||
-        nm.includes('주당순이익') ||
-        nm.includes('기본주당이익') ||
-        nm.includes('주당이익')
+        !/Preferred/.test(id) && !/우선주/.test(nmT) && !dilutedOnly && (
+          /(^|_)Basic(AndDiluted)?Earnings(Loss)?PerShare$/.test(id) ||
+          /^(보통주)?기본(및희석)?주당(순)?(이익|손익)/.test(nmT) ||
+          /^주당(순)?(이익|손익)/.test(nmT)
+        )
 
       if (!isRevenue && !isOI && !isEPS) continue
 
