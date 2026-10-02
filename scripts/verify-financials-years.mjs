@@ -1,12 +1,3 @@
-    const k = c.split ?? 1
-    const bad = Object.entries(c.dart).filter(([y, v]) => !(fin[y]?.eps !== 0 && fin[y].eps / (v / k) > 0 && Math.abs(fin[y].eps / (v / k) - 1) <= c.tol)).map(([y, v]) => `${y}: ${fin[y]?.eps} vs DART ${v}${k !== 1 ? ` ÷ ${k}` : ''}`)
-    check(`${c.name} — 빈 해를 채운 EPS 가 네이버 잣대(${Object.keys(c.dart).map(y => `${y} ${fin[y]?.eps}`).join(' · ')} · DART 원값${k !== 1 ? ` ÷ ${k}` : ''} 의 ±${c.tol * 100}%)`, bad.length === 0, bad.join(' / '))
-    // 네이버가 주는 해는 네이버 값 그대로여야 한다(DART 로 덮지 않는다)
-    const nv = await fetch(`https://m.stock.naver.com/api/stock/${c.t}/finance/annual`, { headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://m.stock.naver.com/' } }).then(r => r.json()).catch(() => null)
-    const epsRow = nv?.financeInfo?.rowList?.find(r => r.title === 'EPS')
-    const nvYears = (nv?.financeInfo?.trTitleList ?? []).filter(t => t.isConsensus === 'N').map(t => t.key)
-    const mism = nvYears.map(key => [key.slice(0, 4), parseFloat(String(epsRow?.columns?.[key]?.value ?? '').replace(/,/g, ''))]).filter(([y, v]) => Number.isFinite(v) && v !== 0 && fin[y] && fin[y].eps !== v).map(([y, v]) => `${y}: ${fin[y].eps} ≠ 네이버 ${v}`)
-    check(`${c.name} — 네이버가 주는 해(${nvYears.map(k2 => k2.slice(0, 4)).join('·')})는 네이버 EPS 그대로`, nvYears.length > 0 && mism.length === 0, mism.join(' / '))
 // 재무 API(/api/financials) 국내 확정 연도 검증 — 5개 확정 연도의 EPS·매출이 비어(0) 있지 않은지 · DART 사업보고서 값과 같은지
 //   2026-10-02 신설 — DART 수집이 ①올해(보고서가 없는 해)를 기준으로 불러 2022~2024 만 닿았고 ②손익을 포괄손익계산서 한 장(CIS)으로 내는 회사는 통째로 버려,
 //   SK하이닉스 2021·2022 가 0 으로 나갔다. 0 은 '자료 없음'인데 이익 차트가 '적자 구간'으로 그렸다. 값이 0 이라 빌드·타입체크는 전부 통과한다.
@@ -42,8 +33,15 @@ for (const c of CASES) {
     const must = past.filter(y => Number(y) <= cy - 2 || new Date().getUTCMonth() >= 3)
     const empty = must.filter(y => !(fin[y]?.eps !== 0 && fin[y]?.revenue > 0))
     check(`${c.name} — 확정 ${must.length}개 연도(${must[0]}~${must.at(-1)}) EPS·매출이 비어 있지 않음${empty.length ? ` (빈 해: ${empty.join(', ')})` : ''}`, past.length >= 5 && empty.length === 0)
-    const bad = Object.entries(c.eps).filter(([y, v]) => fin[y]?.eps !== v).map(([y, v]) => `${y}: ${fin[y]?.eps} ≠ ${v}`)
-    check(`${c.name} — 과거 EPS 가 DART 사업보고서 값과 같음(${Object.entries(c.eps).map(([y, v]) => `${y} ${v}`).join(' · ')})`, bad.length === 0, bad.join(' / '))
+    const k = c.split ?? 1
+    const bad = Object.entries(c.dart).filter(([y, v]) => !(fin[y]?.eps !== 0 && fin[y].eps / (v / k) > 0 && Math.abs(fin[y].eps / (v / k) - 1) <= c.tol)).map(([y, v]) => `${y}: ${fin[y]?.eps} vs DART ${v}${k !== 1 ? ` ÷ ${k}` : ''}`)
+    check(`${c.name} — 빈 해를 채운 EPS 가 네이버 잣대(${Object.keys(c.dart).map(y => `${y} ${fin[y]?.eps}`).join(' · ')} · DART 원값${k !== 1 ? ` ÷ ${k}` : ''} 의 ±${c.tol * 100}%)`, bad.length === 0, bad.join(' / '))
+    // 네이버가 주는 해는 네이버 값 그대로여야 한다(DART 로 덮지 않는다)
+    const nv = await fetch(`https://m.stock.naver.com/api/stock/${c.t}/finance/annual`, { headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://m.stock.naver.com/' } }).then(r => r.json()).catch(() => null)
+    const epsRow = nv?.financeInfo?.rowList?.find(r => r.title === 'EPS')
+    const nvYears = (nv?.financeInfo?.trTitleList ?? []).filter(t => t.isConsensus === 'N').map(t => t.key)
+    const mism = nvYears.map(key => [key.slice(0, 4), parseFloat(String(epsRow?.columns?.[key]?.value ?? '').replace(/,/g, ''))]).filter(([y, v]) => Number.isFinite(v) && v !== 0 && fin[y] && fin[y].eps !== v).map(([y, v]) => `${y}: ${fin[y].eps} ≠ 네이버 ${v}`)
+    check(`${c.name} — 네이버가 주는 해(${nvYears.map(k2 => k2.slice(0, 4)).join('·')})는 네이버 EPS 그대로`, nvYears.length > 0 && mism.length === 0, mism.join(' / '))
   } catch (e) { fail++; console.log(`❌ ${c.name} 호출 실패 — ${e.message}`) }
 }
 
