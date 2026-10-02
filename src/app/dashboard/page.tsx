@@ -1858,7 +1858,17 @@ export default function DashboardPage() {
                   </button>
 
                   {/* ── 드롭다운 패널 ── (닫힌 패널도 자리를 차지해 오른쪽 끝 묶음에서 본문을 밀기 때문에, 좁은 폭에선 닫히면 아예 뺀다 — globals.css .dash-dd) */}
-                  <div className="dash-dd" data-open={isOpen ? 'true' : 'false'} style={{
+                  <div className="dash-dd" data-open={isOpen ? 'true' : 'false'}
+                    // 열릴 때 본문 오른쪽 끝을 넘으면 넘는 만큼 왼쪽으로 당긴다(메뉴가 여러 줄로 접히면 오른쪽 묶음의 패널이 화면 밖으로 나간다)
+                    ref={el => {
+                      if (!el) return
+                      el.style.marginLeft = ''
+                      if (!isOpen) return
+                      const lim = (el.closest('main')?.getBoundingClientRect().right ?? window.innerWidth) - 8
+                      const over = el.getBoundingClientRect().right - lim
+                      if (over > 0) el.style.marginLeft = `${-Math.ceil(over)}px`
+                    }}
+                    style={{
                     position: 'absolute', top: 'calc(100% + 6px)', left: 0,
                     minWidth: 220,
                     background: TK.bg3,

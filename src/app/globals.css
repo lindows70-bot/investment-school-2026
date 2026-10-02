@@ -151,8 +151,7 @@
 }
 
 /* 대시보드 탭 메뉴의 닫힌 드롭다운 — 보이지 않아도 폭(220px)을 차지해, 메뉴가 여러 줄로 접히는 좁은 폭에선 오른쪽 끝 묶음에서 본문을 옆으로 민다.
-   넓은 화면에선 열고 닫는 전환(opacity·transform)을 그대로 두고, 접히는 폭에서만 닫힌 패널을 뺀다. 열린 패널은 화면 폭을 넘지 않게. */
+   넓은 화면에선 열고 닫는 전환(opacity·transform)을 그대로 두고, 접히는 폭에서만 닫힌 패널을 뺀다. 열린 패널이 화면을 넘는 것은 dashboard/page 의 ref 가 당겨 맞춘다. */
 @media (max-width: 1200px) {
   .dash-dd[data-open="false"] { display: none !important; }
-  .dash-dd[data-open="true"] { max-width: calc(100vw - 32px); }
 }
