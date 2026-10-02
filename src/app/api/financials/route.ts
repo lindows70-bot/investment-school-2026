@@ -237,8 +237,9 @@ async function getDARTCorpCode(stockCode: string): Promise<string | null> {
 
     const d = await res.json()
     if (d.status !== '000' || !Array.isArray(d.list) || d.list.length === 0) {
-      // 최근 공시가 없는 경우 날짜 범위를 1년으로 확장해서 재시도
-      const bgn2 = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
+      // 최근 공시가 없는 경우 날짜 범위를 허용 한도(3개월)까지 넓혀 재시도
+      //   ⚠️ corp_code 없이 stock_code 로 찾을 땐 3개월까지만 허용된다(1년을 넣으면 status 100 으로 거부 — 2026-10-02 실측)
+      const bgn2 = new Date(Date.now() - 88 * 24 * 60 * 60 * 1000)
         .toISOString().slice(0, 10).replace(/-/g, '')
       const url2 =
         `https://opendart.fss.or.kr/api/list.json` +
@@ -304,7 +305,9 @@ async function fetchDARTYear(
     ]
 
     for (const row of rows) {
-      if (row.sj_div !== 'IS') continue   // 손익계산서(IS)만
+      // 손익계산서(IS) + 포괄손익계산서(CIS) — 손익을 CIS 한 장으로 내는 회사(SK하이닉스·HD현대중공업 등)는 IS 가 아예 없다.
+      //   2026-10-02 실측: 'IS' 만 받던 시절 그런 회사는 DART 값이 0행 → 빈 연도가 0 으로 남았다. 둘 다 있는 회사(삼성전자)는 IS 가 먼저 와 그 값이 쓰인다(아래 '=== 0' 가드).
+      if (row.sj_div !== 'IS' && row.sj_div !== 'CIS') continue
 
       const nm = row.account_nm ?? ''
       const id = row.account_id ?? ''
@@ -363,7 +366,10 @@ async function fetchDARTYear(
 
 /**
  * DART 5개년 연결재무제표 수집
- * - 2회 호출: bsns_year=cy → cy, cy-1, cy-2 / bsns_year=cy-2 → cy-2, cy-3, cy-4
+ * - 사업보고서는 결산 다음 해 3월쯤 나온다 → **올해(cy)** 보고서는 없다. 기준은 가장 최근에 나온 보고서의 사업연도(cy-1, 아직이면 cy-2).
+ * - 2회 호출: bsns_year=기준 → 기준, 기준-1, 기준-2 / bsns_year=기준-2 → 기준-2, 기준-3, 기준-4
+ *   ⚠️ 2026-10-02 실측: 예전엔 cy(2026)와 cy-2(2024)를 불러 2026 은 '조회된 데이타가 없습니다'(013), 닿는 건 2022~2024 뿐이었다 —
+ *   2021 은 영영 0, 2025 는 네이버 값. 주석은 '5개년'이라고 적혀 있었다.
  */
 async function fetchDARTFinancials(
   corpCode: string
@@ -371,11 +377,11 @@ async function fetchDARTFinancials(
   const cy = new Date().getFullYear()
   const merged = new Map<number, { rev: number; oi: number; eps: number }>()
 
-  // 병렬 조회
-  const [recent, older] = await Promise.all([
-    fetchDARTYear(corpCode, cy),
-    fetchDARTYear(corpCode, cy - 2),
-  ])
+  // 가장 최근 보고서부터(1~3월엔 cy-1 보고서가 아직 없을 수 있다 → cy-2 로 내려간다)
+  let base = cy - 1
+  let recent = await fetchDARTYear(corpCode, base)
+  if (recent.size === 0) { base = cy - 2; recent = await fetchDARTYear(corpCode, base) }
+  const older = recent.size > 0 ? await fetchDARTYear(corpCode, base - 2) : new Map<number, { rev: number; oi: number; eps: number }>()
 
   for (const [yr, v] of [...Array.from(older), ...Array.from(recent)]) {   // recent 가 older 를 덮어씀
     const prev = merged.get(yr)

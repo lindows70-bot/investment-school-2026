@@ -389,6 +389,7 @@ export default function LynchEarningsChart(props: any) {
   const [siPePeg,           setSiPePeg]           = useState<{ pe: number; peg: number; growthPct: number | null }>({ pe: 0, peg: 0, growthPct: null })   // 종목 정보 PER·PEG·성장률(%) — 적정가 SSOT 입력
   const [currentEps,        setCurrentEps]        = useState(0)   // 종목 정보의 최근(trailing) EPS — 진단 패널의 '지금' 기준
   const [noEpsReason,       setNoEpsReason]       = useState<string | null>(null)
+  const [missingYears,      setMissingYears]      = useState<string[]>([])   // EPS 자료가 없는 확정 연도(재무 API 가 0 으로 보낸 해) — 적자가 아니다
   // 통화 — 종목 선택 시 업데이트
   const [currency,      setCurrency]      = useState('USD')
 
@@ -400,6 +401,7 @@ export default function LynchEarningsChart(props: any) {
     setError(null)
     setNoEpsReason(null)
     setRawPoints([])
+    setMissingYears([])
     setCurrentPrice(0)
     setCurrentEps(0)
 
@@ -471,9 +473,13 @@ export default function LynchEarningsChart(props: any) {
       // ── 연도별 EPS (financials) ────────────────────────────
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const fin: Record<string, { eps: number }> = finData?.financials ?? {}
-      const epsYears = Object.keys(fin)
+      const actualKeys = Object.keys(fin)
         .filter(k => !k.endsWith('E'))   // 추정치 제외
         .sort()
+      // ⚠️ 재무 API 의 EPS 0 은 '자료 없음'이다(8칸 격자를 0 으로 채워 보낸다 — tracer·eps-history·macro-fundamentals 는 이미 0 을 건너뛴다).
+      //   2026-10-02 실측: 이 차트만 0 을 적자로 그려 SK하이닉스 2021·2022(실제 EPS 13,989·3,242원)에 'EPS 적자 구간 포함'이라고 표시했다.
+      const epsYears = actualKeys.filter(k => Number(fin[k]?.eps ?? 0) !== 0)
+      setMissingYears(actualKeys.filter(k => Number(fin[k]?.eps ?? 0) === 0))
 
       if (epsYears.length === 0) {
         setNoEpsReason('본 종목(ETF·원자재 추정)은 주당순이익(EPS) 데이터가 존재하지 않아 피터 린치 이익선 분석을 제공하지 않습니다. (포트폴리오 비중 및 가격 추이만 모니터링 가능)')
@@ -552,7 +558,7 @@ export default function LynchEarningsChart(props: any) {
     return sliced.map(p => {
       // ★ 적자 구간(EPS ≤ 0): fairValue=0 으로 명시 → 선이 바닥으로 이어짐 (단절 방지)
       // 양수 EPS: 정상 계산
-      const isDeficit = p.ttmEps <= 0
+      const isDeficit = p.ttmEps < 0   // 0 은 위에서 이미 걸러졌다(자료 없음)
       const fv  = isDeficit ? 0 : parseFloat((p.ttmEps * fairPer).toFixed(2))
       const pr  = p.price
       // 저평가·고평가 음영: fairValue > 0 인 구간에서만 표시
@@ -802,6 +808,13 @@ export default function LynchEarningsChart(props: any) {
             <span style={{ fontSize:13, fontWeight:900, color:C.fair, fontFamily:'monospace' }}>{fairPer}×</span>
           </div>
         </div>
+
+        {/* ── 자료 없는 연도 안내(없음 ≠ 적자) ───────────────────── */}
+        {!loading && !noEpsReason && missingYears.length > 0 && chartData.length > 0 && (
+          <div style={{ fontSize:11, color:C.textLow, marginBottom:6, lineHeight:1.6 }}>
+            ※ {missingYears.join(', ')}년은 EPS 자료를 받지 못해 그래프에서 뺐어요(적자라는 뜻이 아니에요).
+          </div>
+        )}
 
         {/* ── 적자 구간 안내 배너 ─────────────────────────────── */}
         {!loading && !noEpsReason && chartData.some(d => d.isDeficit) && (

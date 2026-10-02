@@ -74,6 +74,8 @@ const INVARIANTS = [
   { file: 'scripts/verify-lynch-known.mjs', label: '린치 고정 분류표 — 스크리너 유니버스 표와 어긋남 0 · 분류 라우트가 같은 표' },
   // 2026-10-01 신설 — 같은 종목의 린치 적정가가 화면마다 달랐다(EPS·배수표가 화면마다 따로). 세 화면이 한 함수만 부르는지 본다
   { file: 'scripts/verify-lynch-fair.mjs', label: '린치 적정가 SSOT — 계산 규칙 · 세 화면이 lynchFairValue 만 호출' },
+  // 2026-10-02 신설 — DART 수집이 올해(보고서 없는 해)를 기준으로 부르고 CIS 만 내는 회사를 버려, 과거 연도 EPS 가 0 으로 나갔다(0 은 조용하다)
+  { file: 'scripts/verify-financials-years.mjs', label: '재무 API 확정 연도 — 국내 5개 연도 EPS·매출이 비어 있지 않고 DART 값과 같음' },
 ]
 
 /**
