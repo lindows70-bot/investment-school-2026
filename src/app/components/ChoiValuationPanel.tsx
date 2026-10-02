@@ -448,7 +448,10 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
 
     // 이익 급증 판정은 **시장 PER** 기준 한 번 — 급증이면 성장률 자체를 믿기 어려우므로, 가정 PER(15·25·50) 시나리오도 '저평가'라고 말하지 않는다
     //   (2026-10-01 실측: SK하이닉스 PER 50 시나리오가 PEG 0.43 이라 가드(0.3 미만) 밖에서 '저평가 (강력 매수)'로 남았다)
-    const surge = isPegBaseEffectPct(cagrEps && cagrEps > 0 && perMkt > 0 ? perMkt / cagrEps : null, cagrEps)
+    //   성장률은 장기·단기 CAGR 중 큰 쪽 — 2026-10-02: 재무 API 의 빈 연도(2021·2022)가 복구되자 SK하이닉스 장기 CAGR 이 116.9%(사실은 한 해 증가율) → 45.3%(4년)가 돼
+    //   급증 판정에서 빠지고 '100점 강력 매수'로 돌아갔다. 급증은 단기(1년) CAGR +494.6% 에 그대로 있다.
+    const surgeG = Math.max(cagrEps ?? 0, cagrData.short.eps ?? 0)
+    const surge = isPegBaseEffectPct(cagrEps && cagrEps > 0 && perMkt > 0 ? perMkt / cagrEps : null, surgeG > 0 ? surgeG : null)
     const mkScenario = (per: number, scenLabel: string) => {
       const peg    = cagrEps && cagrEps > 0 ? +(per / cagrEps).toFixed(2) : null
       const jump   = surge && peg != null && peg < 1.0
