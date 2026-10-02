@@ -363,8 +363,8 @@ export default function AppHeader({ title, maxWidth = 1200, className }: Props) 
         @keyframes ddFadeIn  { from { opacity:0; transform:translateY(-6px) } to { opacity:1; transform:translateY(0) } }
         @keyframes cfFadeIn  { from { opacity:0; transform:scale(0.96) }      to { opacity:1; transform:scale(1) } }
         @keyframes spin      { to   { transform: rotate(360deg) } }
-        @media (max-width: 480px) { .header-email { display: none !important } }
-        @media (min-width: 481px) { .header-email { display: block !important } }
+        @media (max-width: 1000px) { .header-email { display: none !important } }
+        @media (min-width: 1001px) { .header-email { display: block !important } }
       `}</style>
 
       {/* ── 로그아웃 확인 팝업 ── */}

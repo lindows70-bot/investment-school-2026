@@ -152,7 +152,7 @@ function Skeleton() {
         <div style={{ width: 26, height: 26, borderRadius: 6, background: TK.bg10, animation: 'pulse 1.5s infinite' }} />
         <div style={{ height: 14, width: 280, background: TK.bg10, borderRadius: 4, animation: 'pulse 1.5s infinite' }} />
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="m-1col" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 16 }}>
         <div style={{ height: 260, background: 'rgba(30,37,53,0.5)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'pulse 1.5s infinite' }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 22, marginBottom: 8 }}>📡</div>
@@ -256,7 +256,7 @@ export default function DotPlotPanel({ currentRate = 3.375 }: DotPlotPanelProps)
       </div>
 
       {/* 2열 레이아웃: 버블 차트 | 컨센서스 테이블 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="m-1col" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 16 }}>
 
         {/* ── 버블 ScatterChart */}
         <div>

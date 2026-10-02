@@ -187,7 +187,7 @@ export default function PortfolioBalanceRadar({ investments, usdKrw = USD_KRW_FA
       </div>
 
       {/* ── 레이더 + 비중 테이블 2단 ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 16 }}>
+      <div className="m-1col" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,3fr) minmax(0,2fr)', gap: 16 }}>
         {/* 레이더 차트 */}
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: '12px 8px' }}>
           <div style={{ height: 300 }}>
@@ -307,16 +307,17 @@ export default function PortfolioBalanceRadar({ investments, usdKrw = USD_KRW_FA
                     {catRatio}% · {list.length}종목
                   </div>
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flex: 1, alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flex: 1, minWidth: 0, alignItems: 'center' }}>
                   {list.length === 0
                     ? <span style={{ fontSize: 11, color: C.low }}>— 보유 종목 없음</span>
                     : list.map(s => (
                       <span key={s.ticker} style={{
                         fontSize: 11, padding: '3px 9px', borderRadius: 20,
                         background: `${color}14`, border: `1px solid ${color}33`, color: C.text,
-                        display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
+                        display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', maxWidth: '100%',
                       }}>
-                        {s.name}
+                        {/* 긴 종목명(SPACE EXPLORATION TECHNOLOGIES CORP)이 칩째로 칸을 넘지 않게 — 이름만 줄인다 */}
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{s.name}</span>
                         <span style={{ color, fontFamily: 'monospace', fontWeight: 700 }}>{s.weight}%</span>
                       </span>
                     ))}

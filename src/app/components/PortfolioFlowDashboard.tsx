@@ -196,7 +196,7 @@ export default function PortfolioFlowDashboard() {
 
       {/* 쌍끌이 / 과밀 2단 보드 */}
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-        <div style={{ flex: '1 1 320px', background: CARD, borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(34,197,94,0.3)' }}>
+        <div style={{ flex: '1 1 320px', minWidth: 0, background: CARD, borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(34,197,94,0.3)' }}>
           <div style={{ color: TK.green500, fontWeight: 700, fontSize: 13, marginBottom: 4 }}>🏆 매수 우선순위 (저평가 + 유입)</div>
           <div style={{ color: TK.sub2, fontSize: 11, marginBottom: 10 }}>저PEG인데 스마트머니까지 유입 — 가장 매력적인 자리</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -209,7 +209,7 @@ export default function PortfolioFlowDashboard() {
               ) : <div style={{ color: TK.sub, fontSize: 12, padding: '6px 0' }}>현재 저평가 + 수급 유입(또는 임박) 종목이 없습니다.</div>}
           </div>
         </div>
-        <div style={{ flex: '1 1 320px', background: CARD, borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(239,68,68,0.3)' }}>
+        <div style={{ flex: '1 1 320px', minWidth: 0, background: CARD, borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(239,68,68,0.3)' }}>
           <div style={{ color: TK.red500, fontWeight: 700, fontSize: 13, marginBottom: 4 }}>⚠️ 상투·과열 경보 (고평가)</div>
           <div style={{ color: TK.sub2, fontSize: 11, marginBottom: 10 }}>고평가인데 수급이 몰리거나(추격 과열) 메이저가 이탈 중 — 추격 자제</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
