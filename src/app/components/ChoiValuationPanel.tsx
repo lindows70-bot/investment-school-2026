@@ -358,12 +358,14 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
         oi:  calcCagr(oiActFirst?.val  ?? null, oiActLast?.val  ?? null, longOiYrs),
         rev: calcCagr(revActFirst?.val ?? null, revActLast?.val ?? null, longRevYrs),
         yrs: longEpsYrs,
+        span: epsActFirst && epsActLast ? `${yearKeys[epsActFirst.idx]}→${yearKeys[epsActLast.idx]}` : null,
       },
       short: {
         eps: calcCagr(shortEpsVal.s?.val ?? null, shortEpsVal.e?.val ?? null, shortEpsYrs),
         oi:  calcCagr(shortOiVal.s?.val  ?? null, shortOiVal.e?.val  ?? null, shortOiYrs),
         rev: calcCagr(shortRevVal.s?.val ?? null, shortRevVal.e?.val ?? null, shortRevYrs),
         yrs: shortEpsYrs,
+        span: shortEpsVal.s && shortEpsVal.e ? `${yearKeys[shortEpsVal.s.idx]}→${yearKeys[shortEpsVal.e.idx]}` : null,
       },
     }
   }, [rawData, yearKeys, eps, oi, rev])
@@ -999,8 +1001,9 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 14 }}>📈 CAGR 성장률 자동 계산</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr', borderRadius: 10, overflow: 'hidden', border: `1px solid ${T.bd}` }}>
             {['항목',
-              `장기 ${cagrData.long.yrs ?? ''}년 CAGR`,
-              `단기 ${cagrData.short.yrs ?? ''}년 CAGR`,
+              // 실제로 잰 연도를 병기 — 확정 연도가 적으면 '장기'와 '단기'가 같은 한 해를 재는데 이름만 달랐다(COHR: 장기 1년 · 단기 1년, 2026-10-03)
+              `장기 ${cagrData.long.yrs ?? ''}년 CAGR${cagrData.long.span ? ` (${cagrData.long.span})` : ''}`,
+              `단기 ${cagrData.short.yrs ?? ''}년 CAGR${cagrData.short.span ? ` (${cagrData.short.span})` : ''}`,
             ].map(h => (
               <div key={h} style={{ background: '#252836', padding: '10px 16px', fontSize: 11, fontWeight: 700, color: T.sub }}>{h}</div>
             ))}

@@ -21,6 +21,7 @@ import {
 } from 'recharts'
 import type { TracerResult, TracerPoint } from '@/app/api/lynch-earnings-tracer/route'
 import { TK, FONT_STACK } from '@/lib/theme'
+import { lynchFairValue } from '@/lib/lynchAnalysis'   // 이익 급증·정점 판정(적정가 SSOT 와 같은 기준 — 이 화면의 선은 EPS×15 그대로)
 
 // ── 색상 토큰 ─────────────────────────────────────────────────────────────────
 const C = {
@@ -87,18 +88,34 @@ export default function LynchEarningsLineTracer() {
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState<string | null>(null)
   const [showMedian, setShowMedian] = useState(true)
+  // 이익 급증·경기순환주 정점 — 걸리면 '이익선보다 낮다 = 덜 반영됐다'고 말하지 않는다. 판정 재료(종목 정보·분류)를 못 받으면 null(가드 없이 기존 문구)
+  const [hold, setHold] = useState<{ kind: 'jump' } | { kind: 'peak'; n: number; from: string; to: string } | null>(null)
 
   const search = useCallback(async (e?: React.FormEvent) => {
     e?.preventDefault()
     const tk = input.trim().toUpperCase()
     if (!tk) return
-    setLoading(true); setError(null); setData(null)
+    setLoading(true); setError(null); setData(null); setHold(null)
     try {
       const r = await fetch(`/api/lynch-earnings-tracer?ticker=${encodeURIComponent(tk)}&market=${market}`, { cache: 'no-store' })
       const j: TracerResult & { error?: string } = await r.json()
       if (j.error) setError(j.error)
       else if (!j.hasData) setError('데이터를 불러오지 못했습니다.')
-      else setData(j)
+      else {
+        setData(j)
+        // 가드 재료 — 실패해도 차트는 그대로(부가 판정)
+        Promise.all([
+          fetch(`/api/stock-info?ticker=${encodeURIComponent(tk)}&market=${market}`).then(x => x.ok ? x.json() : null).catch(() => null),
+          fetch(`/api/lynch-classify?ticker=${encodeURIComponent(tk)}&market=${market}`).then(x => x.ok ? x.json() : null).catch(() => null),
+        ]).then(([si, lc]) => {
+          const f = si?.fundamentals
+          if (!f) return
+          const v = lynchFairValue({ eps: f.eps, pe: f.pe, peg: f.peg, growthPct: typeof f.earningsGrowth === 'number' ? f.earningsGrowth * 100 : null,
+            category: typeof lc?.category === 'string' ? lc.category : null, market, price: j.currentPrice, fyEps: f.fyEps })
+          if (v.jump) setHold({ kind: 'jump' })
+          else if (v.peak && f.fyEps) setHold({ kind: 'peak', n: f.fyEps.n, from: f.fyEps.from, to: f.fyEps.to })
+        }).catch(() => {})
+      }
     } catch { setError('데이터를 불러오는 중 오류가 발생했습니다.') }
     finally { setLoading(false) }
   }, [input, market])
@@ -365,9 +382,13 @@ export default function LynchEarningsLineTracer() {
 
             {/* ── 린치 코멘트 ── */}
             {data.currentGap15 != null && (
-              <div style={{ padding: '12px 16px', borderRadius: 10, background: C.card2, borderLeft: `3px solid ${data.currentGap15 < -20 ? C.green : data.currentGap15 > 30 ? C.red : TK.blue500}` }}>
+              <div style={{ padding: '12px 16px', borderRadius: 10, background: C.card2, borderLeft: `3px solid ${data.currentGap15 < 0 && hold ? TK.amber500 : data.currentGap15 < -20 ? C.green : data.currentGap15 > 30 ? C.red : TK.blue500}` }}>
                 <div style={{ fontSize: 12.5, color: TK.slate300, lineHeight: 1.75, fontStyle: 'italic' }}>
-                  {data.currentGap15 < -20
+                  {data.currentGap15 < 0 && hold
+                    ? `🟡 ${data.name}의 주가가 린치 이익선보다 ${Math.abs(data.currentGap15).toFixed(0)}% 낮게 거래되고 있어. 그런데 ${hold.kind === 'jump'
+                        ? '이익이 한 해에 두 배 넘게 뛴 구간이야 — 이익선도 그만큼 부풀어 있어서, 이걸 싸다는 근거로 쓰면 안 돼.'
+                        : `지금 이익이 최근 ${hold.n}개 결산 연도(${hold.from}~${hold.to}) 중 가장 커 — 경기순환주는 이익이 가장 좋을 때 가장 싸 보여.`} 이익이 정점인지, 내년에도 이어질 이익인지부터 확인해.`
+                    : data.currentGap15 < -20
                     ? `🟢 ${data.name}의 주가가 린치 이익선보다 ${Math.abs(data.currentGap15).toFixed(0)}% 낮게 거래되고 있어. 이익이 뒷받침하는데 주가가 덜 반영된 상태야 — 시장이 아직 이 이익 성장을 제대로 평가하지 못한 거일 수 있어. 물론 "왜 싸지?"를 반드시 확인해야 해.`
                     : data.currentGap15 > 30
                     ? `🔴 ${data.name}의 주가가 린치 이익선보다 ${data.currentGap15.toFixed(0)}% 높게 거래되고 있어. 이익 대비 시장의 기대가 이미 많이 앞서 있는 상태야 — 이 이격이 정당화될 만한 이익 성장이 실제로 따라올지를 직접 확인해.`

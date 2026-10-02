@@ -8,6 +8,7 @@ import type { TechCandle } from '@/app/api/tech-chart/route'
 import type { SignalReportResult } from '@/app/api/signal-report/route'
 import { curSymbol, isLeveragedTicker } from '@/lib/globalTickers'
 import { TK, FS } from '@/lib/theme'
+import { isPegBaseEffect } from '@/lib/pegBaseEffect'   // 이익 급증(기저효과) 판정 SSOT(순수 함수)
 
 const BORDER = TK.border
 
@@ -152,7 +153,7 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   const f = fund === 'loading' || fund == null ? null : fund
   const opLoss = f?.opMargin != null && f.opMargin < -0.10          // 영업적자(−10%↓) = 진짜 부실(강한 danger)
   const fcfNeg = f?.fcf != null && f.fcf < 0                        // FCF적자 = 흑자기업이면 capex·캡티브금융일 뿐(약한 caveat) — 좀비가드 철학
-  const pegBase = f?.peg != null && f.peg < 0.3 && f?.growth != null && f.growth > 1.0   // 기저효과(isPegBaseEffect SSOT 공식) = 가짜 저PEG
+  const pegBase = isPegBaseEffect(f?.peg ?? null, f?.growth ?? null)   // 기저효과 = 가짜 저PEG(추천·점수 계산과 같은 함수)
   const pegHigh = f?.peg != null && f.peg > 2.2                     // Jarvis SELL 기준과 동일(제2원칙)
   const pegGood = f?.peg != null && f.peg <= 1.0 && !pegBase        // 진짜 저평가(기저효과 제외)
   // 🚨 가짜 반등 트리거 = 영업적자 / 고평가 / 기저효과 저PEG (FCF적자 단독은 제외 — 흑자기업 capex 오탐 방지)
