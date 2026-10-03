@@ -29,7 +29,7 @@ import {
   Tooltip as RTooltip, ResponsiveContainer, Legend, ReferenceLine, ReferenceDot,
   BarChart, Bar, Cell as BarCell, LabelList,
 } from 'recharts'
-import { TK, FONT_STACK } from '@/lib/theme'
+import { TK, FS, FONT_STACK } from '@/lib/theme'
 import { isPegBaseEffectPct } from '@/lib/pegBaseEffect'   // 이익 급증(기저효과) 가드 SSOT — 추천·점수 계산과 같은 기준
 
 // ── 디자인 토큰 ──────────────────────────────────────────────────────────────
@@ -358,14 +358,23 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
         oi:  calcCagr(oiActFirst?.val  ?? null, oiActLast?.val  ?? null, longOiYrs),
         rev: calcCagr(revActFirst?.val ?? null, revActLast?.val ?? null, longRevYrs),
         yrs: longEpsYrs,
-        span: epsActFirst && epsActLast ? `${yearKeys[epsActFirst.idx]}→${yearKeys[epsActLast.idx]}` : null,
+        // 항목마다 잰 연도가 다르다(첫·마지막 양수 값 기준) — 칸마다 병기한다
+        spans: {
+          eps: epsActFirst && epsActLast ? `${yearKeys[epsActFirst.idx]}→${yearKeys[epsActLast.idx]}` : null,
+          oi:  oiActFirst  && oiActLast  ? `${yearKeys[oiActFirst.idx]}→${yearKeys[oiActLast.idx]}`   : null,
+          rev: revActFirst && revActLast ? `${yearKeys[revActFirst.idx]}→${yearKeys[revActLast.idx]}` : null,
+        },
       },
       short: {
         eps: calcCagr(shortEpsVal.s?.val ?? null, shortEpsVal.e?.val ?? null, shortEpsYrs),
         oi:  calcCagr(shortOiVal.s?.val  ?? null, shortOiVal.e?.val  ?? null, shortOiYrs),
         rev: calcCagr(shortRevVal.s?.val ?? null, shortRevVal.e?.val ?? null, shortRevYrs),
         yrs: shortEpsYrs,
-        span: shortEpsVal.s && shortEpsVal.e ? `${yearKeys[shortEpsVal.s.idx]}→${yearKeys[shortEpsVal.e.idx]}` : null,
+        spans: {
+          eps: shortEpsVal.s && shortEpsVal.e ? `${yearKeys[shortEpsVal.s.idx]}→${yearKeys[shortEpsVal.e.idx]}` : null,
+          oi:  shortOiVal.s  && shortOiVal.e  ? `${yearKeys[shortOiVal.s.idx]}→${yearKeys[shortOiVal.e.idx]}`   : null,
+          rev: shortRevVal.s && shortRevVal.e ? `${yearKeys[shortRevVal.s.idx]}→${yearKeys[shortRevVal.e.idx]}` : null,
+        },
       },
     }
   }, [rawData, yearKeys, eps, oi, rev])
@@ -1001,23 +1010,25 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 14 }}>📈 CAGR 성장률 자동 계산</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr', borderRadius: 10, overflow: 'hidden', border: `1px solid ${T.bd}` }}>
             {['항목',
-              // 실제로 잰 연도를 병기 — 확정 연도가 적으면 '장기'와 '단기'가 같은 한 해를 재는데 이름만 달랐다(COHR: 장기 1년 · 단기 1년, 2026-10-03)
-              `장기 ${cagrData.long.yrs ?? ''}년 CAGR${cagrData.long.span ? ` (${cagrData.long.span})` : ''}`,
-              `단기 ${cagrData.short.yrs ?? ''}년 CAGR${cagrData.short.span ? ` (${cagrData.short.span})` : ''}`,
+              // 기간은 칸마다 적는다 — 머리글의 'N년'은 EPS 기준이었는데 영업이익·매출은 다른 연도를 잰다(COHR: 머리글 '장기 1년', 매출은 3년치). 2026-10-03
+              '장기 CAGR',
+              '단기 CAGR',
             ].map(h => (
               <div key={h} style={{ background: '#252836', padding: '10px 16px', fontSize: 11, fontWeight: 700, color: T.sub }}>{h}</div>
             ))}
             {[
-              { label: 'EPS',    long: cagrData.long.eps, short: cagrData.short.eps, color: T.grn },
-              { label: '영업이익', long: cagrData.long.oi,  short: cagrData.short.oi,  color: T.dn  },
-              { label: '매출액',  long: cagrData.long.rev, short: cagrData.short.rev, color: T.gld },
-            ].flatMap(({ label, long: l, short: s, color }) => [
+              { label: 'EPS',    long: cagrData.long.eps, short: cagrData.short.eps, color: T.grn, ls: cagrData.long.spans.eps, ss: cagrData.short.spans.eps },
+              { label: '영업이익', long: cagrData.long.oi,  short: cagrData.short.oi,  color: T.dn,  ls: cagrData.long.spans.oi,  ss: cagrData.short.spans.oi  },
+              { label: '매출액',  long: cagrData.long.rev, short: cagrData.short.rev, color: T.gld, ls: cagrData.long.spans.rev, ss: cagrData.short.spans.rev },
+            ].flatMap(({ label, long: l, short: s, color, ls, ss }) => [
               <div key={`${label}-lbl`} style={{ padding: '12px 16px', fontWeight: 700, color, borderTop: `1px solid ${T.bd}`, fontSize: 13 }}>{label}</div>,
               <div key={`${label}-long`} style={{ padding: '12px 16px', fontWeight: 800, fontSize: 18, borderTop: `1px solid ${T.bd}`, color: l != null ? T.txt : T.mut }}>
                 {l != null ? `${l > 0 ? '+' : ''}${l.toFixed(1)}%` : '—'}
+                {l != null && ls && <div style={{ fontSize: FS.micro, fontWeight: 500, color: T.mut, marginTop: 2 }}>{ls}</div>}
               </div>,
               <div key={`${label}-short`} style={{ padding: '12px 16px', fontWeight: 800, fontSize: 18, borderTop: `1px solid ${T.bd}`, color: s!=null&&l!=null?(s>=l?T.grn:TK.orange400):T.mut }}>
                 {s != null ? `${s > 0 ? '+' : ''}${s.toFixed(1)}%` : '—'}
+                {s != null && ss && <div style={{ fontSize: FS.micro, fontWeight: 500, color: T.mut, marginTop: 2 }}>{ss}</div>}
               </div>,
             ])}
           </div>
