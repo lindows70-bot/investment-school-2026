@@ -3,7 +3,7 @@
 import { LYNCH_CATEGORY_KR, lynchFairValue } from '@/lib/lynchAnalysis'
 import { isHoldingCompany, isFinancialCompany } from '@/lib/assetClassifier'   // 🏢 지주사·🏦 금융주 — EPS·PEG·이익선 왜곡(지분법이익·투자손익)
 import { TK } from '@/lib/theme'
-import { isPegBaseEffectPct, PEG_JUMP_LABEL, PEG_JUMP_DESC } from '@/lib/pegBaseEffect'   // 이익 급증(기저효과) 가드 SSOT — 추천·점수 계산과 같은 기준
+import { isPegBaseEffectPct, PEG_JUMP_LABEL, PEG_JUMP_DESC, PEG_PEAK_LABEL } from '@/lib/pegBaseEffect'   // 이익 급증(기저효과) 가드 SSOT — 추천·점수 계산과 같은 기준
 
 const CARD = TK.bg6, BORDER = TK.border
 
@@ -31,15 +31,6 @@ export default function LynchAutoPanel(p: LynchAutoProps) {
   const financial = !holding && isFinancialCompany(p.ticker, p.name)
   const special = holding || financial
 
-  // PEG 해석
-  const pegView = peg == null ? { label: 'PEG 데이터 없음', color: TK.sub, desc: '성장률·PER 데이터가 부족합니다.' }
-    : pegSuspect ? { label: PEG_JUMP_LABEL, color: TK.amber500, desc: `PEG ${peg.toFixed(2)}는 작년 이익 붕괴 후 회복(성장 ${g!.toFixed(0)}%)으로 0에 수렴한 착시 — 저평가 근거로 쓸 수 없습니다.` }
-    : peg <= 0.5 ? { label: '✅ 강력 매수 구간', color: TK.green500, desc: '성장 대비 크게 저평가(PEG ≤ 0.5).' }
-    : peg <= 1.0 ? { label: '🟢 매수 적정', color: TK.green500, desc: '성장 대비 합리적 저평가(PEG ≤ 1.0 = 린치 기준선).' }
-    : peg <= 1.5 ? { label: '🔵 합리적 보유', color: TK.blue400, desc: '적정~약간 고평가 구간(PEG 1.0~1.5).' }
-    : peg <= 2.2 ? { label: '🟠 매도 경계', color: TK.amber500, desc: '성장 대비 고평가 경계(PEG 1.5~2.2).' }
-    : { label: '🔴 매도 검토', color: TK.red500, desc: `성장 대비 고평가(PEG ${peg.toFixed(2)} > 2.2).` }
-
   // 이익선(Lynch Line) 이격 — EPS × 카테고리 적정PER
   //   적정가는 SSOT(lynchAnalysis.lynchFairValue) — 이 패널만의 배수표(순환주 12·우량주 16…)를 쓰던 시절 매크로 터미널과 값이 달랐다(2026-10-01)
   const eps = p.eps ?? null
@@ -47,6 +38,17 @@ export default function LynchAutoPanel(p: LynchAutoProps) {
   const fair = lynchFairValue({ eps, pe: p.per, peg, growthPct: g, category: cat, market: p.market, price, fyEps: p.fyEps })
   const fairPrice = fair.fairPrice
   const gapPct = fair.gapPct
+
+  // PEG 해석 — 정점 가드(fair.peak)도 본다. 2026-10-03: 이 칸이 '강력 매수 구간(PEG 0.38)'이라 적고 바로 아래 이익선 칸이 '저평가 근거로 쓸 수 없다'고 적던 모순(삼성전자)
+  const pegView = peg == null ? { label: 'PEG 데이터 없음', color: TK.sub, desc: '성장률·PER 데이터가 부족합니다.' }
+    : pegSuspect ? { label: PEG_JUMP_LABEL, color: TK.amber500, desc: `PEG ${peg.toFixed(2)}는 작년 이익 붕괴 후 회복(성장 ${g!.toFixed(0)}%)으로 0에 수렴한 착시 — 저평가 근거로 쓸 수 없습니다.` }
+    : fair.peak && peg <= 1.0 ? { label: PEG_PEAK_LABEL, color: TK.amber500, desc: `PEG ${peg.toFixed(2)}는 이익이 비교 기간 중 최고일 때 계산된 값입니다 — ${fair.holdNote}` }
+    : peg <= 0.5 ? { label: '✅ 강력 매수 구간', color: TK.green500, desc: '성장 대비 크게 저평가(PEG ≤ 0.5).' }
+    : peg <= 1.0 ? { label: '🟢 매수 적정', color: TK.green500, desc: '성장 대비 합리적 저평가(PEG ≤ 1.0 = 린치 기준선).' }
+    : peg <= 1.5 ? { label: '🔵 합리적 보유', color: TK.blue400, desc: '적정~약간 고평가 구간(PEG 1.0~1.5).' }
+    : peg <= 2.2 ? { label: '🟠 매도 경계', color: TK.amber500, desc: '성장 대비 고평가 경계(PEG 1.5~2.2).' }
+    : { label: '🔴 매도 검토', color: TK.red500, desc: `성장 대비 고평가(PEG ${peg.toFixed(2)} > 2.2).` }
+
   const lineView = holding ? { color: TK.violet400, t: '🏢 지주사 — EPS 기반 이익선 비교 부적합(자회사 지분법이익이 EPS를 왜곡). NAV·SOTP로 평가' }
     : financial ? { color: TK.sky400, t: '🏦 금융주(보험·은행) — EPS 기반 이익선 비교 부적합(이익이 투자손익·대손에 휘둘림). P/B·ROE·내재가치(EV)로 평가' }
     : fairPrice == null ? null
@@ -65,6 +67,8 @@ export default function LynchAutoPanel(p: LynchAutoProps) {
     ? '🏦 금융주(보험·은행)예요 — EPS가 투자손익·대손충당에 휘둘려 이익선(EPS×PER)이 왜곡됩니다(보험은 저PBR이라 이익선상 고평가로 보여도 P/B 기준 저평가일 수 있어요). PER 대신 P/B·ROE·내재가치(EV)로 평가하세요.'
     : pegSuspect
     ? '경기순환·턴어라운드 기저효과로 저PEG가 착시일 수 있어요 — 이익이 정점인지부터 확인하세요(린치의 경기순환 함정).'
+    : fair.peak
+    ? '경기순환주의 지금 이익이 비교한 결산 연도 중 최고예요 — 린치는 "경기순환주는 PER이 가장 낮아 보일 때가 가장 위험하다"고 했습니다. 이익이 꺾이면 PEG와 이익선이 함께 뒤집히니, 이 이익이 내년에도 이어질지부터 확인하세요.'
     : peg != null && peg <= 1.0 && (cat === 'fast_grower' || cat === 'stalwart')
     ? '린치가 좋아할 자리 — 우량·고성장이 성장 대비 저평가(PEG ≤ 1.0). 단, 이익 성장이 꺾이지 않는지 추적하세요.'
     : peg != null && peg > 2.2

@@ -59,6 +59,10 @@ check('이익 급증과 정점이 겹치면 이유 문장은 급증 쪽(먼저 �
 const src = f => readFileSync(`${ROOT}/src/${f}`, 'utf8')
 const auto = src('app/components/LynchAutoPanel.tsx'), mtd = src('app/components/macro/MacroTerminalDashboard.tsx'), lec = src('app/components/LynchEarningsChart.tsx')
 check('린치 자동 분석 — lynchFairValue 호출 · 자체 배수표(CAT_MULT) 없음', /lynchFairValue\(/.test(auto) && !/CAT_MULT/.test(auto))
+// 2026-10-03: PEG 칸이 '강력 매수 구간'이라 적고 같은 패널 이익선 칸이 '저평가 근거로 쓸 수 없다'고 적던 모순 — PEG 칸·종합 의견·리서치 상단 PEG 블록이 모두 fair.peak 를 본다
+check('린치 자동 분석 — PEG 칸과 종합 의견이 정점(fair.peak)을 본다', /fair\.peak && peg <= 1\.0 \? \{ label: PEG_PEAK_LABEL/.test(auto) && /: fair\.peak\n\s+\? '경기순환주의 지금 이익이/.test(auto))
+const rp = src('app/research/page.tsx')
+check('리서치 PEG 해석 블록 — 같은 함수(lynchFairValue)로 정점 판정 · 색·문구 모두 pegWarn/pegPeak', /const pegFair = stockInfo \? lynchFairValue\(/.test(rp) && (rp.match(/pegWarn \? TK\.amber500/g) ?? []).length === 2 && /pegPeak \? `\$\{PEG_PEAK_LABEL\} — \$\{pegFair!\.holdNote\}`/.test(rp))
 check('매크로 터미널 — lynchFairValue 호출 · calcFairMultiple 직접 호출 없음', /lynchFairValue\(/.test(mtd) && !/calcFairMultiple\(/.test(mtd))
 check('린치 이익 차트 — 진단 칸 적정가가 lynchFairValue(모델 배수 × EPS 가 아님)', /const ssot\s*=\s*lynchFairValue\(/.test(lec) && /const latestFair\s*=\s*ssot\.fairPrice/.test(lec))
 

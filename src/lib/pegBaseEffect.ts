@@ -18,3 +18,5 @@ export function isPegBaseEffectPct(peg: number | null | undefined, growthPct: nu
 // 분석 화면 공용 문구 — 화면마다 다른 말을 하지 않게 한 곳에서(2026-10-01: 가드가 PEG 한 칸에만 있어 같은 패널의 이익선은 '저평가(매수 영역)'라고 말하고 있었다)
 export const PEG_JUMP_LABEL = '⚠️ 기저효과 착시'
 export const PEG_JUMP_DESC = '이익이 한 해에 두 배 넘게 뛴 구간이라 저평가 근거로 쓸 수 없습니다(린치의 경기순환 함정)'
+// 경기순환주 정점 착시 라벨(2026-10-03) — 판정은 lynchAnalysis.lynchFairValue().peak, 이유 문장은 그 holdNote 를 그대로 쓴다(여기엔 라벨만)
+export const PEG_PEAK_LABEL = '⚠️ 이익 정점 착시'

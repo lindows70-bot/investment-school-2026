@@ -26,7 +26,8 @@ import ChoiValuationPanel from '@/app/components/ChoiValuationPanel'
 import { getAssetType } from '@/lib/assetClassifier'
 import type { Candle } from '@/app/components/CandleChart'
 import { TK, FS, FONT_STACK } from '@/lib/theme'
-import { isPegBaseEffectPct, PEG_JUMP_LABEL, PEG_JUMP_DESC } from '@/lib/pegBaseEffect'   // 이익 급증(기저효과) 가드 SSOT — 추천·점수 계산과 같은 기준
+import { isPegBaseEffectPct, PEG_JUMP_LABEL, PEG_JUMP_DESC, PEG_PEAK_LABEL } from '@/lib/pegBaseEffect'
+import { lynchFairValue } from '@/lib/lynchAnalysis'   // 정점 판정(peak) — 린치 자동 분석 패널과 같은 함수   // 이익 급증(기저효과) 가드 SSOT — 추천·점수 계산과 같은 기준
 
 const N   = TK.bg8
 const SHO = `7px 7px 18px ${TK.bg2}, -4px -4px 12px ${TK.line2}`
@@ -262,6 +263,11 @@ export default function ResearchPage() {
       조회한 종목이 이 탭의 그루 분석에 자동으로 적용됩니다.
     </div>
   )
+
+  // PEG 해석 블록의 정점 가드 — 린치 자동 분석 패널과 같은 함수로 판정해 같은 종목 화면에서 반대 말을 하지 않게(2026-10-03)
+  const pegFair = stockInfo ? lynchFairValue({ eps: stockInfo.eps, pe: stockInfo.per, peg: stockInfo.peg, growthPct: stockInfo.epsGrowth, category: stockInfo.lynchCategory, market: stockInfo.market, price: priceData?.currentPrice ?? null, fyEps: stockInfo.fyEps }) : null
+  const pegPeak = !!pegFair?.peak && stockInfo?.peg != null && stockInfo.peg <= 1
+  const pegWarn = stockInfo?.peg != null && (isPegBaseEffectPct(stockInfo.peg, stockInfo.epsGrowth) || pegPeak)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: FONT_STACK }}>
@@ -580,14 +586,15 @@ export default function ResearchPage() {
 
             {/* PEG 해석 */}
             <div style={{ background: TK.bg0, boxShadow: SHI, borderRadius: 10, padding: '12px 14px',
-              borderLeft: `3px solid ${stockInfo.peg != null ? (isPegBaseEffectPct(stockInfo.peg, stockInfo.epsGrowth) ? TK.amber500 : stockInfo.peg <= 1 ? TK.emerald500 : stockInfo.peg <= 2 ? TK.blue400 : TK.red400) : TK.sub10}` }}>
+              borderLeft: `3px solid ${stockInfo.peg != null ? (pegWarn ? TK.amber500 : stockInfo.peg <= 1 ? TK.emerald500 : stockInfo.peg <= 2 ? TK.blue400 : TK.red400) : TK.sub10}` }}>
               <div style={{ fontSize: 9, color: TK.sub4, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>PEG 해석</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: stockInfo.peg != null ? (isPegBaseEffectPct(stockInfo.peg, stockInfo.epsGrowth) ? TK.amber500 : stockInfo.peg <= 1 ? TK.emerald500 : stockInfo.peg <= 2 ? TK.blue400 : TK.red400) : TK.sub10 }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: stockInfo.peg != null ? (pegWarn ? TK.amber500 : stockInfo.peg <= 1 ? TK.emerald500 : stockInfo.peg <= 2 ? TK.blue400 : TK.red400) : TK.sub10 }}>
                 {stockInfo.peg != null ? stockInfo.peg.toFixed(2) : '—'}
               </div>
               <div style={{ fontSize: 10, color: TK.sub10, marginTop: 4 }}>
                 {stockInfo.peg == null ? 'PEG 데이터 없음' :
                  isPegBaseEffectPct(stockInfo.peg, stockInfo.epsGrowth) ? `${PEG_JUMP_LABEL} — ${PEG_JUMP_DESC}` :
+                 pegPeak ? `${PEG_PEAK_LABEL} — ${pegFair!.holdNote}` :
                  stockInfo.peg <= 1 ? '✅ 강력 매수 구간. 성장 대비 저평가.' :
                  stockInfo.peg <= 2 ? '🔵 적정 가격 수준.' :
                  '⚠️ 가격 부담 큼. 고성장 지속 필요.'}
