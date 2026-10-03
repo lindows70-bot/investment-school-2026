@@ -136,8 +136,9 @@ export default function MacroStressTester({ portfolioData }: Props) {
       </div>
 
       {/* 결과 테이블 */}
+      {/* 375 에서 w-full 표가 289px 로 눌려 머리글이 세로 글자가 됐다(2026-10-03 탐지기 10건) — 최소 폭을 줘 래퍼가 가로 스크롤하게 */}
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
+        <table className="w-full min-w-[640px] whitespace-nowrap text-left border-collapse">
           <thead>
             <tr className="border-b border-zinc-800 text-xs text-zinc-400">
               <th className="pb-3 font-medium">종목 (티커)</th>
