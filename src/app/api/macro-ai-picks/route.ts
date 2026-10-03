@@ -54,7 +54,7 @@ export interface MacroAiResult {
 }
 
 // v4: 국면 라벨 SSOT 교정 — 라벨이 프롬프트와 macroSummary 에 그대로 박히므로 키를 올린다
-const CACHE_KEY = 'macro-ai-picks:weekly:v5'   // v5: aiScore 가 통계 점수가 아님을 프롬프트에 명시(응답 문구 변경)
+const CACHE_KEY = 'macro-ai-picks:weekly:v6'   // v6(2026-10-03): 🏔️ 유니버스 v18 정점 가드로 스크리너 점수·후보가 바뀜 / v5: aiScore 가 통계 점수가 아님을 프롬프트에 명시(응답 문구 변경)
 const PHASE_KEY = 'macro-ai-picks:phase'
 const CACHE_TTL = 7 * 24 * 3600_000   // 7일
 
@@ -133,13 +133,13 @@ export async function GET(req: Request) {
   // 기존 캐시가 있으면 stale 상태로 먼저 반환 (가동률 보장)
   if (cached && !forceRefresh) {
     // 백그라운드에서 갱신 — 이번 요청은 stale 데이터로 응답
-    refreshInBackground(macroData, phaseResult).catch(() => {})
+    refreshInBackground(macroData, phaseResult, selfBase).catch(() => {})
     return NextResponse.json({ ...cached, macroData, phase: phaseResult, isStale: true }, { headers: { 'Cache-Control': 'no-store' } })
   }
 
   // ── 신규 생성 (캐시 없거나 forceRefresh) ─────────────────────────────────
   try {
-    const result = await generatePicks(macroData, phaseResult, now)
+    const result = await generatePicks(macroData, phaseResult, now, selfBase)
     return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     console.warn('[macro-ai-picks]', (e as Error).message?.slice(0, 80))
@@ -149,17 +149,18 @@ export async function GET(req: Request) {
   }
 }
 
-async function refreshInBackground(macroData: Awaited<ReturnType<typeof fetchMacroData>>, phaseResult: ReturnType<typeof detectMacroPhase>) {
-  try { await generatePicks(macroData, phaseResult, new Date().toISOString()) } catch { /* 실패 무시 */ }
+async function refreshInBackground(macroData: Awaited<ReturnType<typeof fetchMacroData>>, phaseResult: ReturnType<typeof detectMacroPhase>, selfBase: string) {
+  try { await generatePicks(macroData, phaseResult, new Date().toISOString(), selfBase) } catch { /* 실패 무시 */ }
 }
 
 async function generatePicks(
   macroData: Awaited<ReturnType<typeof fetchMacroData>>,
   phaseResult: ReturnType<typeof detectMacroPhase>,
-  now: string
+  now: string,
+  selfBase: string   // 🏔️ 스크리너가 종목 정보(정점 판정 재료)를 자기 호출하는 데 쓴다
 ): Promise<MacroAiResult> {
   // 1차 퀀트 스크리닝
-  const { us, kr, all } = await runScreener(phaseResult.phase as Parameters<typeof runScreener>[0])
+  const { us, kr, all } = await runScreener(phaseResult.phase as Parameters<typeof runScreener>[0], selfBase)
   const allScreened = [...us, ...kr]
   // ★ 슬라이스 전 전체 채점 유니버스(섹터 무관 100종)를 공유 캐시에 적재 → 4계절 '계절 매수 후보'가 섹터 필터로 재사용(추가 스크리닝 0)
   await setCache(UNIVERSE_KEY, all)

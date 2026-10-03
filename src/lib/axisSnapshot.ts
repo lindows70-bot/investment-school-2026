@@ -23,6 +23,8 @@ export interface AxisSnapshot {
   lynchCategory: string | null // 🌦️ 계절 축 재계산용(holdingFit 입력) — 분류가 다르면 계절이 갈린다
   sector: string | null       // 🧭 주도섹터 축 매핑용
   knife: boolean
+  pegPeak: boolean            // 🏔️ 경기순환주 정점 의심(스크리너 판정 그대로) — 가치축이 중립인 이유를 화면이 말할 수 있게
+  peakNote: string | null     // 그 이유 문장(holdNote SSOT)
   // 💵 6축 밖 보정(lib/scoreTilts) 재료 — 통합추천이 총점에 얹는 현금창출력 가중을 종합판정도 같이 계산하려면 필요.
   //    스크리너 산출물이라 유니버스에 이미 들어 있다(실측 보유율: nature·gap 100% · yield 81.5%) → 추가 호출 0.
   fcfYield: number | null
@@ -57,6 +59,8 @@ export async function getAxisSnapshot(ticker: string, market: 'KR' | 'US'): Prom
       lynchCategory: s.lynchCategory ?? null,
       sector: s.sector ?? null,
       knife: s.knife ?? false,
+      pegPeak: s.pegPeak ?? false,
+      peakNote: s.peakNote ?? null,
       fcfYield: s.fcfYield ?? null,
       fcfAvgYield: s.fcfAvgYield ?? null,
       fcfNature: s.fcfNature ?? null,

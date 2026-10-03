@@ -15,6 +15,7 @@
 
 import { getCache, setCache } from '@/lib/appCache'
 import { isPegBaseEffect } from '@/lib/canonicalFundamentals'
+import { lynchFairValue } from '@/lib/lynchAnalysis'   // 🏔️ 경기순환주 정점 판정(peak) — 적정가·린치 패널과 같은 함수·같은 입력(종목 정보)
 import { knownLynch } from '@/lib/lynchKnown'   // 📌 린치 고정 분류표 SSOT — 겹치는 종목은 유니버스 표의 lynch 대신 이 값을 쓴다
 import { isFinancialCompany } from '@/lib/assetClassifier'
 import { TK } from '@/lib/theme'
@@ -57,7 +58,8 @@ export interface MacroPhaseResult {
  *  리터럴 산재는 sector-rotation v13→v14 워밍 누락 사고의 온상이었다 — 버전업은 이 한 줄. */
 // v17: 💵 v16 의 적자기업 PSR 폴백을 **실측 기각으로 철회**(전원 최하 등급으로 뭉갬 — 아래 가치축 주석) → valueScore 원복
 // v16: 💵 적자기업 가치축 PSR 폴백(철회됨) / v15: 💵 고FCF 성격 구분(mirage·volatile) / v14: 💱 FTS 통화 판별
-export const UNIVERSE_KEY = 'macro-screened-universe:v17'
+// v18(2026-10-03): 🏔️ 경기순환주 정점 가드 — 이익이 결산 기록 중 최고인 해의 PEG·이익수익률은 중립(pegPeak·peakNote 필드 추가 · 가치축 값 변경)
+export const UNIVERSE_KEY = 'macro-screened-universe:v18'
 
 export interface ScreenedStock {
   ticker:       string
@@ -67,6 +69,8 @@ export interface ScreenedStock {
   industry:     string | null   // Yahoo 세부 소업종(assetProfile.industry) — ETF 소섹터 정밀 매핑용(추가 fetch 0)
   lynchCategory: LynchCategory
   peg:          number | null
+  pegPeak:      boolean         // 🏔️ 경기순환주 정점 의심 — 최근 4분기 EPS 가 확정 결산 연도 최고치보다 큼(lynchFairValue.peak). 가치축 PEG·이익수익률을 중립으로 둔 이유
+  peakNote:     string | null   // 그 이유 문장(holdNote SSOT) — 종합 판정 cons·배지에 그대로 쓴다(두 화면이 다른 말을 하지 않게)
   opMargin:     number | null   // 영업이익률 %
   fcfPositive:  boolean
   fcfYield:     number | null   // 💵 FCF 수익률 = FCF/시총 (%) — 주가 대비 현금창출력(버블·하락장 방어력)
@@ -912,7 +916,7 @@ export function priceTrendKnife(ks: any, sd: any, price: number | null): { price
 }
 
 async function screenOne(
-  ticker: string, market: 'US' | 'KR', lynch: LynchCategory, name: string, phase: MacroPhase
+  ticker: string, market: 'US' | 'KR', lynch: LynchCategory, name: string, phase: MacroPhase, selfBase?: string
 ): Promise<ScreenedStock | null> {
   try {
     const { default: YF } = await import('yahoo-finance2')
@@ -977,7 +981,31 @@ async function screenOne(
     const lynchW = LYNCH_MACRO_WEIGHTS[phase][lynch]
     // PEG 낮을수록 ↑ (상한 1.0 — 과거엔 미캡이라 PEG 0.03 등이 1.49로 가치를 인플레). ⚠️ 기저효과(착시 저PEG)면 중립(0.5)
     const earnGrowth = numf(fd.earningsGrowth)   // 소수(1.0=+100%) — isPegBaseEffect 규약과 동일 단위
-    const pegScore = isPegBaseEffect(peg, earnGrowth) ? 0.5
+    // 이익수익률(E/P) 재료 — 아래 가치축에서도 쓴다(정점 가드 판정에 '싸 보이는가'가 필요해 앞으로 올림)
+    const per = numf(sd.trailingPE) ?? numf(ks.forwardPE)
+    const earnYield = (per != null && per > 0) ? 100 / per : null   // 이익수익률(E/P %) — 이익 대비 가격(높을수록 쌈)
+    const eyScore0 = earnYield == null ? 0.4 : earnYield >= 8 ? 1.0 : earnYield >= 5 ? 0.7 : earnYield >= 3 ? 0.45 : earnYield > 0 ? 0.2 : 0.3
+    const pegGrad0 = isPegBaseEffect(peg, earnGrowth) ? 0.5
+      : (peg != null && peg > 0 ? Math.min(1, Math.max(0, (2.2 - peg) / 1.7)) : (earnYield != null ? eyScore0 : 0.4))
+    // 🏔️ 경기순환주 정점 가드(2026-10-03) — 이익이 결산 기록 중 최고인 해의 저PEG·고이익수익률은 린치가 말한 '가장 싸 보일 때가 가장 위험한' 자리다.
+    //    야후는 국내 종목의 trailingEps·trailingPE 를 주지 않으므로(실측 6종 전부 undefined) 종목 정보(국내 네이버 TTM · fyEps 재무 격자 5년)를 받아
+    //    적정가·린치 패널과 **같은 함수**(lynchFairValue().peak)로 판정한다. 싸 보이는 경기순환주에만 호출한다 — 비싸 보이면 가드가 바꿀 값이 없다(비용).
+    //    재료를 못 받으면 가드 없음(기존 동작) — 결과를 지어내지 않는다.
+    let pegPeak = false, peakNote: string | null = null
+    if (lynch === 'cyclical' && (pegGrad0 > 0.5 || eyScore0 > 0.45) && selfBase) {
+      try {
+        const si = await fetch(`${selfBase}/api/stock-info?ticker=${encodeURIComponent(ticker)}&market=${market}`, { signal: AbortSignal.timeout(12_000), cache: 'no-store' })
+          .then(r => r.ok ? r.json() : null)
+        const f = si?.fundamentals
+        if (f?.fyEps) {
+          const v = lynchFairValue({ eps: f.eps, pe: f.pe, peg: f.peg, growthPct: typeof f.earningsGrowth === 'number' ? f.earningsGrowth * 100 : null,
+            category: 'cyclical', market, price, fyEps: f.fyEps })
+          pegPeak = v.peak; peakNote = v.holdNote
+        }
+      } catch { /* 판정 재료 없음 → 가드 없음 */ }
+    }
+    if (pegPeak && peakNote) flags.push(`🏔️ 이익 정점 의심 — ${peakNote}`)
+    const pegScore = (isPegBaseEffect(peg, earnGrowth) || pegPeak) ? 0.5   // 🏔️ 정점도 급증과 같은 중립
       : (peg != null && peg > 0 ? Math.min(1.0, Math.max(0, 1.5 - peg * 0.3)) : 0.5)
     const marginScore = opMargin != null ? Math.min(1, Math.max(0, opMargin / 40)) : 0.3
     // 💵 FCF 점수 — 부호만 → FCF 수익률 등급제. 괴리(OCF 적자)=최저, FCF적자는 OCF 흑자(성장 CAPEX)면 완화·OCF도 적자면 최저
@@ -993,9 +1021,8 @@ async function screenOne(
     // 💎 가치·🏰 퀄리티 다지표 분해(통합추천 5축용) — 추가 fetch 0(financialData에 ROE·부채비율·PER 이미 포함).
     //   가치=성장·이익·현금 3각도 / 퀄리티=수익성·자본효율·재무안정성·이익질 4각도. 이중계산 방지(가치=밸류, 퀄리티=펀더).
     // ── 💎 가치: PEG(촘촘·포화 제거) 50% + 어닝일드(E/P) 25% + FCF수익률 25% ──
-    const per = numf(sd.trailingPE) ?? numf(ks.forwardPE)
-    const earnYield = (per != null && per > 0) ? 100 / per : null   // 이익수익률(E/P %) — 이익 대비 가격(높을수록 쌈)
-    const eyScore = earnYield == null ? 0.4 : earnYield >= 8 ? 1.0 : earnYield >= 5 ? 0.7 : earnYield >= 3 ? 0.45 : earnYield > 0 ? 0.2 : 0.3
+    // 🏔️ 정점이면 이익수익률도 중립(0.4 = 모름) — PEG 만이 아니라 분자(EPS)가 부풀어 있어서 E/P 도 같은 함정이다(급증 가드는 PEG 만 — 분모 성장률의 문제라서)
+    const eyScore = pegPeak ? 0.4 : eyScore0
     const fcfValScore = nature.kind === 'mirage' ? 0.15   // 🚨 다년 합산 적자 — 가치 축에서도 최저급(scoreFy 는 보수 수익률)
       : scoreFy == null ? 0.4 : scoreFy >= 6 ? 1.0 : scoreFy >= 4 ? 0.8 : scoreFy >= 2 ? 0.6 : scoreFy >= 0 ? 0.4 : 0.15
     // 💵 적자기업 PSR 폴백 — **시도했다가 실측으로 기각**(2026-08-16). 기록을 남기는 이유는
@@ -1011,8 +1038,7 @@ async function screenOne(
     //    재도전한다면: 임계를 지어내지 말고 **같은 섹터 적자기업 PSR 분포의 백분위**로. 단 유니버스에
     //      적자기업 표본이 충분한지부터 실측할 것(지금은 부족).
     // PEG 촘촘: 0.5→1.0·1.0→0.71·1.5→0.41·2.0→0.12(기존 saturate[≤1.67 만점] 대체) / 기저효과·PEG 없으면 어닝일드로
-    const pegGrad = isPegBaseEffect(peg, earnGrowth) ? 0.5
-      : (peg != null && peg > 0 ? Math.min(1, Math.max(0, (2.2 - peg) / 1.7)) : (earnYield != null ? eyScore : 0.4))
+    const pegGrad = pegPeak ? 0.5 : pegGrad0   // 🏔️ 정점 가드 — 급증 가드와 같은 중립
     const valueScore = Math.round((pegGrad * 0.50 + eyScore * 0.25 + fcfValScore * 0.25) * 1000) / 1000
     // ── 🏰 퀄리티: 영업이익률 30% + ROE(자본효율) 30% + 저부채(재무안정성) 25% + 이익질(현금전환) 15% ──
     const roe = numf(fd.returnOnEquity)   // 소수(0.20=20%) — 버핏 핵심 자본효율
@@ -1030,11 +1056,11 @@ async function screenOne(
     if (mom.fwdEpsDir === 'decline') flags.push('이익 역성장(하강 사이클)')
     if (mom.knife) flags.push('주가 급락 추세(falling knife)')
 
-    return { ticker, name, market, sector, industry, lynchCategory: lynch, peg, opMargin, fcfPositive, fcfYield, fcfAvgYield, fcfYears: nY, fcfNature: nature.kind, qualityGap, price, marketCap, currency, score, valueScore, qualityScore, flags, ...mom }
+    return { ticker, name, market, sector, industry, lynchCategory: lynch, peg, pegPeak, peakNote, opMargin, fcfPositive, fcfYield, fcfAvgYield, fcfYears: nY, fcfNature: nature.kind, qualityGap, price, marketCap, currency, score, valueScore, qualityScore, flags, ...mom }
   } catch { return null }
 }
 
-export async function runScreener(phase: MacroPhase): Promise<{ us: ScreenedStock[]; kr: ScreenedStock[]; all: ScreenedStock[] }> {
+export async function runScreener(phase: MacroPhase, selfBase?: string): Promise<{ us: ScreenedStock[]; kr: ScreenedStock[]; all: ScreenedStock[] }> {
   const all: ScreenedStock[] = []
   // 동시성 8 — 유니버스 ~510종 확장(2026-07) 대응(120s→300s 함께 상향). Yahoo 스로틀은 screenOne catch + 재시도 패스로 graceful
   const CONC = 8
@@ -1048,7 +1074,7 @@ export async function runScreener(phase: MacroPhase): Promise<{ us: ScreenedStoc
   ].map(s => ({ ...s, lynch: knownLynch(s.ticker, s.market) ?? s.lynch }))
   for (let i = 0; i < universe.length; i += CONC) {
     const batch = universe.slice(i, i + CONC)
-    const results = await Promise.all(batch.map(s => screenOne(s.ticker, s.market, s.lynch, s.name, phase).catch(() => null)))
+    const results = await Promise.all(batch.map(s => screenOne(s.ticker, s.market, s.lynch, s.name, phase, selfBase).catch(() => null)))
     for (const r of results) if (r) all.push(r)
   }
   // ★ 스로틀 누락 1회 재시도(2026-06) — Yahoo throttle로 빠진 종목(예: 조선주) 복구. 커버리지 완전성↑
@@ -1059,7 +1085,7 @@ export async function runScreener(phase: MacroPhase): Promise<{ us: ScreenedStoc
     const batch = missing.slice(i, i + 4)
     const results = await Promise.all(batch.map(async (s, k) => {
       await new Promise(r => setTimeout(r, k * 80))
-      return screenOne(s.ticker, s.market, s.lynch, s.name, phase).catch(() => null)
+      return screenOne(s.ticker, s.market, s.lynch, s.name, phase, selfBase).catch(() => null)
     }))
     for (const r of results) if (r) all.push(r)
   }

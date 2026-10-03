@@ -291,7 +291,7 @@ export async function GET(req: Request) {
       }
     }
     if (p.favored) badges.push('🌦️ 계절 우대 섹터')
-    if (p.s.peg != null && p.s.peg > 0 && p.s.peg < 1) badges.push('💎 저PEG')
+    if (p.s.peg != null && p.s.peg > 0 && p.s.peg < 1) badges.push(p.s.pegPeak ? '🏔️ 저PEG 이익 정점 의심' : '💎 저PEG')   // 🏔️ 정점이면 보석 배지 대신 경고(가치축은 스크리너가 이미 중립)
     // 📈 모멘텀 배지(Fwd EPS·가격추세)
     if (p.s.fwdEpsDir === 'accel') badges.push('📈 이익 가속(상승 사이클)')
     else if (p.s.fwdEpsDir === 'decline') badges.push('📉 이익 역성장(하강 사이클)')

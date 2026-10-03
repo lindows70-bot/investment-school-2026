@@ -48,6 +48,8 @@ export interface ResearchVerdict {
   fwdEpsDir: 'accel' | 'flat' | 'decline' | 'unknown'
   priceTrend: 'up' | 'side' | 'down' | 'unknown'
   peg: number | null; pegSuspect: boolean; dcfVerdict: string | null; flowStatus: string | null
+  /** 🏔️ 경기순환주 정점 의심(유니버스 스크리너 판정 · lynchFairValue.peak) — 가치축이 PEG·이익수익률을 중립으로 둔 이유. 유니버스 밖 종목은 판정 재료가 없어 false */
+  pegPeak: boolean; peakNote: string | null
   roic: number | null; roe: number | null; roeInflated: boolean   // ⚙️ 자본효율(ROIC=투하자본이익률) + ROE 부풀림 경고
   knife: boolean; zombie: boolean; hype: boolean; inventoryBuildup: boolean; invGapPct: number | null
   choppy: boolean; adx: number | null   // ⬛ 관망(횡보·ADX<20, 구조 미확립 시) — 가짜 돌파 잦은 구간
@@ -77,7 +79,7 @@ export async function GET(req: Request) {
   // v23: ⚖️ weights 필드 추가(화면 각주를 리터럴→데이터로) + 💵 가치축 적자기업 PSR 폴백(universe v16)
   //      ⚠️ 스키마 확장도 범프한다 — 옛 응답이 서빙되면 새 필드가 undefined 로 와서 각주가 통째로 빈다
   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 지우는 장치 없이 영구 누적(2026-09-26 DB 한도 사고)
-  const cacheKey = `research-verdict-v25:${ticker.toUpperCase()}:${market}`   // v24: 💵 자체 폴백 경로에도 적자 PSR 가치축(유니버스 밖 IONQ 등) / v22: ⚖️ KR 수급 가중 0%
+  const cacheKey = `research-verdict-v26:${ticker.toUpperCase()}:${market}`   // v26: 🏔️ 경기순환주 정점 가드(유니버스 v18 · pegPeak/peakNote · cons)   // v24: 💵 자체 폴백 경로에도 적자 PSR 가치축(유니버스 밖 IONQ 등) / v22: ⚖️ KR 수급 가중 0%
   const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000, { sameKstDay: true })
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -134,6 +136,9 @@ export async function GET(req: Request) {
   // ② 가치 — 📐 유니버스 우선(PEG 촘촘 50% + 어닝일드 25% + FCF수익률 25% — 통합추천과 동일 계산).
   //    유니버스 밖 종목만 아래 자체 계산(PEG 구간)으로 폴백한다. ⚠️ 폴백은 재료가 적어 결과가 다를 수 있다.
   const pegSuspect = isPegBaseEffect(m.peg, m.earningsGrowth)
+  // 🏔️ 정점 — 유니버스 스크리너가 종목 정보(TTM EPS · 결산 EPS 5년)로 판정한 값을 그대로 쓴다(여기서 다시 계산하지 않는다 — 두 화면 같은 플래그)
+  const pegPeak = ax?.pegPeak ?? false
+  const peakNote = ax?.peakNote ?? null
   let value: number
   if (ax) {
     value = ax.value
@@ -218,8 +223,9 @@ export async function GET(req: Request) {
   const cons: string[] = []
   if (seasonFit === 'favored') pros.push(`🌦️ 현재 ${seasonLabel} 국면 우대 업종(계절 적합)`)
   else if (seasonFit === 'unfavored') cons.push(`🌦️ 현재 ${seasonLabel} 국면 비우대(계절 역풍)`)
-  if (!pegSuspect && m.peg != null && m.peg > 0 && m.peg <= 0.8) pros.push(`💎 저PEG ${m.peg.toFixed(2)}(성장 대비 저평가)`)
+  if (!pegSuspect && !pegPeak && m.peg != null && m.peg > 0 && m.peg <= 0.8) pros.push(`💎 저PEG ${m.peg.toFixed(2)}(성장 대비 저평가)`)
   if (pegSuspect) cons.push(`⚠️ 저PEG ${m.peg?.toFixed(2)}는 기저효과 착시(저평가 근거 불가)`)
+  if (pegPeak && peakNote) cons.push(`🏔️ 이익 정점 착시 — ${peakNote} (가치 축의 PEG·이익수익률은 중립 처리)`)
   if (m.peg != null && m.peg > 2.2) cons.push(`💲 고PEG ${m.peg.toFixed(2)}(성장 대비 고평가)`)
   if (dcf === 'conservative') pros.push('🔮 역-DCF: 시장 기대 보수적(저평가 여지)')
   // 🏅 정예 타점 — 자체 백테스트(60종목·12,594봉)로 선별한 합류 조건. ⛔ 점수엔 미반영(WHEN은 배지·근거만)
@@ -273,7 +279,7 @@ export async function GET(req: Request) {
     supplyKnown,
     axisSource: ax ? 'universe' : 'local',
     seasonLabel, seasonFit, fwdEpsDir: m.fwdEpsDir, priceTrend: m.priceTrend,
-    peg: m.peg, pegSuspect, dcfVerdict: dcf, flowStatus: flow,
+    peg: m.peg, pegSuspect, pegPeak, peakNote, dcfVerdict: dcf, flowStatus: flow,
     roic: m.roic, roe: m.roe, roeInflated: m.roeInflated,
     knife: m.knife, zombie, hype, inventoryBuildup: m.inventoryBuildup, invGapPct: m.invGapPct,
     choppy, adx, timing: timing ?? null,
