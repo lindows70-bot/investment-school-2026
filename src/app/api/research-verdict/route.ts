@@ -11,7 +11,8 @@ import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache } from '@/lib/appCache'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
 import { isPegBaseEffect } from '@/lib/canonicalFundamentals'
-import { classifyLynchMece } from '@/lib/lynchAnalysis'
+import { classifyLynchMece, lynchFairValue } from '@/lib/lynchAnalysis'
+import { knownLynch } from '@/lib/lynchKnown'   // 📌 린치 고정 분류표 SSOT — 유니버스 밖 종목도 알고리즘보다 먼저
 import { getRegionSeasons, originOf } from '@/lib/regionSeason'   // 🌦️ 지역별 계절 SSOT — 통합추천과 같은 국면
 import { holdingFit, SEASON_META, type Quadrant, type Holding } from '@/lib/seasonNavigator'
 import { getSupplyScoreOne } from '@/lib/supplyScore'   // 💰 수급 채점 SSOT — 통합추천과 같은 함수(계단식 환산 폐기)
@@ -79,7 +80,7 @@ export async function GET(req: Request) {
   // v23: ⚖️ weights 필드 추가(화면 각주를 리터럴→데이터로) + 💵 가치축 적자기업 PSR 폴백(universe v16)
   //      ⚠️ 스키마 확장도 범프한다 — 옛 응답이 서빙되면 새 필드가 undefined 로 와서 각주가 통째로 빈다
   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 지우는 장치 없이 영구 누적(2026-09-26 DB 한도 사고)
-  const cacheKey = `research-verdict-v28:${ticker.toUpperCase()}:${market}`   // v28: 🏔️ 정점이면 매수 적합 게이트 차단 + 한 줄 문장 / v27: peakNote 정점 전용 문장 + 유니버스 v19 워밍 전 캐시(local 폴백) 폐기 / v26: 🏔️ 경기순환주 정점 가드(유니버스 v18 · pegPeak/peakNote · cons)   // v24: 💵 자체 폴백 경로에도 적자 PSR 가치축(유니버스 밖 IONQ 등) / v22: ⚖️ KR 수급 가중 0%
+  const cacheKey = `research-verdict-v29:${ticker.toUpperCase()}:${market}`   // v29: 유니버스 밖 경기순환주도 정점 판정 + 분류 고정표 먼저 / v28: 🏔️ 정점이면 매수 적합 게이트 차단 + 한 줄 문장 / v27: peakNote 정점 전용 문장 + 유니버스 v19 워밍 전 캐시(local 폴백) 폐기 / v26: 🏔️ 경기순환주 정점 가드(유니버스 v18 · pegPeak/peakNote · cons)   // v24: 💵 자체 폴백 경로에도 적자 PSR 가치축(유니버스 밖 IONQ 등) / v22: ⚖️ KR 수급 가중 0%
   // 🔁 ?refresh=1 — 캐시를 건너뛰고 다시 계산해 덮어쓴다. 유니버스 캐시가 비어 있을 때(버전 범프 직후·워밍 전) 호출되면 local 폴백 결과가
   //    6시간 박히는데, 그걸 걷어내려고 키를 올려 재배포하는 일을 2026-10-03 하루에 두 번 했다. 워밍 뒤 이 파라미터로 한 번 부르면 끝.
   const forceRefresh = new URL(req.url).searchParams.get('refresh') === '1'
@@ -122,7 +123,8 @@ export async function GET(req: Request) {
 
   // 📐 린치 분류 — 유니버스 값 우선. 분류가 갈리면 **계절 축이 통째로 달라진다**(실측: 100 vs 60).
   //    통합추천은 유니버스의 lynchCategory 로 holdingFit 을 계산하므로 여기서도 같은 입력을 써야 한다.
-  const lynchCategory = ax?.lynchCategory ?? classifyLynchMece(null, m.earningsGrowth, m.sector).cat
+  //    유니버스 밖은 고정 분류표 → 알고리즘 순(분류 라우트와 같은 순서) — 2026-10-03: 이수페타시스(고정표 경기순환주)가 알고리즘 분류로 떨어져 정점 가드 밖이었다
+  const lynchCategory = ax?.lynchCategory ?? knownLynch(ticker, market) ?? classifyLynchMece(null, m.earningsGrowth, m.sector).cat
   const lc = lynchCategory === 'na' ? null : lynchCategory
 
   // ① 계절 적합 — 현재 매크로 국면에 이 종목이 유리/불리한가
@@ -139,15 +141,29 @@ export async function GET(req: Request) {
   // ② 가치 — 📐 유니버스 우선(PEG 촘촘 50% + 어닝일드 25% + FCF수익률 25% — 통합추천과 동일 계산).
   //    유니버스 밖 종목만 아래 자체 계산(PEG 구간)으로 폴백한다. ⚠️ 폴백은 재료가 적어 결과가 다를 수 있다.
   const pegSuspect = isPegBaseEffect(m.peg, m.earningsGrowth)
-  // 🏔️ 정점 — 유니버스 스크리너가 종목 정보(TTM EPS · 결산 EPS 5년)로 판정한 값을 그대로 쓴다(여기서 다시 계산하지 않는다 — 두 화면 같은 플래그)
-  const pegPeak = ax?.pegPeak ?? false
-  const peakNote = ax?.peakNote ?? null
+  // 🏔️ 정점 — 유니버스 종목은 스크리너가 종목 정보(TTM EPS · 결산 EPS 5년)로 판정한 값을 그대로 쓴다(두 화면 같은 플래그).
+  //    유니버스 밖 경기순환주는 **같은 함수·같은 입력**(lynchFairValue × /api/stock-info)으로 여기서 판정한다 — 2026-10-03 실측:
+  //    이수페타시스(007660)가 정점(최근 4분기 EPS 2,738 > 결산 최고 2,257)인데 자체 계산 경로라 가드 없이 가치 축 75 였다.
+  let pegPeak = ax?.pegPeak ?? false
+  let peakNote = ax?.peakNote ?? null
+  if (!ax && lc === 'cyclical') {
+    try {
+      const si = await fetch(`${base}/api/stock-info?ticker=${encodeURIComponent(ticker)}&market=${market}`, { signal: AbortSignal.timeout(10_000), cache: 'no-store' })
+        .then(r => r.ok ? r.json() : null)
+      const f = si?.fundamentals
+      if (f?.fyEps) {
+        const v = lynchFairValue({ eps: f.eps, pe: f.pe, peg: f.peg, growthPct: typeof f.earningsGrowth === 'number' ? f.earningsGrowth * 100 : null,
+          category: 'cyclical', market, price: null, fyEps: f.fyEps })
+        pegPeak = v.peak; peakNote = v.peakNote
+      }
+    } catch { /* 판정 재료 없음 → 가드 없음(지어내지 않는다) */ }
+  }
   let value: number
   if (ax) {
     value = ax.value
   } else {
     value = 50
-    if (pegSuspect) value = 50   // 착시 저PEG는 중립(저평가 근거로 못 씀)
+    if (pegSuspect || pegPeak) value = 50   // 착시 저PEG(급증·정점)는 중립(저평가 근거로 못 씀)
     else if (m.peg != null && m.peg > 0) value = m.peg <= 0.8 ? 90 : m.peg <= 1.2 ? 75 : m.peg <= 2.2 ? 55 : 30
     // 💵 적자기업 PSR 폴백은 **실측으로 기각**(2026-08-16) — 상세 사유는 macroPhaseScreener 가치축 주석.
     //    요지: 린치 적정 P/S(성장률÷10)가 현 시장 고성장주와 안 맞아 IONQ·PLTR·SNOW·CRWD·RGTI 가

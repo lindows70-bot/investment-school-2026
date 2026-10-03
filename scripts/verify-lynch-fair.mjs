@@ -66,7 +66,10 @@ const rp = src('app/research/page.tsx')
 // 2026-10-03: 정점 가드가 가치 축(유니버스 스크리너)까지 — 종합 판정 '매수 적합 81' 옆에 '저평가 근거로 쓸 수 없다'가 나란히 있던 모순
 const scr = src('lib/macroPhaseScreener.ts'), rv = src('app/api/research-verdict/route.ts'), ur = src('app/api/unified-reco/route.ts')
 check('스크리너 — 경기순환주 정점을 lynchFairValue(종목 정보 입력)로 판정하고 PEG·이익수익률·린치 점수를 중립으로', /lynchFairValue\(\{ eps: f\.eps/.test(scr) && /const pegGrad = pegPeak \? 0\.5 : pegGrad0/.test(scr) && /const eyScore = pegPeak \? 0\.4 : eyScore0/.test(scr) && /\(isPegBaseEffect\(peg, earnGrowth\) \|\| pegPeak\) \? 0\.5/.test(scr) && /macro-screened-universe:v19/.test(scr) && /peakNote = v\.peakNote/.test(scr))
-check('종합 판정 — 정점 플래그는 유니버스 값을 읽기만(재계산 없음) · cons 에 같은 이유 문장 · 저PEG 찬성 근거 억제', /const pegPeak = ax\?\.pegPeak \?\? false/.test(rv) && /pegPeak && peakNote\) cons\.push/.test(rv) && /!pegSuspect && !pegPeak && m\.peg/.test(rv) && !/lynchFairValue\(/.test(rv))
+// 2026-10-03 보강: 유니버스 종목은 스크리너 플래그를 읽고(재계산 없음), 유니버스 밖 경기순환주만 같은 함수로 직접 판정한다(이수페타시스 실측 구멍)
+check('종합 판정 — 유니버스는 스크리너 플래그를 읽고 · 유니버스 밖 경기순환주만 lynchFairValue 로 판정 · 분류는 고정표 먼저 · cons 에 같은 이유 문장 · 저PEG 찬성 근거 억제',
+  /let pegPeak = ax\?\.pegPeak \?\? false/.test(rv) && /if \(!ax && lc === 'cyclical'\)/.test(rv) && (rv.match(/lynchFairValue\(/g) ?? []).length === 1
+  && /knownLynch\(ticker, market\) \?\? classifyLynchMece/.test(rv) && /pegPeak && peakNote\) cons\.push/.test(rv) && /!pegSuspect && !pegPeak && m\.peg/.test(rv))
 const sr = src('app/components/SignalReader.tsx'), smr = src('app/components/student/stock/StockMore.tsx')
 check('신호 해석(SignalReader) — 정점을 lynchFairValue 로 판정해 가짜 반등 트리거·정합 판정에 반영', /lynchFairValue\(\{ eps: f\.eps/.test(sr) && /const fundBad = opLoss \|\| pegHigh \|\| pegBase \|\| pegPeak/.test(sr) && /&& !pegBase && !pegPeak/.test(sr))
 check('학생 더 알아보기(StockMore) — 정점이면 PEG 칸이 \'판단 어려움\' + 결산 연도 수·기간을 밝힌 문장', /lynchFairValue\(\{ eps: num\(f\.eps\)/.test(smr) && /pegJump \|\| pegPeak/.test(smr) && /pegPeak && !pegJump \? peakNote/.test(smr))
@@ -110,6 +113,10 @@ try {
     vd?.pegPeak === true && vd?.axisSource === 'universe' && typeof vd?.peakNote === 'string' && vd.peakNote.includes('결산 연도') && (vd.cons ?? []).some(c => c.includes('이익 정점 착시')) && vd.axes.value <= 65)
   check(`종합 판정 삼성전자 — 정점이면 '매수 적합'이 아니다(${vd?.verdict} · ${vd?.score}) · 한 줄 문장이 이유를 말한다`, vd?.verdict !== 'buy' && typeof vd?.oneLiner === 'string' && vd.oneLiner.includes('결산 기록 중 최고'))
   check('종합 판정 — 정점 게이트는 소스에 있다(buy 조건에 !pegPeak)', /&& !hype && !pegPeak\) verdict = 'buy'/.test(rv))
+  // 유니버스 밖 경기순환주(이수페타시스) — 자체 계산 경로에서도 정점 플래그·가치 중립·매수 적합 아님
+  const vl = await fetch(`${B}/api/research-verdict?ticker=007660&market=KR`, { signal: AbortSignal.timeout(90_000) }).then(r => r.json())
+  check(`종합 판정 이수페타시스(유니버스 밖 ${vl?.axisSource}) — 정점이면 자체 경로도 플래그(${vl?.pegPeak}) · 가치 ${vl?.axes?.value} ≤ 60 · ${vl?.verdict}`,
+    vl?.axisSource !== 'local' || (vl?.pegPeak === true && vl.axes.value <= 60 && vl.verdict !== 'buy' && (vl.cons ?? []).some(c => c.includes('이익 정점 착시'))))
   const fy = (await fetch(`${B}/api/stock-info?ticker=005930&market=KR`, { signal: AbortSignal.timeout(40_000) }).then(r => r.json()))?.fundamentals?.fyEps
   check(`프로덕션 종목 정보에 확정 연도 EPS 최고치가 실림 — KR 은 재무 API 5년(삼성전자 ${fy ? `${fy.max} · ${fy.from}~${fy.to} · ${fy.n}년` : fy})`, !!fy && fy.max > 0 && fy.n >= 5 && fy.from < fy.to)
   const fyUs = (await fetch(`${B}/api/stock-info?ticker=XOM&market=US`, { signal: AbortSignal.timeout(40_000) }).then(r => r.json()))?.fundamentals?.fyEps
