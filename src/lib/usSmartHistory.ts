@@ -20,6 +20,9 @@ export interface UsmHistEntry {
   name: string
   entry: number         // 등재일 완성 종가
   note: string          // 왜 올랐나(클러스터 N명 / 상향 N곳) — 나중에 읽을 때 기준이 보이게
+  /** 적립한 날(UTC 날짜) — 소급 감시용(2026-10-03 신설, 그 전 기록엔 없다). 감시가 등재일을 '캐시 마지막 갱신일'과 비교하던 시절엔
+   *  기록이 쌓일수록 정상 기록까지 7일이 지나면 전부 '소급 의심'으로 걸렸다(10/3 거짓 빨강 101건). */
+  addedAt?: string
 }
 export interface UsmGrade {
   src: UsmSource | 'all'
@@ -57,7 +60,7 @@ export async function appendUsmHistory(rows: { src: UsmSource; ticker: string; n
       if (dayDiff(String(last.date).slice(0, 10), today) > 5) continue
       // 소수 잡음 제거($6.900000095367432) — 1달러 미만은 4자리, 그 위는 2자리
       const entry = last.close < 1 ? Math.round(last.close * 10000) / 10000 : Math.round(last.close * 100) / 100
-      fresh.push({ date: String(last.date).slice(0, 10), src: r.src, ticker: r.ticker, name: r.name, entry, note: r.note })
+      fresh.push({ date: String(last.date).slice(0, 10), src: r.src, ticker: r.ticker, name: r.name, entry, note: r.note, addedAt: today })
     } catch { /* 캔들 실패 — 적립하지 않는다(가격 없는 기록은 채점 불가) */ }
   }
   if (fresh.length) await setCache(USM_HIST_KEY, [...hist, ...fresh].slice(-3000))
