@@ -49,7 +49,7 @@ export const PURGE_RULES: PurgeRule[] = [
   PER_TICKER('short-int-v1', '24h'),
   PER_TICKER('stock-profile-v5', '6h'),
   PER_TICKER('research-verdict-v28', '6h'),
-  PER_TICKER('research-report-v4', '6h'),
+  PER_TICKER('research-report-v5', '6h'),
   PER_TICKER('crypto-candles-v2', '30m'),
   PER_TICKER('sector-v3', '6h'),
 

@@ -49,7 +49,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ unsupported: true, reason: '개별 주식 전용 리포트입니다(ETF·코인·원자재 제외).' }, { headers: { 'Cache-Control': 'no-store' } })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-  const cacheKey = `research-report-v4:${ticker.toUpperCase()}:${market}`   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 영구 누적
+  const cacheKey = `research-report-v5:${ticker.toUpperCase()}:${market}`   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 영구 누적
   const cached = await getCache<ResearchReport>(cacheKey, 6 * 3600_000, { sameKstDay: true })
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -96,6 +96,7 @@ export async function GET(req: Request) {
   if (verdict.inventoryBuildup) flags.push('📦 재고 적체(사이클 고점 선행)')
   if (verdict.roeInflated) flags.push('⚙️ ROE 부풀림(부채발 가짜 효율)')
   if (verdict.pegSuspect) flags.push('⚠️ 저PEG 기저효과 의심')
+  if (verdict.pegPeak) flags.push('🏔️ 이익 정점 의심(경기순환주 — 결산 기록 중 최고 이익)')   // 2026-10-03: 판정엔 있는데 플래그엔 없어 실패 시나리오가 '리스크 없음'으로 나갈 수 있었다
 
   // Gemini — 총평 + 섹터 서술 + 향후 전망(현재 상황·체크포인트). 넘겨준 데이터만 근거(환각 가드)
   const rotPart = phase ? `로테이션 ${phaseLabel}` : '로테이션 국면 미집계'
