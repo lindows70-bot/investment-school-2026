@@ -37,7 +37,7 @@ const PER_USER = (prefix: string, ttl: string): PurgeRule => ({ prefix, keepDays
 const UNDATED = (prefix: string, ttl: string): PurgeRule => ({ prefix, keepDays: 3, why: `날짜 뺀 공유 문서 · 옛 날짜 행만 · reader ${ttl}` })
 
 export const PURGE_RULES: PurgeRule[] = [
-  PER_TICKER('jarvis-metrics-v17', '12h'),
+  PER_TICKER('jarvis-metrics-v18', '12h'),
   PER_TICKER('money-flow-v7', '24h'),
   PER_TICKER('jarvis-brief-v6', '20h'),
   PER_TICKER('news-catalyst-v8', '3h'),

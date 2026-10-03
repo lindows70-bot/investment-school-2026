@@ -87,7 +87,7 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
   // v16: 📋 earningsHistory 분리 호출 — 적자주(IONQ 등)에서 그 모듈 하나가 전체를 죽여 metrics 가 null 이었다.
   //      옛 캐시엔 그 실패가 안 박혀 있지만(null 은 캐시 안 함), 이제 값이 생기는 종목이 있으므로 범프한다.
   // 🗓️ 키에 날짜 없음 — 종목당 한 행을 덮어쓰고 '오늘(KST) 만든 것만' 읽는다(날짜 키는 지우는 장치 없이 영구 누적)
-  const cacheKey = `jarvis-metrics-v17:${tk}:${market}`   // v17: 💵 psr 필드 추가(적자 가치축 폴백 입력 — 없으면 폴백이 조용히 무효) / v15: 어닝 서프라이즈 이력
+  const cacheKey = `jarvis-metrics-v18:${tk}:${market}`   // v18(2026-10-03): 📋 earningsHistory 검증 해제 — 이력 행에 추정치가 없던 종목의 epsBeats 가 null→값으로 바뀐다 / v17: 💵 psr 필드 추가(적자 가치축 폴백 입력 — 없으면 폴백이 조용히 무효) / v15: 어닝 서프라이즈 이력
   const cached = await getCache<SignalMetrics>(cacheKey, 12 * 3600_000, { sameKstDay: true })
   if (cached) return cached
 
@@ -115,8 +115,10 @@ export async function buildSignalMetrics(ticker: string, market: string, name: s
     }
     if (!q) return null
     // 📋 어닝 서프라이즈 이력 — 실패해도 나머지는 살린다(없으면 epsBeats 계열이 null 로 남을 뿐)
+    //    2026-10-03 전수 실측(21종 × 20모듈 조합): 형식 검증 오류는 **earningsHistory 뿐**(SPCX — 실적 이력 행에 추정치가 없다). 검증을 끄면 있는 행은
+    //    그대로 오고 없는 값은 null 이라, 아래가 '둘 다 있는 분기만 센다'로 걸러 쓴다(earnResults·financials 와 같은 처리). 모듈을 통째로 버리던 것을 거둔다.
     try {
-      const eh = await yf.quoteSummary(sym, { modules: ['earningsHistory'] })
+      const eh = await yf.quoteSummary(sym, { modules: ['earningsHistory'] }, { validateResult: false })
       if (eh?.earningsHistory) q.earningsHistory = eh.earningsHistory
     } catch { /* 부가 정보 — 없어도 판정은 계속한다 */ }
 
