@@ -9,7 +9,7 @@ const OUT = `${ROOT}/.bt-lynch-fair`
 writeFileSync(`${OUT}.tsconfig.json`, JSON.stringify({
   extends: `${ROOT}/tsconfig.json`,
   compilerOptions: { outDir: OUT, module: 'commonjs', moduleResolution: 'node', noEmit: false, declaration: false, incremental: false, noEmitOnError: true, target: 'es2020', rootDir: `${ROOT}/src` },
-  include: [`${ROOT}/src/lib/lynchAnalysis.ts`],
+  include: [`${ROOT}/src/lib/lynchAnalysis.ts`, `${ROOT}/src/lib/fyEps.ts`],
 }, null, 2))
 rmSync(OUT, { recursive: true, force: true })
 try { execSync(`npx tsc -p "${OUT}.tsconfig.json"`, { cwd: ROOT, stdio: 'pipe' }) }
@@ -19,6 +19,7 @@ const _res = Module._resolveFilename
 Module._resolveFilename = function (req, ...rest) { if (req.startsWith('@/')) req = `${OUT}/${req.slice(2)}`; return _res.call(this, req, ...rest) }
 const require = Module.createRequire(`${ROOT}/package.json`)
 const L = require(`${OUT}/lib/lynchAnalysis.js`)
+const FYE = require(`${OUT}/lib/fyEps.js`)   // fyEpsFromGrid(순수) — getFyEps 는 app_cache 라 여기선 부르지 않는다
 
 let fail = 0
 const check = (label, cond, why = '') => { if (cond) console.log(`✅ ${label}`); else { fail++; console.log(`❌ ${label}${why ? ` — ${why}` : ''}`) } }
@@ -61,6 +62,13 @@ check('린치 자동 분석 — lynchFairValue 호출 · 자체 배수표(CAT_MU
 check('매크로 터미널 — lynchFairValue 호출 · calcFairMultiple 직접 호출 없음', /lynchFairValue\(/.test(mtd) && !/calcFairMultiple\(/.test(mtd))
 check('린치 이익 차트 — 진단 칸 적정가가 lynchFairValue(모델 배수 × EPS 가 아님)', /const ssot\s*=\s*lynchFairValue\(/.test(lec) && /const latestFair\s*=\s*ssot\.fairPrice/.test(lec))
 
+// ── fyEps 격자 규칙(2026-10-03 — 3년→5년 · US 확장) ──
+const grid = { '2021': { eps: 0 }, '2022': { eps: 3067 }, '2023': { eps: -12517 }, '2024': { eps: 27182 }, '2025': { eps: 58955 }, '2026E': { eps: 300000 } }
+const fg = FYE.fyEpsFromGrid(grid, ['2021', '2022', '2023', '2024', '2025', '2026E', '2027E'])
+check(`격자 → 0(자료 없음)은 빼고 적자 연도는 세고 E 는 제외: ${JSON.stringify(fg)}`, fg && fg.max === 58955 && fg.from === '2022' && fg.to === '2025' && fg.n === 4)
+check('확정 연도가 3개 미만이면 null(판정하지 않는다)', FYE.fyEpsFromGrid({ '2024': { eps: 1 }, '2025': { eps: 2 } }, ['2024', '2025', '2026E']) === null)
+check('재무 API 격자가 비어 있으면 null', FYE.fyEpsFromGrid({}, []) === null)
+
 // ── 라이브: 프로덕션 종목 정보로 계산이 성립 ──
 try {
   const B = 'https://investment-school-2026.vercel.app'
@@ -85,7 +93,9 @@ try {
       tr?.currentEpsBasis === 'ttm' && typeof e === 'number' && tr?.currentEps === e)
   }
   const fy = (await fetch(`${B}/api/stock-info?ticker=005930&market=KR`, { signal: AbortSignal.timeout(40_000) }).then(r => r.json()))?.fundamentals?.fyEps
-  check(`프로덕션 종목 정보에 확정 연도 EPS 최고치가 실림(삼성전자 ${fy ? `${fy.max} · ${fy.from}~${fy.to} · ${fy.n}년` : fy})`, !!fy && fy.max > 0 && fy.n >= 3 && fy.from < fy.to)
+  check(`프로덕션 종목 정보에 확정 연도 EPS 최고치가 실림 — KR 은 재무 API 5년(삼성전자 ${fy ? `${fy.max} · ${fy.from}~${fy.to} · ${fy.n}년` : fy})`, !!fy && fy.max > 0 && fy.n >= 5 && fy.from < fy.to)
+  const fyUs = (await fetch(`${B}/api/stock-info?ticker=XOM&market=US`, { signal: AbortSignal.timeout(40_000) }).then(r => r.json()))?.fundamentals?.fyEps
+  check(`프로덕션 US 종목 정보에도 확정 연도 EPS 최고치가 실림(엑슨모빌 ${fyUs ? `${fyUs.max} · ${fyUs.from}~${fyUs.to} · ${fyUs.n}년` : fyUs})`, !!fyUs && fyUs.max > 0 && fyUs.n >= 4 && fyUs.from < fyUs.to)
 } catch (err) { fail++; console.log(`❌ 프로덕션 호출 실패 — ${err.message}`) }
 
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (린치 적정가 SSOT)')

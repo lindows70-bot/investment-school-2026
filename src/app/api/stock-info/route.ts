@@ -18,6 +18,7 @@ import { getTrueFcf } from '@/lib/trueFcf'   // 💵 FCF 분자 SSOT(현금흐�
 import { correctPsr } from '@/lib/finCurrency'   // 💱 PSR ADR 통화 교정 SSOT
 import { parseNaverBasics, numOf } from '@/lib/naverIntegration'   // 국내 PER(최근 4분기)·52주 파싱 SSOT(stock-price·lynch-classify 와 같은 파서)
 import { naverUpjongMap, industryNameOf, upjongToGics } from '@/lib/naverUpjong'   // 🏷️ 국내 업종 SSOT(승패 해부실과 같은 표)
+import { getFyEps } from '@/lib/fyEps'   // 📐 확정 결산 연도 EPS 최고치 SSOT(재무 API 격자 · KR 5년 · US 4~5년 · app_cache 7일) — 경기순환주 정점 판정 기준
 
 export interface StockInfo {
   ticker:       string
@@ -643,7 +644,7 @@ function krSector(name: string | null): string | null {
   return null
 }
 
-async function krInfo(ticker: string): Promise<StockInfo> {
+async function krInfo(ticker: string, origin: string): Promise<StockInfo> {
   const code = ticker.replace(/\.(KS|KQ)$/i, '')
 
   // 시가총액은 polling API에서 marketValueFullRaw로 가져옴
@@ -883,6 +884,8 @@ async function krInfo(ticker: string): Promise<StockInfo> {
 
   // ── DCF 자동 분석 데이터 (개별 주식만 — ETF는 불필요) ──
   const dcf = isEtf ? DCF_EMPTY : await fetchDcfFromYahoo(code, 'KR')
+  // 확정 연도 EPS 최고치 — 재무 API 격자(네이버 3년 + DART 복구 연도 = 5년) 우선, 못 받으면 위 네이버 3년(2026-10-03: 3년→5년·US 확장)
+  if (!isEtf) fyEps = (await getFyEps(code, 'KR', origin)) ?? fyEps
 
   return {
     ticker: code, name: d.stockName as string,
@@ -911,7 +914,7 @@ async function krInfo(ticker: string): Promise<StockInfo> {
 // NASDAQ: TICKER.O  NYSE: TICKER.N  또는 접미사 없이 바로 TICKER (GEV, 일부 신규주)
 const US_SUFFIXES = ['', '.O', '.N', '.OQ', '.AS']
 
-async function usInfo(ticker: string): Promise<StockInfo> {
+async function usInfo(ticker: string, origin: string): Promise<StockInfo> {
   const t = ticker.toUpperCase()
 
   for (const suffix of US_SUFFIXES) {
@@ -1053,6 +1056,7 @@ async function usInfo(ticker: string): Promise<StockInfo> {
         dividendYield:  usDivData.dividendYield,
         isEtf,
         eps:        epsVal,
+        fyEps:      isEtf ? null : await getFyEps(t, 'US', origin),   // 확정 연도 EPS 최고치(재무 API 4~5년) — 정점 판정 기준(2026-10-03 US 신설)
         pbr:        pbrVal,
         forwardEps: forwardEpsUs,
         payoutRatio:    usDivData.payoutRatio,
@@ -1168,6 +1172,7 @@ async function usInfo(ticker: string): Promise<StockInfo> {
         dividendYield:  sData?.summaryDetail?.dividendYield ?? null,
         isEtf:          isEtfY,
         eps:        typeof trailingEps === 'number' ? trailingEps : null,
+        fyEps:      isEtfY ? null : await getFyEps(t, 'US', origin),   // 확정 연도 EPS 최고치(재무 API 4~5년) — 정점 판정 기준(2026-10-03 US 신설)
         pbr:        typeof pbrY === 'number' && pbrY > 0 ? +pbrY.toFixed(2) : null,
         forwardEps: typeof fwdEps === 'number' ? fwdEps : null,
         payoutRatio:    typeof payoutRatioY === 'number'    && isFinite(payoutRatioY)    ? payoutRatioY    : null,
@@ -1250,8 +1255,9 @@ export async function GET(req: NextRequest) {
 
   try {
     let info: StockInfo
-    if (market === 'KR')     info = await krInfo(ticker)
-    else if (market === 'US') info = await usInfo(ticker)
+    const origin = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin   // 재무 API 자기 호출용(fyEps)
+    if (market === 'KR')     info = await krInfo(ticker, origin)
+    else if (market === 'US') info = await usInfo(ticker, origin)
     else                      info = await cryptoInfo(ticker)
 
     CACHE.set(k, { data: info, expiresAt: Date.now() + CACHE_TTL })
