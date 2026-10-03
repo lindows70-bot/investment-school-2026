@@ -226,7 +226,7 @@ export default function LynchEarningsLineTracer() {
             </div>
             <div style={{ padding: '18px 20px', borderRadius: 12, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.3)', color: TK.red300, fontSize: 13, lineHeight: 1.75 }}>
               <div style={{ fontWeight: 800, marginBottom: 6, fontSize: 14 }}>🚫 린치 이익선 분석 불가</div>
-              <b>{data.name}</b>은(는) 최근 EPS가 마이너스(적자)이므로 린치의 이익선을 그릴 수 없습니다.
+              <b>{data.name}</b>은(는) {data.currentEpsBasis === 'ttm' ? '최근 4분기' : '최근 결산'} EPS가 마이너스(적자)이므로 린치의 이익선을 그릴 수 없습니다.
               이익이 없을 때 EPS×15는 의미가 없어지기 때문입니다.<br/>
               <br/>
               대신 <b style={{ color: TK.amber400 }}>버핏의 DCF 분석기</b>나 <b style={{ color: TK.amber500 }}>Jarvis 모닝 처방전</b>을 참고하세요.
@@ -336,7 +336,7 @@ export default function LynchEarningsLineTracer() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 10, marginBottom: 16 }}>
               {[
                 { label: '현재 주가', val: data.currentPrice ? fmtPrice(data.currentPrice, cur) : '—', color: C.price },
-                { label: '린치선 (EPS×15)', val: data.currentEps && data.currentEps > 0 ? fmtPrice(data.currentEps * 15, cur) : '—', color: C.lynch },
+                { label: data.currentEpsBasis === 'ttm' ? '린치선 (최근 4분기 EPS×15)' : '린치선 (결산 EPS×15)', val: data.currentEps && data.currentEps > 0 ? fmtPrice(data.currentEps * 15, cur) : '—', color: C.lynch },
                 { label: '이격도 (vs 린치선)', val: fmtGap(data.currentGap15), color: gapColor(data.currentGap15) },
                 { label: '중앙값 PER', val: data.medianPer ? `${data.medianPer.toFixed(1)}×` : '—', color: C.median },
               ].map(k => (
@@ -346,6 +346,12 @@ export default function LynchEarningsLineTracer() {
                 </div>
               ))}
             </div>
+            {/* 기준이 다른 두 숫자를 한 화면에 두니 밝힌다 — 표의 연도별 EPS 는 결산 실적, '현재' 선·이격도는 최근 4분기 EPS(종목 정보와 같은 값) */}
+            {data.currentEpsBasis === 'ttm' && data.currentEps != null && (
+              <div style={{ fontSize: 10.5, color: C.textLow, marginTop: -8, marginBottom: 16, lineHeight: 1.6 }}>
+                ℹ️ 현재 린치선·이격도는 <b style={{ color: C.textSub }}>최근 4분기 EPS {cur === 'KRW' ? data.currentEps.toLocaleString() : data.currentEps.toFixed(2)}</b> 기준입니다(종목 정보 화면과 같은 값). 아래 표의 EPS는 결산 연도 실적이라 마지막 행과 다를 수 있습니다.
+              </div>
+            )}
 
             {/* ── 연도별 이격도 테이블 ── */}
             <div style={{ overflowX: 'auto', marginBottom: 14 }}>
@@ -403,7 +409,7 @@ export default function LynchEarningsLineTracer() {
 
       {/* 푸터 */}
       <div style={{ padding: '10px 20px', borderTop: `1px solid ${C.border}`, fontSize: 9.5, color: C.textLow, lineHeight: 1.6 }}>
-        📈 린치 이익선 = EPS × 15 (피터 린치의 &ldquo;성장 없는 적정가&rdquo; 기준) · 연간 평균 주가 = Yahoo Finance 월봉 평균 · EPS = 확정 연간 실적(US=FMP/Yahoo, KR=DART/Naver) · 48h 캐시 · 교육용 참고이며 투자 추천이 아닙니다.
+        📈 린치 이익선 = EPS × 15 (피터 린치의 &ldquo;성장 없는 적정가&rdquo; 기준) · 연간 평균 주가 = Yahoo Finance 월봉 평균 · 연도별 EPS = 확정 연간 실적(US=FMP/Yahoo, KR=DART/Naver) · 현재 이격도 = 최근 4분기 EPS(종목 정보와 동일) · 48h 캐시 · 교육용 참고이며 투자 추천이 아닙니다.
       </div>
     </div>
   )

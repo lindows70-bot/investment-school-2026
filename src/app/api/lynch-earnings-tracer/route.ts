@@ -48,7 +48,10 @@ export interface TracerResult {
   medianPer:     number | null   // 역사적 5년 중앙 PER
   currentPrice:  number | null
   currentEps:    number | null
-  currentGap15:  number | null   // 현재 이격도 vs 린치15
+  // '현재' 점의 EPS 기준 — 'ttm' = 최근 4분기(종목 정보 SSOT, 다른 화면과 같은 값) · 'fy' = 직전 결산 연도(종목 정보를 못 받았을 때만)
+  // 2026-10-03: 결산 EPS 로 재던 시절 SK하이닉스가 여기선 '선보다 107% 위', 최근 4분기 EPS 를 쓰는 화면에선 '32% 아래'로 갈렸다(제2원칙 위반)
+  currentEpsBasis: 'ttm' | 'fy'
+  currentGap15:  number | null   // 현재 이격도 vs 린치15 (currentEps 기준)
   deficitMode:   boolean         // 최신 EPS가 적자
   hasData:       boolean
   asOf:          string
@@ -101,14 +104,14 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: '개별 주식만 지원합니다 (ETF·코인·원자재 제외).' }, { status: 400 })
 
   // 48h 캐시 (역사적 EPS는 자주 바뀌지 않음)
-  const cacheKey = `lynch-tracer:${ticker}:${market}`
+  const cacheKey = `lynch-tracer-v2:${ticker}:${market}`   // v2: 현재 EPS 를 최근 4분기로(2026-10-03)
   const cached = await getCache<TracerResult>(cacheKey, 48 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   const selfBase = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const empty: TracerResult = {
     ticker, name: ticker, market, currency: market === 'KR' ? 'KRW' : 'USD',
-    points: [], medianPer: null, currentPrice: null, currentEps: null,
+    points: [], medianPer: null, currentPrice: null, currentEps: null, currentEpsBasis: 'fy',
     currentGap15: null, deficitMode: false, hasData: false,
     asOf: new Date().toISOString(),
   }
@@ -198,10 +201,19 @@ export async function GET(req: Request) {
     }
     if (points.length < 2) return NextResponse.json({ ...empty, error: '역사적 데이터가 부족합니다 (최소 2개년 필요).' })
 
-    // ⑤ 현재 지표
+    // ⑤ 현재 지표 — '현재' EPS 는 종목 정보(/api/stock-info)의 최근 4분기 EPS(KR=네이버 TTM · US=야후 trailingEps). 못 받으면 직전 결산 연도 EPS 로 폴백하고 basis 에 밝힌다
+    let ttmEps: number | null = null
+    try {
+      const si = await fetch(`${selfBase}/api/stock-info?ticker=${encodeURIComponent(ticker)}&market=${market}`, { signal: AbortSignal.timeout(15_000), cache: 'no-store' })
+      if (si.ok) {
+        const e = (await si.json())?.fundamentals?.eps
+        if (typeof e === 'number' && isFinite(e) && e !== 0) ttmEps = e
+      }
+    } catch { /* 폴백: 결산 EPS */ }
     const lastPoint = [...points].filter(p => p.eps !== null).at(-1) ?? null
     const currentPrice = fin.currentPrice ?? null
-    const currentEps = lastPoint?.eps ?? null
+    const currentEps = ttmEps ?? lastPoint?.eps ?? null
+    const currentEpsBasis: 'ttm' | 'fy' = ttmEps != null ? 'ttm' : 'fy'
     const deficitMode = currentEps !== null && currentEps <= 0
     const currentGap15 = (currentPrice && currentEps && currentEps > 0)
       ? round2((currentPrice - currentEps * 15) / (currentEps * 15) * 100) : null
@@ -210,7 +222,7 @@ export async function GET(req: Request) {
       ticker, name: fin.companyName || ticker, market,
       currency: fin.currency ?? (market === 'KR' ? 'KRW' : 'USD'),
       points, medianPer: medianPer ? round2(medianPer) : null,
-      currentPrice, currentEps, currentGap15, deficitMode, hasData: true,
+      currentPrice, currentEps, currentEpsBasis, currentGap15, deficitMode, hasData: true,
       asOf: new Date().toISOString(),
     }
     await setCache(cacheKey, result)

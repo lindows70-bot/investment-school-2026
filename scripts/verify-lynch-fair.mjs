@@ -74,6 +74,16 @@ try {
     check(`프로덕션 ${t} — ${v.basis} = ${v.fairPrice != null ? Math.round(v.fairPrice).toLocaleString('ko-KR') : null} · 지금 ${sp?.currentPrice} · 괴리 ${v.gapPct}%`,
       v.fairPrice != null && v.fairPrice > 0 && v.gapPct != null && v.multiple >= 8 && v.multiple <= L.LYNCH_MULTIPLE_CAP[cat] && Math.abs(v.fairPrice - v.eps * v.multiple) < 1e-6)
   }
+  // 이익선 트레이서의 '현재' EPS 가 종목 정보의 최근 4분기 EPS 와 같은 값인가(2026-10-03 통일 — 그전엔 결산 EPS 라 SK하이닉스가 두 화면에서 반대 신호)
+  for (const [t, mk] of [['000660', 'KR'], ['NVDA', 'US']]) {
+    const [tr, si] = await Promise.all([
+      fetch(`${B}/api/lynch-earnings-tracer?ticker=${t}&market=${mk}`, { signal: AbortSignal.timeout(60_000) }).then(r => r.json()),
+      fetch(`${B}/api/stock-info?ticker=${t}&market=${mk}`, { signal: AbortSignal.timeout(40_000) }).then(r => r.json()),
+    ])
+    const e = si?.fundamentals?.eps
+    check(`트레이서 ${t} — 현재 EPS ${tr?.currentEps}(${tr?.currentEpsBasis}) = 종목 정보 최근 4분기 EPS ${e}`,
+      tr?.currentEpsBasis === 'ttm' && typeof e === 'number' && tr?.currentEps === e)
+  }
   const fy = (await fetch(`${B}/api/stock-info?ticker=005930&market=KR`, { signal: AbortSignal.timeout(40_000) }).then(r => r.json()))?.fundamentals?.fyEps
   check(`프로덕션 종목 정보에 확정 연도 EPS 최고치가 실림(삼성전자 ${fy ? `${fy.max} · ${fy.from}~${fy.to} · ${fy.n}년` : fy})`, !!fy && fy.max > 0 && fy.n >= 3 && fy.from < fy.to)
 } catch (err) { fail++; console.log(`❌ 프로덕션 호출 실패 — ${err.message}`) }
