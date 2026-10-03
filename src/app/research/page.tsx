@@ -366,7 +366,7 @@ export default function ResearchPage() {
 
       {/* Loading skeleton */}
       {loading && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 14 }}>
+        <div className="m-1col" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 280px', gap: 14 }}>   {/* 375 에선 왼쪽 칸이 45px 라 종목명이 세로 글자(2026-10-03) — ≤900px 1단 */}
           <div style={{ background: N, boxShadow: SHO, borderRadius: 14, height: 420, animation: 'pulse 1.5s infinite' }}/>
           <div style={{ background: N, boxShadow: SHO, borderRadius: 14, height: 420, animation: 'pulse 1.5s infinite' }}/>
         </div>
@@ -374,7 +374,7 @@ export default function ResearchPage() {
 
       {/* Main content */}
       {!loading && (priceData || stockInfo) && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 14, alignItems: 'start' }}>
+        <div className="m-1col" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 280px', gap: 14, alignItems: 'start' }}>
 
           {/* LEFT: Chart panel */}
           <div style={{ background: N, boxShadow: SHO, borderRadius: 14, overflow: 'hidden' }}>

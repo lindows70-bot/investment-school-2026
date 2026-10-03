@@ -716,7 +716,7 @@ export default function WeeklyReport({ simple = false }: { simple?: boolean } = 
               {m.byClass.map((b, i) => <span key={b.cls}><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: [TK.blue400, '#eb6834', '#1baf7a', '#eda100', TK.slate400][i % 5], marginRight: 4 }} />{b.cls} {b.weight.toFixed(1)}%</span>)}
             </div>
             <div className="m-scroll-hint" style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS.tiny }}>
+              <table style={{ width: '100%', minWidth: 620, borderCollapse: 'collapse', fontSize: FS.tiny }}>   {/* 375 에서 8열이 눌려 '매수기회'가 세로 글자(2026-10-03) — 래퍼가 가로 스크롤하게 최소 폭 */}
                 <thead><tr style={{ color: TK.sub, fontSize: FS.tiny }}>
                   {['종목', '자산군', '비중', '누적', '주간', '기여', '신호', '타점'].map(h => <th key={h} style={{ textAlign: h === '종목' || h === '자산군' ? 'left' : 'right', padding: '4px 7px', borderBottom: `1px solid ${BORDER}` }}>{h}</th>)}
                 </tr></thead>
