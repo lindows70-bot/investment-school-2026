@@ -238,6 +238,7 @@ Next.js 14 (App Router) + Supabase + Tailwind CSS + TypeScript 로 구축한
 
 | 시점 | 장치 | 차단하는 것 |
 |---|---|---|
+| **셸 실행 전** | `scripts/bash-guard.mjs` (PreToolUse 훅 · Bash·PowerShell · 2026-10-03) | `git add -A`(·`--all`·`.`) · 로컬 `npm run build`·분리 폴더 없는 `next build` · 검증 명령(check·lint·tsc·verify-*)에 파이프(`pipefail` 이면 허용). 검증 `node scripts/bash-guard.mjs --self-test` |
 | **턴 종료** | `scripts/stop-guard.mjs` (Stop 훅 · `.claude/settings.json`) | 타입 오류(재시도해도 막힘·연속 3회면 교착 방지로 해제) · 캐시 키 범프 누락(1회 알림) |
 | **커밋** | `scripts/precommit-guard.mjs` (`.husky/pre-commit`) | **신규 파일**의 디자인 값 하드코딩 · 캐시 키 reader 잔존 |
 | **커밋(캐시 날짜)** | `scripts/cacheDateGuard.mjs` (precommit-guard ④ · 2026-09-27) | `PURGE_RULES` 에 없는 접두어의 **날짜 캐시 키** 추가(영구 누적 → DB 한도 초과 재발). 우회 `캐시날짜예외: <이유>` · 검증 `verify-cache-purge` |
