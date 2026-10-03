@@ -52,6 +52,7 @@
 | `earnings-report` | 📑 실적 리포트(SEC 8-K 원문 자동 수집·요약) | ✅ | ✅ | ✅ |
 | `season-navigator` | 🧭 4계절 매크로 내비게이터 | | ✅ | ✅ |
 | `sector-rotation` | 🧭 섹터 로테이션 시계 | ✅ | | |
+| `screen-legibility` | 📐 화면 가독성 — 글자 크기·색 역할·좁은 폭 실측 탐지기(`narrow-width-probe.md`) | ✅ | ✅ | ✅ |
 | `signal-report` | 📋 앱 신호 성적표 | ✅ | ✅ | ✅ |
 | `tax-helper` | 💸 연말 절세 도우미 | ✅ | ✅ | ✅ |
 | `connective-tissue` | 🔗 연결 조직 (화면 사이의 다리 — 종목 액션 칩·딥링크) | ✅ | ✅ | |
