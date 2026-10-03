@@ -240,9 +240,10 @@ export default function RayDalioAnalysis() {
           {/* 리스크 패리티 배분 */}
           <div style={{ background: TK.bg3, borderRadius: 9, padding: '10px 13px', marginBottom: 12 }}>
             <div style={{ color: TK.sub11, fontSize: 11.5, fontWeight: 700, marginBottom: 6 }}>전천후 자산 배분(리스크 패리티)</div>
+            {/* 10% 미만 조각(금·원자재 7.5%)엔 글자를 넣지 않는다 — 375 에선 21px 라 잘려서 '금 7'처럼 보였다(2026-10-03). 값은 툴팁·아래 범례에 */}
             <div style={{ display: 'flex', height: 22, borderRadius: 5, overflow: 'hidden', marginBottom: 6 }}>
               {[['주식', 30, TK.green400], ['장기채', 40, TK.blue400], ['중기채', 15, TK.cyan400], ['금', 7.5, TK.amber400], ['원자재', 7.5, TK.orange400]].map(([l, w, c]) => (
-                <div key={l as string} title={`${l} ${w}%`} style={{ width: `${w}%`, background: c as string, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8.5, color: TK.bg3, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', padding: '0 1px' }}>{`${l} ${w}%`}</div>
+                <div key={l as string} title={`${l} ${w}%`} style={{ width: `${w}%`, background: c as string, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8.5, color: TK.bg3, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', padding: '0 1px' }}>{(w as number) >= 10 ? `${l} ${w}%` : null}</div>
               ))}
             </div>
             <div style={{ color: TK.sub8, fontSize: 10.5, lineHeight: 1.5 }}>💡 <b style={{ color: TK.blue300 }}>핵심 = 리스크 패리티</b>: 채권 55%는 <b>금액</b>이 크지만 변동성이 작아 <b>위험 기여도</b>는 주식과 비슷해집니다. &ldquo;금액이 아니라 위험을 똑같이 나눈다&rdquo;가 전천후의 발명입니다.</div>

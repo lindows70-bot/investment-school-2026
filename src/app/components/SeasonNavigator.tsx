@@ -293,9 +293,10 @@ export default function SeasonNavigator() {
               const c = Q_COLOR[q]
               return (
                 <div key={q} style={{ background: active ? `${c}1f` : TK.bg3, border: `1.5px solid ${active ? c : BORDER}`, borderRadius: 10, padding: '12px 13px', opacity: active ? 1 : 0.7, boxShadow: active ? `0 0 18px ${c}55` : 'none' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  {/* 375 에선 2단 칸이 150px — 네 조각이 한 줄에 눌려 '인플레이션'이 세로 3줄이 됐다(2026-10-03) → 이름은 한 줄 고정, 나머지는 줄바꿈 */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                     <span style={{ fontSize: 17 }}>{info.icon}</span>
-                    <span style={{ color: active ? c : TK.slate300, fontWeight: 800, fontSize: 13 }}>{info.ko}</span>
+                    <span style={{ color: active ? c : TK.slate300, fontWeight: 800, fontSize: 13, whiteSpace: 'nowrap' }}>{info.ko}</span>
                     <span style={{ color: TK.sub, fontSize: 10 }}>{info.season}</span>
                     {active && <span style={{ marginLeft: 'auto', background: c, color: '#0b0e15', fontWeight: 800, fontSize: 9, borderRadius: 5, padding: '1px 7px' }}>현재</span>}
                   </div>

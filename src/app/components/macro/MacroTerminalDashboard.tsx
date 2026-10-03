@@ -283,21 +283,22 @@ export default function MacroTerminalDashboard({
     <div className="space-y-6">
 
       {/* 공유 상태 배너 */}
-      <div className="flex items-center justify-between px-5 py-3 bg-zinc-950 border border-zinc-800 rounded-xl">
-        <div className="flex items-center gap-3">
+      {/* 375 에서 두 묶음이 한 줄에 눌려 '린치 멀티플 보정:'이 17px 폭 세로 글자가 됐다(2026-10-03) → 줄바꿈 허용 */}
+      <div className="flex flex-wrap items-center justify-between gap-y-2 px-5 py-3 bg-zinc-950 border border-zinc-800 rounded-xl">
+        <div className="flex flex-wrap items-center gap-3">
           <div className={`w-2 h-2 rounded-full bg-[${TK.neonLime}] animate-pulse`} />
           <span className="text-xs font-bold text-zinc-300">매크로 터미널 LIVE</span>
           <span className="text-[10px] text-zinc-500">
             포트폴리오 {stressData.length}개 개별 종목 · SSOT 분석 엔진
           </span>
         </div>
-        <div className="flex items-center gap-2 text-[11px]">
-          <span className="text-zinc-500">Phase 1 금리 충격:</span>
+        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+          <span className="text-zinc-500 whitespace-nowrap">Phase 1 금리 충격:</span>
           <span className={`font-mono font-bold ${rateShock > 0 ? 'text-rose-400' : rateShock < 0 ? 'text-emerald-400' : 'text-zinc-400'}`}>
             {rateShock > 0 ? `+${rateShock.toFixed(2)}%p` : rateShock < 0 ? `${rateShock.toFixed(2)}%p` : '동결'}
           </span>
           <span className="text-zinc-600 mx-1">{`→`}</span>
-          <span className="text-zinc-500">린치 멀티플 보정:</span>
+          <span className="text-zinc-500 whitespace-nowrap">린치 멀티플 보정:</span>
           <span className={`font-mono font-bold ${macroFactor < 1 ? 'text-rose-400' : macroFactor > 1 ? 'text-emerald-400' : 'text-zinc-400'}`}>
             {`×${macroFactor.toFixed(2)}`}
           </span>

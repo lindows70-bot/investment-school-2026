@@ -120,7 +120,7 @@ export default function BtcEtfFlows() {
             <table style={{ borderCollapse: 'collapse', fontSize: FS.tiny, fontVariantNumeric: 'tabular-nums', minWidth: 640 }}>
               <thead>
                 <tr style={{ color: TK.sub3 }}>
-                  <th style={{ textAlign: 'left', padding: '3px 6px', position: 'sticky', left: 0, background: CARD }}>날짜</th>
+                  <th style={{ textAlign: 'left', padding: '3px 6px', position: 'sticky', left: 0, background: CARD, whiteSpace: 'nowrap' }}>날짜</th>
                   {/* 티커만 있으면 학생은 누구 상품인지 모른다 → 운용사명을 아래 줄에 병기(2026-08-22 화면검증).
                       ⚠️ 정적 참조 데이터(상품↔운용사)라 제1원칙 예외 — 목록 자체는 Farside 헤더에서 동적으로 온다 */}
                   {d.issuers.map(t => (
@@ -151,7 +151,7 @@ export default function BtcEtfFlows() {
                 })}
                 {d.issuerTotals?.length === d.issuers.length && (
                   <tr style={{ borderTop: `2px solid ${BORDER}` }}>
-                    <td style={{ padding: '4px 6px', fontWeight: 800, color: TK.slate300, position: 'sticky', left: 0, background: CARD }}>출범 누적</td>
+                    <td style={{ padding: '4px 6px', fontWeight: 800, color: TK.slate300, position: 'sticky', left: 0, background: CARD, whiteSpace: 'nowrap' }}>출범 누적</td>
                     {d.issuerTotals.map((v, i) => (
                       <td key={i} style={{ textAlign: 'right', padding: '4px 6px', fontWeight: 700, color: v > 0 ? TK.green400 : v < 0 ? TK.red400 : TK.sub4 }}>
                         {v >= 1000 || v <= -1000 ? `${v > 0 ? '+' : ''}${(v / 1000).toFixed(1)}B` : `${v > 0 ? '+' : ''}${Math.round(v)}`}
