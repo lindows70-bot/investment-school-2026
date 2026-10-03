@@ -80,7 +80,10 @@ export async function GET(req: Request) {
   //      ⚠️ 스키마 확장도 범프한다 — 옛 응답이 서빙되면 새 필드가 undefined 로 와서 각주가 통째로 빈다
   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 지우는 장치 없이 영구 누적(2026-09-26 DB 한도 사고)
   const cacheKey = `research-verdict-v27:${ticker.toUpperCase()}:${market}`   // v27: peakNote 정점 전용 문장 + 유니버스 v19 워밍 전 캐시(local 폴백) 폐기 / v26: 🏔️ 경기순환주 정점 가드(유니버스 v18 · pegPeak/peakNote · cons)   // v24: 💵 자체 폴백 경로에도 적자 PSR 가치축(유니버스 밖 IONQ 등) / v22: ⚖️ KR 수급 가중 0%
-  const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000, { sameKstDay: true })
+  // 🔁 ?refresh=1 — 캐시를 건너뛰고 다시 계산해 덮어쓴다. 유니버스 캐시가 비어 있을 때(버전 범프 직후·워밍 전) 호출되면 local 폴백 결과가
+  //    6시간 박히는데, 그걸 걷어내려고 키를 올려 재배포하는 일을 2026-10-03 하루에 두 번 했다. 워밍 뒤 이 파라미터로 한 번 부르면 끝.
+  const forceRefresh = new URL(req.url).searchParams.get('refresh') === '1'
+  const cached = forceRefresh ? null : await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000, { sameKstDay: true })
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // ── 전 신호 동시 발사(async-api-routes: start early, await late) — 보조 신호·로테이션 캐시는 m과 무관하므로
