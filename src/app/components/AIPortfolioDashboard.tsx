@@ -258,8 +258,8 @@ export default function AIPortfolioDashboard(props: any) {
         </div>
       )}
 
-      {/* ── SECTION 1: 6대 카테고리 3×2 그리드 ─────────────── */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
+      {/* ── SECTION 1: 6대 카테고리 3×2 그리드 — 1280 은 3단 그대로, 768 은 2단, 375 는 1단(고정 3단이면 375 에서 칸 100px 라 분류 이름이 한 글자씩 세로로 찍혔다 · 2026-10-03) ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap:10 }}>
         {LYNCH_CATS.map(cat => {
           const group   = groupMap[cat.id]
           const matches = group?.items ?? []
@@ -354,8 +354,8 @@ export default function AIPortfolioDashboard(props: any) {
         </div>
       )}
 
-      {/* ── 집계 요약 카드 ─────────────────────────────────── */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
+      {/* ── 집계 요약 카드 — 375 에선 2×2(고정 4단이면 칸 70px) ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(min(100%, 130px), 1fr))', gap:8 }}>
         {[
           { label:'총 등록 종목', value:`${stocks.length}개`, color:C.textHi },
           { label:'분류 완료',    value:`${stocks.filter(s => s.lynchType !== '해당없음').length}개`, color:C.green },
