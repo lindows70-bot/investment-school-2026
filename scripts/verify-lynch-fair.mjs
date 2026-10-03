@@ -108,6 +108,8 @@ try {
   const vd = await fetch(`${B}/api/research-verdict?ticker=005930&market=KR`, { signal: AbortSignal.timeout(90_000) }).then(r => r.json())
   check(`종합 판정 삼성전자 — 유니버스 정점 플래그 · 가치축 중립(${vd?.axes?.value}) · cons 에 정점 문장(${vd?.axisSource})`,
     vd?.pegPeak === true && vd?.axisSource === 'universe' && typeof vd?.peakNote === 'string' && vd.peakNote.includes('결산 연도') && (vd.cons ?? []).some(c => c.includes('이익 정점 착시')) && vd.axes.value <= 65)
+  check(`종합 판정 삼성전자 — 정점이면 '매수 적합'이 아니다(${vd?.verdict} · ${vd?.score}) · 한 줄 문장이 이유를 말한다`, vd?.verdict !== 'buy' && typeof vd?.oneLiner === 'string' && vd.oneLiner.includes('결산 기록 중 최고'))
+  check('종합 판정 — 정점 게이트는 소스에 있다(buy 조건에 !pegPeak)', /&& !hype && !pegPeak\) verdict = 'buy'/.test(rv))
   const fy = (await fetch(`${B}/api/stock-info?ticker=005930&market=KR`, { signal: AbortSignal.timeout(40_000) }).then(r => r.json()))?.fundamentals?.fyEps
   check(`프로덕션 종목 정보에 확정 연도 EPS 최고치가 실림 — KR 은 재무 API 5년(삼성전자 ${fy ? `${fy.max} · ${fy.from}~${fy.to} · ${fy.n}년` : fy})`, !!fy && fy.max > 0 && fy.n >= 5 && fy.from < fy.to)
   const fyUs = (await fetch(`${B}/api/stock-info?ticker=XOM&market=US`, { signal: AbortSignal.timeout(40_000) }).then(r => r.json()))?.fundamentals?.fyEps

@@ -79,7 +79,7 @@ export async function GET(req: Request) {
   // v23: ⚖️ weights 필드 추가(화면 각주를 리터럴→데이터로) + 💵 가치축 적자기업 PSR 폴백(universe v16)
   //      ⚠️ 스키마 확장도 범프한다 — 옛 응답이 서빙되면 새 필드가 undefined 로 와서 각주가 통째로 빈다
   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 지우는 장치 없이 영구 누적(2026-09-26 DB 한도 사고)
-  const cacheKey = `research-verdict-v27:${ticker.toUpperCase()}:${market}`   // v27: peakNote 정점 전용 문장 + 유니버스 v19 워밍 전 캐시(local 폴백) 폐기 / v26: 🏔️ 경기순환주 정점 가드(유니버스 v18 · pegPeak/peakNote · cons)   // v24: 💵 자체 폴백 경로에도 적자 PSR 가치축(유니버스 밖 IONQ 등) / v22: ⚖️ KR 수급 가중 0%
+  const cacheKey = `research-verdict-v28:${ticker.toUpperCase()}:${market}`   // v28: 🏔️ 정점이면 매수 적합 게이트 차단 + 한 줄 문장 / v27: peakNote 정점 전용 문장 + 유니버스 v19 워밍 전 캐시(local 폴백) 폐기 / v26: 🏔️ 경기순환주 정점 가드(유니버스 v18 · pegPeak/peakNote · cons)   // v24: 💵 자체 폴백 경로에도 적자 PSR 가치축(유니버스 밖 IONQ 등) / v22: ⚖️ KR 수급 가중 0%
   // 🔁 ?refresh=1 — 캐시를 건너뛰고 다시 계산해 덮어쓴다. 유니버스 캐시가 비어 있을 때(버전 범프 직후·워밍 전) 호출되면 local 폴백 결과가
   //    6시간 박히는데, 그걸 걷어내려고 키를 올려 재배포하는 일을 2026-10-03 하루에 두 번 했다. 워밍 뒤 이 파라미터로 한 번 부르면 끝.
   const forceRefresh = new URL(req.url).searchParams.get('refresh') === '1'
@@ -218,7 +218,9 @@ export async function GET(req: Request) {
   // 판정 — 명백한 부적합(칼날·좀비) 우선, 그 외 점수·리스크 종합
   let verdict: ResearchVerdict['verdict']
   if (m.knife || zombie) verdict = 'avoid'
-  else if (score >= 65 && m.fwdEpsDir !== 'decline' && !(dcf === 'demanding' && m.priceTrend !== 'up') && !m.inventoryBuildup && !hype) verdict = 'buy'
+  // 🏔️ 경기순환주 정점(유니버스 판정)은 '매수 적합' 게이트에서 막는다 — 가치 축을 중립으로 둬도 다른 5축이 받쳐 삼성전자가 '매수 적합 79'였다(2026-10-03).
+  //    감점 숫자를 지어내지 않고(가짜 정밀 금지) 재고 적체·영업적자처럼 **결격 조건**으로 둔다 — 린치: 경기순환주는 이익이 가장 좋을 때 가장 싸 보인다.
+  else if (score >= 65 && m.fwdEpsDir !== 'decline' && !(dcf === 'demanding' && m.priceTrend !== 'up') && !m.inventoryBuildup && !hype && !pegPeak) verdict = 'buy'
   else verdict = 'caution'
 
   // 근거(찬성/주의) 조립
@@ -271,6 +273,8 @@ export async function GET(req: Request) {
     : verdict === 'buy' ? (choppy
         ? `펀더멘탈(가치·퀄리티·모멘텀·주도섹터·수급·계절 6축)은 매수 적합이나, 추세 강도가 약함(ADX ${adx}) — 돌파 신호도 가짜일 수 있어 방향 확정 후 진입 권장(WHAT은 좋음, WHEN은 확인).`
         : `6축(가치·퀄리티·모멘텀·주도섹터·수급·계절)이 받쳐주고 결격 리스크가 없는 매수 적합 구간.`)
+    : pegPeak && score >= 65
+      ? `6축은 받쳐주지만 경기순환주의 이익이 결산 기록 중 최고라 '매수 적합'을 주지 않습니다 — 이익이 가장 좋을 때 가장 싸 보이는 린치의 함정. 이 이익이 내년에도 이어질지 확인한 뒤 분할로.`
     : `장점과 주의가 공존 — 아래 찬성/주의 근거를 보고 분할·관망으로 신중 접근.`
 
   const result: ResearchVerdict = {
