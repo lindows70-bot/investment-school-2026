@@ -79,7 +79,7 @@ export async function GET(req: Request) {
   // v23: ⚖️ weights 필드 추가(화면 각주를 리터럴→데이터로) + 💵 가치축 적자기업 PSR 폴백(universe v16)
   //      ⚠️ 스키마 확장도 범프한다 — 옛 응답이 서빙되면 새 필드가 undefined 로 와서 각주가 통째로 빈다
   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 지우는 장치 없이 영구 누적(2026-09-26 DB 한도 사고)
-  const cacheKey = `research-verdict-v26:${ticker.toUpperCase()}:${market}`   // v26: 🏔️ 경기순환주 정점 가드(유니버스 v18 · pegPeak/peakNote · cons)   // v24: 💵 자체 폴백 경로에도 적자 PSR 가치축(유니버스 밖 IONQ 등) / v22: ⚖️ KR 수급 가중 0%
+  const cacheKey = `research-verdict-v27:${ticker.toUpperCase()}:${market}`   // v27: peakNote 정점 전용 문장 + 유니버스 v19 워밍 전 캐시(local 폴백) 폐기 / v26: 🏔️ 경기순환주 정점 가드(유니버스 v18 · pegPeak/peakNote · cons)   // v24: 💵 자체 폴백 경로에도 적자 PSR 가치축(유니버스 밖 IONQ 등) / v22: ⚖️ KR 수급 가중 0%
   const cached = await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000, { sameKstDay: true })
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

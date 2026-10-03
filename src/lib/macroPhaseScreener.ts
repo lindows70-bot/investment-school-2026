@@ -59,7 +59,8 @@ export interface MacroPhaseResult {
 // v17: 💵 v16 의 적자기업 PSR 폴백을 **실측 기각으로 철회**(전원 최하 등급으로 뭉갬 — 아래 가치축 주석) → valueScore 원복
 // v16: 💵 적자기업 가치축 PSR 폴백(철회됨) / v15: 💵 고FCF 성격 구분(mirage·volatile) / v14: 💱 FTS 통화 판별
 // v18(2026-10-03): 🏔️ 경기순환주 정점 가드 — 이익이 결산 기록 중 최고인 해의 PEG·이익수익률은 중립(pegPeak·peakNote 필드 추가 · 가치축 값 변경)
-export const UNIVERSE_KEY = 'macro-screened-universe:v18'
+// v19: peakNote 를 정점 전용 문장으로(급증과 겹친 종목의 문장 변경)
+export const UNIVERSE_KEY = 'macro-screened-universe:v19'
 
 export interface ScreenedStock {
   ticker:       string
@@ -1000,7 +1001,7 @@ async function screenOne(
         if (f?.fyEps) {
           const v = lynchFairValue({ eps: f.eps, pe: f.pe, peg: f.peg, growthPct: typeof f.earningsGrowth === 'number' ? f.earningsGrowth * 100 : null,
             category: 'cyclical', market, price, fyEps: f.fyEps })
-          pegPeak = v.peak; peakNote = v.holdNote
+          pegPeak = v.peak; peakNote = v.peakNote   // 정점 문장만(급증과 겹쳐도 급증 문장을 빌려 쓰지 않는다)
         }
       } catch { /* 판정 재료 없음 → 가드 없음 */ }
     }

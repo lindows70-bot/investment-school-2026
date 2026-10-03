@@ -275,6 +275,7 @@ export interface LynchFairValue {
   jump:      boolean         // 이익 급증(PEG<0.3 & 성장률>100%) — 배수를 상한이 아니라 기본값으로 낮췄고, '저평가'로 읽지 않는다
   peak:      boolean         // 경기순환주 정점 의심 — 최근 EPS 가 확정 결산 연도 EPS 의 최고치보다 크다. '저평가'로 읽지 않는다(가격은 그대로)
   holdNote:  string | null   // jump·peak 일 때 화면에 그대로 쓰는 이유 문장(둘 다면 jump 가 먼저) — 주가가 적정가보다 낮을 때만 쓴다
+  peakNote:  string | null   // 정점 문장만(jump 와 무관) — '정점' 라벨 아래 급증 문장이 붙지 않게(2026-10-03 SK하이닉스: 둘 다 걸려 holdNote 가 급증 문장이었다)
   basis:     string          // "EPS 224,313 × 12배" — 화면에 그대로 병기
 }
 
@@ -300,19 +301,19 @@ export function lynchFairValue(i: {
   const jump   = isPegBaseEffectPct(peg > 0 ? peg : null, growth)
   const multiple = jump ? (LYNCH_MULTIPLE_DEFAULT[cat] ?? (i.market === 'KR' ? 12 : 15)) : calcFairMultiple(pe, peg, cat, i.market)
   const rawEps = safeNumber(i.eps)
-  if (rawEps <= 0) return { fairPrice: null, eps: 0, multiple, gapPct: null, jump, peak: false, holdNote: null, basis: '적자 — 적정가 없음' }
+  if (rawEps <= 0) return { fairPrice: null, eps: 0, multiple, gapPct: null, jump, peak: false, holdNote: null, peakNote: null, basis: '적자 — 적정가 없음' }
   // 정점 의심 — 경기순환주만. 여러 해 평균으로 가격을 다시 재는 안은 실측에서 기각했다(있는 해가 바닥→상승 구간이라 +400~900% 고평가가 된다, 2026-10-02).
   //   그래서 가격은 건드리지 않고 '지금 이익이 가진 기록 중 최고'라는 사실만 말한다. 비교한 연도 수와 기간을 문장에 밝힌다(3~5년뿐이다).
   const fy = i.fyEps && Number.isFinite(i.fyEps.max) && i.fyEps.n >= 3 ? i.fyEps : null
   const peak = cat === 'cyclical' && fy != null && rawEps > fy.max
-  const holdNote = jump ? PEG_JUMP_DESC
-    : peak ? `최근 4분기 이익이 최근 ${fy!.n}개 결산 연도(${fy!.from}~${fy!.to}) 중 어느 해보다 큽니다 — 경기순환주는 이익이 가장 좋을 때 가장 싸 보여서 저평가 근거로 쓸 수 없습니다(린치의 경기순환 함정)`
+  const peakNote = peak ? `최근 4분기 이익이 최근 ${fy!.n}개 결산 연도(${fy!.from}~${fy!.to}) 중 어느 해보다 큽니다 — 경기순환주는 이익이 가장 좋을 때 가장 싸 보여서 저평가 근거로 쓸 수 없습니다(린치의 경기순환 함정)`
     : null
+  const holdNote = jump ? PEG_JUMP_DESC : peakNote   // 둘 다면 급증이 먼저(가격 배수도 급증 쪽으로 정했다)
   const eps = price > 0 ? sanitizeEps(rawEps, price, cat) : rawEps
   const fairPrice = eps * multiple
   const gapPct = price > 0 && fairPrice > 0 ? Math.round((price / fairPrice - 1) * 1000) / 10 : null
   const epsTxt = eps >= 1000 ? Math.round(eps).toLocaleString('ko-KR') : eps.toFixed(2)
-  return { fairPrice, eps, multiple, gapPct, jump, peak, holdNote, basis: `EPS ${epsTxt} × ${multiple}배` }
+  return { fairPrice, eps, multiple, gapPct, jump, peak, holdNote, peakNote, basis: `EPS ${epsTxt} × ${multiple}배` }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
