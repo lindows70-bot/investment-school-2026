@@ -9,10 +9,15 @@ import type { SignalReportResult } from '@/app/api/signal-report/route'
 import { curSymbol, isLeveragedTicker } from '@/lib/globalTickers'
 import { TK, FS } from '@/lib/theme'
 import { isPegBaseEffect } from '@/lib/pegBaseEffect'   // 이익 급증(기저효과) 판정 SSOT(순수 함수)
+import { lynchFairValue } from '@/lib/lynchAnalysis'   // 🏔️ 경기순환주 정점 판정(peak) — 적정가·린치 패널·유니버스와 같은 함수
 
 const BORDER = TK.border
 
-interface Fund { peg: number | null; fcf: number | null; opMargin: number | null; growth: number | null }
+interface Fund {
+  peg: number | null; fcf: number | null; opMargin: number | null; growth: number | null
+  // 🏔️ 정점 판정 재료(2026-10-03) — 최근 4분기 EPS·PER·확정 결산 EPS 최고치(종목 정보) + 린치 분류(/api/lynch-classify)
+  eps: number | null; pe: number | null; fyEps: { max: number; from: string; to: string; n: number } | null; cat: string | null
+}
 
 const toNum = (v: unknown): number | null => typeof v === 'number' && isFinite(v) ? v : null
 
@@ -68,15 +73,22 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   useEffect(() => {
     let alive = true
     setFund('loading')
-    fetch(`/api/stock-info?ticker=${encodeURIComponent(ticker)}&market=${market}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(j => {
+    Promise.all([
+      fetch(`/api/stock-info?ticker=${encodeURIComponent(ticker)}&market=${market}`).then(r => r.ok ? r.json() : null),
+      // 린치 분류 — 정점 가드는 경기순환주에만 건다. 실패해도 나머지 판정은 그대로(분류 없음 = 가드 없음)
+      fetch(`/api/lynch-classify?ticker=${encodeURIComponent(ticker)}&market=${market}`).then(r => r.ok ? r.json() : null).catch(() => null),
+    ])
+      .then(([j, lc]) => {
         if (!alive) return
         const f = j?.fundamentals
         if (!f || j?.error) { setFund(null); return }
+        const fy = f.fyEps
         setFund({
           peg: toNum(f.peg), fcf: toNum(f.freeCashflow),
           opMargin: toNum(f.operatingMargins), growth: toNum(f.earningsGrowth),
+          eps: toNum(f.eps), pe: toNum(f.pe),
+          fyEps: fy && typeof fy.max === 'number' ? { max: fy.max, from: String(fy.from), to: String(fy.to), n: Number(fy.n) } : null,
+          cat: typeof lc?.category === 'string' && lc.category !== 'na' ? lc.category : null,
         })
       })
       .catch(() => { if (alive) setFund(null) })
@@ -154,10 +166,14 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   const opLoss = f?.opMargin != null && f.opMargin < -0.10          // 영업적자(−10%↓) = 진짜 부실(강한 danger)
   const fcfNeg = f?.fcf != null && f.fcf < 0                        // FCF적자 = 흑자기업이면 capex·캡티브금융일 뿐(약한 caveat) — 좀비가드 철학
   const pegBase = isPegBaseEffect(f?.peg ?? null, f?.growth ?? null)   // 기저효과 = 가짜 저PEG(추천·점수 계산과 같은 함수)
+  // 🏔️ 경기순환주 정점 — 최근 4분기 EPS 가 확정 결산 연도 최고치보다 큼(린치 패널·유니버스와 같은 함수). 가격은 판정에 안 쓰므로 null
+  const fair = f ? lynchFairValue({ eps: f.eps, pe: f.pe, peg: f.peg, growthPct: f.growth != null ? f.growth * 100 : null, category: f.cat, market, price: null, fyEps: f.fyEps }) : null
+  const pegPeak = !!fair?.peak
+  const peakTxt = f?.fyEps ? `최근 4분기 이익이 최근 ${f.fyEps.n}개 결산 연도(${f.fyEps.from}~${f.fyEps.to}) 중 최고 — 경기순환주는 이익이 가장 좋을 때 가장 싸 보임` : '이익 정점'
   const pegHigh = f?.peg != null && f.peg > 2.2                     // Jarvis SELL 기준과 동일(제2원칙)
-  const pegGood = f?.peg != null && f.peg <= 1.0 && !pegBase        // 진짜 저평가(기저효과 제외)
-  // 🚨 가짜 반등 트리거 = 영업적자 / 고평가 / 기저효과 저PEG (FCF적자 단독은 제외 — 흑자기업 capex 오탐 방지)
-  const fundBad = opLoss || pegHigh || pegBase
+  const pegGood = f?.peg != null && f.peg <= 1.0 && !pegBase && !pegPeak   // 진짜 저평가(기저효과·정점 제외)
+  // 🚨 가짜 반등 트리거 = 영업적자 / 고평가 / 기저효과 저PEG / 정점 저PEG (FCF적자 단독은 제외 — 흑자기업 capex 오탐 방지)
+  const fundBad = opLoss || pegHigh || pegBase || pegPeak
   const fundGood = pegGood && !opLoss                              // FCF적자여도 흑자면 정합 가능(caveat 병기)
   const fcfCaveat = fcfNeg && !opLoss                              // 흑자인데 FCF만 적자 = 투자/금융 구조 주석
 
@@ -181,7 +197,7 @@ export default function SignalReader({ ticker, market, candles, tf }: {
   })
   if (buyEvts.length && fundBad && !(sig.rsiZone === 'oversold' && opLoss)) verdicts.push({
     icon: '🚨', title: '가짜 반등 경보 (Technical Trap)', col: TK.orange400, bg: '#7c2d1222',
-    body: `${buyEvts[0]} — 교과서적 매수 신호이나, ${opLoss ? '영업적자' : pegHigh ? `PEG ${f?.peg?.toFixed(2)}로 고평가` : `PEG ${f?.peg?.toFixed(2)}는 기저효과(이익 저점 회복·성장 ${f && f.growth != null ? (f.growth * 100).toFixed(0) : ''}%)라 진짜 싼 게 아님`} 상태입니다. 펀더멘탈 근거 없는 기술 반등은 단기 되돌림일 확률이 높음 — 추격 매수 자제.`,
+    body: `${buyEvts[0]} — 교과서적 매수 신호이나, ${opLoss ? '영업적자' : pegHigh ? `PEG ${f?.peg?.toFixed(2)}로 고평가` : pegPeak && !pegBase ? `PEG ${f?.peg?.toFixed(2)}는 이익 정점 착시(${peakTxt})` : `PEG ${f?.peg?.toFixed(2)}는 기저효과(이익 저점 회복·성장 ${f && f.growth != null ? (f.growth * 100).toFixed(0) : ''}%)라 진짜 싼 게 아님`} 상태입니다. 펀더멘탈 근거 없는 기술 반등은 단기 되돌림일 확률이 높음 — 추격 매수 자제.`,
   })
   if (buyEvts.length && fundGood) verdicts.push({
     icon: '🟢', title: '신호 정합 (Value + Momentum)', col: TK.green400, bg: '#14532d22',
