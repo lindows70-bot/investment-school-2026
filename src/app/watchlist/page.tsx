@@ -206,11 +206,11 @@ export default function WatchlistPage() {
             background: N, boxShadow: SHO,
             borderRadius: 14, overflow: 'hidden',
             borderLeft: `3px solid ${C}`,
-            display: 'flex', alignItems: 'stretch',
+            display: 'flex', alignItems: 'stretch', flexWrap: 'wrap',   // 375 에선 세 칸이 세로로 쌓인다(2026-10-03 탐지기 93건)
           }}>
 
             {/* ─ 1. 종목 정보 (왼쪽 200px) ─ */}
-            <div style={{ width:200, flexShrink:0, padding:'16px 18px', display:'flex', flexDirection:'column', justifyContent:'center', gap:4 }}>
+            <div style={{ flex:'1 1 200px', minWidth:0, padding:'16px 18px', display:'flex', flexDirection:'column', justifyContent:'center', gap:4 }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
                 <div>
                   <div style={{ fontSize:14, fontWeight:800, color:TK.sub12, marginBottom:1 }}>{item.name}</div>
@@ -270,7 +270,7 @@ export default function WatchlistPage() {
             <div style={{ width:1, background:TK.bg9, flexShrink:0, margin:'12px 0' }}/>
 
             {/* ─ 2. 재무 지표 (중간 220px) ─ */}
-            <div style={{ width:220, flexShrink:0, padding:'14px 16px', display:'flex', flexDirection:'column', justifyContent:'center' }}>
+            <div style={{ flex:'1 1 220px', minWidth:0, padding:'14px 16px', display:'flex', flexDirection:'column', justifyContent:'center' }}>
               <div style={{ fontSize:9, fontWeight:800, color:TK.sub10, letterSpacing:'0.1em',
                 textTransform:'uppercase' as const, marginBottom:10 }}>핵심 지표</div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:7 }}>
@@ -301,7 +301,7 @@ export default function WatchlistPage() {
             <div style={{ width:1, background:TK.bg9, flexShrink:0, margin:'12px 0' }}/>
 
             {/* ─ 3. 캔들차트 (오른쪽 flex:1) ─ */}
-            <div style={{ flex:1, minWidth:0, padding:'10px 14px 8px', display:'flex', flexDirection:'column' }}>
+            <div style={{ flex:'1 1 320px', minWidth:0, padding:'10px 14px 8px', display:'flex', flexDirection:'column' }}>
               {/* 타임프레임 탭 */}
               <div style={{ display:'flex', gap:5, marginBottom:6 }}>
                 {(['1D','1W','1M','1Y'] as TimeFrame[]).map(t => (

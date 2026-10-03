@@ -274,7 +274,8 @@ export default function ResearchPage() {
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}`}</style>
 
       {/* ── 탭 네비게이션 ───────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 6, borderBottom: `1px solid ${TK.line4}`, paddingBottom: 0 }}>
+      {/* 375 에선 6개가 한 줄에 못 들어가 세로 글자가 됐다(2026-10-03 탐지기) — 탭 바는 가로 스크롤, 버튼은 줄바꿈·축소 금지 */}
+      <div style={{ display: 'flex', gap: 6, borderBottom: `1px solid ${TK.line4}`, paddingBottom: 0, overflowX: 'auto', scrollbarWidth: 'none' }}>
         {([
           { key: 'chart',   label: '📈 차트 리서치',   desc: '캔들 + 핵심지표 + 종합 판정' },
           { key: 'lynch',   label: '🔍 피터린치 분석', desc: '6대 분류·PEG·이익선 자동' },
@@ -287,7 +288,7 @@ export default function ResearchPage() {
             key={key}
             onClick={() => setActiveTab(key)}
             style={{
-              padding: '10px 18px 12px', border: 'none', cursor: 'pointer',
+              padding: '10px 18px 12px', border: 'none', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap',
               background: 'transparent', fontSize: 13, fontWeight: 700,
               color:       activeTab === key ? TK.amber400 : TK.sub4,
               borderBottom: `3px solid ${activeTab === key ? TK.amber400 : 'transparent'}`,

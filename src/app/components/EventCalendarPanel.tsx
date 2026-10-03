@@ -78,12 +78,12 @@ export default function EventCalendarPanel({ compact }: { compact?: boolean }) {
           {data.events.slice(0, 14).map((e, i) => {
             const m = EV_META[e.type]
             return (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', background: TK.bg2, borderRadius: 8, borderLeft: `3px solid ${m.color}` }}>
+              <div key={i} style={{ display: 'flex', flexWrap: 'wrap' /* 375 에선 한 줄에 못 들어가 라벨이 세로 글자가 됐다(2026-10-03) */, alignItems: 'center', gap: 10, padding: '6px 10px', background: TK.bg2, borderRadius: 8, borderLeft: `3px solid ${m.color}` }}>
                 <b style={{ color: e.dDay <= 7 ? m.color : TK.sub4, fontSize: FS.tiny, fontFamily: 'monospace', minWidth: 52 }}>{e.dDay === 0 ? 'TODAY' : `D-${e.dDay}`}</b>
                 <span style={{ fontSize: FS.tiny, color: TK.sub4, fontFamily: 'monospace', minWidth: 44 }}>{e.date.slice(5)}</span>
                 <span>{m.icon}</span>
                 <b style={{ color: TK.slate200, fontSize: FS.tiny }}>{flagOf(e.market, e.ticker)} {e.name}</b>
-                <span style={{ color: TK.sub4, fontSize: FS.tiny }}>{m.label}{fmtPer(e)}</span>
+                <span style={{ color: TK.sub4, fontSize: FS.tiny, whiteSpace: 'nowrap' }}>{m.label}{fmtPer(e)}</span>
                 {e.type === 'earnings' && e.dDay <= 7 && <span style={{ marginLeft: 'auto', fontSize: FS.tiny, color: TK.amber400 }}>⚠️ 어닝 갭 변동성 주의</span>}
               </div>
             )

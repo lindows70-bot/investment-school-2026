@@ -573,7 +573,7 @@ function AnalysisContent() {
                     const msg=over?`${Math.abs(r.diff)}%p 축소 고려`:under?`${Math.abs(r.diff)}%p 확대 고려`:'적정 비중'
                     return (
                       <tr key={r.key}>
-                        <td style={td}><span style={{ display:'inline-flex',alignItems:'center',gap:5,padding:'2px 8px',borderRadius:99,fontSize:11,fontWeight:600,color:r.color,background:`${r.color}18`,border:`1px solid ${r.color}35` }}>{r.label}</span></td>
+                        <td style={{ ...td, whiteSpace:'nowrap' }}><span style={{ display:'inline-flex',alignItems:'center',gap:5,padding:'2px 8px',borderRadius:99,fontSize:11,fontWeight:600,color:r.color,background:`${r.color}18`,border:`1px solid ${r.color}35` }}>{r.label}</span></td>
                         <td style={{ ...td }}>
                           <div style={{ display:'flex',alignItems:'center',gap:8 }}>
                             <div style={{ width:48,height:4,background:TK.bg0, boxShadow: SHI,borderRadius:99,overflow:'hidden' }}>

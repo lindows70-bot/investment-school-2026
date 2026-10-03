@@ -224,6 +224,7 @@ function printReport(d: WeeklyReportResult) {
  .chip{display:inline-block;border:1px solid #e3e6ea;border-radius:999px;padding:2px 9px;margin:2px 4px 2px 0;font-size:9.5px}
  ul{margin:3px 0 3px 16px;padding:0} li{margin:2px 0}
  .cols{display:grid;grid-template-columns:1fr 1fr;gap:10px} .sgw{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+ @media (max-width:480px){ table{display:block;overflow-x:auto;white-space:nowrap;max-width:100%} .cols,.sgw{grid-template-columns:1fr} } /* 375 에서 8열 표가 눌려 '매수기회'가 10px 세로 글자였다(2026-10-03 탐지기) */
  .sg{border:1px solid #e3e6ea;border-left:4px solid #B8860B;border-radius:9px;padding:7px 10px;break-inside:avoid} .sg .st{font-size:10.5px;font-weight:800;color:#12284C} .sg p{margin:2px 0 0;font-size:10px;color:#4c5866}
  .scb td{border:1px solid #e3e6ea;border-radius:8px;padding:7px 9px} .scr{font-size:10px;display:flex;justify-content:space-between;gap:6px}
  .warn{background:#fdf0ef;border:1px solid #ecc4c0;border-radius:9px;padding:7px 11px;margin:6px 0;font-size:10px}

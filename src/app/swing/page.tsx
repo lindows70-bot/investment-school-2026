@@ -450,7 +450,7 @@ function SwingRecord({ d }: { d: SwingRadar }) {
                 <span style={{ color: TK.sub4 }}>{SWING_TRACKS[r.track].icon}</span>
                 {/* 📜 옛 규칙·장중가 기록 표시 — 규칙이 바뀌기 전 표본을 지금 규칙의 성적으로 읽지 않게 */}
                 {legacyMarks(r).map(m => (
-                  <span key={m.mark} title={m.note} style={{ color: TK.sub4, border: `1px solid ${BORDER}`, borderRadius: RAD.xs, padding: '0 4px' }}>{m.mark}</span>
+                  <span key={m.mark} title={m.note} style={{ color: TK.sub4, border: `1px solid ${BORDER}`, borderRadius: RAD.xs, padding: '0 4px', whiteSpace: 'nowrap' }}>{m.mark}</span>
                 ))}
                 {r.stopHit && <span style={{ color: TK.orange400 }} title="손절선이 깨져 그 가격에 정리된 것으로 채점했습니다">🛡</span>}
                 {/* 손절이 지켜준(또는 깎은) 폭 — 두 값이 실제로 다를 때만 보여준다(같으면 소음) */}
