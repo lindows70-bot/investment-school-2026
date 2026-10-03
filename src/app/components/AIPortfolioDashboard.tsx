@@ -473,13 +473,15 @@ export default function AIPortfolioDashboard(props: any) {
         </div>
         <div style={{ padding:'12px 18px 16px' }}>
           {aiInsights ? (
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+            <div style={{ display:'grid', gap:12,
+              // 좁은 폭(375)에서 2단이면 칸 150px — 긴 종목명이 잘린다(2026-10-03 실측 22px). 칸이 260px 미만이면 1단으로
+              gridTemplateColumns:'repeat(auto-fit, minmax(min(100%, 260px), 1fr))' }}>
               <div style={{ display:'flex', gap:12, padding:'13px 14px', borderRadius:10, background:'rgba(74,222,128,0.08)', border:'1px solid rgba(74,222,128,0.25)' }}>
                 <div style={{ padding:'4px 8px', borderRadius:6, background:TK.emerald500, color:'#fff', fontSize:9, fontWeight:900, letterSpacing:'0.05em', flexShrink:0, height:'fit-content' }}>
                   BUY CHANCE
                 </div>
-                <div>
-                  <div style={{ fontSize:12, fontWeight:800, color:C.textHi, marginBottom:4 }}>
+                <div style={{ minWidth:0 }}>
+                  <div style={{ fontSize:12, fontWeight:800, color:C.textHi, marginBottom:4, overflowWrap:'anywhere' }}>
                     {aiInsights.best.name}
                     <span style={{ fontSize:10, color:C.textLow, fontFamily:'monospace', marginLeft:6 }}>({aiInsights.best.ticker})</span>
                   </div>
@@ -494,8 +496,8 @@ export default function AIPortfolioDashboard(props: any) {
                 <div style={{ padding:'4px 8px', borderRadius:6, background:TK.amber500, color:'#fff', fontSize:9, fontWeight:900, letterSpacing:'0.05em', flexShrink:0, height:'fit-content' }}>
                   WATCH LIST
                 </div>
-                <div>
-                  <div style={{ fontSize:12, fontWeight:800, color:C.textHi, marginBottom:4 }}>
+                <div style={{ minWidth:0 }}>
+                  <div style={{ fontSize:12, fontWeight:800, color:C.textHi, marginBottom:4, overflowWrap:'anywhere' }}>
                     {aiInsights.worst.name}
                     <span style={{ fontSize:10, color:C.textLow, fontFamily:'monospace', marginLeft:6 }}>({aiInsights.worst.ticker})</span>
                   </div>
