@@ -308,7 +308,8 @@ export default function SignalReader({ ticker, market, candles, tf }: {
         {chip('CCI', sig.cci == null ? '-' : String(sig.cci), (sig.cci ?? 0) > 100 ? TK.green400 : (sig.cci ?? 0) < -100 ? TK.red400 : TK.slate200)}
         {sig.mfi != null && chip('MFI 수급', String(sig.mfi), sig.mfi > 80 ? TK.red400 : sig.mfi < 20 ? TK.sky400 : sig.mfi >= 55 ? TK.green400 : TK.slate200)}
         {sig.adx != null && chip('ADX 추세', `${sig.adx} ${adxTrend ? '추세장' : adxRange ? '박스권' : '중간'}`, adxTrend ? TK.green400 : adxRange ? TK.slate400 : TK.slate200)}
-        {f?.peg != null && chip('PEG', f.peg.toFixed(2), f.peg <= 1 ? TK.green400 : f.peg > 2.2 ? TK.red400 : TK.slate200)}
+        {/* 칩 색도 판정과 같은 가드를 본다 — 급증·정점 저PEG 를 초록으로 칠하면 바로 아래 판정('싼 가격 아님')과 한 카드 안에서 모순(2026-10-03 실측) */}
+        {f?.peg != null && chip('PEG', `${f.peg.toFixed(2)}${pegBase || pegPeak ? ' ⚠️' : ''}`, (pegBase || pegPeak) ? TK.amber400 : f.peg <= 1 ? TK.green400 : f.peg > 2.2 ? TK.red400 : TK.slate200)}
         {f && chip('FCF', f.fcf == null ? '-' : f.fcf >= 0 ? '흑자' : '적자', (f.fcf ?? 0) >= 0 ? TK.green400 : TK.red400)}
         {gapCandle && (
           <span title={`전일종가 기준 6등급 중 ${gapCandle.grade}등급 — 갭 ${gapCandle.gapPct > 0 ? '+' : ''}${gapCandle.gapPct}% · 전일比 ${gapCandle.chgPct > 0 ? '+' : ''}${gapCandle.chgPct}%. 갭상승 양봉이 최강, 갭하락 추가하락 음봉이 최약(교육용·판정 미반영)`}
