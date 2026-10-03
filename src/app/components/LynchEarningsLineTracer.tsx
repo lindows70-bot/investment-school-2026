@@ -20,7 +20,7 @@ import {
   Tooltip, Legend, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
 import type { TracerResult, TracerPoint } from '@/app/api/lynch-earnings-tracer/route'
-import { TK, FONT_STACK } from '@/lib/theme'
+import { TK, FS, FONT_STACK } from '@/lib/theme'
 import { lynchFairValue } from '@/lib/lynchAnalysis'   // 이익 급증·정점 판정(적정가 SSOT 와 같은 기준 — 이 화면의 선은 EPS×15 그대로)
 
 // ── 색상 토큰 ─────────────────────────────────────────────────────────────────
@@ -348,7 +348,7 @@ export default function LynchEarningsLineTracer() {
             </div>
             {/* 기준이 다른 두 숫자를 한 화면에 두니 밝힌다 — 표의 연도별 EPS 는 결산 실적, '현재' 선·이격도는 최근 4분기 EPS(종목 정보와 같은 값) */}
             {data.currentEpsBasis === 'ttm' && data.currentEps != null && (
-              <div style={{ fontSize: 10.5, color: C.textLow, marginTop: -8, marginBottom: 16, lineHeight: 1.6 }}>
+              <div style={{ fontSize: FS.micro, color: C.textLow, marginTop: -8, marginBottom: 16, lineHeight: 1.6 }}>
                 ℹ️ 현재 린치선·이격도는 <b style={{ color: C.textSub }}>최근 4분기 EPS {cur === 'KRW' ? data.currentEps.toLocaleString() : data.currentEps.toFixed(2)}</b> 기준입니다(종목 정보 화면과 같은 값). 아래 표의 EPS는 결산 연도 실적이라 마지막 행과 다를 수 있습니다.
               </div>
             )}
