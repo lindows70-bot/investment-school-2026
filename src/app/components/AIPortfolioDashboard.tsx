@@ -355,7 +355,7 @@ export default function AIPortfolioDashboard(props: any) {
       )}
 
       {/* ── 집계 요약 카드 — 375 에선 2×2(고정 4단이면 칸 70px) ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(min(100%, 130px), 1fr))', gap:8 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap:8 }}>
         {[
           { label:'총 등록 종목', value:`${stocks.length}개`, color:C.textHi },
           { label:'분류 완료',    value:`${stocks.filter(s => s.lynchType !== '해당없음').length}개`, color:C.green },
