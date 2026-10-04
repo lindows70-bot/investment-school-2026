@@ -64,7 +64,7 @@ export default function WinLosePage() {
     })
   }, [])
 
-  const rows = data?.rows ?? []
+  const rows = useMemo(() => data?.rows ?? [], [data])   // `?? []` 가 렌더마다 새 배열이라 아래 useMemo 가 매번 다시 돌았다(lint)
   const { win, mid, lose } = useMemo(() => splitGroups(rows, period), [rows, period])
   const stats = useMemo(() => factorStats(win, lose), [win, lose])
   const lesson = useMemo(() => buildLesson(stats, WL_PERIOD_LABEL[period]), [stats, period])

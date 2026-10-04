@@ -82,8 +82,11 @@ export default function LynchLineTerminal({
   datasource,
   macroFactor = 1.0,
 }: Props) {
-  const source: LynchTerminalData =
-    lynchTerminalData ?? lynchBaseData ?? currentMarketData ?? datasource ?? {}
+  // useMemo — `?? {}` 가 렌더마다 새 객체를 만들어 아래 useMemo·useEffect 가 매번 다시 돌았다(lint exhaustive-deps)
+  const source: LynchTerminalData = useMemo(
+    () => lynchTerminalData ?? lynchBaseData ?? currentMarketData ?? datasource ?? {},
+    [lynchTerminalData, lynchBaseData, currentMarketData, datasource],
+  )
 
   const tickers = useMemo(() => Object.keys(source), [source])
   const [selectedTicker, setSelectedTicker] = useState<string>('')

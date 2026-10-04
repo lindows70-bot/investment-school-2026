@@ -34,6 +34,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko" className="dark" suppressHydrationWarning>
       <head>
+        {/* 자체 호스팅 폰트 CSS(public/fonts) — App Router 에선 head 의 link 가 정상 경로다. 규칙은 pages 시절 경고라 끈다 */}
+        {/* eslint-disable-next-line @next/next/no-css-tags */}
         <link rel="stylesheet" href="/fonts/pretendard/pretendard.css" />
       </head>
       <body style={{
