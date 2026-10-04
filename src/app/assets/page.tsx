@@ -669,14 +669,16 @@ export default function AssetsPage() {
                   background: N, boxShadow: SHO,
                   borderRadius: 14, overflow: 'hidden',
                   borderLeft: `3px solid ${C}`,
-                  display: 'flex', alignItems: 'stretch',
+                  // flexWrap — 220+280px 고정 두 칸 뒤의 차트 칸이 왼쪽 메뉴가 남는 820 폭(행 500px)에서 24px 로 눌려
+                  //   '스마트머니 수급 레이더'가 한 글자씩 세로로 찍혔다(2026-10-04 실측 · 세로 글자 29건). 폭 기준으로 줄을 바꾼다.
+                  display: 'flex', flexWrap: 'wrap', alignItems: 'stretch',
                   marginBottom: 0, cursor: 'pointer',
                 }}
                 onMouseEnter={e => { const el=e.currentTarget as HTMLDivElement; el.style.boxShadow=`9px 9px 22px ${TK.bg2}, -5px -5px 15px ${TK.line2}, 0 0 0 1px #6366f130` }}
                 onMouseLeave={e => { const el=e.currentTarget as HTMLDivElement; el.style.boxShadow=SHO }}
               >
                 {/* ── Section 1: 종목 정보 (220px) ── */}
-                <div className="m-full" style={{ width:220, flexShrink:0, padding:'14px 16px', display:'flex', flexDirection:'column', gap:5 }}>
+                <div className="m-full" style={{ flex:'1 0 220px', padding:'14px 16px', display:'flex', flexDirection:'column', gap:5 }}>
                   {/* 종목명 + 배지 — ⚠️ 예전엔 이름과 배지가 **좌우로** 나뉘어 있었다(space-between).
                       배지 쪽이 flexShrink:0 이라 220px 칸에서 이름 몫이 **77px** 밖에 안 남았고,
                       "ALPHABET INC."(116px 필요)조차 잘렸다(2026-09-04 실측 16종). 글자 크기를
@@ -820,7 +822,7 @@ export default function AssetsPage() {
                 <div className="m-hide" style={{ width:1, background:TK.bg9, flexShrink:0, margin:'10px 0' }}/>
 
                 {/* ── Section 2: 포트폴리오 + 재무 (280px) ── */}
-                <div className="m-full" style={{ width:280, flexShrink:0, padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
+                <div className="m-full" style={{ flex:'1 0 280px', padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
                   {/* Portfolio performance */}
                   <div>
                     <div style={{ fontSize:FS.tiny, fontWeight:800, color:TK.sub10, letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:7 }}>포트폴리오</div>
@@ -896,7 +898,7 @@ export default function AssetsPage() {
 
                 {/* ── Section 3: 캔들차트 (flex:1) — 모바일은 열었을 때만 렌더 ── */}
                 {(!isMobile || openCharts.has(inv.ticker)) && (
-                <div className="m-full" style={{ flex:1, minWidth:0, padding:'10px 12px 8px', display:'flex', flexDirection:'column' }}>
+                <div className="m-full" style={{ flex:'999 1 320px', minWidth:0, padding:'10px 12px 8px', display:'flex', flexDirection:'column' }}>
                   {/* Timeframe tabs */}
                   <div style={{ display:'flex', gap:5, marginBottom:6 }}>
                     {(FRAMES).map(t => (

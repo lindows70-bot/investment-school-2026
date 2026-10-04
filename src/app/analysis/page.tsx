@@ -459,9 +459,11 @@ function AnalysisContent() {
         <div style={{ display:'flex', flexDirection:'column', gap:16, animation:'fadeIn 0.25s ease-out' }}>
 
           {/* 분류 현황 */}
-          <div style={{ display:'grid', gridTemplateColumns:'5fr 3fr', gap:16 }}>
+          {/* m-1col + 가로 스크롤 — 왼쪽 메뉴가 남는 820 폭에서 표 칸이 303px 로 눌리고 카드의 overflow:hidden 이
+              '보유 종목' 열을 통째로 잘랐다(종목명 14개 · 2026-10-04 실측). 900px 이하는 1단, 그 위로 좁으면 표를 옆으로 민다. */}
+          <div className="m-1col" style={{ display:'grid', gridTemplateColumns:'5fr 3fr', gap:16 }}>
             {/* 테이블 */}
-            <div style={{ background:TK.bg8, boxShadow: SHO, border:'none', borderRadius:12, overflow:'hidden' }}>
+            <div style={{ background:TK.bg8, boxShadow: SHO, border:'none', borderRadius:12, overflowX:'auto', minWidth:0 }}>
               <div style={{ padding:'14px 18px', borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center', gap:8 }}>
                 <span style={{ fontSize:16 }}>⚡</span>
                 <div>
@@ -469,7 +471,7 @@ function AnalysisContent() {
                   <div style={{ fontSize:11, color:C.sub }}>투자금액 기준 비중 및 종목 분석</div>
                 </div>
               </div>
-              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13, tableLayout:'fixed' }}>
+              <table style={{ width:'100%', minWidth:640, borderCollapse:'collapse', fontSize:13, tableLayout:'fixed' }}>
                 <colgroup>
                   <col style={{ width:'130px' }}/>  {/* 분류 */}
                   <col style={{ width:'100px' }}/>  {/* 특징 */}

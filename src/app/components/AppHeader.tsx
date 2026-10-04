@@ -101,7 +101,8 @@ export default function AppHeader({ title, maxWidth = 1200, className }: Props) 
           {title && (
             <>
               <span style={{ color: TK.flat1, fontSize: 16 }}>/</span>
-              <span style={{ fontSize: 13, color: TK.sub2, fontWeight: 500 }}>{title}</span>
+              {/* nowrap — 왼쪽 메뉴가 남는 820 폭에서 오른쪽 버튼 묶음에 밀려 '스쿨 리그'가 11px 폭 세로 글자가 됐다(2026-10-04 실측) */}
+              <span style={{ fontSize: 13, color: TK.sub2, fontWeight: 500, whiteSpace: 'nowrap' }}>{title}</span>
             </>
           )}
 
