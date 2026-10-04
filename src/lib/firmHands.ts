@@ -41,7 +41,9 @@ export interface FirmHandsResult {
 /** 💰 돈 — 현금 비중이 지금 국면의 권장 밴드 안에 있는가(cashPosition SSOT 재사용) */
 function moneyAxis(cash: CashPosition | null): FirmAxis {
   const base = { key: 'money' as const, icon: '💰', label: '여유 자금' }
-  if (!cash || cash.band == null) {
+  // 현금 0 = 미등록 — 현금 카드(CashPositionCard)와 같은 기준. 예전엔 밴드만 봐서 현금을 안 넣은 학생이
+  // "0% — 권장 범위보다 적습니다 · 실탄이 부족해요"(약함)로 판정됐다 — 같은 화면의 현금 카드는 "아직 등록된 현금이 없습니다"(2026-10-04)
+  if (!cash || cash.band == null || !((cash.cashKrw ?? 0) > 0)) {
     return { ...base, level: 'unknown', value: '미등록',
       detail: '현금을 등록하면 지금 국면의 권장 범위와 비교해 드립니다 — 앱이 유일하게 알 수 없는 자산이에요',
       fix: '자산 관리에서 현금(원화·달러)을 입력하세요' }
@@ -113,6 +115,11 @@ function buildAction(temp: number | null, money: AxisLevel, grade: FirmHandsResu
   const greed = temp >= 65, fear = temp <= 32
   if (greed && money === 'weak')
     return '⚠️ 지금은 시장이 뜨거운데 실탄이 적습니다 — 가장 위험한 조합이에요. 신규 매수는 소액·분할로, 새 돈은 현금으로 남겨 조정을 기다리세요'
+  // 현금 미등록 — 모르는 현금을 '있다'고 말하지 않는다(아래 두 분기는 실탄 보유를 전제한다)
+  if (greed && money === 'unknown')
+    return '🔥 시장이 뜨거운 구간입니다 — 현금을 등록하면 실탄이 충분한지까지 함께 봐 드립니다. 코스톨라니: 모두가 주식 이야기를 할 때가 꼭대기 근처입니다'
+  if (fear && money === 'unknown')
+    return '💧 공포 구간입니다 — 현금을 등록하면 지금 사 모을 여력이 있는지 함께 봐 드립니다. 사더라도 한 번에 말고 계획대로 분할로'
   if (greed)
     return '🔥 시장이 뜨거운 구간입니다 — 실탄은 있으니 서둘러 다 쓰지 마세요. 코스톨라니: 모두가 주식 이야기를 할 때가 꼭대기 근처입니다'
   if (fear && money === 'weak')
