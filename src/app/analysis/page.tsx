@@ -460,8 +460,9 @@ function AnalysisContent() {
 
           {/* 분류 현황 */}
           {/* m-1col + 가로 스크롤 — 왼쪽 메뉴가 남는 820 폭에서 표 칸이 303px 로 눌리고 카드의 overflow:hidden 이
-              '보유 종목' 열을 통째로 잘랐다(종목명 14개 · 2026-10-04 실측). 900px 이하는 1단, 그 위로 좁으면 표를 옆으로 민다. */}
-          <div className="m-1col" style={{ display:'grid', gridTemplateColumns:'5fr 3fr', gap:16 }}>
+              '보유 종목' 열을 통째로 잘랐다(종목명 14개 · 2026-10-04 실측). 900px 이하는 1단, 그 위로 좁으면 표를 옆으로 민다.
+              5fr:3fr → 3fr:1fr — 1280 에서도 표 칸이 590px 이라 '보유 종목' 열이 90px 뿐이었고 태그(111px)가 조용히 잘리고 있었다. */}
+          <div className="m-1col" style={{ display:'grid', gridTemplateColumns:'minmax(0,3fr) minmax(0,1fr)', gap:16 }}>
             {/* 테이블 */}
             <div style={{ background:TK.bg8, boxShadow: SHO, border:'none', borderRadius:12, overflowX:'auto', minWidth:0 }}>
               <div style={{ padding:'14px 18px', borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center', gap:8 }}>
