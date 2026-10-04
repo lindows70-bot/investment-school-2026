@@ -114,8 +114,10 @@ check('사용자별 키(버전 상수 결합)도 경계 일치', P.PURGE_RULES.s
   P.shouldPurge(`${P.PURGE_RULES.find(r => r.prefix.startsWith('unified-reco-v')).prefix}:u:2026-09-01:fp`, ago(4), NOW))
 
 // ── ④ 날짜 판정 ──
-check('종목별(3일): 2.9일 전은 남기고 3.1일 전은 지운다', !P.shouldPurge('jarvis-metrics-v17:000150:KR', ago(2.9), NOW) && P.shouldPurge('jarvis-metrics-v17:000150:KR', ago(3.1), NOW))
-check('옛 날짜 키 잔여분도 같은 규칙으로 걷힌다', P.shouldPurge('jarvis-metrics-v17:000150:KR:2026-08-17', ago(40), NOW))
+// 표본 키는 현재 규칙에서 접두어를 읽는다 — 버전을 박아 두면 키를 올릴 때마다 이 검사만 빨개진다(2026-10-04: v17 박제 → v18 범프 뒤 거짓 빨강)
+const JM = P.PURGE_RULES.find(r => r.prefix.startsWith('jarvis-metrics-v'))?.prefix ?? 'jarvis-metrics-v?'
+check(`종목별(3일): 2.9일 전은 남기고 3.1일 전은 지운다(${JM})`, !P.shouldPurge(`${JM}:000150:KR`, ago(2.9), NOW) && P.shouldPurge(`${JM}:000150:KR`, ago(3.1), NOW))
+check('옛 날짜 키 잔여분도 같은 규칙으로 걷힌다', P.shouldPurge(`${JM}:000150:KR:2026-08-17`, ago(40), NOW))
 check('일별(10일): 9.9일 전은 남기고 10.1일 전은 지운다', !P.shouldPurge('win-lose-v9:2026-09-16', ago(9.9), NOW) && P.shouldPurge('win-lose-v9:2026-09-16', ago(10.1), NOW))
 check('경계: 정확히 keepDays 는 남긴다(초과만 지운다)', !P.shouldPurge('win-lose-v9:2026-09-16', ago(10), NOW))
 check('시각을 못 읽으면 남긴다', !P.shouldPurge('win-lose-v9:2026-09-16', 'not-a-date', NOW) && !P.shouldPurge('win-lose-v9:2026-09-16', '', NOW))
