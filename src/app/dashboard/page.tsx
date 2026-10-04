@@ -2383,15 +2383,18 @@ export default function DashboardPage() {
         return (
           // 📱 m-stack — 375px 에서 우측 '오늘의 시장'(214px 고정·flexShrink 0)이 버티는 바람에
           //    좌측 지수 6카드가 **83px** 로 눌렸다(실측 계산). 모바일에선 세로로 쌓는다.
-          <div className="m-stack" style={{
+          //    → 폭 기준 줄바꿈으로 바꿨다(2026-10-04): 769~1024px 은 왼쪽 메뉴가 남아 본문이 500~760px 이라
+          //      모바일 분기 없이 3열 카드가 56px 까지 눌렸다("7,72"). 왼쪽이 480px 을 못 받으면 오른쪽 패널이 아래로 내려간다
+          //      (grow 999:1 — 한 줄일 땐 오른쪽이 214px 그대로, 내려가면 전체 폭).
+          <div style={{
             background: N, borderRadius: 18,
             boxShadow: '10px 10px 28px #0b0d1a, -6px -6px 18px #2b2f46',
             padding: '16px',
-            display: 'flex', gap: 14, alignItems: 'stretch',
+            display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'stretch',
           }}>
 
             {/* ═══ 왼쪽: 6 카드 3×2 ═══ */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ flex: '999 1 480px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
               {/* 섹션 레이블 */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -2607,7 +2610,7 @@ export default function DashboardPage() {
             </div>
 
             {/* ═══ 오른쪽: 오늘의 시장 패널 ═══ */}
-            <div className="m-wauto" style={{ width: 214, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ flex: '1 1 214px', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
               {/* 섹션 레이블 */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

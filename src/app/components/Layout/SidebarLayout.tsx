@@ -23,8 +23,10 @@ export default function SidebarLayout({ children }: { children: React.ReactNode 
   return (
     <>
       {/* 모바일/데스크톱 스타일 */}
+      {/* 두 조건은 정확한 여집합이어야 한다 — max-width:768 / min-width:769 쌍은 화면 배율 1.11(폭 768.4px)에서 둘 다 안 맞아
+          왼쪽 메뉴와 하단 탭이 함께 떴다(2026-10-04 실측 · StudentShell 은 9/26 에 고쳤는데 이 셸이 남아 있었다) */}
       <style>{`
-        @media (max-width: 768px) {
+        @media not all and (min-width: 769px) {
           .sidebar-wrap { display: none !important }
           /* 하단 고정 탭바(약 62px)에 본문 끝이 가리던 문제 — 아래 여백을 탭바 높이 이상으로.
              iPhone 홈 바(safe-area) 만큼 더 — 탭바도 같은 값으로 내려앉는다(아래 .bottom-tabs). */

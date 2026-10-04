@@ -79,8 +79,10 @@
    → 클래스 몇 개를 여기 한 곳에 두고 각 화면은 className 만 붙인다.
    ⚠️ 인라인 style 을 이겨야 하므로 !important 가 필요하다(이 파일 밖에서 쓰지 말 것).
    ⚠️ auto-fit/minmax 로 바꾸면 안 되는 자리가 있다 — 6fr/4fr 같은 **비율 그리드는 비율이 소멸**한다.
-      그런 곳은 미디어쿼리로 1열을 만들어야 데스크톱이 그대로 남는다. */
-@media (max-width: 768px) {
+      그런 곳은 미디어쿼리로 1열을 만들어야 데스크톱이 그대로 남는다.
+   ⚠️ max-width:768px 이 아니라 '769 미만' — 화면 배율 1.11 에서 폭이 768.4px 이라 max-width:768 이 안 맞아
+      셸은 모바일인데 이 도우미만 꺼져 있었다(2026-10-04 실측 · 대시보드 지수 카드 56px). */
+@media not all and (min-width: 769px) {
   .m-stack  { flex-direction: column !important; }
   .m-wrap   { flex-wrap: wrap !important; }
   /* .m-1col 은 아래 별도 블록(900px 까지) */

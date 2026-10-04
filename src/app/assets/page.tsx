@@ -135,7 +135,7 @@ export default function AssetsPage() {
   //    초기값 false 로 두고 마운트 뒤에 재야 서버 HTML 과 첫 렌더가 어긋나지 않는다.
   const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 768px)')
+    const mq = window.matchMedia('not all and (min-width: 769px)')   // 셸(SidebarLayout)과 같은 경계 — 폭 768.4px 에서도 모바일
     const apply = () => setIsMobile(mq.matches)
     apply(); mq.addEventListener('change', apply)
     return () => mq.removeEventListener('change', apply)

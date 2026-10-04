@@ -460,7 +460,8 @@ export default function TenbaggerRadar({ priceMap, investments, loading }: Tenba
       style={{ background:'#060b13', border:'1px solid rgba(20,32,52,1)' }}>
 
       {/* 헤더 */}
-      <div className="flex items-center justify-between px-5 py-4"
+      {/* flex-wrap — 왼쪽 메뉴가 남는 768 폭(본문 508px)에서 KPI 4칸이 제목 옆에 눌려 '3 / 4' 가 한 글자씩 세로로 찍혔다(2026-10-04 실측) */}
+      <div className="flex items-center justify-between flex-wrap gap-3 px-5 py-4"
         style={{ borderBottom:'1px solid rgba(18,28,46,1)', background:'rgba(8,14,24,0.9)' }}>
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -488,7 +489,7 @@ export default function TenbaggerRadar({ priceMap, investments, loading }: Tenba
                 color: avgRet >= 0 ? TK.red400 : TK.blue400 },   /* 평균 수익률 — 한국식 */
             ].map(item => (
               <div key={item.label} className="text-center">
-                <div className="text-base font-mono font-bold leading-none" style={{ color:item.color }}>
+                <div className="text-base font-mono font-bold leading-none whitespace-nowrap" style={{ color:item.color }}>
                   {item.val}
                 </div>
                 <div className="text-[10px] mt-0.5" style={{ color:'#8899aa' }}>{item.label}</div>
