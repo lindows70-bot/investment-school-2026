@@ -219,7 +219,7 @@ function NewsCard({ sectionRef, seen, calendar, movers, today }: {
 // ── 4. 수업 자료(투자 아카데미 4) — 5단계-5: 간편 경로로(분석 화면과 같은 원본 components/lessons) ──
 const ACADEMY = [
   { href: '/s/learn/academy', title: '투자 아카데미', sub: '린치·버핏 기초 수업' },
-  { href: '/s/learn/strategy', title: '최일 전략', sub: '코어·위성 비율 원칙' },
+  { href: '/s/learn/strategy', title: '최일 전략', sub: '가치분석 · 4계절 내비게이터' },
   { href: '/s/weekly', title: '주간 리포트', sub: '이번 주 내 포트폴리오' },
   { href: '/s/lounge', title: '스쿨 라운지', sub: '질문하고 이야기하기' },
 ]

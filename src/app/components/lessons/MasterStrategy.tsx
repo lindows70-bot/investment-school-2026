@@ -1,5 +1,5 @@
 'use client'
-// ⬇️ 2026-09-29 페이지 파일에서 옮겨 왔다(내용 그대로) — 분석 화면(/master-strategy)과 간편 화면(/s/learn/strategy)이 같은 원본을 쓴다. simple = 간편 화면 안(선생님 전용 파일 올리기·삭제를 숨긴다)
+// ⬇️ 2026-09-29 페이지 파일에서 옮겨 왔다(내용 그대로) — 분석 화면(/master-strategy) 전용. 간편 화면 '최일 전략'은 2026-10-04 부터 가치분석·4계절 내비게이터를 연다(이 슬라이드가 아니다)
 
 /**
  * /master-strategy — 발키리 전략 브리핑 시스템 v3
@@ -1054,7 +1054,7 @@ function AdminModal({
 // ═══════════════════════════════════════════════════════════════
 //  MAIN PAGE
 // ═══════════════════════════════════════════════════════════════
-export default function MasterStrategy({ simple = false }: { simple?: boolean } = {}) {
+export default function MasterStrategy() {
   const [[slide, dir], setSlideDir] = useState([0, 0])
   const [config,  setConfig]  = useState<StrategyConfig>(DEFAULT_CONFIG)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -1072,11 +1072,11 @@ export default function MasterStrategy({ simple = false }: { simple?: boolean } 
       const { data:{ user } } = await sb.auth.getUser()
       if (!user) return
       const { data:prof } = await sb.from('profiles').select('role').eq('id',user.id).single()
-      setIsAdmin(!simple && prof?.role === 'teacher')   // 간편 화면에선 선생님이어도 관리 도구를 숨긴다(관리는 분석 화면에서)
+      setIsAdmin(prof?.role === 'teacher')
       const { data:row } = await sb.from('strategy_configs').select('*').eq('id','singleton').single()
       if (row) setConfig(row as StrategyConfig)
     })()
-  }, [simple])
+  }, [])
 
   /* ── 키보드 네비 ── */
   const goTo = useCallback((next: number) => {
