@@ -37,7 +37,7 @@ export default function DataFreshnessBadge({ statKey, period, weekly, compact }:
         background: `${L.c}14`, border: `1px solid ${L.c}44`, borderRadius: RAD.pill,
         padding: compact ? '1px 7px' : '2px 9px',
         // 🔠 배지는 작게 만들고 싶어지지만, 이 앱의 상시 요구는 "설명 글자를 또렷하게"다.
-        //    micro(9.5) 로는 '2026-06 기준 · 2개월 전'이 읽히지 않아 배지 자체가 무의미해진다.
+        //    micro(9.5) 로는 '2026-06 기준 · 3개월 전'·'2026-08 데이터 · 현재 최신'이 읽히지 않아 배지 자체가 무의미해진다.
         fontSize: compact ? FS.tiny : FS.body, color: L.c, whiteSpace: 'nowrap',
       }}>
       <span>{L.icon}</span>

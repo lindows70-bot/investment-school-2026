@@ -86,7 +86,9 @@ export function freshness(inp: FreshnessInput): FreshnessResult {
     : 'stale'
 
   const ago = lagMonths <= 0 ? '이번 달' : `${lagMonths}개월 전`
-  const badge = `${label} 기준 · ${ago}`
+  // 통상 지연 이내(fresh)면 '현재 최신' — "2개월 전"이라고만 쓰면 학생이 낡은 값으로 읽었다(2026-10-04 사용자 지적:
+  //   킬스위치 '2026-08 기준 · 2개월 전' — 실제로는 FRED 최신 관측이 2026-08 이었다). 늦어진 경우(normal·stale)는 몇 개월 전인지 그대로 밝힌다.
+  const badge = level === 'fresh' ? `${label} 데이터 · 현재 최신` : `${label} 기준 · ${ago}`
   const why =
     level === 'stale'
       ? `${inp.source}는 보통 ${inp.typicalLagM}개월 늦게 나오는데 지금은 ${lagMonths}개월 전 값입니다 — 원천 발표가 밀렸는지 확인이 필요합니다.`
