@@ -794,8 +794,9 @@ export default function BuffettAnalysisPanel({
                       {item.tip && <InfoTip id={item.tip} />}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {/* nowrap — 375·820 폭에서 '실데이터'·'자동설정'이 한 글자씩 세로로 찍혔다(2026-10-04 · 아래 해자 배지엔 이미 있었다) */}
                       <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, fontWeight: 700,
-                        color: srcBadge.c, background: `${srcBadge.c}18` }}>
+                        color: srcBadge.c, background: `${srcBadge.c}18`, whiteSpace: 'nowrap' }}>
                         {srcBadge.t}
                       </span>
                       <span style={{ fontSize: 14, fontWeight: 900, color: item.color, fontFamily: 'monospace', minWidth: 70, textAlign: 'right' }}>

@@ -875,7 +875,7 @@ function AnalysisContent() {
                   </div>
                   <div style={{ flex:1 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                      <span style={{ fontSize:9, color:TK.emerald500, background:'rgba(16,185,129,0.15)', padding:'1px 5px', borderRadius:4, fontWeight:700 }}>{rule}</span>
+                      <span style={{ fontSize:9, color:TK.emerald500, background:'rgba(16,185,129,0.15)', padding:'1px 5px', borderRadius:4, fontWeight:700, whiteSpace:'nowrap', flexShrink:0 }}>{rule}</span>{/* nowrap — 375 폭에서 '장기 보유'가 세로 글자(2026-10-04) */}
                       <span style={{ fontSize:12, fontWeight:600, color:C.text }}>{title}</span>
                     </div>
                     <div style={{ fontSize:10, color:C.sub, marginTop:2 }}>{desc}</div>
