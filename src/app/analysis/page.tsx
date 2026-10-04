@@ -718,8 +718,9 @@ function AnalysisContent() {
               </div>
             )}
 
-            {/* 종목별 상세 분석 테이블 */}
-            <div style={{ background:'rgba(0,0,0,0.2)', borderRadius:10, overflow:'hidden', border:'1px solid rgba(245,158,11,0.15)' }}>
+            {/* 종목별 상세 분석 테이블 — overflowX:auto: 375 폭에서 7열 표(507px)가 290px 상자의 overflow:hidden 에 잘려
+                PEG·6대 분류·판단 열이 통째로 안 보였다(2026-10-04 실측). 옆으로 밀어 보게 한다. */}
+            <div style={{ background:'rgba(0,0,0,0.2)', borderRadius:10, overflowX:'auto', border:'1px solid rgba(245,158,11,0.15)' }}>
               <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
                 <thead>
                   <tr style={{ background:'rgba(0,0,0,0.3)', borderBottom:'1px solid rgba(245,158,11,0.15)' }}>
