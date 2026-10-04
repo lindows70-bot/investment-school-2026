@@ -792,18 +792,20 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
       <div style={cs({ padding: '20px 24px', marginBottom: 16 })}>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
 
-          <div style={{ flex: 2, minWidth: 240 }}>
+          {/* 좁은 폭 — select 폭은 가장 긴 종목명으로 정해지고 줄어들지 못해 375 에서 화면을 265px 밀었다(2026-10-04 학생 '최일 전략').
+              select·input 은 줄어들 수 있게(minWidth 0) 하고, 더 좁으면 줄을 바꾼다 */}
+          <div style={{ flex: 2, minWidth: 'min(240px, 100%)' }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: T.mut, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
               종목 선택 / 티커 직접 입력
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {investments.length > 0 && (
                 <select
                   onChange={e => {
                     const inv = investments.find(i => i.id === e.target.value)
                     if (inv) { setTicker(inv.ticker); setMarket(inv.market === 'KR' ? 'KR' : 'US') }
                   }}
-                  style={{ background: TK.bg3, border: `1px solid ${T.bd}`, borderRadius: 8, color: T.sub, padding: '9px 12px', fontSize: 13, cursor: 'pointer' }}
+                  style={{ flex: '1 1 160px', minWidth: 0, maxWidth: '100%', background: TK.bg3, border: `1px solid ${T.bd}`, borderRadius: 8, color: T.sub, padding: '9px 12px', fontSize: 13, cursor: 'pointer' }}
                 >
                   <option value="">보유 종목 선택</option>
                   {investments.map(i => <option key={i.id} value={i.id}>{i.name} ({i.ticker})</option>)}
@@ -814,7 +816,7 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
                 onChange={e => setTicker(e.target.value.toUpperCase())}
                 onKeyDown={e => e.key === 'Enter' && startAnalysis()}
                 placeholder="NVDA · AAPL · 005930 …"
-                style={{ flex: 1, background: TK.bg3, border: `1px solid ${T.bd}`, borderRadius: 8, color: T.txt, padding: '9px 14px', fontSize: 14, outline: 'none' }}
+                style={{ flex: '1 1 140px', minWidth: 0, background: TK.bg3, border: `1px solid ${T.bd}`, borderRadius: 8, color: T.txt, padding: '9px 14px', fontSize: 14, outline: 'none' }}
               />
             </div>
           </div>
