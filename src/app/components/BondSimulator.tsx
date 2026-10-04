@@ -654,7 +654,8 @@ export default function BondSimulator() {
           <span className="text-sm font-bold" style={{ color: C.textHi }}>최일 선생님의 채권 대전제 — 핵심 요약</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* lg — md(768↑)는 화면 폭 기준이라 왼쪽 메뉴가 남는 820 폭(본문 500px)에서 3열이 켜져 카드 150px · '금리 민감도'가 세로 글자(2026-10-04) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
           {/* 카드 1: 듀레이션 */}
           <div className="rounded-xl p-4 border space-y-2"
