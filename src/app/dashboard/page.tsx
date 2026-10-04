@@ -3373,7 +3373,9 @@ export default function DashboardPage() {
       {/* ── 리밸런싱 알림 & 시뮬레이터 (편차 5%p 이상 시 조건부 표시) ── */}
       <RebalanceWidget
         corePct={currentCorePct}
-        totalValKrw={totalCurrKrw}
+        // 시세가 하나도 없으면(첫 로딩 중·전부 실패) currentCorePct 가 0 인데 총액은 매수가로 0 보다 커서
+        // 'Satellite 과잉 (70%p 편차)' 경보가 떴다 — 그땐 0 을 넘겨 위젯을 숨긴다(2026-10-04 빈 상태 점검)
+        totalValKrw={pricedInvs.length > 0 ? totalCurrKrw : 0}
         targetCore={targetCore}
         coreProfile={sideProfiles.core}
         satProfile={sideProfiles.sat}
