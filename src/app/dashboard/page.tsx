@@ -784,6 +784,8 @@ function RebalanceWidget({ corePct, totalValKrw, targetCore, coreProfile, satPro
 export default function DashboardPage() {
   const router = useRouter()
   const [investments, setInvestments] = useState<Investment[]>([])
+  // 보유 조회 실패 — 예전엔 error 를 버려 실패가 '등록한 종목 없음'(+ 추가하라는 안내)으로 보였다(2026-10-04 빈 상태 점검)
+  const [invLoadError, setInvLoadError] = useState(false)
   const [priceMap,    setPriceMap]    = useState<Record<string,LivePrice>>({})
   const [loading,     setLoading]     = useState(true)
   const [usdKrw,      setUsdKrw]      = useState(USD_KRW_FALLBACK)
@@ -929,10 +931,12 @@ export default function DashboardPage() {
       const uid = session?.user?.id ?? (await sb.auth.getUser()).data.user?.id
       if (!uid) { router.push('/login'); return }
 
-      const { data } = await sb
+      const { data, error } = await sb
         .from('investments')
         .select('id,ticker,name,market,currency,purchase_price,quantity,purchase_date,lynch_category,asset_role')
         .eq('user_id', uid)
+      if (error) { console.error('[Dashboard] investments', error.message); setInvLoadError(true); return }   // 있던 목록은 그대로
+      setInvLoadError(false)
       const invs = data ?? []
       setInvestments(invs)
 
@@ -1539,10 +1543,11 @@ export default function DashboardPage() {
     const shorten = (name: string, max = 14) =>
       name.length > max ? name.slice(0, max - 1) + '…' : name
 
-    // 빈 포트폴리오 안내
+    // 빈 포트폴리오 안내 — 조회 실패면 '추가하라'가 아니라 실패라고 말한다
     if (investments.length === 0) {
-      list.push({ type:'info', label:'GUIDE',
-        msg:'자산관리 메뉴에서 보유 종목을 추가하면 포트폴리오 분석이 시작됩니다.' })
+      list.push(invLoadError
+        ? { type:'warning', label:'LOAD', msg:'보유 종목을 불러오지 못했습니다 — 기록이 사라진 것이 아니니 새로고침해 주세요.' }
+        : { type:'info', label:'GUIDE', msg:'자산관리 메뉴에서 보유 종목을 추가하면 포트폴리오 분석이 시작됩니다.' })
       return list
     }
 
@@ -1667,7 +1672,7 @@ export default function DashboardPage() {
 
     return list.slice(0, 8)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [investments, pricedInvs, priceMap, totalRet, totalReturnAll])
+  }, [investments, pricedInvs, priceMap, totalRet, totalReturnAll, invLoadError])
 
   // ⚠️ warning 은 '위험'이라 등락 빨강과 겹치면 안 된다 → 주황. 배경도 같이 옮긴다(보더만 바꾸면 어긋난다)
   const alertBorder: Record<string, string> = { success:'#16a34a', warning:TK.orange400, info:TK.blue600 }
@@ -1965,6 +1970,13 @@ export default function DashboardPage() {
           ⚠️ 신규 계산 0 — totalCurrKrw·totalPnL·realizedKrw·totalReturnAll 전부 위(1143~1263)에서
              이미 계산된 SSOT 값이다. 아래 KPI 스트립이 같은 값의 상세다(요약은 상세의 부분집합). */}
       {(() => {
+        if (investments.length === 0 && invLoadError) return (
+          <Verdict
+            eyebrow="📊 내 포트폴리오"
+            headline="보유 종목을 불러오지 못했습니다"
+            sub="기록이 사라진 것이 아닙니다 — 새로고침하거나 잠시 뒤 다시 열어 주세요"
+          />
+        )
         if (investments.length === 0) return (
           <Verdict
             eyebrow="📊 내 포트폴리오"
@@ -3114,7 +3126,8 @@ export default function DashboardPage() {
             pnlSeriesData.length === 0 ? (
               /* '보유 없음'·'로딩'·'실패'·'이력 짧음'은 서로 다른 사실이다 — 같은 문구로 뭉뚱그리면 거짓말이 된다 */
               <Empty msg={
-                investments.length === 0 ? '아직 등록한 종목이 없습니다 — ‘자산 관리’에서 종목을 추가하면 월별 손익이 그려집니다'
+                investments.length === 0 && invLoadError ? '보유 종목을 불러오지 못했습니다 — 새로고침해 주세요'
+                : investments.length === 0 ? '아직 등록한 종목이 없습니다 — ‘자산 관리’에서 종목을 추가하면 월별 손익이 그려집니다'
                 : pnlSeriesLoading      ? '가격 이력을 재구성하는 중… (최대 20초)'
                 : pnlSeriesFailed       ? '가격 이력을 불러오지 못했습니다 — 새로고침 해보세요'
                 : '가격 이력이 짧아 표시할 달이 아직 없습니다'
@@ -3386,7 +3399,7 @@ export default function DashboardPage() {
               <tbody>
                 {investments.length === 0 ? (
                   <tr><td colSpan={6} style={{ padding:'32px 14px', textAlign:'center', color:TK.sub6, fontSize:13 }}>
-                    자산관리 페이지에서 종목을 추가해주세요
+                    {invLoadError ? '보유 종목을 불러오지 못했습니다 — 새로고침해 주세요' : '자산관리 페이지에서 종목을 추가해주세요'}
                   </td></tr>
                 ) : investments.map((inv, idx) => {
                   const lv  = live(inv)

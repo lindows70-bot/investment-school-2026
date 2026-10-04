@@ -24,8 +24,9 @@ export async function GET(req: Request) {
   const cached = await getCache<FxAttribution>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
-  const { data: rows } = await sb.from('investments')
+  const { data: rows, error: invErr } = await sb.from('investments')
     .select('ticker,name,market,currency,purchase_price,quantity,purchase_date').eq('user_id', user.id)
+  if (invErr) return NextResponse.json({ error: invErr.message }, { status: 500 })   // 조회 실패 ≠ '달러 보유 없음'(카드가 숨는다)
   const all = rows ?? []
   // 외화(USD) 보유만 — 원화 표시 자산(KR 상장·크립토 원화)은 매입 환율 개념이 없다
   const usd = all.filter(r => r.currency === 'USD' && (r.quantity ?? 0) > 0 && r.purchase_date)

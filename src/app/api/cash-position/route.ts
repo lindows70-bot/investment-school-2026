@@ -46,8 +46,9 @@ export async function GET(req: Request) {
   const cached = await getCache<CashApi>(cacheKey, 3 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
-  const { data: rows } = await sb.from('investments')
+  const { data: rows, error: invErr } = await sb.from('investments')
     .select('ticker,name,market,currency,quantity,purchase_price').eq('user_id', user.id)
+  if (invErr) return NextResponse.json({ error: invErr.message }, { status: 500 })   // 조회 실패를 평가액 0(현금 100%)으로 계산하지 않는다
 
   const [{ rate: usdKrw, live: fxLive }, temp] = await Promise.all([fetchUsdKrw(base), marksTemp(base)])
   const assets = await evaluateAssets(rows ?? [], base, usdKrw)

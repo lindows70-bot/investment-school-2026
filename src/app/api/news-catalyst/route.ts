@@ -371,10 +371,11 @@ export async function GET(req: Request) {
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
 
   // 사용자 보유 종목 조회
-  const { data: holdings } = await supabase
+  const { data: holdings, error: invErr } = await supabase
     .from('investments')
     .select('ticker, name, market')
     .eq('user_id', user.id)
+  if (invErr) return NextResponse.json({ error: invErr.message }, { status: 500 })   // 조회 실패 ≠ '촉매 뉴스 없음'
 
   if (!holdings || holdings.length === 0) {
     return NextResponse.json({ catalysts: [], generatedAt: new Date().toISOString(), reEvaluateCount: 0 })

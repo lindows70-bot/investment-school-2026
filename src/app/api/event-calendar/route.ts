@@ -58,8 +58,9 @@ export async function GET(req: Request) {
   // 지금 환율을 받았는가 — 폴백 상수(조회 실패, 또는 환율 라우트의 source 'stale-constant')면 false
   const { rate: usdKrw, live: fxLive } = await fetchUsdKrw(base)
 
-  const { data: rows } = await sb.from('investments')
+  const { data: rows, error: invErr } = await sb.from('investments')
     .select('ticker,name,market,currency,quantity').eq('user_id', user.id)
+  if (invErr) return NextResponse.json({ error: invErr.message }, { status: 500 })   // 조회 실패 ≠ '내 종목 일정 없음'
   // 주식+ETF(어닝은 주식만·배당은 둘 다), 크립토·원자재 제외 / 같은 티커 수량 병합
   const merged = new Map<string, { ticker: string; name: string; market: 'KR' | 'US'; qty: number; isStock: boolean }>()
   for (const r of rows ?? []) {

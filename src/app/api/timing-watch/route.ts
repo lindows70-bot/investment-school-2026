@@ -18,7 +18,8 @@ export async function GET() {
 
   // 내 보유 종목만(개인화 — kr-short와 동일 패턴)
   const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-  const { data: mine } = await admin.from('investments').select('ticker').eq('user_id', user.id)
+  const { data: mine, error: invErr } = await admin.from('investments').select('ticker').eq('user_id', user.id)
+  if (invErr) return NextResponse.json({ error: invErr.message }, { status: 500 })   // 조회 실패 ≠ '내 종목 신호 없음'
   const mySet = new Set((mine ?? []).map(r => String(r.ticker).toUpperCase()))
   let sigs = cached.sigs.filter(s => mySet.has(s.ticker.toUpperCase()))
 

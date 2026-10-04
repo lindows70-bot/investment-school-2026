@@ -31,8 +31,10 @@ export async function GET(req: Request) {
   const { data: { user } } = await sb.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-  const { data: invs } = await sb.from('investments')
+  const { data: invs, error: invErr } = await sb.from('investments')
     .select('ticker,name,market').eq('user_id', user.id)
+  // 조회 실패를 '보유 0'으로 넘기면 학생 홈이 "기록한 종목이 없어요"라고 거짓말한다 — 실패로 돌려 '못 가져옴'이 뜨게(2026-10-04)
+  if (invErr) return NextResponse.json({ error: invErr.message }, { status: 500 })
 
   // 보유 종목 + 비트코인(항상 — 보유 여부와 무관한 시장 바로미터. 사용자 지정 2026-08-20)
   const held = new Map<string, { ticker: string; name: string; market: 'US' | 'KR' | 'CRYPTO' }>()

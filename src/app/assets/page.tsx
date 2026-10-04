@@ -97,6 +97,9 @@ export default function AssetsPage() {
   const [priceMap,      setPriceMap]      = useState<Record<string,LivePrice>>({})
   const [priceStatus,   setPriceStatus]   = useState<PriceStatus>('idle')
   const [dbLoading,     setDbLoading]     = useState(true)
+  // 조회 실패를 '빈 포트폴리오'와 구분한다 — 예전엔 실패 시 [] 로 덮어 "포트폴리오가 비어있습니다 · + 종목 추가하기"가 떠서
+  // 학생이 이미 있는 종목을 다시 입력하게 만들 수 있었다(2026-10-04 빈 상태 점검)
+  const [loadError,     setLoadError]     = useState(false)
   const [usdKrw,        setUsdKrw]        = useState(USD_KRW_FALLBACK)   // 라이브 환율(현금 카드·리밸런싱과 동일 SSOT)
   const [search,        setSearch]        = useState('')
   const [filterMarket,  setFilterMarket]  = useState<Market|'all'>('all')
@@ -191,7 +194,8 @@ export default function AssetsPage() {
         .from('investments')
         .select('id,ticker,name,market,currency,purchase_price,quantity,purchase_date,lynch_category,asset_role,created_at')
         .eq('user_id', uid).order('created_at',{ascending:false})
-      if (error) { console.error('[Assets]', error.message); setInvestments([]); return }
+      if (error) { console.error('[Assets]', error.message); setLoadError(true); return }   // 있던 목록은 그대로 둔다
+      setLoadError(false)
 
       const raw = data ?? []
       const seenId = new Set<string>()
@@ -252,7 +256,7 @@ export default function AssetsPage() {
       }
 
       return unique
-    } catch(e) { console.error('[Assets]', e); setInvestments([]) }
+    } catch(e) { console.error('[Assets]', e); setLoadError(true) }
     finally { setDbLoading(false) }
   }, [router])
 
@@ -582,6 +586,12 @@ export default function AssetsPage() {
           {[0,1,2].map(i => (
             <div key={i} style={{ height:220, background:N, boxShadow:SHO, borderRadius:14, animation:'pulse 1.5s infinite' }}/>
           ))}
+        </div>
+      ) : investments.length === 0 && loadError ? (
+        <div style={{ display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 0',gap:14 }}>
+          <div style={{ fontWeight:700,fontSize:FS.lg,color:TK.sub }}>보유 종목을 불러오지 못했습니다</div>
+          <div style={{ fontSize:FS.body,color:TK.sub6 }}>기록이 사라진 것이 아닙니다 — 잠시 뒤 다시 불러와 주세요</div>
+          <button onClick={()=>fetchInvestments()} style={{ padding:'10px 24px',background:TK.bg3,border:`1px solid ${TK.border}`,borderRadius:10,color:TK.slate100,fontSize:FS.body,fontWeight:600,cursor:'pointer' }}>다시 불러오기</button>
         </div>
       ) : investments.length === 0 ? (
         <div style={{ display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 0',gap:14 }}>

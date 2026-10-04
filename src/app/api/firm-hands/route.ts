@@ -20,10 +20,12 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: 'auth required' }, { status: 401 })
 
   const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-  const [{ data: rows }, { data: txs }] = await Promise.all([
+  const [{ data: rows, error: invErr }, { data: txs, error: txErr }] = await Promise.all([
     admin.from('investments').select('ticker, purchase_date, quantity').eq('user_id', user.id),
     admin.from('transactions').select('ticker, snapshot_data').eq('user_id', user.id).eq('type', 'buy').limit(1000),
   ])
+  // 조회 실패를 '보유 0·기록 0'으로 판정하지 않는다(기록률 0% = 산 이유 없음으로 읽힌다)
+  if (invErr || txErr) return NextResponse.json({ error: (invErr ?? txErr)!.message }, { status: 500 })
 
   const empty: FirmHandsApi = { snapshot: { withSnap: 0, eligible: 0, preStart: 0 }, holding: { avgMonths: null, n: 0, longRatio: null }, asOf: new Date().toISOString() }
   if (!rows?.length) return NextResponse.json(empty, { headers: { 'Cache-Control': 'no-store' } })
