@@ -1286,7 +1286,8 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
                   const noGrow = !unknown && (r.rate as number) <= 0
                   const pct = r.cross ? (r.cross.year / 20) * 100 : 100
                   return (
-                    <div key={r.name} style={{ display: 'grid', gridTemplateColumns: '150px 1fr 150px', alignItems: 'center', gap: 10, fontSize: 11.5 }}>
+                    // minmax — '150px 1fr 150px' 는 양끝만 300px+간격이라 375 폭 카드(약 300px)에서 트랙이 0 이 되고 결론 칸이 10px 넘쳤다(2026-10-04)
+                    <div key={r.name} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 150px) minmax(48px, 1fr) minmax(0, 150px)', alignItems: 'center', gap: 10, fontSize: 11.5 }}>
                       <div style={{ color: T.sub, fontWeight: 700 }}>
                         {r.name}
                         <span style={{ color: T.mut, fontWeight: 400, marginLeft: 5 }}>{unknown ? '' : `연 ${(r.rate as number) >= 100 ? Math.round(r.rate as number) : (r.rate as number).toFixed(1)}%`}</span>
