@@ -48,7 +48,7 @@ const TARGETS: { key: TaxStage['key']; emoji: string; label: string; law: string
 
 export async function GET(req: Request) {
   const refresh = new URL(req.url).searchParams.get('refresh') === '1'
-  const cacheKey = `re-tax-v3:${kstDate()}`   // v3: <목> 수집 + 양도세 기본세율(제55조) · v2: 항·호 맥락 보존
+  const cacheKey = `re-tax-v4:${kstDate()}`   // v4: 원문 링크에서 법제처 계정 ID 제거(공개 본문 주소) · v3: <목> 수집 + 양도세 기본세율(제55조) · v2: 항·호 맥락 보존
   if (!refresh) {
     const cached = await getCache<ReTaxResult>(cacheKey, 24 * 3600_000)
     if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })

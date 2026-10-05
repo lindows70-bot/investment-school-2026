@@ -13,26 +13,14 @@ const nextConfig = {
     optimizePackageImports: ['recharts', 'lucide-react'],
   },
 
-  // 외부 이미지 허용 도메인 (필요 시 추가)
-  images: {
-    remotePatterns: [
-      { protocol: 'https', hostname: '**.supabase.co' },
-    ],
-  },
+  // 이미지 최적화 끔 — 앱은 next/image 를 쓰지 않는데 '/_next/image' 가 열려 있었고, 허용 목록 '**.supabase.co' 는
+  //   **남의 Supabase 프로젝트까지** 허용해 공격자가 올린 이미지를 우리 서버가 처리하게 만들 수 있었다
+  //   (Next 14.2 의 이미지 최적화 취약점 — AVIF 원격 코드 실행 등 · 2026-10-04 보안 점검)
+  images: { unoptimized: true },
 
-  // Yahoo Finance / CoinGecko 서버사이드 fetch 시 CORS 헤더 추가
-  async headers() {
-    return [
-      {
-        source: '/api/:path*',
-        headers: [
-          { key: 'Access-Control-Allow-Origin',  value: '*' },
-          { key: 'Access-Control-Allow-Methods', value: 'GET, POST, OPTIONS' },
-          { key: 'Access-Control-Allow-Headers', value: 'Content-Type' },
-        ],
-      },
-    ]
-  },
+  // ⛔ /api 에 'Access-Control-Allow-Origin: *' 를 두지 않는다(2026-10-04 보안 점검으로 삭제).
+  //   예전 주석은 "야후·코인게코 서버사이드 fetch 용"이었지만 서버가 외부를 부를 때는 CORS 가 필요 없다.
+  //   이 헤더는 **다른 사이트가 방문자 브라우저로 우리 API(AI·재계산)를 대신 부르게** 해 줄 뿐이었다.
 
   // 빌드 시 ESLint 경고로 배포 실패 방지 (CI에서는 별도 lint 단계 권장)
   eslint: {

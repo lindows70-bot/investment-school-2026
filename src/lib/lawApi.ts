@@ -45,16 +45,18 @@ export async function searchAdmRules(query: string, display = 100): Promise<AdmR
     // ⚠️ 속성 포함 매칭 — `<admrul id="1">`
     return Array.from(xml.matchAll(/<admrul[^>]*>([\s\S]*?)<\/admrul>/g)).map(m => {
       const it = m[1]
-      const link = tag(it, '행정규칙상세링크')
+      const id = tag(it, '행정규칙일련번호')
       return {
-        id: tag(it, '행정규칙일련번호'),
+        id,
         name: tag(it, '행정규칙명'),
         kind: tag(it, '행정규칙종류'),
         org: tag(it, '소관부처명'),
         change: tag(it, '제개정구분명'),
         issued: tag(it, '발령일자'),
         effective: tag(it, '시행일자'),
-        link: link ? `${BASE}${link.replace(/&amp;/g, '&')}` : '',
+        // ⛔ API 의 '행정규칙상세링크'를 그대로 쓰지 않는다 — 그 주소엔 우리 법제처 계정 ID(OC)가 박혀 있어
+        //   로그인 없는 /api/re-policy 응답으로 24곳 노출됐다(2026-10-04 보안 점검). 계정 없이 열리는 공개 본문 주소로(실측: 일련번호로 정상 열림).
+        link: id ? `${BASE}/LSW/admRulInfoP.do?admRulSeq=${encodeURIComponent(id)}` : '',
       }
     }).filter(x => x.name)
   } catch { return [] }
@@ -130,7 +132,8 @@ export async function getLawDoc(name: string, articleFilter: (title: string, no:
       name: tag(hit, '법령명한글'),
       effective: tag(hit, '시행일자'),
       promulgated: tag(hit, '공포일자'),
-      link: `${BASE}/DRF/lawService.do?OC=${encodeURIComponent(LAW_OC)}&target=law&MST=${mst}&type=HTML`,
+      // ⛔ OC(계정 ID)가 든 API 주소 대신 공개 본문 주소 — /api/re-tax 응답으로 노출됐었다(2026-10-04). 실측: lsiSeq=MST 로 지방세법·종부세법 본문 정상
+    link: `${BASE}/LSW/lsInfoP.do?lsiSeq=${encodeURIComponent(String(mst))}`,
       articles,
     }
     if (out.articles.length) await setCache(ck, out)   // 조문 0개면 캐시하지 않는다(파싱 실패 박제 금지)
