@@ -7,7 +7,7 @@
  *
  * 익명성: 2명 미만 보유 종목은 'ETC'로 합산(개인 식별 차단). 동일가중·전체자산기준 비중은 lib/schoolIndex.
  * 안정성: 가격조회·섹터조회·학생연산 전부 try/catch — 부분 실패해도 전체 적재 지속.
- * 보안: CRON_SECRET 설정 시 `Authorization: Bearer <secret>` 또는 `?secret=` 검증.
+ * 보안: `Authorization: Bearer <CRON_SECRET>` 일 때만 실행(lib/cronAuth · fail-closed — 2026-10-05 전엔 비밀값이 비면 통과였다).
  *
  * ⚠️ 스냅샷 테이블이 없어도 집계는 돌고 적재만 graceful skip(무중단).
  */
@@ -20,6 +20,7 @@ import {
   aggregateSchoolIndex, getSector, kstDate,
   type Inv, type StockSnapshotRow, type SectorSnapshotRow,
 } from '@/lib/schoolIndex'
+import { cronUnauthorized } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -33,13 +34,7 @@ function admin() {
 
 export async function GET(req: Request) {
   const t0 = Date.now()
-  const secret = process.env.CRON_SECRET
-  if (secret) {
-    const url = new URL(req.url)
-    const auth = req.headers.get('authorization') || ''
-    if (auth !== `Bearer ${secret}` && url.searchParams.get('secret') !== secret)
-      return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
-  }
+  const denied = cronUnauthorized(req); if (denied) return denied
   const db = admin()
   if (!db) return NextResponse.json({ ok: false, error: 'supabase admin 미설정' }, { status: 500 })
 

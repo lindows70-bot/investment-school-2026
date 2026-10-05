@@ -2,18 +2,13 @@
 import { NextResponse } from 'next/server'
 import { setCache } from '@/lib/appCache'
 import { MARKET_FLOW_KR_KEY, computeMarketFlowKr } from '@/lib/marketFlowKr'
+import { cronUnauthorized } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET
-  if (secret) {
-    const url = new URL(req.url)
-    const auth = req.headers.get('authorization') || ''
-    if (auth !== `Bearer ${secret}` && url.searchParams.get('secret') !== secret)
-      return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
-  }
+  const denied = cronUnauthorized(req); if (denied) return denied   // fail-closed(비밀값이 비면 통과였다 · ?secret= 은 로그에 남아 폐지)
   const t0 = Date.now()
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const result = await computeMarketFlowKr(base)

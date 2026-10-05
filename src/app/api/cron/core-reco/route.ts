@@ -9,6 +9,7 @@ import { getCache, setCache } from '@/lib/appCache'
 import { UNIFIED_RECO_V } from '@/lib/recoCacheVersion'
 import { CORE_HIST_KEY, isCorePick, type CoreHistEntry } from '@/lib/coreReco'
 import { AXIS_HIST_KEY, type AxisHistEntry } from '@/lib/axisHistory'   // 📐 축별 성적 전향적 적립
+import { cronUnauthorized } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -24,6 +25,7 @@ interface LiteItem {
 }
 
 export async function GET(req: Request) {
+  const denied = cronUnauthorized(req); if (denied) return denied   // 크론 전용(2026-10-05 전엔 검사가 없어 누구나 실행)
   const today = kstDate()
   const origin = new URL(req.url).origin
 
@@ -81,7 +83,8 @@ export async function GET(req: Request) {
     try {
       const mkt = it.market === 'KR' ? 'KR' : 'US'
       const r = await fetch(`${origin}/api/masters-verdict?ticker=${encodeURIComponent(it.ticker)}&market=${mkt}&brief=1`,
-        { cache: 'no-store', signal: AbortSignal.timeout(60_000) })
+        // 위원회 API 는 로그인 사용자 또는 크론만 받는다(2026-10-05) — 크론 비밀값을 그대로 넘긴다
+        { cache: 'no-store', signal: AbortSignal.timeout(60_000), headers: { authorization: req.headers.get('authorization') ?? '' } })
       const v = r.ok ? await r.json() : null
       if (isCorePick(it.timing, v)) {
         pass.push({ date: today, ticker: it.ticker, name: it.name, market: mkt, combined: it.combined, prime: !!it.timing?.prime })

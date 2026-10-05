@@ -2,13 +2,15 @@
 import { NextResponse } from 'next/server'
 import { setCache } from '@/lib/appCache'
 import { snapshotEtfs, ETF_SNAP_MARK } from '@/lib/etfFlow'
+import { cronUnauthorized } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
-export async function GET() {
+export async function GET(req: Request) {
+  const denied = cronUnauthorized(req); if (denied) return denied   // 크론 전용(2026-10-05 전엔 검사가 없어 누구나 실행)
   const t = Date.now()
   const r = await snapshotEtfs()
   const ok = r.skipped === 'weekend' || r.fail.length <= 8   // 주말 스킵도 '정상 실행'(마커 남김 — 월요일 stale 오탐 방지)

@@ -12,6 +12,7 @@ import { getAssetType } from '@/lib/assetClassifier'
 import { getInsiderSignal } from '@/app/actions/getInsiderSignal'
 import { getEntryTimings, type TimingLight, type EntryTiming } from '@/lib/entryTiming'
 import { getSector } from '@/lib/schoolIndex'
+import { cronUnauthorized } from '@/lib/cronAuth'
 import type { RotationResult } from '@/app/api/sector-rotation/route'
 
 type SupportState = 'strong' | 'ext' | 'weak' | 'mixed' | null
@@ -65,11 +66,7 @@ function diffSig(p: SigState, c: SigState): Omit<WatchSig, 'ticker' | 'name' | '
 }
 
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET
-  if (secret) {
-    const auth = req.headers.get('authorization')
-    if (auth !== `Bearer ${secret}`) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  }
+  const denied = cronUnauthorized(req); if (denied) return denied   // fail-closed(비밀값이 비면 통과였다)
 
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
   const { data: rows, error } = await admin.from('investments').select('ticker,name,market')

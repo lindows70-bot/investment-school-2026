@@ -7,7 +7,7 @@
  * 효율: 같은 종목을 여러 학생이 보유 → 종목 단위로 지표·내부자·브리핑을 1회만 계산(디듀프 + app_cache).
  * 안정: 모든 단계 try/catch — 한 종목/한 학생이 실패해도 전체 배치는 계속 진행.
  *
- * 보안: CRON_SECRET 설정 시 `Authorization: Bearer <secret>` 또는 `?secret=` 일치해야 실행.
+ * 보안: `Authorization: Bearer <CRON_SECRET>` 일 때만 실행(lib/cronAuth · fail-closed — 2026-10-05 전엔 비밀값이 비면 통과였다).
  *
  * ⚠️ DB 테이블(user_daily_briefings)이 없어도 배치는 돌고, 적재만 graceful skip(무중단).
  */
@@ -21,6 +21,7 @@ import {
   getRecommendations, generateBriefing, kstDate,
   type SignalMetrics, type SignalDecision, type Recommendation, type BriefingText,
 } from '@/lib/jarvisBriefing'
+import { cronUnauthorized } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -38,14 +39,8 @@ interface Holding { user_id: string; ticker: string; name: string | null; market
 
 export async function GET(req: Request) {
   const t0 = Date.now()
-  // ── 보안: CRON_SECRET 검증(설정된 경우) ──
-  const secret = process.env.CRON_SECRET
-  if (secret) {
-    const url = new URL(req.url)
-    const auth = req.headers.get('authorization') || ''
-    const ok = auth === `Bearer ${secret}` || url.searchParams.get('secret') === secret
-    if (!ok) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
-  }
+  // ── 보안: 크론 비밀값 필수(fail-closed) ──
+  const denied = cronUnauthorized(req); if (denied) return denied
 
   const db = admin()
   if (!db) return NextResponse.json({ ok: false, error: 'supabase admin 미설정' }, { status: 500 })

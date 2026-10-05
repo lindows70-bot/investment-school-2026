@@ -10,6 +10,7 @@ import {
   getCikMap, collectReport, summarizeReport, attachSummary, toIndexRow, sleep, summaryIssues, amountIssues,
   ER_INDEX_KEY, type EarningsReportDoc, type ErIndexRow,
 } from '@/lib/earningsReport'
+import { cronUnauthorized } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -18,6 +19,7 @@ const TOP_N = 50               // 사용자 확정 규모(수집 성공 기준 �
 const SUMMARIZE_PER_RUN = 10   // Gemini 무료 한도 분산(며칠에 걸쳐 전 종목 채움)
 
 export async function GET(req: NextRequest) {
+  const denied = cronUnauthorized(req); if (denied) return denied   // 크론 전용(2026-10-05 전엔 ?force=…&limit=25 로 누구나 Gemini 요약 25건)
   const started = Date.now()
 
   // ① 후보 = 유니버스의 미국 상장사를 시총 순으로 (하드코딩 리스트 없음 — 시총 변동 자동 반영)

@@ -7,6 +7,7 @@ import {
   collectKrEarnings, toKrIndexRow, KR_EARN_INDEX_KEY,
   type KrEarningsDoc, type KrIndexRow,
 } from '@/lib/krEarnings'
+import { cronUnauthorized } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -15,6 +16,7 @@ const TOP_N = 50
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 export async function GET(req: NextRequest) {
+  const denied = cronUnauthorized(req); if (denied) return denied   // 크론 전용(2026-10-05 전엔 검사가 없어 누구나 DART 50건 호출)
   const started = Date.now()
 
   // 대상 = 유니버스 KR 시총 상위 50 (KR끼리 비교라 통화 환산 불필요 — 전부 원화)
