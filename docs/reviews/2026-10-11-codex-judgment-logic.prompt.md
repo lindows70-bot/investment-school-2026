@@ -1,7 +1,8 @@
 You are reviewing a Next.js + TypeScript investment-education app (Korean UI). This is a READ-ONLY review: do not modify any file.
 
 Read first, in this order:
-1. docs/reviews/2026-10-11-codex-judgment-logic.md — the change list (sections ①–⑫) and nine open questions.
+1. docs/reviews/2026-10-11-codex-judgment-logic.md — the change list (sections ①–⑬) and ten open questions.
+   Also read docs/security/2026-10-05-audit.md for the security changes (⑬).
 2. CLAUDE.md sections "⛔ 절대 원칙" and "제2원칙" — the project's rules (no fabricated precision, same metric = same value on every screen).
 
 Then read these files and review the logic named in the change list:
@@ -18,9 +19,10 @@ Then read these files and review the logic named in the change list:
 - src/lib/firmHands.ts (moneyAxis, buildAction) with src/app/components/CashPositionCard.tsx (`has`)
 - src/app/assets/page.tsx (loadError) · src/app/dashboard/page.tsx (invLoadError, RebalanceWidget totalValKrw) · src/app/api/{day-movers,cash-position,event-calendar,fx-attribution,timing-watch,news-catalyst,firm-hands}/route.ts (investments query error → 500)
 - src/lib/dataFreshness.ts (freshness: 'fresh' badge wording)
+- src/lib/cronAuth.ts, src/lib/tickerGuard.ts, src/lib/heavyQuota.ts, src/app/actions/jarvisInsightAction.ts, src/app/actions/insiderSignalAction.ts, src/app/api/research-report/route.ts, src/app/api/masters-verdict/route.ts, src/app/components/lessons/WeeklyReport.tsx (printReport / escDeep), src/app/api/admin/set-temp-password/route.ts — and grep src/app/api for any remaining unauthenticated route that calls Gemini (callGeminiJSON), SEC/DART, or writes app_cache from raw user input
 
 What I want:
-- Answer each of the nine questions in the review doc with a concrete yes/no and the code path (file:line).
+- Answer each of the ten questions in the review doc with a concrete yes/no and the code path (file:line).
 - Report defects as P1 (wrong number or wrong verdict reaches a screen / invariant silently passes when it should fail) or P2 (fragile, likely to break later). For each: file:line, a concrete input that triggers it, the wrong output, and the smallest fix.
 - Do NOT report style, naming, or comment wording. Do NOT report things the doc already lists as deliberate design unless you can show a concrete input where the design produces a self-contradicting screen.
 - If you are guessing (cannot trace the input to the output), label it "unverified".

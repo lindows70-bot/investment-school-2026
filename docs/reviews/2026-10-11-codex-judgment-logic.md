@@ -26,6 +26,7 @@ node $c task --effort high (Get-Content -Raw docs/reviews/2026-10-11-codex-judgm
 | ⑨ 스마트머니 소급 감시 | `src/lib/usSmartHistory.ts` · `scripts/verify-usm-no-backdate.mjs` | 적립일 `addedAt` · 감시를 적립일 기준으로(전엔 캐시 갱신일 기준이라 거짓 빨강) | 89c0af24 |
 | ⑩ 단단한 손 현금 축 (10-04 추가) | `src/lib/firmHands.ts` `moneyAxis` · `buildAction` | 현금 0 = 미등록(현금 카드 `CashPositionCard` 와 같은 기준) · 미등록이면 행동 문장이 '실탄 보유'를 전제하지 않음 | d0af4ef3 |
 | ⑪ 조회 실패 ≠ 보유 0 (10-04 추가) | `src/app/assets/page.tsx` · `src/app/dashboard/page.tsx` · API 7곳(`day-movers`·`cash-position`·`event-calendar`·`fx-attribution`·`timing-watch`·`news-catalyst`·`firm-hands`) · 리밸런싱 위젯 | investments 조회 오류를 빈 목록으로 계산하지 않고 실패 상태/500 · 시세 0건이면 리밸런싱 위젯 숨김 | 626db111 · 13c7051e |
+| ⑬ 보안 잠금 (10-05 추가) | `src/lib/cronAuth.ts` · `src/lib/tickerGuard.ts` · `src/lib/heavyQuota.ts` · `src/app/actions/{jarvisInsightAction,insiderSignalAction}.ts` · 크론 10개 · `?refresh=1` 22곳 · `research-report`·`masters-verdict` · `WeeklyReport.tsx` `escDeep` · `admin/set-temp-password` | 크론 fail-closed · refresh 는 크론·선생님만(아니면 캐시) · AI 경로 로그인+형식+하루 200회 · 서버 액션 server-only 분리 · 인쇄 XSS 이스케이프 · 임시 비밀번호 crypto 8자리 · 상세 `docs/security/2026-10-05-audit.md` | e54cef6c · 84b2d71e · 9bfbac6e · 2c9b5a49 · 33538258 |
 | ⑫ 신선도 배지 '현재 최신' (10-04 추가) | `src/lib/dataFreshness.ts` `freshness` | 통상 지연 이내(fresh)면 'YYYY-MM 데이터 · 현재 최신', 밀리면 'N개월 전' | 2ebe9391 |
 
 ## 내가 확신하지 못하는 곳 — 질문
@@ -38,6 +39,7 @@ node $c task --effort high (Get-Content -Raw docs/reviews/2026-10-11-codex-judgm
 6. **자기 호출(③⑥⑦)** — `/api/stock-info` → `/api/financials`, 스크리너 → `/api/stock-info`, 종합 판정 → `/api/stock-info`. 순환은 없다(재무 API 는 아무것도 부르지 않는다). 콜드 캐시에서 스크리너(동시성 8 · maxDuration 300초)가 종목 정보를 다수 부를 때 타임아웃이 결과를 조용히 바꾸는 경로가 있는가(실패 = 가드 없음으로 떨어진다)?
 7. **결격 게이트(⑦)** — 정점이면 점수는 그대로 두고 판정만 '조건부·신중'. 통합추천은 같은 종목을 점수 순위로 올린다(배지만 경고). 두 화면이 같은 종목을 '추천 상위' vs '매수 적합 아님'으로 동시에 말하는 것이 학생에게 모순으로 읽히는가 — 설계로서 맞는가?
 8. **'현재 최신'은 원천을 보지 않은 주장이다(⑫)** — fresh 는 `lagMonths <= typicalLagM` 만 본다. 원천이 새 달을 낸 직후 앱 캐시가 아직 옛 달이면 그 사이 한 달 전 값에 '현재 최신'이 붙는다(예: CLI 9월치 10월 중순 발표). 이 창이 실제로 얼마나 되는지(각 통계를 부르는 캐시 TTL), 그리고 '현재 최신' 대신 다른 표현이 맞는지.
+10. **보안 잠금의 빈틈(⑬)** — 로그인 없이 Gemini·SEC·DART 를 부르거나 app_cache 에 사용자 입력으로 행을 만드는 경로가 아직 남았는가(공개 라우트 117개 중 캐시가 비었을 때 재계산하는 것 포함)? `canForceRefresh` 를 거치지 않는 강제 재계산 파라미터가 있는가? `escDeep` 이후에도 인쇄 HTML 에 이스케이프 안 된 값이 들어가는 경로가 있는가?
 9. **현금 0 = 미등록(⑩)** — 현금을 정말 0원으로 등록한 학생도 '미등록'이 된다(카드와 같은 기준이라 일관성은 있음). `updatedAt`(행 존재)로 가르는 게 맞는가? 그러면 현금 카드의 `has` 기준도 같이 바꿔야 한다.
 
 ## 결과
