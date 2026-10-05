@@ -142,7 +142,19 @@ function relSvgStr(series: { name: string; color: string; data: number[] }[], h 
   return `<svg viewBox="0 0 ${W} ${h}" style="width:100%;height:auto"><line x1="0" x2="${W}" y1="${y(100).toFixed(1)}" y2="${y(100).toFixed(1)}" stroke="#d8dde3" stroke-dasharray="3 3"/>${lines}</svg><div style="font-size:9px;color:#6b7684;display:flex;justify-content:space-between;gap:8px"><span>${legend}</span>${note}</div>`
 }
 
-function printReport(d: WeeklyReportResult) {
+/** 데이터 안의 모든 글자를 HTML 이스케이프한 복사본 — 아래 printReport 는 HTML 문자열을 조립해 같은 출처의 새 창에 document.write 한다.
+ *  학생 이름(가입 때 입력)·종목명·AI 요약·뉴스 제목이 그대로 들어가 `<img onerror=…>` 같은 이름 하나로
+ *  선생님이 'PDF 저장'을 누르는 순간 선생님 세션에서 스크립트가 돌 수 있었다(2026-10-04 보안 점검).
+ *  필드마다 고치면 빠뜨리므로 조립 전에 통째로 이스케이프한다(숫자·불리언은 그대로). */
+function escDeep<T>(v: T): T {
+  if (typeof v === 'string') return v.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]!)) as T
+  if (Array.isArray(v)) return v.map(escDeep) as T
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, escDeep(x)])) as T
+  return v
+}
+
+function printReport(raw: WeeklyReportResult) {
+  const d = escDeep(raw)
   const m = d.me, c = d.common, ai = c.ai
   const p = (v: number | null | undefined) => v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)}%`
   // 등락·손익 — 화면 pcol 과 같은 한국식(빨강=플러스). ⚠️ 인쇄본은 **흰 배경**이라
@@ -275,6 +287,7 @@ ${calRows ? `<h2>⑪ 다음 2주 내 캘린더</h2><table><tr><th>D-day</th><th>
 </body></html>`
   const w = window.open('', '_blank', 'width=920,height=1100')
   if (!w) return
+  w.opener = null   // 인쇄 창이 원래 창(로그인 세션)을 건드리지 못하게
   w.document.write(html); w.document.close()
   setTimeout(() => { w.focus(); w.print() }, 500)
 }

@@ -65,8 +65,8 @@ function printReport(r: Report) {
     table{border-collapse:collapse;width:100%;font-size:11.5px;margin-top:4px}th{text-align:right;padding:3px 6px;border-bottom:2px solid #ddd;color:#555}th:first-child{text-align:left}
     .kpi{display:inline-block;margin:2px 12px 2px 0}.kpi b{color:#111}.foot{margin-top:22px;border-top:1px solid #ddd;padding-top:7px;color:#888;font-size:9.5px}p{margin:5px 0}
     h2{break-after:avoid}</style></head><body>
-      <h1>${esc(r.name)} <span style="font-size:14px;color:#666">${esc(r.ticker)} · ${r.market}</span></h1>
-      <div class="sub">📄 종목 리서치 리포트 · ${r.sectorKo} 섹터 · 생성 ${dt}</div>
+      <h1>${esc(r.name)} <span style="font-size:14px;color:#666">${esc(r.ticker)} · ${esc(String(r.market))}</span></h1>
+      <div class="sub">📄 종목 리서치 리포트 · ${esc(String(r.sectorKo ?? ''))} 섹터 · 생성 ${dt}</div>
       <div class="box"><b>총평</b> &nbsp;<span class="badge">${VKO[r.action.verdict]} ${r.action.score}점</span><br>${esc(r.summary)}</div>
       <h2>① 섹터 & 경쟁사 대시보드</h2>
       <p>로테이션 <b>${esc(r.sectorSec.phaseLabel)}</b> · 계절 적합 <b>${esc(r.sectorSec.seasonFit)}</b><br>${esc(r.sectorSec.narrative)}</p>
@@ -87,6 +87,7 @@ function printReport(r: Report) {
     </body></html>`
   const w = window.open('', '_blank', 'width=900,height=1000')
   if (!w) { alert('팝업이 차단되었습니다. 팝업을 허용해 주세요.'); return }
+  w.opener = null   // 인쇄 창이 원래 창(로그인 세션)을 건드리지 못하게(2026-10-04 보안 점검)
   w.document.write(html); w.document.close()
   w.onload = () => { w.focus(); w.print() }
   setTimeout(() => { try { w.focus(); w.print() } catch { /* onload 처리 */ } }, 700)
