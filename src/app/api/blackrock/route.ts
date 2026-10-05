@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import https from 'https'
 import zlib from 'zlib'
 import { getCache, setCache } from '@/lib/appCache'
+import { canForceRefresh } from '@/lib/cronAuth'   // ?refresh=1 은 크론·선생님만(2026-10-05 보안 점검)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -165,7 +166,7 @@ async function fetchQuarter(acc: string): Promise<Map<string, { name: string; sh
 export async function GET(req: Request) {
   const cacheKey = 'blackrock-13f-v2'   // v2: &amp; 디코드 + ETF 단어경계 + 섹터맵 확장(NETFLIX/J&J/Micron 오분류 수정)
   // ?refresh=1 = 캐시 우회 강제 재파싱(주 1회 cron 워밍용 — 새 분기 13F를 캐시 만료 전 미리 갱신)
-  const refresh = new URL(req.url).searchParams.get('refresh') === '1'
+  const refresh = (new URL(req.url).searchParams.get('refresh') === '1' && await canForceRefresh(req))
   if (!refresh) {
     const cached = await getCache<BlackRockResult>(cacheKey, 30 * 24 * 3600_000)
     if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })

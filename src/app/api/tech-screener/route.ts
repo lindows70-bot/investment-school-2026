@@ -20,6 +20,7 @@ import { getCache, setCache } from '@/lib/appCache'
 import { getTechCandles, dropIncompleteBar } from '@/lib/techChartData'
 import { evaluateSetups, SCREEN_SETUPS, TECH_SCREENER_KEY, type ScreenHit, type SetupMeta } from '@/lib/techScreener'
 import { UNIVERSE_KEY, type ScreenedStock } from '@/lib/macroPhaseScreener'
+import { canForceRefresh } from '@/lib/cronAuth'   // ?refresh=1 은 크론·선생님만(2026-10-05 보안 점검)
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
@@ -34,7 +35,7 @@ export interface TechScreenerApi {
 }
 
 export async function GET(req: Request) {
-  const refresh = new URL(req.url).searchParams.get('refresh') === '1'
+  const refresh = (new URL(req.url).searchParams.get('refresh') === '1' && await canForceRefresh(req))
   const key = TECH_SCREENER_KEY(kstDate())   // 🔑 lib SSOT — cronHealth 가 같은 상수를 본다
   if (!refresh) {
     const cached = await getCache<TechScreenerApi>(key, 12 * 3600_000)

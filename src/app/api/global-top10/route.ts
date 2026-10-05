@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { fetchUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT(폴백 여부까지 — 폴백이면 캐시하지 않는다)
 import { getCache, setCache } from '@/lib/appCache'
 import { getAssetType } from '@/lib/assetClassifier'
+import { canForceRefresh } from '@/lib/cronAuth'   // ?refresh=1 은 크론·선생님만(2026-10-05 보안 점검)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -133,7 +134,7 @@ async function fetchUsTop10(usdKrw: number): Promise<TopEntry[]> {
 }
 
 export async function GET(req: Request) {
-  const forceRefresh = new URL(req.url).searchParams.get('refresh') === '1'
+  const forceRefresh = (new URL(req.url).searchParams.get('refresh') === '1' && await canForceRefresh(req))
   const cacheKey = `global-top10-v3:${kstDate()}`   // v3: fast_grower 라벨 '고성장주' 통일(f2ecdd0) — 옛 라벨 박제 무효화 / v2: KR 시총 숫자화 + SPCX 추가
   if (!forceRefresh) {
     const cached = await getCache<GlobalTop10Result>(cacheKey, 12 * 3600_000)

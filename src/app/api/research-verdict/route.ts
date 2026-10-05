@@ -20,6 +20,7 @@ import { computeTilts, applyTilts, isFcfDefensive } from '@/lib/scoreTilts'   //
 import { getInsiderSignal } from '@/app/actions/getInsiderSignal'
 import { getEntryTiming, type EntryTiming } from '@/lib/entryTiming'
 import type { RotationResult, Quadrant as RotQuad } from '@/app/api/sector-rotation/route'
+import { canForceRefresh } from '@/lib/cronAuth'   // ?refresh=1 은 크론·선생님만(2026-10-05 보안 점검)
 
 const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
 
@@ -83,7 +84,7 @@ export async function GET(req: Request) {
   const cacheKey = `research-verdict-v29:${ticker.toUpperCase()}:${market}`   // v29: 유니버스 밖 경기순환주도 정점 판정 + 분류 고정표 먼저 / v28: 🏔️ 정점이면 매수 적합 게이트 차단 + 한 줄 문장 / v27: peakNote 정점 전용 문장 + 유니버스 v19 워밍 전 캐시(local 폴백) 폐기 / v26: 🏔️ 경기순환주 정점 가드(유니버스 v18 · pegPeak/peakNote · cons)   // v24: 💵 자체 폴백 경로에도 적자 PSR 가치축(유니버스 밖 IONQ 등) / v22: ⚖️ KR 수급 가중 0%
   // 🔁 ?refresh=1 — 캐시를 건너뛰고 다시 계산해 덮어쓴다. 유니버스 캐시가 비어 있을 때(버전 범프 직후·워밍 전) 호출되면 local 폴백 결과가
   //    6시간 박히는데, 그걸 걷어내려고 키를 올려 재배포하는 일을 2026-10-03 하루에 두 번 했다. 워밍 뒤 이 파라미터로 한 번 부르면 끝.
-  const forceRefresh = new URL(req.url).searchParams.get('refresh') === '1'
+  const forceRefresh = (new URL(req.url).searchParams.get('refresh') === '1' && await canForceRefresh(req))
   const cached = forceRefresh ? null : await getCache<ResearchVerdict>(cacheKey, 6 * 3600_000, { sameKstDay: true })
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

@@ -25,6 +25,7 @@ import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { fetchMacroData, detectMacroPhase, runScreener, type ScreenedStock, UNIVERSE_KEY } from '@/lib/macroPhaseScreener'
 import { callGeminiJSON } from '@/lib/gemini'
+import { canForceRefresh } from '@/lib/cronAuth'   // ?refresh=1 은 크론·선생님만(2026-10-05 보안 점검)
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 export interface AiRecommendation {
@@ -111,7 +112,7 @@ ${krw.map(formatStock).join('\n')}
 export async function GET(req: Request) {
   const reqUrl = new URL(req.url)
   const { searchParams } = reqUrl
-  const forceRefresh = searchParams.get('refresh') === '1'
+  const forceRefresh = searchParams.get('refresh') === '1' && await canForceRefresh(req)   // 크론·선생님만(학생의 새로고침 버튼은 캐시 결과를 받는다)
   const now = new Date().toISOString()
   const selfBase = process.env.NEXT_PUBLIC_APP_URL || reqUrl.origin
 

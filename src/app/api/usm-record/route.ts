@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { gradeUsm, USM_GRADE_KEY } from '@/lib/usSmartHistory'
+import { canForceRefresh } from '@/lib/cronAuth'   // ?refresh=1 은 크론·선생님만(2026-10-05 보안 점검)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -9,7 +10,7 @@ export const maxDuration = 120
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 export async function GET(req: Request) {
-  const refresh = new URL(req.url).searchParams.get('refresh') === '1'
+  const refresh = (new URL(req.url).searchParams.get('refresh') === '1' && await canForceRefresh(req))
   const key = USM_GRADE_KEY(kstDate())
   if (!refresh) { const c = await getCache<Awaited<ReturnType<typeof gradeUsm>>>(key, 12 * 3600_000); if (c) return NextResponse.json(c, { headers: { 'Cache-Control': 'no-store' } }) }
   const out = await gradeUsm()

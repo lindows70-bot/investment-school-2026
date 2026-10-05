@@ -6,6 +6,7 @@ export const maxDuration = 60
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { roneSeries, RONE_WEEKLY_TBL, RONE_WEEKLY_CLS } from '@/lib/rone'
+import { canForceRefresh } from '@/lib/cronAuth'   // ?refresh=1 은 크론·선생님만(2026-10-05 보안 점검)
 
 export interface WeeklyRegion {
   name: string
@@ -27,7 +28,7 @@ const pc = (a: number, b: number) => Math.round((a / b - 1) * 1000) / 10   // �
 const REGION_ORDER = Object.keys(RONE_WEEKLY_CLS)
 
 export async function GET(req: Request) {
-  const refresh = new URL(req.url).searchParams.get('refresh') === '1'
+  const refresh = (new URL(req.url).searchParams.get('refresh') === '1' && await canForceRefresh(req))
   if (!refresh) {
     const hit = await getCache<ReWeeklyApi>(CACHE_KEY, 24 * 3600_000)
     if (hit) return NextResponse.json(hit, { headers: { 'Cache-Control': 'no-store' } })

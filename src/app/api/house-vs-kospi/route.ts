@@ -6,6 +6,7 @@ export const maxDuration = 60
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { ecosSeries } from '@/lib/ecos'
+import { canForceRefresh } from '@/lib/cronAuth'   // ?refresh=1 은 크론·선생님만(2026-10-05 보안 점검)
 
 export interface HouseVsKospiApi {
   series: { y: number; kospi: number | null; aptKor: number | null; aptSeoul: number | null }[]   // 연말 원값(재기준은 클라 — 구간 토글)
@@ -30,7 +31,7 @@ async function ecosRaw(stat: string, cycle: string, start: string, end: string, 
 }
 
 export async function GET(req: Request) {
-  const refresh = new URL(req.url).searchParams.get('refresh') === '1'
+  const refresh = (new URL(req.url).searchParams.get('refresh') === '1' && await canForceRefresh(req))
   if (!refresh) {
     const hit = await getCache<HouseVsKospiApi>(CACHE_KEY, 7 * 86400_000)
     if (hit) return NextResponse.json(hit, { headers: { 'Cache-Control': 'no-store' } })

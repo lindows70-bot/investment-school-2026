@@ -8,6 +8,7 @@ import { getCache, setCache } from '@/lib/appCache'
 import { ecosSeries } from '@/lib/ecos'
 import { roneSeries, RONE_PSY_TBL, RONE_PSY_CLS } from '@/lib/rone'
 import { bottleneck } from '@/lib/dataFreshness'   // 🕒 교집합 병목 규명(2026-08-23)
+import { canForceRefresh } from '@/lib/cronAuth'   // ?refresh=1 은 크론·선생님만(2026-10-05 보안 점검)
 
 export interface GaugePoint { t: string; [k: string]: number | string | null }
 export interface ReGaugeResult {
@@ -45,7 +46,7 @@ const CACHE_KEY = 're-gauge-v3'
 const pct = (v: number) => Math.round(v * 10) / 10
 
 export async function GET(req: Request) {
-  const refresh = new URL(req.url).searchParams.get('refresh') === '1'
+  const refresh = (new URL(req.url).searchParams.get('refresh') === '1' && await canForceRefresh(req))
   if (!refresh) {
     const hit = await getCache<ReGaugeResult>(CACHE_KEY, 24 * 3600_000)
     if (hit) return NextResponse.json(hit, { headers: { 'Cache-Control': 'no-store' } })

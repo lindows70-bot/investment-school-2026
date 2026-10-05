@@ -13,6 +13,7 @@ import {
   POLICY_ORG, POLITICS_NOISE, POLICY_NEWS,
   type PolicyItem, type ChannelSummary, type Stance,
 } from '@/lib/rePolicy'
+import { canForceRefresh } from '@/lib/cronAuth'   // ?refresh=1 은 크론·선생님만(2026-10-05 보안 점검)
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
@@ -54,7 +55,7 @@ async function newsOf(query: string): Promise<{ title: string; date: string; lin
 }
 
 export async function GET(req: Request) {
-  const refresh = new URL(req.url).searchParams.get('refresh') === '1'
+  const refresh = (new URL(req.url).searchParams.get('refresh') === '1' && await canForceRefresh(req))
   // v3: 📌 확정 항목에 '무엇을 정하는 고시인지'(제1조 목적) 부착 — 제목만으론 알 수 없었다
   // v2: 축별 상한(법령이 뉴스에 밀려 사라지던 것) · 따옴표 정규화 중복 제거 · 정치 필터 보강
   const cacheKey = `re-policy-v8:${kstDate()}`   // v8: v7 이 옛 law-admrul 캐시 링크로 채워져 다시 범프 · v7: 원문 링크에서 법제처 계정 ID 제거(공개 본문 주소) / v6: 전문 한 덩어리 고시에서 목적 문장만 / v5: "제1장 총칙" 교정 / v4: 접두 제거 폐기

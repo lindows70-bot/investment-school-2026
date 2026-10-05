@@ -5,6 +5,7 @@ import { getCache, setCache } from '@/lib/appCache'
 import { buildSwingRadar, type SwingRadar } from '@/lib/swingRadar'
 import { SWING_CRON_MARK } from '@/lib/swingHistory'
 import { fetchUsdKrw } from '@/lib/fx'
+import { canForceRefresh } from '@/lib/cronAuth'   // ?refresh=1 은 크론·선생님만(2026-10-05 보안 점검)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -12,7 +13,7 @@ export const maxDuration = 300
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 export async function GET(req: Request) {
-  const refresh = new URL(req.url).searchParams.get('refresh') === '1'
+  const refresh = (new URL(req.url).searchParams.get('refresh') === '1' && await canForceRefresh(req))
   // v11: 채점을 **규칙 준수**(손절선 이탈 시 그 가격에 종료) 기준으로 — recent 에 retHoldPct 필드가 늘어난다
   //      (스키마 확장도 키를 올린다: 옛 응답이 서빙되면 새 필드가 통째로 undefined 로 온다)
   // v12: 🧭 섹터 로테이션 결합 — items[].rot 필드 신설 + 이탈 섹터 후순위·경고(스키마 확장 = 키 범프)

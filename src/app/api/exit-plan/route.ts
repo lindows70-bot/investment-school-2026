@@ -9,6 +9,7 @@ import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { getAssetType } from '@/lib/assetClassifier'
 import { buildExitPlans, type ExitHolding, type ExitPlanItem, type BuySnapshot } from '@/lib/exitPlan'
+import { canForceRefresh } from '@/lib/cronAuth'   // ?refresh=1 은 크론·선생님만(2026-10-05 보안 점검)
 
 const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'auth required' }, { status: 401 })
 
-  const refresh = new URL(req.url).searchParams.get('refresh') === '1'
+  const refresh = (new URL(req.url).searchParams.get('refresh') === '1' && await canForceRefresh(req))
   const fp = await holdingsFingerprint(user.id)
   // v7: 📈 해자 침식 detail 에 ROE 시계열 교차 확인 문구 추가(문구만 바뀌어도 키를 올린다 — 스키마 동일이면 훅이 못 잡는다)
   // v8: 📉 ROE 소급 백테스트 반증 반영 — 'ROE도 함께 꺾임 = 신뢰도 높음'이 매도 재촉으로 읽히지 않게 문구 교체

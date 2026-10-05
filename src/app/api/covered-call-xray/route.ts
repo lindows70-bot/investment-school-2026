@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { CC_PAIRS, CC_XRAY_KEY, yahooSymbol, buildRow, type Bar, type CcXrayRow } from '@/lib/coveredCall'
+import { canForceRefresh } from '@/lib/cronAuth'   // ?refresh=1 은 크론·선생님만(2026-10-05 보안 점검)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -14,7 +15,7 @@ export interface CcXrayResult { asOf: string; rows: CcXrayRow[]; scanned: number
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export async function GET(req: Request) {
-  const refresh = new URL(req.url).searchParams.get('refresh') === '1'
+  const refresh = (new URL(req.url).searchParams.get('refresh') === '1' && await canForceRefresh(req))
   const key = CC_XRAY_KEY(kstDate())
   if (!refresh) {
     const cached = await getCache<CcXrayResult>(key, 24 * 3600_000)
