@@ -10,12 +10,14 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@supabase/supabase-js'
+import { randomInt } from 'crypto'
 
-// 임시 비밀번호 생성: 영문+숫자 조합 8자 (학생이 입력하기 쉬운 형태)
+// 임시 비밀번호 생성 — '투자학교' + 암호용 난수 숫자 8자리(1억 가지 · 휴대폰에서 숫자 키패드만 바꾸면 된다)
+//   ⛔ 예전엔 Math.random() 4자리(9,000가지)라 맞히기 쉬웠다(2026-10-05 보안 점검). Math.random 은 예측 가능한 난수라 비밀번호에 쓰지 않는다.
 function generateTempPassword(): string {
   const prefix = '투자학교'   // 학교 이름 기억하기 쉽게
-  const nums   = Math.floor(1000 + Math.random() * 9000)  // 4자리 랜덤 숫자
-  return `${prefix}${nums}`   // 예: 투자학교5283
+  const nums = Array.from({ length: 8 }, () => randomInt(10)).join('')
+  return `${prefix}${nums}`   // 예: 투자학교52830917
 }
 
 export async function POST(req: NextRequest) {
@@ -52,6 +54,16 @@ export async function POST(req: NextRequest) {
 
     if (callerProfile?.role !== 'teacher') {
       return NextResponse.json({ error: '관리자 권한이 필요합니다' }, { status: 403 })
+    }
+
+    // ── 대상은 학생 계정만(2026-10-05) — 예전엔 대상 확인이 없어 선생님 계정의 비밀번호도 이 경로로 바꿀 수 있었다
+    const { data: targetProfile } = await adminClient
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .single()
+    if (targetProfile?.role !== 'student') {
+      return NextResponse.json({ error: '학생 계정만 임시 비밀번호를 발급할 수 있습니다' }, { status: 403 })
     }
 
     // ── 임시 비밀번호 생성 및 설정
