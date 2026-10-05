@@ -85,7 +85,7 @@ export interface LawDoc {
 
 /** 법령 1건의 조문 전문. `articleFilter` 로 필요한 조문만 남긴다(전문은 수십~수백 조라 무겁다). */
 export async function getLawDoc(name: string, articleFilter: (title: string, no: string) => boolean): Promise<LawDoc | null> {
-  const ck = `law-doc-v3:${name}`   // v3: <목> 수집(세율의 절반이 목에 있었다) · v2: 항·호 구조 보존
+  const ck = `law-doc-v4:${name}`   // v4: 링크를 계정 ID 없는 공개 주소로(응답 캐시만 올리면 이 층의 옛 링크가 그대로 나왔다) · v3: <목> 수집(세율의 절반이 목에 있었다) · v2: 항·호 구조 보존
   const cached = await getCache<LawDoc>(ck, 24 * 3600_000)   // 법률은 자주 안 바뀐다
   if (cached) return cached
   try {
@@ -194,7 +194,7 @@ export async function getAdmRulePurpose(id: string): Promise<string | null> {
 export async function collectAdmRules(keywords: string[]): Promise<{ rules: AdmRule[]; failed: number }> {
   // ⚠️ v2: AdmRule 에 `id`(목적 조회 키)를 **추가**했다 → 키를 올리지 않으면 옛 캐시가 id 없이 서빙돼
   //    목적이 전부 undefined 로 온다(실제로 겪었다). "필드가 늘어도 키를 올려라"는 이래서 있다.
-  const ck = `law-admrul-v2:${keywords.join(',')}`
+  const ck = `law-admrul-v3:${keywords.join(',')}`   // v3: 링크를 계정 ID 없는 공개 주소로(2026-10-04)
   const cached = await getCache<{ rules: AdmRule[]; failed: number }>(ck, 6 * 3600_000)
   if (cached) return cached
 
