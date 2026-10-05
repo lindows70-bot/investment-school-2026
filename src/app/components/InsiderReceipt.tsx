@@ -12,7 +12,8 @@
  */
 
 import { useState, useEffect } from 'react'
-import { getInsiderSignal, type InsiderSignal } from '@/app/actions/getInsiderSignal'
+import type { InsiderSignal } from '@/app/actions/getInsiderSignal'
+import { getInsiderSignalForUser } from '@/app/actions/insiderSignalAction'   // 로그인·형식·하루 한도 검사 입구(2026-10-05)
 import { TK, FONT_STACK } from '@/lib/theme'
 
 interface Props { ticker: string; name: string; market: string }
@@ -43,7 +44,7 @@ export default function InsiderReceipt({ ticker, name, market }: Props) {
     if (!ticker) return
     let alive = true
     setLoading(true); setData(null)
-    getInsiderSignal({ ticker, market })
+    getInsiderSignalForUser({ ticker, market })
       .then(r => { if (alive) setData(r) })
       .catch(() => { if (alive) setData(null) })
       .finally(() => { if (alive) setLoading(false) })

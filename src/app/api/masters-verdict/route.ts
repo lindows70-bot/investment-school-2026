@@ -9,6 +9,9 @@ import { calcDCF, deriveDcfInputs } from '@/lib/buffettDcf'
 import { isPegBaseEffect } from '@/lib/canonicalFundamentals'
 import { callGeminiJSON } from '@/lib/gemini'
 import { computeCommittee, type CommitteeInput, type CommitteeResult } from '@/lib/mastersCommittee'
+import { isCronRequest, getAuthedUserId } from '@/lib/cronAuth'
+import { cleanTicker } from '@/lib/tickerGuard'
+import { takeHeavyQuota, HEAVY_DAILY_LIMIT } from '@/lib/heavyQuota'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -52,9 +55,14 @@ const DEBATE_SCHEMA = {
 }
 
 export async function GET(req: NextRequest) {
-  const ticker = (req.nextUrl.searchParams.get('ticker') || '').trim().toUpperCase()
+  // 🔒 로그인 사용자 또는 크론만 · 형식 검사(2026-10-05 보안 점검) — 전엔 외부인이 아무 문자열 티커로 Gemini 토론과 캐시 행을 만들 수 있었다.
+  //    크론(core-reco)은 쿠키가 없으므로 비밀값 헤더로 통과한다.
+  const cron = isCronRequest(req)
+  const uid = cron ? null : await getAuthedUserId()
+  if (!cron && !uid) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const ticker = cleanTicker(req.nextUrl.searchParams.get('ticker'))
   const market = (req.nextUrl.searchParams.get('market') === 'KR' ? 'KR' : 'US') as 'KR' | 'US'
-  if (!ticker) return NextResponse.json({ error: 'ticker required' }, { status: 400 })
+  if (!ticker) return NextResponse.json({ error: 'invalid ticker' }, { status: 400 })
   // 🪶 brief=1 — 판정만(Gemini 토론 생략). 통합추천·리밸런싱이 배지·가격구간을 붙일 때 쓴다.
   //    ⚠️ 판정 자체는 전체 모드와 **같은 computeCommittee** 다 — 화면마다 판정이 달라지면 제2원칙 위반.
   const brief = req.nextUrl.searchParams.get('brief') === '1'
@@ -79,6 +87,9 @@ export async function GET(req: NextRequest) {
     const b = await getCache<MastersVerdictResponse>(briefKey, 24 * 3600_000, { sameKstDay: true })
     if (b) return NextResponse.json(b, { headers: { 'Cache-Control': 'no-store' } })
   }
+  // 새로 계산할 때만 사용자 하루 한도를 쓴다(크론은 제외 · 캐시가 있으면 위에서 이미 돌려줬다)
+  if (uid && !(await takeHeavyQuota(uid)))
+    return NextResponse.json({ error: 'quota', message: `오늘 분석 한도(${HEAVY_DAILY_LIMIT}회)를 다 썼어요 — 내일 다시 열 수 있어요.` }, { status: 429, headers: { 'Cache-Control': 'no-store' } })
 
   const selfBase = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin
 

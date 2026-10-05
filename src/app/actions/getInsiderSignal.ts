@@ -1,4 +1,6 @@
-'use server'
+// 🔒 서버 전용 모듈(2026-10-05 보안 점검) — 예전엔 'use server' 라 브라우저에서 아무나(로그인 없이) 부를 수 있는 공개 입구였다.
+//    브라우저는 이제 insiderSignalAction(로그인·형식·하루 한도 검사) 을 거쳐서만 부른다. 크론·서버 라우트는 지금처럼 직접 부른다.
+import 'server-only'
 
 /**
  * 🕵️ CEO의 장바구니 (Insider's Receipt) — 서버 액션 (비밀병기 5단계)

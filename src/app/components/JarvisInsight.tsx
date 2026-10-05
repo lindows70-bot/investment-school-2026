@@ -12,7 +12,8 @@
  */
 
 import { useState, useEffect } from 'react'
-import { getEarningsInsight, type JarvisInsight, type JarvisFacts } from '@/app/actions/getEarningsInsight'
+import type { JarvisInsight, JarvisFacts } from '@/app/actions/getEarningsInsight'
+import { getEarningsInsightForUser } from '@/app/actions/jarvisInsightAction'   // 로그인·형식·하루 한도 검사 입구(2026-10-05)
 import { TK, FONT_STACK } from '@/lib/theme'
 
 interface Props {
@@ -88,7 +89,7 @@ export default function JarvisInsight({ ticker, name, market, facts }: Props) {
     let alive = true
     let retry: ReturnType<typeof setTimeout> | undefined
     setLoading(true); setData(null)
-    getEarningsInsight({ ticker, name, market, facts })
+    getEarningsInsightForUser({ ticker, name, market, facts })
       .then(r => {
         if (!alive) return
         setData(r)

@@ -10,6 +10,9 @@ import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
 import { getTechCandles } from '@/lib/techChartData'
 import { callGeminiJSON } from '@/lib/gemini'
 import type { ResearchVerdict } from '@/app/api/research-verdict/route'
+import { getAuthedUserId } from '@/lib/cronAuth'
+import { cleanTicker, cleanMarket, cleanName } from '@/lib/tickerGuard'
+import { takeHeavyQuota, HEAVY_DAILY_LIMIT } from '@/lib/heavyQuota'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -40,11 +43,15 @@ export interface ResearchReport {
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
-  const ticker = (searchParams.get('ticker') || '').trim()
-  const market = (searchParams.get('market') || 'US').toUpperCase()
-  const mkt: 'KR' | 'US' = market === 'KR' ? 'KR' : 'US'
-  const name = (searchParams.get('name') || ticker).trim()
-  if (!ticker) return NextResponse.json({ error: 'ticker required' }, { status: 400 })
+  // 🔒 로그인 필수 · 형식 검사 · 하루 한도(2026-10-05 보안 점검) — 전엔 외부인이 아무 문자열로 Gemini 호출과 캐시 행을 만들 수 있었고,
+  //    name 이 캐시 키에 없어 조작한 이름을 먼저 넣으면 그날 모든 학생에게 그 리포트가 나갔다(이름은 이제 길이·꺾쇠를 거른다)
+  const uid = await getAuthedUserId()
+  if (!uid) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const ticker = cleanTicker(searchParams.get('ticker'))
+  const market = cleanMarket(searchParams.get('market'))
+  if (!ticker || !market) return NextResponse.json({ error: 'invalid ticker or market' }, { status: 400 })
+  const mkt: 'KR' | 'US' = market
+  const name = cleanName(searchParams.get('name'), ticker)
   if (getAssetType(ticker, name, market) !== 'STOCK')
     return NextResponse.json({ unsupported: true, reason: '개별 주식 전용 리포트입니다(ETF·코인·원자재 제외).' }, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -52,6 +59,9 @@ export async function GET(req: Request) {
   const cacheKey = `research-report-v5:${ticker.toUpperCase()}:${market}`   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 영구 누적
   const cached = await getCache<ResearchReport>(cacheKey, 6 * 3600_000, { sameKstDay: true })
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
+  // 새로 만드는 경우(AI 호출)만 한도를 쓴다 — 캐시가 있으면 위에서 이미 돌려줬다
+  if (!(await takeHeavyQuota(uid)))
+    return NextResponse.json({ unsupported: true, reason: `오늘 분석 한도(${HEAVY_DAILY_LIMIT}회)를 다 썼어요 — 내일 다시 열 수 있어요.` }, { headers: { 'Cache-Control': 'no-store' } })
 
   // 병렬 — 전부 기존 SSOT (섹터·로테이션·계절·밸류·타점=research-verdict / 경쟁사=피어 / 주가=캔들 / 어닝=Jarvis)
   const [vfRaw, earn, analyst, peersRes, candles, cf] = await Promise.all([
