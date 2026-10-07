@@ -60,7 +60,8 @@ export interface MacroPhaseResult {
 // v16: 💵 적자기업 가치축 PSR 폴백(철회됨) / v15: 💵 고FCF 성격 구분(mirage·volatile) / v14: 💱 FTS 통화 판별
 // v18(2026-10-03): 🏔️ 경기순환주 정점 가드 — 이익이 결산 기록 중 최고인 해의 PEG·이익수익률은 중립(pegPeak·peakNote 필드 추가 · 가치축 값 변경)
 // v19: peakNote 를 정점 전용 문장으로(급증과 겹친 종목의 문장 변경)
-export const UNIVERSE_KEY = 'macro-screened-universe:v19'
+// v20(2026-10-07): 이익 급증(기저효과) 경기순환주도 정점 판정 대상(삼성전자가 빠져 있었다)
+export const UNIVERSE_KEY = 'macro-screened-universe:v20'
 
 export interface ScreenedStock {
   ticker:       string
@@ -992,8 +993,11 @@ async function screenOne(
     //    야후는 국내 종목의 trailingEps·trailingPE 를 주지 않으므로(실측 6종 전부 undefined) 종목 정보(국내 네이버 TTM · fyEps 재무 격자 5년)를 받아
     //    적정가·린치 패널과 **같은 함수**(lynchFairValue().peak)로 판정한다. 싸 보이는 경기순환주에만 호출한다 — 비싸 보이면 가드가 바꿀 값이 없다(비용).
     //    재료를 못 받으면 가드 없음(기존 동작) — 결과를 지어내지 않는다.
+    //    ⚠️ 급증(기저효과)도 '싸 보이는' 쪽이다(PEG<0.3) — 급증 가드가 pegGrad0 를 0.5 로 이미 깎아 '> 0.5' 에 걸리지 않았다.
+    //       그런데 정점 플래그는 가치 값만이 아니라 종합 판정 '매수 적합' 결격·cons·통합추천 배지에도 쓰인다(2026-10-07 실측:
+    //       삼성전자 최근 4분기 EPS 22,292 > 결산 최고 8,057 인데 판정 대상에서 빠져 종합 판정 '매수 적합 80').
     let pegPeak = false, peakNote: string | null = null
-    if (lynch === 'cyclical' && (pegGrad0 > 0.5 || eyScore0 > 0.45) && selfBase) {
+    if (lynch === 'cyclical' && (pegGrad0 > 0.5 || eyScore0 > 0.45 || isPegBaseEffect(peg, earnGrowth)) && selfBase) {
       try {
         const si = await fetch(`${selfBase}/api/stock-info?ticker=${encodeURIComponent(ticker)}&market=${market}`, { signal: AbortSignal.timeout(12_000), cache: 'no-store' })
           .then(r => r.ok ? r.json() : null)
