@@ -5,7 +5,7 @@
  *
  *  1) Supabase Auth → 로그인 학생 식별
  *  2) investments 테이블 → 보유 종목 ticker 리스트 조회
- *  3) ghost_stock_cache → 오늘 날짜 캐시 확인
+ *  3) app_cache ghost-row-v1:{종목} → 오늘(KST) 캐시 확인(예전 ghost_stock_cache 테이블은 DB 에 없었다 — 2026-10-07)
  *     ├─ 캐시 HIT  → 즉시 반환 (외부 API 호출 없음)
  *     └─ 캐시 MISS → 외부 API 호출 → Ghost Score 계산 → Upsert → 반환
  *
@@ -23,7 +23,7 @@ import { NextResponse } from 'next/server'
 import { createServerClient }        from '@supabase/ssr'
 import { cookies }                   from 'next/headers'
 import { getAssetClassification }     from '@/lib/assetClassifier'
-import { buildGhostRecord, buildDiscovery, type GhostCacheRow } from '@/lib/ghostStock'   // 계산·발굴은 lib(매일 워밍 크론과 공유 · 2026-10-07)
+import { buildGhostRecord, buildDiscovery, readGhostRows, saveGhostRows, type GhostCacheRow } from '@/lib/ghostStock'   // 계산·발굴은 lib(매일 워밍 크론과 공유 · 2026-10-07)
 
 // ── GET 핸들러 ────────────────────────────────────────────────
 export async function GET() {
@@ -71,7 +71,7 @@ export async function GET() {
 
   // ── 3-b. 자산 유형 분류 — 비주식은 Ghost 분석에서 제외 ─────
   // ETF·암호화폐·원자재는 기업 경영진·애널리스트 개념이 없으므로
-  // ghost_stock_cache에 저장하지 않고 'excluded' 목록으로 분리 반환
+  // 캐시에 저장하지 않고 'excluded' 목록으로 분리 반환
   const equityHoldings = holdings.filter(h => {
     const clf = getAssetClassification(h.ticker, h.name, h.market ?? 'US')
     return clf.isAnalyzable   // STOCK만 true
@@ -101,28 +101,14 @@ export async function GET() {
     })
   }
 
-  // ── 4. 캐시 확인 (오늘 날짜 기준) ─────────────────────────
-  const todayISO = new Date().toISOString().slice(0, 10)  // 'YYYY-MM-DD'
+  // ── 4. 캐시 확인 (오늘(KST) 행 — app_cache 종목별 · lib/ghostStock) ─────────
+  //    예전엔 ghost_stock_cache 테이블이었는데 그 테이블이 DB 에 없어 매번 조용히 MISS 였다(2026-10-07)
+  const hitMap        = await readGhostRows(tickers)
+  const missTickerSet = new Set<string>(tickers.filter(t => !hitMap.has(t)))
 
-  const { data: cachedRows } = await sbAdmin
-    .from('ghost_stock_cache')
-    .select('*')
-    .in('ticker', tickers)
-
-  // 캐시 HIT = updated_at이 오늘 날짜인 행
-  const hitMap   = new Map<string, GhostCacheRow>()
-  const missTickerSet = new Set<string>(tickers)
-
-  for (const row of (cachedRows ?? [])) {
-    const rowDate = (row.updated_at as string).slice(0, 10)
-    if (rowDate === todayISO) {
-      hitMap.set(row.ticker, row as GhostCacheRow)
-      missTickerSet.delete(row.ticker)
-    }
-  }
-
-  // ── 5. 캐시 MISS → 외부 API 호출 후 Upsert ────────────────
+  // ── 5. 캐시 MISS → 외부 API 호출 후 저장 ────────────────
   const newRows: Omit<GhostCacheRow, 'updated_at'>[] = []
+  let savedRows: GhostCacheRow[] = []
 
   if (missTickerSet.size > 0) {
     const missList = equityHoldings.filter(h => missTickerSet.has(h.ticker.toUpperCase()))
@@ -144,21 +130,13 @@ export async function GET() {
       }
     }
 
-    if (newRows.length > 0) {
-      // Upsert: ticker PK 기준, updated_at 자동 갱신
-      await sbAdmin
-        .from('ghost_stock_cache')
-        .upsert(
-          newRows.map(r => ({ ...r, updated_at: new Date().toISOString() })),
-          { onConflict: 'ticker' }
-        )
-    }
+    if (newRows.length > 0) savedRows = await saveGhostRows(newRows)
   }
 
   // ── 6. 최종 레코드 조합 (캐시 HIT + 신규 MISS) ────────────
   const allRecords: GhostCacheRow[] = [
     ...Array.from(hitMap.values()),
-    ...newRows.map(r => ({ ...r, updated_at: new Date().toISOString() })),
+    ...savedRows,
   ]
 
   // 포트폴리오 순서 기반 정렬 (ghost_score 내림차순)

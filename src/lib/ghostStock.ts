@@ -268,6 +268,25 @@ const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0,
 /** 매일 워밍 크론(/api/cron/ghost-warm) 실행 마커 — 크론 상태판이 이 일자 키로 실행 여부를 본다 */
 export const GHOST_WARM_MARK = (d: string) => `ghost-warm-run-v1:${d}`
 
+// ── 보유 종목 행 캐시 — app_cache 종목별(날짜 없는 키 + 오늘(KST)만) ──────────
+//   2026-10-07: 예전엔 `ghost_stock_cache` 테이블에 읽고 썼는데 **그 테이블이 DB 에 없었다**(오류를 안 봐서 매번 조용히 MISS →
+//   열 때마다 전 종목을 새로 계산). 다른 종목별 캐시와 같은 app_cache 로 옮긴다(테이블 추가 없이 · 정리 규칙 PER_TICKER).
+const GHOST_ROW_KEY = (ticker: string) => `ghost-row-v1:${ticker.toUpperCase()}`
+
+export async function readGhostRows(tickers: string[]): Promise<Map<string, GhostCacheRow>> {
+  const out = new Map<string, GhostCacheRow>()
+  const rows = await Promise.all(tickers.map(t => getCache<GhostCacheRow>(GHOST_ROW_KEY(t), 24 * 3600_000, { sameKstDay: true }).catch(() => null)))
+  rows.forEach((r, i) => { if (r) out.set(tickers[i].toUpperCase(), r) })
+  return out
+}
+
+export async function saveGhostRows(rows: Omit<GhostCacheRow, 'updated_at'>[]): Promise<GhostCacheRow[]> {
+  const at = new Date().toISOString()
+  const full = rows.map(r => ({ ...r, updated_at: at }))
+  await Promise.all(full.map(r => setCache(GHOST_ROW_KEY(r.ticker), r)))
+  return full
+}
+
 export async function buildDiscovery(): Promise<Omit<GhostCacheRow, 'updated_at'>[]> {
   const key = `ghost-discovery-v1:${kstDate()}`
   const cached = await getCache<Omit<GhostCacheRow, 'updated_at'>[]>(key, 24 * 3600_000)

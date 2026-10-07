@@ -58,7 +58,7 @@ export const CRON_MONITORS: CronMonitor[] = [
   //    타점 워처·승패 해부실·로테이션 성적표 적립이 전부 이 일자 키를 읽는다 — 없으면 축이 50(중립)으로 채워져 조용히 성공한다. 08:30 워처보다 먼저.
   { id: 'sectorRotation', label: '섹터 로테이션 계산', kst: '07:00', days: 'daily', artifact: { type: 'cacheDate', key: d => SECTOR_ROTATION_KEY(d) }, heal: '/api/sector-rotation', heavy: true },
   // 👻 유령 종목 — 미보유 발굴 + 전 학생 보유 종목 행. 없으면 첫 방문자가 100초 넘게 기다린다(2026-10-07 실측 105초)
-  { id: 'ghostWarm', label: '유령 종목 미리 계산', kst: '09:00', days: 'daily', artifact: { type: 'cacheDate', key: d => GHOST_WARM_MARK(d) }, heal: '/api/cron/ghost-warm', heavy: true },
+  { id: 'ghostWarm', label: '유령 종목 미리 계산', kst: '00:05', days: 'daily', artifact: { type: 'cacheDate', key: d => GHOST_WARM_MARK(d) }, heal: '/api/cron/ghost-warm', heavy: true },
   { id: 'timingWatch', label: '타점 전환 워처', kst: '08:30', days: 'daily', artifact: { type: 'cache', key: () => 'timing-watch-latest-v2' }, heal: '/api/cron/timing-watch' },
   // ⚠️ heavy = 유니버스 전수 캔들 스캔(수십~180초). 표시하지 않으면 예산이 얼마 안 남았는데도 시도해
   //    타임아웃으로 예산만 태우고 실패한다 — 다음 패스로 미루는 게 낫다(2026-08-08 실측으로 4종 추가).

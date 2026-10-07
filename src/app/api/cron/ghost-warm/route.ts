@@ -1,12 +1,12 @@
-// 유령 종목을 매일 미리 계산 — 미보유 발굴(공유 캐시) + 전 학생 보유 주식의 종목별 행(ghost_stock_cache)
+// 유령 종목을 매일 미리 계산 — 미보유 발굴(공유 캐시) + 전 학생 보유 주식의 종목별 행(app_cache ghost-row-v1)
 //   2026-10-07: 크론이 없어 캐시가 빈 날 처음 여는 사람이 105초를 기다렸다. 결과는 화면이 쓰는 것과 같은 함수(lib/ghostStock).
-//   ⏰ 00:00 UTC(09:00 KST) — 화면이 '오늘' 행을 **UTC 날짜**로 판정하므로 UTC 날이 바뀐 직후에 채워야 하루 종일 맞는다.
+//   ⏰ 00:05 KST — 화면이 '오늘(KST)' 행만 쓰므로 KST 날이 바뀐 직후에 채워야 하루 종일 맞는다.
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { cronUnauthorized } from '@/lib/cronAuth'
 import { setCache } from '@/lib/appCache'
 import { getAssetClassification } from '@/lib/assetClassifier'
-import { buildGhostRecord, buildDiscovery, GHOST_WARM_MARK, type GhostCacheRow } from '@/lib/ghostStock'
+import { buildGhostRecord, buildDiscovery, readGhostRows, saveGhostRows, GHOST_WARM_MARK, type GhostCacheRow } from '@/lib/ghostStock'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -34,10 +34,8 @@ export async function GET(req: Request) {
     uniq.set(t, { ticker: t, name: h.name, market: h.market ?? 'US', lynch: h.lynch_category ?? '' })
   }
 
-  // ③ 오늘(UTC) 행이 이미 있는 종목은 건너뛴다 — 화면의 캐시 HIT 판정과 같은 기준
-  const todayUtc = new Date().toISOString().slice(0, 10)
-  const { data: rows } = await sb.from('ghost_stock_cache').select('ticker, updated_at').in('ticker', Array.from(uniq.keys()))
-  const fresh = new Set((rows ?? []).filter(r => String(r.updated_at).slice(0, 10) === todayUtc).map(r => r.ticker))
+  // ③ 오늘(KST) 행이 이미 있는 종목은 건너뛴다 — 화면의 캐시 HIT 판정과 같은 함수
+  const fresh = await readGhostRows(Array.from(uniq.keys()))
   const todo = Array.from(uniq.values()).filter(h => !fresh.has(h.ticker))
 
   const built: Omit<GhostCacheRow, 'updated_at'>[] = []
@@ -51,12 +49,7 @@ export async function GET(req: Request) {
     }
   }
   await Promise.all(Array.from({ length: 4 }, worker))
-  if (built.length) {
-    // 화면 라우트와 같은 저장 방식(ticker PK · 전 컬럼을 채운 행)
-    const { error: upErr } = await sb.from('ghost_stock_cache')
-      .upsert(built.map(r => ({ ...r, updated_at: new Date().toISOString() })), { onConflict: 'ticker' })
-    if (upErr) return NextResponse.json({ ok: false, cached: false, error: upErr.message }, { status: 500 })
-  }
+  if (built.length) await saveGhostRows(built)
 
   const left = q.length
   // 실행 마커 — 발굴이 비지 않았을 때만(위성 크론이 콜드면 발굴이 빈다 → 상태판이 다음 패스에 다시 부른다)
