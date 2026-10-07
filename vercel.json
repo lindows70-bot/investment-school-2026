@@ -161,6 +161,10 @@
       "schedule": "0 22 * * *"
     },
     {
+      "path": "/api/cron/ghost-warm",
+      "schedule": "0 0 * * *"
+    },
+    {
       "path": "/api/cron/timing-watch",
       "schedule": "30 23 * * *"
     },
