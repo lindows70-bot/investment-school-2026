@@ -143,6 +143,9 @@ export async function GET(req: Request) {
     action: { verdict: verdict.verdict, score: verdict.score, oneLiner: verdict.oneLiner, pros: verdict.pros, cons: verdict.cons, timingLabel: verdict.timing?.label ?? null, flags },
   }
   // 경쟁사 체급(mcapUsd)을 고정 환율로 잰 보고서는 박제 금지 — undefined(피어 없음·옛 형식)는 환율과 무관하니 저장한다
-  if (peersRes?.fxLive !== false) await setCache(cacheKey, report)
+  // 부분 실패(AI 총평 실패 → 기계 문장 · 경쟁사·어닝 조회 예외)도 박제 금지 — 그날 이 종목을 여는 모두가 빈약한 리포트를 받는다(2026-10-07).
+  //   null 은 '자료 없음'이 아니라 위 .catch(() => null) 의 예외다(두 함수는 자료가 없어도 객체를 돌려준다).
+  const partial = !g.ok || peersRes == null || earn == null
+  if (!partial && peersRes.fxLive !== false) await setCache(cacheKey, report)
   return NextResponse.json(report, { headers: { 'Cache-Control': 'no-store' } })
 }
