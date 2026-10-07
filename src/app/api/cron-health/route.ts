@@ -25,6 +25,9 @@ export async function GET(req: Request) {
   let checks = await runHealthChecks()
   const healed: string[] = []
   const healFailed: string[] = []
+  // 자기 호출 주소가 운영 도메인이 아니면(NEXT_PUBLIC_APP_URL 미설정 + 크론 요청이 배포 고유 주소로 들어옴) 모든 자기 호출이
+  // Vercel 로그인 보호에 막힌다 — 그 사실을 보고에 남긴다(2026-10-07: 크론이 만든 유니버스의 정점 판정 0건)
+  const selfBaseProtected = /-[a-z0-9]{9}-[a-z0-9-]+\.vercel\.app$/i.test(new URL(base).host)
 
   if (isCron) {
     // 복구 대상: stale + heal 경로 보유.
@@ -52,10 +55,12 @@ export async function GET(req: Request) {
           headers: secret ? { authorization: `Bearer ${secret}` } : undefined,
           cache: 'no-store',
           signal: AbortSignal.timeout(Math.min(remain - 10_000, 180_000)),
+          redirect: 'manual',   // 보호된 배포 주소면 Vercel 로그인으로 302 → 따라가면 200 HTML 이라 '복구 성공'으로 오판했다(2026-10-07)
         })
-        // HTTP 200 이어도 산출물 저장을 건너뛰었으면(`cached: false` — 고정 환율·부분실패) 복구가 아니다
+        // HTTP 200 이어도 산출물 저장을 건너뛰었으면(`cached: false` — 고정 환율·부분실패) 복구가 아니다.
+        // JSON 이 아니면(로그인 페이지 등) 복구가 아니다 — 예전엔 j 가 null 이어도 `null?.cached !== false` 가 참이라 성공으로 셌다.
         const j = r.ok ? await r.json().catch(() => null) as { cached?: unknown } | null : null
-        if (r.ok && j?.cached !== false) healed.push(c.id)
+        if (r.ok && j != null && j.cached !== false) healed.push(c.id)
         else healFailed.push(c.id)
       } catch { healFailed.push(c.id) }
     }
@@ -81,6 +86,7 @@ export async function GET(req: Request) {
     staleCount,
     healed,
     healFailed,
+    selfBase: { host: new URL(base).host, protected: selfBaseProtected },
     checks: withHealed,
     purge,
   }
