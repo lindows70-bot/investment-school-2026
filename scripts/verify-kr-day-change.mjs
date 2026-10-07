@@ -62,24 +62,25 @@ check('전일 대비 없음 → null(이전 행으로 추정하지 않는다)', 
 check('종가 없음·0·빈 행 → null', M.krDayChangePct({ compareToPreviousClosePrice: '100' }) === null && M.krDayChangePct({ closePrice: '0', compareToPreviousClosePrice: '0' }) === null && M.krDayChangePct(null) === null)
 check('숫자 타입으로 와도 계산', M.krDayChangePct({ closePrice: 286500, compareToPreviousClosePrice: 10000 }) === 3.6)
 
-// ── 라이브: 네이버 trend 첫 행 → 우리 계산 vs 같은 날 basic 등락률(같은 날짜일 때만 비교) ──
+// ── 라이브: 네이버 trend 첫 행 → 우리 계산 vs 같은 날짜의 네이버 일별 시세(price) 등락률 ──
+//   예전엔 basic(실시간 · 오늘 날짜)과 비교해, trend 가 아직 전날 행인 시간대(08:00 NXT 개장 ~ 저녁 trend 갱신 전)엔 비교 0종으로 거짓 빨강이었다
+//   (2026-10-07 08:25 따라잡기 실행). price 는 날짜별 행이라 trend 의 날짜를 그대로 찾는다.
 const H = { 'User-Agent': 'Mozilla/5.0', Referer: 'https://m.stock.naver.com/' }
 const LIVE = ['005930', '000660', '005380', '373220', '066970']
 const getJson = async url => { try { const r = await fetch(url, { headers: H, signal: AbortSignal.timeout(10_000) }); return r.ok ? await r.json() : null } catch { return null } }
 let compared = 0
 const bad = []
 for (const code of LIVE) {
-  const [rows, basic] = await Promise.all([getJson(`https://m.stock.naver.com/api/stock/${code}/trend?pageSize=1`), getJson(`https://m.stock.naver.com/api/stock/${code}/basic`)])
+  const [rows, prices] = await Promise.all([getJson(`https://m.stock.naver.com/api/stock/${code}/trend?pageSize=1`), getJson(`https://m.stock.naver.com/api/stock/${code}/price?pageSize=5&page=1`)])
   const r0 = Array.isArray(rows) ? rows[0] : null
   const ours = M.krDayChangePct(r0)
-  const theirs = basic ? Number(basic.fluctuationsRatio) : NaN
-  // basic 은 장중 실시간 · trend 는 확정 일별 — 날짜가 같을 때만 비교한다(장중엔 trend 가 전날 행일 수 있다)
-  const sameDay = r0?.bizdate && typeof basic?.localTradedAt === 'string' && basic.localTradedAt.slice(0, 10).replace(/-/g, '') === r0.bizdate
-  if (ours == null || !Number.isFinite(theirs) || !sameDay) continue
+  const p = Array.isArray(prices) && r0?.bizdate ? prices.find(x => typeof x?.localTradedAt === 'string' && x.localTradedAt.replace(/-/g, '') === r0.bizdate) : null
+  const theirs = p ? Number(p.fluctuationsRatio) : NaN
+  if (ours == null || !Number.isFinite(theirs)) continue
   compared++
-  if (Math.abs(ours - theirs) > 0.051) bad.push(`${code} 우리 ${ours} vs 네이버 ${theirs}`)
+  if (Math.abs(ours - theirs) > 0.051) bad.push(`${code} ${r0.bizdate} 우리 ${ours} vs 네이버 ${theirs}`)
 }
-check(`라이브: 네이버 등락률과 0.05%p 안(비교 ${compared}/${LIVE.length}종 — 장중이라 날짜가 다른 종목은 건너뜀)`, compared > 0 && bad.length === 0, bad.join(' · ') || (compared === 0 ? '비교한 종목 0 — 원천 필드가 바뀌었을 수 있다' : ''))
+check(`라이브: 같은 날짜 네이버 일별 등락률과 0.05%p 안(비교 ${compared}/${LIVE.length}종)`, compared >= 4 && bad.length === 0, bad.join(' · ') || (compared < 4 ? `비교한 종목 ${compared} — 원천 필드가 바뀌었을 수 있다` : ''))
 
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 전부 통과 (국내 당일 등락률)')
 process.exitCode = fail ? 1 : 0   // process.exit 는 fetch 핸들이 닫히는 중에 Windows libuv 단언 실패(종료 코드 127)를 냈다
