@@ -98,6 +98,7 @@ Next.js 14 (App Router) + Supabase + Tailwind CSS + TypeScript 로 구축한
 - **"배포 성공" ≠ "내 코드가 배포됨"** — `vercel --prod`는 git이 아니라 작업 디렉토리를 올린다. 커밋이 조용히 실패했을 수 있으니 **배포 후 `git log --oneline -1` 확인**.
 - **`git add -A` 금지** — 병렬 세션 산출물까지 쓸어담는다. 파일을 명시할 것.
 - **🔒 `.vercelignore` 에 `.env*` 가 없으면 `.env.local` 이 배포 번들에 통째로 실린다**(2026-08-09 실사고). `vercel --prod` 는 git 이 아니라 **작업 디렉토리**를 올리므로 `.gitignore` 는 아무 소용이 없다. 오늘 만든 키를 Vercel 에 등록한 적이 없는데 프로덕션이 그 값을 읽어서 발각됐다 — 그 안에 **KRX_ID·KRX_PW·TOSS_\*** 가 있었다(절대 원칙 위반). 프로덕션에 필요한 키는 **`vercel env add` 로 정식 등록**하고, 파일로 몰래 넘기지 마라. 검증법: 로컬에만 있는 env 를 읽는 플래그를 응답에 노출해 두면 업로드 여부가 바로 드러난다.
+- **⛔ 크론 요청은 로그인 보호가 걸린 '배포 고유 주소'로 들어온다 — 자기 호출은 `NEXT_PUBLIC_APP_URL` 로만**(2026-10-07 · 6월 401·7월 옛 배포에 이은 세 번째). `new URL(req.url).origin` 은 크론에선 `…-xxxxxxxxx-lindows70-bots-projects.vercel.app` 이라 Vercel 로그인으로 302 → **따라가면 200 HTML** 이다. 프로덕션에 `NEXT_PUBLIC_APP_URL` 이 등록돼 있지 않아 두 달간 **핵심 추천 적립 0건**(8/9 이후) · 크론이 만든 유니버스의 **정점 판정 0건** · 위성·학교 인덱스·스윙 정지였고, 크론 상태판은 로그인 페이지를 '복구 성공'으로 셌다(`null?.cached !== false`). → 자기 호출 base 는 `process.env.NEXT_PUBLIC_APP_URL || origin`(지금 등록됨 · **Vercel 에서 지우지 마라**), 자기 호출 응답은 **JSON 인지 확인**하고 `redirect: 'manual'`. 상태판 응답의 `selfBase.protected` 가 참이면 이 사고다.
 - **vercel CLI 버전 고정** — `npx vercel@54.20.1 --prod --yes`(신규 릴리스 전파 지연으로 `notarget` 발생 이력).
 
 ### 캐시 (34건 기록 — 최다 재발)
