@@ -122,7 +122,7 @@ function trendFromCloses(c: number[]): WLTrend {
 }
 
 export async function GET(req: Request) {
-  const origin = new URL(req.url).origin
+  const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin   // 크론 요청은 로그인 보호가 걸린 배포 고유 주소로 들어와 자기 호출이 막힌다(2026-10-07)
   const cacheKey = WIN_LOSE_KEY(kstDate())   // v8: 🏃 12-1 모멘텀·⚖️ 변동성 조정 모멘텀 요인 + ⚠️ 모멘텀 크래시 국면 판정(추가 fetch 0)
   const cached = await getCache<WLApi>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })

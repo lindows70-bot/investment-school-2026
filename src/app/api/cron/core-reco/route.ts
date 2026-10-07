@@ -27,7 +27,7 @@ interface LiteItem {
 export async function GET(req: Request) {
   const denied = cronUnauthorized(req); if (denied) return denied   // 크론 전용(2026-10-05 전엔 검사가 없어 누구나 실행)
   const today = kstDate()
-  const origin = new URL(req.url).origin
+  const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin   // 크론 요청은 로그인 보호가 걸린 배포 고유 주소로 들어와 위원회 호출이 Vercel 로그인 페이지로 막혔다(2026-10-07)
 
   // 크론 헬스 아티팩트 — 적립 0건인 날도 '실행됨'은 남긴다(조용한 실패와 조용한 무신호를 구분)
   const runMark = (extra: Record<string, unknown>) =>
