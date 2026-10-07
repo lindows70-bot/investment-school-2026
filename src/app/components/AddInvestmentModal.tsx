@@ -355,8 +355,11 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
           setSaving(false)
           return
         }
+        // 예전엔 콘솔에만 남기고 창을 닫아 학생은 추가된 줄 알았다(2026-10-07) — 창을 열어 둔 채 이유를 보여준다
         console.error('[Modal] insert 실패:', error.message)
-        await onRefresh()
+        setError(`종목을 저장하지 못했어요: ${error.message}`)
+        setSaving(false)
+        return
       } else if (created) {
         // 신규 종목 최초 매수 → 거래 내역 자동 기록
         // 신규 종목 최초 매수 거래 기록 (실패해도 종목 추가는 성공 처리)

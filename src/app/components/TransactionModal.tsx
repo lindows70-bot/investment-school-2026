@@ -280,6 +280,9 @@ export default function TransactionModal({
     }
 
     setLoading(true)
+    // ⚠️ 두 단계(거래 기록 → 보유 수정)의 결과를 확인한다 — supabase 는 실패를 예외가 아니라 { error } 로 돌려준다.
+    //    예전엔 확인하지 않아 거래 기록이 실패해도 보유 수량만 바뀔 수 있었다(매도 기록이 빠지면 확정 손익·리그 수익률이 틀어진다 · 2026-10-07).
+    let txSaved = false
     try {
       const sb = createClient()
       const { data: { session } } = await sb.auth.getSession()
@@ -291,7 +294,7 @@ export default function TransactionModal({
         const { execPrice, newQty, newAvg, totalAmt } = buyCalc
 
         // 1) 거래 내역 기록 — 역산된 실제 체결가 저장
-        await sb.from('transactions').insert({
+        const { error: txErr } = await sb.from('transactions').insert({
           user_id:          uid,
           investment_id:    investment.id,
           ticker:           investment.ticker,
@@ -308,9 +311,11 @@ export default function TransactionModal({
           // ★ 📸 자동 스냅샷 — 매수 시점의 다신호(펀더멘탈+수급+계절+FOMC) 블랙박스 보존
           snapshot_data: buildSnapshotData(execPrice),
         })
+        if (txErr) throw txErr
+        txSaved = true
 
         // 2) 보유 종목 업데이트 — 새 수량 + 새 평단가 + 자산 포지션
-        await sb
+        const { error: invErr } = await sb
           .from('investments')
           .update({
             quantity:       newQty,
@@ -318,13 +323,14 @@ export default function TransactionModal({
             asset_role:     assetRole,  // ★ 포지션 변경 반영
           })
           .eq('id', investment.id)
+        if (invErr) throw invErr
 
       } else if (mode === 'sell' && sellCalc) {
         // ── 매도: 실제 체결가로 기록, 잔여수량 업데이트 ──────────────────────
         const { pnl, remaining, totalAmt, isFullSell } = sellCalc
 
         // 1) 거래 내역 기록
-        await sb.from('transactions').insert({
+        const { error: txErr } = await sb.from('transactions').insert({
           user_id:          uid,
           investment_id:    investment.id,
           ticker:           investment.ticker,
@@ -343,18 +349,19 @@ export default function TransactionModal({
           // ★ 📸 자동 스냅샷 — 매도 시점의 다신호 블랙박스 보존
           snapshot_data: buildSnapshotData(priceNum),
         })
+        if (txErr) throw txErr
+        txSaved = true
 
         // 2) 보유 종목 업데이트
-        if (isFullSell) {
+        const { error: invErr } = isFullSell
           // 전량 매도 → 보유 종목 삭제
-          await sb.from('investments').delete().eq('id', investment.id)
-        } else {
+          ? await sb.from('investments').delete().eq('id', investment.id)
           // 일부 매도 → 잔여 수량만 업데이트 (평단가는 국내주식 기준 불변)
-          await sb
+          : await sb
             .from('investments')
             .update({ quantity: remaining })
             .eq('id', investment.id)
-        }
+        if (invErr) throw invErr
       }
 
       // ★ 서버 캐시 무효화 — 리밸런싱·상관행렬 등 user 조립 캐시 즉시 갱신
@@ -375,7 +382,10 @@ export default function TransactionModal({
       onSuccess()
       onClose()
     } catch (e) {
-      setError('거래 처리 중 오류가 발생했습니다')
+      // 거래는 기록됐는데 보유 수정만 실패했으면 다시 누르면 같은 거래가 두 번 기록된다 — 그 사실을 말한다
+      setError(txSaved
+        ? '거래는 기록됐지만 보유 수량을 고치지 못했어요 — 다시 누르지 말고 새로고침한 뒤 투자 기록에서 확인해 주세요'
+        : '거래를 기록하지 못했어요 — 보유 종목은 그대로예요. 잠시 후 다시 시도해 주세요')
       console.error('[TransactionModal]', e)
     } finally {
       setLoading(false)
