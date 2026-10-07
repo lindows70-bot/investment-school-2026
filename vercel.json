@@ -157,6 +157,10 @@
       "schedule": "0 21 * * 1"
     },
     {
+      "path": "/api/sector-rotation",
+      "schedule": "0 22 * * *"
+    },
+    {
       "path": "/api/cron/timing-watch",
       "schedule": "30 23 * * *"
     },
