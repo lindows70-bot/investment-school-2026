@@ -213,10 +213,12 @@ export async function GET(req: Request) {
       : []
 
     if (uniqueTickers.length > 0) {
-      try {
-        const BATCH = 30
-        for (let i = 0; i < uniqueTickers.length; i += BATCH) {
-          const slice = uniqueTickers.slice(i, i + BATCH)
+      const BATCH = 30
+      for (let i = 0; i < uniqueTickers.length; i += BATCH) {
+        const slice = uniqueTickers.slice(i, i + BATCH)
+        // 배치마다 따로 잡는다 — 한 배치가 타임아웃 나도 나머지 배치는 계속 받는다
+        // (예전엔 try 하나가 루프 전체를 감싸 첫 배치 실패 시 뒤 배치를 통째로 건너뛰었다)
+        try {
           const res = await fetch(`${selfBase}/api/stock-price`, {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -229,9 +231,9 @@ export async function GET(req: Request) {
               if (d.currentPrice > 0) priceMap[d.ticker.toUpperCase()] = d.currentPrice
             }
           }
+        } catch {
+          // 이 배치 가격 조회 실패 → 해당 종목은 pricedAll=false 로 드러난다
         }
-      } catch {
-        // 가격 조회 실패 → 수익률 null 처리로 graceful degradation
       }
     }
 
