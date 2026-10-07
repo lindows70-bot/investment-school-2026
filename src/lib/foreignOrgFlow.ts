@@ -22,6 +22,8 @@ export interface FlowRow {
   etf: boolean              // 원천 type === 'EF'
   type: string | null       // 원천 type 원값(ST·EF 등)
   estimated: boolean        // 원천 estimated(장중 잠정치)
+  /** 원천 금액이 0(잠정 구간)이라 금액을 수량 × 현재가로 셌다 — 화면이 그 사실을 밝힌다 */
+  amountFromQty: boolean
   /** 수량×가격 재계산 대비 금액 비율(1 에 가까워야 원 단위가 맞다) — 단위 검증용 */
   unitRatio: number | null
   /** 주식(type ST)의 그날 등락이 ±30%(KRX 가격제한폭) 밖 — 상장 첫날·정리매매 등. 순위에서 빼지 않고 표시만(특징종목과 같은 규칙).
@@ -39,14 +41,21 @@ function parseRow(x: Record<string, unknown>): FlowRow | null {
   const daily = num(x.dailyTradeVolume)
   const chg = num(x.prevChangeRate)
   const recompute = price != null ? qty * price : null
+  // 잠정 구간(2026-10-07 실측 16:57 · estimated:true)엔 원천이 금액을 "0" 으로 주고 수량만 준다 — 그대로 쓰면 상위 5가 전부 '0억'.
+  //   금액은 수량 × 현재가로 센다(개인 목록과 같은 방식 · 확정치에서 원천 금액과 ±5% 안). 이때 dailyTradeVolume 은 순매수 수량을
+  //   되풀이해(삼성 2,512,278 = 순매수 수량 · 실제 총 거래량 16,001,295) 거래량 비중을 낼 수 없다.
+  const amountFromQty = amt === 0 && qty !== 0
+  if (amountFromQty && recompute == null) return null
+  const amount = amountFromQty ? recompute! : amt
   return {
     code, name: typeof x.itemname === 'string' ? x.itemname : code,
-    netEok: Math.round(amt / 1e8), netQty: qty, price,
+    netEok: Math.round(amount / 1e8), netQty: qty, price,
     changePct: chg,
-    volShare: daily && daily > 0 ? Math.round(Math.abs(qty) / daily * 1000) / 10 : null,
+    volShare: !amountFromQty && daily && daily > 0 ? Math.round(Math.abs(qty) / daily * 1000) / 10 : null,
     etf: x.type === 'EF', type: typeof x.type === 'string' ? x.type : null,
     estimated: x.estimated === true,
-    unitRatio: recompute && recompute !== 0 ? amt / recompute : null,
+    amountFromQty,
+    unitRatio: !amountFromQty && recompute && recompute !== 0 ? amt / recompute : null,
     priceLimitBreak: x.type === 'ST' && isLimitBreak(chg),
   }
 }
@@ -168,7 +177,7 @@ export function buildIndividualRank(mf: MarketFlowKrResult, mk: KrMarket, size =
       const amt = e.individual!.d1
       return {
         code: e.ticker, name: e.name, netEok: Math.round(amt / 1e8), netQty: Math.round(amt / e.close), price: e.close,
-        changePct: e.changePct, volShare: null, etf: false, type: 'ST', estimated: false, unitRatio: null,
+        changePct: e.changePct, volShare: null, etf: false, type: 'ST', estimated: false, amountFromQty: false, unitRatio: null,
         priceLimitBreak: isLimitBreak(e.changePct),
       }
     })

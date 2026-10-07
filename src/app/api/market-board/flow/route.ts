@@ -13,7 +13,7 @@ import { getCache } from '@/lib/appCache'
 import { okPart, failPart, krSessionTtlMs } from '@/lib/marketBoardShared'
 import { boardCached } from '@/lib/marketBoardCache'
 
-const KEY = 'market-board-flow-v4'   // 🗓️ 날짜 없는 키 — 장중 10분(잠정치)·그 밖 60분 · v3: together false(함께 아님)·역행 양방향·ETF 는 가격제한 표시 제외 · v4: 개인(주요 종목 캐시)·individualStreak
+const KEY = 'market-board-flow-v5'   // 🗓️ 날짜 없는 키 — 장중 10분(잠정치)·그 밖 60분 · v5: 잠정 구간 금액 0 → 수량×현재가(amountFromQty) · v3: together false(함께 아님)·역행 양방향·ETF 는 가격제한 표시 제외 · v4: 개인(주요 종목 캐시)·individualStreak
 const MARKETS: KrMarket[] = ['KOSPI', 'KOSDAQ']
 const INVESTORS: Investor[] = ['FOREIGNER', 'ORGANIZATION']
 const TOP = 5

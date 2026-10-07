@@ -83,8 +83,15 @@ check('업종(m.stock industry)', ind.ok && ind.data.items.length > 20, why(ind)
 check('주요 뉴스(front-api)', news.ok && news.data.length >= 5 && news.data.every(n => n.title && n.url), why(news))
 check('주체별 순매매(trendForeignOrg)', rankF.ok && rankF.data.buy.length > 0 && rankF.data.sell.length > 0, why(rankF))
 // 단위 규약 감시 — 원천이 금액 단위를 바꾸면(원 → 천원·백만원) 수량×가격 재계산 비율이 1 에서 크게 벗어난다
-const ratios = rankF.ok ? [...rankF.data.buy, ...rankF.data.sell].filter(r => !r.priceLimitBreak && r.unitRatio != null).map(r => r.unitRatio) : []
-check(`순매매 금액 단위 = 원(수량×가격 비율 ${ratios.length ? `${Math.min(...ratios).toFixed(3)}~${Math.max(...ratios).toFixed(3)}` : '없음'})`, ratios.length >= 5 && ratios.every(x => x > 0.8 && x < 1.25))
+const rankRows = rankF.ok ? [...rankF.data.buy, ...rankF.data.sell] : []
+const ratios = rankRows.filter(r => !r.priceLimitBreak && r.unitRatio != null).map(r => r.unitRatio)
+// 잠정 구간(원천 금액 "0")이면 단위를 잴 금액이 없다 — 대신 수량×현재가로 센 금액이 0 이 아닌지 본다(2026-10-07: 상위 5가 전부 '0억'이던 사고)
+const qtyRows = rankRows.filter(r => r.amountFromQty)
+if (rankRows.length && qtyRows.length === rankRows.length) {
+  check(`순매매 잠정 구간 — 금액을 수량×현재가로 셈(${qtyRows.length}행 · 0억 아닌 행 ${qtyRows.filter(r => r.netEok !== 0).length})`, qtyRows.filter(r => r.netEok !== 0).length >= 5)
+} else {
+  check(`순매매 금액 단위 = 원(수량×가격 비율 ${ratios.length ? `${Math.min(...ratios).toFixed(3)}~${Math.max(...ratios).toFixed(3)}` : '없음'})`, ratios.length >= 5 && ratios.every(x => x > 0.8 && x < 1.25))
+}
 check('종목별 추이(m.stock trend)', Array.isArray(trend) && trend.length > 0 && trend[0].foreign != null, trend ? '' : '실패')
 check('미국 특징종목(stock.naver.com global) — 거른 뒤에도 남음', usMv.ok && usMv.data.items.length > 0 && usMv.data.items.every(i => i.marketCapUsd >= US.US_MIN_CAP_USD), why(usMv))
 check(`SPY 5분봉(야후) · 기준 시각 ${US_STALE}일 이내`, spy.ok && spy.data.points.length > 0 && spy.asOf && ageDays(spy.asOf) < US_STALE, why(spy))

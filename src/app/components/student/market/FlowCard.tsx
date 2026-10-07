@@ -58,6 +58,7 @@ export default function FlowCard() {
   const okView = shownMarkets.map(m => views[m]).find((v): v is Extract<SideView, { kind: 'ok' }> => v.kind === 'ok')
   const bizdate = okView?.data.bizdate ?? null
   const estimated = merged.rows.some(r => r.estimated)
+  const fromQty = merged.rows.some(r => r.amountFromQty)   // 잠정 구간엔 네이버가 금액을 0 으로 줘서 수량 × 현재가로 셌다
   const trendsFailed = flow.state === 'ok' && flow.data?.trends?.ok === false
   const scope = flowScopeText(shownMarkets, merged.missing)   // 한 시장을 못 가져왔으면 실제로 본 범위만
 
@@ -107,6 +108,7 @@ export default function FlowCard() {
           </span>
           {who === 'INDIVIDUAL' && <span style={noteStyle(TK.slate300)}>개인 순위는 네이버가 주지 않아 앱이 지켜보는 주요 종목{indivScope != null ? ` ${indivScope}개` : ''} 안에서 뽑았어요 — 시장 전체 순위는 아니에요.</span>}
           {estimated && <span style={noteStyle()}>장 중 잠정 숫자예요 — 장이 끝난 뒤 바뀔 수 있어요.</span>}
+          {fromQty && <span style={noteStyle()}>지금은 네이버가 금액을 아직 주지 않아, 순매수 수량 × 현재가로 셌어요(네이버가 수량 순으로 준 10개 안에서 금액 순).</span>}
           {trendsFailed && <span style={noteStyle(TK.amber400)}>몇몇 종목은 며칠째·함께 여부를 못 셌어요(그 배지만 빠졌어요).</span>}
           {my.state === 'failed' && <span style={noteStyle(TK.amber400)}>내 종목 표시를 못 불러왔어요(목록은 그대로예요).</span>}
         </>
