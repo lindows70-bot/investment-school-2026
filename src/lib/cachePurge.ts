@@ -97,6 +97,7 @@ export const PURGE_RULES: PurgeRule[] = [
   DAILY('etf-snap-run-v1', 'cronHealth 마커'),
   DAILY('insider-scan-run-v1', 'cronHealth 마커'),
   DAILY('ghost-warm-run-v1', 'cronHealth 마커'),
+  DAILY('unified-warm-run-v1', 'cronHealth 마커'),
 
   PER_USER('portfolio-xray-v5', '12h'),
   PER_USER('cash-position-v1', '3h'),

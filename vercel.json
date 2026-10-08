@@ -165,6 +165,10 @@
       "schedule": "5 15 * * *"
     },
     {
+      "path": "/api/cron/unified-warm",
+      "schedule": "20 22 * * *"
+    },
+    {
       "path": "/api/cron/timing-watch",
       "schedule": "30 23 * * *"
     },
