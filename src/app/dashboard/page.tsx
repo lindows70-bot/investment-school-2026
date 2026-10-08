@@ -3567,12 +3567,21 @@ export default function DashboardPage() {
 
       {/* ── AI 멘토 족집게 탭 ── */}
       <div id="tab-mentor" style={{ display: dashTab==='mentor' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
-        {seen('mentor') && (<>
+        {/* 종목 정보(stock-info)가 오기 전엔 그리지 않는다 — 예전엔 per=0 을 넘겨 로딩 중 전 종목이 '적자 기업'으로 찍혔다(2026-10-09).
+            정보를 못 받은 종목은 빼고 그 수를 적는다(0 으로 넘기면 같은 거짓 판정) */}
+        {seen('mentor') && (dividendLoading || (investments.length > 0 && Object.keys(dividendMap).length === 0 && !dividendFailed)) && (
+          <div style={{ padding: 16, color: TK.sub, fontSize: FS.tiny }}>종목 정보를 불러오는 중…</div>
+        )}
+        {seen('mentor') && !(dividendLoading || (investments.length > 0 && Object.keys(dividendMap).length === 0 && !dividendFailed)) && (<>
+        {investments.some(inv => dividendMap[inv.ticker.toUpperCase()] == null) && (
+          <div style={{ padding: '0 4px', color: TK.sub, fontSize: FS.tiny }}>
+            종목 정보를 못 받은 {investments.filter(inv => dividendMap[inv.ticker.toUpperCase()] == null).length}종은 진단에서 뺐어요(PER 0 으로 두면 적자로 잘못 읽힌다)
+          </div>
+        )}
         <AIPortfolioDashboard
-          portfolioStocks={investments.map(inv => {
+          portfolioStocks={investments.filter(inv => dividendMap[inv.ticker.toUpperCase()] != null).map(inv => {
             const key = inv.ticker.toUpperCase()
             // ★ PEG/PER/성장률은 stock-info(SSOT)만 사용 — 전 화면 PEG 일치(Yahoo 폴백 제거).
-            //   stock-info 로드 전엔 0(로딩)으로 두고, Yahoo값을 임시로 띄우지 않음.
             const dMap = dividendMap[key]
             const siPe  = dMap?.pe  ?? null   // stock-info PER
             const siPeg = dMap?.peg ?? null   // stock-info PEG
