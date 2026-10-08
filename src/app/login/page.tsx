@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { TK, FONT_STACK } from '@/lib/theme'
+import { markTempPasswordLogin } from '@/app/components/ChangePasswordBanner'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Tab = 'login' | 'signup'
@@ -411,6 +412,10 @@ function LoginContent() {
       )
       return
     }
+
+    // 임시 비밀번호('투자학교' + 숫자 4~8자리 — 관리자 발급 형식)로 들어왔으면 변경 안내 배너 플래그를 남긴다.
+    //   2026-10-09: 이 호출이 어디에도 없어 배너가 한 번도 뜨지 않았다. 리다이렉트 전에 동기로 남겨야 다음 화면이 읽는다
+    if (/^투자학교\d{4,8}$/.test(password)) markTempPasswordLogin()
 
     // 세션이 즉시 반환된 경우 바로 리다이렉트
     // (onAuthStateChange 리스너가 SIGNED_IN 이벤트로도 동작하므로 어느 쪽이든 리다이렉트)

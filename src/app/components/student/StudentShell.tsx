@@ -6,6 +6,7 @@ import { TK, FS, RAD, SP, FONT_STACK } from '@/lib/theme'
 import LogoutButton from '@/app/components/student/LogoutButton'
 import { setViewMode } from '@/lib/viewMode'
 import { BrandMark, DcfSignature } from '@/app/components/Brand'
+import ChangePasswordBanner from '@/app/components/ChangePasswordBanner'   // 임시 비밀번호 변경 안내 — 학생은 /s 로 착지하므로 여기서도 보여야 한다(2026-10-09)
 
 const TABS = [
   { href: '/s', label: '홈', icon: 'M3 10.5 12 3l9 7.5M5 9.5V20h14V9.5' },
@@ -54,6 +55,7 @@ export default function StudentShell({ children }: { children: React.ReactNode }
       <main className="st-main" style={{ flexGrow: 1, minWidth: 0, maxWidth: 1080, margin: '0 auto', padding: SP.lg, boxSizing: 'border-box' }}>
         {/* 폰·태블릿 — 왼쪽 메뉴가 없으니 맨 위 브랜드 한 줄, 맨 아래 철학 서명(PC 는 왼쪽 메뉴가 들고 있어 숨긴다) */}
         <Link href="/s" className="st-top" aria-label="홈" style={{ display: 'block', paddingBottom: SP.lg, textDecoration: 'none', minHeight: 0 }}><BrandMark compact /></Link>
+        <div style={{ marginBottom: SP.lg }}><ChangePasswordBanner /></div>
         {children}
         <div className="st-foot" style={{ maxWidth: 260, margin: `${SP.xl}px auto 0`, paddingTop: SP.lg, borderTop: '1px solid rgba(212,175,55,0.18)' }}><DcfSignature /></div>
       </main>
