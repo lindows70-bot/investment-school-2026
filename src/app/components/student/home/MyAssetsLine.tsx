@@ -19,10 +19,12 @@ export default function MyAssetsLine() {
     )
   }
   if (summary.rows.length === 0) {
+    // 온보딩 카드(2026-10-09) — 보유 0 학생이 홈에서 처음 보는 '할 일' 하나. 왜 적는지(리그·소식)와 걸리는 시간을 함께 말한다
     return (
-      <div style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.sm, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: FS.body, color: TK.slate100 }}>아직 기록한 종목이 없어요</span>
-        <Link href="/s/record" style={{ display: 'flex', alignItems: 'center', height: 44, padding: `0 ${SP.lg}px`, borderRadius: RAD.sm, background: TK.blue600, color: TK.slate100, fontSize: FS.body, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>첫 종목 기록하기</Link>
+      <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm, borderColor: TK.blue600 }}>
+        <span style={{ fontSize: FS.lg, fontWeight: 800, color: TK.slate100, wordBreak: 'keep-all' }}>종목 하나만 적어도 리그에 들어와요</span>
+        <span style={{ ...noteStyle(), wordBreak: 'keep-all' }}>증권사에서 이미 산 종목을 적는 데 2분이면 돼요. 금액은 친구에게 보이지 않고, 적어 두면 내 종목 소식·실적 일정이 홈에 떠요.</span>
+        <Link href="/s/record" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 48, borderRadius: RAD.sm, background: TK.blue600, color: TK.slate100, fontSize: FS.body, fontWeight: 700, textDecoration: 'none' }}>첫 종목 기록하기</Link>
       </div>
     )
   }
