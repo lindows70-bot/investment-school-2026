@@ -39,9 +39,10 @@ export default function StudentShell({ children }: { children: React.ReactNode }
         <Link href="/s" aria-label="홈" style={{ display: 'block', padding: `0 ${SP.sm}px ${SP.xl}px`, textDecoration: 'none', minHeight: 0 }}><BrandMark /></Link>
         {TABS.map(t => {
           const on = isActive(pathname, t.href)
+          // 리디자인(2026-10-10 · docs/student-design): 선택 = 면만 밝게(TK.bg7) + 틴트 아이콘 — 테두리 상자 없음
           return (
-            <Link key={t.href} href={t.href} aria-current={on ? 'page' : undefined} style={{ display: 'flex', alignItems: 'center', gap: SP.sm, height: 44, padding: `0 ${SP.md}px`, borderRadius: RAD.sm, background: on ? TK.card : 'transparent', color: on ? TK.slate100 : TK.slate300, fontSize: FS.body, fontWeight: on ? 700 : 500, textDecoration: 'none' }}>
-              <Icon d={t.icon} size={20} />{t.label}
+            <Link key={t.href} href={t.href} aria-current={on ? 'page' : undefined} style={{ display: 'flex', alignItems: 'center', gap: SP.sm, height: 44, padding: `0 ${SP.md}px`, borderRadius: RAD.md, background: on ? TK.bg7 : 'transparent', color: on ? TK.slate100 : TK.slate300, fontSize: FS.body, fontWeight: on ? 700 : 500, textDecoration: 'none' }}>
+              <span style={{ display: 'flex', color: on ? TK.blue400 : 'inherit' }}><Icon d={t.icon} size={20} /></span>{t.label}
             </Link>
           )
         })}
@@ -49,7 +50,7 @@ export default function StudentShell({ children }: { children: React.ReactNode }
         {/* 철학 서명 — 분석 화면 왼쪽 메뉴 발치와 같은 자리 */}
         <div style={{ padding: `${SP.md}px ${SP.sm}px`, borderTop: '1px solid rgba(212,175,55,0.18)' }}><DcfSignature /></div>
         {/* 분석 화면으로 가면 그 선택을 쿠키에 남긴다 — 다음 로그인·앱 아이콘(/start)도 분석 화면으로 연다(홈 인사 줄 링크와 같은 규칙) */}
-        <Link href="/dashboard" onClick={() => setViewMode('full')} style={{ display: 'flex', alignItems: 'center', height: 44, padding: `0 ${SP.md}px`, borderRadius: RAD.sm, border: `1px solid ${TK.border}`, color: TK.sub, fontSize: FS.tiny, textDecoration: 'none' }}>분석 화면 전체 보기</Link>
+        <Link href="/dashboard" onClick={() => setViewMode('full')} style={{ display: 'flex', alignItems: 'center', height: 44, padding: `0 ${SP.md}px`, borderRadius: RAD.md, background: TK.card, border: `1px solid ${TK.border}`, color: TK.sub, fontSize: FS.tiny, fontWeight: 600, textDecoration: 'none' }}>분석 화면 전체 보기</Link>
         <LogoutButton style={{ display: 'flex', alignItems: 'center', height: 44, padding: `0 ${SP.md}px`, borderRadius: RAD.sm, border: 'none', background: 'transparent', color: TK.sub, fontSize: FS.tiny, textAlign: 'left' }} />
       </nav>
       <main className="st-main" style={{ flexGrow: 1, minWidth: 0, maxWidth: 1080, margin: '0 auto', padding: SP.lg, boxSizing: 'border-box' }}>
@@ -62,8 +63,9 @@ export default function StudentShell({ children }: { children: React.ReactNode }
       <nav className="st-tabs" aria-label="학생 메뉴" style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 100, display: 'grid', gridTemplateColumns: `repeat(${TABS.length}, minmax(0, 1fr))`, height: 'calc(72px + env(safe-area-inset-bottom, 0px))', paddingBottom: 'env(safe-area-inset-bottom, 0px)', background: TK.bg0, borderTop: `1px solid ${TK.border}` }}>
         {TABS.map(t => {
           const on = isActive(pathname, t.href)
+          // 리디자인(2026-10-10): 선택한 탭 = 틴트 파랑(아이콘·글자) — 애플 탭바 문법. 나머지는 흐린 글자
           return (
-            <Link key={t.href} href={t.href} aria-current={on ? 'page' : undefined} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: SP.xs, minWidth: 0, fontSize: FS.tiny, fontWeight: on ? 700 : 500, color: on ? TK.slate100 : TK.sub, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+            <Link key={t.href} href={t.href} aria-current={on ? 'page' : undefined} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: SP.xs, minWidth: 0, fontSize: FS.tiny, fontWeight: on ? 700 : 500, color: on ? TK.blue400 : TK.sub, textDecoration: 'none', whiteSpace: 'nowrap' }}>
               <Icon d={t.icon} />{t.label}
             </Link>
           )

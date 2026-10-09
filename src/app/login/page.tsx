@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { TK, FONT_STACK } from '@/lib/theme'
+import { TK, FS, RAD, FONT_STACK } from '@/lib/theme'
 import { markTempPasswordLogin } from '@/app/components/ChangePasswordBanner'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -14,7 +14,7 @@ type Status = 'idle' | 'loading' | 'error' | 'success'
 const S = {
   page: {
     minHeight: '100vh',
-    background: '#0a0a0a',
+    background: TK.bg1,   // 리디자인(2026-10-10 · docs/student-design): 셸과 같은 남색 바탕(전엔 검정 #0a0a0a — 로그인만 다른 세계였다)
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -48,7 +48,7 @@ const S = {
     width: 52,
     height: 52,
     borderRadius: 16,
-    background: `linear-gradient(135deg, ${TK.blue600} 0%, #7c3aed 100%)`,
+    background: `linear-gradient(135deg, ${TK.blue600} 0%, ${TK.blue400} 100%)`,   // 보라(#7c3aed) 끝 → 틴트 한 색(리디자인 색 다섯 규칙)
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -56,48 +56,48 @@ const S = {
     boxShadow: '0 0 32px rgba(37,99,235,0.35)',
   },
   logoTitle: {
-    fontSize: 22,
-    fontWeight: 700,
+    fontSize: FS.h2,
+    fontWeight: 800,
     color: TK.slate100,
-    letterSpacing: '-0.5px',
+    letterSpacing: '-0.03em',
     margin: 0,
   },
   logoSub: {
-    fontSize: 13,
-    color: TK.sub2,
-    marginTop: 4,
+    fontSize: FS.tiny,
+    color: TK.sub,
+    marginTop: 6,
   },
 
-  // ── Card ──
+  // ── Card — 학생 화면 카드와 같은 면(TK.card · 헤어라인 · 라운드 16) ──
   card: {
-    background: '#1a1a1a',
-    border: `1px solid ${TK.flat1}`,
-    borderRadius: 16,
+    background: TK.card,
+    border: `1px solid ${TK.border}`,
+    borderRadius: RAD.lg,
     padding: '32px 28px',
     boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
   },
 
-  // ── Tab bar ──
+  // ── Tab bar — 학생 화면 Segment 와 같은 모양(선택 칸만 밝게) ──
   tabBar: {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
     gap: 4,
-    background: '#111',
-    borderRadius: 10,
+    background: TK.bg1,
+    borderRadius: RAD.md,
     padding: 4,
     marginBottom: 28,
   },
   tab: (active: boolean): React.CSSProperties => ({
-    padding: '8px 0',
-    borderRadius: 7,
+    padding: '10px 0',
+    borderRadius: RAD.sm,
     border: 'none',
     cursor: 'pointer',
-    fontSize: 14,
-    fontWeight: 500,
+    fontSize: FS.tiny,
+    fontWeight: active ? 700 : 600,
     transition: 'all 0.18s ease',
-    background: active ? '#1a1a1a' : 'transparent',
-    color: active ? TK.slate100 : TK.sub2,
-    boxShadow: active ? '0 1px 4px rgba(0,0,0,0.4)' : 'none',
+    background: active ? TK.bg7 : 'transparent',
+    color: active ? TK.slate100 : TK.sub,
+    boxShadow: 'none',
   }),
 
   // ── Form ──
@@ -123,12 +123,12 @@ const S = {
   },
   input: {
     width: '100%',
-    padding: '11px 12px 11px 36px',
-    background: '#111',
-    border: `1px solid ${TK.flat1}`,
-    borderRadius: 8,
+    padding: '12px 12px 12px 36px',
+    background: TK.bg1,   // 리디자인: 입력 칸도 셸 바탕색(전엔 #111 — 회색 계열이 카드와 따로 놀았다)
+    border: `1px solid ${TK.border}`,
+    borderRadius: RAD.sm,
     color: TK.slate100,
-    fontSize: 14,
+    fontSize: FS.body,
     outline: 'none',
     boxSizing: 'border-box' as const,
     transition: 'border-color 0.15s, box-shadow 0.15s',
