@@ -53,14 +53,18 @@ export default function StudentHome() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
-      {/* 폰이 기본, 769px↑ 만 덮어쓴다 — 기본값 + min-width 하나라 두 조건이 정확한 여집합이다 */}
+      {/* 폰이 기본, 769px↑ 만 덮어쓴다 — 기본값 + min-width 하나라 두 조건이 정확한 여집합이다
+          ⚠️ 지수 3열은 1024px↑ 에서만 — 769~1023px 은 왼쪽 메뉴가 남아 본문이 500px 대라 3열이면 칸이 150px 이 되고
+          시각 축 라벨(09:00·13:00…)이 서로 겹친다(2026-10-09 820px 실측). 3열 이상 전환은 lg 부터(CLAUDE.md 반응형 함정). */}
       <style>{`
         .sh-idx-grid { grid-template-columns: minmax(0, 1fr) }
         .sh-spark { height: 100px; min-width: 0 }
         .sh-two { display: grid; grid-template-columns: minmax(0, 1fr); gap: ${SP.lg}px; align-items: start }
         @media (min-width: 769px) {
-          .sh-idx-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) }
           .sh-two { grid-template-columns: repeat(2, minmax(0, 1fr)) }
+        }
+        @media (min-width: 1024px) {
+          .sh-idx-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) }
         }
       `}</style>
       <Greeting name={me === undefined ? undefined : me.name} />
