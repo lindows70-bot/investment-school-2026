@@ -258,7 +258,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
 
         // 거래 내역 자동 기록 (실패해도 종목 업데이트는 성공 처리)
         try {
-          await supabase.from('transactions').insert({
+          const { error: txInsErr } = await supabase.from('transactions').insert({
             user_id:          user.id,
             investment_id:    existing.id,
             ticker:           normalizedTicker,
@@ -274,7 +274,8 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
             transaction_date: purchaseDate,
             snapshot_data:    mkSnap(newPrice),
           })
-        } catch { /* ignore */ }
+          if (txInsErr) throw txInsErr   // supabase-js 는 throw 하지 않는다 — 안 보면 catch 가 영원히 안 돈다
+        } catch (e) { console.warn('[Modal] DCA 거래내역 기록 실패 (종목 업데이트는 성공):', e) }
 
         await bustServerCache(); await onRefresh(); setSaving(false); onClose(); return
       }
@@ -312,7 +313,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
         const absQty   = Math.abs(qtyDiff)
 
         try {
-          await supabase.from('transactions').insert({
+          const { error: txInsErr } = await supabase.from('transactions').insert({
             user_id:          user.id,
             investment_id:    initial!.id,
             ticker:           normalizedTicker,
@@ -333,6 +334,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
             transaction_date: purchaseDate,
             snapshot_data:    mkSnap(newPrice),
           })
+          if (txInsErr) throw txInsErr   // supabase-js 는 throw 하지 않는다 — 안 보면 catch 가 영원히 안 돈다
           console.log(`[Modal] 거래내역 자동 기록 완료: ${normalizedTicker} ${txType} ${absQty}주`)
         } catch (txErr) {
           // 거래내역 기록 실패해도 investments 수정은 성공 처리 (데이터 불일치 방지 로그만)
@@ -364,7 +366,7 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
         // 신규 종목 최초 매수 → 거래 내역 자동 기록
         // 신규 종목 최초 매수 거래 기록 (실패해도 종목 추가는 성공 처리)
         try {
-          await supabase.from('transactions').insert({
+          const { error: txInsErr } = await supabase.from('transactions').insert({
             user_id:          user.id,
             investment_id:    created.id,
             ticker:           normalizedTicker,
@@ -380,7 +382,8 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
             transaction_date: purchaseDate,
             snapshot_data:    mkSnap(parseFloat(purchasePrice)),
           })
-        } catch { /* ignore */ }
+          if (txInsErr) throw txInsErr   // supabase-js 는 throw 하지 않는다 — 안 보면 catch 가 영원히 안 돈다
+        } catch (e) { console.warn('[Modal] 최초 매수 거래내역 기록 실패 (종목 추가는 성공):', e) }
 
         // ── 피터 린치 자동분류 (백그라운드, ETF·CRYPTO 제외) ──
         if (market !== 'CRYPTO') {
@@ -416,7 +419,9 @@ export default function AddInvestmentModal({ initial, onClose, onRefresh, onAdde
     if (!confirmDel) { setConfirmDel(true); return }
     setDeleting(true)
     const supabase = createClient()
-    await supabase.from('investments').delete().eq('id', initial!.id)
+    // supabase-js 는 throw 하지 않는다 — error 를 안 보면 삭제가 안 됐는데 모달만 닫힌다
+    const { error: delErr } = await supabase.from('investments').delete().eq('id', initial!.id)
+    if (delErr) { setError(`삭제 실패: ${delErr.message}`); setDeleting(false); setConfirmDel(false); return }
     await bustServerCache(); await onRefresh(); setDeleting(false); onClose()
   }
 

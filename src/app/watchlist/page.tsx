@@ -132,7 +132,8 @@ export default function WatchlistPage() {
   const handleRemove = async (id: string, ticker: string) => {
     setRemoving(ticker)
     const sb = createClient()
-    await sb.from('watchlist').delete().eq('id', id)
+    const { error } = await sb.from('watchlist').delete().eq('id', id)   // supabase-js 는 throw 하지 않는다
+    if (error) { alert(`관심종목 삭제 실패: ${error.message}`); setRemoving(null); return }
     setItems(prev => prev.filter(i => i.id !== id))
     setRemoving(null)
   }

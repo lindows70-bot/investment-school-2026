@@ -60,22 +60,26 @@ export default function TransactionEditModal({ tx, onClose, onSaved }: {
     const list = (all ?? []) as RebuildTx[]
     const r = rebuildFromTransactions(list)
 
+    // supabase-js 는 throw 하지 않는다 — 보유 반영이 실패하면 거래는 바뀌었는데 보유가 옛 값인 채 '미리보기'가 성공처럼 보인다
     if (r.quantity > 0) {
       if (tx.investment_id) {
-        await sb.from('investments')
+        const { error } = await sb.from('investments')
           .update({ quantity: r.quantity, purchase_price: r.avgPrice })
           .eq('id', tx.investment_id)
+        if (error) throw new Error(`보유 수량 반영 실패: ${error.message}`)
       }
     } else if (tx.investment_id) {
       // 전량 매도 상태가 되면 보유에서 제거(기존 매도 로직과 같은 규약)
-      await sb.from('investments').delete().eq('id', tx.investment_id)
+      const { error } = await sb.from('investments').delete().eq('id', tx.investment_id)
+      if (error) throw new Error(`보유 종목 제거 실패: ${error.message}`)
     }
 
     // 매도별 실현손익 재계산 — 앞선 거래가 바뀌면 뒤 매도의 평단 기준도 달라진다
     for (const s of r.sells) {
-      await sb.from('transactions')
+      const { error } = await sb.from('transactions')
         .update({ realized_pnl: s.realizedPnl, avg_cost_basis: s.avgCostBasis })
         .eq('id', s.id)
+      if (error) throw new Error(`실현손익 재계산 반영 실패: ${error.message}`)
     }
     return r.problems
   }

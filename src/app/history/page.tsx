@@ -183,8 +183,10 @@ export default function HistoryPage() {
         })
         const dupIds = Object.values(autoByTicker).filter(v => v.length > 1).flatMap(v => v.slice(1).map(t => t.id))
         if (dupIds.length > 0) {
-          await sb.from('transactions').delete().in('id', dupIds)
-          console.warn(`[History] 중복 자동동기화 ${dupIds.length}건 제거(보유·매도 종목 전체)`)
+          // supabase-js 는 throw 하지 않는다 — 삭제가 실패했는데 메모리에서만 지우면 다음 재조회에서 다시 나타난다
+          const { error: dupErr } = await sb.from('transactions').delete().in('id', dupIds)
+          if (dupErr) console.warn('[History] 중복 자동동기화 제거 실패:', dupErr.message)
+          else console.warn(`[History] 중복 자동동기화 ${dupIds.length}건 제거(보유·매도 종목 전체)`)
           reconciled = true
           // 이후 로직이 옛 목록을 보지 않도록 메모리에서도 제거
           for (let i = txList.length - 1; i >= 0; i--) if (dupIds.includes(txList[i].id)) txList.splice(i, 1)
@@ -224,14 +226,16 @@ export default function HistoryPage() {
         // Step C: 틀린 자동동기화 레코드 삭제 후 올바른 가격으로 재삽입
         const wrongIds = existingAutoSync.map(t => t.id)
         if (wrongIds.length > 0) {
-          await sb.from('transactions').delete().in('id', wrongIds)
+          // 삭제가 실패하면 재삽입하지 않는다 — 안 그러면 틀린 레코드 옆에 맞는 레코드가 하나 더 생겨 수량이 두 배가 된다
+          const { error: wrongErr } = await sb.from('transactions').delete().in('id', wrongIds)
+          if (wrongErr) { console.warn(`[History] ${inv.ticker}: 잘못된 자동동기화 삭제 실패 — 재삽입 건너뜀:`, wrongErr.message); continue }
           console.log(`[History] ${inv.ticker}: 잘못된 자동동기화 ${wrongIds.length}건 삭제`)
         }
 
         console.log(`[History] ${inv.ticker}: 자동 복구 → ${diff}주 @ ₩${correctPrice.toLocaleString()} (역산: ₩${totalInvCost.toLocaleString()} - ₩${txCost.toLocaleString()} = ₩${missingCost.toLocaleString()})`)
 
         try {
-          await sb.from('transactions').insert({
+          const { error: insErr } = await sb.from('transactions').insert({
             user_id:          uid,
             investment_id:    inv.id,
             ticker:           inv.ticker,
@@ -246,6 +250,7 @@ export default function HistoryPage() {
             memo:             '자동 동기화 (편집으로 누락된 거래 복구)',
             transaction_date: today,
           })
+          if (insErr) throw insErr   // supabase-js 는 throw 하지 않는다 — 안 보면 아래 catch 가 영원히 안 돈다
           reconciled = true
         } catch (e) {
           console.warn('[History] 자동 복구 실패:', e)

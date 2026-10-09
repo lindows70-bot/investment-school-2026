@@ -516,7 +516,7 @@ function LoginContent() {
           <div style={S.logoWrap}>
             <div style={S.logoIcon}><TrendIcon /></div>
             <h1 style={S.logoTitle}>2026 투자학교</h1>
-            <p style={S.logoSub}>포트폴리오 관리 · 피터 린치 분류 · 수익률 분석</p>
+            <p style={S.logoSub}>내 종목 기록 · 친구들과 수익률 리그 · 투자 배우기</p>
           </div>
 
           {/* ── Card ── */}
