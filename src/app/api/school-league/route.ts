@@ -240,12 +240,13 @@ export async function GET(req: Request) {
     // ── 4. 학생별 지표 계산 ──────────────────────────────────────
     const allStudents: StudentPortfolio[] = profiles.map((profile, idx) => {
       const userInvs   = invByUser[profile.id] ?? []
-      const isRegistered = userInvs.length > 0
+      const userSells  = sellsByUser[profile.id] ?? []
+      // 보유가 0 이어도 매도 이력이 있으면 리그에 남는다 — 전량 매도한 날 순위에서 사라지던 한계(2026-08-14 기록)를 2026-10-09 에 닫았다.
+      //   총수익률 분모가 '보유원가 + 매도분 원가'라 보유 0 이어도 식이 성립한다(studentTotalReturn)
+      const isRegistered = userInvs.length > 0 || userSells.length > 0
       const displayName  = profile.full_name ?? profile.email?.split('@')[0] ?? '알 수 없음'
 
       if (!isRegistered) {
-        // ⚠️ 알려진 한계: '보유 0 + 매도 이력만' 인 학생은 여기로 빠져 실현손익이 랭킹에 안 잡힌다.
-        //    현재 그런 학생은 없다(2026-08-14 실측). 생기면 isRegistered 정의부터 손봐야 한다.
         return {
           userId:            profile.id,
           name:              displayName,
@@ -295,8 +296,10 @@ export async function GET(req: Request) {
       }
 
       const totalVal     = coreVal + satVal
-      const coreRatio    = totalVal > 0 ? Math.round((coreVal    / totalVal) * 100) : 50
-      const satRatio     = 100 - coreRatio
+      const hasHold      = userInvs.length > 0
+      // 보유가 없으면(전량 매도) 코어·위성 비중은 없는 값이다 — 50:50 으로 꾸미지 않는다
+      const coreRatio    = totalVal > 0 ? Math.round((coreVal    / totalVal) * 100) : hasHold ? 50 : 0
+      const satRatio     = hasHold ? 100 - coreRatio : 0
 
       // 🏆 총 수익률 = (평가손익 + 실현손익) ÷ (보유원가 + 매도분 원가)
       //    분모에 매도분 원가를 넣는 이유: 매도로 회수한 자본도 '투입했던 원금'이다. 빼면
@@ -304,7 +307,7 @@ export async function GET(req: Request) {
       //    공식은 lib/realizedPnl 의 studentTotalReturn 하나뿐 — 학생 '내 자산' 화면도 같은 함수를 부른다(제2원칙)
       //    realizedPp = 실현이 총수익률에 기여한 %p(같은 분모라 평가 기여분 + 실현 기여분 = 총수익률)
       const { totalReturn, realizedPp, realized: rt } =
-        studentTotalReturn(totalCost, totalCurrent, sellsByUser[profile.id] ?? [], fxCandles, usdKrw)
+        studentTotalReturn(totalCost, totalCurrent, userSells, fxCandles, usdKrw)
 
       // 효자 종목 Top 3 (평가금액 기준 내림차순)
       const topStocks = holdingValues
@@ -325,7 +328,7 @@ export async function GET(req: Request) {
         userId:            profile.id,
         name:              displayName,
         avatarColor:       avatarColor(idx),
-        userType:          userTypeFromCore(coreRatio),
+        userType:          hasHold ? userTypeFromCore(coreRatio) : '전량 매도',
         isRegistered:      true,
         totalReturn,
         realizedPp,
