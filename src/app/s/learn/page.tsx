@@ -18,6 +18,7 @@ import {
   briefSignals, briefEvents, briefMovers, type CalendarResp, type MoversResp, type WatchResp,
 } from '@/app/components/student/home/homeUi'
 import { useTodayTip, type TodayTip } from '@/app/components/student/learn/useTodayTip'
+import { PageHead, surface } from '@/app/components/student/ui'   // 리디자인(2026-10-10 · docs/student-design) — 다른 네 화면과 같은 머리·카드 면
 import InstallCard from '@/app/components/student/InstallCard'
 import ScaleSummary from '@/app/components/student/learn/ScaleSummary'
 import LogoutButton from '@/app/components/student/LogoutButton'
@@ -232,6 +233,19 @@ const THEMES = [
 
 const sectionTitle = { margin: 0, fontSize: FS.lg, fontWeight: 700, color: TK.slate100 } as const
 
+/** 들어가는 칸(수업 자료·부동산·코인) — 다른 화면의 카드 면 + "제목 · 설명 ›"(리디자인 2026-10-10 · 수업 자료와 더 알아보기가 같은 칸) */
+function NavTile({ href, title, sub }: { href: string; title: string; sub: string }) {
+  return (
+    <Link href={href} style={{ ...surface, display: 'flex', alignItems: 'center', gap: SP.sm, minHeight: 72, padding: `${SP.md}px ${SP.lg}px`, textDecoration: 'none' }}>
+      <span style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: SP.xs, minWidth: 0 }}>
+        <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate100, wordBreak: 'keep-all' }}>{title}</span>
+        <span style={{ fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{sub}</span>
+      </span>
+      <span aria-hidden style={{ fontSize: FS.lg, color: TK.slate500, flexShrink: 0 }}>›</span>
+    </Link>
+  )
+}
+
 export default function StudentLearn() {
   const today = useKstToday()   // 마운트 뒤에만 정해진다(렌더 중 날짜 금지 — 서버 UTC·브라우저 KST 가 다른 날을 본다)
   const pf = useMyPortfolio()
@@ -253,10 +267,8 @@ export default function StudentLearn() {
           .sl-academy { grid-template-columns: repeat(4, minmax(0, 1fr)) }
         }
       `}</style>
-      <header style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
-        <h1 style={{ margin: 0, fontSize: FS.xl, fontWeight: 800, color: TK.slate100 }}>배우기</h1>
-        <p style={{ margin: 0, fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all' }}>매일 하나씩 — 투자 거장의 한마디와 내 종목 이야기</p>
-      </header>
+      <PageHead title="배우기" today={today} />
+      <p style={{ margin: 0, marginTop: -SP.sm, fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all' }}>매일 하나씩 — 투자 거장의 한마디와 내 종목 이야기</p>
 
       <div className="sl-two">
         <QuoteCard today={today} />
@@ -268,12 +280,7 @@ export default function StudentLearn() {
       <section aria-labelledby="learn-academy" style={{ display: 'flex', flexDirection: 'column', gap: SP.sm }}>
         <h2 id="learn-academy" style={sectionTitle}>수업 자료</h2>
         <nav aria-label="수업 자료" className="sl-academy">
-          {ACADEMY.map(a => (
-            <Link key={a.href} href={a.href} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: SP.xs, minHeight: 72, padding: SP.md, borderRadius: RAD.md, background: TK.card, border: `1px solid ${TK.border}`, textDecoration: 'none', minWidth: 0 }}>
-              <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate100, wordBreak: 'keep-all' }}>{a.title}</span>
-              <span style={{ fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{a.sub}</span>
-            </Link>
-          ))}
+          {ACADEMY.map(a => <NavTile key={a.href} {...a} />)}
         </nav>
       </section>
 
@@ -282,12 +289,7 @@ export default function StudentLearn() {
         {/* 투자학교 저울 — '더 알아보기' 빈자리의 주인공(docs/student-mode/scale-plan.md) · 5줄 × 칩 요약, 누르면 /s/scale */}
         <ScaleSummary />
         <nav aria-label="부동산·코인" className="sl-themes">
-          {THEMES.map(a => (
-            <Link key={a.href} href={a.href} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: SP.xs, minHeight: 72, padding: SP.md, borderRadius: RAD.md, background: TK.card, border: `1px solid ${TK.border}`, textDecoration: 'none', minWidth: 0 }}>
-              <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate100, wordBreak: 'keep-all' }}>{a.title}</span>
-              <span style={{ fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{a.sub}</span>
-            </Link>
-          ))}
+          {THEMES.map(a => <NavTile key={a.href} {...a} />)}
         </nav>
       </section>
 

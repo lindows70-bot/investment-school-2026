@@ -14,7 +14,7 @@ export default function ScaleSummary() {
   const ok = r.state === 'ok' && Array.isArray(r.data?.rows) && r.data!.rows.length > 0
   const changes = ok ? r.data!.changes ?? [] : []
   return (
-    <Link href="/s/scale" aria-label="오늘의 저울 열기" style={{ display: 'flex', flexDirection: 'column', gap: SP.sm, padding: SP.md, borderRadius: RAD.md, background: TK.card, border: `1px solid ${TK.line1}`, textDecoration: 'none', minWidth: 0 }}>
+    <Link href="/s/scale" aria-label="오늘의 저울 열기" style={{ display: 'flex', flexDirection: 'column', gap: SP.sm, padding: SP.lg, borderRadius: RAD.lg, background: TK.card, border: `1px solid ${TK.border}`, textDecoration: 'none', minWidth: 0 }}>   {/* 리디자인 2026-10-10: 다른 카드와 같은 면(라운드 16 · 헤어라인) */}
       <span style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: SP.sm }}>
         <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate100 }}>오늘의 저울 ›</span>
         <span style={{ fontSize: FS.micro, color: TK.sub, whiteSpace: 'nowrap' }}>① 돈을 만드나 · ② 비싼가 · ③ 계절</span>
