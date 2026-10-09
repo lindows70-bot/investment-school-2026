@@ -77,6 +77,7 @@ export interface RegionRefItem {
   ticker: string; name: string; market: string; currency: string; sector: string; region: 'KR' | 'EU' | 'JP' | 'CN'
   combined: number; seasonScore: number; valueScore: number; qualityScore: number; momentumScore: number; supplyScore: number; rotationScore: number
   supplyKnown: boolean; supplyProxy: boolean   // 수급 미집계(중립 50)를 실측값처럼 보이지 않게 — merit 카드와 동일 정직 표기
+  rotationQuad: RotQuad | null                  // 🧭 null = 로테이션 미집계(중립 50) — 축 성적 적립(core-reco)이 이 행의 로테이션 축을 채점에서 뺀다
   peg: number | null; badges: string[]
 }
 
@@ -433,7 +434,7 @@ export async function computeUnifiedReco(userId: string, base: string): Promise<
         ticker: t.p.s.ticker, name: t.p.s.name, market: t.p.s.market, currency: t.p.s.currency ?? 'USD', sector: t.p.s.sector ?? '—', region,
         combined: t.combined, seasonScore: t.p.seasonScore, valueScore: t.p.valueScore, qualityScore: t.p.qualityScore,
         momentumScore: t.p.momentumScore, supplyScore: t.supplyScore, rotationScore: t.rotationScore,
-        supplyKnown: t.supplyKnown, supplyProxy: t.supplyProxy, peg: t.p.s.peg, badges: t.badges,
+        supplyKnown: t.supplyKnown, supplyProxy: t.supplyProxy, rotationQuad: t.rotQuad, peg: t.p.s.peg, badges: t.badges,
       }))
   const reference: RegionRefItem[] = refCands.flatMap((c, i) => buildRef(c, refPreds[i][1]))
 

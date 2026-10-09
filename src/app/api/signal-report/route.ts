@@ -249,7 +249,7 @@ export async function GET(req: Request) {
       const c30 = closeAt(candles!, addDays(a.date, 30))
       if (c30 != null) ret = Math.round((c30 / entry - 1) * 1000) / 10
     }
-    return { axes: a.axes, ret, date: a.date }
+    return { axes: a.axes, ret, date: a.date, unknown: a.unknown }   // unknown: 미집계 축(중립 50 채움)은 그 축 채점에서 빠진다
   })
   const axisGrades = gradeAxes(axisRows)
   const axisSince = axisHist.length ? axisHist.reduce((m, a) => a.date < m ? a.date : m, axisHist[0].date) : null

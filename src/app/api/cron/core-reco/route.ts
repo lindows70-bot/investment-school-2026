@@ -22,6 +22,8 @@ interface LiteItem {
   // 📐 축별 성적 적립용(축 스냅샷) — 이 크론이 이미 오늘자 통합추천을 읽으므로 추가 비용 0
   valueScore?: number; qualityScore?: number; momentumScore?: number
   rotationScore?: number; supplyScore?: number; seasonScore?: number
+  // 미집계 표식 — 통합추천이 이미 싣고 있던 필드(있는데 안 쓴 데이터). null/false 면 그 축은 중립 50 채움이라 채점에서 뺀다
+  rotationQuad?: string | null; supplyKnown?: boolean
 }
 
 export async function GET(req: Request) {
@@ -58,9 +60,14 @@ export async function GET(req: Request) {
     }
     // 축이 하나라도 없으면 버린다 — 결측을 50으로 채우면 '모름'이 '보통'으로 둔갑해 채점이 오염된다
     if (Object.values(a).some(v => typeof v !== 'number')) return null
+    // 중립 50 채움 축은 표식을 남긴다(채점기가 그 축만 뺀다). 필드가 아예 없는 옛 응답(undefined)은 표식 없음 = 종전과 같다
+    const unknown: AxisHistEntry['unknown'] = []
+    if (it.rotationQuad === null) unknown.push('rotation')
+    if (it.supplyKnown === false) unknown.push('supply')
     return {
       date: today, ticker: it.ticker, name: it.name, market: it.market === 'KR' ? 'KR' : 'US', slot,
       axes: a as AxisHistEntry['axes'], combined: it.combined,
+      ...(unknown.length ? { unknown } : {}),
     }
   }
   const axisRows = [

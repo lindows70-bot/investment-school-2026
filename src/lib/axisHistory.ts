@@ -30,6 +30,9 @@ export interface AxisHistEntry {
   slot: 'pick' | 'ref'
   axes: Record<AxisKey, number>
   combined: number
+  /** 미집계라 중립 50 으로 채워진 축 — 채점에서 **그 축만** 이 행을 뺀다(2026-10-09).
+   *  없으면 전부 실측으로 본다(그 전 적립분은 구분 표식이 없어 그대로 — 소급해 지어내지 않는다). */
+  unknown?: AxisKey[]
 }
 
 export interface AxisGrade {
@@ -60,16 +63,18 @@ export interface AxisGrade {
  *     넘긴다. 그러면 "가치 축 +8%p"가 축의 성적이 아니라 **그 한 달 국면**이다(backtest-autopsy 3단계가
  *     정확히 기각하는 형태). 서로 다른 진입 시점이 최소 2개는 돼야 성적이라고 말할 수 있다. */
 export function gradeAxes(
-  rows: { axes: Record<AxisKey, number>; ret: number | null; date: string }[],
+  rows: { axes: Record<AxisKey, number>; ret: number | null; date: string; unknown?: AxisKey[] }[],
   minSample = 30,
   minCohorts = 2,
 ): AxisGrade[] {
-  const scored = rows.filter(r => r.ret != null) as { axes: Record<AxisKey, number>; ret: number; date: string }[]
-  const cohorts = new Set(scored.map(r => r.date)).size
+  const allScored = rows.filter(r => r.ret != null) as { axes: Record<AxisKey, number>; ret: number; date: string; unknown?: AxisKey[] }[]
   const r1 = (x: number) => Math.round(x * 10) / 10
   const avg = (a: number[]) => (a.length ? r1(a.reduce((s, x) => s + x, 0) / a.length) : null)
 
   return AXIS_META.map(({ key, label }) => {
+    // 미집계(중립 50 채움)인 행은 **그 축의** 표본에서 뺀다 — '모름'을 '보통'으로 세면 상·하위 1/3 비교가 흐려진다
+    const scored = allScored.filter(r => !r.unknown?.includes(key))
+    const cohorts = new Set(scored.map(r => r.date)).size
     const n = scored.length
     if (n < 6) return { key, label, n, cohorts, topAvg: null, botAvg: null, spreadPp: null, topWin: null, thin: true }
     const sorted = [...scored].sort((a, b) => a.axes[key] - b.axes[key])
