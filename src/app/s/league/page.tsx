@@ -5,7 +5,8 @@ import { useEffect, useState } from 'react'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 import { createClient } from '@/lib/supabase/client'
 import { useJson } from '@/app/components/student/useJson'
-import { card, CardHead, FailRow, noteStyle } from '@/app/components/student/home/homeUi'
+import { card, CardHead, FailRow, noteStyle, useKstToday } from '@/app/components/student/home/homeUi'
+import { PageHead, Label, Big, Chip, Glow, surface } from '@/app/components/student/ui'   // 리디자인(2026-10-10 · docs/student-design) — 홈·시장·내 자산과 같은 머리·큰 숫자·역할 칩
 import { pct, upDown } from '@/lib/studentFormat'
 
 // ── 응답 모양(/api/school-league StudentPortfolio 중 쓰는 필드만) — 밖에서 온 값이라 하나씩 검사해 옮긴다 ──
@@ -66,13 +67,12 @@ function parseStudent(x: unknown): Student | null {
   }
 }
 
-/** 지난주 대비 순위 변화 칩 — 올라감 ↑(초록) · 내려감 ↓(주황) · 그대로 '='. 등락률 색이 아니라 좋다/나쁘다 색 */
+/** 지난주 대비 순위 변화 칩 — 올라감 ↑(리그 라임 칩) · 내려감 ↓ · 그대로 '='(흐린 칩). 홈 리그 타일(rankDeltaChip)과 같은 칩 — 등락률 색이 아니라 역할 칩 */
 function RankDelta({ prev, now }: { prev: number | null; now: number }) {
   if (prev == null) return null
   const d = prev - now
   const text = d > 0 ? `↑${d}` : d < 0 ? `↓${-d}` : '='
-  const color = d > 0 ? TK.green400 : d < 0 ? TK.orange400 : TK.sub
-  return <span aria-label={d === 0 ? '지난주와 같은 순위' : d > 0 ? `지난주보다 ${d}계단 올라감` : `지난주보다 ${-d}계단 내려감`} style={{ flexShrink: 0, fontSize: FS.tiny, fontWeight: 700, color, ...nowrap }}>{text}</span>
+  return <span aria-label={d === 0 ? '지난주와 같은 순위' : d > 0 ? `지난주보다 ${d}계단 올라감` : `지난주보다 ${-d}계단 내려감`} style={{ flexShrink: 0 }}><Chip text={text} tone={d > 0 ? 'lime' : 'plain'} /></span>
 }
 
 /** 로그인한 내 id — undefined = 아직 모름, null = 로그인 안 됨. 순위는 이름이 아니라 이 id 로 찾는다(동명이인) */
@@ -139,16 +139,21 @@ function MyRank({ me, ranked, myId, prevSnapDate }: { me: Student | undefined; r
       const gap = idx > 0 ? (ranked[idx - 1].totalReturn as number) - r : null
       body = (
         <>
-          <span style={{ display: 'flex', alignItems: 'baseline', gap: SP.md, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: FS.h2, fontWeight: 800, color: TK.slate100, ...nowrap }}>{idx + 1}위 <span style={{ fontSize: FS.lg, color: TK.sub }}>/ {ranked.length}명</span></span>
-            <span style={{ fontSize: FS.xl, fontWeight: 800, color: upDown(r), ...nowrap }}>{pct(r)}</span>
+          {/* 리디자인: 화면에서 가장 큰 숫자 = 내 순위(Big) · 지난주 대비는 라임 칩 · 수익률은 등락색 */}
+          <span style={{ display: 'flex', alignItems: 'center', gap: SP.sm, flexWrap: 'wrap' }}>
+            <Big size={FS.h1}>{idx + 1}위</Big>
+            <RankDelta prev={me.prevRank} now={idx + 1} />
+            <span style={{ fontSize: FS.lg, fontWeight: 600, color: TK.sub, ...nowrap }}>/ {ranked.length}명</span>
           </span>
-          <span style={{ fontSize: FS.body, color: TK.slate200 }}>
-            {gap == null ? '1위예요' : gap === 0 ? `${idx}위와 같은 수익률이에요` : `${idx}위와 ${gap.toFixed(1)}%p 차이`}
+          <span style={{ display: 'flex', alignItems: 'baseline', gap: SP.sm, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: FS.xl, fontWeight: 800, color: upDown(r), fontVariantNumeric: 'tabular-nums', ...nowrap }}>{pct(r)}</span>
+            <span style={{ fontSize: FS.body, color: TK.slate200 }}>
+              {gap == null ? '1위예요' : gap === 0 ? `${idx}위와 같은 수익률이에요` : `${idx}위와 ${gap.toFixed(1)}%p 차이`}
+            </span>
           </span>
           {me.prevRank != null && (
-            <span style={{ fontSize: FS.body, color: TK.slate200, display: 'flex', alignItems: 'center', gap: SP.xs, flexWrap: 'wrap' }}>
-              {prevSnapDate ? `${prevSnapDate.slice(5).replace('-', '/')}엔` : '지난번엔'} {me.prevRank}위 → 지금 {idx + 1}위 <RankDelta prev={me.prevRank} now={idx + 1} />
+            <span style={{ fontSize: FS.tiny, color: TK.sub }}>
+              {prevSnapDate ? `${prevSnapDate.slice(5).replace('-', '/')}엔` : '지난번엔'} {me.prevRank}위 → 지금 {idx + 1}위
             </span>
           )}
           <span style={noteStyle()}>판 종목에서 확정된 손익까지 더한 수익률이에요.</span>
@@ -157,9 +162,10 @@ function MyRank({ me, ranked, myId, prevSnapDate }: { me: Student | undefined; r
     }
   }
   return (
-    <section style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
-      <h2 style={{ margin: 0, fontSize: FS.tiny, fontWeight: 400, color: TK.sub }}>내 순위</h2>
-      {body}
+    <section aria-label="내 순위" style={{ ...surface, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: SP.sm }}>
+      <Glow />
+      <span style={{ position: 'relative' }}><Label>내 순위</Label></span>
+      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: SP.sm }}>{body}</div>
     </section>
   )
 }
@@ -172,23 +178,24 @@ function RankTable({ ranked, myId, unregistered, uncomputed, prevSnapDate }: { r
       {ranked.length === 0
         ? <span style={noteStyle()}>아직 순위에 오른 친구가 없어요.</span>
         : (
-          <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: SP.xs }}>
+          /* 리디자인: 행 = "순위 · 이름 · 값" 헤어라인 — 내 행은 면만 살짝 밝게(TK.bg7 · 카드 안의 테두리 상자를 두지 않는다) */
+          <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
             {ranked.map((s, i) => {
               const mine = s.userId === myId
               const r = s.totalReturn as number
               return (
                 <li key={s.userId} aria-current={mine ? 'true' : undefined} style={{
-                  display: 'flex', alignItems: 'center', gap: SP.sm, minHeight: 44, padding: `${SP.xs}px ${SP.sm}px`, borderRadius: RAD.sm,
-                  background: mine ? TK.bg10 : 'transparent', border: `1px solid ${mine ? TK.blue600 : 'transparent'}`,
+                  display: 'flex', alignItems: 'center', gap: SP.sm, minHeight: 48, padding: `${SP.xs}px ${SP.sm}px`, borderRadius: RAD.sm,
+                  background: mine ? TK.bg7 : 'transparent', borderTop: i && !mine ? `1px solid ${TK.border}` : 'none',
                 }}>
-                  <span style={{ width: 36, flexShrink: 0, fontSize: FS.body, fontWeight: 800, color: TK.slate200, ...nowrap }}>{i + 1}위</span>
+                  <span style={{ width: 36, flexShrink: 0, fontSize: FS.body, fontWeight: 800, color: i < 3 ? TK.slate100 : TK.sub, fontVariantNumeric: 'tabular-nums', ...nowrap }}>{i + 1}위</span>
                   <Avatar name={s.name} color={s.avatarColor} />
                   <span style={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: SP.xs, minWidth: 0 }}>
-                    <span style={{ fontSize: FS.body, color: TK.slate100, ...ellipsis }}>{s.name}</span>
-                    {mine && <span style={{ flexShrink: 0, fontSize: FS.tiny, fontWeight: 700, color: TK.blue300, padding: `0 ${SP.xs}px`, border: `1px solid ${TK.blue600}`, borderRadius: RAD.xs }}>나</span>}
+                    <span style={{ fontSize: FS.body, fontWeight: mine ? 700 : 500, color: TK.slate100, ...ellipsis }}>{s.name}</span>
+                    {mine && <Chip text="나" />}
                   </span>
                   <RankDelta prev={s.prevRank} now={i + 1} />
-                  <span style={{ flexShrink: 0, fontSize: FS.body, fontWeight: 700, color: upDown(r), ...nowrap }}>{pct(r)}</span>
+                  <span style={{ flexShrink: 0, fontSize: FS.body, fontWeight: 700, color: upDown(r), fontVariantNumeric: 'tabular-nums', ...nowrap }}>{pct(r)}</span>
                 </li>
               )
             })}
@@ -214,7 +221,8 @@ function FriendCard({ s, rank }: { s: Student; rank: number }) {
     ...(s.topHoldings.length > 0 ? [`${count}종목`] : []),   // 비중을 못 받았으면 0종목이라 적지 않는다
     ...(s.coreRatio != null && s.satelliteRatio != null ? [`코어 ${s.coreRatio}% : 위성 ${s.satelliteRatio}%`] : []),
   ]
-  const chip = { display: 'inline-flex', alignItems: 'baseline', gap: SP.xs, maxWidth: '100%', padding: `${SP.xs}px ${SP.sm}px`, borderRadius: RAD.sm, background: TK.bg3, border: `1px solid ${TK.line1}`, fontSize: FS.tiny, color: TK.slate200 } as const
+  // 리디자인: 종목 비중 칩은 테두리 없이 면만(TK.bg7) — 카드 안의 테두리 상자를 두지 않는다
+  const chip = { display: 'inline-flex', alignItems: 'baseline', gap: SP.xs, maxWidth: '100%', padding: `${SP.xs}px ${SP.sm}px`, borderRadius: RAD.sm, background: TK.bg7, fontSize: FS.tiny, color: TK.slate200 } as const
   return (
     <section style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.md }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm }}>
@@ -272,6 +280,7 @@ export default function StudentLeague() {
   const myId = useMyId()
   const league = useJson<{ students?: unknown; prevSnapDate?: unknown }>('/api/school-league')
   const [help, setHelp] = useState(false)
+  const today = useKstToday()
 
   let content: React.ReactNode
   if (myId === undefined || league.state === 'idle' || league.state === 'loading') {
@@ -321,16 +330,13 @@ export default function StudentLeague() {
         .sl-two { display: grid; grid-template-columns: minmax(0, 1fr); gap: ${SP.lg}px; align-items: start }
         @media (min-width: 769px) { .sl-two { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
       `}</style>
-      <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: SP.sm }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, minWidth: 0 }}>
-          <h1 style={{ margin: 0, fontSize: FS.xl, fontWeight: 800, color: TK.slate100 }}>스쿨 리그</h1>
-          <span style={{ fontSize: FS.tiny, color: TK.sub }}>누적 수익률 순위 · 금액은 공개하지 않아요</span>
-        </div>
+      <PageHead title="스쿨 리그" today={today} extra={
         <button
           type="button" onClick={() => setHelp(h => !h)} aria-expanded={help} aria-controls="league-help" aria-label="누적 수익률 계산 방법"
-          style={{ width: 44, height: 44, flexShrink: 0, borderRadius: RAD.pill, border: `1px solid ${TK.line1}`, background: help ? TK.bg10 : 'transparent', color: TK.slate200, fontSize: FS.body, fontWeight: 800, cursor: 'pointer' }}
+          style={{ width: 44, height: 44, flexShrink: 0, borderRadius: RAD.pill, border: `1px solid ${TK.border}`, background: help ? TK.bg7 : TK.card, color: TK.slate200, fontSize: FS.body, fontWeight: 800, cursor: 'pointer' }}
         >?</button>
-      </header>
+      } />
+      <span style={{ fontSize: FS.tiny, color: TK.sub, marginTop: -SP.sm }}>누적 수익률 순위 · 금액은 공개하지 않아요</span>
       <HelpBox open={help} />
       {content}
     </div>
