@@ -86,8 +86,26 @@ export default function StudentStock() {
   const holdingsKnown = state === 'ready' || fxOnly
   // 보유 목록을 실제로 받은 뒤에만 '보유 안 함'이라 판단한다(못 불러왔을 때 '없다'고 하지 않는다)
   const notHeld = holdingsKnown && !holding
-  const cTicker = hTicker ?? (notHeld && qMarket ? decoded : null)
-  const cMarket = hMarket ?? (notHeld ? qMarket : null)
+  // ?m= 이 없는 주소(공유 링크·직접 입력)는 검색 API 에서 같은 티커를 찾아 시장을 알아낸다 — 전엔 '어느 시장인지 몰라요'로 막혔다(2026-10-09)
+  //   undefined = 아직 안 찾음·찾는 중 · null = 못 찾음. 추측(6자리면 한국 등)으로 시장을 정하지 않는다 — 검색 결과에 있는 것만
+  const [resolved, setResolved] = useState<{ market: Market; name: string | null } | null | undefined>(undefined)
+  useEffect(() => {
+    if (qMarket || !notHeld || !decoded) return
+    let cancelled = false
+    fetch(`/api/stock-search?q=${encodeURIComponent(decoded)}`, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then((j: { results?: { ticker?: unknown; market?: unknown; name?: unknown }[] } | null) => {
+        if (cancelled) return
+        const hit = (j?.results ?? []).find(r => typeof r.ticker === 'string' && r.ticker.toUpperCase() === ticker && (r.market === 'KR' || r.market === 'US' || r.market === 'CRYPTO'))
+        setResolved(hit ? { market: hit.market as Market, name: typeof hit.name === 'string' && hit.name.trim() ? hit.name.trim() : null } : null)
+      })
+      .catch(() => { if (!cancelled) setResolved(null) })
+    return () => { cancelled = true }
+  }, [qMarket, notHeld, decoded, ticker])
+  const rMarket: Market | null = qMarket ?? resolved?.market ?? null
+  const rName = nParam ?? resolved?.name ?? null
+  const cTicker = hTicker ?? (notHeld && rMarket ? decoded : null)
+  const cMarket = hMarket ?? (notHeld ? rMarket : null)
 
   // 보유 안 한 종목의 시세: undefined = 불러오는 중 · null = 못 가져옴 · 객체 = 받음
   const [quote, setQuote] = useState<Quote | null | undefined>(undefined)
@@ -166,16 +184,16 @@ export default function StudentStock() {
       </div>
     </div>
   )
-  if (!holding && !qMarket) return (
-    <div>{back}{msg('어느 시장 종목인지 몰라요 — 검색에서 다시 골라 주세요.')}
+  if (!holding && !rMarket) return (
+    <div>{back}{msg(resolved === undefined ? '어느 시장 종목인지 찾는 중이에요…' : '어느 시장 종목인지 몰라요 — 검색에서 다시 골라 주세요.')}
       <Link href="/s" style={{ display: 'inline-flex', alignItems: 'center', height: 44, color: TK.slate200, fontSize: FS.body, textDecoration: 'none' }}>홈에서 찾기 ›</Link>
     </div>
   )
   if (holding && !row && !fxOnly) return <div>{back}{msg('이 종목은 내 보유 목록에 없어요.')}</div>
   // 이름·티커·통화 — 보유 종목이면 내 기록, 아니면 검색이 넘긴 이름(n) → 시세 응답 이름 → 티커
-  const displayName = holding?.name ?? nParam ?? quote?.name ?? decoded
+  const displayName = holding?.name ?? rName ?? quote?.name ?? decoded
   const displayTicker = holding?.ticker ?? decoded
-  const currency = holding?.currency ?? (qMarket === 'US' ? 'USD' : 'KRW')
+  const currency = holding?.currency ?? (rMarket === 'US' ? 'USD' : 'KRW')
 
   // ── 가격 흐름 ── 같은 간격 이름이 둘이면 하나만(버튼이 같은 말을 두 번 하지 않게)
   const labels: Partial<Record<FrameKey, string>> = {}
@@ -313,7 +331,7 @@ export default function StudentStock() {
         // 보유·거래 섹션 대신 — 기록하기로 이어 준다(시장·이름을 넘겨 기록하기가 미리 고르게)
         <section style={{ display: 'flex', flexDirection: 'column', gap: SP.md }}>
           <span style={{ fontSize: FS.body, color: TK.slate200 }}>아직 기록한 적 없는 종목이에요.</span>
-          <Link href={`/s/record?ticker=${encodeURIComponent(displayTicker)}&m=${qMarket}&n=${encodeURIComponent(displayName)}`} style={recordBtn}>이 종목 샀어요 — 기록하기</Link>
+          <Link href={`/s/record?ticker=${encodeURIComponent(displayTicker)}&m=${rMarket}&n=${encodeURIComponent(displayName)}`} style={recordBtn}>이 종목 샀어요 — 기록하기</Link>
         </section>
       )}
 
