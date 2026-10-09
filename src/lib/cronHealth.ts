@@ -22,11 +22,12 @@ import { USM_GRADE_KEY } from '@/lib/usSmartHistory'
 import { SECTOR_ROTATION_KEY } from '@/lib/rotationShared'
 import { GHOST_WARM_MARK } from '@/lib/ghostStock'
 import { UNIFIED_WARM_MARK } from '@/lib/unifiedReco'
+import { LEAGUE_SNAP_KEY } from '@/lib/leagueSnap'
 
 const GRACE_MS = 45 * 60_000            // 실행 지연 유예(가장 긴 크론 300s의 9배 — 오탐 방지)
 const KST_MS = 9 * 3600_000
 
-export type CronDays = 'daily' | 'weekday' | 'tue'   // tue = UTC 월요일 크론(KST 화요일 발화)
+export type CronDays = 'daily' | 'weekday' | 'tue' | 'mon'   // tue = UTC 월요일 크론(KST 화요일 발화) · mon = UTC 일요일 크론(KST 월요일 발화)
 
 export interface CronMonitor {
   id: string
@@ -60,6 +61,8 @@ export const CRON_MONITORS: CronMonitor[] = [
   { id: 'sectorRotation', label: '섹터 로테이션 계산', kst: '07:00', days: 'daily', artifact: { type: 'cacheDate', key: d => SECTOR_ROTATION_KEY(d) }, heal: '/api/sector-rotation', heavy: true },
   // 👻 유령 종목 — 미보유 발굴 + 전 학생 보유 종목 행. 없으면 첫 방문자가 100초 넘게 기다린다(2026-10-07 실측 105초)
   { id: 'ghostWarm', label: '유령 종목 미리 계산', kst: '00:05', days: 'daily', artifact: { type: 'cacheDate', key: d => GHOST_WARM_MARK(d) }, heal: '/api/cron/ghost-warm', heavy: true },
+  // 🏆 리그 주간 순위 스냅샷(월요일) — 학생 리그 '지난주 → 이번 주'와 선생님 소식 문구의 재료. 빠지면 그 주 변화가 통째로 빈다
+  { id: 'leagueSnap', label: '리그 주간 순위 스냅샷', kst: '06:30', days: 'mon', artifact: { type: 'cacheDate', key: d => LEAGUE_SNAP_KEY(d) }, heal: '/api/cron/league-snap' },
   // 🎯 통합추천 — 브리핑 '담을 것'·핵심 추천 성적 적립이 읽는다. 예전엔 누가 열 때만 계산돼 아침 브리핑이 빈칸이었다(2026-10-09)
   { id: 'unifiedWarm', label: '통합추천 미리 계산', kst: '07:20', days: 'daily', artifact: { type: 'cacheDate', key: d => UNIFIED_WARM_MARK(d) }, heal: '/api/cron/unified-warm', heavy: true },
   { id: 'timingWatch', label: '타점 전환 워처', kst: '08:30', days: 'daily', artifact: { type: 'cache', key: () => 'timing-watch-latest-v2' }, heal: '/api/cron/timing-watch' },
@@ -121,6 +124,7 @@ export function lastExpectedKst(now: Date, kst: string, days: CronDays): Date | 
     const dow = d.getUTCDay()
     if (days === 'weekday' && (dow === 0 || dow === 6)) continue
     if (days === 'tue' && dow !== 2) continue
+    if (days === 'mon' && dow !== 1) continue
     return d
   }
   return null

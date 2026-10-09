@@ -136,6 +136,7 @@ export const PURGE_RULES: PurgeRule[] = [
   { prefix: 'etf-snap-v1', keepDays: 401, why: '45일 창 순유입 역산 · reader 400d' },
   { prefix: 'insider-day-v1', keepDays: 401, why: '일별 accession 커서 · reader 400d' },
   { prefix: 'rtms-rent-v2', keepDays: 31, why: '월별 전월세 · 유일한 reader(rtms.ts) 과거월 30d' },
+  { prefix: 'league-snap-v1', keepDays: 400, why: '리그 주간 순위 이력(1주 1행) · reader 는 latest 묶음만 · 1년 뒤 자동 정리' },
 ]
 
 /** 규칙 자체 검사 — LIKE 와일드카드·구분자·중복·너무 짧은 보존 기간을 막는다(빈 배열이면 정상) */

@@ -20,6 +20,8 @@ import { getTechCandles } from '@/lib/techChartData'
 import { studentTotalReturn, type SellTx } from '@/lib/realizedPnl'
 import { TK } from '@/lib/theme'
 import { buildLeagueMix, detailIds, emptyLeagueDetail, type LeagueTopHolding, type LeagueMixSlice, type LeagueHoldingRow } from '@/lib/leagueMix'
+import { getCache as readCache } from '@/lib/appCache'
+import { LEAGUE_SNAP_LATEST_KEY, type LeagueSnapLatest } from '@/lib/leagueSnap'   // 🏆 지난주 순위(월요일 스냅샷)
 
 // ── 서비스 롤 클라이언트 (전체 사용자 데이터 조회) ──────────────
 function adminClient() {
@@ -69,6 +71,8 @@ export interface StudentPortfolio {
   pricedAll:        boolean
   /** 위 종목 비중 필드를 실었는가 — 등록한 학생은 true, 미등록(보유 0)은 빈 값 */
   detail:           boolean
+  /** 지난주 월요일 스냅샷의 순위(1부터) — 스냅샷이 두 장 이상이고 그 장에 있던 학생만. 없으면 null(추정하지 않는다) */
+  prevRank:         number | null
 }
 
 // ── 인기 종목 집계 타입 ──────────────────────────────────────────
@@ -85,6 +89,8 @@ export interface SchoolLeagueData {
   trendingStocks:   TrendingStock[]
   schoolLynchAvg:   LynchDistribution  // 등록자 전체 Satellite Lynch 평균 비중
   computedAt:       string
+  /** prevRank 의 기준 스냅샷 날짜(지난주 월요일) — 없으면 null */
+  prevSnapDate:     string | null
 }
 
 // ── Lynch 분포 초기값 ────────────────────────────────────────────
@@ -262,6 +268,7 @@ export async function GET(req: Request) {
           holdingCount:      0,
           lynchDistribution: emptyLynch(),
           ...emptyLeagueDetail(),
+          prevRank:          null,
         }
       }
 
@@ -340,13 +347,19 @@ export async function GET(req: Request) {
         lynchDistribution,
         ...leagueMix,
         detail:            true,
+        prevRank:          null,   // 아래에서 지난주 스냅샷으로 채운다
       }
     })
+
+    // 🏆 지난주 순위 — 월요일 스냅샷 묶음(lib/leagueSnap)의 previous 에 있던 학생만. 두 장이 안 모였거나 그 장에 없으면 null(추정하지 않는다)
+    const latestSnap = await readCache<LeagueSnapLatest>(LEAGUE_SNAP_LATEST_KEY, 400 * 86_400_000).catch(() => null)
+    const prevRows = latestSnap?.previous?.rows ?? null
+    const prevRankOf = (uid: string) => prevRows ? (prevRows.find(r => r.userId === uid)?.rank ?? null) : null
 
     // 종목 비중(금액 없음)은 등록한 학생 전원에게 싣는다 — 2026-09-27 사용자 결정(반이 작아 친구 전원을 보여 준다). 미등록은 빈 값
     const shownIds = detailIds(allStudents, user.id)
     const students: StudentPortfolio[] = allStudents.map(s =>
-      shownIds.has(s.userId) ? s : { ...s, ...emptyLeagueDetail() }
+      ({ ...(shownIds.has(s.userId) ? s : { ...s, ...emptyLeagueDetail() }), prevRank: prevRankOf(s.userId) })
     )
 
     // ── 5. 인기 종목 집계 (등록 학생 기준) ───────────────────────
@@ -389,6 +402,7 @@ export async function GET(req: Request) {
       trendingStocks,
       schoolLynchAvg,
       computedAt:    new Date().toISOString(),
+      prevSnapDate:  latestSnap?.previous?.date ?? null,
     }
 
     return NextResponse.json(result, {

@@ -28,6 +28,8 @@ interface Student {
   /** 보여 준 묶음 밖 나머지 비중 — 옛 응답엔 없어 0 */
   mixOtherPct: number
   pricedAll: boolean
+  /** 지난주 월요일 순위 — 스냅샷이 두 장 이상이고 그 장에 있었을 때만. 없으면 null(아무 말도 안 한다) */
+  prevRank: number | null
 }
 
 const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)
@@ -60,7 +62,17 @@ function parseStudent(x: unknown): Student | null {
     }),
     mixOtherPct: numOr(s.mixOtherPct, 0),
     pricedAll: s.pricedAll !== false,
+    prevRank: isNum(s.prevRank) && s.prevRank >= 1 ? Math.round(s.prevRank) : null,
   }
+}
+
+/** 지난주 대비 순위 변화 칩 — 올라감 ↑(초록) · 내려감 ↓(주황) · 그대로 '='. 등락률 색이 아니라 좋다/나쁘다 색 */
+function RankDelta({ prev, now }: { prev: number | null; now: number }) {
+  if (prev == null) return null
+  const d = prev - now
+  const text = d > 0 ? `↑${d}` : d < 0 ? `↓${-d}` : '='
+  const color = d > 0 ? TK.green400 : d < 0 ? TK.orange400 : TK.sub
+  return <span aria-label={d === 0 ? '지난주와 같은 순위' : d > 0 ? `지난주보다 ${d}계단 올라감` : `지난주보다 ${-d}계단 내려감`} style={{ flexShrink: 0, fontSize: FS.tiny, fontWeight: 700, color, ...nowrap }}>{text}</span>
 }
 
 /** 로그인한 내 id — undefined = 아직 모름, null = 로그인 안 됨. 순위는 이름이 아니라 이 id 로 찾는다(동명이인) */
@@ -107,7 +119,7 @@ function Avatar({ name, color }: { name: string; color: string | null }) {
 }
 
 /** 내 순위 카드 */
-function MyRank({ me, ranked, myId }: { me: Student | undefined; ranked: Student[]; myId: string }) {
+function MyRank({ me, ranked, myId, prevSnapDate }: { me: Student | undefined; ranked: Student[]; myId: string; prevSnapDate: string | null }) {
   let body: React.ReactNode
   if (!me) {
     body = <span style={noteStyle()}>리그 명단에서 내 계정을 찾지 못했어요.</span>
@@ -134,6 +146,11 @@ function MyRank({ me, ranked, myId }: { me: Student | undefined; ranked: Student
           <span style={{ fontSize: FS.body, color: TK.slate200 }}>
             {gap == null ? '1위예요' : gap === 0 ? `${idx}위와 같은 수익률이에요` : `${idx}위와 ${gap.toFixed(1)}%p 차이`}
           </span>
+          {me.prevRank != null && (
+            <span style={{ fontSize: FS.body, color: TK.slate200, display: 'flex', alignItems: 'center', gap: SP.xs, flexWrap: 'wrap' }}>
+              {prevSnapDate ? `${prevSnapDate.slice(5).replace('-', '/')}엔` : '지난번엔'} {me.prevRank}위 → 지금 {idx + 1}위 <RankDelta prev={me.prevRank} now={idx + 1} />
+            </span>
+          )}
           <span style={noteStyle()}>판 종목에서 확정된 손익까지 더한 수익률이에요.</span>
         </>
       )
@@ -148,7 +165,7 @@ function MyRank({ me, ranked, myId }: { me: Student | undefined; ranked: Student
 }
 
 /** 순위표 — 등록했고 수익률이 계산된 학생만. 금액은 없다 */
-function RankTable({ ranked, myId, unregistered, uncomputed }: { ranked: Student[]; myId: string; unregistered: number; uncomputed: number }) {
+function RankTable({ ranked, myId, unregistered, uncomputed, prevSnapDate }: { ranked: Student[]; myId: string; unregistered: number; uncomputed: number; prevSnapDate: string | null }) {
   return (
     <section style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.xs }}>
       <CardHead title="순위표" />
@@ -170,13 +187,14 @@ function RankTable({ ranked, myId, unregistered, uncomputed }: { ranked: Student
                     <span style={{ fontSize: FS.body, color: TK.slate100, ...ellipsis }}>{s.name}</span>
                     {mine && <span style={{ flexShrink: 0, fontSize: FS.tiny, fontWeight: 700, color: TK.blue300, padding: `0 ${SP.xs}px`, border: `1px solid ${TK.blue600}`, borderRadius: RAD.xs }}>나</span>}
                   </span>
+                  <RankDelta prev={s.prevRank} now={i + 1} />
                   <span style={{ flexShrink: 0, fontSize: FS.body, fontWeight: 700, color: upDown(r), ...nowrap }}>{pct(r)}</span>
                 </li>
               )
             })}
           </ol>
         )}
-      {ranked.length > 1 && <span style={noteStyle()}>수익률이 같으면 먼저 가입한 순서로 놓았어요.</span>}
+      {ranked.length > 1 && <span style={noteStyle()}>수익률이 같으면 먼저 가입한 순서로 놓았어요.{ranked.some(s => s.prevRank != null) && prevSnapDate ? ` ↑↓는 ${prevSnapDate.slice(5).replace('-', '/')} 순위와 비교한 거예요.` : ''}</span>}
       {unregistered > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, paddingTop: SP.sm, borderTop: `1px solid ${TK.border}` }}>
           <span style={{ fontSize: FS.tiny, color: TK.slate300 }}>아직 종목을 안 넣은 친구 {unregistered}명</span>
@@ -252,7 +270,7 @@ function FriendCard({ s, rank }: { s: Student; rank: number }) {
 
 export default function StudentLeague() {
   const myId = useMyId()
-  const league = useJson<{ students?: unknown }>('/api/school-league')
+  const league = useJson<{ students?: unknown; prevSnapDate?: unknown }>('/api/school-league')
   const [help, setHelp] = useState(false)
 
   let content: React.ReactNode
@@ -274,6 +292,7 @@ export default function StudentLeague() {
     const ranked = students.filter(s => s.isRegistered && s.totalReturn != null)
       .sort((a, b) => (b.totalReturn as number) - (a.totalReturn as number))
     const me = students.find(s => s.userId === myId)
+    const prevSnapDate = typeof league.data.prevSnapDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(league.data.prevSnapDate) ? league.data.prevSnapDate : null
     // '친구' 수라 나는 뺀다(내 상태는 내 순위 카드가 말한다)
     const unregistered = students.filter(s => s.userId !== myId && !s.isRegistered).length
     const uncomputed = students.filter(s => s.userId !== myId && s.isRegistered && s.totalReturn == null).length
@@ -282,8 +301,8 @@ export default function StudentLeague() {
       .filter(({ s }) => s.userId !== myId && s.detail)
     content = (
       <>
-        <MyRank me={me} ranked={ranked} myId={myId} />
-        <RankTable ranked={ranked} myId={myId} unregistered={unregistered} uncomputed={uncomputed} />
+        <MyRank me={me} ranked={ranked} myId={myId} prevSnapDate={prevSnapDate} />
+        <RankTable ranked={ranked} myId={myId} unregistered={unregistered} uncomputed={uncomputed} prevSnapDate={prevSnapDate} />
         <section style={{ display: 'flex', flexDirection: 'column', gap: SP.sm }}>
           <h2 style={{ margin: 0, fontSize: FS.lg, fontWeight: 700, color: TK.slate100 }}>친구 포트폴리오</h2>
           <span style={noteStyle()}>순위 순으로 친구 {friends.length}명의 종목 비중이에요. 금액은 보이지 않아요.</span>

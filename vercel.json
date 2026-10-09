@@ -169,6 +169,10 @@
       "schedule": "20 22 * * *"
     },
     {
+      "path": "/api/cron/league-snap",
+      "schedule": "30 21 * * 0"
+    },
+    {
       "path": "/api/cron/timing-watch",
       "schedule": "30 23 * * *"
     },
