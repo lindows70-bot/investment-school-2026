@@ -284,6 +284,8 @@ export async function GET(req: Request) {
     rotJoined: rows.filter(r => r.rotQuad != null).length, momCrash,
   }
   // 성공률 60% 미만이면 캐시 박제 금지(부분실패 방지 — 앱 공통 원칙)
-  if (rows.length >= merged.length * 0.6) await setCache(cacheKey, result)
-  return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
+  //   저장을 건너뛴 사실을 응답에 싣는다(`cached:false`) — 크론 상태판이 200 만 보고 '복구 성공'으로 세던 것을 막는다(2026-10-09 실측: 한글날 결과 60% 미만 → healed 로 적혔는데 오늘 키 없음)
+  const stored = rows.length >= merged.length * 0.6
+  if (stored) await setCache(cacheKey, result)
+  return NextResponse.json({ ...result, cached: stored, kept: rows.length }, { headers: { 'Cache-Control': 'no-store' } })
 }
