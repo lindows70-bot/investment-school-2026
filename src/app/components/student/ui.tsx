@@ -53,6 +53,57 @@ export function Tile({ href, label, value, chip, sub, valueSize = FS.xl, ariaLab
     : <div aria-label={ariaLabel} style={style}>{body}</div>
 }
 
+const DOW = ['일', '월', '화', '수', '목', '금', '토']
+/** 'YYYY-MM-DD' → '10월 9일 금요일' — 문자열만 본다(시계 안 봄 · 페이지의 useKstToday 가 마운트 뒤 준다) */
+export function dateLine(ymd: string): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd)
+  if (!m) return null
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])]
+  return `${mo}월 ${d}일 ${DOW[new Date(Date.UTC(y, mo - 1, d)).getUTCDay()]}요일`
+}
+
+/** 화면 머리 — 날짜 한 줄(작게) + 큰 제목. 홈(인사)·시장·내 자산·리그·배우기가 같은 머리를 쓴다 */
+export function PageHead({ title, today, extra }: { title: ReactNode; today: string | null; extra?: ReactNode }) {
+  const d = today ? dateLine(today) : null
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: SP.sm, minWidth: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, minWidth: 0 }}>
+        <span style={{ fontSize: FS.tiny, fontWeight: 600, color: TK.sub, minHeight: 20 }}>{d ?? ' '}</span>
+        <h1 style={{ margin: 0, fontSize: FS.h2, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, color: TK.slate100, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</h1>
+      </div>
+      {extra}
+    </div>
+  )
+}
+
+export interface SegOpt<K extends string> { key: K; label: string }
+/** 구간 선택(국내·미국·코인 / 코인·미국 주식) — 카드 면 위에 선택 칸만 밝게. 버튼 44px */
+export function Segment<K extends string>({ label, options, value, onChange }: { label: string; options: SegOpt<K>[]; value: K; onChange: (k: K) => void }) {
+  return (
+    <div role="group" aria-label={label} style={{ display: 'grid', gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))`, gap: SP.xs, padding: SP.xs, borderRadius: RAD.md, background: TK.card, border: `1px solid ${TK.border}` }}>
+      {options.map(o => {
+        const on = o.key === value
+        return (
+          <button key={o.key} type="button" aria-pressed={on} onClick={() => onChange(o.key)}
+            style={{ height: 40, minWidth: 0, borderRadius: RAD.sm, border: 'none', background: on ? TK.bg7 : 'transparent', color: on ? TK.slate100 : TK.sub, fontSize: FS.tiny, fontWeight: on ? 700 : 600, cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/** 가로 막대 — 값의 크기를 한눈에(요즘 강한 분야 1달 흐름). 등락색은 호출부가 준다 · 폭은 0~1 */
+export function Bar({ ratio, color }: { ratio: number; color: string }) {
+  const w = Math.max(0, Math.min(1, ratio))
+  return (
+    <span aria-hidden style={{ display: 'block', height: 6, borderRadius: RAD.pill, background: TK.bg7, overflow: 'hidden', minWidth: 0 }}>
+      <span style={{ display: 'block', height: '100%', width: `${w * 100}%`, background: color, borderRadius: RAD.pill }} />
+    </span>
+  )
+}
+
 /** 빛 한 점 — 카드 아래쪽에서 올라오는 틴트 라디얼. 한 화면에 하나(가장 중요한 숫자 카드)만 */
 export function Glow() {
   return <span aria-hidden style={{ position: 'absolute', left: '-20%', right: '-20%', bottom: '-60%', height: '120%', pointerEvents: 'none', background: `radial-gradient(50% 60% at 50% 100%, ${TK.blue400}47, transparent 70%)` }} />

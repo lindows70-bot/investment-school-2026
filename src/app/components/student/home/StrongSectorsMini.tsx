@@ -5,7 +5,7 @@ import { TK, SP } from '@/lib/theme'
 import { viewOf, mdDow, type OverviewResp } from '@/lib/marketScreen'
 import type { StrongSectorsResult } from '@/lib/strongSectors'
 import type { JsonResult } from '@/app/components/student/useJson'
-import { StrongSectorRow } from '@/app/components/student/market/StrongSectors'
+import { StrongSectorRow, sectorBarScale } from '@/app/components/student/market/StrongSectors'
 import { Pending } from '@/app/components/student/market/marketUi'
 import { card, CardHead, noteStyle } from './homeUi'
 
@@ -22,7 +22,7 @@ export default function StrongSectorsMini({ overview }: { overview: JsonResult<O
         <Pending view={view} loading="분야를 불러오는 중…" fail="요즘 강한 분야를 못 가져왔어요." onRetry={overview.reload} retryLabel="요즘 강한 분야 다시 불러오기" />
         {view.kind === 'ok' && (view.data.items.length === 0
           ? <span style={noteStyle()}>계산된 분야가 없어요.</span>
-          : view.data.items.slice(0, N).map(s => <StrongSectorRow key={s.key} s={s} simple />))}
+          : view.data.items.slice(0, N).map(s => <StrongSectorRow key={s.key} s={s} simple barScale={sectorBarScale(view.data.items.slice(0, N))} />))}
       </div>
       {view.kind === 'ok' && view.data.items.length > 0 && (
         <>

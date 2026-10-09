@@ -34,22 +34,23 @@ export default function KrIndexBoard({ kr }: { kr: JsonResult<KrBoardResp> }) {
     <>
       <section aria-label="국내 지수" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.md }}>
         <Pending view={quotes} loading="지수를 불러오는 중…" fail="지수를 못 가져왔어요." onRetry={kr.reload} retryLabel="국내 지수 다시 불러오기" />
+        {/* 리디자인(2026-10-09): 카드 안의 상자(bg3)를 없애고 선택 칸만 밝게 — 면은 바탕·카드 둘뿐 */}
         {quotes.kind === 'ok' && (
-          <div role="group" aria-label="장중 차트로 볼 지수" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: SP.xs, padding: SP.xs, borderRadius: RAD.md, background: TK.bg3 }}>
+          <div role="group" aria-label="장중 차트로 볼 지수" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: SP.xs }}>
             {IDX.map(i => {
               const x = quotes.data.find(r => r.code === i.code)
               const on = sel === i.code
               return (
                 <button key={i.code} type="button" aria-pressed={on} onClick={() => setSel(i.code)}
                   style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: SP.xs, minWidth: 0, minHeight: 44,
-                    padding: `${SP.md}px ${SP.xs}px`, borderRadius: RAD.md, border: `1px solid ${on ? TK.line4 : 'transparent'}`,
-                    background: on ? TK.bg7 : 'transparent', cursor: 'pointer', textAlign: 'center',
+                    display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: SP.xs, minWidth: 0, minHeight: 44,
+                    padding: `${SP.sm}px ${SP.sm}px`, borderRadius: RAD.md, border: 'none',
+                    background: on ? TK.bg7 : 'transparent', cursor: 'pointer', textAlign: 'left',
                   }}>
-                  <span style={{ fontSize: FS.tiny, color: on ? TK.slate100 : TK.sub, fontWeight: on ? 700 : 500, whiteSpace: 'nowrap' }}>{i.label}</span>
+                  <span style={{ fontSize: FS.tiny, color: on ? TK.slate100 : TK.sub, fontWeight: 600, whiteSpace: 'nowrap' }}>{i.label}</span>
                   {x ? (
                     <>
-                      <span className="mk-idx-v" style={{ fontWeight: 700, color: TK.slate100, whiteSpace: 'nowrap' }}>{points(x.value)}</span>
+                      <span className="mk-idx-v" style={{ fontWeight: 800, letterSpacing: '-0.02em', color: TK.slate100, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{points(x.value)}</span>
                       <span style={{ fontSize: FS.tiny, fontWeight: 700, color: upDown(x.changePct), whiteSpace: 'nowrap' }}>{x.changePct == null ? '등락 모름' : pct(x.changePct)}</span>
                     </>
                   ) : <span style={noteStyle(TK.amber400)}>못 가져옴</span>}

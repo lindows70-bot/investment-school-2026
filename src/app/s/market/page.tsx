@@ -4,11 +4,12 @@
 //   하단 탭 추가·홈 연결은 3단계 — 지금은 주소로만 들어온다.
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { TK, FS, RAD, SP } from '@/lib/theme'
+import { FS, SP } from '@/lib/theme'
 import type { KrBoardResp, OverviewResp } from '@/lib/marketScreen'
 import { useJson, type JsonResult } from '@/app/components/student/useJson'
 import { useInView } from '@/app/components/student/useInView'
-import { noteStyle, type FxResp } from '@/app/components/student/home/homeUi'
+import { noteStyle, useKstToday, type FxResp } from '@/app/components/student/home/homeUi'
+import { PageHead, Segment } from '@/app/components/student/ui'   // 리디자인(2026-10-09 · docs/student-design) — 홈과 같은 머리·구간 선택
 import KrIndexBoard from '@/app/components/student/market/KrIndexBoard'
 import FlowCard from '@/app/components/student/market/FlowCard'
 import KrMovers from '@/app/components/student/market/KrMovers'
@@ -50,6 +51,7 @@ function MarketScreen() {
   const [opened, setOpened] = useState<Tab[]>([tab])
   useEffect(() => { setOpened(p => (p.includes(tab) ? p : [...p, tab])) }, [tab])
   const pick = (t: Tab) => router.replace(t === 'kr' ? '/s/market' : `/s/market?tab=${t}`, { scroll: false })
+  const today = useKstToday()
 
   // 요즘 강한 분야(국내)와 아래 요약 카드가 같은 응답을 쓴다 — 둘 중 하나가 화면에 들어오면 한 번 부른다
   const [ovRefA, seenA] = useInView<HTMLElement>()
@@ -62,15 +64,8 @@ function MarketScreen() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
       <style>{CSS}</style>
-      <h1 style={{ margin: 0, fontSize: FS.xl, fontWeight: 800, color: TK.slate100 }}>시장</h1>
-      <div role="group" aria-label="시장 종류" style={{ display: 'flex', gap: SP.xs, padding: SP.xs, borderRadius: RAD.md, background: TK.bg3 }}>
-        {TABS.map(t => (
-          <button key={t.key} type="button" aria-pressed={tab === t.key} onClick={() => pick(t.key)}
-            style={{ height: 44, flex: 1, borderRadius: RAD.sm, border: 'none', background: tab === t.key ? TK.bg7 : 'transparent', color: tab === t.key ? TK.slate100 : TK.sub, fontSize: FS.body, fontWeight: tab === t.key ? 700 : 500, cursor: 'pointer' }}>
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <PageHead title="시장" today={today} />
+      <Segment label="시장 종류" options={TABS} value={tab} onChange={pick} />
 
       {opened.includes('kr') && <div style={panel('kr')}><KrPanel overview={overview} ovRef={ovRefA} /></div>}
       {opened.includes('us') && <div style={panel('us')}><UsPanel /></div>}

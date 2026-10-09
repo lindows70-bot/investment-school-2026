@@ -9,6 +9,13 @@ import type { StrongSector, StrongSectorsResult } from '@/lib/strongSectors'
 import type { JsonResult } from '@/app/components/student/useJson'
 import { card, CardHead, noteStyle } from '@/app/components/student/home/homeUi'
 import { Pending, HelpButton, HelpBox } from './marketUi'
+import { Bar } from '@/app/components/student/ui'
+
+/** 막대 척도 — 목록에서 1달 흐름의 절댓값이 가장 큰 것을 1 로(모두 같은 잣대 · 값이 없으면 null) */
+export function sectorBarScale(items: StrongSector[]): number | null {
+  const m = Math.max(0, ...items.map(s => Math.abs(s.ret1m ?? 0)))
+  return m > 0 ? m : null
+}
 
 // 국면 = 섹터 로테이션의 rs(1달 수익률 − 전체 평균) · mom(1주 수익률 − 전체 평균) 부호(sector-rotation QUAD)
 const HELP = [
@@ -26,14 +33,16 @@ function Pct({ label, v }: { label: string; v: number | null }) {
   )
 }
 
-/** 분야 한 줄 — 시장 화면과 홈(간단 모드: 대표 종목·종목 수 없이)이 같이 쓴다 */
-export function StrongSectorRow({ s, simple = false }: { s: StrongSector; simple?: boolean }) {
+/** 분야 한 줄 — 시장 화면과 홈(간단 모드: 대표 종목·종목 수 없이)이 같이 쓴다.
+ *  barScale 을 주면 1달 흐름 막대를 그린다(리디자인 2026-10-09 — 숫자 옆에 크기를 한눈에 · 같은 목록은 같은 잣대) */
+export function StrongSectorRow({ s, simple = false, barScale = null }: { s: StrongSector; simple?: boolean; barScale?: number | null }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, padding: `${SP.sm}px 0`, borderTop: `1px solid ${TK.border}`, minWidth: 0 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: SP.sm, flexWrap: 'wrap' }}>
         <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate100, minWidth: 0 }}>{s.emoji} {s.label}</span>
         <span style={{ display: 'flex', gap: SP.sm }}><Pct label="1주" v={s.ret1w} /><Pct label="1달" v={s.ret1m} /></span>
       </div>
+      {barScale != null && s.ret1m != null && <Bar ratio={Math.abs(s.ret1m) / barScale} color={upDown(s.ret1m)} />}
       <span style={noteStyle(TK.slate300)}>{QUAD_TEXT[s.quadrant] ?? '국면 모름'}{simple ? '' : ` · ${s.count}종목`}</span>
       {!simple && s.reps && s.reps.length > 0 && (
         <span style={{ ...noteStyle(), overflowWrap: 'anywhere' }}>
@@ -63,7 +72,7 @@ export default function StrongSectors({ overview, inViewRef }: { overview: JsonR
         ? <span style={noteStyle()}>계산된 분야가 없어요.</span>
         : (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {view.data.items.map(s => <StrongSectorRow key={s.key} s={s} />)}
+            {view.data.items.map(s => <StrongSectorRow key={s.key} s={s} barScale={sectorBarScale(view.data.items)} />)}
           </div>
         ))}
       {view.kind === 'ok' && (
