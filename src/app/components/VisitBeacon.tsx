@@ -5,6 +5,16 @@ import { usePathname } from 'next/navigation'
 
 export default function VisitBeacon() {
   const pathname = usePathname()
+  // 화면 열람 집계(월별) — 경로마다 세션당 1회. 비로그인(401)이면 그냥 끝(화면에 영향 없음). 전체 검토 3-1(탭·화면 가지치기)의 근거
+  useEffect(() => {
+    if (pathname === '/login' || pathname === '/signup') return
+    const path = pathname.split('?')[0]
+    const k = `usage-page:${path}`
+    try { if (sessionStorage.getItem(k)) return } catch { /* 저장소 막힘 — 그냥 보낸다 */ }
+    fetch('/api/usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'page', key: path }) })
+      .then(r => { if (r.ok || r.status === 401) { try { sessionStorage.setItem(k, '1') } catch { /* ignore */ } } })
+      .catch(() => {})
+  }, [pathname])
   useEffect(() => {
     const key = `visit-${new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)}`
     if (pathname === '/login' || pathname === '/signup') {

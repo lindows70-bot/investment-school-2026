@@ -834,7 +834,11 @@ export default function DashboardPage() {
   const [seenTabs, setSeenTabs] = useState<Set<string>>(() => new Set(['live']))
   useEffect(() => {
     setSeenTabs(prev => prev.has(dashTab) ? prev : new Set(prev).add(dashTab))
-  }, [dashTab])
+    // 📊 탭 열람 집계(월별 · 세션당 탭 1회) — 탭 50개 중 무엇이 쓰이는지 2~4주 쌓아 가지치기 근거로(전체 검토 3-1). 실패해도 화면 영향 없음
+    if (!seenTabs.has(dashTab)) {
+      fetch('/api/usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'tab', key: dashTab }) }).catch(() => {})
+    }
+  }, [dashTab])   // eslint-disable-line react-hooks/exhaustive-deps
   const seen = (t: string) => seenTabs.has(t)
 
   // 🎯 딥링크(?tab=&view=) — 매매 브리핑 등 외부에서 특정 탭(+수급레이더 서브탭)으로 바로 진입(허용 목록만)
