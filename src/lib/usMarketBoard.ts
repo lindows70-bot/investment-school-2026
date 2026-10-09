@@ -7,9 +7,9 @@ import type { IntradayPoint, MoverList } from './krMarketBoard'
 export const US_MOVER_KINDS = ['up', 'down', 'quantTop', 'priceTop', 'marketValue'] as const
 export type UsMoverKind = typeof US_MOVER_KINDS[number]
 
-/** ⚠️ 임시 임계값 — 사용자 확인 대기('물어보고'). 시총 3억 달러 미만(마이크로캡)은 거른다 */
+/** 시총 3억 달러 미만(마이크로캡)은 거른다 — 2026-10-09 사용자 확정(9/27 임시값 그대로) */
 export const US_MIN_CAP_USD = 300_000_000
-/** ⚠️ 임시 — 상장일(listedAt)이 기준 시각에서 7일 안이면 '상장 직후'로 거른다(목록에 거래일 필드가 없어 '첫날'을 정확히 못 가린다) */
+/** 상장일(listedAt)이 기준 시각에서 7일 안이면 '상장 직후'로 거른다(목록에 거래일 필드가 없어 '첫날'을 정확히 못 가린다) — 2026-10-09 사용자 확정 */
 export const US_NEW_LISTING_DAYS = 7
 
 export interface UsMover {

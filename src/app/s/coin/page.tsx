@@ -8,19 +8,19 @@ import { TK, FS, RAD, SP } from '@/lib/theme'
 import { won, pct, upDown } from '@/lib/studentFormat'
 import { niceTicks, hourTicks, dayTicks, kstParts, ymdDot } from '@/lib/marketScreen'
 import { useJson, type JsonState } from '@/app/components/student/useJson'
+import { useMyPortfolio } from '@/app/components/student/useMyPortfolio'
 import { LinePlot, RangeTabs } from '@/app/components/student/market/marketUi'
 import { card, FailRow, noteStyle } from '@/app/components/student/home/homeUi'
 import type { RegulationResult, RegImpact } from '@/app/api/crypto-regulation/route'
 import type { BtcEtfResult } from '@/app/api/btc-etf/route'
 
-// 늘 보이는 4종(사용자 결정). 추가 코인은 '물어보고' 항목
+// 늘 보이는 4종(사용자 결정 9/27) + 내가 가진 코인 중 4종 밖의 것(사용자 결정 2026-10-09 — 보유 코인은 자동으로 더한다)
 const COINS = [
   { ticker: 'BTC', name: '비트코인' },
   { ticker: 'ETH', name: '이더리움' },
   { ticker: 'SOL', name: '솔라나' },
   { ticker: 'XRP', name: '리플' },
 ] as const
-const BODY = COINS.map(c => ({ ticker: c.ticker, market: 'CRYPTO' as const }))
 type FrameKey = '1D' | '1W' | '1M'
 const FRAMES: { key: FrameKey; label: string }[] = [{ key: '1D', label: '24시간' }, { key: '1W', label: '7일' }, { key: '1M', label: '30일' }]
 interface PricePoint { t: number; v: number }
@@ -186,7 +186,13 @@ function EtfFlows() {
 
 export default function StudentCoin() {
   const [frame, setFrame] = useState<FrameKey>('1D')
-  const prices = useJson<PriceRow[]>('/api/stock-price', { method: 'POST', body: BODY })
+  // 내 보유 코인(4종 밖) — 보유 목록이 늦게 와도 4종은 먼저 뜨고, 내 코인은 그 뒤에 붙는다(요청 본문이 바뀌면 useJson 이 한 번 더 부른다)
+  const { holdings } = useMyPortfolio()
+  const mine = holdings
+    .filter(h => h.market === 'CRYPTO' && !COINS.some(c => c.ticker === h.ticker.toUpperCase()))
+    .map(h => ({ ticker: h.ticker.toUpperCase(), name: h.name || h.ticker.toUpperCase() }))
+  const coins = [...COINS, ...mine]
+  const prices = useJson<PriceRow[]>('/api/stock-price', { method: 'POST', body: coins.map(c => ({ ticker: c.ticker, market: 'CRYPTO' as const })) })
   const list = prices.state === 'ok' && Array.isArray(prices.data) ? prices.data : []
   const rowOf = (t: string) => list.find(x => typeof x?.ticker === 'string' && x.ticker.toUpperCase() === t)
   const frameLabel = FRAMES.find(f => f.key === frame)?.label ?? ''
@@ -203,12 +209,12 @@ export default function StudentCoin() {
       </header>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.sm, flexWrap: 'wrap' }}>
-        <h2 style={h2}>대표 코인 4종 <span style={{ fontSize: FS.tiny, fontWeight: 500, color: TK.sub }}>{frameLabel} 흐름</span></h2>
+        <h2 style={h2}>대표 코인 4종{mine.length > 0 ? ` + 내 코인 ${mine.length}종` : ''} <span style={{ fontSize: FS.tiny, fontWeight: 500, color: TK.sub }}>{frameLabel} 흐름</span></h2>
         <RangeTabs label="차트 기간" options={FRAMES} value={frame} onChange={setFrame} />
       </div>
       {prices.state === 'failed' && <FailRow text="코인 시세를 못 가져왔어요." onRetry={prices.reload} retryLabel="코인 시세 다시 불러오기" />}
       <div className="sc-grid">
-        {COINS.map(c => <CoinCard key={c.ticker} ticker={c.ticker} name={c.name} row={rowOf(c.ticker)} frame={frame} loading={pending(prices.state)} />)}
+        {coins.map(c => <CoinCard key={c.ticker} ticker={c.ticker} name={c.name} row={rowOf(c.ticker)} frame={frame} loading={pending(prices.state)} />)}
       </div>
 
       <Regulation />
