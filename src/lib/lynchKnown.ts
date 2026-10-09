@@ -5,7 +5,7 @@
 
 export type LynchKnownKey = 'slow_grower' | 'stalwart' | 'fast_grower' | 'cyclical' | 'turnaround' | 'asset_play'
 
-// ─── 하드코딩 테이블 (Yahoo Finance v10 차단 시 fallback) ───────────────────────
+// ─── 고정 분류표 — 폴백이 아니라 **우선**이다(lynch-classify 가 이 표를 먼저 보고, 있으면 재무를 묻지 않는다 · 2026-10-03 결정). 낡은 값 점검 2026-10-09: docs/history/2026-10.md ───
 export const US_KNOWN: Record<string, LynchKnownKey> = {
   // Fast Growers
   NVDA:'fast_grower', PLTR:'fast_grower', META:'fast_grower',
