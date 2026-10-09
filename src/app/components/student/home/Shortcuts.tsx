@@ -16,8 +16,8 @@ export default function Shortcuts() {
   return (
     <nav aria-label="바로가기" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: SP.sm }}>
       {ITEMS.map(({ href, label, Icon }) => (
-        <Link key={href} href={href} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: SP.xs, minHeight: 72, padding: `${SP.sm}px ${SP.xs}px`, borderRadius: RAD.md, background: TK.card, border: `1px solid ${TK.border}`, color: TK.slate200, fontSize: FS.tiny, textAlign: 'center', textDecoration: 'none', wordBreak: 'keep-all', minWidth: 0 }}>
-          <Icon size={22} color={TK.sky400} aria-hidden />
+        <Link key={href} href={href} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: SP.xs, minHeight: 64, padding: `${SP.sm}px ${SP.xs}px`, borderRadius: RAD.lg, background: TK.card, border: `1px solid ${TK.border}`, color: TK.slate200, fontSize: FS.tiny, fontWeight: 600, textAlign: 'center', textDecoration: 'none', wordBreak: 'keep-all', minWidth: 0 }}>
+          <Icon size={20} color={TK.blue400} aria-hidden />
           <span>{label}</span>
         </Link>
       ))}

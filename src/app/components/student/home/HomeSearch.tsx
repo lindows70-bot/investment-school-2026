@@ -44,7 +44,7 @@ export default function HomeSearch() {
   return (
     <section style={{ display: 'flex', flexDirection: 'column', gap: SP.sm }}>
       <input value={q} onChange={e => setQ(e.target.value)} aria-label="종목 찾기" placeholder="종목 찾기 — 삼성, 엔비디아, 비트코인" autoComplete="off"
-        style={{ height: 48, width: '100%', minWidth: 0, boxSizing: 'border-box', padding: `0 ${SP.md}px`, borderRadius: RAD.sm, background: TK.bg3, border: `1px solid ${TK.border}`, color: TK.slate100, fontSize: FS.body }} />
+        style={{ height: 48, width: '100%', minWidth: 0, boxSizing: 'border-box', padding: `0 ${SP.lg}px`, borderRadius: RAD.pill, background: TK.card, border: `1px solid ${TK.border}`, color: TK.slate100, fontSize: FS.body }} />
       <div aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: SP.sm }}>
         {searchState === 'loading' && <span style={noteStyle()}>찾는 중…</span>}
         {searchState === 'failed' && (

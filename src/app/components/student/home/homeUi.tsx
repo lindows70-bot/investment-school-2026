@@ -7,8 +7,8 @@ import { addDays, type Tone, type HomeBriefInput } from '@/lib/homeBrief'
 import { MACRO_RELEASES } from '@/lib/macroReleases'
 import type { JsonResult } from '@/app/components/student/useJson'
 
-/** 내 자산 화면(/s/assets)과 같은 카드 틀 */
-export const card = { background: TK.card, border: `1px solid ${TK.border}`, borderRadius: RAD.md, padding: SP.lg, minWidth: 0 } as const
+/** 내 자산 화면(/s/assets)과 같은 카드 틀 — 리디자인(2026-10-09 · docs/student-design) 라운드 16(RAD.lg). 값은 components/student/ui.surface 와 같아야 한다 */
+export const card = { background: TK.card, border: `1px solid ${TK.border}`, borderRadius: RAD.lg, padding: SP.lg, minWidth: 0 } as const
 
 /** 한눈 시황 조각 색 — 등락은 studentFormat.upDown 과 같은 한국식(오름 빨강·내림 파랑·보합 회색) */
 export const toneColor = (t?: Tone): string =>

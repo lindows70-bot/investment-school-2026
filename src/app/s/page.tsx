@@ -19,6 +19,7 @@ import UpcomingEvents from '@/app/components/student/home/UpcomingEvents'
 import MyNews from '@/app/components/student/home/MyNews'
 import GuruCard from '@/app/components/student/home/GuruCard'
 import LeagueLine from '@/app/components/student/home/LeagueLine'
+import WeekRecordTile from '@/app/components/student/home/WeekRecordTile'
 import StrongSectorsMini from '@/app/components/student/home/StrongSectorsMini'
 import FxMini from '@/app/components/student/home/FxMini'
 
@@ -58,7 +59,7 @@ export default function StudentHome() {
           시각 축 라벨(09:00·13:00…)이 서로 겹친다(2026-10-09 820px 실측). 3열 이상 전환은 lg 부터(CLAUDE.md 반응형 함정). */}
       <style>{`
         .sh-idx-grid { grid-template-columns: minmax(0, 1fr) }
-        .sh-spark { height: 100px; min-width: 0 }
+        .sh-spark { height: 36px; min-width: 0 }
         .sh-two { display: grid; grid-template-columns: minmax(0, 1fr); gap: ${SP.lg}px; align-items: start }
         @media (min-width: 769px) {
           .sh-two { grid-template-columns: repeat(2, minmax(0, 1fr)) }
@@ -67,14 +68,18 @@ export default function StudentHome() {
           .sh-idx-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) }
         }
       `}</style>
-      <Greeting name={me === undefined ? undefined : me.name} />
+      <Greeting name={me === undefined ? undefined : me.name} today={today} />
       <HomeSearch />
-      <Shortcuts />
       <MyAssetsLine />
-      {/* 리그 한 줄을 시황보다 위로(2026-10-09 사용자 결정) — 전엔 맨 아래(세로 3,200px 끝)라 스크롤 없이는 안 보였다 */}
-      <LeagueLine userId={me === undefined ? undefined : me.id} />
+      {/* 리그·기록 타일 2열(리디자인 2026-10-09 · docs/student-design) — 첫 화면(375×812)에 인사·내 자산·리그·기록이 스크롤 없이 들어온다 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: SP.md }}>
+        <LeagueLine userId={me === undefined ? undefined : me.id} today={today} />
+        <WeekRecordTile userId={me === undefined ? undefined : me.id} today={today} />
+      </div>
       <MarketBrief indices={indices} calendar={calendar} fx={fx} macro={macro} today={today} />
       <IndexCards indices={indices} />
+      {/* 바로가기(일정·거장·코인·부동산)는 지수 아래로 — 첫 화면은 내 상태(자산·리그·기록)에 준다 */}
+      <Shortcuts />
       <div ref={ovRef} style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
         <div className="sh-two">
           <StrongSectorsMini overview={overview} />

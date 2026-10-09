@@ -1,15 +1,17 @@
 'use client'
-// 학생 홈 '내 종목 평가금액' 한 줄 — useMyPortfolio 요약을 내 자산 화면과 같은 말·같은 숫자로. 누르면 /s/assets
+// 학생 홈 '내 종목 평가금액' 카드 — useMyPortfolio 요약을 내 자산 화면과 같은 말·같은 숫자로. 누르면 /s/assets
+//   리디자인(2026-10-09 · docs/student-design): 홈에서 가장 큰 숫자 하나 + 빛 한 점(Glow). 선 차트는 포트폴리오 시계열이 없어 넣지 않는다(지어내지 않는다)
 import Link from 'next/link'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 import { useMyPortfolio } from '@/app/components/student/useMyPortfolio'
 import { won, signWon, pct, upDown } from '@/lib/studentFormat'
 import { card, FailRow, noteStyle } from './homeUi'
+import { surface, Label, Big, Glow } from '@/app/components/student/ui'
 
 export default function MyAssetsLine() {
   const { state, failReason, summary, pricesFailed, reload } = useMyPortfolio()
 
-  if (state === 'loading') return <div style={card}><span style={noteStyle()}>내 종목을 불러오는 중이에요…</span></div>
+  if (state === 'loading') return <div style={card}><Label>내 종목 평가금액</Label><div style={{ marginTop: SP.xs }}><span style={noteStyle()}>불러오는 중이에요…</span></div></div>
   if (state === 'unauth') return <div style={card}><span style={noteStyle()}>로그인하면 내 자산이 보여요.</span></div>
   if (state === 'failed' || !summary) {
     return (
@@ -32,22 +34,24 @@ export default function MyAssetsLine() {
   // 시세가 하나도 없으면 오늘 등락은 '0'이 아니라 '모름'(내 자산 화면과 같은 판정)
   const noToday = summary.allUnpriced || summary.todayPct == null
   return (
-    <Link href="/s/assets" style={{ ...card, display: 'flex', alignItems: 'center', gap: SP.sm, color: TK.slate200, textDecoration: 'none' }}>
-      <div style={{ flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: SP.xs }}>
-        {/* 내 자산 화면이 밝히는 단서(지난 시세·매수가로 계산한 종목)를 한 줄에서도 — 같은 합계에 같은 단서 */}
-        <span style={noteStyle()}>
+    <Link href="/s/assets" aria-label="내 자산 보기" style={{ ...surface, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: SP.xs, color: TK.slate200, textDecoration: 'none' }}>
+      <Glow />
+      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.sm, position: 'relative' }}>
+        {/* 내 자산 화면이 밝히는 단서(지난 시세·매수가로 계산한 종목)를 여기서도 — 같은 합계에 같은 단서 */}
+        <Label style={{ overflowWrap: 'anywhere' }}>
           내 종목 평가금액{pricesFailed ? ' · 시세를 못 가져와 매수가 기준' : ''}
           {summary.staleCount > 0 && <span style={{ color: TK.amber400 }}>{` · ${summary.staleCount}종목 지난 시세`}</span>}
           {!pricesFailed && summary.unpricedCount > 0 && <span style={{ color: TK.amber400 }}>{` · ${summary.unpricedCount}종목 매수가로 계산`}</span>}
-        </span>
-        <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: SP.sm }}>
-          <span style={{ fontSize: FS.lg, fontWeight: 800, color: TK.slate100, whiteSpace: 'nowrap' }}>{won(summary.totalEvalKrw)}</span>
-          {noToday
-            ? <span style={{ fontSize: FS.tiny, color: TK.sub, whiteSpace: 'nowrap' }}>오늘 —</span>
-            : <span style={{ fontSize: FS.tiny, fontWeight: 700, color: upDown(summary.todayPct), whiteSpace: 'nowrap' }}>오늘 {signWon(summary.todayKrw)}{summary.todayPct != null ? ` (${pct(summary.todayPct)})` : ''}</span>}
-        </div>
-      </div>
-      <span aria-hidden style={{ fontSize: FS.lg, color: TK.sub, flexShrink: 0 }}>›</span>
+        </Label>
+        <span aria-hidden style={{ fontSize: FS.lg, color: TK.slate500, flexShrink: 0 }}>›</span>
+      </span>
+      <span style={{ position: 'relative' }}><Big>{won(summary.totalEvalKrw)}</Big></span>
+      <span style={{ position: 'relative', display: 'flex', alignItems: 'baseline', gap: SP.sm, flexWrap: 'wrap' }}>
+        {noToday
+          ? <span style={{ fontSize: FS.tiny, fontWeight: 600, color: TK.sub }}>오늘 등락 모름</span>
+          : <span style={{ fontSize: FS.tiny, fontWeight: 700, color: upDown(summary.todayPct), whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{signWon(summary.todayKrw)}{summary.todayPct != null ? ` (${pct(summary.todayPct)})` : ''}</span>}
+        <span style={{ fontSize: FS.tiny, color: TK.slate500 }}>오늘</span>
+      </span>
     </Link>
   )
 }

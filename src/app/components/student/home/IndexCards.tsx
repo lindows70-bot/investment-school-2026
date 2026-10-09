@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { TK, FS, SP } from '@/lib/theme'
 import { useJson, type JsonResult } from '@/app/components/student/useJson'
 import { won, pct, upDown, points } from '@/lib/studentFormat'
-import { sparkSeries, kstParts, niceTicks, hourTicks } from '@/lib/marketScreen'
+import { sparkSeries, kstParts } from '@/lib/marketScreen'
 import { LinePlot } from '@/app/components/student/market/marketUi'
 import { card, noteStyle, retryBtn, type IndexRow } from './homeUi'
 
@@ -23,7 +23,6 @@ const man = (v: number) => `${Math.round(v / 10_000).toLocaleString('ko-KR')}만
 
 function IndexCard({ label, cell, onRetry }: { label: string; cell: Cell; onRetry: () => void }) {
   const sp = cell.kind === 'ok' ? cell.spark : null
-  const vals = sp ? [...sp.map(p => p.v), ...(cell.kind === 'ok' && cell.baseline != null ? [cell.baseline] : [])] : []
   return (
     <div className="sh-idx" style={{ ...card, padding: `${SP.md}px ${SP.lg}px`, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
       <span style={{ fontSize: FS.tiny, color: TK.sub, whiteSpace: 'nowrap' }}>{label}</span>
@@ -40,12 +39,11 @@ function IndexCard({ label, cell, onRetry }: { label: string; cell: Cell; onRetr
           <span style={{ fontSize: FS.tiny, fontWeight: 700, color: upDown(cell.changePct), whiteSpace: 'nowrap' }}>{pct(cell.changePct)}</span>
         </span>
       )}
-      {/* 차트 — 못 그리면(점 부족·가짜 평평선) 빈 자리. 값은 위 글자가 말하므로 접근성 층은 끈다 */}
+      {/* 차트 — 못 그리면(점 부족·가짜 평평선) 빈 자리. 값은 위 글자가 말하므로 접근성 층은 끈다.
+          리디자인(2026-10-09): 축 눈금을 뺀 흐름선만 — 769~1023px 에서 시각 라벨이 겹치던 문제의 근본 처방이기도 하다(값은 글자가 말한다) */}
       <div className="sh-spark" aria-hidden>
         {cell.kind === 'ok' && sp && sp.length >= 2 && (
-          <LinePlot points={sp} color={cell.lineColor} baseline={cell.baseline} tFmt={hm} vFmt={cell.vFmt} a11y={false}
-            area endDot yAxis="right" yTicks={niceTicks(Math.min(...vals), Math.max(...vals), 3)} yFmt={cell.yFmt}
-            xTicks={hourTicks(sp[0].t, sp[sp.length - 1].t, cell.xStepH)} xFmt={hm} />
+          <LinePlot points={sp} color={cell.lineColor} baseline={cell.baseline} tFmt={hm} vFmt={cell.vFmt} a11y={false} area endDot />
         )}
       </div>
     </div>
@@ -80,7 +78,7 @@ export default function IndexCards({ indices }: { indices: JsonResult<IndexRow[]
         <IndexCard label="비트코인" cell={btcCell} onRetry={btc.reload} />
       </section>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.sm, flexWrap: 'wrap' }}>
-        <span style={noteStyle()}>선 = 지수는 그날 장중(점선 = 전날 종가) · 비트코인은 지난 24시간(눈금은 만원)</span>
+        <span style={noteStyle()}>선 = 지수는 그날 장중(점선 = 전날 종가) · 비트코인은 지난 24시간</span>
         <Link href="/s/market" style={{ display: 'flex', alignItems: 'center', minHeight: 44, padding: `0 ${SP.xs}px`, fontSize: FS.tiny, color: TK.sub, textDecoration: 'none', whiteSpace: 'nowrap' }}>시장 더 보기 ›</Link>
       </div>
     </div>
