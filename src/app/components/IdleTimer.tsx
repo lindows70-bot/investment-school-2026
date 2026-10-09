@@ -19,6 +19,16 @@ const ACTIVITY_EVENTS = [
 // 인증이 필요 없는 경로 (타이머 비활성)
 const PUBLIC_PATHS = ['/login', '/signup']
 
+/** 홈 화면에 설치한 앱(standalone)으로 열었나 — 개인 폰이라 유휴 로그아웃을 걸지 않는다.
+ *  2026-10-09: 학생 접속이 2주간 1회였고, 설치 앱도 30분 뒤 로그아웃돼 다음 날 열면 로그인 화면이었다(임시 비번 '투자학교'+8자리를 폰에서 다시 쳐야 한다).
+ *  30분 로그아웃의 목적은 **학교 공용 PC** 보호다 — 브라우저 탭으로 열었을 때만 그대로 둔다. 서버 토큰 만료는 Supabase 기본값을 따른다. */
+const isStandalone = () => {
+  try {
+    return window.matchMedia('(display-mode: standalone)').matches
+      || (navigator as Navigator & { standalone?: boolean }).standalone === true   // iOS 사파리 '홈 화면에 추가'
+  } catch { return false }
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function IdleTimer() {
   const router   = useRouter()
@@ -67,7 +77,7 @@ export default function IdleTimer() {
 
   // ── Start / reset timer ─────────────────────────────────────
   const resetTimer = useCallback(() => {
-    if (!authed || PUBLIC_PATHS.some(p => pathname.startsWith(p))) return
+    if (!authed || PUBLIC_PATHS.some(p => pathname.startsWith(p)) || isStandalone()) return
     clearAllTimers()
     setShowWarning(false)
     lastReset.current = Date.now()
@@ -93,7 +103,7 @@ export default function IdleTimer() {
 
   // ── Attach activity listeners ───────────────────────────────
   useEffect(() => {
-    if (!authed || PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
+    if (!authed || PUBLIC_PATHS.some(p => pathname.startsWith(p)) || isStandalone()) {
       clearAllTimers()
       setShowWarning(false)
       return
