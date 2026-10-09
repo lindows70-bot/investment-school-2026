@@ -7,13 +7,12 @@ import Heatmap from '@/app/components/student/Heatmap'
 import GrowthChart from '@/app/components/student/GrowthChart'
 import { useJson } from '@/app/components/student/useJson'
 import { useInView } from '@/app/components/student/useInView'
-import { FailRow, noteStyle, useKstToday } from '@/app/components/student/home/homeUi'
+import { card, FailRow, noteStyle, useKstToday } from '@/app/components/student/home/homeUi'
+import { PageHead, Label, Big, Glow, surface } from '@/app/components/student/ui'   // 리디자인(2026-10-09 · docs/student-design) — 홈·시장과 같은 머리·카드·큰 숫자·빛 한 점
 import { rebalanceCheck } from '@/lib/portfolioSummary'
 import { won, signWon, pct, upDown } from '@/lib/studentFormat'
 import { studentTotalReturn } from '@/lib/realizedPnl'
 import { useMySells, type MySells } from '@/app/components/student/useMySells'
-
-const card = { background: TK.card, border: `1px solid ${TK.border}`, borderRadius: RAD.md, padding: SP.lg } as const
 const reloadBtn = { alignSelf: 'flex-start', height: 40, padding: `0 ${SP.lg}px`, borderRadius: RAD.sm, border: `1px solid ${TK.line1}`, background: 'transparent', color: TK.slate200, fontSize: FS.tiny, cursor: 'pointer' } as const
 
 // 실패 이유마다 다른 문장 — 무엇을 못 했는지 사실만 말한다
@@ -104,11 +103,11 @@ export default function StudentAssets() {
   const { state, holdings, summary, usdKrw, targetCorePct, pricesFailed, failReason, reload } = useMyPortfolio()
   // 시세를 못 가져왔으면(위 줄도 '—' 이거나 매수가 기준) 합산 % 를 내지 않는다 — 읽지도 않는다
   const sold = useMySells(state === 'ready' && !!summary && summary.rows.length > 0 && !pricesFailed && !summary.allUnpriced)
+  const today = useKstToday()
   const header = (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 48 }}>
-      <h1 style={{ margin: 0, fontSize: FS.xl, fontWeight: 800, color: TK.slate100 }}>내 자산</h1>
-      <Link href="/s/record" aria-label="매매 기록하기" style={{ display: 'flex', alignItems: 'center', gap: SP.xs, height: 40, flexShrink: 0, whiteSpace: 'nowrap', padding: `0 ${SP.lg}px`, borderRadius: RAD.pill, background: TK.blue600, color: TK.slate100, fontSize: FS.body, fontWeight: 700, textDecoration: 'none' }}>＋ 기록</Link>
-    </div>
+    <PageHead title="내 자산" today={today} extra={
+      <Link href="/s/record" aria-label="매매 기록하기" style={{ display: 'flex', alignItems: 'center', gap: SP.xs, height: 44, flexShrink: 0, whiteSpace: 'nowrap', padding: `0 ${SP.lg}px`, borderRadius: RAD.pill, background: TK.blue600, color: TK.slate100, fontSize: FS.body, fontWeight: 700, textDecoration: 'none' }}>＋ 기록</Link>
+    } />
   )
   if (state === 'loading') return <div>{header}<p style={{ color: TK.sub, fontSize: FS.body }}>내 종목을 불러오는 중이에요…</p></div>
   if (state === 'unauth') return <div>{header}<p style={{ color: TK.sub, fontSize: FS.body }}>로그인하면 내 자산이 보여요.</p></div>
@@ -147,27 +146,31 @@ export default function StudentAssets() {
           <button type="button" onClick={reload} style={reloadBtn}>다시 불러오기</button>
         </div>
       )}
-      <section style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
+      {/* 리디자인(2026-10-09): 화면에서 가장 큰 숫자 하나 + 빛 한 점 — 홈 내 자산 카드와 같은 모양·같은 숫자 */}
+      <section aria-label="내 종목 평가금액" style={{ ...surface, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: SP.xs }}>
+        <Glow />
         {/* 선생님 자산 화면의 '총자산'은 예수금까지 더한 값이다 — 같은 말로 다른 숫자를 보이지 않게 보유 종목만이라고 쓴다 */}
-        <span style={{ fontSize: FS.body, color: TK.sub }}>내 종목 평가금액</span>
-        <span style={{ fontSize: FS.h1, fontWeight: 800, color: TK.slate100 }}>{won(summary.totalEvalKrw)}</span>
-        <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: SP.sm }}>
+        <span style={{ position: 'relative' }}><Label>내 종목 평가금액</Label></span>
+        <span style={{ position: 'relative' }}><Big size={FS.h1}>{won(summary.totalEvalKrw)}</Big></span>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: SP.sm }}>
           {noToday
-            ? <span style={{ fontSize: FS.lg, fontWeight: 700, color: TK.sub }}>오늘 —</span>
-            : <span style={{ fontSize: FS.lg, fontWeight: 700, color: upDown(summary.todayPct) }}>오늘 {signWon(summary.todayKrw)}{summary.todayPct != null ? ` (${pct(summary.todayPct)})` : ''}</span>}
-          {summary.staleCount > 0 && <span style={{ fontSize: FS.micro, color: TK.amber400 }}>{summary.staleCount}종목은 지난 시세예요.</span>}
+            ? <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.sub }}>오늘 등락 모름</span>
+            : <span style={{ fontSize: FS.body, fontWeight: 700, color: upDown(summary.todayPct), fontVariantNumeric: 'tabular-nums' }}>{signWon(summary.todayKrw)}{summary.todayPct != null ? ` (${pct(summary.todayPct)})` : ''} <span style={{ fontSize: FS.tiny, fontWeight: 500, color: TK.slate500 }}>오늘</span></span>}
+          {summary.staleCount > 0 && <span style={{ fontSize: FS.tiny, color: TK.amber400 }}>{summary.staleCount}종목은 지난 시세예요.</span>}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', marginTop: SP.sm, paddingTop: SP.md, borderTop: `1px solid ${TK.border}` }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}><span style={{ fontSize: FS.tiny, color: TK.sub }}>넣은 돈 (원금)</span><span style={{ fontSize: FS.body, color: TK.slate300 }}>{won(summary.totalCostKrw)}</span></div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <span style={{ fontSize: FS.tiny, color: TK.sub }}>지금까지 불어난 돈</span>
+        <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: SP.sm, marginTop: SP.xs, paddingTop: SP.md, borderTop: `1px solid ${TK.border}` }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}><Label>넣은 돈 (원금)</Label><span style={{ fontSize: FS.body, fontWeight: 600, color: TK.slate200, fontVariantNumeric: 'tabular-nums' }}>{won(summary.totalCostKrw)}</span></div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+            <Label>지금까지 불어난 돈</Label>
             {summary.allUnpriced
               ? <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.sub }}>—</span>
-              : <span style={{ fontSize: FS.body, fontWeight: 700, color: upDown(summary.pnlPct), whiteSpace: 'nowrap' }}>{signWon(summary.pnlKrw)}{summary.pnlPct != null ? ` (${pct(summary.pnlPct)})` : ''}</span>}
+              : <span style={{ fontSize: FS.body, fontWeight: 700, color: upDown(summary.pnlPct), whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{signWon(summary.pnlKrw)}{summary.pnlPct != null ? ` (${pct(summary.pnlPct)})` : ''}</span>}
           </div>
         </div>
-        <SoldLine sold={sold} costKrw={summary.totalCostKrw} evalKrw={summary.totalEvalKrw} usdKrw={usdKrw} onReloadFx={reload} />
-        {!pricesFailed && summary.unpricedCount > 0 && <span style={{ fontSize: FS.tiny, color: TK.amber400 }}>시세를 못 가져온 종목 {summary.unpricedCount}개는 매수가로 계산했어요.</span>}
+        <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: SP.xs }}>
+          <SoldLine sold={sold} costKrw={summary.totalCostKrw} evalKrw={summary.totalEvalKrw} usdKrw={usdKrw} onReloadFx={reload} />
+          {!pricesFailed && summary.unpricedCount > 0 && <span style={{ fontSize: FS.tiny, color: TK.amber400 }}>시세를 못 가져온 종목 {summary.unpricedCount}개는 매수가로 계산했어요.</span>}
+        </div>
       </section>
 
       <Heatmap rows={summary.rows} corePct={summary.corePct} />
@@ -201,11 +204,16 @@ export default function StudentAssets() {
 
       <MonthDividend />
 
-      <section style={{ display: 'flex', flexDirection: 'column' }}>
-        <h2 style={{ margin: 0, fontSize: FS.lg, fontWeight: 700, color: TK.slate100, paddingBottom: SP.sm }}>내 종목</h2>
+      <section aria-label="내 종목" style={{ display: 'flex', flexDirection: 'column', gap: SP.sm }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: SP.sm }}>
+          <h2 style={{ margin: 0, fontSize: FS.lg, fontWeight: 700, color: TK.slate100 }}>내 종목</h2>
+          <span style={{ fontSize: FS.tiny, color: TK.sub }}>{summary.rows.length}종목 · 평가금액 큰 순</span>
+        </div>
+        {/* 리디자인(2026-10-09): 행 = "왼쪽 이름 · 오른쪽 값 ›" 를 카드 한 장 안에 헤어라인으로 */}
+        <div style={{ ...surface, padding: `0 ${SP.lg}px`, display: 'flex', flexDirection: 'column' }}>
         {/* summary.rows 는 portfolioSummary 가 이미 평가액 내림차순으로 정렬해 준다 */}
-        {summary.rows.map(r => (
-          <Link key={r.id} href={`/s/stock/${encodeURIComponent(r.ticker)}?m=${r.market}`} style={{ display: 'flex', alignItems: 'center', gap: SP.md, minHeight: 64, borderTop: `1px solid ${TK.border}`, color: TK.slate200, textDecoration: 'none' }}>
+        {summary.rows.map((r, i) => (
+          <Link key={r.id} href={`/s/stock/${encodeURIComponent(r.ticker)}?m=${r.market}`} style={{ display: 'flex', alignItems: 'center', gap: SP.md, minHeight: 64, borderTop: i ? `1px solid ${TK.border}` : 'none', color: TK.slate200, textDecoration: 'none' }}>
             <div aria-hidden style={{ width: 40, height: 40, flexShrink: 0, borderRadius: RAD.pill, background: TK.bg7, border: `1px solid ${TK.line1}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: FS.tiny, fontWeight: 700, color: TK.slate300 }}>{r.name.slice(0, 1)}</div>
             <div style={{ flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
               <span style={{ fontSize: FS.body, color: TK.slate100, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>
@@ -217,12 +225,14 @@ export default function StudentAssets() {
                   : '지금 시세를 못 가져왔어요 · 매수가로 계산'}
               </span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, whiteSpace: 'nowrap', flexShrink: 0 }}>
-              <span style={{ fontSize: FS.body, color: TK.slate100 }}>{won(r.evalKrw)}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, whiteSpace: 'nowrap', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+              <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate100 }}>{won(r.evalKrw)}</span>
               {r.priced && r.pnlPct != null && <span style={{ fontSize: FS.tiny, fontWeight: 700, color: upDown(r.pnlPct) }}>{pct(r.pnlPct)}</span>}
             </div>
+            <span aria-hidden style={{ fontSize: FS.lg, color: TK.slate500, flexShrink: 0 }}>›</span>
           </Link>
         ))}
+        </div>
       </section>
     </div>
   )
