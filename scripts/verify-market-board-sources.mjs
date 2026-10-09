@@ -60,11 +60,15 @@ const [idx, min, integK, integQ, dailyK, dailyQ, mv, ind, news, rankF, trend, us
   CNN.fetchCnnFngYear(), CF.fetchCryptoFngYear(), FX.fetchFxTrend(), UP.fetchCoinBoard(5),
 ])
 // 앱 환율 SSOT 1순위(하나은행) + 독립 대조용 2순위 원천(fawazahmed0 — 통화별 값 차이로 단위·100엔당 같은 스케일 변화를 잡는다)
-const [hana, fz] = await Promise.all([
+let [hana, fz] = await Promise.all([
   FXH.fetchHanaFx(FXH.FX_NEED, 8000),
   fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json', { signal: AbortSignal.timeout(8000) })
     .then(r => (r.ok ? r.json() : null)).catch(() => null),
 ])
+// ⚠️ 고시일은 목록(새 회차)과 USD 일별 첫 행의 값이 같을 때만 붙는다. 두 원천이 **몇 초 어긋나게 갱신**되면(새 회차가 목록엔 들어오고
+//    일별 행엔 아직 안 들어옴) 그 순간만 null 이 된다 — 2026-10-09 실측: 02:00·22:00 두 번 빨강, 3분 뒤 재실행은 통과(값 1,341.90→1,342.10 회차 갱신).
+//    원천이 멈춘 게 아니라 회차 갱신 중인 것이므로 한 번만 더 받아 본다(앱 쪽은 noticeDate null 이어도 1순위를 그대로 쓴다 — 이름표만 빠진다).
+if (hana && !hana.noticeDate) { await new Promise(r => setTimeout(r, 3000)); hana = (await FXH.fetchHanaFx(FXH.FX_NEED, 8000)) ?? hana }
 
 check('국내 지수 3종(polling)', idx.ok && idx.data.length === 3, why(idx))
 check(`국내 지수 기준 시각 ${KR_STALE}일 이내`, idx.ok && idx.asOf && ageDays(idx.asOf) < KR_STALE, idx.ok ? idx.asOf : why(idx))

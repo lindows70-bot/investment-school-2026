@@ -65,7 +65,7 @@ check('린치 자동 분석 — PEG 칸과 종합 의견이 정점(fair.peak)을
 const rp = src('app/research/page.tsx')
 // 2026-10-03: 정점 가드가 가치 축(유니버스 스크리너)까지 — 종합 판정 '매수 적합 81' 옆에 '저평가 근거로 쓸 수 없다'가 나란히 있던 모순
 const scr = src('lib/macroPhaseScreener.ts'), rv = src('app/api/research-verdict/route.ts'), ur = src('lib/unifiedReco.ts')   // 통합추천 본문은 2026-10-09 lib 로 이동(라우트는 인증·응답만)
-check('스크리너 — 경기순환주 정점을 lynchFairValue(종목 정보 입력)로 판정하고 PEG·이익수익률·린치 점수를 중립으로', /lynchFairValue\(\{ eps: f\.eps/.test(scr) && /const pegGrad = pegPeak \? 0\.5 : pegGrad0/.test(scr) && /const eyScore = pegPeak \? 0\.4 : eyScore0/.test(scr) && /\(isPegBaseEffect\(peg, earnGrowth\) \|\| pegPeak\) \? 0\.5/.test(scr) && /macro-screened-universe:v20/.test(scr) && /eyScore0 > 0\.45 \|\| isPegBaseEffect\(peg, earnGrowth\)\)/.test(scr) && /peakNote = v\.peakNote/.test(scr))
+check('스크리너 — 경기순환주 정점을 lynchFairValue(종목 정보 입력)로 판정하고 PEG·이익수익률·린치 점수를 중립으로', /lynchFairValue\(\{ eps: f\.eps/.test(scr) && /const pegGrad = pegPeak \? 0\.5 : pegGrad0/.test(scr) && /const eyScore = pegPeak \? 0\.4 : eyScore0/.test(scr) && /\(isPegBaseEffect\(peg, earnGrowth\) \|\| pegPeak\) \? 0\.5/.test(scr) && /macro-screened-universe:v21/.test(scr) && /eyScore0 > 0\.45 \|\| isPegBaseEffect\(peg, earnGrowth\)\)/.test(scr) && /peakNote = v\.peakNote/.test(scr))
 // 2026-10-03 보강: 유니버스 종목은 스크리너 플래그를 읽고(재계산 없음), 유니버스 밖 경기순환주만 같은 함수로 직접 판정한다(이수페타시스 실측 구멍)
 check('종합 판정 — 유니버스는 스크리너 플래그를 읽고 · 유니버스 밖 경기순환주만 lynchFairValue 로 판정 · 분류는 고정표 먼저 · cons 에 같은 이유 문장 · 저PEG 찬성 근거 억제',
   /let pegPeak = ax\?\.pegPeak \?\? false/.test(rv) && /if \(!ax && lc === 'cyclical'\)/.test(rv) && (rv.match(/lynchFairValue\(/g) ?? []).length === 1
