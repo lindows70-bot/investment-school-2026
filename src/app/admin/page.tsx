@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { TK, FONT_STACK } from '@/lib/theme'
+import WeeklyNoteCard from '@/app/components/WeeklyNoteCard'   // 📣 이번 주 소식 문구(반 단톡방용 · 학생 복귀 2단계)
 import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면마다 1,350·1,400 으로 갈리던 상수를 한 값으로)
 import { acceptFx } from '@/lib/fxAccept'     // 환율 채택 SSOT — 고정 상수는 실제 환율로 쓰지 않는다
 
@@ -722,6 +723,9 @@ export default function AdminPage() {
                 </button>
               </div>
             </div>
+
+            {/* ── 이번 주 소식 문구(반 단톡방용) — 학생 복귀 2단계 ── */}
+            <WeeklyNoteCard />
 
             {/* ── 요약 카드 4개 ── */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12, marginBottom: 28 }}>
