@@ -278,10 +278,10 @@ export default function MacroDashboard() {
   // ── 파생 상태 (데이터 로딩 후 계산)
   const latestInfl  = inflData[inflData.length - 1]
   const policyStance = getPolicyStance(inflData)
-  const synthesis    = (!inflLoading && !bsLoading) ? buildSynthesis(inflData, bsData, rateDir) : null
-  const guideCards   = (!inflLoading && !bsLoading)
-    ? buildGuideCards(inflData, bsData, rateDir)
-    : null
+  // ⛔ Mock(FRED 실패 시 2026-05 에 멈춘 정적 배열)으로는 판정하지 않는다 — 차트는 모양만 남기고 종합 스탠스·포지션 카드는 보류(폴백이 판정에 들어가면 공백이 성공으로 둔갑 · 2026-10-09)
+  const dataReal     = !inflLoading && !bsLoading && !inflMock && !bsMock
+  const synthesis    = dataReal ? buildSynthesis(inflData, bsData, rateDir) : null
+  const guideCards   = dataReal ? buildGuideCards(inflData, bsData, rateDir) : null
 
   return (
     <div style={{
@@ -406,10 +406,15 @@ export default function MacroDashboard() {
           )}
           {(inflMock || bsMock) && (
             <span style={{ marginLeft: 8, fontSize: 10, color: TK.amber400, fontWeight: 600 }}>
-              ⚠️ Mock 데이터 기반 (FRED_API_KEY 설정 후 실시간 반영)
+              ⚠️ FRED 자료를 못 받아 판정 보류
             </span>
           )}
         </div>
+        {(!inflLoading && !bsLoading && (inflMock || bsMock)) && (
+          <div style={{ fontSize: 11, color: TK.sub2, lineHeight: 1.6 }}>
+            연준 자료(FRED)를 지금 못 받았어요. 위 차트는 예시 모양이라 이것으로 스탠스·포지션을 판정하지 않습니다 — 잠시 뒤 다시 열어 주세요.
+          </div>
+        )}
 
         {/* 로딩 중 스켈레톤 */}
         {(inflLoading || bsLoading) && (
