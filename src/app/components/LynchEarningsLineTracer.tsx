@@ -386,6 +386,16 @@ export default function LynchEarningsLineTracer() {
               </table>
             </div>
 
+            {/* ── 자료 없는 연도 안내(없음 ≠ 적자) — 표의 '—' 만으로는 적자인지 못 받은 것인지 학생이 모른다(이익선 차트와 같은 문구 · 2026-10-09) */}
+            {(() => {
+              const missing = data.points.filter(p => p.eps == null && !p.isDeficit).map(p => p.year)
+              return missing.length > 0 ? (
+                <div style={{ fontSize: FS.micro, color: C.textLow, marginTop: -6, marginBottom: 14, lineHeight: 1.6 }}>
+                  ※ {missing.join(', ')}년은 EPS 자료를 받지 못해 선을 그리지 않았어요(적자라는 뜻이 아니에요). 주가만 표시합니다.
+                </div>
+              ) : null
+            })()}
+
             {/* ── 린치 코멘트 ── */}
             {data.currentGap15 != null && (
               <div style={{ padding: '12px 16px', borderRadius: 10, background: C.card2, borderLeft: `3px solid ${data.currentGap15 < 0 && hold ? TK.amber500 : data.currentGap15 < -20 ? C.green : data.currentGap15 > 30 ? C.red : TK.blue500}` }}>
