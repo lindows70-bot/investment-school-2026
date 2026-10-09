@@ -9,9 +9,12 @@ export type LynchKnownKey = 'slow_grower' | 'stalwart' | 'fast_grower' | 'cyclic
 export const US_KNOWN: Record<string, LynchKnownKey> = {
   // Fast Growers
   NVDA:'fast_grower', PLTR:'fast_grower', META:'fast_grower',
-  AMZN:'fast_grower', TSLA:'fast_grower', GEV:'fast_grower',
+  AMZN:'fast_grower', GEV:'fast_grower',
   CRWD:'fast_grower', NET:'fast_grower',  SHOP:'fast_grower',
-  SNOW:'fast_grower', COIN:'fast_grower', SQ:'fast_grower',
+  SNOW:'fast_grower', COIN:'fast_grower',
+  // 2026-10-09 점검(앱 재무 연간 EPS 대조 · docs/history/2026-10.md): 릴리 stalwart→fast_grower(3년 EPS +52%/년) · 테슬라 fast_grower→cyclical(3년 −33%/년 · 자동차) · SQ→XYZ(블록 티커 변경 2025-01)
+  LLY:'fast_grower',   // 릴리 — EPS 6.57→22.95(2022→2025) · 매출 3년 +31.7%
+  XYZ:'turnaround',    // 블록(옛 SQ) — EPS −0.93→0.02→4.56→2.10 · 매출 +11%/년 · 적자 회생 뒤 흔들림(알고리즘 규칙: 직전 EPS −10% 이하 = turnaround)
   MRVL:'fast_grower', ARM:'fast_grower',  SMCI:'fast_grower',
   // 적자 매출 고성장 신생기업 (AI·양자·바이오) → 빠른성장주
   TEM:'fast_grower', IONQ:'fast_grower', RGTI:'fast_grower', QBTS:'fast_grower',
@@ -22,8 +25,8 @@ export const US_KNOWN: Record<string, LynchKnownKey> = {
   AAPL:'stalwart', MSFT:'stalwart', GOOGL:'stalwart', GOOG:'stalwart',
   JPM:'stalwart',  V:'stalwart',    MA:'stalwart',    JNJ:'stalwart',
   UNH:'stalwart',  PG:'stalwart',   KO:'stalwart',    WMT:'stalwart',
-  HD:'stalwart',   COST:'stalwart', ABBV:'stalwart',  LLY:'stalwart',
-  NVO:'stalwart',  ASML:'stalwart', TSM:'stalwart',   AVGO:'stalwart',
+  HD:'stalwart',   COST:'stalwart', ABBV:'stalwart',
+  NVO:'stalwart',  ASML:'stalwart', TSM:'stalwart',   AVGO:'stalwart',   // AVGO 3년 EPS +21.6%/년(경계) — 메가캡이라 유지(2026-10-09)
   ORCL:'stalwart', CRM:'stalwart',  ADBE:'stalwart',  ACN:'stalwart',
   // Slow Growers (통신·유틸리티·고배당)
   T:'slow_grower', VZ:'slow_grower', MO:'slow_grower', PM:'slow_grower',
@@ -33,7 +36,7 @@ export const US_KNOWN: Record<string, LynchKnownKey> = {
   // Cyclicals (에너지·반도체·소재·산업재)
   XOM:'cyclical', CVX:'cyclical', COP:'cyclical', OXY:'cyclical',
   SLB:'cyclical', HAL:'cyclical',
-  F:'cyclical',   GM:'cyclical',  BA:'cyclical',
+  F:'cyclical',   GM:'cyclical',  BA:'cyclical',  TSLA:'cyclical',   // 테슬라 — EPS 3.62→1.08(2022→2025) · 매출 3년 +5% · 2026-10-09 fast_grower 에서 옮김
   CAT:'cyclical', DE:'cyclical',  FCX:'cyclical',
   TXN:'cyclical', COHR:'cyclical', ON:'cyclical', QCOM:'cyclical',
   // Turnarounds (적자 회생)

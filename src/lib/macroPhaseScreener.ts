@@ -61,7 +61,7 @@ export interface MacroPhaseResult {
 // v18(2026-10-03): 🏔️ 경기순환주 정점 가드 — 이익이 결산 기록 중 최고인 해의 PEG·이익수익률은 중립(pegPeak·peakNote 필드 추가 · 가치축 값 변경)
 // v19: peakNote 를 정점 전용 문장으로(급증과 겹친 종목의 문장 변경)
 // v20(2026-10-07): 이익 급증(기저효과) 경기순환주도 정점 판정 대상(삼성전자가 빠져 있었다)
-export const UNIVERSE_KEY = 'macro-screened-universe:v20'
+export const UNIVERSE_KEY = 'macro-screened-universe:v21'   // v21: 린치 분류 교정(릴리·테슬라 — 적정 배수가 바뀐다)
 
 export interface ScreenedStock {
   ticker:       string
@@ -125,7 +125,7 @@ const US_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'GEV',  lynch:'fast_grower',name:'GE Vernova' },
   { ticker:'ASML', lynch:'stalwart',   name:'ASML' },
   // ── 코어 풀 확장(2026-06) — 섹터 다변화(헬스케어·필수소비재·산업재·에너지·금융) ──
-  { ticker:'LLY',  lynch:'stalwart',   name:'Eli Lilly' },
+  { ticker:'LLY',  lynch:'fast_grower',name:'Eli Lilly' },   // 2026-10-09 고정표와 함께 stalwart→fast_grower
   { ticker:'UNH',  lynch:'stalwart',   name:'UnitedHealth' },
   { ticker:'ABBV', lynch:'stalwart',   name:'AbbVie' },
   { ticker:'COST', lynch:'stalwart',   name:'Costco' },
@@ -155,7 +155,7 @@ const US_UNIVERSE: { ticker: string; lynch: LynchCategory; name: string }[] = [
   { ticker:'DIS',  lynch:'stalwart',   name:'Disney' },
   { ticker:'NKE',  lynch:'stalwart',   name:'Nike' },
   { ticker:'MCD',  lynch:'slow_grower',name:'McDonald’s' },
-  { ticker:'TSLA', lynch:'fast_grower',name:'Tesla' },
+  { ticker:'TSLA', lynch:'cyclical',   name:'Tesla' },   // 2026-10-09 고정표와 함께 fast_grower→cyclical
   { ticker:'MRK',  lynch:'stalwart',   name:'Merck' },
   { ticker:'PFE',  lynch:'slow_grower',name:'Pfizer' },
   { ticker:'TMO',  lynch:'stalwart',   name:'Thermo Fisher' },
