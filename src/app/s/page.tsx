@@ -1,5 +1,5 @@
 'use client'
-// 학생 홈 — 인사·검색·바로가기·내 자산 한 줄·한눈 시황·지수(미니 선)·요즘 강한 분야 3·공포탐욕(1년)·환율·일정·뉴스·거장·리그. 카드마다 따로 불러와 하나가 느려도 나머지는 뜬다
+// 학생 홈 — 인사·검색·바로가기·내 자산 한 줄·리그 한 줄·한눈 시황·지수(미니 선)·요즘 강한 분야 3·공포탐욕(1년)·환율·일정·뉴스·거장. 카드마다 따로 불러와 하나가 느려도 나머지는 뜬다
 //   강한 분야·공포탐욕 1년·환율은 시장 화면과 같은 /api/market-board/overview 를 **한 번** 불러 나눠 쓴다(그 카드들이 화면에 들어올 때). 자세한 건 시장 화면(/s/market)
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -67,6 +67,8 @@ export default function StudentHome() {
       <HomeSearch />
       <Shortcuts />
       <MyAssetsLine />
+      {/* 리그 한 줄을 시황보다 위로(2026-10-09 사용자 결정) — 전엔 맨 아래(세로 3,200px 끝)라 스크롤 없이는 안 보였다 */}
+      <LeagueLine userId={me === undefined ? undefined : me.id} />
       <MarketBrief indices={indices} calendar={calendar} fx={fx} macro={macro} today={today} />
       <IndexCards indices={indices} />
       <div ref={ovRef} style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
@@ -81,7 +83,6 @@ export default function StudentHome() {
       </div>
       <MyNews />
       <GuruCard />
-      <LeagueLine userId={me === undefined ? undefined : me.id} />
     </div>
   )
 }
