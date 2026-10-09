@@ -10,6 +10,17 @@ const STANCE: Record<Stance, { label: string; color: string; icon: string }> = {
   neutral: { label: '중립', color: TK.amber400, icon: '⚖️' },
   dovish:  { label: '비둘기 (완화)', color: TK.green500, icon: '🕊️' },
 }
+/** 📖 용어 한 줄 — 근거 헤드라인(영문)에 이 말이 들어 있으면 뜻을 결정론으로 붙인다(LLM 해석에 맡기지 않는다).
+ *  2026-08-29 실사고: 'quieter central bank' 를 AI 가 "소통을 늘려 불확실성을 낮추겠다"로 **정반대**로 풀었다.
+ *  뜻 규칙을 프롬프트에 더 써도 두 번 안 통했으므로(CLAUDE.md), 화면이 원문 옆에 뜻을 **직접** 적어 학생이 대조하게 한다. */
+const GLOSSARY: { re: RegExp; term: string; meaning: string }[] = [
+  { re: /quieter|quiet(er)? fed|stays? quiet/i, term: 'quieter Fed', meaning: '연준이 금리에 대해 말을 아끼겠다는 뜻 — 다음 회의 결과를 미리 알려주는 예고(가이던스)를 줄인다는 것이지, 소통을 늘리겠다는 뜻이 아닙니다.' },
+  { re: /forward guidance/i, term: 'forward guidance', meaning: '앞으로의 금리 방향을 미리 알려주는 연준의 예고. 늘리면 시장이 덜 놀라고, 줄이면 회의마다 변동성이 커집니다.' },
+  { re: /dot plot/i, term: 'dot plot', meaning: '연준 위원 각자가 생각하는 앞으로의 금리 수준을 점으로 찍은 표. 점들의 중간값이 "연준의 금리 경로 전망"으로 읽힙니다.' },
+  { re: /balance sheet|runoff|quantitative tightening|\bQT\b/i, term: 'QT(양적긴축)', meaning: '연준이 보유한 채권을 줄여 시중 돈을 거둬들이는 것. 금리 인하와 별개로 유동성을 조이는 축입니다.' },
+]
+const glossOf = (text: string) => GLOSSARY.filter(g => g.re.test(text))
+
 const GAP: Record<GapKind, { label: string; color: string; icon: string }> = {
   aligned: { label: '의장 ↔ 시장 일치', color: TK.green500, icon: '🤝' },
   partial: { label: '부분 차이',        color: TK.amber400, icon: '↔️' },
@@ -101,6 +112,10 @@ export default function FomcDecoder() {
                 {/* 📎 근거 헤드라인 — 학생이 **직접 대조하라고** 넣은 줄이다. 근거 없는 발언은 서버가 이미 버렸다.
                     ⚠️ 읽으라고 만든 줄을 10px 흐린 회색으로 두면 안 읽힌다(제1-b: 리터럴 금지 + 사용자 지시). FS.tiny·slate400. */}
                 {q.src && <div style={{ color: TK.slate400, fontSize: FS.tiny, marginTop: 5, lineHeight: 1.5 }}>📎 {q.src}</div>}
+                {/* 📖 용어 한 줄 — 헤드라인 원문에 든 전문용어의 뜻을 결정론으로 병기(AI 해석이 뜻을 뒤집어도 학생이 원문 옆에서 바로 잡을 수 있게) */}
+                {q.src && glossOf(q.src).map(g => (
+                  <div key={g.term} style={{ color: TK.sub13, fontSize: FS.tiny, marginTop: 4, lineHeight: 1.5 }}>📖 <b>{g.term}</b> = {g.meaning}</div>
+                ))}
               </div>
             ))}
           </div>
