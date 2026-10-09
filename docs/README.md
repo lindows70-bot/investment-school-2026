@@ -82,3 +82,5 @@
 - [dmi-video](dmi-video/context-notes.md) — 🧭 DMI 매매법 영상 주장 검증(일봉·60분봉 2프레임 · 기각 판정표) · 2026-08-29
 - [fed-decoder](fed-decoder/context-notes.md) — 🏛️ 연준 디코더(FOMC→잭슨홀·증언 앵커 확장) · 결정·한계·⏳9/16 할 일 · 2026-08-29
 - [cci-video](cci-video/context-notes.md) — 📐 CCI×이평선 영상 검증(기각) + 앱의 미검증 cciCross100 발견 · 2026-08-29
+- [student-return](student-return/plan.md) — 🎒 학생 복귀 2단계(접속 2주 1회에서 출발 · 설치 앱 로그인 유지 · 온보딩 카드 · 주간 순위 스냅샷 · 선생님 소식 문구) · 2026-10-09
+- [reviews/2026-10-09-upgrade-review](reviews/2026-10-09-upgrade-review.md) — 🔭 전체 검토(문서·코드·화면·접속 기록) → 결함 10건·결정·권고 순서 · 2026-10-09
