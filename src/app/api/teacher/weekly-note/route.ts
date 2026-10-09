@@ -42,12 +42,14 @@ export async function GET(req: Request) {
   // 🏆 리그 — 지난번 스냅샷이 있으면 변화까지(없으면 순위만 · 추정 안 함)
   if (league && Array.isArray(league.students)) {
     const rows = rankRows(league.students)
-    const prevRows = latest?.previous?.rows ?? latest?.current?.rows ?? null   // 비교 상대: 지난 월요일 장(없으면 가장 최근 장)
-    const prevDate = latest?.previous?.date ?? latest?.current?.date ?? null
+    // 비교 상대: 지난 월요일 장(previous) · 없으면 가장 최근 장(current) — 단 오늘 만든 장이면 비교가 아니다(전부 '=' 가 되는 거짓 표시 · 10/9 실측)
+    const cand = latest?.previous ?? latest?.current ?? null
+    const prevRows = cand && cand.date !== today ? cand.rows : null
+    const prevDate = prevRows ? cand!.date : null
     const prevRank = (uid: string) => prevRows?.find(r => r.userId === uid)?.rank ?? null
-    lines.push(`🏆 리그 순위 (${rows.length}명${prevDate && prevDate !== today ? ` · ${md(prevDate)} 대비` : ''})`)
-    for (const r of rows.slice(0, 3)) lines.push(`${r.rank}위 ${r.name} ${pct(r.totalReturn)}${delta(prevRank(r.userId), r.rank)}`)
-    if (prevRows && prevDate !== today) {
+    lines.push(`🏆 리그 순위 (${rows.length}명${prevDate ? ` · ${md(prevDate)} 대비` : ''})`)
+    for (const r of rows.slice(0, 3)) lines.push(`${r.rank}위 ${r.name} ${pct(r.totalReturn)}${prevRows ? delta(prevRank(r.userId), r.rank) : ''}`)
+    if (prevRows) {
       const climbers = rows.map(r => ({ r, up: (prevRank(r.userId) ?? r.rank) - r.rank })).filter(x => x.up > 0).sort((a, b) => b.up - a.up)
       if (climbers.length) lines.push(`가장 많이 올라온 친구: ${climbers[0].r.name} (↑${climbers[0].up})`)
     }
@@ -74,7 +76,8 @@ export async function GET(req: Request) {
   const events: { date: string; text: string }[] = []
   for (const d of fomcKstDates(FOMC_SCHEDULE.map(m => m.date), today)) if (d <= until) events.push({ date: d, text: `${md(d)} 새벽 FOMC 금리 발표` })
   if (macro && Array.isArray(macro.events)) {
-    for (const e of macro.events) if (e.kstDate >= today && e.kstDate <= until) events.push({ date: e.kstDate, text: `${md(e.kstDate)} ${e.kstTime === '21:30' ? '밤 9:30' : '밤 10:30'} 미국 ${e.label} 발표` })
+    // label 에 이미 '미국 CPI(소비자물가)' 처럼 나라가 들어 있다 — 앞에 '미국'을 또 붙이지 않는다
+    for (const e of macro.events) if (e.kstDate >= today && e.kstDate <= until) events.push({ date: e.kstDate, text: `${md(e.kstDate)} ${e.kstTime === '21:30' ? '밤 9:30' : '밤 10:30'} ${e.label} 발표` })
   } else missing.push('미국 지표 일정')
   events.sort((a, b) => a.date < b.date ? -1 : 1)
   if (events.length) lines.push('📅 이번 주 일정', ...events.map(e => `· ${e.text}`), '')
