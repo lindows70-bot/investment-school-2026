@@ -21,6 +21,7 @@ import { studentTotalReturn, type SellTx } from '@/lib/realizedPnl'
 import { TK } from '@/lib/theme'
 import { buildLeagueMix, detailIds, emptyLeagueDetail, type LeagueTopHolding, type LeagueMixSlice, type LeagueHoldingRow } from '@/lib/leagueMix'
 import { getCache as readCache } from '@/lib/appCache'
+import { isCronRequest } from '@/lib/cronAuth'
 import { LEAGUE_SNAP_LATEST_KEY, type LeagueSnapLatest } from '@/lib/leagueSnap'   // 🏆 지난주 순위(월요일 스냅샷)
 
 // ── 서비스 롤 클라이언트 (전체 사용자 데이터 조회) ──────────────
@@ -145,9 +146,11 @@ const TICKER_COLORS = [
 export async function GET(req: Request) {
   // 🔒 실명·수익률·보유종목을 서비스롤로 모으므로 로그인 학생에게만 연다(2026-09-25).
   //    이전엔 비로그인 curl 에도 200 으로 학생 9명 실명이 나갔다 — 화면 보호(middleware)는 API 를 막지 않는다.
+  //    크론(주간 순위 스냅샷 · CRON_SECRET Bearer)은 세션 없이 통과한다 — 보는 사람이 없으니 '내' 강조 id 는 없다(2026-10-09)
+  const cron = isCronRequest(req)
   const userSb = createClient()
-  const { data: { user } } = await userSb.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const { data: { user } } = cron ? { data: { user: null } } : await userSb.auth.getUser()
+  if (!user && !cron) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   try {
     const sb = adminClient()
@@ -357,7 +360,7 @@ export async function GET(req: Request) {
     const prevRankOf = (uid: string) => prevRows ? (prevRows.find(r => r.userId === uid)?.rank ?? null) : null
 
     // 종목 비중(금액 없음)은 등록한 학생 전원에게 싣는다 — 2026-09-27 사용자 결정(반이 작아 친구 전원을 보여 준다). 미등록은 빈 값
-    const shownIds = detailIds(allStudents, user.id)
+    const shownIds = detailIds(allStudents, user?.id ?? null)
     const students: StudentPortfolio[] = allStudents.map(s =>
       ({ ...(shownIds.has(s.userId) ? s : { ...s, ...emptyLeagueDetail() }), prevRank: prevRankOf(s.userId) })
     )

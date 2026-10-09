@@ -16,7 +16,8 @@ export async function GET(req: Request) {
   const t0 = Date.now()
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   // 리그 API 는 로그인 없이 계산한다(서비스 롤) — 같은 함수를 부르는 것이 아니라 같은 응답을 쓴다(제2원칙 · 화면과 같은 값)
-  const r = await fetch(`${base}/api/school-league`, { cache: 'no-store', signal: AbortSignal.timeout(90_000) }).catch(() => null)
+  //   리그 API 는 로그인 또는 크론 비밀을 요구한다 — 받은 Authorization 을 그대로 넘긴다
+  const r = await fetch(`${base}/api/school-league`, { cache: 'no-store', signal: AbortSignal.timeout(90_000), headers: { authorization: req.headers.get('authorization') ?? '' } }).catch(() => null)
   const j = r && r.ok ? await r.json().catch(() => null) as SchoolLeagueData | null : null
   if (!j || !Array.isArray(j.students)) return NextResponse.json({ ok: false, cached: false, error: '리그 응답 없음' }, { status: 502 })
 
