@@ -104,7 +104,9 @@ export function Bar({ ratio, color }: { ratio: number; color: string }) {
   )
 }
 
-/** 빛 한 점 — 카드 아래쪽에서 올라오는 틴트 라디얼. 한 화면에 하나(가장 중요한 숫자 카드)만 */
+/** 빛 한 점 — 카드 아래쪽에서 올라오는 틴트 라디얼. 한 화면에 하나(가장 중요한 숫자 카드)만.
+ *  2026-10-10 실측: 처음엔 타원 중심을 카드 밖(-60%)에 두고 28% 로 칠해 화면에서 보이지 않았다(사용자: "빛 한 점이 어디?").
+ *  카드 안 전체를 덮는 층에 아래 가운데서 시작하는 타원 · 45% 로 — 숫자 뒤가 은은하게 파랗다 */
 export function Glow() {
-  return <span aria-hidden style={{ position: 'absolute', left: '-20%', right: '-20%', bottom: '-60%', height: '120%', pointerEvents: 'none', background: `radial-gradient(50% 60% at 50% 100%, ${TK.blue400}47, transparent 70%)` }} />
+  return <span aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: `radial-gradient(80% 70% at 50% 110%, ${TK.blue400}73, transparent 72%)` }} />
 }
