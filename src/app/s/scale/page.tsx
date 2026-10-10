@@ -32,7 +32,7 @@ const back = <Link href="/s/learn" style={{ display: 'inline-flex', alignItems: 
 function Cell({ c }: { c: ScaleCell }) {
   const dim = c.status === 'hold'
   return (
-    <div className="sk-cell" style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, padding: SP.md, borderRadius: RAD.sm, background: TK.bg3, minWidth: 0 }}>
+    <div className="sk-cell" style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, paddingTop: SP.sm, borderTop: `1px solid ${TK.border}`, minWidth: 0 }}>   {/* 리디자인 2026-10-10: 카드 안 상자(bg3) → 헤어라인 묶음 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.xs, minWidth: 0 }}>
         <span style={{ fontSize: FS.micro, fontWeight: 700, color: TK.sub, whiteSpace: 'nowrap' }}>{Q_LABEL[c.q]}</span>
         {c.chip && <span style={{ flexShrink: 1, minWidth: 0, padding: `0 ${SP.sm}px`, borderRadius: RAD.pill, border: `1px solid ${TK.line1}`, background: TK.bg7, color: TK.slate200, fontSize: FS.micro, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.chip}</span>}
@@ -130,7 +130,7 @@ export default function StudentScale() {
           </div>
           <div className={seasonSoon ? 'sk-cells sk-two' : 'sk-cells'}>{row.cells.filter(c => !(seasonSoon && c.q === 'season')).map(c => <Cell key={c.q} c={c} />)}</div>
           {/* 줄 끝 꼬리표(코어·위성) — 다른 설명 줄과 같은 크기·색. 뜻은 아래 '저울의 용어' */}
-          {typeof row.tail === 'string' && row.tail && <span style={{ ...noteStyle(), wordBreak: 'keep-all' }}>{row.tail} · <a href="#terms" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 28, padding: `0 ${SP.xs}px`, color: TK.sub, textDecoration: 'underline' }}>코어·위성이란</a></span>}
+          {typeof row.tail === 'string' && row.tail && <span style={{ ...noteStyle(), wordBreak: 'keep-all' }}>{row.tail} · <a href="#terms" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: `0 ${SP.xs}px`, color: TK.sub, textDecoration: 'underline' }}>코어·위성이란</a></span>}
         </section>
       ))}
 

@@ -232,7 +232,7 @@ function RecordForm() {
         {state === 'loading' ? <span style={note()}>내 종목 불러오는 중…</span>
           : state === 'unauth' ? <span style={note()}>로그인하면 내 종목이 보여요.</span>
           : !holdingsKnown ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: SP.sm, padding: SP.md, background: TK.card, border: `1px solid ${TK.amber400}`, borderRadius: RAD.md }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: SP.sm, padding: SP.md, background: TK.card, border: `1px solid ${TK.amber400}`, borderRadius: RAD.lg }}>
               <span style={{ fontSize: FS.body, color: TK.slate100 }}>내 종목을 불러오지 못했어요.</span>
               <span style={note()}>내 종목을 불러온 뒤에 저장할 수 있어요 — 이미 가진 종목이 두 줄로 생기지 않게 하려고요.</span>
               <button type="button" onClick={reload} style={{ ...smallBtn, alignSelf: 'flex-start' }}>다시 불러오기</button>
@@ -300,7 +300,7 @@ function RecordForm() {
         )}
       </section>
 
-      <section style={{ display: 'flex', flexDirection: 'column', gap: SP.sm, background: TK.card, border: `1px solid ${TK.border}`, borderRadius: RAD.md, padding: SP.md }}>
+      <section style={{ display: 'flex', flexDirection: 'column', gap: SP.sm, background: TK.card, border: `1px solid ${TK.border}`, borderRadius: RAD.lg, padding: SP.lg }}>
         <span style={note()}>3. 가격·날짜 확인</span>
         <label htmlFor="st-px" style={{ fontSize: FS.body, color: TK.sub }}>{mode === 'buy' ? `한 ${unit} 매수가` : `한 ${unit} 매도가`}{currency === 'USD' ? ' ($)' : ' (원)'}</label>
         <input id="st-px" inputMode="decimal" value={price} onChange={e => { const v = e.target.value.replace(/[\s원$]/g, ''); if (/^[\d,]*\.?\d*$/.test(v)) setPrice(v) }} autoComplete="off" style={{ ...inputStyle, fontSize: FS.lg, fontWeight: 700, border: `1px solid ${TK.sky400}` }} />
@@ -324,7 +324,7 @@ function RecordForm() {
         )}
       </section>
 
-      <section style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: SP.sm, padding: SP.lg, background: TK.card, border: `1px solid ${TK.line1}`, borderRadius: RAD.md }}>
+      <section style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: SP.sm, padding: SP.lg, background: TK.card, border: `1px solid ${TK.border}`, borderRadius: RAD.lg }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
           <span style={note()}>{mode === 'buy' ? '총 매수 금액' : '총 매도 금액'}</span>
           <span style={note()}>{total > 0 ? `${money(priceNum, currency)} × ${qtyText(qtyNum, picked?.market ?? '')}` : '가격과 수량을 적으면 계산돼요'}</span>

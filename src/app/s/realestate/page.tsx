@@ -44,7 +44,7 @@ function MarketBoxes() {
       {k && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: SP.sm }}>
           {boxes.map(b => (
-            <div key={b.label} style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: SP.md, borderRadius: RAD.sm, background: TK.bg3, minWidth: 0 }}>
+            <div key={b.label} style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingTop: SP.sm, borderTop: `1px solid ${TK.border}`, minWidth: 0 }}>
               <span style={{ fontSize: FS.micro, color: TK.sub, wordBreak: 'keep-all' }}>{b.label}</span>
               <span style={{ fontSize: FS.lg, fontWeight: 700, color: b.value ? TK.slate100 : TK.sub, whiteSpace: 'nowrap' }}>{b.value ?? '못 가져옴'}</span>
               <span style={{ fontSize: FS.micro, color: TK.sub, wordBreak: 'keep-all' }}>{b.sub}</span>
@@ -166,12 +166,12 @@ export default function StudentRealEstate() {
 
               {/* 두 칸 — 전세가율 · 고점 대비 */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: SP.sm }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: SP.md, borderRadius: RAD.sm, background: TK.bg3, minWidth: 0 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingTop: SP.sm, borderTop: `1px solid ${TK.border}`, minWidth: 0 }}>
                   <span style={{ fontSize: FS.micro, color: TK.sub }}>최근 6개월 매매 중간값</span>
                   <span style={{ fontSize: FS.lg, fontWeight: 700, color: v && isNum(v.saleMed6) ? TK.slate100 : TK.sub, whiteSpace: 'nowrap' }}>{v && isNum(v.saleMed6) ? eokText(v.saleMed6) : '거래 없음'}</span>
                   <span style={{ fontSize: FS.micro, color: TK.sub, wordBreak: 'keep-all' }}>{v && isNum(v.jeonseRatio) ? `전세는 매매의 ${v.jeonseRatio}% (전세 중간값 ${isNum(v.jeonseMed6) ? eokText(v.jeonseMed6) : '—'})` : '전세 거래가 없어 비율 없음'}</span>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: SP.md, borderRadius: RAD.sm, background: TK.bg3, minWidth: 0 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingTop: SP.sm, borderTop: `1px solid ${TK.border}`, minWidth: 0 }}>
                   <span style={{ fontSize: FS.micro, color: TK.sub }}>가장 비쌌을 때 대비</span>
                   <span style={{ fontSize: FS.lg, fontWeight: 700, color: v && isNum(v.vsPeak) ? TK.slate100 : TK.sub, whiteSpace: 'nowrap' }}>{v && isNum(v.vsPeak) ? `${v.vsPeak > 0 ? '+' : ''}${v.vsPeak}%` : '—'}</span>
                   <span style={{ fontSize: FS.micro, color: TK.sub, wordBreak: 'keep-all' }}>{v && isNum(v.peak) ? `${d.months}개월 안 최고 실거래 ${eokText(v.peak)}` : '비교할 거래가 없어요'}</span>

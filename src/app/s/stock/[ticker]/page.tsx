@@ -52,7 +52,7 @@ const yFmtFor = (currency: 'USD' | 'KRW', max: number) => (v: number) =>
 const hm = (t: number) => kstParts(t).hm
 const tDay = (t: number) => ymdDot(kstParts(t).ymd) ?? ''
 
-const card = { background: TK.card, border: `1px solid ${TK.border}`, borderRadius: RAD.md, padding: SP.lg } as const
+const card = { background: TK.card, border: `1px solid ${TK.border}`, borderRadius: RAD.lg, padding: SP.lg } as const   // 리디자인 2026-10-10: 다른 화면과 같은 라운드 16
 const recordBtn = { display: 'flex', alignItems: 'center', justifyContent: 'center', height: 56, borderRadius: RAD.md, background: TK.blue600, color: TK.slate100, fontSize: FS.lg, fontWeight: 700, textDecoration: 'none' } as const
 const reloadBtn = { alignSelf: 'flex-start', height: 40, padding: `0 ${SP.lg}px`, borderRadius: RAD.sm, border: `1px solid ${TK.line1}`, background: 'transparent', color: TK.slate200, fontSize: FS.tiny, cursor: 'pointer' } as const
 // 실패 이유마다 다른 문장 — 내 자산 화면과 같은 말
@@ -237,7 +237,7 @@ export default function StudentStock() {
       <div style={{ display: 'flex', alignItems: 'center', gap: SP.md }}>
         <div aria-hidden style={{ width: 48, height: 48, flexShrink: 0, borderRadius: RAD.pill, background: TK.bg7, border: `1px solid ${TK.line1}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: FS.lg, fontWeight: 700, color: TK.slate300 }}>{displayName.slice(0, 1)}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, minWidth: 0 }}>
-          <h1 style={{ margin: 0, fontSize: FS.xl, fontWeight: 700, color: TK.slate100 }}>{displayName}</h1>
+          <h1 style={{ margin: 0, fontSize: FS.h2, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, color: TK.slate100, minWidth: 0, overflowWrap: 'anywhere' }}>{displayName}</h1>
           <span style={{ display: 'flex', alignItems: 'center', gap: SP.xs, fontSize: FS.tiny, color: TK.sub }}>
             {displayTicker}
             {row && <span style={{ padding: `0 ${SP.sm}px`, borderRadius: RAD.pill, background: row.role === 'CORE' ? `${TK.sky400}24` : `${TK.orange400}24`, color: row.role === 'CORE' ? TK.sky400 : TK.orange400, fontWeight: 600 }}>{row.role === 'CORE' ? '코어' : '위성'}</span>}
