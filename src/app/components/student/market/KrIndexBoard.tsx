@@ -8,6 +8,7 @@ import type { KrIndexQuote, IntradayPoint, InvestorTotals, UpDownCount, KrIndexC
 import type { JsonResult } from '@/app/components/student/useJson'
 import { card, CardHead, noteStyle } from '@/app/components/student/home/homeUi'
 import { LinePlot, Pending } from './marketUi'
+import { barFill } from '@/app/components/student/ui'
 
 const IDX: { code: KrIndexCode; label: string }[] = [
   { code: 'KOSPI', label: '코스피' },
@@ -141,9 +142,10 @@ function Breadth({ view, market, indexPct, onRetry }: { view: View<{ investors: 
           </div>
           {tot > 0 && (
             <div role="img" aria-label={`상승 ${ud.rise ?? 0} · 보합 ${ud.steady ?? 0} · 하락 ${ud.fall ?? 0}`} style={{ display: 'flex', height: 8, borderRadius: RAD.pill, overflow: 'hidden', background: TK.line1 }}>
-              <div style={{ width: `${(ud.rise ?? 0) / tot * 100}%`, background: TK.red400 }} />
-              <div style={{ width: `${(ud.steady ?? 0) / tot * 100}%`, background: TK.line4 }} />
-              <div style={{ width: `${(ud.fall ?? 0) / tot * 100}%`, background: TK.blue400 }} />
+              {/* 리디자인 2026-10-10: 막대에 은은한 그라데이션(barFill) — 상승은 진한→밝은 빨강, 하락은 밝은→진한 파랑으로 가운데가 가장 밝다 */}
+              <div style={{ width: `${(ud.rise ?? 0) / tot * 100}%`, background: barFill(TK.red500, TK.red400) }} />
+              <div style={{ width: `${(ud.steady ?? 0) / tot * 100}%`, background: barFill(TK.line4) }} />
+              <div style={{ width: `${(ud.fall ?? 0) / tot * 100}%`, background: barFill(TK.blue400, TK.blue500) }} />
             </div>
           )}
           <span style={noteStyle()}>

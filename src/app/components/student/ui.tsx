@@ -94,12 +94,17 @@ export function Segment<K extends string>({ label, options, value, onChange }: {
   )
 }
 
+/** 막대 채움 — 시안대로 은은한 그라데이션(위쪽 밝은 결 + 왼→오른쪽 색 흐름). 평면 색 한 장보다 입체감이 생기고 색은 같은 토큰 둘뿐.
+ *  to 를 안 주면 같은 색 안에서 결만 준다. 오른·내린 종목 막대·코어/위성 막대·강한 분야 막대가 전부 이 한 함수(2026-10-10 사용자 지적) */
+export const barFill = (from: string, to: string = from): string =>
+  `linear-gradient(180deg, ${TK.slate100}33 0%, transparent 55%), linear-gradient(90deg, ${from}, ${to})`
+
 /** 가로 막대 — 값의 크기를 한눈에(요즘 강한 분야 1달 흐름). 등락색은 호출부가 준다 · 폭은 0~1 */
 export function Bar({ ratio, color }: { ratio: number; color: string }) {
   const w = Math.max(0, Math.min(1, ratio))
   return (
     <span aria-hidden style={{ display: 'block', height: 6, borderRadius: RAD.pill, background: TK.bg7, overflow: 'hidden', minWidth: 0 }}>
-      <span style={{ display: 'block', height: '100%', width: `${w * 100}%`, background: color, borderRadius: RAD.pill }} />
+      <span style={{ display: 'block', height: '100%', width: `${w * 100}%`, background: barFill(color), borderRadius: RAD.pill }} />
     </span>
   )
 }

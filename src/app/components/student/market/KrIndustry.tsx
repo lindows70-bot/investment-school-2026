@@ -10,6 +10,7 @@ import type { KrIndustry as Industry } from '@/lib/krMarketBoard'
 import type { JsonResult } from '@/app/components/student/useJson'
 import { card, CardHead, noteStyle } from '@/app/components/student/home/homeUi'
 import { ChipRow, MoreToggle, Pending } from './marketUi'
+import { barFill } from '@/app/components/student/ui'
 
 type Dir = 'up' | 'down'
 const SHOW = 5, MAX = 10
@@ -39,7 +40,7 @@ export default function KrIndustry({ kr }: { kr: JsonResult<KrBoardResp> }) {
                 <span style={{ flexShrink: 0, fontSize: FS.body, fontWeight: 700, color: upDown(g.changePct) }}>{g.changePct == null ? '—' : pct(g.changePct)}</span>
               </div>
               <div aria-hidden style={{ height: 6, borderRadius: RAD.pill, background: TK.line1, overflow: 'hidden' }}>
-                <div style={{ width: `${bars[i]}%`, height: '100%', background: upDown(g.changePct) }} />
+                <div style={{ width: `${bars[i]}%`, height: '100%', background: barFill(upDown(g.changePct)), borderRadius: RAD.pill }} />   {/* 리디자인 2026-10-10: 막대 그라데이션 공용 */}
               </div>
               <span style={noteStyle()}>
                 {[g.rise != null ? `오른 종목 ${g.rise}` : null, g.fall != null ? `내린 종목 ${g.fall}` : null, g.count != null ? `전체 ${g.count}` : null].filter(Boolean).join(' · ')}

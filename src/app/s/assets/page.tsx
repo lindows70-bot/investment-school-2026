@@ -8,7 +8,7 @@ import GrowthChart from '@/app/components/student/GrowthChart'
 import { useJson } from '@/app/components/student/useJson'
 import { useInView } from '@/app/components/student/useInView'
 import { card, CardHead, FailRow, noteStyle, useKstToday } from '@/app/components/student/home/homeUi'
-import { PageHead, Label, Big, Glow, surface } from '@/app/components/student/ui'   // 리디자인(2026-10-09 · docs/student-design) — 홈·시장과 같은 머리·카드·큰 숫자·빛 한 점
+import { PageHead, Label, Big, Glow, surface, barFill } from '@/app/components/student/ui'   // 리디자인(2026-10-09 · docs/student-design) — 홈·시장과 같은 머리·카드·큰 숫자·빛 한 점
 import { rebalanceCheck } from '@/lib/portfolioSummary'
 import { won, signWon, pct, upDown } from '@/lib/studentFormat'
 import { studentTotalReturn } from '@/lib/realizedPnl'
@@ -179,9 +179,10 @@ export default function StudentAssets() {
 
       <section style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
         <CardHead title="내 투자 구성" extra={targetCorePct != null ? <span style={{ fontSize: FS.tiny, color: TK.sub, whiteSpace: 'nowrap' }}>목표 코어 {targetCorePct}% · 위성 {100 - targetCorePct}%</span> : undefined} />
+        {/* 리디자인 2026-10-10: 막대에 은은한 그라데이션(barFill · 역할색 안에서만 — 코어 하늘→파랑, 위성 주황→호박) */}
         <div style={{ display: 'flex', height: 10, borderRadius: RAD.pill, overflow: 'hidden', gap: 2 }}>
-          {coreW > 0 && <div style={{ width: `${coreW}%`, background: TK.sky400 }} />}
-          {summary.satPct > 0 && <div style={{ flexGrow: 1, background: TK.orange400 }} />}
+          {coreW > 0 && <div style={{ width: `${coreW}%`, background: barFill(TK.sky400, TK.blue400), borderRadius: RAD.pill }} />}
+          {summary.satPct > 0 && <div style={{ flexGrow: 1, background: barFill(TK.orange400, TK.amber400), borderRadius: RAD.pill }} />}
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FS.tiny }}>
           <span style={{ color: TK.sky400, fontWeight: 700 }}>코어 {Math.round(summary.corePct)}%</span>
