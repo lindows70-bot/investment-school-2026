@@ -82,8 +82,9 @@ export default function StockMore({ ticker, market, price, currency }: { ticker:
                 <span style={{ fontSize: FS.micro, color: TK.sub }}>52주 위치</span>
                 {pos != null && hi != null && lo != null ? (
                   <>
-                    <div aria-hidden style={{ position: 'relative', height: 8, borderRadius: RAD.pill, background: TK.bg7 }}>
-                      <span style={{ position: 'absolute', left: `calc(${pos}% - 6px)`, top: -2, width: 12, height: 12, borderRadius: RAD.pill, background: TK.slate100 }} />
+                    {/* 리디자인 2026-10-10(사용자: 밋밋하다): 최저(파랑)→최고(빨강) 그라데이션 띠 + 위쪽 밝은 결 · 지금 위치는 흰 점에 테두리 번짐 */}
+                    <div aria-hidden style={{ position: 'relative', height: 10, borderRadius: RAD.pill, background: `linear-gradient(180deg, ${TK.slate100}33 0%, transparent 55%), linear-gradient(90deg, ${TK.blue400}, ${TK.line4} 50%, ${TK.red400})` }}>
+                      <span style={{ position: 'absolute', left: `calc(${pos}% - 8px)`, top: -3, width: 16, height: 16, borderRadius: RAD.pill, background: TK.slate100, boxShadow: `0 0 0 3px ${TK.card}, 0 0 10px ${TK.slate100}99` }} />
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: SP.sm, fontSize: FS.micro, color: TK.sub, whiteSpace: 'nowrap' }}>
                       <span>최저 {money(lo, currency)}</span><span>최고 {money(hi, currency)}</span>
