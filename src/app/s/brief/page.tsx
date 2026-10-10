@@ -70,7 +70,7 @@ export default function StudentBrief() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg, maxWidth: 720 }}>
       {back}
       <header style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
-        <h1 style={{ margin: 0, fontSize: FS.xl, fontWeight: 800, color: TK.slate100 }}>오늘의 브리핑</h1>
+        <h1 style={{ margin: 0, fontSize: FS.h2, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, color: TK.slate100 }}>오늘의 브리핑</h1>
         <p style={{ margin: 0, fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all' }}>홈 ‘한눈 시황’ 세 줄을 풀어 썼어요 — 시장 · 내 종목 · 다가오는 일정. 사라·팔라는 뜻은 없어요.</p>
       </header>
 

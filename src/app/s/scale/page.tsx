@@ -100,7 +100,7 @@ export default function StudentScale() {
       `}</style>
       {back}
       <header style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
-        <h1 style={{ margin: 0, fontSize: FS.xl, fontWeight: 800, color: TK.slate100 }}>오늘의 저울</h1>
+        <h1 style={{ margin: 0, fontSize: FS.h2, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, color: TK.slate100 }}>오늘의 저울</h1>
         <p style={{ margin: 0, fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all' }}>채권·주식·부동산·금·코인을 같은 세 질문으로 재요. 사라·팔라는 말은 하지 않아요 — 지금 상태만.</p>
       </header>
 

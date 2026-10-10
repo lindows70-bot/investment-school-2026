@@ -218,7 +218,7 @@ function RecordForm() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg, maxWidth: 560 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 44 }}>
-        <h1 style={{ margin: 0, fontSize: FS.xl, fontWeight: 700, color: TK.slate100 }}>매매 기록하기</h1>
+        <h1 style={{ margin: 0, fontSize: FS.h2, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, color: TK.slate100 }}>매매 기록하기</h1>
         <Link href="/s/assets" style={{ display: 'flex', alignItems: 'center', height: 44, padding: `0 ${SP.md}px`, fontSize: FS.tiny, color: TK.sub, textDecoration: 'none' }}>닫기</Link>
       </div>
       <span style={note()}>증권사에서 이미 한 매매를 적어 두는 곳이에요. 여기서 주문이 나가지는 않아요.</span>

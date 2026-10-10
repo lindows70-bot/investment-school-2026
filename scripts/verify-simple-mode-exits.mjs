@@ -9,9 +9,10 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 // components/lessons 는 분석 화면과 간편 화면(/s/learn/academy 등)이 함께 쓴다 — 간편에서 열리므로 출구 검사 대상(simple 분기로 간편 경로를 가리켜야 한다)
 const SCAN = ['src/app/s', 'src/app/components/student', 'src/app/components/lessons']
 
-/** 영구 허용 — 분석 화면으로 가는 유일한 문(사용자 결정 2026-09-27: 문은 하나, 막지는 않는다) */
+/** 영구 허용 — 분석 화면으로 가는 문(사용자 결정 2026-09-27: 문은 하나, 막지는 않는다).
+ *  2026-10-09 홈 인사말의 버튼을 뺐다(사용자 결정 — 학생이 50탭으로 빠지는 출구가 가장 눈에 띄는 자리였다).
+ *  남은 문: PC 왼쪽 메뉴 링크 + 배우기 '내 계정'의 버튼(window.location — href 가 아니라 이 검사엔 안 잡힌다) */
 const PERMANENT = [
-  { file: 'src/app/components/student/home/Greeting.tsx', href: '/dashboard', why: '홈 인사말의 분석 화면 전환 버튼' },
   { file: 'src/app/components/student/StudentShell.tsx', href: '/dashboard', why: 'PC 왼쪽 메뉴의 분석 화면 전환 버튼' },
 ]
 /** 임시 허용 — phase5-plan 의 단계가 끝나면 그 줄을 지운다(지우면 이 검사가 그 출구를 잡는다) */
@@ -62,7 +63,7 @@ for (const e of exits) {
 }
 console.log(`── 간편 화면 출구: ${exits.length}건(영구 ${usedPerm.size} · 임시 ${usedTemp.size} · 미허용 ${unlisted.length}) ──`)
 for (const k of usedTemp) { const a = temp.get(k); console.log(`   ⏳ ${a.file} → ${a.href} (${a.until}까지)`) }
-check('분석 화면으로 가는 문 = 전환 버튼 2곳이 실제로 있다', usedPerm.size === PERMANENT.length, [...perm.keys()].filter(k => !usedPerm.has(k)).join(', ') || '')
+check(`분석 화면으로 가는 문 = 영구 허용 ${PERMANENT.length}곳이 실제로 있다`, usedPerm.size === PERMANENT.length, [...perm.keys()].filter(k => !usedPerm.has(k)).join(', ') || '')
 check('허용 목록 밖 출구 0건', unlisted.length === 0, unlisted.map(e => `${e.file}:${e.line} → ${e.href}`).join(' · '))
 const staleTemp = TEMPORARY.filter(a => !usedTemp.has(key(a)))
 check('임시 허용 목록에 이미 사라진 출구가 남아 있지 않다(단계가 끝났으면 줄을 지운다)', staleTemp.length === 0, staleTemp.map(a => `${a.file} → ${a.href}`).join(' · '))

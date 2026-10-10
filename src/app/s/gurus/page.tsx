@@ -33,7 +33,7 @@ export default function StudentGurus() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg, maxWidth: 720 }}>
       {back}
       <header style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
-        <h1 style={{ margin: 0, fontSize: FS.xl, fontWeight: 800, color: TK.slate100 }}>거장들의 포트폴리오</h1>
+        <h1 style={{ margin: 0, fontSize: FS.h2, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, color: TK.slate100 }}>거장들의 포트폴리오</h1>
         <p style={{ margin: 0, fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all' }}>유명 투자자들이 무엇을 들고 있는지 — 미국에 신고한 보유 목록(13F)이에요. 따라 사라는 뜻이 아니에요.</p>
       </header>
 

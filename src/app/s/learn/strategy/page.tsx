@@ -4,9 +4,10 @@
 import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { TK, FS, RAD, SP } from '@/lib/theme'
+import { TK, FS, SP } from '@/lib/theme'
 import ChoiValuationPanel from '@/app/components/ChoiValuationPanel'
 import SeasonNavigator from '@/app/components/SeasonNavigator'
+import { Segment } from '@/app/components/student/ui'
 
 type Tab = 'value' | 'season'
 const TABS: { key: Tab; label: string }[] = [{ key: 'value', label: '최일 가치분석' }, { key: 'season', label: '4계절 내비게이터' }]
@@ -34,15 +35,9 @@ function StrategyScreen() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.md, minWidth: 0 }}>
       <Link href="/s/learn" style={{ display: 'inline-flex', alignItems: 'center', height: 44, color: TK.slate300, fontSize: FS.body, textDecoration: 'none' }}>‹ 배우기</Link>
-      <h1 style={{ margin: 0, fontSize: FS.xl, fontWeight: 800, color: TK.slate100 }}>최일 전략</h1>
-      <div role="group" aria-label="최일 전략 종류" style={{ display: 'flex', gap: SP.xs, padding: SP.xs, borderRadius: RAD.md, background: TK.bg3 }}>
-        {TABS.map(t => (
-          <button key={t.key} type="button" aria-pressed={tab === t.key} onClick={() => pick(t.key)}
-            style={{ height: 44, flex: 1, minWidth: 0, borderRadius: RAD.sm, border: 'none', background: tab === t.key ? TK.bg7 : 'transparent', color: tab === t.key ? TK.slate100 : TK.sub, fontSize: FS.body, fontWeight: tab === t.key ? 700 : 500, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <h1 style={{ margin: 0, fontSize: FS.h2, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, color: TK.slate100 }}>최일 전략</h1>
+      {/* 리디자인 2026-10-10: 상자(bg3) → 시장·공포탐욕과 같은 공용 Segment */}
+      <Segment label="최일 전략 종류" options={TABS} value={tab} onChange={pick} />
       {opened.includes('value') && <div style={panel('value')}><ChoiValuationPanel /></div>}
       {opened.includes('season') && <div style={panel('season')}><SeasonNavigator /></div>}
     </div>

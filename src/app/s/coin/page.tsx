@@ -204,7 +204,7 @@ export default function StudentCoin() {
       `}</style>
       {back}
       <header style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
-        <h1 style={{ margin: 0, fontSize: FS.xl, fontWeight: 800, color: TK.slate100 }}>코인</h1>
+        <h1 style={{ margin: 0, fontSize: FS.h2, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, color: TK.slate100 }}>코인</h1>
         <p style={{ margin: 0, fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all' }}>대표 코인 4종의 원화 시세와 흐름, 규제 소식, 비트코인 ETF로 들어온 돈.</p>
       </header>
 

@@ -103,7 +103,7 @@ export default function StudentRealEstate() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg, maxWidth: 720 }}>
       {back}
       <header style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
-        <h1 style={{ margin: 0, fontSize: FS.xl, fontWeight: 800, color: TK.slate100 }}>아파트 단지 리서치</h1>
+        <h1 style={{ margin: 0, fontSize: FS.h2, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, color: TK.slate100 }}>아파트 단지 리서치</h1>
         <p style={{ margin: 0, fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all' }}>궁금한 아파트가 실제로 얼마에 거래됐는지 — 국토부에 신고된 실거래(호가 아님) 24개월.</p>
       </header>
 

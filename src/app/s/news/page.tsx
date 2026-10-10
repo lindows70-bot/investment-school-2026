@@ -32,7 +32,7 @@ export default function StudentNews() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg, maxWidth: 720 }}>
       {back}
       <header style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
-        <h1 style={{ margin: 0, fontSize: FS.xl, fontWeight: 800, color: TK.slate100 }}>내 종목 뉴스</h1>
+        <h1 style={{ margin: 0, fontSize: FS.h2, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, color: TK.slate100 }}>내 종목 뉴스</h1>
         <p style={{ margin: 0, fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all' }}>내가 가진 개별 주식의 최근 기사 제목이에요. 제목을 누르면 기사가 새 창으로 열려요.</p>
       </header>
       {(news.state === 'idle' || news.state === 'loading') && <div style={card}><span style={noteStyle()}>내 종목 뉴스를 모으는 중… 조금 걸려요.</span></div>}
