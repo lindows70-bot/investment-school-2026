@@ -40,7 +40,7 @@ export default function MyNews() {
       {list != null && list.length === 0 && <span style={noteStyle()}>모인 뉴스 제목이 없어요. (ETF·코인은 뉴스를 모으지 않아요)</span>}
       {list != null && list.map(c => (
         <div key={c.ticker || c.name} style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, paddingTop: SP.sm, borderTop: `1px solid ${TK.border}`, minWidth: 0 }}>
-          <span style={{ fontSize: FS.tiny, fontWeight: 700, color: TK.sky400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+          <span style={{ fontSize: FS.tiny, fontWeight: 700, color: TK.slate100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
           {c.headlines.map((h, i) => h.url
             ? <a key={i} href={h.url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', minHeight: 44, fontSize: FS.body, color: TK.slate200, lineHeight: 1.5, overflowWrap: 'anywhere', textDecoration: 'none' }}>{h.title}<span aria-hidden style={{ color: TK.sub, marginLeft: SP.xs, flexShrink: 0 }}>›</span></a>
             : <span key={i} style={{ fontSize: FS.body, color: TK.slate200, lineHeight: 1.5, overflowWrap: 'anywhere' }}>{h.title}</span>)}

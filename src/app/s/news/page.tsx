@@ -42,7 +42,7 @@ export default function StudentNews() {
       {list != null && list.map(c => (
         <section key={c.ticker || c.name} aria-label={`${c.name} 뉴스`} style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.xs }}>
           <Link href={`/s/stock/${encodeURIComponent(c.ticker)}?m=${encodeURIComponent(c.market)}&n=${encodeURIComponent(c.name)}`}
-            style={{ display: 'flex', alignItems: 'center', minHeight: 44, fontSize: FS.body, fontWeight: 700, color: TK.sky400, textDecoration: 'none', minWidth: 0 }}>
+            style={{ display: 'flex', alignItems: 'center', minHeight: 44, fontSize: FS.body, fontWeight: 700, color: TK.blue400, textDecoration: 'none', minWidth: 0 }}>
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span><span aria-hidden style={{ color: TK.sub, marginLeft: SP.xs }}>›</span>
           </Link>
           {c.lines.length === 0 && <span style={noteStyle()}>모인 제목이 없어요.</span>}

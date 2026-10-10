@@ -7,7 +7,7 @@ import Heatmap from '@/app/components/student/Heatmap'
 import GrowthChart from '@/app/components/student/GrowthChart'
 import { useJson } from '@/app/components/student/useJson'
 import { useInView } from '@/app/components/student/useInView'
-import { card, FailRow, noteStyle, useKstToday } from '@/app/components/student/home/homeUi'
+import { card, CardHead, FailRow, noteStyle, useKstToday } from '@/app/components/student/home/homeUi'
 import { PageHead, Label, Big, Glow, surface } from '@/app/components/student/ui'   // 리디자인(2026-10-09 · docs/student-design) — 홈·시장과 같은 머리·카드·큰 숫자·빛 한 점
 import { rebalanceCheck } from '@/lib/portfolioSummary'
 import { won, signWon, pct, upDown } from '@/lib/studentFormat'
@@ -178,10 +178,7 @@ export default function StudentAssets() {
       <GrowthChart holdings={holdings} rows={summary.rows} usdKrw={usdKrw} />
 
       <section style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: SP.sm }}>
-          <h2 style={{ margin: 0, fontSize: FS.body, fontWeight: 700, color: TK.slate100 }}>내 투자 구성</h2>
-          {targetCorePct != null && <span style={{ fontSize: FS.tiny, color: TK.sub }}>목표 코어 {targetCorePct}% · 위성 {100 - targetCorePct}%</span>}
-        </div>
+        <CardHead title="내 투자 구성" extra={targetCorePct != null ? <span style={{ fontSize: FS.tiny, color: TK.sub, whiteSpace: 'nowrap' }}>목표 코어 {targetCorePct}% · 위성 {100 - targetCorePct}%</span> : undefined} />
         <div style={{ display: 'flex', height: 10, borderRadius: RAD.pill, overflow: 'hidden', gap: 2 }}>
           {coreW > 0 && <div style={{ width: `${coreW}%`, background: TK.sky400 }} />}
           {summary.satPct > 0 && <div style={{ flexGrow: 1, background: TK.orange400 }} />}
@@ -193,8 +190,8 @@ export default function StudentAssets() {
       </section>
 
       {check && (
-        <section style={{ ...card, border: `1px solid ${TK.sky400}`, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
-          <h2 style={{ margin: 0, fontSize: FS.tiny, fontWeight: 700, color: TK.sky400 }}>오늘의 투자 체크</h2>
+        <section style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>   {/* 리디자인 2026-10-10: 하늘색 테두리 → 같은 카드 면(색은 다섯 가지 안에서) */}
+          <CardHead title="오늘의 투자 체크" />
           <span style={{ fontSize: FS.body, color: TK.slate100 }}>
             {check.kind === 'balanced' ? '코어·위성이 목표 비율 안에 있어요.' : check.kind === 'core-short' ? `코어가 목표보다 ${check.gapPp}%p 적어요.` : `위성이 목표보다 ${check.gapPp}%p 적어요.`}
           </span>

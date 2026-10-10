@@ -27,7 +27,7 @@ import { setViewMode } from '@/lib/viewMode'
 const pending = (s: JsonState) => s === 'loading' || s === 'idle'
 const linkBtn = { alignSelf: 'flex-start', minHeight: 44, display: 'flex', alignItems: 'center', padding: `0 ${SP.lg}px`, borderRadius: RAD.sm, background: TK.blue600, color: TK.slate100, fontSize: FS.body, fontWeight: 700, textDecoration: 'none' } as const
 // 긴 종목 이름도 375px 에서 넘치지 않게 — 링크는 줄어들 수 있고(minWidth 0) 글자는 안쪽 span 에서 말줄임
-const moreLink = { display: 'flex', alignItems: 'center', minHeight: 44, minWidth: 0, maxWidth: '100%', fontSize: FS.tiny, color: TK.sky400, textDecoration: 'none' } as const
+const moreLink = { display: 'flex', alignItems: 'center', minHeight: 44, minWidth: 0, maxWidth: '100%', fontSize: FS.tiny, color: TK.blue400, textDecoration: 'none' } as const
 const ellipsis = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const
 
 /** 'YYYY-MM-DD' → M/D (올해가 아니면 연도/M/D) — learnTips 와 같은 표기 */
@@ -297,7 +297,7 @@ export default function StudentLearn() {
 
       {/* 내 계정 — 폰에는 왼쪽 메뉴가 없어 여기가 나가는 길이다 */}
       <section aria-labelledby="learn-account" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
-        <h2 id="learn-account" style={{ margin: 0, fontSize: FS.body, fontWeight: 700, color: TK.slate100 }}>내 계정</h2>
+        <CardHead title="내 계정" />
         <div style={{ display: 'flex', gap: SP.sm, flexWrap: 'wrap' }}>
           {/* 선택을 쿠키에 남긴다 — 다음 로그인·앱 아이콘(/start)도 분석 화면으로 연다 */}
           <button type="button" onClick={() => { setViewMode('full'); window.location.href = '/dashboard' }} style={{ ...retryBtn, fontSize: FS.body }}>분석 화면으로 바꾸기</button>

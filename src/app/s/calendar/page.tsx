@@ -18,7 +18,7 @@ function Row({ it, today }: { it: CalItem; today: string }) {
     <>
       <span style={{ width: 72, flexShrink: 0, fontSize: FS.tiny, color: it.date === today ? TK.slate100 : TK.sub, fontWeight: it.date === today ? 700 : 500, whiteSpace: 'nowrap' }}>{calDateText(it.date, today)}</span>
       <span style={{ flexGrow: 1, minWidth: 0, fontSize: FS.body, color: TK.slate200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.label}</span>
-      {it.mine && <span style={{ flexShrink: 0, padding: `0 ${SP.sm}px`, borderRadius: RAD.pill, background: `${TK.sky400}24`, color: TK.sky400, fontSize: FS.micro, fontWeight: 700, whiteSpace: 'nowrap' }}>내 종목</span>}
+      {it.mine && <span style={{ flexShrink: 0, padding: `0 ${SP.sm}px`, borderRadius: RAD.pill, background: `${TK.teal400}24`, color: TK.teal400, fontSize: FS.micro, fontWeight: 700, whiteSpace: 'nowrap' }}>내 종목</span>}
     </>
   )
   const style = { display: 'flex', alignItems: 'center', gap: SP.md, minHeight: 48, borderTop: `1px solid ${TK.border}`, textDecoration: 'none', minWidth: 0 } as const

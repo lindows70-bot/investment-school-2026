@@ -2,7 +2,7 @@
 // 학생 홈 공포·탐욕 카드 — 탭 [코인 | 미국 주식]. 구간 이름은 원천이 준 분류를 번역만 한다(우리가 임계값을 새로 정하지 않는다)
 //   1년 전·최근 1년 최고/최저는 시장 화면과 같은 응답(overview — 홈 page 가 한 번 불러 나눠 준다)·같은 함수(fngYearSummary)로 — 두 화면이 같은 값
 import { useState } from 'react'
-import { TK, FS, RAD, SP } from '@/lib/theme'
+import { TK, FS, SP } from '@/lib/theme'
 import { useJson } from '@/app/components/student/useJson'
 import type { CryptoFng, CryptoFngYear } from '@/lib/cryptoFng'
 import type { CnnFngYear } from '@/lib/cnnFng'
@@ -10,6 +10,7 @@ import { viewOf, fngYearSummary, fngYearLine, type OverviewResp } from '@/lib/ma
 import { FngHero, FngVal } from '@/app/components/student/market/FngGauge'
 import type { JsonResult } from '@/app/components/student/useJson'
 import { card, CardHead, FailRow, noteStyle } from './homeUi'
+import { Segment } from '@/app/components/student/ui'
 
 type Tab = 'coin' | 'us'
 interface CnnResp { partyScore?: unknown; prevClose?: unknown; prev1Week?: unknown; prev1Month?: unknown; rating?: unknown; source?: unknown }
@@ -49,7 +50,6 @@ export default function FearGreed({ overview }: { overview: JsonResult<OverviewR
   const us = useJson<CnnResp>('/api/cocktail-party', { enabled: usOpened })
 
   const pick = (t: Tab) => { setTab(t); if (t === 'us') setUsOpened(true) }
-  const tabBtn = (on: boolean) => ({ height: 44, flex: 1, borderRadius: RAD.sm, border: 'none', background: on ? TK.bg7 : 'transparent', color: on ? TK.slate100 : TK.sub, fontSize: FS.tiny, fontWeight: on ? 700 : 500, cursor: 'pointer' })
 
   // ── 1년(1년 전 칸 + 최고·최저 한 줄) ──
   const yv = tab === 'us'
@@ -102,10 +102,8 @@ export default function FearGreed({ overview }: { overview: JsonResult<OverviewR
   return (
     <section style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
       <CardHead title="공포·탐욕 지수" />
-      <div role="group" aria-label="공포·탐욕 지수 종류" style={{ display: 'flex', gap: SP.xs, padding: SP.xs, borderRadius: RAD.md, background: TK.bg3 }}>
-        <button type="button" aria-pressed={tab === 'coin'} onClick={() => pick('coin')} style={tabBtn(tab === 'coin')}>코인</button>
-        <button type="button" aria-pressed={tab === 'us'} onClick={() => pick('us')} style={tabBtn(tab === 'us')}>미국 주식</button>
-      </div>
+      {/* 리디자인(2026-10-10): 카드 안 상자(bg3) → 공용 Segment(시장 화면과 같은 모양) */}
+      <Segment label="공포·탐욕 지수 종류" options={[{ key: 'coin', label: '코인' }, { key: 'us', label: '미국 주식' }]} value={tab} onChange={pick} />
       <div aria-live="polite">{body}</div>
     </section>
   )

@@ -41,11 +41,11 @@ function Cell({ c }: { c: ScaleCell }) {
       {c.source && c.date && <span style={{ fontSize: FS.micro, color: TK.sub, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{c.source} · {dot(c.date)}</span>}
       {c.detail && (
         <details>
-          <summary style={{ display: 'flex', alignItems: 'center', minHeight: 44, fontSize: FS.micro, color: TK.sky400, cursor: 'pointer' }}>자세히</summary>
+          <summary style={{ display: 'flex', alignItems: 'center', minHeight: 44, fontSize: FS.micro, color: TK.blue400, cursor: 'pointer' }}>자세히</summary>
           <span style={{ fontSize: FS.micro, lineHeight: 1.6, color: TK.slate300, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{c.detail}</span>
         </details>
       )}
-      {c.href && <Link href={c.href} style={{ display: 'flex', alignItems: 'center', minHeight: 44, fontSize: FS.micro, color: TK.sky400, textDecoration: 'none' }}>더 보기 ›</Link>}
+      {c.href && <Link href={c.href} style={{ display: 'flex', alignItems: 'center', minHeight: 44, fontSize: FS.micro, color: TK.blue400, textDecoration: 'none' }}>더 보기 ›</Link>}
     </div>
   )
 }
@@ -126,7 +126,7 @@ export default function StudentScale() {
         <section key={row.asset} aria-label={row.name} style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm, minWidth: 0 }}>
             <h2 style={{ margin: 0, fontSize: FS.lg, fontWeight: 700, color: TK.slate100 }}>{row.name}</h2>
-            {mine && (mine[row.asset] ?? 0) > 0 && <span style={{ padding: `0 ${SP.sm}px`, borderRadius: RAD.pill, background: `${TK.sky400}24`, color: TK.sky400, fontSize: FS.micro, fontWeight: 700, whiteSpace: 'nowrap' }}>내 자산 {mine[row.asset]}종</span>}
+            {mine && (mine[row.asset] ?? 0) > 0 && <span style={{ padding: `0 ${SP.sm}px`, borderRadius: RAD.pill, background: `${TK.teal400}24`, color: TK.blue400, fontSize: FS.micro, fontWeight: 700, whiteSpace: 'nowrap' }}>내 자산 {mine[row.asset]}종</span>}
           </div>
           <div className={seasonSoon ? 'sk-cells sk-two' : 'sk-cells'}>{row.cells.filter(c => !(seasonSoon && c.q === 'season')).map(c => <Cell key={c.q} c={c} />)}</div>
           {/* 줄 끝 꼬리표(코어·위성) — 다른 설명 줄과 같은 크기·색. 뜻은 아래 '저울의 용어' */}
@@ -143,7 +143,7 @@ export default function StudentScale() {
           <details key={t.term} style={{ borderTop: `1px solid ${TK.border}` }}>
             <summary style={{ display: 'flex', alignItems: 'center', minHeight: 44, fontSize: FS.body, fontWeight: 600, color: TK.slate100, cursor: 'pointer' }}>{t.term}</summary>
             <p style={{ margin: `0 0 ${SP.sm}px`, fontSize: FS.tiny, lineHeight: 1.6, color: TK.slate300, wordBreak: 'keep-all' }}>{t.mean}</p>
-            {t.href && <Link href={t.href} style={{ display: 'flex', alignItems: 'center', minHeight: 44, fontSize: FS.tiny, color: TK.sky400, textDecoration: 'none' }}>{t.hrefText} ›</Link>}
+            {t.href && <Link href={t.href} style={{ display: 'flex', alignItems: 'center', minHeight: 44, fontSize: FS.tiny, color: TK.blue400, textDecoration: 'none' }}>{t.hrefText} ›</Link>}
           </details>
         ))}
       </section>

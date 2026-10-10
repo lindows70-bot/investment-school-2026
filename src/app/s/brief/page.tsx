@@ -91,7 +91,7 @@ export default function StudentBrief() {
             {usdKrw != null ? <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate100, whiteSpace: 'nowrap' }}>{fxWon(usdKrw)}</span> : <span style={noteStyle(pending(fx.state) ? TK.sub : TK.amber400)}>{pending(fx.state) ? '…' : '못 가져옴'}</span>}
           </div>
         </div>
-        <Link href="/s/market" style={{ display: 'flex', alignItems: 'center', minHeight: 44, fontSize: FS.tiny, color: TK.sky400, textDecoration: 'none' }}>시장 탭에서 더 보기 ›</Link>
+        <Link href="/s/market" style={{ display: 'flex', alignItems: 'center', minHeight: 44, fontSize: FS.tiny, color: TK.blue400, textDecoration: 'none' }}>시장 탭에서 더 보기 ›</Link>
       </section>
 
       <section aria-label="내 종목" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
@@ -141,7 +141,7 @@ export default function StudentBrief() {
               </Link>
             ))}
         </div>
-        <Link href="/s/news" style={{ display: 'flex', alignItems: 'center', minHeight: 44, fontSize: FS.tiny, color: TK.sky400, textDecoration: 'none' }}>내 종목 뉴스 전체 ›</Link>
+        <Link href="/s/news" style={{ display: 'flex', alignItems: 'center', minHeight: 44, fontSize: FS.tiny, color: TK.blue400, textDecoration: 'none' }}>내 종목 뉴스 전체 ›</Link>
       </section>
 
       <section aria-label="다가오는 일정" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
@@ -151,10 +151,10 @@ export default function StudentBrief() {
           <div key={it.key} style={{ ...rowStyle }}>
             <span style={{ width: 72, flexShrink: 0, fontSize: FS.tiny, color: TK.sub, whiteSpace: 'nowrap' }}>{calDateText(it.date, today)}</span>
             <span style={{ flexGrow: 1, minWidth: 0, fontSize: FS.body, color: TK.slate200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.label}</span>
-            {it.mine && <span style={{ flexShrink: 0, padding: `0 ${SP.sm}px`, borderRadius: RAD.pill, background: `${TK.sky400}24`, color: TK.sky400, fontSize: FS.micro, fontWeight: 700 }}>내 종목</span>}
+            {it.mine && <span style={{ flexShrink: 0, padding: `0 ${SP.sm}px`, borderRadius: RAD.pill, background: `${TK.teal400}24`, color: TK.blue400, fontSize: FS.micro, fontWeight: 700 }}>내 종목</span>}
           </div>
         ))}
-        <Link href="/s/calendar" style={{ display: 'flex', alignItems: 'center', minHeight: 44, fontSize: FS.tiny, color: TK.sky400, textDecoration: 'none' }}>30일 일정 전체 ›</Link>
+        <Link href="/s/calendar" style={{ display: 'flex', alignItems: 'center', minHeight: 44, fontSize: FS.tiny, color: TK.blue400, textDecoration: 'none' }}>30일 일정 전체 ›</Link>
       </section>
 
       {failed.length > 0 && <button type="button" onClick={() => failed.forEach(s => s.reload())} aria-label="브리핑에서 못 가져온 것 다시 불러오기" style={{ ...retryBtn, alignSelf: 'flex-start' }}>못 가져온 것 다시</button>}

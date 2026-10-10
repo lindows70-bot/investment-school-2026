@@ -3,7 +3,7 @@
 //   어제·1주·1달은 홈 카드와 같은 원천(/api/cocktail-party·/api/coin-fng — 같은 값이 화면마다 다르지 않게), 1년 전·고저는 /api/market-board/overview.
 //   구간 이름은 원천 분류를 번역만 한다(우리 임계값 없음). 미국은 CNN 값일 때만 숫자를 보인다(폴백 50 금지).
 import { useEffect, useState } from 'react'
-import { TK, FS, RAD, SP } from '@/lib/theme'
+import { TK, FS, SP } from '@/lib/theme'
 import { viewOf, fngYearSummary, mdDow, nyYmd, type OverviewResp } from '@/lib/marketScreen'
 import type { CnnFngYear } from '@/lib/cnnFng'
 import type { CryptoFng, CryptoFngYear } from '@/lib/cryptoFng'
@@ -108,7 +108,7 @@ export default function FearGreedYear({ overview, active, defaultSide }: { overv
           <FailRow text="1년 기록(1년 전·최고·최저)을 못 가져왔어요." onRetry={overview.reload} retryLabel="공포·탐욕 1년 기록 다시 불러오기" />
         )}
         {ys && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, padding: SP.md, borderRadius: RAD.sm, background: TK.bg3 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, paddingTop: SP.sm, borderTop: `1px solid ${TK.border}` }}>   {/* 리디자인 2026-10-10: 카드 안 상자(bg3) → 헤어라인 묶음 */}
             {ys.rangeText && <span style={noteStyle()}>{ys.fullYear ? '최근 1년(연간) 동안' : `${ys.rangeText} 동안 — 1년치가 안 돼요`}</span>}
             {ys.high && <span style={{ fontSize: FS.tiny, color: TK.slate200 }}>가장 높았을 때 <FngVal v={ys.high.v} /> · {ys.high.when}</span>}
             {ys.low && <span style={{ fontSize: FS.tiny, color: TK.slate200 }}>가장 낮았을 때 <FngVal v={ys.low.v} /> · {ys.low.when}</span>}

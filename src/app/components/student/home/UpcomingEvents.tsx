@@ -33,7 +33,7 @@ export default function UpcomingEvents({ calendar, macro, today }: { calendar: J
         <div key={it.key} style={{ display: 'flex', alignItems: 'center', gap: SP.md, minHeight: 44, borderTop: `1px solid ${TK.border}` }}>
           <span style={{ width: 72, flexShrink: 0, fontSize: FS.tiny, color: TK.sub, whiteSpace: 'nowrap' }}>{calDateText(it.date, today)}</span>
           <span style={{ flexGrow: 1, minWidth: 0, fontSize: FS.body, color: TK.slate200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.label}</span>
-          {it.mine && <span style={{ flexShrink: 0, padding: `0 ${SP.sm}px`, borderRadius: RAD.pill, background: `${TK.sky400}24`, color: TK.sky400, fontSize: FS.micro, fontWeight: 700, whiteSpace: 'nowrap' }}>내 종목</span>}
+          {it.mine && <span style={{ flexShrink: 0, padding: `0 ${SP.sm}px`, borderRadius: RAD.pill, background: `${TK.teal400}24`, color: TK.teal400, fontSize: FS.micro, fontWeight: 700, whiteSpace: 'nowrap' }}>내 종목</span>}
         </div>
       ))}
       {more > 0 && <span style={noteStyle()}>외 {more}건 — 전체 일정에서</span>}
