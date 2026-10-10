@@ -32,6 +32,34 @@ export interface LinePlotProps {
   marks?: PlotMark[]
   /** 마지막 점을 둥근 점 + 번짐으로 강조 */
   endDot?: boolean
+  /** 기준선 색·이름표(왼쪽 위) — 없으면 흐린 회색·이름표 없음 */
+  baselineColor?: string
+  baselineLabel?: string
+  /** 영역 그라데이션 시작 불투명도(기본 0.32) */
+  areaOpacity?: number
+  /** 🎨 두 색 모드(종목 상세 C안 · 2026-10-10): 이 값(내 평단)보다 위는 splitUp 색, 아래는 splitDown 색으로 선·영역을 나눠 그린다.
+   *  교차점을 보간해 넣고 각 쪽은 null 로 끊는다(평평한 가짜 선이 생기지 않게). 영역은 split 선을 바닥으로 채운다 */
+  splitAt?: number | null
+  splitUp?: string
+  splitDown?: string
+}
+
+/** split 기준으로 위·아래 두 시리즈를 만든다 — 교차하는 구간엔 교차점(값 = split)을 양쪽에 넣는다 */
+export function splitSeries(points: PlotPoint[], split: number): { t: number; v: number; up: number | null; dn: number | null }[] {
+  const out: { t: number; v: number; up: number | null; dn: number | null }[] = []
+  const row = (t: number, v: number) => ({ t, v, up: v >= split ? v : null, dn: v <= split ? v : null })
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i]
+    if (i > 0) {
+      const a = points[i - 1]
+      if ((a.v - split) * (p.v - split) < 0) {   // 부호가 바뀜 = 사이에서 교차
+        const f = (split - a.v) / (p.v - a.v)
+        out.push({ t: a.t + (p.t - a.t) * f, v: split, up: split, dn: split })
+      }
+    }
+    out.push(row(p.t, p.v))
+  }
+  return out
 }
 
 function Tip({ active, payload, tFmt, vFmt }: { active?: boolean; payload?: ReadonlyArray<{ payload?: PlotPoint }>; tFmt: (t: number) => string; vFmt: (v: number) => string }) {
@@ -81,10 +109,13 @@ function XTick({ x, y, payload, t0, t1, fmt }: { x?: number; y?: number; payload
   )
 }
 
-export default function LinePlot({ points, color, baseline, tFmt, vFmt, a11y = true, area, yAxis, yTicks, yFmt, xTicks, xFmt, grid, marks, endDot }: LinePlotProps) {
+export default function LinePlot({ points, color, baseline, tFmt, vFmt, a11y = true, area, yAxis, yTicks, yFmt, xTicks, xFmt, grid, marks, endDot, baselineColor, baselineLabel, areaOpacity = 0.32, splitAt, splitUp, splitDown }: LinePlotProps) {
   const gid = useId().replace(/:/g, '')
   const vs = points.map(p => p.v)
   if (baseline != null) vs.push(baseline)   // 기준선이 늘 보이게 세로 범위에 넣는다
+  const split = splitAt != null && Number.isFinite(splitAt) && splitUp && splitDown ? splitAt : null
+  const data = split != null ? splitSeries(points, split) : points
+  const lastColor = split != null && points.length ? (points[points.length - 1].v >= split ? splitUp! : splitDown!) : color
   const lo = Math.min(...vs), hi = Math.max(...vs)
   // 말풍선이 있으면 위·아래에 상자 자리를 더 둔다
   const padK = marks?.length ? 0.32 : 0.08
@@ -95,13 +126,20 @@ export default function LinePlot({ points, color, baseline, tFmt, vFmt, a11y = t
   const yW = yAxis ? Math.max(36, Math.max(0, ...(yTicks ?? []).map(v => textW((yFmt ?? String)(v), FS.micro))) + SP.sm) : 0
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={points} margin={{ top: SP.xs, right: yAxis === 'right' ? 0 : endDot ? SP.md : SP.xs, bottom: SP.xs, left: yAxis === 'left' ? 0 : SP.xs }} accessibilityLayer={a11y}>
-        {area && (
+      <ComposedChart data={data} margin={{ top: SP.xs, right: yAxis === 'right' ? 0 : endDot ? SP.md : SP.xs, bottom: SP.xs, left: yAxis === 'left' ? 0 : SP.xs }} accessibilityLayer={a11y}>
+        {(area || split != null) && (
           <defs>
             <linearGradient id={`g${gid}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.32} />
+              <stop offset="0%" stopColor={color} stopOpacity={areaOpacity} />
               <stop offset="100%" stopColor={color} stopOpacity={0} />
             </linearGradient>
+            {split != null && (
+              <>
+                {/* 위쪽 영역: 선에서 평단선으로 내려오며 옅어진다 · 아래쪽 영역: 평단선에서 선으로 내려가며 짙어진다 */}
+                <linearGradient id={`gu${gid}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={splitUp} stopOpacity={areaOpacity} /><stop offset="100%" stopColor={splitUp} stopOpacity={0.03} /></linearGradient>
+                <linearGradient id={`gd${gid}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={splitDown} stopOpacity={0.03} /><stop offset="100%" stopColor={splitDown} stopOpacity={areaOpacity} /></linearGradient>
+              </>
+            )}
           </defs>
         )}
         {grid && <CartesianGrid vertical={false} stroke={TK.line3} />}
@@ -109,17 +147,28 @@ export default function LinePlot({ points, color, baseline, tFmt, vFmt, a11y = t
           ticks={xTicks} tick={<XTick t0={t0} t1={t1} fmt={xFmt} />} axisLine={false} tickLine={false} interval={0} height={xTicks ? 22 : 0} />
         <YAxis domain={[lo - pad, hi + pad]} hide={!yAxis} orientation={yAxis ?? 'left'} ticks={yTicks} tickFormatter={yFmt}
           tick={tickStyle} axisLine={false} tickLine={false} width={yW} />
-        {baseline != null && <ReferenceLine y={baseline} stroke={TK.sub} strokeDasharray="4 4" />}
+        {baseline != null && (
+          <ReferenceLine y={baseline} stroke={baselineColor ?? TK.sub} strokeDasharray="4 4"
+            label={baselineLabel ? { value: baselineLabel, position: 'insideTopLeft', fill: baselineColor ?? TK.sub, fontSize: FS.micro, fontWeight: 700 } : undefined} />
+        )}
         <Tooltip content={<Tip tFmt={tFmt} vFmt={vFmt} />} cursor={{ stroke: TK.line4 }} />
-        {area
-          ? <Area type="monotone" dataKey="v" stroke={color} strokeWidth={2} fill={`url(#g${gid})`} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
+        {split != null
+          ? (
+            <>
+              {/* 두 색 모드 — 위·아래를 따로 그린다. 영역 바닥은 평단선(baseValue) */}
+              <Area type="monotone" dataKey="up" stroke={splitUp} strokeWidth={2.2} fill={`url(#gu${gid})`} baseValue={split} dot={false} activeDot={{ r: 4 }} connectNulls={false} isAnimationActive={false} />
+              <Area type="monotone" dataKey="dn" stroke={splitDown} strokeWidth={2.2} fill={`url(#gd${gid})`} baseValue={split} dot={false} activeDot={{ r: 4 }} connectNulls={false} isAnimationActive={false} />
+            </>
+          )
+          : area
+          ? <Area type="monotone" dataKey="v" stroke={color} strokeWidth={2.2} fill={`url(#g${gid})`} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
           : <Line type="linear" dataKey="v" stroke={color} strokeWidth={2} dot={false} isAnimationActive={false} />}
         {marks?.map(m => (
           <ReferenceDot key={`${m.name}${m.t}`} x={m.t} y={m.v} r={3.5} fill={TK.slate300} stroke={TK.bg2} strokeWidth={1.5}
             label={<MarkLabel mark={m} frac={t1 > t0 ? (m.t - t0) / (t1 - t0) : 0.5} />} />
         ))}
-        {endDot && last && <ReferenceDot x={last.t} y={last.v} r={10} fill={color} fillOpacity={0.18} stroke="none" />}
-        {endDot && last && <ReferenceDot x={last.t} y={last.v} r={4} fill={color} stroke={TK.bg2} strokeWidth={1.5} />}
+        {endDot && last && <ReferenceDot x={last.t} y={last.v} r={10} fill={lastColor} fillOpacity={0.22} stroke="none" />}
+        {endDot && last && <ReferenceDot x={last.t} y={last.v} r={4} fill={TK.slate100} stroke={lastColor} strokeWidth={2} />}
       </ComposedChart>
     </ResponsiveContainer>
   )

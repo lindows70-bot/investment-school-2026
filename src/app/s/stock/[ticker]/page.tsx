@@ -12,6 +12,7 @@ import { isPriced, type Market, type PriceInput } from '@/lib/portfolioSummary'
 import { won, signWon, pct, upDown, money, qtyText } from '@/lib/studentFormat'
 import { niceTicks, hourTicks, dayTicks, kstParts, ymdDot } from '@/lib/marketScreen'
 import { LinePlot } from '@/app/components/student/market/marketUi'
+import { Segment } from '@/app/components/student/ui'
 import StockMore from '@/app/components/student/stock/StockMore'
 
 // transactions 실제 컬럼(tradeWrite.ts TxBase 기준) — type 은 소문자 'buy' | 'sell'
@@ -215,6 +216,8 @@ export default function StudentStock() {
   const min = showAvg ? Math.min(vMin, avg) : vMin, max = showAvg ? Math.max(vMax, avg) : vMax
   // 가로 눈금 — 하루(코인 시간봉)는 6시간 간격 시각, 그 밖은 날짜(M.D · N월 · YYYY년)
   const sorted = [...pts].sort((a, b) => a.t - b.t)
+  // 기간 등락색(B안) — 첫 점 대비 마지막 점. 두 점이 없으면 중립색. 보유 종목(C안)은 평단 기준 두 색이라 이 색은 끝점에만 쓰인다
+  const periodColor = sorted.length >= 2 ? upDown(sorted[sorted.length - 1].v - sorted[0].v) : TK.slate300
   const intraday = sorted.length >= 2 && sorted[sorted.length - 1].t - sorted[0].t < 1.5 * 86_400_000
   const xt = sorted.length >= 2 ? (intraday ? { ticks: hourTicks(sorted[0].t, sorted[sorted.length - 1].t, 6), fmt: hm } : dayTicks(sorted[0].t, sorted[sorted.length - 1].t)) : { ticks: [], fmt: tDay }
 
@@ -268,21 +271,19 @@ export default function StudentStock() {
           </>
           : (<>
             <div role="img" aria-label={`${displayName} ${labels[active]} 가격 흐름`} style={{ height: 180, minWidth: 0 }}>
-              <LinePlot points={sorted} color={TK.slate300} baseline={showAvg ? avg : null} tFmt={intraday ? hm : tDay} vFmt={v => money(v, currency)} a11y={false}
+              {/* 2026-10-10 사용자 결정: 기본 B = 기간 등락색 영역(시작점 점선) · 보유 종목은 C = 내 평단 기준 두 색(평단 금색 점선) */}
+              <LinePlot points={sorted} color={periodColor} baseline={showAvg ? avg : sorted[0]?.v ?? null} baselineColor={showAvg ? TK.amber400 : undefined}
+                baselineLabel={showAvg ? `내 평단 ${money(avg, currency)}` : sorted[0] ? `시작 ${money(sorted[0].v, currency)}` : undefined}
+                splitAt={showAvg ? avg : null} splitUp={TK.red400} splitDown={TK.blue400} areaOpacity={0.45}
+                tFmt={intraday ? hm : tDay} vFmt={v => money(v, currency)} a11y={false}
                 area endDot yAxis="right" yTicks={niceTicks(min, max, 4)} yFmt={yFmtFor(currency, max)} xTicks={xt.ticks} xFmt={xt.fmt} />
             </div>
             <span style={{ fontSize: FS.micro, color: TK.sub }}>
-              {labels[active]}{intraday ? ' · 한국 시각' : ''}{holding && (showAvg ? ' · 점선 = 내 평균 매수가' : ' · 평균 매수가가 이 기간 범위 밖이에요')}{currency === 'KRW' && max >= 10_000_000 ? ' · 눈금은 만원' : ''}
+              {labels[active]}{intraday ? ' · 한국 시각' : ''}{showAvg ? ' · 빨강 = 내 평단보다 위, 파랑 = 아래 · 금색 점선 = 내 평균 매수가' : ' · 선 색 = 이 기간 등락(오르면 빨강) · 점선 = 시작값'}{holding && !showAvg ? ' · 평균 매수가가 이 기간 범위 밖이에요' : ''}{currency === 'KRW' && max >= 10_000_000 ? ' · 눈금은 만원' : ''}
             </span>
             {chartsStale && <span style={{ fontSize: FS.tiny, color: TK.amber400 }}>지금 시세 조회가 안 돼서 지난 기록을 보여 드려요.</span>}
-            {available.length > 1 && (
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${available.length}, minmax(0, 1fr))`, gap: SP.xs }}>
-                {available.map(k => {
-                  const on = k === active
-                  return <button key={k} type="button" onClick={() => setFrame(k)} aria-pressed={on} style={{ height: 44, borderRadius: RAD.pill, border: on ? 'none' : `1px solid ${TK.border}`, background: on ? TK.slate100 : 'transparent', color: on ? TK.bg0 : TK.sub, fontSize: FS.tiny, fontWeight: on ? 700 : 500, cursor: 'pointer' }}>{labels[k]}</button>
-                })}
-              </div>
-            )}
+            {/* 리디자인 2026-10-10: 흰 알약 버튼 → 다른 화면과 같은 Segment */}
+            {available.length > 1 && <Segment label="기간" options={available.map(k => ({ key: k, label: labels[k] ?? k }))} value={active} onChange={setFrame} />}
           </>)}
       </section>
 
