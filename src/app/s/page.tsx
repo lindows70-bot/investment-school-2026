@@ -59,7 +59,7 @@ export default function StudentHome() {
           시각 축 라벨(09:00·13:00…)이 서로 겹친다(2026-10-09 820px 실측). 3열 이상 전환은 lg 부터(CLAUDE.md 반응형 함정). */}
       <style>{`
         .sh-idx-grid { grid-template-columns: minmax(0, 1fr) }
-        .sh-spark { height: 36px; min-width: 0 }
+        .sh-spark { height: 84px; min-width: 0 }   /* 36px 땐 하루 ±3% 가 눌려 평평해 보였다(2026-10-11 사용자 지적) — 시장 화면(210px)과 홈 카드 사이, 등락 모양이 읽히는 최소 */
         .sh-two { display: grid; grid-template-columns: minmax(0, 1fr); gap: ${SP.lg}px; align-items: start }
         @media (min-width: 769px) {
           .sh-two { grid-template-columns: repeat(2, minmax(0, 1fr)) }
