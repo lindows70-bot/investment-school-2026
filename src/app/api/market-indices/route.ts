@@ -12,7 +12,7 @@ import { fetchKrIndices, fetchKrIndexMinute, type KrIndexQuote, type IntradayPoi
 import type { Part } from '@/lib/marketBoardShared'
 
 export interface IndexData {
-  id:        string    // 'sp500' | 'nasdaq' | 'dowjones' | 'nikkei' | 'kospi' | 'kosdaq'
+  id:        string    // 'sp500' | 'nasdaq' | 'dowjones' | 'nikkei' | 'kospi' | 'kosdaq' | 'gold' | 'silver'(뒤 둘은 ?metals=1 일 때만)
   name:      string    // 표시 이름
   value:     number    // 현재 지수 값
   change:    number    // 전일 대비 변화량
@@ -108,14 +108,21 @@ function withNaver(yahoo: IndexData | null, id: string, name: string, q: KrIndex
 }
 
 // ─── Route handler ────────────────────────────────────────────────
-export async function GET() {
+// 금·은은 `?metals=1` 일 때만 응답에 싣는다(2026-10-13 학생 홈 시장 카드) — 선생님 대시보드는 응답 전부를 지수 띠·상승 개수로 그리므로
+//   말없이 끼우면 "N개 상승"에 원자재가 섞인다. 같은 5분 캐시에 함께 두고 내보낼 때만 거른다.
+//   실측(2026-10-13): GC=F·SI=F = COMEX 근월 선물 · USD/트로이온스 · 1분봉 658개 · 세션 13:00(KST)→다음날 12:59 · chartPreviousClose = 전 거래일 정산가
+const METAL_IDS = new Set(['gold', 'silver'])
+
+export async function GET(req: Request) {
+  const withMetals = new URL(req.url).searchParams.get('metals') === '1'
+  const pick = (rows: IndexData[]) => withMetals ? rows : rows.filter(r => !METAL_IDS.has(r.id))
   const cacheKey = 'indices'
   const cached   = CACHE.get(cacheKey)
   if (cached && Date.now() < cached.expiresAt) {
-    return NextResponse.json(cached.data, { headers: { 'X-Cache': 'HIT' } })
+    return NextResponse.json(pick(cached.data), { headers: { 'X-Cache': 'HIT' } })
   }
 
-  const [sp500, nasdaq, dowjones, nikkei, kospiYf, kosdaqYf, naverQ, kospiMin, kosdaqMin] = await Promise.all([
+  const [sp500, nasdaq, dowjones, nikkei, kospiYf, kosdaqYf, naverQ, kospiMin, kosdaqMin, gold, silver] = await Promise.all([
     fetchYahooIndex('^GSPC',  'sp500',    'S&P 500'),
     fetchYahooIndex('^IXIC',  'nasdaq',   'NASDAQ'),
     fetchYahooIndex('^DJI',   'dowjones', '다우존스'),
@@ -125,16 +132,18 @@ export async function GET() {
     fetchKrIndices(),
     fetchKrIndexMinute('KOSPI', 400),    // 1분봉 해상도 유지(야후 1분봉과 같은 촘촘함, 동시호가 포함)
     fetchKrIndexMinute('KOSDAQ', 400),
+    fetchYahooIndex('GC=F',   'gold',     '금'),       // COMEX 금 선물 · 달러/트로이온스
+    fetchYahooIndex('SI=F',   'silver',   '은'),       // COMEX 은 선물 · 달러/트로이온스
   ])
   const nq = (code: string) => naverQ.ok ? naverQ.data.find(x => x.code === code) : undefined
   const kospi = withNaver(kospiYf, 'kospi', 'KOSPI', nq('KOSPI'), kospiMin)
   const kosdaq = withNaver(kosdaqYf, 'kosdaq', 'KOSDAQ', nq('KOSDAQ'), kosdaqMin)
 
-  const results = [sp500, nasdaq, dowjones, nikkei, kospi, kosdaq].filter((d): d is IndexData => d !== null)
+  const results = [sp500, nasdaq, dowjones, nikkei, kospi, kosdaq, gold, silver].filter((d): d is IndexData => d !== null)
 
   if (results.length > 0) {
     CACHE.set(cacheKey, { data: results, expiresAt: Date.now() + CACHE_TTL })
   }
 
-  return NextResponse.json(results, { headers: { 'X-Cache': 'MISS', 'Cache-Control': 'no-store' } })
+  return NextResponse.json(pick(results), { headers: { 'X-Cache': 'MISS', 'Cache-Control': 'no-store' } })
 }

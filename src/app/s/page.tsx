@@ -46,7 +46,7 @@ export default function StudentHome() {
   const me = useMe()
   const today = useKstToday()   // 마운트 뒤에만 정해지고 자정에 넘어간다 — 한눈 시황·주요 일정이 같은 '오늘'을 본다
   // 두 카드가 함께 쓰는 원천은 여기서 한 번만 부른다(일정 원천은 콜드 20초대 — 두 번 부르면 서버가 두 번 계산한다)
-  const indices = useJson<IndexRow[]>('/api/market-indices')
+  const indices = useJson<IndexRow[]>('/api/market-indices?metals=1')   // metals=1 = 금·은 선물 카드까지(선생님 대시보드는 지수만)
   const calendar = useJson<CalendarResp>('/api/event-calendar')
   const fx = useJson<FxResp>('/api/exchange-rate')   // 내 자산 한 줄(useMyPortfolio)은 자기 조회를 쓰되 같은 규칙(고정 상수 거부)
   const macro = useJson<MacroResp>('/api/macro-releases')   // 미국 CPI·고용·PCE 발표일(FRED 공식 일정) — 한눈 시황·주요 일정이 함께 쓴다
