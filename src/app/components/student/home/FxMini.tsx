@@ -49,7 +49,9 @@ export default function FxMini({ overview, appFx }: { overview: JsonResult<Overv
             )}
           </div>
           {pts.length >= 2 && dt && (
-            <div aria-hidden style={{ height: 132, minWidth: 0 }}>
+            <div aria-hidden style={{ height: 210, minWidth: 0 }}>
+              {/* 높이 210 = 시장 화면 FxTrendCard 와 같게 — 말풍선 여백(LinePlot padK 0.32)이 그 높이에 맞춰져 있어 132px 에선 고점 상자 위 11px 가 잘렸다(2026-10-12 375 실측).
+                  ⚠️ 이 주석을 `{cond && (` 바로 안쪽에 두면 webpack 파싱이 깨진다(네 번째) — 열린 태그 안 첫 줄에 둔다 */}
               <LinePlot points={pts} color={TK.teal400} tFmt={tDay} vFmt={fxWon} a11y={false} area endDot marks={marks}
                 yAxis="left" yTicks={niceTicks(Math.min(...pts.map(p => p.v)), Math.max(...pts.map(p => p.v)), 3)} yFmt={int} xTicks={dt.ticks} xFmt={dt.fmt} />
             </div>
