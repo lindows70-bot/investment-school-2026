@@ -28,12 +28,17 @@ function krxStatus(now: number, holidays: string[] | null): string {
   return '국내 장 마감'
 }
 
-function BriefLine({ line, loadingText }: { line: Line | null; loadingText: string }) {
-  if (!line) return <p style={{ margin: 0, ...noteStyle() }}>{loadingText}</p>
+/** 번호 동그라미 + 한 줄(2026-10-12 "더리치 메인처럼" — 세 줄에 1·2·3 을 매겨 훑는 순서를 준다). 번호 색은 틴트(blue400) — 새 색 없음 */
+function BriefLine({ n, line, loadingText }: { n: number; line: Line | null; loadingText: string }) {
   return (
-    <p style={{ margin: 0, fontSize: FS.body, lineHeight: 1.6, color: TK.slate200, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-      {line.parts.map((p, i) => <span key={i} style={{ color: toneColor(p.tone) }}>{p.text}</span>)}
-    </p>
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: SP.sm, minWidth: 0 }}>
+      <span aria-hidden style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, marginTop: 1, borderRadius: '50%', background: `${TK.blue400}24`, color: TK.blue400, fontSize: FS.micro, fontWeight: 800, lineHeight: 1 }}>{n}</span>
+      {line
+        ? <p style={{ margin: 0, fontSize: FS.body, lineHeight: 1.6, color: TK.slate200, wordBreak: 'keep-all', overflowWrap: 'anywhere', minWidth: 0 }}>
+            {line.parts.map((p, i) => <span key={i} style={{ color: toneColor(p.tone) }}>{p.text}</span>)}
+          </p>
+        : <p style={{ margin: 0, lineHeight: 1.6, ...noteStyle() }}>{loadingText}</p>}
+    </div>
   )
 }
 
@@ -78,9 +83,9 @@ export default function MarketBrief({ indices, calendar, fx, macro, today }: { i
       <CardHead title="오늘의 한눈 시황" extra={status && (
         <span style={{ padding: `2px ${SP.sm}px`, borderRadius: RAD.pill, border: `1px solid ${TK.line1}`, fontSize: FS.micro, color: status === '국내 장중' ? TK.slate100 : TK.sub, whiteSpace: 'nowrap' }}>{status}</span>
       )} />
-      <BriefLine line={marketReady ? brief.market : null} loadingText="시장 지수를 불러오는 중…" />
-      <BriefLine line={mineReady ? brief.mine : null} loadingText="내 종목 소식을 불러오는 중…" />
-      <BriefLine line={upcomingReady ? brief.upcoming : null} loadingText="다가오는 일정을 불러오는 중…" />
+      <BriefLine n={1} line={marketReady ? brief.market : null} loadingText="시장 지수를 불러오는 중…" />
+      <BriefLine n={2} line={mineReady ? brief.mine : null} loadingText="내 종목 소식을 불러오는 중…" />
+      <BriefLine n={3} line={upcomingReady ? brief.upcoming : null} loadingText="다가오는 일정을 불러오는 중…" />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.sm, flexWrap: 'wrap', paddingTop: SP.xs, borderTop: `1px solid ${TK.border}` }}>
         {failed.length > 0
           ? <button type="button" onClick={() => failed.forEach(s => s.reload())} aria-label="시황에서 못 가져온 것 다시 불러오기" style={retryBtn}>못 가져온 것 다시</button>

@@ -1,31 +1,36 @@
 'use client'
-// 학생 홈 지수 카드 3개 — 코스피·S&P 500(market-indices) · 비트코인(stock-price 업비트 원화) + 칸마다 장중 차트(값 눈금·시간 눈금·그라데이션·점선 = 전날 종가·끝점). 폰은 한 칸씩 세로, PC 는 3칸
-//   차트는 이미 받는 응답을 쓴다(새 요청 없음): 지수 = market-indices 의 장중 chartData(코스피는 네이버 분봉), 비트코인 = stock-price 의 1D(지난 24시간 1시간봉).
+// 학생 홈 시장 카드 — 코스피 · 코스닥 · S&P 500 · 나스닥(market-indices) · 비트코인(stock-price 업비트 원화)을 가로로 넘기는 카드 한 줄(2026-10-12 "더리치 메인처럼").
+//   카드마다 이름 칩 · 값 · 등락 · 흐름선(점선 = 전날 종가) · 한 줄 설명. 폰은 카드 하나 + 다음 카드 끝이 살짝(78%), 769px↑ 는 260px 씩.
+//   차트는 이미 받는 응답을 쓴다(새 요청 없음): 지수 = market-indices 의 장중 chartData(코스피·코스닥은 네이버 분봉), 비트코인 = stock-price 의 1D(지난 24시간 1시간봉).
 //   점선 = 전날 종가(값 − 등락). 비트코인은 등락 기준(오전 9시)과 선의 시작(24시간 전)이 달라 기준선을 긋지 않고,
 //   선 색도 등락색이 아니라 중립색이다(등락률은 올랐는데 24시간 선은 내려가는 모양일 수 있다).
+//   한 줄 설명은 데이터에서만 나온다(전날 종가 값 · 기간) — 시황 해설을 지어내지 않는다(출처 없는 수치 금지).
 import Link from 'next/link'
 import { TK, FS, SP } from '@/lib/theme'
 import { useJson, type JsonResult } from '@/app/components/student/useJson'
 import { won, pct, upDown, points } from '@/lib/studentFormat'
 import { sparkSeries, kstParts } from '@/lib/marketScreen'
 import { LinePlot } from '@/app/components/student/market/marketUi'
+import { Chip } from '@/app/components/student/ui'
 import { card, noteStyle, retryBtn, type IndexRow } from './homeUi'
 
 type Spark = { t: number; v: number }[] | null
-/** lineColor = 선 색 — 지수는 등락색(선과 등락의 기준이 같은 전날 종가), 비트코인은 중립색 · xStepH = 시간 눈금 간격(지수 2시간, 비트코인 24시간이라 6시간) */
-type Cell = { kind: 'loading' } | { kind: 'failed' } | { kind: 'ok'; value: string; changePct: number; spark: Spark; baseline: number | null; lineColor: string; vFmt: (v: number) => string; yFmt: (v: number) => string; xStepH: number }
+/** lineColor = 선 색 — 지수는 등락색(선과 등락의 기준이 같은 전날 종가), 비트코인은 중립색. note = 카드 아래 한 줄(데이터에서만) */
+type Cell = { kind: 'loading' } | { kind: 'failed' } | { kind: 'ok'; value: string; changePct: number; spark: Spark; baseline: number | null; lineColor: string; vFmt: (v: number) => string; note: string }
 interface PriceRow { ticker?: unknown; currentPrice?: unknown; changePct?: unknown; error?: unknown; charts?: { '1D'?: unknown } }
 const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)
 const BTC_BODY = [{ ticker: 'BTC', market: 'CRYPTO' }]
 const hm = (t: number) => kstParts(t).hm
-const int = (v: number) => Math.round(v).toLocaleString('ko-KR')
-const man = (v: number) => `${Math.round(v / 10_000).toLocaleString('ko-KR')}만`   // 비트코인 눈금 — 115,167,000원은 눈금 칸에 안 들어간다
 
-function IndexCard({ label, cell, onRetry }: { label: string; cell: Cell; onRetry: () => void }) {
+/** region = 카드 머리 칩(국내 · 미국 · 코인) — 국기는 쓰지 않는다(지수엔 티커 접미사가 없어 flagOf SSOT 를 못 탄다) */
+function MarketCard({ label, region, cell, onRetry }: { label: string; region: string; cell: Cell; onRetry: () => void }) {
   const sp = cell.kind === 'ok' ? cell.spark : null
   return (
-    <div className="sh-idx" style={{ ...card, padding: `${SP.md}px ${SP.lg}px`, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
-      <span style={{ fontSize: FS.tiny, color: TK.sub, whiteSpace: 'nowrap' }}>{label}</span>
+    <div className="sh-mcard" style={{ ...card, padding: `${SP.md}px ${SP.lg}px`, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
+      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.sm }}>
+        <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate100, whiteSpace: 'nowrap' }}>{label}</span>
+        <Chip text={region} />
+      </span>
       {cell.kind === 'loading' && <span style={noteStyle()}>불러오는 중…</span>}
       {cell.kind === 'failed' && (
         <span style={{ display: 'flex', alignItems: 'center', gap: SP.sm }}>
@@ -35,17 +40,17 @@ function IndexCard({ label, cell, onRetry }: { label: string; cell: Cell; onRetr
       )}
       {cell.kind === 'ok' && (
         <span style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: SP.sm, minWidth: 0 }}>
-          <span style={{ fontSize: FS.xl, fontWeight: 800, color: TK.slate100, whiteSpace: 'nowrap' }}>{cell.value}</span>
+          <span style={{ fontSize: FS.xl, fontWeight: 800, letterSpacing: '-0.03em', color: TK.slate100, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{cell.value}</span>
           <span style={{ fontSize: FS.tiny, fontWeight: 700, color: upDown(cell.changePct), whiteSpace: 'nowrap' }}>{pct(cell.changePct)}</span>
         </span>
       )}
-      {/* 차트 — 못 그리면(점 부족·가짜 평평선) 빈 자리. 값은 위 글자가 말하므로 접근성 층은 끈다.
-          리디자인(2026-10-09): 축 눈금을 뺀 흐름선만 — 769~1023px 에서 시각 라벨이 겹치던 문제의 근본 처방이기도 하다(값은 글자가 말한다) */}
+      {/* 차트 — 못 그리면(점 부족·가짜 평평선) 빈 자리. 값은 위 글자가 말하므로 접근성 층은 끈다. 축 눈금 없는 흐름선만(값은 글자가 말한다) */}
       <div className="sh-spark" aria-hidden>
         {cell.kind === 'ok' && sp && sp.length >= 2 && (
           <LinePlot points={sp} color={cell.lineColor} baseline={cell.baseline} tFmt={hm} vFmt={cell.vFmt} a11y={false} area endDot />
         )}
       </div>
+      <span style={{ ...noteStyle(), minHeight: 18, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cell.kind === 'ok' ? cell.note : ' '}</span>
     </div>
   )
 }
@@ -57,9 +62,11 @@ export default function IndexCards({ indices }: { indices: JsonResult<IndexRow[]
     if (indices.state === 'loading' || indices.state === 'idle') return { kind: 'loading' }
     const row = indices.state === 'ok' && Array.isArray(indices.data) ? indices.data.find(x => x?.id === id) : undefined
     if (!(row && isNum(row.value) && row.value > 0 && isNum(row.changePct))) return { kind: 'failed' }
+    const baseline = isNum(row.change) ? row.value - row.change : null
     return {
-      kind: 'ok', value: points(row.value), changePct: row.changePct, vFmt: points, yFmt: int, xStepH: 2, lineColor: upDown(row.changePct),
-      spark: sparkSeries(row.chartData), baseline: isNum(row.change) ? row.value - row.change : null,
+      kind: 'ok', value: points(row.value), changePct: row.changePct, vFmt: points, lineColor: upDown(row.changePct),
+      spark: sparkSeries(row.chartData), baseline,
+      note: baseline != null ? `오늘 장중 · 점선 = 전날 종가 ${points(baseline)}` : '오늘 장중',
     }
   }
   const btcCell = ((): Cell => {
@@ -67,18 +74,20 @@ export default function IndexCards({ indices }: { indices: JsonResult<IndexRow[]
     const row = btc.state === 'ok' && Array.isArray(btc.data) ? btc.data.find(x => typeof x?.ticker === 'string' && x.ticker.toUpperCase() === 'BTC') : undefined
     // error 가 붙은 행은 지난 캐시 시세이거나 실패 폴백(가격 0) — 지금 가격이 아니다
     if (!(row && !row.error && isNum(row.currentPrice) && row.currentPrice > 0 && isNum(row.changePct))) return { kind: 'failed' }
-    return { kind: 'ok', value: won(row.currentPrice), changePct: row.changePct, vFmt: won, yFmt: man, xStepH: 6, spark: sparkSeries(row.charts?.['1D']), baseline: null, lineColor: TK.slate300 }
+    return { kind: 'ok', value: won(row.currentPrice), changePct: row.changePct, vFmt: won, spark: sparkSeries(row.charts?.['1D']), baseline: null, lineColor: TK.slate300, note: '지난 24시간 · 업비트 원화 · 등락은 오전 9시 기준' }
   })()
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
-      <section aria-label="주요 지수" className="sh-idx-grid" style={{ display: 'grid', gap: SP.sm }}>
-        <IndexCard label="코스피" cell={indexCell('kospi')} onRetry={indices.reload} />
-        <IndexCard label="S&P 500" cell={indexCell('sp500')} onRetry={indices.reload} />
-        <IndexCard label="비트코인" cell={btcCell} onRetry={btc.reload} />
+      <section aria-label="주요 지수" className="sh-row sh-bleed" style={{ gap: SP.sm }}>
+        <MarketCard label="코스피" region="국내" cell={indexCell('kospi')} onRetry={indices.reload} />
+        <MarketCard label="코스닥" region="국내" cell={indexCell('kosdaq')} onRetry={indices.reload} />
+        <MarketCard label="S&P 500" region="미국" cell={indexCell('sp500')} onRetry={indices.reload} />
+        <MarketCard label="나스닥" region="미국" cell={indexCell('nasdaq')} onRetry={indices.reload} />
+        <MarketCard label="비트코인" region="코인" cell={btcCell} onRetry={btc.reload} />
       </section>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.sm, flexWrap: 'wrap' }}>
-        <span style={noteStyle()}>선 = 지수는 그날 장중(점선 = 전날 종가) · 비트코인은 지난 24시간</span>
+        <span style={noteStyle()}>옆으로 넘겨 더 보기</span>
         <Link href="/s/market" style={{ display: 'flex', alignItems: 'center', minHeight: 44, padding: `0 ${SP.xs}px`, fontSize: FS.tiny, color: TK.sub, textDecoration: 'none', whiteSpace: 'nowrap' }}>시장 더 보기 ›</Link>
       </div>
     </div>

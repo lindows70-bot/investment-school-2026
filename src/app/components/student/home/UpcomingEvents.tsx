@@ -4,7 +4,20 @@ import { TK, FS, RAD, SP } from '@/lib/theme'
 import { FOMC_SCHEDULE } from '@/lib/fomcSchedule'
 import { fomcKstDates } from '@/lib/homeBrief'
 import type { JsonResult } from '@/app/components/student/useJson'
+import { Chip } from '@/app/components/student/ui'
 import { card, CardHead, FailRow, noteStyle, macroRows, macroFailedLabels, macroUnscheduledLabels, buildCalendarItems, calDateText, type CalendarResp, type MacroResp } from './homeUi'
+
+/** 날짜 칩(2026-10-12 "더리치 메인처럼") — 위 'M/D' 아래 요일. 글자는 calDateText(일정 화면과 같은 'M/D(요일)')를 쪼갠 것이라 두 화면이 같은 날짜를 말한다 */
+function DateChip({ ymd, today }: { ymd: string; today: string }) {
+  const m = /^(\d+\/\d+)\((.)\)$/.exec(calDateText(ymd, today))
+  return (
+    <span style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, borderRadius: RAD.md, background: TK.bg7, lineHeight: 1.15 }}>
+      {m
+        ? <><span style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.slate100, fontVariantNumeric: 'tabular-nums' }}>{m[1]}</span><span style={{ fontSize: FS.micro, color: TK.sub }}>{m[2]}</span></>
+        : <span style={{ fontSize: FS.tiny, fontWeight: 800, color: TK.blue400 }}>오늘</span>}
+    </span>
+  )
+}
 
 const WINDOW_DAYS = 30   // homeBrief '다가오는 일정'과 같은 창
 const MAX_ITEMS = 5
@@ -30,10 +43,12 @@ export default function UpcomingEvents({ calendar, macro, today }: { calendar: J
     <section style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.xs }}>
       <CardHead title="주요 일정" href="/s/calendar" linkText="전체 일정 ›" />
       {items.map(it => (
-        <div key={it.key} style={{ display: 'flex', alignItems: 'center', gap: SP.md, minHeight: 44, borderTop: `1px solid ${TK.border}` }}>
-          <span style={{ width: 72, flexShrink: 0, fontSize: FS.tiny, color: TK.sub, whiteSpace: 'nowrap' }}>{calDateText(it.date, today)}</span>
+        <div key={it.key} style={{ display: 'flex', alignItems: 'center', gap: SP.md, minHeight: 52, borderTop: `1px solid ${TK.border}` }}>
+          <DateChip ymd={it.date} today={today} />
           <span style={{ flexGrow: 1, minWidth: 0, fontSize: FS.body, color: TK.slate200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.label}</span>
-          {it.mine && <span style={{ flexShrink: 0, padding: `0 ${SP.sm}px`, borderRadius: RAD.pill, background: `${TK.teal400}24`, color: TK.teal400, fontSize: FS.micro, fontWeight: 700, whiteSpace: 'nowrap' }}>내 종목</span>}
+          {it.mine
+            ? <span style={{ flexShrink: 0, padding: `0 ${SP.sm}px`, borderRadius: RAD.pill, background: `${TK.teal400}24`, color: TK.teal400, fontSize: FS.micro, fontWeight: 700, whiteSpace: 'nowrap' }}>내 종목</span>
+            : <Chip text={it.kind === 'fomc' ? 'FOMC' : '미국 지표'} />}
         </div>
       ))}
       {more > 0 && <span style={noteStyle()}>외 {more}건 — 전체 일정에서</span>}

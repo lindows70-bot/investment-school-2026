@@ -1,5 +1,6 @@
 'use client'
-// 학생 홈 — 인사·검색·바로가기·내 자산 한 줄·리그 한 줄·한눈 시황·지수(미니 선)·요즘 강한 분야 3·공포탐욕(1년)·환율·일정·뉴스·거장. 카드마다 따로 불러와 하나가 느려도 나머지는 뜬다
+// 학생 홈 — 인사·검색·바로가기(가로 아이콘 줄)·내 자산·리그/기록·한눈 시황(1·2·3)·시장 카드(가로 넘김)·요즘 강한 분야 3·공포탐욕(1년)·환율(고점·저점)·일정·뉴스·거장. 카드마다 따로 불러와 하나가 느려도 나머지는 뜬다
+//   2026-10-12 사용자 "더리치 메인처럼": 가로 바로가기 · 번호 매긴 시황 · 넘기는 시장 카드 · 환율 말풍선 · 일정 날짜 칩을 그 문법대로 옮겼다(docs/student-design/context-notes.md)
 //   강한 분야·공포탐욕 1년·환율은 시장 화면과 같은 /api/market-board/overview 를 **한 번** 불러 나눠 쓴다(그 카드들이 화면에 들어올 때). 자세한 건 시장 화면(/s/market)
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -58,18 +59,24 @@ export default function StudentHome() {
           ⚠️ 지수 3열은 1024px↑ 에서만 — 769~1023px 은 왼쪽 메뉴가 남아 본문이 500px 대라 3열이면 칸이 150px 이 되고
           시각 축 라벨(09:00·13:00…)이 서로 겹친다(2026-10-09 820px 실측). 3열 이상 전환은 lg 부터(CLAUDE.md 반응형 함정). */}
       <style>{`
-        .sh-idx-grid { grid-template-columns: minmax(0, 1fr) }
+        /* 가로로 넘기는 줄(바로가기 · 시장 카드 — 2026-10-12 "더리치 메인처럼"). 스크롤바는 숨기고 한 칸씩 멈춘다(scroll-snap) */
+        .sh-row { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch; min-width: 0 }
+        .sh-row::-webkit-scrollbar { display: none }
+        /* 폰에선 셸 여백(16px)까지 흘러 다음 칸 끝이 보인다 — 769px↑ 는 본문 폭 안에서 */
+        .sh-bleed { margin: 0 -${SP.lg}px; padding: 0 ${SP.lg}px; scroll-padding: 0 ${SP.lg}px }
+        .sh-mcard { flex: 0 0 78%; max-width: 280px; scroll-snap-align: start }
         .sh-spark { height: 84px; min-width: 0 }   /* 36px 땐 하루 ±3% 가 눌려 평평해 보였다(2026-10-11 사용자 지적) — 시장 화면(210px)과 홈 카드 사이, 등락 모양이 읽히는 최소 */
         .sh-two { display: grid; grid-template-columns: minmax(0, 1fr); gap: ${SP.lg}px; align-items: start }
         @media (min-width: 769px) {
           .sh-two { grid-template-columns: repeat(2, minmax(0, 1fr)) }
-        }
-        @media (min-width: 1024px) {
-          .sh-idx-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) }
+          .sh-bleed { margin: 0; padding: 0; scroll-padding: 0 }
+          .sh-mcard { flex-basis: 260px }
         }
       `}</style>
       <Greeting name={me === undefined ? undefined : me.name} today={today} />
       <HomeSearch />
+      {/* 바로가기는 검색 바로 아래(더리치와 같은 자리) — 둥근 아이콘 한 줄, 옆으로 넘긴다 */}
+      <Shortcuts />
       <MyAssetsLine />
       {/* 리그·기록 타일 2열(리디자인 2026-10-09 · docs/student-design) — 첫 화면(375×812)에 인사·내 자산·리그·기록이 스크롤 없이 들어온다 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: SP.md }}>
@@ -78,8 +85,6 @@ export default function StudentHome() {
       </div>
       <MarketBrief indices={indices} calendar={calendar} fx={fx} macro={macro} today={today} />
       <IndexCards indices={indices} />
-      {/* 바로가기(일정·거장·코인·부동산)는 지수 아래로 — 첫 화면은 내 상태(자산·리그·기록)에 준다 */}
-      <Shortcuts />
       <div ref={ovRef} style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
         <div className="sh-two">
           <StrongSectorsMini overview={overview} />

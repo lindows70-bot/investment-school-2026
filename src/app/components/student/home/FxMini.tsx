@@ -11,6 +11,7 @@ import { viewOf, mdDow, ymdDot, kstParts, fxBasisNote, niceTicks, dayTicks, type
 import type { FxTrend } from '@/lib/fxTrend'
 import type { JsonResult } from '@/app/components/student/useJson'
 import { LinePlot, Pending, RangeTabs } from '@/app/components/student/market/marketUi'
+import type { PlotMark } from '@/app/components/student/market/LinePlot'
 import { card, CardHead, noteStyle, type FxResp } from './homeUi'
 
 const dayMs = (ymd: string) => Date.parse(`${ymd}T00:00:00+09:00`)
@@ -28,6 +29,11 @@ export default function FxMini({ overview, appFx }: { overview: JsonResult<Overv
   const basis = fx && appFx.state === 'ok' ? fxBasisNote(appFx.data, fx.latest.v) : null
   const pts = fx ? fx[range].points.map(p => ({ t: dayMs(p.date), v: p.v })).filter(p => Number.isFinite(p.t)) : []
   const dt = pts.length >= 2 ? dayTicks(pts[0].t, pts[pts.length - 1].t) : null
+  // 고점·저점 말풍선(2026-10-12 "더리치 메인처럼") — 값·날짜는 fxTrend 가 같은 기간에서 고른 high/low 그대로(시장 화면과 같은 값)
+  const marks: PlotMark[] = fx
+    ? ([['고점', fx[range].high, 'above'], ['저점', fx[range].low, 'below']] as const)
+        .flatMap(([name, hl, place]) => hl && Number.isFinite(dayMs(hl.date)) ? [{ t: dayMs(hl.date), v: hl.v, name, value: fxWon(hl.v), when: mdDow(hl.date) ?? hl.date, place }] : [])
+    : []
   return (
     <section aria-label="원·달러 환율" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
       <CardHead title="원·달러 환율" href="/s/market" linkText="더 보기 ›" extra={<RangeTabs label="기간" value={range} onChange={setRange} options={RANGES} />} />
@@ -43,8 +49,8 @@ export default function FxMini({ overview, appFx }: { overview: JsonResult<Overv
             )}
           </div>
           {pts.length >= 2 && dt && (
-            <div aria-hidden style={{ height: 100, minWidth: 0 }}>
-              <LinePlot points={pts} color={TK.teal400} tFmt={tDay} vFmt={fxWon} a11y={false} area endDot
+            <div aria-hidden style={{ height: 132, minWidth: 0 }}>
+              <LinePlot points={pts} color={TK.teal400} tFmt={tDay} vFmt={fxWon} a11y={false} area endDot marks={marks}
                 yAxis="left" yTicks={niceTicks(Math.min(...pts.map(p => p.v)), Math.max(...pts.map(p => p.v)), 3)} yFmt={int} xTicks={dt.ticks} xFmt={dt.fmt} />
             </div>
           )}
