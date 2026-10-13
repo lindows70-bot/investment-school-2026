@@ -2,7 +2,7 @@
 //   화면(tsx)은 그리기만 하고, 판정·정렬·문구는 여기서 만든다 → scripts/verify-market-screen.mjs 가 실제 이 파일을 컴파일해 검증한다.
 //   ⚠️ 서버 lib 에서는 **타입만** 가져온다(브라우저 번들에 서버 코드가 끌려오지 않게).
 import type { Part } from './marketBoardShared'
-import { pct, fxWon } from './studentFormat'
+import { pct } from './studentFormat'
 import { acceptFx } from './fxAccept'
 import { TK } from './theme'
 import type { KrIndexQuote, IntradayPoint, InvestorTotals, UpDownCount, KrMover, MoverList, KrIndustry, KrNews, KrIndexCode, KrMarket, KrMoverKind } from './krMarketBoard'
@@ -348,15 +348,25 @@ export function fngYearLine(s: NonNullable<ReturnType<typeof fngYearSummary>>): 
   return `${s.rangeText ?? '기록 기간'} ${parts}`
 }
 
-/** 하나은행 환율 카드 한 줄 — 카드가 보여 주는 값(shownV)과 앱 환율(/api/exchange-rate: 한눈 시황·내 자산이 쓰는 값)이 **다를 때만** 이유를 말한다.
- *  앱 환율도 하나은행이 1순위라 보통은 같다. 다른 경우는 둘뿐 — ①하나은행을 못 받아 앱이 다른 원천·마지막 성공값으로 떨어짐
- *  ②같은 하나은행이지만 다른 시각의 고시(하루에도 여러 번 바뀌고, 카드는 확정된 날 값을 크게 보인다). 앱 환율을 못 받았으면 null(그 화면이 스스로 밝힌다) */
-export function fxBasisNote(app: unknown, shownV: number): string | null {
+/** 환율 카드의 큰 숫자 — **가장 새 고시 하나**(홈·시장 카드 공용 SSOT · 2026-10-13 사용자 "상용 앱과 차이가 난다").
+ *  전엔 카드가 '어제 확정 고시'를 크게 보이고 오늘 값은 각주로만 적어, 한 카드에 숫자가 셋(어제 확정·오늘 진행·앱 환율) 보였고
+ *  큰 숫자가 상용 앱(지금 환율)보다 하루 늦었다. 이제 ① 앱 환율(/api/exchange-rate)이 하나은행이고 고시일이 확정일 이상이면 그 값(회차까지 — 한눈 시황·내 자산과 같은 값)
+ *  ② 아니면 추이의 오늘 진행 중 행 ③ 아니면 마지막 확정 고시. base = 비교 대상(그 고시 전날의 확정 고시) · live = 오늘 진행 중(확정일보다 뒤 날짜).
+ *  앱 환율이 하나은행이 아니거나(다른 원천·마지막 성공값) 추이보다 오래됐으면 쓰지 않는다 — 다른 원천 값을 하나은행 이름으로 보이지 않게 */
+export interface FxHead { v: number; date: string; round: number | null; live: boolean; base: { v: number; date: string } | null }
+export function fxHeadline(app: unknown, t: Pick<FxTrend, 'latest' | 'provisional' | 'm1'>): FxHead {
+  const pts = t.m1.points
+  const prevDay = pts.length >= 2 && pts[pts.length - 1].date === t.latest.date ? pts[pts.length - 2] : null
+  const prevBase = prevDay ? { v: prevDay.v, date: prevDay.date } : t.latest.change != null ? { v: t.latest.v - t.latest.change, date: '' } : null
+  const latestBase = { v: t.latest.v, date: t.latest.date }
+  const a = app as { source?: unknown; noticeDate?: unknown; noticeRound?: unknown } | null
   const rate = acceptFx(app)
-  if (rate == null || Math.abs(rate - shownV) < 0.005) return null
-  return (app as { source?: unknown }).source === 'hana'
-    ? `한눈 시황·내 자산은 같은 하나은행 고시의 다른 시각 값(${fxWon(rate)})으로 계산해요 — 고시는 하루에도 여러 번 바뀌어요.`
-    : `지금은 하나은행 고시를 새로 못 받아 한눈 시황·내 자산은 다른 환율(${fxWon(rate)})로 계산 중이에요 — 조금 다를 수 있어요.`
+  if (a?.source === 'hana' && rate != null && typeof a.noticeDate === 'string' && a.noticeDate >= t.latest.date) {
+    const live = a.noticeDate > t.latest.date
+    return { v: rate, date: a.noticeDate, round: typeof a.noticeRound === 'number' && Number.isFinite(a.noticeRound) ? a.noticeRound : null, live, base: live ? latestBase : prevBase }
+  }
+  if (t.provisional && t.provisional.date > t.latest.date) return { v: t.provisional.v, date: t.provisional.date, round: null, live: true, base: latestBase }
+  return { v: t.latest.v, date: t.latest.date, round: null, live: false, base: prevBase }
 }
 
 // ── 공포·탐욕 색 ────────────────────────────────────────────────────────────

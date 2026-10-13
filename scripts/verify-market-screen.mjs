@@ -192,16 +192,20 @@ eq('지금이 최고를 넘음 → 최고 = 지금', M.fngExtremes(72, H, L).hig
 eq('지금이 최저 이하 → 최저 = 지금', M.fngExtremes(5, H, L).low, { v: 5, date: null })
 eq('지금 모름 → 그대로', M.fngExtremes(null, H, L), { high: H, low: L })
 
-// ── fxBasisNote — 하나은행 카드와 앱 환율(한눈 시황·내 자산)이 다를 때만 이유 한 줄 ──
-eq('앱도 하나은행·같은 값 → 문구 없음', M.fxBasisNote({ rate: 1359, source: 'hana' }, 1359), null)
-eq('앱이 하나은행 오늘 회차(1,362.3) vs 카드 확정일(1,359) → 다른 시각 값', M.fxBasisNote({ rate: 1362.3, source: 'hana' }, 1359),
-  '한눈 시황·내 자산은 같은 하나은행 고시의 다른 시각 값(1,362.30원)으로 계산해요 — 고시는 하루에도 여러 번 바뀌어요.')
-eq('하나은행 실패 → 다른 원천(fawazahmed0 1,361.27) → 다를 수 있음', M.fxBasisNote({ rate: 1361.27, source: 'fawazahmed0' }, 1359),
-  '지금은 하나은행 고시를 새로 못 받아 한눈 시황·내 자산은 다른 환율(1,361.27원)로 계산 중이에요 — 조금 다를 수 있어요.')
-eq('마지막 성공값(last-good)도 하나은행 새 값이 아님 → 다를 수 있음', M.fxBasisNote({ rate: 1355.5, source: 'last-good' }, 1359) != null, true)
-eq('다른 원천이어도 값이 같으면 → 문구 없음(설명할 차이가 없다)', M.fxBasisNote({ rate: 1359, source: 'last-good' }, 1359), null)
-eq('고정 상수(stale-constant) → 문구 없음(앱 환율을 못 받음 — 그 화면이 밝힌다)', M.fxBasisNote({ rate: 1400, source: 'stale-constant' }, 1359), null)
-eq('앱 환율 응답 없음 → 문구 없음', M.fxBasisNote(null, 1359), null)
+// ── fxHeadline — 환율 카드 큰 숫자 = 가장 새 고시 하나(홈·시장 카드 공용 · 2026-10-13 "상용 앱과 차이") ──
+const FXT = { latest: { date: '2026-10-12', v: 1336, change: -8, changePct: -0.6 }, provisional: { date: '2026-10-13', v: 1340.5 },
+  m1: { from: '2026-09-13', to: '2026-10-12', points: [{ date: '2026-10-08', v: 1344 }, { date: '2026-10-12', v: 1336 }], high: null, low: null } }
+eq('앱이 하나은행 오늘 778회차 → 그 값 · 진행 중 · 비교 = 어제 확정', M.fxHeadline({ rate: 1341.8, source: 'hana', noticeDate: '2026-10-13', noticeRound: 778 }, FXT),
+  { v: 1341.8, date: '2026-10-13', round: 778, live: true, base: { v: 1336, date: '2026-10-12' } })
+eq('앱이 하나은행인데 고시일 = 확정일(밤·휴일) → 그 값 · 마감 · 비교 = 그 전 확정일(10/8 — 주말 건너뜀)', M.fxHeadline({ rate: 1336, source: 'hana', noticeDate: '2026-10-12', noticeRound: 900 }, FXT),
+  { v: 1336, date: '2026-10-12', round: 900, live: false, base: { v: 1344, date: '2026-10-08' } })
+eq('앱이 추이보다 오래된 고시(10/9) → 앱 값 안 씀 · 추이의 오늘 진행 중 행', M.fxHeadline({ rate: 1350, source: 'hana', noticeDate: '2026-10-09', noticeRound: 5 }, FXT),
+  { v: 1340.5, date: '2026-10-13', round: null, live: true, base: { v: 1336, date: '2026-10-12' } })
+eq('앱이 다른 원천(fawazahmed0) → 하나은행 이름으로 안 보임 · 추이 진행 중 행', M.fxHeadline({ rate: 1341.27, source: 'fawazahmed0' }, FXT).v, 1340.5)
+eq('고정 상수(stale-constant) → 안 씀', M.fxHeadline({ rate: 1400, source: 'stale-constant', noticeDate: '2026-10-13' }, FXT).v, 1340.5)
+eq('앱 응답 없음 + 진행 중 행 없음 → 마지막 확정 고시 · 비교 = 그 전 확정일', M.fxHeadline(null, { ...FXT, provisional: null }),
+  { v: 1336, date: '2026-10-12', round: null, live: false, base: { v: 1344, date: '2026-10-08' } })
+eq('1달 점이 하나뿐이면 비교 = latest.change 로(날짜 없음)', M.fxHeadline(null, { ...FXT, provisional: null, m1: { ...FXT.m1, points: [{ date: '2026-10-12', v: 1336 }] } }).base, { v: 1344, date: '' })
 
 // ── fngColor — 0 빨강 · 50 노랑 · 100 초록, 사이는 연속(칸 경계 없음) ──
 eq('0 → 빨강(red500)', M.fngColor(0), 'rgb(239, 68, 68)')
