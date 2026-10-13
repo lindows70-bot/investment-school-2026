@@ -19,8 +19,9 @@ export const noteStyle = (color: string = TK.sub) => ({ fontSize: FS.tiny, color
 /** 카드 제목 줄 — 오른쪽에 '더 보기 ›' 같은 링크(44px) */
 export function CardHead({ title, href, linkText, extra }: { title: string; href?: string; linkText?: string; extra?: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.sm, minHeight: 44 }}>
-      <h2 style={{ margin: 0, fontSize: FS.body, fontWeight: 700, color: TK.slate100, minWidth: 0 }}>{title}</h2>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.sm, minHeight: 44, flexWrap: 'wrap' }}>
+      {/* flexWrap — 오른쪽에 기간 탭+링크가 붙은 좁은 칸(787px 두 열 · 2026-10-13 실측)에서 제목이 '원·달 / 러 환 / 율' 세 줄로 찍혔다. 제목은 한 줄, 모자라면 오른쪽 묶음이 다음 줄로 */}
+      <h2 style={{ margin: 0, fontSize: FS.body, fontWeight: 700, color: TK.slate100, minWidth: 0, whiteSpace: 'nowrap' }}>{title}</h2>
       <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm, flexShrink: 0 }}>
         {extra}
         {href && linkText && (
