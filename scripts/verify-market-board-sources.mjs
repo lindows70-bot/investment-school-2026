@@ -79,8 +79,9 @@ for (const [mk, d, g] of [['코스피', dailyK, integK], ['코스닥', dailyQ, i
   const sum = inv ? inv.personal + inv.foreign + inv.institutional + inv.otherCorp : NaN
   check(`${mk} 4주체(기타법인 포함) 합 = 0`, inv && Math.abs(sum) <= 1, inv ? `합 ${sum}` : why(d))
   const same = inv && g.ok && g.data.investors && inv.bizdate === g.data.investors.bizdate
-    ? ['personal', 'foreign', 'institutional'].every(k => inv[k] === g.data.investors[k]) : null
-  check(`${mk} 4주체 원천의 개인·외국인·기관 = integration 값(같은 KRX 기준)`, same !== false, same === null ? '기준일이 달라 비교 못 함' : `daily ${JSON.stringify(inv)} vs integ ${JSON.stringify(g.ok && g.data.investors)}`)
+    // 두 네이버 엔드포인트가 백만원 → 억원 반올림을 따로 해 1억원이 어긋날 수 있다(2026-10-16 야간 감사: 코스닥 개인 daily −934 vs integ −935) — 1억원까지는 같은 값
+    ? ['personal', 'foreign', 'institutional'].every(k => Math.abs(inv[k] - g.data.investors[k]) <= 1) : null
+  check(`${mk} 4주체 원천의 개인·외국인·기관 = integration 값(같은 KRX 기준 · 반올림 1억원 허용)`, same !== false, same === null ? '기준일이 달라 비교 못 함' : `daily ${JSON.stringify(inv)} vs integ ${JSON.stringify(g.ok && g.data.investors)}`)
 }
 check('특징종목 목록(m.stock)', mv.ok && mv.data.items.length > 0 && mv.data.items.every(i => i.tradeValueEok != null), why(mv))
 check('업종(m.stock industry)', ind.ok && ind.data.items.length > 20, why(ind))
