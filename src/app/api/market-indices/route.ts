@@ -8,7 +8,7 @@
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
-import { fetchKrIndices, fetchKrIndexMinute, type KrIndexQuote, type IntradayPoint } from '@/lib/krMarketBoard'
+import { fetchKrIndices, fetchKrIndexMinute, fetchKrIntegration, type KrIndexQuote, type IntradayPoint, type InvestorTotals } from '@/lib/krMarketBoard'
 import type { Part } from '@/lib/marketBoardShared'
 
 export interface IndexData {
@@ -24,6 +24,8 @@ export interface IndexData {
   low:       number    // 저가
   chartData: { t: number; v: number }[]  // 인트라데이 1분봉
   updatedAt: string
+  /** 코스피·코스닥만 — 오늘 개인·외국인·기관 순매매(억원 · KRX 기준 · 네이버 integration, 시장 화면 KrIndexBoard 와 같은 원천). 못 받으면 없음(0 으로 안 채움) */
+  investors?: InvestorTotals
 }
 
 const CACHE = new Map<string, { data: IndexData[]; expiresAt: number }>()
@@ -90,10 +92,11 @@ async function fetchYahooIndex(
 // ─── KOSPI·KOSDAQ 값은 네이버(KR 등락 SSOT)로 ───────────────────────
 // ⚠️ 야후 ^KQ11 의 chartPreviousClose 가 휴장 뒤 이틀 전 종가(836.27)라 코스닥 +1.21% 를 +0.98% 로 적었다(2026-09-23 실측).
 //    값·등락·시가/고가/저가와 장중 차트를 네이버 polling·분봉으로 덮는다. 네이버가 실패하면 예전처럼 야후 값을 그대로 쓴다.
-function withNaver(yahoo: IndexData | null, id: string, name: string, q: KrIndexQuote | undefined, minute: Part<IntradayPoint[]>): IndexData | null {
-  if (!q) return yahoo
+function withNaver(yahoo: IndexData | null, id: string, name: string, q: KrIndexQuote | undefined, minute: Part<IntradayPoint[]>, investors: InvestorTotals | null): IndexData | null {
+  if (!q) return yahoo ? { ...yahoo, ...(investors ? { investors } : {}) } : null
   const change = q.change ?? yahoo?.change ?? 0
   return {
+    ...(investors ? { investors } : {}),
     id, name, currency: 'KRW',
     value: q.value,
     change,
@@ -122,7 +125,7 @@ export async function GET(req: Request) {
     return NextResponse.json(pick(cached.data), { headers: { 'X-Cache': 'HIT' } })
   }
 
-  const [sp500, nasdaq, dowjones, nikkei, kospiYf, kosdaqYf, naverQ, kospiMin, kosdaqMin, gold, silver] = await Promise.all([
+  const [sp500, nasdaq, dowjones, nikkei, kospiYf, kosdaqYf, naverQ, kospiMin, kosdaqMin, gold, silver, kospiInteg, kosdaqInteg] = await Promise.all([
     fetchYahooIndex('^GSPC',  'sp500',    'S&P 500'),
     fetchYahooIndex('^IXIC',  'nasdaq',   'NASDAQ'),
     fetchYahooIndex('^DJI',   'dowjones', '다우존스'),
@@ -134,10 +137,13 @@ export async function GET(req: Request) {
     fetchKrIndexMinute('KOSDAQ', 400),
     fetchYahooIndex('GC=F',   'gold',     '금'),       // COMEX 금 선물 · 달러/트로이온스
     fetchYahooIndex('SI=F',   'silver',   '은'),       // COMEX 은 선물 · 달러/트로이온스
+    fetchKrIntegration('KOSPI'),    // 개인·외국인·기관 순매매(2026-10-16 학생 홈 시장 카드 — 시장 화면과 같은 원천)
+    fetchKrIntegration('KOSDAQ'),
   ])
   const nq = (code: string) => naverQ.ok ? naverQ.data.find(x => x.code === code) : undefined
-  const kospi = withNaver(kospiYf, 'kospi', 'KOSPI', nq('KOSPI'), kospiMin)
-  const kosdaq = withNaver(kosdaqYf, 'kosdaq', 'KOSDAQ', nq('KOSDAQ'), kosdaqMin)
+  const inv = (p: typeof kospiInteg) => p.ok ? p.data.investors : null
+  const kospi = withNaver(kospiYf, 'kospi', 'KOSPI', nq('KOSPI'), kospiMin, inv(kospiInteg))
+  const kosdaq = withNaver(kosdaqYf, 'kosdaq', 'KOSDAQ', nq('KOSDAQ'), kosdaqMin, inv(kosdaqInteg))
 
   const results = [sp500, nasdaq, dowjones, nikkei, kospi, kosdaq, gold, silver].filter((d): d is IndexData => d !== null)
 

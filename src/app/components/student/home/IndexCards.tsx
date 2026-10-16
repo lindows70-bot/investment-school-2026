@@ -1,5 +1,5 @@
 'use client'
-// 학생 홈 시장 카드 — 코스피 · 코스닥 · S&P 500 · 나스닥 · 금 · 은(market-indices?metals=1) · 비트코인(stock-price 업비트 원화)을 가로로 넘기는 카드 한 줄(2026-10-12 "더리치 메인처럼" · 10/13 금·은 추가).
+// 학생 홈 시장 카드 — 코스피 · 코스닥 · S&P 500 · 나스닥 · 금 · 은(market-indices?metals=1) · 비트코인(stock-price 업비트 원화)을 가로로 넘기는 카드 한 줄(2026-10-12 "더리치 메인처럼" · 10/13 금·은 추가 · 10/16 코스피·코스닥 카드에 개인·외국인·기관 순매매).
 //   카드마다 이름 칩 · 값 · 등락 · 흐름선(점선 = 전날 종가) · 한 줄 설명. 폰은 카드 하나 + 다음 카드 끝이 살짝(78%), 769px↑ 는 260px 씩.
 //   차트는 이미 받는 응답을 쓴다(새 요청 없음): 지수 = market-indices 의 장중 chartData(코스피·코스닥은 네이버 분봉), 비트코인 = stock-price 의 1D(지난 24시간 1시간봉).
 //   점선 = 전날 종가(값 − 등락). 비트코인은 등락 기준(오전 9시)과 선의 시작(24시간 전)이 달라 기준선을 긋지 않고,
@@ -8,15 +8,23 @@
 import Link from 'next/link'
 import { TK, FS, SP } from '@/lib/theme'
 import { useJson, type JsonResult } from '@/app/components/student/useJson'
-import { won, usd, pct, upDown, points } from '@/lib/studentFormat'
-import { sparkSeries, kstParts } from '@/lib/marketScreen'
+import { won, usd, pct, upDown, points, signEok } from '@/lib/studentFormat'
+import { sparkSeries, kstParts, mdDow } from '@/lib/marketScreen'
 import { LinePlot } from '@/app/components/student/market/marketUi'
 import { Chip } from '@/app/components/student/ui'
 import { card, noteStyle, retryBtn, type IndexRow } from './homeUi'
 
 type Spark = { t: number; v: number }[] | null
 /** lineColor = 선 색 — 지수는 등락색(선과 등락의 기준이 같은 전날 종가), 비트코인은 중립색. note = 카드 아래 한 줄(데이터에서만) */
-type Cell = { kind: 'loading' } | { kind: 'failed' } | { kind: 'ok'; value: string; changePct: number; spark: Spark; baseline: number | null; lineColor: string; vFmt: (v: number) => string; note: string }
+/** investors = 코스피·코스닥만(오늘 개인·외국인·기관 순매매 · 억원 · KRX 기준). 셋 다 숫자일 때만 싣는다 — 하나라도 없으면 줄 자체를 안 그린다(0 으로 안 채움) */
+type Investors = { bizdate: string | null; personal: number; foreign: number; institutional: number }
+type Cell = { kind: 'loading' } | { kind: 'failed' } | { kind: 'ok'; value: string; changePct: number; spark: Spark; baseline: number | null; lineColor: string; vFmt: (v: number) => string; note: string; investors?: Investors }
+function readInvestors(x: unknown): Investors | undefined {
+  const i = x as { bizdate?: unknown; personal?: unknown; foreign?: unknown; institutional?: unknown } | null | undefined
+  return i && isNum(i.personal) && isNum(i.foreign) && isNum(i.institutional)
+    ? { bizdate: typeof i.bizdate === 'string' ? i.bizdate : null, personal: i.personal, foreign: i.foreign, institutional: i.institutional }
+    : undefined
+}
 interface PriceRow { ticker?: unknown; currentPrice?: unknown; changePct?: unknown; error?: unknown; charts?: { '1D'?: unknown } }
 const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)
 const BTC_BODY = [{ ticker: 'BTC', market: 'CRYPTO' }]
@@ -51,6 +59,20 @@ function MarketCard({ label, region, cell, onRetry }: { label: string; region: s
         )}
       </div>
       <span style={{ ...noteStyle(), minHeight: 18, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cell.kind === 'ok' ? cell.note : ' '}</span>
+      {cell.kind === 'ok' && cell.investors && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, paddingTop: SP.sm, borderTop: `1px solid ${TK.border}` }}>
+          {/* 수급 3칸(2026-10-16 사용자 "코스피 카드에 개인·외인·기관 수급도") — 시장 화면 KrIndexBoard 와 같은 원천·같은 단위(억원). + 는 산 돈이 더 많음. 색은 등락색 규약(＋빨강·−파랑) */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: SP.sm }}>
+            {([['개인', cell.investors.personal], ['외국인', cell.investors.foreign], ['기관', cell.investors.institutional]] as const).map(([k, v]) => (
+              <div key={k} style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                <span style={{ fontSize: FS.micro, color: TK.sub, whiteSpace: 'nowrap' }}>{k}</span>
+                <span style={{ fontSize: FS.tiny, fontWeight: 700, color: upDown(v), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontVariantNumeric: 'tabular-nums' }}>{signEok(v)}</span>
+              </div>
+            ))}
+          </div>
+          <span style={{ fontSize: FS.micro, color: TK.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>순매매 · 억원 · KRX 기준{cell.investors.bizdate ? ` · ${mdDow(cell.investors.bizdate) ?? cell.investors.bizdate}` : ''}</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -68,6 +90,7 @@ export default function IndexCards({ indices }: { indices: JsonResult<IndexRow[]
       kind: 'ok', value: fmt(row.value), changePct: row.changePct, vFmt: fmt, lineColor: upDown(row.changePct),
       spark: sparkSeries(row.chartData), baseline,
       note: baseline != null ? `${session} · 점선 = ${baseName} ${fmt(baseline)}` : session,
+      investors: readInvestors(row.investors),
     }
   }
   // 금·은 = COMEX 근월 선물(야후 GC=F·SI=F) · 달러/트로이온스 · 세션이 한국 13:00→다음날 12:59 라 '오늘 장중'이 아니라 '하루 거래' · 점선 = 전 거래일 정산가
