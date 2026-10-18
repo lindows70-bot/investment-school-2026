@@ -90,7 +90,7 @@ function rssLink(item: string): string | null {
 async function fetchYahooRss(ticker: string): Promise<HeadlineLink[]> {
   try {
     const url = `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${encodeURIComponent(ticker)}&region=US&lang=en-US`
-    const r = await fetch(url, { headers: { 'User-Agent': RSS_UA }, signal: AbortSignal.timeout(8000) })
+    const r = await fetch(url, { headers: { 'User-Agent': RSS_UA }, signal: AbortSignal.timeout(8000), cache: 'no-store' })
     if (!r.ok) return []
     const xml = await r.text()
     const items = xml.match(/<item>[\s\S]*?<\/item>/g) ?? []
@@ -106,7 +106,7 @@ async function fetchGoogleNewsRss(name: string): Promise<HeadlineLink[]> {
   try {
     const q = encodeURIComponent(`${name} 실적 주가`)
     const url = `https://news.google.com/rss/search?q=${q}&hl=ko&gl=KR&ceid=KR:ko`
-    const r = await fetch(url, { headers: { 'User-Agent': RSS_UA }, signal: AbortSignal.timeout(8000) })
+    const r = await fetch(url, { headers: { 'User-Agent': RSS_UA }, signal: AbortSignal.timeout(8000), cache: 'no-store' })
     if (!r.ok) return []
     const xml = await r.text()
     const items = xml.match(/<item>[\s\S]*?<\/item>/g) ?? []
@@ -133,7 +133,7 @@ async function fetchNaverNews(ticker: string): Promise<HeadlineLink[]> {
     const stock6 = ticker.replace(/\.(KS|KQ)$/i, '').replace(/\D/g, '')
     if (stock6.length !== 6) return []
     const url = `https://m.stock.naver.com/api/news/stock/${stock6}?pageSize=10&page=1`
-    const r = await fetch(url, { headers: { 'User-Agent': RSS_UA, Referer: 'https://m.stock.naver.com/' }, signal: AbortSignal.timeout(8000) })
+    const r = await fetch(url, { headers: { 'User-Agent': RSS_UA, Referer: 'https://m.stock.naver.com/' }, signal: AbortSignal.timeout(8000), cache: 'no-store' })
     if (!r.ok) return []
     const groups = await r.json() as Array<{ items?: Array<{ title?: string; mobileNewsUrl?: unknown }> }>
     const titles: HeadlineLink[] = []
@@ -356,7 +356,10 @@ async function analyzeTicker(
     }
   }
 
-  await setCache(key, catalyst)
+  // 부분 실패는 캐시하지 않는다(2026-10-18 전수 점검): Gemini 가 실패한 폴백 카드('뉴스를 직접 확인하세요') · 헤드라인 0건 · 펀더멘털 조회 실패를 3h 박제하면
+  //   한 번의 타임아웃이 반나절짜리 빈 카드가 된다. 다음 요청이 스스로 다시 시도한다
+  const partial = !result.ok || links.length === 0 || fund == null
+  if (!partial) await setCache(key, catalyst)
   return catalyst
 }
 

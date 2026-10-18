@@ -139,6 +139,8 @@ export const PURGE_RULES: PurgeRule[] = [
   { prefix: 'league-snap-v1', keepDays: 400, why: '리그 주간 순위 이력(1주 1행) · reader 는 latest 묶음만 · 1년 뒤 자동 정리' },
   { prefix: 'usage-v1', keepDays: 400, why: '월별 화면·탭 열람 집계(1월 1행) · 탭 가지치기 근거 · 1년 뒤 자동 정리' },
 ]
+// ⏸ rtms-trade-v2(실거래 지역×월 키)는 일부러 밖에 둔다 — ④의 reader 조건을 verify-cache-purge 가 불변식으로 지킨다(2026-10-18 넣으려다 불변식에 걸려 되돌림).
+//   지역×월로 계속 늘어나는 건 사실이다 — 넣으려면 먼저 re-map·re-apt-pins 의 월 키 조회를 나이 확인(getCache maxAge)으로 바꾸고 불변식을 함께 고쳐야 한다.
 
 /** 규칙 자체 검사 — LIKE 와일드카드·구분자·중복·너무 짧은 보존 기간을 막는다(빈 배열이면 정상) */
 export function validateRules(rules: PurgeRule[]): string[] {

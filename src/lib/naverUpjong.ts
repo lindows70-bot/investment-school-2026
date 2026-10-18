@@ -26,7 +26,7 @@ export async function naverUpjongMap(): Promise<Map<string, string>> {
 /** 종목코드 → 업종명(integration.industryCode 를 표로 푼다). 실패·미등록이면 null */
 export async function krIndustryOf(code: string, upjong: Map<string, string>): Promise<string | null> {
   try {
-    const r = await fetch(`https://m.stock.naver.com/api/stock/${code}/integration`, { headers: NAVER_UA })
+    const r = await fetch(`https://m.stock.naver.com/api/stock/${code}/integration`, { headers: NAVER_UA, cache: 'no-store' })
     if (!r.ok) return null
     const j = await r.json()
     return industryNameOf(j, upjong)

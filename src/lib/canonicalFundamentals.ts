@@ -47,7 +47,7 @@ export async function getCanonicalFundamentals(ticker: string, market?: string, 
   if (!base) return EMPTY   // base 없으면 호출 불가 → 폴백(호출부에서 처리)
 
   try {
-    const r = await fetch(`${base}/api/stock-info?ticker=${encodeURIComponent(code)}&market=${mkt}`, { signal: AbortSignal.timeout(20_000) })
+    const r = await fetch(`${base}/api/stock-info?ticker=${encodeURIComponent(code)}&market=${mkt}`, { signal: AbortSignal.timeout(20_000), cache: 'no-store' })
     if (!r.ok) return EMPTY
     const j = await r.json()
     const f = j?.fundamentals ?? {}

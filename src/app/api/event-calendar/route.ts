@@ -85,6 +85,7 @@ export async function GET(req: Request) {
 
   const events: CalEvent[] = []
   const divHoldings: DivHolding[] = []
+  let infoFailed = 0   // 종목 정보 자기 호출 실패 수 — 0 일 때만 캐시한다(부분 실패 박제 금지)
   const monthlyMap = new Map<string, number>()
   let krEarningsFound = false
 
@@ -100,15 +101,17 @@ export async function GET(req: Request) {
       let rate: number | null = null            // 주당 연 배당(현지 통화)
       let yieldPct: number | null = null
       try {
-        const si = await fetch(`${base}/api/stock-info?ticker=${encodeURIComponent(h.ticker)}&market=${h.market}`, { signal: AbortSignal.timeout(20_000) })
-        if (si.ok) {
+        const si = await fetch(`${base}/api/stock-info?ticker=${encodeURIComponent(h.ticker)}&market=${h.market}`, { signal: AbortSignal.timeout(20_000), cache: 'no-store', redirect: 'manual' })
+        // 자기 호출 실패(타임아웃·로그인 리다이렉트·HTML)는 '배당 없음'이 아니다 — 세어 두고 캐시를 막는다(2026-10-18: 전엔 조용히 '없음'으로 12h 박제)
+        if (!si.ok || !(si.headers.get('content-type') ?? '').includes('json')) infoFailed += 1
+        else {
           const f = (await si.json())?.fundamentals
           const ad = Number(f?.annualDividend)
           if (isFinite(ad) && ad > 0) rate = ad
           const dy = Number(f?.dividendYield)
           if (isFinite(dy) && dy > 0) yieldPct = Math.round((dy > 1 ? dy : dy * 100) * 100) / 100
         }
-      } catch { /* graceful — 배당 없음 처리 */ }
+      } catch { infoFailed += 1 }
 
       const symbols = h.market === 'KR' ? [`${h.ticker}.KS`, `${h.ticker}.KQ`] : [h.ticker]
       for (const sym of symbols) {
@@ -181,6 +184,6 @@ export async function GET(req: Request) {
   // 달러 배당이 폴백 환율로 원화 환산됐으면 캐시하지 않는다 — 12h 박제되면 환율이 돌아와도 오늘 내내 틀린 원화가 나간다.
   //  (응답 모양은 그대로 — 다음 요청이 스스로 다시 계산해 낫는다)
   const fxGuessed = !fxLive && divHoldings.some(h => h.market === 'US')
-  if (list.length > 0 && !fxGuessed) await setCache(cacheKey, result)
+  if (list.length > 0 && !fxGuessed && infoFailed === 0) await setCache(cacheKey, result)   // 종목 정보 조회가 하나라도 실패했으면 캐시하지 않는다(부분 실패 박제 금지)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

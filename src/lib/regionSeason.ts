@@ -42,7 +42,7 @@ async function fetchEuHicp(): Promise<number | null> {
   const c = await getCache<{ v: number }>('eu-hicp-yoy-v1', 24 * 3600_000)
   if (c) return c.v
   try {
-    const r = await fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=CP0000EZ19M086NEST&api_key=${process.env.FRED_API_KEY}&file_type=json&sort_order=desc&limit=2&units=pc1`, { signal: AbortSignal.timeout(10_000) })
+    const r = await fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=CP0000EZ19M086NEST&api_key=${process.env.FRED_API_KEY}&file_type=json&sort_order=desc&limit=2&units=pc1`, { cache: 'no-store', signal: AbortSignal.timeout(10_000) })
     if (!r.ok) return null
     const j = await r.json()
     const o = (j.observations ?? []).map((x: { value: string }) => parseFloat(x.value)).filter((v: number) => !isNaN(v))

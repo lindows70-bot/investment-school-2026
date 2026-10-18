@@ -9,7 +9,7 @@ async function krCandles(code: string, tf: TechTf): Promise<TechCandle[]> {
   const m = { D: { timeframe: 'day', count: 480 }, W: { timeframe: 'week', count: 320 }, M: { timeframe: 'month', count: 240 } }[tf]
   try {
     const r = await fetch(`https://fchart.stock.naver.com/sise.nhn?symbol=${code}&timeframe=${m.timeframe}&count=${m.count}&requestType=0`,
-      { signal: AbortSignal.timeout(12_000) })
+      { signal: AbortSignal.timeout(12_000), cache: 'no-store' })
     if (!r.ok) return []
     const xml = new TextDecoder('euc-kr').decode(await r.arrayBuffer())
     const out: TechCandle[] = []
@@ -36,7 +36,7 @@ async function usCandles(ticker: string, tf: TechTf): Promise<TechCandle[]> {
   const m = { D: { range: '2y', interval: '1d' }, W: { range: '7y', interval: '1wk' }, M: { range: '20y', interval: '1mo' } }[tf]
   try {
     const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=${m.range}&interval=${m.interval}`,
-      { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(12_000) })
+      { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(12_000), cache: 'no-store' })
     if (!r.ok) return []
     const j = await r.json()
     const res = j?.chart?.result?.[0]
@@ -70,7 +70,7 @@ export async function getKrName(code: string): Promise<string | null> {
   if (cached?.name) return cached.name
   try {
     const r = await fetch(`https://m.stock.naver.com/api/stock/${code}/basic`,
-      { headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://m.stock.naver.com/' }, signal: AbortSignal.timeout(8_000) })
+      { headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://m.stock.naver.com/' }, signal: AbortSignal.timeout(8_000), cache: 'no-store' })
     if (!r.ok) return null
     const j = await r.json()
     const name: string | null = j?.stockName ?? j?.itemName ?? null

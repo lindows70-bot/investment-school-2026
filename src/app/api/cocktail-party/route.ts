@@ -192,8 +192,11 @@ export async function GET() {
       asOf: new Date().toISOString(),
     }
 
-    CACHE.data = result
-    CACHE.expiresAt = Date.now() + CACHE_TTL
+    // CNN 을 못 받은 결과(source≠cnn · 자체 계산)는 캐시하지 않는다 — 1시간 박제되면 홈·시장 공포탐욕 카드가 그동안 '못 가져옴'으로 남는다(2026-10-18 전수 점검). 다음 요청이 스스로 다시 시도한다
+    if (cnn) {
+      CACHE.data = result
+      CACHE.expiresAt = Date.now() + CACHE_TTL
+    }
     return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 
   } catch (e) {

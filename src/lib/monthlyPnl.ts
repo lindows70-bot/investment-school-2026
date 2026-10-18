@@ -49,7 +49,7 @@ async function cryptoCandles(ticker: string, needFrom: string): Promise<TechCand
   try {
     for (let page = 0; page < 8; page++) {          // 최대 1,600일 ≈ 4.4년
       const url = `https://api.upbit.com/v1/candles/days?market=KRW-${ticker.toUpperCase()}&count=200${to ? `&to=${to}` : ''}`
-      const r = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10_000) })
+      const r = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10_000), cache: 'no-store' })
       if (!r.ok) break
       const j: { candle_date_time_kst: string; candle_date_time_utc: string; trade_price: number }[] = await r.json()
       if (!Array.isArray(j) || j.length === 0) break
@@ -66,7 +66,8 @@ async function cryptoCandles(ticker: string, needFrom: string): Promise<TechCand
   } catch { /* 확보한 만큼만 사용 */ }
   const candles = Array.from(new Map(out.map(c => [c.date, c])).values())
     .sort((a, b) => a.date.localeCompare(b.date))
-  if (candles.length >= 10) await setCache(key, { candles })
+  // 필요한 시점(needFrom)까지 확보했을 때만 캐시 — 페이지 넘김이 중간에 끊긴 짧은 이력을 30분 박제하면 앞 달이 빠진 채 그려진다(2026-10-18 전수 점검)
+  if (candles.length >= 10 && candles[0].date <= needFrom) await setCache(key, { candles })
   return candles
 }
 

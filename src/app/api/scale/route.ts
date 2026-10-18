@@ -28,7 +28,7 @@ export async function GET(req: Request) {
   const cached = await getCache<ScaleResult>(CACHE_KEY, TTL)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
-  const origin = new URL(req.url).origin
+  const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin   // 자기 호출은 공개 주소로 — 배포 고유 주소는 로그인 보호에 걸린다(CLAUDE.md 크론 함정)
   const [realYield, factset, kbRaw, gold, fng, seasons, avg10, m2, mortAvg10] = await Promise.all([
     (async (): Promise<RealYieldResult | null> => {
       const b = await getCache<{ realYield: RealYieldResult | null }>('bonds-v8', 6 * 3600_000, { sameKstDay: true })

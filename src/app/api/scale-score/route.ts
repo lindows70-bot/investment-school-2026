@@ -45,7 +45,7 @@ export async function GET(req: Request) {
     return NextResponse.json(computeScaleScore([], {}, today), { headers: { 'Cache-Control': 'no-store' } })
   }
   const from = new Date(Date.parse(`${hist[0].d}T00:00:00Z`) - 14 * 86400_000).toISOString().slice(0, 10)
-  const origin = new URL(req.url).origin
+  const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin   // 자기 호출은 공개 주소로(CLAUDE.md 크론 함정)
   const [bond, stock, gold, coin, kb] = await Promise.all([
     yahooSeries('IEF', from), yahooSeries('SPY', from), yahooSeries('GC=F', from), yahooSeries('BTC-USD', from),
     (async (): Promise<Series | null> => {

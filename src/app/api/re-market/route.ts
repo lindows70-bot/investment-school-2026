@@ -33,7 +33,7 @@ async function fredSeries(id: string, start: string): Promise<{ date: string; va
   const key = process.env.FRED_API_KEY
   if (!key) return []
   try {
-    const r = await fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=${id}&api_key=${key}&file_type=json&observation_start=${start}`, { signal: AbortSignal.timeout(15_000) })
+    const r = await fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=${id}&api_key=${key}&file_type=json&observation_start=${start}`, { signal: AbortSignal.timeout(15_000), cache: 'no-store' })
     if (!r.ok) return []
     const j = await r.json()
     return (j.observations ?? [])
@@ -107,6 +107,8 @@ export async function GET() {
     kbChart, rtChart, unsoldChart, usChart,
     asOf: new Date().toISOString(),
   }
-  await setCache(cacheKey, result)
-  return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
+  // 열두 시리즈가 전부 왔을 때만 12h 캐시 — 하나라도 비면(ECOS·FRED 일시 장애) 그 빈 칸이 저울·저울 성적표·실거래 화면으로 12h~14일 번진다(2026-10-18 전수 점검 · 부분실패 박제 금지). 응답은 그대로 주고 다음 요청이 다시 계산한다
+  const complete = [base, mort, kbSale, kbSaleSeoul, kbJeonse, rtN, rtS, rtC, unsN, unsC, cs, usMort].every(s => s.length > 0)
+  if (complete) await setCache(cacheKey, result)
+  return NextResponse.json({ ...result, partial: !complete }, { headers: { 'Cache-Control': 'no-store' } })
 }

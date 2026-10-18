@@ -53,7 +53,7 @@ interface YfDaily { date: string; volUsd: number }
 async function yfVolume(ticker: string): Promise<YfDaily[]> {
   try {
     const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=5y&interval=1d`, {
-      headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(12_000),
+      headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(12_000), cache: 'no-store',
     })
     if (!r.ok) return []
     const j = await r.json()
@@ -73,7 +73,7 @@ async function yfVolume(ticker: string): Promise<YfDaily[]> {
 async function btcPriceDaily(): Promise<Map<string, number>> {
   const m = new Map<string, number>()
   try {
-    const r = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/BTC-USD?range=5y&interval=1d', { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(12_000) })
+    const r = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/BTC-USD?range=5y&interval=1d', { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(12_000), cache: 'no-store' })
     if (!r.ok) return m
     const res = (await r.json())?.chart?.result?.[0]
     const ts: number[] = res?.timestamp ?? []
@@ -221,7 +221,7 @@ export async function GET() {
     flowStale: fl.stale, flowAsOf: fl.flowAsOf || null, flowSource: fl.flowSource ?? (fl.stale ? 'farside' : null),
     asOf: new Date().toISOString(),
   }
-  // 핵심 데이터(누적 거래량) 있을 때만 캐시(부분실패 박제 방지)
-  if (cumVolume.length > 0) await setCache(cacheKey, result)
+  // 전부 왔을 때만 캐시(부분실패 박제 방지 · 2026-10-18 강화): 누적 거래량 + 자금 흐름이 새 것(stale 아님) + BTC 가격표. 하나라도 빠지면 응답은 주되 다음 요청이 다시 모은다
+  if (cumVolume.length > 0 && !fl.stale && fl.flow.length > 0 && priceMap.size > 0) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

@@ -789,7 +789,7 @@ async function fredLatest(series: string, count = 14, extra = ''): Promise<{ dat
 async function fetchRateDirection(currentRate: number, selfBase?: string): Promise<{ dir: 'cut' | 'hold' | 'hike'; nextFomc: string | null; ok: boolean }> {
   if (!selfBase) return { dir: 'hold', nextFomc: null, ok: false }
   try {
-    const r = await fetch(`${selfBase}/api/fedwatch?currentRate=${currentRate.toFixed(4)}`, { signal: AbortSignal.timeout(12_000) })
+    const r = await fetch(`${selfBase}/api/fedwatch?currentRate=${currentRate.toFixed(4)}`, { signal: AbortSignal.timeout(12_000), cache: 'no-store' })
     if (!r.ok) return { dir: 'hold', nextFomc: null, ok: false }
     const j = await r.json()
     const meetings: { consensusRate: number | null; date: string }[] = j?.meetings ?? []
