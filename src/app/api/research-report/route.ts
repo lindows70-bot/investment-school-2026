@@ -10,7 +10,7 @@ import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
 import { getTechCandles } from '@/lib/techChartData'
 import { callGeminiJSON } from '@/lib/gemini'
 import type { ResearchVerdict } from '@/app/api/research-verdict/route'
-import { getAuthedUserId } from '@/lib/cronAuth'
+import { getAuthedUserId, internalHeaders } from '@/lib/cronAuth'
 import { cleanTicker, cleanMarket, cleanName } from '@/lib/tickerGuard'
 import { takeHeavyQuota, HEAVY_DAILY_LIMIT } from '@/lib/heavyQuota'
 
@@ -65,7 +65,7 @@ export async function GET(req: Request) {
 
   // 병렬 — 전부 기존 SSOT (섹터·로테이션·계절·밸류·타점=research-verdict / 경쟁사=피어 / 주가=캔들 / 어닝=Jarvis)
   const [vfRaw, earn, analyst, peersRes, candles, cf] = await Promise.all([
-    fetch(`${base}/api/research-verdict?ticker=${encodeURIComponent(ticker)}&market=${market}`).then(r => r.json()).catch(() => null),
+    fetch(`${base}/api/research-verdict?ticker=${encodeURIComponent(ticker)}&market=${market}`, { cache: 'no-store', headers: internalHeaders() }).then(r => r.json()).catch(() => null),
     getEarningsInsight({ ticker, name, market }).catch(() => null),
     getAnalystSignal({ ticker, name, market }).catch(() => null),
     getSectorPeers({ ticker, name, market }).catch(() => null),

@@ -14,6 +14,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUserOrCron, internalHeaders } from '@/lib/cronAuth'
+
+const MAX_TICKERS = 60   // 요청 하나가 부를 수 있는 financials·stock-info 수의 상한(6차 점검)
 
 function baseUrl(req: NextRequest) {
   const { protocol, host } = new URL(req.url)
@@ -53,6 +56,7 @@ interface FundamentalResult {
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
+  const denied = await requireUserOrCron(req); if (denied) return denied   // 🔒 티커마다 financials·stock-info(FMP·DART)를 부른다 — 로그인 + 개수 상한(6차 점검)
   const url     = new URL(req.url)
   const base    = baseUrl(req)
 
@@ -62,6 +66,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const catsRaw      = url.searchParams.get('categories') ?? ''
 
   const tickers    = tickersRaw.split(',').filter(Boolean)
+  if (tickers.length > MAX_TICKERS) return NextResponse.json({ error: `tickers 는 ${MAX_TICKERS}개까지` }, { status: 400 })   // 잘라내면 markets·names 인덱스가 어긋나므로 거절
   const markets    = marketsRaw.split(',')
   const names      = namesRaw.split(',').map(n => { try { return decodeURIComponent(n) } catch { return n } })
   const categories = catsRaw.split(',')
@@ -87,7 +92,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         // ── 1. /api/financials → EPS·매출 YoY 성장률 (실데이터)
         const finRes = await fetch(
           `${base}/api/financials?ticker=${encodeURIComponent(ticker)}&market=${market}`,
-          { cache: 'no-store' }
+          { cache: 'no-store', headers: internalHeaders() }   // 서버 자기 호출 — financials 게이트 통과용 내부 표식
         )
         if (finRes.ok) {
           const finData = await finRes.json()

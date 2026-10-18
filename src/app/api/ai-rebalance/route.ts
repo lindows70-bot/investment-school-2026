@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
+import { canForceRefresh, internalHeaders } from '@/lib/cronAuth'
 import { callGeminiJSON } from '@/lib/gemini'
 import { buildSignalMetrics, evaluateSignal } from '@/lib/jarvisBriefing'
 import { classifyLynchMece } from '@/lib/lynchAnalysis'
@@ -237,7 +238,8 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const cookie = req.headers.get('cookie') ?? ''   // unified-reco는 인증 필요 → 쿠키 전달
-  const forceRefresh = new URL(req.url).searchParams.get('refresh') === '1'
+  // 🔒 ?refresh=1 은 크론·선생님만 — 유료 키 Gemini 라 로그인 학생이 무제한으로 다시 뽑을 수 있었다(6차 점검). 학생의 새로고침은 캐시 결과를 받는다
+  const forceRefresh = new URL(req.url).searchParams.get('refresh') === '1' && await canForceRefresh(req)
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
   // v9: 위성(10배거) 레이어 추가 — 캐시 무효화 / fp: 보유 변경 시 키 자동 무효화
   const fp = await holdingsFingerprint(user.id)
@@ -581,7 +583,7 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
   const sig = new Map<string, { dcf?: string; flow?: string; seasonTag?: string; trend?: string; market?: 'KR' | 'US' }>()
   await Promise.all(diagnoses.map(async d => {
     const k = d.ticker.toUpperCase(); const mk = (d.market === 'KR' ? 'KR' : 'US') as 'KR' | 'US'; const o: { dcf?: string; flow?: string; seasonTag?: string; trend?: string; market?: 'KR' | 'US' } = { market: mk }
-    try { const r = await fetch(`${base}/api/reverse-dcf?ticker=${encodeURIComponent(d.ticker)}&market=${mk}`, { signal: AbortSignal.timeout(10_000) }); if (r.ok) o.dcf = (await r.json())?.verdict } catch { /* graceful */ }
+    try { const r = await fetch(`${base}/api/reverse-dcf?ticker=${encodeURIComponent(d.ticker)}&market=${mk}`, { signal: AbortSignal.timeout(10_000), cache: 'no-store', headers: internalHeaders() }); if (r.ok) o.dcf = (await r.json())?.verdict } catch { /* graceful */ }
     try { const mf = await getMoneyFlow(d.ticker, mk, d.name, base); o.flow = mf?.status } catch { /* graceful */ }
     o.trend = d.priceTrend   // 보유 진단에서 캡처한 주가 추세(추가 fetch 0)
     if (season) {

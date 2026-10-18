@@ -37,6 +37,7 @@ export const dynamic    = 'force-dynamic'
 export const revalidate = 0
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUserOrCron } from '@/lib/cronAuth'
 
 // ── 환경 변수 ─────────────────────────────────────────────────────────────────
 const FMP_KEY  = process.env.FMP_API_KEY  ?? ''
@@ -923,6 +924,8 @@ async function fetchKR(code: string) {
 
 // ── Route Handler ─────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
+  // 🔒 FMP(무료 250회/일)·DART 를 캐시 없이 바로 부르는 라우트 — 로그인 화면 또는 서버 자기 호출(internalHeaders · Bearer CRON_SECRET)만(6차 점검)
+  const denied = await requireUserOrCron(req); if (denied) return denied
   const sp     = req.nextUrl.searchParams
   const ticker = (sp.get('ticker') ?? '').trim().toUpperCase()
   const market = ((sp.get('market') ?? 'US').toUpperCase()) as 'US' | 'KR'

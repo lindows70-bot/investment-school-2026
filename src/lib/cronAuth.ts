@@ -42,6 +42,20 @@ export async function isTeacher(): Promise<boolean> {
   } catch { return false }
 }
 
+/** 유료·쿼터 외부 API(FMP·DART·FRED·data.go.kr·Gemini)에 닿는 라우트 첫 줄용 — 로그인 사용자 또는 크론·서버 내부 호출(Bearer CRON_SECRET)만.
+ *  통과면 null, 아니면 401. 2026-10-18 6차 점검: 미들웨어는 페이지만 지키고 /api 는 라우트가 각자 지켜야 하는데 117곳이 비어 있었고,
+ *  그중 입력값으로 외부 호출 수를 조종할 수 있는 라우트(tickers 목록 무제한 → FMP 250회/일 소진 등)가 있었다. */
+export async function requireUserOrCron(req: Request): Promise<NextResponse | null> {
+  if (isCronRequest(req)) return null
+  return (await getAuthedUserId()) ? null : NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+}
+
+/** 서버가 자기 라우트를 부를 때(쿠키가 없다) 붙이는 헤더 — CRON_SECRET 이 비어 있으면 빈 객체라 게이트 라우트는 401 을 준다(fail-closed · 크론과 같은 원칙) */
+export function internalHeaders(): Record<string, string> {
+  const secret = process.env.CRON_SECRET
+  return secret ? { authorization: `Bearer ${secret}` } : {}
+}
+
 /** `?refresh=1` 같은 강제 재계산을 허락할 것인가 — 크론이거나 선생님일 때만.
  *  허락하지 않으면 호출부는 **오류 대신 캐시 결과**를 돌려준다(화면의 새로고침 버튼이 깨지지 않게). */
 export async function canForceRefresh(req: Request): Promise<boolean> {

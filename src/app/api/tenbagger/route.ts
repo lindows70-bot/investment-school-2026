@@ -5,6 +5,7 @@ export const revalidate = 0
 export const maxDuration = 60
 
 import { NextResponse } from 'next/server'
+import { requireUserOrCron } from '@/lib/cronAuth'
 import { fetchUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT(폴백 여부까지 — 폴백이면 캐시하지 않는다)
 import { getCache, setCache } from '@/lib/appCache'
 import { getAssetType } from '@/lib/assetClassifier'
@@ -47,6 +48,7 @@ async function fetchStockMeta(ticker: string, market: string, base: string): Pro
 }
 
 export async function GET(req: Request) {
+  const denied = await requireUserOrCron(req); if (denied) return denied   // 🔒 로그인 화면용 — 티커를 바꿔가며 외부 호출을 태우는 경로(6차 점검)
   const { searchParams } = new URL(req.url)
   const rawTicker = (searchParams.get('ticker') || '').trim().toUpperCase()
   let market = (searchParams.get('market') || '').toUpperCase()

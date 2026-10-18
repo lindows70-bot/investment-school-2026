@@ -20,7 +20,7 @@ import { computeTilts, applyTilts, isFcfDefensive } from '@/lib/scoreTilts'   //
 import { getInsiderSignal } from '@/app/actions/getInsiderSignal'
 import { getEntryTiming, type EntryTiming } from '@/lib/entryTiming'
 import type { RotationResult, Quadrant as RotQuad } from '@/app/api/sector-rotation/route'
-import { canForceRefresh } from '@/lib/cronAuth'   // ?refresh=1 은 크론·선생님만(2026-10-05 보안 점검)
+import { canForceRefresh, requireUserOrCron, internalHeaders } from '@/lib/cronAuth'   // ?refresh=1 은 크론·선생님만(2026-10-05 보안 점검)
 
 const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
 
@@ -62,6 +62,7 @@ export interface ResearchVerdict {
 }
 
 export async function GET(req: Request) {
+  const denied = await requireUserOrCron(req); if (denied) return denied   // 🔒 8갈래 신호 수집(FRED·DART·SEC·FMP) — 로그인 화면·research-report 내부 호출만(6차 점검)
   const url = new URL(req.url)
   const ticker = (url.searchParams.get('ticker') || '').trim()
   const market = (url.searchParams.get('market') === 'KR' ? 'KR' : 'US') as 'KR' | 'US'
@@ -97,7 +98,7 @@ export async function GET(req: Request) {
     // 🌦️ 계절 — 통합추천과 **같은 지역별 국면**(lib/regionSeason). 예전엔 US/KR 둘뿐이라
     //    유럽·일본·중국 종목에 미국 국면을 씌웠다(하이네켄 계절 80 vs 55 실사고).
     getRegionSeasons(base).catch(() => null),
-    fetch(`${base}/api/reverse-dcf?ticker=${encodeURIComponent(ticker)}&market=${market}`, { signal: AbortSignal.timeout(10_000) })
+    fetch(`${base}/api/reverse-dcf?ticker=${encodeURIComponent(ticker)}&market=${market}`, { signal: AbortSignal.timeout(10_000), cache: 'no-store', headers: internalHeaders() })
       .then(r => r.ok ? r.json() : null).then(j => j?.verdict ?? null).catch(() => null),
     // 💰 수급 — 통합추천과 **같은 채점 함수**(lib/supplyScore). 예전엔 status 만 받아 4단계 계단으로
     //    환산했는데(INFLOW→80), 통합추천은 연속 점수라 같은 종목이 80 vs 96 으로 갈렸다.

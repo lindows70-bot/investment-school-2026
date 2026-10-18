@@ -50,7 +50,8 @@ export async function GET(req: Request) {
   const lawd = (sp.get('lawd') ?? '').trim()
   const aptQ = (sp.get('apt') ?? '').trim()
   const areaQ = parseFloat(sp.get('area') ?? '')
-  if (!/^\d{5}$/.test(lawd)) return NextResponse.json({ error: '지역(LAWD 5자리)을 지정해주세요.' }, { status: 400 })
+  // 지역표에 있는 코드만 — 형식만 보면 임의 5자리 하나에 data.go.kr 48회(일 1,000회)가 나간다(6차 점검 · re-apt-pins 와 같은 검사)
+  if (!/^\d{5}$/.test(lawd) || !LAWD_REGIONS.some(r => r.lawd === lawd)) return NextResponse.json({ error: '지역(LAWD 5자리)을 지정해주세요.' }, { status: 400 })
 
   const MONTHS = RE_APT_MONTHS   // 화면 문구와 같은 상수(lib/reAptConfig)
   const now = new Date(Date.now() + 9 * 3600_000)

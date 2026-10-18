@@ -1,5 +1,6 @@
 // 🌟 단일 종목 투자 프로필 API — 해자·스타등급(공정가치)·상대 PSR 한 카드(종목 리서치 캡스톤)
 import { NextResponse } from 'next/server'
+import { requireUserOrCron } from '@/lib/cronAuth'
 import { getCache, setCache } from '@/lib/appCache'
 import { getAssetType } from '@/lib/assetClassifier'
 import { buildStockProfile } from '@/lib/stockProfile'
@@ -9,6 +10,7 @@ export const maxDuration = 45
 
 
 export async function GET(req: Request) {
+  const denied = await requireUserOrCron(req); if (denied) return denied   // 🔒 6갈래 자기 호출(stock-info→FMP·DART 포함) — 로그인 화면용(6차 점검)
   const { searchParams } = new URL(req.url)
   const ticker = (searchParams.get('ticker') ?? '').trim()
   const market = (searchParams.get('market') ?? 'US').toUpperCase() === 'KR' ? 'KR' : 'US'

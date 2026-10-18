@@ -13,6 +13,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUserOrCron, internalHeaders } from '@/lib/cronAuth'
 import { analyzeEpsMode, type EpsMode } from '@/lib/lynchAnalysis'
 
 interface HistoryPoint { date: string; price: number; eps: number }
@@ -33,6 +34,8 @@ interface StockResult  {
 }
 
 // 기저 URL (서버 내부 self-call)
+const MAX_TICKERS = 60   // 요청 하나가 부를 수 있는 financials(FMP) 수의 상한 — 포트폴리오 보유 종목 수 기준(6차 점검)
+
 function baseUrl(req: NextRequest) {
   const { protocol, host } = new URL(req.url)
   return `${protocol}//${host}`
@@ -90,6 +93,7 @@ function estimatePrices(
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
+  const denied = await requireUserOrCron(req); if (denied) return denied   // 🔒 티커마다 financials(FMP 250회/일)를 부른다 — 로그인 + 개수 상한(6차 점검)
   const url    = new URL(req.url)
   const base   = baseUrl(req)
 
@@ -101,6 +105,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const pesRaw      = url.searchParams.get('pes')           ?? ''  // dividendMap PE
 
   const tickers    = tickersRaw.split(',').filter(Boolean)
+  if (tickers.length > MAX_TICKERS) return NextResponse.json({ error: `tickers 는 ${MAX_TICKERS}개까지` }, { status: 400 })   // 잘라내면 markets·prices 인덱스가 어긋나므로 거절
   const markets    = marketsRaw.split(',')
   const prices     = pricesRaw.split(',').map(Number)
   // ★ URL 인코딩된 한글 종목명 디코딩 (인텔리안테크 등 한국어 이름)
@@ -133,7 +138,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       try {
         const finRes = await fetch(
           `${base}/api/financials?ticker=${encodeURIComponent(ticker)}&market=${market}`,
-          { cache: 'no-store' }
+          { cache: 'no-store', headers: internalHeaders() }   // 서버 자기 호출 — financials 게이트 통과용 내부 표식
         )
         if (!finRes.ok) throw new Error(`financials ${finRes.status}`)
         const finData = await finRes.json()

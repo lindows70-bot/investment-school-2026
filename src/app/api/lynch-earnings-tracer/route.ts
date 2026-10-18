@@ -24,6 +24,7 @@ export const revalidate = 0
 export const maxDuration = 45
 
 import { NextResponse } from 'next/server'
+import { requireUserOrCron, internalHeaders } from '@/lib/cronAuth'
 import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache } from '@/lib/appCache'
 
@@ -93,6 +94,7 @@ async function fetchAnnualAvgPrices(ticker: string, market: string): Promise<Rec
 
 // ── 메인 핸들러 ───────────────────────────────────────────────────────────────
 export async function GET(req: Request) {
+  const denied = await requireUserOrCron(req); if (denied) return denied   // 🔒 실패한 티커는 캐시가 안 돼 매번 FMP 를 불렀다(6차 점검)
   const url = new URL(req.url)
   const ticker = (url.searchParams.get('ticker') || '').trim().toUpperCase()
   const market = (url.searchParams.get('market') || 'US').trim().toUpperCase()
@@ -127,7 +129,7 @@ export async function GET(req: Request) {
 
     try {
       const finRes = await fetch(`${selfBase}/api/financials?ticker=${encodeURIComponent(ticker)}&market=${market}`, {
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(30_000), cache: 'no-store', headers: internalHeaders(),   // 서버 자기 호출 — financials 는 로그인·내부 표식 게이트
       })
       if (finRes.ok) {
         const f = await finRes.json()

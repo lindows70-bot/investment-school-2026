@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
 import { NextResponse } from 'next/server'
+import { requireUserOrCron } from '@/lib/cronAuth'
 import { getAssetType } from '@/lib/assetClassifier'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
 
@@ -19,6 +20,7 @@ export interface ValueTriangle {
 }
 
 export async function GET(req: Request) {
+  const denied = await requireUserOrCron(req); if (denied) return denied   // 🔒 로그인 화면용(6차 점검)
   const sp = new URL(req.url).searchParams
   const ticker = (sp.get('ticker') ?? '').trim().toUpperCase()
   const market = (sp.get('market') ?? 'US').toUpperCase()

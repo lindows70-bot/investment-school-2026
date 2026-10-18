@@ -2,6 +2,7 @@
 //  기존 PEG·DCF가 '싸다/비싸다'면, 이건 '시장이 가격에 이미 심어둔 성장 기대'를 까발려 반증 가능한 베팅으로.
 // Zero Cost: canonicalFundamentals(PE·성장률) 재사용. 종목 신호만(유저데이터 X). 닫힌형 수식(반복 없음).
 import { NextResponse } from 'next/server'
+import { requireUserOrCron } from '@/lib/cronAuth'
 import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
 import { isHoldingCompany } from '@/lib/assetClassifier'   // 🏢 지주사는 NAV·SOTP로 평가(역-DCF 부적합)
 
@@ -27,6 +28,7 @@ export interface ReverseDcfResult {
 }
 
 export async function GET(req: Request) {
+  const denied = await requireUserOrCron(req); if (denied) return denied   // 🔒 ticker 를 바꿔가며 stock-info→FMP·DART 를 태우는 경로(6차 점검)
   const sp = new URL(req.url).searchParams
   const ticker = (sp.get('ticker') ?? '').trim()
   const market = (sp.get('market') === 'KR' ? 'KR' : 'US') as 'KR' | 'US'

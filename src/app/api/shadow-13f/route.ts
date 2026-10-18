@@ -28,6 +28,8 @@
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
+import { requireUserOrCron } from '@/lib/cronAuth'
+import { getCache, setCache } from '@/lib/appCache'
 import { dartJson, getCorpCode, krPrice, toStock6 } from '@/lib/dart'
 import { FUNDS, loadFunds } from '@/lib/guru13f'
 
@@ -212,6 +214,7 @@ async function krShareholders(ticker: string, name: string): Promise<ShadowResul
 export const maxDuration = 45
 
 export async function GET(req: Request) {
+  const denied = await requireUserOrCron(req); if (denied) return denied   // 🔒 KR 경로는 요청마다 DART 최대 5회였다 — 로그인·크론(워밍)·내부 호출만(6차 점검)
   const { searchParams } = new URL(req.url)
   const ticker = (searchParams.get('ticker') || '').trim().toUpperCase()
   const name = (searchParams.get('name') || '').trim()
@@ -241,7 +244,12 @@ export async function GET(req: Request) {
   // 🇰🇷 한국 종목 → DART 최대주주 현황 경로
   if (isKR) {
     try {
+      // 24h 공유 캐시 — 정기보고서 스냅샷이라 하루 안에 바뀌지 않는다. 결과가 있을 때만(status ok) 저장(없음·오류는 다음 요청이 다시 시도)
+      const ck = `shadow-13f-kr-v1:${toStock6(ticker)}`
+      const cached = await getCache<ShadowResult>(ck, 24 * 3600_000)
+      if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
       const kr = await krShareholders(ticker, name)
+      if (kr.status === 'ok') await setCache(ck, kr)
       return NextResponse.json(kr, { headers: { 'Cache-Control': 'no-store' } })
     } catch (e) {
       console.warn('[shadow-13f:kr]', (e as Error).message)

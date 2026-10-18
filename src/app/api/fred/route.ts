@@ -19,6 +19,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { fredRaw, type FredParams } from '@/lib/fred'
+import { requireUserOrCron } from '@/lib/cronAuth'
 
 // FRED API 응답 타입
 interface FredApiResponse {
@@ -32,6 +33,9 @@ interface FredApiResponse {
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
+  // 🔒 공유 FRED 키로 임의 시리즈를 받아가는 공개 프록시였다 — 남이 한도를 태우면 FRED 를 쓰는 18곳이 같이 죽는다(6차 점검).
+  //    사용처(연준 차트 3곳)는 전부 로그인 화면이라 로그인 게이트 + 시리즈 ID 형식 + limit 상한
+  const denied = await requireUserOrCron(req); if (denied) return denied
   const apiKey = process.env.FRED_API_KEY
 
   // ── API Key 미설정 시 503 반환 (클라이언트는 Mock으로 폴백)
@@ -45,9 +49,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url)
   const seriesId = searchParams.get('series_id')
 
-  if (!seriesId) {
+  if (!seriesId || !/^[A-Z0-9_]{1,32}$/.test(seriesId)) {
     return NextResponse.json({ error: 'series_id is required' }, { status: 400 })
   }
+  const limitRaw = Number(searchParams.get('limit') ?? '')
+  const limitCapped = Number.isFinite(limitRaw) && limitRaw > 0 ? String(Math.min(limitRaw, 2000)) : undefined
 
   // 쿼리 파라미터 조합 — 2026-10-18: FRED 공용 fetcher(lib/fred)로 통일. 12h 캐시는 Next Data Cache(revalidate)가 아니라
   //   아래 CDN 헤더(s-maxage) 한 겹으로만 — Data Cache 는 '첫 응답 박제' 사고가 9건이라 앱 전체에서 no-store 로 통일했다
@@ -56,7 +62,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     sort_order: 'asc',
     units: units && units !== 'lin' ? units : undefined,
     observation_start: searchParams.get('observation_start') ?? undefined,
-    limit: searchParams.get('limit') ?? undefined,
+    limit: limitCapped,
   }
 
   const CACHE_HEADERS = {

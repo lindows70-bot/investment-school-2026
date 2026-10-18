@@ -9,7 +9,7 @@ import { calcDCF, deriveDcfInputs } from '@/lib/buffettDcf'
 import { isPegBaseEffect } from '@/lib/canonicalFundamentals'
 import { callGeminiJSON } from '@/lib/gemini'
 import { computeCommittee, type CommitteeInput, type CommitteeResult } from '@/lib/mastersCommittee'
-import { isCronRequest, getAuthedUserId } from '@/lib/cronAuth'
+import { isCronRequest, getAuthedUserId, internalHeaders } from '@/lib/cronAuth'
 import { cleanTicker } from '@/lib/tickerGuard'
 import { takeHeavyQuota, HEAVY_DAILY_LIMIT } from '@/lib/heavyQuota'
 
@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
   const [si, fcfJ, rdcfJ] = await Promise.all([
     fetch(`${selfBase}/api/stock-info?ticker=${encodeURIComponent(ticker)}&market=${market}`, { cache: 'no-store', signal: AbortSignal.timeout(25_000) }).then(r => r.ok ? r.json() : null).catch(() => null),
     fetch(`${selfBase}/api/stock-fcf?ticker=${encodeURIComponent(ticker)}&market=${market}`, { cache: 'no-store', signal: AbortSignal.timeout(25_000) }).then(r => r.ok ? r.json() : null).catch(() => null),
-    fetch(`${selfBase}/api/reverse-dcf?ticker=${encodeURIComponent(ticker)}&market=${market}`, { cache: 'no-store', signal: AbortSignal.timeout(25_000) }).then(r => r.ok ? r.json() : null).catch(() => null),
+    fetch(`${selfBase}/api/reverse-dcf?ticker=${encodeURIComponent(ticker)}&market=${market}`, { cache: 'no-store', signal: AbortSignal.timeout(25_000), headers: internalHeaders() }).then(r => r.ok ? r.json() : null).catch(() => null),
   ])
   const f = si?.fundamentals ?? {}
   const name: string = si?.name ?? ticker

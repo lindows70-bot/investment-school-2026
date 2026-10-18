@@ -1,6 +1,7 @@
 // 📸 의사결정 스냅샷 — 매수/매도 시점의 SSOT 신호를 한 번에 박제(나중 적중률 채점용). 종목 신호만(유저데이터 X)
 // 기존 snapshot_data(peg·growth·category)를 확장: 수급·계절·FOMC 신호 추가. 전부 기존 SSOT/캐시 재사용.
 import { NextResponse } from 'next/server'
+import { requireUserOrCron } from '@/lib/cronAuth'
 import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
 import { getMoneyFlow } from '@/lib/moneyFlow'
 import { getCurrentSeason } from '@/lib/currentSeason'
@@ -51,6 +52,7 @@ async function gicsSector(ticker: string, market: 'KR' | 'US'): Promise<string |
 }
 
 export async function GET(req: Request) {
+  const denied = await requireUserOrCron(req); if (denied) return denied   // 🔒 거래 모달(로그인)에서만 부른다 — 임의 문자열이 gics-sector 행을 만들던 경로(6차 점검)
   const sp = new URL(req.url).searchParams
   const ticker = (sp.get('ticker') ?? '').trim()
   const market = (sp.get('market') === 'KR' ? 'KR' : 'US') as 'KR' | 'US'
