@@ -58,8 +58,11 @@ export default function StudentHome() {
       {/* 폰이 기본, 769px↑ 만 덮어쓴다 — 기본값 + min-width 하나라 두 조건이 정확한 여집합이다
           ⚠️ 지수 3열은 1024px↑ 에서만 — 769~1023px 은 왼쪽 메뉴가 남아 본문이 500px 대라 3열이면 칸이 150px 이 되고
           시각 축 라벨(09:00·13:00…)이 서로 겹친다(2026-10-09 820px 실측). 3열 이상 전환은 lg 부터(CLAUDE.md 반응형 함정). */}
-      <style>{`
-        /* 가로로 넘기는 줄(바로가기 · 시장 카드 — 2026-10-12 "더리치 메인처럼"). 스크롤바는 숨기고 한 칸씩 멈춘다(scroll-snap) */
+      {/* ⚠️ <style> 안의 글자는 dangerouslySetInnerHTML 로 — JSX 텍스트로 넣으면 React 가 서버에서 " ' & < > 를 &quot; 등으로 바꾸는데
+          <style> 은 원문 그대로 읽는 요소라 브라우저가 되돌리지 않아 서버·클라이언트 글자가 달라진다(2026-10-18 실측: 주석의 "더리치 메인처럼" 따옴표
+          하나로 홈이 열릴 때마다 하이드레이션 오류 #425·#418·#423 — 화면은 조용히 다시 그려져 멀쩡해 보였다) */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        /* 가로로 넘기는 줄(바로가기 · 시장 카드 — 2026-10-12 더리치 메인처럼). 스크롤바는 숨기고 한 칸씩 멈춘다(scroll-snap) */
         .sh-row { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch; min-width: 0 }
         .sh-row::-webkit-scrollbar { display: none }
         /* 폰에선 셸 여백(16px)까지 흘러 다음 칸 끝이 보인다 — 769px↑ 는 본문 폭 안에서 */
@@ -72,7 +75,7 @@ export default function StudentHome() {
           .sh-bleed { margin: 0; padding: 0; scroll-padding: 0 }
           .sh-mcard { flex-basis: 260px }
         }
-      `}</style>
+      ` }} />
       <Greeting name={me === undefined ? undefined : me.name} today={today} />
       <HomeSearch />
       {/* 바로가기는 검색 바로 아래(더리치와 같은 자리) — 둥근 아이콘 한 줄, 옆으로 넘긴다 */}

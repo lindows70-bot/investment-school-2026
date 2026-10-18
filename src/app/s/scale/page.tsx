@@ -93,11 +93,11 @@ export default function StudentScale() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg, maxWidth: 960 }}>
       {/* 폰·태블릿은 칸을 세로로, 769px↑ 는 한 줄에 세 칸 — 기본값 + min-width 하나(정확한 여집합) */}
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .sk-cells { display: grid; grid-template-columns: minmax(0, 1fr); gap: ${SP.sm}px }
         @media (min-width: 769px) { .sk-cells { grid-template-columns: repeat(3, minmax(0, 1fr)) } .sk-cells.sk-two { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
         details > summary { list-style: none } details > summary::-webkit-details-marker { display: none }
-      `}</style>
+      ` }} />
       {back}
       <header style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
         <h1 style={{ margin: 0, fontSize: FS.h2, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, color: TK.slate100 }}>오늘의 저울</h1>
