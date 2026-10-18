@@ -9,6 +9,8 @@ export const maxDuration = 300
 import { NextResponse } from 'next/server'
 import { SECTOR_ROTATION_KEY, SECTOR_TO_ROT } from '@/lib/rotationShared'   // 🧭 로테이션 SSOT
 import { createClient } from '@supabase/supabase-js'
+import { createClient as createUserClient } from '@/lib/supabase/server'
+import { isCronRequest } from '@/lib/cronAuth'
 import { getCache, setCache } from '@/lib/appCache'
 import { naverUpjongMap, krIndustryOf, upjongToGics } from '@/lib/naverUpjong'
 import { getAssetType } from '@/lib/assetClassifier'
@@ -122,6 +124,11 @@ function trendFromCloses(c: number[]): WLTrend {
 }
 
 export async function GET(req: Request) {
+  // 🔒 서비스 롤로 전교생 보유 종목(school)을 모은다 — 로그인(또는 크론 비밀) 없이는 열지 않는다(2026-10-18 전수 점검: 비로그인 curl 에 학교 보유 종목 목록이 나갔다). 크론(vercel.json)은 Bearer 로 통과
+  if (!isCronRequest(req)) {
+    const { data: { user } } = await createUserClient().auth.getUser()
+    if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  }
   const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin   // 크론 요청은 로그인 보호가 걸린 배포 고유 주소로 들어와 자기 호출이 막힌다(2026-10-07)
   const cacheKey = WIN_LOSE_KEY(kstDate())   // v8: 🏃 12-1 모멘텀·⚖️ 변동성 조정 모멘텀 요인 + ⚠️ 모멘텀 크래시 국면 판정(추가 fetch 0)
   const cached = await getCache<WLApi>(cacheKey, 12 * 3600_000)

@@ -76,6 +76,10 @@ const INVARIANTS = [
   { file: 'scripts/verify-lynch-fair.mjs', label: '린치 적정가 SSOT — 계산 규칙 · 세 화면이 lynchFairValue 만 호출' },
   // 2026-10-02 신설 — DART 수집이 올해(보고서 없는 해)를 기준으로 부르고 CIS 만 내는 회사를 버려, 과거 연도 EPS 가 0 으로 나갔다(0 은 조용하다)
   { file: 'scripts/verify-financials-years.mjs', label: '재무 API 확정 연도 — 국내 5개 연도 EPS·매출이 비어 있지 않고 DART 값과 같음' },
+  // 2026-10-18 신설 — 인라인 <style> 텍스트의 따옴표 하나로 홈이 열릴 때마다 하이드레이션이 깨졌다(화면은 조용히 복구돼 안 보였다)
+  { file: 'scripts/verify-style-text.mjs', label: '인라인 <style> 텍스트에 " \' & < > 없음(하이드레이션)' },
+  // 2026-10-18 신설 — 버전 올린 뒤 남은 옛 접두어 행(7,200행·60%)을 아무도 안 세고 있었다
+  { file: 'scripts/verify-cache-orphans.mjs', label: 'app_cache 고아 행(옛 버전 접두어) 상한' },
 ]
 
 /**

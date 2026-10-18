@@ -16,7 +16,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
-import { PURGE_RULES, shouldPurge, cutoffIso, purgeOrder, chunkKeys, MAX_BATCHES_PER_RULE } from '@/lib/cachePurge'
+import { PURGE_RULES, shouldPurge, cutoffIso, purgeOrder, chunkKeys, MAX_BATCHES_PER_RULE, versionedPrefix, isSupersededKey, LEGACY_KEEP_DAYS } from '@/lib/cachePurge'
 
 function admin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -123,6 +123,31 @@ export async function purgeStaleCache(budgetMs: number, batch = 100): Promise<{ 
         if (n === 0 || rows.length < batch) break   // 진행이 0이면 멈춘다(같은 후보를 무한 반복하지 않게)
       } catch { out.errors++; break }
     }
+  }
+  // ── 옛 버전 정리(2026-10-18) — 허용 목록 접두어와 같은 base 의 낮은 버전 행(`base-vM:…`, M < 현재). 버전을 올리면 옛 행은 어떤 규칙에도 안 걸려
+  //    영구 누적됐다(실측 7,200행 · 60%). 범프 뒤 LEGACY_KEEP_DAYS 가 지난 행만, 규칙당 한 묶음씩(예산 안에서)
+  for (const rule of PURGE_RULES) {
+    if (Date.now() - started > budgetMs) return out
+    const vp = versionedPrefix(rule.prefix)
+    if (!vp) continue
+    try {
+      const cutoff = new Date(started - LEGACY_KEEP_DAYS * 86_400_000).toISOString()
+      const { data, error } = await db.from('app_cache').select('key, updated_at')
+        .like('key', `${vp.base}-v%:%`).lt('updated_at', cutoff).limit(batch)
+        .abortSignal(AbortSignal.timeout(5_000))
+      if (error) { out.errors++; continue }
+      const keys = (data ?? []).map(r => String(r.key)).filter(k => isSupersededKey(k, vp.base, vp.v))
+      if (!keys.length) continue
+      let n = 0
+      for (const part of chunkKeys(keys)) {
+        const { data: del, error: e2 } = await db.from('app_cache').delete().in('key', part).lt('updated_at', cutoff)
+          .select('key').abortSignal(AbortSignal.timeout(5_000))
+        if (e2) { out.errors++; continue }
+        n += del?.length ?? 0
+      }
+      out.deleted += n
+      if (n) out.byPrefix[`${vp.base}-v<${vp.v}`] = (out.byPrefix[`${vp.base}-v<${vp.v}`] ?? 0) + n
+    } catch { out.errors++ }
   }
   out.done = true
   return out

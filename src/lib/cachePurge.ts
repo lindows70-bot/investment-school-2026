@@ -142,6 +142,19 @@ export const PURGE_RULES: PurgeRule[] = [
 // ⏸ rtms-trade-v2(실거래 지역×월 키)는 일부러 밖에 둔다 — ④의 reader 조건을 verify-cache-purge 가 불변식으로 지킨다(2026-10-18 넣으려다 불변식에 걸려 되돌림).
 //   지역×월로 계속 늘어나는 건 사실이다 — 넣으려면 먼저 re-map·re-apt-pins 의 월 키 조회를 나이 확인(getCache maxAge)으로 바꾸고 불변식을 함께 고쳐야 한다.
 
+/** 'name-vN' 접두어 → base·버전. 버전이 없는 접두어는 null */
+export function versionedPrefix(prefix: string): { base: string; v: number } | null {
+  const m = /^(.+)-v(\d+)$/.exec(prefix)
+  return m ? { base: m[1], v: Number(m[2]) } : null
+}
+/** 같은 base 의 **낮은 버전** 키인가 — `base-vM:…` 에서 M < v. 2026-10-18: 버전을 올리면 옛 접두어 행은 아무도 안 지워 12,064행 중 7,200행이 고아였다(jarvis-metrics-v17 5,970행).
+ *  허용 목록(PURGE_RULES)에 있는 접두어의 옛 버전만 대상 — 목록 밖 base 는 verify-cache-orphans 가 세어 알린다 */
+export const LEGACY_KEEP_DAYS = 3   // 범프 직후 며칠은 옛 reader 가 남아 있을 수 있어 바로 지우지 않는다
+export function isSupersededKey(key: string, base: string, v: number): boolean {
+  const m = new RegExp(`^${base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-v(\\d+):`).exec(key)
+  return !!m && Number(m[1]) < v
+}
+
 /** 규칙 자체 검사 — LIKE 와일드카드·구분자·중복·너무 짧은 보존 기간을 막는다(빈 배열이면 정상) */
 export function validateRules(rules: PurgeRule[]): string[] {
   const errs: string[] = []
