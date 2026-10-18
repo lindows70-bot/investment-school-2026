@@ -25,6 +25,8 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, title: '투자학교', statusBarStyle: 'black' },
   // appleWebApp 은 apple-mobile-web-app-capable 만 내보낸다 — 크롬은 그걸 deprecated 로 경고하고 이 표준 이름을 찾는다
   other: { 'mobile-web-app-capable': 'yes' },
+  // 학생 개인 앱 — 검색엔진 색인 금지(app/robots.ts 와 한 쌍 · 2026-10-19)
+  robots: { index: false, follow: false, nocache: true, googleBot: { index: false, follow: false } },
 }
 
 // viewportFit cover 가 없으면 iOS 에서 env(safe-area-inset-bottom) 이 항상 0 — 하단 탭바 safe-area 패딩의 전제
