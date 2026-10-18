@@ -60,3 +60,12 @@
 - [x] 디자인 6건(44px · Segment inCard · 거장 칸 · 불어난 돈 넘침 · 차트 접근성 · 말풍선 표기)
 - [x] 내용 8건(로그인 분기 7곳 · 일정 '없음' 시점 · FOMC 문구 · 부동산 오류 문구 · 리그 모름 처리 · movers 색 · 리터럴 6종 · 코인 등락 기준)
 - [x] 배포 뒤 재측정(375 · 10/18): Segment 44 · 홈 cardInCard 0 · 거장 bg3 0 · 불어난 돈 넘침 0 · 리그 정상`n- [x] 홈 하이드레이션 오류(style 블록 이스케이프) — 셋 다 dangerouslySetInnerHTML
+
+## 11. 전수 점검 5차(10/18 · ddb7f773 ~ a2facefd)
+- [x] FRED fetcher SSOT `src/lib/fred.ts` — 18곳 이관(라우트 9 · lib 9) · 캐시 키 범프 없음(응답 불변)
+- [x] rtms-trade-v2 정리 규칙 400일 + reader 2곳 나이 조건 + 불변식 재정의 · precommit-guard ③ 접두어 경계 오탐 수정
+- [x] 월별 손익 API 비로그인 401
+- [x] next lint → eslint src(ESLint 9 · FlatCompat) · .eslintrc.json 삭제 · pre-push·deploy-verify 문구
+- [x] @supabase/ssr 0.12.7 · supabase-js 2.118.0 · check:build 2회 통과 · verify 4종 통과
+- [x] 배포 뒤 실측(10/18 · a2facefd): 비로그인 monthly-pnl 401 · /api/fred FEDFUNDS 3건 498ms(앱 캐시 없는 경로 = 새 lib 실동작) · fed-charts·dual-mandate·global-cycle·macro-weather 200 · 홈 API 11 실패 0 · 내 자산 monthly-pnl 200·판 종목 +12.1% · 리그 1위/7명 · 채권 yield-curve 200 · 로그인 세션 유지(supabase 0.12)
+- [ ] 보류: npm audit 잔여 11건(tailwind 4 필요) · 업비트 시세 3곳·RSS 파서 2곳·USD/KRW 이력 2곳 SSOT · re-policy 9초·portfolio-xray 8초
