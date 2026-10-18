@@ -68,10 +68,25 @@ export async function POST(req: Request) {
     const sb = createClient()
     const { data: { user } } = await sb.auth.getUser()
     if (user) {
-      const { data: sells } = await sb.from('transactions')
-        .select('ticker,name,market,currency,realized_pnl,transaction_date,price,quantity')
-        .eq('user_id', user.id).eq('type', 'sell')
-      if (sells?.length) {
+      // 매도 기록은 끝까지 넘겨 읽고(1,000행 상한), 오류는 삼키지 않는다 — 전엔 오류가 '판 종목 손익 0원'(else 가지)으로 둔갑했다(2026-10-18 전수 점검)
+      const sells: SellTx[] = []
+      let sellsErr: string | null = null
+      for (let from = 0; ; ) {
+        const { data: page, error } = await sb.from('transactions')
+          .select('ticker,name,market,currency,realized_pnl,transaction_date,price,quantity')
+          .eq('user_id', user.id).eq('type', 'sell')
+          .order('id', { ascending: true })
+          .range(from, from + 999)
+        if (error) { sellsErr = error.message; break }
+        const rows = (page ?? []) as SellTx[]
+        for (const r of rows) sells.push(r)
+        if (rows.length < 1000) break
+        from += rows.length
+      }
+      if (sellsErr) {
+        console.error('[monthly-pnl] 매도 기록 조회 실패:', sellsErr)
+        realized = null; realizedTotalKrw = null   // 모름 — 소비측(대시보드)은 null 이면 총수익률을 표시하지 않는다
+      } else if (sells.length) {
         const fxCandles = await getTechCandles('KRW=X', 'US', 'D')
         const latestFx = usdKrwNow ?? fxCandles[fxCandles.length - 1]?.close ?? 0
         if (latestFx > 0) {

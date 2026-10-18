@@ -20,6 +20,8 @@ export async function GET(req: Request) {
   const r = await fetch(`${base}/api/school-league`, { cache: 'no-store', signal: AbortSignal.timeout(90_000), headers: { authorization: req.headers.get('authorization') ?? '' } }).catch(() => null)
   const j = r && r.ok ? await r.json().catch(() => null) as SchoolLeagueData | null : null
   if (!j || !Array.isArray(j.students)) return NextResponse.json({ ok: false, cached: false, error: '리그 응답 없음' }, { status: 502 })
+  // 상수 환율·불완전한 매도 기록으로 계산된 장은 남기지 않는다 — 스냅샷은 영구 기록이라 그 주 순위가 왜곡된 채 굳는다(2026-10-18). 다음 실행(상태판 자동 복구)이 다시 시도한다
+  if (j.fxLive === false || j.sellsComplete === false) return NextResponse.json({ ok: false, cached: false, error: `리그 입력 불완전(환율 라이브 ${j.fxLive !== false} · 매도 기록 완전 ${j.sellsComplete !== false}) — 저장 안 함` }, { status: 503 })
 
   const rows = rankRows(j.students)
   if (rows.length === 0) return NextResponse.json({ ok: false, cached: false, error: '순위 0명 — 저장 안 함' })   // 시세 전멸 등 — 빈 장을 남기면 '지난주'가 거짓이 된다

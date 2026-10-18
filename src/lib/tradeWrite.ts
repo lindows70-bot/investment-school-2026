@@ -129,8 +129,10 @@ export async function executeTrade(sb: SupabaseClient, plan: BuyPlan | SellPlan)
         try {
           const res = await fetch(`/api/lynch-classify?ticker=${encodeURIComponent(plan.insert.ticker)}&market=${plan.insert.market}`)
           if (!res.ok) return
-          const { category, isEtf } = await res.json()
-          const cat = (!isEtf && category && category !== 'na') ? category : null
+          const { category, isEtf, source } = await res.json()
+          // 폴백·저신뢰 분류('naver-fallback' · '…(low)' = 데이터 부족 시 기본값 stalwart)는 DB 에 박지 않는다 — 추측을 저장하면 리그 분류 비중·학생 화면이 그걸 사실로 읽는다(2026-10-18 전수 점검)
+          const guessed = typeof source === 'string' && (source.includes('fallback') || source.includes('(low)'))
+          const cat = (!isEtf && !guessed && category && category !== 'na') ? category : null
           if (cat) await sb.from('investments').update({ lynch_category: cat }).eq('id', created.id)
         } catch { /* 분류 실패해도 종목은 저장됨 — 모달과 같다 */ }
       })()

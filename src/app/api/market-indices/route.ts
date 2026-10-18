@@ -15,8 +15,8 @@ export interface IndexData {
   id:        string    // 'sp500' | 'nasdaq' | 'dowjones' | 'nikkei' | 'kospi' | 'kosdaq' | 'gold' | 'silver'(뒤 둘은 ?metals=1 일 때만)
   name:      string    // 표시 이름
   value:     number    // 현재 지수 값
-  change:    number    // 전일 대비 변화량
-  changePct: number    // 전일 대비 변화율 (%)
+  change:    number | null   // 전일 대비 변화량 — 전날 종가를 못 받으면 null(0 으로 꾸미지 않는다)
+  changePct: number | null   // 전일 대비 변화율 (%) — 같은 규칙
   isUp:      boolean
   currency:  'USD' | 'KRW' | 'JPY'
   open:      number    // 시가
@@ -55,9 +55,12 @@ async function fetchYahooIndex(
       if (!meta?.regularMarketPrice) continue
 
       const value     = meta.regularMarketPrice   as number
-      const prevClose = (meta.chartPreviousClose ?? meta.previousClose ?? value) as number
-      const change    = value - prevClose
-      const changePct = prevClose > 0 ? (change / prevClose) * 100 : 0
+      // previousClose(전 거래일 정규장 종가) 먼저 — chartPreviousClose 는 휴장 뒤 이틀 전 값이 올 수 있다(코스닥 실사고 · usMarketBoard 와 같은 순서, 2026-10-18 통일).
+      //   전날 종가가 아예 없으면 등락을 0 으로 꾸미지 않고 null — 0.0% 는 '안 움직임'이라는 거짓이다(2026-10-18 전수 점검)
+      const prevRaw   = (meta.previousClose ?? meta.chartPreviousClose) as number | undefined
+      const prevClose = typeof prevRaw === 'number' && isFinite(prevRaw) && prevRaw > 0 ? prevRaw : null
+      const change    = prevClose != null ? value - prevClose : null
+      const changePct = prevClose != null && change != null ? (change / prevClose) * 100 : null
       const high      = (meta.regularMarketDayHigh ?? value)    as number
       const low       = (meta.regularMarketDayLow  ?? value)    as number
 
@@ -72,7 +75,7 @@ async function fetchYahooIndex(
       const firstOpen = opens.find(v => v != null && isFinite(v as number)) as number | undefined
       const firstClose = closes.find(v => v != null && isFinite(v as number)) as number | undefined
       const open = (meta.regularMarketOpen as number | undefined)
-        ?? firstOpen ?? firstClose ?? prevClose
+        ?? firstOpen ?? firstClose ?? prevClose ?? value
       const chartData = timestamps
         .map((t, i) => ({ t: t * 1000, v: closes[i] }))
         .filter((p): p is { t: number; v: number } =>
@@ -80,7 +83,7 @@ async function fetchYahooIndex(
         )
 
       return {
-        id, name, value, change, changePct, isUp: change >= 0,
+        id, name, value, change, changePct, isUp: (change ?? 0) >= 0,
         currency, open, high, low, chartData,
         updatedAt: new Date().toISOString(),
       }
@@ -94,14 +97,14 @@ async function fetchYahooIndex(
 //    값·등락·시가/고가/저가와 장중 차트를 네이버 polling·분봉으로 덮는다. 네이버가 실패하면 예전처럼 야후 값을 그대로 쓴다.
 function withNaver(yahoo: IndexData | null, id: string, name: string, q: KrIndexQuote | undefined, minute: Part<IntradayPoint[]>, investors: InvestorTotals | null): IndexData | null {
   if (!q) return yahoo ? { ...yahoo, ...(investors ? { investors } : {}) } : null
-  const change = q.change ?? yahoo?.change ?? 0
+  const change = q.change ?? yahoo?.change ?? null   // 네이버·야후 둘 다 없으면 null — 0 은 '안 움직임'이라는 거짓(2026-10-18)
   return {
     ...(investors ? { investors } : {}),
     id, name, currency: 'KRW',
     value: q.value,
     change,
-    changePct: q.changePct ?? yahoo?.changePct ?? 0,
-    isUp: change >= 0,
+    changePct: q.changePct ?? yahoo?.changePct ?? null,
+    isUp: (change ?? 0) >= 0,
     open: q.open ?? yahoo?.open ?? q.value,
     high: q.high ?? yahoo?.high ?? q.value,
     low: q.low ?? yahoo?.low ?? q.value,

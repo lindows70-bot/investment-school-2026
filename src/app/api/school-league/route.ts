@@ -15,7 +15,7 @@ import { NextResponse }                    from 'next/server'
 import { createClient as createAdmin }     from '@supabase/supabase-js'
 import { createClient }                    from '@/lib/supabase/server'
 import { classifyAsset }                   from '@/lib/classifyAsset'
-import { getUsdKrw } from '@/lib/fx'
+import { fetchUsdKrw } from '@/lib/fx'
 import { getTechCandles } from '@/lib/techChartData'
 import { studentTotalReturn, type SellTx } from '@/lib/realizedPnl'
 import { TK } from '@/lib/theme'
@@ -92,6 +92,10 @@ export interface SchoolLeagueData {
   computedAt:       string
   /** prevRank 의 기준 스냅샷 날짜(지난주 월요일) — 없으면 null */
   prevSnapDate:     string | null
+  /** false = 환율 API 실패로 상수(1,400)로 계산됨 — 화면은 밝히고, 스냅샷 크론은 저장하지 않는다 */
+  fxLive:           boolean
+  /** false = 매도 기록 조회가 실패해 실현손익이 빠진 채 계산됨 — 스냅샷 크론은 저장하지 않는다 */
+  sellsComplete:    boolean
 }
 
 // ── Lynch 분포 초기값 ────────────────────────────────────────────
@@ -191,11 +195,23 @@ export async function GET(req: Request) {
     // ── 2-c. 매도 이력(실현손익) 조회 ────────────────────────────
     // ⚠️ 평가손익만 세면 성적의 절반이 사라진다(realizedPnl.ts 주석의 실사고와 같은 결함이
     //    스쿨 리그에만 남아 있었다 — 2026-08-14). 환율 관례도 그 SSOT 를 따른다(매도일 환율).
-    const { data: allSells } = await sb
-      .from('transactions')
-      .select('user_id, ticker, name, market, currency, realized_pnl, transaction_date, price, quantity')
-      .eq('type', 'sell')
-      .limit(5000)                       // Supabase 기본 1,000행 상한 방어
+    // 전교생 매도 기록 — Supabase 는 .limit(5000) 을 줘도 서버가 1,000행에서 자른다(CLAUDE.md 함정) → range 로 끝까지 넘겨 읽는다.
+    //   오류는 삼키지 않는다 — 실패를 '매도 없음'으로 두면 실현손익이 조용히 사라진다(2026-10-18 전수 점검). sellsComplete=false 면 스냅샷 크론이 저장하지 않는다
+    const allSells: (SellTx & { user_id: string })[] = []
+    let sellsComplete = true
+    for (let from = 0; ; ) {
+      const { data: page, error: sellErr } = await sb
+        .from('transactions')
+        .select('user_id, ticker, name, market, currency, realized_pnl, transaction_date, price, quantity')
+        .eq('type', 'sell')
+        .order('id', { ascending: true })
+        .range(from, from + 999)
+      if (sellErr) { console.error('[school-league] 매도 기록 조회 실패:', sellErr.message); sellsComplete = false; break }
+      const rows = (page ?? []) as (SellTx & { user_id: string })[]
+      for (const r of rows) allSells.push(r)
+      if (rows.length < 1000) break
+      from += rows.length
+    }
     const sellsByUser: Record<string, SellTx[]> = {}
     for (const s of allSells ?? []) {
       const uid = (s as { user_id: string }).user_id
@@ -215,7 +231,9 @@ export async function GET(req: Request) {
 
     // stock-price API 배치 호출 (최대 50개)
     const priceMap: Record<string, number> = {}    // ticker → currentPrice
-    const usdKrw   = await getUsdKrw(selfBase)   // 라이브 환율(제1원칙: 하드코딩 금지)
+    // 라이브 환율(제1원칙: 하드코딩 금지). 폴백(상수)으로 떨어졌으면 fxLive=false 를 응답에 싣는다 — 2026-10-18 전수 점검:
+    //   전엔 getUsdKrw 가 1,400 을 조용히 돌려줘 그 주 리그가 상수 환율로 계산된 채 스냅샷(영구)에 남을 수 있었다. 스냅샷 크론은 fxLive=false 면 저장하지 않는다
+    const { rate: usdKrw, live: fxLive } = await fetchUsdKrw(selfBase)
     // 실현손익 환산용 과거 환율 — 월별 손익 화면과 **같은 소스**여야 값이 갈리지 않는다(제2원칙)
     const fxCandles = (allSells ?? []).length
       ? await getTechCandles('KRW=X', 'US', 'D').catch(() => [])
@@ -406,6 +424,8 @@ export async function GET(req: Request) {
       schoolLynchAvg,
       computedAt:    new Date().toISOString(),
       prevSnapDate:  latestSnap?.previous?.date ?? null,
+      fxLive,
+      sellsComplete,
     }
 
     return NextResponse.json(result, {

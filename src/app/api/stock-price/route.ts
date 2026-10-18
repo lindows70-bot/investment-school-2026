@@ -515,7 +515,7 @@ async function yfQuote(ticker: string) {
   return {
     name:         (meta.longName ?? meta.shortName ?? ticker) as string,
     currentPrice: meta.regularMarketPrice as number,
-    prevClose:    (meta.chartPreviousClose ?? meta.previousClose ?? meta.regularMarketPrice) as number,
+    prevClose:    (meta.previousClose ?? meta.chartPreviousClose ?? meta.regularMarketPrice) as number,   // previousClose(전 거래일 정규장 종가) 먼저 — chartPreviousClose 는 휴장 뒤 이틀 전 값이 온다(코스닥 실사고 · usMarketBoard 와 같은 순서, 2026-10-18 통일)
     isEtf:        (meta.instrumentType ?? '').toUpperCase() === 'ETF',
   }
 }

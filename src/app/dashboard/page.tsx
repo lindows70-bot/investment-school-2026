@@ -2441,7 +2441,7 @@ export default function DashboardPage() {
                       const rPos     = hasRange
                         ? Math.max(3, Math.min(97, ((idx.value - idxLow) / rangeW) * 100))
                         : 50
-                      const prevClose = idx.value - idx.change
+                      const prevClose = idx.change != null ? idx.value - idx.change : null   // 전날 종가 모름(null)이면 점선 없음
 
                       return (
                         <div key={idx.id} style={{
@@ -2465,7 +2465,7 @@ export default function DashboardPage() {
                                 borderRadius: 5, padding: '2px 6px',
                                 fontVariantNumeric: 'tabular-nums',
                               }}>
-                                {up ? '▲' : '▼'} {Math.abs(idx.changePct).toFixed(2)}%
+                                {idx.changePct == null ? '등락 모름' : `${up ? '▲' : '▼'} ${Math.abs(idx.changePct).toFixed(2)}%`}
                               </span>
                             </div>
 
@@ -2481,7 +2481,7 @@ export default function DashboardPage() {
                             {/* 변화량 | 시가 */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                               <span style={{ fontSize: 11, fontWeight: 700, color: Cs, fontVariantNumeric: 'tabular-nums' }}>
-                                {up ? '+' : ''}{fmtIdx(idx.change, idx.currency)}
+                                {idx.change == null ? '—' : `${up ? '+' : ''}${fmtIdx(idx.change, idx.currency)}`}
                                 <span style={{ fontSize: 8, color: TK.sub10, marginLeft: 3, fontWeight: 400 }}>{idx.currency}</span>
                               </span>
                               <span style={{ width: 1, height: 9, background: '#8088a8', flexShrink: 0 }}/>
@@ -2503,7 +2503,7 @@ export default function DashboardPage() {
                                     </linearGradient>
                                   </defs>
                                   <YAxis domain={['auto','auto']} hide/>
-                                  <ReferenceLine y={prevClose} stroke={C} strokeDasharray="3 4" strokeWidth={0.8} strokeOpacity={0.4}/>
+                                  {prevClose != null && <ReferenceLine y={prevClose} stroke={C} strokeDasharray="3 4" strokeWidth={0.8} strokeOpacity={0.4}/>}
                                   <Area type="monotone" dataKey="v"
                                     stroke={C} strokeWidth={1.8}
                                     fill={`url(#sg-${idx.id})`}
