@@ -109,14 +109,18 @@ function lynchComment(holders: ShadowHolder[], name: string): string {
 // 국민연금이 최대주주인 회사(POSCO·KT&G 등)는 거인(NPS)이, 오너 지배 회사(삼성전자 등)는
 // 설립자·핵심 경영진이 굳건히 쥐고 있음을 보여줘 '국장 변동성'에 대한 멘탈케어를 한다.
 const REPRT_LABEL: Record<string, string> = { '11013': '1분기보고서', '11012': '반기보고서', '11014': '3분기보고서', '11011': '사업보고서' }
-// 2026년 기준 최신 우선 → 점차 과거로 폴백(분기 공시 타이밍 편차 흡수)
-const KR_PERIODS: { yr: string; rc: string }[] = [
-  { yr: '2026', rc: '11013' },   // 2026 1분기
-  { yr: '2025', rc: '11011' },   // 2025 사업보고서
-  { yr: '2025', rc: '11014' },   // 2025 3분기
-  { yr: '2025', rc: '11012' },   // 2025 반기
-  { yr: '2024', rc: '11011' },   // 2024 사업보고서
-]
+// 최신 우선 → 점차 과거로 폴백(분기 공시 타이밍 편차 흡수). ⚠️ 날짜에서 만든다 — 상수표는 2026 1분기에서 멈춰 8월 반기·11월 3분기 보고서를
+//   영영 건너뛰었다(2026-10-18 6차 점검). 법정 제출 기한(1분기 5/15 · 반기 8/14 · 3분기 11/14 · 사업보고서 3/31) 다음 달부터 그 보고서를 먼저 본다.
+function krPeriods(now = new Date(Date.now() + 9 * 3600_000)): { yr: string; rc: string }[] {
+  const y = now.getUTCFullYear(), m = now.getUTCMonth() + 1
+  const Y = String(y), P = String(y - 1), PP = String(y - 2)
+  const seq = m >= 12 ? [[Y, '11014'], [Y, '11012'], [Y, '11013'], [P, '11011'], [P, '11014']]
+    : m >= 9 ? [[Y, '11012'], [Y, '11013'], [P, '11011'], [P, '11014'], [P, '11012']]
+    : m >= 6 ? [[Y, '11013'], [P, '11011'], [P, '11014'], [P, '11012'], [PP, '11011']]
+    : m >= 4 ? [[P, '11011'], [P, '11014'], [P, '11012'], [P, '11013'], [PP, '11011']]
+    : [[P, '11014'], [P, '11012'], [P, '11013'], [PP, '11011'], [PP, '11014']]
+  return seq.map(([yr, rc]) => ({ yr, rc }))
+}
 const cleanNm = (s: string) => String(s || '').replace(/\s+/g, ' ').trim()
 const krNum = (s: unknown) => parseInt(String(s ?? '').replace(/[^0-9]/g, ''), 10) || 0
 const krFloat = (s: unknown) => { const n = parseFloat(String(s ?? '').replace(/[^0-9.]/g, '')); return isFinite(n) ? n : 0 }
@@ -151,7 +155,7 @@ async function krShareholders(ticker: string, name: string): Promise<ShadowResul
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let list: any[] = []
   let period = ''
-  for (const p of KR_PERIODS) {
+  for (const p of krPeriods()) {
     const j = await dartJson(`hyslrSttus.json?crtfc_key=${process.env.DART_API_KEY}&corp_code=${corp}&bsns_year=${p.yr}&reprt_code=${p.rc}`)
     if (j?.status === '000' && Array.isArray(j.list) && j.list.length) {
       list = j.list; period = `${p.yr} ${REPRT_LABEL[p.rc] || p.rc}`; break

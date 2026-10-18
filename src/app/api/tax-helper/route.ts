@@ -15,6 +15,15 @@ const TAX = {
   DEDUCTION_KRW: 2_500_000,   // 해외주식 양도소득 기본공제(연·인별)
   RATE: 0.22,                 // 양도소득세 20% + 지방소득세 2%
 } as const
+// 🪙 가상자산 과세 — 현행 소득세법은 **2027-01-01 이후 양도·대여분부터** 과세(250만원 공제 · 22% 분리과세 · 첫 신고 2028-05).
+//    정부는 2026-07 세제개편안에서 추가 유예를 빼 시행을 재확인했고, 국회엔 2030 년으로 3년 늦추는 개정안이 발의돼 있다(2026-10-18 확인).
+//    ⚠️ 전엔 "2027년으로 유예(현재 비과세)" 를 날짜와 무관하게 찍어 2027-01-01 부터 거짓이 될 문구였다. 연도로 가른다 — 법이 바뀌면 여기 한 곳.
+const CRYPTO_TAX_START = '2027-01-01'
+function cryptoTaxNote(todayKst: string): string {
+  return todayKst >= CRYPTO_TAX_START
+    ? `${CRYPTO_TAX_START.slice(0, 4)}년부터 가상자산 양도차익 과세 대상(연 250만원 공제 후 22%) — 이 도구는 코인을 계산에 넣지 않으니 거래소 세금 자료로 따로 확인하세요`
+    : `현행법상 ${CRYPTO_TAX_START.replace(/-/g, '.')} 이후 판 것부터 과세(연 250만원 공제 후 22%) — 지금 판 것은 비과세 · 국회에 시행 연기 법안이 발의돼 있어 바뀔 수 있어요`
+}
 
 const kstNow = () => new Date(Date.now() + 9 * 3600_000)
 const kstDate = () => kstNow().toISOString().slice(0, 10)
@@ -47,7 +56,8 @@ export interface TaxHelperResult {
   realizedKrKrw: number      // 국내 실현손익(참고 — 소액주주 비과세)
   krSellCount: number
   krEtfSellCount: number     // 국내 상장 ETF 매도 건수(배당소득세 15.4% 별도 안내용)
-  cryptoSellCount: number    // 코인 매도 건수(2027 과세 유예 안내용)
+  cryptoSellCount: number    // 코인 매도 건수(과세 안내용)
+  cryptoTaxNote: string      // 가상자산 과세 안내 문구 SSOT(cryptoTaxNote · 날짜로 분기 — 화면이 직접 쓰지 않는다)
   deductionKrw: number       // 250만
   taxableKrw: number         // max(0, 실현 − 공제)
   estTaxKrw: number          // 초과분 × 22%
@@ -64,7 +74,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
   const fp = await holdingsFingerprint(user.id)
-  const cacheKey = `tax-helper-v1:${user.id}:${kstDate()}:${fp}`
+  const cacheKey = `tax-helper-v2:${user.id}:${kstDate()}:${fp}`   // v2: cryptoTaxNote 필드 추가(필드가 늘어도 범프)
   const cached = await getCache<TaxHelperResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -161,6 +171,7 @@ export async function GET(req: Request) {
     year, daysLeft, usdKrw, fxLive,
     realizedUsUsd: Math.round(realizedUsUsd * 100) / 100, realizedUsKrw, usSellCount,
     realizedKrKrw: Math.round(realizedKrKrw), krSellCount, krEtfSellCount, cryptoSellCount,
+    cryptoTaxNote: cryptoTaxNote(kstDate()),
     deductionKrw: TAX.DEDUCTION_KRW, taxableKrw, estTaxKrw, roomKrw,
     harvest: harvest.slice(0, 10), gainHarvest: gainHarvest.slice(0, 6),
     asOf: new Date().toISOString(),

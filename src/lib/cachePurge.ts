@@ -120,7 +120,7 @@ export const PURGE_RULES: PurgeRule[] = [
   PER_USER('portfolio-backtest-v5', '12h'),
   PER_USER('portfolio-flow-v12', '12h'),
   PER_USER('portfolio-reco-kr-v8', '12h'),
-  PER_USER('tax-helper-v1', '6h'),
+  PER_USER('tax-helper-v2', '6h'),
   PER_USER('weekly-report-me-v6', '6h(교사 열람 키 포함)'),
   PER_USER('corr-matrix-v2', '24h'),   // M1 목록 밖 — 날짜 키 커밋 검사(cacheDateGuard)로 src 전수를 훑다 발견
 

@@ -137,7 +137,7 @@ export default function TaxHarvestHelper() {
         <div style={{ ...CARD, fontSize: 11.5, color: TK.sub4, display: 'flex', flexDirection: 'column', gap: 4 }}>
           {d.krSellCount > 0 && <div>🇰🇷 국내 실현손익 <b style={{ color: d.realizedKrKrw >= 0 ? TK.red400 : TK.blue400 }}>{fmtW(d.realizedKrKrw)}</b> ({d.krSellCount}건) — 상장주식 소액주주 장내 매도는 <b style={{ color: TK.slate200 }}>비과세</b>(해외분과 통산 대상 아님)</div>}
           {d.krEtfSellCount > 0 && <div>⚠️ 국내 상장 해외/파생형 ETF 매도 {d.krEtfSellCount}건 포함 — 이 유형의 매매차익은 <b style={{ color: TK.slate200 }}>배당소득세 15.4%</b>가 원천징수로 별도 과세(손익통산 불가·금융소득종합과세 합산 대상)</div>}
-          {d.cryptoSellCount > 0 && <div>🪙 코인 매도 {d.cryptoSellCount}건 — 가상자산 과세는 <b style={{ color: TK.slate200 }}>2027년으로 유예</b>(현재 비과세)</div>}
+          {d.cryptoSellCount > 0 && <div>🪙 코인 매도 {d.cryptoSellCount}건 — <b style={{ color: TK.slate200 }}>{d.cryptoTaxNote}</b></div>}
         </div>
       )}
 
