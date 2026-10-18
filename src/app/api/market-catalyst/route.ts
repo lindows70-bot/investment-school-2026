@@ -1,11 +1,13 @@
 // 🔥 오늘 시장의 눈 — 마켓 카탈리스트 API. ①메가 뉴스(시장 전체 판도, Gemini ≤3건) ②수급 블랙홀(US 트렌딩 거래량 폭증 + KR 수급 상위) ③자비스 한줄 처방(린치/버핏 페르소나)
 // Zero Cost: Google News RSS(무인증) + Yahoo trending/quote + market-flow-kr 캐시 재사용 · 3h 캐시(아침 갱신) · 수급 수치는 전부 정량 계산(LLM은 뉴스 요약만)
 import { NextResponse } from 'next/server'
+import { upbitJson } from '@/lib/upbit'
 import { MARKET_FLOW_KR_KEY } from '@/lib/marketFlowKr'
 import { MARKET_CATALYST_KEY } from '@/lib/marketCatalystShared'
 import { getCache, setCache } from '@/lib/appCache'
 import { callGeminiJSON } from '@/lib/gemini'
 import { singleFlight, aiRecentlyFailed, markAiFailed } from '@/lib/aiGuard'
+import { googleNewsItems } from '@/lib/googleNews'
 import type { MarketFlowKrResult } from '@/lib/marketFlowKr'
 
 export const dynamic = 'force-dynamic'
@@ -35,17 +37,9 @@ export interface MarketCatalystResult {
 }
 
 // ── Google News RSS(무료·무인증) — 시장 전반 헤드라인. lang='en'이면 미국판(글로벌 메가 뉴스 포착) ──
+// 공용 lib/googleNews — 헤드라인 제목만(전엔 <title> 전체를 훑어 피드 제목을 slice(1) 로 건너뛰었다)
 async function googleNews(query: string, take = 8, lang: 'ko' | 'en' = 'ko'): Promise<string[]> {
-  try {
-    const loc = lang === 'en' ? 'hl=en-US&gl=US&ceid=US:en' : 'hl=ko&gl=KR&ceid=KR:ko'
-    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&${loc}`
-    const r = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(10_000) })
-    if (!r.ok) return []
-    const xml = await r.text()
-    const titles = Array.from(xml.matchAll(/<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/g))
-      .map(m => m[1].trim()).filter(t => t && !/Google 뉴스/i.test(t))
-    return titles.slice(1, 1 + take)   // 첫 항목은 피드 제목
-  } catch { return [] }
+  return (await googleNewsItems(query, { lang, take, timeoutMs: 10_000 })).map(h => h.title)
 }
 
 // ── US 수급 블랙홀 — Yahoo 트렌딩 + 거래량 비율(정량) ─────────────────────────
@@ -83,11 +77,8 @@ async function usMovers(): Promise<MarketMover[]> {
 //    주식용이라 유지) 코인 전용 수집이 아예 없었다. 주식과 소스를 섞지 않고 업비트로 따로 잰다.
 async function cryptoMovers(): Promise<MarketMover[]> {
   try {
-    const r = await fetch('https://api.upbit.com/v1/ticker?markets=KRW-BTC,KRW-ETH', {
-      cache: 'no-store', signal: AbortSignal.timeout(8_000),
-    })
-    if (!r.ok) return []
-    const rows = await r.json() as { market: string; signed_change_rate: number }[]
+    const rows = await upbitJson<{ market: string; signed_change_rate: number }[]>('/ticker?markets=KRW-BTC,KRW-ETH', { timeoutMs: 8_000 })   // 공용 lib/upbit
+    if (!rows) return []
     const NAME: Record<string, { t: string; n: string }> = { 'KRW-BTC': { t: 'BTC', n: '비트코인' }, 'KRW-ETH': { t: 'ETH', n: '이더리움' } }
     const out: MarketMover[] = []
     for (const q of rows) {

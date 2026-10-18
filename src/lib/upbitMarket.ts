@@ -2,6 +2,7 @@
 //   목록(market/all)은 6시간, 시세(ticker/all)는 60초 기억한다. 실패는 캐시하지 않는다(옛 목록이 있으면 그것을 돌려준다).
 //   등락 기준: 업비트 signed_change_rate 는 전일 종가(UTC 0시 = KST 09:00) 대비다 — 한국 주식 '전일 대비'와 기준 시각이 다르다.
 import { type Part, okPart, failPart, num } from './marketBoardShared'
+import { upbitJson } from './upbit'
 import type { UpbitMarket } from './stockSearch'
 
 export interface UpbitTicker {
@@ -34,9 +35,7 @@ export async function upbitMarkets(): Promise<UpbitMarket[] | null> {
 export async function upbitKrwTickers(): Promise<UpbitTicker[] | null> {
   if (tickersCache && Date.now() - tickersCache.at < 60_000) return tickersCache.rows
   try {
-    const r = await fetch('https://api.upbit.com/v1/ticker/all?quote_currencies=KRW', { cache: 'no-store', signal: AbortSignal.timeout(6000) })
-    if (!r.ok) return null
-    const data = await r.json()
+    const data = await upbitJson<unknown[]>('/ticker/all?quote_currencies=KRW', { timeoutMs: 6000 })   // 공용 lib/upbit
     if (!Array.isArray(data)) return null
     const rows = (data as UpbitTicker[]).filter(d => typeof d?.market === 'string' && d.market.startsWith('KRW-'))
     tickersCache = { at: Date.now(), rows }

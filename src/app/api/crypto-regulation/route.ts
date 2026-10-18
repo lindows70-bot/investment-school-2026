@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { callGeminiJSON } from '@/lib/gemini'
 import { singleFlight, aiRecentlyFailed, markAiFailed } from '@/lib/aiGuard'
+import { googleNewsItems } from '@/lib/googleNews'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 45
@@ -28,22 +29,10 @@ export interface RegulationResult {
 }
 
 type Headline = { title: string; url: string }
-/** 구글 뉴스 RSS — <item> 단위로 제목과 링크를 짝지어 읽는다(제목만 모으면 링크를 못 단다) */
+/** 구글 뉴스 RSS(공용 lib/googleNews) — 제목과 링크를 짝지어 읽는다(제목만 모으면 링크를 못 단다). 링크 있는 것만 take 개 */
 async function googleNews(query: string, take: number, lang: 'ko' | 'en'): Promise<Headline[]> {
-  try {
-    const loc = lang === 'en' ? 'hl=en-US&gl=US&ceid=US:en' : 'hl=ko&gl=KR&ceid=KR:ko'
-    const r = await fetch(`https://news.google.com/rss/search?q=${encodeURIComponent(query)}&${loc}`, { cache: 'no-store', signal: AbortSignal.timeout(10_000) })
-    if (!r.ok) return []
-    const xml = await r.text()
-    const out: Headline[] = []
-    for (const m of Array.from(xml.matchAll(/<item>([\s\S]*?)<\/item>/g))) {
-      const title = m[1].match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/)?.[1]?.trim() ?? ''
-      const url = m[1].match(/<link>([\s\S]*?)<\/link>/)?.[1]?.trim() ?? ''
-      if (title && /^https?:\/\//.test(url) && !/Google 뉴스/i.test(title)) out.push({ title, url })
-      if (out.length >= take) break
-    }
-    return out
-  } catch { return [] }
+  const items = await googleNewsItems(query, { lang, timeoutMs: 10_000 })
+  return items.filter(h => h.link).slice(0, take).map(h => ({ title: h.title, url: h.link! }))
 }
 
 const SCHEMA = {

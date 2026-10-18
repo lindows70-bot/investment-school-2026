@@ -51,6 +51,7 @@ export async function GET(req: Request) {
   const [{ rate: fxNow, live: fxLive }, fxSeries] = await Promise.all([
     fetchUsdKrw(base),
     (async () => {
+      // ⚠️ 환율 이력 SSOT(getTechCandles 'KRW=X' D)는 2년치만 받는다 — 매입일이 2015년까지 가는 이 계산엔 모자라 야후 차트를 직접 받는다(같은 원천 · 다른 창 · 2026-10-18 판정)
       const { default: YF } = await import('yahoo-finance2')
       const yf = new (YF as any)({ suppressNotices: ['yahooSurvey'] })
       const c = await yf.chart('KRW=X', {

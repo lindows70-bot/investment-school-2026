@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { upbitFetch, upbitMarketOf } from '@/lib/upbit'
 import { parseNaverBasics } from '@/lib/naverIntegration'   // 📊 국내 기본 지표(PER·EPS·배당·시총·52주) — basic 에서 사라져 integration 으로
 import { naverUpjongMap, industryNameOf, upjongToGics } from '@/lib/naverUpjong'   // 🏷️ 국내 업종 SSOT(stock-info·승패 해부실과 같은 표)
 
@@ -630,12 +631,8 @@ async function fetchUsStock(ticker: string): Promise<StockData> {
 // ▌ UPBIT (CRYPTO) — 원화(KRW) 기준
 // ═══════════════════════════════════════════════════════════════
 
-const UPBIT_H: HeadersInit = { Accept: 'application/json' }
-
-/** 티커 → 업비트 마켓 코드  e.g. XRP → KRW-XRP */
-function upbitMarket(ticker: string) {
-  return `KRW-${ticker.toUpperCase().replace(/^KRW-/, '')}`
-}
+/** 티커 → 업비트 마켓 코드  e.g. XRP → KRW-XRP (공용 lib/upbit) */
+const upbitMarket = upbitMarketOf
 
 /** flat-line 폴백: 현재가 기준 N포인트 직선 */
 function flatLine(price: number, points = 24): PricePoint[] {
@@ -649,26 +646,13 @@ function flatLine(price: number, points = 24): PricePoint[] {
 
 // ⚠️ 업비트 시세 API 는 IP 당 초당 10회(그룹별)다. 코인 4종을 한 번에 부르면 예전엔 코인당 8회 × 4 = 32회가 동시에 나가
 //    SOL·XRP 차트가 429 로 떨어지고 현재가 직선으로 채워진 채 60초 캐시에 들어갔다(2026-09-29 /s/coin 실측 — 4종 중 2종 직선).
-//    → 호출 시작 간격을 벌리고(초당 약 8회), 429 면 1초 뒤 한 번 더 부른다. 요청 수도 코인당 5회로 줄였다(아래 fetchCrypto).
-const UPBIT_GAP_MS = 120
-let upbitNext = 0
-async function upbitGet(url: string, retry = true): Promise<Response> {
-  const now = Date.now()
-  const wait = Math.max(0, upbitNext - now)
-  upbitNext = Math.max(now, upbitNext) + UPBIT_GAP_MS
-  if (wait > 0) await new Promise(r => setTimeout(r, wait))
-  const res = await fetch(url, { headers: UPBIT_H, next: { revalidate: 0 } })
-  if (res.status === 429 && retry) {
-    await new Promise(r => setTimeout(r, 1000))
-    return upbitGet(url, false)
-  }
-  return res
-}
+//    → 호출 간격·429 재시도는 공용 lib/upbit(upbitFetch)가 맡는다(2026-10-18 — 다른 6곳도 같은 줄에 선다). 요청 수는 코인당 5회(아래 fetchCrypto).
+const upbitGet = (pathAndQuery: string) => upbitFetch(pathAndQuery)
 
 /** 업비트 현재가 조회 */
 async function upbitQuote(ticker: string) {
   const market = upbitMarket(ticker)
-  const res = await upbitGet(`https://api.upbit.com/v1/ticker?markets=${market}`)
+  const res = await upbitGet(`/ticker?markets=${market}`)
   if (!res.ok) throw new Error(`업비트 시세 조회 실패 (${res.status}): ${market}`)
 
   const arr = await res.json()
@@ -688,7 +672,7 @@ async function upbitQuote(ticker: string) {
 interface UpbitCandle { timestamp: number; trade_price: number; opening_price: number; high_price: number; low_price: number; candle_acc_trade_volume?: number; candle_date_time_kst?: string }
 async function upbitCandles(path: string, market: string, count: number): Promise<UpbitCandle[] | null> {
   try {
-    const res = await upbitGet(`https://api.upbit.com/v1/candles/${path}?market=${market}&count=${count}`)
+    const res = await upbitGet(`/candles/${path}?market=${market}&count=${count}`)
     if (!res.ok) return null
     const data = await res.json()
     return Array.isArray(data) ? data as UpbitCandle[] : null

@@ -2,6 +2,7 @@
 // 4축: 사이클(반감기·메이어멀티플) · 심리(공포탐욕·도미넌스) · 온체인(해시레이트) · 유동성(M2) + 김치프리미엄
 // 전부 무료·무인증 소스(CoinGecko·alternative.me·mempool.space·업비트·FRED) · 1h 캐시 · 추정치 금지(없으면 null)
 import { NextResponse } from 'next/server'
+import { upbitJson } from '@/lib/upbit'
 import { fetchUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT(폴백 여부까지 — 폴백이면 캐시하지 않는다)
 import { getCache, setCache } from '@/lib/appCache'
 import { fredRaw } from '@/lib/fred'
@@ -365,7 +366,7 @@ export async function GET(req: Request) {
   const [fngR, hashR, upbitR, m2R, longR, corrR, maxR, dayR] = await Promise.allSettled([
     fetchCryptoFng(),   // 공포·탐욕 SSOT(/api/coin-fng 와 같은 lib) — 여기선 지금·어제만 쓴다
     fetch('https://mempool.space/api/v1/mining/hashrate/3m', { signal: AbortSignal.timeout(12_000) }).then(r => r.json()),
-    fetch('https://api.upbit.com/v1/ticker?markets=KRW-BTC', { signal: AbortSignal.timeout(10_000) }).then(r => r.json()),
+    upbitJson<{ trade_price: number }[]>('/ticker?markets=KRW-BTC'),   // 공용 lib/upbit — 실패 null
     fredRaw('M2SL', { sort_order: 'desc', limit: 37 }, { timeoutMs: 10_000 }),   // FRED 공용 fetcher(lib/fred) — 키 없으면 null
     btcLongPrices(),
     buildCorrelation(),

@@ -10,6 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { upbitJson } from '@/lib/upbit'
 
 const YF_HEADERS = {
   'User-Agent':
@@ -102,9 +103,8 @@ async function getKrYearPrices(ticker: string): Promise<Record<string, number>> 
 async function getCryptoYearPrices(ticker: string): Promise<Record<string, number>> {
   const market = `KRW-${ticker.toUpperCase().replace(/^KRW-/, '')}`
   try {
-    const res = await fetch(`https://api.upbit.com/v1/candles/months?market=${market}&count=72`, { next: { revalidate: 3600 } })
-    if (!res.ok) return {}
-    const arr = await res.json() as { candle_date_time_kst: string; trade_price: number }[]
+    const arr = await upbitJson<{ candle_date_time_kst: string; trade_price: number }[]>(`/candles/months?market=${market}&count=72`)   // 공용 lib/upbit
+    if (!arr) return {}
     const yearMap: Record<string, number[]> = {}
     for (const c of arr) {
       const close = c.trade_price

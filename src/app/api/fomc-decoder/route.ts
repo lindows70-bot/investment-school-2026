@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { callGeminiJSON } from '@/lib/gemini'
 import { singleFlight, aiRecentlyFailed, markAiFailed } from '@/lib/aiGuard'
+import { googleNewsItems } from '@/lib/googleNews'
 import { FOMC_SCHEDULE } from '@/lib/fomcSchedule'
 import { FED_EVENTS, EVENT_QUERIES, HAS_RATE_DECISION, VENUE_KO, newsWindowDays, MUST_MATCH, MIN_MATCHES, type FedEvent, type FedEventKind } from '@/lib/fedEvents'
 
@@ -73,14 +74,9 @@ function buildMarketGap(stance: Stance, rateDir: 'cut' | 'hold' | 'hike'): Marke
   return { rateDir, rateDirLabel, agreement, text }
 }
 
+// 구글 뉴스 RSS(공용 lib/googleNews) — 헤드라인 제목만. 전엔 <title> 전체를 훑어 피드 제목을 slice(1) 로 건너뛰었다
 async function googleNews(query: string, take: number, lang: 'ko' | 'en'): Promise<string[]> {
-  try {
-    const loc = lang === 'en' ? 'hl=en-US&gl=US&ceid=US:en' : 'hl=ko&gl=KR&ceid=KR:ko'
-    const r = await fetch(`https://news.google.com/rss/search?q=${encodeURIComponent(query)}&${loc}`, { cache: 'no-store', signal: AbortSignal.timeout(10_000) })
-    if (!r.ok) return []
-    const xml = await r.text()
-    return Array.from(xml.matchAll(/<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/g)).map(m => m[1].trim()).filter(t => t && !/Google 뉴스/i.test(t)).slice(1, 1 + take)
-  } catch { return [] }
+  return (await googleNewsItems(query, { lang, take, timeoutMs: 10_000 })).map(h => h.title)
 }
 
 // 오늘(KST) 기준 **직전 연준 이벤트** + 다음 FOMC — FOMC_SCHEDULE ∪ FED_EVENTS 에서 결정론적으로.

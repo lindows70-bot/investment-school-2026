@@ -12,6 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { upbitFetch, upbitJson } from '@/lib/upbit'
 import type { Market, Fundamentals } from '@/app/api/stock-price/route'
 import { curCodeFromTicker } from '@/lib/globalTickers'
 import { getTrueFcf } from '@/lib/trueFcf'   // 💵 FCF 분자 SSOT(현금흐름표 OCF−CapEx) — fd.freeCashflow 는 부호까지 틀린다
@@ -1206,7 +1207,7 @@ async function usInfo(ticker: string, origin: string): Promise<StockInfo> {
 async function cryptoInfo(ticker: string): Promise<StockInfo> {
   const t      = ticker.toUpperCase()
   const market = `KRW-${t}`
-  const res    = await fetch(`https://api.upbit.com/v1/ticker?markets=${market}`, { headers:{ Accept:'application/json' }, next:{ revalidate:0 } })
+  const res    = await upbitFetch(`/ticker?markets=${market}`)   // 공용 lib/upbit — 호출 간격·429 재시도 공유
   if (!res.ok) throw new Error(`업비트 조회 실패 (${res.status}): ${market}`)
   const arr = await res.json()
   const d   = arr?.[0]
@@ -1215,9 +1216,8 @@ async function cryptoInfo(ticker: string): Promise<StockInfo> {
   // 업비트 마켓 목록에서 이름
   let name = t
   try {
-    const mRes = await fetch('https://api.upbit.com/v1/market/all?isDetails=false', { headers:{ Accept:'application/json' }, next:{ revalidate:3600 } })
-    if (mRes.ok) {
-      const markets: { market:string; english_name:string; korean_name:string }[] = await mRes.json()
+    const markets = await upbitJson<{ market:string; english_name:string; korean_name:string }[]>('/market/all?isDetails=false')
+    if (Array.isArray(markets)) {
       const found = markets.find(m => m.market === market)
       if (found) name = found.english_name ?? found.korean_name ?? t
     }

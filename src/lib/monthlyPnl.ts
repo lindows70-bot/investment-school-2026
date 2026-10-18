@@ -1,6 +1,7 @@
 // 진짜 월별 손익 시계열 SSOT — 보유 로트 × 일봉 이력으로 월말 평가액을 재구성한다
 // ⚠️ 관례: 원가·평가 모두 '그 달 말 환율'로 환산(대시보드 toKrw 와 동일) → 마지막 달 누적 == 대시보드 평가손익
 import { getTechCandles, type TechCandle } from '@/lib/techChartData'
+import { upbitJson } from '@/lib/upbit'
 import { getCache, setCache } from '@/lib/appCache'
 // 로트·시점 타입과 순수 계산은 monthlySeries.ts(서버 의존 없음 — 단위검증용)로 옮겼다. 기존 import 경로는 그대로 쓴다
 import { buildMonthlySeries, needsCandles, windowStart, type PnlLot, type MonthlyPnlPoint, type MonthlyTruncated } from '@/lib/monthlySeries'
@@ -48,17 +49,15 @@ async function cryptoCandles(ticker: string, needFrom: string): Promise<TechCand
   let to: string | null = null
   try {
     for (let page = 0; page < 8; page++) {          // 최대 1,600일 ≈ 4.4년
-      const url = `https://api.upbit.com/v1/candles/days?market=KRW-${ticker.toUpperCase()}&count=200${to ? `&to=${to}` : ''}`
-      const r = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10_000), cache: 'no-store' })
-      if (!r.ok) break
-      const j: { candle_date_time_kst: string; candle_date_time_utc: string; trade_price: number }[] = await r.json()
+      type UpbitDay = { candle_date_time_kst: string; candle_date_time_utc: string; trade_price: number }
+      const j: UpbitDay[] | null = await upbitJson<UpbitDay[]>(`/candles/days?market=KRW-${ticker.toUpperCase()}&count=200${to ? `&to=${to}` : ''}`)   // 공용 lib/upbit
       if (!Array.isArray(j) || j.length === 0) break
       for (const c of j) {
         const close = c.trade_price
         if (!isFinite(close) || close <= 0) continue
         out.push({ date: c.candle_date_time_kst.slice(0, 10), open: close, high: close, low: close, close, volume: 0 })
       }
-      const oldest = j[j.length - 1]
+      const oldest: UpbitDay = j[j.length - 1]
       if (oldest.candle_date_time_kst.slice(0, 10) <= needFrom) break   // 필요한 시점까지 확보
       to = `${oldest.candle_date_time_utc}Z`                            // 다음 페이지는 이 시점 이전
       await new Promise(res => setTimeout(res, 120))                    // 업비트 rate limit 배려

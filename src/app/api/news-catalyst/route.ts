@@ -79,6 +79,7 @@ export interface NewsCatalystResult {
 
 // ── 뉴스 수집 ─────────────────────────────────────────────────────────────────
 const RSS_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+import { googleNewsItems } from '@/lib/googleNews'
 /** RSS <item> 의 <link> — CDATA 또는 그대로. http(s) 가 아니면 null(지어내지 않는다) */
 function rssLink(item: string): string | null {
   const raw = item.match(/<link><!\[CDATA\[(.*?)\]\]><\/link>/)?.[1] ?? item.match(/<link>(.*?)<\/link>/)?.[1] ?? ''
@@ -101,20 +102,10 @@ async function fetchYahooRss(ticker: string): Promise<HeadlineLink[]> {
   } catch { return [] }
 }
 
-/** Google News RSS — KR 종목 (무료·무인증) */
+/** Google News RSS — KR 종목 (무료·무인증 · 공용 lib/googleNews) */
 async function fetchGoogleNewsRss(name: string): Promise<HeadlineLink[]> {
-  try {
-    const q = encodeURIComponent(`${name} 실적 주가`)
-    const url = `https://news.google.com/rss/search?q=${q}&hl=ko&gl=KR&ceid=KR:ko`
-    const r = await fetch(url, { headers: { 'User-Agent': RSS_UA }, signal: AbortSignal.timeout(8000), cache: 'no-store' })
-    if (!r.ok) return []
-    const xml = await r.text()
-    const items = xml.match(/<item>[\s\S]*?<\/item>/g) ?? []
-    return items.slice(0, 5).map(it => {
-      const t = it.match(/<title><!\[CDATA\[(.*?)\]\]>/)?.[1] ?? it.match(/<title>(.*?)<\/title>/)?.[1] ?? ''
-      return { title: t.replace(/ - [^-]+$/, '').trim(), url: rssLink(it) }  // 미디어명 제거
-    }).filter(h => h.title)
-  } catch { return [] }
+  const items = await googleNewsItems(`${name} 실적 주가`, { lang: 'ko', take: 5, timeoutMs: 8000 })
+  return items.map(h => ({ title: h.title.replace(/ - [^-]+$/, '').trim(), url: h.link })).filter(h => h.title)   // 미디어명 제거
 }
 
 /** KR 종목도 Yahoo KS/KQ RSS 시도 */

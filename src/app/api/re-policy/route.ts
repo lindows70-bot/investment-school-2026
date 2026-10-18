@@ -7,6 +7,7 @@ export const maxDuration = 60
 
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
+import { googleNewsItems } from '@/lib/googleNews'
 import { collectAdmRules, getAdmRulePurpose, LAW_OC_IS_SAMPLE } from '@/lib/lawApi'
 import {
   classifyChannel, classifyStance, summarize, climateOf, ymd, dedupKey,
@@ -34,24 +35,12 @@ export interface RePolicyResult {
   lawDown: boolean             // 법령 축이 전멸했나(뉴스만 표시 중임을 화면이 알 수 있게)
 }
 
-const dec = (s: string) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
 
 /** 📰 Google News RSS — market-catalyst·crypto-regulation 과 같은 무인증 경로 */
+// 공용 lib/googleNews — 날짜가 읽힌 기사만(정책 레이더는 날짜순이 생명)
 async function newsOf(query: string): Promise<{ title: string; date: string; link: string }[]> {
-  try {
-    const r = await fetch(`https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`,
-      { cache: 'no-store', signal: AbortSignal.timeout(12_000) })
-    if (!r.ok) return []
-    const xml = await r.text()
-    return Array.from(xml.matchAll(/<item>([\s\S]*?)<\/item>/g)).map(m => {
-      const it = m[1]
-      const t = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/.exec(it)?.[1] ?? ''
-      const d = /<pubDate>([\s\S]*?)<\/pubDate>/.exec(it)?.[1] ?? ''
-      const l = /<link>([\s\S]*?)<\/link>/.exec(it)?.[1] ?? ''
-      const dt = d ? new Date(d) : null
-      return { title: dec(t.trim()), date: dt && !isNaN(dt.getTime()) ? dt.toISOString().slice(0, 10) : '', link: l.trim() }
-    }).filter(x => x.title && x.date)
-  } catch { return [] }
+  const items = await googleNewsItems(query, { lang: 'ko', timeoutMs: 12_000 })
+  return items.filter(x => x.date).map(x => ({ title: x.title, date: x.date!, link: x.link ?? '' }))
 }
 
 export async function GET(req: Request) {
@@ -85,8 +74,10 @@ export async function GET(req: Request) {
   const seen = new Set<string>()
   let politicsFiltered = 0
   const newsItems: PolicyItem[] = []
-  for (const q of NEWS_KW) {
-    for (const n of await newsOf(q)) {
+  // 질의 6개를 동시에(콜드 9초 → 법령 축과 함께 1~2초). 합치는 순서는 NEWS_KW 순서 그대로라 '먼저 본 제목이 남는' 중복 제거 결과가 전과 같다
+  const newsLists = await Promise.all(NEWS_KW.map(q => newsOf(q)))
+  for (const list of newsLists) {
+    for (const n of list) {
       const key = dedupKey(n.title)   // ⚠️ 유니코드 따옴표까지 정규화(라이브에서 중복 2건 발생)
       if (seen.has(key)) continue
       seen.add(key)
@@ -119,11 +110,9 @@ export async function GET(req: Request) {
   //    ⚠️ **화면에 나가는 것만** 조회한다(수집분 45건 전부 부르면 낭비). 개별 30일 캐시라 두 번째부터는 즉시.
   //    실패는 무시 — 목적이 없으면 제목만 보여준다(없는 걸 지어내지 않는다).
   const lawShown = items.filter(i => i.source === 'law' && i.lawId)
-  for (let k = 0; k < lawShown.length; k += 5) {
-    await Promise.all(lawShown.slice(k, k + 5).map(async i => {
-      i.purpose = (await getAdmRulePurpose(i.lawId!).catch(() => null)) ?? undefined
-    }))
-  }
+  await Promise.all(lawShown.map(async i => {   // 최대 25건 동시 — 대부분 30일 캐시 히트라 실제 외부 호출은 콜드 몇 건
+    i.purpose = (await getAdmRulePurpose(i.lawId!).catch(() => null)) ?? undefined
+  }))
 
   const result: RePolicyResult = {
     asOf: new Date().toISOString(),
