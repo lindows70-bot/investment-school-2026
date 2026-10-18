@@ -9,7 +9,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const compat = new FlatCompat({ baseDirectory: __dirname })
 
 export default [
-  { ignores: ['.next/**', '.next-build/**', 'node_modules/**', '.audit/**', 'docs/**', 'scripts/**', 'public/**'] },
+  // .bt-* 는 lib 단위검증용 임시 컴파일 산출물(require 스타일 JS) — `eslint .` 로 돌리면 여기서 100건 넘게 터진다(2026-10-18 pre-push 실측)
+  { ignores: ['.next/**', '.next-build/**', '.bt-*/**', 'node_modules/**', '.audit/**', 'docs/**', 'scripts/**', 'public/**'] },
   // ESLint 9 는 안 쓰이는 eslint-disable 주석을 기본 warn 으로 올린다(실측 23건) — next lint(ESLint 8) 와 같은 결과를 내도록 끈다
   { linterOptions: { reportUnusedDisableDirectives: 'off' } },
   ...compat.extends('next/core-web-vitals', 'next/typescript'),

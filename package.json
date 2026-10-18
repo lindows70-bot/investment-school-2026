@@ -6,11 +6,11 @@
     "dev": "node scripts/dev.js",
     "dev:quick": "next dev",
     "build": "next build",
-    "check": "npx tsc --noEmit && eslint .",
+    "check": "npx tsc --noEmit && eslint src",
     "check:build": "node scripts/check-build.js",
     "deploy": "npx vercel --prod --yes",
     "start": "next start",
-    "lint": "eslint .",
+    "lint": "eslint src",
     "prepare": "husky"
   },
   "dependencies": {
