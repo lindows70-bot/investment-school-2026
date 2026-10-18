@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 import { requireUserOrCron } from '@/lib/cronAuth'
 import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
 import { getMoneyFlow } from '@/lib/moneyFlow'
-import { getCurrentSeason } from '@/lib/currentSeason'
+import { getRegionSeasons, originOf } from '@/lib/regionSeason'   // 🌦️ 계절은 자산 국적(origin)으로 — market 으로 고르면 유럽·일본·중국 종목에 미국 계절(하이네켄 80 vs 55 사고 · 2026-10-18 제2원칙)
 import { holdingFit } from '@/lib/seasonNavigator'
 import { classifyLynchMece } from '@/lib/lynchAnalysis'
 
@@ -65,7 +65,7 @@ export async function GET(req: Request) {
     getCanonicalFundamentals(ticker, market, base).catch(() => null),
     getMoneyFlow(ticker, market, name, base).catch(() => null),
     gicsSector(ticker, market).catch(() => null),
-    getCurrentSeason(base).catch(() => null),
+    getRegionSeasons(base).catch(() => null),
     fetch(`${base}/api/fomc-decoder`, { signal: AbortSignal.timeout(10_000) }).then(r => r.ok ? r.json() : null).catch(() => null),
   ])
 
@@ -75,7 +75,7 @@ export async function GET(req: Request) {
 
   let seasonTag: DecisionSnapshot['seasonTag'] = null, seasonQ: string | null = null
   if (season) {
-    const quad = market === 'KR' ? season.krQuad : season.usQuad
+    const quad = season.quad[originOf(ticker, market)]   // 통합추천·research-verdict 와 같은 지역 계절
     seasonQ = quad
     const fit = Math.round(holdingFit({ ticker: '', weight: 0, lynchCategory: category, sector: gics ?? undefined }, quad) * 100)
     seasonTag = fit >= 75 ? 'favored' : fit <= 50 ? 'unfavored' : 'neutral'

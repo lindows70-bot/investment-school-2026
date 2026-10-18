@@ -8,7 +8,7 @@ import { loadRotationBySector, SECTOR_TO_ROT, type RotQuadShared } from './rotat
 import { getSector } from './schoolIndex'
 import { getCanonicalFundamentals, isPegBaseEffect } from './canonicalFundamentals'
 import { getMoneyFlow } from './moneyFlow'
-import { getCurrentSeason } from './currentSeason'
+import { getRegionSeasons, originOf, type Origin } from './regionSeason'   // 🌍 지역 계절 SSOT(2026-10-18 — market 선택 폐기)
 import { holdingFit, type Quadrant } from './seasonNavigator'
 import { classifyLynchMece } from './lynchAnalysis'
 import { computeMoatErosion, combineBuffettSell, type BuffettSellResult } from './buffettSell'   // 🏰 버핏 매도 점검(기업 변질 3축)
@@ -122,7 +122,7 @@ async function buildOne(
   fund: ExitPlanItem['fund'],
   rotBySector: Map<string, { q: RotQuadShared }> | null,
   snap: (BuySnapshot & { boughtAt: string }) | null,
-  quads: { us: Quadrant | null; kr: Quadrant | null },
+  quads: Record<Origin, Quadrant> | null,   // 🌍 5지역 계절 — 종목은 origin 으로 고른다(market 으로 고르면 유럽·일본·중국 보유에 미국 계절 · 2026-10-18)
   base: string,
   qualityGapMap: Map<string, boolean> | null,
 ): Promise<ExitPlanItem | null> {
@@ -169,7 +169,7 @@ async function buildOne(
       ])
       // 계절 now = decision-snapshot과 동일 공식(holdingFit 75/50) — 섹터는 스냅샷 GICS 재사용(드리프트·재fetch 방지)
       let seasonTagNow: string | null = null
-      const quad = h.market === 'KR' ? quads.kr : quads.us
+      const quad = quads ? quads[originOf(h.ticker, h.market)] : null
       if (quad) {
         const lynch = classifyLynchMece(null, cf?.growth ?? null, snap.sector ?? null).cat
         const fit = Math.round(holdingFit({ ticker: '', weight: 0, lynchCategory: lynch === 'na' ? null : lynch, sector: snap.sector ?? undefined }, quad) * 100)
@@ -247,8 +247,7 @@ export async function buildExitPlans(
   base: string,
 ): Promise<{ items: ExitPlanItem[]; skipped: string[] }> {
   const rotBySector = await loadRotationBySector().catch(() => null)
-  const season = await getCurrentSeason(base).catch(() => null)
-  const quads = { us: (season?.usQuad ?? null) as Quadrant | null, kr: (season?.krQuad ?? null) as Quadrant | null }
+  const quads = (await getRegionSeasons(base).catch(() => null))?.quad ?? null   // 🌍 지역 계절 SSOT(통합추천·research-verdict 와 같은 값)
   // 🏰 quality_gap 조인 — 스크리너 유니버스(보유 종목 항상 포함)를 한 번만 읽어 티커→괴리 맵(추가 fetch 0)
   const qualityGapMap = await getCache<ScreenedStock[]>(UNIVERSE_KEY, 8 * 24 * 3600_000)
     .then(uni => uni ? new Map(uni.map(s => [s.ticker.toUpperCase(), s.qualityGap])) : null)

@@ -26,6 +26,7 @@ import { computeCountryVol, type CountryVolItem } from '@/lib/countryVol'
 import { volForStock } from '@/lib/countryVolShared'   // 💪 상대강도 약세 제외 — 통합추천과 동일 SSOT(A주 분기 포함)
 import { classifyAssetRole, type AssetRole } from '@/lib/portfolioRole'   // P2: 코어-새틀라이트 5분류 SSOT
 import { getCurrentSeason } from '@/lib/currentSeason'
+import { getRegionSeasons, originOf } from '@/lib/regionSeason'
 import { holdingFit } from '@/lib/seasonNavigator'   // 보강: 계절 적합도(불리 종목 트림)
 import { getMoneyFlow } from '@/lib/moneyFlow'        // 보강: 수급 이탈(CROWDED) 트림
 import { isPriced, type PriceInput } from '@/lib/portfolioSummary'   // 시세 판정 SSOT — 조회 실패 행(0원+error)을 가격으로 쓰지 않는다
@@ -576,6 +577,7 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
   let band = { min: 50, max: 60, text: '국면 분석 보류' }
   let season: Awaited<ReturnType<typeof getCurrentSeason>> | null = null
   try { season = await getCurrentSeason(base); band = coreTargetBand(season.usQuad, season.rateDir) } catch { /* 폴백 */ }
+  const regionSeasons = await getRegionSeasons(base).catch(() => null)   // 🌍 5지역 계절(캐시 공유 · 비용 ~0) — 종목별 계절 태그는 origin 으로 고른다
 
   const mvByTicker = new Map(items.map(i => [i.ticker.toUpperCase(), i]))
 
@@ -587,7 +589,8 @@ async function buildCoreSatellite(rows: any[], diagnoses: HoldingDiagnosis[], bu
     try { const mf = await getMoneyFlow(d.ticker, mk, d.name, base); o.flow = mf?.status } catch { /* graceful */ }
     o.trend = d.priceTrend   // 보유 진단에서 캡처한 주가 추세(추가 fetch 0)
     if (season) {
-      const quad = mk === 'KR' ? season.krQuad : season.usQuad
+      // 🌦️ 계절은 자산 국적(origin)으로 — market 으로 고르면 유럽·일본·중국 보유에 미국 계절(2026-10-18 제2원칙). 지역 계절을 못 받으면 전처럼 US/KR
+      const quad = regionSeasons?.quad[originOf(d.ticker, mk)] ?? (mk === 'KR' ? season.krQuad : season.usQuad)
       const sec = secByTicker[k]
       const fit = holdingFit({ ticker: '', weight: 0, lynchCategory: (d.lynchCategory as never) ?? null, sector: sec }, quad)
       o.seasonTag = fit >= 0.75 ? 'favored' : fit <= 0.5 ? 'unfavored' : 'neutral'

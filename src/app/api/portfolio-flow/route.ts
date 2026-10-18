@@ -7,9 +7,8 @@ import { fetchUsdKrw } from '@/lib/fx'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { getMoneyFlow, type FlowStatus, type MoneyFlowResult } from '@/lib/moneyFlow'
 import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
-import { growthFromCli, inflationFromRegime, seasonOf, holdingFit, SEASON_META, type Quadrant as Season } from '@/lib/seasonNavigator'
-import { fetchMacroData } from '@/lib/macroPhaseScreener'
-import { fetchCli } from '@/lib/oecdCli'   // 📈 CLI 수집 SSOT(2026-08-24 — 여기 있던 복제본을 합침)
+import { holdingFit, SEASON_META, type Quadrant as Season } from '@/lib/seasonNavigator'
+import { getRegionSeasons, originOf } from '@/lib/regionSeason'   // 🌍 지역 계절 SSOT(2026-10-18 — 여기 있던 US·KR 재계산을 합침)
 import { classifyLynchMece } from '@/lib/lynchAnalysis'
 import { isInflowNear } from '@/lib/flowShared'
 
@@ -132,22 +131,16 @@ export async function GET(req: Request) {
   const totalCost = stocks.reduce((sum, s) => sum + costKrw(s), 0) || 1
   const weightOf = (s: typeof stocks[number]) => Math.round((costKrw(s) / totalCost) * 1000) / 10
 
-  // 🌦️ 현재 계절(US·KR) — 통합추천과 동일 SSOT 경로 재사용(macro + OECD CLI). 전부 캐시라 비용 미미
-  let usQuad: Season = 'shoulder', krQuad: Season = 'shoulder'
-  try {
-    let cpiYoY = 2.5, rateDir: 'cut' | 'hold' | 'hike' = 'hold'
-    try { const md = await fetchMacroData(selfBase); cpiYoY = typeof md.cpiYoY === 'number' ? md.cpiYoY : cpiYoY; rateDir = md.rateDir ?? 'hold' } catch { /* graceful */ }
-    const [usCli, krCli] = await Promise.all([fetchCli('US'), fetchCli('KR')])
-    const inf = inflationFromRegime(cpiYoY, rateDir)
-    usQuad = seasonOf(growthFromCli(usCli?.cli ?? 100, usCli?.cliPrev ?? 100), inf)
-    krQuad = seasonOf(growthFromCli(krCli?.cli ?? 100, krCli?.cliPrev ?? 100), inf)
-  } catch { /* 계절 미상 → shoulder 폴백 */ }
+  // 🌦️ 현재 계절 — 지역 계절 SSOT(lib/regionSeason · 통합추천·research-verdict 와 같은 값). 전엔 여기서 US·KR 을 따로 다시 계산하고 market 으로 골라
+  //    유럽·일본·중국 종목에 미국 계절을 씌웠다(2026-10-18 제2원칙). 전부 캐시라 비용 미미 · 못 받으면 간절기(shoulder)
+  const regionSeasons = await getRegionSeasons(selfBase).catch(() => null)
+  const quadOf = (ticker: string, market: 'KR' | 'US'): Season => regionSeasons?.quad[originOf(ticker, market)] ?? 'shoulder'
   // 계절 적합도 0~100 — 섹터(영문 GICS) + 린치 분류(growth+섹터로 산출, 추가 fetch 0)를 holdingFit에 투입.
   //  린치를 넘겨야 fit이 전 구간을 쓰며 '불리'까지 도달(이전 stalwart 폴백은 최저 55라 불리 미도달)
-  const seasonFitOf = (market: 'KR' | 'US', sector: string | null, growth: number | null): number => {
+  const seasonFitOf = (ticker: string, market: 'KR' | 'US', sector: string | null, growth: number | null): number => {
     const { cat } = classifyLynchMece(null, growth, sector)
     const lc = cat === 'na' ? null : cat
-    return Math.round(holdingFit({ ticker: '', weight: 0, lynchCategory: lc, sector: sector ?? undefined }, market === 'KR' ? krQuad : usQuad) * 100)
+    return Math.round(holdingFit({ ticker: '', weight: 0, lynchCategory: lc, sector: sector ?? undefined }, quadOf(ticker, market)) * 100)
   }
 
   // 영문 GICS 섹터(계절 우대 매칭용) — SSOT cf.sector는 한국어 세분류라 영문 GICS와 안 맞음.
@@ -185,7 +178,7 @@ export async function GET(req: Request) {
         const flowText = market === 'KR'
           ? `외인${dirArrow(mf.foreign?.dir)} 기관${dirArrow(mf.organ?.dir)} 개인${dirArrow(mf.individual?.dir)}`
           : `MFI ${mf.us?.mfi ?? '—'}${(mf.us?.insiderBuyers ?? 0) > 0 ? ` · 내부자 ${mf.us!.insiderBuyers}` : ''}${(mf.us?.giantHolders ?? 0) > 0 ? ` · 거인 ${mf.us!.giantHolders}` : ''}`
-        const seasonFit = seasonFitOf(market, gics, cf.growth)
+        const seasonFit = seasonFitOf(s.ticker, market, gics, cf.growth)
         const e: FlowEntry = {
           ticker: s.ticker, name, market, status: mf.status, peg: cf.peg, opMargin: cf.opMargin,
           quadrant: quadrantOf(mf.status, cf.peg, cf.opMargin), weight: weightOf(s),
@@ -217,7 +210,7 @@ export async function GET(req: Request) {
   const result: PortfolioFlowResult = {
     entries, total, inflowCount, crowdedCount, smartMoneyRate,
     headline: buildHeadline(entries, smartMoneyRate), history,
-    season: { us: brief(usQuad), kr: brief(krQuad) },
+    season: { us: brief(regionSeasons?.quad.US ?? 'shoulder'), kr: brief(regionSeasons?.quad.KR ?? 'shoulder') },   // 요약 칩은 US·KR(지역 계절 SSOT 값)
     asOf: new Date().toISOString(),
   }
   if (fxLive) await setCache(cacheKey, result)   // 고정 환율로 잰 원가 비중은 박제 금지(동행지수 추이는 개수 기준이라 환율 무관 — 위에서 그대로 적립)

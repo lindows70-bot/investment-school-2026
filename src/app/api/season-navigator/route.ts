@@ -15,6 +15,7 @@ import {
   SEASON_META, type Holding, type Quadrant,
 } from '@/lib/seasonNavigator'
 import { fetchCli } from '@/lib/oecdCli'                                  // 📈 CLI 수집 SSOT
+import { getRegionSeasons, originOf } from '@/lib/regionSeason'          // 🌍 종목별 계절은 자산 국적으로(2026-10-18)
 import { killSwitch, type KillSwitchResult } from '@/lib/killSwitch'      // 🔌 판정 무효화 조건(2026-08-24)
 
 export const dynamic = 'force-dynamic'
@@ -109,6 +110,7 @@ export async function GET(req: Request) {
   const gKr = growthFromCli(krCli?.cli ?? 100, krCli?.cliPrev ?? 100)
   const usQuad = seasonOf(gUs, i)   // 미국 = 글로벌 매크로 앵커(메인 다이어그램·행동가이드 기준)
   const krQuad = seasonOf(gKr, i)
+  const regionSeasons = await getRegionSeasons(base).catch(() => null)   // 🌍 종목별 계절 태그용 5지역(같은 CLI·CPI 캐시라 US·KR 값은 위와 같다)
   const g = gUs                      // 축 진단·메인 다이어그램은 미국 앵커
   const quadrant = usQuad
   const meta = SEASON_META[quadrant]
@@ -165,7 +167,8 @@ export async function GET(req: Request) {
   const totalW = holdings.reduce((s, h) => s + h.weight, 0) + etfScored.reduce((s, e) => s + e.weight, 0) || 1
   const perHolding = [
     ...holdings.map(h => {
-      const q = h.market === 'KR' ? krQuad : usQuad
+      // 🌍 종목 계절은 자산 국적(origin)으로 — 유럽·일본·중국 보유에 미국 계절을 씌우지 않는다(2026-10-18 제2원칙). 지역 계절을 못 받으면 전처럼 시장으로
+      const q = regionSeasons?.quad[originOf(h.ticker, h.market ?? 'US')] ?? (h.market === 'KR' ? krQuad : usQuad)
       return { ticker: h.ticker, name: h.name, weight: Math.round((h.weight / totalW) * 1000) / 10, fit: holdingFit(h, q), market: h.market ?? 'US', isEtf: false }
     }),
     ...etfScored.map(e => ({ ticker: e.ticker, name: e.name, weight: Math.round((e.weight / totalW) * 1000) / 10, fit: e.fit, market: e.market, isEtf: true })),
