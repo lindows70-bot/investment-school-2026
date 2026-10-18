@@ -27,7 +27,7 @@ import { LEAGUE_SNAP_KEY } from '@/lib/leagueSnap'
 const GRACE_MS = 45 * 60_000            // 실행 지연 유예(가장 긴 크론 300s의 9배 — 오탐 방지)
 const KST_MS = 9 * 3600_000
 
-export type CronDays = 'daily' | 'weekday' | 'tue' | 'mon'   // tue = UTC 월요일 크론(KST 화요일 발화) · mon = UTC 일요일 크론(KST 월요일 발화)
+export type CronDays = 'daily' | 'weekday' | 'tue' | 'mon' | 'tue-sat'   // tue = UTC 월요일 크론(KST 화요일 발화) · mon = UTC 일요일 크론(KST 월요일 발화) · tue-sat = `* * 2-6` UTC 오전 크론(KST 화~토 · 일·월은 안 돈다)
 
 export interface CronMonitor {
   id: string
@@ -82,7 +82,8 @@ export const CRON_MONITORS: CronMonitor[] = [
   { id: 'insiderMarket', label: '미국 내부자 매수 집계', kst: '06:50', days: 'daily', artifact: { type: 'cacheDate', key: d => INSIDER_MARKET_KEY(d) }, heal: '/api/insider-market?refresh=1', heavy: true },
   // 🧭 ETF 순자산 스냅샷 — 화~토 19:20 KST(미국 전날 마감 뒤). 하루 빠지면 그 주의 순유입 역산이 한 칸 빈다.
   //    일·월요일엔 크론이 없어 stale → heal 이 부르면 snapshotEtfs 가 '주말 스킵'으로 마커만 남긴다(금요일 값 중복 저장 방지)
-  { id: 'etfSnap', label: '미국 ETF 순자산 스냅샷', kst: '19:20', days: 'daily', artifact: { type: 'cacheDate', key: d => ETF_SNAP_MARK(d) }, heal: '/api/cron/etf-snap' },
+  // vercel.json `20 10 * * 2-6`(UTC 화~토 = KST 화~토 19:20) — 'daily' 로 적혀 있어 일·월요일 저녁마다 거짓 stale 이었다(2026-10-18 일요일 실측)
+  { id: 'etfSnap', label: '미국 ETF 순자산 스냅샷', kst: '19:20', days: 'tue-sat', artifact: { type: 'cacheDate', key: d => ETF_SNAP_MARK(d) }, heal: '/api/cron/etf-snap' },
   { id: 'analystRerating', label: '미국 애널리스트 리레이팅 스캔', kst: '07:10', days: 'daily', artifact: { type: 'cacheDate', key: d => ANALYST_RERATING_KEY(d) }, heal: '/api/analyst-rerating?refresh=1', heavy: true },
   // 📋 성적 채점 — 적립(위 두 크론의 refresh 경로)과 별개. 조용히 멈추면 성적이 옛날 값에 굳는다
   { id: 'usmRecord', label: '미국 스마트머니 성적 채점', kst: '07:30', days: 'daily', artifact: { type: 'cacheDate', key: d => USM_GRADE_KEY(d) }, heal: '/api/usm-record?refresh=1', heavy: true },
@@ -130,6 +131,7 @@ export function lastExpectedKst(now: Date, kst: string, days: CronDays): Date | 
     if (days === 'weekday' && (dow === 0 || dow === 6)) continue
     if (days === 'tue' && dow !== 2) continue
     if (days === 'mon' && dow !== 1) continue
+    if (days === 'tue-sat' && (dow === 0 || dow === 1)) continue
     return d
   }
   return null
