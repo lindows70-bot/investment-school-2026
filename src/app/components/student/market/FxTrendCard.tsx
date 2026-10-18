@@ -18,7 +18,6 @@ const RANGES: { key: Range; label: string }[] = [{ key: 'm1', label: '1달' }, {
 const dayMs = (ymd: string) => Date.parse(`${ymd}T00:00:00+09:00`)
 const tDay = (t: number) => ymdDot(kstParts(t).ymd) ?? ''
 const int = (v: number) => Math.round(v).toLocaleString('ko-KR')
-const md = (ymd: string) => { const [, m, d] = ymd.split('-'); return `${Number(m)}.${Number(d)}` }
 
 /** appFx = /api/exchange-rate(내 자산 등 다른 화면이 쓰는 앱 환율) — 이 카드 값과 다를 때만 이유를 적는 데 쓴다 */
 export default function FxTrendCard({ overview, appFx }: { overview: JsonResult<OverviewResp>; appFx: JsonResult<FxResp> }) {
@@ -28,10 +27,10 @@ export default function FxTrendCard({ overview, appFx }: { overview: JsonResult<
   const pts = r ? r.points.map(p => ({ t: dayMs(p.date), v: p.v })).filter(p => Number.isFinite(p.t)) : []
   const latest = view.kind === 'ok' ? view.data.latest : null
   const dt = pts.length >= 2 ? dayTicks(pts[0].t, pts[pts.length - 1].t) : { ticks: [], fmt: tDay }
-  // 차트 말풍선 — 기간 최고·최저(원천 계산값 그대로, 표시는 원 단위 반올림)
+  // 차트 말풍선 — 기간 최고·최저(원천 계산값 그대로). 표기는 홈 카드(FxMini)와 같은 형식(소수 둘째 자리 · 'M/D(요일)') — 같은 점이 두 화면에서 다르게 읽히지 않게(2026-10-18)
   const marks: PlotMark[] = []
-  if (r?.high) marks.push({ t: dayMs(r.high.date), v: r.high.v, name: '고점', value: int(r.high.v), when: md(r.high.date), place: 'above' })
-  if (r?.low) marks.push({ t: dayMs(r.low.date), v: r.low.v, name: '저점', value: int(r.low.v), when: md(r.low.date), place: 'below' })
+  if (r?.high) marks.push({ t: dayMs(r.high.date), v: r.high.v, name: '고점', value: fxWon(r.high.v), when: mdDow(r.high.date) ?? r.high.date, place: 'above' })
+  if (r?.low) marks.push({ t: dayMs(r.low.date), v: r.low.v, name: '저점', value: fxWon(r.low.v), when: mdDow(r.low.date) ?? r.low.date, place: 'below' })
   const highLowText = [r?.high ? `기간 최고 ${fxWon(r.high.v)}(${ymdDot(r.high.date) ?? r.high.date})` : null, r?.low ? `기간 최저 ${fxWon(r.low.v)}(${ymdDot(r.low.date) ?? r.low.date})` : null].filter(Boolean).join(' · ')
   // 큰 숫자 = 가장 새 고시 하나(fxHeadline SSOT — 홈 카드·한눈 시황·내 자산과 같은 값). 앱 환율이 아직 안 왔으면 추이의 값으로 먼저 그린다
   const head = view.kind === 'ok' ? fxHeadline(appFx.state === 'ok' ? appFx.data : null, view.data) : null
@@ -55,7 +54,7 @@ export default function FxTrendCard({ overview, appFx }: { overview: JsonResult<
           <span style={noteStyle()}>1달러를 사려면 드는 원화예요 · 하나은행 매매기준율 · {mdDow(head.date) ?? head.date}{head.round != null ? ` ${head.round}회차` : ''}{head.live ? ' · 오늘 고시는 하루에도 여러 번 바뀌어요' : ''}</span>
           {pts.length >= 2
             // 고점·저점은 차트 위 말풍선으로(값·날짜) — 읽어 주는 문장은 정확한 값(소수 둘째 자리)으로 따로 둔다
-            ? <div aria-label={highLowText} style={{ height: 210, minWidth: 0 }}>
+            ? <div role="img" aria-label={highLowText} style={{ height: 210, minWidth: 0 }}>
                 <LinePlot points={pts} color={TK.teal400} tFmt={tDay} vFmt={fxWon}
                   area grid endDot yAxis="left" yTicks={niceTicks(Math.min(...pts.map(p => p.v)), Math.max(...pts.map(p => p.v)), 3)} yFmt={int}
                   xTicks={dt.ticks} xFmt={dt.fmt} marks={marks} />

@@ -30,8 +30,13 @@ function Tip({ active, payload, lastMonth }: { active?: boolean; payload?: Reado
 
 /** data = 보일 범위만 · lastMonth = 전체 데이터의 마지막 달(지금 시세로 계산된 달) */
 export default function GrowthPlot({ data, lastMonth }: { data: GrowthDatum[]; lastMonth: string }) {
+  // 접근성 이름 — 값이 툴팁 안에만 있어 그림 이름이 없었다(2026-10-18 전수 점검). 첫 달·마지막 달의 평가금액과 넣은 돈을 읽어 준다
+  const first = data[0], last = data[data.length - 1]
+  const label = first && last
+    ? `내 자산 흐름 ${ymText(first.month)}부터 ${ymText(last.month)}까지 — 평가금액 ${won(first.value)}에서 ${won(last.value)}, 넣은 돈 ${won(first.cost)}에서 ${won(last.cost)}`
+    : '내 자산 흐름 그림'
   return (
-    <div style={{ width: '100%', height: 220, minWidth: 0 }}>
+    <div role="img" aria-label={label} style={{ width: '100%', height: 220, minWidth: 0 }}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: SP.sm, right: SP.sm, bottom: 0, left: 0 }}>
           <CartesianGrid stroke={TK.grid} vertical={false} />

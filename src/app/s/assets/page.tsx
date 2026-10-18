@@ -13,7 +13,7 @@ import { rebalanceCheck } from '@/lib/portfolioSummary'
 import { won, signWon, pct, upDown } from '@/lib/studentFormat'
 import { studentTotalReturn } from '@/lib/realizedPnl'
 import { useMySells, type MySells } from '@/app/components/student/useMySells'
-const reloadBtn = { alignSelf: 'flex-start', height: 40, padding: `0 ${SP.lg}px`, borderRadius: RAD.sm, border: `1px solid ${TK.line1}`, background: 'transparent', color: TK.slate200, fontSize: FS.tiny, cursor: 'pointer' } as const
+const reloadBtn = { alignSelf: 'flex-start', height: 44, padding: `0 ${SP.lg}px`, borderRadius: RAD.sm, border: `1px solid ${TK.line1}`, background: 'transparent', color: TK.slate200, fontSize: FS.tiny, cursor: 'pointer' } as const
 
 // 실패 이유마다 다른 문장 — 무엇을 못 했는지 사실만 말한다
 const FAIL_TEXT: Record<FailReason | 'unknown', { title: string; detail: string }> = {
@@ -164,7 +164,7 @@ export default function StudentAssets() {
             <Label>지금까지 불어난 돈</Label>
             {summary.allUnpriced
               ? <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.sub }}>—</span>
-              : <span style={{ fontSize: FS.body, fontWeight: 700, color: upDown(summary.pnlPct), whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{signWon(summary.pnlKrw)}{summary.pnlPct != null ? ` (${pct(summary.pnlPct)})` : ''}</span>}
+              : <span style={{ fontSize: FS.body, fontWeight: 700, color: upDown(summary.pnlPct), fontVariantNumeric: 'tabular-nums', minWidth: 0 }}>{signWon(summary.pnlKrw)}{summary.pnlPct != null ? <> <span style={{ whiteSpace: 'nowrap' }}>({pct(summary.pnlPct)})</span></> : ''}</span>}
           </div>
         </div>
         <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: SP.xs }}>

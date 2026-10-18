@@ -55,7 +55,7 @@ const tDay = (t: number) => ymdDot(kstParts(t).ymd) ?? ''
 
 const card = { background: TK.card, border: `1px solid ${TK.border}`, borderRadius: RAD.lg, padding: SP.lg } as const   // 리디자인 2026-10-10: 다른 화면과 같은 라운드 16
 const recordBtn = { display: 'flex', alignItems: 'center', justifyContent: 'center', height: 56, borderRadius: RAD.md, background: TK.blue600, color: TK.slate100, fontSize: FS.lg, fontWeight: 700, textDecoration: 'none' } as const
-const reloadBtn = { alignSelf: 'flex-start', height: 40, padding: `0 ${SP.lg}px`, borderRadius: RAD.sm, border: `1px solid ${TK.line1}`, background: 'transparent', color: TK.slate200, fontSize: FS.tiny, cursor: 'pointer' } as const
+const reloadBtn = { alignSelf: 'flex-start', height: 44, padding: `0 ${SP.lg}px`, borderRadius: RAD.sm, border: `1px solid ${TK.line1}`, background: 'transparent', color: TK.slate200, fontSize: FS.tiny, cursor: 'pointer' } as const
 // 실패 이유마다 다른 문장 — 내 자산 화면과 같은 말
 const FAIL_TEXT: Record<FailReason | 'unknown', string> = {
   fx: '환율을 못 가져와서 달러 종목을 원화로 바꿀 수 없어요.',

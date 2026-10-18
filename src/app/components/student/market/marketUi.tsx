@@ -57,7 +57,7 @@ export function RangeTabs<K extends string>({ label, options, value, onChange }:
         return (
           <button key={o.key} type="button" aria-pressed={on} onClick={() => onChange(o.key)}
             style={{
-              height: 40, padding: `0 ${SP.sm + 2}px`, borderRadius: RAD.sm, border: 'none', background: on ? TK.bg7 : 'transparent',
+              height: 44, padding: `0 ${SP.sm + 2}px`, borderRadius: RAD.sm, border: 'none', background: on ? TK.bg7 : 'transparent',   // 44 = 터치 규칙(2026-10-18 전엔 40)
               color: on ? TK.slate100 : TK.sub, fontSize: FS.tiny, fontWeight: on ? 700 : 500, cursor: 'pointer', whiteSpace: 'nowrap',
             }}>
             {o.label}

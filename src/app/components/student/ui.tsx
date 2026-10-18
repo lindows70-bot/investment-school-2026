@@ -77,15 +77,16 @@ export function PageHead({ title, today, extra }: { title: ReactNode; today: str
 }
 
 export interface SegOpt<K extends string> { key: K; label: string }
-/** 구간 선택(국내·미국·코인 / 코인·미국 주식) — 카드 면 위에 선택 칸만 밝게. 버튼 44px */
-export function Segment<K extends string>({ label, options, value, onChange }: { label: string; options: SegOpt<K>[]; value: K; onChange: (k: K) => void }) {
+/** 구간 선택(국내·미국·코인 / 코인·미국 주식) — 바탕 위에선 카드 면 판, 카드 안(inCard)에선 판 없이 선택 칸만 밝게(카드 안 카드가 되지 않게 · 2026-10-18 홈 공포탐욕 실측).
+ *  버튼 44px(2026-10-18: 40 이라 적혀 있어 전 화면 구간 버튼이 터치 규칙 미달이었다) */
+export function Segment<K extends string>({ label, options, value, onChange, inCard = false }: { label: string; options: SegOpt<K>[]; value: K; onChange: (k: K) => void; inCard?: boolean }) {
   return (
-    <div role="group" aria-label={label} style={{ display: 'grid', gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))`, gap: SP.xs, padding: SP.xs, borderRadius: RAD.md, background: TK.card, border: `1px solid ${TK.border}` }}>
+    <div role="group" aria-label={label} style={{ display: 'grid', gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))`, gap: SP.xs, padding: inCard ? 0 : SP.xs, borderRadius: RAD.md, background: inCard ? 'transparent' : TK.card, border: inCard ? 'none' : `1px solid ${TK.border}` }}>
       {options.map(o => {
         const on = o.key === value
         return (
           <button key={o.key} type="button" aria-pressed={on} onClick={() => onChange(o.key)}
-            style={{ height: 40, minWidth: 0, borderRadius: RAD.sm, border: 'none', background: on ? TK.bg7 : 'transparent', color: on ? TK.slate100 : TK.sub, fontSize: FS.tiny, fontWeight: on ? 700 : 600, cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            style={{ height: 44, minWidth: 0, borderRadius: RAD.sm, border: 'none', background: on ? TK.bg7 : 'transparent', color: on ? TK.slate100 : TK.sub, fontSize: FS.tiny, fontWeight: on ? 700 : 600, cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {o.label}
           </button>
         )

@@ -103,7 +103,7 @@ export default function FearGreed({ overview }: { overview: JsonResult<OverviewR
     <section style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
       <CardHead title="공포·탐욕 지수" />
       {/* 리디자인(2026-10-10): 카드 안 상자(bg3) → 공용 Segment(시장 화면과 같은 모양) */}
-      <Segment label="공포·탐욕 지수 종류" options={[{ key: 'coin', label: '코인' }, { key: 'us', label: '미국 주식' }]} value={tab} onChange={pick} />
+      <Segment inCard label="공포·탐욕 지수 종류" options={[{ key: 'coin', label: '코인' }, { key: 'us', label: '미국 주식' }]} value={tab} onChange={pick} />
       <div aria-live="polite">{body}</div>
     </section>
   )
