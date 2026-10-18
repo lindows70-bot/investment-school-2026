@@ -7,9 +7,11 @@ import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache } from '@/lib/appCache'
 import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
 import { getCurrentSeason } from '@/lib/currentSeason'
+import { getRegionSeasons, originOf, type Origin } from '@/lib/regionSeason'   // 🌍 종목 계절은 자산 국적으로(2026-10-19 — 이력 점에 5지역을 선택 필드로 덧붙임)
 import { holdingFit, SEASON_META, type Quadrant } from '@/lib/seasonNavigator'
 import { classifyLynchMece } from '@/lib/lynchAnalysis'
 import { FOMC_SCHEDULE } from '@/lib/fomcSchedule'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 45
@@ -23,6 +25,9 @@ export interface RegimeFlip {
 export interface RegimeTransition {
   from: { us: Quadrant; kr: Quadrant }
   to: { us: Quadrant; kr: Quadrant }
+  /** 🌍 5지역 계절(2026-10-19 이후 저장된 점에만 있다) — 유럽·일본·중국 보유의 뒤집힘 판정용. 없으면 US/KR 로 폴백 */
+  fromQuads?: Record<Origin, Quadrant>
+  toQuads?: Record<Origin, Quadrant>
   date: string               // 전환 감지일
   daysSince: number
 }
@@ -39,7 +44,6 @@ export interface RegimeTripwireResult {
   asOf: string
 }
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 const tagOf = (fit: number): Tag => fit >= 75 ? 'favored' : fit <= 50 ? 'unfavored' : 'neutral'
 
 // 영문 GICS 섹터 — 30일 캐시(portfolio-flow와 동일 소스)
@@ -59,7 +63,7 @@ async function gicsSector(ticker: string, market: 'KR' | 'US'): Promise<string |
   } catch { return null }
 }
 
-interface RegimePoint { date: string; usQuad: Quadrant; krQuad: Quadrant; rateDir: string }
+interface RegimePoint { date: string; usQuad: Quadrant; krQuad: Quadrant; rateDir: string; quads?: Record<Origin, Quadrant> }   // quads: 2026-10-19 부터 저장(선택 — 옛 점은 없다)
 
 export async function GET(req: Request) {
   const sb = await createClient()
@@ -68,22 +72,26 @@ export async function GET(req: Request) {
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
 
   const cur = await getCurrentSeason(base)
+  const regionSeasons = await getRegionSeasons(base).catch(() => null)   // 🌍 5지역(캐시 공유 · US·KR 값은 cur 와 같은 재료)
   const today = kstDate()
 
-  // 전역 국면 이력 — quad/rateDir 변화 시에만 push(전환 시점 보존)
+  // 전역 국면 이력 — quad/rateDir 변화 시에만 push(전환 시점 보존). 2026-10-19 부터 5지역 계절도 함께 적는다(어느 지역이든 바뀌면 점을 남긴다)
   const histKey = 'regime-history-v1'
   const hist = (await getCache<RegimePoint[]>(histKey, 400 * 86400_000)) ?? []
   const last = hist[hist.length - 1]
-  const changed = !last || last.usQuad !== cur.usQuad || last.krQuad !== cur.krQuad || last.rateDir !== cur.rateDir
-  if (changed) { hist.push({ date: today, usQuad: cur.usQuad, krQuad: cur.krQuad, rateDir: cur.rateDir }); await setCache(histKey, hist.slice(-40)) }
+  const regionChanged = !!(regionSeasons && last?.quads && (Object.keys(regionSeasons.quad) as Origin[]).some(o => last.quads![o] !== regionSeasons.quad[o]))
+  const changed = !last || last.usQuad !== cur.usQuad || last.krQuad !== cur.krQuad || last.rateDir !== cur.rateDir || regionChanged || (!!regionSeasons && !last.quads)
+  if (changed) { hist.push({ date: today, usQuad: cur.usQuad, krQuad: cur.krQuad, rateDir: cur.rateDir, ...(regionSeasons ? { quads: regionSeasons.quad } : {}) }); await setCache(histKey, hist.slice(-40)) }
 
   // 최근 전환: 계절 quadrant가 실제로 바뀐 마지막 지점(rateDir만 바뀐 건 전환에서 제외 — 계절 중심)
   let transition: RegimeTransition | null = null
-  const seasonChanges = hist.filter((p, i) => i === 0 || p.usQuad !== hist[i - 1].usQuad || p.krQuad !== hist[i - 1].krQuad)
+  const quadsDiffer = (a?: Record<Origin, Quadrant>, b?: Record<Origin, Quadrant>) => !!(a && b) && (Object.keys(a) as Origin[]).some(o => a[o] !== b[o])
+  const seasonChanges = hist.filter((p, i) => i === 0 || p.usQuad !== hist[i - 1].usQuad || p.krQuad !== hist[i - 1].krQuad || quadsDiffer(p.quads, hist[i - 1].quads))
   if (seasonChanges.length >= 2) {
     const to = seasonChanges[seasonChanges.length - 1], from = seasonChanges[seasonChanges.length - 2]
     transition = {
       from: { us: from.usQuad, kr: from.krQuad }, to: { us: to.usQuad, kr: to.krQuad },
+      fromQuads: from.quads, toQuads: to.quads,
       date: to.date, daysSince: Math.round((new Date(today).getTime() - new Date(to.date).getTime()) / 86400_000),
     }
   }
@@ -107,11 +115,13 @@ export async function GET(req: Request) {
       const lynchCat = classifyLynchMece(null, cf?.growth ?? null, gics).cat
       const lc = lynchCat === 'na' ? null : lynchCat
       const fit = (q: Quadrant) => tagOf(Math.round(holdingFit({ ticker: '', weight: 0, lynchCategory: lc, sector: gics ?? undefined }, q) * 100))
-      const newQuad = market === 'KR' ? cur.krQuad : cur.usQuad
+      // 🌍 종목 계절은 자산 국적(origin)으로 — 유럽·일본·중국 보유에 미국 계절을 씌우지 않는다. 지역 값이 없는 옛 점은 US/KR 로 폴백
+      const origin = originOf(s.ticker, market)
+      const newQuad = regionSeasons?.quad[origin] ?? (market === 'KR' ? cur.krQuad : cur.usQuad)
       const toTag = fit(newQuad)
       let flip: RegimeFlip | null = null
       if (transition) {
-        const prevQuad = market === 'KR' ? transition.from.kr : transition.from.us
+        const prevQuad = transition.fromQuads?.[origin] ?? (market === 'KR' ? transition.from.kr : transition.from.us)
         const fromTag = fit(prevQuad)
         if (fromTag !== toTag && (fromTag === 'favored' || toTag === 'favored' || fromTag === 'unfavored' || toTag === 'unfavored')) {
           const rank = (t: Tag) => t === 'favored' ? 2 : t === 'neutral' ? 1 : 0
