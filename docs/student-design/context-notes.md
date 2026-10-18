@@ -202,3 +202,4 @@
 - **본 폴더에서 `npm install` 이 실패**: react-simple-maps 3.0.0 의 peer 가 React ≤18. worktree 는 명시 설치라 넘어갔지만 Vercel 의 `npm ci` 는 막힌다 → 5.0.5 로(peer 19 지원 · 자체 타입과 우리 ambient d.ts 충돌 없음). 그 뒤 tsc 0 · check:build 통과 · verify 4종 통과.
 - **Next 15 가 바꾼 기본값 중 우리에게 유리한 것**: fetch·GET 라우트가 기본 미캐시(3차 점검에서 no-store 를 11곳 붙인 것과 같은 방향). `export const revalidate`·`dynamic` 은 그대로 유효.
 - 교훈: 큰 업그레이드는 worktree 에서 빌드까지 보고 들어와라 — 세 번의 빌드 실패가 전부 본 폴더 밖에서 났다. 그리고 **worktree 설치 성공 ≠ 본 폴더 설치 성공**(peer 충돌은 lockfile 갱신 경로에 따라 다르게 터진다).
+- **Next 15 배포 뒤 실측(로그인 · 1280)**: 홈 API 12·실패 0·카드 7·섹션 9 · 내 자산(판 종목 +12.1% · 흐름 차트 svg) · 리그(fxLive·sellsComplete true · 9명) · 대시보드 API 27 실패 0 · 매크로 지도 path 184(react-simple-maps 5). 콘솔의 React 오류는 전부 옛 번들 청크(fd9d1056-08c2…)의 것 — 새 번들(4bd1b696…)에선 0. 로그아웃은 `?reason=idle`(30분 유휴 타이머)이지 업그레이드 탓이 아니었다.
