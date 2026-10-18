@@ -337,14 +337,29 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...
 SUPABASE_SERVICE_ROLE_KEY=eyJ...  # 서버 전용
 
 # 외부 API
-FMP_API_KEY=...          # Financial Modeling Prep (미국 재무 + EPS)
-DART_API_KEY=...         # DART OpenAPI (한국 재무 + EPS)
-FRED_API_KEY=...         # St. Louis Fed (인플레이션·금리·QT 데이터)
+FMP_API_KEY=...          # Financial Modeling Prep (미국 재무 + EPS · 무료 250회/일)
+DART_API_KEY=...         # DART OpenAPI (한국 재무 + EPS · 최대주주)
+FRED_API_KEY=...         # St. Louis Fed (인플레이션·금리·QT · 공용 fetcher src/lib/fred.ts)
 ALPHA_VANTAGE_API_KEY=...
-GEMINI_API_KEY=...       # 🤖 Jarvis 어닝콜 애널리스트 (Gemini 2.5 Flash-Lite 무료 티어, 서버 전용)
+GEMINI_API_KEY=...       # 🤖 Gemini 무료 티어(공개 시장·재무 데이터 프롬프트만 · 서버 전용)
+GEMINI_PAID_API_KEY=...  # 🔐 개인 데이터(보유·손익·비중)가 든 프롬프트 전용 — 없으면 fail-closed(로컬엔 없음 · Vercel 만)
+DATA_GO_KR_SERVICE_KEY=... # 공공데이터포털(실거래 RTMS · KRX 휴장일 · 일 1,000회)
+SEOUL_API_KEY=...        # 서울 열린데이터(실거래·재개발)
+ECOS_API_KEY=...         # 한국은행 ECOS(주택담보대출 금리 등)
+R_ONE_API_KEY=...        # 부동산원 R-ONE
+LAW_API_OC=...           # 법제처 Open API 계정(없으면 샘플 'test' 로 폴백 · LAW_OC_IS_SAMPLE)
+KIS_APP_KEY=... / KIS_APP_SECRET=...   # 한국투자증권 Open API(국내 ETF 구성 등)
+
+# 서버 운영
+CRON_SECRET=...          # Vercel 크론 Bearer · 서버 자기 호출 표식(cronAuth.internalHeaders) · 비어 있으면 아무도 못 지나감(fail-closed)
+NEXT_PUBLIC_APP_URL=https://investment-school-2026.vercel.app   # 자기 호출 base(크론은 로그인 보호된 배포 고유 주소로 들어온다 — Vercel 에서 지우지 마라)
+TOSS_API_KEY=... / TOSS_SECRET_KEY=... / TOSS_OWNER_EMAIL=...   # 토스 개인 계좌 — 소유자 세션만(assertTossOwner · OWNER_EMAIL 없으면 fail-closed) · Vercel 등록 · 커밋 금지
 ```
 
-**Vercel 환경변수 추가 필수**: `FRED_API_KEY` (서버 사이드 전용, `NEXT_PUBLIC_` 없음)
+- 코드가 읽는 환경변수는 위 22개가 전부다(2026-10-18 `process.env.*` 전수 대조). `TOSS_TRADING_ENABLED` 는 **코드 어디서도 읽지 않는다** — 주문(체결) 코드 자체가 없어 게이트할 대상이 없다(절대 원칙의 "게이트"는 주문 코드를 만들 때 함께 만든다). `KRX_ID`·`KRX_PW`·`KRX_API_KEY`·`GROQ_API_KEY` 는 로컬 러너·실험용이라 `.env.local` 에만 있고 웹 앱은 쓰지 않는다(Vercel 금지).
+- 검증은 `env ls` 가 아니라 **런타임 길이**로(값은 노출 금지 · `.length` 만).
+
+**Vercel 환경변수 추가 필수**: `FRED_API_KEY` (서버 사이드 전용, `NEXT_PUBLIC_` 없음) · `CRON_SECRET` · `NEXT_PUBLIC_APP_URL`
 
 ---
 
