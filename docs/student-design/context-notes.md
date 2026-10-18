@@ -187,3 +187,11 @@
 - **기각(오탐)**: `appCache.setCache` upsert(모든 NOT NULL 컬럼을 늘 보냄) · `fx ?? 1`/`usdKrw ?? 0`(달러 없을 때만) · 공포탐욕 '없음' 칸 · school-league 전교생 노출(9/27 결정) · stock-price error 행(소비측 전부 가드) · `revalidate = 3600`(force-dynamic 라우트라 무효 — 주석 정정은 어제).
 - 교훈: 에이전트 지적 중 **불변식과 충돌하는 처방**이 있었다(rtms 규칙). 처방을 넣기 전에 그 영역의 verify-*.mjs 를 돌려라 — 이번엔 커밋 전에 걸려 되돌렸다.
 - **배포 뒤 실측(배관 2커밋 · 로그인)**: 리그 API `fxLive=true · sellsComplete=true · 학생 9명` · 리그 화면 정상(1위 =) · 내 자산 '판 종목 손익 +10,844,134원까지 더하면 +12.1%' · 월별 손익 200 · 내 자산 흐름 차트 그려짐(창이 앞에 있을 때) · 홈 지수 카드 8개 등락 null 없음 · 공포탐욕 CNN · 부동산 지표 정상. 홈 첫 로드 요청 12건 중 환율이 **여전히 2회** — 내 자산 훅이 useJson 이 아니라 raw fetch 라 합쳐지지 않았다 → fetchShared 를 공개해 같은 키로(후속 커밋).
+
+## 2026-10-18 · 전수 점검 4차 — 보안·의존성·DB·하네스(사용자 "또 있는지" → 전부 고쳐)
+- **의존성**: `npm audit --omit=dev` critical 1·high 13·moderate 1. 비파괴 `npm audit fix` 로 13개 갱신 + playwright 2개 제거(dry-run 으로 파괴적 변경 없음 확인 — tailwind 4·eslint-config-next 16 은 --force 라 제외). 남은 13건은 **전부 Next 14.2.35 자체**(권고 24개 · RCE 2건 포함 · 14.x 에 수정본 없음 · 15.5.24+/16). Next 15 는 별도 작업 — React 19·요청 API 비동기화·fetch 캐시 기본값 변경이라 빌드·화면 검증이 한 세트.
+- **API 노출**: 서비스 롤로 전교생 `investments` 를 읽는 라우트 중 로그인·크론 가드가 없는 둘(signal-report·win-lose)을 비로그인 curl 로 확인 — 이름·금액·ID 는 없고 학교 보유 종목 목록(익명)만 나갔다. school-league 와 같은 가드(로그인 또는 CRON_SECRET Bearer)로. win-lose 는 크론이 부르므로 isCronRequest 통과.
+- **DB**: app_cache 12,064행 중 **7,195행(60%)이 대체된 옛 버전 접두어**(jarvis-metrics-v17 5,970 · news-catalyst-v7 551 · canon-fund-v2 367 …44종). 정리 장치는 현재 접두어만 지우도록 설계돼 버전 범프마다 옛 행이 고아가 됐다 — 926MB 사고의 작은 재발. ① 허락 뒤 1회 삭제 7,178행(접두어:로 시작하는 키 — ':' 없는 단일 키 17행은 상한 안이라 둠) ② `purgeStaleCache` 에 옛 버전 단계(허용 목록 접두어와 같은 base 의 낮은 버전 · 3일 지난 행) ③ `verify-cache-orphans` 야간 불변식(상한 300). 판정은 "코드에 같은 base 의 더 높은 버전 **리터럴**이 있는가" — 동적 키(`unified-reco-v${…}`)는 리터럴이 없어 자연히 제외(처음엔 '코드에 없음'으로 세어 unified-reco-v66 을 고아로 오판했다).
+- **하네스**: `verify-style-text`(인라인 <style> 텍스트에 " ' & < > 금지 — 어제 사고) 신설 · 둘 다 nightly-audit INVARIANTS 등록.
+- **선생님 화면 6장 런타임**: API 실패 0 · 넘침 0 · 하이드레이션 0(첫 사이클 1건은 재현 안 됨) · portfolio-xray 8초.
+- 교훈: ① "정리 장치가 있다"와 "다 지워진다"는 다르다 — 장치가 못 보는 분류(옛 버전)를 세는 불변식이 있어야 드러난다. ② 고아 판정은 리터럴 그렙만으로 하면 동적 키를 고아로 오판한다 — '더 높은 버전 리터럴이 있는가'로.
