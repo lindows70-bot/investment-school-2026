@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 }
 
 // viewportFit cover 가 없으면 iOS 에서 env(safe-area-inset-bottom) 이 항상 0 — 하단 탭바 safe-area 패딩의 전제
-export const viewport: Viewport = { themeColor: '#080B11', viewportFit: 'cover' }
+export const viewport: Viewport = { themeColor: TK.bg1, viewportFit: 'cover' }   // 매니페스트 theme_color(TK.bg1)와 같은 색 — 달라서 설치 스플래시와 페이지 상태바 색이 바뀌었다(2026-10-18)
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

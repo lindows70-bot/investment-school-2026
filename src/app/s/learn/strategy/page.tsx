@@ -3,11 +3,15 @@
 //   예전엔 마스터 전략 슬라이드(components/lessons/MasterStrategy)를 열어 엉뚱한 화면이 나왔다(2026-10-04 사용자 지적)
 import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { TK, FS, SP } from '@/lib/theme'
-import ChoiValuationPanel from '@/app/components/ChoiValuationPanel'
-import SeasonNavigator from '@/app/components/SeasonNavigator'
 import { Segment } from '@/app/components/student/ui'
+
+// 두 패널은 무거운 차트 묶음이라(첫 로드 JS 350kB · 학생 화면 최대) 연 탭의 것만 그 자리에서 받는다 — 지연 마운트가 있으므로 dynamic 이 실제로 효과를 낸다(2026-10-18)
+function PanelLoading() { return <p style={{ margin: 0, fontSize: FS.body, color: TK.sub }}>불러오는 중이에요…</p> }
+const ChoiValuationPanel = dynamic(() => import('@/app/components/ChoiValuationPanel'), { ssr: false, loading: PanelLoading })
+const SeasonNavigator = dynamic(() => import('@/app/components/SeasonNavigator'), { ssr: false, loading: PanelLoading })
 
 type Tab = 'value' | 'season'
 const TABS: { key: Tab; label: string }[] = [{ key: 'value', label: '최일 가치분석' }, { key: 'season', label: '4계절 내비게이터' }]

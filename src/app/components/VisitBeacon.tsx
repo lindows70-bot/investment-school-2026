@@ -2,9 +2,12 @@
 // 앱을 열 때 하루 한 번 접속 기록 API 를 부르는 보이지 않는 컴포넌트
 import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
+import { clearChunkReloadFlag } from '@/lib/chunkReload'
 
 export default function VisitBeacon() {
   const pathname = usePathname()
+  // 화면이 정상적으로 떴다 = 옛 번들 자동 새로고침 표식을 지운다(다음 배포에서 또 한 번 허용 · lib/chunkReload)
+  useEffect(() => { clearChunkReloadFlag() }, [])
   // 화면 열람 집계(월별) — 경로마다 세션당 1회. 비로그인(401)이면 그냥 끝(화면에 영향 없음). 전체 검토 3-1(탭·화면 가지치기)의 근거
   useEffect(() => {
     if (pathname === '/login' || pathname === '/signup') return
