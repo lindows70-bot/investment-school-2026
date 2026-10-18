@@ -9,6 +9,7 @@
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { callGeminiJSON } from '@/lib/gemini'
+import { singleFlight, aiRecentlyFailed, markAiFailed } from '@/lib/aiGuard'
 import { FOMC_SCHEDULE } from '@/lib/fomcSchedule'
 import { FED_EVENTS, EVENT_QUERIES, HAS_RATE_DECISION, VENUE_KO, newsWindowDays, MUST_MATCH, MIN_MATCHES, type FedEvent, type FedEventKind } from '@/lib/fedEvents'
 
@@ -134,6 +135,8 @@ export async function GET(req: Request) {
   const cacheKey = `fomc-decoder-v9:${latest.date}:${kstDate()}`   // v9: temperature 0.3→0.15(문장 흔들림 억제)
   const cached = await getCache<FomcDecoderResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
+  // 🔒 실패 뒤 10분은 다시 묻지 않는다(무인증 라우트 · decision-snapshot 경유 포함 — 6차 점검)
+  if (await aiRecentlyFailed('fomc-decoder')) return NextResponse.json({ error: 'ai_cooldown' }, { status: 200, headers: { 'Cache-Control': 'no-store' } })
 
   // 실제 뉴스 — **앵커 종류에 맞는 쿼리 + 앵커에서 역산한 창**으로 판다
   let headlines = await collectHeadlines(latest.kind, daysSince)
@@ -181,8 +184,8 @@ ${hasDecision
     & { chairRemarks?: { quote?: string; meaning?: string; srcIdx?: number }[] }
   // temperature 0.3 → 0.15 — 회차마다 문장이 흔들렸다(실측: '중앙은행'→'중앙바람' 오타 · '줄이려던'→'바꾸면서도'로 방향어 소실).
   // ⚠️ 완화이지 해결이 아니다 — 카드는 6h 마다 다시 뽑히므로 매번 새로 굴린다.
-  const g = await callGeminiJSON<AiOut>(prompt, SCHEMA, { temperature: 0.15 })
-  if (!g.ok || !g.data) return NextResponse.json({ error: 'ai_failed' }, { status: 200 })
+  const g = await singleFlight(cacheKey, () => callGeminiJSON<AiOut>(prompt, SCHEMA, { temperature: 0.15 }))   // 동시 요청 한 번만 · 실패 10분 음성 캐시
+  if (!g.ok || !g.data) { await markAiFailed('fomc-decoder'); return NextResponse.json({ error: 'ai_failed' }, { status: 200 }) }
 
   // 🛡️ 근거 검증 — srcIdx 가 실제 헤드라인을 가리키지 않으면 그 발언을 **버린다**(3개를 채우려 지어낸 것).
   //    통과한 발언에는 근거 헤드라인을 실어 화면이 출처를 보여주게 한다(학생이 직접 대조할 수 있어야 한다).

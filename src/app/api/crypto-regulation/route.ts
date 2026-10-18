@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { callGeminiJSON } from '@/lib/gemini'
+import { singleFlight, aiRecentlyFailed, markAiFailed } from '@/lib/aiGuard'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 45
@@ -73,6 +74,8 @@ export async function GET() {
   const cacheKey = `crypto-regulation-v3:${kstDate()}`   // v3: sources(근거 헤드라인·링크) 추가 + srcIdx 가드 · v2: GENIUS Act 시행 전용 쿼리 + 통과법 포함 지시
   const cached = await getCache<RegulationResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
+  // 🔒 실패 뒤 10분은 다시 묻지 않는다(무인증 라우트 — 실패 중 요청마다 재호출되던 것 · 6차 점검)
+  if (await aiRecentlyFailed('crypto-regulation')) return NextResponse.json({ error: 'ai_cooldown' }, { status: 200, headers: { 'Cache-Control': 'no-store' } })
 
   const [enReg, enBill, enGenius, koReg] = await Promise.all([
     googleNews('crypto regulation OR SEC crypto OR stablecoin law when:45d', 10, 'en'),
@@ -102,8 +105,9 @@ ${headlines.map((h, i) => `${i + 1}. ${h.title}`).join('\n')}
 - 학생 교육 톤: 법률용어 최소화, "법이 유동성을 막느냐 여느냐"로 단순화. 전부 한국어.`
 
   type RawBill = Omit<RegBill, 'sources'> & { srcIdx?: unknown }
-  const g = await callGeminiJSON<{ climate: RegImpact; climateText: string; bills: RawBill[] }>(prompt, SCHEMA, { temperature: 0.3 })
-  if (!g.ok || !g.data) return NextResponse.json({ error: 'ai_failed' }, { status: 200 })
+  // 동시 요청은 한 번만 부른다(single-flight) · 실패는 10분 음성 캐시
+  const g = await singleFlight(cacheKey, () => callGeminiJSON<{ climate: RegImpact; climateText: string; bills: RawBill[] }>(prompt, SCHEMA, { temperature: 0.3 }))
+  if (!g.ok || !g.data) { await markAiFailed('crypto-regulation'); return NextResponse.json({ error: 'ai_failed' }, { status: 200 }) }
 
   // srcIdx 가드 — 범위 안의 번호만 인정하고, 하나도 못 대면 항목을 버린다(가드는 번호가 유효한지만 본다 — 그 헤드라인이 문장을 뒷받침하는지는 학생이 링크로 대조)
   const bills: RegBill[] = (g.data.bills ?? []).flatMap(b => {

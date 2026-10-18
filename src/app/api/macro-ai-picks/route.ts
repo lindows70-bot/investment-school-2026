@@ -25,6 +25,7 @@ import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { fetchMacroData, detectMacroPhase, runScreener, type ScreenedStock, UNIVERSE_KEY } from '@/lib/macroPhaseScreener'
 import { callGeminiJSON } from '@/lib/gemini'
+import { singleFlight, aiRecentlyFailed, markAiFailed } from '@/lib/aiGuard'
 import { canForceRefresh } from '@/lib/cronAuth'   // ?refresh=1 은 크론·선생님만(2026-10-05 보안 점검)
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
@@ -140,7 +141,8 @@ export async function GET(req: Request) {
 
   // ── 신규 생성 (캐시 없거나 forceRefresh) ─────────────────────────────────
   try {
-    const result = await generatePicks(macroData, phaseResult, now, selfBase)
+    if (!forceRefresh && await aiRecentlyFailed('macro-ai-picks')) throw new Error('ai cooldown — 최근 10분 안에 실패')
+    const result = await singleFlight(CACHE_KEY, () => generatePicks(macroData, phaseResult, now, selfBase))
     return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     console.warn('[macro-ai-picks]', (e as Error).message?.slice(0, 80))
@@ -151,7 +153,9 @@ export async function GET(req: Request) {
 }
 
 async function refreshInBackground(macroData: Awaited<ReturnType<typeof fetchMacroData>>, phaseResult: ReturnType<typeof detectMacroPhase>, selfBase: string) {
-  try { await generatePicks(macroData, phaseResult, new Date().toISOString(), selfBase) } catch { /* 실패 무시 */ }
+  // 🔒 국면이 바뀐 날 요청마다 510종 스크리닝+Gemini 를 돌리던 것(6차 점검) — 실패 10분 안엔 안 돌고, 돌아가는 중이면 합친다
+  if (await aiRecentlyFailed('macro-ai-picks')) return
+  try { await singleFlight(CACHE_KEY, () => generatePicks(macroData, phaseResult, new Date().toISOString(), selfBase)) } catch { /* 실패 무시 */ }
 }
 
 async function generatePicks(
@@ -193,7 +197,7 @@ async function generatePicks(
     required: ['macroSummary', 'recommendations'],
   }, { temperature: 0.6 })
 
-  if (!geminiRes.ok) throw new Error(`Gemini: ${geminiRes.reason}`)
+  if (!geminiRes.ok) { await markAiFailed('macro-ai-picks'); throw new Error(`Gemini: ${geminiRes.reason}`) }
 
   // 스크리닝 데이터와 LLM 결과 병합
   const stockMap = new Map(allScreened.map(s => [s.ticker, s]))

@@ -5,6 +5,7 @@ import { MARKET_FLOW_KR_KEY } from '@/lib/marketFlowKr'
 import { MARKET_CATALYST_KEY } from '@/lib/marketCatalystShared'
 import { getCache, setCache } from '@/lib/appCache'
 import { callGeminiJSON } from '@/lib/gemini'
+import { singleFlight, aiRecentlyFailed, markAiFailed } from '@/lib/aiGuard'
 import type { MarketFlowKrResult } from '@/lib/marketFlowKr'
 
 export const dynamic = 'force-dynamic'
@@ -185,10 +186,13 @@ ${moverText || '(없음)'}
 - 사소한 종목 뉴스·반복 시황은 제외. 진짜 메가급이 1건뿐이면 1건만.
 - marketMood: 오늘 시장 분위기 한 줄(헤드라인 근거).
 - 전부 한국어.`
-    const g = await callGeminiJSON<{ catalysts: MarketCatalyst[]; marketMood: string }>(prompt, GEMINI_SCHEMA, { temperature: 0.4 })
-    if (g.ok && g.data) {
-      catalysts = (g.data.catalysts ?? []).slice(0, 3)
-      marketMood = g.data.marketMood ?? null
+    // 🔒 실패 뒤 10분은 Gemini 를 건너뛴다(정량 무버는 그대로 준다) · 동시 요청은 한 번만(6차 점검)
+    if (!(await aiRecentlyFailed('market-catalyst'))) {
+      const g = await singleFlight(cacheKey, () => callGeminiJSON<{ catalysts: MarketCatalyst[]; marketMood: string }>(prompt, GEMINI_SCHEMA, { temperature: 0.4 }))
+      if (g.ok && g.data) {
+        catalysts = (g.data.catalysts ?? []).slice(0, 3)
+        marketMood = g.data.marketMood ?? null
+      } else await markAiFailed('market-catalyst')
     }
   }
 
