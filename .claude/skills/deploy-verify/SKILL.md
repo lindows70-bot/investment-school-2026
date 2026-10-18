@@ -17,7 +17,7 @@ description: Use when about to verify, build, or deploy this app (2026 투자학
 
 ```bash
 npx tsc --noEmit > /tmp/t.log 2>&1 && echo TSC_OK \
-  && npx next lint --file <변경한 파일들> > /tmp/l.log 2>&1 && echo LINT_OK \
+  && npx eslint <변경한 파일들> > /tmp/l.log 2>&1 && echo LINT_OK \
   && npm run check:build > /tmp/b.log 2>&1 && echo BUILD_OK \
   || (echo FAIL; tail -n 20 /tmp/t.log /tmp/l.log /tmp/b.log)
 ```

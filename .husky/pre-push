@@ -1,4 +1,4 @@
-echo "🔍 push 전 검증: tsc + next lint (Vercel 빌드 실패 사전 차단)…"
+echo "🔍 push 전 검증: tsc + eslint src (Vercel 빌드 실패 사전 차단)…"
 npm run check || {
   echo ""
   echo "❌ 검증 실패 — 위 tsc/lint 에러를 고친 뒤 다시 push 하세요."
