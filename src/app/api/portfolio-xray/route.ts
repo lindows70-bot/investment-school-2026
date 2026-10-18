@@ -63,16 +63,20 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
+  // 환율 자기 호출은 지문·캐시 조회와 같이 출발(콜드 8초의 직렬 구간 하나 — 2026-10-18). 캐시 히트면 결과는 버린다
+  const fxP = fetchUsdKrw(base)
   const fp = await holdingsFingerprint(user.id)
   // v5: 🌍 실질 국가 노출(realCountries) 신설 — 필드 추가도 캐시 범프 대상
   const cacheKey = `portfolio-xray-v5:${user.id}:${kstDate()}:${fp}`   // v4: 합산 PEG(Phase 4)
   const cached = await getCache<XrayResult>(cacheKey, 12 * 3600_000)
-  if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
+  if (cached) { fxP.catch(() => {}); return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } }) }
 
   // 보유 전체(₩ 환산 비중) — STOCK·ETF 모두 포함
-  const { rate: usdKrw, live: fxLive } = await fetchUsdKrw(base)
   const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
-  const { data: rows } = await admin.from('investments').select('ticker,name,market,purchase_price,quantity,currency').eq('user_id', user.id)
+  const [{ rate: usdKrw, live: fxLive }, { data: rows }] = await Promise.all([
+    fxP,
+    admin.from('investments').select('ticker,name,market,purchase_price,quantity,currency').eq('user_id', user.id),
+  ])
   const all = (rows ?? []).map(r => ({
     ticker: r.ticker, name: r.name ?? r.ticker, market: (r.market ?? 'US') as string,
     krw: (r.purchase_price ?? 0) * (r.quantity ?? 0) * (r.currency === 'USD' ? usdKrw : 1),
@@ -166,11 +170,14 @@ export async function GET(req: Request) {
   })
 
   // ④ 💎 Phase 4: 합산 PEG — etfLookThrough SSOT(blendedPegFromComposition) 재사용(제2원칙: ETF 분산 대안과 동일값 보장)
-  for (let i = 0; i < etfs.length; i++) {
-    const c = comps[i], d = etfDetails.find(x => x.ticker === etfs[i].ticker)
-    if (!c || !d || !d.resolved) continue
-    const bp = await blendedPegFromComposition(c, base)
-    if (bp) { d.syntheticPeg = bp.peg; d.pegCoverage = bp.coverage }
+  //    ETF 마다 순차였다(각각 보유종목 10개 stock-info 자기 호출 → 콜드 8초의 대부분 · 2026-10-18) → 4개씩 동시(stock-info 동시 ~40 상한 · 결과는 ticker 로 찾아 넣어 순서 무관)
+  for (let i = 0; i < etfs.length; i += 4) {
+    await Promise.all(etfs.slice(i, i + 4).map(async (h, k) => {
+      const c = comps[i + k], d = etfDetails.find(x => x.ticker === h.ticker)
+      if (!c || !d || !d.resolved) return
+      const bp = await blendedPegFromComposition(c, base).catch(() => null)
+      if (bp) { d.syntheticPeg = bp.peg; d.pegCoverage = bp.coverage }
+    }))
   }
 
   // ③ 비주식 자산(코인·원자재) → 기타. 국가는 CRYPTO/기타로 따로 둔다(억지로 나라에 배정하지 않는다)

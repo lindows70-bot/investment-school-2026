@@ -164,7 +164,8 @@ export async function getAdmRulePurpose(id: string): Promise<string | null> {
     //    → 목적 조문을 먼저 찾고, 없으면 **장·절 제목이 아닌** 첫 내용을 쓴다.
     const clean = (s: string) => s.replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
     const contents = Array.from(xml.matchAll(/<조문내용>([\s\S]*?)<\/조문내용>/g)).map(m => clean(m[1])).filter(Boolean)
-    if (!contents.length) return null
+    // 본문은 읽었는데 조문이 없다 = 결정론적 '목적 없음' → 빈 값으로 저장해 매 콜드마다 다시 묻지 않는다(요청·해석 실패는 저장하지 않는다 — 다음에 다시 시도)
+    if (!contents.length) { await setCache(ck, { p: '' }); return null }
     const isHeading = (s: string) => /^제\s*\d+\s*[장절관]\b/.test(s) || /^제\s*\d+\s*[장절관]\s/.test(s) || s.length < 12
     let raw = contents.find(s => /목적/.test(s.slice(0, 40))) ?? contents.find(s => !isHeading(s)) ?? contents[0]
     // ⚠️ 장·절이 **태그가 아니라 텍스트**인 고시가 있다 — `<조문내용>` 하나에 전문이 통째로 들어와
@@ -179,7 +180,7 @@ export async function getAdmRulePurpose(id: string): Promise<string | null> {
     // ⛔ 그래도 길면 **목적을 못 찾은 것**이다 — 목적 조문이 아예 없는 고시가 있다(기본형건축비는
     //    "1. 지상층건축비 가. 층수별…"로 시작하는 2,609자였다). 그걸 목적이라며 내보내는 것보다
     //    없다고 하는 게 낫다(화면은 제목만 보여준다). **없으면 없다고 한다.**
-    if (raw.length > 400) return null
+    if (raw.length > 400) { await setCache(ck, { p: '' }); return null }   // 목적 조문이 없는 고시 — 결정론적이라 빈 값으로 저장(재조회 방지)
     // ⚠️ "이 지침은/이 고시는" 접두까지 지우려다 문장을 망가뜨렸다(2026-08-09 라이브):
     //    `은?` 이 '는'을 못 잡아 "는 「주택법」…"이 되고, 목록에 없는 '기준'은 아예 안 잘렸다.
     //    종류 이름을 계속 추가하는 방향은 11번째 표기가 나올 때까지 끝나지 않는다 —
@@ -200,8 +201,9 @@ export async function collectAdmRules(keywords: string[]): Promise<{ rules: AdmR
 
   const seen = new Map<string, AdmRule>()
   let failed = 0
-  for (const k of keywords) {
-    const rs = await searchAdmRules(k)
+  // 키워드 8개를 동시에 — 순차로 돌리면 콜드 9초의 절반이 여기였다(2026-10-18). 결과는 키워드 순서대로 합쳐 '먼저 본 것이 남는' 중복 제거 결과를 전과 같게 유지
+  const results = await Promise.all(keywords.map(k => searchAdmRules(k)))
+  for (const rs of results) {
     if (!rs.length) failed++
     for (const r of rs) if (!seen.has(r.name)) seen.set(r.name, r)
   }
