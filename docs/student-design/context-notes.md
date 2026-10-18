@@ -176,3 +176,13 @@
 - **재측정 중 새 결함 — 홈 하이드레이션 오류**: 프로덕션 콘솔에 React #425×5·#418·#423 이 **홈을 열 때마다** 찍혔다(다른 16장 0 — 페이지별로 콘솔 개수를 비교해 가렸다). 압축 빌드라 자리를 안 알려줘 **로컬 dev 서버(launch.json `dev`)를 띄워 로그인 뒤** 원문 경고를 읽었다: `Text content did not match` — 홈 `<style>` 블록. 원인 = JSX 텍스트로 넣은 CSS 를 React 가 서버에서 HTML 이스케이프(`"`→`&quot;`)하는데 `<style>` 은 raw text 요소라 브라우저가 되돌리지 않는다. 주석의 "더리치 메인처럼" 따옴표 하나가 범인. 같은 유형(`details > summary` 의 `>`)이 저울·종목 상세에도 있어 셋 다 `dangerouslySetInnerHTML` 로. 49개 style 블록 전수 스캔 — 특수문자가 든 건 이 셋뿐.
   - 교훈: ① 화면이 멀쩡해 보여도 콘솔 오류를 페이지별로 세라(복구가 조용하다). ② `<style>{`…`}</style>` 에 `" ' & < >` 가 들어가면 반드시 깨진다 — 앞으로 인라인 CSS 는 `dangerouslySetInnerHTML` 로. ③ 프로덕션 압축 오류는 원인을 못 가르니 dev 서버 한 번이 추측 열 번보다 빠르다(이번엔 SSR·DOM 텍스트 대조·서비스워커 캐시 의심 등 네 가지 가설을 먼저 돌았다).
 - **측정 함정**: 가려진 브라우저 창에서는 IntersectionObserver 가 안 돌아 지연 카드(내 자산 흐름·시장 하단 카드)가 영영 '불러오는 중'이다 — 결함처럼 보이지만 환경 문제. 지연 카드 실측은 창을 앞에 두고.
+
+## 2026-10-18 · 전수 점검 3차 — 화면 뒤 배관(사용자 "또 있는지 철저히" → 2커밋)
+- **방법**: 17장을 1280·820 에서 재측정(결함 0 — 카드 안 카드·44px·세로 찍힘·넘침 전부 0 · API 전부 200 · 크론 29/29 · 매니페스트·아이콘·보안 헤더(HSTS·X-Frame DENY·nosniff) 정상 · CSP 없음은 인라인 스타일이 많아 보류) + 학생 화면이 부르는 API 30여 라우트·lib 를 Explore 에이전트에 11가지 결함 유형으로 읽혀 지적 40여 건 → 코드 재현으로 채택 20여 건.
+- **성적이 조용히 틀리는 유형(채택 6)**: 리그 환율 폴백 1,400 무표시(→ fxLive · 스냅샷 크론 저장 안 함) · 리그 매도 `.limit(5000)`(Supabase 1,000행 상한 함정 — 현재 매도 29행이라 당장은 무사) · 월별 손익 매도 오류→'0원' · 기록 저장 시 린치 폴백 stalwart 를 DB 에(가짜 정밀) · 지수 전날 종가 없으면 등락 0.0% · 야후 previousClose 순서 불일치(market-indices/stock-price 는 chartPreviousClose 먼저, usMarketBoard 는 previousClose 먼저 — 코스닥 실사고 뒤 한 곳만 고쳐져 있었다).
+- **부분 실패 캐시(채택 6)**: event-calendar(종목 정보 자기 호출 실패를 '배당 없음'으로 12h) · re-market(시리즈 일부만 와도 12h) · cocktail-party(CNN 실패 계산값 1h) · news-catalyst(Gemini 실패 3h) · btc-etf(stale 흐름) · 업비트 캔들(끊긴 이력 30분). 전부 "완전할 때만 캐시, 응답은 그대로".
+- **규칙 위반(채택)**: 외부·자기 호출 fetch 캐시 옵션 없음 11곳 · 저울 2곳 자기 호출 origin · useJson GET 동시 요청 합치기(홈 11→9 요청).
+- **되돌린 것**: `rtms-trade-v2` 정리 규칙 — `verify-cache-purge` 가 "허용 목록에 없다(나이 안 보는 reader)"를 불변식으로 지키고 있었다. 지역×월 누적은 사실이지만 reader(re-map·re-apt-pins)를 먼저 나이 확인으로 바꿔야 한다. 주석으로 조건을 남김.
+- **보류(별도 작업)**: SSOT 분산 — FRED 읽기 5곳 · 업비트 시세 3곳 · 구글 뉴스 RSS 파서 2곳 · USD/KRW 이력 2곳(yahoo-finance2 vs raw v8). 값은 같지만 한 곳 고치면 나머지가 남는 유형. 통합은 회귀 위험이 커 따로.
+- **기각(오탐)**: `appCache.setCache` upsert(모든 NOT NULL 컬럼을 늘 보냄) · `fx ?? 1`/`usdKrw ?? 0`(달러 없을 때만) · 공포탐욕 '없음' 칸 · school-league 전교생 노출(9/27 결정) · stock-price error 행(소비측 전부 가드) · `revalidate = 3600`(force-dynamic 라우트라 무효 — 주석 정정은 어제).
+- 교훈: 에이전트 지적 중 **불변식과 충돌하는 처방**이 있었다(rtms 규칙). 처방을 넣기 전에 그 영역의 verify-*.mjs 를 돌려라 — 이번엔 커밋 전에 걸려 되돌렸다.
