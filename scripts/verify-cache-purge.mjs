@@ -72,7 +72,7 @@ check('긴 TTL 기록은 TTL 보다 길게(guidance-snap 35d · etf-snap/insider
 const M1_TTL_H = {
   'alpha-hunter-v3': 24, 'earn-results-v1': 6, 'fx-attribution-v2': 6, 'guidance-radar': 24, 'lynch-matrix-v2': 12,
   'morningstar-rating-v6': 24, 'permanent-loss-v2': 12, 'portfolio-backtest-v5': 12, 'portfolio-flow-v12': 12,
-  'portfolio-reco-kr-v8': 12, 'tax-helper-v1': 6, 'weekly-report-me-v6': 6,                       // 사용자별 — 날짜 키 유지
+  'portfolio-reco-kr-v8': 12, 'tax-helper-v2': 6, 'weekly-report-me-v6': 6,                       // 사용자별 — 날짜 키 유지
   'corr-matrix-v2': 24,                                                                              // 사용자별 — M1 목록 밖, 전수 스캔에서 발견
   'bonds-v8': 6, 'crypto-demand-v2': 6, 'dividend-portfolio-v2': 12, 'ultra-dividend-v4': 12, 'cofix-v1': 12,   // 날짜 뺀 공유 문서
 }
