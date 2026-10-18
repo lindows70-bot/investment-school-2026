@@ -14,6 +14,7 @@ import TaxHarvestHelper from '@/app/components/TaxHarvestHelper'
 import TransactionEditModal, { type EditableTx } from '@/app/components/TransactionEditModal'   // ✏️ 거래 수정·삭제(2026-08-23)
 import { TK, FONT_STACK } from '@/lib/theme'
 import { acceptFx } from '@/lib/fxAccept'   // 환율 채택 SSOT — 고정 상수는 localStorage 에 안 넣는다
+import { USD_KRW_FALLBACK } from '@/lib/fx'  // 💱 환율 폴백 SSOT
 
 type Market = 'US' | 'KR' | 'CRYPTO'
 
@@ -86,7 +87,7 @@ export default function HistoryPage() {
   const [investments,  setInvestments]  = useState<Investment[]>([])
   const [priceMap,     setPriceMap]     = useState<Record<string, number>>({})
   const [loading,      setLoading]      = useState(true)
-  const [usdKrw,       setUsdKrw]       = useState(1_350)
+  const [usdKrw,       setUsdKrw]       = useState(USD_KRW_FALLBACK)   // 폴백 상수는 SSOT(lib/fx) — 1,350 리터럴이 라우트 폴백 1,400 과 달랐다(2026-10-18)
   const [activeTab,    setActiveTab]    = useState<'transactions' | 'cashflow' | 'replay' | 'calibration' | 'tax'>('transactions')
   const [filterType,   setFilterType]   = useState<'all' | 'buy' | 'sell'>('all')
   const [editTx,       setEditTx]       = useState<Transaction | null>(null)   // ✏️ 수정 중인 거래

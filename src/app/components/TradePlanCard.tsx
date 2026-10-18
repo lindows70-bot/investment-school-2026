@@ -7,13 +7,14 @@ import type { EntryTiming } from '@/lib/entryTiming'
 import { TK, FS } from '@/lib/theme'
 import { curFromCode } from '@/lib/globalTickers'
 import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(1350/1380 분열 제거)
+import { acceptFx } from '@/lib/fxAccept'
 
 const BORDER = TK.border
 
 // 통화별 →KRW 환율 맵 1회 공유 캐시(카드 여러 장이 떠도 fetch 1번). { USD, EUR, CHF, GBP, HKD, DKK, SEK, KRW:1 }
 let fxPromise: Promise<Record<string, number>> | null = null
 const getFxMap = () => fxPromise ?? (fxPromise = fetch('/api/exchange-rate').then(r => r.json())
-  .then(j => (j && j.rates && typeof j.rates === 'object') ? j.rates as Record<string, number> : (typeof j?.rate === 'number' ? { USD: j.rate, KRW: 1 } : { USD: USD_KRW_FALLBACK, KRW: 1 }))
+  .then(j => (j && j.rates && typeof j.rates === 'object') ? j.rates as Record<string, number> : (acceptFx(j) != null ? { USD: acceptFx(j) as number, KRW: 1 } : { USD: USD_KRW_FALLBACK, KRW: 1 }))   // 채택 규칙은 SSOT(acceptFx) — 고정 상수 응답을 라이브로 받지 않는다
   .catch(() => ({ USD: USD_KRW_FALLBACK, KRW: 1 })))
 
 export default function TradePlanCard({ market, timing, portfolioKrw, currency, volWarn }: {

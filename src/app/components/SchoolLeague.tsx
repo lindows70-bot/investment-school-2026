@@ -1,4 +1,6 @@
 ﻿'use client'
+import { USD_KRW_FALLBACK } from '@/lib/fx'          // 💱 환율 폴백 SSOT
+import { acceptFx } from '@/lib/fxAccept'            // 환율 채택 규칙 SSOT(고정 상수 응답은 라이브가 아니다)
 
 /**
  * SchoolLeague — 2026 투자학교 스쿨 리그 대시보드 (실 DB 연동)
@@ -318,11 +320,11 @@ export default function SchoolLeague() {
           .eq('user_id', user.id)
         if (!invs?.length) return
 
-        // 환율은 라이브(/api/exchange-rate) — 실패 시에만 폴백(제1원칙: 하드코딩 금지)
-        let fx = 1_350
+        // 환율은 라이브(/api/exchange-rate) — 실패 시에만 폴백(제1원칙: 하드코딩 금지). 폴백 상수·채택 규칙은 SSOT(fx·fxAccept)와 같게(전엔 1,350 과 'rate>500' 이라 라우트의 고정 상수까지 라이브로 받았다 · 2026-10-18)
+        let fx = USD_KRW_FALLBACK
         try {
           const fr = await fetch('/api/exchange-rate')
-          if (fr.ok) { const fj = await fr.json(); if (typeof fj?.rate === 'number' && fj.rate > 500) fx = fj.rate }
+          if (fr.ok) { const got = acceptFx(await fr.json()); if (got != null) fx = got }
         } catch { /* 폴백 유지 */ }
 
         // 현재가 배치 조회 — 평가액 계산용(본인 데이터라 노출 문제 없음)
