@@ -19,6 +19,7 @@ import {
 } from 'recharts'
 import { BarChart2 } from 'lucide-react'
 import { TK, FONT_STACK } from '@/lib/theme'
+import { getAssetType } from '@/lib/assetClassifier'   // 자산 분류 SSOT — 이름 키워드(GOLD·TRUST) 판정 폐기(2026-10-18)
 
 // ── 다크모드 컬러 시스템 ─────────────────────────────────────
 const C = {
@@ -162,14 +163,9 @@ export default function AIPortfolioDashboard(props: any) {
       const purchaseAmt  = (Number(s.purchase_price) || 0) * (Number(s.quantity) || 1)
       const currency     = s.currency || 'USD'
 
-      // ── 최우선: 물리 실물자산·원자재 ETF 감지 → 해당없음 강제 ──
-      const nameU   = name.toUpperCase()
-      const tickerU = ticker.toUpperCase()
-      const isPhysical =
-        nameU.includes('PHYSICAL') || nameU.includes('SILVER') ||
-        nameU.includes('GOLD')     || nameU.includes('TRUST')  ||
-        nameU.includes('SPROTT')   ||
-        ['PSLV','GLD','SLV','IAU','SIVR','PHYS','SGOL','PPLT'].includes(tickerU)
+      // ── 최우선: 개별 주식이 아닌 것(ETF·원자재·코인)은 린치 분류 '해당없음' — 판정은 SSOT(assetClassifier)로.
+      //    전엔 이름에 GOLD·TRUST 가 들면 실물로 봐서 골드만삭스·트러스트마크 같은 주식이 '해당없음'이 됐다(2026-10-18 제2원칙)
+      const isPhysical = getAssetType(ticker, name, String(s.market ?? '')) !== 'STOCK'
 
       const rawKey = (s.lynchType || s.lynch_category || s.category || s.type || '').toString().trim()
       const raw    = rawKey.replace(/\s+/g, '')
@@ -190,9 +186,8 @@ export default function AIPortfolioDashboard(props: any) {
       else if (raw.includes('자산'))                                 lynchType = '자산주'
       else if (raw.includes('턴어라운드'))                           lynchType = '턴어라운드주'
 
-      const peg = s.peg !== undefined
-        ? Number(s.peg)
-        : growthRate > 0 ? parseFloat((per / growthRate).toFixed(2)) : 0
+      // 📐 PEG 는 넘겨받은 SSOT 값만 — per/growthRate 로 다시 만들지 않는다(SSOT 가 N/A 인 종목에 숫자가 생기던 것 · 2026-10-18 제2원칙)
+      const peg = s.peg != null && isFinite(Number(s.peg)) ? Number(s.peg) : 0
 
       return { name, ticker, lynchType, per, growthRate, peg, purchaseAmt, currency }
     })

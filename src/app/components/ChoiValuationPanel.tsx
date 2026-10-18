@@ -230,6 +230,17 @@ export default function ChoiValuationPanel({ ticker: extTicker, market: extMarke
         return
       }
 
+      // 📐 PER 은 SSOT(stock-info · 국내 네이버 TTM · 미국 네이버 worldstock)로 — financials 의 야후 trailingPE 라 같은 종목이 다른 PER 로 보였다(2026-10-18 제2원칙).
+      //    SSOT 를 못 받으면 financials 값 유지(없는 것보다 낫다 — 출처는 같은 야후)
+      try {
+        const si = await fetch(`/api/stock-info?ticker=${encodeURIComponent(t)}&market=${mk}`, { signal: AbortSignal.timeout(15_000) })
+        if (si.ok) {
+          const sj = await si.json()
+          const pe = sj?.fundamentals?.pe
+          if (typeof pe === 'number' && isFinite(pe) && pe > 0) data = { ...data, currentPER: Math.round(pe * 100) / 100 }
+        }
+      } catch { /* SSOT 못 받으면 financials 값 유지 */ }
+
       // success === true 확인 → rawData 업데이트 → useEffect 도미노 시작
       setRawData(data)
 

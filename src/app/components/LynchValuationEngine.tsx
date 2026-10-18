@@ -92,8 +92,9 @@ function getValuationMetrics(
     })(),
     payoutRatio:     safeNumber(div.payoutRatio)    || null,
     earningsGrowth:  (() => {
+      // dividendMap 의 earningsGrowth 는 대시보드가 이미 %로 바꿔 넘긴다(dashboard/page.tsx: |eg|<20 이면 ×100) — 여기서 또 ×100 하면 15% 가 1,500% 가 됐다(2026-10-18 제2원칙)
       const eg = safeNumber(div.earningsGrowth)
-      return eg > 0 ? parseFloat((eg * 100).toFixed(1)) : null
+      return eg > 0 ? parseFloat(eg.toFixed(1)) : null
     })(),
     // 전부 dividendMap API 실데이터에서 온다 — 손으로 박은 보완표는 삭제했다(2026-08-30 감사).
     dataSource: 'api',

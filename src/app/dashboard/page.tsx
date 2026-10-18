@@ -3605,6 +3605,7 @@ export default function DashboardPage() {
               lynchType:      inv.lynch_category ?? '',
               per:            per > 0 ? parseFloat(per.toFixed(1)) : 0,
               growthRate,
+              peg:            siPeg != null && siPeg > 0 ? parseFloat(siPeg.toFixed(2)) : 0,   // 📐 SSOT PEG 를 넘긴다 — 없으면 0(컴포넌트가 per/growth 로 만들지 않게 · 2026-10-18)
               // 투자금액·비중 계산용 (AIPortfolioDashboard 집계에 사용)
               purchase_price: inv.purchase_price ?? 0,
               quantity:       inv.quantity       ?? 1,
@@ -3654,7 +3655,8 @@ export default function DashboardPage() {
             } else if (dMap?.earningsGrowth != null && isFinite(dMap.earningsGrowth) && dMap.earningsGrowth > 0) {
               growthRate = dMap.earningsGrowth
             }
-            const peg = (per > 0 && growthRate > 0) ? parseFloat((per / growthRate).toFixed(2)) : 0
+            // 📐 PEG 는 SSOT 값만 — 전엔 per/growthRate 로 다시 만들어 SSOT 가 N/A 인 종목(적자·성장률 없음)에도 숫자가 생겼다(2026-10-18 제2원칙)
+            const peg = siPeg != null && siPeg > 0 ? parseFloat(siPeg.toFixed(2)) : 0
             return {
               name:          inv.name,
               ticker:        inv.ticker,

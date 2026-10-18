@@ -113,9 +113,8 @@ function computeSignal(raw: AnyRecord): StockSignal {
 
   const per         = Number(raw.per)        || 0
   const growthRate  = Number(raw.growthRate) || 0
-  const peg         = raw.peg !== undefined
-    ? Number(raw.peg)
-    : (per > 0 && growthRate > 0 ? parseFloat((per / growthRate).toFixed(2)) : 0)
+  // 📐 PEG 는 넘겨받은 SSOT 값만(per/growthRate 재계산 금지 — SSOT 가 N/A 인 종목에 숫자가 생기던 것 · 2026-10-18 제2원칙)
+  const peg         = raw.peg != null && isFinite(Number(raw.peg)) ? Number(raw.peg) : 0
   const divYield    = Number(raw.dividendYield) || 0
   const purchasePrice = Number(raw.purchasePrice ?? raw.purchase_price) || 0
   const currentPrice  = Number(raw.currentPrice ?? raw.current_price)   || 0
