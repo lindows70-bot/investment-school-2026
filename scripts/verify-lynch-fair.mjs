@@ -112,7 +112,8 @@ try {
   const vd = await fetch(`${B}/api/research-verdict?ticker=005930&market=KR`, { signal: AbortSignal.timeout(90_000), headers: PROD_HEADERS }).then(r => r.json())
   check(`종합 판정 삼성전자 — 유니버스 정점 플래그 · 가치축 중립(${vd?.axes?.value}) · cons 에 정점 문장(${vd?.axisSource})`,
     vd?.pegPeak === true && vd?.axisSource === 'universe' && typeof vd?.peakNote === 'string' && vd.peakNote.includes('결산 연도') && (vd.cons ?? []).some(c => c.includes('이익 정점 착시')) && vd.axes.value <= 65)
-  check(`종합 판정 삼성전자 — 정점이면 '매수 적합'이 아니다(${vd?.verdict} · ${vd?.score}) · 한 줄 문장이 이유를 말한다`, vd?.verdict !== 'buy' && typeof vd?.oneLiner === 'string' && vd.oneLiner.includes('결산 기록 중 최고'))
+  // 한 줄 문장의 정점 설명은 라우트 규칙상 **점수 65 이상(매수 적합이 될 뻔한 경우)**에만 붙는다 — 65 미만이면 일반 문장이 맞다(2026-10-19: 유니버스 PEG 가 SSOT 로 바뀌며 삼성전자 63 → 거짓 빨강)
+  check(`종합 판정 삼성전자 — 정점이면 '매수 적합'이 아니다(${vd?.verdict} · ${vd?.score}) · 65점 이상이면 한 줄 문장이 이유를 말한다`, vd?.verdict !== 'buy' && typeof vd?.oneLiner === 'string' && ((vd.score ?? 0) < 65 || vd.oneLiner.includes('결산 기록 중 최고')))
   check('종합 판정 — 정점 게이트는 소스에 있다(buy 조건에 !pegPeak)', /&& !hype && !pegPeak\) verdict = 'buy'/.test(rv))
   // 유니버스 밖 경기순환주(이수페타시스) — 자체 계산 경로에서도 정점 플래그·가치 중립·매수 적합 아님
   const vl = await fetch(`${B}/api/research-verdict?ticker=007660&market=KR`, { signal: AbortSignal.timeout(90_000), headers: PROD_HEADERS }).then(r => r.json())
