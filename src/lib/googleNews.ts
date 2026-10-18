@@ -15,6 +15,26 @@ const tag = (item: string, name: string) => {
   return m ? decode(m[1]).trim() : ''
 }
 
+/** RSS XML → 항목(순수 · 불변식 scripts/verify-shared-libs 가 픽스처로 검사한다) */
+export function parseGoogleNewsXml(xml: string, take = Number.POSITIVE_INFINITY): GoogleNewsItem[] {
+  const out: GoogleNewsItem[] = []
+  for (const m of Array.from(xml.matchAll(/<item>([\s\S]*?)<\/item>/g))) {
+    const it = m[1]
+    const title = tag(it, 'title')
+    if (!title) continue
+    const rawLink = tag(it, 'link')
+    const dt = tag(it, 'pubDate') ? new Date(tag(it, 'pubDate')) : null
+    out.push({
+      title,
+      link: /^https?:\/\//.test(rawLink) ? rawLink : null,
+      date: dt && !isNaN(dt.getTime()) ? dt.toISOString().slice(0, 10) : null,
+      source: tag(it, 'source') || null,
+    })
+    if (out.length >= take) break
+  }
+  return out
+}
+
 export async function googleNewsItems(
   query: string,
   opts: { lang?: 'ko' | 'en'; take?: number; timeoutMs?: number } = {},
@@ -25,22 +45,6 @@ export async function googleNewsItems(
     const r = await fetch(`https://news.google.com/rss/search?q=${encodeURIComponent(query)}&${loc}`,
       { headers: { 'User-Agent': UA }, cache: 'no-store', signal: AbortSignal.timeout(timeoutMs) })
     if (!r.ok) return []
-    const xml = await r.text()
-    const out: GoogleNewsItem[] = []
-    for (const m of Array.from(xml.matchAll(/<item>([\s\S]*?)<\/item>/g))) {
-      const it = m[1]
-      const title = tag(it, 'title')
-      if (!title) continue
-      const rawLink = tag(it, 'link')
-      const dt = tag(it, 'pubDate') ? new Date(tag(it, 'pubDate')) : null
-      out.push({
-        title,
-        link: /^https?:\/\//.test(rawLink) ? rawLink : null,
-        date: dt && !isNaN(dt.getTime()) ? dt.toISOString().slice(0, 10) : null,
-        source: tag(it, 'source') || null,
-      })
-      if (out.length >= take) break
-    }
-    return out
+    return parseGoogleNewsXml(await r.text(), take)
   } catch { return [] }
 }

@@ -82,6 +82,8 @@ const INVARIANTS = [
   { file: 'scripts/verify-cache-orphans.mjs', label: 'app_cache 고아 행(옛 버전 접두어) 상한' },
   { file: 'scripts/verify-fomc-schedule.mjs', label: 'FOMC 일정표 — 앞으로 남은 회의 2개 이상 · 복제본 일치' },
   { file: 'scripts/verify-api-gates.mjs', label: 'API 게이트 — 유료·쿼터 키를 입력으로 부르는 라우트 전부 인증' },
+  { file: 'scripts/verify-cron-monitors.mjs', label: '크론 ↔ 상태판 1:1(경로·요일·시각)' },
+  { file: 'scripts/verify-shared-libs.mjs', label: '공용 lib(구글뉴스 파서·업비트·역할 분류·청크 오류 판별·FRED URL) 단위 불변식' },
 ]
 
 /**

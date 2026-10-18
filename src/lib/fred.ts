@@ -7,6 +7,10 @@ export type FredParams = Record<string, string | number | undefined>
 
 const BASE = 'https://api.stlouisfed.org/fred/series/observations'
 
+/** 요청 URL 조립(순수 · 불변식이 파라미터 직렬화를 검사한다) */
+export function buildFredUrl(series: string, key: string, params: FredParams, extra: string): string {
+  return buildUrl(series, key, params, extra)
+}
 function buildUrl(series: string, key: string, params: FredParams, extra: string): string {
   const q = new URLSearchParams({ series_id: series, api_key: key, file_type: 'json' })
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null && v !== '') q.set(k, String(v))
