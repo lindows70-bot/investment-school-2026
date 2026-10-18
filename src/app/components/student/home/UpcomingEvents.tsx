@@ -52,7 +52,8 @@ export default function UpcomingEvents({ calendar, macro, today }: { calendar: J
         </div>
       ))}
       {more > 0 && <span style={noteStyle()}>외 {more}건 — 전체 일정에서</span>}
-      {fomcKst.length === 0 && <span style={noteStyle()}>FOMC 일정 못 가져옴</span>}
+      {/* FOMC 는 고정표(fomcSchedule)라 '못 가져옴'이 아니다 — 다음 회차가 표에 아직 없는 것(2026-10-18) */}
+      {fomcKst.length === 0 && <span style={noteStyle()}>다음 FOMC 일정이 아직 등록되지 않았어요.</span>}
       {(macro.state === 'loading' || macro.state === 'idle') && <span style={noteStyle()}>지표 발표일을 불러오는 중…</span>}
       {macroFailed.length > 0 && <FailRow text={`${macroFailed.join('·')} 발표일 못 가져왔어요.`} onRetry={macro.reload} retryLabel="지표 발표일 다시 불러오기" />}
       {macroUnscheduled.length > 0 && <span style={noteStyle()}>{macroUnscheduled.join('·')}: FRED에 아직 다음 발표일이 없어요</span>}

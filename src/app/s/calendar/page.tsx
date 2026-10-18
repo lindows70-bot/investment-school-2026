@@ -39,6 +39,8 @@ export default function StudentCalendar() {
     const macroList = macroRows(macro)
     const mineOk = calendar.state === 'ok' && Array.isArray(calendar.data?.events)
     const items = buildCalendarItems({ today, windowDays: WINDOW_DAYS, fomcKst, macro: macroList ?? [], events: mineOk ? calendar.data!.events! : [] })
+    // 두 원천(지표 발표일·내 종목 일정)이 모두 결론이 났을 때만 '없어요'를 말할 수 있다 — 실패·로그인 필요는 아래 줄이 따로 밝힌다
+    const sourcesReady = macro.state !== 'loading' && macro.state !== 'idle' && calendar.state !== 'loading' && calendar.state !== 'idle'
     const weekEnd = addDays(today, WEEK_DAYS)
     const thisWeek = items.filter(it => it.date <= weekEnd)
     const later = items.filter(it => it.date > weekEnd)
@@ -49,14 +51,15 @@ export default function StudentCalendar() {
       <>
         <section aria-label="이번 주" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.xs }}>
           <h2 style={{ margin: 0, fontSize: FS.body, fontWeight: 700, color: TK.slate100 }}>이번 주 <span style={{ fontSize: FS.tiny, fontWeight: 500, color: TK.sub }}>오늘부터 {WEEK_DAYS}일</span></h2>
-          {thisWeek.length === 0 ? <span style={noteStyle()}>이번 주엔 잡힌 일정이 없어요.</span> : thisWeek.map(it => <Row key={it.key} it={it} today={today} />)}
+          {/* '없어요'는 원천이 다 온 뒤에만 — 불러오는 중·실패·로그인 필요에 빈 목록을 '없음'이라 하면 거짓(2026-10-18 전수 점검) */}
+          {thisWeek.length > 0 ? thisWeek.map(it => <Row key={it.key} it={it} today={today} />) : sourcesReady ? <span style={noteStyle()}>이번 주엔 잡힌 일정이 없어요.</span> : <span style={noteStyle()}>일정을 모으는 중…</span>}
         </section>
         <section aria-label="그다음" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.xs }}>
           <h2 style={{ margin: 0, fontSize: FS.body, fontWeight: 700, color: TK.slate100 }}>그다음 <span style={{ fontSize: FS.tiny, fontWeight: 500, color: TK.sub }}>{WINDOW_DAYS}일 안 · FOMC는 다음 {FOMC_MAX}회</span></h2>
-          {later.length === 0 ? <span style={noteStyle()}>{WINDOW_DAYS}일 안에 더 잡힌 일정이 없어요.</span> : later.map(it => <Row key={it.key} it={it} today={today} />)}
+          {later.length > 0 ? later.map(it => <Row key={it.key} it={it} today={today} />) : sourcesReady ? <span style={noteStyle()}>{WINDOW_DAYS}일 안에 더 잡힌 일정이 없어요.</span> : <span style={noteStyle()}>일정을 모으는 중…</span>}
         </section>
         <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
-          {fomcKst.length === 0 && <span style={noteStyle()}>FOMC 일정 못 가져옴</span>}
+          {fomcKst.length === 0 && <span style={noteStyle()}>다음 FOMC 일정이 아직 등록되지 않았어요.</span>}
           {(macro.state === 'loading' || macro.state === 'idle') && <span style={noteStyle()}>지표 발표일을 불러오는 중…</span>}
           {macroFailed.length > 0 && <FailRow text={`${macroFailed.join('·')} 발표일 못 가져왔어요.`} onRetry={macro.reload} retryLabel="지표 발표일 다시 불러오기" />}
           {macroUnscheduled.length > 0 && <span style={noteStyle()}>{macroUnscheduled.join('·')}: FRED에 아직 다음 발표일이 없어요</span>}

@@ -65,7 +65,9 @@ export default function StockMore({ ticker, market, price, currency }: { ticker:
       </summary>
       <div style={{ display: 'flex', flexDirection: 'column', gap: SP.sm, paddingBottom: SP.lg }}>
         {(r.state === 'idle' || r.state === 'loading') && <span style={noteStyle()}>종목 정보를 불러오는 중…</span>}
-        {(r.state === 'failed' || r.state === 'unauth' || (r.state === 'ok' && !f)) && <FailRow text="종목 정보를 못 가져왔어요." onRetry={r.reload} retryLabel="종목 정보 다시 불러오기" />}
+        {/* 로그인 필요는 실패가 아니다 — 따로 말한다(2026-10-18 전수 점검) */}
+        {r.state === 'unauth' && <span style={noteStyle()}>로그인하면 종목 정보가 보여요.</span>}
+        {(r.state === 'failed' || (r.state === 'ok' && !f)) && <FailRow text="종목 정보를 못 가져왔어요." onRetry={r.reload} retryLabel="종목 정보 다시 불러오기" />}
         {f && (
           <>
             <div className="sm-grid">

@@ -100,6 +100,7 @@ export default function StudentBrief() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
           <span style={{ fontSize: FS.micro, color: TK.sub }}>매매 신호</span>
           {pending(watch.state) ? <span style={noteStyle()}>…</span>
+            : watch.state === 'unauth' ? <span style={noteStyle()}>로그인하면 내 종목 신호가 보여요.</span>
             : watch.state !== 'ok' ? <span style={noteStyle(TK.amber400)}>신호를 못 가져왔어요.</span>
             : sigs.length === 0 ? <span style={noteStyle()}>오늘 내 종목에 뜬 신호가 없어요.</span>
             : sigs.map((s, i) => {
@@ -120,6 +121,7 @@ export default function StudentBrief() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
           <span style={{ fontSize: FS.micro, color: TK.sub }}>7일 안 실적 발표</span>
           {pending(calendar.state) ? <span style={noteStyle()}>…</span>
+            : calendar.state === 'unauth' ? <span style={noteStyle()}>로그인하면 내 종목 실적 일정이 보여요.</span>
             : calendar.state !== 'ok' ? <span style={noteStyle(TK.amber400)}>실적 일정을 못 가져왔어요.</span>
             : earnings.length === 0 ? <span style={noteStyle()}>7일 안 실적 발표가 없어요.</span>
             : earnings.map(it => (
@@ -132,6 +134,7 @@ export default function StudentBrief() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
           <span style={{ fontSize: FS.micro, color: TK.sub }}>크게 움직인 종목(하루 ±{MOVE_MIN}% 넘게)</span>
           {pending(movers.state) ? <span style={noteStyle()}>…</span>
+            : movers.state === 'unauth' ? <span style={noteStyle()}>로그인하면 내 종목 움직임이 보여요.</span>
             : movers.state !== 'ok' ? <span style={noteStyle(TK.amber400)}>움직임을 못 가져왔어요.</span>
             : big.length === 0 ? <span style={noteStyle()}>{MOVE_MIN}% 넘게 움직인 내 종목이 없어요.</span>
             : big.map(m => (

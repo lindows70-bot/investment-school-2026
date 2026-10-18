@@ -20,7 +20,10 @@ export default function ScaleSummary() {
         <span style={{ fontSize: FS.micro, color: TK.sub, whiteSpace: 'nowrap' }}>① 돈을 만드나 · ② 비싼가 · ③ 계절</span>
       </span>
       {(r.state === 'idle' || r.state === 'loading') && <span style={noteStyle()}>다섯 자산을 재는 중…</span>}
-      {(r.state === 'failed' || r.state === 'unauth' || (r.state === 'ok' && !ok)) && <span style={noteStyle(TK.amber400)}>저울을 못 불러왔어요 — 눌러서 다시 열어 보세요.</span>}
+      {/* 로그인 필요 / 응답은 왔는데 행이 없음 / 실패 — 셋을 다른 말로(2026-10-18 전수 점검: 전엔 전부 '못 불러왔어요') */}
+      {r.state === 'unauth' && <span style={noteStyle()}>로그인하면 오늘의 저울이 보여요.</span>}
+      {r.state === 'ok' && !ok && <span style={noteStyle()}>오늘 저울이 아직 안 잡혔어요 — 눌러서 열어 보세요.</span>}
+      {r.state === 'failed' && <span style={noteStyle(TK.amber400)}>저울을 못 불러왔어요 — 눌러서 다시 열어 보세요.</span>}
       {ok && changes.length > 0 && (
         <span style={{ fontSize: FS.tiny, color: TK.slate200, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
           {r.data!.changedSince ? `${dot(r.data!.changedSince)}보다 ` : ''}바뀐 칸 {changes.length}개 — {changes.slice(0, 2).map(c => `${c.name} ${Q_SHORT[c.q]} ${c.from}→${c.to}`).join(' · ')}{changes.length > 2 ? ' …' : ''}

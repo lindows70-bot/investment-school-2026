@@ -11,6 +11,7 @@ import { useJson, type JsonState } from '@/app/components/student/useJson'
 import { LinePlot } from '@/app/components/student/market/marketUi'
 import { card, FailRow, noteStyle, retryBtn } from '@/app/components/student/home/homeUi'
 import type { AptResearchResult } from '@/app/api/re-apt/route'
+import { RE_APT_MONTHS } from '@/lib/reAptConfig'   // 조회 창(개월) — 라우트와 같은 상수(글자로 '24개월'을 박지 않는다)
 import type { ReMarketResult } from '@/app/api/re-market/route'
 
 const DEFAULT_LAWD = '11680'   // 분석 화면 AptResearch 와 같은 첫 지역(강남구)
@@ -78,7 +79,8 @@ export default function StudentRealEstate() {
       .then(async r => {
         const j = await r.json().catch(() => null)
         if (cancelled) return
-        if (!j || typeof j !== 'object' || j.error || !Array.isArray(j.complexes)) { setD(null); setErr(typeof j?.error === 'string' ? j.error : '실거래 데이터를 못 가져왔어요.'); return }
+        // 서버 오류 문장("지역 코드를…"·"LAWD 5자리")은 만든 사람 말이라 학생에게 그대로 안 보인다(2026-10-18) — 우리 문구 하나로
+        if (!j || typeof j !== 'object' || j.error || !Array.isArray(j.complexes)) { setD(null); setErr('실거래 데이터를 못 가져왔어요.'); return }
         setD(j as AptResearchResult)
       })
       .catch(() => { if (!cancelled) { setD(null); setErr('실거래 데이터를 못 가져왔어요.') } })
@@ -104,7 +106,7 @@ export default function StudentRealEstate() {
       {back}
       <header style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
         <h1 style={{ margin: 0, fontSize: FS.h2, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, color: TK.slate100 }}>아파트 단지 리서치</h1>
-        <p style={{ margin: 0, fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all' }}>궁금한 아파트가 실제로 얼마에 거래됐는지 — 국토부에 신고된 실거래(호가 아님) 24개월.</p>
+        <p style={{ margin: 0, fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all' }}>궁금한 아파트가 실제로 얼마에 거래됐는지 — 국토부에 신고된 실거래(호가 아님) {RE_APT_MONTHS}개월.</p>
       </header>
 
       {/* 지역 + 단지 검색 */}
@@ -123,10 +125,10 @@ export default function StudentRealEstate() {
           <input value={aptInput} onChange={e => setAptInput(e.target.value)} placeholder="단지 이름 (예: 오금동 대림, 래미안)" aria-label="단지 검색" style={{ ...input, flexGrow: 1 }} />
           <button type="submit" style={{ ...retryBtn, background: TK.blue600, border: 'none', color: TK.slate100, fontWeight: 700 }}>찾기</button>
         </form>
-        {d && d.queryMiss && apt && <span style={noteStyle(TK.amber400)}>‘{apt}’ 실거래를 24개월 안에서 못 찾았어요 — 거래 많은 1위 단지를 대신 보여 드려요(이름 표기가 다르거나 거래가 없었을 수 있어요).</span>}
+        {d && d.queryMiss && apt && <span style={noteStyle(TK.amber400)}>‘{apt}’ 실거래를 {RE_APT_MONTHS}개월 안에서 못 찾았어요 — 거래 많은 1위 단지를 대신 보여 드려요(이름 표기가 다르거나 거래가 없었을 수 있어요).</span>}
       </section>
 
-      {d === undefined && <div style={card}><span style={noteStyle()}>{region ? `${region.sido} ${region.name}` : ''} 실거래 24개월을 모으는 중… 처음 여는 지역은 30초 넘게 걸릴 수 있어요.</span></div>}
+      {d === undefined && <div style={card}><span style={noteStyle()}>{region ? `${region.sido} ${region.name}` : ''} 실거래 {RE_APT_MONTHS}개월을 모으는 중… 처음 여는 지역은 30초 넘게 걸릴 수 있어요.</span></div>}
       {d === null && <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}><span style={{ fontSize: FS.body, color: TK.slate100 }}>{err}</span><button type="button" onClick={() => setRetry(n => n + 1)} style={retryBtn}>다시 불러오기</button></div>}
 
       {d && (

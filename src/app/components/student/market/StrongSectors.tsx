@@ -6,6 +6,7 @@ import { TK, FS, SP } from '@/lib/theme'
 import { pct, upDown } from '@/lib/studentFormat'
 import { viewOf, mdDow, QUAD_TEXT, type OverviewResp } from '@/lib/marketScreen'
 import type { StrongSector, StrongSectorsResult } from '@/lib/strongSectors'
+import { ROT_SCORE_W, rotWeightPct } from '@/lib/rotationScoreWeights'
 import type { JsonResult } from '@/app/components/student/useJson'
 import { card, CardHead, noteStyle } from '@/app/components/student/home/homeUi'
 import { Pending, HelpButton, HelpBox } from './marketUi'
@@ -82,7 +83,7 @@ export default function StrongSectors({ overview, inViewRef }: { overview: JsonR
               view.data.mean1w != null && view.data.mean1m != null ? `전체 평균 1주 ${pct(view.data.mean1w)} · 1달 ${pct(view.data.mean1m)}` : null,
               `${mdDow(view.data.calcDate) ?? view.data.calcDate} 계산`].filter(Boolean).join(' · ')}
           </span>
-          <span style={noteStyle()}>강한 순 = 다른 분야 평균과 견준 1달 흐름(60%)과 1주 흐름(40%)을 섞은 점수 순이에요.</span>
+          <span style={noteStyle()}>강한 순 = 다른 분야 평균과 견준 1달 흐름({rotWeightPct(ROT_SCORE_W.rs)})과 1주 흐름({rotWeightPct(ROT_SCORE_W.mom)})을 섞은 점수 순이에요.</span>
           {noRepsText && <span style={noteStyle()}>{noRepsText}</span>}
           <span style={noteStyle(TK.slate300)}>미국·한국 종목을 함께 본 계산이에요 · 주가 흐름으로 나눈 것이에요 — 실제로 돈이 들어왔다는 뜻은 아니에요.</span>
         </>

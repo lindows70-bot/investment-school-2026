@@ -9,7 +9,7 @@ import { useMyPortfolio } from '@/app/components/student/useMyPortfolio'
 import { countByScaleAsset } from '@/lib/scaleHoldings'
 import { card, FailRow, noteStyle } from '@/app/components/student/home/homeUi'
 import type { ScaleResult, ScaleCell, ScaleQ } from '@/lib/scale'
-import type { ScaleScore } from '@/lib/scaleScore'
+import { HORIZON_MONTHS, COHORT_GATE, type ScaleScore } from '@/lib/scaleScore'   // 채점 기간·표본 관문은 계산 lib 의 상수에서(2026-10-18: '3개월'·'10' 이 글자로 박혀 있었다)
 
 // 저울의 용어 — 가나다순이 아니라 수업 순서(현금흐름 → 할인 → 금리 → 물가 뺀 이자 → 배수·전세가율·마음 온도 → 계절 → 순풍·역풍 → 코어·위성)
 const TERMS: { term: string; mean: string; href?: string; hrefText?: string }[] = [
@@ -57,18 +57,18 @@ function ScoreCard({ s, loading }: { s: ScaleScore | null; loading: boolean }) {
   return (
     <section aria-label="저울 성적표" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.xs }}>
       <h2 style={{ margin: 0, fontSize: FS.lg, fontWeight: 700, color: TK.slate100 }}>저울 성적표</h2>
-      <span style={{ fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all' }}>③ 칸의 순풍 자산이 역풍 자산보다 3개월 뒤 정말 나았나 — 오늘부터 앞으로만 적어서 채점해요(지난 일에 맞춰 고치지 않아요).</span>
+      <span style={{ fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all' }}>③ 칸의 순풍 자산이 역풍 자산보다 {HORIZON_MONTHS}개월 뒤 정말 나았나 — 오늘부터 앞으로만 적어서 채점해요(지난 일에 맞춰 고치지 않아요).</span>
       {loading && <span style={noteStyle()}>성적표를 불러오는 중…</span>}
       {!loading && !s && <span style={noteStyle(TK.amber400)}>성적표를 못 불러왔어요.</span>}
       {s && !s.gateOpen && (
         <span style={{ fontSize: FS.body, color: TK.slate200, wordBreak: 'keep-all' }}>
-          {s.days > 0 ? `적립 ${s.days}일 · 채점된 달 ${s.comparable}/10` : '적립 시작 전 — ③ 칸이 다 판정된 날부터 하루 한 장씩 적어요'}{s.firstResultMonth ? ` · 첫 성적은 ${ymKo(s.firstResultMonth)}쯤` : ''}. 서로 다른 달이 10개 모이기 전엔 통계가 아니라 일화라서 숫자를 보여주지 않아요.
+          {s.days > 0 ? `적립 ${s.days}일 · 채점된 달 ${s.comparable}/${COHORT_GATE}` : '적립 시작 전 — ③ 칸이 다 판정된 날부터 하루 한 장씩 적어요'}{s.firstResultMonth ? ` · 첫 성적은 ${ymKo(s.firstResultMonth)}쯤` : ''}. 서로 다른 달이 {COHORT_GATE}개 모이기 전엔 통계가 아니라 일화라서 숫자를 보여주지 않아요.
         </span>
       )}
       {s && s.gateOpen && s.stats && (
         <>
           <span style={{ fontSize: FS.body, color: TK.slate200, wordBreak: 'keep-all' }}>
-            순풍 자산이 역풍 자산보다 3개월 뒤 평균 <b>{signPp(s.stats.meanSpread)}</b>(중간값 {signPp(s.stats.medianSpread)}) · 맞은 달 {s.stats.hits}/{s.stats.n} · 다섯 자산 평균보다 {signPp(s.stats.meanVsBase)}
+            순풍 자산이 역풍 자산보다 {HORIZON_MONTHS}개월 뒤 평균 <b>{signPp(s.stats.meanSpread)}</b>(중간값 {signPp(s.stats.medianSpread)}) · 맞은 달 {s.stats.hits}/{s.stats.n} · 다섯 자산 평균보다 {signPp(s.stats.meanVsBase)}
           </span>
           <span style={noteStyle()}>
             {s.stats.trimmedMeanSpread != null ? `가장 큰 달을 빼면 ${signPp(s.stats.trimmedMeanSpread)} · ` : ''}
@@ -120,7 +120,10 @@ export default function StudentScale() {
       )}
 
       {(r.state === 'idle' || r.state === 'loading') && <div style={card}><span style={noteStyle()}>다섯 자산을 재는 중…</span></div>}
-      {(r.state === 'failed' || r.state === 'unauth' || (r.state === 'ok' && !ok)) && <div style={card}><FailRow text="저울을 못 불러왔어요." onRetry={r.reload} retryLabel="저울 다시 불러오기" /></div>}
+      {/* 로그인 필요 / 응답은 왔는데 행이 없음 / 실패 — 셋을 다른 말로(2026-10-18 전수 점검) */}
+      {r.state === 'unauth' && <div style={card}><span style={noteStyle()}>로그인하면 오늘의 저울이 보여요.</span></div>}
+      {r.state === 'ok' && !ok && <div style={card}><FailRow text="오늘 저울이 아직 안 잡혔어요 — 잠시 뒤 다시 열어 보세요." onRetry={r.reload} retryLabel="저울 다시 불러오기" /></div>}
+      {r.state === 'failed' && <div style={card}><FailRow text="저울을 못 불러왔어요." onRetry={r.reload} retryLabel="저울 다시 불러오기" /></div>}
 
       {ok && r.data!.rows.map(row => (
         <section key={row.asset} aria-label={row.name} style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>

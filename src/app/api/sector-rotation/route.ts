@@ -5,6 +5,7 @@ export const maxDuration = 300
 
 import { NextResponse } from 'next/server'
 import { SECTOR_ROTATION_KEY } from '@/lib/rotationShared'   // 🧭 키 SSOT(reader 전원과 공유 — 범프는 lib 한 줄)
+import { ROT_SCORE_W } from '@/lib/rotationScoreWeights'
 import { appendQuadSnapshot } from '@/lib/rotationScorecard'   // ⏱️ 성적표 전향 적립(2026-08-21)
 import { getCache, setCache } from '@/lib/appCache'
 import { scoreSubFlow, type SubQ } from '@/lib/subFlow'
@@ -120,7 +121,7 @@ export async function GET(req: Request) {
     const rs = Math.round(rsRaw * 10) / 10
     const mom = Math.round(momRaw * 10) / 10
     // score 는 화면의 rs·mom 으로 학생이 검산할 수 있어야 하므로 **표시값**으로 계산한다(오차 ≤0.05)
-    const score = Math.round((0.6 * rs + 0.4 * mom) * 10) / 10
+    const score = Math.round((ROT_SCORE_W.rs * rs + ROT_SCORE_W.mom * mom) * 10) / 10   // 가중치 SSOT(lib/rotationScoreWeights — 학생 화면 설명문과 같은 값)
     return {
       key: x.key, label: x.label, emoji: x.emoji, group: x.group,
       ret1w: x.ret1w != null ? Math.round(x.ret1w * 10) / 10 : null,

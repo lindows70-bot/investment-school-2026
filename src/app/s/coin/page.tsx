@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 import { won, pct, upDown } from '@/lib/studentFormat'
+import { STUDENT_COINS } from '@/lib/studentCoins'
 import { niceTicks, hourTicks, dayTicks, kstParts, ymdDot } from '@/lib/marketScreen'
 import { useJson, type JsonState } from '@/app/components/student/useJson'
 import { useMyPortfolio } from '@/app/components/student/useMyPortfolio'
@@ -14,13 +15,8 @@ import { card, FailRow, noteStyle } from '@/app/components/student/home/homeUi'
 import type { RegulationResult, RegImpact } from '@/app/api/crypto-regulation/route'
 import type { BtcEtfResult } from '@/app/api/btc-etf/route'
 
-// 늘 보이는 4종(사용자 결정 9/27) + 내가 가진 코인 중 4종 밖의 것(사용자 결정 2026-10-09 — 보유 코인은 자동으로 더한다)
-const COINS = [
-  { ticker: 'BTC', name: '비트코인' },
-  { ticker: 'ETH', name: '이더리움' },
-  { ticker: 'SOL', name: '솔라나' },
-  { ticker: 'XRP', name: '리플' },
-] as const
+// 늘 보이는 대표 코인(사용자 결정 9/27) + 내가 가진 코인 중 그 밖의 것(사용자 결정 2026-10-09 — 보유 코인은 자동으로 더한다). 목록은 lib/studentCoins(배우기 입구 문구와 같은 개수)
+const COINS = STUDENT_COINS
 type FrameKey = '1D' | '1W' | '1M'
 const FRAMES: { key: FrameKey; label: string }[] = [{ key: '1D', label: '24시간' }, { key: '1W', label: '7일' }, { key: '1M', label: '30일' }]
 interface PricePoint { t: number; v: number }
@@ -205,11 +201,11 @@ export default function StudentCoin() {
       {back}
       <header style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
         <h1 style={{ margin: 0, fontSize: FS.h2, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, color: TK.slate100 }}>코인</h1>
-        <p style={{ margin: 0, fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all' }}>대표 코인 4종의 원화 시세와 흐름, 규제 소식, 비트코인 ETF로 들어온 돈.</p>
+        <p style={{ margin: 0, fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all' }}>대표 코인 {COINS.length}종의 원화 시세와 흐름, 규제 소식, 비트코인 ETF로 들어온 돈.</p>
       </header>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.sm, flexWrap: 'wrap' }}>
-        <h2 style={h2}>대표 코인 4종{mine.length > 0 ? ` + 내 코인 ${mine.length}종` : ''} <span style={{ fontSize: FS.tiny, fontWeight: 500, color: TK.sub }}>{frameLabel} 흐름</span></h2>
+        <h2 style={h2}>대표 코인 {COINS.length}종{mine.length > 0 ? ` + 내 코인 ${mine.length}종` : ''} <span style={{ fontSize: FS.tiny, fontWeight: 500, color: TK.sub }}>{frameLabel} 흐름</span></h2>
         <RangeTabs label="차트 기간" options={FRAMES} value={frame} onChange={setFrame} />
       </div>
       {prices.state === 'failed' && <FailRow text="코인 시세를 못 가져왔어요." onRetry={prices.reload} retryLabel="코인 시세 다시 불러오기" />}
@@ -219,7 +215,8 @@ export default function StudentCoin() {
 
       <Regulation />
       <EtfFlows />
-      <span style={noteStyle()}>시세 업비트(원화) · 등락은 전날 대비 · 예측이 아니라 지금 상태예요</span>
+      {/* 등락 기준은 홈 카드·시장 코인 패널과 같은 말로 — 업비트 등락률은 오전 9시(하루 시작) 기준이다(2026-10-18: 여기만 '전날 대비'였다) */}
+      <span style={noteStyle()}>시세 업비트(원화) · 등락은 오전 9시 기준 · 예측이 아니라 지금 상태예요</span>
     </div>
   )
 }

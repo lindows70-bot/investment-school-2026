@@ -23,18 +23,20 @@ interface Student {
   /** false = 서버가 보유 구성을 비워 보냄(1~3위와 나만 채운다). 필드가 없으면(옛 응답) true 로 본다 */
   detail: boolean
   topHoldings: Holding[]
-  otherPct: number
-  otherCount: number
+  /** null = 응답에 없음(모름) — 0 으로 채우지 않는다(2026-10-18) */
+  otherPct: number | null
+  otherCount: number | null
   mix: MixRow[]
-  /** 보여 준 묶음 밖 나머지 비중 — 옛 응답엔 없어 0 */
-  mixOtherPct: number
-  pricedAll: boolean
+  /** 보여 준 묶음 밖 나머지 비중 — 옛 응답엔 없어 null */
+  mixOtherPct: number | null
+  /** null = 응답에 없음 — '전부 시세 있음'이라 보지 않는다 */
+  pricedAll: boolean | null
   /** 지난주 월요일 순위 — 스냅샷이 두 장 이상이고 그 장에 있었을 때만. 없으면 null(아무 말도 안 한다) */
   prevRank: number | null
 }
 
 const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)
-const numOr = (n: unknown, d: number) => isNum(n) ? n : d
+const numOr = <D,>(n: unknown, d: D): number | D => isNum(n) ? n : d
 const weight = (n: number) => `${n.toFixed(1)}%`   // 비중은 부호 없이(등락률이 아니다)
 
 function parseStudent(x: unknown): Student | null {
@@ -55,14 +57,15 @@ function parseStudent(x: unknown): Student | null {
       const o = h as Record<string, unknown> | null
       return o && typeof o.name === 'string' && isNum(o.weightPct) ? [{ name: o.name, weightPct: o.weightPct }] : []
     }),
-    otherPct: numOr(s.otherPct, 0),
-    otherCount: numOr(s.otherCount, 0),
+    // 없는 값은 0 이 아니라 '모름'(null) — 0 으로 채우면 종목 수가 조용히 줄어 보인다(2026-10-18 전수 점검)
+    otherPct: numOr(s.otherPct, null),
+    otherCount: numOr(s.otherCount, null),
     mix: mix.flatMap(m => {
       const o = m as Record<string, unknown> | null
       return o && typeof o.key === 'string' && typeof o.label === 'string' && isNum(o.weightPct) ? [{ key: o.key, label: o.label, weightPct: o.weightPct }] : []
     }),
-    mixOtherPct: numOr(s.mixOtherPct, 0),
-    pricedAll: s.pricedAll !== false,
+    mixOtherPct: numOr(s.mixOtherPct, null),
+    pricedAll: typeof s.pricedAll === 'boolean' ? s.pricedAll : null,   // 모르면 '전부 시세 있음'이라 하지 않는다
     prevRank: isNum(s.prevRank) && s.prevRank >= 1 ? Math.round(s.prevRank) : null,
   }
 }
@@ -216,9 +219,9 @@ function RankTable({ ranked, myId, unregistered, uncomputed, prevSnapDate }: { r
 /** 친구 포트폴리오 한 장 — 종목 비중·구성 비중만(금액 없음) */
 function FriendCard({ s, rank }: { s: Student; rank: number }) {
   const r = s.totalReturn as number
-  const count = s.topHoldings.length + s.otherCount   // 티커별로 합친 종목 수(holdingCount 는 분할매수 행까지 센다)
+  const count = s.otherCount != null ? s.topHoldings.length + s.otherCount : null   // 티커별로 합친 종목 수(holdingCount 는 분할매수 행까지 센다) · 기타 수를 모르면 전체 수도 모른다
   const meta = [
-    ...(s.topHoldings.length > 0 ? [`${count}종목`] : []),   // 비중을 못 받았으면 0종목이라 적지 않는다
+    ...(s.topHoldings.length > 0 && count != null ? [`${count}종목`] : []),   // 비중을 못 받았으면 0종목이라 적지 않는다
     ...(s.coreRatio != null && s.satelliteRatio != null ? [`코어 ${s.coreRatio}% : 위성 ${s.satelliteRatio}%`] : []),
   ]
   // 리디자인: 종목 비중 칩은 테두리 없이 면만(TK.bg7) — 카드 안의 테두리 상자를 두지 않는다
@@ -244,10 +247,10 @@ function FriendCard({ s, rank }: { s: Student; rank: number }) {
                 <span style={{ ...nowrap, color: TK.slate100, fontWeight: 700 }}>{weight(h.weightPct)}</span>
               </span>
             ))}
-            {s.otherCount > 0 && (
+            {s.otherCount != null && s.otherCount > 0 && (
               <span style={{ ...chip, color: TK.sub }}>
                 <span style={nowrap}>기타 {s.otherCount}종</span>
-                <span style={nowrap}>{weight(s.otherPct)}</span>
+                <span style={nowrap}>{s.otherPct != null ? weight(s.otherPct) : '비중 모름'}</span>
               </span>
             )}
           </div>
@@ -262,7 +265,7 @@ function FriendCard({ s, rank }: { s: Student; rank: number }) {
               <span style={{ ...nowrap, fontWeight: 700 }}>{weight(m.weightPct)}</span>
             </span>
           ))}
-          {s.mixOtherPct > 0 && (
+          {s.mixOtherPct != null && s.mixOtherPct > 0 && (
             <span style={{ display: 'flex', justifyContent: 'space-between', gap: SP.sm, fontSize: FS.body, color: TK.sub }}>
               <span>나머지</span>
               <span style={nowrap}>{weight(s.mixOtherPct)}</span>
@@ -271,7 +274,8 @@ function FriendCard({ s, rank }: { s: Student; rank: number }) {
           <span style={noteStyle()}>ETF는 상장된 시장으로 묶었어요(담은 자산의 나라와 다를 수 있어요).</span>
         </div>
       )}
-      {!s.pricedAll && <span style={noteStyle()}>시세를 못 가져온 종목은 산 가격으로 계산했어요.</span>}
+      {s.pricedAll === false && <span style={noteStyle()}>시세를 못 가져온 종목은 산 가격으로 계산했어요.</span>}
+      {s.pricedAll == null && <span style={noteStyle()}>시세를 전부 받았는지는 확인하지 못했어요.</span>}
     </section>
   )
 }

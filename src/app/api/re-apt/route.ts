@@ -9,6 +9,7 @@ import { rtmsTradeMonth, rtmsRentMonth, LAWD_SIDO, LAWD_REGIONS, type AptDeal } 
 import { roneSeries, RONE_JEONSE_TBL, RONE_PRICE_CLS, HONEYCOMB_KEY } from '@/lib/rone'
 import { getSeoulAptMaster, matchAptMaster } from '@/lib/seoulApt'
 import { RE_MARKET_KEY } from '@/lib/reMarketKey'
+import { RE_APT_MONTHS } from '@/lib/reAptConfig'
 
 export interface AptComplex { name: string; dealCount: number; lastPrice: number; lastYm: string; buildYear: number | null }
 export interface AptOverview { households: number | null; dongs: number | null; aprv: string | null; park: number | null; parkPerHh: number | null; heat: string | null }
@@ -51,7 +52,7 @@ export async function GET(req: Request) {
   const areaQ = parseFloat(sp.get('area') ?? '')
   if (!/^\d{5}$/.test(lawd)) return NextResponse.json({ error: '지역(LAWD 5자리)을 지정해주세요.' }, { status: 400 })
 
-  const MONTHS = 24
+  const MONTHS = RE_APT_MONTHS   // 화면 문구와 같은 상수(lib/reAptConfig)
   const now = new Date(Date.now() + 9 * 3600_000)
   const yms: string[] = []
   for (let k = 0; k < MONTHS; k++) {

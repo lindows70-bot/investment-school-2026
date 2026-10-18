@@ -8,6 +8,7 @@ import { TK, FS, RAD, SP } from '@/lib/theme'
 import { quoteOfDay } from '@/lib/quotes'
 import { mineParts, MOVE_MIN } from '@/lib/homeBrief'
 import { upDown, pct } from '@/lib/studentFormat'
+import { STUDENT_COINS } from '@/lib/studentCoins'
 import { getAssetType } from '@/lib/assetClassifier'
 import type { Tip } from '@/lib/learnTips'
 import { useJson, type JsonResult, type JsonState } from '@/app/components/student/useJson'
@@ -179,7 +180,8 @@ function NewsCard({ sectionRef, seen, calendar, movers, today }: {
           <div style={rowStyle}>
             <span style={labelStyle}>크게 움직인 종목(하루 ±{MOVE_MIN}% 넘게)</span>
             {big.length === 0
-              ? <span style={{ fontSize: FS.body, color: toneColor(parts.movers[0]?.[0]?.tone) }}>{parts.movers[0]?.map(p => p.text).join('') ?? '—'}</span>
+              // 조각마다 제 색(홈 시황 BriefLine 과 같은 방식) — 전엔 첫 조각 색 하나로 칠해 종목명·판정·등락%가 한 색이었다(2026-10-18)
+              ? <span style={{ fontSize: FS.body }}>{parts.movers[0]?.map((p, i) => <span key={i} style={{ color: toneColor(p.tone) }}>{p.text}</span>) ?? <span style={{ color: toneColor(undefined) }}>—</span>}</span>
               : big.map(m => {
                 const stock = getAssetType(m.ticker, m.name, m.market) === 'STOCK'
                 const link = stock ? linkFor(m.ticker) : null
@@ -193,6 +195,7 @@ function NewsCard({ sectionRef, seen, calendar, movers, today }: {
                     {/* 뉴스 — 개별 주식만: 제목 있으면 기사 링크(주소 없으면 글자만), 불러오는 중, 못 가져옴, 없음 */}
                     {stock && (news.state === 'loading' || news.state === 'idle'
                       ? <span style={noteStyle()}>뉴스 제목 찾는 중…</span>
+                      : news.state === 'unauth' ? <span style={noteStyle()}>로그인하면 뉴스 제목이 보여요.</span>
                       : news.state !== 'ok' ? <span style={noteStyle(TK.amber400)}>뉴스 제목을 못 가져왔어요.</span>
                       : link
                       ? link.url
@@ -228,7 +231,7 @@ const ACADEMY = [
 // ── 5. 테마(부동산·코인) — 5단계-3: 간편 화면 안의 부동산·코인 입구(사용자 결정: 둘 다 중요한 자산, 배우기에 둔다)
 const THEMES = [
   { href: '/s/realestate', title: '부동산', sub: '아파트 단지 리서치 — 실거래로 찾기' },
-  { href: '/s/coin', title: '코인', sub: '대표 4종 시세 · 규제 · ETF 자금' },
+  { href: '/s/coin', title: '코인', sub: `대표 ${STUDENT_COINS.length}종 시세 · 규제 · ETF 자금` },
 ]
 
 const sectionTitle = { margin: 0, fontSize: FS.lg, fontWeight: 700, color: TK.slate100 } as const
