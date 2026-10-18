@@ -20,7 +20,7 @@
 import {
   useState, useEffect, useRef, useMemo, useCallback,
 } from 'react'
-import { POLICY_RATES } from '@/lib/policyRates'   // 🏦 정책금리 폴백 SSOT(api/macro-data 와 공유)
+import { POLICY_RATES, POLICY_RATE_AS_OF } from '@/lib/policyRates'   // 🏦 정책금리 폴백 SSOT(api/macro-data 와 공유) · 기준일을 화면에 밝힌다(2026-10-18)
 import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps'
 // ⚠️ Sphere·Graticule — react-simple-maps 런타임엔 export 존재하나 타입 정의(@types)에 누락 → 네임스페이스에서 추출·캐스팅
 import * as ReactSimpleMaps from 'react-simple-maps'
@@ -68,11 +68,13 @@ interface MacroApi {
     cpi:   Record<string, number | null>
     unemp: Record<string, number | null>
     debt:  Record<string, number | null>
-    rates: Record<string, number>          // 폴백 기준금리
+    rates: Record<string, number>          // 기준금리 — 미국은 FRED 목표범위 중간점(실시간), 나머지는 policyRates 수동표
   }
   stocks:   { nvda: StockPoint[]; pltr: StockPoint[] }
   fedRates: RatePoint[]
   dataQuality: { cpiSource: string; stockSource: string; fedSource: string }
+  ratesAsOf?: string                     // 수동표 기준일(policyRates.POLICY_RATE_AS_OF) — 화면이 밝힌다
+  ratesLive?: { USA: boolean }           // 미국 정책금리가 FRED 실시간인가
   lastUpdated: string
 }
 
@@ -223,6 +225,12 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
           ))}
         </div>
       </div>
+      {/* 기준금리 출처 — 전엔 3개월 전 수동값이 날짜 없이 나갔다(2026-10-18) */}
+      {ind === 'rates' && (
+        <div style={{ fontSize:10, color:C.sub, marginTop:-6, marginBottom:8 }}>
+          🇺🇸 미국은 FRED 실시간(목표범위 중간점){api?.ratesLive?.USA === false ? ' — 지금은 못 받아 수동값' : ''} · 나머지 14개국은 {api?.ratesAsOf ?? POLICY_RATE_AS_OF} 기준 수동값
+        </div>
+      )}
 
       {/* ─ 지도 — 400px 높이(등면적 투영이 세로에 여유롭게 담김) ─ */}
       <div style={{
@@ -383,7 +391,7 @@ function MacroHeatmap({ api, loading }: { api: MacroApi | null; loading: boolean
           }}>
             <div style={{ fontSize:13, fontWeight:800, color:C.text, marginBottom:6 }}>{hovMeta.ko}</div>
             <div style={{ display:'flex', justifyContent:'space-between', gap:16 }}>
-              <span style={{ fontSize:11, color:C.sub }}>{cfg.label}</span>
+              <span style={{ fontSize:11, color:C.sub }}>{cfg.label}{ind === 'rates' ? (hovIso === 'USA' && api?.ratesLive?.USA ? ' · FRED 실시간' : ` · ${api?.ratesAsOf ?? POLICY_RATE_AS_OF} 기준 수동`) : ''}</span>
               <span style={{ fontSize:15, fontWeight:900, color:getGeoColor(hovered!), fontVariantNumeric:'tabular-nums' }}>
                 {getVal(hovIso, ind)?.toFixed(cfg.dp) ?? '—'}{cfg.unit}
               </span>

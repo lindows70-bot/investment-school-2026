@@ -17,7 +17,8 @@ export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 
 // ─── 기준금리 폴백 — policyRates SSOT(같은 테이블이 macro-hub 화면에도 복붙돼 있어 합쳤다) ──────────────
-import { POLICY_RATES as FALLBACK_RATES } from '@/lib/policyRates'
+import { POLICY_RATES as FALLBACK_RATES, POLICY_RATE_AS_OF } from '@/lib/policyRates'
+import { fredObservations } from '@/lib/fred'
 
 // ─── World Bank API 헬퍼 ─────────────────────────────────────────────────────
 async function fetchWorldBank(
@@ -118,6 +119,8 @@ export async function GET() {
     nvdaResult,
     pltrResult,
     fedRateResult,
+    upperResult,
+    lowerResult,
   ] = await Promise.allSettled([
     fetchWorldBank('FP.CPI.TOTL.ZG',     COUNTRIES_STR),   // 소비자물가
     fetchWorldBank('SL.UEM.TOTL.ZS',     COUNTRIES_STR),   // 실업률
@@ -125,6 +128,8 @@ export async function GET() {
     fetchMonthlyHistory('NVDA', 38),
     fetchMonthlyHistory('PLTR', 38),
     fetchFedFundsHistory(38),
+    fredObservations('DFEDTARU', { sort_order: 'desc', limit: 1 }),   // 연준 목표범위 상단
+    fredObservations('DFEDTARL', { sort_order: 'desc', limit: 1 }),   // 연준 목표범위 하단
   ])
 
   const cpi      = cpiResult.status   === 'fulfilled' ? cpiResult.value   : {}
@@ -133,6 +138,9 @@ export async function GET() {
   const nvda     = nvdaResult.status  === 'fulfilled' ? nvdaResult.value  : []
   const pltr     = pltrResult.status  === 'fulfilled' ? pltrResult.value  : []
   const fedRates = fedRateResult.status === 'fulfilled' ? fedRateResult.value : []
+  // 🇺🇸 정책금리 = 목표범위 상단·하단(DFEDTARU·DFEDTARL)의 중간점 — 수동표(3.63 = 3.50~3.75 중간점)와 같은 정의. 둘 다 와야 쓴다
+  const usPolicyRate = (upperResult.status === 'fulfilled' && lowerResult.status === 'fulfilled' && upperResult.value.length && lowerResult.value.length)
+    ? Math.round((upperResult.value[0].v + lowerResult.value[0].v) / 2 * 1000) / 1000 : null
 
   // 소스별 성공 여부 로그
   console.info('[macro-data] sources:', {
@@ -150,8 +158,11 @@ export async function GET() {
         cpi,
         unemp,
         debt,
-        rates: FALLBACK_RATES,   // 기준금리는 폴백값 사용 (분기 수동 업데이트)
+        // 기준금리 — 미국만 FRED 목표범위 중간점(실시간), 나머지 14개국은 policyRates 수동표. 기준일(ratesAsOf)을 함께 실어 화면이 밝힌다(6차 점검 — 전엔 3개월 전 값이 날짜 없이 나갔다)
+        rates: usPolicyRate != null ? { ...FALLBACK_RATES, USA: usPolicyRate } : FALLBACK_RATES,
       },
+      ratesAsOf: POLICY_RATE_AS_OF,
+      ratesLive: { USA: usPolicyRate != null },
       stocks: { nvda, pltr },
       fedRates,
       dataQuality: {
