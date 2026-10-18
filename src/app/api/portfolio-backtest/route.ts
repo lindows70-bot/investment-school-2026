@@ -52,7 +52,7 @@ const cagr = (mult: number, years: number) => years > 0 ? (Math.pow(mult, 1 / ye
 type HoldInput = { ticker: string; name: string; market: Mkt; costW: number; cat: Cat }
 
 export async function GET(req: Request) {
-  const sb = createClient()
+  const sb = await createClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 

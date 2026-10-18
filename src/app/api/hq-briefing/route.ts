@@ -41,7 +41,7 @@ export interface HqBriefing {
 const ACTION_KO: Record<string, string> = { CUT_LOSS: '손절', TAKE_PROFIT: '익절' }
 
 export async function GET(req: Request) {
-  const sb = createClient()
+  const sb = await createClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 

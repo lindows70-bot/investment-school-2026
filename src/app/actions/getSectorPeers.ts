@@ -157,7 +157,7 @@ async function fetchMetric(yf: any, symbol: string, isTarget: boolean, fxP: Prom
     const psr = num(sd.priceToSalesTrailing12Months)
     const peRaw = num(sd.trailingPE)
     const pe = peRaw != null && peRaw > 0 ? +peRaw.toFixed(2) : null
-    return { ticker: symbol.replace(/\.(KS|KQ)$/i, ''), name, industry, sameInd: false, peg, pegBaseEffect, opMargin, debtRatio, mcapUsd, psr, pe, isTarget }
+    return { ticker: symbol.replace(/\.(KS|KQ)$/i, ''), name, industry, sameInd: false, peg, pegBaseEffect, opMargin, debtRatio, mcapUsd, psr, pe, isTarget };
   } catch { return null }
 }
 
@@ -183,7 +183,7 @@ export async function getSectorPeers(input: { ticker: string; name?: string; mar
     // PEG SSOT(stock-info)·환율 호출용 base — 다른 라우트 관례대로 설정값(NEXT_PUBLIC_APP_URL) 먼저, 없을 때만 요청 호스트
     //   (Host 헤더를 먼저 믿으면 조작된 호스트의 가짜 환율·PEG 가 6h 메모리 캐시에 들어갈 수 있다)
     let base: string | undefined = process.env.NEXT_PUBLIC_APP_URL || undefined
-    if (!base) { try { const h = headers(); const host = h.get('host'); if (host) base = `${h.get('x-forwarded-proto') ?? 'https'}://${host}` } catch { /* base 없으면 Yahoo 폴백 */ } }
+    if (!base) { try { const h = await headers(); const host = h.get('host'); if (host) base = `${h.get('x-forwarded-proto') ?? 'https'}://${host}` } catch { /* base 없으면 Yahoo 폴백 */ } }
     // 💱 시총 체급 환산용 — 기다리지 않고 시작만 해 두고 fetchMetric 이 필요할 때 받는다. base 가 없으면 폴백(live=false → 결과를 캐시하지 않는다)
     const fxP: Promise<{ rate: number; live: boolean }> = base ? fetchUsdKrw(base) : Promise.resolve({ rate: USD_KRW_FALLBACK, live: false })
     // KR은 .KS(코스피)→.KQ(코스닥) 폴백 — 코스닥 종목이 .KS로만 시도하면 실패

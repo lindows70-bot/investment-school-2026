@@ -126,7 +126,7 @@ function trendFromCloses(c: number[]): WLTrend {
 export async function GET(req: Request) {
   // 🔒 서비스 롤로 전교생 보유 종목(school)을 모은다 — 로그인(또는 크론 비밀) 없이는 열지 않는다(2026-10-18 전수 점검: 비로그인 curl 에 학교 보유 종목 목록이 나갔다). 크론(vercel.json)은 Bearer 로 통과
   if (!isCronRequest(req)) {
-    const { data: { user } } = await createUserClient().auth.getUser()
+    const { data: { user } } = await (await createUserClient()).auth.getUser()
     if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
   const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin   // 크론 요청은 로그인 보호가 걸린 배포 고유 주소로 들어와 자기 호출이 막힌다(2026-10-07)

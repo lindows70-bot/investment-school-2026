@@ -16,7 +16,7 @@ const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0,
 export interface ExitPlanApi { asOf: string; items: ExitPlanItem[]; skipped: string[] }
 
 export async function GET(req: Request) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'auth required' }, { status: 401 })
 

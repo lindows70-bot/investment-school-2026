@@ -31,7 +31,7 @@ async function marksTemp(base: string): Promise<number | null> {
 }
 
 export async function GET(req: Request) {
-  const sb = createClient()
+  const sb = await createClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
@@ -64,7 +64,7 @@ export async function GET(req: Request) {
 }
 
 export async function PUT(req: Request) {
-  const sb = createClient()
+  const sb = await createClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 

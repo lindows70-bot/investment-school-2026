@@ -11,7 +11,7 @@ export async function assertTossOwner(): Promise<TossOwnerCheck> {
   // 소유자 이메일이 설정 안 됐으면 '아무도 통과 못 함'(fail-closed) — 실수로 전체 공개되는 일 방지
   if (!ownerEmail) return { ok: false, reason: 'TOSS_OWNER_EMAIL 미설정(fail-closed)' }
 
-  const sb = createClient()
+  const sb = await createClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user?.email) return { ok: false, reason: '미인증' }
   if (user.email.trim().toLowerCase() !== ownerEmail) return { ok: false, reason: '소유자 아님' }

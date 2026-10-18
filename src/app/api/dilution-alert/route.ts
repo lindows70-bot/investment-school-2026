@@ -64,7 +64,7 @@ async function scanTicker(ticker: string, name: string): Promise<DilutionAlert[]
 }
 
 export async function GET() {
-  const sb = createClient()
+  const sb = await createClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 

@@ -7,8 +7,9 @@ const nextConfig = {
 
   // yahoo-finance2 를 번들링하지 않고 Node.js 런타임에서 직접 사용 (Vercel 포함)
   // Next.js 14: experimental.serverComponentsExternalPackages
+  // Next 15: experimental.serverComponentsExternalPackages → serverExternalPackages(최상위)
+  serverExternalPackages: ['yahoo-finance2', 'pdf-parse'],
   experimental: {
-    serverComponentsExternalPackages: ['yahoo-finance2', 'pdf-parse'],
     // recharts 배럴 임포트를 딥 패스로 자동 변환(160+ 파일 공통) — 번들·컴파일 시간 절감. 실패 시 원래 동작으로 조용히 폴백
     optimizePackageImports: ['recharts', 'lucide-react'],
   },

@@ -37,7 +37,7 @@ async function allowed(req: Request): Promise<boolean> {
   const secret = process.env.CRON_SECRET
   if (secret && req.headers.get('authorization') === `Bearer ${secret}`) return true
   try {
-    const sb = createClient()
+    const sb = await createClient()
     const { data: { user } } = await sb.auth.getUser()
     if (!user) return false
     const { data, error } = await sb.from('profiles').select('role').eq('id', user.id).single()

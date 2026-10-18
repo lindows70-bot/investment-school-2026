@@ -89,7 +89,7 @@ const closeAt = (candles: TechCandle[], date: string): number | null => {
 export async function GET(req: Request) {
   // 🔒 서비스 롤로 전교생 보유 종목을 읽어 '보유' 표시를 붙인다 — 로그인(또는 크론 비밀) 없이는 열지 않는다(2026-10-18 전수 점검: 비로그인 curl 에 학교 보유 종목 목록이 나갔다)
   if (!isCronRequest(req)) {
-    const { data: { user } } = await createUserClient().auth.getUser()
+    const { data: { user } } = await (await createUserClient()).auth.getUser()
     if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
   const today = kstDate()

@@ -33,7 +33,7 @@ const isMissingTable = (e: { code?: string; message?: string } | null) =>
   !!e && (e.code === '42P01' || /re_watchlist.*(does not exist|schema cache)/i.test(e.message ?? ''))
 
 export async function GET() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'auth required' }, { status: 401 })
 
@@ -83,7 +83,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'auth required' }, { status: 401 })
   const body = await req.json().catch(() => null) as { lawd?: string; apt?: string; area?: number | null } | null
@@ -98,7 +98,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'auth required' }, { status: 401 })
   const url = new URL(req.url)

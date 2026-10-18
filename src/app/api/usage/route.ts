@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 const KEY_RE = /^[A-Za-z0-9_\-/]{1,80}$/   // 경로·탭 이름만(쿼리·한글 없음 — 저장 크기와 키 수를 묶는다)
 
 export async function POST(req: Request) {
-  const sb = createClient()
+  const sb = await createClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user) return NextResponse.json({ ok: false }, { status: 401 })
   let kind: UsageKind | null = null, key: string | null = null

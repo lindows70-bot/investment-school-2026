@@ -152,7 +152,7 @@ export async function GET(req: Request) {
   //    이전엔 비로그인 curl 에도 200 으로 학생 9명 실명이 나갔다 — 화면 보호(middleware)는 API 를 막지 않는다.
   //    크론(주간 순위 스냅샷 · CRON_SECRET Bearer)은 세션 없이 통과한다 — 보는 사람이 없으니 '내' 강조 id 는 없다(2026-10-09)
   const cron = isCronRequest(req)
-  const userSb = createClient()
+  const userSb = await createClient()
   const { data: { user } } = cron ? { data: { user: null } } : await userSb.auth.getUser()
   if (!user && !cron) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 

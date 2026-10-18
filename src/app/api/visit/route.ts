@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(req: Request) {
   try {
-    const sb = createClient()
+    const sb = await createClient()
     const { data: { user } } = await sb.auth.getUser()
     if (!user) return NextResponse.json({ ok: false, reason: 'unauthorized' }, { status: 401 })
     let path: string | null = null

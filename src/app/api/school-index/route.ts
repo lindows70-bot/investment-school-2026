@@ -36,7 +36,7 @@ function admin() {
 
 export async function GET() {
   // 🔒 '로그인 학생 모두에게' 노출이 의도 — 비로그인 요청은 막는다(2026-09-25, 비로그인 200 실측)
-  const sb = createClient()
+  const sb = await createClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 

@@ -153,7 +153,7 @@ async function fetchGuidance(ticker: string, market: string, yf: unknown, invNam
 
 // ── 메인 핸들러 ───────────────────────────────────────────────────────────────
 export async function GET() {
-  const sb = createClient()
+  const sb = await createClient()
   const { data: { user }, error: authErr } = await sb.auth.getUser()
   if (authErr || !user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 

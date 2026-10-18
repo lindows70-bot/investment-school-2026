@@ -20,7 +20,7 @@ function isEtfByName(name: string): boolean {
 }
 
 export async function POST() {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
 
   // 선생님 세션 확인
   const sbSession = createServerClient(

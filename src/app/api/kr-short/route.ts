@@ -37,7 +37,7 @@ export async function GET() {
 
   // ⚠️ 러너는 전체 학생 합집합을 수집(공유 캐시) — 서빙 시 로그인 사용자의 보유 종목으로 필터('내 종목' 의미 보장).
   //    미로그인이면 시장 Top만 제공(holdings 비움).
-  const sb = createClient()
+  const sb = await createClient()
   const { data: { user } } = await sb.auth.getUser()
   if (user) {
     const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })

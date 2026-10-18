@@ -26,7 +26,7 @@ export function cronUnauthorized(req: Request): NextResponse | null {
 /** 로그인한 사용자 id(쿠키 세션을 서버에서 검증) — 없으면 null */
 export async function getAuthedUserId(): Promise<string | null> {
   try {
-    const { data: { user } } = await createClient().auth.getUser()
+    const { data: { user } } = await (await createClient()).auth.getUser()
     return user?.id ?? null
   } catch { return null }
 }
@@ -34,7 +34,7 @@ export async function getAuthedUserId(): Promise<string | null> {
 /** 로그인한 선생님인가(서버에서 profiles.role 로 확인 — 클라이언트 값은 믿지 않는다) */
 export async function isTeacher(): Promise<boolean> {
   try {
-    const sb = createClient()
+    const sb = await createClient()
     const { data: { user } } = await sb.auth.getUser()
     if (!user) return false
     const { data } = await sb.from('profiles').select('role').eq('id', user.id).single()

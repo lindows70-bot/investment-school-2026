@@ -9,7 +9,7 @@ import { getCache } from '@/lib/appCache'
 import type { WatchSig, WatchResult } from '@/app/api/cron/timing-watch/route'
 
 export async function GET() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'auth required' }, { status: 401 })
 

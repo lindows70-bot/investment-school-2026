@@ -65,7 +65,7 @@ export async function POST(req: Request) {
   //    분자를 byMonth 에서 가져오면 스쿨 리그와 또 어긋난다(같은 실사고의 두 번째 균열).
   let realizedTotalKrw: number | null = null
   try {
-    const sb = createClient()
+    const sb = await createClient()
     const { data: { user } } = await sb.auth.getUser()
     if (user) {
       // 매도 기록은 끝까지 넘겨 읽고(1,000행 상한), 오류는 삼키지 않는다 — 전엔 오류가 '판 종목 손익 0원'(else 가지)으로 둔갑했다(2026-10-18 전수 점검)

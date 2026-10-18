@@ -27,7 +27,7 @@ function outageResponse(next: string | null): NextResponse {
 
 export async function GET(request: NextRequest) {
   // 다른 API 와 같은 서버 클라이언트 — 세션 쿠키가 갱신되면 Next 가 이 응답(리다이렉트)에 붙여 준다
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   const next = safeNext(request.nextUrl.searchParams.get('next'))
   if (!user) {
@@ -72,6 +72,6 @@ export async function GET(request: NextRequest) {
     .single()
   if (error) console.warn('[start] profiles.role 조회 실패:', error.code, error.message)
 
-  const mode = cookies().get(VIEW_MODE_COOKIE)?.value ?? null
+  const mode = (await cookies()).get(VIEW_MODE_COOKIE)?.value ?? null
   return NextResponse.redirect(new URL(landingAfterLookup(profile?.role ?? null, mode, error ?? null), request.url))
 }

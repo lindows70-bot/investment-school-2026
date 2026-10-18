@@ -12,7 +12,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 
 export async function POST(req: NextRequest) {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
 
   // ── 1. 호출자가 선생님인지 확인 ──────────────────────────────
   const sbSession = createServerClient(

@@ -109,7 +109,7 @@ function pearson(xs: number[], ys: number[]): number | null {
 // ── 메인 핸들러 ───────────────────────────────────────────────────────────────
 export async function GET() {
   // ① 인증 — 로그인 학생만
-  const sb = createClient()
+  const sb = await createClient()
   const { data: { user }, error: authErr } = await sb.auth.getUser()
   if (authErr || !user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 

@@ -62,7 +62,7 @@ async function gicsSector(ticker: string, market: 'KR' | 'US'): Promise<string |
 interface RegimePoint { date: string; usQuad: Quadrant; krQuad: Quadrant; rateDir: string }
 
 export async function GET(req: Request) {
-  const sb = createClient()
+  const sb = await createClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
