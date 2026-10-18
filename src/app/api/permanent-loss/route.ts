@@ -11,8 +11,8 @@ import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
 import { getMoatBreach } from '@/app/actions/getMoatBreach'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 export interface LossEntry {
   ticker: string; name: string; market: 'KR' | 'US'

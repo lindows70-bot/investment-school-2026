@@ -10,9 +10,9 @@
 // ⛔ 순차 clamp 순서를 바꾸지 마라 — 반올림 때문에 결과가 갈린다(88.5 를 한 번에 더하느냐
 //    나눠 더하느냐로 1점이 움직인다). applyTilts 가 통합추천의 원래 순서를 그대로 재현한다.
 import { getCache } from '@/lib/appCache'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 export interface Tilt { label: string; pp: number }
 

@@ -10,11 +10,11 @@ import { UNIFIED_RECO_V } from '@/lib/recoCacheVersion'
 import { CORE_HIST_KEY, isCorePick, type CoreHistEntry } from '@/lib/coreReco'
 import { AXIS_HIST_KEY, type AxisHistEntry } from '@/lib/axisHistory'   // 📐 축별 성적 전향적 적립
 import { cronUnauthorized } from '@/lib/cronAuth'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 interface LiteItem {
   ticker: string; name: string; market: string; combined: number

@@ -14,6 +14,7 @@ import { getEntryTimings, type TimingLight, type EntryTiming } from '@/lib/entry
 import { getSector } from '@/lib/schoolIndex'
 import { cronUnauthorized } from '@/lib/cronAuth'
 import type { RotationResult } from '@/app/api/sector-rotation/route'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 type SupportState = 'strong' | 'ext' | 'weak' | 'mixed' | null
 type RotQuad = 'leading' | 'weakening' | 'lagging' | 'improving'
@@ -33,7 +34,6 @@ export interface WatchResult { asOf: string; prevDate: string | null; scanned: n
 // 📋 신호 성적표(#2) 적립 엔트리 — changes는 당일분 덮어쓰기라 별도 누적 스토어에 append
 export interface SignalHistEntry { date: string; src: 'timing'; ticker: string; name: string; market: 'KR' | 'US'; kind: WatchKind; label: string }
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 /** entryTiming → 압축 신호 상태(전일 대비 diff용) */
 function toState(t: EntryTiming | null | undefined): SigState {

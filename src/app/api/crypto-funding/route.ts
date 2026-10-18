@@ -3,11 +3,11 @@
 //    데이터: Binance 무료·무키(premiumIndex·fundingRate·openInterestHist). Phase 0 실측 완료.
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 const FAPI = 'https://fapi.binance.com'
 
 export type FundVerdict = 'long_hot' | 'short_skew' | 'neutral'

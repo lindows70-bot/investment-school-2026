@@ -13,11 +13,11 @@ import { singleFlight, aiRecentlyFailed, markAiFailed } from '@/lib/aiGuard'
 import { googleNewsItems } from '@/lib/googleNews'
 import { FOMC_SCHEDULE } from '@/lib/fomcSchedule'
 import { FED_EVENTS, EVENT_QUERIES, HAS_RATE_DECISION, VENUE_KO, newsWindowDays, MUST_MATCH, MIN_MATCHES, type FedEvent, type FedEventKind } from '@/lib/fedEvents'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 45
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 export type Stance = 'hawkish' | 'neutral' | 'dovish'
 
 /** 의장 발언 핵심 + 해석. `src` = 이 발언의 **근거 헤드라인**(매체명 포함 원문).

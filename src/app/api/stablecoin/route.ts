@@ -2,11 +2,11 @@
 // Zero Cost·무키: DefiLlama 스테이블코인 API. 6h 캐시. "수급은 연료" — 스테이블 시총↑=강세 연료, 페그 붕괴=시스템 위기
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 export type StableRisk = 'low' | 'mid' | 'high'
 const MECH: Record<string, { ko: string; risk: StableRisk }> = {
   'fiat-backed':   { ko: '법정화폐 담보', risk: 'low' },

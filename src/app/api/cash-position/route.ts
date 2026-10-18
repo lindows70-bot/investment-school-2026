@@ -5,11 +5,11 @@ import { fetchUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT(폴백 여부까지
 import { createClient } from '@/lib/supabase/server'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { evaluateAssets, buildCashPosition, type CashPosition } from '@/lib/cashPosition'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 const isMissingTable = (e: { code?: string; message?: string } | null) =>
   !!e && (e.code === '42P01' || e.code === 'PGRST205' || /user_cash.*(does not exist|schema cache)/i.test(e.message ?? ''))

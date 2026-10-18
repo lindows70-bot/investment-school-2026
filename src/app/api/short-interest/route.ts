@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -21,7 +22,6 @@ export interface ShortEntry {
 }
 export interface ShortInterestResult { entries: ShortEntry[]; asOf: string }
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 // yahoo-finance2가 원시 숫자(주식수)를 epoch로 오해해 Date로 변환하는 필드 복원(getTime/1000 = 원값)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

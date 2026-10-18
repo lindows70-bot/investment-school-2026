@@ -11,6 +11,7 @@ import { holdingFit, SEASON_META, type Quadrant as Season } from '@/lib/seasonNa
 import { getRegionSeasons, originOf } from '@/lib/regionSeason'   // 🌍 지역 계절 SSOT(2026-10-18 — 여기 있던 US·KR 재계산을 합침)
 import { classifyLynchMece } from '@/lib/lynchAnalysis'
 import { isInflowNear } from '@/lib/flowShared'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -48,7 +49,6 @@ export interface PortfolioFlowResult {
   asOf:           string
 }
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 const dirArrow = (d?: string) => (d === 'BUY' ? '▲' : d === 'SELL' ? '▼' : '─')
 const dnm = (e: { market: string; name: string; ticker: string }) => (e.market === 'KR' ? (e.name || e.ticker).slice(0, 10) : e.ticker.toUpperCase())
 

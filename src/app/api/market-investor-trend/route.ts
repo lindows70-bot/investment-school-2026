@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { fetchInvestorDaily, type InvestorRow } from '@/lib/naverInvestorTrend'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 export type { InvestorRow }
 
@@ -19,7 +20,6 @@ export interface MarketInvestorResult {
   asOf: string
 }
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 // ⚠️ 원자료 단위 검산 이력 — 옛 페이지는 「일자별 순매수 (단위:억원)」였고 과거 ÷100(백만원 가정) 환산은 100배 축소 버그였다
 //   (26.07.24 개인 51,782·외국인 −32,683·기관 −19,514억 = 언론 인용 +5.20/−3.28/−1.95조와 일치).

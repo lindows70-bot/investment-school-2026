@@ -3,6 +3,7 @@
 import { NextResponse } from 'next/server'
 import https from 'node:https'
 import { getCache, setCache } from '@/lib/appCache'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -21,7 +22,6 @@ function httpGet(url: string, timeoutMs = 12_000): Promise<string> {
   })
 }
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 // 미국 현물 비트코인 ETF (2024-01 출범) — 누적 거래량 합산용
 const SPOT_ETFS = ['IBIT', 'FBTC', 'BITB', 'ARKB', 'BTCO', 'EZBC', 'BRRR', 'HODL', 'BTCW', 'GBTC']
 

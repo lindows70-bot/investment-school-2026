@@ -6,9 +6,9 @@ export const maxDuration = 60
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import stagesData from './stages.json'   // OA-22856 정비사업 추진현황(분기 xlsx 정적 스냅샷) — 추진단계·날짜·세대수
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 const KEY = () => process.env.SEOUL_API_KEY ?? null
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 // 서울 25개 자치구(파싱 오염 필터 화이트리스트)
 const SEOUL_GU = ['종로구', '중구', '용산구', '성동구', '광진구', '동대문구', '중랑구', '성북구', '강북구', '도봉구', '노원구', '은평구', '서대문구', '마포구', '양천구', '강서구', '구로구', '금천구', '영등포구', '동작구', '관악구', '서초구', '강남구', '송파구', '강동구']

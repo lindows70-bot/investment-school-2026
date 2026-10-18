@@ -11,11 +11,11 @@ import { getTechCandles, type TechCandle } from '@/lib/techChartData'
 import type { SignalHistEntry } from '@/app/api/cron/timing-watch/route'
 import { CORE_HIST_KEY, type CoreHistEntry } from '@/lib/coreReco'   // ⭐ 핵심 추천(3중 통과) 전향적 적립분
 import { AXIS_HIST_KEY, AXIS_REENTRY_DAYS, gradeAxes, pickAxisSamples, type AxisHistEntry, type AxisGrade } from '@/lib/axisHistory'   // 📐 축별 성적
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 const dayDiff = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000)
 const addDays = (d: string, n: number) => new Date(Date.parse(d) + n * 86_400_000).toISOString().slice(0, 10)
 

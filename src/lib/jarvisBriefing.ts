@@ -66,9 +66,7 @@ export interface Recommendation { ticker: string; name: string; reason: string; 
 export interface BriefingText { title: string; content: string }
 
 // ── 유틸 ──────────────────────────────────────────────────────────────────────
-export function kstDate(d = new Date()): string {
-  return new Date(d.getTime() + 9 * 3600_000).toISOString().slice(0, 10)  // Asia/Seoul 달력일
-}
+export { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 여기 있던 복제 정의를 lib/kst 로 모았다 · 기존 import 경로 유지)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const num = (v: any): number | null => { if (v == null) return null; const x = typeof v === 'object' && 'raw' in v ? v.raw : v; const f = typeof x === 'number' ? x : parseFloat(x); return isFinite(f) ? f : null }
 const fmt = (v: number | null, s = '') => v != null ? `${Math.round(v * 100) / 100}${s}` : '자료없음'

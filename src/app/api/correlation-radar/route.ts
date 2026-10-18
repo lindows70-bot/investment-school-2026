@@ -4,11 +4,11 @@
 import { NextResponse } from 'next/server'
 import { getTechCandles } from '@/lib/techChartData'
 import { getCache, setCache } from '@/lib/appCache'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 const RECENT = 30       // 최근 창(거래일)
 const BASELINE = 200    // 평시 창(거래일)
 const MIN_COMMON = 60   // 공통 거래일 최소

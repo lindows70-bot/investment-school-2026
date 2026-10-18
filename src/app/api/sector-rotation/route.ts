@@ -12,6 +12,7 @@ import { scoreSubFlow, type SubQ } from '@/lib/subFlow'
 import { etfFor, SECTORS, sectorCacheKey } from '@/lib/sectorConfigs'
 import { getEntryTimings, type EntryTiming } from '@/lib/entryTiming'
 import { computeSector, type SectorResult } from '@/lib/sectorEngine'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 // /api/sector와 동일한 캐시 키 — in-process 호출이 HTTP 라우트와 캐시를 공유(제2원칙)
 async function loadSector(key: string): Promise<SectorResult | null> {
@@ -27,7 +28,6 @@ async function loadSector(key: string): Promise<SectorResult | null> {
   } catch { return null }
 }
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 // 17개 섹터: GICS 11 + 테마 6
 const GICS = ['energy', 'materials', 'industrials', 'discretionary', 'staples', 'healthcare', 'financials', 'infotech', 'communication', 'utilities', 'realestate']

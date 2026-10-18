@@ -9,8 +9,8 @@ import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { getLawDoc, LAW_OC_IS_SAMPLE, type LawArticle } from '@/lib/lawApi'
 import { canForceRefresh } from '@/lib/cronAuth'   // ?refresh=1 은 크론·선생님만(2026-10-05 보안 점검)
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 export interface TaxStage {
   key: 'acquire' | 'hold' | 'transfer'

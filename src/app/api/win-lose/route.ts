@@ -21,8 +21,8 @@ import { getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
 import { UNIVERSE_KEY, EU_TICKER_SET, JP_TICKER_SET, CN_TICKER_SET, type ScreenedStock } from '@/lib/macroPhaseScreener'
 import { splitGroups, type WLRow, type WLSchoolRow, type WLApi, type WLQuad, type WLTrend, type WLFwd, WIN_LOSE_KEY } from '@/lib/winLose'
 import { TK } from '@/lib/theme'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 const code6 = (t: string) => t.replace(/\.(KS|KQ)$/i, '')
 const normKey = (market: string, ticker: string) => `${market}:${market === 'KR' ? code6(ticker) : ticker.toUpperCase()}`
 

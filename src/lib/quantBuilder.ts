@@ -6,8 +6,8 @@ import { getCache, setCache } from '@/lib/appCache'
 import { getEtfComposition } from '@/lib/etfLookThrough'
 import type { UnifiedRecoResult, UnifiedRecoItem } from '@/app/api/unified-reco/route'
 import type { Quadrant } from '@/lib/seasonNavigator'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 // ── 국면별 Core 설계(교육용 고정 룰 — 박제 아님: 국면이 바뀌면 자동으로 바뀜) ──────
 // coreRatio: 국면이 위험할수록 Core(시장 ETF) 비중↑ — 50~70% 범위

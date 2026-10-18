@@ -5,11 +5,11 @@ import { NextResponse } from 'next/server'
 import { setCache } from '@/lib/appCache'
 import { scanRecent, INSIDER_SCAN_MARK } from '@/lib/insiderMarket'
 import { cronUnauthorized } from '@/lib/cronAuth'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 export async function GET(req: Request) {
   const denied = cronUnauthorized(req); if (denied) return denied   // 크론 전용(2026-10-05 전엔 ?budget=2000 으로 누구나 SEC 2천 건 호출 가능)

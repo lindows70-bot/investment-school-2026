@@ -7,12 +7,12 @@ import { cronUnauthorized } from '@/lib/cronAuth'
 import { setCache } from '@/lib/appCache'
 import { getAssetClassification } from '@/lib/assetClassifier'
 import { buildGhostRecord, buildDiscovery, readGhostRows, saveGhostRows, GHOST_WARM_MARK, type GhostCacheRow } from '@/lib/ghostStock'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
 const BUDGET_MS = 240_000   // 남은 종목은 다음 날 또는 첫 방문자가 계산한다(화면과 같은 경로)
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 export async function GET(req: Request) {
   const denied = cronUnauthorized(req); if (denied) return denied

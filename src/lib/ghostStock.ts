@@ -4,6 +4,7 @@ import { getCache, setCache }         from '@/lib/appCache'
 import { SAT_SCORE_KEY, type SatelliteScore } from '@/lib/satelliteScreener'
 import { getInsiderSignal }           from '@/app/actions/getInsiderSignal'
 import { getAnalystSignal }           from '@/app/actions/getAnalystSignal'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 // ── 타입 정의 ────────────────────────────────────────────────
 export interface GhostCacheRow {
@@ -263,7 +264,6 @@ export async function buildGhostRecord(
 // ── 🔍 미보유 유령 발굴 — 위성 풀(중소형 100종·매일 크론 채점) 상위에서 유령 3축 스캔 ──────────
 //    린치 유령 철학("기관이 발견하기 전에")의 발굴판 — 보유 점검만으론 반쪽(2026-08-01 사용자 지적).
 //    유니버스 기반이라 **전 학생 공유 일일 캐시**(개인 데이터 없음). 서빙 시 각자 보유분만 제외.
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 /** 매일 워밍 크론(/api/cron/ghost-warm) 실행 마커 — 크론 상태판이 이 일자 키로 실행 여부를 본다 */
 export const GHOST_WARM_MARK = (d: string) => `ghost-warm-run-v1:${d}`

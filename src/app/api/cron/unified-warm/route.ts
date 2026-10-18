@@ -6,12 +6,12 @@ import { createClient } from '@supabase/supabase-js'
 import { cronUnauthorized } from '@/lib/cronAuth'
 import { setCache } from '@/lib/appCache'
 import { computeUnifiedReco, UNIFIED_WARM_MARK } from '@/lib/unifiedReco'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
 const BUDGET_MS = 240_000   // 한 계정이 보통 60~90초(콜드) · 안쪽 캐시가 데워지면 그 뒤는 빠르다. 못 돈 계정은 첫 방문 때 같은 경로로 계산
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 export async function GET(req: Request) {
   const denied = cronUnauthorized(req); if (denied) return denied

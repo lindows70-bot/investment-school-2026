@@ -10,12 +10,12 @@ import { FOMC_SCHEDULE } from '@/lib/fomcSchedule'
 import type { SchoolLeagueData } from '@/app/api/school-league/route'
 import type { MacroReleasesResp } from '@/app/api/macro-releases/route'
 import type { WrCommon } from '@/app/api/weekly-report/route'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const APP_URL = 'https://investment-school-2026.vercel.app/s'
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 const DOW = ['일', '월', '화', '수', '목', '금', '토']
 const md = (ymd: string) => { const [y, m, d] = ymd.split('-').map(Number); return `${m}/${d}(${DOW[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]})` }
 const pct = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)}%`

@@ -15,8 +15,8 @@ import {
   type PolicyItem, type ChannelSummary, type Stance,
 } from '@/lib/rePolicy'
 import { canForceRefresh } from '@/lib/cronAuth'   // ?refresh=1 은 크론·선생님만(2026-10-05 보안 점검)
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 // 법령 검색 키워드 — 부동산 정책의 집행 수단이 걸리는 말들(Phase 0 실측으로 선별)
 const LAW_KW = ['주택공급', '분양가', '재건축', '재개발', '임대주택', '주택가격', '부동산', '청약']

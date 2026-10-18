@@ -17,11 +17,11 @@ import {
 import { fetchCli } from '@/lib/oecdCli'                                  // 📈 CLI 수집 SSOT
 import { getRegionSeasons, originOf } from '@/lib/regionSeason'          // 🌍 종목별 계절은 자산 국적으로(2026-10-18)
 import { killSwitch, type KillSwitchResult } from '@/lib/killSwitch'      // 🔌 판정 무효화 조건(2026-08-24)
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 type LynchCat = Holding['lynchCategory']
 

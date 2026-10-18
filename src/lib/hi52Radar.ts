@@ -13,6 +13,7 @@ import { getTechCandles, dropIncompleteBar } from './techChartData'
 import { timingFromCandles } from './entryTiming'
 import { EU_TICKER_SET, JP_TICKER_SET, CN_TICKER_SET, type ScreenedStock } from './macroPhaseScreener'
 import { SECTOR_TO_ROT, loadRotationBySector, type RotQuadShared } from './rotationShared'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 export interface Hi52Item {
   ticker: string; name: string; market: 'US' | 'KR'
@@ -44,7 +45,6 @@ export interface Hi52Radar {
   momCrash: boolean                 // ⚠️ 모멘텀 크래시 국면(승패 해부실 실측 재사용) — 캐비엇 전용
 }
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 // 모집·경계는 앱 기존 관례 재사용(새 숫자 발명 금지 — 가짜 정밀 금지):
 //   75 = posLabel '중상단' 경계(QuantBuilder ChaseBadge) · 98 = 로테이션 신고가 스캐너 HI_NEAR

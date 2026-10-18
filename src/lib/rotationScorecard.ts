@@ -5,6 +5,7 @@
 // ⛔ 소급 백필 금지(시뮬 오염 유입) · 6축 점수 미반영(WHAT/WHEN 분리) · 매매 지시 아님(관측·채점)
 import { getCache, setCache } from '@/lib/appCache'
 import { SECTOR_ROTATION_KEY, type RotQuadShared } from '@/lib/rotationShared'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 /** 사분면 스냅샷 이력 키 — writer: sector-rotation(신규 계산 시) + scorecard(self-heal). 날짜 중복 금지 */
 export const ROT_QUAD_HIST_KEY = 'rot-quad-hist-v1'
@@ -26,7 +27,6 @@ export const SECTOR_PROXY: Record<string, { sym: string; kind: 'etf' | 'anchor' 
   'phys-ai': { sym: 'BOTZ', kind: 'etf' }, 'ai-bio': { sym: 'TEM', kind: 'anchor' },
 }
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 /** 스냅샷 append(날짜 중복이면 무시·불변 기록). 두 writer(로테이션 계산·성적표 self-heal) 모두 이것만 쓴다 */
 export async function appendQuadSnapshot(date: string, items: { key: string; quadrant: RotQuadShared }[]): Promise<boolean> {

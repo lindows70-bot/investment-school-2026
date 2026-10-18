@@ -21,9 +21,7 @@ import { getAssetType } from '@/lib/assetClassifier'
 //    '비중은 비율이라 둔감하다'는 옛 주석은 반만 맞다: USD 종목만 든 학생과 KR 종목만 든 학생을 비교하면
 //    분모(전 자산)가 통째로 틀어져 종목별 평균 비중·순위가 바뀐다. 호출부가 라이브 환율을 주입한다.
 
-export function kstDate(d = new Date()): string {
-  return new Date(d.getTime() + 9 * 3600_000).toISOString().slice(0, 10)  // Asia/Seoul 달력일
-}
+export { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 복제 정의를 lib/kst 로 모았다 · 기존 import 경로 유지)
 const round2 = (n: number) => Math.round(n * 100) / 100
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────

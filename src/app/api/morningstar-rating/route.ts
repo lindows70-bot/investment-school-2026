@@ -11,11 +11,11 @@ import { calcDCF, deriveDcfInputs } from '@/lib/buffettDcf'
 import { computeStarRating, type StarResult } from '@/lib/morningstarRating'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
 import { fetchUsdKrw } from '@/lib/fx'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 export interface RatingEntry extends StarResult {
   ticker: string; name: string; market: 'KR' | 'US'; currency: 'USD' | 'KRW'

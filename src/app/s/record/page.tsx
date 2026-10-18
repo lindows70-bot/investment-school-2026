@@ -10,9 +10,9 @@ import { planBuy, planSell, executeTrade, type TradeInput, type ExistingHolding 
 import { classifyAsset } from '@/lib/classifyAsset'
 import type { SearchResult } from '@/lib/stockSearch'
 import { money, qtyText } from '@/lib/studentFormat'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 // schoolIndex.kstDate 와 같은 식 — schoolIndex 는 yahoo-finance2(서버 전용 fs)를 끌고 와 브라우저 번들이 깨진다
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)   // Asia/Seoul 달력일
 
 type Mode = 'buy' | 'sell'
 type SearchState = 'idle' | 'loading' | 'done' | 'failed'

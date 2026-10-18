@@ -5,6 +5,7 @@ import { upbitJson } from '@/lib/upbit'
 import { getCache, setCache } from '@/lib/appCache'
 // 로트·시점 타입과 순수 계산은 monthlySeries.ts(서버 의존 없음 — 단위검증용)로 옮겼다. 기존 import 경로는 그대로 쓴다
 import { buildMonthlySeries, needsCandles, windowStart, type PnlLot, type MonthlyPnlPoint, type MonthlyTruncated } from '@/lib/monthlySeries'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 export { buildMonthlySeries }
 export type { PnlLot, MonthlyPnlPoint }
 
@@ -34,7 +35,6 @@ export interface MonthlyPnlResult {
   asOf: string
 }
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 /**
  * 업비트 일봉 — 기존 SSOT(getTechCandles)는 KR|US 뿐이라 크립토만 여기서 수집.

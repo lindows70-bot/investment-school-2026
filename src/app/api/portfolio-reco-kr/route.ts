@@ -8,6 +8,7 @@ import { getAssetType } from '@/lib/assetClassifier'
 import { fetchUsdKrw } from '@/lib/fx'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
 import { MARKET_FLOW_KR_KEY, computeMarketFlowKr, type MarketFlowKrResult, type MarketFlowEntry } from '@/lib/marketFlowKr'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -50,7 +51,6 @@ export interface PortfolioRecoResult {
 }
 
 const eok = (v: number) => Math.round(v / 1e8)
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 // ★ 매크로 국면 → 권장 매수액 배율(SSOT /api/macro-regime 재사용 — 추가 fetch 0)
 //   위험 국면(스태그플레이션·침체위험)일수록 보수적으로 권장액 축소(자동매매 아닌 '참고 가이드' 조절)

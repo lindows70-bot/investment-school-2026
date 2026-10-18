@@ -14,11 +14,11 @@ import type { DualMandateResult } from '@/app/api/fed-dual-mandate/route'
 import type { MorningstarResult } from '@/app/api/morningstar-rating/route'
 import type { RegulationResult } from '@/app/api/crypto-regulation/route'
 import type { StablecoinResult } from '@/app/api/stablecoin/route'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 export interface HqBriefing {
   briefing: string

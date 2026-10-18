@@ -36,8 +36,8 @@ import { MARKET_CATALYST_KEY } from '@/lib/marketCatalystShared'   // 키 SSOT �
 import type { EventCalendarResult, CalEvent } from '@/app/api/event-calendar/route'
 import type { MarketInvestorResult } from '@/app/api/market-investor-trend/route'
 import type { ReWeeklyApi } from '@/app/api/re-weekly/route'
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 const r1 = (n: number) => Math.round(n * 10) / 10
 
 // ── 주간 앵커(SSOT) — 직전 금요일 종가 대비. 최신 봉이 금요일이면 그 전 금요일 ──

@@ -21,8 +21,8 @@ import { getTechCandles, dropIncompleteBar } from '@/lib/techChartData'
 import { evaluateSetups, SCREEN_SETUPS, TECH_SCREENER_KEY, type ScreenHit, type SetupMeta } from '@/lib/techScreener'
 import { UNIVERSE_KEY, type ScreenedStock } from '@/lib/macroPhaseScreener'
 import { canForceRefresh } from '@/lib/cronAuth'   // ?refresh=1 은 크론·선생님만(2026-10-05 보안 점검)
+import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
-const kstDate = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 
 export interface TechScreenerApi {
   asOf: string
