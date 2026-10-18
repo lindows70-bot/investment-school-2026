@@ -122,13 +122,15 @@ for (const k of newKeys) {
   //    v9 → v11 로 올리면 v10 을 찾다가 못 찾고 통과시켜, 정작 이 훅을 만든 근거인
   //    v9 reader 잔존 사고를 그대로 흘려보낸다(Codex 리뷰가 잡아낸 실제 결함).
   //    → n 미만 **모든** 옛 버전을 찾는다.
-  const raw = sh(`git grep -n --cached -E "${name}-v[0-9]+" -- src/`).trim()
+  //    ⚠️ 이름 앞에 경계를 둔다 — `rtms-trade-v2` 를 올리면 다른 키 가족 `seoul-rtms-trade-v1` 이 '옛 버전'으로 오탐됐다
+  //    (2026-10-18 verify-cache-purge 훅 끝에서 끝 5건이 이걸로 빨강). 접두어는 글자·숫자·하이픈이 아닌 것 뒤에서만 시작한다.
+  const raw = sh(`git grep -n --cached -E "(^|[^a-z0-9-])${name}-v[0-9]+" -- src/`).trim()
   if (!raw) continue
   const olds = new Set()
   const hits = raw.split('\n').filter(line => {
     let found = false
-    for (const m of line.matchAll(new RegExp(`${name}-v(\\d+)`, 'g'))) {
-      if (Number(m[1]) < n) { olds.add(Number(m[1])); found = true }
+    for (const m of line.matchAll(new RegExp(`(^|[^a-z0-9-])${name}-v(\\d+)`, 'g'))) {
+      if (Number(m[2]) < n) { olds.add(Number(m[2])); found = true }
     }
     return found
   })

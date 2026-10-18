@@ -89,14 +89,15 @@ check('btc-etf-v8 규칙 keepDays ≥ 10(> reader 24h) · seed 의 전제(최신
 
 // ── ② 허용 목록 밖은 아무리 오래돼도 안 지운다 ──
 const NEVER = [
-  'rtms-trade-v2:11110:202408',          // 나이를 안 보는 .in('key') reader(re-map·re-apt-pins)
   'tech-chart-v2:000660:KR:D', 'usm-history-v1', 'signal-history-v1', 'season-sector-v3', 'canon-fund-v2:000150:KR',
   'macro-screened-universe:v17', 'btc-etf-v4:2026-06-16', 'btc-etf-flow-lastgood-v1', 'oecd-cli-kr-v2',
   'jarvis-metrics-v14:000150:KR:2026-07-10',   // 옛 버전 — 크론이 아니라 SQL 파일로 지운다
   'true-fcf-v2:000080:KR', 'kr-name-v1:000080', 'cron-health-latest', 'timing-watch-latest-v2',
 ]
-check('허용 목록 밖 키 15종은 2000년 행이어도 안 지운다', NEVER.every(k => !P.shouldPurge(k, ANCIENT, NOW)))
-check('rtms-trade-v2 는 허용 목록에 없다(나이 안 보는 reader)', !rule('rtms-trade-v2'))
+check('허용 목록 밖 키 14종은 2000년 행이어도 안 지운다', NEVER.every(k => !P.shouldPurge(k, ANCIENT, NOW)))
+// 2026-10-18: rtms-trade-v2 는 reader 가 updated_at ≥ 400일 조건을 보게 돼 허용 목록에 들어갔다 — 규칙 400일 ≥ reader 창(400일) 이어야 하고, reader 소스에 그 조건이 실제로 있어야 한다
+const rtmsReaders = ['src/app/api/re-map/route.ts', 'src/app/api/re-apt-pins/route.ts'].map(p => readFileSync(`${ROOT}/${p}`, 'utf8'))
+check('rtms-trade-v2 규칙 keepDays ≥ 400 · reader 2곳이 updated_at 을 400일로 거른다', rule('rtms-trade-v2')?.keepDays >= 400 && rtmsReaders.every(s => /\.gte\('updated_at'/.test(s) && /400 \* 86_400_000/.test(s)))
 const UNDATED5 = ['bonds-v8', 'crypto-demand-v2', 'dividend-portfolio-v2', 'ultra-dividend-v4', 'cofix-v1']
 check('날짜 뺀 새 키(콜론 없음)는 2000년 행이어도 안 지우고, 옛 날짜 키는 4일 전이면 지운다',
   UNDATED5.every(p => !P.shouldPurge(p, ANCIENT, NOW) && P.shouldPurge(`${p}:2026-09-20`, ago(4), NOW)))

@@ -31,7 +31,8 @@ export async function GET(req: Request) {
           const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - k, 1))
           keys.push(`rtms-trade-v2:${lawd}:${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}`)
         }
-        const { data } = await db.from('app_cache').select('payload').in('key', keys)
+        // 나이를 본다(400일) — 정리 규칙(cachePurge rtms-trade-v2 400일)과 reader 가 같은 선을 본다(2026-10-18)
+        const { data } = await db.from('app_cache').select('payload').in('key', keys).gte('updated_at', new Date(Date.now() - 400 * 86_400_000).toISOString())
         for (const row of data ?? []) if (Array.isArray(row.payload))
           for (const dl of row.payload as AptDeal[]) {
             const k = `${dl.dong} ${dl.aptNm}`.trim()

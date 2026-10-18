@@ -138,9 +138,10 @@ export const PURGE_RULES: PurgeRule[] = [
   { prefix: 'rtms-rent-v2', keepDays: 31, why: '월별 전월세 · 유일한 reader(rtms.ts) 과거월 30d' },
   { prefix: 'league-snap-v1', keepDays: 400, why: '리그 주간 순위 이력(1주 1행) · reader 는 latest 묶음만 · 1년 뒤 자동 정리' },
   { prefix: 'usage-v1', keepDays: 400, why: '월별 화면·탭 열람 집계(1월 1행) · 탭 가지치기 근거 · 1년 뒤 자동 정리' },
+  // 2026-10-18: reader(re-map·re-apt-pins)의 .in('key') 조회에 updated_at ≥ 400일 조건을 붙여 ④의 예외 조건을 해소했다 — 400일 밖 행은 이제 누구도 안 읽는다.
+  //   넣기 전엔 지역×월로 영구 누적(632행 · 926MB 사고와 같은 모양). rtms.ts 의 writer 는 월 키 그대로(월별 실거래는 날짜가 뜻을 가진다)
+  { prefix: 'rtms-trade-v2', keepDays: 400, why: '실거래 지역×월 키 · reader 최근 12개월 + updated_at ≥ 400일 조건 → 400일 밖은 누구도 안 읽음' },
 ]
-// ⏸ rtms-trade-v2(실거래 지역×월 키)는 일부러 밖에 둔다 — ④의 reader 조건을 verify-cache-purge 가 불변식으로 지킨다(2026-10-18 넣으려다 불변식에 걸려 되돌림).
-//   지역×월로 계속 늘어나는 건 사실이다 — 넣으려면 먼저 re-map·re-apt-pins 의 월 키 조회를 나이 확인(getCache maxAge)으로 바꾸고 불변식을 함께 고쳐야 한다.
 
 /** 'name-vN' 접두어 → base·버전. 버전이 없는 접두어는 null */
 export function versionedPrefix(prefix: string): { base: string; v: number } | null {

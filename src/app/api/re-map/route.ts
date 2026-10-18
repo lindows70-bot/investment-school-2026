@@ -32,7 +32,8 @@ export async function GET() {
       // ⚠️ Next.js가 라우트 내 GET fetch를 Data Cache로 박제(첫 실행 시점 응답 고정) → no-store 강제
       const db = createClient(url, svc, { auth: { autoRefreshToken: false, persistSession: false }, global: { fetch: (u: RequestInfo | URL, o?: RequestInit) => fetch(u, { ...o, cache: 'no-store' }) } })
       const keys = seoul.flatMap(r => yms.map(ym => `rtms-trade-v2:${r.lawd}:${ym}`))
-      const { data } = await db.from('app_cache').select('key, payload').in('key', keys)
+      // 나이를 본다(400일) — 그래야 정리 규칙(cachePurge rtms-trade-v2 400일)이 지우는 행과 reader 가 닿는 행이 겹치지 않는다(2026-10-18)
+      const { data } = await db.from('app_cache').select('key, payload').in('key', keys).gte('updated_at', new Date(Date.now() - 400 * 86_400_000).toISOString())
       for (const row of data ?? []) if (Array.isArray(row.payload)) byKey.set(row.key as string, row.payload as AptDeal[])
     }
   } catch { /* graceful */ }
