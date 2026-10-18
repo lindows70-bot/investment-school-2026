@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { summarizePortfolio, dedupeHoldings, type HoldingInput, type PriceInput, type PortfolioSummary } from '@/lib/portfolioSummary'
 import { acceptFx } from '@/lib/fxAccept'
+import { fetchShared } from '@/app/components/student/useJson'
 
 export type LoadState = 'loading' | 'ready' | 'failed' | 'unauth'
 /** db = 보유 조회 실패 · fx = 달러 보유가 있는데 환율을 못 받음 · other = 그 밖의 예외 */
@@ -53,7 +54,8 @@ export function useMyPortfolio(): MyPortfolio {
       const [{ data, error }, fxRes, cfg] = await Promise.all([
         sb.from('investments').select('id,ticker,name,market,currency,purchase_price,quantity,purchase_date,asset_role')
           .eq('user_id', user.id).order('created_at', { ascending: false }),
-        fetch('/api/exchange-rate', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
+        // 홈 page 의 useJson('/api/exchange-rate') 와 같은 진행 중 요청을 나눠 쓴다(같은 키 — 첫 로드에 환율이 두 번 나가던 것, 2026-10-18)
+      fetchShared('/api/exchange-rate#0', '/api/exchange-rate').then(r => r.ok ? r.json : null).catch(() => null),
         // 선생님 권장 코어 비중(싱글턴 행) — 못 읽어도 실패로 보지 않는다(투자 체크만 빠진다)
         sb.from('strategy_configs').select('core_pct').limit(1).maybeSingle(),
       ])

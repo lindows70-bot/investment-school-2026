@@ -9,7 +9,7 @@ export interface JsonResult<T> { state: JsonState; data: T | null; reload: () =>
  *  2026-10-18 전수 점검: 홈 첫 로드가 환율·시세를 각각 두 번 불렀다(페이지 + 내 자산 훅). 다시 불러오기(reload)는 tick 이 바뀌어 새 키라 합쳐지지 않는다 */
 type Shared = { status: number; ok: boolean; json: unknown }
 const inflight = new Map<string, Promise<Shared>>()
-function fetchShared(key: string, url: string): Promise<Shared> {
+export function fetchShared(key: string, url: string): Promise<Shared> {
   const hit = inflight.get(key)
   if (hit) return hit
   const p = fetch(url, { method: 'GET', cache: 'no-store' })
