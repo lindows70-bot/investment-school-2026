@@ -16,7 +16,7 @@ import { TECH_SCREENER_KEY } from '@/lib/techScreener'
 import { FACTSET_FWD_KEY, KRX_SHORT_KEY } from '@/lib/localRunners'
 import { SWING_CRON_MARK } from '@/lib/swingHistory'
 import { INSIDER_SCAN_MARK, INSIDER_MARKET_KEY } from '@/lib/insiderMarket'
-import { ETF_SNAP_MARK } from '@/lib/etfFlow'
+import { ETF_SNAP_MARK, ETF_FLOW_KEY } from '@/lib/etfFlow'
 import { ANALYST_RERATING_KEY } from '@/lib/analystRerating'
 import { USM_GRADE_KEY } from '@/lib/usSmartHistory'
 import { SECTOR_ROTATION_KEY } from '@/lib/rotationShared'
@@ -39,6 +39,9 @@ export interface CronMonitor {
     | { type: 'cacheDate'; key: (dateKst: string) => string } // 일자 키 → 존재 판정
     | { type: 'table'; name: string }                         // DB 테이블 max(base_date) 판정
   heal: string | null                    // 자동 복구 경로(null = 보고만)
+  /** vercel.json 의 크론 경로(쿼리 제외) — heal 과 다를 때만 적는다. null = Vercel 크론이 아니다(선생님 PC 러너).
+   *  scripts/verify-cron-monitors 가 vercel.json ↔ 이 표의 1:1(경로·요일·시각)을 지킨다(2026-10-19 — etf-snap 요일 오류·etf-flow 누락이 그 공백에서 나왔다). */
+  cron?: string | null
   heavy?: boolean                        // 복구 시 마지막 순서(예산 가드)
   /** 워밍형 크론(라우트가 캐시 TTL로 재계산을 스스로 결정 — 크론이 돌아도 캐시가 신선하면 updated_at 불변).
    *  이 값이 있으면 '예정 시각' 대신 '최대 허용 나이(ttlH + 24h + 유예)'로 판정한다.
@@ -51,14 +54,14 @@ export interface CronMonitor {
 
 // 크론 정의(vercel.json crons와 1:1 — 스케줄 바꾸면 여기도 갱신)
 export const CRON_MONITORS: CronMonitor[] = [
-  { id: 'nps', label: '국민연금 워밍', kst: '03:00', days: 'daily', artifact: { type: 'cache', key: () => 'nps-portfolio' }, heal: null, ttlH: 24 },
-  { id: 'shadow13f', label: '슈퍼 클론 13F 워밍', kst: '03:00', days: 'daily', artifact: { type: 'cache', key: () => FUND_CACHE_KEY }, heal: null, ttlH: 12 },
+  { id: 'nps', label: '국민연금 워밍', kst: '03:00', days: 'daily', artifact: { type: 'cache', key: () => 'nps-portfolio' }, heal: null, cron: '/api/nps-portfolio', ttlH: 24 },
+  { id: 'shadow13f', label: '슈퍼 클론 13F 워밍', kst: '03:00', days: 'daily', artifact: { type: 'cache', key: () => FUND_CACHE_KEY }, heal: null, cron: '/api/shadow-13f', ttlH: 12 },
   { id: 'satellite', label: '위성 점수', kst: '03:30', days: 'daily', artifact: { type: 'cache', key: () => SAT_SCORE_KEY }, heal: '/api/cron/satellite-scores' },
   { id: 'schoolIndex', label: '학교 13F 인덱스', kst: '04:00', days: 'daily', artifact: { type: 'table', name: 'school_index_stock_snapshots' }, heal: '/api/cron/school-index' },
-  { id: 'macroPicks', label: '거시경제 AI 유니버스(주간)', kst: '04:00', days: 'tue', artifact: { type: 'cache', key: () => UNIVERSE_KEY }, heal: null },
+  { id: 'macroPicks', label: '거시경제 AI 유니버스(주간)', kst: '04:00', days: 'tue', artifact: { type: 'cache', key: () => UNIVERSE_KEY }, heal: null, cron: '/api/macro-ai-picks' },
   { id: 'briefing', label: 'Jarvis 모닝 처방전', kst: '05:00', days: 'daily', artifact: { type: 'table', name: 'user_daily_briefings' }, heal: '/api/cron/morning-briefing', heavy: true },
   { id: 'honeycomb', label: '부동산 벌집 워밍', kst: '05:30', days: 'daily', artifact: { type: 'cache', key: () => HONEYCOMB_KEY }, heal: '/api/re-honeycomb', ttlH: 24 },
-  { id: 'blackrock', label: '블랙록 13F(주간)', kst: '06:00', days: 'tue', artifact: { type: 'cache', key: () => 'blackrock-13f-v2' }, heal: null },
+  { id: 'blackrock', label: '블랙록 13F(주간)', kst: '06:00', days: 'tue', artifact: { type: 'cache', key: () => 'blackrock-13f-v2' }, heal: null, cron: '/api/blackrock' },
   // 🧭 섹터 로테이션 — 예전엔 '로테이션 시계' 방문자만 만들었다(2026-10-07: 9/28~10/1·10/5~10/7 7일 공백). 로테이션 축·학생 '요즘 강한 분야'·
   //    타점 워처·승패 해부실·로테이션 성적표 적립이 전부 이 일자 키를 읽는다 — 없으면 축이 50(중립)으로 채워져 조용히 성공한다. 08:30 워처보다 먼저.
   { id: 'sectorRotation', label: '섹터 로테이션 계산', kst: '07:00', days: 'daily', artifact: { type: 'cacheDate', key: d => SECTOR_ROTATION_KEY(d) }, heal: '/api/sector-rotation', heavy: true },
@@ -84,6 +87,8 @@ export const CRON_MONITORS: CronMonitor[] = [
   //    일·월요일엔 크론이 없어 stale → heal 이 부르면 snapshotEtfs 가 '주말 스킵'으로 마커만 남긴다(금요일 값 중복 저장 방지)
   // vercel.json `20 10 * * 2-6`(UTC 화~토 = KST 화~토 19:20) — 'daily' 로 적혀 있어 일·월요일 저녁마다 거짓 stale 이었다(2026-10-18 일요일 실측)
   { id: 'etfSnap', label: '미국 ETF 순자산 스냅샷', kst: '19:20', days: 'tue-sat', artifact: { type: 'cacheDate', key: d => ETF_SNAP_MARK(d) }, heal: '/api/cron/etf-snap' },
+  // 💧 ETF 순유입 워밍(`35 10 * * 2-6` = KST 화~토 19:35) — 2026-10-19 까지 상태판에 없었다(감시 목록에 없는 것은 죽어도 모른다). 산출물은 그날 키(6h 캐시 · 하루 1~4행)
+  { id: 'etfFlow', label: '미국 ETF 순유입 워밍', kst: '19:35', days: 'tue-sat', artifact: { type: 'cacheDate', key: d => ETF_FLOW_KEY(d) }, heal: '/api/etf-flow?refresh=1' },
   { id: 'analystRerating', label: '미국 애널리스트 리레이팅 스캔', kst: '07:10', days: 'daily', artifact: { type: 'cacheDate', key: d => ANALYST_RERATING_KEY(d) }, heal: '/api/analyst-rerating?refresh=1', heavy: true },
   // 📋 성적 채점 — 적립(위 두 크론의 refresh 경로)과 별개. 조용히 멈추면 성적이 옛날 값에 굳는다
   { id: 'usmRecord', label: '미국 스마트머니 성적 채점', kst: '07:30', days: 'daily', artifact: { type: 'cacheDate', key: d => USM_GRADE_KEY(d) }, heal: '/api/usm-record?refresh=1', heavy: true },
@@ -94,7 +99,7 @@ export const CRON_MONITORS: CronMonitor[] = [
   //   heal 도 refresh=1 로 불러 마커를 남긴다(자동 복구 = 예정 파이프라인의 일부이지 방문자 재생성이 아니다).
   { id: 'swing', label: '스윙 타점 스캔·성적 적립', kst: '06:40', days: 'daily', artifact: { type: 'cacheDate', key: d => SWING_CRON_MARK(d) }, heal: '/api/swing-radar?refresh=1', heavy: true },
   // 🧪 fresh: 안의 dataDate(최신 거래일)가 7일(추석급 연휴 포함)보다 오래되면 행이 있어도 stale — heal(/api/market-flow-kr)이 라이브 거래일과 대조해 재계산한다
-  { id: 'marketFlowKr', label: '국내 시장 수급 워밍', kst: '20:00', days: 'weekday', artifact: { type: 'cacheDate', key: d => MARKET_FLOW_KR_KEY(d) }, heal: '/api/market-flow-kr', fresh: { field: 'dataDate', maxAgeDays: 7 } },
+  { id: 'marketFlowKr', label: '국내 시장 수급 워밍', kst: '20:00', days: 'weekday', artifact: { type: 'cacheDate', key: d => MARKET_FLOW_KR_KEY(d) }, heal: '/api/market-flow-kr', cron: '/api/cron/market-flow-kr', fresh: { field: 'dataDate', maxAgeDays: 7 } },
   // ⭐ 핵심 추천 전향 적립 — 적립 0건인 날도 run 마커를 남기므로 cacheDate 로 실행 여부만 본다(무신호≠실패)
   { id: 'coreReco', label: '핵심 추천·축 성적 적립', kst: '17:00', days: 'daily', artifact: { type: 'cacheDate', key: d => `core-reco-run-v1:${d}` }, heal: '/api/cron/core-reco' },
 
@@ -103,8 +108,8 @@ export const CRON_MONITORS: CronMonitor[] = [
   //    작업 스케줄러 인자가 과잉 이스케이프돼 cmd 가 실행 파일 경로를 못 읽었고, 로그엔 같은 에러만 44회 쌓였다.
   // ⛔ heal 은 반드시 null — 서버가 선생님 PC 의 작업 스케줄러를 부를 수 없다. 여기는 **보고 전용**이다.
   // 🕒 ttlH(나이 기준)로 판정한다: 주말·하루 결행에는 안 울리고 며칠째 죽은 것만 잡는다(경보 피로 회피).
-  { id: 'factsetFwd', label: '선행 PER 수집(PC·주 1회)', kst: '21:00', days: 'daily', artifact: { type: 'cache', key: () => FACTSET_FWD_KEY }, heal: null, ttlH: 168 },
-  { id: 'krxShort', label: '공매도 수집(PC·매일)', kst: '20:00', days: 'daily', artifact: { type: 'cache', key: () => KRX_SHORT_KEY }, heal: null, ttlH: 24 },
+  { id: 'factsetFwd', label: '선행 PER 수집(PC·주 1회)', kst: '21:00', days: 'daily', artifact: { type: 'cache', key: () => FACTSET_FWD_KEY }, heal: null, cron: null, ttlH: 168 },
+  { id: 'krxShort', label: '공매도 수집(PC·매일)', kst: '20:00', days: 'daily', artifact: { type: 'cache', key: () => KRX_SHORT_KEY }, heal: null, cron: null, ttlH: 24 },
 ]
 
 export interface HealthCheck {
