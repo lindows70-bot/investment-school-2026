@@ -10,6 +10,10 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 export async function POST(req: Request) {
+  // 🔒 로그인 세션 없이는 계산하지 않는다(2026-10-18 5차 점검: 개인 데이터는 안 새지만 누구나 시세 수집을 시킬 수 있는 열린 연산 엔드포인트였다)
+  const authSb = await createClient()
+  const { data: { user: authed } } = await authSb.auth.getUser()
+  if (!authed) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   let body: { lots?: unknown }
   try { body = await req.json() } catch { return NextResponse.json({ error: 'invalid json' }, { status: 400 }) }
 
