@@ -6,7 +6,7 @@
 // 그 격자에서 뽑는다 — 같은 종목의 결산 EPS 가 화면마다 다른 값이 되지 않게(제2원칙) 두 번째 계산기를 만들지 않는다.
 // 결산 EPS 는 1년에 한 번 바뀌므로 7일 캐시. 날짜는 키에 넣지 않는다(app_cache 에 지우는 장치가 없다).
 import { getCache, setCache } from '@/lib/appCache'
-import { internalHeaders } from '@/lib/cronAuth'
+import { internalHeaders } from '@/lib/internalAuth'
 
 export interface FyEps { max: number; from: string; to: string; n: number }
 

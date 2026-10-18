@@ -1,6 +1,6 @@
 // 스마트머니 수급 레이더 SSOT — KR 외국인/기관/개인 직접 + US 프록시(MFI·내부자·13F) (Zero Cost·Lazy Cache)
 import { getCache, setCache } from '@/lib/appCache'
-import { internalHeaders } from '@/lib/cronAuth'
+import { internalHeaders } from '@/lib/internalAuth'
 import { getInsiderSignal } from '@/app/actions/getInsiderSignal'
 import type { ShadowResult } from '@/app/api/shadow-13f/route'
 

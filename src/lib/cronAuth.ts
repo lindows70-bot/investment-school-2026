@@ -50,11 +50,9 @@ export async function requireUserOrCron(req: Request): Promise<NextResponse | nu
   return (await getAuthedUserId()) ? null : NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 }
 
-/** 서버가 자기 라우트를 부를 때(쿠키가 없다) 붙이는 헤더 — CRON_SECRET 이 비어 있으면 빈 객체라 게이트 라우트는 401 을 준다(fail-closed · 크론과 같은 원칙) */
-export function internalHeaders(): Record<string, string> {
-  const secret = process.env.CRON_SECRET
-  return secret ? { authorization: `Bearer ${secret}` } : {}
-}
+/** 서버가 자기 라우트를 부를 때(쿠키가 없다) 붙이는 헤더 — CRON_SECRET 이 비어 있으면 빈 객체라 게이트 라우트는 401 을 준다(fail-closed · 크론과 같은 원칙).
+ *  구현은 순수 모듈 lib/internalAuth 에(lib 단위검증이 next/server 없이 컴파일할 수 있게 · 2026-10-19) — 라우트는 여기서 그대로 import 한다 */
+export { internalHeaders } from '@/lib/internalAuth'
 
 /** `?refresh=1` 같은 강제 재계산을 허락할 것인가 — 크론이거나 선생님일 때만.
  *  허락하지 않으면 호출부는 **오류 대신 캐시 결과**를 돌려준다(화면의 새로고침 버튼이 깨지지 않게). */

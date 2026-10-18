@@ -4,7 +4,7 @@
 import { calcDCF, deriveDcfInputs } from '@/lib/buffettDcf'
 import { computeStarRating, type StarResult } from '@/lib/morningstarRating'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
-import { internalHeaders } from '@/lib/cronAuth'
+import { internalHeaders } from '@/lib/internalAuth'
 import { getMoatBreach } from '@/app/actions/getMoatBreach'
 import { getSectorPeers } from '@/app/actions/getSectorPeers'
 

@@ -16,7 +16,7 @@
 import { getCache, setCache } from '@/lib/appCache'
 import { fredObservations } from '@/lib/fred'
 import { isPegBaseEffect, getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
-import { internalHeaders } from '@/lib/cronAuth'
+import { internalHeaders } from '@/lib/internalAuth'   // 순수 모듈(next/server 없음 — lib 단위검증 컴파일 유지)
 import { lynchFairValue } from '@/lib/lynchAnalysis'   // 🏔️ 경기순환주 정점 판정(peak) — 적정가·린치 패널과 같은 함수·같은 입력(종목 정보)
 import { knownLynch } from '@/lib/lynchKnown'   // 📌 린치 고정 분류표 SSOT — 겹치는 종목은 유니버스 표의 lynch 대신 이 값을 쓴다
 import { isFinancialCompany } from '@/lib/assetClassifier'

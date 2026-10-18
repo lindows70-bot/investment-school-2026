@@ -9,7 +9,7 @@
  */
 
 import { getCache, setCache } from '@/lib/appCache'
-import { internalHeaders } from '@/lib/cronAuth'
+import { internalHeaders } from '@/lib/internalAuth'
 
 export interface CanonicalFundamentals {
   peg:      number | null
