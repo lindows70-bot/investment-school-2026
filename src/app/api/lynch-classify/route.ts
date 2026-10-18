@@ -11,6 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { getAssetType } from '@/lib/assetClassifier'
 import { parseNaverBasics } from '@/lib/naverIntegration'   // 📊 PER·EPS·배당·시총 — basic 에서 사라져(2026-10-01) integration 으로
 import { US_KNOWN, KR_KNOWN } from '@/lib/lynchKnown'   // 📌 고정 분류표 SSOT — 스크리너 유니버스도 같은 표를 따른다(2026-10-01)
 import { naverUpjongMap, industryNameOf, upjongToLynchSector } from '@/lib/naverUpjong'   // 🏷️ 국내 업종 SSOT — basic 의 업종 필드가 사라져(2026-09-30) integration 으로
@@ -319,6 +320,10 @@ export async function GET(req: NextRequest) {
 
   if (market === 'CRYPTO')
     return NextResponse.json({ category: 'na', isEtf: false, source: 'crypto' } satisfies ClassifyResult)
+  // 자산 분류 SSOT(assetClassifier)가 ETF·원자재로 판정하면 린치 분류 없음 — 아래 자체 브랜드 정규식·고정 목록은 SSOT 가 못 잡은 것만 보조(2026-10-18 제2원칙)
+  const nameHint = searchParams.get('name')?.trim() ?? ''
+  if (getAssetType(ticker, nameHint, market) !== 'STOCK')
+    return NextResponse.json({ category: 'na', isEtf: true, source: 'asset-classifier' } satisfies ClassifyResult, { headers: { 'Cache-Control': 'no-store' } })
 
   const result = market === 'KR' ? await classifyKR(ticker) : await classifyUS(ticker)
   console.log(`[Lynch] ${market}:${ticker} →`, result.category ?? '(ETF/null)', `(${result.source})`)

@@ -13,11 +13,10 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+import { getAssetType } from '@/lib/assetClassifier'
 
-const ETF_BRANDS = ['TIGER','KODEX','ACE','PLUS','KBSTAR','HANARO','ARIRANG','SOL','RISE','1Q','ETF']
-function isEtfByName(name: string): boolean {
-  return ETF_BRANDS.some(b => name.toUpperCase().includes(b))
-}
+// 자산 판별은 SSOT(assetClassifier) — 전엔 브랜드 글자 포함 검사라 'SOL' 이 솔라엣지 같은 주식도 걸렀다(2026-10-18 제2원칙)
+const isNotStock = (ticker: string, name: string, market: string) => getAssetType(ticker, name ?? '', market ?? '') !== 'STOCK'
 
 export async function POST() {
   const cookieStore = await cookies()
@@ -51,7 +50,7 @@ export async function POST() {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const targets = (invs ?? []).filter(inv =>
-    (!inv.lynch_category || inv.lynch_category === 'na') && !isEtfByName(inv.name)
+    (!inv.lynch_category || inv.lynch_category === 'na') && !isNotStock(inv.ticker, inv.name, inv.market)
   )
 
   let updated = 0, skipped = 0

@@ -2,6 +2,7 @@
 //  AI 리밸런싱이 ETF·채권·BTC·주식·유령을 하나의 자산 위계로 보고 캡·밴드를 통제하기 위한 기반.
 import { getAssetType } from '@/lib/assetClassifier'
 import { SATELLITE_UNIVERSE } from '@/lib/satelliteScreener'
+import { code6, isLeverage, isBond, isBroadIndex, isCommodityLike, isBtc } from '@/lib/assetRoleRules'
 
 export type AssetRole =
   | 'CORE_INDEX'        // 지수/섹터 ETF — 시장 베타(코어)
@@ -14,31 +15,7 @@ export type AssetRole =
 export interface RoleResult { role: AssetRole; group: 'CORE' | 'SATELLITE' | 'BLOCKED'; label: string; reason: string }
 
 const up = (s: string) => (s ?? '').toUpperCase()
-const code6 = (t: string) => t.replace(/\.(KS|KQ)$/i, '').replace(/\D/g, '')
-
-// 레버리지/인버스 — 코어(시장베타)도 새틀라이트(알파)도 아닌 '도박' → 차단
-const LEVERAGE_NAME_KW = ['레버리지', '인버스', '곱버스', '2X', '3X', 'ULTRA', 'ULTRASHORT', 'DAILY', 'BULL', 'BEAR', 'PROSHARES ULTRA', 'DIREXION']
-const LEVERAGE_TICKERS = new Set(['TSLL', 'TSLR', 'TSLG', 'TSLS', 'TSLQ', 'NVDL', 'NVDU', 'NVDX', 'NVDQ', 'NVDS', 'SOXL', 'SOXS', 'TQQQ', 'SQQQ', 'UPRO', 'SPXL', 'SPXS', 'TNA', 'TZA', 'AAPU', 'AAPD', 'MSFU', 'GGLL', 'AMZU', 'METU', 'CONL', 'MSTU', 'MSTX', 'AGQ', 'ZSL', 'BITX', 'BITU'])
-const LEVERAGE_KR = new Set(['252670'])
-
-// 채권형 — 이름·티커
-const BOND_NAME_KW = ['채권', '국고채', '국채', '회사채', '단기채', '종합채', 'BOND', 'TREASURY', 'AGGREGATE']
-const BOND_TICKERS = new Set(['TLT', 'IEF', 'SHY', 'SHV', 'AGG', 'BND', 'LQD', 'TIP', 'GOVT', 'BNDX', 'EMB'])
-const BOND_KR = new Set(['148070', '114260', '153130', '439870'])
-
-// 광의 지수(시장 베타=코어) — S&P500·나스닥100·KOSPI200·다우·전체시장. 그 외 ETF(섹터/테마/원자재/협의지역)는 새틀라이트 프록시
-const BROAD_INDEX_NAME_KW = ['S&P500', 'S&P 500', 'S&P100', '나스닥100', '나스닥 100', 'NASDAQ100', 'NASDAQ 100', 'NASDAQ-100', 'KOSPI200', 'KOSPI 200', '코스피200', '코스피 200', '다우', 'DOW JONES', 'TOTAL MARKET', 'TOTAL STOCK', 'ACWI', 'WORLD INDEX', 'WIDEMOAT', 'WIDE MOAT', '동일가중']
-const BROAD_INDEX_TICKERS = new Set(['SPY', 'IVV', 'VOO', 'VTI', 'QQQ', 'QQQM', 'DIA', 'IWM', 'VT', 'ACWI', 'SPLG'])
-const BROAD_INDEX_KR = new Set(['069500', '102110', '360750', '133690', '229200', '251340', '309230', '0069M0'])
-const isBroadIndex = (t: string, n: string) => BROAD_INDEX_TICKERS.has(up(t)) || BROAD_INDEX_KR.has(code6(t)) || BROAD_INDEX_NAME_KW.some(kw => up(n).includes(kw)) || /\b200\b/.test(n)
-
-// 원자재/실물 — 대체자산(새틀라이트)
-const COMMODITY_KW = ['구리', '은(', '실물', 'SILVER', 'GOLD', 'COPPER', 'PLATINUM', '원자재', '귀금속', 'PHYSICAL']
-const isCommodityLike = (t: string, n: string) => COMMODITY_KW.some(kw => up(n).includes(up(kw)))
-
-const isLeverage = (t: string, n: string) => LEVERAGE_TICKERS.has(up(t)) || LEVERAGE_KR.has(code6(t)) || LEVERAGE_NAME_KW.some(kw => up(n).includes(kw))
-const isBond = (t: string, n: string) => BOND_TICKERS.has(up(t)) || BOND_KR.has(code6(t)) || BOND_NAME_KW.some(kw => up(n).includes(kw))
-const isBtc = (t: string, n: string) => /\bBTC\b/.test(up(t)) || up(n).includes('BITCOIN') || up(n).includes('비트코인')
+// 규칙표(레버리지·채권·광의지수·원자재·BTC)는 lib/assetRoleRules 한 곳 — 거래 모달의 classifyAsset 과 같은 표를 쓴다(2026-10-18 제2원칙)
 const GHOST_CODES = new Set(SATELLITE_UNIVERSE.map(s => up(s.market === 'KR' ? code6(s.ticker) : s.ticker)))
 const isGhost = (t: string, market: string) => GHOST_CODES.has(up(market === 'KR' ? code6(t) : t))
 

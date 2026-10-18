@@ -21,6 +21,7 @@ import StockActionChips from '@/app/components/StockActionChips'   // 🔗 종�
 import { type Candle } from '@/app/components/CandleChart'
 import { Verdict } from '@/app/components/ui/Screen'   // 🎯 화면의 답(페이지당 하나) — 공용 프리미티브
 import { TK, FS } from '@/lib/theme'
+import { getAssetType } from '@/lib/assetClassifier'   // 자산 분류 SSOT(2026-10-18 — 브랜드 글자 목록 폐기)
 import { USD_KRW_FALLBACK } from '@/lib/fx'   // 💱 환율 폴백 SSOT(화면마다 1,350·1,400 으로 갈리던 상수를 한 값으로)
 import { acceptFx } from '@/lib/fxAccept'     // 환율 채택 SSOT — 고정 상수는 실제 환율로 쓰지 않는다
 import { isPriced } from '@/lib/portfolioSummary'   // 시세 판정 SSOT — 학생 화면과 같은 규칙
@@ -81,7 +82,6 @@ const LYNCH_META: Record<string, { label: string; color: string }> = {
 }
 // CRYPTO 는 비트코인 공식 오렌지로 — orange400 은 경고 축이라 시장 식별색과 뜻이 겹친다
 const MARKET_COLOR: Record<Market, string> = { US:TK.emerald400, KR:TK.blue400, CRYPTO:TK.btcOrange }
-const ETF_BRANDS = ['TIGER','KODEX','ACE','PLUS','KBSTAR','ARIRANG','HANARO','SOL']
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmtKrwVal(n:number) {
@@ -220,11 +220,9 @@ export default function AssetsPage() {
       setInvestments(withRole)
 
       // ── 미분류 종목 자동 분류 (백그라운드) ─────────────────────────
-      const ETF_BRANDS_CHECK = ['TIGER','KODEX','ACE','PLUS','KBSTAR','HANARO','ARIRANG','SOL','RISE','1Q','ETF']
       const unclassified = unique.filter(i =>
         !i.lynch_category &&
-        i.market !== 'CRYPTO' &&
-        !ETF_BRANDS_CHECK.some(b => i.name.toUpperCase().includes(b))
+        getAssetType(i.ticker, i.name, i.market) === 'STOCK'   // 개별 주식만 분류 대상(SSOT — 브랜드 글자 목록은 'SOL' 로 주식까지 걸렀다)
       )
       if (unclassified.length > 0) {
         ;(async () => {
@@ -659,7 +657,7 @@ export default function AssetsPage() {
                   {group.map(inv => {
             const livePrice = getLive(inv)   // 재무(PER·PEG·배당)용
             const pricedLive = getPx(inv)    // 가격·손익용 — 조회 실패면 null(₩0·−100% 를 그리지 않는다)
-            const isETF  = ETF_BRANDS.some(k => inv.name.toUpperCase().includes(k))
+            const isETF  = getAssetType(inv.ticker, inv.name, inv.market) === 'ETF'   // 자산 분류 SSOT — 브랜드 8개 목록은 RISE·1Q·미국 ETF 를 놓쳐 분석 화면과 배지가 갈렸다(2026-10-18)
             const isNA   = inv.market === 'CRYPTO' || isETF
             const lynchMeta = inv.lynch_category && !isNA && inv.lynch_category !== 'na'
               ? LYNCH_META[inv.lynch_category] ?? null : null
