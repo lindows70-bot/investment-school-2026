@@ -44,6 +44,9 @@ export interface CronMonitor {
    *  이 값이 있으면 '예정 시각' 대신 '최대 허용 나이(ttlH + 24h + 유예)'로 판정한다.
    *  근거: 사용자 방문이 캐시를 중간 갱신하면 다음 크론은 정상 실행돼도 스킵 → 예정 시각 판정은 오탐(라이브 대조로 확인). */
   ttlH?: number
+  /** 🧪 산출물 **안의 데이터 날짜**까지 본다 — '행이 있다'와 '새 데이터다'는 다르다(2026-10-18 실사고: 국내 수급 일별 행이 매일 만들어졌지만
+   *  안의 dataDate 는 5주째 2026-09-11 · 크론 ✅). field 의 값(YYYY-MM-DD 또는 ISO)이 maxAgeDays 보다 오래되면 stale. */
+  fresh?: { field: string; maxAgeDays: number }
 }
 
 // 크론 정의(vercel.json crons와 1:1 — 스케줄 바꾸면 여기도 갱신)
@@ -89,7 +92,8 @@ export const CRON_MONITORS: CronMonitor[] = [
   //   🕰️ 산출물이 아니라 **크론 실행 마커**를 본다 — 산출물 캐시는 방문자 재생성에 덮여 크론 실패를 숨겼다(2026-09-11).
   //   heal 도 refresh=1 로 불러 마커를 남긴다(자동 복구 = 예정 파이프라인의 일부이지 방문자 재생성이 아니다).
   { id: 'swing', label: '스윙 타점 스캔·성적 적립', kst: '06:40', days: 'daily', artifact: { type: 'cacheDate', key: d => SWING_CRON_MARK(d) }, heal: '/api/swing-radar?refresh=1', heavy: true },
-  { id: 'marketFlowKr', label: '국내 시장 수급 워밍', kst: '20:00', days: 'weekday', artifact: { type: 'cacheDate', key: d => MARKET_FLOW_KR_KEY(d) }, heal: '/api/market-flow-kr' },
+  // 🧪 fresh: 안의 dataDate(최신 거래일)가 7일(추석급 연휴 포함)보다 오래되면 행이 있어도 stale — heal(/api/market-flow-kr)이 라이브 거래일과 대조해 재계산한다
+  { id: 'marketFlowKr', label: '국내 시장 수급 워밍', kst: '20:00', days: 'weekday', artifact: { type: 'cacheDate', key: d => MARKET_FLOW_KR_KEY(d) }, heal: '/api/market-flow-kr', fresh: { field: 'dataDate', maxAgeDays: 7 } },
   // ⭐ 핵심 추천 전향 적립 — 적립 0건인 날도 run 마커를 남기므로 cacheDate 로 실행 여부만 본다(무신호≠실패)
   { id: 'coreReco', label: '핵심 추천·축 성적 적립', kst: '17:00', days: 'daily', artifact: { type: 'cacheDate', key: d => `core-reco-run-v1:${d}` }, heal: '/api/cron/core-reco' },
 
@@ -109,6 +113,7 @@ export interface HealthCheck {
   expected: string          // lastExpected ISO(KST 표기)
   lastRun: string | null    // 산출물 시각 ISO(있으면)
   healed?: boolean          // 이번 실행에서 자동 복구 성공
+  note?: string             // stale 사유(신선도 판정 등) — 상태판이 그대로 보여준다
 }
 
 // KST 시프트 시각(now+9h를 UTC 게터로 읽는 앱 관례)
@@ -176,7 +181,7 @@ export async function runHealthChecks(): Promise<HealthCheck[]> {
     }
   }
 
-  return CRON_MONITORS.map((m): HealthCheck => {
+  const checks = CRON_MONITORS.map((m): HealthCheck => {
     const exp = expectedMap.get(m.id)
     if (!exp || !db) return { id: m.id, label: m.label, status: 'unknown', expected: '', lastRun: null }
     const expIso = exp.toISOString().replace('.000Z', '+09:00')
@@ -214,4 +219,26 @@ export async function runHealthChecks(): Promise<HealthCheck[]> {
       return { id: m.id, label: m.label, status: 'pending', expected: expIso, lastRun }
     return { id: m.id, label: m.label, status: 'stale', expected: expIso, lastRun }
   })
+
+  // 🧪 신선도 — 산출물이 '있다'(ok)여도 안의 데이터 날짜가 오래됐으면 stale(2026-10-18: 수급 행이 매일 생겼지만 dataDate 가 5주째 09-11 이었고 상태판은 ✅)
+  if (db) {
+    for (const m of CRON_MONITORS) {
+      if (!m.fresh) continue
+      const c = checks.find(x => x.id === m.id)
+      if (!c || c.status !== 'ok') continue
+      const key = Array.from(wanted.entries()).find(([, id]) => id === m.id)?.[0]
+      if (!key) continue
+      try {
+        const { data } = await db.from('app_cache').select('payload').eq('key', key).maybeSingle()
+        const v = (data?.payload as Record<string, unknown> | null | undefined)?.[m.fresh.field]
+        const t = typeof v === 'string' ? Date.parse(v.length === 10 ? `${v}T00:00:00+09:00` : v) : NaN
+        const ageDays = Number.isFinite(t) ? (Date.now() - t) / 86_400_000 : null
+        if (ageDays == null || ageDays > m.fresh.maxAgeDays) {
+          c.status = 'stale'
+          c.note = ageDays == null ? `${m.fresh.field} 없음` : `${m.fresh.field}=${String(v)} · ${Math.round(ageDays)}일 전(허용 ${m.fresh.maxAgeDays}일)`
+        }
+      } catch { /* graceful — 신선도 조회 실패는 판정을 바꾸지 않는다 */ }
+    }
+  }
+  return checks
 }

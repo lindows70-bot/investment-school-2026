@@ -66,9 +66,11 @@ export async function fetchKrTrend(code6: string, pages = 1): Promise<TrendRow[]
     const url = `https://m.stock.naver.com/api/stock/${code6}/trend?pageSize=60${cursor ? `&bizdate=${cursor}` : ''}`
     let rows: TrendRow[] = []
     try {
+      // ⛔ no-store 명시 — 2026-09-11~10-16 국내 수급이 통째로 멈춰 있었다(일별 캐시 7행 전부 dataDate 09-11 · 크론은 매일 '성공').
+      //    가장 그럴듯한 원인은 캐시 옵션 없는 이 fetch 를 Next 14 Data Cache 가 박제한 것(Next 15 전환 직후 스스로 10-16 으로 복구됨). 기본값에 기대지 않는다.
       const r = await fetch(url, {
         headers: { 'User-Agent': NAVER_UA, Referer: 'https://m.stock.naver.com/' },
-        signal: AbortSignal.timeout(12_000),
+        signal: AbortSignal.timeout(12_000), cache: 'no-store',
       })
       if (!r.ok) break
       const j = await r.json()
@@ -164,7 +166,7 @@ function judgeKr(f: FlowActor, o: FlowActor, ind: FlowActor, foreignHold: number
 async function computeUsMfi(ticker: string): Promise<{ mfi: number | null; trend: UsFlow['mfiTrend']; nearHigh: boolean }> {
   try {
     const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker.toUpperCase()}?range=3mo&interval=1d`, {
-      headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10_000),
+      headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10_000), cache: 'no-store',
     })
     if (!r.ok) return { mfi: null, trend: 'flat', nearHigh: false }
     const j = await r.json()

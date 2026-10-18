@@ -98,6 +98,11 @@ if (rankRows.length && qtyRows.length === rankRows.length) {
   check(`순매매 금액 단위 = 원(수량×가격 비율 ${ratios.length ? `${Math.min(...ratios).toFixed(3)}~${Math.max(...ratios).toFixed(3)}` : '없음'})`, ratios.length >= 5 && ratios.every(x => x > 0.8 && x < 1.25))
 }
 check('종목별 추이(m.stock trend)', Array.isArray(trend) && trend.length > 0 && trend[0].foreign != null, trend ? '' : '실패')
+// 🧪 서버가 '박제'된 것을 잡는다 — 이 PC 의 fetch 는 신선해도 Vercel 의 fetch 가 Data Cache 에 묶이면 서버만 멈춘다(2026-09-11~10-16 실사고: 크론 ✅·행 매일 생성·안의 dataDate 5주 고정).
+//    그래서 원천이 아니라 **프로덕션 응답**의 데이터 날짜를 본다.
+const prodFlow = await fetch('https://investment-school-2026.vercel.app/api/market-board/flow', { signal: AbortSignal.timeout(90_000) }).then(r => r.ok ? r.json() : null).catch(() => null)
+const prodDd = prodFlow?.individual?.dataDate
+check(`프로덕션 종목별 수급 dataDate ${KR_STALE}일 이내(크론은 돌았는데 데이터가 멈춘 것)`, typeof prodDd === 'string' && ageDays(`${prodDd}T00:00:00+09:00`) < KR_STALE, prodFlow ? `dataDate=${prodDd ?? '없음'}` : '응답 없음')
 check('미국 특징종목(stock.naver.com global) — 거른 뒤에도 남음', usMv.ok && usMv.data.items.length > 0 && usMv.data.items.every(i => i.marketCapUsd >= US.US_MIN_CAP_USD), why(usMv))
 check(`SPY 5분봉(야후) · 기준 시각 ${US_STALE}일 이내`, spy.ok && spy.data.points.length > 0 && spy.asOf && ageDays(spy.asOf) < US_STALE, why(spy))
 check(`CNN 공포·탐욕 1년 · 기준 시각 ${US_STALE}일 이내`, cnn.ok && cnn.data.yearHigh && cnn.data.points > 200 && ageDays(cnn.asOf) < US_STALE, why(cnn))
