@@ -2,28 +2,33 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { resolveGlobalTicker, marketLabel, curFromCode } from '@/lib/globalTickers'
-import FullCandleChart from '@/app/components/FullCandleChart'
-import StockActionChips from '@/app/components/StockActionChips'   // 🔗 종목 액션 SSOT(종착역 해소)
-import JarvisInsight   from '@/app/components/JarvisInsight'
-import InsiderReceipt   from '@/app/components/InsiderReceipt'
-import NoiseCanceller   from '@/app/components/NoiseCanceller'
-import CashRunwayTimer  from '@/app/components/CashRunwayTimer'
-import SectorPeerXray   from '@/app/components/SectorPeerXray'
-import PairTradingMonitor from '@/app/components/PairTradingMonitor'
-import ShadowTracker13F from '@/app/components/ShadowTracker13F'
-import MoatBreachDetector from '@/app/components/MoatBreachDetector'
-import MoneyFlowRadar    from '@/app/components/MoneyFlowRadar'
-import SupplyFlowChart   from '@/app/components/SupplyFlowChart'
-import ReverseDcf        from '@/app/components/ReverseDcf'
-import StockProfileCard  from '@/app/components/StockProfileCard'
-import FcfQualityCard    from '@/app/components/FcfQualityCard'
-import ValueTriangle      from '@/app/components/ValueTriangle'
-import ResearchVerdictCard from '@/app/components/ResearchVerdict'
-import ResearchReport from '@/app/components/ResearchReport'
-import LynchAutoPanel     from '@/app/components/LynchAutoPanel'
-import MastersCommittee   from '@/app/components/MastersCommittee'
-import ChoiValuationPanel from '@/app/components/ChoiValuationPanel'
+import dynamic from 'next/dynamic'
+import StockActionChips from '@/app/components/StockActionChips'   // 🔗 종목 액션 SSOT(종착역 해소) — 상단 공통이라 정적
 import { getAssetType } from '@/lib/assetClassifier'
+// 탭(차트·린치·버핏)별 패널 20여 개를 전부 정적 import 해 첫 로드 JS 가 381kB(선생님 화면 2위)였다 — 탭이 조건부 렌더라 보는 탭의 것만 받는다(2026-10-19 8차 점검).
+//   loading 은 호이스팅되는 function 선언으로(const 화살표는 dynamic() 이 import 자리에서 즉시 평가돼 TDZ 로 죽는다 — CLAUDE.md 함정)
+function PanelLoading() { return <div style={{ padding: 16, color: TK.sub, fontSize: FS.body }}>불러오는 중…</div> }
+const LZ = { ssr: false, loading: PanelLoading } as const   // 공용 옵션 — 제네릭 헬퍼로 감싸면 props 추론이 object 로 무너진다(tsc 실측)
+const FullCandleChart     = dynamic(() => import('@/app/components/FullCandleChart'), LZ)
+const JarvisInsight       = dynamic(() => import('@/app/components/JarvisInsight'), LZ)
+const InsiderReceipt      = dynamic(() => import('@/app/components/InsiderReceipt'), LZ)
+const NoiseCanceller      = dynamic(() => import('@/app/components/NoiseCanceller'), LZ)
+const CashRunwayTimer     = dynamic(() => import('@/app/components/CashRunwayTimer'), LZ)
+const SectorPeerXray      = dynamic(() => import('@/app/components/SectorPeerXray'), LZ)
+const PairTradingMonitor  = dynamic(() => import('@/app/components/PairTradingMonitor'), LZ)
+const ShadowTracker13F    = dynamic(() => import('@/app/components/ShadowTracker13F'), LZ)
+const MoatBreachDetector  = dynamic(() => import('@/app/components/MoatBreachDetector'), LZ)
+const MoneyFlowRadar      = dynamic(() => import('@/app/components/MoneyFlowRadar'), LZ)
+const SupplyFlowChart     = dynamic(() => import('@/app/components/SupplyFlowChart'), LZ)
+const ReverseDcf          = dynamic(() => import('@/app/components/ReverseDcf'), LZ)
+const StockProfileCard    = dynamic(() => import('@/app/components/StockProfileCard'), LZ)
+const FcfQualityCard      = dynamic(() => import('@/app/components/FcfQualityCard'), LZ)
+const ValueTriangle       = dynamic(() => import('@/app/components/ValueTriangle'), LZ)
+const ResearchVerdictCard = dynamic(() => import('@/app/components/ResearchVerdict'), LZ)
+const ResearchReport      = dynamic(() => import('@/app/components/ResearchReport'), LZ)
+const LynchAutoPanel      = dynamic(() => import('@/app/components/LynchAutoPanel'), LZ)
+const MastersCommittee    = dynamic(() => import('@/app/components/MastersCommittee'), LZ)
+const ChoiValuationPanel  = dynamic(() => import('@/app/components/ChoiValuationPanel'), LZ)
 import type { Candle } from '@/app/components/CandleChart'
 import { TK, FS, FONT_STACK } from '@/lib/theme'
 import { isPegBaseEffectPct, PEG_JUMP_LABEL, PEG_JUMP_DESC, PEG_PEAK_LABEL } from '@/lib/pegBaseEffect'

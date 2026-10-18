@@ -796,9 +796,12 @@ function CompareChart({ api, loading }: { api: MacroApi | null; loading: boolean
 // ═══════════════════════════════════════════════════════════════
 //  MAIN PAGE
 // ═══════════════════════════════════════════════════════════════
-import BondSimulator from '@/app/components/BondSimulator'
-import StressTest    from '@/app/components/StressTest'
+import dynamic from 'next/dynamic'
 import { TK, FS, RAD, FONT_STACK } from '@/lib/theme'
+// 채권 시뮬레이터·스트레스 테스트는 다른 탭 — 첫 로드(398kB · 선생님 화면 1위)에서 빼고 그 탭을 열 때 받는다(2026-10-19). 지도 라이브러리는 본문이라 그대로
+function TabLoading() { return <div style={{ padding: 16, color: TK.sub, fontSize: FS.body }}>불러오는 중…</div> }
+const BondSimulator = dynamic(() => import('@/app/components/BondSimulator'), { ssr: false, loading: TabLoading })
+const StressTest    = dynamic(() => import('@/app/components/StressTest'), { ssr: false, loading: TabLoading })
 
 export default function MacroHubPage() {
   const [api,         setApi]         = useState<MacroApi | null>(null)
