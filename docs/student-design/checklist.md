@@ -85,5 +85,5 @@
 - [x] error.tsx·global-error.tsx(ChunkLoadError 1회 자동 새로고침) · 테마색 통일 · /s/learn/strategy 350→112kB
 - [x] CLAUDE.md 환경변수 22개 표 · TOSS_TRADING_ENABLED 사실 정정
 - [x] 배포 뒤 실측(10/18 · bef18c23): 익명 stock-info **401** · 내부 표식 200(3.5s) · reverse-dcf·research-verdict 내부 표식 200(axisSource=universe) · 크론 상태판 marketFlowKr `stale · dataDate=2026-09-11 · 38일 전` 정직 표기 · 학생 보드 individual.dataDate **2026-10-16**(캐시 재생성) · 유니버스 v22 워밍 114초(크론 비밀값 refresh=1) → verify-lynch-fair 전부 통과 · verify-market-board-sources 프로덕션 dataDate 통과 · etf-snap 일·월 거짓 stale 교정
-- [ ] 로그인 화면 실측(세션 만료 — 다시 로그인 뒤): AI 멘토 PEG · 자산 ETF 배지 · 리그 환율 · 학생 전략 지연 로드
+- [x] 로그인 화면 실측(10/18 재로그인 · 1280): 대시보드 AI 멘토 족집게 PEG 0.05·0.63(SSOT 값) · '해당없음' 오탐 0 · API 실패 0 / 자산 화면 린치 배지 2·ETF 배지 1·N/A 9(ETF·코인) · 실패 0 / 스쿨 리그 exchange-rate 200 · 순위 정상 / 학생 전략 화면 패널 지연 로드 뒤 정상 표시(불러오는 중 잔존 0)
 - [ ] 보류: regime-tripwire 계절(이력 스키마 US/KR) · 선생님 3장 번들 · KST 헬퍼 복제
