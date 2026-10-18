@@ -3,6 +3,7 @@
 //   2026-09-30 신설 — 네이버 basic 의 업종 필드가 사라져 국내 전 종목 업종이 '모름'이었다. 표가 반쪽이 되면 조용히 다시 '모름'이 된다.
 import { execSync } from 'node:child_process'
 import { existsSync, writeFileSync, rmSync } from 'node:fs'
+import { PROD_HEADERS } from './prodAuth.mjs'   // 프로덕션 stock-info 는 게이트 라우트(7차 점검) — 내부 표식
 import Module from 'node:module'
 
 const ROOT = 'C:/Users/lindo/investment-school-portfolio'
@@ -62,7 +63,7 @@ try {
 
 // ── 라이브: 프로덕션 /api/stock-info 국내 종목 ──
 try {
-  const res = await fetch('https://investment-school-2026.vercel.app/api/stock-info?ticker=005930&market=KR', { signal: AbortSignal.timeout(30_000) })
+  const res = await fetch('https://investment-school-2026.vercel.app/api/stock-info?ticker=005930&market=KR', { signal: AbortSignal.timeout(30_000), headers: PROD_HEADERS })   // 게이트 라우트 — 내부 표식(scripts/prodAuth)
   if (!res.ok) { fail++; console.log(`❌ 라이브 /api/stock-info HTTP ${res.status}`) }
   else {
     const j = await res.json()

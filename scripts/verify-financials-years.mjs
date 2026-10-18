@@ -1,6 +1,7 @@
 // 재무 API(/api/financials) 확정 연도 검증(국내 + 미국) — 5개 확정 연도의 EPS·매출이 비어(0) 있지 않은지 · DART 사업보고서 값과 같은지
 //   2026-10-02 신설 — DART 수집이 ①올해(보고서가 없는 해)를 기준으로 불러 2022~2024 만 닿았고 ②손익을 포괄손익계산서 한 장(CIS)으로 내는 회사는 통째로 버려,
 //   SK하이닉스 2021·2022 가 0 으로 나갔다. 0 은 '자료 없음'인데 이익 차트가 '적자 구간'으로 그렸다. 값이 0 이라 빌드·타입체크는 전부 통과한다.
+import { PROD_HEADERS } from './prodAuth.mjs'   // 프로덕션 financials 는 게이트 라우트(6차 점검) — 내부 표식 없이는 401
 const B = 'https://investment-school-2026.vercel.app'
 let fail = 0
 const check = (label, cond, why = '') => { if (cond) console.log(`✅ ${label}`); else { fail++; console.log(`❌ ${label}${why ? ` — ${why}` : ''}`) } }
@@ -19,14 +20,14 @@ const cy = new Date(Date.now() + 9 * 3600_000).getUTCFullYear()
 const OP_CASES = [{ t: '010140', name: '삼성중공업(기타이익 행이 영업이익보다 먼저 온다)', op: { 2023: 2333, 2024: 5027, 2025: 8622 } }]
 for (const c of OP_CASES) {
   try {
-    const j = await fetch(`${B}/api/financials?ticker=${c.t}&market=KR`, { signal: AbortSignal.timeout(60_000) }).then(r => r.json())
+    const j = await fetch(`${B}/api/financials?ticker=${c.t}&market=KR`, { signal: AbortSignal.timeout(60_000), headers: PROD_HEADERS }).then(r => r.json())
     const bad = Object.entries(c.op).filter(([y, v]) => j?.financials?.[y]?.operatingProfit !== v).map(([y, v]) => `${y}: ${j?.financials?.[y]?.operatingProfit} ≠ ${v}`)
     check(`${c.name} — 영업이익이 DART 영업이익 행과 같음(${Object.entries(c.op).map(([y, v]) => `${y} ${v}억`).join(' · ')})`, bad.length === 0, bad.join(' / '))
   } catch (e) { fail++; console.log(`❌ ${c.name} 호출 실패 — ${e.message}`) }
 }
 for (const c of CASES) {
   try {
-    const j = await fetch(`${B}/api/financials?ticker=${c.t}&market=KR`, { signal: AbortSignal.timeout(60_000) }).then(r => r.json())
+    const j = await fetch(`${B}/api/financials?ticker=${c.t}&market=KR`, { signal: AbortSignal.timeout(60_000), headers: PROD_HEADERS }).then(r => r.json())
     const fin = j?.financials ?? {}
     const past = Object.keys(fin).filter(k => !k.endsWith('E')).sort()
     // 직전 연도(cy-1) 보고서는 3월쯤 나오므로, 1~3월엔 가장 최근 한 해가 비어도 통과시킨다
@@ -55,7 +56,7 @@ const US_CASES = [
 ]
 for (const c of US_CASES) {
   try {
-    const j = await fetch(`${B}/api/financials?ticker=${c.t}&market=US`, { signal: AbortSignal.timeout(60_000) }).then(r => r.json())
+    const j = await fetch(`${B}/api/financials?ticker=${c.t}&market=US`, { signal: AbortSignal.timeout(60_000), headers: PROD_HEADERS }).then(r => r.json())
     const fin = j?.financials ?? {}
     const near = (x, v, tol) => typeof x === 'number' && Math.abs(x - v) <= Math.max(tol, Math.abs(v) * 0.02)
     const badE = Object.entries(c.eps).filter(([y, v]) => !near(fin[y]?.eps, v, 0.011)).map(([y, v]) => `${y} EPS ${fin[y]?.eps} ≠ ${v}`)
@@ -67,7 +68,7 @@ for (const c of US_CASES) {
 // ── 야후 형식 검증에서 떨어지는 종목(신규 상장 SPCX — earningsHistory 행에 추정치 칸이 없다)도 통째로 실패하지 않는가 ──
 //   2026-10-03 — 그 한 모듈 때문에 요청 전체가 실패해 응답이 success:false · 전부 0 이었다. 기대값 = 야후 연간 시계열 2023~2025(2026-10-03 실측)
 try {
-  const j = await fetch(`${B}/api/financials?ticker=SPCX&market=US`, { signal: AbortSignal.timeout(60_000) }).then(r => r.json())
+  const j = await fetch(`${B}/api/financials?ticker=SPCX&market=US`, { signal: AbortSignal.timeout(60_000), headers: PROD_HEADERS }).then(r => r.json())
   const f = j?.financials ?? {}
   check(`SPCX — 형식 검증 실패에도 응답 성공 · 현재가 ${j?.currentPrice} · 2024 매출 ${f['2024']?.revenue} · 2025 EPS ${f['2025']?.eps}`,
     j?.success === true && j.currentPrice > 0 && Math.abs((f['2024']?.revenue ?? 0) - 14015) < 2 && Math.abs((f['2025']?.eps ?? 0) - -0.51) < 0.011)

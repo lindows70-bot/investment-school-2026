@@ -2,6 +2,7 @@
 //   2026-10-01 신설 — 같은 종목의 적정가가 화면마다 달랐다(SK하이닉스 ₩2,691,756 / ₩4,908,064 / ₩11,215,650). EPS 와 배수표가 화면마다 따로였고, 값이 그럴듯해 빌드·화면검증으로는 안 잡혔다.
 import { execSync } from 'node:child_process'
 import { existsSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
+import { PROD_HEADERS } from './prodAuth.mjs'   // 프로덕션 게이트 라우트(stock-info·research-verdict·tracer) 내부 표식 — 6·7차 점검 뒤 익명 호출은 401
 import Module from 'node:module'
 
 const ROOT = 'C:/Users/lindo/investment-school-portfolio'
@@ -65,7 +66,7 @@ check('린치 자동 분석 — PEG 칸과 종합 의견이 정점(fair.peak)을
 const rp = src('app/research/page.tsx')
 // 2026-10-03: 정점 가드가 가치 축(유니버스 스크리너)까지 — 종합 판정 '매수 적합 81' 옆에 '저평가 근거로 쓸 수 없다'가 나란히 있던 모순
 const scr = src('lib/macroPhaseScreener.ts'), rv = src('app/api/research-verdict/route.ts'), ur = src('lib/unifiedReco.ts')   // 통합추천 본문은 2026-10-09 lib 로 이동(라우트는 인증·응답만)
-check('스크리너 — 경기순환주 정점을 lynchFairValue(종목 정보 입력)로 판정하고 PEG·이익수익률·린치 점수를 중립으로', /lynchFairValue\(\{ eps: f\.eps/.test(scr) && /const pegGrad = pegPeak \? 0\.5 : pegGrad0/.test(scr) && /const eyScore = pegPeak \? 0\.4 : eyScore0/.test(scr) && /\(isPegBaseEffect\(peg, earnGrowth\) \|\| pegPeak\) \? 0\.5/.test(scr) && /macro-screened-universe:v21/.test(scr) && /eyScore0 > 0\.45 \|\| isPegBaseEffect\(peg, earnGrowth\)\)/.test(scr) && /peakNote = v\.peakNote/.test(scr))
+check('스크리너 — 경기순환주 정점을 lynchFairValue(종목 정보 입력)로 판정하고 PEG·이익수익률·린치 점수를 중립으로', /lynchFairValue\(\{ eps: f\.eps/.test(scr) && /const pegGrad = pegPeak \? 0\.5 : pegGrad0/.test(scr) && /const eyScore = pegPeak \? 0\.4 : eyScore0/.test(scr) && /\(isPegBaseEffect\(peg, earnGrowth\) \|\| pegPeak\) \? 0\.5/.test(scr) && /macro-screened-universe:v22/.test(scr) && /eyScore0 > 0\.45 \|\| isPegBaseEffect\(peg, earnGrowth\)\)/.test(scr) && /peakNote = v\.peakNote/.test(scr))
 // 2026-10-03 보강: 유니버스 종목은 스크리너 플래그를 읽고(재계산 없음), 유니버스 밖 경기순환주만 같은 함수로 직접 판정한다(이수페타시스 실측 구멍)
 check('종합 판정 — 유니버스는 스크리너 플래그를 읽고 · 유니버스 밖 경기순환주만 lynchFairValue 로 판정 · 분류는 고정표 먼저 · cons 에 같은 이유 문장 · 저PEG 찬성 근거 억제',
   /let pegPeak = ax\?\.pegPeak \?\? false/.test(rv) && /if \(!ax && lc === 'cyclical'\)/.test(rv) && (rv.match(/lynchFairValue\(/g) ?? []).length === 1
@@ -90,7 +91,7 @@ try {
   const B = 'https://investment-school-2026.vercel.app'
   for (const [t, mk, cat] of [['005930', 'KR', 'cyclical'], ['GOOGL', 'US', 'stalwart']]) {
     const [si, sp] = await Promise.all([
-      fetch(`${B}/api/stock-info?ticker=${t}&market=${mk}`, { signal: AbortSignal.timeout(40_000) }).then(r => r.json()),
+      fetch(`${B}/api/stock-info?ticker=${t}&market=${mk}`, { signal: AbortSignal.timeout(40_000), headers: PROD_HEADERS }).then(r => r.json()),
       fetch(`${B}/api/stock-price?ticker=${t}&market=${mk}`, { signal: AbortSignal.timeout(40_000) }).then(r => r.json()),
     ])
     const f = si?.fundamentals ?? {}
@@ -101,25 +102,25 @@ try {
   // 이익선 트레이서의 '현재' EPS 가 종목 정보의 최근 4분기 EPS 와 같은 값인가(2026-10-03 통일 — 그전엔 결산 EPS 라 SK하이닉스가 두 화면에서 반대 신호)
   for (const [t, mk] of [['000660', 'KR'], ['NVDA', 'US']]) {
     const [tr, si] = await Promise.all([
-      fetch(`${B}/api/lynch-earnings-tracer?ticker=${t}&market=${mk}`, { signal: AbortSignal.timeout(60_000) }).then(r => r.json()),
-      fetch(`${B}/api/stock-info?ticker=${t}&market=${mk}`, { signal: AbortSignal.timeout(40_000) }).then(r => r.json()),
+      fetch(`${B}/api/lynch-earnings-tracer?ticker=${t}&market=${mk}`, { signal: AbortSignal.timeout(60_000), headers: PROD_HEADERS }).then(r => r.json()),
+      fetch(`${B}/api/stock-info?ticker=${t}&market=${mk}`, { signal: AbortSignal.timeout(40_000), headers: PROD_HEADERS }).then(r => r.json()),
     ])
     const e = si?.fundamentals?.eps
     check(`트레이서 ${t} — 현재 EPS ${tr?.currentEps}(${tr?.currentEpsBasis}) = 종목 정보 최근 4분기 EPS ${e}`,
       tr?.currentEpsBasis === 'ttm' && typeof e === 'number' && tr?.currentEps === e)
   }
-  const vd = await fetch(`${B}/api/research-verdict?ticker=005930&market=KR`, { signal: AbortSignal.timeout(90_000) }).then(r => r.json())
+  const vd = await fetch(`${B}/api/research-verdict?ticker=005930&market=KR`, { signal: AbortSignal.timeout(90_000), headers: PROD_HEADERS }).then(r => r.json())
   check(`종합 판정 삼성전자 — 유니버스 정점 플래그 · 가치축 중립(${vd?.axes?.value}) · cons 에 정점 문장(${vd?.axisSource})`,
     vd?.pegPeak === true && vd?.axisSource === 'universe' && typeof vd?.peakNote === 'string' && vd.peakNote.includes('결산 연도') && (vd.cons ?? []).some(c => c.includes('이익 정점 착시')) && vd.axes.value <= 65)
   check(`종합 판정 삼성전자 — 정점이면 '매수 적합'이 아니다(${vd?.verdict} · ${vd?.score}) · 한 줄 문장이 이유를 말한다`, vd?.verdict !== 'buy' && typeof vd?.oneLiner === 'string' && vd.oneLiner.includes('결산 기록 중 최고'))
   check('종합 판정 — 정점 게이트는 소스에 있다(buy 조건에 !pegPeak)', /&& !hype && !pegPeak\) verdict = 'buy'/.test(rv))
   // 유니버스 밖 경기순환주(이수페타시스) — 자체 계산 경로에서도 정점 플래그·가치 중립·매수 적합 아님
-  const vl = await fetch(`${B}/api/research-verdict?ticker=007660&market=KR`, { signal: AbortSignal.timeout(90_000) }).then(r => r.json())
+  const vl = await fetch(`${B}/api/research-verdict?ticker=007660&market=KR`, { signal: AbortSignal.timeout(90_000), headers: PROD_HEADERS }).then(r => r.json())
   check(`종합 판정 이수페타시스(유니버스 밖 ${vl?.axisSource}) — 정점이면 자체 경로도 플래그(${vl?.pegPeak}) · 가치 ${vl?.axes?.value} ≤ 60 · ${vl?.verdict}`,
     vl?.axisSource !== 'local' || (vl?.pegPeak === true && vl.axes.value <= 60 && vl.verdict !== 'buy' && (vl.cons ?? []).some(c => c.includes('이익 정점 착시'))))
-  const fy = (await fetch(`${B}/api/stock-info?ticker=005930&market=KR`, { signal: AbortSignal.timeout(40_000) }).then(r => r.json()))?.fundamentals?.fyEps
+  const fy = (await fetch(`${B}/api/stock-info?ticker=005930&market=KR`, { signal: AbortSignal.timeout(40_000), headers: PROD_HEADERS }).then(r => r.json()))?.fundamentals?.fyEps
   check(`프로덕션 종목 정보에 확정 연도 EPS 최고치가 실림 — KR 은 재무 API 5년(삼성전자 ${fy ? `${fy.max} · ${fy.from}~${fy.to} · ${fy.n}년` : fy})`, !!fy && fy.max > 0 && fy.n >= 5 && fy.from < fy.to)
-  const fyUs = (await fetch(`${B}/api/stock-info?ticker=XOM&market=US`, { signal: AbortSignal.timeout(40_000) }).then(r => r.json()))?.fundamentals?.fyEps
+  const fyUs = (await fetch(`${B}/api/stock-info?ticker=XOM&market=US`, { signal: AbortSignal.timeout(40_000), headers: PROD_HEADERS }).then(r => r.json()))?.fundamentals?.fyEps
   check(`프로덕션 US 종목 정보에도 확정 연도 EPS 최고치가 실림(엑슨모빌 ${fyUs ? `${fyUs.max} · ${fyUs.from}~${fyUs.to} · ${fyUs.n}년` : fyUs})`, !!fyUs && fyUs.max > 0 && fyUs.n >= 4 && fyUs.from < fyUs.to)
 } catch (err) { fail++; console.log(`❌ 프로덕션 호출 실패 — ${err.message}`) }
 

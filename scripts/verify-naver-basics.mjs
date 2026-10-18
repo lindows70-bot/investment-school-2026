@@ -2,6 +2,7 @@
 //   2026-10-01 신설 — 네이버 basic 에서 per·eps·배당·시총·52주가 사라져 주가 라우트·린치 분류의 국내 지표가 통째로 null 이었는데 빌드·타입체크·화면이 전부 통과했다(null 은 조용하다).
 import { execSync } from 'node:child_process'
 import { existsSync, writeFileSync, rmSync } from 'node:fs'
+import { PROD_HEADERS } from './prodAuth.mjs'   // 프로덕션 stock-info 는 게이트 라우트(7차 점검) — 내부 표식
 import Module from 'node:module'
 
 const ROOT = 'C:/Users/lindo/investment-school-portfolio'
@@ -50,7 +51,7 @@ try {
 try {
   const [sp, si] = await Promise.all([
     fetch(`${B}/api/stock-price?ticker=005930&market=KR`, { signal: AbortSignal.timeout(40_000) }).then(r => r.json()),
-    fetch(`${B}/api/stock-info?ticker=005930&market=KR`, { signal: AbortSignal.timeout(40_000) }).then(r => r.json()),
+    fetch(`${B}/api/stock-info?ticker=005930&market=KR`, { signal: AbortSignal.timeout(40_000), headers: PROD_HEADERS }).then(r => r.json()),
   ])
   const a = sp?.fundamentals ?? {}, c = si?.fundamentals ?? {}
   check(`프로덕션 주가 라우트 삼성전자 — PER ${a.pe} · 시총 ${a.marketCap ? Math.round(a.marketCap / 1e12) + '조' : null} · 배당 ${a.dividendYield} · 52주 ${a.low52w}~${a.high52w}`,
