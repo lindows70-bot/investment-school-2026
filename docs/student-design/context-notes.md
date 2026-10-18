@@ -195,3 +195,10 @@
 - **하네스**: `verify-style-text`(인라인 <style> 텍스트에 " ' & < > 금지 — 어제 사고) 신설 · 둘 다 nightly-audit INVARIANTS 등록.
 - **선생님 화면 6장 런타임**: API 실패 0 · 넘침 0 · 하이드레이션 0(첫 사이클 1건은 재현 안 됨) · portfolio-xray 8초.
 - 교훈: ① "정리 장치가 있다"와 "다 지워진다"는 다르다 — 장치가 못 보는 분류(옛 버전)를 세는 불변식이 있어야 드러난다. ② 고아 판정은 리터럴 그렙만으로 하면 동적 키를 고아로 오판한다 — '더 높은 버전 리터럴이 있는가'로.
+
+## 2026-10-18 · Next 14.2.35 → 15.5.28 · React 19(4차 점검 1번 항목 · 사용자 "전부 고쳐")
+- **왜**: `npm audit` 의 critical 묶음(권고 24개 · 원격 코드 실행 2건)이 전부 Next 14 자체였고 14.x 에 수정본이 없다. 이미지 최적화는 10/4 보안 점검 때 이미 꺼져 있어(`images.unoptimized`) AVIF RCE 는 노출되지 않았었지만 RSC 캐시 오염·DoS 계열은 남아 있었다.
+- **방법**: 본 작업 폴더를 건드리지 않으려고 **git worktree**(`chore/next15`)에서 먼저 — 설치 → `@next/codemod next-async-request-api`(5파일: cookies()/headers() await) → tsc 0 → 빌드. 빌드가 두 번 막혔다: ①`experimental.serverComponentsExternalPackages` → 최상위 `serverExternalPackages` ②코드모드가 supabase 서버 `createClient()` 에 `UnsafeUnwrappedCookies` 임시 캐스트를 남기고 빌드를 일부러 막는다 → createClient 를 async 로 바꾸고 호출부 48곳(44파일) `await`, 체인 3곳은 `await (await createClient()).auth.getUser()`. ③worktree 엔 `.env.local` 이 없어 /school-lounge 프리렌더가 죽었다(환경 문제 — 복사로 해결). 그 뒤 ff-merge.
+- **본 폴더에서 `npm install` 이 실패**: react-simple-maps 3.0.0 의 peer 가 React ≤18. worktree 는 명시 설치라 넘어갔지만 Vercel 의 `npm ci` 는 막힌다 → 5.0.5 로(peer 19 지원 · 자체 타입과 우리 ambient d.ts 충돌 없음). 그 뒤 tsc 0 · check:build 통과 · verify 4종 통과.
+- **Next 15 가 바꾼 기본값 중 우리에게 유리한 것**: fetch·GET 라우트가 기본 미캐시(3차 점검에서 no-store 를 11곳 붙인 것과 같은 방향). `export const revalidate`·`dynamic` 은 그대로 유효.
+- 교훈: 큰 업그레이드는 worktree 에서 빌드까지 보고 들어와라 — 세 번의 빌드 실패가 전부 본 폴더 밖에서 났다. 그리고 **worktree 설치 성공 ≠ 본 폴더 설치 성공**(peer 충돌은 lockfile 갱신 경로에 따라 다르게 터진다).

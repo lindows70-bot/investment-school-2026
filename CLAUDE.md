@@ -44,7 +44,7 @@ Next.js 14 (App Router) + Supabase + Tailwind CSS + TypeScript 로 구축한
 
 | 영역 | 기술 |
 |------|------|
-| 프레임워크 | Next.js 14.2 (App Router, `'use client'` 위주) |
+| 프레임워크 | Next.js 15.5 + React 19 (App Router, `'use client'` 위주) — 2026-10-18 보안 권고(RCE 2건 포함 24개 · 14.x 수정본 없음)로 14.2 에서 올림. `cookies()`/`headers()`·supabase 서버 `createClient()` 는 **async(await)**, 외부 fetch 는 기본 미캐시 |
 | DB / Auth | Supabase (PostgreSQL + RLS + Auth) |
 | 스타일링 | Tailwind CSS (다크 모드 전용, inline style 혼용) |
 | 차트 | Recharts (포트폴리오·분석), lightweight-charts (금융 캔들 TradingView OSS) |
