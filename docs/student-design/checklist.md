@@ -77,3 +77,13 @@
 - [x] D SSOT: lib/upbit(7곳) · lib/googleNews(5곳) · fx-attribution 은 창 부족으로 유지(주석)
 - [x] 배포 뒤 실측(10/18 · 40ccb152): 비로그인 8라우트 전부 **401** · re-apt 지역표 밖 400/종로 200 · 공개 라우트 9종 200 · 로그인 상태 financials 2.2s·fred 0.6s·reverse-dcf 3.2s·shadow-13f KR 1.3s→두 번째 0.4s(캐시) 전부 200 · re-policy **콜드(refresh=1) 2.9초**(전 9초 · 법령 44·뉴스 460·lawDown false) · portfolio-xray 0.9s(캐시 히트 — 콜드는 보유 변경 때 측정) · macro-data `rates.USA=3.875 · ratesLive.USA=true · ratesAsOf=2026-07-19` · macro-hub 캡션 "미국은 FRED 실시간 · 나머지 14개국은 2026-07-19 기준 수동값" · 로드맵 배지 지난 분기 3·진행 중 1 · tax-helper cryptoTaxNote 현행법 문구 · 매크로 대시보드 Fed Watch 탭 "2026년 9월 FOMC 기준"(옛 '2025년 3월'·'개월 전 전망' 0건)
 - [ ] 보류: stock-info 자체 게이트(자기 호출자 수십 곳) · npm audit 11건(tailwind 4) · USD/KRW 이력 SSOT 창 확장
+
+## 13. 전수 점검 7차(10/18 · f1efcbd7 ~ cacdbb77)
+- [x] 🔴 국내 수급 5주 정지 — no-store 명시 · CronMonitor.fresh(dataDate 7일) · 불변식이 프로덕션 dataDate 확인(배포 뒤 상태판 stale 정직 표기 · 학생 보드 dataDate 10-16)
+- [x] 제2원칙 8건(PEG 재계산 3곳 · ×100 · PER SSOT · 계절 origin 5곳 · 자산 분류 SSOT 4곳 · 역할 규칙표 통일 · 환율 폴백 3곳 · 스크리너 PEG SSOT 우선+pegSource · UNIVERSE_KEY v22)
+- [x] stock-info 게이트 + 자기 호출 10곳 표식 + verify-api-gates(야간) · 불변식 4종 prodAuth
+- [x] error.tsx·global-error.tsx(ChunkLoadError 1회 자동 새로고침) · 테마색 통일 · /s/learn/strategy 350→112kB
+- [x] CLAUDE.md 환경변수 22개 표 · TOSS_TRADING_ENABLED 사실 정정
+- [x] 배포 뒤 실측(10/18 · bef18c23): 익명 stock-info **401** · 내부 표식 200(3.5s) · reverse-dcf·research-verdict 내부 표식 200(axisSource=universe) · 크론 상태판 marketFlowKr `stale · dataDate=2026-09-11 · 38일 전` 정직 표기 · 학생 보드 individual.dataDate **2026-10-16**(캐시 재생성) · 유니버스 v22 워밍 114초(크론 비밀값 refresh=1) → verify-lynch-fair 전부 통과 · verify-market-board-sources 프로덕션 dataDate 통과 · etf-snap 일·월 거짓 stale 교정
+- [ ] 로그인 화면 실측(세션 만료 — 다시 로그인 뒤): AI 멘토 PEG · 자산 ETF 배지 · 리그 환율 · 학생 전략 지연 로드
+- [ ] 보류: regime-tripwire 계절(이력 스키마 US/KR) · 선생님 3장 번들 · KST 헬퍼 복제
