@@ -88,12 +88,22 @@ const SECTOR_PALETTE = [
 
 const TOTAL_SLIDES  = 5
 
+// 분기 상태는 날짜에서 — 전엔 done 플래그를 손으로 적어 Q3 2026 이 끝난 뒤에도 '진행 예정'이었다(2026-10-18 6차 점검).
+//   지난 분기 = 점이 켜지고 '지난 분기' 배지(완료를 주장하지 않는다 — 실행 여부는 이 표가 모른다) · 이번 분기 = '진행 중' · 다음 = '예정'
 const ROADMAP = [
-  { q:'Q1 2026', title:'포트폴리오 구축',   items:['Core ETF 편입 완료','반도체 32% 달성','분산 구조 확립'], done:true  },
-  { q:'Q2 2026', title:'Satellite 강화',    items:['AI·바이오 4% 편입','K방산 확대','나스닥100 조정'],    done:true  },
-  { q:'Q3 2026', title:'분기 리밸런싱',      items:['섹터 수익률 점검','비중 ±5% 조정','신규 테마 스크리닝'], done:false },
-  { q:'Q4 2026', title:'연간 결산',          items:['벤치마크 성과 비교','2027 전략 초안','세금 최적화'],  done:false },
+  { q:'Q1 2026', title:'포트폴리오 구축',   items:['Core ETF 편입 완료','반도체 32% 달성','분산 구조 확립'] },
+  { q:'Q2 2026', title:'Satellite 강화',    items:['AI·바이오 4% 편입','K방산 확대','나스닥100 조정'] },
+  { q:'Q3 2026', title:'분기 리밸런싱',      items:['섹터 수익률 점검','비중 ±5% 조정','신규 테마 스크리닝'] },
+  { q:'Q4 2026', title:'연간 결산',          items:['벤치마크 성과 비교','2027 전략 초안','세금 최적화'] },
 ]
+type RoadmapStatus = 'past' | 'current' | 'future'
+function roadmapStatus(q: string, now = new Date()): RoadmapStatus {
+  const m = /^Q([1-4]) (\d{4})$/.exec(q)
+  if (!m) return 'future'
+  const idx = Number(m[2]) * 4 + Number(m[1]) - 1
+  const cur = now.getFullYear() * 4 + Math.floor(now.getMonth() / 3)
+  return idx < cur ? 'past' : idx === cur ? 'current' : 'future'
+}
 
 // ═══════════════════════════════════════════════════════════════
 //  FRAMER VARIANTS
@@ -421,7 +431,7 @@ function Slide5_Roadmap() {
         {/* 세로선 */}
         <div style={{ position:'absolute', left:14, top:10, bottom:10, width:2,
           background:`linear-gradient(to bottom, ${D.neon}, ${D.neon}15)` }} />
-        {ROADMAP.map((step,idx) => (
+        {ROADMAP.map(s => ({ ...s, status: roadmapStatus(s.q), done: roadmapStatus(s.q) === 'past' })).map((step) => (
           <div key={step.q} style={{ position:'relative', marginBottom:16 }}>
             {/* 점 */}
             <div style={{ position:'absolute', left:-26, top:14, width:14, height:14, borderRadius:'50%',
@@ -439,8 +449,9 @@ function Slide5_Roadmap() {
                   borderRadius:6, padding:'2px 10px' }}>{step.q}</span>
                 <span style={{ fontSize:13, fontWeight:800,
                   color: step.done ? D.text : D.textSub }}>{step.title}</span>
-                {step.done && <Badge color={D.neon}>✓ 완료</Badge>}
-                {!step.done && idx===2 && <Badge color={D.gold}>진행 예정</Badge>}
+                {step.status === 'past' && <Badge color={D.neon}>지난 분기</Badge>}
+                {step.status === 'current' && <Badge color={D.gold}>진행 중</Badge>}
+                {step.status === 'future' && <Badge color={D.muted}>예정</Badge>}
               </div>
               <div style={{ display:'flex', gap:16, flexWrap:'wrap' }}>
                 {step.items.map(item => (

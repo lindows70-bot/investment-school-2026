@@ -395,7 +395,7 @@ function DetailPanel({ profile }: { profile: DividendProfile }) {
           { k: profile.preferred ? '쿠폰(고정)' : '연속 성장',
             v: profile.preferred
               ? (profile.preferred.isVariableRate ? '변동' : profile.preferred.couponPct != null ? profile.preferred.couponPct.toFixed(2) + '%' : '—')
-              : profile.consecutiveYears != null ? profile.consecutiveYears + '년' : '—',
+              : profile.consecutiveYears != null ? profile.consecutiveYears + '년' + (profile.streakAsOf ? ` (${profile.streakAsOf} 기준)` : '') : '—',
             c: profile.preferred ? '#a78bfa' : C.cyan },
         ].map(m => (
           <div key={m.k} style={{ padding: '10px 12px', borderRadius: 10, background: C.card2, border: `1px solid ${C.border}` }}>

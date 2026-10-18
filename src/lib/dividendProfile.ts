@@ -9,7 +9,7 @@ import { analyzePreferred, preferredTrapReasons, isPreferredTrap, type Preferred
  *  ⚠️ 상수로 묶지 않으면 writer만 범프됐을 때 reader 가 옛 키를 읽어 조용히 옛 값을 서빙한다(v7→v8에서 실제로 발견).
  *  v8: 💵 FCF 를 trueFcf SSOT로 교체 — fcfCover·안전등급이 1.0 경계를 넘나든다
  *  v9: 🏛️ 우선주 축 신설 — `preferred` 필드 추가(옛 응답이면 undefined) + 해당 없는 축이 null 로 바뀐다 */
-export const DIV_PROFILE_KEY = (ticker: string, market: string) => `div-explorer-v9:${ticker}:${market}`
+export const DIV_PROFILE_KEY = (ticker: string, market: string) => `div-explorer-v10:${ticker}:${market}`   // v10: streakAsOf 필드(필드가 늘어도 범프)
 
 // ── 배당 주기 판정 ────────────────────────────────────────────────────────────
 const MONTHLY_TICKERS = new Set(['O', 'MAIN', 'STAG', 'AGNC', 'NLY', 'GLAD', 'HTGC', 'GOOD',
@@ -19,6 +19,9 @@ const ANNUAL_TICKERS = new Set(['BRK.B', 'BRK-B'])
 export const DERIVATIVE_ETFS = new Set(['MSTY', 'TSLY', 'NVDY', 'AMZY', 'GOOGY', 'PLTY', 'CONY',
   'MSTR', 'YMAX', 'YMAG', 'ULTY', 'QYLD', 'RYLD', 'XYLD', 'JEPI', 'JEPQ'])
 // ── 배당 귀족주 연속 성장 연수 (공식 자료 기반 정적 조회) ────────────────────
+//   ⚠️ 기준연도가 없어 매년 1년씩 조용히 뒤처졌다(2026-10-18 6차 점검). 값은 2024년 인상 기준(KO 62·PG 68 = 2024-02·04 발표분)이라 2024 를 밝힌다.
+//   늘려 쓰지 않는다(연속이 끊겼을 수도 있다) — 화면이 "2024 기준" 을 붙이고, 갱신하면 이 숫자도 올린다.
+export const ARISTOCRAT_YEARS_AS_OF = 2024
 const ARISTOCRAT_YEARS: Record<string, number> = {
   O: 30, KO: 62, PEP: 52, JNJ: 62, MMM: 65, ABBV: 52, ABT: 52, ADP: 49, AFL: 42, ALB: 29,
   APD: 41, ATO: 39, BDX: 52, BEN: 43, CAT: 30, CB: 15, CTAS: 20, CL: 61, CLX: 46, COLO: 52,
@@ -53,6 +56,7 @@ export interface DividendProfile {
   payoutRatio: number | null      // 소수(0.65 = 65%)
   fcf: number | null
   consecutiveYears: number | null
+  streakAsOf: number | null       // consecutiveYears 가 정적 표(ARISTOCRAT_YEARS)에서 왔으면 그 표의 기준연도(화면이 "2024 기준" 으로 밝힌다) · 계산값이면 null
   frequency: 'monthly' | 'quarterly' | 'annual' | 'unknown'
   paymentMonths: number[]         // 배당 지급 월(1~12) — 월배당 캘린더용(ex-date 기준 근사)
   isDerivativeEtf: boolean
@@ -211,6 +215,7 @@ export function emptyProfile(ticker: string, market: string): DividendProfile {
     ticker, name: ticker, market, currency: market === 'KR' ? 'KRW' : 'USD', price: null,
     dividendYield: null, annualDividend: null, payoutRatio: null, fcf: null,
     consecutiveYears: ARISTOCRAT_YEARS[ticker] ?? null,
+    streakAsOf: ARISTOCRAT_YEARS[ticker] != null ? ARISTOCRAT_YEARS_AS_OF : null,
     frequency: inferFrequency(ticker, 0), paymentMonths: [],
     isDerivativeEtf: DERIVATIVE_ETFS.has(ticker),
     isTrapWarning: TRAP_TICKERS.has(ticker),
@@ -345,6 +350,7 @@ export async function getDividendProfile(ticker: string, market: string): Promis
       payoutRatio: naPref ? null : payoutRatio,
       fcf: naPref ? null : fcf,
       consecutiveYears: naPref ? null : consecutiveYears,
+      streakAsOf: !naPref && !streakEstimated && staticStreak != null && consecutiveYears === staticStreak ? ARISTOCRAT_YEARS_AS_OF : null,
       frequency, paymentMonths,
       isDerivativeEtf: isDerivative,
       isTrapWarning: naPref ? isPreferredTrap(preferred!, dy) : trapReasons.length > 0,
