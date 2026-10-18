@@ -80,6 +80,7 @@ const INVARIANTS = [
   { file: 'scripts/verify-style-text.mjs', label: '인라인 <style> 텍스트에 " \' & < > 없음(하이드레이션)' },
   // 2026-10-18 신설 — 버전 올린 뒤 남은 옛 접두어 행(7,200행·60%)을 아무도 안 세고 있었다
   { file: 'scripts/verify-cache-orphans.mjs', label: 'app_cache 고아 행(옛 버전 접두어) 상한' },
+  { file: 'scripts/verify-fomc-schedule.mjs', label: 'FOMC 일정표 — 앞으로 남은 회의 2개 이상 · 복제본 일치' },
 ]
 
 /**

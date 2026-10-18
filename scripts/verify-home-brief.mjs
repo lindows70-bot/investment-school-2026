@@ -60,7 +60,7 @@ const TODAY = '2026-09-26'
 const T = M.lineText
 const has = (line, text) => line.parts.some(p => p.text === text)
 const part = (line, text) => line.parts.find(p => p.text === text)
-const FOMC = ['2026-06-17', '2026-07-29', '2026-09-16', '2026-10-28', '2026-12-09', '2027-01-27']   // FOMC_SCHEDULE 과 같은 모양
+const FOMC = ['2026-06-17', '2026-07-29', '2026-09-16', '2026-10-28', '2026-12-09', '2027-01-27', '2027-03-17', '2027-04-28', '2027-06-09', '2027-07-28', '2027-09-15', '2027-10-27', '2027-12-08']   // FOMC_SCHEDULE 과 같은 모양(2027 추가 2026-10-18)
 const base = {
   indices: [{ id: 'sp500', changePct: 0.4 }, { id: 'kospi', changePct: 0.93 }, { id: 'kosdaq', changePct: -1.04 }],
   usdKrw: 1371.4,
@@ -148,7 +148,7 @@ check("FOMC: 미국 발표일이 어제 → 한국은 오늘 새벽 → '오늘 
 check('FOMC: 미국 발표일이 오늘 → 한국 내일(9/27) 새벽', has(run({ fomcDates: [TODAY] }).upcoming, '9/27 새벽 FOMC 금리 발표'))
 check('FOMC: 미국 발표일 그제 → 지난 것(다음 회의로)', has(run({ fomcDates: ['2026-09-24', '2026-10-28'] }).upcoming, '10/29 새벽 FOMC 금리 발표'))
 check('FOMC: null → "FOMC 일정 못 가져옴"', part(run({ fomcDates: null }).upcoming, 'FOMC 일정 못 가져옴')?.tone === 'muted')
-const bExhausted = run({}, '2027-02-01')   // 수동 표가 2027-01-27 에서 끝남
+const bExhausted = run({}, '2028-01-01')   // 수동 표가 2027-12-08 에서 끝남(표를 늘리면 이 날짜도 뒤로 — verify-fomc-schedule 이 표 자체를 감시한다)
 check("FOMC: 표 소진(남은 회의 없음) → 'FOMC 일정 못 가져옴', '일정이 없어요' 안 나옴", part(bExhausted.upcoming, 'FOMC 일정 못 가져옴')?.tone === 'muted' && !T(bExhausted.upcoming).includes('없어요'))
 check("FOMC: 빈 배열도 '못 가져옴'", has(run({ fomcDates: [] }).upcoming, 'FOMC 일정 못 가져옴'))
 check('일정: 날짜순 — 실적(9/29) 먼저, FOMC(10/29) 뒤', T(run({ events: ev }).upcoming) === '다가오는 일정: 9/29 마이크론 실적 · 10/29 새벽 FOMC 금리 발표')
@@ -182,7 +182,7 @@ check('지표: 날짜 형식 틀린 값은 버린다', T(run({ macro: [{ ...MACR
 // ── 공용 도우미(주요 일정 카드도 같은 함수를 쓴다)
 check('addDays: 월말·연말 넘김', M.addDays('2026-09-30', 1) === '2026-10-01' && M.addDays('2026-12-31', 1) === '2027-01-01' && M.addDays('2026-10-01', -1) === '2026-09-30')
 check('fomcKstDates: 미국 날짜 +1, 오늘 이후만, 정렬', JSON.stringify(M.fomcKstDates(['2026-12-09', '2026-09-16', '2026-10-28', '2026-09-25'], TODAY)) === JSON.stringify(['2026-09-26', '2026-10-29', '2026-12-10']))
-check('fomcKstDates: 형식 틀린 값은 버린다 · 표 소진이면 빈 배열', M.fomcKstDates(['2026/10/28', 'x'], TODAY).length === 0 && M.fomcKstDates(FOMC, '2027-02-01').length === 0)
+check('fomcKstDates: 형식 틀린 값은 버린다 · 표 소진이면 빈 배열', M.fomcKstDates(['2026/10/28', 'x'], TODAY).length === 0 && M.fomcKstDates(FOMC, '2028-01-01').length === 0)
 check('fomcKstDates: 3줄의 FOMC 날짜 = fomcKstDates 첫 값', has(run({}).upcoming, `${Number(M.fomcKstDates(FOMC, TODAY)[0].slice(5, 7))}/${Number(M.fomcKstDates(FOMC, TODAY)[0].slice(8))} 새벽 FOMC 금리 발표`))
 
 // 실제에 가까운 입력 한 벌 — 눈으로 확인용

@@ -6,13 +6,16 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
 // 다음 FOMC ISO → 한국어 표기 + D-day (하드코딩 제거, FedWatch 일정 기반)
+//   ⚠️ FOMC_SCHEDULE 의 date 는 **성명서 발표일 = 이틀 회의의 둘째 날**이다. 전엔 d~d+1 로 써서 10월 27~28일 회의가 "28~29일"로 나갔다(2026-10-18 6차 점검).
 function fmtFomc(iso: string | null): { date: string; dDay: number } | null {
   if (!iso) return null
   const dt = new Date(`${iso}T00:00:00Z`)
   if (isNaN(dt.getTime())) return null
+  const first = new Date(dt.getTime() - 86400_000)   // 회의 첫날(월 경계 안전)
   const y = dt.getUTCFullYear(), m = dt.getUTCMonth() + 1, d = dt.getUTCDate()
+  const sameMonth = first.getUTCMonth() === dt.getUTCMonth()
   const dDay = Math.max(0, Math.ceil((dt.getTime() - Date.now()) / 86400_000))
-  return { date: `${y}년 ${m}월 ${d}~${d + 1}일`, dDay }
+  return { date: sameMonth ? `${y}년 ${m}월 ${first.getUTCDate()}~${d}일` : `${y}년 ${first.getUTCMonth() + 1}월 ${first.getUTCDate()}일~${m}월 ${d}일`, dDay }
 }
 
 export async function GET(req: Request) {
