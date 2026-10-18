@@ -69,3 +69,11 @@
 - [x] @supabase/ssr 0.12.7 · supabase-js 2.118.0 · check:build 2회 통과 · verify 4종 통과
 - [x] 배포 뒤 실측(10/18 · a2facefd): 비로그인 monthly-pnl 401 · /api/fred FEDFUNDS 3건 498ms(앱 캐시 없는 경로 = 새 lib 실동작) · fed-charts·dual-mandate·global-cycle·macro-weather 200 · 홈 API 11 실패 0 · 내 자산 monthly-pnl 200·판 종목 +12.1% · 리그 1위/7명 · 채권 yield-curve 200 · 로그인 세션 유지(supabase 0.12)
 - [ ] 보류: npm audit 잔여 11건(tailwind 4 필요) · 업비트 시세 3곳·RSS 파서 2곳·USD/KRW 이력 2곳 SSOT · re-policy 9초·portfolio-xray 8초
+
+## 12. 전수 점검 6차(10/18 · 25073cab ~ 40ccb152)
+- [x] A 남용 면: requireUserOrCron·internalHeaders SSOT · 게이트 12곳 · 자기 호출 표식 7곳 · tickers 상한 60(400) · fred 시리즈 형식·limit ≤ 2000 · re-apt 지역표 · shadow-13f KR 24h 캐시 · ai-rebalance refresh 게이트 · Gemini 4곳 single-flight+음성 캐시
+- [x] B 일정표: FOMC 2027 8회 + verify-fomc-schedule · macro-regime 라벨 · LATEST_SEP 2026-09 · 정책금리 미국 FRED + 기준일 표시 · 코인 세금 날짜 분기(tax-helper v2) · shadow-13f 기간표 날짜 생성 · 로드맵 날짜 상태 · 배당 연속연수 2024 기준
+- [x] C 느린 라우트: re-policy 병렬 · portfolio-xray 병렬
+- [x] D SSOT: lib/upbit(7곳) · lib/googleNews(5곳) · fx-attribution 은 창 부족으로 유지(주석)
+- [x] 배포 뒤 실측(10/18 · 40ccb152): 비로그인 8라우트 전부 **401** · re-apt 지역표 밖 400/종로 200 · 공개 라우트 9종 200 · 로그인 상태 financials 2.2s·fred 0.6s·reverse-dcf 3.2s·shadow-13f KR 1.3s→두 번째 0.4s(캐시) 전부 200 · re-policy **콜드(refresh=1) 2.9초**(전 9초 · 법령 44·뉴스 460·lawDown false) · portfolio-xray 0.9s(캐시 히트 — 콜드는 보유 변경 때 측정) · macro-data `rates.USA=3.875 · ratesLive.USA=true · ratesAsOf=2026-07-19` · macro-hub 캡션 "미국은 FRED 실시간 · 나머지 14개국은 2026-07-19 기준 수동값" · 로드맵 배지 지난 분기 3·진행 중 1 · tax-helper cryptoTaxNote 현행법 문구 · 매크로 대시보드 Fed Watch 탭 "2026년 9월 FOMC 기준"(옛 '2025년 3월'·'개월 전 전망' 0건)
+- [ ] 보류: stock-info 자체 게이트(자기 호출자 수십 곳) · npm audit 11건(tailwind 4) · USD/KRW 이력 SSOT 창 확장
