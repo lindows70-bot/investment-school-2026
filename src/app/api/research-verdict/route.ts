@@ -150,7 +150,7 @@ export async function GET(req: Request) {
   let peakNote = ax?.peakNote ?? null
   if (!ax && lc === 'cyclical') {
     try {
-      const si = await fetch(`${base}/api/stock-info?ticker=${encodeURIComponent(ticker)}&market=${market}`, { signal: AbortSignal.timeout(10_000), cache: 'no-store' })
+      const si = await fetch(`${base}/api/stock-info?ticker=${encodeURIComponent(ticker)}&market=${market}`, { signal: AbortSignal.timeout(10_000), cache: 'no-store', headers: internalHeaders() })
         .then(r => r.ok ? r.json() : null)
       const f = si?.fundamentals
       if (f?.fyEps) {

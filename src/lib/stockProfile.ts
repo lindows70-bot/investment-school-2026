@@ -4,6 +4,7 @@
 import { calcDCF, deriveDcfInputs } from '@/lib/buffettDcf'
 import { computeStarRating, type StarResult } from '@/lib/morningstarRating'
 import { buildSignalMetrics } from '@/lib/jarvisBriefing'
+import { internalHeaders } from '@/lib/cronAuth'
 import { getMoatBreach } from '@/app/actions/getMoatBreach'
 import { getSectorPeers } from '@/app/actions/getSectorPeers'
 
@@ -25,7 +26,7 @@ const norm = (eg: number | null) => eg == null ? null : (Math.abs(eg) < 5 ? eg :
 export async function buildStockProfile(ticker: string, market: 'KR' | 'US', base: string): Promise<StockProfile | null> {
   const mkt = market
   const [si, sp, cls, moat, peers, sm] = await Promise.all([
-    fetch(`${base}/api/stock-info?ticker=${encodeURIComponent(ticker)}&market=${mkt}`, { signal: AbortSignal.timeout(20_000) }).then(r => r.ok ? r.json() : null).catch(() => null),
+    fetch(`${base}/api/stock-info?ticker=${encodeURIComponent(ticker)}&market=${mkt}`, { signal: AbortSignal.timeout(20_000), cache: 'no-store', headers: internalHeaders() }).then(r => r.ok ? r.json() : null).catch(() => null),   // 서버 자기 호출 — stock-info 게이트 표식
     fetch(`${base}/api/stock-price?ticker=${encodeURIComponent(ticker)}&market=${mkt}`, { signal: AbortSignal.timeout(20_000) }).then(r => r.ok ? r.json() : null).catch(() => null),
     fetch(`${base}/api/lynch-classify?ticker=${encodeURIComponent(ticker)}&market=${mkt}`, { signal: AbortSignal.timeout(15_000) }).then(r => r.ok ? r.json() : null).catch(() => null),
     getMoatBreach({ ticker, name: ticker, market: mkt }).catch(() => null),

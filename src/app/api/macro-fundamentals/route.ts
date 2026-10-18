@@ -119,7 +119,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         // ── 2. /api/stock-info → earningsGrowth(실제 YoY) + 배당수익률 (실데이터)
         const infoRes = await fetch(
           `${base}/api/stock-info?ticker=${encodeURIComponent(ticker)}&market=${market}`,
-          { cache: 'no-store' }
+          { cache: 'no-store', headers: internalHeaders() }   // 서버 자기 호출 — stock-info 게이트 표식
         )
         if (infoRes.ok) {
           const info = await infoRes.json()

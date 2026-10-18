@@ -9,6 +9,7 @@
  */
 
 import { getCache, setCache } from '@/lib/appCache'
+import { internalHeaders } from '@/lib/cronAuth'
 
 export interface CanonicalFundamentals {
   peg:      number | null
@@ -47,7 +48,7 @@ export async function getCanonicalFundamentals(ticker: string, market?: string, 
   if (!base) return EMPTY   // base 없으면 호출 불가 → 폴백(호출부에서 처리)
 
   try {
-    const r = await fetch(`${base}/api/stock-info?ticker=${encodeURIComponent(code)}&market=${mkt}`, { signal: AbortSignal.timeout(20_000), cache: 'no-store' })
+    const r = await fetch(`${base}/api/stock-info?ticker=${encodeURIComponent(code)}&market=${mkt}`, { signal: AbortSignal.timeout(20_000), cache: 'no-store', headers: internalHeaders() })   // 서버 자기 호출 — stock-info 게이트 표식(2026-10-18)
     if (!r.ok) return EMPTY
     const j = await r.json()
     const f = j?.fundamentals ?? {}

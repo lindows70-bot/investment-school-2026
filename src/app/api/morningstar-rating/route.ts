@@ -1,6 +1,7 @@
 // 🌟 모닝스타식 스타 등급 — 보유 종목별 공정가치(DCF)·해자·불확실성·자본배분을 한 별점으로(운용 본부 진단)
 // 신규 계산 0: stock-info(DCF입력)+getMoatBreach(해자)+stock-price(현재가) 재사용. 모닝스타 방법론 재현(교육용)
 import { NextResponse } from 'next/server'
+import { internalHeaders } from '@/lib/cronAuth'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getAssetType } from '@/lib/assetClassifier'
@@ -75,7 +76,7 @@ export async function GET(req: Request) {
       const name = s.name ?? s.ticker
       try {
         const [siRes, moat, sm] = await Promise.all([
-          fetch(`${selfBase}/api/stock-info?ticker=${encodeURIComponent(s.ticker)}&market=${market}`, { signal: AbortSignal.timeout(20_000) }).then(r => r.ok ? r.json() : null).catch(() => null),
+          fetch(`${selfBase}/api/stock-info?ticker=${encodeURIComponent(s.ticker)}&market=${market}`, { signal: AbortSignal.timeout(20_000), cache: 'no-store', headers: internalHeaders() }).then(r => r.ok ? r.json() : null).catch(() => null),   // 서버 자기 호출 — stock-info 게이트 표식
           getMoatBreach({ ticker: s.ticker, name, market }).catch(() => null),
           buildSignalMetrics(s.ticker, market, name, selfBase).catch(() => null),   // ⚙️ ROIC(자본배분 판정 1순위)
         ])

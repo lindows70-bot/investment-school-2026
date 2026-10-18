@@ -15,7 +15,8 @@
 
 import { getCache, setCache } from '@/lib/appCache'
 import { fredObservations } from '@/lib/fred'
-import { isPegBaseEffect } from '@/lib/canonicalFundamentals'
+import { isPegBaseEffect, getCanonicalFundamentals } from '@/lib/canonicalFundamentals'
+import { internalHeaders } from '@/lib/cronAuth'
 import { lynchFairValue } from '@/lib/lynchAnalysis'   // 🏔️ 경기순환주 정점 판정(peak) — 적정가·린치 패널과 같은 함수·같은 입력(종목 정보)
 import { knownLynch } from '@/lib/lynchKnown'   // 📌 린치 고정 분류표 SSOT — 겹치는 종목은 유니버스 표의 lynch 대신 이 값을 쓴다
 import { isFinancialCompany } from '@/lib/assetClassifier'
@@ -62,7 +63,7 @@ export interface MacroPhaseResult {
 // v18(2026-10-03): 🏔️ 경기순환주 정점 가드 — 이익이 결산 기록 중 최고인 해의 PEG·이익수익률은 중립(pegPeak·peakNote 필드 추가 · 가치축 값 변경)
 // v19: peakNote 를 정점 전용 문장으로(급증과 겹친 종목의 문장 변경)
 // v20(2026-10-07): 이익 급증(기저효과) 경기순환주도 정점 판정 대상(삼성전자가 빠져 있었다)
-export const UNIVERSE_KEY = 'macro-screened-universe:v21'   // v21: 린치 분류 교정(릴리·테슬라 — 적정 배수가 바뀐다)
+export const UNIVERSE_KEY = 'macro-screened-universe:v22'   // v22: PEG 를 SSOT 캐시 우선 + pegSource 필드(필드가 늘어도 범프) / v21: 린치 분류 교정(릴리·테슬라 — 적정 배수가 바뀐다)
 
 export interface ScreenedStock {
   ticker:       string
@@ -72,6 +73,7 @@ export interface ScreenedStock {
   industry:     string | null   // Yahoo 세부 소업종(assetProfile.industry) — ETF 소섹터 정밀 매핑용(추가 fetch 0)
   lynchCategory: LynchCategory
   peg:          number | null
+  pegSource?:   'ssot' | 'yahoo' | null   // 📐 PEG 출처 — ssot(canonicalFundamentals 캐시) / yahoo(pegRatio 폴백 · 5년 선행 기준) / null(없음) — 2026-10-18
   pegPeak:      boolean         // 🏔️ 경기순환주 정점 의심 — 최근 4분기 EPS 가 확정 결산 연도 최고치보다 큼(lynchFairValue.peak). 가치축 PEG·이익수익률을 중립으로 둔 이유
   peakNote:     string | null   // 그 이유 문장(holdNote SSOT) — 종합 판정 cons·배지에 그대로 쓴다(두 화면이 다른 말을 하지 않게)
   opMargin:     number | null   // 영업이익률 %
@@ -919,7 +921,13 @@ async function screenOne(
     const sym = market === 'KR' ? `${ticker.replace(/\D/g, '')}.KS` : ticker
     const q = await yf.quoteSummary(sym, { modules: ['defaultKeyStatistics', 'financialData', 'summaryDetail', 'price', 'assetProfile', 'earningsTrend'] })
     const ks = q?.defaultKeyStatistics ?? {}, fd = q?.financialData ?? {}, sd = q?.summaryDetail ?? {}, pr = q?.price ?? {}
-    const peg = numf(ks.pegRatio)
+    // 📐 PEG 는 SSOT(canonicalFundamentals) **캐시만** 본다 — 510종에 stock-info 자기 호출을 더하면 주간 크론이 한도(300s)를 넘는다.
+    //    캐시에 없으면 야후 pegRatio 폴백(출처를 pegSource 로 남긴다 · 야후 PEG 는 5년 선행 기준이라 SSOT 의 TTM÷성장률과 다르다 — 2026-10-18 제2원칙).
+    //    통합추천은 cf.peg 를 다시 우선하므로(unifiedReco) 카드의 최종 PEG 는 SSOT 다.
+    const canon = await getCanonicalFundamentals(ticker, market).catch(() => null)
+    const yahooPeg = numf(ks.pegRatio)
+    const peg = canon?.peg ?? yahooPeg
+    const pegSource: ScreenedStock['pegSource'] = canon?.peg != null ? 'ssot' : (yahooPeg != null ? 'yahoo' : null)
     const opMargin = numf(fd.operatingMargins) != null ? Math.round((fd.operatingMargins as number) * 1000) / 10 : null
     // 💵 분자는 현금흐름표에서 직접(OCF−CapEx) — financialData.freeCashflow 는 정의 불명이다(실측 2026-08-08:
     //    EQNR 은 FCF가 OCF보다 큼·MSFT 는 실제의 1/4). 같은 응답의 operatingCashflow 는 정확하므로 그것만 폴백.
@@ -991,7 +999,7 @@ async function screenOne(
     let pegPeak = false, peakNote: string | null = null
     if (lynch === 'cyclical' && (pegGrad0 > 0.5 || eyScore0 > 0.45 || isPegBaseEffect(peg, earnGrowth)) && selfBase) {
       try {
-        const si = await fetch(`${selfBase}/api/stock-info?ticker=${encodeURIComponent(ticker)}&market=${market}`, { signal: AbortSignal.timeout(12_000), cache: 'no-store' })
+        const si = await fetch(`${selfBase}/api/stock-info?ticker=${encodeURIComponent(ticker)}&market=${market}`, { signal: AbortSignal.timeout(12_000), cache: 'no-store', headers: internalHeaders() })   // 서버 자기 호출 — stock-info 게이트 표식
           .then(r => r.ok ? r.json() : null)
         const f = si?.fundamentals
         if (f?.fyEps) {
@@ -1053,7 +1061,7 @@ async function screenOne(
     if (mom.fwdEpsDir === 'decline') flags.push('이익 역성장(하강 사이클)')
     if (mom.knife) flags.push('주가 급락 추세(falling knife)')
 
-    return { ticker, name, market, sector, industry, lynchCategory: lynch, peg, pegPeak, peakNote, opMargin, fcfPositive, fcfYield, fcfAvgYield, fcfYears: nY, fcfNature: nature.kind, qualityGap, price, marketCap, currency, score, valueScore, qualityScore, flags, ...mom }
+    return { ticker, name, market, sector, industry, lynchCategory: lynch, peg, pegSource, pegPeak, peakNote, opMargin, fcfPositive, fcfYield, fcfAvgYield, fcfYears: nY, fcfNature: nature.kind, qualityGap, price, marketCap, currency, score, valueScore, qualityScore, flags, ...mom }
   } catch { return null }
 }
 

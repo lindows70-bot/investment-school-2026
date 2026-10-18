@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { upbitFetch, upbitJson } from '@/lib/upbit'
+import { requireUserOrCron } from '@/lib/cronAuth'
 import type { Market, Fundamentals } from '@/app/api/stock-price/route'
 import { curCodeFromTicker } from '@/lib/globalTickers'
 import { getTrueFcf } from '@/lib/trueFcf'   // 💵 FCF 분자 SSOT(현금흐름표 OCF−CapEx) — fd.freeCashflow 는 부호까지 틀린다
@@ -1240,6 +1241,8 @@ async function cryptoInfo(ticker: string): Promise<StockInfo> {
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
+  // 🔒 티커로 FMP·KIS·data.go.kr 을 부르는 라우트 — 로그인 화면 또는 서버 자기 호출(internalHeaders · 10곳)만(2026-10-18 7차 점검). 자기 호출자를 전수 찾아 표식을 붙인 뒤 넣었다
+  const denied = await requireUserOrCron(req); if (denied) return denied
   const { searchParams } = req.nextUrl
   const ticker = searchParams.get('ticker')?.trim()
   const market = (searchParams.get('market')?.toUpperCase() ?? 'US') as Market

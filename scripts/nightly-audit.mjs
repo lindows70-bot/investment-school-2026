@@ -81,6 +81,7 @@ const INVARIANTS = [
   // 2026-10-18 신설 — 버전 올린 뒤 남은 옛 접두어 행(7,200행·60%)을 아무도 안 세고 있었다
   { file: 'scripts/verify-cache-orphans.mjs', label: 'app_cache 고아 행(옛 버전 접두어) 상한' },
   { file: 'scripts/verify-fomc-schedule.mjs', label: 'FOMC 일정표 — 앞으로 남은 회의 2개 이상 · 복제본 일치' },
+  { file: 'scripts/verify-api-gates.mjs', label: 'API 게이트 — 유료·쿼터 키를 입력으로 부르는 라우트 전부 인증' },
 ]
 
 /**

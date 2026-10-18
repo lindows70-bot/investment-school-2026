@@ -206,7 +206,7 @@ export async function GET(req: Request) {
     // ⑤ 현재 지표 — '현재' EPS 는 종목 정보(/api/stock-info)의 최근 4분기 EPS(KR=네이버 TTM · US=야후 trailingEps). 못 받으면 직전 결산 연도 EPS 로 폴백하고 basis 에 밝힌다
     let ttmEps: number | null = null
     try {
-      const si = await fetch(`${selfBase}/api/stock-info?ticker=${encodeURIComponent(ticker)}&market=${market}`, { signal: AbortSignal.timeout(15_000), cache: 'no-store' })
+      const si = await fetch(`${selfBase}/api/stock-info?ticker=${encodeURIComponent(ticker)}&market=${market}`, { signal: AbortSignal.timeout(15_000), cache: 'no-store', headers: internalHeaders() })
       if (si.ok) {
         const e = (await si.json())?.fundamentals?.eps
         if (typeof e === 'number' && isFinite(e) && e !== 0) ttmEps = e

@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
 
   // ── ① SSOT 수집(병렬) — 새 계산 0, 전부 기존 원천 재사용(제2원칙) ──
   const [si, fcfJ, rdcfJ] = await Promise.all([
-    fetch(`${selfBase}/api/stock-info?ticker=${encodeURIComponent(ticker)}&market=${market}`, { cache: 'no-store', signal: AbortSignal.timeout(25_000) }).then(r => r.ok ? r.json() : null).catch(() => null),
+    fetch(`${selfBase}/api/stock-info?ticker=${encodeURIComponent(ticker)}&market=${market}`, { cache: 'no-store', signal: AbortSignal.timeout(25_000), headers: internalHeaders() }).then(r => r.ok ? r.json() : null).catch(() => null),
     fetch(`${selfBase}/api/stock-fcf?ticker=${encodeURIComponent(ticker)}&market=${market}`, { cache: 'no-store', signal: AbortSignal.timeout(25_000) }).then(r => r.ok ? r.json() : null).catch(() => null),
     fetch(`${selfBase}/api/reverse-dcf?ticker=${encodeURIComponent(ticker)}&market=${market}`, { cache: 'no-store', signal: AbortSignal.timeout(25_000), headers: internalHeaders() }).then(r => r.ok ? r.json() : null).catch(() => null),
   ])

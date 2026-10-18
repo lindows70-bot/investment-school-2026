@@ -3,6 +3,7 @@
 //    ⚠️ 정직: 어닝일은 수시 변경·KR 실적일 무료 미제공·월별 배당은 과거 패턴 투영 추정(캐비엇 UI 명시). Zero-Input·결정론.
 import { NextResponse } from 'next/server'
 import { fetchUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT(폴백 여부까지 — 폴백이면 캐시하지 않는다)
+import { internalHeaders } from '@/lib/cronAuth'
 import { createClient } from '@/lib/supabase/server'
 import { getAssetType } from '@/lib/assetClassifier'
 import { getCache, setCache, holdingsFingerprint } from '@/lib/appCache'
@@ -101,7 +102,7 @@ export async function GET(req: Request) {
       let rate: number | null = null            // 주당 연 배당(현지 통화)
       let yieldPct: number | null = null
       try {
-        const si = await fetch(`${base}/api/stock-info?ticker=${encodeURIComponent(h.ticker)}&market=${h.market}`, { signal: AbortSignal.timeout(20_000), cache: 'no-store', redirect: 'manual' })
+        const si = await fetch(`${base}/api/stock-info?ticker=${encodeURIComponent(h.ticker)}&market=${h.market}`, { signal: AbortSignal.timeout(20_000), cache: 'no-store', redirect: 'manual', headers: internalHeaders() })   // 서버 자기 호출 — stock-info 게이트 표식
         // 자기 호출 실패(타임아웃·로그인 리다이렉트·HTML)는 '배당 없음'이 아니다 — 세어 두고 캐시를 막는다(2026-10-18: 전엔 조용히 '없음'으로 12h 박제)
         if (!si.ok || !(si.headers.get('content-type') ?? '').includes('json')) infoFailed += 1
         else {

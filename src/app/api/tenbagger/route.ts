@@ -5,7 +5,7 @@ export const revalidate = 0
 export const maxDuration = 60
 
 import { NextResponse } from 'next/server'
-import { requireUserOrCron } from '@/lib/cronAuth'
+import { requireUserOrCron, internalHeaders } from '@/lib/cronAuth'
 import { fetchUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT(폴백 여부까지 — 폴백이면 캐시하지 않는다)
 import { getCache, setCache } from '@/lib/appCache'
 import { getAssetType } from '@/lib/assetClassifier'
@@ -38,7 +38,7 @@ export interface TenbaggerResult {
 async function fetchStockMeta(ticker: string, market: string, base: string): Promise<{ name: string | null; peg: number | null; opMargin: number | null } | null> {
   try {
     const code = ticker.replace(/\.(KS|KQ)$/i, '')
-    const r = await fetch(`${base}/api/stock-info?ticker=${encodeURIComponent(code)}&market=${market}`, { signal: AbortSignal.timeout(20_000) })
+    const r = await fetch(`${base}/api/stock-info?ticker=${encodeURIComponent(code)}&market=${market}`, { signal: AbortSignal.timeout(20_000), cache: 'no-store', headers: internalHeaders() })   // 서버 자기 호출 — stock-info 게이트 표식
     if (!r.ok) return null
     const j = await r.json()
     const f = j?.fundamentals ?? {}
