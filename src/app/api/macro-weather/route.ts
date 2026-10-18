@@ -19,6 +19,7 @@
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
+import { fredObservations } from '@/lib/fred'
 
 export interface MacroWeather {
   weather:      'clear' | 'cloudy' | 'storm'
@@ -42,22 +43,11 @@ const CACHE_TTL = 12 * 3600_000   // 12시간 (FRED 일/주 단위 갱신)
 // ⚠️ 동시 호출 시 일부 시리즈가 빈 응답을 주는 일이 있어(순유동성 null 버그) → 2회 재시도 + no-store
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 async function fredSeries(id: string, limit: number): Promise<{ date: string; value: number }[]> {
-  const key = process.env.FRED_API_KEY
-  if (!key) return []
-  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${id}` +
-              `&api_key=${key}&file_type=json&sort_order=desc&limit=${limit}`
+  if (!process.env.FRED_API_KEY) return []
   for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const res = await fetch(url, { cache: 'no-store' })
-      if (res.ok) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const d: any = await res.json()
-        const out = (d?.observations ?? [])
-          .map((o: { date: string; value: string }) => ({ date: o.date, value: parseFloat(o.value) }))
-          .filter((o: { value: number }) => isFinite(o.value))
-        if (out.length) return out
-      }
-    } catch { /* 재시도 */ }
+    // FRED 공용 fetcher(lib/fred · no-store) — 빈 응답이면 재시도
+    const out = (await fredObservations(id, { sort_order: 'desc', limit })).map(o => ({ date: o.date, value: o.v }))
+    if (out.length) return out
     if (attempt < 2) await sleep(500)
   }
   return []

@@ -4,6 +4,7 @@
 //    ⛔ 보고서의 "3개월 Bull/Base/Bear 확률"은 만들지 않는다 — 근거 없는 확률은 가짜 정밀. 국면은 4계절 SSOT 가 이미 말한다.
 //    설계: docs/us-smart-money/plan.md (절 1)
 import { getCache, setCache } from '@/lib/appCache'
+import { fredRaw } from '@/lib/fred'
 import { getCurrentSeason } from '@/lib/currentSeason'
 import { SEASON_META, type Quadrant } from '@/lib/seasonNavigator'
 import { sectorMeta } from '@/lib/gicsSectorMeta'
@@ -38,12 +39,11 @@ const pct = (a: number, b: number) => Math.round((a / b - 1) * 1000) / 10
 
 /** FRED 은행 대출태도(DRTSCILM: 대·중견기업 C&I 대출 기준을 강화한 은행 순비율, 분기) — 양수·상승이면 돈 빌리기가 어려워진다 */
 async function sloos(): Promise<{ v: number; date: string; prev: number | null } | null> {
-  const key = process.env.FRED_API_KEY
-  if (!key) return null
   try {
-    const r = await fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=DRTSCILM&api_key=${key}&file_type=json&sort_order=desc&limit=3`, { cache: 'no-store', signal: AbortSignal.timeout(15_000) })
-    if (!r.ok) return null
-    const obs = ((await r.json()).observations ?? []).filter((o: { value: string }) => o.value !== '.')
+    // FRED 공용 fetcher(lib/fred · no-store) — 키 없음·실패 = null
+    const j = await fredRaw('DRTSCILM', { sort_order: 'desc', limit: 3 }, { timeoutMs: 15_000 })
+    if (!j) return null
+    const obs = (j.observations ?? []).filter((o: { value: string }) => o.value !== '.')
     if (!obs.length) return null
     return { v: +obs[0].value, date: obs[0].date, prev: obs[1] ? +obs[1].value : null }
   } catch { return null }

@@ -18,8 +18,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-
-const FRED_BASE = 'https://api.stlouisfed.org/fred/series/observations'
+import { fredRaw, type FredParams } from '@/lib/fred'
 
 // FRED API 응답 타입
 interface FredApiResponse {
@@ -50,46 +49,26 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'series_id is required' }, { status: 400 })
   }
 
-  // 쿼리 파라미터 조합
-  const params = new URLSearchParams({
-    series_id:         seriesId,
-    api_key:           apiKey,
-    file_type:         'json',
-    sort_order:        'asc',
-    vintage_dates:     '',              // 최신 데이터
-  })
-
+  // 쿼리 파라미터 조합 — 2026-10-18: FRED 공용 fetcher(lib/fred)로 통일. 12h 캐시는 Next Data Cache(revalidate)가 아니라
+  //   아래 CDN 헤더(s-maxage) 한 겹으로만 — Data Cache 는 '첫 응답 박제' 사고가 9건이라 앱 전체에서 no-store 로 통일했다
   const units = searchParams.get('units')
-  if (units && units !== 'lin') params.set('units', units)
-
-  const observationStart = searchParams.get('observation_start')
-  if (observationStart) params.set('observation_start', observationStart)
-
-  const limit = searchParams.get('limit')
-  if (limit) params.set('limit', limit)
-
-  const fredUrl = `${FRED_BASE}?${params.toString()}`
+  const params: FredParams = {
+    sort_order: 'asc',
+    units: units && units !== 'lin' ? units : undefined,
+    observation_start: searchParams.get('observation_start') ?? undefined,
+    limit: searchParams.get('limit') ?? undefined,
+  }
 
   const CACHE_HEADERS = {
     'Cache-Control': 's-maxage=43200, stale-while-revalidate=86400',
   }
 
   try {
-    const res = await fetch(fredUrl, {
-      // Next.js 서버 캐시: 12시간 (FRED PCE/EFFR는 월 1회 업데이트)
-      next: { revalidate: 43200 },
-    })
-
-    if (!res.ok) {
-      const errText = await res.text()
-      console.error('[/api/fred] FRED API error:', res.status, errText)
-      return NextResponse.json(
-        { error: `FRED API returned ${res.status}` },
-        { status: res.status },
-      )
+    const data = await fredRaw(seriesId, params) as FredApiResponse | null
+    if (!data?.observations) {
+      console.error('[/api/fred] FRED API error:', seriesId)
+      return NextResponse.json({ error: 'FRED API request failed' }, { status: 502 })
     }
-
-    const data: FredApiResponse = await res.json()
 
     // 결측값('.')을 제외하고 클린 데이터만 반환
     const cleaned = data.observations

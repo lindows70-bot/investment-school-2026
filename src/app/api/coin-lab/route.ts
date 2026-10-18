@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { fetchUsdKrw } from '@/lib/fx'   // 💱 환율 SSOT(폴백 여부까지 — 폴백이면 캐시하지 않는다)
 import { getCache, setCache } from '@/lib/appCache'
+import { fredRaw } from '@/lib/fred'
 import { fetchCryptoFng } from '@/lib/cryptoFng'
 
 export const dynamic = 'force-dynamic'
@@ -357,8 +358,6 @@ export async function GET(req: Request) {
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-  const FRED = process.env.FRED_API_KEY
-
   // 환율(김치프리미엄)
   const { rate: usdKrw, live: fxLive } = await fetchUsdKrw(base)
 
@@ -367,7 +366,7 @@ export async function GET(req: Request) {
     fetchCryptoFng(),   // 공포·탐욕 SSOT(/api/coin-fng 와 같은 lib) — 여기선 지금·어제만 쓴다
     fetch('https://mempool.space/api/v1/mining/hashrate/3m', { signal: AbortSignal.timeout(12_000) }).then(r => r.json()),
     fetch('https://api.upbit.com/v1/ticker?markets=KRW-BTC', { signal: AbortSignal.timeout(10_000) }).then(r => r.json()),
-    FRED ? fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=M2SL&api_key=${FRED}&file_type=json&sort_order=desc&limit=37`, { signal: AbortSignal.timeout(10_000) }).then(r => r.json()) : Promise.resolve(null),
+    fredRaw('M2SL', { sort_order: 'desc', limit: 37 }, { timeoutMs: 10_000 }),   // FRED 공용 fetcher(lib/fred) — 키 없으면 null
     btcLongPrices(),
     buildCorrelation(),
     btcMaxWeekly(),   // 🔄 사이클 오버레이용(range=max — 2016 사이클 시작점 포함, 단 다운샘플됨)

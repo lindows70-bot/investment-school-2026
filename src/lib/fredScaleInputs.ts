@@ -3,8 +3,8 @@
 //   기간은 인덱스 산술이 아니라 날짜로 자른다(CPI 13개월 차분 사고의 교훈) · 진행 중인 달은 평균에서 뺀다(부분 달 금지) · 둘 다 하루 캐시(날짜 없는 키)
 import { getCache, setCache } from './appCache'
 import { ecosSeries } from './ecos'
+import { fredRaw } from './fred'
 
-const FRED = 'https://api.stlouisfed.org/fred/series/observations'
 const DAY_MS = 86_400_000
 export const DFII10_AVG10_KEY = 'dfii10-avg10-v1'
 export const M2_YOY_KEY = 'm2-yoy-v1'
@@ -17,14 +17,11 @@ export interface M2Yoy { yoy: number; month: string }                        // 
 export async function fetchDfii10Avg10(): Promise<Avg10 | null> {
   const cached = await getCache<Avg10>(DFII10_AVG10_KEY, 24 * 3600_000)
   if (cached) return cached
-  const key = process.env.FRED_API_KEY
-  if (!key) return null
   try {
     const start = new Date(Date.now() - (10 * 365 + 60) * DAY_MS).toISOString().slice(0, 10)
-    const r = await fetch(`${FRED}?series_id=DFII10&api_key=${key}&file_type=json&frequency=m&aggregation_method=avg&observation_start=${start}`,
-      { cache: 'no-store', signal: AbortSignal.timeout(12_000) })
-    if (!r.ok) return null
-    const j = await r.json()
+    // FRED 공용 fetcher(lib/fred · no-store) — 월평균(frequency=m · avg) · 키 없음·실패 = null
+    const j = await fredRaw('DFII10', { frequency: 'm', aggregation_method: 'avg', observation_start: start })
+    if (!j) return null
     const thisMonth = new Date().toISOString().slice(0, 7)
     const rows = ((j?.observations ?? []) as { date: string; value: string }[])
       .map(o => ({ m: o.date.slice(0, 7), v: parseFloat(o.value) }))
@@ -41,13 +38,10 @@ export async function fetchDfii10Avg10(): Promise<Avg10 | null> {
 export async function fetchM2Yoy(): Promise<M2Yoy | null> {
   const cached = await getCache<M2Yoy>(M2_YOY_KEY, 24 * 3600_000)
   if (cached) return cached
-  const key = process.env.FRED_API_KEY
-  if (!key) return null
   try {
-    const r = await fetch(`${FRED}?series_id=M2SL&api_key=${key}&file_type=json&sort_order=desc&limit=3&units=pc1`,
-      { cache: 'no-store', signal: AbortSignal.timeout(12_000) })
-    if (!r.ok) return null
-    const j = await r.json()
+    // FRED 공용 fetcher(lib/fred · no-store) — pc1(전년동월비)은 FRED 가 계산 · 키 없음·실패 = null
+    const j = await fredRaw('M2SL', { sort_order: 'desc', limit: 3, units: 'pc1' })
+    if (!j) return null
     const o = ((j?.observations ?? []) as { date: string; value: string }[]).map(x => ({ month: x.date.slice(0, 7), yoy: parseFloat(x.value) })).find(x => Number.isFinite(x.yoy))
     if (!o) return null
     const out: M2Yoy = { yoy: Math.round(o.yoy * 100) / 100, month: o.month }

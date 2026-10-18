@@ -2,20 +2,13 @@
 // Zero Cost(FRED 무료)·Lazy Caching(12h)·Zero Input·교육. 계절/macro-regime SSOT는 건드리지 않음(참고 맥락만)
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
+import { fredObservations } from '@/lib/fred'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
-const KEY = process.env.FRED_API_KEY
-async function fred(series: string, limit = 14, units = ''): Promise<{ date: string; v: number }[]> {
-  if (!KEY) return []
-  try {
-    const r = await fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=${series}&api_key=${KEY}&file_type=json&sort_order=desc&limit=${limit}${units}`, { cache: 'no-store', signal: AbortSignal.timeout(10_000) })
-    if (!r.ok) return []
-    const j = await r.json()
-    return (j.observations ?? []).map((o: { date: string; value: string }) => ({ date: o.date, v: parseFloat(o.value) })).filter((o: { v: number }) => isFinite(o.v))
-  } catch { return [] }
-}
+// FRED 공용 fetcher(lib/fred · no-store) — 최신순 limit 개 · units 는 '&units=pc1' 같은 쿼리 조각
+const fred = (series: string, limit = 14, units = '') => fredObservations(series, { sort_order: 'desc', limit }, { extra: units, timeoutMs: 10_000 })
 
 export interface DualMandateResult {
   // 💼 고용

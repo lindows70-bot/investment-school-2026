@@ -4,21 +4,10 @@
 //      → 인하 **시점의 경기 상태**(실업률 수준 + 12개월 추세)로 가르고, 침체 동반 여부는 '결과'로 따로 적는다.
 //      원인과 결과를 한 축에 섞으면 판정이 오염된다. 근거: docs/bonds-upgrade/context-notes.md
 
-const FRED = 'https://api.stlouisfed.org/fred/series/observations'
+import { fredObservations } from './fred'
 
-async function fredSeries(series: string, startISO: string): Promise<{ date: string; v: number }[]> {
-  const key = process.env.FRED_API_KEY
-  if (!key) return []
-  try {
-    const r = await fetch(`${FRED}?series_id=${series}&api_key=${key}&file_type=json&observation_start=${startISO}`,
-      { signal: AbortSignal.timeout(15_000), cache: 'no-store' })
-    if (!r.ok) return []
-    const j = await r.json()
-    return (j.observations ?? [])
-      .map((o: { date: string; value: string }) => ({ date: o.date, v: parseFloat(o.value) }))
-      .filter((x: { v: number }) => isFinite(x.v))
-  } catch { return [] }
-}
+// FRED 공용 fetcher(lib/fred · no-store)
+const fredSeries = (series: string, startISO: string) => fredObservations(series, { observation_start: startISO }, { timeoutMs: 15_000 })
 
 /** 야후 월봉 — ⚠️ range=max 는 심볼에 따라 조용히 다운샘플된다(^GSPC 501개월→168건 실측).
  *  period1 을 명시하고 **반환 개수로 검증**한다. */

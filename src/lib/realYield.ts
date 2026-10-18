@@ -2,6 +2,7 @@
 //   Phase 0 실측(2026-08-13): 세 계열 모두 일별·% 스케일, 항등식 오차 0.0000%p(250일 검사) —
 //   T10YIE 자체가 DGS10−DFII10 로 정의되므로 셋의 관계는 통계적 상관이 아니라 **항등식(분해)**이다.
 //   ⚠️ 임계값(주도 0.15%p·실질 2%/1%·BEI 1.8~2.5)은 역사 구간 서술 기준이지 백테스트 수치가 아니다(docs/real-yield).
+import { fredObservations } from './fred'
 
 export interface RealYieldPoint { date: string; n: number | null; r: number | null; b: number | null }
 export interface RealYieldResult {
@@ -22,22 +23,8 @@ export interface RealYieldResult {
   series: RealYieldPoint[]
 }
 
-const FRED = 'https://api.stlouisfed.org/fred/series/observations'
-async function fredSeries(series: string, startISO: string): Promise<{ date: string; v: number }[]> {
-  const key = process.env.FRED_API_KEY
-  if (!key) return []
-  try {
-    const r = await fetch(
-      `${FRED}?series_id=${series}&api_key=${key}&file_type=json&observation_start=${startISO}`,
-      { signal: AbortSignal.timeout(12_000), cache: 'no-store' },
-    )
-    if (!r.ok) return []
-    const j = await r.json()
-    return (j.observations ?? [])
-      .map((o: { date: string; value: string }) => ({ date: o.date, v: parseFloat(o.value) }))
-      .filter((x: { v: number }) => isFinite(x.v))
-  } catch { return [] }
-}
+// FRED 공용 fetcher(lib/fred · no-store)
+const fredSeries = (series: string, startISO: string) => fredObservations(series, { observation_start: startISO })
 
 const r2 = (n: number) => Math.round(n * 100) / 100
 

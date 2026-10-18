@@ -8,6 +8,7 @@
 //
 // ⛔ 이 fetch 를 다른 파일에 다시 쓰지 마라. 성장축이 화면마다 갈린다.
 import { getCache, setCache } from '@/lib/appCache'
+import { fredRaw } from '@/lib/fred'
 
 /** FRED OECD CLI 시리즈 ID — 지역별(실측 확인) */
 export const OECD_CLI_SERIES = {
@@ -37,14 +38,10 @@ export async function fetchCli(region: CliRegion): Promise<CliPoint | null> {
   const key = OECD_CLI_KEY(region)
   const cached = await getCache<CliPoint>(key, 12 * 3600_000)
   if (cached) return cached
-  const apiKey = process.env.FRED_API_KEY
-  if (!apiKey) return null
   try {
-    const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${OECD_CLI_SERIES[region]}`
-      + `&api_key=${apiKey}&file_type=json&sort_order=desc&limit=4`
-    const r = await fetch(url, { signal: AbortSignal.timeout(10_000), cache: 'no-store' })
-    if (!r.ok) return null
-    const j = await r.json()
+    // FRED 공용 fetcher(lib/fred · no-store) — 키 없음·실패 = null
+    const j = await fredRaw(OECD_CLI_SERIES[region], { sort_order: 'desc', limit: 4 }, { timeoutMs: 10_000 })
+    if (!j) return null
     const obs = (j.observations ?? [])
       .map((o: { date: string; value: string }) => ({ d: String(o.date), v: parseFloat(o.value) }))
       .filter((o: { v: number }) => isFinite(o.v))

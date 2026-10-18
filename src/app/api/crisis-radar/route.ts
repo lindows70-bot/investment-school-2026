@@ -3,6 +3,7 @@
 // ⚠️ 제미나이/구글의 하드코딩 숫자(41.6배 등) 대신 실데이터 계산(제1원칙). 임계 밴드는 공개 방법론 상수(교육용).
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
+import { fredObservations } from '@/lib/fred'
 import { FACTSET_FWD_KEY } from '@/lib/localRunners'
 
 export const dynamic = 'force-dynamic'
@@ -26,17 +27,8 @@ export interface CrisisRadarResult {
   asOf: string
 }
 
-const FRED = 'https://api.stlouisfed.org/fred/series/observations'
-async function fred(series: string, extra = ''): Promise<{ date: string; v: number }[]> {
-  const key = process.env.FRED_API_KEY
-  if (!key) return []
-  try {
-    const r = await fetch(`${FRED}?series_id=${series}&api_key=${key}&file_type=json${extra}`, { signal: AbortSignal.timeout(12_000) })
-    if (!r.ok) return []
-    const j = await r.json()
-    return (j.observations ?? []).map((o: { date: string; value: string }) => ({ date: o.date, v: parseFloat(o.value) })).filter((x: { v: number }) => isFinite(x.v))
-  } catch { return [] }
-}
+// FRED 공용 fetcher(lib/fred · no-store) — extra 는 '&observation_start=…' 같은 쿼리 조각
+const fred = (series: string, extra = '') => fredObservations(series, {}, { extra })
 const atOrBefore = (a: { date: string; v: number }[], ymd: string) => { const f = a.filter(x => x.date <= ymd); return f.length ? f[f.length - 1].v : null }
 
 // multpl.com 스크랩 — "Current ... is 41.60" 패턴

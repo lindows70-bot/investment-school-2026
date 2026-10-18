@@ -14,6 +14,7 @@
  */
 
 import { getCache, setCache } from '@/lib/appCache'
+import { fredObservations } from '@/lib/fred'
 import { isPegBaseEffect } from '@/lib/canonicalFundamentals'
 import { lynchFairValue } from '@/lib/lynchAnalysis'   // 🏔️ 경기순환주 정점 판정(peak) — 적정가·린치 패널과 같은 함수·같은 입력(종목 정보)
 import { knownLynch } from '@/lib/lynchKnown'   // 📌 린치 고정 분류표 SSOT — 겹치는 종목은 유니버스 표의 lynch 대신 이 값을 쓴다
@@ -771,17 +772,8 @@ export function detectMacroPhase(d: MacroData): MacroPhaseResult {
 }
 
 // ── FRED 데이터 수집 (24h 캐시) ──────────────────────────────────────────────
-const FRED_KEY = process.env.FRED_API_KEY
-async function fredLatest(series: string, count = 14, extra = ''): Promise<{ date: string; v: number }[]> {
-  if (!FRED_KEY) return []
-  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${series}&api_key=${FRED_KEY}&file_type=json&sort_order=desc&limit=${count}${extra}`
-  try {
-    const r = await fetch(url, { cache: 'no-store' })
-    if (!r.ok) return []
-    const j = await r.json()
-    return (j?.observations ?? []).map((o: { date: string; value: string }) => ({ date: o.date, v: parseFloat(o.value) })).filter((o: { v: number }) => isFinite(o.v))
-  } catch { return [] }
-}
+// FRED 공용 fetcher(lib/fred · no-store) — 최신순 count 개 · extra 는 '&units=pc1' 같은 쿼리 조각
+const fredLatest = (series: string, count = 14, extra = '') => fredObservations(series, { sort_order: 'desc', limit: count }, { extra })
 
 // FedWatch FF선물 컨센서스로 '실제 금리 방향' + '다음 FOMC 날짜' 산출 — FedWatch와 동일 출처(제2원칙)
 // ⚠️ 실패는 ok:false 로 알린다 — 예전엔 조용히 'hold' 를 돌려주고 그 값이 24h 캐시에 박제됐다(2026-09-29 실측: FedWatch 는 +0.75%p = 인상인데

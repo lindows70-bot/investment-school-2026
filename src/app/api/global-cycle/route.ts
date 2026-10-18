@@ -2,6 +2,7 @@
 // ⚠️ 피델리티 독점 배치를 베끼지 않음(제1원칙) — CLI 레벨(100 기준)×3개월 모멘텀으로 결정론 판정. 발표 시차 ~1개월 캐비엇.
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
+import { fredObservations } from '@/lib/fred'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 40
@@ -46,16 +47,8 @@ const PHASE_GUIDE: GlobalCycleResult['phaseGuide'] = [
   { phase: 'recession', ko: '수축 (Recession)', favored: '국채·현금·필수소비재·헬스케어', note: '이익 침체 국면 — 듀레이션(장기채)과 저변동 방어주가 역사적으로 상대 우위.' },
 ]
 
-async function fredSeries(series: string): Promise<{ date: string; v: number }[]> {
-  const key = process.env.FRED_API_KEY
-  if (!key) return []
-  try {
-    const r = await fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=${series}&api_key=${key}&file_type=json&observation_start=2023-06-01`, { signal: AbortSignal.timeout(12_000) })
-    if (!r.ok) return []
-    const j = await r.json()
-    return (j.observations ?? []).map((o: { date: string; value: string }) => ({ date: o.date, v: parseFloat(o.value) })).filter((x: { v: number }) => isFinite(x.v))
-  } catch { return [] }
-}
+// FRED 공용 fetcher(lib/fred · no-store) — 2023-06 부터(CLI 레벨 + 3개월 모멘텀)
+const fredSeries = (series: string) => fredObservations(series, { observation_start: '2023-06-01' })
 
 // 국면 판정: CLI 레벨(100 기준) × 3개월 모멘텀 + ⭐과열(overheat) 규칙.
 // 피델리티 AART 공개 방법론의 Late 정의 = "성장이 플러스여도 잠재 수준을 크게 초과(과열)하면 후기".

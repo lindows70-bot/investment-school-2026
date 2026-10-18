@@ -9,6 +9,7 @@
 // ⛔ 이 계산을 다른 파일에 복제하지 않는다. 통합추천도 여기서 가져다 쓴다 —
 //    "통합추천과 동일"이라고 주석으로 약속했다가 값이 갈린 사고가 이미 두 번 있었다.
 import { getCache, setCache } from '@/lib/appCache'
+import { fredRaw } from '@/lib/fred'
 import { growthFromCli, inflationFromRegime, seasonOf, type Quadrant } from '@/lib/seasonNavigator'
 import { fetchMacroData, EU_TICKER_SET, JP_TICKER_SET, CN_TICKER_SET } from '@/lib/macroPhaseScreener'
 import { fetchCli, type CliPoint } from '@/lib/oecdCli'   // 📈 CLI 수집 SSOT(3파일 복제를 합침 — 2026-08-24)
@@ -42,9 +43,9 @@ async function fetchEuHicp(): Promise<number | null> {
   const c = await getCache<{ v: number }>('eu-hicp-yoy-v1', 24 * 3600_000)
   if (c) return c.v
   try {
-    const r = await fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=CP0000EZ19M086NEST&api_key=${process.env.FRED_API_KEY}&file_type=json&sort_order=desc&limit=2&units=pc1`, { cache: 'no-store', signal: AbortSignal.timeout(10_000) })
-    if (!r.ok) return null
-    const j = await r.json()
+    // FRED 공용 fetcher(lib/fred · no-store) — 키 없음·실패 = null
+    const j = await fredRaw('CP0000EZ19M086NEST', { sort_order: 'desc', limit: 2, units: 'pc1' }, { timeoutMs: 10_000 })
+    if (!j) return null
     const o = (j.observations ?? []).map((x: { value: string }) => parseFloat(x.value)).filter((v: number) => !isNaN(v))
     if (!o.length) return null
     await setCache('eu-hicp-yoy-v1', { v: o[0] })

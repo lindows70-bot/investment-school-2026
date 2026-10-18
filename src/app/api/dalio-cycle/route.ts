@@ -2,6 +2,7 @@
 // ⚠️ '몇 단계'를 단정하지 않고 근거 지표와 함께 '추정'으로 제시(제1원칙). 계절은 macro-regime SSOT 재사용(제2원칙).
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
+import { fredObservations } from '@/lib/fred'
 import { getCurrentSeason } from '@/lib/currentSeason'
 
 export const dynamic = 'force-dynamic'
@@ -27,17 +28,8 @@ export interface DalioCycleResult {
   asOf: string
 }
 
-const FRED = 'https://api.stlouisfed.org/fred/series/observations'
-async function fred(series: string, units = 'lin'): Promise<{ date: string; v: number }[]> {
-  const key = process.env.FRED_API_KEY
-  if (!key) return []
-  try {
-    const r = await fetch(`${FRED}?series_id=${series}&units=${units}&api_key=${key}&file_type=json&observation_start=2005-01-01`, { signal: AbortSignal.timeout(12_000) })
-    if (!r.ok) return []
-    const j = await r.json()
-    return (j.observations ?? []).map((o: { date: string; value: string }) => ({ date: o.date, v: parseFloat(o.value) })).filter((x: { v: number }) => isFinite(x.v))
-  } catch { return [] }
-}
+// FRED 공용 fetcher(lib/fred · no-store) — 2005년부터(2008·2020 역사 오버레이)
+const fred = (series: string, units = 'lin') => fredObservations(series, { units, observation_start: '2005-01-01' })
 const last = (a: { v: number }[]) => a.length ? a[a.length - 1].v : null
 const atOrBefore = (a: { date: string; v: number }[], year: string) => { const f = a.filter(x => x.date <= `${year}-12-31`); return f.length ? f[f.length - 1].v : null }
 

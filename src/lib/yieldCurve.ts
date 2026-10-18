@@ -3,7 +3,7 @@
 //   ⚠️ 스프레드는 FRED 공식 계열(T10Y2Y·T10Y3M)을 쓴다 — 직접 빼면 결측일 처리가 달라져 공식값과 어긋난다.
 //   ⛔ 이 도구는 **타이밍 신호가 아니다**. 리드타임 7~23개월이고 2022년 역전은 침체로 이어지지 않았다.
 
-const FRED = 'https://api.stlouisfed.org/fred/series/observations'
+import { fredObservations } from './fred'
 
 /** 캐시 키 SSOT — writer(/api/yield-curve)와 reader가 공유한다.
  *  ⚠️ 라우트 파일은 임의 export 를 허용하지 않으므로(Next.js 타입 제약) 키는 lib 에 둔다. */
@@ -14,19 +14,8 @@ export const YIELD_CURVE_KEY = (dateKey: string) => `yield-curve-v4:${dateKey}`
 
 export interface FredPoint { date: string; v: number }
 
-async function fredSeries(series: string, startISO: string): Promise<FredPoint[]> {
-  const key = process.env.FRED_API_KEY
-  if (!key) return []
-  try {
-    const r = await fetch(`${FRED}?series_id=${series}&api_key=${key}&file_type=json&observation_start=${startISO}`,
-      { signal: AbortSignal.timeout(15_000), cache: 'no-store' })
-    if (!r.ok) return []
-    const j = await r.json()
-    return (j.observations ?? [])
-      .map((o: { date: string; value: string }) => ({ date: o.date, v: parseFloat(o.value) }))
-      .filter((x: FredPoint) => isFinite(x.v))
-  } catch { return [] }
-}
+// FRED 공용 fetcher(lib/fred · no-store)
+const fredSeries = (series: string, startISO: string): Promise<FredPoint[]> => fredObservations(series, { observation_start: startISO }, { timeoutMs: 15_000 })
 
 /** 만기 축 — years 는 차트의 x축(로그 간격이 자연스러워 실제 연수로 둔다) */
 export const TENORS: { id: string; years: number; label: string }[] = [

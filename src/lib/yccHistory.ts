@@ -3,21 +3,10 @@
 //      일본 10년물: IRLTLT01JPM156N (1989~ 월별, Phase 0 실측 확인)
 //   YCC 는 중앙은행이 "장기 금리를 이 선 위로 못 올라가게 하겠다"고 선언하고 무제한 매입으로 방어하는 정책이다.
 
-const FRED = 'https://api.stlouisfed.org/fred/series/observations'
+import { fredObservations } from './fred'
 
-async function fredSeries(series: string, startISO: string): Promise<{ date: string; v: number }[]> {
-  const key = process.env.FRED_API_KEY
-  if (!key) return []
-  try {
-    const r = await fetch(`${FRED}?series_id=${series}&api_key=${key}&file_type=json&observation_start=${startISO}`,
-      { signal: AbortSignal.timeout(15_000), cache: 'no-store' })
-    if (!r.ok) return []
-    const j = await r.json()
-    return (j.observations ?? [])
-      .map((o: { date: string; value: string }) => ({ date: o.date, v: parseFloat(o.value) }))
-      .filter((x: { v: number }) => isFinite(x.v))
-  } catch { return [] }
-}
+// FRED 공용 fetcher(lib/fred · no-store)
+const fredSeries = (series: string, startISO: string) => fredObservations(series, { observation_start: startISO }, { timeoutMs: 15_000 })
 
 /** YCC 역사의 분기점 — 정책 사실(정적 참조). 각 시점의 금리는 아래에서 실데이터로 채운다. */
 export interface YccMilestone {

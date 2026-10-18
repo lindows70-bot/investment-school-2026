@@ -6,6 +6,7 @@ export const maxDuration = 60
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
 import { ecosSeries } from '@/lib/ecos'
+import { fredObservations } from '@/lib/fred'
 import { RE_MARKET_KEY } from '@/lib/reMarketKey'
 
 export interface ReMarketResult {
@@ -29,17 +30,9 @@ const ymNow = () => { const d = new Date(Date.now() + 9 * 3600_000); return `${d
 const fmtYm = (t: string) => `${t.slice(0, 4)}-${t.slice(4, 6)}`
 const last = (a: { time: string; value: number }[]) => a.length ? a[a.length - 1] : null
 
+// FRED 공용 fetcher(lib/fred · no-store)
 async function fredSeries(id: string, start: string): Promise<{ date: string; value: number }[]> {
-  const key = process.env.FRED_API_KEY
-  if (!key) return []
-  try {
-    const r = await fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=${id}&api_key=${key}&file_type=json&observation_start=${start}`, { signal: AbortSignal.timeout(15_000), cache: 'no-store' })
-    if (!r.ok) return []
-    const j = await r.json()
-    return (j.observations ?? [])
-      .map((o: { date: string; value: string }) => ({ date: o.date, value: parseFloat(o.value) }))
-      .filter((o: { value: number }) => isFinite(o.value))
-  } catch { return [] }
+  return (await fredObservations(id, { observation_start: start }, { timeoutMs: 15_000 })).map(o => ({ date: o.date, value: o.v }))
 }
 
 export async function GET() {

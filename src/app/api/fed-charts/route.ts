@@ -2,23 +2,15 @@
 // Zero Cost(FRED 무료)·12h 캐시·전 시리즈 Promise.all(BFF — 호출 폭주 방지)·해석 문구는 전부 동적 계산(박제 금지)
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
+import { fredObservations } from '@/lib/fred'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
-const KEY = process.env.FRED_API_KEY
 // extra: '&units=pc1'(전년비%) · '&units=pch'(전월비%) · '&frequency=m&aggregation_method=eop'(일별→월말 다운샘플링)
+// FRED 공용 fetcher(lib/fred · no-store) — 최신순으로 limit 개 받아 오래된 → 최신으로 뒤집는다(차트용)
 async function fred(series: string, limit: number, extra = ''): Promise<{ date: string; v: number }[]> {
-  if (!KEY) return []
-  try {
-    const r = await fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=${series}&api_key=${KEY}&file_type=json&sort_order=desc&limit=${limit}${extra}`, { cache: 'no-store', signal: AbortSignal.timeout(12_000) })
-    if (!r.ok) return []
-    const j = await r.json()
-    return (j.observations ?? [])
-      .map((o: { date: string; value: string }) => ({ date: o.date, v: parseFloat(o.value) }))
-      .filter((o: { v: number }) => isFinite(o.v))
-      .reverse()   // 오래된 → 최신 (차트용)
-  } catch { return [] }
+  return (await fredObservations(series, { sort_order: 'desc', limit }, { extra })).reverse()
 }
 
 const ym = (d: string) => d.slice(0, 7)   // YYYY-MM 조인 키
