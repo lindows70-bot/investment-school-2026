@@ -87,3 +87,13 @@
 - [x] 배포 뒤 실측(10/18 · bef18c23): 익명 stock-info **401** · 내부 표식 200(3.5s) · reverse-dcf·research-verdict 내부 표식 200(axisSource=universe) · 크론 상태판 marketFlowKr `stale · dataDate=2026-09-11 · 38일 전` 정직 표기 · 학생 보드 individual.dataDate **2026-10-16**(캐시 재생성) · 유니버스 v22 워밍 114초(크론 비밀값 refresh=1) → verify-lynch-fair 전부 통과 · verify-market-board-sources 프로덕션 dataDate 통과 · etf-snap 일·월 거짓 stale 교정
 - [x] 로그인 화면 실측(10/18 재로그인 · 1280): 대시보드 AI 멘토 족집게 PEG 0.05·0.63(SSOT 값) · '해당없음' 오탐 0 · API 실패 0 / 자산 화면 린치 배지 2·ETF 배지 1·N/A 9(ETF·코인) · 실패 0 / 스쿨 리그 exchange-rate 200 · 순위 정상 / 학생 전략 화면 패널 지연 로드 뒤 정상 표시(불러오는 중 잔존 0)
 - [ ] 보류: regime-tripwire 계절(이력 스키마 US/KR) · 선생님 3장 번들 · KST 헬퍼 복제
+
+## 14. 전수 점검 8차(10/19 · 84ddd3d2 ~ df2edab0)
+- [x] verify-cron-monitors(vercel.json 33 크론 ↔ 상태판 1:1) · etfFlow 모니터 신설 · CronMonitor.cron 필드
+- [x] 🔴 etf-flow 크론 열흘 저장 0건(환율 자기 호출 url.origin → NEXT_PUBLIC_APP_URL) — 신설 모니터가 잡음
+- [x] verify-shared-libs(공용 lib 7종 실제 컴파일 검사 · RSS 파서·FRED URL 순수 함수 분리) · 야간 감사 등록 2종
+- [x] KST SSOT lib/kst(64파일 코드모드) · regime-tripwire origin 계절(quads · 옛 이력 폴백) · internalAuth 분리
+- [x] robots.txt + noindex · 리서치 381→191 kB · 매크로 허브 지연 로드(dynamic 옵션은 리터럴 — SWC)
+- [x] verify-lynch-fair 65점 규칙 반영(거짓 빨강)
+- [x] 배포 뒤 실측: robots 200 · meta noindex · 상태판 30 응답(etfFlow stale 정직 표기) · regime-tripwire 401(로그인 전용) · research·macro-hub 200 · etf-flow refresh cached·fxLive true · 불변식 5종 통과
+- [ ] 보류: regime-tripwire 로그인 실측 · etfFlow 10/20 크론 뒤 ok 확인 · verify-crypto-panels ❌ 줄(exit 0) · 선생님 3장 번들 나머지
