@@ -96,4 +96,5 @@
 - [x] robots.txt + noindex · 리서치 381→191 kB · 매크로 허브 지연 로드(dynamic 옵션은 리터럴 — SWC)
 - [x] verify-lynch-fair 65점 규칙 반영(거짓 빨강)
 - [x] 배포 뒤 실측: robots 200 · meta noindex · 상태판 30 응답(etfFlow stale 정직 표기) · regime-tripwire 401(로그인 전용) · research·macro-hub 200 · etf-flow refresh cached·fxLive true · 불변식 5종 통과
-- [ ] 보류: regime-tripwire 로그인 실측 · etfFlow 10/20 크론 뒤 ok 확인 · verify-crypto-panels ❌ 줄(exit 0) · 선생님 3장 번들 나머지
+- [x] 로그인 실측(10/19 · 1280): regime-tripwire 200(옛 이력 폴백 동작) · 리서치 차트·린치·거장 탭 렌더 · 매크로 허브 채권 시뮬·스트레스 탭 렌더 · 콘솔 오류 0
+- [ ] 보류: etfFlow 10/20 크론 뒤 ok 확인 · verify-crypto-panels ❌ 줄(exit 0) · 선생님 3장 번들 나머지
