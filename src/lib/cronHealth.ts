@@ -89,6 +89,8 @@ export const CRON_MONITORS: CronMonitor[] = [
   { id: 'etfSnap', label: '미국 ETF 순자산 스냅샷', kst: '19:20', days: 'tue-sat', artifact: { type: 'cacheDate', key: d => ETF_SNAP_MARK(d) }, heal: '/api/cron/etf-snap' },
   // 💧 ETF 순유입 워밍(`35 10 * * 2-6` = KST 화~토 19:35) — 2026-10-19 까지 상태판에 없었다(감시 목록에 없는 것은 죽어도 모른다). 산출물은 그날 키(6h 캐시 · 하루 1~4행)
   { id: 'etfFlow', label: '미국 ETF 순유입 워밍', kst: '19:35', days: 'tue-sat', artifact: { type: 'cacheDate', key: d => ETF_FLOW_KEY(d) }, heal: '/api/etf-flow?refresh=1' },
+  // 🪙 비트코인 현물 ETF 순유입 — 크론이 없어 하루 첫 방문자가 30~60초 콜드를 졌고, TheBlock 옛 API 가 410 으로 은퇴한 16일을 아무도 몰랐다(2026-10-22). fresh: 안의 flowAsOf(마지막 순유입 거래일)가 6일(지연 2거래일 + 주말·휴일)보다 오래면 원천 사망
+  { id: 'btcEtf', label: '비트코인 현물 ETF 순유입 워밍', kst: '20:10', days: 'daily', artifact: { type: 'cacheDate', key: d => `btc-etf-v8:${d}` }, heal: '/api/btc-etf', fresh: { field: 'flowAsOf', maxAgeDays: 6 } },
   { id: 'analystRerating', label: '미국 애널리스트 리레이팅 스캔', kst: '07:10', days: 'daily', artifact: { type: 'cacheDate', key: d => ANALYST_RERATING_KEY(d) }, heal: '/api/analyst-rerating?refresh=1', heavy: true },
   // 📋 성적 채점 — 적립(위 두 크론의 refresh 경로)과 별개. 조용히 멈추면 성적이 옛날 값에 굳는다
   { id: 'usmRecord', label: '미국 스마트머니 성적 채점', kst: '07:30', days: 'daily', artifact: { type: 'cacheDate', key: d => USM_GRADE_KEY(d) }, heal: '/api/usm-record?refresh=1', heavy: true },
