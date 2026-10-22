@@ -42,7 +42,7 @@ const j = async (u: string) => {
 }
 
 export async function GET(req: Request) {
-  const key = 'crypto-demand-v2'   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 영구 누적 · v2: 현물 축이 TheBlock 순유입(btc-etf v8)으로 — 옛 문서는 Farside 09-04 까지라 spot 이 null 로 박제돼 있었다
+  const key = 'crypto-demand-v3'   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 영구 누적 · v3(2026-10-22): ETF 흐름 없이 만든(현물 축 전부 null) 문서가 박제돼 있어 비운다 · v2: 현물 축이 TheBlock 순유입(btc-etf v8)으로
   const cached = await getCache<CryptoDemandApi>(key, 6 * 3600_000, { sameKstDay: true })
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -121,6 +121,7 @@ export async function GET(req: Request) {
     note: '선물 수요=바이비트 무기한 OI 30일 변화(BTC) · 현물 수요=현물 ETF 순유입 30일 합의 BTC 환산 · 크립토퀀트 원본은 전 거래소+온체인 기반이라 절대 크기가 다릅니다(방향·국면 비교용)',
     asOf: new Date().toISOString(),
   }
-  if (points.length > 10) await setCache(key, out)
+  // ⛔ ETF 흐름을 못 받았으면(자기 호출 타임아웃 등) 캐시하지 않는다 — 2026-10-22 실측: btc-etf 콜드 30초 초과 → 현물 축 170/170 null 인 문서가 하루 박제(부분실패 캐시 금지). 다음 요청이 스스로 낫는다
+  if (points.length > 10 && etfFlow.length > 0) await setCache(key, out)
   return NextResponse.json(out, { headers: { 'Cache-Control': 'no-store' } })
 }

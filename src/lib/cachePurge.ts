@@ -126,7 +126,7 @@ export const PURGE_RULES: PurgeRule[] = [
 
   // 키에서 날짜를 뺀 공유 문서 5종(2026-09-27)
   UNDATED('bonds-v8', '6h'),
-  UNDATED('crypto-demand-v2', '6h'),
+  UNDATED('crypto-demand-v3', '6h'),   // v3(2026-10-22): 현물 축 전부 null 인 문서 비움
   UNDATED('dividend-portfolio-v2', '12h'),
   UNDATED('ultra-dividend-v4', '12h'),
   UNDATED('cofix-v1', '12h'),

@@ -74,7 +74,7 @@ const M1_TTL_H = {
   'morningstar-rating-v6': 24, 'permanent-loss-v2': 12, 'portfolio-backtest-v5': 12, 'portfolio-flow-v12': 12,
   'portfolio-reco-kr-v8': 12, 'tax-helper-v2': 6, 'weekly-report-me-v6': 6,                       // 사용자별 — 날짜 키 유지
   'corr-matrix-v2': 24,                                                                              // 사용자별 — M1 목록 밖, 전수 스캔에서 발견
-  'bonds-v8': 6, 'crypto-demand-v2': 6, 'dividend-portfolio-v2': 12, 'ultra-dividend-v4': 12, 'cofix-v1': 12,   // 날짜 뺀 공유 문서
+  'bonds-v8': 6, 'crypto-demand-v3': 6, 'dividend-portfolio-v2': 12, 'ultra-dividend-v4': 12, 'cofix-v1': 12,   // 날짜 뺀 공유 문서
 }
 const m1Bad = Object.entries(M1_TTL_H).filter(([p, h]) => !rule(p) || rule(p).keepDays * 24 <= h).map(([p]) => p)
 check(`M1 17종(+corr-matrix-v2)이 전부 규칙에 있고 keepDays > reader TTL${m1Bad.length ? ' — 문제: ' + m1Bad.join(', ') : ''}`, m1Bad.length === 0)
@@ -98,7 +98,7 @@ check('허용 목록 밖 키 14종은 2000년 행이어도 안 지운다', NEVER
 // 2026-10-18: rtms-trade-v2 는 reader 가 updated_at ≥ 400일 조건을 보게 돼 허용 목록에 들어갔다 — 규칙 400일 ≥ reader 창(400일) 이어야 하고, reader 소스에 그 조건이 실제로 있어야 한다
 const rtmsReaders = ['src/app/api/re-map/route.ts', 'src/app/api/re-apt-pins/route.ts'].map(p => readFileSync(`${ROOT}/${p}`, 'utf8'))
 check('rtms-trade-v2 규칙 keepDays ≥ 400 · reader 2곳이 updated_at 을 400일로 거른다', rule('rtms-trade-v2')?.keepDays >= 400 && rtmsReaders.every(s => /\.gte\('updated_at'/.test(s) && /400 \* 86_400_000/.test(s)))
-const UNDATED5 = ['bonds-v8', 'crypto-demand-v2', 'dividend-portfolio-v2', 'ultra-dividend-v4', 'cofix-v1']
+const UNDATED5 = ['bonds-v8', 'crypto-demand-v3', 'dividend-portfolio-v2', 'ultra-dividend-v4', 'cofix-v1']
 check('날짜 뺀 새 키(콜론 없음)는 2000년 행이어도 안 지우고, 옛 날짜 키는 4일 전이면 지운다',
   UNDATED5.every(p => !P.shouldPurge(p, ANCIENT, NOW) && P.shouldPurge(`${p}:2026-09-20`, ago(4), NOW)))
 check('tech-chart-v2 는 허용 목록에 없다(날짜 없는 키 — 덮어쓴다)', !rule('tech-chart-v2'))
