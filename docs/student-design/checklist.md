@@ -97,4 +97,12 @@
 - [x] verify-lynch-fair 65점 규칙 반영(거짓 빨강)
 - [x] 배포 뒤 실측: robots 200 · meta noindex · 상태판 30 응답(etfFlow stale 정직 표기) · regime-tripwire 401(로그인 전용) · research·macro-hub 200 · etf-flow refresh cached·fxLive true · 불변식 5종 통과
 - [x] 로그인 실측(10/19 · 1280): regime-tripwire 200(옛 이력 폴백 동작) · 리서치 차트·린치·거장 탭 렌더 · 매크로 허브 채권 시뮬·스트레스 탭 렌더 · 콘솔 오류 0
-- [ ] 보류: etfFlow 10/20 크론 뒤 ok 확인 · verify-crypto-panels ❌ 줄(exit 0) · 선생님 3장 번들 나머지
+- [x] 9차에서 확인: etfFlow 10/20·21·22 크론 저장 ok · crypto-panels ❌ 는 원천 사망(TheBlock 410)이었다 · 선생님 번들은 단일 대형 컴포넌트라 지연 로드 효과 없음
+## 15. 전수 점검 9차(10/22 · fc076a6d ~ 07c2733e)
+- [x] 🔴 비트코인 ETF 순유입 원천 사망(TheBlock 옛 API 410 · 10/06 이후 16일) → 새 tbco 경로(Farside 와 값 일치) · bitbo 기각(하루 밀림·공백)
+- [x] 🔴 현물 수요 축 170/170 null 하루 캐시 → ETF 흐름 없으면 캐시 금지 · 키 v3 · btc-etf stale 1h 캐시(매 요청 30~60초 재수집 차단)
+- [x] 야간 감사 거짓 빨강 — 코스닥 4주체 장중 비교 보류 · 환율 고시일은 일시적
+- [x] verify-crypto-panels(원천 TheBlock)·verify-ranking-audit ❌ 면 exit 1
+- [x] btc-etf 워밍 크론 20:10 + 상태판 btcEtf(fresh flowAsOf 6일)
+- [x] 배포 뒤 실측: flowAsOf 10/20 · 콜드 4초 · 현물축 170/170 · 상태판 31개 stale 0 · crypto-panels·ranking-audit·cache-purge·cron-monitors·market-board 전부 통과
+- [ ] 보류: Codex 리뷰 실패 원인 · 대형 컴포넌트 탭 분할(리디자인 때)
