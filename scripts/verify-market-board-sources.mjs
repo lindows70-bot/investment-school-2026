@@ -49,6 +49,9 @@ const DAY = 86_400_000
 const ageDays = iso => (Date.now() - Date.parse(iso)) / DAY
 // 긴 연휴(추석 5일 + 주말)를 넘지 않는 한 신선해야 한다
 const KR_STALE = 10, US_STALE = 7
+// 장중 판정(KST 08:30~20:30 · 정규장 + NXT 애프터마켓) — 두 원천을 대조하는 검사는 이 시간엔 보류한다
+const KST_HOUR = ((Date.now() + 9 * 3600_000) % DAY) / 3600_000
+const KR_LIVE = KST_HOUR >= 8.5 && KST_HOUR < 20.5
 const why = p => (p.ok ? '' : p.reason)
 
 const [idx, min, integK, integQ, dailyK, dailyQ, mv, ind, news, rankF, trend, usMv, spy, cnn, cfng, fx, coin] = await Promise.all([
@@ -81,7 +84,10 @@ for (const [mk, d, g] of [['코스피', dailyK, integK], ['코스닥', dailyQ, i
   const same = inv && g.ok && g.data.investors && inv.bizdate === g.data.investors.bizdate
     // 두 네이버 엔드포인트가 백만원 → 억원 반올림을 따로 해 1억원이 어긋날 수 있다(2026-10-16 야간 감사: 코스닥 개인 daily −934 vs integ −935) — 1억원까지는 같은 값
     ? ['personal', 'foreign', 'institutional'].every(k => Math.abs(inv[k] - g.data.investors[k]) <= 1) : null
-  check(`${mk} 4주체 원천의 개인·외국인·기관 = integration 값(같은 KRX 기준 · 반올림 1억원 허용)`, same !== false, same === null ? '기준일이 달라 비교 못 함' : `daily ${JSON.stringify(inv)} vs integ ${JSON.stringify(g.ok && g.data.investors)}`)
+  // ⏸️ 장중(정규장 + NXT 애프터마켓 20:00)엔 두 원천이 몇 분 간격으로 따로 갱신돼 2~3억원이 어긋난다(2026-10-22: PC 절전 뒤 18:32 에 돈 감사가 코스닥 2115 vs 2117 로 거짓 빨강 · 02:00 정규 실행은 통과).
+  //    이 비교만 보류하고 나머지(합=0 · 생존)는 그대로 본다 — 야간 02:00 정규 실행에서 판정한다
+  if (KR_LIVE && same === false) console.log(`⏸️ ${mk} 4주체 daily vs integration 비교 보류 — 장중(KST ${KST_HOUR.toFixed(1)}시)이라 두 원천이 갱신 중 · 02:00 정규 실행에서 판정`)
+  else check(`${mk} 4주체 원천의 개인·외국인·기관 = integration 값(같은 KRX 기준 · 반올림 1억원 허용)`, same !== false, same === null ? '기준일이 달라 비교 못 함' : `daily ${JSON.stringify(inv)} vs integ ${JSON.stringify(g.ok && g.data.investors)}`)
 }
 check('특징종목 목록(m.stock)', mv.ok && mv.data.items.length > 0 && mv.data.items.every(i => i.tradeValueEok != null), why(mv))
 check('업종(m.stock industry)', ind.ok && ind.data.items.length > 20, why(ind))

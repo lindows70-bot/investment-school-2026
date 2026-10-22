@@ -10,6 +10,7 @@ const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] })
 const SYMS = ['NVDA', 'MSFT', 'AAPL', 'AMZN', 'GOOGL', 'META', '2222.SR']
 console.log('심볼        통화   주가        marketCap(원값)      → USD 환산        발행주식수')
 const fx = {}
+let bad = 0   // 2026-10-22: ❌ 를 찍어도 exit 0 이라 스케줄러·감사가 실패를 못 봤다 — 원천 조회 실패를 센다
 for (const s of SYMS) {
   try {
     const q = await yf.quoteSummary(s, { modules: ['price', 'defaultKeyStatistics', 'summaryDetail'] })
@@ -33,7 +34,7 @@ for (const s of SYMS) {
     if (cur !== 'USD') {
       console.log(`   ⚠️  ${s} 는 ${cur} 표시! 환율 ${rate} · 화면이 환산 없이 쓰면 ${(cap / usd).toFixed(2)}배 부풀려진다`)
     }
-  } catch (e) { console.log(`${s.padEnd(10)} ❌ ${e.message.slice(0, 60)}`) }
+  } catch (e) { bad++; console.log(`${s.padEnd(10)} ❌ ${e.message.slice(0, 60)}`) }
 }
 
 // 금·은 교차 검증 — GC=F 가격이 실제 금값인가(다른 심볼과 대조)
@@ -43,7 +44,7 @@ for (const s of ['GC=F', 'GLD', 'IAU', 'SI=F', 'SLV']) {
     const q = await yf.quoteSummary(s, { modules: ['price'] })
     const raw = (v) => v != null && typeof v === 'object' && 'raw' in v ? v.raw : v
     console.log(`  ${s.padEnd(7)} ${String(raw(q?.price?.regularMarketPrice)).padStart(10)} ${q?.price?.currency ?? ''}  (${q?.price?.shortName ?? ''})`)
-  } catch (e) { console.log(`  ${s.padEnd(7)} ❌`) }
+  } catch (e) { bad++; console.log(`  ${s.padEnd(7)} ❌ ${e.message.slice(0, 60)}`) }
 }
 console.log('  → GLD 는 금 1온스의 약 1/10 을 담는다. GLD×10 ≈ 금 현물가여야 정상')
 
@@ -51,3 +52,8 @@ console.log('  → GLD 는 금 1온스의 약 1/10 을 담는다. GLD×10 ≈ �
 console.log('\n═══ 프로덕션 화면값 대조 ═══')
 const ar = await fetch('https://investment-school-2026.vercel.app/api/asset-ranking', { signal: AbortSignal.timeout(60000) }).then(r => r.ok ? r.json() : null)
 if (ar) for (const a of ar.assets) console.log(`  ${String(ar.assets.indexOf(a) + 1).padStart(2)}. ${a.name.padEnd(14)} $${(a.cap / 1e12).toFixed(2).padStart(6)}조  · ${a.note.slice(0, 60)}`)
+else { bad++; console.log('  ❌ 프로덕션 /api/asset-ranking 응답 없음') }
+
+console.log('')
+if (bad) { console.log(`❌ ${bad}건 실패 (자산 순위표 — 원천 조회 실패)`); process.exitCode = 1 }
+else console.log('✅ 전부 통과 (자산 순위표 원천)')
