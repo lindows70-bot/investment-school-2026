@@ -85,12 +85,15 @@ async function btcPriceDaily(): Promise<Map<string, number>> {
 
 /** 🧱 TheBlock 데이터 대시보드 차트 API(무키·JSON) — 2026-09-24 Phase 0 실측: 발행사 12종 일별(USD) + Total Net Flow, 2024-01-11~.
  *  값 대조 3곳 일치(소수점까지): 09-21 총 999.0M·IBIT 381.4·ARKB 289.1·FBTC 238.8(뉴스/SoSoValue) · 08-21 총 307.5(Farside 원천) · 09-04 총 174.6·IBIT 117.4·FBTC 57.2(Farside 표).
- *  지연 약 2거래일(09-24 새벽에 마지막 행 09-21). Farside(Cloudflare 챌린지로 차단)보다 앞에 둔다. 단위는 USD 라 $M 으로 나눈다 */
+ *  지연 약 2거래일(09-24 새벽에 마지막 행 09-21). Farside(Cloudflare 챌린지로 차단)보다 앞에 둔다. 단위는 USD 라 $M 으로 나눈다
+ *  🔁 2026-10-22: 옛 경로(/api/charts/chart/…)가 410 Gone 으로 은퇴해 10/06 이후 16일간 마지막 성공분으로 버텼다. 새 경로 /api/tbco/charts/chart/… 는
+ *     같은 Series 스키마가 data.chart.jsonFile 아래로 한 단계 들어갔다. 값은 Farside 와 소수점까지 일치(10/19 총 526.7 · 10/20 23.2 · 10/14 −261.4). 옛 위치도 폴백으로 읽는다 */
 async function theBlockFlow(): Promise<{ flow: { date: string; net: number }[]; issuers: string[]; byIssuer: { date: string; v: number[] }[] }> {
   const empty = { flow: [], issuers: [], byIssuer: [] }
   try {
-    const raw = await httpGet('https://www.theblock.co/api/charts/chart/etfs/bitcoin-etf/spot-bitcoin-etf-flows', 15_000)
-    const series = JSON.parse(raw)?.chart?.jsonFile?.Series as Record<string, { Data?: { Timestamp: number; Result: number }[] }> | undefined
+    const raw = await httpGet('https://www.theblock.co/api/tbco/charts/chart/etfs/bitcoin-etf/spot-bitcoin-etf-flows', 15_000)
+    const parsed = JSON.parse(raw)
+    const series = (parsed?.data?.chart?.jsonFile?.Series ?? parsed?.chart?.jsonFile?.Series) as Record<string, { Data?: { Timestamp: number; Result: number }[] }> | undefined
     if (!series) return empty
     const issuers = Object.keys(series).filter(k => /^[A-Z]{3,5}$/.test(k))
     if (issuers.length < 5) return empty
@@ -172,8 +175,10 @@ export async function GET() {
   const cacheKey = `btc-etf-v8:${kstDate()}`   // v8: TheBlock 1순위·flowSource · v7: flowStale·flowAsOf(마지막 성공분 폴백) · v6: 미집계 행 제외 · v5: 발행사별 · v4: flow 전체 이력
   // ⚠️ 24h → 3h(2026-08-22): Farside 는 그날 행을 몇 시간 뒤에 채운다. 24h 캐시면 '아직 비어 있는 상태'가
   //    하루 종일 얼어붙어, 실제로 +307.5 가 들어온 날이 화면엔 계속 0 으로 남았다.
+  // 🧊 마지막 성공분(flowStale)으로 만든 응답은 1h 만 쓴다 — 전엔 아예 안 적어서 원천이 죽은 16일 동안 **매 요청이 30~60초 전체 재수집**이었다(2026-10-22 실측 · 야후 12종 순차+두 원천).
+  //    그 사이 crypto-demand 의 자기 호출(30s)이 번번이 타임아웃돼 현물 축이 빈 채 하루 캐시됐다. 신선한 자료는 3h 그대로.
   const cached = await getCache<BtcEtfResult>(cacheKey, 3 * 3600_000)
-  if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
+  if (cached && (!cached.flowStale || (await getCache<BtcEtfResult>(cacheKey, 3600_000)) != null)) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
   // ② 누적 거래량 — ETF별 Yahoo 순차(버스트 429 회피), 날짜별 거래대금 합산 → 누적
   const byDate = new Map<string, number>()
@@ -221,7 +226,7 @@ export async function GET() {
     flowStale: fl.stale, flowAsOf: fl.flowAsOf || null, flowSource: fl.flowSource ?? (fl.stale ? 'farside' : null),
     asOf: new Date().toISOString(),
   }
-  // 전부 왔을 때만 캐시(부분실패 박제 방지 · 2026-10-18 강화): 누적 거래량 + 자금 흐름이 새 것(stale 아님) + BTC 가격표. 하나라도 빠지면 응답은 주되 다음 요청이 다시 모은다
-  if (cumVolume.length > 0 && !fl.stale && fl.flow.length > 0 && priceMap.size > 0) await setCache(cacheKey, result)
+  // 전부 왔을 때만 캐시(부분실패 박제 방지 · 2026-10-18 강화): 누적 거래량 + 자금 흐름(새 것 3h · 마지막 성공분이면 위 읽기 규칙으로 1h) + BTC 가격표. 하나라도 빠지면 응답은 주되 다음 요청이 다시 모은다
+  if (cumVolume.length > 0 && fl.flow.length > 0 && priceMap.size > 0) await setCache(cacheKey, result)
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }
