@@ -104,5 +104,5 @@ const autos = (app.stocks ?? []).filter(s => s.auto).map(s => `${s.name} ${s.tic
 check(`상장 대기 ${WATCH.length}곳(${WATCH.map(w => w.name).join('·')}) 중 새로 상장한 곳 없음 — 생기면 IPO_UNIVERSE 에 정식 등록`, listed.length === 0 && autos.length === 0, [...listed, ...autos].join(' · '))
 
 console.log('')
-if (fail) { console.log(`❌ ${fail}건 실패 (IPO 하이프 사이클)`); process.exit(1) }
-console.log('✅ 전부 통과 (IPO 하이프 사이클)')
+if (fail) { console.log(`❌ ${fail}건 실패 (IPO 하이프 사이클)`); process.exitCode = 1 }
+else console.log('✅ 전부 통과 (IPO 하이프 사이클)')

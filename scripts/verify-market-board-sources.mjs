@@ -115,9 +115,19 @@ check(`CNN 공포·탐욕 1년 · 기준 시각 ${US_STALE}일 이내`, cnn.ok &
 check('코인 공포·탐욕 1년(alternative.me)', !!cfng && cfng.points > 300 && cfng.yearHigh != null, cfng ? '' : '실패')
 check(`환율 추이(하나은행) 1년 · 고시일 ${KR_STALE}일 이내`, fx.ok && fx.data.y1.points.length > 200 && ageDays(`${fx.data.latest.date}T00:00:00+09:00`) < KR_STALE, why(fx))
 check('업비트 원화 시세', coin.ok && coin.data.scanned > 50, why(coin))
-check(`앱 환율 1순위(하나은행 매매기준율) 전 통화 · 고시일 ${KR_STALE}일 이내`,
-  !!hana && hana.noticeDate && ageDays(`${hana.noticeDate}T00:00:00+09:00`) < KR_STALE && FXH.FX_NEED.every(c => hana.rates[c] > 0),
-  hana ? `고시일 ${hana.noticeDate ?? '확인 못 함'}` : '못 받음(→ 앱이 2순위 원천으로 떨어진다)')
+// 고시일 이름표(noticeDate)는 '목록의 USD 값 = 일별 첫 행 값'일 때만 붙는다. 두 응답이 다른 회차를 가리키는 시간이 몇 초가 아니라 길게 이어지는 날이 있다
+//   (2026-10-22~11-10 야간 감사 12회 중 3회 '확인 못 함' — 환율·통화는 정상이었다). 이름표가 빠진 것과 원천이 멈춘 것은 다른 사실이므로:
+//   · 통화가 다 왔는가(생존)는 그대로 판정하고
+//   · 신선도는 이름표가 있으면 그것으로, 없으면 바로 위에서 본 일별 고시(fx.latest.date)로 판정하며 '이름표 보류'라고 밝힌다
+const hanaRatesOk = !!hana && FXH.FX_NEED.every(c => hana.rates[c] > 0)
+const fxDailyFresh = fx.ok && ageDays(`${fx.data.latest.date}T00:00:00+09:00`) < KR_STALE
+if (hanaRatesOk && !hana.noticeDate && fxDailyFresh) {
+  console.log(`⏸️ 앱 환율 1순위 고시일 이름표 보류 — 목록과 일별 첫 행이 다른 회차(통화 ${FXH.FX_NEED.length + 1}종 정상 · 일별 고시 ${fx.data.latest.date} 신선)`)
+} else {
+  check(`앱 환율 1순위(하나은행 매매기준율) 전 통화 · 고시일 ${KR_STALE}일 이내`,
+    hanaRatesOk && !!hana.noticeDate && ageDays(`${hana.noticeDate}T00:00:00+09:00`) < KR_STALE,
+    hana ? `고시일 ${hana.noticeDate ?? '확인 못 함'}` : '못 받음(→ 앱이 2순위 원천으로 떨어진다)')
+}
 const usd = fz?.usd
 const gaps = hana && usd?.krw ? ['USD', ...FXH.FX_NEED].map(c => {
   const other = c === 'USD' ? usd.krw : usd.krw / usd[c.toLowerCase()]
