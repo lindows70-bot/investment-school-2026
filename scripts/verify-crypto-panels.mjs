@@ -11,8 +11,17 @@ console.log('── ① ETF 발행사별 표 ──')
 const etf = await j(`${APP}/api/btc-etf`)
 if (etf.flowStale) console.log(`  ⚠️ 앱 순유입이 마지막 성공분(${etf.flowAsOf})입니다 — 원천이 다시 막혔을 수 있다`)
 // TheBlock(앱의 1순위 원천과 같은 곳이지만 **캐시가 아니라 지금 다시 받아** 대조한다) — 날짜 → {발행사: $M}
-const tb = await j('https://www.theblock.co/api/tbco/charts/chart/etfs/bitcoin-etf/spot-bitcoin-etf-flows')
-const series = tb?.data?.chart?.jsonFile?.Series ?? {}
+//   TheBlock 은 차트 주소를 자주 바꾼다(2026-11-14: 3주 만에 또) — 라우트와 같은 후보 경로를 차례로 시도한다(목록은 라우트 원문에서 읽는다)
+const routeSrc = (await import('node:fs')).readFileSync(new URL('../src/app/api/btc-etf/route.ts', import.meta.url), 'utf8')
+const TB_PATHS = Array.from((routeSrc.match(/const TB_PATHS = \[([^\]]+)\]/)?.[1] ?? '').matchAll(/'([^']+)'/g)).map(m => m[1])
+let series = {}
+for (const p of TB_PATHS) {
+  try {
+    const tb = await j(`https://www.theblock.co/api/tbco/charts/chart/${p}`)
+    const s = tb?.data?.chart?.jsonFile?.Series
+    if (s && Object.keys(s).length >= 5) { series = s; break }
+  } catch { /* 404 는 HTML 이라 json 파싱이 던진다 → 다음 경로 */ }
+}
 const raw = new Map()
 for (const [iss, s] of Object.entries(series)) {
   if (!/^[A-Z]{3,5}$/.test(iss)) continue
