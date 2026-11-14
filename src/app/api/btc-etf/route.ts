@@ -88,12 +88,35 @@ async function btcPriceDaily(): Promise<Map<string, number>> {
  *  지연 약 2거래일(09-24 새벽에 마지막 행 09-21). Farside(Cloudflare 챌린지로 차단)보다 앞에 둔다. 단위는 USD 라 $M 으로 나눈다
  *  🔁 2026-10-22: 옛 경로(/api/charts/chart/…)가 410 Gone 으로 은퇴해 10/06 이후 16일간 마지막 성공분으로 버텼다. 새 경로 /api/tbco/charts/chart/… 는
  *     같은 Series 스키마가 data.chart.jsonFile 아래로 한 단계 들어갔다. 값은 Farside 와 소수점까지 일치(10/19 총 526.7 · 10/20 23.2 · 10/14 −261.4). 옛 위치도 폴백으로 읽는다 */
+/** 🔁 TheBlock 은 차트 주소(슬러그 경로)를 자주 바꾼다 — 2026-10-06 옛 API 410 · 10-22 `etfs/bitcoin-etf/spot-…` · 11-05 무렵 `etfs/spot-…`(앞 경로는 404).
+ *  두 번 다 순유입이 열흘 넘게 멈췄다. 그래서 ① 마지막으로 성공한 경로(캐시) ② 알려진 경로들을 차례로 시도하고,
+ *  ③ 성공한 응답이 알려주는 정식 주소(data.chart.url 의 /data/ 뒤)를 다음 시도용으로 기억한다(주소가 바뀌기 전 겹치는 기간에 미리 배운다) */
+const TB_BASE = 'https://www.theblock.co/api/tbco/charts/chart/'
+const TB_PATHS = ['etfs/spot-bitcoin-etf-flows', 'etfs/bitcoin-etf/spot-bitcoin-etf-flows']
+const TB_PATH_KEY = 'theblock-btc-etf-path-v1'
+type TbSeries = Record<string, { Data?: { Timestamp: number; Result: number }[] }>
+async function theBlockSeries(): Promise<TbSeries | null> {
+  const learned = (await getCache<{ path: string }>(TB_PATH_KEY, 400 * 86400_000))?.path
+  const paths = Array.from(new Set([learned, ...TB_PATHS].filter((p): p is string => !!p && /^[a-z0-9/-]+$/.test(p))))
+  for (const p of paths) {
+    try {
+      const parsed = JSON.parse(await httpGet(TB_BASE + p, 12_000))
+      const series = (parsed?.data?.chart?.jsonFile?.Series ?? parsed?.chart?.jsonFile?.Series) as TbSeries | undefined
+      if (!series || Object.keys(series).filter(k => /^[A-Z]{3,5}$/.test(k)).length < 5) continue
+      // 정식 주소에서 경로를 배운다 — 지금 쓴 경로와 다르면 다음부터 그걸 먼저 시도
+      const canon = typeof parsed?.data?.chart?.url === 'string' ? parsed.data.chart.url.match(/\/data\/([a-z0-9/-]+)$/)?.[1] : null
+      const next = canon ?? p
+      if (next !== learned) await setCache(TB_PATH_KEY, { path: next })
+      return series
+    } catch { /* 404(HTML)·시간 초과 → 다음 경로 */ }
+  }
+  return null
+}
+
 async function theBlockFlow(): Promise<{ flow: { date: string; net: number }[]; issuers: string[]; byIssuer: { date: string; v: number[] }[] }> {
   const empty = { flow: [], issuers: [], byIssuer: [] }
   try {
-    const raw = await httpGet('https://www.theblock.co/api/tbco/charts/chart/etfs/bitcoin-etf/spot-bitcoin-etf-flows', 15_000)
-    const parsed = JSON.parse(raw)
-    const series = (parsed?.data?.chart?.jsonFile?.Series ?? parsed?.chart?.jsonFile?.Series) as Record<string, { Data?: { Timestamp: number; Result: number }[] }> | undefined
+    const series = await theBlockSeries()
     if (!series) return empty
     const issuers = Object.keys(series).filter(k => /^[A-Z]{3,5}$/.test(k))
     if (issuers.length < 5) return empty
