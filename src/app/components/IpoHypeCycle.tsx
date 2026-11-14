@@ -2,7 +2,7 @@
 // 🚀 IPO 하이프 사이클 — 신규 상장주 수명주기 곡선 위에 실제 종목을 상장 첫날 종가·일봉 종가 실데이터로 자동 매핑
 import { useState, useEffect, useMemo, useRef } from 'react'
 import type { IpoCycleResult, IpoStock, Phase } from '@/app/api/ipo-cycle/route'
-import { PHASE_BAND } from '@/lib/ipoCycle'
+import { PHASE_BAND, SMART_MIN_MONTHS } from '@/lib/ipoCycle'
 import { TK, FS } from '@/lib/theme'
 
 const CARD = TK.bg4, BORDER = TK.line3, GOLD = '#d4af7a'
@@ -215,7 +215,9 @@ export default function IpoHypeCycle() {
             {(cur.phase === 'hype' || cur.phase === 'reality' || cur.phase === 'pain') && cur.upFromTrough >= 10 && (
               <div style={{ color: TK.amber400, fontSize: FS.tiny, lineHeight: 1.6, marginTop: 5 }}>
                 🩹 저점 대비 +{cur.upFromTrough}% 반등을 시도 중입니다 — 다만 짧은 반등은 &lsquo;바닥 확인&rsquo;이 아닙니다.
-                반등이 이어져 추세가 바뀌면 곡선 위치가 매집·회복 쪽으로 자동 이동합니다.
+                {cur.months < SMART_MIN_MONTHS
+                  ? ` 상장 ${SMART_MIN_MONTHS}개월이 지나기 전에는 반등이 있어도 매집 구간으로 보지 않습니다(락업 해제와 첫 실적을 아직 지나는 중). 지금 ${cur.months}개월차입니다.`
+                  : ' 반등이 이어져 추세가 바뀌면 곡선 위치가 매집·회복 쪽으로 자동 이동합니다.'}
               </div>
             )}
             <div style={{ background: TK.bg3, borderRadius: 8, padding: '8px 12px', marginTop: 8, color: TK.slate200, fontSize: 11.5, lineHeight: 1.6, borderLeft: `3px solid ${PH[cur.phase].color}` }}>

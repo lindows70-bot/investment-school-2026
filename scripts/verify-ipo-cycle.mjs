@@ -85,6 +85,10 @@ const offBand = (app.stocks ?? []).filter(s => !BAND[s.phase] || s.curveX < BAND
 check('곡선 위치가 그 국면 구간 안에 있다', offBand.length === 0, offBand.join(' · '))
 const hypeBad = (app.stocks ?? []).filter(s => s.phase === 'hype' && !(s.months <= 5 && s.ddFromPeak > -20)).map(s => s.ticker)
 check('광기 국면 = 상장 5개월 안 + 고점 대비 −20% 이내(카드 숫자와 곡선 위치가 모순되지 않는다)', hypeBad.length === 0, hypeBad.join(', '))
+// 🕰️ 상장 9개월 전은 매집이 아니다(사용자 결정 2026-11-14) — 임계값은 lib 에서 읽는다
+const SMART_MIN = Number(lib.match(/export const SMART_MIN_MONTHS = (\d+)/)?.[1])
+const smartEarly = (app.stocks ?? []).filter(s => s.phase === 'smart' && s.months < SMART_MIN).map(s => `${s.ticker}(${s.months}개월)`)
+check(`매집 국면 = 상장 ${SMART_MIN}개월 이상(그 전의 반등은 자각)`, Number.isFinite(SMART_MIN) && smartEarly.length === 0, smartEarly.join(', '))
 
 // ── ③ 상장 대기 목록 — 새 상장이 생겼으면 정식 등록하라고 알린다(자동 편입은 라우트가 이미 한다) ──
 const US = new Set(['NMS', 'NGM', 'NCM', 'NYQ', 'ASE'])

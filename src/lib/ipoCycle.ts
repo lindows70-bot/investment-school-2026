@@ -68,7 +68,13 @@ export const US_EXCHANGES = new Set(['NMS', 'NGM', 'NCM', 'NYQ', 'ASE'])
 
 export const PHASE_BAND: Record<Phase, [number, number]> = { hype: [3, 15], reality: [17, 30], pain: [33, 50], smart: [53, 66], recovery: [69, 84], uptrend: [87, 98] }
 
-/** 국면 판정 — 상장 경과월 + 주가 경로(고점 대비 낙폭·저점 대비 반등·첫날 종가 대비 배수). 임계값은 2026-11-14 에 바꾸지 않았다(재는 잣대만 주봉→일봉·첫 주→첫날) */
+/** 🕰️ 스마트머니 매집으로 분류하는 최소 상장 경과월(사용자 결정 2026-11-14).
+ *  상장 5~6개월인 스페이스X·세레브라스가 '저점 대비 반등'만으로 매집에 놓여 "분할 매수 검토" 문구가 붙었다 — 교과서의 매집은 12~24개월이고
+ *  9개월 전은 락업 해제·첫 실적을 지나는 자각 구간이다. 그 전의 반등은 매집이 아니라 자각으로 둔다 */
+export const SMART_MIN_MONTHS = 9
+
+/** 국면 판정 — 상장 경과월 + 주가 경로(고점 대비 낙폭·저점 대비 반등·첫날 종가 대비 배수).
+ *  2026-11-14: 재는 잣대를 주봉→일봉·첫 주→첫날로 바꿨고, 임계값은 SMART_MIN_MONTHS 하나만 추가했다 */
 export function judgeIpoPhase(mo: number, ipoP: number, peak: number, trough: number, cur: number): { phase: Phase; curveX: number } {
   const dd = (cur - peak) / peak            // 고점 대비(음수)
   const up = (cur - trough) / trough        // 저점 대비(양수)
@@ -86,6 +92,7 @@ export function judgeIpoPhase(mo: number, ipoP: number, peak: number, trough: nu
   else if (up >= 0.15) phase = 'smart'                              // 바닥 탈출·아직 첫날 종가 이하(매집)
   else if (dd <= -0.20) phase = 'reality'
   else phase = 'smart'
+  if (phase === 'smart' && mo < SMART_MIN_MONTHS) phase = 'reality'   // 상장 9개월 전의 반등은 매집이 아니다(위 상수 설명)
   const [a, b] = PHASE_BAND[phase]
   // 국면 내 세부 위치: pain=낙폭 깊이, recovery/smart=반등 크기, uptrend=배수
   let t = 0.5
