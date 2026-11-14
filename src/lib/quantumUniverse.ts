@@ -47,7 +47,6 @@ export const QUANTUM: QuantumStock[] = [
   // 🔧 장비·부품
   { ticker: 'KEYS', name: 'Keysight',        market: 'US', sub: 'equip', modality: [],            purePlay: false, note: '양자 제어·계측 1위(양자 비중 일부)' },
   { ticker: 'FORM', name: 'FormFactor',      market: 'US', sub: 'equip', modality: [],            purePlay: false, note: '극저온 프로브·테스트(양자 후방)' },
-  { ticker: 'SKYT', name: 'SkyWater',        market: 'US', sub: 'equip', modality: [],            purePlay: false, note: '양자칩 파운드리(미정부 PsiQuantum 파트너)' },
   { ticker: 'IFNNY', name: 'Infineon(ADR)',  market: 'US', sub: 'equip', modality: ['이온트랩'],   purePlay: false, note: '이온트랩 칩 제조(Quantinuum 파트너)' },
   { ticker: 'GFS',  name: 'GlobalFoundries', market: 'US', sub: 'equip', modality: ['광학'],       purePlay: false, govAwardUsdM: 375, note: 'PsiQuantum 광양자칩 파운드리' },
   // 🌏 해외(Yahoo 주봉) — JP·EU·CN·CA

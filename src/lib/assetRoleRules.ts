@@ -16,7 +16,7 @@ const BOND_KR = new Set(['148070', '114260', '153130', '439870'])
 
 // 광의 지수(시장 베타=코어) — S&P500·나스닥100·KOSPI200·다우·전체시장. 그 외 ETF(섹터/테마/원자재/협의지역)는 새틀라이트 프록시
 const BROAD_INDEX_NAME_KW = ['S&P500', 'S&P 500', 'S&P100', '나스닥100', '나스닥 100', 'NASDAQ100', 'NASDAQ 100', 'NASDAQ-100', 'KOSPI200', 'KOSPI 200', '코스피200', '코스피 200', '다우', 'DOW JONES', 'TOTAL MARKET', 'TOTAL STOCK', 'ACWI', 'WORLD INDEX', 'WIDEMOAT', 'WIDE MOAT', '동일가중']
-const BROAD_INDEX_TICKERS = new Set(['SPY', 'IVV', 'VOO', 'VTI', 'QQQ', 'QQQM', 'DIA', 'IWM', 'VT', 'ACWI', 'SPLG'])
+const BROAD_INDEX_TICKERS = new Set(['SPY', 'IVV', 'VOO', 'VTI', 'QQQ', 'QQQM', 'DIA', 'IWM', 'VT', 'ACWI', 'SPYM'])
 const BROAD_INDEX_KR = new Set(['069500', '102110', '360750', '133690', '229200', '251340', '309230', '0069M0'])
 
 // 원자재/실물 — 대체자산(새틀라이트)

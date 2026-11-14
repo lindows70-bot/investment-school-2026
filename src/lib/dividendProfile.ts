@@ -13,10 +13,10 @@ export const DIV_PROFILE_KEY = (ticker: string, market: string) => `div-explorer
 
 // ── 배당 주기 판정 ────────────────────────────────────────────────────────────
 const MONTHLY_TICKERS = new Set(['O', 'MAIN', 'STAG', 'AGNC', 'NLY', 'GLAD', 'HTGC', 'GOOD',
-  'MSTY', 'JEPI', 'JEPQ', 'TSLY', 'NVDY', 'GOOGY', 'AMZY', 'PLTY', 'SCHD'])
+  'MSTY', 'JEPI', 'JEPQ', 'TSLY', 'NVDY', 'GOOY', 'AMZY', 'PLTY', 'SCHD'])
 const ANNUAL_TICKERS = new Set(['BRK.B', 'BRK-B'])
 // ── 합성 파생 ETF (Covered Call / Options Premium 재원) ───────────────────────
-export const DERIVATIVE_ETFS = new Set(['MSTY', 'TSLY', 'NVDY', 'AMZY', 'GOOGY', 'PLTY', 'CONY',
+export const DERIVATIVE_ETFS = new Set(['MSTY', 'TSLY', 'NVDY', 'AMZY', 'GOOY', 'PLTY', 'CONY',
   'MSTR', 'YMAX', 'YMAG', 'ULTY', 'QYLD', 'RYLD', 'XYLD', 'JEPI', 'JEPQ'])
 // ── 배당 귀족주 연속 성장 연수 (공식 자료 기반 정적 조회) ────────────────────
 //   ⚠️ 기준연도가 없어 매년 1년씩 조용히 뒤처졌다(2026-10-18 6차 점검). 값은 2024년 인상 기준(KO 62·PG 68 = 2024-02·04 발표분)이라 2024 를 밝힌다.
@@ -37,7 +37,7 @@ const ARISTOCRAT_YEARS: Record<string, number> = {
 const TRAP_TICKERS = new Set(Array.from(DERIVATIVE_ETFS).concat(['NLY', 'AGNC', 'T', 'VNO']))
 // ── 리츠 감지 (배당성향을 AFFO/FFO 기준으로 봐야 함 — 리포트 강조) ──────────────
 export const REIT_TICKERS = new Set(['O', 'STAG', 'VNO', 'FRT', 'ESS', 'UDR', 'WPC', 'SPG', 'PLD', 'AMT', 'CCI', 'PSA',
-  'EQIX', 'DLR', 'ARE', 'AVB', 'EQR', 'INVH', 'SBAC', 'WELL', 'VICI', 'MAA', 'KIM', 'REG', 'HST', 'BXP', 'DOC'])
+  'EQIX', 'DLR', 'ARE', 'INVH', 'SBAC', 'WELL', 'VICI', 'MAA', 'KIM', 'REG', 'HST', 'BXP', 'DOC'])
 // ── 커버드콜·우량 배당 ETF 정적 수익률 폴백 (Yahoo가 0 반환 시) ────────────────
 const STATIC_YIELD: Record<string, number> = {
   MSTY: 0.82, TSLY: 0.56, NVDY: 0.68, AMZY: 0.48, GOOGY: 0.42, PLTY: 0.72,

@@ -98,7 +98,7 @@ export const SATELLITE_UNIVERSE: { ticker: string; market: 'US' | 'KR'; name: st
   { ticker: 'AEVA', market: 'US', name: 'Aeva' },
   { ticker: 'SOUN', market: 'US', name: 'SoundHound AI' },
   { ticker: 'BBAI', market: 'US', name: 'BigBear.ai' },
-  { ticker: 'PSTG', market: 'US', name: 'Pure Storage' },
+  { ticker: 'P', market: 'US', name: 'Everpure(옛 Pure Storage)' },
   { ticker: '039030', market: 'KR', name: '이오테크닉스' },
   { ticker: '064760', market: 'KR', name: '티씨케이' },
   { ticker: '098460', market: 'KR', name: '고영' },
