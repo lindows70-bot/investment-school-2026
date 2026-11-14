@@ -1,7 +1,8 @@
 'use client'
-// 🚀 IPO 하이프 사이클 — 신규 상장주 수명주기 곡선 위에 실제 종목을 상장가·주봉 실데이터로 자동 매핑
+// 🚀 IPO 하이프 사이클 — 신규 상장주 수명주기 곡선 위에 실제 종목을 상장 첫날 종가·일봉 종가 실데이터로 자동 매핑
 import { useState, useEffect, useMemo } from 'react'
 import type { IpoCycleResult, IpoStock, Phase } from '@/app/api/ipo-cycle/route'
+import { PHASE_BAND } from '@/lib/ipoCycle'
 import { TK, FS } from '@/lib/theme'
 
 const CARD = TK.bg4, BORDER = TK.line3, GOLD = '#d4af7a'
@@ -51,15 +52,34 @@ export default function IpoHypeCycle() {
     fetch('/api/ipo-cycle', { cache: 'no-store' }).then(r => r.json()).then(x => { if (x?.stocks?.length) { setD(x); setSel(x.stocks[0].ticker) } else setErr(true) }).catch(() => setErr(true))
   }, [])
 
-  // 겹침 방지: curveX 근접 노드 위/아래 교차
+  // 겹침 방지(2026-11-14 — 한 국면에 7~10종이 몰려 티커가 서로 덮였다):
+  //   ① 국면 안에서 좌→우 순서는 지키되 점 사이 최소 간격을 벌린다(dx — 그리는 자리. 서버 값 curveX 는 그대로)
+  //   ② 라벨은 가까운 이웃이 안 쓴 줄(lane)에 놓는다 — 곡선 위쪽이 비어 있어 위로 3줄, 아래로 2줄
   const placed = useMemo(() => {
     if (!d) return []
-    const out: (IpoStock & { up: boolean })[] = []
-    d.stocks.forEach(s => {
-      const near = out.filter(o => Math.abs(o.curveX - s.curveX) < 7)
-      out.push({ ...s, up: near.length % 2 === 0 })
-    })
-    return out
+    const dx = new Map<string, number>()
+    for (const ph of PHASE_ORDER) {
+      const g = d.stocks.filter(s => s.phase === ph).sort((a, b) => a.curveX - b.curveX)
+      if (!g.length) continue
+      const [a, b] = PHASE_BAND[ph]
+      const gap = g.length > 1 ? Math.min(2.2, (b - a) / (g.length - 1)) : 0
+      const xs = g.map(s => s.curveX)
+      for (let i = 1; i < xs.length; i++) xs[i] = Math.max(xs[i], xs[i - 1] + gap)
+      if (xs[xs.length - 1] > b) { xs[xs.length - 1] = b; for (let i = xs.length - 2; i >= 0; i--) xs[i] = Math.min(xs[i], xs[i + 1] - gap) }
+      g.forEach((s, i) => dx.set(s.ticker, xs[i]))
+    }
+    const LANES: { up: boolean; lvl: number }[] = [{ up: true, lvl: 0 }, { up: false, lvl: 0 }, { up: true, lvl: 1 }, { up: true, lvl: 2 }, { up: false, lvl: 1 }]
+    const LABEL_W = 4.8   // 티커 라벨 한 개의 폭(곡선 좌표 단위 · 글자 4~5자)
+    const out: (IpoStock & { x: number; lane: number })[] = []
+    const sorted = [...d.stocks].sort((p, q) => (dx.get(p.ticker) ?? p.curveX) - (dx.get(q.ticker) ?? q.curveX))
+    for (const s of sorted) {
+      const x = dx.get(s.ticker) ?? s.curveX
+      const used = new Set(out.filter(o => Math.abs(o.x - x) < LABEL_W).map(o => o.lane))
+      let lane = LANES.findIndex((_, i) => !used.has(i))
+      if (lane < 0) lane = out.length % LANES.length
+      out.push({ ...s, x, lane })
+    }
+    return out.map(o => ({ ...o, up: LANES[o.lane].up, lvl: LANES[o.lane].lvl }))
   }, [d])
 
   const cur = d?.stocks.find(s => s.ticker === sel) ?? null
@@ -70,8 +90,13 @@ export default function IpoHypeCycle() {
         <div style={{ color: GOLD, fontWeight: 900, fontSize: 19 }}>🚀 IPO 하이프 사이클 — 신규 상장주는 왜 요동치나</div>
         <div style={{ color: TK.sub5, fontSize: 12.5, lineHeight: 1.7, marginTop: 6 }}>
           대형 혁신주는 상장 후 <b style={{ color: TK.slate200 }}>기대(Hype)와 현실(Reality)의 간극</b>으로 독특한 궤적을 그립니다: 광기 폭등 → 락업·실적으로 폭락 → 고통의 바닥 → 스마트머니 매집 → 실적 회복 → 대세 상승.
-          아래 곡선에 <b style={{ color: GOLD }}>실제 상장주</b>를 상장가·주봉 실데이터로 자동 배치했습니다 — 각 종목이 지금 어느 국면인지 한눈에.
+          아래 곡선에 <b style={{ color: GOLD }}>실제 상장주</b>를 상장 첫날 종가와 그 뒤의 일봉 종가로 자동 배치했습니다 — 각 종목이 지금 어느 국면인지 한눈에.
         </div>
+        {d && (
+          <div style={{ color: TK.sub, fontSize: FS.tiny, marginTop: 6 }}>
+            📅 {d.priceDate ? `${d.priceDate.slice(5).replace('-', '/')} 미국 장 가격` : '가격 날짜 확인 못 함'} · {d.stocks.length}종 · 12시간마다 다시 계산 · 출처 Yahoo Finance 일봉
+          </div>
+        )}
       </div>
 
       {err && <div style={{ background: CARD, borderRadius: 12, border: `1px solid ${BORDER}`, padding: 16, color: TK.sub, fontSize: 13 }}>데이터를 불러오지 못했습니다.</div>}
@@ -94,18 +119,19 @@ export default function IpoHypeCycle() {
             <text x={X0 - 14} y={150} fill={TK.sub8} fontSize="11" fontWeight="700" textAnchor="middle" transform={`rotate(-90 ${X0 - 20} 150)`}>PRICE 주가</text>
             {/* 국면 라벨(상단) */}
             {PHASE_ORDER.map(ph => {
-              const band: Record<Phase, [number, number]> = { hype: [3, 15], reality: [17, 30], pain: [33, 50], smart: [53, 66], recovery: [69, 84], uptrend: [87, 98] }
-              const [a, b] = band[ph]; const midX = (a + b) / 2
+              const [a, b] = PHASE_BAND[ph]; const midX = (a + b) / 2
               return <text key={ph} x={px(midX)} y={16} fill={PH[ph].color} fontSize="11.5" fontWeight="800" textAnchor="middle" opacity="0.9">{PH[ph].en}</text>
             })}
             {/* 곡선 */}
             <path d={path()} fill="none" stroke="url(#ipoCurve)" strokeWidth="4.5" strokeLinecap="round" />
             {/* 종목 노드 */}
             {placed.map(s => {
-              const x = px(s.curveX), y = cy(s.curveX), active = s.ticker === sel
-              const ly = s.up ? y - 16 : y + 24
+              const x = px(s.x), y = cy(s.x), active = s.ticker === sel
+              const ly = s.up ? y - 15 - s.lvl * 14 : y + 23 + s.lvl * 14
               return (
                 <g key={s.ticker} onClick={() => setSel(s.ticker)} style={{ cursor: 'pointer' }}>
+                  {/* 둘째 줄부터는 점과 라벨을 가는 선으로 잇는다 — 어느 점의 이름인지 헷갈리지 않게 */}
+                  {s.lvl > 0 && <line x1={x} y1={s.up ? y - 8 : y + 8} x2={x} y2={s.up ? ly + 3 : ly - 11} stroke={PH[s.phase].color} strokeWidth="1" opacity="0.45" />}
                   <circle cx={x} cy={y} r={active ? 8 : 6} fill={PH[s.phase].color} stroke={active ? '#fff' : '#0b0d12'} strokeWidth={active ? 2.5 : 1.5}>
                     {active && <animate attributeName="r" values="7;10;7" dur="1.6s" repeatCount="indefinite" />}
                   </circle>
@@ -150,12 +176,18 @@ export default function IpoHypeCycle() {
               <span style={{ color: '#fff', fontWeight: 900, fontSize: 17 }}>{cur.name} <span style={{ color: TK.sub, fontSize: 13 }}>{cur.ticker}</span></span>
               <span style={{ background: PH[cur.phase].color, color: '#0b0d12', borderRadius: 6, padding: '2px 10px', fontSize: 12, fontWeight: 900 }}>{PH[cur.phase].en} · {PH[cur.phase].ko}</span>
               <span style={{ color: TK.sub, fontSize: 11 }}>상장 {cur.ipo} · {cur.months}개월차</span>
+              {cur.auto && <span style={{ background: `${TK.amber400}22`, color: TK.amber400, borderRadius: 6, padding: '2px 8px', fontSize: FS.tiny, fontWeight: 800 }}>🆕 새 상장 자동 감지</span>}
             </div>
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', margin: '8px 0' }}>
-              {[['상장가 대비', `${cur.multiple}배`, cur.multiple >= 1 ? TK.green400 : TK.red400], ['고점 대비', `${cur.ddFromPeak}%`, TK.red400], ['저점 대비', `+${cur.upFromTrough}%`, TK.green400], ['상장가→현재', `$${cur.ipoPrice} → $${cur.current}`, TK.sub11]].map(([k, v, c]) => (
+              {[['첫날 종가 대비', `${cur.multiple}배`, cur.multiple >= 1 ? TK.green400 : TK.red400], ['고점 대비', `${cur.ddFromPeak}%`, TK.red400], ['저점 대비', `+${cur.upFromTrough}%`, TK.green400], ['첫날 종가→현재', `$${cur.ipoPrice} → $${cur.current}`, TK.sub11]].map(([k, v, c]) => (
                 <div key={k as string}><div style={{ color: TK.sub2, fontSize: 10 }}>{k}</div><div style={{ color: c as string, fontWeight: 800, fontSize: 14, fontFamily: 'monospace' }}>{v}</div></div>
               ))}
               <Spark values={cur.spark} color={PH[cur.phase].color} />
+            </div>
+            {/* 이름표의 뜻 — '상장가'라고만 쓰면 공모가로 읽힌다(2026-11-14: 서클 화면 $107.70 은 첫 주 종가였고 첫날 종가는 $83.23) */}
+            <div style={{ color: TK.sub2, fontSize: FS.tiny, lineHeight: 1.55, marginBottom: 6 }}>
+              기준가는 공모가가 아니라 <b style={{ color: TK.sub8 }}>상장 첫날({cur.ipoBarDate.slice(5).replace('-', '/')}) 종가</b>입니다. 고점·저점은 상장 뒤 <b style={{ color: TK.sub8 }}>하루 종가</b> 중 가장 높은·낮은 값이라, 장중에 잠깐 찍힌 가격과는 다릅니다. 점선 = 첫날 종가.
+              {cur.ipoBarDate !== cur.ipo && <span style={{ color: TK.amber400 }}> ⚠️ 상장일({cur.ipo}) 가격 자료가 없어 {cur.ipoBarDate} 종가를 기준가로 썼습니다.</span>}
             </div>
             <div style={{ color: TK.sub5, fontSize: 11.5, lineHeight: 1.6 }}>{PH[cur.phase].desc}</div>
             {/* 하락 국면(광기·자각·고통)인데 저점 반등이 붙어 있으면 — 학생이 "반등 중인데 왜 하락 구간?"으로
@@ -190,7 +222,7 @@ export default function IpoHypeCycle() {
             })}
           </div>
           <div style={{ color: TK.sub2, fontSize: 10, marginTop: 8, lineHeight: 1.55 }}>
-            ⚠️ 곡선 위치는 상장가·주봉 실데이터(고점 낙폭·저점 반등·상장가 배수)로 자동 판정 — 교과서적 &lsquo;평균 경로&rsquo;이며 모든 종목이 이 순서를 따르진 않습니다(상장 폐지·영구 하락도 존재). 티커 재사용으로 옛 데이터가 섞인 종목(SPCX·CRCL 등)은 자동 제외. 매매 지시 아닌 심리·수급 교육용.
+            ⚠️ 곡선 위치는 실제 주가(고점에서 얼마나 내렸나 · 저점에서 얼마나 올랐나 · 첫날 종가의 몇 배인가)로 자동 판정합니다. 한 국면 안에서 점의 좌우 자리는 순서만 뜻합니다. 교과서적 &lsquo;평균 경로&rsquo;이며 모든 종목이 이 순서를 따르진 않습니다(상장 폐지·영구 하락도 존재). 같은 티커를 예전에 다른 종목이 썼던 경우(SPCX·CRCL)는 상장일 뒤의 가격만 잘라 씁니다. 스팩 합병 상장(RKLB·LUNR·HIMS)은 합병 뒤 첫 거래일이 기준입니다. 앤스로픽·오픈AI처럼 상장을 기다리는 대형사는 미국 거래소에 티커가 생기면 자동으로 올라옵니다. 매매 지시 아닌 심리·수급 교육용.
           </div>
         </div>
       </>}
