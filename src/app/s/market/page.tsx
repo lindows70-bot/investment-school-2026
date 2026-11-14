@@ -18,6 +18,7 @@ import KrNews from '@/app/components/student/market/KrNews'
 import StrongSectors from '@/app/components/student/market/StrongSectors'
 import UsPanel from '@/app/components/student/market/UsPanel'
 import CoinPanel from '@/app/components/student/market/CoinPanel'
+import CoinCharts from '@/app/components/student/market/CoinCharts'
 import FearGreedYear from '@/app/components/student/market/FearGreedYear'
 import FxTrendCard from '@/app/components/student/market/FxTrendCard'
 
@@ -69,7 +70,8 @@ function MarketScreen() {
 
       {opened.includes('kr') && <div style={panel('kr')}><KrPanel overview={overview} ovRef={ovRefA} /></div>}
       {opened.includes('us') && <div style={panel('us')}><UsPanel /></div>}
-      {opened.includes('coin') && <div style={panel('coin')}><CoinPanel /></div>}
+      {/* 코인 탭 = 주요 코인 차트(위) + 눈에 띈 종목 순위(아래) — 전엔 순위표만 있어 비트코인·리플 차트를 볼 수 없었다(2026-11-14 사용자 요청) */}
+      {opened.includes('coin') && <div style={panel('coin')}><CoinCharts /><CoinPanel /></div>}
 
       {/* 세 탭 공통 — 공포·탐욕(국내·미국 탭은 미국 주식, 코인 탭은 코인이 먼저) · 환율 추이 */}
       <div ref={ovRefB} className="mk-two">

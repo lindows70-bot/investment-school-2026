@@ -1,74 +1,26 @@
 'use client'
-// 학생 '코인' — ①대표 코인 4종(비트코인·이더리움·솔라나·리플) 원화 시세·오늘 등락·차트(24시간/7일/30일) ②규제 레이더(법안·규제 신호등) ③비트코인 현물 ETF 발행사별 일별 순유입 표
+// 학생 '코인' — ①대표 코인 4종(비트코인·이더리움·솔라나·리플)+내 코인 원화 시세·오늘 등락·차트(하루/1주/1달/3달/1년) ②규제 레이더(법안·규제 신호등) ③비트코인 현물 ETF 발행사별 일별 순유입 표
 //   5단계-3(사용자 결정 2026-09-27): 코인은 빼지 않는다 · 4종은 늘 보인다 · 경고·훈계 문구는 넣지 않는다. 전부 기존 기능의 데이터(새 원천 0)
-//   원천 = /api/stock-price(업비트 원화 · 1D=시간봉 24 · 1W=일봉 7 · 1M=일봉 30) · /api/crypto-regulation(구글 뉴스 헤드라인 → 신호등, 6h) · /api/btc-etf(TheBlock/Farside $M, 3h)
+//   ① 은 시장 화면 코인 탭과 같은 부품(market/CoinCharts · 2026-11-14) — 두 화면이 같은 차트를 본다.
+//   원천 = /api/stock-price(업비트 원화) · /api/crypto-regulation(구글 뉴스 헤드라인 → 신호등, 6h) · /api/btc-etf(TheBlock/Farside $M, 3h)
 import Link from 'next/link'
-import { useState } from 'react'
 import { TK, FS, RAD, SP } from '@/lib/theme'
-import { won, pct, upDown } from '@/lib/studentFormat'
+import { upDown } from '@/lib/studentFormat'
 import { STUDENT_COINS } from '@/lib/studentCoins'
-import { niceTicks, hourTicks, dayTicks, kstParts, ymdDot } from '@/lib/marketScreen'
+import { ymdDot } from '@/lib/marketScreen'
 import { useJson, type JsonState } from '@/app/components/student/useJson'
-import { useMyPortfolio } from '@/app/components/student/useMyPortfolio'
-import { LinePlot, RangeTabs } from '@/app/components/student/market/marketUi'
+import CoinCharts from '@/app/components/student/market/CoinCharts'
 import { card, FailRow, noteStyle } from '@/app/components/student/home/homeUi'
 import type { RegulationResult, RegImpact } from '@/app/api/crypto-regulation/route'
 import type { BtcEtfResult } from '@/app/api/btc-etf/route'
 
-// 늘 보이는 대표 코인(사용자 결정 9/27) + 내가 가진 코인 중 그 밖의 것(사용자 결정 2026-10-09 — 보유 코인은 자동으로 더한다). 목록은 lib/studentCoins(배우기 입구 문구와 같은 개수)
+// 늘 보이는 대표 코인(사용자 결정 9/27) — 목록은 lib/studentCoins(배우기 입구 문구와 같은 개수). 내가 가진 그 밖의 코인은 CoinCharts 가 자동으로 더한다(사용자 결정 2026-10-09)
 const COINS = STUDENT_COINS
-type FrameKey = '1D' | '1W' | '1M'
-const FRAMES: { key: FrameKey; label: string }[] = [{ key: '1D', label: '24시간' }, { key: '1W', label: '7일' }, { key: '1M', label: '30일' }]
-interface PricePoint { t: number; v: number }
-interface PriceRow { ticker?: unknown; name?: unknown; currentPrice?: unknown; changePct?: unknown; charts?: Record<string, unknown>; error?: unknown; source?: unknown }
 
 const pending = (s: JsonState) => s === 'loading' || s === 'idle'
 const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)
-/** 유효한 점만. 전부 같은 값이면 버린다 — 업비트 조회 실패 시 API 가 현재가로 만든 직선을 채워 보낸다(종목 상세와 같은 규칙) */
-const cleanPts = (raw: unknown): PricePoint[] => {
-  if (!Array.isArray(raw)) return []
-  const pts = raw.filter((p): p is PricePoint => !!p && isNum(p.t) && isNum(p.v) && p.v > 0).sort((a, b) => a.t - b.t)
-  return pts.length < 2 || pts.every(p => p.v === pts[0].v) ? [] : pts
-}
-// 눈금 글자 — 1천만 넘으면 '만' 단위(비트코인), 그 밖은 정수
-const yFmtFor = (max: number) => (v: number) => max >= 10_000_000 ? `${Math.round(v / 10_000).toLocaleString('ko-KR')}만` : Math.round(v).toLocaleString('ko-KR')
-const hm = (t: number) => kstParts(t).hm
-const tDay = (t: number) => ymdDot(kstParts(t).ymd) ?? ''
 const back = <Link href="/s" style={{ display: 'inline-flex', alignItems: 'center', height: 44, color: TK.slate300, fontSize: FS.body, textDecoration: 'none' }}>‹ 홈</Link>
 const h2 = { margin: 0, fontSize: FS.lg, fontWeight: 700, color: TK.slate100 } as const
-
-// ── ① 코인 4종 ─────────────────────────────────────────────────────────────
-function CoinCard({ ticker, name, row, frame, loading }: { ticker: string; name: string; row: PriceRow | undefined; frame: FrameKey; loading: boolean }) {
-  const price = row && isNum(row.currentPrice) && row.currentPrice > 0 ? row.currentPrice : null
-  const chg = row && isNum(row.changePct) ? row.changePct : null
-  const stale = price != null && !!row?.error   // 조회 실패 뒤 캐시에 남은 지난 시세
-  const pts = row ? cleanPts(row.charts?.[frame]) : []
-  const vals = pts.map(p => p.v)
-  const min = vals.length ? Math.min(...vals) : 0, max = vals.length ? Math.max(...vals) : 0
-  const intraday = frame === '1D'
-  const xt = pts.length >= 2 ? (intraday ? { ticks: hourTicks(pts[0].t, pts[pts.length - 1].t, 6), fmt: hm } : dayTicks(pts[0].t, pts[pts.length - 1].t)) : { ticks: [] as number[], fmt: tDay }
-  return (
-    <section aria-label={name} style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: SP.sm, minWidth: 0 }}>
-        <Link href={`/s/stock/${ticker}?m=CRYPTO&n=${encodeURIComponent(name)}`} style={{ display: 'flex', alignItems: 'baseline', gap: SP.xs, minHeight: 44, textDecoration: 'none', minWidth: 0 }}>
-          <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate100 }}>{name}</span>
-          <span style={{ fontSize: FS.micro, color: TK.sub }}>{ticker}</span>
-          <span aria-hidden style={{ color: TK.sub }}>›</span>
-        </Link>
-        {price != null && chg != null && <span style={{ fontSize: FS.body, fontWeight: 700, color: upDown(chg), whiteSpace: 'nowrap' }}>{pct(chg)}</span>}
-      </div>
-      {loading ? <span style={noteStyle()}>시세를 불러오는 중…</span>
-        : price == null ? <span style={noteStyle(TK.amber400)}>지금 시세를 못 가져왔어요.</span>
-        : <span style={{ fontSize: FS.xl, fontWeight: 800, color: TK.slate100, whiteSpace: 'nowrap' }}>{won(price)}{stale && <span style={{ marginLeft: SP.sm, fontSize: FS.tiny, fontWeight: 500, color: TK.amber400 }}>마지막으로 가져온 가격</span>}</span>}
-      {pts.length >= 2
-        ? <div role="img" aria-label={`${name} ${FRAMES.find(f => f.key === frame)?.label} 가격 흐름`} style={{ height: 150, minWidth: 0 }}>
-            <LinePlot points={pts} color={TK.slate300} tFmt={intraday ? hm : tDay} vFmt={v => won(v)} a11y={false} area endDot yAxis="right" yTicks={niceTicks(min, max, 4)} yFmt={yFmtFor(max)} xTicks={xt.ticks} xFmt={xt.fmt} />
-          </div>
-        : !loading && price != null && <span style={noteStyle()}>가격 흐름을 못 가져왔어요.</span>}
-      {pts.length >= 2 && <span style={{ fontSize: FS.micro, color: TK.sub }}>{intraday ? '한국 시각' : '일봉 종가'}{max >= 10_000_000 ? ' · 눈금은 만원' : ''} · 업비트 원화</span>}
-    </section>
-  )
-}
 
 // ── ② 규제 레이더 ──────────────────────────────────────────────────────────
 // 신호등은 좋다/나쁘다 지표라 초록·노랑·빨강 그대로(가격 등락색이 아니다)
@@ -181,37 +133,15 @@ function EtfFlows() {
 }
 
 export default function StudentCoin() {
-  const [frame, setFrame] = useState<FrameKey>('1D')
-  // 내 보유 코인(4종 밖) — 보유 목록이 늦게 와도 4종은 먼저 뜨고, 내 코인은 그 뒤에 붙는다(요청 본문이 바뀌면 useJson 이 한 번 더 부른다)
-  const { holdings } = useMyPortfolio()
-  const mine = holdings
-    .filter(h => h.market === 'CRYPTO' && !COINS.some(c => c.ticker === h.ticker.toUpperCase()))
-    .map(h => ({ ticker: h.ticker.toUpperCase(), name: h.name || h.ticker.toUpperCase() }))
-  const coins = [...COINS, ...mine]
-  const prices = useJson<PriceRow[]>('/api/stock-price', { method: 'POST', body: coins.map(c => ({ ticker: c.ticker, market: 'CRYPTO' as const })) })
-  const list = prices.state === 'ok' && Array.isArray(prices.data) ? prices.data : []
-  const rowOf = (t: string) => list.find(x => typeof x?.ticker === 'string' && x.ticker.toUpperCase() === t)
-  const frameLabel = FRAMES.find(f => f.key === frame)?.label ?? ''
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg, maxWidth: 960 }}>
-      <style>{`
-        .sc-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: ${SP.lg}px }
-        @media (min-width: 769px) { .sc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
-      `}</style>
       {back}
       <header style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
         <h1 style={{ margin: 0, fontSize: FS.h2, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, color: TK.slate100 }}>코인</h1>
         <p style={{ margin: 0, fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all' }}>대표 코인 {COINS.length}종의 원화 시세와 흐름, 규제 소식, 비트코인 ETF로 들어온 돈.</p>
       </header>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.sm, flexWrap: 'wrap' }}>
-        <h2 style={h2}>대표 코인 {COINS.length}종{mine.length > 0 ? ` + 내 코인 ${mine.length}종` : ''} <span style={{ fontSize: FS.tiny, fontWeight: 500, color: TK.sub }}>{frameLabel} 흐름</span></h2>
-        <RangeTabs label="차트 기간" options={FRAMES} value={frame} onChange={setFrame} />
-      </div>
-      {prices.state === 'failed' && <FailRow text="코인 시세를 못 가져왔어요." onRetry={prices.reload} retryLabel="코인 시세 다시 불러오기" />}
-      <div className="sc-grid">
-        {coins.map(c => <CoinCard key={c.ticker} ticker={c.ticker} name={c.name} row={rowOf(c.ticker)} frame={frame} loading={pending(prices.state)} />)}
-      </div>
+      <CoinCharts />
 
       <Regulation />
       <EtfFlows />
