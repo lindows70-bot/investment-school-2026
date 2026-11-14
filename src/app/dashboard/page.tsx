@@ -845,8 +845,9 @@ export default function DashboardPage() {
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search)
     const t = sp.get('tab')
-    const ALLOW = new Set(['rebalance', 'moneyflow', 'rotation', 'marks', 'season', 'quantbuilder', 'coinlab', 'macroai', 'alphahunter', 'tenbagger', 'crisis'])
-    if (t && ALLOW.has(t)) setDashTab(t as 'rebalance')
+    // 허용 목록을 손으로 적지 않는다 — 전엔 11개만 적혀 있어 메뉴 50개 중 39개(IPO 하이프 사이클 등)는 ?tab= 으로 열리지 않았다(2026-11-14).
+    // 모든 탭은 id="tab-<key>" 칸을 갖고 있으므로(메뉴 key 50 = 칸 50 실측) 그 칸이 있는 key 만 받는다
+    if (t && /^[a-zA-Z0-9]+$/.test(t) && document.getElementById(`tab-${t}`)) setDashTab(t as 'rebalance')
     const v = sp.get('view')
     const FLOW = new Set(['mine', 'market', 'investor', 'reco', 'unified', 'leverage'])
     if (t === 'moneyflow' && v && FLOW.has(v)) setFlowView(v as 'unified')
