@@ -1,10 +1,11 @@
 'use client'
-// 학생 내 자산 — 총자산·오늘·원금·불어난 돈 → 히트맵 → 지난 흐름 → 투자 구성 → 오늘의 투자 체크 → 이달 배당락 예정 → 종목 목록 (+ 기록)
+// 학생 내 자산 — 총자산·오늘·원금·불어난 돈 → 히트맵 → 지난 흐름 → 내 종목 차트 → 투자 구성 → 오늘의 투자 체크 → 이달 배당락 예정 → 종목 목록 (+ 기록)
 import Link from 'next/link'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 import { useMyPortfolio, type FailReason } from '@/app/components/student/useMyPortfolio'
 import Heatmap from '@/app/components/student/Heatmap'
 import GrowthChart from '@/app/components/student/GrowthChart'
+import HoldingCharts from '@/app/components/student/HoldingCharts'   // 내 종목 차트(2026-11-14 사용자 요청 — 보유 종목의 가격 흐름을 이 화면에서 바로)
 import { useJson } from '@/app/components/student/useJson'
 import { useInView } from '@/app/components/student/useInView'
 import { card, CardHead, FailRow, noteStyle, useKstToday } from '@/app/components/student/home/homeUi'
@@ -100,7 +101,7 @@ function SoldLine({ sold, costKrw, evalKrw, usdKrw, onReloadFx }: { sold: MySell
 }
 
 export default function StudentAssets() {
-  const { state, holdings, summary, usdKrw, targetCorePct, pricesFailed, failReason, reload } = useMyPortfolio()
+  const { state, holdings, summary, usdKrw, targetCorePct, pricesFailed, failReason, charts, reload } = useMyPortfolio()
   // 시세를 못 가져왔으면(위 줄도 '—' 이거나 매수가 기준) 합산 % 를 내지 않는다 — 읽지도 않는다
   const sold = useMySells(state === 'ready' && !!summary && summary.rows.length > 0 && !pricesFailed && !summary.allUnpriced)
   const today = useKstToday()
@@ -176,6 +177,9 @@ export default function StudentAssets() {
       <Heatmap rows={summary.rows} corePct={summary.corePct} />
 
       <GrowthChart holdings={holdings} rows={summary.rows} usdKrw={usdKrw} />
+
+      {/* 전체 흐름(위) 다음에 종목별 흐름 — 시세를 통째로 못 가져온 날은 차트 자료도 없으니 위의 '시세를 못 가져왔어요' 한 번으로 말한다 */}
+      {!pricesFailed && <HoldingCharts rows={summary.rows} holdings={holdings} charts={charts} onRetry={reload} />}
 
       <section style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
         <CardHead title="내 투자 구성" extra={targetCorePct != null ? <span style={{ fontSize: FS.tiny, color: TK.sub, whiteSpace: 'nowrap' }}>목표 코어 {targetCorePct}% · 위성 {100 - targetCorePct}%</span> : undefined} />

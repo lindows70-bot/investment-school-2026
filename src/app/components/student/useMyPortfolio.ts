@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import { summarizePortfolio, dedupeHoldings, type HoldingInput, type PriceInput, type PortfolioSummary } from '@/lib/portfolioSummary'
 import { acceptFx } from '@/lib/fxAccept'
 import { fetchShared } from '@/app/components/student/useJson'
+import type { ChartSource } from '@/lib/studentCharts'
 
 export type LoadState = 'loading' | 'ready' | 'failed' | 'unauth'
 /** db = 보유 조회 실패 · fx = 달러 보유가 있는데 환율을 못 받음 · other = 그 밖의 예외 */
@@ -24,6 +25,9 @@ export interface MyPortfolio {
   targetCorePct: number | null
   /** 보유는 있는데 시세 조회 자체가 실패 — 요약은 매수가로 계산돼 있으니 화면이 '시세를 못 가져왔어요'를 말해야 한다 */
   pricesFailed: boolean
+  /** 종목별 가격 흐름 자료(티커 대문자 → 시세 응답의 charts·ohlcCharts). 시세 응답에 이미 실려 오던 것을 버리지 않고 넘긴다(2026-11-14 — 내 종목 차트).
+   *  null = 그 종목의 차트를 못 가져옴(조회 실패 + 캐시 없음이면 API 가 빈 차트를 채워 보낸다 — '기록 없음'이 아니다) · 키 없음 = 시세 응답에 그 종목이 없음 */
+  charts: Record<string, ChartSource | null>
   reload: () => void
 }
 
@@ -35,6 +39,7 @@ export function useMyPortfolio(): MyPortfolio {
   const [usdKrw, setUsdKrw] = useState<number | null>(null)
   const [targetCorePct, setTarget] = useState<number | null>(null)
   const [pricesFailed, setPricesFailed] = useState(false)
+  const [charts, setCharts] = useState<Record<string, ChartSource | null>>({})
   const [tick, setTick] = useState(0)
 
   useEffect(() => {
@@ -42,13 +47,13 @@ export function useMyPortfolio(): MyPortfolio {
     // 실패는 한 곳에서 확정한다 — 옛 요약이 남아 '실패'와 함께 보이지 않도록 summary 도 비운다
     const fail = (reason: FailReason, hs: MyHolding[] = []) => {
       if (cancelled) return
-      setHoldings(hs); setSummary(null); setUsdKrw(null); setTarget(null); setPricesFailed(false); setFailReason(reason); setState('failed')
+      setHoldings(hs); setSummary(null); setUsdKrw(null); setTarget(null); setPricesFailed(false); setCharts({}); setFailReason(reason); setState('failed')
     }
     ;(async () => {
       const sb = createClient()
       const { data: { user } } = await sb.auth.getUser()
       if (!user) {
-        if (!cancelled) { setHoldings([]); setSummary(null); setPricesFailed(false); setFailReason(null); setState('unauth') }
+        if (!cancelled) { setHoldings([]); setSummary(null); setPricesFailed(false); setCharts({}); setFailReason(null); setState('unauth') }
         return
       }
       const [{ data, error }, fxRes, cfg] = await Promise.all([
@@ -65,6 +70,7 @@ export function useMyPortfolio(): MyPortfolio {
       const fx: number | null = acceptFx(fxRes)
 
       let priceMap: Record<string, PriceInput> = {}
+      const chartMap: Record<string, ChartSource | null> = {}
       let pricesOk = true
       if (hs.length) {
         pricesOk = false
@@ -77,8 +83,11 @@ export function useMyPortfolio(): MyPortfolio {
           if (Array.isArray(list)) {
             pricesOk = true
             const entries: [string, PriceInput][] = []
-            list.forEach((p: { ticker?: unknown; source?: unknown } & Omit<PriceInput, 'source'>) => {
+            list.forEach((p: { ticker?: unknown; source?: unknown; charts?: unknown; ohlcCharts?: unknown } & Omit<PriceInput, 'source'>) => {
               if (!p || typeof p.ticker !== 'string') return
+              // 가격 흐름 — 종목 상세와 같은 판정: 조회 실패인데 캐시도 아니면 빈 차트를 채워 보낸 것이라 '못 가져옴'(null)
+              const obj = (v: unknown) => (v && typeof v === 'object' ? v as Record<string, unknown> : null)
+              chartMap[p.ticker.toUpperCase()] = !obj(p.charts) || (p.error && p.source !== 'cache') ? null : { charts: obj(p.charts), ohlcCharts: obj(p.ohlcCharts) }
               // source 는 지난 시세(캐시) 판정에 쓰이므로 문자열일 때만 넘긴다
               entries.push([p.ticker.toUpperCase(), {
                 currentPrice: p.currentPrice, change: p.change, changePct: p.changePct, error: p.error,
@@ -100,12 +109,12 @@ export function useMyPortfolio(): MyPortfolio {
       const core = cfg.error ? null : cfg.data?.core_pct
       setHoldings(hs); setUsdKrw(fx)
       setTarget(typeof core === 'number' && core > 0 ? core : null)
-      setPricesFailed(!pricesOk)
+      setPricesFailed(!pricesOk); setCharts(chartMap)
       setSummary(s); setFailReason(null); setState('ready')
     })().catch(() => fail('other'))
     return () => { cancelled = true }
   }, [tick])
 
   const reload = useCallback(() => { setState('loading'); setTick(t => t + 1) }, [])
-  return { state, failReason, holdings, summary, usdKrw, targetCorePct, pricesFailed, reload }
+  return { state, failReason, holdings, summary, usdKrw, targetCorePct, pricesFailed, charts, reload }
 }
