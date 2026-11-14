@@ -11,6 +11,7 @@ import { useMyPortfolio, type FailReason } from '@/app/components/student/useMyP
 import { isPriced, type Market, type PriceInput } from '@/lib/portfolioSummary'
 import { won, signWon, pct, upDown, money, qtyText } from '@/lib/studentFormat'
 import { niceTicks, hourTicks, dayTicks, kstParts, ymdDot } from '@/lib/marketScreen'
+import { spanLabel } from '@/lib/studentCharts'
 import { LinePlot } from '@/app/components/student/market/marketUi'
 import { Segment } from '@/app/components/student/ui'
 import StockMore from '@/app/components/student/stock/StockMore'
@@ -27,16 +28,7 @@ type Charts = Partial<Record<FrameKey, PricePoint[]>>
 // ⚠️ charts 의 키 이름은 기간이 아니다 — KR·US 는 1D=일봉 60(약 3개월)·1W=주봉 60(약 14개월)·1M=월봉 60(5년),
 //    코인은 1D=시간봉 24·1W=일봉 7·1M=일봉 30. 그래서 버튼 이름은 데이터의 실제 시작~끝 간격에서 뽑는다.
 const FRAME_KEYS: FrameKey[] = ['1D', '1W', '1M']
-// 간격 = 끝−시작 + 봉 하나(중앙값) — 일봉 7개는 6일이 아니라 7일 치다
-const spanLabel = (pts: PricePoint[]) => {
-  const steps = pts.slice(1).map((p, i) => p.t - pts[i].t).sort((a, b) => a - b)
-  const step = steps.length ? steps[Math.floor(steps.length / 2)] : 0
-  const d = (pts[pts.length - 1].t - pts[0].t + step) / 86_400_000
-  if (d < 1.5) return '최근 하루'
-  if (d < 45) return `최근 ${Math.round(d)}일`
-  if (d < 700) return `최근 ${Math.round(d / 30.44)}개월`
-  return `최근 ${Math.round(d / 365.25)}년`
-}
+// 간격 이름(끝−시작 + 봉 하나)은 lib/studentCharts.spanLabel — 내 자산 '내 종목 차트'와 같은 함수(2026-11-14 옮김)
 // 유효한 점만. 코인은 전부 같은 값이면 버린다 — 업비트 조회 실패 시 API 가 현재가로 만든 직선을 채워 보낸다.
 //   (KR·US 는 그런 가짜 직선이 없고 거래정지 종목은 실제로 평평할 수 있어 그대로 둔다)
 const cleanPts = (raw: unknown, isCrypto: boolean): PricePoint[] => {

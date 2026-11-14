@@ -6,7 +6,7 @@ import Module from 'node:module'
 
 const ROOT = 'C:/Users/lindo/investment-school-portfolio'
 const OUT = `${ROOT}/.bt-shared-libs`
-const LIBS = ['googleNews', 'upbit', 'assetRoleRules', 'classifyAsset', 'assetClassifier', 'chunkReload', 'fred', 'kst']
+const LIBS = ['googleNews', 'upbit', 'assetRoleRules', 'classifyAsset', 'assetClassifier', 'chunkReload', 'fred', 'kst', 'studentCharts']
 
 writeFileSync(`${ROOT}/.bt-shared-libs.tsconfig.json`, JSON.stringify({
   extends: `${ROOT}/tsconfig.json`,
@@ -28,6 +28,7 @@ const CA = require(`${OUT}/lib/classifyAsset.js`)
 const CR = require(`${OUT}/lib/chunkReload.js`)
 const FR = require(`${OUT}/lib/fred.js`)
 const KST = require(`${OUT}/lib/kst.js`)
+const SC = require(`${OUT}/lib/studentCharts.js`)
 
 let fails = 0
 const check = (name, ok, extra = '') => { console.log(`${ok ? '✅' : '❌'} ${name}${extra ? ' — ' + extra : ''}`); if (!ok) fails++ }
@@ -71,5 +72,30 @@ check('FRED URL: series·key·json 기본 + 정의된 파라미터만 + extra �
 // ── KST 달력일 ──
 check('KST: UTC 2026-10-18 15:30 = 한국 10-19 · UTC 14:59 = 10-18', KST.kstDate(new Date('2026-10-18T15:30:00Z')) === '2026-10-19' && KST.kstDate(new Date('2026-10-18T14:59:00Z')) === '2026-10-18' && KST.kstMonth(new Date('2026-10-31T16:00:00Z')) === '2026-11')
 
+// ── 학생 차트 자료 고르기(내 종목 차트 · 코인 차트 · 2026-11-14) ──
+{
+  const D = 86_400_000, t0 = Date.parse('2026-01-05T00:00:00+09:00')
+  const line = n => Array.from({ length: n }, (_, i) => ({ t: t0 + i * D, v: 100 + i }))
+  const week = n => Array.from({ length: n }, (_, i) => ({ t: t0 + i * 7 * D, v: 100 + i }))
+  const ohlcDay = n => Array.from({ length: n }, (_, i) => ({ date: new Date(t0 + 9 * 3600_000 + i * D).toISOString().slice(0, 10), open: 1, high: 1, low: 1, close: 200 + i, volume: 0 }))
+  const ohlcWeek = n => Array.from({ length: n }, (_, i) => ({ date: new Date(t0 + 9 * 3600_000 + i * 7 * D).toISOString().slice(0, 10), close: 300 + i }))
+  const stock = { charts: { '1D': line(60), '1W': week(60), '1M': line(60) }, ohlcCharts: {} }
+  const coin = { charts: { '1D': line(24), '1W': line(7), '1M': line(30), '1Y': [] }, ohlcCharts: { '1M': ohlcDay(90), '1Y': ohlcWeek(52) } }
+  check('차트: 주식 3개월 = 일봉 60 · 1년 = 주봉 최근 53점(52주) · 5년 = 월봉 60', SC.holdingSeries('US', stock, '3M').pts.length === 60 && SC.holdingSeries('KR', stock, '1Y').pts.length === 53 && SC.holdingSeries('KR', stock, '1Y').pts[52].v === 159 && SC.holdingSeries('US', stock, '5Y').pts.length === 60)
+  const c5 = SC.holdingSeries('CRYPTO', coin, '5Y')
+  check('차트: 코인 보유 3개월 = 캔들 일봉 90 · 1년 = 주봉 52 · 5년은 1년 자료 + 그렇다는 한마디', SC.holdingSeries('CRYPTO', coin, '3M').pts.length === 90 && SC.holdingSeries('CRYPTO', coin, '1Y').note === null && c5.pts.length === 52 && /1년까지/.test(c5.note ?? ''))
+  check('차트: 코인 5기간 = 시간봉 24 · 일봉 7 · 일봉 30 · 캔들 90 · 캔들 52', ['1D', '1W', '1M', '3M', '1Y'].map(r => SC.coinSeries(coin, r).length).join(',') === '24,7,30,90,52')
+  const flat = { charts: { '1D': Array.from({ length: 24 }, (_, i) => ({ t: t0 + i * 3600_000, v: 5 })) }, ohlcCharts: {} }
+  check('차트: 코인 직선(조회 실패 때 API 가 채운 현재가)은 버린다 · 주식은 평평해도 둔다', SC.coinSeries(flat, '1D').length === 0 && SC.cleanLine(flat.charts['1D'], false).length === 24)
+  const wk = SC.ohlcToLine(ohlcWeek(3), 7, t0 + 16 * D)
+  check('차트: 주봉은 봉의 끝날에 놓고 진행 중인 마지막 봉은 지금을 넘지 않는다', wk[0].t === t0 + 6 * D && wk[1].t === t0 + 13 * D && wk[2].t === t0 + 16 * D)
+  check('차트: 캔들 날짜는 한국 자정 · 못 읽는 행은 버린다', SC.ohlcToLine([{ date: '2026-01-05', close: 10 }, { date: 'x', close: 11 }, { date: '2026-01-06', close: 0 }, { date: '2026-01-07', close: 12 }])[0].t === t0 && SC.ohlcToLine([{ date: '2026-01-05', close: 10 }, { date: 'x', close: 11 }, { date: '2026-01-07', close: 12 }]).length === 2)
+  check('차트: 기간 등락 = 첫 점 대비 마지막 점 · 점이 하나면 null(0% 로 꾸미지 않는다)', Math.abs(SC.periodChangePct([{ t: 1, v: 100 }, { t: 2, v: 80 }, { t: 3, v: 125 }]) - 25) < 1e-9 && SC.periodChangePct([{ t: 1, v: 100 }]) === null)
+  check('차트: 간격 이름 — 일봉 7개 = 7일 · 일봉 60 = 2개월 · 주봉 53 = 12개월 · 월 간격 60 = 5년', SC.spanLabel(line(7)) === '최근 7일' && SC.spanLabel(line(60)) === '최근 2개월' && SC.spanLabel(week(53)) === '최근 12개월' && SC.spanLabel(Array.from({ length: 60 }, (_, i) => ({ t: t0 + i * 30.44 * D, v: 1 + i }))) === '최근 5년')
+  check('차트: 평단 선은 최저의 절반~최고의 두 배 안일 때만(밖이면 선 하나가 흐름을 납작하게 만든다)', SC.avgInRange(120, line(60)) && SC.avgInRange(50, line(60)) && !SC.avgInRange(49, line(60)) && !SC.avgInRange(400, line(60)) && !SC.avgInRange(null, line(60)) && !SC.avgInRange(0, line(60)))
+  const hl = SC.highLow([{ t: 1, v: 5 }, { t: 2, v: 9 }, { t: 3, v: 2 }, { t: 4, v: 9 }])
+  check('차트: 최고·최저 점(같은 값이면 먼저 나온 점) · 평평하면 null', hl.hi.t === 2 && hl.lo.t === 3 && SC.highLow([{ t: 1, v: 5 }, { t: 2, v: 5 }]) === null)
+  check('차트: 자료가 없으면 빈 선(지어내지 않는다)', SC.holdingSeries('US', null, '1Y').pts.length === 0 && SC.coinSeries(undefined, '3M').length === 0 && SC.holdingSeries('CRYPTO', { charts: {}, ohlcCharts: {} }, '3M').pts.length === 0)
+}
 if (fails) { console.log(`\n❌ ${fails}건 실패`); process.exit(1) }
 console.log('\n✅ 전부 통과 (공용 lib 단위)')
