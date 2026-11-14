@@ -65,8 +65,13 @@ const problems = []
 try {
   sh('npx tsc --noEmit')
 } catch (e) {
-  const out = String(e.stdout ?? e.stderr ?? e).trim().split('\n').filter(Boolean).slice(0, 12)
-  problems.push(`🔴 타입 오류 ${out.length}건 — 고치고 끝내세요.\n${out.map(l => '   ' + l).join('\n')}`)
+  // ⚠️ 거짓 빨강 제외(2026-11-14 두 번 실측): 백그라운드 check:build 가 .next-build/types 를 다시 쓰는 동안 tsc 가 겹치면
+  //    "TS6053: File '.next-build/types/…' not found" 가 쏟아진다. 생성 파일이 잠깐 없는 것이지 코드 오류가 아니다 —
+  //    그 줄(과 딸린 설명 줄)을 빼고, 진짜 오류(error TS…)가 남았을 때만 막는다. 건수도 줄 수가 아니라 오류 수로 센다
+  const lines = String(e.stdout ?? e.stderr ?? e).trim().split('\n').filter(Boolean)
+  const GENERATED_MISSING = /error TS6053: File '[^']*[\\/]\.next-build[\\/]types[\\/]/
+  const errs = lines.filter(l => /error TS\d+/.test(l) && !GENERATED_MISSING.test(l))
+  if (errs.length) problems.push(`🔴 타입 오류 ${errs.length}건 — 고치고 끝내세요.\n${errs.slice(0, 12).map(l => '   ' + l.trim()).join('\n')}`)
 }
 
 /* ── 3. 캐시 키 범프 누락 ─────────────────────────────────────────────────── */
