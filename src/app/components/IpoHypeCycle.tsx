@@ -1,6 +1,6 @@
 'use client'
 // 🚀 IPO 하이프 사이클 — 신규 상장주 수명주기 곡선 위에 실제 종목을 상장 첫날 종가·일봉 종가 실데이터로 자동 매핑
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import type { IpoCycleResult, IpoStock, Phase } from '@/app/api/ipo-cycle/route'
 import { PHASE_BAND } from '@/lib/ipoCycle'
 import { TK, FS } from '@/lib/theme'
@@ -19,6 +19,7 @@ const PHASE_ORDER: Phase[] = ['hype', 'reality', 'pain', 'smart', 'recovery', 'u
 // 하이프 곡선: 초반 급등(hype 봉우리)→폭락→바닥(pain)→완만 회복→우상향 돌파
 const W = 1000, H = 336
 const X0 = 62, X1 = 955
+const CHART_MIN = 860   // 차트 최소 폭(px) — 이보다 좁으면 줄이지 않고 가로로 민다(티커 글자 약 9.5px 유지)
 // X축 타임 테이블(원본 이미지) — curveX 구간 → 상장 후 경과 시간 라벨
 const TIME_BANDS: { from: number; to: number; time: string; phase: string; color: string }[] = [
   { from: 0, to: 16, time: '1–3개월', phase: 'HYPE', color: TK.red400 },
@@ -91,6 +92,17 @@ export default function IpoHypeCycle() {
 
   const cur = d?.stocks.find(s => s.ticker === sel) ?? null
 
+  // 📱 좁은 화면 — 곡선을 폭에 맞춰 줄이면 티커 글자가 3.6px(375폭)·7.9px(768폭)로 읽을 수 없었다(2026-11-14 실측).
+  //    차트 최소 폭(CHART_MIN)을 지키고 가로로 밀어 보게 한다. 밀 수 있다는 안내는 실제로 넘칠 때만
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [scrollable, setScrollable] = useState(false)
+  useEffect(() => {
+    const measure = () => { const el = wrapRef.current; if (el) setScrollable(el.scrollWidth > el.clientWidth + 4) }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [d])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ background: `linear-gradient(135deg, #1a1020, ${CARD})`, borderRadius: 14, border: `1px solid ${GOLD}44`, padding: '16px 20px' }}>
@@ -111,8 +123,9 @@ export default function IpoHypeCycle() {
 
       {d && <>
         {/* 하이프 곡선 + 종목 노드 */}
-        <div style={{ background: '#0b0d12', borderRadius: 12, border: `1px solid ${BORDER}`, padding: '8px 6px' }}>
-          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+        {scrollable && <div style={{ color: TK.sub, fontSize: FS.tiny, marginBottom: -8 }}>↔ 좌우로 밀면 곡선 전체가 보입니다</div>}
+        <div ref={wrapRef} style={{ background: '#0b0d12', borderRadius: 12, border: `1px solid ${BORDER}`, padding: '8px 6px', overflowX: 'auto' }}>
+          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', minWidth: CHART_MIN, height: 'auto', display: 'block' }}>
             <defs>
               <linearGradient id="ipoCurve" x1="0" y1="0" x2="1" y2="0">
                 <stop offset="0%" stopColor={TK.red400} /><stop offset="25%" stopColor={TK.orange400} />
