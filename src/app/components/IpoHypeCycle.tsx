@@ -68,18 +68,25 @@ export default function IpoHypeCycle() {
       if (xs[xs.length - 1] > b) { xs[xs.length - 1] = b; for (let i = xs.length - 2; i >= 0; i--) xs[i] = Math.min(xs[i], xs[i + 1] - gap) }
       g.forEach((s, i) => dx.set(s.ticker, xs[i]))
     }
-    const LANES: { up: boolean; lvl: number }[] = [{ up: true, lvl: 0 }, { up: false, lvl: 0 }, { up: true, lvl: 1 }, { up: true, lvl: 2 }, { up: false, lvl: 1 }]
-    const LABEL_W = 4.8   // 티커 라벨 한 개의 폭(곡선 좌표 단위 · 글자 4~5자)
-    const out: (IpoStock & { x: number; lane: number })[] = []
-    const sorted = [...d.stocks].sort((p, q) => (dx.get(p.ticker) ?? p.curveX) - (dx.get(q.ticker) ?? q.curveX))
-    for (const s of sorted) {
-      const x = dx.get(s.ticker) ?? s.curveX
-      const used = new Set(out.filter(o => Math.abs(o.x - x) < LABEL_W).map(o => o.lane))
-      let lane = LANES.findIndex((_, i) => !used.has(i))
-      if (lane < 0) lane = out.length % LANES.length
-      out.push({ ...s, x, lane })
+    // 라벨 자리는 '줄 번호'가 아니라 실제 좌표로 고른다 — 곡선이 기울어 있어 줄 번호가 달라도 높이가 겹쳤다(실측 6건 → 0건).
+    //   후보(점 바로 위 → 바로 아래 → 위로 한 칸씩)를 차례로 놓아 보고, 이미 놓인 라벨·다른 점과 안 겹치는 첫 자리에 둔다
+    const nodes = [...d.stocks]
+      .map(s => { const x = dx.get(s.ticker) ?? s.curveX; return { s, x, X: px(x), y: cy(x), w: s.ticker.length * 7.6 + 6 } })
+      .sort((p, q) => p.x - q.x)
+    const CAND: [boolean, number][] = [[true, 0], [false, 0], [true, 1], [true, 2], [false, 1], [true, 3], [true, 4], [true, 5]]
+    const out: (IpoStock & { x: number; up: boolean; lvl: number; ly: number; X: number; w: number })[] = []
+    for (const n of nodes) {
+      let pick: { up: boolean; lvl: number; ly: number } = { up: true, lvl: 0, ly: n.y - 15 }
+      for (const [up, k] of CAND) {
+        const ly = up ? n.y - 15 - k * 14 : n.y + 23 + k * 14
+        if (ly < 26 || ly > 266) continue   // 위: 국면 이름 줄 · 아래: 시간 축
+        const hitLabel = out.some(p => Math.abs(p.X - n.X) < (p.w + n.w) / 2 && Math.abs(p.ly - ly) < 12)
+        const hitDot = nodes.some(o => o !== n && Math.abs(o.X - n.X) < n.w / 2 + 7 && ly + 2 > o.y - 8 && ly - 10 < o.y + 8)
+        if (!hitLabel && !hitDot) { pick = { up, lvl: k, ly }; break }
+      }
+      out.push({ ...n.s, x: n.x, X: n.X, w: n.w, ...pick })
     }
-    return out.map(o => ({ ...o, up: LANES[o.lane].up, lvl: LANES[o.lane].lvl }))
+    return out
   }, [d])
 
   const cur = d?.stocks.find(s => s.ticker === sel) ?? null
@@ -127,7 +134,7 @@ export default function IpoHypeCycle() {
             {/* 종목 노드 */}
             {placed.map(s => {
               const x = px(s.x), y = cy(s.x), active = s.ticker === sel
-              const ly = s.up ? y - 15 - s.lvl * 14 : y + 23 + s.lvl * 14
+              const ly = s.ly
               return (
                 <g key={s.ticker} onClick={() => setSel(s.ticker)} style={{ cursor: 'pointer' }}>
                   {/* 둘째 줄부터는 점과 라벨을 가는 선으로 잇는다 — 어느 점의 이름인지 헷갈리지 않게 */}
