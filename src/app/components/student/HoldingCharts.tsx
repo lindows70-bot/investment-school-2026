@@ -67,9 +67,11 @@ function ChartCard({ row, holding, src, range, now, onRetry }: { row: HoldingRow
 
       {pts.length >= 2 && (
         <span style={noteStyle()}>
+          {/* 평단 값은 차트 안 이름표가 아니라 여기에 — 선과 겹치지 않는다 */}
+          {hasAvgLine && avg != null && <><b style={{ color: TK.amber400 }}>내 평단 {money(avg, currency)}</b> · </>}
           {spanLabel(pts)}{chg != null && <> · 이 기간 <b style={{ color: upDown(chg) }}>{pct(chg)}</b></>}
           {note ? ` · ${note}` : ''}
-          {avg != null && avg > 0 && !hasAvgLine ? ' · 평균 매수가가 이 기간 범위 밖이에요' : ''}
+          {avg != null && avg > 0 && !hasAvgLine ? ` · 내 평단 ${money(avg, currency)}은 이 기간 범위 밖이에요` : ''}
           {currency === 'KRW' && Math.max(...pts.map(p => p.v)) >= 10_000_000 ? ' · 눈금은 만원' : ''}
         </span>
       )}

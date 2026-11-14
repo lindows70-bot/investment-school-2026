@@ -37,8 +37,8 @@ export default function TrendChart({ pts, currency, avg, height = 160, ariaLabel
   return (
     <div role="img" aria-label={ariaLabel} style={{ height, minWidth: 0 }}>
       <LinePlot points={pts} color={periodColor}
+        // 평단 값 이름표는 차트 안에 쓰지 않는다 — 331px 카드에선 가격 선이 평단 선을 지나는 자리와 겹쳐 글자가 가려졌다(2026-11-14 화면 실측). 값은 호출부가 카드 아래 줄에 적는다
         baseline={a ?? first.v} baselineColor={a != null ? TK.amber400 : undefined}
-        baselineLabel={a != null ? `내 평단 ${money(a, currency)}` : undefined}
         splitAt={a} splitUp={TK.red400} splitDown={TK.blue400} areaOpacity={0.42}
         tFmt={when} vFmt={v => money(v, currency)} a11y={false}
         area endDot yAxis="right" yTicks={niceTicks(min, max, 4)} yFmt={yFmtFor(currency, max)} xTicks={xt.ticks} xFmt={xt.fmt}
