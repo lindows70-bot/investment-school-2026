@@ -6,7 +6,7 @@ import Module from 'node:module'
 
 const ROOT = 'C:/Users/lindo/investment-school-portfolio'
 const OUT = `${ROOT}/.bt-shared-libs`
-const LIBS = ['googleNews', 'upbit', 'assetRoleRules', 'classifyAsset', 'assetClassifier', 'chunkReload', 'fred', 'kst', 'studentCharts']
+const LIBS = ['googleNews', 'upbit', 'assetRoleRules', 'classifyAsset', 'assetClassifier', 'chunkReload', 'fred', 'kst', 'studentCharts', 'capexCash', 'crisisSignal']
 
 writeFileSync(`${ROOT}/.bt-shared-libs.tsconfig.json`, JSON.stringify({
   extends: `${ROOT}/tsconfig.json`,
@@ -29,6 +29,8 @@ const CR = require(`${OUT}/lib/chunkReload.js`)
 const FR = require(`${OUT}/lib/fred.js`)
 const KST = require(`${OUT}/lib/kst.js`)
 const SC = require(`${OUT}/lib/studentCharts.js`)
+const CX = require(`${OUT}/lib/capexCash.js`)
+const CS = require(`${OUT}/lib/crisisSignal.js`)
 
 let fails = 0
 const check = (name, ok, extra = '') => { console.log(`${ok ? '✅' : '❌'} ${name}${extra ? ' — ' + extra : ''}`); if (!ok) fails++ }
@@ -96,6 +98,71 @@ check('KST: UTC 2026-10-18 15:30 = 한국 10-19 · UTC 14:59 = 10-18', KST.kstDa
   const hl = SC.highLow([{ t: 1, v: 5 }, { t: 2, v: 9 }, { t: 3, v: 2 }, { t: 4, v: 9 }])
   check('차트: 최고·최저 점(같은 값이면 먼저 나온 점) · 평평하면 null', hl.hi.t === 2 && hl.lo.t === 3 && SC.highLow([{ t: 1, v: 5 }, { t: 2, v: 5 }]) === null)
   check('차트: 자료가 없으면 빈 선(지어내지 않는다)', SC.holdingSeries('US', null, '1Y').pts.length === 0 && SC.coinSeries(undefined, '3M').length === 0 && SC.holdingSeries('CRYPTO', { charts: {}, ohlcCharts: {} }, '3M').pts.length === 0)
+}
+
+// ── 위기 신호등(2026-11-21) — 설비투자÷번 돈 순수 계산 · 등 7개 조립 · 종합 규칙 · 못 가져온 등은 초록이 아니다 ──
+{
+  const q = (date, ocfM, capexM) => ({ date, ocfM, capexM })
+  // 2026-11-21 야후 실측값(백만 달러) — 수업 영상 EP55 화면의 10-Q 숫자와 같다(네 회사 115% · 1년 전 61%). 아마존은 2026-06 분기가 야후에 없다
+  const real = [
+    { ticker: 'AMZN', name: 'Amazon(AWS)', rows: [q('2025-06-30', 32515, 32183), q('2025-09-30', 35525, 35095), q('2025-12-31', 54459, 39522), q('2026-03-31', 26032, 44203), q('2026-09-30', 42422, 77259)] },
+    { ticker: 'GOOGL', name: 'Alphabet', rows: [q('2026-09-30', 42290, 51355), q('2025-09-30', 48414, 23953), q('2026-06-30', 39069, 44924)] },   // 순서가 섞여 와도 날짜로 정렬한다
+    { ticker: 'MSFT', name: 'Microsoft', rows: [q('2025-09-30', 45057, 19394), q('2026-09-30', 58000, 39367)] },
+    { ticker: 'META', name: 'Meta', rows: [q('2025-09-30', 29999, 18829), q('2026-09-30', 32785, 33942)] },
+  ]
+  const four = CX.capexCashOf(real, '2026-11-21T00:00:00Z')
+  const ratioOf = t => four.companies.find(c => c.ticker === t)?.ratioPct
+  check('설비투자: 네 회사 합계 201,923 ÷ 175,497 = 115.1% · 1년 전 같은 분기 61.2%', four.capexM === 201923 && four.ocfM === 175497 && four.ratioPct === 115.1 && four.prev.ratioPct === 61.2 && four.prev.count === 4 && four.latestDate === '2026-09-30')
+  check('설비투자: 회사별 — 아마존 182.1 · 알파벳 121.4 · 메타 103.5 · 마이크로소프트 67.9', ratioOf('AMZN') === 182.1 && ratioOf('GOOGL') === 121.4 && ratioOf('META') === 103.5 && ratioOf('MSFT') === 67.9)
+  check('설비투자: 1년 전 분기는 날짜로 찾는다(분기가 빠져 있어도 2025-09-30) · 없으면 null', four.companies[0].prevDate === '2025-09-30' && CX.capexCashOf([{ ticker: 'A', name: 'A', rows: [q('2026-09-30', 100, 40), q('2026-06-30', 100, 30)] }]).prev === null)
+  const withOrcl = CX.capexCashOf([...real, { ticker: 'ORCL', name: 'Oracle', rows: [q('2025-08-31', 8140, 8502), q('2026-08-31', 23103, 28499)] }, { ticker: 'OLD', name: 'Old', rows: [q('2026-03-31', 999, 1)] }])
+  check('설비투자: 분기 끝이 한 달 다른 회사는 넣고(오라클 8월) · 넉 달 넘게 늦은 회사는 뺀다(전체 6 · 합계 5)', withOrcl.count === 5 && withOrcl.total === 6 && withOrcl.ratioPct === 116 && withOrcl.prev.ratioPct === 63.3 && withOrcl.prev.count === 5)
+  check('설비투자: 자료 없음 = null · 번 돈 0 이하 회사는 비율을 세지 않는다 · 상식 밖 합계는 버린다(단위 사고)', CX.capexCashOf([]) === null && CX.capexCashOf([{ ticker: 'A', name: 'A', rows: [] }]) === null
+    && CX.capexCashOf([{ ticker: 'A', name: 'A', rows: [q('2026-09-30', -5, 10)] }, { ticker: 'B', name: 'B', rows: [q('2026-09-30', 100, 30)] }]).companies[0].ratioPct === null
+    && CX.capexCashOf([{ ticker: 'A', name: 'A', rows: [q('2026-09-30', 1, 1000)] }]) === null)
+
+  const rules = { flatPp: 0.25, redDays: 20, historyMinDays: 10, sahmPp: 0.5, hyWarn: 3.4, hyBad: 5, hySpike: 0.5, capexRed: 100, capexYellow: 50 }
+  const curve = { alert: 'none', spreads: [{ key: 't10y2y', value: 0.29, date: '2026-11-20', invertedDays: 0, chg3m: -0.21 }, { key: 't10y3m', value: 0.6, date: '2026-11-20', invertedDays: 0, chg3m: -0.22 }],
+    sahm: { v: 0, date: '2026-10-01', triggered: false },
+    history: [{ from: '1978-08-18', leadMonths: 17, outcome: 'recession' }, { from: '2022-07-05', leadMonths: null, outcome: 'false_alarm' }, { from: '2025-02-26', leadMonths: null, outcome: 'too_soon' }],
+    leadSummary: { medianMonths: 14, minMonths: 0, maxMonths: 34 }, series: [{ date: '2026-11-19', s2: 0.3, s3m: 0.62 }, { date: '2026-11-20', s2: 0.29, s3m: 0.6 }, { date: 'bad', s2: 1 }] }
+  const liquidity = { gauges: [{ key: 'hy', value: '3.52%p', sub: '4주 +0.12%p', tone: 'warn', date: '2026-11-19' }, { key: 'rate', value: '3.88% · 인상', sub: '다음 FOMC 12월', tone: 'warn' }] }
+  const radar = { alertLevel: 'danger', dangerCount: 3, asOf: '2026-11-21T05:00:00.000Z', metrics: [
+    { key: 'cape', label: 'Shiller CAPE', value: 36.44, unit: '배', signal: 'danger', norm: '역사평균 ≈ 17배' }, { key: 'buffett', label: '버핏 지표', value: 251.6, unit: '%', signal: 'danger' },
+    { key: 'pe', label: 'S&P 500 선행 PER', value: 17.1, unit: '배', signal: 'safe' }, { key: 'erp', label: '주식 위험 프리미엄', value: -0.79, unit: '%p', signal: 'danger' }] }
+  const leverage = { current: { date: '2026-11-18', level: 'stable', ratio: 30.7, margin: 258612, margin20dChgPct: -13.4, ratioPercentile: 30 }, misu: { current: { date: '2026-11-19', forcedPct: 1.2, forcedPctPercentile: 80 }, series: new Array(732).fill(0) }, series: new Array(800).fill(0) }
+  const mood = { source: 'cnn', partyScore: 10, rating: 'extreme fear', prevClose: 18.7, prev1Week: 37.4, vix: 35.89, asOf: '2026-11-21T05:00:00.000Z' }
+  const base = { now: '2026-11-21T05:10:00.000Z', curve, liquidity, radar, leverage, mood, capex: four, rules }
+  const build = over => CS.buildCrisisSignal({ ...base, ...over })
+  const colorOf = (s, k) => s.lights.find(l => l.key === k).color
+  const sig = build({})
+  check('신호등: 등 7개 — 돈줄 3(금리차·기업 돈줄·일자리) · 거품 4(주식 값·빚·설비투자·심리)', sig.lights.map(l => l.key).join(',') === 'curve,credit,jobs,value,debt,capex,mood' && sig.lights.filter(l => l.group === 'money').length === 3 && sig.total === 7 && sig.measured === 7)
+  check('신호등: 2026-11-21 실측값 → 금리차 초록 · 돈줄 노랑 · 일자리 초록 · 값 빨강 · 빚 노랑(반대매매) · 설비투자 빨강 · 심리 빨강', sig.lights.map(l => l.color).join(',') === 'green,yellow,green,red,yellow,red,red')
+  check('신호등: 종합은 개수 — 빨강 3 · 노랑 2 · 초록 2 → 빨강', sig.counts.red === 3 && sig.counts.yellow === 2 && sig.counts.green === 2 && sig.overall.color === 'red' && sig.overall.headline === '빨강 3 · 노랑 2 · 초록 2' && sig.overall.todo.length === 3)
+  const calmMood = { ...mood, partyScore: 50, rating: 'neutral' }
+  const cheap = { ...four, ratioPct: 40 }
+  const twoRed = build({ mood: calmMood }), noRedThreeYellow = build({ mood: { ...mood, rating: 'fear' }, capex: { ...four, ratioPct: 60 }, radar: { ...radar, alertLevel: 'caution' } })
+  const calm = build({ mood: calmMood, capex: cheap, radar: { ...radar, alertLevel: 'safe' } })
+  check('신호등: 종합 경계 — 빨강 2 = 노랑 · 빨강 0·노랑 5 = 노랑 · 빨강 0·노랑 2 = 초록', twoRed.counts.red === 2 && twoRed.overall.color === 'yellow' && noRedThreeYellow.counts.red === 0 && noRedThreeYellow.counts.yellow === 5 && noRedThreeYellow.overall.color === 'yellow' && calm.counts.red === 0 && calm.counts.yellow === 2 && calm.overall.color === 'green')
+  const blank = build({ curve: null, liquidity: null, radar: null, leverage: null })
+  check('신호등: 못 가져온 등은 초록이 아니라 모름 · 잰 등이 4개 미만이면 종합을 쉰다(할 일 없음)', blank.counts.none === 5 && blank.counts.green === 0 && blank.measured === 2 && blank.overall.color === 'none' && blank.overall.todo.length === 0 && /모름 5/.test(blank.overall.headline))
+  check('신호등: 금리차 — watch·brief 노랑 · red 빨강 · 역전 일수는 두 금리차 중 긴 쪽', colorOf(build({ curve: { ...curve, alert: 'watch' } }), 'curve') === 'yellow' && colorOf(build({ curve: { ...curve, alert: 'brief' } }), 'curve') === 'yellow'
+    && (() => { const l = build({ curve: { ...curve, alert: 'red', spreads: [{ ...curve.spreads[0], value: -0.3, invertedDays: 25 }, { ...curve.spreads[1], value: -0.1, invertedDays: 31 }] } }).lights[0]; return l.color === 'red' && l.state === '역전 31거래일째' })()
+    && colorOf(build({ curve: { ...curve, alert: 'weird' } }), 'curve') === 'none')
+  check('신호등: 금리차 날짜·줄 — 기준일 2026-11-20 · 석 달 전보다 좁아졌다는 말 · 값에 부호', sig.lights[0].date === '2026-11-20' && /좁아졌어요/.test(sig.lights[0].line) && sig.lights[0].rows[0].value === '+0.29%p' && sig.lights[0].rows[0].note === '석 달 전보다 −0.21%p')
+  check('신호등: 일자리 — 삼의 법칙이 켜지면 빨강(노랑 없음) · 기준월', colorOf(build({ curve: { ...curve, sahm: { v: 0.53, date: '2026-10-01', triggered: true } } }), 'jobs') === 'red' && sig.lights[2].date === '2026-10' && sig.lights[2].dateKind === '기준월')
+  check('신호등: 기업 돈줄 — tone 그대로(bad 빨강) · 기준일은 하이일드 행의 날짜 · 금리 방향은 곁에만', colorOf(build({ liquidity: { gauges: [{ key: 'hy', value: '5.6%p', tone: 'bad' }] } }), 'credit') === 'red' && sig.lights[1].date === '2026-11-19' && sig.lights[1].rows.length === 2 && colorOf(build({ liquidity: { gauges: [{ key: 'rate', value: 'x', tone: 'bad' }] } }), 'credit') === 'none')
+  check('신호등: 주식 값 — 위기 레이더 판정 그대로 · 초록인 자 이름을 말한다 · 값 있는 자가 3개 미만이면 모름', /4개 중 3개가 빨강/.test(sig.lights[3].line) && /예상이익 배수\(선행 PER\)만 초록/.test(sig.lights[3].line) && colorOf(build({ radar: { ...radar, metrics: radar.metrics.slice(0, 2) } }), 'value') === 'none' && sig.lights[3].dateKind === '계산일')
+  const lev = (level, pctl) => colorOf(build({ leverage: { ...leverage, current: { ...leverage.current, level }, misu: { current: { ...leverage.misu.current, forcedPctPercentile: pctl } } } }), 'debt')
+  check('신호등: 빚 — 빚투 레이더 판정 그대로 · 초록이어도 반대매매 60 자리 이상이면 노랑(59 는 초록) · 빨강은 그대로', lev('stable', 59) === 'green' && lev('stable', 60) === 'yellow' && lev('caution', 0) === 'yellow' && lev('danger', 0) === 'red' && CS.FORCED_SPIKE_PCTL === 60 && /25\.9조 원/.test(sig.lights[4].line) && /800거래일/.test(sig.lights[4].rows[1].note))
+  const cap = pct => colorOf(build({ capex: { ...four, ratioPct: pct } }), 'capex')
+  check('신호등: 설비투자 — 100% 초과 빨강(딱 100 은 노랑) · 50% 초과 노랑(딱 50 은 초록) · 3곳 미만이면 모름', cap(100.1) === 'red' && cap(100) === 'yellow' && cap(50.1) === 'yellow' && cap(50) === 'green' && colorOf(build({ capex: { ...four, count: 2 } }), 'capex') === 'none' && /115%/.test(sig.lights[5].line) && /1년 전 같은 분기에는 61%/.test(sig.lights[5].line))
+  check('신호등: 설비투자 — 1년 전 비교는 같은 회사 수일 때만 말한다', !/1년 전/.test(build({ capex: { ...four, prev: { ratioPct: 61.2, count: 3 } } }).lights[5].line))
+  check('신호등: 심리 — CNN 다섯 구간 그대로(양 끝 빨강) · CNN 이 아니거나 모르는 구간이면 모름', ['extreme fear', 'fear', 'neutral', 'greed', 'Extreme Greed'].map(rt => colorOf(build({ mood: { ...mood, rating: rt } }), 'mood')).join(',') === 'red,yellow,green,yellow,red' && colorOf(build({ mood: { ...mood, source: 'calc' } }), 'mood') === 'none' && colorOf(build({ mood: { ...mood, rating: 'panic' } }), 'mood') === 'none')
+  check('신호등: 금리차 이력·차트 — 3번 중 침체 1 · 오경보 1 · 1978년부터 · 못 읽는 날짜 줄은 버린다', sig.curveHistory.total === 3 && sig.curveHistory.recession === 1 && sig.curveHistory.falseAlarm === 1 && sig.curveHistory.firstYear === '1978' && sig.curveHistory.medianMonths === 14 && sig.curveSeries.length === 2)
+  const texts = [sig, twoRed, calm, blank, noRedThreeYellow].flatMap(s => [s.overall.line, s.overall.rule, ...s.overall.todo, ...s.groups.map(g => g.line), ...s.lights.flatMap(l => [l.line, l.what, l.rule, l.state])])
+  check('신호등: 문장 — 쌍점으로 끝나지 않는다 · 사라/팔라는 말이 없다 · 빈 문장 없음', texts.every(t => typeof t === 'string' && t.length > 0 && !/:\s*$/.test(t) && !/(매수하세요|매도하세요|사세요|파세요|팔아야|사야 해)/.test(t)))
+  check('신호등: 묶음 한 줄 — 돈줄은 빨강 없이 노랑 1(기업 돈줄) · 거품은 빨강 3', sig.groups[0].line === '빨강은 없고 노랑 1개(기업 돈줄)예요.' && /^빨강 3개\(주식 값 · 설비투자 · 심리\) · 노랑 1개\(빚\)예요\.$/.test(sig.groups[1].line))
 }
 if (fails) { console.log(`\n❌ ${fails}건 실패`); process.exit(1) }
 console.log('\n✅ 전부 통과 (공용 lib 단위)')

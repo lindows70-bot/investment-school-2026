@@ -1,18 +1,13 @@
 // 주글라르(설비투자, 9~10년) 파동 추적기 — 빅테크 하이퍼스케일러 CAPEX 합산 추이로 AI 인프라 사이클 위치 측정
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
+import { HYPERSCALERS } from '@/lib/capexCash'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
-// AI 인프라 CAPEX를 끌고 가는 하이퍼스케일러(클라우드 4강 + 오라클)
-const ANCHORS: { ticker: string; name: string }[] = [
-  { ticker: 'AMZN', name: 'Amazon(AWS)' },
-  { ticker: 'GOOGL', name: 'Alphabet' },
-  { ticker: 'MSFT', name: 'Microsoft' },
-  { ticker: 'META', name: 'Meta' },
-  { ticker: 'ORCL', name: 'Oracle' },
-]
+// AI 인프라 CAPEX를 끌고 가는 하이퍼스케일러(클라우드 4강 + 오라클) — 목록은 lib/capexCash 와 공유(위기 신호등 설비투자 등이 같은 회사를 본다)
+const ANCHORS = HYPERSCALERS
 
 export interface JuglarResult {
   years: { year: string; capexB: number; count: number; yoy: number | null }[]

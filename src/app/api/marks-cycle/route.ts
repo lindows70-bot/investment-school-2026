@@ -6,6 +6,7 @@ export const maxDuration = 60
 
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
+import { FORCED_SPIKE_PCTL } from '@/lib/crisisSignal'
 import { kstDate } from '@/lib/kst'   // 🕒 한국 달력일 SSOT(2026-10-19 — 파일마다 복제돼 있던 한 줄을 모았다)
 
 const clamp = (n: number, lo = 0, hi = 100) => Math.round(Math.max(lo, Math.min(hi, n)))   // 정수 반올림(표시 깔끔)
@@ -116,7 +117,7 @@ export async function GET(req: Request) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const forcedPct = typeof (lev as any)?.misu?.current?.forcedPctPercentile === 'number' ? (lev as any).misu.current.forcedPctPercentile as number : null
   const fear = temp < 42
-  const forced = forcedPct != null && forcedPct >= 60
+  const forced = forcedPct != null && forcedPct >= FORCED_SPIKE_PCTL   // 위기 신호등(빚 등)과 같은 숫자 — lib/crisisSignal
   const opportunity: MarksCycleResult['opportunity'] =
     fear && forced ? { level: 'strong', label: '🩸 강한 역발상 매수 창', msg: '시장 공포 + 강제 청산(반대매매) 동시 — 남들이 팔 수밖에 없을 때 안전마진이 최대. 단 🔪떨어지는 칼날은 제외하고 thesis 멀쩡한 우량주만 분할 매수.' }
     : fear ? { level: 'fear', label: '🌊 공포 확산 — 안전마진 관찰', msg: '심리가 공포로 기울었다 — 우량주가 싸지는지 알파헌터·수급 소외주로 관찰(추격 금지·분할).' }
