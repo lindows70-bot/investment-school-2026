@@ -30,14 +30,15 @@ export default function CrisisSignalCard() {
 
   return (
     <section aria-label="위기 신호등" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
-      <Link href="/s/signal" aria-label="위기 신호등 자세히 보기" style={{ display: 'flex', alignItems: 'center', gap: SP.md, minHeight: 44, minWidth: 0, textDecoration: 'none', color: TK.slate200 }}>
-        <TrafficLight color={d ? d.overall.color : 'none'} lamp={18} />
-        <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: SP.xs }}>
-          <span style={{ fontSize: FS.tiny, fontWeight: 600, color: TK.sub }}>위기 신호등</span>
-          {d ? <SignalCounts counts={d.counts} />
-            : <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.sub }}>{r.state === 'failed' ? '신호등을 못 켰어요' : '신호등을 켜는 중…'}</span>}
+      {/* 머리 줄(신호등 + 제목 + ›)과 개수 줄을 나눈다 — 한 줄에 두면 폰(375)에서 '빨강 3 · 노랑 2' 뒤 '초록 2' 가 다음 줄로 꺾였다(2026-11-21 화면 실측) */}
+      <Link href="/s/signal" aria-label="위기 신호등 자세히 보기" style={{ display: 'flex', flexDirection: 'column', gap: SP.sm, minWidth: 0, textDecoration: 'none', color: TK.slate200 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: SP.sm, minHeight: 44, minWidth: 0 }}>
+          <TrafficLight color={d ? d.overall.color : 'none'} lamp={16} />
+          <span style={{ flex: 1, minWidth: 0, fontSize: FS.body, fontWeight: 700, color: TK.slate100, whiteSpace: 'nowrap' }}>위기 신호등</span>
+          <span style={{ fontSize: FS.tiny, color: TK.sub, flexShrink: 0, whiteSpace: 'nowrap' }}>자세히 ›</span>
         </span>
-        <span aria-hidden style={{ fontSize: FS.lg, color: TK.slate500, flexShrink: 0 }}>›</span>
+        {d ? <SignalCounts counts={d.counts} />
+          : <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.sub }}>{r.state === 'failed' ? '신호등을 못 켰어요' : '신호등을 켜는 중…'}</span>}
       </Link>
 
       {r.state === 'failed' && <FailRow text="신호를 못 가져왔어요." onRetry={r.reload} retryLabel="위기 신호등 다시 불러오기" />}

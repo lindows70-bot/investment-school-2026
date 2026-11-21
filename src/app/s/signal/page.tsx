@@ -117,7 +117,9 @@ export default function StudentSignal() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg, maxWidth: 960 }}>
       <style dangerouslySetInnerHTML={{ __html: `
-        .sg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: ${SP.lg}px; align-items: start }
+        /* 등 카드는 높이가 제각각이라 단(column)으로 흘린다 — 격자로 두면 가장 긴 카드(설비투자 6줄) 옆 칸 아래가 비었다(2026-11-21 1280 실측) */
+        .sg-grid { columns: 300px; column-gap: ${SP.lg}px; margin-bottom: -${SP.lg}px }
+        .sg-grid > * { break-inside: avoid; margin-bottom: ${SP.lg}px; box-sizing: border-box; width: 100% }
         details > summary { list-style: none } details > summary::-webkit-details-marker { display: none }
       ` }} />
       {back}
@@ -164,8 +166,14 @@ export default function StudentSignal() {
           {d.overall.todo.length > 0 && (
             <section aria-label="지금 할 일" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
               <h2 style={h2Style}>지금 할 일</h2>
-              <ol style={{ margin: 0, paddingLeft: SP.xl, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
-                {d.overall.todo.map(t => <li key={t} style={{ fontSize: FS.body, lineHeight: 1.6, color: TK.slate200, wordBreak: 'keep-all' }}>{t}</li>)}
+              {/* 번호는 직접 그린다 — 앱 전역 스타일이 목록 표식을 지워 ol 의 1·2·3 이 안 보였다(2026-11-21 화면 실측) */}
+              <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: SP.sm }}>
+                {d.overall.todo.map((t, i) => (
+                  <li key={t} style={{ display: 'flex', gap: SP.sm, fontSize: FS.body, lineHeight: 1.6, color: TK.slate200, wordBreak: 'keep-all', minWidth: 0 }}>
+                    <span aria-hidden style={{ flexShrink: 0, width: SP.xl, height: SP.xl, borderRadius: '50%', background: TK.bg7, color: TK.slate100, fontSize: FS.tiny, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
+                    <span style={{ minWidth: 0 }}>{t}</span>
+                  </li>
+                ))}
               </ol>
               <span style={noteStyle()}>수업 영상(크로스체크 55편)과 하워드 막스의 원칙 — 극단을 피하고, 빚을 조심하고, 공격과 수비의 무게를 고르는 것 — 에서 가져왔어요. 종목을 사거나 팔라는 말이 아니에요.</span>
             </section>
