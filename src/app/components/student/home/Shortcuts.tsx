@@ -1,9 +1,9 @@
 'use client'
-// 학생 홈 바로가기 — 둥근 아이콘 타일을 가로로 넘기는 한 줄(2026-10-12 사용자 "더리치 메인처럼"). 기록 · 시장 · 일정 · 거장 · 코인 · 부동산 · 브리핑 · 뉴스 · 저울
+// 학생 홈 바로가기 — 둥근 아이콘 타일을 가로로 넘기는 한 줄(2026-10-12 사용자 "더리치 메인처럼"). 기록 · 시장 · 일정 · 거장 · 코인 · 부동산 · 브리핑 · 뉴스 · 저울 · 신호등
 //   5단계(2026-09-28): 목적지는 전부 간편 화면(/s/…) — 분석 화면으로 새지 않는다(verify-simple-mode-exits 가 매일 센다)
 //   폰에선 화면 가장자리까지 흘러 다음 타일이 살짝 보인다(.sh-bleed · page 의 CSS) — "더 있다"는 신호가 글 없이 전해진다
 import Link from 'next/link'
-import { Bitcoin, Building2, CalendarDays, ChartLine, Crown, Newspaper, PencilLine, Scale, Sparkles } from 'lucide-react'
+import { Bitcoin, Building2, CalendarDays, ChartLine, Crown, Newspaper, PencilLine, Scale, Siren, Sparkles } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { TK, FS, SP } from '@/lib/theme'
 
@@ -18,6 +18,7 @@ const ITEMS: { href: string; label: string; Icon: LucideIcon; tint?: string }[] 
   { href: '/s/brief', label: '브리핑', Icon: Sparkles },
   { href: '/s/news', label: '뉴스', Icon: Newspaper },
   { href: '/s/scale', label: '저울', Icon: Scale },
+  { href: '/s/signal', label: '신호등', Icon: Siren },
 ]
 
 export default function Shortcuts() {

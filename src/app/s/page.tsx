@@ -1,5 +1,5 @@
 'use client'
-// 학생 홈 — 인사·검색·바로가기(가로 아이콘 줄)·내 자산·리그/기록·한눈 시황(1·2·3)·시장 카드(가로 넘김)·요즘 강한 분야 3·공포탐욕(1년)·환율(고점·저점)·일정·뉴스·거장. 카드마다 따로 불러와 하나가 느려도 나머지는 뜬다
+// 학생 홈 — 인사·검색·바로가기(가로 아이콘 줄)·위기 신호등·내 자산·리그/기록·한눈 시황(1·2·3)·시장 카드(가로 넘김)·요즘 강한 분야 3·공포탐욕(1년)·환율(고점·저점)·일정·뉴스·거장. 카드마다 따로 불러와 하나가 느려도 나머지는 뜬다
 //   2026-10-12 사용자 "더리치 메인처럼": 가로 바로가기 · 번호 매긴 시황 · 넘기는 시장 카드 · 환율 말풍선 · 일정 날짜 칩을 그 문법대로 옮겼다(docs/student-design/context-notes.md)
 //   강한 분야·공포탐욕 1년·환율은 시장 화면과 같은 /api/market-board/overview 를 **한 번** 불러 나눠 쓴다(그 카드들이 화면에 들어올 때). 자세한 건 시장 화면(/s/market)
 import { useEffect, useState } from 'react'
@@ -23,6 +23,7 @@ import LeagueLine from '@/app/components/student/home/LeagueLine'
 import WeekRecordTile from '@/app/components/student/home/WeekRecordTile'
 import StrongSectorsMini from '@/app/components/student/home/StrongSectorsMini'
 import FxMini from '@/app/components/student/home/FxMini'
+import CrisisSignalCard from '@/app/components/student/home/CrisisSignalCard'
 
 /** 로그인한 나 — id(리그 순위)·이름(인사). undefined = 아직 모름 */
 function useMe() {
@@ -80,6 +81,8 @@ export default function StudentHome() {
       <HomeSearch />
       {/* 바로가기는 검색 바로 아래(더리치와 같은 자리) — 둥근 아이콘 한 줄, 옆으로 넘긴다 */}
       <Shortcuts />
+      {/* 위기 신호등(2026-11-21 사용자 요청: 앱을 켰을 때 쉽게) — 자기 응답 하나만 부른다. 누르면 /s/signal */}
+      <CrisisSignalCard />
       <MyAssetsLine />
       {/* 리그·기록 타일 2열(리디자인 2026-10-09 · docs/student-design) — 첫 화면(375×812)에 인사·내 자산·리그·기록이 스크롤 없이 들어온다 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: SP.md }}>
