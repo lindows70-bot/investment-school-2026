@@ -11,7 +11,7 @@ import { HY_WARN_PP, HY_BAD_PP, HY_SPIKE_PP } from '@/lib/usLiquidity'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const CACHE_KEY = 'crisis-signal-v1'   // 날짜 없는 키 — 신선도는 TTL 로(날짜 키는 영구 누적) · 필드·문구가 바뀌면 올린다
+const CACHE_KEY = 'crisis-signal-v2'   // v2: 주식 값 줄의 음수 기호(−) · 날짜 없는 키 — 신선도는 TTL 로(날짜 키는 영구 누적) · 필드·문구가 바뀌면 올린다
 const TTL = 3600_000
 const STALE_TTL = 48 * 3600_000        // 새로 못 만들 때 보여 줄 마지막 성공분
 

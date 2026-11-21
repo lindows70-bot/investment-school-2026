@@ -190,7 +190,8 @@ function valueLight(x: RadarIn | null): Light {
     : `값을 재는 자 ${ms.length}개 중 ${reds}개가 빨강이에요${greens.length ? ` — ${greens.join(' · ')}만 초록이에요` : ''}.`
   return {
     ...meta, color, state: color === 'red' ? '비쌈' : color === 'yellow' ? '조금 비쌈' : '무난', line,
-    rows: ms.map(m => ({ label: metricName(m.key, m.label), value: `${m.value}${isStr(m.unit) ? m.unit : ''}`, note: `${SIG_KO[m.signal as string]}${isStr(m.norm) ? ` · ${m.norm}` : ''}` })),
+    // 음수는 다른 등과 같은 빼기 기호(−)로 — 한 화면에서 '-0.79' 와 '−0.21' 이 섞였다(2026-11-21 프로덕션 실측)
+    rows: ms.map(m => ({ label: metricName(m.key, m.label), value: `${(m.value as number) < 0 ? '−' : ''}${Math.abs(m.value as number)}${isStr(m.unit) ? m.unit : ''}`, note: `${SIG_KO[m.signal as string]}${isStr(m.norm) ? ` · ${m.norm}` : ''}` })),
     date: ymd(x?.asOf),
   }
 }
