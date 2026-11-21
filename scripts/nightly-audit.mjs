@@ -87,6 +87,7 @@ const INVARIANTS = [
   { file: 'scripts/verify-ipo-cycle.mjs', label: 'IPO 하이프 사이클 — 상장일 = 원천 첫 거래일 · 화면값 = 원천 재계산 · 상장 대기 목록 새 상장 감지' },
   { file: 'scripts/verify-universe-tickers.mjs', label: '종목 목록 생존 — 손으로 적은 950여 종목에 상장폐지·티커 변경이 없는가' },
   { file: 'scripts/verify-cron-health.mjs', label: '크론 상태판 — Vercel 크론 모니터 stale 0(상태판이 잡은 것을 보고서로)' },
+  { file: 'scripts/verify-crisis-signal.mjs', label: '위기 신호등 — 등 색 = 선생님 화면 판정 · 금리차·설비투자 = 원천 재계산 · 출처·날짜 · 못 가져온 등 0' },
 ]
 
 /**
