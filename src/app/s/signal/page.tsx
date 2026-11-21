@@ -1,5 +1,5 @@
 'use client'
-// 학생 '위기 신호등' 상세 — 종합(개수) · 돈줄 신호 3등 · 거품 신호 4등 · 장단기 금리차 1년 차트 · 지금 할 일 · 막스의 다섯 신호 대조 · 뺀 신호
+// 학생 '위기 신호등' 상세 — 종합(개수) · 돈줄 신호 3등 · 거품 신호 5등(미국 빚 · 한국 빚 포함) · 장단기 금리차 1년 차트 · 지금 할 일 · 막스의 다섯 신호 대조 · 뺀 신호
 //   원천 /api/crisis-signal(lib/crisisSignal) — 색은 선생님 화면들의 판정을 그대로 모은 것. 규칙: 숫자엔 출처·날짜 · 못 가져온 등은 '모름'(초록 아님) ·
 //   사라·팔라 없음 · 종합 점수·확률 없음(개수만) · 글자는 색칠하지 않고 등(동그라미)만 칠한다(등락색과 섞이지 않게)
 //   설계 docs/crisis-signal/plan.md · 2026-11-21 사용자 요청(AI 버블 논쟁 · 수업 영상 EP55 · "장단기 금리차도 같이")
@@ -25,12 +25,11 @@ const MARKS: { no: string; name: string; lights: LightKey[]; note: string }[] = 
   { no: '①', name: '이번엔 다르다', lights: [], note: '새 기술이 모든 걸 바꾸니 옛 잣대는 필요 없다는 믿음이에요. 믿음이라 숫자로 못 재요.' },
   { no: '②', name: '실패할 리 없다', lights: [], note: '1등 회사는 절대 손해 볼 수 없다는 믿음이에요. 이것도 숫자로 못 재요.' },
   { no: '③', name: '어떤 값도 비싸지 않다', lights: ['value'], note: '값을 따져 보기를 그만두는 태도예요. 주식 값 등이 이걸 봐요.' },
-  { no: '④', name: '쉬운 돈(빚)', lights: ['debt', 'capex', 'credit'], note: '빌린 돈이 쉽게 풀리는지예요. 빚 · 설비투자 · 기업 돈줄 등이 이걸 봐요.' },
+  { no: '④', name: '쉬운 돈(빚)', lights: ['usdebt', 'debt', 'capex', 'credit'], note: '빌린 돈이 쉽게 풀리는지예요. 미국 빚 · 한국 빚 · 설비투자 · 기업 돈줄 등이 이걸 봐요.' },
   { no: '⑤', name: '나만 빠질 수 없다', lights: ['mood'], note: '남들만 버는 것 같아 뒤늦게 뛰어드는 마음이에요. 심리 등이 이걸 봐요.' },
 ]
 const EXCLUDED: { name: string; why: string }[] = [
   { name: 'VIX(변동성 지수) 단독', why: '공포·탐욕 지수 안에 이미 들어 있어요. 따로 세면 같은 걸 두 번 세게 돼요. 값은 심리 등에 곁들여 보여요.' },
-  { name: '미국 신용잔고(증권사에서 빌린 돈)', why: '한 달 늦게 나오고, 앱에 아직 믿을 만한 원천을 붙이지 못했어요. 빚 등은 한국 숫자로만 재요.' },
   { name: '4계절(경기·물가) 판정', why: '계절은 무엇이 유리한가를 보는 다른 질문이에요. 위기 신호와 섞으면 둘 다 흐려져요.' },
   { name: '주가가 얼마나 빠졌나', why: '빠진 폭은 결과지 원인이 아니에요. 이 화면은 값 대신 빚과 돈줄을 봐요.' },
   { name: '침체 공식 선언(NBER)', why: '침체가 시작되고 여러 달 뒤에야 나와요. 경고로는 못 써요.' },
@@ -128,7 +127,7 @@ export default function StudentSignal() {
         <p style={{ margin: 0, fontSize: FS.tiny, color: TK.sub, wordBreak: 'keep-all' }}>앞날을 맞히는 기계가 아니에요 — 어디를 봐야 하는지 알려 줘요. 사라·팔라는 말은 하지 않아요.</p>
       </header>
 
-      {(r.state === 'idle' || r.state === 'loading') && <div style={card}><span style={noteStyle()}>등 일곱 개를 켜는 중… 처음엔 조금 걸릴 수 있어요.</span></div>}
+      {(r.state === 'idle' || r.state === 'loading') && <div style={card}><span style={noteStyle()}>등을 켜는 중… 처음엔 조금 걸릴 수 있어요.</span></div>}
       {r.state === 'failed' && <div style={card}><FailRow text="신호를 못 가져왔어요." onRetry={r.reload} retryLabel="위기 신호등 다시 불러오기" /></div>}
       {r.state === 'ok' && !d && <div style={card}><FailRow text="신호가 아직 안 잡혔어요 — 잠시 뒤 다시 열어 보세요." onRetry={r.reload} retryLabel="위기 신호등 다시 불러오기" /></div>}
 

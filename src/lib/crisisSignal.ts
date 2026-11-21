@@ -1,12 +1,13 @@
 // 위기 신호등 조립기(순수 함수 · 의존성 0) — 앱이 이미 가진 판정(수익률곡선·하이일드·삼의 법칙·위기 레이더·빚투 레이더·공포탐욕)과
-//   설비투자÷번 돈을 등 7개로 묶어 학생 말로 옮긴다. 새 판정은 만들지 않는다 — 색은 각 SSOT 가 이미 내린 판정을 그대로 옮긴 것이다.
+//   설비투자÷번 돈·미국 신용잔고를 등 8개로 묶어 학생 말로 옮긴다. 새 판정은 만들지 않는다 — 색은 각 SSOT 가 이미 내린 판정을 그대로 옮긴 것이다.
 //   설계 docs/crisis-signal/plan.md · 2026-11-21 사용자 요청(AI 버블 논쟁 · 영상 EP55 · "장단기 금리차도 같이")
 //   ⛔ 종합 점수·확률 없음(개수만) · 사라/팔라 없음 · 못 가져온 등은 초록이 아니라 '모름'(none) · 숫자마다 출처와 날짜
 import type { CapexCash } from '@/lib/capexCash'
+import type { UsMargin } from '@/lib/usMargin'
 
 export type LightColor = 'red' | 'yellow' | 'green' | 'none'
 export type LightGroup = 'money' | 'bubble'
-export type LightKey = 'curve' | 'credit' | 'jobs' | 'value' | 'debt' | 'capex' | 'mood'
+export type LightKey = 'curve' | 'credit' | 'jobs' | 'value' | 'usdebt' | 'debt' | 'capex' | 'mood'
 
 export interface LightRow { label: string; value: string; note?: string }
 export interface Light {
@@ -62,12 +63,17 @@ export interface LeverageIn {
   series?: unknown[]
 }
 export interface MoodIn { source?: unknown; partyScore?: unknown; rating?: unknown; prevClose?: unknown; prev1Week?: unknown; prev1Month?: unknown; vix?: unknown; asOf?: unknown }
-export interface SignalRules { flatPp: number; redDays: number; historyMinDays: number; sahmPp: number; hyWarn: number; hyBad: number; hySpike: number; capexRed: number; capexYellow: number }
+export interface SignalRules {
+  flatPp: number; redDays: number; historyMinDays: number; sahmPp: number; hyWarn: number; hyBad: number; hySpike: number; capexRed: number; capexYellow: number
+  /** 빚 판정 자리(lib/leverageLevel) — 위험 · 주의 · 조합(비율 자리 + 잔고 자리) */
+  levDanger: number; levCaution: number; levComboRatio: number; levComboMargin: number; usWindowM: number
+}
 export interface CrisisSignalInput {
   now: string
   curve: CurveIn | null
   liquidity: LiquidityIn | null
   radar: RadarIn | null
+  usMargin: UsMargin | null
   leverage: LeverageIn | null
   mood: MoodIn | null
   capex: CapexCash | null
@@ -196,10 +202,38 @@ function valueLight(x: RadarIn | null): Light {
   }
 }
 
-// ── ⑤ 빚(한국 신용융자 · 반대매매) ──
+// ── ⑤ 미국 빚(FINRA 신용잔고) — 위기의 진원지는 미국이라 한국보다 먼저 본다(2026-11-22 사용자 지시) ──
+const usdJo = (m: number) => `$${(m / 1_000_000).toFixed(2)}조`   // 백만 달러 → 조 달러
+const ymDot = (ym: string) => `${ym.slice(0, 4)}.${Number(ym.slice(5, 7))}`
+function usDebtLight(x: UsMargin | null, r: SignalRules): Light {
+  const meta: Meta = {
+    key: 'usdebt', group: 'bubble', name: '미국 빚', title: '미국 빚 — 증권사에서 빌려 산 주식',
+    what: '미국 투자자가 증권사에서 돈을 빌려 주식을 산 금액이에요(신용잔고). 값이 내리면 담보가 모자라 강제로 팔리고, 그 매도가 값을 또 내려요. 수업 영상의 풀이로는, 하루에 5%, 10%씩 빠지는 날이 나오는 건 회사가 하루 만에 나빠져서가 아니라 이 빚이 풀리는 속도 때문이에요.',
+    rule: `한국 빚 등과 같은 규칙이에요. 빌린 돈 ÷ 맡겨 둔 돈 비율을 최근 ${r.usWindowM}개월과 줄 세워, ${r.levDanger}% 자리 이상이면 빨강 · ${r.levCaution}% 자리 이상이면 노랑이에요(비율이 ${r.levComboRatio}% 자리 이상이면서 빌린 돈 자체가 ${r.levComboMargin}% 자리 이상이어도 빨강).`,
+    source: 'FINRA Margin Statistics(미국 금융산업규제기구 · 월별)', dateKind: '기준월',
+  }
+  if (!x || !isNum(x.debitM) || !isNum(x.freeM) || !isNum(x.ratioPct) || !(x.level === 'danger' || x.level === 'caution' || x.level === 'stable') || !/^\d{4}-\d{2}$/.test(x.ym)) return none(meta)
+  const color: LightColor = x.level === 'danger' ? 'red' : x.level === 'caution' ? 'yellow' : 'green'
+  const times = (x.ratioPct / 100).toFixed(1)
+  const peakTail = x.peak.ym === x.ym ? ' 지금이 기록상 가장 많아요.' : ` 가장 많았던 ${ymDot(x.peak.ym)}보다는 ${Math.abs(x.fromPeakPct).toFixed(1)}% 적어요.`
+  const head = `미국 투자자가 증권사에서 빌린 돈이 ${usdJo(x.debitM)} 달러예요`
+  const line =
+    color === 'red' ? `${head} — 맡겨 둔 돈의 ${times}배로, 최근 ${x.windowMonths}개월 가운데 맨 위쪽이에요.${peakTail}`
+    : color === 'yellow' ? `${head} — 맡겨 둔 돈의 ${times}배로, 평소보다 많이 쌓였어요.${peakTail}`
+    : `${head} — 맡겨 둔 돈의 ${times}배로, 최근 ${x.windowMonths}개월 가운데 평소 수준이에요.${peakTail}`
+  const rows: LightRow[] = [
+    { label: '신용잔고(빌린 돈)', value: usdJo(x.debitM), ...(x.yoyPct != null ? { note: `1년 전 같은 달보다 ${signed(x.yoyPct, 1)}%` } : {}) },
+    { label: '기록상 가장 많았던 달', value: usdJo(x.peak.debitM), note: `${ymDot(x.peak.ym)}${x.peak.ym === x.ym ? ' · 지금' : ` · 지금은 그보다 ${signed(x.fromPeakPct, 1)}%`} · ${ymDot(x.historyFrom)}부터의 기록` },
+    { label: '빌린 돈 ÷ 맡겨 둔 돈', value: `${x.ratioPct}%`, note: `최근 ${x.windowMonths}개월을 줄 세우면 아래에서 ${x.ratioPercentile}% 자리(빌린 돈 자체는 ${x.marginPercentile}% 자리)` },
+  ]
+  if (x.baseRate && x.baseRate.months > 0) rows.push({ label: '같은 규칙으로 본 과거', value: `${x.baseRate.months}개월 중 ${x.baseRate.danger}개월이 빨강`, note: `${ymDot(x.baseRate.since)}부터 — 빚은 오래 쌓인 뒤에 풀려요. 빨강이 곧 하락이라는 뜻은 아니에요` })
+  return { ...meta, color, state: color === 'red' ? '과열' : color === 'yellow' ? '쌓임' : '잠잠', line, rows, date: x.ym }
+}
+
+// ── ⑥ 한국 빚(신용융자 · 반대매매) ──
 function debtLight(x: LeverageIn | null): Light {
   const meta: Meta = {
-    key: 'debt', group: 'bubble', name: '빚', title: '빚 — 빌려서 산 주식과 강제청산',
+    key: 'debt', group: 'bubble', name: '한국 빚', title: '한국 빚 — 빌려서 산 주식과 강제청산',
     what: '한국 개인이 증권사에서 빌려 산 주식 금액(신용융자)과, 돈을 못 채워 강제로 팔린 비중(반대매매)이에요. 빚이 끼면 같은 하락도 더 깊어져요 — 값이 내리면 담보가 모자라 강제로 팔리고, 그 매도가 값을 또 내려요.',
     rule: `빨강·노랑·초록은 선생님 화면 빚투 레이더의 판정(신용융자÷예탁금 비율이 최근 이력에서 얼마나 높은 자리인가)을 그대로 써요. 초록이어도 반대매매 비중이 최근 이력의 ${FORCED_SPIKE_PCTL}% 자리 이상이면 노랑으로 올려요.`,
     source: '네이버 증권(고객예탁금·신용잔고) · 금융투자협회(미수금·반대매매)', dateKind: '기준일',
@@ -228,7 +262,7 @@ function debtLight(x: LeverageIn | null): Light {
   return { ...meta, color, state, line, rows, date: ymd(c.date) }
 }
 
-// ── ⑥ 설비투자 ÷ 번 돈(빅테크) ──
+// ── ⑦ 설비투자 ÷ 번 돈(빅테크) ──
 const usdEok = (m: number) => `$${Math.round(m / 100).toLocaleString('en-US')}억`   // 백만 달러 → 억 달러
 function capexLight(x: CapexCash | null, r: SignalRules): Light {
   const meta: Meta = {
@@ -253,7 +287,7 @@ function capexLight(x: CapexCash | null, r: SignalRules): Light {
   return { ...meta, color, state: color === 'red' ? '번 돈보다 더 씀' : color === 'yellow' ? '절반 넘음' : '번 돈 안', line, rows, date: ymd(x.latestDate) }
 }
 
-// ── ⑦ 심리(공포·탐욕) ──
+// ── ⑧ 심리(공포·탐욕) ──
 const MOOD: Record<string, { color: LightColor; ko: string; be: string; tail: string }> = {
   'extreme fear': { color: 'red', ko: '극단 공포', be: '극단 공포예요', tail: '겁에 질려 던지는 물량과 강제청산이 나오는 때예요.' },
   fear: { color: 'yellow', ko: '공포', be: '공포예요', tail: '겁이 커진 쪽이에요.' },
@@ -303,7 +337,7 @@ export function buildCrisisSignal(inp: CrisisSignalInput): CrisisSignal {
   const r = inp.rules
   const lights: Light[] = [
     curveLight(inp.curve, r), creditLight(inp.liquidity, r), jobsLight(inp.curve, r),
-    valueLight(inp.radar), debtLight(inp.leverage), capexLight(inp.capex, r), moodLight(inp.mood),
+    valueLight(inp.radar), usDebtLight(inp.usMargin, r), debtLight(inp.leverage), capexLight(inp.capex, r), moodLight(inp.mood),
   ]
   const counts: Record<LightColor, number> = { red: 0, yellow: 0, green: 0, none: 0 }
   for (const l of lights) counts[l.color]++
@@ -338,7 +372,7 @@ export function buildCrisisSignal(inp: CrisisSignalInput): CrisisSignal {
     overall: { color, headline, line, rule, todo: color === 'none' ? [] : TODO[color] },
     groups: [
       { key: 'money', name: '돈줄 신호', hint: '금융위기와 침체 앞에 먼저 켜지던 등 — 채권·신용·일자리', line: groupLine('money') },
-      { key: 'bubble', name: '거품 신호', hint: '값 · 빚 · 설비투자 · 심리 — 막스의 다섯 신호 중 숫자로 잴 수 있는 것', line: groupLine('bubble') },
+      { key: 'bubble', name: '거품 신호', hint: '값 · 빚(미국 · 한국) · 설비투자 · 심리 — 막스의 다섯 신호 중 숫자로 잴 수 있는 것', line: groupLine('bubble') },
     ],
     curveSeries: series,
     curveHistory: curveHistoryOf(inp.curve, r),

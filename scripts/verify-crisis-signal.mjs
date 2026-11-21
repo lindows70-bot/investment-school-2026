@@ -18,12 +18,13 @@ const get = async (url, headers = {}) => { try { const r = await fetch(url, { he
 const daysOld = ymd => Math.floor((Date.now() - Date.parse(`${ymd.length === 7 ? `${ymd}-01` : ymd}T00:00:00Z`)) / 86_400_000)
 
 const sig = await get(`${APP}/api/crisis-signal`)
-check('응답 — 등 7개 · 개수 합 = 7', Array.isArray(sig?.lights) && sig.lights.length === 7 && sig.total === 7 && Object.values(sig.counts ?? {}).reduce((s, n) => s + n, 0) === 7)
+const N = 8   // 돈줄 3(금리차·기업 돈줄·일자리) + 거품 5(주식 값·미국 빚·한국 빚·설비투자·심리)
+check(`응답 — 등 ${N}개 · 개수 합 = ${N}`, Array.isArray(sig?.lights) && sig.lights.length === N && sig.total === N && Object.values(sig.counts ?? {}).reduce((s, n) => s + n, 0) === N)
 if (!sig?.lights) { console.log('\n❌ 응답이 없어 나머지 검사를 못 했습니다 (위기 신호등)'); process.exitCode = 1 }
 else {
   const L = k => sig.lights.find(l => l.key === k)
   const measured = sig.lights.filter(l => l.color !== 'none')
-  check(`못 가져온 등 0개(지금 ${7 - measured.length}개) · 마지막 성공분으로 버티는 중이 아님`, measured.length === 7 && !sig.stale, sig.lights.filter(l => l.color === 'none').map(l => l.name).join(' · ') + (sig.stale ? ' · stale' : ''))
+  check(`못 가져온 등 0개(지금 ${N - measured.length}개) · 마지막 성공분으로 버티는 중이 아님`, measured.length === N && !sig.stale, sig.lights.filter(l => l.color === 'none').map(l => l.name).join(' · ') + (sig.stale ? ' · stale' : ''))
   check('잰 등마다 출처·날짜·근거 숫자가 있다(이름표 없는 숫자 금지)', measured.every(l => l.source && l.date && l.rows.length > 0 && l.line), measured.filter(l => !(l.source && l.date && l.rows.length)).map(l => l.name).join(' · '))
   check('문장이 쌍점으로 끝나지 않는다', [sig.overall.line, ...sig.lights.map(l => l.line)].every(t => !/:\s*$/.test(t)))
 
@@ -51,6 +52,25 @@ else {
   check(`빚 등 = 빚투 레이더(${lv}) + 반대매매 백분위 ${fp}(${FORCED}↑ 이면 초록→노랑) → ${debtWant}`, !!debtWant && L('debt').color === debtWant, `신호등 ${L('debt').color}`)
   const moodWant = mood?.source === 'cnn' ? { 'extreme fear': 'red', fear: 'yellow', neutral: 'green', greed: 'yellow', 'extreme greed': 'red' }[String(mood.rating).toLowerCase()] : 'none'
   check(`심리 등 = CNN 구간(${mood?.rating} → ${moodWant})`, !!moodWant && L('mood').color === moodWant, `신호등 ${L('mood').color}`)
+
+  // ── 미국 빚: FINRA 페이지의 최근 13개월 표(앱은 이력 xlsx 를 읽는다 — 같은 원천의 다른 형식으로 대조) ──
+  const us = L('usdebt')
+  const page = await fetch('https://www.finra.org/rules-guidance/key-topics/margin-accounts/margin-statistics', { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36' }, signal: AbortSignal.timeout(30_000) }).then(r => r.ok ? r.text() : '').catch(() => '')
+  const MON = { Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06', Jul: '07', Aug: '08', Sep: '09', Sept: '09', Oct: '10', Nov: '11', Dec: '12' }
+  const fin = Array.from(page.matchAll(/<tr[^>]*>\s*<td[^>]*>\s*([A-Za-z]{3,4})-(\d{2})\s*<\/td>\s*<td[^>]*>\s*([\d,]+)\s*<\/td>\s*<td[^>]*>\s*([\d,]+)\s*<\/td>\s*<td[^>]*>\s*([\d,]+)\s*<\/td>/g))
+    .map(m => ({ ym: `20${m[2]}-${MON[m[1]]}`, debit: Number(m[3].replace(/,/g, '')), free: Number(m[4].replace(/,/g, '')) + Number(m[5].replace(/,/g, '')) })).sort((a, b) => a.ym < b.ym ? -1 : 1)
+  const f0 = fin[fin.length - 1]
+  const jo = m => `$${(m / 1_000_000).toFixed(2)}조`
+  check(`미국 빚 값 = FINRA 페이지(${f0?.ym} · ${f0?.debit?.toLocaleString('en-US')}백만 달러 · 비율 ${f0 ? Math.round(f0.debit / f0.free * 100) : '?'}%)`, /\(shown in \$ millions\)/.test(page.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')) && fin.length >= 12 && us.date === f0.ym && us.rows[0]?.value === jo(f0.debit) && us.rows[2]?.value === `${Math.round(f0.debit / f0.free * 100)}%`, `화면 ${us.date} · ${us.rows[0]?.value} · ${us.rows[2]?.value}`)
+  const y1 = fin.find(x => x.ym === `${Number(f0?.ym.slice(0, 4)) - 1}${f0?.ym.slice(4)}`)
+  const yoy = y1 ? (f0.debit / y1.debit - 1) * 100 : NaN
+  check(`미국 빚 1년 전 대비 = FINRA 페이지 재계산(${yoy.toFixed(1)}%)`, Number.isFinite(yoy) && us.rows[0]?.note === `1년 전 같은 달보다 ${yoy > 0 ? '+' : yoy < 0 ? '−' : ''}${Math.abs(yoy).toFixed(1)}%`, `화면 ${us.rows[0]?.note}`)
+  // 색 = 화면에 적힌 두 자리(비율·잔고 백분위)에 lib 규칙을 댄 결과 — 규칙 숫자는 lib 원문에서 읽는다
+  const lvSrc = readFileSync(`${ROOT}/src/lib/leverageLevel.ts`, 'utf8')
+  const LVK = name => Number(lvSrc.match(new RegExp(`export const ${name} = (\\d+)`))?.[1])
+  const [rp, mp] = [/아래에서 (\d+)% 자리/.exec(us.rows[2]?.note ?? '')?.[1], /빌린 돈 자체는 (\d+)% 자리/.exec(us.rows[2]?.note ?? '')?.[1]].map(Number)
+  const usWant = rp >= LVK('LEV_DANGER_PCTL') || (rp >= LVK('LEV_COMBO_RATIO_PCTL') && mp >= LVK('LEV_COMBO_MARGIN_PCTL')) ? 'red' : rp >= LVK('LEV_CAUTION_PCTL') ? 'yellow' : 'green'
+  check(`미국 빚 등 = 빚 판정 규칙(비율 ${rp}% 자리 · 잔고 ${mp}% 자리 → ${usWant})`, Number.isFinite(rp) && Number.isFinite(mp) && us.color === usWant, `신호등 ${us.color}`)
 
   // ── 원천 독립 재계산 ①: 장단기 금리차(FRED) ──
   if (FRED_KEY) {
@@ -80,8 +100,8 @@ else {
   check(`설비투자 합계 = 야후 재계산(${kept.length}곳 · ${ratio.toFixed(1)}% · 분기 끝 ${newest})`, tickers.length >= 4 && kept.length >= tickers.length - 1 && Math.abs(shown - ratio) <= 1 && cx.date === newest, `화면 ${shown}% · ${cx.date}`)
   check(`설비투자 색 = 선(100% 초과 빨강 · 50% 초과 노랑)`, cx.color === (ratio > 100 ? 'red' : ratio > 50 ? 'yellow' : 'green'), `화면 ${cx.color}`)
 
-  // ── 날짜가 낡지 않았는가(조용히 멈춘 원천) — 일별 10일 · 월별 75일 · 분기 150일 ──
-  const LIMIT = { curve: 10, credit: 10, jobs: 75, value: 3, debt: 10, capex: 150, mood: 3 }
+  // ── 날짜가 낡지 않았는가(조용히 멈춘 원천) — 일별 10일 · 월별 75~95일 · 분기 150일 ──
+  const LIMIT = { curve: 10, credit: 10, jobs: 75, value: 3, usdebt: 95, debt: 10, capex: 150, mood: 3 }   // 미국 빚 = 월 통계(다음 달 셋째 주 발표)
   const old = measured.filter(l => daysOld(l.date) > LIMIT[l.key]).map(l => `${l.name} ${l.date}(${daysOld(l.date)}일 전)`)
   check('등마다 날짜가 최근이다', old.length === 0, old.join(' · '))
 }
