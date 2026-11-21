@@ -216,7 +216,8 @@ function usDebtLight(x: UsMargin | null, r: SignalRules): Light {
   const color: LightColor = x.level === 'danger' ? 'red' : x.level === 'caution' ? 'yellow' : 'green'
   const times = (x.ratioPct / 100).toFixed(1)
   const peakTail = x.peak.ym === x.ym ? ' 지금이 기록상 가장 많아요.' : ` 가장 많았던 ${ymDot(x.peak.ym)}보다는 ${Math.abs(x.fromPeakPct).toFixed(1)}% 적어요.`
-  const head = `미국 투자자가 증권사에서 빌린 돈이 ${usdJo(x.debitM)} 달러예요`
+  // 문장에선 기호($) 없이 "1.45조 달러" — 표 칸($1.45조)과 달리 기호와 낱말이 겹쳐 "$1.45조 달러"로 읽혔다(2026-11-22 화면 실측)
+  const head = `미국 투자자가 증권사에서 빌린 돈이 ${(x.debitM / 1_000_000).toFixed(2)}조 달러예요`
   const line =
     color === 'red' ? `${head} — 맡겨 둔 돈의 ${times}배로, 최근 ${x.windowMonths}개월 가운데 맨 위쪽이에요.${peakTail}`
     : color === 'yellow' ? `${head} — 맡겨 둔 돈의 ${times}배로, 평소보다 많이 쌓였어요.${peakTail}`

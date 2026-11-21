@@ -13,7 +13,7 @@ import { LEV_DANGER_PCTL, LEV_CAUTION_PCTL, LEV_COMBO_RATIO_PCTL, LEV_COMBO_MARG
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const CACHE_KEY = 'crisis-signal-v3'   // v3: 미국 빚 등(FINRA 신용잔고) 추가 · 빚 → 한국 빚 · v2: 주식 값 줄의 음수 기호(−) · 날짜 없는 키 — 신선도는 TTL 로(날짜 키는 영구 누적) · 필드·문구가 바뀌면 올린다
+const CACHE_KEY = 'crisis-signal-v4'   // v4: 미국 빚 문장의 금액 표기 · v3: 미국 빚 등(FINRA 신용잔고) 추가 · 빚 → 한국 빚 · v2: 주식 값 줄의 음수 기호(−) · 날짜 없는 키 — 신선도는 TTL 로(날짜 키는 영구 누적) · 필드·문구가 바뀌면 올린다
 const TTL = 3600_000
 const STALE_TTL = 48 * 3600_000        // 새로 못 만들 때 보여 줄 마지막 성공분
 const US_MARGIN_FAIL_KEY = 'us-margin-fail-v1'   // FINRA 조회 실패 표식(30분) — 날짜 없는 키
