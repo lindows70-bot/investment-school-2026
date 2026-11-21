@@ -71,7 +71,7 @@ async function multplSeries(path: string): Promise<{ date: string; v: number }[]
 
 export async function GET() {
   // v9: 선행 PER 미수집 시 후행으로 **축을 함께** 전환(라벨·판정·게이지) — 옛 응답엔 잘못된 판정이 박혀 있어 반드시 범프
-  const cacheKey = 'crisis-radar-v9'   // v8: explain 의 작성시점 하드코딩 제거 + 허위 인용 제거(내용만 바뀌어도 키를 올린다)
+  const cacheKey = 'crisis-radar-v10'   // v10(2026-11-21): 선행 PER 문구를 값에서 뽑는다(옛 응답엔 "평균보다 높아 주의"가 박혀 있다) · v8: explain 의 작성시점 하드코딩 제거 + 허위 인용 제거(내용만 바뀌어도 키를 올린다)
   const cached = await getCache<CrisisRadarResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
@@ -137,6 +137,12 @@ export async function GET() {
   //       값은 그대로 보여주되 라벨·잣대·게이지를 **후행 규격으로 함께** 바꾼다.
   //    후행 규격 16/25 는 지어낸 값이 아니라 이 카드의 차트 기준선이 이미 쓰던 값이다
   //    (CrisisRadar.tsx 의 `m.key === 'pe'` 분기 — 평균16·위험25).
+  // 선행 PER 을 평균과 견준 말·판정 이름은 **값에서** 뽑는다 — 2026-11-21 실측: 값은 17.1배(판정 '보통')인데
+  //   문구는 "5년평균 19.8·10년평균 19.1보다 높아 '주의'"로 박혀 있어 한 카드 안에서 숫자와 말이 반대였다
+  const fwdVsAvg = fwd && fwd.avg5 != null
+    ? `5년평균 ${fwd.avg5}배${fwd.avg10 != null ? `·10년평균 ${fwd.avg10}배` : ''}와 견주면 5년평균보다 ${fwd.fwd > fwd.avg5 ? '높습니다' : fwd.fwd < fwd.avg5 ? '낮습니다' : '높지도 낮지도 않습니다'}`
+    : null
+  const fwdSignalKo = fwd ? (fwd.fwd >= 22 ? '위험' : fwd.fwd >= 18 ? '주의' : '보통') : null
   metrics.push({
     key: 'pe',
     label: fwd ? 'S&P 500 선행 PER' : 'S&P 500 후행 PER',
@@ -149,10 +155,10 @@ export async function GET() {
     // 선행이 없으면 **판정 보류** — 다른 잣대(후행)로 잰 값에 선행 판정을 붙이지 않는다.
     signal: fwd == null ? 'caution' : fwd.fwd >= 22 ? 'danger' : fwd.fwd >= 18 ? 'caution' : 'safe',
     note: fwd
-      ? `선행 ${fwd.fwd}배(FactSet ${fwd.date} 실측) — 향후 1년 예상이익 기준. 5년평균 ${fwd.avg5}·10년평균 ${fwd.avg10}보다 높아 '주의'. 참고: 후행(확정이익) PER은 ${pe ?? '—'}배로 더 비쌈(성장 기대가 큰 만큼 선행이 낮게 나옴).`
+      ? `선행 ${fwd.fwd}배(FactSet ${fwd.date} 실측) — 향후 1년 예상이익 기준. ${fwdVsAvg ? `${fwdVsAvg}. ` : ''}앱 판정 '${fwdSignalKo}'(18배↑ 주의·22배↑ 위험).${pe != null ? ` 참고: 후행(확정이익) PER은 ${pe}배${pe > fwd.fwd ? '로 더 높습니다(이익이 늘 것이라는 기대만큼 선행이 낮게 나옵니다)' : '입니다'}.` : ''}`
       : (pe == null ? '데이터 조회 실패' : `선행 PER 미수집(선생님 PC 러너가 주 1회 적재) → 지금 보이는 ${pe}배는 **후행**(확정이익) 값이고, 선행 기준 판정은 보류했습니다.`),
     explain: fwd
-      ? `주가를 **향후 1년 예상이익**으로 나눈 값(월가 애널리스트 컨센서스). 뉴스에서 가장 많이 인용하는 밸류에이션. 현재 ${fwd.fwd}배 = FactSet(권위 원천)의 매주 발표치. 5년평균 ${fwd.avg5}배보다 조금 높아 '주의'. 후행 PER(확정이익 기준 ${pe}배)보다 낮은 건, 시장이 앞으로 이익이 크게 늘 것으로 기대(AI 등)하기 때문입니다.`
+      ? `주가를 **향후 1년 예상이익**으로 나눈 값(월가 애널리스트 컨센서스). 뉴스에서 가장 많이 인용하는 밸류에이션. 현재 ${fwd.fwd}배 = FactSet(권위 원천)의 매주 발표치.${fwdVsAvg ? ` ${fwdVsAvg}.` : ''}${pe != null && pe > fwd.fwd ? ` 후행 PER(확정이익 기준 ${pe}배)보다 낮은 건, 시장이 앞으로 이익이 크게 늘 것으로 기대(AI 등)하기 때문입니다.` : ''}`
       : `지금은 **후행 PER**입니다 — 주가를 **지난 1년 확정이익**으로 나눈 값. 원래 보여주려던 선행 PER(향후 1년 예상이익 기준)은 FactSet 주간 발표치라 선생님 PC 러너가 적재하는데, 아직 안 들어왔습니다. 두 숫자는 잣대가 달라(보통 후행이 더 큽니다) 선행 기준 판정은 붙이지 않았습니다.`,
     alertText: fwd == null
       ? '선행 PER 미수집 — 판정 보류'
