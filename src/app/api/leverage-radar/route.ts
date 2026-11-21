@@ -2,6 +2,7 @@
 // 판정은 절대 임계 하드코딩 대신 최근 이력 분포(백분위)로 결정론 산출. 시뮬레이터 없음 — 실데이터 표시 전용.
 import { NextResponse } from 'next/server'
 import { getCache, setCache } from '@/lib/appCache'
+import { percentileOf as pct, leverageLevel } from '@/lib/leverageLevel'   // 판정 규칙 SSOT — 미국 신용잔고(lib/usMargin)와 같은 잣대
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 40
@@ -50,8 +51,6 @@ async function fetchPage(page: number): Promise<{ date: string; deposit: number;
     return out
   } catch { return null }
 }
-
-const pct = (arr: number[], v: number) => Math.round((arr.filter(x => x <= v).length / arr.length) * 100)
 
 // 금융투자협회 FreeSIS — 투자자예탁금·위탁매매 미수금·반대매매 (무인증 JSON POST, 단위 천원 → 억원 환산)
 // 검증: TMPV5 미수금·TMPV6 반대매매금액·TMPV7 비중(%). 2023-10-20 비중 54.9% = 당시 '역대 최고' 보도와 정확 일치.
@@ -110,9 +109,7 @@ export async function GET() {
   const m20 = series.length > 20 ? series[series.length - 21].margin : cur.margin
   const margin20dChgPct = Math.round(((cur.margin - m20) / m20) * 1000) / 10
   // 경보: 빚투 비율 백분위 주신호 + 신용잔고 자체 백분위 보조(둘 다 극단이면 위험)
-  const level: LeverageRadarResult['current']['level'] =
-    ratioPercentile >= 80 || (ratioPercentile >= 65 && marginPercentile >= 90) ? 'danger'
-    : ratioPercentile >= 60 ? 'caution' : 'stable'
+  const level: LeverageRadarResult['current']['level'] = leverageLevel(ratioPercentile, marginPercentile)
 
   const peakDay = series.reduce((w, s) => (s.margin > w.margin ? s : w), series[0])
   const troughDay = series.reduce((w, s) => (s.margin < w.margin ? s : w), series[0])
