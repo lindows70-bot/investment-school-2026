@@ -146,6 +146,8 @@ export const RED_MIN_DAYS = 20
 export const HISTORY_MIN_DAYS = 10
 /** 🟡 평탄 경계 */
 export const FLAT_PP = 0.25
+/** 삼의 법칙 — 실업률 석 달 평균이 최근 12개월 저점보다 이만큼(%p) 넘게 오르면 켜진다(지표의 정의) */
+export const SAHM_TRIGGER_PP = 0.5
 
 export async function buildYieldCurve(): Promise<YieldCurveResult | null> {
   const start2y = new Date(Date.now() - 400 * 864e5).toISOString().slice(0, 10)
@@ -295,7 +297,7 @@ export async function buildYieldCurve(): Promise<YieldCurveResult | null> {
     curveDate, curve, curvePrev, curvePrevDate: prevDate,
     shape, shapeNote, spreads, alert, alertHeadline, alertDetail,
     history, leadSummary,
-    sahm: sahmLast ? { v: sahmLast.v, date: sahmLast.date, triggered: sahmLast.v >= 0.5 } : null,
+    sahm: sahmLast ? { v: sahmLast.v, date: sahmLast.date, triggered: sahmLast.v >= SAHM_TRIGGER_PP } : null,
     series,
   }
 }

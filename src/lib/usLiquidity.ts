@@ -10,13 +10,19 @@ import { SEASON_META, type Quadrant } from '@/lib/seasonNavigator'
 import { sectorMeta } from '@/lib/gicsSectorMeta'
 import { getTechCandles, dropIncompleteBar } from '@/lib/techChartData'
 
-export const US_LIQUIDITY_KEY = (kst: string) => `us-liquidity-v1:${kst}`
+export const US_LIQUIDITY_KEY = (kst: string) => `us-liquidity-v2:${kst}`   // v2(2026-11-21): 하이일드 게이지에 기준일(date)
+
+/** 하이일드 스프레드 색을 가르는 선(%p) — 위기 신호등(lib/crisisSignal)이 같은 숫자를 화면에 적는다 */
+export const HY_WARN_PP = 3.4
+export const HY_BAD_PP = 5
+export const HY_SPIKE_PP = 0.5     // 4주 새 이만큼 넘게 뛰면 수준과 상관없이 주의
 
 export type Tone = 'good' | 'warn' | 'bad' | 'neutral'
 export interface Gauge {
   key: string; label: string
   value: string                       // 표시값(단위 포함)
   sub: string | null                  // 기준일·변화
+  date?: string | null                // 기준일(YYYY-MM-DD) — 하이일드만(값과 같은 FRED 행)
   meaning: string                     // 학생용 한 줄 — "이게 뭔 뜻인가"
   tone: Tone
 }
@@ -50,7 +56,7 @@ async function sloos(): Promise<{ v: number; date: string; prev: number | null }
 }
 
 export async function buildUsLiquidity(base: string): Promise<UsLiquidity> {
-  type Weather = { weather: 'clear' | 'cloudy' | 'storm'; emoji: string; label: string; advice: string; hySpread: number | null; hySpike: number | null; netLiquidity: number | null; nlTrend: number | null; nlRising: boolean; source: string }
+  type Weather = { weather: 'clear' | 'cloudy' | 'storm'; emoji: string; label: string; advice: string; hySpread: number | null; hySpike: number | null; hyDate?: string | null; netLiquidity: number | null; nlTrend: number | null; nlRising: boolean; source: string }
   type Curve = { shape: string; shapeNote: string; spreads: { key: string; label: string; value: number | null; date: string | null; invertedDays: number }[]; alert: string; alertHeadline: string }
   type Regime = { fedRate: number; rateDir: 'cut' | 'hold' | 'hike'; rateDirLabel: string; nextFomc: { date: string; dDay: number } | null; label: string; description: string }
   const [w, c, r, season, s, dxy, btc, spx] = await Promise.all([
@@ -74,8 +80,9 @@ export async function buildUsLiquidity(base: string): Promise<UsLiquidity> {
   if (w && w.hySpread != null) {
     const hy = w.hySpread, spike = w.hySpike ?? 0
     gauges.push({ key: 'hy', label: '기업 돈줄 온도(하이일드 스프레드)', value: `${hy.toFixed(2)}%p`, sub: w.hySpike != null ? `4주 ${spike >= 0 ? '+' : ''}${spike.toFixed(2)}%p` : null,
-      meaning: hy > 5 ? '신용등급 낮은 기업이 빌리는 이자가 국채보다 5%p 넘게 비쌉니다 — 부도 공포 구간. 빚 많은 기업이 먼저 흔들립니다.' : hy > 3.4 ? '위험한 기업의 조달 비용이 들썩입니다 — 겁먹을 정도는 아니지만 부채 많은 종목은 점검.' : '신용등급 낮은 기업도 싸게 돈을 빌립니다 — 신용시장이 평온하다는 뜻.',
-      tone: hy > 5 ? 'bad' : hy > 3.4 || spike > 0.5 ? 'warn' : 'good' })
+      meaning: hy > HY_BAD_PP ? '신용등급 낮은 기업이 빌리는 이자가 국채보다 5%p 넘게 비쌉니다 — 부도 공포 구간. 빚 많은 기업이 먼저 흔들립니다.' : hy > HY_WARN_PP ? '위험한 기업의 조달 비용이 들썩입니다 — 겁먹을 정도는 아니지만 부채 많은 종목은 점검.' : '신용등급 낮은 기업도 싸게 돈을 빌립니다 — 신용시장이 평온하다는 뜻.',
+      tone: hy > HY_BAD_PP ? 'bad' : hy > HY_WARN_PP || spike > HY_SPIKE_PP ? 'warn' : 'good',
+      date: typeof w.hyDate === 'string' ? w.hyDate : null })
   } else missing.push('하이일드 스프레드(FRED)')
   // ③ 수익률곡선
   if (c && c.spreads?.length) {

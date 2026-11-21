@@ -29,6 +29,7 @@ export interface MacroWeather {
   lynchQuote:   string
   hySpread:     number | null     // 하이일드 스프레드 (%)
   hySpike:      number | null     // 4주간 변화 (%p, +면 악화)
+  hyDate?:      string | null     // 하이일드 스프레드 기준일(FRED 관측일) — 값과 같은 행에서 온다
   netLiquidity: number | null     // 순유동성 ($조)
   nlTrend:      number | null     // 4주간 변화 ($십억)
   nlRising:     boolean
@@ -120,6 +121,7 @@ export async function GET() {
       weather, ...COPY[weather],
       hySpread:     hyNow != null ? Math.round(hyNow * 100) / 100 : null,
       hySpike:      hySpike != null ? Math.round(hySpike * 100) / 100 : null,
+      hyDate:       hyNow != null ? hy[0]?.date ?? null : null,
       netLiquidity: nlNow != null ? Math.round(nlNow / 1e6 * 100) / 100 : null,   // $조
       nlTrend:      nlTrend != null ? Math.round(nlTrend / 1e3) : null,           // $십억
       nlRising,
