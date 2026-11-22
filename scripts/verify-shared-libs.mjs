@@ -6,7 +6,7 @@ import Module from 'node:module'
 
 const ROOT = 'C:/Users/lindo/investment-school-portfolio'
 const OUT = `${ROOT}/.bt-shared-libs`
-const LIBS = ['googleNews', 'upbit', 'assetRoleRules', 'classifyAsset', 'assetClassifier', 'chunkReload', 'fred', 'kst', 'studentCharts', 'capexCash', 'crisisSignal', 'usMargin', 'leverageLevel']
+const LIBS = ['googleNews', 'upbit', 'assetRoleRules', 'classifyAsset', 'assetClassifier', 'chunkReload', 'fred', 'kst', 'studentCharts', 'capexCash', 'crisisSignal', 'usMargin', 'leverageLevel', 'fedModel', 'vixHistory']
 
 writeFileSync(`${ROOT}/.bt-shared-libs.tsconfig.json`, JSON.stringify({
   extends: `${ROOT}/tsconfig.json`,
@@ -33,6 +33,8 @@ const CX = require(`${OUT}/lib/capexCash.js`)
 const CS = require(`${OUT}/lib/crisisSignal.js`)
 const UM = require(`${OUT}/lib/usMargin.js`)
 const LV = require(`${OUT}/lib/leverageLevel.js`)
+const FM = require(`${OUT}/lib/fedModel.js`)
+const VX = require(`${OUT}/lib/vixHistory.js`)
 
 let fails = 0
 const check = (name, ok, extra = '') => { console.log(`${ok ? '✅' : '❌'} ${name}${extra ? ' — ' + extra : ''}`); if (!ok) fails++ }
@@ -156,6 +158,22 @@ check('KST: UTC 2026-10-18 15:30 = 한국 10-19 · UTC 14:59 = 10-18', KST.kstDa
   check('미국 신용잔고: 창을 못 채우거나 · 창 안에 빠진 달이 있거나 · 예탁금 칸이 비면 null(지어내지 않는다)', UM.usMarginOf(months(38, i => 1000 + i)) === null && UM.usMarginOf(full.filter((_, i) => i !== 50)) === null && UM.usMarginOf(full.map((m, i) => i === 45 ? { ...m, marginM: null } : m)) === null && UM.usMarginOf([]) === null)
   check('미국 신용잔고: 옛 구간에 빈 칸·빠진 달이 있어도 최근 창이 온전하면 판정한다(과거 집계에서만 빠진다)', (() => { const o = UM.usMarginOf(full.map((m, i) => i === 5 ? { ...m, marginM: null } : m).filter((_, i) => i !== 10)); return o?.level === 'danger' && o.baseRate.months === 11 })())
 
+  // ── 야데니 모델(연준 모델) · VIX 긴 이력 ──
+  const fm = FM.fedModelOf({ fwdPe: 17.1, fwdDate: '2026-11-20', y10: 5.04, y10Date: '2026-11-19' })
+  check('야데니 모델: 예상이익 수익률 100÷17.1 = 5.85% · 국채 5.04% → +0.81%p · 제값 PER 19.8배 · 지금은 13.8% 낮다 · 싼 쪽', fm.eyPct === 5.85 && fm.gapPp === 0.81 && fm.fairPe === 19.8 && fm.vsFairPct === -13.8 && fm.cheap === true)
+  check('야데니 모델: 금리가 예상이익 수익률보다 높으면 비싼 쪽 · 같으면 싼 쪽(정의 그대로) · 상식 밖·날짜 없음은 null', FM.fedModelOf({ fwdPe: 25, fwdDate: '2026-11-20', y10: 5, y10Date: '2026-11-19' }).cheap === false && FM.fedModelOf({ fwdPe: 20, fwdDate: '2026-11-20', y10: 5, y10Date: '2026-11-19' }).cheap === true
+    && FM.fedModelOf({ fwdPe: 200, fwdDate: '2026-11-20', y10: 5, y10Date: '2026-11-19' }) === null && FM.fedModelOf({ fwdPe: 17, fwdDate: '2026-11-20', y10: 0, y10Date: '2026-11-19' }) === null && FM.fedModelOf({ fwdPe: 17, fwdDate: null, y10: 5, y10Date: '2026-11-19' }) === null)
+  const vDay = (i, v) => ({ date: new Date(Date.UTC(2020, 0, 1) + i * 86_400_000).toISOString().slice(0, 10), v })
+  const vRaw = Array.from({ length: 1500 }, (_, i) => vDay(i, i === 700 ? 80 : 10 + (i % 20)))
+  const vh = VX.vixHistoryOf(vRaw, '2026-11-22T00:00:00Z', 'test')
+  check('VIX: 지금보다 높거나 같았던 날의 비율 · 가운데 값 · 해마다 최고 큰 순 3개(서로 다른 해) · 첫날·개수', vh.last.v === 29 && vh.higherPct === 5.1 && vh.median === 20 && vh.peaks[0].v === 80 && vh.peaks[0].date === '2021-12-01' && new Set(vh.peaks.map(p => p.date.slice(0, 4))).size === vh.peaks.length && vh.since === '2020-01-01' && vh.days === 1500)
+  check('VIX: 차트 세 벌 — 1년 = 하루 종가 · 5년 = 주마다 최고 · 1990년부터 = 달마다 최고(급등이 묻히지 않는다)', vh.series['1Y'].length === 366 && vh.series['5Y'].length < 220 && vh.series.ALL.some(p => p.v === 80) && vh.series.ALL.length === 50 && vh.series['5Y'].some(p => p.v === 80))
+  check('VIX: 1,000일 미만이거나 상식 밖 값(5 미만 · 150 초과)이 섞이면 null', VX.vixHistoryOf(vRaw.slice(0, 900)) === null && VX.vixHistoryOf([...vRaw, vDay(1500, 400)]) === null && VX.vixHistoryOf([...vRaw, vDay(1500, 2)]) === null)
+  const fr = [{ date: '2026-11-18', v: 24.56 }, { date: '2026-11-19', v: 28.44 }]
+  check('VIX: FRED 뒤에 야후 새 날짜만 잇는다 · 겹치는 날 값이 다르면 야후를 버린다', VX.joinVix(fr, [{ date: '2026-11-19', v: 28.44 }, { date: '2026-11-20', v: 35.89 }]).added === 1 && VX.joinVix(fr, [{ date: '2026-11-19', v: 28.44 }, { date: '2026-11-20', v: 35.89 }]).days[2].v === 35.89
+    && VX.joinVix(fr, [{ date: '2026-11-19', v: 30 }, { date: '2026-11-20', v: 35.89 }]).added === 0 && VX.joinVix([], [{ date: '2026-11-20', v: 35 }]).days.length === 0)
+  const ny = (s) => Date.parse(s)
+  check('VIX: 뉴욕 장 마감(16:30) 전이면 오늘 봉을 뺀다 · 뒤면 둔다', VX.dropOpenDay([{ date: '2026-11-20', v: 30 }, { date: '2026-11-19', v: 28 }], ny('2026-11-20T15:00:00-05:00')).length === 1 && VX.dropOpenDay([{ date: '2026-11-20', v: 30 }], ny('2026-11-20T17:00:00-05:00')).length === 1)
   const rules = { flatPp: 0.25, redDays: 20, historyMinDays: 10, sahmPp: 0.5, hyWarn: 3.4, hyBad: 5, hySpike: 0.5, capexRed: 100, capexYellow: 50, levDanger: LV.LEV_DANGER_PCTL, levCaution: LV.LEV_CAUTION_PCTL, levComboRatio: LV.LEV_COMBO_RATIO_PCTL, levComboMargin: LV.LEV_COMBO_MARGIN_PCTL, usWindowM: UM.US_MARGIN_WINDOW_M }
   const curve = { alert: 'none', spreads: [{ key: 't10y2y', value: 0.29, date: '2026-11-20', invertedDays: 0, chg3m: -0.21 }, { key: 't10y3m', value: 0.6, date: '2026-11-20', invertedDays: 0, chg3m: -0.22 }],
     sahm: { v: 0, date: '2026-10-01', triggered: false },
@@ -169,14 +187,14 @@ check('KST: UTC 2026-10-18 15:30 = 한국 10-19 · UTC 14:59 = 10-18', KST.kstDa
   const usMargin = { asOf: '2026-11-22T00:00:00.000Z', ym: '2026-10', debitM: 1448360, freeM: 423180, ratioPct: 342, ratioPercentile: 100, marginPercentile: 92, level: 'danger', windowMonths: 39, peak: { ym: '2026-06', debitM: 1502072 }, fromPeakPct: -3.6, yoyPct: 22.4, baseRate: { months: 163, danger: 107, since: '2013-04' }, historyFrom: '1997-01' }
   const leverage = { current: { date: '2026-11-18', level: 'stable', ratio: 30.7, margin: 258612, margin20dChgPct: -13.4, ratioPercentile: 30 }, misu: { current: { date: '2026-11-19', forcedPct: 1.2, forcedPctPercentile: 80 }, series: new Array(732).fill(0) }, series: new Array(800).fill(0) }
   const mood = { source: 'cnn', partyScore: 10, rating: 'extreme fear', prevClose: 18.7, prev1Week: 37.4, vix: 35.89, asOf: '2026-11-21T05:00:00.000Z' }
-  const base = { now: '2026-11-21T05:10:00.000Z', curve, liquidity, radar, usMargin, leverage, mood, capex: four, rules }
+  const base = { now: '2026-11-21T05:10:00.000Z', curve, liquidity, radar, usMargin, fedModel: fm, vix: vh, leverage, mood, capex: four, rules }
   const build = over => CS.buildCrisisSignal({ ...base, ...over })
   const colorOf = (s, k) => s.lights.find(l => l.key === k).color
   const sig = build({})
   const L = k => sig.lights.find(l => l.key === k)
-  check('신호등: 등 8개 — 돈줄 3(금리차·기업 돈줄·일자리) · 거품 5(주식 값·미국 빚·한국 빚·설비투자·심리) · 미국 빚이 한국 빚보다 먼저', sig.lights.map(l => l.key).join(',') === 'curve,credit,jobs,value,usdebt,debt,capex,mood' && sig.lights.filter(l => l.group === 'money').length === 3 && sig.total === 8 && sig.measured === 8)
-  check('신호등: 실측값 → 금리차 초록 · 돈줄 노랑 · 일자리 초록 · 값 빨강 · 미국 빚 빨강 · 한국 빚 노랑(반대매매) · 설비투자 빨강 · 심리 빨강', sig.lights.map(l => l.color).join(',') === 'green,yellow,green,red,red,yellow,red,red')
-  check('신호등: 종합은 개수 — 빨강 4 · 노랑 2 · 초록 2 → 빨강', sig.counts.red === 4 && sig.counts.yellow === 2 && sig.counts.green === 2 && sig.overall.color === 'red' && sig.overall.headline === '빨강 4 · 노랑 2 · 초록 2' && sig.overall.todo.length === 3)
+  check('신호등: 등 9개 — 돈줄 3(금리차·기업 돈줄·일자리) · 거품 6(주식 값·야데니 모델·미국 빚·한국 빚·설비투자·심리) · 미국 빚이 한국 빚보다 먼저', sig.lights.map(l => l.key).join(',') === 'curve,credit,jobs,value,yardeni,usdebt,debt,capex,mood' && sig.lights.filter(l => l.group === 'money').length === 3 && sig.total === 9 && sig.measured === 9)
+  check('신호등: 실측값 → 금리차 초록 · 돈줄 노랑 · 일자리 초록 · 값 빨강 · 야데니 초록 · 미국 빚 빨강 · 한국 빚 노랑(반대매매) · 설비투자 빨강 · 심리 빨강', sig.lights.map(l => l.color).join(',') === 'green,yellow,green,red,green,red,yellow,red,red')
+  check('신호등: 종합은 개수 — 빨강 4 · 노랑 2 · 초록 3 → 빨강', sig.counts.red === 4 && sig.counts.yellow === 2 && sig.counts.green === 3 && sig.overall.color === 'red' && sig.overall.headline === '빨강 4 · 노랑 2 · 초록 3' && sig.overall.todo.length === 3)
   const calmMood = { ...mood, partyScore: 50, rating: 'neutral' }
   const cheap = { ...four, ratioPct: 40 }
   const calmUs = { ...usMargin, level: 'stable' }
@@ -184,7 +202,7 @@ check('KST: UTC 2026-10-18 15:30 = 한국 10-19 · UTC 14:59 = 10-18', KST.kstDa
   const calm = build({ mood: calmMood, capex: cheap, radar: { ...radar, alertLevel: 'safe' }, usMargin: calmUs })
   check('신호등: 종합 경계 — 빨강 3 = 빨강 · 빨강 2 = 노랑 · 빨강 0·노랑 6 = 노랑 · 빨강 0·노랑 2 = 초록', build({ mood: calmMood }).counts.red === 3 && build({ mood: calmMood }).overall.color === 'red' && twoRed.counts.red === 2 && twoRed.overall.color === 'yellow' && noRedManyYellow.counts.red === 0 && noRedManyYellow.counts.yellow === 6 && noRedManyYellow.overall.color === 'yellow' && calm.counts.red === 0 && calm.counts.yellow === 2 && calm.overall.color === 'green')
   const blank = build({ curve: null, liquidity: null, radar: null, leverage: null, usMargin: null })
-  check('신호등: 못 가져온 등은 초록이 아니라 모름 · 잰 등이 4개 미만이면 종합을 쉰다(할 일 없음)', blank.counts.none === 6 && blank.counts.green === 0 && blank.measured === 2 && blank.overall.color === 'none' && blank.overall.todo.length === 0 && /모름 6/.test(blank.overall.headline))
+  check('신호등: 못 가져온 등은 초록이 아니라 모름 · 잰 등이 4개 미만이면 종합을 쉰다(할 일 없음)', blank.counts.none === 6 && blank.measured === 3 && blank.overall.color === 'none' && blank.overall.todo.length === 0 && /모름 6/.test(blank.overall.headline))
   check('신호등: 금리차 — watch·brief 노랑 · red 빨강 · 역전 일수는 두 금리차 중 긴 쪽', colorOf(build({ curve: { ...curve, alert: 'watch' } }), 'curve') === 'yellow' && colorOf(build({ curve: { ...curve, alert: 'brief' } }), 'curve') === 'yellow'
     && (() => { const l = build({ curve: { ...curve, alert: 'red', spreads: [{ ...curve.spreads[0], value: -0.3, invertedDays: 25 }, { ...curve.spreads[1], value: -0.1, invertedDays: 31 }] } }).lights[0]; return l.color === 'red' && l.state === '역전 31거래일째' })()
     && colorOf(build({ curve: { ...curve, alert: 'weird' } }), 'curve') === 'none')
@@ -195,7 +213,12 @@ check('KST: UTC 2026-10-18 15:30 = 한국 10-19 · UTC 14:59 = 10-18', KST.kstDa
   const us = L('usdebt')
   check('신호등: 미국 빚 — FINRA 판정 그대로(위험 빨강 · 주의 노랑 · 안정 초록) · 기준월 · 못 읽은 모양이면 모름', us.color === 'red' && us.date === '2026-10' && us.dateKind === '기준월' && colorOf(build({ usMargin: { ...usMargin, level: 'caution' } }), 'usdebt') === 'yellow' && colorOf(build({ usMargin: calmUs }), 'usdebt') === 'green' && colorOf(build({ usMargin: { ...usMargin, ym: '2026' } }), 'usdebt') === 'none' && colorOf(build({ usMargin: { ...usMargin, level: 'x' } }), 'usdebt') === 'none')
   check('신호등: 미국 빚 줄 — $1.45조 달러 · 맡겨 둔 돈의 3.4배 · 최고(2026.6)보다 3.6% 적다 · 1년 전보다 +22.4%', /빌린 돈이 1\.45조 달러예요/.test(us.line) && !us.line.includes('$') && /3\.4배/.test(us.line) && /2026\.6보다는 3\.6% 적어요/.test(us.line) && us.rows[0].value === '$1.45조' && us.rows[0].note === '1년 전 같은 달보다 +22.4%' && us.rows[1].value === '$1.50조' && /−3\.6%/.test(us.rows[1].note) && us.rows[2].value === '342%')
-  check('신호등: 미국 빚 — 과거에 빨강이었던 달 수를 함께 적는다(빨강이 곧 하락이라는 뜻이 아님) · 규칙 문장의 숫자는 상수에서', us.rows[3].value === '163개월 중 107개월이 빨강' && /2013\.4부터/.test(us.rows[3].note) && /39개월/.test(us.rule) && /80% 자리/.test(us.rule) && /60% 자리/.test(us.rule) && /지금이 기록상 가장 많아요/.test(build({ usMargin: { ...usMargin, peak: { ym: '2026-10', debitM: 1448360 }, fromPeakPct: 0 } }).lights[4].line))
+  check('신호등: 미국 빚 — 과거에 빨강이었던 달 수를 함께 적는다(빨강이 곧 하락이라는 뜻이 아님) · 규칙 문장의 숫자는 상수에서', us.rows[3].value === '163개월 중 107개월이 빨강' && /2013\.4부터/.test(us.rows[3].note) && /39개월/.test(us.rule) && /80% 자리/.test(us.rule) && /60% 자리/.test(us.rule) && /지금이 기록상 가장 많아요/.test(build({ usMargin: { ...usMargin, peak: { ym: '2026-10', debitM: 1448360 }, fromPeakPct: 0 } }).lights.find(l => l.key === 'usdebt').line))
+  const yd = L('yardeni')
+  check('신호등: 야데니 모델 — 싸면 초록 · 비싸면 빨강(노랑 없음) · 기준일은 둘 중 오래된 날 · 지난 이익(ERP −0.79)과 반대 말을 하면 그 사실을 함께', yd.color === 'green' && yd.date === '2026-11-19' && /5\.85%가 10년 국채 5\.04%보다 \+0\.81%p 높아요/.test(yd.line) && /예상이익을 믿으면 싸고, 지난 이익으로 재면 비싸요/.test(yd.line) && yd.rows[3].value === '19.8배' && /13\.8% 낮아요/.test(yd.rows[3].note)
+    && colorOf(build({ fedModel: FM.fedModelOf({ fwdPe: 25, fwdDate: '2026-11-20', y10: 5, y10Date: '2026-11-19' }) }), 'yardeni') === 'red' && colorOf(build({ fedModel: null }), 'yardeni') === 'none')
+  const vixRow = L('mood').rows.find(r => r.label.startsWith('VIX'))
+  check('신호등: 심리 등의 VIX 는 차트와 같은 값·날짜(CNN 응답의 vix 를 따로 쓰지 않는다) · VIX 가 없으면 그 줄만 빠진다 · 응답에 차트 자료를 싣는다', vixRow.value === '29.00' && /2024-02-08 종가/.test(vixRow.note) && /5\.1%/.test(vixRow.note) && !build({ vix: null }).lights.find(l => l.key === 'mood').rows.some(r => r.label.startsWith('VIX')) && sig.vix?.series?.ALL?.length === 50 && build({ vix: null }).vix === null)
   const lev = (level, pctl) => colorOf(build({ leverage: { ...leverage, current: { ...leverage.current, level }, misu: { current: { ...leverage.misu.current, forcedPctPercentile: pctl } } } }), 'debt')
   check('신호등: 한국 빚 — 빚투 레이더 판정 그대로 · 초록이어도 반대매매 60 자리 이상이면 노랑(59 는 초록) · 빨강은 그대로', lev('stable', 59) === 'green' && lev('stable', 60) === 'yellow' && lev('caution', 0) === 'yellow' && lev('danger', 0) === 'red' && CS.FORCED_SPIKE_PCTL === 60 && L('debt').name === '한국 빚' && /25\.9조 원/.test(L('debt').line) && /800거래일/.test(L('debt').rows[1].note))
   const cap = pct => colorOf(build({ capex: { ...four, ratioPct: pct } }), 'capex')

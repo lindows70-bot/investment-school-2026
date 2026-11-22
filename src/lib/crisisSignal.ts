@@ -1,13 +1,15 @@
 // 위기 신호등 조립기(순수 함수 · 의존성 0) — 앱이 이미 가진 판정(수익률곡선·하이일드·삼의 법칙·위기 레이더·빚투 레이더·공포탐욕)과
-//   설비투자÷번 돈·미국 신용잔고를 등 8개로 묶어 학생 말로 옮긴다. 새 판정은 만들지 않는다 — 색은 각 SSOT 가 이미 내린 판정을 그대로 옮긴 것이다.
+//   설비투자÷번 돈·미국 신용잔고·야데니 모델을 등 9개로 묶어 학생 말로 옮긴다(+ VIX 긴 이력 차트). 새 판정은 만들지 않는다 — 색은 각 SSOT 의 판정이나 지표 자체의 정의(삼의 법칙·연준 모델)를 그대로 옮긴 것이다.
 //   설계 docs/crisis-signal/plan.md · 2026-11-21 사용자 요청(AI 버블 논쟁 · 영상 EP55 · "장단기 금리차도 같이")
 //   ⛔ 종합 점수·확률 없음(개수만) · 사라/팔라 없음 · 못 가져온 등은 초록이 아니라 '모름'(none) · 숫자마다 출처와 날짜
 import type { CapexCash } from '@/lib/capexCash'
 import type { UsMargin } from '@/lib/usMargin'
+import type { FedModel } from '@/lib/fedModel'
+import type { VixHistory } from '@/lib/vixHistory'
 
 export type LightColor = 'red' | 'yellow' | 'green' | 'none'
 export type LightGroup = 'money' | 'bubble'
-export type LightKey = 'curve' | 'credit' | 'jobs' | 'value' | 'usdebt' | 'debt' | 'capex' | 'mood'
+export type LightKey = 'curve' | 'credit' | 'jobs' | 'value' | 'yardeni' | 'usdebt' | 'debt' | 'capex' | 'mood'
 
 export interface LightRow { label: string; value: string; note?: string }
 export interface Light {
@@ -36,6 +38,8 @@ export interface CrisisSignal {
   groups: { key: LightGroup; name: string; hint: string; line: string }[]
   curveSeries: { date: string; s2: number | null; s3m: number | null }[]
   curveHistory: CurveHistory | null
+  /** VIX 긴 이력(차트) — 못 가져오면 null */
+  vix: VixHistory | null
   stale?: boolean              // 새로 못 만들어 마지막 성공분을 보여주는 중
 }
 
@@ -74,6 +78,8 @@ export interface CrisisSignalInput {
   liquidity: LiquidityIn | null
   radar: RadarIn | null
   usMargin: UsMargin | null
+  fedModel: FedModel | null
+  vix: VixHistory | null
   leverage: LeverageIn | null
   mood: MoodIn | null
   capex: CapexCash | null
@@ -202,7 +208,38 @@ function valueLight(x: RadarIn | null): Light {
   }
 }
 
-// ── ⑤ 미국 빚(FINRA 신용잔고) — 위기의 진원지는 미국이라 한국보다 먼저 본다(2026-11-22 사용자 지시) ──
+// ── ⑤ 야데니 모델(연준 모델) — 예상이익 수익률 vs 10년 국채 금리 ──
+const pp2 = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n).toFixed(2)}%p`
+function yardeniLight(x: FedModel | null, radar: RadarIn | null): Light {
+  const meta: Meta = {
+    key: 'yardeni', group: 'bubble', name: '야데니 모델', title: '야데니 모델 — 주식과 국채, 어느 쪽이 더 주나',
+    what: '경제학자 에드 야데니가 1997년 미국 연준 보고서의 그림을 보고 이름 붙인 "연준 모델"이에요. 주식을 사면 앞으로 1년 예상이익만큼 버는 셈이라, 그 수익률(예상이익 ÷ 주가 = 100 ÷ 선행 PER)을 안전한 미국 10년 국채 금리와 견줘요. 주식이 국채보다 더 주면 주식이 상대적으로 싸고, 덜 주면 비싸다고 봐요. 야데니 자신도 금리가 아주 낮거나 높을 때는 잘 안 맞는다고 보고 장기 이익 성장 전망을 넣은 식으로 고쳤는데, 그 전망치는 무료로 받을 원천이 없어 이 앱은 원래 식만 써요.',
+    rule: '초록 = 예상이익 수익률이 10년 국채 금리 이상(주식이 국채보다 더 줌) · 빨강 = 그 아래(국채가 더 줌). 모델의 정의 그대로이고, 이 앱이 선을 더하지 않았어요. 그래서 이 등은 노랑이 없어요.',
+    source: 'FactSet(선행 PER · 주간) · FRED DGS10(10년 국채 금리)', dateKind: '기준일',
+  }
+  if (!x || !isNum(x.eyPct) || !isNum(x.y10) || typeof x.cheap !== 'boolean') return none(meta)
+  const color: LightColor = x.cheap ? 'green' : 'red'
+  // 같은 화면 '주식 값'의 지난 이익 기준 몫(ERP) — 둘이 반대 말을 하면 그 사실을 함께 말한다(예상이익을 믿느냐의 차이)
+  const erp = Array.isArray(radar?.metrics) ? radar!.metrics!.find(m => m?.key === 'erp' && isNum(m.value)) : undefined
+  const erpV = erp ? erp.value as number : null
+  const contrast = erpV != null && (erpV < 0) === x.cheap
+    ? ` 같은 화면 '주식 값'에서 지난 1년 실제 이익으로 재면 주식이 국채보다 ${pp2(erpV)} 더 줘요 — 예상이익을 믿으면 ${x.cheap ? '싸고' : '비싸고'}, 지난 이익으로 재면 ${x.cheap ? '비싸요' : '싸요'}.`
+    : ''
+  const line = x.cheap
+    ? `주식의 예상이익 수익률 ${x.eyPct.toFixed(2)}%가 10년 국채 ${x.y10.toFixed(2)}%보다 ${pp2(x.gapPp)} 높아요 — 이 모델로는 주식이 국채보다 싼 쪽이에요.${contrast}`
+    : `주식의 예상이익 수익률 ${x.eyPct.toFixed(2)}%가 10년 국채 ${x.y10.toFixed(2)}%보다 낮아요(${pp2(x.gapPp)}) — 이 모델로는 국채가 주식보다 더 주는 쪽이에요.${contrast}`
+  return {
+    ...meta, color, state: x.cheap ? '주식이 더 줌' : '국채가 더 줌', line,
+    rows: [
+      { label: '주식의 예상이익 수익률', value: `${x.eyPct.toFixed(2)}%`, note: `100 ÷ 선행 PER ${x.fwdPe}배 · FactSet ${x.fwdDate}` },
+      { label: '미국 10년 국채 금리', value: `${x.y10.toFixed(2)}%`, note: `FRED ${x.y10Date}` },
+      { label: '차이(주식 − 국채)', value: pp2(x.gapPp) },
+      { label: '모델이 말하는 제값 PER', value: `${x.fairPe}배`, note: `100 ÷ 10년 금리 · 지금 ${x.fwdPe}배는 그보다 ${x.vsFairPct > 0 ? `${x.vsFairPct}% 높아요` : `${Math.abs(x.vsFairPct)}% 낮아요`}` },
+    ],
+    date: x.fwdDate < x.y10Date ? x.fwdDate : x.y10Date,
+  }
+}
+// ── ⑥ 미국 빚(FINRA 신용잔고) — 위기의 진원지는 미국이라 한국보다 먼저 본다(2026-11-22 사용자 지시) ──
 const usdJo = (m: number) => `$${(m / 1_000_000).toFixed(2)}조`   // 백만 달러 → 조 달러
 const ymDot = (ym: string) => `${ym.slice(0, 4)}.${Number(ym.slice(5, 7))}`
 function usDebtLight(x: UsMargin | null, r: SignalRules): Light {
@@ -231,7 +268,7 @@ function usDebtLight(x: UsMargin | null, r: SignalRules): Light {
   return { ...meta, color, state: color === 'red' ? '과열' : color === 'yellow' ? '쌓임' : '잠잠', line, rows, date: x.ym }
 }
 
-// ── ⑥ 한국 빚(신용융자 · 반대매매) ──
+// ── ⑦ 한국 빚(신용융자 · 반대매매) ──
 function debtLight(x: LeverageIn | null): Light {
   const meta: Meta = {
     key: 'debt', group: 'bubble', name: '한국 빚', title: '한국 빚 — 빌려서 산 주식과 강제청산',
@@ -263,7 +300,7 @@ function debtLight(x: LeverageIn | null): Light {
   return { ...meta, color, state, line, rows, date: ymd(c.date) }
 }
 
-// ── ⑦ 설비투자 ÷ 번 돈(빅테크) ──
+// ── ⑧ 설비투자 ÷ 번 돈(빅테크) ──
 const usdEok = (m: number) => `$${Math.round(m / 100).toLocaleString('en-US')}억`   // 백만 달러 → 억 달러
 function capexLight(x: CapexCash | null, r: SignalRules): Light {
   const meta: Meta = {
@@ -288,7 +325,7 @@ function capexLight(x: CapexCash | null, r: SignalRules): Light {
   return { ...meta, color, state: color === 'red' ? '번 돈보다 더 씀' : color === 'yellow' ? '절반 넘음' : '번 돈 안', line, rows, date: ymd(x.latestDate) }
 }
 
-// ── ⑧ 심리(공포·탐욕) ──
+// ── ⑨ 심리(공포·탐욕) ──
 const MOOD: Record<string, { color: LightColor; ko: string; be: string; tail: string }> = {
   'extreme fear': { color: 'red', ko: '극단 공포', be: '극단 공포예요', tail: '겁에 질려 던지는 물량과 강제청산이 나오는 때예요.' },
   fear: { color: 'yellow', ko: '공포', be: '공포예요', tail: '겁이 커진 쪽이에요.' },
@@ -296,7 +333,7 @@ const MOOD: Record<string, { color: LightColor; ko: string; be: string; tail: st
   greed: { color: 'yellow', ko: '탐욕', be: '탐욕이에요', tail: '나만 빠질 수 없다는 마음이 커지는 자리예요.' },
   'extreme greed': { color: 'red', ko: '극단 탐욕', be: '극단 탐욕이에요', tail: '막스가 말한 "나만 빠질 수 없다"가 가장 강한 때예요.' },
 }
-function moodLight(x: MoodIn | null): Light {
+function moodLight(x: MoodIn | null, vix: VixHistory | null): Light {
   const meta: Meta = {
     key: 'mood', group: 'bubble', name: '심리', title: '심리 — 공포와 탐욕',
     what: '미국 주식 투자자의 마음 온도를 0(공포)~100(탐욕)으로 잰 지수예요. 막스의 "나만 빠질 수 없다"를 보는 등이에요.',
@@ -311,7 +348,8 @@ function moodLight(x: MoodIn | null): Light {
     const p = x[k]
     if (isNum(p)) rows.push({ label, value: `${Math.round(p)}` })
   }
-  if (isNum(x.vix)) rows.push({ label: 'VIX(미국 변동성 지수)', value: x.vix.toFixed(1), note: '색에는 넣지 않아요 — 공포·탐욕 지수 안에 이미 들어 있어요' })
+  // VIX 는 아래 차트와 같은 값(FRED·야후 종가 · 날짜 포함)을 쓴다 — CNN 응답의 vix 를 따로 쓰면 한 화면에 두 숫자가 된다
+  if (vix && isNum(vix.last?.v)) rows.push({ label: 'VIX(미국 변동성 지수)', value: vix.last.v.toFixed(2), note: `${vix.last.date} 종가 · ${vix.since.slice(0, 4)}년부터 지금보다 높았던 날 ${vix.higherPct}% · 색에는 넣지 않아요(공포·탐욕 지수 안에 들어 있어요)` })
   return { ...meta, color: m.color, state: m.ko, line: `공포·탐욕 지수 ${v} — ${m.be}. ${m.tail}`, rows, date: ymd(x.asOf) }
 }
 
@@ -338,7 +376,7 @@ export function buildCrisisSignal(inp: CrisisSignalInput): CrisisSignal {
   const r = inp.rules
   const lights: Light[] = [
     curveLight(inp.curve, r), creditLight(inp.liquidity, r), jobsLight(inp.curve, r),
-    valueLight(inp.radar), usDebtLight(inp.usMargin, r), debtLight(inp.leverage), capexLight(inp.capex, r), moodLight(inp.mood),
+    valueLight(inp.radar), yardeniLight(inp.fedModel, inp.radar), usDebtLight(inp.usMargin, r), debtLight(inp.leverage), capexLight(inp.capex, r), moodLight(inp.mood, inp.vix),
   ]
   const counts: Record<LightColor, number> = { red: 0, yellow: 0, green: 0, none: 0 }
   for (const l of lights) counts[l.color]++
@@ -373,9 +411,10 @@ export function buildCrisisSignal(inp: CrisisSignalInput): CrisisSignal {
     overall: { color, headline, line, rule, todo: color === 'none' ? [] : TODO[color] },
     groups: [
       { key: 'money', name: '돈줄 신호', hint: '금융위기와 침체 앞에 먼저 켜지던 등 — 채권·신용·일자리', line: groupLine('money') },
-      { key: 'bubble', name: '거품 신호', hint: '값 · 빚(미국 · 한국) · 설비투자 · 심리 — 막스의 다섯 신호 중 숫자로 잴 수 있는 것', line: groupLine('bubble') },
+      { key: 'bubble', name: '거품 신호', hint: '값(주식 값 · 야데니 모델) · 빚(미국 · 한국) · 설비투자 · 심리 — 막스의 다섯 신호 중 숫자로 잴 수 있는 것', line: groupLine('bubble') },
     ],
     curveSeries: series,
     curveHistory: curveHistoryOf(inp.curve, r),
+    vix: inp.vix && isNum(inp.vix.last?.v) && inp.vix.series ? inp.vix : null,
   }
 }

@@ -18,7 +18,7 @@ const get = async (url, headers = {}) => { try { const r = await fetch(url, { he
 const daysOld = ymd => Math.floor((Date.now() - Date.parse(`${ymd.length === 7 ? `${ymd}-01` : ymd}T00:00:00Z`)) / 86_400_000)
 
 const sig = await get(`${APP}/api/crisis-signal`)
-const N = 8   // 돈줄 3(금리차·기업 돈줄·일자리) + 거품 5(주식 값·미국 빚·한국 빚·설비투자·심리)
+const N = 9   // 돈줄 3(금리차·기업 돈줄·일자리) + 거품 6(주식 값·야데니 모델·미국 빚·한국 빚·설비투자·심리)
 check(`응답 — 등 ${N}개 · 개수 합 = ${N}`, Array.isArray(sig?.lights) && sig.lights.length === N && sig.total === N && Object.values(sig.counts ?? {}).reduce((s, n) => s + n, 0) === N)
 if (!sig?.lights) { console.log('\n❌ 응답이 없어 나머지 검사를 못 했습니다 (위기 신호등)'); process.exitCode = 1 }
 else {
@@ -72,6 +72,36 @@ else {
   const usWant = rp >= LVK('LEV_DANGER_PCTL') || (rp >= LVK('LEV_COMBO_RATIO_PCTL') && mp >= LVK('LEV_COMBO_MARGIN_PCTL')) ? 'red' : rp >= LVK('LEV_CAUTION_PCTL') ? 'yellow' : 'green'
   check(`미국 빚 등 = 빚 판정 규칙(비율 ${rp}% 자리 · 잔고 ${mp}% 자리 → ${usWant})`, Number.isFinite(rp) && Number.isFinite(mp) && us.color === usWant, `신호등 ${us.color}`)
 
+  // ── 야데니 모델: 같은 화면 위기 레이더의 선행 PER · FRED DGS10 으로 다시 계산 ──
+  const yd = L('yardeni')
+  const peM = radar?.metrics?.find(m => m.key === 'pe' && /선행/.test(m.label ?? ''))
+  if (FRED_KEY) {
+    const dj = await get(`https://api.stlouisfed.org/fred/series/observations?series_id=DGS10&api_key=${FRED_KEY}&file_type=json&sort_order=desc&limit=10`)
+    const d10 = (dj?.observations ?? []).find(x => x.value !== '.')
+    const ey = peM ? 100 / peM.value : NaN, y10 = Number(d10?.value)
+    const shownEy = Number(String(yd.rows[0]?.value ?? '').replace('%', '')), shownY = Number(String(yd.rows[1]?.value ?? '').replace('%', ''))
+    // 화면은 최대 1시간 캐시 — 그 사이 FRED 가 하루치를 더 올렸을 수 있어 금리는 0.15%p 까지 같은 값으로 본다
+    check(`야데니 모델 = 위기 레이더 선행 PER ${peM?.value}배 · FRED 10년 ${y10}%(${d10?.date}) → 예상이익 수익률 ${ey.toFixed(2)}%`, Number.isFinite(ey) && Math.abs(shownEy - ey) <= 0.01 && Math.abs(shownY - y10) <= 0.15, `화면 ${shownEy}% · ${shownY}%`)
+    check(`야데니 색 = 정의 그대로(예상이익 수익률 ≥ 금리 → 초록)`, yd.color === (shownEy >= shownY ? 'green' : 'red'), `화면 ${yd.color}`)
+  }
+
+  // ── VIX 차트: FRED 최신 종가와 같은가 · 자리 비율을 응답의 차트 자료로 다시 세면 같은가(1990년부터 하루 종가 전부를 다시 받아 센다) ──
+  const vx = sig.vix
+  check('VIX 차트 자료가 응답에 있다(1년·5년·1990년부터)', !!vx && ['1Y', '5Y', 'ALL'].every(k => Array.isArray(vx.series?.[k]) && vx.series[k].length > 50) && vx.since <= '1990-12-31')
+  if (vx && FRED_KEY) {
+    const vj = await get(`https://api.stlouisfed.org/fred/series/observations?series_id=VIXCLS&api_key=${FRED_KEY}&file_type=json&observation_start=1990-01-01`)
+    const obs = (vj?.observations ?? []).filter(x => x.value !== '.').map(x => ({ date: x.date, v: Number(x.value) }))
+    const all = vx.last.date > (obs[obs.length - 1]?.date ?? '') ? [...obs, vx.last] : obs
+    const cur = all.find(x => x.date === vx.last.date)
+    const pct = cur ? Math.round(all.filter(x => x.v >= cur.v).length / all.length * 1000) / 10 : NaN
+    // 화면은 최대 6시간 캐시 — 그 사이 하루치가 늘었을 수 있어 비율은 0.3%p · 개수는 3일까지 같은 값으로 본다
+    check(`VIX 지금 ${vx.last.v}(${vx.last.date}) · 높았던 날 ${vx.higherPct}% = FRED 재계산 ${pct}% · 하루 종가 ${vx.days}일 = ${all.length}일`, Number.isFinite(pct) && Math.abs(vx.higherPct - pct) <= 0.3 && Math.abs(vx.days - all.length) <= 3, `FRED 마지막 ${obs[obs.length - 1]?.date} ${obs[obs.length - 1]?.v}`)
+    const fredSame = obs.find(x => x.date === vx.last.date)
+    check('VIX 마지막 값 = FRED 같은 날 값(FRED 가 아직 없으면 야후 이어붙임이라 건너뜀)', !fredSame || Math.abs(fredSame.v - vx.last.v) <= 0.05, `FRED ${fredSame?.v}`)
+    const vixRow = L('mood').rows.find(r => r.label.startsWith('VIX'))
+    check('심리 등의 VIX = 차트 마지막 값(한 화면에 두 숫자 없음)', vixRow?.value === vx.last.v.toFixed(2), `심리 줄 ${vixRow?.value}`)
+  }
+
   // ── 원천 독립 재계산 ①: 장단기 금리차(FRED) ──
   if (FRED_KEY) {
     const fred = async id => { const j = await get(`https://api.stlouisfed.org/fred/series/observations?series_id=${id}&api_key=${FRED_KEY}&file_type=json&sort_order=desc&limit=10`); const o = (j?.observations ?? []).find(x => x.value !== '.'); return o ? { v: Number(o.value), date: o.date } : null }
@@ -101,7 +131,7 @@ else {
   check(`설비투자 색 = 선(100% 초과 빨강 · 50% 초과 노랑)`, cx.color === (ratio > 100 ? 'red' : ratio > 50 ? 'yellow' : 'green'), `화면 ${cx.color}`)
 
   // ── 날짜가 낡지 않았는가(조용히 멈춘 원천) — 일별 10일 · 월별 75~95일 · 분기 150일 ──
-  const LIMIT = { curve: 10, credit: 10, jobs: 75, value: 3, usdebt: 95, debt: 10, capex: 150, mood: 3 }   // 미국 빚 = 월 통계(다음 달 셋째 주 발표)
+  const LIMIT = { curve: 10, credit: 10, jobs: 75, value: 3, yardeni: 10, usdebt: 95, debt: 10, capex: 150, mood: 3 }   // 미국 빚 = 월 통계(다음 달 셋째 주 발표)
   const old = measured.filter(l => daysOld(l.date) > LIMIT[l.key]).map(l => `${l.name} ${l.date}(${daysOld(l.date)}일 전)`)
   check('등마다 날짜가 최근이다', old.length === 0, old.join(' · '))
 }

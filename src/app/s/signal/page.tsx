@@ -1,5 +1,5 @@
 'use client'
-// 학생 '위기 신호등' 상세 — 종합(개수) · 돈줄 신호 3등 · 거품 신호 5등(미국 빚 · 한국 빚 포함) · 장단기 금리차 1년 차트 · 지금 할 일 · 막스의 다섯 신호 대조 · 뺀 신호
+// 학생 '위기 신호등' 상세 — 종합(개수) · 돈줄 신호 3등 · 거품 신호 6등(야데니 모델 · 미국 빚 · 한국 빚 포함) · 장단기 금리차 1년 차트 · VIX 긴 차트(1990년부터) · 지금 할 일 · 막스의 다섯 신호 대조 · 뺀 신호
 //   원천 /api/crisis-signal(lib/crisisSignal) — 색은 선생님 화면들의 판정을 그대로 모은 것. 규칙: 숫자엔 출처·날짜 · 못 가져온 등은 '모름'(초록 아님) ·
 //   사라·팔라 없음 · 종합 점수·확률 없음(개수만) · 글자는 색칠하지 않고 등(동그라미)만 칠한다(등락색과 섞이지 않게)
 //   설계 docs/crisis-signal/plan.md · 2026-11-21 사용자 요청(AI 버블 논쟁 · 수업 영상 EP55 · "장단기 금리차도 같이")
@@ -24,7 +24,7 @@ const summaryStyle = { display: 'flex', alignItems: 'center', minHeight: 44, fon
 const MARKS: { no: string; name: string; lights: LightKey[]; note: string }[] = [
   { no: '①', name: '이번엔 다르다', lights: [], note: '새 기술이 모든 걸 바꾸니 옛 잣대는 필요 없다는 믿음이에요. 믿음이라 숫자로 못 재요.' },
   { no: '②', name: '실패할 리 없다', lights: [], note: '1등 회사는 절대 손해 볼 수 없다는 믿음이에요. 이것도 숫자로 못 재요.' },
-  { no: '③', name: '어떤 값도 비싸지 않다', lights: ['value'], note: '값을 따져 보기를 그만두는 태도예요. 주식 값 등이 이걸 봐요.' },
+  { no: '③', name: '어떤 값도 비싸지 않다', lights: ['value', 'yardeni'], note: '값을 따져 보기를 그만두는 태도예요. 주식 값 · 야데니 모델 등이 이걸 봐요.' },
   { no: '④', name: '쉬운 돈(빚)', lights: ['usdebt', 'debt', 'capex', 'credit'], note: '빌린 돈이 쉽게 풀리는지예요. 미국 빚 · 한국 빚 · 설비투자 · 기업 돈줄 등이 이걸 봐요.' },
   { no: '⑤', name: '나만 빠질 수 없다', lights: ['mood'], note: '남들만 버는 것 같아 뒤늦게 뛰어드는 마음이에요. 심리 등이 이걸 봐요.' },
 ]
@@ -40,6 +40,51 @@ const tDay = (t: number) => ymdDot(kstParts(t).ymd) ?? ''
 const ppFmt = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(2)}%p`
 
 /** 장단기 금리차 1년 — 0 아래(역전)는 빨강, 위는 초록. 점선 = 0 */
+type VixRange = '1Y' | '5Y' | 'ALL'
+const VIX_RANGES: { key: VixRange; label: string; how: string }[] = [
+  { key: '1Y', label: '1년', how: '하루 종가' },
+  { key: '5Y', label: '5년', how: '주마다 가장 높았던 날' },
+  { key: 'ALL', label: '1990년부터', how: '달마다 가장 높았던 날' },
+]
+const vixFmt = (v: number) => v.toFixed(2)
+
+/** VIX(공포 지수) 긴 차트 — 금색 점선 = 1990년 이후 가운데 값, 말풍선 = 이 기간 최고. 지금이 과거에 견줘 어느 자리인지 눈으로 보게(2026-11-22 사용자 요청) */
+function VixChart({ d }: { d: CrisisSignal }) {
+  const [k, setK] = useState<VixRange>('ALL')
+  const v = d.vix
+  if (!v) return null
+  const pts = (v.series[k] ?? []).flatMap(p => { const t = Date.parse(`${p.date}T00:00:00-05:00`); return Number.isFinite(t) && Number.isFinite(p.v) ? [{ t, v: p.v }] : [] })
+  if (pts.length < 2) return null
+  const hi = pts.reduce((m, p) => p.v > m.v ? p : m, pts[0])
+  const vs = pts.map(p => p.v)
+  const xt = dayTicks(pts[0].t, pts[pts.length - 1].t)
+  const how = VIX_RANGES.find(r => r.key === k)?.how ?? ''
+  const lastTxt = `${v.last.v.toFixed(2)}(${dotDate(v.last.date)})`
+  return (
+    <section aria-label="VIX 공포 지수 차트" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
+      <h2 style={h2Style}>VIX 공포 지수 — 지금은 어느 자리인가</h2>
+      <p style={{ margin: 0, fontSize: FS.body, lineHeight: 1.6, color: TK.slate200, wordBreak: 'keep-all' }}>
+        지금 {lastTxt} — {dotDate(v.since)}부터 하루 종가 {v.days.toLocaleString('ko-KR')}일 가운데 이보다 높았던 날은 <b>{v.higherPct}%</b>예요. 가운데 값은 {v.median.toFixed(2)}이에요.
+      </p>
+      <Segment inCard label="VIX 차트 기간" options={VIX_RANGES.map(r => ({ key: r.key, label: r.label }))} value={k} onChange={setK} />
+      <div role="img" aria-label={`VIX ${VIX_RANGES.find(r => r.key === k)?.label} 흐름 — 지금 ${lastTxt}, 가운데 값 ${v.median.toFixed(2)}`} style={{ height: 200, minWidth: 0 }}>
+        <LinePlot points={pts} color={TK.violet400} baseline={v.median} baselineColor={TK.amber400}
+          tFmt={tDay} vFmt={vixFmt} a11y={false} area endDot areaOpacity={0.3}
+          yAxis="right" yTicks={niceTicks(Math.min(...vs, v.median), Math.max(...vs), 4)} yFmt={x => String(Math.round(x))} xTicks={xt.ticks} xFmt={xt.fmt}
+          marks={[{ t: hi.t, v: hi.v, name: '최고', value: hi.v.toFixed(1), when: tDay(hi.t), place: 'below' }]} />
+      </div>
+      <span style={noteStyle()}>
+        <b style={{ color: TK.amber400 }}>금색 점선</b>이 {dotDate(v.since)}부터의 가운데 값이에요 — 그보다 위면 평소보다 겁이 많은 날이에요. 이 차트는 {how}을 이었어요. 차트를 누르면 그날 값이 보여요.
+      </span>
+      {v.peaks.length > 0 && (
+        <p style={pStyle}>
+          가장 높았던 해는 {v.peaks.map(p => `${dotDate(p.date)} ${p.v.toFixed(1)}`).join(' · ')}이에요. VIX 는 S&amp;P 500 옵션 값으로 앞으로 30일 동안 주가가 얼마나 출렁일지를 시장이 어떻게 보는지 잰 숫자예요 — 높을수록 겁이 많다는 뜻이고, 앞날을 맞히는 숫자는 아니에요.
+        </p>
+      )}
+      <span style={{ fontSize: FS.micro, color: TK.sub, wordBreak: 'keep-all' }}>출처 {v.sources} · 기준일 {dotDate(v.last.date)}</span>
+    </section>
+  )
+}
 function CurveChart({ d }: { d: CrisisSignal }) {
   const [k, setK] = useState<SpreadKey>('s2')
   const pts = d.curveSeries.flatMap(p => { const v = p[k]; const t = Date.parse(`${p.date}T00:00:00+09:00`); return v != null && Number.isFinite(t) ? [{ t, v }] : [] })
@@ -159,6 +204,7 @@ export default function StudentSignal() {
               </div>
               <div className="sg-grid">{d.lights.filter(l => l.group === g.key).map(l => <LightCard key={l.key} l={l} />)}</div>
               {g.key === 'money' && <CurveChart d={d} />}
+              {g.key === 'bubble' && <VixChart d={d} />}
             </section>
           ))}
 
