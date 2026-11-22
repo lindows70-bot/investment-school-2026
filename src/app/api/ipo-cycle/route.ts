@@ -51,7 +51,7 @@ async function detectNewListings(known: Set<string>): Promise<(IpoEntry & { auto
 export async function GET() {
   // v5(2026-11-14): 기준가 첫 주 종가→첫날 종가 · 고점·저점 주봉→일봉 · ipoBarDate·lastBar·priceDate·auto 필드 · LUNR·SPCX 상장일 정정 · 목록 +3 · 상장 대기 자동 감지
   // v6(2026-11-14): 상장 9개월 전은 매집으로 분류하지 않는다(SMART_MIN_MONTHS) — 스페이스X·세레브라스가 매집 → 자각
-  const cacheKey = 'ipo-cycle-v6'
+  const cacheKey = 'ipo-cycle-v7'   // v7(2026-11-22): 앤스로픽(ANT) 정식 등록 — 자동 감지(auto) → 목록 · 상장 대기에서 뺌
   const cached = await getCache<IpoCycleResult>(cacheKey, 12 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

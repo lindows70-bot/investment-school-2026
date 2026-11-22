@@ -51,6 +51,7 @@ export const IPO_UNIVERSE: IpoEntry[] = [
   { ticker: 'FIG', name: '피그마', ipo: '2025-07-31' },
   { ticker: 'CBRS', name: '세레브라스', ipo: '2026-05-14' },
   { ticker: 'BSP', name: '벤딩스푼스', ipo: '2026-07-01' },
+  { ticker: 'ANT', name: '앤스로픽', ipo: '2026-11-19' },   // 2026-11-22 상장 대기 감시가 잡아 정식 등록(사용자 상시 지시) · 나스닥 NMS · 야후 첫 봉 11-19(시 111.50 · 종 97.17)
 ]
 
 /** 🔭 상장 대기 목록 — 아직 비상장인 대형사. 라우트가 12시간마다 야후 검색으로 '미국 거래소에 그 이름의 보통주가 새로 생겼는가'를 본다.
@@ -58,7 +59,6 @@ export const IPO_UNIVERSE: IpoEntry[] = [
  *  오탐 가드: 종류 EQUITY · 미국 거래소 · 이름 정규식 일치 · 첫 거래일이 since 이후 — 지금 야후엔 이 이름들의 ETF·토큰·해외 ETP 만 있고 전부 걸러진다(실측). */
 export interface IpoWatch { q: string; name: string; match: RegExp; since: string }
 export const IPO_WATCH: IpoWatch[] = [
-  { q: 'Anthropic', name: '앤스로픽', match: /\banthropic\b/i, since: '2026-11-14' },
   { q: 'OpenAI', name: '오픈AI', match: /\bopenai\b/i, since: '2026-11-14' },
   { q: 'Stripe', name: '스트라이프', match: /^stripe\b/i, since: '2026-11-14' },
   { q: 'Databricks', name: '데이터브릭스', match: /\bdatabricks\b/i, since: '2026-11-14' },
