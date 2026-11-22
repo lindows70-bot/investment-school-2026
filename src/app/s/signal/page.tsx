@@ -58,7 +58,9 @@ function VixChart({ d }: { d: CrisisSignal }) {
   if (pts.length < 2) return null
   const hi = pts.reduce((m, p) => p.v > m.v ? p : m, pts[0])
   const vs = pts.map(p => p.v)
-  const xt = dayTicks(pts[0].t, pts[pts.length - 1].t)
+  const xt0 = dayTicks(pts[0].t, pts[pts.length - 1].t)
+  // 해 눈금이 7개를 넘으면(1990년부터 = 37개) 5년마다만 — 그대로 두면 '199119921993…'로 글자가 겹쳤다(2026-11-22 1280 화면 실측)
+  const xt = xt0.ticks.length > 7 && pts[pts.length - 1].t - pts[0].t > 900 * 86_400_000 ? { ...xt0, ticks: xt0.ticks.filter(t => Number(kstParts(t).ymd.slice(0, 4)) % 5 === 0) } : xt0
   const how = VIX_RANGES.find(r => r.key === k)?.how ?? ''
   const lastTxt = `${v.last.v.toFixed(2)}(${dotDate(v.last.date)})`
   return (
