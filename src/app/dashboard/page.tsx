@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -843,7 +843,11 @@ export default function DashboardPage() {
   const seen = (t: string) => seenTabs.has(t)
 
   // 🎯 딥링크(?tab=&view=) — 매매 브리핑 등 외부에서 특정 탭(+수급레이더 서브탭)으로 바로 진입(허용 목록만)
+  //   ⚠️ 로딩이 끝난 뒤 한 번만 — 마운트 때는 로딩 화면이라 tab-<key> 칸이 아직 없어 늘 "그런 탭 없음"이 됐다(2026-11-23 화면 실측: ?tab=crisis 가 안 열림)
+  const deepLinked = useRef(false)
   useEffect(() => {
+    if (loading || deepLinked.current) return
+    deepLinked.current = true
     const sp = new URLSearchParams(window.location.search)
     const t = sp.get('tab')
     // 허용 목록을 손으로 적지 않는다 — 전엔 11개만 적혀 있어 메뉴 50개 중 39개(IPO 하이프 사이클 등)는 ?tab= 으로 열리지 않았다(2026-11-14).
@@ -852,7 +856,7 @@ export default function DashboardPage() {
     const v = sp.get('view')
     const FLOW = new Set(['mine', 'market', 'investor', 'reco', 'unified', 'leverage'])
     if (t === 'moneyflow' && v && FLOW.has(v)) setFlowView(v as 'unified')
-  }, [])
+  }, [loading])
   const [flowView, setFlowView] = useState<'mine' | 'market' | 'investor' | 'reco' | 'unified' | 'leverage'>('mine')
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
