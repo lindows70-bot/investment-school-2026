@@ -209,6 +209,11 @@ try {
         writeFileSync(COOLDOWN, JSON.stringify({ ...resume, seenAt: new Date().toISOString() }, null, 2), 'utf8')
         out.push(`- ⏳ 한도 소진 — \`${resume.raw}\` 이후 재시도하도록 기록했습니다(\`${COOLDOWN}\`).`)
       }
+      // 원인을 '리뷰어가 응답을 못 했다'로 뭉뚱그리지 않는다 — 2026-11-23 재현: 10/17부터의 실패는 크기·한도가 아니라
+      //   "The 'gpt-5.5' model is not supported when using Codex with a ChatGPT account"(400 model_not_found)였다.
+      //   gpt-5.4·5.3-codex·5-codex·5 도 같은 오류 → 모델이 아니라 계정(구독·로그인 방식) 문제라 사람이 `codex login` 을 확인해야 한다
+      if (/not supported when using Codex with a ChatGPT account|model_not_found/i.test(`${r.stdout || ''}${r.stderr || ''}`))
+        out.push('- 🔑 **원인: Codex 계정이 모델을 못 씀**(400 model_not_found — "ChatGPT 계정으로는 지원되지 않는 모델"). 다른 모델로 바꿔도 같았다(2026-11-23 재현) → 터미널에서 `codex login` 과 ChatGPT 구독의 Codex 사용 가능 여부를 확인할 것.')
       out.push(`- ❌ **Codex 리뷰 실패.**`, '', body || '(출력 없음)', '')
       geminiFallback('Codex 실패')
     } else { status.codex = 'ok'; out.push(body || '(출력 없음)') }
