@@ -1,5 +1,5 @@
 'use client'
-// 학생 '위기 신호등' 상세 — 종합(개수) · 돈줄 신호 3등 · 거품 신호 6등(야데니 모델 · 미국 빚 · 한국 빚 포함) · 장단기 금리차 1년 차트 · VIX 긴 차트(1990년부터) · 지금 할 일 · 막스의 다섯 신호 대조 · 뺀 신호
+// 학생 '위기 신호등' 상세 — 종합(개수) · 돈줄 신호 3등 · 거품 신호 6등(야데니 모델 · 미국 빚 · 한국 빚 포함) · 장단기 금리차 1년 차트 · VIX 긴 차트(1990년부터) · 바닥 신호 5칸(지금이 바닥인가 — 2026-11-22 영상 반영) · 지금 할 일 · 막스의 다섯 신호 대조 · 뺀 신호
 //   원천 /api/crisis-signal(lib/crisisSignal) — 색은 선생님 화면들의 판정을 그대로 모은 것. 규칙: 숫자엔 출처·날짜 · 못 가져온 등은 '모름'(초록 아님) ·
 //   사라·팔라 없음 · 종합 점수·확률 없음(개수만) · 글자는 색칠하지 않고 등(동그라미)만 칠한다(등락색과 섞이지 않게)
 //   설계 docs/crisis-signal/plan.md · 2026-11-21 사용자 요청(AI 버블 논쟁 · 수업 영상 EP55 · "장단기 금리차도 같이")
@@ -8,7 +8,8 @@ import { useState } from 'react'
 import { TK, FS, RAD, SP } from '@/lib/theme'
 import { useJson } from '@/app/components/student/useJson'
 import { niceTicks, dayTicks, kstParts, ymdDot } from '@/lib/marketScreen'
-import type { CrisisSignal, Light, LightKey } from '@/lib/crisisSignal'
+import type { CrisisSignal, Light, LightKey, LightColor } from '@/lib/crisisSignal'
+import type { BottomSignals, BottomState } from '@/lib/bottomSignals'
 import { card, FailRow, noteStyle } from '@/app/components/student/home/homeUi'
 import { Segment } from '@/app/components/student/ui'
 import { LinePlot } from '@/app/components/student/market/marketUi'
@@ -82,6 +83,57 @@ function VixChart({ d }: { d: CrisisSignal }) {
         </p>
       )}
       <span style={{ fontSize: FS.micro, color: TK.sub, wordBreak: 'keep-all' }}>출처 {v.sources} · 기준일 {dotDate(v.last.date)}</span>
+    </section>
+  )
+}
+const STATE_LAMP: Record<BottomState, LightColor> = { on: 'green', half: 'yellow', off: 'none', none: 'none' }
+
+/** 바닥 신호 5칸 — "지금이 바닥인가"(위기 신호등과 다른 질문). 켜짐 = 초록 등(바닥에 가까워진 쪽) · 반쯤 = 노랑 · 꺼짐·못 잼 = 빈 등 */
+function BottomSection({ b }: { b: BottomSignals }) {
+  const days = b.episodes.map(e => e.days).sort((x, y) => x - y)
+  const midDays = days.length ? (days.length % 2 ? days[(days.length - 1) / 2] : Math.round((days[days.length / 2 - 1] + days[days.length / 2]) / 2)) : null
+  return (
+    <section aria-label="바닥 신호" style={{ display: 'flex', flexDirection: 'column', gap: SP.sm }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs }}>
+        <h2 style={h2Style}>바닥 신호 — 지금이 바닥일까</h2>
+        <span style={{ ...noteStyle(), wordBreak: 'keep-all' }}>위기 신호와 다른 질문이에요. 월가에서 바닥을 알아볼 때 보던 다섯 칸 — 공포는 반등 신호, 나머지 넷은 바닥을 확인해 주는 신호예요.</span>
+      </div>
+      <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>
+        <p style={{ margin: 0, fontSize: FS.body, lineHeight: 1.6, color: TK.slate100, fontWeight: 700, wordBreak: 'keep-all' }}>{b.headline}</p>
+        {b.now && (
+          <p style={pStyle}>
+            S&amp;P 500 은 고점({dotDate(b.now.peak)}) 대비 −{b.now.ddPct}%이고 {b.now.days}일째예요.
+            {midDays != null && b.episodes.length > 0 ? ` ${b.episodes[0].peak.slice(0, 4)}년부터 8% 넘게 빠졌던 ${b.episodes.length}번은 바닥까지 ${days[0]}~${days[days.length - 1]}일(가운데 ${midDays}일) 걸렸어요 — 시간으로는 아무것도 정해지지 않아요.` : ''}
+          </p>
+        )}
+        {b.items.map(i => (
+          <div key={i.key} style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, paddingTop: SP.sm, borderTop: `1px solid ${TK.border}`, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm, flexWrap: 'wrap', minWidth: 0 }}>
+              <Lamp color={STATE_LAMP[i.state]} size={16} />
+              <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate100 }}>{i.name}</span>
+              <span style={{ padding: `1px ${SP.sm}px`, borderRadius: RAD.pill, background: TK.bg7, border: `1px solid ${TK.line1}`, color: TK.slate200, fontSize: FS.micro, fontWeight: 700, whiteSpace: 'nowrap' }}>{i.stateKo} · {i.kind} 신호</span>
+            </div>
+            <span style={{ fontSize: FS.tiny, lineHeight: 1.6, color: TK.slate200, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{i.line}</span>
+            {i.rows.map(r => (
+              <div key={r.label} style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: SP.sm, minWidth: 0 }}>
+                  <span style={{ fontSize: FS.tiny, color: TK.sub, minWidth: 0, wordBreak: 'keep-all' }}>{r.label}</span>
+                  <span style={{ fontSize: FS.tiny, fontWeight: 700, color: TK.slate100, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{r.value}</span>
+                </div>
+                {r.note && <span style={{ fontSize: FS.micro, color: TK.sub, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{r.note}</span>}
+              </div>
+            ))}
+            <details>
+              <summary style={summaryStyle}>켜고 끄는 규칙</summary>
+              <p style={pStyle}>{i.rule}</p>
+            </details>
+            <span style={{ fontSize: FS.micro, color: TK.sub, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>출처 {i.source}{i.date ? ` · ${dotDate(i.date)}` : ''}</span>
+          </div>
+        ))}
+        <span style={{ ...noteStyle(), wordBreak: 'keep-all' }}>
+          주식이 싸졌다는 숫자(값)는 이 다섯 칸에 넣지 않았어요 — 찰스 슈왑의 케빈 고든 말대로, 싸다는 건 언제 사야 하는지 알려 주는 잣대로는 오랫동안 가장 못 믿었던 축이라서예요. 다섯 칸은 월가 사람들이 2026년 11월 20일 방송에서 댄 기준을 정리한 수업 영상(월가인사이드)에서 가져왔고, 숫자는 앱이 원천에서 다시 셌어요.
+        </span>
+      </div>
     </section>
   )
 }
@@ -207,6 +259,8 @@ export default function StudentSignal() {
               {g.key === 'bubble' && <VixChart d={d} />}
             </section>
           ))}
+
+          {d.bottom && <BottomSection b={d.bottom} />}
 
           {d.overall.todo.length > 0 && (
             <section aria-label="지금 할 일" style={{ ...card, display: 'flex', flexDirection: 'column', gap: SP.sm }}>

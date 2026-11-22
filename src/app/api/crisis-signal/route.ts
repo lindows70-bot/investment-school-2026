@@ -13,14 +13,20 @@ import { fedModelOf, type FedModel } from '@/lib/fedModel'
 import { fetchVixHistory, VIX_HISTORY_KEY, type VixHistory } from '@/lib/vixHistory'
 import { FACTSET_FWD_KEY } from '@/lib/localRunners'
 import { fredObservations } from '@/lib/fred'
+import { buildBottomSignals, type Close, type EpsPoint } from '@/lib/bottomSignals'
+import { dropOpenDay } from '@/lib/vixHistory'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const CACHE_KEY = 'crisis-signal-v5'   // v5: 야데니 모델 등 · VIX 긴 이력(vix) · 심리 등의 VIX 를 차트와 같은 값으로 · v4: 미국 빚 문장의 금액 표기 · v3: 미국 빚 등(FINRA 신용잔고) 추가 · 빚 → 한국 빚 · v2: 주식 값 줄의 음수 기호(−) · 날짜 없는 키 — 신선도는 TTL 로(날짜 키는 영구 누적) · 필드·문구가 바뀌면 올린다
+const CACHE_KEY = 'crisis-signal-v6'   // v6: 바닥 신호 5칸(bottom) · VIX 비슷했던 날 2주 뒤 · v5: 야데니 모델 등 · VIX 긴 이력(vix) · 심리 등의 VIX 를 차트와 같은 값으로 · v4: 미국 빚 문장의 금액 표기 · v3: 미국 빚 등(FINRA 신용잔고) 추가 · 빚 → 한국 빚 · v2: 주식 값 줄의 음수 기호(−) · 날짜 없는 키 — 신선도는 TTL 로(날짜 키는 영구 누적) · 필드·문구가 바뀌면 올린다
 const TTL = 3600_000
 const STALE_TTL = 48 * 3600_000        // 새로 못 만들 때 보여 줄 마지막 성공분
 const US_MARGIN_FAIL_KEY = 'us-margin-fail-v1'   // FINRA 조회 실패 표식(30분) — 날짜 없는 키
+const BOTTOM_PX_KEY = 'bottom-prices-v1'   // S&P 500·애플 일봉(바닥 신호) — 날짜 없는 키
+const EPS_HIST_KEY = 'fwd-eps-hist-v1'     // 거꾸로 구한 예상이익 주간 적립(한 행 덮어쓰기 · 최근 260주)
+const BOTTOM_FROM = '2017-01-01'           // 과거 바닥은 2018년부터 센다 — 52주 고점을 재려고 한 해 앞에서 받는다
+const NY_DATE = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' })
 
 /** 자기 호출 — JSON 이 아니면(로그인 페이지 등) 못 가져온 것으로 친다 */
 async function pull<T>(base: string, path: string): Promise<T | null> {
@@ -73,12 +79,48 @@ async function getVix(): Promise<VixHistory | null> {
   return await getCache<VixHistory>(VIX_HISTORY_KEY, 3 * 86_400_000)
 }
 
+/** 야후 일봉 종가(뉴욕 날짜 · 진행 중인 오늘 봉 제외) — S&P 500·애플. 실패 = 빈 배열 */
+async function yahooCloses(symbol: string, from: string): Promise<Close[]> {
+  try {
+    const p1 = Math.floor(Date.parse(`${from}T00:00:00Z`) / 1000), p2 = Math.floor(Date.now() / 1000)
+    const r = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?period1=${p1}&period2=${p2}&interval=1d`, { headers: { 'User-Agent': 'Mozilla/5.0' }, cache: 'no-store', signal: AbortSignal.timeout(15_000) })
+    if (!r.ok) return []
+    const res = (await r.json())?.chart?.result?.[0]
+    const ts: number[] = res?.timestamp ?? [], close: (number | null)[] = res?.indicators?.quote?.[0]?.close ?? []
+    const rows = ts.flatMap((t, i) => { const c = close[i]; return typeof c === 'number' && Number.isFinite(c) && c > 0 ? [{ date: NY_DATE.format(new Date(t * 1000)), v: c }] : [] })
+    return dropOpenDay(rows).map(x => ({ date: x.date, c: x.v }))
+  } catch { return [] }
+}
+
+/** 바닥 신호 재료 — S&P 500·애플 일봉(2017년부터 · 6시간 캐시) + 주마다 적립하는 '거꾸로 구한 예상이익' */
+async function getBottomInputs(): Promise<{ spx: Close[]; aapl: Close[]; epsHist: EpsPoint[] }> {
+  let px = await getCache<{ spx: Close[]; aapl: Close[] }>(BOTTOM_PX_KEY, 6 * 3600_000)
+  if (!px) {
+    const [spx, aapl] = await Promise.all([yahooCloses('^GSPC', BOTTOM_FROM), yahooCloses('AAPL', BOTTOM_FROM)])
+    if (spx.length > 1000 && aapl.length > 1000) { px = { spx, aapl }; await setCache(BOTTOM_PX_KEY, px) }
+    else px = await getCache<{ spx: Close[]; aapl: Close[] }>(BOTTOM_PX_KEY, 3 * 86_400_000) ?? { spx, aapl }
+  }
+  // 예상이익 적립 — FactSet 기준일이 새로 나오면 그날(이하 최근) S&P 500 종가 ÷ 선행 PER 을 한 줄 더한다(전향적 적립 · 소급 없음)
+  const hist = (await getCache<EpsPoint[]>(EPS_HIST_KEY, 3650 * 86_400_000)) ?? []
+  const fwd = await getCache<{ fwd: number; date: string }>(FACTSET_FWD_KEY, 30 * 86_400_000)
+  if (fwd && typeof fwd.fwd === 'number' && fwd.fwd > 5 && /^\d{4}-\d{2}-\d{2}$/.test(fwd.date) && !hist.some(h => h.date === fwd.date)) {
+    const at = px.spx.filter(x => x.date <= fwd.date).pop()
+    // 그날 종가가 열흘 넘게 묵었으면(자료 구멍) 적지 않는다 — 다른 날 값을 그날 이름으로 남기지 않게
+    if (at && Date.parse(fwd.date) - Date.parse(at.date) <= 10 * 86_400_000) {
+      const next = [...hist, { date: fwd.date, eps: Math.round(at.c / fwd.fwd * 100) / 100 }].sort((a, b) => a.date < b.date ? -1 : 1).slice(-260)
+      await setCache(EPS_HIST_KEY, next)
+      return { ...px, epsHist: next }
+    }
+  }
+  return { ...px, epsHist: hist }
+}
+
 export async function GET(req: Request) {
   const fresh = await getCache<CrisisSignal>(CACHE_KEY, TTL)
   if (fresh) return NextResponse.json(fresh, { headers: { 'Cache-Control': 'no-store' } })
 
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin   // 자기 호출은 공개 주소로(배포 고유 주소는 로그인 보호에 걸린다)
-  const [curve, liquidity, radar, leverage, mood, capex, usMargin, fedModel, vix] = await Promise.all([
+  const [curve, liquidity, radar, leverage, mood, capex, usMargin, fedModel, vix, breadth, bottomIn] = await Promise.all([
     pull<CurveIn>(base, '/api/yield-curve'),
     pull<LiquidityIn>(base, '/api/us-liquidity'),
     pull<RadarIn>(base, '/api/crisis-radar'),
@@ -88,14 +130,22 @@ export async function GET(req: Request) {
     getUsMargin().catch(() => null),
     getFedModel().catch(() => null),
     getVix().catch(() => null),
+    pull<{ us?: { pctAbove50?: number; n?: number; series?: { date: string }[] } }>(base, '/api/market-breadth'),
+    getBottomInputs().catch(() => ({ spx: [] as Close[], aapl: [] as Close[], epsHist: [] as EpsPoint[] })),
   ])
   const result = buildCrisisSignal({
     now: new Date().toISOString(), curve, liquidity, radar, usMargin, fedModel, vix, leverage, mood, capex,
     rules: { flatPp: FLAT_PP, redDays: RED_MIN_DAYS, historyMinDays: HISTORY_MIN_DAYS, sahmPp: SAHM_TRIGGER_PP, hyWarn: HY_WARN_PP, hyBad: HY_BAD_PP, hySpike: HY_SPIKE_PP, capexRed: CAPEX_RED_PCT, capexYellow: CAPEX_YELLOW_PCT, levDanger: LEV_DANGER_PCTL, levCaution: LEV_CAUTION_PCTL, levComboRatio: LEV_COMBO_RATIO_PCTL, levComboMargin: LEV_COMBO_MARGIN_PCTL, usWindowM: US_MARGIN_WINDOW_M },
   })
 
+  const us = breadth?.us
+  result.bottom = bottomIn.spx.length > 300 ? buildBottomSignals({
+    mood, vix, spx: bottomIn.spx, aapl: bottomIn.aapl, epsHist: bottomIn.epsHist, sahm: curve?.sahm ?? null, since: '2018-01-01',
+    breadth: us ? { pctAbove50: us.pctAbove50, n: us.n, date: us.series?.[us.series.length - 1]?.date } : null,
+  }) : null
+
   // 등을 전부 잰 응답(+ VIX 차트)만 캐시한다 — 한 번의 실패가 한 시간짜리 '모름'으로 박제되지 않게(부분실패 캐시 금지)
-  if (result.measured === result.total && result.vix) {
+  if (result.measured === result.total && result.vix && result.bottom) {
     await setCache(CACHE_KEY, result)
     return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
   }

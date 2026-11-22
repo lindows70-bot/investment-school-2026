@@ -58,6 +58,8 @@ export default function CrisisSignalCard() {
               </div>
             ))}
           </div>
+          {/* 바닥 신호 한 줄 — 위기와 다른 질문(지금이 바닥인가). 결론 문장은 서버가 데이터에서 만든다 */}
+          {d.bottom && <span style={{ fontSize: FS.tiny, lineHeight: 1.5, color: TK.slate300, wordBreak: 'keep-all', paddingTop: SP.sm, borderTop: `1px solid ${TK.border}` }}><b style={{ color: TK.slate100 }}>바닥 신호</b> · {d.bottom.headline}</span>}
           {d.stale && <span style={noteStyle(TK.amber400)}>새 값을 못 가져와 마지막으로 잰 값을 보여 주고 있어요.</span>}
         </>
       )}

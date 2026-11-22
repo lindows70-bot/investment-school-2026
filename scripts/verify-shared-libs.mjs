@@ -6,7 +6,7 @@ import Module from 'node:module'
 
 const ROOT = 'C:/Users/lindo/investment-school-portfolio'
 const OUT = `${ROOT}/.bt-shared-libs`
-const LIBS = ['googleNews', 'upbit', 'assetRoleRules', 'classifyAsset', 'assetClassifier', 'chunkReload', 'fred', 'kst', 'studentCharts', 'capexCash', 'crisisSignal', 'usMargin', 'leverageLevel', 'fedModel', 'vixHistory']
+const LIBS = ['googleNews', 'upbit', 'assetRoleRules', 'classifyAsset', 'assetClassifier', 'chunkReload', 'fred', 'kst', 'studentCharts', 'capexCash', 'crisisSignal', 'usMargin', 'leverageLevel', 'fedModel', 'vixHistory', 'bottomSignals']
 
 writeFileSync(`${ROOT}/.bt-shared-libs.tsconfig.json`, JSON.stringify({
   extends: `${ROOT}/tsconfig.json`,
@@ -35,6 +35,7 @@ const UM = require(`${OUT}/lib/usMargin.js`)
 const LV = require(`${OUT}/lib/leverageLevel.js`)
 const FM = require(`${OUT}/lib/fedModel.js`)
 const VX = require(`${OUT}/lib/vixHistory.js`)
+const BS = require(`${OUT}/lib/bottomSignals.js`)
 
 let fails = 0
 const check = (name, ok, extra = '') => { console.log(`${ok ? '✅' : '❌'} ${name}${extra ? ' — ' + extra : ''}`); if (!ok) fails++ }
@@ -174,6 +175,40 @@ check('KST: UTC 2026-10-18 15:30 = 한국 10-19 · UTC 14:59 = 10-18', KST.kstDa
     && VX.joinVix(fr, [{ date: '2026-11-19', v: 30 }, { date: '2026-11-20', v: 35.89 }]).added === 0 && VX.joinVix([], [{ date: '2026-11-20', v: 35 }]).days.length === 0)
   const ny = (s) => Date.parse(s)
   check('VIX: 뉴욕 장 마감(16:30) 전이면 오늘 봉을 뺀다 · 뒤면 둔다', VX.dropOpenDay([{ date: '2026-11-20', v: 30 }, { date: '2026-11-19', v: 28 }], ny('2026-11-20T15:00:00-05:00')).length === 1 && VX.dropOpenDay([{ date: '2026-11-20', v: 30 }], ny('2026-11-20T17:00:00-05:00')).length === 1)
+  // ── 바닥 신호 5칸(2026-11-22 영상 반영) — 에피소드 · 애플 선 · 시장 폭 · 예상이익 적립 · 결론 문장 ──
+  const cl = (date, c) => ({ date, c })
+  const dd = BS.drawdownEpisodes([cl('2020-01-01', 100), cl('2020-01-10', 90), cl('2020-01-20', 101), cl('2020-02-01', 95), cl('2020-03-01', 80), cl('2020-04-01', 102), cl('2020-05-01', 97)])
+  check('바닥: 하락 에피소드 = 8% 넘게 빠졌다가 새 고점을 낸 구간만(10% · 20.8%) · 진행 중인 하락은 now', dd.episodes.length === 2 && dd.episodes[0].bottom.date === '2020-01-10' && dd.episodes[1].bottom.date === '2020-03-01' && dd.now.peak.date === '2020-04-01' && dd.now.last.c === 97)
+  const ap = [cl('2019-06-01', 200), cl('2020-01-02', 150), cl('2020-03-01', 120)]
+  check('바닥: 애플 하락폭 = 그날까지 365일 안 종가 고점 대비(1년 넘은 고점은 안 본다)', BS.appleDrawdown(ap, '2020-03-01') === 40 && BS.appleDrawdown([cl('2018-01-01', 300), ...ap.slice(1)], '2020-03-01') === 20 && BS.appleDrawdown([], '2020-03-01') === null)
+  // 실측 모양: 과거 8번 바닥의 애플 하락폭(2026-11-22 야후 재계산) — 최소 10.9 · 가운데 22.1
+  const mkPx = () => {
+    const spx = [], aapl = []
+    const ep = [['2018-01-26', '2018-02-08', 13.4], ['2018-09-20', '2018-12-24', 36.7], ['2020-02-19', '2020-03-23', 31.4], ['2020-09-02', '2020-09-23', 20.2], ['2022-01-03', '2022-10-12', 24], ['2024-07-16', '2024-08-05', 10.9], ['2025-02-19', '2025-04-08', 33.4], ['2026-01-27', '2026-03-30', 13.8]]
+    let lvl = 1000
+    for (const [pk, bt, a] of ep) { lvl *= 1.2; spx.push(cl(pk, lvl), cl(bt, lvl * 0.85)); aapl.push(cl(pk, 100), cl(bt, 100 * (1 - a / 100))) }
+    spx.unshift(cl('2017-06-01', 900)); aapl.unshift(cl('2017-06-01', 90))
+    spx.push(cl('2026-10-06', lvl * 1.2), cl('2026-11-20', lvl * 1.2 * 0.884)); aapl.push(cl('2026-10-06', 100), cl('2026-11-20', 96.2))
+    return { spx, aapl }
+  }
+  const px = mkPx()
+  const bInp = { mood: { source: 'cnn', rating: 'extreme fear', partyScore: 10, asOf: '2026-11-22T00:00:00Z' }, vix: { last: { date: '2026-11-20', v: 35.89 }, higherPct: 3.5, since: '1990-01-02', analog: { n: 145, episodes: 30, lowerPct: 75.9, median: 32.19, band: 2, horizon: 10 } },
+    spx: px.spx, aapl: px.aapl, breadth: { pctAbove50: 39.1, n: 468, date: '2026-11-20' }, epsHist: [{ date: '2026-11-20', eps: 404.1 }], sahm: { v: 0, date: '2026-10-01', triggered: false }, since: '2018-01-01' }
+  const bs = BS.buildBottomSignals(bInp)
+  const B = k => bs.items.find(i => i.key === k)
+  check('바닥: 다섯 칸 · 공포만 반등 신호 · 지금 값 → 공포 켜짐 · 애플 꺼짐(3.8%) · 시장 폭 반쯤(39.1%) · 이익 전망 적립 중 · 침체 꺼짐', bs.items.map(i => `${i.key}:${i.state}`).join(',') === 'fear:on,apple:off,breadth:half,eps:none,recession:off' && bs.items.filter(i => i.kind === '반등').length === 1 && B('eps').stateKo === '적립 중')
+  check('바닥: 결론 = 반등 켜짐 · 바닥 3칸 중 0칸 · 1칸 반쯤 → "첫 반등으로 읽어야"', bs.headline === '반등 신호(공포)는 켜졌고, 바닥 신호는 3칸 중 0칸 켜짐 · 1칸 반쯤이에요. 반등이 와도 바닥 확인이 아니라 첫 반등으로 읽어야 해요.' && bs.bottomMeasured === 3 && bs.bottomTotal === 4)
+  check('바닥: 애플 선은 과거 바닥에서 뽑는다(최소 10.9 · 가운데 22.1 · 8번 = 일화 표기) · 지금 −11.6% · 45일째', /최소 −10\.9% · 가운데 −22\.1%/.test(B('apple').rows[1].value) && /일화/.test(B('apple').rows[1].note) && bs.episodes.length === 8 && bs.now.ddPct === 11.6 && bs.now.days === 45)
+  const bsWith = over => BS.buildBottomSignals({ ...bInp, ...over })
+  check('바닥: 애플 가운데 값 이상 켜짐 · 최소 이상 반쯤 · 시장 폭 20 아래 켜짐 · 40 이상 꺼짐', bsWith({ aapl: [...px.aapl.slice(0, -1), cl('2026-11-20', 77)] }).items[1].state === 'on' && bsWith({ aapl: [...px.aapl.slice(0, -1), cl('2026-11-20', 88)] }).items[1].state === 'half'
+    && bsWith({ breadth: { pctAbove50: 19.9 } }).items[2].state === 'on' && bsWith({ breadth: { pctAbove50: 40 } }).items[2].state === 'off' && bsWith({ breadth: null }).items[2].state === 'none')
+  check('바닥: 이익 전망 — 25일 넘게 전 값보다 줄면 켜짐 · 늘면 꺼짐 · 비교할 주가 없으면 적립 중', bsWith({ epsHist: [{ date: '2026-10-23', eps: 410 }, { date: '2026-11-20', eps: 404.1 }] }).items[3].state === 'on' && bsWith({ epsHist: [{ date: '2026-10-23', eps: 400 }, { date: '2026-11-20', eps: 404.1 }] }).items[3].state === 'off' && bsWith({ epsHist: [{ date: '2026-11-13', eps: 410 }, { date: '2026-11-20', eps: 404.1 }] }).items[3].state === 'none')
+  check('바닥: 공포 — CNN 구간 그대로(공포 반쯤 · 중립 꺼짐 · CNN 아니면 못 잼) · 반등이 꺼지면 "첫 반등" 말을 하지 않는다', bsWith({ mood: { ...bInp.mood, rating: 'fear' } }).items[0].state === 'half' && bsWith({ mood: { ...bInp.mood, rating: 'neutral' } }).items[0].state === 'off' && bsWith({ mood: { ...bInp.mood, source: 'calc' } }).items[0].state === 'none' && !/첫 반등/.test(bsWith({ mood: { ...bInp.mood, rating: 'neutral' } }).headline))
+  check('바닥: 침체 켜지면 켜짐 · VIX 비슷했던 날은 서로 다른 일 수를 함께', bsWith({ sahm: { v: 0.6, date: '2026-10-01', triggered: true } }).items[4].state === 'on' && /서로 다른 일은 30번뿐/.test(B('fear').rows[2].note) && B('fear').rows[2].value === '75.9%가 더 낮아짐')
+  const bTexts = bs.items.flatMap(i => [i.line, i.rule, i.stateKo, ...i.rows.flatMap(r => [r.label, r.value, r.note ?? 'x'])]).concat(bs.headline)
+  check('바닥: 문장 — 쌍점으로 끝나지 않는다 · 사라/팔라는 말이 없다', bTexts.every(t => !/:\s*$/.test(t) && !/(매수하세요|매도하세요|사세요|파세요|팔아야|사야 해)/.test(t)))
+  const vA = VX.vixAnalogOf([...Array.from({ length: 30 }, (_, i) => ({ date: `d${i}`, v: i < 12 ? 36 : 20 })), { date: 'z', v: 36 }], 2, 10)
+  check('VIX 비슷했던 날: ±2 안의 날 · 10거래일 뒤 더 낮아진 비율 · 이어진 날은 한 번의 일로', vA.n === 12 && vA.episodes === 1 && vA.lowerPct === 83.3 && vA.median === 20)
   const rules = { flatPp: 0.25, redDays: 20, historyMinDays: 10, sahmPp: 0.5, hyWarn: 3.4, hyBad: 5, hySpike: 0.5, capexRed: 100, capexYellow: 50, levDanger: LV.LEV_DANGER_PCTL, levCaution: LV.LEV_CAUTION_PCTL, levComboRatio: LV.LEV_COMBO_RATIO_PCTL, levComboMargin: LV.LEV_COMBO_MARGIN_PCTL, usWindowM: UM.US_MARGIN_WINDOW_M }
   const curve = { alert: 'none', spreads: [{ key: 't10y2y', value: 0.29, date: '2026-11-20', invertedDays: 0, chg3m: -0.21 }, { key: 't10y3m', value: 0.6, date: '2026-11-20', invertedDays: 0, chg3m: -0.22 }],
     sahm: { v: 0, date: '2026-10-01', triggered: false },

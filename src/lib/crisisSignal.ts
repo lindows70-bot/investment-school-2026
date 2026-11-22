@@ -6,6 +6,7 @@ import type { CapexCash } from '@/lib/capexCash'
 import type { UsMargin } from '@/lib/usMargin'
 import type { FedModel } from '@/lib/fedModel'
 import type { VixHistory } from '@/lib/vixHistory'
+import type { BottomSignals } from '@/lib/bottomSignals'
 
 export type LightColor = 'red' | 'yellow' | 'green' | 'none'
 export type LightGroup = 'money' | 'bubble'
@@ -40,6 +41,8 @@ export interface CrisisSignal {
   curveHistory: CurveHistory | null
   /** VIX 긴 이력(차트) — 못 가져오면 null */
   vix: VixHistory | null
+  /** 바닥 신호 5칸 — 위기 신호와 다른 질문(지금이 바닥인가). 라우트가 붙인다 · 못 만들면 null */
+  bottom?: BottomSignals | null
   stale?: boolean              // 새로 못 만들어 마지막 성공분을 보여주는 중
 }
 

@@ -4,7 +4,7 @@
 //   ⚠️ 야후 range=max 는 일봉이 아니라 달봉(443점)이라 긴 이력은 FRED 로만 받는다
 import { fredObservations } from '@/lib/fred'
 
-export const VIX_HISTORY_KEY = 'vix-history-v1'   // 날짜 없는 키 — 신선도는 TTL 로
+export const VIX_HISTORY_KEY = 'vix-history-v2'   // v2: analog(비슷했던 날 2주 뒤) · 날짜 없는 키 — 신선도는 TTL 로
 /** 차트 기간 — 1년 = 하루 종가 · 5년 = 주마다 가장 높았던 날 · 1990년부터 = 달마다 가장 높았던 날(급등이 평균에 묻히지 않게) */
 export type VixRange = '1Y' | '5Y' | 'ALL'
 
@@ -18,7 +18,27 @@ export interface VixHistory {
   median: number
   peaks: VixDay[]                    // 해마다 가장 높았던 날 중 큰 순 3개(서로 다른 해)
   series: Record<VixRange, VixDay[]>
+  analog: VixAnalog | null           // 지금과 비슷했던 날 2주(10거래일) 뒤 — 영상의 "VIX 36 근처면 2주 뒤 30 아래가 더 많았다"를 우리 자료로
   sources: string
+}
+
+/** 지금과 비슷했던 날(±band) horizon 거래일 뒤 — 이어진 날은 서로 독립이 아니라 '서로 다른 일'(horizon 넘게 떨어진 묶음) 수를 함께 센다
+ *  2026-11-22 재현: 34~38 로 마감한 날 141일 → 10거래일 뒤 30 아래 42번 · 40 위 14번(영상 숫자와 같음) · 그런데 서로 다른 일은 29번 */
+export interface VixAnalog { band: number; horizon: number; n: number; episodes: number; lowerPct: number; median: number }
+export function vixAnalogOf(days: VixDay[], band = 2, horizon = 10): VixAnalog | null {
+  if (days.length < horizon + 2) return null
+  const cur = days[days.length - 1].v
+  const idx: number[] = []
+  for (let i = 0; i + horizon < days.length; i++) if (Math.abs(days[i].v - cur) <= band) idx.push(i)
+  if (!idx.length) return null
+  const after = idx.map(i => days[i + horizon].v).sort((a, b) => a - b)
+  const n = idx.length
+  return {
+    band, horizon, n,
+    episodes: idx.filter((i, k) => k === 0 || i - idx[k - 1] > horizon).length,
+    lowerPct: Math.round(idx.filter(i => days[i + horizon].v < days[i].v).length / n * 1000) / 10,
+    median: Math.round((n % 2 ? after[(n - 1) / 2] : (after[n / 2 - 1] + after[n / 2]) / 2) * 100) / 100,
+  }
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100
@@ -55,6 +75,7 @@ export function vixHistoryOf(raw: VixDay[], nowIso: string = new Date().toISOStr
       '5Y': maxBy(days.filter(d => d.date > after(5)), d => weekKey(d.date)),
       ALL: maxBy(days, d => d.date.slice(0, 7)),
     },
+    analog: vixAnalogOf(days),
     sources,
   }
 }

@@ -102,6 +102,25 @@ else {
     check('심리 등의 VIX = 차트 마지막 값(한 화면에 두 숫자 없음)', vixRow?.value === vx.last.v.toFixed(2), `심리 줄 ${vixRow?.value}`)
   }
 
+  // ── 바닥 신호 5칸: 애플 하락폭 = 야후 재계산 · 시장 폭 = 시장 폭 화면 · 결론 문장 = 칸 상태 ──
+  const bt = sig.bottom
+  check('바닥 신호 5칸이 응답에 있다(공포만 반등 신호)', Array.isArray(bt?.items) && bt.items.length === 5 && bt.items.filter(i => i.kind === '반등').length === 1)
+  if (bt) {
+    const B = k => bt.items.find(i => i.key === k)
+    const yc2 = async s => { const j = await get(`https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s)}?range=2y&interval=1d`, UA); const r = j?.chart?.result?.[0]; return (r?.timestamp ?? []).map((x, i) => ({ d: new Date((x - 5 * 3600) * 1000).toISOString().slice(0, 10), c: r.indicators.quote[0].close[i] })).filter(x => x.c != null) }
+    const ap = await yc2('AAPL')
+    const apDate = B('apple').date, at = ap.find(x => x.d === apDate)
+    const hi = at ? Math.max(...ap.filter(x => x.d <= apDate && Date.parse(x.d) > Date.parse(apDate) - 365 * 86_400_000).map(x => x.c)) : NaN
+    const apDD = at ? (1 - at.c / hi) * 100 : NaN
+    const shownAp = Number(String(B('apple').rows[0]?.value ?? '').replace('−', '').replace('%', ''))
+    check(`바닥 애플 하락폭 = 야후 재계산(${apDate} · ${apDD.toFixed(1)}%)`, Number.isFinite(apDD) && Math.abs(shownAp - apDD) <= 0.15, `화면 ${shownAp}%`)
+    const br = await get(`${APP}/api/market-breadth`)
+    check(`바닥 시장 폭 = 시장 폭 화면(미국 50일선 위 ${br?.us?.pctAbove50}%)`, B('breadth').rows[0]?.value === `${br?.us?.pctAbove50}%`, `바닥 칸 ${B('breadth').rows[0]?.value}`)
+    const ms = bt.items.filter(i => i.kind === '바닥' && i.state !== 'none')
+    check('바닥 결론 문장 = 칸 상태(켜짐·반쯤 수)', bt.headline.includes(`바닥 신호는 ${ms.length}칸 중 ${ms.filter(i => i.state === 'on').length}칸 켜짐`) && bt.headline.startsWith(B('fear').state === 'on' ? '반등 신호(공포)는 켜졌고' : '반등 신호(공포)는 꺼져 있고'), bt.headline)
+    check('이익 전망 적립이 멈추지 않았다(마지막 적립 15일 안)', !!B('eps').date && daysOld(B('eps').date) <= 15, `마지막 ${B('eps').date}`)
+  }
+
   // ── 원천 독립 재계산 ①: 장단기 금리차(FRED) ──
   if (FRED_KEY) {
     const fred = async id => { const j = await get(`https://api.stlouisfed.org/fred/series/observations?series_id=${id}&api_key=${FRED_KEY}&file_type=json&sort_order=desc&limit=10`); const o = (j?.observations ?? []).find(x => x.value !== '.'); return o ? { v: Number(o.value), date: o.date } : null }
