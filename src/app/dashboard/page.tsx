@@ -38,6 +38,7 @@ const CorrelationRadar = dynamic(() => import('@/app/components/CorrelationRadar
 const MarketBreadthPanel = dynamic(() => import('@/app/components/MarketBreadthPanel'), { ssr: false, loading: Loading })
 const IpoHypeCycle = dynamic(() => import('@/app/components/IpoHypeCycle'), { ssr: false, loading: Loading })
 const CrisisRadar = dynamic(() => import('@/app/components/CrisisRadar'), { ssr: false, loading: Loading })
+const CrisisSignalCard = dynamic(() => import('@/app/components/student/home/CrisisSignalCard'), { ssr: false, loading: Loading })
 const ReservoirGauge = dynamic(() => import('@/app/components/ReservoirGauge'), { ssr: false, loading: Loading })
 const CountryVolRadar = dynamic(() => import('@/app/components/CountryVolRadar'), { ssr: false, loading: Loading })
 const LeverageRadar = dynamic(() => import('@/app/components/LeverageRadar'), { ssr: false, loading: Loading })
@@ -1751,7 +1752,7 @@ export default function DashboardPage() {
           {
             id: 'macrocycle', icon: '🌐', label: '매크로·사이클·위기',
             items: [
-              { key: 'crisis', icon: '🚨', label: '글로벌 위기 감지 레이더', desc: 'CAPE·버핏·선행PER·위험프리미엄 4대 버블 Alert' },
+              { key: 'crisis', icon: '🚨', label: '글로벌 위기 감지 레이더', desc: '위기 신호등(등 9개 · 바닥 신호) + CAPE·버핏·선행PER·위험프리미엄 4대 버블 Alert' },
               { key: 'macro',  icon: '🏛️', label: '거시경제 (Fed Watch)', desc: '금리 · 인플레이션 · QT' },
               { key: 'season', icon: '🧭', label: '4계절 내비게이터',     desc: '성장×물가 2×2 · 내 포폴 계절 정합성' },
               { key: 'dalio',  icon: '🌊', label: '레이 달리오 (매크로 사이클)', desc: '부채 사이클·빅 사이클·전천후 — 실데이터 진단' },
@@ -3754,6 +3755,10 @@ export default function DashboardPage() {
       </div>
       <div id="tab-crisis" style={{ display: dashTab==='crisis' ? 'flex' : 'none', flexDirection:'column', gap:16 }}>
         {seen('crisis') && (<>
+        {/* 🚦 위기 신호등(간편 모드 홈과 같은 카드 · 2026-11-23) — 이 탭의 레이더·수익률곡선·빚투·유동성 판정을 등 9개로 모은 것. 누르면 상세(/s/signal: 등마다 값·출처 · VIX 긴 차트 · 바닥 신호 5칸) */}
+        <ErrorBoundary label="위기 신호등">
+          {dashTab==='crisis' && <CrisisSignalCard />}
+        </ErrorBoundary>
         <ErrorBoundary label="글로벌 위기 감지 레이더">
           {dashTab==='crisis' && <CrisisRadar />}
         </ErrorBoundary>
