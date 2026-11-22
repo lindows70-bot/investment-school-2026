@@ -8,6 +8,6 @@ export const maxDuration = 120
 
 export async function GET(req: Request) {
   const url = new URL(req.url)
-  const out = await getUsLiquidity(url.origin, (url.searchParams.get('refresh') === '1' && await canForceRefresh(req)))
+  const out = await getUsLiquidity(process.env.NEXT_PUBLIC_APP_URL || url.origin, (url.searchParams.get('refresh') === '1' && await canForceRefresh(req)))
   return NextResponse.json(out, { headers: { 'Cache-Control': 'no-store' } })
 }

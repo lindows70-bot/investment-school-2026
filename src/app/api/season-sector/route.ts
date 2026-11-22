@@ -105,7 +105,7 @@ function buildValidation(sectors: SectorRet[]) {
 }
 
 export async function GET(req: Request) {
-  const base = new URL(req.url).origin
+  const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin   // 자기 호출은 공개 주소로(크론·배포 고유 주소는 로그인 보호에 걸린다 · CLAUDE.md)
   const cacheKey = 'season-sector-v3'   // v3: 🔥역풍돌파/❄️순풍무력 플래그 추가
   const cached = await getCache<SeasonSectorResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })

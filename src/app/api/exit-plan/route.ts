@@ -79,7 +79,7 @@ export async function GET(req: Request) {
     }
   } catch { /* graceful */ }
 
-  const base = new URL(req.url).origin
+  const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin   // 자기 호출은 공개 주소로(크론·배포 고유 주소는 로그인 보호에 걸린다 · CLAUDE.md)
   const { items, skipped } = await buildExitPlans(Array.from(merged.values()), fundMap, snapMap, base)
   const out: ExitPlanApi = { asOf: kstDate(), items, skipped }
   if (items.length > 0) await setCache(key, out)   // 전멸 결과는 박제 금지

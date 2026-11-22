@@ -80,7 +80,7 @@ async function worldBank(id: string): Promise<{ us: number; cn: number; year: st
 }
 
 export async function GET(req: Request) {
-  const base = new URL(req.url).origin
+  const base = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin   // 자기 호출은 공개 주소로(크론·배포 고유 주소는 로그인 보호에 걸린다 · CLAUDE.md)
   const cacheKey = 'dalio-cycle-v5'   // v5: partyScore 필드 교정(투기열풍 100% 폴백)·연방부채 라벨 / v4: 대출 성장 신호
   const cached = await getCache<DalioCycleResult>(cacheKey, 24 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
