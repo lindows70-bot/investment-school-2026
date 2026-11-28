@@ -846,6 +846,16 @@ async function krInfo(ticker: string, origin: string): Promise<StockInfo> {
   let epsBasis: 'ttm' | 'fy' | null = eps != null ? 'fy' : null
   if (nb.eps != null) { eps = nb.eps; epsBasis = 'ttm' }
   if (nb.pbr != null) pbr = nb.pbr
+  // 배당도 같은 기준(네이버 화면 값)으로 — 2026-11-28 야간 감사: 삼성전자 주가 라우트 3.45%(주당 5,913원 · 네이버 화면) vs
+  //   종목 정보 0.93%(직전 결산 연도 1,668원 ÷ 지금 주가). PER·EPS·PBR 은 10/1 에 네이버 화면 기준으로 맞췄는데 배당만 결산 연도 행에 남아 있었다.
+  //   ETF 는 분배금 전용 원천(아래)을 그대로 쓴다. integration 에 배당이 없으면 결산 연도 값 그대로
+  if (!isEtf && nb.dividendYield != null) {
+    dividendYield = nb.dividendYield
+    if (nb.annualDividend != null) {
+      annualDividend = nb.annualDividend
+      if (nb.eps != null && nb.eps > 0) payoutRatio = nb.annualDividend / nb.eps   // 배당성향도 같은 기준끼리(최근 배당 ÷ 최근 4분기 EPS)
+    }
+  }
 
   // ETF이거나 배당 데이터 없으면 다중 소스 폴백
   if (dividendYield == null || (isEtf && annualDividend == null)) {
