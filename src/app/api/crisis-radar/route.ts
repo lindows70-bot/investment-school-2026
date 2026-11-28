@@ -15,6 +15,8 @@ export interface CrisisMetric {
   value: number | null; unit: string
   mean: number; norm: string        // 역사적 평균/적정
   signal: Signal; note: string
+  /** 원천이 막혀 대신 쓴 값이면 그 사실(무엇으로·언제 값인지) — 없으면 실시간 원천 값 */
+  staleNote?: string
   alertText: string                 // 종합 표용 경고 문구
   explain: string                   // 🎓 학생용 쉬운 설명
   gauge: { min: number; max: number; t1: number; t2: number; invert: boolean }   // 반원 게이지 범위·임계
@@ -24,6 +26,8 @@ export interface CrisisMetric {
 export interface CrisisRadarResult {
   metrics: CrisisMetric[]
   alertLevel: Signal; dangerCount: number; summary: string
+  /** 원천 조회 실패로 판정에서 뺀 지표 이름 — 비어 있으면 넷 다 쟀다 */
+  missing?: string[]
   asOf: string
 }
 
@@ -71,11 +75,12 @@ async function multplSeries(path: string): Promise<{ date: string; v: number }[]
 
 export async function GET() {
   // v9: 선행 PER 미수집 시 후행으로 **축을 함께** 전환(라벨·판정·게이지) — 옛 응답엔 잘못된 판정이 박혀 있어 반드시 범프
-  const cacheKey = 'crisis-radar-v10'   // v10(2026-11-21): 선행 PER 문구를 값에서 뽑는다(옛 응답엔 "평균보다 높아 주의"가 박혀 있다) · v8: explain 의 작성시점 하드코딩 제거 + 허위 인용 제거(내용만 바뀌어도 키를 올린다)
+  const cacheKey = 'crisis-radar-v11'   // v11(2026-11-28): multpl.com 접속 불가 대응 — 조회 실패 지표를 '주의'로 세지 않는다 · missing · staleNote · 대체 원천 · v10(2026-11-21): 선행 PER 문구를 값에서 뽑는다(옛 응답엔 "평균보다 높아 주의"가 박혀 있다) · v8: explain 의 작성시점 하드코딩 제거 + 허위 인용 제거(내용만 바뀌어도 키를 올린다)
   const cached = await getCache<CrisisRadarResult>(cacheKey, 12 * 3600_000)
-  if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
+  // 지표를 다 못 잰 응답은 30분만 믿는다 — 12시간 박제하면 원천이 돌아와도 반나절 빈칸이다(부분실패 캐시 금지)
+  if (cached && (!cached.missing?.length || Date.now() - Date.parse(cached.asOf) < 30 * 60_000)) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 
-  const [cape, pe, eyield, equities, gdp, dgs10, capeSer, peSer, eySer, gs10Ser, fwd] = await Promise.all([
+  const [capeLive, peLive, eyieldLive, equities, gdp, dgs10, capeSer, peSer, eySer, gs10Ser, fwd] = await Promise.all([
     multpl('shiller-pe'), multpl('s-p-500-pe-ratio'), multpl('s-p-500-earnings-yield'),
     fred('NCBEILQ027S', '&observation_start=1995-01-01'),   // 비금융 법인 주식 시가총액($M, 분기)
     fred('GDP', '&observation_start=1995-01-01'),            // 명목 GDP($B, 분기)
@@ -86,6 +91,20 @@ export async function GET() {
     fred('GS10', '&observation_start=1995-01-01&frequency=m'),   // 10년물 월별(ERP 역사용)
     factsetForward(),                                  // 🆕 S&P500 선행 12개월 PER(FactSet 실측)
   ])
+  // 🩹 multpl.com 이 통째로 안 열리면(2026-11-27~ 연결 거부 실측) CAPE·후행 PER·이익수익률이 한꺼번에 null 이 된다.
+  //    · 후행 PER·이익수익률 = FactSet 주간 보고서의 후행 PER(같은 러너 캐시)로 대신한다 — 이익수익률 = 100 ÷ 후행 PER
+  //    · CAPE = 대신할 무료 원천이 없다 → 마지막으로 읽은 값을 날짜와 함께(45일까지). 그것도 없으면 '조회 실패'
+  //    무엇으로 대신했는지는 staleNote·note 에 그대로 적는다(이름표 없는 대체 금지)
+  const LG_KEY = 'crisis-radar-lastgood-v1'   // 날짜 없는 키 — 마지막으로 읽은 CAPE 한 행을 덮어쓴다
+  const lastGood = (await getCache<{ cape?: { v: number; date: string } }>(LG_KEY, 45 * 86_400_000)) ?? {}
+  if (capeLive != null) await setCache(LG_KEY, { cape: { v: capeLive, date: new Date().toISOString().slice(0, 10) } })
+  const cape = capeLive ?? lastGood.cape?.v ?? null
+  const capeStale = capeLive == null && lastGood.cape ? lastGood.cape.date : null
+  const fsTrailing = fwd && typeof fwd.trailing === 'number' && fwd.trailing > 0 ? fwd.trailing : null
+  const pe = peLive ?? fsTrailing
+  const eyield = eyieldLive ?? (fsTrailing != null ? Math.round(100 / fsTrailing * 100) / 100 : null)
+  const eyieldSrc = eyieldLive == null && fsTrailing != null && fwd ? `이익수익률을 FactSet 후행 PER ${fsTrailing}배(${fwd.date})로 대신 계산` : null
+
   // 버핏 시계열(분기): GDP 기준일마다 시총 atOrBefore
   const buffettSer = gdp.map(g => { const e = atOrBefore(equities, g.date); return e != null ? { date: g.date.slice(0, 7), v: Math.round((e / 1e6) / (g.v / 1e3) * 1000) / 10 } : null }).filter((x): x is { date: string; v: number } => x != null)
   // ERP 시계열: 어닝일드(월) − GS10(월) 정렬
@@ -99,7 +118,7 @@ export async function GET() {
     key: 'cape', label: 'Shiller CAPE', icon: '📐', measure: '주가 vs 10년 평균 이익(인플레 조정)',
     value: cape, unit: '배', mean: 17, norm: '역사평균 ≈ 17배',
     signal: cape == null ? 'caution' : cape >= 30 ? 'danger' : cape >= 22 ? 'caution' : 'safe',
-    note: cape == null ? '데이터 조회 실패' : cape >= 30 ? `역사상 상위권 — 장기 실질수익률이 낮았던 구간(현재 ${cape}배)` : '장기 이익 대비 밸류에이션 부담 낮음',
+    note: cape == null ? '데이터 조회 실패 — 원천(multpl.com)에 접속할 수 없습니다' : cape >= 30 ? `역사상 상위권 — 장기 실질수익률이 낮았던 구간(현재 ${cape}배)` : '장기 이익 대비 밸류에이션 부담 낮음',
     // ⚠️ 설명문에 작성시점 수치를 박지 마라 — value 는 매 요청 실계산이라 한 카드 안에서 두 숫자가 어긋난다(2026-08-30 감사).
     explain: `노벨상 수상자 실러 교수가 만든 지표. 주가를 최근 1년이 아닌 **10년 평균 이익**으로 나눕니다(일시적 호황 이익에 안 속으려고). ${cape != null ? `현재 ${cape}배 = 이익 1달러를 얻으려 ${cape}달러를 내는 셈. 역사평균 17배의 약 ${Math.round(cape / 17 * 10) / 10}배` : '역사평균은 약 17배'}로, 이 수준에선 향후 10년 주식 수익률이 역사적으로 낮았습니다.`,
     alertText: cape != null && cape >= 30 ? '매우 위험 (역사상 상위권·평균 2배+)' : '보통',
@@ -175,7 +194,7 @@ export async function GET() {
     key: 'erp', label: '주식 위험 프리미엄', icon: '⚖️', measure: '주식 기대수익률(어닝일드) vs 10년 국채',
     value: erp, unit: '%p', mean: 4.5, norm: '역사평균 ≈ 4~5%p',
     signal: erp == null ? 'caution' : erp < 1 ? 'danger' : erp < 3 ? 'caution' : 'safe',
-    note: erp == null ? '데이터 조회 실패' : erp < 1 ? `어닝일드 ${eyield}% vs 국채 ${y10}% → 프리미엄 ${erp}%p. 채권 대비 주식 메리트 역사적 최저(위험 감수 이유 급감)` : '채권 대비 주식이 합리적 보상 제공',
+    note: erp == null ? '데이터 조회 실패 — 원천(multpl.com)에 접속할 수 없습니다' : erp < 1 ? `어닝일드 ${eyield}% vs 국채 ${y10}% → 프리미엄 ${erp}%p. 채권 대비 주식 메리트 역사적 최저(위험 감수 이유 급감)` : '채권 대비 주식이 합리적 보상 제공',
     // ⚠️ '역대급/역사적 최저'는 이력 대비 검증 없이 쓰지 마라 — 설명문 수치도 실계산 보간으로(2026-08-30 감사).
     explain: `"위험한 주식을 살 추가 보상"을 잰다. 주식 기대수익(이익÷주가 = 어닝일드)에서 **안전한 10년 국채 금리**를 뺍니다. 높을수록 주식이 매력적, 낮을수록 위험. ${erp != null ? `현재 ${erp}%p${erp < 0 ? ' = 주식 기대수익이 안전한 국채보다도 낮음 → 굳이 주식 위험을 감수할 이유가 적다는 신호' : ''}` : '역사평균은 약 4~5%p'}.`,
     alertText: erp != null && erp < 1 ? '위험 (채권 대비 메리트 급감)' : '보통',
@@ -183,16 +202,27 @@ export async function GET() {
     series: erpSer,
   })
 
-  const dangerCount = metrics.filter(m => m.signal === 'danger').length
-  const cautionCount = metrics.filter(m => m.signal === 'caution').length
+  // 대신 쓴 값은 그 사실을 지표에 적는다
+  const capeM = metrics.find(m => m.key === 'cape'), erpM = metrics.find(m => m.key === 'erp')
+  if (capeM && capeStale) { capeM.staleNote = `multpl.com 접속 불가 — ${capeStale} 에 마지막으로 읽은 값`; capeM.note = `⚠️ ${capeM.staleNote}입니다. ${capeM.note}` }
+  if (erpM && eyieldSrc && erpM.value != null) { erpM.staleNote = `multpl.com 접속 불가 — ${eyieldSrc}`; erpM.note = `⚠️ ${erpM.staleNote}했습니다. ${erpM.note}` }
+
+  // ⚠️ 못 잰 지표(value null)는 판정에서 뺀다 — 예전엔 '주의'로 세어서, 원천이 죽자 경보가 위험 → 주의로 **내려갔다**(2026-11-27 실측:
+  //    CAPE·위험프리미엄 조회 실패 2건이 주의 2건이 되어 danger 1 + caution 2 = '주의'). 데이터 공백이 판정을 바꾸면 안 된다
+  const measuredM = metrics.filter(m => m.value != null)
+  const missing = metrics.filter(m => m.value == null).map(m => m.label)
+  const dangerCount = measuredM.filter(m => m.signal === 'danger').length
+  const cautionCount = measuredM.filter(m => m.signal === 'caution').length
   const alertLevel: Signal = dangerCount >= 2 ? 'danger' : dangerCount >= 1 || cautionCount >= 2 ? 'caution' : 'safe'
-  const summary = alertLevel === 'danger'
-    ? `🔴 위기 경보 — 4대 지표 중 ${dangerCount}개가 위험 신호. 시장 전반의 밸류에이션이 역사적 극단에 있어 하락 위험이 큽니다(타이밍 예측 아님, 위험 관리 신호).`
+  const missTail = missing.length ? ` ⚠️ ${missing.join(' · ')} — 원천 조회 실패로 판정에서 뺐습니다(잰 ${measuredM.length}개만으로 본 결과).` : ''
+  const summary0 = alertLevel === 'danger'
+    ? `🔴 위기 경보 — 잰 지표 ${measuredM.length}개 중 ${dangerCount}개가 위험 신호. 시장 전반의 밸류에이션이 역사적 극단에 있어 하락 위험이 큽니다(타이밍 예측 아님, 위험 관리 신호).`
     : alertLevel === 'caution'
     ? `🟡 주의 — 일부 지표가 과열권. 무리한 레버리지·추격매수를 자제하고 현금 비중을 점검할 국면입니다.`
     : `🟢 안정 — 시장 전반 밸류에이션이 관리 가능한 범위입니다.`
 
-  const result: CrisisRadarResult = { metrics, alertLevel, dangerCount, summary, asOf: new Date().toISOString() }
-  if (metrics.some(m => m.value != null)) await setCache(cacheKey, result)
+  const summary = summary0 + missTail
+  const result: CrisisRadarResult = { metrics, alertLevel, dangerCount, summary, missing, asOf: new Date().toISOString() }
+  if (measuredM.length > 0) await setCache(cacheKey, result)   // 못 잰 지표가 있으면 위에서 30분만 믿는다
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

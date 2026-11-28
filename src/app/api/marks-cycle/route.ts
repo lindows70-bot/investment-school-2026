@@ -80,8 +80,9 @@ export async function GET(req: Request) {
     detail: fng != null ? `CNN 공포탐욕 ${fng}${(cocktail?.rating ? ` (${cocktail.rating})` : '')}` : '데이터 없음', source: 'CNN Fear & Greed' })
 
   // ② 밸류 — crisis-radar 4대 버블 지표. (danger×2 + caution)/(n×2)×100 → 고평가=탐욕
+  // 못 잰 지표(value null)는 뺀다 — 위기 레이더가 조회 실패를 'caution' 으로 싣기 때문에 그대로 세면 원천 장애가 온도를 움직인다(2026-11-28 multpl.com 장애)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const cm: any[] = Array.isArray(crisis?.metrics) ? crisis!.metrics as any[] : []
+  const cm: any[] = Array.isArray(crisis?.metrics) ? (crisis!.metrics as any[]).filter(m => m?.value != null) : []
   let valTemp: number | null = null
   if (cm.length) {
     const danger = cm.filter(m => m.signal === 'danger').length
@@ -89,7 +90,7 @@ export async function GET(req: Request) {
     valTemp = clamp(((danger * 2 + caution) / (cm.length * 2)) * 100)
   }
   axes.push({ key: 'valuation', label: '밸류에이션(버블)', icon: '📊', temp: valTemp,
-    detail: valTemp != null ? `버블 지표 위험 ${crisis?.dangerCount ?? 0}/${cm.length} (CAPE·버핏·선행PER·위험프리미엄)` : '데이터 없음', source: 'Crisis Radar' })
+    detail: valTemp != null ? `버블 지표 위험 ${cm.filter(m => m.signal === 'danger').length}/${cm.length} (CAPE·버핏·선행PER·위험프리미엄 중 잰 것)` : '데이터 없음', source: 'Crisis Radar' })
 
   // ③ 레버리지 — 빚투 비율 역사 백분위(높을수록 빚투 누적=탐욕)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

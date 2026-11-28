@@ -63,7 +63,7 @@ export interface CurveIn {
   series?: { date?: unknown; s2?: unknown; s3m?: unknown }[]
 }
 export interface LiquidityIn { gauges?: { key?: unknown; value?: unknown; sub?: unknown; tone?: unknown; date?: unknown }[] }
-export interface RadarIn { alertLevel?: unknown; dangerCount?: unknown; asOf?: unknown; metrics?: { key?: unknown; label?: unknown; value?: unknown; unit?: unknown; signal?: unknown; norm?: unknown }[] }
+export interface RadarIn { alertLevel?: unknown; dangerCount?: unknown; asOf?: unknown; metrics?: { key?: unknown; label?: unknown; value?: unknown; unit?: unknown; signal?: unknown; norm?: unknown; staleNote?: unknown }[] }
 export interface LeverageIn {
   current?: { date?: unknown; level?: unknown; ratio?: unknown; margin?: unknown; margin20dChgPct?: unknown; ratioPercentile?: unknown } | null
   misu?: { current?: { date?: unknown; forcedPct?: unknown; forcedPctPercentile?: unknown } | null; series?: unknown[] } | null
@@ -206,7 +206,7 @@ function valueLight(x: RadarIn | null): Light {
   return {
     ...meta, color, state: color === 'red' ? '비쌈' : color === 'yellow' ? '조금 비쌈' : '무난', line,
     // 음수는 다른 등과 같은 빼기 기호(−)로 — 한 화면에서 '-0.79' 와 '−0.21' 이 섞였다(2026-11-21 프로덕션 실측)
-    rows: ms.map(m => ({ label: metricName(m.key, m.label), value: `${(m.value as number) < 0 ? '−' : ''}${Math.abs(m.value as number)}${isStr(m.unit) ? m.unit : ''}`, note: `${SIG_KO[m.signal as string]}${isStr(m.norm) ? ` · ${m.norm}` : ''}` })),
+    rows: ms.map(m => ({ label: metricName(m.key, m.label), value: `${(m.value as number) < 0 ? '−' : ''}${Math.abs(m.value as number)}${isStr(m.unit) ? m.unit : ''}`, note: `${SIG_KO[m.signal as string]}${isStr(m.norm) ? ` · ${m.norm}` : ''}${isStr(m.staleNote) ? ` · ⚠️ ${m.staleNote}` : ''}` })),
     date: ymd(x?.asOf),
   }
 }
