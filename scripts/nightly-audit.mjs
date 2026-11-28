@@ -194,10 +194,25 @@ try {
   }
   else {
     out.push(`- ${rangeNote} 리뷰`, '')
-    const r = sh('node', [
+    // 모델 이름은 낡는다 — 2026-11-23 실측: 설정의 gpt-5.5 가 계정 목록에서 사라져 10/17부터 매일 400 model_not_found 였다.
+    //   ① 지난번에 된 모델(.audit/codex-model.json)이 있으면 그걸로 ② 없으면 Codex 기본값 ③ 'model_not_found' 면 계정의 모델 목록
+    //   (codex debug models)을 차례로 시험해 되는 모델을 찾아 적어 둔다. 목록에 있다고 다 되는 게 아니다(gpt-6-luna 는 목록에 있지만 거부됐다)
+    const MODEL_FILE = '.audit/codex-model.json'
+    const savedModel = (() => { try { return JSON.parse(readFileSync(MODEL_FILE, 'utf8')).model || null } catch { return null } })()
+    const runReview = model => sh('node', [
       '"C:/Users/lindo/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/codex-companion.mjs"',
-      'review', '--wait', '--scope', 'branch', '--base', reviewBase,
+      'review', '--wait', '--scope', 'branch', '--base', reviewBase, ...(model ? ['--model', model] : []),
     ], { timeout: 15 * 60_000 })
+    const modelErr = x => /not supported when using Codex with a ChatGPT account|model_not_found/i.test(`${x.stdout || ''}${x.stderr || ''}`)
+    let r = runReview(savedModel)
+    if (modelErr(r)) {
+      let slugs = []
+      try { const cat = JSON.parse(sh('codex', ['debug', 'models'], { timeout: 60_000 }).stdout || '{}'); slugs = (cat.models ?? []).filter(m => m.visibility === 'list').map(m => m.slug).filter(Boolean) } catch { /* 목록을 못 읽으면 아래에서 실패로 보고 */ }
+      for (const m of slugs.filter(s => s !== savedModel)) {
+        const t = runReview(m)
+        if (!modelErr(t)) { r = t; writeFileSync(MODEL_FILE, JSON.stringify({ model: m, foundAt: new Date().toISOString(), tried: slugs }, null, 2), 'utf8'); out.push(`- 🔁 Codex 기본 모델이 거부돼 계정 목록에서 되는 모델을 찾았습니다 → \`${m}\`(\`${MODEL_FILE}\` 에 기록 · 다음부터 이 모델로).`); break }
+      }
+    }
     const body = `${r.stdout || ''}${r.stderr || ''}`
       .split('\n').filter(l => !/^\[codex\]|DeprecationWarning|trace-deprecation|^\s+at /.test(l))
       .join('\n').trim()
