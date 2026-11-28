@@ -31,5 +31,5 @@
 - [x] 프로덕션 불변식 `verify-guru-funds.mjs` + 야간 감사 등록
 - [x] `npm run check` · `npm run check:build`
 - [x] 배포 뒤 프로덕션 불변식(`verify-guru-funds` 전부 통과 · 11/28)
-- [ ] 세 폭(1280 · 768 · 375) 화면 — 로그인 필요
+- [x] 세 폭(1280 · 768 · 375) 화면 — 선생님 `/guru-portfolio` · 간편 `/s/gurus`(11/28 로그인 상태 실측 · 좁은 폭 결함 3곳 수정 뒤 재측정)
 - [x] `docs/history/2026-11.md` · `docs/README.md`
