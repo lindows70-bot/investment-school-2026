@@ -6,7 +6,7 @@ import Module from 'node:module'
 
 const ROOT = 'C:/Users/lindo/investment-school-portfolio'
 const OUT = `${ROOT}/.bt-shared-libs`
-const LIBS = ['googleNews', 'upbit', 'assetRoleRules', 'classifyAsset', 'assetClassifier', 'chunkReload', 'fred', 'kst', 'studentCharts', 'capexCash', 'crisisSignal', 'usMargin', 'leverageLevel', 'fedModel', 'vixHistory', 'bottomSignals']
+const LIBS = ['googleNews', 'upbit', 'assetRoleRules', 'classifyAsset', 'assetClassifier', 'chunkReload', 'fred', 'kst', 'studentCharts', 'capexCash', 'crisisSignal', 'usMargin', 'leverageLevel', 'fedModel', 'vixHistory', 'guru13fParse', 'guru13fTickers', 'bottomSignals']
 
 writeFileSync(`${ROOT}/.bt-shared-libs.tsconfig.json`, JSON.stringify({
   extends: `${ROOT}/tsconfig.json`,
@@ -36,6 +36,8 @@ const LV = require(`${OUT}/lib/leverageLevel.js`)
 const FM = require(`${OUT}/lib/fedModel.js`)
 const VX = require(`${OUT}/lib/vixHistory.js`)
 const BS = require(`${OUT}/lib/bottomSignals.js`)
+const GP = require(`${OUT}/lib/guru13fParse.js`)
+const GT = require(`${OUT}/lib/guru13fTickers.js`)
 
 let fails = 0
 const check = (name, ok, extra = '') => { console.log(`${ok ? '✅' : '❌'} ${name}${extra ? ' — ' + extra : ''}`); if (!ok) fails++ }
@@ -267,6 +269,42 @@ check('KST: UTC 2026-10-18 15:30 = 한국 10-19 · UTC 14:59 = 10-18', KST.kstDa
   const texts = [sig, twoRed, calm, blank, noRedManyYellow].flatMap(s => [s.overall.line, s.overall.rule, ...s.overall.todo, ...s.groups.map(g => g.line), ...s.lights.flatMap(l => [l.line, l.what, l.rule, l.state])])
   check('신호등: 문장 — 쌍점으로 끝나지 않는다 · 사라/팔라는 말이 없다 · 빈 문장 없음', texts.every(t => typeof t === 'string' && t.length > 0 && !/:\s*$/.test(t) && !/(매수하세요|매도하세요|사세요|파세요|팔아야|사야 해)/.test(t)))
   check('신호등: 묶음 한 줄 — 돈줄은 빨강 없이 노랑 1(기업 돈줄) · 거품은 빨강 4(미국 빚 포함) · 노랑 1(한국 빚)', sig.groups[0].line === '빨강은 없고 노랑 1개(기업 돈줄)예요.' && /^빨강 4개\(주식 값 · 미국 빚 · 설비투자 · 심리\) · 노랑 1개\(한국 빚\)예요\.$/.test(sig.groups[1].line))
+}
+// ── 13F 파서(2026-11-28 거장 추가) — 풋 · 콜 · 채권을 주식 줄과 가른다 · 금액 단위를 값으로 판별 · 잘라도 전분기 비교가 안 틀어진다 ──
+{
+  const row = (o) => `<ns1:infoTable><ns1:nameOfIssuer>${o.n}</ns1:nameOfIssuer><ns1:cusip>${o.c}</ns1:cusip><ns1:value>${o.v}</ns1:value><ns1:shrsOrPrnAmt><ns1:sshPrnamt>${o.s}</ns1:sshPrnamt><ns1:sshPrnamtType>${o.t ?? 'SH'}</ns1:sshPrnamtType></ns1:shrsOrPrnAmt>${o.pc ? `<ns1:putCall>${o.pc}</ns1:putCall>` : ''}</ns1:infoTable>`
+  const doc = rows => `<ns1:informationTable>${rows.map(row).join('')}</ns1:informationTable>`
+  const t1 = GP.parseInfoTable(doc([
+    { n: 'S&amp;P GLOBAL INC', c: 'aaa111', v: 500000, s: 1000 }, { n: 'TESLA INC', c: 'BBB222', v: 300000, s: 1000 },
+    { n: 'PALANTIR TECHNOLOGIES INC', c: 'CCC333', v: 900000, s: 5000, pc: 'Put' }, { n: 'PFIZER INC', c: 'DDD444', v: 150000, s: 6000, pc: 'Call' },
+    { n: 'SOME CONVERT', c: 'EEE555', v: 70000, s: 80000, t: 'PRN' }, { n: '', c: 'FFF666', v: 1, s: 1 },
+  ]))
+  check('13F: 접두사 붙은 태그도 읽는다 · 주식 2 + 옵션 2 + 채권 1 = 5줄(이름 없는 줄은 버림) · 이름 디코드 · CUSIP 대문자',
+    t1.lines === 5 && t1.stock.length === 2 && t1.opts.length === 2 && t1.bondLines === 1 && t1.bondVal === 70000 && t1.stock[0].name === 'S&P GLOBAL INC' && t1.stock[0].cusip === 'AAA111')
+  check('13F: 풋 · 콜은 주식 줄에 섞이지 않는다(대소문자 무시) · 채권 수량은 주식 수로 쓰지 않는다',
+    t1.opts.map(o => o.pc).join() === 'put,call' && t1.stock.every(h => !h.pc) && !t1.stock.some(h => h.name === 'SOME CONVERT'))
+  check('13F: 달러 원금이면 그대로(주당 금액 가운데 값 400)', t1.scaled === false && t1.stock[0].val === 500000)
+  const t2 = GP.parseInfoTable(doc([{ n: 'NATERA INC', c: 'N1', v: 1306335, s: 3160666 }, { n: 'AMAZON COM INC', c: 'N2', v: 192493, s: 772600 }, { n: 'SEAGATE', c: 'N3', v: 315247, s: 341790 }, { n: 'AMAZON COM INC', c: 'N2', v: 110000, s: 440000, pc: 'Call' }]))
+  check('13F: 천 달러로 적는 법인(듀케인 — 주당 0.41)은 값으로 알아보고 1,000을 곱한다 · 옵션 줄도 같은 단위로', t2.scaled === true && t2.stock[0].val === 1306335000 && t2.opts[0].val === 110000000, `기준 ${GP.THOUSANDS_BELOW}`)
+  // 잘라 내기 — 이번 분기 상위 2종목만 남길 때: C 는 이번에도 있으나 상위 밖(전분기엔 1위) → '전량 매도'로 보이면 안 된다 · D 는 정말 사라짐 → 남아야 한다 · A 는 전분기에도 있었다 → '신규'로 보이면 안 된다
+  const H = (cusip, val, pc) => ({ name: cusip, cusip, sh: val, val, ...(pc ? { pc } : {}) })
+  const cur = [H('A', 100), H('B', 90), H('C', 10), H('E', 5)], prev = [H('C', 200), H('D', 150), H('A', 1), H('E', 120)]
+  const tp = GP.trimPair(cur, prev, 2)
+  const keys = a => a.map(h => h.cusip).sort().join('')
+  check('13F: 상위만 남겨도 전분기 짝이 맞는다 — 이번 AB · 전분기는 A(짝) + D(진짜 매도)만, C·E(이번에도 보유 · 상위 밖)는 매도로 남기지 않는다',
+    keys(tp.cur) === 'AB' && keys(tp.prev) === 'AD' && tp.keptVal === 190)
+  check('13F: 상한 안이면 손대지 않는다 · 같은 종목의 풋과 콜은 다른 짝', GP.trimPair(cur, prev, 10).prev.length === 4
+    && keys(GP.trimPair([H('X', 9, 'put'), H('X', 8, 'call'), H('Y', 1, 'put')], [H('X', 5, 'call')], 2).prev) === 'X')
+  const D = (y, m, d) => Date.UTC(y, m - 1, d)
+  check('13F: 신고가 끝났어야 하는 분기말 — 기한(분기말 + 45일)에 7일 더 본다', GP.latestDueQuarter(D(2026, 11, 28)) === '2026-09-30' && GP.latestDueQuarter(D(2026, 11, 20)) === '2026-06-30'
+    && GP.latestDueQuarter(D(2026, 11, 21)) === '2026-09-30' && GP.latestDueQuarter(D(2026, 2, 10)) === '2025-09-30' && GP.latestDueQuarter(D(2026, 2, 25)) === '2025-12-31', `${GP.FILING_GRACE_DAYS}일`)
+  check('13F: 묵은 신고 — 버리(2025-09 분기) · 오크트리(2026-06 분기)는 묵음 · 9월 분기를 낸 곳은 아님 · 날짜가 없으면 묵음',
+    GP.isStaleReport('2025-09-30', D(2026, 11, 28)) && GP.isStaleReport('2026-06-30', D(2026, 11, 28)) && !GP.isStaleReport('2026-09-30', D(2026, 11, 28)) && GP.isStaleReport('', D(2026, 11, 28)))
+  const tk = n => GT.issuerToTicker(n)
+  check('13F 티커: 법인마다 다른 표기를 같은 회사로 — 튜더식 접미사 · 문장부호 · 꼬리말', tk('Nvidia Corp - US') === 'NVDA' && tk('NVIDIA CORPORATION') === 'NVDA' && tk('Amazon.Com Inc - US') === 'AMZN'
+    && tk('Alphabet, Inc. - C Shares') === 'GOOGL' && tk('MASTERCARD INCORPORATED') === 'MA' && tk('NETFLIX INC.') === 'NFLX' && tk('Taiwan Semiconductor Manufacturing Co Ltd - US ADR') === 'TSM' && tk('Goldman Sachs Group Inc/The - US') === 'GS')
+  check('13F 티커: 알맹이가 통째로 같을 때만 — 블록(XYZ)과 H&R 블록(HRB)은 다른 회사 · ETF 여럿을 담는 신탁 이름은 비워 둔다 · 모르는 회사는 null',
+    tk('Block Inc') === 'XYZ' && tk('BLOCK H & R INC') === 'HRB' && tk('ISHARES TR') === null && tk('ARK ETF TR') === null && tk('Fox Corp') === null && tk('STATE STR SPDR S&P 500 ETF T') === 'SPY' && tk('PERSHING SQUARE INC') === null)
 }
 if (fails) { console.log(`\n❌ ${fails}건 실패`); process.exit(1) }
 console.log('\n✅ 전부 통과 (공용 lib 단위)')

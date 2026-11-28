@@ -88,6 +88,7 @@ const INVARIANTS = [
   { file: 'scripts/verify-universe-tickers.mjs', label: '종목 목록 생존 — 손으로 적은 950여 종목에 상장폐지·티커 변경이 없는가' },
   { file: 'scripts/verify-cron-health.mjs', label: '크론 상태판 — Vercel 크론 모니터 stale 0(상태판이 잡은 것을 보고서로)' },
   { file: 'scripts/verify-crisis-signal.mjs', label: '위기 신호등 — 등 색 = 선생님 화면 판정 · 금리차·설비투자 = 원천 재계산 · 출처·날짜 · 못 가져온 등 0' },
+  { file: 'scripts/verify-guru-funds.mjs', label: '거장 13F — 추적 법인 전부 로드 · 새로 묵은 신고 감지(법인 교체) · 금액 단위 · 풋/콜 분리 · 합의 종목 제외 규칙' },
 ]
 
 /**
