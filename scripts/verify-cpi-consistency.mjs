@@ -38,7 +38,9 @@ try {
 
   const appCpi = regime?.cpiYoY
   const appMonth = regime?.cpiMonth
-  const infl = Array.isArray(fed?.inflation) ? fed.inflation[fed.inflation.length - 1] : null
+  // 마지막 '행'이 아니라 헤드라인 CPI 가 있는 마지막 행 — 다른 계열(근원 PCE)이 먼저 발표되면 그 달 행이 CPI 없이 생긴다
+  //   (2026-11-27 거짓 빨강: 10월 PCE 는 나왔고 10월 CPI 는 FRED 에 '.' — 화면은 정직하게 비워 두는데 검사가 그 빈 칸을 읽었다)
+  const infl = Array.isArray(fed?.inflation) ? fed.inflation.filter(r => typeof r?.headline === 'number').pop() ?? null : null
   const chartCpi = infl?.headline
   const chartMonth = infl?.date
 

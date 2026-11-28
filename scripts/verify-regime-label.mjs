@@ -28,7 +28,9 @@ execSync(`npx tsc -p "${join(out, 'tsconfig.json')}"`, { cwd: ROOT, stdio: 'inhe
 const orig = Module._resolveFilename
 Module._resolveFilename = function (req, ...rest) {
   if (req.startsWith('@/')) return orig.call(this, join(out, req.slice(2)), ...rest)
-  return orig.call(this, req, ...rest)
+  // 컴파일 결과는 OS 임시 폴더에 있어 거기서부터는 프로젝트 node_modules 가 안 보인다(@supabase/supabase-js 를 못 찾아 출력 없이 죽었다 · 2026-11-27).
+  //   못 찾으면 이 스크립트(프로젝트 안) 기준으로 다시 찾는다
+  try { return orig.call(this, req, ...rest) } catch (e) { if (e?.code === 'MODULE_NOT_FOUND' && !req.startsWith('.')) return require.resolve(req); throw e }
 }
 const { detectMacroPhase } = require(join(out, 'lib/macroPhaseScreener.js'))
 
